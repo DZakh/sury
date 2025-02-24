@@ -1,9 +1,9 @@
-import { StandardSchemaV1 } from "./../../../../src/S.d";
 import test from "ava";
 import { expectType, TypeEqual } from "ts-expect";
 
 import * as S from "../../../../src/S.js";
 import { stringSchema } from "../genType/GenType.gen.js";
+import { StandardSchemaV1 } from "../../../../RescriptSchema.gen.js";
 
 type SchemaEqual<
   Schema extends S.Schema<unknown, unknown>,
@@ -1579,7 +1579,7 @@ test("Tuple literal", (t) => {
   expectType<
     TypeEqual<
       typeof cliArgsSchema,
-      S.Schema<readonly ["help", "lint"], readonly ["help", "lint"]>
+      S.Schema<["help", "lint"], ["help", "lint"]>
     >
   >(true);
 });
@@ -1710,7 +1710,7 @@ test("Tuple types", (t) => {
 });
 
 test("Standard schema", (t) => {
-  const schema = S.standard(S.nullable(S.string));
+  const schema = S.nullable(S.string);
 
   t.deepEqual(schema["~standard"]["vendor"], "rescript-schema");
   t.deepEqual(schema["~standard"]["version"], 1);

@@ -141,9 +141,8 @@ asyncTest("Can apply other actions after async preprocess", async t => {
 
 test("Applies preproces parser for union schemas separately", t => {
   let prepareEnvSchema = S.preprocess(_, s => {
-    switch s.schema->S.classify {
-    | Literal(Boolean(_))
-    | Bool => {
+    switch s.schema {
+    | Boolean(_) => {
         parser: unknown => {
           switch unknown->Obj.magic {
           | "true"
@@ -156,9 +155,7 @@ test("Applies preproces parser for union schemas separately", t => {
           }->Obj.magic
         },
       }
-    | Int
-    | Float
-    | Literal(Number(_)) => {
+    | Number(_) => {
         parser: unknown => {
           if unknown->typeof === #string {
             %raw(`+unknown`)
@@ -187,8 +184,8 @@ test("Applies preproces serializer for union schemas separately", t => {
     S.bool->S.shape(bool => #Bool(bool)),
     S.int->S.shape(int => #Int(int)),
   ])->S.preprocess(s => {
-    switch s.schema->S.classify {
-    | Bool => {
+    switch s.schema {
+    | Boolean(_) => {
         serializer: unknown => {
           if unknown->Obj.magic === true {
             "1"->Obj.magic
@@ -199,7 +196,7 @@ test("Applies preproces serializer for union schemas separately", t => {
           }
         },
       }
-    | Int => {
+    | Number(_) => {
         serializer: unknown => {
           if unknown->typeof === #number {
             unknown->Obj.magic->Int.toString->Obj.magic
@@ -287,15 +284,15 @@ test("Reverse schema to the original schema", t => {
     serializer: _ => 1.->Int.fromFloat,
   })
   t->Assert.truthy(
-    switch schema->S.classify {
-    | Int => true
+    switch schema {
+    | Number({format: Int32}) => true
     | _ => false
     },
     (),
   )
   t->Assert.truthy(
-    switch schema->S.reverse->S.classify {
-    | Int => true
+    switch schema->S.reverse {
+    | Number({format: Int32}) => true
     | _ => false
     },
     (),

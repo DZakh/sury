@@ -5,19 +5,23 @@
 ### Done
 
 - Removed `S.to` in favor of `S.shape`
+- S.dict now does `!Array.isArray(${inputVar})` check
+- Fixed `S.coerce` TS type
+- Move `~standard` to the top level. Remove `S.standard`, since now every schema you create implements Standard Schema
+- Removed `S.classify` and make the schema type a variant itself
+- Removed `literal` type and `Literal` module, since it's now a part of the schema type variant
 
 ### Scope
 
+- Add `.pipe` to Ts api
+- Rename S.Raised to S.Error
 - Support unions and complex types for S.coerce
 - Make S.coerce extencible
 - Move description and deprecated to schema fields
 - Move example to rescript-schema
 - Add S.toJsonSchema and S.fromJsonSchema
 - Add S.date (S.instanceof) and remove S.datetime
-- Stop exposing "schema" type ?
-- Change S.classify to something like S.input/S.output (or expose schema as variant)
 - Add refinement info to the tagged type
-- Remove Literal.parse in favor of S.literal and make it create Object/Tuple schema instead of Literal(Object)
 - S.transform(s => {
   s.reverse(input => input) // Or s.asyncReverse(input => Promise.resolve(input))
   input => input

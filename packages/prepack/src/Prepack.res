@@ -156,7 +156,6 @@ let filesMapping = [
   ("strip", "S.strip"),
   ("deepStrip", "S.deepStrip"),
   ("custom", "S.js_custom"),
-  ("standard", "S.standard"),
   ("coerce", "S.coerce"),
   ("shape", "S.shape"),
   ("tuple", "S.tuple"),

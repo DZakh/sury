@@ -99,7 +99,7 @@ test("Can flatten strict object", t => {
   )
 
   t->Assert.deepEqual(
-    switch schema->S.classify {
+    switch schema {
     | Object({unknownKeys}) => unknownKeys
     | _ => assert(false)
     },

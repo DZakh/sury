@@ -3,22 +3,6 @@
 
 type never
 
-@tag("kind")
-type rec literal =
-  private
-  | String({value: string})
-  | Number({value: float})
-  | Boolean({value: bool})
-  | BigInt({value: bigint})
-  | Symbol({value: Js.Types.symbol})
-  | Array({value: array<unknown>, items: array<literal>})
-  | Dict({value: dict<unknown>, items: dict<literal>})
-  | Function({value: Js.Types.function_val})
-  | Object({value: Js.Types.obj_val})
-  | Null({value: Js.Types.null_val})
-  | Undefined({value: unit})
-  | NaN({value: unknown})
-
 module Path: {
   type t
 
@@ -36,32 +20,35 @@ module Path: {
   let concat: (t, t) => t
 }
 
-type rec t<'value>
-and schema<'value> = t<'value>
-and tagged =
+type numberFormat = | @as("int32") Int32
+
+@tag("type")
+type rec t<'value> =
   private
-  | @as("never") Never
-  | @as("unknown") Unknown
-  | @as("string") String
-  | @as("int32") Int
-  | @as("number") Float
-  | @as("bigint") BigInt
-  | @as("boolean") Bool
-  | @as("literal") Literal(literal)
-  | @as("option") Option(t<unknown>)
-  | @as("null") Null(t<unknown>)
-  | @as("array") Array(t<unknown>)
-  | @as("object")
-  Object({
-      items: array<item>,
-      fields: dict<item>,
-      unknownKeys: unknownKeys,
-      advanced: bool,
-    })
+  | @as("never") Never({})
+  | @as("unknown") Unknown({})
+  | @as("string") String({const: string})
+  | @as("number") Number({const: float, format?: numberFormat})
+  | @as("bigint") BigInt({const: bigint})
+  | @as("boolean") Boolean({const: bool})
+  | @as("symbol") Symbol({const: Js.Types.symbol})
+  | @as("null") Null({const: Js.Types.null_val})
+  | @as("undefined") Undefined({const: unit})
+  | @as("nan") NaN({const: float})
+  | @as("function") Function({const?: Js.Types.function_val})
+  | @as("instance") Instance({const?: Js.Types.obj_val})
+  | @as("array") Array({item: t<unknown>})
+  | @as("dict") Dict({item: t<unknown>})
   | @as("tuple") Tuple({items: array<item>})
-  | @as("union") Union(array<t<unknown>>)
-  | @as("dict") Dict(t<unknown>)
-  | @as("JSON") JSON({validated: bool})
+  | @as("object") Object({unknownKeys: unknownKeys, items: array<item>, fields: dict<item>})
+  | @as("union") Union({anyOf: array<t<unknown>>, optional?: optional})
+  | @as("json") JSON({})
+and schema<'a> = t<'a>
+and optional = {
+  item: t<unknown>,
+  hasUndefined?: bool,
+  hasNull?: bool,
+}
 and item = {
   schema: t<unknown>,
   location: string,
@@ -111,16 +98,6 @@ module Error: {
   let message: error => string
 
   let reason: error => string
-}
-
-module Literal: {
-  let parse: 'a => literal
-
-  let value: literal => unknown
-
-  let isJsonable: literal => bool
-
-  let toString: literal => string
 }
 
 let never: t<never>
@@ -241,9 +218,6 @@ let assertOrThrow: ('any, t<'value>) => unit
 let isAsync: t<'value> => bool
 
 let recursive: (t<'value> => t<'value>) => t<'value>
-
-@get
-external classify: t<'value> => tagged = "t"
 
 @send
 external name: t<'value> => string = "n"
@@ -438,10 +412,6 @@ let js_schema: unknown => t<unknown>
 let js_merge: (t<unknown>, t<unknown>) => t<unknown>
 
 let js_name: t<'value> => string
-
-let standard: t<'value> => {
-  "~standard": {"validate": 'any => {"value": 'value}, "vendor": string, "version": int},
-}
 
 type globalConfigOverride = {
   defaultUnknownKeys?: unknownKeys,

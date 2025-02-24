@@ -10,8 +10,6 @@ var Flag = S_Core$RescriptSchema.Flag;
 
 var $$Error = S_Core$RescriptSchema.$$Error;
 
-var Literal = S_Core$RescriptSchema.Literal;
-
 var never = S_Core$RescriptSchema.never;
 
 var unknown = S_Core$RescriptSchema.unknown;
@@ -195,7 +193,6 @@ export {
   Raised ,
   Flag ,
   $$Error ,
-  Literal ,
   never ,
   unknown ,
   unit ,
