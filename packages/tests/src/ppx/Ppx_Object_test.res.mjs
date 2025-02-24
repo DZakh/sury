@@ -4,48 +4,23 @@ import * as U from "../utils/U.res.mjs";
 import Ava from "ava";
 import * as S$RescriptSchema from "rescript-schema/src/S.res.mjs";
 
-var simpleObjectSchema = S$RescriptSchema.schema(function (s) {
-      return {
-              label: s.m(S$RescriptSchema.string),
-              value: s.m(S$RescriptSchema.$$int)
-            };
-    });
+let simpleObjectSchema = S$RescriptSchema.schema(s => ({
+  label: s.m(S$RescriptSchema.string),
+  value: s.m(S$RescriptSchema.int)
+}));
 
-Ava("Simple object schema", (function (t) {
-        U.assertEqualSchemas(t, simpleObjectSchema, S$RescriptSchema.object(function (s) {
-                  return {
-                          label: s.f("label", S$RescriptSchema.string),
-                          value: s.f("value", S$RescriptSchema.$$int)
-                        };
-                }), undefined);
-        t.deepEqual(S$RescriptSchema.parseOrThrow({label:"foo",value:1}, simpleObjectSchema), {
-              label: "foo",
-              value: 1
-            }, undefined);
-      }));
-
-var objectWithAliasSchema = S$RescriptSchema.schema(function (s) {
-      return {
-              label: s.m(S$RescriptSchema.string),
-              value: s.m(S$RescriptSchema.$$int)
-            };
-    });
-
-Ava("The @as attribute for the object schema is ignored since it doesn't work", (function (t) {
-        U.assertEqualSchemas(t, objectWithAliasSchema, S$RescriptSchema.object(function (s) {
-                  return {
-                          label: s.f("label", S$RescriptSchema.string),
-                          value: s.f("value", S$RescriptSchema.$$int)
-                        };
-                }), undefined);
-        t.deepEqual(S$RescriptSchema.parseOrThrow({"label":"foo",value:1}, objectWithAliasSchema), {
-              label: "foo",
-              value: 1
-            }, undefined);
-      }));
+Ava("Simple object schema", t => {
+  U.assertEqualSchemas(t, simpleObjectSchema, S$RescriptSchema.object(s => ({
+    label: s.f("label", S$RescriptSchema.string),
+    value: s.f("value", S$RescriptSchema.int)
+  })), undefined);
+  t.deepEqual(S$RescriptSchema.parseOrThrow({label:"foo",value:1}, simpleObjectSchema), {
+    label: "foo",
+    value: 1
+  }, undefined);
+});
 
 export {
-  simpleObjectSchema ,
-  objectWithAliasSchema ,
+  simpleObjectSchema,
 }
 /* simpleObjectSchema Not a pure module */

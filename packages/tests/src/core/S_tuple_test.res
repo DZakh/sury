@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 module Tuple0 = {
   let value = ()

@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 test("Successfully parses valid data", t => {
   let schema = S.string->S.datetime

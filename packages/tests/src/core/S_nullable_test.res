@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 module NullCommon = {
   let value = None

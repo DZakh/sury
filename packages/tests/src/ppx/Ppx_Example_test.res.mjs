@@ -4,109 +4,81 @@ import * as U from "../utils/U.res.mjs";
 import Ava from "ava";
 import * as S$RescriptSchema from "rescript-schema/src/S.res.mjs";
 
-var ratingSchema = S$RescriptSchema.union([
-      S$RescriptSchema.literal("G"),
-      S$RescriptSchema.literal("PG"),
-      S$RescriptSchema.literal("PG13"),
-      S$RescriptSchema.literal("R")
-    ]);
+let ratingSchema = S$RescriptSchema.union([
+  S$RescriptSchema.literal("G"),
+  S$RescriptSchema.literal("PG"),
+  S$RescriptSchema.literal("PG13"),
+  S$RescriptSchema.literal("R")
+]);
 
-var filmSchema = S$RescriptSchema.schema(function (s) {
-      return {
-              Id: s.m(S$RescriptSchema.$$float),
-              Title: s.m(S$RescriptSchema.string),
-              Tags: s.m(S$RescriptSchema.$$Option.getOr(S$RescriptSchema.option(S$RescriptSchema.array(S$RescriptSchema.string)), [])),
-              Rating: s.m(ratingSchema),
-              Age: s.m(S$RescriptSchema.deprecate(S$RescriptSchema.option(S$RescriptSchema.$$int), "Use rating instead"))
-            };
-    });
+let filmSchema = S$RescriptSchema.schema(s => ({
+  Id: s.m(S$RescriptSchema.float),
+  Title: s.m(S$RescriptSchema.string),
+  Tags: s.m(S$RescriptSchema.Option.getOr(S$RescriptSchema.option(S$RescriptSchema.array(S$RescriptSchema.string)), [])),
+  Rating: s.m(ratingSchema),
+  Age: s.m(S$RescriptSchema.deprecate(S$RescriptSchema.option(S$RescriptSchema.int), "Use rating instead"))
+}));
 
-Ava("Main example", (function (t) {
-        U.assertEqualSchemas(t, filmSchema, S$RescriptSchema.object(function (s) {
-                  return {
-                          Id: s.f("Id", S$RescriptSchema.$$float),
-                          Title: s.f("Title", S$RescriptSchema.string),
-                          Tags: s.fieldOr("Tags", S$RescriptSchema.array(S$RescriptSchema.string), []),
-                          Rating: s.f("Rating", S$RescriptSchema.union([
-                                    S$RescriptSchema.literal("G"),
-                                    S$RescriptSchema.literal("PG"),
-                                    S$RescriptSchema.literal("PG13"),
-                                    S$RescriptSchema.literal("R")
-                                  ])),
-                          Age: s.f("Age", S$RescriptSchema.deprecate(S$RescriptSchema.option(S$RescriptSchema.$$int), "Use rating instead"))
-                        };
-                }), undefined);
-      }));
+Ava("Main example", t => U.assertEqualSchemas(t, filmSchema, S$RescriptSchema.object(s => ({
+  Id: s.f("Id", S$RescriptSchema.float),
+  Title: s.f("Title", S$RescriptSchema.string),
+  Tags: s.fieldOr("Tags", S$RescriptSchema.array(S$RescriptSchema.string), []),
+  Rating: s.f("Rating", S$RescriptSchema.union([
+    S$RescriptSchema.literal("G"),
+    S$RescriptSchema.literal("PG"),
+    S$RescriptSchema.literal("PG13"),
+    S$RescriptSchema.literal("R")
+  ])),
+  Age: s.f("Age", S$RescriptSchema.deprecate(S$RescriptSchema.option(S$RescriptSchema.int), "Use rating instead"))
+})), undefined));
 
-var matchesSchema = S$RescriptSchema.url(S$RescriptSchema.string, undefined);
+let matchesSchema = S$RescriptSchema.url(S$RescriptSchema.string, undefined);
 
-Ava("@s.matches", (function (t) {
-        U.assertEqualSchemas(t, matchesSchema, S$RescriptSchema.url(S$RescriptSchema.string, undefined), undefined);
-      }));
+Ava("@s.matches", t => U.assertEqualSchemas(t, matchesSchema, S$RescriptSchema.url(S$RescriptSchema.string, undefined), undefined));
 
-var defaultSchema = S$RescriptSchema.$$Option.getOr(S$RescriptSchema.option(S$RescriptSchema.string), "Unknown");
+let defaultSchema = S$RescriptSchema.Option.getOr(S$RescriptSchema.option(S$RescriptSchema.string), "Unknown");
 
-Ava("@s.default", (function (t) {
-        U.assertEqualSchemas(t, defaultSchema, S$RescriptSchema.$$Option.getOr(S$RescriptSchema.option(S$RescriptSchema.string), "Unknown"), undefined);
-      }));
+Ava("@s.default", t => U.assertEqualSchemas(t, defaultSchema, S$RescriptSchema.Option.getOr(S$RescriptSchema.option(S$RescriptSchema.string), "Unknown"), undefined));
 
-var defaultWithSchema = S$RescriptSchema.$$Option.getOrWith(S$RescriptSchema.option(S$RescriptSchema.array(S$RescriptSchema.string)), (function () {
-        return [];
-      }));
+let defaultWithSchema = S$RescriptSchema.Option.getOrWith(S$RescriptSchema.option(S$RescriptSchema.array(S$RescriptSchema.string)), () => []);
 
-Ava("@s.defaultWith", (function (t) {
-        U.assertEqualSchemas(t, defaultWithSchema, S$RescriptSchema.$$Option.getOrWith(S$RescriptSchema.option(S$RescriptSchema.array(S$RescriptSchema.string)), (function () {
-                    return [];
-                  })), undefined);
-      }));
+Ava("@s.defaultWith", t => U.assertEqualSchemas(t, defaultWithSchema, S$RescriptSchema.Option.getOrWith(S$RescriptSchema.option(S$RescriptSchema.array(S$RescriptSchema.string)), () => []), undefined));
 
-var nullSchema = S$RescriptSchema.$$null(S$RescriptSchema.string);
+let nullSchema = S$RescriptSchema.$$null(S$RescriptSchema.string);
 
-Ava("@s.null", (function (t) {
-        U.assertEqualSchemas(t, nullSchema, S$RescriptSchema.$$null(S$RescriptSchema.string), undefined);
-      }));
+Ava("@s.null", t => U.assertEqualSchemas(t, nullSchema, S$RescriptSchema.$$null(S$RescriptSchema.string), undefined));
 
-var nullWithDefaultSchema = S$RescriptSchema.$$Option.getOr(S$RescriptSchema.$$null(S$RescriptSchema.string), "Unknown");
+let nullWithDefaultSchema = S$RescriptSchema.Option.getOr(S$RescriptSchema.$$null(S$RescriptSchema.string), "Unknown");
 
-Ava("@s.null with @s.default", (function (t) {
-        U.assertEqualSchemas(t, nullWithDefaultSchema, S$RescriptSchema.$$Option.getOr(S$RescriptSchema.$$null(S$RescriptSchema.string), "Unknown"), undefined);
-      }));
+Ava("@s.null with @s.default", t => U.assertEqualSchemas(t, nullWithDefaultSchema, S$RescriptSchema.Option.getOr(S$RescriptSchema.$$null(S$RescriptSchema.string), "Unknown"), undefined));
 
-var nullableSchema = S$RescriptSchema.nullable(S$RescriptSchema.string);
+let nullableSchema = S$RescriptSchema.nullable(S$RescriptSchema.string);
 
-Ava("@s.nullable", (function (t) {
-        U.assertEqualSchemas(t, nullableSchema, S$RescriptSchema.nullable(S$RescriptSchema.string), undefined);
-      }));
+Ava("@s.nullable", t => U.assertEqualSchemas(t, nullableSchema, S$RescriptSchema.nullable(S$RescriptSchema.string), undefined));
 
-var nullableWithDefaultSchema = S$RescriptSchema.$$Option.getOr(S$RescriptSchema.nullable(S$RescriptSchema.string), "Unknown");
+let nullableWithDefaultSchema = S$RescriptSchema.Option.getOr(S$RescriptSchema.nullable(S$RescriptSchema.string), "Unknown");
 
-Ava("@s.nullable with @s.default", (function (t) {
-        U.assertEqualSchemas(t, nullableWithDefaultSchema, S$RescriptSchema.$$Option.getOr(S$RescriptSchema.nullable(S$RescriptSchema.string), "Unknown"), undefined);
-      }));
+Ava("@s.nullable with @s.default", t => U.assertEqualSchemas(t, nullableWithDefaultSchema, S$RescriptSchema.Option.getOr(S$RescriptSchema.nullable(S$RescriptSchema.string), "Unknown"), undefined));
 
-var deprecateSchema = S$RescriptSchema.deprecate(S$RescriptSchema.string, "Will be removed in APIv2");
+let deprecateSchema = S$RescriptSchema.deprecate(S$RescriptSchema.string, "Will be removed in APIv2");
 
-Ava("@s.deprecate", (function (t) {
-        U.assertEqualSchemas(t, deprecateSchema, S$RescriptSchema.deprecate(S$RescriptSchema.string, "Will be removed in APIv2"), undefined);
-      }));
+Ava("@s.deprecate", t => U.assertEqualSchemas(t, deprecateSchema, S$RescriptSchema.deprecate(S$RescriptSchema.string, "Will be removed in APIv2"), undefined));
 
-var describeSchema = S$RescriptSchema.describe(S$RescriptSchema.string, "A useful bit of text, if you know what to do with it.");
+let describeSchema = S$RescriptSchema.describe(S$RescriptSchema.string, "A useful bit of text, if you know what to do with it.");
 
-Ava("@s.describe", (function (t) {
-        U.assertEqualSchemas(t, describeSchema, S$RescriptSchema.describe(S$RescriptSchema.string, "A useful bit of text, if you know what to do with it."), undefined);
-      }));
+Ava("@s.describe", t => U.assertEqualSchemas(t, describeSchema, S$RescriptSchema.describe(S$RescriptSchema.string, "A useful bit of text, if you know what to do with it."), undefined));
 
 export {
-  ratingSchema ,
-  filmSchema ,
-  matchesSchema ,
-  defaultSchema ,
-  defaultWithSchema ,
-  nullSchema ,
-  nullWithDefaultSchema ,
-  nullableSchema ,
-  nullableWithDefaultSchema ,
-  deprecateSchema ,
-  describeSchema ,
+  ratingSchema,
+  filmSchema,
+  matchesSchema,
+  defaultSchema,
+  defaultWithSchema,
+  nullSchema,
+  nullWithDefaultSchema,
+  nullableSchema,
+  nullableWithDefaultSchema,
+  deprecateSchema,
+  describeSchema,
 }
 /* ratingSchema Not a pure module */

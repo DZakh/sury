@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 module CommonWithNested = {
   let value = Dict.fromArray([("key1", "value1"), ("key2", "value2")])

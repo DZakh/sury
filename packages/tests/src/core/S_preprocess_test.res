@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 let preprocessNumberToString = S.preprocess(_, _ => {
   parser: unknown => {

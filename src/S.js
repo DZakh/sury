@@ -2,8 +2,8 @@ import * as S from "./S_Core.res.mjs";
 export const Error = S.$$Error.$$class
 export const string = S.string
 export const boolean = S.bool
-export const int32 = S.$$int
-export const number = S.$$float
+export const int32 = S.int
+export const number = S.float
 export const bigint = S.bigint
 export const json = S.json
 export const never = S.never

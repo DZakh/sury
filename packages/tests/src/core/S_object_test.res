@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 @live
 type options = {fast?: bool, mode?: int}

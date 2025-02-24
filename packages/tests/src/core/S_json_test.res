@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 test("Supports String", t => {
   let schema = S.json(~validate=true)

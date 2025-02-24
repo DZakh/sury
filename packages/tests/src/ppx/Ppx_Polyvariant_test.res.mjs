@@ -4,74 +4,50 @@ import * as U from "../utils/U.res.mjs";
 import Ava from "ava";
 import * as S$RescriptSchema from "rescript-schema/src/S.res.mjs";
 
-var polySchema = S$RescriptSchema.union([
-      S$RescriptSchema.literal("one"),
-      S$RescriptSchema.literal("two")
-    ]);
+let polySchema = S$RescriptSchema.union([
+  S$RescriptSchema.literal("one"),
+  S$RescriptSchema.literal("two")
+]);
 
-Ava("Polymorphic variant", (function (t) {
-        U.assertEqualSchemas(t, polySchema, S$RescriptSchema.union([
-                  S$RescriptSchema.literal("one"),
-                  S$RescriptSchema.literal("two")
-                ]), undefined);
-      }));
+Ava("Polymorphic variant", t => U.assertEqualSchemas(t, polySchema, S$RescriptSchema.union([
+  S$RescriptSchema.literal("one"),
+  S$RescriptSchema.literal("two")
+]), undefined));
 
-var polyWithSingleItemSchema = S$RescriptSchema.literal("single");
+let polyWithSingleItemSchema = S$RescriptSchema.literal("single");
 
-Ava("Polymorphic variant with single item becomes a literal schema of the item", (function (t) {
-        U.assertEqualSchemas(t, polyWithSingleItemSchema, S$RescriptSchema.literal("single"), undefined);
-      }));
+Ava("Polymorphic variant with single item becomes a literal schema of the item", t => U.assertEqualSchemas(t, polyWithSingleItemSchema, S$RescriptSchema.literal("single"), undefined));
 
-var polyEmbededSchema = S$RescriptSchema.shape(S$RescriptSchema.string, (function (param) {
-        return "one";
-      }));
+let polyEmbededSchema = S$RescriptSchema.shape(S$RescriptSchema.string, param => "one");
 
-Ava("Embed custom schema for polymorphic variants", (function (t) {
-        U.assertEqualSchemas(t, polyEmbededSchema, S$RescriptSchema.shape(S$RescriptSchema.string, (function (param) {
-                    return "one";
-                  })), undefined);
-      }));
+Ava("Embed custom schema for polymorphic variants", t => U.assertEqualSchemas(t, polyEmbededSchema, S$RescriptSchema.shape(S$RescriptSchema.string, param => "one"), undefined));
 
-var dictFieldSchema = S$RescriptSchema.dict(S$RescriptSchema.literal("one"));
+let dictFieldSchema = S$RescriptSchema.dict(S$RescriptSchema.literal("one"));
 
-Ava("Supported as a dict field", (function (t) {
-        U.assertEqualSchemas(t, dictFieldSchema, S$RescriptSchema.dict(S$RescriptSchema.literal("one")), undefined);
-      }));
+Ava("Supported as a dict field", t => U.assertEqualSchemas(t, dictFieldSchema, S$RescriptSchema.dict(S$RescriptSchema.literal("one")), undefined));
 
-var recordFieldSchema = S$RescriptSchema.schema(function (s) {
-      return {
-              poly: s.m(S$RescriptSchema.literal("one"))
-            };
-    });
+let recordFieldSchema = S$RescriptSchema.schema(s => ({
+  poly: s.m(S$RescriptSchema.literal("one"))
+}));
 
-Ava("Supported as a record field", (function (t) {
-        U.assertEqualSchemas(t, recordFieldSchema, S$RescriptSchema.object(function (s) {
-                  return {
-                          poly: s.f("poly", S$RescriptSchema.literal("one"))
-                        };
-                }), undefined);
-      }));
+Ava("Supported as a record field", t => U.assertEqualSchemas(t, recordFieldSchema, S$RescriptSchema.object(s => ({
+  poly: s.f("poly", S$RescriptSchema.literal("one"))
+})), undefined));
 
-var objectFieldSchema = S$RescriptSchema.schema(function (s) {
-      return {
-              poly: s.m(S$RescriptSchema.literal("one"))
-            };
-    });
+let objectFieldSchema = S$RescriptSchema.schema(s => ({
+  poly: s.m(S$RescriptSchema.literal("one"))
+}));
 
-Ava("Supported as a object field", (function (t) {
-        U.assertEqualSchemas(t, objectFieldSchema, S$RescriptSchema.object(function (s) {
-                  return {
-                          poly: s.f("poly", S$RescriptSchema.literal("one"))
-                        };
-                }), undefined);
-      }));
+Ava("Supported as a object field", t => U.assertEqualSchemas(t, objectFieldSchema, S$RescriptSchema.object(s => ({
+  poly: s.f("poly", S$RescriptSchema.literal("one"))
+})), undefined));
 
 export {
-  polySchema ,
-  polyWithSingleItemSchema ,
-  polyEmbededSchema ,
-  dictFieldSchema ,
-  recordFieldSchema ,
-  objectFieldSchema ,
+  polySchema,
+  polyWithSingleItemSchema,
+  polyEmbededSchema,
+  dictFieldSchema,
+  recordFieldSchema,
+  objectFieldSchema,
 }
 /* polySchema Not a pure module */

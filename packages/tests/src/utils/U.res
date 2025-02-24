@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 external magic: 'a => 'b = "%identity"
 external castAnyToUnknown: 'any => unknown = "%identity"

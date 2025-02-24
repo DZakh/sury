@@ -10,10 +10,7 @@ importers:
     devDependencies:
       '@dzakh/rescript-ava':
         specifier: 2.3.0
-        version: 2.3.0(ava@5.2.0)(rescript@11.1.0)
-      '@rescript/core':
-        specifier: ^1.3.0
-        version: 1.3.0(rescript@11.1.0)
+        version: 2.3.0(ava@5.2.0)(rescript@12.0.0-alpha.8)
       arktype:
         specifier: 2.1.0
         version: 2.1.0
@@ -27,8 +24,8 @@ importers:
         specifier: 7.12.0
         version: 7.12.0
       rescript:
-        specifier: 11.1.0
-        version: 11.1.0
+        specifier: 12.0.0-alpha.8
+        version: 12.0.0-alpha.8
       rescript-schema:
         specifier: 'link:'
         version: 'link:'
@@ -53,9 +50,6 @@ importers:
 
   packages/prepack:
     dependencies:
-      '@rescript/core':
-        specifier: 1.3.0
-        version: 1.3.0(rescript@11.1.0)
       '@rollup/plugin-node-resolve':
         specifier: 16.0.0
         version: 16.0.0(rollup@3.21.0)
@@ -63,8 +57,8 @@ importers:
         specifier: 7.1.1
         version: 7.1.1
       rescript:
-        specifier: 11.1.0
-        version: 11.1.0
+        specifier: 12.0.0-alpha.7
+        version: 12.0.0-alpha.7
       rescript-nodejs:
         specifier: 16.1.0
         version: 16.1.0
@@ -79,7 +73,7 @@ importers:
     dependencies:
       rescript-schema:
         specifier: 9.x
-        version: 9.0.1(rescript@11.1.0)
+        version: 9.0.1(rescript@12.0.0-alpha.8)
 
   packages/tests: {}
 
@@ -139,11 +133,6 @@ packages:
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
     engines: {node: '>=14'}
-
-  '@rescript/core@1.3.0':
-    resolution: {integrity: sha512-wNZOZ63sYcaIYZCmTZeIPCeLa3HCGgPbIOR8zjyNkoBYUlxNV8Nb2ZyqlXR5Mb9ttvv8fTV56JbKhyVEZEYo8g==}
-    peerDependencies:
-      rescript: ^11.1.0-rc.7
 
   '@rollup/plugin-node-resolve@16.0.0':
     resolution: {integrity: sha512-0FPvAeVUT/zdWoO0jnb/V5BlBsUSNfkIOtFHzMO4H9MOklrmQFY6FduVHKucNb/aTFxvnGhj4MNj/T1oNdDfNg==}
@@ -854,9 +843,14 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
-  rescript@11.1.0:
-    resolution: {integrity: sha512-9la2Dv+ACylQ77I8s4spPu1JnLZXbH5WgxcLHLLUBWgFFSiv0wXqgzWztrBIZqwFgVX5BYcwldUqUVcEzdCyHg==}
-    engines: {node: '>=10'}
+  rescript@12.0.0-alpha.7:
+    resolution: {integrity: sha512-d/HV1k+e8aXFm1NDBRdL5rmUGRjVMeJW/maYBJFNgi95hGyGjrEltitTMMxpow/R0lxhC70VKrJTRtFr7Mowjw==}
+    engines: {node: '>=18'}
+    hasBin: true
+
+  rescript@12.0.0-alpha.8:
+    resolution: {integrity: sha512-I2YQ0vECymKY29j+/h51Z2A//0DgLf7g9mx5sNaWwR5fwrwTNzHS0MGIKiGfix+xJwLRteh4ighAqKeMWVQdjg==}
+    engines: {node: '>=18'}
     hasBin: true
 
   resolve-cwd@3.0.0:
@@ -1103,10 +1097,10 @@ snapshots:
 
   '@bcoe/v8-coverage@0.2.3': {}
 
-  '@dzakh/rescript-ava@2.3.0(ava@5.2.0)(rescript@11.1.0)':
+  '@dzakh/rescript-ava@2.3.0(ava@5.2.0)(rescript@12.0.0-alpha.8)':
     dependencies:
       ava: 5.2.0
-      rescript: 11.1.0
+      rescript: 12.0.0-alpha.8
 
   '@isaacs/cached@1.0.1':
     dependencies:
@@ -1148,10 +1142,6 @@ snapshots:
 
   '@pkgjs/parseargs@0.11.0':
     optional: true
-
-  '@rescript/core@1.3.0(rescript@11.1.0)':
-    dependencies:
-      rescript: 11.1.0
 
   '@rollup/plugin-node-resolve@16.0.0(rollup@3.21.0)':
     dependencies:
@@ -1817,9 +1807,9 @@ snapshots:
 
   rescript-nodejs@16.1.0: {}
 
-  rescript-schema@9.0.1(rescript@11.1.0):
+  rescript-schema@9.0.1(rescript@12.0.0-alpha.8):
     dependencies:
-      rescript: 11.1.0
+      rescript: 12.0.0-alpha.8
 
   rescript-stdlib-vendorer@1.1.0:
     dependencies:
@@ -1834,7 +1824,9 @@ snapshots:
 
   rescript@11.0.1: {}
 
-  rescript@11.1.0: {}
+  rescript@12.0.0-alpha.7: {}
+
+  rescript@12.0.0-alpha.8: {}
 
   resolve-cwd@3.0.0:
     dependencies:

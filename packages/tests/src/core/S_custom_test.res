@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 let nullableSchema = innerSchema => {
   S.custom("Nullable", _ => {

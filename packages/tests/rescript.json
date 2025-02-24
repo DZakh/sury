@@ -13,7 +13,7 @@
   },
   "suffix": ".res.mjs",
   "bs-dependencies": ["rescript-schema"],
-  "bs-dev-dependencies": ["@rescript/core", "@dzakh/rescript-ava"],
+  "bs-dev-dependencies": ["@dzakh/rescript-ava"],
   "ppx-flags": ["../rescript-schema-ppx/bin"],
   "bsc-flags": ["-open RescriptSchema"],
   "warnings": {

@@ -1,5 +1,3 @@
-open RescriptCore
-
 module Suite = {
   module BenchmarkResult = {
     type t

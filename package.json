@@ -1,6 +1,6 @@
 {
   "name": "rescript-schema",
-  "version": "9.3.0",
+  "version": "9.3.0-rescript12.0",
   "private": true,
   "description": "🧬 The fastest parser in the entire JavaScript ecosystem with a focus on small bundle size and top-notch DX",
   "keywords": [
@@ -75,11 +75,10 @@
   },
   "devDependencies": {
     "@dzakh/rescript-ava": "2.3.0",
-    "@rescript/core": "^1.3.0",
     "ava": "5.2.0",
     "benchmark": "2.1.4",
     "c8": "7.12.0",
-    "rescript": "11.1.0",
+    "rescript": "12.0.0-alpha.8",
     "rescript-stdlib-vendorer": "1.1.0",
     "rescript-schema": "link:",
     "ts-expect": "1.3.0",
@@ -90,7 +89,7 @@
     "arktype": "2.1.0"
   },
   "peerDependencies": {
-    "rescript": "11.x"
+    "rescript": "^12.0.0-alpha.8"
   },
   "peerDependenciesMeta": {
     "rescript": {

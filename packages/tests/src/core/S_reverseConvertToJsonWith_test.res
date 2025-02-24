@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 test("Successfully reverse converts jsonable schemas", t => {
   t->Assert.deepEqual(true->S.reverseConvertToJsonOrThrow(S.bool), true->JSON.Encode.bool, ())

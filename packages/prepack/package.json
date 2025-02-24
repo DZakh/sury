@@ -9,10 +9,9 @@
     "lint:stdlib": "rescript-stdlib-vendorer lint"
   },
   "dependencies": {
-    "@rescript/core": "1.3.0",
     "@rollup/plugin-node-resolve": "16.0.0",
     "execa": "7.1.1",
-    "rescript": "11.1.0",
+    "rescript": "12.0.0-alpha.7",
     "rescript-nodejs": "16.1.0",
     "rescript-stdlib-vendorer": "1.1.0",
     "rollup": "3.21.0"

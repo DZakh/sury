@@ -4,91 +4,75 @@ import * as U from "../utils/U.res.mjs";
 import Ava from "ava";
 import * as S$RescriptSchema from "rescript-schema/src/S.res.mjs";
 
-var simpleRecordSchema = S$RescriptSchema.schema(function (s) {
-      return {
-              label: s.m(S$RescriptSchema.string),
-              value: s.m(S$RescriptSchema.$$int)
-            };
-    });
+let simpleRecordSchema = S$RescriptSchema.schema(s => ({
+  label: s.m(S$RescriptSchema.string),
+  value: s.m(S$RescriptSchema.int)
+}));
 
-Ava("Simple record schema", (function (t) {
-        U.assertEqualSchemas(t, simpleRecordSchema, S$RescriptSchema.object(function (s) {
-                  return {
-                          label: s.f("label", S$RescriptSchema.string),
-                          value: s.f("value", S$RescriptSchema.$$int)
-                        };
-                }), undefined);
-        t.deepEqual(S$RescriptSchema.parseOrThrow({label:"foo",value:1}, simpleRecordSchema), {
-              label: "foo",
-              value: 1
-            }, undefined);
-      }));
+Ava("Simple record schema", t => {
+  U.assertEqualSchemas(t, simpleRecordSchema, S$RescriptSchema.object(s => ({
+    label: s.f("label", S$RescriptSchema.string),
+    value: s.f("value", S$RescriptSchema.int)
+  })), undefined);
+  t.deepEqual(S$RescriptSchema.parseOrThrow({label:"foo",value:1}, simpleRecordSchema), {
+    label: "foo",
+    value: 1
+  }, undefined);
+});
 
-var recordWithAliasSchema = S$RescriptSchema.schema(function (s) {
-      return {
-              "aliased-label": s.m(S$RescriptSchema.string),
-              value: s.m(S$RescriptSchema.$$int)
-            };
-    });
+let recordWithAliasSchema = S$RescriptSchema.schema(s => ({
+  "aliased-label": s.m(S$RescriptSchema.string),
+  value: s.m(S$RescriptSchema.int)
+}));
 
-Ava("Record schema with alias for field name", (function (t) {
-        U.assertEqualSchemas(t, recordWithAliasSchema, S$RescriptSchema.object(function (s) {
-                  return {
-                          "aliased-label": s.f("aliased-label", S$RescriptSchema.string),
-                          value: s.f("value", S$RescriptSchema.$$int)
-                        };
-                }), undefined);
-        t.deepEqual(S$RescriptSchema.parseOrThrow({"aliased-label":"foo",value:1}, recordWithAliasSchema), {
-              "aliased-label": "foo",
-              value: 1
-            }, undefined);
-      }));
+Ava("Record schema with alias for field name", t => {
+  U.assertEqualSchemas(t, recordWithAliasSchema, S$RescriptSchema.object(s => ({
+    "aliased-label": s.f("aliased-label", S$RescriptSchema.string),
+    value: s.f("value", S$RescriptSchema.int)
+  })), undefined);
+  t.deepEqual(S$RescriptSchema.parseOrThrow({"aliased-label":"foo",value:1}, recordWithAliasSchema), {
+    "aliased-label": "foo",
+    value: 1
+  }, undefined);
+});
 
-var recordWithOptionalSchema = S$RescriptSchema.schema(function (s) {
-      return {
-              label: s.m(S$RescriptSchema.option(S$RescriptSchema.string)),
-              value: s.m(S$RescriptSchema.option(S$RescriptSchema.$$int))
-            };
-    });
+let recordWithOptionalSchema = S$RescriptSchema.schema(s => ({
+  label: s.m(S$RescriptSchema.option(S$RescriptSchema.string)),
+  value: s.m(S$RescriptSchema.option(S$RescriptSchema.int))
+}));
 
-Ava("Record schema with optional fields", (function (t) {
-        U.assertEqualSchemas(t, recordWithOptionalSchema, S$RescriptSchema.object(function (s) {
-                  return {
-                          label: s.f("label", S$RescriptSchema.option(S$RescriptSchema.string)),
-                          value: s.f("value", S$RescriptSchema.option(S$RescriptSchema.$$int))
-                        };
-                }), undefined);
-        t.deepEqual(S$RescriptSchema.parseOrThrow({"label":"foo",value:1}, recordWithOptionalSchema), {
-              label: "foo",
-              value: 1
-            }, undefined);
-        t.deepEqual(S$RescriptSchema.parseOrThrow({}, recordWithOptionalSchema), {
-              label: undefined,
-              value: undefined
-            }, undefined);
-      }));
+Ava("Record schema with optional fields", t => {
+  U.assertEqualSchemas(t, recordWithOptionalSchema, S$RescriptSchema.object(s => ({
+    label: s.f("label", S$RescriptSchema.option(S$RescriptSchema.string)),
+    value: s.f("value", S$RescriptSchema.option(S$RescriptSchema.int))
+  })), undefined);
+  t.deepEqual(S$RescriptSchema.parseOrThrow({"label":"foo",value:1}, recordWithOptionalSchema), {
+    label: "foo",
+    value: 1
+  }, undefined);
+  t.deepEqual(S$RescriptSchema.parseOrThrow({}, recordWithOptionalSchema), {
+    label: undefined,
+    value: undefined
+  }, undefined);
+});
 
-var recordWithNullableFieldSchema = S$RescriptSchema.schema(function (s) {
-      return {
-              subscription: s.m(S$RescriptSchema.option(S$RescriptSchema.$$null(S$RescriptSchema.string)))
-            };
-    });
+let recordWithNullableFieldSchema = S$RescriptSchema.schema(s => ({
+  subscription: s.m(S$RescriptSchema.option(S$RescriptSchema.$$null(S$RescriptSchema.string)))
+}));
 
-Ava("Record schema with nullable field", (function (t) {
-        U.assertEqualSchemas(t, recordWithNullableFieldSchema, S$RescriptSchema.object(function (s) {
-                  return {
-                          subscription: s.f("subscription", S$RescriptSchema.option(S$RescriptSchema.$$null(S$RescriptSchema.string)))
-                        };
-                }), undefined);
-        t.deepEqual(S$RescriptSchema.parseOrThrow({"subscription":null}, recordWithNullableFieldSchema), {
-              subscription: undefined
-            }, undefined);
-      }));
+Ava("Record schema with nullable field", t => {
+  U.assertEqualSchemas(t, recordWithNullableFieldSchema, S$RescriptSchema.object(s => ({
+    subscription: s.f("subscription", S$RescriptSchema.option(S$RescriptSchema.$$null(S$RescriptSchema.string)))
+  })), undefined);
+  t.deepEqual(S$RescriptSchema.parseOrThrow({"subscription":null}, recordWithNullableFieldSchema), {
+    subscription: undefined
+  }, undefined);
+});
 
 export {
-  simpleRecordSchema ,
-  recordWithAliasSchema ,
-  recordWithOptionalSchema ,
-  recordWithNullableFieldSchema ,
+  simpleRecordSchema,
+  recordWithAliasSchema,
+  recordWithOptionalSchema,
+  recordWithNullableFieldSchema,
 }
 /* simpleRecordSchema Not a pure module */

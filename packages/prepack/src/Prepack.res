@@ -10,29 +10,24 @@ let sourePaths = [
 ]
 
 module Stdlib = {
-  module Dict = {
-    @val
-    external copy: (@as(json`{}`) _, dict<'a>) => dict<'a> = "Object.assign"
-  }
-
   module Json = {
     let rec update = (json, path, value) => {
       let dict = switch json->JSON.Decode.object {
       | Some(dict) => dict->Dict.copy
-      | None => RescriptCore.Dict.make()
+      | None => Dict.make()
       }
       switch path {
       | list{} => value
       | list{key} => {
-          dict->RescriptCore.Dict.set(key, value)
+          dict->Dict.set(key, value)
           dict->JSON.Encode.object
         }
       | list{key, ...path} => {
-          dict->RescriptCore.Dict.set(
+          dict->Dict.set(
             key,
             dict
-            ->RescriptCore.Dict.get(key)
-            ->Option.getOr(RescriptCore.Dict.make()->JSON.Encode.object)
+            ->Dict.get(key)
+            ->Option.getOr(Dict.make()->JSON.Encode.object)
             ->update(path, value),
           )
           dict->JSON.Encode.object
@@ -75,7 +70,7 @@ module Rollup = {
       input?: string,
       plugins?: array<Plugin.t>,
       @as("external")
-      external_?: array<Re.t>,
+      external_?: array<RegExp.t>,
     }
   }
 
@@ -118,8 +113,8 @@ let filesMapping = [
   ("Error", "S.$$Error.$$class"),
   ("string", "S.string"),
   ("boolean", "S.bool"),
-  ("int32", "S.$$int"),
-  ("number", "S.$$float"),
+  ("int32", "S.int"),
+  ("number", "S.float"),
   ("bigint", "S.bigint"),
   ("json", "S.json"),
   ("never", "S.never"),

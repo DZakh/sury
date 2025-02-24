@@ -21,6 +21,8 @@ module Stdlib = {
   module Fn = {
     @send
     external bind: ('a => 'b, ~this: 'c) => 'a => 'b = "bind"
+
+    external toFunctionExpression: 'a => 'a = "%unsafe_to_method"
   }
 
   module Option = {
@@ -175,7 +177,7 @@ module Stdlib = {
 
     module Float = {
       @inline
-      let toRescript = float => float->Js.Float.toString ++ (mod_float(float, 1.) === 0. ? "." : "")
+      let toRescript = float => float->Js.Float.toString ++ (float % 1. === 0. ? "." : "")
     }
   }
 }
@@ -1057,14 +1059,14 @@ module Reverse = {
   }
 
   let onlyChild = (~factory, ~schema) => {
-    () => {
+    Stdlib.Fn.toFunctionExpression(() => {
       let reversed = schema.reverse()
       if reversed === schema {
         %raw(`this`)
       } else {
         factory(reversed->castUnknownSchemaToAnySchema)->toUnknown
       }
-    }
+    })
   }
 }
 
@@ -1475,7 +1477,7 @@ let makeSchema = (
   maybeTypeFilter,
   name,
   metadataMap,
-  reverse: () => {
+  reverse: Stdlib.Fn.toFunctionExpression(() => {
     let original = %raw(`this`)
     let reversed = (reverse->Obj.magic)["call"](original)
 
@@ -1494,7 +1496,7 @@ let makeSchema = (
     original.reverse = () => reversed
     reversed.reverse = () => original
     reversed
-  },
+  }),
 }
 
 module Metadata = {
@@ -1900,7 +1902,7 @@ module Option = {
           (childSchema->classify->unsafeGetVariantPayload: literal)->Literal.value ===
             %raw(`void 0`)))
       ) {
-        bb->B.val(`${bb->B.embed(%raw("Caml_option.valFromOption"))}(${b->B.Val.var(input)})`)
+        bb->B.val(`${bb->B.embed(%raw("Primitive_option.valFromOption"))}(${b->B.Val.var(input)})`)
       } else {
         input
       }
@@ -2348,12 +2350,12 @@ module String = {
     }
   }
 
-  let cuidRegex = %re(`/^c[^\s-]{8,}$/i`)
-  let uuidRegex = %re(`/^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/i`)
+  let cuidRegex = /^c[^\s-]{8,}$/i
+  let uuidRegex = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/i
   // Adapted from https://stackoverflow.com/a/46181/1550155
-  let emailRegex = %re(`/^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i`)
+  let emailRegex = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i
   // Adapted from https://stackoverflow.com/a/3143231
-  let datetimeRe = %re(`/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/`)
+  let datetimeRe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/
 
   let typeFilter = (_b, ~inputVar) => `typeof ${inputVar}!=="string"`
 
@@ -2620,11 +2622,11 @@ module Union = {
           }
         }),
         ~maybeTypeFilter=None,
-        ~reverse=() => {
+        ~reverse=Stdlib.Fn.toFunctionExpression(() => {
           let original = %raw(`this`)
           let schemas = original->classify->unsafeGetVariantPayload
           factory(schemas->Js.Array2.map(s => s.reverse()->castUnknownSchemaToAnySchema))
-        },
+        }),
       )
     }
   }
@@ -2778,7 +2780,9 @@ let rec json = (~validate) =>
           B.Val.map(b->B.embed(parse), input)
         })
       : Builder.noop,
-    ~reverse=() => validate ? json(~validate=false)->toUnknown : %raw(`this`),
+    ~reverse=Stdlib.Fn.toFunctionExpression(() =>
+      validate ? json(~validate=false)->toUnknown : %raw(`this`)
+    ),
   )
 
 module Catch = {
@@ -3229,248 +3233,245 @@ module Schema = {
     }
   }
 
-  and advancedBuilder = (~definition, ~flattened: option<array<ditem>>=?) => (
-    parentB,
-    ~input,
-    ~selfSchema,
-    ~path,
-  ) => {
-    let isFlatten = parentB.global.flag->Flag.unsafeHas(Flag.flatten)
-    let outputs = isFlatten ? input->Obj.magic : Js.Dict.empty()
+  and advancedBuilder = (~definition, ~flattened: option<array<ditem>>=?) =>
+    (parentB, ~input, ~selfSchema, ~path) => {
+      let isFlatten = parentB.global.flag->Flag.unsafeHas(Flag.flatten)
+      let outputs = isFlatten ? input->Obj.magic : Js.Dict.empty()
 
-    let b = parentB->B.scope
+      let b = parentB->B.scope
 
-    if !isFlatten {
-      let tagged = selfSchema->classify->Obj.magic
-      let unknownKeys = tagged["unknownKeys"]
-      let items = tagged["items"]
+      if !isFlatten {
+        let tagged = selfSchema->classify->Obj.magic
+        let unknownKeys = tagged["unknownKeys"]
+        let items = tagged["items"]
 
-      let inputVar = b->B.Val.var(input)
+        let inputVar = b->B.Val.var(input)
 
-      for idx in 0 to items->Js.Array2.length - 1 {
-        let {schema, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
+        for idx in 0 to items->Js.Array2.length - 1 {
+          let {schema, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
 
-        let itemPath = inlinedLocation->Path.fromInlinedLocation
+          let itemPath = inlinedLocation->Path.fromInlinedLocation
 
-        let itemInput = b->B.val(`${inputVar}${itemPath}`)
-        let path = path->Path.concat(itemPath)
+          let itemInput = b->B.val(`${inputVar}${itemPath}`)
+          let path = path->Path.concat(itemPath)
 
-        if (
-          schema.maybeTypeFilter->Stdlib.Option.isSome && (
-              b.global.flag->Flag.unsafeHas(Flag.typeValidation)
-                ? !(schema->isLiteralSchema)
-                : schema->isLiteralSchema
-            )
-        ) {
-          b.code = b.code ++ b->B.typeFilterCode(~schema, ~input=itemInput, ~path)
-        }
-
-        outputs->Js.Dict.set(inlinedLocation, b->B.parse(~schema, ~input=itemInput, ~path))
-      }
-
-      b->objectStrictModeCheck(~input, ~items, ~unknownKeys, ~path)
-    }
-
-    switch flattened {
-    | None => ()
-    | Some(rootItems) =>
-      let prevFlag = b.global.flag
-      b.global.flag = prevFlag->Flag.with(Flag.flatten)
-      for idx in 0 to rootItems->Js.Array2.length - 1 {
-        let item = rootItems->Js.Array2.unsafe_get(idx)
-        outputs
-        ->Js.Dict.set(
-          item->getUnsafeDitemIndex,
-          b->B.parse(~schema=item->getUnsafeDitemSchema, ~input=outputs->Obj.magic, ~path),
-        )
-        ->ignore
-      }
-      b.global.flag = prevFlag
-    }
-
-    let rec getItemOutput = item => {
-      switch item {
-      | ItemField({target: item, inlinedLocation}) =>
-        b->B.Val.get(item->getItemOutput, inlinedLocation)
-      | Item({inlinedLocation}) => outputs->Js.Dict.unsafeGet(inlinedLocation)
-      | Root({idx}) => outputs->Js.Dict.unsafeGet(idx->Stdlib.Int.unsafeToString)
-      }
-    }
-
-    let output =
-      b->definitionToOutput(
-        ~definition=definition->(Obj.magic: unknown => Definition.t<ditem>),
-        ~getItemOutput,
-      )
-
-    parentB.code = parentB.code ++ b->B.allocateScope
-
-    output
-  }
-  and advancedReverse = (~definition, ~to=?, ~flattened=?) => () => {
-    let originalSchema = %raw(`this`)
-
-    let definition = definition->(Obj.magic: unknown => Definition.t<ditem>)
-
-    let ritemsByItemPath = Js.Dict.empty()
-    let ritems = []
-    let ritem = definition->definitionToRitem(~path=Path.empty, ~ritems, ~ritemsByItemPath)
-
-    let reversed = switch ritem {
-    | Registred({reversed}) =>
-      // Need to copy the schema here, because we're going to override the builder
-      makeReverseSchema(
-        ~name=reversed.name,
-        ~tagged=reversed.tagged,
-        ~metadataMap=reversed.metadataMap,
-        ~builder=reversed.builder,
-        ~maybeTypeFilter=reversed.maybeTypeFilter,
-      )
-    | _ => ritem->getRitemReversed
-    }
-
-    reversed.builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
-      let hasTypeValidation = b.global.flag->Flag.unsafeHas(Flag.typeValidation)
-
-      // TODO: Optimise the for loop
-      for idx in 0 to ritems->Js.Array2.length - 1 {
-        switch ritems->Js.Array2.unsafe_get(idx) {
-        | Node(_) if hasTypeValidation =>
-          b->B.invalidOperation(~path, ~description="Type validation mode is not supported")
-        // typeFilters :=
-        //   typeFilters.contents ++
-        //   b->B.typeFilterCode(
-        //     ~schema=reversed,
-        //     ~typeFilter=isArray ? Array.typeFilter : typeFilter,
-        //     ~input=b->B.val(`${inputVar}${rpath}`),
-        //     ~path,
-        //   )
-        | Discriminant({reversed, path: rpath}) if !hasTypeValidation => {
-            let itemInput = b->B.val(`${b->B.Val.var(input)}${rpath}`)
-            let path = path->Path.concat(rpath)
-
-            // Discriminant should always have a typeFilter, so don't check for it
-            b.code = b.code ++ b->B.typeFilterCode(~schema=reversed, ~input=itemInput, ~path)
-          }
-        | _ => ()
-        }
-      }
-
-      let getRitemInput = ritem => {
-        ritem->getRitemPath === Path.empty
-          ? input
-          : b->B.val(`${b->B.Val.var(input)}${ritem->getRitemPath}`)
-      }
-
-      let rec reversedToInput = (reversed, ~originalPath) => {
-        switch reversed->classify {
-        | Literal(literal) => b->B.embedVal(literal->Literal.value)
-        | Tuple({items}) as tagged
-        | Object({items}) as tagged => {
-            let isArray = tagged->unsafeGetVarianTag === tupleTag
-            let objectVal = b->B.Val.Object.make(~isArray)
-            for idx in 0 to items->Js.Array2.length - 1 {
-              let item = items->Js.Array2.unsafe_get(idx)
-              let itemPath =
-                originalPath->Path.concat(Path.fromInlinedLocation(item.inlinedLocation))
-              let itemInput = switch ritemsByItemPath->Stdlib.Dict.unsafeGetOption(itemPath) {
-              | Some(ritem) => ritem->getRitemInput
-              | None => item.schema->reversedToInput(~originalPath=itemPath)
-              }
-              objectVal->B.Val.Object.add(item.inlinedLocation, itemInput)
-            }
-            objectVal->B.Val.Object.complete(~isArray)
-          }
-        | _ =>
-          b->B.invalidOperation(
-            ~path,
-            ~description={
-              switch originalPath {
-              | "" => `Schema isn't registered`
-              | _ => `Schema for ${originalPath} isn't registered`
-              }
-            },
-          )
-        }
-      }
-
-      let getItemOutput = (item, ~itemPath) => {
-        switch item->getItemRitem {
-        | Some(ritem) => {
-            let reversed = ritem->getRitemReversed
-            let itemInput = ritem->getRitemInput
-            let path = path->Path.concat(ritem->getRitemPath)
-            if (
-              ritem->getRitemPath !== Path.empty &&
-              reversed.maybeTypeFilter->Stdlib.Option.isSome && (
-                hasTypeValidation ? !(reversed->isLiteralSchema) : reversed->isLiteralSchema
+          if (
+            schema.maybeTypeFilter->Stdlib.Option.isSome && (
+                b.global.flag->Flag.unsafeHas(Flag.typeValidation)
+                  ? !(schema->isLiteralSchema)
+                  : schema->isLiteralSchema
               )
-            ) {
+          ) {
+            b.code = b.code ++ b->B.typeFilterCode(~schema, ~input=itemInput, ~path)
+          }
+
+          outputs->Js.Dict.set(inlinedLocation, b->B.parse(~schema, ~input=itemInput, ~path))
+        }
+
+        b->objectStrictModeCheck(~input, ~items, ~unknownKeys, ~path)
+      }
+
+      switch flattened {
+      | None => ()
+      | Some(rootItems) =>
+        let prevFlag = b.global.flag
+        b.global.flag = prevFlag->Flag.with(Flag.flatten)
+        for idx in 0 to rootItems->Js.Array2.length - 1 {
+          let item = rootItems->Js.Array2.unsafe_get(idx)
+          outputs
+          ->Js.Dict.set(
+            item->getUnsafeDitemIndex,
+            b->B.parse(~schema=item->getUnsafeDitemSchema, ~input=outputs->Obj.magic, ~path),
+          )
+          ->ignore
+        }
+        b.global.flag = prevFlag
+      }
+
+      let rec getItemOutput = item => {
+        switch item {
+        | ItemField({target: item, inlinedLocation}) =>
+          b->B.Val.get(item->getItemOutput, inlinedLocation)
+        | Item({inlinedLocation}) => outputs->Js.Dict.unsafeGet(inlinedLocation)
+        | Root({idx}) => outputs->Js.Dict.unsafeGet(idx->Stdlib.Int.unsafeToString)
+        }
+      }
+
+      let output =
+        b->definitionToOutput(
+          ~definition=definition->(Obj.magic: unknown => Definition.t<ditem>),
+          ~getItemOutput,
+        )
+
+      parentB.code = parentB.code ++ b->B.allocateScope
+
+      output
+    }
+  and advancedReverse = (~definition, ~to=?, ~flattened=?) =>
+    Stdlib.Fn.toFunctionExpression(() => {
+      let originalSchema = %raw(`this`)
+
+      let definition = definition->(Obj.magic: unknown => Definition.t<ditem>)
+
+      let ritemsByItemPath = Js.Dict.empty()
+      let ritems = []
+      let ritem = definition->definitionToRitem(~path=Path.empty, ~ritems, ~ritemsByItemPath)
+
+      let reversed = switch ritem {
+      | Registred({reversed}) =>
+        // Need to copy the schema here, because we're going to override the builder
+        makeReverseSchema(
+          ~name=reversed.name,
+          ~tagged=reversed.tagged,
+          ~metadataMap=reversed.metadataMap,
+          ~builder=reversed.builder,
+          ~maybeTypeFilter=reversed.maybeTypeFilter,
+        )
+      | _ => ritem->getRitemReversed
+      }
+
+      reversed.builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
+        let hasTypeValidation = b.global.flag->Flag.unsafeHas(Flag.typeValidation)
+
+        // TODO: Optimise the for loop
+        for idx in 0 to ritems->Js.Array2.length - 1 {
+          switch ritems->Js.Array2.unsafe_get(idx) {
+          | Node(_) if hasTypeValidation =>
+            b->B.invalidOperation(~path, ~description="Type validation mode is not supported")
+          // typeFilters :=
+          //   typeFilters.contents ++
+          //   b->B.typeFilterCode(
+          //     ~schema=reversed,
+          //     ~typeFilter=isArray ? Array.typeFilter : typeFilter,
+          //     ~input=b->B.val(`${inputVar}${rpath}`),
+          //     ~path,
+          //   )
+          | Discriminant({reversed, path: rpath}) if !hasTypeValidation => {
+              let itemInput = b->B.val(`${b->B.Val.var(input)}${rpath}`)
+              let path = path->Path.concat(rpath)
+
+              // Discriminant should always have a typeFilter, so don't check for it
               b.code = b.code ++ b->B.typeFilterCode(~schema=reversed, ~input=itemInput, ~path)
             }
-            b->B.parse(~schema=reversed, ~input=itemInput, ~path)
+          | _ => ()
           }
-        | None =>
-          // It's fine to use getUnsafeDitemSchema here, because this will never be called on ItemField
-          let reversed = (item->getUnsafeDitemSchema).reverse()
-          let input = reversedToInput(reversed, ~originalPath=itemPath)
-
-          let prevFlag = b.global.flag
-
-          // TODO: Should refactor to use Flag.flatten
-          b.global.flag = prevFlag->Flag.without(Flag.typeValidation)
-          let output = b->B.parse(~schema=reversed, ~input, ~path)
-          b.global.flag = prevFlag
-          output
         }
-      }
 
-      switch to {
-      | Some(ditem) => ditem->getItemOutput(~itemPath=Path.empty)
-      | None => {
-          if (selfSchema->classify->Obj.magic)["unknownKeys"] === Strict {
-            b->objectStrictModeCheck(
-              ~input,
-              ~items=(selfSchema->classify->Obj.magic)["items"],
-              ~unknownKeys=Strict,
+        let getRitemInput = ritem => {
+          ritem->getRitemPath === Path.empty
+            ? input
+            : b->B.val(`${b->B.Val.var(input)}${ritem->getRitemPath}`)
+        }
+
+        let rec reversedToInput = (reversed, ~originalPath) => {
+          switch reversed->classify {
+          | Literal(literal) => b->B.embedVal(literal->Literal.value)
+          | Tuple({items}) as tagged
+          | Object({items}) as tagged => {
+              let isArray = tagged->unsafeGetVarianTag === tupleTag
+              let objectVal = b->B.Val.Object.make(~isArray)
+              for idx in 0 to items->Js.Array2.length - 1 {
+                let item = items->Js.Array2.unsafe_get(idx)
+                let itemPath =
+                  originalPath->Path.concat(Path.fromInlinedLocation(item.inlinedLocation))
+                let itemInput = switch ritemsByItemPath->Stdlib.Dict.unsafeGetOption(itemPath) {
+                | Some(ritem) => ritem->getRitemInput
+                | None => item.schema->reversedToInput(~originalPath=itemPath)
+                }
+                objectVal->B.Val.Object.add(item.inlinedLocation, itemInput)
+              }
+              objectVal->B.Val.Object.complete(~isArray)
+            }
+          | _ =>
+            b->B.invalidOperation(
               ~path,
+              ~description={
+                switch originalPath {
+                | "" => `Schema isn't registered`
+                | _ => `Schema for ${originalPath} isn't registered`
+                }
+              },
             )
           }
-
-          let isArray = originalSchema->classify->unsafeGetVarianTag === tupleTag
-          let items = (originalSchema->classify->Obj.magic)["items"]
-          let objectVal = b->B.Val.Object.make(~isArray)
-          switch flattened {
-          | None => ()
-          | Some(rootItems) =>
-            for idx in 0 to rootItems->Js.Array2.length - 1 {
-              objectVal->B.Val.Object.merge(
-                rootItems->Js.Array2.unsafe_get(idx)->getItemOutput(~itemPath=Path.empty),
-              )
-            }
-          }
-
-          for idx in 0 to items->Js.Array2.length - 1 {
-            let item: item = items->Js.Array2.unsafe_get(idx)
-
-            // TODO: Improve a hack to ignore items belonging to a flattened schema
-            if !(objectVal->Obj.magic->Stdlib.Dict.has(item.inlinedLocation)) {
-              objectVal->B.Val.Object.add(
-                item.inlinedLocation,
-                item
-                ->itemToDitem
-                ->getItemOutput(~itemPath=item.inlinedLocation->Path.fromInlinedLocation),
-              )
-            }
-          }
-
-          objectVal->B.Val.Object.complete(~isArray)
         }
-      }
-    })
 
-    reversed
-  }
+        let getItemOutput = (item, ~itemPath) => {
+          switch item->getItemRitem {
+          | Some(ritem) => {
+              let reversed = ritem->getRitemReversed
+              let itemInput = ritem->getRitemInput
+              let path = path->Path.concat(ritem->getRitemPath)
+              if (
+                ritem->getRitemPath !== Path.empty &&
+                reversed.maybeTypeFilter->Stdlib.Option.isSome && (
+                  hasTypeValidation ? !(reversed->isLiteralSchema) : reversed->isLiteralSchema
+                )
+              ) {
+                b.code = b.code ++ b->B.typeFilterCode(~schema=reversed, ~input=itemInput, ~path)
+              }
+              b->B.parse(~schema=reversed, ~input=itemInput, ~path)
+            }
+          | None =>
+            // It's fine to use getUnsafeDitemSchema here, because this will never be called on ItemField
+            let reversed = (item->getUnsafeDitemSchema).reverse()
+            let input = reversedToInput(reversed, ~originalPath=itemPath)
+
+            let prevFlag = b.global.flag
+
+            // TODO: Should refactor to use Flag.flatten
+            b.global.flag = prevFlag->Flag.without(Flag.typeValidation)
+            let output = b->B.parse(~schema=reversed, ~input, ~path)
+            b.global.flag = prevFlag
+            output
+          }
+        }
+
+        switch to {
+        | Some(ditem) => ditem->getItemOutput(~itemPath=Path.empty)
+        | None => {
+            if (selfSchema->classify->Obj.magic)["unknownKeys"] === Strict {
+              b->objectStrictModeCheck(
+                ~input,
+                ~items=(selfSchema->classify->Obj.magic)["items"],
+                ~unknownKeys=Strict,
+                ~path,
+              )
+            }
+
+            let isArray = originalSchema->classify->unsafeGetVarianTag === tupleTag
+            let items = (originalSchema->classify->Obj.magic)["items"]
+            let objectVal = b->B.Val.Object.make(~isArray)
+            switch flattened {
+            | None => ()
+            | Some(rootItems) =>
+              for idx in 0 to rootItems->Js.Array2.length - 1 {
+                objectVal->B.Val.Object.merge(
+                  rootItems->Js.Array2.unsafe_get(idx)->getItemOutput(~itemPath=Path.empty),
+                )
+              }
+            }
+
+            for idx in 0 to items->Js.Array2.length - 1 {
+              let item: item = items->Js.Array2.unsafe_get(idx)
+
+              // TODO: Improve a hack to ignore items belonging to a flattened schema
+              if !(objectVal->Obj.magic->Stdlib.Dict.has(item.inlinedLocation)) {
+                objectVal->B.Val.Object.add(
+                  item.inlinedLocation,
+                  item
+                  ->itemToDitem
+                  ->getItemOutput(~itemPath=item.inlinedLocation->Path.fromInlinedLocation),
+                )
+              }
+            }
+
+            objectVal->B.Val.Object.complete(~isArray)
+          }
+        }
+      })
+
+      reversed
+    })
   and shape = {
     (schema: t<'value>, definer: 'value => 'variant): t<'variant> => {
       let schema = schema->toUnknown

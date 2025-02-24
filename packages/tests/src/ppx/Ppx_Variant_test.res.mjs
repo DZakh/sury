@@ -4,191 +4,137 @@ import * as U from "../utils/U.res.mjs";
 import Ava from "ava";
 import * as S$RescriptSchema from "rescript-schema/src/S.res.mjs";
 
-var variantSchema = S$RescriptSchema.union([
-      S$RescriptSchema.literal("One"),
-      S$RescriptSchema.literal("Two")
-    ]);
+let variantSchema = S$RescriptSchema.union([
+  S$RescriptSchema.literal("One"),
+  S$RescriptSchema.literal("Two")
+]);
 
-Ava("Variant", (function (t) {
-        U.assertEqualSchemas(t, variantSchema, S$RescriptSchema.union([
-                  S$RescriptSchema.literal("One"),
-                  S$RescriptSchema.literal("Two")
-                ]), undefined);
-      }));
+Ava("Variant", t => U.assertEqualSchemas(t, variantSchema, S$RescriptSchema.union([
+  S$RescriptSchema.literal("One"),
+  S$RescriptSchema.literal("Two")
+]), undefined));
 
-var variantWithSingleItemSchema = S$RescriptSchema.literal("Single");
+let variantWithSingleItemSchema = S$RescriptSchema.literal("Single");
 
-Ava("Variant with single item becomes a literal schema of the item", (function (t) {
-        U.assertEqualSchemas(t, variantWithSingleItemSchema, S$RescriptSchema.literal("Single"), undefined);
-      }));
+Ava("Variant with single item becomes a literal schema of the item", t => U.assertEqualSchemas(t, variantWithSingleItemSchema, S$RescriptSchema.literal("Single"), undefined));
 
-var variantWithAliasSchema = S$RescriptSchema.union([
-      S$RescriptSchema.literal("하나"),
-      S$RescriptSchema.literal("Two")
-    ]);
+let variantWithAliasSchema = S$RescriptSchema.union([
+  S$RescriptSchema.literal("하나"),
+  S$RescriptSchema.literal("Two")
+]);
 
-Ava("Variant with partial @as usage", (function (t) {
-        U.assertEqualSchemas(t, variantWithAliasSchema, S$RescriptSchema.union([
-                  S$RescriptSchema.literal("하나"),
-                  S$RescriptSchema.literal("Two")
-                ]), undefined);
-      }));
+Ava("Variant with partial @as usage", t => U.assertEqualSchemas(t, variantWithAliasSchema, S$RescriptSchema.union([
+  S$RescriptSchema.literal("하나"),
+  S$RescriptSchema.literal("Two")
+]), undefined));
 
-var variantWithPayloadsSchema = S$RescriptSchema.union([
-      S$RescriptSchema.literal("Constant"),
-      S$RescriptSchema.schema(function (s) {
-            return {
-                    TAG: "SinglePayload",
-                    _0: s.m(S$RescriptSchema.$$int)
-                  };
-          }),
-      S$RescriptSchema.schema(function (s) {
-            return {
-                    TAG: "TuplePayload",
-                    _0: s.m(S$RescriptSchema.$$int),
-                    _1: s.m(S$RescriptSchema.string)
-                  };
-          }),
-      S$RescriptSchema.schema(function (s) {
-            return {
-                    TAG: "RecordPayload",
-                    foo: s.m(S$RescriptSchema.$$float)
-                  };
-          })
-    ]);
+let variantWithPayloadsSchema = S$RescriptSchema.union([
+  S$RescriptSchema.literal("Constant"),
+  S$RescriptSchema.schema(s => ({
+    TAG: "SinglePayload",
+    _0: s.m(S$RescriptSchema.int)
+  })),
+  S$RescriptSchema.schema(s => ({
+    TAG: "TuplePayload",
+    _0: s.m(S$RescriptSchema.int),
+    _1: s.m(S$RescriptSchema.string)
+  })),
+  S$RescriptSchema.schema(s => ({
+    TAG: "RecordPayload",
+    foo: s.m(S$RescriptSchema.float)
+  }))
+]);
 
-Ava("Variant with payloads", (function (t) {
-        U.assertEqualSchemas(t, variantWithPayloadsSchema, S$RescriptSchema.union([
-                  S$RescriptSchema.literal("Constant"),
-                  S$RescriptSchema.schema(function (s) {
-                        return {
-                                TAG: "SinglePayload",
-                                _0: s.m(S$RescriptSchema.$$int)
-                              };
-                      }),
-                  S$RescriptSchema.schema(function (s) {
-                        return {
-                                TAG: "TuplePayload",
-                                _0: s.m(S$RescriptSchema.$$int),
-                                _1: s.m(S$RescriptSchema.string)
-                              };
-                      }),
-                  S$RescriptSchema.schema(function (s) {
-                        return {
-                                TAG: "RecordPayload",
-                                foo: s.m(S$RescriptSchema.$$float)
-                              };
-                      })
-                ]), undefined);
-      }));
+Ava("Variant with payloads", t => U.assertEqualSchemas(t, variantWithPayloadsSchema, S$RescriptSchema.union([
+  S$RescriptSchema.literal("Constant"),
+  S$RescriptSchema.schema(s => ({
+    TAG: "SinglePayload",
+    _0: s.m(S$RescriptSchema.int)
+  })),
+  S$RescriptSchema.schema(s => ({
+    TAG: "TuplePayload",
+    _0: s.m(S$RescriptSchema.int),
+    _1: s.m(S$RescriptSchema.string)
+  })),
+  S$RescriptSchema.schema(s => ({
+    TAG: "RecordPayload",
+    foo: s.m(S$RescriptSchema.float)
+  }))
+]), undefined));
 
-var unboxedVariantSchema = S$RescriptSchema.union([
-      S$RescriptSchema.literal("Constant"),
-      S$RescriptSchema.schema(function (s) {
-            return s.m(S$RescriptSchema.$$int);
-          }),
-      S$RescriptSchema.schema(function (s) {
-            return s.m(S$RescriptSchema.string);
-          })
-    ]);
+let unboxedVariantSchema = S$RescriptSchema.union([
+  S$RescriptSchema.literal("Constant"),
+  S$RescriptSchema.schema(s => (s.m(S$RescriptSchema.int))),
+  S$RescriptSchema.schema(s => (s.m(S$RescriptSchema.string)))
+]);
 
-Ava("Unboxed variant", (function (t) {
-        U.assertEqualSchemas(t, unboxedVariantSchema, S$RescriptSchema.union([
-                  S$RescriptSchema.literal("Constant"),
-                  S$RescriptSchema.schema(function (s) {
-                        return s.m(S$RescriptSchema.$$int);
-                      }),
-                  S$RescriptSchema.schema(function (s) {
-                        return s.m(S$RescriptSchema.string);
-                      })
-                ]), undefined);
-      }));
+Ava("Unboxed variant", t => U.assertEqualSchemas(t, unboxedVariantSchema, S$RescriptSchema.union([
+  S$RescriptSchema.literal("Constant"),
+  S$RescriptSchema.schema(s => (s.m(S$RescriptSchema.int))),
+  S$RescriptSchema.schema(s => (s.m(S$RescriptSchema.string)))
+]), undefined));
 
-var taggedVariantSchema = S$RescriptSchema.union([
-      S$RescriptSchema.schema(function (s) {
-            return {
-                    kind: "circle",
-                    radius: s.m(S$RescriptSchema.$$float)
-                  };
-          }),
-      S$RescriptSchema.schema(function (s) {
-            return {
-                    kind: "square",
-                    x: s.m(S$RescriptSchema.$$float)
-                  };
-          }),
-      S$RescriptSchema.schema(function (s) {
-            return {
-                    kind: "triangle",
-                    x: s.m(S$RescriptSchema.$$float),
-                    y: s.m(S$RescriptSchema.$$float)
-                  };
-          })
-    ]);
+let taggedVariantSchema = S$RescriptSchema.union([
+  S$RescriptSchema.schema(s => ({
+    kind: "circle",
+    radius: s.m(S$RescriptSchema.float)
+  })),
+  S$RescriptSchema.schema(s => ({
+    kind: "square",
+    x: s.m(S$RescriptSchema.float)
+  })),
+  S$RescriptSchema.schema(s => ({
+    kind: "triangle",
+    x: s.m(S$RescriptSchema.float),
+    y: s.m(S$RescriptSchema.float)
+  }))
+]);
 
-Ava("Tagged variant", (function (t) {
-        U.assertEqualSchemas(t, taggedVariantSchema, S$RescriptSchema.union([
-                  S$RescriptSchema.schema(function (s) {
-                        return {
-                                kind: "circle",
-                                radius: s.m(S$RescriptSchema.$$float)
-                              };
-                      }),
-                  S$RescriptSchema.schema(function (s) {
-                        return {
-                                kind: "square",
-                                x: s.m(S$RescriptSchema.$$float)
-                              };
-                      }),
-                  S$RescriptSchema.schema(function (s) {
-                        return {
-                                kind: "triangle",
-                                x: s.m(S$RescriptSchema.$$float),
-                                y: s.m(S$RescriptSchema.$$float)
-                              };
-                      })
-                ]), undefined);
-      }));
+Ava("Tagged variant", t => U.assertEqualSchemas(t, taggedVariantSchema, S$RescriptSchema.union([
+  S$RescriptSchema.schema(s => ({
+    kind: "circle",
+    radius: s.m(S$RescriptSchema.float)
+  })),
+  S$RescriptSchema.schema(s => ({
+    kind: "square",
+    x: s.m(S$RescriptSchema.float)
+  })),
+  S$RescriptSchema.schema(s => ({
+    kind: "triangle",
+    x: s.m(S$RescriptSchema.float),
+    y: s.m(S$RescriptSchema.float)
+  }))
+]), undefined));
 
-var taggedInlinedAliasSchema = S$RescriptSchema.union([
-      S$RescriptSchema.schema(function (s) {
-            return {
-                    type: "Foo",
-                    Foo: s.m(S$RescriptSchema.string)
-                  };
-          }),
-      S$RescriptSchema.schema(function (s) {
-            return {
-                    type: "Bar",
-                    Bar: s.m(S$RescriptSchema.string)
-                  };
-          })
-    ]);
+let taggedInlinedAliasSchema = S$RescriptSchema.union([
+  S$RescriptSchema.schema(s => ({
+    type: "Foo",
+    Foo: s.m(S$RescriptSchema.string)
+  })),
+  S$RescriptSchema.schema(s => ({
+    type: "Bar",
+    Bar: s.m(S$RescriptSchema.string)
+  }))
+]);
 
-Ava("Tagged variant with inlined alias", (function (t) {
-        U.assertEqualSchemas(t, taggedInlinedAliasSchema, S$RescriptSchema.union([
-                  S$RescriptSchema.schema(function (s) {
-                        return {
-                                type: "Foo",
-                                Foo: s.m(S$RescriptSchema.string)
-                              };
-                      }),
-                  S$RescriptSchema.schema(function (s) {
-                        return {
-                                type: "Bar",
-                                Bar: s.m(S$RescriptSchema.string)
-                              };
-                      })
-                ]), undefined);
-      }));
+Ava("Tagged variant with inlined alias", t => U.assertEqualSchemas(t, taggedInlinedAliasSchema, S$RescriptSchema.union([
+  S$RescriptSchema.schema(s => ({
+    type: "Foo",
+    Foo: s.m(S$RescriptSchema.string)
+  })),
+  S$RescriptSchema.schema(s => ({
+    type: "Bar",
+    Bar: s.m(S$RescriptSchema.string)
+  }))
+]), undefined));
 
 export {
-  variantSchema ,
-  variantWithSingleItemSchema ,
-  variantWithAliasSchema ,
-  variantWithPayloadsSchema ,
-  unboxedVariantSchema ,
-  taggedVariantSchema ,
-  taggedInlinedAliasSchema ,
+  variantSchema,
+  variantWithSingleItemSchema,
+  variantWithAliasSchema,
+  variantWithPayloadsSchema,
+  unboxedVariantSchema,
+  taggedVariantSchema,
+  taggedInlinedAliasSchema,
 }
 /* variantSchema Not a pure module */

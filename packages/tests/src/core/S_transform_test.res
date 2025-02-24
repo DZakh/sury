@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 test("Parses unknown primitive with transformation to the same type", t => {
   let schema = S.string->S.transform(_ => {parser: value => value->String.trim})

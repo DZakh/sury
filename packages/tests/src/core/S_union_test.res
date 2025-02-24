@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 test("Throws for a Union schema factory without schemas", t => {
   t->Assert.throws(
