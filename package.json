@@ -87,7 +87,7 @@
     "typescript": "4.9.3",
     "valibot": "1.0.0-rc.1",
     "zod": "3.24.2",
-    "arktype": "2.0.4"
+    "arktype": "2.1.0"
   },
   "peerDependencies": {
     "rescript": "11.x"
