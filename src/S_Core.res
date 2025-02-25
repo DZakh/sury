@@ -267,7 +267,7 @@ type rec t<'value> =
   | @as("bigint") BigInt({const: bigint})
   | @as("boolean") Boolean({const: bool})
   | @as("symbol") Symbol({const: Js.Types.symbol})
-  | @as("null") Null({const: Js.Types.null_val}) // FIXME: Use Union under the hood
+  | @as("null") Null({const: Js.Types.null_val})
   | @as("undefined") Undefined({const: unit})
   | @as("nan") NaN({const: float})
   | @as("function") Function({const?: Js.Types.function_val})
@@ -289,7 +289,7 @@ and optional = {
 and internal = {
   @as("type")
   tag: typeTag,
-  mutable const?: unknown,
+  mutable const?: char, // use char to avoid Caml_option.some
   optional?: optional,
   item?: internal,
   format?: internalFormat,
@@ -1352,6 +1352,7 @@ module Literal = {
   let null = {
     name: primitiveName,
     tag: Null,
+    const: %raw(`null`),
     builder: Builder.noop,
     typeFilter: inlinedTypeFilter,
   }
@@ -1359,7 +1360,6 @@ module Literal = {
   let nan = {
     name: () => "NaN",
     tag: NaN,
-    const: %raw(`NaN`),
     builder: Builder.invalidJson,
     typeFilter: (_b, ~inputVar) => {
       `!Number.isNaN(${inputVar})`
@@ -1400,7 +1400,7 @@ module Literal = {
       | #object => nonJsonable(Instance)
       | #function => nonJsonable(Function)
       }
-      schema.const = Some(value)
+      schema.const = Some(value->Obj.magic)
       schema
     }
   }
@@ -1925,48 +1925,48 @@ module Option = {
 
   let makeBuilder = (~isNullInput, ~isNullOutput) =>
     Builder.make((b, ~input, ~selfSchema, ~path) => {
-      // let {item, hasNull, hasUndefined} = selfSchema.optional->Stdlib.Option.unsafeUnwrap
-      // let item = item->toInternal
+      let {item} = selfSchema.optional->Stdlib.Option.unsafeUnwrap
+      let item = item->toInternal
 
-      // let bb = b->B.scope
-      // let itemInput = if (
-      //   !(b.global.flag->Flag.unsafeHas(Flag.typeValidation)) &&
-      //   (childSchema->classify === Unknown ||
-      //   childSchemaTag === optionTag ||
-      //   (childSchemaTag === literalTag &&
-      //     (childSchema->classify->unsafeGetVariantPayload: literal)->Literal.value ===
-      //       %raw(`void 0`)))
-      // ) {
-      //   bb->B.val(`${bb->B.embed(%raw("Caml_option.valFromOption"))}(${b->B.Val.var(input)})`)
-      // } else {
-      //   input
-      // }
+      let bb = b->B.scope
+      let itemInput = if (
+        !(b.global.flag->Flag.unsafeHas(Flag.typeValidation)) &&
+        (item.tag === Unknown ||
+        item.tag === Undefined ||
+        switch item.optional {
+        | Some({hasUndefined: true}) => true
+        | _ => false
+        })
+      ) {
+        bb->B.val(`${bb->B.embed(%raw("Caml_option.valFromOption"))}(${b->B.Val.var(input)})`)
+      } else {
+        input
+      }
 
-      // let itemOutput = bb->B.parse(~schema=childSchema, ~input=itemInput, ~path)
-      // let itemCode = bb->B.allocateScope
+      let itemOutput = bb->B.parse(~schema=item, ~input=itemInput, ~path)
+      let itemCode = bb->B.allocateScope
 
-      // let inputLiteral = isNullInput ? "null" : "void 0"
-      // let ouputLiteral = isNullOutput ? "null" : "void 0"
+      let inputLiteral = isNullInput ? "null" : "void 0"
+      let ouputLiteral = isNullOutput ? "null" : "void 0"
 
-      // let isTransformed = inputLiteral !== ouputLiteral || itemOutput !== input
+      let isTransformed = inputLiteral !== ouputLiteral || itemOutput !== input
 
-      // let output = isTransformed
-      //   ? {b, var: B._notVar, isAsync: itemOutput.isAsync, inline: ""}
-      //   : input
+      let output = isTransformed
+        ? {b, var: B._notVar, isAsync: itemOutput.isAsync, inline: ""}
+        : input
 
-      // if itemCode !== "" || isTransformed {
-      //   b.code =
-      //     b.code ++
-      //     `if(${b->B.Val.var(input)}!==${inputLiteral}){${itemCode}${b->B.Val.set(
-      //         output,
-      //         itemOutput,
-      //       )}}${inputLiteral !== ouputLiteral || output.isAsync
-      //         ? `else{${b->B.Val.set(output, b->B.val(ouputLiteral))}}`
-      //         : ""}`
-      // }
+      if itemCode !== "" || isTransformed {
+        b.code =
+          b.code ++
+          `if(${b->B.Val.var(input)}!==${inputLiteral}){${itemCode}${b->B.Val.set(
+              output,
+              itemOutput,
+            )}}${inputLiteral !== ouputLiteral || output.isAsync
+              ? `else{${b->B.Val.set(output, b->B.val(ouputLiteral))}}`
+              : ""}`
+      }
 
-      // output
-      input
+      output
     })
 
   let typeFilter = (~schema, ~inlinedNoneValue) => {
@@ -1983,14 +1983,14 @@ module Option = {
     }
   }
 
-  let rec factory = schema => {
-    let item = schema->toInternal
+  let rec factory = item => {
+    let item = item->toInternal
     {
       name: Union.name,
       tag: Union,
-      anyOf: [item, Literal.undefined], // FIXME:
+      anyOf: [item, unit->toInternal], // FIXME:
       optional: {
-        item: schema->toUnknown,
+        item: item->fromInternal->toUnknown,
         hasUndefined: true,
       },
       builder: makeBuilder(~isNullInput=false, ~isNullOutput=false),
@@ -2000,9 +2000,10 @@ module Option = {
   }
 
   let getWithDefault = (schema: t<option<'value>>, default) => {
-    let schema = schema->toInternal->copy
-    schema->Metadata.setInPlace(~id=defaultMetadataId, default)
-    schema.builder = Builder.make((b, ~input, ~selfSchema as _, ~path) => {
+    let schema = schema->toInternal
+    let mut = schema->copy
+    mut->Metadata.setInPlace(~id=defaultMetadataId, default)
+    mut.builder = Builder.make((b, ~input, ~selfSchema as _, ~path) => {
       b->B.transform(~input=b->B.parse(~schema, ~input, ~path), (b, ~input) => {
         let inputVar = b->B.Val.var(input)
         b->B.val(
@@ -2013,7 +2014,7 @@ module Option = {
         )
       })
     })
-    schema.reverse = Some(
+    mut.reverse = Some(
       () => {
         let reversed = schema->reverse
         switch reversed {
@@ -2022,7 +2023,7 @@ module Option = {
         }
       },
     )
-    schema->toStandard
+    mut->toStandard
   }
 
   let getOr = (schema, defalutValue) =>
@@ -3055,14 +3056,14 @@ module Schema = {
     let ritems = []
     let ritem = definition->definitionToRitem(~path=Path.empty, ~ritems, ~ritemsByItemPath)
 
-    let reversed = switch ritem {
+    let mut = switch ritem {
     | Registred({reversed}) =>
       // Need to copy the schema here, because we're going to override the builder
       reversed->copy
     | _ => ritem->getRitemReversed
     }
 
-    reversed.builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
+    mut.builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
       let hasTypeValidation = b.global.flag->Flag.unsafeHas(Flag.typeValidation)
 
       // TODO: Optimise the for loop
@@ -3201,11 +3202,12 @@ module Schema = {
       }
     })
 
-    reversed
+    mut
   }
   and shape = {
     (schema: t<'value>, definer: 'value => 'variant): t<'variant> => {
-      let schema = schema->toInternal->copy
+      let schema = schema->toInternal
+      let mut = schema->copy
 
       let item: ditem = Root({
         schema,
@@ -3214,7 +3216,7 @@ module Schema = {
       })
       let definition: unknown = definer(item->proxify)->Obj.magic
 
-      schema.builder = Builder.make((b, ~input, ~selfSchema as _, ~path) => {
+      mut.builder = Builder.make((b, ~input, ~selfSchema as _, ~path) => {
         let itemOutput = b->B.parse(~schema, ~input, ~path)
 
         let bb = b->B.scope
@@ -3234,9 +3236,9 @@ module Schema = {
 
         output
       })
-      schema.reverse = Some(advancedReverse(~definition, ~to=item))
+      mut.reverse = Some(advancedReverse(~definition, ~to=item))
 
-      schema->toStandard
+      mut->toStandard
     }
   }
   and nested = fieldName => {
@@ -3700,7 +3702,7 @@ let enum = values =>
 
 let schema = Schema.factory
 
-let js_schema = Schema.definitionToSchema->Obj.magic
+let js_schema = definition => definition->Obj.magic->Schema.definitionToSchema->toStandard
 let literal = js_schema
 
 let unnest = {

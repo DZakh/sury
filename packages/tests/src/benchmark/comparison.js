@@ -52,6 +52,7 @@ const ValibotUnion = v.union([
 const ArkTypeUnion = type({ box: "string" }).or("string.numeric.parse");
 // ArkTypeUnion("123")
 // ArkType@2.0.4 x 4,300,118 ops/sec ±0.33% (97 runs sampled)
+// ArkType@2.1.0 x 28,938,669 ops/sec ±0.84% (98 runs sampled)
 
 const ZodUnion = z.union([
   z.object({ box: z.string() }),
