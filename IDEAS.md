@@ -10,6 +10,7 @@
 - Move `~standard` to the top level. Remove `S.standard`, since now every schema you create implements Standard Schema
 - Removed `S.classify` and make the schema type a variant itself
 - Removed `literal` type and `Literal` module, since it's now a part of the schema type variant
+- Removed `S.undefined` for TS API in favor of `S.schema(undefined)`
 
 ### Scope
 

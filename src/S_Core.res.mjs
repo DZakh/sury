@@ -951,9 +951,9 @@ function get$1(schema, id) {
 }
 
 function set$1(schema, id, metadata) {
-  var schema$1 = copy(schema);
-  schema$1[id] = metadata;
-  return toStandard(schema$1);
+  var mut = copy(schema);
+  mut[id] = metadata;
+  return toStandard(mut);
 }
 
 function recursive(fn) {
@@ -1011,11 +1011,11 @@ function recursive(fn) {
                                 }));
                   }));
     });
-  var initialReverse = schema.r;
+  var initialReverse = schema.r.bind(schema);
   schema.r = (function () {
       var initialReversed = initialReverse();
-      var reversed = copy(initialReversed);
-      reversed.b = (function (b, input, selfSchema, path) {
+      var mut = copy(initialReversed);
+      mut.b = (function (b, input, selfSchema, path) {
           var inputVar = input.v(b);
           var bb = {
             c: "",
@@ -1036,23 +1036,23 @@ function recursive(fn) {
                         return map(r, input);
                       }));
         });
-      return reversed;
+      return mut;
     });
   return toStandard(schema);
 }
 
 function setName(schema, name) {
-  var schema$1 = copy(schema);
-  schema$1.n = (function () {
+  var mut = copy(schema);
+  mut.n = (function () {
       return name;
     });
-  return toStandard(schema$1);
+  return toStandard(mut);
 }
 
 function removeTypeValidation(schema) {
-  var schema$1 = copy(schema);
-  schema$1.f = undefined;
-  return toStandard(schema$1);
+  var mut = copy(schema);
+  mut.f = undefined;
+  return toStandard(mut);
 }
 
 function internalRefine(schema, refiner) {
@@ -1754,8 +1754,9 @@ function factory$4(item, spaceOpt) {
               item: item,
               n: primitiveName,
               r: (function () {
-                  var reversed = copy(reverse(item));
-                  reversed.b = (function (b, input, param, path) {
+                  var reversed = reverse(item);
+                  var mut = copy(reversed);
+                  mut.b = (function (b, input, param, path) {
                       var prevFlag = b.g.o;
                       b.g.o = prevFlag | 8;
                       var tmp;
@@ -1791,7 +1792,7 @@ function factory$4(item, spaceOpt) {
                       b.g.o = prevFlag;
                       return output;
                     });
-                  return reversed;
+                  return mut;
                 }),
               b: (function (b, input, param, path) {
                   var jsonVal = allocateVal(b);
@@ -1881,38 +1882,39 @@ var schema$5 = toStandard({
     });
 
 function preprocess(schema, transformer) {
-  var schema$1 = copy(schema);
-  var anyOf = schema$1.anyOf;
+  var mut = copy(schema);
+  var anyOf = schema.anyOf;
   if (anyOf !== undefined) {
-    schema$1.anyOf = anyOf.map(function (unionSchema) {
+    mut.anyOf = anyOf.map(function (unionSchema) {
           return preprocess(unionSchema, transformer);
         });
   } else {
-    schema$1.b = (function (b, input, selfSchema, path) {
+    mut.b = (function (b, input, selfSchema, path) {
         var match = transformer(effectCtx(b, selfSchema, path));
         var parser = match.p;
         if (parser !== undefined) {
           if (match.a !== undefined) {
             return invalidOperation(b, path, "The S.preprocess doesn't allow parser and asyncParser at the same time. Remove parser in favor of asyncParser");
           } else {
-            return parseWithTypeValidation(b, schema$1, embedSyncOperation(b, input, parser), path);
+            return parseWithTypeValidation(b, schema, embedSyncOperation(b, input, parser), path);
           }
         }
         var asyncParser = match.a;
         if (asyncParser !== undefined) {
           return transform(b, embedAsyncOperation(b, input, asyncParser), (function (b, input) {
-                        return parseWithTypeValidation(b, schema$1, input, path);
+                        return parseWithTypeValidation(b, schema, input, path);
                       }));
         } else {
-          return parseWithTypeValidation(b, schema$1, input, path);
+          return parseWithTypeValidation(b, schema, input, path);
         }
       });
-    schema$1.f = undefined;
-    schema$1.r = (function () {
-        var reversed = copy(reverse(schema$1));
-        reversed.b = (function (b, input, param, path) {
+    mut.f = undefined;
+    mut.r = (function () {
+        var reversed = reverse(schema);
+        var mut = copy(reversed);
+        mut.b = (function (b, input, param, path) {
             var input$1 = reversed.b(b, input, reversed, path);
-            var match = transformer(effectCtx(b, schema$1, path));
+            var match = transformer(effectCtx(b, schema, path));
             var serializer = match.s;
             if (serializer !== undefined) {
               return embedSyncOperation(b, input$1, serializer);
@@ -1920,10 +1922,10 @@ function preprocess(schema, transformer) {
               return input$1;
             }
           });
-        return reversed;
+        return mut;
       });
   }
-  return toStandard(schema$1);
+  return toStandard(mut);
 }
 
 function list(schema) {
@@ -1998,8 +2000,8 @@ function passingTypeFilter(_b, param) {
 }
 
 function $$catch(schema, getFallbackValue) {
-  var schema$1 = copy(schema);
-  schema$1.b = (function (b, input, selfSchema, path) {
+  var mut = copy(schema);
+  mut.b = (function (b, input, selfSchema, path) {
       var inputVar = input.v(b);
       return withCatch(b, input, (function (b, errorVar) {
                     return {
@@ -2022,11 +2024,11 @@ function $$catch(schema, getFallbackValue) {
                             a: false
                           };
                   }), undefined, (function (b) {
-                    return parseWithTypeValidation(b, schema$1, input, path);
+                    return parseWithTypeValidation(b, schema, input, path);
                   }));
     });
-  schema$1.f = schema$1.type === "undefined" || schema$1.const !== (void 0) ? passingTypeFilter : undefined;
-  return toStandard(schema$1);
+  mut.f = schema.type === "undefined" || schema.const !== (void 0) ? passingTypeFilter : undefined;
+  return toStandard(mut);
 }
 
 var deprecationMetadataId = "metadata:rescript-schema:deprecation";
@@ -2281,6 +2283,44 @@ function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
         };
 }
 
+function r$1() {
+  var items = this.items;
+  var reversedFields = {};
+  var reversedItems = [];
+  var isTransformed = false;
+  for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
+    var match = items[idx];
+    var $$location = match.location;
+    var schema = match.schema;
+    var reversed = reverse(schema);
+    var item_inlinedLocation = match.inlinedLocation;
+    var item = {
+      schema: reversed,
+      location: $$location,
+      inlinedLocation: item_inlinedLocation
+    };
+    reversedFields[$$location] = item;
+    reversedItems.push(item);
+    if (schema !== reversed) {
+      isTransformed = true;
+    }
+    
+  }
+  if (isTransformed) {
+    return {
+            type: "object",
+            unknownKeys: globalConfig.u,
+            items: reversedItems,
+            fields: reversedFields,
+            n: name$2,
+            b: builder$2,
+            f: typeFilter$2
+          };
+  } else {
+    return this;
+  }
+}
+
 function definitionToSchema(definition) {
   if (!(typeof definition === "object" && definition !== null)) {
     return parse(definition);
@@ -2353,44 +2393,6 @@ function definitionToSchema(definition) {
           b: builder$2,
           f: typeFilter$2
         };
-}
-
-function r$1() {
-  var items = this.items;
-  var reversedFields = {};
-  var reversedItems = [];
-  var isTransformed = false;
-  for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
-    var match = items[idx];
-    var $$location = match.location;
-    var schema = match.schema;
-    var reversed = reverse(schema);
-    var item_inlinedLocation = match.inlinedLocation;
-    var item = {
-      schema: reversed,
-      location: $$location,
-      inlinedLocation: item_inlinedLocation
-    };
-    reversedFields[$$location] = item;
-    reversedItems.push(item);
-    if (schema !== reversed) {
-      isTransformed = true;
-    }
-    
-  }
-  if (isTransformed) {
-    return {
-            type: "object",
-            unknownKeys: globalConfig.u,
-            items: reversedItems,
-            fields: reversedFields,
-            n: name$2,
-            b: builder$2,
-            f: typeFilter$2
-          };
-  } else {
-    return this;
-  }
 }
 
 function nested(fieldName) {
@@ -2472,68 +2474,6 @@ function nested(fieldName) {
   };
   parentCtx[cacheId] = ctx$1;
   return ctx$1;
-}
-
-function advancedBuilder(definition, flattened) {
-  return function (parentB, input, selfSchema, path) {
-    var isFlatten = parentB.g.o & 64;
-    var outputs = isFlatten ? input : ({});
-    var b = {
-      c: "",
-      l: "",
-      a: initialAllocate,
-      g: parentB.g
-    };
-    if (!isFlatten) {
-      var unknownKeys = selfSchema.unknownKeys;
-      var items = selfSchema.items;
-      var inputVar = input.v(b);
-      for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
-        var match = items[idx];
-        var inlinedLocation = match.inlinedLocation;
-        var schema = match.schema;
-        var itemPath = "[" + inlinedLocation + "]";
-        var itemInput = {
-          b: b,
-          v: _notVar,
-          i: inputVar + itemPath,
-          a: false
-        };
-        var path$1 = path + itemPath;
-        if (schema.f !== undefined && (
-            b.g.o & 1 ? !(schema.type === "undefined" || schema.const !== (void 0)) : schema.type === "undefined" || schema.const !== (void 0)
-          )) {
-          b.c = b.c + typeFilterCode(b, schema, itemInput, path$1);
-        }
-        outputs[inlinedLocation] = schema.b(b, itemInput, schema, path$1);
-      }
-      objectStrictModeCheck(b, input, items, unknownKeys, path);
-    }
-    if (flattened !== undefined) {
-      var prevFlag = b.g.o;
-      b.g.o = prevFlag | 64;
-      for(var idx$1 = 0 ,idx_finish$1 = flattened.length; idx$1 < idx_finish$1; ++idx$1){
-        var item = flattened[idx$1];
-        var schema$1 = item.schema;
-        outputs[item.i] = schema$1.b(b, outputs, schema$1, path);
-      }
-      b.g.o = prevFlag;
-    }
-    var getItemOutput = function (item) {
-      switch (item.k) {
-        case 0 :
-            return outputs[item.inlinedLocation];
-        case 1 :
-            return get(b, getItemOutput(item.of), item.inlinedLocation);
-        case 2 :
-            return outputs[item.i];
-        
-      }
-    };
-    var output = definitionToOutput(b, definition, getItemOutput);
-    parentB.c = parentB.c + allocateScope(b);
-    return output;
-  };
 }
 
 function advancedReverse(definition, to, flattened) {
@@ -2664,6 +2604,68 @@ function advancedReverse(definition, to, flattened) {
         return complete(objectVal, isArray);
       });
     return mut;
+  };
+}
+
+function advancedBuilder(definition, flattened) {
+  return function (parentB, input, selfSchema, path) {
+    var isFlatten = parentB.g.o & 64;
+    var outputs = isFlatten ? input : ({});
+    var b = {
+      c: "",
+      l: "",
+      a: initialAllocate,
+      g: parentB.g
+    };
+    if (!isFlatten) {
+      var unknownKeys = selfSchema.unknownKeys;
+      var items = selfSchema.items;
+      var inputVar = input.v(b);
+      for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
+        var match = items[idx];
+        var inlinedLocation = match.inlinedLocation;
+        var schema = match.schema;
+        var itemPath = "[" + inlinedLocation + "]";
+        var itemInput = {
+          b: b,
+          v: _notVar,
+          i: inputVar + itemPath,
+          a: false
+        };
+        var path$1 = path + itemPath;
+        if (schema.f !== undefined && (
+            b.g.o & 1 ? !(schema.type === "undefined" || schema.const !== (void 0)) : schema.type === "undefined" || schema.const !== (void 0)
+          )) {
+          b.c = b.c + typeFilterCode(b, schema, itemInput, path$1);
+        }
+        outputs[inlinedLocation] = schema.b(b, itemInput, schema, path$1);
+      }
+      objectStrictModeCheck(b, input, items, unknownKeys, path);
+    }
+    if (flattened !== undefined) {
+      var prevFlag = b.g.o;
+      b.g.o = prevFlag | 64;
+      for(var idx$1 = 0 ,idx_finish$1 = flattened.length; idx$1 < idx_finish$1; ++idx$1){
+        var item = flattened[idx$1];
+        var schema$1 = item.schema;
+        outputs[item.i] = schema$1.b(b, outputs, schema$1, path);
+      }
+      b.g.o = prevFlag;
+    }
+    var getItemOutput = function (item) {
+      switch (item.k) {
+        case 0 :
+            return outputs[item.inlinedLocation];
+        case 1 :
+            return get(b, getItemOutput(item.of), item.inlinedLocation);
+        case 2 :
+            return outputs[item.i];
+        
+      }
+    };
+    var output = definitionToOutput(b, definition, getItemOutput);
+    parentB.c = parentB.c + allocateScope(b);
+    return output;
   };
 }
 

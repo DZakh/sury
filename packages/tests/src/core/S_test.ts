@@ -189,7 +189,7 @@ test("Successfully parses invalid json without validation", (t) => {
 });
 
 test("Successfully parses undefined", (t) => {
-  const schema = S.undefined;
+  const schema = S.schema(undefined);
   const value = S.parseOrThrow(undefined, schema);
 
   t.deepEqual(value, undefined);

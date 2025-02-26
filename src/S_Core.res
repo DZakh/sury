@@ -1483,9 +1483,10 @@ module Metadata = {
 
   let set = (schema, ~id: Id.t<'metadata>, metadata: 'metadata) => {
     // FIXME: Also apply for reversed?
-    let schema = schema->toInternal->copy
-    schema->setInPlace(~id, metadata)
-    schema->toStandard
+    let schema = schema->toInternal
+    let mut = schema->copy
+    mut->setInPlace(~id, metadata)
+    mut->toStandard
     // let metadataMap = schema.metadataMap->Map.set(~id, metadata)
     // makeSchema(
     //   ~name=schema.name,
@@ -1567,12 +1568,12 @@ let recursive = fn => {
     })
   })
 
-  let initialReverse = schema.reverse->Obj.magic // FIXME: ->Stdlib.Fn.bind(~this=schema)
+  let initialReverse = schema.reverse->Obj.magic->Stdlib.Fn.bind(~this=schema)
   schema.reverse = Some(
     () => {
       let initialReversed = initialReverse()
-      let reversed = initialReversed->copy
-      reversed.builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
+      let mut = initialReversed->copy
+      mut.builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
         let inputVar = b->B.Val.var(input)
         let bb = b->B.scope
         let initialInput = {
@@ -1589,7 +1590,7 @@ let recursive = fn => {
         b.code = b.code ++ `let ${r}=${inputVar}=>{${opBodyCode}};`
         b->B.withPathPrepend(~input, ~path, (_b, ~input, ~path as _) => B.Val.map(r, input))
       })
-      reversed
+      mut
     },
   )
 
@@ -1597,15 +1598,17 @@ let recursive = fn => {
 }
 
 let setName = (schema, name) => {
-  let schema = schema->toInternal->copy
-  schema.name = () => name // TODO: Better test reverse
-  schema->toStandard
+  let schema = schema->toInternal
+  let mut = schema->copy
+  mut.name = () => name // TODO: Better test reverse
+  mut->toStandard
 }
 
 let removeTypeValidation = schema => {
-  let schema = schema->toInternal->copy
-  schema.typeFilter = None // TODO: Better test reverse
-  schema->toStandard
+  let schema = schema->toInternal
+  let mut = schema->copy
+  mut.typeFilter = None // TODO: Better test reverse
+  mut->toStandard
 }
 
 let internalRefine = (schema, refiner) => {
@@ -2379,8 +2382,9 @@ module JsonString = {
       }),
       typeFilter: String.typeFilter,
       reverse: () => {
-        let reversed = item->reverse->copy
-        reversed.builder = Builder.make((b, ~input, ~selfSchema as _, ~path) => {
+        let reversed = item->reverse
+        let mut = reversed->copy
+        mut.builder = Builder.make((b, ~input, ~selfSchema as _, ~path) => {
           let prevFlag = b.global.flag
           b.global.flag = prevFlag->Flag.with(Flag.jsonableOutput)
           if (
@@ -2401,7 +2405,7 @@ module JsonString = {
           b.global.flag = prevFlag
           output
         })
-        reversed
+        mut
       },
     }->toStandard
   }
@@ -2514,16 +2518,17 @@ type preprocessDefinition<'input, 'output> = {
   serializer?: unknown => 'input,
 }
 let rec preprocess = (schema, transformer) => {
-  let schema = schema->toInternal->copy
+  let schema = schema->toInternal
+  let mut = schema->copy
   switch schema {
   | {anyOf} =>
-    schema.anyOf = Some(
+    mut.anyOf = Some(
       anyOf->Js.Array2.map(unionSchema =>
         unionSchema->fromInternal->preprocess(transformer)->toInternal
       ),
     )
   | _ =>
-    schema.builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
+    mut.builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
       switch transformer(b->B.effectCtx(~selfSchema, ~path)) {
       | {parser, asyncParser: ?None} =>
         b->B.parseWithTypeValidation(
@@ -2543,22 +2548,23 @@ let rec preprocess = (schema, transformer) => {
         )
       }
     })
-    schema.typeFilter = None
-    schema.reverse = Some(
+    mut.typeFilter = None
+    mut.reverse = Some(
       () => {
-        let reversed = schema->reverse->copy
-        reversed.builder = (b, ~input, ~selfSchema as _, ~path) => {
+        let reversed = schema->reverse
+        let mut = reversed->copy
+        mut.builder = (b, ~input, ~selfSchema as _, ~path) => {
           let input = b->B.parse(~schema=reversed, ~input, ~path)
           switch transformer(b->B.effectCtx(~selfSchema=schema, ~path)) {
           | {serializer} => b->B.embedSyncOperation(~input, ~fn=serializer)
           | {serializer: ?None} => input
           }
         }
-        reversed
+        mut
       },
     )
   }
-  schema->toStandard
+  mut->toStandard
 }
 
 let list = schema => {
@@ -2643,8 +2649,9 @@ module Catch = {
 }
 let passingTypeFilter = (_b, ~inputVar as _) => "false"
 let catch = (schema, getFallbackValue) => {
-  let schema = schema->toInternal->copy
-  schema.builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
+  let schema = schema->toInternal
+  let mut = schema->copy
+  mut.builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
     let inputVar = b->B.Val.var(input)
 
     b->B.withCatch(
@@ -2668,12 +2675,12 @@ let catch = (schema, getFallbackValue) => {
       },
     )
   })
-  schema.typeFilter = switch schema->isLiteralSchema {
+  mut.typeFilter = switch schema->isLiteralSchema {
   // Literal schema always expects to have a typeFilter
   | true => Some(passingTypeFilter)
   | false => None
   }
-  schema->toStandard
+  mut->toStandard
 }
 
 let deprecationMetadataId: Metadata.Id.t<string> = Metadata.Id.make(

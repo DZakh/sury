@@ -100,9 +100,6 @@ S.int32;
 S.boolean;
 S.bigint;
 
-// empty type
-S.undefined;
-
 // catch-all types
 // allows any value
 S.unknown;
@@ -121,9 +118,9 @@ const tuna = S.schema("tuna");
 const twelve = S.schema(12);
 const twobig = S.schema(2n);
 const tru = S.schema(true);
-
-const terrificSymbol = Symbol("terrific");
-const terrific = S.schema(terrificSymbol);
+const empty = S.schema(undefined);
+const null = S.schema(null)
+const terrific = S.schema(Symbol("terrific"));
 ```
 
 Compared to other libraries, `S.schema` in **rescript-schema** supports literally any value. They are validated using strict equal checks. With the exception of plain objects and arrays, they are validated using deep equal checks. So the schema like this will work correctly:
