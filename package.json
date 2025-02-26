@@ -51,7 +51,7 @@
     "benchmark": "node ./packages/tests/src/benchmark/Benchmark.res.mjs",
     "benchmark:comparison": "node ./packages/tests/src/benchmark/comparison.js",
     "coverage": "c8 --reporter=lcov npm test",
-    "build": "node ./packages/prepack/src/Prepack.res.mjs",
+    "build": "cd ./packages/prepack && pnpm rescript && node ./src/Prepack.res.mjs",
     "ppx:install": "node ./packages/rescript-schema-ppx/install.cjs",
     "res": "rescript -w",
     "res:build": "rescript build",

@@ -183,9 +183,6 @@ jobs:
           cache: "pnpm"
       - run: pnpm install
 
-      - run: pnpm res:build
-        working-directory: packages/prepack
-
       - run: pnpm lint:stdlib
         working-directory: packages/prepack
 

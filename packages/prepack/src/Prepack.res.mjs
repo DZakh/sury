@@ -10,7 +10,7 @@ import * as Core__List from "@rescript/core/src/Core__List.res.mjs";
 import * as Core__Option from "@rescript/core/src/Core__Option.res.mjs";
 import * as PluginNodeResolve from "@rollup/plugin-node-resolve";
 
-var projectPath = ".";
+var projectPath = "../../";
 
 var artifactsPath = Nodepath.join(projectPath, "packages/artifacts");
 
@@ -87,20 +87,16 @@ var filesMapping = [
     "S.unknown"
   ],
   [
-    "undefined",
-    "S.unit"
-  ],
-  [
     "optional",
     "S.js_optional"
   ],
   [
     "nullable",
-    "S.$$null"
+    "S.nullable"
   ],
   [
     "nullish",
-    "S.nullable"
+    "S.nullish"
   ],
   [
     "array",
@@ -213,10 +209,6 @@ var filesMapping = [
   [
     "custom",
     "S.js_custom"
-  ],
-  [
-    "standard",
-    "S.standard"
   ],
   [
     "coerce",
@@ -350,7 +342,7 @@ function writeSjsEsm(path) {
       });
 }
 
-writeSjsEsm("./src/S.js");
+writeSjsEsm(Nodepath.join(projectPath, "./src/S.js"));
 
 writeSjsEsm(Nodepath.join(artifactsPath, "./src/S.mjs"));
 

@@ -1,4 +1,4 @@
-let projectPath = "."
+let projectPath = "../../"
 let artifactsPath = NodeJs.Path.join2(projectPath, "packages/artifacts")
 let sourePaths = [
   "package.json",
@@ -125,7 +125,7 @@ let filesMapping = [
   ("never", "S.never"),
   ("unknown", "S.unknown"),
   ("optional", "S.js_optional"),
-  ("nullable", "S.$$null"),
+  ("nullable", "S.nullable"),
   ("nullish", "S.nullish"),
   ("array", "S.array"),
   ("unnest", "S.unnest"),
@@ -208,7 +208,7 @@ let writeSjsEsm = path => {
 }
 
 // Sync the original source as well. Call it S.js to make .d.ts resolve correctly
-writeSjsEsm("./src/S.js")
+writeSjsEsm(NodeJs.Path.join2(projectPath, "./src/S.js"))
 
 writeSjsEsm(NodeJs.Path.join2(artifactsPath, "./src/S.mjs"))
 
