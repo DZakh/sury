@@ -106,7 +106,7 @@ test("Succesfully uses reversed schema for parsing back to initial value", t => 
 // https://github.com/DZakh/rescript-schema/issues/79
 module Issue79 = {
   test("Successfully parses", t => {
-    let schema = S.object(s => s.field("myField", S.nullable(S.string)))->S.refine(_ => _ => ())
+    let schema = S.object(s => s.field("myField", S.nullish(S.string)))->S.refine(_ => _ => ())
     let jsonString = `{"myField": "test"}`
 
     t->U.assertCompiledCode(

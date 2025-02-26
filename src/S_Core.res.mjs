@@ -1483,8 +1483,19 @@ function getOrWith(schema, defalutCb) {
             });
 }
 
-function nullable(prim) {
-  return prim;
+function nullish(schema) {
+  return factory([
+              schema,
+              $$null,
+              unit
+            ]);
+}
+
+function nullable(schema) {
+  return factory([
+              schema,
+              $$null
+            ]);
 }
 
 var metadataId = "metadata:rescript-schema:Array.refinements";
@@ -3706,6 +3717,7 @@ export {
   option ,
   $$null$1 as $$null,
   nullable ,
+  nullish ,
   jsonString ,
   union ,
   $$enum ,

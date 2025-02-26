@@ -72,16 +72,16 @@ Ava("@s.null with @s.default", (function (t) {
         U.assertEqualSchemas(t, nullWithDefaultSchema, S$RescriptSchema.$$Option.getOr(S$RescriptSchema.$$null(S$RescriptSchema.string), "Unknown"), undefined);
       }));
 
-var nullableSchema = S$RescriptSchema.nullable(S$RescriptSchema.string);
+var nullishSchema = S$RescriptSchema.nullish(S$RescriptSchema.string);
 
-Ava("@s.nullable", (function (t) {
-        U.assertEqualSchemas(t, nullableSchema, S$RescriptSchema.nullable(S$RescriptSchema.string), undefined);
+Ava("@s.nullish", (function (t) {
+        U.assertEqualSchemas(t, nullishSchema, S$RescriptSchema.nullish(S$RescriptSchema.string), undefined);
       }));
 
-var nullableWithDefaultSchema = S$RescriptSchema.$$Option.getOr(S$RescriptSchema.nullable(S$RescriptSchema.string), "Unknown");
+var nullableWithDefaultSchema = S$RescriptSchema.$$Option.getOr(S$RescriptSchema.nullish(S$RescriptSchema.string), "Unknown");
 
-Ava("@s.nullable with @s.default", (function (t) {
-        U.assertEqualSchemas(t, nullableWithDefaultSchema, S$RescriptSchema.$$Option.getOr(S$RescriptSchema.nullable(S$RescriptSchema.string), "Unknown"), undefined);
+Ava("@s.nullish with @s.default", (function (t) {
+        U.assertEqualSchemas(t, nullableWithDefaultSchema, S$RescriptSchema.$$Option.getOr(S$RescriptSchema.nullish(S$RescriptSchema.string), "Unknown"), undefined);
       }));
 
 var deprecateSchema = S$RescriptSchema.deprecate(S$RescriptSchema.string, "Will be removed in APIv2");
@@ -104,7 +104,7 @@ export {
   defaultWithSchema ,
   nullSchema ,
   nullWithDefaultSchema ,
-  nullableSchema ,
+  nullishSchema ,
   nullableWithDefaultSchema ,
   deprecateSchema ,
   describeSchema ,

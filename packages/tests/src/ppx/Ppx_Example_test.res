@@ -76,15 +76,15 @@ test("@s.null with @s.default", t => {
 })
 
 @schema
-type nullable = @s.nullable option<string>
-test("@s.nullable", t => {
-  t->assertEqualSchemas(nullableSchema, S.nullable(S.string))
+type nullish = @s.nullish option<string>
+test("@s.nullish", t => {
+  t->assertEqualSchemas(nullishSchema, S.nullish(S.string))
 })
 
 @schema
-type nullableWithDefault = @s.nullable @s.default("Unknown") string
-test("@s.nullable with @s.default", t => {
-  t->assertEqualSchemas(nullableWithDefaultSchema, S.nullable(S.string)->S.Option.getOr("Unknown"))
+type nullableWithDefault = @s.nullish @s.default("Unknown") string
+test("@s.nullish with @s.default", t => {
+  t->assertEqualSchemas(nullableWithDefaultSchema, S.nullish(S.string)->S.Option.getOr("Unknown"))
 })
 
 @schema

@@ -42,7 +42,7 @@ var option = S_Core$RescriptSchema.option;
 
 var $$null = S_Core$RescriptSchema.$$null;
 
-var nullable = S_Core$RescriptSchema.nullable;
+var nullish = S_Core$RescriptSchema.nullish;
 
 var jsonString = S_Core$RescriptSchema.jsonString;
 
@@ -209,7 +209,7 @@ export {
   dict ,
   option ,
   $$null ,
-  nullable ,
+  nullish ,
   jsonString ,
   union ,
   $$enum ,

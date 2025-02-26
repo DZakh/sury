@@ -2056,10 +2056,13 @@ module Option = {
 //   }
 // }
 
-let nullable = Obj.magic
-// let nullable = schema => {
-//   Option.factory(Null.factory(schema))
-// }
+let nullish = schema => {
+  Union.factory([schema->toUnknown, Literal.null->fromInternal, unit->toUnknown])
+}
+
+let nullable = schema => {
+  Union.factory([schema->toUnknown, Literal.null->fromInternal])
+}
 
 module Array = {
   module Refinement = {

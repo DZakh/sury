@@ -141,14 +141,14 @@ and generateCoreTypeSchemaExpression core_type =
   let option_factory_expression =
     match
       ( getAttributeByName ptyp_attributes "s.null",
-        getAttributeByName ptyp_attributes "s.nullable" )
+        getAttributeByName ptyp_attributes "s.nullish" )
     with
     | Ok None, Ok None -> [%expr S.option]
     | Ok (Some _), Ok None -> [%expr S.null]
-    | Ok None, Ok (Some _) -> [%expr S.nullable]
+    | Ok None, Ok (Some _) -> [%expr S.nullish]
     | Ok (Some _), Ok (Some _) ->
       fail ptyp_loc
-        "Attributes @s.null and @s.nullable are not supported at the same time"
+        "Attributes @s.null and @s.nullish are not supported at the same time"
     | _, Error s | Error s, _ -> fail ptyp_loc s
   in
   let schema_expression =

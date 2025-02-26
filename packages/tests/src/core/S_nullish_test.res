@@ -5,7 +5,7 @@ module NullCommon = {
   let value = None
   let any = %raw(`null`)
   let invalidAny = %raw(`123.45`)
-  let factory = () => S.nullable(S.string)
+  let factory = () => S.nullish(S.string)
 
   test("Successfully parses", t => {
     let schema = factory()
@@ -43,7 +43,7 @@ module NullCommon = {
   })
 
   test("Compiled async parse code snapshot", t => {
-    let schema = S.nullable(S.unknown->S.transform(_ => {asyncParser: i => Promise.resolve(i)}))
+    let schema = S.nullish(S.unknown->S.transform(_ => {asyncParser: i => Promise.resolve(i)}))
 
     t->U.assertCompiledCode(
       ~schema,
@@ -75,28 +75,28 @@ module NullCommon = {
 }
 
 test("Successfully parses primitive", t => {
-  let schema = S.nullable(S.bool)
+  let schema = S.nullish(S.bool)
 
   t->Assert.deepEqual(JSON.Encode.bool(true)->S.parseOrThrow(schema), Some(true), ())
 })
 
 test("Successfully parses JS undefined", t => {
-  let schema = S.nullable(S.bool)
+  let schema = S.nullish(S.bool)
 
   t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), None, ())
 })
 
-test("Successfully parses object with missing field that marked as nullable", t => {
-  let fieldSchema = S.nullable(S.string)
+test("Successfully parses object with missing field that marked as nullish", t => {
+  let fieldSchema = S.nullish(S.string)
   let schema = S.object(s => s.field("nullableField", fieldSchema))
 
   t->Assert.deepEqual(%raw(`{}`)->S.parseOrThrow(schema), None, ())
 })
 
 test(
-  "Successfully parses null and serializes it back to undefined for deprecated nullable schema",
+  "Successfully parses null and serializes it back to undefined for deprecated nullish schema",
   t => {
-    let schema = S.nullable(S.bool)->S.deprecate("Deprecated")
+    let schema = S.nullish(S.bool)->S.deprecate("Deprecated")
 
     t->Assert.deepEqual(
       %raw(`null`)->S.parseOrThrow(schema)->S.reverseConvertOrThrow(schema),
@@ -106,8 +106,8 @@ test(
   },
 )
 
-test("Classify S.nullable as Option(Null(value))", t => {
-  let schema = S.nullable(S.bool)
+test("Classify S.nullish as Option(Null(value))", t => {
+  let schema = S.nullish(S.bool)
 
   t->U.unsafeAssertEqualSchemas(schema, S.option(S.null(S.bool)))
 })
