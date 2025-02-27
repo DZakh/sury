@@ -50,7 +50,7 @@ test("Fails to parses recursive object when provided invalid type", t => {
     | _ => "Shouldn't pass"
     | exception S.Raised(e) => e->S.Error.message
     },
-    `Failed parsing at ["Children"]["0"]. Reason: Expected <recursive>, received "invalid"`,
+    `Failed parsing at ["Children"]["0"]. Reason: Must be <recursive> (was "invalid")`,
     (),
   )
 })

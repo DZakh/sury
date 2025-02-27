@@ -1229,6 +1229,47 @@ module Error = {
 
   let raise = (error: error) => error->Stdlib.Exn.raiseAny
 
+  let rec was = unknown => {
+    let typeOfValue = unknown->Stdlib.Type.typeof
+    switch typeOfValue {
+    | #undefined => "undefined"
+    | #object if unknown === %raw(`null`) => "null"
+    | #object if unknown->Stdlib.Array.isArray => {
+        let array = unknown->(Obj.magic: unknown => array<unknown>)
+        let string = ref("[")
+        for i in 0 to array->Array.length - 1 {
+          if i !== 0 {
+            string := string.contents ++ ", "
+          }
+          string := string.contents ++ array->Js.Array2.unsafe_get(i)->was
+        }
+        string.contents ++ "]"
+      }
+    | #object
+      if (unknown->(Obj.magic: 'a => {"constructor": unknown}))["constructor"] === %raw("Object") =>
+      let dict = unknown->(Obj.magic: unknown => dict<unknown>)
+      let keys = Js.Dict.keys(dict)
+      let string = ref("{")
+      for i in 0 to keys->Array.length - 1 {
+        let key = keys->Js.Array2.unsafe_get(i)
+        let value = dict->Js.Dict.unsafeGet(key)
+        if i !== 0 {
+          string := string.contents ++ ", "
+        }
+        string := `${string.contents}"${key}": ${was(value)}`
+      }
+      string.contents ++ "}"
+    | #object => unknown->Obj.magic->Stdlib.Object.internalClass
+    | #function => unknown->Obj.magic->Stdlib.Function.toString
+    | #string => `"${unknown->Obj.magic}"`
+    | #number if unknown->(Obj.magic: unknown => float)->Js.Float.isNaN => "NaN"
+    | #number => unknown->Obj.magic
+    | #boolean => unknown->Obj.magic
+    | #symbol => unknown->Obj.magic->Stdlib.Symbol.toString
+    | #bigint => `${unknown->Obj.magic}n`
+    }
+  }
+
   let rec reason = (error: error, ~nestedLevel=0) => {
     switch error.code {
     | OperationFailed(reason) => reason
@@ -1237,9 +1278,7 @@ module Error = {
     | ExcessField(fieldName) =>
       `Encountered disallowed excess key ${fieldName->Stdlib.Inlined.Value.fromString} on an object`
     | InvalidType({expected, received}) =>
-      `Expected ${(expected->toInternal).name()}, received ${received
-        ->Js.Json.stringifyAny
-        ->Belt.Option.getWithDefault("FIXME:")}`
+      `Must be ${(expected->toInternal).name()} (was ${received->was})`
     | InvalidJsonSchema(schema) =>
       `The '${(schema->toInternal).name()}' schema cannot be converted to JSON`
     | InvalidUnion(errors) => {

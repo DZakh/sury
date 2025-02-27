@@ -844,7 +844,7 @@ S.parseOrThrow("bar", reversed);
 // {"foo": "bar"}
 
 S.parseOrThrow(123, reversed);
-// throws S.error with the message: `Failed parsing at root. Reason: Expected string, received 123`
+// throws S.error with the message: `Failed parsing at root. Reason: Must be string (was 123)`
 ```
 
 Reverses the schema. This gets especially magical for schemas with transformations 🪄
@@ -857,7 +857,7 @@ This very powerful API allows you to coerce another data type in a declarative w
 const schema = S.coerce(S.string, S.float);
 
 S.parseOrThrow("123", schema); //? 123.
-S.parseOrThrow("abc", schema); //? throws: Failed parsing at root. Reason: Expected number, received "abc"
+S.parseOrThrow("abc", schema); //? throws: Failed parsing at root. Reason: Must be number (was "abc")
 
 // Reverse works correctly as well 🔥
 S.reverseConvertOrThrow(123, schema); //? "123"
@@ -918,7 +918,7 @@ You can customise a schema name using `S.setName`.
 
 ```ts
 S.parseOrThrow(true, S.schema(false));
-// => Throws S.Error with the following message: Failed parsing at root. Reason: Expected false, received true".
+// => Throws S.Error with the following message: Failed parsing at root. Reason: Must be false (was true)".
 ```
 
 You can catch the error using `S.safe` and `S.safeAsync` helpers:

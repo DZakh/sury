@@ -38,7 +38,7 @@ asyncTest("Resets S.float cache after disableNanNumberValidation=true removed", 
       nan->S.assertOrThrow(S.float)
     },
     ~expectations={
-      message: "Failed asserting at root. Reason: Expected number, received NaN",
+      message: "Failed asserting at root. Reason: Must be number (was NaN)",
     },
     (),
   )

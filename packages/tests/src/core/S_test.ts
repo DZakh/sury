@@ -12,7 +12,7 @@ type SchemaEqual<
 > = TypeEqual<S.Output<Schema>, Output> & TypeEqual<S.Input<Schema>, Input>;
 
 // Can use genType schema
-expectType<SchemaEqual<typeof stringSchema, string, unknown>>(true);
+expectType<SchemaEqual<typeof stringSchema, string, string>>(true);
 
 test("Successfully parses string", (t) => {
   const schema = S.string;
@@ -129,7 +129,7 @@ test("Fails to parse float when NaN is provided", (t) => {
     },
     {
       name: "RescriptSchemaError",
-      message: "Failed parsing at root. Reason: Expected number, received NaN",
+      message: "Failed parsing at root. Reason: Must be number (was NaN)",
     }
   );
 });
@@ -210,7 +210,7 @@ test("Fails to parse never", (t) => {
     },
     {
       name: "RescriptSchemaError",
-      message: "Failed parsing at root. Reason: Expected never, received true",
+      message: "Failed parsing at root. Reason: Must be never (was true)",
     }
   );
 });
@@ -224,7 +224,7 @@ test("Can get a reason from an error", (t) => {
     t.fail("Should fail");
     return;
   }
-  t.is(result.error.reason, "Expected never, received true");
+  t.is(result.error.reason, "Must be never (was true)");
 });
 
 test("Successfully parses array", (t) => {
@@ -326,12 +326,12 @@ test("Successfully parses nullable string", (t) => {
   const value2 = S.parseOrThrow(null, schema);
 
   t.deepEqual(value1, "foo");
-  t.deepEqual(value2, undefined);
+  t.deepEqual(value2, null);
 
-  expectType<
-    TypeEqual<S.Schema<string | undefined, string | null>, typeof schema>
-  >(true);
-  expectType<TypeEqual<typeof value1, string | undefined>>(true);
+  expectType<TypeEqual<S.Schema<string | null, string | null>, typeof schema>>(
+    true
+  );
+  expectType<TypeEqual<typeof value1, string | null>>(true);
 });
 
 test("Successfully parses nullish string", (t) => {
@@ -342,30 +342,29 @@ test("Successfully parses nullish string", (t) => {
 
   t.deepEqual(value1, "foo");
   t.deepEqual(value2, undefined);
-  t.deepEqual(value3, undefined);
+  t.deepEqual(value3, null);
 
-  expectType<
-    TypeEqual<
-      S.Schema<string | undefined, string | undefined | null>,
-      typeof schema
-    >
-  >(true);
-  expectType<TypeEqual<typeof value1, string | undefined>>(true);
+  expectType<TypeEqual<S.Schema<string | undefined | null>, typeof schema>>(
+    true
+  );
+  expectType<TypeEqual<typeof value1, string | undefined | null>>(true);
 });
 
 test("Successfully parses schema wrapped in nullable multiple times", (t) => {
-  const schema = S.nullable(S.nullable(S.nullable(S.string)));
+  const nullable = S.nullable(S.string);
+  const schema = S.nullable(S.nullable(nullable));
   const value1 = S.parseOrThrow("foo", schema);
   const value2 = S.parseOrThrow(null, schema);
 
-  t.deepEqual(value1, "foo");
-  t.deepEqual(value2, undefined);
+  // Should flatten nested nullable schemas
+  t.is(schema, nullable); // TODO: Test the same for nullish
 
-  expectType<
-    TypeEqual<S.Schema<string | undefined, string | null>, typeof schema>
-  >(true);
-  expectType<TypeEqual<typeof value1, string | undefined>>(true);
-  expectType<TypeEqual<typeof value2, string | undefined>>(true);
+  t.deepEqual(value1, "foo");
+  t.deepEqual(value2, null);
+
+  expectType<TypeEqual<S.Schema<string | null>, typeof schema>>(true);
+  expectType<TypeEqual<typeof value1, string | null>>(true);
+  expectType<TypeEqual<typeof value2, string | null>>(true);
 });
 
 test("Fails to parse with invalid data", (t) => {
@@ -377,7 +376,7 @@ test("Fails to parse with invalid data", (t) => {
     },
     {
       name: "RescriptSchemaError",
-      message: "Failed parsing at root. Reason: Expected string, received 123",
+      message: "Failed parsing at root. Reason: Must be string (was 123)",
     }
   );
 });
@@ -419,7 +418,7 @@ test("Fails to serialize never", (t) => {
     },
     {
       name: "RescriptSchemaError",
-      message: `Failed converting at root. Reason: Expected never, received "123"`,
+      message: `Failed converting at root. Reason: Must be never (was "123")`,
     }
   );
 });
@@ -1082,7 +1081,7 @@ test("Successfully parses intersected objects", (t) => {
   }
   t.is(
     result.error.message,
-    `Failed parsing at ["baz"]. Reason: Expected string, received undefined`
+    `Failed parsing at ["baz"]. Reason: Must be string (was undefined)`
   );
 
   const value = S.parseOrThrow(
@@ -1143,7 +1142,7 @@ test("Successfully parses intersected objects with transform", (t) => {
   }
   t.is(
     result.error.message,
-    `Failed parsing at ["baz"]. Reason: Expected string, received undefined`
+    `Failed parsing at ["baz"]. Reason: Must be string (was undefined)`
   );
 
   const value = S.parseOrThrow(
@@ -1718,7 +1717,7 @@ test("Standard schema", (t) => {
     issues: [
       {
         message:
-          "Failed parsing at root. Reason: Expected string | null, received undefined",
+          "Failed parsing at root. Reason: Must be string | null (was undefined)",
         path: undefined,
       },
     ],
@@ -1727,14 +1726,14 @@ test("Standard schema", (t) => {
     value: "foo",
   });
   t.deepEqual(schema["~standard"]["validate"](null), {
-    value: undefined,
+    value: null,
   });
 
   expectType<
     TypeEqual<StandardSchemaV1.InferInput<typeof schema>, string | null>
   >(true);
   expectType<
-    TypeEqual<StandardSchemaV1.InferOutput<typeof schema>, string | undefined>
+    TypeEqual<StandardSchemaV1.InferOutput<typeof schema>, string | null>
   >(true);
 });
 
@@ -1750,7 +1749,7 @@ test("Unnest schema", (t) => {
   const value = S.reverseConvertOrThrow(
     [
       { id: "0", name: "Hello", deleted: false },
-      { id: "1", name: undefined, deleted: true },
+      { id: "1", name: null, deleted: true },
     ],
     schema
   );
@@ -1768,7 +1767,7 @@ test("Unnest schema", (t) => {
       typeof schema,
       {
         id: string;
-        name: string | undefined;
+        name: string | null;
         deleted: boolean;
       }[],
       (string[] | boolean[] | (string | null)[])[]
@@ -1823,8 +1822,7 @@ test("Assert throws with invalid data", (t) => {
     },
     {
       name: "RescriptSchemaError",
-      message:
-        "Failed asserting at root. Reason: Expected string, received 123",
+      message: "Failed asserting at root. Reason: Must be string (was 123)",
     }
   );
 });
@@ -1932,7 +1930,10 @@ test("parseJsonStringOrThrow", async (t) => {
 });
 
 test("Compile types", async (t) => {
-  const schema = S.nullable(S.string);
+  const schema = S.union([
+    S.string,
+    S.coerce(S.schema(null), S.schema(undefined)),
+  ]);
 
   const fn1 = S.compile(schema, "Input", "Output", "Sync");
   expectType<

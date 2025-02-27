@@ -278,7 +278,7 @@ module Advanced = {
     t->U.assertRaised(() => data->S.parseOrThrow(schema), error)
     t->Assert.is(
       error->U.error->S.Error.message,
-      `Failed parsing at ["field"]. Reason: Expected { kind: "circle"; radius: number; } | { kind: "square"; x: number; } | { kind: "triangle"; x: number; y: number; }, received { "kind": "oval", "x": 2, "y": 3 }`,
+      `Failed parsing at ["field"]. Reason: Must be { kind: "circle"; radius: number; } | { kind: "square"; x: number; } | { kind: "triangle"; x: number; y: number; } (was {"kind": "oval", "x": 2, "y": 3})`,
       (),
     )
   })
@@ -329,7 +329,7 @@ module Advanced = {
 
     t->Assert.is(
       error->U.error->S.Error.message,
-      `Failed converting at root. Reason: Expected { TAG: "Circle"; radius: number; } | { TAG: "Square"; x: number; }, received { "TAG": "Triangle", "x": 2, "y": 3 }`,
+      `Failed converting at root. Reason: Must be { TAG: "Circle"; radius: number; } | { TAG: "Square"; x: number; } (was {"TAG": "Triangle", "x": 2, "y": 3})`,
       (),
     )
   })

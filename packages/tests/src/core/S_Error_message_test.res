@@ -55,7 +55,7 @@ test("InvalidType error", t => {
       operation: Parse,
       path: S.Path.empty,
     })->S.Error.message,
-    "Failed parsing at root. Reason: Expected string, received true",
+    "Failed parsing at root. Reason: Must be string (was true)",
     (),
   )
 })
@@ -79,7 +79,7 @@ test("InvalidType with literal error", t => {
       operation: Parse,
       path: S.Path.empty,
     })->S.Error.message,
-    "Failed parsing at root. Reason: Expected false, received true",
+    "Failed parsing at root. Reason: Must be false (was true)",
     (),
   )
 })
@@ -106,7 +106,7 @@ test("InvalidType error (replacement for InvalidTupleSize)", t => {
       operation: Parse,
       path: S.Path.empty,
     })->S.Error.message,
-    `Failed parsing at root. Reason: Expected [boolean, int32], received [1, 2, "foo"]`,
+    `Failed parsing at root. Reason: Must be [boolean, int32] (was [1, 2, "foo"])`,
     (),
   )
 })

@@ -1028,7 +1028,7 @@ The `S.unknown` schema represents any data.
 let schema = S.never
 
 %raw(`undefined`)->S.parseOrThrow(schema)
-// throws S.error with the message: `Failed parsing at root. Reason: Expected never, received undefined`
+// throws S.error with the message: `Failed parsing at root. Reason: Must be never (was undefined)`
 ```
 
 The `never` schema will fail parsing for every value.
@@ -1154,7 +1154,7 @@ let nullableSchema = innerSchema => {
 %raw(`undefined`)->S.parseOrThrow(schema)
 // None
 123->S.parseOrThrow(schema)
-// throws S.error with the message: `Failed parsing at root. Reason: Expected string, received 123`
+// throws S.error with the message: `Failed parsing at root. Reason: Must be string (was 123)`
 ```
 
 ### **`recursive`**
@@ -1451,7 +1451,7 @@ let reversed = schema->S.reverse
 // {"foo": "bar"}
 
 123->S.parseOrThrow(reversed)
-// throws S.error with the message: `Failed parsing at root. Reason: Expected string, received 123`
+// throws S.error with the message: `Failed parsing at root. Reason: Must be string (was 123)`
 ```
 
 Reverses the schema. This gets especially magical for schemas with transformations 🪄
@@ -1466,7 +1466,7 @@ This very powerful API allows you to coerce another data type in a declarative w
 let schema = S.string->S.coerce(S.float)
 
 "123"->S.parseOrThrow(schema) //? 123.
-"abc"->S.parseOrThrow(schema) //? throws: Failed parsing at root. Reason: Expected number, received "abc"
+"abc"->S.parseOrThrow(schema) //? throws: Failed parsing at root. Reason: Must be number (was "abc")
 
 // Reverse works correctly as well 🔥
 123.->S.reverseConvertOrThrow(schema) //? "123"
@@ -1559,7 +1559,7 @@ This can be useful to optimise `S.object` parsing when you construct the input d
 let schema = S.literal(false)
 
 true->S.parseOrThrow(schema)
-// throws S.error with the message: `Failed parsing at root. Reason: Expected false, received true`
+// throws S.error with the message: `Failed parsing at root. Reason: Must be false (was true)`
 ```
 
 If you want to handle the error, the best way to use `try/catch` block:
@@ -1595,7 +1595,7 @@ Throws error. Since internally it's both the `S.Raised` exception and instance o
 ```
 
 ```rescript
-"Failed parsing at root. Reason: Expected false, received true"
+"Failed parsing at root. Reason: Must be false (was true)"
 ```
 
 ### **`Error.reason`**

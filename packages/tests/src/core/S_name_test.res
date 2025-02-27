@@ -126,7 +126,7 @@ test("Name of renamed schema", t => {
       operation: Parse,
       code: InvalidType({expected: renamedSchema->S.toUnknown, received: "smth"->Obj.magic}),
     })->S.Error.message,
-    `Failed parsing at root. Reason: Expected Ethers.BigInt, received "smth"`,
+    `Failed parsing at root. Reason: Must be Ethers.BigInt (was "smth")`,
     (),
   )
   t->U.assertRaised(
