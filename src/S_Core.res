@@ -2095,14 +2095,6 @@ module Option = {
 //   }
 // }
 
-let nullish = schema => {
-  Union.factory([schema->toUnknown, Literal.null->fromInternal, unit->toUnknown])
-}
-
-let nullable = schema => {
-  Union.factory([schema->toUnknown, Literal.null->fromInternal])
-}
-
 module Array = {
   module Refinement = {
     type kind =
@@ -4448,7 +4440,17 @@ let rec coerce = (from, to) => {
     let extendCoercion = %raw(`0`)
     let shrinkCoercion = %raw(`1`)
 
+    let toConst = to.const
+    // Related https://github.com/rescript-lang/rescript/issues/7313
+    let hasToConst = to.const !== %raw(`void 0`) || to.tag === Undefined
+
     let coercion = switch (from->reverse, to) {
+    | ({const: _} | {tag: Undefined}, _) if hasToConst =>
+      (b, ~inputVar as _, ~failCoercion as _) => {
+        b->B.embedVal(toConst)
+        // FIXME: Test
+        // FIXME: Inline when possible
+      }
     | ({tag: String}, {tag: String, const: _}) => shrinkCoercion
     | ({tag: String}, {tag: String}) // FIXME: validate that refinements match
     | ({tag: Number, format: Int32}, {tag: Number, format: ?None}) => extendCoercion
@@ -4541,6 +4543,14 @@ let rec coerce = (from, to) => {
 
     mut->toStandard
   }
+}
+
+let nullish = schema => {
+  Union.factory([schema->toUnknown, Literal.null->fromInternal, unit->toUnknown])
+}
+
+let nullable = schema => {
+  Union.factory([schema->toUnknown, coerce(Literal.null->fromInternal, unit->toUnknown)])
 }
 
 // =============

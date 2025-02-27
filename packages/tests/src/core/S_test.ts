@@ -326,12 +326,12 @@ test("Successfully parses nullable string", (t) => {
   const value2 = S.parseOrThrow(null, schema);
 
   t.deepEqual(value1, "foo");
-  t.deepEqual(value2, null);
+  t.deepEqual(value2, undefined);
 
-  expectType<TypeEqual<S.Schema<string | null, string | null>, typeof schema>>(
-    true
-  );
-  expectType<TypeEqual<typeof value1, string | null>>(true);
+  expectType<
+    TypeEqual<S.Schema<string | undefined, string | null>, typeof schema>
+  >(true);
+  expectType<TypeEqual<typeof value1, string | undefined>>(true);
 });
 
 test("Successfully parses nullish string", (t) => {
@@ -360,11 +360,13 @@ test("Successfully parses schema wrapped in nullable multiple times", (t) => {
   t.is(schema, nullable); // TODO: Test the same for nullish
 
   t.deepEqual(value1, "foo");
-  t.deepEqual(value2, null);
+  t.deepEqual(value2, undefined);
 
-  expectType<TypeEqual<S.Schema<string | null>, typeof schema>>(true);
-  expectType<TypeEqual<typeof value1, string | null>>(true);
-  expectType<TypeEqual<typeof value2, string | null>>(true);
+  expectType<
+    TypeEqual<S.Schema<string | undefined, string | null>, typeof schema>
+  >(true);
+  expectType<TypeEqual<typeof value1, string | undefined>>(true);
+  expectType<TypeEqual<typeof value2, string | undefined>>(true);
 });
 
 test("Fails to parse with invalid data", (t) => {
@@ -1726,14 +1728,14 @@ test("Standard schema", (t) => {
     value: "foo",
   });
   t.deepEqual(schema["~standard"]["validate"](null), {
-    value: null,
+    value: undefined,
   });
 
   expectType<
     TypeEqual<StandardSchemaV1.InferInput<typeof schema>, string | null>
   >(true);
   expectType<
-    TypeEqual<StandardSchemaV1.InferOutput<typeof schema>, string | null>
+    TypeEqual<StandardSchemaV1.InferOutput<typeof schema>, string | undefined>
   >(true);
 });
 
@@ -1749,7 +1751,7 @@ test("Unnest schema", (t) => {
   const value = S.reverseConvertOrThrow(
     [
       { id: "0", name: "Hello", deleted: false },
-      { id: "1", name: null, deleted: true },
+      { id: "1", name: undefined, deleted: true },
     ],
     schema
   );
@@ -1767,7 +1769,7 @@ test("Unnest schema", (t) => {
       typeof schema,
       {
         id: string;
-        name: string | null;
+        name: string | undefined;
         deleted: boolean;
       }[],
       (string[] | boolean[] | (string | null)[])[]

@@ -1535,21 +1535,6 @@ function getOrWith(schema, defalutCb) {
             });
 }
 
-function nullish(schema) {
-  return factory([
-              schema,
-              $$null,
-              unit
-            ]);
-}
-
-function nullable(schema) {
-  return factory([
-              schema,
-              $$null
-            ]);
-}
-
 var metadataId = "metadata:rescript-schema:Array.refinements";
 
 function refinements(schema) {
@@ -2263,118 +2248,6 @@ function builder$2(parentB, input, selfSchema, path) {
   }
 }
 
-function definitionToSchema(definition) {
-  if (!(typeof definition === "object" && definition !== null)) {
-    return parse(definition);
-  }
-  if (definition["~standard"]) {
-    return definition;
-  }
-  if (Array.isArray(definition)) {
-    var reversedItems = [];
-    var isTransformed = false;
-    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
-      var schema = definitionToSchema(definition[idx]);
-      var reversed = reverse(schema);
-      var $$location = idx.toString();
-      var inlinedLocation = "\"" + $$location + "\"";
-      definition[idx] = {
-        schema: schema,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-      reversedItems[idx] = {
-        schema: reversed,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-      if (schema !== reversed) {
-        isTransformed = true;
-      }
-      
-    }
-    return {
-            type: "tuple",
-            items: definition,
-            n: name$3,
-            r: isTransformed ? (function () {
-                  return {
-                          type: "tuple",
-                          items: reversedItems,
-                          n: name$3,
-                          b: builder$2,
-                          f: typeFilter$3
-                        };
-                }) : undefined,
-            b: builder$2,
-            f: typeFilter$3
-          };
-  }
-  var fieldNames = Object.keys(definition);
-  var length = fieldNames.length;
-  var items = [];
-  for(var idx$1 = 0; idx$1 < length; ++idx$1){
-    var $$location$1 = fieldNames[idx$1];
-    var inlinedLocation$1 = fromString($$location$1);
-    var schema$1 = definitionToSchema(definition[$$location$1]);
-    var item = {
-      schema: schema$1,
-      location: $$location$1,
-      inlinedLocation: inlinedLocation$1
-    };
-    definition[$$location$1] = item;
-    items[idx$1] = item;
-  }
-  return {
-          type: "object",
-          unknownKeys: globalConfig.u,
-          items: items,
-          fields: definition,
-          n: name$2,
-          r: r$1,
-          b: builder$2,
-          f: typeFilter$2
-        };
-}
-
-function r$1() {
-  var items = this.items;
-  var reversedFields = {};
-  var reversedItems = [];
-  var isTransformed = false;
-  for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
-    var match = items[idx];
-    var $$location = match.location;
-    var schema = match.schema;
-    var reversed = reverse(schema);
-    var item_inlinedLocation = match.inlinedLocation;
-    var item = {
-      schema: reversed,
-      location: $$location,
-      inlinedLocation: item_inlinedLocation
-    };
-    reversedFields[$$location] = item;
-    reversedItems.push(item);
-    if (schema !== reversed) {
-      isTransformed = true;
-    }
-    
-  }
-  if (isTransformed) {
-    return {
-            type: "object",
-            unknownKeys: globalConfig.u,
-            items: reversedItems,
-            fields: reversedFields,
-            n: name$2,
-            b: builder$2,
-            f: typeFilter$2
-          };
-  } else {
-    return this;
-  }
-}
-
 function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
   if (!(typeof definition === "object" && definition !== null)) {
     return {
@@ -2458,6 +2331,118 @@ function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
         };
 }
 
+function r$1() {
+  var items = this.items;
+  var reversedFields = {};
+  var reversedItems = [];
+  var isTransformed = false;
+  for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
+    var match = items[idx];
+    var $$location = match.location;
+    var schema = match.schema;
+    var reversed = reverse(schema);
+    var item_inlinedLocation = match.inlinedLocation;
+    var item = {
+      schema: reversed,
+      location: $$location,
+      inlinedLocation: item_inlinedLocation
+    };
+    reversedFields[$$location] = item;
+    reversedItems.push(item);
+    if (schema !== reversed) {
+      isTransformed = true;
+    }
+    
+  }
+  if (isTransformed) {
+    return {
+            type: "object",
+            unknownKeys: globalConfig.u,
+            items: reversedItems,
+            fields: reversedFields,
+            n: name$2,
+            b: builder$2,
+            f: typeFilter$2
+          };
+  } else {
+    return this;
+  }
+}
+
+function definitionToSchema(definition) {
+  if (!(typeof definition === "object" && definition !== null)) {
+    return parse(definition);
+  }
+  if (definition["~standard"]) {
+    return definition;
+  }
+  if (Array.isArray(definition)) {
+    var reversedItems = [];
+    var isTransformed = false;
+    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
+      var schema = definitionToSchema(definition[idx]);
+      var reversed = reverse(schema);
+      var $$location = idx.toString();
+      var inlinedLocation = "\"" + $$location + "\"";
+      definition[idx] = {
+        schema: schema,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+      reversedItems[idx] = {
+        schema: reversed,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+      if (schema !== reversed) {
+        isTransformed = true;
+      }
+      
+    }
+    return {
+            type: "tuple",
+            items: definition,
+            n: name$3,
+            r: isTransformed ? (function () {
+                  return {
+                          type: "tuple",
+                          items: reversedItems,
+                          n: name$3,
+                          b: builder$2,
+                          f: typeFilter$3
+                        };
+                }) : undefined,
+            b: builder$2,
+            f: typeFilter$3
+          };
+  }
+  var fieldNames = Object.keys(definition);
+  var length = fieldNames.length;
+  var items = [];
+  for(var idx$1 = 0; idx$1 < length; ++idx$1){
+    var $$location$1 = fieldNames[idx$1];
+    var inlinedLocation$1 = fromString($$location$1);
+    var schema$1 = definitionToSchema(definition[$$location$1]);
+    var item = {
+      schema: schema$1,
+      location: $$location$1,
+      inlinedLocation: inlinedLocation$1
+    };
+    definition[$$location$1] = item;
+    items[idx$1] = item;
+  }
+  return {
+          type: "object",
+          unknownKeys: globalConfig.u,
+          items: items,
+          fields: definition,
+          n: name$2,
+          r: r$1,
+          b: builder$2,
+          f: typeFilter$2
+        };
+}
+
 function nested(fieldName) {
   var parentCtx = this;
   var cacheId = "~" + fieldName;
@@ -2537,68 +2522,6 @@ function nested(fieldName) {
   };
   parentCtx[cacheId] = ctx$1;
   return ctx$1;
-}
-
-function advancedBuilder(definition, flattened) {
-  return function (parentB, input, selfSchema, path) {
-    var isFlatten = parentB.g.o & 64;
-    var outputs = isFlatten ? input : ({});
-    var b = {
-      c: "",
-      l: "",
-      a: initialAllocate,
-      g: parentB.g
-    };
-    if (!isFlatten) {
-      var unknownKeys = selfSchema.unknownKeys;
-      var items = selfSchema.items;
-      var inputVar = input.v(b);
-      for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
-        var match = items[idx];
-        var inlinedLocation = match.inlinedLocation;
-        var schema = match.schema;
-        var itemPath = "[" + inlinedLocation + "]";
-        var itemInput = {
-          b: b,
-          v: _notVar,
-          i: inputVar + itemPath,
-          a: false
-        };
-        var path$1 = path + itemPath;
-        if (schema.f !== undefined && (
-            b.g.o & 1 ? !(schema.type === "undefined" || schema.const !== (void 0)) : schema.type === "undefined" || schema.const !== (void 0)
-          )) {
-          b.c = b.c + typeFilterCode(b, schema, itemInput, path$1);
-        }
-        outputs[inlinedLocation] = schema.b(b, itemInput, schema, path$1);
-      }
-      objectStrictModeCheck(b, input, items, unknownKeys, path);
-    }
-    if (flattened !== undefined) {
-      var prevFlag = b.g.o;
-      b.g.o = prevFlag | 64;
-      for(var idx$1 = 0 ,idx_finish$1 = flattened.length; idx$1 < idx_finish$1; ++idx$1){
-        var item = flattened[idx$1];
-        var schema$1 = item.schema;
-        outputs[item.i] = schema$1.b(b, outputs, schema$1, path);
-      }
-      b.g.o = prevFlag;
-    }
-    var getItemOutput = function (item) {
-      switch (item.k) {
-        case 0 :
-            return outputs[item.inlinedLocation];
-        case 1 :
-            return get(b, getItemOutput(item.of), item.inlinedLocation);
-        case 2 :
-            return outputs[item.i];
-        
-      }
-    };
-    var output = definitionToOutput(b, definition, getItemOutput);
-    parentB.c = parentB.c + allocateScope(b);
-    return output;
-  };
 }
 
 function advancedReverse(definition, to, flattened) {
@@ -2729,6 +2652,68 @@ function advancedReverse(definition, to, flattened) {
         return complete(objectVal, isArray);
       });
     return mut;
+  };
+}
+
+function advancedBuilder(definition, flattened) {
+  return function (parentB, input, selfSchema, path) {
+    var isFlatten = parentB.g.o & 64;
+    var outputs = isFlatten ? input : ({});
+    var b = {
+      c: "",
+      l: "",
+      a: initialAllocate,
+      g: parentB.g
+    };
+    if (!isFlatten) {
+      var unknownKeys = selfSchema.unknownKeys;
+      var items = selfSchema.items;
+      var inputVar = input.v(b);
+      for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
+        var match = items[idx];
+        var inlinedLocation = match.inlinedLocation;
+        var schema = match.schema;
+        var itemPath = "[" + inlinedLocation + "]";
+        var itemInput = {
+          b: b,
+          v: _notVar,
+          i: inputVar + itemPath,
+          a: false
+        };
+        var path$1 = path + itemPath;
+        if (schema.f !== undefined && (
+            b.g.o & 1 ? !(schema.type === "undefined" || schema.const !== (void 0)) : schema.type === "undefined" || schema.const !== (void 0)
+          )) {
+          b.c = b.c + typeFilterCode(b, schema, itemInput, path$1);
+        }
+        outputs[inlinedLocation] = schema.b(b, itemInput, schema, path$1);
+      }
+      objectStrictModeCheck(b, input, items, unknownKeys, path);
+    }
+    if (flattened !== undefined) {
+      var prevFlag = b.g.o;
+      b.g.o = prevFlag | 64;
+      for(var idx$1 = 0 ,idx_finish$1 = flattened.length; idx$1 < idx_finish$1; ++idx$1){
+        var item = flattened[idx$1];
+        var schema$1 = item.schema;
+        outputs[item.i] = schema$1.b(b, outputs, schema$1, path);
+      }
+      b.g.o = prevFlag;
+    }
+    var getItemOutput = function (item) {
+      switch (item.k) {
+        case 0 :
+            return outputs[item.inlinedLocation];
+        case 1 :
+            return get(b, getItemOutput(item.of), item.inlinedLocation);
+        case 2 :
+            return outputs[item.i];
+        
+      }
+    };
+    var output = definitionToOutput(b, definition, getItemOutput);
+    parentB.c = parentB.c + allocateScope(b);
+    return output;
   };
 }
 
@@ -3325,156 +3310,183 @@ function coerce(from, to) {
   }
   var extendCoercion = 0;
   var shrinkCoercion = 1;
+  var toConst = to.const;
+  var hasToConst = to.const !== (void 0) || to.type === "undefined";
   var match = reverse(from);
-  var match$1 = match.type;
   var coercion;
   var exit = 0;
   var exit$1 = 0;
-  switch (match$1) {
-    case "string" :
-        var match$2 = to.type;
-        var exit$2 = 0;
-        switch (match$2) {
-          case "string" :
-              var match$3 = to.const;
-              coercion = match$3 !== undefined ? shrinkCoercion : extendCoercion;
-              break;
-          case "number" :
-          case "bigint" :
-          case "boolean" :
-          case "null" :
-          case "undefined" :
-          case "nan" :
-              exit$2 = 3;
-              break;
-          default:
-            exit = 1;
-        }
-        if (exit$2 === 3) {
-          var $$const = to.const;
-          if ($$const !== undefined) {
-            coercion = (function (b, inputVar, failCoercion) {
-                b.c = b.c + (inputVar + "===\"" + $$const + "\"||" + failCoercion + ";");
-                var tmp;
-                switch (to.type) {
-                  case "string" :
-                      var $$const$1 = to.const;
-                      tmp = $$const$1 !== undefined ? fromString($$const$1) : to.const;
-                      break;
-                  case "bigint" :
-                      var $$const$2 = to.const;
-                      tmp = $$const$2 !== undefined ? $$const$2 + "n" : to.const;
-                      break;
-                  default:
-                    tmp = to.const;
-                }
-                return {
-                        b: b,
-                        v: _notVar,
-                        i: tmp,
-                        a: false
-                      };
-              });
-          } else {
-            switch (match$2) {
-              case "number" :
-                  var format = to.format;
-                  coercion = (function (b, inputVar, failCoercion) {
-                      var output = {
-                        b: b,
-                        v: _notVar,
-                        i: "+" + inputVar,
-                        a: false
-                      };
-                      b.c = b.c + ("Number.isNaN(" + output.v(b) + ")" + (
-                          format !== undefined ? "||" + refinement(inputVar) : ""
-                        ) + "&&" + failCoercion + ";");
-                      return output;
-                    });
-                  break;
-              case "bigint" :
-                  coercion = (function (b, inputVar, failCoercion) {
-                      var output = allocateVal(b);
-                      b.c = b.c + ("try{" + output.i + "=BigInt(" + inputVar + ")}catch(_){" + failCoercion + "}");
-                      return output;
-                    });
-                  break;
-              case "boolean" :
-                  coercion = (function (b, inputVar, failCoercion) {
-                      var output = allocateVal(b);
-                      b.c = b.c + ("(" + output.i + "=" + inputVar + "===\"true\")||" + inputVar + "===\"false\"||" + failCoercion + ";");
-                      return output;
-                    });
-                  break;
-              default:
-                exit = 1;
-            }
-          }
-        }
-        break;
-    case "number" :
-        if (match.format !== undefined && to.type === "number" && to.format === undefined) {
-          coercion = extendCoercion;
-        } else {
-          exit$1 = 2;
-        }
-        break;
-    case "bigint" :
-    case "boolean" :
-    case "null" :
-    case "undefined" :
-    case "nan" :
-        exit$1 = 2;
-        break;
-    default:
-      exit = 1;
+  var match$1 = match.const;
+  if (match$1 !== undefined || match.type === "undefined") {
+    exit$1 = 2;
+  } else {
+    exit = 1;
   }
   if (exit$1 === 2) {
-    var $$const$1 = match.const;
-    if ($$const$1 !== undefined) {
-      if (to.type === "string") {
-        coercion = (function (b, param, param$1) {
-            return {
-                    b: b,
-                    v: _notVar,
-                    i: $$const$1,
-                    a: false
-                  };
-          });
-      } else {
-        exit = 1;
-      }
+    if (hasToConst) {
+      coercion = (function (b, param, param$1) {
+          return {
+                  b: b,
+                  v: _var,
+                  i: embed(b, toConst),
+                  a: false
+                };
+        });
     } else {
-      var exit$3 = 0;
-      switch (match$1) {
-        case "number" :
-        case "bigint" :
-        case "boolean" :
+      exit = 1;
+    }
+  }
+  if (exit === 1) {
+    var match$2 = match.type;
+    var exit$2 = 0;
+    var exit$3 = 0;
+    switch (match$2) {
+      case "string" :
+          var match$3 = to.type;
+          var exit$4 = 0;
+          switch (match$3) {
+            case "string" :
+                var match$4 = to.const;
+                coercion = match$4 !== undefined ? shrinkCoercion : extendCoercion;
+                break;
+            case "number" :
+            case "bigint" :
+            case "boolean" :
+            case "null" :
+            case "undefined" :
+            case "nan" :
+                exit$4 = 4;
+                break;
+            default:
+              exit$2 = 2;
+          }
+          if (exit$4 === 4) {
+            var $$const = to.const;
+            if ($$const !== undefined) {
+              coercion = (function (b, inputVar, failCoercion) {
+                  b.c = b.c + (inputVar + "===\"" + $$const + "\"||" + failCoercion + ";");
+                  var tmp;
+                  switch (to.type) {
+                    case "string" :
+                        var $$const$1 = to.const;
+                        tmp = $$const$1 !== undefined ? fromString($$const$1) : to.const;
+                        break;
+                    case "bigint" :
+                        var $$const$2 = to.const;
+                        tmp = $$const$2 !== undefined ? $$const$2 + "n" : to.const;
+                        break;
+                    default:
+                      tmp = to.const;
+                  }
+                  return {
+                          b: b,
+                          v: _notVar,
+                          i: tmp,
+                          a: false
+                        };
+                });
+            } else {
+              switch (match$3) {
+                case "number" :
+                    var format = to.format;
+                    coercion = (function (b, inputVar, failCoercion) {
+                        var output = {
+                          b: b,
+                          v: _notVar,
+                          i: "+" + inputVar,
+                          a: false
+                        };
+                        b.c = b.c + ("Number.isNaN(" + output.v(b) + ")" + (
+                            format !== undefined ? "||" + refinement(inputVar) : ""
+                          ) + "&&" + failCoercion + ";");
+                        return output;
+                      });
+                    break;
+                case "bigint" :
+                    coercion = (function (b, inputVar, failCoercion) {
+                        var output = allocateVal(b);
+                        b.c = b.c + ("try{" + output.i + "=BigInt(" + inputVar + ")}catch(_){" + failCoercion + "}");
+                        return output;
+                      });
+                    break;
+                case "boolean" :
+                    coercion = (function (b, inputVar, failCoercion) {
+                        var output = allocateVal(b);
+                        b.c = b.c + ("(" + output.i + "=" + inputVar + "===\"true\")||" + inputVar + "===\"false\"||" + failCoercion + ";");
+                        return output;
+                      });
+                    break;
+                default:
+                  exit$2 = 2;
+              }
+            }
+          }
+          break;
+      case "number" :
+          if (match.format !== undefined && to.type === "number" && to.format === undefined) {
+            coercion = extendCoercion;
+          } else {
             exit$3 = 3;
-            break;
-        default:
-          exit = 1;
-      }
-      if (exit$3 === 3) {
+          }
+          break;
+      case "bigint" :
+      case "boolean" :
+      case "null" :
+      case "undefined" :
+      case "nan" :
+          exit$3 = 3;
+          break;
+      default:
+        exit$2 = 2;
+    }
+    if (exit$3 === 3) {
+      var $$const$1 = match.const;
+      if ($$const$1 !== undefined) {
         if (to.type === "string") {
-          coercion = (function (b, inputVar, param) {
+          coercion = (function (b, param, param$1) {
               return {
                       b: b,
                       v: _notVar,
-                      i: "\"\"+" + inputVar,
+                      i: $$const$1,
                       a: false
                     };
             });
         } else {
-          exit = 1;
+          exit$2 = 2;
         }
+      } else {
+        var exit$5 = 0;
+        switch (match$2) {
+          case "number" :
+          case "bigint" :
+          case "boolean" :
+              exit$5 = 4;
+              break;
+          default:
+            exit$2 = 2;
+        }
+        if (exit$5 === 4) {
+          if (to.type === "string") {
+            coercion = (function (b, inputVar, param) {
+                return {
+                        b: b,
+                        v: _notVar,
+                        i: "\"\"+" + inputVar,
+                        a: false
+                      };
+              });
+          } else {
+            exit$2 = 2;
+          }
+        }
+        
       }
-      
     }
-  }
-  if (exit === 1) {
-    var message = "S.coerce from " + reverse(from).n() + " to " + to.n() + " is not supported";
-    throw new Error("[" + vendor + "] " + message);
+    if (exit$2 === 2) {
+      var message = "S.coerce from " + reverse(from).n() + " to " + to.n() + " is not supported";
+      throw new Error("[" + vendor + "] " + message);
+    }
+    
   }
   var mut = copy(from);
   mut.b = (function (b, input, param, path) {
@@ -3508,6 +3520,21 @@ function coerce(from, to) {
     });
   mixingMetadata(mut, to);
   return toStandard(mut);
+}
+
+function nullish(schema) {
+  return factory([
+              schema,
+              $$null,
+              unit
+            ]);
+}
+
+function nullable(schema) {
+  return factory([
+              schema,
+              coerce($$null, unit)
+            ]);
 }
 
 function js_union(values) {

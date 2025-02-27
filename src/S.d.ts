@@ -194,7 +194,7 @@ export function optional<Output, Input>(
 
 export const nullable: <Output, Input>(
   schema: Schema<Output, Input>
-) => Schema<Output | null, Input | null>;
+) => Schema<Output | undefined, Input | null>;
 
 export const nullish: <Output, Input>(
   schema: Schema<Output, Input>

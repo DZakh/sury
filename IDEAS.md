@@ -12,7 +12,9 @@
 - Removed `literal` type and `Literal` module, since it's now a part of the schema type variant
 - Removed `S.undefined` for TS API in favor of `S.schema(undefined)`
 - (rescript) Renamed `S.nullable` to `S.nullish` to match js api
-- (js/ts) `S.nullable` and `S.nullish` don't transform `null` to undefined anymore FIXME: Do it only for `S.nullish` keep the transformation logic for `S.nullable`
+- (js/ts) Don't transform `null` to `undefined` for `S.nullish`
+- Updated error massage to look more like ArkType
+- Support coerce from any literal to another literal
 
 ### Scope
 
