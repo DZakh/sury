@@ -64,7 +64,7 @@ and errorCode =
   | UnexpectedAsync
   | InvalidJsonSchema(schema<unknown>)
 and flag
-and unknownKeys = Strip | Strict
+and unknownKeys = | @as("strip") Strip | @as("strict") Strict
 
 type exn += private Raised(error)
 

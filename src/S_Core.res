@@ -225,7 +225,7 @@ let vendor = "rescript-schema"
 let symbol = Stdlib.Symbol.make(vendor)
 let itemSymbol = Stdlib.Symbol.make("item")
 
-type unknownKeys = Strip | Strict
+type unknownKeys = | @as("strip") Strip | @as("strict") Strict
 
 type typeTag =
   | @as("string") String
@@ -288,7 +288,7 @@ and optional = {
 }
 and internal = {
   @as("type")
-  tag: typeTag,
+  mutable tag: typeTag,
   mutable const?: char, // use char to avoid Caml_option.some
   optional?: optional,
   item?: internal,
@@ -502,6 +502,13 @@ let mixingMetadata: (internal, ~from: internal) => unit = %raw(`(schema, from) =
   for (let k in from) {
     if (k[0] === "m") {
       schema[k] = from[k]
+    }
+  }
+}`)
+let mergeInPlace: (internal, internal) => unit = %raw(`(target, schema) => {
+  for (let k in schema) {
+    if (k > "a") {
+      target[k] = schema[k]
     }
   }
 }`)
@@ -1551,28 +1558,30 @@ let recursive = fn => {
   let r = "r" ++ globalConfig.recCounter->Stdlib.Int.unsafeToString
   globalConfig.recCounter = globalConfig.recCounter + 1
 
+  let builder = Builder.make((b, ~input, ~selfSchema as _, ~path as _) => {
+    b->B.transform(~input, (_b, ~input) => {
+      B.Val.map(r, input)
+    })
+  })
+  let reverse = () => {
+    tag: Unknown,
+    name: primitiveName,
+    builder: Builder.make((_b, ~input, ~selfSchema as _, ~path as _) => {
+      B.Val.map(r, input)
+    }),
+  }
+
   let placeholder: internal = {
     tag: Unknown, // FIXME: Use recursive
     name: () => "<recursive>",
-    // builder
-    builder: Builder.make((b, ~input, ~selfSchema as _, ~path as _) => {
-      b->B.transform(~input, (_b, ~input) => {
-        B.Val.map(r, input)
-      })
-    }),
-    reverse: () => {
-      tag: Unknown,
-      name: primitiveName,
-      builder: Builder.make((_b, ~input, ~selfSchema as _, ~path as _) => {
-        B.Val.map(r, input)
-      }),
-    },
+    builder,
+    reverse,
   }
   let schema = fn(placeholder->fromInternal)->toInternal
 
-  // typeFilter
-  (placeholder->Obj.magic)["f"] = schema.typeFilter
-  (placeholder->Obj.magic)["type"] = schema.tag
+  mergeInPlace(placeholder, schema)
+  placeholder.builder = builder
+  placeholder.reverse = Some(reverse)
 
   let initialParseOperationBuilder = schema.builder
   schema.builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
@@ -1612,6 +1621,8 @@ let recursive = fn => {
     () => {
       let initialReversed = initialReverse()
       let mut = initialReversed->copy
+      mut.reverse = schema->Obj.magic
+      schema.reverse = mut->Obj.magic
       mut.builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
         let inputVar = b->B.Val.var(input)
         let bb = b->B.scope
@@ -3480,7 +3491,7 @@ module Schema = {
         unknownKeys: globalConfig.defaultUnknownKeys,
         advanced: true,
         typeFilter: Object.typeFilter,
-        builder,
+        builder: advancedBuilder(~definition, ~flattened),
         reverse: advancedReverse(~definition, ~flattened),
       }->toStandard
     }

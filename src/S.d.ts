@@ -391,7 +391,7 @@ export const trim: <Input>(
   schema: Schema<string, Input>
 ) => Schema<string, Input>;
 
-export type UnknownKeys = "Strip" | "Strict";
+export type UnknownKeys = "strip" | "strict";
 
 export type GlobalConfigOverride = {
   defaultUnknownKeys?: UnknownKeys;

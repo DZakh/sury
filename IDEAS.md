@@ -15,6 +15,7 @@
 - (js/ts) Don't transform `null` to `undefined` for `S.nullish`
 - Updated error massage to look more like ArkType
 - Support coerce from any literal to another literal
+- Unknown keys union changed to lower case
 
 ### Scope
 

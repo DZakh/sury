@@ -958,7 +958,7 @@ test("Fails to parse deep strict object with exccess fields", (t) => {
 
 test("Fails to parse strict object with exccess fields which created using global config override", (t) => {
   S.setGlobalConfig({
-    defaultUnknownKeys: "Strict",
+    defaultUnknownKeys: "strict",
   });
   const schema = S.schema({
     foo: S.string,
@@ -1929,6 +1929,25 @@ test("parseJsonStringOrThrow", async (t) => {
 
   t.deepEqual(S.parseJsonStringOrThrow(`"hello"`, schema), "hello");
   t.deepEqual(S.parseJsonStringOrThrow("null", schema), undefined);
+});
+
+test("ArkType pattern matching", async (t) => {
+  const schema = S.recursive((self) =>
+    S.union([
+      S.coerce(S.bigint, S.string),
+      S.string,
+      S.number,
+      S.boolean,
+      null,
+      S.record(self),
+    ])
+  );
+
+  t.deepEqual(S.parseOrThrow(`foo`, schema), "foo");
+  t.deepEqual(S.parseOrThrow(5n, schema), "5");
+  t.deepEqual(S.parseOrThrow({ nested: 5n }, schema), { nested: "5" });
+  t.deepEqual(S.reverseConvertOrThrow("5", schema), 5n);
+  t.deepEqual(S.reverseConvertOrThrow("foo", schema), "foo");
 });
 
 test("Compile types", async (t) => {

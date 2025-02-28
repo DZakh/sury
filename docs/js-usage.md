@@ -364,7 +364,7 @@ If you want to change it for all schemas in your app, you can use `S.setGlobalCo
 
 ```ts
 S.setGlobalConfig({
-  defaultUnknownKeys: "Strict",
+  defaultUnknownKeys: "strict",
 });
 ```
 
@@ -950,11 +950,11 @@ As you can notice, you can have more logic inside of the safe function callback 
 
 ### `defaultUnknownKeys`
 
-`defaultUnknownKeys` is an option that controls how unknown keys are handled when parsing objects. The default value is `Strip`, but you can globally change it to `Strict` to enforce strict object parsing.
+`defaultUnknownKeys` is an option that controls how unknown keys are handled when parsing objects. The default value is `strip`, but you can globally change it to `strict` to enforce strict object parsing.
 
 ```rescript
 S.setGlobalConfig({
-  defaultUnknownKeys: "Strict",
+  defaultUnknownKeys: "strict",
 })
 ```
 
