@@ -104,6 +104,8 @@ var isAsync = S_Core$RescriptSchema.isAsync;
 
 var recursive = S_Core$RescriptSchema.recursive;
 
+var name = S_Core$RescriptSchema.name;
+
 var setName = S_Core$RescriptSchema.setName;
 
 var removeTypeValidation = S_Core$RescriptSchema.removeTypeValidation;
@@ -240,6 +242,7 @@ export {
   assertOrThrow ,
   isAsync ,
   recursive ,
+  name ,
   setName ,
   removeTypeValidation ,
   Schema ,

@@ -522,13 +522,12 @@ function compile(builder, schema, flag) {
   var tmp = false;
   if (flag & 8) {
     var match = reverse(schema);
-    var match$1 = match.type;
     var tmp$1;
     var exit = 0;
-    var match$2 = match.optional;
-    if (match$2 !== undefined) {
-      var match$3 = match$2.hasUndefined;
-      if (match$3 !== undefined && match$3) {
+    var match$1 = match.optional;
+    if (match$1 !== undefined) {
+      var match$2 = match$1.hasUndefined;
+      if (match$2 !== undefined && match$2) {
         tmp$1 = true;
       } else {
         exit = 1;
@@ -537,7 +536,7 @@ function compile(builder, schema, flag) {
       exit = 1;
     }
     if (exit === 1) {
-      tmp$1 = match$1 === "undefined" ? true : false;
+      tmp$1 = match.type === "undefined" ? true : false;
     }
     tmp = tmp$1;
   }
@@ -647,10 +646,6 @@ function item(factory, item$1) {
   };
 }
 
-function primitiveName() {
-  return this.type;
-}
-
 function parseOrThrow(any, schema) {
   return operationFn(schema, 1)(any);
 }
@@ -706,23 +701,10 @@ function assertOrThrow(any, schema) {
   return operationFn(schema, 5)(any);
 }
 
-var $$class = RescriptSchemaError;
-
-function make$1(prim0, prim1, prim2) {
-  return new RescriptSchemaError(prim0, prim1, prim2);
-}
-
-function raise$1(error) {
-  throw error;
-}
-
-function was(unknown) {
+function stringify(unknown) {
   var typeOfValue = typeof unknown;
-  if (typeOfValue === "function" || typeOfValue === "symbol") {
+  if (typeOfValue === "number" || typeOfValue === "function" || typeOfValue === "boolean" || typeOfValue === "symbol") {
     return unknown.toString();
-  }
-  if (typeOfValue === "boolean") {
-    return unknown;
   }
   if (typeOfValue === "string") {
     return "\"" + unknown + "\"";
@@ -730,12 +712,6 @@ function was(unknown) {
   if (typeOfValue !== "object") {
     if (typeOfValue === "undefined") {
       return "undefined";
-    } else if (typeOfValue === "number") {
-      if (Number.isNaN(unknown)) {
-        return "NaN";
-      } else {
-        return unknown;
-      }
     } else {
       return unknown + "n";
     }
@@ -749,7 +725,7 @@ function was(unknown) {
       if (i !== 0) {
         string = string + ", ";
       }
-      string = string + was(unknown[i]);
+      string = string + stringify(unknown[i]);
     }
     return string + "]";
   }
@@ -764,9 +740,63 @@ function was(unknown) {
     if (i$1 !== 0) {
       string$1 = string$1 + ", ";
     }
-    string$1 = string$1 + "\"" + key + "\": " + was(value);
+    string$1 = string$1 + "\"" + key + "\": " + stringify(value);
   }
   return string$1 + "}";
+}
+
+function name(schema) {
+  var tag = schema.type;
+  var $$const = schema.const;
+  var name$1 = schema.name;
+  if (name$1 !== undefined) {
+    return name$1;
+  }
+  if ($$const !== undefined) {
+    return stringify($$const);
+  }
+  var item = schema.item;
+  var format = schema.format;
+  var anyOf = schema.anyOf;
+  if (anyOf !== undefined) {
+    return anyOf.map(name).join(" | ");
+  }
+  if (format !== undefined) {
+    return format;
+  }
+  if (item !== undefined) {
+    return tag + "<" + name(item) + ">";
+  }
+  switch (tag) {
+    case "nan" :
+        return "NaN";
+    case "tuple" :
+        var items = schema.items;
+        return "[" + items.map(function (item) {
+                      return name(item.schema);
+                    }).join(", ") + "]";
+    case "object" :
+        var items$1 = schema.items;
+        if (items$1.length === 0) {
+          return "{}";
+        } else {
+          return "{ " + items$1.map(function (item) {
+                        return item.location + ": " + name(item.schema) + ";";
+                      }).join(" ") + " }";
+        }
+    default:
+      return tag;
+  }
+}
+
+var $$class = RescriptSchemaError;
+
+function make$1(prim0, prim1, prim2) {
+  return new RescriptSchemaError(prim0, prim1, prim2);
+}
+
+function raise$1(error) {
+  throw error;
 }
 
 function reason(error, nestedLevelOpt) {
@@ -781,7 +811,7 @@ function reason(error, nestedLevelOpt) {
     case "InvalidOperation" :
         return reason$1.description;
     case "InvalidType" :
-        return "Must be " + reason$1.expected.n() + " (was " + was(reason$1.received) + ")";
+        return "Must be " + name(reason$1.expected) + " (was " + stringify(reason$1.received) + ")";
     case "ExcessField" :
         return "Encountered disallowed excess key " + fromString(reason$1._0) + " on an object";
     case "InvalidUnion" :
@@ -796,7 +826,7 @@ function reason(error, nestedLevelOpt) {
         var uniqueReasons = Object.keys(reasonsDict);
         return "Invalid union with following errors" + lineBreak + uniqueReasons.join(lineBreak);
     case "InvalidJsonSchema" :
-        return "The '" + reason$1._0.n() + "' schema cannot be converted to JSON";
+        return "The '" + name(reason$1._0) + "' schema cannot be converted to JSON";
     
   }
 }
@@ -852,9 +882,8 @@ function toStandard(schema) {
 
 function inlinedTypeFilter(_b, inputVar) {
   var schema = this;
-  var match = schema.type;
   var tmp;
-  switch (match) {
+  switch (schema.type) {
     case "string" :
         var $$const = schema.const;
         tmp = $$const !== undefined ? fromString($$const) : schema.const;
@@ -875,7 +904,6 @@ function strictEqualTypeFilter(b, inputVar) {
 
 var $$undefined = {
   type: "undefined",
-  n: primitiveName,
   b: invalidJson,
   f: inlinedTypeFilter
 };
@@ -883,16 +911,12 @@ var $$undefined = {
 var $$null = {
   type: "null",
   const: null,
-  n: primitiveName,
   b: noop,
   f: inlinedTypeFilter
 };
 
 var nan = {
   type: "nan",
-  n: (function () {
-      return "NaN";
-    }),
   b: invalidJson,
   f: (function (_b, inputVar) {
       return "!Number.isNaN(" + inputVar + ")";
@@ -902,7 +926,6 @@ var nan = {
 function jsonable(tag) {
   return {
           type: tag,
-          n: primitiveName,
           b: noop,
           f: inlinedTypeFilter
         };
@@ -911,7 +934,6 @@ function jsonable(tag) {
 function nonJsonable(tag) {
   return {
           type: tag,
-          n: primitiveName,
           b: invalidJson,
           f: strictEqualTypeFilter
         };
@@ -1029,7 +1051,6 @@ function recursive(fn) {
   var reverse = function () {
     return {
             type: "unknown",
-            n: primitiveName,
             b: (function (_b, input, param, param$1) {
                 return map(r, input);
               })
@@ -1037,9 +1058,6 @@ function recursive(fn) {
   };
   var placeholder = {
     type: "unknown",
-    n: (function () {
-        return "<recursive>";
-      }),
     r: reverse,
     b: builder
   };
@@ -1110,9 +1128,7 @@ function recursive(fn) {
 
 function setName(schema, name) {
   var mut = copy(schema);
-  mut.n = (function () {
-      return name;
-    });
+  mut.name = name;
   return toStandard(mut);
 }
 
@@ -1189,7 +1205,6 @@ function transform$1(schema, transformer) {
       var schema$1 = reverse(schema);
       return {
               type: "unknown",
-              n: primitiveName,
               b: (function (b, input, selfSchema, path) {
                   var match = transformer(effectCtx(b, selfSchema, path));
                   var serializer = match.s;
@@ -1211,15 +1226,11 @@ function transform$1(schema, transformer) {
 function custom(name, definer) {
   return toStandard({
               type: "unknown",
-              n: (function () {
-                  return name;
-                }),
+              name: name,
               r: (function () {
                   return {
                           type: "unknown",
-                          n: (function () {
-                              return name;
-                            }),
+                          name: name,
                           b: (function (b, input, selfSchema, path) {
                               registerInvalidJson(b, selfSchema, path);
                               var match = definer(effectCtx(b, selfSchema, path));
@@ -1261,7 +1272,6 @@ var unit = toStandard($$undefined);
 
 var unknown = toStandard({
       type: "unknown",
-      n: primitiveName,
       b: invalidJson
     });
 
@@ -1278,7 +1288,6 @@ function builder(b, input, selfSchema, path) {
 
 var schema = toStandard({
       type: "never",
-      n: primitiveName,
       b: builder
     });
 
@@ -1384,12 +1393,6 @@ function builder$1(b, input, selfSchema, path) {
   }
 }
 
-function name() {
-  return this.anyOf.map(function (s) {
-                return s.n();
-              }).join(" | ");
-}
-
 function factory(schemas) {
   var len = schemas.length;
   var tmp;
@@ -1398,7 +1401,6 @@ function factory(schemas) {
       tmp = {
         type: "union",
         anyOf: schemas,
-        n: name,
         r: r,
         b: builder$1
       };
@@ -1501,7 +1503,6 @@ function factory$1(item$1) {
                 item$1,
                 unit
               ],
-              n: name,
               r: item(factory$1, item$1),
               b: makeBuilder(false, false),
               f: typeFilter(item$1, "void 0")
@@ -1565,15 +1566,10 @@ function typeFilter$1(_b, inputVar) {
   return "!Array.isArray(" + inputVar + ")";
 }
 
-function name$1() {
-  return "array<" + this.item.n() + ">";
-}
-
 function factory$2(item$1) {
   return toStandard({
               type: "array",
               item: item$1,
-              n: name$1,
               r: item(factory$2, item$1),
               b: (function (b, input, param, path) {
                   var inputVar = input.v(b);
@@ -1639,17 +1635,6 @@ function typeFilter$2(b, inputVar) {
   return code;
 }
 
-function name$2() {
-  var items = this.items;
-  if (items.length === 0) {
-    return "{}";
-  } else {
-    return "{ " + items.map(function (item) {
-                  return item.location + ": " + item.schema.n() + ";";
-                }).join(" ") + " }";
-  }
-}
-
 function setUnknownKeys(schema, unknownKeys, deep) {
   var schemaUnknownKeys = schema.unknownKeys;
   if (schemaUnknownKeys === undefined) {
@@ -1697,12 +1682,6 @@ function deepStrict(schema) {
   return setUnknownKeys(schema, "strict", true);
 }
 
-function name$3() {
-  return "[" + this.items.map(function (item) {
-                return item.schema.n();
-              }).join(", ") + "]";
-}
-
 function typeFilter$3(b, inputVar) {
   var items = this.items;
   var length = items.length;
@@ -1726,9 +1705,6 @@ function factory$3(item$1) {
   return toStandard({
               type: "dict",
               item: item$1,
-              n: (function () {
-                  return "dict<" + item$1.n() + ">";
-                }),
               r: item(factory$3, item$1),
               b: (function (b, input, param, path) {
                   var inputVar = input.v(b);
@@ -1805,7 +1781,6 @@ function typeFilter$5(_b, inputVar) {
 
 var schema$1 = toStandard({
       type: "string",
-      n: primitiveName,
       b: noop,
       f: typeFilter$5
     });
@@ -1815,20 +1790,18 @@ function factory$4(item, spaceOpt) {
   return toStandard({
               type: "string",
               item: item,
-              n: primitiveName,
               r: (function () {
                   var reversed = reverse(item);
                   var mut = copy(reversed);
                   mut.b = (function (b, input, param, path) {
                       var prevFlag = b.g.o;
                       b.g.o = prevFlag | 8;
-                      var match = reversed.type;
                       var tmp;
                       var exit = 0;
-                      var match$1 = reversed.optional;
-                      if (match$1 !== undefined) {
-                        var match$2 = match$1.hasUndefined;
-                        if (match$2 !== undefined && match$2) {
+                      var match = reversed.optional;
+                      if (match !== undefined) {
+                        var match$1 = match.hasUndefined;
+                        if (match$1 !== undefined && match$1) {
                           tmp = true;
                         } else {
                           exit = 1;
@@ -1837,7 +1810,7 @@ function factory$4(item, spaceOpt) {
                         exit = 1;
                       }
                       if (exit === 1) {
-                        tmp = match === "undefined" ? true : false;
+                        tmp = reversed.type === "undefined" ? true : false;
                       }
                       if (tmp) {
                         raise(b, {
@@ -1878,7 +1851,6 @@ function typeFilter$6(_b, inputVar) {
 
 var schema$2 = toStandard({
       type: "boolean",
-      n: primitiveName,
       b: noop,
       f: typeFilter$6
     });
@@ -1905,7 +1877,6 @@ function typeFilter$7(_b, inputVar) {
 var schema$3 = toStandard({
       type: "number",
       format: "int32",
-      n: primitiveName,
       b: noop,
       f: typeFilter$7
     });
@@ -1929,7 +1900,6 @@ function typeFilter$8(_b, inputVar) {
 
 var schema$4 = toStandard({
       type: "number",
-      n: primitiveName,
       b: noop,
       f: typeFilter$8
     });
@@ -1940,7 +1910,6 @@ function typeFilter$9(_b, inputVar) {
 
 var schema$5 = toStandard({
       type: "bigint",
-      n: primitiveName,
       b: invalidJson,
       f: typeFilter$9
     });
@@ -2004,9 +1973,6 @@ function list(schema) {
 function json(validate) {
   return toStandard({
               type: "json",
-              n: (function () {
-                  return "JSON";
-                }),
               r: (function () {
                   if (validate) {
                     return json(false);
@@ -2140,7 +2106,7 @@ function getItemReversed(item) {
         var fields = targetReversed.fields;
         var maybeReversedItem = fields !== undefined ? fields[$$location] : items[$$location];
         if (maybeReversedItem === undefined) {
-          var message = "Impossible to reverse the " + item.inlinedLocation + " access of '" + targetReversed.n() + "' schema";
+          var message = "Impossible to reverse the " + item.inlinedLocation + " access of '" + name(targetReversed) + "' schema";
           throw new Error("[" + vendor + "] " + message);
         }
         return maybeReversedItem.schema;
@@ -2264,6 +2230,194 @@ function builder$2(parentB, input, selfSchema, path) {
   }
 }
 
+function r$1() {
+  var items = this.items;
+  var reversedFields = {};
+  var reversedItems = [];
+  var isTransformed = false;
+  for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
+    var match = items[idx];
+    var $$location = match.location;
+    var schema = match.schema;
+    var reversed = reverse(schema);
+    var item_inlinedLocation = match.inlinedLocation;
+    var item = {
+      schema: reversed,
+      location: $$location,
+      inlinedLocation: item_inlinedLocation
+    };
+    reversedFields[$$location] = item;
+    reversedItems.push(item);
+    if (schema !== reversed) {
+      isTransformed = true;
+    }
+    
+  }
+  if (isTransformed) {
+    return {
+            type: "object",
+            unknownKeys: globalConfig.u,
+            items: reversedItems,
+            fields: reversedFields,
+            b: builder$2,
+            f: typeFilter$2
+          };
+  } else {
+    return this;
+  }
+}
+
+function definitionToSchema(definition) {
+  if (!(typeof definition === "object" && definition !== null)) {
+    return parse(definition);
+  }
+  if (definition["~standard"]) {
+    return definition;
+  }
+  if (Array.isArray(definition)) {
+    var reversedItems = [];
+    var isTransformed = false;
+    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
+      var schema = definitionToSchema(definition[idx]);
+      var reversed = reverse(schema);
+      var $$location = idx.toString();
+      var inlinedLocation = "\"" + $$location + "\"";
+      definition[idx] = {
+        schema: schema,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+      reversedItems[idx] = {
+        schema: reversed,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+      if (schema !== reversed) {
+        isTransformed = true;
+      }
+      
+    }
+    return {
+            type: "tuple",
+            items: definition,
+            r: isTransformed ? (function () {
+                  return {
+                          type: "tuple",
+                          items: reversedItems,
+                          b: builder$2,
+                          f: typeFilter$3
+                        };
+                }) : undefined,
+            b: builder$2,
+            f: typeFilter$3
+          };
+  }
+  var fieldNames = Object.keys(definition);
+  var length = fieldNames.length;
+  var items = [];
+  for(var idx$1 = 0; idx$1 < length; ++idx$1){
+    var $$location$1 = fieldNames[idx$1];
+    var inlinedLocation$1 = fromString($$location$1);
+    var schema$1 = definitionToSchema(definition[$$location$1]);
+    var item = {
+      schema: schema$1,
+      location: $$location$1,
+      inlinedLocation: inlinedLocation$1
+    };
+    definition[$$location$1] = item;
+    items[idx$1] = item;
+  }
+  return {
+          type: "object",
+          unknownKeys: globalConfig.u,
+          items: items,
+          fields: definition,
+          r: r$1,
+          b: builder$2,
+          f: typeFilter$2
+        };
+}
+
+function nested(fieldName) {
+  var parentCtx = this;
+  var cacheId = "~" + fieldName;
+  var ctx = parentCtx[cacheId];
+  if (ctx !== undefined) {
+    return Caml_option.valFromOption(ctx);
+  }
+  var schemas = [];
+  var fields = {};
+  var items = [];
+  var schema = {
+    type: "object",
+    unknownKeys: globalConfig.u,
+    items: items,
+    fields: fields,
+    r: r$1,
+    b: builder$2,
+    f: typeFilter$2
+  };
+  var target = parentCtx.f(fieldName, schema)[itemSymbol];
+  var field = function (fieldName, schema) {
+    var inlinedLocation = fromString(fieldName);
+    if (fields[fieldName]) {
+      throw new Error("[" + vendor + "] " + ("The field " + inlinedLocation + " defined twice"));
+    }
+    var ditem_2 = schema;
+    var ditem_4 = "[" + inlinedLocation + "]";
+    var ditem = {
+      k: 1,
+      inlinedLocation: inlinedLocation,
+      location: fieldName,
+      schema: ditem_2,
+      of: target,
+      p: ditem_4
+    };
+    fields[fieldName] = ditem;
+    items.push(ditem);
+    schemas.push(schema);
+    return proxify(ditem);
+  };
+  var tag = function (tag$1, asValue) {
+    field(tag$1, definitionToSchema(asValue));
+  };
+  var fieldOr = function (fieldName, schema, or) {
+    return field(fieldName, getOr(factory$1(schema), or));
+  };
+  var flatten = function (schema) {
+    if (schema.type === "object") {
+      var flattenedItems = schema.items;
+      if (schema.advanced) {
+        var message = "Unsupported nested flatten for advanced object schema '" + name(schema) + "'";
+        throw new Error("[" + vendor + "] " + message);
+      }
+      var match = reverse(schema);
+      if (match.type === "object" && match.advanced === false) {
+        var result = {};
+        for(var idx = 0 ,idx_finish = flattenedItems.length; idx < idx_finish; ++idx){
+          var item = flattenedItems[idx];
+          result[item.location] = field(item.location, item.schema);
+        }
+        return result;
+      }
+      var message$1 = "Unsupported nested flatten for transformed schema '" + name(schema) + "'";
+      throw new Error("[" + vendor + "] " + message$1);
+    }
+    var message$2 = "The '" + name(schema) + "' schema can't be flattened";
+    throw new Error("[" + vendor + "] " + message$2);
+  };
+  var ctx$1 = {
+    field: field,
+    f: field,
+    fieldOr: fieldOr,
+    tag: tag,
+    nested: nested,
+    flatten: flatten
+  };
+  parentCtx[cacheId] = ctx$1;
+  return ctx$1;
+}
+
 function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
   if (!(typeof definition === "object" && definition !== null)) {
     return {
@@ -2306,7 +2460,6 @@ function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
             s: {
               type: "tuple",
               items: items,
-              n: name$3,
               b: builder,
               f: typeFilter$3
             },
@@ -2339,207 +2492,11 @@ function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
             unknownKeys: globalConfig.u,
             items: items$1,
             fields: fields,
-            n: name$2,
             b: builder,
             f: typeFilter$2
           },
           a: false
         };
-}
-
-function r$1() {
-  var items = this.items;
-  var reversedFields = {};
-  var reversedItems = [];
-  var isTransformed = false;
-  for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
-    var match = items[idx];
-    var $$location = match.location;
-    var schema = match.schema;
-    var reversed = reverse(schema);
-    var item_inlinedLocation = match.inlinedLocation;
-    var item = {
-      schema: reversed,
-      location: $$location,
-      inlinedLocation: item_inlinedLocation
-    };
-    reversedFields[$$location] = item;
-    reversedItems.push(item);
-    if (schema !== reversed) {
-      isTransformed = true;
-    }
-    
-  }
-  if (isTransformed) {
-    return {
-            type: "object",
-            unknownKeys: globalConfig.u,
-            items: reversedItems,
-            fields: reversedFields,
-            n: name$2,
-            b: builder$2,
-            f: typeFilter$2
-          };
-  } else {
-    return this;
-  }
-}
-
-function definitionToSchema(definition) {
-  if (!(typeof definition === "object" && definition !== null)) {
-    return parse(definition);
-  }
-  if (definition["~standard"]) {
-    return definition;
-  }
-  if (Array.isArray(definition)) {
-    var reversedItems = [];
-    var isTransformed = false;
-    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
-      var schema = definitionToSchema(definition[idx]);
-      var reversed = reverse(schema);
-      var $$location = idx.toString();
-      var inlinedLocation = "\"" + $$location + "\"";
-      definition[idx] = {
-        schema: schema,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-      reversedItems[idx] = {
-        schema: reversed,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-      if (schema !== reversed) {
-        isTransformed = true;
-      }
-      
-    }
-    return {
-            type: "tuple",
-            items: definition,
-            n: name$3,
-            r: isTransformed ? (function () {
-                  return {
-                          type: "tuple",
-                          items: reversedItems,
-                          n: name$3,
-                          b: builder$2,
-                          f: typeFilter$3
-                        };
-                }) : undefined,
-            b: builder$2,
-            f: typeFilter$3
-          };
-  }
-  var fieldNames = Object.keys(definition);
-  var length = fieldNames.length;
-  var items = [];
-  for(var idx$1 = 0; idx$1 < length; ++idx$1){
-    var $$location$1 = fieldNames[idx$1];
-    var inlinedLocation$1 = fromString($$location$1);
-    var schema$1 = definitionToSchema(definition[$$location$1]);
-    var item = {
-      schema: schema$1,
-      location: $$location$1,
-      inlinedLocation: inlinedLocation$1
-    };
-    definition[$$location$1] = item;
-    items[idx$1] = item;
-  }
-  return {
-          type: "object",
-          unknownKeys: globalConfig.u,
-          items: items,
-          fields: definition,
-          n: name$2,
-          r: r$1,
-          b: builder$2,
-          f: typeFilter$2
-        };
-}
-
-function nested(fieldName) {
-  var parentCtx = this;
-  var cacheId = "~" + fieldName;
-  var ctx = parentCtx[cacheId];
-  if (ctx !== undefined) {
-    return Caml_option.valFromOption(ctx);
-  }
-  var schemas = [];
-  var fields = {};
-  var items = [];
-  var schema = {
-    type: "object",
-    unknownKeys: globalConfig.u,
-    items: items,
-    fields: fields,
-    n: name$2,
-    r: r$1,
-    b: builder$2,
-    f: typeFilter$2
-  };
-  var target = parentCtx.f(fieldName, schema)[itemSymbol];
-  var field = function (fieldName, schema) {
-    var inlinedLocation = fromString(fieldName);
-    if (fields[fieldName]) {
-      throw new Error("[" + vendor + "] " + ("The field " + inlinedLocation + " defined twice"));
-    }
-    var ditem_2 = schema;
-    var ditem_4 = "[" + inlinedLocation + "]";
-    var ditem = {
-      k: 1,
-      inlinedLocation: inlinedLocation,
-      location: fieldName,
-      schema: ditem_2,
-      of: target,
-      p: ditem_4
-    };
-    fields[fieldName] = ditem;
-    items.push(ditem);
-    schemas.push(schema);
-    return proxify(ditem);
-  };
-  var tag = function (tag$1, asValue) {
-    field(tag$1, definitionToSchema(asValue));
-  };
-  var fieldOr = function (fieldName, schema, or) {
-    return field(fieldName, getOr(factory$1(schema), or));
-  };
-  var flatten = function (schema) {
-    var match = schema.type;
-    if (match === "object") {
-      var flattenedItems = schema.items;
-      if (schema.advanced) {
-        var message = "Unsupported nested flatten for advanced object schema '" + schema.n() + "'";
-        throw new Error("[" + vendor + "] " + message);
-      }
-      var match$1 = reverse(schema);
-      var match$2 = match$1.type;
-      if (match$2 === "object" && match$1.advanced === false) {
-        var result = {};
-        for(var idx = 0 ,idx_finish = flattenedItems.length; idx < idx_finish; ++idx){
-          var item = flattenedItems[idx];
-          result[item.location] = field(item.location, item.schema);
-        }
-        return result;
-      }
-      var message$1 = "Unsupported nested flatten for transformed schema '" + schema.n() + "'";
-      throw new Error("[" + vendor + "] " + message$1);
-    }
-    var message$2 = "The '" + schema.n() + "' schema can't be flattened";
-    throw new Error("[" + vendor + "] " + message$2);
-  };
-  var ctx$1 = {
-    field: field,
-    f: field,
-    fieldOr: fieldOr,
-    tag: tag,
-    nested: nested,
-    flatten: flatten
-  };
-  parentCtx[cacheId] = ctx$1;
-  return ctx$1;
 }
 
 function advancedReverse(definition, to, flattened) {
@@ -2600,7 +2557,6 @@ function advancedReverse(definition, to, flattened) {
           }
         };
         var reversedToInput = function (reversed, originalPath) {
-          var tag = reversed.type;
           var $$const = reversed.const;
           if ($$const !== undefined) {
             return {
@@ -2612,7 +2568,7 @@ function advancedReverse(definition, to, flattened) {
           }
           var items = reversed.items;
           if (items !== undefined) {
-            var isArray = tag === "tuple";
+            var isArray = reversed.type === "tuple";
             var objectVal = make(b, isArray);
             for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
               var item = items[idx];
@@ -2776,14 +2732,13 @@ function object(definer) {
   var items = [];
   var fields = {};
   var flatten = function (schema) {
-    var match = schema.type;
-    if (match === "object") {
+    if (schema.type === "object") {
       var flattenedItems = schema.items;
       for(var idx = 0 ,idx_finish = flattenedItems.length; idx < idx_finish; ++idx){
-        var match$1 = flattenedItems[idx];
-        var inlinedLocation = match$1.inlinedLocation;
-        var $$location = match$1.location;
-        var flattenedSchema = match$1.schema;
+        var match = flattenedItems[idx];
+        var inlinedLocation = match.inlinedLocation;
+        var $$location = match.location;
+        var flattenedSchema = match.schema;
         var item = fields[$$location];
         if (item !== undefined) {
           if (item.schema !== flattenedSchema) {
@@ -2812,7 +2767,7 @@ function object(definer) {
       f.push(item$2);
       return proxify(item$2);
     }
-    var message = "The '" + schema.n() + "' schema can't be flattened";
+    var message = "The '" + name(schema) + "' schema can't be flattened";
     throw new Error("[" + vendor + "] " + message);
   };
   var field = function (fieldName, schema) {
@@ -2851,7 +2806,6 @@ function object(definer) {
               unknownKeys: globalConfig.u,
               items: items,
               fields: fields,
-              n: name$2,
               r: advancedReverse(definition, undefined, flattened),
               b: advancedBuilder(definition, flattened),
               f: typeFilter$2
@@ -2899,7 +2853,6 @@ function tuple(definer) {
   return toStandard({
               type: "tuple",
               items: items,
-              n: name$3,
               r: advancedReverse(definition, undefined, undefined),
               b: advancedBuilder(definition, undefined),
               f: typeFilter$3
@@ -2953,13 +2906,11 @@ function unnest(schema) {
                               inlinedLocation: "\"" + $$location + "\""
                             };
                     }),
-                n: name$3,
                 r: (function () {
                     var schema$1 = reverse(schema);
                     return {
                             type: "array",
                             item: schema$1,
-                            n: name$1,
                             b: (function (b, input, param, path) {
                                 var inputVar = input.v(b);
                                 var iteratorVar = varWithoutAllocation(b.g);
@@ -3336,9 +3287,8 @@ function coerce(from, to) {
   var coercion;
   var exit = 0;
   var exit$1 = 0;
-  var match$1 = match.type;
-  var match$2 = match.const;
-  if (match$2 !== undefined || match$1 === "undefined") {
+  var match$1 = match.const;
+  if (match$1 !== undefined || match.type === "undefined") {
     exit$1 = 2;
   } else {
     exit = 1;
@@ -3358,17 +3308,17 @@ function coerce(from, to) {
     }
   }
   if (exit === 1) {
-    var match$3 = match.type;
+    var match$2 = match.type;
     var exit$2 = 0;
     var exit$3 = 0;
-    switch (match$3) {
+    switch (match$2) {
       case "string" :
-          var match$4 = to.type;
+          var match$3 = to.type;
           var exit$4 = 0;
-          switch (match$4) {
+          switch (match$3) {
             case "string" :
-                var match$5 = to.const;
-                coercion = match$5 !== undefined ? shrinkCoercion : extendCoercion;
+                var match$4 = to.const;
+                coercion = match$4 !== undefined ? shrinkCoercion : extendCoercion;
                 break;
             case "number" :
             case "bigint" :
@@ -3386,9 +3336,8 @@ function coerce(from, to) {
             if ($$const !== undefined) {
               coercion = (function (b, inputVar, failCoercion) {
                   b.c = b.c + (inputVar + "===\"" + $$const + "\"||" + failCoercion + ";");
-                  var match = to.type;
                   var tmp;
-                  switch (match) {
+                  switch (to.type) {
                     case "string" :
                         var $$const$1 = to.const;
                         tmp = $$const$1 !== undefined ? fromString($$const$1) : to.const;
@@ -3408,7 +3357,7 @@ function coerce(from, to) {
                         };
                 });
             } else {
-              switch (match$4) {
+              switch (match$3) {
                 case "number" :
                     var format = to.format;
                     coercion = (function (b, inputVar, failCoercion) {
@@ -3445,13 +3394,8 @@ function coerce(from, to) {
           }
           break;
       case "number" :
-          if (match.format !== undefined) {
-            var match$6 = to.type;
-            if (match$6 === "number" && to.format === undefined) {
-              coercion = extendCoercion;
-            } else {
-              exit$3 = 3;
-            }
+          if (match.format !== undefined && to.type === "number" && to.format === undefined) {
+            coercion = extendCoercion;
           } else {
             exit$3 = 3;
           }
@@ -3469,8 +3413,7 @@ function coerce(from, to) {
     if (exit$3 === 3) {
       var $$const$1 = match.const;
       if ($$const$1 !== undefined) {
-        var match$7 = to.type;
-        if (match$7 === "string") {
+        if (to.type === "string") {
           coercion = (function (b, param, param$1) {
               return {
                       b: b,
@@ -3484,7 +3427,7 @@ function coerce(from, to) {
         }
       } else {
         var exit$5 = 0;
-        switch (match$3) {
+        switch (match$2) {
           case "number" :
           case "bigint" :
           case "boolean" :
@@ -3494,8 +3437,7 @@ function coerce(from, to) {
             exit$2 = 2;
         }
         if (exit$5 === 4) {
-          var match$8 = to.type;
-          if (match$8 === "string") {
+          if (to.type === "string") {
             coercion = (function (b, inputVar, param) {
                 return {
                         b: b,
@@ -3512,7 +3454,7 @@ function coerce(from, to) {
       }
     }
     if (exit$2 === 2) {
-      var message = "S.coerce from " + reverse(from).n() + " to " + to.n() + " is not supported";
+      var message = "S.coerce from " + name(reverse(from)) + " to " + name(to) + " is not supported";
       throw new Error("[" + vendor + "] " + message);
     }
     
@@ -3654,13 +3596,9 @@ function js_merge(s1, s2) {
                   unknownKeys: s2.unknownKeys,
                   items: items,
                   fields: fields,
-                  n: (function () {
-                      return s1.n() + " & " + s2.n();
-                    }),
                   r: (function () {
                       return {
                               type: "unknown",
-                              n: primitiveName,
                               b: (function (b, param, param$1, path) {
                                   return invalidOperation(b, path, "The S.merge serializing is not supported yet");
                                 })
@@ -3682,10 +3620,6 @@ function js_merge(s1, s2) {
     throw new Error("[" + vendor + "] The merge supports only Object schemas");
   }
   throw new Error("[" + vendor + "] The merge supports only Object schemas");
-}
-
-function js_name(prim) {
-  return prim.n();
 }
 
 function setGlobalConfig(override) {
@@ -3856,6 +3790,7 @@ export {
   assertOrThrow ,
   isAsync ,
   recursive ,
+  name ,
   setName ,
   removeTypeValidation ,
   Schema ,
@@ -3907,7 +3842,6 @@ export {
   js_transform ,
   js_schema ,
   js_merge ,
-  js_name ,
   setGlobalConfig ,
 }
 /* symbol Not a pure module */

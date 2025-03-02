@@ -9,7 +9,7 @@ test("Name of Literal schema", t => {
 })
 
 test("Name of Literal object schema", t => {
-  t->Assert.deepEqual(S.literal({"abc": 123})->S.name, `{ "abc": 123 }`, ())
+  t->Assert.deepEqual(S.literal({"abc": 123})->S.name, `{ abc: 123; }`, ())
 })
 
 test("Name of Literal array schema", t => {

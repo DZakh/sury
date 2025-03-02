@@ -219,8 +219,7 @@ let isAsync: t<'value> => bool
 
 let recursive: (t<'value> => t<'value>) => t<'value>
 
-@send
-external name: t<'value> => string = "n"
+let name: t<'value> => string
 
 let setName: (t<'value>, string) => t<'value>
 

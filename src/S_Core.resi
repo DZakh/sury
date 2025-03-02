@@ -220,8 +220,7 @@ let isAsync: t<'value> => bool
 
 let recursive: (t<'value> => t<'value>) => t<'value>
 
-@send
-external name: t<'value> => string = "n"
+let name: t<'value> => string
 
 let setName: (t<'value>, string) => t<'value>
 
@@ -411,8 +410,6 @@ let js_transform: (
 let js_schema: unknown => t<unknown>
 
 let js_merge: (t<unknown>, t<unknown>) => t<unknown>
-
-let js_name: t<'value> => string
 
 type globalConfigOverride = {
   defaultUnknownKeys?: unknownKeys,

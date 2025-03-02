@@ -288,7 +288,7 @@ and optional = {
 }
 and internal = {
   @as("type")
-  mutable tag: typeTag,
+  tag: typeTag,
   mutable const?: char, // use char to avoid Caml_option.some
   optional?: optional,
   item?: internal,
@@ -298,8 +298,7 @@ and internal = {
   mutable unknownKeys?: unknownKeys,
   mutable items?: array<item>,
   mutable fields?: dict<item>,
-  @as("n")
-  mutable name: unit => string,
+  mutable name?: string,
   @as("r")
   mutable reverse?: unit => internal, // Optional value means that it either should reverse to self or it's already a reversed schema
   // This can also be an `internal` itself, but because of the bug https://github.com/rescript-lang/rescript/issues/7314 handle it unsafely
@@ -1161,10 +1160,6 @@ module Reverse = {
   }
 }
 
-let primitiveName = () => {
-  ((%raw(`this`): internal).tag :> string)
-}
-
 // =============
 // Operations
 // =============
@@ -1228,6 +1223,85 @@ let assertOrThrow = (any, schema) => {
   (schema->operationFn(Flag.typeValidation->Flag.with(Flag.assertOutput)))(any)
 }
 
+let rec stringify = unknown => {
+  let typeOfValue = unknown->Stdlib.Type.typeof
+  switch typeOfValue {
+  | #undefined => "undefined"
+  | #object if unknown === %raw(`null`) => "null"
+  | #object if unknown->Stdlib.Array.isArray => {
+      let array = unknown->(Obj.magic: unknown => array<unknown>)
+      let string = ref("[")
+      for i in 0 to array->Array.length - 1 {
+        if i !== 0 {
+          string := string.contents ++ ", "
+        }
+        string := string.contents ++ array->Js.Array2.unsafe_get(i)->stringify
+      }
+      string.contents ++ "]"
+    }
+  | #object
+    if (unknown->(Obj.magic: 'a => {"constructor": unknown}))["constructor"] === %raw("Object") =>
+    let dict = unknown->(Obj.magic: unknown => dict<unknown>)
+    let keys = Js.Dict.keys(dict)
+    let string = ref("{")
+    for i in 0 to keys->Array.length - 1 {
+      let key = keys->Js.Array2.unsafe_get(i)
+      let value = dict->Js.Dict.unsafeGet(key)
+      if i !== 0 {
+        string := string.contents ++ ", "
+      }
+      string := `${string.contents}"${key}": ${stringify(value)}`
+    }
+    string.contents ++ "}"
+  | #object => unknown->Obj.magic->Stdlib.Object.internalClass
+  | #string => `"${unknown->Obj.magic}"`
+  | #number
+  | #function
+  | #boolean
+  | #symbol =>
+    (unknown->Obj.magic)["toString"]()
+  | #bigint => `${unknown->Obj.magic}n`
+  }
+}
+
+// FIXME: Support `like example` for root schema name
+// FIXME: For recursive name use less human-readable format
+let rec name = schema => {
+  let schema = schema->toInternal
+  switch schema {
+  | {name} => name
+  | {const} => const->Obj.magic->stringify
+  | {anyOf} =>
+    anyOf
+    ->(Obj.magic: array<internal> => array<t<'a>>)
+    ->Js.Array2.map(name)
+    ->Js.Array2.joinWith(" | ")
+  | {format} => (format :> string)
+  | {tag, item} =>
+    `${(tag :> string)}<${item
+      ->fromInternal
+      ->name}>`
+  | {tag: Object, ?items} =>
+    let items = items->Stdlib.Option.unsafeUnwrap
+    if items->Js.Array2.length === 0 {
+      `{}`
+    } else {
+      `{ ${items
+        ->Js.Array2.map(item => {
+          `${item.location}: ${item.schema->toInternal->fromInternal->name};`
+        })
+        ->Js.Array2.joinWith(" ")} }`
+    }
+  | {tag: Tuple, ?items} =>
+    let items = items->Stdlib.Option.unsafeUnwrap
+    `[${items
+      ->Js.Array2.map(item => item.schema->toInternal->fromInternal->name)
+      ->Js.Array2.joinWith(", ")}]`
+  | {tag: NaN} => "NaN"
+  | {tag} => (tag :> string)
+  }
+}
+
 module Error = {
   type class
   let class: class = %raw("RescriptSchemaError")
@@ -1236,47 +1310,6 @@ module Error = {
 
   let raise = (error: error) => error->Stdlib.Exn.raiseAny
 
-  let rec was = unknown => {
-    let typeOfValue = unknown->Stdlib.Type.typeof
-    switch typeOfValue {
-    | #undefined => "undefined"
-    | #object if unknown === %raw(`null`) => "null"
-    | #object if unknown->Stdlib.Array.isArray => {
-        let array = unknown->(Obj.magic: unknown => array<unknown>)
-        let string = ref("[")
-        for i in 0 to array->Array.length - 1 {
-          if i !== 0 {
-            string := string.contents ++ ", "
-          }
-          string := string.contents ++ array->Js.Array2.unsafe_get(i)->was
-        }
-        string.contents ++ "]"
-      }
-    | #object
-      if (unknown->(Obj.magic: 'a => {"constructor": unknown}))["constructor"] === %raw("Object") =>
-      let dict = unknown->(Obj.magic: unknown => dict<unknown>)
-      let keys = Js.Dict.keys(dict)
-      let string = ref("{")
-      for i in 0 to keys->Array.length - 1 {
-        let key = keys->Js.Array2.unsafe_get(i)
-        let value = dict->Js.Dict.unsafeGet(key)
-        if i !== 0 {
-          string := string.contents ++ ", "
-        }
-        string := `${string.contents}"${key}": ${was(value)}`
-      }
-      string.contents ++ "}"
-    | #object => unknown->Obj.magic->Stdlib.Object.internalClass
-    | #function => unknown->Obj.magic->Stdlib.Function.toString
-    | #string => `"${unknown->Obj.magic}"`
-    | #number if unknown->(Obj.magic: unknown => float)->Js.Float.isNaN => "NaN"
-    | #number => unknown->Obj.magic
-    | #boolean => unknown->Obj.magic
-    | #symbol => unknown->Obj.magic->Stdlib.Symbol.toString
-    | #bigint => `${unknown->Obj.magic}n`
-    }
-  }
-
   let rec reason = (error: error, ~nestedLevel=0) => {
     switch error.code {
     | OperationFailed(reason) => reason
@@ -1284,10 +1317,8 @@ module Error = {
     | UnexpectedAsync => "Encountered unexpected async transform or refine. Use ParseAsync operation instead"
     | ExcessField(fieldName) =>
       `Encountered disallowed excess key ${fieldName->Stdlib.Inlined.Value.fromString} on an object`
-    | InvalidType({expected, received}) =>
-      `Must be ${(expected->toInternal).name()} (was ${received->was})`
-    | InvalidJsonSchema(schema) =>
-      `The '${(schema->toInternal).name()}' schema cannot be converted to JSON`
+    | InvalidType({expected, received}) => `Must be ${expected->name} (was ${received->stringify})`
+    | InvalidJsonSchema(schema) => `The '${schema->name}' schema cannot be converted to JSON`
     | InvalidUnion(errors) => {
         let lineBreak = `\n${" "->Js.String2.repeat(nestedLevel * 2)}`
         let reasonsDict = Js.Dict.empty()
@@ -1389,14 +1420,12 @@ module Literal = {
   }
 
   let undefined = {
-    name: primitiveName,
     tag: Undefined,
     builder: Builder.invalidJson,
     typeFilter: inlinedTypeFilter,
   }
 
   let null = {
-    name: primitiveName,
     tag: Null,
     const: %raw(`null`),
     builder: Builder.noop,
@@ -1404,7 +1433,6 @@ module Literal = {
   }
 
   let nan = {
-    name: () => "NaN",
     tag: NaN,
     builder: Builder.invalidJson,
     typeFilter: (_b, ~inputVar) => {
@@ -1414,7 +1442,6 @@ module Literal = {
 
   let jsonable = tag => {
     {
-      name: primitiveName,
       tag,
       builder: Builder.noop,
       typeFilter: inlinedTypeFilter,
@@ -1423,7 +1450,6 @@ module Literal = {
 
   let nonJsonable = tag => {
     {
-      name: primitiveName,
       tag,
       builder: Builder.invalidJson,
       typeFilter: strictEqualTypeFilter,
@@ -1565,7 +1591,6 @@ let recursive = fn => {
   })
   let reverse = () => {
     tag: Unknown,
-    name: primitiveName,
     builder: Builder.make((_b, ~input, ~selfSchema as _, ~path as _) => {
       B.Val.map(r, input)
     }),
@@ -1573,7 +1598,6 @@ let recursive = fn => {
 
   let placeholder: internal = {
     tag: Unknown, // FIXME: Use recursive
-    name: () => "<recursive>",
     builder,
     reverse,
   }
@@ -1650,7 +1674,7 @@ let recursive = fn => {
 let setName = (schema, name) => {
   let schema = schema->toInternal
   let mut = schema->copy
-  mut.name = () => name // TODO: Better test reverse
+  mut.name = Some(name) // TODO: Better test reverse
   mut->toStandard
 }
 
@@ -1744,7 +1768,6 @@ let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) =
     () => {
       let schema = schema->reverse
       {
-        name: primitiveName,
         tag: Unknown,
         builder: (b, ~input, ~selfSchema, ~path) => {
           switch transformer(b->B.effectCtx(~selfSchema, ~path)) {
@@ -1773,7 +1796,7 @@ type customDefinition<'input, 'output> = {
 }
 let custom = (name, definer) =>
   {
-    name: () => name,
+    name,
     tag: Unknown,
     builder: Builder.make((b, ~input, ~selfSchema, ~path) => {
       b->B.registerInvalidJson(~selfSchema, ~path)
@@ -1791,7 +1814,7 @@ let custom = (name, definer) =>
       }
     }),
     reverse: () => {
-      name: () => name,
+      name,
       tag: Unknown,
       builder: Builder.make((b, ~input, ~selfSchema, ~path) => {
         b->B.registerInvalidJson(~selfSchema, ~path)
@@ -1809,7 +1832,6 @@ let custom = (name, definer) =>
 let unit = Literal.undefined->toStandard
 
 let unknown = {
-  name: primitiveName,
   tag: Unknown,
   builder: Builder.invalidJson,
 }->toStandard
@@ -1830,7 +1852,6 @@ module Never = {
   })
 
   let schema = {
-    name: primitiveName,
     tag: Never,
     builder,
   }->toStandard
@@ -1939,12 +1960,6 @@ module Union = {
     }
   })
 
-  let name = () =>
-    (%raw(`this`): internal).anyOf
-    ->Stdlib.Option.unsafeUnwrap
-    ->Js.Array2.map(s => s.name())
-    ->Js.Array2.joinWith(" | ")
-
   let rec factory = schemas => {
     let schemas: array<internal> = schemas->Obj.magic
 
@@ -1952,7 +1967,6 @@ module Union = {
     | [] => InternalError.panic("S.union requires at least one item")
     | [schema] => schema
     | _ => {
-        name,
         tag: Union,
         anyOf: schemas, // FIXME: Handle optional
         builder,
@@ -2039,7 +2053,6 @@ module Option = {
   let rec factory = item => {
     let item = item->toInternal
     {
-      name: Union.name,
       tag: Union,
       anyOf: [item, unit->toInternal], // FIXME:
       optional: {
@@ -2132,12 +2145,9 @@ module Array = {
 
   let typeFilter = (_b, ~inputVar) => `!Array.isArray(${inputVar})`
 
-  let name = () => `array<${((%raw(`this`): internal).item->Stdlib.Option.unsafeUnwrap).name()}>`
-
   let rec factory = item => {
     let item = item->toInternal
     {
-      name,
       tag: Array,
       item,
       builder: Builder.make((b, ~input, ~selfSchema as _, ~path) => {
@@ -2208,19 +2218,6 @@ module Object = {
     code.contents
   }
 
-  let name = () => {
-    let items = (%raw(`this`): internal).items->Stdlib.Option.unsafeUnwrap
-    if items->Js.Array2.length === 0 {
-      `{}`
-    } else {
-      `{ ${items
-        ->Js.Array2.map(item => {
-          `${item.location}: ${(item.schema->toInternal).name()};`
-        })
-        ->Js.Array2.joinWith(" ")} }`
-    }
-  }
-
   let rec setUnknownKeys = (schema, unknownKeys, ~deep) => {
     let schema = schema->toInternal
     switch schema {
@@ -2275,13 +2272,6 @@ module Tuple = {
     tag: 'value. (int, 'value) => unit,
   }
 
-  let name = () => {
-    `[${(%raw(`this`): internal).items
-      ->Stdlib.Option.unsafeUnwrap
-      ->Js.Array2.map(item => (item.schema->toInternal).name())
-      ->Js.Array2.joinWith(", ")}]`
-  }
-
   let typeFilter = (b, ~inputVar) => {
     let items = (%raw(`this`): internal).items->Stdlib.Option.unsafeUnwrap
     let length = items->Js.Array2.length
@@ -2312,7 +2302,6 @@ module Dict = {
   let rec factory = item => {
     let item = item->toInternal
     {
-      name: () => `dict<${item.name()}>`,
       tag: Dict,
       item,
       builder: Builder.make((b, ~input, ~selfSchema as _, ~path) => {
@@ -2398,7 +2387,6 @@ module String = {
   let typeFilter = (_b, ~inputVar) => `typeof ${inputVar}!=="string"`
 
   let schema = {
-    name: primitiveName,
     tag: String,
     builder: Builder.noop,
     typeFilter,
@@ -2409,7 +2397,6 @@ module JsonString = {
   let factory = (item, ~space=0) => {
     let item = item->toInternal
     {
-      name: primitiveName, // FIXME: Handle it better
       tag: String,
       item,
       builder: Builder.make((b, ~input, ~selfSchema as _, ~path) => {
@@ -2460,7 +2447,6 @@ module Bool = {
   let typeFilter = (_b, ~inputVar) => `typeof ${inputVar}!=="boolean"`
 
   let schema = {
-    name: primitiveName,
     tag: Boolean,
     builder: Builder.noop,
     typeFilter,
@@ -2497,7 +2483,6 @@ module Int = {
   let typeFilter = (_b, ~inputVar) => `typeof ${inputVar}!=="number"||${refinement(~inputVar)}`
 
   let schema = {
-    name: primitiveName,
     tag: Number,
     format: Int32,
     builder: Builder.noop,
@@ -2536,7 +2521,6 @@ module Float = {
     }
 
   let schema = {
-    name: primitiveName,
     tag: Number,
     builder: Builder.noop,
     typeFilter,
@@ -2547,7 +2531,6 @@ module BigInt = {
   let typeFilter = (_b, ~inputVar) => `typeof ${inputVar}!=="bigint"`
 
   let schema = {
-    name: primitiveName,
     tag: BigInt,
     builder: Builder.invalidJson,
     typeFilter,
@@ -2623,7 +2606,6 @@ let list = schema => {
 
 let rec json = (~validate) =>
   {
-    name: () => "JSON",
     tag: JSON, // FIXME: Store validate on schema
     builder: validate
       ? Builder.make((b, ~input, ~selfSchema, ~path) => {
@@ -2850,7 +2832,9 @@ module Schema = {
         }
         if maybeReversedItem === None {
           InternalError.panic(
-            `Impossible to reverse the ${inlinedLocation} access of '${targetReversed.name()}' schema`,
+            `Impossible to reverse the ${inlinedLocation} access of '${targetReversed
+              ->fromInternal
+              ->name}' schema`,
           )
         }
         (maybeReversedItem->Stdlib.Option.unsafeUnwrap).schema->toInternal
@@ -3008,7 +2992,6 @@ module Schema = {
     }
     if isTransformed.contents {
       {
-        name: Object.name,
         tag: Object,
         items: reversedItems,
         fields: reversedFields,
@@ -3306,7 +3289,6 @@ module Schema = {
         let items = []
 
         let schema = {
-          name: Object.name,
           tag: Object,
           items,
           fields,
@@ -3358,7 +3340,9 @@ module Schema = {
           | {tag: Object, items: ?flattenedItems, ?advanced} => {
               if advanced->Stdlib.Option.unsafeUnwrap {
                 InternalError.panic(
-                  `Unsupported nested flatten for advanced object schema '${schema.name()}'`,
+                  `Unsupported nested flatten for advanced object schema '${schema
+                    ->fromInternal
+                    ->name}'`,
                 )
               }
               switch schema->reverse {
@@ -3372,11 +3356,14 @@ module Schema = {
                 result->Obj.magic
               | _ =>
                 InternalError.panic(
-                  `Unsupported nested flatten for transformed schema '${schema.name()}'`,
+                  `Unsupported nested flatten for transformed schema '${schema
+                    ->fromInternal
+                    ->name}'`,
                 )
               }
             }
-          | _ => InternalError.panic(`The '${schema.name()}' schema can't be flattened`)
+          | _ =>
+            InternalError.panic(`The '${schema->fromInternal->name}' schema can't be flattened`)
           }
         }
 
@@ -3437,7 +3424,7 @@ module Schema = {
             f->Js.Array2.push(item)->ignore
             item->proxify
           }
-        | _ => InternalError.panic(`The '${schema.name()}' schema can't be flattened`)
+        | _ => InternalError.panic(`The '${schema->fromInternal->name}' schema can't be flattened`)
         }
       }
 
@@ -3484,7 +3471,6 @@ module Schema = {
       let definition = definer((ctx :> Object.s))->(Obj.magic: value => unknown)
 
       {
-        name: Object.name,
         tag: Object,
         items,
         fields,
@@ -3545,7 +3531,6 @@ module Schema = {
     }
 
     {
-      name: Tuple.name,
       tag: Tuple,
       items,
       typeFilter: Tuple.typeFilter,
@@ -3591,7 +3576,6 @@ module Schema = {
               path,
               isArray: true,
               reversed: {
-                name: Tuple.name,
                 tag: Tuple,
                 items,
                 typeFilter: Tuple.typeFilter,
@@ -3627,7 +3611,6 @@ module Schema = {
               path,
               isArray: false,
               reversed: {
-                name: Object.name,
                 tag: Object,
                 items,
                 fields,
@@ -3683,7 +3666,6 @@ module Schema = {
         }
         let items = node->(Obj.magic: array<unknown> => array<item>)
         {
-          name: Tuple.name,
           tag: Tuple,
           items,
           builder,
@@ -3692,7 +3674,6 @@ module Schema = {
             isTransformed.contents
               ? Some(
                   () => {
-                    name: Tuple.name,
                     tag: Tuple,
                     items: reversedItems,
                     builder,
@@ -3720,7 +3701,6 @@ module Schema = {
           items->Js.Array2.unsafe_set(idx, item)
         }
         {
-          name: Object.name,
           tag: Object,
           items,
           fields: node->(Obj.magic: dict<unknown> => dict<item>),
@@ -3786,7 +3766,6 @@ let unnest = {
       }
       let schema = schema->toInternal
       {
-        name: Tuple.name,
         tag: Tuple,
         items: items->Js.Array2.mapi((item, idx) => {
           let location = idx->Js.Int.toString
@@ -3843,7 +3822,6 @@ let unnest = {
         reverse: () => {
           let schema = schema->reverse
           {
-            name: Array.name,
             tag: Array,
             item: schema,
             typeFilter: Array.typeFilter,
@@ -4148,9 +4126,6 @@ let tuple3 = (v0, v1, v2) =>
   Schema.definitionToSchema([v0->toUnknown, v1->toUnknown, v2->toUnknown]->Obj.magic)->fromInternal
 let union = Union.factory
 let jsonString = JsonString.factory
-
-@send
-external name: t<'a> => string = "n"
 
 // =============
 // Built-in refinements
@@ -4509,7 +4484,9 @@ let rec coerce = (from, to) => {
 
     | _ =>
       InternalError.panic(
-        `S.coerce from ${(from->reverse).name()} to ${to.name()} is not supported`,
+        `S.coerce from ${from->reverse->fromInternal->name} to ${to
+          ->fromInternal
+          ->name} is not supported`,
       )
     }
 
@@ -4645,7 +4622,6 @@ let js_merge = (s1, s2) => {
       fields->Js.Dict.set(item.location, item)
     }
     {
-      name: () => `${s1.name()} & ${s2.name()}`,
       tag: Object,
       items,
       fields,
@@ -4659,7 +4635,6 @@ let js_merge = (s1, s2) => {
       }),
       typeFilter: Object.typeFilter,
       reverse: () => {
-        name: primitiveName,
         tag: Unknown,
         builder: Builder.make((b, ~input as _, ~selfSchema as _, ~path) => {
           b->B.invalidOperation(~path, ~description=`The S.merge serializing is not supported yet`)
@@ -4670,8 +4645,6 @@ let js_merge = (s1, s2) => {
   | _ => InternalError.panic("The merge supports only Object schemas")
   }
 }
-
-let js_name = name
 
 let setGlobalConfig = override => {
   globalConfig.recCounter = 0

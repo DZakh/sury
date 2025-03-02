@@ -163,7 +163,7 @@ let filesMapping = [
   ("transform", "S.js_transform"),
   ("description", "S.description"),
   ("describe", "S.describe"),
-  ("name", "S.js_name"),
+  ("name", "S.name"),
   ("setName", "S.setName"),
   ("removeTypeValidation", "S.removeTypeValidation"),
   ("compile", "S.compile"),
