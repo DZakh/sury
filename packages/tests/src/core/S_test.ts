@@ -1203,7 +1203,7 @@ test("Name of merge schema", (t) => {
     })
   );
 
-  t.is(S.name(schema), `{ foo: string; bar: boolean; } & { baz: string; }`);
+  t.is(S.name(schema), `{ foo: string; bar: boolean; baz: string; }`);
 });
 
 test("Successfully parses object using S.schema", (t) => {

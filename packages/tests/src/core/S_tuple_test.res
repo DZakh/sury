@@ -50,7 +50,7 @@ module Tuple0 = {
   })
 }
 
-test("Fills wholes with S.unit", t => {
+test("Fills holes with S.unit", t => {
   let schema = S.tuple(s => (s.item(0, S.string), s.item(2, S.int)))
 
   t->U.assertEqualSchemas(schema->S.toUnknown, S.tuple3(S.string, S.unit, S.int)->S.toUnknown)

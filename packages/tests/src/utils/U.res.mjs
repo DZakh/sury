@@ -121,6 +121,7 @@ function cleanUpSchema(schema) {
           case "i" :
           case "k" :
           case "of" :
+          case "output" :
           case "p" :
               return ;
           default:

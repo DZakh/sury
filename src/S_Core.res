@@ -299,8 +299,7 @@ and internal = {
   mutable items?: array<item>,
   mutable fields?: dict<item>,
   mutable name?: string,
-  @as("r")
-  mutable reverse?: unit => internal, // Optional value means that it either should reverse to self or it's already a reversed schema
+  mutable output?: unit => internal, // Optional value means that it either should reverse to self or it's already a reversed schema
   // This can also be an `internal` itself, but because of the bug https://github.com/rescript-lang/rescript/issues/7314 handle it unsafely
   @as("b")
   mutable builder: builder,
@@ -397,9 +396,8 @@ external fromInternal: internal => t<'any> = "%identity"
 @inline
 let isSchemaObject = obj => (obj->Obj.magic).standard->Obj.magic
 
-// FIXME: Decided what to do with internal
-@inline
-let isLiteralSchema = schema => schema.tag === Undefined || schema.const !== %raw(`void 0`) // TODO: Can be improved after ReScript supports `in` (https://github.com/rescript-lang/rescript/issues/7313)
+// TODO: Can be improved after ReScript supports `in` (https://github.com/rescript-lang/rescript/issues/7313)
+let isLiteral: internal => bool = %raw(`s => "const" in s`)
 
 type globalConfig = {
   @as("r")
@@ -520,7 +518,7 @@ let resetOperationsCache: internal => unit = %raw(`(schema) => {
 }`)
 
 let reverse = (schema: internal) => {
-  switch schema.reverse {
+  switch schema.output {
   | None => schema
   | Some(fn) =>
     if Js.typeof(fn) === "object" {
@@ -530,13 +528,13 @@ let reverse = (schema: internal) => {
       // If the reversed schema is reversing to self,
       // it's mostlikely a primitive, which we can't mutate,
       // so we can just copy it
-      let reversed = if reversed.reverse === None {
+      let reversed = if reversed.output === None {
         reversed->copy
       } else {
         reversed
       }
-      schema.reverse = reversed->Obj.magic
-      reversed.reverse = schema->Obj.magic
+      schema.output = reversed->Obj.magic
+      reversed.output = schema->Obj.magic
       reversed
     }
   }
@@ -952,7 +950,7 @@ module Builder = {
     let parseWithTypeValidation = (b: b, ~schema, ~input, ~path) => {
       if (
         schema.typeFilter->Stdlib.Option.isSome &&
-          (b.global.flag->Flag.unsafeHas(Flag.typeValidation) || schema->isLiteralSchema)
+          (b.global.flag->Flag.unsafeHas(Flag.typeValidation) || schema->isLiteral)
       ) {
         b.code = b.code ++ b->typeFilterCode(~schema, ~input, ~path)
       }
@@ -998,7 +996,7 @@ module Builder = {
 
     if (
       schema.typeFilter->Stdlib.Option.isSome &&
-        (flag->Flag.unsafeHas(Flag.typeValidation) || schema->isLiteralSchema)
+        (flag->Flag.unsafeHas(Flag.typeValidation) || schema->isLiteral)
     ) {
       b.code = b->B.typeFilterCode(~schema, ~input, ~path=Path.empty) ++ b.code
     }
@@ -1147,7 +1145,7 @@ let compile = (
   }
 }
 
-module Reverse = {
+module Output = {
   let item = (~factory, ~item) => {
     () => {
       let reversed = item->reverse
@@ -1421,6 +1419,7 @@ module Literal = {
 
   let undefined = {
     tag: Undefined,
+    const: %raw(`void 0`),
     builder: Builder.invalidJson,
     typeFilter: inlinedTypeFilter,
   }
@@ -1567,7 +1566,7 @@ module Metadata = {
     //   ~typeFilter=schema.typeFilter,
     //   ~metadataMap,
     //   ~reverse=() => {
-    //     let schema = schema.reverse()
+    //     let schema = schema.output()
     //     makeReverseSchema(
     //       ~name=schema.name,
     //       ~builder=schema.builder,
@@ -1589,7 +1588,7 @@ let recursive = fn => {
       B.Val.map(r, input)
     })
   })
-  let reverse = () => {
+  let output = () => {
     tag: Unknown,
     builder: Builder.make((_b, ~input, ~selfSchema as _, ~path as _) => {
       B.Val.map(r, input)
@@ -1599,13 +1598,13 @@ let recursive = fn => {
   let placeholder: internal = {
     tag: Unknown, // FIXME: Use recursive
     builder,
-    reverse,
+    output,
   }
   let schema = fn(placeholder->fromInternal)->toInternal
 
   mergeInPlace(placeholder, schema)
   placeholder.builder = builder
-  placeholder.reverse = Some(reverse)
+  placeholder.output = Some(output)
 
   let initialParseOperationBuilder = schema.builder
   schema.builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
@@ -1640,13 +1639,13 @@ let recursive = fn => {
     })
   })
 
-  let initialReverse = schema.reverse->Obj.magic->Stdlib.Fn.bind(~this=schema)
-  schema.reverse = Some(
+  let initialReverse = schema.output->Obj.magic->Stdlib.Fn.bind(~this=schema)
+  schema.output = Some(
     () => {
       let initialReversed = initialReverse()
       let mut = initialReversed->copy
-      mut.reverse = schema->Obj.magic
-      schema.reverse = mut->Obj.magic
+      mut.output = schema->Obj.magic
+      schema.output = mut->Obj.magic
       mut.builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
         let inputVar = b->B.Val.var(input)
         let bb = b->B.scope
@@ -1696,7 +1695,7 @@ let internalRefine = (schema, refiner) => {
       input
     })
   })
-  mut.reverse = Some(
+  mut.output = Some(
     () => {
       let schema = schema->reverse
       let mut = schema->copy
@@ -1764,7 +1763,7 @@ let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) =
       )
     }
   })
-  mut.reverse = Some(
+  mut.output = Some(
     () => {
       let schema = schema->reverse
       {
@@ -1813,7 +1812,7 @@ let custom = (name, definer) =>
         )
       }
     }),
-    reverse: () => {
+    output: () => {
       name,
       tag: Unknown,
       builder: Builder.make((b, ~input, ~selfSchema, ~path) => {
@@ -1970,11 +1969,11 @@ module Union = {
         tag: Union,
         anyOf: schemas, // FIXME: Handle optional
         builder,
-        reverse: r,
+        output,
       }
     }->toStandard
   }
-  and r = () => {
+  and output = () => {
     let schemas = (%raw(`this`): internal).anyOf->Stdlib.Option.unsafeUnwrap
     factory(schemas->Js.Array2.map(s => s->reverse->fromInternal))->toInternal
   }
@@ -2061,7 +2060,7 @@ module Option = {
       },
       builder: makeBuilder(~isNullInput=false, ~isNullOutput=false),
       typeFilter: ?typeFilter(~schema=item, ~inlinedNoneValue="void 0"),
-      reverse: Reverse.item(~factory, ~item),
+      output: Output.item(~factory, ~item),
     }->toStandard
   }
 
@@ -2080,7 +2079,7 @@ module Option = {
         )
       })
     })
-    mut.reverse = Some(
+    mut.output = Some(
       () => {
         let reversed = schema->reverse
         switch reversed {
@@ -2107,7 +2106,7 @@ module Option = {
 //       ~builder=Option.makeBuilder(~isNullInput=true, ~isNullOutput=false),
 //       ~typeFilter=Option.typeFilter(~schema, ~inlinedNoneValue="null"),
 //       ~reverse=() => {
-//         let child = schema.reverse()
+//         let child = schema.output()
 //         makeReverseSchema(
 //           ~name=Option.name,
 //           ~tagged=Option(child),
@@ -2181,7 +2180,7 @@ module Array = {
         }
       }),
       typeFilter,
-      reverse: Reverse.item(~factory, ~item),
+      output: Output.item(~factory, ~item),
     }->toStandard
   }
 }
@@ -2206,7 +2205,7 @@ module Object = {
     for idx in 0 to items->Js.Array2.length - 1 {
       let {schema, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
       let item = schema->toInternal
-      if item->isLiteralSchema {
+      if item->isLiteral {
         code :=
           code.contents ++
           "||" ++
@@ -2282,7 +2281,7 @@ module Tuple = {
     for idx in 0 to length - 1 {
       let {schema, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
       let item = schema->toInternal
-      if item->isLiteralSchema {
+      if item->isLiteral {
         code :=
           code.contents ++
           "||" ++
@@ -2342,7 +2341,7 @@ module Dict = {
         }
       }),
       typeFilter,
-      reverse: Reverse.item(~factory, ~item),
+      output: Output.item(~factory, ~item),
     }->toStandard
   }
 }
@@ -2413,7 +2412,7 @@ module JsonString = {
         b->B.parseWithTypeValidation(~schema=item, ~input=jsonVal, ~path)
       }),
       typeFilter: String.typeFilter,
-      reverse: () => {
+      output: () => {
         let reversed = item->reverse
         let mut = reversed->copy
         mut.builder = Builder.make((b, ~input, ~selfSchema as _, ~path) => {
@@ -2577,7 +2576,7 @@ let rec preprocess = (schema, transformer) => {
       }
     })
     mut.typeFilter = None
-    mut.reverse = Some(
+    mut.output = Some(
       () => {
         let reversed = schema->reverse
         let mut = reversed->copy
@@ -2663,7 +2662,7 @@ let rec json = (~validate) =>
           B.Val.map(b->B.embed(parse), input)
         })
       : Builder.noop,
-    reverse: () => validate ? json(~validate=false)->toInternal : %raw(`this`),
+    output: () => validate ? json(~validate=false)->toInternal : %raw(`this`),
   }->toStandard
 
 module Catch = {
@@ -2702,7 +2701,7 @@ let catch = (schema, getFallbackValue) => {
       },
     )
   })
-  mut.typeFilter = switch schema->isLiteralSchema {
+  mut.typeFilter = switch schema->isLiteral {
   // Literal schema always expects to have a typeFilter
   | true => Some(passingTypeFilter)
   | false => None
@@ -2941,8 +2940,8 @@ module Schema = {
         if (
           schema.typeFilter->Stdlib.Option.isSome && (
               b.global.flag->Flag.unsafeHas(Flag.typeValidation)
-                ? !(schema->isLiteralSchema)
-                : schema->isLiteralSchema && !(itemInput->B.Val.isEmbed)
+                ? !(schema->isLiteral)
+                : schema->isLiteral && !(itemInput->B.Val.isEmbed)
             )
         ) {
           b.code = b.code ++ b->B.typeFilterCode(~schema, ~input=itemInput, ~path)
@@ -2969,7 +2968,7 @@ module Schema = {
     }
   }
 
-  and r = () => {
+  and output = () => {
     let items = (%raw(`this`): internal).items->Stdlib.Option.unsafeUnwrap
     let reversedFields = Js.Dict.empty()
     let reversedItems = []
@@ -3033,8 +3032,8 @@ module Schema = {
         if (
           schema.typeFilter->Stdlib.Option.isSome && (
               b.global.flag->Flag.unsafeHas(Flag.typeValidation)
-                ? !(schema->isLiteralSchema)
-                : schema->isLiteralSchema
+                ? !(schema->isLiteral)
+                : schema->isLiteral
             )
         ) {
           b.code = b.code ++ b->B.typeFilterCode(~schema, ~input=itemInput, ~path)
@@ -3132,33 +3131,36 @@ module Schema = {
       }
 
       let rec reversedToInput = (reversed, ~originalPath) => {
-        switch reversed {
-        | {const} => b->B.embedVal(const)
-        | {items, tag} => {
-            let isArray = tag === Tuple
-            let objectVal = b->B.Val.Object.make(~isArray)
-            for idx in 0 to items->Js.Array2.length - 1 {
-              let item = items->Js.Array2.unsafe_get(idx)
-              let itemPath =
-                originalPath->Path.concat(Path.fromInlinedLocation(item.inlinedLocation))
-              let itemInput = switch ritemsByItemPath->Stdlib.Dict.unsafeGetOption(itemPath) {
-              | Some(ritem) => ritem->getRitemInput
-              | None => item.schema->toInternal->reversedToInput(~originalPath=itemPath)
+        if reversed->isLiteral {
+          b->B.embedVal(reversed.const)
+        } else {
+          switch reversed {
+          | {items, tag} => {
+              let isArray = tag === Tuple
+              let objectVal = b->B.Val.Object.make(~isArray)
+              for idx in 0 to items->Js.Array2.length - 1 {
+                let item = items->Js.Array2.unsafe_get(idx)
+                let itemPath =
+                  originalPath->Path.concat(Path.fromInlinedLocation(item.inlinedLocation))
+                let itemInput = switch ritemsByItemPath->Stdlib.Dict.unsafeGetOption(itemPath) {
+                | Some(ritem) => ritem->getRitemInput
+                | None => item.schema->toInternal->reversedToInput(~originalPath=itemPath)
+                }
+                objectVal->B.Val.Object.add(item.inlinedLocation, itemInput)
               }
-              objectVal->B.Val.Object.add(item.inlinedLocation, itemInput)
+              objectVal->B.Val.Object.complete(~isArray)
             }
-            objectVal->B.Val.Object.complete(~isArray)
+          | _ =>
+            b->B.invalidOperation(
+              ~path,
+              ~description={
+                switch originalPath {
+                | "" => `Schema isn't registered`
+                | _ => `Schema for ${originalPath} isn't registered`
+                }
+              },
+            )
           }
-        | _ =>
-          b->B.invalidOperation(
-            ~path,
-            ~description={
-              switch originalPath {
-              | "" => `Schema isn't registered`
-              | _ => `Schema for ${originalPath} isn't registered`
-              }
-            },
-          )
         }
       }
 
@@ -3171,7 +3173,7 @@ module Schema = {
             if (
               ritem->getRitemPath !== Path.empty &&
               reversed.typeFilter->Stdlib.Option.isSome && (
-                hasTypeValidation ? !(reversed->isLiteralSchema) : reversed->isLiteralSchema
+                hasTypeValidation ? !(reversed->isLiteral) : reversed->isLiteral
               )
             ) {
               b.code = b.code ++ b->B.typeFilterCode(~schema=reversed, ~input=itemInput, ~path)
@@ -3271,7 +3273,7 @@ module Schema = {
 
         output
       })
-      mut.reverse = Some(advancedReverse(~definition, ~to=item))
+      mut.output = Some(advancedReverse(~definition, ~to=item))
 
       mut->toStandard
     }
@@ -3295,7 +3297,7 @@ module Schema = {
           unknownKeys: globalConfig.defaultUnknownKeys,
           builder,
           typeFilter: Object.typeFilter,
-          reverse: r,
+          output,
         }->fromInternal
 
         let target =
@@ -3478,7 +3480,7 @@ module Schema = {
         advanced: true,
         typeFilter: Object.typeFilter,
         builder: advancedBuilder(~definition, ~flattened),
-        reverse: advancedReverse(~definition, ~flattened),
+        output: advancedReverse(~definition, ~flattened),
       }->toStandard
     }
   and tuple = definer => {
@@ -3535,7 +3537,7 @@ module Schema = {
       items,
       typeFilter: Tuple.typeFilter,
       builder: advancedBuilder(~definition),
-      reverse: advancedReverse(~definition),
+      output: advancedReverse(~definition),
     }->toStandard
   }
   and definitionToRitem = (definition: Definition.t<ditem>, ~path, ~ritems, ~ritemsByItemPath) => {
@@ -3670,7 +3672,7 @@ module Schema = {
           items,
           builder,
           typeFilter: Tuple.typeFilter,
-          reverse: ?(
+          output: ?(
             isTransformed.contents
               ? Some(
                   () => {
@@ -3707,7 +3709,7 @@ module Schema = {
           unknownKeys: globalConfig.defaultUnknownKeys,
           builder,
           typeFilter: Object.typeFilter,
-          reverse: r,
+          output,
         }
       }
     } else {
@@ -3819,7 +3821,7 @@ let unnest = {
           }
         }),
         typeFilter,
-        reverse: () => {
+        output: () => {
           let schema = schema->reverse
           {
             tag: Array,
@@ -4121,9 +4123,9 @@ let shape = Schema.shape
 let tuple = Schema.tuple
 let tuple1 = v0 => tuple(s => s.item(0, v0))
 let tuple2 = (v0, v1) =>
-  Schema.definitionToSchema([v0->toUnknown, v1->toUnknown]->Obj.magic)->fromInternal
+  Schema.definitionToSchema([v0->toUnknown, v1->toUnknown]->Obj.magic)->toStandard
 let tuple3 = (v0, v1, v2) =>
-  Schema.definitionToSchema([v0->toUnknown, v1->toUnknown, v2->toUnknown]->Obj.magic)->fromInternal
+  Schema.definitionToSchema([v0->toUnknown, v1->toUnknown, v2->toUnknown]->Obj.magic)->toStandard
 let union = Union.factory
 let jsonString = JsonString.factory
 
@@ -4521,7 +4523,7 @@ let rec coerce = (from, to) => {
       }
     })
 
-    mut.reverse = Some(
+    mut.output = Some(
       () => {
         coerce(to->reverse->fromInternal, from->reverse->fromInternal)->toInternal
       },
@@ -4634,7 +4636,7 @@ let js_merge = (s1, s2) => {
         b->B.val(`{...${s1Result.inline}, ...${s2Result.inline}}`)
       }),
       typeFilter: Object.typeFilter,
-      reverse: () => {
+      output: () => {
         tag: Unknown,
         builder: Builder.make((b, ~input as _, ~selfSchema as _, ~path) => {
           b->B.invalidOperation(~path, ~description=`The S.merge serializing is not supported yet`)

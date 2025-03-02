@@ -127,7 +127,10 @@ let rec cleanUpSchema = schema => {
   ->Dict.toArray
   ->Array.forEach(((key, value)) => {
     switch key {
-    | "i" | "c" | "advanced" => ()
+    | "output"
+    | "i"
+    | "c"
+    | "advanced" => ()
     // ditemToItem leftovers FIXME:
     | "k" | "p" | "of" => ()
     | _ =>
