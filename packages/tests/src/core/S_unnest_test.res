@@ -106,7 +106,7 @@ test("Case with missing item at the end", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(!Array.isArray(i)||i.length!==2||!Array.isArray(i["0"])||!Array.isArray(i["1"])){e[2](i)}let v1=new Array(Math.max(i[0].length,i[1].length,));for(let v0=0;v0<v1.length;++v0){let v3=i[0][v0],v4=i[1][v0];try{if(v3!==void 0&&(typeof v3!=="string")){e[0](v3)}if(typeof v4!=="boolean"){e[1](v4)}v1[v0]={"foo":v3,"bar":v4,};}catch(v2){if(v2&&v2.s===s){v2.path=""+\'["\'+v0+\'"]\'+v2.path}throw v2}}return v1}`,
+    `i=>{if(!Array.isArray(i)||i.length!==2||!Array.isArray(i["0"])||!Array.isArray(i["1"])){e[2](i)}let v1=new Array(Math.max(i[0].length,i[1].length,));for(let v0=0;v0<v1.length;++v0){let v3=i[0][v0],v4=i[1][v0];try{if(typeof v3!=="string"){if(v3!==undefined){e[0](v3)}}if(typeof v4!=="boolean"){e[1](v4)}v1[v0]={"foo":v3,"bar":v4,};}catch(v2){if(v2&&v2.s===s){v2.path=""+\'["\'+v0+\'"]\'+v2.path}throw v2}}return v1}`,
   )
   t->U.assertCompiledCode(
     ~schema,

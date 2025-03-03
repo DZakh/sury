@@ -567,7 +567,7 @@ module CknittelBugReport2 = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i){e[5](i)}let v0=i["test"],v4;if(v0!==void 0){let v2=v0;if(typeof v0!=="object"||!v0||v0["type"]!=="a"){if(typeof v0!=="object"||!v0||v0["type"]!=="b"){e[4](v0)}else{let v3=v0["y"];if(typeof v3!=="string"){e[2](v3)}v2={"TAG":e[3],"_0":{"y":v3,},}}}else{let v1=v0["x"];if(typeof v1!=="number"||v1>2147483647||v1<-2147483648||v1%1!==0){e[0](v1)}v2={"TAG":e[1],"_0":{"x":v1,},}}v4=v2}return {"test":v4,}}`,
+      `i=>{if(typeof i!=="object"||!i){e[5](i)}let v0=i["test"],v4=v0;if(v0!==undefined){let v2=v0;if(typeof v0!=="object"||!v0||v0["type"]!=="a"){if(typeof v0!=="object"||!v0||v0["type"]!=="b"){e[4](v0)}else{let v3=v0["y"];if(typeof v3!=="string"){e[2](v3)}v2={"TAG":e[3],"_0":{"y":v3,},}}}else{let v1=v0["x"];if(typeof v1!=="number"||v1>2147483647||v1<-2147483648||v1%1!==0){e[0](v1)}v2={"TAG":e[1],"_0":{"x":v1,},}}v4=v2}return {"test":v4,}}`,
     )
 
     t->Assert.deepEqual(S.parseJsonStringOrThrow("{}", schema), {test: None}, ())

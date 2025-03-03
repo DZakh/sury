@@ -72,6 +72,14 @@ test("Name of Union schema", t => {
   t->Assert.deepEqual(S.union([S.string, S.literal("foo")])->S.name, `string | "foo"`, ())
 })
 
+test("Name of Union schema with duplicated items", t => {
+  t->Assert.deepEqual(
+    S.union([S.literal("foo"), S.string, S.literal("foo")])->S.name,
+    `"foo" | string | "foo"`,
+    (),
+  )
+})
+
 test("Name of Object schema", t => {
   t->Assert.deepEqual(
     S.object(s =>

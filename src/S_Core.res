@@ -4,7 +4,6 @@
 type never
 
 external castAnyToUnknown: 'any => unknown = "%identity"
-external castUnknownToAny: unknown => 'any = "%identity"
 
 module Obj = {
   external magic: 'a => 'b = "%identity"
@@ -51,11 +50,6 @@ module Stdlib = {
 
     @val @scope("Promise")
     external resolve: 'a => t<'a> = "resolve"
-  }
-
-  module Re = {
-    @send
-    external toString: Js.Re.t => string = "toString"
   }
 
   module Object = {
@@ -113,21 +107,10 @@ module Stdlib = {
     let has = (dict, key) => {
       dict->Js.Dict.unsafeGet(key)->(Obj.magic: 'a => bool)
     }
-
-    @inline
-    let deleteInPlace = (dict, key) => {
-      Js.Dict.unsafeDeleteKey(dict->(Obj.magic: dict<'a> => dict<string>), key)
-    }
   }
 
   module Float = {
     external unsafeToString: float => string = "%identity"
-  }
-
-  module BigInt = {
-    @send external toString: bigint => string = "toString"
-    @inline
-    let toString = bigint => bigint->toString ++ "n"
   }
 
   module Function = {
@@ -138,29 +121,16 @@ module Stdlib = {
     let make2 = (~ctxVarName1, ~ctxVarValue1, ~ctxVarName2, ~ctxVarValue2, ~inlinedFunction) => {
       _make([ctxVarName1, ctxVarName2, `return ${inlinedFunction}`])(ctxVarValue1, ctxVarValue2)
     }
-
-    @send external toString: Js.Types.function_val => string = "toString"
   }
 
   module Symbol = {
     type t = Js.Types.symbol
 
     @val external make: string => t = "Symbol"
-
-    @send external toString: t => string = "toString"
   }
 
   module Inlined = {
     module Value = {
-      @inline
-      let stringify = any => {
-        if any === %raw("void 0") {
-          "undefined"
-        } else {
-          any->Js.Json.stringifyAny->Obj.magic
-        }
-      }
-
       let fromString = (string: string): string => {
         let rec loop = idx => {
           switch string->Js.String2.get(idx)->(Obj.magic: string => option<string>) {
@@ -171,11 +141,6 @@ module Stdlib = {
         }
         loop(0)
       }
-    }
-
-    module Float = {
-      @inline
-      let toRescript = float => float->Js.Float.toString ++ (mod_float(float, 1.) === 0. ? "." : "")
     }
   }
 }
@@ -279,7 +244,6 @@ type rec t<'value> =
   | @as("union") Union({anyOf: array<t<unknown>>})
   | @as("json") JSON({}) // FIXME: Remove it in favor of Union ?
 // FIXME: Add recursive
-// FIXME: deprecate literal
 and schema<'a> = t<'a>
 and internal = {
   @as("type")
@@ -303,30 +267,6 @@ and internal = {
   @as("~standard")
   mutable standard?: standard, // This is optional for convenience. The object added on make call
 }
-
-// and tagged =
-//   | @as("never") Never
-//   | @as("unknown") Unknown
-//   | @as("string") String
-//   | @as("int32") Int
-//   | @as("number") Float
-//   | @as("bigint") BigInt
-//   | @as("boolean") Bool
-//   | @as("literal") Literal(literal)
-//   | @as("option") Option(t<unknown>)
-//   | @as("null") Null(t<unknown>)
-//   | @as("array") Array(t<unknown>)
-//   | @as("object")
-//   Object({
-// items: array<item>,
-// fields: dict<item>,
-//       unknownKeys: unknownKeys,
-//       advanced: bool,
-//     })
-//   | @as("tuple") Tuple({items: array<item>})
-//   | @as("union") Union(array<t<unknown>>)
-//   | @as("dict") Dict(t<unknown>)
-//   | @as("JSON") JSON({validated: bool})
 and item = {
   schema: t<unknown>,
   location: string,
@@ -1400,17 +1340,17 @@ let assertOrThrow = (any, schema) => {
 module Literal = {
   open Stdlib
 
-  let val = (b, schema) => {
+  let inline = (b, schema) => {
     switch schema {
-    | {tag: Symbol | Instance | Function, ?const} => b->B.embedVal(const->Obj.magic)
-    | {tag: String, ?const} => b->B.val(const->Obj.magic->Stdlib.Inlined.Value.fromString)
-    | {tag: BigInt, ?const} => b->B.val(const->Obj.magic ++ "n")
-    | {?const} => b->B.val(const->Obj.magic)
+    | {tag: Symbol | Instance | Function, ?const} => b->B.embed(const->Obj.magic)
+    | {tag: String, ?const} => const->Obj.magic->Stdlib.Inlined.Value.fromString
+    | {tag: BigInt, ?const} => const->Obj.magic ++ "n"
+    | {?const} => const->Obj.magic
     }
   }
 
   let typeFilter = (b, ~inputVar) => {
-    `${inputVar}!==${val(b, (%raw(`this`): internal)).inline}`
+    `${inputVar}!==${inline(b, (%raw(`this`): internal))}`
   }
 
   let undefined = {
@@ -1592,13 +1532,15 @@ let recursive = fn => {
   }
 
   let placeholder: internal = {
-    tag: Unknown, // FIXME: Use recursive
+    tag: Unknown,
     builder,
     output,
+    name: "Self",
   }
   let schema = fn(placeholder->fromInternal)->toInternal
 
   mergeInPlace(placeholder, schema)
+  placeholder.name = Some(schema->fromInternal->name)
   placeholder.builder = builder
   placeholder.output = Some(output)
 
@@ -1676,6 +1618,8 @@ let setName = (schema, name) => {
 let removeTypeValidation = schema => {
   let schema = schema->toInternal
   let mut = schema->copy
+
+  // FIXME: Test for discriminant literal
   mut.typeFilter = None // TODO: Better test reverse
   mut->toStandard
 }
@@ -1874,7 +1818,10 @@ module Union = {
             if itemOutput.isAsync {
               output.isAsync = true
             }
-            bb.code = bb.code ++ `${output.inline}=${itemOutput.inline}`
+            bb.code =
+              bb.code ++
+              // Need to allocate a var here, so we don't mutate the input object field
+              `${output.var(b)}=${itemOutput.inline}`
           }
 
           bb->B.allocateScope
@@ -1905,6 +1852,7 @@ module Union = {
       let typeFilterCode = if schema.typeFilter->Stdlib.Option.isSome {
         b->(schema.typeFilter->Stdlib.Option.unsafeUnwrap)(~inputVar)
       } else {
+        // FIXME: Test that removeTypeValidation goes two the first flow
         ""
       }
 
@@ -1958,25 +1906,18 @@ module Union = {
     }
   })
 
-  let flatten = (mut, schemas) => {
-    mut.anyOf = Some(schemas)
-  }
-
   let rec factory = schemas => {
     let schemas: array<internal> = schemas->Obj.magic
-
     switch schemas {
     | [] => InternalError.panic("S.union requires at least one item")
     | [schema] => schema->fromInternal
     | _ =>
-      let mut = {
+      {
         tag: Union,
-        anyOf: [],
+        anyOf: schemas,
         builder,
         output,
-      }
-      flatten(mut, schemas)
-      mut->toStandard
+      }->toStandard
     }
   }
   and output = () => {
@@ -2490,7 +2431,7 @@ let rec coerce = (from, to) => {
     let coercion = switch (fromOutput, to) {
     | (_, _) if isFromLiteral && isToLiteral =>
       (b, ~inputVar as _, ~failCoercion as _) => {
-        b->Literal.val(to)
+        b->B.val(b->Literal.inline(to))
         // FIXME: Test
       }
     | ({tag: String}, {tag: String, const: _}) => shrinkCoercion
@@ -2506,7 +2447,7 @@ let rec coerce = (from, to) => {
       if isToLiteral =>
       (b, ~inputVar, ~failCoercion) => {
         b.code = b.code ++ `${inputVar}==="${const->Obj.magic}"||${failCoercion};`
-        b->Literal.val(to)
+        b->B.val(b->Literal.inline(to))
       }
     | ({tag: String}, {tag: Boolean}) =>
       (b, ~inputVar, ~failCoercion) => {
@@ -3353,7 +3294,7 @@ module Schema = {
           builder,
           typeFilter: Object.typeFilter,
           output,
-        }->fromInternal
+        }->toStandard
 
         let target =
           parentCtx.field(fieldName, schema)
@@ -3403,7 +3344,7 @@ module Schema = {
                 )
               }
               switch schema->reverse {
-              | {tag: Object, ?advanced} if advanced === Some(false) =>
+              | {tag: Object, ?advanced} if advanced !== Some(true) =>
                 let flattenedItems = flattenedItems->Stdlib.Option.unsafeUnwrap
                 let result = Js.Dict.empty()
                 for idx in 0 to flattenedItems->Js.Array2.length - 1 {
@@ -3817,13 +3758,12 @@ module Null = {
   }
 }
 
-let enum = values =>
-  Union.factory(values->Js.Array2.map(Literal.parse)->(Obj.magic: array<internal> => array<'a>))
-
 let schema = Schema.factory
 
 let js_schema = definition => definition->Obj.magic->Schema.definitionToSchema->toStandard
 let literal = js_schema
+
+let enum = values => Union.factory(values->Js.Array2.map(literal))
 
 let unnest = {
   let typeFilter = (b, ~inputVar) => {
@@ -3972,16 +3912,15 @@ let unnest = {
   }
 }
 
-let inline = Obj.magic
 // let inline = {
 //   let rec internalInline = (schema, ~variant as maybeVariant=?, ()) => {
-//     let schema = schema->toInternal->copy
+//     let mut = schema->toInternal->copy
 
-//     let inlinedSchema = switch schema->classify {
-//     | Literal(literal) => `S.literal(%raw(\`${literal->Literal.toString}\`))`
-//     | Union(unionSchemas) => {
+//     let inlinedSchema = switch mut {
+//     | {?const} if isLiteral(mut) => `S.literal(%raw(\`${literal->Literal.toString}\`))`
+//     | {anyOf} => {
 //         let variantNamesCounter = Js.Dict.empty()
-//         `S.union([${unionSchemas
+//         `S.union([${anyOf
 //           ->Js.Array2.map(s => {
 //             let variantName = s.name()
 //             let numberOfVariantNames = switch variantNamesCounter->Js.Dict.get(variantName) {
@@ -3999,8 +3938,8 @@ let inline = Obj.magic
 //           })
 //           ->Js.Array2.joinWith(", ")}])`
 //       }
-//     | JSON({validated}) => `S.json(~validate=${validated->(Obj.magic: bool => string)})`
-//     | Tuple({items: [s0]}) => `S.tuple1(${s0.schema->internalInline()})`
+//     | {tag: JSON} => `S.json(~validate=${validated->(Obj.magic: bool => string)})`
+//     | {tag: TupleTuple({items: [s0]}) => `S.tuple1(${s0.schema->internalInline()})`
 //     | Tuple({items: [s0, s1]}) =>
 //       `S.tuple2(${s0.schema->internalInline()}, ${s1.schema->internalInline()})`
 //     | Tuple({items: [s0, s1, s2]}) =>

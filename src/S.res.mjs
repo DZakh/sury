@@ -148,8 +148,6 @@ var $$Array = S_Core$RescriptSchema.$$Array;
 
 var Metadata = S_Core$RescriptSchema.Metadata;
 
-var inline = S_Core$RescriptSchema.inline;
-
 var reverse = S_Core$RescriptSchema.reverse;
 
 var intMin = S_Core$RescriptSchema.intMin;
@@ -264,7 +262,6 @@ export {
   Float ,
   $$Array ,
   Metadata ,
-  inline ,
   reverse ,
   intMin ,
   intMax ,
