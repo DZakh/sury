@@ -167,13 +167,14 @@ module EmptyArray = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(i!==e[0]&&(!Array.isArray(i)||i.length!==0)){e[1](i)}return i}`,
+      `i=>{if(!Array.isArray(i)||i.length!==0){e[0](i)}return i}`,
     )
   })
 
   test("Compiled serialize code snapshot of empty array literal schema", t => {
     let schema = factory()
 
+    // FIXME: Should keep validation?
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,

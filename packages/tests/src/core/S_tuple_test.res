@@ -78,6 +78,7 @@ test("Fails to parse tuple with holes", t => {
 test("Successfully serializes tuple with holes", t => {
   let schema = S.tuple(s => (s.item(0, S.string), s.item(2, S.int)))
 
+  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return [i["0"],e[0],i["1"],]}`)
   t->Assert.deepEqual(("value", 123)->S.reverseConvertOrThrow(schema), %raw(`["value",, 123]`), ())
 })
 

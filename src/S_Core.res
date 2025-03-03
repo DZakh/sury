@@ -275,22 +275,16 @@ type rec t<'value> =
   | @as("array") Array({item: t<unknown>})
   | @as("dict") Dict({item: t<unknown>})
   | @as("tuple") Tuple({items: array<item>})
-  | @as("object") Object({unknownKeys: unknownKeys, items: array<item>, fields: dict<item>})
-  | @as("union") Union({anyOf: array<t<unknown>>, optional?: optional})
+  | @as("object") Object({unknownKeys: unknownKeys, items: array<item>, fields: dict<item>}) // FIXME: Add const for Object and Tuple
+  | @as("union") Union({anyOf: array<t<unknown>>})
   | @as("json") JSON({}) // FIXME: Remove it in favor of Union ?
 // FIXME: Add recursive
 // FIXME: deprecate literal
 and schema<'a> = t<'a>
-and optional = {
-  item: t<unknown>,
-  hasUndefined?: bool,
-  hasNull?: bool,
-}
 and internal = {
   @as("type")
   tag: typeTag,
   mutable const?: char, // use char to avoid Caml_option.some
-  optional?: optional,
   item?: internal,
   format?: internalFormat,
   advanced?: bool, // FIXME: Should rename it?
@@ -398,6 +392,14 @@ let isSchemaObject = obj => (obj->Obj.magic).standard->Obj.magic
 
 // TODO: Can be improved after ReScript supports `in` (https://github.com/rescript-lang/rescript/issues/7313)
 let isLiteral: internal => bool = %raw(`s => "const" in s`)
+
+let rec isOptional = schema => {
+  switch schema.tag {
+  | Undefined => true
+  | Union => schema.anyOf->Stdlib.Option.unsafeUnwrap->Js.Array2.some(isOptional)
+  | _ => false
+  }
+}
 
 type globalConfig = {
   @as("r")
@@ -1102,14 +1104,7 @@ module Builder = {
 module B = Builder.B
 
 let rec internalCompile = (builder: builder, ~schema, ~flag) => {
-  if (
-    flag->Flag.unsafeHas(Flag.jsonableOutput) &&
-      switch schema->reverse {
-      | {optional: {hasUndefined: true}}
-      | {tag: Undefined} => true
-      | _ => false
-      }
-  ) {
+  if flag->Flag.unsafeHas(Flag.jsonableOutput) && schema->reverse->isOptional {
     Stdlib.Exn.raiseAny(
       InternalError.make(~code=InvalidJsonSchema(schema->fromInternal), ~flag, ~path=Path.empty),
     )
@@ -1405,35 +1400,31 @@ let assertOrThrow = (any, schema) => {
 module Literal = {
   open Stdlib
 
-  @inline
-  let unsafeInline = schema => {
+  let val = (b, schema) => {
     switch schema {
-    | {tag: String, const} => const->Obj.magic->Stdlib.Inlined.Value.fromString
-    | {tag: BigInt, const} => const->Obj.magic ++ "n"
-    | {?const} => const->Obj.magic
+    | {tag: Symbol | Instance | Function, ?const} => b->B.embedVal(const->Obj.magic)
+    | {tag: String, ?const} => b->B.val(const->Obj.magic->Stdlib.Inlined.Value.fromString)
+    | {tag: BigInt, ?const} => b->B.val(const->Obj.magic ++ "n")
+    | {?const} => b->B.val(const->Obj.magic)
     }
   }
 
-  let inlinedTypeFilter = (_b, ~inputVar) => {
-    `${inputVar}!==${(%raw(`this`): internal)->unsafeInline}`
-  }
-
-  let strictEqualTypeFilter = (b, ~inputVar) => {
-    `${inputVar}!==${b->B.embed((%raw(`this`): internal).const)}`
+  let typeFilter = (b, ~inputVar) => {
+    `${inputVar}!==${val(b, (%raw(`this`): internal)).inline}`
   }
 
   let undefined = {
     tag: Undefined,
     const: %raw(`void 0`),
     builder: Builder.invalidJson,
-    typeFilter: inlinedTypeFilter,
+    typeFilter,
   }
 
   let null = {
     tag: Null,
     const: %raw(`null`),
     builder: Builder.noop,
-    typeFilter: inlinedTypeFilter,
+    typeFilter,
   }
 
   let nan = {
@@ -1448,7 +1439,7 @@ module Literal = {
     {
       tag,
       builder: Builder.noop,
-      typeFilter: inlinedTypeFilter,
+      typeFilter,
     }
   }
 
@@ -1456,7 +1447,7 @@ module Literal = {
     {
       tag,
       builder: Builder.invalidJson,
-      typeFilter: strictEqualTypeFilter,
+      typeFilter,
     }
   }
 
@@ -1862,7 +1853,7 @@ module Never = {
 }
 
 module Union = {
-  let parse = (b, ~schemas, ~path, ~input, ~output) => {
+  let parse = (b, ~schemas, ~path, ~input, ~output: val) => {
     let isMultiple = schemas->Js.Array2.length > 1
     let rec loop = (idx, errorCodes) => {
       if idx === schemas->Js.Array2.length {
@@ -1880,7 +1871,10 @@ module Union = {
           let itemOutput = bb->B.parse(~schema, ~input, ~path=Path.empty)
 
           if itemOutput !== input {
-            bb.code = bb.code ++ bb->B.Val.set(output, itemOutput)
+            if itemOutput.isAsync {
+              output.isAsync = true
+            }
+            bb.code = bb.code ++ `${output.inline}=${itemOutput.inline}`
           }
 
           bb->B.allocateScope
@@ -1964,19 +1958,26 @@ module Union = {
     }
   })
 
+  let flatten = (mut, schemas) => {
+    mut.anyOf = Some(schemas)
+  }
+
   let rec factory = schemas => {
     let schemas: array<internal> = schemas->Obj.magic
 
     switch schemas {
     | [] => InternalError.panic("S.union requires at least one item")
-    | [schema] => schema
-    | _ => {
+    | [schema] => schema->fromInternal
+    | _ =>
+      let mut = {
         tag: Union,
-        anyOf: schemas, // FIXME: Handle optional
+        anyOf: [],
         builder,
         output,
       }
-    }->toStandard
+      flatten(mut, schemas)
+      mut->toStandard
+    }
   }
   and output = () => {
     let schemas = (%raw(`this`): internal).anyOf->Stdlib.Option.unsafeUnwrap
@@ -1994,79 +1995,29 @@ module Option = {
 
   let default = schema => schema->Metadata.get(~id=defaultMetadataId)
 
-  let makeBuilder = (~isNullInput, ~isNullOutput) =>
-    Builder.make((b, ~input, ~selfSchema, ~path) => {
-      let {item} = selfSchema.optional->Stdlib.Option.unsafeUnwrap
-      let item = item->toInternal
+  let factory = item => {
+    let reversedItem = item->toInternal->reverse
+    let schema = Union.factory([item->toUnknown, unit->toUnknown])
 
-      let bb = b->B.scope
-      let itemInput = if (
-        !(b.global.flag->Flag.unsafeHas(Flag.typeValidation)) &&
-        (item.tag === Unknown ||
-        item.tag === Undefined ||
-        switch item.optional {
-        | Some({hasUndefined: true}) => true
-        | _ => false
-        })
-      ) {
-        bb->B.val(`${bb->B.embed(%raw("Caml_option.valFromOption"))}(${b->B.Val.var(input)})`)
-      } else {
-        input
-      }
-
-      let itemOutput = bb->B.parse(~schema=item, ~input=itemInput, ~path)
-      let itemCode = bb->B.allocateScope
-
-      let inputLiteral = isNullInput ? "null" : "void 0"
-      let ouputLiteral = isNullOutput ? "null" : "void 0"
-
-      let isTransformed = inputLiteral !== ouputLiteral || itemOutput !== input
-
-      let output = isTransformed
-        ? {b, var: B._notVar, isAsync: itemOutput.isAsync, inline: ""}
-        : input
-
-      if itemCode !== "" || isTransformed {
-        b.code =
-          b.code ++
-          `if(${b->B.Val.var(input)}!==${inputLiteral}){${itemCode}${b->B.Val.set(
-              output,
-              itemOutput,
-            )}}${inputLiteral !== ouputLiteral || output.isAsync
-              ? `else{${b->B.Val.set(output, b->B.val(ouputLiteral))}}`
-              : ""}`
-      }
-
-      output
-    })
-
-  let typeFilter = (~schema, ~inlinedNoneValue) => {
-    if schema.typeFilter->Stdlib.Option.isSome {
-      Some(
-        (b, ~inputVar) => {
-          `${inputVar}!==${inlinedNoneValue}&&(${b->(schema.typeFilter->Stdlib.Option.unsafeUnwrap)(
-              ~inputVar,
-            )})`
+    if reversedItem->isOptional {
+      let mut = schema->toInternal
+      mut.output = Some(
+        () => {
+          Union.factory([
+            reversedItem->fromInternal,
+            unit->toUnknown,
+            // coerce(
+            //   Schema.definitionToSchema(
+            //     {"BS_PRIVATE_NESTED_SOME_NONE": Float.schema}->Obj.magic,
+            //   )->fromInternal,
+            //   Literal.null->fromInternal,
+            // ),
+          ])->toInternal
         },
       )
-    } else {
-      None
     }
-  }
 
-  let rec factory = item => {
-    let item = item->toInternal
-    {
-      tag: Union,
-      anyOf: [item, unit->toInternal], // FIXME:
-      optional: {
-        item: item->fromInternal->toUnknown,
-        hasUndefined: true,
-      },
-      builder: makeBuilder(~isNullInput=false, ~isNullOutput=false),
-      typeFilter: ?typeFilter(~schema=item, ~inlinedNoneValue="void 0"),
-      output: Output.item(~factory, ~item),
-    }->toStandard
+    schema
   }
 
   let getWithDefault = (schema: t<option<'value>>, default) => {
@@ -2088,7 +2039,13 @@ module Option = {
       () => {
         let reversed = schema->reverse
         switch reversed {
-        | {optional: {item}} => item->toInternal
+        | {anyOf} =>
+          // FIXME: What if the union is transformed
+          Union.factory(
+            anyOf
+            ->Js.Array2.filter(s => s->isOptional->not)
+            ->(Obj.magic: array<internal> => array<t<unknown>>),
+          )->toInternal
         | _ => reversed
         }
       },
@@ -2101,27 +2058,6 @@ module Option = {
   let getOrWith = (schema, defalutCb) =>
     schema->getWithDefault(Callback(defalutCb->(Obj.magic: (unit => 'a) => unit => unknown)))
 }
-
-// module Null = {
-//   let factory = schema => {
-//     let schema = schema->toUnknown
-//     makeSchema(
-//       ~name=() => `${schema.name()} | null`,
-//       ~tagged=Null(schema),
-//       ~builder=Option.makeBuilder(~isNullInput=true, ~isNullOutput=false),
-//       ~typeFilter=Option.typeFilter(~schema, ~inlinedNoneValue="null"),
-//       ~reverse=() => {
-//         let child = schema.output()
-//         makeReverseSchema(
-//           ~name=Option.name,
-//           ~tagged=Option(child),
-//           ~builder=Option.makeBuilder(~isNullInput=false, ~isNullOutput=true),
-//           ~typeFilter=Option.typeFilter(~schema, ~inlinedNoneValue="void 0"),
-//         )
-//       },
-//     )
-//   }
-// }
 
 module Array = {
   module Refinement = {
@@ -2423,13 +2359,7 @@ module JsonString = {
         mut.builder = Builder.make((b, ~input, ~selfSchema as _, ~path) => {
           let prevFlag = b.global.flag
           b.global.flag = prevFlag->Flag.with(Flag.jsonableOutput)
-          if (
-            switch reversed {
-            | {optional: {hasUndefined: true}}
-            | {tag: Undefined} => true
-            | _ => false
-            }
-          ) {
+          if reversed->isOptional {
             b->B.raise(~code=InvalidJsonSchema(reversed->fromInternal), ~path=Path.empty)
           }
           let output =
@@ -2539,6 +2469,125 @@ module BigInt = {
     builder: Builder.invalidJson,
     typeFilter,
   }->toStandard
+}
+
+let rec coerce = (from, to) => {
+  let from = from->toInternal
+  let to = to->toInternal
+
+  // It makes sense, since S.coerce quite often will be used
+  // inside of a framework where we don't control what's the to argument
+  if from === to {
+    from->fromInternal
+  } else {
+    let extendCoercion = %raw(`0`)
+    let shrinkCoercion = %raw(`1`)
+
+    let fromOutput = from->reverse
+    let isFromLiteral = from->isLiteral
+    let isToLiteral = to->isLiteral
+
+    let coercion = switch (fromOutput, to) {
+    | (_, _) if isFromLiteral && isToLiteral =>
+      (b, ~inputVar as _, ~failCoercion as _) => {
+        b->Literal.val(to)
+        // FIXME: Test
+      }
+    | ({tag: String}, {tag: String, const: _}) => shrinkCoercion
+    | ({tag: String}, {tag: String}) // FIXME: validate that refinements match
+    | ({tag: Number, format: Int32}, {tag: Number, format: ?None}) => extendCoercion
+    | ({tag: Boolean | Number | BigInt | Undefined | Null | NaN, ?const}, {tag: String})
+      if isFromLiteral =>
+      (b, ~inputVar as _, ~failCoercion as _) => b->B.val(`"${const->Obj.magic}"`)
+
+    | ({tag: Boolean | Number | BigInt}, {tag: String}) =>
+      (b, ~inputVar, ~failCoercion as _) => b->B.val(`""+${inputVar}`) // TODO: This looks like the fastest option. Benchmark vs `${inputVar}?"true":"false"` vs `"{value}"` vs .toString and store the results somewhere
+    | ({tag: String}, {tag: Boolean | Number | BigInt | Undefined | Null | NaN, ?const})
+      if isToLiteral =>
+      (b, ~inputVar, ~failCoercion) => {
+        b.code = b.code ++ `${inputVar}==="${const->Obj.magic}"||${failCoercion};`
+        b->Literal.val(to)
+      }
+    | ({tag: String}, {tag: Boolean}) =>
+      (b, ~inputVar, ~failCoercion) => {
+        let output = b->B.allocateVal
+        b.code =
+          b.code ++
+          `(${output.inline}=${inputVar}==="true")||${inputVar}==="false"||${failCoercion};`
+        output
+      }
+
+    | ({tag: String}, {tag: Number, ?format}) =>
+      (b, ~inputVar, ~failCoercion) => {
+        let output = b->B.val(`+${inputVar}`)
+        b.code =
+          b.code ++
+          `Number.isNaN(${output.var(b)})${{
+              switch format {
+              | None => ``
+              | Some(Int32) => `||${Int.refinement(~inputVar)}`
+              // | Some(format) =>
+              //   Js.Exn.raiseError(`Unsupported coercion to number format ${(format :> string)}`)
+              }
+            }}&&${failCoercion};`
+        output
+      }
+    | ({tag: String}, {tag: BigInt}) =>
+      (b, ~inputVar, ~failCoercion) => {
+        let output = b->B.allocateVal
+        b.code = b.code ++ `try{${output.inline}=BigInt(${inputVar})}catch(_){${failCoercion}}`
+        output
+      }
+
+    | _ =>
+      InternalError.panic(
+        `S.coerce from ${fromOutput->fromInternal->name} to ${to
+          ->fromInternal
+          ->name} is not supported`,
+      )
+    }
+
+    let mut = from->copy
+    mut.builder = Builder.make((b, ~input, ~selfSchema as _, ~path) => {
+      let input = b->B.parse(~schema=from, ~input, ~path)
+
+      if coercion === extendCoercion {
+        b->B.parse(~schema=to, ~input, ~path)
+      } else if coercion === shrinkCoercion {
+        b->B.parseWithTypeValidation(~schema=to, ~input, ~path)
+      } else {
+        let bb = b->B.scope
+        let inputVar = input.var(bb)
+        let output = bb->B.parse(
+          ~schema=to,
+          ~input=bb->coercion(
+            ~inputVar,
+            ~failCoercion=bb->B.failWithArg(
+              ~path,
+              input => InvalidType({
+                expected: to->fromInternal,
+                received: input,
+              }),
+              inputVar,
+            ),
+          ),
+          ~path,
+        )
+        b.code = b.code ++ bb->B.allocateScope
+        output
+      }
+    })
+
+    mut.output = Some(
+      () => {
+        coerce(to->reverse->fromInternal, fromOutput->fromInternal)->toInternal
+      },
+    )
+
+    mut->mixingMetadata(~from=to)
+
+    mut->toStandard
+  }
 }
 
 type preprocessDefinition<'input, 'output> = {
@@ -3096,10 +3145,11 @@ module Schema = {
     let ritem = definition->definitionToRitem(~path=Path.empty, ~ritems, ~ritemsByItemPath)
 
     let mut = switch ritem {
-    | Registred({reversed}) =>
+    | Registred(_)
+    | Discriminant(_) =>
       // Need to copy the schema here, because we're going to override the builder
-      reversed->copy
-    | _ => ritem->getRitemReversed
+      ritem->getRitemReversed->copy
+    | Node(_) => ritem->getRitemReversed
     }
 
     mut.builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
@@ -3587,6 +3637,7 @@ module Schema = {
                 items,
                 typeFilter: Tuple.typeFilter,
                 builder: Never.builder,
+                output,
               },
             })
           } else {
@@ -3625,6 +3676,7 @@ module Schema = {
                 advanced: true,
                 typeFilter: Object.typeFilter,
                 builder: Never.builder,
+                output,
               },
             })
           }
@@ -3733,6 +3785,35 @@ module Schema = {
     ->(Obj.magic: 'definition => unknown)
     ->definitionToSchema
     ->toStandard
+  }
+}
+
+module Null = {
+  let factory = item => {
+    let reversedItem = item->toInternal->reverse
+    let null = coerce(Literal.null->fromInternal, unit->toUnknown)
+
+    let schema = Union.factory([item->toUnknown, null])
+
+    if reversedItem->isOptional {
+      let mut = schema->toInternal
+      mut.output = Some(
+        () => {
+          Union.factory([
+            reversedItem->fromInternal,
+            null->toInternal->reverse->fromInternal,
+            coerce(
+              Schema.definitionToSchema(
+                {"BS_PRIVATE_NESTED_SOME_NONE": Float.schema}->Obj.magic,
+              )->fromInternal,
+              Literal.null->fromInternal,
+            ),
+          ])->toInternal
+        },
+      )
+    }
+
+    schema
   }
 }
 
@@ -4119,8 +4200,7 @@ let bool = Bool.schema
 let int = Int.schema
 let float = Float.schema
 let bigint = BigInt.schema
-let null = Obj.magic
-// let null = Null.factory
+let null = Null.factory
 let option = Option.factory
 let array = Array.factory
 let dict = Dict.factory
@@ -4421,125 +4501,6 @@ let trim = schema => {
   schema->transform(_ => {parser: transformer, serializer: transformer})
 }
 
-let rec coerce = (from, to) => {
-  let from = from->toInternal
-  let to = to->toInternal
-
-  // It makes sense, since S.coerce quite often will be used
-  // inside of a framework where we don't control what's the to argument
-  if from === to {
-    from->fromInternal
-  } else {
-    let extendCoercion = %raw(`0`)
-    let shrinkCoercion = %raw(`1`)
-
-    let toConst = to.const
-    // Related https://github.com/rescript-lang/rescript/issues/7313
-    let hasToConst = to.const !== %raw(`void 0`) || to.tag === Undefined
-
-    let coercion = switch (from->reverse, to) {
-    | ({const: _} | {tag: Undefined}, _) if hasToConst =>
-      (b, ~inputVar as _, ~failCoercion as _) => {
-        b->B.embedVal(toConst)
-        // FIXME: Test
-        // FIXME: Inline when possible
-      }
-    | ({tag: String}, {tag: String, const: _}) => shrinkCoercion
-    | ({tag: String}, {tag: String}) // FIXME: validate that refinements match
-    | ({tag: Number, format: Int32}, {tag: Number, format: ?None}) => extendCoercion
-    | ({tag: Boolean | Number | BigInt | Undefined | Null | NaN, const}, {tag: String}) =>
-      (b, ~inputVar as _, ~failCoercion as _) => b->B.val(const->Obj.magic)
-
-    | ({tag: Boolean | Number | BigInt}, {tag: String}) =>
-      // FIXME: Test literals
-      (b, ~inputVar, ~failCoercion as _) => b->B.val(`""+${inputVar}`) // TODO: This looks like the fastest option. Benchmark vs `${inputVar}?"true":"false"` vs `"{value}"` vs .toString and store the results somewhere
-    | ({tag: String}, {tag: Boolean | Number | BigInt | Undefined | Null | NaN, const}) =>
-      (b, ~inputVar, ~failCoercion) => {
-        b.code = b.code ++ `${inputVar}==="${const->Obj.magic}"||${failCoercion};`
-        b->B.val(to->Literal.unsafeInline)
-      }
-    | ({tag: String}, {tag: Boolean}) =>
-      (b, ~inputVar, ~failCoercion) => {
-        let output = b->B.allocateVal
-        b.code =
-          b.code ++
-          `(${output.inline}=${inputVar}==="true")||${inputVar}==="false"||${failCoercion};`
-        output
-      }
-
-    | ({tag: String}, {tag: Number, ?format}) =>
-      (b, ~inputVar, ~failCoercion) => {
-        let output = b->B.val(`+${inputVar}`)
-        b.code =
-          b.code ++
-          `Number.isNaN(${output.var(b)})${{
-              switch format {
-              | None => ``
-              | Some(Int32) => `||${Int.refinement(~inputVar)}`
-              // | Some(format) =>
-              //   Js.Exn.raiseError(`Unsupported coercion to number format ${(format :> string)}`)
-              }
-            }}&&${failCoercion};`
-        output
-      }
-    | ({tag: String}, {tag: BigInt}) =>
-      (b, ~inputVar, ~failCoercion) => {
-        let output = b->B.allocateVal
-        b.code = b.code ++ `try{${output.inline}=BigInt(${inputVar})}catch(_){${failCoercion}}`
-        output
-      }
-
-    | _ =>
-      InternalError.panic(
-        `S.coerce from ${from->reverse->fromInternal->name} to ${to
-          ->fromInternal
-          ->name} is not supported`,
-      )
-    }
-
-    let mut = from->copy
-    mut.builder = Builder.make((b, ~input, ~selfSchema as _, ~path) => {
-      let input = b->B.parse(~schema=from, ~input, ~path)
-
-      if coercion === extendCoercion {
-        b->B.parse(~schema=to, ~input, ~path)
-      } else if coercion === shrinkCoercion {
-        b->B.parseWithTypeValidation(~schema=to, ~input, ~path)
-      } else {
-        let bb = b->B.scope
-        let inputVar = input.var(bb)
-        let output = bb->B.parse(
-          ~schema=to,
-          ~input=bb->coercion(
-            ~inputVar,
-            ~failCoercion=bb->B.failWithArg(
-              ~path,
-              input => InvalidType({
-                expected: to->fromInternal,
-                received: input,
-              }),
-              inputVar,
-            ),
-          ),
-          ~path,
-        )
-        b.code = b.code ++ bb->B.allocateScope
-        output
-      }
-    })
-
-    mut.output = Some(
-      () => {
-        coerce(to->reverse->fromInternal, from->reverse->fromInternal)->toInternal
-      },
-    )
-
-    mut->mixingMetadata(~from=to)
-
-    mut->toStandard
-  }
-}
-
 let nullish = schema => {
   Union.factory([schema->toUnknown, Literal.null->fromInternal, unit->toUnknown])
 }
@@ -4589,7 +4550,7 @@ let js_asyncParserRefine = (schema, refine) => {
 }
 
 let js_optional = (schema, maybeOr) => {
-  let schema = option(schema)
+  let schema = option(schema) // FIXME: Nested optional should flatten instead of behaving like in ReScript
   switch maybeOr {
   | Some(or) if Js.typeof(or) === "function" => schema->Option.getOrWith(or->Obj.magic)->Obj.magic
   | Some(or) => schema->Option.getOr(or->Obj.magic)->Obj.magic

@@ -62,6 +62,18 @@ var Raised = /* @__PURE__ */Caml_exceptions.create("S_Core-RescriptSchema.Raised
 
 var isLiteral = (s => "const" in s);
 
+function isOptional(schema) {
+  var match = schema.type;
+  switch (match) {
+    case "undefined" :
+        return true;
+    case "union" :
+        return schema.anyOf.some(isOptional);
+    default:
+      return false;
+  }
+}
+
 var globalConfig = {
   r: 0,
   u: "strip",
@@ -661,28 +673,7 @@ function noopOperation(i) {
 }
 
 function internalCompile(builder, schema, flag) {
-  var tmp = false;
-  if (flag & 8) {
-    var match = reverse(schema);
-    var tmp$1;
-    var exit = 0;
-    var match$1 = match.optional;
-    if (match$1 !== undefined) {
-      var match$2 = match$1.hasUndefined;
-      if (match$2 !== undefined && match$2) {
-        tmp$1 = true;
-      } else {
-        exit = 1;
-      }
-    } else {
-      exit = 1;
-    }
-    if (exit === 1) {
-      tmp$1 = match.type === "undefined" ? true : false;
-    }
-    tmp = tmp$1;
-  }
-  if (tmp) {
+  if (flag & 8 && isOptional(reverse(schema))) {
     throw new RescriptSchemaError({
               TAG: "InvalidJsonSchema",
               _0: schema
@@ -885,40 +876,62 @@ function assertOrThrow(any, schema) {
   return operationFn(schema, 5)(any);
 }
 
-function inlinedTypeFilter(_b, inputVar) {
-  var schema = this;
-  var tmp;
+function val(b, schema) {
   switch (schema.type) {
     case "string" :
         var $$const = schema.const;
-        tmp = $$const !== undefined ? fromString($$const) : schema.const;
-        break;
+        return {
+                b: b,
+                v: _notVar,
+                i: fromString($$const),
+                a: false
+              };
     case "bigint" :
         var $$const$1 = schema.const;
-        tmp = $$const$1 !== undefined ? $$const$1 + "n" : schema.const;
+        return {
+                b: b,
+                v: _notVar,
+                i: $$const$1 + "n",
+                a: false
+              };
+    case "symbol" :
+    case "function" :
+    case "instance" :
         break;
     default:
-      tmp = schema.const;
+      var $$const$2 = schema.const;
+      return {
+              b: b,
+              v: _notVar,
+              i: $$const$2,
+              a: false
+            };
   }
-  return inputVar + "!==" + tmp;
+  var $$const$3 = schema.const;
+  return {
+          b: b,
+          v: _var,
+          i: embed(b, $$const$3),
+          a: false
+        };
 }
 
-function strictEqualTypeFilter(b, inputVar) {
-  return inputVar + "!==" + embed(b, this.const);
+function typeFilter(b, inputVar) {
+  return inputVar + "!==" + val(b, this).i;
 }
 
 var $$undefined = {
   type: "undefined",
   const: (void 0),
   b: invalidJson,
-  f: inlinedTypeFilter
+  f: typeFilter
 };
 
 var $$null = {
   type: "null",
   const: null,
   b: noop,
-  f: inlinedTypeFilter
+  f: typeFilter
 };
 
 var nan = {
@@ -933,7 +946,7 @@ function jsonable(tag) {
   return {
           type: tag,
           b: noop,
-          f: inlinedTypeFilter
+          f: typeFilter
         };
 }
 
@@ -941,7 +954,7 @@ function nonJsonable(tag) {
   return {
           type: tag,
           b: invalidJson,
-          f: strictEqualTypeFilter
+          f: typeFilter
         };
 }
 
@@ -1319,7 +1332,10 @@ function parse$1(b, schemas, path, input, output) {
       };
       var itemOutput = schema.b(bb, input, schema, "");
       if (itemOutput !== input) {
-        bb.c = bb.c + set(bb, output, itemOutput);
+        if (itemOutput.a) {
+          output.a = true;
+        }
+        bb.c = bb.c + (output.i + "=" + itemOutput.i);
       }
       parserCode = allocateScope(bb);
     }
@@ -1401,22 +1417,20 @@ function builder$1(b, input, selfSchema, path) {
 
 function factory(schemas) {
   var len = schemas.length;
-  var tmp;
-  if (len !== 1) {
-    if (len !== 0) {
-      tmp = {
-        type: "union",
-        anyOf: schemas,
-        output: output,
-        b: builder$1
-      };
-    } else {
-      throw new Error("[" + vendor + "] S.union requires at least one item");
-    }
-  } else {
-    tmp = schemas[0];
+  if (len === 1) {
+    return schemas[0];
   }
-  return toStandard(tmp);
+  if (len !== 0) {
+    var mut = {
+      type: "union",
+      anyOf: [],
+      output: output,
+      b: builder$1
+    };
+    mut.anyOf = schemas;
+    return toStandard(mut);
+  }
+  throw new Error("[" + vendor + "] S.union requires at least one item");
 }
 
 function output() {
@@ -1432,87 +1446,21 @@ function $$default(schema) {
   return schema[defaultMetadataId];
 }
 
-function makeBuilder(isNullInput, isNullOutput) {
-  return function (b, input, selfSchema, path) {
-    var match = selfSchema.optional;
-    var item = match.item;
-    var bb = {
-      c: "",
-      l: "",
-      a: initialAllocate,
-      g: b.g
-    };
-    var tmp = false;
-    if (!(b.g.o & 1)) {
-      var tmp$1 = true;
-      if (!(item.type === "unknown" || item.type === "undefined")) {
-        var match$1 = item.optional;
-        var tmp$2;
-        if (match$1 !== undefined) {
-          var match$2 = match$1.hasUndefined;
-          tmp$2 = match$2 !== undefined && match$2 ? true : false;
-        } else {
-          tmp$2 = false;
-        }
-        tmp$1 = tmp$2;
-      }
-      tmp = tmp$1;
-    }
-    var itemInput = tmp ? ({
-          b: bb,
-          v: _notVar,
-          i: embed(bb, Caml_option.valFromOption) + "(" + input.v(b) + ")",
-          a: false
-        }) : input;
-    var itemOutput = item.b(bb, itemInput, item, path);
-    var itemCode = allocateScope(bb);
-    var inputLiteral = isNullInput ? "null" : "void 0";
-    var ouputLiteral = isNullOutput ? "null" : "void 0";
-    var isTransformed = inputLiteral !== ouputLiteral || itemOutput !== input;
-    var output = isTransformed ? ({
-          b: b,
-          v: _notVar,
-          i: "",
-          a: itemOutput.a
-        }) : input;
-    if (itemCode !== "" || isTransformed) {
-      b.c = b.c + ("if(" + input.v(b) + "!==" + inputLiteral + "){" + itemCode + set(b, output, itemOutput) + "}" + (
-          inputLiteral !== ouputLiteral || output.a ? "else{" + set(b, output, {
-                  b: b,
-                  v: _notVar,
-                  i: ouputLiteral,
-                  a: false
-                }) + "}" : ""
-        ));
-    }
-    return output;
-  };
-}
-
-function typeFilter(schema, inlinedNoneValue) {
-  if (schema.f !== undefined) {
-    return (function (b, inputVar) {
-              return inputVar + "!==" + inlinedNoneValue + "&&(" + schema.f(b, inputVar) + ")";
-            });
+function factory$1(item) {
+  var reversedItem = reverse(item);
+  var schema = factory([
+        item,
+        unit
+      ]);
+  if (isOptional(reversedItem)) {
+    schema.output = (function () {
+        return factory([
+                    reversedItem,
+                    unit
+                  ]);
+      });
   }
-  
-}
-
-function factory$1(item$1) {
-  return toStandard({
-              type: "union",
-              optional: {
-                item: item$1,
-                hasUndefined: true
-              },
-              anyOf: [
-                item$1,
-                unit
-              ],
-              output: item(factory$1, item$1),
-              b: makeBuilder(false, false),
-              f: typeFilter(item$1, "void 0")
-            });
+  return schema;
 }
 
 function getWithDefault(schema, $$default) {
@@ -1533,9 +1481,11 @@ function getWithDefault(schema, $$default) {
     });
   mut.output = (function () {
       var reversed = reverse(schema);
-      var match = reversed.optional;
-      if (match !== undefined) {
-        return match.item;
+      var anyOf = reversed.anyOf;
+      if (anyOf !== undefined) {
+        return factory(anyOf.filter(function (s) {
+                        return !isOptional(s);
+                      }));
       } else {
         return reversed;
       }
@@ -1802,23 +1752,7 @@ function factory$4(item, spaceOpt) {
                   mut.b = (function (b, input, param, path) {
                       var prevFlag = b.g.o;
                       b.g.o = prevFlag | 8;
-                      var tmp;
-                      var exit = 0;
-                      var match = reversed.optional;
-                      if (match !== undefined) {
-                        var match$1 = match.hasUndefined;
-                        if (match$1 !== undefined && match$1) {
-                          tmp = true;
-                        } else {
-                          exit = 1;
-                        }
-                      } else {
-                        exit = 1;
-                      }
-                      if (exit === 1) {
-                        tmp = reversed.type === "undefined" ? true : false;
-                      }
-                      if (tmp) {
+                      if (isOptional(reversed)) {
                         raise$1(b, {
                               TAG: "InvalidJsonSchema",
                               _0: reversed
@@ -1919,6 +1853,183 @@ var schema$5 = toStandard({
       b: invalidJson,
       f: typeFilter$9
     });
+
+function coerce(from, to) {
+  if (from === to) {
+    return from;
+  }
+  var extendCoercion = 0;
+  var shrinkCoercion = 1;
+  var fromOutput = reverse(from);
+  var isFromLiteral = isLiteral(from);
+  var isToLiteral = isLiteral(to);
+  var match = fromOutput.type;
+  var coercion;
+  var exit = 0;
+  var exit$1 = 0;
+  if (isFromLiteral && isToLiteral) {
+    coercion = (function (b, param, param$1) {
+        return val(b, to);
+      });
+  } else {
+    switch (match) {
+      case "string" :
+          var match$1 = to.type;
+          var exit$2 = 0;
+          switch (match$1) {
+            case "string" :
+                var match$2 = to.const;
+                coercion = match$2 !== undefined ? shrinkCoercion : extendCoercion;
+                break;
+            case "number" :
+            case "bigint" :
+            case "boolean" :
+            case "null" :
+            case "undefined" :
+            case "nan" :
+                exit$2 = 3;
+                break;
+            default:
+              exit = 1;
+          }
+          if (exit$2 === 3) {
+            var $$const = to.const;
+            if (isToLiteral) {
+              coercion = (function (b, inputVar, failCoercion) {
+                  b.c = b.c + (inputVar + "===\"" + $$const + "\"||" + failCoercion + ";");
+                  return val(b, to);
+                });
+            } else {
+              switch (match$1) {
+                case "number" :
+                    var format = to.format;
+                    coercion = (function (b, inputVar, failCoercion) {
+                        var output = {
+                          b: b,
+                          v: _notVar,
+                          i: "+" + inputVar,
+                          a: false
+                        };
+                        b.c = b.c + ("Number.isNaN(" + output.v(b) + ")" + (
+                            format !== undefined ? "||" + refinement(inputVar) : ""
+                          ) + "&&" + failCoercion + ";");
+                        return output;
+                      });
+                    break;
+                case "bigint" :
+                    coercion = (function (b, inputVar, failCoercion) {
+                        var output = allocateVal(b);
+                        b.c = b.c + ("try{" + output.i + "=BigInt(" + inputVar + ")}catch(_){" + failCoercion + "}");
+                        return output;
+                      });
+                    break;
+                case "boolean" :
+                    coercion = (function (b, inputVar, failCoercion) {
+                        var output = allocateVal(b);
+                        b.c = b.c + ("(" + output.i + "=" + inputVar + "===\"true\")||" + inputVar + "===\"false\"||" + failCoercion + ";");
+                        return output;
+                      });
+                    break;
+                default:
+                  exit = 1;
+              }
+            }
+          }
+          break;
+      case "number" :
+          if (fromOutput.format !== undefined && to.type === "number" && to.format === undefined) {
+            coercion = extendCoercion;
+          } else {
+            exit$1 = 2;
+          }
+          break;
+      case "bigint" :
+      case "boolean" :
+      case "null" :
+      case "undefined" :
+      case "nan" :
+          exit$1 = 2;
+          break;
+      default:
+        exit = 1;
+    }
+  }
+  if (exit$1 === 2) {
+    var $$const$1 = fromOutput.const;
+    if (to.type === "string") {
+      if (isFromLiteral) {
+        coercion = (function (b, param, param$1) {
+            return {
+                    b: b,
+                    v: _notVar,
+                    i: "\"" + $$const$1 + "\"",
+                    a: false
+                  };
+          });
+      } else {
+        var exit$3 = 0;
+        switch (match) {
+          case "number" :
+          case "bigint" :
+          case "boolean" :
+              exit$3 = 3;
+              break;
+          default:
+            exit = 1;
+        }
+        if (exit$3 === 3) {
+          coercion = (function (b, inputVar, param) {
+              return {
+                      b: b,
+                      v: _notVar,
+                      i: "\"\"+" + inputVar,
+                      a: false
+                    };
+            });
+        }
+        
+      }
+    } else {
+      exit = 1;
+    }
+  }
+  if (exit === 1) {
+    var message = "S.coerce from " + name(fromOutput) + " to " + name(to) + " is not supported";
+    throw new Error("[" + vendor + "] " + message);
+  }
+  var mut = copy(from);
+  mut.b = (function (b, input, param, path) {
+      var input$1 = from.b(b, input, from, path);
+      if (coercion === extendCoercion) {
+        return to.b(b, input$1, to, path);
+      }
+      if (coercion === shrinkCoercion) {
+        return parseWithTypeValidation(b, to, input$1, path);
+      }
+      var bb = {
+        c: "",
+        l: "",
+        a: initialAllocate,
+        g: b.g
+      };
+      var inputVar = input$1.v(bb);
+      var input$2 = coercion(bb, inputVar, failWithArg(bb, path, (function (input) {
+                  return {
+                          TAG: "InvalidType",
+                          expected: to,
+                          received: input
+                        };
+                }), inputVar));
+      var output = to.b(bb, input$2, to, path);
+      b.c = b.c + allocateScope(bb);
+      return output;
+    });
+  mut.output = (function () {
+      return coerce(reverse(to), fromOutput);
+    });
+  mixingMetadata(mut, to);
+  return toStandard(mut);
+}
 
 function preprocess(schema, transformer) {
   var mut = copy(schema);
@@ -2236,85 +2347,84 @@ function builder$2(parentB, input, selfSchema, path) {
   }
 }
 
-function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
-  if (!(typeof definition === "object" && definition !== null)) {
-    return {
-            k: 1,
-            p: path,
-            s: parse(definition)
-          };
+function nested(fieldName) {
+  var parentCtx = this;
+  var cacheId = "~" + fieldName;
+  var ctx = parentCtx[cacheId];
+  if (ctx !== undefined) {
+    return Caml_option.valFromOption(ctx);
   }
-  var item = definition[itemSymbol];
-  if (item !== undefined) {
-    var ritem_2 = getItemReversed(item);
-    var ritem = {
-      k: 0,
-      p: path,
-      i: item,
-      s: ritem_2
-    };
-    item.r = ritem;
-    ritemsByItemPath[getFullDitemPath(item)] = ritem;
-    return ritem;
-  }
-  if (Array.isArray(definition)) {
-    var items = [];
-    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
-      var $$location = idx.toString();
-      var inlinedLocation = "\"" + $$location + "\"";
-      var ritem$1 = definitionToRitem(definition[idx], path + ("[" + inlinedLocation + "]"), ritems, ritemsByItemPath);
-      ritems.push(ritem$1);
-      var item_schema = ritem$1.s;
-      var item$1 = {
-        schema: item_schema,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-      items[idx] = item$1;
-    }
-    return {
-            k: 2,
-            p: path,
-            s: {
-              type: "tuple",
-              items: items,
-              b: builder,
-              f: typeFilter$3
-            },
-            a: true
-          };
-  }
-  var fieldNames = Object.keys(definition);
+  var schemas = [];
   var fields = {};
-  var items$1 = [];
-  for(var idx$1 = 0 ,idx_finish$1 = fieldNames.length; idx$1 < idx_finish$1; ++idx$1){
-    var $$location$1 = fieldNames[idx$1];
-    var inlinedLocation$1 = fromString($$location$1);
-    var ritem$2 = definitionToRitem(definition[$$location$1], path + ("[" + inlinedLocation$1 + "]"), ritems, ritemsByItemPath);
-    ritems.push(ritem$2);
-    var item_schema$1 = ritem$2.s;
-    var item$2 = {
-      schema: item_schema$1,
-      location: $$location$1,
-      inlinedLocation: inlinedLocation$1
+  var items = [];
+  var schema = {
+    type: "object",
+    unknownKeys: globalConfig.u,
+    items: items,
+    fields: fields,
+    output: output$1,
+    b: builder$2,
+    f: typeFilter$2
+  };
+  var target = parentCtx.f(fieldName, schema)[itemSymbol];
+  var field = function (fieldName, schema) {
+    var inlinedLocation = fromString(fieldName);
+    if (fields[fieldName]) {
+      throw new Error("[" + vendor + "] " + ("The field " + inlinedLocation + " defined twice"));
+    }
+    var ditem_2 = schema;
+    var ditem_4 = "[" + inlinedLocation + "]";
+    var ditem = {
+      k: 1,
+      inlinedLocation: inlinedLocation,
+      location: fieldName,
+      schema: ditem_2,
+      of: target,
+      p: ditem_4
     };
-    items$1[idx$1] = item$2;
-    fields[$$location$1] = item$2;
-  }
-  return {
-          k: 2,
-          p: path,
-          s: {
-            type: "object",
-            advanced: true,
-            unknownKeys: globalConfig.u,
-            items: items$1,
-            fields: fields,
-            b: builder,
-            f: typeFilter$2
-          },
-          a: false
-        };
+    fields[fieldName] = ditem;
+    items.push(ditem);
+    schemas.push(schema);
+    return proxify(ditem);
+  };
+  var tag = function (tag$1, asValue) {
+    field(tag$1, definitionToSchema(asValue));
+  };
+  var fieldOr = function (fieldName, schema, or) {
+    return field(fieldName, getOr(factory$1(schema), or));
+  };
+  var flatten = function (schema) {
+    if (schema.type === "object") {
+      var flattenedItems = schema.items;
+      if (schema.advanced) {
+        var message = "Unsupported nested flatten for advanced object schema '" + name(schema) + "'";
+        throw new Error("[" + vendor + "] " + message);
+      }
+      var match = reverse(schema);
+      if (match.type === "object" && match.advanced === false) {
+        var result = {};
+        for(var idx = 0 ,idx_finish = flattenedItems.length; idx < idx_finish; ++idx){
+          var item = flattenedItems[idx];
+          result[item.location] = field(item.location, item.schema);
+        }
+        return result;
+      }
+      var message$1 = "Unsupported nested flatten for transformed schema '" + name(schema) + "'";
+      throw new Error("[" + vendor + "] " + message$1);
+    }
+    var message$2 = "The '" + name(schema) + "' schema can't be flattened";
+    throw new Error("[" + vendor + "] " + message$2);
+  };
+  var ctx$1 = {
+    field: field,
+    f: field,
+    fieldOr: fieldOr,
+    tag: tag,
+    nested: nested,
+    flatten: flatten
+  };
+  parentCtx[cacheId] = ctx$1;
+  return ctx$1;
 }
 
 function output$1() {
@@ -2425,84 +2535,87 @@ function definitionToSchema(definition) {
         };
 }
 
-function nested(fieldName) {
-  var parentCtx = this;
-  var cacheId = "~" + fieldName;
-  var ctx = parentCtx[cacheId];
-  if (ctx !== undefined) {
-    return Caml_option.valFromOption(ctx);
+function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
+  if (!(typeof definition === "object" && definition !== null)) {
+    return {
+            k: 1,
+            p: path,
+            s: parse(definition)
+          };
   }
-  var schemas = [];
-  var fields = {};
-  var items = [];
-  var schema = {
-    type: "object",
-    unknownKeys: globalConfig.u,
-    items: items,
-    fields: fields,
-    output: output$1,
-    b: builder$2,
-    f: typeFilter$2
-  };
-  var target = parentCtx.f(fieldName, schema)[itemSymbol];
-  var field = function (fieldName, schema) {
-    var inlinedLocation = fromString(fieldName);
-    if (fields[fieldName]) {
-      throw new Error("[" + vendor + "] " + ("The field " + inlinedLocation + " defined twice"));
-    }
-    var ditem_2 = schema;
-    var ditem_4 = "[" + inlinedLocation + "]";
-    var ditem = {
-      k: 1,
-      inlinedLocation: inlinedLocation,
-      location: fieldName,
-      schema: ditem_2,
-      of: target,
-      p: ditem_4
+  var item = definition[itemSymbol];
+  if (item !== undefined) {
+    var ritem_2 = getItemReversed(item);
+    var ritem = {
+      k: 0,
+      p: path,
+      i: item,
+      s: ritem_2
     };
-    fields[fieldName] = ditem;
-    items.push(ditem);
-    schemas.push(schema);
-    return proxify(ditem);
-  };
-  var tag = function (tag$1, asValue) {
-    field(tag$1, definitionToSchema(asValue));
-  };
-  var fieldOr = function (fieldName, schema, or) {
-    return field(fieldName, getOr(factory$1(schema), or));
-  };
-  var flatten = function (schema) {
-    if (schema.type === "object") {
-      var flattenedItems = schema.items;
-      if (schema.advanced) {
-        var message = "Unsupported nested flatten for advanced object schema '" + name(schema) + "'";
-        throw new Error("[" + vendor + "] " + message);
-      }
-      var match = reverse(schema);
-      if (match.type === "object" && match.advanced === false) {
-        var result = {};
-        for(var idx = 0 ,idx_finish = flattenedItems.length; idx < idx_finish; ++idx){
-          var item = flattenedItems[idx];
-          result[item.location] = field(item.location, item.schema);
-        }
-        return result;
-      }
-      var message$1 = "Unsupported nested flatten for transformed schema '" + name(schema) + "'";
-      throw new Error("[" + vendor + "] " + message$1);
+    item.r = ritem;
+    ritemsByItemPath[getFullDitemPath(item)] = ritem;
+    return ritem;
+  }
+  if (Array.isArray(definition)) {
+    var items = [];
+    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
+      var $$location = idx.toString();
+      var inlinedLocation = "\"" + $$location + "\"";
+      var ritem$1 = definitionToRitem(definition[idx], path + ("[" + inlinedLocation + "]"), ritems, ritemsByItemPath);
+      ritems.push(ritem$1);
+      var item_schema = ritem$1.s;
+      var item$1 = {
+        schema: item_schema,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+      items[idx] = item$1;
     }
-    var message$2 = "The '" + name(schema) + "' schema can't be flattened";
-    throw new Error("[" + vendor + "] " + message$2);
-  };
-  var ctx$1 = {
-    field: field,
-    f: field,
-    fieldOr: fieldOr,
-    tag: tag,
-    nested: nested,
-    flatten: flatten
-  };
-  parentCtx[cacheId] = ctx$1;
-  return ctx$1;
+    return {
+            k: 2,
+            p: path,
+            s: {
+              type: "tuple",
+              items: items,
+              output: output$1,
+              b: builder,
+              f: typeFilter$3
+            },
+            a: true
+          };
+  }
+  var fieldNames = Object.keys(definition);
+  var fields = {};
+  var items$1 = [];
+  for(var idx$1 = 0 ,idx_finish$1 = fieldNames.length; idx$1 < idx_finish$1; ++idx$1){
+    var $$location$1 = fieldNames[idx$1];
+    var inlinedLocation$1 = fromString($$location$1);
+    var ritem$2 = definitionToRitem(definition[$$location$1], path + ("[" + inlinedLocation$1 + "]"), ritems, ritemsByItemPath);
+    ritems.push(ritem$2);
+    var item_schema$1 = ritem$2.s;
+    var item$2 = {
+      schema: item_schema$1,
+      location: $$location$1,
+      inlinedLocation: inlinedLocation$1
+    };
+    items$1[idx$1] = item$2;
+    fields[$$location$1] = item$2;
+  }
+  return {
+          k: 2,
+          p: path,
+          s: {
+            type: "object",
+            advanced: true,
+            unknownKeys: globalConfig.u,
+            items: items$1,
+            fields: fields,
+            output: output$1,
+            b: builder,
+            f: typeFilter$2
+          },
+          a: false
+        };
 }
 
 function advancedReverse(definition, to, flattened) {
@@ -2514,9 +2627,9 @@ function advancedReverse(definition, to, flattened) {
     var mut;
     switch (ritem.k) {
       case 0 :
+      case 1 :
           mut = copy(ritem.s);
           break;
-      case 1 :
       case 2 :
           mut = ritem.s;
           break;
@@ -2876,6 +2989,27 @@ function factory$5(definer) {
   return toStandard(definitionToSchema(definer(ctx)));
 }
 
+function factory$6(item) {
+  var reversedItem = reverse(item);
+  var $$null$1 = coerce($$null, unit);
+  var schema$6 = factory([
+        item,
+        $$null$1
+      ]);
+  if (isOptional(reversedItem)) {
+    schema$6.output = (function () {
+        return factory([
+                    reversedItem,
+                    reverse($$null$1),
+                    coerce(definitionToSchema({
+                              BS_PRIVATE_NESTED_SOME_NONE: schema$4
+                            }), $$null)
+                  ]);
+      });
+  }
+  return schema$6;
+}
+
 function $$enum(values) {
   return factory(values.map(parse));
 }
@@ -3019,10 +3153,6 @@ function unnest(schema) {
 }
 
 function inline(prim) {
-  return prim;
-}
-
-function $$null$1(prim) {
   return prim;
 }
 
@@ -3280,224 +3410,6 @@ function trim(schema) {
               }));
 }
 
-function coerce(from, to) {
-  if (from === to) {
-    return from;
-  }
-  var extendCoercion = 0;
-  var shrinkCoercion = 1;
-  var toConst = to.const;
-  var hasToConst = to.const !== (void 0) || to.type === "undefined";
-  var match = reverse(from);
-  var coercion;
-  var exit = 0;
-  var exit$1 = 0;
-  var match$1 = match.const;
-  if (match$1 !== undefined || match.type === "undefined") {
-    exit$1 = 2;
-  } else {
-    exit = 1;
-  }
-  if (exit$1 === 2) {
-    if (hasToConst) {
-      coercion = (function (b, param, param$1) {
-          return {
-                  b: b,
-                  v: _var,
-                  i: embed(b, toConst),
-                  a: false
-                };
-        });
-    } else {
-      exit = 1;
-    }
-  }
-  if (exit === 1) {
-    var match$2 = match.type;
-    var exit$2 = 0;
-    var exit$3 = 0;
-    switch (match$2) {
-      case "string" :
-          var match$3 = to.type;
-          var exit$4 = 0;
-          switch (match$3) {
-            case "string" :
-                var match$4 = to.const;
-                coercion = match$4 !== undefined ? shrinkCoercion : extendCoercion;
-                break;
-            case "number" :
-            case "bigint" :
-            case "boolean" :
-            case "null" :
-            case "undefined" :
-            case "nan" :
-                exit$4 = 4;
-                break;
-            default:
-              exit$2 = 2;
-          }
-          if (exit$4 === 4) {
-            var $$const = to.const;
-            if ($$const !== undefined) {
-              coercion = (function (b, inputVar, failCoercion) {
-                  b.c = b.c + (inputVar + "===\"" + $$const + "\"||" + failCoercion + ";");
-                  var tmp;
-                  switch (to.type) {
-                    case "string" :
-                        var $$const$1 = to.const;
-                        tmp = $$const$1 !== undefined ? fromString($$const$1) : to.const;
-                        break;
-                    case "bigint" :
-                        var $$const$2 = to.const;
-                        tmp = $$const$2 !== undefined ? $$const$2 + "n" : to.const;
-                        break;
-                    default:
-                      tmp = to.const;
-                  }
-                  return {
-                          b: b,
-                          v: _notVar,
-                          i: tmp,
-                          a: false
-                        };
-                });
-            } else {
-              switch (match$3) {
-                case "number" :
-                    var format = to.format;
-                    coercion = (function (b, inputVar, failCoercion) {
-                        var output = {
-                          b: b,
-                          v: _notVar,
-                          i: "+" + inputVar,
-                          a: false
-                        };
-                        b.c = b.c + ("Number.isNaN(" + output.v(b) + ")" + (
-                            format !== undefined ? "||" + refinement(inputVar) : ""
-                          ) + "&&" + failCoercion + ";");
-                        return output;
-                      });
-                    break;
-                case "bigint" :
-                    coercion = (function (b, inputVar, failCoercion) {
-                        var output = allocateVal(b);
-                        b.c = b.c + ("try{" + output.i + "=BigInt(" + inputVar + ")}catch(_){" + failCoercion + "}");
-                        return output;
-                      });
-                    break;
-                case "boolean" :
-                    coercion = (function (b, inputVar, failCoercion) {
-                        var output = allocateVal(b);
-                        b.c = b.c + ("(" + output.i + "=" + inputVar + "===\"true\")||" + inputVar + "===\"false\"||" + failCoercion + ";");
-                        return output;
-                      });
-                    break;
-                default:
-                  exit$2 = 2;
-              }
-            }
-          }
-          break;
-      case "number" :
-          if (match.format !== undefined && to.type === "number" && to.format === undefined) {
-            coercion = extendCoercion;
-          } else {
-            exit$3 = 3;
-          }
-          break;
-      case "bigint" :
-      case "boolean" :
-      case "null" :
-      case "undefined" :
-      case "nan" :
-          exit$3 = 3;
-          break;
-      default:
-        exit$2 = 2;
-    }
-    if (exit$3 === 3) {
-      var $$const$1 = match.const;
-      if ($$const$1 !== undefined) {
-        if (to.type === "string") {
-          coercion = (function (b, param, param$1) {
-              return {
-                      b: b,
-                      v: _notVar,
-                      i: $$const$1,
-                      a: false
-                    };
-            });
-        } else {
-          exit$2 = 2;
-        }
-      } else {
-        var exit$5 = 0;
-        switch (match$2) {
-          case "number" :
-          case "bigint" :
-          case "boolean" :
-              exit$5 = 4;
-              break;
-          default:
-            exit$2 = 2;
-        }
-        if (exit$5 === 4) {
-          if (to.type === "string") {
-            coercion = (function (b, inputVar, param) {
-                return {
-                        b: b,
-                        v: _notVar,
-                        i: "\"\"+" + inputVar,
-                        a: false
-                      };
-              });
-          } else {
-            exit$2 = 2;
-          }
-        }
-        
-      }
-    }
-    if (exit$2 === 2) {
-      var message = "S.coerce from " + name(reverse(from)) + " to " + name(to) + " is not supported";
-      throw new Error("[" + vendor + "] " + message);
-    }
-    
-  }
-  var mut = copy(from);
-  mut.b = (function (b, input, param, path) {
-      var input$1 = from.b(b, input, from, path);
-      if (coercion === extendCoercion) {
-        return to.b(b, input$1, to, path);
-      }
-      if (coercion === shrinkCoercion) {
-        return parseWithTypeValidation(b, to, input$1, path);
-      }
-      var bb = {
-        c: "",
-        l: "",
-        a: initialAllocate,
-        g: b.g
-      };
-      var inputVar = input$1.v(bb);
-      var input$2 = coercion(bb, inputVar, failWithArg(bb, path, (function (input) {
-                  return {
-                          TAG: "InvalidType",
-                          expected: to,
-                          received: input
-                        };
-                }), inputVar));
-      var output = to.b(bb, input$2, to, path);
-      b.c = b.c + allocateScope(bb);
-      return output;
-    });
-  mut.output = (function () {
-      return coerce(reverse(to), reverse(from));
-    });
-  mixingMetadata(mut, to);
-  return toStandard(mut);
-}
-
 function nullish(schema) {
   return factory([
               schema,
@@ -3687,6 +3599,8 @@ var array = factory$2;
 var dict = factory$3;
 
 var option = factory$1;
+
+var $$null$1 = factory$6;
 
 var jsonString = factory$4;
 

@@ -38,7 +38,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(i!==null&&(typeof i!=="string")){e[0](i)}let v0;if(i!==null){v0=i}else{v0=void 0}return v0}`,
+      `i=>{if(typeof i!=="string"){if(i!==null){e[1](i)}else{i=undefined}}return i}`,
     )
   })
 
@@ -48,7 +48,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{let v0;if(i!==null){v0=e[0](i)}else{v0=Promise.resolve(void 0)}return v0}`,
+      `i=>{if(i!==null){i=e[0](i)}else{i=undefined}return Promise.resolve(i)}`,
     )
   })
 
@@ -67,7 +67,8 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{let v0;if(i!==void 0){v0=i}else{v0=null}return v0}`,
+      // FIXME: Apply checks only for the items which need to be transformed
+      `i=>{if(typeof i!=="string"){if(i!==undefined){e[1](i)}else{i=null}}return i}`,
     )
   })
 
@@ -163,6 +164,6 @@ test("Serializes Some(None) to null for null nested in null", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{let v2;if(i!==void 0){let v0=e[0](i),v1;if(v0!==void 0){v1=v0}else{v1=null}v2=v1}else{v2=null}return v2}`,
+    `i=>{if(i!==undefined){if(typeof i!=="object"||!i){if(typeof i!=="boolean"){if(i!==undefined){e[1](i)}else{i=null}}i=i}else{i=null}}else{i=null}return i}`,
   )
 })

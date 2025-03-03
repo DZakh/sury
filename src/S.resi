@@ -41,14 +41,9 @@ type rec t<'value> =
   | @as("dict") Dict({item: t<unknown>})
   | @as("tuple") Tuple({items: array<item>})
   | @as("object") Object({unknownKeys: unknownKeys, items: array<item>, fields: dict<item>})
-  | @as("union") Union({anyOf: array<t<unknown>>, optional?: optional})
+  | @as("union") Union({anyOf: array<t<unknown>>})
   | @as("json") JSON({})
 and schema<'a> = t<'a>
-and optional = {
-  item: t<unknown>,
-  hasUndefined?: bool,
-  hasNull?: bool,
-}
 and item = {
   schema: t<unknown>,
   location: string,
