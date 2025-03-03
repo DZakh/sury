@@ -1912,9 +1912,20 @@ module Union = {
     | [] => InternalError.panic("S.union requires at least one item")
     | [schema] => schema->fromInternal
     | _ =>
+      let anyOf = []
+      for idx in 0 to schemas->Js.Array2.length - 1 {
+        let schema = schemas->Js.Array2.unsafe_get(idx)
+        switch schema {
+        | {anyOf: nAnyOf} =>
+          nAnyOf->Js.Array2.forEach(s => {
+            anyOf->Js.Array2.push(s)->ignore
+          })
+        | _ => anyOf->Js.Array2.push(schema)->ignore
+        }
+      }
       {
         tag: Union,
-        anyOf: schemas,
+        anyOf,
         builder,
         output,
       }->toStandard
@@ -2421,113 +2432,118 @@ let rec coerce = (from, to) => {
   if from === to {
     from->fromInternal
   } else {
-    let extendCoercion = %raw(`0`)
-    let shrinkCoercion = %raw(`1`)
+    switch to {
+    | {anyOf} =>
+      Union.factory(anyOf->Js.Array2.map(to => coerce(from->fromInternal, to->fromInternal)))
+    | _ => {
+        let extendCoercion = %raw(`0`)
+        let shrinkCoercion = %raw(`1`)
 
-    let fromOutput = from->reverse
-    let isFromLiteral = from->isLiteral
-    let isToLiteral = to->isLiteral
+        let fromOutput = from->reverse
+        let isFromLiteral = from->isLiteral
+        let isToLiteral = to->isLiteral
 
-    let coercion = switch (fromOutput, to) {
-    | (_, _) if isFromLiteral && isToLiteral =>
-      (b, ~inputVar as _, ~failCoercion as _) => {
-        b->B.val(b->Literal.inline(to))
-        // FIXME: Test
-      }
-    | ({tag: String}, {tag: String, const: _}) => shrinkCoercion
-    | ({tag: String}, {tag: String}) // FIXME: validate that refinements match
-    | ({tag: Number, format: Int32}, {tag: Number, format: ?None}) => extendCoercion
-    | ({tag: Boolean | Number | BigInt | Undefined | Null | NaN, ?const}, {tag: String})
-      if isFromLiteral =>
-      (b, ~inputVar as _, ~failCoercion as _) => b->B.val(`"${const->Obj.magic}"`)
+        let coercion = switch (fromOutput, to) {
+        | (_, _) if isFromLiteral && isToLiteral =>
+          (b, ~inputVar as _, ~failCoercion as _) => {
+            b->B.val(b->Literal.inline(to))
+          }
+        | ({tag: String}, {tag: String, const: _}) => shrinkCoercion
+        | ({tag: String}, {tag: String}) // FIXME: validate that refinements match
+        | ({tag: Number, format: Int32}, {tag: Number, format: ?None}) => extendCoercion
+        | ({tag: Boolean | Number | BigInt | Undefined | Null | NaN, ?const}, {tag: String})
+          if isFromLiteral =>
+          (b, ~inputVar as _, ~failCoercion as _) => b->B.val(`"${const->Obj.magic}"`)
 
-    | ({tag: Boolean | Number | BigInt}, {tag: String}) =>
-      (b, ~inputVar, ~failCoercion as _) => b->B.val(`""+${inputVar}`) // TODO: This looks like the fastest option. Benchmark vs `${inputVar}?"true":"false"` vs `"{value}"` vs .toString and store the results somewhere
-    | ({tag: String}, {tag: Boolean | Number | BigInt | Undefined | Null | NaN, ?const})
-      if isToLiteral =>
-      (b, ~inputVar, ~failCoercion) => {
-        b.code = b.code ++ `${inputVar}==="${const->Obj.magic}"||${failCoercion};`
-        b->B.val(b->Literal.inline(to))
-      }
-    | ({tag: String}, {tag: Boolean}) =>
-      (b, ~inputVar, ~failCoercion) => {
-        let output = b->B.allocateVal
-        b.code =
-          b.code ++
-          `(${output.inline}=${inputVar}==="true")||${inputVar}==="false"||${failCoercion};`
-        output
-      }
+        | ({tag: Boolean | Number | BigInt}, {tag: String}) =>
+          (b, ~inputVar, ~failCoercion as _) => b->B.val(`""+${inputVar}`)
+        | ({tag: String}, {tag: Boolean | Number | BigInt | Undefined | Null | NaN, ?const})
+          if isToLiteral =>
+          (b, ~inputVar, ~failCoercion) => {
+            b.code = b.code ++ `${inputVar}==="${const->Obj.magic}"||${failCoercion};`
+            b->B.val(b->Literal.inline(to))
+          }
+        | ({tag: String}, {tag: Boolean}) =>
+          (b, ~inputVar, ~failCoercion) => {
+            let output = b->B.allocateVal
+            b.code =
+              b.code ++
+              `(${output.inline}=${inputVar}==="true")||${inputVar}==="false"||${failCoercion};`
+            output
+          }
 
-    | ({tag: String}, {tag: Number, ?format}) =>
-      (b, ~inputVar, ~failCoercion) => {
-        let output = b->B.val(`+${inputVar}`)
-        b.code =
-          b.code ++
-          `Number.isNaN(${output.var(b)})${{
-              switch format {
-              | None => ``
-              | Some(Int32) => `||${Int.refinement(~inputVar)}`
-              // | Some(format) =>
-              //   Js.Exn.raiseError(`Unsupported coercion to number format ${(format :> string)}`)
-              }
-            }}&&${failCoercion};`
-        output
-      }
-    | ({tag: String}, {tag: BigInt}) =>
-      (b, ~inputVar, ~failCoercion) => {
-        let output = b->B.allocateVal
-        b.code = b.code ++ `try{${output.inline}=BigInt(${inputVar})}catch(_){${failCoercion}}`
-        output
-      }
+        | ({tag: String}, {tag: Number, ?format}) =>
+          (b, ~inputVar, ~failCoercion) => {
+            let output = b->B.val(`+${inputVar}`)
+            b.code =
+              b.code ++
+              `Number.isNaN(${output.var(b)})${{
+                  switch format {
+                  | None => ``
+                  | Some(Int32) => `||${Int.refinement(~inputVar)}`
+                  // | Some(format) =>
+                  //   Js.Exn.raiseError(`Unsupported coercion to number format ${(format :> string)}`)
+                  }
+                }}&&${failCoercion};`
+            output
+          }
+        | ({tag: String}, {tag: BigInt}) =>
+          (b, ~inputVar, ~failCoercion) => {
+            let output = b->B.allocateVal
+            b.code = b.code ++ `try{${output.inline}=BigInt(${inputVar})}catch(_){${failCoercion}}`
+            output
+          }
 
-    | _ =>
-      InternalError.panic(
-        `S.coerce from ${fromOutput->fromInternal->name} to ${to
-          ->fromInternal
-          ->name} is not supported`,
-      )
-    }
+        | _ =>
+          InternalError.panic(
+            `S.coerce from ${fromOutput->fromInternal->name} to ${to
+              ->fromInternal
+              ->name} is not supported`,
+          )
+        }
 
-    let mut = from->copy
-    mut.builder = Builder.make((b, ~input, ~selfSchema as _, ~path) => {
-      let input = b->B.parse(~schema=from, ~input, ~path)
+        let mut = from->copy
+        mut.builder = Builder.make((b, ~input, ~selfSchema as _, ~path) => {
+          let input = b->B.parse(~schema=from, ~input, ~path)
 
-      if coercion === extendCoercion {
-        b->B.parse(~schema=to, ~input, ~path)
-      } else if coercion === shrinkCoercion {
-        b->B.parseWithTypeValidation(~schema=to, ~input, ~path)
-      } else {
-        let bb = b->B.scope
-        let inputVar = input.var(bb)
-        let output = bb->B.parse(
-          ~schema=to,
-          ~input=bb->coercion(
-            ~inputVar,
-            ~failCoercion=bb->B.failWithArg(
+          if coercion === extendCoercion {
+            b->B.parse(~schema=to, ~input, ~path)
+          } else if coercion === shrinkCoercion {
+            b->B.parseWithTypeValidation(~schema=to, ~input, ~path)
+          } else {
+            let bb = b->B.scope
+            let inputVar = input.var(bb)
+            let output = bb->B.parse(
+              ~schema=to,
+              ~input=bb->coercion(
+                ~inputVar,
+                ~failCoercion=bb->B.failWithArg(
+                  ~path,
+                  input => InvalidType({
+                    expected: to->fromInternal,
+                    received: input,
+                  }),
+                  inputVar,
+                ),
+              ),
               ~path,
-              input => InvalidType({
-                expected: to->fromInternal,
-                received: input,
-              }),
-              inputVar,
-            ),
-          ),
-          ~path,
+            )
+            b.code = b.code ++ bb->B.allocateScope
+            output
+          }
+        })
+
+        mut.output = Some(
+          () => {
+            coerce(to->reverse->fromInternal, fromOutput->fromInternal)->toInternal
+          },
         )
-        b.code = b.code ++ bb->B.allocateScope
-        output
+
+        mut->mixingMetadata(~from=to)
+
+        mut->toStandard
       }
-    })
-
-    mut.output = Some(
-      () => {
-        coerce(to->reverse->fromInternal, fromOutput->fromInternal)->toInternal
-      },
-    )
-
-    mut->mixingMetadata(~from=to)
-
-    mut->toStandard
+    }
   }
 }
 

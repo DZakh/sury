@@ -390,22 +390,70 @@ test("Coerce string after a transform", t => {
 @unboxed
 type numberOrBoolean = Number(float) | Boolean(bool)
 
+// FIXME: Test nested union
+// FIXME: Test transformed union
 test("Coerce string to unboxed union (each item separately)", t => {
+  let schema =
+    S.string->S.coerce(
+      S.union([
+        S.schema(s => Number(s.matches(S.float))),
+        S.schema(s => Boolean(s.matches(S.bool))),
+      ]),
+    )
+
+  t->Assert.deepEqual("10"->S.parseOrThrow(schema), Number(10.), ())
+  t->Assert.deepEqual("true"->S.parseOrThrow(schema), Boolean(true), ())
+
   t->Assert.throws(
     () => {
-      S.string->S.coerce(
-        S.union([
-          S.schema(s => Number(s.matches(S.float))),
-          S.schema(s => Boolean(s.matches(S.bool))),
-        ]),
-      )
+      "t"->S.parseOrThrow(schema)
     },
     ~expectations={
-      message: "[rescript-schema] S.coerce from string to number | boolean is not supported",
+      message: `Failed parsing at root. Reason: Invalid union with following errors
+- Must be number (was "t")
+- Must be boolean (was "t")`,
     },
     (),
   )
+
+  // FIXME: Can be improved
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{let v1=i;if(typeof i!=="string"){e[3](i)}else{try{let v0=+i;Number.isNaN(v0)&&e[0](i);v1=v0}catch(e0){try{let v2;(v2=i==="true")||i==="false"||e[1](i);v1=v2}catch(e1){e[2]([e0,e1,])}}}return v1}`,
+  )
+
+  t->Assert.deepEqual(Number(10.)->S.reverseConvertOrThrow(schema), %raw(`"10"`), ())
+  t->Assert.deepEqual(Boolean(true)->S.reverseConvertOrThrow(schema), %raw(`"true"`), ())
+
+  // FIXME: Can be improved
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#ReverseConvert,
+    `i=>{let v0=i;if(typeof i!=="number"||Number.isNaN(i)){if(typeof i!=="boolean"){e[2](i)}else{v0=""+i}}else{v0=""+i}return v0}`,
+  )
 })
+
+// test("Coerce string to JSON schema", t => {
+//   let schema = S.string->S.coerce(
+//     S.recursive(self => {
+//       S.union([
+//         S.schema(_ => Js.Json.Null),
+//         S.schema(s => Js.Json.Number(s.matches(S.float))),
+//         S.schema(s => Js.Json.Boolean(s.matches(S.bool))),
+//         S.schema(s => Js.Json.String(s.matches(S.string))),
+//         S.schema(s => Js.Json.Object(s.matches(S.dict(self)))),
+//         S.schema(s => Js.Json.Array(s.matches(S.array(self)))),
+//       ])
+//     }),
+//   )
+
+//   t->U.assertCompiledCode(
+//     ~schema,
+//     ~op=#ReverseConvert,
+//     ``,
+//   )
+// })
 
 test("Keeps description of the schema we are coercing to", t => {
   let schema = S.string->S.describe("From descr")->S.coerce(S.string->S.describe("To descr"))
@@ -414,4 +462,61 @@ test("Keeps description of the schema we are coercing to", t => {
   // There's no specific reason for it. Just wasn't needed for cases S.coerce initially designed
   let schema = S.string->S.describe("From descr")->S.coerce(S.string)
   t->Assert.is(schema->S.description, Some("From descr"), ())
+})
+
+test("Coerce from unit to null literal", t => {
+  let schema = S.unit->S.coerce(S.literal(%raw(`null`)))
+
+  t->Assert.deepEqual(()->S.parseOrThrow(schema), %raw(`null`), ())
+  t->U.assertRaised(
+    () => %raw(`null`)->S.parseOrThrow(schema),
+    {
+      code: InvalidType({
+        expected: S.unit->S.toUnknown,
+        received: %raw(`null`),
+      }),
+      path: S.Path.empty,
+      operation: Parse,
+    },
+  )
+  t->Assert.deepEqual(%raw(`null`)->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
+
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(i!==undefined){e[1](i)}return null}`)
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#ReverseConvert,
+    `i=>{if(i!==null){e[1](i)}return undefined}`,
+  )
+})
+
+test("Coerce from string to optional bool", t => {
+  let schema = S.string->S.coerce(S.option(S.bool))
+
+  t->Assert.deepEqual("undefined"->S.parseOrThrow(schema), None, ())
+  t->Assert.deepEqual("true"->S.parseOrThrow(schema), Some(true), ())
+  t->U.assertRaised(
+    () => %raw(`null`)->S.parseOrThrow(schema),
+    {
+      code: InvalidType({
+        expected: schema->S.toUnknown,
+        received: %raw(`null`),
+      }),
+      path: S.Path.empty,
+      operation: Parse,
+    },
+  )
+
+  t->Assert.deepEqual(Some(true)->S.reverseConvertOrThrow(schema), %raw(`"true"`), ())
+  t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`"undefined"`), ())
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{let v1=i;if(typeof i!=="string"){e[3](i)}else{try{let v0;(v0=i==="true")||i==="false"||e[0](i);v1=v0}catch(e0){try{i==="undefined"||e[1](i);v1=undefined}catch(e1){e[2]([e0,e1,])}}}return v1}`,
+  )
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#ReverseConvert,
+    `i=>{let v0=i;if(typeof i!=="boolean"){if(i!==undefined){e[2](i)}else{v0="undefined"}}else{v0=""+i}return v0}`,
+  )
 })

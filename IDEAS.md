@@ -18,9 +18,12 @@
 - Unknown keys union changed to lower case
 - Removed `S.inline`
 - Improved error massage for recursive schema
+- Support coerce for S.union, S.option and S.null
 
 ### Scope
 
+- Somehow determine whether transformed or not (including shape)
+- Make refinements change type from unknown to known
 - Add `.pipe` to Ts api
 - Rename S.Raised to S.Error
 - Support unions and complex types for S.coerce
