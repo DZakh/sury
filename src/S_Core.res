@@ -517,26 +517,154 @@ let resetOperationsCache: internal => unit = %raw(`(schema) => {
   }
 }`)
 
-let reverse = (schema: internal) => {
-  switch schema.output {
-  | None => schema
-  | Some(fn) =>
-    if Js.typeof(fn) === "object" {
-      fn->Obj.magic
-    } else {
-      let reversed = (fn->Obj.magic)["call"](schema)
-      // If the reversed schema is reversing to self,
-      // it's mostlikely a primitive, which we can't mutate,
-      // so we can just copy it
-      let reversed = if reversed.output === None {
-        reversed->copy
-      } else {
-        reversed
+let rec stringify = unknown => {
+  let typeOfValue = unknown->Stdlib.Type.typeof
+  switch typeOfValue {
+  | #undefined => "undefined"
+  | #object if unknown === %raw(`null`) => "null"
+  | #object if unknown->Stdlib.Array.isArray => {
+      let array = unknown->(Obj.magic: unknown => array<unknown>)
+      let string = ref("[")
+      for i in 0 to array->Array.length - 1 {
+        if i !== 0 {
+          string := string.contents ++ ", "
+        }
+        string := string.contents ++ array->Js.Array2.unsafe_get(i)->stringify
       }
-      schema.output = reversed->Obj.magic
-      reversed.output = schema->Obj.magic
-      reversed
+      string.contents ++ "]"
     }
+  | #object
+    if (unknown->(Obj.magic: 'a => {"constructor": unknown}))["constructor"] === %raw("Object") =>
+    let dict = unknown->(Obj.magic: unknown => dict<unknown>)
+    let keys = Js.Dict.keys(dict)
+    let string = ref("{")
+    for i in 0 to keys->Array.length - 1 {
+      let key = keys->Js.Array2.unsafe_get(i)
+      let value = dict->Js.Dict.unsafeGet(key)
+      if i !== 0 {
+        string := string.contents ++ ", "
+      }
+      string := `${string.contents}"${key}": ${stringify(value)}`
+    }
+    string.contents ++ "}"
+  | #object => unknown->Obj.magic->Stdlib.Object.internalClass
+  | #string => `"${unknown->Obj.magic}"`
+  | #number
+  | #function
+  | #boolean
+  | #symbol =>
+    (unknown->Obj.magic)["toString"]()
+  | #bigint => `${unknown->Obj.magic}n`
+  }
+}
+
+// FIXME: Support `like example` for root schema name
+// FIXME: For recursive name use less human-readable format
+let rec name = schema => {
+  let schema = schema->toInternal
+  switch schema {
+  | {name} => name
+  | {const} => const->Obj.magic->stringify
+  | {anyOf} =>
+    anyOf
+    ->(Obj.magic: array<internal> => array<t<'a>>)
+    ->Js.Array2.map(name)
+    ->Js.Array2.joinWith(" | ")
+  | {format} => (format :> string)
+  | {tag, item} =>
+    `${(tag :> string)}<${item
+      ->fromInternal
+      ->name}>`
+  | {tag: Object, ?items} =>
+    let items = items->Stdlib.Option.unsafeUnwrap
+    if items->Js.Array2.length === 0 {
+      `{}`
+    } else {
+      `{ ${items
+        ->Js.Array2.map(item => {
+          `${item.location}: ${item.schema->toInternal->fromInternal->name};`
+        })
+        ->Js.Array2.joinWith(" ")} }`
+    }
+  | {tag: Tuple, ?items} =>
+    let items = items->Stdlib.Option.unsafeUnwrap
+    `[${items
+      ->Js.Array2.map(item => item.schema->toInternal->fromInternal->name)
+      ->Js.Array2.joinWith(", ")}]`
+  | {tag: NaN} => "NaN"
+  | {tag} => (tag :> string)
+  }
+}
+
+module Error = {
+  type class
+  let class: class = %raw("RescriptSchemaError")
+
+  let make = InternalError.make
+
+  let raise = (error: error) => error->Stdlib.Exn.raiseAny
+
+  let rec reason = (error: error, ~nestedLevel=0) => {
+    switch error.code {
+    | OperationFailed(reason) => reason
+    | InvalidOperation({description}) => description
+    | UnexpectedAsync => "Encountered unexpected async transform or refine. Use ParseAsync operation instead"
+    | ExcessField(fieldName) =>
+      `Encountered disallowed excess key ${fieldName->Stdlib.Inlined.Value.fromString} on an object`
+    | InvalidType({expected, received}) => `Must be ${expected->name} (was ${received->stringify})`
+    | InvalidJsonSchema(schema) => `The '${schema->name}' schema cannot be converted to JSON`
+    | InvalidUnion(errors) => {
+        let lineBreak = `\n${" "->Js.String2.repeat(nestedLevel * 2)}`
+        let reasonsDict = Js.Dict.empty()
+
+        errors->Js.Array2.forEach(error => {
+          let reason = error->reason(~nestedLevel=nestedLevel->Stdlib.Int.plus(1))
+          let location = switch error.path {
+          | "" => ""
+          | nonEmptyPath => `Failed at ${nonEmptyPath}. `
+          }
+          reasonsDict->Js.Dict.set(`- ${location}${reason}`, ())
+        })
+        let uniqueReasons = reasonsDict->Js.Dict.keys
+
+        `Invalid union with following errors${lineBreak}${uniqueReasons->Js.Array2.joinWith(
+            lineBreak,
+          )}`
+      }
+    }
+  }
+
+  let reason = error => reason(error)
+
+  let message = (error: error) => {
+    let op = error.flag
+
+    let text = ref("Failed ")
+    if op->Flag.unsafeHas(Flag.async) {
+      text := text.contents ++ "async "
+    }
+
+    text :=
+      text.contents ++ if op->Flag.unsafeHas(Flag.typeValidation) {
+        if op->Flag.unsafeHas(Flag.assertOutput) {
+          "asserting"
+        } else {
+          "parsing"
+        }
+      } else {
+        "converting"
+      }
+
+    if op->Flag.unsafeHas(Flag.jsonableOutput) {
+      text :=
+        text.contents ++ " to JSON" ++ (op->Flag.unsafeHas(Flag.jsonStringOutput) ? " string" : "")
+    }
+
+    let pathText = switch error.path {
+    | "" => "root"
+    | nonEmptyPath => nonEmptyPath
+    }
+    `${text.contents} at ${pathText}. Reason: ${error->reason}`
   }
 }
 
@@ -969,92 +1097,145 @@ module Builder = {
 
   @inline
   let intitialInputVar = "i"
-
-  let compile = (builder: builder, ~schema, ~flag) => {
-    if (
-      flag->Flag.unsafeHas(Flag.jsonableOutput) &&
-        switch schema->reverse {
-        | {optional: {hasUndefined: true}}
-        | {tag: Undefined} => true
-        | _ => false
-        }
-    ) {
-      Stdlib.Exn.raiseAny(
-        InternalError.make(~code=InvalidJsonSchema(schema->fromInternal), ~flag, ~path=Path.empty),
-      )
-    }
-
-    let b = B.rootScope(~flag)
-    let input = {b, var: B._var, isAsync: false, inline: intitialInputVar}
-
-    let output = builder(b, ~input, ~selfSchema=schema, ~path=Path.empty)
-    schema.isAsync = Some(output.isAsync)
-
-    if b.varsAllocation !== "" {
-      b.code = `let ${b.varsAllocation};${b.code}`
-    }
-
-    if (
-      schema.typeFilter->Stdlib.Option.isSome &&
-        (flag->Flag.unsafeHas(Flag.typeValidation) || schema->isLiteral)
-    ) {
-      b.code = b->B.typeFilterCode(~schema, ~input, ~path=Path.empty) ++ b.code
-    }
-
-    if (
-      b.code === "" &&
-      output === input &&
-      !(
-        flag->Flag.unsafeHas(
-          Flag.assertOutput
-          ->Flag.with(Flag.async)
-          ->Flag.with(Flag.jsonStringOutput),
-        )
-      )
-    ) {
-      noopOperation
-    } else {
-      let inlinedOutput = ref(
-        if flag->Flag.unsafeHas(Flag.assertOutput) {
-          `void 0`
-        } else {
-          output.inline
-        },
-      )
-      if flag->Flag.unsafeHas(Flag.jsonStringOutput) {
-        inlinedOutput := `JSON.stringify(${inlinedOutput.contents})`
-      }
-      if flag->Flag.unsafeHas(Flag.async) && !output.isAsync {
-        inlinedOutput := `Promise.resolve(${inlinedOutput.contents})`
-      }
-
-      let inlinedFunction = `${intitialInputVar}=>{${b.code}return ${inlinedOutput.contents}}`
-
-      // Js.log(inlinedFunction)
-
-      Stdlib.Function.make2(
-        ~ctxVarName1="e",
-        ~ctxVarValue1=b.global.embeded,
-        ~ctxVarName2="s",
-        ~ctxVarValue2=symbol,
-        ~inlinedFunction,
-      )
-    }
-  }
 }
 // TODO: Split validation code and transformation code
 module B = Builder.B
 
-let operationFn = (s, o) => {
+let rec internalCompile = (builder: builder, ~schema, ~flag) => {
+  if (
+    flag->Flag.unsafeHas(Flag.jsonableOutput) &&
+      switch schema->reverse {
+      | {optional: {hasUndefined: true}}
+      | {tag: Undefined} => true
+      | _ => false
+      }
+  ) {
+    Stdlib.Exn.raiseAny(
+      InternalError.make(~code=InvalidJsonSchema(schema->fromInternal), ~flag, ~path=Path.empty),
+    )
+  }
+
+  let b = B.rootScope(~flag)
+  let input = {b, var: B._var, isAsync: false, inline: Builder.intitialInputVar}
+
+  let output = builder(b, ~input, ~selfSchema=schema, ~path=Path.empty)
+  schema.isAsync = Some(output.isAsync)
+
+  if b.varsAllocation !== "" {
+    b.code = `let ${b.varsAllocation};${b.code}`
+  }
+
+  if (
+    schema.typeFilter->Stdlib.Option.isSome &&
+      (flag->Flag.unsafeHas(Flag.typeValidation) || schema->isLiteral)
+  ) {
+    b.code = b->B.typeFilterCode(~schema, ~input, ~path=Path.empty) ++ b.code
+  }
+
+  if (
+    b.code === "" &&
+    output === input &&
+    !(
+      flag->Flag.unsafeHas(
+        Flag.assertOutput
+        ->Flag.with(Flag.async)
+        ->Flag.with(Flag.jsonStringOutput),
+      )
+    )
+  ) {
+    Builder.noopOperation
+  } else {
+    let inlinedOutput = ref(
+      if flag->Flag.unsafeHas(Flag.assertOutput) {
+        `void 0`
+      } else {
+        output.inline
+      },
+    )
+    if flag->Flag.unsafeHas(Flag.jsonStringOutput) {
+      inlinedOutput := `JSON.stringify(${inlinedOutput.contents})`
+    }
+    if flag->Flag.unsafeHas(Flag.async) && !output.isAsync {
+      inlinedOutput := `Promise.resolve(${inlinedOutput.contents})`
+    }
+
+    let inlinedFunction = `${Builder.intitialInputVar}=>{${b.code}return ${inlinedOutput.contents}}`
+
+    // Js.log(inlinedFunction)
+
+    Stdlib.Function.make2(
+      ~ctxVarName1="e",
+      ~ctxVarValue1=b.global.embeded,
+      ~ctxVarName2="s",
+      ~ctxVarValue2=symbol,
+      ~inlinedFunction,
+    )
+  }
+}
+and operationFn = (s, o) => {
   let s = s->toInternal
   if %raw(`o in s`) {
     %raw(`s[o]`)
   } else {
     let ss = o->Flag.unsafeHas(Flag.reverse) ? s->reverse : s
-    let f = ss.builder->Builder.compile(~schema=ss, ~flag=o)
+    let f = ss.builder->internalCompile(~schema=ss, ~flag=o)
     let _ = %raw(`s[o] = f`)
     f
   }
+}
+and reverse = (schema: internal) => {
+  switch schema.output {
+  | None => schema
+  | Some(fn) =>
+    if Js.typeof(fn) === "object" {
+      fn->Obj.magic
+    } else {
+      let reversed = (fn->Obj.magic)["call"](schema)
+      // If the reversed schema is reversing to self,
+      // it's mostlikely a primitive, which we can't mutate,
+      // so we can just copy it
+      let reversed = if reversed.output === None {
+        reversed->copy
+      } else {
+        reversed
+      }
+      if reversed.standard === None {
+        let _ = reversed->toStandard
+      }
+
+      schema.output = reversed->Obj.magic
+      reversed.output = schema->Obj.magic
+      reversed
+    }
+  }
+}
+and toStandard = (schema: internal) => {
+  schema.standard = Some({
+    version: 1,
+    vendor,
+    validate: input => {
+      try {
+        {
+          "value": (schema->fromInternal->operationFn(Flag.typeValidation))(
+            input->Obj.magic,
+          )->Obj.magic,
+        }
+      } catch {
+      | _ => {
+          let error = %raw(`exn`)->InternalError.getOrRethrow
+          {
+            "issues": [
+              {
+                "message": error->Error.message,
+                "path": error.path === Path.empty ? None : Some(error.path->Path.toArray),
+              },
+            ],
+          }->Obj.magic
+        }
+      }
+    },
+  })
+  schema->(Obj.magic: internal => t<'any>)
 }
 
 type rec input<'value, 'computed> =
@@ -1219,182 +1400,6 @@ let reverseConvertToJsonStringOrThrow = (value: 'value, schema: t<'value>, ~spac
 
 let assertOrThrow = (any, schema) => {
   (schema->operationFn(Flag.typeValidation->Flag.with(Flag.assertOutput)))(any)
-}
-
-let rec stringify = unknown => {
-  let typeOfValue = unknown->Stdlib.Type.typeof
-  switch typeOfValue {
-  | #undefined => "undefined"
-  | #object if unknown === %raw(`null`) => "null"
-  | #object if unknown->Stdlib.Array.isArray => {
-      let array = unknown->(Obj.magic: unknown => array<unknown>)
-      let string = ref("[")
-      for i in 0 to array->Array.length - 1 {
-        if i !== 0 {
-          string := string.contents ++ ", "
-        }
-        string := string.contents ++ array->Js.Array2.unsafe_get(i)->stringify
-      }
-      string.contents ++ "]"
-    }
-  | #object
-    if (unknown->(Obj.magic: 'a => {"constructor": unknown}))["constructor"] === %raw("Object") =>
-    let dict = unknown->(Obj.magic: unknown => dict<unknown>)
-    let keys = Js.Dict.keys(dict)
-    let string = ref("{")
-    for i in 0 to keys->Array.length - 1 {
-      let key = keys->Js.Array2.unsafe_get(i)
-      let value = dict->Js.Dict.unsafeGet(key)
-      if i !== 0 {
-        string := string.contents ++ ", "
-      }
-      string := `${string.contents}"${key}": ${stringify(value)}`
-    }
-    string.contents ++ "}"
-  | #object => unknown->Obj.magic->Stdlib.Object.internalClass
-  | #string => `"${unknown->Obj.magic}"`
-  | #number
-  | #function
-  | #boolean
-  | #symbol =>
-    (unknown->Obj.magic)["toString"]()
-  | #bigint => `${unknown->Obj.magic}n`
-  }
-}
-
-// FIXME: Support `like example` for root schema name
-// FIXME: For recursive name use less human-readable format
-let rec name = schema => {
-  let schema = schema->toInternal
-  switch schema {
-  | {name} => name
-  | {const} => const->Obj.magic->stringify
-  | {anyOf} =>
-    anyOf
-    ->(Obj.magic: array<internal> => array<t<'a>>)
-    ->Js.Array2.map(name)
-    ->Js.Array2.joinWith(" | ")
-  | {format} => (format :> string)
-  | {tag, item} =>
-    `${(tag :> string)}<${item
-      ->fromInternal
-      ->name}>`
-  | {tag: Object, ?items} =>
-    let items = items->Stdlib.Option.unsafeUnwrap
-    if items->Js.Array2.length === 0 {
-      `{}`
-    } else {
-      `{ ${items
-        ->Js.Array2.map(item => {
-          `${item.location}: ${item.schema->toInternal->fromInternal->name};`
-        })
-        ->Js.Array2.joinWith(" ")} }`
-    }
-  | {tag: Tuple, ?items} =>
-    let items = items->Stdlib.Option.unsafeUnwrap
-    `[${items
-      ->Js.Array2.map(item => item.schema->toInternal->fromInternal->name)
-      ->Js.Array2.joinWith(", ")}]`
-  | {tag: NaN} => "NaN"
-  | {tag} => (tag :> string)
-  }
-}
-
-module Error = {
-  type class
-  let class: class = %raw("RescriptSchemaError")
-
-  let make = InternalError.make
-
-  let raise = (error: error) => error->Stdlib.Exn.raiseAny
-
-  let rec reason = (error: error, ~nestedLevel=0) => {
-    switch error.code {
-    | OperationFailed(reason) => reason
-    | InvalidOperation({description}) => description
-    | UnexpectedAsync => "Encountered unexpected async transform or refine. Use ParseAsync operation instead"
-    | ExcessField(fieldName) =>
-      `Encountered disallowed excess key ${fieldName->Stdlib.Inlined.Value.fromString} on an object`
-    | InvalidType({expected, received}) => `Must be ${expected->name} (was ${received->stringify})`
-    | InvalidJsonSchema(schema) => `The '${schema->name}' schema cannot be converted to JSON`
-    | InvalidUnion(errors) => {
-        let lineBreak = `\n${" "->Js.String2.repeat(nestedLevel * 2)}`
-        let reasonsDict = Js.Dict.empty()
-
-        errors->Js.Array2.forEach(error => {
-          let reason = error->reason(~nestedLevel=nestedLevel->Stdlib.Int.plus(1))
-          let location = switch error.path {
-          | "" => ""
-          | nonEmptyPath => `Failed at ${nonEmptyPath}. `
-          }
-          reasonsDict->Js.Dict.set(`- ${location}${reason}`, ())
-        })
-        let uniqueReasons = reasonsDict->Js.Dict.keys
-
-        `Invalid union with following errors${lineBreak}${uniqueReasons->Js.Array2.joinWith(
-            lineBreak,
-          )}`
-      }
-    }
-  }
-
-  let reason = error => reason(error)
-
-  let message = (error: error) => {
-    let op = error.flag
-
-    let text = ref("Failed ")
-    if op->Flag.unsafeHas(Flag.async) {
-      text := text.contents ++ "async "
-    }
-
-    text :=
-      text.contents ++ if op->Flag.unsafeHas(Flag.typeValidation) {
-        if op->Flag.unsafeHas(Flag.assertOutput) {
-          "asserting"
-        } else {
-          "parsing"
-        }
-      } else {
-        "converting"
-      }
-
-    if op->Flag.unsafeHas(Flag.jsonableOutput) {
-      text :=
-        text.contents ++ " to JSON" ++ (op->Flag.unsafeHas(Flag.jsonStringOutput) ? " string" : "")
-    }
-
-    let pathText = switch error.path {
-    | "" => "root"
-    | nonEmptyPath => nonEmptyPath
-    }
-    `${text.contents} at ${pathText}. Reason: ${error->reason}`
-  }
-}
-
-let toStandard = (schema: internal) => {
-  schema.standard = Some({
-    version: 1,
-    vendor,
-    validate: input => {
-      try {
-        {"value": parseOrThrow(input, schema->fromInternal)}
-      } catch {
-      | _ => {
-          let error = %raw(`exn`)->InternalError.getOrRethrow
-          {
-            "issues": [
-              {
-                "message": error->Error.message,
-                "path": error.path === Path.empty ? None : Some(error.path->Path.toArray),
-              },
-            ],
-          }->Obj.magic
-        }
-      }
-    },
-  })
-  schema->(Obj.magic: internal => t<'any>)
 }
 
 module Literal = {

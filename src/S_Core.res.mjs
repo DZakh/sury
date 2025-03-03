@@ -134,19 +134,159 @@ var resetOperationsCache = ((schema) => {
   }
 });
 
-function reverse(schema) {
-  var fn = schema.output;
-  if (fn === undefined) {
-    return schema;
+function stringify(unknown) {
+  var typeOfValue = typeof unknown;
+  if (typeOfValue === "number" || typeOfValue === "function" || typeOfValue === "boolean" || typeOfValue === "symbol") {
+    return unknown.toString();
   }
-  if (typeof fn === "object") {
-    return fn;
+  if (typeOfValue === "string") {
+    return "\"" + unknown + "\"";
   }
-  var reversed = fn.call(schema);
-  var reversed$1 = reversed.output === undefined ? copy(reversed) : reversed;
-  schema.output = reversed$1;
-  reversed$1.output = schema;
-  return reversed$1;
+  if (typeOfValue !== "object") {
+    if (typeOfValue === "undefined") {
+      return "undefined";
+    } else {
+      return unknown + "n";
+    }
+  }
+  if (unknown === null) {
+    return "null";
+  }
+  if (Array.isArray(unknown)) {
+    var string = "[";
+    for(var i = 0 ,i_finish = unknown.length; i < i_finish; ++i){
+      if (i !== 0) {
+        string = string + ", ";
+      }
+      string = string + stringify(unknown[i]);
+    }
+    return string + "]";
+  }
+  if (unknown.constructor !== Object) {
+    return Object.prototype.toString.call(unknown);
+  }
+  var keys = Object.keys(unknown);
+  var string$1 = "{";
+  for(var i$1 = 0 ,i_finish$1 = keys.length; i$1 < i_finish$1; ++i$1){
+    var key = keys[i$1];
+    var value = unknown[key];
+    if (i$1 !== 0) {
+      string$1 = string$1 + ", ";
+    }
+    string$1 = string$1 + "\"" + key + "\": " + stringify(value);
+  }
+  return string$1 + "}";
+}
+
+function name(schema) {
+  var tag = schema.type;
+  var $$const = schema.const;
+  var name$1 = schema.name;
+  if (name$1 !== undefined) {
+    return name$1;
+  }
+  if ($$const !== undefined) {
+    return stringify($$const);
+  }
+  var item = schema.item;
+  var format = schema.format;
+  var anyOf = schema.anyOf;
+  if (anyOf !== undefined) {
+    return anyOf.map(name).join(" | ");
+  }
+  if (format !== undefined) {
+    return format;
+  }
+  if (item !== undefined) {
+    return tag + "<" + name(item) + ">";
+  }
+  switch (tag) {
+    case "nan" :
+        return "NaN";
+    case "tuple" :
+        var items = schema.items;
+        return "[" + items.map(function (item) {
+                      return name(item.schema);
+                    }).join(", ") + "]";
+    case "object" :
+        var items$1 = schema.items;
+        if (items$1.length === 0) {
+          return "{}";
+        } else {
+          return "{ " + items$1.map(function (item) {
+                        return item.location + ": " + name(item.schema) + ";";
+                      }).join(" ") + " }";
+        }
+    default:
+      return tag;
+  }
+}
+
+var $$class = RescriptSchemaError;
+
+function make(prim0, prim1, prim2) {
+  return new RescriptSchemaError(prim0, prim1, prim2);
+}
+
+function raise(error) {
+  throw error;
+}
+
+function reason(error, nestedLevelOpt) {
+  var nestedLevel = nestedLevelOpt !== undefined ? nestedLevelOpt : 0;
+  var reason$1 = error.code;
+  if (typeof reason$1 !== "object") {
+    return "Encountered unexpected async transform or refine. Use ParseAsync operation instead";
+  }
+  switch (reason$1.TAG) {
+    case "OperationFailed" :
+        return reason$1._0;
+    case "InvalidOperation" :
+        return reason$1.description;
+    case "InvalidType" :
+        return "Must be " + name(reason$1.expected) + " (was " + stringify(reason$1.received) + ")";
+    case "ExcessField" :
+        return "Encountered disallowed excess key " + fromString(reason$1._0) + " on an object";
+    case "InvalidUnion" :
+        var lineBreak = "\n" + " ".repeat((nestedLevel << 1));
+        var reasonsDict = {};
+        reason$1._0.forEach(function (error) {
+              var reason$2 = reason(error, nestedLevel + 1);
+              var nonEmptyPath = error.path;
+              var $$location = nonEmptyPath === "" ? "" : "Failed at " + nonEmptyPath + ". ";
+              reasonsDict["- " + $$location + reason$2] = undefined;
+            });
+        var uniqueReasons = Object.keys(reasonsDict);
+        return "Invalid union with following errors" + lineBreak + uniqueReasons.join(lineBreak);
+    case "InvalidJsonSchema" :
+        return "The '" + name(reason$1._0) + "' schema cannot be converted to JSON";
+    
+  }
+}
+
+function reason$1(error) {
+  return reason(error, undefined);
+}
+
+function message(error) {
+  var op = error.flag;
+  var text = "Failed ";
+  if (op & 2) {
+    text = text + "async ";
+  }
+  text = text + (
+    op & 1 ? (
+        op & 4 ? "asserting" : "parsing"
+      ) : "converting"
+  );
+  if (op & 8) {
+    text = text + " to JSON" + (
+      op & 16 ? " string" : ""
+    );
+  }
+  var nonEmptyPath = error.path;
+  var pathText = nonEmptyPath === "" ? "root" : nonEmptyPath;
+  return text + " at " + pathText + ". Reason: " + reason(error, undefined);
 }
 
 function embed(b, value) {
@@ -236,7 +376,7 @@ function arrayJoin(_inlinedLocation, value) {
   return value + ",";
 }
 
-function make(b, isArray) {
+function make$1(b, isArray) {
   return {
           b: b,
           v: _notVar,
@@ -355,7 +495,7 @@ function transform(b, input, operation) {
         };
 }
 
-function raise(b, code, path) {
+function raise$1(b, code, path) {
   throw new RescriptSchemaError(code, b.g.o, path);
 }
 
@@ -374,7 +514,7 @@ function embedSyncOperation(b, input, fn) {
 
 function embedAsyncOperation(b, input, fn) {
   if (!(b.g.o & 2)) {
-    raise(b, "UnexpectedAsync", "");
+    raise$1(b, "UnexpectedAsync", "");
   }
   var val = embedSyncOperation(b, input, fn);
   val.a = true;
@@ -383,13 +523,13 @@ function embedAsyncOperation(b, input, fn) {
 
 function failWithArg(b, path, fn, arg) {
   return embed(b, (function (arg) {
-                return raise(b, fn(arg), path);
+                return raise$1(b, fn(arg), path);
               })) + "(" + arg + ")";
 }
 
 function fail(b, message, path) {
   return embed(b, (function () {
-                return raise(b, {
+                return raise$1(b, {
                             TAG: "OperationFailed",
                             _0: message
                           }, path);
@@ -401,7 +541,7 @@ function effectCtx(b, selfSchema, path) {
           schema: selfSchema,
           fail: (function (message, customPathOpt) {
               var customPath = customPathOpt !== undefined ? customPathOpt : "";
-              return raise(b, {
+              return raise$1(b, {
                           TAG: "OperationFailed",
                           _0: message
                         }, path + customPath);
@@ -411,7 +551,7 @@ function effectCtx(b, selfSchema, path) {
 
 function registerInvalidJson(b, selfSchema, path) {
   if (b.g.o & 8) {
-    return raise(b, {
+    return raise$1(b, {
                 TAG: "InvalidJsonSchema",
                 _0: selfSchema
               }, path);
@@ -420,7 +560,7 @@ function registerInvalidJson(b, selfSchema, path) {
 }
 
 function invalidOperation(b, path, description) {
-  return raise(b, {
+  return raise$1(b, {
               TAG: "InvalidOperation",
               description: description
             }, path);
@@ -520,7 +660,7 @@ function noopOperation(i) {
   return i;
 }
 
-function compile(builder, schema, flag) {
+function internalCompile(builder, schema, flag) {
   var tmp = false;
   if (flag & 8) {
     var match = reverse(schema);
@@ -582,12 +722,54 @@ function operationFn(s, o) {
     return (s[o]);
   }
   var ss = o & 32 ? reverse(s) : s;
-  var f = compile(ss.b, ss, o);
+  var f = internalCompile(ss.b, ss, o);
   ((s[o] = f));
   return f;
 }
 
-function compile$1(schema, input, output, mode, typeValidationOpt) {
+function reverse(schema) {
+  var fn = schema.output;
+  if (fn === undefined) {
+    return schema;
+  }
+  if (typeof fn === "object") {
+    return fn;
+  }
+  var reversed = fn.call(schema);
+  var reversed$1 = reversed.output === undefined ? copy(reversed) : reversed;
+  if (reversed$1["~standard"] === undefined) {
+    toStandard(reversed$1);
+  }
+  schema.output = reversed$1;
+  reversed$1.output = schema;
+  return reversed$1;
+}
+
+function toStandard(schema) {
+  schema["~standard"] = {
+    version: 1,
+    vendor: vendor,
+    validate: (function (input) {
+        try {
+          return {
+                  value: operationFn(schema, 1)(input)
+                };
+        }
+        catch (exn){
+          var error = getOrRethrow(exn);
+          return {
+                  issues: [{
+                      message: message(error),
+                      path: error.path === "" ? undefined : toArray(error.path)
+                    }]
+                };
+        }
+      })
+  };
+  return schema;
+}
+
+function compile(schema, input, output, mode, typeValidationOpt) {
   var typeValidation = typeValidationOpt !== undefined ? typeValidationOpt : true;
   var flag = 0;
   var exit = 0;
@@ -701,185 +883,6 @@ function reverseConvertToJsonStringOrThrow(value, schema, spaceOpt) {
 
 function assertOrThrow(any, schema) {
   return operationFn(schema, 5)(any);
-}
-
-function stringify(unknown) {
-  var typeOfValue = typeof unknown;
-  if (typeOfValue === "number" || typeOfValue === "function" || typeOfValue === "boolean" || typeOfValue === "symbol") {
-    return unknown.toString();
-  }
-  if (typeOfValue === "string") {
-    return "\"" + unknown + "\"";
-  }
-  if (typeOfValue !== "object") {
-    if (typeOfValue === "undefined") {
-      return "undefined";
-    } else {
-      return unknown + "n";
-    }
-  }
-  if (unknown === null) {
-    return "null";
-  }
-  if (Array.isArray(unknown)) {
-    var string = "[";
-    for(var i = 0 ,i_finish = unknown.length; i < i_finish; ++i){
-      if (i !== 0) {
-        string = string + ", ";
-      }
-      string = string + stringify(unknown[i]);
-    }
-    return string + "]";
-  }
-  if (unknown.constructor !== Object) {
-    return Object.prototype.toString.call(unknown);
-  }
-  var keys = Object.keys(unknown);
-  var string$1 = "{";
-  for(var i$1 = 0 ,i_finish$1 = keys.length; i$1 < i_finish$1; ++i$1){
-    var key = keys[i$1];
-    var value = unknown[key];
-    if (i$1 !== 0) {
-      string$1 = string$1 + ", ";
-    }
-    string$1 = string$1 + "\"" + key + "\": " + stringify(value);
-  }
-  return string$1 + "}";
-}
-
-function name(schema) {
-  var tag = schema.type;
-  var $$const = schema.const;
-  var name$1 = schema.name;
-  if (name$1 !== undefined) {
-    return name$1;
-  }
-  if ($$const !== undefined) {
-    return stringify($$const);
-  }
-  var item = schema.item;
-  var format = schema.format;
-  var anyOf = schema.anyOf;
-  if (anyOf !== undefined) {
-    return anyOf.map(name).join(" | ");
-  }
-  if (format !== undefined) {
-    return format;
-  }
-  if (item !== undefined) {
-    return tag + "<" + name(item) + ">";
-  }
-  switch (tag) {
-    case "nan" :
-        return "NaN";
-    case "tuple" :
-        var items = schema.items;
-        return "[" + items.map(function (item) {
-                      return name(item.schema);
-                    }).join(", ") + "]";
-    case "object" :
-        var items$1 = schema.items;
-        if (items$1.length === 0) {
-          return "{}";
-        } else {
-          return "{ " + items$1.map(function (item) {
-                        return item.location + ": " + name(item.schema) + ";";
-                      }).join(" ") + " }";
-        }
-    default:
-      return tag;
-  }
-}
-
-var $$class = RescriptSchemaError;
-
-function make$1(prim0, prim1, prim2) {
-  return new RescriptSchemaError(prim0, prim1, prim2);
-}
-
-function raise$1(error) {
-  throw error;
-}
-
-function reason(error, nestedLevelOpt) {
-  var nestedLevel = nestedLevelOpt !== undefined ? nestedLevelOpt : 0;
-  var reason$1 = error.code;
-  if (typeof reason$1 !== "object") {
-    return "Encountered unexpected async transform or refine. Use ParseAsync operation instead";
-  }
-  switch (reason$1.TAG) {
-    case "OperationFailed" :
-        return reason$1._0;
-    case "InvalidOperation" :
-        return reason$1.description;
-    case "InvalidType" :
-        return "Must be " + name(reason$1.expected) + " (was " + stringify(reason$1.received) + ")";
-    case "ExcessField" :
-        return "Encountered disallowed excess key " + fromString(reason$1._0) + " on an object";
-    case "InvalidUnion" :
-        var lineBreak = "\n" + " ".repeat((nestedLevel << 1));
-        var reasonsDict = {};
-        reason$1._0.forEach(function (error) {
-              var reason$2 = reason(error, nestedLevel + 1);
-              var nonEmptyPath = error.path;
-              var $$location = nonEmptyPath === "" ? "" : "Failed at " + nonEmptyPath + ". ";
-              reasonsDict["- " + $$location + reason$2] = undefined;
-            });
-        var uniqueReasons = Object.keys(reasonsDict);
-        return "Invalid union with following errors" + lineBreak + uniqueReasons.join(lineBreak);
-    case "InvalidJsonSchema" :
-        return "The '" + name(reason$1._0) + "' schema cannot be converted to JSON";
-    
-  }
-}
-
-function reason$1(error) {
-  return reason(error, undefined);
-}
-
-function message(error) {
-  var op = error.flag;
-  var text = "Failed ";
-  if (op & 2) {
-    text = text + "async ";
-  }
-  text = text + (
-    op & 1 ? (
-        op & 4 ? "asserting" : "parsing"
-      ) : "converting"
-  );
-  if (op & 8) {
-    text = text + " to JSON" + (
-      op & 16 ? " string" : ""
-    );
-  }
-  var nonEmptyPath = error.path;
-  var pathText = nonEmptyPath === "" ? "root" : nonEmptyPath;
-  return text + " at " + pathText + ". Reason: " + reason(error, undefined);
-}
-
-function toStandard(schema) {
-  schema["~standard"] = {
-    version: 1,
-    vendor: vendor,
-    validate: (function (input) {
-        try {
-          return {
-                  value: parseOrThrow(input, schema)
-                };
-        }
-        catch (exn){
-          var error = getOrRethrow(exn);
-          return {
-                  issues: [{
-                      message: message(error),
-                      path: error.path === "" ? undefined : toArray(error.path)
-                    }]
-                };
-        }
-      })
-  };
-  return schema;
 }
 
 function inlinedTypeFilter(_b, inputVar) {
@@ -1816,7 +1819,7 @@ function factory$4(item, spaceOpt) {
                         tmp = reversed.type === "undefined" ? true : false;
                       }
                       if (tmp) {
-                        raise(b, {
+                        raise$1(b, {
                               TAG: "InvalidJsonSchema",
                               _0: reversed
                             }, "");
@@ -2015,7 +2018,7 @@ function json(validate) {
                       if (match === "number" && !Number.isNaN(input)) {
                         return input;
                       }
-                      return raise(b, {
+                      return raise$1(b, {
                                   TAG: "InvalidType",
                                   expected: selfSchema,
                                   received: input
@@ -2047,7 +2050,7 @@ function $$catch(schema, getFallbackValue) {
                                                 s: selfSchema,
                                                 f: (function (message, customPathOpt) {
                                                     var customPath = customPathOpt !== undefined ? customPathOpt : "";
-                                                    return raise(b, {
+                                                    return raise$1(b, {
                                                                 TAG: "OperationFailed",
                                                                 _0: message
                                                               }, path + customPath);
@@ -2135,7 +2138,7 @@ function definitionToOutput(b, definition, getItemOutput) {
   }
   var isArray = Array.isArray(definition);
   var keys = Object.keys(definition);
-  var objectVal = make(b, isArray);
+  var objectVal = make$1(b, isArray);
   for(var idx = 0 ,idx_finish = keys.length; idx < idx_finish; ++idx){
     var key = keys[idx];
     add(objectVal, isArray ? "\"" + key + "\"" : fromString(key), definitionToOutput(b, definition[key], getItemOutput));
@@ -2192,7 +2195,7 @@ function builder$2(parentB, input, selfSchema, path) {
   var items = selfSchema.items;
   var isArray = selfSchema.type === "tuple";
   if (parentB.g.o & 64) {
-    var objectVal = make(parentB, isArray);
+    var objectVal = make$1(parentB, isArray);
     for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
       var match = items[idx];
       var inlinedLocation = match.inlinedLocation;
@@ -2206,7 +2209,7 @@ function builder$2(parentB, input, selfSchema, path) {
     a: initialAllocate,
     g: parentB.g
   };
-  var objectVal$1 = make(b, isArray);
+  var objectVal$1 = make$1(b, isArray);
   for(var idx$1 = 0 ,idx_finish$1 = items.length; idx$1 < idx_finish$1; ++idx$1){
     var match$1 = items[idx$1];
     var inlinedLocation$1 = match$1.inlinedLocation;
@@ -2571,7 +2574,7 @@ function advancedReverse(definition, to, flattened) {
           var items = reversed.items;
           if (items !== undefined) {
             var isArray = reversed.type === "tuple";
-            var objectVal = make(b, isArray);
+            var objectVal = make$1(b, isArray);
             for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
               var item = items[idx];
               var itemPath = originalPath + ("[" + item.inlinedLocation + "]");
@@ -2613,7 +2616,7 @@ function advancedReverse(definition, to, flattened) {
         }
         var isArray = originalSchema.type === "tuple";
         var items = originalSchema.items;
-        var objectVal = make(b, isArray);
+        var objectVal = make$1(b, isArray);
         if (flattened !== undefined) {
           for(var idx$1 = 0 ,idx_finish$1 = flattened.length; idx$1 < idx_finish$1; ++idx$1){
             merge(objectVal, getItemOutput(flattened[idx$1], ""));
@@ -2972,7 +2975,7 @@ function unnest(schema) {
                       a: initialAllocate,
                       g: b.g
                     };
-                    var itemInput = make(bb, false);
+                    var itemInput = make$1(bb, false);
                     var lengthCode = "";
                     for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
                       var item = items[idx];
@@ -3659,8 +3662,8 @@ var Flag = {
 
 var $$Error$1 = {
   $$class: $$class,
-  make: make$1,
-  raise: raise$1,
+  make: make,
+  raise: raise,
   message: message,
   reason: reason$1
 };
@@ -3777,7 +3780,7 @@ export {
   refine ,
   shape ,
   coerce ,
-  compile$1 as compile,
+  compile ,
   parseOrThrow ,
   parseJsonOrThrow ,
   parseJsonStringOrThrow ,
