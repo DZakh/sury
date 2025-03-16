@@ -40,9 +40,8 @@ type rec t<'value> =
   | @as("function") Function({const?: Js.Types.function_val})
   | @as("instance") Instance({const?: Js.Types.obj_val})
   | @as("array") Array({item: t<unknown>})
-  | @as("dict") Dict({item: t<unknown>})
   | @as("tuple") Tuple({items: array<item>})
-  | @as("object") Object({items: array<item>, additionalItems: additionalItems, fields: dict<item>})
+  | @as("object") Object({items: array<item>, fields: dict<item>, additionalItems: additionalItems})
   | @as("union") Union({anyOf: array<t<unknown>>})
   | @as("json") JSON({})
 and schema<'a> = t<'a>

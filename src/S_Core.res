@@ -59,6 +59,8 @@ module Stdlib = {
   }
 
   module Array = {
+    let immutableEmpty = %raw(`[]`)
+
     @send
     external append: (array<'a>, 'a) => array<'a> = "concat"
 
@@ -205,7 +207,6 @@ type typeTag =
   | @as("function") Function
   | @as("instance") Instance
   | @as("array") Array
-  | @as("dict") Dict
   | @as("tuple") Tuple
   | @as("object") Object
   | @as("union") Union
@@ -221,6 +222,7 @@ type numberFormat = | @as("int32") Int32
 
 type internalFormat = numberFormat
 
+@unboxed
 type additionalItemsMode = | @as("strip") Strip | @as("strict") Strict
 
 @tag("type")
@@ -239,13 +241,11 @@ type rec t<'value> =
   | @as("function") Function({const?: Js.Types.function_val})
   | @as("instance") Instance({const?: Js.Types.obj_val})
   | @as("array") Array({item: t<unknown>})
-  | @as("dict") Dict({item: t<unknown>}) // TODO: Should Object type with no items and additionalProperties: true
   | @as("tuple") Tuple({items: array<item>})
-  | @as("object") Object({items: array<item>, additionalItems: additionalItems, fields: dict<item>}) // FIXME: Add const for Object and Tuple
+  | @as("object") Object({items: array<item>, fields: dict<item>, additionalItems: additionalItems}) // FIXME: Add const for Object and Tuple
   | @as("union") Union({anyOf: array<t<unknown>>})
   | @as("json") JSON({}) // FIXME: Remove it in favor of Union ?
-and additionalItems = | ...additionalItemsMode | Schema(t<unknown>)
-
+@unboxed and additionalItems = | ...additionalItemsMode | Schema(t<unknown>)
 // FIXME: Add recursive
 and schema<'a> = t<'a>
 and internal = {
@@ -2119,10 +2119,13 @@ module Object = {
   let typeFilter = (b, ~inputVar) => {
     let {?additionalItems, ?items}: internal = %raw(`this`)
     let items = items->Stdlib.Option.unsafeUnwrap
+    let additionalItems = additionalItems->Stdlib.Option.unsafeUnwrap
     let code = ref(
-      `typeof ${inputVar}!=="object"||!${inputVar}` ++ (
-        additionalItems === Some(Strict) ? `||Array.isArray(${inputVar})` : ""
-      ),
+      `typeof ${inputVar}!=="object"||!${inputVar}` ++ if additionalItems === Strip {
+        ""
+      } else {
+        `||Array.isArray(${inputVar})`
+      },
     )
     for idx in 0 to items->Js.Array2.length - 1 {
       let {schema, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
@@ -2187,44 +2190,14 @@ let deepStrict = schema => {
   schema->Object.setAdditionalItems(Strict, ~deep=true)
 }
 
-module Tuple = {
-  type s = {
-    item: 'value. (int, t<'value>) => 'value,
-    tag: 'value. (int, 'value) => unit,
-  }
-
-  let typeFilter = (b, ~inputVar) => {
-    let items = (%raw(`this`): internal).items->Stdlib.Option.unsafeUnwrap
-    let length = items->Js.Array2.length
-    let code = ref(
-      b->Array.typeFilter(~inputVar) ++
-        `||${inputVar}.length!==${length->Stdlib.Int.unsafeToString}`,
-    )
-    for idx in 0 to length - 1 {
-      let {schema, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
-      let item = schema->toInternal
-      if item->isLiteral {
-        code :=
-          code.contents ++
-          "||" ++
-          b->(item.typeFilter->Stdlib.Option.unsafeUnwrap)(
-            ~inputVar=Path.concat(inputVar, Path.fromInlinedLocation(inlinedLocation)),
-          )
-      }
-    }
-    code.contents
-  }
-}
-
 module Dict = {
-  let typeFilter = (_b, ~inputVar) =>
-    `typeof ${inputVar}!=="object"||!${inputVar}||Array.isArray(${inputVar})`
-
   let rec factory = item => {
     let item = item->toInternal
     {
-      tag: Dict,
-      item,
+      tag: Object,
+      fields: Stdlib.Object.immutableEmpty,
+      items: Stdlib.Array.immutableEmpty,
+      additionalItems: Schema(item->fromInternal->toUnknown),
       builder: Builder.make((b, ~input, ~selfSchema as _, ~path) => {
         let inputVar = b->B.Val.var(input)
         let keyVar = b.global->B.varWithoutAllocation
@@ -2262,9 +2235,38 @@ module Dict = {
           output
         }
       }),
-      typeFilter,
+      typeFilter: Object.typeFilter,
       output: Output.item(~factory, ~item),
     }->toStandard
+  }
+}
+
+module Tuple = {
+  type s = {
+    item: 'value. (int, t<'value>) => 'value,
+    tag: 'value. (int, 'value) => unit,
+  }
+
+  let typeFilter = (b, ~inputVar) => {
+    let items = (%raw(`this`): internal).items->Stdlib.Option.unsafeUnwrap
+    let length = items->Js.Array2.length
+    let code = ref(
+      b->Array.typeFilter(~inputVar) ++
+        `||${inputVar}.length!==${length->Stdlib.Int.unsafeToString}`,
+    )
+    for idx in 0 to length - 1 {
+      let {schema, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
+      let item = schema->toInternal
+      if item->isLiteral {
+        code :=
+          code.contents ++
+          "||" ++
+          b->(item.typeFilter->Stdlib.Option.unsafeUnwrap)(
+            ~inputVar=Path.concat(inputVar, Path.fromInlinedLocation(inlinedLocation)),
+          )
+      }
+    }
+    code.contents
   }
 }
 

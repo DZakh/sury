@@ -6,6 +6,8 @@ import * as Caml_exceptions from "rescript/lib/es6/caml_exceptions.js";
 
 var immutableEmpty = {};
 
+var immutableEmpty$1 = [];
+
 function fromString(string) {
   var _idx = 0;
   while(true) {
@@ -1568,7 +1570,7 @@ function typeFilter$2(b, inputVar) {
   var additionalItems = match.additionalItems;
   var items = match.items;
   var code = "typeof " + inputVar + "!==\"object\"||!" + inputVar + (
-    additionalItems === "strict" ? "||Array.isArray(" + inputVar + ")" : ""
+    additionalItems === "strip" ? "" : "||Array.isArray(" + inputVar + ")"
   );
   for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
     var match$1 = items[idx];
@@ -1628,29 +1630,12 @@ function deepStrict(schema) {
   return setAdditionalItems(schema, "strict", true);
 }
 
-function typeFilter$3(b, inputVar) {
-  var items = this.items;
-  var length = items.length;
-  var code = typeFilter$1(b, inputVar) + ("||" + inputVar + ".length!==" + length);
-  for(var idx = 0; idx < length; ++idx){
-    var match = items[idx];
-    var schema = match.schema;
-    if (isLiteral(schema)) {
-      code = code + "||" + schema.f(b, inputVar + ("[" + match.inlinedLocation + "]"));
-    }
-    
-  }
-  return code;
-}
-
-function typeFilter$4(_b, inputVar) {
-  return "typeof " + inputVar + "!==\"object\"||!" + inputVar + "||Array.isArray(" + inputVar + ")";
-}
-
 function factory$3(item$1) {
   return toStandard({
-              type: "dict",
-              item: item$1,
+              type: "object",
+              additionalItems: item$1,
+              items: immutableEmpty$1,
+              fields: immutableEmpty,
               output: item(factory$3, item$1),
               b: (function (b, input, param, path) {
                   var inputVar = input.v(b);
@@ -1698,8 +1683,23 @@ function factory$3(item$1) {
                           a: true
                         };
                 }),
-              f: typeFilter$4
+              f: typeFilter$2
             });
+}
+
+function typeFilter$3(b, inputVar) {
+  var items = this.items;
+  var length = items.length;
+  var code = typeFilter$1(b, inputVar) + ("||" + inputVar + ".length!==" + length);
+  for(var idx = 0; idx < length; ++idx){
+    var match = items[idx];
+    var schema = match.schema;
+    if (isLiteral(schema)) {
+      code = code + "||" + schema.f(b, inputVar + ("[" + match.inlinedLocation + "]"));
+    }
+    
+  }
+  return code;
 }
 
 var metadataId$1 = "metadata:rescript-schema:String.refinements";
@@ -1721,14 +1721,14 @@ var emailRegex = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-
 
 var datetimeRe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
 
-function typeFilter$5(_b, inputVar) {
+function typeFilter$4(_b, inputVar) {
   return "typeof " + inputVar + "!==\"string\"";
 }
 
 var schema$1 = toStandard({
       type: "string",
       b: noop,
-      f: typeFilter$5
+      f: typeFilter$4
     });
 
 function factory$4(item, spaceOpt) {
@@ -1771,18 +1771,18 @@ function factory$4(item, spaceOpt) {
                           }), "t.message") + "}");
                   return parseWithTypeValidation(b, item, jsonVal, path);
                 }),
-              f: typeFilter$5
+              f: typeFilter$4
             });
 }
 
-function typeFilter$6(_b, inputVar) {
+function typeFilter$5(_b, inputVar) {
   return "typeof " + inputVar + "!==\"boolean\"";
 }
 
 var schema$2 = toStandard({
       type: "boolean",
       b: noop,
-      f: typeFilter$6
+      f: typeFilter$5
     });
 
 var metadataId$2 = "metadata:rescript-schema:Int.refinements";
@@ -1800,7 +1800,7 @@ function refinement(inputVar) {
   return inputVar + ">2147483647||" + inputVar + "<-2147483648||" + inputVar + "%1!==0";
 }
 
-function typeFilter$7(_b, inputVar) {
+function typeFilter$6(_b, inputVar) {
   return "typeof " + inputVar + "!==\"number\"||" + refinement(inputVar);
 }
 
@@ -1808,7 +1808,7 @@ var schema$3 = toStandard({
       type: "number",
       format: "int32",
       b: noop,
-      f: typeFilter$7
+      f: typeFilter$6
     });
 
 var metadataId$3 = "metadata:rescript-schema:Float.refinements";
@@ -1822,7 +1822,7 @@ function refinements$3(schema) {
   }
 }
 
-function typeFilter$8(_b, inputVar) {
+function typeFilter$7(_b, inputVar) {
   return "typeof " + inputVar + "!==\"number\"" + (
           globalConfig.n ? "" : "||Number.isNaN(" + inputVar + ")"
         );
@@ -1831,17 +1831,17 @@ function typeFilter$8(_b, inputVar) {
 var schema$4 = toStandard({
       type: "number",
       b: noop,
-      f: typeFilter$8
+      f: typeFilter$7
     });
 
-function typeFilter$9(_b, inputVar) {
+function typeFilter$8(_b, inputVar) {
   return "typeof " + inputVar + "!==\"bigint\"";
 }
 
 var schema$5 = toStandard({
       type: "bigint",
       b: invalidJson,
-      f: typeFilter$9
+      f: typeFilter$8
     });
 
 function coerce(from, to) {
@@ -2353,87 +2353,84 @@ function builder$2(parentB, input, selfSchema, path) {
   }
 }
 
-function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
-  if (!(typeof definition === "object" && definition !== null)) {
-    return {
-            k: 1,
-            p: path,
-            s: parse(definition)
-          };
+function nested(fieldName) {
+  var parentCtx = this;
+  var cacheId = "~" + fieldName;
+  var ctx = parentCtx[cacheId];
+  if (ctx !== undefined) {
+    return Caml_option.valFromOption(ctx);
   }
-  var item = definition[itemSymbol];
-  if (item !== undefined) {
-    var ritem_2 = getItemReversed(item);
-    var ritem = {
-      k: 0,
-      p: path,
-      i: item,
-      s: ritem_2
-    };
-    item.r = ritem;
-    ritemsByItemPath[getFullDitemPath(item)] = ritem;
-    return ritem;
-  }
-  if (Array.isArray(definition)) {
-    var items = [];
-    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
-      var $$location = idx.toString();
-      var inlinedLocation = "\"" + $$location + "\"";
-      var ritem$1 = definitionToRitem(definition[idx], path + ("[" + inlinedLocation + "]"), ritems, ritemsByItemPath);
-      ritems.push(ritem$1);
-      var item_schema = ritem$1.s;
-      var item$1 = {
-        schema: item_schema,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-      items[idx] = item$1;
-    }
-    return {
-            k: 2,
-            p: path,
-            s: {
-              type: "tuple",
-              items: items,
-              output: output$1,
-              b: builder,
-              f: typeFilter$3
-            },
-            a: true
-          };
-  }
-  var fieldNames = Object.keys(definition);
+  var schemas = [];
   var fields = {};
-  var items$1 = [];
-  for(var idx$1 = 0 ,idx_finish$1 = fieldNames.length; idx$1 < idx_finish$1; ++idx$1){
-    var $$location$1 = fieldNames[idx$1];
-    var inlinedLocation$1 = fromString($$location$1);
-    var ritem$2 = definitionToRitem(definition[$$location$1], path + ("[" + inlinedLocation$1 + "]"), ritems, ritemsByItemPath);
-    ritems.push(ritem$2);
-    var item_schema$1 = ritem$2.s;
-    var item$2 = {
-      schema: item_schema$1,
-      location: $$location$1,
-      inlinedLocation: inlinedLocation$1
+  var items = [];
+  var schema = toStandard({
+        type: "object",
+        additionalItems: globalConfig.a,
+        items: items,
+        fields: fields,
+        output: output$1,
+        b: builder$2,
+        f: typeFilter$2
+      });
+  var target = parentCtx.f(fieldName, schema)[itemSymbol];
+  var field = function (fieldName, schema) {
+    var inlinedLocation = fromString(fieldName);
+    if (fields[fieldName]) {
+      throw new Error("[" + vendor + "] " + ("The field " + inlinedLocation + " defined twice"));
+    }
+    var ditem_2 = schema;
+    var ditem_4 = "[" + inlinedLocation + "]";
+    var ditem = {
+      k: 1,
+      inlinedLocation: inlinedLocation,
+      location: fieldName,
+      schema: ditem_2,
+      of: target,
+      p: ditem_4
     };
-    items$1[idx$1] = item$2;
-    fields[$$location$1] = item$2;
-  }
-  return {
-          k: 2,
-          p: path,
-          s: {
-            type: "object",
-            advanced: true,
-            additionalItems: globalConfig.a,
-            items: items$1,
-            fields: fields,
-            output: output$1,
-            b: builder,
-            f: typeFilter$2
-          },
-          a: false
-        };
+    fields[fieldName] = ditem;
+    items.push(ditem);
+    schemas.push(schema);
+    return proxify(ditem);
+  };
+  var tag = function (tag$1, asValue) {
+    field(tag$1, definitionToSchema(asValue));
+  };
+  var fieldOr = function (fieldName, schema, or) {
+    return field(fieldName, getOr(factory$1(schema), or));
+  };
+  var flatten = function (schema) {
+    if (schema.type === "object") {
+      var flattenedItems = schema.items;
+      if (schema.advanced) {
+        var message = "Unsupported nested flatten for advanced object schema '" + name(schema) + "'";
+        throw new Error("[" + vendor + "] " + message);
+      }
+      var match = reverse(schema);
+      if (match.type === "object" && match.advanced !== true) {
+        var result = {};
+        for(var idx = 0 ,idx_finish = flattenedItems.length; idx < idx_finish; ++idx){
+          var item = flattenedItems[idx];
+          result[item.location] = field(item.location, item.schema);
+        }
+        return result;
+      }
+      var message$1 = "Unsupported nested flatten for transformed schema '" + name(schema) + "'";
+      throw new Error("[" + vendor + "] " + message$1);
+    }
+    var message$2 = "The '" + name(schema) + "' schema can't be flattened";
+    throw new Error("[" + vendor + "] " + message$2);
+  };
+  var ctx$1 = {
+    field: field,
+    f: field,
+    fieldOr: fieldOr,
+    tag: tag,
+    nested: nested,
+    flatten: flatten
+  };
+  parentCtx[cacheId] = ctx$1;
+  return ctx$1;
 }
 
 function output$1() {
@@ -2544,84 +2541,87 @@ function definitionToSchema(definition) {
         };
 }
 
-function nested(fieldName) {
-  var parentCtx = this;
-  var cacheId = "~" + fieldName;
-  var ctx = parentCtx[cacheId];
-  if (ctx !== undefined) {
-    return Caml_option.valFromOption(ctx);
+function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
+  if (!(typeof definition === "object" && definition !== null)) {
+    return {
+            k: 1,
+            p: path,
+            s: parse(definition)
+          };
   }
-  var schemas = [];
-  var fields = {};
-  var items = [];
-  var schema = toStandard({
-        type: "object",
-        additionalItems: globalConfig.a,
-        items: items,
-        fields: fields,
-        output: output$1,
-        b: builder$2,
-        f: typeFilter$2
-      });
-  var target = parentCtx.f(fieldName, schema)[itemSymbol];
-  var field = function (fieldName, schema) {
-    var inlinedLocation = fromString(fieldName);
-    if (fields[fieldName]) {
-      throw new Error("[" + vendor + "] " + ("The field " + inlinedLocation + " defined twice"));
-    }
-    var ditem_2 = schema;
-    var ditem_4 = "[" + inlinedLocation + "]";
-    var ditem = {
-      k: 1,
-      inlinedLocation: inlinedLocation,
-      location: fieldName,
-      schema: ditem_2,
-      of: target,
-      p: ditem_4
+  var item = definition[itemSymbol];
+  if (item !== undefined) {
+    var ritem_2 = getItemReversed(item);
+    var ritem = {
+      k: 0,
+      p: path,
+      i: item,
+      s: ritem_2
     };
-    fields[fieldName] = ditem;
-    items.push(ditem);
-    schemas.push(schema);
-    return proxify(ditem);
-  };
-  var tag = function (tag$1, asValue) {
-    field(tag$1, definitionToSchema(asValue));
-  };
-  var fieldOr = function (fieldName, schema, or) {
-    return field(fieldName, getOr(factory$1(schema), or));
-  };
-  var flatten = function (schema) {
-    if (schema.type === "object") {
-      var flattenedItems = schema.items;
-      if (schema.advanced) {
-        var message = "Unsupported nested flatten for advanced object schema '" + name(schema) + "'";
-        throw new Error("[" + vendor + "] " + message);
-      }
-      var match = reverse(schema);
-      if (match.type === "object" && match.advanced !== true) {
-        var result = {};
-        for(var idx = 0 ,idx_finish = flattenedItems.length; idx < idx_finish; ++idx){
-          var item = flattenedItems[idx];
-          result[item.location] = field(item.location, item.schema);
-        }
-        return result;
-      }
-      var message$1 = "Unsupported nested flatten for transformed schema '" + name(schema) + "'";
-      throw new Error("[" + vendor + "] " + message$1);
+    item.r = ritem;
+    ritemsByItemPath[getFullDitemPath(item)] = ritem;
+    return ritem;
+  }
+  if (Array.isArray(definition)) {
+    var items = [];
+    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
+      var $$location = idx.toString();
+      var inlinedLocation = "\"" + $$location + "\"";
+      var ritem$1 = definitionToRitem(definition[idx], path + ("[" + inlinedLocation + "]"), ritems, ritemsByItemPath);
+      ritems.push(ritem$1);
+      var item_schema = ritem$1.s;
+      var item$1 = {
+        schema: item_schema,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+      items[idx] = item$1;
     }
-    var message$2 = "The '" + name(schema) + "' schema can't be flattened";
-    throw new Error("[" + vendor + "] " + message$2);
-  };
-  var ctx$1 = {
-    field: field,
-    f: field,
-    fieldOr: fieldOr,
-    tag: tag,
-    nested: nested,
-    flatten: flatten
-  };
-  parentCtx[cacheId] = ctx$1;
-  return ctx$1;
+    return {
+            k: 2,
+            p: path,
+            s: {
+              type: "tuple",
+              items: items,
+              output: output$1,
+              b: builder,
+              f: typeFilter$3
+            },
+            a: true
+          };
+  }
+  var fieldNames = Object.keys(definition);
+  var fields = {};
+  var items$1 = [];
+  for(var idx$1 = 0 ,idx_finish$1 = fieldNames.length; idx$1 < idx_finish$1; ++idx$1){
+    var $$location$1 = fieldNames[idx$1];
+    var inlinedLocation$1 = fromString($$location$1);
+    var ritem$2 = definitionToRitem(definition[$$location$1], path + ("[" + inlinedLocation$1 + "]"), ritems, ritemsByItemPath);
+    ritems.push(ritem$2);
+    var item_schema$1 = ritem$2.s;
+    var item$2 = {
+      schema: item_schema$1,
+      location: $$location$1,
+      inlinedLocation: inlinedLocation$1
+    };
+    items$1[idx$1] = item$2;
+    fields[$$location$1] = item$2;
+  }
+  return {
+          k: 2,
+          p: path,
+          s: {
+            type: "object",
+            advanced: true,
+            additionalItems: globalConfig.a,
+            items: items$1,
+            fields: fields,
+            output: output$1,
+            b: builder,
+            f: typeFilter$2
+          },
+          a: false
+        };
 }
 
 function advancedReverse(definition, to, flattened) {
@@ -3024,7 +3024,7 @@ function $$enum(values) {
   return factory(values.map(js_schema));
 }
 
-function typeFilter$10(b, inputVar) {
+function typeFilter$9(b, inputVar) {
   var items = this.items;
   var length = items.length;
   var code = typeFilter$1(b, inputVar) + ("||" + inputVar + ".length!==" + length);
@@ -3152,7 +3152,7 @@ function unnest(schema) {
                       return output;
                     }
                   }),
-                f: typeFilter$10
+                f: typeFilter$9
               });
   }
   throw new Error("[" + vendor + "] S.unnest supports only object schemas.");
