@@ -61,3 +61,12 @@ test("Can reset unknown keys strategy applying Strict strategy", t => {
     {code: ExcessField("unknownKey"), operation: Parse, path: S.Path.empty},
   )
 })
+
+test("Ignores additional items override for S.array and S.dict", t => {
+  let schema = S.array(S.string)
+  t->Assert.is(schema->S.strict, schema, ())
+  let schema = S.dict(S.string)
+  t->Assert.is(schema->S.strict, schema, ())
+  let schema = S.array(S.string)->S.strict
+  t->Assert.is(schema->S.strip, schema, ())
+})

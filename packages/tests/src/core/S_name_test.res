@@ -17,7 +17,7 @@ test("Name of Literal array schema", t => {
 })
 
 test("Name of Array schema", t => {
-  t->Assert.deepEqual(S.array(S.string)->S.name, "array<string>", ())
+  t->Assert.deepEqual(S.array(S.string)->S.name, "string[]", ())
 })
 
 test("Name of Unnest schema", t => {
@@ -30,7 +30,7 @@ test("Name of Unnest schema", t => {
         }
       ),
     )->S.name,
-    "[array<string>, array<int32>]",
+    "[string[], int32[]]",
     (),
   )
 })
@@ -47,17 +47,17 @@ test("Name of reversed Unnest schema", t => {
     )
     ->S.reverse
     ->S.name,
-    "array<{ foo: string; bar: int32; }>",
+    "{ foo: string; bar: int32; }[]",
     (),
   )
 })
 
 test("Name of Array schema with optional items", t => {
-  t->Assert.deepEqual(S.array(S.option(S.string))->S.name, "array<undefined | string>", ())
+  t->Assert.deepEqual(S.array(S.option(S.string))->S.name, "(undefined | string)[]", ())
 })
 
 test("Name of Dict schema", t => {
-  t->Assert.deepEqual(S.dict(S.string)->S.name, "dict<string>", ())
+  t->Assert.deepEqual(S.dict(S.string)->S.name, "{ [key: string]: string; }", ())
 })
 
 test("Name of Option schema", t => {

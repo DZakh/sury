@@ -201,7 +201,6 @@ function name(schema) {
   if ($$const !== undefined) {
     return stringify($$const);
   }
-  var item = schema.item;
   var format = schema.format;
   var anyOf = schema.anyOf;
   if (anyOf !== undefined) {
@@ -210,21 +209,30 @@ function name(schema) {
   if (format !== undefined) {
     return format;
   }
-  if (item !== undefined) {
-    return tag + "<" + name(item) + ">";
-  }
   switch (tag) {
     case "nan" :
         return "NaN";
-    case "tuple" :
+    case "array" :
+        var additionalItems = schema.additionalItems;
         var items = schema.items;
-        return "[" + items.map(function (item) {
-                      return name(item.schema);
-                    }).join(", ") + "]";
+        if (typeof additionalItems !== "object") {
+          return "[" + items.map(function (item) {
+                        return name(item.schema);
+                      }).join(", ") + "]";
+        }
+        var itemName = name(additionalItems);
+        return (
+                additionalItems.type === "union" ? "(" + itemName + ")" : itemName
+              ) + "[]";
     case "object" :
+        var additionalItems$1 = schema.additionalItems;
         var items$1 = schema.items;
         if (items$1.length === 0) {
-          return "{}";
+          if (typeof additionalItems$1 === "object") {
+            return "{ [key: string]: " + name(additionalItems$1) + "; }";
+          } else {
+            return "{}";
+          }
         } else {
           return "{ " + items$1.map(function (item) {
                         return item.location + ": " + name(item.schema) + ";";
@@ -1517,7 +1525,8 @@ function typeFilter$1(_b, inputVar) {
 function factory$2(item$1) {
   return toStandard({
               type: "array",
-              item: item$1,
+              additionalItems: item$1,
+              items: immutableEmpty$1,
               output: item(factory$2, item$1),
               b: (function (b, input, param, path) {
                   var inputVar = input.v(b);
@@ -1584,12 +1593,12 @@ function typeFilter$2(b, inputVar) {
 }
 
 function setAdditionalItems(schema, additionalItems, deep) {
-  var schemaUnknownKeys = schema.additionalItems;
-  if (schemaUnknownKeys === undefined) {
+  var currentAdditionalItems = schema.additionalItems;
+  if (currentAdditionalItems === undefined) {
     return schema;
   }
   var items = schema.items;
-  if (schemaUnknownKeys === additionalItems) {
+  if (!(currentAdditionalItems !== additionalItems && typeof currentAdditionalItems !== "object")) {
     return schema;
   }
   var mut = copy(schema);
@@ -1735,7 +1744,6 @@ function factory$4(item, spaceOpt) {
   var space = spaceOpt !== undefined ? spaceOpt : 0;
   return toStandard({
               type: "string",
-              item: item,
               output: (function () {
                   var reversed = reverse(item);
                   var mut = copy(reversed);
@@ -2310,7 +2318,7 @@ function proxify(item) {
 function builder$2(parentB, input, selfSchema, path) {
   var additionalItems = selfSchema.additionalItems;
   var items = selfSchema.items;
-  var isArray = selfSchema.type === "tuple";
+  var isArray = selfSchema.type === "array";
   if (parentB.g.o & 64) {
     var objectVal = make$1(parentB, isArray);
     for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
@@ -2501,11 +2509,13 @@ function definitionToSchema(definition) {
       
     }
     return {
-            type: "tuple",
+            type: "array",
+            additionalItems: globalConfig.a,
             items: definition,
             output: isTransformed ? (function () {
                   return {
-                          type: "tuple",
+                          type: "array",
+                          additionalItems: globalConfig.a,
                           items: reversedItems,
                           b: builder$2,
                           f: typeFilter$3
@@ -2581,7 +2591,8 @@ function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
             k: 2,
             p: path,
             s: {
-              type: "tuple",
+              type: "array",
+              additionalItems: globalConfig.a,
               items: items,
               output: output$1,
               b: builder,
@@ -2692,7 +2703,7 @@ function advancedReverse(definition, to, flattened) {
           }
           var items = reversed.items;
           if (items !== undefined) {
-            var isArray = reversed.type === "tuple";
+            var isArray = reversed.type === "array";
             var objectVal = make$1(b, isArray);
             for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
               var item = items[idx];
@@ -2733,7 +2744,7 @@ function advancedReverse(definition, to, flattened) {
         if (selfSchema.additionalItems === "strict") {
           objectStrictModeCheck(b, input, selfSchema.items, "strict", path);
         }
-        var isArray = originalSchema.type === "tuple";
+        var isArray = originalSchema.type === "array";
         var items = originalSchema.items;
         var objectVal = make$1(b, isArray);
         if (flattened !== undefined) {
@@ -2975,7 +2986,8 @@ function tuple(definer) {
     
   }
   return toStandard({
-              type: "tuple",
+              type: "array",
+              additionalItems: globalConfig.a,
               items: items,
               output: advancedReverse(definition, undefined, undefined),
               b: advancedBuilder(definition, undefined),
@@ -3042,7 +3054,8 @@ function unnest(schema) {
       throw new Error("[" + vendor + "] Invalid empty object for S.unnest schema.");
     }
     return toStandard({
-                type: "tuple",
+                type: "array",
+                additionalItems: globalConfig.a,
                 items: items.map(function (item, idx) {
                       var $$location = idx.toString();
                       return {
@@ -3055,7 +3068,8 @@ function unnest(schema) {
                     var schema$1 = reverse(schema);
                     return {
                             type: "array",
-                            item: schema$1,
+                            additionalItems: schema$1,
+                            items: immutableEmpty$1,
                             b: (function (b, input, param, path) {
                                 var inputVar = input.v(b);
                                 var iteratorVar = varWithoutAllocation(b.g);

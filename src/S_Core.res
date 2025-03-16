@@ -207,7 +207,6 @@ type typeTag =
   | @as("function") Function
   | @as("instance") Instance
   | @as("array") Array
-  | @as("tuple") Tuple
   | @as("object") Object
   | @as("union") Union
   | @as("json") JSON
@@ -240,8 +239,7 @@ type rec t<'value> =
   | @as("nan") NaN({const: float})
   | @as("function") Function({const?: Js.Types.function_val})
   | @as("instance") Instance({const?: Js.Types.obj_val})
-  | @as("array") Array({item: t<unknown>})
-  | @as("tuple") Tuple({items: array<item>})
+  | @as("array") Array({items: array<item>, additionalItems: additionalItems})
   | @as("object") Object({items: array<item>, fields: dict<item>, additionalItems: additionalItems}) // FIXME: Add const for Object and Tuple
   | @as("union") Union({anyOf: array<t<unknown>>})
   | @as("json") JSON({}) // FIXME: Remove it in favor of Union ?
@@ -252,7 +250,6 @@ and internal = {
   @as("type")
   tag: typeTag,
   mutable const?: char, // use char to avoid Caml_option.some
-  item?: internal,
   format?: internalFormat,
   advanced?: bool, // FIXME: Should rename it?
   mutable anyOf?: array<internal>,
@@ -517,14 +514,15 @@ let rec name = schema => {
     ->Js.Array2.map(name)
     ->Js.Array2.joinWith(" | ")
   | {format} => (format :> string)
-  | {tag, item} =>
-    `${(tag :> string)}<${item
-      ->fromInternal
-      ->name}>`
-  | {tag: Object, ?items} =>
+  | {tag: Object, ?items, ?additionalItems} =>
     let items = items->Stdlib.Option.unsafeUnwrap
     if items->Js.Array2.length === 0 {
-      `{}`
+      if additionalItems->Js.typeof === "object" {
+        let additionalItems: internal = additionalItems->Obj.magic
+        `{ [key: string]: ${additionalItems->fromInternal->name}; }`
+      } else {
+        `{}`
+      }
     } else {
       `{ ${items
         ->Js.Array2.map(item => {
@@ -532,11 +530,22 @@ let rec name = schema => {
         })
         ->Js.Array2.joinWith(" ")} }`
     }
-  | {tag: Tuple, ?items} =>
+  | {tag: Array, ?items, ?additionalItems} =>
     let items = items->Stdlib.Option.unsafeUnwrap
-    `[${items
-      ->Js.Array2.map(item => item.schema->toInternal->fromInternal->name)
-      ->Js.Array2.joinWith(", ")}]`
+    if additionalItems->Js.typeof === "object" {
+      let additionalItems: internal = additionalItems->Obj.magic
+      let itemName = additionalItems->fromInternal->name
+      if additionalItems.tag === Union {
+        `(${itemName})`
+      } else {
+        itemName
+      } ++ "[]"
+    } else {
+      `[${items
+        ->Js.Array2.map(item => item.schema->toInternal->fromInternal->name)
+        ->Js.Array2.joinWith(", ")}]`
+    }
+
   | {tag: NaN} => "NaN"
   | {tag} => (tag :> string)
   }
@@ -2070,7 +2079,8 @@ module Array = {
     let item = item->toInternal
     {
       tag: Array,
-      item,
+      additionalItems: Schema(item->fromInternal),
+      items: Stdlib.Array.immutableEmpty,
       builder: Builder.make((b, ~input, ~selfSchema as _, ~path) => {
         let inputVar = b->B.Val.var(input)
         let iteratorVar = b.global->B.varWithoutAllocation
@@ -2145,7 +2155,9 @@ module Object = {
   let rec setAdditionalItems = (schema, additionalItems, ~deep) => {
     let schema = schema->toInternal
     switch schema {
-    | {additionalItems: schemaUnknownKeys, ?items} if schemaUnknownKeys !== additionalItems =>
+    | {additionalItems: currentAdditionalItems, ?items}
+      if currentAdditionalItems !== additionalItems &&
+        currentAdditionalItems->Js.typeof !== "object" =>
       let mut = schema->copy
       mut.additionalItems = Some(additionalItems)
       if deep {
@@ -2197,7 +2209,7 @@ module Dict = {
       tag: Object,
       fields: Stdlib.Object.immutableEmpty,
       items: Stdlib.Array.immutableEmpty,
-      additionalItems: Schema(item->fromInternal->toUnknown),
+      additionalItems: Schema(item->fromInternal),
       builder: Builder.make((b, ~input, ~selfSchema as _, ~path) => {
         let inputVar = b->B.Val.var(input)
         let keyVar = b.global->B.varWithoutAllocation
@@ -2321,7 +2333,6 @@ module JsonString = {
     let item = item->toInternal
     {
       tag: String,
-      item,
       builder: Builder.make((b, ~input, ~selfSchema as _, ~path) => {
         let jsonVal = b->B.allocateVal
 
@@ -2954,7 +2965,7 @@ module Schema = {
   let rec builder = (parentB, ~input, ~selfSchema, ~path) => {
     let additionalItems = selfSchema.additionalItems
     let items = selfSchema.items->Stdlib.Option.unsafeUnwrap
-    let isArray = selfSchema.tag === Tuple
+    let isArray = selfSchema.tag === Array
 
     if parentB.global.flag->Flag.unsafeHas(Flag.flatten) {
       let objectVal = parentB->B.Val.Object.make(~isArray)
@@ -3179,7 +3190,7 @@ module Schema = {
         } else {
           switch reversed {
           | {items, tag} => {
-              let isArray = tag === Tuple
+              let isArray = tag === Array
               let objectVal = b->B.Val.Object.make(~isArray)
               for idx in 0 to items->Js.Array2.length - 1 {
                 let item = items->Js.Array2.unsafe_get(idx)
@@ -3250,7 +3261,7 @@ module Schema = {
             )
           }
 
-          let isArray = (originalSchema: internal).tag === Tuple
+          let isArray = (originalSchema: internal).tag === Array
           let items = originalSchema.items->Stdlib.Option.unsafeUnwrap
           let objectVal = b->B.Val.Object.make(~isArray)
           switch flattened {
@@ -3576,8 +3587,9 @@ module Schema = {
     }
 
     {
-      tag: Tuple,
+      tag: Array,
       items,
+      additionalItems: globalConfig.defaultAdditionalItems,
       typeFilter: Tuple.typeFilter,
       builder: advancedBuilder(~definition),
       output: advancedReverse(~definition),
@@ -3621,8 +3633,9 @@ module Schema = {
               path,
               isArray: true,
               reversed: {
-                tag: Tuple,
+                tag: Array,
                 items,
+                additionalItems: globalConfig.defaultAdditionalItems,
                 typeFilter: Tuple.typeFilter,
                 builder: Never.builder,
                 output,
@@ -3713,16 +3726,18 @@ module Schema = {
         }
         let items = node->(Obj.magic: array<unknown> => array<item>)
         {
-          tag: Tuple,
+          tag: Array,
           items,
+          additionalItems: globalConfig.defaultAdditionalItems,
           builder,
           typeFilter: Tuple.typeFilter,
           output: ?(
             isTransformed.contents
               ? Some(
                   () => {
-                    tag: Tuple,
+                    tag: Array,
                     items: reversedItems,
+                    additionalItems: globalConfig.defaultAdditionalItems,
                     builder,
                     typeFilter: Tuple.typeFilter,
                   },
@@ -3841,7 +3856,7 @@ let unnest = {
       }
       let schema = schema->toInternal
       {
-        tag: Tuple,
+        tag: Array,
         items: items->Js.Array2.mapi((item, idx) => {
           let location = idx->Js.Int.toString
           {
@@ -3850,6 +3865,7 @@ let unnest = {
             location,
           }
         }),
+        additionalItems: globalConfig.defaultAdditionalItems,
         builder: Builder.make((b, ~input, ~selfSchema as _, ~path) => {
           let inputVar = b->B.Val.var(input)
           let iteratorVar = b.global->B.varWithoutAllocation
@@ -3898,7 +3914,8 @@ let unnest = {
           let schema = schema->reverse
           {
             tag: Array,
-            item: schema,
+            items: Stdlib.Array.immutableEmpty,
+            additionalItems: Schema(schema->fromInternal),
             typeFilter: Array.typeFilter,
             builder: Builder.make((b, ~input, ~selfSchema as _, ~path) => {
               let inputVar = b->B.Val.var(input)
