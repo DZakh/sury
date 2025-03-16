@@ -13,8 +13,8 @@ module Common = {
     t->Assert.deepEqual(any->S.parseOrThrow(schema), value, ())
   })
 
-  test("Fails to parse invalid value", t => {
-    let schema = factory()
+  test("Fails to parse extra item in strict mode", t => {
+    let schema = factory()->S.strict
 
     t->U.assertRaised(
       () => invalidAny->S.parseOrThrow(schema),

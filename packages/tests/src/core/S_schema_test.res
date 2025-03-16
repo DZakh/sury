@@ -82,7 +82,7 @@ test("Object with embeded transformed schema", t => {
   )
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#ReverseConvert),
-    `i=>{let v0=i["foo"],v1=i["zoo"],v2;if(v0!=="bar"){e[0](v0)}if(v1!==void 0){v2=v1}else{v2=null}return {"foo":v0,"zoo":v2,}}`,
+    `i=>{let v0=i["foo"],v1=i["zoo"];if(v0!=="bar"){e[0](v0)}if(!(v1!==undefined)){v1=null}return {"foo":v0,"zoo":v1,}}`,
     (),
   )
   t->Assert.is(
@@ -128,12 +128,12 @@ test("Tuple with embeded schema", t => {
   // S.schema does return i without tuple recreation
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Parse),
-    `i=>{if(!Array.isArray(i)||i.length!==3||i["1"]!==undefined||i["2"]!=="bar"){e[1](i)}let v0=i["0"];if(typeof v0!=="string"){e[0](v0)}return i}`,
+    `i=>{if(!Array.isArray(i)||i.length<3||i["1"]!==undefined||i["2"]!=="bar"){e[1](i)}let v0=i["0"];if(typeof v0!=="string"){e[0](v0)}return [v0,i["1"],i["2"],]}`,
     (),
   )
   t->Assert.is(
     tupleSchema->U.getCompiledCodeString(~op=#Parse),
-    `i=>{if(!Array.isArray(i)||i.length!==3||i["1"]!==undefined||i["2"]!=="bar"){e[1](i)}let v0=i["0"];if(typeof v0!=="string"){e[0](v0)}return [v0,i["1"],i["2"],]}`,
+    `i=>{if(!Array.isArray(i)||i.length<3||i["1"]!==undefined||i["2"]!=="bar"){e[1](i)}let v0=i["0"];if(typeof v0!=="string"){e[0](v0)}return [v0,i["1"],i["2"],]}`,
     (),
   )
   t->Assert.is(
@@ -164,7 +164,7 @@ test("Tuple with embeded transformed schema", t => {
   )
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#ReverseConvert),
-    `i=>{let v0=i["0"],v1,v2=i["1"],v3=i["2"];if(v0!==void 0){v1=v0}else{v1=null}if(v2!==undefined){e[0](v2)}if(v3!=="bar"){e[1](v3)}return [v1,v2,v3,]}`,
+    `i=>{let v0=i["0"],v1=i["1"],v2=i["2"];if(!(v0!==undefined)){v0=null}if(v1!==undefined){e[1](v1)}if(v2!=="bar"){e[2](v2)}return [v0,v1,v2,]}`,
     (),
   )
   t->Assert.is(
@@ -248,7 +248,7 @@ test("Example", t => {
 })
 
 test(
-  "Strict schema should also check that object is not Array. Otherwise it will incorrectly return array input",
+  "Strict object schema should also check that object is not Array. Otherwise it will incorrectly return array input",
   t => {
     let schema = S.schema(s =>
       {
@@ -270,5 +270,34 @@ test(
         path: S.Path.empty,
       },
     )
+  },
+)
+
+test(
+  "Strict tuple schema should check the exact number of items, but it can optimize input recreation",
+  t => {
+    let schema = S.schema(s => (s.matches(S.string), s.matches(S.bool)))->S.strict
+
+    t->Assert.deepEqual(%raw(`["foo", true]`)->S.parseOrThrow(schema), ("foo", true), ())
+
+    t->U.assertRaised(
+      () => %raw(`["foo", true, 1]`)->S.parseOrThrow(schema),
+      {
+        code: InvalidType({
+          expected: schema->S.strict->S.toUnknown,
+          received: %raw(`["foo", true, 1]`),
+        }),
+        operation: Parse,
+        path: S.Path.empty,
+      },
+    )
+
+    t->U.assertCompiledCode(
+      ~schema,
+      ~op=#Parse,
+      `i=>{if(!Array.isArray(i)||i.length!==2){e[2](i)}let v0=i["0"],v1=i["1"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="boolean"){e[1](v1)}return i}`,
+    )
+    // FIXME: Make it noop
+    t->U.assertCompiledCode(~schema, ~op=#Convert, `i=>{return i}`)
   },
 )

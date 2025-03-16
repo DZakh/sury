@@ -2264,7 +2264,13 @@ module Tuple = {
     let length = items->Js.Array2.length
     let code = ref(
       b->Array.typeFilter(~inputVar) ++
-        `||${inputVar}.length!==${length->Stdlib.Int.unsafeToString}`,
+      `||${inputVar}.length` ++
+      if (%raw(`this`): internal).additionalItems === Some(Strict) {
+        `!==`
+      } else {
+        "<"
+      } ++
+      length->Stdlib.Int.unsafeToString,
     )
     for idx in 0 to length - 1 {
       let {schema, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
@@ -2920,8 +2926,12 @@ module Schema = {
     }
   }
 
-  let objectStrictModeCheck = (b, ~input, ~items, ~additionalItems, ~path) => {
-    if additionalItems === Some(Strict) && b.global.flag->Flag.unsafeHas(Flag.typeValidation) {
+  let objectStrictModeCheck = (b, ~input, ~items, ~selfSchema: internal, ~path) => {
+    if (
+      selfSchema.tag === Object &&
+      selfSchema.additionalItems === Some(Strict) &&
+      b.global.flag->Flag.unsafeHas(Flag.typeValidation)
+    ) {
       let key = b->B.allocateVal
       let keyVar = key.inline
       b.code = b.code ++ `for(${keyVar} in ${input.inline}){if(`
@@ -3003,7 +3013,7 @@ module Schema = {
         objectVal->B.Val.Object.add(inlinedLocation, b->B.parse(~schema, ~input=itemInput, ~path))
       }
 
-      b->objectStrictModeCheck(~input, ~items, ~additionalItems, ~path)
+      b->objectStrictModeCheck(~input, ~items, ~selfSchema, ~path)
 
       parentB.code = parentB.code ++ b->B.allocateScope
 
@@ -3068,7 +3078,6 @@ module Schema = {
     let b = parentB->B.scope
 
     if !isFlatten {
-      let additionalItems = selfSchema.additionalItems
       let items = selfSchema.items->Stdlib.Option.unsafeUnwrap
 
       let inputVar = b->B.Val.var(input)
@@ -3095,7 +3104,7 @@ module Schema = {
         outputs->Js.Dict.set(inlinedLocation, b->B.parse(~schema, ~input=itemInput, ~path))
       }
 
-      b->objectStrictModeCheck(~input, ~items, ~additionalItems, ~path)
+      b->objectStrictModeCheck(~input, ~items, ~selfSchema, ~path)
     }
 
     switch flattened {
@@ -3252,14 +3261,12 @@ module Schema = {
       switch to {
       | Some(ditem) => ditem->getItemOutput(~itemPath=Path.empty)
       | None => {
-          if selfSchema.additionalItems === Some(Strict) {
-            b->objectStrictModeCheck(
-              ~input,
-              ~items=selfSchema.items->Stdlib.Option.unsafeUnwrap,
-              ~additionalItems=Some(Strict),
-              ~path,
-            )
-          }
+          b->objectStrictModeCheck(
+            ~input,
+            ~items=selfSchema.items->Stdlib.Option.unsafeUnwrap,
+            ~selfSchema,
+            ~path,
+          )
 
           let isArray = (originalSchema: internal).tag === Array
           let items = originalSchema.items->Stdlib.Option.unsafeUnwrap

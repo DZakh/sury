@@ -1699,7 +1699,9 @@ function factory$3(item$1) {
 function typeFilter$3(b, inputVar) {
   var items = this.items;
   var length = items.length;
-  var code = typeFilter$1(b, inputVar) + ("||" + inputVar + ".length!==" + length);
+  var code = typeFilter$1(b, inputVar) + ("||" + inputVar + ".length") + (
+    this.additionalItems === "strict" ? "!==" : "<"
+  ) + length;
   for(var idx = 0; idx < length; ++idx){
     var match = items[idx];
     var schema = match.schema;
@@ -2271,8 +2273,8 @@ function definitionToOutput(b, definition, getItemOutput) {
   return complete(objectVal, isArray);
 }
 
-function objectStrictModeCheck(b, input, items, additionalItems, path) {
-  if (!(additionalItems === "strict" && b.g.o & 1)) {
+function objectStrictModeCheck(b, input, items, selfSchema, path) {
+  if (!(selfSchema.type === "object" && selfSchema.additionalItems === "strict" && b.g.o & 1)) {
     return ;
   }
   var key = allocateVal(b);
@@ -2349,7 +2351,7 @@ function builder$2(parentB, input, selfSchema, path) {
     }
     add(objectVal$1, inlinedLocation$1, schema.b(b, itemInput, schema, path$1));
   }
-  objectStrictModeCheck(b, input, items, additionalItems, path);
+  objectStrictModeCheck(b, input, items, selfSchema, path);
   parentB.c = parentB.c + allocateScope(b);
   if ((additionalItems !== "strip" || b.g.o & 32) && selfSchema === reverse(selfSchema)) {
     objectVal$1.v = input.v;
@@ -2361,84 +2363,88 @@ function builder$2(parentB, input, selfSchema, path) {
   }
 }
 
-function nested(fieldName) {
-  var parentCtx = this;
-  var cacheId = "~" + fieldName;
-  var ctx = parentCtx[cacheId];
-  if (ctx !== undefined) {
-    return Caml_option.valFromOption(ctx);
+function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
+  if (!(typeof definition === "object" && definition !== null)) {
+    return {
+            k: 1,
+            p: path,
+            s: parse(definition)
+          };
   }
-  var schemas = [];
-  var fields = {};
-  var items = [];
-  var schema = toStandard({
-        type: "object",
-        additionalItems: globalConfig.a,
-        items: items,
-        fields: fields,
-        output: output$1,
-        b: builder$2,
-        f: typeFilter$2
-      });
-  var target = parentCtx.f(fieldName, schema)[itemSymbol];
-  var field = function (fieldName, schema) {
-    var inlinedLocation = fromString(fieldName);
-    if (fields[fieldName]) {
-      throw new Error("[" + vendor + "] " + ("The field " + inlinedLocation + " defined twice"));
-    }
-    var ditem_2 = schema;
-    var ditem_4 = "[" + inlinedLocation + "]";
-    var ditem = {
-      k: 1,
-      inlinedLocation: inlinedLocation,
-      location: fieldName,
-      schema: ditem_2,
-      of: target,
-      p: ditem_4
+  var item = definition[itemSymbol];
+  if (item !== undefined) {
+    var ritem_2 = getItemReversed(item);
+    var ritem = {
+      k: 0,
+      p: path,
+      i: item,
+      s: ritem_2
     };
-    fields[fieldName] = ditem;
-    items.push(ditem);
-    schemas.push(schema);
-    return proxify(ditem);
-  };
-  var tag = function (tag$1, asValue) {
-    field(tag$1, definitionToSchema(asValue));
-  };
-  var fieldOr = function (fieldName, schema, or) {
-    return field(fieldName, getOr(factory$1(schema), or));
-  };
-  var flatten = function (schema) {
-    if (schema.type === "object") {
-      var flattenedItems = schema.items;
-      if (schema.advanced) {
-        var message = "Unsupported nested flatten for advanced object schema '" + name(schema) + "'";
-        throw new Error("[" + vendor + "] " + message);
-      }
-      var match = reverse(schema);
-      if (match.type === "object" && match.advanced !== true) {
-        var result = {};
-        for(var idx = 0 ,idx_finish = flattenedItems.length; idx < idx_finish; ++idx){
-          var item = flattenedItems[idx];
-          result[item.location] = field(item.location, item.schema);
-        }
-        return result;
-      }
-      var message$1 = "Unsupported nested flatten for transformed schema '" + name(schema) + "'";
-      throw new Error("[" + vendor + "] " + message$1);
+    item.r = ritem;
+    ritemsByItemPath[getFullDitemPath(item)] = ritem;
+    return ritem;
+  }
+  if (Array.isArray(definition)) {
+    var items = [];
+    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
+      var $$location = idx.toString();
+      var inlinedLocation = "\"" + $$location + "\"";
+      var ritem$1 = definitionToRitem(definition[idx], path + ("[" + inlinedLocation + "]"), ritems, ritemsByItemPath);
+      ritems.push(ritem$1);
+      var item_schema = ritem$1.s;
+      var item$1 = {
+        schema: item_schema,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+      items[idx] = item$1;
     }
-    var message$2 = "The '" + name(schema) + "' schema can't be flattened";
-    throw new Error("[" + vendor + "] " + message$2);
-  };
-  var ctx$1 = {
-    field: field,
-    f: field,
-    fieldOr: fieldOr,
-    tag: tag,
-    nested: nested,
-    flatten: flatten
-  };
-  parentCtx[cacheId] = ctx$1;
-  return ctx$1;
+    return {
+            k: 2,
+            p: path,
+            s: {
+              type: "array",
+              additionalItems: globalConfig.a,
+              items: items,
+              output: output$1,
+              b: builder,
+              f: typeFilter$3
+            },
+            a: true
+          };
+  }
+  var fieldNames = Object.keys(definition);
+  var fields = {};
+  var items$1 = [];
+  for(var idx$1 = 0 ,idx_finish$1 = fieldNames.length; idx$1 < idx_finish$1; ++idx$1){
+    var $$location$1 = fieldNames[idx$1];
+    var inlinedLocation$1 = fromString($$location$1);
+    var ritem$2 = definitionToRitem(definition[$$location$1], path + ("[" + inlinedLocation$1 + "]"), ritems, ritemsByItemPath);
+    ritems.push(ritem$2);
+    var item_schema$1 = ritem$2.s;
+    var item$2 = {
+      schema: item_schema$1,
+      location: $$location$1,
+      inlinedLocation: inlinedLocation$1
+    };
+    items$1[idx$1] = item$2;
+    fields[$$location$1] = item$2;
+  }
+  return {
+          k: 2,
+          p: path,
+          s: {
+            type: "object",
+            advanced: true,
+            additionalItems: globalConfig.a,
+            items: items$1,
+            fields: fields,
+            output: output$1,
+            b: builder,
+            f: typeFilter$2
+          },
+          a: false
+        };
 }
 
 function output$1() {
@@ -2551,88 +2557,84 @@ function definitionToSchema(definition) {
         };
 }
 
-function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
-  if (!(typeof definition === "object" && definition !== null)) {
-    return {
-            k: 1,
-            p: path,
-            s: parse(definition)
-          };
+function nested(fieldName) {
+  var parentCtx = this;
+  var cacheId = "~" + fieldName;
+  var ctx = parentCtx[cacheId];
+  if (ctx !== undefined) {
+    return Caml_option.valFromOption(ctx);
   }
-  var item = definition[itemSymbol];
-  if (item !== undefined) {
-    var ritem_2 = getItemReversed(item);
-    var ritem = {
-      k: 0,
-      p: path,
-      i: item,
-      s: ritem_2
-    };
-    item.r = ritem;
-    ritemsByItemPath[getFullDitemPath(item)] = ritem;
-    return ritem;
-  }
-  if (Array.isArray(definition)) {
-    var items = [];
-    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
-      var $$location = idx.toString();
-      var inlinedLocation = "\"" + $$location + "\"";
-      var ritem$1 = definitionToRitem(definition[idx], path + ("[" + inlinedLocation + "]"), ritems, ritemsByItemPath);
-      ritems.push(ritem$1);
-      var item_schema = ritem$1.s;
-      var item$1 = {
-        schema: item_schema,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-      items[idx] = item$1;
-    }
-    return {
-            k: 2,
-            p: path,
-            s: {
-              type: "array",
-              additionalItems: globalConfig.a,
-              items: items,
-              output: output$1,
-              b: builder,
-              f: typeFilter$3
-            },
-            a: true
-          };
-  }
-  var fieldNames = Object.keys(definition);
+  var schemas = [];
   var fields = {};
-  var items$1 = [];
-  for(var idx$1 = 0 ,idx_finish$1 = fieldNames.length; idx$1 < idx_finish$1; ++idx$1){
-    var $$location$1 = fieldNames[idx$1];
-    var inlinedLocation$1 = fromString($$location$1);
-    var ritem$2 = definitionToRitem(definition[$$location$1], path + ("[" + inlinedLocation$1 + "]"), ritems, ritemsByItemPath);
-    ritems.push(ritem$2);
-    var item_schema$1 = ritem$2.s;
-    var item$2 = {
-      schema: item_schema$1,
-      location: $$location$1,
-      inlinedLocation: inlinedLocation$1
+  var items = [];
+  var schema = toStandard({
+        type: "object",
+        additionalItems: globalConfig.a,
+        items: items,
+        fields: fields,
+        output: output$1,
+        b: builder$2,
+        f: typeFilter$2
+      });
+  var target = parentCtx.f(fieldName, schema)[itemSymbol];
+  var field = function (fieldName, schema) {
+    var inlinedLocation = fromString(fieldName);
+    if (fields[fieldName]) {
+      throw new Error("[" + vendor + "] " + ("The field " + inlinedLocation + " defined twice"));
+    }
+    var ditem_2 = schema;
+    var ditem_4 = "[" + inlinedLocation + "]";
+    var ditem = {
+      k: 1,
+      inlinedLocation: inlinedLocation,
+      location: fieldName,
+      schema: ditem_2,
+      of: target,
+      p: ditem_4
     };
-    items$1[idx$1] = item$2;
-    fields[$$location$1] = item$2;
-  }
-  return {
-          k: 2,
-          p: path,
-          s: {
-            type: "object",
-            advanced: true,
-            additionalItems: globalConfig.a,
-            items: items$1,
-            fields: fields,
-            output: output$1,
-            b: builder,
-            f: typeFilter$2
-          },
-          a: false
-        };
+    fields[fieldName] = ditem;
+    items.push(ditem);
+    schemas.push(schema);
+    return proxify(ditem);
+  };
+  var tag = function (tag$1, asValue) {
+    field(tag$1, definitionToSchema(asValue));
+  };
+  var fieldOr = function (fieldName, schema, or) {
+    return field(fieldName, getOr(factory$1(schema), or));
+  };
+  var flatten = function (schema) {
+    if (schema.type === "object") {
+      var flattenedItems = schema.items;
+      if (schema.advanced) {
+        var message = "Unsupported nested flatten for advanced object schema '" + name(schema) + "'";
+        throw new Error("[" + vendor + "] " + message);
+      }
+      var match = reverse(schema);
+      if (match.type === "object" && match.advanced !== true) {
+        var result = {};
+        for(var idx = 0 ,idx_finish = flattenedItems.length; idx < idx_finish; ++idx){
+          var item = flattenedItems[idx];
+          result[item.location] = field(item.location, item.schema);
+        }
+        return result;
+      }
+      var message$1 = "Unsupported nested flatten for transformed schema '" + name(schema) + "'";
+      throw new Error("[" + vendor + "] " + message$1);
+    }
+    var message$2 = "The '" + name(schema) + "' schema can't be flattened";
+    throw new Error("[" + vendor + "] " + message$2);
+  };
+  var ctx$1 = {
+    field: field,
+    f: field,
+    fieldOr: fieldOr,
+    tag: tag,
+    nested: nested,
+    flatten: flatten
+  };
+  parentCtx[cacheId] = ctx$1;
+  return ctx$1;
 }
 
 function advancedReverse(definition, to, flattened) {
@@ -2741,9 +2743,7 @@ function advancedReverse(definition, to, flattened) {
         if (to !== undefined) {
           return getItemOutput(to, "");
         }
-        if (selfSchema.additionalItems === "strict") {
-          objectStrictModeCheck(b, input, selfSchema.items, "strict", path);
-        }
+        objectStrictModeCheck(b, input, selfSchema.items, selfSchema, path);
         var isArray = originalSchema.type === "array";
         var items = originalSchema.items;
         var objectVal = make$1(b, isArray);
@@ -2776,7 +2776,6 @@ function advancedBuilder(definition, flattened) {
       g: parentB.g
     };
     if (!isFlatten) {
-      var additionalItems = selfSchema.additionalItems;
       var items = selfSchema.items;
       var inputVar = input.v(b);
       for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
@@ -2798,7 +2797,7 @@ function advancedBuilder(definition, flattened) {
         }
         outputs[inlinedLocation] = schema.b(b, itemInput, schema, path$1);
       }
-      objectStrictModeCheck(b, input, items, additionalItems, path);
+      objectStrictModeCheck(b, input, items, selfSchema, path);
     }
     if (flattened !== undefined) {
       var prevFlag = b.g.o;

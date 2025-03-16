@@ -20,10 +20,11 @@
 - Improved error massage for recursive schema
 - Support coerce for S.union, S.option and S.null
 - Renamed `unknownKeys` to `additionalItems`.
+- Make `S.tuple` strip additional items by default
+- Add `strict` and `strip` modes support for `S.tuple`
 
 ### Scope
 
-- Tuple should support strip mode
 - Todo something with preprocess
 - Provide isOptional in Union tag
 - Somehow determine whether transformed or not (including shape)

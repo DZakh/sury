@@ -14,11 +14,11 @@ module Tuple0 = {
     t->Assert.deepEqual(any->S.parseOrThrow(schema), value, ())
   })
 
-  test("Fails to parse invalid value", t => {
+  test("Fails to parse extra value in strict mode", t => {
     let schema = factory()
 
     t->U.assertRaised(
-      () => invalidAny->S.parseOrThrow(schema),
+      () => invalidAny->S.parseOrThrow(schema->S.strict),
       {
         code: InvalidType({
           expected: schema->S.toUnknown,
@@ -28,6 +28,12 @@ module Tuple0 = {
         path: S.Path.empty,
       },
     )
+  })
+
+  test("Ignores extra items in strip mode (default)", t => {
+    let schema = factory()
+
+    t->Assert.deepEqual(invalidAny->S.parseOrThrow(schema), (), ())
   })
 
   test("Fails to parse invalid type", t => {
@@ -221,11 +227,23 @@ test("Tuple schema parsing checks order", t => {
   )
   // Length check should be the second
   t->U.assertRaised(
-    () => %raw(`["value", "value", "value", "value"]`)->S.parseOrThrow(schema),
+    () => %raw(`["value"]`)->S.parseOrThrow(schema),
     {
       code: InvalidType({
         expected: schema->S.toUnknown,
-        received: %raw(`["value", "value", "value", "value"]`),
+        received: %raw(`["value"]`),
+      }),
+      operation: Parse,
+      path: S.Path.empty,
+    },
+  )
+  // Length check should be the second (extra items in strict mode)
+  t->U.assertRaised(
+    () => %raw(`["value", "value", "value"]`)->S.parseOrThrow(schema->S.strict),
+    {
+      code: InvalidType({
+        expected: schema->S.toUnknown,
+        received: %raw(`["value", "value", "value"]`),
       }),
       operation: Parse,
       path: S.Path.empty,
@@ -273,7 +291,7 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(!Array.isArray(i)||i.length!==2){e[2](i)}let v0=i["0"],v1=i["1"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="boolean"){e[1](v1)}return [v0,v1,]}`,
+      `i=>{if(!Array.isArray(i)||i.length<2){e[2](i)}let v0=i["0"],v1=i["1"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="boolean"){e[1](v1)}return [v0,v1,]}`,
     )
   })
 
@@ -286,7 +304,7 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(!Array.isArray(i)||i.length!==2){e[2](i)}let v0=i["1"];if(typeof v0!=="boolean"){e[1](v0)}return Promise.all([e[0](i["0"]),]).then(a=>([a[0],v0,]))}`,
+      `i=>{if(!Array.isArray(i)||i.length<2){e[2](i)}let v0=i["1"];if(typeof v0!=="boolean"){e[1](v0)}return Promise.all([e[0](i["0"]),]).then(a=>([a[0],v0,]))}`,
     )
   })
 
@@ -322,7 +340,7 @@ module Compiled = {
       t->U.assertCompiledCode(
         ~schema,
         ~op=#Parse,
-        `i=>{if(!Array.isArray(i)||i.length!==3||i["0"]!==0){e[3](i)}let v0=i["1"],v1=i["2"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="boolean"){e[1](v1)}return {"foo":v0,"bar":v1,"zoo":e[2],}}`,
+        `i=>{if(!Array.isArray(i)||i.length<3||i["0"]!==0){e[3](i)}let v0=i["1"],v1=i["2"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="boolean"){e[1](v1)}return {"foo":v0,"bar":v1,"zoo":e[2],}}`,
       )
     },
   )
