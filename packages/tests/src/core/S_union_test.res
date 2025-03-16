@@ -100,7 +100,7 @@ test("Parses when both schemas misses parser and have different types", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(i!=="apple"){if(typeof i!=="string"){e[2](i)}else{throw e[1]}}else{throw e[0]}return i}`,
+    `i=>{if(!(i!=="apple")){throw e[0]}else if(!(typeof i!=="string")){throw e[1]}else{e[2](i)}return i}`,
   )
 })
 
@@ -297,7 +297,7 @@ module Advanced = {
     )
   })
 
-  test("Fails to serialize incomplete schema", t => {
+  test("Passes through not defined item on converting without type validation", t => {
     let incompleteSchema = S.union([
       S.object(s => {
         s.tag("kind", "circle")
@@ -313,25 +313,10 @@ module Advanced = {
       }),
     ])
 
-    let error: U.errorPayload = {
-      code: InvalidType({
-        expected: incompleteSchema->S.reverse,
-        received: Triangle({x: 2., y: 3.})->Obj.magic,
-      }),
-      operation: ReverseConvert,
-      path: S.Path.empty,
-    }
+    let v = Triangle({x: 2., y: 3.})
 
-    t->U.assertRaised(
-      () => Triangle({x: 2., y: 3.})->S.reverseConvertOrThrow(incompleteSchema),
-      error,
-    )
-
-    t->Assert.is(
-      error->U.error->S.Error.message,
-      `Failed converting at root. Reason: Must be { TAG: "Circle"; radius: number; } | { TAG: "Square"; x: number; } (was {"TAG": "Triangle", "x": 2, "y": 3})`,
-      (),
-    )
+    // This is not valid but expected behavior. Use parse to ensure type validation
+    t->Assert.is(v->S.reverseConvertOrThrow(incompleteSchema), v->Obj.magic, ())
   })
 
   test("Successfully serializes Circle shape", t => {
@@ -372,7 +357,7 @@ module Advanced = {
     t->U.assertCompiledCode(
       ~schema=shapeSchema,
       ~op=#Parse,
-      `i=>{let v1=i;if(typeof i!=="object"||!i||i["kind"]!=="circle"){if(typeof i!=="object"||!i||i["kind"]!=="square"){if(typeof i!=="object"||!i||i["kind"]!=="triangle"){e[7](i)}else{let v3=i["x"],v4=i["y"];if(typeof v3!=="number"||Number.isNaN(v3)){e[4](v3)}if(typeof v4!=="number"||Number.isNaN(v4)){e[5](v4)}v1={"TAG":e[6],"x":v3,"y":v4,}}}else{let v2=i["x"];if(typeof v2!=="number"||Number.isNaN(v2)){e[2](v2)}v1={"TAG":e[3],"x":v2,}}}else{let v0=i["radius"];if(typeof v0!=="number"||Number.isNaN(v0)){e[0](v0)}v1={"TAG":e[1],"radius":v0,}}return v1}`,
+      `i=>{if(!(typeof i!=="object"||!i||i["kind"]!=="circle")){let v0=i["radius"];if(typeof v0!=="number"||Number.isNaN(v0)){e[0](v0)}i={"TAG":e[1],"radius":v0,}}else if(!(typeof i!=="object"||!i||i["kind"]!=="square")){let v1=i["x"];if(typeof v1!=="number"||Number.isNaN(v1)){e[2](v1)}i={"TAG":e[3],"x":v1,}}else if(!(typeof i!=="object"||!i||i["kind"]!=="triangle")){let v2=i["x"],v3=i["y"];if(typeof v2!=="number"||Number.isNaN(v2)){e[4](v2)}if(typeof v3!=="number"||Number.isNaN(v3)){e[5](v3)}i={"TAG":e[6],"x":v2,"y":v3,}}else{e[7](i)}return i}`,
     )
   })
 
@@ -380,7 +365,7 @@ module Advanced = {
     t->U.assertCompiledCode(
       ~schema=shapeSchema,
       ~op=#ReverseConvert,
-      `i=>{let v1=i;if(typeof i!=="object"||!i||i["TAG"]!=="Circle"){if(typeof i!=="object"||!i||i["TAG"]!=="Square"){if(typeof i!=="object"||!i||i["TAG"]!=="Triangle"){e[6](i)}else{let v3=i["TAG"];if(v3!=="Triangle"){e[4](v3)}v1={"kind":e[5],"x":i["x"],"y":i["y"],}}}else{let v2=i["TAG"];if(v2!=="Square"){e[2](v2)}v1={"kind":e[3],"x":i["x"],}}}else{let v0=i["TAG"];if(v0!=="Circle"){e[0](v0)}v1={"kind":e[1],"radius":i["radius"],}}return v1}`,
+      `i=>{if(!(typeof i!=="object"||!i||i["TAG"]!=="Circle")){let v0=i["TAG"];if(v0!=="Circle"){e[0](v0)}i={"kind":e[1],"radius":i["radius"],}}else if(!(typeof i!=="object"||!i||i["TAG"]!=="Square")){let v1=i["TAG"];if(v1!=="Square"){e[2](v1)}i={"kind":e[3],"x":i["x"],}}else if(!(typeof i!=="object"||!i||i["TAG"]!=="Triangle")){let v2=i["TAG"];if(v2!=="Triangle"){e[4](v2)}i={"kind":e[5],"x":i["x"],"y":i["y"],}}return i}`,
     )
   })
 }
@@ -403,18 +388,26 @@ test("Successfully serializes unboxed variant", t => {
 
   t->U.assertCompiledCode(
     ~schema,
+    ~op=#Parse,
+    `i=>{let v0=i;try{if(typeof i!=="string"){e[0](i)}}catch(e0){try{if(typeof i!=="string"){e[1](i)}v0=e[2](i)}catch(e1){e[3]([e0,e1,])}}return v0}`,
+  )
+  t->U.assertCompiledCode(
+    ~schema,
     ~op=#ReverseConvert,
-    `i=>{let v0=i;if(typeof i!=="string"){v0=e[0](i)}return v0}`,
+    `i=>{let v1=i;try{if(typeof i!=="string"){e[0](i)}}catch(e0){try{let v0=e[1](i);if(typeof v0!=="string"){e[2](v0)}v1=v0}catch(e1){e[3]([e0,e1,])}}return v1}`,
   )
 })
 
 test("Compiled parse code snapshot", t => {
   let schema = S.union([S.literal(0), S.literal(1)])
 
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(i!==0){if(i!==1){e[0](i)}}return i}`)
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(i!==0&&i!==1){e[0](i)}return i}`)
+  t->U.assertCompiledCode(~schema, ~op=#ReverseParse, `i=>{if(i!==0&&i!==1){e[0](i)}return i}`)
+  t->U.assertCompiledCodeIsNoop(~schema, ~op=#Convert)
+  t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
 })
 
-test("Compiled async parse code snapshot", t => {
+asyncTest("Compiled async parse code snapshot", async t => {
   let schema = S.union([
     S.literal(0)->S.transform(_ => {asyncParser: i => Promise.resolve(i)}),
     S.literal(1),
@@ -423,7 +416,12 @@ test("Compiled async parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{let v0=i;if(i!==0){if(i!==1){e[1](i)}}else{v0=e[0](i)}return Promise.resolve(v0)}`,
+    `i=>{if(!(i!==0)){i=e[0](i)}else if(i!==1){e[1](i)}return Promise.resolve(i)}`,
+  )
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#ConvertAsync,
+    `i=>{if(!(i!==0)){i=e[0](i)}return Promise.resolve(i)}`,
   )
 })
 
@@ -462,14 +460,30 @@ test("Union with nested variant", t => {
   )
 })
 
-test("Compiled serialize code snapshot", t => {
-  let schema = S.union([S.literal(0), S.literal(1)])
+test("Nested union doesn't mutate the input", t => {
+  let schema = S.schema(s =>
+    {
+      "foo": s.matches(S.union([S.string, S.bool->S.coerce(S.string)])),
+    }
+  )
 
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
-    `i=>{if(i!==0){if(i!==1){e[0](i)}}return i}`,
+    ~op=#Parse,
+    `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["foo"];if(!(typeof v0!=="boolean")){v0=""+v0}else if(typeof v0!=="string"){e[1](v0)}return {"foo":v0,}}`,
   )
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Convert,
+    `i=>{let v0=i["foo"];if(!(typeof v0!=="boolean")){v0=""+v0}return {"foo":v0,}}`,
+  )
+})
+
+test("Compiled serialize code snapshot", t => {
+  let schema = S.union([S.literal(0), S.literal(1)])
+
+  t->U.assertCompiledCodeIsNoop(~schema, ~op=#Convert)
+  t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
 })
 
 test("Compiled serialize code snapshot of objects returning literal fields", t => {
@@ -478,10 +492,23 @@ test("Compiled serialize code snapshot of objects returning literal fields", t =
     S.object(s => s.field("bar", S.literal(1))),
   ])
 
+  t->Assert.deepEqual(1->S.reverseConvertOrThrow(schema), %raw(`{"bar":1}`), ())
+
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{let v0=i;if(i!==0){if(i!==1){e[0](i)}else{v0={"bar":i,}}}else{v0={"foo":i,}}return v0}`,
+    `i=>{if(!(i!==0)){i={"foo":i,}}else if(!(i!==1)){i={"bar":i,}}return i}`,
+  )
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Convert,
+    // FIXME: Remove duplicate literal check
+    `i=>{if(!(typeof i!=="object"||!i||i["foo"]!==0)){let v0=i["foo"];if(v0!==0){e[0](v0)}i=v0}else if(!(typeof i!=="object"||!i||i["bar"]!==1)){let v1=i["bar"];if(v1!==1){e[1](v1)}i=v1}return i}`,
+  )
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(!(typeof i!=="object"||!i||i["foo"]!==0)){i=i["foo"]}else if(!(typeof i!=="object"||!i||i["bar"]!==1)){i=i["bar"]}else{e[0](i)}return i}`,
   )
 })
 
@@ -528,7 +555,7 @@ module CknittelBugReport = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{let v3=i;if(typeof i!=="object"||!i||i["TAG"]!=="A"){if(typeof i!=="object"||!i||i["TAG"]!=="B"){e[2](i)}else{let v4=i["TAG"],v5=i["_0"];if(v4!=="B"){e[1](v4)}let v6=v5["payload"];v3=v5}}else{let v0=i["TAG"],v1=i["_0"];if(v0!=="A"){e[0](v0)}let v2=v1["payload"];v3=v1}return v3}`,
+      `i=>{if(!(typeof i!=="object"||!i||i["TAG"]!=="A")){let v0=i["TAG"],v1=i["_0"];if(v0!=="A"){e[0](v0)}let v2=v1["payload"];i=v1}else if(!(typeof i!=="object"||!i||i["TAG"]!=="B")){let v3=i["TAG"],v4=i["_0"];if(v3!=="B"){e[1](v3)}let v5=v4["payload"];i=v4}return i}`,
     )
 
     let x = {

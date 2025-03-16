@@ -91,6 +91,7 @@ module Stdlib = {
     }
 
     external unsafeToString: int => string = "%identity"
+    external unsafeToBool: int => bool = "%identity"
   }
 
   module Dict = {
@@ -238,7 +239,7 @@ type rec t<'value> =
   | @as("function") Function({const?: Js.Types.function_val})
   | @as("instance") Instance({const?: Js.Types.obj_val})
   | @as("array") Array({item: t<unknown>})
-  | @as("dict") Dict({item: t<unknown>})
+  | @as("dict") Dict({item: t<unknown>}) // TODO: Should Object type with no items and additionalProperties: true
   | @as("tuple") Tuple({items: array<item>})
   | @as("object") Object({unknownKeys: unknownKeys, items: array<item>, fields: dict<item>}) // FIXME: Add const for Object and Tuple
   | @as("union") Union({anyOf: array<t<unknown>>})
@@ -275,7 +276,7 @@ and item = {
 and builder = (b, ~input: val, ~selfSchema: internal, ~path: Path.t) => val
 and val = {
   @as("b")
-  b: b,
+  mutable b: b,
   @as("v")
   mutable var: b => string,
   @as("i")
@@ -335,6 +336,7 @@ let isLiteral: internal => bool = %raw(`s => "const" in s`)
 
 let rec isOptional = schema => {
   switch schema.tag {
+  // FIXME: Should `unknown` be considered optional?
   | Undefined => true
   | Union => schema.anyOf->Stdlib.Option.unsafeUnwrap->Js.Array2.some(isOptional)
   | _ => false
@@ -1797,110 +1799,134 @@ module Never = {
 }
 
 module Union = {
-  let parse = (b, ~schemas, ~path, ~input, ~output: val) => {
-    let isMultiple = schemas->Js.Array2.length > 1
-    let rec loop = (idx, errorCodes) => {
-      if idx === schemas->Js.Array2.length {
-        b->B.failWithArg(
-          ~path,
-          internalErrors => {
-            InvalidUnion(internalErrors)
-          },
-          `[${errorCodes}]`,
-        )
-      } else {
-        let schema = schemas->Js.Array2.unsafe_get(idx)
-        let parserCode = try {
-          let bb = b->B.scope
-          let itemOutput = bb->B.parse(~schema, ~input, ~path=Path.empty)
+  let getItemCode = (b, ~schema, ~input, ~output: val, ~path) => {
+    try {
+      let bb = b->B.scope
+      // if isMultiple && schema.typeFilter->Stdlib.Option.isSome {
+      //   bb.code = bb.code ++ bb->B.typeFilterCode(~schema, ~input, ~path)
+      // }
+      let itemOutput = bb->B.parse(~schema, ~input, ~path)
 
-          if itemOutput !== input {
-            if itemOutput.isAsync {
-              output.isAsync = true
-            }
-            bb.code =
-              bb.code ++
-              // Need to allocate a var here, so we don't mutate the input object field
-              `${output.var(b)}=${itemOutput.inline}`
+      if itemOutput !== input {
+        itemOutput.b = bb
+        if schema.tag === Unknown {
+          let reversed = schema->reverse
+          if reversed.typeFilter->Stdlib.Option.isSome {
+            bb.code = bb.code ++ bb->B.typeFilterCode(~schema=reversed, ~input=itemOutput, ~path)
           }
+        }
 
-          bb->B.allocateScope
-        } catch {
-        | _ => "throw " ++ b->B.embed(%raw(`exn`)->InternalError.getOrRethrow)
+        if itemOutput.isAsync {
+          output.isAsync = true
         }
-        if isMultiple {
-          let errorVar = `e` ++ idx->Stdlib.Int.unsafeToString
-          `try{${parserCode}}catch(${errorVar}){` ++
-          loop(idx + 1, errorCodes ++ errorVar ++ ",") ++ "}"
-        } else {
-          parserCode
-        }
+        bb.code =
+          bb.code ++
+          // Need to allocate a var here, so we don't mutate the input object field
+          `${output.var(b)}=${itemOutput.inline}`
       }
+
+      bb->B.allocateScope
+    } catch {
+    | _ => "throw " ++ b->B.embed(%raw(`exn`)->InternalError.getOrRethrow)
     }
-    loop(0, "")
   }
 
   let builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
     let schemas = selfSchema.anyOf->Stdlib.Option.unsafeUnwrap
-    let inputVar = b->B.Val.var(input)
-    let output = {b, var: B._notVar, inline: inputVar, isAsync: false}
 
-    let byTypeFilter = Js.Dict.empty()
-    let typeFilters = []
-    for idx in 0 to schemas->Js.Array2.length - 1 {
-      let schema = schemas->Js.Array2.unsafe_get(idx)
-      let typeFilterCode = if schema.typeFilter->Stdlib.Option.isSome {
-        b->(schema.typeFilter->Stdlib.Option.unsafeUnwrap)(~inputVar)
-      } else {
-        // FIXME: Test that removeTypeValidation goes two the first flow
-        ""
-      }
+    // FIXME: Test with async
+    let output = input
 
-      switch byTypeFilter->Js.Dict.get(typeFilterCode) {
-      | Some(schemas) => schemas->Js.Array2.push(schema)->ignore
-      | None => {
-          typeFilters->Js.Array2.push(typeFilterCode)->ignore
-          byTypeFilter->Js.Dict.set(typeFilterCode, [schema])
-        }
-      }
-    }
-
-    let rec loopTypeFilters = (idx, maybeUnknownParser) => {
-      if idx === typeFilters->Js.Array2.length {
-        switch maybeUnknownParser {
-        | None =>
-          b->B.failWithArg(
+    let rec loop = (code, ~idx, ~caught, ~noopItems) => {
+      let isStart = code === ""
+      if idx === schemas->Js.Array2.length {
+        if b.global.flag->Flag.unsafeHas(Flag.typeValidation) {
+          // FIXME: Include caught errors
+          let errorCode = b->B.failWithArg(
             ~path,
             received => InvalidType({
               expected: selfSchema->fromInternal,
               received,
             }),
-            inputVar,
+            input.var(b),
           )
-        | Some(unknownParserCode) => unknownParserCode
+
+          let c = ref(code)
+
+          let noopItemsN = noopItems->Js.Array2.length
+          if noopItemsN->Stdlib.Int.unsafeToBool {
+            if !isStart && noopItemsN < schemas->Js.Array2.length {
+              c := c.contents ++ `else `
+            }
+
+            c := c.contents ++ `if(`
+            for idx in 0 to noopItems->Js.Array2.length - 1 {
+              let schema = noopItems->Js.Array2.unsafe_get(idx)
+              c :=
+                c.contents ++
+                (idx->Stdlib.Int.unsafeToBool ? "&&" : "") ++
+                b->(schema.typeFilter->Stdlib.Option.unsafeUnwrap)(~inputVar=input.var(b))
+            }
+            c := c.contents ++ `){${errorCode}}`
+          } else {
+            c := c.contents ++ `else{${errorCode}}`
+          }
+
+          c.contents
+        } else {
+          code
         }
       } else {
-        let typeFilterCode = typeFilters->Js.Array2.unsafe_get(idx)
-        let schemas = byTypeFilter->Js.Dict.unsafeGet(typeFilterCode)
+        let schema = schemas->Js.Array2.unsafe_get(idx)
+        let itemCode = b->getItemCode(~schema, ~input, ~output, ~path)
 
-        let parserCode = parse(b, ~schemas, ~path, ~input, ~output)
-
-        switch typeFilterCode {
-        | "" => loopTypeFilters(idx + 1, Some(parserCode))
-        | _ =>
-          `if(${typeFilterCode}){` ++
-          loopTypeFilters(idx + 1, maybeUnknownParser) ++
-          switch parserCode {
-          | "" => ""
-          | _ => `}else{` ++ parserCode
-          } ++ `}`
+        // Item doesn't transform, so we can easily group it with
+        // other noop items
+        if itemCode === "" {
+          noopItems->Js.Array2.push(schema)->ignore
+          loop(code, ~idx=idx + 1, ~caught, ~noopItems)
+        } else {
+          switch schema.typeFilter {
+          // Deopt to try/catch when we can't rely on type validation
+          | None =>
+            // FIXME: accumulated noopItems should be checked before
+            // FIXME: Test multiple catches
+            // FIXME: Reset loop when found a type duplicate
+            let errorVar = `e` ++ idx->Stdlib.Int.unsafeToString
+            `try{${itemCode}}catch(${errorVar}){${loop(
+                "",
+                ~idx=idx + 1,
+                ~caught=caught ++ errorVar ++ ",",
+                ~noopItems,
+              )}}`
+          // FIXME: Make it positive
+          | Some(_) =>
+            let filterCode =
+              "!(" ++
+              b->(schema.typeFilter->Stdlib.Option.unsafeUnwrap)(~inputVar=input.var(b)) ++ ")"
+            loop(
+              code ++ (isStart ? "" : "else ") ++ `if(${filterCode}){${itemCode}}`,
+              ~idx=idx + 1,
+              ~caught,
+              ~noopItems,
+            )
+          }
         }
       }
     }
-    b.code = b.code ++ loopTypeFilters(0, None)
+
+    b.code = b.code ++ loop("", ~idx=0, ~caught="", ~noopItems=[])
 
     if output.isAsync {
       b->B.asyncVal(`Promise.resolve(${output.inline})`)
+    } else if output.var === B._var {
+      // Don't break the logic to determine
+      // whether the output is changed
+      // TODO: Think how to make it more robust
+      {
+        ...output,
+        b,
+      }
     } else {
       output
     }
@@ -1912,20 +1938,9 @@ module Union = {
     | [] => InternalError.panic("S.union requires at least one item")
     | [schema] => schema->fromInternal
     | _ =>
-      let anyOf = []
-      for idx in 0 to schemas->Js.Array2.length - 1 {
-        let schema = schemas->Js.Array2.unsafe_get(idx)
-        switch schema {
-        | {anyOf: nAnyOf} =>
-          nAnyOf->Js.Array2.forEach(s => {
-            anyOf->Js.Array2.push(s)->ignore
-          })
-        | _ => anyOf->Js.Array2.push(schema)->ignore
-        }
-      }
       {
         tag: Union,
-        anyOf,
+        anyOf: schemas,
         builder,
         output,
       }->toStandard
@@ -1933,7 +1948,19 @@ module Union = {
   }
   and output = () => {
     let schemas = (%raw(`this`): internal).anyOf->Stdlib.Option.unsafeUnwrap
-    factory(schemas->Js.Array2.map(s => s->reverse->fromInternal))->toInternal
+    let items = []
+    let toSelf = ref(true)
+    for idx in 0 to schemas->Js.Array2.length - 1 {
+      let schema = schemas->Js.Array2.unsafe_get(idx)
+      let reversed = schema->reverse
+      items->Js.Array2.unsafe_set(idx, reversed->fromInternal)
+      toSelf := toSelf.contents && schema === reversed
+    }
+    if toSelf.contents {
+      %raw(`this`)
+    } else {
+      factory(items)->toInternal
+    }
   }
 }
 
@@ -1949,15 +1976,15 @@ module Option = {
 
   let factory = item => {
     let reversedItem = item->toInternal->reverse
-    let schema = Union.factory([item->toUnknown, unit->toUnknown])
+    let schema = Union.factory([unit->toUnknown, item->toUnknown])
 
     if reversedItem->isOptional {
       let mut = schema->toInternal
       mut.output = Some(
         () => {
           Union.factory([
-            reversedItem->fromInternal,
             unit->toUnknown,
+            reversedItem->fromInternal,
             // coerce(
             //   Schema.definitionToSchema(
             //     {"BS_PRIVATE_NESTED_SOME_NONE": Float.schema}->Obj.magic,
@@ -3750,15 +3777,15 @@ module Null = {
     let reversedItem = item->toInternal->reverse
     let null = coerce(Literal.null->fromInternal, unit->toUnknown)
 
-    let schema = Union.factory([item->toUnknown, null])
+    let schema = Union.factory([null, item->toUnknown])
 
     if reversedItem->isOptional {
       let mut = schema->toInternal
       mut.output = Some(
         () => {
           Union.factory([
-            reversedItem->fromInternal,
             null->toInternal->reverse->fromInternal,
+            reversedItem->fromInternal,
             coerce(
               Schema.definitionToSchema(
                 {"BS_PRIVATE_NESTED_SOME_NONE": Float.schema}->Obj.magic,
@@ -4457,11 +4484,11 @@ let trim = schema => {
 }
 
 let nullish = schema => {
-  Union.factory([schema->toUnknown, Literal.null->fromInternal, unit->toUnknown])
+  Union.factory([unit->toUnknown, Literal.null->fromInternal, schema->toUnknown])
 }
 
 let nullable = schema => {
-  Union.factory([schema->toUnknown, coerce(Literal.null->fromInternal, unit->toUnknown)])
+  Union.factory([coerce(Literal.null->fromInternal, unit->toUnknown), schema->toUnknown])
 }
 
 // =============

@@ -101,7 +101,9 @@ function getCompiledCodeString(schema, op) {
                     op === "ReverseConvert" ? S$RescriptSchema.compile(schema, "Output", "Input", "Sync", false) : (
                         op === "Convert" ? S$RescriptSchema.compile(schema, "Any", "Output", "Sync", false) : (
                             op === "Assert" ? S$RescriptSchema.compile(schema, "Any", "Assert", "Sync", true) : (
-                                op === "ReverseParse" ? S$RescriptSchema.compile(schema, "Output", "Input", "Sync", true) : S$RescriptSchema.compile(schema, "Output", "Input", "Async", false)
+                                op === "ReverseParse" ? S$RescriptSchema.compile(schema, "Output", "Input", "Sync", true) : (
+                                    op === "ConvertAsync" ? S$RescriptSchema.compile(schema, "Any", "Output", "Async", false) : S$RescriptSchema.compile(schema, "Output", "Input", "Async", false)
+                                  )
                               )
                           )
                       )
@@ -123,6 +125,7 @@ function cleanUpSchema(schema) {
           case "of" :
           case "output" :
           case "p" :
+          case "~standard" :
               return ;
           default:
             if (typeof value === "function") {

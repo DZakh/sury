@@ -38,7 +38,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="string"){if(i!==null){e[1](i)}else{i=undefined}}return i}`,
+      `i=>{let v0=i;if(!(i!==null)){v0=undefined}else if(typeof i!=="string"){e[1](i)}return v0}`,
     )
   })
 
@@ -67,8 +67,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      // FIXME: Apply checks only for the items which need to be transformed
-      `i=>{if(typeof i!=="string"){if(i!==undefined){e[1](i)}else{i=null}}return i}`,
+      `i=>{let v0=i;if(!(i!==undefined)){v0=null}return v0}`,
     )
   })
 

@@ -1,13 +1,11 @@
 (i) => {
-  let v0 = i;
-  if (typeof i !== "boolean") {
-    if (i !== undefined) {
-      e[2](i);
-    } else {
-      v0 = "undefined";
+  try {
+    i = i.then(e[1]);
+  } catch (e0) {
+    try {
+    } catch (e1) {
+      e[2]([e0, e1]);
     }
-  } else {
-    v0 = "" + i;
   }
-  return v0;
+  return Promise.resolve(i);
 };

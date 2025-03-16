@@ -75,6 +75,7 @@ let getCompiledCodeString = (
     | #Parse
     | #ParseAsync
     | #Convert
+    | #ConvertAsync
     | #ReverseConvertAsync
     | #ReverseConvert
     | #ReverseParse
@@ -95,6 +96,9 @@ let getCompiledCodeString = (
       }
     | #Convert =>
       let fn = schema->S.compile(~input=Any, ~output=Value, ~mode=Sync, ~typeValidation=false)
+      fn->magic
+    | #ConvertAsync =>
+      let fn = schema->S.compile(~input=Any, ~output=Value, ~mode=Async, ~typeValidation=false)
       fn->magic
     | #Assert =>
       let fn = schema->S.compile(~input=Any, ~output=Assert, ~mode=Sync, ~typeValidation=true)
@@ -130,7 +134,8 @@ let rec cleanUpSchema = schema => {
     | "output"
     | "i"
     | "c"
-    | "advanced" => ()
+    | "advanced"
+    | "~standard" => ()
     // ditemToItem leftovers FIXME:
     | "k" | "p" | "of" => ()
     | _ =>

@@ -22,6 +22,8 @@
 
 ### Scope
 
+- Todo something with preprocess
+- Provide isOptional in Union tag
 - Somehow determine whether transformed or not (including shape)
 - Make refinements change type from unknown to known
 - Add `.pipe` to Ts api
