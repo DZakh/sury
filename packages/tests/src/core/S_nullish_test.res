@@ -2,7 +2,7 @@ open Ava
 open RescriptCore
 
 module NullCommon = {
-  let value = None
+  let value = Js.Nullable.null
   let any = %raw(`null`)
   let invalidAny = %raw(`123.45`)
   let factory = () => S.nullish(S.string)
@@ -69,28 +69,28 @@ module NullCommon = {
 
   test("Succesfully uses reversed schema for parsing back to initial value", t => {
     let schema = factory()
-    t->U.assertReverseParsesBack(schema, Some("abc"))
-    t->U.assertReverseParsesBack(schema, None)
+    t->U.assertReverseParsesBack(schema, Value("abc"))
+    t->U.assertReverseParsesBack(schema, Undefined)
   })
 }
 
 test("Successfully parses primitive", t => {
   let schema = S.nullish(S.bool)
 
-  t->Assert.deepEqual(JSON.Encode.bool(true)->S.parseOrThrow(schema), Some(true), ())
+  t->Assert.deepEqual(JSON.Encode.bool(true)->S.parseOrThrow(schema), Value(true), ())
 })
 
 test("Successfully parses JS undefined", t => {
   let schema = S.nullish(S.bool)
 
-  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), None, ())
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), Undefined, ())
 })
 
 test("Successfully parses object with missing field that marked as nullish", t => {
   let fieldSchema = S.nullish(S.string)
   let schema = S.object(s => s.field("nullableField", fieldSchema))
 
-  t->Assert.deepEqual(%raw(`{}`)->S.parseOrThrow(schema), None, ())
+  t->Assert.deepEqual(%raw(`{}`)->S.parseOrThrow(schema), Undefined, ())
 })
 
 test(

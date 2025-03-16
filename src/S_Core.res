@@ -191,8 +191,6 @@ let vendor = "rescript-schema"
 let symbol = Stdlib.Symbol.make(vendor)
 let itemSymbol = Stdlib.Symbol.make("item")
 
-type unknownKeys = | @as("strip") Strip | @as("strict") Strict
-
 type typeTag =
   | @as("string") String
   | @as("number") Number
@@ -223,6 +221,8 @@ type numberFormat = | @as("int32") Int32
 
 type internalFormat = numberFormat
 
+type additionalItemsMode = | @as("strip") Strip | @as("strict") Strict
+
 @tag("type")
 type rec t<'value> =
   private
@@ -241,9 +241,11 @@ type rec t<'value> =
   | @as("array") Array({item: t<unknown>})
   | @as("dict") Dict({item: t<unknown>}) // TODO: Should Object type with no items and additionalProperties: true
   | @as("tuple") Tuple({items: array<item>})
-  | @as("object") Object({unknownKeys: unknownKeys, items: array<item>, fields: dict<item>}) // FIXME: Add const for Object and Tuple
+  | @as("object") Object({items: array<item>, additionalItems: additionalItems, fields: dict<item>}) // FIXME: Add const for Object and Tuple
   | @as("union") Union({anyOf: array<t<unknown>>})
   | @as("json") JSON({}) // FIXME: Remove it in favor of Union ?
+and additionalItems = | ...additionalItemsMode | Schema(t<unknown>)
+
 // FIXME: Add recursive
 and schema<'a> = t<'a>
 and internal = {
@@ -254,7 +256,7 @@ and internal = {
   format?: internalFormat,
   advanced?: bool, // FIXME: Should rename it?
   mutable anyOf?: array<internal>,
-  mutable unknownKeys?: unknownKeys,
+  mutable additionalItems?: additionalItems,
   mutable items?: array<item>,
   mutable fields?: dict<item>,
   mutable name?: string,
@@ -346,22 +348,22 @@ let rec isOptional = schema => {
 type globalConfig = {
   @as("r")
   mutable recCounter: int,
-  @as("u")
-  mutable defaultUnknownKeys: unknownKeys,
+  @as("a")
+  mutable defaultAdditionalItems: additionalItems,
   @as("n")
   mutable disableNanNumberValidation: bool,
 }
 
 type globalConfigOverride = {
-  defaultUnknownKeys?: unknownKeys,
+  defaultAdditionalItems?: additionalItemsMode,
   disableNanNumberValidation?: bool,
 }
 
-let initialDefaultUnknownKeys = Strip
+let initialOnAdditionalItems: additionalItemsMode = Strip
 let initialDisableNanNumberProtection = false
 let globalConfig = {
   recCounter: 0,
-  defaultUnknownKeys: initialDefaultUnknownKeys,
+  defaultAdditionalItems: (initialOnAdditionalItems :> additionalItems),
   disableNanNumberValidation: initialDisableNanNumberProtection,
 }
 
@@ -2115,11 +2117,11 @@ module Object = {
   }
 
   let typeFilter = (b, ~inputVar) => {
-    let {?unknownKeys, ?items}: internal = %raw(`this`)
+    let {?additionalItems, ?items}: internal = %raw(`this`)
     let items = items->Stdlib.Option.unsafeUnwrap
     let code = ref(
       `typeof ${inputVar}!=="object"||!${inputVar}` ++ (
-        unknownKeys === Some(Strict) ? `||Array.isArray(${inputVar})` : ""
+        additionalItems === Some(Strict) ? `||Array.isArray(${inputVar})` : ""
       ),
     )
     for idx in 0 to items->Js.Array2.length - 1 {
@@ -2137,12 +2139,12 @@ module Object = {
     code.contents
   }
 
-  let rec setUnknownKeys = (schema, unknownKeys, ~deep) => {
+  let rec setAdditionalItems = (schema, additionalItems, ~deep) => {
     let schema = schema->toInternal
     switch schema {
-    | {unknownKeys: schemaUnknownKeys, ?items} if schemaUnknownKeys !== unknownKeys =>
+    | {additionalItems: schemaUnknownKeys, ?items} if schemaUnknownKeys !== additionalItems =>
       let mut = schema->copy
-      mut.unknownKeys = Some(unknownKeys)
+      mut.additionalItems = Some(additionalItems)
       if deep {
         let items = items->Stdlib.Option.unsafeUnwrap
 
@@ -2151,9 +2153,9 @@ module Object = {
         for idx in 0 to items->Js.Array2.length - 1 {
           let item = items->Js.Array2.unsafe_get(idx)
           let newSchema =
-            setUnknownKeys(
+            setAdditionalItems(
               item.schema->(Obj.magic: t<unknown> => t<'a>),
-              unknownKeys,
+              additionalItems,
               ~deep,
             )->toUnknown
           let newItem = newSchema === item.schema ? item : {...item, schema: newSchema}
@@ -2170,19 +2172,19 @@ module Object = {
 }
 
 let strip = schema => {
-  schema->Object.setUnknownKeys(Strip, ~deep=false)
+  schema->Object.setAdditionalItems(Strip, ~deep=false)
 }
 
 let deepStrip = schema => {
-  schema->Object.setUnknownKeys(Strip, ~deep=true)
+  schema->Object.setAdditionalItems(Strip, ~deep=true)
 }
 
 let strict = schema => {
-  schema->Object.setUnknownKeys(Strict, ~deep=false)
+  schema->Object.setAdditionalItems(Strict, ~deep=false)
 }
 
 let deepStrict = schema => {
-  schema->Object.setUnknownKeys(Strict, ~deep=true)
+  schema->Object.setAdditionalItems(Strict, ~deep=true)
 }
 
 module Tuple = {
@@ -2905,8 +2907,8 @@ module Schema = {
     }
   }
 
-  let objectStrictModeCheck = (b, ~input, ~items, ~unknownKeys, ~path) => {
-    if unknownKeys === Some(Strict) && b.global.flag->Flag.unsafeHas(Flag.typeValidation) {
+  let objectStrictModeCheck = (b, ~input, ~items, ~additionalItems, ~path) => {
+    if additionalItems === Some(Strict) && b.global.flag->Flag.unsafeHas(Flag.typeValidation) {
       let key = b->B.allocateVal
       let keyVar = key.inline
       b.code = b.code ++ `for(${keyVar} in ${input.inline}){if(`
@@ -2948,7 +2950,7 @@ module Schema = {
     })
 
   let rec builder = (parentB, ~input, ~selfSchema, ~path) => {
-    let unknownKeys = selfSchema.unknownKeys
+    let additionalItems = selfSchema.additionalItems
     let items = selfSchema.items->Stdlib.Option.unsafeUnwrap
     let isArray = selfSchema.tag === Tuple
 
@@ -2988,12 +2990,12 @@ module Schema = {
         objectVal->B.Val.Object.add(inlinedLocation, b->B.parse(~schema, ~input=itemInput, ~path))
       }
 
-      b->objectStrictModeCheck(~input, ~items, ~unknownKeys, ~path)
+      b->objectStrictModeCheck(~input, ~items, ~additionalItems, ~path)
 
       parentB.code = parentB.code ++ b->B.allocateScope
 
       if (
-        (unknownKeys !== Some(Strip) || b.global.flag->Flag.unsafeHas(Flag.reverse)) &&
+        (additionalItems !== Some(Strip) || b.global.flag->Flag.unsafeHas(Flag.reverse)) &&
           selfSchema === selfSchema->reverse
       ) {
         objectVal.var = input.var
@@ -3032,7 +3034,7 @@ module Schema = {
         tag: Object,
         items: reversedItems,
         fields: reversedFields,
-        unknownKeys: globalConfig.defaultUnknownKeys,
+        additionalItems: globalConfig.defaultAdditionalItems,
         typeFilter: Object.typeFilter,
         builder,
       }
@@ -3053,7 +3055,7 @@ module Schema = {
     let b = parentB->B.scope
 
     if !isFlatten {
-      let unknownKeys = selfSchema.unknownKeys
+      let additionalItems = selfSchema.additionalItems
       let items = selfSchema.items->Stdlib.Option.unsafeUnwrap
 
       let inputVar = b->B.Val.var(input)
@@ -3080,7 +3082,7 @@ module Schema = {
         outputs->Js.Dict.set(inlinedLocation, b->B.parse(~schema, ~input=itemInput, ~path))
       }
 
-      b->objectStrictModeCheck(~input, ~items, ~unknownKeys, ~path)
+      b->objectStrictModeCheck(~input, ~items, ~additionalItems, ~path)
     }
 
     switch flattened {
@@ -3237,11 +3239,11 @@ module Schema = {
       switch to {
       | Some(ditem) => ditem->getItemOutput(~itemPath=Path.empty)
       | None => {
-          if selfSchema.unknownKeys === Some(Strict) {
+          if selfSchema.additionalItems === Some(Strict) {
             b->objectStrictModeCheck(
               ~input,
               ~items=selfSchema.items->Stdlib.Option.unsafeUnwrap,
-              ~unknownKeys=Some(Strict),
+              ~additionalItems=Some(Strict),
               ~path,
             )
           }
@@ -3333,7 +3335,7 @@ module Schema = {
           tag: Object,
           items,
           fields,
-          unknownKeys: globalConfig.defaultUnknownKeys,
+          additionalItems: globalConfig.defaultAdditionalItems,
           builder,
           typeFilter: Object.typeFilter,
           output,
@@ -3515,7 +3517,7 @@ module Schema = {
         tag: Object,
         items,
         fields,
-        unknownKeys: globalConfig.defaultUnknownKeys,
+        additionalItems: globalConfig.defaultAdditionalItems,
         advanced: true,
         typeFilter: Object.typeFilter,
         builder: advancedBuilder(~definition, ~flattened),
@@ -3546,7 +3548,7 @@ module Schema = {
         }
 
       let tag = (idx, asValue) => {
-        // FIXME: Throw when user passed a schema
+        // FIXME: Strict when user passed a schema
         let _ = item(idx, definitionToSchema(asValue->Obj.magic)->fromInternal)
       }
 
@@ -3656,7 +3658,7 @@ module Schema = {
                 tag: Object,
                 items,
                 fields,
-                unknownKeys: globalConfig.defaultUnknownKeys,
+                additionalItems: globalConfig.defaultAdditionalItems,
                 advanced: true,
                 typeFilter: Object.typeFilter,
                 builder: Never.builder,
@@ -3747,7 +3749,7 @@ module Schema = {
           tag: Object,
           items,
           fields: node->(Obj.magic: dict<unknown> => dict<item>),
-          unknownKeys: globalConfig.defaultUnknownKeys,
+          additionalItems: globalConfig.defaultAdditionalItems,
           builder,
           typeFilter: Object.typeFilter,
           output,
@@ -4052,7 +4054,7 @@ let unnest = {
 //     }
 
 //     let inlinedSchema = switch schema->classify {
-//     | Object({unknownKeys: Strict}) => inlinedSchema ++ `->S.strict`
+//     | Object({additionalItems: Strict}) => inlinedSchema ++ `->S.strict`
 //     | _ => inlinedSchema
 //     }
 
@@ -4557,7 +4559,7 @@ let js_custom = (~name, ~parser as maybeParser=?, ~serializer as maybeSerializer
 
 let js_merge = (s1, s2) => {
   switch (s1, s2) {
-  | (Object({items: items1, fields: fields1}), Object({items: items2, unknownKeys})) =>
+  | (Object({items: items1, fields: fields1}), Object({items: items2, additionalItems})) =>
     let s1 = s1->toInternal
     let s2 = s2->toInternal
 
@@ -4575,7 +4577,7 @@ let js_merge = (s1, s2) => {
       tag: Object,
       items,
       fields,
-      unknownKeys,
+      additionalItems,
       advanced: true,
       builder: Builder.make((b, ~input, ~selfSchema as _, ~path) => {
         let s1Result = b->B.parse(~schema=s1, ~input, ~path)
@@ -4598,10 +4600,10 @@ let js_merge = (s1, s2) => {
 
 let setGlobalConfig = override => {
   globalConfig.recCounter = 0
-  globalConfig.defaultUnknownKeys = switch override.defaultUnknownKeys {
-  | Some(unknownKeys) => unknownKeys
-  | None => initialDefaultUnknownKeys
-  }
+  globalConfig.defaultAdditionalItems = (switch override.defaultAdditionalItems {
+  | Some(defaultAdditionalItems) => defaultAdditionalItems
+  | None => initialOnAdditionalItems
+  } :> additionalItems)
   let prevDisableNanNumberCheck = globalConfig.disableNanNumberValidation
   globalConfig.disableNanNumberValidation = switch override.disableNanNumberValidation {
   | Some(disableNanNumberValidation) => disableNanNumberValidation

@@ -22,6 +22,8 @@ module Path: {
 
 type numberFormat = | @as("int32") Int32
 
+type additionalItemsMode = | @as("strip") Strip | @as("strict") Strict
+
 @tag("type")
 type rec t<'value> =
   private
@@ -40,10 +42,11 @@ type rec t<'value> =
   | @as("array") Array({item: t<unknown>})
   | @as("dict") Dict({item: t<unknown>})
   | @as("tuple") Tuple({items: array<item>})
-  | @as("object") Object({unknownKeys: unknownKeys, items: array<item>, fields: dict<item>})
+  | @as("object") Object({items: array<item>, additionalItems: additionalItems, fields: dict<item>})
   | @as("union") Union({anyOf: array<t<unknown>>})
   | @as("json") JSON({})
 and schema<'a> = t<'a>
+and additionalItems = | ...additionalItemsMode | Schema(t<unknown>)
 and item = {
   schema: t<unknown>,
   location: string,
@@ -59,7 +62,6 @@ and errorCode =
   | InvalidUnion(array<error>)
   | UnexpectedAsync
   | InvalidJsonSchema(schema<unknown>)
-and unknownKeys = | @as("strip") Strip | @as("strict") Strict
 
 type exn += private Raised(error)
 
@@ -405,7 +407,7 @@ let js_schema: unknown => t<unknown>
 let js_merge: (t<unknown>, t<unknown>) => t<unknown>
 
 type globalConfigOverride = {
-  defaultUnknownKeys?: unknownKeys,
+  defaultAdditionalItems?: additionalItemsMode,
   disableNanNumberValidation?: bool,
 }
 

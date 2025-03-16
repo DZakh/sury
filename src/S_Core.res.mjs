@@ -75,7 +75,7 @@ function isOptional(schema) {
 
 var globalConfig = {
   r: 0,
-  u: "strip",
+  a: "strip",
   n: false
 };
 
@@ -1565,10 +1565,10 @@ function factory$2(item$1) {
 
 function typeFilter$2(b, inputVar) {
   var match = this;
-  var unknownKeys = match.unknownKeys;
+  var additionalItems = match.additionalItems;
   var items = match.items;
   var code = "typeof " + inputVar + "!==\"object\"||!" + inputVar + (
-    unknownKeys === "strict" ? "||Array.isArray(" + inputVar + ")" : ""
+    additionalItems === "strict" ? "||Array.isArray(" + inputVar + ")" : ""
   );
   for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
     var match$1 = items[idx];
@@ -1581,23 +1581,23 @@ function typeFilter$2(b, inputVar) {
   return code;
 }
 
-function setUnknownKeys(schema, unknownKeys, deep) {
-  var schemaUnknownKeys = schema.unknownKeys;
+function setAdditionalItems(schema, additionalItems, deep) {
+  var schemaUnknownKeys = schema.additionalItems;
   if (schemaUnknownKeys === undefined) {
     return schema;
   }
   var items = schema.items;
-  if (schemaUnknownKeys === unknownKeys) {
+  if (schemaUnknownKeys === additionalItems) {
     return schema;
   }
   var mut = copy(schema);
-  mut.unknownKeys = unknownKeys;
+  mut.additionalItems = additionalItems;
   if (deep) {
     var newItems = [];
     var newFields = {};
     for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
       var item = items[idx];
-      var newSchema = setUnknownKeys(item.schema, unknownKeys, deep);
+      var newSchema = setAdditionalItems(item.schema, additionalItems, deep);
       var newItem = newSchema === item.schema ? item : ({
             schema: newSchema,
             location: item.location,
@@ -1613,19 +1613,19 @@ function setUnknownKeys(schema, unknownKeys, deep) {
 }
 
 function strip(schema) {
-  return setUnknownKeys(schema, "strip", false);
+  return setAdditionalItems(schema, "strip", false);
 }
 
 function deepStrip(schema) {
-  return setUnknownKeys(schema, "strip", true);
+  return setAdditionalItems(schema, "strip", true);
 }
 
 function strict(schema) {
-  return setUnknownKeys(schema, "strict", false);
+  return setAdditionalItems(schema, "strict", false);
 }
 
 function deepStrict(schema) {
-  return setUnknownKeys(schema, "strict", true);
+  return setAdditionalItems(schema, "strict", true);
 }
 
 function typeFilter$3(b, inputVar) {
@@ -2263,8 +2263,8 @@ function definitionToOutput(b, definition, getItemOutput) {
   return complete(objectVal, isArray);
 }
 
-function objectStrictModeCheck(b, input, items, unknownKeys, path) {
-  if (!(unknownKeys === "strict" && b.g.o & 1)) {
+function objectStrictModeCheck(b, input, items, additionalItems, path) {
+  if (!(additionalItems === "strict" && b.g.o & 1)) {
     return ;
   }
   var key = allocateVal(b);
@@ -2308,7 +2308,7 @@ function proxify(item) {
 }
 
 function builder$2(parentB, input, selfSchema, path) {
-  var unknownKeys = selfSchema.unknownKeys;
+  var additionalItems = selfSchema.additionalItems;
   var items = selfSchema.items;
   var isArray = selfSchema.type === "tuple";
   if (parentB.g.o & 64) {
@@ -2341,9 +2341,9 @@ function builder$2(parentB, input, selfSchema, path) {
     }
     add(objectVal$1, inlinedLocation$1, schema.b(b, itemInput, schema, path$1));
   }
-  objectStrictModeCheck(b, input, items, unknownKeys, path);
+  objectStrictModeCheck(b, input, items, additionalItems, path);
   parentB.c = parentB.c + allocateScope(b);
-  if ((unknownKeys !== "strip" || b.g.o & 32) && selfSchema === reverse(selfSchema)) {
+  if ((additionalItems !== "strip" || b.g.o & 32) && selfSchema === reverse(selfSchema)) {
     objectVal$1.v = input.v;
     objectVal$1.i = input.i;
     objectVal$1.a = input.a;
@@ -2425,7 +2425,7 @@ function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
           s: {
             type: "object",
             advanced: true,
-            unknownKeys: globalConfig.u,
+            additionalItems: globalConfig.a,
             items: items$1,
             fields: fields,
             output: output$1,
@@ -2462,7 +2462,7 @@ function output$1() {
   if (isTransformed) {
     return {
             type: "object",
-            unknownKeys: globalConfig.u,
+            additionalItems: globalConfig.a,
             items: reversedItems,
             fields: reversedFields,
             b: builder$2,
@@ -2535,7 +2535,7 @@ function definitionToSchema(definition) {
   }
   return {
           type: "object",
-          unknownKeys: globalConfig.u,
+          additionalItems: globalConfig.a,
           items: items,
           fields: definition,
           output: output$1,
@@ -2556,7 +2556,7 @@ function nested(fieldName) {
   var items = [];
   var schema = toStandard({
         type: "object",
-        unknownKeys: globalConfig.u,
+        additionalItems: globalConfig.a,
         items: items,
         fields: fields,
         output: output$1,
@@ -2730,7 +2730,7 @@ function advancedReverse(definition, to, flattened) {
         if (to !== undefined) {
           return getItemOutput(to, "");
         }
-        if (selfSchema.unknownKeys === "strict") {
+        if (selfSchema.additionalItems === "strict") {
           objectStrictModeCheck(b, input, selfSchema.items, "strict", path);
         }
         var isArray = originalSchema.type === "tuple";
@@ -2765,7 +2765,7 @@ function advancedBuilder(definition, flattened) {
       g: parentB.g
     };
     if (!isFlatten) {
-      var unknownKeys = selfSchema.unknownKeys;
+      var additionalItems = selfSchema.additionalItems;
       var items = selfSchema.items;
       var inputVar = input.v(b);
       for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
@@ -2787,7 +2787,7 @@ function advancedBuilder(definition, flattened) {
         }
         outputs[inlinedLocation] = schema.b(b, itemInput, schema, path$1);
       }
-      objectStrictModeCheck(b, input, items, unknownKeys, path);
+      objectStrictModeCheck(b, input, items, additionalItems, path);
     }
     if (flattened !== undefined) {
       var prevFlag = b.g.o;
@@ -2927,7 +2927,7 @@ function object(definer) {
   return toStandard({
               type: "object",
               advanced: true,
-              unknownKeys: globalConfig.u,
+              additionalItems: globalConfig.a,
               items: items,
               fields: fields,
               output: advancedReverse(definition, undefined, flattened),
@@ -3512,7 +3512,7 @@ function js_merge(s1, s2) {
       return toStandard({
                   type: "object",
                   advanced: true,
-                  unknownKeys: s2.unknownKeys,
+                  additionalItems: s2.additionalItems,
                   items: items,
                   fields: fields,
                   output: (function () {
@@ -3543,8 +3543,8 @@ function js_merge(s1, s2) {
 
 function setGlobalConfig(override) {
   globalConfig.r = 0;
-  var unknownKeys = override.defaultUnknownKeys;
-  globalConfig.u = unknownKeys !== undefined ? unknownKeys : "strip";
+  var defaultAdditionalItems = override.defaultAdditionalItems;
+  globalConfig.a = defaultAdditionalItems !== undefined ? defaultAdditionalItems : "strip";
   var prevDisableNanNumberCheck = globalConfig.n;
   var disableNanNumberValidation = override.disableNanNumberValidation;
   globalConfig.n = disableNanNumberValidation !== undefined ? disableNanNumberValidation : false;

@@ -19,9 +19,11 @@
 - Removed `S.inline`
 - Improved error massage for recursive schema
 - Support coerce for S.union, S.option and S.null
+- Renamed `unknownKeys` to `additionalItems`.
 
 ### Scope
 
+- Tuple should support strip mode
 - Todo something with preprocess
 - Provide isOptional in Union tag
 - Somehow determine whether transformed or not (including shape)

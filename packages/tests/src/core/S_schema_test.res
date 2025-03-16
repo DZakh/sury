@@ -94,7 +94,7 @@ test("Object with embeded transformed schema", t => {
 
 test("Strict object with embeded returns input without object recreation", t => {
   S.setGlobalConfig({
-    defaultUnknownKeys: Strict,
+    defaultAdditionalItems: Strict,
   })
   let schema = S.schema(s =>
     {

@@ -763,7 +763,7 @@ module BenchmarkWithSObject = {
   test("Successfully parses strict object from benchmark - with S.object", t => {
     S.setGlobalConfig({
       disableNanNumberValidation: true,
-      defaultUnknownKeys: Strict,
+      defaultAdditionalItems: Strict,
     })
     let schema = makeSchema()
 
@@ -780,7 +780,7 @@ module BenchmarkWithSObject = {
   test("Successfully asserts strict object from benchmark - with S.object", t => {
     S.setGlobalConfig({
       disableNanNumberValidation: true,
-      defaultUnknownKeys: Strict,
+      defaultAdditionalItems: Strict,
     })
     let schema = makeSchema()
 
@@ -883,7 +883,7 @@ module Benchmark = {
   test("Successfully parses strict object from benchmark", t => {
     S.setGlobalConfig({
       disableNanNumberValidation: true,
-      defaultUnknownKeys: Strict,
+      defaultAdditionalItems: Strict,
     })
     let schema = makeSchema()
 
@@ -900,7 +900,7 @@ module Benchmark = {
   test("Successfully asserts strict object from benchmark", t => {
     S.setGlobalConfig({
       disableNanNumberValidation: true,
-      defaultUnknownKeys: Strict,
+      defaultAdditionalItems: Strict,
     })
     let schema = makeSchema()
 

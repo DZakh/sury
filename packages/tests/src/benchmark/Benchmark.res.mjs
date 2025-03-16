@@ -224,7 +224,7 @@ run(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(a
                                                                       };
                                                                     })), "S.schema - parse strict", (function () {
                                                                   S$RescriptSchema.setGlobalConfig({
-                                                                        defaultUnknownKeys: "strict",
+                                                                        defaultAdditionalItems: "strict",
                                                                         disableNanNumberValidation: true
                                                                       });
                                                                   var schema = makeObjectSchema();
@@ -271,7 +271,7 @@ run(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(a
                                             };
                                           })), "S.schema - assert strict", (function () {
                                         S$RescriptSchema.setGlobalConfig({
-                                              defaultUnknownKeys: "strict",
+                                              defaultAdditionalItems: "strict",
                                               disableNanNumberValidation: true
                                             });
                                         var schema = makeObjectSchema();

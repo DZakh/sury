@@ -100,7 +100,7 @@ test("Can flatten strict object", t => {
 
   t->Assert.deepEqual(
     switch schema {
-    | Object({unknownKeys}) => unknownKeys
+    | Object({additionalItems}) => additionalItems
     | _ => assert(false)
     },
     S.Strip,
