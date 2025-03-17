@@ -958,7 +958,7 @@ test("Fails to parse deep strict object with exccess fields", (t) => {
 
 test("Fails to parse strict object with exccess fields which created using global config override", (t) => {
   S.setGlobalConfig({
-    defaultUnknownKeys: "strict",
+    defaultAdditionalItems: "strict",
   });
   const schema = S.schema({
     foo: S.string,
@@ -1719,7 +1719,7 @@ test("Standard schema", (t) => {
     issues: [
       {
         message:
-          "Failed parsing at root. Reason: Must be string | null (was undefined)",
+          "Failed parsing at root. Reason: Must be null | string (was undefined)",
         path: undefined,
       },
     ],
@@ -2020,40 +2020,3 @@ test("Compile types", async (t) => {
 
   t.pass();
 });
-
-// const filmSchema = S.transform(
-//   S.schema({
-//     Id: S.number,
-//     Meta: {
-//       Title: S.string,
-//     },
-//     Tags_v2: S.array(S.string),
-//     Rating: S.schema([S.union(["G", "PG", "PG13", "R"])]),
-//   }),
-//   (input) => ({
-//     id: input.Id,
-//     title: input.Meta.Title,
-//     tags: input.Tags_v2,
-//     rating: input.Rating[0],
-//   })
-// );
-
-// // const filmSchema = S.object((s) => ({
-// //   id: s.field("Id", S.number),
-// //   title: s.nested("Meta").field("Title", S.string),
-// //   tags: s.field("Tags_v2", S.array(S.string)),
-// //   rating: s.field("Rating", S.schema([S.union(["G", "PG", "PG13", "R"])]))[0],
-// // }));
-
-// S.parseOrThrow(
-//   {
-//     Id: 1,
-//     Meta: {
-//       Title: "My first film",
-//     },
-//     Tags_v2: ["Loved"],
-//     Rating: ["G"],
-//   },
-//   filmSchema
-// );
-// // => { id: 1, title: "My first film", tags: ["Loved"], rating: "G" }

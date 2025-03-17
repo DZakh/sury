@@ -70,7 +70,7 @@
   - [`Error.raise`](#errorraise)
   - [`Error.message`](#errormessage)
 - [Global config](#global-config)
-  - [`defaultUnknownKeys`](#defaultunknownkeys)
+  - [`defaultAdditionalItems`](#defaultAdditionalItems)
   - [`disableNanNumberValidation`](#disablenannumbervalidation)
 
 ## Install
@@ -683,7 +683,7 @@ If you want to change it for all schemas in your app, you can use `S.setGlobalCo
 
 ```rescript
 S.setGlobalConfig({
-  defaultUnknownKeys: Strict,
+  defaultAdditionalItems: Strict,
 })
 ```
 
@@ -1618,13 +1618,13 @@ Throws error. Since internally it's both the `S.Raised` exception and instance o
 
 **rescript-schema** has a global config that can be changed to customize the behavior of the library.
 
-### `defaultUnknownKeys`
+### `defaultAdditionalItems`
 
-`defaultUnknownKeys` is an option that controls how unknown keys are handled when parsing objects. The default value is `Strip`, but you can globally change it to `Strict` to enforce strict object parsing.
+`defaultAdditionalItems` is an option that controls how unknown keys are handled when parsing objects. The default value is `Strip`, but you can globally change it to `Strict` to enforce strict object parsing.
 
 ```rescript
 S.setGlobalConfig({
-  defaultUnknownKeys: Strict,
+  defaultAdditionalItems: Strict,
 })
 ```
 

@@ -87,7 +87,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(i!==e[0]&&(!Array.isArray(i)||i.length!==2||i[0]!=="bar"||i[1]!==true)){e[1](i)}return i}`,
+      `i=>{if(!Array.isArray(i)||i.length<2||i["0"]!=="bar"||i["1"]!==true){e[0](i)}return [i["0"],i["1"],]}`,
     )
   })
 
@@ -97,7 +97,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{if(i!==e[0]&&(!Array.isArray(i)||i.length!==2||i[0]!=="bar"||i[1]!==true)){e[1](i)}return i}`,
+      `i=>{let v0=i["0"],v1=i["1"];if(v0!=="bar"){e[0](v0)}if(v1!==true){e[1](v1)}return i}`,
     )
   })
 
@@ -123,11 +123,13 @@ module EmptyArray = {
     t->Assert.deepEqual(value->S.parseOrThrow(schema), value, ())
   })
 
-  test("Fails to parse empty array literal schema with invalid type", t => {
+  test("Ignores extra items in strip mode (default)", t => {
     let schema = factory()
 
+    t->Assert.deepEqual(invalid->S.parseOrThrow(schema), [], ())
+
     t->U.assertRaised(
-      () => invalid->S.parseOrThrow(schema),
+      () => invalid->S.parseOrThrow(schema->S.strict),
       {
         code: InvalidType({
           expected: S.literal([])->S.toUnknown,
@@ -164,22 +166,13 @@ module EmptyArray = {
   test("Compiled parse code snapshot of empty array literal schema", t => {
     let schema = factory()
 
-    t->U.assertCompiledCode(
-      ~schema,
-      ~op=#Parse,
-      `i=>{if(!Array.isArray(i)||i.length!==0){e[0](i)}return i}`,
-    )
+    t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(!Array.isArray(i)){e[0](i)}return []}`)
   })
 
   test("Compiled serialize code snapshot of empty array literal schema", t => {
     let schema = factory()
 
-    // FIXME: Should keep validation?
-    t->U.assertCompiledCode(
-      ~schema,
-      ~op=#ReverseConvert,
-      `i=>{if(i!==e[0]&&(!Array.isArray(i)||i.length!==0)){e[1](i)}return i}`,
-    )
+    t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return i}`)
   })
 
   test("Reverse empty array literal schema to self", t => {

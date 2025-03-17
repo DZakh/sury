@@ -50,7 +50,7 @@
 - [Error handling](#error-handling)
 - [Comparison](#comparison)
 - [Global config](#global-config)
-  - [`defaultUnknownKeys`](#defaultunknownkeys)
+  - [`defaultAdditionalItems`](#defaultAdditionalItems)
   - [`disableNanNumberValidation`](#disablenannumbervalidation)
 
 ## Install
@@ -364,7 +364,7 @@ If you want to change it for all schemas in your app, you can use `S.setGlobalCo
 
 ```ts
 S.setGlobalConfig({
-  defaultUnknownKeys: "strict",
+  defaultAdditionalItems: "strict",
 });
 ```
 
@@ -948,13 +948,13 @@ As you can notice, you can have more logic inside of the safe function callback 
 
 **rescript-schema** has a global config that can be changed to customize the behavior of the library.
 
-### `defaultUnknownKeys`
+### `defaultAdditionalItems`
 
-`defaultUnknownKeys` is an option that controls how unknown keys are handled when parsing objects. The default value is `strip`, but you can globally change it to `strict` to enforce strict object parsing.
+`defaultAdditionalItems` is an option that controls how unknown keys are handled when parsing objects. The default value is `strip`, but you can globally change it to `strict` to enforce strict object parsing.
 
 ```rescript
 S.setGlobalConfig({
-  defaultUnknownKeys: "strict",
+  defaultAdditionalItems: "strict",
 })
 ```
 

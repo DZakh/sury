@@ -25,7 +25,13 @@
 
 ### Scope
 
+- Rename `setName` to `name` (or `ref`) and move the getter to schema type
+- Move description and deprecated to schema fields
+- Start using rescript v12
+- Remove namespace and integrate rescript-json-schema
 - Todo something with preprocess
+- Rename RescriptSchemaError to SchemaError
+- Remove `Failed parsing at ...` for error messages
 - Provide isOptional in Union tag
 - Somehow determine whether transformed or not (including shape)
 - Make refinements change type from unknown to known
@@ -33,20 +39,19 @@
 - Rename S.Raised to S.Error
 - Support unions and complex types for S.coerce
 - Make S.coerce extencible
-- Move description and deprecated to schema fields
 - Move example to rescript-schema
 - Add S.toJsonSchema and S.fromJsonSchema
 - Add S.date (S.instanceof) and remove S.datetime
 - Add refinement info to the tagged type
+- Make S.serializeToJsonString super fast
+
+## v???
+
+- s.optional for object
 - S.transform(s => {
   s.reverse(input => input) // Or s.asyncReverse(input => Promise.resolve(input))
   input => input
   }) // or asyncTransform // Maybe format ?
-- Make S.serializeToJsonString super fast
-- s.optional for object
-
-## v???
-
 - Clean up Caml_option.some, Js_dict.get
 - Github Action: Add linter checking that the generated files are up to date (?)
 - Support optional fields (can have problems with serializing) (???)

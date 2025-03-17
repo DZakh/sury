@@ -1699,9 +1699,11 @@ function factory$3(item$1) {
 function typeFilter$3(b, inputVar) {
   var items = this.items;
   var length = items.length;
-  var code = typeFilter$1(b, inputVar) + ("||" + inputVar + ".length") + (
-    this.additionalItems === "strict" ? "!==" : "<"
-  ) + length;
+  var code = typeFilter$1(b, inputVar) + (
+    this.additionalItems === "strict" ? "||" + inputVar + ".length!==" + length : (
+        length ? "||" + inputVar + ".length<" + length : ""
+      )
+  );
   for(var idx = 0; idx < length; ++idx){
     var match = items[idx];
     var schema = match.schema;

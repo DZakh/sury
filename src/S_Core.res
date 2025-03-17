@@ -2263,14 +2263,15 @@ module Tuple = {
     let items = (%raw(`this`): internal).items->Stdlib.Option.unsafeUnwrap
     let length = items->Js.Array2.length
     let code = ref(
-      b->Array.typeFilter(~inputVar) ++
-      `||${inputVar}.length` ++
-      if (%raw(`this`): internal).additionalItems === Some(Strict) {
-        `!==`
-      } else {
-        "<"
-      } ++
-      length->Stdlib.Int.unsafeToString,
+      b->Array.typeFilter(~inputVar) ++ if (
+          (%raw(`this`): internal).additionalItems === Some(Strict)
+        ) {
+          `||${inputVar}.length!==${length->Stdlib.Int.unsafeToString}`
+        } else if length->Stdlib.Int.unsafeToBool {
+          `||${inputVar}.length<${length->Stdlib.Int.unsafeToString}`
+        } else {
+          ""
+        },
     )
     for idx in 0 to length - 1 {
       let {schema, inlinedLocation} = items->Js.Array2.unsafe_get(idx)

@@ -394,7 +394,7 @@ export const trim: <Input>(
 export type UnknownKeys = "strip" | "strict";
 
 export type GlobalConfigOverride = {
-  defaultUnknownKeys?: UnknownKeys;
+  defaultAdditionalItems?: UnknownKeys;
   disableNanNumberValidation?: boolean;
 };
 
