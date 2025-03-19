@@ -140,13 +140,33 @@ test("Serializes when both schemas misses serializer", t => {
 test("When union of json and string schemas, should parse the first one", t => {
   let schema = S.union([S.json(~validate=false)->S.shape(_ => #json), S.string->S.shape(_ => #str)])
 
-  // FIXME: This is not working. Should be #json instead
-  t->Assert.deepEqual(%raw(`"string"`)->S.parseOrThrow(schema), #str, ())
+  t->Assert.deepEqual(%raw(`"string"`)->S.parseOrThrow(schema), #json, ())
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{let v0=i;if(typeof i!=="string"){v0=e[0]}else{v0=e[1]}return v0}`,
+    `i=>{i=(()=>{try{return e[0]}catch(e0){if(!(typeof i!=="string")){return e[1]}e[2](i)}})();return i}`,
+  )
+})
+
+test("Ensures parsing order with unknown schema", t => {
+  let schema = S.union([
+    S.string->S.stringLength(2),
+    S.bool->Obj.magic, // Should be checked before unknown
+    S.custom("unknown string", _ => {parser: _ => "pass"}),
+    // TODO: Should disabled deopt at this point
+    S.float->Obj.magic,
+    S.bigint->Obj.magic,
+  ])
+
+  t->Assert.deepEqual(%raw(`"string"`)->S.parseOrThrow(schema), "pass", ())
+  t->Assert.deepEqual(%raw(`"to"`)->S.parseOrThrow(schema), "to", ())
+  t->Assert.deepEqual(%raw(`true`)->S.parseOrThrow(schema), %raw(`true`), ())
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{try{if(typeof i!=="string"){e[0](i)}if(i.length!==e[1]){e[2]()}}catch(e0){try{if(typeof i!=="boolean"){e[3](i)}}catch(e1){try{i=e[4](i)}catch(e2){if((typeof i!=="number"||Number.isNaN(i))&&(typeof i!=="bigint")){e[5](i)}}}}return i}`,
   )
 })
 

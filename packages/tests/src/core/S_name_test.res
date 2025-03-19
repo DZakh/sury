@@ -53,7 +53,7 @@ test("Name of reversed Unnest schema", t => {
 })
 
 test("Name of Array schema with optional items", t => {
-  t->Assert.deepEqual(S.array(S.option(S.string))->S.name, "(undefined | string)[]", ())
+  t->Assert.deepEqual(S.array(S.option(S.string))->S.name, "(string | undefined)[]", ())
 })
 
 test("Name of Dict schema", t => {
@@ -61,11 +61,11 @@ test("Name of Dict schema", t => {
 })
 
 test("Name of Option schema", t => {
-  t->Assert.deepEqual(S.option(S.string)->S.name, "undefined | string", ())
+  t->Assert.deepEqual(S.option(S.string)->S.name, "string | undefined", ())
 })
 
 test("Name of Null schema", t => {
-  t->Assert.deepEqual(S.null(S.string)->S.name, "null | string", ())
+  t->Assert.deepEqual(S.null(S.string)->S.name, "string | null", ())
 })
 
 test("Name of Union schema", t => {

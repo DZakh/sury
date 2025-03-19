@@ -241,8 +241,8 @@ type rec t<'value> =
   | @as("instance") Instance({const?: Js.Types.obj_val})
   | @as("array") Array({items: array<item>, additionalItems: additionalItems})
   | @as("object") Object({items: array<item>, fields: dict<item>, additionalItems: additionalItems}) // FIXME: Add const for Object and Tuple
-  | @as("union") Union({anyOf: array<t<unknown>>})
-  | @as("json") JSON({}) // FIXME: Remove it in favor of Union ?
+  | @as("union") Union({anyOf: array<t<unknown>>, has: has})
+  | @as("json") JSON({}) // FIXME: Remove it in favor of Union
 @unboxed and additionalItems = | ...additionalItemsMode | Schema(t<unknown>)
 // FIXME: Add recursive
 and schema<'a> = t<'a>
@@ -251,6 +251,7 @@ and internal = {
   tag: typeTag,
   mutable const?: char, // use char to avoid Caml_option.some
   format?: internalFormat,
+  has?: dict<bool>,
   advanced?: bool, // FIXME: Should rename it?
   mutable anyOf?: array<internal>,
   mutable additionalItems?: additionalItems,
@@ -271,6 +272,22 @@ and item = {
   schema: t<unknown>,
   location: string,
   inlinedLocation: string,
+}
+and has = {
+  string?: bool,
+  number?: bool,
+  never?: bool,
+  unknown?: bool,
+  bigint?: bool,
+  boolean?: bool,
+  symbol?: bool,
+  null?: bool,
+  undefined?: bool,
+  nan?: bool,
+  function?: bool,
+  instance?: bool,
+  array?: bool,
+  object?: bool,
 }
 and builder = (b, ~input: val, ~selfSchema: internal, ~path: Path.t) => val
 and val = {
@@ -333,11 +350,11 @@ let isSchemaObject = obj => (obj->Obj.magic).standard->Obj.magic
 // TODO: Can be improved after ReScript supports `in` (https://github.com/rescript-lang/rescript/issues/7313)
 let isLiteral: internal => bool = %raw(`s => "const" in s`)
 
-let rec isOptional = schema => {
+let isOptional = schema => {
   switch schema.tag {
-  // FIXME: Should `unknown` be considered optional?
+  // FIXME: Should `unknown` be considered optional? (probably yes)
   | Undefined => true
-  | Union => schema.anyOf->Stdlib.Option.unsafeUnwrap->Js.Array2.some(isOptional)
+  | Union => schema.has->Stdlib.Option.unsafeUnwrap->Stdlib.Dict.has((Undefined: typeTag :> string))
   | _ => false
   }
 }
@@ -502,6 +519,7 @@ let rec stringify = unknown => {
 }
 
 // FIXME: Support `like example` for root schema name
+// FIXME: Use `as ${name}` for non unknown schemas
 // FIXME: For recursive name use less human-readable format
 let rec name = schema => {
   let schema = schema->toInternal
@@ -1810,12 +1828,12 @@ module Never = {
 }
 
 module Union = {
-  let getItemCode = (b, ~schema, ~input, ~output: val, ~path) => {
+  let getItemCode = (b, ~schema, ~input, ~output: val, ~deopt, ~path) => {
     try {
       let bb = b->B.scope
-      // if isMultiple && schema.typeFilter->Stdlib.Option.isSome {
-      //   bb.code = bb.code ++ bb->B.typeFilterCode(~schema, ~input, ~path)
-      // }
+      if deopt && schema.typeFilter->Stdlib.Option.isSome {
+        bb.code = bb.code ++ bb->B.typeFilterCode(~schema, ~input, ~path)
+      }
       let itemOutput = bb->B.parse(~schema, ~input, ~path)
 
       if itemOutput !== input {
@@ -1848,8 +1866,33 @@ module Union = {
     // FIXME: Test with async
     let output = input
 
+    let deoptIdx = ref(-1)
+    let counter = Js.Dict.empty()
+    for idx in 0 to schemas->Js.Array2.length - 1 {
+      let schema = schemas->Js.Array2.unsafe_get(idx)
+      switch schema.tag {
+      | Union
+      | JSON
+      | Unknown
+      | Never =>
+        deoptIdx := idx
+      | v => {
+          let key = (v :> string)
+          counter->Js.Dict.set(
+            key,
+            switch counter->Stdlib.Dict.unsafeGetOption(key) {
+            | Some(c) => c->Stdlib.Int.plus(1)
+            | None => 1
+            },
+          )
+        }
+      }
+    }
+
+    // FIXME: It won't work with removeTypeValidation
     let rec loop = (code, ~idx, ~caught, ~noopItems) => {
-      let isStart = code === ""
+      let deopt = idx <= deoptIdx.contents
+      let isStart = deopt || code === ""
       if idx === schemas->Js.Array2.length {
         if b.global.flag->Flag.unsafeHas(Flag.typeValidation) {
           // FIXME: Include caught errors
@@ -1862,13 +1905,15 @@ module Union = {
             input.var(b),
           )
 
-          let c = ref(code)
-
           let noopItemsN = noopItems->Js.Array2.length
-          if noopItemsN->Stdlib.Int.unsafeToBool {
-            if !isStart && noopItemsN < schemas->Js.Array2.length {
-              c := c.contents ++ `else `
-            }
+          code ++ if noopItemsN->Stdlib.Int.unsafeToBool {
+            let c = ref(
+              if !isStart && noopItemsN < schemas->Js.Array2.length {
+                `else `
+              } else {
+                ""
+              },
+            )
 
             c := c.contents ++ `if(`
             for idx in 0 to noopItems->Js.Array2.length - 1 {
@@ -1876,52 +1921,50 @@ module Union = {
               c :=
                 c.contents ++
                 (idx->Stdlib.Int.unsafeToBool ? "&&" : "") ++
-                b->(schema.typeFilter->Stdlib.Option.unsafeUnwrap)(~inputVar=input.var(b))
+                // FIXME: Not needed with positive filter
+                "(" ++
+                b->(schema.typeFilter->Stdlib.Option.unsafeUnwrap)(~inputVar=input.var(b)) ++ ")"
             }
-            c := c.contents ++ `){${errorCode}}`
+            c.contents ++ `){${errorCode}}`
+          } else if deopt {
+            errorCode
           } else {
-            c := c.contents ++ `else{${errorCode}}`
+            `else{${errorCode}}`
           }
-
-          c.contents
         } else {
           code
         }
       } else {
         let schema = schemas->Js.Array2.unsafe_get(idx)
-        let itemCode = b->getItemCode(~schema, ~input, ~output, ~path)
+        let itemCode = b->getItemCode(~schema, ~input, ~output, ~deopt, ~path)
+
+        // Deopt to try/catch when we can't rely on type validation
+        if deopt {
+          let errorVar = `e` ++ idx->Stdlib.Int.unsafeToString
+          `try{${itemCode}}catch(${errorVar}){${loop(
+              "",
+              ~idx=idx + 1,
+              ~caught=caught ++ errorVar ++ ",",
+              ~noopItems,
+            )}}`
+        } // FIXME: Nested loop when found a type duplicate
 
         // Item doesn't transform, so we can easily group it with
         // other noop items
-        if itemCode === "" {
+        else if itemCode === "" {
           noopItems->Js.Array2.push(schema)->ignore
           loop(code, ~idx=idx + 1, ~caught, ~noopItems)
         } else {
-          switch schema.typeFilter {
-          // Deopt to try/catch when we can't rely on type validation
-          | None =>
-            // FIXME: accumulated noopItems should be checked before
-            // FIXME: Test multiple catches
-            // FIXME: Reset loop when found a type duplicate
-            let errorVar = `e` ++ idx->Stdlib.Int.unsafeToString
-            `try{${itemCode}}catch(${errorVar}){${loop(
-                "",
-                ~idx=idx + 1,
-                ~caught=caught ++ errorVar ++ ",",
-                ~noopItems,
-              )}}`
           // FIXME: Make it positive
-          | Some(_) =>
-            let filterCode =
-              "!(" ++
-              b->(schema.typeFilter->Stdlib.Option.unsafeUnwrap)(~inputVar=input.var(b)) ++ ")"
-            loop(
-              code ++ (isStart ? "" : "else ") ++ `if(${filterCode}){${itemCode}}`,
-              ~idx=idx + 1,
-              ~caught,
-              ~noopItems,
-            )
-          }
+          let filterCode =
+            "!(" ++
+            b->(schema.typeFilter->Stdlib.Option.unsafeUnwrap)(~inputVar=input.var(b)) ++ ")"
+          loop(
+            code ++ (isStart ? "" : "else ") ++ `if(${filterCode}){${itemCode}}`,
+            ~idx=idx + 1,
+            ~caught,
+            ~noopItems,
+          )
         }
       }
     }
@@ -1945,12 +1988,31 @@ module Union = {
 
   let rec factory = schemas => {
     let schemas: array<internal> = schemas->Obj.magic
+    // TODO:
+    // 1. Fitler out items without parser
+    // 2. Remove duplicate schemas
+    // 3. Spread Union and JSON if they are not transformed
+    // 4. Provide correct `has` value for Union and JSON
     switch schemas {
     | [] => InternalError.panic("S.union requires at least one item")
     | [schema] => schema->fromInternal
     | _ =>
+      let has = Js.Dict.empty()
+      for idx in 0 to schemas->Js.Array2.length - 1 {
+        let schema = schemas->Js.Array2.unsafe_get(idx)
+        has->Js.Dict.set(
+          (switch schema.tag {
+          | Union
+          | JSON =>
+            Unknown
+          | v => v
+          }: typeTag :> string),
+          true,
+        )
+      }
       {
         tag: Union,
+        has,
         anyOf: schemas,
         builder,
         output,
@@ -1987,15 +2049,15 @@ module Option = {
 
   let factory = item => {
     let reversedItem = item->toInternal->reverse
-    let schema = Union.factory([unit->toUnknown, item->toUnknown])
+    let schema = Union.factory([item->toUnknown, unit->toUnknown])
 
     if reversedItem->isOptional {
       let mut = schema->toInternal
       mut.output = Some(
         () => {
           Union.factory([
-            unit->toUnknown,
             reversedItem->fromInternal,
+            unit->toUnknown,
             // coerce(
             //   Schema.definitionToSchema(
             //     {"BS_PRIVATE_NESTED_SOME_NONE": Float.schema}->Obj.magic,
@@ -3804,15 +3866,15 @@ module Null = {
     let reversedItem = item->toInternal->reverse
     let null = coerce(Literal.null->fromInternal, unit->toUnknown)
 
-    let schema = Union.factory([null, item->toUnknown])
+    let schema = Union.factory([item->toUnknown, null])
 
     if reversedItem->isOptional {
       let mut = schema->toInternal
       mut.output = Some(
         () => {
           Union.factory([
-            null->toInternal->reverse->fromInternal,
             reversedItem->fromInternal,
+            null->toInternal->reverse->fromInternal,
             coerce(
               Schema.definitionToSchema(
                 {"BS_PRIVATE_NESTED_SOME_NONE": Float.schema}->Obj.magic,
@@ -4513,11 +4575,11 @@ let trim = schema => {
 }
 
 let nullish = schema => {
-  Union.factory([unit->toUnknown, Literal.null->fromInternal, schema->toUnknown])
+  Union.factory([schema->toUnknown, unit->toUnknown, Literal.null->fromInternal])
 }
 
 let nullable = schema => {
-  Union.factory([coerce(Literal.null->fromInternal, unit->toUnknown), schema->toUnknown])
+  Union.factory([schema->toUnknown, coerce(Literal.null->fromInternal, unit->toUnknown)])
 }
 
 // =============

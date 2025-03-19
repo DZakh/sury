@@ -112,7 +112,7 @@ module Issue79 = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["myField"];if(v0!==undefined&&v0!==null&&typeof v0!=="string"){e[0](v0)}e[1](v0);return v0}`,
+      `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["myField"];if((typeof v0!=="string")&&(v0!==undefined)&&(v0!==null)){e[0](v0)}e[1](v0);return v0}`,
     )
 
     t->Assert.deepEqual(jsonString->S.parseJsonStringOrThrow(schema), Value("test"), ())

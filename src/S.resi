@@ -41,14 +41,31 @@ type rec t<'value> =
   | @as("instance") Instance({const?: Js.Types.obj_val})
   | @as("array") Array({items: array<item>, additionalItems: additionalItems})
   | @as("object") Object({items: array<item>, fields: dict<item>, additionalItems: additionalItems})
-  | @as("union") Union({anyOf: array<t<unknown>>})
+  | @as("union") Union({anyOf: array<t<unknown>>, has: has})
   | @as("json") JSON({})
 and schema<'a> = t<'a>
+// FIXME: Test whether it's a ReScript bug that @unboxed is missing
 and additionalItems = | ...additionalItemsMode | Schema(t<unknown>)
 and item = {
   schema: t<unknown>,
   location: string,
   inlinedLocation: string,
+}
+and has = {
+  string?: bool,
+  number?: bool,
+  never?: bool,
+  unknown?: bool,
+  bigint?: bool,
+  boolean?: bool,
+  symbol?: bool,
+  null?: bool,
+  undefined?: bool,
+  nan?: bool,
+  function?: bool,
+  instance?: bool,
+  array?: bool,
+  object?: bool,
 }
 and error = private {flag: flag, code: errorCode, path: Path.t}
 and errorCode =

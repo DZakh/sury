@@ -69,7 +69,7 @@ function isOptional(schema) {
     case "undefined" :
         return true;
     case "union" :
-        return schema.anyOf.some(isOptional);
+        return schema.has["undefined"];
     default:
       return false;
   }
@@ -1300,7 +1300,7 @@ var schema = toStandard({
       b: builder
     });
 
-function getItemCode(b, schema, input, output, path) {
+function getItemCode(b, schema, input, output, deopt, path) {
   try {
     var bb = {
       c: "",
@@ -1308,6 +1308,9 @@ function getItemCode(b, schema, input, output, path) {
       a: initialAllocate,
       g: b.g
     };
+    if (deopt && schema.f !== undefined) {
+      bb.c = bb.c + typeFilterCode(bb, schema, input, path);
+    }
     var itemOutput = schema.b(bb, input, schema, path);
     if (itemOutput !== input) {
       itemOutput.b = bb;
@@ -1332,11 +1335,31 @@ function getItemCode(b, schema, input, output, path) {
 
 function builder$1(b, input, selfSchema, path) {
   var schemas = selfSchema.anyOf;
+  var deoptIdx = {
+    contents: -1
+  };
+  var counter = {};
+  for(var idx = 0 ,idx_finish = schemas.length; idx < idx_finish; ++idx){
+    var schema = schemas[idx];
+    var v = schema.type;
+    switch (v) {
+      case "never" :
+      case "unknown" :
+      case "union" :
+      case "json" :
+          deoptIdx.contents = idx;
+          break;
+      default:
+        var c = counter[v];
+        counter[v] = c !== undefined ? c + 1 : 1;
+    }
+  }
   var loop = function (_code, _idx, caught, noopItems) {
     while(true) {
       var idx = _idx;
       var code = _code;
-      var isStart = code === "";
+      var deopt = idx <= deoptIdx.contents;
+      var isStart = deopt || code === "";
       if (idx === schemas.length) {
         if (!(b.g.o & 1)) {
           return code;
@@ -1348,43 +1371,40 @@ function builder$1(b, input, selfSchema, path) {
                         received: received
                       };
               }), input.v(b));
-        var c = code;
         var noopItemsN = noopItems.length;
+        var tmp;
         if (noopItemsN) {
-          if (!isStart && noopItemsN < schemas.length) {
-            c = c + "else ";
-          }
+          var c = !isStart && noopItemsN < schemas.length ? "else " : "";
           c = c + "if(";
           for(var idx$1 = 0 ,idx_finish = noopItems.length; idx$1 < idx_finish; ++idx$1){
             var schema = noopItems[idx$1];
             c = c + (
               idx$1 ? "&&" : ""
-            ) + schema.f(b, input.v(b));
+            ) + "(" + schema.f(b, input.v(b)) + ")";
           }
-          c = c + ("){" + errorCode + "}");
+          tmp = c + ("){" + errorCode + "}");
         } else {
-          c = c + ("else{" + errorCode + "}");
+          tmp = deopt ? errorCode : "else{" + errorCode + "}";
         }
-        return c;
+        return code + tmp;
       }
       var schema$1 = schemas[idx];
-      var itemCode = getItemCode(b, schema$1, input, input, path);
+      var itemCode = getItemCode(b, schema$1, input, input, deopt, path);
+      if (deopt) {
+        var errorVar = "e" + idx;
+        return "try{" + itemCode + "}catch(" + errorVar + "){" + loop("", idx + 1 | 0, caught + errorVar + ",", noopItems) + "}";
+      }
       if (itemCode === "") {
         noopItems.push(schema$1);
         _idx = idx + 1 | 0;
         continue ;
       }
-      var match = schema$1.f;
-      if (match !== undefined) {
-        var filterCode = "!(" + schema$1.f(b, input.v(b)) + ")";
-        _idx = idx + 1 | 0;
-        _code = code + (
-          isStart ? "" : "else "
-        ) + ("if(" + filterCode + "){" + itemCode + "}");
-        continue ;
-      }
-      var errorVar = "e" + idx;
-      return "try{" + itemCode + "}catch(" + errorVar + "){" + loop("", idx + 1 | 0, caught + errorVar + ",", noopItems) + "}";
+      var filterCode = "!(" + schema$1.f(b, input.v(b)) + ")";
+      _idx = idx + 1 | 0;
+      _code = code + (
+        isStart ? "" : "else "
+      ) + ("if(" + filterCode + "){" + itemCode + "}");
+      continue ;
     };
   };
   b.c = b.c + loop("", 0, "", []);
@@ -1413,8 +1433,24 @@ function factory(schemas) {
     return schemas[0];
   }
   if (len !== 0) {
+    var has = {};
+    for(var idx = 0 ,idx_finish = schemas.length; idx < idx_finish; ++idx){
+      var schema = schemas[idx];
+      var v = schema.type;
+      var tmp;
+      switch (v) {
+        case "union" :
+        case "json" :
+            tmp = "unknown";
+            break;
+        default:
+          tmp = v;
+      }
+      has[tmp] = true;
+    }
     return toStandard({
                 type: "union",
+                has: has,
                 anyOf: schemas,
                 output: output,
                 b: builder$1
@@ -1449,14 +1485,14 @@ function $$default(schema) {
 function factory$1(item) {
   var reversedItem = reverse(item);
   var schema = factory([
-        unit,
-        item
+        item,
+        unit
       ]);
   if (isOptional(reversedItem)) {
     schema.output = (function () {
         return factory([
-                    unit,
-                    reversedItem
+                    reversedItem,
+                    unit
                   ]);
       });
   }
@@ -2365,6 +2401,43 @@ function builder$2(parentB, input, selfSchema, path) {
   }
 }
 
+function output$1() {
+  var items = this.items;
+  var reversedFields = {};
+  var reversedItems = [];
+  var isTransformed = false;
+  for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
+    var match = items[idx];
+    var $$location = match.location;
+    var schema = match.schema;
+    var reversed = reverse(schema);
+    var item_inlinedLocation = match.inlinedLocation;
+    var item = {
+      schema: reversed,
+      location: $$location,
+      inlinedLocation: item_inlinedLocation
+    };
+    reversedFields[$$location] = item;
+    reversedItems.push(item);
+    if (schema !== reversed) {
+      isTransformed = true;
+    }
+    
+  }
+  if (isTransformed) {
+    return {
+            type: "object",
+            additionalItems: globalConfig.a,
+            items: reversedItems,
+            fields: reversedFields,
+            b: builder$2,
+            f: typeFilter$2
+          };
+  } else {
+    return this;
+  }
+}
+
 function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
   if (!(typeof definition === "object" && definition !== null)) {
     return {
@@ -2447,43 +2520,6 @@ function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
           },
           a: false
         };
-}
-
-function output$1() {
-  var items = this.items;
-  var reversedFields = {};
-  var reversedItems = [];
-  var isTransformed = false;
-  for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
-    var match = items[idx];
-    var $$location = match.location;
-    var schema = match.schema;
-    var reversed = reverse(schema);
-    var item_inlinedLocation = match.inlinedLocation;
-    var item = {
-      schema: reversed,
-      location: $$location,
-      inlinedLocation: item_inlinedLocation
-    };
-    reversedFields[$$location] = item;
-    reversedItems.push(item);
-    if (schema !== reversed) {
-      isTransformed = true;
-    }
-    
-  }
-  if (isTransformed) {
-    return {
-            type: "object",
-            additionalItems: globalConfig.a,
-            items: reversedItems,
-            fields: reversedFields,
-            b: builder$2,
-            f: typeFilter$2
-          };
-  } else {
-    return this;
-  }
 }
 
 function definitionToSchema(definition) {
@@ -3012,14 +3048,14 @@ function factory$6(item) {
   var reversedItem = reverse(item);
   var $$null$1 = coerce($$null, unit);
   var schema$6 = factory([
-        $$null$1,
-        item
+        item,
+        $$null$1
       ]);
   if (isOptional(reversedItem)) {
     schema$6.output = (function () {
         return factory([
-                    reverse($$null$1),
                     reversedItem,
+                    reverse($$null$1),
                     coerce(definitionToSchema({
                               BS_PRIVATE_NESTED_SOME_NONE: schema$4
                             }), $$null)
@@ -3429,16 +3465,16 @@ function trim(schema) {
 
 function nullish(schema) {
   return factory([
+              schema,
               unit,
-              $$null,
-              schema
+              $$null
             ]);
 }
 
 function nullable(schema) {
   return factory([
-              coerce($$null, unit),
-              schema
+              schema,
+              coerce($$null, unit)
             ]);
 }
 
