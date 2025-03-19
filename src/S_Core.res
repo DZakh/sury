@@ -3659,7 +3659,7 @@ module Schema = {
     {
       tag: Array,
       items,
-      additionalItems: globalConfig.defaultAdditionalItems,
+      additionalItems: Strict,
       typeFilter: Tuple.typeFilter,
       builder: advancedBuilder(~definition),
       output: advancedReverse(~definition),
@@ -3705,7 +3705,7 @@ module Schema = {
               reversed: {
                 tag: Array,
                 items,
-                additionalItems: globalConfig.defaultAdditionalItems,
+                additionalItems: Strict,
                 typeFilter: Tuple.typeFilter,
                 builder: Never.builder,
                 output,
@@ -3798,7 +3798,7 @@ module Schema = {
         {
           tag: Array,
           items,
-          additionalItems: globalConfig.defaultAdditionalItems,
+          additionalItems: Strict,
           builder,
           typeFilter: Tuple.typeFilter,
           output: ?(
@@ -3807,7 +3807,7 @@ module Schema = {
                   () => {
                     tag: Array,
                     items: reversedItems,
-                    additionalItems: globalConfig.defaultAdditionalItems,
+                    additionalItems: Strict,
                     builder,
                     typeFilter: Tuple.typeFilter,
                   },
@@ -3935,7 +3935,7 @@ let unnest = {
             location,
           }
         }),
-        additionalItems: globalConfig.defaultAdditionalItems,
+        additionalItems: Strict,
         builder: Builder.make((b, ~input, ~selfSchema as _, ~path) => {
           let inputVar = b->B.Val.var(input)
           let iteratorVar = b.global->B.varWithoutAllocation

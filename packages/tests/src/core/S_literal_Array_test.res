@@ -87,7 +87,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(!Array.isArray(i)||i.length<2||i["0"]!=="bar"||i["1"]!==true){e[0](i)}return [i["0"],i["1"],]}`,
+      `i=>{if(!Array.isArray(i)||i.length!==2||i["0"]!=="bar"||i["1"]!==true){e[0](i)}return i}`,
     )
   })
 
@@ -157,7 +157,11 @@ module EmptyArray = {
   test("Compiled parse code snapshot of empty array literal schema", t => {
     let schema = factory()
 
-    t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(!Array.isArray(i)){e[0](i)}return []}`)
+    t->U.assertCompiledCode(
+      ~schema,
+      ~op=#Parse,
+      `i=>{if(!Array.isArray(i)||i.length!==0){e[0](i)}return i}`,
+    )
   })
 
   test("Compiled serialize code snapshot of empty array literal schema", t => {

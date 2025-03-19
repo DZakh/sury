@@ -20,8 +20,7 @@
 - Improved error massage for recursive schema
 - Support coerce for S.union, S.option and S.null
 - Renamed `unknownKeys` to `additionalItems`.
-- Make `S.tuple` strip additional items by default
-- Add `strict` and `strip` modes support for `S.tuple`
+- Allow to set `S.tuple` to Strip mode (still strict by default)
 
 ### Scope
 

@@ -2479,7 +2479,7 @@ function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
             p: path,
             s: {
               type: "array",
-              additionalItems: globalConfig.a,
+              additionalItems: "strict",
               items: items,
               output: output$1,
               b: builder,
@@ -2554,12 +2554,12 @@ function definitionToSchema(definition) {
     }
     return {
             type: "array",
-            additionalItems: globalConfig.a,
+            additionalItems: "strict",
             items: definition,
             output: isTransformed ? (function () {
                   return {
                           type: "array",
-                          additionalItems: globalConfig.a,
+                          additionalItems: "strict",
                           items: reversedItems,
                           b: builder$2,
                           f: typeFilter$3
@@ -3024,7 +3024,7 @@ function tuple(definer) {
   }
   return toStandard({
               type: "array",
-              additionalItems: globalConfig.a,
+              additionalItems: "strict",
               items: items,
               output: advancedReverse(definition, undefined, undefined),
               b: advancedBuilder(definition, undefined),
@@ -3092,7 +3092,7 @@ function unnest(schema) {
     }
     return toStandard({
                 type: "array",
-                additionalItems: globalConfig.a,
+                additionalItems: "strict",
                 items: items.map(function (item, idx) {
                       var $$location = idx.toString();
                       return {
