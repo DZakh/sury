@@ -108,7 +108,7 @@ var name = S_Core$RescriptSchema.name;
 
 var setName = S_Core$RescriptSchema.setName;
 
-var removeTypeValidation = S_Core$RescriptSchema.removeTypeValidation;
+var validation = S_Core$RescriptSchema.validation;
 
 var Schema = S_Core$RescriptSchema.Schema;
 
@@ -242,7 +242,7 @@ export {
   recursive ,
   name ,
   setName ,
-  removeTypeValidation ,
+  validation ,
   Schema ,
   schema ,
   $$Object ,

@@ -165,7 +165,7 @@ let filesMapping = [
   ("describe", "S.describe"),
   ("name", "S.name"),
   ("setName", "S.setName"),
-  ("removeTypeValidation", "S.removeTypeValidation"),
+  ("validation", "S.validation"),
   ("compile", "S.compile"),
   ("port", "S.port"),
   ("numberMin", "S.floatMin"),

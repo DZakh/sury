@@ -21,9 +21,12 @@
 - Support coerce for S.union, S.option and S.null
 - Renamed `unknownKeys` to `additionalItems`.
 - Allow to set `S.tuple` to Strip mode (still strict by default)
+- Changed `S.removeTypeValidation` to `S.validation`. It doesn't affect union discriminated optimisation anymore.
 
 ### Scope
 
+- Todo something with nullish and ppx
+- Add JSDoc
 - Rename `setName` to `name` (or `ref`) and move the getter to schema type
 - Move description and deprecated to schema fields
 - Start using rescript v12

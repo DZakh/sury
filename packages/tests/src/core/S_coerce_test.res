@@ -142,7 +142,7 @@ test("Coerce from string to undefined literal", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{if(i!==undefined){e[1](i)}return "undefined"}`,
+    `i=>{if(i!==void 0){e[1](i)}return "undefined"}`,
   )
 })
 
@@ -235,7 +235,7 @@ test("Coerce to literal can be used as tag and automatically embeded on reverse 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{if(i!==undefined){e[2](i)}return {"tag":"true",}}`,
+    `i=>{if(i!==void 0){e[2](i)}return {"tag":"true",}}`,
   )
 
   t->Assert.deepEqual({"tag": "true"}->S.parseOrThrow(schema), (), ())
@@ -294,6 +294,17 @@ test("Coerce from string to int32", t => {
 
   t->Assert.deepEqual("10"->S.parseOrThrow(schema), 10, ())
   t->U.assertRaised(
+    () => "2147483648"->S.parseOrThrow(schema),
+    {
+      code: InvalidType({
+        expected: S.int->S.toUnknown,
+        received: %raw(`"2147483648"`),
+      }),
+      path: S.Path.empty,
+      operation: Parse,
+    },
+  )
+  t->U.assertRaised(
     () => "10.2"->S.parseOrThrow(schema),
     {
       code: InvalidType({
@@ -309,12 +320,12 @@ test("Coerce from string to int32", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="string"){e[1](i)}let v0=+i;Number.isNaN(v0)||i>2147483647||i<-2147483648||i%1!==0&&e[0](i);return v0}`,
+    `i=>{if(typeof i!=="string"){e[1](i)}let v0=+i;(v0>2147483647||v0<-2147483648||v0%1!==0)&&e[0](i);return v0}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Convert,
-    `i=>{let v0=+i;Number.isNaN(v0)||i>2147483647||i<-2147483648||i%1!==0&&e[0](i);return v0}`,
+    `i=>{let v0=+i;(v0>2147483647||v0<-2147483648||v0%1!==0)&&e[0](i);return v0}`,
   )
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return ""+i}`)
 })
@@ -481,7 +492,7 @@ test("Coerce from unit to null literal", t => {
   )
   t->Assert.deepEqual(%raw(`null`)->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
 
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(i!==undefined){e[1](i)}return null}`)
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(i!==void 0){e[1](i)}return null}`)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
@@ -517,6 +528,6 @@ test("Coerce from string to optional bool", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{let v0=i;if(typeof i!=="boolean"){if(i!==undefined){e[2](i)}else{v0="undefined"}}else{v0=""+i}return v0}`,
+    `i=>{let v0=i;if(typeof i!=="boolean"){if(i!==void 0){e[2](i)}else{v0="undefined"}}else{v0=""+i}return v0}`,
   )
 })

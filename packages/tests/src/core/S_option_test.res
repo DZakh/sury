@@ -38,18 +38,18 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="string"&&i!==undefined){e[0](i)}return i}`,
+      `i=>{if(!(typeof i==="string"||i===void 0)){e[0](i)}return i}`,
     )
   })
 
-// Undefined check should be first
+  // Undefined check should be first
   Failing.test("Compiled async parse code snapshot", t => {
     let schema = S.option(S.unknown->S.transform(_ => {asyncParser: i => Promise.resolve(i)}))
 
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{try{i=e[0](i)}catch(e0){if(i!==undefined){e[1](i)}}return Promise.resolve(i)}`,
+      `i=>{try{i=e[0](i)}catch(e0){if(i!==void 0){e[1](i)}}return Promise.resolve(i)}`,
     )
   })
 

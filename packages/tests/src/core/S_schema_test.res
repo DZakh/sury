@@ -82,7 +82,7 @@ test("Object with embeded transformed schema", t => {
   )
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#ReverseConvert),
-    `i=>{let v0=i["foo"],v1=i["zoo"];if(v0!=="bar"){e[0](v0)}if(!(v1!==undefined)){v1=null}return {"foo":v0,"zoo":v1,}}`,
+    `i=>{let v0=i["foo"],v1=i["zoo"];if(v0!=="bar"){e[0](v0)}if(v1===void 0){v1=null}return {"foo":v0,"zoo":v1,}}`,
     (),
   )
   t->Assert.is(
@@ -128,22 +128,22 @@ test("Tuple with embeded schema", t => {
   // S.schema does return i without tuple recreation
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Parse),
-    `i=>{if(!Array.isArray(i)||i.length<3||i["1"]!==undefined||i["2"]!=="bar"){e[1](i)}let v0=i["0"];if(typeof v0!=="string"){e[0](v0)}return [v0,i["1"],i["2"],]}`,
+    `i=>{if(!Array.isArray(i)||i.length!==3||i["1"]!==void 0||i["2"]!=="bar"){e[1](i)}let v0=i["0"];if(typeof v0!=="string"){e[0](v0)}return i}`,
     (),
   )
   t->Assert.is(
     tupleSchema->U.getCompiledCodeString(~op=#Parse),
-    `i=>{if(!Array.isArray(i)||i.length<3||i["1"]!==undefined||i["2"]!=="bar"){e[1](i)}let v0=i["0"];if(typeof v0!=="string"){e[0](v0)}return [v0,i["1"],i["2"],]}`,
+    `i=>{if(!Array.isArray(i)||i.length!==3||i["1"]!==void 0||i["2"]!=="bar"){e[1](i)}let v0=i["0"];if(typeof v0!=="string"){e[0](v0)}return [v0,i["1"],i["2"],]}`,
     (),
   )
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#ReverseConvert),
-    `i=>{let v0=i["1"],v1=i["2"];if(v0!==undefined){e[0](v0)}if(v1!=="bar"){e[1](v1)}return i}`,
+    `i=>{let v0=i["1"],v1=i["2"];if(v0!==void 0){e[0](v0)}if(v1!=="bar"){e[1](v1)}return i}`,
     (),
   )
   t->Assert.is(
     tupleSchema->U.getCompiledCodeString(~op=#ReverseConvert),
-    `i=>{let v0=i["1"],v1=i["2"];if(v0!==undefined){e[0](v0)}if(v1!=="bar"){e[1](v1)}return [i["0"],v0,v1,]}`,
+    `i=>{let v0=i["1"],v1=i["2"];if(v0!==void 0){e[0](v0)}if(v1!=="bar"){e[1](v1)}return [i["0"],v0,v1,]}`,
     (),
   )
 })
@@ -164,7 +164,7 @@ test("Tuple with embeded transformed schema", t => {
   )
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#ReverseConvert),
-    `i=>{let v0=i["0"],v1=i["1"],v2=i["2"];if(!(v0!==undefined)){v0=null}if(v1!==undefined){e[1](v1)}if(v2!=="bar"){e[2](v2)}return [v0,v1,v2,]}`,
+    `i=>{let v0=i["0"],v1=i["1"],v2=i["2"];if(v0===void 0){v0=null}if(v1!==void 0){e[1](v1)}if(v2!=="bar"){e[2](v2)}return [v0,v1,v2,]}`,
     (),
   )
   t->Assert.is(

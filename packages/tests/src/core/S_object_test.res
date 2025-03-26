@@ -1246,7 +1246,7 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{let v0=i["nested"];if(v0!==undefined){e[0](v0)}return {"nested":{},}}`,
+      `i=>{let v0=i["nested"];if(v0!==void 0){e[0](v0)}return {"nested":{},}}`,
     )
   })
 
@@ -1332,7 +1332,7 @@ test("Compiles to async serialize operation with the sync object schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvertAsync,
-    `i=>{if(i!==undefined){e[0](i)}return Promise.resolve({})}`,
+    `i=>{if(i!==void 0){e[0](i)}return Promise.resolve({})}`,
   )
 })
 

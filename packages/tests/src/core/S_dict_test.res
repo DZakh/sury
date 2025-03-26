@@ -80,7 +80,7 @@ module CommonWithNested = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{let v4={};for(let v0 in i){let v2=i[v0],v3;try{if(!(v2!==undefined)){v2=null}v3=v2}catch(v1){if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1}v4[v0]=v3}return v4}`,
+      `i=>{let v4={};for(let v0 in i){let v2=i[v0],v3;try{if(!(v2!==void 0)){v2=null}v3=v2}catch(v1){if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1}v4[v0]=v3}return v4}`,
     )
   })
 

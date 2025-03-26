@@ -281,8 +281,9 @@ export function setName<Output, Input>(
   schema: Schema<Output, Input>,
   name: string
 ): Schema<Output, Input>;
-export function removeTypeValidation<Output, Input>(
-  schema: Schema<Output, Input>
+export function validation<Output, Input>(
+  schema: Schema<Output, Input>,
+  value: boolean
 ): Schema<Output, Input>;
 
 export function asyncParserRefine<Output, Input>(

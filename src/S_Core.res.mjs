@@ -317,6 +317,26 @@ function embed(b, value) {
   return "e[" + l + "]";
 }
 
+function inlineConst(b, schema) {
+  var match = schema.type;
+  switch (match) {
+    case "string" :
+        var $$const = schema.const;
+        return fromString($$const);
+    case "bigint" :
+        var $$const$1 = schema.const;
+        return $$const$1 + "n";
+    case "symbol" :
+    case "function" :
+    case "instance" :
+        break;
+    default:
+      return schema.const;
+  }
+  var $$const$2 = schema.const;
+  return embed(b, $$const$2);
+}
+
 function secondAllocate(v) {
   var b = this;
   b.l = b.l + "," + v;
@@ -650,19 +670,111 @@ function withPathPrepend(b, input, path, maybeDynamicLocationVar, appendSafe, fn
   }
 }
 
+function validation(b, inputVar, schema, negative) {
+  var eq = negative ? "!==" : "===";
+  var and_ = negative ? "||" : "&&";
+  var exp = negative ? "!" : "";
+  var tag = schema.type;
+  switch (tag) {
+    case "undefined" :
+        return inputVar + eq + "void 0";
+    case "nan" :
+        return exp + ("Number.isNaN(" + inputVar + ")");
+    default:
+      var match = schema.const;
+      if (match !== undefined) {
+        return inputVar + eq + inlineConst(b, schema);
+      }
+      switch (tag) {
+        case "array" :
+            return exp + "Array.isArray(" + inputVar + ")";
+        case "object" :
+            return "typeof " + inputVar + eq + "\"" + tag + "\"" + and_ + exp + inputVar;
+        default:
+          return "typeof " + inputVar + eq + "\"" + tag + "\"";
+      }
+  }
+}
+
+function refinement(b, inputVar, schema) {
+  var and_ = "||";
+  var eq = "!==";
+  var match = schema.type;
+  var match$1 = schema.const;
+  if (match$1 !== undefined) {
+    return "";
+  }
+  if (schema.format !== undefined) {
+    return and_ + inputVar + ">2147483647" + and_ + inputVar + "<-2147483648" + and_ + inputVar + "%1" + eq + "0";
+  }
+  switch (match) {
+    case "number" :
+        if (globalConfig.n) {
+          return "";
+        } else {
+          return and_ + "Number.isNaN(" + inputVar + ")";
+        }
+    case "array" :
+        var additionalItems = schema.additionalItems;
+        var items = schema.items;
+        var length = items.length;
+        var code;
+        code = additionalItems === "strip" || additionalItems === "strict" ? (
+            additionalItems === "strip" ? and_ + inputVar + ".length<" + length : and_ + inputVar + ".length" + eq + length
+          ) : "";
+        for(var idx = 0; idx < length; ++idx){
+          var match$2 = items[idx];
+          var schema$1 = match$2.schema;
+          if (isLiteral(schema$1)) {
+            code = code + and_ + validation(b, inputVar + ("[" + match$2.inlinedLocation + "]"), schema$1, true);
+          }
+          
+        }
+        return code;
+    case "object" :
+        var additionalItems$1 = schema.additionalItems;
+        var items$1 = schema.items;
+        var code$1 = additionalItems$1 === "strip" ? "" : and_ + "Array.isArray(" + inputVar + ")";
+        for(var idx$1 = 0 ,idx_finish = items$1.length; idx$1 < idx_finish; ++idx$1){
+          var match$3 = items$1[idx$1];
+          var schema$2 = match$3.schema;
+          if (isLiteral(schema$2)) {
+            code$1 = code$1 + and_ + validation(b, inputVar + ("[" + match$3.inlinedLocation + "]"), schema$2, true);
+          }
+          
+        }
+        return code$1;
+    default:
+      return "";
+  }
+}
+
 function typeFilterCode(b, schema, input, path) {
-  var inputVar = input.v(b);
-  return "if(" + schema.f(b, inputVar) + "){" + failWithArg(b, path, (function (input) {
-                return {
-                        TAG: "InvalidType",
-                        expected: schema,
-                        received: input
-                      };
-              }), inputVar) + "}";
+  var match = schema.type;
+  var match$1 = schema.noValidation;
+  if (match$1 !== undefined && match$1) {
+    return "";
+  }
+  switch (match) {
+    case "never" :
+    case "unknown" :
+    case "union" :
+    case "json" :
+        return "";
+    default:
+      var inputVar = input.v(b);
+      return "if(" + validation(b, inputVar, schema, true) + refinement(b, inputVar, schema) + "){" + failWithArg(b, path, (function (input) {
+                    return {
+                            TAG: "InvalidType",
+                            expected: schema,
+                            received: input
+                          };
+                  }), inputVar) + "}";
+  }
 }
 
 function parseWithTypeValidation(b, schema, input, path) {
-  if (schema.f !== undefined && (b.g.o & 1 || isLiteral(schema))) {
+  if (b.g.o & 1 || isLiteral(schema)) {
     b.c = b.c + typeFilterCode(b, schema, input, path);
   }
   return schema.b(b, input, schema, path);
@@ -700,7 +812,7 @@ function internalCompile(builder, schema, flag) {
   if (b.l !== "") {
     b.c = "let " + b.l + ";" + b.c;
   }
-  if (schema.f !== undefined && (flag & 1 || isLiteral(schema))) {
+  if (flag & 1 || isLiteral(schema)) {
     b.c = typeFilterCode(b, schema, input, "") + b.c;
   }
   if (b.c === "" && output === input && !(flag & 22)) {
@@ -885,64 +997,34 @@ function assertOrThrow(any, schema) {
   return operationFn(schema, 5)(any);
 }
 
-function inline(b, schema) {
-  switch (schema.type) {
-    case "string" :
-        var $$const = schema.const;
-        return fromString($$const);
-    case "bigint" :
-        var $$const$1 = schema.const;
-        return $$const$1 + "n";
-    case "symbol" :
-    case "function" :
-    case "instance" :
-        break;
-    default:
-      return schema.const;
-  }
-  var $$const$2 = schema.const;
-  return embed(b, $$const$2);
-}
-
-function typeFilter(b, inputVar) {
-  return inputVar + "!==" + inline(b, this);
-}
-
 var $$undefined = {
   type: "undefined",
   const: (void 0),
-  b: invalidJson,
-  f: typeFilter
+  b: invalidJson
 };
 
 var $$null = {
   type: "null",
   const: null,
-  b: noop,
-  f: typeFilter
+  b: noop
 };
 
 var nan = {
   type: "nan",
-  b: invalidJson,
-  f: (function (_b, inputVar) {
-      return "!Number.isNaN(" + inputVar + ")";
-    })
+  b: invalidJson
 };
 
 function jsonable(tag) {
   return {
           type: tag,
-          b: noop,
-          f: typeFilter
+          b: noop
         };
 }
 
 function nonJsonable(tag) {
   return {
           type: tag,
-          b: invalidJson,
-          f: typeFilter
+          b: invalidJson
         };
 }
 
@@ -1141,9 +1223,9 @@ function setName(schema, name) {
   return toStandard(mut);
 }
 
-function removeTypeValidation(schema) {
+function validation$1(schema, value) {
   var mut = copy(schema);
-  mut.f = undefined;
+  mut.noValidation = !value;
   return toStandard(mut);
 }
 
@@ -1308,7 +1390,7 @@ function getItemCode(b, schema, input, output, deopt, path) {
       a: initialAllocate,
       g: b.g
     };
-    if (deopt && schema.f !== undefined) {
+    if (deopt) {
       bb.c = bb.c + typeFilterCode(bb, schema, input, path);
     }
     var itemOutput = schema.b(bb, input, schema, path);
@@ -1316,10 +1398,7 @@ function getItemCode(b, schema, input, output, deopt, path) {
       itemOutput.b = bb;
       if (schema.type === "unknown") {
         var reversed = reverse(schema);
-        if (reversed.f !== undefined) {
-          bb.c = bb.c + typeFilterCode(bb, reversed, itemOutput, path);
-        }
-        
+        bb.c = bb.c + typeFilterCode(bb, reversed, itemOutput, path);
       }
       if (itemOutput.a) {
         output.a = true;
@@ -1375,14 +1454,14 @@ function builder$1(b, input, selfSchema, path) {
         var tmp;
         if (noopItemsN) {
           var c = !isStart && noopItemsN < schemas.length ? "else " : "";
-          c = c + "if(";
+          c = c + "if(!(";
           for(var idx$1 = 0 ,idx_finish = noopItems.length; idx$1 < idx_finish; ++idx$1){
             var schema = noopItems[idx$1];
             c = c + (
-              idx$1 ? "&&" : ""
-            ) + "(" + schema.f(b, input.v(b)) + ")";
+              idx$1 ? "||" : ""
+            ) + validation(b, input.v(b), schema, false);
           }
-          tmp = c + ("){" + errorCode + "}");
+          tmp = c + (")){" + errorCode + "}");
         } else {
           tmp = deopt ? errorCode : "else{" + errorCode + "}";
         }
@@ -1399,11 +1478,10 @@ function builder$1(b, input, selfSchema, path) {
         _idx = idx + 1 | 0;
         continue ;
       }
-      var filterCode = "!(" + schema$1.f(b, input.v(b)) + ")";
       _idx = idx + 1 | 0;
       _code = code + (
         isStart ? "" : "else "
-      ) + ("if(" + filterCode + "){" + itemCode + "}");
+      ) + ("if(" + validation(b, input.v(b), schema$1, false) + "){" + itemCode + "}");
       continue ;
     };
   };
@@ -1554,10 +1632,6 @@ function refinements(schema) {
   }
 }
 
-function typeFilter$1(_b, inputVar) {
-  return "!Array.isArray(" + inputVar + ")";
-}
-
 function factory$2(item$1) {
   return toStandard({
               type: "array",
@@ -1605,27 +1679,8 @@ function factory$2(item$1) {
                   } else {
                     return output;
                   }
-                }),
-              f: typeFilter$1
+                })
             });
-}
-
-function typeFilter$2(b, inputVar) {
-  var match = this;
-  var additionalItems = match.additionalItems;
-  var items = match.items;
-  var code = "typeof " + inputVar + "!==\"object\"||!" + inputVar + (
-    additionalItems === "strip" ? "" : "||Array.isArray(" + inputVar + ")"
-  );
-  for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
-    var match$1 = items[idx];
-    var schema = match$1.schema;
-    if (isLiteral(schema)) {
-      code = code + "||" + schema.f(b, inputVar + ("[" + match$1.inlinedLocation + "]"));
-    }
-    
-  }
-  return code;
 }
 
 function setAdditionalItems(schema, additionalItems, deep) {
@@ -1727,29 +1782,11 @@ function factory$3(item$1) {
                           i: "new Promise((" + resolveVar + "," + rejectVar + ")=>{let " + counterVar + "=Object.keys(" + outputVar + ").length;for(let " + keyVar + " in " + outputVar + "){" + outputVar + "[" + keyVar + "].then(" + asyncParseResultVar + "=>{" + outputVar + "[" + keyVar + "]=" + asyncParseResultVar + ";if(" + counterVar + "--===1){" + resolveVar + "(" + outputVar + ")}}," + rejectVar + ")}})",
                           a: true
                         };
-                }),
-              f: typeFilter$2
+                })
             });
 }
 
-function typeFilter$3(b, inputVar) {
-  var items = this.items;
-  var length = items.length;
-  var code = typeFilter$1(b, inputVar) + (
-    this.additionalItems === "strict" ? "||" + inputVar + ".length!==" + length : (
-        length ? "||" + inputVar + ".length<" + length : ""
-      )
-  );
-  for(var idx = 0; idx < length; ++idx){
-    var match = items[idx];
-    var schema = match.schema;
-    if (isLiteral(schema)) {
-      code = code + "||" + schema.f(b, inputVar + ("[" + match.inlinedLocation + "]"));
-    }
-    
-  }
-  return code;
-}
+var Tuple = {};
 
 var metadataId$1 = "metadata:rescript-schema:String.refinements";
 
@@ -1770,14 +1807,9 @@ var emailRegex = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-
 
 var datetimeRe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
 
-function typeFilter$4(_b, inputVar) {
-  return "typeof " + inputVar + "!==\"string\"";
-}
-
 var schema$1 = toStandard({
       type: "string",
-      b: noop,
-      f: typeFilter$4
+      b: noop
     });
 
 function factory$4(item, spaceOpt) {
@@ -1818,19 +1850,13 @@ function factory$4(item, spaceOpt) {
                                   };
                           }), "t.message") + "}");
                   return parseWithTypeValidation(b, item, jsonVal, path);
-                }),
-              f: typeFilter$4
+                })
             });
-}
-
-function typeFilter$5(_b, inputVar) {
-  return "typeof " + inputVar + "!==\"boolean\"";
 }
 
 var schema$2 = toStandard({
       type: "boolean",
-      b: noop,
-      f: typeFilter$5
+      b: noop
     });
 
 var metadataId$2 = "metadata:rescript-schema:Int.refinements";
@@ -1844,19 +1870,10 @@ function refinements$2(schema) {
   }
 }
 
-function refinement(inputVar) {
-  return inputVar + ">2147483647||" + inputVar + "<-2147483648||" + inputVar + "%1!==0";
-}
-
-function typeFilter$6(_b, inputVar) {
-  return "typeof " + inputVar + "!==\"number\"||" + refinement(inputVar);
-}
-
 var schema$3 = toStandard({
       type: "number",
       format: "int32",
-      b: noop,
-      f: typeFilter$6
+      b: noop
     });
 
 var metadataId$3 = "metadata:rescript-schema:Float.refinements";
@@ -1870,26 +1887,14 @@ function refinements$3(schema) {
   }
 }
 
-function typeFilter$7(_b, inputVar) {
-  return "typeof " + inputVar + "!==\"number\"" + (
-          globalConfig.n ? "" : "||Number.isNaN(" + inputVar + ")"
-        );
-}
-
 var schema$4 = toStandard({
       type: "number",
-      b: noop,
-      f: typeFilter$7
+      b: noop
     });
-
-function typeFilter$8(_b, inputVar) {
-  return "typeof " + inputVar + "!==\"bigint\"";
-}
 
 var schema$5 = toStandard({
       type: "bigint",
-      b: invalidJson,
-      f: typeFilter$8
+      b: invalidJson
     });
 
 function coerce(from, to) {
@@ -1916,7 +1921,7 @@ function coerce(from, to) {
         return {
                 b: b,
                 v: _notVar,
-                i: inline(b, to),
+                i: inlineConst(b, to),
                 a: false
               };
       });
@@ -1949,7 +1954,7 @@ function coerce(from, to) {
                   return {
                           b: b,
                           v: _notVar,
-                          i: inline(b, to),
+                          i: inlineConst(b, to),
                           a: false
                         };
                 });
@@ -1964,9 +1969,10 @@ function coerce(from, to) {
                           i: "+" + inputVar,
                           a: false
                         };
-                        b.c = b.c + ("Number.isNaN(" + output.v(b) + ")" + (
-                            format !== undefined ? "||" + refinement(inputVar) : ""
-                          ) + "&&" + failCoercion + ";");
+                        var outputVar = output.v(b);
+                        b.c = b.c + (
+                          format !== undefined ? "(" + refinement(b, outputVar, to).slice(2) + ")" : "Number.isNaN(" + outputVar + ")"
+                        ) + ("&&" + failCoercion + ";");
                         return output;
                       });
                     break;
@@ -1991,8 +1997,13 @@ function coerce(from, to) {
           }
           break;
       case "number" :
-          if (fromOutput.format !== undefined && to.type === "number" && to.format === undefined) {
-            coercion = extendCoercion;
+          if (fromOutput.format !== undefined) {
+            var match$3 = to.type;
+            if (match$3 === "number" && to.format === undefined) {
+              coercion = extendCoercion;
+            } else {
+              exit$1 = 2;
+            }
           } else {
             exit$1 = 2;
           }
@@ -2010,7 +2021,8 @@ function coerce(from, to) {
   }
   if (exit$1 === 2) {
     var $$const$1 = fromOutput.const;
-    if (to.type === "string") {
+    var match$4 = to.type;
+    if (match$4 === "string") {
       if (isFromLiteral) {
         coercion = (function (b, param, param$1) {
             return {
@@ -2032,14 +2044,19 @@ function coerce(from, to) {
             exit = 1;
         }
         if (exit$3 === 3) {
-          coercion = (function (b, inputVar, param) {
-              return {
-                      b: b,
-                      v: _notVar,
-                      i: "\"\"+" + inputVar,
-                      a: false
-                    };
-            });
+          var match$5 = to.type;
+          if (match$5 === "string") {
+            coercion = (function (b, inputVar, param) {
+                return {
+                        b: b,
+                        v: _notVar,
+                        i: "\"\"+" + inputVar,
+                        a: false
+                      };
+              });
+          } else {
+            exit = 1;
+          }
         }
         
       }
@@ -2112,7 +2129,7 @@ function preprocess(schema, transformer) {
           return parseWithTypeValidation(b, schema, input, path);
         }
       });
-    mut.f = undefined;
+    mut.type = "unknown";
     mut.output = (function () {
         var reversed = reverse(schema);
         var mut = copy(reversed);
@@ -2196,10 +2213,6 @@ function json(validate) {
 
 var Catch = {};
 
-function passingTypeFilter(_b, param) {
-  return "false";
-}
-
 function $$catch(schema, getFallbackValue) {
   var mut = copy(schema);
   mut.b = (function (b, input, selfSchema, path) {
@@ -2228,7 +2241,7 @@ function $$catch(schema, getFallbackValue) {
                     return parseWithTypeValidation(b, schema, input, path);
                   }));
     });
-  mut.f = isLiteral(schema) ? passingTypeFilter : undefined;
+  mut.noValidation = true;
   return toStandard(mut);
 }
 
@@ -2382,9 +2395,7 @@ function builder$2(parentB, input, selfSchema, path) {
     var itemPath = "[" + inlinedLocation$1 + "]";
     var itemInput = get(b, input, inlinedLocation$1);
     var path$1 = path + itemPath;
-    if (schema.f !== undefined && (
-        b.g.o & 1 ? !isLiteral(schema) : isLiteral(schema) && !(itemInput.v === _var && itemInput.i[0] === "e")
-      )) {
+    if (b.g.o & 1 ? !isLiteral(schema) : isLiteral(schema) && !(itemInput.v === _var && itemInput.i[0] === "e")) {
       b.c = b.c + typeFilterCode(b, schema, itemInput, path$1);
     }
     add(objectVal$1, inlinedLocation$1, schema.b(b, itemInput, schema, path$1));
@@ -2430,12 +2441,81 @@ function output$1() {
             additionalItems: globalConfig.a,
             items: reversedItems,
             fields: reversedFields,
-            b: builder$2,
-            f: typeFilter$2
+            b: builder$2
           };
   } else {
     return this;
   }
+}
+
+function definitionToSchema(definition) {
+  if (!(typeof definition === "object" && definition !== null)) {
+    return parse(definition);
+  }
+  if (definition["~standard"]) {
+    return definition;
+  }
+  if (Array.isArray(definition)) {
+    var reversedItems = [];
+    var isTransformed = false;
+    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
+      var schema = definitionToSchema(definition[idx]);
+      var reversed = reverse(schema);
+      var $$location = idx.toString();
+      var inlinedLocation = "\"" + $$location + "\"";
+      definition[idx] = {
+        schema: schema,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+      reversedItems[idx] = {
+        schema: reversed,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+      if (schema !== reversed) {
+        isTransformed = true;
+      }
+      
+    }
+    return {
+            type: "array",
+            additionalItems: "strict",
+            items: definition,
+            output: isTransformed ? (function () {
+                  return {
+                          type: "array",
+                          additionalItems: "strict",
+                          items: reversedItems,
+                          b: builder$2
+                        };
+                }) : undefined,
+            b: builder$2
+          };
+  }
+  var fieldNames = Object.keys(definition);
+  var length = fieldNames.length;
+  var items = [];
+  for(var idx$1 = 0; idx$1 < length; ++idx$1){
+    var $$location$1 = fieldNames[idx$1];
+    var inlinedLocation$1 = fromString($$location$1);
+    var schema$1 = definitionToSchema(definition[$$location$1]);
+    var item = {
+      schema: schema$1,
+      location: $$location$1,
+      inlinedLocation: inlinedLocation$1
+    };
+    definition[$$location$1] = item;
+    items[idx$1] = item;
+  }
+  return {
+          type: "object",
+          additionalItems: globalConfig.a,
+          items: items,
+          fields: definition,
+          output: output$1,
+          b: builder$2
+        };
 }
 
 function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
@@ -2482,8 +2562,7 @@ function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
               additionalItems: "strict",
               items: items,
               output: output$1,
-              b: builder,
-              f: typeFilter$3
+              b: builder
             },
             a: true
           };
@@ -2515,83 +2594,9 @@ function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
             items: items$1,
             fields: fields,
             output: output$1,
-            b: builder,
-            f: typeFilter$2
+            b: builder
           },
           a: false
-        };
-}
-
-function definitionToSchema(definition) {
-  if (!(typeof definition === "object" && definition !== null)) {
-    return parse(definition);
-  }
-  if (definition["~standard"]) {
-    return definition;
-  }
-  if (Array.isArray(definition)) {
-    var reversedItems = [];
-    var isTransformed = false;
-    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
-      var schema = definitionToSchema(definition[idx]);
-      var reversed = reverse(schema);
-      var $$location = idx.toString();
-      var inlinedLocation = "\"" + $$location + "\"";
-      definition[idx] = {
-        schema: schema,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-      reversedItems[idx] = {
-        schema: reversed,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-      if (schema !== reversed) {
-        isTransformed = true;
-      }
-      
-    }
-    return {
-            type: "array",
-            additionalItems: "strict",
-            items: definition,
-            output: isTransformed ? (function () {
-                  return {
-                          type: "array",
-                          additionalItems: "strict",
-                          items: reversedItems,
-                          b: builder$2,
-                          f: typeFilter$3
-                        };
-                }) : undefined,
-            b: builder$2,
-            f: typeFilter$3
-          };
-  }
-  var fieldNames = Object.keys(definition);
-  var length = fieldNames.length;
-  var items = [];
-  for(var idx$1 = 0; idx$1 < length; ++idx$1){
-    var $$location$1 = fieldNames[idx$1];
-    var inlinedLocation$1 = fromString($$location$1);
-    var schema$1 = definitionToSchema(definition[$$location$1]);
-    var item = {
-      schema: schema$1,
-      location: $$location$1,
-      inlinedLocation: inlinedLocation$1
-    };
-    definition[$$location$1] = item;
-    items[idx$1] = item;
-  }
-  return {
-          type: "object",
-          additionalItems: globalConfig.a,
-          items: items,
-          fields: definition,
-          output: output$1,
-          b: builder$2,
-          f: typeFilter$2
         };
 }
 
@@ -2611,8 +2616,7 @@ function nested(fieldName) {
         items: items,
         fields: fields,
         output: output$1,
-        b: builder$2,
-        f: typeFilter$2
+        b: builder$2
       });
   var target = parentCtx.f(fieldName, schema)[itemSymbol];
   var field = function (fieldName, schema) {
@@ -2642,14 +2646,16 @@ function nested(fieldName) {
     return field(fieldName, getOr(factory$1(schema), or));
   };
   var flatten = function (schema) {
-    if (schema.type === "object") {
+    var match = schema.type;
+    if (match === "object") {
       var flattenedItems = schema.items;
       if (schema.advanced) {
         var message = "Unsupported nested flatten for advanced object schema '" + name(schema) + "'";
         throw new Error("[" + vendor + "] " + message);
       }
-      var match = reverse(schema);
-      if (match.type === "object" && match.advanced !== true) {
+      var match$1 = reverse(schema);
+      var match$2 = match$1.type;
+      if (match$2 === "object" && match$1.advanced !== true) {
         var result = {};
         for(var idx = 0 ,idx_finish = flattenedItems.length; idx < idx_finish; ++idx){
           var item = flattenedItems[idx];
@@ -2741,9 +2747,10 @@ function advancedReverse(definition, to, flattened) {
                     a: false
                   };
           }
+          var tag = reversed.type;
           var items = reversed.items;
           if (items !== undefined) {
-            var isArray = reversed.type === "array";
+            var isArray = tag === "array";
             var objectVal = make$1(b, isArray);
             for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
               var item = items[idx];
@@ -2763,7 +2770,7 @@ function advancedReverse(definition, to, flattened) {
             var reversed = ritem.s;
             var itemInput = getRitemInput(ritem);
             var path$2 = path + ritem.p;
-            if (ritem.p !== "" && reversed.f !== undefined && (
+            if (ritem.p !== "" && (
                 hasTypeValidation ? !isLiteral(reversed) : isLiteral(reversed)
               )) {
               b.c = b.c + typeFilterCode(b, reversed, itemInput, path$2);
@@ -2828,9 +2835,7 @@ function advancedBuilder(definition, flattened) {
           a: false
         };
         var path$1 = path + itemPath;
-        if (schema.f !== undefined && (
-            b.g.o & 1 ? !isLiteral(schema) : isLiteral(schema)
-          )) {
+        if (b.g.o & 1 ? !isLiteral(schema) : isLiteral(schema)) {
           b.c = b.c + typeFilterCode(b, schema, itemInput, path$1);
         }
         outputs[inlinedLocation] = schema.b(b, itemInput, schema, path$1);
@@ -2904,13 +2909,14 @@ function object(definer) {
   var items = [];
   var fields = {};
   var flatten = function (schema) {
-    if (schema.type === "object") {
+    var match = schema.type;
+    if (match === "object") {
       var flattenedItems = schema.items;
       for(var idx = 0 ,idx_finish = flattenedItems.length; idx < idx_finish; ++idx){
-        var match = flattenedItems[idx];
-        var inlinedLocation = match.inlinedLocation;
-        var $$location = match.location;
-        var flattenedSchema = match.schema;
+        var match$1 = flattenedItems[idx];
+        var inlinedLocation = match$1.inlinedLocation;
+        var $$location = match$1.location;
+        var flattenedSchema = match$1.schema;
         var item = fields[$$location];
         if (item !== undefined) {
           if (item.schema !== flattenedSchema) {
@@ -2979,8 +2985,7 @@ function object(definer) {
               items: items,
               fields: fields,
               output: advancedReverse(definition, undefined, flattened),
-              b: advancedBuilder(definition, flattened),
-              f: typeFilter$2
+              b: advancedBuilder(definition, flattened)
             });
 }
 
@@ -3027,8 +3032,7 @@ function tuple(definer) {
               additionalItems: "strict",
               items: items,
               output: advancedReverse(definition, undefined, undefined),
-              b: advancedBuilder(definition, undefined),
-              f: typeFilter$3
+              b: advancedBuilder(definition, undefined)
             });
 }
 
@@ -3071,17 +3075,6 @@ function js_schema(definition) {
 
 function $$enum(values) {
   return factory(values.map(js_schema));
-}
-
-function typeFilter$9(b, inputVar) {
-  var items = this.items;
-  var length = items.length;
-  var code = typeFilter$1(b, inputVar) + ("||" + inputVar + ".length!==" + length);
-  for(var idx = 0; idx < length; ++idx){
-    var match = items[idx];
-    code = code + "||" + match.schema.f(b, inputVar + ("[" + match.inlinedLocation + "]"));
-  }
-  return code;
 }
 
 function unnest(schema) {
@@ -3153,8 +3146,7 @@ function unnest(schema) {
                                           a: false
                                         };
                                 }
-                              }),
-                            f: typeFilter$1
+                              })
                           };
                   }),
                 b: (function (b, input, param, path) {
@@ -3202,8 +3194,7 @@ function unnest(schema) {
                     } else {
                       return output;
                     }
-                  }),
-                f: typeFilter$9
+                  })
               });
   }
   throw new Error("[" + vendor + "] S.unnest supports only object schemas.");
@@ -3583,8 +3574,7 @@ function js_merge(s1, s2) {
                               i: "{..." + s1Result.i + ", ..." + s2Result.i + "}",
                               a: false
                             };
-                    }),
-                  f: typeFilter$2
+                    })
                 });
     }
     throw new Error("[" + vendor + "] The merge supports only Object schemas");
@@ -3666,8 +3656,6 @@ var Schema = {};
 var schema$6 = factory$5;
 
 var $$Object = {};
-
-var Tuple = {};
 
 var $$Option = {
   $$default: $$default,
@@ -3764,7 +3752,7 @@ export {
   recursive ,
   name ,
   setName ,
-  removeTypeValidation ,
+  validation$1 as validation,
   Schema ,
   schema$6 as schema,
   $$Object ,

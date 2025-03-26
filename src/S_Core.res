@@ -24,13 +24,6 @@ module Stdlib = {
 
   module Option = {
     external unsafeUnwrap: option<'a> => 'a = "%identity"
-
-    @inline
-    let isSome = x =>
-      switch x {
-      | None => false
-      | Some(_) => true
-      }
   }
 
   module Type = {
@@ -248,7 +241,7 @@ type rec t<'value> =
 and schema<'a> = t<'a>
 and internal = {
   @as("type")
-  tag: typeTag,
+  mutable tag: typeTag,
   mutable const?: char, // use char to avoid Caml_option.some
   format?: internalFormat,
   has?: dict<bool>,
@@ -258,12 +251,11 @@ and internal = {
   mutable items?: array<item>,
   mutable fields?: dict<item>,
   mutable name?: string,
+  mutable noValidation?: bool,
   mutable output?: unit => internal, // Optional value means that it either should reverse to self or it's already a reversed schema
   // This can also be an `internal` itself, but because of the bug https://github.com/rescript-lang/rescript/issues/7314 handle it unsafely
   @as("b")
   mutable builder: builder,
-  @as("f")
-  mutable typeFilter?: (b, ~inputVar: string) => string,
   mutable isAsync?: bool, // Optional value means that it's not lazily computed yet.
   @as("~standard")
   mutable standard?: standard, // This is optional for convenience. The object added on make call
@@ -446,6 +438,8 @@ module Flag = {
 // which use flag as a key.
 // > "a" is hacky way to skip all numbers
 // Should actually benchmark whether it's faster
+// FIXME: If output (reverse) is populated on the schema,
+// it'll stay on the copied one, which will cause issues
 let copy: internal => internal = %raw(`(schema) => {
   let c = {}
   for (let k in schema) {
@@ -652,6 +646,15 @@ module Builder = {
       let l = e->Js.Array2.length
       e->Js.Array2.unsafe_set(l, value->castAnyToUnknown)
       `e[${l->(Obj.magic: int => string)}]`
+    }
+
+    let inlineConst = (b, schema) => {
+      switch schema {
+      | {tag: Symbol | Instance | Function, ?const} => b->embed(const->Obj.magic)
+      | {tag: String, ?const} => const->Obj.magic->Stdlib.Inlined.Value.fromString
+      | {tag: BigInt, ?const} => const->Obj.magic ++ "n"
+      | {?const} => const->Obj.magic
+      }
     }
 
     let secondAllocate = v => {
@@ -1031,16 +1034,112 @@ module Builder = {
       }
     }
 
+    let rec validation = (b, ~inputVar, ~schema, ~negative) => {
+      let eq = negative ? "!==" : "==="
+      let and_ = negative ? "||" : "&&"
+      let exp = negative ? "!" : ""
+
+      switch schema {
+      | {tag: Undefined} => `${inputVar}${eq}void 0`
+      | {tag: NaN} => exp ++ `Number.isNaN(${inputVar})`
+      | {const: _} => `${inputVar}${eq}${inlineConst(b, schema)}`
+      | {tag: Number as tag} => `typeof ${inputVar}${eq}"${(tag :> string)}"`
+      | {tag: Array} => `${exp}Array.isArray(${inputVar})`
+      | {tag: Object as tag} =>
+        `typeof ${inputVar}${eq}"${(tag :> string)}"${and_}${exp}${inputVar}`
+      | {tag, const: ?_} => `typeof ${inputVar}${eq}"${(tag :> string)}"`
+      }
+    }
+    and refinement = (b, ~inputVar, ~schema) => {
+      let and_ = "||"
+      let eq = "!=="
+
+      switch schema {
+      | {const: _} => ""
+      | {format: Int32} =>
+        `${and_}${inputVar}>2147483647${and_}${inputVar}<-2147483648${and_}${inputVar}%1${eq}0`
+      | {tag: Number} =>
+        if globalConfig.disableNanNumberValidation {
+          ""
+        } else {
+          `${and_}Number.isNaN(${inputVar})`
+        }
+      | {tag: Object, ?additionalItems, ?items} => {
+          let additionalItems = additionalItems->Stdlib.Option.unsafeUnwrap
+          let items = items->Stdlib.Option.unsafeUnwrap
+          let code = ref(
+            if additionalItems === Strip {
+              ""
+            } else {
+              `${and_}Array.isArray(${inputVar})`
+            },
+          )
+          for idx in 0 to items->Js.Array2.length - 1 {
+            let {schema, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
+            let item = schema->toInternal
+            if item->isLiteral {
+              code :=
+                code.contents ++
+                and_ ++
+                b->validation(
+                  ~inputVar=Path.concat(inputVar, Path.fromInlinedLocation(inlinedLocation)),
+                  ~schema=item,
+                  ~negative=true,
+                )
+            }
+          }
+          code.contents
+        }
+      | {tag: Array, ?additionalItems, ?items} => {
+          let additionalItems = additionalItems->Stdlib.Option.unsafeUnwrap
+          let items = items->Stdlib.Option.unsafeUnwrap
+          let length = items->Js.Array2.length
+          let code = ref(
+            switch additionalItems {
+            | Strict => `${and_}${inputVar}.length${eq}${length->Stdlib.Int.unsafeToString}`
+            | Strip => `${and_}${inputVar}.length<${length->Stdlib.Int.unsafeToString}`
+            | Schema(_) => ""
+            },
+          )
+          for idx in 0 to length - 1 {
+            let {schema, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
+            let item = schema->toInternal
+            if item->isLiteral {
+              code :=
+                code.contents ++
+                and_ ++
+                b->validation(
+                  ~inputVar=Path.concat(inputVar, Path.fromInlinedLocation(inlinedLocation)),
+                  ~schema=item,
+                  ~negative=true,
+                )
+            }
+          }
+          code.contents
+        }
+      | _ => ""
+      }
+    }
+
     let typeFilterCode = (b: b, ~schema, ~input, ~path) => {
-      let inputVar = b->Val.var(input)
-      `if(${b->(schema.typeFilter->Stdlib.Option.unsafeUnwrap)(~inputVar)}){${b->failWithArg(
-          ~path,
-          input => InvalidType({
-            expected: schema->fromInternal,
-            received: input,
-          }),
-          inputVar,
-        )}}`
+      switch schema {
+      | {tag: Unknown | Union | JSON | Never} | {noValidation: true} => ""
+      | _ => {
+          let inputVar = b->Val.var(input)
+
+          `if(${b->validation(~inputVar, ~schema, ~negative=true)}${b->refinement(
+              ~schema,
+              ~inputVar,
+            )}){${b->failWithArg(
+              ~path,
+              input => InvalidType({
+                expected: schema->fromInternal,
+                received: input,
+              }),
+              inputVar,
+            )}}`
+        }
+      }
     }
 
     @inline
@@ -1049,10 +1148,7 @@ module Builder = {
     }
 
     let parseWithTypeValidation = (b: b, ~schema, ~input, ~path) => {
-      if (
-        schema.typeFilter->Stdlib.Option.isSome &&
-          (b.global.flag->Flag.unsafeHas(Flag.typeValidation) || schema->isLiteral)
-      ) {
+      if b.global.flag->Flag.unsafeHas(Flag.typeValidation) || schema->isLiteral {
         b.code = b.code ++ b->typeFilterCode(~schema, ~input, ~path)
       }
       b->parse(~schema, ~input, ~path)
@@ -1091,10 +1187,7 @@ let rec internalCompile = (builder: builder, ~schema, ~flag) => {
     b.code = `let ${b.varsAllocation};${b.code}`
   }
 
-  if (
-    schema.typeFilter->Stdlib.Option.isSome &&
-      (flag->Flag.unsafeHas(Flag.typeValidation) || schema->isLiteral)
-  ) {
+  if flag->Flag.unsafeHas(Flag.typeValidation) || schema->isLiteral {
     b.code = b->B.typeFilterCode(~schema, ~input, ~path=Path.empty) ++ b.code
   }
 
@@ -1371,46 +1464,27 @@ let assertOrThrow = (any, schema) => {
 module Literal = {
   open Stdlib
 
-  let inline = (b, schema) => {
-    switch schema {
-    | {tag: Symbol | Instance | Function, ?const} => b->B.embed(const->Obj.magic)
-    | {tag: String, ?const} => const->Obj.magic->Stdlib.Inlined.Value.fromString
-    | {tag: BigInt, ?const} => const->Obj.magic ++ "n"
-    | {?const} => const->Obj.magic
-    }
-  }
-
-  let typeFilter = (b, ~inputVar) => {
-    `${inputVar}!==${inline(b, (%raw(`this`): internal))}`
-  }
-
   let undefined = {
     tag: Undefined,
     const: %raw(`void 0`),
     builder: Builder.invalidJson,
-    typeFilter,
   }
 
   let null = {
     tag: Null,
     const: %raw(`null`),
     builder: Builder.noop,
-    typeFilter,
   }
 
   let nan = {
     tag: NaN,
     builder: Builder.invalidJson,
-    typeFilter: (_b, ~inputVar) => {
-      `!Number.isNaN(${inputVar})`
-    },
   }
 
   let jsonable = tag => {
     {
       tag,
       builder: Builder.noop,
-      typeFilter,
     }
   }
 
@@ -1418,7 +1492,6 @@ module Literal = {
     {
       tag,
       builder: Builder.invalidJson,
-      typeFilter,
     }
   }
 
@@ -1646,12 +1719,12 @@ let setName = (schema, name) => {
   mut->toStandard
 }
 
-let removeTypeValidation = schema => {
+let validation = (schema, value) => {
   let schema = schema->toInternal
   let mut = schema->copy
 
   // FIXME: Test for discriminant literal
-  mut.typeFilter = None // TODO: Better test reverse
+  mut.noValidation = Some(!value) // TODO: Better test reverse
   mut->toStandard
 }
 
@@ -1831,7 +1904,7 @@ module Union = {
   let getItemCode = (b, ~schema, ~input, ~output: val, ~deopt, ~path) => {
     try {
       let bb = b->B.scope
-      if deopt && schema.typeFilter->Stdlib.Option.isSome {
+      if deopt {
         bb.code = bb.code ++ bb->B.typeFilterCode(~schema, ~input, ~path)
       }
       let itemOutput = bb->B.parse(~schema, ~input, ~path)
@@ -1840,9 +1913,7 @@ module Union = {
         itemOutput.b = bb
         if schema.tag === Unknown {
           let reversed = schema->reverse
-          if reversed.typeFilter->Stdlib.Option.isSome {
-            bb.code = bb.code ++ bb->B.typeFilterCode(~schema=reversed, ~input=itemOutput, ~path)
-          }
+          bb.code = bb.code ++ bb->B.typeFilterCode(~schema=reversed, ~input=itemOutput, ~path)
         }
 
         if itemOutput.isAsync {
@@ -1889,7 +1960,7 @@ module Union = {
       }
     }
 
-    // FIXME: It won't work with removeTypeValidation
+    // FIXME: It won't work with validation
     let rec loop = (code, ~idx, ~caught, ~noopItems) => {
       let deopt = idx <= deoptIdx.contents
       let isStart = deopt || code === ""
@@ -1915,17 +1986,17 @@ module Union = {
               },
             )
 
-            c := c.contents ++ `if(`
+            c := c.contents ++ `if(!(`
             for idx in 0 to noopItems->Js.Array2.length - 1 {
               let schema = noopItems->Js.Array2.unsafe_get(idx)
               c :=
                 c.contents ++
-                (idx->Stdlib.Int.unsafeToBool ? "&&" : "") ++
-                // FIXME: Not needed with positive filter
-                "(" ++
-                b->(schema.typeFilter->Stdlib.Option.unsafeUnwrap)(~inputVar=input.var(b)) ++ ")"
+                (idx->Stdlib.Int.unsafeToBool ? "||" : "") ++
+                // FIXME: Ensure that Array is checked before Object
+                // FIXME: NaN literal before number
+                b->B.validation(~inputVar=input.var(b), ~schema, ~negative=false)
             }
-            c.contents ++ `){${errorCode}}`
+            c.contents ++ `)){${errorCode}}`
           } else if deopt {
             errorCode
           } else {
@@ -1955,12 +2026,10 @@ module Union = {
           noopItems->Js.Array2.push(schema)->ignore
           loop(code, ~idx=idx + 1, ~caught, ~noopItems)
         } else {
-          // FIXME: Make it positive
-          let filterCode =
-            "!(" ++
-            b->(schema.typeFilter->Stdlib.Option.unsafeUnwrap)(~inputVar=input.var(b)) ++ ")"
           loop(
-            code ++ (isStart ? "" : "else ") ++ `if(${filterCode}){${itemCode}}`,
+            code ++
+            (isStart ? "" : "else ") ++
+            `if(${b->B.validation(~inputVar=input.var(b), ~schema, ~negative=false)}){${itemCode}}`,
             ~idx=idx + 1,
             ~caught,
             ~noopItems,
@@ -2135,8 +2204,6 @@ module Array = {
     }
   }
 
-  let typeFilter = (_b, ~inputVar) => `!Array.isArray(${inputVar})`
-
   let rec factory = item => {
     let item = item->toInternal
     {
@@ -2173,7 +2240,6 @@ module Array = {
           output
         }
       }),
-      typeFilter,
       output: Output.item(~factory, ~item),
     }->toStandard
   }
@@ -2186,32 +2252,6 @@ module Object = {
     tag: 'value. (string, 'value) => unit,
     nested: string => s,
     flatten: 'value. t<'value> => 'value,
-  }
-
-  let typeFilter = (b, ~inputVar) => {
-    let {?additionalItems, ?items}: internal = %raw(`this`)
-    let items = items->Stdlib.Option.unsafeUnwrap
-    let additionalItems = additionalItems->Stdlib.Option.unsafeUnwrap
-    let code = ref(
-      `typeof ${inputVar}!=="object"||!${inputVar}` ++ if additionalItems === Strip {
-        ""
-      } else {
-        `||Array.isArray(${inputVar})`
-      },
-    )
-    for idx in 0 to items->Js.Array2.length - 1 {
-      let {schema, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
-      let item = schema->toInternal
-      if item->isLiteral {
-        code :=
-          code.contents ++
-          "||" ++
-          b->(item.typeFilter->Stdlib.Option.unsafeUnwrap)(
-            ~inputVar=Path.concat(inputVar, Path.fromInlinedLocation(inlinedLocation)),
-          )
-      }
-    }
-    code.contents
   }
 
   let rec setAdditionalItems = (schema, additionalItems, ~deep) => {
@@ -2309,7 +2349,6 @@ module Dict = {
           output
         }
       }),
-      typeFilter: Object.typeFilter,
       output: Output.item(~factory, ~item),
     }->toStandard
   }
@@ -2319,35 +2358,6 @@ module Tuple = {
   type s = {
     item: 'value. (int, t<'value>) => 'value,
     tag: 'value. (int, 'value) => unit,
-  }
-
-  let typeFilter = (b, ~inputVar) => {
-    let items = (%raw(`this`): internal).items->Stdlib.Option.unsafeUnwrap
-    let length = items->Js.Array2.length
-    let code = ref(
-      b->Array.typeFilter(~inputVar) ++ if (
-          (%raw(`this`): internal).additionalItems === Some(Strict)
-        ) {
-          `||${inputVar}.length!==${length->Stdlib.Int.unsafeToString}`
-        } else if length->Stdlib.Int.unsafeToBool {
-          `||${inputVar}.length<${length->Stdlib.Int.unsafeToString}`
-        } else {
-          ""
-        },
-    )
-    for idx in 0 to length - 1 {
-      let {schema, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
-      let item = schema->toInternal
-      if item->isLiteral {
-        code :=
-          code.contents ++
-          "||" ++
-          b->(item.typeFilter->Stdlib.Option.unsafeUnwrap)(
-            ~inputVar=Path.concat(inputVar, Path.fromInlinedLocation(inlinedLocation)),
-          )
-      }
-    }
-    code.contents
   }
 }
 
@@ -2388,12 +2398,9 @@ module String = {
   // Adapted from https://stackoverflow.com/a/3143231
   let datetimeRe = %re(`/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/`)
 
-  let typeFilter = (_b, ~inputVar) => `typeof ${inputVar}!=="string"`
-
   let schema = {
     tag: String,
     builder: Builder.noop,
-    typeFilter,
   }->toStandard
 }
 
@@ -2415,7 +2422,6 @@ module JsonString = {
 
         b->B.parseWithTypeValidation(~schema=item, ~input=jsonVal, ~path)
       }),
-      typeFilter: String.typeFilter,
       output: () => {
         let reversed = item->reverse
         let mut = reversed->copy
@@ -2441,12 +2447,9 @@ module JsonString = {
 }
 
 module Bool = {
-  let typeFilter = (_b, ~inputVar) => `typeof ${inputVar}!=="boolean"`
-
   let schema = {
     tag: Boolean,
     builder: Builder.noop,
-    typeFilter,
   }->toStandard
 }
 
@@ -2474,16 +2477,10 @@ module Int = {
     }
   }
 
-  let refinement = (~inputVar) =>
-    `${inputVar}>2147483647||${inputVar}<-2147483648||${inputVar}%1!==0`
-
-  let typeFilter = (_b, ~inputVar) => `typeof ${inputVar}!=="number"||${refinement(~inputVar)}`
-
   let schema = {
     tag: Number,
     format: Int32,
     builder: Builder.noop,
-    typeFilter,
   }->toStandard
 }
 
@@ -2510,27 +2507,16 @@ module Float = {
     }
   }
 
-  let typeFilter = (_b, ~inputVar) =>
-    `typeof ${inputVar}!=="number"` ++ if globalConfig.disableNanNumberValidation {
-      ""
-    } else {
-      `||Number.isNaN(${inputVar})`
-    }
-
   let schema = {
     tag: Number,
     builder: Builder.noop,
-    typeFilter,
   }->toStandard
 }
 
 module BigInt = {
-  let typeFilter = (_b, ~inputVar) => `typeof ${inputVar}!=="bigint"`
-
   let schema = {
     tag: BigInt,
     builder: Builder.invalidJson,
-    typeFilter,
   }->toStandard
 }
 
@@ -2557,7 +2543,7 @@ let rec coerce = (from, to) => {
         let coercion = switch (fromOutput, to) {
         | (_, _) if isFromLiteral && isToLiteral =>
           (b, ~inputVar as _, ~failCoercion as _) => {
-            b->B.val(b->Literal.inline(to))
+            b->B.val(b->B.inlineConst(to))
           }
         | ({tag: String}, {tag: String, const: _}) => shrinkCoercion
         | ({tag: String}, {tag: String}) // FIXME: validate that refinements match
@@ -2572,7 +2558,7 @@ let rec coerce = (from, to) => {
           if isToLiteral =>
           (b, ~inputVar, ~failCoercion) => {
             b.code = b.code ++ `${inputVar}==="${const->Obj.magic}"||${failCoercion};`
-            b->B.val(b->Literal.inline(to))
+            b->B.val(b->B.inlineConst(to))
           }
         | ({tag: String}, {tag: Boolean}) =>
           (b, ~inputVar, ~failCoercion) => {
@@ -2586,16 +2572,17 @@ let rec coerce = (from, to) => {
         | ({tag: String}, {tag: Number, ?format}) =>
           (b, ~inputVar, ~failCoercion) => {
             let output = b->B.val(`+${inputVar}`)
+            let outputVar = output.var(b)
             b.code =
               b.code ++
-              `Number.isNaN(${output.var(b)})${{
-                  switch format {
-                  | None => ``
-                  | Some(Int32) => `||${Int.refinement(~inputVar)}`
-                  // | Some(format) =>
-                  //   Js.Exn.raiseError(`Unsupported coercion to number format ${(format :> string)}`)
-                  }
-                }}&&${failCoercion};`
+              switch format {
+              | None => `Number.isNaN(${outputVar})`
+              | Some(Int32) =>
+                `(${b
+                  ->B.refinement(~inputVar=outputVar, ~schema=to)
+                  ->Js.String2.sliceToEnd(~from=2)})`
+              } ++
+              `&&${failCoercion};`
             output
           }
         | ({tag: String}, {tag: BigInt}) =>
@@ -2697,7 +2684,7 @@ let rec preprocess = (schema, transformer) => {
         )
       }
     })
-    mut.typeFilter = None
+    mut.tag = Unknown
     mut.output = Some(
       () => {
         let reversed = schema->reverse
@@ -2795,7 +2782,6 @@ module Catch = {
     @as("f") fail: 'a. (string, ~path: Path.t=?) => 'a,
   }
 }
-let passingTypeFilter = (_b, ~inputVar as _) => "false"
 let catch = (schema, getFallbackValue) => {
   let schema = schema->toInternal
   let mut = schema->copy
@@ -2823,11 +2809,7 @@ let catch = (schema, getFallbackValue) => {
       },
     )
   })
-  mut.typeFilter = switch schema->isLiteral {
-  // Literal schema always expects to have a typeFilter
-  | true => Some(passingTypeFilter)
-  | false => None
-  }
+  mut.noValidation = Some(true)
   mut->toStandard
 }
 
@@ -3064,11 +3046,9 @@ module Schema = {
         let path = path->Path.concat(itemPath)
 
         if (
-          schema.typeFilter->Stdlib.Option.isSome && (
-              b.global.flag->Flag.unsafeHas(Flag.typeValidation)
-                ? !(schema->isLiteral)
-                : schema->isLiteral && !(itemInput->B.Val.isEmbed)
-            )
+          b.global.flag->Flag.unsafeHas(Flag.typeValidation)
+            ? !(schema->isLiteral)
+            : schema->isLiteral && !(itemInput->B.Val.isEmbed)
         ) {
           b.code = b.code ++ b->B.typeFilterCode(~schema, ~input=itemInput, ~path)
         }
@@ -3121,7 +3101,6 @@ module Schema = {
         items: reversedItems,
         fields: reversedFields,
         additionalItems: globalConfig.defaultAdditionalItems,
-        typeFilter: Object.typeFilter,
         builder,
       }
     } else {
@@ -3155,11 +3134,9 @@ module Schema = {
         let path = path->Path.concat(itemPath)
 
         if (
-          schema.typeFilter->Stdlib.Option.isSome && (
-              b.global.flag->Flag.unsafeHas(Flag.typeValidation)
-                ? !(schema->isLiteral)
-                : schema->isLiteral
-            )
+          b.global.flag->Flag.unsafeHas(Flag.typeValidation)
+            ? !(schema->isLiteral)
+            : schema->isLiteral
         ) {
           b.code = b.code ++ b->B.typeFilterCode(~schema, ~input=itemInput, ~path)
         }
@@ -3297,10 +3274,9 @@ module Schema = {
             let itemInput = ritem->getRitemInput
             let path = path->Path.concat(ritem->getRitemPath)
             if (
-              ritem->getRitemPath !== Path.empty &&
-              reversed.typeFilter->Stdlib.Option.isSome && (
-                hasTypeValidation ? !(reversed->isLiteral) : reversed->isLiteral
-              )
+              ritem->getRitemPath !== Path.empty && (
+                  hasTypeValidation ? !(reversed->isLiteral) : reversed->isLiteral
+                )
             ) {
               b.code = b.code ++ b->B.typeFilterCode(~schema=reversed, ~input=itemInput, ~path)
             }
@@ -3420,7 +3396,6 @@ module Schema = {
           fields,
           additionalItems: globalConfig.defaultAdditionalItems,
           builder,
-          typeFilter: Object.typeFilter,
           output,
         }->toStandard
 
@@ -3602,7 +3577,6 @@ module Schema = {
         fields,
         additionalItems: globalConfig.defaultAdditionalItems,
         advanced: true,
-        typeFilter: Object.typeFilter,
         builder: advancedBuilder(~definition, ~flattened),
         output: advancedReverse(~definition, ~flattened),
       }->toStandard
@@ -3660,7 +3634,6 @@ module Schema = {
       tag: Array,
       items,
       additionalItems: Strict,
-      typeFilter: Tuple.typeFilter,
       builder: advancedBuilder(~definition),
       output: advancedReverse(~definition),
     }->toStandard
@@ -3706,7 +3679,6 @@ module Schema = {
                 tag: Array,
                 items,
                 additionalItems: Strict,
-                typeFilter: Tuple.typeFilter,
                 builder: Never.builder,
                 output,
               },
@@ -3745,7 +3717,6 @@ module Schema = {
                 fields,
                 additionalItems: globalConfig.defaultAdditionalItems,
                 advanced: true,
-                typeFilter: Object.typeFilter,
                 builder: Never.builder,
                 output,
               },
@@ -3800,7 +3771,6 @@ module Schema = {
           items,
           additionalItems: Strict,
           builder,
-          typeFilter: Tuple.typeFilter,
           output: ?(
             isTransformed.contents
               ? Some(
@@ -3809,7 +3779,6 @@ module Schema = {
                     items: reversedItems,
                     additionalItems: Strict,
                     builder,
-                    typeFilter: Tuple.typeFilter,
                   },
                 )
               : None
@@ -3838,7 +3807,6 @@ module Schema = {
           fields: node->(Obj.magic: dict<unknown> => dict<item>),
           additionalItems: globalConfig.defaultAdditionalItems,
           builder,
-          typeFilter: Object.typeFilter,
           output,
         }
       }
@@ -3897,152 +3865,128 @@ let literal = js_schema
 
 let enum = values => Union.factory(values->Js.Array2.map(literal))
 
-let unnest = {
-  let typeFilter = (b, ~inputVar) => {
-    let items = (%raw(`this`): internal).items->Stdlib.Option.unsafeUnwrap
-    let length = items->Js.Array2.length
-    let code = ref(
-      b->Array.typeFilter(~inputVar) ++
-        `||${inputVar}.length!==${length->Stdlib.Int.unsafeToString}`,
-    )
-    for idx in 0 to length - 1 {
-      let {schema, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
-      let schema = schema->toInternal
-      code :=
-        code.contents ++
-        "||" ++
-        b->(schema.typeFilter->Stdlib.Option.unsafeUnwrap)(
-          ~inputVar=Path.concat(inputVar, Path.fromInlinedLocation(inlinedLocation)),
-        )
+let unnest = schema => {
+  switch schema {
+  | Object({items}) =>
+    if items->Js.Array2.length === 0 {
+      InternalError.panic("Invalid empty object for S.unnest schema.")
     }
-    code.contents
-  }
+    let schema = schema->toInternal
+    {
+      tag: Array,
+      items: items->Js.Array2.mapi((item, idx) => {
+        let location = idx->Js.Int.toString
+        {
+          schema: Array.factory(item.schema),
+          inlinedLocation: `"${location}"`,
+          location,
+        }
+      }),
+      additionalItems: Strict,
+      builder: Builder.make((b, ~input, ~selfSchema as _, ~path) => {
+        let inputVar = b->B.Val.var(input)
+        let iteratorVar = b.global->B.varWithoutAllocation
 
-  schema => {
-    switch schema {
-    | Object({items}) =>
-      if items->Js.Array2.length === 0 {
-        InternalError.panic("Invalid empty object for S.unnest schema.")
-      }
-      let schema = schema->toInternal
-      {
-        tag: Array,
-        items: items->Js.Array2.mapi((item, idx) => {
-          let location = idx->Js.Int.toString
-          {
-            schema: Array.factory(item.schema),
-            inlinedLocation: `"${location}"`,
-            location,
-          }
-        }),
-        additionalItems: Strict,
-        builder: Builder.make((b, ~input, ~selfSchema as _, ~path) => {
-          let inputVar = b->B.Val.var(input)
-          let iteratorVar = b.global->B.varWithoutAllocation
-
-          let bb = b->B.scope
-          let itemInput = bb->B.Val.Object.make(~isArray=false)
-          let lengthCode = ref("")
-          for idx in 0 to items->Js.Array2.length - 1 {
-            let item = items->Js.Array2.unsafe_get(idx)
-            itemInput->B.Val.Object.add(
-              item.inlinedLocation,
-              bb->B.val(`${inputVar}[${idx->Stdlib.Int.unsafeToString}][${iteratorVar}]`),
-            )
-            lengthCode :=
-              lengthCode.contents ++ `${inputVar}[${idx->Stdlib.Int.unsafeToString}].length,`
-          }
-
-          let output = b->B.val(`new Array(Math.max(${lengthCode.contents}))`)
-          let outputVar = b->B.Val.var(output)
-
-          let itemOutput = bb->B.withPathPrepend(
-            ~input=itemInput->B.Val.Object.complete(~isArray=false),
-            ~path,
-            ~dynamicLocationVar=iteratorVar,
-            ~appendSafe=(bb, ~output as itemOutput) => {
-              bb.code = bb.code ++ bb->B.Val.addKey(output, iteratorVar, itemOutput) ++ ";"
-            },
-            (b, ~input, ~path) => {
-              b->B.parse(~schema, ~input, ~path)
-            },
+        let bb = b->B.scope
+        let itemInput = bb->B.Val.Object.make(~isArray=false)
+        let lengthCode = ref("")
+        for idx in 0 to items->Js.Array2.length - 1 {
+          let item = items->Js.Array2.unsafe_get(idx)
+          itemInput->B.Val.Object.add(
+            item.inlinedLocation,
+            bb->B.val(`${inputVar}[${idx->Stdlib.Int.unsafeToString}][${iteratorVar}]`),
           )
-          let itemCode = bb->B.allocateScope
+          lengthCode :=
+            lengthCode.contents ++ `${inputVar}[${idx->Stdlib.Int.unsafeToString}].length,`
+        }
 
-          b.code =
-            b.code ++
-            `for(let ${iteratorVar}=0;${iteratorVar}<${outputVar}.length;++${iteratorVar}){${itemCode}}`
+        let output = b->B.val(`new Array(Math.max(${lengthCode.contents}))`)
+        let outputVar = b->B.Val.var(output)
 
-          if itemOutput.isAsync {
-            output.b->B.asyncVal(`Promise.all(${output.inline})`)
-          } else {
-            output
-          }
-        }),
-        typeFilter,
-        output: () => {
-          let schema = schema->reverse
-          {
-            tag: Array,
-            items: Stdlib.Array.immutableEmpty,
-            additionalItems: Schema(schema->fromInternal),
-            typeFilter: Array.typeFilter,
-            builder: Builder.make((b, ~input, ~selfSchema as _, ~path) => {
-              let inputVar = b->B.Val.var(input)
-              let iteratorVar = b.global->B.varWithoutAllocation
-              let outputVar = b.global->B.varWithoutAllocation
+        let itemOutput = bb->B.withPathPrepend(
+          ~input=itemInput->B.Val.Object.complete(~isArray=false),
+          ~path,
+          ~dynamicLocationVar=iteratorVar,
+          ~appendSafe=(bb, ~output as itemOutput) => {
+            bb.code = bb.code ++ bb->B.Val.addKey(output, iteratorVar, itemOutput) ++ ";"
+          },
+          (b, ~input, ~path) => {
+            b->B.parse(~schema, ~input, ~path)
+          },
+        )
+        let itemCode = bb->B.allocateScope
 
-              let bb = b->B.scope
-              let itemInput = bb->B.val(`${inputVar}[${iteratorVar}]`)
-              let itemOutput = bb->B.withPathPrepend(
-                ~input=itemInput,
-                ~path,
-                ~dynamicLocationVar=iteratorVar,
-                ~appendSafe=(bb, ~output) => {
-                  let initialArraysCode = ref("")
-                  let settingCode = ref("")
-                  for idx in 0 to items->Js.Array2.length - 1 {
-                    let item = items->Js.Array2.unsafe_get(idx)
-                    initialArraysCode :=
-                      initialArraysCode.contents ++ `new Array(${inputVar}.length),`
-                    settingCode :=
-                      settingCode.contents ++
-                      `${outputVar}[${idx->Stdlib.Int.unsafeToString}][${iteratorVar}]=${(
-                          b->B.Val.get(output, item.inlinedLocation)
-                        ).inline};`
-                  }
-                  b.allocate(`${outputVar}=[${initialArraysCode.contents}]`)
-                  bb.code = bb.code ++ settingCode.contents
-                },
-                (b, ~input, ~path) => b->B.parseWithTypeValidation(~schema, ~input, ~path),
-              )
-              let itemCode = bb->B.allocateScope
+        b.code =
+          b.code ++
+          `for(let ${iteratorVar}=0;${iteratorVar}<${outputVar}.length;++${iteratorVar}){${itemCode}}`
 
-              b.code =
-                b.code ++
-                `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${itemCode}}`
+        if itemOutput.isAsync {
+          output.b->B.asyncVal(`Promise.all(${output.inline})`)
+        } else {
+          output
+        }
+      }),
+      output: () => {
+        let schema = schema->reverse
+        {
+          tag: Array,
+          items: Stdlib.Array.immutableEmpty,
+          additionalItems: Schema(schema->fromInternal),
+          builder: Builder.make((b, ~input, ~selfSchema as _, ~path) => {
+            let inputVar = b->B.Val.var(input)
+            let iteratorVar = b.global->B.varWithoutAllocation
+            let outputVar = b.global->B.varWithoutAllocation
 
-              if itemOutput.isAsync {
-                {
-                  b,
-                  var: B._notVar,
-                  inline: `Promise.all(${outputVar})`,
-                  isAsync: true,
+            let bb = b->B.scope
+            let itemInput = bb->B.val(`${inputVar}[${iteratorVar}]`)
+            let itemOutput = bb->B.withPathPrepend(
+              ~input=itemInput,
+              ~path,
+              ~dynamicLocationVar=iteratorVar,
+              ~appendSafe=(bb, ~output) => {
+                let initialArraysCode = ref("")
+                let settingCode = ref("")
+                for idx in 0 to items->Js.Array2.length - 1 {
+                  let item = items->Js.Array2.unsafe_get(idx)
+                  initialArraysCode :=
+                    initialArraysCode.contents ++ `new Array(${inputVar}.length),`
+                  settingCode :=
+                    settingCode.contents ++
+                    `${outputVar}[${idx->Stdlib.Int.unsafeToString}][${iteratorVar}]=${(
+                        b->B.Val.get(output, item.inlinedLocation)
+                      ).inline};`
                 }
-              } else {
-                {
-                  b,
-                  var: B._var,
-                  inline: outputVar,
-                  isAsync: false,
-                }
+                b.allocate(`${outputVar}=[${initialArraysCode.contents}]`)
+                bb.code = bb.code ++ settingCode.contents
+              },
+              (b, ~input, ~path) => b->B.parseWithTypeValidation(~schema, ~input, ~path),
+            )
+            let itemCode = bb->B.allocateScope
+
+            b.code =
+              b.code ++
+              `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${itemCode}}`
+
+            if itemOutput.isAsync {
+              {
+                b,
+                var: B._notVar,
+                inline: `Promise.all(${outputVar})`,
+                isAsync: true,
               }
-            }),
-          }
-        },
-      }->toStandard
-    | _ => InternalError.panic("S.unnest supports only object schemas.")
-    }
+            } else {
+              {
+                b,
+                var: B._var,
+                inline: outputVar,
+                isAsync: false,
+              }
+            }
+          }),
+        }
+      },
+    }->toStandard
+  | _ => InternalError.panic("S.unnest supports only object schemas.")
   }
 }
 
@@ -4674,7 +4618,6 @@ let js_merge = (s1, s2) => {
         // TODO: Check that these are objects
         b->B.val(`{...${s1Result.inline}, ...${s2Result.inline}}`)
       }),
-      typeFilter: Object.typeFilter,
       output: () => {
         tag: Unknown,
         builder: Builder.make((b, ~input as _, ~selfSchema as _, ~path) => {

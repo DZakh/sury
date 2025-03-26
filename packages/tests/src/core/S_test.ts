@@ -1719,7 +1719,7 @@ test("Standard schema", (t) => {
     issues: [
       {
         message:
-          "Failed parsing at root. Reason: Must be null | string (was undefined)",
+          "Failed parsing at root. Reason: Must be string | null (was undefined)",
         path: undefined,
       },
     ],

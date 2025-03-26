@@ -67,7 +67,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{let v0=i;if(!(i!==undefined)){v0=null}return v0}`,
+      `i=>{let v0=i;if(!(i!==void 0)){v0=null}return v0}`,
     )
   })
 
@@ -163,6 +163,6 @@ test("Serializes Some(None) to null for null nested in null", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{if(i!==undefined){if(typeof i!=="object"||!i){if(typeof i!=="boolean"){if(i!==undefined){e[1](i)}else{i=null}}i=i}else{i=null}}else{i=null}return i}`,
+    `i=>{if(i!==void 0){if(typeof i!=="object"||!i){if(typeof i!=="boolean"){if(i!==void 0){e[1](i)}else{i=null}}i=i}else{i=null}}else{i=null}return i}`,
   )
 })

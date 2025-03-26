@@ -14,11 +14,11 @@ module Tuple0 = {
     t->Assert.deepEqual(any->S.parseOrThrow(schema), value, ())
   })
 
-  test("Fails to parse extra value in strict mode", t => {
+  test("Fails to parse extra value in strict mode (default for tuple)", t => {
     let schema = factory()
 
     t->U.assertRaised(
-      () => invalidAny->S.parseOrThrow(schema->S.strict),
+      () => invalidAny->S.parseOrThrow(schema),
       {
         code: InvalidType({
           expected: schema->S.toUnknown,
@@ -30,10 +30,10 @@ module Tuple0 = {
     )
   })
 
-  test("Ignores extra items in strip mode (default)", t => {
+  test("Ignores extra items in strip mode", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(invalidAny->S.parseOrThrow(schema), (), ())
+    t->Assert.deepEqual(invalidAny->S.parseOrThrow(schema->S.strip), (), ())
   })
 
   test("Fails to parse invalid type", t => {
@@ -291,7 +291,7 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(!Array.isArray(i)||i.length<2){e[2](i)}let v0=i["0"],v1=i["1"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="boolean"){e[1](v1)}return [v0,v1,]}`,
+      `i=>{if(!Array.isArray(i)||i.length!==2){e[2](i)}let v0=i["0"],v1=i["1"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="boolean"){e[1](v1)}return [v0,v1,]}`,
     )
   })
 
@@ -304,7 +304,7 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(!Array.isArray(i)||i.length<2){e[2](i)}let v0=i["1"];if(typeof v0!=="boolean"){e[1](v0)}return Promise.all([e[0](i["0"]),]).then(a=>([a[0],v0,]))}`,
+      `i=>{if(!Array.isArray(i)||i.length!==2){e[2](i)}let v0=i["1"];if(typeof v0!=="boolean"){e[1](v0)}return Promise.all([e[0](i["0"]),]).then(a=>([a[0],v0,]))}`,
     )
   })
 
@@ -318,11 +318,7 @@ module Compiled = {
     let schema = S.tuple(_ => ())
 
     // TODO: No need to do unit check ?
-    t->U.assertCompiledCode(
-      ~schema,
-      ~op=#ReverseConvert,
-      `i=>{if(i!==undefined){e[0](i)}return []}`,
-    )
+    t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{if(i!==void 0){e[0](i)}return []}`)
   })
 
   test(
@@ -340,7 +336,7 @@ module Compiled = {
       t->U.assertCompiledCode(
         ~schema,
         ~op=#Parse,
-        `i=>{if(!Array.isArray(i)||i.length<3||i["0"]!==0){e[3](i)}let v0=i["1"],v1=i["2"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="boolean"){e[1](v1)}return {"foo":v0,"bar":v1,"zoo":e[2],}}`,
+        `i=>{if(!Array.isArray(i)||i.length!==3||i["0"]!==0){e[3](i)}let v0=i["1"],v1=i["2"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="boolean"){e[1](v1)}return {"foo":v0,"bar":v1,"zoo":e[2],}}`,
       )
     },
   )

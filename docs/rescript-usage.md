@@ -64,7 +64,7 @@
   - [`isAsync`](#isasync)
   - [`name`](#name)
   - [`setName`](#setname)
-  - [`removeTypeValidation`](#removetypevalidation)
+  - [`validation`](#validation)
 - [Error handling](#error-handling)
   - [`Error.make`](#errormake)
   - [`Error.raise`](#errorraise)
@@ -1358,7 +1358,7 @@ For advanced users you can only transform to the output type without type valida
 
 Note, that in this case only type validations are skipped. If your schema has refinements or transforms, they will be applied.
 
-Also, you can use `S.removeTypeValidation` helper to turn off type validations for the schema even when it's used with a parse operation.
+Also, you can use `S.validation` helper to turn off type validations for the schema even when it's used with a parse operation.
 
 More often than converting input to output, you'll need to perform the reversed operation. It's usually called "serializing" or "decoding". The ReScript Schema has a unique mental model and provides an ability to reverse any schema with `S.reverse` which you can later use with all possible kinds of operations. But for convinence, there's a few helper functions that can be used to convert output values to the initial format:
 
@@ -1534,12 +1534,12 @@ schema->S.name
 
 You can customise a schema name using `S.setName`.
 
-### **`removeTypeValidation`**
+### **`validation`**
 
-`S.t<'value> => S.t<'value>`
+`(S.t<'value>, bool) => S.t<'value>`
 
 ```rescript
-let schema = S.object(s => s.field("abc", S.int))->S.removeTypeValidation
+let schema = S.object(s => s.field("abc", S.int))->S.validation(false)
 
 {
   "abc": 123,
@@ -1547,7 +1547,7 @@ let schema = S.object(s => s.field("abc", S.int))->S.removeTypeValidation
 // 123
 ```
 
-Removes type validation for provided schema. Nested schemas are not affected.
+Removes validation for the provided schema. Nested schemas are not affected.
 
 This can be useful to optimise `S.object` parsing when you construct the input data yourself.
 
