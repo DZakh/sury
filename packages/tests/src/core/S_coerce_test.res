@@ -427,21 +427,20 @@ test("Coerce string to unboxed union (each item separately)", t => {
     (),
   )
 
-  // FIXME: Can be improved
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{let v1=i;if(typeof i!=="string"){e[3](i)}else{try{let v0=+i;Number.isNaN(v0)&&e[0](i);v1=v0}catch(e0){try{let v2;(v2=i==="true")||i==="false"||e[1](i);v1=v2}catch(e1){e[2]([e0,e1,])}}}return v1}`,
+    `i=>{if(typeof i==="string"){try{let v0=+i;Number.isNaN(v0)&&e[0](i);i=v0}catch(e0){try{let v1;(v1=i==="true")||i==="false"||e[1](i);i=v1}catch(e1){e[2]([e0,e1,])}}}else{e[3](i)}return i}`,
   )
 
   t->Assert.deepEqual(Number(10.)->S.reverseConvertOrThrow(schema), %raw(`"10"`), ())
   t->Assert.deepEqual(Boolean(true)->S.reverseConvertOrThrow(schema), %raw(`"true"`), ())
 
-  // FIXME: Can be improved
+  // TODO: Can be improved
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{let v0=i;if(typeof i!=="number"||Number.isNaN(i)){if(typeof i!=="boolean"){e[2](i)}else{v0=""+i}}else{v0=""+i}return v0}`,
+    `i=>{if(typeof i==="number"&&!Number.isNaN(i)){i=""+i}else if(typeof i==="boolean"){i=""+i}return i}`,
   )
 })
 
@@ -523,11 +522,11 @@ test("Coerce from string to optional bool", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{let v1=i;if(typeof i!=="string"){e[3](i)}else{try{let v0;(v0=i==="true")||i==="false"||e[0](i);v1=v0}catch(e0){try{i==="undefined"||e[1](i);v1=undefined}catch(e1){e[2]([e0,e1,])}}}return v1}`,
+    `i=>{if(typeof i==="string"){try{let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}catch(e0){try{i==="undefined"||e[1](i);i=undefined}catch(e1){e[2]([e0,e1,])}}}else{e[3](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{let v0=i;if(typeof i!=="boolean"){if(i!==void 0){e[2](i)}else{v0="undefined"}}else{v0=""+i}return v0}`,
+    `i=>{if(typeof i==="boolean"){i=""+i}else if(i===void 0){i="undefined"}return i}`,
   )
 })

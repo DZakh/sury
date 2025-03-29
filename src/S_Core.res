@@ -255,6 +255,7 @@ and internal = {
   mutable fields?: dict<item>,
   mutable name?: string,
   mutable noValidation?: bool,
+  mutable catch?: bool,
   mutable output?: unit => internal, // Optional value means that it either should reverse to self or it's already a reversed schema
   // This can also be an `internal` itself, but because of the bug https://github.com/rescript-lang/rescript/issues/7314 handle it unsafely
   @as("b")
@@ -1056,7 +1057,7 @@ module Builder = {
     and refinement = (b, ~inputVar, ~schema, ~negative) => {
       let eq = negative ? "!==" : "==="
       let and_ = negative ? "||" : "&&"
-      let not = negative ? "" : "!"
+      let not_ = negative ? "" : "!"
       let lt = negative ? ">" : "<"
       let gt = negative ? "<" : ">"
 
@@ -1068,7 +1069,7 @@ module Builder = {
         if globalConfig.disableNanNumberValidation {
           ""
         } else {
-          `${and_}${not}Number.isNaN(${inputVar})`
+          `${and_}${not_}Number.isNaN(${inputVar})`
         }
       | {tag: Object, ?additionalItems, ?items} => {
           let additionalItems = additionalItems->Stdlib.Option.unsafeUnwrap
@@ -1077,13 +1078,13 @@ module Builder = {
             if additionalItems === Strip {
               ""
             } else {
-              `${and_}${not}Array.isArray(${inputVar})`
+              `${and_}${not_}Array.isArray(${inputVar})`
             },
           )
           for idx in 0 to items->Js.Array2.length - 1 {
             let {schema, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
             let item = schema->toInternal
-            if item->isLiteral {
+            if item->isLiteral && !(item.catch->Stdlib.Option.unsafeUnwrap) {
               code :=
                 code.contents ++
                 and_ ++
@@ -1110,7 +1111,7 @@ module Builder = {
           for idx in 0 to length - 1 {
             let {schema, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
             let item = schema->toInternal
-            if item->isLiteral {
+            if item->isLiteral && !(item.catch->Stdlib.Option.unsafeUnwrap) {
               code :=
                 code.contents ++
                 and_ ++
@@ -1957,6 +1958,9 @@ module Union = {
         byTag := Js.Dict.empty()
 
       | tag =>
+        // FIXME: Put NaN before Number
+        // FIXME: Instance before object
+        // FIXME: Array before object
         switch byTag.contents->Stdlib.Dict.unsafeGetOption((tag :> string)) {
         | Some(arr) => arr->Js.Array2.push(schema)->ignore
         | None => byTag.contents->Js.Dict.set((tag :> string), [schema])
@@ -1982,35 +1986,97 @@ module Union = {
     }
 
     let nextElse = ref(false)
-
     let noop = ref("")
 
     let tags = byTag->Js.Dict.keys
     for idx in 0 to tags->Js.Array2.length - 1 {
       let tag = tags->Js.Array2.unsafe_get(idx)
       let schemas = byTag->Js.Dict.unsafeGet(tag)
-      let firstSchema = schemas->Js.Array2.unsafe_get(0)
-      let isMultiple = schemas->Js.Array2.length > 1
       let inputVar = input.var(b)
-      let condition = isMultiple
-        ? b->B.validation(
+
+      let isMultiple = schemas->Js.Array2.length > 1
+      let firstSchema = schemas->Js.Array2.unsafe_get(0)
+
+      let cond = ref("")
+
+      let body = if isMultiple {
+        let itemStart = ref("")
+        let itemEnd = ref("")
+        let itemNextElse = ref(false)
+        let itemNoop = ref("")
+        let caught = ref("")
+
+        let itemIdx = ref(0)
+        let lastIdx = schemas->Js.Array2.length - 1
+        while itemIdx.contents <= lastIdx {
+          let schema = schemas->Js.Array2.unsafe_get(itemIdx.contents)
+          let itemCond =
+            (schema->isLiteral ? b->B.validation(~inputVar, ~schema, ~negative=false) : "") ++
+            b->B.refinement(~inputVar, ~schema, ~negative=false)->Js.String2.sliceToEnd(~from=2)
+          let itemCode = b->getItemCode(~schema, ~input, ~output, ~deopt=false, ~path)
+
+          // Have a refinement and can handle the specific case
+          if itemCond->Stdlib.String.unsafeToBool {
+            if itemCode->Stdlib.String.unsafeToBool {
+              let if_ = itemNextElse.contents ? "else if" : "if"
+              itemStart := itemStart.contents ++ if_ ++ `(${itemCond}){${itemCode}}`
+              itemNextElse := true
+            } else {
+              itemNoop := (
+                  itemNoop.contents->Stdlib.String.unsafeToBool
+                    ? `${itemNoop.contents}||${itemCond}`
+                    : itemCond
+                )
+            }
+          } // The item without refinement should switch to deopt mode
+          // Since there might be validation in the body
+          else if itemCode->Stdlib.String.unsafeToBool {
+            itemNextElse := false
+            let errorVar = `e` ++ itemIdx.contents->Stdlib.Int.unsafeToString
+            // FIXME: Should have else
+            itemStart := itemStart.contents ++ `try{${itemCode}}catch(${errorVar}){`
+            itemEnd := "}" ++ itemEnd.contents
+            caught := `${caught.contents}${errorVar},`
+            if itemIdx.contents === lastIdx {
+              itemStart :=
+                itemStart.contents ++
+                b->B.failWithArg(~path, errors => InvalidUnion(errors), `[${caught.contents}]`)
+            }
+          } else {
+            // If there's no body, we immideately finish.
+            // Even if there might be other items, this case is always valid
+            itemIdx := lastIdx
+          }
+          itemIdx := itemIdx.contents->Stdlib.Int.plus(1)
+        }
+
+        let baseCond =
+          b->B.validation(
             ~inputVar,
-            ~schema={tag: firstSchema.tag, builder: %raw(`0`)},
+            ~schema={tag: tag->(Obj.magic: string => typeTag), builder: %raw(`0`)},
             ~negative=false,
           )
-        : b->B.validation(~inputVar, ~schema=firstSchema, ~negative=false) ++
+        cond := (
+            itemNoop.contents->Stdlib.String.unsafeToBool
+              ? `${baseCond}&&(${itemNoop.contents})`
+              : baseCond
+          )
+
+        itemStart.contents ++ itemEnd.contents
+      } else {
+        cond :=
+          b->B.validation(~inputVar, ~schema=firstSchema, ~negative=false) ++
             b->B.refinement(~inputVar, ~schema=firstSchema, ~negative=false)
+        b->getItemCode(~schema=firstSchema, ~input, ~output, ~deopt=false, ~path)
+      }
+      let cond = cond.contents
 
-      let itemCode = b->getItemCode(~schema=firstSchema, ~input, ~output, ~deopt=false, ~path)
-
-      if itemCode->Stdlib.String.unsafeToBool {
+      if body->Stdlib.String.unsafeToBool {
         let if_ = nextElse.contents ? "else if" : "if"
-        start := start.contents ++ if_ ++ `(${condition}){${itemCode}}`
+        start := start.contents ++ if_ ++ `(${cond}){${body}}`
         nextElse := true
       } else {
-        noop := (
-            noop.contents->Stdlib.String.unsafeToBool ? `${noop.contents}||${condition}` : condition
-          )
+        noop := (noop.contents->Stdlib.String.unsafeToBool ? `${noop.contents}||${cond}` : cond)
       }
     }
 
@@ -2810,6 +2876,7 @@ let catch = (schema, getFallbackValue) => {
     )
   })
   mut.noValidation = Some(true)
+  mut.catch = Some(true)
   mut->toStandard
 }
 
