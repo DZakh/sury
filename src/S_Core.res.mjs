@@ -696,23 +696,26 @@ function validation(b, inputVar, schema, negative) {
   }
 }
 
-function refinement(b, inputVar, schema) {
-  var and_ = "||";
-  var eq = "!==";
+function refinement(b, inputVar, schema, negative) {
+  var eq = negative ? "!==" : "===";
+  var and_ = negative ? "||" : "&&";
+  var not = negative ? "" : "!";
+  var lt = negative ? ">" : "<";
+  var gt = negative ? "<" : ">";
   var match = schema.type;
   var match$1 = schema.const;
   if (match$1 !== undefined) {
     return "";
   }
   if (schema.format !== undefined) {
-    return and_ + inputVar + ">2147483647" + and_ + inputVar + "<-2147483648" + and_ + inputVar + "%1" + eq + "0";
+    return and_ + inputVar + lt + "2147483647" + and_ + inputVar + gt + "-2147483648" + and_ + inputVar + "%1" + eq + "0";
   }
   switch (match) {
     case "number" :
         if (globalConfig.n) {
           return "";
         } else {
-          return and_ + "Number.isNaN(" + inputVar + ")";
+          return and_ + not + "Number.isNaN(" + inputVar + ")";
         }
     case "array" :
         var additionalItems = schema.additionalItems;
@@ -720,13 +723,13 @@ function refinement(b, inputVar, schema) {
         var length = items.length;
         var code;
         code = additionalItems === "strip" || additionalItems === "strict" ? (
-            additionalItems === "strip" ? and_ + inputVar + ".length<" + length : and_ + inputVar + ".length" + eq + length
+            additionalItems === "strip" ? and_ + inputVar + ".length" + gt + length : and_ + inputVar + ".length" + eq + length
           ) : "";
         for(var idx = 0; idx < length; ++idx){
           var match$2 = items[idx];
           var schema$1 = match$2.schema;
           if (isLiteral(schema$1)) {
-            code = code + and_ + validation(b, inputVar + ("[" + match$2.inlinedLocation + "]"), schema$1, true);
+            code = code + and_ + validation(b, inputVar + ("[" + match$2.inlinedLocation + "]"), schema$1, negative);
           }
           
         }
@@ -734,12 +737,12 @@ function refinement(b, inputVar, schema) {
     case "object" :
         var additionalItems$1 = schema.additionalItems;
         var items$1 = schema.items;
-        var code$1 = additionalItems$1 === "strip" ? "" : and_ + "Array.isArray(" + inputVar + ")";
+        var code$1 = additionalItems$1 === "strip" ? "" : and_ + not + "Array.isArray(" + inputVar + ")";
         for(var idx$1 = 0 ,idx_finish = items$1.length; idx$1 < idx_finish; ++idx$1){
           var match$3 = items$1[idx$1];
           var schema$2 = match$3.schema;
           if (isLiteral(schema$2)) {
-            code$1 = code$1 + and_ + validation(b, inputVar + ("[" + match$3.inlinedLocation + "]"), schema$2, true);
+            code$1 = code$1 + and_ + validation(b, inputVar + ("[" + match$3.inlinedLocation + "]"), schema$2, negative);
           }
           
         }
@@ -763,7 +766,7 @@ function typeFilterCode(b, schema, input, path) {
         return "";
     default:
       var inputVar = input.v(b);
-      return "if(" + validation(b, inputVar, schema, true) + refinement(b, inputVar, schema) + "){" + failWithArg(b, path, (function (input) {
+      return "if(" + validation(b, inputVar, schema, true) + refinement(b, inputVar, schema, true) + "){" + failWithArg(b, path, (function (input) {
                     return {
                             TAG: "InvalidType",
                             expected: schema,
@@ -1414,78 +1417,89 @@ function getItemCode(b, schema, input, output, deopt, path) {
 
 function builder$1(b, input, selfSchema, path) {
   var schemas = selfSchema.anyOf;
-  var deoptIdx = {
-    contents: -1
-  };
-  var counter = {};
+  var deoptIdx = -1;
+  var byTag = {};
   for(var idx = 0 ,idx_finish = schemas.length; idx < idx_finish; ++idx){
     var schema = schemas[idx];
-    var v = schema.type;
-    switch (v) {
+    var tag = schema.type;
+    var exit = 0;
+    switch (tag) {
       case "never" :
       case "unknown" :
       case "union" :
       case "json" :
-          deoptIdx.contents = idx;
+          exit = 1;
           break;
       default:
-        var c = counter[v];
-        counter[v] = c !== undefined ? c + 1 : 1;
+        var arr = byTag[tag];
+        if (arr !== undefined) {
+          arr.push(schema);
+        } else {
+          byTag[tag] = [schema];
+        }
+    }
+    if (exit === 1) {
+      deoptIdx = idx;
+      byTag = {};
+    }
+    
+  }
+  var deoptIdx$1 = deoptIdx;
+  var byTag$1 = byTag;
+  var start = "";
+  var end = "";
+  var caught = "";
+  if (deoptIdx$1 !== -1) {
+    for(var idx$1 = 0; idx$1 <= deoptIdx$1; ++idx$1){
+      var schema$1 = schemas[idx$1];
+      var itemCode = getItemCode(b, schema$1, input, input, true, path);
+      var errorVar = "e" + idx$1;
+      start = start + ("try{" + itemCode + "}catch(" + errorVar + "){");
+      end = "}" + end;
+      caught = caught + errorVar + ",";
     }
   }
-  var loop = function (_code, _idx, caught, noopItems) {
-    while(true) {
-      var idx = _idx;
-      var code = _code;
-      var deopt = idx <= deoptIdx.contents;
-      var isStart = deopt || code === "";
-      if (idx === schemas.length) {
-        if (!(b.g.o & 1)) {
-          return code;
-        }
-        var errorCode = failWithArg(b, path, (function (received) {
-                return {
-                        TAG: "InvalidType",
-                        expected: selfSchema,
-                        received: received
-                      };
-              }), input.v(b));
-        var noopItemsN = noopItems.length;
-        var tmp;
-        if (noopItemsN) {
-          var c = !isStart && noopItemsN < schemas.length ? "else " : "";
-          c = c + "if(!(";
-          for(var idx$1 = 0 ,idx_finish = noopItems.length; idx$1 < idx_finish; ++idx$1){
-            var schema = noopItems[idx$1];
-            c = c + (
-              idx$1 ? "||" : ""
-            ) + validation(b, input.v(b), schema, false);
-          }
-          tmp = c + (")){" + errorCode + "}");
-        } else {
-          tmp = deopt ? errorCode : "else{" + errorCode + "}";
-        }
-        return code + tmp;
-      }
-      var schema$1 = schemas[idx];
-      var itemCode = getItemCode(b, schema$1, input, input, deopt, path);
-      if (deopt) {
-        var errorVar = "e" + idx;
-        return "try{" + itemCode + "}catch(" + errorVar + "){" + loop("", idx + 1 | 0, caught + errorVar + ",", noopItems) + "}";
-      }
-      if (itemCode === "") {
-        noopItems.push(schema$1);
-        _idx = idx + 1 | 0;
-        continue ;
-      }
-      _idx = idx + 1 | 0;
-      _code = code + (
-        isStart ? "" : "else "
-      ) + ("if(" + validation(b, input.v(b), schema$1, false) + "){" + itemCode + "}");
-      continue ;
-    };
-  };
-  b.c = b.c + loop("", 0, "", []);
+  var nextElse = false;
+  var noop = "";
+  var tags = Object.keys(byTag$1);
+  for(var idx$2 = 0 ,idx_finish$1 = tags.length; idx$2 < idx_finish$1; ++idx$2){
+    var tag$1 = tags[idx$2];
+    var schemas$1 = byTag$1[tag$1];
+    var firstSchema = schemas$1[0];
+    var isMultiple = schemas$1.length > 1;
+    var inputVar = input.v(b);
+    var condition = isMultiple ? validation(b, inputVar, {
+            type: firstSchema.type,
+            b: 0
+          }, false) : validation(b, inputVar, firstSchema, false) + refinement(b, inputVar, firstSchema, false);
+    var itemCode$1 = getItemCode(b, firstSchema, input, input, false, path);
+    if (itemCode$1) {
+      var if_ = nextElse ? "else if" : "if";
+      start = start + if_ + ("(" + condition + "){" + itemCode$1 + "}");
+      nextElse = true;
+    } else {
+      noop = noop ? noop + "||" + condition : condition;
+    }
+  }
+  if (b.g.o & 1) {
+    var inputVar$1 = input.v(b);
+    var errorCode = failWithArg(b, path, (function (received) {
+            return {
+                    TAG: "InvalidType",
+                    expected: selfSchema,
+                    received: received
+                  };
+          }), inputVar$1);
+    var tmp;
+    if (noop) {
+      var if_$1 = nextElse ? "else if" : "if";
+      tmp = if_$1 + ("(!(" + noop + ")){" + errorCode + "}");
+    } else {
+      tmp = nextElse ? "else{" + errorCode + "}" : errorCode;
+    }
+    start = start + tmp;
+  }
+  b.c = b.c + start + end;
   if (input.a) {
     return {
             b: b,
@@ -1971,7 +1985,7 @@ function coerce(from, to) {
                         };
                         var outputVar = output.v(b);
                         b.c = b.c + (
-                          format !== undefined ? "(" + refinement(b, outputVar, to).slice(2) + ")" : "Number.isNaN(" + outputVar + ")"
+                          format !== undefined ? "(" + refinement(b, outputVar, to, true).slice(2) + ")" : "Number.isNaN(" + outputVar + ")"
                         ) + ("&&" + failCoercion + ";");
                         return output;
                       });
@@ -2448,6 +2462,87 @@ function output$1() {
   }
 }
 
+function nested(fieldName) {
+  var parentCtx = this;
+  var cacheId = "~" + fieldName;
+  var ctx = parentCtx[cacheId];
+  if (ctx !== undefined) {
+    return Caml_option.valFromOption(ctx);
+  }
+  var schemas = [];
+  var fields = {};
+  var items = [];
+  var schema = toStandard({
+        type: "object",
+        additionalItems: globalConfig.a,
+        items: items,
+        fields: fields,
+        output: output$1,
+        b: builder$2
+      });
+  var target = parentCtx.f(fieldName, schema)[itemSymbol];
+  var field = function (fieldName, schema) {
+    var inlinedLocation = fromString(fieldName);
+    if (fields[fieldName]) {
+      throw new Error("[" + vendor + "] " + ("The field " + inlinedLocation + " defined twice"));
+    }
+    var ditem_2 = schema;
+    var ditem_4 = "[" + inlinedLocation + "]";
+    var ditem = {
+      k: 1,
+      inlinedLocation: inlinedLocation,
+      location: fieldName,
+      schema: ditem_2,
+      of: target,
+      p: ditem_4
+    };
+    fields[fieldName] = ditem;
+    items.push(ditem);
+    schemas.push(schema);
+    return proxify(ditem);
+  };
+  var tag = function (tag$1, asValue) {
+    field(tag$1, definitionToSchema(asValue));
+  };
+  var fieldOr = function (fieldName, schema, or) {
+    return field(fieldName, getOr(factory$1(schema), or));
+  };
+  var flatten = function (schema) {
+    var match = schema.type;
+    if (match === "object") {
+      var flattenedItems = schema.items;
+      if (schema.advanced) {
+        var message = "Unsupported nested flatten for advanced object schema '" + name(schema) + "'";
+        throw new Error("[" + vendor + "] " + message);
+      }
+      var match$1 = reverse(schema);
+      var match$2 = match$1.type;
+      if (match$2 === "object" && match$1.advanced !== true) {
+        var result = {};
+        for(var idx = 0 ,idx_finish = flattenedItems.length; idx < idx_finish; ++idx){
+          var item = flattenedItems[idx];
+          result[item.location] = field(item.location, item.schema);
+        }
+        return result;
+      }
+      var message$1 = "Unsupported nested flatten for transformed schema '" + name(schema) + "'";
+      throw new Error("[" + vendor + "] " + message$1);
+    }
+    var message$2 = "The '" + name(schema) + "' schema can't be flattened";
+    throw new Error("[" + vendor + "] " + message$2);
+  };
+  var ctx$1 = {
+    field: field,
+    f: field,
+    fieldOr: fieldOr,
+    tag: tag,
+    nested: nested,
+    flatten: flatten
+  };
+  parentCtx[cacheId] = ctx$1;
+  return ctx$1;
+}
+
 function definitionToSchema(definition) {
   if (!(typeof definition === "object" && definition !== null)) {
     return parse(definition);
@@ -2598,87 +2693,6 @@ function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
           },
           a: false
         };
-}
-
-function nested(fieldName) {
-  var parentCtx = this;
-  var cacheId = "~" + fieldName;
-  var ctx = parentCtx[cacheId];
-  if (ctx !== undefined) {
-    return Caml_option.valFromOption(ctx);
-  }
-  var schemas = [];
-  var fields = {};
-  var items = [];
-  var schema = toStandard({
-        type: "object",
-        additionalItems: globalConfig.a,
-        items: items,
-        fields: fields,
-        output: output$1,
-        b: builder$2
-      });
-  var target = parentCtx.f(fieldName, schema)[itemSymbol];
-  var field = function (fieldName, schema) {
-    var inlinedLocation = fromString(fieldName);
-    if (fields[fieldName]) {
-      throw new Error("[" + vendor + "] " + ("The field " + inlinedLocation + " defined twice"));
-    }
-    var ditem_2 = schema;
-    var ditem_4 = "[" + inlinedLocation + "]";
-    var ditem = {
-      k: 1,
-      inlinedLocation: inlinedLocation,
-      location: fieldName,
-      schema: ditem_2,
-      of: target,
-      p: ditem_4
-    };
-    fields[fieldName] = ditem;
-    items.push(ditem);
-    schemas.push(schema);
-    return proxify(ditem);
-  };
-  var tag = function (tag$1, asValue) {
-    field(tag$1, definitionToSchema(asValue));
-  };
-  var fieldOr = function (fieldName, schema, or) {
-    return field(fieldName, getOr(factory$1(schema), or));
-  };
-  var flatten = function (schema) {
-    var match = schema.type;
-    if (match === "object") {
-      var flattenedItems = schema.items;
-      if (schema.advanced) {
-        var message = "Unsupported nested flatten for advanced object schema '" + name(schema) + "'";
-        throw new Error("[" + vendor + "] " + message);
-      }
-      var match$1 = reverse(schema);
-      var match$2 = match$1.type;
-      if (match$2 === "object" && match$1.advanced !== true) {
-        var result = {};
-        for(var idx = 0 ,idx_finish = flattenedItems.length; idx < idx_finish; ++idx){
-          var item = flattenedItems[idx];
-          result[item.location] = field(item.location, item.schema);
-        }
-        return result;
-      }
-      var message$1 = "Unsupported nested flatten for transformed schema '" + name(schema) + "'";
-      throw new Error("[" + vendor + "] " + message$1);
-    }
-    var message$2 = "The '" + name(schema) + "' schema can't be flattened";
-    throw new Error("[" + vendor + "] " + message$2);
-  };
-  var ctx$1 = {
-    field: field,
-    f: field,
-    fieldOr: fieldOr,
-    tag: tag,
-    nested: nested,
-    flatten: flatten
-  };
-  parentCtx[cacheId] = ctx$1;
-  return ctx$1;
 }
 
 function advancedReverse(definition, to, flattened) {

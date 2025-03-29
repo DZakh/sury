@@ -86,7 +86,10 @@ module Stdlib = {
     }
 
     external unsafeToString: int => string = "%identity"
-    external unsafeToBool: int => bool = "%identity"
+  }
+
+  module String = {
+    external unsafeToBool: string => bool = "%identity"
   }
 
   module Dict = {
@@ -1050,19 +1053,22 @@ module Builder = {
       | {tag, const: ?_} => `typeof ${inputVar}${eq}"${(tag :> string)}"`
       }
     }
-    and refinement = (b, ~inputVar, ~schema) => {
-      let and_ = "||"
-      let eq = "!=="
+    and refinement = (b, ~inputVar, ~schema, ~negative) => {
+      let eq = negative ? "!==" : "==="
+      let and_ = negative ? "||" : "&&"
+      let not = negative ? "" : "!"
+      let lt = negative ? ">" : "<"
+      let gt = negative ? "<" : ">"
 
       switch schema {
       | {const: _} => ""
       | {format: Int32} =>
-        `${and_}${inputVar}>2147483647${and_}${inputVar}<-2147483648${and_}${inputVar}%1${eq}0`
+        `${and_}${inputVar}${lt}2147483647${and_}${inputVar}${gt}-2147483648${and_}${inputVar}%1${eq}0`
       | {tag: Number} =>
         if globalConfig.disableNanNumberValidation {
           ""
         } else {
-          `${and_}Number.isNaN(${inputVar})`
+          `${and_}${not}Number.isNaN(${inputVar})`
         }
       | {tag: Object, ?additionalItems, ?items} => {
           let additionalItems = additionalItems->Stdlib.Option.unsafeUnwrap
@@ -1071,7 +1077,7 @@ module Builder = {
             if additionalItems === Strip {
               ""
             } else {
-              `${and_}Array.isArray(${inputVar})`
+              `${and_}${not}Array.isArray(${inputVar})`
             },
           )
           for idx in 0 to items->Js.Array2.length - 1 {
@@ -1084,7 +1090,7 @@ module Builder = {
                 b->validation(
                   ~inputVar=Path.concat(inputVar, Path.fromInlinedLocation(inlinedLocation)),
                   ~schema=item,
-                  ~negative=true,
+                  ~negative,
                 )
             }
           }
@@ -1097,7 +1103,7 @@ module Builder = {
           let code = ref(
             switch additionalItems {
             | Strict => `${and_}${inputVar}.length${eq}${length->Stdlib.Int.unsafeToString}`
-            | Strip => `${and_}${inputVar}.length<${length->Stdlib.Int.unsafeToString}`
+            | Strip => `${and_}${inputVar}.length${gt}${length->Stdlib.Int.unsafeToString}`
             | Schema(_) => ""
             },
           )
@@ -1111,7 +1117,7 @@ module Builder = {
                 b->validation(
                   ~inputVar=Path.concat(inputVar, Path.fromInlinedLocation(inlinedLocation)),
                   ~schema=item,
-                  ~negative=true,
+                  ~negative,
                 )
             }
           }
@@ -1130,6 +1136,7 @@ module Builder = {
           `if(${b->validation(~inputVar, ~schema, ~negative=true)}${b->refinement(
               ~schema,
               ~inputVar,
+              ~negative=true,
             )}){${b->failWithArg(
               ~path,
               input => InvalidType({
@@ -1938,7 +1945,7 @@ module Union = {
     let output = input
 
     let deoptIdx = ref(-1)
-    let counter = Js.Dict.empty()
+    let byTag = ref(Js.Dict.empty())
     for idx in 0 to schemas->Js.Array2.length - 1 {
       let schema = schemas->Js.Array2.unsafe_get(idx)
       switch schema.tag {
@@ -1947,98 +1954,91 @@ module Union = {
       | Unknown
       | Never =>
         deoptIdx := idx
-      | v => {
-          let key = (v :> string)
-          counter->Js.Dict.set(
-            key,
-            switch counter->Stdlib.Dict.unsafeGetOption(key) {
-            | Some(c) => c->Stdlib.Int.plus(1)
-            | None => 1
-            },
-          )
+        byTag := Js.Dict.empty()
+
+      | tag =>
+        switch byTag.contents->Stdlib.Dict.unsafeGetOption((tag :> string)) {
+        | Some(arr) => arr->Js.Array2.push(schema)->ignore
+        | None => byTag.contents->Js.Dict.set((tag :> string), [schema])
         }
       }
     }
+    let deoptIdx = deoptIdx.contents
+    let byTag = byTag.contents
 
-    // FIXME: It won't work with validation
-    let rec loop = (code, ~idx, ~caught, ~noopItems) => {
-      let deopt = idx <= deoptIdx.contents
-      let isStart = deopt || code === ""
-      if idx === schemas->Js.Array2.length {
-        if b.global.flag->Flag.unsafeHas(Flag.typeValidation) {
-          // FIXME: Include caught errors
-          let errorCode = b->B.failWithArg(
-            ~path,
-            received => InvalidType({
-              expected: selfSchema->fromInternal,
-              received,
-            }),
-            input.var(b),
-          )
+    let start = ref("")
+    let end = ref("")
+    let caught = ref("")
 
-          let noopItemsN = noopItems->Js.Array2.length
-          code ++ if noopItemsN->Stdlib.Int.unsafeToBool {
-            let c = ref(
-              if !isStart && noopItemsN < schemas->Js.Array2.length {
-                `else `
-              } else {
-                ""
-              },
-            )
-
-            c := c.contents ++ `if(!(`
-            for idx in 0 to noopItems->Js.Array2.length - 1 {
-              let schema = noopItems->Js.Array2.unsafe_get(idx)
-              c :=
-                c.contents ++
-                (idx->Stdlib.Int.unsafeToBool ? "||" : "") ++
-                // FIXME: Ensure that Array is checked before Object
-                // FIXME: NaN literal before number
-                b->B.validation(~inputVar=input.var(b), ~schema, ~negative=false)
-            }
-            c.contents ++ `)){${errorCode}}`
-          } else if deopt {
-            errorCode
-          } else {
-            `else{${errorCode}}`
-          }
-        } else {
-          code
-        }
-      } else {
+    if deoptIdx !== -1 {
+      for idx in 0 to deoptIdx {
         let schema = schemas->Js.Array2.unsafe_get(idx)
-        let itemCode = b->getItemCode(~schema, ~input, ~output, ~deopt, ~path)
-
-        // Deopt to try/catch when we can't rely on type validation
-        if deopt {
-          let errorVar = `e` ++ idx->Stdlib.Int.unsafeToString
-          `try{${itemCode}}catch(${errorVar}){${loop(
-              "",
-              ~idx=idx + 1,
-              ~caught=caught ++ errorVar ++ ",",
-              ~noopItems,
-            )}}`
-        } // FIXME: Nested loop when found a type duplicate
-
-        // Item doesn't transform, so we can easily group it with
-        // other noop items
-        else if itemCode === "" {
-          noopItems->Js.Array2.push(schema)->ignore
-          loop(code, ~idx=idx + 1, ~caught, ~noopItems)
-        } else {
-          loop(
-            code ++
-            (isStart ? "" : "else ") ++
-            `if(${b->B.validation(~inputVar=input.var(b), ~schema, ~negative=false)}){${itemCode}}`,
-            ~idx=idx + 1,
-            ~caught,
-            ~noopItems,
-          )
-        }
+        let itemCode = b->getItemCode(~schema, ~input, ~output, ~deopt=true, ~path)
+        let errorVar = `e` ++ idx->Stdlib.Int.unsafeToString
+        start := start.contents ++ `try{${itemCode}}catch(${errorVar}){`
+        end := "}" ++ end.contents
+        caught := `${caught.contents}${errorVar},`
       }
     }
 
-    b.code = b.code ++ loop("", ~idx=0, ~caught="", ~noopItems=[])
+    let nextElse = ref(false)
+
+    let noop = ref("")
+
+    let tags = byTag->Js.Dict.keys
+    for idx in 0 to tags->Js.Array2.length - 1 {
+      let tag = tags->Js.Array2.unsafe_get(idx)
+      let schemas = byTag->Js.Dict.unsafeGet(tag)
+      let firstSchema = schemas->Js.Array2.unsafe_get(0)
+      let isMultiple = schemas->Js.Array2.length > 1
+      let inputVar = input.var(b)
+      let condition = isMultiple
+        ? b->B.validation(
+            ~inputVar,
+            ~schema={tag: firstSchema.tag, builder: %raw(`0`)},
+            ~negative=false,
+          )
+        : b->B.validation(~inputVar, ~schema=firstSchema, ~negative=false) ++
+            b->B.refinement(~inputVar, ~schema=firstSchema, ~negative=false)
+
+      let itemCode = b->getItemCode(~schema=firstSchema, ~input, ~output, ~deopt=false, ~path)
+
+      if itemCode->Stdlib.String.unsafeToBool {
+        let if_ = nextElse.contents ? "else if" : "if"
+        start := start.contents ++ if_ ++ `(${condition}){${itemCode}}`
+        nextElse := true
+      } else {
+        noop := (
+            noop.contents->Stdlib.String.unsafeToBool ? `${noop.contents}||${condition}` : condition
+          )
+      }
+    }
+
+    if b.global.flag->Flag.unsafeHas(Flag.typeValidation) {
+      let inputVar = input.var(b)
+
+      // FIXME: Include caught errors
+      let errorCode = b->B.failWithArg(
+        ~path,
+        received => InvalidType({
+          expected: selfSchema->fromInternal,
+          received,
+        }),
+        inputVar,
+      )
+
+      start :=
+        start.contents ++ if noop.contents->Stdlib.String.unsafeToBool {
+          let if_ = nextElse.contents ? "else if" : "if"
+          if_ ++ `(!(${noop.contents})){${errorCode}}`
+        } else if nextElse.contents {
+          `else{${errorCode}}`
+        } else {
+          errorCode
+        }
+    }
+
+    b.code = b.code ++ start.contents ++ end.contents
 
     if output.isAsync {
       b->B.asyncVal(`Promise.resolve(${output.inline})`)
@@ -2579,7 +2579,7 @@ let rec coerce = (from, to) => {
               | None => `Number.isNaN(${outputVar})`
               | Some(Int32) =>
                 `(${b
-                  ->B.refinement(~inputVar=outputVar, ~schema=to)
+                  ->B.refinement(~inputVar=outputVar, ~schema=to, ~negative=true)
                   ->Js.String2.sliceToEnd(~from=2)})`
               } ++
               `&&${failCoercion};`

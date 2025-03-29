@@ -170,7 +170,7 @@ test("Ensures parsing order with unknown schema", t => {
   )
 })
 
-test("Parses when second struct misses parser", t => {
+test("Parses when second schema misses parser", t => {
   let schema = S.union([S.literal(#apple), S.string->S.transform(_ => {serializer: _ => "apple"})])
 
   t->Assert.deepEqual("apple"->S.parseOrThrow(schema), #apple, ())
@@ -178,7 +178,7 @@ test("Parses when second struct misses parser", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(i!=="apple"){if(typeof i!=="string"){e[1](i)}else{throw e[0]}}return i}`,
+    `i=>{if(!(i==="apple")){if(typeof i==="string"){throw e[0]}else{e[1](i)}}return i}`,
   )
 })
 
