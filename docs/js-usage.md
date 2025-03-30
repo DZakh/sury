@@ -452,15 +452,12 @@ Checkout the compiled code yourself:
   for (let v0 = 0; v0 < i.length; ++v0) {
     let v3 = i[v0];
     try {
-      let v4 = v3["name"],
-        v5;
-      if (v4 !== void 0) {
-        v5 = v4;
-      } else {
-        v5 = null;
+      let v4 = v3["name"];
+      if (v4 === void 0) {
+        v4 = null;
       }
       v1[0][v0] = v3["id"];
-      v1[1][v0] = v5;
+      v1[1][v0] = v4;
       v1[2][v0] = v3["deleted"];
     } catch (v2) {
       if (v2 && v2.s === s) {

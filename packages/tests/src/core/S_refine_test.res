@@ -114,7 +114,7 @@ module Issue79 = {
       ~op=#Parse,
       `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["myField"];if(!(typeof v0==="string"||v0===void 0||v0===null)){e[0](v0)}e[1](v0);return v0}`,
     )
-    t->U.assertCompiledCode(~schema, ~op=#Convert, `i=>{let v0=i["myField"];e[0](v0);return v0}`)
+    t->U.assertCompiledCode(~schema, ~op=#Convert, `i=>{let v1;v1=i["myField"];e[0](v1);return v1}`)
 
     t->Assert.deepEqual(jsonString->S.parseJsonStringOrThrow(schema), Value("test"), ())
   })

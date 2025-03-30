@@ -1100,7 +1100,7 @@ module Builder = {
         }
       | {tag: Array, ?additionalItems, ?items} => {
           let additionalItems = additionalItems->Stdlib.Option.unsafeUnwrap
-          let items = schema.items->Stdlib.Option.unsafeUnwrap
+          let items = items->Stdlib.Option.unsafeUnwrap
           let length = items->Js.Array2.length
           let code = ref(
             switch additionalItems {
@@ -1949,6 +1949,7 @@ module Union = {
 
     // FIXME: Test with async
     let output = input
+    let initialInline = input.inline
 
     let deoptIdx = ref(-1)
     let byTag = ref(Js.Dict.empty())
@@ -2144,12 +2145,28 @@ module Union = {
     if output.isAsync {
       b->B.asyncVal(`Promise.resolve(${output.inline})`)
     } else if output.var === B._var {
-      // Don't break the logic to determine
-      // whether the output is changed
       // TODO: Think how to make it more robust
-      {
-        ...output,
-        b,
+      // Recreate to not break the logic to determine
+      // whether the output is changed
+
+      // Use output.b instead of b because of withCatch
+      // Should refactor withCatch to make it simpler
+      // All of this is a hack to make withCatch think that there are no changes. eg S.array(S.option(item))
+      if (
+        b.code === "" &&
+        output.b.code === "" &&
+        (output.b.varsAllocation === `${output.inline}=${initialInline}` || initialInline === "i")
+      ) {
+        output.b.varsAllocation = ""
+        output.b.allocate = B.initialAllocate
+        output.var = B._notVar
+        output.inline = initialInline
+        output
+      } else {
+        {
+          ...output,
+          b: output.b,
+        }
       }
     } else {
       output

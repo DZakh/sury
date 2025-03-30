@@ -111,8 +111,7 @@ test("Case with missing item at the end", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    // FIXME: union (S.option) shouldn't lead to a try/catch
-    `i=>{let v1=[new Array(i.length),new Array(i.length),];for(let v0=0;v0<i.length;++v0){let v3=i[v0];try{let v4=v3["foo"];v1[0][v0]=v4;v1[1][v0]=v3["bar"];}catch(v2){if(v2&&v2.s===s){v2.path=""+\'["\'+v0+\'"]\'+v2.path}throw v2}}return v1}`,
+    `i=>{let v1=[new Array(i.length),new Array(i.length),];for(let v0=0;v0<i.length;++v0){let v3=i[v0];v1[0][v0]=v3["foo"];v1[1][v0]=v3["bar"];}return v1}`,
   )
 
   t->Assert.deepEqual(

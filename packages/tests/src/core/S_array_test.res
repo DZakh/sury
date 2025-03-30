@@ -66,7 +66,7 @@ module CommonWithNested = {
     )
   })
 
-  Only.test("Compiled serialize code snapshot", t => {
+  test("Compiled serialize code snapshot", t => {
     let schema = S.array(S.string)
     t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
 
