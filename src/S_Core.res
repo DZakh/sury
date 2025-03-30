@@ -236,7 +236,7 @@ type rec t<'value> =
   | @as("function") Function({const?: Js.Types.function_val})
   | @as("instance") Instance({const?: Js.Types.obj_val})
   | @as("array") Array({items: array<item>, additionalItems: additionalItems})
-  | @as("object") Object({items: array<item>, fields: dict<item>, additionalItems: additionalItems}) // FIXME: Add const for Object and Tuple
+  | @as("object") Object({items: array<item>, fields: dict<item>, additionalItems: additionalItems}) // TODO: Add const for Object and Tuple
   | @as("union") Union({anyOf: array<t<unknown>>, has: has})
   | @as("json") JSON({}) // FIXME: Remove it in favor of Union
 @unboxed and additionalItems = | ...additionalItemsMode | Schema(t<unknown>)
@@ -248,7 +248,7 @@ and internal = {
   mutable const?: char, // use char to avoid Caml_option.some
   format?: internalFormat,
   has?: dict<bool>,
-  advanced?: bool, // FIXME: Should rename it?
+  advanced?: bool, // TODO: Rename/remove it when have a chance
   mutable anyOf?: array<internal>,
   mutable additionalItems?: additionalItems,
   mutable items?: array<item>,
@@ -380,7 +380,7 @@ let globalConfig = {
 
 module InternalError = {
   %%raw(`
-    class RescriptSchemaError extends Error {
+    class SchemaError extends Error {
       constructor(code, flag, path) {
         super();
         this.flag = flag;
@@ -390,7 +390,7 @@ module InternalError = {
         this.RE_EXN_ID = Raised;
         this._1 = this;
         this.Error = this;
-        this.name = "RescriptSchemaError";
+        this.name = "SchemaError";
       }
       get message() {
         return message(this);
@@ -402,7 +402,7 @@ module InternalError = {
   `)
 
   @new
-  external make: (~code: errorCode, ~flag: int, ~path: Path.t) => error = "RescriptSchemaError"
+  external make: (~code: errorCode, ~flag: int, ~path: Path.t) => error = "SchemaError"
 
   let getOrRethrow = (exn: exn) => {
     if %raw("exn&&exn.s===symbol") {
@@ -570,7 +570,7 @@ let rec name = schema => {
 
 module Error = {
   type class
-  let class: class = %raw("RescriptSchemaError")
+  let class: class = %raw("SchemaError")
 
   let make = InternalError.make
 
@@ -3707,7 +3707,6 @@ module Schema = {
         }
 
       let tag = (idx, asValue) => {
-        // FIXME: Strict when user passed a schema
         let _ = item(idx, definitionToSchema(asValue->Obj.magic)->fromInternal)
       }
 

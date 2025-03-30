@@ -90,7 +90,7 @@ test("Successfully parses when tuple is destructured", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(i!==e[0]&&(!Array.isArray(i)||i.length!==2||i[0]!==true||i[1]!==12)){e[1](i)}return i["1"]}`,
+    `i=>{if(!Array.isArray(i)||i.length!==2||i["0"]!==true||i["1"]!==12){e[0](i)}return i["1"]}`,
   )
 })
 
@@ -319,7 +319,11 @@ test(
 
     t->Assert.deepEqual(#foo->S.reverseConvertOrThrow(schema), %raw(`[true,12]`), ())
 
-    t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{if(i!=="foo"){e[1](i)}return e[0]}`)
+    t->U.assertCompiledCode(
+      ~schema,
+      ~op=#ReverseConvert,
+      `i=>{if(i!=="foo"){e[2](i)}return [e[0],e[1],]}`,
+    )
   },
 )
 

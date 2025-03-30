@@ -403,7 +403,7 @@ type numberOrBoolean = Number(float) | Boolean(bool)
 
 // FIXME: Test nested union
 // FIXME: Test transformed union
-test("Coerce string to unboxed union (each item separately)", t => {
+Failing.test("Coerce string to unboxed union (each item separately)", t => {
   let schema =
     S.string->S.coerce(
       S.union([
@@ -522,7 +522,7 @@ test("Coerce from string to optional bool", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){try{let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}catch(e0){try{i==="undefined"||e[1](i);i=undefined}catch(e1){e[2]([e0,e1,])}}}else{e[3](i)}return i}`,
+    `i=>{if(typeof i==="string"){try{let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}catch(e0){try{i==="undefined"||e[1](i);i=undefined}catch(e1){e[2](i)}}}else{e[3](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,

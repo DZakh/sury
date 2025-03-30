@@ -1574,13 +1574,13 @@ try true->S.parseOrThrow(schema) catch {
 
 `(~code: S.errorCode, ~flag: S.flag, ~path: S.Path.t) => S.error`
 
-Creates an instance of `RescriptSchemaError` error. At the same time it's the `S.Raised` exception.
+Creates an instance of `SchemaError` error. At the same time it's the `S.Raised` exception.
 
 ### **`Error.raise`**
 
 `S.error => exn`
 
-Throws error. Since internally it's both the `S.Raised` exception and instance of `RescriptSchemaError`, it'll have a nice error message and can be caught using `S.Raised`.
+Throws error. Since internally it's both the `S.Raised` exception and instance of `SchemaError`, it'll have a nice error message and can be caught using `S.Raised`.
 
 ### **`Error.message`**
 

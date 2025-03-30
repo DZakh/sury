@@ -81,7 +81,7 @@ var globalConfig = {
   n: false
 };
 
-class RescriptSchemaError extends Error {
+class SchemaError extends Error {
       constructor(code, flag, path) {
         super();
         this.flag = flag;
@@ -91,7 +91,7 @@ class RescriptSchemaError extends Error {
         this.RE_EXN_ID = Raised;
         this._1 = this;
         this.Error = this;
-        this.name = "RescriptSchemaError";
+        this.name = "SchemaError";
       }
       get message() {
         return message(this);
@@ -243,10 +243,10 @@ function name(schema) {
   }
 }
 
-var $$class = RescriptSchemaError;
+var $$class = SchemaError;
 
 function make(prim0, prim1, prim2) {
-  return new RescriptSchemaError(prim0, prim1, prim2);
+  return new SchemaError(prim0, prim1, prim2);
 }
 
 function raise(error) {
@@ -537,7 +537,7 @@ function transform(b, input, operation) {
 }
 
 function raise$1(b, code, path) {
-  throw new RescriptSchemaError(code, b.g.o, path);
+  throw new SchemaError(code, b.g.o, path);
 }
 
 function embedSyncOperation(b, input, fn) {
@@ -666,7 +666,7 @@ function withPathPrepend(b, input, path, maybeDynamicLocationVar, appendSafe, fn
   }
   catch (exn){
     var error = getOrRethrow(exn);
-    throw new RescriptSchemaError(error.code, error.flag, path + "[]" + error.path);
+    throw new SchemaError(error.code, error.flag, path + "[]" + error.path);
   }
 }
 
@@ -798,7 +798,7 @@ function noopOperation(i) {
 
 function internalCompile(builder, schema, flag) {
   if (flag & 8 && isOptional(reverse(schema))) {
-    throw new RescriptSchemaError({
+    throw new SchemaError({
               TAG: "InvalidJsonSchema",
               _0: schema
             }, flag, "");
@@ -926,7 +926,7 @@ function compile(schema, input, output, mode, typeValidationOpt) {
       return fn(JSON.parse(jsonString));
     }
     catch (exn){
-      throw new RescriptSchemaError({
+      throw new SchemaError({
                 TAG: "OperationFailed",
                 _0: exn.message
               }, flag$1, "");
@@ -955,7 +955,7 @@ function parseJsonStringOrThrow(jsonString, schema) {
     tmp = JSON.parse(jsonString);
   }
   catch (exn){
-    throw new RescriptSchemaError({
+    throw new SchemaError({
               TAG: "OperationFailed",
               _0: exn.message
             }, 1, "");

@@ -22,6 +22,7 @@
 - Renamed `unknownKeys` to `additionalItems`.
 - Allow to set `S.tuple` to Strip mode (still strict by default)
 - Changed `S.removeTypeValidation` to `S.validation`. It doesn't affect union discriminated optimisation anymore.
+- Renamed `RescriptSchemaError` to `SchemaError`
 
 ### Scope
 
@@ -32,7 +33,6 @@
 - Start using rescript v12
 - Remove namespace and integrate rescript-json-schema
 - Todo something with preprocess
-- Rename RescriptSchemaError to SchemaError
 - Remove `Failed parsing at ...` for error messages
 - Provide isOptional in Union tag
 - Somehow determine whether transformed or not (including shape)

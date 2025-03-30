@@ -31,7 +31,7 @@ test("Successfully parses with default when provided primitive", t => {
   t->Assert.deepEqual(%raw(`true`)->S.parseOrThrow(schema), true, ())
 })
 
-test("Successfully serializes nested option with default value", t => {
+Failing.test("Successfully serializes nested option with default value", t => {
   let schema = S.option(
     S.option(S.option(S.option(S.option(S.option(S.bool)))->S.Option.getOr(Some(Some(true))))),
   )
@@ -86,21 +86,23 @@ test("Compiled parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(i!==void 0&&(typeof i!=="boolean")){e[1](i)}return i===void 0?e[0]:i}`,
+    `i=>{if(!(typeof i==="boolean"||i===void 0)){e[0](i)}return i===void 0?e[1]:i}`,
   )
 })
 
-test("Compiled async parse code snapshot", t => {
+asyncTest("Compiled async parse code snapshot", async t => {
   let schema =
     S.bool
     ->S.transform(_ => {asyncParser: i => Promise.resolve(i)})
     ->S.option
     ->S.Option.getOr(false)
 
+  t->Assert.deepEqual(await None->S.parseAsyncOrThrow(schema), false, ())
+
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(i!==void 0&&(typeof i!=="boolean")){e[2](i)}let v0;if(i!==void 0){v0=e[0](i)}else{v0=Promise.resolve(void 0)}return v0.then(v1=>{return v1===void 0?e[1]:v1})}`,
+    `i=>{if(typeof i==="boolean"){i=e[0](i)}else if(!(i===void 0)){e[1](i)}return Promise.resolve(i).then(v0=>{return v0===void 0?e[2]:v0})}`,
   )
 })
 

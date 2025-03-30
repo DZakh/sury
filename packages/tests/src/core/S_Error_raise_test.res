@@ -1,7 +1,7 @@
 open Ava
 
 test(
-  "Raised error is instance of RescriptSchemaError and displayed with a nice error message when not caught",
+  "Raised error is instance of SchemaError and displayed with a nice error message when not caught",
   t => {
     t->Assert.throws(
       () => {
