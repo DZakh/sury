@@ -1,19 +1,15 @@
 (i) => {
-  if (!(i !== 0)) {
-    i = e[0](i);
-  } else if (i !== 1) {
-    e[1](i);
-  }
-  return Promise.resolve(i);
-};
-
-(i) => {
-  if (typeof i === "number" && i === 1) {
-    if (i === 0) {
-      i = e[0](i);
+  if (typeof i === "string") {
+    if (i === "apple") {
+      throw e[0];
+    }
+    try {
+      throw e[1];
+    } catch (e1) {
+      e[2](i);
     }
   } else {
-    e[1](i);
+    e[3](i);
   }
-  return Promise.resolve(i);
+  return i;
 };

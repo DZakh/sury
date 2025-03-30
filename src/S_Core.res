@@ -1941,6 +1941,7 @@ module Union = {
 
   let builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
     let schemas = selfSchema.anyOf->Stdlib.Option.unsafeUnwrap
+    let typeValidation = b.global.flag->Flag.unsafeHas(Flag.typeValidation)
 
     // FIXME: Test with async
     let output = input
@@ -2015,18 +2016,26 @@ module Union = {
             b->B.refinement(~inputVar, ~schema, ~negative=false)->Js.String2.sliceToEnd(~from=2)
           let itemCode = b->getItemCode(~schema, ~input, ~output, ~deopt=false, ~path)
 
+          if itemCond->Stdlib.String.unsafeToBool && !(itemCode->Stdlib.String.unsafeToBool) {
+            itemNoop := (
+                itemNoop.contents->Stdlib.String.unsafeToBool
+                  ? `${itemNoop.contents}||${itemCond}`
+                  : itemCond
+              )
+          } else if itemNoop.contents->Stdlib.String.unsafeToBool {
+            let if_ = itemNextElse.contents ? "else if" : "if"
+            itemStart := itemStart.contents ++ if_ ++ `(!(${itemNoop.contents})){`
+            itemEnd := "}" ++ itemEnd.contents
+            itemNoop := ""
+            itemNextElse := false
+          }
+
           // Have a refinement and can handle the specific case
           if itemCond->Stdlib.String.unsafeToBool {
             if itemCode->Stdlib.String.unsafeToBool {
               let if_ = itemNextElse.contents ? "else if" : "if"
               itemStart := itemStart.contents ++ if_ ++ `(${itemCond}){${itemCode}}`
               itemNextElse := true
-            } else {
-              itemNoop := (
-                  itemNoop.contents->Stdlib.String.unsafeToBool
-                    ? `${itemNoop.contents}||${itemCond}`
-                    : itemCond
-                )
             }
           } // The item without refinement should switch to deopt mode
           // Since there might be validation in the body
@@ -2037,11 +2046,6 @@ module Union = {
             itemStart := itemStart.contents ++ `try{${itemCode}}catch(${errorVar}){`
             itemEnd := "}" ++ itemEnd.contents
             caught := `${caught.contents}${errorVar},`
-            if itemIdx.contents === lastIdx {
-              itemStart :=
-                itemStart.contents ++
-                b->B.failWithArg(~path, errors => InvalidUnion(errors), `[${caught.contents}]`)
-            }
           } else {
             // If there's no body, we immideately finish.
             // Even if there might be other items, this case is always valid
@@ -2050,17 +2054,44 @@ module Union = {
           itemIdx := itemIdx.contents->Stdlib.Int.plus(1)
         }
 
-        let baseCond =
+        cond :=
           b->B.validation(
             ~inputVar,
             ~schema={tag: tag->(Obj.magic: string => typeTag), builder: %raw(`0`)},
             ~negative=false,
           )
-        cond := (
-            itemNoop.contents->Stdlib.String.unsafeToBool
-              ? `${baseCond}&&(${itemNoop.contents})`
-              : baseCond
+
+        if itemNoop.contents->Stdlib.String.unsafeToBool {
+          if itemStart.contents->Stdlib.String.unsafeToBool {
+            if typeValidation {
+              let if_ = itemNextElse.contents ? "else if" : "if"
+              itemStart :=
+                itemStart.contents ++
+                if_ ++
+                `(!(${itemNoop.contents})){${b->B.failWithArg(
+                    ~path,
+                    received => InvalidType({
+                      expected: selfSchema->fromInternal,
+                      received,
+                    }),
+                    inputVar,
+                  )}}`
+            }
+          } else {
+            cond := cond.contents ++ `&&(${itemNoop.contents})`
+          }
+        } else if typeValidation {
+          let errorCode = b->B.failWithArg(
+            ~path,
+            received => InvalidType({
+              expected: selfSchema->fromInternal,
+              received,
+            }),
+            inputVar,
           )
+          itemStart :=
+            itemStart.contents ++ (itemNextElse.contents ? `else{${errorCode}}` : errorCode)
+        }
 
         itemStart.contents ++ itemEnd.contents
       } else {
@@ -2080,7 +2111,7 @@ module Union = {
       }
     }
 
-    if b.global.flag->Flag.unsafeHas(Flag.typeValidation) {
+    if typeValidation {
       let inputVar = input.var(b)
 
       // FIXME: Include caught errors
