@@ -256,6 +256,7 @@ and internal = {
   mutable name?: string,
   mutable noValidation?: bool,
   mutable catch?: bool,
+  mutable unnest?: bool,
   mutable output?: unit => internal, // Optional value means that it either should reverse to self or it's already a reversed schema
   // This can also be an `internal` itself, but because of the bug https://github.com/rescript-lang/rescript/issues/7314 handle it unsafely
   @as("b")
@@ -1099,7 +1100,7 @@ module Builder = {
         }
       | {tag: Array, ?additionalItems, ?items} => {
           let additionalItems = additionalItems->Stdlib.Option.unsafeUnwrap
-          let items = items->Stdlib.Option.unsafeUnwrap
+          let items = schema.items->Stdlib.Option.unsafeUnwrap
           let length = items->Js.Array2.length
           let code = ref(
             switch additionalItems {
@@ -1109,9 +1110,12 @@ module Builder = {
             },
           )
           for idx in 0 to length - 1 {
-            let {schema, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
-            let item = schema->toInternal
-            if item->isLiteral && !(item.catch->Stdlib.Option.unsafeUnwrap) {
+            let {schema: item, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
+            let item = item->toInternal
+            if (
+              (item->isLiteral && !(item.catch->Stdlib.Option.unsafeUnwrap)) ||
+                schema.unnest->Stdlib.Option.unsafeUnwrap
+            ) {
               code :=
                 code.contents ++
                 and_ ++
@@ -4083,6 +4087,7 @@ let unnest = schema => {
           }),
         }
       },
+      unnest: true,
     }->toStandard
   | _ => InternalError.panic("S.unnest supports only object schemas.")
   }

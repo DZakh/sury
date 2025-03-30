@@ -20,12 +20,12 @@ test("Uses fallback value when parsing failed", t => {
 })
 
 test("Doesn't affect serializing in any way", t => {
-  let schema = S.literal("123")->S.catch(_ => "fallback")
+  let schema = S.int->S.port->S.catch(_ => 8080)
 
   t->U.assertRaised(
-    () => "abc"->S.reverseConvertOrThrow(schema),
+    () => -1->S.reverseConvertOrThrow(schema),
     {
-      code: InvalidType({received: "abc"->Obj.magic, expected: S.literal("123")->S.toUnknown}),
+      code: InvalidOperation({description: "Invalid port"}),
       operation: ReverseConvert,
       path: S.Path.empty,
     },
@@ -52,27 +52,30 @@ test("Provides ctx to use in catch", t => {
 })
 
 test("Can use s.fail inside of S.catch", t => {
-  let schema = S.literal("0")->S.catch(s => {
-    switch s.input->S.parseOrThrow(S.string) {
-    | _ => "1"
-    | exception S.Raised(_) => s.fail("Fallback value only supported for strings.")
-    }
-  })
-  t->Assert.deepEqual("0"->S.parseOrThrow(schema), "0", ())
-  t->Assert.deepEqual("abc"->S.parseOrThrow(schema), "1", ())
+  let schema =
+    S.int
+    ->S.port
+    ->S.catch(s => {
+      switch s.input->S.parseOrThrow(S.string) {
+      | _ => 8080
+      | exception S.Raised(_) => s.fail("Fallback value only supported for strings.")
+      }
+    })
+  t->Assert.deepEqual(3000->S.parseOrThrow(schema), 3000, ())
+  t->Assert.deepEqual("3000"->S.parseOrThrow(schema), 8080, ())
   t->U.assertRaised(
-    () => 123->S.parseOrThrow(schema),
+    () => true->S.parseOrThrow(schema),
     {
       code: OperationFailed("Fallback value only supported for strings."),
       operation: Parse,
       path: S.Path.empty,
     },
   )
-  t->Assert.deepEqual("0"->S.reverseConvertOrThrow(schema), %raw(`"0"`), ())
+  t->Assert.deepEqual(3000->S.reverseConvertOrThrow(schema), %raw(`3000`), ())
   t->U.assertRaised(
-    () => "1"->S.reverseConvertOrThrow(schema),
+    () => -1->S.reverseConvertOrThrow(schema),
     {
-      code: InvalidType({expected: S.literal("0")->S.toUnknown, received: "1"->Obj.magic}),
+      code: InvalidOperation({description: "Invalid port"}),
       operation: ReverseConvert,
       path: S.Path.empty,
     },
@@ -121,6 +124,8 @@ test("Compiled parse code snapshot", t => {
 
 test("Compiled async parse code snapshot", t => {
   let schema = S.bool->S.transform(_ => {asyncParser: i => Promise.resolve(i)})->S.catch(_ => false)
+
+  Js.log(schema)
 
   t->U.assertCompiledCode(
     ~schema,

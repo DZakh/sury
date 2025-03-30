@@ -40,11 +40,11 @@ module Common = {
       () => invalid->S.reverseConvertOrThrow(schema),
       {
         code: InvalidType({
-          expected: S.literal(("bar", true))->S.toUnknown,
-          received: invalid->U.castAnyToUnknown,
+          expected: S.literal("bar")->S.toUnknown,
+          received: %raw(`undefined`),
         }),
         operation: ReverseConvert,
-        path: S.Path.empty,
+        path: S.Path.fromLocation("0"),
       },
     )
   })
@@ -123,10 +123,10 @@ module EmptyArray = {
     t->Assert.deepEqual(value->S.parseOrThrow(schema), value, ())
   })
 
-  test("Ignores extra items in strip mode (default)", t => {
+  test("Ignores extra items in strip mode and prevents in strict (default)", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(invalid->S.parseOrThrow(schema), [], ())
+    t->Assert.deepEqual(invalid->S.parseOrThrow(schema->S.strip), [], ())
 
     t->U.assertRaised(
       () => invalid->S.parseOrThrow(schema->S.strict),
