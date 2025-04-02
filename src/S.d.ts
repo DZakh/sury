@@ -281,7 +281,7 @@ export function setName<Output, Input>(
   schema: Schema<Output, Input>,
   name: string
 ): Schema<Output, Input>;
-export function validation<Output, Input>(
+export function noValidation<Output, Input>(
   schema: Schema<Output, Input>,
   value: boolean
 ): Schema<Output, Input>;

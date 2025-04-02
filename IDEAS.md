@@ -21,14 +21,14 @@
 - Support coerce for S.union, S.option and S.null
 - Renamed `unknownKeys` to `additionalItems`.
 - Allow to set `S.tuple` to Strip mode (still strict by default)
-- Changed `S.removeTypeValidation` to `S.validation`. It doesn't affect union discriminated optimisation anymore.
+- Changed `S.removeTypeValidation` to `S.noValidation`. It doesn't affect union discriminated optimisation anymore.
 - Renamed `RescriptSchemaError` to `SchemaError`
 - Renamed `S.describe` to `S.description`. Removed previous `S.description` getter in favor of the `description` field on schema
 - Renamed `S.deprecate` to `S.deprecated`. Removed previous `S.deprecation` getter in favor of the `deprecated` field on schema. Added `S.deprecated` to JS/TS API
 
 ### Scope
 
-- Rename `validation` to something else. This is too generic and can be confusing
+- Support `@s.name` etc for ppx and fail on removed `@s.describe`
 - Todo something with nullish and ppx
 - Add JSDoc
 - Remove `rescript-schema` prefix from metadata and panic

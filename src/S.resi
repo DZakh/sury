@@ -296,7 +296,7 @@ let name: t<'value> => string
 
 let setName: (t<'value>, string) => t<'value>
 
-let validation: (t<'value>, bool) => t<'value>
+let noValidation: (t<'value>, bool) => t<'value>
 
 external toUnknown: t<'any> => t<unknown> = "%identity"
 external untag: t<'any> => untagged = "%identity"

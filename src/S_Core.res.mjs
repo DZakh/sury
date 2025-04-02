@@ -1218,9 +1218,9 @@ function setName(schema, name) {
   return toStandard(mut);
 }
 
-function validation$1(schema, value) {
+function noValidation(schema, value) {
   var mut = copy(schema);
-  mut.noValidation = !value;
+  mut.noValidation = value;
   return toStandard(mut);
 }
 
@@ -3835,7 +3835,7 @@ export {
   recursive ,
   name ,
   setName ,
-  validation$1 as validation,
+  noValidation ,
   Schema ,
   schema$6 as schema,
   $$Object ,

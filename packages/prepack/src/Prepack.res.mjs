@@ -251,8 +251,8 @@ var filesMapping = [
     "S.setName"
   ],
   [
-    "validation",
-    "S.validation"
+    "noValidation",
+    "S.noValidation"
   ],
   [
     "compile",

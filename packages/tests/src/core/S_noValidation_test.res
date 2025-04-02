@@ -2,7 +2,7 @@ open Ava
 
 test("Successfully parses", t => {
   let schema = S.string
-  let schemaWithoutTypeValidation = schema->S.validation(false)
+  let schemaWithoutTypeValidation = schema->S.noValidation(true)
 
   t->U.assertRaised(
     () => 1->S.parseOrThrow(schema),
@@ -20,7 +20,7 @@ test("Successfully parses", t => {
 
 test("Works for literals", t => {
   let schema = S.literal("foo")
-  let schemaWithoutTypeValidation = schema->S.validation(false)
+  let schemaWithoutTypeValidation = schema->S.noValidation(true)
 
   t->U.assertRaised(
     () => 1->S.parseOrThrow(schema),

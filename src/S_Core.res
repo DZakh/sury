@@ -1772,12 +1772,12 @@ let setName = (schema, name) => {
   mut->toStandard
 }
 
-let validation = (schema, value) => {
+let noValidation = (schema, value) => {
   let schema = schema->toInternal
   let mut = schema->copy
 
   // FIXME: Test for discriminant literal
-  mut.noValidation = Some(!value) // TODO: Better test reverse
+  mut.noValidation = Some(value) // TODO: Better test reverse
   mut->toStandard
 }
 
