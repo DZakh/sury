@@ -162,7 +162,7 @@ let filesMapping = [
   ("refine", "S.js_refine"),
   ("transform", "S.js_transform"),
   ("description", "S.description"),
-  ("describe", "S.describe"),
+  ("deprecated", "S.deprecated"),
   ("name", "S.name"),
   ("setName", "S.setName"),
   ("validation", "S.validation"),

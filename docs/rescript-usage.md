@@ -47,8 +47,8 @@
   - [`never`](#never)
   - [`json`](#json)
   - [`jsonString`](#jsonString)
-  - [`describe`](#describe)
-  - [`deprecate`](#deprecate)
+  - [`description`](#description)
+  - [`deprecated`](#deprecated)
   - [`catch`](#catch)
   - [`custom`](#custom)
   - [`recursive`](#recursive)
@@ -120,7 +120,7 @@ let filmSchema = S.object(s => {
       S.literal(Restricted),
     ]),
   ),
-  deprecatedAgeRestriction: s.field("Age", S.option(S.int)->S.deprecate("Use rating instead")),
+  deprecatedAgeRestriction: s.field("Age", S.option(S.int)->S.deprecated("Use rating instead")),
 })
 
 // 3. Parse data using the schema
@@ -1044,32 +1044,31 @@ let schema = S.jsonString(S.int)
 
 The `S.jsonString` schema represents JSON string containing value of a specific type.
 
-### **`describe`**
+### **`description`**
 
 `(S.t<'value>, string) => S.t<'value>`
 
-Use `S.describe` to add a `description` property to the resulting schema.
+Use `S.description` to add a `description` property to the resulting schema.
 
 ```rescript
 let documentedStringSchema = S.string
-  ->S.describe("A useful bit of text, if you know what to do with it.")
+  ->S.description("A useful bit of text, if you know what to do with it.")
 
-documentedStringSchema->S.description // A useful bit of text…
+(documentedStringSchema->S.untag).description // A useful bit of text…
 ```
 
 This can be useful for documenting a field, for example in a JSON Schema using a library like [`rescript-json-schema`](https://github.com/DZakh/rescript-json-schema).
 
-### **`deprecate`**
+### **`deprecated`**
 
 `(S.t<'value>, string) => S.t<'value>`
 
-Use `S.deprecate` to add a `deprecation` message property to the resulting schema.
+Use `S.deprecated` to add a `deprecation` message property to the resulting schema.
 
 ```rescript
-let deprecatedString = S.string
-  ->S.deprecate("Will be removed in APIv2")
+let deprecatedString = S.string->S.deprecated("Will be removed in APIv2")
 
-deprecatedString->S.deprecation // Will be removed in APIv2…
+(deprecatedString->S.untag).deprecated // Will be removed in APIv2…
 ```
 
 This can be useful for documenting a field, for example in a JSON Schema using a library like [`rescript-json-schema`](https://github.com/DZakh/rescript-json-schema).

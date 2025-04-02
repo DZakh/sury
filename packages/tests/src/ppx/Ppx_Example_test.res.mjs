@@ -17,7 +17,7 @@ var filmSchema = S$RescriptSchema.schema(function (s) {
               Title: s.m(S$RescriptSchema.string),
               Tags: s.m(S$RescriptSchema.$$Option.getOr(S$RescriptSchema.option(S$RescriptSchema.array(S$RescriptSchema.string)), [])),
               Rating: s.m(ratingSchema),
-              Age: s.m(S$RescriptSchema.deprecate(S$RescriptSchema.option(S$RescriptSchema.$$int), "Use rating instead"))
+              Age: s.m(S$RescriptSchema.deprecated(S$RescriptSchema.option(S$RescriptSchema.$$int), "Use rating instead"))
             };
     });
 
@@ -33,7 +33,7 @@ Ava("Main example", (function (t) {
                                     S$RescriptSchema.literal("PG13"),
                                     S$RescriptSchema.literal("R")
                                   ])),
-                          Age: s.f("Age", S$RescriptSchema.deprecate(S$RescriptSchema.option(S$RescriptSchema.$$int), "Use rating instead"))
+                          Age: s.f("Age", S$RescriptSchema.deprecated(S$RescriptSchema.option(S$RescriptSchema.$$int), "Use rating instead"))
                         };
                 }), undefined);
       }));
@@ -72,16 +72,16 @@ Ava("@s.null with @s.default", (function (t) {
         U.assertEqualSchemas(t, nullWithDefaultSchema, S$RescriptSchema.$$Option.getOr(S$RescriptSchema.$$null(S$RescriptSchema.string), "Unknown"), undefined);
       }));
 
-var deprecateSchema = S$RescriptSchema.deprecate(S$RescriptSchema.string, "Will be removed in APIv2");
+var deprecatedSchema = S$RescriptSchema.deprecated(S$RescriptSchema.string, "Will be removed in APIv2");
 
-Ava("@s.deprecate", (function (t) {
-        U.assertEqualSchemas(t, deprecateSchema, S$RescriptSchema.deprecate(S$RescriptSchema.string, "Will be removed in APIv2"), undefined);
+Ava("@s.deprecated", (function (t) {
+        U.assertEqualSchemas(t, deprecatedSchema, S$RescriptSchema.deprecated(S$RescriptSchema.string, "Will be removed in APIv2"), undefined);
       }));
 
-var describeSchema = S$RescriptSchema.describe(S$RescriptSchema.string, "A useful bit of text, if you know what to do with it.");
+var describeSchema = S$RescriptSchema.description(S$RescriptSchema.string, "A useful bit of text, if you know what to do with it.");
 
-Ava("@s.describe", (function (t) {
-        U.assertEqualSchemas(t, describeSchema, S$RescriptSchema.describe(S$RescriptSchema.string, "A useful bit of text, if you know what to do with it."), undefined);
+Ava("@s.description", (function (t) {
+        U.assertEqualSchemas(t, describeSchema, S$RescriptSchema.description(S$RescriptSchema.string, "A useful bit of text, if you know what to do with it."), undefined);
       }));
 
 export {
@@ -92,7 +92,7 @@ export {
   defaultWithSchema ,
   nullSchema ,
   nullWithDefaultSchema ,
-  deprecateSchema ,
+  deprecatedSchema ,
   describeSchema ,
 }
 /* ratingSchema Not a pure module */

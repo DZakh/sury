@@ -96,7 +96,7 @@ test("Successfully parses object with missing field that marked as nullish", t =
 test(
   "Successfully parses null and serializes it back to undefined for deprecated nullish schema",
   t => {
-    let schema = S.nullish(S.bool)->S.deprecate("Deprecated")
+    let schema = S.nullish(S.bool)->S.deprecated("Deprecated")
 
     t->Assert.deepEqual(
       %raw(`null`)->S.parseOrThrow(schema)->S.reverseConvertOrThrow(schema),

@@ -189,7 +189,7 @@ let vendor = "rescript-schema"
 let symbol = Stdlib.Symbol.make(vendor)
 let itemSymbol = Stdlib.Symbol.make("item")
 
-type typeTag =
+type tag =
   | @as("string") String
   | @as("number") Number
   | @as("never") Never
@@ -223,29 +223,64 @@ type additionalItemsMode = | @as("strip") Strip | @as("strict") Strict
 @tag("type")
 type rec t<'value> =
   private
-  | @as("never") Never({})
-  | @as("unknown") Unknown({})
-  | @as("string") String({const: string})
-  | @as("number") Number({const: float, format?: numberFormat})
-  | @as("bigint") BigInt({const: bigint})
-  | @as("boolean") Boolean({const: bool})
-  | @as("symbol") Symbol({const: Js.Types.symbol})
-  | @as("null") Null({const: Js.Types.null_val})
-  | @as("undefined") Undefined({const: unit})
-  | @as("nan") NaN({const: float})
-  | @as("function") Function({const?: Js.Types.function_val})
-  | @as("instance") Instance({const?: Js.Types.obj_val})
-  | @as("array") Array({items: array<item>, additionalItems: additionalItems})
-  | @as("object") Object({items: array<item>, fields: dict<item>, additionalItems: additionalItems}) // TODO: Add const for Object and Tuple
-  | @as("union") Union({anyOf: array<t<unknown>>, has: has})
-  | @as("json") JSON({}) // FIXME: Remove it in favor of Union
+  | @as("never") Never({description?: string, deprecated?: string})
+  | @as("unknown") Unknown({description?: string, deprecated?: string})
+  | @as("string") String({const: string, description?: string, deprecated?: string})
+  | @as("number")
+  Number({
+      const: float,
+      format?: numberFormat,
+      description?: string,
+      deprecated?: string,
+    })
+  | @as("bigint") BigInt({const: bigint, description?: string, deprecated?: string})
+  | @as("boolean") Boolean({const: bool, description?: string, deprecated?: string})
+  | @as("symbol") Symbol({const: Js.Types.symbol, description?: string, deprecated?: string})
+  | @as("null") Null({const: Js.Types.null_val, description?: string, deprecated?: string})
+  | @as("undefined") Undefined({const: unit, description?: string, deprecated?: string})
+  | @as("nan") NaN({const: float, description?: string, deprecated?: string})
+  | @as("function")
+  Function({
+      const?: Js.Types.function_val,
+      description?: string,
+      deprecated?: string,
+    })
+  | @as("instance") Instance({const?: Js.Types.obj_val, description?: string, deprecated?: string})
+  | @as("array")
+  Array({
+      items: array<item>,
+      additionalItems: additionalItems,
+      unnest?: bool,
+      description?: string,
+      deprecated?: string,
+    })
+  | @as("object")
+  Object({
+      items: array<item>,
+      fields: dict<item>,
+      additionalItems: additionalItems,
+      description?: string,
+      deprecated?: string,
+    }) // TODO: Add const for Object and Tuple
+  | @as("union")
+  Union({
+      anyOf: array<t<unknown>>,
+      has: has,
+      description?: string,
+      deprecated?: string,
+    })
+  | @as("json") JSON({description?: string, deprecated?: string}) // FIXME: Remove it in favor of Union
 @unboxed and additionalItems = | ...additionalItemsMode | Schema(t<unknown>)
 // FIXME: Add recursive
 and schema<'a> = t<'a>
 and internal = {
   @as("type")
-  mutable tag: typeTag,
+  mutable tag: tag,
+  @as("b")
+  mutable builder: builder,
   mutable const?: char, // use char to avoid Caml_option.some
+  mutable description?: string,
+  mutable deprecated?: string,
   format?: internalFormat,
   has?: dict<bool>,
   advanced?: bool, // TODO: Rename/remove it when have a chance
@@ -259,11 +294,23 @@ and internal = {
   mutable unnest?: bool,
   mutable output?: unit => internal, // Optional value means that it either should reverse to self or it's already a reversed schema
   // This can also be an `internal` itself, but because of the bug https://github.com/rescript-lang/rescript/issues/7314 handle it unsafely
-  @as("b")
-  mutable builder: builder,
   mutable isAsync?: bool, // Optional value means that it's not lazily computed yet.
   @as("~standard")
   mutable standard?: standard, // This is optional for convenience. The object added on make call
+}
+and untagged = private {
+  @as("type")
+  tag: tag,
+  const?: unknown,
+  description?: string,
+  deprecated?: string,
+  unnest?: bool,
+  noValidation?: bool,
+  items?: array<item>,
+  fields?: dict<item>,
+  additionalItems?: additionalItems,
+  anyOf?: array<t<unknown>>,
+  has?: dict<bool>,
 }
 and item = {
   schema: t<unknown>,
@@ -337,6 +384,7 @@ and jsResult<'value> = | @as(true) Success({value: 'value}) | @as(false) Failure
 type exn += private Raised(error)
 
 external toUnknown: t<'any> => t<unknown> = "%identity"
+external untag: t<'any> => untagged = "%identity"
 external toInternal: t<'any> => internal = "%identity"
 external fromInternal: internal => t<'any> = "%identity"
 
@@ -351,7 +399,7 @@ let isOptional = schema => {
   switch schema.tag {
   // FIXME: Should `unknown` be considered optional? (probably yes)
   | Undefined => true
-  | Union => schema.has->Stdlib.Option.unsafeUnwrap->Stdlib.Dict.has((Undefined: typeTag :> string))
+  | Union => schema.has->Stdlib.Option.unsafeUnwrap->Stdlib.Dict.has((Undefined: tag :> string))
   | _ => false
   }
 }
@@ -453,13 +501,6 @@ let copy: internal => internal = %raw(`(schema) => {
     }
   }
   return c
-}`)
-let mixingMetadata: (internal, ~from: internal) => unit = %raw(`(schema, from) => {
-  for (let k in from) {
-    if (k[0] === "m") {
-      schema[k] = from[k]
-    }
-  }
 }`)
 let mergeInPlace: (internal, internal) => unit = %raw(`(target, schema) => {
   for (let k in schema) {
@@ -2062,7 +2103,7 @@ module Union = {
         cond :=
           b->B.validation(
             ~inputVar,
-            ~schema={tag: tag->(Obj.magic: string => typeTag), builder: %raw(`0`)},
+            ~schema={tag: tag->(Obj.magic: string => tag), builder: %raw(`0`)},
             ~negative=false,
           )
 
@@ -2193,7 +2234,7 @@ module Union = {
           | JSON =>
             Unknown
           | v => v
-          }: typeTag :> string),
+          }: tag :> string),
           true,
         )
       }
@@ -2755,8 +2796,6 @@ let rec coerce = (from, to) => {
           },
         )
 
-        mut->mixingMetadata(~from=to)
-
         mut->toStandard
       }
     }
@@ -2932,27 +2971,19 @@ let catch = (schema, getFallbackValue) => {
   mut->toStandard
 }
 
-let deprecationMetadataId: Metadata.Id.t<string> = Metadata.Id.make(
-  ~namespace="rescript-schema",
-  ~name="deprecation",
-)
-
-let deprecate = (schema, message) => {
-  schema->Metadata.set(~id=deprecationMetadataId, message)
+let deprecated = (schema, message) => {
+  let schema = schema->toInternal
+  let mut = schema->copy
+  mut.deprecated = Some(message)
+  mut->toStandard
 }
 
-let deprecation = schema => schema->Metadata.get(~id=deprecationMetadataId)
-
-let descriptionMetadataId: Metadata.Id.t<string> = Metadata.Id.make(
-  ~namespace="rescript-schema",
-  ~name="description",
-)
-
-let describe = (schema, description) => {
-  schema->Metadata.set(~id=descriptionMetadataId, description)
+let description = (schema, description) => {
+  let schema = schema->toInternal
+  let mut = schema->copy
+  mut.description = Some(description)
+  mut->toStandard
 }
-
-let description = schema => schema->Metadata.get(~id=descriptionMetadataId)
 
 module Schema = {
   type s = {@as("m") matches: 'value. t<'value> => 'value}

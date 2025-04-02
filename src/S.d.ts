@@ -308,13 +308,14 @@ export function transform<Output, Input, Transformed>(
   serializer: (value: Transformed, s: EffectCtx<unknown, unknown>) => Input
 ): Schema<Transformed, Input>;
 
-export function describe<Output, Input>(
+export function description<Output, Input>(
   schema: Schema<Output, Input>,
   description: string
 ): Schema<Output, Input>;
-export function description<Output, Input>(
-  schema: Schema<Output, Input>
-): string | undefined;
+export function deprecated<Output, Input>(
+  schema: Schema<Output, Input>,
+  message: string
+): Schema<Output, Input>;
 
 export const port: <Input>(
   schema: Schema<number, Input>,

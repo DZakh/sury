@@ -32,7 +32,7 @@
 - [Records](#records)
 - [JSON](#json)
 - [JSON string](#json-string)
-- [Describe](#describe)
+- [Description](#description)
 - [Custom schema](#custom-schema)
 - [Recursive schemas](#recursive-schemas)
 - [Refinements](#refinements)
@@ -605,17 +605,17 @@ S.parseOrThrow("123", schema);
 
 The `S.jsonString` schema represents JSON string containing value of a specific type.
 
-## Describe
+## Description
 
-Use `S.describe` to add a `description` property to the resulting schema.
+Use `S.description` to add a `description` property to the resulting schema.
 
 ```ts
-const documentedStringSchema = S.describe(
+const documentedStringSchema = S.description(
   S.string,
   "A useful bit of text, if you know what to do with it."
 );
 
-S.description(documentedStringSchema); // A useful bit of text…
+documentedStringSchema.description; // A useful bit of text…
 ```
 
 This can be useful for documenting a field, for example in a JSON Schema using a library like [`rescript-json-schema`](https://github.com/DZakh/rescript-json-schema).

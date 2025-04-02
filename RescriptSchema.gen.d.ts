@@ -89,11 +89,13 @@ export type Json =
   | { [key: string]: Json }
   | Json[];
 
-declare const SchemaBrand: unique symbol;
+declare const øbrand: unique symbol;
 
 export type S_t<Output, Input = Output> = {
-  readonly [SchemaBrand]: unknown;
   readonly ["~standard"]: StandardSchemaV1.Props<Input, Output>;
+  readonly description?: string;
+  readonly deprecated?: string;
+  readonly [øbrand]: unknown;
 };
 /* simulate opaque types */
 

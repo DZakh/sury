@@ -54,13 +54,9 @@ var Catch = S_Core$RescriptSchema.Catch;
 
 var $$catch = S_Core$RescriptSchema.$$catch;
 
-var describe = S_Core$RescriptSchema.describe;
-
 var description = S_Core$RescriptSchema.description;
 
-var deprecate = S_Core$RescriptSchema.deprecate;
-
-var deprecation = S_Core$RescriptSchema.deprecation;
+var deprecated = S_Core$RescriptSchema.deprecated;
 
 var transform = S_Core$RescriptSchema.transform;
 
@@ -215,10 +211,8 @@ export {
   $$enum ,
   Catch ,
   $$catch ,
-  describe ,
   description ,
-  deprecate ,
-  deprecation ,
+  deprecated ,
   transform ,
   preprocess ,
   custom ,

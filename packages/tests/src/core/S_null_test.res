@@ -125,7 +125,7 @@ test("Fails to parse JS null when schema doesn't allow optional data", t => {
 })
 
 test("Successfully parses null and serializes it back for deprecated nullable schema", t => {
-  let schema = S.null(S.bool)->S.deprecate("Deprecated")
+  let schema = S.null(S.bool)->S.deprecated("Deprecated")
 
   t->Assert.deepEqual(
     %raw(`null`)->S.parseOrThrow(schema)->S.reverseConvertOrThrow(schema),

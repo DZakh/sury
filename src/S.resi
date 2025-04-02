@@ -24,26 +24,89 @@ type numberFormat = | @as("int32") Int32
 
 type additionalItemsMode = | @as("strip") Strip | @as("strict") Strict
 
+type tag =
+  | @as("string") String
+  | @as("number") Number
+  | @as("never") Never
+  | @as("unknown") Unknown
+  | @as("bigint") BigInt
+  | @as("boolean") Boolean
+  | @as("symbol") Symbol
+  | @as("null") Null
+  | @as("undefined") Undefined
+  | @as("nan") NaN
+  | @as("function") Function
+  | @as("instance") Instance
+  | @as("array") Array
+  | @as("object") Object
+  | @as("union") Union
+  | @as("json") JSON
+
 @tag("type")
 type rec t<'value> =
   private
-  | @as("never") Never({})
-  | @as("unknown") Unknown({})
-  | @as("string") String({const: string})
-  | @as("number") Number({const: float, format?: numberFormat})
-  | @as("bigint") BigInt({const: bigint})
-  | @as("boolean") Boolean({const: bool})
-  | @as("symbol") Symbol({const: Js.Types.symbol})
-  | @as("null") Null({const: Js.Types.null_val})
-  | @as("undefined") Undefined({const: unit})
-  | @as("nan") NaN({const: float})
-  | @as("function") Function({const?: Js.Types.function_val})
-  | @as("instance") Instance({const?: Js.Types.obj_val})
-  | @as("array") Array({items: array<item>, additionalItems: additionalItems})
-  | @as("object") Object({items: array<item>, fields: dict<item>, additionalItems: additionalItems})
-  | @as("union") Union({anyOf: array<t<unknown>>, has: has})
-  | @as("json") JSON({})
+  | @as("never") Never({description?: string, deprecated?: string})
+  | @as("unknown") Unknown({description?: string, deprecated?: string})
+  | @as("string") String({const: string, description?: string, deprecated?: string})
+  | @as("number")
+  Number({
+      const: float,
+      format?: numberFormat,
+      description?: string,
+      deprecated?: string,
+    })
+  | @as("bigint") BigInt({const: bigint, description?: string, deprecated?: string})
+  | @as("boolean") Boolean({const: bool, description?: string, deprecated?: string})
+  | @as("symbol") Symbol({const: Js.Types.symbol, description?: string, deprecated?: string})
+  | @as("null") Null({const: Js.Types.null_val, description?: string, deprecated?: string})
+  | @as("undefined") Undefined({const: unit, description?: string, deprecated?: string})
+  | @as("nan") NaN({const: float, description?: string, deprecated?: string})
+  | @as("function")
+  Function({
+      const?: Js.Types.function_val,
+      description?: string,
+      deprecated?: string,
+    })
+  | @as("instance") Instance({const?: Js.Types.obj_val, description?: string, deprecated?: string})
+  | @as("array")
+  Array({
+      items: array<item>,
+      additionalItems: additionalItems,
+      unnest?: bool,
+      description?: string,
+      deprecated?: string,
+    })
+  | @as("object")
+  Object({
+      items: array<item>,
+      fields: dict<item>,
+      additionalItems: additionalItems,
+      description?: string,
+      deprecated?: string,
+    })
+  | @as("union")
+  Union({
+      anyOf: array<t<unknown>>,
+      has: has,
+      description?: string,
+      deprecated?: string,
+    })
+  | @as("json") JSON({description?: string, deprecated?: string})
 and schema<'a> = t<'a>
+and untagged = private {
+  @as("type")
+  tag: tag,
+  const?: unknown,
+  description?: string,
+  deprecated?: string,
+  unnest?: bool,
+  noValidation?: bool,
+  items?: array<item>,
+  fields?: dict<item>,
+  additionalItems?: additionalItems,
+  anyOf?: array<t<unknown>>,
+  has?: dict<bool>,
+}
 // FIXME: Test whether it's a ReScript bug that @unboxed is missing
 and additionalItems = | ...additionalItemsMode | Schema(t<unknown>)
 and item = {
@@ -145,11 +208,9 @@ module Catch: {
 }
 let catch: (t<'value>, Catch.s<'value> => 'value) => t<'value>
 
-let describe: (t<'value>, string) => t<'value>
-let description: t<'value> => option<string>
+let description: (t<'value>, string) => t<'value>
 
-let deprecate: (t<'value>, string) => t<'value>
-let deprecation: t<'value> => option<string>
+let deprecated: (t<'value>, string) => t<'value>
 
 type transformDefinition<'input, 'output> = {
   @as("p")
@@ -238,6 +299,7 @@ let setName: (t<'value>, string) => t<'value>
 let validation: (t<'value>, bool) => t<'value>
 
 external toUnknown: t<'any> => t<unknown> = "%identity"
+external untag: t<'any> => untagged = "%identity"
 
 module Schema: {
   type s = {@as("m") matches: 'value. t<'value> => 'value}
