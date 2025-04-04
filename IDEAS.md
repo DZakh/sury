@@ -21,12 +21,13 @@
 - Renamed `unknownKeys` to `additionalItems` and made it lowercase.
 - Allow to set `S.tuple` to Strip mode (still strict by default)
 - Changed `S.removeTypeValidation` to `S.noValidation`. It doesn't affect union discriminated optimisation anymore.
-- Renamed `RescriptSchemaError` to `SchemaError`
 - Renamed `S.describe` to `S.description`. Removed previous `S.description` getter in favor of the `description` field on schema
 - Renamed `S.deprecate` to `S.deprecated`. Removed previous `S.deprecation` getter in favor of the `deprecated` field on schema. Added `S.deprecated` to JS/TS API
 - Renamed `S.name` to `S.toExpression` and `S.setName` to `S.name`. Also, it's now possible to get the name itself from the `name` property on schema.
-- Renamed `S.Raised` exception to `S.SchemaError`
-- Renamed `S.Error` in JS/TS API to `S.SchemaError`
+- Renamed `RescriptSchemaError` to `SchemaError`
+- (rescript) Renamed `S.Raised` exception to `S.SchemaError`
+- (js/ts) Renamed `S.Error` to `S.SchemaError`
+- (rescript) Removed `RescriptSchema` namespace
 
 ### Scope
 

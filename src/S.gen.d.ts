@@ -1,4 +1,6 @@
-// The file is hand written to support namespaces and to reuse code between TS API
+// The file was initially hand written to support namespaces
+// and to reuse code between TS API.
+// Probably can be changed to generated, but kept handwritten for now
 
 /* eslint-disable */
 /* tslint:disable */

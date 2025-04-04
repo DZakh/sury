@@ -59,7 +59,7 @@ var symbol = Symbol(vendor);
 
 var itemSymbol = Symbol("item");
 
-var SchemaError = /* @__PURE__ */Caml_exceptions.create("S_Core-RescriptSchema.SchemaError");
+var SchemaError = /* @__PURE__ */Caml_exceptions.create("S_Core.SchemaError");
 
 var isLiteral = (s => "const" in s);
 

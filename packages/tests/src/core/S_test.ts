@@ -3,7 +3,7 @@ import { expectType, TypeEqual } from "ts-expect";
 
 import * as S from "../../../../src/S.js";
 import { stringSchema } from "../genType/GenType.gen.js";
-import { StandardSchemaV1 } from "../../../../RescriptSchema.gen.js";
+import { StandardSchemaV1 } from "../../../../src/S.gen.js";
 
 type SchemaEqual<
   Schema extends S.Schema<unknown, unknown>,

@@ -1,13 +1,6 @@
 let projectPath = "../../"
 let artifactsPath = NodeJs.Path.join2(projectPath, "packages/artifacts")
-let sourePaths = [
-  "package.json",
-  "node_modules",
-  "src",
-  "rescript.json",
-  "README.md",
-  "RescriptSchema.gen.d.ts",
-]
+let sourePaths = ["package.json", "node_modules", "src", "rescript.json", "README.md"]
 
 module Stdlib = {
   module Dict = {

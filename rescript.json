@@ -1,6 +1,6 @@
 {
   "name": "rescript-schema",
-  "namespace": true,
+  "namespace": false,
   "suffix": ".res.mjs",
   "package-specs": {
     "module": "esmodule",

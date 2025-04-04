@@ -1,5 +1,5 @@
-import { Json, Result, S_t } from "../RescriptSchema.gen";
-export { Json, Result, S_error as SchemaError } from "../RescriptSchema.gen";
+import { Json, Result, S_t } from "./S.gen";
+export { Json, Result, S_error as SchemaError } from "./S.gen";
 
 export type EffectCtx<Output, Input> = {
   schema: Schema<Output, Input>;

@@ -19,8 +19,7 @@ var sourePaths = [
   "node_modules",
   "src",
   "rescript.json",
-  "README.md",
-  "RescriptSchema.gen.d.ts"
+  "README.md"
 ];
 
 function update(json, path, value) {

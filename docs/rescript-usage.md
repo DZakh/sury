@@ -85,7 +85,6 @@ Then add `rescript-schema` to `bs-dependencies` in your `rescript.json`:
 {
   ...
 + "bs-dependencies": ["rescript-schema"],
-+ "bsc-flags": ["-open RescriptSchema"],
 }
 ```
 

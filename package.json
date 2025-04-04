@@ -44,7 +44,7 @@
     "src/S.js",
     "src/S.mjs",
     "src/S.d.ts",
-    "RescriptSchema.gen.d.ts",
+    "src/S.gen.d.ts",
     "rescript.json"
   ],
   "scripts": {

@@ -15,7 +15,6 @@
   "bs-dependencies": ["rescript-schema"],
   "bs-dev-dependencies": ["@rescript/core", "@dzakh/rescript-ava"],
   "ppx-flags": ["../rescript-schema-ppx/bin"],
-  "bsc-flags": ["-open RescriptSchema"],
   "warnings": {
     "error": true,
     "number": "-48-44"
