@@ -82,23 +82,35 @@ var globalConfig = {
 };
 
 class E extends Error {
-      constructor(code, flag, path) {
-        super();
-        this.flag = flag;
-        this.code = code;
-        this.path = path;
-        this.s = symbol;
-        this.RE_EXN_ID = SchemaError;
-        this._1 = this;
-        this.name = "SchemaError";
-      }
-      get message() {
-        return message(this);
-      }
-      get reason() {
-        return reason(this);
-      }
-    }
+  constructor(code, flag, path) {
+    super();
+    this.flag = flag;
+    this.code = code;
+    this.path = path;
+  }
+}
+
+var d = Object.defineProperty, p = E.prototype;
+d(p, 'message', {
+  get() {
+      return message(this);
+  }
+})
+d(p, 'reason', {
+  get() {
+      return reason(this);
+  }
+})
+d(p, 'name', {value: 'SchemaError'})
+d(p, 's', {value: symbol})
+d(p, '_1', {
+  get() {
+    return this
+  },
+});
+d(p, 'RE_EXN_ID', {
+  value: SchemaError,
+});
 ;
 
 function getOrRethrow(exn) {

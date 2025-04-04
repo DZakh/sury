@@ -28,6 +28,7 @@
 - (rescript) Renamed `S.Raised` exception to `S.SchemaError`
 - (js/ts) Renamed `S.Error` to `S.SchemaError`
 - (rescript) Removed `RescriptSchema` namespace
+- Improve SchemaError display in console
 
 ### Scope
 
@@ -37,7 +38,7 @@
 - Add JSDoc
 - Remove `rescript-schema` prefix from metadata and panic
 - Start using rescript v12
-- Remove namespace and integrate rescript-json-schema
+- Integrate rescript-json-schema
 - Todo something with preprocess
 - Remove `Failed parsing at ...` for error messages
 - Somehow determine whether transformed or not (including shape)
