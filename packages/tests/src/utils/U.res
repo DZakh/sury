@@ -56,7 +56,7 @@ let assertThrowsTestException = {
 let assertRaised = (t, cb, errorPayload) => {
   switch cb() {
   | any => t->Assert.fail("Asserted result is not Error. Recieved: " ++ any->unsafeStringify)
-  | exception S.Raised(err) =>
+  | exception S.SchemaError(err) =>
     t->Assert.is(err->S.Error.message, error(errorPayload)->S.Error.message, ())
   }
 }
@@ -64,7 +64,7 @@ let assertRaised = (t, cb, errorPayload) => {
 let assertRaisedAsync = async (t, cb, errorPayload) => {
   switch await cb() {
   | any => t->Assert.fail("Asserted result is not Error. Recieved: " ++ any->unsafeStringify)
-  | exception S.Raised(err) =>
+  | exception S.SchemaError(err) =>
     t->Assert.is(err->S.Error.message, error(errorPayload)->S.Error.message, ())
   }
 }

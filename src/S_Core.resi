@@ -170,7 +170,7 @@ and errorCode =
   | UnexpectedAsync
   | InvalidJsonSchema(schema<unknown>)
 
-type exn += private Raised(error)
+type exn += private SchemaError(error)
 
 type s<'value> = {
   schema: t<'value>,

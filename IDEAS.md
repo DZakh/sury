@@ -25,6 +25,8 @@
 - Renamed `S.describe` to `S.description`. Removed previous `S.description` getter in favor of the `description` field on schema
 - Renamed `S.deprecate` to `S.deprecated`. Removed previous `S.deprecation` getter in favor of the `deprecated` field on schema. Added `S.deprecated` to JS/TS API
 - Renamed `S.name` to `S.toExpression` and `S.setName` to `S.name`. Also, it's now possible to get the name itself from the `name` property on schema.
+- Renamed `S.Raised` exception to `S.SchemaError`
+- Renamed `S.Error` in JS/TS API to `S.SchemaError`
 
 ### Scope
 
@@ -40,7 +42,6 @@
 - Somehow determine whether transformed or not (including shape)
 - Make refinements change type from unknown to known
 - Add `.pipe` to Ts api
-- Rename S.Raised to S.SchemaError
 - Support unions and complex types for S.coerce
 - Make S.coerce extencible
 - Move S.example to rescript-schema

@@ -20,7 +20,7 @@ test(
   },
 )
 
-test("Raised error is also the S.Raised exeption and can be caught with catch", t => {
+test("Raised error is also the S.SchemaError exeption and can be caught with catch", t => {
   let error = S.Error.make(
     ~code=OperationFailed("Should be positive"),
     ~flag=S.Flag.typeValidation,
@@ -31,6 +31,6 @@ test("Raised error is also the S.Raised exeption and can be caught with catch", 
     let _ = S.Error.raise(error)
     t->Assert.fail("Should raise before the line")
   } catch {
-  | S.Raised(raisedError) => t->Assert.is(error, raisedError, ())
+  | S.SchemaError(raisedError) => t->Assert.is(error, raisedError, ())
   }
 })

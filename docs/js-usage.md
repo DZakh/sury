@@ -75,7 +75,7 @@ const loginSchema = S.schema({
 // Infer output TypeScript type of login schema
 type LoginData = S.Output<typeof loginSchema>; // { email: string; password: string }
 
-// Throws the S.Error(`Failed parsing at ["email"]. Reason: Invalid email address`)
+// Throws the S.SchemaError(`Failed parsing at ["email"]. Reason: Invalid email address`)
 S.parseOrThrow({ email: "", password: "" }, loginSchema);
 
 // Returns data as { email: string; password: string }
@@ -357,7 +357,7 @@ S.parseOrThrow(
   },
   personSchema
 );
-// => throws S.Error
+// => throws S.SchemaError
 ```
 
 If you want to change it for all schemas in your app, you can use `S.setGlobalConfig` function:
@@ -913,11 +913,11 @@ Used internally for readable error messages.
 
 ## Error handling
 
-**rescript-schema** throws `S.Error` which is a subclass of Error class. It contains detailed information about the operation problem.
+**rescript-schema** throws `S.SchemaError` which is a subclass of Error class. It contains detailed information about the operation problem.
 
 ```ts
 S.parseOrThrow(true, S.schema(false));
-// => Throws S.Error with the following message: Failed parsing at root. Reason: Must be false (was true)".
+// => Throws S.SchemaError with the following message: Failed parsing at root. Reason: Must be false (was true)".
 ```
 
 You can catch the error using `S.safe` and `S.safeAsync` helpers:

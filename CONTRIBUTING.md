@@ -71,7 +71,7 @@ const loginSchema = S.schema({
 // Infer output TypeScript type of login schema
 type LoginData = S.Output<typeof loginSchema>; // { email: string; password: string }
 
-// Throws the S.Error(`Failed parsing at ["email"]. Reason: Invalid email address`)
+// Throws the S.SchemaError(`Failed parsing at ["email"]. Reason: Invalid email address`)
 S.parseOrThrow({ email: "", password: "" }, loginSchema);
 
 // Returns data as { email: string; password: string }

@@ -171,7 +171,7 @@ and errorCode =
   | InvalidJsonSchema(schema<unknown>)
 and flag
 
-type exn += private Raised(error)
+type exn += private SchemaError(error)
 
 type s<'value> = {
   schema: t<'value>,

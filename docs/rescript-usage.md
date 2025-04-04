@@ -1363,7 +1363,7 @@ All operations either return the output value or raise an exception which you ca
 
 ```rescript
 try true->S.parseOrThrow(schema) catch {
-| S.Error.Raised(error) => Console.log(error->S.Error.message)
+| S.SchemaError(error) => Console.log(error->S.Error.message)
 }
 ```
 
@@ -1550,7 +1550,7 @@ If you want to handle the error, the best way to use `try/catch` block:
 
 ```rescript
 try true->S.parseOrThrow(schema) catch {
-| S.Error.Raised(error) => Console.log(error->S.Error.message)
+| S.SchemaError(error) => Console.log(error->S.Error.message)
 }
 ```
 
@@ -1558,13 +1558,13 @@ try true->S.parseOrThrow(schema) catch {
 
 `(~code: S.errorCode, ~flag: S.flag, ~path: S.Path.t) => S.error`
 
-Creates an instance of `SchemaError` error. At the same time it's the `S.Raised` exception.
+Creates an instance of `SchemaError` error. At the same time it's the `S.SchemaError` exception.
 
 ### **`Error.raise`**
 
 `S.error => exn`
 
-Throws error. Since internally it's both the `S.Raised` exception and instance of `SchemaError`, it'll have a nice error message and can be caught using `S.Raised`.
+Throws error. Since internally it's both the `S.SchemaError` exception and instance of `SchemaError`, it'll have a nice error message and can be caught using `S.SchemaError`.
 
 ### **`Error.message`**
 

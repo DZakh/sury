@@ -45,7 +45,7 @@ test("Successfully parses string with built-in refinement", (t) => {
       typeof result,
       {
         success: false;
-        error: S.Error;
+        error: S.SchemaError;
       }
     >
   >(true);
@@ -558,7 +558,7 @@ test("Fails to parses async schema", async (t) => {
     result.error.message,
     "Failed async parsing at root. Reason: User error"
   );
-  t.true(result.error instanceof S.Error);
+  t.true(result.error instanceof S.SchemaError);
 });
 
 test("Custom string schema", (t) => {
@@ -1367,7 +1367,7 @@ test("Successfully parses and returns result", (t) => {
         typeof value,
         {
           success: false;
-          error: S.Error;
+          error: S.SchemaError;
         }
       >
     >(true);
@@ -1396,7 +1396,7 @@ test("Successfully reverse converts and returns result", (t) => {
         typeof value,
         {
           success: false;
-          error: S.Error;
+          error: S.SchemaError;
         }
       >
     >(true);
@@ -1909,7 +1909,7 @@ test("Example", (t) => {
 
   t.throws(
     () => {
-      // Throws the S.Error(`Failed parsing at ["email"]. Reason: Invalid email address`)
+      // Throws the S.SchemaError(`Failed parsing at ["email"]. Reason: Invalid email address`)
       S.parseOrThrow({ email: "", password: "" }, loginSchema);
     },
     { message: `Failed parsing at ["email"]. Reason: Invalid email address` }

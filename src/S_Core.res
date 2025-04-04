@@ -411,7 +411,7 @@ and errorCode =
 @tag("success")
 and jsResult<'value> = | @as(true) Success({value: 'value}) | @as(false) Failure({error: error})
 
-type exn += private Raised(error)
+type exn += private SchemaError(error)
 
 external toUnknown: t<'any> => t<unknown> = "%identity"
 external untag: t<'any> => untagged = "%identity"
@@ -458,16 +458,15 @@ let globalConfig = {
 
 module InternalError = {
   %%raw(`
-    class SchemaError extends Error {
+    class E extends Error {
       constructor(code, flag, path) {
         super();
         this.flag = flag;
         this.code = code;
         this.path = path;
         this.s = symbol;
-        this.RE_EXN_ID = Raised;
+        this.RE_EXN_ID = SchemaError;
         this._1 = this;
-        this.Error = this;
         this.name = "SchemaError";
       }
       get message() {
@@ -480,7 +479,7 @@ module InternalError = {
   `)
 
   @new
-  external make: (~code: errorCode, ~flag: int, ~path: Path.t) => error = "SchemaError"
+  external make: (~code: errorCode, ~flag: int, ~path: Path.t) => error = "E"
 
   let getOrRethrow = (exn: exn) => {
     if %raw("exn&&exn.s===symbol") {
@@ -638,7 +637,7 @@ let rec toExpression = schema => {
 
 module Error = {
   type class
-  let class: class = %raw("SchemaError")
+  let class: class = %raw("E")
 
   let make = InternalError.make
 

@@ -59,7 +59,7 @@ var symbol = Symbol(vendor);
 
 var itemSymbol = Symbol("item");
 
-var Raised = /* @__PURE__ */Caml_exceptions.create("S_Core-RescriptSchema.Raised");
+var SchemaError = /* @__PURE__ */Caml_exceptions.create("S_Core-RescriptSchema.SchemaError");
 
 var isLiteral = (s => "const" in s);
 
@@ -81,16 +81,15 @@ var globalConfig = {
   n: false
 };
 
-class SchemaError extends Error {
+class E extends Error {
       constructor(code, flag, path) {
         super();
         this.flag = flag;
         this.code = code;
         this.path = path;
         this.s = symbol;
-        this.RE_EXN_ID = Raised;
+        this.RE_EXN_ID = SchemaError;
         this._1 = this;
-        this.Error = this;
         this.name = "SchemaError";
       }
       get message() {
@@ -235,10 +234,10 @@ function toExpression(schema) {
   }
 }
 
-var $$class = SchemaError;
+var $$class = E;
 
 function make(prim0, prim1, prim2) {
-  return new SchemaError(prim0, prim1, prim2);
+  return new E(prim0, prim1, prim2);
 }
 
 function raise(error) {
@@ -529,7 +528,7 @@ function transform(b, input, operation) {
 }
 
 function raise$1(b, code, path) {
-  throw new SchemaError(code, b.g.o, path);
+  throw new E(code, b.g.o, path);
 }
 
 function embedSyncOperation(b, input, fn) {
@@ -658,7 +657,7 @@ function withPathPrepend(b, input, path, maybeDynamicLocationVar, appendSafe, fn
   }
   catch (exn){
     var error = getOrRethrow(exn);
-    throw new SchemaError(error.code, error.flag, path + "[]" + error.path);
+    throw new E(error.code, error.flag, path + "[]" + error.path);
   }
 }
 
@@ -790,7 +789,7 @@ function noopOperation(i) {
 
 function internalCompile(builder, schema, flag) {
   if (flag & 8 && isOptional(reverse(schema))) {
-    throw new SchemaError({
+    throw new E({
               TAG: "InvalidJsonSchema",
               _0: schema
             }, flag, "");
@@ -918,7 +917,7 @@ function compile(schema, input, output, mode, typeValidationOpt) {
       return fn(JSON.parse(jsonString));
     }
     catch (exn){
-      throw new SchemaError({
+      throw new E({
                 TAG: "OperationFailed",
                 _0: exn.message
               }, flag$1, "");
@@ -947,7 +946,7 @@ function parseJsonStringOrThrow(jsonString, schema) {
     tmp = JSON.parse(jsonString);
   }
   catch (exn){
-    throw new SchemaError({
+    throw new E({
               TAG: "OperationFailed",
               _0: exn.message
             }, 1, "");
@@ -3784,7 +3783,7 @@ var Metadata = {
 
 export {
   Path ,
-  Raised ,
+  SchemaError ,
   Flag ,
   $$Error$1 as $$Error,
   never ,

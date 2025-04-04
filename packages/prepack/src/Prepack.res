@@ -115,7 +115,7 @@ if NodeJs.Fs.existsSync(artifactsPath) {
 NodeJs.Fs.mkdirSync(artifactsPath)
 
 let filesMapping = [
-  ("Error", "S.$$Error.$$class"),
+  ("SchemaError", "S.$$Error.$$class"),
   ("string", "S.string"),
   ("boolean", "S.bool"),
   ("int32", "S.$$int"),

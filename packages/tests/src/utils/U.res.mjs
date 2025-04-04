@@ -67,7 +67,7 @@ function assertRaised(t, cb, errorPayload) {
   }
   catch (raw_err){
     var err = Caml_js_exceptions.internalToOCamlException(raw_err);
-    if (err.RE_EXN_ID === S$RescriptSchema.Raised) {
+    if (err.RE_EXN_ID === S$RescriptSchema.SchemaError) {
       t.is(S$RescriptSchema.$$Error.message(err._1), S$RescriptSchema.$$Error.message(error(errorPayload)), undefined);
       return ;
     }
@@ -83,7 +83,7 @@ async function assertRaisedAsync(t, cb, errorPayload) {
   }
   catch (raw_err){
     var err = Caml_js_exceptions.internalToOCamlException(raw_err);
-    if (err.RE_EXN_ID === S$RescriptSchema.Raised) {
+    if (err.RE_EXN_ID === S$RescriptSchema.SchemaError) {
       t.is(S$RescriptSchema.$$Error.message(err._1), S$RescriptSchema.$$Error.message(error(errorPayload)), undefined);
       return ;
     }

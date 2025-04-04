@@ -4,7 +4,7 @@ import * as S_Core$RescriptSchema from "./S_Core.res.mjs";
 
 var Path = S_Core$RescriptSchema.Path;
 
-var Raised = S_Core$RescriptSchema.Raised;
+var SchemaError = S_Core$RescriptSchema.SchemaError;
 
 var Flag = S_Core$RescriptSchema.Flag;
 
@@ -186,7 +186,7 @@ var setGlobalConfig = S_Core$RescriptSchema.setGlobalConfig;
 
 export {
   Path ,
-  Raised ,
+  SchemaError ,
   Flag ,
   $$Error ,
   never ,
