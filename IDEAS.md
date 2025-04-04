@@ -15,37 +15,35 @@
 - (js/ts) Don't transform `null` to `undefined` for `S.nullish`
 - Updated error massage to look more like ArkType
 - Support coerce from any literal to another literal
-- Unknown keys union changed to lower case
-- Removed `S.inline`
+- Temporary removed `S.inline`
 - Improved error massage for recursive schema
 - Support coerce for S.union, S.option and S.null
-- Renamed `unknownKeys` to `additionalItems`.
+- Renamed `unknownKeys` to `additionalItems` and made it lowercase.
 - Allow to set `S.tuple` to Strip mode (still strict by default)
 - Changed `S.removeTypeValidation` to `S.noValidation`. It doesn't affect union discriminated optimisation anymore.
 - Renamed `RescriptSchemaError` to `SchemaError`
 - Renamed `S.describe` to `S.description`. Removed previous `S.description` getter in favor of the `description` field on schema
 - Renamed `S.deprecate` to `S.deprecated`. Removed previous `S.deprecation` getter in favor of the `deprecated` field on schema. Added `S.deprecated` to JS/TS API
+- Renamed `S.name` to `S.toExpression` and `S.setName` to `S.name`. Also, it's now possible to get the name itself from the `name` property on schema.
 
 ### Scope
 
 - Support `@s.name` etc for ppx and fail on removed `@s.describe`
+- Make `~standard` a getter
 - Todo something with nullish and ppx
 - Add JSDoc
 - Remove `rescript-schema` prefix from metadata and panic
-- Rename `setName` to `name` (or `ref`) and move the getter to schema type
-- Move description and deprecated to schema fields
 - Start using rescript v12
 - Remove namespace and integrate rescript-json-schema
 - Todo something with preprocess
 - Remove `Failed parsing at ...` for error messages
-- Provide isOptional in Union tag
 - Somehow determine whether transformed or not (including shape)
 - Make refinements change type from unknown to known
 - Add `.pipe` to Ts api
-- Rename S.Raised to S.Error
+- Rename S.Raised to S.SchemaError
 - Support unions and complex types for S.coerce
 - Make S.coerce extencible
-- Move example to rescript-schema
+- Move S.example to rescript-schema
 - Add S.toJsonSchema and S.fromJsonSchema
 - Add S.date (S.instanceof) and remove S.datetime
 - Add refinement info to the tagged type

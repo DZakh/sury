@@ -1206,7 +1206,7 @@ test("Name of merge schema", (t) => {
     })
   );
 
-  t.is(S.name(schema), `{ foo: string; bar: boolean; baz: string; }`);
+  t.is(S.toExpression(schema), `{ foo: string; bar: boolean; baz: string; }`);
 });
 
 test("Successfully parses object using S.schema", (t) => {
@@ -1340,8 +1340,8 @@ test("S.schema example", (t) => {
   expectType<TypeEqual<typeof value, Shape>>(true);
 });
 
-test("setName", (t) => {
-  t.is(S.name(S.setName(S.unknown, "BlaBla")), `BlaBla`);
+test("S.name", (t) => {
+  t.is(S.toExpression(S.name(S.unknown, "BlaBla")), `BlaBla`);
 });
 
 test("Successfully parses and returns result", (t) => {

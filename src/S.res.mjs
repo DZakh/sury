@@ -102,9 +102,9 @@ var recursive = S_Core$RescriptSchema.recursive;
 
 var name = S_Core$RescriptSchema.name;
 
-var setName = S_Core$RescriptSchema.setName;
-
 var noValidation = S_Core$RescriptSchema.noValidation;
+
+var toExpression = S_Core$RescriptSchema.toExpression;
 
 var Schema = S_Core$RescriptSchema.Schema;
 
@@ -235,8 +235,8 @@ export {
   isAsync ,
   recursive ,
   name ,
-  setName ,
   noValidation ,
+  toExpression ,
   Schema ,
   schema ,
   $$Object ,

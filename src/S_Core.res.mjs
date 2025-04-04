@@ -183,12 +183,12 @@ function stringify(unknown) {
   return string$1 + "}";
 }
 
-function name(schema) {
+function toExpression(schema) {
   var tag = schema.type;
   var $$const = schema.const;
-  var name$1 = schema.name;
-  if (name$1 !== undefined) {
-    return name$1;
+  var name = schema.name;
+  if (name !== undefined) {
+    return name;
   }
   if ($$const !== undefined) {
     return stringify($$const);
@@ -196,7 +196,7 @@ function name(schema) {
   var format = schema.format;
   var anyOf = schema.anyOf;
   if (anyOf !== undefined) {
-    return anyOf.map(name).join(" | ");
+    return anyOf.map(toExpression).join(" | ");
   }
   if (format !== undefined) {
     return format;
@@ -209,10 +209,10 @@ function name(schema) {
         var items = schema.items;
         if (typeof additionalItems !== "object") {
           return "[" + items.map(function (item) {
-                        return name(item.schema);
+                        return toExpression(item.schema);
                       }).join(", ") + "]";
         }
-        var itemName = name(additionalItems);
+        var itemName = toExpression(additionalItems);
         return (
                 additionalItems.type === "union" ? "(" + itemName + ")" : itemName
               ) + "[]";
@@ -221,13 +221,13 @@ function name(schema) {
         var items$1 = schema.items;
         if (items$1.length === 0) {
           if (typeof additionalItems$1 === "object") {
-            return "{ [key: string]: " + name(additionalItems$1) + "; }";
+            return "{ [key: string]: " + toExpression(additionalItems$1) + "; }";
           } else {
             return "{}";
           }
         } else {
           return "{ " + items$1.map(function (item) {
-                        return item.location + ": " + name(item.schema) + ";";
+                        return item.location + ": " + toExpression(item.schema) + ";";
                       }).join(" ") + " }";
         }
     default:
@@ -257,7 +257,7 @@ function reason(error, nestedLevelOpt) {
     case "InvalidOperation" :
         return reason$1.description;
     case "InvalidType" :
-        return "Must be " + name(reason$1.expected) + " (was " + stringify(reason$1.received) + ")";
+        return "Must be " + toExpression(reason$1.expected) + " (was " + stringify(reason$1.received) + ")";
     case "ExcessField" :
         return "Encountered disallowed excess key " + fromString(reason$1._0) + " on an object";
     case "InvalidUnion" :
@@ -272,7 +272,7 @@ function reason(error, nestedLevelOpt) {
         var uniqueReasons = Object.keys(reasonsDict);
         return "Invalid union with following errors" + lineBreak + uniqueReasons.join(lineBreak);
     case "InvalidJsonSchema" :
-        return "The '" + name(reason$1._0) + "' schema cannot be converted to JSON";
+        return "The '" + toExpression(reason$1._0) + "' schema cannot be converted to JSON";
     
   }
 }
@@ -1148,7 +1148,7 @@ function recursive(fn) {
   };
   var schema = fn(placeholder);
   mergeInPlace(placeholder, schema);
-  placeholder.name = name(schema);
+  placeholder.name = toExpression(schema);
   placeholder.b = builder;
   placeholder.output = output;
   var initialParseOperationBuilder = schema.b;
@@ -1212,9 +1212,9 @@ function recursive(fn) {
   return toStandard(schema);
 }
 
-function setName(schema, name) {
+function name(schema, name$1) {
   var mut = copy(schema);
-  mut.name = name;
+  mut.name = name$1;
   return toStandard(mut);
 }
 
@@ -2157,7 +2157,7 @@ function coerce(from, to) {
     }
   }
   if (exit === 1) {
-    var message = "S.coerce from " + name(fromOutput) + " to " + name(to) + " is not supported";
+    var message = "S.coerce from " + toExpression(fromOutput) + " to " + toExpression(to) + " is not supported";
     throw new Error("[" + vendor + "] " + message);
   }
   var mut = copy(from);
@@ -2374,7 +2374,7 @@ function getItemReversed(item) {
         var fields = targetReversed.fields;
         var maybeReversedItem = fields !== undefined ? fields[$$location] : items[$$location];
         if (maybeReversedItem === undefined) {
-          var message = "Impossible to reverse the " + item.inlinedLocation + " access of '" + name(targetReversed) + "' schema";
+          var message = "Impossible to reverse the " + item.inlinedLocation + " access of '" + toExpression(targetReversed) + "' schema";
           throw new Error("[" + vendor + "] " + message);
         }
         return maybeReversedItem.schema;
@@ -2496,6 +2496,193 @@ function builder$2(parentB, input, selfSchema, path) {
   }
 }
 
+function definitionToSchema(definition) {
+  if (!(typeof definition === "object" && definition !== null)) {
+    return parse(definition);
+  }
+  if (definition["~standard"]) {
+    return definition;
+  }
+  if (Array.isArray(definition)) {
+    var reversedItems = [];
+    var isTransformed = false;
+    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
+      var schema = definitionToSchema(definition[idx]);
+      var reversed = reverse(schema);
+      var $$location = idx.toString();
+      var inlinedLocation = "\"" + $$location + "\"";
+      definition[idx] = {
+        schema: schema,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+      reversedItems[idx] = {
+        schema: reversed,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+      if (schema !== reversed) {
+        isTransformed = true;
+      }
+      
+    }
+    return {
+            type: "array",
+            b: builder$2,
+            additionalItems: "strict",
+            items: definition,
+            output: isTransformed ? (function () {
+                  return {
+                          type: "array",
+                          b: builder$2,
+                          additionalItems: "strict",
+                          items: reversedItems
+                        };
+                }) : undefined
+          };
+  }
+  var fieldNames = Object.keys(definition);
+  var length = fieldNames.length;
+  var items = [];
+  for(var idx$1 = 0; idx$1 < length; ++idx$1){
+    var $$location$1 = fieldNames[idx$1];
+    var inlinedLocation$1 = fromString($$location$1);
+    var schema$1 = definitionToSchema(definition[$$location$1]);
+    var item = {
+      schema: schema$1,
+      location: $$location$1,
+      inlinedLocation: inlinedLocation$1
+    };
+    definition[$$location$1] = item;
+    items[idx$1] = item;
+  }
+  return {
+          type: "object",
+          b: builder$2,
+          additionalItems: globalConfig.a,
+          items: items,
+          fields: definition,
+          output: output$1
+        };
+}
+
+function output$1() {
+  var items = this.items;
+  var reversedFields = {};
+  var reversedItems = [];
+  var isTransformed = false;
+  for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
+    var match = items[idx];
+    var $$location = match.location;
+    var schema = match.schema;
+    var reversed = reverse(schema);
+    var item_inlinedLocation = match.inlinedLocation;
+    var item = {
+      schema: reversed,
+      location: $$location,
+      inlinedLocation: item_inlinedLocation
+    };
+    reversedFields[$$location] = item;
+    reversedItems.push(item);
+    if (schema !== reversed) {
+      isTransformed = true;
+    }
+    
+  }
+  if (isTransformed) {
+    return {
+            type: "object",
+            b: builder$2,
+            additionalItems: globalConfig.a,
+            items: reversedItems,
+            fields: reversedFields
+          };
+  } else {
+    return this;
+  }
+}
+
+function nested(fieldName) {
+  var parentCtx = this;
+  var cacheId = "~" + fieldName;
+  var ctx = parentCtx[cacheId];
+  if (ctx !== undefined) {
+    return Caml_option.valFromOption(ctx);
+  }
+  var schemas = [];
+  var fields = {};
+  var items = [];
+  var schema = toStandard({
+        type: "object",
+        b: builder$2,
+        additionalItems: globalConfig.a,
+        items: items,
+        fields: fields,
+        output: output$1
+      });
+  var target = parentCtx.f(fieldName, schema)[itemSymbol];
+  var field = function (fieldName, schema) {
+    var inlinedLocation = fromString(fieldName);
+    if (fields[fieldName]) {
+      throw new Error("[" + vendor + "] " + ("The field " + inlinedLocation + " defined twice"));
+    }
+    var ditem_2 = schema;
+    var ditem_4 = "[" + inlinedLocation + "]";
+    var ditem = {
+      k: 1,
+      inlinedLocation: inlinedLocation,
+      location: fieldName,
+      schema: ditem_2,
+      of: target,
+      p: ditem_4
+    };
+    fields[fieldName] = ditem;
+    items.push(ditem);
+    schemas.push(schema);
+    return proxify(ditem);
+  };
+  var tag = function (tag$1, asValue) {
+    field(tag$1, definitionToSchema(asValue));
+  };
+  var fieldOr = function (fieldName, schema, or) {
+    return field(fieldName, getOr(factory$1(schema), or));
+  };
+  var flatten = function (schema) {
+    var match = schema.type;
+    if (match === "object") {
+      var flattenedItems = schema.items;
+      if (schema.advanced) {
+        var message = "Unsupported nested flatten for advanced object schema '" + toExpression(schema) + "'";
+        throw new Error("[" + vendor + "] " + message);
+      }
+      var match$1 = reverse(schema);
+      var match$2 = match$1.type;
+      if (match$2 === "object" && match$1.advanced !== true) {
+        var result = {};
+        for(var idx = 0 ,idx_finish = flattenedItems.length; idx < idx_finish; ++idx){
+          var item = flattenedItems[idx];
+          result[item.location] = field(item.location, item.schema);
+        }
+        return result;
+      }
+      var message$1 = "Unsupported nested flatten for transformed schema '" + toExpression(schema) + "'";
+      throw new Error("[" + vendor + "] " + message$1);
+    }
+    var message$2 = "The '" + toExpression(schema) + "' schema can't be flattened";
+    throw new Error("[" + vendor + "] " + message$2);
+  };
+  var ctx$1 = {
+    field: field,
+    f: field,
+    fieldOr: fieldOr,
+    tag: tag,
+    nested: nested,
+    flatten: flatten
+  };
+  parentCtx[cacheId] = ctx$1;
+  return ctx$1;
+}
+
 function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
   if (!(typeof definition === "object" && definition !== null)) {
     return {
@@ -2576,193 +2763,6 @@ function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
           },
           a: false
         };
-}
-
-function output$1() {
-  var items = this.items;
-  var reversedFields = {};
-  var reversedItems = [];
-  var isTransformed = false;
-  for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
-    var match = items[idx];
-    var $$location = match.location;
-    var schema = match.schema;
-    var reversed = reverse(schema);
-    var item_inlinedLocation = match.inlinedLocation;
-    var item = {
-      schema: reversed,
-      location: $$location,
-      inlinedLocation: item_inlinedLocation
-    };
-    reversedFields[$$location] = item;
-    reversedItems.push(item);
-    if (schema !== reversed) {
-      isTransformed = true;
-    }
-    
-  }
-  if (isTransformed) {
-    return {
-            type: "object",
-            b: builder$2,
-            additionalItems: globalConfig.a,
-            items: reversedItems,
-            fields: reversedFields
-          };
-  } else {
-    return this;
-  }
-}
-
-function definitionToSchema(definition) {
-  if (!(typeof definition === "object" && definition !== null)) {
-    return parse(definition);
-  }
-  if (definition["~standard"]) {
-    return definition;
-  }
-  if (Array.isArray(definition)) {
-    var reversedItems = [];
-    var isTransformed = false;
-    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
-      var schema = definitionToSchema(definition[idx]);
-      var reversed = reverse(schema);
-      var $$location = idx.toString();
-      var inlinedLocation = "\"" + $$location + "\"";
-      definition[idx] = {
-        schema: schema,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-      reversedItems[idx] = {
-        schema: reversed,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-      if (schema !== reversed) {
-        isTransformed = true;
-      }
-      
-    }
-    return {
-            type: "array",
-            b: builder$2,
-            additionalItems: "strict",
-            items: definition,
-            output: isTransformed ? (function () {
-                  return {
-                          type: "array",
-                          b: builder$2,
-                          additionalItems: "strict",
-                          items: reversedItems
-                        };
-                }) : undefined
-          };
-  }
-  var fieldNames = Object.keys(definition);
-  var length = fieldNames.length;
-  var items = [];
-  for(var idx$1 = 0; idx$1 < length; ++idx$1){
-    var $$location$1 = fieldNames[idx$1];
-    var inlinedLocation$1 = fromString($$location$1);
-    var schema$1 = definitionToSchema(definition[$$location$1]);
-    var item = {
-      schema: schema$1,
-      location: $$location$1,
-      inlinedLocation: inlinedLocation$1
-    };
-    definition[$$location$1] = item;
-    items[idx$1] = item;
-  }
-  return {
-          type: "object",
-          b: builder$2,
-          additionalItems: globalConfig.a,
-          items: items,
-          fields: definition,
-          output: output$1
-        };
-}
-
-function nested(fieldName) {
-  var parentCtx = this;
-  var cacheId = "~" + fieldName;
-  var ctx = parentCtx[cacheId];
-  if (ctx !== undefined) {
-    return Caml_option.valFromOption(ctx);
-  }
-  var schemas = [];
-  var fields = {};
-  var items = [];
-  var schema = toStandard({
-        type: "object",
-        b: builder$2,
-        additionalItems: globalConfig.a,
-        items: items,
-        fields: fields,
-        output: output$1
-      });
-  var target = parentCtx.f(fieldName, schema)[itemSymbol];
-  var field = function (fieldName, schema) {
-    var inlinedLocation = fromString(fieldName);
-    if (fields[fieldName]) {
-      throw new Error("[" + vendor + "] " + ("The field " + inlinedLocation + " defined twice"));
-    }
-    var ditem_2 = schema;
-    var ditem_4 = "[" + inlinedLocation + "]";
-    var ditem = {
-      k: 1,
-      inlinedLocation: inlinedLocation,
-      location: fieldName,
-      schema: ditem_2,
-      of: target,
-      p: ditem_4
-    };
-    fields[fieldName] = ditem;
-    items.push(ditem);
-    schemas.push(schema);
-    return proxify(ditem);
-  };
-  var tag = function (tag$1, asValue) {
-    field(tag$1, definitionToSchema(asValue));
-  };
-  var fieldOr = function (fieldName, schema, or) {
-    return field(fieldName, getOr(factory$1(schema), or));
-  };
-  var flatten = function (schema) {
-    var match = schema.type;
-    if (match === "object") {
-      var flattenedItems = schema.items;
-      if (schema.advanced) {
-        var message = "Unsupported nested flatten for advanced object schema '" + name(schema) + "'";
-        throw new Error("[" + vendor + "] " + message);
-      }
-      var match$1 = reverse(schema);
-      var match$2 = match$1.type;
-      if (match$2 === "object" && match$1.advanced !== true) {
-        var result = {};
-        for(var idx = 0 ,idx_finish = flattenedItems.length; idx < idx_finish; ++idx){
-          var item = flattenedItems[idx];
-          result[item.location] = field(item.location, item.schema);
-        }
-        return result;
-      }
-      var message$1 = "Unsupported nested flatten for transformed schema '" + name(schema) + "'";
-      throw new Error("[" + vendor + "] " + message$1);
-    }
-    var message$2 = "The '" + name(schema) + "' schema can't be flattened";
-    throw new Error("[" + vendor + "] " + message$2);
-  };
-  var ctx$1 = {
-    field: field,
-    f: field,
-    fieldOr: fieldOr,
-    tag: tag,
-    nested: nested,
-    flatten: flatten
-  };
-  parentCtx[cacheId] = ctx$1;
-  return ctx$1;
 }
 
 function advancedReverse(definition, to, flattened) {
@@ -3029,7 +3029,7 @@ function object(definer) {
       f.push(item$2);
       return proxify(item$2);
     }
-    var message = "The '" + name(schema) + "' schema can't be flattened";
+    var message = "The '" + toExpression(schema) + "' schema can't be flattened";
     throw new Error("[" + vendor + "] " + message);
   };
   var field = function (fieldName, schema) {
@@ -3834,8 +3834,8 @@ export {
   isAsync ,
   recursive ,
   name ,
-  setName ,
   noValidation ,
+  toExpression ,
   Schema ,
   schema$6 as schema,
   $$Object ,

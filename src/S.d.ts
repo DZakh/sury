@@ -276,8 +276,8 @@ export function recursive<Output, Input = Output>(
   definer: (schema: Schema<Output, Input>) => Schema<Output, Input>
 ): Schema<Output, Input>;
 
-export function name(schema: Schema<unknown>): string;
-export function setName<Output, Input>(
+export function toExpression(schema: Schema<unknown>): string;
+export function name<Output, Input>(
   schema: Schema<Output, Input>,
   name: string
 ): Schema<Output, Input>;

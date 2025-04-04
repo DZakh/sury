@@ -458,8 +458,8 @@ test("Compiled parse code snapshot", t => {
     ~op=#ReverseParse,
     `i=>{if(!(typeof i==="number"&&(i===0||i===1))){e[0](i)}return i}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#Convert, `i=>{return i}`)
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return i}`)
+  t->U.assertCompiledCodeIsNoop(~schema, ~op=#Convert)
+  t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
 })
 
 asyncTest("Compiled async parse code snapshot", async t => {
@@ -546,8 +546,8 @@ test("Nested union doesn't mutate the input", t => {
 test("Compiled serialize code snapshot", t => {
   let schema = S.union([S.literal(0), S.literal(1)])
 
-  t->U.assertCompiledCode(~schema, ~op=#Convert, `i=>{return i}`)
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return i}`)
+  t->U.assertCompiledCodeIsNoop(~schema, ~op=#Convert)
+  t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
 })
 
 test("Compiled serialize code snapshot of objects returning literal fields", t => {
@@ -619,7 +619,7 @@ module CknittelBugReport = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{if(typeof i==="object"&&i){if(i["TAG"]==="A"){let v0=i["TAG"],v1=i["_0"];if(v0!=="A"){e[0](v0)}let v2=v1["payload"];let v3=v2["a"];i=v1}else if(i["TAG"]==="B"){let v4=i["TAG"],v5=i["_0"];if(v4!=="B"){e[1](v4)}let v6=v5["payload"];let v7=v6["b"];i=v5}}return i}`,
+      `i=>{if(typeof i==="object"&&i){if(i["TAG"]==="A"){let v0=i["TAG"],v1=i["_0"];if(v0!=="A"){e[0](v0)}let v2=v1["payload"];i=v1}else if(i["TAG"]==="B"){let v4=i["TAG"],v5=i["_0"];if(v4!=="B"){e[1](v4)}let v6=v5["payload"];i=v5}}return i}`,
     )
 
     let x = {
@@ -857,7 +857,7 @@ test("Issue https://github.com/DZakh/rescript-schema/issues/101", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{if(typeof i==="object"&&i){if(i["NAME"]==="request"){let v0=i["NAME"],v1=i["VAL"];if(v0!=="request"){e[0](v0)}i=i}else if(i["NAME"]==="response"){let v2=i["NAME"],v3=i["VAL"];if(v2!=="response"){e[1](v2)}let v4=v3["response"];i=i}else{e[2](i)}}return i}`,
+    `i=>{if(typeof i==="object"&&i){if(i["NAME"]==="request"){let v0=i["NAME"],v1=i["VAL"];if(v0!=="request"){e[0](v0)}i=i}else if(i["NAME"]==="response"){let v2=i["NAME"],v3=i["VAL"];if(v2!=="response"){e[1](v2)}i=i}}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,

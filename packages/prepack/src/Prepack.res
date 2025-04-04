@@ -164,7 +164,7 @@ let filesMapping = [
   ("description", "S.description"),
   ("deprecated", "S.deprecated"),
   ("name", "S.name"),
-  ("setName", "S.setName"),
+  ("toExpression", "S.toExpression"),
   ("noValidation", "S.noValidation"),
   ("compile", "S.compile"),
   ("port", "S.port"),

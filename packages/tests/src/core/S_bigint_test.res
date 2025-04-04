@@ -39,7 +39,7 @@ module Common = {
 
   test("BigInt name", t => {
     let schema = factory()
-    t->Assert.is(schema->S.name, "bigint", ())
+    t->Assert.is(schema->S.toExpression, "bigint", ())
   })
 
   test("Successfully serializes", t => {

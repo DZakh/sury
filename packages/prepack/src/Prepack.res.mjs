@@ -247,8 +247,8 @@ var filesMapping = [
     "S.name"
   ],
   [
-    "setName",
-    "S.setName"
+    "toExpression",
+    "S.toExpression"
   ],
   [
     "noValidation",

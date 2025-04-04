@@ -113,7 +113,7 @@ module Positive = {
     ),
   ]->Array.forEach(testData => {
     test(
-      `Successfully parses object with discriminant "${testData.discriminantSchema->S.name}"${testData.testNamePostfix}`,
+      `Successfully parses object with discriminant "${testData.discriminantSchema->S.toExpression}"${testData.testNamePostfix}`,
       t => {
         let schema = S.object(
           s => {
@@ -136,7 +136,7 @@ module Positive = {
     )
 
     test(
-      `Successfully serializes object with discriminant "${testData.discriminantSchema->S.name}"${testData.testNamePostfix}`,
+      `Successfully serializes object with discriminant "${testData.discriminantSchema->S.toExpression}"${testData.testNamePostfix}`,
       t => {
         let schema = S.object(
           s => {
@@ -210,7 +210,7 @@ module Negative = {
     ),
   ]->Array.forEach(testData => {
     test(
-      `Successfully parses object with discriminant that we don't know how to serialize "${testData.discriminantSchema->S.name}"${testData.testNamePostfix}`,
+      `Successfully parses object with discriminant that we don't know how to serialize "${testData.discriminantSchema->S.toExpression}"${testData.testNamePostfix}`,
       t => {
         let schema = S.object(
           s => {
@@ -233,7 +233,7 @@ module Negative = {
     )
 
     test(
-      `Fails to serialize object with discriminant that we don't know how to serialize "${testData.discriminantSchema->S.name}"${testData.testNamePostfix}`,
+      `Fails to serialize object with discriminant that we don't know how to serialize "${testData.discriminantSchema->S.toExpression}"${testData.testNamePostfix}`,
       t => {
         let schema = S.object(
           s => {

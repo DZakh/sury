@@ -223,29 +223,55 @@ type additionalItemsMode = | @as("strip") Strip | @as("strict") Strict
 @tag("type")
 type rec t<'value> =
   private
-  | @as("never") Never({description?: string, deprecated?: string})
-  | @as("unknown") Unknown({description?: string, deprecated?: string})
-  | @as("string") String({const: string, description?: string, deprecated?: string})
+  | @as("never") Never({description?: string, deprecated?: string, name?: string})
+  | @as("unknown") Unknown({description?: string, deprecated?: string, name?: string})
+  | @as("string") String({const: string, description?: string, deprecated?: string, name?: string})
   | @as("number")
   Number({
       const: float,
       format?: numberFormat,
       description?: string,
       deprecated?: string,
+      name?: string,
     })
-  | @as("bigint") BigInt({const: bigint, description?: string, deprecated?: string})
-  | @as("boolean") Boolean({const: bool, description?: string, deprecated?: string})
-  | @as("symbol") Symbol({const: Js.Types.symbol, description?: string, deprecated?: string})
-  | @as("null") Null({const: Js.Types.null_val, description?: string, deprecated?: string})
-  | @as("undefined") Undefined({const: unit, description?: string, deprecated?: string})
-  | @as("nan") NaN({const: float, description?: string, deprecated?: string})
+  | @as("bigint") BigInt({const: bigint, description?: string, deprecated?: string, name?: string})
+  | @as("boolean") Boolean({const: bool, description?: string, deprecated?: string, name?: string})
+  | @as("symbol")
+  Symbol({
+      const: Js.Types.symbol,
+      description?: string,
+      deprecated?: string,
+      name?: string,
+    })
+  | @as("null")
+  Null({
+      const: Js.Types.null_val,
+      description?: string,
+      deprecated?: string,
+      name?: string,
+    })
+  | @as("undefined")
+  Undefined({
+      const: unit,
+      description?: string,
+      deprecated?: string,
+      name?: string,
+    })
+  | @as("nan") NaN({const: float, description?: string, deprecated?: string, name?: string})
   | @as("function")
   Function({
       const?: Js.Types.function_val,
       description?: string,
       deprecated?: string,
+      name?: string,
     })
-  | @as("instance") Instance({const?: Js.Types.obj_val, description?: string, deprecated?: string})
+  | @as("instance")
+  Instance({
+      const?: Js.Types.obj_val,
+      description?: string,
+      deprecated?: string,
+      name?: string,
+    })
   | @as("array")
   Array({
       items: array<item>,
@@ -253,6 +279,7 @@ type rec t<'value> =
       unnest?: bool,
       description?: string,
       deprecated?: string,
+      name?: string,
     })
   | @as("object")
   Object({
@@ -261,6 +288,7 @@ type rec t<'value> =
       additionalItems: additionalItems,
       description?: string,
       deprecated?: string,
+      name?: string,
     }) // TODO: Add const for Object and Tuple
   | @as("union")
   Union({
@@ -268,8 +296,9 @@ type rec t<'value> =
       has: has,
       description?: string,
       deprecated?: string,
+      name?: string,
     })
-  | @as("json") JSON({description?: string, deprecated?: string}) // FIXME: Remove it in favor of Union
+  | @as("json") JSON({description?: string, deprecated?: string, name?: string}) // FIXME: Remove it in favor of Union
 @unboxed and additionalItems = | ...additionalItemsMode | Schema(t<unknown>)
 // FIXME: Add recursive
 and schema<'a> = t<'a>
@@ -279,6 +308,7 @@ and internal = {
   @as("b")
   mutable builder: builder,
   mutable const?: char, // use char to avoid Caml_option.some
+  mutable name?: string,
   mutable description?: string,
   mutable deprecated?: string,
   format?: internalFormat,
@@ -288,7 +318,6 @@ and internal = {
   mutable additionalItems?: additionalItems,
   mutable items?: array<item>,
   mutable fields?: dict<item>,
-  mutable name?: string,
   mutable noValidation?: bool,
   mutable catch?: bool,
   mutable unnest?: bool,
@@ -302,6 +331,7 @@ and untagged = private {
   @as("type")
   tag: tag,
   const?: unknown,
+  name?: string,
   description?: string,
   deprecated?: string,
   unnest?: bool,
@@ -558,10 +588,7 @@ let rec stringify = unknown => {
   }
 }
 
-// FIXME: Support `like example` for root schema name
-// FIXME: Use `as ${name}` for non unknown schemas
-// FIXME: For recursive name use less human-readable format
-let rec name = schema => {
+let rec toExpression = schema => {
   let schema = schema->toInternal
   switch schema {
   | {name} => name
@@ -569,7 +596,7 @@ let rec name = schema => {
   | {anyOf} =>
     anyOf
     ->(Obj.magic: array<internal> => array<t<'a>>)
-    ->Js.Array2.map(name)
+    ->Js.Array2.map(toExpression)
     ->Js.Array2.joinWith(" | ")
   | {format} => (format :> string)
   | {tag: Object, ?items, ?additionalItems} =>
@@ -577,14 +604,14 @@ let rec name = schema => {
     if items->Js.Array2.length === 0 {
       if additionalItems->Js.typeof === "object" {
         let additionalItems: internal = additionalItems->Obj.magic
-        `{ [key: string]: ${additionalItems->fromInternal->name}; }`
+        `{ [key: string]: ${additionalItems->fromInternal->toExpression}; }`
       } else {
         `{}`
       }
     } else {
       `{ ${items
         ->Js.Array2.map(item => {
-          `${item.location}: ${item.schema->toInternal->fromInternal->name};`
+          `${item.location}: ${item.schema->toInternal->fromInternal->toExpression};`
         })
         ->Js.Array2.joinWith(" ")} }`
     }
@@ -592,7 +619,7 @@ let rec name = schema => {
     let items = items->Stdlib.Option.unsafeUnwrap
     if additionalItems->Js.typeof === "object" {
       let additionalItems: internal = additionalItems->Obj.magic
-      let itemName = additionalItems->fromInternal->name
+      let itemName = additionalItems->fromInternal->toExpression
       if additionalItems.tag === Union {
         `(${itemName})`
       } else {
@@ -600,7 +627,7 @@ let rec name = schema => {
       } ++ "[]"
     } else {
       `[${items
-        ->Js.Array2.map(item => item.schema->toInternal->fromInternal->name)
+        ->Js.Array2.map(item => item.schema->toInternal->fromInternal->toExpression)
         ->Js.Array2.joinWith(", ")}]`
     }
 
@@ -624,8 +651,10 @@ module Error = {
     | UnexpectedAsync => "Encountered unexpected async transform or refine. Use ParseAsync operation instead"
     | ExcessField(fieldName) =>
       `Encountered disallowed excess key ${fieldName->Stdlib.Inlined.Value.fromString} on an object`
-    | InvalidType({expected, received}) => `Must be ${expected->name} (was ${received->stringify})`
-    | InvalidJsonSchema(schema) => `The '${schema->name}' schema cannot be converted to JSON`
+    | InvalidType({expected: schema, received}) =>
+      `Must be ${schema->toExpression} (was ${received->stringify})`
+    | InvalidJsonSchema(schema) =>
+      `The '${schema->toExpression}' schema cannot be converted to JSON`
     | InvalidUnion(errors) => {
         let lineBreak = `\n${" "->Js.String2.repeat(nestedLevel * 2)}`
         let reasonsDict = Js.Dict.empty()
@@ -1697,7 +1726,7 @@ let recursive = fn => {
   let schema = fn(placeholder->fromInternal)->toInternal
 
   mergeInPlace(placeholder, schema)
-  placeholder.name = Some(schema->fromInternal->name)
+  placeholder.name = Some(schema->fromInternal->toExpression)
   placeholder.builder = builder
   placeholder.output = Some(output)
 
@@ -1765,7 +1794,7 @@ let recursive = fn => {
   schema->toStandard
 }
 
-let setName = (schema, name) => {
+let name = (schema, name) => {
   let schema = schema->toInternal
   let mut = schema->copy
   mut.name = Some(name) // TODO: Better test reverse
@@ -2753,9 +2782,9 @@ let rec coerce = (from, to) => {
 
         | _ =>
           InternalError.panic(
-            `S.coerce from ${fromOutput->fromInternal->name} to ${to
+            `S.coerce from ${fromOutput->fromInternal->toExpression} to ${to
               ->fromInternal
-              ->name} is not supported`,
+              ->toExpression} is not supported`,
           )
         }
 
@@ -3087,7 +3116,7 @@ module Schema = {
           InternalError.panic(
             `Impossible to reverse the ${inlinedLocation} access of '${targetReversed
               ->fromInternal
-              ->name}' schema`,
+              ->toExpression}' schema`,
           )
         }
         (maybeReversedItem->Stdlib.Option.unsafeUnwrap).schema->toInternal
@@ -3593,7 +3622,7 @@ module Schema = {
                 InternalError.panic(
                   `Unsupported nested flatten for advanced object schema '${schema
                     ->fromInternal
-                    ->name}'`,
+                    ->toExpression}'`,
                 )
               }
               switch schema->reverse {
@@ -3609,12 +3638,14 @@ module Schema = {
                 InternalError.panic(
                   `Unsupported nested flatten for transformed schema '${schema
                     ->fromInternal
-                    ->name}'`,
+                    ->toExpression}'`,
                 )
               }
             }
           | _ =>
-            InternalError.panic(`The '${schema->fromInternal->name}' schema can't be flattened`)
+            InternalError.panic(
+              `The '${schema->fromInternal->toExpression}' schema can't be flattened`,
+            )
           }
         }
 
@@ -3675,7 +3706,10 @@ module Schema = {
             f->Js.Array2.push(item)->ignore
             item->proxify
           }
-        | _ => InternalError.panic(`The '${schema->fromInternal->name}' schema can't be flattened`)
+        | _ =>
+          InternalError.panic(
+            `The '${schema->fromInternal->toExpression}' schema can't be flattened`,
+          )
         }
       }
 

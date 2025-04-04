@@ -45,29 +45,55 @@ type tag =
 @tag("type")
 type rec t<'value> =
   private
-  | @as("never") Never({description?: string, deprecated?: string})
-  | @as("unknown") Unknown({description?: string, deprecated?: string})
-  | @as("string") String({const: string, description?: string, deprecated?: string})
+  | @as("never") Never({description?: string, deprecated?: string, name?: string})
+  | @as("unknown") Unknown({description?: string, deprecated?: string, name?: string})
+  | @as("string") String({const: string, description?: string, deprecated?: string, name?: string})
   | @as("number")
   Number({
       const: float,
       format?: numberFormat,
       description?: string,
       deprecated?: string,
+      name?: string,
     })
-  | @as("bigint") BigInt({const: bigint, description?: string, deprecated?: string})
-  | @as("boolean") Boolean({const: bool, description?: string, deprecated?: string})
-  | @as("symbol") Symbol({const: Js.Types.symbol, description?: string, deprecated?: string})
-  | @as("null") Null({const: Js.Types.null_val, description?: string, deprecated?: string})
-  | @as("undefined") Undefined({const: unit, description?: string, deprecated?: string})
-  | @as("nan") NaN({const: float, description?: string, deprecated?: string})
+  | @as("bigint") BigInt({const: bigint, description?: string, deprecated?: string, name?: string})
+  | @as("boolean") Boolean({const: bool, description?: string, deprecated?: string, name?: string})
+  | @as("symbol")
+  Symbol({
+      const: Js.Types.symbol,
+      description?: string,
+      deprecated?: string,
+      name?: string,
+    })
+  | @as("null")
+  Null({
+      const: Js.Types.null_val,
+      description?: string,
+      deprecated?: string,
+      name?: string,
+    })
+  | @as("undefined")
+  Undefined({
+      const: unit,
+      description?: string,
+      deprecated?: string,
+      name?: string,
+    })
+  | @as("nan") NaN({const: float, description?: string, deprecated?: string, name?: string})
   | @as("function")
   Function({
       const?: Js.Types.function_val,
       description?: string,
       deprecated?: string,
+      name?: string,
     })
-  | @as("instance") Instance({const?: Js.Types.obj_val, description?: string, deprecated?: string})
+  | @as("instance")
+  Instance({
+      const?: Js.Types.obj_val,
+      description?: string,
+      deprecated?: string,
+      name?: string,
+    })
   | @as("array")
   Array({
       items: array<item>,
@@ -75,6 +101,7 @@ type rec t<'value> =
       unnest?: bool,
       description?: string,
       deprecated?: string,
+      name?: string,
     })
   | @as("object")
   Object({
@@ -83,6 +110,7 @@ type rec t<'value> =
       additionalItems: additionalItems,
       description?: string,
       deprecated?: string,
+      name?: string,
     })
   | @as("union")
   Union({
@@ -90,13 +118,15 @@ type rec t<'value> =
       has: has,
       description?: string,
       deprecated?: string,
+      name?: string,
     })
-  | @as("json") JSON({description?: string, deprecated?: string})
+  | @as("json") JSON({description?: string, deprecated?: string, name?: string})
 and schema<'a> = t<'a>
 and untagged = private {
   @as("type")
   tag: tag,
   const?: unknown,
+  name?: string,
   description?: string,
   deprecated?: string,
   unnest?: bool,
@@ -292,11 +322,11 @@ let isAsync: t<'value> => bool
 
 let recursive: (t<'value> => t<'value>) => t<'value>
 
-let name: t<'value> => string
-
-let setName: (t<'value>, string) => t<'value>
+let name: (t<'value>, string) => t<'value>
 
 let noValidation: (t<'value>, bool) => t<'value>
+
+let toExpression: t<'value> => string
 
 external toUnknown: t<'any> => t<unknown> = "%identity"
 external untag: t<'any> => untagged = "%identity"
