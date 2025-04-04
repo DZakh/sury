@@ -63,7 +63,7 @@
   - [`classify`](#classify)
   - [`isAsync`](#isasync)
   - [`name`](#name)
-  - [`setName`](#setname)
+  - [`toExpression`](#toExpression)
   - [`noValidation`](#noValidation)
 - [Error handling](#error-handling)
   - [`Error.make`](#errormake)
@@ -1492,36 +1492,38 @@ Determines if the schema is async. It can be useful to decide whether you should
 
 ### **`name`**
 
-`(S.t<'value>) => string`
+`(S.t<'value>, string) => string`
 
 ```rescript
-S.literal({"abc": 123})->S.name
-// `{ "abc": 123 }`
+let schema = S.literal({"abc": 123})->S.name("Abc")
+
+(schema->S.untag).name // "Abc"
 ```
 
 Used internally for readable error messages.
 
-> 🧠 Names are subject to change in the future versions
+### **`toExpression`**
 
-### **`setName`**
-
-`(S.t<'value>, string) => string`
+`(S.t<'value>) => string`
 
 ```rescript
-let schema = S.literal({"abc": 123})->S.setName("Abc")
+S.literal({"abc": 123})->S.toExpression
+// "{ "abc": 123 }"
 
-schema->S.name
-// `Abc`
+S.string->S.name("Address")->S.toExpression
+// "Address"
 ```
 
-You can customise a schema name using `S.setName`.
+Used internally for readable error messages.
+
+> 🧠 The format subject to change
 
 ### **`noValidation`**
 
 `(S.t<'value>, bool) => S.t<'value>`
 
 ```rescript
-let schema = S.object(s => s.field("abc", S.int))->S.validation(true)
+let schema = S.object(s => s.field("abc", S.int))->S.noValidation(true)
 
 {
   "abc": 123,

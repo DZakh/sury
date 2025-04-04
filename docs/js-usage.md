@@ -46,7 +46,7 @@
   - [`coerce`](#coerce)
   - [`standard`](#standard)
   - [`name`](#name)
-  - [`setName`](#setname)
+  - [`toExpression`](#toExpression)
 - [Error handling](#error-handling)
 - [Comparison](#comparison)
 - [Global config](#global-config)
@@ -890,24 +890,26 @@ Converts ReScript Schema into [Standard Schema](https://standardschema.dev/). Yo
 ### **`name`**
 
 ```ts
-S.name(S.schema({ abc: 123 }));
-// `{ abc: 123; }`
+const schema = S.name(S.schema({ abc: 123 }, "Abc"));
+
+schema.name; // "Abc"
 ```
 
 Used internally for readable error messages.
 
-> 🧠 Subject to change
-
-### **`setName`**
+### **`toExpression`**
 
 ```ts
-const schema = S.setName(S.schema({ abc: 123 }, "Abc"));
+S.toExpression(S.schema({ abc: 123 }));
+// "{ abc: 123; }"
 
-S.name(schema);
-// `Abc`
+S.toExpression(S.name(S.string, "Address"));
+// "Address"
 ```
 
-You can customise a schema name using `S.setName`.
+Used internally for readable error messages.
+
+> 🧠 The format subject to change
 
 ## Error handling
 
