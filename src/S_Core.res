@@ -753,6 +753,7 @@ module Builder = {
     let inlineConst = (b, schema) => {
       switch schema {
       | {tag: Symbol | Instance | Function, ?const} => b->embed(const->Obj.magic)
+      | {tag: Undefined} => "void 0"
       | {tag: String, ?const} => const->Obj.magic->Stdlib.Inlined.Value.fromString
       | {tag: BigInt, ?const} => const->Obj.magic ++ "n"
       | {?const} => const->Obj.magic
@@ -1982,6 +1983,26 @@ let custom = (name, definer) =>
 
 let unit = Literal.undefined->toStandard
 
+let nullAsUnit = {
+  let output = () => {
+    {
+      tag: Undefined,
+      const: %raw(`void 0`),
+      builder: Builder.make((b, ~input as _, ~selfSchema as _, ~path as _) => {
+        b->B.val("null")
+      }),
+    }
+  }
+  {
+    tag: Null,
+    const: %raw(`null`),
+    builder: Builder.make((b, ~input as _, ~selfSchema as _, ~path as _) => {
+      b->B.val("void 0")
+    }),
+    output,
+  }->toStandard
+}
+
 let unknown = {
   tag: Unknown,
   builder: Builder.invalidJson,
@@ -2371,8 +2392,8 @@ module Option = {
         fields,
         items: [item],
         additionalItems: Strip,
-        builder: Builder.make((b, ~input as _, ~selfSchema as _, ~path as _) => {
-          b->B.val("void 0")
+        builder: Builder.make((b, ~input as _, ~selfSchema, ~path as _) => {
+          b->B.val(b->B.inlineConst(selfSchema->reverse))
         }),
       }
     }
@@ -2397,7 +2418,7 @@ module Option = {
     }
   }
 
-  let factory = item => {
+  let factory = (item, ~unit=unit) => {
     let item = item->toInternal
 
     Union.factory([
@@ -4138,26 +4159,8 @@ module Schema = {
 }
 
 module Null = {
-  let unit = Literal.null->fromInternal->Schema.shape(_ => %raw(`void 0`))
-
   let factory = item => {
-    let item = item->toInternal
-    let none = unit
-    let mut = if (
-      switch item.tag {
-      | Null => true
-      | Union => item.has->Stdlib.Option.unsafeUnwrap->Stdlib.Dict.has((Null: tag :> string))
-      | _ => false
-      }
-    ) {
-      item->copy
-    } else {
-      Union.factory([item->fromInternal, none->toUnknown])->toInternal
-    }
-    mut.some = Some(item)
-    mut.none = Some(none->toInternal)
-    // mut.output = Some(Option.output)
-    mut->fromInternal
+    Option.factory(item, ~unit=nullAsUnit)
   }
 }
 
@@ -4522,7 +4525,7 @@ let int = Int.schema
 let float = Float.schema
 let bigint = BigInt.schema
 let null = Null.factory
-let option = Option.factory
+let option = Option.factory->Obj.magic
 let array = Array.factory
 let dict = Dict.factory
 let shape = Schema.shape

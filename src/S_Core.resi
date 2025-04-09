@@ -207,6 +207,7 @@ module Error: {
 let never: t<never>
 let unknown: t<unknown>
 let unit: t<unit>
+let nullAsUnit: t<unit>
 let string: t<string>
 let bool: t<bool>
 let int: t<int>

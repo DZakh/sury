@@ -38,9 +38,9 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(i===null){i=e[0]}else if(!(typeof i==="string")){e[1](i)}return i}`,
+      `i=>{if(i===null){i=void 0}else if(!(typeof i==="string")){e[0](i)}return i}`,
     )
-    t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{if(i===void 0){i=e[0]}return i}`)
+    t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{if(i===void 0){i=null}return i}`)
   })
 
   test("Compiled async parse code snapshot", t => {
@@ -49,7 +49,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{try{i=e[0](i)}catch(e0){if(i===null){i=e[1]}else{e[2](i)}}return Promise.resolve(i)}`,
+      `i=>{try{i=e[0](i)}catch(e0){if(i===null){i=void 0}else{e[1](i)}}return Promise.resolve(i)}`,
     )
   })
 
@@ -126,41 +126,32 @@ test("Successfully parses null and serializes it back for deprecated nullable sc
   )
 })
 
-test("Parses null nested in option as None instead of Some(None)", t => {
-  let schema = S.option(S.null(S.bool))
-
-  t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(schema), None, ())
-  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), None, ())
-})
-
 test("Serializes Some(None) to null for null nested in option", t => {
   let schema = S.option(S.null(S.bool))
 
-  // t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(schema), Some(None), ())
-  // t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), None, ())
+  t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(schema), Some(None), ())
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), None, ())
 
-  // TODO: Flatten union
-  // t->Assert.deepEqual(Some(None)->S.reverseConvertOrThrow(schema), %raw(`null`), ())
-  // t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
+  t->Assert.deepEqual(Some(None)->S.reverseConvertOrThrow(schema), %raw(`null`), ())
+  t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    // TODO: Can be improved
-    `i=>{if(i===null){i=e[0]}else if(!(typeof i==="boolean"||i===void 0)){e[1](i)}return i}`,
+    `i=>{if(i===null){i={"BS_PRIVATE_NESTED_SOME_NONE":0}}else if(!(typeof i==="boolean"||i===void 0)){e[0](i)}return i}`,
   )
 
-  // t->U.assertCompiledCode(
-  //   ~schema,
-  //   ~op=#ReverseConvert,
-  //   `i=>{if(i===void 0){if(i===void 0){i=e[0]}else if(i===void 0){i=e[1]}}else if(typeof i==="object"&&i){i=e[2]}return i}`,
-  // )
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#ReverseConvert,
+    `i=>{if(typeof i==="object"&&i&&i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=null}return i}`,
+  )
 })
 
 test("Serializes Some(None) to null for null nested in null", t => {
   let schema = S.null(S.null(S.bool))
 
-  t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(schema), None, ())
+  t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(schema), Some(None), ())
 
   t->Assert.deepEqual(Some(None)->S.reverseConvertOrThrow(schema), %raw(`null`), ())
   t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`null`), ())
@@ -168,13 +159,11 @@ test("Serializes Some(None) to null for null nested in null", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    // TODO: Can be improved
-    `i=>{if(i===null){if(i===null){i=e[0]}else if(i===null){i=e[1]}else{e[2](i)}}else if(!(typeof i==="boolean")){e[3](i)}return i}`,
+    `i=>{if(i===null){i={"BS_PRIVATE_NESTED_SOME_NONE":0}}else if(!(typeof i==="boolean")){e[0](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    // TODO: Can be improved
-    `i=>{if(i===void 0){if(i===void 0){i=e[0]}else if(i===void 0){i=e[1]}}else if(typeof i==="object"&&i){i=e[2]}return i}`,
+    `i=>{if(typeof i==="object"&&i&&i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=null}else if(i===void 0){i=null}return i}`,
   )
 })

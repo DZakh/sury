@@ -29,6 +29,7 @@
 - (js/ts) Renamed `S.Error` to `S.SchemaError`
 - (rescript) Removed `RescriptSchema` namespace
 - Improve SchemaError display in console https://github.com/DZakh/rescript-schema/issues/106
+- (rescript) Added `S.nullAsUnit`
 
 ### Scope
 

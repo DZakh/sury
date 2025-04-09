@@ -16,6 +16,8 @@ var unknown = S_Core.unknown;
 
 var unit = S_Core.unit;
 
+var nullAsUnit = S_Core.nullAsUnit;
+
 var string = S_Core.string;
 
 var bool = S_Core.bool;
@@ -192,6 +194,7 @@ export {
   never ,
   unknown ,
   unit ,
+  nullAsUnit ,
   string ,
   bool ,
   $$int ,

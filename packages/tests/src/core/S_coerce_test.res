@@ -137,7 +137,7 @@ test("Coerce from string to undefined literal", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="string"){e[1](i)}i==="undefined"||e[0](i);return undefined}`,
+    `i=>{if(typeof i!=="string"){e[1](i)}i==="undefined"||e[0](i);return void 0}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -496,11 +496,7 @@ test("Coerce from unit to null literal", t => {
   t->Assert.deepEqual(%raw(`null`)->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
 
   t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(i!==void 0){e[1](i)}return null}`)
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#ReverseConvert,
-    `i=>{if(i!==null){e[1](i)}return undefined}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{if(i!==null){e[1](i)}return void 0}`)
 })
 
 test("Coerce from string to optional bool", t => {
@@ -526,7 +522,7 @@ test("Coerce from string to optional bool", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){try{let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}catch(e0){try{i==="undefined"||e[1](i);i=undefined}catch(e1){e[2](i)}}}else{e[3](i)}return i}`,
+    `i=>{if(typeof i==="string"){try{let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}catch(e0){try{i==="undefined"||e[1](i);i=void 0}catch(e1){e[2](i)}}}else{e[3](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,

@@ -434,7 +434,13 @@ The `S.nullish` schema represents a data of a specific type that might be null o
 
 `S.t<unit>`
 
-The `S.unit` schema is an alias for `S.literal()`.
+The `S.unit` schema is a shorthand for `S.literal()`.
+
+### **`nullAsUnit`**
+
+`S.t<unit>`
+
+The `S.nullAsUnit` schema is a shorthand for `S.literal(Null.null)->S.coerce(S.unit)`.
 
 ### **`literal`**
 
@@ -445,8 +451,8 @@ let tunaSchema = S.literal("Tuna")
 let twelveSchema = S.literal(12)
 let importantTimestampSchema = S.literal(1652628345865.)
 let truSchema = S.literal(true)
-let nullSchema = S.literal(Null.null)
-let undefinedSchema = S.literal() // Building block for S.unit
+let nullSchema = S.literal(Null.null) // Or use S.nullAsUnit
+let undefinedSchema = S.literal() // Or use S.unit
 
 // Uses Number.isNaN to match NaN literals
 let nanSchema = S.literal(Float.Constants.nan)->S.shape(_ => ()) // For NaN literals I recomment adding S.shape to transform it to unit. It's better than having it as a float type

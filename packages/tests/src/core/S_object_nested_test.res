@@ -28,7 +28,7 @@ test("Object with a single nested field with S.null", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[3](i)}let v0=i["nested"];if(typeof v0!=="object"||!v0){e[0](v0)}let v1=v0["foo"];if(v1===null){v1=undefined}else if(!(typeof v1==="string")){e[2](v1)}return v1}`,
+    `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["nested"];if(typeof v0!=="object"||!v0){e[0](v0)}let v1=v0["foo"];if(v1===null){v1=void 0}else if(!(typeof v1==="string")){e[1](v1)}return v1}`,
   )
   t->U.assertCompiledCode(
     ~schema,
