@@ -42,7 +42,7 @@
 - Remove `Failed parsing at ...` for error messages
 - Somehow determine whether transformed or not (including shape)
 - Make refinements change type from unknown to known
-- Add `.pipe` to Ts api (or `.with`)
+- Add `.pipe` to Ts api (or `.with` & if first arg is string - it's a custom error message)
 - Support unions and complex types for S.coerce
 - Make S.coerce extencible
 - Move S.example to rescript-schema
