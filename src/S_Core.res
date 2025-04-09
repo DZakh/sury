@@ -2286,22 +2286,36 @@ module Union = {
     | [schema] => schema->fromInternal
     | _ =>
       let has = Js.Dict.empty()
+      let anyOf = Stdlib.Set.make()
+
       for idx in 0 to schemas->Js.Array2.length - 1 {
         let schema = schemas->Js.Array2.unsafe_get(idx)
-        has->Js.Dict.set(
-          (switch schema.tag {
-          | Union
-          | JSON =>
-            Unknown
-          | v => v
-          }: tag :> string),
-          true,
-        )
+
+        // Check if the union is not transformed
+        if schema.tag === Union && schema.builder === builder {
+          schema.anyOf
+          ->Stdlib.Option.unsafeUnwrap
+          ->Js.Array2.forEach(item => {
+            anyOf->Stdlib.Set.add(item)
+          })
+          let _ = has->Stdlib.Dict.mixin(schema.has->Stdlib.Option.unsafeUnwrap)
+        } else {
+          anyOf->Stdlib.Set.add(schema)
+          has->Js.Dict.set(
+            (switch schema.tag {
+            | Union
+            | JSON =>
+              Unknown
+            | v => v
+            }: tag :> string),
+            true,
+          )
+        }
       }
       {
         tag: Union,
         has,
-        anyOf: schemas,
+        anyOf: anyOf->Stdlib.Set.toArray,
         builder,
         output,
       }->toStandard
