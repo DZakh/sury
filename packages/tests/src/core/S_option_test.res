@@ -7,13 +7,13 @@ module Common = {
   let invalidAny = %raw(`123.45`)
   let factory = () => S.option(S.string)
 
-  test("Successfully parses", t => {
+  Only.test("Successfully parses", t => {
     let schema = factory()
 
     t->Assert.deepEqual(any->S.parseOrThrow(schema), value, ())
   })
 
-  test("Fails to parse", t => {
+  Only.test("Fails to parse", t => {
     let schema = factory()
 
     t->U.assertRaised(
@@ -26,13 +26,13 @@ module Common = {
     )
   })
 
-  test("Successfully serializes", t => {
+  Only.test("Successfully serializes", t => {
     let schema = factory()
 
     t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), any, ())
   })
 
-  test("Compiled parse code snapshot", t => {
+  Only.test("Compiled parse code snapshot", t => {
     let schema = factory()
 
     t->U.assertCompiledCode(
@@ -43,46 +43,46 @@ module Common = {
   })
 
   // Undefined check should be first
-  Failing.test("Compiled async parse code snapshot", t => {
+  Only.test("Compiled async parse code snapshot", t => {
     let schema = S.option(S.unknown->S.transform(_ => {asyncParser: i => Promise.resolve(i)}))
 
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{try{i=e[0](i)}catch(e0){if(i!==void 0){e[1](i)}}return Promise.resolve(i)}`,
+      `i=>{try{i=e[0](i)}catch(e0){if(!(i===void 0)){e[1](i)}}return Promise.resolve(i)}`,
     )
   })
 
-  test("Compiled serialize code snapshot", t => {
+  Only.test("Compiled serialize code snapshot", t => {
     let schema = factory()
 
     t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
   })
 
-  test("Reverse to self", t => {
+  Only.test("Reverse to self", t => {
     let schema = factory()
     t->Assert.is(schema->S.reverse, schema->S.toUnknown, ())
   })
 
-  test("Succesfully uses reversed schema for parsing back to initial value", t => {
+  Only.test("Succesfully uses reversed schema for parsing back to initial value", t => {
     let schema = factory()
     t->U.assertReverseParsesBack(schema, Some("abc"))
     t->U.assertReverseParsesBack(schema, None)
   })
 }
 
-test("Reverse child schema", t => {
+Only.test("Reverse child schema", t => {
   let schema = S.option(S.null(S.string))
   t->U.assertEqualSchemas(schema->S.reverse, S.option(S.option(S.string))->S.toUnknown)
 })
 
-test("Successfully parses primitive", t => {
+Only.test("Successfully parses primitive", t => {
   let schema = S.option(S.bool)
 
   t->Assert.deepEqual(JSON.Encode.bool(true)->S.parseOrThrow(schema), Some(true), ())
 })
 
-test("Fails to parse JS null", t => {
+Only.test("Fails to parse JS null", t => {
   let schema = S.option(S.bool)
 
   t->U.assertRaised(
@@ -95,7 +95,7 @@ test("Fails to parse JS null", t => {
   )
 })
 
-test("Fails to parse JS undefined when schema doesn't allow optional data", t => {
+Only.test("Fails to parse JS undefined when schema doesn't allow optional data", t => {
   let schema = S.bool
 
   t->U.assertRaised(
@@ -108,14 +108,14 @@ test("Fails to parse JS undefined when schema doesn't allow optional data", t =>
   )
 })
 
-test("Parses option nested in null as None instead of Some(None)", t => {
+Only.test("Parses option nested in null as None instead of Some(None)", t => {
   let schema = S.null(S.option(S.bool))
 
   t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(schema), None, ())
   t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), None, ())
 })
 
-test("Serializes Some(None) to undefined for option nested in null", t => {
+Only.test("Serializes Some(None) to undefined for option nested in null", t => {
   let schema = S.null(S.option(S.bool))
 
   t->Assert.deepEqual(Some(None)->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
@@ -128,7 +128,7 @@ test("Serializes Some(None) to undefined for option nested in null", t => {
   )
 })
 
-test("Applies valFromOption for Some()", t => {
+Only.test("Applies valFromOption for Some()", t => {
   let schema = S.option(S.literal())
 
   t->Assert.deepEqual(Some()->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
@@ -137,11 +137,11 @@ test("Applies valFromOption for Some()", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{let v0;if(i!==void 0){v0=e[0](i)}return v0}`,
+    `i=>{if(typeof i==="object"&&i){i=e[0]}return i}`,
   )
 })
 
-test("Doesn't apply valFromOption for non-undefined literals in option", t => {
+Only.test("Doesn't apply valFromOption for non-undefined literals in option", t => {
   let schema: S.t<option<Null.t<unknown>>> = S.option(S.literal(%raw(`null`)))
 
   // Note: It'll fail without a type annotation, but we can't do anything here
@@ -151,7 +151,7 @@ test("Doesn't apply valFromOption for non-undefined literals in option", t => {
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
 })
 
-test("Applies valFromOption for unknown in option", t => {
+Only.test("Applies valFromOption for unknown in option", t => {
   let schema = S.option(S.unknown)
 
   t->Assert.deepEqual(
@@ -162,9 +162,10 @@ test("Applies valFromOption for unknown in option", t => {
   t->Assert.deepEqual(Some(%raw(`"foo"`))->S.reverseConvertOrThrow(schema), %raw(`"foo"`), ())
   t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
 
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(!(i===void 0)){e[0](i)}return i}`)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{let v0;if(i!==void 0){v0=e[0](i)}return v0}`,
+    `i=>{if(typeof i==="object"&&i){i=e[0]}return i}`,
   )
 })

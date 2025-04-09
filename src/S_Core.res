@@ -2047,8 +2047,10 @@ module Union = {
 
     let deoptIdx = ref(-1)
     let byTag = ref(Js.Dict.empty())
+    let tags = ref([])
     for idx in 0 to schemas->Js.Array2.length - 1 {
       let schema = schemas->Js.Array2.unsafe_get(idx)
+
       switch schema.tag {
       | Union
       | JSON
@@ -2056,19 +2058,24 @@ module Union = {
       | Never =>
         deoptIdx := idx
         byTag := Js.Dict.empty()
+        tags := []
 
       | tag =>
-        // FIXME: Put NaN before Number
+        // FIXME: Put NaN before Number (test)
         // FIXME: Instance before object
         // FIXME: Array before object
         switch byTag.contents->Stdlib.Dict.unsafeGetOption((tag :> string)) {
         | Some(arr) => arr->Js.Array2.push(schema)->ignore
-        | None => byTag.contents->Js.Dict.set((tag :> string), [schema])
+        | None => {
+            tags.contents->Js.Array2.push((tag :> string))->ignore
+            byTag.contents->Js.Dict.set((tag :> string), [schema])
+          }
         }
       }
     }
     let deoptIdx = deoptIdx.contents
     let byTag = byTag.contents
+    let tags = tags.contents
 
     let start = ref("")
     let end = ref("")
@@ -2090,10 +2097,8 @@ module Union = {
     let nextElse = ref(false)
     let noop = ref("")
 
-    let tags = byTag->Js.Dict.keys
     for idx in 0 to tags->Js.Array2.length - 1 {
-      let tag = tags->Js.Array2.unsafe_get(idx)
-      let schemas = byTag->Js.Dict.unsafeGet(tag)
+      let schemas = byTag->Js.Dict.unsafeGet(tags->Js.Array2.unsafe_get(idx))
       let inputVar = input.var(b)
 
       let isMultiple = schemas->Js.Array2.length > 1
@@ -2158,7 +2163,7 @@ module Union = {
         cond :=
           b->B.validation(
             ~inputVar,
-            ~schema={tag: tag->(Obj.magic: string => tag), builder: %raw(`0`)},
+            ~schema={tag: firstSchema.tag, builder: %raw(`0`)},
             ~negative=false,
           )
 
@@ -2331,28 +2336,13 @@ module Option = {
   let default = schema => schema->Metadata.get(~id=defaultMetadataId)
 
   let factory = item => {
-    let reversedItem = item->toInternal->reverse
-    let schema = Union.factory([item->toUnknown, unit->toUnknown])
-
-    if reversedItem->isOptional {
-      let mut = schema->toInternal
-      mut.output = Some(
-        () => {
-          Union.factory([
-            reversedItem->fromInternal,
-            unit->toUnknown,
-            // coerce(
-            //   Schema.definitionToSchema(
-            //     {"BS_PRIVATE_NESTED_SOME_NONE": Float.schema}->Obj.magic,
-            //   )->fromInternal,
-            //   Literal.null->fromInternal,
-            // ),
-          ])->toInternal
-        },
-      )
+    let item = item->toInternal
+    if item->isOptional {
+      item->fromInternal
+    } else {
+      let mut = Union.factory([item->fromInternal, unit->toUnknown])->toInternal
+      mut->fromInternal
     }
-
-    schema
   }
 
   let getWithDefault = (schema: t<option<'value>>, default) => {
@@ -4039,36 +4029,22 @@ module Schema = {
 }
 
 module Null = {
-  let factory = item => {
-    let reversedItem = item->toInternal->reverse
-    let null = Literal.null->fromInternal->Schema.shape(_ => %raw(`void 0`))
-    let mut = Union.factory([item->toUnknown, null])->toInternal
+  let unit = Literal.null->fromInternal->Schema.shape(_ => %raw(`void 0`))
 
+  let factory = item => {
+    let item = item->toInternal
     if (
-      switch reversedItem.tag {
-      | Undefined
-      | Unknown => true
-      | Union =>
-        reversedItem.has->Stdlib.Option.unsafeUnwrap->Stdlib.Dict.has((Undefined: tag :> string)) ||
-          reversedItem.has->Stdlib.Option.unsafeUnwrap->Stdlib.Dict.has((Unknown: tag :> string))
+      switch item.tag {
+      | Null => true
+      | Union => item.has->Stdlib.Option.unsafeUnwrap->Stdlib.Dict.has((Null: tag :> string))
       | _ => false
       }
     ) {
-      mut.output = Some(
-        () => {
-          Union.factory([
-            reversedItem->fromInternal,
-            null->toInternal->reverse->fromInternal,
-            Schema.definitionToSchema({"BS_PRIVATE_NESTED_SOME_NONE": Float.schema}->Obj.magic)
-            ->fromInternal
-            ->Schema.shape(_ => %raw(`null`))
-            ->toUnknown,
-          ])->toInternal
-        },
-      )
+      item->fromInternal
+    } else {
+      let mut = Union.factory([item->fromInternal, unit->toUnknown])->toInternal
+      mut->fromInternal
     }
-
-    mut->fromInternal
   }
 }
 
