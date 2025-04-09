@@ -49,19 +49,6 @@ module Stdlib = {
     let immutableEmpty = %raw(`{}`)
 
     @val external internalClass: Js.Types.obj_val => string = "Object.prototype.toString.call"
-
-    // // Define a type for the property descriptor
-    // type propertyDescriptor<'a> = {
-    //   configurable?: bool,
-    //   enumerable?: bool,
-    //   writable?: bool,
-    //   value?: 'a,
-    //   get?: unit => 'a,
-    //   set?: 'a => unit,
-    // }
-
-    // @val @scope("Object")
-    // external defineProperty: ('obj, string, propertyDescriptor<'a>) => 'obj = "defineProperty"
   }
 
   module Array = {
@@ -109,6 +96,9 @@ module Stdlib = {
     @val
     external copy: (@as(json`{}`) _, dict<'a>) => dict<'a> = "Object.assign"
 
+    @val
+    external mixin: (dict<'a>, dict<'a>) => dict<'a> = "Object.assign"
+
     @get_index
     external unsafeGetOption: (dict<'a>, string) => option<'a> = ""
 
@@ -123,6 +113,17 @@ module Stdlib = {
 
   module Float = {
     external unsafeToString: float => string = "%identity"
+  }
+
+  module Set = {
+    type t<'a>
+
+    @new
+    external make: unit => t<'a> = "Set"
+
+    @send external add: (t<'a>, 'a) => unit = "add"
+
+    @val external toArray: t<'a> => array<'a> = "Array.from"
   }
 
   module Function = {
@@ -1137,9 +1138,9 @@ module Builder = {
       let eq = negative ? "!==" : "==="
       let and_ = negative ? "||" : "&&"
       let exp = negative ? "!" : ""
-
       switch schema {
       | {tag: Undefined} => `${inputVar}${eq}void 0`
+      | {tag: Null} => `${inputVar}${eq}null`
       | {tag: NaN} => exp ++ `Number.isNaN(${inputVar})`
       | {const: _} => `${inputVar}${eq}${inlineConst(b, schema)}`
       | {tag: Number as tag} => `typeof ${inputVar}${eq}"${(tag :> string)}"`
@@ -1963,7 +1964,6 @@ let custom = (name, definer) =>
       }
     }),
     output: () => {
-      name,
       tag: Unknown,
       builder: Builder.make((b, ~input, ~selfSchema, ~path) => {
         b->B.registerInvalidJson(~selfSchema, ~path)
@@ -2078,10 +2078,12 @@ module Union = {
       for idx in 0 to deoptIdx {
         let schema = schemas->Js.Array2.unsafe_get(idx)
         let itemCode = b->getItemCode(~schema, ~input, ~output, ~deopt=true, ~path)
-        let errorVar = `e` ++ idx->Stdlib.Int.unsafeToString
-        start := start.contents ++ `try{${itemCode}}catch(${errorVar}){`
-        end := "}" ++ end.contents
-        caught := `${caught.contents}${errorVar},`
+        if itemCode->Stdlib.String.unsafeToBool {
+          let errorVar = `e` ++ idx->Stdlib.Int.unsafeToString
+          start := start.contents ++ `try{${itemCode}}catch(${errorVar}){`
+          end := "}" ++ end.contents
+          caught := `${caught.contents}${errorVar},`
+        }
       }
     }
 
@@ -4039,29 +4041,34 @@ module Schema = {
 module Null = {
   let factory = item => {
     let reversedItem = item->toInternal->reverse
-    let null = coerce(Literal.null->fromInternal, unit->toUnknown)
+    let null = Literal.null->fromInternal->Schema.shape(_ => %raw(`void 0`))
+    let mut = Union.factory([item->toUnknown, null])->toInternal
 
-    let schema = Union.factory([item->toUnknown, null])
-
-    if reversedItem->isOptional {
-      let mut = schema->toInternal
+    if (
+      switch reversedItem.tag {
+      | Undefined
+      | Unknown => true
+      | Union =>
+        reversedItem.has->Stdlib.Option.unsafeUnwrap->Stdlib.Dict.has((Undefined: tag :> string)) ||
+          reversedItem.has->Stdlib.Option.unsafeUnwrap->Stdlib.Dict.has((Unknown: tag :> string))
+      | _ => false
+      }
+    ) {
       mut.output = Some(
         () => {
           Union.factory([
             reversedItem->fromInternal,
             null->toInternal->reverse->fromInternal,
-            coerce(
-              Schema.definitionToSchema(
-                {"BS_PRIVATE_NESTED_SOME_NONE": Float.schema}->Obj.magic,
-              )->fromInternal,
-              Literal.null->fromInternal,
-            ),
+            Schema.definitionToSchema({"BS_PRIVATE_NESTED_SOME_NONE": Float.schema}->Obj.magic)
+            ->fromInternal
+            ->Schema.shape(_ => %raw(`null`))
+            ->toUnknown,
           ])->toInternal
         },
       )
     }
 
-    schema
+    mut->fromInternal
   }
 }
 

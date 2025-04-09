@@ -28,12 +28,11 @@
 - (rescript) Renamed `S.Raised` exception to `S.SchemaError`
 - (js/ts) Renamed `S.Error` to `S.SchemaError`
 - (rescript) Removed `RescriptSchema` namespace
-- Improve SchemaError display in console
+- Improve SchemaError display in console https://github.com/DZakh/rescript-schema/issues/106
 
 ### Scope
 
 - Support `@s.name` etc for ppx and fail on removed `@s.describe`
-- Make `~standard` a getter
 - Todo something with nullish and ppx
 - Add JSDoc
 - Remove `rescript-schema` prefix from metadata and panic
@@ -43,7 +42,7 @@
 - Remove `Failed parsing at ...` for error messages
 - Somehow determine whether transformed or not (including shape)
 - Make refinements change type from unknown to known
-- Add `.pipe` to Ts api
+- Add `.pipe` to Ts api (or `.with`)
 - Support unions and complex types for S.coerce
 - Make S.coerce extencible
 - Move S.example to rescript-schema
