@@ -3,6 +3,7 @@
 import * as S from "rescript-schema/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
 import Ava from "ava";
+import * as Caml_option from "rescript/lib/es6/caml_option.js";
 
 var simpleRecordSchema = S.schema(function (s) {
       return {
@@ -80,8 +81,11 @@ Ava("Record schema with nullable field", (function (t) {
                           subscription: s.f("subscription", S.option(S.$$null(S.string)))
                         };
                 }), undefined);
-        t.deepEqual(S.parseOrThrow({"subscription":null}, recordWithNullableFieldSchema), {
+        t.deepEqual(S.parseOrThrow({}, recordWithNullableFieldSchema), {
               subscription: undefined
+            }, undefined);
+        t.deepEqual(S.parseOrThrow({"subscription":null}, recordWithNullableFieldSchema), {
+              subscription: Caml_option.some(undefined)
             }, undefined);
       }));
 
