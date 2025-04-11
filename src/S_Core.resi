@@ -223,7 +223,6 @@ let list: t<'value> => t<list<'value>>
 let dict: t<'value> => t<dict<'value>>
 let option: t<'value> => t<option<'value>>
 let null: t<'value> => t<option<'value>>
-let nullable: t<'value> => t<Js.Null.t<'value>>
 let nullish: t<'value> => t<Js.nullable<'value>>
 let jsonString: (t<'value>, ~space: int=?) => t<'value>
 let union: array<t<'value>> => t<'value>
@@ -492,6 +491,7 @@ let js_safeAsync: (unit => promise<'v>) => promise<jsResult<'v>>
 let js_union: array<unknown> => t<'value>
 
 let js_optional: (t<'v>, option<unknown>) => t<option<'v>>
+let nullable: t<'value> => t<Js.Null.t<'value>>
 
 let js_custom: (
   ~name: string,

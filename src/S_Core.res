@@ -4829,10 +4829,6 @@ let nullish = schema => {
   Union.factory([schema->toUnknown, unit->toUnknown, Literal.null->fromInternal])
 }
 
-let nullable = schema => {
-  Union.factory([schema->toUnknown, coerce(Literal.null->fromInternal, unit->toUnknown)])
-}
-
 // =============
 // JS/TS API
 // =============
@@ -4874,12 +4870,16 @@ let js_asyncParserRefine = (schema, refine) => {
 }
 
 let js_optional = (schema, maybeOr) => {
-  let schema = option(schema) // FIXME: Nested optional should flatten instead of behaving like in ReScript
+  let schema = Union.factory([schema->toUnknown, unit->toUnknown])
   switch maybeOr {
   | Some(or) if Js.typeof(or) === "function" => schema->Option.getOrWith(or->Obj.magic)->Obj.magic
   | Some(or) => schema->Option.getOr(or->Obj.magic)->Obj.magic
   | None => schema
   }
+}
+
+let nullable = schema => {
+  Union.factory([schema->toUnknown, nullAsUnit->toUnknown])
 }
 
 let js_custom = (~name, ~parser as maybeParser=?, ~serializer as maybeSerializer=?, ()) => {

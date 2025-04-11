@@ -3684,13 +3684,6 @@ function nullish(schema) {
             ]);
 }
 
-function nullable(schema) {
-  return factory([
-              schema,
-              coerce($$null, unit)
-            ]);
-}
-
 function js_union(values) {
   return factory(values.map(definitionToSchema));
 }
@@ -3734,7 +3727,10 @@ function js_asyncParserRefine(schema, refine) {
 }
 
 function js_optional(schema, maybeOr) {
-  var schema$1 = factory$1(schema);
+  var schema$1 = factory([
+        schema,
+        unit
+      ]);
   if (maybeOr === undefined) {
     return schema$1;
   }
@@ -3744,6 +3740,13 @@ function js_optional(schema, maybeOr) {
   } else {
     return getOr(schema$1, or);
   }
+}
+
+function nullable(schema) {
+  return factory([
+              schema,
+              nullAsUnit
+            ]);
 }
 
 function js_custom(name, maybeParser, maybeSerializer, param) {
@@ -3941,7 +3944,6 @@ export {
   dict ,
   option ,
   $$null$1 as $$null,
-  nullable ,
   nullish ,
   jsonString ,
   union ,
@@ -4016,6 +4018,7 @@ export {
   js_safeAsync ,
   js_union ,
   js_optional ,
+  nullable ,
   js_custom ,
   js_asyncParserRefine ,
   js_refine ,
