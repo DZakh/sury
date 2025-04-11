@@ -1,12 +1,12 @@
-import { Json, Result, S_t } from "./S.gen";
-export { Json, Result, S_error as SchemaError } from "./S.gen";
+import { Json, Result, t } from "./S.gen";
+export { Json, Result, error as SchemaError } from "./S.gen";
 
 export type EffectCtx<Output, Input> = {
   schema: Schema<Output, Input>;
   fail: (message: string) => never;
 };
 
-export type Schema<Output, Input = Output> = S_t<Output, Input>;
+export type Schema<Output, Input = Output> = t<Output, Input>;
 
 export type Output<T> = T extends Schema<infer Output, unknown>
   ? Output

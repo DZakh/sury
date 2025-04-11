@@ -12,7 +12,7 @@ type SchemaEqual<
 > = TypeEqual<S.Output<Schema>, Output> & TypeEqual<S.Input<Schema>, Input>;
 
 // Can use genType schema
-expectType<SchemaEqual<typeof stringSchema, string, string>>(true);
+expectType<SchemaEqual<typeof stringSchema, string, unknown>>(true);
 
 test("Successfully parses string", (t) => {
   const schema = S.string;

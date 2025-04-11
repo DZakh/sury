@@ -81,7 +81,7 @@ export type Result<Value> =
       success: true;
       value: Value;
     }
-  | { success: false; error: S_error };
+  | { success: false; error: error };
 
 export type Json =
   | string
@@ -93,7 +93,7 @@ export type Json =
 
 declare const øbrand: unique symbol;
 
-export type S_t<Output, Input = Output> = {
+export type t<Output = unknown, Input = unknown> = {
   readonly ["~standard"]: StandardSchemaV1.Props<Input, Output>;
   readonly description?: string;
   readonly deprecated?: string;
@@ -101,18 +101,18 @@ export type S_t<Output, Input = Output> = {
 };
 /* simulate opaque types */
 
-export abstract class S_Path_t {
+export abstract class Path_t {
   protected opaque: any;
 } /* simulate opaque types */
 
-export class S_error {
+export class error {
   readonly flag: number;
-  readonly code: S_errorCode;
-  readonly path: S_Path_t;
+  readonly code: errorCode;
+  readonly path: Path_t;
   readonly message: string;
   readonly reason: string;
 }
 
-export abstract class S_errorCode {
+export abstract class errorCode {
   protected opaque: any;
 } /* simulate opaque types */
