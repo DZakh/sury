@@ -403,7 +403,7 @@ type numberOrBoolean = Number(float) | Boolean(bool)
 
 // FIXME: Test nested union
 // FIXME: Test transformed union
-Failing.test("Coerce string to unboxed union (each item separately)", t => {
+test("Coerce string to unboxed union (each item separately)", t => {
   let schema =
     S.string->S.coerce(
       S.union([

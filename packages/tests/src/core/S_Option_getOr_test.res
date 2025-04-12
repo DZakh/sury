@@ -31,7 +31,7 @@ test("Successfully parses with default when provided primitive", t => {
   t->Assert.deepEqual(%raw(`true`)->S.parseOrThrow(schema), true, ())
 })
 
-Failing.test("Successfully serializes nested option with default value", t => {
+test("Successfully serializes nested option with default value", t => {
   let schema = S.option(
     S.option(S.option(S.option(S.option(S.option(S.bool)))->S.Option.getOr(Some(Some(true))))),
   )

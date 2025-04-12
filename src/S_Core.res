@@ -326,7 +326,7 @@ and internal = {
   mutable description?: string,
   mutable deprecated?: string,
   format?: internalFormat,
-  has?: dict<bool>,
+  mutable has?: dict<bool>,
   advanced?: bool, // TODO: Rename/remove it when have a chance
   mutable anyOf?: array<internal>,
   mutable additionalItems?: additionalItems,
@@ -2423,57 +2423,63 @@ module Option = {
   let factory = (item, ~unit=unit) => {
     let item = item->toInternal
 
-    Union.factory([
-      switch item->reverse {
-      | {tag: Undefined} => item->nestedOption
-      | {tag: Union} as reversed => {
-          let mut = reversed->copy
-          let schemas = reversed.anyOf->Stdlib.Option.unsafeUnwrap
+    switch item->reverse {
+    | {tag: Undefined} => Union.factory([unit->toUnknown, item->nestedOption->fromInternal])
+    | {tag: Union} as reversed => {
+        let mut = reversed->copy
+        let schemas = mut.anyOf->Stdlib.Option.unsafeUnwrap
+        let has = mut.has->Stdlib.Option.unsafeUnwrap
 
-          let anyOf = []
-          for idx in 0 to schemas->Array.length - 1 {
-            let schema = schemas->Js.Array2.unsafe_get(idx)
-            anyOf
-            ->Js.Array2.unsafe_set(
-              idx,
-              switch schema {
-              | {tag: Undefined} => schema->reverse->nestedOption->reverse
-              | {fields} =>
-                switch fields->Stdlib.Dict.unsafeGetOption(nestedLoc) {
-                | Some(item) => {
-                    let fSchema = item.schema->toInternal
-                    let newItem = {
-                      ...item,
-                      schema: {
-                        tag: fSchema.tag,
-                        builder: fSchema.builder,
-                        const: fSchema.const->Obj.magic->Stdlib.Int.plus(1)->Obj.magic,
-                      }->fromInternal,
-                    }
-                    let mut = schema->copy
-                    let fields = Js.Dict.empty()
-                    fields->Js.Dict.set(nestedLoc, newItem)
-                    mut.items = Some([newItem])
-                    mut.fields = Some(fields)
-                    (mut->reverse).output = mut->Obj.magic
-                    mut
-                  }
-                | None => schema
+        let anyOf = []
+        for idx in 0 to schemas->Array.length - 1 {
+          let schema = schemas->Js.Array2.unsafe_get(idx)
+          anyOf
+          ->Js.Array2.push(
+            switch schema {
+            | {tag: Undefined} => {
+                if !(has->Stdlib.Dict.has((Object: tag :> string))) {
+                  // TODO: Replace with dict{} in ReScript v12
+                  let d = Js.Dict.empty()
+                  d->Js.Dict.set((Object: tag :> string), true)
+                  mut.has = Some(d->Stdlib.Dict.mixin(has))
                 }
-              | _ => schema
-              },
-            )
-            ->ignore
-          }
-
-          mut.anyOf = Some(anyOf)
-          mut.output = Some(Union.output) // FIXME:
-          mut->reverse
+                anyOf->Js.Array2.push(unit->toInternal->reverse)->ignore
+                schema->reverse->nestedOption->reverse
+              }
+            | {fields} =>
+              switch fields->Stdlib.Dict.unsafeGetOption(nestedLoc) {
+              | Some(item) => {
+                  let fSchema = item.schema->toInternal
+                  let newItem = {
+                    ...item,
+                    schema: {
+                      tag: fSchema.tag,
+                      builder: fSchema.builder,
+                      const: fSchema.const->Obj.magic->Stdlib.Int.plus(1)->Obj.magic,
+                    }->fromInternal,
+                  }
+                  let mut = schema->copy
+                  let fields = Js.Dict.empty()
+                  fields->Js.Dict.set(nestedLoc, newItem)
+                  mut.items = Some([newItem])
+                  mut.fields = Some(fields)
+                  (mut->reverse).output = mut->Obj.magic
+                  mut
+                }
+              | None => schema
+              }
+            | _ => schema
+            },
+          )
+          ->ignore
         }
-      | _ => item
-      }->fromInternal,
-      unit->toUnknown,
-    ])
+
+        mut.anyOf = Some(anyOf)
+        mut.output = Some(Union.output) // FIXME: Shouldn't manually update output
+        mut->reverse->fromInternal
+      }
+    | _ => Union.factory([item->fromInternal, unit->toUnknown])
+    }
   }
 
   let getWithDefault = (schema: t<option<'value>>, default) => {

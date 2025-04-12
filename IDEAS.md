@@ -44,6 +44,7 @@
 - Add S.toJSONSchema and S.fromJSONSchema
 - Add S.meta like Zod v4 (Move S.example to rescript-schema)
 - Remove number/string/array prefixes from refinements
+- Update benchmark. Zod v4 and add TypeBox
 
 ## v???
 

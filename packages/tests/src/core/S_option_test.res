@@ -76,15 +76,15 @@ test("Classify schema", t => {
 
   t->U.assertEqualSchemas(
     schema->S.toUnknown,
-    S.union([S.string->S.toUnknown, S.literal(%raw(`null`))->S.toUnknown, S.unit->S.toUnknown]),
+    S.union([S.string->S.toUnknown, S.unit->S.toUnknown, S.literal(%raw(`null`))->S.toUnknown]),
   )
 
   t->U.assertEqualSchemas(
     schema->S.reverse,
     S.union([
       S.string->S.toUnknown,
-      S.literal({"BS_PRIVATE_NESTED_SOME_NONE": 0})->S.toUnknown,
       S.unit->S.toUnknown,
+      S.literal({"BS_PRIVATE_NESTED_SOME_NONE": 0})->S.toUnknown,
     ]),
   )
 })
@@ -133,27 +133,23 @@ test("Serializes Some(None) to undefined for option nested in null", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(i===void 0){i={"BS_PRIVATE_NESTED_SOME_NONE":0}}else if(i===null){i=void 0}else if(!(typeof i==="boolean")){e[0](i)}return i}`,
+    `i=>{if(i===null){i=void 0}else if(i===void 0){i={"BS_PRIVATE_NESTED_SOME_NONE":0}}else if(!(typeof i==="boolean")){e[0](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{if(typeof i==="object"&&i&&i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=void 0}else if(i===void 0){i=null}return i}`,
+    `i=>{if(i===void 0){i=null}else if(typeof i==="object"&&i&&i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=void 0}return i}`,
   )
 })
 
 test("Applies valFromOption for Some()", t => {
   let schema = S.option(S.literal())
 
-  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), Some(), ())
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), None, ())
   t->Assert.deepEqual(Some()->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
   t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
 
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Parse,
-    `i=>{if(i===void 0){i={"BS_PRIVATE_NESTED_SOME_NONE":0}}else{e[0](i)}return i}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(!(i===void 0)){e[0](i)}return i}`)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
@@ -164,7 +160,7 @@ test("Applies valFromOption for Some()", t => {
 test("Nested option support", t => {
   let schema = S.option(S.option(S.bool))
 
-  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), Some(None), ())
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), None, ())
   t->Assert.deepEqual(Some(Some(true))->S.reverseConvertOrThrow(schema), %raw(`true`), ())
   t->Assert.deepEqual(Some(None)->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
   t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
@@ -172,7 +168,7 @@ test("Nested option support", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(i===void 0){i={"BS_PRIVATE_NESTED_SOME_NONE":0}}else if(!(typeof i==="boolean")){e[0](i)}return i}`,
+    `i=>{if(!(typeof i==="boolean"||i===void 0)){e[0](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -184,7 +180,7 @@ test("Nested option support", t => {
 test("Triple nested option support", t => {
   let schema = S.option(S.option(S.option(S.bool)))
 
-  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), Some(Some(None)), ())
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), None, ())
   t->Assert.deepEqual(Some(Some(Some(true)))->S.reverseConvertOrThrow(schema), %raw(`true`), ())
   t->Assert.deepEqual(Some(Some(None))->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
   t->Assert.deepEqual(Some(None)->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
@@ -193,12 +189,12 @@ test("Triple nested option support", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(i===void 0){i={"BS_PRIVATE_NESTED_SOME_NONE":1}}else if(!(typeof i==="boolean")){e[0](i)}return i}`,
+    `i=>{if(!(typeof i==="boolean"||i===void 0)){e[0](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{if(typeof i==="object"&&i){if(i["BS_PRIVATE_NESTED_SOME_NONE"]===1){i=void 0}else if(i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=void 0}}return i}`,
+    `i=>{if(typeof i==="object"&&i){if(i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=void 0}else if(i["BS_PRIVATE_NESTED_SOME_NONE"]===1){i=void 0}}return i}`,
   )
 })
 

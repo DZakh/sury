@@ -66,7 +66,7 @@ module CommonWithNested = {
     )
   })
 
-  Failing.test("Compiled serialize code snapshot", t => {
+  test("Compiled serialize code snapshot", t => {
     let schema = S.dict(S.string)
     t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
 

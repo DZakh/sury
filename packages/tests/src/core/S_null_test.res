@@ -151,7 +151,7 @@ test("Serializes Some(None) to null for null nested in option", t => {
 test("Serializes Some(None) to null for null nested in null", t => {
   let schema = S.null(S.null(S.bool))
 
-  t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(schema), Some(None), ())
+  t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(schema), None, ())
 
   t->Assert.deepEqual(Some(None)->S.reverseConvertOrThrow(schema), %raw(`null`), ())
   t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`null`), ())
@@ -159,11 +159,11 @@ test("Serializes Some(None) to null for null nested in null", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(i===null){i={"BS_PRIVATE_NESTED_SOME_NONE":0}}else if(!(typeof i==="boolean")){e[0](i)}return i}`,
+    `i=>{if(i===null){i=void 0}else if(!(typeof i==="boolean")){e[0](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{if(typeof i==="object"&&i&&i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=null}else if(i===void 0){i=null}return i}`,
+    `i=>{if(i===void 0){i=null}else if(typeof i==="object"&&i&&i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=null}return i}`,
   )
 })

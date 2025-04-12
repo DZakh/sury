@@ -25,7 +25,7 @@ test("Successfully parses polymorphic variants", t => {
   t->Assert.deepEqual(%raw(`"apple"`)->S.parseOrThrow(schema), #apple, ())
 })
 
-Failing.test("Parses when both schemas misses parser and have the same type", t => {
+test("Parses when both schemas misses parser and have the same type", t => {
   let schema = S.union([
     S.string->S.transform(_ => {serializer: _ => "apple"}),
     S.string->S.transform(_ => {serializer: _ => "apple"}),
@@ -70,7 +70,7 @@ Failing.test("Parses when both schemas misses parser and have the same type", t 
   )
 })
 
-Failing.test("Parses when both schemas misses parser and have different types", t => {
+test("Parses when both schemas misses parser and have different types", t => {
   let schema = S.union([
     S.literal(#apple)->S.transform(_ => {serializer: _ => #apple}),
     S.string->S.transform(_ => {serializer: _ => "apple"}),
@@ -104,7 +104,7 @@ Failing.test("Parses when both schemas misses parser and have different types", 
   )
 })
 
-Failing.test("Serializes when both schemas misses serializer", t => {
+test("Serializes when both schemas misses serializer", t => {
   let schema = S.union([
     S.literal(#apple)->S.transform(_ => {parser: _ => #apple}),
     S.string->S.transform(_ => {parser: _ => #apple}),
