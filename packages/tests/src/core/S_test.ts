@@ -341,9 +341,12 @@ test("Successfully parses nullish string", (t) => {
   t.deepEqual(value2, undefined);
   t.deepEqual(value3, null);
 
-  expectType<TypeEqual<S.Schema<string | undefined | null>, typeof schema>>(
-    true
-  );
+  expectType<
+    TypeEqual<
+      S.Schema<string | undefined | null, string | undefined | null>,
+      typeof schema
+    >
+  >(true);
   expectType<TypeEqual<typeof value1, string | undefined | null>>(true);
 });
 
@@ -1311,7 +1314,7 @@ test("S.schema example", (t) => {
     | { kind: "circle"; radius: number }
     | { kind: "square"; x: number };
 
-  let circleSchema: S.Schema<Shape> = S.schema({
+  let circleSchema: S.Schema<Shape, Shape> = S.schema({
     kind: "circle",
     radius: S.number,
   });
@@ -1329,7 +1332,7 @@ test("S.schema example", (t) => {
     radius: 123,
   });
 
-  expectType<TypeEqual<typeof circleSchema, S.Schema<Shape>>>(true);
+  expectType<TypeEqual<typeof circleSchema, S.Schema<Shape, Shape>>>(true);
   expectType<TypeEqual<typeof value, Shape>>(true);
 });
 
@@ -1447,6 +1450,19 @@ test("Shape union", (t) => {
     TypeEqual<
       typeof shapeSchema,
       S.Schema<
+        | {
+            kind: "circle";
+            radius: number;
+          }
+        | {
+            kind: "square";
+            x: number;
+          }
+        | {
+            kind: "triangle";
+            x: number;
+            y: number;
+          },
         | {
             kind: "circle";
             radius: number;
@@ -1844,7 +1860,7 @@ test("Assert throws with invalid data", (t) => {
 });
 
 test("Assert passes with valid data", (t) => {
-  const schema: S.Schema<string> = S.string;
+  const schema = S.string;
 
   const data: unknown = "abc";
   expectType<TypeEqual<typeof data, unknown>>(true);

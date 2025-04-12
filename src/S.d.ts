@@ -6,7 +6,7 @@ export type EffectCtx<Output, Input> = {
   fail: (message: string) => never;
 };
 
-export type Schema<Output, Input = Output> = t<Output, Input>;
+export type Schema<Output, Input = unknown> = t<Output, Input>;
 
 export type Output<T> = T extends Schema<infer Output, unknown>
   ? Output
@@ -103,15 +103,14 @@ export function union<A, B extends unknown[]>(
   UnknownToInput<A> | UnknownArrayToInput<B>[number]
 >;
 
-export const string: Schema<string>;
-export const boolean: Schema<boolean>;
-export const int32: Schema<number>;
-export const number: Schema<number>;
-export const bigint: Schema<bigint>;
-export const never: Schema<never>;
-export const unknown: Schema<unknown>;
-export const undefined: Schema<undefined>;
-export const json: (validate: boolean) => Schema<Json>;
+export const string: Schema<string, string>;
+export const boolean: Schema<boolean, boolean>;
+export const int32: Schema<number, number>;
+export const number: Schema<number, number>;
+export const bigint: Schema<bigint, bigint>;
+export const never: Schema<never, never>;
+export const unknown: Schema<unknown, unknown>;
+export const json: (validate: boolean) => Schema<Json, Json>;
 
 export function safe<Value>(scope: () => Value): Result<Value>;
 export function safeAsync<Value>(

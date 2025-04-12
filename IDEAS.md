@@ -31,6 +31,11 @@
 - Improve SchemaError display in console https://github.com/DZakh/rescript-schema/issues/106
 - (rescript) Added `S.nullAsUnit`
 - Remove `rescript-schema` mention from the code and use generic `Schema` instead
+- Default `Input` generic to `unknown` instead of `Output`
+  ```diff
+  - export type Schema<Output, Input = Output>
+  + export type Schema<Output, Input = unknown>
+  ```
 
 ### Scope
 
@@ -67,9 +72,11 @@
 - Add S.function (?) (An alternative for external ???)
 
 ```
+
 let trimContract: S.contract<string => string> = S.contract(s => {
-  s.fn(s.arg(0, S.string))
+s.fn(s.arg(0, S.string))
 }, ~return=S.string)
+
 ```
 
 - Use internal transform for trim
@@ -84,3 +91,7 @@ let trimContract: S.contract<string => string> = S.contract(s => {
 - S.produce
 - S.mutator
 - Check only number of fields for strict object schema when fields are not optional (bad idea since it's not possible to create a good error message, so we still need to have the loop)
+
+```
+
+```
