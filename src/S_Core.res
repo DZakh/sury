@@ -199,9 +199,9 @@ module Path = {
   let concat = (path, concatedPath) => path ++ concatedPath
 }
 
-let vendor = "rescript-schema"
-let symbol = Stdlib.Symbol.make(vendor)
-let itemSymbol = Stdlib.Symbol.make("item")
+let vendor = "sury"
+let symbol = Stdlib.Symbol.make("schema")
+let itemSymbol = Stdlib.Symbol.make("schema:item")
 
 type tag =
   | @as("string") String
@@ -434,7 +434,7 @@ external untag: t<'any> => untagged = "%identity"
 external toInternal: t<'any> => internal = "%identity"
 external fromInternal: internal => t<'any> = "%identity"
 
-// A dirty check that this is rescript-schema object
+// This is dirty
 @inline
 let isSchemaObject = obj => (obj->Obj.magic).standard->Obj.magic
 
@@ -517,8 +517,9 @@ d(p, 'RE_EXN_ID', {
     }
   }
 
+  // TODO: Throw SchemaError
   @inline
-  let panic = message => Stdlib.Exn.raiseError(Stdlib.Exn.makeError(`[${vendor}] ${message}`))
+  let panic = message => Stdlib.Exn.raiseError(Stdlib.Exn.makeError(`[Schema] ${message}`))
 }
 
 type s<'value> = {
@@ -1680,12 +1681,17 @@ module Metadata = {
   module Id: {
     type t<'metadata>
     let make: (~namespace: string, ~name: string) => t<'metadata>
+    let internal: string => t<'metadata>
     external toKey: t<'metadata> => string = "%identity"
   } = {
     type t<'metadata> = string
 
     let make = (~namespace, ~name) => {
-      `metadata:${namespace}:${name}`
+      `m:${namespace}:${name}`
+    }
+
+    let internal = name => {
+      `m:${name}`
     }
 
     external toKey: t<'metadata> => string = "%identity"
@@ -2366,10 +2372,7 @@ module Union = {
 module Option = {
   type default = Value(unknown) | Callback(unit => unknown)
 
-  let defaultMetadataId: Metadata.Id.t<default> = Metadata.Id.make(
-    ~namespace="rescript-schema",
-    ~name="Option.default",
-  )
+  let defaultMetadataId: Metadata.Id.t<default> = Metadata.Id.internal("Option.default")
 
   let default = schema => schema->Metadata.get(~id=defaultMetadataId)
 
@@ -2523,10 +2526,7 @@ module Array = {
       message: string,
     }
 
-    let metadataId: Metadata.Id.t<array<t>> = Metadata.Id.make(
-      ~namespace="rescript-schema",
-      ~name="Array.refinements",
-    )
+    let metadataId: Metadata.Id.t<array<t>> = Metadata.Id.internal("Array.refinements")
   }
 
   let refinements = schema => {
@@ -2710,10 +2710,7 @@ module String = {
       message: string,
     }
 
-    let metadataId: Metadata.Id.t<array<t>> = Metadata.Id.make(
-      ~namespace="rescript-schema",
-      ~name="String.refinements",
-    )
+    let metadataId: Metadata.Id.t<array<t>> = Metadata.Id.internal("String.refinements")
   }
 
   let refinements = schema => {
@@ -2796,10 +2793,7 @@ module Int = {
       message: string,
     }
 
-    let metadataId: Metadata.Id.t<array<t>> = Metadata.Id.make(
-      ~namespace="rescript-schema",
-      ~name="Int.refinements",
-    )
+    let metadataId: Metadata.Id.t<array<t>> = Metadata.Id.internal("Int.refinements")
   }
 
   let refinements = schema => {
@@ -2826,10 +2820,7 @@ module Float = {
       message: string,
     }
 
-    let metadataId: Metadata.Id.t<array<t>> = Metadata.Id.make(
-      ~namespace="rescript-schema",
-      ~name="Float.refinements",
-    )
+    let metadataId: Metadata.Id.t<array<t>> = Metadata.Id.internal("Float.refinements")
   }
 
   let refinements = schema => {

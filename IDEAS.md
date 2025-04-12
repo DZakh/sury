@@ -30,12 +30,12 @@
 - (rescript) Removed `RescriptSchema` namespace
 - Improve SchemaError display in console https://github.com/DZakh/rescript-schema/issues/106
 - (rescript) Added `S.nullAsUnit`
+- Remove `rescript-schema` mention from the code and use generic `Schema` instead
 
 ### Scope
 
 - Support `@s.name` etc for ppx and fail on removed `@s.describe`
 - Todo something with nullish and ppx
-- Remove `rescript-schema` prefix from metadata and panic
 - Start using rescript v12
 - Todo something with preprocess (remove Unknown tag for now, until coerce is not there yet)
 - Integrate rescript-json-schema
