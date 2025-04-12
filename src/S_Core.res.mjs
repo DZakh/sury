@@ -268,9 +268,9 @@ function reason(error, nestedLevelOpt) {
     case "InvalidOperation" :
         return reason$1.description;
     case "InvalidType" :
-        return "Must be " + toExpression(reason$1.expected) + " (was " + stringify(reason$1.received) + ")";
+        return "Expected " + toExpression(reason$1.expected) + ", received " + stringify(reason$1.received);
     case "ExcessField" :
-        return "Encountered disallowed excess key " + fromString(reason$1._0) + " on an object";
+        return "Unrecognized key \"" + reason$1._0 + "\"";
     case "InvalidUnion" :
         var lineBreak = "\n" + " ".repeat((nestedLevel << 1));
         var reasonsDict = {};
@@ -309,8 +309,8 @@ function message(error) {
     );
   }
   var nonEmptyPath = error.path;
-  var pathText = nonEmptyPath === "" ? "root" : nonEmptyPath;
-  return text + " at " + pathText + ". Reason: " + reason(error, undefined);
+  var tmp = nonEmptyPath === "" ? "" : " at " + nonEmptyPath;
+  return text + tmp + ": " + reason(error, undefined);
 }
 
 function embed(b, value) {
@@ -3643,7 +3643,7 @@ function pattern(schema, re, messageOpt) {
 }
 
 function datetime(schema, messageOpt) {
-  var message = messageOpt !== undefined ? messageOpt : "Invalid datetime string! Must be UTC";
+  var message = messageOpt !== undefined ? messageOpt : "Invalid datetime string! Expected UTC";
   var refinement = {
     kind: "Datetime",
     message: message

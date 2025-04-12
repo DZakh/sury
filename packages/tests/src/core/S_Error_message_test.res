@@ -7,7 +7,7 @@ test("OperationFailed error", t => {
       operation: Parse,
       path: S.Path.empty,
     })->S.Error.message,
-    "Failed parsing at root. Reason: Should be positive",
+    "Failed parsing: Should be positive",
     (),
   )
 })
@@ -19,7 +19,7 @@ test("Error with Serializing operation", t => {
       operation: ReverseConvert,
       path: S.Path.empty,
     })->S.Error.message,
-    "Failed converting at root. Reason: Should be positive",
+    "Failed converting: Should be positive",
     (),
   )
 })
@@ -31,7 +31,7 @@ test("Error with path", t => {
       operation: Parse,
       path: S.Path.fromArray(["0", "foo"]),
     })->S.Error.message,
-    `Failed parsing at ["0"]["foo"]. Reason: Should be positive`,
+    `Failed parsing at ["0"]["foo"]: Should be positive`,
     (),
   )
 })
@@ -43,7 +43,7 @@ test("InvalidOperation error", t => {
       operation: Parse,
       path: S.Path.empty,
     })->S.Error.message,
-    "Failed parsing at root. Reason: The S.transform serializer is missing",
+    "Failed parsing: The S.transform serializer is missing",
     (),
   )
 })
@@ -55,7 +55,7 @@ test("InvalidType error", t => {
       operation: Parse,
       path: S.Path.empty,
     })->S.Error.message,
-    "Failed parsing at root. Reason: Must be string (was true)",
+    "Failed parsing: Expected string, received true",
     (),
   )
 })
@@ -67,7 +67,7 @@ test("UnexpectedAsync error", t => {
       operation: Parse,
       path: S.Path.empty,
     })->S.Error.message,
-    "Failed parsing at root. Reason: Encountered unexpected async transform or refine. Use ParseAsync operation instead",
+    "Failed parsing: Encountered unexpected async transform or refine. Use ParseAsync operation instead",
     (),
   )
 })
@@ -79,7 +79,7 @@ test("InvalidType with literal error", t => {
       operation: Parse,
       path: S.Path.empty,
     })->S.Error.message,
-    "Failed parsing at root. Reason: Must be false (was true)",
+    "Failed parsing: Expected false, received true",
     (),
   )
 })
@@ -91,7 +91,7 @@ test("ExcessField error", t => {
       operation: Parse,
       path: S.Path.empty,
     })->S.Error.message,
-    `Failed parsing at root. Reason: Encountered disallowed excess key "unknownKey" on an object`,
+    `Failed parsing: Encountered disallowed excess key "unknownKey" on an object`,
     (),
   )
 })
@@ -106,7 +106,7 @@ test("InvalidType error (replacement for InvalidTupleSize)", t => {
       operation: Parse,
       path: S.Path.empty,
     })->S.Error.message,
-    `Failed parsing at root. Reason: Must be [boolean, int32] (was [1, 2, "foo"])`,
+    `Failed parsing: Expected [boolean, int32], received [1, 2, "foo"]`,
     (),
   )
 })
@@ -143,7 +143,7 @@ test("InvalidUnion error", t => {
       operation: Parse,
       path: S.Path.empty,
     })->S.Error.message,
-    `Failed parsing at root. Reason: Invalid union with following errors
+    `Failed parsing: Invalid union with following errors
 - Failed at ["kind"]. Expected "circle", received "oval"
 - Failed at ["kind"]. Expected "square", received "oval"
 - Failed at ["kind"]. Expected "triangle", received "oval"`,
@@ -174,7 +174,7 @@ test("InvalidUnion filters similar reasons", t => {
       operation: Parse,
       path: S.Path.empty,
     })->S.Error.message,
-    `Failed parsing at root. Reason: Invalid union with following errors
+    `Failed parsing: Invalid union with following errors
 - Expected boolean, received "Hello world!"`,
     (),
   )
@@ -209,7 +209,7 @@ test("Nested InvalidUnion error", t => {
       operation: Parse,
       path: S.Path.empty,
     })->S.Error.message,
-    `Failed parsing at root. Reason: Invalid union with following errors
+    `Failed parsing: Invalid union with following errors
 - Invalid union with following errors
   - Expected boolean, received "Hello world!"`,
     (),
@@ -223,7 +223,7 @@ test("InvalidJsonSchema error", t => {
       operation: ReverseConvert,
       path: S.Path.empty,
     })->S.Error.message,
-    `Failed converting at root. Reason: The 'true | undefined' schema cannot be converted to JSON`,
+    `Failed converting: The 'true | undefined' schema cannot be converted to JSON`,
     (),
   )
 })

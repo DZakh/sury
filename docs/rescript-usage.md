@@ -279,7 +279,7 @@ S.string->S.url // Invalid url
 S.string->S.uuid // Invalid UUID
 S.string->S.cuid // Invalid CUID
 S.string->S.pattern(%re(`/[0-9]/`)) // Invalid
-S.string->S.datetime // Invalid datetime string! Must be UTC
+S.string->S.datetime // Invalid datetime string! Expected UTC
 
 S.string->S.trim // trim whitespaces
 ```
@@ -665,7 +665,7 @@ let schema = S.object(_ => ())->S.strict
 {
   "someField": "value",
 }->S.parseOrThrow(schema)
-// throws S.error with the message: `Failed parsing at root. Reason: Encountered disallowed excess key "unknownKey" on an object`
+// throws S.error with the message: `Failed parsing: Encountered disallowed excess key "unknownKey" on an object`
 ```
 
 By default **rescript-schema** silently strips unrecognized keys when parsing objects. You can change the behaviour to disallow unrecognized keys with the `S.strict` function.
@@ -1016,7 +1016,7 @@ The `S.unknown` schema represents any data.
 let schema = S.never
 
 %raw(`undefined`)->S.parseOrThrow(schema)
-// throws S.error with the message: `Failed parsing at root. Reason: Must be never (was undefined)`
+// throws S.error with the message: `Failed parsing: Expected never, received undefined`
 ```
 
 The `never` schema will fail parsing for every value.
@@ -1141,7 +1141,7 @@ let nullableSchema = innerSchema => {
 %raw(`undefined`)->S.parseOrThrow(schema)
 // None
 123->S.parseOrThrow(schema)
-// throws S.error with the message: `Failed parsing at root. Reason: Must be string (was 123)`
+// throws S.error with the message: `Failed parsing: Expected string, received 123`
 ```
 
 ### **`recursive`**
@@ -1438,7 +1438,7 @@ let reversed = schema->S.reverse
 // {"foo": "bar"}
 
 123->S.parseOrThrow(reversed)
-// throws S.error with the message: `Failed parsing at root. Reason: Must be string (was 123)`
+// throws S.error with the message: `Failed parsing: Expected string, received 123`
 ```
 
 Reverses the schema. This gets especially magical for schemas with transformations 🪄
@@ -1453,7 +1453,7 @@ This very powerful API allows you to coerce another data type in a declarative w
 let schema = S.string->S.coerce(S.float)
 
 "123"->S.parseOrThrow(schema) //? 123.
-"abc"->S.parseOrThrow(schema) //? throws: Failed parsing at root. Reason: Must be number (was "abc")
+"abc"->S.parseOrThrow(schema) //? throws: Failed parsing: Expected number, received "abc"
 
 // Reverse works correctly as well 🔥
 123.->S.reverseConvertOrThrow(schema) //? "123"
@@ -1548,7 +1548,7 @@ This can be useful to optimise `S.object` parsing when you construct the input d
 let schema = S.literal(false)
 
 true->S.parseOrThrow(schema)
-// throws S.error with the message: `Failed parsing at root. Reason: Must be false (was true)`
+// throws S.error with the message: `Failed parsing: Expected false, received true`
 ```
 
 If you want to handle the error, the best way to use `try/catch` block:
@@ -1584,7 +1584,7 @@ Throws error. Since internally it's both the `S.SchemaError` exception and insta
 ```
 
 ```rescript
-"Failed parsing at root. Reason: Must be false (was true)"
+"Failed parsing: Expected false, received true"
 ```
 
 ### **`Error.reason`**

@@ -420,9 +420,9 @@ Failing.test("Coerce string to unboxed union (each item separately)", t => {
       "t"->S.parseOrThrow(schema)
     },
     ~expectations={
-      message: `Failed parsing at root. Reason: Invalid union with following errors
-- Must be number (was "t")
-- Must be boolean (was "t")`,
+      message: `Failed parsing: Invalid union with following errors
+- Expected number, received "t"
+- Expected boolean, received "t"`,
     },
     (),
   )

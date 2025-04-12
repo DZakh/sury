@@ -75,7 +75,7 @@ const loginSchema = S.schema({
 // Infer output TypeScript type of login schema
 type LoginData = S.Output<typeof loginSchema>; // { email: string; password: string }
 
-// Throws the S.SchemaError(`Failed parsing at ["email"]. Reason: Invalid email address`)
+// Throws the S.SchemaError(`Failed parsing at ["email"]: Invalid email address`)
 S.parseOrThrow({ email: "", password: "" }, loginSchema);
 
 // Returns data as { email: string; password: string }
@@ -143,7 +143,7 @@ S.url(S.string); // Invalid url
 S.uuid(S.string); // Invalid UUID
 S.cuid(S.string); // Invalid CUID
 S.pattern(S.string, %re(`/[0-9]/`)); // Invalid
-S.datetime(S.string); // Invalid datetime string! Must be UTC
+S.datetime(S.string); // Invalid datetime string! Expected UTC
 
 S.trim(S.string); // trim whitespaces
 ```
@@ -841,7 +841,7 @@ S.parseOrThrow("bar", reversed);
 // {"foo": "bar"}
 
 S.parseOrThrow(123, reversed);
-// throws S.error with the message: `Failed parsing at root. Reason: Must be string (was 123)`
+// throws S.error with the message: `Failed parsing: Expected string, received 123`
 ```
 
 Reverses the schema. This gets especially magical for schemas with transformations 🪄
@@ -854,7 +854,7 @@ This very powerful API allows you to coerce another data type in a declarative w
 const schema = S.coerce(S.string, S.float);
 
 S.parseOrThrow("123", schema); //? 123.
-S.parseOrThrow("abc", schema); //? throws: Failed parsing at root. Reason: Must be number (was "abc")
+S.parseOrThrow("abc", schema); //? throws: Failed parsing: Expected number, received "abc"
 
 // Reverse works correctly as well 🔥
 S.reverseConvertOrThrow(123, schema); //? "123"
@@ -917,7 +917,7 @@ Used internally for readable error messages.
 
 ```ts
 S.parseOrThrow(true, S.schema(false));
-// => Throws S.SchemaError with the following message: Failed parsing at root. Reason: Must be false (was true)".
+// => Throws S.SchemaError with the following message: Failed parsing: Expected false, received true".
 ```
 
 You can catch the error using `S.safe` and `S.safeAsync` helpers:

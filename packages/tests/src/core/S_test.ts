@@ -36,7 +36,7 @@ test("Successfully parses string with built-in refinement", (t) => {
   }
   t.is(
     result.error.message,
-    "Failed parsing at root. Reason: String must be exactly 5 characters long"
+    "Failed parsing: String must be exactly 5 characters long"
   );
 
   expectType<SchemaEqual<typeof schema, string, string>>(true);
@@ -59,10 +59,7 @@ test("Successfully parses string with built-in refinement and custom message", (
     t.fail("Should fail");
     return;
   }
-  t.is(
-    result.error.message,
-    "Failed parsing at root. Reason: Postcode must have 5 symbols"
-  );
+  t.is(result.error.message, "Failed parsing: Postcode must have 5 symbols");
 
   expectType<SchemaEqual<typeof schema, string, string>>(true);
 });
@@ -129,7 +126,7 @@ test("Fails to parse float when NaN is provided", (t) => {
     },
     {
       name: "SchemaError",
-      message: "Failed parsing at root. Reason: Must be number (was NaN)",
+      message: "Failed parsing: Expected number, received NaN",
     }
   );
 });
@@ -210,7 +207,7 @@ test("Fails to parse never", (t) => {
     },
     {
       name: "SchemaError",
-      message: "Failed parsing at root. Reason: Must be never (was true)",
+      message: "Failed parsing: Expected never, received true",
     }
   );
 });
@@ -224,7 +221,7 @@ test("Can get a reason from an error", (t) => {
     t.fail("Should fail");
     return;
   }
-  t.is(result.error.reason, "Must be never (was true)");
+  t.is(result.error.reason, "Expected never, received true");
 });
 
 test("Successfully parses array", (t) => {
@@ -381,7 +378,7 @@ test("Fails to parse with invalid data", (t) => {
     },
     {
       name: "SchemaError",
-      message: "Failed parsing at root. Reason: Must be string (was 123)",
+      message: "Failed parsing: Expected string, received 123",
     }
   );
 });
@@ -423,7 +420,7 @@ test("Fails to serialize never", (t) => {
     },
     {
       name: "SchemaError",
-      message: `Failed converting at root. Reason: Must be never (was "123")`,
+      message: `Failed converting: Expected never, received "123"`,
     }
   );
 });
@@ -455,7 +452,7 @@ test("Fails to parse with transform with user error", (t) => {
     },
     {
       name: "SchemaError",
-      message: "Failed parsing at root. Reason: Invalid number",
+      message: "Failed parsing: Invalid number",
     }
   );
 });
@@ -525,7 +522,7 @@ test("Fails to parses with refine raising an error", (t) => {
     },
     {
       name: "SchemaError",
-      message: "Failed parsing at root. Reason: User error",
+      message: "Failed parsing: User error",
     }
   );
 });
@@ -554,10 +551,7 @@ test("Fails to parses async schema", async (t) => {
     t.fail("Should fail");
     return;
   }
-  t.is(
-    result.error.message,
-    "Failed async parsing at root. Reason: User error"
-  );
+  t.is(result.error.message, "Failed async parsing: User error");
   t.true(result.error instanceof S.SchemaError);
 });
 
@@ -587,7 +581,7 @@ test("Custom string schema", (t) => {
     },
     {
       name: "SchemaError",
-      message: "Failed parsing at root. Reason: Postcode should be a string",
+      message: "Failed parsing: Postcode should be a string",
     }
   );
   t.throws(
@@ -596,8 +590,7 @@ test("Custom string schema", (t) => {
     },
     {
       name: "SchemaError",
-      message:
-        "Failed parsing at root. Reason: Postcode should be 5 characters",
+      message: "Failed parsing: Postcode should be 5 characters",
     }
   );
 
@@ -916,7 +909,7 @@ test("Fails to parse strict object with exccess fields", (t) => {
     },
     {
       name: "SchemaError",
-      message: `Failed parsing at root. Reason: Encountered disallowed excess key "bar" on an object`,
+      message: `Failed parsing: Encountered disallowed excess key "bar" on an object`,
     }
   );
 });
@@ -954,7 +947,7 @@ test("Fails to parse deep strict object with exccess fields", (t) => {
     },
     {
       name: "SchemaError",
-      message: `Failed parsing at ["foo"]. Reason: Encountered disallowed excess key "b" on an object`,
+      message: `Failed parsing at ["foo"]: Encountered disallowed excess key "b" on an object`,
     }
   );
 });
@@ -1002,7 +995,7 @@ test("Fails to parse strict object with exccess fields which created using globa
     },
     {
       name: "SchemaError",
-      message: `Failed parsing at root. Reason: Encountered disallowed excess key "bar" on an object`,
+      message: `Failed parsing: Encountered disallowed excess key "bar" on an object`,
     }
   );
 });
@@ -1086,7 +1079,7 @@ test("Successfully parses intersected objects", (t) => {
   }
   t.is(
     result.error.message,
-    `Failed parsing at ["baz"]. Reason: Must be string (was undefined)`
+    `Failed parsing at ["baz"]: Expected string, received undefined`
   );
 
   const value = S.parseOrThrow(
@@ -1147,7 +1140,7 @@ test("Successfully parses intersected objects with transform", (t) => {
   }
   t.is(
     result.error.message,
-    `Failed parsing at ["baz"]. Reason: Must be string (was undefined)`
+    `Failed parsing at ["baz"]: Expected string, received undefined`
   );
 
   const value = S.parseOrThrow(
@@ -1191,7 +1184,7 @@ test("Fails to serialize merge. Not supported yet", (t) => {
   }
   t.is(
     result.error.message,
-    `Failed converting at root. Reason: The S.merge serializing is not supported yet`
+    `Failed converting: The S.merge serializing is not supported yet`
   );
 });
 
@@ -1740,8 +1733,7 @@ test("Standard schema", (t) => {
   t.deepEqual(schema["~standard"]["validate"](undefined), {
     issues: [
       {
-        message:
-          "Failed parsing at root. Reason: Must be string | null (was undefined)",
+        message: "Failed parsing: Expected string | null, received undefined",
         path: undefined,
       },
     ],
@@ -1846,7 +1838,7 @@ test("Assert throws with invalid data", (t) => {
     },
     {
       name: "SchemaError",
-      message: "Failed asserting at root. Reason: Must be string (was 123)",
+      message: "Failed asserting: Expected string, received 123",
     }
   );
 });
@@ -1909,10 +1901,10 @@ test("Example", (t) => {
 
   t.throws(
     () => {
-      // Throws the S.SchemaError(`Failed parsing at ["email"]. Reason: Invalid email address`)
+      // Throws the S.SchemaError(`Failed parsing at ["email"]: Invalid email address`)
       S.parseOrThrow({ email: "", password: "" }, loginSchema);
     },
-    { message: `Failed parsing at ["email"]. Reason: Invalid email address` }
+    { message: `Failed parsing at ["email"]: Invalid email address` }
   );
 
   // Returns data as { email: string; password: string }

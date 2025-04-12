@@ -13,7 +13,7 @@
 - Removed `S.undefined` for TS API in favor of `S.schema(undefined)`
 - (rescript) Renamed `S.nullable` to `S.nullish` to match js api
 - (js/ts) Don't transform `null` to `undefined` for `S.nullish`
-- Updated error massage to look more like ArkType
+- Updated error massage to be shorter and cleaner
 - Support coerce from any literal to another literal
 - Temporary removed `S.inline`
 - Improved error massage for recursive schema
@@ -35,25 +35,27 @@
 
 - Support `@s.name` etc for ppx and fail on removed `@s.describe`
 - Todo something with nullish and ppx
-- Add JSDoc
 - Remove `rescript-schema` prefix from metadata and panic
 - Start using rescript v12
+- Todo something with preprocess (remove Unknown tag for now, until coerce is not there yet)
 - Integrate rescript-json-schema
-- Todo something with preprocess
 - Remove `Failed parsing at ...` for error messages
-- Somehow determine whether transformed or not (including shape)
-- Make refinements change type from unknown to known
 - Add `.pipe` to Ts api (or `.with` & if first arg is string - it's a custom error message)
 - Support unions and complex types for S.coerce
-- Make S.coerce extencible
 - Move S.example to rescript-schema
-- Add S.toJsonSchema and S.fromJsonSchema
-- Add S.date (S.instanceof) and remove S.datetime
-- Add refinement info to the tagged type
-- Make S.serializeToJsonString super fast
+- Add S.toJSONSchema and S.fromJSONSchema
+- Add S.meta like Zod v4
+- Remove number/string/array prefixes from refinements
 
 ## v???
 
+- Make S.coerce extensible
+- Add S.date (S.instanceof) and remove S.datetime
+- Add refinement info to the tagged type
+- Make S.serializeToJsonString super fast
+- Make refinements change type from unknown to known
+- Somehow determine whether transformed or not (including shape)
+- Add JSDoc
 - s.optional for object
 - S.transform(s => {
   s.reverse(input => input) // Or s.asyncReverse(input => Promise.resolve(input))

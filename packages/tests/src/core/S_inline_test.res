@@ -20,12 +20,12 @@
 
 // test("Supports built-in String.datetime refinement", t => {
 //   let schema = S.string->S.datetime
-//   let schemaInlineResult = S.string->S.datetime(~message="Invalid datetime string! Must be UTC")
+//   let schemaInlineResult = S.string->S.datetime(~message="Invalid datetime string! Expected UTC")
 
 //   t->U.assertEqualSchemas(schema, schemaInlineResult)
 //   t->Assert.deepEqual(
 //     schema->S.inline,
-//     `S.string->S.datetime(~message="Invalid datetime string! Must be UTC")`,
+//     `S.string->S.datetime(~message="Invalid datetime string! Expected UTC")`,
 //     (),
 //   )
 // })

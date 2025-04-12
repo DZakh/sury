@@ -308,7 +308,7 @@ module Advanced = {
     t->U.assertRaised(() => data->S.parseOrThrow(schema), error)
     t->Assert.is(
       error->U.error->S.Error.message,
-      `Failed parsing at ["field"]. Reason: Must be { kind: "circle"; radius: number; } | { kind: "square"; x: number; } | { kind: "triangle"; x: number; y: number; } (was {"kind": "oval", "x": 2, "y": 3})`,
+      `Failed parsing at ["field"]: Expected { kind: "circle"; radius: number; } | { kind: "square"; x: number; } | { kind: "triangle"; x: number; y: number; }, received {"kind": "oval", "x": 2, "y": 3}`,
       (),
     )
   })
@@ -483,7 +483,7 @@ asyncTest("Compiled async parse code snapshot", async t => {
   t->Assert.throws(
     () => 2->S.parseAsyncOrThrow(schema),
     ~expectations={
-      message: "Failed async parsing at root. Reason: Must be 0 | 1 (was 2)",
+      message: "Failed async parsing: Expected 0 | 1, received 2",
     },
     (),
   )

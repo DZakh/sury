@@ -676,10 +676,9 @@ module Error = {
     | OperationFailed(reason) => reason
     | InvalidOperation({description}) => description
     | UnexpectedAsync => "Encountered unexpected async transform or refine. Use ParseAsync operation instead"
-    | ExcessField(fieldName) =>
-      `Encountered disallowed excess key ${fieldName->Stdlib.Inlined.Value.fromString} on an object`
+    | ExcessField(fieldName) => `Unrecognized key "${fieldName}"`
     | InvalidType({expected: schema, received}) =>
-      `Must be ${schema->toExpression} (was ${received->stringify})`
+      `Expected ${schema->toExpression}, received ${received->stringify}`
     | InvalidJsonSchema(schema) =>
       `The '${schema->toExpression}' schema cannot be converted to JSON`
     | InvalidUnion(errors) => {
@@ -729,11 +728,10 @@ module Error = {
         text.contents ++ " to JSON" ++ (op->Flag.unsafeHas(Flag.jsonStringOutput) ? " string" : "")
     }
 
-    let pathText = switch error.path {
-    | "" => "root"
-    | nonEmptyPath => nonEmptyPath
-    }
-    `${text.contents} at ${pathText}. Reason: ${error->reason}`
+    `${text.contents}${switch error.path {
+      | "" => ""
+      | nonEmptyPath => ` at ${nonEmptyPath}`
+      }}: ${error->reason}`
   }
 }
 
@@ -4794,7 +4792,7 @@ let pattern = (schema, re, ~message=`Invalid`) => {
   )
 }
 
-let datetime = (schema, ~message=`Invalid datetime string! Must be UTC`) => {
+let datetime = (schema, ~message=`Invalid datetime string! Expected UTC`) => {
   let refinement = {
     String.Refinement.kind: Datetime,
     message,

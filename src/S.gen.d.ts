@@ -93,7 +93,7 @@ export type Json =
 
 declare const øbrand: unique symbol;
 
-export type t<Output = unknown, Input = unknown> = {
+export type t<Output, Input = unknown> = {
   readonly ["~standard"]: StandardSchemaV1.Props<Input, Output>;
   readonly description?: string;
   readonly deprecated?: string;

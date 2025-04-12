@@ -12,7 +12,7 @@ test(
         )->S.Error.raise
       },
       ~expectations={
-        message: "Failed parsing at root. Reason: Should be positive",
+        message: "Failed parsing: Should be positive",
         instanceOf: S.Error.class->(U.magic: S.Error.class => ThrowsExpectation.instanceOf),
       },
       (),
