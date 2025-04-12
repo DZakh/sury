@@ -91,7 +91,7 @@ test("ExcessField error", t => {
       operation: Parse,
       path: S.Path.empty,
     })->S.Error.message,
-    `Failed parsing: Encountered disallowed excess key "unknownKey" on an object`,
+    `Failed parsing: Unrecognized key "unknownKey"`,
     (),
   )
 })

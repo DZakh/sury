@@ -909,7 +909,7 @@ test("Fails to parse strict object with exccess fields", (t) => {
     },
     {
       name: "SchemaError",
-      message: `Failed parsing: Encountered disallowed excess key "bar" on an object`,
+      message: `Failed parsing: Unrecognized key "bar"`,
     }
   );
 });
@@ -947,7 +947,7 @@ test("Fails to parse deep strict object with exccess fields", (t) => {
     },
     {
       name: "SchemaError",
-      message: `Failed parsing at ["foo"]: Encountered disallowed excess key "b" on an object`,
+      message: `Failed parsing at ["foo"]: Unrecognized key "b"`,
     }
   );
 });
@@ -995,7 +995,7 @@ test("Fails to parse strict object with exccess fields which created using globa
     },
     {
       name: "SchemaError",
-      message: `Failed parsing: Encountered disallowed excess key "bar" on an object`,
+      message: `Failed parsing: Unrecognized key "bar"`,
     }
   );
 });
@@ -1728,7 +1728,7 @@ test("Tuple types", (t) => {
 test("Standard schema", (t) => {
   const schema = S.nullable(S.string);
 
-  t.deepEqual(schema["~standard"]["vendor"], "rescript-schema");
+  t.deepEqual(schema["~standard"]["vendor"], "sury");
   t.deepEqual(schema["~standard"]["version"], 1);
   t.deepEqual(schema["~standard"]["validate"](undefined), {
     issues: [

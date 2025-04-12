@@ -520,7 +520,7 @@ test("Union with nested variant", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{if(typeof i==="object"&&i){try{let v0=i["foo"];let v1=v0["tag"];let v2=v1["NAME"],v3=v1["VAL"];if(v2!=="Null"){e[0](v2)}if(v3===void 0){v3=null}i={"foo":{"tag":{"NAME":v2,"VAL":v3,},},}}catch(e0){try{let v4=i["foo"];let v5=v4["tag"];let v6=v5["NAME"],v7=v5["VAL"];if(v6!=="Option"){e[2](v6)}i=i}catch(e1){}}}return i}`,
+    `i=>{if(typeof i==="object"&&i){try{let v0=i["foo"];let v1=v0["tag"];let v2=v1["NAME"],v3=v1["VAL"];if(v2!=="Null"){e[0](v2)}if(v3===void 0){v3=null}i={"foo":{"tag":{"NAME":v2,"VAL":v3,},},}}catch(e0){try{let v4=i["foo"];let v5=v4["tag"];let v6=v5["NAME"],v7=v5["VAL"];if(v6!=="Option"){e[1](v6)}i=i}catch(e1){}}}return i}`,
   )
 })
 

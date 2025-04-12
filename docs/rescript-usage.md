@@ -665,7 +665,7 @@ let schema = S.object(_ => ())->S.strict
 {
   "someField": "value",
 }->S.parseOrThrow(schema)
-// throws S.error with the message: `Failed parsing: Encountered disallowed excess key "unknownKey" on an object`
+// throws S.error with the message: `Failed parsing: Unrecognized key  "unknownKey"`
 ```
 
 By default **rescript-schema** silently strips unrecognized keys when parsing objects. You can change the behaviour to disallow unrecognized keys with the `S.strict` function.
