@@ -485,7 +485,7 @@ test("s.nested conflicts with s.field", t => {
       )
     },
     ~expectations={
-      message: `[rescript-schema] The field "nested" defined twice with incompatible schemas`,
+      message: `[Schema] The field "nested" defined twice with incompatible schemas`,
     },
     (),
   )
@@ -501,7 +501,7 @@ test("s.nested.flattened doesn't work with S.object", t => {
       )
     },
     ~expectations={
-      message: `[rescript-schema] Unsupported nested flatten for advanced object schema '{ foo: string; }'`,
+      message: `[Schema] Unsupported nested flatten for advanced object schema '{ foo: string; }'`,
     },
     (),
   )
@@ -524,7 +524,7 @@ test("s.nested.flattened doesn't work with transformed S.schema", t => {
       )
     },
     ~expectations={
-      message: `[rescript-schema] Unsupported nested flatten for transformed schema \'{ foo: string; }\'`,
+      message: `[Schema] Unsupported nested flatten for transformed schema \'{ foo: string; }\'`,
     },
     (),
   )
@@ -547,7 +547,7 @@ test("s.nested.flattened doesn't work with S.schema->S.shape", t => {
       )
     },
     ~expectations={
-      message: `[rescript-schema] Unsupported nested flatten for transformed schema \'{ foo: string; }\'`,
+      message: `[Schema] Unsupported nested flatten for transformed schema \'{ foo: string; }\'`,
     },
     (),
   )
@@ -563,7 +563,7 @@ test("s.nested.flattened doesn't work with S.string", t => {
       )
     },
     ~expectations={
-      message: `[rescript-schema] The 'string' schema can\'t be flattened`,
+      message: `[Schema] The 'string' schema can\'t be flattened`,
     },
     (),
   )
@@ -607,7 +607,7 @@ test("s.nested.flatten conflicts with s.nested.field", t => {
       )
     },
     ~expectations={
-      message: `[rescript-schema] The field "foo" defined twice`,
+      message: `[Schema] The field "foo" defined twice`,
     },
     (),
   )

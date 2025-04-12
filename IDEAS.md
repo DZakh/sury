@@ -39,12 +39,10 @@
 - Start using rescript v12
 - Todo something with preprocess (remove Unknown tag for now, until coerce is not there yet)
 - Integrate rescript-json-schema
-- Remove `Failed parsing at ...` for error messages
 - Add `.pipe` to Ts api (or `.with` & if first arg is string - it's a custom error message)
 - Support unions and complex types for S.coerce
-- Move S.example to rescript-schema
 - Add S.toJSONSchema and S.fromJSONSchema
-- Add S.meta like Zod v4
+- Add S.meta like Zod v4 (Move S.example to rescript-schema)
 - Remove number/string/array prefixes from refinements
 
 ## v???

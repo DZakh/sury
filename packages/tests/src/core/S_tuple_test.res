@@ -202,7 +202,7 @@ test("Fails to create tuple schema with single item defined multiple times", t =
       )
     },
     ~expectations={
-      message: `[rescript-schema] The item ["0"] is defined multiple times`,
+      message: `[Schema] The item ["0"] is defined multiple times`,
     },
     (),
   )

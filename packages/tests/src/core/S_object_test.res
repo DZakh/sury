@@ -968,7 +968,7 @@ test("Fails to create object schema with single field defined multiple times", t
       )
     },
     ~expectations={
-      message: `[rescript-schema] The field "field" defined twice with incompatible schemas`,
+      message: `[Schema] The field "field" defined twice with incompatible schemas`,
     },
     (),
   )

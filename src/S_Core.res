@@ -340,6 +340,7 @@ and internal = {
   mutable output?: unit => internal, // Optional value means that it either should reverse to self or it's already a reversed schema
   // This can also be an `internal` itself, but because of the bug https://github.com/rescript-lang/rescript/issues/7314 handle it unsafely
   mutable isAsync?: bool, // Optional value means that it's not lazily computed yet.
+  // FIXME: Shouldn't be cloned?
   @as("~standard")
   mutable standard?: standard, // This is optional for convenience. The object added on make call
 }
@@ -2216,7 +2217,7 @@ module Union = {
           } else {
             cond := cond.contents ++ `&&(${itemNoop.contents})`
           }
-        } else if typeValidation {
+        } else if typeValidation && itemStart.contents->Stdlib.String.unsafeToBool {
           let errorCode = b->B.failWithArg(
             ~path,
             received => InvalidType({

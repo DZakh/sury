@@ -392,7 +392,7 @@ test("Coerce string after a transform", t => {
       S.string->S.transform(_ => {parser: v => v, serializer: v => v})->S.coerce(S.bool)
     },
     ~expectations={
-      message: "[rescript-schema] S.coerce from unknown to boolean is not supported",
+      message: "[Schema] S.coerce from unknown to boolean is not supported",
     },
     (),
   )

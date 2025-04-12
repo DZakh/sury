@@ -1579,7 +1579,7 @@ function builder$1(b, input, selfSchema, path) {
         } else {
           cond = cond + ("&&(" + itemNoop + ")");
         }
-      } else if (typeValidation) {
+      } else if (typeValidation && itemStart) {
         var errorCode = failWithArg(b, path, (function (received) {
                 return {
                         TAG: "InvalidType",

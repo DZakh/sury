@@ -137,7 +137,7 @@ test("Handles empty objects", t => {
       S.unnest(S.object(_ => ()))
     },
     ~expectations={
-      message: "[rescript-schema] Invalid empty object for S.unnest schema.",
+      message: "[Schema] Invalid empty object for S.unnest schema.",
     },
     (),
   )
@@ -149,7 +149,7 @@ test("Handles non-object schemas", t => {
       S.unnest(S.tuple2(S.string, S.int))
     },
     ~expectations={
-      message: "[rescript-schema] S.unnest supports only object schemas.",
+      message: "[Schema] S.unnest supports only object schemas.",
     },
     (),
   )
