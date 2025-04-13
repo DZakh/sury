@@ -37,6 +37,7 @@
   + export type Schema<Output, Input = unknown>
   ```
 - Fix infered type of `S.merge` call (https://github.com/DZakh/rescript-schema/issues/107)
+- (ts) Infer optional fields with `?` when using `S.schema` (https://github.com/DZakh/rescript-schema/issues/87)
 
 ### Scope
 

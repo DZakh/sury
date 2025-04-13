@@ -13,24 +13,53 @@ export type Output<T> = T extends Schema<infer Output, unknown>
   : never;
 export type Input<T> = T extends Schema<unknown, infer Input> ? Input : never;
 
-type UnknownToOuput<T> = T extends Schema<unknown>
+type UnknownToOutput<T> = T extends Schema<unknown>
   ? Output<T>
-  : T extends {
-      [k in keyof T]: unknown;
-    }
-  ? {
-      [k in keyof T]: UnknownToOuput<T[k]>;
-    }
+  : T extends unknown[]
+  ? { [K in keyof T]: UnknownToOutput<T[K]> }
+  : T extends { [k in keyof T]: unknown }
+  ? Flatten<
+      {
+        [k in keyof T as HasUndefined<UnknownToOutput<T[k]>> extends true
+          ? k
+          : never]?: UnknownToOutput<T[k]>;
+      } & {
+        [k in keyof T as HasUndefined<UnknownToOutput<T[k]>> extends true
+          ? never
+          : k]: UnknownToOutput<T[k]>;
+      }
+    >
   : T;
 
 type UnknownToInput<T> = T extends Schema<unknown>
   ? Input<T>
-  : T extends {
-      [k in keyof T]: unknown;
-    }
-  ? {
-      [k in keyof T]: UnknownToInput<T[k]>;
-    }
+  : T extends unknown[]
+  ? { [K in keyof T]: UnknownToInput<T[K]> }
+  : T extends { [k in keyof T]: unknown }
+  ? Flatten<
+      {
+        [k in keyof T as HasUndefined<UnknownToInput<T[k]>> extends true
+          ? k
+          : never]?: UnknownToInput<T[k]>;
+      } & {
+        [k in keyof T as HasUndefined<UnknownToInput<T[k]>> extends true
+          ? never
+          : k]: UnknownToInput<T[k]>;
+      }
+    >
+  : T;
+
+// Grok told that it makes things faster
+// TODO: Verify it with ArkType test framework
+type HasUndefined<T> = [T] extends [undefined]
+  ? true
+  : undefined extends T
+  ? true
+  : false;
+
+// Utility to flatten the type into a single object
+type Flatten<T> = T extends object
+  ? { [K in keyof T as T[K] extends never ? never : K]: T[K] }
   : T;
 
 type UnknownArrayToOutput<
@@ -48,7 +77,7 @@ type _RestToOutput<
   Index extends number = Accumulated["length"]
 > = Index extends Length
   ? Accumulated
-  : _RestToOutput<T, Length, [...Accumulated, UnknownToOuput<T[Index]>]>;
+  : _RestToOutput<T, Length, [...Accumulated, UnknownToOutput<T[Index]>]>;
 type UnknownArrayToInput<
   T extends unknown[],
   Length extends number = T["length"]
@@ -79,7 +108,7 @@ type Literal =
 
 export function schema<T extends Literal>(
   value: T
-): Schema<UnknownToOuput<T>, UnknownToInput<T>>;
+): Schema<UnknownToOutput<T>, UnknownToInput<T>>;
 export function schema<T extends Literal[]>(
   schemas: [...T]
 ): Schema<[...UnknownArrayToOutput<T>], [...UnknownArrayToInput<T>]>;
@@ -88,18 +117,18 @@ export function schema<T extends unknown[]>(
 ): Schema<[...UnknownArrayToOutput<T>], [...UnknownArrayToInput<T>]>;
 export function schema<T>(
   value: T
-): Schema<UnknownToOuput<T>, UnknownToInput<T>>;
+): Schema<UnknownToOutput<T>, UnknownToInput<T>>;
 
 export function union<A extends Literal, B extends Literal[]>(
   schemas: [A, ...B]
 ): Schema<
-  UnknownToOuput<A> | UnknownArrayToOutput<B>[number],
+  UnknownToOutput<A> | UnknownArrayToOutput<B>[number],
   UnknownToInput<A> | UnknownArrayToInput<B>[number]
 >;
 export function union<A, B extends unknown[]>(
   schemas: [A, ...B]
 ): Schema<
-  UnknownToOuput<A> | UnknownArrayToOutput<B>[number],
+  UnknownToOutput<A> | UnknownArrayToOutput<B>[number],
   UnknownToInput<A> | UnknownArrayToInput<B>[number]
 >;
 

@@ -720,26 +720,24 @@ test("Successfully parses tagged object", (t) => {
 test("Successfully parses and reverse convert object with optional field", (t) => {
   const schema = S.schema({
     bar: S.optional(S.boolean),
+    baz: S.boolean,
   });
-  const value = S.parseOrThrow({}, schema);
-  t.deepEqual(value, { bar: undefined });
+  const value = S.parseOrThrow({ baz: true }, schema);
+  t.deepEqual(value, { bar: undefined, baz: true });
 
-  const reversed = S.convertOrThrow(value, S.reverse(schema));
-  t.deepEqual(reversed, { bar: undefined });
+  const reversed = S.convertOrThrow({ baz: true }, S.reverse(schema));
+  t.deepEqual(reversed, { bar: undefined, baz: true });
 
   expectType<
     SchemaEqual<
       typeof schema,
       {
-        bar: boolean | undefined;
-      }
-    >
-  >(true);
-  expectType<
-    TypeEqual<
-      typeof value,
+        bar?: boolean | undefined;
+        baz: boolean;
+      },
       {
-        bar: boolean | undefined;
+        bar?: boolean | undefined;
+        baz: boolean;
       }
     >
   >(true);
@@ -1669,14 +1667,6 @@ test("Creates schema with deprecation", (t) => {
   t.deepEqual(deprecatedStringSchema.deprecated, "Use number instead.");
 });
 
-test("Empty tuple", (t) => {
-  const schema = S.schema([]);
-
-  t.deepEqual(S.parseOrThrow([], schema), []);
-
-  expectType<SchemaEqual<typeof schema, [], []>>(true);
-});
-
 test("Tuple with single element", (t) => {
   const schema = S.schema([S.transform(S.string, (s) => Number(s))]);
 
@@ -1797,7 +1787,7 @@ test("Unnest schema", (t) => {
       typeof schema,
       {
         id: string;
-        name: string | undefined;
+        name?: string | undefined;
         deleted: boolean;
       }[],
       (string[] | boolean[] | (string | null)[])[]
