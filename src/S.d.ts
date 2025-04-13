@@ -259,7 +259,16 @@ export function deepStrict<Output, Input extends Record<string, unknown>>(
 export function merge<O1, O2>(
   schema1: Schema<O1, Record<string, unknown>>,
   schema2: Schema<O2, Record<string, unknown>>
-): Schema<O1 & O2, Record<string, unknown>>;
+): Schema<
+  {
+    [K in keyof O1 | keyof O2]: K extends keyof O2
+      ? O2[K]
+      : K extends keyof O1
+      ? O1[K]
+      : never;
+  },
+  Record<string, unknown>
+>;
 
 export function custom<Output, Input = unknown>(
   name: string,

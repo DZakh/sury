@@ -36,6 +36,7 @@
   - export type Schema<Output, Input = Output>
   + export type Schema<Output, Input = unknown>
   ```
+- Fix infered type of `S.merge` call (https://github.com/DZakh/rescript-schema/issues/107)
 
 ### Scope
 

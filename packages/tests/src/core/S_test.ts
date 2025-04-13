@@ -1060,7 +1060,6 @@ test("Successfully parses intersected objects", (t) => {
       {
         foo: string;
         bar: boolean;
-      } & {
         baz: string;
       },
       Record<string, unknown>
@@ -1121,7 +1120,6 @@ test("Successfully parses intersected objects with transform", (t) => {
       typeof schema,
       {
         abc: string;
-      } & {
         baz: string;
       },
       Record<string, unknown>
