@@ -76,6 +76,11 @@ export declare namespace StandardSchemaV1 {
   >["output"];
 }
 
+export type EffectCtx<Output, Input> = {
+  schema: t<Output, Input>;
+  fail: (message: string) => never;
+};
+
 export type Result<Value> =
   | {
       success: true;
@@ -98,6 +103,38 @@ export type t<Output, Input = unknown> = {
   readonly description?: string;
   readonly deprecated?: string;
   readonly [øbrand]: unknown;
+
+  with<Transformed>(
+    transform: (
+      schema: t<unknown, unknown>,
+      parser:
+        | ((value: unknown, s: EffectCtx<unknown, unknown>) => unknown)
+        | undefined,
+      serializer?: (value: unknown, s: EffectCtx<unknown, unknown>) => Input
+    ) => t<unknown, unknown>,
+    parser:
+      | ((value: Output, s: EffectCtx<unknown, unknown>) => Transformed)
+      | undefined,
+    serializer?: (value: Transformed, s: EffectCtx<unknown, unknown>) => Input
+  ): t<Transformed, Input>;
+  with(
+    refine: (
+      schema: t<unknown, unknown>,
+      refiner: (value: unknown, s: EffectCtx<unknown, unknown>) => Promise<void>
+    ) => t<unknown, unknown>,
+    refiner: (value: Output, s: EffectCtx<Output, Input>) => Promise<void>
+  ): t<Output, Input>;
+  // with(message: string): t<Output, Input>; TODO: implement
+  with<O, I>(fn: (schema: t<Output, Input>) => t<O, I>): t<O, I>;
+  with<O, I, A1>(
+    fn: (schema: t<Output, Input>, arg1: A1) => t<O, I>,
+    arg1: A1
+  ): t<O, I>;
+  with<O, I, A1, A2>(
+    fn: (schema: t<Output, Input>, arg1: A1, arg2: A2) => t<O, I>,
+    arg1: A1,
+    arg2: A2
+  ): t<O, I>;
 };
 /* simulate opaque types */
 

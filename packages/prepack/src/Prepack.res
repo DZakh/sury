@@ -118,7 +118,7 @@ let filesMapping = [
   ("never", "S.never"),
   ("unknown", "S.unknown"),
   ("optional", "S.js_optional"),
-  ("nullable", "S.nullable"),
+  ("nullable", "S.js_nullable"),
   ("nullish", "S.nullish"),
   ("array", "S.array"),
   ("unnest", "S.unnest"),

@@ -491,7 +491,7 @@ let js_safeAsync: (unit => promise<'v>) => promise<jsResult<'v>>
 let js_union: array<unknown> => t<'value>
 
 let js_optional: (t<'v>, option<unknown>) => t<option<'v>>
-let nullable: t<'value> => t<Js.Null.t<'value>>
+let js_nullable: (t<'v>, option<unknown>) => t<option<'v>>
 
 let js_custom: (
   ~name: string,

@@ -504,8 +504,12 @@ d(p, '_1', {
 });
 d(p, 'RE_EXN_ID', {
   value: SchemaError,
-});    
-  `)
+});
+
+function w(fn, ...args) {
+  return fn(this, ...args)
+}
+`)
 
   @new
   external make: (~code: errorCode, ~flag: int, ~path: Path.t) => error = "E"
@@ -1379,6 +1383,7 @@ and reverse = (schema: internal) => {
   }
 }
 and toStandard = (schema: internal) => {
+  (schema->Obj.magic)["with"] = %raw(`w`)
   schema.standard = Some({
     version: 1,
     vendor,
@@ -4866,6 +4871,7 @@ let js_asyncParserRefine = (schema, refine) => {
 }
 
 let js_optional = (schema, maybeOr) => {
+  // TODO: maybeOr should be part of the unit schema
   let schema = Union.factory([schema->toUnknown, unit->toUnknown])
   switch maybeOr {
   | Some(or) if Js.typeof(or) === "function" => schema->Option.getOrWith(or->Obj.magic)->Obj.magic
@@ -4874,8 +4880,14 @@ let js_optional = (schema, maybeOr) => {
   }
 }
 
-let nullable = schema => {
-  Union.factory([schema->toUnknown, nullAsUnit->toUnknown])
+let js_nullable = (schema, maybeOr) => {
+  // TODO: maybeOr should be part of the unit schema
+  let schema = Union.factory([schema->toUnknown, nullAsUnit->toUnknown])
+  switch maybeOr {
+  | Some(or) if Js.typeof(or) === "function" => schema->Option.getOrWith(or->Obj.magic)->Obj.magic
+  | Some(or) => schema->Option.getOr(or->Obj.magic)->Obj.magic
+  | None => schema
+  }
 }
 
 let js_custom = (~name, ~parser as maybeParser=?, ~serializer as maybeSerializer=?, ()) => {

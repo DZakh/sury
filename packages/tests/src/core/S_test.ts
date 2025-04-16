@@ -331,6 +331,30 @@ test("Successfully parses nullable string", (t) => {
   expectType<TypeEqual<typeof value1, string | undefined>>(true);
 });
 
+test("Successfully parses nullable string with default", (t) => {
+  const schema = S.nullable(S.string, "bar");
+  const value1 = S.parseOrThrow("foo", schema);
+  const value2 = S.parseOrThrow(null, schema);
+
+  t.deepEqual(value1, "foo");
+  t.deepEqual(value2, "bar");
+
+  expectType<TypeEqual<S.Schema<string, string | null>, typeof schema>>(true);
+  expectType<TypeEqual<typeof value1, string>>(true);
+});
+
+test("Successfully parses nullable string with dynamic default", (t) => {
+  const schema = S.nullable(S.string, () => "bar");
+  const value1 = S.parseOrThrow("foo", schema);
+  const value2 = S.parseOrThrow(null, schema);
+
+  t.deepEqual(value1, "foo");
+  t.deepEqual(value2, "bar");
+
+  expectType<TypeEqual<S.Schema<string, string | null>, typeof schema>>(true);
+  expectType<TypeEqual<typeof value1, string>>(true);
+});
+
 test("Successfully parses nullish string", (t) => {
   const schema = S.nullish(S.string);
   const value1 = S.parseOrThrow("foo", schema);
@@ -429,7 +453,7 @@ test("Fails to serialize never", (t) => {
 });
 
 test("Successfully parses with transform to another type", (t) => {
-  const schema = S.transform(S.string, (string) => Number(string));
+  const schema = S.string.with(S.transform, (string) => Number(string));
   const value = S.parseOrThrow("123", schema);
 
   t.deepEqual(value, 123);
@@ -438,7 +462,7 @@ test("Successfully parses with transform to another type", (t) => {
 });
 
 test("Fails to parse with transform with user error", (t) => {
-  const schema = S.transform(S.string, (string, s) => {
+  const schema = S.string.with(S.transform, (string, s) => {
     const number = Number(string);
     if (Number.isNaN(number)) {
       s.fail("Invalid number");
@@ -460,31 +484,11 @@ test("Fails to parse with transform with user error", (t) => {
   );
 });
 
-test("Successfully reverse converts with transform to another type", (t) => {
-  const schema = S.transform(
-    S.string,
-    (string) => Number(string),
-    (number) => {
-      expectType<TypeEqual<typeof number, number>>(true);
-      return number.toString();
-    }
-  );
-  const result = S.convertOrThrow(123, S.reverse(schema));
-
-  t.deepEqual(result, "123");
-
-  expectType<TypeEqual<typeof result, string>>(true);
-});
-
 test("Successfully converts reversed schema with transform to another type", (t) => {
-  const schema = S.transform(
-    S.string,
-    (string) => Number(string),
-    (number) => {
-      expectType<TypeEqual<typeof number, number>>(true);
-      return number.toString();
-    }
-  );
+  const schema = S.string.with<number>(S.transform, undefined, (number) => {
+    expectType<TypeEqual<typeof number, number>>(true);
+    return number.toString();
+  });
   const result = S.convertOrThrow(123, S.reverse(schema));
 
   t.deepEqual(result, "123");
@@ -493,7 +497,7 @@ test("Successfully converts reversed schema with transform to another type", (t)
 });
 
 test("Successfully parses with refine", (t) => {
-  const schema = S.refine(S.string, (string) => {
+  const schema = S.string.with(S.refine, (string) => {
     expectType<TypeEqual<typeof string, string>>(true);
   });
   const value = S.parseOrThrow("123", schema);
@@ -504,7 +508,7 @@ test("Successfully parses with refine", (t) => {
 });
 
 test("Successfully reverse converts with refine", (t) => {
-  const schema = S.refine(S.string, (string) => {
+  const schema = S.string.with(S.refine, (string) => {
     expectType<TypeEqual<typeof string, string>>(true);
   });
   const result = S.convertOrThrow("123", S.reverse(schema));
@@ -515,7 +519,7 @@ test("Successfully reverse converts with refine", (t) => {
 });
 
 test("Fails to parses with refine raising an error", (t) => {
-  const schema = S.refine(S.string, (_, s) => {
+  const schema = S.string.with(S.refine, (_, s) => {
     s.fail("User error");
   });
 
@@ -531,7 +535,7 @@ test("Fails to parses with refine raising an error", (t) => {
 });
 
 test("Successfully parses async schema", async (t) => {
-  const schema = S.asyncParserRefine(S.string, async (string) => {
+  const schema = S.string.with(S.asyncParserRefine, async (string) => {
     expectType<TypeEqual<typeof string, string>>(true);
   });
   const value = await S.safeAsync(() => S.parseAsyncOrThrow("123", schema));
@@ -542,7 +546,7 @@ test("Successfully parses async schema", async (t) => {
 });
 
 test("Fails to parses async schema", async (t) => {
-  const schema = S.asyncParserRefine(S.string, async (_, s) => {
+  const schema = S.string.with(S.asyncParserRefine, async (_, s) => {
     return Promise.resolve().then(() => {
       s.fail("User error");
     });
@@ -830,7 +834,7 @@ test("Successfully parses advanced object with all features", (t) => {
 
 test("Successfully parses object with transformed field", (t) => {
   const schema = S.schema({
-    foo: S.transform(S.string, (string) => Number(string)),
+    foo: S.string.with(S.transform, (string) => Number(string)),
     bar: S.boolean,
   });
   const value = S.parseOrThrow(
@@ -871,11 +875,9 @@ test("Successfully parses object with transformed field", (t) => {
 });
 
 test("Fails to parse strict object with exccess fields", (t) => {
-  const schema = S.strict(
-    S.schema({
-      foo: S.string,
-    })
-  );
+  const schema = S.schema({
+    foo: S.string,
+  }).with(S.strict);
 
   t.throws(
     () => {
@@ -916,13 +918,11 @@ test("Fails to parse strict object with exccess fields", (t) => {
 });
 
 test("Fails to parse deep strict object with exccess fields", (t) => {
-  const schema = S.deepStrict(
-    S.schema({
-      foo: {
-        a: S.string,
-      },
-    })
-  );
+  const schema = S.schema({
+    foo: {
+      a: S.string,
+    },
+  }).with(S.deepStrict);
 
   t.throws(
     () => {
@@ -1099,15 +1099,12 @@ test("Successfully parses intersected objects", (t) => {
 
 test("Successfully parses intersected objects with transform", (t) => {
   const schema = S.merge(
-    S.transform(
-      S.schema({
-        foo: S.string,
-        bar: S.boolean,
-      }),
-      (obj) => ({
-        abc: obj.foo,
-      })
-    ),
+    S.schema({
+      foo: S.string,
+      bar: S.boolean,
+    }).with(S.transform, (obj) => ({
+      abc: obj.foo,
+    })),
     S.schema({
       baz: S.string,
     })
@@ -1479,7 +1476,7 @@ test("Shape union", (t) => {
 
 test("Successfully parses union with transformed items", (t) => {
   const schema = S.union([
-    S.transform(S.string, (string) => Number(string)),
+    S.string.with(S.transform, (string) => Number(string)),
     S.number,
   ]);
   const value = S.safe(() => S.parseOrThrow("123", schema));
@@ -1594,7 +1591,7 @@ test("Tuple literal", (t) => {
 });
 
 test("Correctly infers type", (t) => {
-  const schema = S.transform(S.string, Number);
+  const schema = S.string.with(S.transform, Number);
   expectType<SchemaEqual<typeof schema, number, string>>(true);
   expectType<TypeEqual<S.Input<typeof schema>, string>>(true);
   expectType<TypeEqual<S.Output<typeof schema>, number>>(true);
@@ -1602,7 +1599,7 @@ test("Correctly infers type", (t) => {
 });
 
 test("Successfully parses undefined using the default value", (t) => {
-  const schema = S.optional(S.string, "foo");
+  const schema = S.string.with(S.optional, "foo");
 
   const value = S.parseOrThrow(undefined, schema);
 
@@ -1612,7 +1609,7 @@ test("Successfully parses undefined using the default value", (t) => {
 });
 
 test("Successfully parses undefined using the default value from callback", (t) => {
-  const schema = S.optional(S.string, () => "foo");
+  const schema = S.string.with(S.optional, () => "foo");
 
   const value = S.parseOrThrow(undefined, schema);
 
@@ -1628,8 +1625,8 @@ test("Creates schema with description", (t) => {
     TypeEqual<typeof undocumentedStringSchema, S.Schema<string, string>>
   >(true);
 
-  const documentedStringSchema = S.description(
-    undocumentedStringSchema,
+  const documentedStringSchema = undocumentedStringSchema.with(
+    S.description,
     "A useful bit of text, if you know what to do with it."
   );
 
@@ -1653,7 +1650,10 @@ test("Creates schema with deprecation", (t) => {
 
   expectType<TypeEqual<typeof schema, S.Schema<string, string>>>(true);
 
-  const deprecatedStringSchema = S.deprecated(schema, "Use number instead.");
+  const deprecatedStringSchema = schema.with(
+    S.deprecated,
+    "Use number instead."
+  );
 
   expectType<
     TypeEqual<typeof deprecatedStringSchema, S.Schema<string, string>>
@@ -1668,7 +1668,7 @@ test("Creates schema with deprecation", (t) => {
 });
 
 test("Tuple with single element", (t) => {
-  const schema = S.schema([S.transform(S.string, (s) => Number(s))]);
+  const schema = S.schema([S.string.with(S.transform, (s) => Number(s))]);
 
   t.deepEqual(S.parseOrThrow(["123"], schema), [123]);
 
@@ -1896,8 +1896,8 @@ test("Successfully parses recursive object", (t) => {
 test("Example", (t) => {
   // Create login schema with email and password
   const loginSchema = S.schema({
-    email: S.email(S.string),
-    password: S.stringMinLength(S.string, 8),
+    email: S.string.with(S.email),
+    password: S.string.with(S.stringMinLength, 8),
   });
 
   // Infer output TypeScript type of login schema
@@ -1936,7 +1936,7 @@ test("Example", (t) => {
 });
 
 test("parseJsonOrThrow", async (t) => {
-  const schema = S.nullable(S.string);
+  const schema = S.string.with(S.nullable);
 
   t.deepEqual(S.parseJsonOrThrow("hello", schema), "hello");
   t.deepEqual(S.parseJsonOrThrow(null, schema), undefined);
@@ -1971,7 +1971,7 @@ test("ArkType pattern matching", async (t) => {
 test.failing("Compile types", async (t) => {
   const schema = S.union([
     S.string,
-    S.coerce(S.schema(null), S.schema(undefined)),
+    S.schema(null).with(S.coerce, S.schema(undefined)),
   ]);
 
   const fn1 = S.compile(schema, "Input", "Output", "Sync");

@@ -91,7 +91,7 @@ var filesMapping = [
   ],
   [
     "nullable",
-    "S.nullable"
+    "S.js_nullable"
   ],
   [
     "nullish",

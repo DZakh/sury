@@ -1,10 +1,5 @@
-import { Json, Result, t } from "./S.gen";
-export { Json, Result, error as SchemaError } from "./S.gen";
-
-export type EffectCtx<Output, Input> = {
-  schema: Schema<Output, Input>;
-  fail: (message: string) => never;
-};
+import { Json, Result, t, EffectCtx } from "./S.gen";
+export { Json, Result, EffectCtx, error as SchemaError } from "./S.gen";
 
 export type Schema<Output, Input = unknown> = t<Output, Input>;
 
@@ -208,21 +203,25 @@ export function tuple<Output, Input extends unknown[]>(
   }) => Output
 ): Schema<Output, Input>;
 
-export function optional<Output, Input>(
-  schema: Schema<Output, Input>
-): Schema<Output | undefined, Input | undefined>;
-export function optional<Output, Input>(
+export function optional<Output, Input, Or = undefined>(
   schema: Schema<Output, Input>,
-  or: () => Output
-): Schema<Output, Input | undefined>;
-export function optional<Output, Input>(
-  schema: Schema<Output, Input>,
-  or: Output
-): Schema<Output, Input | undefined>;
+  or?: (() => Or) | Or,
+  // To make .with work
+  _?: never
+): Schema<
+  Or extends undefined ? Output | undefined : Output | Or,
+  Input | undefined
+>;
 
-export const nullable: <Output, Input>(
-  schema: Schema<Output, Input>
-) => Schema<Output | undefined, Input | null>;
+export function nullable<Output, Input, Or = undefined>(
+  schema: Schema<Output, Input>,
+  or?: (() => Or) | Or,
+  // To make .with work
+  _?: never
+): Schema<
+  Or extends undefined ? Output | undefined : Output | Or,
+  Input | null
+>;
 
 export const nullish: <Output, Input>(
   schema: Schema<Output, Input>
@@ -327,22 +326,18 @@ export function asyncParserRefine<Output, Input>(
   schema: Schema<Output, Input>,
   refiner: (value: Output, s: EffectCtx<Output, Input>) => Promise<void>
 ): Schema<Output, Input>;
+
 export function refine<Output, Input>(
   schema: Schema<Output, Input>,
   refiner: (value: Output, s: EffectCtx<Output, Input>) => void
 ): Schema<Output, Input>;
 
-export function transform<Output, Input, Transformed>(
+export function transform<Transformed, Output = unknown, Input = unknown>(
   schema: Schema<Output, Input>,
-  parser: (value: Output, s: EffectCtx<unknown, unknown>) => Transformed
-): Schema<Transformed, Input>;
-export function transform<Output, Input, Transformed>(
-  schema: Schema<Output, Input>,
-  parser: (
-    value: Output,
-    s: EffectCtx<unknown, unknown>
-  ) => Transformed | undefined,
-  serializer: (value: Transformed, s: EffectCtx<unknown, unknown>) => Input
+  parser:
+    | ((value: Output, s: EffectCtx<unknown, unknown>) => Transformed)
+    | undefined,
+  serializer?: (value: Transformed, s: EffectCtx<unknown, unknown>) => Input
 ): Schema<Transformed, Input>;
 
 export function description<Output, Input>(
@@ -358,6 +353,22 @@ export const port: <Input>(
   schema: Schema<number, Input>,
   message?: string
 ) => Schema<number, Input>;
+
+// TODO: Not implemented
+// export const nonEmpty: <Input>(
+//   schema: Schema<string, Input>,
+//   message?: string
+// ) => Schema<string, Input>;
+// export const min: <Input>(
+//   schema: Schema<string, Input>,
+//   length: number,
+//   message?: string
+// ) => Schema<string, Input>;
+// export const meta: <Input>(
+//   schema: Schema<string, Input>,
+//   m: Record<string, any>,
+//   message?: string
+// ) => Schema<string, Input>;
 
 export const numberMin: <Input>(
   schema: Schema<number, Input>,
