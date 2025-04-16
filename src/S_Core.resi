@@ -164,9 +164,8 @@ and error = private {flag: flag, code: errorCode, path: Path.t}
 and errorCode =
   | OperationFailed(string)
   | InvalidOperation({description: string})
-  | InvalidType({expected: schema<unknown>, received: unknown})
+  | InvalidType({expected: schema<unknown>, received: unknown, unionErrors?: array<error>})
   | ExcessField(string)
-  | InvalidUnion(array<error>)
   | UnexpectedAsync
   | InvalidJsonSchema(schema<unknown>)
 

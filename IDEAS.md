@@ -40,6 +40,8 @@
 - (ts) Infer optional fields with `?` when using `S.schema` (https://github.com/DZakh/rescript-schema/issues/87)
 - (ts) Add `.with` helper
 - (ts) Allow to pass default value to `S.nullable`
+- (rescript) Removed `InvalidUnion` error in favor of `InvalidType` with `unionErrors` field
+- Improved union error message
 
 ### Scope
 
@@ -51,6 +53,7 @@
 - Integrate rescript-json-schema
 - Support unions and complex types for S.coerce
 - Add S.toJSONSchema and S.fromJSONSchema
+- Rename S.coerce to S.to
 - Add S.meta like Zod v4 (Move S.example to rescript-schema)
 - Remove number/string/array prefixes from refinements
 - Update benchmark. Zod v4 and add TypeBox

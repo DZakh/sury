@@ -111,42 +111,46 @@ test("InvalidType error (replacement for InvalidTupleSize)", t => {
   )
 })
 
-test("InvalidUnion error", t => {
+test("InvalidType error with union errors", t => {
   t->Assert.is(
     U.error({
-      code: InvalidUnion([
-        U.error({
-          code: InvalidType({
-            expected: S.literal("circle")->S.toUnknown,
-            received: "oval"->Obj.magic,
+      code: InvalidType({
+        expected: S.unknown,
+        received: "foo"->Obj.magic,
+        unionErrors: [
+          U.error({
+            code: InvalidType({
+              expected: S.literal("circle")->S.toUnknown,
+              received: "oval"->Obj.magic,
+            }),
+            operation: Parse,
+            path: S.Path.fromArray(["kind"]),
           }),
-          operation: Parse,
-          path: S.Path.fromArray(["kind"]),
-        }),
-        U.error({
-          code: InvalidType({
-            expected: S.literal("square")->S.toUnknown,
-            received: "oval"->Obj.magic,
+          U.error({
+            code: InvalidType({
+              expected: S.literal("square")->S.toUnknown,
+              received: "oval"->Obj.magic,
+            }),
+            operation: Parse,
+            path: S.Path.fromArray(["kind"]),
           }),
-          operation: Parse,
-          path: S.Path.fromArray(["kind"]),
-        }),
-        U.error({
-          code: InvalidType({
-            expected: S.literal("triangle")->S.toUnknown,
-            received: "oval"->Obj.magic,
+          U.error({
+            code: InvalidType({
+              expected: S.literal("triangle")->S.toUnknown,
+              received: "oval"->Obj.magic,
+            }),
+            operation: Parse,
+            path: S.Path.fromArray(["kind"]),
           }),
-          operation: Parse,
-          path: S.Path.fromArray(["kind"]),
-        }),
-      ]),
+        ],
+      }),
       operation: Parse,
       path: S.Path.empty,
     })->S.Error.message,
-    `Failed parsing: Invalid union with following errors
-- Failed at ["kind"]. Expected "circle", received "oval"
-- Failed at ["kind"]. Expected "square", received "oval"
-- Failed at ["kind"]. Expected "triangle", received "oval"`,
+    `Failed parsing: Expected unknown, received "foo"
+- At ["kind"]: Expected "circle", received "oval"
+- At ["kind"]: Expected "square", received "oval"
+- At ["kind"]: Expected "triangle", received "oval"`,
     (),
   )
 })
@@ -154,27 +158,31 @@ test("InvalidUnion error", t => {
 test("InvalidUnion filters similar reasons", t => {
   t->Assert.is(
     U.error({
-      code: InvalidUnion([
-        U.error({
-          code: InvalidType({expected: S.bool->S.toUnknown, received: %raw(`"Hello world!"`)}),
-          operation: Parse,
-          path: S.Path.empty,
-        }),
-        U.error({
-          code: InvalidType({expected: S.bool->S.toUnknown, received: %raw(`"Hello world!"`)}),
-          operation: Parse,
-          path: S.Path.empty,
-        }),
-        U.error({
-          code: InvalidType({expected: S.bool->S.toUnknown, received: %raw(`"Hello world!"`)}),
-          operation: Parse,
-          path: S.Path.empty,
-        }),
-      ]),
+      code: InvalidType({
+        expected: S.unknown,
+        received: "foo"->Obj.magic,
+        unionErrors: [
+          U.error({
+            code: InvalidType({expected: S.bool->S.toUnknown, received: %raw(`"Hello world!"`)}),
+            operation: Parse,
+            path: S.Path.empty,
+          }),
+          U.error({
+            code: InvalidType({expected: S.bool->S.toUnknown, received: %raw(`"Hello world!"`)}),
+            operation: Parse,
+            path: S.Path.empty,
+          }),
+          U.error({
+            code: InvalidType({expected: S.bool->S.toUnknown, received: %raw(`"Hello world!"`)}),
+            operation: Parse,
+            path: S.Path.empty,
+          }),
+        ],
+      }),
       operation: Parse,
       path: S.Path.empty,
     })->S.Error.message,
-    `Failed parsing: Invalid union with following errors
+    `Failed parsing: Expected unknown, received "foo"
 - Expected boolean, received "Hello world!"`,
     (),
   )
@@ -183,34 +191,51 @@ test("InvalidUnion filters similar reasons", t => {
 test("Nested InvalidUnion error", t => {
   t->Assert.is(
     U.error({
-      code: InvalidUnion([
-        U.error({
-          code: InvalidUnion([
-            U.error({
-              code: InvalidType({expected: S.bool->S.toUnknown, received: %raw(`"Hello world!"`)}),
-              operation: Parse,
-              path: S.Path.empty,
+      code: InvalidType({
+        expected: S.unknown,
+        received: "foo"->Obj.magic,
+        unionErrors: [
+          U.error({
+            code: InvalidType({
+              expected: S.bool->S.toUnknown,
+              received: "foo"->Obj.magic,
+              unionErrors: [
+                U.error({
+                  code: InvalidType({
+                    expected: S.bool->S.toUnknown,
+                    received: %raw(`"Hello world!"`),
+                  }),
+                  operation: Parse,
+                  path: S.Path.empty,
+                }),
+                U.error({
+                  code: InvalidType({
+                    expected: S.bool->S.toUnknown,
+                    received: %raw(`"Hello world!"`),
+                  }),
+                  operation: Parse,
+                  path: S.Path.empty,
+                }),
+                U.error({
+                  code: InvalidType({
+                    expected: S.bool->S.toUnknown,
+                    received: %raw(`"Hello world!"`),
+                  }),
+                  operation: Parse,
+                  path: S.Path.empty,
+                }),
+              ],
             }),
-            U.error({
-              code: InvalidType({expected: S.bool->S.toUnknown, received: %raw(`"Hello world!"`)}),
-              operation: Parse,
-              path: S.Path.empty,
-            }),
-            U.error({
-              code: InvalidType({expected: S.bool->S.toUnknown, received: %raw(`"Hello world!"`)}),
-              operation: Parse,
-              path: S.Path.empty,
-            }),
-          ]),
-          operation: Parse,
-          path: S.Path.empty,
-        }),
-      ]),
+            operation: Parse,
+            path: S.Path.empty,
+          }),
+        ],
+      }),
       operation: Parse,
       path: S.Path.empty,
     })->S.Error.message,
-    `Failed parsing: Invalid union with following errors
-- Invalid union with following errors
+    `Failed parsing: Expected unknown, received "foo"
+- Expected boolean, received "foo"
   - Expected boolean, received "Hello world!"`,
     (),
   )

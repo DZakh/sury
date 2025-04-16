@@ -31,42 +31,35 @@ test("Parses when both schemas misses parser and have the same type", t => {
     S.string->S.transform(_ => {serializer: _ => "apple"}),
   ])
 
-  t->U.assertRaised(
-    () => %raw(`null`)->S.parseOrThrow(schema),
-    {
-      code: InvalidType({
-        expected: schema->S.toUnknown,
-        received: %raw(`null`),
-      }),
-      operation: Parse,
-      path: S.Path.empty,
-    },
-  )
+  try {
+    let _ = %raw(`null`)->S.parseOrThrow(schema)
+    t->Assert.fail("Expected to throw")
+  } catch {
+  | S.SchemaError(error) =>
+    t->Assert.is(
+      error->S.Error.message,
+      `Failed parsing: Expected string | string, received null`,
+      (),
+    )
+  }
 
-  t->U.assertRaised(
-    () => %raw(`"foo"`)->S.parseOrThrow(schema),
-    {
-      code: InvalidUnion([
-        U.error({
-          code: InvalidOperation({description: "The S.transform parser is missing"}),
-          operation: Parse,
-          path: S.Path.empty,
-        }),
-        U.error({
-          code: InvalidOperation({description: "The S.transform parser is missing"}),
-          operation: Parse,
-          path: S.Path.empty,
-        }),
-      ]),
-      operation: Parse,
-      path: S.Path.empty,
-    },
-  )
+  try {
+    let _ = %raw(`"foo"`)->S.parseOrThrow(schema)
+    t->Assert.fail("Expected to throw")
+  } catch {
+  | S.SchemaError(error) =>
+    t->Assert.is(
+      error->S.Error.message,
+      `Failed parsing: Expected string | string, received "foo"
+- The S.transform parser is missing`,
+      (),
+    )
+  }
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="string"){e[3](i)}else{try{throw e[0]}catch(e0){try{throw e[1]}catch(e1){e[2]([e0,e1,])}}}return i}`,
+    `i=>{if(typeof i==="string"){try{throw e[0]}catch(e0){try{throw e[1]}catch(e1){e[2](i,e0,e1)}}}else{e[3](i)}return i}`,
   )
 })
 
@@ -76,31 +69,35 @@ test("Parses when both schemas misses parser and have different types", t => {
     S.string->S.transform(_ => {serializer: _ => "apple"}),
   ])
 
-  t->U.assertRaised(
-    () => %raw(`null`)->S.parseOrThrow(schema),
-    {
-      code: InvalidType({
-        expected: schema->S.toUnknown,
-        received: %raw(`null`),
-      }),
-      operation: Parse,
-      path: S.Path.empty,
-    },
-  )
+  try {
+    let _ = %raw(`null`)->S.parseOrThrow(schema)
+    t->Assert.fail("Expected to throw")
+  } catch {
+  | S.SchemaError(error) =>
+    t->Assert.is(
+      error->S.Error.message,
+      `Failed parsing: Expected "apple" | string, received null`,
+      (),
+    )
+  }
 
-  t->U.assertRaised(
-    () => %raw(`"abc"`)->S.parseOrThrow(schema),
-    {
-      code: InvalidOperation({description: "The S.transform parser is missing"}),
-      operation: Parse,
-      path: S.Path.empty,
-    },
-  )
+  try {
+    let _ = %raw(`"abc"`)->S.parseOrThrow(schema)
+    t->Assert.fail("Expected to throw")
+  } catch {
+  | S.SchemaError(error) =>
+    t->Assert.is(
+      error->S.Error.message,
+      `Failed parsing: Expected "apple" | string, received "abc"
+- The S.transform parser is missing`,
+      (),
+    )
+  }
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(!(i!=="apple")){throw e[0]}else if(!(typeof i!=="string")){throw e[1]}else{e[2](i)}return i}`,
+    `i=>{if(typeof i==="string"){if(i==="apple"){throw e[0]}try{throw e[1]}catch(e1){e[2](i,e1)}}else{e[3](i)}return i}`,
   )
 })
 
@@ -110,30 +107,23 @@ test("Serializes when both schemas misses serializer", t => {
     S.string->S.transform(_ => {parser: _ => #apple}),
   ])
 
-  // t->U.assertRaised(
-  //   () => %raw(`null`)->S.reverseConvertToJsonOrThrow(schema),
-  //   {
-  //     code: InvalidUnion([
-  //       U.error({
-  //         code: InvalidOperation({description: "The S.transform serializer is missing"}),
-  //         operation: ReverseConvertToJson,
-  //         path: S.Path.empty,
-  //       }),
-  //       U.error({
-  //         code: InvalidOperation({description: "The S.transform serializer is missing"}),
-  //         operation: ReverseConvertToJson,
-  //         path: S.Path.empty,
-  //       }),
-  //     ]),
-  //     operation: ReverseConvertToJson,
-  //     path: S.Path.empty,
-  //   },
-  // )
+  try {
+    let _ = %raw(`null`)->S.reverseConvertOrThrow(schema)
+    t->Assert.fail("Expected to throw")
+  } catch {
+  | S.SchemaError(error) =>
+    t->Assert.is(
+      error->S.Error.message,
+      `Failed converting: Expected unknown | unknown, received null
+- The S.transform serializer is missing`,
+      (),
+    )
+  }
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{try{throw e[0]}catch(e0){try{throw e[1]}catch(e1){e[2]([e0,e1,])}}return i}`,
+    `i=>{try{throw e[0]}catch(e0){try{throw e[1]}catch(e1){e[2](i,e0,e1)}}return i}`,
   )
 })
 
@@ -145,7 +135,7 @@ test("When union of json and string schemas, should parse the first one", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{i=e[0]}catch(e0){if(typeof i==="string"){i=e[1]}else{e[2](i)}}return i}`,
+    `i=>{try{i=e[0]}catch(e0){if(typeof i==="string"){i=e[1]}else{e[2](i,e0)}}return i}`,
   )
 })
 
@@ -166,7 +156,7 @@ test("Ensures parsing order with unknown schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{if(typeof i!=="string"){e[0](i)}if(i.length!==e[1]){e[2]()}}catch(e0){try{if(typeof i!=="boolean"){e[3](i)}}catch(e1){try{i=e[4](i)}catch(e2){if(!(typeof i==="number"&&!Number.isNaN(i)||typeof i==="bigint")){e[5](i)}}}}return i}`,
+    `i=>{try{if(typeof i!=="string"){e[0](i)}if(i.length!==e[1]){e[2]()}}catch(e0){try{if(typeof i!=="boolean"){e[3](i)}}catch(e1){try{i=e[4](i)}catch(e2){if(!(typeof i==="number"&&!Number.isNaN(i)||typeof i==="bigint")){e[5](i,e0,e1,e2)}}}}return i}`,
   )
 })
 
@@ -178,7 +168,7 @@ test("Parses when second schema misses parser", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){if(!(i==="apple")){try{throw e[0]}catch(e1){e[1](i)}}}else{e[2](i)}return i}`,
+    `i=>{if(typeof i==="string"){if(!(i==="apple")){try{throw e[0]}catch(e1){e[1](i,e1)}}}else{e[2](i)}return i}`,
   )
 })
 
@@ -190,7 +180,7 @@ test("Serializes when second struct misses serializer", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{try{if(i!=="apple"){e[0](i)}}catch(e0){try{throw e[1]}catch(e1){}}return i}`,
+    `i=>{try{if(i!=="apple"){e[0](i)}}catch(e0){try{throw e[1]}catch(e1){e[2](i,e0,e1)}}return i}`,
   )
 })
 
@@ -420,7 +410,7 @@ test("Successfully serializes unboxed variant", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){try{i=e[0](i)}catch(e0){e[1](i)}}else{e[2](i)}return i}`,
+    `i=>{if(typeof i==="string"){try{i=e[0](i)}catch(e0){e[1](i,e0)}}else{e[2](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -441,7 +431,7 @@ test("Successfully serializes unboxed variant", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{try{if(typeof i!=="string"){e[0](i)}}catch(e0){try{let v0=e[1](i);if(typeof v0!=="string"){e[2](v0)}i=v0}catch(e1){}}return i}`,
+    `i=>{try{if(typeof i!=="string"){e[0](i)}}catch(e0){try{let v0=e[1](i);if(typeof v0!=="string"){e[2](v0)}i=v0}catch(e1){e[3](i,e0,e1)}}return i}`,
   )
 })
 
@@ -685,7 +675,7 @@ module CknittelBugReport2 = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i==="object"&&i){try{let v0=i["statusCode"];if(typeof v0!=="object"||!v0||v0["kind"]!=="ok"){e[0](v0)}let v1=v0["text"];try{if(v1!==""){e[2](v1)}}catch(v2){if(v2&&v2.s===s){v1=e[1](v1,v2)}else{throw v2}}i={"TAG":e[3],"_0":e[4],}}catch(e0){try{let v3=i["statusCode"];if(typeof v3!=="object"||!v3||v3["kind"]!=="serviceError"){e[5](v3)}let v4=v3["serviceCode"],v5=v3["text"];if(typeof v4!=="string"){e[6](v4)}if(typeof v5!=="string"){e[7](v5)}i={"TAG":e[8],"_0":{"serviceCode":v4,"text":v5,},}}catch(e1){e[9](i)}}}else{e[10](i)}return i}`,
+      `i=>{if(typeof i==="object"&&i){try{let v0=i["statusCode"];if(typeof v0!=="object"||!v0||v0["kind"]!=="ok"){e[0](v0)}let v1=v0["text"];try{if(v1!==""){e[2](v1)}}catch(v2){if(v2&&v2.s===s){v1=e[1](v1,v2)}else{throw v2}}i={"TAG":e[3],"_0":e[4],}}catch(e0){try{let v3=i["statusCode"];if(typeof v3!=="object"||!v3||v3["kind"]!=="serviceError"){e[5](v3)}let v4=v3["serviceCode"],v5=v3["text"];if(typeof v4!=="string"){e[6](v4)}if(typeof v5!=="string"){e[7](v5)}i={"TAG":e[8],"_0":{"serviceCode":v4,"text":v5,},}}catch(e1){e[9](i,e0,e1)}}}else{e[10](i)}return i}`,
     )
 
     t->Assert.deepEqual(

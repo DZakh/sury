@@ -66,6 +66,8 @@ module Stdlib = {
     }
 
     let isArray = Js.Array2.isArray
+
+    @val external fromArguments: array<'a> => array<'a> = "Array.from"
   }
 
   module Exn = {
@@ -86,6 +88,7 @@ module Stdlib = {
     }
 
     external unsafeToString: int => string = "%identity"
+    external unsafeToBool: int => bool = "%identity"
   }
 
   module String = {
@@ -420,9 +423,8 @@ and error = private {flag: flag, code: errorCode, path: Path.t}
 and errorCode =
   | OperationFailed(string)
   | InvalidOperation({description: string})
-  | InvalidType({expected: schema<unknown>, received: unknown})
+  | InvalidType({expected: schema<unknown>, received: unknown, unionErrors?: array<error>})
   | ExcessField(string)
-  | InvalidUnion(array<error>)
   | UnexpectedAsync
   | InvalidJsonSchema(schema<unknown>)
 @tag("success")
@@ -682,28 +684,31 @@ module Error = {
     | InvalidOperation({description}) => description
     | UnexpectedAsync => "Encountered unexpected async transform or refine. Use ParseAsync operation instead"
     | ExcessField(fieldName) => `Unrecognized key "${fieldName}"`
-    | InvalidType({expected: schema, received}) =>
-      `Expected ${schema->toExpression}, received ${received->stringify}`
+    | InvalidType({expected: schema, received, ?unionErrors}) =>
+      let m = ref(`Expected ${schema->toExpression}, received ${received->stringify}`)
+      switch unionErrors {
+      | Some(errors) => {
+          let lineBreak = `\n${" "->Js.String2.repeat(nestedLevel * 2)}`
+          let reasonsDict = Js.Dict.empty()
+          for idx in 0 to errors->Js.Array2.length - 1 {
+            let error = errors->Js.Array2.unsafe_get(idx)
+            let reason = error->reason(~nestedLevel=nestedLevel->Stdlib.Int.plus(1))
+            let location = switch error.path {
+            | "" => ""
+            | nonEmptyPath => `At ${nonEmptyPath}: `
+            }
+            let line = `- ${location}${reason}`
+            if reasonsDict->Js.Dict.unsafeGet(line)->Stdlib.Int.unsafeToBool->not {
+              reasonsDict->Js.Dict.set(line, 1)
+              m := m.contents ++ lineBreak ++ line
+            }
+          }
+        }
+      | None => ()
+      }
+      m.contents
     | InvalidJsonSchema(schema) =>
       `The '${schema->toExpression}' schema cannot be converted to JSON`
-    | InvalidUnion(errors) => {
-        let lineBreak = `\n${" "->Js.String2.repeat(nestedLevel * 2)}`
-        let reasonsDict = Js.Dict.empty()
-
-        errors->Js.Array2.forEach(error => {
-          let reason = error->reason(~nestedLevel=nestedLevel->Stdlib.Int.plus(1))
-          let location = switch error.path {
-          | "" => ""
-          | nonEmptyPath => `Failed at ${nonEmptyPath}. `
-          }
-          reasonsDict->Js.Dict.set(`- ${location}${reason}`, ())
-        })
-        let uniqueReasons = reasonsDict->Js.Dict.keys
-
-        `Invalid union with following errors${lineBreak}${uniqueReasons->Js.Array2.joinWith(
-            lineBreak,
-          )}`
-      }
     }
   }
 
@@ -2051,6 +2056,24 @@ module Union = {
   }
 
   let builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
+    let fail = caught => {
+      `${b->B.embed(_ => {
+          let args = %raw(`arguments`)
+          b->B.raise(
+            ~path,
+            ~code=InvalidType({
+              expected: selfSchema->fromInternal,
+              received: args->Js.Array2.unsafe_get(0),
+              unionErrors: ?(
+                args->Js.Array2.length > 1
+                  ? Some(args->Stdlib.Array.fromArguments->Js.Array2.sliceFrom(1))
+                  : None
+              ),
+            }),
+          )
+        })}(${input.var(b)}${caught})`
+    }
+
     let schemas = selfSchema.anyOf->Stdlib.Option.unsafeUnwrap
     let typeValidation = b.global.flag->Flag.unsafeHas(Flag.typeValidation)
 
@@ -2059,9 +2082,10 @@ module Union = {
     let initialInline = input.inline
 
     let deoptIdx = ref(-1)
+    let lastIdx = schemas->Js.Array2.length - 1
     let byTag = ref(Js.Dict.empty())
     let tags = ref([])
-    for idx in 0 to schemas->Js.Array2.length - 1 {
+    for idx in 0 to lastIdx {
       let schema = schemas->Js.Array2.unsafe_get(idx)
 
       switch schema.tag {
@@ -2105,7 +2129,7 @@ module Union = {
           let errorVar = `e` ++ idx->Stdlib.Int.unsafeToString
           start := start.contents ++ `try{${itemCode}}catch(${errorVar}){`
           end := "}" ++ end.contents
-          caught := `${caught.contents}${errorVar},`
+          caught := `${caught.contents},${errorVar}`
         }
       }
     }
@@ -2167,7 +2191,7 @@ module Union = {
             // FIXME: Should have else
             itemStart := itemStart.contents ++ `try{${itemCode}}catch(${errorVar}){`
             itemEnd := "}" ++ itemEnd.contents
-            caught := `${caught.contents}${errorVar},`
+            caught := `${caught.contents},${errorVar}`
           } else {
             // If there's no body, we immideately finish.
             // Even if there might be other items, this case is always valid
@@ -2188,29 +2212,13 @@ module Union = {
             if typeValidation {
               let if_ = itemNextElse.contents ? "else if" : "if"
               itemStart :=
-                itemStart.contents ++
-                if_ ++
-                `(!(${itemNoop.contents})){${b->B.failWithArg(
-                    ~path,
-                    received => InvalidType({
-                      expected: selfSchema->fromInternal,
-                      received,
-                    }),
-                    inputVar,
-                  )}}`
+                itemStart.contents ++ if_ ++ `(!(${itemNoop.contents})){${fail(caught.contents)}}`
             }
           } else {
             cond := cond.contents ++ `&&(${itemNoop.contents})`
           }
         } else if typeValidation && itemStart.contents->Stdlib.String.unsafeToBool {
-          let errorCode = b->B.failWithArg(
-            ~path,
-            received => InvalidType({
-              expected: selfSchema->fromInternal,
-              received,
-            }),
-            inputVar,
-          )
+          let errorCode = fail(caught.contents)
           itemStart :=
             itemStart.contents ++ (itemNextElse.contents ? `else{${errorCode}}` : errorCode)
         }
@@ -2233,19 +2241,8 @@ module Union = {
       }
     }
 
-    if typeValidation {
-      let inputVar = input.var(b)
-
-      // FIXME: Include caught errors
-      let errorCode = b->B.failWithArg(
-        ~path,
-        received => InvalidType({
-          expected: selfSchema->fromInternal,
-          received,
-        }),
-        inputVar,
-      )
-
+    if typeValidation || deoptIdx === lastIdx {
+      let errorCode = fail(caught.contents)
       start :=
         start.contents ++ if noop.contents->Stdlib.String.unsafeToBool {
           let if_ = nextElse.contents ? "else if" : "if"

@@ -494,18 +494,22 @@ module Union = {
     t->U.assertRaised(
       () => 2->S.parseOrThrow(schema),
       {
-        code: InvalidUnion([
-          U.error({
-            code: UnexpectedAsync,
-            path: S.Path.empty,
-            operation: Parse,
-          }),
-          U.error({
-            code: UnexpectedAsync,
-            path: S.Path.empty,
-            operation: Parse,
-          }),
-        ]),
+        code: InvalidType({
+          expected: schema->S.toUnknown,
+          received: %raw(`2`),
+          unionErrors: [
+            U.error({
+              code: UnexpectedAsync,
+              path: S.Path.empty,
+              operation: Parse,
+            }),
+            U.error({
+              code: UnexpectedAsync,
+              path: S.Path.empty,
+              operation: Parse,
+            }),
+          ],
+        }),
         operation: Parse,
         path: S.Path.empty,
       },

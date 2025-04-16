@@ -522,7 +522,7 @@ test("Coerce from string to optional bool", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){try{let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}catch(e0){try{i==="undefined"||e[1](i);i=void 0}catch(e1){e[2](i)}}}else{e[3](i)}return i}`,
+    `i=>{if(typeof i==="string"){try{let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}catch(e0){try{i==="undefined"||e[1](i);i=void 0}catch(e1){e[2](i,e0,e1)}}}else{e[3](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
