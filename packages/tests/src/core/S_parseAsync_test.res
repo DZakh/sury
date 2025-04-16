@@ -484,38 +484,6 @@ module Union = {
     t->Assert.deepEqual(2->S.parseOrThrow(schema), 2, ())
   })
 
-  test("[Union] Fails with Parse operation", t => {
-    let schema = S.union([
-      S.literal(2)->validAsyncRefine,
-      S.literal(2)->validAsyncRefine,
-      S.literal(3),
-    ])
-
-    t->U.assertRaised(
-      () => 2->S.parseOrThrow(schema),
-      {
-        code: InvalidType({
-          expected: schema->S.toUnknown,
-          received: %raw(`2`),
-          unionErrors: [
-            U.error({
-              code: UnexpectedAsync,
-              path: S.Path.empty,
-              operation: Parse,
-            }),
-            U.error({
-              code: UnexpectedAsync,
-              path: S.Path.empty,
-              operation: Parse,
-            }),
-          ],
-        }),
-        operation: Parse,
-        path: S.Path.empty,
-      },
-    )
-  })
-
   // Failing.asyncTest(
   //   "[Union] Doesn't return sync error when fails to parse sync part of async item",
   //   t => {

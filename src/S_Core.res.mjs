@@ -3007,8 +3007,9 @@ function advancedReverse(definition, to, flattened) {
                   };
           }
           var tag = reversed.type;
+          var additionalItems = reversed.additionalItems;
           var items = reversed.items;
-          if (items !== undefined) {
+          if (items !== undefined && typeof additionalItems === "string") {
             var isArray = tag === "array";
             var objectVal = make$1(b, isArray);
             for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){

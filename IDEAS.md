@@ -46,26 +46,31 @@
 
 ### Scope
 
-- Remove fieldOr in favor of optionOr?
 - Support `@s.name` etc for ppx and fail on removed `@s.describe`
 - Todo something with nullish and ppx
 - Start using rescript v12
 - Todo something with preprocess (remove Unknown tag for now, until `S.to` is not there yet)
 - Integrate rescript-json-schema
-- Support unions and complex types for `S.to`
 - Add S.toJSONSchema and S.fromJSONSchema
 - Add S.meta like Zod v4 (Move S.example to rescript-schema)
-- Remove number/string/array prefixes from refinements
 - Update benchmark. Zod v4 and add TypeBox
 
-## v???
+## v11
 
+- Remove number/string/array prefixes from refinements
+- Support arrays for `S.to`
+- Support `S.to` from `unknown`
+- Remove fieldOr in favor of optionOr?
+- Make built-in refinements not work with `unknown`. Use `S.to` (manually & automatically) to deside the type first
 - Allow to pass custom error message via `.with`
 - Make S.to extensible
 - Add S.date (S.instanceof) and remove S.datetime
 - Add refinement info to the tagged type
-- Make S.serializeToJsonString super fast
 - Make refinements change type from unknown to known
+
+## v???
+
+- Make S.serializeToJsonString super fast
 - Somehow determine whether transformed or not (including shape)
 - Add JSDoc
 - s.optional for object

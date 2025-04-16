@@ -3542,7 +3542,9 @@ module Schema = {
           b->B.embedVal(reversed.const)
         } else {
           switch reversed {
-          | {items, tag} => {
+          | {items, tag, ?additionalItems}
+            // Ignore S.dict and S.array
+            if additionalItems->Obj.magic->Js.typeof === "string" => {
               let isArray = tag === Array
               let objectVal = b->B.Val.Object.make(~isArray)
               for idx in 0 to items->Js.Array2.length - 1 {
