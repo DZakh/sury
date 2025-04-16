@@ -23,7 +23,7 @@ test("Correctly parses", t => {
 })
 
 test("Correctly parses transformed", t => {
-  let schema = S.nullish(S.bool->S.coerce(S.string))
+  let schema = S.nullish(S.bool->S.to(S.string))
 
   t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(schema), Null, ())
   t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), Undefined, ())
@@ -47,7 +47,7 @@ test("Correctly reverse convert", t => {
 })
 
 test("Correctly reverse convert transformed", t => {
-  let schema = S.nullish(S.bool->S.coerce(S.string))
+  let schema = S.nullish(S.bool->S.to(S.string))
 
   t->Assert.deepEqual(Js.Nullable.Null->S.reverseConvertOrThrow(schema), %raw(`null`), ())
   t->Assert.deepEqual(Js.Nullable.Undefined->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())

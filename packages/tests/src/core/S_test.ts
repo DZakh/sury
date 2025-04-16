@@ -1796,7 +1796,7 @@ test("Unnest schema", (t) => {
 });
 
 test("Coerce string to number", (t) => {
-  const schema = S.coerce(S.string, S.number);
+  const schema = S.to(S.string, S.number);
 
   t.deepEqual(S.parseOrThrow("123", schema), 123);
   t.deepEqual(S.parseOrThrow("123.4", schema), 123.4);
@@ -1952,7 +1952,7 @@ test("parseJsonStringOrThrow", async (t) => {
 test("ArkType pattern matching", async (t) => {
   const schema = S.recursive((self) =>
     S.union([
-      S.coerce(S.bigint, S.string),
+      S.to(S.bigint, S.string),
       S.string,
       S.number,
       S.boolean,
@@ -1971,7 +1971,7 @@ test("ArkType pattern matching", async (t) => {
 test.failing("Compile types", async (t) => {
   const schema = S.union([
     S.string,
-    S.schema(null).with(S.coerce, S.schema(undefined)),
+    S.schema(null).with(S.to, S.schema(undefined)),
   ]);
 
   const fn1 = S.compile(schema, "Input", "Output", "Sync");

@@ -49,7 +49,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{try{i=e[0](i)}catch(e0){if(!(i===void 0)){e[1](i)}}return Promise.resolve(i)}`,
+      `i=>{try{i=e[0](i)}catch(e0){if(!(i===void 0)){e[1](i,e0)}}return Promise.resolve(i)}`,
     )
   })
 

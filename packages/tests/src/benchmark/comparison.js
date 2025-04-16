@@ -35,7 +35,7 @@ const arkType = type({
 
 const RescriptSchemaUnion = S.union([
   { box: S.string },
-  S.coerce(S.string, S.number),
+  S.to(S.string, S.number),
 ]);
 // S.parseOrThrow("123", RescriptSchemaUnion)
 // rescript-schema@9.3.0 x 82,715,204 ops/sec ±2.11% (86 runs sampled)

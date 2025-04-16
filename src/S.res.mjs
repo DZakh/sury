@@ -70,7 +70,7 @@ var refine = S_Core.refine;
 
 var shape = S_Core.shape;
 
-var coerce = S_Core.coerce;
+var to = S_Core.to;
 
 var compile = S_Core.compile;
 
@@ -221,7 +221,7 @@ export {
   custom ,
   refine ,
   shape ,
-  coerce ,
+  to ,
   compile ,
   parseOrThrow ,
   parseJsonOrThrow ,

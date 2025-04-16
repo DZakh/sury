@@ -6,7 +6,8 @@
 
 - Removed `S.to` in favor of `S.shape`
 - S.dict now does `!Array.isArray(${inputVar})` check
-- Fixed `S.coerce` TS type
+- Renamed `S.coerce` to `S.to`
+- Fixed `S.to` TS type
 - Move `~standard` to the top level. Remove `S.standard`, since now every schema you create implements Standard Schema
 - Removed `S.classify` and make the schema type a variant itself
 - Removed `literal` type and `Literal` module, since it's now a part of the schema type variant
@@ -14,10 +15,10 @@
 - (rescript) Renamed `S.nullable` to `S.nullish` to match js api
 - (js/ts) Don't transform `null` to `undefined` for `S.nullish`
 - Updated error massage to be shorter and cleaner
-- Support coerce from any literal to another literal
+- Support `S.to` from any literal to another literal
 - Temporary removed `S.inline`
 - Improved error massage for recursive schema
-- Support coerce for S.union, S.option and S.null
+- Support `S.to` for `S.union`, `S.option` and `S.null`
 - Renamed `unknownKeys` to `additionalItems` and made it lowercase.
 - Allow to set `S.tuple` to Strip mode (still strict by default)
 - Changed `S.removeTypeValidation` to `S.noValidation`. It doesn't affect union discriminated optimisation anymore.
@@ -49,11 +50,10 @@
 - Support `@s.name` etc for ppx and fail on removed `@s.describe`
 - Todo something with nullish and ppx
 - Start using rescript v12
-- Todo something with preprocess (remove Unknown tag for now, until coerce is not there yet)
+- Todo something with preprocess (remove Unknown tag for now, until `S.to` is not there yet)
 - Integrate rescript-json-schema
-- Support unions and complex types for S.coerce
+- Support unions and complex types for `S.to`
 - Add S.toJSONSchema and S.fromJSONSchema
-- Rename S.coerce to S.to
 - Add S.meta like Zod v4 (Move S.example to rescript-schema)
 - Remove number/string/array prefixes from refinements
 - Update benchmark. Zod v4 and add TypeBox
@@ -61,7 +61,7 @@
 ## v???
 
 - Allow to pass custom error message via `.with`
-- Make S.coerce extensible
+- Make S.to extensible
 - Add S.date (S.instanceof) and remove S.datetime
 - Add refinement info to the tagged type
 - Make S.serializeToJsonString super fast

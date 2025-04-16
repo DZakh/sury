@@ -2164,42 +2164,42 @@ var schema$5 = toStandard({
       b: invalidJson
     });
 
-function coerce(from, to) {
-  if (from === to) {
+function to(from, target) {
+  if (from === target) {
     return from;
   }
-  var anyOf = to.anyOf;
+  var anyOf = target.anyOf;
   if (anyOf !== undefined) {
-    return factory(anyOf.map(function (to) {
-                    return coerce(from, to);
+    return factory(anyOf.map(function (target) {
+                    return to(from, target);
                   }));
   }
   var extendCoercion = 0;
   var shrinkCoercion = 1;
   var fromOutput = reverse(from);
   var isFromLiteral = isLiteral(from);
-  var isToLiteral = isLiteral(to);
+  var isTargetLiteral = isLiteral(target);
   var match = fromOutput.type;
   var coercion;
   var exit = 0;
   var exit$1 = 0;
-  if (isFromLiteral && isToLiteral) {
+  if (isFromLiteral && isTargetLiteral) {
     coercion = (function (b, param, param$1) {
         return {
                 b: b,
                 v: _notVar,
-                i: inlineConst(b, to),
+                i: inlineConst(b, target),
                 a: false
               };
       });
   } else {
     switch (match) {
       case "string" :
-          var match$1 = to.type;
+          var match$1 = target.type;
           var exit$2 = 0;
           switch (match$1) {
             case "string" :
-                var match$2 = to.const;
+                var match$2 = target.const;
                 coercion = match$2 !== undefined ? shrinkCoercion : extendCoercion;
                 break;
             case "number" :
@@ -2214,21 +2214,21 @@ function coerce(from, to) {
               exit = 1;
           }
           if (exit$2 === 3) {
-            var $$const = to.const;
-            if (isToLiteral) {
+            var $$const = target.const;
+            if (isTargetLiteral) {
               coercion = (function (b, inputVar, failCoercion) {
                   b.c = b.c + (inputVar + "===\"" + $$const + "\"||" + failCoercion + ";");
                   return {
                           b: b,
                           v: _notVar,
-                          i: inlineConst(b, to),
+                          i: inlineConst(b, target),
                           a: false
                         };
                 });
             } else {
               switch (match$1) {
                 case "number" :
-                    var format = to.format;
+                    var format = target.format;
                     coercion = (function (b, inputVar, failCoercion) {
                         var output = {
                           b: b,
@@ -2238,7 +2238,7 @@ function coerce(from, to) {
                         };
                         var outputVar = output.v(b);
                         b.c = b.c + (
-                          format !== undefined ? "(" + refinement(b, outputVar, to, true).slice(2) + ")" : "Number.isNaN(" + outputVar + ")"
+                          format !== undefined ? "(" + refinement(b, outputVar, target, true).slice(2) + ")" : "Number.isNaN(" + outputVar + ")"
                         ) + ("&&" + failCoercion + ";");
                         return output;
                       });
@@ -2265,8 +2265,8 @@ function coerce(from, to) {
           break;
       case "number" :
           if (fromOutput.format !== undefined) {
-            var match$3 = to.type;
-            if (match$3 === "number" && to.format === undefined) {
+            var match$3 = target.type;
+            if (match$3 === "number" && target.format === undefined) {
               coercion = extendCoercion;
             } else {
               exit$1 = 2;
@@ -2288,7 +2288,7 @@ function coerce(from, to) {
   }
   if (exit$1 === 2) {
     var $$const$1 = fromOutput.const;
-    var match$4 = to.type;
+    var match$4 = target.type;
     if (match$4 === "string") {
       if (isFromLiteral) {
         coercion = (function (b, param, param$1) {
@@ -2311,7 +2311,7 @@ function coerce(from, to) {
             exit = 1;
         }
         if (exit$3 === 3) {
-          var match$5 = to.type;
+          var match$5 = target.type;
           if (match$5 === "string") {
             coercion = (function (b, inputVar, param) {
                 return {
@@ -2332,17 +2332,17 @@ function coerce(from, to) {
     }
   }
   if (exit === 1) {
-    var message = "S.coerce from " + toExpression(fromOutput) + " to " + toExpression(to) + " is not supported";
+    var message = "S.to from " + toExpression(fromOutput) + " to " + toExpression(target) + " is not supported";
     throw new Error("[Schema] " + message);
   }
   var mut = copy(from);
   mut.b = (function (b, input, param, path) {
       var input$1 = from.b(b, input, from, path);
       if (coercion === extendCoercion) {
-        return to.b(b, input$1, to, path);
+        return target.b(b, input$1, target, path);
       }
       if (coercion === shrinkCoercion) {
-        return parseWithTypeValidation(b, to, input$1, path);
+        return parseWithTypeValidation(b, target, input$1, path);
       }
       var bb = {
         c: "",
@@ -2354,16 +2354,16 @@ function coerce(from, to) {
       var input$2 = coercion(bb, inputVar, failWithArg(bb, path, (function (input) {
                   return {
                           TAG: "InvalidType",
-                          expected: to,
+                          expected: target,
                           received: input
                         };
                 }), inputVar));
-      var output = to.b(bb, input$2, to, path);
+      var output = target.b(bb, input$2, target, path);
       b.c = b.c + allocateScope(bb);
       return output;
     });
   mut.output = (function () {
-      return coerce(reverse(to), fromOutput);
+      return to(reverse(target), fromOutput);
     });
   return toStandard(mut);
 }
@@ -3987,7 +3987,7 @@ export {
   custom ,
   refine ,
   shape ,
-  coerce ,
+  to ,
   compile ,
   parseOrThrow ,
   parseJsonOrThrow ,

@@ -517,7 +517,7 @@ test("Union with nested variant", t => {
 test("Nested union doesn't mutate the input", t => {
   let schema = S.schema(s =>
     {
-      "foo": s.matches(S.union([S.string, S.bool->S.coerce(S.string)])),
+      "foo": s.matches(S.union([S.string, S.bool->S.to(S.string)])),
     }
   )
 

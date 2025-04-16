@@ -59,7 +59,7 @@
   - [`Built-in operations`](#built-in-operations)
   - [`compile`](#compile)
   - [`reverse`](#reverse)
-  - [`coerce`](#coerce)
+  - [`to`](#to)
   - [`classify`](#classify)
   - [`isAsync`](#isasync)
   - [`name`](#name)
@@ -440,7 +440,7 @@ The `S.unit` schema is a shorthand for `S.literal()`.
 
 `S.t<unit>`
 
-The `S.nullAsUnit` schema is a shorthand for `S.literal(Null.null)->S.coerce(S.unit)`.
+The `S.nullAsUnit` schema is a shorthand for `S.literal(Null.null)->S.to(S.unit)`.
 
 ### **`literal`**
 
@@ -1278,7 +1278,7 @@ await "1"->S.parseAsyncOrThrow(userSchema)
 
 ## Preprocess _Advanced_
 
-> ☢️ This API is soon to be deprecated. Whenever it's possible, use [S.coerce](#coerce) instead.
+> ☢️ This API is soon to be deprecated. Whenever it's possible, use [S.to](#to) instead.
 
 Typically **rescript-schema** operates under a "parse then transform" paradigm. **rescript-schema** validates the input first, then passes it through a chain of transformation functions.
 
@@ -1443,14 +1443,14 @@ let reversed = schema->S.reverse
 
 Reverses the schema. This gets especially magical for schemas with transformations 🪄
 
-### **`coerce`**
+### **`to`**
 
 `(S.t<'from>, S.t<'to>) => S.t<'to>`
 
-This very powerful API allows you to coerce another data type in a declarative way. Let's say you receive a number that is passed to your system as a string. For this `S.coerce` is the best fit:
+This very powerful API allows you to coerce another data type in a declarative way. Let's say you receive a number that is passed to your system as a string. For this `S.to` is the best fit:
 
 ```rescript
-let schema = S.string->S.coerce(S.float)
+let schema = S.string->S.to(S.float)
 
 "123"->S.parseOrThrow(schema) //? 123.
 "abc"->S.parseOrThrow(schema) //? throws: Failed parsing: Expected number, received "abc"

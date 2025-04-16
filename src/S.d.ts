@@ -497,7 +497,7 @@ export function shape<Output, Input, Shape>(
   shaper: (value: Output) => Shape
 ): Schema<Shape, Input>;
 
-export function coerce<
+export function to<
   FromInput,
   ToOutput,
   FromOutput = FromInput,

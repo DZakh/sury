@@ -210,8 +210,8 @@ var filesMapping = [
     "S.js_custom"
   ],
   [
-    "coerce",
-    "S.coerce"
+    "to",
+    "S.to"
   ],
   [
     "shape",

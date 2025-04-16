@@ -43,7 +43,7 @@
   - [Built-in operations](#built-in-operations)
   - [`compile`](#compile)
   - [`reverse`](#reverse)
-  - [`coerce`](#coerce)
+  - [`to`](#to)
   - [`standard`](#standard)
   - [`name`](#name)
   - [`toExpression`](#toExpression)
@@ -713,7 +713,7 @@ const intToString = (schema) =>
   );
 ```
 
-> 🧠 You can use `S.coerce(S.int, S.string)` which is a better version of the above example.
+> 🧠 You can use `S.int32.with(S.to, S.string)` which is a better version of the above example.
 
 ### **`shape`**
 
@@ -846,12 +846,12 @@ S.parseOrThrow(123, reversed);
 
 Reverses the schema. This gets especially magical for schemas with transformations 🪄
 
-### **`coerce`**
+### **`to`**
 
-This very powerful API allows you to coerce another data type in a declarative way. Let's say you receive a number that is passed to your system as a string. For this `S.coerce` is the best fit:
+This very powerful API allows you to coerce another data type in a declarative way. Let's say you receive a number that is passed to your system as a string. For this `S.to` is the best fit:
 
 ```ts
-const schema = S.coerce(S.string, S.float);
+const schema = S.string.with(S.to, S.number);
 
 S.parseOrThrow("123", schema); //? 123.
 S.parseOrThrow("abc", schema); //? throws: Failed parsing: Expected number, received "abc"

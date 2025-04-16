@@ -2833,30 +2833,30 @@ module BigInt = {
   }->toStandard
 }
 
-let rec coerce = (from, to) => {
+let rec to = (from, target) => {
   let from = from->toInternal
-  let to = to->toInternal
+  let target = target->toInternal
 
-  // It makes sense, since S.coerce quite often will be used
+  // It makes sense, since S.to quite often will be used
   // inside of a framework where we don't control what's the to argument
-  if from === to {
+  if from === target {
     from->fromInternal
   } else {
-    switch to {
+    switch target {
     | {anyOf} =>
-      Union.factory(anyOf->Js.Array2.map(to => coerce(from->fromInternal, to->fromInternal)))
+      Union.factory(anyOf->Js.Array2.map(target => to(from->fromInternal, target->fromInternal)))
     | _ => {
         let extendCoercion = %raw(`0`)
         let shrinkCoercion = %raw(`1`)
 
         let fromOutput = from->reverse
         let isFromLiteral = from->isLiteral
-        let isToLiteral = to->isLiteral
+        let isTargetLiteral = target->isLiteral
 
-        let coercion = switch (fromOutput, to) {
-        | (_, _) if isFromLiteral && isToLiteral =>
+        let coercion = switch (fromOutput, target) {
+        | (_, _) if isFromLiteral && isTargetLiteral =>
           (b, ~inputVar as _, ~failCoercion as _) => {
-            b->B.val(b->B.inlineConst(to))
+            b->B.val(b->B.inlineConst(target))
           }
         | ({tag: String}, {tag: String, const: _}) => shrinkCoercion
         | ({tag: String}, {tag: String}) // FIXME: validate that refinements match
@@ -2868,10 +2868,10 @@ let rec coerce = (from, to) => {
         | ({tag: Boolean | Number | BigInt}, {tag: String}) =>
           (b, ~inputVar, ~failCoercion as _) => b->B.val(`""+${inputVar}`)
         | ({tag: String}, {tag: Boolean | Number | BigInt | Undefined | Null | NaN, ?const})
-          if isToLiteral =>
+          if isTargetLiteral =>
           (b, ~inputVar, ~failCoercion) => {
             b.code = b.code ++ `${inputVar}==="${const->Obj.magic}"||${failCoercion};`
-            b->B.val(b->B.inlineConst(to))
+            b->B.val(b->B.inlineConst(target))
           }
         | ({tag: String}, {tag: Boolean}) =>
           (b, ~inputVar, ~failCoercion) => {
@@ -2892,7 +2892,7 @@ let rec coerce = (from, to) => {
               | None => `Number.isNaN(${outputVar})`
               | Some(Int32) =>
                 `(${b
-                  ->B.refinement(~inputVar=outputVar, ~schema=to, ~negative=true)
+                  ->B.refinement(~inputVar=outputVar, ~schema=target, ~negative=true)
                   ->Js.String2.sliceToEnd(~from=2)})`
               } ++
               `&&${failCoercion};`
@@ -2907,7 +2907,7 @@ let rec coerce = (from, to) => {
 
         | _ =>
           InternalError.panic(
-            `S.coerce from ${fromOutput->fromInternal->toExpression} to ${to
+            `S.to from ${fromOutput->fromInternal->toExpression} to ${target
               ->fromInternal
               ->toExpression} is not supported`,
           )
@@ -2918,20 +2918,20 @@ let rec coerce = (from, to) => {
           let input = b->B.parse(~schema=from, ~input, ~path)
 
           if coercion === extendCoercion {
-            b->B.parse(~schema=to, ~input, ~path)
+            b->B.parse(~schema=target, ~input, ~path)
           } else if coercion === shrinkCoercion {
-            b->B.parseWithTypeValidation(~schema=to, ~input, ~path)
+            b->B.parseWithTypeValidation(~schema=target, ~input, ~path)
           } else {
             let bb = b->B.scope
             let inputVar = input.var(bb)
             let output = bb->B.parse(
-              ~schema=to,
+              ~schema=target,
               ~input=bb->coercion(
                 ~inputVar,
                 ~failCoercion=bb->B.failWithArg(
                   ~path,
                   input => InvalidType({
-                    expected: to->fromInternal,
+                    expected: target->fromInternal,
                     received: input,
                   }),
                   inputVar,
@@ -2946,7 +2946,7 @@ let rec coerce = (from, to) => {
 
         mut.output = Some(
           () => {
-            coerce(to->reverse->fromInternal, fromOutput->fromInternal)->toInternal
+            to(target->reverse->fromInternal, fromOutput->fromInternal)->toInternal
           },
         )
 

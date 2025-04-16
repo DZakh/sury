@@ -428,7 +428,11 @@ test("Object with a deep strict applied to the nested field parent + reverse", t
     // Test strict & deepStrict for S.shape
     `i=>{if(typeof i!=="object"||!i||Array.isArray(i)){e[1](i)}let v0;for(v0 in i){if(v0!=="foo"){e[0](v0)}}return {"nested":{"foo":i["foo"],},}}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return {"nested":{"foo":i["foo"],},}}`)
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#ReverseConvert,
+    `i=>{let v0=i["nested"];return {"foo":v0["foo"],}}`,
+  )
 })
 
 test("Object with nested field together with flatten", t => {
