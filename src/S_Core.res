@@ -444,7 +444,6 @@ let isLiteral: internal => bool = %raw(`s => "const" in s`)
 
 let isOptional = schema => {
   switch schema.tag {
-  // FIXME: Should `unknown` be considered optional? (probably yes)
   | Undefined => true
   | Union => schema.has->Stdlib.Option.unsafeUnwrap->Stdlib.Dict.has((Undefined: tag :> string))
   | _ => false
@@ -1713,29 +1712,10 @@ module Metadata = {
   }
 
   let set = (schema, ~id: Id.t<'metadata>, metadata: 'metadata) => {
-    // FIXME: Also apply for reversed?
     let schema = schema->toInternal
     let mut = schema->copy
     mut->setInPlace(~id, metadata)
     mut->toStandard
-    // let metadataMap = schema.metadataMap->Map.set(~id, metadata)
-    // makeSchema(
-    //   ~name=schema.name,
-    //   ~builder=schema.builder,
-    //   ~tagged=schema.tagged,
-    //   ~typeFilter=schema.typeFilter,
-    //   ~metadataMap,
-    //   ~reverse=() => {
-    //     let schema = schema.output()
-    //     makeReverseSchema(
-    //       ~name=schema.name,
-    //       ~builder=schema.builder,
-    //       ~tagged=schema.tagged,
-    //       ~typeFilter=schema.typeFilter,
-    //       ~metadataMap,
-    //     )
-    //   },
-    // )
   }
 }
 
@@ -2430,7 +2410,8 @@ module Option = {
 
     switch item->reverse {
     | {tag: Undefined} => Union.factory([unit->toUnknown, item->nestedOption->fromInternal])
-    | {tag: Union} as reversed => {
+    | {tag: Union, ?has} as reversed
+      if has->Stdlib.Option.unsafeUnwrap->Stdlib.Dict.has((Undefined: tag :> string)) => {
         let mut = reversed->copy
         let schemas = mut.anyOf->Stdlib.Option.unsafeUnwrap
         let has = mut.has->Stdlib.Option.unsafeUnwrap
@@ -3763,7 +3744,6 @@ module Schema = {
         let flatten = schema => {
           let schema = schema->toInternal
           switch schema {
-          // FIXME: Pattern match on the public schema?
           | {tag: Object, items: ?flattenedItems, ?advanced} => {
               if advanced->Stdlib.Option.unsafeUnwrap {
                 InternalError.panic(

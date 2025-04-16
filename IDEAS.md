@@ -43,12 +43,12 @@
 
 ### Scope
 
+- Remove fieldOr in favor of optionOr?
 - Support `@s.name` etc for ppx and fail on removed `@s.describe`
 - Todo something with nullish and ppx
 - Start using rescript v12
 - Todo something with preprocess (remove Unknown tag for now, until coerce is not there yet)
 - Integrate rescript-json-schema
-- Add `.pipe` to Ts api (or `.with` & if first arg is string - it's a custom error message)
 - Support unions and complex types for S.coerce
 - Add S.toJSONSchema and S.fromJSONSchema
 - Add S.meta like Zod v4 (Move S.example to rescript-schema)
@@ -57,6 +57,7 @@
 
 ## v???
 
+- Allow to pass custom error message via `.with`
 - Make S.coerce extensible
 - Add S.date (S.instanceof) and remove S.datetime
 - Add refinement info to the tagged type
