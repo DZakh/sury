@@ -420,7 +420,7 @@ test("Coerce string to unboxed union (each item separately)", t => {
       "t"->S.parseOrThrow(schema)
     },
     ~expectations={
-      message: `Failed parsing: Invalid union with following errors
+      message: `Failed parsing: Expected string | string, received "t"
 - Expected number, received "t"
 - Expected boolean, received "t"`,
     },
@@ -430,7 +430,7 @@ test("Coerce string to unboxed union (each item separately)", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){try{let v0=+i;Number.isNaN(v0)&&e[0](i);i=v0}catch(e0){try{let v1;(v1=i==="true")||i==="false"||e[1](i);i=v1}catch(e1){e[2]([e0,e1,])}}}else{e[3](i)}return i}`,
+    `i=>{if(typeof i==="string"){try{let v0=+i;Number.isNaN(v0)&&e[0](i);i=v0}catch(e0){try{let v1;(v1=i==="true")||i==="false"||e[1](i);i=v1}catch(e1){e[2](i,e0,e1)}}}else{e[3](i)}return i}`,
   )
 
   t->Assert.deepEqual(Number(10.)->S.reverseConvertOrThrow(schema), %raw(`"10"`), ())

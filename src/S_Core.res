@@ -124,7 +124,12 @@ module Stdlib = {
     @new
     external make: unit => t<'a> = "Set"
 
+    @new
+    external fromArray: array<'a> => t<'a> = "Set"
+
     @send external add: (t<'a>, 'a) => unit = "add"
+
+    @send external has: (t<'a>, 'a) => bool = "has"
 
     @val external toArray: t<'a> => array<'a> = "Array.from"
   }
@@ -1042,12 +1047,6 @@ module Builder = {
       },
     }
 
-    let registerInvalidJson = (b, ~selfSchema, ~path) => {
-      if b.global.flag->Flag.unsafeHas(Flag.jsonableOutput) {
-        b->raise(~path, ~code=InvalidJsonSchema(selfSchema->fromInternal))
-      }
-    }
-
     let invalidOperation = (b: b, ~path, ~description) => {
       b->raise(~path, ~code=InvalidOperation({description: description}))
     }
@@ -1275,11 +1274,6 @@ module Builder = {
 
   let noop = make((_b, ~input, ~selfSchema as _, ~path as _) => input)
 
-  let invalidJson = make((b, ~input, ~selfSchema, ~path) => {
-    b->B.registerInvalidJson(~selfSchema, ~path)
-    input
-  })
-
   let noopOperation = i => i->Obj.magic
 
   @inline
@@ -1288,14 +1282,24 @@ module Builder = {
 // TODO: Split validation code and transformation code
 module B = Builder.B
 
+let nonJsonableTags = Stdlib.Set.fromArray([
+  (Undefined: tag),
+  Unknown,
+  NaN,
+  BigInt,
+  Function,
+  Instance,
+  Symbol,
+])
+
 let rec internalCompile = (builder: builder, ~schema, ~flag) => {
-  if flag->Flag.unsafeHas(Flag.jsonableOutput) && schema->reverse->isOptional {
-    Stdlib.Exn.raiseAny(
-      InternalError.make(~code=InvalidJsonSchema(schema->fromInternal), ~flag, ~path=Path.empty),
-    )
+  let b = B.rootScope(~flag)
+
+  if flag->Flag.unsafeHas(Flag.jsonableOutput) {
+    let output = schema->reverse
+    b->jsonableValidation(~output, ~report=output, ~path=Path.empty)
   }
 
-  let b = B.rootScope(~flag)
   let input = {b, var: B._var, isAsync: false, inline: Builder.intitialInputVar}
 
   let output = builder(b, ~input, ~selfSchema=schema, ~path=Path.empty)
@@ -1414,6 +1418,43 @@ and toStandard = (schema: internal) => {
     },
   })
   schema->(Obj.magic: internal => t<'any>)
+}
+and jsonableValidation = (b, ~output, ~report, ~path) => {
+  let tag = output.tag
+  if nonJsonableTags->Stdlib.Set.has(tag) {
+    Stdlib.Exn.raiseAny(
+      InternalError.make(~code=InvalidJsonSchema(report->fromInternal), ~flag=b.global.flag, ~path),
+    )
+  }
+  if tag === Union {
+    output.anyOf
+    ->Stdlib.Option.unsafeUnwrap
+    ->Js.Array2.forEach(s => b->jsonableValidation(~output=s, ~report, ~path))
+  } else {
+    switch output {
+    | {items, ?additionalItems} => {
+        let isObject = tag === Object
+        switch additionalItems->Stdlib.Option.unsafeUnwrap {
+        | Schema(additionalItems) =>
+          if isObject ? !(additionalItems->toInternal->isOptional) : true {
+            b->jsonableValidation(~output=additionalItems->toInternal, ~report, ~path)
+          }
+        | _ => ()
+        }
+        items->Js.Array2.forEach(item => {
+          let s = item.schema->toInternal
+          if isObject ? !(s->isOptional) : true {
+            b->jsonableValidation(
+              ~output=s,
+              ~report=s,
+              ~path=path->Path.concat(Path.fromInlinedLocation(item.inlinedLocation)),
+            )
+          }
+        })
+      }
+    | _ => ()
+    }
+  }
 }
 
 type rec input<'value, 'computed> =
@@ -1586,7 +1627,7 @@ module Literal = {
   let undefined = {
     tag: Undefined,
     const: %raw(`void 0`),
-    builder: Builder.invalidJson,
+    builder: Builder.noop,
   }
 
   let null = {
@@ -1595,22 +1636,11 @@ module Literal = {
     builder: Builder.noop,
   }
 
-  let nan = {
-    tag: NaN,
-    builder: Builder.invalidJson,
-  }
-
-  let jsonable = tag => {
+  @inline
+  let make = tag => {
     {
       tag,
       builder: Builder.noop,
-    }
-  }
-
-  let nonJsonable = tag => {
-    {
-      tag,
-      builder: Builder.invalidJson,
     }
   }
 
@@ -1620,15 +1650,10 @@ module Literal = {
       null
     } else {
       let schema = switch value->Type.typeof {
-      | #string => jsonable(String)
-      | #boolean => jsonable(Boolean)
       | #undefined => undefined
-      | #number if value->(Obj.magic: unknown => float)->Js.Float.isNaN => nan
-      | #number => jsonable(Number)
-      | #bigint => nonJsonable(BigInt)
-      | #symbol => nonJsonable(Symbol)
-      | #object => nonJsonable(Instance)
-      | #function => nonJsonable(Function)
+      | #number if value->(Obj.magic: unknown => float)->Js.Float.isNaN => make(NaN)
+      | #object => make(Instance)
+      | typeof => make(typeof->(Obj.magic: Stdlib.Type.t => tag))
       }
       schema.const = Some(value->Obj.magic)
       schema
@@ -1948,7 +1973,6 @@ let custom = (name, definer) =>
     name,
     tag: Unknown,
     builder: Builder.make((b, ~input, ~selfSchema, ~path) => {
-      b->B.registerInvalidJson(~selfSchema, ~path)
       switch definer(b->B.effectCtx(~selfSchema, ~path)) {
       | {parser, asyncParser: ?None} => b->B.embedSyncOperation(~input, ~fn=parser)
       | {parser: ?None, asyncParser} => b->B.embedAsyncOperation(~input, ~fn=asyncParser)
@@ -1965,7 +1989,6 @@ let custom = (name, definer) =>
     output: () => {
       tag: Unknown,
       builder: Builder.make((b, ~input, ~selfSchema, ~path) => {
-        b->B.registerInvalidJson(~selfSchema, ~path)
         switch definer(b->B.effectCtx(~selfSchema, ~path)) {
         | {serializer} => b->B.embedSyncOperation(~input, ~fn=serializer)
         | {parser: ?None, asyncParser: ?None, serializer: ?None} => input
@@ -2001,7 +2024,7 @@ let nullAsUnit = {
 
 let unknown = {
   tag: Unknown,
-  builder: Builder.invalidJson,
+  builder: Builder.noop,
 }->toStandard
 
 module Never = {
@@ -2748,9 +2771,9 @@ module JsonString = {
         mut.builder = Builder.make((b, ~input, ~selfSchema as _, ~path) => {
           let prevFlag = b.global.flag
           b.global.flag = prevFlag->Flag.with(Flag.jsonableOutput)
-          if reversed->isOptional {
-            b->B.raise(~code=InvalidJsonSchema(reversed->fromInternal), ~path=Path.empty)
-          }
+
+          b->jsonableValidation(~output=reversed, ~report=reversed, ~path=Path.empty)
+
           let output =
             b->B.val(
               `JSON.stringify(${(b->B.parse(~schema=reversed, ~input, ~path)).inline}${space > 0
@@ -2830,7 +2853,7 @@ module Float = {
 module BigInt = {
   let schema = {
     tag: BigInt,
-    builder: Builder.invalidJson,
+    builder: Builder.noop,
   }->toStandard
 }
 
@@ -2996,7 +3019,10 @@ let rec preprocess = (schema, transformer) => {
         )
       }
     })
-    mut.tag = Unknown
+
+    // mut.tag = Unknown // TODO: Should revert it or get rid of preprocess
+    mut.noValidation = Some(true)
+
     mut.output = Some(
       () => {
         let reversed = schema->reverse

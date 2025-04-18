@@ -283,13 +283,10 @@ test("Reverse schema to the original schema", t => {
     parser: _ => 1->Int.toFloat,
     serializer: _ => 1.->Int.fromFloat,
   })
-  t->Assert.truthy(
-    switch schema {
-    | Number({format: Int32}) => true
-    | _ => false
-    },
-    (),
-  )
+  switch schema {
+  | Number({format: Int32}) => t->Assert.pass(~message="Should pass", ())
+  | _ => t->Assert.fail("Original schema changed")
+  }
   t->Assert.truthy(
     switch schema->S.reverse {
     | Number({format: Int32}) => true
