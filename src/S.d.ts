@@ -337,7 +337,7 @@ export function transform<Transformed, Output = unknown, Input = unknown>(
   parser:
     | ((value: Output, s: EffectCtx<unknown, unknown>) => Transformed)
     | undefined,
-  serializer?: (value: Transformed, s: EffectCtx<unknown, unknown>) => Input
+  serializer?: (value: Transformed, s: EffectCtx<unknown, unknown>) => Output
 ): Schema<Transformed, Input>;
 
 export function description<Output, Input>(

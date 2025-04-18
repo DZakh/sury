@@ -321,20 +321,46 @@ test("Nested tags on reverse convert", t => {
 })
 
 test("Nested preprocessed tags on reverse convert", t => {
+  let prefixedWithUnderscore =
+    S.string
+    ->S.transform(s => {
+      parser: v => {
+        if v->Js.String2.startsWith("_") {
+          v->Js.String2.sliceToEnd(~from=1)
+        } else {
+          s.fail("String should start with an underscore")
+        }
+      },
+      serializer: v => "_" ++ v,
+    })
+    ->S.to(S.string)
+
   let schema = S.object(s => {
-    let _ = s.nested("nested").field(
-      "tag",
-      S.literal("value")->S.preprocess(_ => {serializer: v => "_" ++ v->Obj.magic}),
-    )
-    let _ = s.nested("nested").field(
-      "intTag",
-      S.literal(1)->S.preprocess(_ => {serializer: v => "_" ++ v->Obj.magic}),
-    )
+    let _ = s.nested("nested").field("tag", prefixedWithUnderscore->S.to(S.literal("value")))
+    let _ = s.nested("nested").field("intTag", prefixedWithUnderscore->S.to(S.literal(1)))
   })
+
+  t->U.assertCompiledCode(
+    ~op=#ReverseConvert,
+    ~schema,
+    `i=>{if(i!==void 0){e[5](i)}return {"nested":{"tag":e[2](e[0]),"intTag":e[4]("1"),},}}`,
+  )
+
+  t->U.assertCompiledCode(
+    ~op=#Parse,
+    ~schema,
+    `i=>{if(typeof i!=="object"||!i){e[10](i)}let v0=i["nested"];if(typeof v0!=="object"||!v0){e[0](v0)}let v1=v0["tag"],v2=e[2](v1),v3=v0["intTag"],v4=e[6](v3);if(typeof v1!=="string"){e[1](v1)}if(typeof v2!=="string"){e[3](v2)}if(v2!=="value"){e[4](v2)}if(typeof v3!=="string"){e[5](v3)}if(typeof v4!=="string"){e[7](v4)}v4==="1"||e[8](v4);return e[9]}`,
+  )
 
   t->Assert.deepEqual(
     ()->S.reverseConvertOrThrow(schema),
     %raw(`{"nested":{"tag":"_value", "intTag":"_1"}}`),
+    (),
+  )
+
+  t->Assert.deepEqual(
+    %raw(`{"nested":{"tag":"_value", "intTag":"_1"}}`)->S.parseOrThrow(schema),
+    (),
     (),
   )
 })

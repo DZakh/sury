@@ -6,8 +6,6 @@ test("Coerce from string to string", t => {
 })
 
 test("Coerce from string to bool", t => {
-  let schema = S.string->S.to(S.bool)
-
   t->Assert.deepEqual("false"->S.parseOrThrow(schema), false, ())
   t->Assert.deepEqual("true"->S.parseOrThrow(schema), true, ())
   t->U.assertThrows(
@@ -23,17 +21,19 @@ test("Coerce from string to bool", t => {
   )
   t->Assert.deepEqual(false->S.reverseConvertOrThrow(schema), %raw(`"false"`), ())
 
+  let schema = S.string->S.to(S.bool)
+
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="string"){e[1](i)}let v0;(v0=i===\"true\")||i===\"false\"||e[0](i);return v0}`,
+    `i=>{if(typeof i!=="string"){e[1](i)}let v0;(v0=i==="true")||i==="false"||e[0](i);return v0}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Convert,
     `i=>{let v0;(v0=i==="true")||i==="false"||e[0](i);return v0}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return \"\"+i}`)
+  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return ""+i}`)
 })
 
 test("Coerce from bool to string", t => {

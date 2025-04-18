@@ -54,7 +54,6 @@
   - [`recursive`](#recursive)
 - [Refinements](#refinements)
 - [Transforms](#transforms)
-- [Preprocess](#preprocess-advanced)
 - [Functions on schema](#functions-on-schema)
   - [`Built-in operations`](#built-in-operations)
   - [`compile`](#compile)
@@ -1275,49 +1274,6 @@ await "1"->S.parseAsyncOrThrow(userSchema)
 }->S.reverseConvertOrThrow(userSchema)
 // "1"
 ```
-
-## Preprocess _Advanced_
-
-> ☢️ This API is soon to be deprecated. Whenever it's possible, use [S.to](#to) instead.
-
-Typically **rescript-schema** operates under a "parse then transform" paradigm. **rescript-schema** validates the input first, then passes it through a chain of transformation functions.
-
-But sometimes you want to apply some transform to the input before parsing happens. Mostly needed when you build sometimes on top of **rescript-schema**. A simplified example from [rescript-envsafe](https://github.com/DZakh/rescript-envsafe):
-
-```rescript
-let prepareEnvSchema = S.preprocess(_, s => {
-    switch s.schema->S.classify {
-    | Literal(Boolean(_))
-    | Bool => {
-        parser: unknown => {
-          switch unknown->Obj.magic {
-          | "true"
-          | "t"
-          | "1" => true
-          | "false"
-          | "f"
-          | "0" => false
-          | _ => unknown->Obj.magic
-          }->Obj.magic
-        },
-      }
-    | Int
-    | Float
-    | Literal(Number(_)) => {
-        parser: unknown => {
-          if unknown->Js.typeof === "string" {
-            %raw(`+unknown`)
-          } else {
-            unknown
-          }
-        },
-      }
-    | _ => {}
-    }
-  })
-```
-
-> 🧠 When using preprocess on Union it will be applied to nested schemas separately.
 
 ## Functions on schema
 

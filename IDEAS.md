@@ -16,9 +16,10 @@
 - (js/ts) Don't transform `null` to `undefined` for `S.nullish`
 - Updated error massage to be shorter and cleaner
 - Support `S.to` from any literal to another literal
+- Support `S.to` for `S.union`, `S.option` and `S.null`
+- Support `S.to` for unknown schemas (transforms)
 - Temporary removed `S.inline`
 - Improved error massage for recursive schema
-- Support `S.to` for `S.union`, `S.option` and `S.null`
 - Renamed `unknownKeys` to `additionalItems` and made it lowercase.
 - Allow to set `S.tuple` to Strip mode (still strict by default)
 - Changed `S.removeTypeValidation` to `S.noValidation`. It doesn't affect union discriminated optimisation anymore.
@@ -43,17 +44,16 @@
 - (ts) Allow to pass default value to `S.nullable`
 - (rescript) Removed `InvalidUnion` error in favor of `InvalidType` with `unionErrors` field
 - Improved union error message
+- Removed `S.preprocess` in favor of `S.to` and `S.transform`.
 
 ### Scope
 
 - Support `@s.name` etc for ppx and fail on removed `@s.describe`
 - Todo something with nullish and ppx
-- Todo something with preprocess (remove Unknown tag for now, until `S.to` is not there yet)
 - Integrate rescript-json-schema
 - Add S.toJSONSchema and S.fromJSONSchema
 - Add S.meta like Zod v4 (Move S.example to rescript-schema)
 - Update benchmark. Zod v4 and add TypeBox
-- Support `S.to` from `unknown` and to `unknown`
 
 ## v11
 

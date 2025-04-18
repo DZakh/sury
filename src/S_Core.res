@@ -2882,6 +2882,8 @@ let rec to = (from, target) => {
           (b, ~inputVar as _, ~failCoercion as _) => {
             b->B.val(b->B.inlineConst(target))
           }
+        | (_, {tag: Unknown}) => extendCoercion
+        | ({tag: Unknown}, _) => shrinkCoercion
         | ({tag: String}, {tag: String, const: _}) => shrinkCoercion
         | ({tag: String}, {tag: String}) // FIXME: validate that refinements match
         | ({tag: Number, format: Int32}, {tag: Number, format: ?None}) => extendCoercion

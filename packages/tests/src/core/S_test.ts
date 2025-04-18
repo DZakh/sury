@@ -2038,3 +2038,36 @@ test.failing("Compile types", async (t) => {
 
   t.pass();
 });
+
+test("Preprocess nested fields", (t) => {
+  const stripPrefix = <Input>(
+    schema: S.Schema<string, Input>,
+    prefix: string
+  ): S.Schema<string, Input> =>
+    S.transform(
+      schema,
+      (v) => {
+        if (v.startsWith(prefix)) {
+          return v.slice(1);
+        } else {
+          throw new Error(`String must start with ${prefix}`);
+        }
+      },
+      (v) => prefix + v
+    ).with(S.to, S.string);
+
+  const schema = S.schema({
+    nested: {
+      tag: S.string.with(stripPrefix, "_").with(S.to, S.schema("foo")),
+      numberTag: S.string.with(stripPrefix, "~").with(S.to, S.schema(1)),
+    },
+  }).with(S.shape, (_) => undefined);
+
+  const value = S.reverseConvertOrThrow(undefined, schema);
+  t.deepEqual(value, {
+    nested: {
+      numberTag: "~1",
+      tag: "_foo",
+    },
+  });
+});
