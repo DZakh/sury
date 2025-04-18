@@ -60,7 +60,7 @@ function assertThrowsTestException(t, fn, message, param) {
   }
 }
 
-function assertRaised(t, cb, errorPayload) {
+function assertThrows(t, cb, errorPayload) {
   var any;
   try {
     any = cb();
@@ -76,7 +76,23 @@ function assertRaised(t, cb, errorPayload) {
   t.fail("Asserted result is not Error. Recieved: " + JSON.stringify(any));
 }
 
-async function assertRaisedAsync(t, cb, errorPayload) {
+function assertThrowsMessage(t, cb, errorMessage) {
+  var any;
+  try {
+    any = cb();
+  }
+  catch (raw_err){
+    var err = Caml_js_exceptions.internalToOCamlException(raw_err);
+    if (err.RE_EXN_ID === S.SchemaError) {
+      t.is(S.$$Error.message(err._1), errorMessage, undefined);
+      return ;
+    }
+    throw err;
+  }
+  t.fail("Asserted result is not Error. Recieved: " + JSON.stringify(any));
+}
+
+async function assertThrowsAsync(t, cb, errorPayload) {
   var any;
   try {
     any = await cb();
@@ -119,8 +135,7 @@ function cleanUpSchema(schema) {
         var key = param[0];
         switch (key) {
           case "advanced" :
-          case "c" :
-          case "i" :
+          case "isAsync" :
           case "k" :
           case "of" :
           case "output" :
@@ -167,8 +182,9 @@ export {
   raiseTestException ,
   error ,
   assertThrowsTestException ,
-  assertRaised ,
-  assertRaisedAsync ,
+  assertThrows ,
+  assertThrowsMessage ,
+  assertThrowsAsync ,
   getCompiledCodeString ,
   cleanUpSchema ,
   unsafeAssertEqualSchemas ,

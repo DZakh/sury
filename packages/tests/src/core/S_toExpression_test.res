@@ -132,7 +132,7 @@ test("Expression of renamed schema", t => {
   t->Assert.deepEqual(originalSchema->S.toExpression, "never", ())
   t->Assert.deepEqual(renamedSchema->S.toExpression, "Ethers.BigInt", ())
   // Uses new name when failing
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "smth"->S.parseOrThrow(renamedSchema),
     {
       path: S.Path.empty,
@@ -156,7 +156,7 @@ test("Expression of renamed schema", t => {
     // FIXME: This is wrong
     `i=>{try{e[0](i);}catch(e0){if(i===void 0){i=null}}return i}`,
   )
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`"smth"`)->S.reverseConvertOrThrow(S.null(S.never)->S.name("Ethers.BigInt")),
     {
       path: S.Path.empty,

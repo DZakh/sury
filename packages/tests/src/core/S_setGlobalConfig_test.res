@@ -11,7 +11,7 @@ asyncTest("Resets S.float cache after disableNanNumberValidation=true removed", 
   t->Assert.deepEqual(nan->S.assertOrThrow(S.float), (), ())
 
   S.setGlobalConfig({})
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => nan->S.parseOrThrow(S.float),
     {
       code: S.InvalidType({
@@ -22,7 +22,7 @@ asyncTest("Resets S.float cache after disableNanNumberValidation=true removed", 
       path: S.Path.empty,
     },
   )
-  await t->U.assertRaisedAsync(
+  await t->U.assertThrowsAsync(
     () => nan->S.parseAsyncOrThrow(S.float),
     {
       code: S.InvalidType({

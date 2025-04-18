@@ -21,7 +21,7 @@ test("Successfully parses empty object when UnknownKeys are strict", t => {
 test("Fails to parse object with excess keys when UnknownKeys are strict", t => {
   let schema = S.object(_ => ())->S.strict
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`{field:"bar"}`)->S.parseOrThrow(schema),
     {code: ExcessField("field"), operation: Parse, path: S.Path.empty},
   )

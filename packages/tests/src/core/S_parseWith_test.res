@@ -16,7 +16,7 @@ test("Successfully parses unknown", t => {
 test("Fails to parse", t => {
   let schema = S.bool
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw("123")->S.parseOrThrow(schema),
     {
       code: InvalidType({expected: schema->S.toUnknown, received: %raw("123")}),

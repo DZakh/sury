@@ -17,7 +17,7 @@ module CommonWithNested = {
   test("Fails to parse", t => {
     let schema = factory()
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => invalidAny->S.parseOrThrow(schema),
       {
         code: InvalidType({expected: schema->S.toUnknown, received: invalidAny}),
@@ -30,7 +30,7 @@ module CommonWithNested = {
   test("Fails to parse nested", t => {
     let schema = factory()
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => nestedInvalidAny->S.parseOrThrow(schema),
       {
         code: InvalidType({expected: S.string->S.toUnknown, received: 1->Obj.magic}),
@@ -113,7 +113,7 @@ test("Successfully parses matrix", t => {
 test("Fails to parse matrix", t => {
   let schema = S.array(S.array(S.string))
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`[["a", 1], ["c", "d"]]`)->S.parseOrThrow(schema),
     {
       code: InvalidType({expected: S.string->S.toUnknown, received: %raw(`1`)}),

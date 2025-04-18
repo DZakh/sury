@@ -36,7 +36,7 @@ test("Fails to parse JSON", t => {
 test("Fails to parse", t => {
   let schema = S.bool
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "123"->S.parseJsonStringOrThrow(schema),
     {
       code: InvalidType({expected: schema->S.toUnknown, received: Obj.magic(123)}),

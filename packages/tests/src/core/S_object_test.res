@@ -21,7 +21,7 @@ test("Fails to parse object with inlinable string field", t => {
     }
   )
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`{field: 123}`)->S.parseOrThrow(schema),
     {
       code: InvalidType({expected: S.string->S.toUnknown, received: %raw(`123`)}),
@@ -40,7 +40,7 @@ test(
       }
     )
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => %raw(`{field: ["foo"]}`)->S.parseOrThrow(schema),
       {
         code: OperationFailed("User error"),
@@ -68,7 +68,7 @@ test("Fails to parse object with inlinable bool field", t => {
     }
   )
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`{field: 123}`)->S.parseOrThrow(schema),
     {
       code: InvalidType({expected: S.bool->S.toUnknown, received: %raw(`123`)}),
@@ -113,7 +113,7 @@ test("Fails to parse object with inlinable never field", t => {
     }
   )
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`{field: true}`)->S.parseOrThrow(schema),
     {
       code: InvalidType({expected: S.never->S.toUnknown, received: %raw(`true`)}),
@@ -140,7 +140,7 @@ test("Fails to parse object with inlinable float field", t => {
     }
   )
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`{field: true}`)->S.parseOrThrow(schema),
     {
       code: InvalidType({expected: S.float->S.toUnknown, received: %raw(`true`)}),
@@ -167,7 +167,7 @@ test("Fails to parse object with inlinable int field", t => {
     }
   )
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`{field: true}`)->S.parseOrThrow(schema),
     {
       code: InvalidType({expected: S.int->S.toUnknown, received: %raw(`true`)}),
@@ -195,7 +195,7 @@ test("Fails to parse object with not inlinable empty object field", t => {
     }
   )
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`{field: true}`)->S.parseOrThrow(schema),
     {
       code: InvalidType({expected: fieldSchema->S.toUnknown, received: %raw(`true`)}),
@@ -212,7 +212,7 @@ test("Fails to parse object when provided invalid data", t => {
     }
   )
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`12`)->S.parseOrThrow(schema),
     {
       code: InvalidType({expected: schema->S.toUnknown, received: %raw(`12`)}),
@@ -282,7 +282,7 @@ test("Fails to parse object when transformed field has raises error", t => {
     }
   )
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => {"field": "bar"}->S.parseOrThrow(schema),
     {
       code: OperationFailed("User error"),
@@ -302,7 +302,7 @@ test("Shows transformed object field name in error path when fails to parse", t 
     }
   )
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => {"originalFieldName": "bar"}->S.parseOrThrow(schema),
     {
       code: OperationFailed("User error"),
@@ -339,7 +339,7 @@ test("Fails to serializes object when transformed field has raises error", t => 
     }
   )
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => {"field": "bar"}->S.reverseConvertOrThrow(schema),
     {
       code: OperationFailed("User error"),
@@ -359,7 +359,7 @@ test("Shows transformed object field name in error path when fails to serializes
     }
   )
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => {"transformedFieldName": "bar"}->S.reverseConvertOrThrow(schema),
     {
       code: OperationFailed("User error"),
@@ -381,7 +381,7 @@ test("Shows transformed to nested object field name in error path when fails to 
     }
   )
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () =>
       {
         "v1": {
@@ -662,7 +662,7 @@ test("Parse reversed schema with nested objects and tuples has type validation",
     }
   )
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => {
       schema->S.compile(~input=Value, ~output=Unknown, ~mode=Sync, ~typeValidation=true)
     },
@@ -1011,7 +1011,7 @@ test("Reverse convert of object schema with single field registered multiple tim
     %raw(`{"field": "foo"}`),
     (),
   )
-  // t->U.assertRaised(
+  // t->U.assertThrows(
   //   () => {"field1": "foo", "field2": "foo", "field3": "foz"}->S.reverseConvertOrThrow(schema),
   //   {
   //     code: InvalidOperation({
@@ -1073,7 +1073,7 @@ test("Object schema parsing checks order", t => {
   })->S.strict
 
   // Type check should be the first
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`"foo"`)->S.parseOrThrow(schema),
     {
       code: InvalidType({expected: schema->S.toUnknown, received: %raw(`"foo"`)}),
@@ -1082,7 +1082,7 @@ test("Object schema parsing checks order", t => {
     },
   )
   // Tag check should be the second
-  t->U.assertRaised(
+  t->U.assertThrows(
     () =>
       %raw(`{tag: "wrong", key: 123, unknownKey: "value", unknownKey2: "value"}`)->S.parseOrThrow(
         schema,
@@ -1097,7 +1097,7 @@ test("Object schema parsing checks order", t => {
     },
   )
   // Field check should be the third
-  t->U.assertRaised(
+  t->U.assertThrows(
     () =>
       %raw(`{tag: "value", key: 123, unknownKey: "value", unknownKey2: "value"}`)->S.parseOrThrow(
         schema,
@@ -1109,7 +1109,7 @@ test("Object schema parsing checks order", t => {
     },
   )
   // Unknown keys check should be the last
-  t->U.assertRaised(
+  t->U.assertThrows(
     () =>
       %raw(`{tag: "value", key: "value", unknownKey: "value2", unknownKey2: "value2"}`)->S.parseOrThrow(
         schema,

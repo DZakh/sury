@@ -57,7 +57,7 @@ test("Fails to parse Object field", t => {
     [("bar", %raw(`undefined`)), ("baz", JSON.Encode.null)]->Dict.fromArray,
   )
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => data->S.parseOrThrow(schema),
     {
       code: InvalidType({received: %raw(`undefined`), expected: schema->S.toUnknown}),
@@ -71,7 +71,7 @@ test("Fails to parse matrix field", t => {
   let schema = S.json(~validate=true)
   let data = %raw(`[1,[undefined]]`)
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => data->S.parseOrThrow(schema),
     {
       code: InvalidType({received: %raw(`undefined`), expected: schema->S.toUnknown}),
@@ -83,7 +83,7 @@ test("Fails to parse matrix field", t => {
 
 test("Fails to parse NaN", t => {
   let schema = S.json(~validate=true)
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`NaN`)->S.parseOrThrow(schema),
     {
       code: InvalidType({received: %raw(`NaN`), expected: schema->S.toUnknown}),
@@ -95,7 +95,7 @@ test("Fails to parse NaN", t => {
 
 test("Fails to parse undefined", t => {
   let schema = S.json(~validate=true)
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`undefined`)->S.parseOrThrow(schema),
     {
       code: InvalidType({received: %raw(`undefined`), expected: schema->S.toUnknown}),

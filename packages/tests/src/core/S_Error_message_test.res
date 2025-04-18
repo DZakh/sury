@@ -67,7 +67,7 @@ test("UnexpectedAsync error", t => {
       operation: Parse,
       path: S.Path.empty,
     })->S.Error.message,
-    "Failed parsing: Encountered unexpected async transform or refine. Use ParseAsync operation instead",
+    "Failed parsing: Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead",
     (),
   )
 })

@@ -27,7 +27,7 @@ asyncTest(
 test("Fails to parse primitive with transform when parser isn't provided", t => {
   let schema = S.string->S.transform(_ => {serializer: value => value})
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "Hello world!"->S.parseOrThrow(schema),
     {
       code: InvalidOperation({description: "The S.transform parser is missing"}),
@@ -40,7 +40,7 @@ test("Fails to parse primitive with transform when parser isn't provided", t => 
 test("Fails to parse when user raises error in a Transformed Primitive parser", t => {
   let schema = S.string->S.transform(s => {parser: _ => s.fail("User error")})
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "Hello world!"->S.parseOrThrow(schema),
     {code: OperationFailed("User error"), operation: Parse, path: S.Path.empty},
   )
@@ -60,7 +60,7 @@ test("Uses the path from S.Error.raise called in the transform parser", t => {
     }),
   )
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => ["Hello world!"]->S.parseOrThrow(schema),
     {
       code: OperationFailed("User error"),
@@ -84,7 +84,7 @@ test("Uses the path from S.Error.raise called in the transform serializer", t =>
     }),
   )
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => ["Hello world!"]->S.reverseConvertToJsonOrThrow(schema),
     {
       code: OperationFailed("User error"),
@@ -147,7 +147,7 @@ test("Successfully serializes primitive with transformation to another type", t 
 test("Transformed Primitive serializing fails when serializer isn't provided", t => {
   let schema = S.string->S.transform(_ => {parser: value => value})
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "Hello world!"->S.reverseConvertOrThrow(schema),
     {
       code: InvalidOperation({description: "The S.transform serializer is missing"}),
@@ -160,7 +160,7 @@ test("Transformed Primitive serializing fails when serializer isn't provided", t
 test("Fails to serialize when user raises error in a Transformed Primitive serializer", t => {
   let schema = S.string->S.transform(s => {serializer: _ => s.fail("User error")})
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "Hello world!"->S.reverseConvertOrThrow(schema),
     {code: OperationFailed("User error"), operation: ReverseConvert, path: S.Path.empty},
   )
@@ -172,7 +172,7 @@ test("Transform operations applyed in the right order when parsing", t => {
     ->S.transform(s => {parser: _ => s.fail("First transform")})
     ->S.transform(s => {parser: _ => s.fail("Second transform")})
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => 123->S.parseOrThrow(schema),
     {code: OperationFailed("First transform"), operation: Parse, path: S.Path.empty},
   )
@@ -184,7 +184,7 @@ test("Transform operations applyed in the right order when serializing", t => {
     ->S.transform(s => {serializer: _ => s.fail("First transform")})
     ->S.transform(s => {serializer: _ => s.fail("Second transform")})
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => 123->S.reverseConvertOrThrow(schema),
     {
       code: OperationFailed("Second transform"),
@@ -211,7 +211,7 @@ test(
 test("Fails to parse schema with transform having both parser and asyncParser", t => {
   let schema = S.string->S.transform(_ => {parser: _ => (), asyncParser: _ => Promise.resolve()})
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "foo"->S.parseOrThrow(schema),
     {
       code: InvalidOperation({
@@ -226,7 +226,7 @@ test("Fails to parse schema with transform having both parser and asyncParser", 
 test("Fails to parse async using parseOrThrow", t => {
   let schema = S.string->S.transform(_ => {asyncParser: value => Promise.resolve(value)})
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`"Hello world!"`)->S.parseOrThrow(schema),
     {code: UnexpectedAsync, operation: Parse, path: S.Path.empty},
   )
@@ -257,7 +257,7 @@ asyncTest("Successfully parses async using parseAsyncOrThrow", t => {
 asyncTest("Fails to parse async with user error", t => {
   let schema = S.string->S.transform(s => {asyncParser: _ => s.fail("User error")})
 
-  t->U.assertRaisedAsync(
+  t->U.assertThrowsAsync(
     () => %raw(`"Hello world!"`)->S.parseAsyncOrThrow(schema),
     {code: OperationFailed("User error"), operation: ParseAsync, path: S.Path.empty},
   )

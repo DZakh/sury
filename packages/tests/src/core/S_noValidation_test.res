@@ -4,7 +4,7 @@ test("Successfully parses", t => {
   let schema = S.string
   let schemaWithoutTypeValidation = schema->S.noValidation(true)
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => 1->S.parseOrThrow(schema),
     {
       code: S.InvalidType({
@@ -22,7 +22,7 @@ test("Works for literals", t => {
   let schema = S.literal("foo")
   let schemaWithoutTypeValidation = schema->S.noValidation(true)
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => 1->S.parseOrThrow(schema),
     {
       code: S.InvalidType({

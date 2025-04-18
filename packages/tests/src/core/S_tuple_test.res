@@ -17,7 +17,7 @@ module Tuple0 = {
   test("Fails to parse extra value in strict mode (default for tuple)", t => {
     let schema = factory()
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => invalidAny->S.parseOrThrow(schema),
       {
         code: InvalidType({
@@ -39,7 +39,7 @@ module Tuple0 = {
   test("Fails to parse invalid type", t => {
     let schema = factory()
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => invalidTypeAny->S.parseOrThrow(schema),
       {
         code: InvalidType({expected: schema->S.toUnknown, received: invalidTypeAny}),
@@ -71,7 +71,7 @@ test("Successfully parses tuple with holes", t => {
 test("Fails to parse tuple with holes", t => {
   let schema = S.tuple(s => (s.item(0, S.string), s.item(2, S.int)))
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`["value", "smth", 123]`)->S.parseOrThrow(schema),
     {
       code: InvalidType({expected: schema->S.toUnknown, received: %raw(`["value", "smth", 123]`)}),
@@ -109,7 +109,7 @@ test("Reverse convert of tuple schema with single item registered multiple times
     %raw(`["foo"]`),
     (),
   )
-  // t->U.assertRaised(
+  // t->U.assertThrows(
   //   () => {"item1": "foo", "item2": "foz"}->S.reverseConvertOrThrow(schema),
   //   {
   //     code: InvalidOperation({
@@ -127,7 +127,7 @@ test(`Fails to serialize tuple with discriminant "Never"`, t => {
     s.item(1, S.string)
   })
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "bar"->S.reverseConvertOrThrow(schema),
     {
       code: InvalidOperation({
@@ -153,7 +153,7 @@ test(`Fails to serialize tuple with discriminant "Never" inside of an object (te
     }
   )
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => {"foo": "bar"}->S.reverseConvertOrThrow(schema),
     {
       code: InvalidOperation({
@@ -180,7 +180,7 @@ test("Successfully serializes tuple transformed to variant", t => {
 test("Fails to serialize tuple transformed to variant", t => {
   let schema = S.tuple(s => Ok(s.item(0, S.bool)))
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => Error("foo")->S.reverseConvertOrThrow(schema),
     {
       code: InvalidType({expected: S.literal("Ok")->S.toUnknown, received: %raw(`"Error"`)}),
@@ -217,7 +217,7 @@ test("Tuple schema parsing checks order", t => {
   })
 
   // Type check should be the first
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`"foo"`)->S.parseOrThrow(schema),
     {
       code: InvalidType({expected: schema->S.toUnknown, received: %raw(`"foo"`)}),
@@ -226,7 +226,7 @@ test("Tuple schema parsing checks order", t => {
     },
   )
   // Length check should be the second
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`["value"]`)->S.parseOrThrow(schema),
     {
       code: InvalidType({
@@ -238,7 +238,7 @@ test("Tuple schema parsing checks order", t => {
     },
   )
   // Length check should be the second (extra items in strict mode)
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`["value", "value", "value"]`)->S.parseOrThrow(schema->S.strict),
     {
       code: InvalidType({
@@ -250,7 +250,7 @@ test("Tuple schema parsing checks order", t => {
     },
   )
   // Tag check should be the third
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`["value", "wrong"]`)->S.parseOrThrow(schema),
     {
       code: InvalidType({expected: schema->S.toUnknown, received: %raw(`["value", "wrong"]`)}),
@@ -259,7 +259,7 @@ test("Tuple schema parsing checks order", t => {
     },
   )
   // Field check should be the last
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`[1, "value"]`)->S.parseOrThrow(schema),
     {
       code: InvalidType({expected: S.string->S.toUnknown, received: %raw(`1`)}),

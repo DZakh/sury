@@ -262,7 +262,7 @@ function reason(error, nestedLevelOpt) {
   var nestedLevel = nestedLevelOpt !== undefined ? nestedLevelOpt : 0;
   var reason$1 = error.code;
   if (typeof reason$1 !== "object") {
-    return "Encountered unexpected async transform or refine. Use ParseAsync operation instead";
+    return "Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead";
   }
   switch (reason$1.TAG) {
     case "OperationFailed" :
@@ -1336,6 +1336,7 @@ function transform$1(schema, transformer) {
                 })
             };
     });
+  mut.isAsync = undefined;
   return toStandard(mut);
 }
 

@@ -138,7 +138,7 @@ test("Fails to parse nested recursive object", t => {
     )
   })
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () =>
       {
         "Id": "1",
@@ -181,7 +181,7 @@ test("Fails to parse nested recursive object inside of another object", t => {
     )
   )
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () =>
       {
         "recursive": {
@@ -290,7 +290,7 @@ test("Fails to serialise nested recursive object", t => {
     )
   })
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () =>
       {
         id: "1",

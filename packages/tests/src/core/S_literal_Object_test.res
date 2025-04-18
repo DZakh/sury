@@ -33,7 +33,7 @@ module Common = {
   test("Fails to serialize invalid", t => {
     let schema = factory()
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => invalid->S.reverseConvertOrThrow(schema),
       {
         code: InvalidType({
@@ -49,7 +49,7 @@ module Common = {
   test("Fails to parse null", t => {
     let schema = factory()
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => %raw(`null`)->S.parseOrThrow(schema),
       {
         code: InvalidType({

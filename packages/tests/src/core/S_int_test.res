@@ -15,7 +15,7 @@ module Common = {
   test("Fails to parse", t => {
     let schema = factory()
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => invalidAny->S.parseOrThrow(schema),
       {
         code: InvalidType({expected: schema->S.toUnknown, received: invalidAny}),
@@ -61,7 +61,7 @@ module Common = {
 test("Fails to parse int when JSON is a number bigger than +2^31", t => {
   let schema = S.int
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`2147483648`)->S.parseOrThrow(schema),
     {
       code: InvalidType({expected: schema->S.toUnknown, received: %raw(`2147483648`)}),
@@ -75,7 +75,7 @@ test("Fails to parse int when JSON is a number bigger than +2^31", t => {
 test("Fails to parse int when JSON is a number lower than -2^31", t => {
   let schema = S.int
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`-2147483649`)->S.parseOrThrow(schema),
     {
       code: InvalidType({expected: schema->S.toUnknown, received: %raw(`-2147483649`)}),
@@ -89,7 +89,7 @@ test("Fails to parse int when JSON is a number lower than -2^31", t => {
 test("Fails to parse NaN", t => {
   let schema = S.int
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`NaN`)->S.parseOrThrow(schema),
     {
       code: InvalidType({expected: schema->S.toUnknown, received: %raw(`NaN`)}),

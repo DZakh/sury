@@ -10,7 +10,7 @@ test("Coerce from string to bool", t => {
 
   t->Assert.deepEqual("false"->S.parseOrThrow(schema), false, ())
   t->Assert.deepEqual("true"->S.parseOrThrow(schema), true, ())
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "tru"->S.parseOrThrow(schema),
     {
       code: InvalidType({
@@ -41,7 +41,7 @@ test("Coerce from bool to string", t => {
 
   t->Assert.deepEqual(false->S.parseOrThrow(schema), "false", ())
   t->Assert.deepEqual(true->S.parseOrThrow(schema), "true", ())
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "tru"->S.reverseConvertOrThrow(schema),
     {
       code: InvalidType({
@@ -71,7 +71,7 @@ test("Coerce from string to bool literal", t => {
   let schema = S.string->S.to(S.literal(false))
 
   t->Assert.deepEqual("false"->S.parseOrThrow(schema), false, ())
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "true"->S.parseOrThrow(schema),
     {
       code: InvalidType({
@@ -96,7 +96,7 @@ test("Coerce from string to null literal", t => {
   let schema = S.string->S.to(S.literal(%raw(`null`)))
 
   t->Assert.deepEqual("null"->S.parseOrThrow(schema), %raw(`null`), ())
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "true"->S.parseOrThrow(schema),
     {
       code: InvalidType({
@@ -121,7 +121,7 @@ test("Coerce from string to undefined literal", t => {
   let schema = S.string->S.to(S.literal(%raw(`undefined`)))
 
   t->Assert.deepEqual("undefined"->S.parseOrThrow(schema), %raw(`undefined`), ())
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "true"->S.parseOrThrow(schema),
     {
       code: InvalidType({
@@ -150,7 +150,7 @@ test("Coerce from string to NaN literal", t => {
   let schema = S.string->S.to(S.literal(%raw(`NaN`)))
 
   t->Assert.deepEqual("NaN"->S.parseOrThrow(schema), %raw(`NaN`), ())
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "true"->S.parseOrThrow(schema),
     {
       code: InvalidType({
@@ -180,7 +180,7 @@ test("Coerce from string to string literal", t => {
   let schema = S.string->S.to(S.literal(quotedString))
 
   t->Assert.deepEqual(quotedString->S.parseOrThrow(schema), quotedString, ())
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "bar"->S.parseOrThrow(schema),
     {
       code: InvalidType({
@@ -192,7 +192,7 @@ test("Coerce from string to string literal", t => {
     },
   )
   t->Assert.deepEqual(quotedString->S.reverseConvertOrThrow(schema), %raw(`quotedString`), ())
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "bar"->S.reverseConvertOrThrow(schema),
     {
       code: InvalidType({
@@ -239,7 +239,7 @@ test("Coerce to literal can be used as tag and automatically embeded on reverse 
   )
 
   t->Assert.deepEqual({"tag": "true"}->S.parseOrThrow(schema), (), ())
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => {"tag": "false"}->S.parseOrThrow(schema),
     {
       code: InvalidType({
@@ -262,7 +262,7 @@ test("Coerce from string to float", t => {
 
   t->Assert.deepEqual("10"->S.parseOrThrow(schema), 10., ())
   t->Assert.deepEqual("10.2"->S.parseOrThrow(schema), 10.2, ())
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "tru"->S.parseOrThrow(schema),
     {
       code: InvalidType({
@@ -293,7 +293,7 @@ test("Coerce from string to int32", t => {
   let schema = S.string->S.to(S.int)
 
   t->Assert.deepEqual("10"->S.parseOrThrow(schema), 10, ())
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "2147483648"->S.parseOrThrow(schema),
     {
       code: InvalidType({
@@ -304,7 +304,7 @@ test("Coerce from string to int32", t => {
       operation: Parse,
     },
   )
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "10.2"->S.parseOrThrow(schema),
     {
       code: InvalidType({
@@ -334,7 +334,7 @@ test("Coerce from string to bigint literal", t => {
   let schema = S.string->S.to(S.literal(10n))
 
   t->Assert.deepEqual("10"->S.parseOrThrow(schema), 10n, ())
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "11"->S.parseOrThrow(schema),
     {
       code: InvalidType({
@@ -360,7 +360,7 @@ test("Coerce from string to bigint", t => {
   let schema = S.string->S.to(S.bigint)
 
   t->Assert.deepEqual("10"->S.parseOrThrow(schema), 10n, ())
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "10.2"->S.parseOrThrow(schema),
     {
       code: InvalidType({
@@ -482,7 +482,7 @@ test("Coerce from unit to null literal", t => {
   let schema = S.unit->S.to(S.literal(%raw(`null`)))
 
   t->Assert.deepEqual(()->S.parseOrThrow(schema), %raw(`null`), ())
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`null`)->S.parseOrThrow(schema),
     {
       code: InvalidType({
@@ -504,7 +504,7 @@ test("Coerce from string to optional bool", t => {
 
   t->Assert.deepEqual("undefined"->S.parseOrThrow(schema), None, ())
   t->Assert.deepEqual("true"->S.parseOrThrow(schema), Some(true), ())
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`null`)->S.parseOrThrow(schema),
     {
       code: InvalidType({

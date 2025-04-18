@@ -32,7 +32,7 @@ test("Successfully parses", t => {
 test("Fails to parse when user raises error in parser", t => {
   let schema = S.string->S.preprocess(s => {parser: _ => s.fail("User error")})
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "Hello world!"->S.parseOrThrow(schema),
     {code: OperationFailed("User error"), operation: Parse, path: S.Path.empty},
   )
@@ -48,7 +48,7 @@ test("Successfully serializes", t => {
 test("Fails to serialize when user raises error in serializer", t => {
   let schema = S.string->S.preprocess(s => {serializer: _ => s.fail("User error")})
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "Hello world!"->S.reverseConvertOrThrow(schema),
     {code: OperationFailed("User error"), operation: ReverseConvert, path: S.Path.empty},
   )
@@ -60,7 +60,7 @@ test("Preprocess operations applyed in the right order when parsing", t => {
     ->S.preprocess(s => {parser: _ => s.fail("First preprocess")})
     ->S.preprocess(s => {parser: _ => s.fail("Second preprocess")})
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => 123->S.parseOrThrow(schema),
     {code: OperationFailed("Second preprocess"), operation: Parse, path: S.Path.empty},
   )
@@ -72,7 +72,7 @@ test("Preprocess operations applyed in the right order when serializing", t => {
     ->S.preprocess(s => {serializer: _ => s.fail("First preprocess")})
     ->S.preprocess(s => {serializer: _ => s.fail("Second preprocess")})
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => 123->S.reverseConvertOrThrow(schema),
     {
       code: OperationFailed("First preprocess"),
@@ -85,7 +85,7 @@ test("Preprocess operations applyed in the right order when serializing", t => {
 test("Fails to parse async using parseOrThrow", t => {
   let schema = S.string->S.preprocess(_ => {asyncParser: value => Promise.resolve(value)})
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`"Hello world!"`)->S.parseOrThrow(schema),
     {code: UnexpectedAsync, operation: Parse, path: S.Path.empty},
   )
@@ -100,7 +100,7 @@ asyncTest("Successfully parses async using parseAsyncOrThrow", async t => {
 asyncTest("Fails to parse async with user error", t => {
   let schema = S.string->S.preprocess(s => {asyncParser: _ => s.fail("User error")})
 
-  t->U.assertRaisedAsync(
+  t->U.assertThrowsAsync(
     () => %raw(`"Hello world!"`)->S.parseAsyncOrThrow(schema),
     {code: OperationFailed("User error"), operation: ParseAsync, path: S.Path.empty},
   )

@@ -244,7 +244,7 @@ module Negative = {
           },
         )
 
-        t->U.assertRaised(
+        t->U.assertThrows(
           () => {"field": "bar"}->S.reverseConvertOrThrow(schema),
           {
             code: InvalidOperation({
@@ -291,7 +291,7 @@ module NestedNegative = {
         }
       })
 
-      t->U.assertRaised(
+      t->U.assertThrows(
         () => {"field": "bar"}->S.reverseConvertOrThrow(schema),
         {
           code: InvalidOperation({
@@ -313,7 +313,7 @@ test(`Fails to parse object with invalid data passed to discriminant field`, t =
     }
   })
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () =>
       {
         "discriminant": false,
@@ -335,7 +335,7 @@ test(`Parses discriminant fields before registered fields`, t => {
     }
   })
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () =>
       {
         "discriminant": false,
@@ -357,7 +357,7 @@ test(`Fails to serialize object with discriminant "Never"`, t => {
     }
   })
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => {"field": "bar"}->S.reverseConvertOrThrow(schema),
     {
       code: InvalidOperation({
@@ -377,7 +377,7 @@ test(`Serializes constant fields before registered non-literal fields`, t => {
     }
   })
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => {"constant": false, "literalField": false}->S.reverseConvertOrThrow(schema),
     {
       code: InvalidType({expected: S.literal(true)->S.toUnknown, received: Obj.magic(false)}),
@@ -393,7 +393,7 @@ test(`Serializes constant fields before registered non-literal fields`, t => {
     }
   })
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => {"constant": false, "boolField": false}->S.reverseConvertOrThrow(schema),
     {
       code: InvalidType({expected: S.literal(true)->S.toUnknown, received: Obj.magic(false)}),

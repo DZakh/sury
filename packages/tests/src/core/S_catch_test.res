@@ -22,7 +22,7 @@ test("Uses fallback value when parsing failed", t => {
 test("Doesn't affect serializing in any way", t => {
   let schema = S.int->S.port->S.catch(_ => 8080)
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => -1->S.reverseConvertOrThrow(schema),
     {
       code: InvalidOperation({description: "Invalid port"}),
@@ -63,7 +63,7 @@ test("Can use s.fail inside of S.catch", t => {
     })
   t->Assert.deepEqual(3000->S.parseOrThrow(schema), 3000, ())
   t->Assert.deepEqual("3000"->S.parseOrThrow(schema), 8080, ())
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => true->S.parseOrThrow(schema),
     {
       code: OperationFailed("Fallback value only supported for strings."),
@@ -72,7 +72,7 @@ test("Can use s.fail inside of S.catch", t => {
     },
   )
   t->Assert.deepEqual(3000->S.reverseConvertOrThrow(schema), %raw(`3000`), ())
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => -1->S.reverseConvertOrThrow(schema),
     {
       code: InvalidOperation({description: "Invalid port"}),

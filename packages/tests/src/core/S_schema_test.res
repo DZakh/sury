@@ -259,7 +259,7 @@ test(
 
     t->Assert.deepEqual(%raw(`["foo", true]`)->S.parseOrThrow(schema), {"0": "foo", "1": true}, ())
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => %raw(`["foo", true]`)->S.parseOrThrow(schema->S.strict),
       {
         code: InvalidType({
@@ -280,7 +280,7 @@ test(
 
     t->Assert.deepEqual(%raw(`["foo", true]`)->S.parseOrThrow(schema), ("foo", true), ())
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => %raw(`["foo", true, 1]`)->S.parseOrThrow(schema),
       {
         code: InvalidType({

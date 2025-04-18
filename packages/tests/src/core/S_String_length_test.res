@@ -9,7 +9,7 @@ test("Successfully parses valid data", t => {
 test("Fails to parse invalid data", t => {
   let schema = S.string->S.stringLength(1)
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => ""->S.parseOrThrow(schema),
     {
       code: OperationFailed("String must be exactly 1 characters long"),
@@ -17,7 +17,7 @@ test("Fails to parse invalid data", t => {
       path: S.Path.empty,
     },
   )
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "1234"->S.parseOrThrow(schema),
     {
       code: OperationFailed("String must be exactly 1 characters long"),
@@ -36,7 +36,7 @@ test("Successfully serializes valid value", t => {
 test("Fails to serialize invalid value", t => {
   let schema = S.string->S.stringLength(1)
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => ""->S.reverseConvertOrThrow(schema),
     {
       code: OperationFailed("String must be exactly 1 characters long"),
@@ -44,7 +44,7 @@ test("Fails to serialize invalid value", t => {
       path: S.Path.empty,
     },
   )
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "1234"->S.reverseConvertOrThrow(schema),
     {
       code: OperationFailed("String must be exactly 1 characters long"),
@@ -57,7 +57,7 @@ test("Fails to serialize invalid value", t => {
 test("Returns custom error message", t => {
   let schema = S.string->S.stringLength(~message="Custom", 12)
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "123"->S.parseOrThrow(schema),
     {code: OperationFailed("Custom"), operation: Parse, path: S.Path.empty},
   )

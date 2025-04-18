@@ -9,7 +9,7 @@ test("Successfully parses valid data", t => {
 test("Fails to parse invalid data", t => {
   let schema = S.array(S.int)->S.arrayLength(1)
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => []->S.parseOrThrow(schema),
     {
       code: OperationFailed("Array must be exactly 1 items long"),
@@ -17,7 +17,7 @@ test("Fails to parse invalid data", t => {
       path: S.Path.empty,
     },
   )
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => [1, 2, 3, 4]->S.parseOrThrow(schema),
     {
       code: OperationFailed("Array must be exactly 1 items long"),
@@ -36,7 +36,7 @@ test("Successfully serializes valid value", t => {
 test("Fails to serialize invalid value", t => {
   let schema = S.array(S.int)->S.arrayLength(1)
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => []->S.reverseConvertOrThrow(schema),
     {
       code: OperationFailed("Array must be exactly 1 items long"),
@@ -44,7 +44,7 @@ test("Fails to serialize invalid value", t => {
       path: S.Path.empty,
     },
   )
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => [1, 2, 3, 4]->S.reverseConvertOrThrow(schema),
     {
       code: OperationFailed("Array must be exactly 1 items long"),
@@ -57,7 +57,7 @@ test("Fails to serialize invalid value", t => {
 test("Returns custom error message", t => {
   let schema = S.array(S.int)->S.arrayLength(~message="Custom", 1)
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => []->S.parseOrThrow(schema),
     {code: OperationFailed("Custom"), operation: Parse, path: S.Path.empty},
   )

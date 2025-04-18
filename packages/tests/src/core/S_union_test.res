@@ -265,7 +265,7 @@ module Advanced = {
       path: S.Path.empty,
     }
 
-    t->U.assertRaised(() => shape->S.parseOrThrow(shapeSchema), error)
+    t->U.assertThrows(() => shape->S.parseOrThrow(shapeSchema), error)
   })
 
   test("Fails to parse with unknown kind when the union is an object field", t => {
@@ -295,7 +295,7 @@ module Advanced = {
       `i=>{if(typeof i!=="object"||!i){e[9](i)}let v0=i["field"];if(typeof v0==="object"&&v0){if(v0["kind"]==="circle"){let v1=v0["radius"];if(typeof v1!=="number"||Number.isNaN(v1)){e[0](v1)}v0={"TAG":e[1],"radius":v1,}}else if(v0["kind"]==="square"){let v2=v0["x"];if(typeof v2!=="number"||Number.isNaN(v2)){e[2](v2)}v0={"TAG":e[3],"x":v2,}}else if(v0["kind"]==="triangle"){let v3=v0["x"],v4=v0["y"];if(typeof v3!=="number"||Number.isNaN(v3)){e[4](v3)}if(typeof v4!=="number"||Number.isNaN(v4)){e[5](v4)}v0={"TAG":e[6],"x":v3,"y":v4,}}else{e[7](v0)}}else{e[8](v0)}return v0}`,
     )
 
-    t->U.assertRaised(() => data->S.parseOrThrow(schema), error)
+    t->U.assertThrows(() => data->S.parseOrThrow(schema), error)
     t->Assert.is(
       error->U.error->S.Error.message,
       `Failed parsing at ["field"]: Expected { kind: "circle"; radius: number; } | { kind: "square"; x: number; } | { kind: "triangle"; x: number; y: number; }, received {"kind": "oval", "x": 2, "y": 3}`,
@@ -304,7 +304,7 @@ module Advanced = {
   })
 
   test("Fails to parse with invalid data type", t => {
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => %raw(`"Hello world!"`)->S.parseOrThrow(shapeSchema),
       {
         code: InvalidType({

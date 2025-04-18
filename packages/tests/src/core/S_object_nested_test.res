@@ -374,7 +374,7 @@ test("S.schema object with a deep strict applied to the nested field parent + re
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{let v0=i["nested"];let v1=v0["foo"];if(v1===null){v1=undefined}return {"nested":{"foo":v1,},}}`,
+    `i=>{let v0=i["nested"];let v1=v0["foo"];if(v1===null){v1=void 0}return {"nested":{"foo":v1,},}}`,
   )
 })
 

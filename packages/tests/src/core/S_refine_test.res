@@ -7,7 +7,7 @@ test("Successfully refines on parsing", t => {
     })
 
   t->Assert.deepEqual(%raw(`12`)->S.parseOrThrow(schema), 12, ())
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`-12`)->S.parseOrThrow(schema),
     {
       code: OperationFailed("Should be positive"),
@@ -23,7 +23,7 @@ test("Fails with custom path", t => {
       s.fail(~path=S.Path.fromArray(["data", "myInt"]), "Should be positive")
     })
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`-12`)->S.parseOrThrow(schema),
     {
       code: OperationFailed("Should be positive"),
@@ -40,7 +40,7 @@ test("Successfully refines on serializing", t => {
     })
 
   t->Assert.deepEqual(12->S.reverseConvertOrThrow(schema), %raw("12"), ())
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => -12->S.reverseConvertOrThrow(schema),
     {
       code: OperationFailed("Should be positive"),

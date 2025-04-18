@@ -481,7 +481,9 @@ module Union = {
   test("[Union] Passes with Parse operation. Async item should fail", t => {
     let schema = S.union([S.literal(2)->validAsyncRefine, S.literal(2), S.literal(3)])
 
-    t->Assert.deepEqual(2->S.parseOrThrow(schema), 2, ())
+    t->U.assertThrowsMessage(() => {
+      2->S.parseOrThrow(schema)
+    }, "Failed parsing: Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead")
   })
 
   // Failing.asyncTest(
@@ -491,7 +493,7 @@ module Union = {
   //     let input = %raw("true")
 
   //     (input->S.parseAnyAsyncInStepsWith(schema)->Result.getExn)()->Promise.thenResolve(result => {
-  //       t->U.assertRaised(() =>
+  //       t->U.assertThrows(() =>
   //         result,
   //         {
   //           code: InvalidUnion([

@@ -340,8 +340,8 @@ and internal = {
   mutable noValidation?: bool,
   mutable catch?: bool,
   mutable unnest?: bool,
-  mutable output?: unit => internal, // Optional value means that it either should reverse to self or it's already a reversed schema
   // This can also be an `internal` itself, but because of the bug https://github.com/rescript-lang/rescript/issues/7314 handle it unsafely
+  mutable output?: unit => internal, // Optional value means that it either should reverse to self or it's already a reversed schema
   mutable isAsync?: bool, // Optional value means that it's not lazily computed yet.
   // FIXME: Shouldn't be cloned?
   @as("~standard")
@@ -682,7 +682,7 @@ module Error = {
     switch error.code {
     | OperationFailed(reason) => reason
     | InvalidOperation({description}) => description
-    | UnexpectedAsync => "Encountered unexpected async transform or refine. Use ParseAsync operation instead"
+    | UnexpectedAsync => "Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead"
     | ExcessField(fieldName) => `Unrecognized key "${fieldName}"`
     | InvalidType({expected: schema, received, ?unionErrors}) =>
       let m = ref(`Expected ${schema->toExpression}, received ${received->stringify}`)
@@ -1931,6 +1931,7 @@ let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) =
       }
     },
   )
+  mut.isAsync = None
   mut->toStandard
 }
 

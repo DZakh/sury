@@ -17,7 +17,7 @@ test("Fails fast and shows only one excees key in the error message", t => {
     }
   )->S.strict
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () =>
       %raw(`{key: "value", unknownKey: "value2", unknownKey2: "value2"}`)->S.parseOrThrow(schema),
     {code: ExcessField("unknownKey"), operation: Parse, path: S.Path.empty},
@@ -56,7 +56,7 @@ test("Can reset unknown keys strategy applying Strict strategy", t => {
 
   let schema = S.object(s => s.field("key", S.string))->S.strip->S.strict
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => any->S.parseOrThrow(schema),
     {code: ExcessField("unknownKey"), operation: Parse, path: S.Path.empty},
   )

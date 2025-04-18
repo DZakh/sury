@@ -53,7 +53,7 @@ let assertThrowsTestException = {
   }
 }
 
-let assertRaised = (t, cb, errorPayload) => {
+let assertThrows = (t, cb, errorPayload) => {
   switch cb() {
   | any => t->Assert.fail("Asserted result is not Error. Recieved: " ++ any->unsafeStringify)
   | exception S.SchemaError(err) =>
@@ -61,7 +61,14 @@ let assertRaised = (t, cb, errorPayload) => {
   }
 }
 
-let assertRaisedAsync = async (t, cb, errorPayload) => {
+let assertThrowsMessage = (t, cb, errorMessage) => {
+  switch cb() {
+  | any => t->Assert.fail("Asserted result is not Error. Recieved: " ++ any->unsafeStringify)
+  | exception S.SchemaError(err) => t->Assert.is(err->S.Error.message, errorMessage, ())
+  }
+}
+
+let assertThrowsAsync = async (t, cb, errorPayload) => {
   switch await cb() {
   | any => t->Assert.fail("Asserted result is not Error. Recieved: " ++ any->unsafeStringify)
   | exception S.SchemaError(err) =>
@@ -132,10 +139,9 @@ let rec cleanUpSchema = schema => {
   ->Array.forEach(((key, value)) => {
     switch key {
     | "output"
-    | "i"
-    | "c"
     | "advanced"
-    | "~standard" => ()
+    | "~standard"
+    | "isAsync" => ()
     // ditemToItem leftovers FIXME:
     | "k" | "p" | "of" => ()
     | _ =>

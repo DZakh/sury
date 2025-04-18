@@ -14,7 +14,7 @@ module Common = {
   test("Fails to parse invalid", t => {
     let schema = factory()
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => invalid->S.parseOrThrow(schema),
       {
         code: InvalidType({
@@ -36,7 +36,7 @@ module Common = {
   test("Fails to serialize invalid", t => {
     let schema = factory()
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => invalid->S.reverseConvertOrThrow(schema),
       {
         code: InvalidType({
@@ -52,7 +52,7 @@ module Common = {
   test("Fails to parse array like object", t => {
     let schema = factory()
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => %raw(`{0: "bar",1:true}`)->S.parseOrThrow(schema),
       {
         code: InvalidType({
@@ -68,7 +68,7 @@ module Common = {
   test("Fails to parse array with excess item", t => {
     let schema = factory()
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => %raw(`["bar", true, false]`)->S.parseOrThrow(schema->S.strict),
       {
         code: InvalidType({
@@ -128,7 +128,7 @@ module EmptyArray = {
 
     t->Assert.deepEqual(invalid->S.parseOrThrow(schema->S.strip), [], ())
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => invalid->S.parseOrThrow(schema->S.strict),
       {
         code: InvalidType({
