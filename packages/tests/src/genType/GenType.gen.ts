@@ -5,9 +5,9 @@
 
 import * as GenTypeJS from './GenType.res.mjs';
 
-import type {error as S_error} from 'rescript-schema/src/S.gen';
+import type {error as S_error} from 'sury/src/S.gen';
 
-import type {t as S_t} from 'rescript-schema/src/S.gen';
+import type {t as S_t} from 'sury/src/S.gen';
 
 export const stringSchema: S_t<string> = GenTypeJS.stringSchema as any;
 

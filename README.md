@@ -4,7 +4,7 @@
 
 # ReScript Schema 🧬
 
-The fastest parser in the entire JavaScript ecosystem with a focus on small bundle size and top-notch DX.
+The fastest schema with next-gen DX.
 
 > ⚠️ Be aware that **rescript-schema** uses `eval` for parsing. It's usually fine but might not work in some environments like Cloudflare Workers or third-party scripts used on pages with the [script-src](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy/script-src) header.
 

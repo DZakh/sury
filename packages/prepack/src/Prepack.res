@@ -258,7 +258,7 @@ let resolveRescriptRuntime = async (~format, ~input, ~output) => {
 await resolveRescriptRuntime(~format=#es, ~input="src/S_Core.res.mjs", ~output="src/S_Core.res.mjs")
 // Event though the generated code is shitty, let's still have it for the sake of some users
 await resolveRescriptRuntime(~format=#cjs, ~input="src/S_Core.res.mjs", ~output="src/S_Core.res.js")
-// Also build cjs version, in case some ReScript libraries will use rescript-schema without running a compiler (rescript-stdlib-vendorer)
+// Also build cjs version, in case some ReScript libraries will use sury without running a compiler (rescript-stdlib-vendorer)
 await resolveRescriptRuntime(~format=#cjs, ~input="src/S.res.mjs", ~output="src/S.res.js")
 
 // ReScript applications don't work with type: module set on packages

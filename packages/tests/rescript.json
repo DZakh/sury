@@ -12,7 +12,7 @@
     "in-source": true
   },
   "suffix": ".res.mjs",
-  "bs-dependencies": ["rescript-schema"],
+  "bs-dependencies": ["sury"],
   "bs-dev-dependencies": ["@rescript/core", "@dzakh/rescript-ava"],
   "ppx-flags": ["../rescript-schema-ppx/bin"],
   "warnings": {
