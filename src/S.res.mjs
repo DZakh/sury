@@ -62,8 +62,6 @@ var deprecated = S_Core.deprecated;
 
 var transform = S_Core.transform;
 
-var preprocess = S_Core.preprocess;
-
 var custom = S_Core.custom;
 
 var refine = S_Core.refine;
@@ -217,7 +215,6 @@ export {
   description ,
   deprecated ,
   transform ,
-  preprocess ,
   custom ,
   refine ,
   shape ,

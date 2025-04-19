@@ -6,6 +6,8 @@ test("Coerce from string to string", t => {
 })
 
 test("Coerce from string to bool", t => {
+  let schema = S.string->S.to(S.bool)
+
   t->Assert.deepEqual("false"->S.parseOrThrow(schema), false, ())
   t->Assert.deepEqual("true"->S.parseOrThrow(schema), true, ())
   t->U.assertThrows(
@@ -20,8 +22,6 @@ test("Coerce from string to bool", t => {
     },
   )
   t->Assert.deepEqual(false->S.reverseConvertOrThrow(schema), %raw(`"false"`), ())
-
-  let schema = S.string->S.to(S.bool)
 
   t->U.assertCompiledCode(
     ~schema,
@@ -387,14 +387,29 @@ test("Coerce from string to bigint", t => {
 })
 
 test("Coerce string after a transform", t => {
-  t->Assert.throws(
-    () => {
-      S.string->S.transform(_ => {parser: v => v, serializer: v => v})->S.to(S.bool)
-    },
-    ~expectations={
-      message: "[Schema] S.to from unknown to boolean is not supported",
-    },
-    (),
+  let schema = S.string->S.transform(_ => {parser: v => v, serializer: v => v})->S.to(S.bool)
+
+  t->U.assertThrowsMessage(
+    () => "true"->S.parseOrThrow(schema),
+    `Failed parsing: Expected boolean, received "true"`,
+  )
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(typeof i!=="string"){e[2](i)}let v0=e[0](i);if(typeof v0!=="boolean"){e[1](v0)}return v0}`,
+  )
+
+  let schema =
+    S.string
+    ->S.transform(_ => {parser: v => v, serializer: v => v})
+    ->S.to(S.string)
+    ->S.to(S.bool)
+
+  t->Assert.deepEqual("true"->S.parseOrThrow(schema), true, ())
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(typeof i!=="string"){e[3](i)}let v0=e[0](i);if(typeof v0!=="string"){e[1](v0)}let v1;(v1=v0==="true")||v0==="false"||e[2](v0);return v1}`,
   )
 })
 

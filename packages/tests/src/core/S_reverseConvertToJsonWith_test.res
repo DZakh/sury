@@ -178,7 +178,7 @@ test("Fails to reverse convert Function literal", t => {
 })
 
 // FIXME: S.literal for instances
-Failing.test("Fails to reverse convert Object literal", t => {
+test("Fails to reverse convert Object literal", t => {
   let error = %raw(`new Error("foo")`)
   let schema = S.literal(error)
   t->U.assertThrows(
@@ -398,7 +398,7 @@ module SerializesDeepRecursive = {
     ],
   })
 
-  Failing.test("Serializes deeply recursive schema", t => {
+  test("Serializes deeply recursive schema", t => {
     t->U.assertCompiledCode(
       ~schema=bodySchema,
       ~op=#ReverseConvert,

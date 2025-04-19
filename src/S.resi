@@ -252,16 +252,6 @@ type transformDefinition<'input, 'output> = {
 }
 let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) => t<'output>
 
-type preprocessDefinition<'input, 'output> = {
-  @as("p")
-  parser?: unknown => 'output,
-  @as("a")
-  asyncParser?: unknown => promise<'output>,
-  @as("s")
-  serializer?: unknown => 'input,
-}
-let preprocess: (t<'value>, s<'value> => preprocessDefinition<'input, 'output>) => t<'value>
-
 type customDefinition<'input, 'output> = {
   @as("p")
   parser?: unknown => 'output,

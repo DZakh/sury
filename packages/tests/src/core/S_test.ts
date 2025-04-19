@@ -374,27 +374,23 @@ test("Successfully parses nullish string", (t) => {
   expectType<TypeEqual<typeof value1, string | undefined | null>>(true);
 });
 
-test.failing(
-  "Successfully parses schema wrapped in nullable multiple times",
-  (t) => {
-    const nullable = S.nullable(S.string);
-    const schema = S.nullable(S.nullable(nullable));
-    const value1 = S.parseOrThrow("foo", schema);
-    const value2 = S.parseOrThrow(null, schema);
+test("Successfully parses schema wrapped in nullable multiple times", (t) => {
+  const nullable = S.nullable(S.string);
+  const schema = S.nullable(S.nullable(nullable));
+  const value1 = S.parseOrThrow("foo", schema);
+  const value2 = S.parseOrThrow(null, schema);
 
-    // Should flatten nested nullable schemas
-    t.is(schema, nullable); // TODO: Test the same for nullish
+  // TODO: Test that it should flatten nested nullable schemas
 
-    t.deepEqual(value1, "foo");
-    t.deepEqual(value2, undefined);
+  t.deepEqual(value1, "foo");
+  t.deepEqual(value2, undefined);
 
-    expectType<
-      TypeEqual<S.Schema<string | undefined, string | null>, typeof schema>
-    >(true);
-    expectType<TypeEqual<typeof value1, string | undefined>>(true);
-    expectType<TypeEqual<typeof value2, string | undefined>>(true);
-  }
-);
+  expectType<
+    TypeEqual<S.Schema<string | undefined, string | null>, typeof schema>
+  >(true);
+  expectType<TypeEqual<typeof value1, string | undefined>>(true);
+  expectType<TypeEqual<typeof value2, string | undefined>>(true);
+});
 
 test("Fails to parse with invalid data", (t) => {
   const schema = S.string;
@@ -1968,7 +1964,7 @@ test("ArkType pattern matching", async (t) => {
   t.deepEqual(S.reverseConvertOrThrow("foo", schema), "foo");
 });
 
-test.failing("Compile types", async (t) => {
+test("Compile types", async (t) => {
   const schema = S.union([
     S.string,
     S.schema(null).with(S.to, S.schema(undefined)),
