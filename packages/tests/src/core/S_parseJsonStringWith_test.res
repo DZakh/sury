@@ -17,7 +17,7 @@ test("Fails to parse JSON", t => {
 
   switch "123,"->S.parseJsonStringOrThrow(schema) {
   | _ => t->Assert.fail("Must return Error")
-  | exception S.SchemaError({code, flag, path}) => {
+  | exception S.Error({code, flag, path}) => {
       t->Assert.deepEqual(flag, S.Flag.typeValidation, ())
       t->Assert.deepEqual(path, S.Path.empty, ())
       switch code {

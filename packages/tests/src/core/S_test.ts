@@ -45,7 +45,7 @@ test("Successfully parses string with built-in refinement", (t) => {
       typeof result,
       {
         success: false;
-        error: S.SchemaError;
+        error: S.Error;
       }
     >
   >(true);
@@ -125,7 +125,7 @@ test("Fails to parse float when NaN is provided", (t) => {
       expectType<TypeEqual<typeof value, number>>(true);
     },
     {
-      name: "SchemaError",
+      name: "SuryError",
       message: "Failed parsing: Expected number, received NaN",
     }
   );
@@ -206,7 +206,7 @@ test("Fails to parse never", (t) => {
       expectType<TypeEqual<typeof value, never>>(true);
     },
     {
-      name: "SchemaError",
+      name: "SuryError",
       message: "Failed parsing: Expected never, received true",
     }
   );
@@ -415,7 +415,7 @@ test("Fails to parse with invalid data", (t) => {
       S.parseOrThrow(123, schema);
     },
     {
-      name: "SchemaError",
+      name: "SuryError",
       message: "Failed parsing: Expected string, received 123",
     }
   );
@@ -457,7 +457,7 @@ test("Fails to serialize never", (t) => {
       S.convertOrThrow("123", S.reverse(schema));
     },
     {
-      name: "SchemaError",
+      name: "SuryError",
       message: `Failed converting: Expected never, received "123"`,
     }
   );
@@ -489,7 +489,7 @@ test("Fails to parse with transform with user error", (t) => {
       S.parseOrThrow("asdf", schema);
     },
     {
-      name: "SchemaError",
+      name: "SuryError",
       message: "Failed parsing: Invalid number",
     }
   );
@@ -539,7 +539,7 @@ test("Fails to parses with refine raising an error", (t) => {
       S.parseOrThrow("123", schema);
     },
     {
-      name: "SchemaError",
+      name: "SuryError",
       message: "Failed parsing: User error",
     }
   );
@@ -570,7 +570,7 @@ test("Fails to parses async schema", async (t) => {
     return;
   }
   t.is(result.error.message, "Failed async parsing: User error");
-  t.true(result.error instanceof S.SchemaError);
+  t.true(result.error instanceof S.Error);
 });
 
 test("Custom string schema", (t) => {
@@ -598,7 +598,7 @@ test("Custom string schema", (t) => {
       S.parseOrThrow(123, schema);
     },
     {
-      name: "SchemaError",
+      name: "SuryError",
       message: "Failed parsing: Postcode should be a string",
     }
   );
@@ -607,7 +607,7 @@ test("Custom string schema", (t) => {
       S.parseOrThrow("123", schema);
     },
     {
-      name: "SchemaError",
+      name: "SuryError",
       message: "Failed parsing: Postcode should be 5 characters",
     }
   );
@@ -922,7 +922,7 @@ test("Fails to parse strict object with exccess fields", (t) => {
       >(true);
     },
     {
-      name: "SchemaError",
+      name: "SuryError",
       message: `Failed parsing: Unrecognized key "bar"`,
     }
   );
@@ -958,7 +958,7 @@ test("Fails to parse deep strict object with exccess fields", (t) => {
       >(true);
     },
     {
-      name: "SchemaError",
+      name: "SuryError",
       message: `Failed parsing at ["foo"]: Unrecognized key "b"`,
     }
   );
@@ -1006,7 +1006,7 @@ test("Fails to parse strict object with exccess fields which created using globa
       >(true);
     },
     {
-      name: "SchemaError",
+      name: "SuryError",
       message: `Failed parsing: Unrecognized key "bar"`,
     }
   );
@@ -1367,7 +1367,7 @@ test("Successfully parses and returns result", (t) => {
         typeof value,
         {
           success: false;
-          error: S.SchemaError;
+          error: S.Error;
         }
       >
     >(true);
@@ -1396,7 +1396,7 @@ test("Successfully reverse converts and returns result", (t) => {
         typeof value,
         {
           success: false;
-          error: S.SchemaError;
+          error: S.Error;
         }
       >
     >(true);
@@ -1852,7 +1852,7 @@ test("Assert throws with invalid data", (t) => {
       S.assertOrThrow(123, schema);
     },
     {
-      name: "SchemaError",
+      name: "SuryError",
       message: "Failed asserting: Expected string, received 123",
     }
   );
@@ -1916,7 +1916,7 @@ test("Example", (t) => {
 
   t.throws(
     () => {
-      // Throws the S.SchemaError(`Failed parsing at ["email"]: Invalid email address`)
+      // Throws the S.Error(`Failed parsing at ["email"]: Invalid email address`)
       S.parseOrThrow({ email: "", password: "" }, loginSchema);
     },
     { message: `Failed parsing at ["email"]: Invalid email address` }

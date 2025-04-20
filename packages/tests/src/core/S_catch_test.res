@@ -58,7 +58,7 @@ test("Can use s.fail inside of S.catch", t => {
     ->S.catch(s => {
       switch s.input->S.parseOrThrow(S.string) {
       | _ => 8080
-      | exception S.SchemaError(_) => s.fail("Fallback value only supported for strings.")
+      | exception S.Error(_) => s.fail("Fallback value only supported for strings.")
       }
     })
   t->Assert.deepEqual(3000->S.parseOrThrow(schema), 3000, ())

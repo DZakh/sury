@@ -424,7 +424,13 @@ and bGlobal = {
   embeded: array<unknown>,
 }
 and flag = int
-and error = private {flag: flag, code: errorCode, path: Path.t}
+and error = private {
+  message: string,
+  reason: string,
+  path: Path.t,
+  code: errorCode,
+  flag: flag,
+}
 and errorCode =
   | OperationFailed(string)
   | InvalidOperation({description: string})
@@ -435,7 +441,7 @@ and errorCode =
 @tag("success")
 and jsResult<'value> = | @as(true) Success({value: 'value}) | @as(false) Failure({error: error})
 
-type exn += private SchemaError(error)
+type exn += private Error(error)
 
 external toUnknown: t<'any> => t<unknown> = "%identity"
 external untag: t<'any> => untagged = "%identity"
@@ -481,7 +487,7 @@ let globalConfig = {
 
 module InternalError = {
   %%raw(`
-class E extends Error {
+class SuryError extends Error {
   constructor(code, flag, path) {
     super();
     this.flag = flag;
@@ -490,7 +496,7 @@ class E extends Error {
   }
 }
 
-var d = Object.defineProperty, p = E.prototype;
+var d = Object.defineProperty, p = SuryError.prototype;
 d(p, 'message', {
   get() {
       return message(this);
@@ -501,7 +507,7 @@ d(p, 'reason', {
       return reason(this);
   }
 })
-d(p, 'name', {value: 'SchemaError'})
+d(p, 'name', {value: 'SuryError'})
 d(p, 's', {value: symbol})
 d(p, '_1', {
   get() {
@@ -509,7 +515,7 @@ d(p, '_1', {
   },
 });
 d(p, 'RE_EXN_ID', {
-  value: SchemaError,
+  value: $$Error,
 });
 
 function w(fn, ...args) {
@@ -518,7 +524,7 @@ function w(fn, ...args) {
 `)
 
   @new
-  external make: (~code: errorCode, ~flag: int, ~path: Path.t) => error = "E"
+  external make: (~code: errorCode, ~flag: int, ~path: Path.t) => error = "SuryError"
 
   let getOrRethrow = (exn: exn) => {
     if %raw("exn&&exn.s===symbol") {
@@ -528,7 +534,7 @@ function w(fn, ...args) {
     }
   }
 
-  // TODO: Throw SchemaError
+  // TODO: Throw S.Error
   @inline
   let panic = message => Stdlib.Exn.raiseError(Stdlib.Exn.makeError(`[Schema] ${message}`))
 }
@@ -675,13 +681,12 @@ let rec toExpression = schema => {
   }
 }
 
-module Error = {
-  type class
-  let class: class = %raw("E")
+module ErrorClass = {
+  type t
 
-  let make = InternalError.make
+  let value: t = %raw("SuryError")
 
-  let raise = (error: error) => error->Stdlib.Exn.raiseAny
+  let constructor = InternalError.make
 
   let rec reason = (error: error, ~nestedLevel=0) => {
     switch error.code {
@@ -1408,7 +1413,7 @@ and toStandard = (schema: internal) => {
           {
             "issues": [
               {
-                "message": error->Error.message,
+                "message": error->ErrorClass.message,
                 "path": error.path === Path.empty ? None : Some(error.path->Path.toArray),
               },
             ],

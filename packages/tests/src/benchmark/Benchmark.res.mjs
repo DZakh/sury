@@ -201,7 +201,7 @@ console.timeEnd("serializeWith: 3");
 
 console.time("S.Error.make");
 
-S.$$Error.make({
+S.ErrorClass.constructor({
       TAG: "OperationFailed",
       _0: "Should be positive"
     }, S.Flag.typeValidation, S.Path.empty);

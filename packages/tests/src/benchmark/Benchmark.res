@@ -216,7 +216,7 @@ data->S.reverseConvertOrThrow(schema)->ignore
 Console.timeEnd("serializeWith: 3")
 
 Console.time("S.Error.make")
-let _ = S.Error.make(
+let _ = S.ErrorClass.constructor(
   ~code=OperationFailed("Should be positive"),
   ~flag=S.Flag.typeValidation,
   ~path=S.Path.empty,

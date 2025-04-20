@@ -5,6 +5,8 @@ external magic: 'a => 'b = "%identity"
 external castAnyToUnknown: 'any => unknown = "%identity"
 external castUnknownToAny: unknown => 'any = "%identity"
 
+let raiseError = (error: S.error) => raise(error->Obj.magic)
+
 %%private(
   @val @scope("JSON")
   external unsafeStringify: 'a => string = "stringify"
@@ -27,7 +29,7 @@ type errorPayload = {operation: taggedFlag, code: S.errorCode, path: S.Path.t}
 
 // TODO: Get rid of the helper
 let error = ({operation, code, path}: errorPayload): S.error => {
-  S.Error.make(
+  S.ErrorClass.constructor(
     ~code,
     ~flag=switch operation {
     | Parse => S.Flag.typeValidation
@@ -56,23 +58,21 @@ let assertThrowsTestException = {
 let assertThrows = (t, cb, errorPayload) => {
   switch cb() {
   | any => t->Assert.fail("Asserted result is not Error. Recieved: " ++ any->unsafeStringify)
-  | exception S.SchemaError(err) =>
-    t->Assert.is(err->S.Error.message, error(errorPayload)->S.Error.message, ())
+  | exception S.Error({message}) => t->Assert.is(message, error(errorPayload).message, ())
   }
 }
 
 let assertThrowsMessage = (t, cb, errorMessage) => {
   switch cb() {
   | any => t->Assert.fail("Asserted result is not Error. Recieved: " ++ any->unsafeStringify)
-  | exception S.SchemaError(err) => t->Assert.is(err->S.Error.message, errorMessage, ())
+  | exception S.Error({message}) => t->Assert.is(message, errorMessage, ())
   }
 }
 
 let assertThrowsAsync = async (t, cb, errorPayload) => {
   switch await cb() {
   | any => t->Assert.fail("Asserted result is not Error. Recieved: " ++ any->unsafeStringify)
-  | exception S.SchemaError(err) =>
-    t->Assert.is(err->S.Error.message, error(errorPayload)->S.Error.message, ())
+  | exception S.Error({message}) => t->Assert.is(message, error(errorPayload).message, ())
   }
 }
 

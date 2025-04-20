@@ -4,11 +4,9 @@ import * as S_Core from "./S_Core.res.mjs";
 
 var Path = S_Core.Path;
 
-var SchemaError = S_Core.SchemaError;
+var $$Error = S_Core.$$Error;
 
 var Flag = S_Core.Flag;
-
-var $$Error = S_Core.$$Error;
 
 var never = S_Core.never;
 
@@ -178,11 +176,12 @@ var extendJSONSchema = S_Core.extendJSONSchema;
 
 var setGlobalConfig = S_Core.setGlobalConfig;
 
+var ErrorClass = S_Core.ErrorClass;
+
 export {
   Path ,
-  SchemaError ,
-  Flag ,
   $$Error ,
+  Flag ,
   never ,
   unknown ,
   unit ,
@@ -267,5 +266,6 @@ export {
   toJSONSchema ,
   extendJSONSchema ,
   setGlobalConfig ,
+  ErrorClass ,
 }
 /* S_Core Not a pure module */

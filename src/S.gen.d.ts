@@ -99,11 +99,6 @@ export type Json =
 declare const øbrand: unique symbol;
 
 export type t<Output, Input = unknown> = {
-  readonly ["~standard"]: StandardSchemaV1.Props<Input, Output>;
-  readonly description?: string;
-  readonly deprecated?: string;
-  readonly [øbrand]: unknown;
-
   with<Transformed>(
     transform: (
       schema: t<unknown, unknown>,
@@ -135,6 +130,11 @@ export type t<Output, Input = unknown> = {
     arg1: A1,
     arg2: A2
   ): t<O, I>;
+
+  readonly ["~standard"]: StandardSchemaV1.Props<Input, Output>;
+  readonly description?: string;
+  readonly deprecated?: string;
+  readonly [øbrand]: unknown;
 };
 /* simulate opaque types */
 

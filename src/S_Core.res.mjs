@@ -57,7 +57,7 @@ var symbol = Symbol("schema");
 
 var itemSymbol = Symbol("schema:item");
 
-var SchemaError = /* @__PURE__ */Caml_exceptions.create("S_Core.SchemaError");
+var $$Error = /* @__PURE__ */Caml_exceptions.create("S_Core.Error");
 
 var isLiteral = (s => "const" in s);
 
@@ -79,7 +79,7 @@ var globalConfig = {
   n: false
 };
 
-class E extends Error {
+class SuryError extends Error {
   constructor(code, flag, path) {
     super();
     this.flag = flag;
@@ -88,7 +88,7 @@ class E extends Error {
   }
 }
 
-var d = Object.defineProperty, p = E.prototype;
+var d = Object.defineProperty, p = SuryError.prototype;
 d(p, 'message', {
   get() {
       return message(this);
@@ -99,7 +99,7 @@ d(p, 'reason', {
       return reason(this);
   }
 })
-d(p, 'name', {value: 'SchemaError'})
+d(p, 'name', {value: 'SuryError'})
 d(p, 's', {value: symbol})
 d(p, '_1', {
   get() {
@@ -107,7 +107,7 @@ d(p, '_1', {
   },
 });
 d(p, 'RE_EXN_ID', {
-  value: SchemaError,
+  value: $$Error,
 });
 
 function w(fn, ...args) {
@@ -248,14 +248,10 @@ function toExpression(schema) {
   }
 }
 
-var $$class = E;
+var value = SuryError;
 
-function make(prim0, prim1, prim2) {
-  return new E(prim0, prim1, prim2);
-}
-
-function raise(error) {
-  throw error;
+function constructor(prim0, prim1, prim2) {
+  return new SuryError(prim0, prim1, prim2);
 }
 
 function reason(error, nestedLevelOpt) {
@@ -321,6 +317,13 @@ function message(error) {
   var tmp = nonEmptyPath === "" ? "" : " at " + nonEmptyPath;
   return text + tmp + ": " + reason(error, undefined);
 }
+
+var ErrorClass = {
+  value: value,
+  constructor: constructor,
+  reason: reason$1,
+  message: message
+};
 
 function embed(b, value) {
   var e = b.g.e;
@@ -431,7 +434,7 @@ function arrayJoin(_inlinedLocation, value) {
   return value + ",";
 }
 
-function make$1(b, isArray) {
+function make(b, isArray) {
   return {
           b: b,
           v: _notVar,
@@ -550,8 +553,8 @@ function transform(b, input, operation) {
         };
 }
 
-function raise$1(b, code, path) {
-  throw new E(code, b.g.o, path);
+function raise(b, code, path) {
+  throw new SuryError(code, b.g.o, path);
 }
 
 function embedSyncOperation(b, input, fn) {
@@ -569,7 +572,7 @@ function embedSyncOperation(b, input, fn) {
 
 function embedAsyncOperation(b, input, fn) {
   if (!(b.g.o & 2)) {
-    raise$1(b, "UnexpectedAsync", "");
+    raise(b, "UnexpectedAsync", "");
   }
   var val = embedSyncOperation(b, input, fn);
   val.a = true;
@@ -578,13 +581,13 @@ function embedAsyncOperation(b, input, fn) {
 
 function failWithArg(b, path, fn, arg) {
   return embed(b, (function (arg) {
-                return raise$1(b, fn(arg), path);
+                return raise(b, fn(arg), path);
               })) + "(" + arg + ")";
 }
 
 function fail(b, message, path) {
   return embed(b, (function () {
-                return raise$1(b, {
+                return raise(b, {
                             TAG: "OperationFailed",
                             _0: message
                           }, path);
@@ -596,7 +599,7 @@ function effectCtx(b, selfSchema, path) {
           schema: selfSchema,
           fail: (function (message, customPathOpt) {
               var customPath = customPathOpt !== undefined ? customPathOpt : "";
-              return raise$1(b, {
+              return raise(b, {
                           TAG: "OperationFailed",
                           _0: message
                         }, path + customPath);
@@ -605,7 +608,7 @@ function effectCtx(b, selfSchema, path) {
 }
 
 function invalidOperation(b, path, description) {
-  return raise$1(b, {
+  return raise(b, {
               TAG: "InvalidOperation",
               description: description
             }, path);
@@ -670,7 +673,7 @@ function withPathPrepend(b, input, path, maybeDynamicLocationVar, appendSafe, fn
   }
   catch (exn){
     var error = getOrRethrow(exn);
-    throw new E(error.code, error.flag, path + "[]" + error.path);
+    throw new SuryError(error.code, error.flag, path + "[]" + error.path);
   }
 }
 
@@ -897,7 +900,7 @@ function toStandard(schema) {
 function jsonableValidation(output, report, path, flag) {
   var tag = output.type;
   if (nonJsonableTags.has(tag)) {
-    throw new E({
+    throw new SuryError({
               TAG: "InvalidJsonSchema",
               _0: report
             }, flag, path);
@@ -970,7 +973,7 @@ function compile(schema, input, output, mode, typeValidationOpt) {
       return fn(JSON.parse(jsonString));
     }
     catch (exn){
-      throw new E({
+      throw new SuryError({
                 TAG: "OperationFailed",
                 _0: exn.message
               }, flag$1, "");
@@ -999,7 +1002,7 @@ function parseJsonStringOrThrow(jsonString, schema) {
     tmp = JSON.parse(jsonString);
   }
   catch (exn){
-    throw new E({
+    throw new SuryError({
               TAG: "OperationFailed",
               _0: exn.message
             }, 1, "");
@@ -1138,7 +1141,7 @@ function js_safeAsync(fn) {
   }
 }
 
-function make$2(namespace, name) {
+function make$1(namespace, name) {
   return "m:" + namespace + ":" + name;
 }
 
@@ -1147,7 +1150,7 @@ function internal(name) {
 }
 
 var Id = {
-  make: make$2,
+  make: make$1,
   internal: internal
 };
 
@@ -1475,7 +1478,7 @@ function builder$1(b, input, selfSchema, path) {
   var fail = function (caught) {
     return embed(b, (function (param) {
                   var args = arguments;
-                  return raise$1(b, {
+                  return raise(b, {
                               TAG: "InvalidType",
                               expected: selfSchema,
                               received: args[0],
@@ -2419,7 +2422,7 @@ function json(validate) {
                       if (match === "number" && !Number.isNaN(input)) {
                         return input;
                       }
-                      return raise$1(b, {
+                      return raise(b, {
                                   TAG: "InvalidType",
                                   expected: selfSchema,
                                   received: input
@@ -2454,7 +2457,7 @@ function $$catch(schema, getFallbackValue) {
                                                 s: selfSchema,
                                                 f: (function (message, customPathOpt) {
                                                     var customPath = customPathOpt !== undefined ? customPathOpt : "";
-                                                    return raise$1(b, {
+                                                    return raise(b, {
                                                                 TAG: "OperationFailed",
                                                                 _0: message
                                                               }, path + customPath);
@@ -2535,7 +2538,7 @@ function definitionToOutput(b, definition, getItemOutput) {
   }
   var isArray = Array.isArray(definition);
   var keys = Object.keys(definition);
-  var objectVal = make$1(b, isArray);
+  var objectVal = make(b, isArray);
   for(var idx = 0 ,idx_finish = keys.length; idx < idx_finish; ++idx){
     var key = keys[idx];
     add(objectVal, isArray ? "\"" + key + "\"" : fromString(key), definitionToOutput(b, definition[key], getItemOutput));
@@ -2592,7 +2595,7 @@ function builder$3(parentB, input, selfSchema, path) {
   var items = selfSchema.items;
   var isArray = selfSchema.type === "array";
   if (parentB.g.o & 64) {
-    var objectVal = make$1(parentB, isArray);
+    var objectVal = make(parentB, isArray);
     for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
       var match = items[idx];
       var inlinedLocation = match.inlinedLocation;
@@ -2606,7 +2609,7 @@ function builder$3(parentB, input, selfSchema, path) {
     a: initialAllocate,
     g: parentB.g
   };
-  var objectVal$1 = make$1(b, isArray);
+  var objectVal$1 = make(b, isArray);
   for(var idx$1 = 0 ,idx_finish$1 = items.length; idx$1 < idx_finish$1; ++idx$1){
     var match$1 = items[idx$1];
     var inlinedLocation$1 = match$1.inlinedLocation;
@@ -2971,7 +2974,7 @@ function advancedReverse(definition, to, flattened) {
           var items = reversed.items;
           if (items !== undefined && typeof additionalItems === "string") {
             var isArray = tag === "array";
-            var objectVal = make$1(b, isArray);
+            var objectVal = make(b, isArray);
             for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
               var item = items[idx];
               var itemPath = originalPath + ("[" + item.inlinedLocation + "]");
@@ -3011,7 +3014,7 @@ function advancedReverse(definition, to, flattened) {
         objectStrictModeCheck(b, input, selfSchema.items, selfSchema, path);
         var isArray = originalSchema.type === "array";
         var items = originalSchema.items;
-        var objectVal = make$1(b, isArray);
+        var objectVal = make(b, isArray);
         if (flattened !== undefined) {
           for(var idx$1 = 0 ,idx_finish$1 = flattened.length; idx$1 < idx_finish$1; ++idx$1){
             merge(objectVal, getItemOutput(flattened[idx$1], ""));
@@ -3297,7 +3300,7 @@ function unnest(schema) {
                       a: initialAllocate,
                       g: b.g
                     };
-                    var itemInput = make$1(bb, false);
+                    var itemInput = make(bb, false);
                     var lengthCode = "";
                     for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
                       var item = items[idx];
@@ -4066,14 +4069,6 @@ var Flag = {
   has: has
 };
 
-var $$Error$1 = {
-  $$class: $$class,
-  make: make,
-  raise: raise,
-  message: message,
-  reason: reason$1
-};
-
 var never = schema;
 
 var string = schema$1;
@@ -4150,9 +4145,8 @@ var Metadata = {
 
 export {
   Path ,
-  SchemaError ,
+  $$Error ,
   Flag ,
-  $$Error$1 as $$Error,
   never ,
   unknown ,
   unit ,
@@ -4221,6 +4215,7 @@ export {
   $$Array ,
   Metadata ,
   reverse ,
+  ErrorClass ,
   min ,
   floatMin ,
   max ,

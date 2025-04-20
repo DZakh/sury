@@ -5,6 +5,10 @@ import * as Caml_option from "rescript/lib/es6/caml_option.js";
 import * as Caml_exceptions from "rescript/lib/es6/caml_exceptions.js";
 import * as Caml_js_exceptions from "rescript/lib/es6/caml_js_exceptions.js";
 
+function raiseError(error) {
+  throw error;
+}
+
 function unsafeGetVariantPayload(variant) {
   return variant._0;
 }
@@ -41,7 +45,7 @@ function error(param) {
         break;
     
   }
-  return S.$$Error.make(param.code, tmp, param.path);
+  return S.ErrorClass.constructor(param.code, tmp, param.path);
 }
 
 function assertThrowsTestException(t, fn, message, param) {
@@ -65,13 +69,13 @@ function assertThrows(t, cb, errorPayload) {
   try {
     any = cb();
   }
-  catch (raw_err){
-    var err = Caml_js_exceptions.internalToOCamlException(raw_err);
-    if (err.RE_EXN_ID === S.SchemaError) {
-      t.is(S.$$Error.message(err._1), S.$$Error.message(error(errorPayload)), undefined);
+  catch (raw_exn){
+    var exn = Caml_js_exceptions.internalToOCamlException(raw_exn);
+    if (exn.RE_EXN_ID === S.$$Error) {
+      t.is(exn._1.message, error(errorPayload).message, undefined);
       return ;
     }
-    throw err;
+    throw exn;
   }
   t.fail("Asserted result is not Error. Recieved: " + JSON.stringify(any));
 }
@@ -81,13 +85,13 @@ function assertThrowsMessage(t, cb, errorMessage) {
   try {
     any = cb();
   }
-  catch (raw_err){
-    var err = Caml_js_exceptions.internalToOCamlException(raw_err);
-    if (err.RE_EXN_ID === S.SchemaError) {
-      t.is(S.$$Error.message(err._1), errorMessage, undefined);
+  catch (raw_exn){
+    var exn = Caml_js_exceptions.internalToOCamlException(raw_exn);
+    if (exn.RE_EXN_ID === S.$$Error) {
+      t.is(exn._1.message, errorMessage, undefined);
       return ;
     }
-    throw err;
+    throw exn;
   }
   t.fail("Asserted result is not Error. Recieved: " + JSON.stringify(any));
 }
@@ -97,13 +101,13 @@ async function assertThrowsAsync(t, cb, errorPayload) {
   try {
     any = await cb();
   }
-  catch (raw_err){
-    var err = Caml_js_exceptions.internalToOCamlException(raw_err);
-    if (err.RE_EXN_ID === S.SchemaError) {
-      t.is(S.$$Error.message(err._1), S.$$Error.message(error(errorPayload)), undefined);
+  catch (raw_exn){
+    var exn = Caml_js_exceptions.internalToOCamlException(raw_exn);
+    if (exn.RE_EXN_ID === S.$$Error) {
+      t.is(exn._1.message, error(errorPayload).message, undefined);
       return ;
     }
-    throw err;
+    throw exn;
   }
   return t.fail("Asserted result is not Error. Recieved: " + JSON.stringify(any));
 }
@@ -177,6 +181,7 @@ function assertReverseParsesBack(t, schema, value) {
 var assertEqualSchemas = unsafeAssertEqualSchemas;
 
 export {
+  raiseError ,
   unsafeGetVariantPayload ,
   Test ,
   raiseTestException ,

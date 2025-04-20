@@ -4,7 +4,7 @@ test("Keeps operation of the error passed to S.Error.raise", t => {
   let schema = S.array(
     S.string->S.transform(_ => {
       parser: _ =>
-        S.Error.raise(
+        U.raiseError(
           U.error({
             code: OperationFailed("User error"),
             operation: ReverseConvert,

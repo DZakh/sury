@@ -48,7 +48,7 @@ test("Fails to parses recursive object when provided invalid type", t => {
       "Children": ["invalid"],
     }->S.parseOrThrow(nodeSchema) {
     | _ => "Shouldn't pass"
-    | exception S.SchemaError(e) => e->S.Error.message
+    | exception S.Error({message}) => message
     },
     `Failed parsing at ["Children"]["0"]: Expected { Id: string; Children: Self[]; }, received "invalid"`,
     (),

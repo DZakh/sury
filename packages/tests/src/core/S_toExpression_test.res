@@ -145,7 +145,7 @@ Failing.test("Expression of renamed schema", t => {
       path: S.Path.empty,
       operation: Parse,
       code: InvalidType({expected: renamedSchema->S.toUnknown, received: "smth"->Obj.magic}),
-    })->S.Error.message,
+    }).message,
     `Failed parsing: Expected Ethers.BigInt, received "smth"`,
     (),
   )

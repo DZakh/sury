@@ -26,11 +26,11 @@
 - Renamed `S.describe` to `S.description`. Removed previous `S.description` getter in favor of the `description` field on schema
 - Renamed `S.deprecate` to `S.deprecated`. Removed previous `S.deprecation` getter in favor of the `deprecated` field on schema. Added `S.deprecated` to JS/TS API
 - Renamed `S.name` to `S.toExpression` and `S.setName` to `S.name`. Also, it's now possible to get the name itself from the `name` property on schema.
-- Renamed `RescriptSchemaError` to `SchemaError`
-- (rescript) Renamed `S.Raised` exception to `S.SchemaError`
-- (js/ts) Renamed `S.Error` to `S.SchemaError`
+- Renamed `RescriptSchemaError` to `SuryError`
+- (rescript) Renamed `S.Raised` exception to `S.Error`
+- (rescript) Removed `Error` module. Access `message` and `reason` directly on `error` type. Also, added the `ErrorClass` module for advanced use-cases.
 - (rescript) Removed `RescriptSchema` namespace
-- Improve SchemaError display in console https://github.com/DZakh/rescript-schema/issues/106
+- Improve thrown error display in Node.js console https://github.com/DZakh/rescript-schema/issues/106
 - (rescript) Added `S.nullAsUnit`
 - Remove `rescript-schema` mention from the code and use generic `Schema` instead
 - Default `Input` generic to `unknown` instead of `Output`
@@ -66,7 +66,6 @@
 - Add S.meta like Zod v4 (Move S.example to rescript-schema)
 - Update benchmark. Zod v4 and add TypeBox
 - Make built-in refinements not work with `unknown`. Use `S.to` (manually & automatically) to deside the type first
-- Should rename SchemaError to SuryError ???
 
 ### Final release fixes
 

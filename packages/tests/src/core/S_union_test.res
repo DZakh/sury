@@ -35,21 +35,17 @@ test("Parses when both schemas misses parser and have the same type", t => {
     let _ = %raw(`null`)->S.parseOrThrow(schema)
     t->Assert.fail("Expected to throw")
   } catch {
-  | S.SchemaError(error) =>
-    t->Assert.is(
-      error->S.Error.message,
-      `Failed parsing: Expected string | string, received null`,
-      (),
-    )
+  | S.Error(error) =>
+    t->Assert.is(error.message, `Failed parsing: Expected string | string, received null`, ())
   }
 
   try {
     let _ = %raw(`"foo"`)->S.parseOrThrow(schema)
     t->Assert.fail("Expected to throw")
   } catch {
-  | S.SchemaError(error) =>
+  | S.Error(error) =>
     t->Assert.is(
-      error->S.Error.message,
+      error.message,
       `Failed parsing: Expected string | string, received "foo"
 - The S.transform parser is missing`,
       (),
@@ -73,21 +69,17 @@ test("Parses when both schemas misses parser and have different types", t => {
     let _ = %raw(`null`)->S.parseOrThrow(schema)
     t->Assert.fail("Expected to throw")
   } catch {
-  | S.SchemaError(error) =>
-    t->Assert.is(
-      error->S.Error.message,
-      `Failed parsing: Expected "apple" | string, received null`,
-      (),
-    )
+  | S.Error(error) =>
+    t->Assert.is(error.message, `Failed parsing: Expected "apple" | string, received null`, ())
   }
 
   try {
     let _ = %raw(`"abc"`)->S.parseOrThrow(schema)
     t->Assert.fail("Expected to throw")
   } catch {
-  | S.SchemaError(error) =>
+  | S.Error(error) =>
     t->Assert.is(
-      error->S.Error.message,
+      error.message,
       `Failed parsing: Expected "apple" | string, received "abc"
 - The S.transform parser is missing`,
       (),
@@ -111,9 +103,9 @@ test("Serializes when both schemas misses serializer", t => {
     let _ = %raw(`null`)->S.reverseConvertOrThrow(schema)
     t->Assert.fail("Expected to throw")
   } catch {
-  | S.SchemaError(error) =>
+  | S.Error(error) =>
     t->Assert.is(
-      error->S.Error.message,
+      error.message,
       `Failed converting: Expected unknown | unknown, received null
 - The S.transform serializer is missing`,
       (),
@@ -297,7 +289,7 @@ module Advanced = {
 
     t->U.assertThrows(() => data->S.parseOrThrow(schema), error)
     t->Assert.is(
-      error->U.error->S.Error.message,
+      (error->U.error).message,
       `Failed parsing at ["field"]: Expected { kind: "circle"; radius: number; } | { kind: "square"; x: number; } | { kind: "triangle"; x: number; y: number; }, received {"kind": "oval", "x": 2, "y": 3}`,
       (),
     )

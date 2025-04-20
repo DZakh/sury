@@ -50,7 +50,7 @@ test("Uses the path from S.Error.raise called in the transform parser", t => {
   let schema = S.array(
     S.string->S.transform(_ => {
       parser: _ =>
-        S.Error.raise(
+        U.raiseError(
           U.error({
             code: OperationFailed("User error"),
             operation: Parse,
@@ -74,7 +74,7 @@ test("Uses the path from S.Error.raise called in the transform serializer", t =>
   let schema = S.array(
     S.string->S.transform(_ => {
       serializer: _ =>
-        S.Error.raise(
+        U.raiseError(
           U.error({
             code: OperationFailed("User error"),
             operation: ReverseConvert,

@@ -1,5 +1,5 @@
 import { Json, Result, t, EffectCtx } from "./S.gen";
-export { Json, Result, EffectCtx, error as SchemaError } from "./S.gen";
+export { Json, Result, EffectCtx, error as Error } from "./S.gen";
 
 export type Schema<Output, Input = unknown> = t<Output, Input>;
 

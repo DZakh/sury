@@ -1324,7 +1324,7 @@ All operations either return the output value or raise an exception which you ca
 
 ```rescript
 try true->S.parseOrThrow(schema) catch {
-| S.SchemaError(error) => Console.log(error->S.Error.message)
+| S.Error(error) => Console.log(error.message)
 }
 ```
 
@@ -1511,52 +1511,8 @@ If you want to handle the error, the best way to use `try/catch` block:
 
 ```rescript
 try true->S.parseOrThrow(schema) catch {
-| S.SchemaError(error) => Console.log(error->S.Error.message)
+| S.Error(error) => Console.log(error.message)
 }
-```
-
-### **`Error.make`**
-
-`(~code: S.errorCode, ~flag: S.flag, ~path: S.Path.t) => S.error`
-
-Creates an instance of `SchemaError` error. At the same time it's the `S.SchemaError` exception.
-
-### **`Error.raise`**
-
-`S.error => exn`
-
-Throws error. Since internally it's both the `S.SchemaError` exception and instance of `SchemaError`, it'll have a nice error message and can be caught using `S.SchemaError`.
-
-### **`Error.message`**
-
-`S.error => string`
-
-```rescript
-{
-  code: InvalidType({expected: S.literal(false), received: true}),
-  flag: S.Flag.typeValidation,
-  path: S.Path.empty,
-}->S.Error.message
-```
-
-```rescript
-"Failed parsing: Expected false, received true"
-```
-
-### **`Error.reason`**
-
-`S.error => string`
-
-```rescript
-{
-  code: InvalidType({expected: S.literal(false), received: true}),
-  flag: S.Flag.typeValidation,
-  path: S.Path.empty,
-}->S.Error.reason
-```
-
-```rescript
-"Expected false, received true"
 ```
 
 ## Global config

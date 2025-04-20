@@ -160,7 +160,13 @@ and has = {
   object?: bool,
 }
 and flag
-and error = private {flag: flag, code: errorCode, path: Path.t}
+and error = private {
+  message: string,
+  reason: string,
+  path: Path.t,
+  code: errorCode,
+  flag: flag,
+}
 and errorCode =
   | OperationFailed(string)
   | InvalidOperation({description: string})
@@ -169,7 +175,7 @@ and errorCode =
   | UnexpectedAsync
   | InvalidJsonSchema(schema<unknown>)
 
-type exn += private SchemaError(error)
+type exn += private Error(error)
 
 type s<'value> = {
   schema: t<'value>,
@@ -187,20 +193,6 @@ module Flag: {
 
   external with: (flag, flag) => flag = "%orint"
   let has: (flag, flag) => bool
-}
-
-module Error: {
-  type class
-
-  let class: class
-
-  let make: (~code: errorCode, ~flag: flag, ~path: Path.t) => error
-
-  let raise: error => 'a
-
-  let message: error => string
-
-  let reason: error => string
 }
 
 let never: t<never>
@@ -440,6 +432,14 @@ module Metadata: {
 }
 
 let reverse: t<'value> => t<unknown>
+
+module ErrorClass: {
+  type t
+
+  let value: t
+
+  let constructor: (~code: errorCode, ~flag: flag, ~path: Path.t) => error
+}
 
 // =============
 // Built-in refinements

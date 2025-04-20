@@ -1,5 +1,5 @@
 import * as S from "./S_Core.res.mjs";
-export const SchemaError = S.$$Error.$$class
+export const Error = S.ErrorClass.value
 export const string = S.string
 export const boolean = S.bool
 export const int32 = S.$$int

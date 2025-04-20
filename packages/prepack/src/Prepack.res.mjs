@@ -50,8 +50,8 @@ Nodefs.mkdirSync(artifactsPath);
 
 var filesMapping = [
   [
-    "SchemaError",
-    "S.$$Error.$$class"
+    "Error",
+    "S.ErrorClass.value"
   ],
   [
     "string",
