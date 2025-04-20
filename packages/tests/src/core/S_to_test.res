@@ -463,12 +463,12 @@ test("Coerce string to unboxed union (each item separately)", t => {
 //   let schema = S.string->S.to(
 //     S.recursive(self => {
 //       S.union([
-//         S.schema(_ => Js.Json.Null),
-//         S.schema(s => Js.Json.Number(s.matches(S.float))),
-//         S.schema(s => Js.Json.Boolean(s.matches(S.bool))),
-//         S.schema(s => Js.Json.String(s.matches(S.string))),
-//         S.schema(s => Js.Json.Object(s.matches(S.dict(self)))),
-//         S.schema(s => Js.Json.Array(s.matches(S.array(self)))),
+//         S.schema(_ => Json.Null),
+//         S.schema(s => Json.Number(s.matches(S.float))),
+//         S.schema(s => Json.Boolean(s.matches(S.bool))),
+//         S.schema(s => Json.String(s.matches(S.string))),
+//         S.schema(s => Json.Object(s.matches(S.dict(self)))),
+//         S.schema(s => Json.Array(s.matches(S.array(self)))),
 //       ])
 //     }),
 //   )

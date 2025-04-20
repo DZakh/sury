@@ -1,4 +1,5 @@
 open Ava
+open RescriptCore
 
 test("Correctly parses", t => {
   let schema = S.nullish(S.bool)
@@ -39,9 +40,9 @@ test("Correctly parses transformed", t => {
 test("Correctly reverse convert", t => {
   let schema = S.nullish(S.bool)
 
-  t->Assert.deepEqual(Js.Nullable.Null->S.reverseConvertOrThrow(schema), %raw(`null`), ())
-  t->Assert.deepEqual(Js.Nullable.Undefined->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
-  t->Assert.deepEqual(Js.Nullable.Value(true)->S.reverseConvertOrThrow(schema), %raw(`true`), ())
+  t->Assert.deepEqual(Nullable.Null->S.reverseConvertOrThrow(schema), %raw(`null`), ())
+  t->Assert.deepEqual(Nullable.Undefined->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
+  t->Assert.deepEqual(Nullable.Value(true)->S.reverseConvertOrThrow(schema), %raw(`true`), ())
 
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
 })
@@ -49,9 +50,9 @@ test("Correctly reverse convert", t => {
 test("Correctly reverse convert transformed", t => {
   let schema = S.nullish(S.bool->S.to(S.string))
 
-  t->Assert.deepEqual(Js.Nullable.Null->S.reverseConvertOrThrow(schema), %raw(`null`), ())
-  t->Assert.deepEqual(Js.Nullable.Undefined->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
-  t->Assert.deepEqual(Js.Nullable.Value("true")->S.reverseConvertOrThrow(schema), %raw(`true`), ())
+  t->Assert.deepEqual(Nullable.Null->S.reverseConvertOrThrow(schema), %raw(`null`), ())
+  t->Assert.deepEqual(Nullable.Undefined->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
+  t->Assert.deepEqual(Nullable.Value("true")->S.reverseConvertOrThrow(schema), %raw(`true`), ())
 
   t->U.assertCompiledCode(
     ~schema,

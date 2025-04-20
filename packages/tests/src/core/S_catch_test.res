@@ -125,8 +125,6 @@ test("Compiled parse code snapshot", t => {
 test("Compiled async parse code snapshot", t => {
   let schema = S.bool->S.transform(_ => {asyncParser: i => Promise.resolve(i)})->S.catch(_ => false)
 
-  Js.log(schema)
-
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,

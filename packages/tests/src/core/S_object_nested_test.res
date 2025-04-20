@@ -325,8 +325,8 @@ test("Nested preprocessed tags on reverse convert", t => {
     S.string
     ->S.transform(s => {
       parser: v => {
-        if v->Js.String2.startsWith("_") {
-          v->Js.String2.sliceToEnd(~from=1)
+        if v->String.startsWith("_") {
+          v->String.sliceToEnd(~start=1)
         } else {
           s.fail("String should start with an underscore")
         }

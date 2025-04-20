@@ -145,7 +145,7 @@ test("Allows to convert to JSON with option as dict field", t => {
   let schema = S.dict(S.option(S.bool))
 
   t->Assert.deepEqual(
-    Js.Dict.fromArray([("foo", None)])->S.reverseConvertToJsonOrThrow(schema),
+    Dict.fromArray([("foo", None)])->S.reverseConvertToJsonOrThrow(schema),
     %raw(`{foo:undefined}`),
     ~message="Shouldn't have undefined value here. Needs to be fixed in future versions",
     (),

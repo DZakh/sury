@@ -64,6 +64,8 @@
 - Fix all tests marked as Failing
 - Update docs
 - Rename `rescript-schema-ppx` to `@sury/ppx`
+- Update schema ts type
+- Fix unboxed for JSONSchema module
 
 ## v11
 
