@@ -75,15 +75,15 @@
 ## Install
 
 ```sh
-npm install rescript-schema
+npm install sury
 ```
 
-Then add `rescript-schema` to `bs-dependencies` in your `rescript.json`:
+Then add `sury` to `bs-dependencies` in your `rescript.json`:
 
 ```diff
 {
   ...
-+ "bs-dependencies": ["rescript-schema"],
++ "bs-dependencies": ["sury"],
 }
 ```
 
@@ -155,7 +155,7 @@ let filmSchema = S.object(s => {
 
 // 5. Use schema as a building block for other tools
 // For example, create a JSON-schema with rescript-json-schema and use it for OpenAPI generation
-let filmJSONSchema = JSONSchema.make(filmSchema)
+let filmJSONSchema = filmSchema->S.toJSONSchema
 ```
 
 The library uses `eval` to compile the most performant possible code for parsers and serializers. See yourself how good it is 👌
@@ -267,7 +267,7 @@ let schema = S.string
 
 The `S.string` schema represents a data that is a string. It can be further constrainted with the following utility methods.
 
-**rescript-schema** includes a handful of string-specific refinements and transforms:
+**Sury** includes a handful of string-specific refinements and transforms:
 
 ```rescript
 S.string->S.max(5) // String must be 5 or fewer characters long
@@ -283,7 +283,7 @@ S.string->S.datetime // Invalid datetime string! Expected UTC
 S.string->S.trim // trim whitespaces
 ```
 
-> ⚠️ Validating email addresses is nearly impossible with just code. Different clients and servers accept different things and many diverge from the various specs defining "valid" emails. The ONLY real way to validate an email address is to send a verification email to it and check that the user got it. With that in mind, rescript-schema picks a relatively simple regex that does not cover all cases.
+> ⚠️ Validating email addresses is nearly impossible with just code. Different clients and servers accept different things and many diverge from the various specs defining "valid" emails. The ONLY real way to validate an email address is to send a verification email to it and check that the user got it. With that in mind, Sury picks a relatively simple regex that does not cover all cases.
 
 When using built-in refinements, you can provide a custom error message.
 
@@ -319,7 +319,7 @@ The `S.bool` schema represents a data that is a boolean.
 
 The `S.int` schema represents a data that is an integer.
 
-**rescript-schema** includes some of int-specific refinements:
+**Sury** includes some of int-specific refinements:
 
 ```rescript
 S.int->S.max(5) // Number must be lower than or equal to 5
@@ -333,7 +333,7 @@ S.int->S.port // Invalid port
 
 The `S.float` schema represents a data that is a number.
 
-**rescript-schema** includes some of float-specific refinements:
+**Sury** includes some of float-specific refinements:
 
 ```rescript
 S.float->S.floatMax(5.) // Number must be lower than or equal to 5
@@ -667,7 +667,7 @@ let schema = S.object(_ => ())->S.strict
 // throws S.error with the message: `Failed parsing: Unrecognized key  "unknownKey"`
 ```
 
-By default **rescript-schema** silently strips unrecognized keys when parsing objects. You can change the behaviour to disallow unrecognized keys with the `S.strict` function.
+By default **Sury** silently strips unrecognized keys when parsing objects. You can change the behaviour to disallow unrecognized keys with the `S.strict` function.
 
 If you want to change it for all schemas in your app, you can use `S.setGlobalConfig` function:
 
@@ -867,7 +867,7 @@ let schema = S.array(S.string)
 
 The `S.array` schema represents an array of data of a specific type.
 
-**rescript-schema** includes some of array-specific refinements:
+**Sury** includes some of array-specific refinements:
 
 ```rescript
 S.array(itemSchema)->S.max(5) // Array must be 5 or fewer items long
@@ -1102,7 +1102,7 @@ let schema = S.float->S.catch(s => {
 })
 ```
 
-Conceptually, this is how **rescript-schema** processes "catch values":
+Conceptually, this is how **Sury** processes "catch values":
 
 1. The data is parsed using the base schema
 2. If the parsing fails, the "catch value" is returned
@@ -1147,7 +1147,7 @@ let nullableSchema = innerSchema => {
 
 `(t<'value> => t<'value>) => t<'value>`
 
-You can define a recursive schema in **rescript-schema**.
+You can define a recursive schema in **Sury**.
 
 ```rescript
 type rec node = {
@@ -1206,11 +1206,11 @@ let nodeSchema = S.recursive(nodeSchema => {
 
 One great aspect of the example above is that it uses parallelism to make four requests to check for the existence of nodes.
 
-> 🧠 Despite supporting recursive schema, passing cyclical data into rescript-schema will cause an infinite loop.
+> 🧠 Despite supporting recursive schema, passing cyclical data will cause an infinite loop.
 
 ## Refinements
 
-**rescript-schema** lets you provide custom validation logic via refinements. It's useful to add checks that's not possible to cover with type system. For instance: checking that a number is an integer or that a string is a valid email address.
+**Sury** lets you provide custom validation logic via refinements. It's useful to add checks that's not possible to cover with type system. For instance: checking that a number is an integer or that a string is a valid email address.
 
 ### **`refine`**
 
@@ -1228,7 +1228,7 @@ The refine function is applied for both parser and serializer.
 
 ## Transforms
 
-**rescript-schema** allows to augment schema with transformation logic, letting you transform value during parsing and serializing. This is most commonly used for mapping value to more convenient data-structures.
+**Sury** allows to augment schema with transformation logic, letting you transform value during parsing and serializing. This is most commonly used for mapping value to more convenient data-structures.
 
 ### **`transform`**
 
@@ -1498,7 +1498,7 @@ This can be useful to optimise `S.object` parsing when you construct the input d
 
 ## Error handling
 
-**rescript-schema** throws `S.error` error containing detailed information about the validation problems.
+**Sury** throws `S.error` error containing detailed information about the validation problems.
 
 ```rescript
 let schema = S.literal(false)
@@ -1561,7 +1561,7 @@ Throws error. Since internally it's both the `S.SchemaError` exception and insta
 
 ## Global config
 
-**rescript-schema** has a global config that can be changed to customize the behavior of the library.
+**Sury** has a global config that can be changed to customize the behavior of the library.
 
 ### `defaultAdditionalItems`
 
