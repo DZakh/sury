@@ -183,10 +183,10 @@ jobs:
           cache: "pnpm"
       - run: pnpm install
 
+      - run: pnpm build
+
       - run: pnpm lint:stdlib
         working-directory: packages/prepack
-
-      - run: pnpm build
 
       - name: "Upload artifact: sury npm package"
         uses: actions/upload-artifact@v4
