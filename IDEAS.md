@@ -45,17 +45,24 @@
 - (rescript) Removed `InvalidUnion` error in favor of `InvalidType` with `unionErrors` field
 - Improved union error message
 - Removed `S.preprocess` in favor of `S.to` and `S.transform`.
+- Added `S.toJSONSchema`
 
 ### Scope
 
 - Support `@s.name` etc for ppx and fail on removed `@s.describe`
 - Todo something with nullish and ppx
 - Integrate rescript-json-schema
-- Add S.toJSONSchema and S.fromJSONSchema
+- Add S.fromJSONSchema
 - Add S.meta like Zod v4 (Move S.example to rescript-schema)
 - Update benchmark. Zod v4 and add TypeBox
 - Remove number/string/array prefixes from refinements
 - Make built-in refinements not work with `unknown`. Use `S.to` (manually & automatically) to deside the type first
+
+### Final release fixes
+
+- Fix all tests marked as Failing
+- Update docs
+- Rename `rescript-schema-ppx` to `@sury/ppx`
 
 ## v11
 

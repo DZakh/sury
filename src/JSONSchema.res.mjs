@@ -21,23 +21,7 @@ var Arrayable = {
 
 var Mutable = {};
 
-function classify$1(definition) {
-  if (typeof definition === "boolean") {
-    return {
-            TAG: "Boolean",
-            _0: definition
-          };
-  } else {
-    return {
-            TAG: "Schema",
-            _0: definition
-          };
-  }
-}
-
-var Definition = {
-  classify: classify$1
-};
+var Definition = {};
 
 var Dependency = {};
 

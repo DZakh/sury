@@ -182,6 +182,10 @@ var datetime = S_Core.datetime;
 
 var trim = S_Core.trim;
 
+var toJSONSchema = S_Core.toJSONSchema;
+
+var extendJSONSchema = S_Core.extendJSONSchema;
+
 var setGlobalConfig = S_Core.setGlobalConfig;
 
 export {
@@ -275,6 +279,8 @@ export {
   pattern ,
   datetime ,
   trim ,
+  toJSONSchema ,
+  extendJSONSchema ,
   setGlobalConfig ,
 }
 /* S_Core Not a pure module */

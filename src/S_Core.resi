@@ -47,20 +47,20 @@ type rec t<'value> =
   private
   | @as("never") Never({description?: string, deprecated?: string, name?: string})
   | @as("unknown") Unknown({description?: string, deprecated?: string, name?: string})
-  | @as("string") String({const: string, description?: string, deprecated?: string, name?: string})
+  | @as("string") String({const?: string, description?: string, deprecated?: string, name?: string})
   | @as("number")
   Number({
-      const: float,
+      const?: float,
       format?: numberFormat,
       description?: string,
       deprecated?: string,
       name?: string,
     })
-  | @as("bigint") BigInt({const: bigint, description?: string, deprecated?: string, name?: string})
-  | @as("boolean") Boolean({const: bool, description?: string, deprecated?: string, name?: string})
+  | @as("bigint") BigInt({const?: bigint, description?: string, deprecated?: string, name?: string})
+  | @as("boolean") Boolean({const?: bool, description?: string, deprecated?: string, name?: string})
   | @as("symbol")
   Symbol({
-      const: Js.Types.symbol,
+      const?: Js.Types.symbol,
       description?: string,
       deprecated?: string,
       name?: string,
@@ -467,6 +467,16 @@ let pattern: (t<string>, Js.Re.t, ~message: string=?) => t<string>
 let datetime: (t<string>, ~message: string=?) => t<Js.Date.t>
 let trim: t<string> => t<string>
 
+let toJSONSchema: t<'value> => JSONSchema.t
+let extendJSONSchema: (t<'value>, JSONSchema.t) => t<'value>
+
+type globalConfigOverride = {
+  defaultAdditionalItems?: additionalItemsMode,
+  disableNanNumberValidation?: bool,
+}
+
+let setGlobalConfig: globalConfigOverride => unit
+
 // =============
 // JS/TS API
 // =============
@@ -501,10 +511,3 @@ let js_transform: (
 let js_schema: unknown => t<unknown>
 
 let js_merge: (t<unknown>, t<unknown>) => t<unknown>
-
-type globalConfigOverride = {
-  defaultAdditionalItems?: additionalItemsMode,
-  disableNanNumberValidation?: bool,
-}
-
-let setGlobalConfig: globalConfigOverride => unit

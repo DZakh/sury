@@ -811,7 +811,7 @@ function internalCompile(builder, schema, flag) {
   var b = rootScope(flag);
   if (flag & 8) {
     var output = reverse(schema);
-    jsonableValidation(b, output, output, "");
+    jsonableValidation(output, output, "", flag);
   }
   var input = {
     b: b,
@@ -894,17 +894,17 @@ function toStandard(schema) {
   return schema;
 }
 
-function jsonableValidation(b, output, report, path) {
+function jsonableValidation(output, report, path, flag) {
   var tag = output.type;
   if (nonJsonableTags.has(tag)) {
     throw new E({
               TAG: "InvalidJsonSchema",
               _0: report
-            }, b.g.o, path);
+            }, flag, path);
   }
   if (tag === "union") {
     output.anyOf.forEach(function (s) {
-          jsonableValidation(b, s, report, path);
+          jsonableValidation(s, report, path, flag);
         });
     return ;
   }
@@ -917,12 +917,12 @@ function jsonableValidation(b, output, report, path) {
   if (additionalItems === "strip" || additionalItems === "strict") {
     additionalItems === "strip";
   } else if (isObject ? !isOptional(additionalItems) : true) {
-    jsonableValidation(b, additionalItems, report, path);
+    jsonableValidation(additionalItems, report, path, flag);
   }
   items.forEach(function (item) {
         var s = item.schema;
         if (isObject ? !isOptional(s) : true) {
-          return jsonableValidation(b, s, s, path + ("[" + item.inlinedLocation + "]"));
+          return jsonableValidation(s, s, path + ("[" + item.inlinedLocation + "]"), flag);
         }
         
       });
@@ -2105,7 +2105,7 @@ function factory$4(item, spaceOpt) {
                   mut.b = (function (b, input, param, path) {
                       var prevFlag = b.g.o;
                       b.g.o = prevFlag | 8;
-                      jsonableValidation(b, reversed, reversed, "");
+                      jsonableValidation(reversed, reversed, "", b.g.o);
                       var output = {
                         b: b,
                         v: _notVar,
@@ -3811,6 +3811,225 @@ function setGlobalConfig(override) {
   
 }
 
+var jsonSchemaMetadataId = "m:JSONSchema";
+
+function internalToJSONSchema(schema) {
+  var jsonSchema = {};
+  switch (schema.type) {
+    case "never" :
+        jsonSchema.not = {};
+        break;
+    case "string" :
+        var $$const = schema.const;
+        jsonSchema.type = "string";
+        refinements$1(schema).forEach(function (refinement) {
+              var match = refinement.kind;
+              if (typeof match !== "object") {
+                switch (match) {
+                  case "Email" :
+                      jsonSchema.format = "email";
+                      return ;
+                  case "Uuid" :
+                      jsonSchema.format = "uuid";
+                      return ;
+                  case "Cuid" :
+                      return ;
+                  case "Url" :
+                      jsonSchema.format = "uri";
+                      return ;
+                  case "Datetime" :
+                      jsonSchema.format = "date-time";
+                      return ;
+                  
+                }
+              } else {
+                switch (match.TAG) {
+                  case "Min" :
+                      jsonSchema.minLength = match.length;
+                      return ;
+                  case "Max" :
+                      jsonSchema.maxLength = match.length;
+                      return ;
+                  case "Length" :
+                      var length = match.length;
+                      jsonSchema.minLength = length;
+                      jsonSchema.maxLength = length;
+                      return ;
+                  case "Pattern" :
+                      jsonSchema.pattern = String(match.re);
+                      return ;
+                  
+                }
+              }
+            });
+        if ($$const !== undefined) {
+          jsonSchema.const = $$const;
+        }
+        break;
+    case "number" :
+        var $$const$1 = schema.const;
+        if (schema.format !== undefined) {
+          jsonSchema.type = "integer";
+          refinements$2(schema).forEach(function (refinement) {
+                var match = refinement.kind;
+                if (typeof match !== "object") {
+                  return ;
+                } else {
+                  if (match.TAG === "Min") {
+                    jsonSchema.minimum = match.value;
+                  } else {
+                    jsonSchema.maximum = match.value;
+                  }
+                  return ;
+                }
+              });
+        } else {
+          jsonSchema.type = "number";
+          refinements$3(schema).forEach(function (refinement) {
+                var match = refinement.kind;
+                if (match.TAG === "Min") {
+                  jsonSchema.minimum = match.value;
+                } else {
+                  jsonSchema.maximum = match.value;
+                }
+              });
+        }
+        if ($$const$1 !== undefined) {
+          jsonSchema.const = $$const$1;
+        }
+        break;
+    case "boolean" :
+        var $$const$2 = schema.const;
+        jsonSchema.type = "boolean";
+        if ($$const$2 !== undefined) {
+          jsonSchema.const = $$const$2;
+        }
+        break;
+    case "null" :
+        jsonSchema.type = "null";
+        break;
+    case "array" :
+        var additionalItems = schema.additionalItems;
+        var exit = 0;
+        if (additionalItems === "strip" || additionalItems === "strict") {
+          exit = 1;
+        } else {
+          jsonSchema.items = Caml_option.some(internalToJSONSchema(additionalItems));
+          jsonSchema.type = "array";
+          refinements(schema).forEach(function (refinement) {
+                var match = refinement.kind;
+                switch (match.TAG) {
+                  case "Min" :
+                      jsonSchema.minItems = match.length;
+                      return ;
+                  case "Max" :
+                      jsonSchema.maxItems = match.length;
+                      return ;
+                  case "Length" :
+                      var length = match.length;
+                      jsonSchema.maxItems = length;
+                      jsonSchema.minItems = length;
+                      return ;
+                  
+                }
+              });
+        }
+        if (exit === 1) {
+          var items = schema.items.map(function (item) {
+                return internalToJSONSchema(item.schema);
+              });
+          var itemsNumber = items.length;
+          jsonSchema.items = Caml_option.some(items);
+          jsonSchema.type = "array";
+          jsonSchema.minItems = itemsNumber;
+          jsonSchema.maxItems = itemsNumber;
+        }
+        break;
+    case "object" :
+        var additionalItems$1 = schema.additionalItems;
+        var exit$1 = 0;
+        if (additionalItems$1 === "strip" || additionalItems$1 === "strict") {
+          exit$1 = 1;
+        } else {
+          jsonSchema.type = "object";
+          jsonSchema.additionalProperties = Caml_option.some(internalToJSONSchema(additionalItems$1));
+        }
+        if (exit$1 === 1) {
+          var properties = {};
+          var required = [];
+          schema.items.forEach(function (item) {
+                var fieldSchema = internalToJSONSchema(item.schema);
+                if (!isOptional(item.schema)) {
+                  required.push(item.location);
+                }
+                properties[item.location] = fieldSchema;
+              });
+          var additionalProperties;
+          additionalProperties = (additionalItems$1 === "strip" || additionalItems$1 === "strict") && additionalItems$1 !== "strip" ? false : true;
+          jsonSchema.type = "object";
+          jsonSchema.properties = properties;
+          jsonSchema.additionalProperties = Caml_option.some(additionalProperties);
+          if (required.length !== 0) {
+            jsonSchema.required = required;
+          }
+          
+        }
+        break;
+    case "union" :
+        var literals = [];
+        var items$1 = [];
+        schema.anyOf.forEach(function (childSchema) {
+              if (childSchema.type === "undefined") {
+                return ;
+              }
+              items$1.push(internalToJSONSchema(childSchema));
+              if (isLiteral(childSchema)) {
+                literals.push(childSchema.const);
+                return ;
+              }
+              
+            });
+        var itemsNumber$1 = items$1.length;
+        if (itemsNumber$1 === 1) {
+          Object.assign(jsonSchema, items$1[0]);
+        } else if (literals.length === itemsNumber$1) {
+          jsonSchema.enum = literals;
+        } else {
+          jsonSchema.anyOf = items$1;
+        }
+        break;
+    case "unknown" :
+    case "json" :
+        break;
+    default:
+      throw new Error("[Schema] Unexpected schema type");
+  }
+  var m = schema.description;
+  if (m !== undefined) {
+    jsonSchema.description = m;
+  }
+  var message = schema.deprecated;
+  if (message !== undefined) {
+    jsonSchema.deprecated = true;
+    jsonSchema.description = message;
+  }
+  var metadataRawSchema = schema[jsonSchemaMetadataId];
+  if (metadataRawSchema !== undefined) {
+    Object.assign(jsonSchema, metadataRawSchema);
+  }
+  return jsonSchema;
+}
+
+function toJSONSchema(schema) {
+  jsonableValidation(schema, schema, "", 8);
+  return internalToJSONSchema(schema);
+}
+
+function extendJSONSchema(schema, jsonSchema) {
+  var existingSchemaExtend = schema[jsonSchemaMetadataId];
+  return set$1(schema, jsonSchemaMetadataId, existingSchemaExtend !== undefined ? Object.assign({}, existingSchemaExtend, jsonSchema) : jsonSchema);
+}
+
 var Path = {
   empty: "",
   dynamic: "[]",
@@ -3881,7 +4100,7 @@ var $$Option = {
 
 var String_Refinement = {};
 
-var $$String = {
+var $$String$1 = {
   Refinement: String_Refinement,
   refinements: refinements$1
 };
@@ -3980,7 +4199,7 @@ export {
   tuple2 ,
   tuple3 ,
   $$Option ,
-  $$String ,
+  $$String$1 as $$String,
   Int ,
   Float ,
   $$Array ,
@@ -4004,6 +4223,9 @@ export {
   pattern ,
   datetime ,
   trim ,
+  toJSONSchema ,
+  extendJSONSchema ,
+  setGlobalConfig ,
   js_safe ,
   js_safeAsync ,
   js_union ,
@@ -4015,6 +4237,5 @@ export {
   js_transform ,
   js_schema ,
   js_merge ,
-  setGlobalConfig ,
 }
 /* symbol Not a pure module */

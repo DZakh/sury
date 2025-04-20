@@ -251,18 +251,13 @@ module Mutable = {
 }
 
 module Definition = {
+  @unboxed
   type tagged = Schema(t) | Boolean(bool)
 
   external schema: t => definition = "%identity"
   external boolean: bool => definition = "%identity"
 
-  let classify = definition => {
-    if definition->Js.typeof === "boolean" {
-      Boolean(definition->(magic: definition => bool))
-    } else {
-      Schema(definition->(magic: definition => t))
-    }
-  }
+  external classify: definition => tagged = "%identity"
 }
 
 module Dependency = {
