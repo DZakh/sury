@@ -108,6 +108,7 @@ const schema = S.schema({
 const parseOrThrow = S.compile(schema, "Input", "Output", "Sync", true);
 
 new B.Suite()
+  // 1,820,280 ops/sec
   .add("rescript-schema (create)", () => {
     return S.schema({
       number: S.number,

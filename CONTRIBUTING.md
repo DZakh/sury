@@ -126,7 +126,7 @@ LoginSchema.parse({ email: "jane@example.com", password: "12345678" });
 ArkType
 
 ```ts
-import { type } from "arktype@2.0.4";
+import { type } from "arktype@2.1.0";
 
 const loginSchema = type({
   email: "string.email",
