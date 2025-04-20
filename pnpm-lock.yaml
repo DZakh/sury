@@ -130,8 +130,14 @@ importers:
 
 packages:
 
+  '@ark/schema@0.39.0':
+    resolution: {integrity: sha512-LQbQUb3Sj461LgklXObAyUJNtsUUCBxZlO2HqRLYvRSqpStm0xTMrXn51DwBNNxeSULvKVpXFwoxiSec9kwKww==}
+
   '@ark/schema@0.40.0':
     resolution: {integrity: sha512-vD78TCZkoMWYDVfJVyoBI4ndxaR5jGUeYQuhFNZHXV8Ve2pKrwb4vQFD/VHg7GgF8Pd1pxy0CPouerKNR3y79g==}
+
+  '@ark/util@0.39.0':
+    resolution: {integrity: sha512-90APHVklk8BP4kku7hIh1BgrhuyKYqoZ4O7EybtFRo7cDl9mIyc/QUbGvYDg//73s0J2H0I/gW9pzroA1R4IBQ==}
 
   '@ark/util@0.40.0':
     resolution: {integrity: sha512-YN+qWGs1q5Pl19VcnCWZMUpDEKW9aST6kuSOs0iAswDDe494xjgmg+DJeX0OF2MspH5yY03VqitNcvkywqXNpw==}
@@ -252,6 +258,9 @@ packages:
 
   argparse@1.0.10:
     resolution: {integrity: sha512-o5Roy6tNG4SL/FOkCAN6RzjiakZS25RLYFrcMttJqbdd8BWrnA+fGz57iN5Pb06pvBGvl5gQ0B48dJlslXvoTg==}
+
+  arktype@2.0.4:
+    resolution: {integrity: sha512-S68rWVDnJauwH7/QCm8zCUM3aTe9Xk6oRihdcc3FSUAtxCo/q1Fwq46JhcwB5Ufv1YStwdQRz+00Y/URlvbhAQ==}
 
   arktype@2.1.0:
     resolution: {integrity: sha512-BjXPbh4S8nBSuHmlakrQ+ViiGIhTcxAw7dWuJjW3nlHdY8wGktuuKfP52eWjmC3Y/Og1BbbRYEDGr/H0Kg26Mg==}
@@ -1140,9 +1149,15 @@ packages:
 
 snapshots:
 
+  '@ark/schema@0.39.0':
+    dependencies:
+      '@ark/util': 0.39.0
+
   '@ark/schema@0.40.0':
     dependencies:
       '@ark/util': 0.40.0
+
+  '@ark/util@0.39.0': {}
 
   '@ark/util@0.40.0': {}
 
@@ -1251,6 +1266,11 @@ snapshots:
   argparse@1.0.10:
     dependencies:
       sprintf-js: 1.0.3
+
+  arktype@2.0.4:
+    dependencies:
+      '@ark/schema': 0.39.0
+      '@ark/util': 0.39.0
 
   arktype@2.1.0:
     dependencies:

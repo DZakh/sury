@@ -138,6 +138,7 @@ type rec t = {
    */
   title?: string,
   description?: string,
+  deprecated?: bool,
   default?: Js.Json.t,
   readOnly?: bool,
   writeOnly?: bool,
@@ -235,6 +236,7 @@ module Mutable = {
    */
     mutable title?: string,
     mutable description?: string,
+    mutable deprecated?: bool,
     mutable default?: Js.Json.t,
     mutable readOnly?: bool,
     mutable writeOnly?: bool,
