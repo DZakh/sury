@@ -34,17 +34,7 @@
   "module": "./src/S.mjs",
   "types": "./src/S.d.ts",
   "files": [
-    "src/S_Core.res",
-    "src/S_Core.res.js",
-    "src/S_Core.res.mjs",
-    "src/S.res",
-    "src/S.resi",
-    "src/S.res.js",
-    "src/S.res.mjs",
-    "src/S.js",
-    "src/S.mjs",
-    "src/S.d.ts",
-    "src/S.gen.d.ts",
+    "src",
     "rescript.json"
   ],
   "scripts": {
