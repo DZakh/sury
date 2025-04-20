@@ -57,6 +57,7 @@
 - Update benchmark. Zod v4 and add TypeBox
 - Remove number/string/array prefixes from refinements
 - Make built-in refinements not work with `unknown`. Use `S.to` (manually & automatically) to deside the type first
+- Should rename SchemaError to SuryError ???
 
 ### Final release fixes
 

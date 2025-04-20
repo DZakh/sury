@@ -2,11 +2,11 @@
 [![codecov](https://codecov.io/gh/DZakh/rescript-schema/branch/main/graph/badge.svg?token=40G6YKKD6J)](https://codecov.io/gh/DZakh/rescript-schema)
 [![npm](https://img.shields.io/npm/dm/rescript-schema)](https://www.npmjs.com/package/rescript-schema)
 
-# ReScript Schema 🧬
+# Sury (aka ReScript Schema) 🧬
 
 The fastest schema with next-gen DX.
 
-> ⚠️ Be aware that **rescript-schema** uses `eval` for parsing. It's usually fine but might not work in some environments like Cloudflare Workers or third-party scripts used on pages with the [script-src](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy/script-src) header.
+> ⚠️ Be aware that **Sury** uses `eval` for parsing. It's usually fine but might not work in some environments like Cloudflare Workers or third-party scripts used on pages with the [script-src](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy/script-src) header.
 
 Highlights:
 
@@ -23,7 +23,7 @@ Highlights:
 - Opt-in strict mode for object schema to prevent unknown fields with ability to change it for the whole project
 - Opt-in ReScript Schema codegen from type definition (ppx)
 
-Also, you can use **rescript-schema** as a building block for your tools. And there are many existing ones:
+Also, you can use **Sury** as a building block for your tools. And there are many existing ones:
 
 - [rescript-rest](https://github.com/DZakh/rescript-rest) - RPC-like client, contract, and server implementation for a pure REST API
 - [rescript-envsafe](https://github.com/DZakh/rescript-envsafe) - Makes sure you don't accidentally deploy apps with missing or invalid environment variables
@@ -47,13 +47,13 @@ Also, you can use **rescript-schema** as a building block for your tools. And th
 
 ## Comparison
 
-Instead of relying on a few large functions with many methods, **rescript-schema** follows [Valibot](https://github.com/fabian-hiller/valibot)'s approach, where API design and source code is based on many small and independent functions, each with just a single task. This modular design has several advantages.
+Instead of relying on a few large functions with many methods, **Sury** follows [Valibot](https://github.com/fabian-hiller/valibot)'s approach, where API design and source code is based on many small and independent functions, each with just a single task. This modular design has several advantages.
 
 For example, this allows a bundler to use the import statements to remove code that is not needed. This way, only the code that is actually used gets into your production build. This can reduce the bundle size by up to 2 times compared to [Zod](https://github.com/colinhacks/zod).
 
 Besides the individual bundle size, the overall size of the library is also significantly smaller.
 
-At the same time **rescript-schema** is the fastest composable validation library in the entire JavaScript ecosystem. This is achieved because of the JIT approach when an ultra optimized validator is created using `eval`.
+At the same time **Sury** is the fastest composable validation library in the entire JavaScript ecosystem. This is achieved because of the JIT approach when an ultra optimized validator is created using `eval`.
 
 |                                          | rescript-schema@9.2.2 | Zod@3.24.1      | Valibot@0.42.1 | ArkType@2.1.0 |
 | ---------------------------------------- | --------------------- | --------------- | -------------- | ------------- |

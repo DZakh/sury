@@ -1,6 +1,6 @@
 [⬅ Back to highlights](/README.md)
 
-# ReScript Schema for ReScript users
+# ReScript API reference
 
 ## Table of contents
 

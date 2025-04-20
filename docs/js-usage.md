@@ -1,6 +1,6 @@
 [⬅ Back to highlights](/README.md)
 
-# ReScript Schema for JS/TS users
+# JavaScript API reference
 
 ## Table of contents
 
@@ -56,7 +56,7 @@
 ## Install
 
 ```sh
-npm install rescript-schema
+npm install sury
 ```
 
 > 🧠 You don't need to install [ReScript](https://rescript-lang.org/) compiler for the library to work.
@@ -64,12 +64,12 @@ npm install rescript-schema
 ## Basic usage
 
 ```ts
-import * as S from "rescript-schema";
+import * as S from "sury";
 
 // Create login schema with email and password
 const loginSchema = S.schema({
-  email: S.email(S.string),
-  password: S.stringMinLength(S.string, 8),
+  email: S.string.with(S.email),
+  password: S.string.with(S.stringMinLength, 8),
 });
 
 // Infer output TypeScript type of login schema
@@ -91,7 +91,7 @@ S.parseOrThrow(
 ## Primitives
 
 ```ts
-import * as S from "rescript-schema";
+import * as S from "sury";
 
 // primitive values
 S.string;
@@ -123,16 +123,16 @@ const null = S.schema(null)
 const terrific = S.schema(Symbol("terrific"));
 ```
 
-Compared to other libraries, `S.schema` in **rescript-schema** supports literally any value. They are validated using strict equal checks. With the exception of plain objects and arrays, they are validated using deep equal checks. So the schema like this will work correctly:
+Compared to other libraries, the `S.schema` in **Sury** supports literally any value. They are validated using strict equal checks. With the exception of plain objects and arrays, they are validated using deep equal checks. So the schema like this will work correctly:
 
 ```ts
 const cliArgsSchema = S.schema(["help", "lint"]);
-// ^ This is going to be a S.Schema<["help", "lint"]> type
+// ^ This is going to be the S.Schema<["help", "lint"]> type
 ```
 
 ## Strings
 
-**rescript-schema** includes a handful of string-specific refinements and transforms:
+**Sury** includes a handful of string-specific refinements and transforms:
 
 ```ts
 S.stringMaxLength(S.string, 5); // String must be 5 or fewer characters long
@@ -148,7 +148,7 @@ S.datetime(S.string); // Invalid datetime string! Expected UTC
 S.trim(S.string); // trim whitespaces
 ```
 
-> ⚠️ Validating email addresses is nearly impossible with just code. Different clients and servers accept different things and many diverge from the various specs defining "valid" emails. The ONLY real way to validate an email address is to send a verification email to it and check that the user got it. With that in mind, rescript-schema picks a relatively simple regex that does not cover all cases.
+> ⚠️ Validating email addresses is nearly impossible with just code. Different clients and servers accept different things and many diverge from the various specs defining "valid" emails. The ONLY real way to validate an email address is to send a verification email to it and check that the user got it. With that in mind, Sury picks a relatively simple regex that does not cover all cases.
 
 When using built-in refinements, you can provide a custom error message.
 
@@ -174,7 +174,7 @@ S.parseOrThrow("2020-01-01T00:00:00+02:00", datetimeSchema); // fail (no offsets
 
 ## Numbers
 
-**rescript-schema** includes some of number-specific refinements:
+**Sury** includes some of number-specific refinements:
 
 ```ts
 S.numberMax(S.number, 5); // Number must be lower than or equal to 5
@@ -227,7 +227,7 @@ S.parseOrThrow(undefined, numberWithRandomDefault); // => 0.1871840107401901
 S.parseOrThrow(undefined, numberWithRandomDefault); // => 0.7223408162401552
 ```
 
-Conceptually, this is how **rescript-schema** processes default values:
+Conceptually, this is how **Sury** processes default values:
 
 1. If the input is `undefined`, the default value is returned
 2. Otherwise, the data is parsed using the base schema
@@ -341,7 +341,7 @@ S.reverseConvertOrThrow(
 
 ### `strict`
 
-By default **rescript-schema** object schema strip out unrecognized keys during parsing. You can disallow unknown keys with `S.strict` function. If there are any unknown keys in the input, **rescript-schema** will fail with an error.
+By default **Sury** object schema strip out unrecognized keys during parsing. You can disallow unknown keys with `S.strict` function. If there are any unknown keys in the input, **Sury** will fail with an error.
 
 ```ts
 const personSchema = S.strict(
@@ -407,7 +407,7 @@ type Teacher = S.Output<typeof teacherSchema>; // => { students: string[], id: s
 const stringArraySchema = S.array(S.string);
 ```
 
-**rescript-schema** includes some of array-specific refinements:
+**Sury** includes some of array-specific refinements:
 
 ```ts
 S.arrayMaxLength(S.array(S.string), 5); // Array must be 5 or fewer items long
@@ -622,7 +622,7 @@ This can be useful for documenting a field, for example in a JSON Schema using a
 
 ## Custom schema
 
-You can create a schema for any TypeScript type by using `S.custom`. This is useful for creating schema for types that are not supported by **rescript-schema** out of the box.
+You can create a schema for any TypeScript type by using `S.custom`. This is useful for creating schema for types that are not supported by **Sury** out of the box.
 
 ```ts
 const mySetSchema = S.custom("MySet", (input, s) => {
@@ -637,7 +637,7 @@ type MySet = S.Output<typeof mySetSchema>; // Set<any>
 
 ## Recursive schemas
 
-You can define a recursive schema in **rescript-schema**. Unfortunately, TypeScript derives the Schema type as `unknown` so you need to explicitly specify the type and it'll start correctly typechecking.
+You can define a recursive schema in **Sury**. Unfortunately, TypeScript derives the Schema type as `unknown` so you need to explicitly specify the type and it'll start correctly typechecking.
 
 ```ts
 type Node = {
@@ -653,14 +653,14 @@ const nodeSchema = S.recursive<Node>((nodeSchema) =>
 );
 ```
 
-> 🧠 Despite supporting recursive schema, passing cyclical data into rescript-schema will cause an infinite loop.
+> 🧠 Despite supporting recursive schema, passing cyclical data will cause an infinite loop.
 
 ## Refinements
 
-**rescript-schema** lets you provide custom validation logic via refinements. It's useful to add checks that's not possible to cover with type system. For instance: checking that a number is an integer or that a string is a valid email address.
+**Sury** lets you provide custom validation logic via refinements. It's useful to add checks that's not possible to cover with type system. For instance: checking that a number is an integer or that a string is a valid email address.
 
 ```ts
-const shortStringSchema = S.refine(S.string, (value, s) => {
+const shortStringSchema = S.string.with(S.refine, (value, s) => {
   if (value.length > 255) {
     s.fail("String can't be more than 255 characters");
   }
@@ -673,7 +673,7 @@ Also, you can have an asynchronous refinement (for parser only):
 
 ```ts
 const userSchema = S.schema({
-  id: S.asyncParserRefine(S.uuid(S.string), async (id, s) => {
+  id: S.string.with(S.uuid).with(S.asyncParserRefine, async (id, s) => {
     const isActiveUser = await checkIsActiveUser(id);
     if (!isActiveUser) {
       s.fail(`The user ${id} is inactive.`);
@@ -696,7 +696,7 @@ await S.parseAsyncOrThrow(
 
 ## Transforms
 
-**rescript-schema** allows to augment schema with transformation logic, letting you transform value during parsing and serializing. This is most commonly used when you need to access the value in runtime and perform some transformation logic. For cases when you only want to change the shape of the data, it's better to use `S.shape` instead.
+**Sury** allows to augment schema with transformation logic, letting you transform value during parsing and serializing. This is most commonly used when you need to access the value in runtime and perform some transformation logic. For cases when you only want to change the shape of the data, it's better to use `S.shape` instead.
 
 ```ts
 const intToString = (schema) =>
@@ -722,7 +722,7 @@ The `S.shape` schema is a helper function that allows you to transform the value
 > ⚠️ Even though it looks like you operate with a real value, it's actually a dummy proxy object. So conditions or any other runtime logic won't work. Please use `S.transform` for such cases.
 
 ```typescript
-const circleSchema = S.shape(S.number, (radius) => ({
+const circleSchema = S.number.with(S.shape, (radius) => ({
   kind: "circle",
   radius: radius,
 }));
@@ -913,7 +913,7 @@ Used internally for readable error messages.
 
 ## Error handling
 
-**rescript-schema** throws `S.SchemaError` which is a subclass of Error class. It contains detailed information about the operation problem.
+**Sury** throws `S.SchemaError` which is a subclass of Error class. It contains detailed information about the operation problem.
 
 ```ts
 S.parseOrThrow(true, S.schema(false));
@@ -945,7 +945,7 @@ As you can notice, you can have more logic inside of the safe function callback 
 
 ## Global config
 
-**rescript-schema** has a global config that can be changed to customize the behavior of the library.
+**Sury** has a global config that can be changed to customize the behavior of the library.
 
 ### `defaultAdditionalItems`
 
