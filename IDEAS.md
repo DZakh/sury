@@ -54,19 +54,18 @@
 - Add S.toJSONSchema and S.fromJSONSchema
 - Add S.meta like Zod v4 (Move S.example to rescript-schema)
 - Update benchmark. Zod v4 and add TypeBox
+- Remove number/string/array prefixes from refinements
+- Make built-in refinements not work with `unknown`. Use `S.to` (manually & automatically) to deside the type first
 
 ## v11
 
 - Start using rescript v12
-- Remove number/string/array prefixes from refinements
 - Support arrays for `S.to`
 - Remove fieldOr in favor of optionOr?
-- Make built-in refinements not work with `unknown`. Use `S.to` (manually & automatically) to deside the type first
 - Allow to pass custom error message via `.with`
 - Make S.to extensible
 - Add S.date (S.instanceof) and remove S.datetime
 - Add refinement info to the tagged type
-- Make refinements change type from unknown to known
 
 ## v???
 

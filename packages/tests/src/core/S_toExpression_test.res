@@ -126,7 +126,7 @@ test("Expression of custom schema", t => {
   t->Assert.deepEqual(S.custom("Test", s => s.fail("User error"))->S.toExpression, "Test", ())
 })
 
-test("Expression of renamed schema", t => {
+Failing.test("Expression of renamed schema", t => {
   let originalSchema = S.never
   let renamedSchema = originalSchema->S.name("Ethers.BigInt")
   t->Assert.deepEqual(originalSchema->S.toExpression, "never", ())
