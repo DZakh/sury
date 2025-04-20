@@ -161,7 +161,7 @@ jobs:
       - name: Install ppx
         run: pnpm ppx:install
 
-      - run: pnpm exec rescript build
+      - run: pnpm rescript build
         working-directory: packages/tests
 
       - run: pnpm lint:stdlib
