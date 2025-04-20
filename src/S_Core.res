@@ -5424,3 +5424,40 @@ let extendJSONSchema = (schema, jsonSchema) => {
     },
   )
 }
+
+let min = (schema, minValue, ~message as maybeMessage=?) => {
+  switch schema {
+  | String(_) => schema->stringMinLength(minValue, ~message=?maybeMessage)
+  | Array(_) => schema->arrayMinLength(minValue, ~message=?maybeMessage)
+  | Number({format: Int32}) => schema->intMin(minValue, ~message=?maybeMessage)
+  | Number(_) => schema->floatMin(minValue->Obj.magic, ~message=?maybeMessage)
+  | _ =>
+    InternalError.panic(
+      `S.min is not supported for ${schema->toExpression} schema. Coerce the schema to string, number or array using S.to first.`,
+    )
+  }
+}
+
+let max = (schema, maxValue, ~message as maybeMessage=?) => {
+  switch schema {
+  | String(_) => schema->stringMaxLength(maxValue, ~message=?maybeMessage)
+  | Array(_) => schema->arrayMaxLength(maxValue, ~message=?maybeMessage)
+  | Number({format: Int32}) => schema->intMax(maxValue, ~message=?maybeMessage)
+  | Number(_) => schema->floatMax(maxValue->Obj.magic, ~message=?maybeMessage)
+  | _ =>
+    InternalError.panic(
+      `S.max is not supported for ${schema->toExpression} schema. Coerce the schema to string, number or array using S.to first.`,
+    )
+  }
+}
+
+let length = (schema, length, ~message as maybeMessage=?) => {
+  switch schema {
+  | String(_) => schema->stringLength(length, ~message=?maybeMessage)
+  | Array(_) => schema->arrayLength(length, ~message=?maybeMessage)
+  | _ =>
+    InternalError.panic(
+      `S.length is not supported for ${schema->toExpression} schema. Coerce the schema to string or array using S.to first.`,
+    )
+  }
+}

@@ -69,7 +69,7 @@ import * as S from "sury";
 // Create login schema with email and password
 const loginSchema = S.schema({
   email: S.string.with(S.email),
-  password: S.string.with(S.stringMinLength, 8),
+  password: S.string.with(S.min, 8),
 });
 
 // Infer output TypeScript type of login schema
@@ -135,9 +135,9 @@ const cliArgsSchema = S.schema(["help", "lint"]);
 **Sury** includes a handful of string-specific refinements and transforms:
 
 ```ts
-S.stringMaxLength(S.string, 5); // String must be 5 or fewer characters long
-S.stringMinLength(S.string, 5); // String must be 5 or more characters long
-S.stringLength(S.string, 5); // String must be exactly 5 characters long
+S.max(S.string, 5); // String must be 5 or fewer characters long
+S.min(S.string, 5); // String must be 5 or more characters long
+S.length(S.string, 5); // String must be exactly 5 characters long
 S.email(S.string); // Invalid email address
 S.url(S.string); // Invalid url
 S.uuid(S.string); // Invalid UUID
@@ -153,8 +153,8 @@ S.trim(S.string); // trim whitespaces
 When using built-in refinements, you can provide a custom error message.
 
 ```ts
-S.stringMinLength(S.string, 1, "String can't be empty");
-S.stringLength(S.string, 5, "SMS code should be 5 digits long");
+S.min(S.string, 1, "String can't be empty");
+S.length(S.string, 5, "SMS code should be 5 digits long");
 ```
 
 ### ISO datetimes
@@ -177,14 +177,14 @@ S.parseOrThrow("2020-01-01T00:00:00+02:00", datetimeSchema); // fail (no offsets
 **Sury** includes some of number-specific refinements:
 
 ```ts
-S.numberMax(S.number, 5); // Number must be lower than or equal to 5
-S.numberMin(S.number 5); // Number must be greater than or equal to 5
+S.max(S.number, 5); // Number must be lower than or equal to 5
+S.min(S.number 5); // Number must be greater than or equal to 5
 ```
 
 Optionally, you can pass in a second argument to provide a custom error message.
 
 ```ts
-S.numberMax(S.number, 5, "this👏is👏too👏big");
+S.max(S.number, 5, "this👏is👏too👏big");
 ```
 
 ## NaNs
@@ -251,7 +251,7 @@ A convenience method that returns a "nullish" version of a schema. Nullish schem
 ```ts
 const nullishStringSchema = S.nullish(S.string);
 S.parseOrThrow("asdf", nullishStringSchema); // => "asdf"
-S.parseOrThrow(null, nullishStringSchema); // => undefined
+S.parseOrThrow(null, nullishStringSchema); // => null
 S.parseOrThrow(undefined, nullishStringSchema); // => undefined
 ```
 
@@ -410,9 +410,9 @@ const stringArraySchema = S.array(S.string);
 **Sury** includes some of array-specific refinements:
 
 ```ts
-S.arrayMaxLength(S.array(S.string), 5); // Array must be 5 or fewer items long
-S.arrayMinLength(S.array(S.string) 5); // Array must be 5 or more items long
-S.arrayLength(S.array(S.string) 5); // Array must be exactly 5 items long
+S.max(S.array(S.string), 5); // Array must be 5 or fewer items long
+S.min(S.array(S.string) 5); // Array must be 5 or more items long
+S.length(S.array(S.string) 5); // Array must be exactly 5 items long
 ```
 
 ### Unnest

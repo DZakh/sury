@@ -71,7 +71,7 @@ test("JSONSchema of string schema uses the last refinement for format", t => {
 
 test("JSONSchema of string with min", t => {
   t->Assert.deepEqual(
-    S.string->S.stringMinLength(1)->S.toJSONSchema,
+    S.string->S.min(1)->S.toJSONSchema,
     %raw(`{"type": "string", "minLength": 1}`),
     (),
   )
@@ -79,7 +79,7 @@ test("JSONSchema of string with min", t => {
 
 test("JSONSchema of string with max", t => {
   t->Assert.deepEqual(
-    S.string->S.stringMaxLength(1)->S.toJSONSchema,
+    S.string->S.max(1)->S.toJSONSchema,
     %raw(`{"type": "string", "maxLength": 1}`),
     (),
   )
@@ -87,7 +87,7 @@ test("JSONSchema of string with max", t => {
 
 test("JSONSchema of string with length", t => {
   t->Assert.deepEqual(
-    S.string->S.stringLength(1)->S.toJSONSchema,
+    S.string->S.length(1)->S.toJSONSchema,
     %raw(`{"type": "string", "minLength": 1, "maxLength": 1}`),
     (),
   )
@@ -95,7 +95,7 @@ test("JSONSchema of string with length", t => {
 
 test("JSONSchema of string with both min and max", t => {
   t->Assert.deepEqual(
-    S.string->S.stringMinLength(1)->S.stringMaxLength(4)->S.toJSONSchema,
+    S.string->S.min(1)->S.max(4)->S.toJSONSchema,
     %raw(`{"type": "string", "minLength": 1, "maxLength": 4}`),
     (),
   )
@@ -103,7 +103,7 @@ test("JSONSchema of string with both min and max", t => {
 
 test("JSONSchema of int with min", t => {
   t->Assert.deepEqual(
-    S.int->S.intMin(1)->S.toJSONSchema,
+    S.int->S.min(1)->S.toJSONSchema,
     %raw(`{"type": "integer", "minimum": 1}`),
     (),
   )
@@ -111,7 +111,7 @@ test("JSONSchema of int with min", t => {
 
 test("JSONSchema of int with max", t => {
   t->Assert.deepEqual(
-    S.int->S.intMax(1)->S.toJSONSchema,
+    S.int->S.max(1)->S.toJSONSchema,
     %raw(`{"type": "integer", "maximum": 1}`),
     (),
   )
@@ -268,7 +268,7 @@ test("JSONSchema of string array", t => {
 
 test("JSONSchema of array with min length", t => {
   t->Assert.deepEqual(
-    S.array(S.string)->S.arrayMinLength(1)->S.toJSONSchema,
+    S.array(S.string)->S.min(1)->S.toJSONSchema,
     %raw(`{
       "type": "array",
       "items": {"type": "string"},
@@ -280,7 +280,7 @@ test("JSONSchema of array with min length", t => {
 
 test("JSONSchema of array with max length", t => {
   t->Assert.deepEqual(
-    S.array(S.string)->S.arrayMaxLength(1)->S.toJSONSchema,
+    S.array(S.string)->S.max(1)->S.toJSONSchema,
     %raw(`{
       "type": "array",
       "items": {"type": "string"},
@@ -292,7 +292,7 @@ test("JSONSchema of array with max length", t => {
 
 test("JSONSchema of array with fixed length", t => {
   t->Assert.deepEqual(
-    S.array(S.string)->S.arrayLength(1)->S.toJSONSchema,
+    S.array(S.string)->S.length(1)->S.toJSONSchema,
     %raw(`{
       "type": "array",
       "items": {"type": "string"},

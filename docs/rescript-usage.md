@@ -270,9 +270,9 @@ The `S.string` schema represents a data that is a string. It can be further cons
 **rescript-schema** includes a handful of string-specific refinements and transforms:
 
 ```rescript
-S.string->S.stringMaxLength(5) // String must be 5 or fewer characters long
-S.string->S.stringMinLength(5) // String must be 5 or more characters long
-S.string->S.stringLength(5) // String must be exactly 5 characters long
+S.string->S.max(5) // String must be 5 or fewer characters long
+S.string->S.min(5) // String must be 5 or more characters long
+S.string->S.length(5) // String must be exactly 5 characters long
 S.string->S.email // Invalid email address
 S.string->S.url // Invalid url
 S.string->S.uuid // Invalid UUID
@@ -288,8 +288,8 @@ S.string->S.trim // trim whitespaces
 When using built-in refinements, you can provide a custom error message.
 
 ```rescript
-S.string->S.stringMinLength(1, ~message="String can't be empty")
-S.string->S.stringLength(5, ~message="SMS code should be 5 digits long")
+S.string->S.min(1, ~message="String can't be empty")
+S.string->S.length(5, ~message="SMS code should be 5 digits long")
 ```
 
 #### ISO datetimes
@@ -322,8 +322,8 @@ The `S.int` schema represents a data that is an integer.
 **rescript-schema** includes some of int-specific refinements:
 
 ```rescript
-S.int->S.intMax(5) // Number must be lower than or equal to 5
-S.int->S.intMin(5) // Number must be greater than or equal to 5
+S.int->S.max(5) // Number must be lower than or equal to 5
+S.int->S.min(5) // Number must be greater than or equal to 5
 S.int->S.port // Invalid port
 ```
 
@@ -336,8 +336,8 @@ The `S.float` schema represents a data that is a number.
 **rescript-schema** includes some of float-specific refinements:
 
 ```rescript
-S.float->S.floatMax(5) // Number must be lower than or equal to 5
-S.float->S.floatMin(5) // Number must be greater than or equal to 5
+S.float->S.floatMax(5.) // Number must be lower than or equal to 5
+S.float->S.floatMin(5.) // Number must be greater than or equal to 5
 ```
 
 ### **`bigint`**
@@ -870,9 +870,9 @@ The `S.array` schema represents an array of data of a specific type.
 **rescript-schema** includes some of array-specific refinements:
 
 ```rescript
-S.array(itemSchema)->S.arrayMaxLength(5) // Array must be 5 or fewer items long
-S.array(itemSchema)->S.arrayMinLength(5) // Array must be 5 or more items long
-S.array(itemSchema)->S.arrayLength(5) // Array must be exactly 5 items long
+S.array(itemSchema)->S.max(5) // Array must be 5 or fewer items long
+S.array(itemSchema)->S.min(5) // Array must be 5 or more items long
+S.array(itemSchema)->S.length(5) // Array must be exactly 5 items long
 ```
 
 ### **`list`**

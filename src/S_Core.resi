@@ -445,20 +445,15 @@ let reverse: t<'value> => t<unknown>
 // Built-in refinements
 // =============
 
-let intMin: (t<int>, int, ~message: string=?) => t<int>
-let intMax: (t<int>, int, ~message: string=?) => t<int>
-let port: (t<int>, ~message: string=?) => t<int>
-
+let min: (t<'value>, int, ~message: string=?) => t<'value>
 let floatMin: (t<float>, float, ~message: string=?) => t<float>
+
+let max: (t<'value>, int, ~message: string=?) => t<'value>
 let floatMax: (t<float>, float, ~message: string=?) => t<float>
 
-let arrayMinLength: (t<array<'a>>, int, ~message: string=?) => t<array<'a>>
-let arrayMaxLength: (t<array<'a>>, int, ~message: string=?) => t<array<'a>>
-let arrayLength: (t<array<'a>>, int, ~message: string=?) => t<array<'a>>
+let length: (t<'value>, int, ~message: string=?) => t<'value>
 
-let stringMinLength: (t<string>, int, ~message: string=?) => t<string>
-let stringMaxLength: (t<string>, int, ~message: string=?) => t<string>
-let stringLength: (t<string>, int, ~message: string=?) => t<string>
+let port: (t<int>, ~message: string=?) => t<int>
 let email: (t<string>, ~message: string=?) => t<string>
 let uuid: (t<string>, ~message: string=?) => t<string>
 let cuid: (t<string>, ~message: string=?) => t<string>

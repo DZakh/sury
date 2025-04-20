@@ -3425,32 +3425,6 @@ function tuple3(v0, v1, v2) {
                 ]));
 }
 
-function intMin(schema, minValue, maybeMessage) {
-  var message = maybeMessage !== undefined ? maybeMessage : "Number must be greater than or equal to " + minValue;
-  return addRefinement(schema, metadataId$2, {
-              kind: {
-                TAG: "Min",
-                value: minValue
-              },
-              message: message
-            }, (function (b, inputVar, param, path) {
-                return "if(" + inputVar + "<" + embed(b, minValue) + "){" + fail(b, message, path) + "}";
-              }));
-}
-
-function intMax(schema, maxValue, maybeMessage) {
-  var message = maybeMessage !== undefined ? maybeMessage : "Number must be lower than or equal to " + maxValue;
-  return addRefinement(schema, metadataId$2, {
-              kind: {
-                TAG: "Max",
-                value: maxValue
-              },
-              message: message
-            }, (function (b, inputVar, param, path) {
-                return "if(" + inputVar + ">" + embed(b, maxValue) + "){" + fail(b, message, path) + "}";
-              }));
-}
-
 function port(schema, messageOpt) {
   var message = messageOpt !== undefined ? messageOpt : "Invalid port";
   return addRefinement(schema, metadataId$2, {
@@ -3484,84 +3458,6 @@ function floatMax(schema, maxValue, maybeMessage) {
               message: message
             }, (function (b, inputVar, param, path) {
                 return "if(" + inputVar + ">" + embed(b, maxValue) + "){" + fail(b, message, path) + "}";
-              }));
-}
-
-function arrayMinLength(schema, length, maybeMessage) {
-  var message = maybeMessage !== undefined ? maybeMessage : "Array must be " + length + " or more items long";
-  return addRefinement(schema, metadataId, {
-              kind: {
-                TAG: "Min",
-                length: length
-              },
-              message: message
-            }, (function (b, inputVar, param, path) {
-                return "if(" + inputVar + ".length<" + embed(b, length) + "){" + fail(b, message, path) + "}";
-              }));
-}
-
-function arrayMaxLength(schema, length, maybeMessage) {
-  var message = maybeMessage !== undefined ? maybeMessage : "Array must be " + length + " or fewer items long";
-  return addRefinement(schema, metadataId, {
-              kind: {
-                TAG: "Max",
-                length: length
-              },
-              message: message
-            }, (function (b, inputVar, param, path) {
-                return "if(" + inputVar + ".length>" + embed(b, length) + "){" + fail(b, message, path) + "}";
-              }));
-}
-
-function arrayLength(schema, length, maybeMessage) {
-  var message = maybeMessage !== undefined ? maybeMessage : "Array must be exactly " + length + " items long";
-  return addRefinement(schema, metadataId, {
-              kind: {
-                TAG: "Length",
-                length: length
-              },
-              message: message
-            }, (function (b, inputVar, param, path) {
-                return "if(" + inputVar + ".length!==" + embed(b, length) + "){" + fail(b, message, path) + "}";
-              }));
-}
-
-function stringMinLength(schema, length, maybeMessage) {
-  var message = maybeMessage !== undefined ? maybeMessage : "String must be " + length + " or more characters long";
-  return addRefinement(schema, metadataId$1, {
-              kind: {
-                TAG: "Min",
-                length: length
-              },
-              message: message
-            }, (function (b, inputVar, param, path) {
-                return "if(" + inputVar + ".length<" + embed(b, length) + "){" + fail(b, message, path) + "}";
-              }));
-}
-
-function stringMaxLength(schema, length, maybeMessage) {
-  var message = maybeMessage !== undefined ? maybeMessage : "String must be " + length + " or fewer characters long";
-  return addRefinement(schema, metadataId$1, {
-              kind: {
-                TAG: "Max",
-                length: length
-              },
-              message: message
-            }, (function (b, inputVar, param, path) {
-                return "if(" + inputVar + ".length>" + embed(b, length) + "){" + fail(b, message, path) + "}";
-              }));
-}
-
-function stringLength(schema, length, maybeMessage) {
-  var message = maybeMessage !== undefined ? maybeMessage : "String must be exactly " + length + " characters long";
-  return addRefinement(schema, metadataId$1, {
-              kind: {
-                TAG: "Length",
-                length: length
-              },
-              message: message
-            }, (function (b, inputVar, param, path) {
-                return "if(" + inputVar + ".length!==" + embed(b, length) + "){" + fail(b, message, path) + "}";
               }));
 }
 
@@ -4030,6 +3926,126 @@ function extendJSONSchema(schema, jsonSchema) {
   return set$1(schema, jsonSchemaMetadataId, existingSchemaExtend !== undefined ? Object.assign({}, existingSchemaExtend, jsonSchema) : jsonSchema);
 }
 
+function min(schema, minValue, maybeMessage) {
+  switch (schema.type) {
+    case "string" :
+        var message = maybeMessage !== undefined ? maybeMessage : "String must be " + minValue + " or more characters long";
+        return addRefinement(schema, metadataId$1, {
+                    kind: {
+                      TAG: "Min",
+                      length: minValue
+                    },
+                    message: message
+                  }, (function (b, inputVar, param, path) {
+                      return "if(" + inputVar + ".length<" + embed(b, minValue) + "){" + fail(b, message, path) + "}";
+                    }));
+    case "number" :
+        if (schema.format !== undefined) {
+          var message$1 = maybeMessage !== undefined ? maybeMessage : "Number must be greater than or equal to " + minValue;
+          return addRefinement(schema, metadataId$2, {
+                      kind: {
+                        TAG: "Min",
+                        value: minValue
+                      },
+                      message: message$1
+                    }, (function (b, inputVar, param, path) {
+                        return "if(" + inputVar + "<" + embed(b, minValue) + "){" + fail(b, message$1, path) + "}";
+                      }));
+        } else {
+          return floatMin(schema, minValue, maybeMessage);
+        }
+    case "array" :
+        var message$2 = maybeMessage !== undefined ? maybeMessage : "Array must be " + minValue + " or more items long";
+        return addRefinement(schema, metadataId, {
+                    kind: {
+                      TAG: "Min",
+                      length: minValue
+                    },
+                    message: message$2
+                  }, (function (b, inputVar, param, path) {
+                      return "if(" + inputVar + ".length<" + embed(b, minValue) + "){" + fail(b, message$2, path) + "}";
+                    }));
+    default:
+      var message$3 = "S.min is not supported for " + toExpression(schema) + " schema. Coerce the schema to string, number or array using S.to first.";
+      throw new Error("[Schema] " + message$3);
+  }
+}
+
+function max(schema, maxValue, maybeMessage) {
+  switch (schema.type) {
+    case "string" :
+        var message = maybeMessage !== undefined ? maybeMessage : "String must be " + maxValue + " or fewer characters long";
+        return addRefinement(schema, metadataId$1, {
+                    kind: {
+                      TAG: "Max",
+                      length: maxValue
+                    },
+                    message: message
+                  }, (function (b, inputVar, param, path) {
+                      return "if(" + inputVar + ".length>" + embed(b, maxValue) + "){" + fail(b, message, path) + "}";
+                    }));
+    case "number" :
+        if (schema.format !== undefined) {
+          var message$1 = maybeMessage !== undefined ? maybeMessage : "Number must be lower than or equal to " + maxValue;
+          return addRefinement(schema, metadataId$2, {
+                      kind: {
+                        TAG: "Max",
+                        value: maxValue
+                      },
+                      message: message$1
+                    }, (function (b, inputVar, param, path) {
+                        return "if(" + inputVar + ">" + embed(b, maxValue) + "){" + fail(b, message$1, path) + "}";
+                      }));
+        } else {
+          return floatMax(schema, maxValue, maybeMessage);
+        }
+    case "array" :
+        var message$2 = maybeMessage !== undefined ? maybeMessage : "Array must be " + maxValue + " or fewer items long";
+        return addRefinement(schema, metadataId, {
+                    kind: {
+                      TAG: "Max",
+                      length: maxValue
+                    },
+                    message: message$2
+                  }, (function (b, inputVar, param, path) {
+                      return "if(" + inputVar + ".length>" + embed(b, maxValue) + "){" + fail(b, message$2, path) + "}";
+                    }));
+    default:
+      var message$3 = "S.max is not supported for " + toExpression(schema) + " schema. Coerce the schema to string, number or array using S.to first.";
+      throw new Error("[Schema] " + message$3);
+  }
+}
+
+function length(schema, length$1, maybeMessage) {
+  switch (schema.type) {
+    case "string" :
+        var message = maybeMessage !== undefined ? maybeMessage : "String must be exactly " + length$1 + " characters long";
+        return addRefinement(schema, metadataId$1, {
+                    kind: {
+                      TAG: "Length",
+                      length: length$1
+                    },
+                    message: message
+                  }, (function (b, inputVar, param, path) {
+                      return "if(" + inputVar + ".length!==" + embed(b, length$1) + "){" + fail(b, message, path) + "}";
+                    }));
+    case "array" :
+        var message$1 = maybeMessage !== undefined ? maybeMessage : "Array must be exactly " + length$1 + " items long";
+        return addRefinement(schema, metadataId, {
+                    kind: {
+                      TAG: "Length",
+                      length: length$1
+                    },
+                    message: message$1
+                  }, (function (b, inputVar, param, path) {
+                      return "if(" + inputVar + ".length!==" + embed(b, length$1) + "){" + fail(b, message$1, path) + "}";
+                    }));
+    default:
+      var message$2 = "S.length is not supported for " + toExpression(schema) + " schema. Coerce the schema to string or array using S.to first.";
+      throw new Error("[Schema] " + message$2);
+  }
+}
+
 var Path = {
   empty: "",
   dynamic: "[]",
@@ -4205,17 +4221,12 @@ export {
   $$Array ,
   Metadata ,
   reverse ,
-  intMin ,
-  intMax ,
-  port ,
+  min ,
   floatMin ,
+  max ,
   floatMax ,
-  arrayMinLength ,
-  arrayMaxLength ,
-  arrayLength ,
-  stringMinLength ,
-  stringMaxLength ,
-  stringLength ,
+  length ,
+  port ,
   email ,
   uuid ,
   cuid ,

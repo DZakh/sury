@@ -262,36 +262,16 @@ var filesMapping = [
     "S.port"
   ],
   [
-    "numberMin",
-    "S.floatMin"
+    "min",
+    "S.min"
   ],
   [
-    "numberMax",
-    "S.floatMax"
+    "max",
+    "S.max"
   ],
   [
-    "arrayMinLength",
-    "S.arrayMinLength"
-  ],
-  [
-    "arrayMaxLength",
-    "S.arrayMaxLength"
-  ],
-  [
-    "arrayLength",
-    "S.arrayLength"
-  ],
-  [
-    "stringMinLength",
-    "S.stringMinLength"
-  ],
-  [
-    "stringMaxLength",
-    "S.stringMaxLength"
-  ],
-  [
-    "stringLength",
-    "S.stringLength"
+    "length",
+    "S.length"
   ],
   [
     "email",

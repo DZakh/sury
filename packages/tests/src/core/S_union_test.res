@@ -141,7 +141,7 @@ test("When union of json and string schemas, should parse the first one", t => {
 
 test("Ensures parsing order with unknown schema", t => {
   let schema = S.union([
-    S.string->S.stringLength(2),
+    S.string->S.length(2),
     S.bool->Obj.magic, // Should be checked before unknown
     S.custom("unknown string", _ => {parser: _ => "pass"}),
     // TODO: Should disabled deopt at this point

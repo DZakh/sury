@@ -146,27 +146,17 @@ var Metadata = S_Core.Metadata;
 
 var reverse = S_Core.reverse;
 
-var intMin = S_Core.intMin;
-
-var intMax = S_Core.intMax;
-
-var port = S_Core.port;
+var min = S_Core.min;
 
 var floatMin = S_Core.floatMin;
 
+var max = S_Core.max;
+
 var floatMax = S_Core.floatMax;
 
-var arrayMinLength = S_Core.arrayMinLength;
+var length = S_Core.length;
 
-var arrayMaxLength = S_Core.arrayMaxLength;
-
-var arrayLength = S_Core.arrayLength;
-
-var stringMinLength = S_Core.stringMinLength;
-
-var stringMaxLength = S_Core.stringMaxLength;
-
-var stringLength = S_Core.stringLength;
+var port = S_Core.port;
 
 var email = S_Core.email;
 
@@ -261,17 +251,12 @@ export {
   $$Array ,
   Metadata ,
   reverse ,
-  intMin ,
-  intMax ,
-  port ,
+  min ,
   floatMin ,
+  max ,
   floatMax ,
-  arrayMinLength ,
-  arrayMaxLength ,
-  arrayLength ,
-  stringMinLength ,
-  stringMaxLength ,
-  stringLength ,
+  length ,
+  port ,
   email ,
   uuid ,
   cuid ,

@@ -25,7 +25,7 @@ test("Successfully parses string", (t) => {
 });
 
 test("Successfully parses string with built-in refinement", (t) => {
-  const schema = S.stringLength(S.string, 5);
+  const schema = S.string.with(S.length, 5);
   const result = S.safe(() => S.parseOrThrow("123", schema));
 
   expectType<TypeEqual<typeof result, S.Result<string>>>(true);
@@ -52,7 +52,7 @@ test("Successfully parses string with built-in refinement", (t) => {
 });
 
 test("Successfully parses string with built-in refinement and custom message", (t) => {
-  const schema = S.stringLength(S.string, 5, "Postcode must have 5 symbols");
+  const schema = S.string.with(S.length, 5, "Postcode must have 5 symbols");
   const result = S.safe(() => S.parseOrThrow("123", schema));
 
   if (result.success) {
@@ -229,6 +229,21 @@ test("Successfully parses array", (t) => {
   const value = S.parseOrThrow(["foo"], schema);
 
   t.deepEqual(value, ["foo"]);
+
+  expectType<SchemaEqual<typeof schema, string[], string[]>>(true);
+  expectType<TypeEqual<typeof value, string[]>>(true);
+});
+
+test("Successfully parses array with min and max refinements", (t) => {
+  const schema = S.array(S.string).with(S.min, 1).with(S.max, 2);
+  const value = S.parseOrThrow(["foo"], schema);
+  t.deepEqual(value, ["foo"]);
+
+  const result = S.safe(() => S.parseOrThrow([], schema));
+  t.deepEqual(
+    result.success ? "" : result.error.message,
+    "Failed parsing: Array must be 1 or more items long"
+  );
 
   expectType<SchemaEqual<typeof schema, string[], string[]>>(true);
   expectType<TypeEqual<typeof value, string[]>>(true);
@@ -1893,7 +1908,7 @@ test("Example", (t) => {
   // Create login schema with email and password
   const loginSchema = S.schema({
     email: S.string.with(S.email),
-    password: S.string.with(S.stringMinLength, 8),
+    password: S.string.with(S.min, 8),
   });
 
   // Infer output TypeScript type of login schema

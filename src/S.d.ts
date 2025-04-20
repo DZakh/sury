@@ -349,69 +349,27 @@ export function deprecated<Output, Input>(
   message: string
 ): Schema<Output, Input>;
 
+export const min: <Output extends string | number | unknown[], Input>(
+  schema: Schema<Output, Input>,
+  length: number,
+  message?: string
+) => Schema<Output, Input>;
+export const max: <Output extends string | number | unknown[], Input>(
+  schema: Schema<Output, Input>,
+  length: number,
+  message?: string
+) => Schema<Output, Input>;
+export const length: <Output extends string | unknown[], Input>(
+  schema: Schema<Output, Input>,
+  length: number,
+  message?: string
+) => Schema<Output, Input>;
+
 export const port: <Input>(
   schema: Schema<number, Input>,
   message?: string
 ) => Schema<number, Input>;
 
-// TODO: Not implemented
-// export const nonEmpty: <Input>(
-//   schema: Schema<string, Input>,
-//   message?: string
-// ) => Schema<string, Input>;
-// export const min: <Input>(
-//   schema: Schema<string, Input>,
-//   length: number,
-//   message?: string
-// ) => Schema<string, Input>;
-// export const meta: <Input>(
-//   schema: Schema<string, Input>,
-//   m: Record<string, any>,
-//   message?: string
-// ) => Schema<string, Input>;
-
-export const numberMin: <Input>(
-  schema: Schema<number, Input>,
-  value: number,
-  message?: string
-) => Schema<number, Input>;
-export const numberMax: <Input>(
-  schema: Schema<number, Input>,
-  value: number,
-  message?: string
-) => Schema<number, Input>;
-
-export const arrayMinLength: <Input, ItemSchema>(
-  schema: Schema<ItemSchema[], Input>,
-  length: number,
-  message?: string
-) => Schema<ItemSchema[], Input>;
-export const arrayMaxLength: <Input, ItemSchema>(
-  schema: Schema<ItemSchema[], Input>,
-  length: number,
-  message?: string
-) => Schema<ItemSchema[], Input>;
-export const arrayLength: <Input, ItemSchema>(
-  schema: Schema<ItemSchema[], Input>,
-  length: number,
-  message?: string
-) => Schema<ItemSchema[], Input>;
-
-export const stringMinLength: <Input>(
-  schema: Schema<string, Input>,
-  length: number,
-  message?: string
-) => Schema<string, Input>;
-export const stringMaxLength: <Input>(
-  schema: Schema<string, Input>,
-  length: number,
-  message?: string
-) => Schema<string, Input>;
-export const stringLength: <Input>(
-  schema: Schema<string, Input>,
-  length: number,
-  message?: string
-) => Schema<string, Input>;
 export const email: <Input>(
   schema: Schema<string, Input>,
   message?: string

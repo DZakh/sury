@@ -46,6 +46,16 @@
 - Improved union error message
 - Removed `S.preprocess` in favor of `S.to` and `S.transform`.
 - Added `S.toJSONSchema`
+- Renamed `S.stringMinLength` to `S.min`
+- Renamed `S.stringMaxLength` to `S.max`
+- Renamed `S.stringLength` to `S.length`
+- Renamed `S.intMin` to `S.min`
+- Renamed `S.intMax` to `S.max`
+- Renamed `S.numberMin` to `S.min`
+- Renamed `S.numberMax` to `S.max`
+- Renamed `S.arrayMinLength` to `S.min`
+- Renamed `S.arrayMaxLength` to `S.max`
+- Renamed `S.arrayLength` to `S.length`
 
 ### Scope
 
@@ -55,7 +65,6 @@
 - Add S.fromJSONSchema
 - Add S.meta like Zod v4 (Move S.example to rescript-schema)
 - Update benchmark. Zod v4 and add TypeBox
-- Remove number/string/array prefixes from refinements
 - Make built-in refinements not work with `unknown`. Use `S.to` (manually & automatically) to deside the type first
 - Should rename SchemaError to SuryError ???
 
@@ -65,7 +74,8 @@
 - Update docs
 - Rename `rescript-schema-ppx` to `@sury/ppx`
 - Update schema ts type
-- Fix unboxed for JSONSchema module
+- Fix unboxed types in JSONSchema module
+- Fix all fixme
 
 ## v11
 
