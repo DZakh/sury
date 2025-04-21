@@ -1,42 +1,40 @@
 [![CI](https://github.com/DZakh/rescript-schema/actions/workflows/ci.yml/badge.svg)](https://github.com/DZakh/rescript-schema/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/DZakh/rescript-schema/branch/main/graph/badge.svg?token=40G6YKKD6J)](https://codecov.io/gh/DZakh/rescript-schema)
-[![npm](https://img.shields.io/npm/dm/rescript-schema)](https://www.npmjs.com/package/rescript-schema)
+[![npm](https://img.shields.io/npm/dm/rescript-schema)](https://www.npmjs.com/package/sury)
 
 # Sury (aka ReScript Schema) 🧬
 
 The fastest schema with next-gen DX.
 
-> ⚠️ Be aware that **Sury** uses `eval` for parsing. It's usually fine but might not work in some environments like Cloudflare Workers or third-party scripts used on pages with the [script-src](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Content-Security-Policy/script-src) header.
-
-Highlights:
+**Highlights:**
 
 - Works with plain JavaScript, TypeScript, and ReScript. You don't need to use any compiler.
 - The **fastest** parsing and validation library in the entire JavaScript ecosystem ([benchmark](https://moltar.github.io/typescript-runtime-type-benchmarks/))
 - Small JS footprint & tree-shakable API ([Comparison with Zod and Valibot](#comparison))
 - Implements the [Standard Schema](https://standardschema.dev/) spec
-- Declarative transformations in a schema without a performance loss
-- Reverse schema and convert values to the initial format (serializing)
+- Built-in JSON Schema support
 - Detailed and easy to understand error messages
-- Support for asynchronous transformations
-- Immutable API with 100+ different operation combinations
-- Easy to create _recursive_ schema
-- Opt-in strict mode for object schema to prevent unknown fields with ability to change it for the whole project
-- Opt-in ReScript Schema codegen from type definition (ppx)
+- Declarative transformations with automatic serialization support
+- Immutable API with 100+ different operations
+- Flexible global config
+- Opt-in ReScript codegen from type definitions (ppx)
 
-Also, you can use **Sury** as a building block for your tools. And there are many existing ones:
+Also, you can use **Sury** as a building block for your own tools or use existing ones:
 
+- [tRPC](https://trpc.io/), [TanStack Form](https://tanstack.com/form), [TanStack Router](https://tanstack.com/router), [Hono](https://hono.dev/) and 19+ more using [Standard Schema](https://standardschema.dev/) spec
+- Anything that supports [JSON Schema](https://json-schema.org/) with `S.toJSONSchema`
 - [rescript-rest](https://github.com/DZakh/rescript-rest) - RPC-like client, contract, and server implementation for a pure REST API
 - [rescript-envsafe](https://github.com/DZakh/rescript-envsafe) - Makes sure you don't accidentally deploy apps with missing or invalid environment variables
 - [rescript-stripe](https://github.com/enviodev/rescript-stripe) - Describe and manage Stripe billing in a declarative way with code
 - Internal form library at [Carla](https://www.carla.se/)
-- [tRPC](https://trpc.io/), [TanStack Form](https://tanstack.com/form), [TanStack Router](https://tanstack.com/router), [Hono](https://hono.dev/) and 19+ more using [Standard Schema](https://standardschema.dev/) spec
 
 ## Documentation
 
 - [For JS/TS users](/docs/js-usage.md)
 - [For ReScript users](/docs/rescript-usage.md)
 - [For PPX users](/packages/rescript-schema-ppx/README.md)
-- [For library maintainers](/docs/integration-guide.md)
+
+> ⚠️ Be aware that **Sury** uses `new Function` for parsing. The approach is battle tested and has no known security issues. It's also used by TypeBox, Zod@4 and ArkType. Although, some environments like Cloudflare Workers will not allow it.
 
 ## Resources
 
@@ -52,14 +50,16 @@ For example, this allows a bundler to use the import statements to remove code t
 
 Besides the individual bundle size, the overall size of the library is also significantly smaller.
 
-At the same time **Sury** is the fastest composable validation library in the entire JavaScript ecosystem. This is achieved because of the JIT approach when an ultra optimized validator is created using `eval`.
+At the same time **Sury** is the fastest composable validation library in the entire JavaScript ecosystem. This is achieved because of the JIT approach when an ultra optimized validator is created using `new Function`.
 
-|                                          | rescript-schema@9.2.2 | Zod@3.24.1      | Valibot@0.42.1 | ArkType@2.1.0 |
-| ---------------------------------------- | --------------------- | --------------- | -------------- | ------------- |
-| **Total size** (minified + gzipped)      | 11 kB                 | 14.8 kB         | 10.5 kB        | 43 kB         |
-| **Example size** (minified + gzipped)    | 4.45 kB               | 13.5 kB         | 1.22 kB        | 42.9 kB       |
-| **Parse with the same schema**           | 93,491 ops/ms         | 1,191 ops/ms    | 3,540 ops/ms   | 67,673 ops/ms |
-| **Create schema & parse once**           | 166 ops/ms            | 93 ops/ms       | 2,302 ops/ms   | 13 ops/ms     |
-| **Eval-free**                            | ❌                    | ✅              | ✅             | ❌            |
-| **Codegen-free** (Doesn't need compiler) | ✅                    | ✅              | ✅             | ✅            |
-| **Ecosystem**                            | ⭐️⭐️                | ⭐️⭐️⭐️⭐️⭐️ | ⭐️⭐️⭐️      | ⭐️⭐️        |
+|                                          | sury@10.0.0-rc.0 | Zod@4.0.0-beta   | TypeBox@0.34.33               | Valibot@1.0.0             | ArkType@2.1.20   |
+| ---------------------------------------- | ---------------- | ---------------- | ----------------------------- | ------------------------- | ---------------- |
+| **Total size** (min + gzip)              | 14.1 kB          | 25.9 kB          | 31.4 kB                       | 12.6 kB                   | 45.9 kB          |
+| **Benchmark size** (min + gzip)          | 4.27 kB          | 13.5 kB          | 22.8 kB                       | 1.23 kB                   | 45.8 kB          |
+| **Parse with the same schema**           | 94,828 ops/ms    | 8,437 ops/ms     | 99,640 ops/ms (No transforms) | 1,721 ops/ms              | 67,552 ops/ms    |
+| **Create schema & parse once**           | 166 ops/ms       | 6 ops/ms         | 111 ops/ms (No transforms)    | 287 ops/ms                | 11 ops/ms        |
+| **JSON Schema**                          | `S.toJSONSchema` | `z.toJSONSchema` | 👑                            | `@valibot/to-json-schema` | `T.toJsonSchema` |
+| **Standard Schema**                      | ✅               | ✅               | ❌                            | ✅                        | ✅               |
+| **Eval-free**                            | ❌               | ⭕ opt-out       | ⭕ opt-in                     | ✅                        | ⭕ opt-out       |
+| **Codegen-free** (Doesn't need compiler) | ✅               | ✅               | ✅                            | ✅                        | ✅               |
+| **Ecosystem**                            | ⭐️⭐️           | ⭐️⭐️⭐️⭐️⭐️  | ⭐️⭐️⭐️⭐️⭐️               | ⭐️⭐️⭐️                 | ⭐️⭐️           |

@@ -66,85 +66,135 @@ https://bundlejs.com/
 `sury`
 
 ```ts
-import * as S from "rescript-schema@9.0.0-rc.2";
+export * as S from "sury@10.0.0-rc.0";
+```
 
-// Create login schema with email and password
-const loginSchema = S.schema({
-  email: S.email(S.string),
-  password: S.stringMinLength(S.string, 8),
-});
+```ts
+import * as S from "sury@10.0.0-rc.0";
 
-// Infer output TypeScript type of login schema
-type LoginData = S.Output<typeof loginSchema>; // { email: string; password: string }
-
-// Throws the S.Error(`Failed parsing at ["email"]: Invalid email address`)
-S.parseOrThrow({ email: "", password: "" }, loginSchema);
-
-// Returns data as { email: string; password: string }
-S.parseOrThrow(
-  {
-    email: "jane@example.com",
-    password: "12345678",
+const schema = S.schema({
+  number: S.number,
+  negNumber: S.number,
+  maxNumber: S.number,
+  string: S.string,
+  longString: S.string,
+  boolean: S.boolean,
+  deeplyNested: {
+    foo: S.string,
+    num: S.number,
+    bool: S.boolean,
   },
-  loginSchema
-);
+});
+S.parseOrThrow(data, schema);
 ```
 
 valibot
 
 ```ts
-import * as v from "valibot@0.42.1"; // 1.21 kB
+export * as v from "valibot@1.0.0";
+```
 
-// Create login schema with email and password
-const LoginSchema = v.object({
-  email: v.pipe(v.string(), v.email()),
-  password: v.pipe(v.string(), v.minLength(8)),
+```ts
+import * as v from "valibot@1.0.0";
+
+const schema = v.object({
+  number: v.number(),
+  negNumber: v.number(),
+  maxNumber: v.number(),
+  string: v.string(),
+  longString: v.string(),
+  boolean: v.boolean(),
+  deeplyNested: v.object({
+    foo: v.string(),
+    num: v.number(),
+    bool: v.boolean(),
+  }),
 });
-
-// Infer output TypeScript type of login schema
-type LoginData = v.InferOutput<typeof LoginSchema>; // { email: string; password: string }
-
-// Throws error for `email` and `password`
-v.parse(LoginSchema, { email: "", password: "" });
-
-// Returns data as { email: string; password: string }
-v.parse(LoginSchema, { email: "jane@example.com", password: "12345678" });
+v.parse(schema, data);
 ```
 
 zod
 
 ```ts
-import * as z from "zod";
+export * as z from "zod@4.0.0-beta.20250420T053007";
+```
 
-// Create login schema with email and password
-const LoginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
+```ts
+import * as z from "zod@4.0.0-beta.20250420T053007";
+
+const schema = z.object({
+  number: z.number(),
+  negNumber: z.number(),
+  maxNumber: z.number(),
+  string: z.string(),
+  longString: z.string(),
+  boolean: z.boolean(),
+  deeplyNested: z.object({
+    foo: z.string(),
+    num: z.number(),
+    bool: z.boolean(),
+  }),
 });
+schema.parse(data);
+```
 
-// Throws error for `email` and `password`
-LoginSchema.parse({ email: "", password: "" });
+### TypeBox
 
-// Returns data as { email: string; password: string }
-LoginSchema.parse({ email: "jane@example.com", password: "12345678" });
+```ts
+export * from "@sinclair/typebox";
+// Include Value for transforms support
+export * from "@sinclair/typebox/value";
+export * from "@sinclair/typebox/compiler";
+```
+
+```ts
+import { Type } from "@sinclair/typebox";
+import { TypeCompiler } from "@sinclair/typebox/compiler";
+
+const schema = TypeCompiler.Compile(
+  Type.Object({
+    number: Type.Number(),
+    negNumber: Type.Number(),
+    maxNumber: Type.Number(),
+    string: Type.String(),
+    longString: Type.String(),
+    boolean: Type.Boolean(),
+    deeplyNested: Type.Object({
+      foo: Type.String(),
+      num: Type.Number(),
+      bool: Type.Boolean(),
+    }),
+  })
+);
+if (!schema.Check(data)) {
+  throw new Error(schema.Errors(data).First()?.message);
+}
 ```
 
 ArkType
 
 ```ts
-import { type } from "arktype@2.1.0";
-
-const loginSchema = type({
-  email: "string.email",
-  password: "string > 7",
-});
-
-loginSchema({ email: "", password: "" });
-
-loginSchema({ email: "jane@example.com", password: "12345678" });
+export * from "arktype@2.1.20";
 ```
 
-https://bundlejs.com/?q=arktype%402.0.4&treeshake=%5B*%5D&text=%22const+loginSchema+%3D+type%28%7B%5Cn++email%3A+%5C%22string.email%5C%22%2C%5Cn++password%3A+%5C%22string+%3E+7%5C%22%2C%5Cn%7D%29%3B%5Cn%5CnloginSchema%28%7B+email%3A+%5C%22%5C%22%2C+password%3A+%5C%22%5C%22+%7D%29%3B%5Cn%5CnloginSchema%28%7B+email%3A+%5C%22jane%40example.com%5C%22%2C+password%3A+%5C%2212345678%5C%22+%7D%29%3B%22
+```ts
+import { type } from "arktype@2.1.20";
+
+const schema = type({
+  number: "number",
+  negNumber: "number",
+  maxNumber: "number",
+  string: "string",
+  longString: "string",
+  boolean: "boolean",
+  deeplyNested: {
+    foo: "string",
+    num: "number",
+    bool: "boolean",
+  },
+});
+schema(data);
+```
 
 ## License
 

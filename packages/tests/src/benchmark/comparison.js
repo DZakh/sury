@@ -7,6 +7,13 @@ import * as S from "sury/src/S.js";
 import { type } from "arktype";
 import { Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
+import { TypeCompiler } from "@sinclair/typebox/compiler";
+import { TypeSystemPolicy } from "@sinclair/typebox/system";
+
+S.setGlobalConfig({
+  disableNanNumberValidation: true,
+});
+TypeSystemPolicy.AllowNaN = true;
 
 const data = Object.freeze({
   number: 1,
@@ -99,9 +106,6 @@ const valibotSchema = v.object({
   }),
 });
 
-S.setGlobalConfig({
-  disableNanNumberValidation: true,
-});
 const schema = S.schema({
   number: S.number,
   negNumber: S.number,
@@ -116,6 +120,22 @@ const schema = S.schema({
   },
 });
 const parseOrThrow = S.compile(schema, "Input", "Output", "Sync", true);
+
+const TypeBoxSchema = TypeCompiler.Compile(
+  Type.Object({
+    number: Type.Number(),
+    negNumber: Type.Number(),
+    maxNumber: Type.Number(),
+    string: Type.String(),
+    longString: Type.String(),
+    boolean: Type.Boolean(),
+    deeplyNested: Type.Object({
+      foo: Type.String(),
+      num: Type.Number(),
+      bool: Type.Boolean(),
+    }),
+  })
+);
 
 new B.Suite()
   .add("Sury (create)", () => {
@@ -268,6 +288,48 @@ new B.Suite()
   })
   .add("ArkType (union)", () => {
     return ArkTypeUnion("123");
+  })
+  .add("TypeBox (create)", () => {
+    return TypeCompiler.Compile(
+      Type.Object({
+        number: Type.Number(),
+        negNumber: Type.Number(),
+        maxNumber: Type.Number(),
+        string: Type.String(),
+        longString: Type.String(),
+        boolean: Type.Boolean(),
+        deeplyNested: Type.Object({
+          foo: Type.String(),
+          num: Type.Number(),
+          bool: Type.Boolean(),
+        }),
+      })
+    );
+  })
+  .add("TypeBox (parse)", () => {
+    if (!TypeBoxSchema.Check(data)) {
+      throw new Error(TypeBoxSchema.Errors(data).First()?.message);
+    }
+  })
+  .add("TypeBox (create + parse)", () => {
+    const schema = TypeCompiler.Compile(
+      Type.Object({
+        number: Type.Number(),
+        negNumber: Type.Number(),
+        maxNumber: Type.Number(),
+        string: Type.String(),
+        longString: Type.String(),
+        boolean: Type.Boolean(),
+        deeplyNested: Type.Object({
+          foo: Type.String(),
+          num: Type.Number(),
+          bool: Type.Boolean(),
+        }),
+      })
+    );
+    if (!schema.Check(data)) {
+      throw new Error(schema.Errors(data).First()?.message);
+    }
   })
   .add("TypeBox (union)", () => {
     return Value.Decode(TypeBoxUnion, "123");
