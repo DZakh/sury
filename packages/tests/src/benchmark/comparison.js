@@ -106,6 +106,22 @@ const valibotSchema = v.object({
   }),
 });
 
+export const SuryInfTest = S.schema({
+  foo: S.string,
+});
+export const ZodInfTest = z.object({
+  foo: z.string(),
+});
+export const TypeBoxInfTest = Type.Object({
+  foo: Type.String(),
+});
+export const ValibotInfTest = v.object({
+  foo: v.string(),
+});
+export const ArkTypeInfTest = type({
+  foo: "string",
+});
+
 const schema = S.schema({
   number: S.number,
   negNumber: S.number,
