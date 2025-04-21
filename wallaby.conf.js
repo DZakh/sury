@@ -8,7 +8,7 @@ export default () => ({
   files: [
     "package.json",
     "src/S.res.mjs",
-    "src/S_Core.res.mjs",
+    "src/Sury.res.mjs",
     "src/S.js",
     "packages/tests/src/utils/U.res.mjs",
   ],

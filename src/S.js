@@ -1,4 +1,4 @@
-import * as S from "./S_Core.res.mjs";
+import * as S from "./Sury.res.mjs";
 export const Error = S.ErrorClass.value
 export const string = S.string
 export const boolean = S.bool

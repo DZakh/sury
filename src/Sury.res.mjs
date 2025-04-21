@@ -57,7 +57,7 @@ var symbol = Symbol("schema");
 
 var itemSymbol = Symbol("schema:item");
 
-var $$Error = /* @__PURE__ */Caml_exceptions.create("S_Core.Error");
+var $$Error = /* @__PURE__ */Caml_exceptions.create("Sury.Error");
 
 var isLiteral = (s => "const" in s);
 

@@ -44,8 +44,8 @@ test("Successfully parses string with built-in refinement", (t) => {
     TypeEqual<
       typeof result,
       {
-        success: false;
-        error: S.Error;
+        readonly success: false;
+        readonly error: S.Error;
       }
     >
   >(true);

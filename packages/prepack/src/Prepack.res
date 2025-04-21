@@ -185,7 +185,7 @@ sourePaths->Array.forEach(path => {
 let writeSjsEsm = path => {
   NodeJs.Fs.writeFileSyncWith(
     path,
-    ["import * as S from \"./S_Core.res.mjs\";"]
+    ["import * as S from \"./Sury.res.mjs\";"]
     ->Array.concat(filesMapping->Array.map(((name, value)) => `export const ${name} = ${value}`))
     ->Array.join("\n")
     ->NodeJs.Buffer.fromString,
@@ -203,7 +203,7 @@ writeSjsEsm(NodeJs.Path.join2(artifactsPath, "./src/S.mjs"))
 // This should overwrite S.js with the commonjs version
 NodeJs.Fs.writeFileSyncWith(
   NodeJs.Path.join2(artifactsPath, "./src/S.js"),
-  ["var S = require(\"./S_Core.res.js\");"]
+  ["var S = require(\"./Sury.res.js\");"]
   ->Array.concat(filesMapping->Array.map(((name, value)) => `exports.${name} = ${value}`))
   ->Array.join("\n")
   ->NodeJs.Buffer.fromString,
@@ -250,9 +250,9 @@ let resolveRescriptRuntime = async (~format, ~input, ~output) => {
 // so it's not required for JS/TS to install ReScript compiler
 // And if the package is used together by TS and ReScript,
 // the file will be overwritten by compiler and share the same code
-await resolveRescriptRuntime(~format=#es, ~input="src/S_Core.res.mjs", ~output="src/S_Core.res.mjs")
+await resolveRescriptRuntime(~format=#es, ~input="src/Sury.res.mjs", ~output="src/Sury.res.mjs")
 // Event though the generated code is shitty, let's still have it for the sake of some users
-await resolveRescriptRuntime(~format=#cjs, ~input="src/S_Core.res.mjs", ~output="src/S_Core.res.js")
+await resolveRescriptRuntime(~format=#cjs, ~input="src/Sury.res.mjs", ~output="src/Sury.res.js")
 // Also build cjs version, in case some ReScript libraries will use sury without running a compiler (rescript-stdlib-vendorer)
 await resolveRescriptRuntime(~format=#cjs, ~input="src/S.res.mjs", ~output="src/S.res.js")
 

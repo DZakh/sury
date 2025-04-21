@@ -314,7 +314,7 @@ sourePaths.forEach(function (path) {
     });
 
 function writeSjsEsm(path) {
-  Nodefs.writeFileSync(path, Buffer.from(["import * as S from \"./S_Core.res.mjs\";"].concat(filesMapping.map(function (param) {
+  Nodefs.writeFileSync(path, Buffer.from(["import * as S from \"./Sury.res.mjs\";"].concat(filesMapping.map(function (param) {
                       return "export const " + param[0] + " = " + param[1];
                     })).join("\n")), {
         encoding: "utf8"
@@ -325,7 +325,7 @@ writeSjsEsm(Nodepath.join(projectPath, "./src/S.js"));
 
 writeSjsEsm(Nodepath.join(artifactsPath, "./src/S.mjs"));
 
-Nodefs.writeFileSync(Nodepath.join(artifactsPath, "./src/S.js"), Buffer.from(["var S = require(\"./S_Core.res.js\");"].concat(filesMapping.map(function (param) {
+Nodefs.writeFileSync(Nodepath.join(artifactsPath, "./src/S.js"), Buffer.from(["var S = require(\"./Sury.res.js\");"].concat(filesMapping.map(function (param) {
                     return "exports." + param[0] + " = " + param[1];
                   })).join("\n")), {
       encoding: "utf8"
@@ -362,9 +362,9 @@ async function resolveRescriptRuntime(format, input, output) {
   return await bundle.close();
 }
 
-await resolveRescriptRuntime("es", "src/S_Core.res.mjs", "src/S_Core.res.mjs");
+await resolveRescriptRuntime("es", "src/Sury.res.mjs", "src/Sury.res.mjs");
 
-await resolveRescriptRuntime("cjs", "src/S_Core.res.mjs", "src/S_Core.res.js");
+await resolveRescriptRuntime("cjs", "src/Sury.res.mjs", "src/Sury.res.js");
 
 await resolveRescriptRuntime("cjs", "src/S.res.mjs", "src/S.res.js");
 
