@@ -1,8 +1,8 @@
 {
-  "name": "rescript-schema",
-  "version": "9.3.0",
+  "name": "sury",
+  "version": "10.0.0-rc.0",
   "private": true,
-  "description": "🧬 The fastest parser in the entire JavaScript ecosystem with a focus on small bundle size and top-notch DX",
+  "description": "🧬 The fastest schema with next-gen DX",
   "keywords": [
     "ReScript",
     "Schema",
@@ -19,13 +19,13 @@
     "Ajv",
     "rescript-struct"
   ],
-  "homepage": "https://github.com/DZakh/rescript-schema#readme",
+  "homepage": "https://github.com/DZakh/sury#readme",
   "bugs": {
-    "url": "https://github.com/DZakh/rescript-schema/issues"
+    "url": "https://github.com/DZakh/sury/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DZakh/rescript-schema.git"
+    "url": "git+https://github.com/DZakh/sury.git"
   },
   "license": "MIT",
   "author": "Dmitry Zakharov <dzakh.dev@gmail.com>",
@@ -34,24 +34,14 @@
   "module": "./src/S.mjs",
   "types": "./src/S.d.ts",
   "files": [
-    "src/S_Core.res",
-    "src/S_Core.res.js",
-    "src/S_Core.res.mjs",
-    "src/S.res",
-    "src/S.resi",
-    "src/S.res.js",
-    "src/S.res.mjs",
-    "src/S.js",
-    "src/S.mjs",
-    "src/S.d.ts",
-    "RescriptSchema.gen.d.ts",
+    "src",
     "rescript.json"
   ],
   "scripts": {
     "benchmark": "node ./packages/tests/src/benchmark/Benchmark.res.mjs",
     "benchmark:comparison": "node ./packages/tests/src/benchmark/comparison.js",
     "coverage": "c8 --reporter=lcov npm test",
-    "build": "node ./packages/prepack/src/Prepack.res.mjs",
+    "build": "cd ./packages/prepack && pnpm rescript && node ./src/Prepack.res.mjs",
     "ppx:install": "node ./packages/rescript-schema-ppx/install.cjs",
     "res": "rescript -w",
     "res:build": "rescript build",
@@ -69,25 +59,25 @@
       "packages/tests/src/**/*_test.ts"
     ],
     "nodeArguments": [
-      "--no-warnings",
       "--import=tsimp"
     ]
   },
   "devDependencies": {
     "@dzakh/rescript-ava": "2.3.0",
     "@rescript/core": "^1.3.0",
-    "ava": "5.2.0",
+    "arktype": "2.1.20",
+    "ava": "6.2.0",
     "benchmark": "2.1.4",
     "c8": "7.12.0",
     "rescript": "11.1.0",
     "rescript-stdlib-vendorer": "1.1.0",
-    "rescript-schema": "link:",
+    "sury": "link:",
     "ts-expect": "1.3.0",
     "tsimp": "2.0.12",
     "typescript": "4.9.3",
-    "valibot": "1.0.0-rc.1",
-    "zod": "3.24.2",
-    "arktype": "2.1.0"
+    "valibot": "1.0.0",
+    "zod": "4.0.0-beta.20250420T053007",
+    "@sinclair/typebox": "0.34.33"
   },
   "peerDependencies": {
     "rescript": "11.x"

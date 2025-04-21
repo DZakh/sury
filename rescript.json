@@ -1,6 +1,6 @@
 {
-  "name": "rescript-schema",
-  "namespace": true,
+  "name": "sury",
+  "namespace": false,
   "suffix": ".res.mjs",
   "package-specs": {
     "module": "esmodule",
@@ -8,6 +8,6 @@
   },
   "sources": {
     "dir": "src",
-    "public": ["S"]
+    "public": ["S", "JSONSchema"]
   }
 }

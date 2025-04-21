@@ -16,7 +16,7 @@ module Common = {
   test("Fails to parse invalid type", t => {
     let schema = factory()
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => invalidTypeAny->S.parseOrThrow(schema),
       {
         code: InvalidType({expected: S.literal(None)->S.toUnknown, received: invalidTypeAny}),
@@ -35,7 +35,7 @@ module Common = {
   test("Fails to serialize invalid value", t => {
     let schema = factory()
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => invalidValue->S.reverseConvertOrThrow(schema),
       {
         code: InvalidType({expected: S.literal(None)->S.toUnknown, received: invalidValue}),
@@ -48,13 +48,13 @@ module Common = {
   test("Compiled parse code snapshot", t => {
     let schema = factory()
 
-    t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(i!==undefined){e[0](i)}return i}`)
+    t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(i!==void 0){e[0](i)}return i}`)
   })
 
   test("Compiled serialize code snapshot", t => {
     let schema = factory()
 
-    t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{if(i!==undefined){e[0](i)}return i}`)
+    t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{if(i!==void 0){e[0](i)}return i}`)
   })
 
   test("Reverse schema to self", t => {

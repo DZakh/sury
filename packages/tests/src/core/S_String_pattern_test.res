@@ -9,7 +9,7 @@ test("Successfully parses valid data", t => {
 test("Fails to parse invalid data", t => {
   let schema = S.string->S.pattern(%re(`/[0-9]/`))
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "abc"->S.parseOrThrow(schema),
     {code: OperationFailed("Invalid"), operation: Parse, path: S.Path.empty},
   )
@@ -24,7 +24,7 @@ test("Successfully serializes valid value", t => {
 test("Fails to serialize invalid value", t => {
   let schema = S.string->S.pattern(%re(`/[0-9]/`))
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "abc"->S.reverseConvertOrThrow(schema),
     {
       code: OperationFailed("Invalid"),
@@ -37,7 +37,7 @@ test("Fails to serialize invalid value", t => {
 test("Returns custom error message", t => {
   let schema = S.string->S.pattern(~message="Custom", %re(`/[0-9]/`))
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "abc"->S.parseOrThrow(schema),
     {code: OperationFailed("Custom"), operation: Parse, path: S.Path.empty},
   )

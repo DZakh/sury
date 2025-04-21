@@ -1,8 +1,12 @@
+// @ts-check
+
 import B from "benchmark";
 import { z } from "zod";
 import * as v from "valibot";
-import * as S from "rescript-schema/src/S.js";
+import * as S from "sury/src/S.js";
 import { type } from "arktype";
+import { Type } from "@sinclair/typebox";
+import { Value } from "@sinclair/typebox/value";
 
 const data = Object.freeze({
   number: 1,
@@ -33,12 +37,9 @@ const arkType = type({
   },
 });
 
-const RescriptSchemaUnion = S.union([
-  { box: S.string },
-  S.coerce(S.string, S.number),
-]);
-// S.parseOrThrow("123", RescriptSchemaUnion)
-// rescript-schema@9.3.0 x 82,715,204 ops/sec ±2.11% (86 runs sampled)
+const SuryUnion = S.union([{ box: S.string }, S.string.with(S.to, S.number)]);
+// S.parseOrThrow("123", SuryUnion)
+// Sury@10.0.0 x 81,797,072 ops/sec ±2.19% (89 runs sampled)
 
 const ValibotUnion = v.union([
   v.object({
@@ -47,11 +48,12 @@ const ValibotUnion = v.union([
   v.pipe(v.string(), v.decimal(), v.transform(Number)),
 ]);
 // v.parse(ValibotUnion, "123")
-// Valibot@1.0.0-rc.1 x 5,507,472 ops/sec ±0.38% (98 runs sampled)
+// Valibot@1.0.0 x 5,055,079 ops/sec ±1.52% (98 runs sampled)
 
 const ArkTypeUnion = type({ box: "string" }).or("string.numeric.parse");
 // ArkTypeUnion("123")
-// ArkType@2.1.0 x 28,938,669 ops/sec ±0.84% (98 runs sampled)
+// ArkType@2.0.4 x 4,300,118 ops/sec ±0.33% (97 runs sampled)
+// ArkType@2.1.20 x 28,353,756 ops/sec ±0.75% (98 runs sampled)
 
 const ZodUnion = z.union([
   z.object({ box: z.string() }),
@@ -59,6 +61,15 @@ const ZodUnion = z.union([
 ]);
 // ZodUnion.parse("123")
 // Zod@3.24.2 x 3,278,494 ops/sec ±0.55% (94 runs sampled)
+// Zod@4.0.0-beta x 13,112,988 ops/sec ±0.45% (95 runs sampled)
+
+const TypeBoxUnion = Type.Union([
+  Type.Object({ box: Type.String() }),
+  Type.Transform(Type.String())
+    .Decode(Number)
+    .Encode((v) => v.toString()),
+]);
+// TypeBox@0.34.33 x 2,205,614 ops/sec ±26.92% (68 runs sampled)
 
 const zodSchema = z.object({
   number: z.number(),
@@ -107,8 +118,7 @@ const schema = S.schema({
 const parseOrThrow = S.compile(schema, "Input", "Output", "Sync", true);
 
 new B.Suite()
-  // 1,820,280 ops/sec
-  .add("rescript-schema (create)", () => {
+  .add("Sury (create)", () => {
     return S.schema({
       number: S.number,
       negNumber: S.number,
@@ -123,13 +133,13 @@ new B.Suite()
       },
     });
   })
-  .add("rescript-schema (parse)", () => {
+  .add("Sury (parse)", () => {
     return S.parseOrThrow(data, schema);
   })
-  .add("rescript-schema (precompiled parse)", () => {
-    return parseOrThrow(data, schema);
+  .add("Sury (precompiled parse)", () => {
+    return parseOrThrow(data);
   })
-  .add("rescript-schema (create + parse)", () => {
+  .add("Sury (create + parse)", () => {
     const schema = S.schema({
       number: S.number,
       negNumber: S.number,
@@ -145,8 +155,8 @@ new B.Suite()
     });
     return S.parseOrThrow(data, schema);
   })
-  .add("rescript-schema (union)", () => {
-    return S.parseOrThrow("123", RescriptSchemaUnion);
+  .add("Sury (union)", () => {
+    return S.parseOrThrow("123", SuryUnion);
   })
   .add("Zod (create)", () => {
     return z.object({
@@ -258,6 +268,9 @@ new B.Suite()
   })
   .add("ArkType (union)", () => {
     return ArkTypeUnion("123");
+  })
+  .add("TypeBox (union)", () => {
+    return Value.Decode(TypeBoxUnion, "123");
   })
   .on("cycle", (event) => {
     console.log(String(event.target));

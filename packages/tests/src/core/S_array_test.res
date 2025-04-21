@@ -17,7 +17,7 @@ module CommonWithNested = {
   test("Fails to parse", t => {
     let schema = factory()
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => invalidAny->S.parseOrThrow(schema),
       {
         code: InvalidType({expected: schema->S.toUnknown, received: invalidAny}),
@@ -30,7 +30,7 @@ module CommonWithNested = {
   test("Fails to parse nested", t => {
     let schema = factory()
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => nestedInvalidAny->S.parseOrThrow(schema),
       {
         code: InvalidType({expected: S.string->S.toUnknown, received: 1->Obj.magic}),
@@ -80,7 +80,7 @@ module CommonWithNested = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{let v5=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v2=i[v0],v4;try{let v3;if(v2!==void 0){v3=v2}else{v3=null}v4=v3}catch(v1){if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1}v5[v0]=v4}return v5}`,
+      `i=>{let v4=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v2=i[v0],v3;try{if(v2===void 0){v2=null}v3=v2}catch(v1){if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1}v4[v0]=v3}return v4}`,
     )
   })
 
@@ -113,7 +113,7 @@ test("Successfully parses matrix", t => {
 test("Fails to parse matrix", t => {
   let schema = S.array(S.array(S.string))
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`[["a", 1], ["c", "d"]]`)->S.parseOrThrow(schema),
     {
       code: InvalidType({expected: S.string->S.toUnknown, received: %raw(`1`)}),

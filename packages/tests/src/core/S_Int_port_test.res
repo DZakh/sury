@@ -9,7 +9,7 @@ test("Successfully parses valid data", t => {
 test("Fails to parse invalid data", t => {
   let schema = S.int->S.port
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => 65536->S.parseOrThrow(schema),
     {code: OperationFailed("Invalid port"), operation: Parse, path: S.Path.empty},
   )
@@ -24,7 +24,7 @@ test("Successfully serializes valid value", t => {
 test("Fails to serialize invalid value", t => {
   let schema = S.int->S.port
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => -80->S.reverseConvertOrThrow(schema),
     {code: OperationFailed("Invalid port"), operation: ReverseConvert, path: S.Path.empty},
   )
@@ -33,7 +33,7 @@ test("Fails to serialize invalid value", t => {
 test("Returns custom error message", t => {
   let schema = S.int->S.port(~message="Custom")
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => 400000->S.parseOrThrow(schema),
     {code: OperationFailed("Custom"), operation: Parse, path: S.Path.empty},
   )

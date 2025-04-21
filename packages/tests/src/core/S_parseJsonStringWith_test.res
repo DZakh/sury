@@ -17,7 +17,7 @@ test("Fails to parse JSON", t => {
 
   switch "123,"->S.parseJsonStringOrThrow(schema) {
   | _ => t->Assert.fail("Must return Error")
-  | exception S.Raised({code, flag, path}) => {
+  | exception S.Error({code, flag, path}) => {
       t->Assert.deepEqual(flag, S.Flag.typeValidation, ())
       t->Assert.deepEqual(path, S.Path.empty, ())
       switch code {
@@ -36,7 +36,7 @@ test("Fails to parse JSON", t => {
 test("Fails to parse", t => {
   let schema = S.bool
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "123"->S.parseJsonStringOrThrow(schema),
     {
       code: InvalidType({expected: schema->S.toUnknown, received: Obj.magic(123)}),

@@ -7,7 +7,7 @@ module Common = {
   test("Fails to ", t => {
     let schema = factory()
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => any->S.parseOrThrow(schema),
       {
         code: InvalidType({expected: S.never->S.toUnknown, received: any}),
@@ -20,7 +20,7 @@ module Common = {
   test("Fails to serialize ", t => {
     let schema = factory()
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => any->S.reverseConvertOrThrow(schema),
       {
         code: InvalidType({expected: schema->S.toUnknown, received: any}),
@@ -57,7 +57,7 @@ module ObjectField = {
       }
     )
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => %raw(`{"key":"value"}`)->S.parseOrThrow(schema),
       {
         code: InvalidType({expected: S.never->S.toUnknown, received: %raw(`undefined`)}),
@@ -73,7 +73,9 @@ module ObjectField = {
         "key": s.field("key", S.string),
         "oldKey": s.field(
           "oldKey",
-          S.never->S.option->S.deprecate("We stopped using the field from the v0.9.0 release"),
+          S.never
+          ->S.option
+          ->S.meta({description: "We stopped using the field from the v0.9.0 release"}),
         ),
       }
     )

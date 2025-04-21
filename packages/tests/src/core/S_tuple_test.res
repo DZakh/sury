@@ -14,10 +14,10 @@ module Tuple0 = {
     t->Assert.deepEqual(any->S.parseOrThrow(schema), value, ())
   })
 
-  test("Fails to parse invalid value", t => {
+  test("Fails to parse extra value in strict mode (default for tuple)", t => {
     let schema = factory()
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => invalidAny->S.parseOrThrow(schema),
       {
         code: InvalidType({
@@ -30,10 +30,16 @@ module Tuple0 = {
     )
   })
 
+  test("Ignores extra items in strip mode", t => {
+    let schema = factory()
+
+    t->Assert.deepEqual(invalidAny->S.parseOrThrow(schema->S.strip), (), ())
+  })
+
   test("Fails to parse invalid type", t => {
     let schema = factory()
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => invalidTypeAny->S.parseOrThrow(schema),
       {
         code: InvalidType({expected: schema->S.toUnknown, received: invalidTypeAny}),
@@ -50,7 +56,7 @@ module Tuple0 = {
   })
 }
 
-test("Fills wholes with S.unit", t => {
+test("Fills holes with S.unit", t => {
   let schema = S.tuple(s => (s.item(0, S.string), s.item(2, S.int)))
 
   t->U.assertEqualSchemas(schema->S.toUnknown, S.tuple3(S.string, S.unit, S.int)->S.toUnknown)
@@ -65,7 +71,7 @@ test("Successfully parses tuple with holes", t => {
 test("Fails to parse tuple with holes", t => {
   let schema = S.tuple(s => (s.item(0, S.string), s.item(2, S.int)))
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`["value", "smth", 123]`)->S.parseOrThrow(schema),
     {
       code: InvalidType({expected: schema->S.toUnknown, received: %raw(`["value", "smth", 123]`)}),
@@ -78,6 +84,7 @@ test("Fails to parse tuple with holes", t => {
 test("Successfully serializes tuple with holes", t => {
   let schema = S.tuple(s => (s.item(0, S.string), s.item(2, S.int)))
 
+  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return [i["0"],e[0],i["1"],]}`)
   t->Assert.deepEqual(("value", 123)->S.reverseConvertOrThrow(schema), %raw(`["value",, 123]`), ())
 })
 
@@ -102,7 +109,7 @@ test("Reverse convert of tuple schema with single item registered multiple times
     %raw(`["foo"]`),
     (),
   )
-  // t->U.assertRaised(
+  // t->U.assertThrows(
   //   () => {"item1": "foo", "item2": "foz"}->S.reverseConvertOrThrow(schema),
   //   {
   //     code: InvalidOperation({
@@ -120,7 +127,7 @@ test(`Fails to serialize tuple with discriminant "Never"`, t => {
     s.item(1, S.string)
   })
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "bar"->S.reverseConvertOrThrow(schema),
     {
       code: InvalidOperation({
@@ -146,7 +153,7 @@ test(`Fails to serialize tuple with discriminant "Never" inside of an object (te
     }
   )
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => {"foo": "bar"}->S.reverseConvertOrThrow(schema),
     {
       code: InvalidOperation({
@@ -173,7 +180,7 @@ test("Successfully serializes tuple transformed to variant", t => {
 test("Fails to serialize tuple transformed to variant", t => {
   let schema = S.tuple(s => Ok(s.item(0, S.bool)))
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => Error("foo")->S.reverseConvertOrThrow(schema),
     {
       code: InvalidType({expected: S.literal("Ok")->S.toUnknown, received: %raw(`"Error"`)}),
@@ -195,7 +202,7 @@ test("Fails to create tuple schema with single item defined multiple times", t =
       )
     },
     ~expectations={
-      message: `[rescript-schema] The item ["0"] is defined multiple times`,
+      message: `[Schema] The item ["0"] is defined multiple times`,
     },
     (),
   )
@@ -210,7 +217,7 @@ test("Tuple schema parsing checks order", t => {
   })
 
   // Type check should be the first
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`"foo"`)->S.parseOrThrow(schema),
     {
       code: InvalidType({expected: schema->S.toUnknown, received: %raw(`"foo"`)}),
@@ -219,19 +226,31 @@ test("Tuple schema parsing checks order", t => {
     },
   )
   // Length check should be the second
-  t->U.assertRaised(
-    () => %raw(`["value", "value", "value", "value"]`)->S.parseOrThrow(schema),
+  t->U.assertThrows(
+    () => %raw(`["value"]`)->S.parseOrThrow(schema),
     {
       code: InvalidType({
         expected: schema->S.toUnknown,
-        received: %raw(`["value", "value", "value", "value"]`),
+        received: %raw(`["value"]`),
+      }),
+      operation: Parse,
+      path: S.Path.empty,
+    },
+  )
+  // Length check should be the second (extra items in strict mode)
+  t->U.assertThrows(
+    () => %raw(`["value", "value", "value"]`)->S.parseOrThrow(schema->S.strict),
+    {
+      code: InvalidType({
+        expected: schema->S.toUnknown,
+        received: %raw(`["value", "value", "value"]`),
       }),
       operation: Parse,
       path: S.Path.empty,
     },
   )
   // Tag check should be the third
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`["value", "wrong"]`)->S.parseOrThrow(schema),
     {
       code: InvalidType({expected: schema->S.toUnknown, received: %raw(`["value", "wrong"]`)}),
@@ -240,7 +259,7 @@ test("Tuple schema parsing checks order", t => {
     },
   )
   // Field check should be the last
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`[1, "value"]`)->S.parseOrThrow(schema),
     {
       code: InvalidType({expected: S.string->S.toUnknown, received: %raw(`1`)}),
@@ -299,11 +318,7 @@ module Compiled = {
     let schema = S.tuple(_ => ())
 
     // TODO: No need to do unit check ?
-    t->U.assertCompiledCode(
-      ~schema,
-      ~op=#ReverseConvert,
-      `i=>{if(i!==undefined){e[0](i)}return []}`,
-    )
+    t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{if(i!==void 0){e[0](i)}return []}`)
   })
 
   test(

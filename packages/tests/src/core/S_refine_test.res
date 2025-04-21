@@ -7,7 +7,7 @@ test("Successfully refines on parsing", t => {
     })
 
   t->Assert.deepEqual(%raw(`12`)->S.parseOrThrow(schema), 12, ())
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`-12`)->S.parseOrThrow(schema),
     {
       code: OperationFailed("Should be positive"),
@@ -23,7 +23,7 @@ test("Fails with custom path", t => {
       s.fail(~path=S.Path.fromArray(["data", "myInt"]), "Should be positive")
     })
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`-12`)->S.parseOrThrow(schema),
     {
       code: OperationFailed("Should be positive"),
@@ -40,7 +40,7 @@ test("Successfully refines on serializing", t => {
     })
 
   t->Assert.deepEqual(12->S.reverseConvertOrThrow(schema), %raw("12"), ())
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => -12->S.reverseConvertOrThrow(schema),
     {
       code: OperationFailed("Should be positive"),
@@ -106,15 +106,16 @@ test("Succesfully uses reversed schema for parsing back to initial value", t => 
 // https://github.com/DZakh/rescript-schema/issues/79
 module Issue79 = {
   test("Successfully parses", t => {
-    let schema = S.object(s => s.field("myField", S.nullable(S.string)))->S.refine(_ => _ => ())
+    let schema = S.object(s => s.field("myField", S.nullish(S.string)))->S.refine(_ => _ => ())
     let jsonString = `{"myField": "test"}`
 
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["myField"],v2;if(v0!==void 0&&(v0!==null&&(typeof v0!=="string"))){e[0](v0)}if(v0!==void 0){let v1;if(v0!==null){v1=v0}else{v1=void 0}v2=v1}e[1](v2);return v2}`,
+      `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["myField"];if(!(typeof v0==="string"||v0===void 0||v0===null)){e[0](v0)}e[1](v0);return v0}`,
     )
+    t->U.assertCompiledCode(~schema, ~op=#Convert, `i=>{let v1;v1=i["myField"];e[0](v1);return v1}`)
 
-    t->Assert.deepEqual(jsonString->S.parseJsonStringOrThrow(schema), Some("test"), ())
+    t->Assert.deepEqual(jsonString->S.parseJsonStringOrThrow(schema), Value("test"), ())
   })
 }

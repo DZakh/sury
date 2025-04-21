@@ -24,22 +24,6 @@ module Common = {
     t->Assert.deepEqual(value->S.parseOrThrow(schema), value, ())
   })
 
-  test("Fails to parse invalid", t => {
-    let schema = factory()
-
-    t->U.assertRaised(
-      () => invalid->S.parseOrThrow(schema),
-      {
-        code: InvalidType({
-          expected: S.literal(Dict.fromArray([("foo", "bar")]))->S.toUnknown,
-          received: invalid,
-        }),
-        operation: Parse,
-        path: S.Path.empty,
-      },
-    )
-  })
-
   test("Successfully serializes", t => {
     let schema = factory()
 
@@ -49,15 +33,15 @@ module Common = {
   test("Fails to serialize invalid", t => {
     let schema = factory()
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => invalid->S.reverseConvertOrThrow(schema),
       {
         code: InvalidType({
-          expected: S.literal(Dict.fromArray([("foo", "bar")]))->S.toUnknown,
-          received: invalid->U.castAnyToUnknown,
+          expected: S.literal("bar")->S.toUnknown,
+          received: %raw(`undefined`),
         }),
         operation: ReverseConvert,
-        path: S.Path.empty,
+        path: S.Path.fromLocation("foo"),
       },
     )
   })
@@ -65,7 +49,7 @@ module Common = {
   test("Fails to parse null", t => {
     let schema = factory()
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => %raw(`null`)->S.parseOrThrow(schema),
       {
         code: InvalidType({
@@ -78,26 +62,10 @@ module Common = {
     )
   })
 
-  test("Fails to parse value with excess fields", t => {
+  test("Can parse object instances, reduces it to normal object by default", t => {
     let schema = factory()
 
-    t->U.assertRaised(
-      () => %raw(`{"foo": "bar","excess":true}`)->S.parseOrThrow(schema),
-      {
-        code: InvalidType({
-          expected: S.literal(Dict.fromArray([("foo", "bar")]))->S.toUnknown,
-          received: %raw(`{"foo": "bar","excess": true}`),
-        }),
-        operation: Parse,
-        path: S.Path.empty,
-      },
-    )
-  })
-
-  test("Can parse non plain objects", t => {
-    let schema = factory()
-
-    t->Assert.deepEqual(makeNotPlainValue()->S.parseOrThrow(schema), makeNotPlainValue(), ())
+    t->Assert.deepEqual(makeNotPlainValue()->S.parseOrThrow(schema), {"foo": "bar"}, ())
   })
 
   test("Compiled parse code snapshot", t => {
@@ -106,7 +74,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(i!==e[0]&&(typeof i!=="object"||!i||Object.keys(i).length!==1||i["foo"]!=="bar")){e[1](i)}return i}`,
+      `i=>{if(typeof i!=="object"||!i||i["foo"]!=="bar"){e[0](i)}return {"foo":i["foo"],}}`,
     )
   })
 
@@ -116,7 +84,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{if(i!==e[0]&&(typeof i!=="object"||!i||Object.keys(i).length!==1||i["foo"]!=="bar")){e[1](i)}return i}`,
+      `i=>{let v0=i["foo"];if(v0!=="bar"){e[0](v0)}return i}`,
     )
   })
 
@@ -142,20 +110,10 @@ module EmptyDict = {
     t->Assert.deepEqual(value->S.parseOrThrow(schema), value, ())
   })
 
-  test("Fails to parse empty dict literal schema with invalid type", t => {
+  test("Strips extra fields passed to empty dict literal schema", t => {
     let schema = factory()
 
-    t->U.assertRaised(
-      () => invalid->S.parseOrThrow(schema),
-      {
-        code: InvalidType({
-          expected: S.literal(Dict.make())->S.toUnknown,
-          received: invalid->U.castAnyToUnknown,
-        }),
-        operation: Parse,
-        path: S.Path.empty,
-      },
-    )
+    t->Assert.deepEqual(invalid->S.parseOrThrow(schema), Dict.make(), ())
   })
 
   test("Successfully serializes empty dict literal schema", t => {
@@ -164,20 +122,10 @@ module EmptyDict = {
     t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), value->U.castAnyToUnknown, ())
   })
 
-  test("Fails to serialize empty dict literal schema with invalid value", t => {
+  test("Ignores extra fields during conversion of empty object literal", t => {
     let schema = factory()
 
-    t->U.assertRaised(
-      () => invalid->S.reverseConvertOrThrow(schema),
-      {
-        code: InvalidType({
-          expected: S.literal(Dict.make())->S.toUnknown,
-          received: invalid->U.castAnyToUnknown,
-        }),
-        operation: ReverseConvert,
-        path: S.Path.empty,
-      },
-    )
+    t->Assert.is(invalid->S.reverseConvertOrThrow(schema), invalid->Obj.magic, ())
   })
 
   test("Compiled parse code snapshot of empty dict literal schema", t => {
@@ -186,18 +134,19 @@ module EmptyDict = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(i!==e[0]&&(typeof i!=="object"||!i||Object.keys(i).length!==0)){e[1](i)}return i}`,
+      `i=>{if(typeof i!=="object"||!i){e[0](i)}return {}}`,
+    )
+    t->U.assertCompiledCode(
+      ~schema=schema->S.strict,
+      ~op=#Parse,
+      `i=>{if(typeof i!=="object"||!i||Array.isArray(i)){e[1](i)}let v0;for(v0 in i){if(true){e[0](v0)}}return i}`,
     )
   })
 
   test("Compiled serialize code snapshot of empty dict literal schema", t => {
     let schema = factory()
 
-    t->U.assertCompiledCode(
-      ~schema,
-      ~op=#ReverseConvert,
-      `i=>{if(i!==e[0]&&(typeof i!=="object"||!i||Object.keys(i).length!==0)){e[1](i)}return i}`,
-    )
+    t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return i}`)
   })
 
   test("Reverse empty dict literal schema to self", t => {

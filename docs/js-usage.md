@@ -1,6 +1,6 @@
 [⬅ Back to highlights](/README.md)
 
-# ReScript Schema for JS/TS users
+# JavaScript API reference
 
 ## Table of contents
 
@@ -32,7 +32,7 @@
 - [Records](#records)
 - [JSON](#json)
 - [JSON string](#json-string)
-- [Describe](#describe)
+- [Meta](#meta)
 - [Custom schema](#custom-schema)
 - [Recursive schemas](#recursive-schemas)
 - [Refinements](#refinements)
@@ -43,20 +43,20 @@
   - [Built-in operations](#built-in-operations)
   - [`compile`](#compile)
   - [`reverse`](#reverse)
-  - [`coerce`](#coerce)
+  - [`to`](#to)
   - [`standard`](#standard)
   - [`name`](#name)
-  - [`setName`](#setname)
+  - [`toExpression`](#toExpression)
 - [Error handling](#error-handling)
 - [Comparison](#comparison)
 - [Global config](#global-config)
-  - [`defaultUnknownKeys`](#defaultunknownkeys)
+  - [`defaultAdditionalItems`](#defaultAdditionalItems)
   - [`disableNanNumberValidation`](#disablenannumbervalidation)
 
 ## Install
 
 ```sh
-npm install rescript-schema
+npm install sury
 ```
 
 > 🧠 You don't need to install [ReScript](https://rescript-lang.org/) compiler for the library to work.
@@ -64,18 +64,18 @@ npm install rescript-schema
 ## Basic usage
 
 ```ts
-import * as S from "rescript-schema";
+import * as S from "sury";
 
 // Create login schema with email and password
 const loginSchema = S.schema({
-  email: S.email(S.string),
-  password: S.stringMinLength(S.string, 8),
+  email: S.string.with(S.email),
+  password: S.string.with(S.min, 8),
 });
 
 // Infer output TypeScript type of login schema
 type LoginData = S.Output<typeof loginSchema>; // { email: string; password: string }
 
-// Throws the S.Error(`Failed parsing at ["email"]. Reason: Invalid email address`)
+// Throws the S.Error(`Failed parsing at ["email"]: Invalid email address`)
 S.parseOrThrow({ email: "", password: "" }, loginSchema);
 
 // Returns data as { email: string; password: string }
@@ -91,7 +91,7 @@ S.parseOrThrow(
 ## Primitives
 
 ```ts
-import * as S from "rescript-schema";
+import * as S from "sury";
 
 // primitive values
 S.string;
@@ -99,9 +99,6 @@ S.number;
 S.int32;
 S.boolean;
 S.bigint;
-
-// empty type
-S.undefined;
 
 // catch-all types
 // allows any value
@@ -121,43 +118,43 @@ const tuna = S.schema("tuna");
 const twelve = S.schema(12);
 const twobig = S.schema(2n);
 const tru = S.schema(true);
-
-const terrificSymbol = Symbol("terrific");
-const terrific = S.schema(terrificSymbol);
+const empty = S.schema(undefined);
+const null = S.schema(null)
+const terrific = S.schema(Symbol("terrific"));
 ```
 
-Compared to other libraries, `S.schema` in **rescript-schema** supports literally any value. They are validated using strict equal checks. With the exception of plain objects and arrays, they are validated using deep equal checks. So the schema like this will work correctly:
+Compared to other libraries, the `S.schema` in **Sury** supports literally any value. They are validated using strict equal checks. With the exception of plain objects and arrays, they are validated using deep equal checks. So the schema like this will work correctly:
 
 ```ts
 const cliArgsSchema = S.schema(["help", "lint"]);
-// ^ This is going to be a S.Schema<["help", "lint"]> type
+// ^ This is going to be the S.Schema<["help", "lint"]> type
 ```
 
 ## Strings
 
-**rescript-schema** includes a handful of string-specific refinements and transforms:
+**Sury** includes a handful of string-specific refinements and transforms:
 
 ```ts
-S.stringMaxLength(S.string, 5); // String must be 5 or fewer characters long
-S.stringMinLength(S.string, 5); // String must be 5 or more characters long
-S.stringLength(S.string, 5); // String must be exactly 5 characters long
+S.max(S.string, 5); // String must be 5 or fewer characters long
+S.min(S.string, 5); // String must be 5 or more characters long
+S.length(S.string, 5); // String must be exactly 5 characters long
 S.email(S.string); // Invalid email address
 S.url(S.string); // Invalid url
 S.uuid(S.string); // Invalid UUID
 S.cuid(S.string); // Invalid CUID
 S.pattern(S.string, %re(`/[0-9]/`)); // Invalid
-S.datetime(S.string); // Invalid datetime string! Must be UTC
+S.datetime(S.string); // Invalid datetime string! Expected UTC
 
 S.trim(S.string); // trim whitespaces
 ```
 
-> ⚠️ Validating email addresses is nearly impossible with just code. Different clients and servers accept different things and many diverge from the various specs defining "valid" emails. The ONLY real way to validate an email address is to send a verification email to it and check that the user got it. With that in mind, rescript-schema picks a relatively simple regex that does not cover all cases.
+> ⚠️ Validating email addresses is nearly impossible with just code. Different clients and servers accept different things and many diverge from the various specs defining "valid" emails. The ONLY real way to validate an email address is to send a verification email to it and check that the user got it. With that in mind, Sury picks a relatively simple regex that does not cover all cases.
 
 When using built-in refinements, you can provide a custom error message.
 
 ```ts
-S.stringMinLength(S.string, 1, "String can't be empty");
-S.stringLength(S.string, 5, "SMS code should be 5 digits long");
+S.min(S.string, 1, "String can't be empty");
+S.length(S.string, 5, "SMS code should be 5 digits long");
 ```
 
 ### ISO datetimes
@@ -177,17 +174,17 @@ S.parseOrThrow("2020-01-01T00:00:00+02:00", datetimeSchema); // fail (no offsets
 
 ## Numbers
 
-**rescript-schema** includes some of number-specific refinements:
+**Sury** includes some of number-specific refinements:
 
 ```ts
-S.numberMax(S.number, 5); // Number must be lower than or equal to 5
-S.numberMin(S.number 5); // Number must be greater than or equal to 5
+S.max(S.number, 5); // Number must be lower than or equal to 5
+S.min(S.number 5); // Number must be greater than or equal to 5
 ```
 
 Optionally, you can pass in a second argument to provide a custom error message.
 
 ```ts
-S.numberMax(S.number, 5, "this👏is👏too👏big");
+S.max(S.number, 5, "this👏is👏too👏big");
 ```
 
 ## NaNs
@@ -230,7 +227,7 @@ S.parseOrThrow(undefined, numberWithRandomDefault); // => 0.1871840107401901
 S.parseOrThrow(undefined, numberWithRandomDefault); // => 0.7223408162401552
 ```
 
-Conceptually, this is how **rescript-schema** processes default values:
+Conceptually, this is how **Sury** processes default values:
 
 1. If the input is `undefined`, the default value is returned
 2. Otherwise, the data is parsed using the base schema
@@ -254,7 +251,7 @@ A convenience method that returns a "nullish" version of a schema. Nullish schem
 ```ts
 const nullishStringSchema = S.nullish(S.string);
 S.parseOrThrow("asdf", nullishStringSchema); // => "asdf"
-S.parseOrThrow(null, nullishStringSchema); // => undefined
+S.parseOrThrow(null, nullishStringSchema); // => null
 S.parseOrThrow(undefined, nullishStringSchema); // => undefined
 ```
 
@@ -344,7 +341,7 @@ S.reverseConvertOrThrow(
 
 ### `strict`
 
-By default **rescript-schema** object schema strip out unrecognized keys during parsing. You can disallow unknown keys with `S.strict` function. If there are any unknown keys in the input, **rescript-schema** will fail with an error.
+By default **Sury** object schema strip out unrecognized keys during parsing. You can disallow unknown keys with `S.strict` function. If there are any unknown keys in the input, **Sury** will fail with an error.
 
 ```ts
 const personSchema = S.strict(
@@ -367,7 +364,7 @@ If you want to change it for all schemas in your app, you can use `S.setGlobalCo
 
 ```ts
 S.setGlobalConfig({
-  defaultUnknownKeys: "Strict",
+  defaultAdditionalItems: "strict",
 });
 ```
 
@@ -410,12 +407,12 @@ type Teacher = S.Output<typeof teacherSchema>; // => { students: string[], id: s
 const stringArraySchema = S.array(S.string);
 ```
 
-**rescript-schema** includes some of array-specific refinements:
+**Sury** includes some of array-specific refinements:
 
 ```ts
-S.arrayMaxLength(S.array(S.string), 5); // Array must be 5 or fewer items long
-S.arrayMinLength(S.array(S.string) 5); // Array must be 5 or more items long
-S.arrayLength(S.array(S.string) 5); // Array must be exactly 5 items long
+S.max(S.array(S.string), 5); // Array must be 5 or fewer items long
+S.min(S.array(S.string) 5); // Array must be 5 or more items long
+S.length(S.array(S.string) 5); // Array must be exactly 5 items long
 ```
 
 ### Unnest
@@ -455,15 +452,12 @@ Checkout the compiled code yourself:
   for (let v0 = 0; v0 < i.length; ++v0) {
     let v3 = i[v0];
     try {
-      let v4 = v3["name"],
-        v5;
-      if (v4 !== void 0) {
-        v5 = v4;
-      } else {
-        v5 = null;
+      let v4 = v3["name"];
+      if (v4 === void 0) {
+        v4 = null;
       }
       v1[0][v0] = v3["id"];
-      v1[1][v0] = v5;
+      v1[1][v0] = v4;
       v1[2][v0] = v3["deleted"];
     } catch (v2) {
       if (v2 && v2.s === s) {
@@ -611,24 +605,31 @@ S.parseOrThrow("123", schema);
 
 The `S.jsonString` schema represents JSON string containing value of a specific type.
 
-## Describe
+## Meta
 
-Use `S.describe` to add a `description` property to the resulting schema.
+Use `S.meta` to add metadata to the resulting schema.
 
 ```ts
-const documentedStringSchema = S.describe(
-  S.string,
-  "A useful bit of text, if you know what to do with it."
-);
+const documentedStringSchema = S.string.with(S.meta, {
+  description: "A useful bit of text, if you know what to do with it.",
+});
 
-S.description(documentedStringSchema); // A useful bit of text…
+documentedStringSchema.description; // A useful bit of text…
 ```
 
-This can be useful for documenting a field, for example in a JSON Schema using a library like [`rescript-json-schema`](https://github.com/DZakh/rescript-json-schema).
+This can be useful for documenting fields, generating JSON, etc.
+
+```ts
+S.toJSONSchema(documentedStringSchema);
+// {
+//   "type": "string",
+//   "description": "A useful bit of text, if you know what to do with it."
+// }
+```
 
 ## Custom schema
 
-You can create a schema for any TypeScript type by using `S.custom`. This is useful for creating schema for types that are not supported by **rescript-schema** out of the box.
+You can create a schema for any TypeScript type by using `S.custom`. This is useful for creating schema for types that are not supported by **Sury** out of the box.
 
 ```ts
 const mySetSchema = S.custom("MySet", (input, s) => {
@@ -643,7 +644,7 @@ type MySet = S.Output<typeof mySetSchema>; // Set<any>
 
 ## Recursive schemas
 
-You can define a recursive schema in **rescript-schema**. Unfortunately, TypeScript derives the Schema type as `unknown` so you need to explicitly specify the type and it'll start correctly typechecking.
+You can define a recursive schema in **Sury**. Unfortunately, TypeScript derives the Schema type as `unknown` so you need to explicitly specify the type and it'll start correctly typechecking.
 
 ```ts
 type Node = {
@@ -659,14 +660,14 @@ const nodeSchema = S.recursive<Node>((nodeSchema) =>
 );
 ```
 
-> 🧠 Despite supporting recursive schema, passing cyclical data into rescript-schema will cause an infinite loop.
+> 🧠 Despite supporting recursive schema, passing cyclical data will cause an infinite loop.
 
 ## Refinements
 
-**rescript-schema** lets you provide custom validation logic via refinements. It's useful to add checks that's not possible to cover with type system. For instance: checking that a number is an integer or that a string is a valid email address.
+**Sury** lets you provide custom validation logic via refinements. It's useful to add checks that's not possible to cover with type system. For instance: checking that a number is an integer or that a string is a valid email address.
 
 ```ts
-const shortStringSchema = S.refine(S.string, (value, s) => {
+const shortStringSchema = S.string.with(S.refine, (value, s) => {
   if (value.length > 255) {
     s.fail("String can't be more than 255 characters");
   }
@@ -679,7 +680,7 @@ Also, you can have an asynchronous refinement (for parser only):
 
 ```ts
 const userSchema = S.schema({
-  id: S.asyncParserRefine(S.uuid(S.string), async (id, s) => {
+  id: S.string.with(S.uuid).with(S.asyncParserRefine, async (id, s) => {
     const isActiveUser = await checkIsActiveUser(id);
     if (!isActiveUser) {
       s.fail(`The user ${id} is inactive.`);
@@ -702,7 +703,7 @@ await S.parseAsyncOrThrow(
 
 ## Transforms
 
-**rescript-schema** allows to augment schema with transformation logic, letting you transform value during parsing and serializing. This is most commonly used when you need to access the value in runtime and perform some transformation logic. For cases when you only want to change the shape of the data, it's better to use `S.shape` instead.
+**Sury** allows to augment schema with transformation logic, letting you transform value during parsing and serializing. This is most commonly used when you need to access the value in runtime and perform some transformation logic. For cases when you only want to change the shape of the data, it's better to use `S.shape` instead.
 
 ```ts
 const intToString = (schema) =>
@@ -719,7 +720,7 @@ const intToString = (schema) =>
   );
 ```
 
-> 🧠 You can use `S.coerce(S.int, S.string)` which is a better version of the above example.
+> 🧠 You can use `S.int32.with(S.to, S.string)` which is a better version of the above example.
 
 ### **`shape`**
 
@@ -728,7 +729,7 @@ The `S.shape` schema is a helper function that allows you to transform the value
 > ⚠️ Even though it looks like you operate with a real value, it's actually a dummy proxy object. So conditions or any other runtime logic won't work. Please use `S.transform` for such cases.
 
 ```typescript
-const circleSchema = S.shape(S.number, (radius) => ({
+const circleSchema = S.number.with(S.shape, (radius) => ({
   kind: "circle",
   radius: radius,
 }));
@@ -764,7 +765,7 @@ For advanced users you can only transform to the output type without type valida
 
 Note, that in this case only type validations are skipped. If your schema has refinements or transforms, they will be applied.
 
-Also, you can use `S.removeTypeValidation` helper to turn off type validations for the schema even when it's used with a parse operation.
+Also, you can use `S.noValidation(schema, true)` helper to turn off type validations for the schema even when it's used with a parse operation.
 
 More often than converting input to output, you'll need to perform the reversed operation. It's usually called "serializing" or "decoding". The ReScript Schema has a unique mental model and provides an ability to reverse any schema with `S.reverse` which you can later use with all possible kinds of operations. But for convinence, there's a few helper functions that can be used to convert output values to the initial format:
 
@@ -847,20 +848,20 @@ S.parseOrThrow("bar", reversed);
 // {"foo": "bar"}
 
 S.parseOrThrow(123, reversed);
-// throws S.error with the message: `Failed parsing at root. Reason: Expected string, received 123`
+// throws S.error with the message: `Failed parsing: Expected string, received 123`
 ```
 
 Reverses the schema. This gets especially magical for schemas with transformations 🪄
 
-### **`coerce`**
+### **`to`**
 
-This very powerful API allows you to coerce another data type in a declarative way. Let's say you receive a number that is passed to your system as a string. For this `S.coerce` is the best fit:
+This very powerful API allows you to coerce another data type in a declarative way. Let's say you receive a number that is passed to your system as a string. For this `S.to` is the best fit:
 
 ```ts
-const schema = S.coerce(S.string, S.float);
+const schema = S.string.with(S.to, S.number);
 
 S.parseOrThrow("123", schema); //? 123.
-S.parseOrThrow("abc", schema); //? throws: Failed parsing at root. Reason: Expected number, received "abc"
+S.parseOrThrow("abc", schema); //? throws: Failed parsing: Expected number, received "abc"
 
 // Reverse works correctly as well 🔥
 S.reverseConvertOrThrow(123, schema); //? "123"
@@ -896,32 +897,34 @@ Converts ReScript Schema into [Standard Schema](https://standardschema.dev/). Yo
 ### **`name`**
 
 ```ts
-S.name(S.schema({ abc: 123 }));
-// `{ abc: 123; }`
+const schema = S.schema({ abc: 123 }.with(S.meta, { name: "Abc" }));
+
+schema.name; // "Abc"
 ```
 
 Used internally for readable error messages.
 
-> 🧠 Subject to change
-
-### **`setName`**
+### **`toExpression`**
 
 ```ts
-const schema = S.setName(S.schema({ abc: 123 }, "Abc"));
+S.toExpression(S.schema({ abc: 123 }));
+// "{ abc: 123; }"
 
-S.name(schema);
-// `Abc`
+S.toExpression(S.name(S.string, "Address"));
+// "Address"
 ```
 
-You can customise a schema name using `S.setName`.
+Used internally for readable error messages.
+
+> 🧠 The format subject to change
 
 ## Error handling
 
-**rescript-schema** throws `S.Error` which is a subclass of Error class. It contains detailed information about the operation problem.
+**Sury** throws `S.Error` which is a subclass of Error class. It contains detailed information about the operation problem.
 
 ```ts
 S.parseOrThrow(true, S.schema(false));
-// => Throws S.Error with the following message: Failed parsing at root. Reason: Expected false, received true".
+// => Throws S.Error with the following message: Failed parsing: Expected false, received true".
 ```
 
 You can catch the error using `S.safe` and `S.safeAsync` helpers:
@@ -949,15 +952,15 @@ As you can notice, you can have more logic inside of the safe function callback 
 
 ## Global config
 
-**rescript-schema** has a global config that can be changed to customize the behavior of the library.
+**Sury** has a global config that can be changed to customize the behavior of the library.
 
-### `defaultUnknownKeys`
+### `defaultAdditionalItems`
 
-`defaultUnknownKeys` is an option that controls how unknown keys are handled when parsing objects. The default value is `Strip`, but you can globally change it to `Strict` to enforce strict object parsing.
+`defaultAdditionalItems` is an option that controls how unknown keys are handled when parsing objects. The default value is `strip`, but you can globally change it to `strict` to enforce strict object parsing.
 
 ```rescript
 S.setGlobalConfig({
-  defaultUnknownKeys: "Strict",
+  defaultAdditionalItems: "strict",
 })
 ```
 

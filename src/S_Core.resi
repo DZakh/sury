@@ -3,22 +3,6 @@
 
 type never
 
-@tag("kind")
-type rec literal =
-  private
-  | String({value: string})
-  | Number({value: float})
-  | Boolean({value: bool})
-  | BigInt({value: bigint})
-  | Symbol({value: Js.Types.symbol})
-  | Array({value: array<unknown>, items: array<literal>})
-  | Dict({value: dict<unknown>, items: dict<literal>})
-  | Function({value: Js.Types.function_val})
-  | Object({value: Js.Types.obj_val})
-  | Null({value: Js.Types.null_val})
-  | Undefined({value: unit})
-  | NaN({value: unknown})
-
 module Path: {
   type t
 
@@ -36,50 +20,167 @@ module Path: {
   let concat: (t, t) => t
 }
 
-type rec t<'value>
-and schema<'value> = t<'value>
-and tagged =
-  private
+type numberFormat = | @as("int32") Int32
+
+type additionalItemsMode = | @as("strip") Strip | @as("strict") Strict
+
+type tag =
+  | @as("string") String
+  | @as("number") Number
   | @as("never") Never
   | @as("unknown") Unknown
-  | @as("string") String
-  | @as("int32") Int
-  | @as("number") Float
   | @as("bigint") BigInt
-  | @as("boolean") Bool
-  | @as("literal") Literal(literal)
-  | @as("option") Option(t<unknown>)
-  | @as("null") Null(t<unknown>)
-  | @as("array") Array(t<unknown>)
+  | @as("boolean") Boolean
+  | @as("symbol") Symbol
+  | @as("null") Null
+  | @as("undefined") Undefined
+  | @as("nan") NaN
+  | @as("function") Function
+  | @as("instance") Instance
+  | @as("array") Array
+  | @as("object") Object
+  | @as("union") Union
+  | @as("json") JSON
+
+@tag("type")
+type rec t<'value> =
+  private
+  | @as("never") Never({description?: string, deprecated?: bool, name?: string})
+  | @as("unknown") Unknown({description?: string, deprecated?: bool, name?: string})
+  | @as("string") String({const?: string, description?: string, deprecated?: bool, name?: string})
+  | @as("number")
+  Number({
+      const?: float,
+      format?: numberFormat,
+      description?: string,
+      deprecated?: bool,
+      name?: string,
+    })
+  | @as("bigint") BigInt({const?: bigint, description?: string, deprecated?: bool, name?: string})
+  | @as("boolean") Boolean({const?: bool, description?: string, deprecated?: bool, name?: string})
+  | @as("symbol")
+  Symbol({
+      const?: Js.Types.symbol,
+      description?: string,
+      deprecated?: bool,
+      name?: string,
+    })
+  | @as("null")
+  Null({
+      const: Js.Types.null_val,
+      description?: string,
+      deprecated?: bool,
+      name?: string,
+    })
+  | @as("undefined")
+  Undefined({
+      const: unit,
+      description?: string,
+      deprecated?: bool,
+      name?: string,
+    })
+  | @as("nan") NaN({const: float, description?: string, deprecated?: bool, name?: string})
+  | @as("function")
+  Function({
+      const?: Js.Types.function_val,
+      description?: string,
+      deprecated?: bool,
+      name?: string,
+    })
+  | @as("instance")
+  Instance({
+      const?: Js.Types.obj_val,
+      description?: string,
+      deprecated?: bool,
+      name?: string,
+    })
+  | @as("array")
+  Array({
+      items: array<item>,
+      additionalItems: additionalItems,
+      unnest?: bool,
+      description?: string,
+      deprecated?: bool,
+      name?: string,
+    })
   | @as("object")
   Object({
       items: array<item>,
       fields: dict<item>,
-      unknownKeys: unknownKeys,
-      advanced: bool,
+      additionalItems: additionalItems,
+      description?: string,
+      deprecated?: bool,
+      name?: string,
     })
-  | @as("tuple") Tuple({items: array<item>})
-  | @as("union") Union(array<t<unknown>>)
-  | @as("dict") Dict(t<unknown>)
-  | @as("JSON") JSON({validated: bool})
+  | @as("union")
+  Union({
+      anyOf: array<t<unknown>>,
+      has: has,
+      description?: string,
+      deprecated?: bool,
+      name?: string,
+    })
+  | @as("json") JSON({description?: string, deprecated?: bool, name?: string})
+and schema<'a> = t<'a>
+and untagged = private {
+  @as("type")
+  tag: tag,
+  const?: unknown,
+  name?: string,
+  description?: string,
+  deprecated?: bool,
+  unnest?: bool,
+  noValidation?: bool,
+  items?: array<item>,
+  fields?: dict<item>,
+  additionalItems?: additionalItems,
+  anyOf?: array<t<unknown>>,
+  has?: dict<bool>,
+}
+and meta = {
+  name?: string,
+  description?: string,
+  deprecated?: bool,
+}
+and additionalItems = | ...additionalItemsMode | Schema(t<unknown>)
 and item = {
   schema: t<unknown>,
   location: string,
   inlinedLocation: string,
 }
+and has = {
+  string?: bool,
+  number?: bool,
+  never?: bool,
+  unknown?: bool,
+  bigint?: bool,
+  boolean?: bool,
+  symbol?: bool,
+  null?: bool,
+  undefined?: bool,
+  nan?: bool,
+  function?: bool,
+  instance?: bool,
+  array?: bool,
+  object?: bool,
+}
 and flag
-and error = private {flag: flag, code: errorCode, path: Path.t}
+and error = private {
+  message: string,
+  reason: string,
+  path: Path.t,
+  code: errorCode,
+  flag: flag,
+}
 and errorCode =
   | OperationFailed(string)
   | InvalidOperation({description: string})
-  | InvalidType({expected: schema<unknown>, received: unknown})
+  | InvalidType({expected: schema<unknown>, received: unknown, unionErrors?: array<error>})
   | ExcessField(string)
-  | InvalidUnion(array<error>)
   | UnexpectedAsync
   | InvalidJsonSchema(schema<unknown>)
-and unknownKeys = Strip | Strict
 
-type exn += private Raised(error)
+type exn += private Error(error)
 
 type s<'value> = {
   schema: t<'value>,
@@ -99,33 +200,10 @@ module Flag: {
   let has: (flag, flag) => bool
 }
 
-module Error: {
-  type class
-
-  let class: class
-
-  let make: (~code: errorCode, ~flag: flag, ~path: Path.t) => error
-
-  let raise: error => 'a
-
-  let message: error => string
-
-  let reason: error => string
-}
-
-module Literal: {
-  let parse: 'a => literal
-
-  let value: literal => unknown
-
-  let isJsonable: literal => bool
-
-  let toString: literal => string
-}
-
 let never: t<never>
 let unknown: t<unknown>
 let unit: t<unit>
+let nullAsUnit: t<unit>
 let string: t<string>
 let bool: t<bool>
 let int: t<int>
@@ -141,10 +219,12 @@ let list: t<'value> => t<list<'value>>
 let dict: t<'value> => t<dict<'value>>
 let option: t<'value> => t<option<'value>>
 let null: t<'value> => t<option<'value>>
-let nullable: t<'value> => t<option<'value>>
+let nullish: t<'value> => t<Js.nullable<'value>>
 let jsonString: (t<'value>, ~space: int=?) => t<'value>
 let union: array<t<'value>> => t<'value>
 let enum: array<'value> => t<'value>
+
+let meta: (t<'value>, meta) => t<'value>
 
 module Catch: {
   type s<'value> = {
@@ -156,12 +236,6 @@ module Catch: {
 }
 let catch: (t<'value>, Catch.s<'value> => 'value) => t<'value>
 
-let describe: (t<'value>, string) => t<'value>
-let description: t<'value> => option<string>
-
-let deprecate: (t<'value>, string) => t<'value>
-let deprecation: t<'value> => option<string>
-
 type transformDefinition<'input, 'output> = {
   @as("p")
   parser?: 'input => 'output,
@@ -171,16 +245,6 @@ type transformDefinition<'input, 'output> = {
   serializer?: 'output => 'input,
 }
 let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) => t<'output>
-
-type preprocessDefinition<'input, 'output> = {
-  @as("p")
-  parser?: unknown => 'output,
-  @as("a")
-  asyncParser?: unknown => promise<'output>,
-  @as("s")
-  serializer?: unknown => 'input,
-}
-let preprocess: (t<'value>, s<'value> => preprocessDefinition<'input, 'output>) => t<'value>
 
 type customDefinition<'input, 'output> = {
   @as("p")
@@ -194,10 +258,9 @@ let custom: (string, s<'output> => customDefinition<'input, 'output>) => t<'outp
 
 let refine: (t<'value>, s<'value> => 'value => unit) => t<'value>
 
-let to: (t<'value>, 'value => 'to) => t<'to>
 let shape: (t<'value>, 'value => 'shape) => t<'shape>
 
-let coerce: (t<'from>, t<'to>) => t<'to>
+let to: (t<'from>, t<'to>) => t<'to>
 
 type rec input<'value, 'computed> =
   | @as("Output") Value: input<'value, 'value>
@@ -243,17 +306,12 @@ let isAsync: t<'value> => bool
 
 let recursive: (t<'value> => t<'value>) => t<'value>
 
-@get
-external classify: t<'value> => tagged = "t"
+let noValidation: (t<'value>, bool) => t<'value>
 
-@send
-external name: t<'value> => string = "n"
-
-let setName: (t<'value>, string) => t<'value>
-
-let removeTypeValidation: t<'value> => t<'value>
+let toExpression: t<'value> => string
 
 external toUnknown: t<'any> => t<unknown> = "%identity"
+external untag: t<'any> => untagged = "%identity"
 
 module Schema: {
   type s = {@as("m") matches: 'value. t<'value> => 'value}
@@ -374,28 +432,29 @@ module Metadata: {
   let set: (t<'value>, ~id: Id.t<'metadata>, 'metadata) => t<'value>
 }
 
-let inline: t<'value> => string
-
 let reverse: t<'value> => t<unknown>
+
+module ErrorClass: {
+  type t
+
+  let value: t
+
+  let constructor: (~code: errorCode, ~flag: flag, ~path: Path.t) => error
+}
 
 // =============
 // Built-in refinements
 // =============
 
-let intMin: (t<int>, int, ~message: string=?) => t<int>
-let intMax: (t<int>, int, ~message: string=?) => t<int>
-let port: (t<int>, ~message: string=?) => t<int>
-
+let min: (t<'value>, int, ~message: string=?) => t<'value>
 let floatMin: (t<float>, float, ~message: string=?) => t<float>
+
+let max: (t<'value>, int, ~message: string=?) => t<'value>
 let floatMax: (t<float>, float, ~message: string=?) => t<float>
 
-let arrayMinLength: (t<array<'a>>, int, ~message: string=?) => t<array<'a>>
-let arrayMaxLength: (t<array<'a>>, int, ~message: string=?) => t<array<'a>>
-let arrayLength: (t<array<'a>>, int, ~message: string=?) => t<array<'a>>
+let length: (t<'value>, int, ~message: string=?) => t<'value>
 
-let stringMinLength: (t<string>, int, ~message: string=?) => t<string>
-let stringMaxLength: (t<string>, int, ~message: string=?) => t<string>
-let stringLength: (t<string>, int, ~message: string=?) => t<string>
+let port: (t<int>, ~message: string=?) => t<int>
 let email: (t<string>, ~message: string=?) => t<string>
 let uuid: (t<string>, ~message: string=?) => t<string>
 let cuid: (t<string>, ~message: string=?) => t<string>
@@ -403,6 +462,16 @@ let url: (t<string>, ~message: string=?) => t<string>
 let pattern: (t<string>, Js.Re.t, ~message: string=?) => t<string>
 let datetime: (t<string>, ~message: string=?) => t<Js.Date.t>
 let trim: t<string> => t<string>
+
+let toJSONSchema: t<'value> => JSONSchema.t
+let extendJSONSchema: (t<'value>, JSONSchema.t) => t<'value>
+
+type globalConfigOverride = {
+  defaultAdditionalItems?: additionalItemsMode,
+  disableNanNumberValidation?: bool,
+}
+
+let setGlobalConfig: globalConfigOverride => unit
 
 // =============
 // JS/TS API
@@ -417,6 +486,7 @@ let js_safeAsync: (unit => promise<'v>) => promise<jsResult<'v>>
 let js_union: array<unknown> => t<'value>
 
 let js_optional: (t<'v>, option<unknown>) => t<option<'v>>
+let js_nullable: (t<'v>, option<unknown>) => t<option<'v>>
 
 let js_custom: (
   ~name: string,
@@ -437,16 +507,3 @@ let js_transform: (
 let js_schema: unknown => t<unknown>
 
 let js_merge: (t<unknown>, t<unknown>) => t<unknown>
-
-let js_name: t<'value> => string
-
-let standard: t<'value> => {
-  "~standard": {"validate": 'any => {"value": 'value}, "vendor": string, "version": int},
-}
-
-type globalConfigOverride = {
-  defaultUnknownKeys?: unknownKeys,
-  disableNanNumberValidation?: bool,
-}
-
-let setGlobalConfig: globalConfigOverride => unit

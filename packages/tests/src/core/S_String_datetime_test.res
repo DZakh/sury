@@ -24,10 +24,10 @@ test("Successfully parses valid data", t => {
 test("Fails to parse non UTC date string", t => {
   let schema = S.string->S.datetime
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "Thu Apr 20 2023 10:45:48 GMT+0400"->S.parseOrThrow(schema),
     {
-      code: OperationFailed("Invalid datetime string! Must be UTC"),
+      code: OperationFailed("Invalid datetime string! Expected UTC"),
       operation: Parse,
       path: S.Path.empty,
     },
@@ -37,10 +37,10 @@ test("Fails to parse non UTC date string", t => {
 test("Fails to parse UTC date with timezone offset", t => {
   let schema = S.string->S.datetime
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "2020-01-01T00:00:00+02:00"->S.parseOrThrow(schema),
     {
-      code: OperationFailed("Invalid datetime string! Must be UTC"),
+      code: OperationFailed("Invalid datetime string! Expected UTC"),
       operation: Parse,
       path: S.Path.empty,
     },
@@ -50,7 +50,7 @@ test("Fails to parse UTC date with timezone offset", t => {
 test("Uses custom message on failure", t => {
   let schema = S.string->S.datetime(~message="Invalid date")
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => "Thu Apr 20 2023 10:45:48 GMT+0400"->S.parseOrThrow(schema),
     {code: OperationFailed("Invalid date"), operation: Parse, path: S.Path.empty},
   )
@@ -81,7 +81,7 @@ test("Returns refinement", t => {
 
   t->Assert.deepEqual(
     schema->S.String.refinements,
-    [{kind: Datetime, message: "Invalid datetime string! Must be UTC"}],
+    [{kind: Datetime, message: "Invalid datetime string! Expected UTC"}],
     (),
   )
 })

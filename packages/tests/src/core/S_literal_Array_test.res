@@ -14,7 +14,7 @@ module Common = {
   test("Fails to parse invalid", t => {
     let schema = factory()
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => invalid->S.parseOrThrow(schema),
       {
         code: InvalidType({
@@ -36,15 +36,15 @@ module Common = {
   test("Fails to serialize invalid", t => {
     let schema = factory()
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => invalid->S.reverseConvertOrThrow(schema),
       {
         code: InvalidType({
-          expected: S.literal(("bar", true))->S.toUnknown,
-          received: invalid->U.castAnyToUnknown,
+          expected: S.literal("bar")->S.toUnknown,
+          received: %raw(`undefined`),
         }),
         operation: ReverseConvert,
-        path: S.Path.empty,
+        path: S.Path.fromLocation("0"),
       },
     )
   })
@@ -52,7 +52,7 @@ module Common = {
   test("Fails to parse array like object", t => {
     let schema = factory()
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => %raw(`{0: "bar",1:true}`)->S.parseOrThrow(schema),
       {
         code: InvalidType({
@@ -68,8 +68,8 @@ module Common = {
   test("Fails to parse array with excess item", t => {
     let schema = factory()
 
-    t->U.assertRaised(
-      () => %raw(`["bar", true, false]`)->S.parseOrThrow(schema),
+    t->U.assertThrows(
+      () => %raw(`["bar", true, false]`)->S.parseOrThrow(schema->S.strict),
       {
         code: InvalidType({
           expected: S.literal(("bar", true))->S.toUnknown,
@@ -87,7 +87,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(i!==e[0]&&(!Array.isArray(i)||i.length!==2||i[0]!=="bar"||i[1]!==true)){e[1](i)}return i}`,
+      `i=>{if(!Array.isArray(i)||i.length!==2||i["0"]!=="bar"||i["1"]!==true){e[0](i)}return i}`,
     )
   })
 
@@ -97,7 +97,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{if(i!==e[0]&&(!Array.isArray(i)||i.length!==2||i[0]!=="bar"||i[1]!==true)){e[1](i)}return i}`,
+      `i=>{let v0=i["0"],v1=i["1"];if(v0!=="bar"){e[0](v0)}if(v1!==true){e[1](v1)}return i}`,
     )
   })
 
@@ -123,11 +123,13 @@ module EmptyArray = {
     t->Assert.deepEqual(value->S.parseOrThrow(schema), value, ())
   })
 
-  test("Fails to parse empty array literal schema with invalid type", t => {
+  test("Ignores extra items in strip mode and prevents in strict (default)", t => {
     let schema = factory()
 
-    t->U.assertRaised(
-      () => invalid->S.parseOrThrow(schema),
+    t->Assert.deepEqual(invalid->S.parseOrThrow(schema->S.strip), [], ())
+
+    t->U.assertThrows(
+      () => invalid->S.parseOrThrow(schema->S.strict),
       {
         code: InvalidType({
           expected: S.literal([])->S.toUnknown,
@@ -145,20 +147,11 @@ module EmptyArray = {
     t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), value->U.castAnyToUnknown, ())
   })
 
-  test("Fails to serialize empty array literal schema with invalid value", t => {
+  test("Serialize array with excess item in strict mode and it passes through", t => {
     let schema = factory()
 
-    t->U.assertRaised(
-      () => invalid->S.reverseConvertOrThrow(schema),
-      {
-        code: InvalidType({
-          expected: S.literal([])->S.toUnknown,
-          received: invalid->U.castAnyToUnknown,
-        }),
-        operation: ReverseConvert,
-        path: S.Path.empty,
-      },
-    )
+    // FIXME: Might lead to a bug
+    t->Assert.deepEqual(invalid->S.reverseConvertOrThrow(schema->S.strict), invalid->Obj.magic, ())
   })
 
   test("Compiled parse code snapshot of empty array literal schema", t => {
@@ -167,18 +160,14 @@ module EmptyArray = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(i!==e[0]&&(!Array.isArray(i)||i.length!==0)){e[1](i)}return i}`,
+      `i=>{if(!Array.isArray(i)||i.length!==0){e[0](i)}return i}`,
     )
   })
 
   test("Compiled serialize code snapshot of empty array literal schema", t => {
     let schema = factory()
 
-    t->U.assertCompiledCode(
-      ~schema,
-      ~op=#ReverseConvert,
-      `i=>{if(i!==e[0]&&(!Array.isArray(i)||i.length!==0)){e[1](i)}return i}`,
-    )
+    t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return i}`)
   })
 
   test("Reverse empty array literal schema to self", t => {

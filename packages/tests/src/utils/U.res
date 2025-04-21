@@ -5,6 +5,8 @@ external magic: 'a => 'b = "%identity"
 external castAnyToUnknown: 'any => unknown = "%identity"
 external castUnknownToAny: unknown => 'any = "%identity"
 
+let raiseError = (error: S.error) => raise(error->Obj.magic)
+
 %%private(
   @val @scope("JSON")
   external unsafeStringify: 'a => string = "stringify"
@@ -27,7 +29,7 @@ type errorPayload = {operation: taggedFlag, code: S.errorCode, path: S.Path.t}
 
 // TODO: Get rid of the helper
 let error = ({operation, code, path}: errorPayload): S.error => {
-  S.Error.make(
+  S.ErrorClass.constructor(
     ~code,
     ~flag=switch operation {
     | Parse => S.Flag.typeValidation
@@ -53,19 +55,24 @@ let assertThrowsTestException = {
   }
 }
 
-let assertRaised = (t, cb, errorPayload) => {
+let assertThrows = (t, cb, errorPayload) => {
   switch cb() {
   | any => t->Assert.fail("Asserted result is not Error. Recieved: " ++ any->unsafeStringify)
-  | exception S.Raised(err) =>
-    t->Assert.is(err->S.Error.message, error(errorPayload)->S.Error.message, ())
+  | exception S.Error({message}) => t->Assert.is(message, error(errorPayload).message, ())
   }
 }
 
-let assertRaisedAsync = async (t, cb, errorPayload) => {
+let assertThrowsMessage = (t, cb, errorMessage) => {
+  switch cb() {
+  | any => t->Assert.fail("Asserted result is not Error. Recieved: " ++ any->unsafeStringify)
+  | exception S.Error({message}) => t->Assert.is(message, errorMessage, ())
+  }
+}
+
+let assertThrowsAsync = async (t, cb, errorPayload) => {
   switch await cb() {
   | any => t->Assert.fail("Asserted result is not Error. Recieved: " ++ any->unsafeStringify)
-  | exception S.Raised(err) =>
-    t->Assert.is(err->S.Error.message, error(errorPayload)->S.Error.message, ())
+  | exception S.Error({message}) => t->Assert.is(message, error(errorPayload).message, ())
   }
 }
 
@@ -75,6 +82,7 @@ let getCompiledCodeString = (
     | #Parse
     | #ParseAsync
     | #Convert
+    | #ConvertAsync
     | #ReverseConvertAsync
     | #ReverseConvert
     | #ReverseParse
@@ -95,6 +103,9 @@ let getCompiledCodeString = (
       }
     | #Convert =>
       let fn = schema->S.compile(~input=Any, ~output=Value, ~mode=Sync, ~typeValidation=false)
+      fn->magic
+    | #ConvertAsync =>
+      let fn = schema->S.compile(~input=Any, ~output=Value, ~mode=Async, ~typeValidation=false)
       fn->magic
     | #Assert =>
       let fn = schema->S.compile(~input=Any, ~output=Assert, ~mode=Sync, ~typeValidation=true)
@@ -127,7 +138,10 @@ let rec cleanUpSchema = schema => {
   ->Dict.toArray
   ->Array.forEach(((key, value)) => {
     switch key {
-    | "i" | "c" | "advanced" => ()
+    | "output"
+    | "advanced"
+    | "~standard"
+    | "isAsync" => ()
     // ditemToItem leftovers FIXME:
     | "k" | "p" | "of" => ()
     | _ =>

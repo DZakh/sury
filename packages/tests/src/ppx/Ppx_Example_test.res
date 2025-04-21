@@ -18,7 +18,8 @@ type film = {
   @as("Rating")
   rating: rating,
   @as("Age")
-  deprecatedAgeRestriction: @s.deprecate("Use rating instead") option<int>,
+  deprecatedAgeRestriction: @s.meta({description: "Use rating instead", deprecated: true})
+  option<int>,
 }
 
 test("Main example", t => {
@@ -37,7 +38,10 @@ test("Main example", t => {
           S.literal(Restricted),
         ]),
       ),
-      deprecatedAgeRestriction: s.field("Age", S.option(S.int)->S.deprecate("Use rating instead")),
+      deprecatedAgeRestriction: s.field(
+        "Age",
+        S.option(S.int)->S.meta({description: "Use rating instead", deprecated: true}),
+      ),
     }),
   )
 })
@@ -75,29 +79,34 @@ test("@s.null with @s.default", t => {
   t->assertEqualSchemas(nullWithDefaultSchema, S.null(S.string)->S.Option.getOr("Unknown"))
 })
 
+// FIXME: IT DOESN'T WORK. Fix before V10
+// @schema
+// type nullish = @s.nullish option<string>
+// test("@s.nullish", t => {
+//   t->assertEqualSchemas(nullishSchema, S.nullish(S.string))
+// })
+
+// @schema
+// type nullableWithDefault = @s.nullish @s.default("Unknown") string
+// test("@s.nullish with @s.default", t => {
+//   t->assertEqualSchemas(nullableWithDefaultSchema, S.nullish(S.string)->S.Option.getOr("Unknown"))
+// })
+
 @schema
-type nullable = @s.nullable option<string>
-test("@s.nullable", t => {
-  t->assertEqualSchemas(nullableSchema, S.nullable(S.string))
+type deprecated = @s.meta({description: "Will be removed in APIv2", deprecated: true}) string
+test("@s.deprecated", t => {
+  t->assertEqualSchemas(
+    deprecatedSchema,
+    S.string->S.meta({description: "Will be removed in APIv2", deprecated: true}),
+  )
 })
 
 @schema
-type nullableWithDefault = @s.nullable @s.default("Unknown") string
-test("@s.nullable with @s.default", t => {
-  t->assertEqualSchemas(nullableWithDefaultSchema, S.nullable(S.string)->S.Option.getOr("Unknown"))
-})
-
-@schema
-type deprecate = @s.deprecate("Will be removed in APIv2") string
-test("@s.deprecate", t => {
-  t->assertEqualSchemas(deprecateSchema, S.string->S.deprecate("Will be removed in APIv2"))
-})
-
-@schema
-type describe = @s.describe("A useful bit of text, if you know what to do with it.") string
-test("@s.describe", t => {
+type describe = @s.meta({description: "A useful bit of text, if you know what to do with it."})
+string
+test("@s.description", t => {
   t->assertEqualSchemas(
     describeSchema,
-    S.string->S.describe("A useful bit of text, if you know what to do with it."),
+    S.string->S.meta({description: "A useful bit of text, if you know what to do with it."}),
   )
 })

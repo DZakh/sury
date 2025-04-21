@@ -13,10 +13,10 @@ module Common = {
     t->Assert.deepEqual(any->S.parseOrThrow(schema), value, ())
   })
 
-  test("Fails to parse invalid value", t => {
-    let schema = factory()
+  test("Fails to parse extra item in strict mode", t => {
+    let schema = factory()->S.strict
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => invalidAny->S.parseOrThrow(schema),
       {
         code: InvalidType({
@@ -32,7 +32,7 @@ module Common = {
   test("Fails to parse invalid type", t => {
     let schema = factory()
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => invalidTypeAny->S.parseOrThrow(schema),
       {
         code: InvalidType({expected: schema->S.toUnknown, received: invalidTypeAny}),

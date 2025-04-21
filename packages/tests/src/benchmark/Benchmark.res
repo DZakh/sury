@@ -216,7 +216,7 @@ data->S.reverseConvertOrThrow(schema)->ignore
 Console.timeEnd("serializeWith: 3")
 
 Console.time("S.Error.make")
-let _ = S.Error.make(
+let _ = S.ErrorClass.constructor(
   ~code=OperationFailed("Should be positive"),
   ~flag=S.Flag.typeValidation,
   ~path=S.Path.empty,
@@ -242,7 +242,7 @@ Suite.make()
 ->Suite.addWithPrepare("S.schema - parse strict", () => {
   S.setGlobalConfig({
     disableNanNumberValidation: true,
-    defaultUnknownKeys: Strict,
+    defaultAdditionalItems: Strict,
   })
   let schema = makeObjectSchema()
   S.setGlobalConfig({
@@ -294,7 +294,7 @@ Suite.make()
 ->Suite.addWithPrepare("S.schema - assert strict", () => {
   S.setGlobalConfig({
     disableNanNumberValidation: true,
-    defaultUnknownKeys: Strict,
+    defaultAdditionalItems: Strict,
   })
   let schema = makeObjectSchema()
   S.setGlobalConfig({

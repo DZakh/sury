@@ -6,8 +6,8 @@ test("OperationFailed error", t => {
       code: OperationFailed("Should be positive"),
       operation: Parse,
       path: S.Path.empty,
-    })->S.Error.message,
-    "Failed parsing at root. Reason: Should be positive",
+    }).message,
+    "Failed parsing: Should be positive",
     (),
   )
 })
@@ -18,8 +18,8 @@ test("Error with Serializing operation", t => {
       code: OperationFailed("Should be positive"),
       operation: ReverseConvert,
       path: S.Path.empty,
-    })->S.Error.message,
-    "Failed converting at root. Reason: Should be positive",
+    }).message,
+    "Failed converting: Should be positive",
     (),
   )
 })
@@ -30,8 +30,8 @@ test("Error with path", t => {
       code: OperationFailed("Should be positive"),
       operation: Parse,
       path: S.Path.fromArray(["0", "foo"]),
-    })->S.Error.message,
-    `Failed parsing at ["0"]["foo"]. Reason: Should be positive`,
+    }).message,
+    `Failed parsing at ["0"]["foo"]: Should be positive`,
     (),
   )
 })
@@ -42,8 +42,8 @@ test("InvalidOperation error", t => {
       code: InvalidOperation({description: "The S.transform serializer is missing"}),
       operation: Parse,
       path: S.Path.empty,
-    })->S.Error.message,
-    "Failed parsing at root. Reason: The S.transform serializer is missing",
+    }).message,
+    "Failed parsing: The S.transform serializer is missing",
     (),
   )
 })
@@ -54,8 +54,8 @@ test("InvalidType error", t => {
       code: InvalidType({expected: S.string->S.toUnknown, received: Obj.magic(true)}),
       operation: Parse,
       path: S.Path.empty,
-    })->S.Error.message,
-    "Failed parsing at root. Reason: Expected string, received true",
+    }).message,
+    "Failed parsing: Expected string, received true",
     (),
   )
 })
@@ -66,8 +66,8 @@ test("UnexpectedAsync error", t => {
       code: UnexpectedAsync,
       operation: Parse,
       path: S.Path.empty,
-    })->S.Error.message,
-    "Failed parsing at root. Reason: Encountered unexpected async transform or refine. Use ParseAsync operation instead",
+    }).message,
+    "Failed parsing: Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead",
     (),
   )
 })
@@ -78,8 +78,8 @@ test("InvalidType with literal error", t => {
       code: InvalidType({expected: S.literal(false)->S.toUnknown, received: true->Obj.magic}),
       operation: Parse,
       path: S.Path.empty,
-    })->S.Error.message,
-    "Failed parsing at root. Reason: Expected false, received true",
+    }).message,
+    "Failed parsing: Expected false, received true",
     (),
   )
 })
@@ -90,8 +90,8 @@ test("ExcessField error", t => {
       code: ExcessField("unknownKey"),
       operation: Parse,
       path: S.Path.empty,
-    })->S.Error.message,
-    `Failed parsing at root. Reason: Encountered disallowed excess key "unknownKey" on an object`,
+    }).message,
+    `Failed parsing: Unrecognized key "unknownKey"`,
     (),
   )
 })
@@ -105,48 +105,52 @@ test("InvalidType error (replacement for InvalidTupleSize)", t => {
       }),
       operation: Parse,
       path: S.Path.empty,
-    })->S.Error.message,
-    `Failed parsing at root. Reason: Expected [boolean, int32], received [1, 2, "foo"]`,
+    }).message,
+    `Failed parsing: Expected [boolean, int32], received [1, 2, "foo"]`,
     (),
   )
 })
 
-test("InvalidUnion error", t => {
+test("InvalidType error with union errors", t => {
   t->Assert.is(
     U.error({
-      code: InvalidUnion([
-        U.error({
-          code: InvalidType({
-            expected: S.literal("circle")->S.toUnknown,
-            received: "oval"->Obj.magic,
+      code: InvalidType({
+        expected: S.unknown,
+        received: "foo"->Obj.magic,
+        unionErrors: [
+          U.error({
+            code: InvalidType({
+              expected: S.literal("circle")->S.toUnknown,
+              received: "oval"->Obj.magic,
+            }),
+            operation: Parse,
+            path: S.Path.fromArray(["kind"]),
           }),
-          operation: Parse,
-          path: S.Path.fromArray(["kind"]),
-        }),
-        U.error({
-          code: InvalidType({
-            expected: S.literal("square")->S.toUnknown,
-            received: "oval"->Obj.magic,
+          U.error({
+            code: InvalidType({
+              expected: S.literal("square")->S.toUnknown,
+              received: "oval"->Obj.magic,
+            }),
+            operation: Parse,
+            path: S.Path.fromArray(["kind"]),
           }),
-          operation: Parse,
-          path: S.Path.fromArray(["kind"]),
-        }),
-        U.error({
-          code: InvalidType({
-            expected: S.literal("triangle")->S.toUnknown,
-            received: "oval"->Obj.magic,
+          U.error({
+            code: InvalidType({
+              expected: S.literal("triangle")->S.toUnknown,
+              received: "oval"->Obj.magic,
+            }),
+            operation: Parse,
+            path: S.Path.fromArray(["kind"]),
           }),
-          operation: Parse,
-          path: S.Path.fromArray(["kind"]),
-        }),
-      ]),
+        ],
+      }),
       operation: Parse,
       path: S.Path.empty,
-    })->S.Error.message,
-    `Failed parsing at root. Reason: Invalid union with following errors
-- Failed at ["kind"]. Expected "circle", received "oval"
-- Failed at ["kind"]. Expected "square", received "oval"
-- Failed at ["kind"]. Expected "triangle", received "oval"`,
+    }).message,
+    `Failed parsing: Expected unknown, received "foo"
+- At ["kind"]: Expected "circle", received "oval"
+- At ["kind"]: Expected "square", received "oval"
+- At ["kind"]: Expected "triangle", received "oval"`,
     (),
   )
 })
@@ -154,27 +158,31 @@ test("InvalidUnion error", t => {
 test("InvalidUnion filters similar reasons", t => {
   t->Assert.is(
     U.error({
-      code: InvalidUnion([
-        U.error({
-          code: InvalidType({expected: S.bool->S.toUnknown, received: %raw(`"Hello world!"`)}),
-          operation: Parse,
-          path: S.Path.empty,
-        }),
-        U.error({
-          code: InvalidType({expected: S.bool->S.toUnknown, received: %raw(`"Hello world!"`)}),
-          operation: Parse,
-          path: S.Path.empty,
-        }),
-        U.error({
-          code: InvalidType({expected: S.bool->S.toUnknown, received: %raw(`"Hello world!"`)}),
-          operation: Parse,
-          path: S.Path.empty,
-        }),
-      ]),
+      code: InvalidType({
+        expected: S.unknown,
+        received: "foo"->Obj.magic,
+        unionErrors: [
+          U.error({
+            code: InvalidType({expected: S.bool->S.toUnknown, received: %raw(`"Hello world!"`)}),
+            operation: Parse,
+            path: S.Path.empty,
+          }),
+          U.error({
+            code: InvalidType({expected: S.bool->S.toUnknown, received: %raw(`"Hello world!"`)}),
+            operation: Parse,
+            path: S.Path.empty,
+          }),
+          U.error({
+            code: InvalidType({expected: S.bool->S.toUnknown, received: %raw(`"Hello world!"`)}),
+            operation: Parse,
+            path: S.Path.empty,
+          }),
+        ],
+      }),
       operation: Parse,
       path: S.Path.empty,
-    })->S.Error.message,
-    `Failed parsing at root. Reason: Invalid union with following errors
+    }).message,
+    `Failed parsing: Expected unknown, received "foo"
 - Expected boolean, received "Hello world!"`,
     (),
   )
@@ -183,34 +191,51 @@ test("InvalidUnion filters similar reasons", t => {
 test("Nested InvalidUnion error", t => {
   t->Assert.is(
     U.error({
-      code: InvalidUnion([
-        U.error({
-          code: InvalidUnion([
-            U.error({
-              code: InvalidType({expected: S.bool->S.toUnknown, received: %raw(`"Hello world!"`)}),
-              operation: Parse,
-              path: S.Path.empty,
+      code: InvalidType({
+        expected: S.unknown,
+        received: "foo"->Obj.magic,
+        unionErrors: [
+          U.error({
+            code: InvalidType({
+              expected: S.bool->S.toUnknown,
+              received: "foo"->Obj.magic,
+              unionErrors: [
+                U.error({
+                  code: InvalidType({
+                    expected: S.bool->S.toUnknown,
+                    received: %raw(`"Hello world!"`),
+                  }),
+                  operation: Parse,
+                  path: S.Path.empty,
+                }),
+                U.error({
+                  code: InvalidType({
+                    expected: S.bool->S.toUnknown,
+                    received: %raw(`"Hello world!"`),
+                  }),
+                  operation: Parse,
+                  path: S.Path.empty,
+                }),
+                U.error({
+                  code: InvalidType({
+                    expected: S.bool->S.toUnknown,
+                    received: %raw(`"Hello world!"`),
+                  }),
+                  operation: Parse,
+                  path: S.Path.empty,
+                }),
+              ],
             }),
-            U.error({
-              code: InvalidType({expected: S.bool->S.toUnknown, received: %raw(`"Hello world!"`)}),
-              operation: Parse,
-              path: S.Path.empty,
-            }),
-            U.error({
-              code: InvalidType({expected: S.bool->S.toUnknown, received: %raw(`"Hello world!"`)}),
-              operation: Parse,
-              path: S.Path.empty,
-            }),
-          ]),
-          operation: Parse,
-          path: S.Path.empty,
-        }),
-      ]),
+            operation: Parse,
+            path: S.Path.empty,
+          }),
+        ],
+      }),
       operation: Parse,
       path: S.Path.empty,
-    })->S.Error.message,
-    `Failed parsing at root. Reason: Invalid union with following errors
-- Invalid union with following errors
+    }).message,
+    `Failed parsing: Expected unknown, received "foo"
+- Expected boolean, received "foo"
   - Expected boolean, received "Hello world!"`,
     (),
   )
@@ -222,8 +247,8 @@ test("InvalidJsonSchema error", t => {
       code: InvalidJsonSchema(S.option(S.literal(true))->S.toUnknown),
       operation: ReverseConvert,
       path: S.Path.empty,
-    })->S.Error.message,
-    `Failed converting at root. Reason: The 'true | undefined' schema cannot be converted to JSON`,
+    }).message,
+    `Failed converting: The 'true | undefined' schema cannot be converted to JSON`,
     (),
   )
 })

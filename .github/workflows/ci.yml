@@ -161,7 +161,7 @@ jobs:
       - name: Install ppx
         run: pnpm ppx:install
 
-      - run: pnpm exec rescript build
+      - run: pnpm rescript build
         working-directory: packages/tests
 
       - run: pnpm lint:stdlib
@@ -171,8 +171,8 @@ jobs:
         with:
           files: coverage/lcov.info
 
-  pack-rescript-schema:
-    name: Pack rescript-schema
+  pack-sury:
+    name: Pack sury
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -183,18 +183,15 @@ jobs:
           cache: "pnpm"
       - run: pnpm install
 
-      - run: pnpm res:build
-        working-directory: packages/prepack
+      - run: pnpm build
 
       - run: pnpm lint:stdlib
         working-directory: packages/prepack
 
-      - run: pnpm build
-
-      - name: "Upload artifact: rescript-schema npm package"
+      - name: "Upload artifact: sury npm package"
         uses: actions/upload-artifact@v4
         with:
-          name: rescript-schema
+          name: sury
           path: packages/artifacts
 
   pack-rescript-schema-ppx:

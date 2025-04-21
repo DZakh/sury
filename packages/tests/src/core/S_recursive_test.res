@@ -48,9 +48,9 @@ test("Fails to parses recursive object when provided invalid type", t => {
       "Children": ["invalid"],
     }->S.parseOrThrow(nodeSchema) {
     | _ => "Shouldn't pass"
-    | exception S.Raised(e) => e->S.Error.message
+    | exception S.Error({message}) => message
     },
-    `Failed parsing at ["Children"]["0"]. Reason: Expected <recursive>, received "invalid"`,
+    `Failed parsing at ["Children"]["0"]: Expected { Id: string; Children: Self[]; }, received "invalid"`,
     (),
   )
 })
@@ -138,7 +138,7 @@ test("Fails to parse nested recursive object", t => {
     )
   })
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () =>
       {
         "Id": "1",
@@ -181,7 +181,7 @@ test("Fails to parse nested recursive object inside of another object", t => {
     )
   )
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () =>
       {
         "recursive": {
@@ -290,7 +290,7 @@ test("Fails to serialise nested recursive object", t => {
     )
   })
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () =>
       {
         id: "1",

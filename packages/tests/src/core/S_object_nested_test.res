@@ -28,12 +28,12 @@ test("Object with a single nested field with S.null", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["nested"];if(typeof v0!=="object"||!v0){e[0](v0)}let v1=v0["foo"],v2;if(v1!==null&&(typeof v1!=="string")){e[1](v1)}if(v1!==null){v2=v1}else{v2=void 0}return v2}`,
+    `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["nested"];if(typeof v0!=="object"||!v0){e[0](v0)}let v1=v0["foo"];if(v1===null){v1=void 0}else if(!(typeof v1==="string")){e[1](v1)}return v1}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{let v0;if(i!==void 0){v0=i}else{v0=null}return {"nested":{"foo":v0,},}}`,
+    `i=>{if(i===void 0){i=null}return {"nested":{"foo":i,},}}`,
   )
   t->Assert.deepEqual(
     Some("bar")->S.reverseConvertOrThrow(schema),
@@ -106,7 +106,7 @@ test("Object with a nested tag and optional field", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[4](i)}let v0=i["nested"],v2=i["bar"];if(typeof v0!=="object"||!v0||v0["tag"]!=="value"){e[0](v0)}let v1=v0["foo"];if(v1!==void 0&&(typeof v1!=="string")){e[1](v1)}if(typeof v2!=="string"){e[3](v2)}return {"foo":v1===void 0?e[2]:v1,"bar":v2,}}`,
+    `i=>{if(typeof i!=="object"||!i){e[4](i)}let v0=i["nested"],v2=i["bar"];if(typeof v0!=="object"||!v0||v0["tag"]!=="value"){e[0](v0)}let v1=v0["foo"];if(!(typeof v1==="string"||v1===void 0)){e[1](v1)}if(typeof v2!=="string"){e[3](v2)}return {"foo":v1===void 0?e[2]:v1,"bar":v2,}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -321,20 +321,46 @@ test("Nested tags on reverse convert", t => {
 })
 
 test("Nested preprocessed tags on reverse convert", t => {
+  let prefixedWithUnderscore =
+    S.string
+    ->S.transform(s => {
+      parser: v => {
+        if v->String.startsWith("_") {
+          v->String.sliceToEnd(~start=1)
+        } else {
+          s.fail("String should start with an underscore")
+        }
+      },
+      serializer: v => "_" ++ v,
+    })
+    ->S.to(S.string)
+
   let schema = S.object(s => {
-    let _ = s.nested("nested").field(
-      "tag",
-      S.literal("value")->S.preprocess(_ => {serializer: v => "_" ++ v->Obj.magic}),
-    )
-    let _ = s.nested("nested").field(
-      "intTag",
-      S.literal(1)->S.preprocess(_ => {serializer: v => "_" ++ v->Obj.magic}),
-    )
+    let _ = s.nested("nested").field("tag", prefixedWithUnderscore->S.to(S.literal("value")))
+    let _ = s.nested("nested").field("intTag", prefixedWithUnderscore->S.to(S.literal(1)))
   })
+
+  t->U.assertCompiledCode(
+    ~op=#ReverseConvert,
+    ~schema,
+    `i=>{if(i!==void 0){e[5](i)}return {"nested":{"tag":e[2](e[0]),"intTag":e[4]("1"),},}}`,
+  )
+
+  t->U.assertCompiledCode(
+    ~op=#Parse,
+    ~schema,
+    `i=>{if(typeof i!=="object"||!i){e[10](i)}let v0=i["nested"];if(typeof v0!=="object"||!v0){e[0](v0)}let v1=v0["tag"],v2=e[2](v1),v3=v0["intTag"],v4=e[6](v3);if(typeof v1!=="string"){e[1](v1)}if(typeof v2!=="string"){e[3](v2)}if(v2!=="value"){e[4](v2)}if(typeof v3!=="string"){e[5](v3)}if(typeof v4!=="string"){e[7](v4)}v4==="1"||e[8](v4);return e[9]}`,
+  )
 
   t->Assert.deepEqual(
     ()->S.reverseConvertOrThrow(schema),
     %raw(`{"nested":{"tag":"_value", "intTag":"_1"}}`),
+    (),
+  )
+
+  t->Assert.deepEqual(
+    %raw(`{"nested":{"tag":"_value", "intTag":"_1"}}`)->S.parseOrThrow(schema),
+    (),
     (),
   )
 })
@@ -369,12 +395,12 @@ test("S.schema object with a deep strict applied to the nested field parent + re
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i||Array.isArray(i)){e[4](i)}let v0=i["nested"],v4;if(typeof v0!=="object"||!v0||Array.isArray(v0)){e[0](v0)}let v1=v0["foo"],v2,v3;if(v1!==void 0&&(typeof v1!=="string")){e[1](v1)}if(v1!==void 0){v2=v1}else{v2=null}for(v3 in v0){if(v3!=="foo"){e[2](v3)}}for(v4 in i){if(v4!=="nested"){e[3](v4)}}return {"nested":{"foo":v2,},}}`,
+    `i=>{if(typeof i!=="object"||!i||Array.isArray(i)){e[4](i)}let v0=i["nested"],v3;if(typeof v0!=="object"||!v0||Array.isArray(v0)){e[0](v0)}let v1=v0["foo"],v2;if(v1===void 0){v1=null}else if(!(typeof v1==="string")){e[1](v1)}for(v2 in v0){if(v2!=="foo"){e[2](v2)}}for(v3 in i){if(v3!=="nested"){e[3](v3)}}return {"nested":{"foo":v1,},}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{let v0=i["nested"];let v1=v0["foo"],v2;if(v1!==null){v2=v1}else{v2=void 0}return {"nested":{"foo":v2,},}}`,
+    `i=>{let v0=i["nested"];let v1=v0["foo"];if(v1===null){v1=void 0}return {"nested":{"foo":v1,},}}`,
   )
 })
 
@@ -428,7 +454,11 @@ test("Object with a deep strict applied to the nested field parent + reverse", t
     // Test strict & deepStrict for S.shape
     `i=>{if(typeof i!=="object"||!i||Array.isArray(i)){e[1](i)}let v0;for(v0 in i){if(v0!=="foo"){e[0](v0)}}return {"nested":{"foo":i["foo"],},}}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return {"nested":{"foo":i["foo"],},}}`)
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#ReverseConvert,
+    `i=>{let v0=i["nested"];return {"foo":v0["foo"],}}`,
+  )
 })
 
 test("Object with nested field together with flatten", t => {
@@ -485,7 +515,7 @@ test("s.nested conflicts with s.field", t => {
       )
     },
     ~expectations={
-      message: `[rescript-schema] The field "nested" defined twice with incompatible schemas`,
+      message: `[Schema] The field "nested" defined twice with incompatible schemas`,
     },
     (),
   )
@@ -501,7 +531,7 @@ test("s.nested.flattened doesn't work with S.object", t => {
       )
     },
     ~expectations={
-      message: `[rescript-schema] Unsupported nested flatten for advanced object schema '{ foo: string; }'`,
+      message: `[Schema] Unsupported nested flatten for advanced object schema '{ foo: string; }'`,
     },
     (),
   )
@@ -524,7 +554,7 @@ test("s.nested.flattened doesn't work with transformed S.schema", t => {
       )
     },
     ~expectations={
-      message: `[rescript-schema] Unsupported nested flatten for transformed schema \'{ foo: string; }\'`,
+      message: `[Schema] Unsupported nested flatten for transformed schema \'{ foo: string; }\'`,
     },
     (),
   )
@@ -547,7 +577,7 @@ test("s.nested.flattened doesn't work with S.schema->S.shape", t => {
       )
     },
     ~expectations={
-      message: `[rescript-schema] Unsupported nested flatten for transformed schema \'{ foo: string; }\'`,
+      message: `[Schema] Unsupported nested flatten for transformed schema \'{ foo: string; }\'`,
     },
     (),
   )
@@ -563,7 +593,7 @@ test("s.nested.flattened doesn't work with S.string", t => {
       )
     },
     ~expectations={
-      message: `[rescript-schema] The 'string' schema can\'t be flattened`,
+      message: `[Schema] The 'string' schema can\'t be flattened`,
     },
     (),
   )
@@ -607,7 +637,7 @@ test("s.nested.flatten conflicts with s.nested.field", t => {
       )
     },
     ~expectations={
-      message: `[rescript-schema] The field "foo" defined twice`,
+      message: `[Schema] The field "foo" defined twice`,
     },
     (),
   )

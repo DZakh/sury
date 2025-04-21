@@ -16,7 +16,7 @@ test("Successfully parses unknown", t => {
 test("Fails to parse", t => {
   let schema = S.bool
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw("123")->S.parseOrThrow(schema),
     {
       code: InvalidType({expected: schema->S.toUnknown, received: %raw("123")}),
@@ -31,5 +31,5 @@ test("Fails to parse with unwraped result", t => {
 
   t->Assert.throws(() => {
     %raw("123")->S.parseOrThrow(schema)
-  }, ~expectations={message: "Failed parsing at root. Reason: Expected boolean, received 123"}, ())
+  }, ~expectations={message: "Failed parsing: Expected boolean, received 123"}, ())
 })

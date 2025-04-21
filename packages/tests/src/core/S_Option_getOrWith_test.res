@@ -40,7 +40,7 @@ test("Successfully parses nested option with default value", t => {
 test("Fails to parse data with default", t => {
   let schema = S.bool->S.option->S.Option.getOrWith(() => false)
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => %raw(`"string"`)->S.parseOrThrow(schema),
     {
       code: InvalidType({expected: schema->S.toUnknown, received: %raw(`"string"`)}),
@@ -62,7 +62,7 @@ test("Compiled parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(i!==void 0&&(typeof i!=="boolean")){e[1](i)}return i===void 0?e[0]():i}`,
+    `i=>{if(!(typeof i==="boolean"||i===void 0)){e[0](i)}return i===void 0?e[1]():i}`,
   )
 })
 
@@ -76,7 +76,7 @@ test("Compiled async parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(i!==void 0&&(typeof i!=="boolean")){e[2](i)}let v0;if(i!==void 0){v0=e[0](i)}else{v0=Promise.resolve(void 0)}return v0.then(v1=>{return v1===void 0?e[1]():v1})}`,
+    `i=>{if(typeof i==="boolean"){i=e[0](i)}else if(!(i===void 0)){e[1](i)}return Promise.resolve(i).then(v0=>{return v0===void 0?e[2]():v0})}`,
   )
 })
 

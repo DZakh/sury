@@ -10,7 +10,7 @@ import * as Core__List from "@rescript/core/src/Core__List.res.mjs";
 import * as Core__Option from "@rescript/core/src/Core__Option.res.mjs";
 import * as PluginNodeResolve from "@rollup/plugin-node-resolve";
 
-var projectPath = ".";
+var projectPath = "../../";
 
 var artifactsPath = Nodepath.join(projectPath, "packages/artifacts");
 
@@ -19,8 +19,7 @@ var sourePaths = [
   "node_modules",
   "src",
   "rescript.json",
-  "README.md",
-  "RescriptSchema.gen.d.ts"
+  "README.md"
 ];
 
 function update(json, path, value) {
@@ -52,7 +51,7 @@ Nodefs.mkdirSync(artifactsPath);
 var filesMapping = [
   [
     "Error",
-    "S.$$Error.$$class"
+    "S.ErrorClass.value"
   ],
   [
     "string",
@@ -87,20 +86,16 @@ var filesMapping = [
     "S.unknown"
   ],
   [
-    "undefined",
-    "S.unit"
-  ],
-  [
     "optional",
     "S.js_optional"
   ],
   [
     "nullable",
-    "S.$$null"
+    "S.js_nullable"
   ],
   [
     "nullish",
-    "S.nullable"
+    "S.nullish"
   ],
   [
     "array",
@@ -215,12 +210,8 @@ var filesMapping = [
     "S.js_custom"
   ],
   [
-    "standard",
-    "S.standard"
-  ],
-  [
-    "coerce",
-    "S.coerce"
+    "to",
+    "S.to"
   ],
   [
     "shape",
@@ -243,24 +234,16 @@ var filesMapping = [
     "S.js_transform"
   ],
   [
-    "description",
-    "S.description"
+    "meta",
+    "S.meta"
   ],
   [
-    "describe",
-    "S.describe"
+    "toExpression",
+    "S.toExpression"
   ],
   [
-    "name",
-    "S.js_name"
-  ],
-  [
-    "setName",
-    "S.setName"
-  ],
-  [
-    "removeTypeValidation",
-    "S.removeTypeValidation"
+    "noValidation",
+    "S.noValidation"
   ],
   [
     "compile",
@@ -271,36 +254,16 @@ var filesMapping = [
     "S.port"
   ],
   [
-    "numberMin",
-    "S.floatMin"
+    "min",
+    "S.min"
   ],
   [
-    "numberMax",
-    "S.floatMax"
+    "max",
+    "S.max"
   ],
   [
-    "arrayMinLength",
-    "S.arrayMinLength"
-  ],
-  [
-    "arrayMaxLength",
-    "S.arrayMaxLength"
-  ],
-  [
-    "arrayLength",
-    "S.arrayLength"
-  ],
-  [
-    "stringMinLength",
-    "S.stringMinLength"
-  ],
-  [
-    "stringMaxLength",
-    "S.stringMaxLength"
-  ],
-  [
-    "stringLength",
-    "S.stringLength"
+    "length",
+    "S.length"
   ],
   [
     "email",
@@ -350,7 +313,7 @@ function writeSjsEsm(path) {
       });
 }
 
-writeSjsEsm("./src/S.js");
+writeSjsEsm(Nodepath.join(projectPath, "./src/S.js"));
 
 writeSjsEsm(Nodepath.join(artifactsPath, "./src/S.mjs"));
 

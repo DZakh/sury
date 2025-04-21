@@ -1,13 +1,6 @@
-let projectPath = "."
+let projectPath = "../../"
 let artifactsPath = NodeJs.Path.join2(projectPath, "packages/artifacts")
-let sourePaths = [
-  "package.json",
-  "node_modules",
-  "src",
-  "rescript.json",
-  "README.md",
-  "RescriptSchema.gen.d.ts",
-]
+let sourePaths = ["package.json", "node_modules", "src", "rescript.json", "README.md"]
 
 module Stdlib = {
   module Dict = {
@@ -115,7 +108,7 @@ if NodeJs.Fs.existsSync(artifactsPath) {
 NodeJs.Fs.mkdirSync(artifactsPath)
 
 let filesMapping = [
-  ("Error", "S.$$Error.$$class"),
+  ("Error", "S.ErrorClass.value"),
   ("string", "S.string"),
   ("boolean", "S.bool"),
   ("int32", "S.$$int"),
@@ -124,10 +117,9 @@ let filesMapping = [
   ("json", "S.json"),
   ("never", "S.never"),
   ("unknown", "S.unknown"),
-  ("undefined", "S.unit"),
   ("optional", "S.js_optional"),
-  ("nullable", "S.$$null"),
-  ("nullish", "S.nullable"),
+  ("nullable", "S.js_nullable"),
+  ("nullish", "S.nullish"),
   ("array", "S.array"),
   ("unnest", "S.unnest"),
   ("record", "S.dict"),
@@ -156,28 +148,20 @@ let filesMapping = [
   ("strip", "S.strip"),
   ("deepStrip", "S.deepStrip"),
   ("custom", "S.js_custom"),
-  ("standard", "S.standard"),
-  ("coerce", "S.coerce"),
+  ("to", "S.to"),
   ("shape", "S.shape"),
   ("tuple", "S.tuple"),
   ("asyncParserRefine", "S.js_asyncParserRefine"),
   ("refine", "S.js_refine"),
   ("transform", "S.js_transform"),
-  ("description", "S.description"),
-  ("describe", "S.describe"),
-  ("name", "S.js_name"),
-  ("setName", "S.setName"),
-  ("removeTypeValidation", "S.removeTypeValidation"),
+  ("meta", "S.meta"),
+  ("toExpression", "S.toExpression"),
+  ("noValidation", "S.noValidation"),
   ("compile", "S.compile"),
   ("port", "S.port"),
-  ("numberMin", "S.floatMin"),
-  ("numberMax", "S.floatMax"),
-  ("arrayMinLength", "S.arrayMinLength"),
-  ("arrayMaxLength", "S.arrayMaxLength"),
-  ("arrayLength", "S.arrayLength"),
-  ("stringMinLength", "S.stringMinLength"),
-  ("stringMaxLength", "S.stringMaxLength"),
-  ("stringLength", "S.stringLength"),
+  ("min", "S.min"),
+  ("max", "S.max"),
+  ("length", "S.length"),
   ("email", "S.email"),
   ("uuid", "S.uuid"),
   ("cuid", "S.cuid"),
@@ -210,7 +194,7 @@ let writeSjsEsm = path => {
 }
 
 // Sync the original source as well. Call it S.js to make .d.ts resolve correctly
-writeSjsEsm("./src/S.js")
+writeSjsEsm(NodeJs.Path.join2(projectPath, "./src/S.js"))
 
 writeSjsEsm(NodeJs.Path.join2(artifactsPath, "./src/S.mjs"))
 
@@ -267,7 +251,7 @@ let resolveRescriptRuntime = async (~format, ~input, ~output) => {
 await resolveRescriptRuntime(~format=#es, ~input="src/S_Core.res.mjs", ~output="src/S_Core.res.mjs")
 // Event though the generated code is shitty, let's still have it for the sake of some users
 await resolveRescriptRuntime(~format=#cjs, ~input="src/S_Core.res.mjs", ~output="src/S_Core.res.js")
-// Also build cjs version, in case some ReScript libraries will use rescript-schema without running a compiler (rescript-stdlib-vendorer)
+// Also build cjs version, in case some ReScript libraries will use sury without running a compiler (rescript-stdlib-vendorer)
 await resolveRescriptRuntime(~format=#cjs, ~input="src/S.res.mjs", ~output="src/S.res.js")
 
 // ReScript applications don't work with type: module set on packages

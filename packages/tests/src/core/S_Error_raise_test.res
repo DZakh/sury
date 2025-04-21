@@ -1,36 +1,36 @@
 open Ava
 
 test(
-  "Raised error is instance of RescriptSchemaError and displayed with a nice error message when not caught",
+  "Raised error is instance of S.Error and displayed with a nice error message when not caught",
   t => {
     t->Assert.throws(
       () => {
-        S.Error.make(
+        S.ErrorClass.constructor(
           ~code=OperationFailed("Should be positive"),
           ~flag=S.Flag.typeValidation,
           ~path=S.Path.empty,
-        )->S.Error.raise
+        )->U.raiseError
       },
       ~expectations={
-        message: "Failed parsing at root. Reason: Should be positive",
-        instanceOf: S.Error.class->(U.magic: S.Error.class => ThrowsExpectation.instanceOf),
+        message: "Failed parsing: Should be positive",
+        instanceOf: S.ErrorClass.value->(U.magic: S.ErrorClass.t => ThrowsExpectation.instanceOf),
       },
       (),
     )
   },
 )
 
-test("Raised error is also the S.Raised exeption and can be caught with catch", t => {
-  let error = S.Error.make(
+test("Raised error is also the S.Error exeption and can be caught with catch", t => {
+  let error = S.ErrorClass.constructor(
     ~code=OperationFailed("Should be positive"),
     ~flag=S.Flag.typeValidation,
     ~path=S.Path.empty,
   )
   t->ExecutionContext.plan(1)
   try {
-    let _ = S.Error.raise(error)
+    let _ = U.raiseError(error)
     t->Assert.fail("Should raise before the line")
   } catch {
-  | S.Raised(raisedError) => t->Assert.is(error, raisedError, ())
+  | S.Error(raisedError) => t->Assert.is(error, raisedError, ())
   }
 })

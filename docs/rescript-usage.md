@@ -1,6 +1,6 @@
 [⬅ Back to highlights](/README.md)
 
-# ReScript Schema for ReScript users
+# ReScript API reference
 
 ## Table of contents
 
@@ -19,7 +19,7 @@
   - [`Option.getOr`](#optiongetor)
   - [`Option.getOrWith`](#optiongetorwith)
   - [`null`](#null)
-  - [`nullable`](#nullable)
+  - [`nullish`](#nullish)
   - [`unit`](#unit)
   - [`literal`](#literal)
   - [`object`](#object)
@@ -47,45 +47,42 @@
   - [`never`](#never)
   - [`json`](#json)
   - [`jsonString`](#jsonString)
-  - [`describe`](#describe)
-  - [`deprecate`](#deprecate)
+  - [`meta`](#meta)
   - [`catch`](#catch)
   - [`custom`](#custom)
   - [`recursive`](#recursive)
 - [Refinements](#refinements)
 - [Transforms](#transforms)
-- [Preprocess](#preprocess-advanced)
 - [Functions on schema](#functions-on-schema)
   - [`Built-in operations`](#built-in-operations)
   - [`compile`](#compile)
   - [`reverse`](#reverse)
-  - [`coerce`](#coerce)
+  - [`to`](#to)
   - [`classify`](#classify)
   - [`isAsync`](#isasync)
   - [`name`](#name)
-  - [`setName`](#setname)
-  - [`removeTypeValidation`](#removetypevalidation)
+  - [`toExpression`](#toExpression)
+  - [`noValidation`](#noValidation)
 - [Error handling](#error-handling)
   - [`Error.make`](#errormake)
   - [`Error.raise`](#errorraise)
   - [`Error.message`](#errormessage)
 - [Global config](#global-config)
-  - [`defaultUnknownKeys`](#defaultunknownkeys)
+  - [`defaultAdditionalItems`](#defaultAdditionalItems)
   - [`disableNanNumberValidation`](#disablenannumbervalidation)
 
 ## Install
 
 ```sh
-npm install rescript-schema
+npm install sury
 ```
 
-Then add `rescript-schema` to `bs-dependencies` in your `rescript.json`:
+Then add `sury` to `bs-dependencies` in your `rescript.json`:
 
 ```diff
 {
   ...
-+ "bs-dependencies": ["rescript-schema"],
-+ "bsc-flags": ["-open RescriptSchema"],
++ "bs-dependencies": ["sury"],
 }
 ```
 
@@ -120,7 +117,7 @@ let filmSchema = S.object(s => {
       S.literal(Restricted),
     ]),
   ),
-  deprecatedAgeRestriction: s.field("Age", S.option(S.int)->S.deprecate("Use rating instead")),
+  deprecatedAgeRestriction: s.field("Age", S.option(S.int)->S.deprecated("Use rating instead")),
 })
 
 // 3. Parse data using the schema
@@ -156,8 +153,8 @@ let filmSchema = S.object(s => {
 // }
 
 // 5. Use schema as a building block for other tools
-// For example, create a JSON-schema with rescript-json-schema and use it for OpenAPI generation
-let filmJSONSchema = JSONSchema.make(filmSchema)
+// For example, create a JSON schema and use it for OpenAPI generation
+let filmJSONSchema = filmSchema->S.toJSONSchema
 ```
 
 The library uses `eval` to compile the most performant possible code for parsers and serializers. See yourself how good it is 👌
@@ -240,23 +237,9 @@ Compiled serializer code
 ```javascript
 (i) => {
   let v0 = i["tags"],
-    v3 = i["rating"];
-  if (v3 !== "G") {
-    if (v3 !== "PG") {
-      if (v3 !== "PG13") {
-        if (v3 !== "R") {
-          e[0](v3);
-        }
-      }
-    }
-  }
-  return {
-    Id: i["id"],
-    Title: i["title"],
-    Tags: v0,
-    Rating: v3,
-    Age: i["deprecatedAgeRestriction"],
-  };
+    v3 = i["rating"],
+    v4 = i["deprecatedAgeRestriction"];
+  return { Id: i["id"], Title: i["title"], Tags: v0, Rating: v3, Age: v4 };
 };
 ```
 
@@ -283,29 +266,29 @@ let schema = S.string
 
 The `S.string` schema represents a data that is a string. It can be further constrainted with the following utility methods.
 
-**rescript-schema** includes a handful of string-specific refinements and transforms:
+**Sury** includes a handful of string-specific refinements and transforms:
 
 ```rescript
-S.string->S.stringMaxLength(5) // String must be 5 or fewer characters long
-S.string->S.stringMinLength(5) // String must be 5 or more characters long
-S.string->S.stringLength(5) // String must be exactly 5 characters long
+S.string->S.max(5) // String must be 5 or fewer characters long
+S.string->S.min(5) // String must be 5 or more characters long
+S.string->S.length(5) // String must be exactly 5 characters long
 S.string->S.email // Invalid email address
 S.string->S.url // Invalid url
 S.string->S.uuid // Invalid UUID
 S.string->S.cuid // Invalid CUID
 S.string->S.pattern(%re(`/[0-9]/`)) // Invalid
-S.string->S.datetime // Invalid datetime string! Must be UTC
+S.string->S.datetime // Invalid datetime string! Expected UTC
 
 S.string->S.trim // trim whitespaces
 ```
 
-> ⚠️ Validating email addresses is nearly impossible with just code. Different clients and servers accept different things and many diverge from the various specs defining "valid" emails. The ONLY real way to validate an email address is to send a verification email to it and check that the user got it. With that in mind, rescript-schema picks a relatively simple regex that does not cover all cases.
+> ⚠️ Validating email addresses is nearly impossible with just code. Different clients and servers accept different things and many diverge from the various specs defining "valid" emails. The ONLY real way to validate an email address is to send a verification email to it and check that the user got it. With that in mind, Sury picks a relatively simple regex that does not cover all cases.
 
 When using built-in refinements, you can provide a custom error message.
 
 ```rescript
-S.string->S.stringMinLength(1, ~message="String can't be empty")
-S.string->S.stringLength(5, ~message="SMS code should be 5 digits long")
+S.string->S.min(1, ~message="String can't be empty")
+S.string->S.length(5, ~message="SMS code should be 5 digits long")
 ```
 
 #### ISO datetimes
@@ -335,11 +318,11 @@ The `S.bool` schema represents a data that is a boolean.
 
 The `S.int` schema represents a data that is an integer.
 
-**rescript-schema** includes some of int-specific refinements:
+**Sury** includes some of int-specific refinements:
 
 ```rescript
-S.int->S.intMax(5) // Number must be lower than or equal to 5
-S.int->S.intMin(5) // Number must be greater than or equal to 5
+S.int->S.max(5) // Number must be lower than or equal to 5
+S.int->S.min(5) // Number must be greater than or equal to 5
 S.int->S.port // Invalid port
 ```
 
@@ -349,11 +332,11 @@ S.int->S.port // Invalid port
 
 The `S.float` schema represents a data that is a number.
 
-**rescript-schema** includes some of float-specific refinements:
+**Sury** includes some of float-specific refinements:
 
 ```rescript
-S.float->S.floatMax(5) // Number must be lower than or equal to 5
-S.float->S.floatMin(5) // Number must be greater than or equal to 5
+S.float->S.floatMax(5.) // Number must be lower than or equal to 5
+S.float->S.floatMin(5.) // Number must be greater than or equal to 5
 ```
 
 ### **`bigint`**
@@ -426,12 +409,12 @@ The `S.null` schema represents a data of a specific type that might be null.
 
 > 🧠 Since `S.null` transforms value into `option` type, you can use `Option.getOr`/`Option.getOrWith` for it as well.
 
-### **`nullable`**
+### **`nullish`**
 
 `S.t<'value> => S.t<option<'value>>`
 
 ```rescript
-let schema = S.nullable(S.string)
+let schema = S.nullish(S.string)
 
 "Hello World!"->S.parseOrThrow(schema)
 // Some("Hello World!")
@@ -441,15 +424,21 @@ let schema = S.nullable(S.string)
 // None
 ```
 
-The `S.nullable` schema represents a data of a specific type that might be null or undefined.
+The `S.nullish` schema represents a data of a specific type that might be null or undefined.
 
-> 🧠 Since `S.nullable` transforms value into `option` type, you can use `Option.getOr`/`Option.getOrWith` for it as well.
+> 🧠 Since `S.nullish` transforms value into `option` type, you can use `Option.getOr`/`Option.getOrWith` for it as well.
 
 ### **`unit`**
 
 `S.t<unit>`
 
-The `S.unit` schema is an alias for `S.literal()`.
+The `S.unit` schema is a shorthand for `S.literal()`.
+
+### **`nullAsUnit`**
+
+`S.t<unit>`
+
+The `S.nullAsUnit` schema is a shorthand for `S.literal(Null.null)->S.to(S.unit)`.
 
 ### **`literal`**
 
@@ -460,8 +449,8 @@ let tunaSchema = S.literal("Tuna")
 let twelveSchema = S.literal(12)
 let importantTimestampSchema = S.literal(1652628345865.)
 let truSchema = S.literal(true)
-let nullSchema = S.literal(Null.null)
-let undefinedSchema = S.literal() // Building block for S.unit
+let nullSchema = S.literal(Null.null) // Or use S.nullAsUnit
+let undefinedSchema = S.literal() // Or use S.unit
 
 // Uses Number.isNaN to match NaN literals
 let nanSchema = S.literal(Float.Constants.nan)->S.shape(_ => ()) // For NaN literals I recomment adding S.shape to transform it to unit. It's better than having it as a float type
@@ -674,16 +663,16 @@ let schema = S.object(_ => ())->S.strict
 {
   "someField": "value",
 }->S.parseOrThrow(schema)
-// throws S.error with the message: `Failed parsing at root. Reason: Encountered disallowed excess key "unknownKey" on an object`
+// throws S.error with the message: `Failed parsing: Unrecognized key  "unknownKey"`
 ```
 
-By default **rescript-schema** silently strips unrecognized keys when parsing objects. You can change the behaviour to disallow unrecognized keys with the `S.strict` function.
+By default **Sury** silently strips unrecognized keys when parsing objects. You can change the behaviour to disallow unrecognized keys with the `S.strict` function.
 
 If you want to change it for all schemas in your app, you can use `S.setGlobalConfig` function:
 
 ```rescript
 S.setGlobalConfig({
-  defaultUnknownKeys: Strict,
+  defaultAdditionalItems: Strict,
 })
 ```
 
@@ -877,12 +866,12 @@ let schema = S.array(S.string)
 
 The `S.array` schema represents an array of data of a specific type.
 
-**rescript-schema** includes some of array-specific refinements:
+**Sury** includes some of array-specific refinements:
 
 ```rescript
-S.array(itemSchema)->S.arrayMaxLength(5) // Array must be 5 or fewer items long
-S.array(itemSchema)->S.arrayMinLength(5) // Array must be 5 or more items long
-S.array(itemSchema)->S.arrayLength(5) // Array must be exactly 5 items long
+S.array(itemSchema)->S.max(5) // Array must be 5 or fewer items long
+S.array(itemSchema)->S.min(5) // Array must be 5 or more items long
+S.array(itemSchema)->S.length(5) // Array must be exactly 5 items long
 ```
 
 ### **`list`**
@@ -929,15 +918,12 @@ Checkout the compiled code yourself:
   for (let v0 = 0; v0 < i.length; ++v0) {
     let v3 = i[v0];
     try {
-      let v4 = v3["name"],
-        v5;
-      if (v4 !== void 0) {
-        v5 = v4;
-      } else {
-        v5 = null;
+      let v4 = v3["name"];
+      if (v4 === void 0) {
+        v4 = null;
       }
       v1[0][v0] = v3["id"];
-      v1[1][v0] = v5;
+      v1[1][v0] = v4;
       v1[2][v0] = v3["deleted"];
     } catch (v2) {
       if (v2 && v2.s === s) {
@@ -1028,7 +1014,7 @@ The `S.unknown` schema represents any data.
 let schema = S.never
 
 %raw(`undefined`)->S.parseOrThrow(schema)
-// throws S.error with the message: `Failed parsing at root. Reason: Expected never, received undefined`
+// throws S.error with the message: `Failed parsing: Expected never, received undefined`
 ```
 
 The `never` schema will fail parsing for every value.
@@ -1061,35 +1047,28 @@ let schema = S.jsonString(S.int)
 
 The `S.jsonString` schema represents JSON string containing value of a specific type.
 
-### **`describe`**
+### **`meta`**
 
-`(S.t<'value>, string) => S.t<'value>`
+`(S.t<'value>, S.meta) => S.t<'value>`
 
-Use `S.describe` to add a `description` property to the resulting schema.
+Use `S.meta` to add a metadata to the resulting schema.
 
 ```rescript
 let documentedStringSchema = S.string
-  ->S.describe("A useful bit of text, if you know what to do with it.")
+  ->S.meta({description: "A useful bit of text, if you know what to do with it."})
 
-documentedStringSchema->S.description // A useful bit of text…
+(documentedStringSchema->S.untag).description // A useful bit of text…
 ```
 
-This can be useful for documenting a field, for example in a JSON Schema using a library like [`rescript-json-schema`](https://github.com/DZakh/rescript-json-schema).
-
-### **`deprecate`**
-
-`(S.t<'value>, string) => S.t<'value>`
-
-Use `S.deprecate` to add a `deprecation` message property to the resulting schema.
+This can be useful for documenting fields, generating JSON, etc.
 
 ```rescript
-let deprecatedString = S.string
-  ->S.deprecate("Will be removed in APIv2")
-
-deprecatedString->S.deprecation // Will be removed in APIv2…
+schema->S.toJSONSchema
+// {
+//   "type": "string",
+//   "description": "A useful bit of text, if you know what to do with it."
+// }
 ```
-
-This can be useful for documenting a field, for example in a JSON Schema using a library like [`rescript-json-schema`](https://github.com/DZakh/rescript-json-schema).
 
 ### **`catch`**
 
@@ -1116,7 +1095,7 @@ let schema = S.float->S.catch(s => {
 })
 ```
 
-Conceptually, this is how **rescript-schema** processes "catch values":
+Conceptually, this is how **Sury** processes "catch values":
 
 1. The data is parsed using the base schema
 2. If the parsing fails, the "catch value" is returned
@@ -1154,14 +1133,14 @@ let nullableSchema = innerSchema => {
 %raw(`undefined`)->S.parseOrThrow(schema)
 // None
 123->S.parseOrThrow(schema)
-// throws S.error with the message: `Failed parsing at root. Reason: Expected string, received 123`
+// throws S.error with the message: `Failed parsing: Expected string, received 123`
 ```
 
 ### **`recursive`**
 
 `(t<'value> => t<'value>) => t<'value>`
 
-You can define a recursive schema in **rescript-schema**.
+You can define a recursive schema in **Sury**.
 
 ```rescript
 type rec node = {
@@ -1220,11 +1199,11 @@ let nodeSchema = S.recursive(nodeSchema => {
 
 One great aspect of the example above is that it uses parallelism to make four requests to check for the existence of nodes.
 
-> 🧠 Despite supporting recursive schema, passing cyclical data into rescript-schema will cause an infinite loop.
+> 🧠 Despite supporting recursive schema, passing cyclical data will cause an infinite loop.
 
 ## Refinements
 
-**rescript-schema** lets you provide custom validation logic via refinements. It's useful to add checks that's not possible to cover with type system. For instance: checking that a number is an integer or that a string is a valid email address.
+**Sury** lets you provide custom validation logic via refinements. It's useful to add checks that's not possible to cover with type system. For instance: checking that a number is an integer or that a string is a valid email address.
 
 ### **`refine`**
 
@@ -1242,7 +1221,7 @@ The refine function is applied for both parser and serializer.
 
 ## Transforms
 
-**rescript-schema** allows to augment schema with transformation logic, letting you transform value during parsing and serializing. This is most commonly used for mapping value to more convenient data-structures.
+**Sury** allows to augment schema with transformation logic, letting you transform value during parsing and serializing. This is most commonly used for mapping value to more convenient data-structures.
 
 ### **`transform`**
 
@@ -1289,49 +1268,6 @@ await "1"->S.parseAsyncOrThrow(userSchema)
 // "1"
 ```
 
-## Preprocess _Advanced_
-
-> ☢️ This API is soon to be deprecated. Whenever it's possible, use [S.coerce](#coerce) instead.
-
-Typically **rescript-schema** operates under a "parse then transform" paradigm. **rescript-schema** validates the input first, then passes it through a chain of transformation functions.
-
-But sometimes you want to apply some transform to the input before parsing happens. Mostly needed when you build sometimes on top of **rescript-schema**. A simplified example from [rescript-envsafe](https://github.com/DZakh/rescript-envsafe):
-
-```rescript
-let prepareEnvSchema = S.preprocess(_, s => {
-    switch s.schema->S.classify {
-    | Literal(Boolean(_))
-    | Bool => {
-        parser: unknown => {
-          switch unknown->Obj.magic {
-          | "true"
-          | "t"
-          | "1" => true
-          | "false"
-          | "f"
-          | "0" => false
-          | _ => unknown->Obj.magic
-          }->Obj.magic
-        },
-      }
-    | Int
-    | Float
-    | Literal(Number(_)) => {
-        parser: unknown => {
-          if unknown->Js.typeof === "string" {
-            %raw(`+unknown`)
-          } else {
-            unknown
-          }
-        },
-      }
-    | _ => {}
-    }
-  })
-```
-
-> 🧠 When using preprocess on Union it will be applied to nested schemas separately.
-
 ## Functions on schema
 
 ### Built-in operations
@@ -1358,7 +1294,7 @@ For advanced users you can only transform to the output type without type valida
 
 Note, that in this case only type validations are skipped. If your schema has refinements or transforms, they will be applied.
 
-Also, you can use `S.removeTypeValidation` helper to turn off type validations for the schema even when it's used with a parse operation.
+Also, you can use `S.noValidation` helper to turn off type validations for the schema even when it's used with a parse operation.
 
 More often than converting input to output, you'll need to perform the reversed operation. It's usually called "serializing" or "decoding". The ReScript Schema has a unique mental model and provides an ability to reverse any schema with `S.reverse` which you can later use with all possible kinds of operations. But for convinence, there's a few helper functions that can be used to convert output values to the initial format:
 
@@ -1381,7 +1317,7 @@ All operations either return the output value or raise an exception which you ca
 
 ```rescript
 try true->S.parseOrThrow(schema) catch {
-| S.Error.Raised(error) => Console.log(error->S.Error.message)
+| S.Error(error) => Console.log(error.message)
 }
 ```
 
@@ -1451,22 +1387,22 @@ let reversed = schema->S.reverse
 // {"foo": "bar"}
 
 123->S.parseOrThrow(reversed)
-// throws S.error with the message: `Failed parsing at root. Reason: Expected string, received 123`
+// throws S.error with the message: `Failed parsing: Expected string, received 123`
 ```
 
 Reverses the schema. This gets especially magical for schemas with transformations 🪄
 
-### **`coerce`**
+### **`to`**
 
 `(S.t<'from>, S.t<'to>) => S.t<'to>`
 
-This very powerful API allows you to coerce another data type in a declarative way. Let's say you receive a number that is passed to your system as a string. For this `S.coerce` is the best fit:
+This very powerful API allows you to coerce another data type in a declarative way. Let's say you receive a number that is passed to your system as a string. For this `S.to` is the best fit:
 
 ```rescript
-let schema = S.string->S.coerce(S.float)
+let schema = S.string->S.to(S.float)
 
 "123"->S.parseOrThrow(schema) //? 123.
-"abc"->S.parseOrThrow(schema) //? throws: Failed parsing at root. Reason: Expected number, received "abc"
+"abc"->S.parseOrThrow(schema) //? throws: Failed parsing: Expected number, received "abc"
 
 // Reverse works correctly as well 🔥
 123.->S.reverseConvertOrThrow(schema) //? "123"
@@ -1510,36 +1446,36 @@ Determines if the schema is async. It can be useful to decide whether you should
 
 ### **`name`**
 
-`(S.t<'value>) => string`
-
 ```rescript
-S.literal({"abc": 123})->S.name
-// `{ "abc": 123 }`
+let schema = S.literal({"abc": 123})->S.meta({name: "Abc"})
+
+(schema->S.untag).name // "Abc"
 ```
 
 Used internally for readable error messages.
 
-> 🧠 Names are subject to change in the future versions
+### **`toExpression`**
 
-### **`setName`**
-
-`(S.t<'value>, string) => string`
+`(S.t<'value>) => string`
 
 ```rescript
-let schema = S.literal({"abc": 123})->S.setName("Abc")
+S.literal({"abc": 123})->S.toExpression
+// "{ "abc": 123 }"
 
-schema->S.name
-// `Abc`
+S.string->S.name("Address")->S.toExpression
+// "Address"
 ```
 
-You can customise a schema name using `S.setName`.
+Used internally for readable error messages.
 
-### **`removeTypeValidation`**
+> 🧠 The format subject to change
 
-`S.t<'value> => S.t<'value>`
+### **`noValidation`**
+
+`(S.t<'value>, bool) => S.t<'value>`
 
 ```rescript
-let schema = S.object(s => s.field("abc", S.int))->S.removeTypeValidation
+let schema = S.object(s => s.field("abc", S.int))->S.noValidation(true)
 
 {
   "abc": 123,
@@ -1547,84 +1483,40 @@ let schema = S.object(s => s.field("abc", S.int))->S.removeTypeValidation
 // 123
 ```
 
-Removes type validation for provided schema. Nested schemas are not affected.
+Removes validation for the provided schema. Nested schemas are not affected.
 
 This can be useful to optimise `S.object` parsing when you construct the input data yourself.
 
 ## Error handling
 
-**rescript-schema** throws `S.error` error containing detailed information about the validation problems.
+**Sury** throws `S.error` error containing detailed information about the validation problems.
 
 ```rescript
 let schema = S.literal(false)
 
 true->S.parseOrThrow(schema)
-// throws S.error with the message: `Failed parsing at root. Reason: Expected false, received true`
+// throws S.error with the message: `Failed parsing: Expected false, received true`
 ```
 
 If you want to handle the error, the best way to use `try/catch` block:
 
 ```rescript
 try true->S.parseOrThrow(schema) catch {
-| S.Error.Raised(error) => Console.log(error->S.Error.message)
+| S.Error(error) => Console.log(error.message)
 }
-```
-
-### **`Error.make`**
-
-`(~code: S.errorCode, ~flag: S.flag, ~path: S.Path.t) => S.error`
-
-Creates an instance of `RescriptSchemaError` error. At the same time it's the `S.Raised` exception.
-
-### **`Error.raise`**
-
-`S.error => exn`
-
-Throws error. Since internally it's both the `S.Raised` exception and instance of `RescriptSchemaError`, it'll have a nice error message and can be caught using `S.Raised`.
-
-### **`Error.message`**
-
-`S.error => string`
-
-```rescript
-{
-  code: InvalidType({expected: S.literal(false), received: true}),
-  flag: S.Flag.typeValidation,
-  path: S.Path.empty,
-}->S.Error.message
-```
-
-```rescript
-"Failed parsing at root. Reason: Expected false, received true"
-```
-
-### **`Error.reason`**
-
-`S.error => string`
-
-```rescript
-{
-  code: InvalidType({expected: S.literal(false), received: true}),
-  flag: S.Flag.typeValidation,
-  path: S.Path.empty,
-}->S.Error.reason
-```
-
-```rescript
-"Expected false, received true"
 ```
 
 ## Global config
 
-**rescript-schema** has a global config that can be changed to customize the behavior of the library.
+**Sury** has a global config that can be changed to customize the behavior of the library.
 
-### `defaultUnknownKeys`
+### `defaultAdditionalItems`
 
-`defaultUnknownKeys` is an option that controls how unknown keys are handled when parsing objects. The default value is `Strip`, but you can globally change it to `Strict` to enforce strict object parsing.
+`defaultAdditionalItems` is an option that controls how unknown keys are handled when parsing objects. The default value is `Strip`, but you can globally change it to `Strict` to enforce strict object parsing.
 
 ```rescript
 S.setGlobalConfig({
-  defaultUnknownKeys: Strict,
+  defaultAdditionalItems: Strict,
 })
 ```
 

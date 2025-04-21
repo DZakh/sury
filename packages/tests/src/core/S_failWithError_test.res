@@ -4,7 +4,7 @@ test("Keeps operation of the error passed to S.Error.raise", t => {
   let schema = S.array(
     S.string->S.transform(_ => {
       parser: _ =>
-        S.Error.raise(
+        U.raiseError(
           U.error({
             code: OperationFailed("User error"),
             operation: ReverseConvert,
@@ -14,7 +14,7 @@ test("Keeps operation of the error passed to S.Error.raise", t => {
     }),
   )
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => ["Hello world!"]->S.parseOrThrow(schema),
     {
       code: OperationFailed("User error"),
@@ -32,7 +32,7 @@ test("Works with failing outside of the parser", t => {
     )
   )
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => ["Hello world!"]->S.parseOrThrow(schema),
     {
       code: OperationFailed("User error"),
@@ -50,7 +50,7 @@ test("Works with failing outside of the parser inside of array", t => {
     )
   )
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => ["Hello world!"]->S.parseOrThrow(schema),
     {
       code: OperationFailed("User error"),

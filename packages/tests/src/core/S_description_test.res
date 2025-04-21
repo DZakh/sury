@@ -1,26 +1,35 @@
 open Ava
 
-test("S.description returns None for not described schemas", t => {
+test("Initially there's no description", t => {
   let schema = S.string
 
-  t->Assert.deepEqual(schema->S.description, None, ())
+  t->Assert.deepEqual((schema->S.untag).description, None, ())
 })
 
-test("S.description returns Some for described schemas", t => {
-  let schema = S.string->S.describe("A useful bit of text, if you know what to do with it.")
+test("Set description", t => {
+  let original = S.string
+  let withDescription =
+    original->S.meta({description: "A useful bit of text, if you know what to do with it."})
 
   t->Assert.deepEqual(
-    schema->S.description,
+    (withDescription->S.untag).description,
     Some("A useful bit of text, if you know what to do with it."),
     (),
+  )
+  t->Assert.deepEqual(
+    (original->S.untag).description,
+    None,
+    (),
+    ~message="Original schema is not mutated",
   )
 })
 
 test("Transforms don't remove description", t => {
-  let schema = S.string->S.describe("A useful bit of text, if you know what to do with it.")->S.trim
+  let schema =
+    S.string->S.meta({description: "A useful bit of text, if you know what to do with it."})->S.trim
 
   t->Assert.deepEqual(
-    schema->S.description,
+    (schema->S.untag).description,
     Some("A useful bit of text, if you know what to do with it."),
     (),
   )

@@ -78,8 +78,13 @@ test("Record schema with nullable field", t => {
     }),
   )
   t->Assert.deepEqual(
-    %raw(`{"subscription":null}`)->S.parseOrThrow(recordWithNullableFieldSchema),
+    %raw(`{}`)->S.parseOrThrow(recordWithNullableFieldSchema),
     {subscription: None},
+    (),
+  )
+  t->Assert.deepEqual(
+    %raw(`{"subscription":null}`)->S.parseOrThrow(recordWithNullableFieldSchema),
+    {subscription: Some(None)},
     (),
   )
 })

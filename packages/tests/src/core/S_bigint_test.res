@@ -15,7 +15,7 @@ module Common = {
   test("Fails to parse", t => {
     let schema = factory()
 
-    t->U.assertRaised(
+    t->U.assertThrows(
       () => invalidAny->S.parseOrThrow(schema),
       {
         code: InvalidType({expected: schema->S.toUnknown, received: invalidAny}),
@@ -31,7 +31,7 @@ module Common = {
     t->Assert.throws(
       () => value->S.convertToJsonOrThrow(schema),
       ~expectations={
-        message: "Failed converting to JSON at root. Reason: The 'bigint' schema cannot be converted to JSON",
+        message: "Failed converting to JSON: The 'bigint' schema cannot be converted to JSON",
       },
       (),
     )
@@ -39,7 +39,7 @@ module Common = {
 
   test("BigInt name", t => {
     let schema = factory()
-    t->Assert.is(schema->S.name, "bigint", ())
+    t->Assert.is(schema->S.toExpression, "bigint", ())
   })
 
   test("Successfully serializes", t => {

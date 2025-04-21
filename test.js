@@ -1,29 +1,10 @@
 (i) => {
-  let v3 = i;
-  if (typeof i !== "object" || !i || i["NAME"] !== "request") {
-    if (typeof i !== "object" || !i || i["NAME"] !== "response") {
-      e[3](i);
-    } else {
-      if (v0 !== "response") {
-        e[1](v0);
-      }
-      let v2 = v1["response"];
-      if (v2 !== "accepted") {
-        if (v2 !== "rejected") {
-          e[2](v2);
-        }
-      }
-      v3 = {
-        NAME: v0,
-        VAL: { collectionName: v1["collectionName"], response: v2 },
-      };
-    }
-  } else {
-    let v0 = i["NAME"],
-      v1 = i["VAL"];
-    if (v0 !== "request") {
-      e[0](v0);
+  try {
+    e[0](i);
+  } catch (e0) {
+    if (i === void 0) {
+      i = null;
     }
   }
-  return v3;
+  return i;
 };

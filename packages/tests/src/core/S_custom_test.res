@@ -25,7 +25,7 @@ test("Correctly parses custom schema", t => {
   t->Assert.deepEqual("Hello world!"->S.parseOrThrow(schema), Some("Hello world!"), ())
   t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(schema), None, ())
   t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), None, ())
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => 123->S.parseOrThrow(schema),
     {
       code: InvalidType({expected: S.string->S.toUnknown, received: %raw(`123`)}),
@@ -62,7 +62,7 @@ test("Fails to serialize with user error", t => {
     serializer: _ => s.fail("User error"),
   })
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => None->S.reverseConvertOrThrow(schema),
     {code: OperationFailed("User error"), operation: ReverseConvert, path: S.Path.empty},
   )
@@ -73,7 +73,7 @@ test("Fails to serialize with serializer is missing", t => {
     parser: _ => (),
   })
 
-  t->U.assertRaised(
+  t->U.assertThrows(
     () => ()->S.reverseConvertOrThrow(schema),
     {
       code: InvalidOperation({description: "The S.custom serializer is missing"}),
