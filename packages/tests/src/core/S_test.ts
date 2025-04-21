@@ -1390,8 +1390,8 @@ test("Successfully parses and returns result", (t) => {
       TypeEqual<
         typeof value,
         {
-          success: true;
-          value: string;
+          readonly success: true;
+          readonly value: string;
         }
       >
     >(true);
@@ -1400,8 +1400,8 @@ test("Successfully parses and returns result", (t) => {
       TypeEqual<
         typeof value,
         {
-          success: false;
-          error: S.Error;
+          readonly success: false;
+          readonly error: S.Error;
         }
       >
     >(true);
@@ -1419,8 +1419,8 @@ test("Successfully reverse converts and returns result", (t) => {
       TypeEqual<
         typeof value,
         {
-          success: true;
-          value: string;
+          readonly success: true;
+          readonly value: string;
         }
       >
     >(true);
@@ -1429,8 +1429,8 @@ test("Successfully reverse converts and returns result", (t) => {
       TypeEqual<
         typeof value,
         {
-          success: false;
-          error: S.Error;
+          readonly success: false;
+          readonly error: S.Error;
         }
       >
     >(true);
@@ -2057,7 +2057,6 @@ test("Compile types", async (t) => {
   t.deepEqual(fn5(`"hello"`), "hello");
   t.deepEqual(fn5("null"), undefined);
 
-  // FIXME: This fails because of registerInvalidJson for undefined literal
   const fn6 = S.compile(schema, "Output", "Json", "Sync");
   expectType<TypeEqual<typeof fn6, (input: string | undefined) => S.Json>>(
     true
