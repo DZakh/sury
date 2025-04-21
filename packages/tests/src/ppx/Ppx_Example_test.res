@@ -18,7 +18,8 @@ type film = {
   @as("Rating")
   rating: rating,
   @as("Age")
-  deprecatedAgeRestriction: @s.deprecated("Use rating instead") option<int>,
+  deprecatedAgeRestriction: @s.meta({description: "Use rating instead", deprecated: true})
+  option<int>,
 }
 
 test("Main example", t => {
@@ -37,7 +38,10 @@ test("Main example", t => {
           S.literal(Restricted),
         ]),
       ),
-      deprecatedAgeRestriction: s.field("Age", S.option(S.int)->S.deprecated("Use rating instead")),
+      deprecatedAgeRestriction: s.field(
+        "Age",
+        S.option(S.int)->S.meta({description: "Use rating instead", deprecated: true}),
+      ),
     }),
   )
 })
@@ -89,16 +93,20 @@ test("@s.null with @s.default", t => {
 // })
 
 @schema
-type deprecated = @s.deprecated("Will be removed in APIv2") string
+type deprecated = @s.meta({description: "Will be removed in APIv2", deprecated: true}) string
 test("@s.deprecated", t => {
-  t->assertEqualSchemas(deprecatedSchema, S.string->S.deprecated("Will be removed in APIv2"))
+  t->assertEqualSchemas(
+    deprecatedSchema,
+    S.string->S.meta({description: "Will be removed in APIv2", deprecated: true}),
+  )
 })
 
 @schema
-type describe = @s.description("A useful bit of text, if you know what to do with it.") string
+type describe = @s.meta({description: "A useful bit of text, if you know what to do with it."})
+string
 test("@s.description", t => {
   t->assertEqualSchemas(
     describeSchema,
-    S.string->S.description("A useful bit of text, if you know what to do with it."),
+    S.string->S.meta({description: "A useful bit of text, if you know what to do with it."}),
   )
 })

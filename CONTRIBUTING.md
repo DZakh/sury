@@ -28,6 +28,12 @@ Make sure running the below commands in `packages/rescript-schema-ppx/src`.
 opam switch create rescript-schema-ppx 4.12.1
 ```
 
+Or
+
+```
+opam switch set rescript-schema-ppx
+```
+
 2. Install dependencies
 
 ```

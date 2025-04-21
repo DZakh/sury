@@ -1341,7 +1341,7 @@ test("S.schema example", (t) => {
 });
 
 test("S.name", (t) => {
-  t.is(S.toExpression(S.name(S.unknown, "BlaBla")), `BlaBla`);
+  t.is(S.toExpression(S.unknown.with(S.meta, { name: "BlaBla" })), `BlaBla`);
 });
 
 test("Successfully parses and returns result", (t) => {
@@ -1636,10 +1636,9 @@ test("Creates schema with description", (t) => {
     TypeEqual<typeof undocumentedStringSchema, S.Schema<string, string>>
   >(true);
 
-  const documentedStringSchema = undocumentedStringSchema.with(
-    S.description,
-    "A useful bit of text, if you know what to do with it."
-  );
+  const documentedStringSchema = undocumentedStringSchema.with(S.meta, {
+    description: "A useful bit of text, if you know what to do with it.",
+  });
 
   expectType<
     TypeEqual<typeof documentedStringSchema, S.Schema<string, string>>
@@ -1661,21 +1660,25 @@ test("Creates schema with deprecation", (t) => {
 
   expectType<TypeEqual<typeof schema, S.Schema<string, string>>>(true);
 
-  const deprecatedStringSchema = schema.with(
-    S.deprecated,
-    "Use number instead."
-  );
+  const deprecatedStringSchema = schema.with(S.meta, {
+    deprecated: true,
+    description: "Use number instead.",
+  });
 
   expectType<
     TypeEqual<typeof deprecatedStringSchema, S.Schema<string, string>>
   >(true);
 
   expectType<
-    TypeEqual<typeof deprecatedStringSchema.deprecated, string | undefined>
+    TypeEqual<typeof deprecatedStringSchema.deprecated, boolean | undefined>
+  >(true);
+  expectType<
+    TypeEqual<typeof deprecatedStringSchema.description, string | undefined>
   >(true);
 
   t.deepEqual(schema.deprecated, undefined);
-  t.deepEqual(deprecatedStringSchema.deprecated, "Use number instead.");
+  t.deepEqual(deprecatedStringSchema.deprecated, true);
+  t.deepEqual(deprecatedStringSchema.description, "Use number instead.");
 });
 
 test("Tuple with single element", (t) => {

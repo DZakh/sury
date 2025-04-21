@@ -47,8 +47,7 @@
   - [`never`](#never)
   - [`json`](#json)
   - [`jsonString`](#jsonString)
-  - [`description`](#description)
-  - [`deprecated`](#deprecated)
+  - [`meta`](#meta)
   - [`catch`](#catch)
   - [`custom`](#custom)
   - [`recursive`](#recursive)
@@ -154,7 +153,7 @@ let filmSchema = S.object(s => {
 // }
 
 // 5. Use schema as a building block for other tools
-// For example, create a JSON-schema with rescript-json-schema and use it for OpenAPI generation
+// For example, create a JSON schema and use it for OpenAPI generation
 let filmJSONSchema = filmSchema->S.toJSONSchema
 ```
 
@@ -1048,34 +1047,28 @@ let schema = S.jsonString(S.int)
 
 The `S.jsonString` schema represents JSON string containing value of a specific type.
 
-### **`description`**
+### **`meta`**
 
-`(S.t<'value>, string) => S.t<'value>`
+`(S.t<'value>, S.meta) => S.t<'value>`
 
-Use `S.description` to add a `description` property to the resulting schema.
+Use `S.meta` to add a metadata to the resulting schema.
 
 ```rescript
 let documentedStringSchema = S.string
-  ->S.description("A useful bit of text, if you know what to do with it.")
+  ->S.meta({description: "A useful bit of text, if you know what to do with it."})
 
 (documentedStringSchema->S.untag).description // A useful bit of text…
 ```
 
-This can be useful for documenting a field, for example in a JSON Schema using a library like [`rescript-json-schema`](https://github.com/DZakh/rescript-json-schema).
-
-### **`deprecated`**
-
-`(S.t<'value>, string) => S.t<'value>`
-
-Use `S.deprecated` to add a `deprecation` message property to the resulting schema.
+This can be useful for documenting fields, generating JSON, etc.
 
 ```rescript
-let deprecatedString = S.string->S.deprecated("Will be removed in APIv2")
-
-(deprecatedString->S.untag).deprecated // Will be removed in APIv2…
+schema->S.toJSONSchema
+// {
+//   "type": "string",
+//   "description": "A useful bit of text, if you know what to do with it."
+// }
 ```
-
-This can be useful for documenting a field, for example in a JSON Schema using a library like [`rescript-json-schema`](https://github.com/DZakh/rescript-json-schema).
 
 ### **`catch`**
 
@@ -1453,10 +1446,8 @@ Determines if the schema is async. It can be useful to decide whether you should
 
 ### **`name`**
 
-`(S.t<'value>, string) => string`
-
 ```rescript
-let schema = S.literal({"abc": 123})->S.name("Abc")
+let schema = S.literal({"abc": 123})->S.meta({name: "Abc"})
 
 (schema->S.untag).name // "Abc"
 ```

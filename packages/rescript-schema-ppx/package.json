@@ -1,21 +1,22 @@
 {
-  "name": "rescript-schema-ppx",
-  "version": "9.0.1",
-  "description": "ReScript PPX to generate rescript-schema from type",
+  "name": "@sury/ppx",
+  "version": "10.0.0-rc.0",
+  "description": "⚙️ ReScript PPX to generate Sury schema from types",
   "keywords": [
+    "Sury",
     "ReScript",
     "Schema",
     "PPX",
     "Decco",
     "Spice"
   ],
-  "homepage": "https://github.com/DZakh/rescript-schema/packages/rescript-schema-ppx#readme",
+  "homepage": "https://github.com/DZakh/sury/packages/rescript-schema-ppx#readme",
   "bugs": {
-    "url": "https://github.com/DZakh/rescript-schema/issues"
+    "url": "https://github.com/DZakh/sury/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/DZakh/rescript-schema.git"
+    "url": "git+https://github.com/DZakh/sury.git"
   },
   "license": "MIT",
   "author": "Dmitry Zakharov <dzakh.dev@gmail.com>",
@@ -32,6 +33,6 @@
     "postinstall": "node ./install.cjs"
   },
   "peerDependencies": {
-    "rescript-schema": "9.x"
+    "sury": "9.x"
   }
 }

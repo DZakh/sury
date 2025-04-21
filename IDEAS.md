@@ -23,10 +23,13 @@
 - Renamed `unknownKeys` to `additionalItems` and made it lowercase.
 - Allow to set `S.tuple` to Strip mode (still strict by default)
 - Changed `S.removeTypeValidation` to `S.noValidation`. It doesn't affect union discriminated optimisation anymore.
-- Renamed `S.describe` to `S.description`. Removed previous `S.description` getter in favor of the `description` field on schema
-- Renamed `S.deprecate` to `S.deprecated`. Removed previous `S.deprecation` getter in favor of the `deprecated` field on schema. Added `S.deprecated` to JS/TS API
-- Renamed `S.name` to `S.toExpression` and `S.setName` to `S.name`. Also, it's now possible to get the name itself from the `name` property on schema.
-- Renamed `RescriptSchemaError` to `SuryError`
+- Removed `S.describe` in favor of `S.meta`.
+- Removed `S.description` getter in favor of the `description` field on schema
+- Removed `S.deprecate` in favor of `S.meta`
+- Removed `S.deprecation` getter in favor of the `deprecated` field on schema. Added `S.deprecated` to JS/TS API
+- Removed `S.setName` in favor of `S.meta.
+- Renamed `S.name` to `S.toExpression`. Also, it's now possible to get the name itself from the `name` property on schema.
+- Renamed `RescriptSchemaError` class to `SuryError`
 - (rescript) Renamed `S.Raised` exception to `S.Error`
 - (rescript) Removed `Error` module. Access `message` and `reason` directly on `error` type. Also, added the `ErrorClass` module for advanced use-cases.
 - (rescript) Removed `RescriptSchema` namespace
@@ -56,18 +59,17 @@
 - Renamed `S.arrayMinLength` to `S.min`
 - Renamed `S.arrayMaxLength` to `S.max`
 - Renamed `S.arrayLength` to `S.length`
+- (ppx) Improved error message for unsupported attributes
+- (ppx) Added support for `@s.meta`, `@s.noValidation`, `@s.strict`, `@s.strip`, `@s.deepStrict` and `@s.deepStrip`
+- (ppx) Removed `@s.nullable` in favor of `Nullable.t` support.
 
 ### Scope
 
-- Support `@s.name` etc for ppx and fail on removed `@s.describe`
-- Todo something with nullish and ppx
-- Integrate rescript-json-schema
-- Add S.fromJSONSchema
-- Add S.meta like Zod v4 (Move S.example to rescript-schema)
-- Update benchmark. Zod v4 and add TypeBox
-
 ### Final release fixes
 
+- Add S.fromJSONSchema
+- Add example field to S.meta
+- Update benchmark. Zod v4 and add TypeBox
 - Fix all tests marked as Failing
 - Update docs
 - Rename `rescript-schema-ppx` to `@sury/ppx`

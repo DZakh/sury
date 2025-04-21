@@ -234,16 +234,8 @@ var filesMapping = [
     "S.js_transform"
   ],
   [
-    "description",
-    "S.description"
-  ],
-  [
-    "deprecated",
-    "S.deprecated"
-  ],
-  [
-    "name",
-    "S.name"
+    "meta",
+    "S.meta"
   ],
   [
     "toExpression",

@@ -32,7 +32,7 @@
 - [Records](#records)
 - [JSON](#json)
 - [JSON string](#json-string)
-- [Description](#description)
+- [Meta](#meta)
 - [Custom schema](#custom-schema)
 - [Recursive schemas](#recursive-schemas)
 - [Refinements](#refinements)
@@ -605,20 +605,27 @@ S.parseOrThrow("123", schema);
 
 The `S.jsonString` schema represents JSON string containing value of a specific type.
 
-## Description
+## Meta
 
-Use `S.description` to add a `description` property to the resulting schema.
+Use `S.meta` to add metadata to the resulting schema.
 
 ```ts
-const documentedStringSchema = S.description(
-  S.string,
-  "A useful bit of text, if you know what to do with it."
-);
+const documentedStringSchema = S.string.with(S.meta, {
+  description: "A useful bit of text, if you know what to do with it.",
+});
 
 documentedStringSchema.description; // A useful bit of text…
 ```
 
-This can be useful for documenting a field, for example in a JSON Schema using a library like [`rescript-json-schema`](https://github.com/DZakh/rescript-json-schema).
+This can be useful for documenting fields, generating JSON, etc.
+
+```ts
+S.toJSONSchema(documentedStringSchema);
+// {
+//   "type": "string",
+//   "description": "A useful bit of text, if you know what to do with it."
+// }
+```
 
 ## Custom schema
 
@@ -890,7 +897,7 @@ Converts ReScript Schema into [Standard Schema](https://standardschema.dev/). Yo
 ### **`name`**
 
 ```ts
-const schema = S.name(S.schema({ abc: 123 }, "Abc"));
+const schema = S.schema({ abc: 123 }.with(S.meta, { name: "Abc" }));
 
 schema.name; // "Abc"
 ```

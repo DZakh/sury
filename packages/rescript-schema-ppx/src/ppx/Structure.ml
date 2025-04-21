@@ -28,6 +28,9 @@ let rec generateConstrSchemaExpression {Location.txt = identifier; loc}
         [%e generateCoreTypeSchemaExpression item_type]]
   | Lident "null", [item_type] ->
     [%expr S.null [%e generateCoreTypeSchemaExpression item_type]]
+  | Ldot (Ldot (Lident "Js", "Nullable"), "t"), [item_type]
+  | Ldot (Lident "Nullable", "t"), [item_type] ->
+    [%expr S.nullish [%e generateCoreTypeSchemaExpression item_type]]
   | Lident "dict", [item_type]
   | Ldot (Ldot (Lident "Js", "Dict"), "t"), [item_type]
   | Ldot (Lident "Dict", "t"), [item_type] ->
@@ -140,16 +143,11 @@ and generateCoreTypeSchemaExpression core_type =
   let customSchemaExpression = getAttributeByName ptyp_attributes "s.matches" in
   let option_factory_expression =
     match
-      ( getAttributeByName ptyp_attributes "s.null",
-        getAttributeByName ptyp_attributes "s.nullish" )
+      ( getAttributeByName ptyp_attributes "s.null" )
     with
-    | Ok None, Ok None -> [%expr S.option]
-    | Ok (Some _), Ok None -> [%expr S.null]
-    | Ok None, Ok (Some _) -> [%expr S.nullish]
-    | Ok (Some _), Ok (Some _) ->
-      fail ptyp_loc
-        "Attributes @s.null and @s.nullish are not supported at the same time"
-    | _, Error s | Error s, _ -> fail ptyp_loc s
+    | Ok None -> [%expr S.option]
+    | Ok (Some _) -> [%expr S.null]
+    | Error s -> fail ptyp_loc s
   in
   let schema_expression =
     match customSchemaExpression with
@@ -183,45 +181,39 @@ and generateCoreTypeSchemaExpression core_type =
     | Ok (Some attribute) -> getExpressionFromPayload attribute
     | Error s -> fail ptyp_loc s
   in
-  let schema_expression =
-    match getAttributeByName ptyp_attributes "s.default" with
-    | Ok None -> schema_expression
-    | Ok (Some attribute) ->
-      let default_value = getExpressionFromPayload attribute in
-      [%expr
-        S.Option.getOr
-          ([%e option_factory_expression] [%e schema_expression])
-          [%e default_value]]
-    | Error s -> fail ptyp_loc s
+  let handle_attribute schema_expr ({attr_name = {Location.txt}} as attribute) =
+    match txt with
+    | "s.matches" | "s.null" -> schema_expr (* handled above *)
+    | "s.default" ->
+        let default_value = getExpressionFromPayload attribute in
+        [%expr 
+          S.Option.getOr
+            ([%e option_factory_expression] [%e schema_expr])
+            [%e default_value]]
+    | "s.defaultWith" ->
+        let default_fn = getExpressionFromPayload attribute in
+        [%expr
+          S.Option.getOrWith
+            ([%e option_factory_expression] [%e schema_expr])
+            [%e default_fn]]
+    | "s.strict" ->
+        [%expr S.strict [%e schema_expr]]
+    | "s.strip" ->
+      [%expr S.strip [%e schema_expr]]
+    | "s.deepStrict" ->
+        [%expr S.deepStrict [%e schema_expr]]
+    | "s.deepStrip" ->
+      [%expr S.deepStrip [%e schema_expr]]
+    | "s.noValidation" ->
+      [%expr S.noValidation [%e schema_expr]]
+    | "s.meta" ->
+        let meta_value = getExpressionFromPayload attribute in
+        [%expr S.meta [%e schema_expr] [%e meta_value]]
+    | txt when txt <> "" && String.length txt >= 2 && String.sub txt 0 2 = "s." ->
+      fail ptyp_loc ("Unsupported schema attribute: \"@" ^ txt ^ "\"")
+    | _ -> schema_expr
   in
-  let schema_expression =
-    match getAttributeByName ptyp_attributes "s.defaultWith" with
-    | Ok None -> schema_expression
-    | Ok (Some attribute) ->
-      let default_cb = getExpressionFromPayload attribute in
-      [%expr
-        S.Option.getOrWith
-          ([%e option_factory_expression] [%e schema_expression])
-          [%e default_cb]]
-    | Error s -> fail ptyp_loc s
-  in
-  let schema_expression =
-    match getAttributeByName ptyp_attributes "s.deprecated" with
-    | Ok None -> schema_expression
-    | Ok (Some attribute) ->
-      let reason = getExpressionFromPayload attribute in
-      [%expr S.deprecated [%e schema_expression] [%e reason]]
-    | Error s -> fail ptyp_loc s
-  in
-  let schema_expression =
-    match getAttributeByName ptyp_attributes "s.description" with
-    | Ok None -> schema_expression
-    | Ok (Some attribute) ->
-      let message = getExpressionFromPayload attribute in
-      [%expr S.description [%e schema_expression] [%e message]]
-    | Error s -> fail ptyp_loc s
-  in
-  schema_expression
+  List.fold_left handle_attribute schema_expression ptyp_attributes
 
 let generateTypeDeclarationSchemaExpression type_declaration =
   (* let {ptype_name = {txt = type_name}} = type_declaration in *)

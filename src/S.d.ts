@@ -312,11 +312,18 @@ export function recursive<Output, Input = Output>(
   definer: (schema: Schema<Output, Input>) => Schema<Output, Input>
 ): Schema<Output, Input>;
 
-export function toExpression(schema: Schema<unknown>): string;
-export function name<Output, Input>(
+export type Meta = {
+  name?: string;
+  description?: string;
+  deprecated?: boolean;
+};
+
+export function meta<Output, Input>(
   schema: Schema<Output, Input>,
-  name: string
+  meta: Meta
 ): Schema<Output, Input>;
+
+export function toExpression(schema: Schema<unknown>): string;
 export function noValidation<Output, Input>(
   schema: Schema<Output, Input>,
   value: boolean
@@ -339,15 +346,6 @@ export function transform<Transformed, Output = unknown, Input = unknown>(
     | undefined,
   serializer?: (value: Transformed, s: EffectCtx<unknown, unknown>) => Output
 ): Schema<Transformed, Input>;
-
-export function description<Output, Input>(
-  schema: Schema<Output, Input>,
-  description: string
-): Schema<Output, Input>;
-export function deprecated<Output, Input>(
-  schema: Schema<Output, Input>,
-  message: string
-): Schema<Output, Input>;
 
 export const min: <Output extends string | number | unknown[], Input>(
   schema: Schema<Output, Input>,
