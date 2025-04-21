@@ -431,6 +431,30 @@ test("Pattern match on schema", (t) => {
   }
 });
 
+test("Test JSON Schema of int32", (t) => {
+  const schema = S.int32;
+
+  t.deepEqual(S.toJSONSchema(schema), {
+    type: "integer",
+  });
+});
+
+test("Test extended JSON Schema", (t) => {
+  const schema = S.int32
+    .with(S.extendJSONSchema, {
+      $ref: "Foo",
+    })
+    .with(S.extendJSONSchema, {
+      readOnly: true,
+    });
+
+  t.deepEqual(S.toJSONSchema(schema), {
+    $ref: "Foo",
+    readOnly: true,
+    type: "integer",
+  });
+});
+
 test("Successfully reverse converts with valid value", (t) => {
   const schema = S.string;
   const result = S.reverseConvertOrThrow("123", schema);

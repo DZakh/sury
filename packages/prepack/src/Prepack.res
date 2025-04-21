@@ -149,6 +149,8 @@ let filesMapping = [
   ("deepStrip", "S.deepStrip"),
   ("custom", "S.js_custom"),
   ("to", "S.to"),
+  ("toJSONSchema", "S.toJSONSchema"),
+  ("extendJSONSchema", "S.extendJSONSchema"),
   ("shape", "S.shape"),
   ("tuple", "S.tuple"),
   ("asyncParserRefine", "S.js_asyncParserRefine"),

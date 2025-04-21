@@ -214,6 +214,14 @@ var filesMapping = [
     "S.to"
   ],
   [
+    "toJSONSchema",
+    "S.toJSONSchema"
+  ],
+  [
+    "extendJSONSchema",
+    "S.extendJSONSchema"
+  ],
+  [
     "shape",
     "S.shape"
   ],

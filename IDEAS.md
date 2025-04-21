@@ -66,6 +66,7 @@
 ### rc.1
 
 - (ts) Make TS type a tagged union
+- (ts) Add types for `S.toJSONSchema` and `S.extendJSONSchema`
 
 ### Scope
 
@@ -73,16 +74,16 @@
 
 - Add S.fromJSONSchema
 - Add example field to S.meta
+- Fix default for S.toJSONSchema
 - Fix all tests marked as Failing
 - Update docs
 - Rename `rescript-schema-ppx` to `@sury/ppx`
-- Fix unboxed types in JSONSchema module
 - Fix all fixme
 
 ## v11
 
 - Make built-in refinements not work with `unknown`. Use `S.to` (manually & automatically) to deside the type first
-- Start using rescript v12
+- Start using rescript v12 (Fix unboxed types in JSONSchema module)
 - Support arrays for `S.to`
 - Remove fieldOr in favor of optionOr?
 - Allow to pass custom error message via `.with`
