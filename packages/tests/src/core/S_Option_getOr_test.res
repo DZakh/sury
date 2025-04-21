@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 test("Uses default value when parsing optional unknown primitive", t => {
   let value = 123.

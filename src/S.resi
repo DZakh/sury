@@ -22,6 +22,7 @@ module Path: {
 
 type numberFormat = | @as("int32") Int32
 
+@unboxed
 type additionalItemsMode = | @as("strip") Strip | @as("strict") Strict
 
 type tag =
@@ -142,8 +143,7 @@ and meta = {
   description?: string,
   deprecated?: bool,
 }
-// FIXME: Test whether it's a ReScript bug that @unboxed is missing
-and additionalItems = | ...additionalItemsMode | Schema(t<unknown>)
+@unboxed and additionalItems = | ...additionalItemsMode | Schema(t<unknown>)
 and item = {
   schema: t<unknown>,
   location: string,

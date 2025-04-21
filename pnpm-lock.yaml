@@ -10,10 +10,10 @@ importers:
     devDependencies:
       '@dzakh/rescript-ava':
         specifier: 2.3.0
-        version: 2.3.0(ava@6.2.0(rollup@3.21.0))(rescript@11.1.0)
+        version: 2.3.0(ava@6.2.0(rollup@3.21.0))(rescript@12.0.0-alpha.12)
       '@rescript/core':
         specifier: ^1.3.0
-        version: 1.3.0(rescript@11.1.0)
+        version: 1.3.0(rescript@12.0.0-alpha.12)
       '@sinclair/typebox':
         specifier: 0.34.33
         version: 0.34.33
@@ -30,8 +30,8 @@ importers:
         specifier: 7.12.0
         version: 7.12.0
       rescript:
-        specifier: 11.1.0
-        version: 11.1.0
+        specifier: 12.0.0-alpha.12
+        version: 12.0.0-alpha.12
       rescript-stdlib-vendorer:
         specifier: 1.1.0
         version: 1.1.0
@@ -106,7 +106,7 @@ importers:
     dependencies:
       '@rescript/core':
         specifier: 1.3.0
-        version: 1.3.0(rescript@11.1.0)
+        version: 1.3.0(rescript@12.0.0-alpha.12)
       '@rollup/plugin-node-resolve':
         specifier: 16.0.0
         version: 16.0.0(rollup@3.21.0)
@@ -114,8 +114,8 @@ importers:
         specifier: 7.1.1
         version: 7.1.1
       rescript:
-        specifier: 11.1.0
-        version: 11.1.0
+        specifier: 12.0.0-alpha.12
+        version: 12.0.0-alpha.12
       rescript-nodejs:
         specifier: 16.1.0
         version: 16.1.0
@@ -926,6 +926,11 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
+  rescript@12.0.0-alpha.12:
+    resolution: {integrity: sha512-CffTYrWwg3x+iyYEUa8coaygjHcK7NH3CsqNKMvFDbZUxWWRi0JNnpFp01bfv1LdrHNIptmLgr7Df4a4FXSD5Q==}
+    engines: {node: '>=20.11.0'}
+    hasBin: true
+
   resolve-cwd@3.0.0:
     resolution: {integrity: sha512-OrZaX2Mb+rJCpH/6CpSqt9xFVpN++x01XnN2ie9g6P5/3xelLAkXWVADpdz1IHD/KFfEXyE6V0U01OQ3UO2rEg==}
     engines: {node: '>=8'}
@@ -1200,6 +1205,11 @@ snapshots:
       ava: 6.2.0(rollup@3.21.0)
       rescript: 11.1.0
 
+  '@dzakh/rescript-ava@2.3.0(ava@6.2.0(rollup@3.21.0))(rescript@12.0.0-alpha.12)':
+    dependencies:
+      ava: 6.2.0(rollup@3.21.0)
+      rescript: 12.0.0-alpha.12
+
   '@isaacs/cached@1.0.1':
     dependencies:
       '@isaacs/catcher': 1.0.4
@@ -1261,6 +1271,10 @@ snapshots:
   '@rescript/core@1.3.0(rescript@11.1.0)':
     dependencies:
       rescript: 11.1.0
+
+  '@rescript/core@1.3.0(rescript@12.0.0-alpha.12)':
+    dependencies:
+      rescript: 12.0.0-alpha.12
 
   '@rollup/plugin-node-resolve@16.0.0(rollup@3.21.0)':
     dependencies:
@@ -1928,6 +1942,8 @@ snapshots:
   rescript@11.0.1: {}
 
   rescript@11.1.0: {}
+
+  rescript@12.0.0-alpha.12: {}
 
   resolve-cwd@3.0.0:
     dependencies:

@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 type rec node = {
   id: string,
@@ -126,11 +125,12 @@ test("Fails to parse nested recursive object", t => {
         id: s.field(
           "Id",
           S.string->S.refine(
-            s => id => {
-              if id === "4" {
-                s.fail("Invalid id")
-              }
-            },
+            s =>
+              id => {
+                if id === "4" {
+                  s.fail("Invalid id")
+                }
+              },
           ),
         ),
         children: s.field("Children", S.array(nodeSchema)),
@@ -166,11 +166,12 @@ test("Fails to parse nested recursive object inside of another object", t => {
               id: s.field(
                 "Id",
                 S.string->S.refine(
-                  s => id => {
-                    if id === "4" {
-                      s.fail("Invalid id")
-                    }
-                  },
+                  s =>
+                    id => {
+                      if id === "4" {
+                        s.fail("Invalid id")
+                      }
+                    },
                 ),
               ),
               children: s.field("Children", S.array(nodeSchema)),
@@ -278,11 +279,12 @@ test("Fails to serialise nested recursive object", t => {
         id: s.field(
           "Id",
           S.string->S.refine(
-            s => id => {
-              if id === "4" {
-                s.fail("Invalid id")
-              }
-            },
+            s =>
+              id => {
+                if id === "4" {
+                  s.fail("Invalid id")
+                }
+              },
           ),
         ),
         children: s.field("Children", S.array(nodeSchema)),

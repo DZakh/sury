@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 test("Doesn't affect valid parsing", t => {
   let schema = S.string->S.catch(_ => "fallback")

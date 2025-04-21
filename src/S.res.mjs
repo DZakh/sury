@@ -2,264 +2,264 @@
 
 import * as S_Core from "./S_Core.res.mjs";
 
-var Path = S_Core.Path;
+let Path = S_Core.Path;
 
-var $$Error = S_Core.$$Error;
+let $$Error = S_Core.$$Error;
 
-var Flag = S_Core.Flag;
+let Flag = S_Core.Flag;
 
-var never = S_Core.never;
+let never = S_Core.never;
 
-var unknown = S_Core.unknown;
+let unknown = S_Core.unknown;
 
-var unit = S_Core.unit;
+let unit = S_Core.unit;
 
-var nullAsUnit = S_Core.nullAsUnit;
+let nullAsUnit = S_Core.nullAsUnit;
 
-var string = S_Core.string;
+let string = S_Core.string;
 
-var bool = S_Core.bool;
+let bool = S_Core.bool;
 
-var $$int = S_Core.$$int;
+let int = S_Core.int;
 
-var $$float = S_Core.$$float;
+let float = S_Core.float;
 
-var bigint = S_Core.bigint;
+let bigint = S_Core.bigint;
 
-var json = S_Core.json;
+let json = S_Core.json;
 
-var literal = S_Core.literal;
+let literal = S_Core.literal;
 
-var array = S_Core.array;
+let array = S_Core.array;
 
-var unnest = S_Core.unnest;
+let unnest = S_Core.unnest;
 
-var list = S_Core.list;
+let list = S_Core.list;
 
-var dict = S_Core.dict;
+let dict = S_Core.dict;
 
-var option = S_Core.option;
+let option = S_Core.option;
 
-var $$null = S_Core.$$null;
+let $$null = S_Core.$$null;
 
-var nullish = S_Core.nullish;
+let nullish = S_Core.nullish;
 
-var jsonString = S_Core.jsonString;
+let jsonString = S_Core.jsonString;
 
-var union = S_Core.union;
+let union = S_Core.union;
 
-var $$enum = S_Core.$$enum;
+let $$enum = S_Core.$$enum;
 
-var meta = S_Core.meta;
+let meta = S_Core.meta;
 
-var Catch = S_Core.Catch;
+let Catch = S_Core.Catch;
 
-var $$catch = S_Core.$$catch;
+let $$catch = S_Core.$$catch;
 
-var transform = S_Core.transform;
+let transform = S_Core.transform;
 
-var custom = S_Core.custom;
+let custom = S_Core.custom;
 
-var refine = S_Core.refine;
+let refine = S_Core.refine;
 
-var shape = S_Core.shape;
+let shape = S_Core.shape;
 
-var to = S_Core.to;
+let to = S_Core.to;
 
-var compile = S_Core.compile;
+let compile = S_Core.compile;
 
-var parseOrThrow = S_Core.parseOrThrow;
+let parseOrThrow = S_Core.parseOrThrow;
 
-var parseJsonOrThrow = S_Core.parseJsonOrThrow;
+let parseJsonOrThrow = S_Core.parseJsonOrThrow;
 
-var parseJsonStringOrThrow = S_Core.parseJsonStringOrThrow;
+let parseJsonStringOrThrow = S_Core.parseJsonStringOrThrow;
 
-var parseAsyncOrThrow = S_Core.parseAsyncOrThrow;
+let parseAsyncOrThrow = S_Core.parseAsyncOrThrow;
 
-var convertOrThrow = S_Core.convertOrThrow;
+let convertOrThrow = S_Core.convertOrThrow;
 
-var convertToJsonOrThrow = S_Core.convertToJsonOrThrow;
+let convertToJsonOrThrow = S_Core.convertToJsonOrThrow;
 
-var convertToJsonStringOrThrow = S_Core.convertToJsonStringOrThrow;
+let convertToJsonStringOrThrow = S_Core.convertToJsonStringOrThrow;
 
-var convertAsyncOrThrow = S_Core.convertAsyncOrThrow;
+let convertAsyncOrThrow = S_Core.convertAsyncOrThrow;
 
-var reverseConvertOrThrow = S_Core.reverseConvertOrThrow;
+let reverseConvertOrThrow = S_Core.reverseConvertOrThrow;
 
-var reverseConvertToJsonOrThrow = S_Core.reverseConvertToJsonOrThrow;
+let reverseConvertToJsonOrThrow = S_Core.reverseConvertToJsonOrThrow;
 
-var reverseConvertToJsonStringOrThrow = S_Core.reverseConvertToJsonStringOrThrow;
+let reverseConvertToJsonStringOrThrow = S_Core.reverseConvertToJsonStringOrThrow;
 
-var assertOrThrow = S_Core.assertOrThrow;
+let assertOrThrow = S_Core.assertOrThrow;
 
-var isAsync = S_Core.isAsync;
+let isAsync = S_Core.isAsync;
 
-var recursive = S_Core.recursive;
+let recursive = S_Core.recursive;
 
-var noValidation = S_Core.noValidation;
+let noValidation = S_Core.noValidation;
 
-var toExpression = S_Core.toExpression;
+let toExpression = S_Core.toExpression;
 
-var Schema = S_Core.Schema;
+let Schema = S_Core.Schema;
 
-var schema = S_Core.schema;
+let schema = S_Core.schema;
 
-var $$Object = S_Core.$$Object;
+let $$Object = S_Core.$$Object;
 
-var object = S_Core.object;
+let object = S_Core.object;
 
-var strip = S_Core.strip;
+let strip = S_Core.strip;
 
-var deepStrip = S_Core.deepStrip;
+let deepStrip = S_Core.deepStrip;
 
-var strict = S_Core.strict;
+let strict = S_Core.strict;
 
-var deepStrict = S_Core.deepStrict;
+let deepStrict = S_Core.deepStrict;
 
-var Tuple = S_Core.Tuple;
+let Tuple = S_Core.Tuple;
 
-var tuple = S_Core.tuple;
+let tuple = S_Core.tuple;
 
-var tuple1 = S_Core.tuple1;
+let tuple1 = S_Core.tuple1;
 
-var tuple2 = S_Core.tuple2;
+let tuple2 = S_Core.tuple2;
 
-var tuple3 = S_Core.tuple3;
+let tuple3 = S_Core.tuple3;
 
-var $$Option = S_Core.$$Option;
+let Option = S_Core.Option;
 
-var $$String = S_Core.$$String;
+let $$String = S_Core.$$String;
 
-var Int = S_Core.Int;
+let Int = S_Core.Int;
 
-var Float = S_Core.Float;
+let Float = S_Core.Float;
 
-var $$Array = S_Core.$$Array;
+let $$Array = S_Core.$$Array;
 
-var Metadata = S_Core.Metadata;
+let Metadata = S_Core.Metadata;
 
-var reverse = S_Core.reverse;
+let reverse = S_Core.reverse;
 
-var min = S_Core.min;
+let min = S_Core.min;
 
-var floatMin = S_Core.floatMin;
+let floatMin = S_Core.floatMin;
 
-var max = S_Core.max;
+let max = S_Core.max;
 
-var floatMax = S_Core.floatMax;
+let floatMax = S_Core.floatMax;
 
-var length = S_Core.length;
+let length = S_Core.length;
 
-var port = S_Core.port;
+let port = S_Core.port;
 
-var email = S_Core.email;
+let email = S_Core.email;
 
-var uuid = S_Core.uuid;
+let uuid = S_Core.uuid;
 
-var cuid = S_Core.cuid;
+let cuid = S_Core.cuid;
 
-var url = S_Core.url;
+let url = S_Core.url;
 
-var pattern = S_Core.pattern;
+let pattern = S_Core.pattern;
 
-var datetime = S_Core.datetime;
+let datetime = S_Core.datetime;
 
-var trim = S_Core.trim;
+let trim = S_Core.trim;
 
-var toJSONSchema = S_Core.toJSONSchema;
+let toJSONSchema = S_Core.toJSONSchema;
 
-var extendJSONSchema = S_Core.extendJSONSchema;
+let extendJSONSchema = S_Core.extendJSONSchema;
 
-var setGlobalConfig = S_Core.setGlobalConfig;
+let setGlobalConfig = S_Core.setGlobalConfig;
 
-var ErrorClass = S_Core.ErrorClass;
+let ErrorClass = S_Core.ErrorClass;
 
 export {
-  Path ,
-  $$Error ,
-  Flag ,
-  never ,
-  unknown ,
-  unit ,
-  nullAsUnit ,
-  string ,
-  bool ,
-  $$int ,
-  $$float ,
-  bigint ,
-  json ,
-  literal ,
-  array ,
-  unnest ,
-  list ,
-  dict ,
-  option ,
-  $$null ,
-  nullish ,
-  jsonString ,
-  union ,
-  $$enum ,
-  meta ,
-  Catch ,
-  $$catch ,
-  transform ,
-  custom ,
-  refine ,
-  shape ,
-  to ,
-  compile ,
-  parseOrThrow ,
-  parseJsonOrThrow ,
-  parseJsonStringOrThrow ,
-  parseAsyncOrThrow ,
-  convertOrThrow ,
-  convertToJsonOrThrow ,
-  convertToJsonStringOrThrow ,
-  convertAsyncOrThrow ,
-  reverseConvertOrThrow ,
-  reverseConvertToJsonOrThrow ,
-  reverseConvertToJsonStringOrThrow ,
-  assertOrThrow ,
-  isAsync ,
-  recursive ,
-  noValidation ,
-  toExpression ,
-  Schema ,
-  schema ,
-  $$Object ,
-  object ,
-  strip ,
-  deepStrip ,
-  strict ,
-  deepStrict ,
-  Tuple ,
-  tuple ,
-  tuple1 ,
-  tuple2 ,
-  tuple3 ,
-  $$Option ,
-  $$String ,
-  Int ,
-  Float ,
-  $$Array ,
-  Metadata ,
-  reverse ,
-  min ,
-  floatMin ,
-  max ,
-  floatMax ,
-  length ,
-  port ,
-  email ,
-  uuid ,
-  cuid ,
-  url ,
-  pattern ,
-  datetime ,
-  trim ,
-  toJSONSchema ,
-  extendJSONSchema ,
-  setGlobalConfig ,
-  ErrorClass ,
+  Path,
+  $$Error,
+  Flag,
+  never,
+  unknown,
+  unit,
+  nullAsUnit,
+  string,
+  bool,
+  int,
+  float,
+  bigint,
+  json,
+  literal,
+  array,
+  unnest,
+  list,
+  dict,
+  option,
+  $$null,
+  nullish,
+  jsonString,
+  union,
+  $$enum,
+  meta,
+  Catch,
+  $$catch,
+  transform,
+  custom,
+  refine,
+  shape,
+  to,
+  compile,
+  parseOrThrow,
+  parseJsonOrThrow,
+  parseJsonStringOrThrow,
+  parseAsyncOrThrow,
+  convertOrThrow,
+  convertToJsonOrThrow,
+  convertToJsonStringOrThrow,
+  convertAsyncOrThrow,
+  reverseConvertOrThrow,
+  reverseConvertToJsonOrThrow,
+  reverseConvertToJsonStringOrThrow,
+  assertOrThrow,
+  isAsync,
+  recursive,
+  noValidation,
+  toExpression,
+  Schema,
+  schema,
+  $$Object,
+  object,
+  strip,
+  deepStrip,
+  strict,
+  deepStrict,
+  Tuple,
+  tuple,
+  tuple1,
+  tuple2,
+  tuple3,
+  Option,
+  $$String,
+  Int,
+  Float,
+  $$Array,
+  Metadata,
+  reverse,
+  min,
+  floatMin,
+  max,
+  floatMax,
+  length,
+  port,
+  email,
+  uuid,
+  cuid,
+  url,
+  pattern,
+  datetime,
+  trim,
+  toJSONSchema,
+  extendJSONSchema,
+  setGlobalConfig,
+  ErrorClass,
 }
 /* S_Core Not a pure module */

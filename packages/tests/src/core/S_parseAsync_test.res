@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 let validAsyncRefine = S.transform(_, _ => {
   asyncParser: value => value->Promise.resolve,

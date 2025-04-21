@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 module CommonWithNested = {
   let value = ["Hello world!", ""]

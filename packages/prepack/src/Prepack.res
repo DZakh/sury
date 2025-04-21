@@ -2,34 +2,27 @@ let projectPath = "../../"
 let artifactsPath = NodeJs.Path.join2(projectPath, "packages/artifacts")
 let sourePaths = ["package.json", "node_modules", "src", "rescript.json", "README.md"]
 
-module Stdlib = {
-  module Dict = {
-    @val
-    external copy: (@as(json`{}`) _, dict<'a>) => dict<'a> = "Object.assign"
-  }
-
-  module Json = {
-    let rec update = (json, path, value) => {
-      let dict = switch json->JSON.Decode.object {
-      | Some(dict) => dict->Dict.copy
-      | None => RescriptCore.Dict.make()
+module JsonX = {
+  let rec update = (json, path, value) => {
+    let dict = switch json->JSON.Decode.object {
+    | Some(dict) => dict->Dict.copy
+    | None => Dict.make()
+    }
+    switch path {
+    | list{} => value
+    | list{key} => {
+        dict->Dict.set(key, value)
+        dict->JSON.Encode.object
       }
-      switch path {
-      | list{} => value
-      | list{key} => {
-          dict->RescriptCore.Dict.set(key, value)
-          dict->JSON.Encode.object
-        }
-      | list{key, ...path} => {
-          dict->RescriptCore.Dict.set(
-            key,
-            dict
-            ->RescriptCore.Dict.get(key)
-            ->Option.getOr(RescriptCore.Dict.make()->JSON.Encode.object)
-            ->update(path, value),
-          )
-          dict->JSON.Encode.object
-        }
+    | list{key, ...path} => {
+        dict->Dict.set(
+          key,
+          dict
+          ->Dict.get(key)
+          ->Option.getOr(Dict.make()->JSON.Encode.object)
+          ->update(path, value),
+        )
+        dict->JSON.Encode.object
       }
     }
   }
@@ -68,7 +61,7 @@ module Rollup = {
       input?: string,
       plugins?: array<Plugin.t>,
       @as("external")
-      external_?: array<Re.t>,
+      external_?: array<RegExp.t>,
     }
   }
 
@@ -219,7 +212,7 @@ let updateJsonFile = (~src, ~path, ~value) => {
   )
   let packageJson = packageJsonData->NodeJs.Buffer.toString->JSON.parseExn
   let updatedPackageJson =
-    packageJson->Stdlib.Json.update(path->List.fromArray, value)->JSON.stringify(~space=2)
+    packageJson->JsonX.update(path->List.fromArray, value)->JSON.stringify(~space=2)
   NodeJs.Fs.writeFileSyncWith(
     src,
     updatedPackageJson->NodeJs.Buffer.fromString,

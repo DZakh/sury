@@ -4,48 +4,23 @@ import * as S from "sury/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
 import Ava from "ava";
 
-var simpleObjectSchema = S.schema(function (s) {
-      return {
-              label: s.m(S.string),
-              value: s.m(S.$$int)
-            };
-    });
+let simpleObjectSchema = S.schema(s => ({
+  label: s.m(S.string),
+  value: s.m(S.int)
+}));
 
-Ava("Simple object schema", (function (t) {
-        U.assertEqualSchemas(t, simpleObjectSchema, S.object(function (s) {
-                  return {
-                          label: s.f("label", S.string),
-                          value: s.f("value", S.$$int)
-                        };
-                }), undefined);
-        t.deepEqual(S.parseOrThrow({label:"foo",value:1}, simpleObjectSchema), {
-              label: "foo",
-              value: 1
-            }, undefined);
-      }));
-
-var objectWithAliasSchema = S.schema(function (s) {
-      return {
-              label: s.m(S.string),
-              value: s.m(S.$$int)
-            };
-    });
-
-Ava("The @as attribute for the object schema is ignored since it doesn't work", (function (t) {
-        U.assertEqualSchemas(t, objectWithAliasSchema, S.object(function (s) {
-                  return {
-                          label: s.f("label", S.string),
-                          value: s.f("value", S.$$int)
-                        };
-                }), undefined);
-        t.deepEqual(S.parseOrThrow({"label":"foo",value:1}, objectWithAliasSchema), {
-              label: "foo",
-              value: 1
-            }, undefined);
-      }));
+Ava("Simple object schema", t => {
+  U.assertEqualSchemas(t, simpleObjectSchema, S.object(s => ({
+    label: s.f("label", S.string),
+    value: s.f("value", S.int)
+  })), undefined);
+  t.deepEqual(S.parseOrThrow({label:"foo",value:1}, simpleObjectSchema), {
+    label: "foo",
+    value: 1
+  }, undefined);
+});
 
 export {
-  simpleObjectSchema ,
-  objectWithAliasSchema ,
+  simpleObjectSchema,
 }
 /* simpleObjectSchema Not a pure module */

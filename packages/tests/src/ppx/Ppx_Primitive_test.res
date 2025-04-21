@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 open U
 
 @schema

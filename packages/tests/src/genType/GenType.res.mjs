@@ -3,19 +3,19 @@
 import * as S from "sury/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
 
-var error = U.error({
-      operation: "Parse",
-      code: {
-        TAG: "OperationFailed",
-        _0: "Something went wrong"
-      },
-      path: S.Path.empty
-    });
+let error = U.error({
+  operation: "Parse",
+  code: {
+    TAG: "OperationFailed",
+    _0: "Something went wrong"
+  },
+  path: S.Path.empty
+});
 
-var stringSchema = S.string;
+let stringSchema = S.string;
 
 export {
-  stringSchema ,
-  error ,
+  stringSchema,
+  error,
 }
 /* error Not a pure module */

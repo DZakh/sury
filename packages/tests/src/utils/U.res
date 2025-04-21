@@ -1,11 +1,10 @@
 open Ava
-open RescriptCore
 
 external magic: 'a => 'b = "%identity"
 external castAnyToUnknown: 'any => unknown = "%identity"
 external castUnknownToAny: unknown => 'any = "%identity"
 
-let raiseError = (error: S.error) => raise(error->Obj.magic)
+let raiseError = (error: S.error) => throw(error->Obj.magic)
 
 %%private(
   @val @scope("JSON")
@@ -15,7 +14,7 @@ let raiseError = (error: S.error) => raise(error->Obj.magic)
 let unsafeGetVariantPayload = variant => (variant->Obj.magic)["_0"]
 
 exception Test
-let raiseTestException = () => raise(Test)
+let raiseTestException = () => throw(Test)
 
 type taggedFlag =
   | Parse

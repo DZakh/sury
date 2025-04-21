@@ -4,111 +4,95 @@ import * as S from "sury/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
 import Ava from "ava";
 
-var ratingSchema = S.union([
-      S.literal("G"),
-      S.literal("PG"),
-      S.literal("PG13"),
-      S.literal("R")
-    ]);
+let ratingSchema = S.union([
+  S.literal("G"),
+  S.literal("PG"),
+  S.literal("PG13"),
+  S.literal("R")
+]);
 
-var filmSchema = S.schema(function (s) {
-      return {
-              Id: s.m(S.$$float),
-              Title: s.m(S.string),
-              Tags: s.m(S.$$Option.getOr(S.option(S.array(S.string)), [])),
-              Rating: s.m(ratingSchema),
-              Age: s.m(S.meta(S.option(S.$$int), {
-                        description: "Use rating instead",
-                        deprecated: true
-                      }))
-            };
-    });
-
-Ava("Main example", (function (t) {
-        U.assertEqualSchemas(t, filmSchema, S.object(function (s) {
-                  return {
-                          Id: s.f("Id", S.$$float),
-                          Title: s.f("Title", S.string),
-                          Tags: s.fieldOr("Tags", S.array(S.string), []),
-                          Rating: s.f("Rating", S.union([
-                                    S.literal("G"),
-                                    S.literal("PG"),
-                                    S.literal("PG13"),
-                                    S.literal("R")
-                                  ])),
-                          Age: s.f("Age", S.meta(S.option(S.$$int), {
-                                    description: "Use rating instead",
-                                    deprecated: true
-                                  }))
-                        };
-                }), undefined);
-      }));
-
-var matchesSchema = S.url(S.string, undefined);
-
-Ava("@s.matches", (function (t) {
-        U.assertEqualSchemas(t, matchesSchema, S.url(S.string, undefined), undefined);
-      }));
-
-var defaultSchema = S.$$Option.getOr(S.option(S.string), "Unknown");
-
-Ava("@s.default", (function (t) {
-        U.assertEqualSchemas(t, defaultSchema, S.$$Option.getOr(S.option(S.string), "Unknown"), undefined);
-      }));
-
-var defaultWithSchema = S.$$Option.getOrWith(S.option(S.array(S.string)), (function () {
-        return [];
-      }));
-
-Ava("@s.defaultWith", (function (t) {
-        U.assertEqualSchemas(t, defaultWithSchema, S.$$Option.getOrWith(S.option(S.array(S.string)), (function () {
-                    return [];
-                  })), undefined);
-      }));
-
-var nullSchema = S.$$null(S.string);
-
-Ava("@s.null", (function (t) {
-        U.assertEqualSchemas(t, nullSchema, S.$$null(S.string), undefined);
-      }));
-
-var nullWithDefaultSchema = S.$$Option.getOr(S.$$null(S.string), "Unknown");
-
-Ava("@s.null with @s.default", (function (t) {
-        U.assertEqualSchemas(t, nullWithDefaultSchema, S.$$Option.getOr(S.$$null(S.string), "Unknown"), undefined);
-      }));
-
-var deprecatedSchema = S.meta(S.string, {
-      description: "Will be removed in APIv2",
+let filmSchema = S.schema(s => {
+  let partial_arg = S.array(S.string);
+  return {
+    Id: s.m(S.float),
+    Title: s.m(S.string),
+    Tags: s.m(S.Option.getOr(param => S.option(partial_arg, param), [])),
+    Rating: s.m(ratingSchema),
+    Age: s.m(S.meta(param => S.option(S.int, param), {
+      description: "Use rating instead",
       deprecated: true
-    });
+    }))
+  };
+});
 
-Ava("@s.deprecated", (function (t) {
-        U.assertEqualSchemas(t, deprecatedSchema, S.meta(S.string, {
-                  description: "Will be removed in APIv2",
-                  deprecated: true
-                }), undefined);
-      }));
+Ava("Main example", t => U.assertEqualSchemas(t, filmSchema, S.object(s => ({
+  Id: s.f("Id", S.float),
+  Title: s.f("Title", S.string),
+  Tags: s.fieldOr("Tags", S.array(S.string), []),
+  Rating: s.f("Rating", S.union([
+    S.literal("G"),
+    S.literal("PG"),
+    S.literal("PG13"),
+    S.literal("R")
+  ])),
+  Age: s.f("Age", S.meta(param => S.option(S.int, param), {
+    description: "Use rating instead",
+    deprecated: true
+  }))
+})), undefined));
 
-var describeSchema = S.meta(S.string, {
-      description: "A useful bit of text, if you know what to do with it."
-    });
+let matchesSchema = S.url(S.string, undefined);
 
-Ava("@s.description", (function (t) {
-        U.assertEqualSchemas(t, describeSchema, S.meta(S.string, {
-                  description: "A useful bit of text, if you know what to do with it."
-                }), undefined);
-      }));
+Ava("@s.matches", t => U.assertEqualSchemas(t, matchesSchema, S.url(S.string, undefined), undefined));
+
+let defaultSchema = S.Option.getOr(param => S.option(S.string, param), "Unknown");
+
+Ava("@s.default", t => U.assertEqualSchemas(t, defaultSchema, S.Option.getOr(param => S.option(S.string, param), "Unknown"), undefined));
+
+let partial_arg = S.array(S.string);
+
+let defaultWithSchema = S.Option.getOrWith(param => S.option(partial_arg, param), () => []);
+
+Ava("@s.defaultWith", t => {
+  let partial_arg = S.array(S.string);
+  U.assertEqualSchemas(t, defaultWithSchema, S.Option.getOrWith(param => S.option(partial_arg, param), () => []), undefined);
+});
+
+let nullSchema = S.$$null(S.string);
+
+Ava("@s.null", t => U.assertEqualSchemas(t, nullSchema, S.$$null(S.string), undefined));
+
+let nullWithDefaultSchema = S.Option.getOr(S.$$null(S.string), "Unknown");
+
+Ava("@s.null with @s.default", t => U.assertEqualSchemas(t, nullWithDefaultSchema, S.Option.getOr(S.$$null(S.string), "Unknown"), undefined));
+
+let deprecatedSchema = S.meta(S.string, {
+  description: "Will be removed in APIv2",
+  deprecated: true
+});
+
+Ava("@s.deprecated", t => U.assertEqualSchemas(t, deprecatedSchema, S.meta(S.string, {
+  description: "Will be removed in APIv2",
+  deprecated: true
+}), undefined));
+
+let describeSchema = S.meta(S.string, {
+  description: "A useful bit of text, if you know what to do with it."
+});
+
+Ava("@s.description", t => U.assertEqualSchemas(t, describeSchema, S.meta(S.string, {
+  description: "A useful bit of text, if you know what to do with it."
+}), undefined));
 
 export {
-  ratingSchema ,
-  filmSchema ,
-  matchesSchema ,
-  defaultSchema ,
-  defaultWithSchema ,
-  nullSchema ,
-  nullWithDefaultSchema ,
-  deprecatedSchema ,
-  describeSchema ,
+  ratingSchema,
+  filmSchema,
+  matchesSchema,
+  defaultSchema,
+  defaultWithSchema,
+  nullSchema,
+  nullWithDefaultSchema,
+  deprecatedSchema,
+  describeSchema,
 }
 /* ratingSchema Not a pure module */

@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 test("Correctly parses", t => {
   let schema = S.nullish(S.bool)

@@ -5,8 +5,7 @@
     "module": "esmodule",
     "in-source": true
   },
-  "bsc-flags": ["-open RescriptCore"],
-  "bs-dependencies": ["@rescript/core", "rescript-nodejs"],
+  "bs-dependencies": ["rescript-nodejs"],
   "sources": {
     "dir": "src"
   },
