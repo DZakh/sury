@@ -212,7 +212,7 @@ test("Flatten schema with duplicated field of different type", t => {
 test("Can flatten renamed object schema", t => {
   let schema = S.object(s =>
     {
-      "bar": s.flatten(S.object(s => s.field("bar", S.string))->S.name("My Obj")),
+      "bar": s.flatten(S.object(s => s.field("bar", S.string))->S.meta({name: "My Obj"})),
       "foo": s.field("foo", S.string),
     }
   )

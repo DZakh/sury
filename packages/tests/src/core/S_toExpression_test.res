@@ -5,7 +5,7 @@ test("Expression of primitive schema", t => {
 })
 
 test("Expression of primitive schema with name", t => {
-  t->Assert.deepEqual(S.string->S.name("Address")->S.toExpression, "Address", ())
+  t->Assert.deepEqual(S.string->S.meta({name: "Address"})->S.toExpression, "Address", ())
 })
 
 test("Expression of Literal schema", t => {
@@ -70,7 +70,7 @@ test("Expression of Option schema", t => {
 
 test("Expression of Option schema with name", t => {
   t->Assert.deepEqual(
-    S.option(S.string->S.name("Nested"))->S.name("EnvVar")->S.toExpression,
+    S.option(S.string->S.meta({name: "Nested"}))->S.meta({name: "EnvVar"})->S.toExpression,
     "EnvVar",
     (),
   )
@@ -128,7 +128,7 @@ test("Expression of custom schema", t => {
 
 Failing.test("Expression of renamed schema", t => {
   let originalSchema = S.never
-  let renamedSchema = originalSchema->S.name("Ethers.BigInt")
+  let renamedSchema = originalSchema->S.meta({name: "Ethers.BigInt"})
   t->Assert.deepEqual(originalSchema->S.toExpression, "never", ())
   t->Assert.deepEqual(renamedSchema->S.toExpression, "Ethers.BigInt", ())
   // Uses new name when failing
@@ -149,7 +149,7 @@ Failing.test("Expression of renamed schema", t => {
     `Failed parsing: Expected Ethers.BigInt, received "smth"`,
     (),
   )
-  let schema = S.null(S.never)->S.name("Ethers.BigInt")
+  let schema = S.null(S.never)->S.meta({name: "Ethers.BigInt"})
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
@@ -157,7 +157,7 @@ Failing.test("Expression of renamed schema", t => {
     `i=>{try{e[0](i);}catch(e0){if(i===void 0){i=null}}return i}`,
   )
   t->U.assertThrows(
-    () => %raw(`"smth"`)->S.reverseConvertOrThrow(S.null(S.never)->S.name("Ethers.BigInt")),
+    () => %raw(`"smth"`)->S.reverseConvertOrThrow(S.null(S.never)->S.meta({name: "Ethers.BigInt"})),
     {
       path: S.Path.empty,
       operation: ReverseConvert,

@@ -9,7 +9,7 @@ test("Initially there's no description", t => {
 test("Set description", t => {
   let original = S.string
   let withDescription =
-    original->S.description("A useful bit of text, if you know what to do with it.")
+    original->S.meta({description: "A useful bit of text, if you know what to do with it."})
 
   t->Assert.deepEqual(
     (withDescription->S.untag).description,
@@ -26,7 +26,7 @@ test("Set description", t => {
 
 test("Transforms don't remove description", t => {
   let schema =
-    S.string->S.description("A useful bit of text, if you know what to do with it.")->S.trim
+    S.string->S.meta({description: "A useful bit of text, if you know what to do with it."})->S.trim
 
   t->Assert.deepEqual(
     (schema->S.untag).description,

@@ -50,13 +50,11 @@ var union = S_Core.union;
 
 var $$enum = S_Core.$$enum;
 
+var meta = S_Core.meta;
+
 var Catch = S_Core.Catch;
 
 var $$catch = S_Core.$$catch;
-
-var description = S_Core.description;
-
-var deprecated = S_Core.deprecated;
 
 var transform = S_Core.transform;
 
@@ -97,8 +95,6 @@ var assertOrThrow = S_Core.assertOrThrow;
 var isAsync = S_Core.isAsync;
 
 var recursive = S_Core.recursive;
-
-var name = S_Core.name;
 
 var noValidation = S_Core.noValidation;
 
@@ -203,10 +199,9 @@ export {
   jsonString ,
   union ,
   $$enum ,
+  meta ,
   Catch ,
   $$catch ,
-  description ,
-  deprecated ,
   transform ,
   custom ,
   refine ,
@@ -227,7 +222,6 @@ export {
   assertOrThrow ,
   isAsync ,
   recursive ,
-  name ,
   noValidation ,
   toExpression ,
   Schema ,

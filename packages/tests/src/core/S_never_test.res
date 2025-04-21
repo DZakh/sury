@@ -73,7 +73,9 @@ module ObjectField = {
         "key": s.field("key", S.string),
         "oldKey": s.field(
           "oldKey",
-          S.never->S.option->S.deprecated("We stopped using the field from the v0.9.0 release"),
+          S.never
+          ->S.option
+          ->S.meta({description: "We stopped using the field from the v0.9.0 release"}),
         ),
       }
     )

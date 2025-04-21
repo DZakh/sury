@@ -29,7 +29,10 @@ let filmSchema = S.object(s => {
       S.literal(Restricted),
     ]),
   ),
-  deprecatedAgeRestriction: s.field("Age", S.option(S.int)->S.deprecated("Use rating instead")),
+  deprecatedAgeRestriction: s.field(
+    "Age",
+    S.option(S.int)->S.meta({description: "Use rating instead", deprecated: true}),
+  ),
 })
 
 test("Example", t => {

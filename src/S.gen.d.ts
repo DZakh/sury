@@ -131,9 +131,11 @@ export type t<Output, Input = unknown> = {
     arg2: A2
   ): t<O, I>;
 
-  readonly ["~standard"]: StandardSchemaV1.Props<Input, Output>;
+  readonly name?: string;
   readonly description?: string;
-  readonly deprecated?: string;
+  readonly deprecated?: boolean;
+
+  readonly ["~standard"]: StandardSchemaV1.Props<Input, Output>;
   readonly [øbrand]: unknown;
 };
 /* simulate opaque types */

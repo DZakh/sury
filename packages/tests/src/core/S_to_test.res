@@ -482,14 +482,14 @@ test("Coerce string to unboxed union (each item separately)", t => {
 
 test("Keeps description of the schema we are coercing to (not working)", t => {
   // Fix it later if it's needed
-  let schema = S.string->S.to(S.string->S.description("To descr"))
+  let schema = S.string->S.to(S.string->S.meta({description: "To descr"}))
   t->Assert.is((schema->S.untag).description, None, ())
 
   // let schema = S.string->S.description("From descr")->S.to(S.string->S.description("To descr"))
   // t->Assert.is((schema->S.untag).description, Some("To descr"), ())
 
   // There's no specific reason for it. Just wasn't needed for cases S.to initially designed
-  let schema = S.string->S.description("From descr")->S.to(S.string)
+  let schema = S.string->S.meta({description: "From descr"})->S.to(S.string)
   t->Assert.is((schema->S.untag).description, Some("From descr"), ())
 })
 

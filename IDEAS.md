@@ -65,7 +65,6 @@
 - Add S.fromJSONSchema
 - Add S.meta like Zod v4 (Move S.example to rescript-schema)
 - Update benchmark. Zod v4 and add TypeBox
-- Make built-in refinements not work with `unknown`. Use `S.to` (manually & automatically) to deside the type first
 
 ### Final release fixes
 
@@ -78,6 +77,7 @@
 
 ## v11
 
+- Make built-in refinements not work with `unknown`. Use `S.to` (manually & automatically) to deside the type first
 - Start using rescript v12
 - Support arrays for `S.to`
 - Remove fieldOr in favor of optionOr?

@@ -245,53 +245,53 @@ type additionalItemsMode = | @as("strip") Strip | @as("strict") Strict
 @tag("type")
 type rec t<'value> =
   private
-  | @as("never") Never({description?: string, deprecated?: string, name?: string})
-  | @as("unknown") Unknown({description?: string, deprecated?: string, name?: string})
-  | @as("string") String({const?: string, description?: string, deprecated?: string, name?: string})
+  | @as("never") Never({description?: string, deprecated?: bool, name?: string})
+  | @as("unknown") Unknown({description?: string, deprecated?: bool, name?: string})
+  | @as("string") String({const?: string, description?: string, deprecated?: bool, name?: string})
   | @as("number")
   Number({
       const?: float,
       format?: numberFormat,
       description?: string,
-      deprecated?: string,
+      deprecated?: bool,
       name?: string,
     })
-  | @as("bigint") BigInt({const?: bigint, description?: string, deprecated?: string, name?: string})
-  | @as("boolean") Boolean({const?: bool, description?: string, deprecated?: string, name?: string})
+  | @as("bigint") BigInt({const?: bigint, description?: string, deprecated?: bool, name?: string})
+  | @as("boolean") Boolean({const?: bool, description?: string, deprecated?: bool, name?: string})
   | @as("symbol")
   Symbol({
       const?: Js.Types.symbol,
       description?: string,
-      deprecated?: string,
+      deprecated?: bool,
       name?: string,
     })
   | @as("null")
   Null({
       const: Js.Types.null_val,
       description?: string,
-      deprecated?: string,
+      deprecated?: bool,
       name?: string,
     })
   | @as("undefined")
   Undefined({
       const: unit,
       description?: string,
-      deprecated?: string,
+      deprecated?: bool,
       name?: string,
     })
-  | @as("nan") NaN({const: float, description?: string, deprecated?: string, name?: string})
+  | @as("nan") NaN({const: float, description?: string, deprecated?: bool, name?: string})
   | @as("function")
   Function({
       const?: Js.Types.function_val,
       description?: string,
-      deprecated?: string,
+      deprecated?: bool,
       name?: string,
     })
   | @as("instance")
   Instance({
       const?: Js.Types.obj_val,
       description?: string,
-      deprecated?: string,
+      deprecated?: bool,
       name?: string,
     })
   | @as("array")
@@ -300,7 +300,7 @@ type rec t<'value> =
       additionalItems: additionalItems,
       unnest?: bool,
       description?: string,
-      deprecated?: string,
+      deprecated?: bool,
       name?: string,
     })
   | @as("object")
@@ -309,7 +309,7 @@ type rec t<'value> =
       fields: dict<item>,
       additionalItems: additionalItems,
       description?: string,
-      deprecated?: string,
+      deprecated?: bool,
       name?: string,
     }) // TODO: Add const for Object and Tuple
   | @as("union")
@@ -317,10 +317,10 @@ type rec t<'value> =
       anyOf: array<t<unknown>>,
       has: has,
       description?: string,
-      deprecated?: string,
+      deprecated?: bool,
       name?: string,
     })
-  | @as("json") JSON({description?: string, deprecated?: string, name?: string}) // FIXME: Remove it in favor of Union
+  | @as("json") JSON({description?: string, deprecated?: bool, name?: string}) // FIXME: Remove it in favor of Union
 @unboxed and additionalItems = | ...additionalItemsMode | Schema(t<unknown>)
 // FIXME: Add recursive
 and schema<'a> = t<'a>
@@ -332,7 +332,7 @@ and internal = {
   mutable const?: char, // use char to avoid Caml_option.some
   mutable name?: string,
   mutable description?: string,
-  mutable deprecated?: string,
+  mutable deprecated?: bool,
   format?: internalFormat,
   mutable has?: dict<bool>,
   advanced?: bool, // TODO: Rename/remove it when have a chance
@@ -352,13 +352,18 @@ and internal = {
   @as("~standard")
   mutable standard?: standard, // This is optional for convenience. The object added on make call
 }
+and meta = {
+  name?: string,
+  description?: string,
+  deprecated?: bool,
+}
 and untagged = private {
   @as("type")
   tag: tag,
   const?: unknown,
   name?: string,
   description?: string,
-  deprecated?: string,
+  deprecated?: bool,
   unnest?: bool,
   noValidation?: bool,
   items?: array<item>,
@@ -1848,13 +1853,6 @@ let recursive = fn => {
   schema->toStandard
 }
 
-let name = (schema, name) => {
-  let schema = schema->toInternal
-  let mut = schema->copy
-  mut.name = Some(name) // TODO: Better test reverse
-  mut->toStandard
-}
-
 let noValidation = (schema, value) => {
   let schema = schema->toInternal
   let mut = schema->copy
@@ -3104,17 +3102,24 @@ let catch = (schema, getFallbackValue) => {
   mut->toStandard
 }
 
-let deprecated = (schema, message) => {
+// TODO: Better test reverse
+let meta = (schema, meta: meta) => {
   let schema = schema->toInternal
   let mut = schema->copy
-  mut.deprecated = Some(message)
-  mut->toStandard
-}
-
-let description = (schema, description) => {
-  let schema = schema->toInternal
-  let mut = schema->copy
-  mut.description = Some(description)
+  switch meta.name {
+  | Some("") => mut.name = None
+  | Some(name) => mut.name = Some(name)
+  | None => ()
+  }
+  switch meta.description {
+  | Some("") => mut.description = None
+  | Some(description) => mut.description = Some(description)
+  | None => ()
+  }
+  switch meta.deprecated {
+  | Some(deprecated) => mut.deprecated = Some(deprecated)
+  | None => ()
+  }
   mut->toStandard
 }
 
@@ -5136,9 +5141,7 @@ module RescriptJSONSchema = {
     }
 
     switch schema->untag {
-    | {deprecated: message} =>
-      jsonSchema.deprecated = Some(true)
-      jsonSchema.description = Some(message)
+    | {deprecated} => jsonSchema.deprecated = Some(deprecated)
     | _ => ()
     }
 

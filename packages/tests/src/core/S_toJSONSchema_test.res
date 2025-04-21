@@ -354,7 +354,9 @@ test("JSONSchema of object with optional field", t => {
 
 test("JSONSchema of object with deprecated field", t => {
   t->Assert.deepEqual(
-    S.object(s => s.field("field", S.string->S.deprecated("Use another field")))->S.toJSONSchema,
+    S.object(s =>
+      s.field("field", S.string->S.meta({description: "Use another field", deprecated: true}))
+    )->S.toJSONSchema,
     %raw(`{
       "type": "object",
       "properties": {"field": {
@@ -372,8 +374,8 @@ test("JSONSchema of object with deprecated field", t => {
 test("Deprecated message overrides existing description", t => {
   t->Assert.deepEqual(
     S.string
-    ->S.description("Previous description")
-    ->S.deprecated("Use another field")
+    ->S.meta({description: "Previous description"})
+    ->S.meta({description: "Use another field", deprecated: true})
     ->S.toJSONSchema,
     %raw(`{
       "type": "string",

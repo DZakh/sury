@@ -45,53 +45,53 @@ type tag =
 @tag("type")
 type rec t<'value> =
   private
-  | @as("never") Never({description?: string, deprecated?: string, name?: string})
-  | @as("unknown") Unknown({description?: string, deprecated?: string, name?: string})
-  | @as("string") String({const?: string, description?: string, deprecated?: string, name?: string})
+  | @as("never") Never({description?: string, deprecated?: bool, name?: string})
+  | @as("unknown") Unknown({description?: string, deprecated?: bool, name?: string})
+  | @as("string") String({const?: string, description?: string, deprecated?: bool, name?: string})
   | @as("number")
   Number({
       const?: float,
       format?: numberFormat,
       description?: string,
-      deprecated?: string,
+      deprecated?: bool,
       name?: string,
     })
-  | @as("bigint") BigInt({const?: bigint, description?: string, deprecated?: string, name?: string})
-  | @as("boolean") Boolean({const?: bool, description?: string, deprecated?: string, name?: string})
+  | @as("bigint") BigInt({const?: bigint, description?: string, deprecated?: bool, name?: string})
+  | @as("boolean") Boolean({const?: bool, description?: string, deprecated?: bool, name?: string})
   | @as("symbol")
   Symbol({
       const?: Js.Types.symbol,
       description?: string,
-      deprecated?: string,
+      deprecated?: bool,
       name?: string,
     })
   | @as("null")
   Null({
       const: Js.Types.null_val,
       description?: string,
-      deprecated?: string,
+      deprecated?: bool,
       name?: string,
     })
   | @as("undefined")
   Undefined({
       const: unit,
       description?: string,
-      deprecated?: string,
+      deprecated?: bool,
       name?: string,
     })
-  | @as("nan") NaN({const: float, description?: string, deprecated?: string, name?: string})
+  | @as("nan") NaN({const: float, description?: string, deprecated?: bool, name?: string})
   | @as("function")
   Function({
       const?: Js.Types.function_val,
       description?: string,
-      deprecated?: string,
+      deprecated?: bool,
       name?: string,
     })
   | @as("instance")
   Instance({
       const?: Js.Types.obj_val,
       description?: string,
-      deprecated?: string,
+      deprecated?: bool,
       name?: string,
     })
   | @as("array")
@@ -100,7 +100,7 @@ type rec t<'value> =
       additionalItems: additionalItems,
       unnest?: bool,
       description?: string,
-      deprecated?: string,
+      deprecated?: bool,
       name?: string,
     })
   | @as("object")
@@ -109,7 +109,7 @@ type rec t<'value> =
       fields: dict<item>,
       additionalItems: additionalItems,
       description?: string,
-      deprecated?: string,
+      deprecated?: bool,
       name?: string,
     })
   | @as("union")
@@ -117,10 +117,10 @@ type rec t<'value> =
       anyOf: array<t<unknown>>,
       has: has,
       description?: string,
-      deprecated?: string,
+      deprecated?: bool,
       name?: string,
     })
-  | @as("json") JSON({description?: string, deprecated?: string, name?: string})
+  | @as("json") JSON({description?: string, deprecated?: bool, name?: string})
 and schema<'a> = t<'a>
 and untagged = private {
   @as("type")
@@ -128,7 +128,7 @@ and untagged = private {
   const?: unknown,
   name?: string,
   description?: string,
-  deprecated?: string,
+  deprecated?: bool,
   unnest?: bool,
   noValidation?: bool,
   items?: array<item>,
@@ -136,6 +136,11 @@ and untagged = private {
   additionalItems?: additionalItems,
   anyOf?: array<t<unknown>>,
   has?: dict<bool>,
+}
+and meta = {
+  name?: string,
+  description?: string,
+  deprecated?: bool,
 }
 // FIXME: Test whether it's a ReScript bug that @unboxed is missing
 and additionalItems = | ...additionalItemsMode | Schema(t<unknown>)
@@ -220,6 +225,8 @@ let jsonString: (t<'value>, ~space: int=?) => t<'value>
 let union: array<t<'value>> => t<'value>
 let enum: array<'value> => t<'value>
 
+let meta: (t<'value>, meta) => t<'value>
+
 module Catch: {
   type s<'value> = {
     @as("e") error: error,
@@ -229,10 +236,6 @@ module Catch: {
   }
 }
 let catch: (t<'value>, Catch.s<'value> => 'value) => t<'value>
-
-let description: (t<'value>, string) => t<'value>
-
-let deprecated: (t<'value>, string) => t<'value>
 
 type transformDefinition<'input, 'output> = {
   @as("p")
@@ -303,8 +306,6 @@ let assertOrThrow: ('any, t<'value>) => unit
 let isAsync: t<'value> => bool
 
 let recursive: (t<'value> => t<'value>) => t<'value>
-
-let name: (t<'value>, string) => t<'value>
 
 let noValidation: (t<'value>, bool) => t<'value>
 
