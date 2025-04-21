@@ -77,16 +77,16 @@ export declare namespace StandardSchemaV1 {
 }
 
 export type EffectCtx<Output, Input> = {
-  schema: t<Output, Input>;
-  fail: (message: string) => never;
+  readonly schema: t<Output, Input>;
+  readonly fail: (message: string) => never;
 };
 
 export type Result<Value> =
   | {
-      success: true;
-      value: Value;
+      readonly success: true;
+      readonly value: Value;
     }
-  | { success: false; error: error };
+  | { readonly success: false; readonly error: error };
 
 export type Json =
   | string
@@ -139,69 +139,69 @@ export type t<Output, Input = unknown> = {
   readonly [øbrand]: unknown;
 } & (
   | {
-      type: "never";
+      readonly type: "never";
     }
   | {
-      type: "unknown";
+      readonly type: "unknown";
     }
   | {
-      type: "string";
-      const?: string;
+      readonly type: "string";
+      readonly const?: string;
     }
   | {
-      type: "number";
-      format?: "int32";
-      const?: number;
+      readonly type: "number";
+      readonly format?: "int32";
+      readonly const?: number;
     }
   | {
-      type: "bigint";
-      const?: bigint;
+      readonly type: "bigint";
+      readonly const?: bigint;
     }
   | {
-      type: "boolean";
-      const?: boolean;
+      readonly type: "boolean";
+      readonly const?: boolean;
     }
   | {
-      type: "symbol";
-      const?: symbol;
+      readonly type: "symbol";
+      readonly const?: symbol;
     }
   | {
-      type: "null";
-      const: null;
+      readonly type: "null";
+      readonly const: null;
     }
   | {
-      type: "undefined";
-      const: undefined;
+      readonly type: "undefined";
+      readonly const: undefined;
     }
   | {
-      type: "nan";
-      const: number;
+      readonly type: "nan";
+      readonly const: number;
     }
   | {
-      type: "function";
-      const?: unknown;
+      readonly type: "function";
+      readonly const?: unknown;
     }
   | {
-      type: "instance";
-      const?: unknown;
+      readonly type: "instance";
+      readonly const?: unknown;
     }
   | {
-      type: "array";
-      items: item[];
-      fields: Record<string, item>;
-      additionalItems: "strip" | "strict" | t<unknown>;
-      unnest?: true;
+      readonly type: "array";
+      readonly items: item[];
+      readonly fields: Record<string, item>;
+      readonly additionalItems: "strip" | "strict" | t<unknown>;
+      readonly unnest?: true;
     }
   | {
-      type: "object";
-      items: item[];
-      fields: Record<string, item>;
-      additionalItems: "strip" | "strict" | t<unknown>;
+      readonly type: "object";
+      readonly items: item[];
+      readonly fields: Record<string, item>;
+      readonly additionalItems: "strip" | "strict" | t<unknown>;
     }
   | {
-      type: "union";
-      anyOf: t<unknown>[];
-      has: Record<
+      readonly type: "union";
+      readonly anyOf: t<unknown>[];
+      readonly has: Record<
         | "string"
         | "number"
         | "never"
@@ -223,9 +223,9 @@ export type t<Output, Input = unknown> = {
 /* simulate opaque types */
 
 export type item = {
-  schema: t<unknown>;
-  location: string;
-  inlinedLocation: string;
+  readonly schema: t<unknown>;
+  readonly location: string;
+  readonly inlinedLocation: string;
 };
 
 export abstract class Path_t {
