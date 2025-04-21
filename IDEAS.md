@@ -63,17 +63,19 @@
 - (ppx) Added support for `@s.meta`, `@s.noValidation`, `@s.strict`, `@s.strip`, `@s.deepStrict` and `@s.deepStrip`
 - (ppx) Removed `@s.nullable` in favor of `Nullable.t` support.
 
+### rc.1
+
+- (ts) Make TS type a tagged union
+
 ### Scope
 
 ### Final release fixes
 
 - Add S.fromJSONSchema
 - Add example field to S.meta
-- Update benchmark. Zod v4 and add TypeBox
 - Fix all tests marked as Failing
 - Update docs
 - Rename `rescript-schema-ppx` to `@sury/ppx`
-- Update schema ts type
 - Fix unboxed types in JSONSchema module
 - Fix all fixme
 

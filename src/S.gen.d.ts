@@ -137,8 +137,96 @@ export type t<Output, Input = unknown> = {
 
   readonly ["~standard"]: StandardSchemaV1.Props<Input, Output>;
   readonly [øbrand]: unknown;
-};
+} & (
+  | {
+      type: "never";
+    }
+  | {
+      type: "unknown";
+    }
+  | {
+      type: "string";
+      const?: string;
+    }
+  | {
+      type: "number";
+      format?: "int32";
+      const?: number;
+    }
+  | {
+      type: "bigint";
+      const?: bigint;
+    }
+  | {
+      type: "boolean";
+      const?: boolean;
+    }
+  | {
+      type: "symbol";
+      const?: symbol;
+    }
+  | {
+      type: "null";
+      const: null;
+    }
+  | {
+      type: "undefined";
+      const: undefined;
+    }
+  | {
+      type: "nan";
+      const: number;
+    }
+  | {
+      type: "function";
+      const?: unknown;
+    }
+  | {
+      type: "instance";
+      const?: unknown;
+    }
+  | {
+      type: "array";
+      items: item[];
+      fields: Record<string, item>;
+      additionalItems: "strip" | "strict" | t<unknown>;
+      unnest?: true;
+    }
+  | {
+      type: "object";
+      items: item[];
+      fields: Record<string, item>;
+      additionalItems: "strip" | "strict" | t<unknown>;
+    }
+  | {
+      type: "union";
+      anyOf: t<unknown>[];
+      has: Record<
+        | "string"
+        | "number"
+        | "never"
+        | "unknown"
+        | "bigint"
+        | "boolean"
+        | "symbol"
+        | "null"
+        | "undefined"
+        | "nan"
+        | "function"
+        | "instance"
+        | "array"
+        | "object",
+        boolean
+      >;
+    }
+);
 /* simulate opaque types */
+
+export type item = {
+  schema: t<unknown>;
+  location: string;
+  inlinedLocation: string;
+};
 
 export abstract class Path_t {
   protected opaque: any;

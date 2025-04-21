@@ -421,6 +421,16 @@ test("Fails to parse with invalid data", (t) => {
   );
 });
 
+test("Pattern match on schema", (t) => {
+  const schema = S.int32;
+
+  if (schema.type === "number") {
+    t.is(schema.format, "int32");
+  } else {
+    t.fail("Not a schema");
+  }
+});
+
 test("Successfully reverse converts with valid value", (t) => {
   const schema = S.string;
   const result = S.reverseConvertOrThrow("123", schema);
