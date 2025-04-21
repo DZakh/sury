@@ -62,9 +62,12 @@ importers:
       '@rescript/core':
         specifier: ^1.3.0
         version: 1.3.0(rescript@11.1.0)
+      '@sinclair/typebox':
+        specifier: 0.34.33
+        version: 0.34.33
       arktype:
-        specifier: 2.1.0
-        version: 2.1.0
+        specifier: 2.1.20
+        version: 2.1.20
       ava:
         specifier: 6.2.0
         version: 6.2.0(rollup@3.21.0)
@@ -93,11 +96,11 @@ importers:
         specifier: 4.9.3
         version: 4.9.3
       valibot:
-        specifier: 1.0.0-rc.1
-        version: 1.0.0-rc.1(typescript@4.9.3)
+        specifier: 1.0.0
+        version: 1.0.0(typescript@4.9.3)
       zod:
-        specifier: 3.24.2
-        version: 3.24.2
+        specifier: 4.0.0-beta.20250420T053007
+        version: 4.0.0-beta.20250420T053007
 
   packages/prepack:
     dependencies:
@@ -125,22 +128,16 @@ importers:
 
   packages/rescript-schema-ppx:
     dependencies:
-      rescript-schema:
+      sury:
         specifier: 9.x
-        version: 9.0.1(rescript@11.1.0)
+        version: 9.3.0(rescript@11.1.0)
 
   packages/tests: {}
 
 packages:
 
-  '@ark/schema@0.40.0':
-    resolution: {integrity: sha512-vD78TCZkoMWYDVfJVyoBI4ndxaR5jGUeYQuhFNZHXV8Ve2pKrwb4vQFD/VHg7GgF8Pd1pxy0CPouerKNR3y79g==}
-
   '@ark/schema@0.46.0':
     resolution: {integrity: sha512-c2UQdKgP2eqqDArfBqQIJppxJHvNNXuQPeuSPlDML4rjw+f1cu0qAlzOG4b8ujgm9ctIDWwhpyw6gjG5ledIVQ==}
-
-  '@ark/util@0.40.0':
-    resolution: {integrity: sha512-YN+qWGs1q5Pl19VcnCWZMUpDEKW9aST6kuSOs0iAswDDe494xjgmg+DJeX0OF2MspH5yY03VqitNcvkywqXNpw==}
 
   '@ark/util@0.46.0':
     resolution: {integrity: sha512-JPy/NGWn/lvf1WmGCPw2VGpBg5utZraE84I7wli18EDF3p3zc/e9WolT35tINeZO3l7C77SjqRJeAUoT0CvMRg==}
@@ -299,9 +296,6 @@ packages:
 
   argparse@1.0.10:
     resolution: {integrity: sha512-o5Roy6tNG4SL/FOkCAN6RzjiakZS25RLYFrcMttJqbdd8BWrnA+fGz57iN5Pb06pvBGvl5gQ0B48dJlslXvoTg==}
-
-  arktype@2.1.0:
-    resolution: {integrity: sha512-BjXPbh4S8nBSuHmlakrQ+ViiGIhTcxAw7dWuJjW3nlHdY8wGktuuKfP52eWjmC3Y/Og1BbbRYEDGr/H0Kg26Mg==}
 
   arktype@2.1.20:
     resolution: {integrity: sha512-IZCEEXaJ8g+Ijd59WtSYwtjnqXiwM8sWQ5EjGamcto7+HVN9eK0C4p0zDlCuAwWhpqr6fIBkxPuYDl4/Mcj/+Q==}
@@ -912,11 +906,6 @@ packages:
   rescript-nodejs@16.1.0:
     resolution: {integrity: sha512-RyXGIEsb8UhuShf5PwKcTkYNPz+cPQ0CZq74lbYCbCa5YFidbmiIWpQhCMtpsgP1PkLClhKGDkfZfmwwNOil4Q==}
 
-  rescript-schema@9.0.1:
-    resolution: {integrity: sha512-Tv1r+I+A4JfaFRshznG9Kxd/7E2Wvvp+TBTS3ANLcsI2XJe2vRMltFiSp9Z3u3XdBZwGV5veYsDzQnATWwW4Jg==}
-    peerDependencies:
-      rescript: 11.x
-
   rescript-stdlib-vendorer@1.1.0:
     resolution: {integrity: sha512-1r8jOLO1e24N//PjwfucZeZGQSvCFzt3oMRs7VJaVnX9Ns5dhetVGhlWBmXPTiASm0GipARvEYHFNkDidCWNBw==}
     hasBin: true
@@ -1062,6 +1051,14 @@ packages:
     resolution: {integrity: sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==}
     engines: {node: '>= 0.4'}
 
+  sury@9.3.0:
+    resolution: {integrity: sha512-sgWzZkq73utIDyivZdWn41EwRhOzr0HSJqfNE5XF3oLE2il2DRprNViK3kDe9MyNPDqcsdUyn/wvK8XcUifamg==}
+    peerDependencies:
+      rescript: 11.x
+    peerDependenciesMeta:
+      rescript:
+        optional: true
+
   tar@7.4.3:
     resolution: {integrity: sha512-5S7Va8hKfV7W5U6g3aYxXmlPoZVAwUMy9AOKyF2fVuZa2UD3qZjg578OrLRt8PcNN1PleVaL/5/yYATNL0ICUw==}
     engines: {node: '>=18'}
@@ -1114,14 +1111,6 @@ packages:
 
   valibot@1.0.0:
     resolution: {integrity: sha512-1Hc0ihzWxBar6NGeZv7fPLY0QuxFMyxwYR2sF1Blu7Wq7EnremwY2W02tit2ij2VJT8HcSkHAQqmFfl77f73Yw==}
-    peerDependencies:
-      typescript: '>=5'
-    peerDependenciesMeta:
-      typescript:
-        optional: true
-
-  valibot@1.0.0-rc.1:
-    resolution: {integrity: sha512-bTHNpeeQ403xS7qGHF/tw3EC/zkZOU5VdkfIsmRDu1Sp+BJNTNCm6m5HlwOgyW/03lofP+uQiq3R+Poo9wiCEg==}
     peerDependencies:
       typescript: '>=5'
     peerDependenciesMeta:
@@ -1193,23 +1182,14 @@ packages:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
 
-  zod@3.24.2:
-    resolution: {integrity: sha512-lY7CDW43ECgW9u1TcT3IoXHflywfVqDYze4waEz812jR/bZ8FHDsl7pFQoSZTz5N+2NqRXs8GBwnAwo3ZNxqhQ==}
-
   zod@4.0.0-beta.20250420T053007:
     resolution: {integrity: sha512-5pp8Q0PNDaNcUptGiBE9akyioJh3RJpagIxrLtAVMR9IxwcSZiOsJD/1/98CyhItdTlI2H91MfhhLzRlU+fifA==}
 
 snapshots:
 
-  '@ark/schema@0.40.0':
-    dependencies:
-      '@ark/util': 0.40.0
-
   '@ark/schema@0.46.0':
     dependencies:
       '@ark/util': 0.46.0
-
-  '@ark/util@0.40.0': {}
 
   '@ark/util@0.46.0': {}
 
@@ -1366,11 +1346,6 @@ snapshots:
   argparse@1.0.10:
     dependencies:
       sprintf-js: 1.0.3
-
-  arktype@2.1.0:
-    dependencies:
-      '@ark/schema': 0.40.0
-      '@ark/util': 0.40.0
 
   arktype@2.1.20:
     dependencies:
@@ -1939,10 +1914,6 @@ snapshots:
 
   rescript-nodejs@16.1.0: {}
 
-  rescript-schema@9.0.1(rescript@11.1.0):
-    dependencies:
-      rescript: 11.1.0
-
   rescript-stdlib-vendorer@1.1.0:
     dependencies:
       colorette: 2.0.20
@@ -2075,6 +2046,10 @@ snapshots:
 
   supports-preserve-symlinks-flag@1.0.0: {}
 
+  sury@9.3.0(rescript@11.1.0):
+    optionalDependencies:
+      rescript: 11.1.0
+
   tar@7.4.3:
     dependencies:
       '@isaacs/fs-minipass': 4.0.1
@@ -2128,10 +2103,6 @@ snapshots:
       convert-source-map: 1.9.0
 
   valibot@1.0.0(typescript@4.9.3):
-    optionalDependencies:
-      typescript: 4.9.3
-
-  valibot@1.0.0-rc.1(typescript@4.9.3):
     optionalDependencies:
       typescript: 4.9.3
 
@@ -2200,8 +2171,6 @@ snapshots:
       yargs-parser: 21.1.1
 
   yocto-queue@0.1.0: {}
-
-  zod@3.24.2: {}
 
   zod@4.0.0-beta.20250420T053007:
     dependencies:
