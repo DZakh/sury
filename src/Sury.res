@@ -67,6 +67,9 @@ module Stdlib = {
 
     let isArray = Js.Array2.isArray
 
+    @send
+    external map: (array<'a>, 'a => 'b) => array<'b> = "map"
+
     @val external fromArguments: array<'a> => array<'a> = "Array.from"
   }
 
@@ -245,82 +248,122 @@ type additionalItemsMode = | @as("strip") Strip | @as("strict") Strict
 @tag("type")
 type rec t<'value> =
   private
-  | @as("never") Never({description?: string, deprecated?: bool, name?: string})
-  | @as("unknown") Unknown({description?: string, deprecated?: bool, name?: string})
-  | @as("string") String({const?: string, description?: string, deprecated?: bool, name?: string})
+  | @as("never") Never({name?: string, description?: string, deprecated?: bool})
+  | @as("unknown")
+  Unknown({
+      name?: string,
+      description?: string,
+      deprecated?: bool,
+      examples?: array<unknown>,
+    })
+  | @as("string")
+  String({
+      const?: string,
+      name?: string,
+      description?: string,
+      deprecated?: bool,
+      examples?: array<string>,
+    })
   | @as("number")
   Number({
       const?: float,
       format?: numberFormat,
+      name?: string,
       description?: string,
       deprecated?: bool,
-      name?: string,
+      examples?: array<float>,
     })
-  | @as("bigint") BigInt({const?: bigint, description?: string, deprecated?: bool, name?: string})
-  | @as("boolean") Boolean({const?: bool, description?: string, deprecated?: bool, name?: string})
+  | @as("bigint")
+  BigInt({
+      const?: bigint,
+      name?: string,
+      description?: string,
+      deprecated?: bool,
+      examples?: array<bigint>,
+    })
+  | @as("boolean")
+  Boolean({
+      const?: bool,
+      name?: string,
+      description?: string,
+      deprecated?: bool,
+      examples?: array<bool>,
+    })
   | @as("symbol")
   Symbol({
       const?: Js.Types.symbol,
+      name?: string,
       description?: string,
       deprecated?: bool,
-      name?: string,
+      examples?: array<Js.Types.symbol>,
     })
   | @as("null")
   Null({
       const: Js.Types.null_val,
+      name?: string,
       description?: string,
       deprecated?: bool,
-      name?: string,
     })
   | @as("undefined")
   Undefined({
       const: unit,
+      name?: string,
       description?: string,
       deprecated?: bool,
-      name?: string,
     })
-  | @as("nan") NaN({const: float, description?: string, deprecated?: bool, name?: string})
+  | @as("nan") NaN({const: float, name?: string, description?: string, deprecated?: bool})
   | @as("function")
   Function({
       const?: Js.Types.function_val,
+      name?: string,
       description?: string,
       deprecated?: bool,
-      name?: string,
+      examples?: array<Js.Types.function_val>,
     })
   | @as("instance")
   Instance({
       const?: Js.Types.obj_val,
+      name?: string,
       description?: string,
       deprecated?: bool,
-      name?: string,
+      examples?: array<Js.Types.obj_val>,
     })
   | @as("array")
   Array({
       items: array<item>,
       additionalItems: additionalItems,
       unnest?: bool,
+      name?: string,
       description?: string,
       deprecated?: bool,
-      name?: string,
+      examples?: array<array<unknown>>,
     })
   | @as("object")
   Object({
       items: array<item>,
       fields: dict<item>,
       additionalItems: additionalItems,
+      name?: string,
       description?: string,
       deprecated?: bool,
-      name?: string,
+      examples?: array<dict<unknown>>,
     }) // TODO: Add const for Object and Tuple
   | @as("union")
   Union({
       anyOf: array<t<unknown>>,
       has: has,
+      name?: string,
       description?: string,
       deprecated?: bool,
-      name?: string,
+      examples?: array<unknown>,
     })
-  | @as("json") JSON({description?: string, deprecated?: bool, name?: string}) // FIXME: Remove it in favor of Union
+  | @as("json")
+  JSON({
+      name?: string,
+      description?: string,
+      deprecated?: bool,
+      examples?: array<Js.Json.t>,
+    }) // FIXME: Remove it in favor of Union
 @unboxed and additionalItems = | ...additionalItemsMode | Schema(t<unknown>)
 // FIXME: Add recursive
 and schema<'a> = t<'a>
@@ -333,6 +376,7 @@ and internal = {
   mutable name?: string,
   mutable description?: string,
   mutable deprecated?: bool,
+  mutable examples?: array<unknown>,
   format?: internalFormat,
   mutable has?: dict<bool>,
   advanced?: bool, // TODO: Rename/remove it when have a chance
@@ -352,10 +396,11 @@ and internal = {
   @as("~standard")
   mutable standard?: standard, // This is optional for convenience. The object added on make call
 }
-and meta = {
+and meta<'value> = {
   name?: string,
   description?: string,
   deprecated?: bool,
+  examples?: array<'value>,
 }
 and untagged = private {
   @as("type")
@@ -364,6 +409,7 @@ and untagged = private {
   name?: string,
   description?: string,
   deprecated?: bool,
+  examples?: array<unknown>,
   unnest?: bool,
   noValidation?: bool,
   items?: array<item>,
@@ -3103,21 +3149,27 @@ let catch = (schema, getFallbackValue) => {
 }
 
 // TODO: Better test reverse
-let meta = (schema, meta: meta) => {
+let meta = (schema: t<'value>, data: meta<'value>) => {
   let schema = schema->toInternal
   let mut = schema->copy
-  switch meta.name {
+  switch data.name {
   | Some("") => mut.name = None
   | Some(name) => mut.name = Some(name)
   | None => ()
   }
-  switch meta.description {
+  switch data.description {
   | Some("") => mut.description = None
   | Some(description) => mut.description = Some(description)
   | None => ()
   }
-  switch meta.deprecated {
+  switch data.deprecated {
   | Some(deprecated) => mut.deprecated = Some(deprecated)
+  | None => ()
+  }
+  switch data.examples {
+  | Some([]) => mut.examples = None
+  | Some(examples) =>
+    mut.examples = Some(examples->Stdlib.Array.map(schema->fromInternal->operationFn(Flag.reverse)))
   | None => ()
   }
   mut->toStandard
@@ -5145,6 +5197,18 @@ module RescriptJSONSchema = {
     | _ => ()
     }
 
+    switch schema->untag {
+    | {examples} =>
+      jsonSchema.examples = Some(
+        examples->(
+          Obj.magic: // If a schema is Jsonable,
+          // then examples are Jsonable too.
+          array<unknown> => array<Js.Json.t>
+        ),
+      )
+    | _ => ()
+    }
+
     switch schema->Metadata.get(~id=jsonSchemaMetadataId) {
     | Some(metadataRawSchema) => jsonSchema->Mutable.mixin(metadataRawSchema)
     | None => ()
@@ -5152,24 +5216,6 @@ module RescriptJSONSchema = {
 
     jsonSchema->Mutable.toReadOnly
   }
-
-  // let example = (schema: S.t<'value>, example: 'value) => {
-  //   let newExamples = [example->S.reverseConvertToJsonOrThrow(schema)]
-  //   let schemaExtend = switch schema->S.Metadata.get(~id=jsonSchemaMetadataId) {
-  //   | Some(existingSchemaExtend) =>
-  //     merge(
-  //       existingSchemaExtend,
-  //       {
-  //         examples: switch existingSchemaExtend.examples {
-  //         | Some(examples) => Js.Array2.concat(examples, newExamples)
-  //         | None => newExamples
-  //         },
-  //       },
-  //     )
-  //   | None => {examples: newExamples}
-  //   }
-  //   schema->S.Metadata.set(~id=jsonSchemaMetadataId, schemaExtend)
-  // }
 
   // let castAnySchemaToJsonableS = (magic: S.t<'any> => S.t<Js.Json.t>)
 

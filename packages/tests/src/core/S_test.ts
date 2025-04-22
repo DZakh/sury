@@ -2016,6 +2016,40 @@ test("ArkType pattern matching", async (t) => {
   t.deepEqual(S.reverseConvertOrThrow("foo", schema), "foo");
 });
 
+test("Example of transformed schema", (t) => {
+  const userSchema = S.object((s) => ({
+    id: s.field("USER_ID", S.string.with(S.to, S.bigint)),
+    name: s.field("USER_NAME", S.string),
+  })).with(S.meta, {
+    examples: [
+      {
+        id: 0n,
+        name: "Dmitry",
+      },
+    ],
+  });
+
+  t.deepEqual(S.toJSONSchema(userSchema), {
+    type: "object",
+    additionalProperties: true,
+    properties: {
+      USER_ID: {
+        type: "string",
+      },
+      USER_NAME: {
+        type: "string",
+      },
+    },
+    required: ["USER_ID", "USER_NAME"],
+    examples: [
+      {
+        USER_ID: "0",
+        USER_NAME: "Dmitry",
+      },
+    ],
+  });
+});
+
 test("Compile types", async (t) => {
   const schema = S.union([
     S.string,

@@ -134,6 +134,7 @@ export type t<Output, Input = unknown> = {
   readonly name?: string;
   readonly description?: string;
   readonly deprecated?: boolean;
+  readonly examples?: Input[];
 
   readonly ["~standard"]: StandardSchemaV1.Props<Input, Output>;
   readonly [øbrand]: unknown;

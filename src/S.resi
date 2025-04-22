@@ -46,83 +46,129 @@ type tag =
 @tag("type")
 type rec t<'value> =
   private
-  | @as("never") Never({description?: string, deprecated?: bool, name?: string})
-  | @as("unknown") Unknown({description?: string, deprecated?: bool, name?: string})
-  | @as("string") String({const?: string, description?: string, deprecated?: bool, name?: string})
+  | @as("never") Never({name?: string, description?: string, deprecated?: bool})
+  | @as("unknown")
+  Unknown({
+      name?: string,
+      description?: string,
+      deprecated?: bool,
+      examples?: array<unknown>,
+    })
+  | @as("string")
+  String({
+      const?: string,
+      name?: string,
+      description?: string,
+      deprecated?: bool,
+      examples?: array<string>,
+    })
   | @as("number")
   Number({
       const?: float,
       format?: numberFormat,
+      name?: string,
       description?: string,
       deprecated?: bool,
-      name?: string,
+      examples?: array<float>,
     })
-  | @as("bigint") BigInt({const?: bigint, description?: string, deprecated?: bool, name?: string})
-  | @as("boolean") Boolean({const?: bool, description?: string, deprecated?: bool, name?: string})
+  | @as("bigint")
+  BigInt({
+      const?: bigint,
+      name?: string,
+      description?: string,
+      deprecated?: bool,
+      examples?: array<bigint>,
+    })
+  | @as("boolean")
+  Boolean({
+      const?: bool,
+      name?: string,
+      description?: string,
+      deprecated?: bool,
+      examples?: array<bool>,
+    })
   | @as("symbol")
   Symbol({
       const?: Js.Types.symbol,
+      name?: string,
       description?: string,
       deprecated?: bool,
-      name?: string,
+      examples?: array<Js.Types.symbol>,
     })
   | @as("null")
   Null({
       const: Js.Types.null_val,
+      name?: string,
       description?: string,
       deprecated?: bool,
-      name?: string,
     })
   | @as("undefined")
   Undefined({
       const: unit,
+      name?: string,
       description?: string,
       deprecated?: bool,
-      name?: string,
     })
-  | @as("nan") NaN({const: float, description?: string, deprecated?: bool, name?: string})
+  | @as("nan") NaN({const: float, name?: string, description?: string, deprecated?: bool})
   | @as("function")
   Function({
       const?: Js.Types.function_val,
+      name?: string,
       description?: string,
       deprecated?: bool,
-      name?: string,
+      examples?: array<Js.Types.function_val>,
     })
   | @as("instance")
   Instance({
       const?: Js.Types.obj_val,
+      name?: string,
       description?: string,
       deprecated?: bool,
-      name?: string,
+      examples?: array<Js.Types.obj_val>,
     })
   | @as("array")
   Array({
       items: array<item>,
       additionalItems: additionalItems,
       unnest?: bool,
+      name?: string,
       description?: string,
       deprecated?: bool,
-      name?: string,
+      examples?: array<array<unknown>>,
     })
   | @as("object")
   Object({
       items: array<item>,
       fields: dict<item>,
       additionalItems: additionalItems,
+      name?: string,
       description?: string,
       deprecated?: bool,
-      name?: string,
+      examples?: array<dict<unknown>>,
     })
   | @as("union")
   Union({
       anyOf: array<t<unknown>>,
       has: has,
+      name?: string,
       description?: string,
       deprecated?: bool,
-      name?: string,
+      examples?: array<unknown>,
     })
-  | @as("json") JSON({description?: string, deprecated?: bool, name?: string})
+  | @as("json")
+  JSON({
+      name?: string,
+      description?: string,
+      deprecated?: bool,
+      examples?: array<Js.Json.t>,
+    })
 and schema<'a> = t<'a>
+and meta<'value> = {
+  name?: string,
+  description?: string,
+  deprecated?: bool,
+  examples?: array<'value>,
+}
 and untagged = private {
   @as("type")
   tag: tag,
@@ -130,6 +176,7 @@ and untagged = private {
   name?: string,
   description?: string,
   deprecated?: bool,
+  examples?: array<unknown>,
   unnest?: bool,
   noValidation?: bool,
   items?: array<item>,
@@ -137,11 +184,6 @@ and untagged = private {
   additionalItems?: additionalItems,
   anyOf?: array<t<unknown>>,
   has?: dict<bool>,
-}
-and meta = {
-  name?: string,
-  description?: string,
-  deprecated?: bool,
 }
 @unboxed and additionalItems = | ...additionalItemsMode | Schema(t<unknown>)
 and item = {
@@ -225,7 +267,7 @@ let jsonString: (t<'value>, ~space: int=?) => t<'value>
 let union: array<t<'value>> => t<'value>
 let enum: array<'value> => t<'value>
 
-let meta: (t<'value>, meta) => t<'value>
+let meta: (t<'value>, meta<'value>) => t<'value>
 
 module Catch: {
   type s<'value> = {

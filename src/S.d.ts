@@ -312,15 +312,16 @@ export function recursive<Output, Input = Output>(
   definer: (schema: Schema<Output, Input>) => Schema<Output, Input>
 ): Schema<Output, Input>;
 
-export type Meta = {
+export type Meta<Output> = {
   name?: string;
   description?: string;
   deprecated?: boolean;
+  examples?: Output[];
 };
 
 export function meta<Output, Input>(
   schema: Schema<Output, Input>,
-  meta: Meta
+  meta: Meta<Output>
 ): Schema<Output, Input>;
 
 export function toExpression(schema: Schema<unknown>): string;

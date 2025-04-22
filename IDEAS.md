@@ -67,13 +67,13 @@
 
 - (ts) Make TS type a tagged union
 - (ts) Add types for `S.toJSONSchema` and `S.extendJSONSchema`
+- Support for `example` metadata
 
 ### Scope
 
 ### Final release fixes
 
 - Add S.fromJSONSchema
-- Add example field to S.meta
 - Fix default for S.toJSONSchema
 - Fix all tests marked as Failing
 - Update docs
