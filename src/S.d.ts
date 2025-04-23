@@ -1,7 +1,241 @@
-import { Json, Result, t, EffectCtx } from "./S.gen";
-export { Json, Result, EffectCtx, error as Error } from "./S.gen";
+/** The Standard Schema interface. */
+export interface StandardSchemaV1<Input = unknown, Output = Input> {
+  /** The Standard Schema properties. */
+  readonly "~standard": StandardSchemaV1.Props<Input, Output>;
+}
 
-export type Schema<Output, Input = unknown> = t<Output, Input>;
+export declare namespace StandardSchemaV1 {
+  /** The Standard Schema properties interface. */
+  export interface Props<Input = unknown, Output = Input> {
+    /** The version number of the standard. */
+    readonly version: 1;
+    /** The vendor name of the schema library. */
+    readonly vendor: string;
+    /** Validates unknown input values. */
+    readonly validate: (
+      value: unknown
+    ) => Result<Output> | Promise<Result<Output>>;
+    /** Inferred types associated with the schema. */
+    readonly types?: Types<Input, Output> | undefined;
+  }
+
+  /** The result interface of the validate function. */
+  export type Result<Output> = SuccessResult<Output> | FailureResult;
+
+  /** The result interface if validation succeeds. */
+  export interface SuccessResult<Output> {
+    /** The typed output value. */
+    readonly value: Output;
+    /** The non-existent issues. */
+    readonly issues?: undefined;
+  }
+
+  /** The result interface if validation fails. */
+  export interface FailureResult {
+    /** The issues of failed validation. */
+    readonly issues: ReadonlyArray<Issue>;
+  }
+
+  /** The issue interface of the failure output. */
+  export interface Issue {
+    /** The error message of the issue. */
+    readonly message: string;
+    /** The path of the issue, if any. */
+    readonly path?: ReadonlyArray<PropertyKey | PathSegment> | undefined;
+  }
+
+  /** The path segment interface of the issue. */
+  export interface PathSegment {
+    /** The key representing a path segment. */
+    readonly key: PropertyKey;
+  }
+
+  /** The Standard Schema types interface. */
+  export interface Types<Input = unknown, Output = Input> {
+    /** The input type of the schema. */
+    readonly input: Input;
+    /** The output type of the schema. */
+    readonly output: Output;
+  }
+
+  /** Infers the input type of a Standard Schema. */
+  export type InferInput<Schema extends StandardSchemaV1> = NonNullable<
+    Schema["~standard"]["types"]
+  >["input"];
+
+  /** Infers the output type of a Standard Schema. */
+  export type InferOutput<Schema extends StandardSchemaV1> = NonNullable<
+    Schema["~standard"]["types"]
+  >["output"];
+}
+
+export type EffectCtx<Output, Input> = {
+  readonly schema: Schema<Output, Input>;
+  readonly fail: (message: string) => never;
+};
+
+export type Result<Value> =
+  | {
+      readonly success: true;
+      readonly value: Value;
+    }
+  | { readonly success: false; readonly error: Error };
+
+export type Json =
+  | string
+  | boolean
+  | number
+  | null
+  | { [key: string]: Json }
+  | Json[];
+
+declare const øbrand: unique symbol;
+
+export type Schema<Output, Input = unknown> = {
+  with<Transformed>(
+    transform: (
+      schema: Schema<unknown, unknown>,
+      parser:
+        | ((value: unknown, s: EffectCtx<unknown, unknown>) => unknown)
+        | undefined,
+      serializer?: (value: unknown, s: EffectCtx<unknown, unknown>) => Input
+    ) => Schema<unknown, unknown>,
+    parser:
+      | ((value: Output, s: EffectCtx<unknown, unknown>) => Transformed)
+      | undefined,
+    serializer?: (value: Transformed, s: EffectCtx<unknown, unknown>) => Input
+  ): Schema<Transformed, Input>;
+  with(
+    refine: (
+      schema: Schema<unknown, unknown>,
+      refiner: (value: unknown, s: EffectCtx<unknown, unknown>) => Promise<void>
+    ) => Schema<unknown, unknown>,
+    refiner: (value: Output, s: EffectCtx<Output, Input>) => Promise<void>
+  ): Schema<Output, Input>;
+  // with(message: string): t<Output, Input>; TODO: implement
+  with<O, I>(fn: (schema: Schema<Output, Input>) => Schema<O, I>): Schema<O, I>;
+  with<O, I, A1>(
+    fn: (schema: Schema<Output, Input>, arg1: A1) => Schema<O, I>,
+    arg1: A1
+  ): Schema<O, I>;
+  with<O, I, A1, A2>(
+    fn: (schema: Schema<Output, Input>, arg1: A1, arg2: A2) => Schema<O, I>,
+    arg1: A1,
+    arg2: A2
+  ): Schema<O, I>;
+
+  readonly name?: string;
+  readonly description?: string;
+  readonly deprecated?: boolean;
+  readonly examples?: Input[];
+
+  readonly ["~standard"]: StandardSchemaV1.Props<Input, Output>;
+  readonly [øbrand]: unknown;
+} & (
+  | {
+      readonly type: "never";
+    }
+  | {
+      readonly type: "unknown";
+    }
+  | {
+      readonly type: "string";
+      readonly const?: string;
+    }
+  | {
+      readonly type: "number";
+      readonly format?: "int32";
+      readonly const?: number;
+    }
+  | {
+      readonly type: "bigint";
+      readonly const?: bigint;
+    }
+  | {
+      readonly type: "boolean";
+      readonly const?: boolean;
+    }
+  | {
+      readonly type: "symbol";
+      readonly const?: symbol;
+    }
+  | {
+      readonly type: "null";
+      readonly const: null;
+    }
+  | {
+      readonly type: "undefined";
+      readonly const: undefined;
+    }
+  | {
+      readonly type: "nan";
+      readonly const: number;
+    }
+  | {
+      readonly type: "function";
+      readonly const?: unknown;
+    }
+  | {
+      readonly type: "instance";
+      readonly const?: unknown;
+    }
+  | {
+      readonly type: "array";
+      readonly items: Item[];
+      readonly fields: Record<string, Item>;
+      readonly additionalItems: "strip" | "strict" | Schema<unknown>;
+      readonly unnest?: true;
+    }
+  | {
+      readonly type: "object";
+      readonly items: Item[];
+      readonly fields: Record<string, Item>;
+      readonly additionalItems: "strip" | "strict" | Schema<unknown>;
+    }
+  | {
+      readonly type: "union";
+      readonly anyOf: Schema<unknown>[];
+      readonly has: Record<
+        | "string"
+        | "number"
+        | "never"
+        | "unknown"
+        | "bigint"
+        | "boolean"
+        | "symbol"
+        | "null"
+        | "undefined"
+        | "nan"
+        | "function"
+        | "instance"
+        | "array"
+        | "object",
+        boolean
+      >;
+    }
+);
+
+export type Item = {
+  readonly schema: Schema<unknown>;
+  readonly location: string;
+  readonly inlinedLocation: string;
+};
+
+export abstract class Path {
+  protected opaque: any;
+} /* simulate opaque types */
+
+export class Error {
+  readonly flag: number;
+  readonly code: ErrorCode;
+  readonly path: Path;
+  readonly message: string;
+  readonly reason: string;
+}
+
+export abstract class ErrorCode {
+  protected opaque: any;
+} /* simulate opaque types */
 
 export type Output<T> = T extends Schema<infer Output, unknown>
   ? Output

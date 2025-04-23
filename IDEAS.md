@@ -2,7 +2,7 @@
 
 ## v10
 
-### Done
+### rc.0
 
 - Removed `S.to` in favor of `S.shape`
 - S.dict now does `!Array.isArray(${inputVar})` check
@@ -69,6 +69,10 @@
 - (ts) Add types for `S.toJSONSchema` and `S.extendJSONSchema`
 - Support for `example` metadata
 
+### rc.2
+
+- Move all ts files to S.d.ts as a source of truth (better IDE display on hover)
+
 ### Scope
 
 ### Final release fixes
@@ -79,6 +83,8 @@
 - Update docs
 - Rename `rescript-schema-ppx` to `@sury/ppx`
 - Fix all fixme
+- Rename setGlobalConfig to global
+- Change Result type to match Standard Schema
 
 ## v11
 

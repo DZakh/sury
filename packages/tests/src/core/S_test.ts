@@ -3,7 +3,6 @@ import { expectType, TypeEqual } from "ts-expect";
 
 import * as S from "../../../../src/S.js";
 import { stringSchema } from "../genType/GenType.gen.js";
-import { StandardSchemaV1 } from "../../../../src/S.gen.js";
 
 type SchemaEqual<
   Schema extends S.Schema<unknown, unknown>,
@@ -1798,10 +1797,10 @@ test("Standard schema", (t) => {
   });
 
   expectType<
-    TypeEqual<StandardSchemaV1.InferInput<typeof schema>, string | null>
+    TypeEqual<S.StandardSchemaV1.InferInput<typeof schema>, string | null>
   >(true);
   expectType<
-    TypeEqual<StandardSchemaV1.InferOutput<typeof schema>, string | undefined>
+    TypeEqual<S.StandardSchemaV1.InferOutput<typeof schema>, string | undefined>
   >(true);
 });
 
@@ -2017,6 +2016,10 @@ test("ArkType pattern matching", async (t) => {
 });
 
 test("Example of transformed schema", (t) => {
+  // 1. Create a schema
+  //    s.field - for automatic fields renaming
+  //    S.to - for easy & fast coercion
+  //    S.meta - with examples in transformed format
   const userSchema = S.object((s) => ({
     id: s.field("USER_ID", S.string.with(S.to, S.bigint)),
     name: s.field("USER_NAME", S.string),
@@ -2029,6 +2032,23 @@ test("Example of transformed schema", (t) => {
     ],
   });
 
+  // 2. Infer User type
+  type User = S.Output<typeof userSchema>;
+  // type User = {
+  //   id: bigint;
+  //   name: string;
+  // }
+
+  // 3. Use examples directly
+  //    See how they are in the Input format 🔥
+  t.deepEqual(userSchema.examples, [
+    {
+      USER_ID: "0",
+      USER_NAME: "Dmitry",
+    },
+  ]);
+
+  // 4. Or via JSON Schema
   t.deepEqual(S.toJSONSchema(userSchema), {
     type: "object",
     additionalProperties: true,
