@@ -246,7 +246,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rescript-schema-ppx
-          path: packages/rescript-schema-ppx/rescript-schema-ppx-9.0.1.tgz
+          path: packages/rescript-schema-ppx/rescript-schema-ppx-10.0.0-rc.1.tgz
 
   benchmark:
     name: Benchmark
