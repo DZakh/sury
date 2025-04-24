@@ -1,0 +1,6 @@
+{
+  "name": "@sury/sury",
+  "version": "10.0.0-rc.1",
+  "license": "MIT",
+  "exports": "./src/S.mjs"
+}
