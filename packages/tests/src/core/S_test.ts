@@ -2017,20 +2017,33 @@ test("ArkType pattern matching", async (t) => {
 
 test("Example of transformed schema", (t) => {
   // 1. Create a schema
-  //    s.field - for automatic fields renaming
   //    S.to - for easy & fast coercion
+  //    S.shape - for easy & fast transformation
   //    S.meta - with examples in transformed format
-  const userSchema = S.object((s) => ({
-    id: s.field("USER_ID", S.string.with(S.to, S.bigint)),
-    name: s.field("USER_NAME", S.string),
-  })).with(S.meta, {
-    examples: [
-      {
-        id: 0n,
-        name: "Dmitry",
-      },
-    ],
-  });
+  const userSchema = S.schema({
+    USER_ID: S.string.with(S.to, S.bigint),
+    USER_NAME: S.string,
+  })
+    .with(S.shape, (input) => ({
+      id: input.USER_ID,
+      name: input.USER_NAME,
+    }))
+    .with(S.meta, {
+      description: "User entity in our system",
+      examples: [
+        {
+          id: 0n,
+          name: "Dmitry",
+        },
+      ],
+    });
+  // On hover: S.Schema<{
+  //     id: bigint;
+  //     name: string;
+  // }, {
+  //     USER_ID: string;
+  //     USER_NAME: string;
+  // }>
 
   // 2. Infer User type
   type User = S.Output<typeof userSchema>;
@@ -2061,6 +2074,7 @@ test("Example of transformed schema", (t) => {
       },
     },
     required: ["USER_ID", "USER_NAME"],
+    description: "User entity in our system",
     examples: [
       {
         USER_ID: "0",
