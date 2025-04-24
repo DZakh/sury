@@ -1,6 +1,6 @@
 let projectPath = "../../"
 let artifactsPath = NodeJs.Path.join2(projectPath, "packages/artifacts")
-let sourePaths = ["package.json", "node_modules", "src", "rescript.json", "README.md"]
+let sourePaths = ["package.json", "node_modules", "src", "rescript.json", "README.md", "jsr.json"]
 
 module Stdlib = {
   module Dict = {
@@ -185,7 +185,7 @@ sourePaths->Array.forEach(path => {
 let writeSjsEsm = path => {
   NodeJs.Fs.writeFileSyncWith(
     path,
-    ["import * as S from \"./Sury.res.mjs\";"]
+    [`/* @ts-self-types="./S.d.ts" */`, "import * as S from \"./Sury.res.mjs\";"]
     ->Array.concat(filesMapping->Array.map(((name, value)) => `export const ${name} = ${value}`))
     ->Array.join("\n")
     ->NodeJs.Buffer.fromString,
@@ -203,7 +203,7 @@ writeSjsEsm(NodeJs.Path.join2(artifactsPath, "./src/S.mjs"))
 // This should overwrite S.js with the commonjs version
 NodeJs.Fs.writeFileSyncWith(
   NodeJs.Path.join2(artifactsPath, "./src/S.js"),
-  ["var S = require(\"./Sury.res.js\");"]
+  [`/* @ts-self-types="./S.d.ts" */`, "var S = require(\"./Sury.res.js\");"]
   ->Array.concat(filesMapping->Array.map(((name, value)) => `exports.${name} = ${value}`))
   ->Array.join("\n")
   ->NodeJs.Buffer.fromString,

@@ -19,7 +19,8 @@ var sourePaths = [
   "node_modules",
   "src",
   "rescript.json",
-  "README.md"
+  "README.md",
+  "jsr.json"
 ];
 
 function update(json, path, value) {
@@ -314,7 +315,10 @@ sourePaths.forEach(function (path) {
     });
 
 function writeSjsEsm(path) {
-  Nodefs.writeFileSync(path, Buffer.from(["import * as S from \"./Sury.res.mjs\";"].concat(filesMapping.map(function (param) {
+  Nodefs.writeFileSync(path, Buffer.from([
+                "/* @ts-self-types=\"./S.d.ts\" */",
+                "import * as S from \"./Sury.res.mjs\";"
+              ].concat(filesMapping.map(function (param) {
                       return "export const " + param[0] + " = " + param[1];
                     })).join("\n")), {
         encoding: "utf8"
@@ -325,7 +329,10 @@ writeSjsEsm(Nodepath.join(projectPath, "./src/S.js"));
 
 writeSjsEsm(Nodepath.join(artifactsPath, "./src/S.mjs"));
 
-Nodefs.writeFileSync(Nodepath.join(artifactsPath, "./src/S.js"), Buffer.from(["var S = require(\"./Sury.res.js\");"].concat(filesMapping.map(function (param) {
+Nodefs.writeFileSync(Nodepath.join(artifactsPath, "./src/S.js"), Buffer.from([
+              "/* @ts-self-types=\"./S.d.ts\" */",
+              "var S = require(\"./Sury.res.js\");"
+            ].concat(filesMapping.map(function (param) {
                     return "exports." + param[0] + " = " + param[1];
                   })).join("\n")), {
       encoding: "utf8"

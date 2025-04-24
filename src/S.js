@@ -1,3 +1,4 @@
+/* @ts-self-types="./S.d.ts" */
 import * as S from "./Sury.res.mjs";
 export const Error = S.ErrorClass.value
 export const string = S.string
