@@ -42,7 +42,7 @@
     "benchmark:comparison": "node ./packages/tests/src/benchmark/comparison.js",
     "coverage": "c8 --reporter=lcov npm test",
     "build": "cd ./packages/prepack && pnpm rescript && node ./src/Prepack.res.mjs",
-    "ppx:install": "node ./packages/rescript-schema-ppx/install.cjs",
+    "ppx:install": "node ./packages/sury-ppx/install.cjs",
     "res": "rescript -w",
     "res:build": "rescript build",
     "test:res": "cd ./packages/tests && rescript clean && rescript -w",

@@ -4,7 +4,7 @@ open Ast_helper
 
 let loc = !default_loc
 let fail loc message =
-  Location.raise_errorf ~loc "[@sury/ppx] %s" message
+  Location.raise_errorf ~loc "[sury-ppx] %s" message
 let longident_parse = Longident.parse [@@ocaml.warning "-3"]
 let mkloc txt loc = {Location.txt; loc}
 let mknoloc txt = mkloc txt Location.none

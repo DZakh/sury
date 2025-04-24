@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: packages/rescript-schema-ppx/src
+        working-directory: packages/sury-ppx/src
     strategy:
       matrix:
         ocaml-compiler:
@@ -39,7 +39,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ppx-build-linux
-          path: packages/rescript-schema-ppx/src/_build/default/bin/bin.exe
+          path: packages/sury-ppx/src/_build/default/bin/bin.exe
           if-no-files-found: error
 
   ppx-build-macos:
@@ -47,7 +47,7 @@ jobs:
     runs-on: macOS-latest
     defaults:
       run:
-        working-directory: packages/rescript-schema-ppx/src
+        working-directory: packages/sury-ppx/src
     strategy:
       matrix:
         ocaml-compiler:
@@ -70,7 +70,7 @@ jobs:
         uses: actions/upload-artifact@master
         with:
           name: ppx-build-macos
-          path: packages/rescript-schema-ppx/src/_build/default/bin/bin.exe
+          path: packages/sury-ppx/src/_build/default/bin/bin.exe
           if-no-files-found: error
 
   ppx-build-macos-x64:
@@ -78,7 +78,7 @@ jobs:
     runs-on: macOS-13
     defaults:
       run:
-        working-directory: packages/rescript-schema-ppx/src
+        working-directory: packages/sury-ppx/src
     strategy:
       matrix:
         ocaml-compiler:
@@ -101,7 +101,7 @@ jobs:
         uses: actions/upload-artifact@master
         with:
           name: ppx-build-macos-x64
-          path: packages/rescript-schema-ppx/src/_build/default/bin/bin.exe
+          path: packages/sury-ppx/src/_build/default/bin/bin.exe
           if-no-files-found: error
 
   ppx-build-windows:
@@ -109,7 +109,7 @@ jobs:
     runs-on: windows-latest
     defaults:
       run:
-        working-directory: packages/rescript-schema-ppx/src
+        working-directory: packages/sury-ppx/src
     strategy:
       matrix:
         ocaml-compiler:
@@ -132,7 +132,7 @@ jobs:
         uses: actions/upload-artifact@master
         with:
           name: ppx-build-windows
-          path: packages/rescript-schema-ppx/src/_build/default/bin/bin.exe
+          path: packages/sury-ppx/src/_build/default/bin/bin.exe
           if-no-files-found: error
 
   test:
@@ -156,7 +156,7 @@ jobs:
 
       - name: Move ppx artifacts
         run: |
-          mv binaries/linux/bin.exe packages/rescript-schema-ppx/ppx-linux.exe
+          mv binaries/linux/bin.exe packages/sury-ppx/ppx-linux.exe
 
       - name: Install ppx
         run: pnpm ppx:install
@@ -194,8 +194,8 @@ jobs:
           name: sury
           path: packages/artifacts
 
-  pack-rescript-schema-ppx:
-    name: Pack rescript-schema-ppx
+  pack-sury-ppx:
+    name: Pack sury-ppx
     needs: [ppx-build-linux, ppx-build-macos, ppx-build-macos-x64, ppx-build-windows]
     runs-on: ubuntu-latest
     steps:
@@ -233,20 +233,20 @@ jobs:
 
       - name: Move ppx artifacts
         run: |
-          mv binaries/linux/bin.exe packages/rescript-schema-ppx/ppx-linux.exe
-          mv binaries/macos/bin.exe packages/rescript-schema-ppx/ppx-osx.exe
-          mv binaries/macos-x64/bin.exe packages/rescript-schema-ppx/ppx-osx-x64.exe
-          mv binaries/windows/bin.exe packages/rescript-schema-ppx/ppx-windows.exe
+          mv binaries/linux/bin.exe packages/sury-ppx/ppx-linux.exe
+          mv binaries/macos/bin.exe packages/sury-ppx/ppx-osx.exe
+          mv binaries/macos-x64/bin.exe packages/sury-ppx/ppx-osx-x64.exe
+          mv binaries/windows/bin.exe packages/sury-ppx/ppx-windows.exe
 
-      - name: npm pack (rescript-schema-ppx)
+      - name: npm pack (sury-ppx)
         run: npm pack
-        working-directory: packages/rescript-schema-ppx
+        working-directory: packages/sury-ppx
 
-      - name: "Upload artifact: rescript-schema-ppx npm package"
+      - name: "Upload artifact: sury-ppx npm package"
         uses: actions/upload-artifact@v4
         with:
-          name: rescript-schema-ppx
-          path: packages/rescript-schema-ppx/sury-ppx-10.0.0-rc.1.tgz
+          name: sury-ppx
+          path: packages/sury-ppx/sury-ppx-10.0.0-rc.1.tgz
 
   benchmark:
     name: Benchmark
@@ -269,7 +269,7 @@ jobs:
 
       - name: Move ppx artifacts
         run: |
-          mv binaries/linux/bin.exe packages/rescript-schema-ppx/ppx-linux.exe
+          mv binaries/linux/bin.exe packages/sury-ppx/ppx-linux.exe
 
       - name: Install ppx
         run: pnpm ppx:install

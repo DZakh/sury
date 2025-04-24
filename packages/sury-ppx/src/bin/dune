@@ -5,4 +5,4 @@
 
 (executable
  (name bin)
- (libraries rescript-schema-ppx))
+ (libraries sury-ppx))

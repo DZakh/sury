@@ -20,18 +20,18 @@ The following steps will get you setup to contribute changes to this repo:
 
 ### With Dune
 
-Make sure running the below commands in `packages/rescript-schema-ppx/src`.
+Make sure running the below commands in `packages/sury-ppx/src`.
 
 1. Create a sandbox with opam
 
 ```
-opam switch create rescript-schema-ppx 4.12.1
+opam switch create sury-ppx 4.12.1
 ```
 
 Or
 
 ```
-opam switch set rescript-schema-ppx
+opam switch set sury-ppx
 ```
 
 2. Install dependencies

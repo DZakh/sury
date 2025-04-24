@@ -72,19 +72,22 @@
 ### rc.2
 
 - Move all ts files to S.d.ts as a source of truth (better IDE display on hover)
+- Renamed `rescript-schema-ppx` to `sury-ppx`
 
 ### Scope
 
 ### Final release fixes
 
-- Add S.fromJSONSchema
 - Fix default for S.toJSONSchema
 - Fix all tests marked as Failing
 - Update docs
-- Rename `rescript-schema-ppx` to `@sury/ppx`
 - Fix all fixme
 - Rename setGlobalConfig to global
 - Change Result type to match Standard Schema
+
+## v10.1
+
+- Add S.fromJSONSchema
 
 ## v11
 
@@ -94,8 +97,9 @@
 - Remove fieldOr in favor of optionOr?
 - Allow to pass custom error message via `.with`
 - Make S.to extensible
-- Add S.date (S.instanceof) and remove S.datetime
+- Add S.Date (S.instanceof) and remove S.datetime
 - Add refinement info to the tagged type
+- Replace `s.fail` with `throw new Error`
 
 ## v???
 

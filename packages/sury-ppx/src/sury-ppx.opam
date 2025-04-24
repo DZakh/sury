@@ -1,5 +1,5 @@
 opam-version: "2.0"
-name: "rescript-schema-ppx"
+name: "sury-ppx"
 version: "1.0.0"
 synopsis: "PPX for the fastest composable parser/serializer for ReScript and TypeScript"
 description: """

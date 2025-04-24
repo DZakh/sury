@@ -16,7 +16,7 @@ ReScript PPX to generate **Sury** schema from types.
 ## Install
 
 ```sh
-npm install sury @sury/ppx
+npm install sury sury-ppx
 ```
 
 Then update your `rescript.json` config:
@@ -25,7 +25,7 @@ Then update your `rescript.json` config:
 {
   ...
 + "bs-dependencies": ["sury"],
-+ "ppx-flags": ["@sury/ppx/bin"],
++ "ppx-flags": ["sury-ppx/bin"],
 }
 ```
 

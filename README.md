@@ -32,7 +32,7 @@ Also, you can use **Sury** as a building block for your own tools or use existin
 
 - [For JS/TS users](/docs/js-usage.md)
 - [For ReScript users](/docs/rescript-usage.md)
-- [For PPX users](/packages/rescript-schema-ppx/README.md)
+- [For PPX users](/packages/sury-ppx/README.md)
 
 > ⚠️ Be aware that **Sury** uses `new Function` for parsing. The approach is battle tested and has no known security issues. It's also used by TypeBox, Zod@4 and ArkType. Although, some environments like Cloudflare Workers will not allow it.
 

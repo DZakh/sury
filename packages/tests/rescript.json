@@ -14,7 +14,7 @@
   "suffix": ".res.mjs",
   "bs-dependencies": ["sury"],
   "bs-dev-dependencies": ["@rescript/core", "@dzakh/rescript-ava"],
-  "ppx-flags": ["../rescript-schema-ppx/bin"],
+  "ppx-flags": ["../sury-ppx/bin"],
   "warnings": {
     "error": true,
     "number": "-48-44"

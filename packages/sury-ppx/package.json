@@ -1,5 +1,5 @@
 {
-  "name": "@sury/ppx",
+  "name": "sury-ppx",
   "version": "10.0.0-rc.1",
   "description": "⚙️ ReScript PPX to generate Sury schema from types",
   "keywords": [
@@ -10,7 +10,7 @@
     "Decco",
     "Spice"
   ],
-  "homepage": "https://github.com/DZakh/sury/packages/rescript-schema-ppx#readme",
+  "homepage": "https://github.com/DZakh/sury/packages/sury-ppx#readme",
   "bugs": {
     "url": "https://github.com/DZakh/sury/issues"
   },
