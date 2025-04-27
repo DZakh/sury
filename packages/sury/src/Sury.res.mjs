@@ -3904,6 +3904,13 @@ function internalToJSONSchema(schema) {
               
             });
         var itemsNumber$1 = items$1.length;
+        var $$default = schema[defaultMetadataId];
+        if ($$default !== undefined) {
+          var serialize = operationFn(schema, 32);
+          var tmp;
+          tmp = $$default.TAG === "Value" ? $$default._0 : $$default._0();
+          jsonSchema.default = serialize(tmp);
+        }
         if (itemsNumber$1 === 1) {
           Object.assign(jsonSchema, items$1[0]);
         } else if (literals.length === itemsNumber$1) {

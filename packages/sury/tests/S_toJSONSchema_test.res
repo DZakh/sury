@@ -314,6 +314,17 @@ test("JSONSchema of string dict", t => {
   )
 })
 
+test("JSONSchema of dict with optional fields", t => {
+  t->Assert.deepEqual(
+    S.dict(S.option(S.string))->S.toJSONSchema,
+    %raw(`{
+      "type": "object",
+      "additionalProperties": {"type": "string"},
+    }`),
+    (),
+  )
+})
+
 test("JSONSchema of object with single string field", t => {
   t->Assert.deepEqual(
     S.object(s => s.field("field", S.string))->S.toJSONSchema,
@@ -469,277 +480,241 @@ Failing.test("JSONSchema of reversed object with S.option(S.option(_)) field", t
   )
 })
 
-// test("Transformed schema schema with default fails when destruction failed", t => {
-//   let schema = S.object(s =>
-//     s.field(
-//       "field",
-//       S.option(
-//         S.bool->S.transform(
-//           _ => {
-//             parser: bool => {
-//               switch bool {
-//               | true => "true"
-//               | false => ""
-//               }
-//             },
-//           },
-//         ),
-//       )->S.Option.getOr("true"),
-//     )
-//   )
+test("Transformed schema schema with default fails when destruction failed", t => {
+  let schema = S.object(s =>
+    s.field(
+      "field",
+      S.option(
+        S.bool->S.transform(
+          _ => {
+            parser: bool => {
+              switch bool {
+              | true => "true"
+              | false => ""
+              }
+            },
+          },
+        ),
+      )->S.Option.getOr("true"),
+    )
+  )
 
-//   t->Assert.deepEqual(
-//     JSONSchema.make(schema),
-//     Error(`[ReScript JSON Schema] Failed converting at ["field"]. Reason: Couldn't destruct default value. Error: Failed reverse converting to JSON at root. Reason: The S.transform serializer is missing`),
-//   )
-// })
+  t->U.assertThrowsMessage(
+    () => schema->S.toJSONSchema,
+    `Failed converting: The S.transform serializer is missing`,
+  )
+})
 
-// test("Transformed schema schema uses default with correct type", t => {
-//   let schema = S.object(s =>
-//     s.field(
-//       "field",
-//       S.option(
-//         S.bool->S.transform(
-//           _ => {
-//             parser: bool => {
-//               switch bool {
-//               | true => "true"
-//               | false => ""
-//               }
-//             },
-//             serializer: string => {
-//               switch string {
-//               | "true" => true
-//               | _ => false
-//               }
-//             },
-//           },
-//         ),
-//       )->S.Option.getOrWith(() => "true"),
-//     )
-//   )
+test("Transformed schema schema uses default with correct type", t => {
+  let schema = S.object(s =>
+    s.field(
+      "field",
+      S.option(
+        S.bool->S.transform(
+          _ => {
+            parser: bool => {
+              switch bool {
+              | true => "true"
+              | false => ""
+              }
+            },
+            serializer: string => {
+              switch string {
+              | "true" => true
+              | _ => false
+              }
+            },
+          },
+        ),
+      )->S.Option.getOrWith(() => "true"),
+    )
+  )
 
-//   t->Assert.deepEqual(
-//     JSONSchema.make(schema),
-//     Ok(
-//       %raw(`{
-//         "$schema": "http://json-schema.org/draft-07/schema#",
-//         "additionalProperties": true,
-//         "properties": {"field": {"default": true, "type": "boolean"}},
-//         "type": "object",
-//       }`),
-//     ),
-//   )
-// })
+  t->Assert.deepEqual(
+    schema->S.toJSONSchema,
+    %raw(`{
+      "type": "object",
+      "properties": {"field": {"default": true, "type": "boolean"}},
+      "additionalProperties": true,
+    }`),
+    (),
+  )
+})
 
-// test("Primitive schema schema with additional raw schema", t => {
-//   let schema = S.bool->JSONSchema.extend({description: "foo"})
+test("Primitive schema schema with additional raw schema", t => {
+  let schema = S.bool->S.meta({description: "foo"})
 
-//   t->Assert.deepEqual(
-//     JSONSchema.make(schema),
-//     Ok(
-//       %raw(`{
-//         "$schema": "http://json-schema.org/draft-07/schema#",
-//         "type": "boolean",
-//         "description": "foo",
-//       }`),
-//     ),
-//   )
-// })
+  t->Assert.deepEqual(
+    schema->S.toJSONSchema,
+    %raw(`{
+      "type": "boolean",
+      "description": "foo",
+    }`),
+    (),
+  )
+})
 
-// test("Primitive schema with an example", t => {
-//   let schema = S.bool->JSONSchema.example(true)
+test("Primitive schema with an example", t => {
+  let schema = S.bool->S.meta({examples: [true]})
 
-//   t->Assert.deepEqual(
-//     JSONSchema.make(schema),
-//     Ok(
-//       %raw(`{
-//         "$schema": "http://json-schema.org/draft-07/schema#",
-//         "type": "boolean",
-//         "examples": [true],
-//       }`),
-//     ),
-//   )
-// })
+  t->Assert.deepEqual(
+    schema->S.toJSONSchema,
+    %raw(`{
+      "type": "boolean",
+      "examples": [true],
+    }`),
+    (),
+  )
+})
 
-// test("Transformed schema with an example", t => {
-//   let schema = S.null(S.bool)->JSONSchema.example(None)
+test("Transformed schema with an example", t => {
+  let schema = S.null(S.bool)->S.meta({examples: [%raw(`null`)]})
 
-//   t->Assert.deepEqual(
-//     JSONSchema.make(schema),
-//     Ok(
-//       %raw(`{
-//         "$schema": "http://json-schema.org/draft-07/schema#",
-//         "anyOf": [{"type": "boolean"}, {"type": "null"}],
-//         "examples": [null],
-//       }`),
-//     ),
-//   )
-// })
+  t->Assert.deepEqual(
+    schema->S.toJSONSchema,
+    %raw(`{
+      "anyOf": [{"type": "boolean"}, {"type": "null"}],
+      "examples": [null],
+    }`),
+    (),
+  )
+})
 
-// test("Multiple examples", t => {
-//   let schema = S.string->JSONSchema.example("Hi")->JSONSchema.example("It's me")
+test("Multiple examples", t => {
+  let schema = S.string->S.meta({examples: ["Hi", "It's me"]})
 
-//   t->Assert.deepEqual(
-//     JSONSchema.make(schema),
-//     Ok(
-//       %raw(`{
-//         "$schema": "http://json-schema.org/draft-07/schema#",
-//         "type": "string",
-//         "examples": ["Hi", "It's me"],
-//       }`),
-//     ),
-//   )
-// })
+  t->Assert.deepEqual(
+    schema->S.toJSONSchema,
+    %raw(`{
+      "type": "string",
+      "examples": ["Hi", "It's me"],
+    }`),
+    (),
+  )
+})
 
-// test("Multiple additional raw schemas are merged together", t => {
-//   let schema =
-//     S.bool
-//     ->JSONSchema.extend({"nullable": true}->Obj.magic)
-//     ->JSONSchema.extend({"deprecated": true}->Obj.magic)
+test("Multiple additional raw schemas are merged together", t => {
+  let schema =
+    S.bool
+    ->S.extendJSONSchema({nullable: true})
+    ->S.extendJSONSchema({deprecated: true})
 
-//   t->Assert.deepEqual(
-//     JSONSchema.make(schema),
-//     Ok(
-//       %raw(`{
-//         "$schema": "http://json-schema.org/draft-07/schema#",
-//         "type": "boolean",
-//         "deprecated": true,
-//         "nullable": true,
-//       }`),
-//     ),
-//   )
-// })
+  t->Assert.deepEqual(
+    schema->S.toJSONSchema,
+    %raw(`{
+      "type": "boolean",
+      "deprecated": true,
+      "nullable": true,
+    }`),
+    (),
+  )
+})
 
-// test("Additional raw schema works with optional fields", t => {
-//   let schema = S.object(s =>
-//     s.field("optionalField", S.option(S.string)->JSONSchema.extend({"nullable": true}->Obj.magic))
-//   )
+test("Additional raw schema works with optional fields", t => {
+  let schema = S.object(s =>
+    s.field("optionalField", S.option(S.string)->S.extendJSONSchema({nullable: true}))
+  )
 
-//   t->Assert.deepEqual(
-//     JSONSchema.make(schema),
-//     Ok(
-//       %raw(`{
-//         "$schema": "http://json-schema.org/draft-07/schema#",
-//         "type": "object",
-//         "properties": {
-//           "optionalField": {"nullable": true, "type": "string"},
-//         },
-//         "additionalProperties": true,
-//       }`),
-//     ),
-//   )
-// })
+  t->Assert.deepEqual(
+    schema->S.toJSONSchema,
+    %raw(`{
+      "type": "object",
+      "properties": {
+        "optionalField": {"nullable": true, "type": "string"},
+      },
+      "additionalProperties": true,
+    }`),
+    (),
+  )
+})
 
-// test("Unknown schema doesn't affect final schema", t => {
-//   let schema = S.unknown
+test("JSONSchema of unknown schema", t => {
+  t->U.assertThrowsMessage(
+    () => S.unknown->S.toJSONSchema,
+    `Failed converting to JSON: The 'unknown' schema cannot be converted to JSON`,
+  )
+})
 
-//   t->Assert.deepEqual(
-//     JSONSchema.make(schema),
-//     Ok(
-//       %raw(`{
-//         "$schema": "http://json-schema.org/draft-07/schema#",
-//       }`),
-//     ),
-//   )
-// })
+test("JSON schema doesn't affect final schema", t => {
+  let schema = S.json(~validate=false)
 
-// test("JSON schema doesn't affect final schema", t => {
-//   let schema = S.json(~validate=false)
+  t->Assert.deepEqual(schema->S.toJSONSchema, %raw(`{}`), ())
+})
 
-//   t->Assert.deepEqual(
-//     JSONSchema.make(schema),
-//     Ok(
-//       %raw(`{
-//         "$schema": "http://json-schema.org/draft-07/schema#",
-//       }`),
-//     ),
-//   )
-// })
+test("Fails to create schema for schemas with optional items", t => {
+  t->U.assertThrowsMessage(
+    () => S.array(S.option(S.string))->S.toJSONSchema,
+    "Failed converting to JSON: The '(string | undefined)[]' schema cannot be converted to JSON",
+  )
+  t->U.assertThrowsMessage(
+    () => S.union([S.option(S.string), S.null(S.string)])->S.toJSONSchema,
+    "Failed converting to JSON: The 'string | undefined | null' schema cannot be converted to JSON",
+  )
+  t->U.assertThrowsMessage(
+    () => S.tuple1(S.option(S.string))->S.toJSONSchema,
+    `Failed converting to JSON at ["0"]: The 'string | undefined' schema cannot be converted to JSON`,
+  )
+  t->U.assertThrowsMessage(
+    () => S.tuple1(S.array(S.option(S.string)))->S.toJSONSchema,
+    `Failed converting to JSON at ["0"]: The '(string | undefined)[]' schema cannot be converted to JSON`,
+  )
+})
 
-// test("Fails to create schema for schemas with optional items", t => {
-//   t->Assert.deepEqual(
-//     JSONSchema.make(S.dict(S.option(S.string))),
-//     Error(
-//       "[ReScript JSON Schema] Failed converting at root. Reason: Optional schema is not supported as dict<string | undefined> item",
-//     ),
-//   )
-//   t->Assert.deepEqual(
-//     JSONSchema.make(S.array(S.option(S.string))),
-//     Error(
-//       "[ReScript JSON Schema] Failed converting at root. Reason: Optional schema is not supported as array<string | undefined> item",
-//     ),
-//   )
-//   t->Assert.deepEqual(
-//     JSONSchema.make(S.union([S.option(S.string), S.null(S.string)])),
-//     Error(
-//       "[ReScript JSON Schema] Failed converting at root. Reason: Optional schema is not supported as string | undefined | string | null item",
-//     ),
-//   )
-//   t->Assert.deepEqual(
-//     JSONSchema.make(S.tuple1(S.option(S.string))),
-//     Error(`[ReScript JSON Schema] Failed converting at ["0"]. Reason: Optional schema is not supported as [string | undefined] item`),
-//   )
-//   t->Assert.deepEqual(
-//     JSONSchema.make(S.tuple1(S.array(S.option(S.string)))),
-//     Error(`[ReScript JSON Schema] Failed converting at ["0"]. Reason: Optional schema is not supported as array<string | undefined> item`),
-//   )
-// })
+module Example = {
+  type rating =
+    | @as("G") GeneralAudiences
+    | @as("PG") ParentalGuidanceSuggested
+    | @as("PG13") ParentalStronglyCautioned
+    | @as("R") Restricted
+  type film = {
+    id: float,
+    title: string,
+    tags: array<string>,
+    rating: rating,
+    deprecatedAgeRestriction: option<int>,
+  }
 
-// module Example = {
-//   type rating =
-//     | @as("G") GeneralAudiences
-//     | @as("PG") ParentalGuidanceSuggested
-//     | @as("PG13") ParentalStronglyCautioned
-//     | @as("R") Restricted
-//   type film = {
-//     id: float,
-//     title: string,
-//     tags: array<string>,
-//     rating: rating,
-//     deprecatedAgeRestriction: option<int>,
-//   }
+  test("Example", t => {
+    let filmSchema = S.object(s => {
+      id: s.field("Id", S.float),
+      title: s.field("Title", S.string),
+      tags: s.fieldOr("Tags", S.array(S.string), []),
+      rating: s.field(
+        "Rating",
+        S.union([
+          S.literal(GeneralAudiences),
+          S.literal(ParentalGuidanceSuggested),
+          S.literal(ParentalStronglyCautioned),
+          S.literal(Restricted),
+        ]),
+      ),
+      deprecatedAgeRestriction: s.field(
+        "Age",
+        S.option(S.int)->S.meta({description: "Use rating instead", deprecated: true}),
+      ),
+    })
 
-//   test("Example", t => {
-//     let filmSchema = S.object(s => {
-//       id: s.field("Id", S.float),
-//       title: s.field("Title", S.string),
-//       tags: s.fieldOr("Tags", S.array(S.string), []),
-//       rating: s.field(
-//         "Rating",
-//         S.union([
-//           S.literal(GeneralAudiences),
-//           S.literal(ParentalGuidanceSuggested),
-//           S.literal(ParentalStronglyCautioned),
-//           S.literal(Restricted),
-//         ]),
-//       ),
-//       deprecatedAgeRestriction: s.field("Age", S.option(S.int)->S.deprecate("Use rating instead")),
-//     })
-
-//     t->Assert.deepEqual(
-//       JSONSchema.make(filmSchema),
-//       Ok(
-//         %raw(`{
-//           $schema: "http://json-schema.org/draft-07/schema#",
-//           type: "object",
-//           properties: {
-//             Id: { type: "number" },
-//             Title: { type: "string" },
-//             Tags: { items: { type: "string" }, type: "array", default: [] },
-//             Rating: {
-//               enum: ["G", "PG", "PG13", "R"],
-//             },
-//             Age: {
-//               type: "integer",
-//               deprecated: true,
-//               description: "Use rating instead",
-//             },
-//           },
-//           additionalProperties: true,
-//           required: ["Id", "Title", "Rating"],
-//         }`),
-//       ),
-//     )
-//   })
-// }
+    t->Assert.deepEqual(
+      filmSchema->S.toJSONSchema,
+      %raw(`{
+        type: "object",
+        properties: {
+          Id: { type: "number" },
+          Title: { type: "string" },
+          Tags: { items: { type: "string" }, type: "array", default: [] },
+          Rating: {
+            enum: ["G", "PG", "PG13", "R"],
+          },
+          Age: {
+            type: "integer",
+            deprecated: true,
+            description: "Use rating instead",
+          },
+        },
+        additionalProperties: true,
+        required: ["Id", "Title", "Rating"],
+      }`),
+      (),
+    )
+  })
+}

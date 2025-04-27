@@ -74,12 +74,12 @@
 - Move all ts files to S.d.ts as a source of truth (better IDE display on hover)
 - Renamed `rescript-schema-ppx` to `sury-ppx`
 - Add `nullable` to JSONSchema.res type
+- Support `default` for `S.toJSONSchema`
 
 ### Scope
 
 ### Final release fixes
 
-- Fix default for S.toJSONSchema
 - Fix all tests marked as Failing
 - Update docs
 - Fix all fixme

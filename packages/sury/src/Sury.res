@@ -5105,6 +5105,20 @@ module RescriptJSONSchema = {
 
         let itemsNumber = items->Js.Array2.length
 
+        switch schema->Option.default {
+        | Some(default) =>
+          let serialize = schema->operationFn(Flag.reverse)
+          jsonSchema.default = Some(
+            switch default {
+            | Value(v) => v
+            | Callback(cb) => cb()
+            }
+            ->serialize
+            ->(Obj.magic: unknown => Js.Json.t),
+          )
+        | None => ()
+        }
+
         // TODO: Write a breaking test with itemsNumber === 0
         if itemsNumber === 1 {
           jsonSchema->Mutable.mixin(items->Js.Array2.unsafe_get(0)->Obj.magic)
