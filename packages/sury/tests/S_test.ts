@@ -133,12 +133,12 @@ test("Fails to parse float when NaN is provided", (t) => {
 });
 
 test("Successfully parses float when NaN is provided and NaN check disabled in global config", (t) => {
-  S.setGlobalConfig({
+  S.global({
     disableNanNumberValidation: true,
   });
   const schema = S.number;
   const value = S.parseOrThrow(NaN, schema);
-  S.setGlobalConfig({});
+  S.global({});
 
   t.deepEqual(value, NaN);
 
@@ -1000,14 +1000,14 @@ test("Fails to parse deep strict object with exccess fields", (t) => {
 });
 
 test("Fails to parse strict object with exccess fields which created using global config override", (t) => {
-  S.setGlobalConfig({
+  S.global({
     defaultAdditionalItems: "strict",
   });
   const schema = S.schema({
     foo: S.string,
   });
   // Reset global config back
-  S.setGlobalConfig({});
+  S.global({});
 
   t.throws(
     () => {

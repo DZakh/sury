@@ -9,133 +9,138 @@ function addWithPrepare(suite, name, fn) {
 }
 
 function run(suite) {
-  suite.on("cycle", (function ($$event) {
-            console.log($$event.target.toString());
-          })).run();
+  suite
+    .on("cycle", function ($$event) {
+      console.log($$event.target.toString());
+    })
+    .run();
 }
 
 function makeTestObject() {
-  return (Object.freeze({
+  return Object.freeze({
     number: 1,
     negNumber: -1,
     maxNumber: Number.MAX_VALUE,
-    string: 'string',
+    string: "string",
     longString:
-      'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Vivendum intellegat et qui, ei denique consequuntur vix. Semper aeterno percipit ut his, sea ex utinam referrentur repudiandae. No epicuri hendrerit consetetur sit, sit dicta adipiscing ex, in facete detracto deterruisset duo. Quot populo ad qui. Sit fugit nostrum et. Ad per diam dicant interesset, lorem iusto sensibus ut sed. No dicam aperiam vis. Pri posse graeco definitiones cu, id eam populo quaestio adipiscing, usu quod malorum te. Ex nam agam veri, dicunt efficiantur ad qui, ad legere adversarium sit. Commune platonem mel id, brute adipiscing duo an. Vivendum intellegat et qui, ei denique consequuntur vix. Offendit eleifend moderatius ex vix, quem odio mazim et qui, purto expetendis cotidieque quo cu, veri persius vituperata ei nec. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.',
+      "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Vivendum intellegat et qui, ei denique consequuntur vix. Semper aeterno percipit ut his, sea ex utinam referrentur repudiandae. No epicuri hendrerit consetetur sit, sit dicta adipiscing ex, in facete detracto deterruisset duo. Quot populo ad qui. Sit fugit nostrum et. Ad per diam dicant interesset, lorem iusto sensibus ut sed. No dicam aperiam vis. Pri posse graeco definitiones cu, id eam populo quaestio adipiscing, usu quod malorum te. Ex nam agam veri, dicunt efficiantur ad qui, ad legere adversarium sit. Commune platonem mel id, brute adipiscing duo an. Vivendum intellegat et qui, ei denique consequuntur vix. Offendit eleifend moderatius ex vix, quem odio mazim et qui, purto expetendis cotidieque quo cu, veri persius vituperata ei nec. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.",
     boolean: true,
     deeplyNested: {
-      foo: 'bar',
+      foo: "bar",
       num: 1,
       bool: false,
     },
-  }));
+  });
 }
 
 function makeAdvancedObjectSchema() {
   return S.object(function (s) {
-              return {
-                      number: s.f("number", S.$$float),
-                      negNumber: s.f("negNumber", S.$$float),
-                      maxNumber: s.f("maxNumber", S.$$float),
-                      string: s.f("string", S.string),
-                      longString: s.f("longString", S.string),
-                      boolean: s.f("boolean", S.bool),
-                      deeplyNested: s.f("deeplyNested", S.object(function (s) {
-                                return {
-                                        foo: s.f("foo", S.string),
-                                        num: s.f("num", S.$$float),
-                                        bool: s.f("bool", S.bool)
-                                      };
-                              }))
-                    };
-            });
+    return {
+      number: s.f("number", S.$$float),
+      negNumber: s.f("negNumber", S.$$float),
+      maxNumber: s.f("maxNumber", S.$$float),
+      string: s.f("string", S.string),
+      longString: s.f("longString", S.string),
+      boolean: s.f("boolean", S.bool),
+      deeplyNested: s.f(
+        "deeplyNested",
+        S.object(function (s) {
+          return {
+            foo: s.f("foo", S.string),
+            num: s.f("num", S.$$float),
+            bool: s.f("bool", S.bool),
+          };
+        })
+      ),
+    };
+  });
 }
 
 function makeObjectSchema() {
   return S.schema(function (s) {
-              return {
-                      number: s.m(S.$$float),
-                      negNumber: s.m(S.$$float),
-                      maxNumber: s.m(S.$$float),
-                      string: s.m(S.string),
-                      longString: s.m(S.string),
-                      boolean: s.m(S.bool),
-                      deeplyNested: {
-                        foo: s.m(S.string),
-                        num: s.m(S.$$float),
-                        bool: s.m(S.bool)
-                      }
-                    };
-            });
+    return {
+      number: s.m(S.$$float),
+      negNumber: s.m(S.$$float),
+      maxNumber: s.m(S.$$float),
+      string: s.m(S.string),
+      longString: s.m(S.string),
+      boolean: s.m(S.bool),
+      deeplyNested: {
+        foo: s.m(S.string),
+        num: s.m(S.$$float),
+        bool: s.m(S.bool),
+      },
+    };
+  });
 }
 
-S.setGlobalConfig({
-      disableNanNumberValidation: true
-    });
+S.global({
+  disableNanNumberValidation: true,
+});
 
 var schema = S.recursive(function (schema) {
-      return S.union([
-                  S.object(function (s) {
-                        s.tag("type", "A");
-                        return {
-                                TAG: "A",
-                                _0: s.f("nested", S.array(schema))
-                              };
-                      }),
-                  S.literal("B"),
-                  S.literal("C"),
-                  S.literal("D"),
-                  S.literal("E"),
-                  S.literal("F"),
-                  S.literal("G"),
-                  S.literal("H"),
-                  S.literal("I"),
-                  S.literal("J"),
-                  S.literal("K"),
-                  S.literal("L"),
-                  S.literal("M"),
-                  S.literal("N"),
-                  S.literal("O"),
-                  S.literal("P"),
-                  S.literal("Q"),
-                  S.literal("R"),
-                  S.literal("S"),
-                  S.literal("T"),
-                  S.literal("U"),
-                  S.literal("V"),
-                  S.literal("W"),
-                  S.literal("X"),
-                  S.literal("Y"),
-                  S.object(function (s) {
-                        s.tag("type", "Z");
-                        return {
-                                TAG: "Z",
-                                _0: s.f("nested", S.array(schema))
-                              };
-                      })
-                ]);
-    });
+  return S.union([
+    S.object(function (s) {
+      s.tag("type", "A");
+      return {
+        TAG: "A",
+        _0: s.f("nested", S.array(schema)),
+      };
+    }),
+    S.literal("B"),
+    S.literal("C"),
+    S.literal("D"),
+    S.literal("E"),
+    S.literal("F"),
+    S.literal("G"),
+    S.literal("H"),
+    S.literal("I"),
+    S.literal("J"),
+    S.literal("K"),
+    S.literal("L"),
+    S.literal("M"),
+    S.literal("N"),
+    S.literal("O"),
+    S.literal("P"),
+    S.literal("Q"),
+    S.literal("R"),
+    S.literal("S"),
+    S.literal("T"),
+    S.literal("U"),
+    S.literal("V"),
+    S.literal("W"),
+    S.literal("X"),
+    S.literal("Y"),
+    S.object(function (s) {
+      s.tag("type", "Z");
+      return {
+        TAG: "Z",
+        _0: s.f("nested", S.array(schema)),
+      };
+    }),
+  ]);
+});
 
 var testData1 = {
   TAG: "Z",
   _0: Core__Array.make(25, {
-        TAG: "Z",
-        _0: Core__Array.make(25, {
-              TAG: "Z",
-              _0: Core__Array.make(25, "Y")
-            })
-      })
+    TAG: "Z",
+    _0: Core__Array.make(25, {
+      TAG: "Z",
+      _0: Core__Array.make(25, "Y"),
+    }),
+  }),
 };
 
 var testData2 = {
   TAG: "A",
   _0: Core__Array.make(25, {
-        TAG: "A",
-        _0: Core__Array.make(25, {
-              TAG: "A",
-              _0: Core__Array.make(25, "B")
-            })
-      })
+    TAG: "A",
+    _0: Core__Array.make(25, {
+      TAG: "A",
+      _0: Core__Array.make(25, "B"),
+    }),
+  }),
 };
 
 function test() {
@@ -201,126 +206,205 @@ console.timeEnd("serializeWith: 3");
 
 console.time("S.Error.make");
 
-S.ErrorClass.constructor({
-      TAG: "OperationFailed",
-      _0: "Should be positive"
-    }, S.Flag.typeValidation, S.Path.empty);
+S.ErrorClass.constructor(
+  {
+    TAG: "OperationFailed",
+    _0: "Should be positive",
+  },
+  S.Flag.typeValidation,
+  S.Path.empty
+);
 
 console.timeEnd("S.Error.make");
 
-run(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(new (Benchmark.default.Suite)().add("S.schema - make", (function () {
-                                                                              return makeObjectSchema();
-                                                                            })), "S.schema - make + parse", (function () {
-                                                                          var data = makeTestObject();
-                                                                          return function () {
-                                                                            var schema = makeObjectSchema();
-                                                                            return S.parseOrThrow(data, schema);
-                                                                          };
-                                                                        })), "S.schema - parse", (function () {
-                                                                      var schema = makeObjectSchema();
-                                                                      var data = makeTestObject();
-                                                                      return function () {
-                                                                        return S.parseOrThrow(data, schema);
-                                                                      };
-                                                                    })), "S.schema - parse strict", (function () {
-                                                                  S.setGlobalConfig({
-                                                                        defaultAdditionalItems: "strict",
-                                                                        disableNanNumberValidation: true
-                                                                      });
-                                                                  var schema = makeObjectSchema();
-                                                                  S.setGlobalConfig({
-                                                                        disableNanNumberValidation: true
-                                                                      });
-                                                                  var data = makeTestObject();
-                                                                  return function () {
-                                                                    return S.parseOrThrow(data, schema);
-                                                                  };
-                                                                })).add("S.schema - make + reverse", (function () {
-                                                                return S.reverse(makeObjectSchema());
-                                                              })), "S.schema - make + reverse convert", (function () {
-                                                            var data = makeTestObject();
-                                                            return function () {
-                                                              var schema = makeObjectSchema();
-                                                              return S.reverseConvertOrThrow(data, schema);
-                                                            };
-                                                          })), "S.schema - reverse convert", (function () {
-                                                        var schema = makeObjectSchema();
-                                                        var data = makeTestObject();
-                                                        return function () {
-                                                          return S.reverseConvertOrThrow(data, schema);
-                                                        };
-                                                      })), "S.schema - reverse convert (compiled)", (function () {
-                                                    var schema = makeObjectSchema();
-                                                    var data = makeTestObject();
-                                                    var fn = S.compile(schema, "Output", "Input", "Sync", false);
-                                                    return function () {
-                                                      return fn(data);
-                                                    };
-                                                  })), "S.schema - assert", (function () {
-                                                var schema = makeObjectSchema();
-                                                var data = makeTestObject();
-                                                return function () {
-                                                  S.assertOrThrow(data, schema);
-                                                };
-                                              })), "S.schema - assert (compiled)", (function () {
-                                            var schema = makeObjectSchema();
-                                            var data = makeTestObject();
-                                            var assertFn = S.compile(schema, "Any", "Assert", "Sync", true);
-                                            return function () {
-                                              assertFn(data);
-                                            };
-                                          })), "S.schema - assert strict", (function () {
-                                        S.setGlobalConfig({
-                                              defaultAdditionalItems: "strict",
-                                              disableNanNumberValidation: true
-                                            });
-                                        var schema = makeObjectSchema();
-                                        S.setGlobalConfig({
-                                              disableNanNumberValidation: true
-                                            });
-                                        var data = makeTestObject();
-                                        return function () {
-                                          S.assertOrThrow(data, schema);
-                                        };
-                                      })).add("S.object - make", (function () {
-                                      return makeAdvancedObjectSchema();
-                                    })), "S.object - make + parse", (function () {
+run(
+  addWithPrepare(
+    addWithPrepare(
+      addWithPrepare(
+        addWithPrepare(
+          addWithPrepare(
+            addWithPrepare(
+              addWithPrepare(
+                addWithPrepare(
+                  addWithPrepare(
+                    addWithPrepare(
+                      addWithPrepare(
+                        addWithPrepare(
+                          addWithPrepare(
+                            addWithPrepare(
+                              addWithPrepare(
+                                new Benchmark.default.Suite().add(
+                                  "S.schema - make",
+                                  function () {
+                                    return makeObjectSchema();
+                                  }
+                                ),
+                                "S.schema - make + parse",
+                                function () {
                                   var data = makeTestObject();
                                   return function () {
-                                    var schema = makeAdvancedObjectSchema();
+                                    var schema = makeObjectSchema();
                                     return S.parseOrThrow(data, schema);
                                   };
-                                })), "S.object - parse", (function () {
-                              var schema = makeAdvancedObjectSchema();
+                                }
+                              ),
+                              "S.schema - parse",
+                              function () {
+                                var schema = makeObjectSchema();
+                                var data = makeTestObject();
+                                return function () {
+                                  return S.parseOrThrow(data, schema);
+                                };
+                              }
+                            ),
+                            "S.schema - parse strict",
+                            function () {
+                              S.global({
+                                defaultAdditionalItems: "strict",
+                                disableNanNumberValidation: true,
+                              });
+                              var schema = makeObjectSchema();
+                              S.global({
+                                disableNanNumberValidation: true,
+                              });
                               var data = makeTestObject();
                               return function () {
                                 return S.parseOrThrow(data, schema);
                               };
-                            })).add("S.object - make + reverse", (function () {
-                            return S.reverse(makeAdvancedObjectSchema());
-                          })), "S.object - make + reverse convert", (function () {
+                            }
+                          ).add("S.schema - make + reverse", function () {
+                            return S.reverse(makeObjectSchema());
+                          }),
+                          "S.schema - make + reverse convert",
+                          function () {
+                            var data = makeTestObject();
+                            return function () {
+                              var schema = makeObjectSchema();
+                              return S.reverseConvertOrThrow(data, schema);
+                            };
+                          }
+                        ),
+                        "S.schema - reverse convert",
+                        function () {
+                          var schema = makeObjectSchema();
+                          var data = makeTestObject();
+                          return function () {
+                            return S.reverseConvertOrThrow(data, schema);
+                          };
+                        }
+                      ),
+                      "S.schema - reverse convert (compiled)",
+                      function () {
+                        var schema = makeObjectSchema();
                         var data = makeTestObject();
+                        var fn = S.compile(
+                          schema,
+                          "Output",
+                          "Input",
+                          "Sync",
+                          false
+                        );
                         return function () {
-                          var schema = makeAdvancedObjectSchema();
-                          return S.reverseConvertOrThrow(data, schema);
+                          return fn(data);
                         };
-                      })), "S.object - reverse convert", (function () {
-                    var schema = makeAdvancedObjectSchema();
+                      }
+                    ),
+                    "S.schema - assert",
+                    function () {
+                      var schema = makeObjectSchema();
+                      var data = makeTestObject();
+                      return function () {
+                        S.assertOrThrow(data, schema);
+                      };
+                    }
+                  ),
+                  "S.schema - assert (compiled)",
+                  function () {
+                    var schema = makeObjectSchema();
                     var data = makeTestObject();
+                    var assertFn = S.compile(
+                      schema,
+                      "Any",
+                      "Assert",
+                      "Sync",
+                      true
+                    );
                     return function () {
-                      return S.reverseConvertOrThrow(data, schema);
+                      assertFn(data);
                     };
-                  })), "S.string - parse", (function () {
+                  }
+                ),
+                "S.schema - assert strict",
+                function () {
+                  S.global({
+                    defaultAdditionalItems: "strict",
+                    disableNanNumberValidation: true,
+                  });
+                  var schema = makeObjectSchema();
+                  S.global({
+                    disableNanNumberValidation: true,
+                  });
+                  var data = makeTestObject();
+                  return function () {
+                    S.assertOrThrow(data, schema);
+                  };
+                }
+              ).add("S.object - make", function () {
+                return makeAdvancedObjectSchema();
+              }),
+              "S.object - make + parse",
+              function () {
+                var data = makeTestObject();
                 return function () {
-                  return S.parseOrThrow("Hello world!", S.string);
+                  var schema = makeAdvancedObjectSchema();
+                  return S.parseOrThrow(data, schema);
                 };
-              })), "S.string - reverse convert", (function () {
+              }
+            ),
+            "S.object - parse",
+            function () {
+              var schema = makeAdvancedObjectSchema();
+              var data = makeTestObject();
+              return function () {
+                return S.parseOrThrow(data, schema);
+              };
+            }
+          ).add("S.object - make + reverse", function () {
+            return S.reverse(makeAdvancedObjectSchema());
+          }),
+          "S.object - make + reverse convert",
+          function () {
+            var data = makeTestObject();
             return function () {
-              return S.reverseConvertOrThrow("Hello world!", S.string);
+              var schema = makeAdvancedObjectSchema();
+              return S.reverseConvertOrThrow(data, schema);
             };
-          })));
+          }
+        ),
+        "S.object - reverse convert",
+        function () {
+          var schema = makeAdvancedObjectSchema();
+          var data = makeTestObject();
+          return function () {
+            return S.reverseConvertOrThrow(data, schema);
+          };
+        }
+      ),
+      "S.string - parse",
+      function () {
+        return function () {
+          return S.parseOrThrow("Hello world!", S.string);
+        };
+      }
+    ),
+    "S.string - reverse convert",
+    function () {
+      return function () {
+        return S.reverseConvertOrThrow("Hello world!", S.string);
+      };
+    }
+  )
+);
 
-export {
-  
-}
+export {};
 /*  Not a pure module */

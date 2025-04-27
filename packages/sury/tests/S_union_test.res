@@ -644,7 +644,7 @@ module CrazyUnion = {
   )
 
   test("Compiled parse code snapshot of crazy union", t => {
-    S.setGlobalConfig({})
+    S.global({})
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
@@ -653,7 +653,7 @@ module CrazyUnion = {
   })
 
   test("Compiled serialize code snapshot of crazy union", t => {
-    S.setGlobalConfig({})
+    S.global({})
     let code = `i=>{let r0=i=>{if(typeof i==="object"&&i){if(i["TAG"]==="A"){let v0=i["TAG"],v1=i["_0"],v5=new Array(v1.length);if(v0!=="A"){e[0](v0)}for(let v2=0;v2<v1.length;++v2){let v4;try{v4=r0(v1[v2])}catch(v3){if(v3&&v3.s===s){v3.path="[\\"_0\\"]"+\'["\'+v2+\'"]\'+v3.path}throw v3}v5[v2]=v4}i={"type":e[1],"nested":v5,}}else if(i["TAG"]==="Z"){let v6=i["TAG"],v7=i["_0"],v11=new Array(v7.length);if(v6!=="Z"){e[2](v6)}for(let v8=0;v8<v7.length;++v8){let v10;try{v10=r0(v7[v8])}catch(v9){if(v9&&v9.s===s){v9.path="[\\"_0\\"]"+\'["\'+v8+\'"]\'+v9.path}throw v9}v11[v8]=v10}i={"type":e[3],"nested":v11,}}}return i};return r0(i)}`
     t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, code)
     // There was an issue with reverse when it doesn't return the same code on second run

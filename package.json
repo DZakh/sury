@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "res": "cd packages/sury && pnpm res",
-    "test": "pnpm --filter=sury test && pnpm --filter=e2e test"
+    "test": "pnpm --filter=sury test && pnpm --filter=e2e test",
+    "build": "pnpm --filter=sury build"
   },
   "packageManager": "pnpm@9.0.5",
   "dependencies": {

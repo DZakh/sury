@@ -94,7 +94,7 @@ let makeObjectSchema = () => {
   )
 }
 
-S.setGlobalConfig({
+S.global({
   disableNanNumberValidation: true,
 })
 
@@ -240,12 +240,12 @@ Suite.make()
   }
 })
 ->Suite.addWithPrepare("S.schema - parse strict", () => {
-  S.setGlobalConfig({
+  S.global({
     disableNanNumberValidation: true,
     defaultAdditionalItems: Strict,
   })
   let schema = makeObjectSchema()
-  S.setGlobalConfig({
+  S.global({
     disableNanNumberValidation: true,
   })
   let data = makeTestObject()
@@ -292,12 +292,12 @@ Suite.make()
   }
 })
 ->Suite.addWithPrepare("S.schema - assert strict", () => {
-  S.setGlobalConfig({
+  S.global({
     disableNanNumberValidation: true,
     defaultAdditionalItems: Strict,
   })
   let schema = makeObjectSchema()
-  S.setGlobalConfig({
+  S.global({
     disableNanNumberValidation: true,
   })
   let data = makeTestObject()

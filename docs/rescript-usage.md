@@ -668,10 +668,10 @@ let schema = S.object(_ => ())->S.strict
 
 By default **Sury** silently strips unrecognized keys when parsing objects. You can change the behaviour to disallow unrecognized keys with the `S.strict` function.
 
-If you want to change it for all schemas in your app, you can use `S.setGlobalConfig` function:
+If you want to change it for all schemas in your app, you can use `S.global` function:
 
 ```rescript
-S.setGlobalConfig({
+S.global({
   defaultAdditionalItems: Strict,
 })
 ```
@@ -1515,7 +1515,7 @@ try true->S.parseOrThrow(schema) catch {
 `defaultAdditionalItems` is an option that controls how unknown keys are handled when parsing objects. The default value is `Strip`, but you can globally change it to `Strict` to enforce strict object parsing.
 
 ```rescript
-S.setGlobalConfig({
+S.global({
   defaultAdditionalItems: Strict,
 })
 ```
@@ -1525,7 +1525,7 @@ S.setGlobalConfig({
 `disableNanNumberValidation` is an option that controls whether the library should check for NaN values when parsing numbers. The default value is `false`, but you can globally change it to `true` to allow NaN values. If you parse many numbers which are guaranteed to be non-NaN, you can set it to `true` to improve performance ~10%, depending on the case.
 
 ```rescript
-S.setGlobalConfig({
+S.global({
   disableNanNumberValidation: true,
 })
 ```

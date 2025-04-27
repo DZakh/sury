@@ -514,7 +514,7 @@ type globalConfigOverride = {
   disableNanNumberValidation?: bool,
 }
 
-let setGlobalConfig: globalConfigOverride => unit
+let global: globalConfigOverride => unit
 
 // =============
 // JS/TS API

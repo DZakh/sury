@@ -63,4 +63,4 @@ export const url = S.url
 export const pattern = S.pattern
 export const datetime = S.datetime
 export const trim = S.trim
-export const setGlobalConfig = S.setGlobalConfig
+export const global = S.$$global

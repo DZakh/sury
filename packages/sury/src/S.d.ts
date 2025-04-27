@@ -639,9 +639,7 @@ export type GlobalConfigOverride = {
   disableNanNumberValidation?: boolean;
 };
 
-export function setGlobalConfig(
-  globalConfigOverride: GlobalConfigOverride
-): void;
+export function global(globalConfigOverride: GlobalConfigOverride): void;
 
 type CompileInputMappings<Input, Output> = {
   Input: Input;

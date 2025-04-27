@@ -10,7 +10,7 @@ import { Value } from "@sinclair/typebox/value";
 import { TypeCompiler } from "@sinclair/typebox/compiler";
 import { TypeSystemPolicy } from "@sinclair/typebox/system";
 
-S.setGlobalConfig({
+S.global({
   disableNanNumberValidation: true,
 });
 TypeSystemPolicy.AllowNaN = true;

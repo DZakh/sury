@@ -306,8 +306,8 @@ var filesMapping = [
     "S.trim"
   ],
   [
-    "setGlobalConfig",
-    "S.setGlobalConfig"
+    "global",
+    "S.$$global"
   ]
 ];
 

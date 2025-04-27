@@ -729,7 +729,7 @@ module BenchmarkWithSObject = {
   }
 
   test("Successfully parses object from benchmark - with S.object", t => {
-    S.setGlobalConfig({
+    S.global({
       disableNanNumberValidation: true,
     })
     let schema = makeSchema()
@@ -741,11 +741,11 @@ module BenchmarkWithSObject = {
       ~op=#Parse,
       `i=>{if(typeof i!=="object"||!i){e[10](i)}let v0=i["number"],v1=i["negNumber"],v2=i["maxNumber"],v3=i["string"],v4=i["longString"],v5=i["boolean"],v6=i["deeplyNested"];if(typeof v0!=="number"){e[0](v0)}if(typeof v1!=="number"){e[1](v1)}if(typeof v2!=="number"){e[2](v2)}if(typeof v3!=="string"){e[3](v3)}if(typeof v4!=="string"){e[4](v4)}if(typeof v5!=="boolean"){e[5](v5)}if(typeof v6!=="object"||!v6){e[6](v6)}let v7=v6["foo"],v8=v6["num"],v9=v6["bool"];if(typeof v7!=="string"){e[7](v7)}if(typeof v8!=="number"){e[8](v8)}if(typeof v9!=="boolean"){e[9](v9)}return {"number":v0,"negNumber":v1,"maxNumber":v2,"string":v3,"longString":v4,"boolean":v5,"deeplyNested":{"foo":v7,"num":v8,"bool":v9,},}}`,
     )
-    S.setGlobalConfig({})
+    S.global({})
   })
 
   test("Successfully asserts object from benchmark - with S.object", t => {
-    S.setGlobalConfig({
+    S.global({
       disableNanNumberValidation: true,
     })
     let schema = makeSchema()
@@ -757,11 +757,11 @@ module BenchmarkWithSObject = {
       ~op=#Assert,
       `i=>{if(typeof i!=="object"||!i){e[10](i)}let v0=i["number"],v1=i["negNumber"],v2=i["maxNumber"],v3=i["string"],v4=i["longString"],v5=i["boolean"],v6=i["deeplyNested"];if(typeof v0!=="number"){e[0](v0)}if(typeof v1!=="number"){e[1](v1)}if(typeof v2!=="number"){e[2](v2)}if(typeof v3!=="string"){e[3](v3)}if(typeof v4!=="string"){e[4](v4)}if(typeof v5!=="boolean"){e[5](v5)}if(typeof v6!=="object"||!v6){e[6](v6)}let v7=v6["foo"],v8=v6["num"],v9=v6["bool"];if(typeof v7!=="string"){e[7](v7)}if(typeof v8!=="number"){e[8](v8)}if(typeof v9!=="boolean"){e[9](v9)}return void 0}`,
     )
-    S.setGlobalConfig({})
+    S.global({})
   })
 
   test("Successfully parses strict object from benchmark - with S.object", t => {
-    S.setGlobalConfig({
+    S.global({
       disableNanNumberValidation: true,
       defaultAdditionalItems: Strict,
     })
@@ -774,11 +774,11 @@ module BenchmarkWithSObject = {
       ~op=#Parse,
       `i=>{if(typeof i!=="object"||!i||Array.isArray(i)){e[12](i)}let v0=i["number"],v1=i["negNumber"],v2=i["maxNumber"],v3=i["string"],v4=i["longString"],v5=i["boolean"],v6=i["deeplyNested"],v11;if(typeof v0!=="number"){e[0](v0)}if(typeof v1!=="number"){e[1](v1)}if(typeof v2!=="number"){e[2](v2)}if(typeof v3!=="string"){e[3](v3)}if(typeof v4!=="string"){e[4](v4)}if(typeof v5!=="boolean"){e[5](v5)}if(typeof v6!=="object"||!v6||Array.isArray(v6)){e[6](v6)}let v7=v6["foo"],v8=v6["num"],v9=v6["bool"],v10;if(typeof v7!=="string"){e[7](v7)}if(typeof v8!=="number"){e[8](v8)}if(typeof v9!=="boolean"){e[9](v9)}for(v10 in v6){if(v10!=="foo"&&v10!=="num"&&v10!=="bool"){e[10](v10)}}for(v11 in i){if(v11!=="number"&&v11!=="negNumber"&&v11!=="maxNumber"&&v11!=="string"&&v11!=="longString"&&v11!=="boolean"&&v11!=="deeplyNested"){e[11](v11)}}return {"number":v0,"negNumber":v1,"maxNumber":v2,"string":v3,"longString":v4,"boolean":v5,"deeplyNested":{"foo":v7,"num":v8,"bool":v9,},}}`,
     )
-    S.setGlobalConfig({})
+    S.global({})
   })
 
   test("Successfully asserts strict object from benchmark - with S.object", t => {
-    S.setGlobalConfig({
+    S.global({
       disableNanNumberValidation: true,
       defaultAdditionalItems: Strict,
     })
@@ -791,11 +791,11 @@ module BenchmarkWithSObject = {
       ~op=#Assert,
       `i=>{if(typeof i!=="object"||!i||Array.isArray(i)){e[12](i)}let v0=i["number"],v1=i["negNumber"],v2=i["maxNumber"],v3=i["string"],v4=i["longString"],v5=i["boolean"],v6=i["deeplyNested"],v11;if(typeof v0!=="number"){e[0](v0)}if(typeof v1!=="number"){e[1](v1)}if(typeof v2!=="number"){e[2](v2)}if(typeof v3!=="string"){e[3](v3)}if(typeof v4!=="string"){e[4](v4)}if(typeof v5!=="boolean"){e[5](v5)}if(typeof v6!=="object"||!v6||Array.isArray(v6)){e[6](v6)}let v7=v6["foo"],v8=v6["num"],v9=v6["bool"],v10;if(typeof v7!=="string"){e[7](v7)}if(typeof v8!=="number"){e[8](v8)}if(typeof v9!=="boolean"){e[9](v9)}for(v10 in v6){if(v10!=="foo"&&v10!=="num"&&v10!=="bool"){e[10](v10)}}for(v11 in i){if(v11!=="number"&&v11!=="negNumber"&&v11!=="maxNumber"&&v11!=="string"&&v11!=="longString"&&v11!=="boolean"&&v11!=="deeplyNested"){e[11](v11)}}return void 0}`,
     )
-    S.setGlobalConfig({})
+    S.global({})
   })
 
   test("Successfully serializes object from benchmark - with S.object", t => {
-    S.setGlobalConfig({
+    S.global({
       disableNanNumberValidation: true,
     })
     let schema = makeSchema()
@@ -807,7 +807,7 @@ module BenchmarkWithSObject = {
       ~op=#ReverseConvert,
       `i=>{let v0=i["deeplyNested"];return {"number":i["number"],"negNumber":i["negNumber"],"maxNumber":i["maxNumber"],"string":i["string"],"longString":i["longString"],"boolean":i["boolean"],"deeplyNested":{"foo":v0["foo"],"num":v0["num"],"bool":v0["bool"],},}}`,
     )
-    S.setGlobalConfig({})
+    S.global({})
   })
 }
 
@@ -848,7 +848,7 @@ module Benchmark = {
   }
 
   test("Successfully parses object from benchmark", t => {
-    S.setGlobalConfig({
+    S.global({
       disableNanNumberValidation: true,
     })
     let schema = makeSchema()
@@ -861,11 +861,11 @@ module Benchmark = {
 
     t->Assert.deepEqual(makeTestObject()->S.parseOrThrow(schema), makeTestObject(), ())
 
-    S.setGlobalConfig({})
+    S.global({})
   })
 
   test("Successfully asserts object from benchmark", t => {
-    S.setGlobalConfig({
+    S.global({
       disableNanNumberValidation: true,
     })
     let schema = makeSchema()
@@ -877,11 +877,11 @@ module Benchmark = {
       ~op=#Assert,
       `i=>{if(typeof i!=="object"||!i){e[10](i)}let v0=i["number"],v1=i["negNumber"],v2=i["maxNumber"],v3=i["string"],v4=i["longString"],v5=i["boolean"],v6=i["deeplyNested"];if(typeof v0!=="number"){e[0](v0)}if(typeof v1!=="number"){e[1](v1)}if(typeof v2!=="number"){e[2](v2)}if(typeof v3!=="string"){e[3](v3)}if(typeof v4!=="string"){e[4](v4)}if(typeof v5!=="boolean"){e[5](v5)}if(typeof v6!=="object"||!v6){e[6](v6)}let v7=v6["foo"],v8=v6["num"],v9=v6["bool"];if(typeof v7!=="string"){e[7](v7)}if(typeof v8!=="number"){e[8](v8)}if(typeof v9!=="boolean"){e[9](v9)}return void 0}`,
     )
-    S.setGlobalConfig({})
+    S.global({})
   })
 
   test("Successfully parses strict object from benchmark", t => {
-    S.setGlobalConfig({
+    S.global({
       disableNanNumberValidation: true,
       defaultAdditionalItems: Strict,
     })
@@ -894,11 +894,11 @@ module Benchmark = {
       ~op=#Parse,
       `i=>{if(typeof i!=="object"||!i||Array.isArray(i)){e[12](i)}let v0=i["number"],v1=i["negNumber"],v2=i["maxNumber"],v3=i["string"],v4=i["longString"],v5=i["boolean"],v6=i["deeplyNested"],v11;if(typeof v0!=="number"){e[0](v0)}if(typeof v1!=="number"){e[1](v1)}if(typeof v2!=="number"){e[2](v2)}if(typeof v3!=="string"){e[3](v3)}if(typeof v4!=="string"){e[4](v4)}if(typeof v5!=="boolean"){e[5](v5)}if(typeof v6!=="object"||!v6||Array.isArray(v6)){e[6](v6)}let v7=v6["foo"],v8=v6["num"],v9=v6["bool"],v10;if(typeof v7!=="string"){e[7](v7)}if(typeof v8!=="number"){e[8](v8)}if(typeof v9!=="boolean"){e[9](v9)}for(v10 in v6){if(v10!=="foo"&&v10!=="num"&&v10!=="bool"){e[10](v10)}}for(v11 in i){if(v11!=="number"&&v11!=="negNumber"&&v11!=="maxNumber"&&v11!=="string"&&v11!=="longString"&&v11!=="boolean"&&v11!=="deeplyNested"){e[11](v11)}}return i}`,
     )
-    S.setGlobalConfig({})
+    S.global({})
   })
 
   test("Successfully asserts strict object from benchmark", t => {
-    S.setGlobalConfig({
+    S.global({
       disableNanNumberValidation: true,
       defaultAdditionalItems: Strict,
     })
@@ -911,11 +911,11 @@ module Benchmark = {
       ~op=#Assert,
       `i=>{if(typeof i!=="object"||!i||Array.isArray(i)){e[12](i)}let v0=i["number"],v1=i["negNumber"],v2=i["maxNumber"],v3=i["string"],v4=i["longString"],v5=i["boolean"],v6=i["deeplyNested"],v11;if(typeof v0!=="number"){e[0](v0)}if(typeof v1!=="number"){e[1](v1)}if(typeof v2!=="number"){e[2](v2)}if(typeof v3!=="string"){e[3](v3)}if(typeof v4!=="string"){e[4](v4)}if(typeof v5!=="boolean"){e[5](v5)}if(typeof v6!=="object"||!v6||Array.isArray(v6)){e[6](v6)}let v7=v6["foo"],v8=v6["num"],v9=v6["bool"],v10;if(typeof v7!=="string"){e[7](v7)}if(typeof v8!=="number"){e[8](v8)}if(typeof v9!=="boolean"){e[9](v9)}for(v10 in v6){if(v10!=="foo"&&v10!=="num"&&v10!=="bool"){e[10](v10)}}for(v11 in i){if(v11!=="number"&&v11!=="negNumber"&&v11!=="maxNumber"&&v11!=="string"&&v11!=="longString"&&v11!=="boolean"&&v11!=="deeplyNested"){e[11](v11)}}return void 0}`,
     )
-    S.setGlobalConfig({})
+    S.global({})
   })
 
   test("Successfully serializes object from benchmark", t => {
-    S.setGlobalConfig({
+    S.global({
       disableNanNumberValidation: true,
     })
     let schema = makeSchema()
@@ -923,7 +923,7 @@ module Benchmark = {
     t->Assert.deepEqual(makeTestObject()->S.reverseConvertOrThrow(schema), makeTestObject(), ())
 
     t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{let v0=i["deeplyNested"];return i}`)
-    S.setGlobalConfig({})
+    S.global({})
   })
 }
 

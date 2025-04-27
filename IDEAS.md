@@ -75,6 +75,7 @@
 - Renamed `rescript-schema-ppx` to `sury-ppx`
 - Add `nullable` to JSONSchema.res type
 - Support `default` for `S.toJSONSchema`
+- Renamed `S.setGlobalConfig` to `S.global`
 
 ### Scope
 
@@ -83,7 +84,6 @@
 - Fix all tests marked as Failing
 - Update docs
 - Fix all fixme
-- Rename setGlobalConfig to global
 - Change Result type to match Standard Schema
 
 ## v10.1

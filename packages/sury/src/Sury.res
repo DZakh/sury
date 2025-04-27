@@ -4960,7 +4960,7 @@ let js_merge = (s1, s2) => {
   }
 }
 
-let setGlobalConfig = override => {
+let global = override => {
   globalConfig.recCounter = 0
   globalConfig.defaultAdditionalItems = (switch override.defaultAdditionalItems {
   | Some(defaultAdditionalItems) => defaultAdditionalItems

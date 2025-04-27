@@ -177,7 +177,7 @@ let filesMapping = [
   ("pattern", "S.pattern"),
   ("datetime", "S.datetime"),
   ("trim", "S.trim"),
-  ("setGlobalConfig", "S.setGlobalConfig"),
+  ("global", "S.$$global"),
 ]
 
 sourePaths->Array.forEach(path => {

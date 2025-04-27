@@ -93,7 +93,7 @@ test("Object with embeded transformed schema", t => {
 })
 
 test("Strict object with embeded returns input without object recreation", t => {
-  S.setGlobalConfig({
+  S.global({
     defaultAdditionalItems: Strict,
   })
   let schema = S.schema(s =>
@@ -102,7 +102,7 @@ test("Strict object with embeded returns input without object recreation", t => 
       "zoo": s.matches(S.int),
     }
   )
-  S.setGlobalConfig({})
+  S.global({})
 
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Parse),

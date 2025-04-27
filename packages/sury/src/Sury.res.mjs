@@ -3712,7 +3712,7 @@ function js_merge(s1, s2) {
   throw new Error("[Schema] The merge supports only Object schemas");
 }
 
-function setGlobalConfig(override) {
+function $$global(override) {
   globalConfig.r = 0;
   var defaultAdditionalItems = override.defaultAdditionalItems;
   globalConfig.a = defaultAdditionalItems !== undefined ? defaultAdditionalItems : "strip";
@@ -4254,7 +4254,7 @@ export {
   trim ,
   toJSONSchema ,
   extendJSONSchema ,
-  setGlobalConfig ,
+  $$global ,
   js_safe ,
   js_safeAsync ,
   js_union ,

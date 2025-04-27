@@ -170,7 +170,7 @@ var toJSONSchema = Sury.toJSONSchema;
 
 var extendJSONSchema = Sury.extendJSONSchema;
 
-var setGlobalConfig = Sury.setGlobalConfig;
+var $$global = Sury.$$global;
 
 var ErrorClass = Sury.ErrorClass;
 
@@ -259,7 +259,7 @@ export {
   trim ,
   toJSONSchema ,
   extendJSONSchema ,
-  setGlobalConfig ,
+  $$global ,
   ErrorClass ,
 }
 /* Sury Not a pure module */
