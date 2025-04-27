@@ -76,6 +76,7 @@
 - Add `nullable` to JSONSchema.res type
 - Support `default` for `S.toJSONSchema`
 - Renamed `S.setGlobalConfig` to `S.global`
+- Improve TS Result type
 
 ### Scope
 
@@ -84,7 +85,6 @@
 - Fix all tests marked as Failing
 - Update docs
 - Fix all fixme
-- Change Result type to match Standard Schema
 
 ## v10.1
 

@@ -242,7 +242,7 @@ test("Successfully parses array with min and max refinements", (t) => {
 
   const result = S.safe(() => S.parseOrThrow([], schema));
   t.deepEqual(
-    result.success ? "" : result.error.message,
+    result.error?.message,
     "Failed parsing: Array must be 1 or more items long"
   );
 
@@ -1393,6 +1393,7 @@ test("Successfully parses and returns result", (t) => {
         {
           readonly success: true;
           readonly value: string;
+          readonly error?: undefined;
         }
       >
     >(true);
@@ -1422,6 +1423,7 @@ test("Successfully reverse converts and returns result", (t) => {
         {
           readonly success: true;
           readonly value: string;
+          readonly error?: undefined;
         }
       >
     >(true);

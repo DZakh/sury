@@ -74,12 +74,18 @@ export type EffectCtx<Output, Input> = {
   readonly fail: (message: string) => never;
 };
 
-export type Result<Value> =
-  | {
-      readonly success: true;
-      readonly value: Value;
-    }
-  | { readonly success: false; readonly error: Error };
+export type SuccessResult<Value> = {
+  readonly success: true;
+  readonly value: Value;
+  readonly error?: undefined;
+};
+
+export type FailureResult = {
+  readonly success: false;
+  readonly error: Error;
+};
+
+export type Result<Value> = SuccessResult<Value> | FailureResult;
 
 export type Json =
   | string
