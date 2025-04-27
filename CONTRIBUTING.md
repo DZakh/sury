@@ -12,9 +12,10 @@ The following steps will get you setup to contribute changes to this repo:
 
 1. Fork this repo.
 2. Clone your forked repo: `git clone git@github.com:{your_username}/sury.git`
-3. Install [pnpm](https://pnpm.io/) if not available `npm i -g pnpm@8.14.3`
+3. Install [pnpm](https://pnpm.io/) if not available `npm i -g pnpm@9.0.5`
 4. Run `pnpm i` to install dependencies.
-5. Start playing with the code!
+5. Run `pnpm res` to run ReScript compiler
+6. Run `pnpm test` for tests or use Wallaby.js
 
 ## PPX
 

@@ -4,7 +4,10 @@
   "type": "module",
   "scripts": {
     "res": "cd packages/sury && pnpm res",
-    "test": "cd packages/sury && pnpm test"
+    "test": "pnpm --filter=sury test && pnpm --filter=e2e test"
   },
-  "packageManager": "pnpm@9.0.5"
+  "packageManager": "pnpm@9.0.5",
+  "dependencies": {
+    "ava": "5.2.0"
+  }
 }

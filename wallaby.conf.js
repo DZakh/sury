@@ -1,4 +1,5 @@
 const suryPath = "./packages/sury";
+const e2ePath = "./packages/e2e";
 
 export default () => ({
   files: [
@@ -8,10 +9,12 @@ export default () => ({
     suryPath + "/src/JSONSchema.res.mjs",
     suryPath + "/src/S.js",
     suryPath + "/tests/U.res.mjs",
+    e2ePath + "/src/utils/U.res.mjs",
   ],
   tests: [
     suryPath + "/tests/**/*_test.res.mjs",
     suryPath + "/tests/**/*_test.ts",
+    e2ePath + "/src/**/*_test.res.mjs",
   ],
   env: {
     type: "node",

@@ -6,21 +6,20 @@ settings:
 
 importers:
 
-  .: {}
+  .:
+    dependencies:
+      ava:
+        specifier: 5.2.0
+        version: 5.2.0
 
-  packages/e2e: {}
-
-  packages/sury:
-    devDependencies:
+  packages/e2e:
+    dependencies:
       '@dzakh/rescript-ava':
         specifier: 2.3.0
         version: 2.3.0(ava@5.2.0)(rescript@11.1.0)
       '@rescript/core':
-        specifier: ^1.3.0
+        specifier: 1.3.0
         version: 1.3.0(rescript@11.1.0)
-      '@rollup/plugin-node-resolve':
-        specifier: 16.0.0
-        version: 16.0.0(rollup@3.21.0)
       '@sinclair/typebox':
         specifier: 0.34.33
         version: 0.34.33
@@ -33,6 +32,33 @@ importers:
       benchmark:
         specifier: 2.1.4
         version: 2.1.4
+      rescript:
+        specifier: 11.1.0
+        version: 11.1.0
+      sury:
+        specifier: file:../sury
+        version: link:../sury
+      valibot:
+        specifier: 1.0.0
+        version: 1.0.0(typescript@5.8.3)
+      zod:
+        specifier: 4.0.0-beta.20250420T053007
+        version: 4.0.0-beta.20250420T053007
+
+  packages/sury:
+    devDependencies:
+      '@dzakh/rescript-ava':
+        specifier: 2.3.0
+        version: 2.3.0(ava@5.2.0)(rescript@11.1.0)
+      '@rescript/core':
+        specifier: 1.3.0
+        version: 1.3.0(rescript@11.1.0)
+      '@rollup/plugin-node-resolve':
+        specifier: 16.0.0
+        version: 16.0.0(rollup@3.21.0)
+      ava:
+        specifier: 5.2.0
+        version: 5.2.0
       c8:
         specifier: 7.12.0
         version: 7.12.0
@@ -51,27 +77,18 @@ importers:
       rollup:
         specifier: 3.21.0
         version: 3.21.0
-      sury:
-        specifier: 'link:'
-        version: 'link:'
       ts-expect:
         specifier: 1.3.0
         version: 1.3.0
       typescript:
         specifier: 5.8.3
         version: 5.8.3
-      valibot:
-        specifier: 1.0.0
-        version: 1.0.0(typescript@5.8.3)
-      zod:
-        specifier: 4.0.0-beta.20250420T053007
-        version: 4.0.0-beta.20250420T053007
 
   packages/sury-ppx:
     dependencies:
       sury:
         specifier: 10.0.0-rc.1
-        version: 10.0.0-rc.1(rescript@11.1.0)
+        version: 10.0.0-rc.1(rescript@11.1.4)
 
 packages:
 
@@ -771,6 +788,11 @@ packages:
 
   rescript@11.1.0:
     resolution: {integrity: sha512-9la2Dv+ACylQ77I8s4spPu1JnLZXbH5WgxcLHLLUBWgFFSiv0wXqgzWztrBIZqwFgVX5BYcwldUqUVcEzdCyHg==}
+    engines: {node: '>=10'}
+    hasBin: true
+
+  rescript@11.1.4:
+    resolution: {integrity: sha512-0bGU0bocihjSC6MsE3TMjHjY0EUpchyrREquLS8VsZ3ohSMD+VHUEwimEfB3kpBI1vYkw3UFZ3WD8R28guz/Vw==}
     engines: {node: '>=10'}
     hasBin: true
 
@@ -1643,6 +1665,9 @@ snapshots:
 
   rescript@11.1.0: {}
 
+  rescript@11.1.4:
+    optional: true
+
   resolve-cwd@3.0.0:
     dependencies:
       resolve-from: 5.0.0
@@ -1739,9 +1764,9 @@ snapshots:
 
   supports-preserve-symlinks-flag@1.0.0: {}
 
-  sury@10.0.0-rc.1(rescript@11.1.0):
+  sury@10.0.0-rc.1(rescript@11.1.4):
     optionalDependencies:
-      rescript: 11.1.0
+      rescript: 11.1.4
 
   temp-dir@3.0.0: {}
 

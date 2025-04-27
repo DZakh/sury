@@ -73,7 +73,7 @@
 
 - Move all ts files to S.d.ts as a source of truth (better IDE display on hover)
 - Renamed `rescript-schema-ppx` to `sury-ppx`
-- Add `nullable` to JSON Schema
+- Add `nullable` to JSONSchema.res type
 
 ### Scope
 

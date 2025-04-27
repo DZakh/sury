@@ -1,3 +1,5 @@
+open Ava
+
 module CknittelBugReport = {
   module A = {
     @schema
