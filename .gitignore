@@ -2,7 +2,9 @@ node_modules
 .merlin
 .bsb.lock
 packages/sury/**/*_test.res.mjs
+packages/sury/**/*_test.js
 packages/sury/artifacts
 lib
 coverage
 .tsimp
+tsconfig.tsbuildinfo

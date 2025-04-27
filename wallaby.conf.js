@@ -1,12 +1,4 @@
-import fs from "fs";
-
-let suryPath = "./packages/sury";
-
-const packageJson = JSON.parse(
-  fs.readFileSync(suryPath + "/package.json", "utf8")
-);
-
-const tests = packageJson.ava.files.map((file) => suryPath + "/" + file);
+const suryPath = "./packages/sury";
 
 export default () => ({
   files: [
@@ -17,7 +9,10 @@ export default () => ({
     suryPath + "/src/S.js",
     suryPath + "/tests/U.res.mjs",
   ],
-  tests,
+  tests: [
+    suryPath + "/tests/**/*_test.res.mjs",
+    suryPath + "/tests/**/*_test.ts",
+  ],
   env: {
     type: "node",
     params: {
