@@ -71,13 +71,13 @@ importers:
         version: 1.3.0
       tsimp:
         specifier: 2.0.12
-        version: 2.0.12(typescript@4.9.3)
+        version: 2.0.12(typescript@5.8.3)
       typescript:
-        specifier: 4.9.3
-        version: 4.9.3
+        specifier: 5.8.3
+        version: 5.8.3
       valibot:
         specifier: 1.0.0
-        version: 1.0.0(typescript@4.9.3)
+        version: 1.0.0(typescript@5.8.3)
       zod:
         specifier: 4.0.0-beta.20250420T053007
         version: 4.0.0-beta.20250420T053007
@@ -1028,9 +1028,9 @@ packages:
     resolution: {integrity: sha512-34R7HTnG0XIJcBSn5XhDd7nNFPRcXYRZrBB2O2jdKqYODldSzBAqzsWoZYYvduky73toYS/ESqxPvkDf/F0XMg==}
     engines: {node: '>=10'}
 
-  typescript@4.9.3:
-    resolution: {integrity: sha512-CIfGzTelbKNEnLpLdGFgdyKhG23CKdKgQPOBc+OUNrkJ2vr+KSzsSV5kq5iWhEQbok+quxgGzrAtGWCyU7tHnA==}
-    engines: {node: '>=4.2.0'}
+  typescript@5.8.3:
+    resolution: {integrity: sha512-p1diW6TqL9L07nNxvRMM7hMMw4c5XOo/1ibL4aAIGmSAt9slTE1Xgw5KWuof2uTOvCg9BY7ZRi+GaF+7sfgPeQ==}
+    engines: {node: '>=14.17'}
     hasBin: true
 
   v8-to-istanbul@9.1.0:
@@ -1983,7 +1983,7 @@ snapshots:
 
   ts-expect@1.3.0: {}
 
-  tsimp@2.0.12(typescript@4.9.3):
+  tsimp@2.0.12(typescript@5.8.3):
     dependencies:
       '@isaacs/cached': 1.0.1
       '@isaacs/catcher': 1.0.4
@@ -1993,12 +1993,12 @@ snapshots:
       rimraf: 6.0.1
       signal-exit: 4.1.0
       sock-daemon: 1.4.2
-      typescript: 4.9.3
+      typescript: 5.8.3
       walk-up-path: 4.0.0
 
   type-fest@0.13.1: {}
 
-  typescript@4.9.3: {}
+  typescript@5.8.3: {}
 
   v8-to-istanbul@9.1.0:
     dependencies:
@@ -2006,9 +2006,9 @@ snapshots:
       '@types/istanbul-lib-coverage': 2.0.4
       convert-source-map: 1.9.0
 
-  valibot@1.0.0(typescript@4.9.3):
+  valibot@1.0.0(typescript@5.8.3):
     optionalDependencies:
-      typescript: 4.9.3
+      typescript: 5.8.3
 
   walk-up-path@4.0.0: {}
 
