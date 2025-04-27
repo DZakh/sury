@@ -1,7 +1,7 @@
 node_modules
 .merlin
 .bsb.lock
-packages/tests/src/core/**/*_test.res.mjs
+packages/sury/**/*_test.res.mjs
 lib
 coverage
 packages/artifacts
