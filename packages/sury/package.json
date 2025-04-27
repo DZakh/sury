@@ -41,13 +41,12 @@
     "benchmark": "node ./packages/tests/src/benchmark/Benchmark.res.mjs",
     "benchmark:comparison": "node ./packages/tests/src/benchmark/comparison.js",
     "coverage": "c8 --reporter=lcov npm test",
-    "build": "cd ./packages/prepack && pnpm rescript && node ./src/Prepack.res.mjs",
+    "build": "pnpm rescript && node ./scripts/pack/Pack.res.mjs",
     "ppx:install": "node ./packages/sury-ppx/install.cjs",
     "res": "rescript -w",
-    "res:build": "rescript build",
     "test:res": "cd ./packages/tests && rescript clean && rescript -w",
     "test": "ava",
-    "lint:stdlib": "rescript-stdlib-vendorer lint --project-path=packages/tests --ignore-path=src/ppx/Ppx_Primitive_test.res"
+    "lint:stdlib": "rescript-stdlib-vendorer lint --ignore-path=src"
   },
   "ava": {
     "extensions": {
@@ -77,7 +76,11 @@
     "typescript": "5.8.3",
     "valibot": "1.0.0",
     "zod": "4.0.0-beta.20250420T053007",
-    "@sinclair/typebox": "0.34.33"
+    "@sinclair/typebox": "0.34.33",
+    "@rollup/plugin-node-resolve": "16.0.0",
+    "execa": "7.1.1",
+    "rescript-nodejs": "16.1.0",
+    "rollup": "3.21.0"
   },
   "peerDependencies": {
     "rescript": "11.x"

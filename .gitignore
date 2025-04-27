@@ -2,7 +2,7 @@ node_modules
 .merlin
 .bsb.lock
 packages/sury/**/*_test.res.mjs
+packages/sury/artifacts
 lib
 coverage
-packages/artifacts
 .tsimp

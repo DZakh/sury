@@ -14,7 +14,16 @@
     {
       "dir": "tests",
       "type": "dev"
+    },
+    {
+      "dir": "scripts",
+      "type": "dev",
+      "subdirs": true
     }
   ],
-  "bs-dev-dependencies": ["@rescript/core", "@dzakh/rescript-ava"]
+  "bs-dev-dependencies": [
+    "@rescript/core",
+    "@dzakh/rescript-ava",
+    "rescript-nodejs"
+  ]
 }

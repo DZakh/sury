@@ -10,6 +10,52 @@ on:
       - main
 
 jobs:
+  sury:
+    name: Sury - Build & Test & Lint & Pack
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 22.6.0
+          cache: "pnpm"
+      - run: pnpm install
+
+      # - name: Download ppx linux artifacts
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: ppx-build-linux
+      #     path: binaries/linux
+
+      # - name: Move ppx artifacts
+      #   run: |
+      #     mv binaries/linux/bin.exe packages/sury-ppx/ppx-linux.exe
+
+      # - name: Install ppx
+      #   run: pnpm ppx:install
+
+      # - run: pnpm rescript build
+      #   working-directory: packages/tests
+
+      - run: pnpm build
+        working-directory: packages/sury
+
+      - run: pnpm coverage
+        working-directory: packages/sury
+
+      - uses: codecov/codecov-action@v3
+        with:
+          files: packages/sury/coverage/lcov.info
+
+      - run: pnpm lint:stdlib
+        working-directory: packages/sury
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sury
+          path: packages/sury/artifacts
+
   ppx-build-linux:
     name: ppx-build-linux
     runs-on: ubuntu-latest
@@ -134,71 +180,6 @@ jobs:
           name: ppx-build-windows
           path: packages/sury-ppx/src/_build/default/bin/bin.exe
           if-no-files-found: error
-
-  test:
-    name: Test
-    needs: [ppx-build-linux]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 22.6.0
-          cache: "pnpm"
-      - run: pnpm install
-
-      # - name: Download ppx linux artifacts
-      #   uses: actions/download-artifact@v4
-      #   with:
-      #     name: ppx-build-linux
-      #     path: binaries/linux
-
-      # - name: Move ppx artifacts
-      #   run: |
-      #     mv binaries/linux/bin.exe packages/sury-ppx/ppx-linux.exe
-
-      # - name: Install ppx
-      #   run: pnpm ppx:install
-
-      # - run: pnpm rescript build
-      #   working-directory: packages/tests
-
-      # - run: pnpm lint:stdlib
-      - run: pnpm rescript
-        working-directory: packages/sury
-
-      - run: pnpm test
-        working-directory: packages/sury
-
-      - run: pnpm coverage
-        working-directory: packages/sury
-      - uses: codecov/codecov-action@v3
-        with:
-          files: packages/sury/coverage/lcov.info
-
-  pack-sury:
-    name: Pack sury
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 22.6.0
-          cache: "pnpm"
-      - run: pnpm install
-
-      - run: pnpm build
-
-      - run: pnpm lint:stdlib
-        working-directory: packages/prepack
-
-      - name: "Upload artifact: sury npm package"
-        uses: actions/upload-artifact@v4
-        with:
-          name: sury
-          path: packages/artifacts
 
   pack-sury-ppx:
     name: Pack sury-ppx

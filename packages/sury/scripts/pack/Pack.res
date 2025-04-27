@@ -1,6 +1,8 @@
-let projectPath = "../../"
-let artifactsPath = NodeJs.Path.join2(projectPath, "packages/artifacts")
-let sourePaths = ["package.json", "node_modules", "src", "rescript.json", "README.md", "jsr.json"]
+open RescriptCore
+
+let projectPath = "./"
+let artifactsPath = NodeJs.Path.join2(projectPath, "./artifacts")
+let sourePaths = ["package.json", "src", "rescript.json", "README.md", "jsr.json"]
 
 module Stdlib = {
   module Dict = {
@@ -106,6 +108,10 @@ if NodeJs.Fs.existsSync(artifactsPath) {
   FsX.rmSync(artifactsPath, {recursive: true, force: true})
 }
 NodeJs.Fs.mkdirSync(artifactsPath)
+
+// Add empty dev dirs to prevent `pnpm rescript` from failing
+NodeJs.Fs.mkdirSync(NodeJs.Path.join2(artifactsPath, "tests"))
+NodeJs.Fs.mkdirSync(NodeJs.Path.join2(artifactsPath, "scripts"))
 
 let filesMapping = [
   ("Error", "S.ErrorClass.value"),
@@ -231,7 +237,7 @@ let updateJsonFile = (~src, ~path, ~value) => {
   )
 }
 
-let _ = Execa.sync("npm", ["run", "res:build"], ~options={cwd: artifactsPath}, ())
+let _ = Execa.sync("pnpm", ["rescript"], ~options={cwd: artifactsPath}, ())
 
 let resolveRescriptRuntime = async (~format, ~input, ~output) => {
   let bundle = await Rollup.Bundle.make({
