@@ -148,28 +148,34 @@ jobs:
           cache: "pnpm"
       - run: pnpm install
 
-      - name: Download ppx linux artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: ppx-build-linux
-          path: binaries/linux
+      # - name: Download ppx linux artifacts
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: ppx-build-linux
+      #     path: binaries/linux
 
-      - name: Move ppx artifacts
-        run: |
-          mv binaries/linux/bin.exe packages/sury-ppx/ppx-linux.exe
+      # - name: Move ppx artifacts
+      #   run: |
+      #     mv binaries/linux/bin.exe packages/sury-ppx/ppx-linux.exe
 
-      - name: Install ppx
-        run: pnpm ppx:install
+      # - name: Install ppx
+      #   run: pnpm ppx:install
 
-      - run: pnpm rescript build
-        working-directory: packages/tests
+      # - run: pnpm rescript build
+      #   working-directory: packages/tests
 
-      - run: pnpm lint:stdlib
+      # - run: pnpm lint:stdlib
+      - run: pnpm rescript
+        working-directory: packages/sury
+
+      - run: pnpm test
+        working-directory: packages/sury
 
       - run: pnpm coverage
+        working-directory: packages/sury
       - uses: codecov/codecov-action@v3
         with:
-          files: coverage/lcov.info
+          files: packages/sury/coverage/lcov.info
 
   pack-sury:
     name: Pack sury

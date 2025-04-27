@@ -1,0 +1,20 @@
+{
+  "name": "sury",
+  "namespace": false,
+  "suffix": ".res.mjs",
+  "package-specs": {
+    "module": "esmodule",
+    "in-source": true
+  },
+  "sources": [
+    {
+      "dir": "src",
+      "public": ["S", "JSONSchema"]
+    },
+    {
+      "dir": "tests",
+      "type": "dev"
+    }
+  ],
+  "bs-dev-dependencies": ["@rescript/core", "@dzakh/rescript-ava"]
+}

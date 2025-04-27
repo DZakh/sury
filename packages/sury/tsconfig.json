@@ -1,4 +1,3 @@
-// Config for wallaby
 {
   "compilerOptions": {
     "moduleResolution": "node",
@@ -8,5 +7,5 @@
     "esModuleInterop": true,
     "noUncheckedIndexedAccess": true
   },
-  "exclude": ["packages/sury/node_modules", "packages/sury/lib"]
+  "exclude": ["node_modules", "lib"]
 }

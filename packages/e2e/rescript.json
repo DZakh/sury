@@ -1,0 +1,25 @@
+{
+  "name": "e2e",
+  "sources": [
+    {
+      "dir": "src",
+      "subdirs": true,
+      "type": "dev"
+    }
+  ],
+  "package-specs": {
+    "module": "esmodule",
+    "in-source": true
+  },
+  "suffix": ".res.mjs",
+  "bs-dependencies": ["sury"],
+  "bs-dev-dependencies": ["@rescript/core", "@dzakh/rescript-ava"],
+  "ppx-flags": ["../sury-ppx/bin"],
+  "warnings": {
+    "error": true,
+    "number": "-48-44"
+  },
+  "gentypeconfig": {
+    "generatedFileExtension": ".gen.ts"
+  }
+}

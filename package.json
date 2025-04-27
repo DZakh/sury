@@ -1,91 +1,10 @@
 {
-  "name": "sury",
-  "version": "10.0.0-rc.1",
+  "name": "root",
   "private": true,
-  "description": "🧬 The fastest schema with next-gen DX",
-  "keywords": [
-    "ReScript",
-    "Schema",
-    "Parser",
-    "Serializer",
-    "JSON",
-    "Encode",
-    "Decode",
-    "Validation",
-    "Contract",
-    "TypeScript",
-    "Zod",
-    "Valibot",
-    "Ajv",
-    "rescript-struct"
-  ],
-  "homepage": "https://github.com/DZakh/sury#readme",
-  "bugs": {
-    "url": "https://github.com/DZakh/sury/issues"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/DZakh/sury.git"
-  },
-  "license": "MIT",
-  "author": "Dmitry Zakharov <dzakh.dev@gmail.com>",
   "type": "module",
-  "main": "./src/S.js",
-  "module": "./src/S.mjs",
-  "types": "./src/S.d.ts",
-  "files": [
-    "src",
-    "rescript.json"
-  ],
   "scripts": {
-    "benchmark": "node ./packages/tests/src/benchmark/Benchmark.res.mjs",
-    "benchmark:comparison": "node ./packages/tests/src/benchmark/comparison.js",
-    "coverage": "c8 --reporter=lcov npm test",
-    "build": "cd ./packages/prepack && pnpm rescript && node ./src/Prepack.res.mjs",
-    "ppx:install": "node ./packages/sury-ppx/install.cjs",
-    "res": "rescript -w",
-    "res:build": "rescript build",
-    "test:res": "cd ./packages/tests && rescript clean && rescript -w",
-    "test": "ava",
-    "lint:stdlib": "rescript-stdlib-vendorer lint --project-path=packages/tests --ignore-path=src/ppx/Ppx_Primitive_test.res"
-  },
-  "ava": {
-    "extensions": {
-      "ts": "module",
-      "mjs": true
-    },
-    "files": [
-      "packages/tests/src/**/*_test.res.mjs",
-      "packages/tests/src/**/*_test.ts"
-    ],
-    "nodeArguments": [
-      "--import=tsimp"
-    ]
-  },
-  "devDependencies": {
-    "@dzakh/rescript-ava": "2.3.0",
-    "@rescript/core": "^1.3.0",
-    "arktype": "2.1.20",
-    "ava": "5.2.0",
-    "benchmark": "2.1.4",
-    "c8": "7.12.0",
-    "rescript": "11.1.0",
-    "rescript-stdlib-vendorer": "1.1.0",
-    "sury": "link:",
-    "ts-expect": "1.3.0",
-    "tsimp": "2.0.12",
-    "typescript": "4.9.3",
-    "valibot": "1.0.0",
-    "zod": "4.0.0-beta.20250420T053007",
-    "@sinclair/typebox": "0.34.33"
-  },
-  "peerDependencies": {
-    "rescript": "11.x"
-  },
-  "peerDependenciesMeta": {
-    "rescript": {
-      "optional": true
-    }
+    "res": "cd packages/sury && pnpm res",
+    "test": "cd packages/sury && pnpm test"
   },
   "packageManager": "pnpm@9.0.5"
 }

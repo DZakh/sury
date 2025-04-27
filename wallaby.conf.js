@@ -1,16 +1,21 @@
 import fs from "fs";
 
-const packageJson = JSON.parse(fs.readFileSync("./package.json", "utf8"));
+let suryPath = "./packages/sury";
 
-const tests = packageJson.ava.files;
+const packageJson = JSON.parse(
+  fs.readFileSync(suryPath + "/package.json", "utf8")
+);
+
+const tests = packageJson.ava.files.map((file) => suryPath + "/" + file);
 
 export default () => ({
   files: [
-    "package.json",
-    "src/S.res.mjs",
-    "src/Sury.res.mjs",
-    "src/S.js",
-    "packages/tests/src/utils/U.res.mjs",
+    suryPath + "/package.json",
+    suryPath + "/src/S.res.mjs",
+    suryPath + "/src/Sury.res.mjs",
+    suryPath + "/src/JSONSchema.res.mjs",
+    suryPath + "/src/S.js",
+    suryPath + "/tests/U.res.mjs",
   ],
   tests,
   env: {
