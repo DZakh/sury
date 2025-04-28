@@ -330,6 +330,13 @@ test("Coerce from string to int32", t => {
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return ""+i}`)
 })
 
+test("Coerce from true to bool", t => {
+  let schema = S.literal(true)->S.to(S.bool)
+
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(i!==true){e[0](i)}return i}`)
+  t->U.assertCompiledCode(~schema, ~op=#Convert, `i=>{if(i!==true){e[0](i)}return i}`)
+})
+
 test("Coerce from string to bigint literal", t => {
   let schema = S.string->S.to(S.literal(10n))
 

@@ -78,6 +78,10 @@
 - Renamed `S.setGlobalConfig` to `S.global`
 - Improve TS Result type
 
+### rc.3
+
+- `S.to` support from literal to non-literal of the same type
+
 ### Scope
 
 ### Final release fixes

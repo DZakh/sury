@@ -2937,6 +2937,8 @@ let rec to = (from, target) => {
           (b, ~inputVar as _, ~failCoercion as _) => {
             b->B.val(b->B.inlineConst(target))
           }
+        | ({tag: fromTag}, {tag: targetTag})
+          if fromTag === targetTag && isFromLiteral && !isTargetLiteral => extendCoercion
         | (_, {tag: Unknown}) => extendCoercion
         | ({tag: Unknown}, _) => shrinkCoercion
         | ({tag: String}, {tag: String, const: _}) => shrinkCoercion

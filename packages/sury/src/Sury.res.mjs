@@ -2177,11 +2177,11 @@ function to(from, target) {
   var fromOutput = reverse(from);
   var isFromLiteral = isLiteral(from);
   var isTargetLiteral = isLiteral(target);
-  var match = fromOutput.type;
+  var fromTag = fromOutput.type;
   var coercion;
   var exit = 0;
   var exit$1 = 0;
-  var match$1 = target.type;
+  var targetTag = target.type;
   if (isFromLiteral && isTargetLiteral) {
     coercion = (function (b, param, param$1) {
         return {
@@ -2191,17 +2191,17 @@ function to(from, target) {
                 a: false
               };
       });
-  } else if (match$1 === "unknown") {
+  } else if (fromTag === targetTag && isFromLiteral && !isTargetLiteral || targetTag === "unknown") {
     coercion = extendCoercion;
   } else {
-    switch (match) {
+    switch (fromTag) {
       case "string" :
-          var match$2 = target.type;
+          var match = target.type;
           var exit$2 = 0;
-          switch (match$2) {
+          switch (match) {
             case "string" :
-                var match$3 = target.const;
-                coercion = match$3 !== undefined ? shrinkCoercion : extendCoercion;
+                var match$1 = target.const;
+                coercion = match$1 !== undefined ? shrinkCoercion : extendCoercion;
                 break;
             case "number" :
             case "bigint" :
@@ -2227,7 +2227,7 @@ function to(from, target) {
                         };
                 });
             } else {
-              switch (match$2) {
+              switch (match) {
                 case "number" :
                     var format = target.format;
                     coercion = (function (b, inputVar, failCoercion) {
@@ -2266,8 +2266,8 @@ function to(from, target) {
           break;
       case "number" :
           if (fromOutput.format !== undefined) {
-            var match$4 = target.type;
-            if (match$4 === "number" && target.format === undefined) {
+            var match$2 = target.type;
+            if (match$2 === "number" && target.format === undefined) {
               coercion = extendCoercion;
             } else {
               exit$1 = 2;
@@ -2292,8 +2292,8 @@ function to(from, target) {
   }
   if (exit$1 === 2) {
     var $$const$1 = fromOutput.const;
-    var match$5 = target.type;
-    if (match$5 === "string") {
+    var match$3 = target.type;
+    if (match$3 === "string") {
       if (isFromLiteral) {
         coercion = (function (b, param, param$1) {
             return {
@@ -2305,7 +2305,7 @@ function to(from, target) {
           });
       } else {
         var exit$3 = 0;
-        switch (match) {
+        switch (fromTag) {
           case "number" :
           case "bigint" :
           case "boolean" :
@@ -2315,8 +2315,8 @@ function to(from, target) {
             exit = 1;
         }
         if (exit$3 === 3) {
-          var match$6 = target.type;
-          if (match$6 === "string") {
+          var match$4 = target.type;
+          if (match$4 === "string") {
             coercion = (function (b, inputVar, param) {
                 return {
                         b: b,

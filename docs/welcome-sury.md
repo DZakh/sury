@@ -89,7 +89,7 @@ You may notice the `.with` calls which might look unfamiliar. This is a new feat
 But what's more important and much more widely used is JSON Schema. I used to support it only for ReScript users, but now it's time to share some gold with TypeScript users as well 🫡
 
 ```typescript
-// 1. Create a schema
+// 1. Create some advanced schema with transformations
 //    S.to - for easy & fast coercion
 //    S.shape - for easy & fast transformation
 //    S.meta - with examples in transformed format
@@ -142,6 +142,83 @@ S.toJSONSchema(userSchema);
 //     },
 //   ],
 // }
+```
+
+#### Offtopic: Serialization
+
+In the example above I used several advanced features of the library. Let's take a moment to explore one of **Sury**'s most powerful capabilities - **bidirectional schemas**. Every schema can both validate and serialize data without needing separate decoders or encoders.
+
+Let's see how this works with our previous example:
+
+```typescript
+// You can use it for normal parsing
+S.parseOrThrow(
+  {
+    USER_ID: "0",
+    USER_NAME: "Dmitry",
+  },
+  userSchema
+);
+// { id: 0n, name: "Dmitry" }
+// See how "0" is turned into 0n and fields are renamed
+
+// And reverse the schema and use it for serialization
+S.parseOrThrow(
+  {
+    id: 0n,
+    name: "Dmitry",
+  },
+  S.reverse(userSchema)
+);
+// { USER_ID: "0", USER_NAME: "Dmitry" }
+// Just add `S.reverse` and get a full-featured schema with switched `Output` and `Input` types
+// Note: You can use `S.reverseConvertOrThrow(data, schema)` if you don't need additional validation
+```
+
+And while we're at it, I'll quickly show why **Sury** is the fastest schema library out there. **Sury** heavily relies on JIT optimizations by inlining all validations and transformations using `new Function` API which is the fastest way to execute code in JS/TS. It's not something new and used by other libraries like `TypeBox`, `ArkType` and even `Zod@4`. But they mostly do basic validations, while **Sury** embraces transformations as it's core primitive:
+
+```javascript
+// This is how S.parseOrThrow(data, userSchema) is compiled
+(i) => {
+  if (typeof i !== "object" || !i) {
+    e[3](i);
+  }
+  let v0 = i["USER_ID"],
+    v2 = i["USER_NAME"];
+  if (typeof v0 !== "string") {
+    e[0](v0);
+  }
+  let v1;
+  try {
+    v1 = BigInt(v0);
+  } catch (_) {
+    e[1](v0);
+  }
+  if (typeof v2 !== "string") {
+    e[2](v2);
+  }
+  return { id: v1, name: v2 };
+};
+```
+
+```javascript
+// This is how S.reverseConvertOrThrow(data, userSchema) is compiled
+(i) => {
+  let v0 = i["id"];
+  return { USER_ID: "" + v0, USER_NAME: i["name"] };
+};
+```
+
+Neat, right? 🤯
+
+### Internal Representation
+
+Let's go back to ecosystem talk. While **Sury** provides JSON Schema integration out of the box, having a good internal representation is crucial for a schema library. It enables building custom tools and growing the ecosystem. In this version, I've made significant progress by representing every schema as a discriminated union, similar to JSON Schema.
+
+This design allows you to easily reason about and work with the Input and Output types of your schemas in your code:
+
+```typescript
+const envSchema = (schema) => {};
 ```
 
 ### 🛠 API Improvements
