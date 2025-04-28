@@ -8,7 +8,6 @@ on:
   pull_request:
     branches:
       - main
-  workflow_dispatch:
 
 jobs:
   sury:
@@ -270,35 +269,3 @@ jobs:
           alert-threshold: "150%"
           comment-always: true
           comment-on-alert: true
-
-  release:
-    name: Release
-    needs: [sury]
-    runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch'
-    environment:
-      name: release
-    steps:
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 22.6.0
-      - name: Download sury artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: sury
-          path: ./sury-artifact
-
-      - name: Publish to npm
-        working-directory: ./sury-artifact
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --access public
-
-      - name: Install jsr CLI
-        run: npm install -g jsr
-
-      - name: Publish to JSR
-        working-directory: ./sury-artifact
-        env:
-          JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
-        run: jsr publish
