@@ -1,0 +1,39 @@
+name: Release Sury
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  publish:
+    name: Publish sury to npm and jsr
+    runs-on: ubuntu-latest
+    needs: sury
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 22.6.0
+          cache: "pnpm"
+      - name: Download sury artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: sury
+          path: ./sury-artifact
+
+      - name: Publish to npm
+        working-directory: ./sury-artifact
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
+
+      - name: Install jsr CLI
+        run: npm install -g jsr
+
+      - name: Publish to JSR
+        working-directory: ./sury-artifact
+        env:
+          JSR_TOKEN: ${{ secrets.JSR_TOKEN }}
+        run: jsr publish
