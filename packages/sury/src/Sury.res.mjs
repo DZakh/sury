@@ -1576,11 +1576,15 @@ function builder$1(b, input, selfSchema, path) {
           }
           
         } else if (itemCode$1) {
-          itemNextElse = false;
           var errorVar$1 = "e" + itemIdx;
-          itemStart = itemStart + ("try{" + itemCode$1 + "}catch(" + errorVar$1 + "){");
-          itemEnd = "}" + itemEnd;
+          itemStart = itemStart + ((
+              itemNextElse ? "else{" : ""
+            ) + "try{" + itemCode$1 + "}catch(" + errorVar$1 + "){");
+          itemEnd = (
+            itemNextElse ? "}" : ""
+          ) + "}" + itemEnd;
           caught$1 = caught$1 + "," + errorVar$1;
+          itemNextElse = false;
         } else {
           itemIdx = lastIdx$1;
         }

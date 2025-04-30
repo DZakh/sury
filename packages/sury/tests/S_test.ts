@@ -1808,28 +1808,35 @@ test("Standard schema", (t) => {
   >(true);
 });
 
-// test("Env schema: Reggression version", (t) => {
-//   const env = <T>(schema: S.Schema<T>): S.Schema<T, string> => {
-//     if (schema.type === "boolean") {
-//       return S.union([
-//         S.schema("t").with(S.to, S.schema(true)).with(S.to, schema),
-//         S.schema("1").with(S.to, S.schema(true)).with(S.to, schema),
-//         S.schema("f").with(S.to, S.schema(false)).with(S.to, schema),
-//         S.schema("0").with(S.to, S.schema(false)).with(S.to, schema),
-//         S.string.with(S.to, schema),
-//       ]);
-//     } else {
-//       return S.string.with(S.to, schema);
-//     }
-//   };
+test("Env schema: Reggression version", (t) => {
+  const env = <T>(schema: S.Schema<T>): S.Schema<T, string> => {
+    if (schema.type === "boolean") {
+      return S.union([
+        S.schema("t").with(S.to, S.schema(true)).with(S.to, schema),
+        S.schema("1").with(S.to, S.schema(true)).with(S.to, schema),
+        S.schema("f").with(S.to, S.schema(false)).with(S.to, schema),
+        S.schema("0").with(S.to, S.schema(false)).with(S.to, schema),
+        S.string.with(S.to, schema),
+      ]);
+    } else if (
+      schema.type === "number" ||
+      schema.type === "bigint" ||
+      schema.type === "string"
+    ) {
+      return S.string.with(S.to, schema);
+    } else {
+      return S.jsonString(schema);
+    }
+  };
 
-//   t.deepEqual(
-//     S.compile(env(S.boolean), "Input", "Output", "Sync", true).toString(),
-//     "foo"
-//   );
+  t.deepEqual(
+    S.compile(env(S.boolean), "Input", "Output", "Sync", true).toString(),
+    `i=>{if(typeof i==="string"){if(i==="t"){i=true}else if(i==="1"){i=true}else if(i==="f"){i=false}else if(i==="0"){i=false}else{try{let v0;(v0=i==="true")||i==="false"||e[4](i);i=v0}catch(e4){e[5](i,e4)}}}else{e[6](i)}return i}`
+  );
 
-//   // t.deepEqual(S.parseOrThrow("t", env(S.boolean)), true);
-// });
+  t.deepEqual(S.parseOrThrow("t", env(S.boolean)), true);
+  t.deepEqual(S.parseOrThrow("true", env(S.boolean)), true);
+});
 
 test("Unnest schema", (t) => {
   const schema = S.unnest(

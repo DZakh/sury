@@ -2260,12 +2260,13 @@ module Union = {
           } // The item without refinement should switch to deopt mode
           // Since there might be validation in the body
           else if itemCode->Stdlib.String.unsafeToBool {
-            itemNextElse := false
             let errorVar = `e` ++ itemIdx.contents->Stdlib.Int.unsafeToString
-            // FIXME: Should have else
-            itemStart := itemStart.contents ++ `try{${itemCode}}catch(${errorVar}){`
-            itemEnd := "}" ++ itemEnd.contents
+            itemStart :=
+              itemStart.contents ++
+              `${itemNextElse.contents ? "else{" : ""}try{${itemCode}}catch(${errorVar}){`
+            itemEnd := (itemNextElse.contents ? "}" : "") ++ "}" ++ itemEnd.contents
             caught := `${caught.contents},${errorVar}`
+            itemNextElse := false
           } else {
             // If there's no body, we immideately finish.
             // Even if there might be other items, this case is always valid

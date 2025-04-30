@@ -89,7 +89,7 @@ test("Parses when both schemas misses parser and have different types", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){if(i==="apple"){throw e[0]}try{throw e[1]}catch(e1){e[2](i,e1)}}else{e[3](i)}return i}`,
+    `i=>{if(typeof i==="string"){if(i==="apple"){throw e[0]}else{try{throw e[1]}catch(e1){e[2](i,e1)}}}else{e[3](i)}return i}`,
   )
 })
 

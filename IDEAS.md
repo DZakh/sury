@@ -81,6 +81,7 @@
 ### rc.3
 
 - `S.to` support from literal to non-literal of the same type
+- Fix union case with parsing schemas of the same type
 
 ### Scope
 
