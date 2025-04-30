@@ -126,7 +126,7 @@ test("Expression of custom schema", t => {
   t->Assert.deepEqual(S.custom("Test", s => s.fail("User error"))->S.toExpression, "Test", ())
 })
 
-Failing.test("Expression of renamed schema", t => {
+test("Expression of renamed schema", t => {
   let originalSchema = S.never
   let renamedSchema = originalSchema->S.meta({name: "Ethers.BigInt"})
   t->Assert.deepEqual(originalSchema->S.toExpression, "never", ())
@@ -152,16 +152,19 @@ Failing.test("Expression of renamed schema", t => {
   let schema = S.null(S.never)->S.meta({name: "Ethers.BigInt"})
   t->U.assertCompiledCode(
     ~schema,
+    ~op=#ReverseParse,
+    `i=>{try{e[0](i);}catch(e0){if(i===void 0){i=null}else{e[1](i,e0)}}return i}`,
+  )
+  t->U.assertCompiledCode(
+    ~schema,
     ~op=#ReverseConvert,
-    // FIXME: This is wrong
     `i=>{try{e[0](i);}catch(e0){if(i===void 0){i=null}}return i}`,
   )
-  t->U.assertThrows(
-    () => %raw(`"smth"`)->S.reverseConvertOrThrow(S.null(S.never)->S.meta({name: "Ethers.BigInt"})),
-    {
-      path: S.Path.empty,
-      operation: ReverseConvert,
-      code: InvalidType({expected: S.never->S.toUnknown, received: "smth"->Obj.magic}),
-    },
+  t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`null`), ())
+  // TODO: Can be improved. No need to duplicate Expected/received error
+  t->U.assertThrowsMessage(
+    () => %raw(`"smth"`)->S.parseOrThrow(schema->S.reverse),
+    `Failed parsing: Expected never | undefined, received "smth"
+- Expected never, received "smth"`,
   )
 })

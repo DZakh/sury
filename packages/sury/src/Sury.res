@@ -1233,58 +1233,50 @@ module Builder = {
         } else {
           `${and_}${not_}Number.isNaN(${inputVar})`
         }
-      | {tag: Object, ?additionalItems, ?items} => {
+      | {tag: Object as tag | Array as tag, ?additionalItems, ?items} => {
           let additionalItems = additionalItems->Stdlib.Option.unsafeUnwrap
           let items = items->Stdlib.Option.unsafeUnwrap
+
+          let length = items->Js.Array2.length
+
           let code = ref(
-            if additionalItems === Strip {
+            if tag === Array {
+              switch additionalItems {
+              | Strict => `${and_}${inputVar}.length${eq}${length->Stdlib.Int.unsafeToString}`
+              | Strip => `${and_}${inputVar}.length${gt}${length->Stdlib.Int.unsafeToString}`
+              | Schema(_) => ""
+              }
+            } else if additionalItems === Strip {
               ""
             } else {
               `${and_}${not_}Array.isArray(${inputVar})`
             },
           )
           for idx in 0 to items->Js.Array2.length - 1 {
-            let {schema, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
-            let item = schema->toInternal
-            if item->isLiteral && !(item.catch->Stdlib.Option.unsafeUnwrap) {
-              code :=
-                code.contents ++
-                and_ ++
-                b->validation(
-                  ~inputVar=Path.concat(inputVar, Path.fromInlinedLocation(inlinedLocation)),
-                  ~schema=item,
-                  ~negative,
-                )
-            }
-          }
-          code.contents
-        }
-      | {tag: Array, ?additionalItems, ?items} => {
-          let additionalItems = additionalItems->Stdlib.Option.unsafeUnwrap
-          let items = items->Stdlib.Option.unsafeUnwrap
-          let length = items->Js.Array2.length
-          let code = ref(
-            switch additionalItems {
-            | Strict => `${and_}${inputVar}.length${eq}${length->Stdlib.Int.unsafeToString}`
-            | Strip => `${and_}${inputVar}.length${gt}${length->Stdlib.Int.unsafeToString}`
-            | Schema(_) => ""
-            },
-          )
-          for idx in 0 to length - 1 {
             let {schema: item, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
             let item = item->toInternal
-            if (
+            let itemCode = if (
               (item->isLiteral && !(item.catch->Stdlib.Option.unsafeUnwrap)) ||
                 schema.unnest->Stdlib.Option.unsafeUnwrap
             ) {
-              code :=
-                code.contents ++
-                and_ ++
-                b->validation(
-                  ~inputVar=Path.concat(inputVar, Path.fromInlinedLocation(inlinedLocation)),
-                  ~schema=item,
-                  ~negative,
-                )
+              b->validation(
+                ~inputVar=Path.concat(inputVar, Path.fromInlinedLocation(inlinedLocation)),
+                ~schema=item,
+                ~negative,
+              )
+            } else if schema.tag === Object {
+              let inputVar = Path.concat(inputVar, Path.fromInlinedLocation(inlinedLocation))
+              let r = b->refinement(~inputVar, ~schema=item, ~negative)
+              if r !== "" {
+                `${inputVar}${r}`
+              } else {
+                ""
+              }
+            } else {
+              ""
+            }
+            if itemCode !== "" {
+              code.contents = code.contents ++ and_ ++ itemCode
             }
           }
           code.contents
@@ -1339,8 +1331,7 @@ module Builder = {
 module B = Builder.B
 
 let nonJsonableTags = Stdlib.Set.fromArray([
-  (Undefined: tag),
-  Unknown,
+  (Unknown: tag),
   NaN,
   BigInt,
   Function,
@@ -1353,7 +1344,7 @@ let rec internalCompile = (builder: builder, ~schema, ~flag) => {
 
   if flag->Flag.unsafeHas(Flag.jsonableOutput) {
     let output = schema->reverse
-    jsonableValidation(~output, ~report=output, ~path=Path.empty, ~flag)
+    jsonableValidation(~output, ~parent=output, ~path=Path.empty, ~flag, ~recSet=None)
   }
 
   let input = {b, var: B._var, isAsync: false, inline: Builder.intitialInputVar}
@@ -1475,42 +1466,59 @@ and toStandard = (schema: internal) => {
   })
   schema->(Obj.magic: internal => t<'any>)
 }
-and jsonableValidation = (~output, ~report, ~path, ~flag) => {
+and jsonableValidation = (~output, ~parent, ~path, ~flag, ~recSet) => {
   let tag = output.tag
-  if nonJsonableTags->Stdlib.Set.has(tag) {
+  if (tag === Undefined && parent.tag !== Object) || nonJsonableTags->Stdlib.Set.has(tag) {
     Stdlib.Exn.raiseAny(
-      InternalError.make(~code=InvalidJsonSchema(report->fromInternal), ~flag, ~path),
+      InternalError.make(~code=InvalidJsonSchema(parent->fromInternal), ~flag, ~path),
     )
   }
-  if tag === Union {
-    output.anyOf
-    ->Stdlib.Option.unsafeUnwrap
-    ->Js.Array2.forEach(s => jsonableValidation(~output=s, ~report, ~path, ~flag))
-  } else {
-    switch output {
-    | {items, ?additionalItems} => {
-        let isObject = tag === Object
-        switch additionalItems->Stdlib.Option.unsafeUnwrap {
-        | Schema(additionalItems) =>
-          if isObject ? !(additionalItems->toInternal->isOptional) : true {
-            jsonableValidation(~output=additionalItems->toInternal, ~report, ~path, ~flag)
+  switch output {
+  | {tag: Union | Array | Object} =>
+    let recSet = switch recSet {
+    | None => Stdlib.Set.make()
+    | Some(set) => set
+    }
+    if recSet->Stdlib.Set.has(output) {
+      ()
+    } else {
+      recSet->Stdlib.Set.add(output)
+      let recSet = Some(recSet)
+      if tag === Union {
+        output.anyOf
+        ->Stdlib.Option.unsafeUnwrap
+        ->Js.Array2.forEach(s => jsonableValidation(~output=s, ~parent, ~path, ~flag, ~recSet))
+      } else {
+        switch output {
+        | {items, ?additionalItems} => {
+            switch additionalItems->Stdlib.Option.unsafeUnwrap {
+            | Schema(additionalItems) =>
+              jsonableValidation(
+                ~output=additionalItems->toInternal,
+                ~parent,
+                ~path,
+                ~flag,
+                ~recSet,
+              )
+
+            | _ => ()
+            }
+            items->Js.Array2.forEach(item => {
+              jsonableValidation(
+                ~output=item.schema->toInternal,
+                ~parent=output,
+                ~path=path->Path.concat(Path.fromInlinedLocation(item.inlinedLocation)),
+                ~flag,
+                ~recSet,
+              )
+            })
           }
         | _ => ()
         }
-        items->Js.Array2.forEach(item => {
-          let s = item.schema->toInternal
-          if isObject ? !(s->isOptional) : true {
-            jsonableValidation(
-              ~output=s,
-              ~report=s,
-              ~path=path->Path.concat(Path.fromInlinedLocation(item.inlinedLocation)),
-              ~flag,
-            )
-          }
-        })
       }
-    | _ => ()
     }
+
+  | _ => ()
   }
 }
 
@@ -2825,9 +2833,10 @@ module JsonString = {
 
           jsonableValidation(
             ~output=reversed,
-            ~report=reversed,
+            ~parent=reversed,
             ~path=Path.empty,
             ~flag=b.global.flag,
+            ~recSet=None,
           )
 
           let output =
@@ -5482,7 +5491,13 @@ module RescriptJSONSchema = {
 
 let toJSONSchema = schema => {
   let target = schema->toInternal
-  jsonableValidation(~output=target, ~report=target, ~path=Path.empty, ~flag=Flag.jsonableOutput)
+  jsonableValidation(
+    ~output=target,
+    ~parent=target,
+    ~path=Path.empty,
+    ~flag=Flag.jsonableOutput,
+    ~recSet=None,
+  )
   target->fromInternal->RescriptJSONSchema.internalToJSONSchema
 }
 

@@ -83,6 +83,7 @@
 - `S.to` support from literal to non-literal of the same type
 - Fix union case with parsing schemas of the same type
 - Export `UnknownToOutput` and `UnknownToInput` and add GenType support for S.schema type
+- Fixed `S.toJSONSchema` error message with invalid object fields
 
 ### Scope
 

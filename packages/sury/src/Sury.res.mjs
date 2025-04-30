@@ -712,6 +712,7 @@ function refinement(b, inputVar, schema, negative) {
   var lt = negative ? ">" : "<";
   var gt = negative ? "<" : ">";
   var match = schema.type;
+  var tag;
   var match$1 = schema.const;
   if (match$1 !== undefined) {
     return "";
@@ -727,38 +728,42 @@ function refinement(b, inputVar, schema, negative) {
           return and_ + not_ + "Number.isNaN(" + inputVar + ")";
         }
     case "array" :
-        var additionalItems = schema.additionalItems;
-        var items = schema.items;
-        var length = items.length;
-        var code;
-        code = additionalItems === "strip" || additionalItems === "strict" ? (
-            additionalItems === "strip" ? and_ + inputVar + ".length" + gt + length : and_ + inputVar + ".length" + eq + length
-          ) : "";
-        for(var idx = 0; idx < length; ++idx){
-          var match$2 = items[idx];
-          var item = match$2.schema;
-          if (isLiteral(item) && !item.catch || schema.unnest) {
-            code = code + and_ + validation(b, inputVar + ("[" + match$2.inlinedLocation + "]"), item, negative);
-          }
-          
-        }
-        return code;
     case "object" :
-        var additionalItems$1 = schema.additionalItems;
-        var items$1 = schema.items;
-        var code$1 = additionalItems$1 === "strip" ? "" : and_ + not_ + "Array.isArray(" + inputVar + ")";
-        for(var idx$1 = 0 ,idx_finish = items$1.length; idx$1 < idx_finish; ++idx$1){
-          var match$3 = items$1[idx$1];
-          var schema$1 = match$3.schema;
-          if (isLiteral(schema$1) && !schema$1.catch) {
-            code$1 = code$1 + and_ + validation(b, inputVar + ("[" + match$3.inlinedLocation + "]"), schema$1, negative);
-          }
-          
-        }
-        return code$1;
+        tag = match;
+        break;
     default:
       return "";
   }
+  var additionalItems = schema.additionalItems;
+  var items = schema.items;
+  var length = items.length;
+  var code = tag === "array" ? (
+      additionalItems === "strip" || additionalItems === "strict" ? (
+          additionalItems === "strip" ? and_ + inputVar + ".length" + gt + length : and_ + inputVar + ".length" + eq + length
+        ) : ""
+    ) : (
+      additionalItems === "strip" ? "" : and_ + not_ + "Array.isArray(" + inputVar + ")"
+    );
+  for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
+    var match$2 = items[idx];
+    var inlinedLocation = match$2.inlinedLocation;
+    var item = match$2.schema;
+    var itemCode;
+    if (isLiteral(item) && !item.catch || schema.unnest) {
+      itemCode = validation(b, inputVar + ("[" + inlinedLocation + "]"), item, negative);
+    } else if (schema.type === "object") {
+      var inputVar$1 = inputVar + ("[" + inlinedLocation + "]");
+      var r = refinement(b, inputVar$1, item, negative);
+      itemCode = r !== "" ? inputVar$1 + r : "";
+    } else {
+      itemCode = "";
+    }
+    if (itemCode !== "") {
+      code = code + and_ + itemCode;
+    }
+    
+  }
+  return code;
 }
 
 function typeFilterCode(b, schema, input, path) {
@@ -801,7 +806,6 @@ function noopOperation(i) {
 }
 
 var nonJsonableTags = new Set([
-      "undefined",
       "unknown",
       "nan",
       "bigint",
@@ -814,7 +818,7 @@ function internalCompile(builder, schema, flag) {
   var b = rootScope(flag);
   if (flag & 8) {
     var output = reverse(schema);
-    jsonableValidation(output, output, "", flag);
+    jsonableValidation(output, output, "", flag, undefined);
   }
   var input = {
     b: b,
@@ -897,17 +901,32 @@ function toStandard(schema) {
   return schema;
 }
 
-function jsonableValidation(output, report, path, flag) {
+function jsonableValidation(output, parent, path, flag, recSet) {
   var tag = output.type;
-  if (nonJsonableTags.has(tag)) {
+  if (tag === "undefined" && parent.type !== "object" || nonJsonableTags.has(tag)) {
     throw new SuryError({
               TAG: "InvalidJsonSchema",
-              _0: report
+              _0: parent
             }, flag, path);
   }
+  var match = output.type;
+  switch (match) {
+    case "array" :
+    case "object" :
+    case "union" :
+        break;
+    default:
+      return ;
+  }
+  var recSet$1 = recSet !== undefined ? Caml_option.valFromOption(recSet) : new Set();
+  if (recSet$1.has(output)) {
+    return ;
+  }
+  recSet$1.add(output);
+  var recSet$2 = Caml_option.some(recSet$1);
   if (tag === "union") {
     output.anyOf.forEach(function (s) {
-          jsonableValidation(s, report, path, flag);
+          jsonableValidation(s, parent, path, flag, recSet$2);
         });
     return ;
   }
@@ -916,18 +935,13 @@ function jsonableValidation(output, report, path, flag) {
   if (items === undefined) {
     return ;
   }
-  var isObject = tag === "object";
   if (additionalItems === "strip" || additionalItems === "strict") {
     additionalItems === "strip";
-  } else if (isObject ? !isOptional(additionalItems) : true) {
-    jsonableValidation(additionalItems, report, path, flag);
+  } else {
+    jsonableValidation(additionalItems, parent, path, flag, recSet$2);
   }
   items.forEach(function (item) {
-        var s = item.schema;
-        if (isObject ? !isOptional(s) : true) {
-          return jsonableValidation(s, s, path + ("[" + item.inlinedLocation + "]"), flag);
-        }
-        
+        jsonableValidation(item.schema, output, path + ("[" + item.inlinedLocation + "]"), flag, recSet$2);
       });
 }
 
@@ -2106,7 +2120,7 @@ function factory$4(item, spaceOpt) {
                   mut.b = (function (b, input, param, path) {
                       var prevFlag = b.g.o;
                       b.g.o = prevFlag | 8;
-                      jsonableValidation(reversed, reversed, "", b.g.o);
+                      jsonableValidation(reversed, reversed, "", b.g.o, undefined);
                       var output = {
                         b: b,
                         v: _notVar,
@@ -2689,6 +2703,76 @@ function output$2() {
   }
 }
 
+function definitionToSchema(definition) {
+  if (!(typeof definition === "object" && definition !== null)) {
+    return parse(definition);
+  }
+  if (definition["~standard"]) {
+    return definition;
+  }
+  if (Array.isArray(definition)) {
+    var reversedItems = [];
+    var isTransformed = false;
+    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
+      var schema = definitionToSchema(definition[idx]);
+      var reversed = reverse(schema);
+      var $$location = idx.toString();
+      var inlinedLocation = "\"" + $$location + "\"";
+      definition[idx] = {
+        schema: schema,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+      reversedItems[idx] = {
+        schema: reversed,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+      if (schema !== reversed) {
+        isTransformed = true;
+      }
+      
+    }
+    return {
+            type: "array",
+            b: builder$3,
+            additionalItems: "strict",
+            items: definition,
+            output: isTransformed ? (function () {
+                  return {
+                          type: "array",
+                          b: builder$3,
+                          additionalItems: "strict",
+                          items: reversedItems
+                        };
+                }) : undefined
+          };
+  }
+  var fieldNames = Object.keys(definition);
+  var length = fieldNames.length;
+  var items = [];
+  for(var idx$1 = 0; idx$1 < length; ++idx$1){
+    var $$location$1 = fieldNames[idx$1];
+    var inlinedLocation$1 = fromString($$location$1);
+    var schema$1 = definitionToSchema(definition[$$location$1]);
+    var item = {
+      schema: schema$1,
+      location: $$location$1,
+      inlinedLocation: inlinedLocation$1
+    };
+    definition[$$location$1] = item;
+    items[idx$1] = item;
+  }
+  return {
+          type: "object",
+          b: builder$3,
+          additionalItems: globalConfig.a,
+          items: items,
+          fields: definition,
+          output: output$2
+        };
+}
+
 function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
   if (!(typeof definition === "object" && definition !== null)) {
     return {
@@ -2850,76 +2934,6 @@ function nested(fieldName) {
   };
   parentCtx[cacheId] = ctx$1;
   return ctx$1;
-}
-
-function definitionToSchema(definition) {
-  if (!(typeof definition === "object" && definition !== null)) {
-    return parse(definition);
-  }
-  if (definition["~standard"]) {
-    return definition;
-  }
-  if (Array.isArray(definition)) {
-    var reversedItems = [];
-    var isTransformed = false;
-    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
-      var schema = definitionToSchema(definition[idx]);
-      var reversed = reverse(schema);
-      var $$location = idx.toString();
-      var inlinedLocation = "\"" + $$location + "\"";
-      definition[idx] = {
-        schema: schema,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-      reversedItems[idx] = {
-        schema: reversed,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-      if (schema !== reversed) {
-        isTransformed = true;
-      }
-      
-    }
-    return {
-            type: "array",
-            b: builder$3,
-            additionalItems: "strict",
-            items: definition,
-            output: isTransformed ? (function () {
-                  return {
-                          type: "array",
-                          b: builder$3,
-                          additionalItems: "strict",
-                          items: reversedItems
-                        };
-                }) : undefined
-          };
-  }
-  var fieldNames = Object.keys(definition);
-  var length = fieldNames.length;
-  var items = [];
-  for(var idx$1 = 0; idx$1 < length; ++idx$1){
-    var $$location$1 = fieldNames[idx$1];
-    var inlinedLocation$1 = fromString($$location$1);
-    var schema$1 = definitionToSchema(definition[$$location$1]);
-    var item = {
-      schema: schema$1,
-      location: $$location$1,
-      inlinedLocation: inlinedLocation$1
-    };
-    definition[$$location$1] = item;
-    items[idx$1] = item;
-  }
-  return {
-          type: "object",
-          b: builder$3,
-          additionalItems: globalConfig.a,
-          items: items,
-          fields: definition,
-          output: output$2
-        };
 }
 
 function advancedReverse(definition, to, flattened) {
@@ -3949,7 +3963,7 @@ function internalToJSONSchema(schema) {
 }
 
 function toJSONSchema(schema) {
-  jsonableValidation(schema, schema, "", 8);
+  jsonableValidation(schema, schema, "", 8, undefined);
   return internalToJSONSchema(schema);
 }
 
