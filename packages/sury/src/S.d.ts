@@ -248,7 +248,7 @@ export type Output<T> = T extends Schema<infer Output, unknown>
   : never;
 export type Input<T> = T extends Schema<unknown, infer Input> ? Input : never;
 
-type UnknownToOutput<T> = T extends Schema<unknown>
+export type UnknownToOutput<T> = T extends Schema<unknown>
   ? Output<T>
   : T extends unknown[]
   ? { [K in keyof T]: UnknownToOutput<T[K]> }
@@ -266,7 +266,7 @@ type UnknownToOutput<T> = T extends Schema<unknown>
     >
   : T;
 
-type UnknownToInput<T> = T extends Schema<unknown>
+export type UnknownToInput<T> = T extends Schema<unknown>
   ? Input<T>
   : T extends unknown[]
   ? { [K in keyof T]: UnknownToInput<T[K]> }

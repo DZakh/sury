@@ -6,6 +6,7 @@ import { Error, Item, Path, Schema } from "./S";
 /* tslint:disable */
 
 export type t<Output, Input = unknown> = Schema<Output, Input>;
+export type schema<Output, Input = unknown> = Schema<Output, Input>;
 
 export type item = Item;
 
