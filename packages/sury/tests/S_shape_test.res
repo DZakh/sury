@@ -43,13 +43,16 @@ test("Serializes with unwrapping the value from variant", t => {
 test("Fails to serialize when can't unwrap the value from variant", t => {
   let schema = S.string->S.shape(s => Ok(s))
 
-  t->U.assertThrows(
-    () => Error("Hello world!")->S.reverseConvertOrThrow(schema),
-    {
-      code: InvalidType({expected: S.literal("Ok")->S.toUnknown, received: "Error"->Obj.magic}),
-      operation: ReverseConvert,
-      path: S.Path.fromLocation("TAG"),
-    },
+  t->Assert.deepEqual(
+    Error("Hello world!")->S.reverseConvertOrThrow(schema),
+    %raw(`"Hello world!"`),
+    ~message=`Convert operation doesn't perform exhaustiveness check`,
+    (),
+  )
+
+  t->U.assertThrowsMessage(
+    () => Error("Hello world!")->S.parseOrThrow(schema->S.reverse),
+    `Failed parsing: Expected { TAG: "Ok"; _0: string; }, received { TAG: "Error"; _0: "Hello world!"; }`,
   )
 })
 
@@ -225,7 +228,7 @@ test("Reverse convert with value registered multiple times", t => {
     ~schema,
     ~op=#ReverseConvert,
     // `i=>{let v0=i["NAME"],v1=i["VAL"]["0"];if(v0!=="Foo"){e[0](v0)}if(v1!==i["VAL"]["1"]){e[1]()}return v1}`,
-    `i=>{let v0=i["NAME"];if(v0!=="Foo"){e[0](v0)}return i["VAL"]["1"]}`,
+    `i=>{return i["VAL"]["1"]}`,
   )
 
   t->Assert.deepEqual(#Foo("abc", "abc")->S.reverseConvertOrThrow(schema), %raw(`"abc"`), ())
@@ -268,11 +271,7 @@ test("Compiled code snapshot of variant applied to object", t => {
     ~op=#Parse,
     `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["foo"];if(typeof v0!=="string"){e[0](v0)}return {"TAG":e[1],"_0":v0,}}`,
   )
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#ReverseConvert,
-    `i=>{let v0=i["TAG"];if(v0!=="Ok"){e[0](v0)}return {"foo":i["_0"],}}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return {"foo":i["_0"],}}`)
 })
 
 test("Compiled parse code snapshot", t => {
@@ -294,11 +293,7 @@ test("Compiled parse code snapshot without transform", t => {
 test("Compiled serialize code snapshot", t => {
   let schema = S.string->S.shape(s => Ok(s))
 
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#ReverseConvert,
-    `i=>{let v0=i["TAG"];if(v0!=="Ok"){e[0](v0)}return i["_0"]}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return i["_0"]}`)
 })
 
 test("Compiled serialize code snapshot without transform", t => {
@@ -376,11 +371,7 @@ test("Reverse convert tuple turned to Ok", t => {
   let schema = S.tuple2(S.string, S.bool)->S.shape(t => Ok(t))
 
   t->Assert.deepEqual(Ok(("foo", true))->S.reverseConvertOrThrow(schema), %raw(`["foo", true]`), ())
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#ReverseConvert,
-    `i=>{let v0=i["TAG"],v1=i["_0"];if(v0!=="Ok"){e[0](v0)}return v1}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{let v0=i["_0"];return v0}`)
 })
 
 test("Reverse with output of nested object/tuple schema", t => {

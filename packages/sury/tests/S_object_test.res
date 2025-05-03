@@ -658,28 +658,10 @@ test("Parse reversed schema with nested objects and tuples has type validation",
     }
   )
 
-  t->U.assertThrows(
-    () => {
-      schema->S.compile(~input=Value, ~output=Unknown, ~mode=Sync, ~typeValidation=true)
-    },
-    {
-      code: InvalidOperation({
-        description: "Type validation mode is not supported",
-      }),
-      operation: ReverseParse,
-      path: S.Path.empty,
-    },
-  )
-
-  // But works for simple objects
   t->U.assertCompiledCode(
-    ~schema=S.object(s =>
-      {
-        "foo": s.field("foo", S.bool),
-      }
-    ),
+    ~schema,
     ~op=#ReverseParse,
-    `i=>{if(typeof i!=="object"||!i){e[1](i)}let v0=i["foo"];if(typeof v0!=="boolean"){e[0](v0)}return {"foo":v0,}}`,
+    `i=>{if(typeof i!=="object"||!i||i["foo"]!==1||typeof i["obj"]!=="object"||!i["obj"]||i["obj"]["foo"]!==2){e[2](i)}let v0=i["obj"]["bar"],v1=i["tuple"]["1"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="boolean"){e[1](v1)}return {"bar":v0,"baz":v1,}}`,
   )
 })
 
@@ -1166,7 +1148,7 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{let v0=i["foo"],v1=i["bar"];if(v0!==12){e[0](v0)}e[1](v1);return {"foo":v0,"bar":{"baz":v1["baz"],},}}`,
+      `i=>{let v0=i["bar"];e[0](v0);return {"foo":i["foo"],"bar":{"baz":v0["baz"],},}}`,
     )
   })
 
@@ -1277,7 +1259,7 @@ module Compiled = {
       t->U.assertCompiledCode(
         ~schema,
         ~op=#ReverseConvert,
-        `i=>{let v0=i["zoo"];if(v0!==1){e[0](v0)}return {"tag":e[1],"FOO":i["foo"],"BAR":i["bar"],}}`,
+        `i=>{return {"tag":e[0],"FOO":i["foo"],"BAR":i["bar"],}}`,
       )
     },
   )

@@ -369,36 +369,16 @@ test(`Fails to serialize object with discriminant "Never"`, t => {
   )
 })
 
-test(`Serializes constant fields before registered non-literal fields`, t => {
+test(`Reverse parse validates literal fields before coming to other object fields`, t => {
   let schema = S.object(s => {
     {
-      "literalField": s.field("field", S.literal(true)),
+      "normal": s.field("field", S.string),
       "constant": true,
     }
   })
 
-  t->U.assertThrows(
-    () => {"constant": false, "literalField": false}->S.reverseConvertOrThrow(schema),
-    {
-      code: InvalidType({expected: S.literal(true)->S.toUnknown, received: Obj.magic(false)}),
-      operation: ReverseConvert,
-      path: S.Path.fromArray(["constant"]),
-    },
-  )
-
-  let schema = S.object(s => {
-    {
-      "boolField": s.field("field", S.bool),
-      "constant": true,
-    }
-  })
-
-  t->U.assertThrows(
-    () => {"constant": false, "boolField": false}->S.reverseConvertOrThrow(schema),
-    {
-      code: InvalidType({expected: S.literal(true)->S.toUnknown, received: Obj.magic(false)}),
-      operation: ReverseConvert,
-      path: S.Path.fromArray(["constant"]),
-    },
+  t->U.assertThrowsMessage(
+    () => {"constant": false, "normal": false}->S.parseOrThrow(schema->S.reverse),
+    `Failed parsing: Expected { normal: string; constant: true; }, received { constant: false; normal: false; }`,
   )
 })

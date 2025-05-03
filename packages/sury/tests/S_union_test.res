@@ -290,7 +290,7 @@ module Advanced = {
     t->U.assertThrows(() => data->S.parseOrThrow(schema), error)
     t->Assert.is(
       (error->U.error).message,
-      `Failed parsing at ["field"]: Expected { kind: "circle"; radius: number; } | { kind: "square"; x: number; } | { kind: "triangle"; x: number; y: number; }, received { kind: "oval";x: 2;y: 3; }`,
+      `Failed parsing at ["field"]: Expected { kind: "circle"; radius: number; } | { kind: "square"; x: number; } | { kind: "triangle"; x: number; y: number; }, received { kind: "oval"; x: 2; y: 3; }`,
       (),
     )
   })
@@ -377,7 +377,7 @@ module Advanced = {
     t->U.assertCompiledCode(
       ~schema=shapeSchema,
       ~op=#ReverseConvert,
-      `i=>{if(typeof i==="object"&&i){if(i["TAG"]==="Circle"){let v0=i["TAG"];if(v0!=="Circle"){e[0](v0)}i={"kind":e[1],"radius":i["radius"],}}else if(i["TAG"]==="Square"){let v1=i["TAG"];if(v1!=="Square"){e[2](v1)}i={"kind":e[3],"x":i["x"],}}else if(i["TAG"]==="Triangle"){let v2=i["TAG"];if(v2!=="Triangle"){e[4](v2)}i={"kind":e[5],"x":i["x"],"y":i["y"],}}}return i}`,
+      `i=>{if(typeof i==="object"&&i){if(i["TAG"]==="Circle"){i={"kind":e[0],"radius":i["radius"],}}else if(i["TAG"]==="Square"){i={"kind":e[1],"x":i["x"],}}else if(i["TAG"]==="Triangle"){i={"kind":e[2],"x":i["x"],"y":i["y"],}}}return i}`,
     )
   })
 }
@@ -654,7 +654,7 @@ module CrazyUnion = {
 
   test("Compiled serialize code snapshot of crazy union", t => {
     S.global({})
-    let code = `i=>{let r0=i=>{if(typeof i==="object"&&i){if(i["TAG"]==="A"){let v0=i["TAG"],v1=i["_0"],v5=new Array(v1.length);if(v0!=="A"){e[0](v0)}for(let v2=0;v2<v1.length;++v2){let v4;try{v4=r0(v1[v2])}catch(v3){if(v3&&v3.s===s){v3.path="[\\"_0\\"]"+\'["\'+v2+\'"]\'+v3.path}throw v3}v5[v2]=v4}i={"type":e[1],"nested":v5,}}else if(i["TAG"]==="Z"){let v6=i["TAG"],v7=i["_0"],v11=new Array(v7.length);if(v6!=="Z"){e[2](v6)}for(let v8=0;v8<v7.length;++v8){let v10;try{v10=r0(v7[v8])}catch(v9){if(v9&&v9.s===s){v9.path="[\\"_0\\"]"+\'["\'+v8+\'"]\'+v9.path}throw v9}v11[v8]=v10}i={"type":e[3],"nested":v11,}}}return i};return r0(i)}`
+    let code = `i=>{let r0=i=>{if(typeof i==="object"&&i){if(i["TAG"]==="A"){let v0=i["_0"],v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v3;try{v3=r0(v0[v1])}catch(v2){if(v2&&v2.s===s){v2.path="[\\"_0\\"]"+\'["\'+v1+\'"]\'+v2.path}throw v2}v4[v1]=v3}i={"type":e[0],"nested":v4,}}else if(i["TAG"]==="Z"){let v5=i["_0"],v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){let v8;try{v8=r0(v5[v6])}catch(v7){if(v7&&v7.s===s){v7.path="[\\"_0\\"]"+\'["\'+v6+\'"]\'+v7.path}throw v7}v9[v6]=v8}i={"type":e[1],"nested":v9,}}}return i};return r0(i)}`
     t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, code)
     // There was an issue with reverse when it doesn't return the same code on second run
     t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, code)

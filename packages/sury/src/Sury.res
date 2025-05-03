@@ -667,9 +667,9 @@ let rec stringify = unknown => {
     for i in 0 to keys->Array.length - 1 {
       let key = keys->Js.Array2.unsafe_get(i)
       let value = dict->Js.Dict.unsafeGet(key)
-      string := `${string.contents}${key}: ${stringify(value)};`
+      string := `${string.contents}${key}: ${stringify(value)}; `
     }
-    string.contents ++ " }"
+    string.contents ++ "}"
   | #object => unknown->Obj.magic->Stdlib.Object.internalClass
   | #string => `"${unknown->Obj.magic}"`
   | #number
@@ -3543,32 +3543,6 @@ module Schema = {
     }
 
     mut.builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
-      let hasTypeValidation = b.global.flag->Flag.unsafeHas(Flag.typeValidation)
-
-      // TODO: Optimise the for loop
-      for idx in 0 to ritems->Js.Array2.length - 1 {
-        switch ritems->Js.Array2.unsafe_get(idx) {
-        | Node(_) if hasTypeValidation =>
-          b->B.invalidOperation(~path, ~description="Type validation mode is not supported")
-        // typeFilters :=
-        //   typeFilters.contents ++
-        //   b->B.typeFilterCode(
-        //     ~schema=reversed,
-        //     ~typeFilter=isArray ? Array.typeFilter : typeFilter,
-        //     ~input=b->B.val(`${inputVar}${rpath}`),
-        //     ~path,
-        //   )
-        | Discriminant({reversed, path: rpath}) if !hasTypeValidation => {
-            let itemInput = b->B.val(`${b->B.Val.var(input)}${rpath}`)
-            let path = path->Path.concat(rpath)
-
-            // Discriminant should always have a typeFilter, so don't check for it
-            b.code = b.code ++ b->B.typeFilterCode(~schema=reversed, ~input=itemInput, ~path)
-          }
-        | _ => ()
-        }
-      }
-
       let getRitemInput = ritem => {
         ritem->getRitemPath === Path.empty
           ? input
@@ -3618,9 +3592,10 @@ module Schema = {
             let itemInput = ritem->getRitemInput
             let path = path->Path.concat(ritem->getRitemPath)
             if (
-              ritem->getRitemPath !== Path.empty && (
-                  hasTypeValidation ? !(reversed->isLiteral) : reversed->isLiteral
-                )
+              ritem->getRitemPath !== Path.empty &&
+              b.global.flag->Flag.unsafeHas(Flag.typeValidation) &&
+              !(reversed->isLiteral) &&
+              reversed.tag !== Object
             ) {
               b.code = b.code ++ b->B.typeFilterCode(~schema=reversed, ~input=itemInput, ~path)
             }

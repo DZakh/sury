@@ -28,12 +28,9 @@ module Common = {
   test("Fails to convert to Json", t => {
     let schema = factory()
 
-    t->Assert.throws(
+    t->U.assertThrowsMessage(
       () => value->S.convertToJsonOrThrow(schema),
-      ~expectations={
-        message: "Failed converting to JSON: The 'bigint' schema cannot be converted to JSON",
-      },
-      (),
+      "Failed converting to JSON: bigint is not valid JSON",
     )
   })
 

@@ -180,13 +180,17 @@ test("Successfully serializes tuple transformed to variant", t => {
 test("Fails to serialize tuple transformed to variant", t => {
   let schema = S.tuple(s => Ok(s.item(0, S.bool)))
 
-  t->U.assertThrows(
-    () => Error("foo")->S.reverseConvertOrThrow(schema),
-    {
-      code: InvalidType({expected: S.literal("Ok")->S.toUnknown, received: %raw(`"Error"`)}),
-      operation: ReverseConvert,
-      path: S.Path.fromLocation("TAG"),
-    },
+  let invalid = Error("foo")
+  t->Assert.deepEqual(
+    invalid->S.reverseConvertOrThrow(schema),
+    %raw(`["foo"]`),
+    ~message=`Convert operation doesn't perform exhaustiveness check`,
+    (),
+  )
+
+  t->U.assertThrowsMessage(
+    () => Error("foo")->S.parseOrThrow(schema->S.reverse),
+    `Failed parsing: Expected { TAG: "Ok"; _0: boolean; }, received { TAG: "Error"; _0: "foo"; }`,
   )
 })
 
@@ -353,11 +357,7 @@ module Compiled = {
         }
       })
 
-      t->U.assertCompiledCode(
-        ~schema,
-        ~op=#ReverseConvert,
-        `i=>{let v0=i["zoo"];if(v0!==1){e[0](v0)}return [e[1],i["foo"],i["bar"],]}`,
-      )
+      t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return [e[0],i["foo"],i["bar"],]}`)
     },
   )
 }
