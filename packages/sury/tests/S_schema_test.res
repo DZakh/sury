@@ -1,4 +1,5 @@
 open Ava
+open RescriptCore
 
 test("Literal schema", t => {
   t->U.assertEqualSchemas(S.schema(_ => 1), S.literal(1))
@@ -294,7 +295,7 @@ test(
 test("Object schema with empty object field", t => {
   let schema = S.schema(_ =>
     {
-      "foo": Js.Dict.empty(),
+      "foo": Dict.make(),
     }
   )
 
