@@ -38,9 +38,9 @@ Also, you can use **Sury** as a building block for your own tools or use existin
 
 ## Resources
 
-- Introduction to ReScript Schema ([Dev.to](https://dev.to/dzakh/javascript-schema-library-from-the-future-5420))
+- Welcome Sury - The fastest schema with next-gen DX ([Dev.to](https://dev.to/dzakh/welcome-sury-the-fastest-schema-with-next-gen-dx-5gl4))
+- ReScript Schema unique features ([Dev.to](https://dev.to/dzakh/javascript-schema-library-from-the-future-5420))
 - Building and consuming REST API in ReScript with rescript-rest and Fastify ([YouTube](https://youtu.be/37FY6a-zY20?si=72zT8Gecs5vmDPlD))
-- ReScript Schema V9 Changes Overview ([Dev.to](https://dev.to/dzakh/rescript-schema-v9-zod-like-library-to-the-next-level-1dn6))
 
 ## Comparison
 
