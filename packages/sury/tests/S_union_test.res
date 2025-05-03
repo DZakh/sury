@@ -290,7 +290,7 @@ module Advanced = {
     t->U.assertThrows(() => data->S.parseOrThrow(schema), error)
     t->Assert.is(
       (error->U.error).message,
-      `Failed parsing at ["field"]: Expected { kind: "circle"; radius: number; } | { kind: "square"; x: number; } | { kind: "triangle"; x: number; y: number; }, received {"kind": "oval", "x": 2, "y": 3}`,
+      `Failed parsing at ["field"]: Expected { kind: "circle"; radius: number; } | { kind: "square"; x: number; } | { kind: "triangle"; x: number; y: number; }, received { kind: "oval";x: 2;y: 3; }`,
       (),
     )
   })
@@ -502,7 +502,8 @@ test("Union with nested variant", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{if(typeof i==="object"&&i){try{let v0=i["foo"];let v1=v0["tag"];let v2=v1["NAME"],v3=v1["VAL"];if(v2!=="Null"){e[0](v2)}if(v3===void 0){v3=null}i={"foo":{"tag":{"NAME":v2,"VAL":v3,},},}}catch(e0){try{let v4=i["foo"];let v5=v4["tag"];let v6=v5["NAME"],v7=v5["VAL"];if(v6!=="Option"){e[1](v6)}i=i}catch(e1){}}}return i}`,
+    // TODO: Can make it work without the second case since it doesn't do anything besides i=i
+    `i=>{if(typeof i==="object"&&i){if(typeof i["foo"]==="object"&&i["foo"]&&typeof i["foo"]["tag"]==="object"&&i["foo"]["tag"]&&i["foo"]["tag"]["NAME"]==="Null"){let v0=i["foo"];let v1=v0["tag"];let v2=v1["VAL"];if(v2===void 0){v2=null}i={"foo":{"tag":{"NAME":v1["NAME"],"VAL":v2,},},}}else if(typeof i["foo"]==="object"&&i["foo"]&&typeof i["foo"]["tag"]==="object"&&i["foo"]["tag"]&&i["foo"]["tag"]["NAME"]==="Option"){let v3=i["foo"];let v4=v3["tag"];i=i}}return i}`,
   )
 })
 
@@ -548,8 +549,7 @@ test("Compiled serialize code snapshot of objects returning literal fields", t =
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Convert,
-    // FIXME: Remove duplicate literal check
-    `i=>{if(typeof i==="object"&&i){if(i["foo"]===0){let v0=i["foo"];if(v0!==0){e[0](v0)}i=v0}else if(i["bar"]===1){let v1=i["bar"];if(v1!==1){e[1](v1)}i=v1}}return i}`,
+    `i=>{if(typeof i==="object"&&i){if(i["foo"]===0){i=i["foo"]}else if(i["bar"]===1){i=i["bar"]}}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -732,16 +732,15 @@ test("Issue https://github.com/DZakh/rescript-schema/issues/101", t => {
   )
   let schema = S.union([syncRequestSchema, syncResponseSchema])
 
-  // FIXME: Don't need to repeat the literal check after it's done in the typeFilter
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{if(typeof i==="object"&&i){if(i["NAME"]==="request"){let v0=i["NAME"],v1=i["VAL"];if(v0!=="request"){e[0](v0)}i=i}else if(i["NAME"]==="response"){let v2=i["NAME"],v3=i["VAL"];if(v2!=="response"){e[1](v2)}i=i}}return i}`,
+    `i=>{if(typeof i==="object"&&i){if(i["NAME"]==="request"&&typeof i["VAL"]==="object"&&i["VAL"]){let v0=i["VAL"];i=i}else if(i["NAME"]==="response"&&typeof i["VAL"]==="object"&&i["VAL"]){let v1=i["VAL"];i=i}}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="object"&&i){if(i["NAME"]==="request"){let v0=i["VAL"];if(typeof v0!=="object"||!v0){e[0](v0)}let v1=v0["collectionName"];if(typeof v1!=="string"){e[1](v1)}i={"NAME":i["NAME"],"VAL":{"collectionName":v1,},}}else if(i["NAME"]==="response"){let v2=i["VAL"];if(typeof v2!=="object"||!v2){e[2](v2)}let v3=v2["collectionName"],v4=v2["response"];if(typeof v3!=="string"){e[3](v3)}if(!(typeof v4==="string"&&(v4==="accepted"||v4==="rejected"))){e[4](v4)}i={"NAME":i["NAME"],"VAL":{"collectionName":v3,"response":v4,},}}else{e[5](i)}}else{e[6](i)}return i}`,
+    `i=>{if(typeof i==="object"&&i){if(i["NAME"]==="request"&&typeof i["VAL"]==="object"&&i["VAL"]){let v0=i["VAL"];let v1=v0["collectionName"];if(typeof v1!=="string"){e[0](v1)}i={"NAME":i["NAME"],"VAL":{"collectionName":v1,},}}else if(i["NAME"]==="response"&&typeof i["VAL"]==="object"&&i["VAL"]){let v2=i["VAL"];let v3=v2["collectionName"],v4=v2["response"];if(typeof v3!=="string"){e[1](v3)}if(!(typeof v4==="string"&&(v4==="accepted"||v4==="rejected"))){e[2](v4)}i={"NAME":i["NAME"],"VAL":{"collectionName":v3,"response":v4,},}}else{e[3](i)}}else{e[4](i)}return i}`,
   )
 
   t->Assert.deepEqual(

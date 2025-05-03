@@ -33,15 +33,22 @@ module Common = {
   test("Fails to serialize invalid", t => {
     let schema = factory()
 
+    t->Assert.is(
+      invalid->S.reverseConvertOrThrow(schema),
+      invalid,
+      ~message=`Convert operation doesn't validate anything and assumes a valid input`,
+      (),
+    )
+
     t->U.assertThrows(
-      () => invalid->S.reverseConvertOrThrow(schema),
+      () => invalid->S.parseOrThrow(schema->S.reverse),
       {
         code: InvalidType({
-          expected: S.literal("bar")->S.toUnknown,
-          received: %raw(`undefined`),
+          expected: schema->S.toUnknown,
+          received: %raw(`123`),
         }),
-        operation: ReverseConvert,
-        path: S.Path.fromLocation("foo"),
+        operation: Parse,
+        path: S.Path.empty,
       },
     )
   })
@@ -81,11 +88,7 @@ module Common = {
   test("Compiled serialize code snapshot", t => {
     let schema = factory()
 
-    t->U.assertCompiledCode(
-      ~schema,
-      ~op=#ReverseConvert,
-      `i=>{let v0=i["foo"];if(v0!=="bar"){e[0](v0)}return i}`,
-    )
+    t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return i}`)
   })
 
   test("Reverse schema to self", t => {

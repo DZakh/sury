@@ -203,14 +203,14 @@ test("JSONSchema of null", t => {
 test("JSONSchema of undefined", t => {
   t->U.assertThrowsMessage(
     () => S.literal(%raw(`undefined`))->S.toJSONSchema,
-    `Failed converting to JSON: The 'undefined' schema cannot be converted to JSON`,
+    `Failed converting to JSON: undefined is not valid JSON`,
   )
 })
 
 test("JSONSchema of NaN", t => {
   t->U.assertThrowsMessage(
     () => S.literal(%raw(`NaN`))->S.toJSONSchema,
-    `Failed converting to JSON: The 'NaN' schema cannot be converted to JSON`,
+    `Failed converting to JSON: NaN is not valid JSON`,
   )
 })
 
@@ -328,7 +328,7 @@ test("JSONSchema of dict with optional fields", t => {
 test("JSONSchema of dict with optional invalid field", t => {
   t->U.assertThrowsMessage(
     () => S.dict(S.option(S.bigint))->S.toJSONSchema,
-    `Failed converting to JSON: The \'{ [key: string]: bigint | undefined; }\' schema cannot be converted to JSON`,
+    `Failed converting to JSON: { [key: string]: bigint | undefined; } is not valid JSON`,
   )
 })
 
@@ -450,7 +450,7 @@ test("JSONSchema of object with one optional and one normal field", t => {
 test("JSONSchema of optional root schema", t => {
   t->U.assertThrowsMessage(
     () => S.option(S.string)->S.toJSONSchema,
-    "Failed converting to JSON: The \'string | undefined\' schema cannot be converted to JSON",
+    "Failed converting to JSON: string | undefined is not valid JSON",
   )
 })
 
@@ -484,7 +484,7 @@ test("JSONSchema of reversed object with S.option(S.option(_)) field", t => {
     //   "additionalProperties": true,
     // }`),
     // (),
-    `Failed converting to JSON: The \'string | undefined | { BS_PRIVATE_NESTED_SOME_NONE: 0; }\' schema cannot be converted to JSON`,
+    `Failed converting to JSON: string | undefined | { BS_PRIVATE_NESTED_SOME_NONE: 0; } is not valid JSON`,
   )
 })
 
@@ -639,7 +639,7 @@ test("Additional raw schema works with optional fields", t => {
 test("JSONSchema of unknown schema", t => {
   t->U.assertThrowsMessage(
     () => S.unknown->S.toJSONSchema,
-    `Failed converting to JSON: The 'unknown' schema cannot be converted to JSON`,
+    `Failed converting to JSON: unknown is not valid JSON`,
   )
 })
 
@@ -652,26 +652,26 @@ test("JSON schema doesn't affect final schema", t => {
 test("Fails to create schema for schemas with optional items", t => {
   t->U.assertThrowsMessage(
     () => S.array(S.option(S.string))->S.toJSONSchema,
-    "Failed converting to JSON: The '(string | undefined)[]' schema cannot be converted to JSON",
+    "Failed converting to JSON: (string | undefined)[] is not valid JSON",
   )
   t->U.assertThrowsMessage(
     () => S.union([S.option(S.string), S.null(S.string)])->S.toJSONSchema,
-    "Failed converting to JSON: The 'string | undefined | null' schema cannot be converted to JSON",
+    "Failed converting to JSON: string | undefined | null is not valid JSON",
   )
   t->U.assertThrowsMessage(
     () => S.tuple1(S.option(S.string))->S.toJSONSchema,
-    `Failed converting to JSON at ["0"]: The \'[string | undefined]\' schema cannot be converted to JSON`,
+    `Failed converting to JSON at ["0"]: [string | undefined] is not valid JSON`,
   )
   t->U.assertThrowsMessage(
     () => S.tuple1(S.array(S.option(S.string)))->S.toJSONSchema,
-    `Failed converting to JSON at ["0"]: The '[(string | undefined)[]]' schema cannot be converted to JSON`,
+    `Failed converting to JSON at ["0"]: [(string | undefined)[]] is not valid JSON`,
   )
 })
 
 test("JSONSchema error of nested object has path", t => {
   t->U.assertThrowsMessage(
     () => S.object(s => s.nested("nested").field("field", S.bigint))->S.toJSONSchema,
-    `Failed converting to JSON at ["nested"]["field"]: The \'{ field: bigint; }\' schema cannot be converted to JSON`,
+    `Failed converting to JSON at ["nested"]["field"]: { field: bigint; } is not valid JSON`,
   )
 })
 

@@ -47,13 +47,10 @@ test("Object with embeded schema", t => {
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Parse),
     objectSchema->U.getCompiledCodeString(~op=#Parse),
+    ~message=`i=>{if(typeof i!=="object"||!i||i["foo"]!=="bar"){e[1](i)}let v0=i["zoo"];if(typeof v0!=="number"||v0>2147483647||v0<-2147483648||v0%1!==0){e[0](v0)}return {"foo":i["foo"],"zoo":v0,}}`,
     (),
   )
-  t->Assert.is(
-    schema->U.getCompiledCodeString(~op=#ReverseConvert),
-    `i=>{let v0=i["foo"];if(v0!=="bar"){e[0](v0)}return i}`,
-    (),
-  )
+  t->Assert.is(schema->U.getCompiledCodeString(~op=#ReverseConvert), `i=>{return i}`, ())
   t->Assert.is(
     objectSchema->U.getCompiledCodeString(~op=#ReverseConvert),
     `i=>{let v0=i["foo"];if(v0!=="bar"){e[0](v0)}return {"foo":v0,"zoo":i["zoo"],}}`,
@@ -82,12 +79,12 @@ test("Object with embeded transformed schema", t => {
   )
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#ReverseConvert),
-    `i=>{let v0=i["foo"],v1=i["zoo"];if(v0!=="bar"){e[0](v0)}if(v1===void 0){v1=null}return {"foo":v0,"zoo":v1,}}`,
+    `i=>{let v0=i["zoo"];if(v0===void 0){v0=null}return {"foo":i["foo"],"zoo":v0,}}`,
     (),
   )
   t->Assert.is(
-    schema->U.getCompiledCodeString(~op=#ReverseConvert),
     objectSchema->U.getCompiledCodeString(~op=#ReverseConvert),
+    `i=>{let v0=i["foo"],v1=i["zoo"];if(v0!=="bar"){e[0](v0)}if(v1===void 0){v1=null}return {"foo":v0,"zoo":v1,}}`,
     (),
   )
 })
@@ -109,11 +106,7 @@ test("Strict object with embeded returns input without object recreation", t => 
     `i=>{if(typeof i!=="object"||!i||Array.isArray(i)||i["foo"]!=="bar"){e[2](i)}let v0=i["zoo"],v1;if(typeof v0!=="number"||v0>2147483647||v0<-2147483648||v0%1!==0){e[0](v0)}for(v1 in i){if(v1!=="foo"&&v1!=="zoo"){e[1](v1)}}return i}`,
     (),
   )
-  t->Assert.is(
-    schema->U.getCompiledCodeString(~op=#ReverseConvert),
-    `i=>{let v0=i["foo"];if(v0!=="bar"){e[0](v0)}return i}`,
-    (),
-  )
+  t->Assert.is(schema->U.getCompiledCodeString(~op=#ReverseConvert), `i=>{return i}`, ())
 })
 
 test("Tuple with embeded schema", t => {
@@ -136,11 +129,7 @@ test("Tuple with embeded schema", t => {
     `i=>{if(!Array.isArray(i)||i.length!==3||i["1"]!==void 0||i["2"]!=="bar"){e[1](i)}let v0=i["0"];if(typeof v0!=="string"){e[0](v0)}return [v0,i["1"],i["2"],]}`,
     (),
   )
-  t->Assert.is(
-    schema->U.getCompiledCodeString(~op=#ReverseConvert),
-    `i=>{let v0=i["1"],v1=i["2"];if(v0!==void 0){e[0](v0)}if(v1!=="bar"){e[1](v1)}return i}`,
-    (),
-  )
+  t->Assert.is(schema->U.getCompiledCodeString(~op=#ReverseConvert), `i=>{return i}`, ())
   t->Assert.is(
     tupleSchema->U.getCompiledCodeString(~op=#ReverseConvert),
     `i=>{let v0=i["1"],v1=i["2"];if(v0!==void 0){e[0](v0)}if(v1!=="bar"){e[1](v1)}return [i["0"],v0,v1,]}`,
@@ -164,12 +153,12 @@ test("Tuple with embeded transformed schema", t => {
   )
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#ReverseConvert),
-    `i=>{let v0=i["0"],v1=i["1"],v2=i["2"];if(v0===void 0){v0=null}if(v1!==void 0){e[0](v1)}if(v2!=="bar"){e[1](v2)}return [v0,v1,v2,]}`,
+    `i=>{let v0=i["0"];if(v0===void 0){v0=null}return [v0,i["1"],i["2"],]}`,
     (),
   )
   t->Assert.is(
-    schema->U.getCompiledCodeString(~op=#ReverseConvert),
     tupleSchema->U.getCompiledCodeString(~op=#ReverseConvert),
+    `i=>{let v0=i["0"],v1=i["1"],v2=i["2"];if(v0===void 0){v0=null}if(v1!==void 0){e[0](v1)}if(v2!=="bar"){e[1](v2)}return [v0,v1,v2,]}`,
     (),
   )
 })
@@ -206,7 +195,7 @@ test("Nested object with embeded schema", t => {
   )
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#ReverseConvert),
-    `i=>{let v0=i["nested"];let v1=v0["foo"];if(v1!=="bar"){e[0](v1)}return i}`,
+    `i=>{let v0=i["nested"];return i}`,
     (),
   )
   t->Assert.is(
@@ -301,3 +290,43 @@ test(
     t->U.assertCompiledCode(~schema, ~op=#Convert, `i=>{return i}`)
   },
 )
+
+test("Object schema with empty object field", t => {
+  let schema = S.schema(_ =>
+    {
+      "foo": Js.Dict.empty(),
+    }
+  )
+
+  t->U.assertThrowsMessage(
+    () => %raw(`{"foo": "bar"}`)->S.parseOrThrow(schema),
+    `Failed parsing: Expected { foo: {}; }, received { foo: "bar"; }`,
+  )
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(typeof i!=="object"||!i||typeof i["foo"]!=="object"||!i["foo"]){e[0](i)}return {"foo":{},}}`,
+  )
+  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return i}`)
+})
+
+test("Object schema with nested object field containing only literal", t => {
+  let schema = S.schema(_ =>
+    {
+      "foo": %raw(`{"bar": "baz"}`),
+    }
+  )
+
+  t->U.assertThrowsMessage(
+    () => %raw(`{"foo": {"bar": "bap"}}`)->S.parseOrThrow(schema),
+    `Failed parsing: Expected { foo: { bar: "baz"; }; }, received { foo: { bar: "bap"; }; }`,
+  )
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(typeof i!=="object"||!i||typeof i["foo"]!=="object"||!i["foo"]||i["foo"]["bar"]!=="baz"){e[0](i)}let v0=i["foo"];return {"foo":{"bar":v0["bar"],},}}`,
+  )
+  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{let v0=i["foo"];return i}`)
+})

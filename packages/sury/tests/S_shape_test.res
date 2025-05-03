@@ -139,7 +139,7 @@ test(
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["foo"];if(typeof v0!=="object"||!v0){e[0](v0)}let v1=v0["bar"];if(typeof v1!=="string"){e[1](v1)}return v1}`,
+      `i=>{if(typeof i!=="object"||!i||typeof i["foo"]!=="object"||!i["foo"]){e[1](i)}let v0=i["foo"];let v1=v0["bar"];if(typeof v1!=="string"){e[0](v1)}return v1}`,
     )
   },
 )
@@ -183,8 +183,7 @@ test("Reverse convert of tagged tuple with destructured literal", t => {
 
   t->Assert.deepEqual(12->S.reverseConvertOrThrow(schema), %raw(`[true, 12]`), ())
 
-  // FIXME: Can be improved
-  let code = `i=>{if(i!==12){e[2](i)}if(i!==12){e[1](i)}return [e[0],i,]}`
+  let code = `i=>{if(i!==12){e[1](i)}return [e[0],i,]}`
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, code)
   t->U.assertCompiledCode(~schema, ~op=#ReverseParse, code)
 })
@@ -204,16 +203,12 @@ test("Reverse convert of tagged tuple with destructured bool", t => {
     (),
   )
 
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#ReverseConvert,
-    `i=>{let v0=i["1"];if(v0!=="foo"){e[1](v0)}return [e[0],i["1"],i["0"],]}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return [e[0],i["1"],i["0"],]}`)
   // FIXME: Can be improved
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseParse,
-    `i=>{if(!Array.isArray(i)||i.length!==2||i["1"]!=="foo"){e[2](i)}let v0=i["1"];if(v0!=="foo"){e[1](v0)}return [e[0],i["1"],i["0"],]}`,
+    `i=>{if(!Array.isArray(i)||i.length!==2||i["1"]!=="foo"){e[1](i)}return [e[0],i["1"],i["0"],]}`,
   )
 })
 

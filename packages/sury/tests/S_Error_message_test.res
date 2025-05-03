@@ -245,10 +245,10 @@ test("InvalidJsonSchema error", t => {
   t->Assert.is(
     U.error({
       code: InvalidJsonSchema(S.option(S.literal(true))->S.toUnknown),
-      operation: ReverseConvert,
+      operation: ReverseConvertToJson,
       path: S.Path.empty,
     }).message,
-    `Failed converting: The 'true | undefined' schema cannot be converted to JSON`,
+    `Failed converting to JSON: true | undefined is not valid JSON`,
     (),
   )
 })

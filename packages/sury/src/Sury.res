@@ -663,16 +663,13 @@ let rec stringify = unknown => {
     if (unknown->(Obj.magic: 'a => {"constructor": unknown}))["constructor"] === %raw("Object") =>
     let dict = unknown->(Obj.magic: unknown => dict<unknown>)
     let keys = Js.Dict.keys(dict)
-    let string = ref("{")
+    let string = ref("{ ")
     for i in 0 to keys->Array.length - 1 {
       let key = keys->Js.Array2.unsafe_get(i)
       let value = dict->Js.Dict.unsafeGet(key)
-      if i !== 0 {
-        string := string.contents ++ ", "
-      }
-      string := `${string.contents}"${key}": ${stringify(value)}`
+      string := `${string.contents}${key}: ${stringify(value)};`
     }
-    string.contents ++ "}"
+    string.contents ++ " }"
   | #object => unknown->Obj.magic->Stdlib.Object.internalClass
   | #string => `"${unknown->Obj.magic}"`
   | #number
@@ -768,8 +765,7 @@ module ErrorClass = {
       | None => ()
       }
       m.contents
-    | InvalidJsonSchema(schema) =>
-      `The '${schema->toExpression}' schema cannot be converted to JSON`
+    | InvalidJsonSchema(schema) => `${schema->toExpression} is not valid JSON`
     }
   }
 
@@ -987,9 +983,6 @@ module Builder = {
           (objectVal :> val)
         }
       }
-
-      @inline
-      let isEmbed = (val: val) => val.var === _var && val.inline->Js.String2.get(0) === "e"
 
       @inline
       let var = (b: b, val: val) => {
@@ -1264,14 +1257,11 @@ module Builder = {
                 ~schema=item,
                 ~negative,
               )
-            } else if schema.tag === Object {
+            } else if item.tag === Object {
               let inputVar = Path.concat(inputVar, Path.fromInlinedLocation(inlinedLocation))
-              let r = b->refinement(~inputVar, ~schema=item, ~negative)
-              if r !== "" {
-                `${inputVar}${r}`
-              } else {
-                ""
-              }
+              // TODO: Support noValidation
+              b->validation(~inputVar, ~schema=item, ~negative) ++
+                b->refinement(~inputVar, ~schema=item, ~negative)
             } else {
               ""
             }
@@ -3398,9 +3388,9 @@ module Schema = {
         let path = path->Path.concat(itemPath)
 
         if (
-          b.global.flag->Flag.unsafeHas(Flag.typeValidation)
-            ? !(schema->isLiteral)
-            : schema->isLiteral && !(itemInput->B.Val.isEmbed)
+          b.global.flag->Flag.unsafeHas(Flag.typeValidation) &&
+          !(schema->isLiteral) &&
+          schema.tag !== Object
         ) {
           b.code = b.code ++ b->B.typeFilterCode(~schema, ~input=itemInput, ~path)
         }
@@ -3486,9 +3476,9 @@ module Schema = {
         let path = path->Path.concat(itemPath)
 
         if (
-          b.global.flag->Flag.unsafeHas(Flag.typeValidation)
-            ? !(schema->isLiteral)
-            : schema->isLiteral
+          b.global.flag->Flag.unsafeHas(Flag.typeValidation) &&
+          !(schema->isLiteral) &&
+          schema.tag !== Object
         ) {
           b.code = b.code ++ b->B.typeFilterCode(~schema, ~input=itemInput, ~path)
         }

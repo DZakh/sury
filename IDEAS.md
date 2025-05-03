@@ -84,11 +84,16 @@
 - Fix union case with parsing schemas of the same type
 - Export `UnknownToOutput` and `UnknownToInput` and add GenType support for S.schema type
 - Fixed `S.toJSONSchema` error message with invalid object fields
+- Display expected and received values in the same format
+- Update validation to start with deeply checking object and literal fields. This might resolve in a less detail error path, but allows nested literals to act as union discriminators.
+- Stopped validating literals in conversion mode
 
 ### Scope
 
 ### Final release fixes
 
+- Make `S.record` accept two args
+- Remove `s.fail` in favor of `throw new Error`
 - Fix all tests marked as Failing
 - Update docs
 - Fix all fixme
@@ -107,7 +112,6 @@
 - Make S.to extensible
 - Add S.Date (S.instanceof) and remove S.datetime
 - Add refinement info to the tagged type
-- Replace `s.fail` with `throw new Error`
 
 ## v???
 

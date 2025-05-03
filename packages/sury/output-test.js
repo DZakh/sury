@@ -1,23 +1,30 @@
 (i) => {
-  if (typeof i === "string") {
-    if (i === "t") {
-      i = true;
-    } else if (i === "1") {
-      i = true;
-    } else if (i === "f") {
-      i = false;
-    } else if (i === "0") {
-      i = false;
+  if (typeof i === "object" && i) {
+    if (
+      typeof i["foo"] === "object" &&
+      i["foo"] &&
+      typeof i["foo"]["tag"] === "object" &&
+      i["foo"]["tag"] &&
+      i["foo"]["tag"]["NAME"] === "Null"
+    ) {
+      let v0 = i["foo"];
+      let v1 = v0["tag"];
+      let v2 = v1["VAL"];
+      if (v2 === void 0) {
+        v2 = null;
+      }
+      i = { foo: { tag: { NAME: v1["NAME"], VAL: v2 } } };
+    } else if (
+      typeof i["foo"] === "object" &&
+      i["foo"] &&
+      typeof i["foo"]["tag"] === "object" &&
+      i["foo"]["tag"] &&
+      i["foo"]["tag"]["NAME"] === "Option"
+    ) {
+      let v3 = i["foo"];
+      let v4 = v3["tag"];
+      i = i;
     }
-    try {
-      let v0;
-      (v0 = i === "true") || i === "false" || e[4](i);
-      i = v0;
-    } catch (e4) {
-      e[5](i, e4);
-    }
-  } else {
-    e[6](i);
   }
   return i;
 };

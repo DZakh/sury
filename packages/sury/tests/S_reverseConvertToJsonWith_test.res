@@ -128,7 +128,7 @@ test("Doesn't allow to convert to JSON array with optional items", t => {
 
   t->U.assertThrowsMessage(
     () => [None]->S.reverseConvertToJsonOrThrow(schema),
-    "Failed converting to JSON: The \'(boolean | undefined)[]\' schema cannot be converted to JSON",
+    "Failed converting to JSON: (boolean | undefined)[] is not valid JSON",
   )
 })
 
@@ -137,7 +137,7 @@ test("Doesn't allow to convert to JSON tuple with optional items", t => {
 
   t->U.assertThrowsMessage(
     () => None->S.reverseConvertToJsonOrThrow(schema),
-    `Failed converting to JSON at ["0"]: The 'boolean | undefined' schema cannot be converted to JSON`,
+    `Failed converting to JSON at ["0"]: [boolean | undefined] is not valid JSON`,
   )
 })
 
@@ -220,13 +220,9 @@ test("Fails to reverse convert BigInt literal", t => {
 test("Fails to reverse convert Dict literal with invalid field", t => {
   let dict = %raw(`{"foo": 123n}`)
   let schema = S.literal(dict)
-  t->U.assertThrows(
+  t->U.assertThrowsMessage(
     () => dict->S.reverseConvertToJsonOrThrow(schema),
-    {
-      code: InvalidJsonSchema(S.literal(123n)->S.toUnknown),
-      operation: ReverseConvertToJson,
-      path: S.Path.fromLocation("foo"),
-    },
+    `Failed converting to JSON at ["foo"]: { foo: 123n; } is not valid JSON`,
   )
 })
 
@@ -263,14 +259,14 @@ test("Fails to reverse convert Never schema", t => {
 test("Fails to reverse convert object with invalid nested schema", t => {
   t->U.assertThrowsMessage(
     () => Obj.magic(true)->S.reverseConvertToJsonOrThrow(S.object(s => s.field("foo", S.unknown))),
-    `Failed converting to JSON at ["foo"]: The \'unknown\' schema cannot be converted to JSON`,
+    `Failed converting to JSON at ["foo"]: { foo: unknown; } is not valid JSON`,
   )
 })
 
 test("Fails to reverse convert tuple with invalid nested schema", t => {
   t->U.assertThrowsMessage(
     () => Obj.magic(true)->S.reverseConvertToJsonOrThrow(S.tuple1(S.unknown)),
-    `Failed converting to JSON at ["0"]: The \'unknown\' schema cannot be converted to JSON`,
+    `Failed converting to JSON at ["0"]: [unknown] is not valid JSON`,
   )
 })
 
@@ -279,7 +275,7 @@ test("Doesn't serialize union to JSON when at least one item is not JSON-able", 
 
   t->U.assertThrowsMessage(
     () => "foo"->S.reverseConvertToJsonOrThrow(schema),
-    "Failed converting to JSON: The \'string | unknown\' schema cannot be converted to JSON",
+    "Failed converting to JSON: string | unknown is not valid JSON",
   )
 
   // Not related to the test, just check that it doesn't crash while we are at it
@@ -296,7 +292,7 @@ test("Fails to reverse convert union with invalid json schemas", t => {
 
   t->U.assertThrowsMessage(
     () => %raw(`NaN`)->S.reverseConvertToJsonOrThrow(schema),
-    "Failed converting to JSON: The \'NaN | unknown\' schema cannot be converted to JSON",
+    "Failed converting to JSON: NaN | unknown is not valid JSON",
   )
 })
 
@@ -402,7 +398,7 @@ module SerializesDeepRecursive = {
     t->U.assertCompiledCode(
       ~schema=bodySchema,
       ~op=#ReverseConvert,
-      `i=>{let v0=i["condition"],v22;let r0=v0=>{if(typeof v0==="object"&&v0){if(v0["TAG"]==="Connective"&&v0["_0"]&&v0["_0"]["operator"]==="or"){let v1=v0["TAG"],v2=v0["_0"]["operator"],v3=v0["_0"]["conditions"],v7=new Array(v3.length);if(v1!=="Connective"){e[0](v1)}if(v2!=="or"){e[1](v2)}for(let v4=0;v4<v3.length;++v4){let v6;try{v6=r0(v3[v4])}catch(v5){if(v5&&v5.s===s){v5.path="[\\"_0\\"][\\"conditions\\"]"+\'["\'+v4+\'"]\'+v5.path}throw v5}v7[v4]=v6}v0={"type":e[2],"value":v7,}}else if(v0["TAG"]==="Connective"&&v0["_0"]&&v0["_0"]["operator"]==="and"){let v8=v0["TAG"],v9=v0["_0"]["operator"],v10=v0["_0"]["conditions"],v14=new Array(v10.length);if(v8!=="Connective"){e[3](v8)}if(v9!=="and"){e[4](v9)}for(let v11=0;v11<v10.length;++v11){let v13;try{v13=r0(v10[v11])}catch(v12){if(v12&&v12.s===s){v12.path="[\\"_0\\"][\\"conditions\\"]"+\'["\'+v11+\'"]\'+v12.path}throw v12}v14[v11]=v13}v0={"type":e[5],"value":v14,}}else if(v0["TAG"]==="Comparison"&&v0["_0"]&&v0["_0"]["operator"]==="equal"&&v0["_0"]["values"]&&v0["_0"]["values"].length===2){let v15=v0["TAG"],v16=v0["_0"]["operator"],v17=v0["_0"]["values"];if(v15!=="Comparison"){e[6](v15)}if(v16!=="equal"){e[7](v16)}v0={"type":e[8],"value":v17,}}else if(v0["TAG"]==="Comparison"&&v0["_0"]&&v0["_0"]["operator"]==="greater-than"&&v0["_0"]["values"]&&v0["_0"]["values"].length===2){let v18=v0["TAG"],v19=v0["_0"]["operator"],v20=v0["_0"]["values"];if(v18!=="Comparison"){e[9](v18)}if(v19!=="greater-than"){e[10](v19)}v0={"type":e[11],"value":v20,}}}return v0};try{v22=r0(v0)}catch(v21){if(v21&&v21.s===s){v21.path="[\\"condition\\"]"+v21.path}throw v21}return {"condition":v22,}}`,
+      `i=>{let v0=i["condition"],v22;let r0=v0=>{if(typeof v0==="object"&&v0){if(v0["TAG"]==="Connective"&&typeof v0["_0"]==="object"&&v0["_0"]&&v0["_0"]["operator"]==="or"){let v1=v0["TAG"],v2=v0["_0"]["operator"],v3=v0["_0"]["conditions"],v7=new Array(v3.length);if(v1!=="Connective"){e[0](v1)}if(v2!=="or"){e[1](v2)}for(let v4=0;v4<v3.length;++v4){let v6;try{v6=r0(v3[v4])}catch(v5){if(v5&&v5.s===s){v5.path="[\\"_0\\"][\\"conditions\\"]"+\'["\'+v4+\'"]\'+v5.path}throw v5}v7[v4]=v6}v0={"type":e[2],"value":v7,}}else if(v0["TAG"]==="Connective"&&typeof v0["_0"]==="object"&&v0["_0"]&&v0["_0"]["operator"]==="and"){let v8=v0["TAG"],v9=v0["_0"]["operator"],v10=v0["_0"]["conditions"],v14=new Array(v10.length);if(v8!=="Connective"){e[3](v8)}if(v9!=="and"){e[4](v9)}for(let v11=0;v11<v10.length;++v11){let v13;try{v13=r0(v10[v11])}catch(v12){if(v12&&v12.s===s){v12.path="[\\"_0\\"][\\"conditions\\"]"+\'["\'+v11+\'"]\'+v12.path}throw v12}v14[v11]=v13}v0={"type":e[5],"value":v14,}}else if(v0["TAG"]==="Comparison"&&typeof v0["_0"]==="object"&&v0["_0"]&&v0["_0"]["operator"]==="equal"){let v15=v0["TAG"],v16=v0["_0"]["operator"],v17=v0["_0"]["values"];if(v15!=="Comparison"){e[6](v15)}if(v16!=="equal"){e[7](v16)}v0={"type":e[8],"value":v17,}}else if(v0["TAG"]==="Comparison"&&typeof v0["_0"]==="object"&&v0["_0"]&&v0["_0"]["operator"]==="greater-than"){let v18=v0["TAG"],v19=v0["_0"]["operator"],v20=v0["_0"]["values"];if(v18!=="Comparison"){e[9](v18)}if(v19!=="greater-than"){e[10](v19)}v0={"type":e[11],"value":v20,}}}return v0};try{v22=r0(v0)}catch(v21){if(v21&&v21.s===s){v21.path="[\\"condition\\"]"+v21.path}throw v21}return {"condition":v22,}}`,
     )
 
     t->Assert.deepEqual(

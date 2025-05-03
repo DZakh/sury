@@ -48,13 +48,8 @@ test("Successfully parses object with space", t => {
 test("Fails to serialize Unknown schema", t => {
   let schema = S.unknown
 
-  t->Assert.throws(
-    () => {
-      Obj.magic(123)->S.reverseConvertToJsonStringOrThrow(schema)
-    },
-    ~expectations={
-      message: "Failed converting to JSON: The 'unknown' schema cannot be converted to JSON",
-    },
-    (),
+  t->U.assertThrowsMessage(
+    () => Obj.magic(123)->S.reverseConvertToJsonStringOrThrow(schema),
+    `Failed converting to JSON: unknown is not valid JSON`,
   )
 })
