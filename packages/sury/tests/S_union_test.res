@@ -382,6 +382,71 @@ module Advanced = {
   })
 }
 
+test("NaN should be checked before number even if it's later item in the union", t => {
+  // This is needed because NaN check might be disabled for number
+  // and NaN case won't be reached as expected
+
+  S.global({disableNanNumberValidation: true})
+
+  let schema = S.union([
+    S.float->S.min(0)->S.shape(v => Some(v)),
+    S.literal(%raw(`NaN`))->S.shape(_ => None),
+  ])
+
+  t->Assert.deepEqual(%raw(`NaN`)->S.parseOrThrow(schema), None, ())
+  t->Assert.deepEqual(1.->S.parseOrThrow(schema), Some(1.), ())
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(Number.isNaN(i)){i=e[0]}else if(typeof i==="number"){if(i<e[1]){e[2]()}}else{e[3](i)}return i}`,
+  )
+
+  S.global({})
+})
+
+test("Array should be checked before object even if it's later item in the union", t => {
+  // This is needed because S.object in strip mode doesn't perform
+  // array check so actual array case won't be reached as expected
+
+  let schema = S.union([S.object(s => [s.field("foo", S.string)]), S.array(S.string)])
+
+  t->Assert.deepEqual(%raw(`["baz"]`)->S.parseOrThrow(schema), ["baz"], ())
+  t->Assert.deepEqual(%raw(`{"foo": "bar"}`)->S.parseOrThrow(schema), ["bar"], ())
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(Array.isArray(i)){for(let v0=0;v0<i.length;++v0){let v2=i[v0];try{if(typeof v2!=="string"){e[0](v2)}}catch(v1){if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1}}}else if(typeof i==="object"&&i){let v3=i["foo"];if(typeof v3!=="string"){e[1](v3)}i=[v3,]}else{e[2](i)}return i}`,
+  )
+})
+
+Failing.test(
+  "Instance schema should be checked before object even if it's later item in the union",
+  t => {
+    // This is needed because S.object in strip mode doesn't perform
+    // array check so actual array case won't be reached as expected
+
+    let schema = S.union([
+      S.object(s => [s.field("foo", S.string)]),
+      S.instance(%raw(`Set`))->Obj.magic,
+    ])
+
+    // t->Assert.deepEqual(
+    //   %raw(`new Set(["baz"])`)->S.parseOrThrow(schema),
+    //   %raw(`new Set(["baz"])`),
+    //   (),
+    // )
+    // t->Assert.deepEqual(%raw(`{"foo": "bar"}`)->S.parseOrThrow(schema), ["bar"], ())
+
+    t->U.assertCompiledCode(
+      ~schema,
+      ~op=#Parse,
+      `i=>{if(Array.isArray(i)){for(let v0=0;v0<i.length;++v0){let v2=i[v0];try{if(typeof v2!=="string"){e[0](v2)}}catch(v1){if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1}}}else if(typeof i==="object"&&i){let v3=i["foo"];if(typeof v3!=="string"){e[1](v3)}i=[v3,]}else{e[2](i)}return i}`,
+    )
+  },
+)
+
 @unboxed
 type uboxedVariant = String(string) | Int(int)
 test("Successfully serializes unboxed variant", t => {

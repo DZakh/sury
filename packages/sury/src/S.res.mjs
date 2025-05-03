@@ -36,6 +36,8 @@ var unnest = Sury.unnest;
 
 var list = Sury.list;
 
+var instance = Sury.instance;
+
 var dict = Sury.dict;
 
 var option = Sury.option;
@@ -192,6 +194,7 @@ export {
   array ,
   unnest ,
   list ,
+  instance ,
   dict ,
   option ,
   $$null ,

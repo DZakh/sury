@@ -106,6 +106,10 @@ var filesMapping = [
     "S.array"
   ],
   [
+    "instance",
+    "S.instance"
+  ],
+  [
     "unnest",
     "S.unnest"
   ],

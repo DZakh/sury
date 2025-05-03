@@ -2,21 +2,18 @@
 
 ## v10
 
-### rc.3
+### rc.4
 
-- `S.to` support from literal to non-literal of the same type
-- Fix union case with parsing schemas of the same type
-- Export `UnknownToOutput` and `UnknownToInput` and add GenType support for S.schema type
-- Fixed `S.toJSONSchema` error message with invalid object fields
-- Display expected and received values in the same format
-- Update validation to start with deeply checking object and literal fields. This might resolve in a less detail error path, but allows nested literals to act as union discriminators.
-- Stopped validating literals in conversion mode
-- Allowed reverse parsing for `S.object` with nested discriminants
-
-### Scope
+- Fixed edge-cases with `S.union` of `S.number` and `NaN` schemas together. As well as `S.array` or `S.instance` schemas together with object schemas
+- Added `S.instance`
 
 ### Final release fixes
 
+- Fix union for priority cases
+- Fix literal for instance
+- Turn function into instance
+- Add S.symbol
+- Remove S.custom
 - Make `S.record` accept two args
 - Remove `s.fail` in favor of `throw new Error`
 - Fix all tests marked as Failing
@@ -29,6 +26,7 @@
 
 ## v11
 
+- Add `S.instance`, `S.symbol` and remove `S.custom`
 - Make built-in refinements not work with `unknown`. Use `S.to` (manually & automatically) to deside the type first
 - Start using rescript v12 (Fix unboxed types in JSONSchema module)
 - Support arrays for `S.to`

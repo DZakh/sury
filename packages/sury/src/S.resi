@@ -120,6 +120,7 @@ type rec t<'value> =
     })
   | @as("instance")
   Instance({
+      class: unknown,
       const?: Js.Types.obj_val,
       name?: string,
       description?: string,
@@ -173,6 +174,7 @@ and untagged = private {
   @as("type")
   tag: tag,
   const?: unknown,
+  class?: unknown,
   name?: string,
   description?: string,
   deprecated?: bool,
@@ -259,6 +261,7 @@ let literal: 'value => t<'value>
 let array: t<'value> => t<array<'value>>
 let unnest: t<'value> => t<array<'value>>
 let list: t<'value> => t<list<'value>>
+let instance: t<unknown> => t<unknown>
 let dict: t<'value> => t<dict<'value>>
 let option: t<'value> => t<option<'value>>
 let null: t<'value> => t<option<'value>>

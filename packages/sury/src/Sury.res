@@ -322,6 +322,7 @@ type rec t<'value> =
     })
   | @as("instance")
   Instance({
+      class: unknown,
       const?: Js.Types.obj_val,
       name?: string,
       description?: string,
@@ -373,6 +374,7 @@ and internal = {
   @as("b")
   mutable builder: builder,
   mutable const?: char, // use char to avoid Caml_option.some
+  mutable class?: char, // use char to avoid Caml_option.some
   mutable name?: string,
   mutable description?: string,
   mutable deprecated?: bool,
@@ -406,6 +408,7 @@ and untagged = private {
   @as("type")
   tag: tag,
   const?: unknown,
+  class?: unknown,
   name?: string,
   description?: string,
   deprecated?: bool,
@@ -725,6 +728,7 @@ let rec toExpression = schema => {
     }
 
   | {tag: NaN} => "NaN"
+  | {tag: Instance, ?class} => (class->Obj.magic)["name"]
   | {tag} => (tag :> string)
   }
 }
@@ -1202,6 +1206,10 @@ module Builder = {
       | {tag: Null} => `${inputVar}${eq}null`
       | {tag: NaN} => exp ++ `Number.isNaN(${inputVar})`
       | {const: _} => `${inputVar}${eq}${inlineConst(b, schema)}`
+      | {tag: Instance, ?class} => {
+          let c = `${inputVar} instanceof ${b->embed(class)}`
+          negative ? `!(${c})` : c
+        }
       | {tag: Number as tag} => `typeof ${inputVar}${eq}"${(tag :> string)}"`
       | {tag: Array} => `${exp}Array.isArray(${inputVar})`
       | {tag: Object as tag} =>
@@ -1707,7 +1715,11 @@ module Literal = {
       let schema = switch value->Type.typeof {
       | #undefined => undefined
       | #number if value->(Obj.magic: unknown => float)->Js.Float.isNaN => make(NaN)
-      | #object => make(Instance)
+      | #object => {
+          let i = make(Instance)
+          i.class = (value->Obj.magic)["constructor"]
+          i
+        }
       | typeof => make(typeof->(Obj.magic: Stdlib.Type.t => tag))
       }
       schema.const = Some(value->Obj.magic)
@@ -2170,16 +2182,21 @@ module Union = {
         tags := []
 
       | tag =>
-        // FIXME: Put NaN before Number (test)
-        // FIXME: Instance before object
-        // FIXME: Array before object
         switch byTag.contents->Stdlib.Dict.unsafeGetOption((tag :> string)) {
         | Some(arr) =>
+          // There can only be one valid. Dedupe
           if tag !== Undefined && tag !== Null && tag !== NaN {
             arr->Js.Array2.push(schema)->ignore
           }
         | None => {
-            tags.contents->Js.Array2.push((tag :> string))->ignore
+            if tag === Array || tag === NaN || tag === Instance {
+              // Not the fastest way, but it's the simplest way
+              // to make sure NaN is checked before number
+              // And instance and array checked before object
+              tags.contents->Js.Array2.unshift((tag :> string))->ignore
+            } else {
+              tags.contents->Js.Array2.push((tag :> string))->ignore
+            }
             byTag.contents->Js.Dict.set((tag :> string), [schema])
           }
         }
@@ -3046,6 +3063,14 @@ let list = schema => {
     parser: array => array->Belt.List.fromArray,
     serializer: list => list->Belt.List.toArray,
   })
+}
+
+let instance = class_ => {
+  {
+    tag: Instance,
+    class: class_->Obj.magic,
+    builder: Builder.noop,
+  }->toStandard
 }
 
 let rec json = (~validate) =>

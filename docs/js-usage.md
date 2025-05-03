@@ -32,6 +32,7 @@
 - [Records](#records)
 - [JSON](#json)
 - [JSON string](#json-string)
+- [Instance](#instance)
 - [Meta](#meta)
 - [Custom schema](#custom-schema)
 - [Recursive schemas](#recursive-schemas)
@@ -604,6 +605,22 @@ S.parseOrThrow("123", schema);
 ```
 
 The `S.jsonString` schema represents JSON string containing value of a specific type.
+
+## Instance
+
+You can use `S.instance` to check that the input is an instance of a class. This is useful to validate inputs against classes that are exported from third-party libraries.
+
+```ts
+class Test {
+  name: string;
+}
+
+const TestSchema = S.instance(Test);
+
+const blob: any = "whatever";
+S.parseOrThrow(new Test(), TestSchema); // passes
+S.parseOrThrow(blob, TestSchema); // throws S.Error: Failed parsing: Expected Test, received "whatever"
+```
 
 ## Meta
 

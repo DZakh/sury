@@ -44,6 +44,7 @@
   - [`tuple1` - `tuple3`](#tuple1---tuple3)
   - [`dict`](#dict)
   - [`unknown`](#unknown)
+  - [`instance`](#instance)
   - [`never`](#never)
   - [`json`](#json)
   - [`jsonString`](#jsonString)
@@ -992,6 +993,16 @@ let schema = S.dict(S.string)
 ```
 
 The `dict` schema represents a dictionary of data of a specific type.
+
+### **`instance`**
+
+`S.t<instance>`
+
+```rescript
+let schema: S.t<Set.t<string>> = S.instance(%raw(`Set`))->Obj.magic;
+```
+
+The `S.instance` schema represents an instance of a class. Requires some type casting to make it work, but better than `S.unknown` as a building block for more complex schemas.
 
 ### **`unknown`**
 

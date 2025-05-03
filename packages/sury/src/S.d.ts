@@ -179,11 +179,12 @@ export type Schema<Output, Input = unknown> = {
     }
   | {
       readonly type: "function";
-      readonly const?: unknown;
+      readonly const?: Input;
     }
   | {
       readonly type: "instance";
-      readonly const?: unknown;
+      readonly class: Class<Input>;
+      readonly const?: Input;
     }
   | {
       readonly type: "array";
@@ -466,6 +467,9 @@ export function nullable<Output, Input, Or = undefined>(
 export const nullish: <Output, Input>(
   schema: Schema<Output, Input>
 ) => Schema<Output | undefined | null, Input | undefined | null>;
+
+export type Class<T> = new (...args: readonly any[]) => T;
+export const instance: <T>(class_: Class<T>) => Schema<T, T>;
 
 export const array: <Output, Input>(
   schema: Schema<Output, Input>

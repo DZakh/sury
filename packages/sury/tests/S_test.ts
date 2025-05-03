@@ -1876,6 +1876,29 @@ test("Unnest schema", (t) => {
   >(true);
 });
 
+test("Set schema", (t) => {
+  const schema = S.instance(Set);
+
+  expectType<SchemaEqual<typeof schema, Set<unknown>, Set<unknown>>>(true);
+  if (schema.type === "instance") {
+    expectType<TypeEqual<typeof schema.class, S.Class<Set<unknown>>>>(true);
+    t.is(schema.class, Set);
+  }
+
+  const parser = S.compile(schema, "Any", "Output", "Sync", true);
+  expectType<TypeEqual<typeof parser, (input: unknown) => Set<unknown>>>(true);
+
+  t.is(parser.toString(), "i=>{if(!(i instanceof e[0])){e[1](i)}return i}");
+
+  const data = new Set(["foo", "bar"]);
+  t.is(parser(data), data);
+
+  t.throws(() => parser(123), {
+    name: "SuryError",
+    message: "Failed parsing: Expected Set, received 123",
+  });
+});
+
 test("Coerce string to number", (t) => {
   const schema = S.to(S.string, S.number);
 

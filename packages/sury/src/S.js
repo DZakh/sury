@@ -13,6 +13,7 @@ export const optional = S.js_optional
 export const nullable = S.js_nullable
 export const nullish = S.nullish
 export const array = S.array
+export const instance = S.instance
 export const unnest = S.unnest
 export const record = S.dict
 export const jsonString = S.jsonString
