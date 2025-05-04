@@ -8,10 +8,10 @@
 - Added `S.instance`
 - Fixed `S.schema` for literal instances
 - Added `S.symbol`
+- Fixed function literal type inference
 
 ### Final release fixes
 
-- Turn function into instance
 - Remove S.custom
 - Make `S.record` accept two args
 - Remove `s.fail` in favor of `throw new Error`

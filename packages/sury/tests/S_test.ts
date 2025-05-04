@@ -127,6 +127,24 @@ test("Successfully parses symbol", (t) => {
   expectType<TypeEqual<typeof value, symbol>>(true);
 });
 
+test("Function literal schema", (t) => {
+  const fn = function () {};
+
+  const schema = S.schema(fn);
+
+  expectType<SchemaEqual<typeof schema, () => void, () => void>>(true);
+  if (schema.type !== "function") {
+    t.fail("Schema should be a function");
+    return;
+  }
+  t.is(schema.const, fn);
+
+  const value = S.parseOrThrow(fn, schema);
+
+  t.deepEqual(value, fn);
+  t.notDeepEqual(value, function () {});
+});
+
 test("Fails to parse float when NaN is provided", (t) => {
   const schema = S.number;
 

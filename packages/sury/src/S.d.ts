@@ -251,6 +251,8 @@ export type Input<T> = T extends Schema<unknown, infer Input> ? Input : never;
 
 export type UnknownToOutput<T> = T extends Schema<unknown>
   ? Output<T>
+  : T extends (...args: any[]) => any
+  ? T
   : T extends unknown[]
   ? { [K in keyof T]: UnknownToOutput<T[K]> }
   : T extends { [k in keyof T]: unknown }
@@ -269,6 +271,8 @@ export type UnknownToOutput<T> = T extends Schema<unknown>
 
 export type UnknownToInput<T> = T extends Schema<unknown>
   ? Input<T>
+  : T extends (...args: any[]) => any
+  ? T
   : T extends unknown[]
   ? { [K in keyof T]: UnknownToInput<T[K]> }
   : T extends { [k in keyof T]: unknown }
