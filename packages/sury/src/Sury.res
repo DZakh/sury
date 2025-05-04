@@ -2139,6 +2139,12 @@ module Union = {
     }
   }
 
+  let isPriority = (tag: string, byTag: dict<array<internal>>) => {
+    ((tag === (Array: tag :> string) || tag === (Instance: tag :> string)) &&
+      byTag->Stdlib.Dict.has((Object: tag :> string))) ||
+      (tag === (NaN: tag :> string) && byTag->Stdlib.Dict.has((Number: tag :> string)))
+  }
+
   let builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
     let fail = caught => {
       `${b->B.embed(_ => {
@@ -2189,7 +2195,7 @@ module Union = {
             arr->Js.Array2.push(schema)->ignore
           }
         | None => {
-            if tag === Array || tag === NaN || tag === Instance {
+            if isPriority((tag :> string), byTag.contents) {
               // Not the fastest way, but it's the simplest way
               // to make sure NaN is checked before number
               // And instance and array checked before object
@@ -2227,7 +2233,8 @@ module Union = {
     let noop = ref("")
 
     for idx in 0 to tags->Js.Array2.length - 1 {
-      let schemas = byTag->Js.Dict.unsafeGet(tags->Js.Array2.unsafe_get(idx))
+      let tag = tags->Js.Array2.unsafe_get(idx)
+      let schemas = byTag->Js.Dict.unsafeGet(tag)
       let inputVar = input.var(b)
 
       let isMultiple = schemas->Js.Array2.length > 1
@@ -2322,7 +2329,7 @@ module Union = {
       }
       let cond = cond.contents
 
-      if body->Stdlib.String.unsafeToBool {
+      if body->Stdlib.String.unsafeToBool || isPriority((tag :> string), byTag) {
         let if_ = nextElse.contents ? "else if" : "if"
         start := start.contents ++ if_ ++ `(${cond}){${body}}`
         nextElse := true
