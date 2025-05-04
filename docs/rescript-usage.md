@@ -15,6 +15,7 @@
   - [`int`](#int)
   - [`float`](#float)
   - [`bigint`](#bigint)
+  - [`symbol`](#symbol)
   - [`option`](#option)
   - [`Option.getOr`](#optiongetor)
   - [`Option.getOrWith`](#optiongetorwith)
@@ -345,6 +346,12 @@ S.float->S.floatMin(5.) // Number must be greater than or equal to 5
 `S.t<bigint>`
 
 The `S.bigint` schema represents a data that is a BigInt.
+
+### **`symbol`**
+
+`S.t<symbol>`
+
+The `S.symbol` schema represents a data that is a symbol.
 
 ### **`option`**
 

@@ -211,8 +211,10 @@ module Path = {
 }
 
 let vendor = "sury"
-let symbol = Stdlib.Symbol.make("schema")
-let itemSymbol = Stdlib.Symbol.make("schema:item")
+// Internal symbol to easily identify the error
+let s = Stdlib.Symbol.make(vendor)
+// Internal symbol to identify item proxy
+let itemSymbol = Stdlib.Symbol.make(vendor ++ ":item")
 
 type tag =
   | @as("string") String
@@ -562,7 +564,7 @@ d(p, 'reason', {
   }
 })
 d(p, 'name', {value: 'SuryError'})
-d(p, 's', {value: symbol})
+d(p, 's', {value: s})
 d(p, '_1', {
   get() {
     return this
@@ -581,7 +583,7 @@ function w(fn, ...args) {
   external make: (~code: errorCode, ~flag: int, ~path: Path.t) => error = "SuryError"
 
   let getOrRethrow = (exn: exn) => {
-    if %raw("exn&&exn.s===symbol") {
+    if %raw("exn&&exn.s===s") {
       exn->(Obj.magic: exn => error)
     } else {
       raise(exn)
@@ -1393,7 +1395,7 @@ let rec internalCompile = (builder: builder, ~schema, ~flag) => {
       ~ctxVarName1="e",
       ~ctxVarValue1=b.global.embeded,
       ~ctxVarName2="s",
-      ~ctxVarValue2=symbol,
+      ~ctxVarValue2=s,
       ~inlinedFunction,
     )
   }
@@ -1754,7 +1756,7 @@ let isAsync = schema => {
 }
 
 let wrapExnToFailure = exn => {
-  if %raw("exn&&exn.s===symbol") {
+  if %raw("exn&&exn.s===s") {
     Failure({error: exn->(Obj.magic: exn => error)})
   } else {
     raise(exn)
@@ -2868,12 +2870,15 @@ module JsonString = {
   }
 }
 
-module Bool = {
-  let schema = {
-    tag: Boolean,
-    builder: Builder.noop,
-  }->toStandard
-}
+let bool = {
+  tag: Boolean,
+  builder: Builder.noop,
+}->toStandard
+
+let symbol = {
+  tag: Symbol,
+  builder: Builder.noop,
+}->toStandard
 
 module Int = {
   module Refinement = {
@@ -4555,7 +4560,6 @@ let unnest = schema => {
 let object = Schema.object
 let never = Never.schema
 let string = String.schema
-let bool = Bool.schema
 let int = Int.schema
 let float = Float.schema
 let bigint = BigInt.schema

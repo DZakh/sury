@@ -373,6 +373,7 @@ export const boolean: Schema<boolean, boolean>;
 export const int32: Schema<number, number>;
 export const number: Schema<number, number>;
 export const bigint: Schema<bigint, bigint>;
+export const symbol: Schema<symbol, symbol>;
 export const never: Schema<never, never>;
 export const unknown: Schema<unknown, unknown>;
 export const json: (validate: boolean) => Schema<Json, Json>;

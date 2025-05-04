@@ -120,6 +120,7 @@ let filesMapping = [
   ("int32", "S.$$int"),
   ("number", "S.$$float"),
   ("bigint", "S.bigint"),
+  ("symbol", "S.symbol"),
   ("json", "S.json"),
   ("never", "S.never"),
   ("unknown", "S.unknown"),

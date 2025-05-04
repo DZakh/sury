@@ -53,9 +53,11 @@ function concat(path, concatedPath) {
   return path + concatedPath;
 }
 
-var symbol = Symbol("schema");
+var vendor = "sury";
 
-var itemSymbol = Symbol("schema:item");
+var s = Symbol(vendor);
+
+var itemSymbol = Symbol(vendor + ":item");
 
 var $$Error = /* @__PURE__ */Caml_exceptions.create("Sury.Error");
 
@@ -100,7 +102,7 @@ d(p, 'reason', {
   }
 })
 d(p, 'name', {value: 'SuryError'})
-d(p, 's', {value: symbol})
+d(p, 's', {value: s})
 d(p, '_1', {
   get() {
     return this
@@ -116,7 +118,7 @@ function w(fn, ...args) {
 ;
 
 function getOrRethrow(exn) {
-  if ((exn&&exn.s===symbol)) {
+  if ((exn&&exn.s===s)) {
     return exn;
   }
   throw exn;
@@ -851,7 +853,7 @@ function internalCompile(builder, schema, flag) {
     inlinedOutput = "Promise.resolve(" + inlinedOutput + ")";
   }
   var inlinedFunction = "i=>{" + b.c + "return " + inlinedOutput + "}";
-  return new Function("e", "s", "return " + inlinedFunction)(b.g.e, symbol);
+  return new Function("e", "s", "return " + inlinedFunction)(b.g.e, s);
 }
 
 function operationFn(s, o) {
@@ -886,7 +888,7 @@ function toStandard(schema) {
   schema.with = w;
   schema["~standard"] = {
     version: 1,
-    vendor: "sury",
+    vendor: vendor,
     validate: (function (input) {
         try {
           return {
@@ -1131,7 +1133,7 @@ function isAsync(schema) {
 }
 
 function wrapExnToFailure(exn) {
-  if ((exn&&exn.s===symbol)) {
+  if ((exn&&exn.s===s)) {
     return {
             success: false,
             error: exn
@@ -2163,8 +2165,13 @@ function factory$4(item, spaceOpt) {
             });
 }
 
-var schema$2 = toStandard({
+var bool = toStandard({
       type: "boolean",
+      b: noop
+    });
+
+var symbol = toStandard({
+      type: "symbol",
       b: noop
     });
 
@@ -2179,7 +2186,7 @@ function refinements$2(schema) {
   }
 }
 
-var schema$3 = toStandard({
+var schema$2 = toStandard({
       type: "number",
       b: noop,
       format: "int32"
@@ -2196,12 +2203,12 @@ function refinements$3(schema) {
   }
 }
 
-var schema$4 = toStandard({
+var schema$3 = toStandard({
       type: "number",
       b: noop
     });
 
-var schema$5 = toStandard({
+var schema$4 = toStandard({
       type: "bigint",
       b: noop
     });
@@ -3752,7 +3759,7 @@ function $$global(override) {
   var disableNanNumberValidation = override.disableNanNumberValidation;
   globalConfig.n = disableNanNumberValidation !== undefined ? disableNanNumberValidation : false;
   if (prevDisableNanNumberCheck !== globalConfig.n) {
-    return resetOperationsCache(schema$4);
+    return resetOperationsCache(schema$3);
   }
   
 }
@@ -4130,13 +4137,11 @@ var never = schema;
 
 var string = schema$1;
 
-var bool = schema$2;
+var $$int = schema$2;
 
-var $$int = schema$3;
+var $$float = schema$3;
 
-var $$float = schema$4;
-
-var bigint = schema$5;
+var bigint = schema$4;
 
 var literal = js_schema;
 
@@ -4156,7 +4161,7 @@ var parseJsonOrThrow = parseOrThrow;
 
 var Schema = {};
 
-var schema$6 = factory$5;
+var schema$5 = factory$5;
 
 var $$Object = {};
 
@@ -4213,6 +4218,7 @@ export {
   $$int ,
   $$float ,
   bigint ,
+  symbol ,
   json ,
   literal ,
   array ,
@@ -4252,7 +4258,7 @@ export {
   noValidation ,
   toExpression ,
   Schema ,
-  schema$6 as schema,
+  schema$5 as schema,
   $$Object ,
   object ,
   strip ,
@@ -4300,4 +4306,4 @@ export {
   js_schema ,
   js_merge ,
 }
-/* symbol Not a pure module */
+/* s Not a pure module */

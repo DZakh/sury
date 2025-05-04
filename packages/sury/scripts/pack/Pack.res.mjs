@@ -78,6 +78,10 @@ var filesMapping = [
     "S.bigint"
   ],
   [
+    "symbol",
+    "S.symbol"
+  ],
+  [
     "json",
     "S.json"
   ],

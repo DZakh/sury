@@ -7,11 +7,11 @@
 - Fixed edge-cases with `S.union` of `S.number` and `NaN` schemas together. As well as `S.array` or `S.instance` schemas together with object schemas
 - Added `S.instance`
 - Fixed `S.schema` for literal instances
+- Added `S.symbol`
 
 ### Final release fixes
 
 - Turn function into instance
-- Add S.symbol
 - Remove S.custom
 - Make `S.record` accept two args
 - Remove `s.fail` in favor of `throw new Error`

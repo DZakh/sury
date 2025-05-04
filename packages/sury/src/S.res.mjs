@@ -26,6 +26,8 @@ var $$float = Sury.$$float;
 
 var bigint = Sury.bigint;
 
+var symbol = Sury.symbol;
+
 var json = Sury.json;
 
 var literal = Sury.literal;
@@ -189,6 +191,7 @@ export {
   $$int ,
   $$float ,
   bigint ,
+  symbol ,
   json ,
   literal ,
   array ,

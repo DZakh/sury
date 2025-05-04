@@ -100,6 +100,7 @@ S.number;
 S.int32;
 S.boolean;
 S.bigint;
+S.symbol;
 
 // catch-all types
 // allows any value

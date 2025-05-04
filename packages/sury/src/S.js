@@ -6,6 +6,7 @@ export const boolean = S.bool
 export const int32 = S.$$int
 export const number = S.$$float
 export const bigint = S.bigint
+export const symbol = S.symbol
 export const json = S.json
 export const never = S.never
 export const unknown = S.unknown

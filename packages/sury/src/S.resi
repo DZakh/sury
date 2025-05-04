@@ -254,6 +254,7 @@ let bool: t<bool>
 let int: t<int>
 let float: t<float>
 let bigint: t<bigint>
+let symbol: t<Js.Types.symbol>
 
 let json: (~validate: bool) => t<Js.Json.t>
 
