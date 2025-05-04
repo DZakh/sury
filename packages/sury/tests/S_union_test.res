@@ -135,7 +135,7 @@ test("Ensures parsing order with unknown schema", t => {
   let schema = S.union([
     S.string->S.length(2),
     S.bool->Obj.magic, // Should be checked before unknown
-    S.custom("unknown string", _ => {parser: _ => "pass"}),
+    S.unknown->S.transform(_ => {parser: _ => "pass"}),
     // TODO: Should disabled deopt at this point
     S.float->Obj.magic,
     S.bigint->Obj.magic,

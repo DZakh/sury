@@ -638,48 +638,6 @@ test("Fails to parses async schema", async (t) => {
   t.true(result.error instanceof S.Error);
 });
 
-test("Custom string schema", (t) => {
-  const schema = S.custom(
-    "Postcode",
-    (unknown, s) => {
-      if (typeof unknown !== "string") {
-        throw s.fail("Postcode should be a string");
-      }
-      if (unknown.length !== 5) {
-        throw s.fail("Postcode should be 5 characters");
-      }
-      return unknown;
-    },
-    (value) => {
-      expectType<TypeEqual<typeof value, string>>(true);
-      return value;
-    }
-  );
-
-  t.deepEqual(S.parseOrThrow("12345", schema), "12345");
-  t.deepEqual(S.convertOrThrow("12345", S.reverse(schema)), "12345");
-  t.throws(
-    () => {
-      S.parseOrThrow(123, schema);
-    },
-    {
-      name: "SuryError",
-      message: "Failed parsing: Postcode should be a string",
-    }
-  );
-  t.throws(
-    () => {
-      S.parseOrThrow("123", schema);
-    },
-    {
-      name: "SuryError",
-      message: "Failed parsing: Postcode should be 5 characters",
-    }
-  );
-
-  expectType<SchemaEqual<typeof schema, string, string>>(true);
-});
-
 test("Successfully parses object by provided shape", (t) => {
   const schema = S.schema({
     foo: S.string,
@@ -1926,6 +1884,39 @@ test("Set schema", (t) => {
   t.throws(() => parser(123), {
     name: "SuryError",
     message: "Failed parsing: Expected Set, received 123",
+  });
+});
+
+test("Full Set schema", (t) => {
+  const mySet = <T>(itemSchema: S.Schema<T>): S.Schema<Set<T>> =>
+    S.instance(Set)
+      .with(S.transform, (input) => {
+        const output = new Set<T>();
+        input.forEach((item) => {
+          output.add(S.parseOrThrow(item, itemSchema));
+        });
+        return output;
+      })
+      .with(S.meta, {
+        name: `Set<${S.toExpression(itemSchema)}>`,
+      });
+
+  const numberSetSchema = mySet(S.number);
+
+  expectType<SchemaEqual<typeof numberSetSchema, Set<number>, unknown>>(true);
+
+  t.deepEqual(
+    S.parseOrThrow(new Set([1, 2, 3]), numberSetSchema),
+    new Set([1, 2, 3])
+  );
+
+  t.throws(() => S.parseOrThrow([1, 2, "3"], numberSetSchema), {
+    name: "SuryError",
+    message: `Failed parsing: Expected Set<number>, received [1, 2, "3"]`,
+  });
+  t.throws(() => S.parseOrThrow(new Set([1, 2, "3"]), numberSetSchema), {
+    name: "SuryError",
+    message: `Failed parsing: Expected number, received "3"`,
   });
 });
 

@@ -2022,46 +2022,6 @@ let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) =
   mut->toStandard
 }
 
-type customDefinition<'input, 'output> = {
-  @as("p")
-  parser?: unknown => 'output,
-  @as("a")
-  asyncParser?: unknown => promise<'output>,
-  @as("s")
-  serializer?: 'output => 'input,
-}
-let custom = (name, definer) =>
-  {
-    name,
-    tag: Unknown,
-    builder: Builder.make((b, ~input, ~selfSchema, ~path) => {
-      switch definer(b->B.effectCtx(~selfSchema, ~path)) {
-      | {parser, asyncParser: ?None} => b->B.embedSyncOperation(~input, ~fn=parser)
-      | {parser: ?None, asyncParser} => b->B.embedAsyncOperation(~input, ~fn=asyncParser)
-      | {parser: ?None, asyncParser: ?None, serializer: ?None} => input
-      | {parser: ?None, asyncParser: ?None, serializer: _} =>
-        b->B.invalidOperation(~path, ~description=`The S.custom parser is missing`)
-      | {parser: _, asyncParser: _} =>
-        b->B.invalidOperation(
-          ~path,
-          ~description=`The S.custom doesn't allow parser and asyncParser at the same time. Remove parser in favor of asyncParser`,
-        )
-      }
-    }),
-    output: () => {
-      tag: Unknown,
-      builder: Builder.make((b, ~input, ~selfSchema, ~path) => {
-        switch definer(b->B.effectCtx(~selfSchema, ~path)) {
-        | {serializer} => b->B.embedSyncOperation(~input, ~fn=serializer)
-        | {parser: ?None, asyncParser: ?None, serializer: ?None} => input
-        | {serializer: ?None, asyncParser: ?Some(_)}
-        | {serializer: ?None, parser: ?Some(_)} =>
-          b->B.invalidOperation(~path, ~description=`The S.custom serializer is missing`)
-        }
-      }),
-    },
-  }->toStandard
-
 let unit = Literal.undefined->toStandard
 
 let nullAsUnit = {
@@ -4926,21 +4886,6 @@ let js_nullable = (schema, maybeOr) => {
   | Some(or) => schema->Option.getOr(or->Obj.magic)->Obj.magic
   | None => schema
   }
-}
-
-let js_custom = (~name, ~parser as maybeParser=?, ~serializer as maybeSerializer=?, ()) => {
-  custom(name, s => {
-    {
-      parser: ?switch maybeParser {
-      | Some(parser) => Some(v => parser(v, s))
-      | None => None
-      },
-      serializer: ?switch maybeSerializer {
-      | Some(serializer) => Some(v => serializer(v, s))
-      | None => None
-      },
-    }
-  })
 }
 
 let js_merge = (s1, s2) => {

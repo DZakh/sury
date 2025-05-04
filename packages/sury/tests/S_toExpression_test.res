@@ -122,10 +122,6 @@ test("Expression of Tuple schema", t => {
   )
 })
 
-test("Expression of custom schema", t => {
-  t->Assert.deepEqual(S.custom("Test", s => s.fail("User error"))->S.toExpression, "Test", ())
-})
-
 test("Expression of renamed schema", t => {
   let originalSchema = S.never
   let renamedSchema = originalSchema->S.meta({name: "Ethers.BigInt"})

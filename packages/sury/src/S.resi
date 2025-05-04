@@ -262,7 +262,7 @@ let literal: 'value => t<'value>
 let array: t<'value> => t<array<'value>>
 let unnest: t<'value> => t<array<'value>>
 let list: t<'value> => t<list<'value>>
-let instance: t<unknown> => t<unknown>
+let instance: unknown => t<unknown>
 let dict: t<'value> => t<dict<'value>>
 let option: t<'value> => t<option<'value>>
 let null: t<'value> => t<option<'value>>
@@ -292,16 +292,6 @@ type transformDefinition<'input, 'output> = {
   serializer?: 'output => 'input,
 }
 let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) => t<'output>
-
-type customDefinition<'input, 'output> = {
-  @as("p")
-  parser?: unknown => 'output,
-  @as("a")
-  asyncParser?: unknown => promise<'output>,
-  @as("s")
-  serializer?: 'output => 'input,
-}
-let custom: (string, s<'output> => customDefinition<'input, 'output>) => t<'output>
 
 let refine: (t<'value>, s<'value> => 'value => unit) => t<'value>
 

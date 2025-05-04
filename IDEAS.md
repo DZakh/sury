@@ -9,10 +9,10 @@
 - Fixed `S.schema` for literal instances
 - Added `S.symbol`
 - Fixed function literal type inference
+- `S.custom` is removed in favor of `S.unknown`+`S.transform`+`S.meta`. The goal is to try to avoid `S.unknown` as much as possible. Try to use `S.instance` or any other built-in schemas as much as possible.
 
 ### Final release fixes
 
-- Remove S.custom
 - Make `S.record` accept two args
 - Remove `s.fail` in favor of `throw new Error`
 - Fix all tests marked as Failing
@@ -24,7 +24,6 @@
 
 ## v11
 
-- Add `S.instance`, `S.symbol` and remove `S.custom`
 - Make built-in refinements not work with `unknown`. Use `S.to` (manually & automatically) to deside the type first
 - Start using rescript v12 (Fix unboxed types in JSONSchema module)
 - Support arrays for `S.to`

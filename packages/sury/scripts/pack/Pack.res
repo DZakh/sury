@@ -155,7 +155,6 @@ let filesMapping = [
   ("deepStrict", "S.deepStrict"),
   ("strip", "S.strip"),
   ("deepStrip", "S.deepStrip"),
-  ("custom", "S.js_custom"),
   ("to", "S.to"),
   ("toJSONSchema", "S.toJSONSchema"),
   ("extendJSONSchema", "S.extendJSONSchema"),

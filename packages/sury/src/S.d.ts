@@ -547,16 +547,6 @@ export function merge<O1, O2>(
   Record<string, unknown>
 >;
 
-export function custom<Output, Input = unknown>(
-  name: string,
-  parser: (data: unknown, s: EffectCtx<unknown, unknown>) => Output
-): Schema<Output, Input>;
-export function custom<Output, Input = unknown>(
-  name: string,
-  parser: (data: unknown, s: EffectCtx<unknown, unknown>) => Output | undefined,
-  serializer: (value: Output, s: EffectCtx<unknown, unknown>) => Input
-): Schema<Output, Input>;
-
 export function recursive<Output, Input = Output>(
   definer: (schema: Schema<Output, Input>) => Schema<Output, Input>
 ): Schema<Output, Input>;

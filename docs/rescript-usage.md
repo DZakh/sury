@@ -53,6 +53,7 @@
   - [`catch`](#catch)
   - [`custom`](#custom)
   - [`recursive`](#recursive)
+- [Custom schema](#custom-schema)
 - [Refinements](#refinements)
 - [Transforms](#transforms)
 - [Functions on schema](#functions-on-schema)
@@ -1118,42 +1119,6 @@ Conceptually, this is how **Sury** processes "catch values":
 1. The data is parsed using the base schema
 2. If the parsing fails, the "catch value" is returned
 
-### **`custom`**
-
-`(string, S.s<'output> => customDefinition<'input, 'output>) => t<'output>`
-
-You can also define your own custom schema factories that are specific to your application's requirements:
-
-```rescript
-let nullableSchema = innerSchema => {
-  S.custom("Nullable", _ => {
-    parser: unknown => {
-      if unknown === %raw(`undefined`) || unknown === %raw(`null`) {
-        None
-      } else {
-        Some(unknown->S.parseOrThrow(innerSchema))
-      }
-    },
-    serializer: value => {
-      switch value {
-      | Some(innerValue) =>
-        innerValue->S.reverseConvertOrThrow(innerSchema)
-      | None => %raw(`null`)
-      }
-    },
-  })
-}
-
-"Hello world!"->S.parseOrThrow(schema)
-// Some("Hello World!")
-%raw(`null`)->S.parseOrThrow(schema)
-// None
-%raw(`undefined`)->S.parseOrThrow(schema)
-// None
-123->S.parseOrThrow(schema)
-// throws S.error with the message: `Failed parsing: Expected string, received 123`
-```
-
 ### **`recursive`**
 
 `(t<'value> => t<'value>) => t<'value>`
@@ -1218,6 +1183,40 @@ let nodeSchema = S.recursive(nodeSchema => {
 One great aspect of the example above is that it uses parallelism to make four requests to check for the existence of nodes.
 
 > 🧠 Despite supporting recursive schema, passing cyclical data will cause an infinite loop.
+
+## Custom schema
+
+**Sury** might not have many built-in schemas for your use case. In this case you can create a custom schema for any TypeScript type.
+
+1. Choose a base schema which is the closest to your type. Most likely it'll be `S.instance`.
+2. Use `S.transform` to add a custom parser and serializer.
+3. Optionally, use `S.meta` to add customize the name of the schema and additional metadata.
+
+```rescript
+let mySet = itemSchema => {
+  S.instance(%raw(`Set`))
+  ->S.transform(_ => {
+    parser: input => {
+      let output = Set.make()
+      input
+      ->Obj.magic
+      ->Set.forEach(
+        item => {
+          output->Set.add(S.parseOrThrow(item, itemSchema))
+        },
+      )
+      output
+    },
+  })
+  ->S.meta({name: `Set.t<${S.toExpression(itemSchema)}>`})
+}
+
+let intSetSchema = mySet(S.int)
+
+S.parseOrThrow(%raw(`new Set([1, 2, 3])`), intSetSchema) // passes
+S.parseOrThrow(%raw(`new Set([1, 2, "3"])`), intSetSchema) // throws S.Error: Failed parsing: Expected int32, received "3"
+S.parseOrThrow(%raw(`[1, 2, 3]`), intSetSchema) // throws S.Error: Failed parsing: Expected Set.t<int32>, received [1, 2, 3]
+```
 
 ## Refinements
 

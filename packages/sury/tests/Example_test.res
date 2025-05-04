@@ -1,4 +1,5 @@
 open Ava
+open RescriptCore
 
 @dead
 type rating =
@@ -81,5 +82,41 @@ test("Compiled serialize code snapshot", t => {
     ~schema=filmSchema,
     ~op=#ReverseConvert,
     `i=>{let v0=i["tags"],v3=i["rating"],v4=i["deprecatedAgeRestriction"];return {"Id":i["id"],"Title":i["title"],"Tags":v0,"Rating":v3,"Age":v4,}}`,
+  )
+})
+
+test("Custom schema", t => {
+  let mySet = itemSchema => {
+    S.instance(%raw(`Set`))
+    ->S.transform(_ => {
+      parser: input => {
+        let output = Set.make()
+        input
+        ->Obj.magic
+        ->Set.forEach(
+          item => {
+            output->Set.add(S.parseOrThrow(item, itemSchema))
+          },
+        )
+        output
+      },
+    })
+    ->S.meta({name: `Set.t<${S.toExpression(itemSchema)}>`})
+  }
+
+  let intSetSchema = mySet(S.int)
+
+  t->Assert.deepEqual(
+    S.parseOrThrow(%raw(`new Set([1, 2, 3])`), intSetSchema),
+    Set.fromArray([1, 2, 3]),
+    (),
+  )
+  t->U.assertThrowsMessage(
+    () => S.parseOrThrow(%raw(`new Set([1, 2, "3"])`), intSetSchema),
+    `Failed parsing: Expected int32, received "3"`,
+  )
+  t->U.assertThrowsMessage(
+    () => S.parseOrThrow(%raw(`[1, 2, 3]`), intSetSchema),
+    `Failed parsing: Expected Set.t<int32>, received [1, 2, 3]`,
   )
 })

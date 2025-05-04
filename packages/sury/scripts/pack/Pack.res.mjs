@@ -218,10 +218,6 @@ var filesMapping = [
     "S.deepStrip"
   ],
   [
-    "custom",
-    "S.js_custom"
-  ],
-  [
     "to",
     "S.to"
   ],

@@ -647,17 +647,32 @@ S.toJSONSchema(documentedStringSchema);
 
 ## Custom schema
 
-You can create a schema for any TypeScript type by using `S.custom`. This is useful for creating schema for types that are not supported by **Sury** out of the box.
+**Sury** might not have many built-in schemas for your use case. In this case you can create a custom schema for any TypeScript type.
+
+1. Choose a base schema which is the closest to your type. Most likely it'll be `S.instance`.
+2. Use `S.transform` to add a custom parser and serializer.
+3. Optionally, use `S.meta` to add customize the name of the schema and additional metadata.
 
 ```ts
-const mySetSchema = S.custom("MySet", (input, s) => {
-  if (input instanceof Set) {
-    return input;
-  }
-  throw s.fail("Provided data is not an instance of Set.");
-});
+const mySet = <T>(itemSchema: S.Schema<T>): S.Schema<Set<T>> =>
+  S.instance(Set)
+    .with(S.transform, (input) => {
+      const output = new Set<T>();
+      input.forEach((item) => {
+        output.add(S.parseOrThrow(item, itemSchema));
+      });
+      return output;
+    })
+    .with(S.meta, {
+      name: `Set<${S.toExpression(itemSchema)}>`,
+    });
 
-type MySet = S.Output<typeof mySetSchema>; // Set<any>
+const numberSetSchema = mySet(S.number);
+type NumberSet = S.Output<typeof numberSetSchema>; // Set<number>
+
+S.parseOrThrow(new Set([1, 2, 3]), numberSetSchema); // passes
+S.parseOrThrow(new Set([1, 2, "3"]), numberSetSchema); // throws S.Error: Failed parsing: Expected number, received "3"
+S.parseOrThrow([1, 2, 3], numberSetSchema); // throws S.Error: Failed parsing: Expected Set<number>, received [1, 2, 3]
 ```
 
 ## Recursive schemas

@@ -62,8 +62,6 @@ var $$catch = Sury.$$catch;
 
 var transform = Sury.transform;
 
-var custom = Sury.custom;
-
 var refine = Sury.refine;
 
 var shape = Sury.shape;
@@ -209,7 +207,6 @@ export {
   Catch ,
   $$catch ,
   transform ,
-  custom ,
   refine ,
   shape ,
   to ,
