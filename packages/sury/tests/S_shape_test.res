@@ -207,7 +207,6 @@ test("Reverse convert of tagged tuple with destructured bool", t => {
   )
 
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return [e[0],i["1"],i["0"],]}`)
-  // FIXME: Can be improved
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseParse,

@@ -364,9 +364,9 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<Js.Json.t>,
-    }) // FIXME: Remove it in favor of Union
+    }) // TODO: Remove it in favor of Union
 @unboxed and additionalItems = | ...additionalItemsMode | Schema(t<unknown>)
-// FIXME: Add recursive
+// TODO: Add recursive
 and schema<'a> = t<'a>
 and internal = {
   @as("type")
@@ -4139,29 +4139,39 @@ module Schema = {
           ),
         }
       } else {
-        let node = definition->(Obj.magic: unknown => dict<unknown>)
-        let fieldNames = node->Js.Dict.keys
-        let length = fieldNames->Js.Array2.length
-        let items = []
-        for idx in 0 to length - 1 {
-          let location = fieldNames->Js.Array2.unsafe_get(idx)
-          let inlinedLocation = location->Stdlib.Inlined.Value.fromString
-          let schema = node->Js.Dict.unsafeGet(location)->definitionToSchema
-          let item = {
-            schema: schema->fromInternal,
-            location,
-            inlinedLocation,
+        let cnstr = (definition->Obj.magic)["constructor"]
+        if cnstr->Obj.magic && cnstr !== %raw(`Object`) {
+          {
+            tag: Instance,
+            class: cnstr,
+            const: definition->Obj.magic,
+            builder: Builder.noop,
           }
-          node->Js.Dict.set(location, item->(Obj.magic: item => unknown))
-          items->Js.Array2.unsafe_set(idx, item)
-        }
-        {
-          tag: Object,
-          items,
-          fields: node->(Obj.magic: dict<unknown> => dict<item>),
-          additionalItems: globalConfig.defaultAdditionalItems,
-          builder,
-          output,
+        } else {
+          let node = definition->(Obj.magic: unknown => dict<unknown>)
+          let fieldNames = node->Js.Dict.keys
+          let length = fieldNames->Js.Array2.length
+          let items = []
+          for idx in 0 to length - 1 {
+            let location = fieldNames->Js.Array2.unsafe_get(idx)
+            let inlinedLocation = location->Stdlib.Inlined.Value.fromString
+            let schema = node->Js.Dict.unsafeGet(location)->definitionToSchema
+            let item = {
+              schema: schema->fromInternal,
+              location,
+              inlinedLocation,
+            }
+            node->Js.Dict.set(location, item->(Obj.magic: item => unknown))
+            items->Js.Array2.unsafe_set(idx, item)
+          }
+          {
+            tag: Object,
+            items,
+            fields: node->(Obj.magic: dict<unknown> => dict<item>),
+            additionalItems: globalConfig.defaultAdditionalItems,
+            builder,
+            output,
+          }
         }
       }
     } else {

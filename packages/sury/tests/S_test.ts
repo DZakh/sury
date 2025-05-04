@@ -1961,6 +1961,18 @@ test("Assert passes with valid data", (t) => {
   t.pass();
 });
 
+test("Schema of object with empty prototype", (t) => {
+  const obj = Object.create(null) as { foo: S.Schema<string, string> };
+  obj.foo = S.string;
+  const schema = S.schema(obj);
+
+  const data = {
+    foo: "bar",
+  };
+  t.deepEqual(S.parseOrThrow(data, schema), data);
+  t.deepEqual(S.reverseConvertOrThrow(data, schema), data);
+});
+
 test("Successfully parses recursive object", (t) => {
   type Node = {
     id: string;

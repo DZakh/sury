@@ -6,11 +6,10 @@
 
 - Fixed edge-cases with `S.union` of `S.number` and `NaN` schemas together. As well as `S.array` or `S.instance` schemas together with object schemas
 - Added `S.instance`
+- Fixed `S.schema` for literal instances
 
 ### Final release fixes
 
-- Fix union for priority cases
-- Fix literal for instance
 - Turn function into instance
 - Add S.symbol
 - Remove S.custom
@@ -18,7 +17,6 @@
 - Remove `s.fail` in favor of `throw new Error`
 - Fix all tests marked as Failing
 - Update docs
-- Fix all fixme
 
 ## v10.1
 

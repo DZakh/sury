@@ -146,7 +146,6 @@ module EmptyArray = {
   test("Serialize array with excess item in strict mode and it passes through", t => {
     let schema = factory()
 
-    // FIXME: Might lead to a bug
     t->Assert.deepEqual(invalid->S.reverseConvertOrThrow(schema->S.strict), invalid->Obj.magic, ())
   })
 

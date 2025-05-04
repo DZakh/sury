@@ -177,17 +177,17 @@ test("Fails to reverse convert Function literal", t => {
   )
 })
 
-// FIXME: S.literal for instances
-Failing.test("Fails to reverse convert Object literal", t => {
+test("Fails to reverse convert Object literal", t => {
   let error = %raw(`new Error("foo")`)
   let schema = S.literal(error)
-  t->U.assertThrows(
+  t->U.assertThrowsMessage(
     () => error->S.reverseConvertToJsonOrThrow(schema),
-    {
-      code: InvalidJsonSchema(schema->S.toUnknown),
-      operation: ReverseConvertToJson,
-      path: S.Path.empty,
-    },
+    `Failed converting to JSON: [object Error] is not valid JSON`,
+  )
+  t->Assert.is(error->S.reverseConvertOrThrow(schema), error, ())
+  t->U.assertThrowsMessage(
+    () => %raw(`new Error("foo")`)->S.reverseConvertOrThrow(schema),
+    `Failed converting: Expected [object Error], received [object Error]`,
   )
 })
 

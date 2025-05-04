@@ -2746,6 +2746,15 @@ function definitionToSchema(definition) {
                 }) : undefined
           };
   }
+  var cnstr = definition.constructor;
+  if (cnstr && cnstr !== Object) {
+    return {
+            type: "instance",
+            b: noop,
+            const: definition,
+            class: cnstr
+          };
+  }
   var fieldNames = Object.keys(definition);
   var length = fieldNames.length;
   var items = [];
