@@ -1449,11 +1449,11 @@ function getItemCode(b, schema, input, output, deopt, path) {
   }
 }
 
-function isPriority(tag, byTag) {
-  if ((tag === "array" || tag === "instance") && byTag["object"]) {
+function isPriority(tag, byKey) {
+  if ((tag === "array" || tag === "instance") && byKey["object"]) {
     return true;
   } else if (tag === "nan") {
-    return byTag["number"];
+    return byKey["number"];
   } else {
     return false;
   }
@@ -1476,8 +1476,8 @@ function builder$1(b, input, selfSchema, path) {
   var initialInline = input.i;
   var deoptIdx = -1;
   var lastIdx = schemas.length - 1 | 0;
-  var byTag = {};
-  var tags = [];
+  var byKey = {};
+  var keys = [];
   for(var idx = 0; idx <= lastIdx; ++idx){
     var schema = schemas[idx];
     var tag = schema.type;
@@ -1490,31 +1490,32 @@ function builder$1(b, input, selfSchema, path) {
           exit = 1;
           break;
       default:
-        var arr = byTag[tag];
+        var key = tag === "instance" ? schema.class.name : tag;
+        var arr = byKey[key];
         if (arr !== undefined) {
           if (tag !== "undefined" && tag !== "null" && tag !== "nan") {
             arr.push(schema);
           }
           
         } else {
-          if (isPriority(tag, byTag)) {
-            tags.unshift(tag);
+          if (isPriority(tag, byKey)) {
+            keys.unshift(key);
           } else {
-            tags.push(tag);
+            keys.push(key);
           }
-          byTag[tag] = [schema];
+          byKey[key] = [schema];
         }
     }
     if (exit === 1) {
       deoptIdx = idx;
-      byTag = {};
-      tags = [];
+      byKey = {};
+      keys = [];
     }
     
   }
   var deoptIdx$1 = deoptIdx;
-  var byTag$1 = byTag;
-  var tags$1 = tags;
+  var byKey$1 = byKey;
+  var keys$1 = keys;
   var start = "";
   var end = "";
   var caught = "";
@@ -1533,9 +1534,8 @@ function builder$1(b, input, selfSchema, path) {
   }
   var nextElse = false;
   var noop = "";
-  for(var idx$2 = 0 ,idx_finish = tags$1.length; idx$2 < idx_finish; ++idx$2){
-    var tag$1 = tags$1[idx$2];
-    var schemas$1 = byTag$1[tag$1];
+  for(var idx$2 = 0 ,idx_finish = keys$1.length; idx$2 < idx_finish; ++idx$2){
+    var schemas$1 = byKey$1[keys$1[idx$2]];
     var inputVar = input.v(b);
     var isMultiple = schemas$1.length > 1;
     var firstSchema = schemas$1[0];
@@ -1612,7 +1612,7 @@ function builder$1(b, input, selfSchema, path) {
       body = getItemCode(b, firstSchema, input, input, false, path);
     }
     var cond$1 = cond;
-    if (body || isPriority(tag$1, byTag$1)) {
+    if (body || isPriority(firstSchema.type, byKey$1)) {
       var if_$3 = nextElse ? "else if" : "if";
       start = start + if_$3 + ("(" + cond$1 + "){" + body + "}");
       nextElse = true;
@@ -2698,6 +2698,85 @@ function output$2() {
   }
 }
 
+function definitionToSchema(definition) {
+  if (!(typeof definition === "object" && definition !== null)) {
+    return parse(definition);
+  }
+  if (definition["~standard"]) {
+    return definition;
+  }
+  if (Array.isArray(definition)) {
+    var reversedItems = [];
+    var isTransformed = false;
+    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
+      var schema = definitionToSchema(definition[idx]);
+      var reversed = reverse(schema);
+      var $$location = idx.toString();
+      var inlinedLocation = "\"" + $$location + "\"";
+      definition[idx] = {
+        schema: schema,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+      reversedItems[idx] = {
+        schema: reversed,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+      if (schema !== reversed) {
+        isTransformed = true;
+      }
+      
+    }
+    return {
+            type: "array",
+            b: builder$3,
+            additionalItems: "strict",
+            items: definition,
+            output: isTransformed ? (function () {
+                  return {
+                          type: "array",
+                          b: builder$3,
+                          additionalItems: "strict",
+                          items: reversedItems
+                        };
+                }) : undefined
+          };
+  }
+  var cnstr = definition.constructor;
+  if (cnstr && cnstr !== Object) {
+    return {
+            type: "instance",
+            b: noop,
+            const: definition,
+            class: cnstr
+          };
+  }
+  var fieldNames = Object.keys(definition);
+  var length = fieldNames.length;
+  var items = [];
+  for(var idx$1 = 0; idx$1 < length; ++idx$1){
+    var $$location$1 = fieldNames[idx$1];
+    var inlinedLocation$1 = fromString($$location$1);
+    var schema$1 = definitionToSchema(definition[$$location$1]);
+    var item = {
+      schema: schema$1,
+      location: $$location$1,
+      inlinedLocation: inlinedLocation$1
+    };
+    definition[$$location$1] = item;
+    items[idx$1] = item;
+  }
+  return {
+          type: "object",
+          b: builder$3,
+          additionalItems: globalConfig.a,
+          items: items,
+          fields: definition,
+          output: output$2
+        };
+}
+
 function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
   if (!(typeof definition === "object" && definition !== null)) {
     return {
@@ -2777,85 +2856,6 @@ function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
             output: output$2
           },
           a: false
-        };
-}
-
-function definitionToSchema(definition) {
-  if (!(typeof definition === "object" && definition !== null)) {
-    return parse(definition);
-  }
-  if (definition["~standard"]) {
-    return definition;
-  }
-  if (Array.isArray(definition)) {
-    var reversedItems = [];
-    var isTransformed = false;
-    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
-      var schema = definitionToSchema(definition[idx]);
-      var reversed = reverse(schema);
-      var $$location = idx.toString();
-      var inlinedLocation = "\"" + $$location + "\"";
-      definition[idx] = {
-        schema: schema,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-      reversedItems[idx] = {
-        schema: reversed,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-      if (schema !== reversed) {
-        isTransformed = true;
-      }
-      
-    }
-    return {
-            type: "array",
-            b: builder$3,
-            additionalItems: "strict",
-            items: definition,
-            output: isTransformed ? (function () {
-                  return {
-                          type: "array",
-                          b: builder$3,
-                          additionalItems: "strict",
-                          items: reversedItems
-                        };
-                }) : undefined
-          };
-  }
-  var cnstr = definition.constructor;
-  if (cnstr && cnstr !== Object) {
-    return {
-            type: "instance",
-            b: noop,
-            const: definition,
-            class: cnstr
-          };
-  }
-  var fieldNames = Object.keys(definition);
-  var length = fieldNames.length;
-  var items = [];
-  for(var idx$1 = 0; idx$1 < length; ++idx$1){
-    var $$location$1 = fieldNames[idx$1];
-    var inlinedLocation$1 = fromString($$location$1);
-    var schema$1 = definitionToSchema(definition[$$location$1]);
-    var item = {
-      schema: schema$1,
-      location: $$location$1,
-      inlinedLocation: inlinedLocation$1
-    };
-    definition[$$location$1] = item;
-    items[idx$1] = item;
-  }
-  return {
-          type: "object",
-          b: builder$3,
-          additionalItems: globalConfig.a,
-          items: items,
-          fields: definition,
-          output: output$2
         };
 }
 

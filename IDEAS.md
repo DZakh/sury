@@ -2,17 +2,13 @@
 
 ## v10
 
-### rc.4
+### rc.5
 
-- Fixed edge-cases with `S.union` of `S.number` and `NaN` schemas together. As well as `S.array` or `S.instance` schemas together with object schemas
-- Added `S.instance`
-- Fixed `S.schema` for literal instances
-- Added `S.symbol`
-- Fixed function literal type inference
-- `S.custom` is removed in favor of `S.unknown`+`S.transform`+`S.meta`. The goal is to try to avoid `S.unknown` as much as possible. Try to use `S.instance` or any other built-in schemas as much as possible.
+- Fix `S.union` for multiple `S.instance` schemas
 
 ### Final release fixes
 
+- Fix /docs for jsr publish
 - Add `S.env` to support coercion for union items separately. Like `rescript-envsafe` used to do with `preprocess`
 - Make `S.record` accept two args
 - Update docs

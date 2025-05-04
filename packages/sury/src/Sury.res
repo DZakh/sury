@@ -2101,10 +2101,10 @@ module Union = {
     }
   }
 
-  let isPriority = (tag: string, byTag: dict<array<internal>>) => {
+  let isPriority = (tag: string, byKey: dict<array<internal>>) => {
     ((tag === (Array: tag :> string) || tag === (Instance: tag :> string)) &&
-      byTag->Stdlib.Dict.has((Object: tag :> string))) ||
-      (tag === (NaN: tag :> string) && byTag->Stdlib.Dict.has((Number: tag :> string)))
+      byKey->Stdlib.Dict.has((Object: tag :> string))) ||
+      (tag === (NaN: tag :> string) && byKey->Stdlib.Dict.has((Number: tag :> string)))
   }
 
   let builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
@@ -2135,8 +2135,8 @@ module Union = {
 
     let deoptIdx = ref(-1)
     let lastIdx = schemas->Js.Array2.length - 1
-    let byTag = ref(Js.Dict.empty())
-    let tags = ref([])
+    let byKey = ref(Js.Dict.empty())
+    let keys = ref([])
     for idx in 0 to lastIdx {
       let schema = schemas->Js.Array2.unsafe_get(idx)
 
@@ -2146,33 +2146,34 @@ module Union = {
       | Unknown
       | Never =>
         deoptIdx := idx
-        byTag := Js.Dict.empty()
-        tags := []
+        byKey := Js.Dict.empty()
+        keys := []
 
       | tag =>
-        switch byTag.contents->Stdlib.Dict.unsafeGetOption((tag :> string)) {
+        let key = tag === Instance ? (schema.class->Obj.magic)["name"] : (tag :> string)
+        switch byKey.contents->Stdlib.Dict.unsafeGetOption(key) {
         | Some(arr) =>
           // There can only be one valid. Dedupe
           if tag !== Undefined && tag !== Null && tag !== NaN {
             arr->Js.Array2.push(schema)->ignore
           }
         | None => {
-            if isPriority((tag :> string), byTag.contents) {
+            if isPriority((tag :> string), byKey.contents) {
               // Not the fastest way, but it's the simplest way
               // to make sure NaN is checked before number
               // And instance and array checked before object
-              tags.contents->Js.Array2.unshift((tag :> string))->ignore
+              keys.contents->Js.Array2.unshift(key)->ignore
             } else {
-              tags.contents->Js.Array2.push((tag :> string))->ignore
+              keys.contents->Js.Array2.push(key)->ignore
             }
-            byTag.contents->Js.Dict.set((tag :> string), [schema])
+            byKey.contents->Js.Dict.set(key, [schema])
           }
         }
       }
     }
     let deoptIdx = deoptIdx.contents
-    let byTag = byTag.contents
-    let tags = tags.contents
+    let byKey = byKey.contents
+    let keys = keys.contents
 
     let start = ref("")
     let end = ref("")
@@ -2194,9 +2195,8 @@ module Union = {
     let nextElse = ref(false)
     let noop = ref("")
 
-    for idx in 0 to tags->Js.Array2.length - 1 {
-      let tag = tags->Js.Array2.unsafe_get(idx)
-      let schemas = byTag->Js.Dict.unsafeGet(tag)
+    for idx in 0 to keys->Js.Array2.length - 1 {
+      let schemas = byKey->Js.Dict.unsafeGet(keys->Js.Array2.unsafe_get(idx))
       let inputVar = input.var(b)
 
       let isMultiple = schemas->Js.Array2.length > 1
@@ -2291,7 +2291,7 @@ module Union = {
       }
       let cond = cond.contents
 
-      if body->Stdlib.String.unsafeToBool || isPriority((tag :> string), byTag) {
+      if body->Stdlib.String.unsafeToBool || isPriority((firstSchema.tag :> string), byKey) {
         let if_ = nextElse.contents ? "else if" : "if"
         start := start.contents ++ if_ ++ `(${cond}){${body}}`
         nextElse := true

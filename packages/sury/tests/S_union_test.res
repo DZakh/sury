@@ -444,6 +444,16 @@ test("Instance schema should be checked before object even if it's later item in
   )
 })
 
+test("Two different instance schemas in union", t => {
+  let schema = S.union([S.instance(%raw(`Set`))->Obj.magic, S.instance(%raw(`Map`))->Obj.magic])
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(!(i instanceof e[0]||i instanceof e[1])){e[2](i)}return i}`,
+  )
+})
+
 @unboxed
 type uboxedVariant = String(string) | Int(int)
 test("Successfully serializes unboxed variant", t => {
