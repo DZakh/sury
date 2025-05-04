@@ -13,9 +13,8 @@
 
 ### Final release fixes
 
+- Add `S.env` to support coercion for union items separately. Like `rescript-envsafe` used to do with `preprocess`
 - Make `S.record` accept two args
-- Remove `s.fail` in favor of `throw new Error`
-- Fix all tests marked as Failing
 - Update docs
 
 ## v10.1
@@ -24,6 +23,8 @@
 
 ## v11
 
+- Remove `s.fail` in favor of `throw new Error` ???
+- Add `s.parseChild` to EffectContext ???
 - Make built-in refinements not work with `unknown`. Use `S.to` (manually & automatically) to deside the type first
 - Start using rescript v12 (Fix unboxed types in JSONSchema module)
 - Support arrays for `S.to`
