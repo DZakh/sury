@@ -1,7 +1,7 @@
 {
   "name": "@sury/sury",
-  "version": "10.0.0-rc.4",
+  "version": "10.0.0-rc.5",
   "license": "MIT",
-  "exclude": ["!src", "!rescript.json", "!README.md", "!package.json"],
+  "exclude": ["!src", "!rescript.json", "!README.md", "!package.json", "!docs"],
   "exports": "./src/S.mjs"
 }

@@ -5,10 +5,10 @@
 ### rc.5
 
 - Fix `S.union` for multiple `S.instance` schemas
+- Include `/docs` into JSR release
 
 ### Final release fixes
 
-- Fix /docs for jsr publish
 - Add `S.env` to support coercion for union items separately. Like `rescript-envsafe` used to do with `preprocess`
 - Make `S.record` accept two args
 - Update docs
