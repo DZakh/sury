@@ -1,5 +1,6 @@
 open Ava
 open JSONSchema
+open RescriptCore
 
 // Helper for round-trip: S -> toJSONSchema -> fromJSONSchema -> S
 let roundTrip = schema => schema->S.toJSONSchema->S.fromJSONSchema
@@ -11,7 +12,7 @@ let jsonRoundTrip = js => js->S.fromJSONSchema->S.toJSONSchema
 let parse = (schema, value) => value->S.parseOrThrow(schema)->Obj.magic
 
 // Helper for deepEqual
-let eq = (a, b) => Js.Json.stringifyAny(a) == Js.Json.stringifyAny(b)
+let eq = (a, b) => JSON.stringify(a) == JSON.stringify(b)
 
 // 1. Primitive types
 
@@ -121,7 +122,7 @@ test("fromJSONSchema: tuple", t => {
 test("fromJSONSchema: object with properties", t => {
   let js = {
     type_: Arrayable.single(#object),
-    properties: Js.Dict.fromArray([
+    properties: Dict.fromArray([
       ("foo", Definition.schema({type_: Arrayable.single(#string)})),
       ("bar", Definition.schema({type_: Arrayable.single(#number)})),
     ]),
@@ -136,7 +137,7 @@ test("fromJSONSchema: object with properties", t => {
 test("fromJSONSchema: object with additionalProperties false", t => {
   let js = {
     type_: Arrayable.single(#object),
-    properties: Js.Dict.fromArray([("foo", Definition.schema({type_: Arrayable.single(#string)}))]),
+    properties: Dict.fromArray([("foo", Definition.schema({type_: Arrayable.single(#string)}))]),
     additionalProperties: Definition.boolean(false),
   }
   let schema = S.fromJSONSchema(js)

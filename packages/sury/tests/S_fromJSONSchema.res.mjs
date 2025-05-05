@@ -2,8 +2,6 @@
 
 import * as S from "../src/S.res.mjs";
 import Ava from "ava";
-import * as Js_dict from "rescript/lib/es6/js_dict.js";
-import * as Caml_obj from "rescript/lib/es6/caml_obj.js";
 import * as Caml_option from "rescript/lib/es6/caml_option.js";
 
 function roundTrip(schema) {
@@ -19,7 +17,7 @@ function parse(schema, value) {
 }
 
 function eq(a, b) {
-  return Caml_obj.equal(JSON.stringify(a), JSON.stringify(b));
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 Ava("fromJSONSchema: string", (function (t) {
@@ -216,7 +214,7 @@ Ava("fromJSONSchema: tuple", (function (t) {
 Ava("fromJSONSchema: object with properties", (function (t) {
         var js_type = "object";
         var js_required = ["foo"];
-        var js_properties = Js_dict.fromArray([
+        var js_properties = Object.fromEntries([
               [
                 "foo",
                 {
@@ -253,7 +251,7 @@ Ava("fromJSONSchema: object with properties", (function (t) {
 
 Ava("fromJSONSchema: object with additionalProperties false", (function (t) {
         var js_type = "object";
-        var js_properties = Js_dict.fromArray([[
+        var js_properties = Object.fromEntries([[
                 "foo",
                 {
                   type: "string"
