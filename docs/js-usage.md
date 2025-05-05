@@ -7,7 +7,13 @@
 - [Table of contents](#table-of-contents)
 - [Install](#install)
 - [Basic usage](#basic-usage)
-- [Primitives](#primitives)
+  - [Parsing data](#parsing-data)
+  - [Inferred types](#inferred-types)
+  - [Serializing data](#serializing-data)
+  - [Performance](#performance)
+  - [JSON Schema](#json-schema)
+  - [Standard Schema](#standard-schema)
+- [Defining schemas](#defining-schemas)
 - [Literals](#literals)
 - [Strings](#strings)
   - [ISO datetimes](#iso-datetimes)
@@ -64,32 +70,270 @@ npm install sury
 
 ## Basic usage
 
+The main building block of **Sury** is a schema. You can think of it as a type definition that exists at runtime - giving you infinite possibilities of using it.
+
+Let's start with a simple object schema for the purpose of this guide. I use the same example as [Zod v4](https://v4.zod.dev/basics) docs so you can easily compare the two.
+
 ```ts
-import * as S from "sury";
+import * as S from "sury"; // 4.3 kB (min + gzip)
 
-// Create login schema with email and password
-const loginSchema = S.schema({
-  email: S.string.with(S.email),
-  password: S.string.with(S.min, 8),
+const Player = S.schema({
+  username: S.string,
+  xp: S.number,
 });
-
-// Infer output TypeScript type of login schema
-type LoginData = S.Output<typeof loginSchema>; // { email: string; password: string }
-
-// Throws the S.Error(`Failed parsing at ["email"]: Invalid email address`)
-S.parseOrThrow({ email: "", password: "" }, loginSchema);
-
-// Returns data as { email: string; password: string }
-S.parseOrThrow(
-  {
-    email: "jane@example.com",
-    password: "12345678",
-  },
-  loginSchema
-);
 ```
 
-## Primitives
+> 🧠 The API is very similar to TypeScript types, so you don't need to learn a new syntax.
+
+### Parsing data
+
+The most basic use-case for a schema is to parse unknown data. If the data is valid, the function will return a strongly-typed deep clone of the input. (With stripped fields by default)
+
+```ts
+S.parseOrThrow({ username: "billie", xp: 100 }, Player);
+// => returns { username: "billie", xp: 100 }
+```
+
+If the data is invalid, the function will throw an error.
+
+```ts
+S.parseOrThrow({ username: "billie", xp: "not a number" }, Player);
+// => throws S.Error: Failed parsing at ["xp"]: Expected number, got string
+```
+
+**Sury** API explicitly tells you that it might throw an error. If you need you can catch it and perform `err instanceof S.Error` check. But **Sury** provides a convenient API which does it for you:
+
+```ts
+const result = S.safe(() =>
+  S.parseOrThrow({ username: "billie", xp: "not a number" }, Player)
+);
+// Or for async operations:
+const result = await S.safeAsync(() =>
+  S.parseAsyncOrThrow({ username: "billie", xp: "not a number" }, Player)
+);
+
+// The result type is a discriminated union, so you can handle both cases conveniently:
+if (!result.success) {
+  result.error; // handle error
+} else {
+  result.data; // do stuff
+}
+```
+
+> 🧠 Besides `parseOrThrow` there are also built-in operations to transform the data without validation, assert without allocating output, serialize back to the initial format and more. If somebody is missing in built-in operations, you can use `S.compile` to create a custom one.
+
+### Inferred types
+
+**Sury** automatically infers the static type from the schema definition. It has a really nice type on hover, which you can extract by using `S.Output<typeof schema>` or `S.Input<typeof schema>`.
+
+```ts
+const Player = S.schema({
+  username: S.string,
+  xp: S.number,
+});
+//? S.Schema<{ username: string; xp: number }, { username: string; xp: number }>
+
+type Player = S.Output<typeof Player>;
+
+// Use it in your code
+const player: Player = { username: "billie", xp: 100 };
+```
+
+### Serializing data
+
+If you wonder why the schema needs an `Input` type, it's because **Sury** supports serializing data back to the initial format.
+
+```ts
+S.reverseConvertOrThrow({ username: "billie", xp: 100 }, Player);
+// => returns { username: "billie", xp: 100 }
+```
+
+Doesn't look like a big deal, with the example above. But if you have a more complex schema with transformations, it can be really useful.
+
+```ts
+// 1. Create some advanced schema with transformations
+//    S.to - for easy & fast coercion
+//    S.shape - for fields transformation
+//    S.meta - with examples in Output format
+const User = S.schema({
+  USER_ID: S.string.with(S.to, S.bigint),
+  USER_NAME: S.string,
+})
+  .with(S.shape, (input) => ({
+    id: input.USER_ID,
+    name: input.USER_NAME,
+  }))
+  .with(S.meta, {
+    description: "User entity in our system",
+    examples: [
+      {
+        id: 0n,
+        name: "Dmitry",
+      },
+    ],
+  });
+// On hover:
+// S.Schema<{
+//     id: bigint;
+//     name: string;
+// }, {
+//     USER_ID: string;
+//     USER_NAME: string;
+// }>
+
+// 2. You can use it for parsing Input to Output
+S.parseOrThrow(
+  {
+    USER_ID: "0",
+    USER_NAME: "Dmitry",
+  },
+  userSchema
+);
+// { id: 0n, name: "Dmitry" }
+// See how "0" is turned into 0n and fields are renamed
+
+// 3. And reverse the schema and use it for parsing Output to Input
+S.parseOrThrow(
+  {
+    id: 0n,
+    name: "Dmitry",
+  },
+  S.reverse(userSchema)
+);
+// { USER_ID: "0", USER_NAME: "Dmitry" }
+// Just use `S.reverse` and get a full-featured schema with switched `Output` and `Input` types
+// Note: You can use `S.reverseConvertOrThrow(data, schema)` if you don't need to perform validation
+```
+
+### Performance
+
+This is not really about usage, but what you should be aware of is that **Sury** will most likely outperform not only other libraries, but also your own hand-rolled validation logic.
+
+```ts
+// This is how S.parseOrThrow(data, userSchema) is compiled
+(i) => {
+  if (typeof i !== "object" || !i) {
+    e[3](i);
+  }
+  let v0 = i["USER_ID"],
+    v2 = i["USER_NAME"];
+  if (typeof v0 !== "string") {
+    e[0](v0);
+  }
+  let v1;
+  try {
+    v1 = BigInt(v0);
+  } catch (_) {
+    e[1](v0);
+  }
+  if (typeof v2 !== "string") {
+    e[2](v2);
+  }
+  return { id: v1, name: v2 };
+};
+```
+
+```ts
+// This is how S.reverseConvertOrThrow(data, userSchema) is compiled
+(i) => {
+  let v0 = i["id"];
+  return { USER_ID: "" + v0, USER_NAME: i["name"] };
+};
+```
+
+So if you need the fastest possible parsing/serializing - **Sury** is the way to go ⭐
+
+### JSON Schema
+
+**Sury** internal representation is very simple and alike to JSON Schema, so you can use it directly.
+
+```ts
+console.log(
+  S.schema("Hello world!").with(S.meta, { description: "Your greeting :)" })
+);
+// {
+//   type: "string",
+//   const: "Hello world!",
+//   description: "Your greeting :)",
+//   ...a few internal properties
+// }
+```
+
+But for better interoperability, you can convert it to the official JSON Schema specification. Let's take the `User` schema from the example above and convert it:
+
+```ts
+S.toJSONSchema(User);
+// {
+//   type: "object",
+//   additionalProperties: true,
+//   properties: {
+//     USER_ID: {
+//       type: "string",
+//     },
+//     USER_NAME: {
+//       type: "string",
+//     },
+//   },
+//   required: ["USER_ID", "USER_NAME"],
+//   description: "User entity in our system",
+//   examples: [
+//     {
+//       USER_ID: "0",
+//       USER_NAME: "Dmitry",
+//     },
+//   ],
+// }
+```
+
+See how all the properties and examples are in the Input format. It's just asking to put itself to Fastify or any other server with OpenAPI integration 😁
+
+If that's not cool enough for you, you can also turn a JSON Schema into a **Sury** schema:
+
+```ts
+S.assertOrThrow(
+  "example.com",
+  S.fromJSONSchema({
+    type: "string",
+    format: "email",
+  })
+);
+// Throws S.Error: Failed asserting: Invalid email address
+```
+
+### Standard Schema
+
+**Sury** implements a [Standard Schema](https://standardschema.dev/) specification which is already integrated with over 32 popular libraries.
+
+Here's an example how you can use **Sury** to generate structured data using [xsAI](https://xsai.js.org/):
+
+```ts
+import { generateObject } from "@xsai/generate-object";
+import { env } from "node:process";
+import * as S from "sury";
+
+const { object } = await generateObject({
+  apiKey: env.OPENAI_API_KEY!,
+  baseURL: "https://api.openai.com/v1/",
+  messages: [
+    {
+      content: "Extract the event information.",
+      role: "system",
+    },
+    {
+      content: "Alice and Bob are going to a science fair on Friday.",
+      role: "user",
+    },
+  ],
+  model: "gpt-4o",
+  schema: S.schema({
+    name: S.string,
+    date: S.string,
+    participants: S.array(S.string),
+  }),
+});
+```
+
+## Defining schemas
 
 ```ts
 import * as S from "sury";
