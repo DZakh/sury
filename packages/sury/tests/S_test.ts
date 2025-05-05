@@ -2172,6 +2172,25 @@ test("Example of transformed schema", (t) => {
       },
     ],
   });
+
+  const fromJsonSchema = S.fromJSONSchema(S.toJSONSchema(userSchema));
+  t.deepEqual(
+    S.parseOrThrow({ USER_ID: "0", USER_NAME: "Dmitry" }, fromJsonSchema),
+    {
+      USER_ID: "0",
+      USER_NAME: "Dmitry",
+    },
+    "Parsing works, but doesn't keep transformations"
+  );
+  if (fromJsonSchema.type === "object") {
+    t.is(fromJsonSchema.additionalItems, "strip");
+    t.deepEqual(
+      fromJsonSchema.items.map((i) => i.location),
+      ["USER_ID", "USER_NAME"]
+    );
+  } else {
+    t.fail("fromJsonSchema should be an object");
+  }
 });
 
 test("Compile types", async (t) => {

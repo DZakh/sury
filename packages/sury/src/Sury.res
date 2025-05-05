@@ -5198,251 +5198,6 @@ module RescriptJSONSchema = {
 
     jsonSchema->Mutable.toReadOnly
   }
-
-  // let castAnySchemaToJsonableS = (magic: S.t<'any> => S.t<Js.Json.t>)
-
-  // @inline
-  // let primitiveToSchema = primitive => {
-  //   S.literal(primitive)->castAnySchemaToJsonableS
-  // }
-
-  // let toIntSchema = (jsonSchema: t) => {
-  //   let schema = S.int
-  //   // TODO: Support jsonSchema.multipleOf when it's in rescript-schema
-  //   // if (typeof jsonSchema.multipleOf === "number" && jsonSchema.multipleOf !== 1) {
-  //   //  r += `.multipleOf(${jsonSchema.multipleOf})`;
-  //   // }
-  //   let schema = switch jsonSchema {
-  //   | {minimum} => schema->S.intMin(minimum->Belt.Float.toInt)
-  //   | {exclusiveMinimum} => schema->S.intMin((exclusiveMinimum +. 1.)->Belt.Float.toInt)
-  //   | _ => schema
-  //   }
-  //   let schema = switch jsonSchema {
-  //   | {maximum} => schema->S.intMax(maximum->Belt.Float.toInt)
-  //   | {exclusiveMinimum} => schema->S.intMax((exclusiveMinimum -. 1.)->Belt.Float.toInt)
-  //   | _ => schema
-  //   }
-  //   schema->castAnySchemaToJsonableS
-  // }
-
-  // let definitionToDefaultValue = definition =>
-  //   switch definition->Definition.classify {
-  //   | Schema(s) => s.default
-  //   | Boolean(_) => None
-  //   }
-
-  // let rec toRescriptSchema = (jsonSchema: t) => {
-  //   let anySchema = S.json(~validate=false)
-
-  //   let definitionToSchema = definition =>
-  //     switch definition->Definition.classify {
-  //     | Schema(s) => s->toRescriptSchema
-  //     | Boolean(_) => anySchema
-  //     }
-
-  //   let schema = switch jsonSchema {
-  //   | _ if (jsonSchema->(magic: t => {..}))["nullable"] =>
-  //     S.null(
-  //       jsonSchema->merge({"nullable": false}->(magic: {..} => t))->toRescriptSchema,
-  //     )->castAnySchemaToJsonableS
-  //   | {type_} if type_ === Arrayable.single(#object) =>
-  //     let schema = switch jsonSchema.properties {
-  //     | Some(properties) =>
-  //       let schema = S.object(s =>
-  //         properties
-  //         ->Js.Dict.entries
-  //         ->Js.Array2.map(((key, property)) => {
-  //           let propertySchema = property->definitionToSchema
-  //           let propertySchema = switch jsonSchema.required {
-  //           | Some(r) if r->Js.Array2.includes(key) => propertySchema
-  //           | _ =>
-  //             switch property->definitionToDefaultValue {
-  //             | Some(defaultValue) =>
-  //               propertySchema->S.option->S.Option.getOr(defaultValue)->castAnySchemaToJsonableS
-  //             | None => propertySchema->S.option->castAnySchemaToJsonableS
-  //             }
-  //           }
-  //           (key, s.field(key, propertySchema))
-  //         })
-  //         ->Js.Dict.fromArray
-  //       )
-  //       let schema = switch jsonSchema {
-  //       | {additionalProperties} if additionalProperties === Definition.boolean(false) =>
-  //         schema->S.strict
-  //       | _ => schema
-  //       }
-  //       schema->castAnySchemaToJsonableS
-  //     | None =>
-  //       switch jsonSchema.additionalProperties {
-  //       | Some(additionalProperties) =>
-  //         switch additionalProperties->Definition.classify {
-  //         | Boolean(true) => S.dict(anySchema)->castAnySchemaToJsonableS
-  //         | Boolean(false) => S.object(_ => ())->S.strict->castAnySchemaToJsonableS
-  //         | Schema(s) => S.dict(s->toRescriptSchema)->castAnySchemaToJsonableS
-  //         }
-  //       | None => S.object(_ => ())->castAnySchemaToJsonableS
-  //       }
-  //     }
-
-  //     // TODO: jsonSchema.anyOf and jsonSchema.oneOf support
-  //     schema
-  //   | {type_} if type_ === Arrayable.single(#array) => {
-  //       let schema = switch jsonSchema.items {
-  //       | Some(items) =>
-  //         switch items->Arrayable.classify {
-  //         | Single(single) => S.array(single->definitionToSchema)
-  //         | Array(array) =>
-  //           S.tuple(s => array->Js.Array2.mapi((d, idx) => s.item(idx, d->definitionToSchema)))
-  //         }
-  //       | None => S.array(anySchema)
-  //       }
-  //       let schema = switch jsonSchema.minItems {
-  //       | Some(min) => schema->S.arrayMinLength(min)
-  //       | _ => schema
-  //       }
-  //       let schema = switch jsonSchema.maxItems {
-  //       | Some(max) => schema->S.arrayMaxLength(max)
-  //       | _ => schema
-  //       }
-  //       schema->castAnySchemaToJsonableS
-  //     }
-  //   | {anyOf: []} => anySchema
-  //   | {anyOf: [d]} => d->definitionToSchema
-  //   | {anyOf: definitions} => S.union(definitions->Js.Array2.map(definitionToSchema))
-  //   | {allOf: []} => anySchema
-  //   | {allOf: [d]} => d->definitionToSchema
-  //   | {allOf: definitions} =>
-  //     anySchema->S.refine(s => data => {
-  //       definitions->Js.Array2.forEach(d => {
-  //         try data->S.assertOrThrow(d->definitionToSchema) catch {
-  //         | _ => s.fail("Should pass for all schemas of the allOf property.")
-  //         }
-  //       })
-  //     })
-  //   | {oneOf: []} => anySchema
-  //   | {oneOf: [d]} => d->definitionToSchema
-  //   | {oneOf: definitions} =>
-  //     anySchema->S.refine(s => data => {
-  //       let hasOneValidRef = ref(false)
-  //       definitions->Js.Array2.forEach(d => {
-  //         let passed = try {
-  //           data->S.assertOrThrow(d->definitionToSchema)
-  //           true
-  //         } catch {
-  //         | _ => false
-  //         }
-  //         if passed {
-  //           if hasOneValidRef.contents {
-  //             s.fail("Should pass single schema according to the oneOf property.")
-  //           }
-  //           hasOneValidRef.contents = true
-  //         }
-  //       })
-  //       if hasOneValidRef.contents->not {
-  //         s.fail("Should pass at least one schema according to the oneOf property.")
-  //       }
-  //     })
-  //   | {not} =>
-  //     anySchema->S.refine(s => data => {
-  //       let passed = try {
-  //         data->S.assertOrThrow(not->definitionToSchema)
-  //         true
-  //       } catch {
-  //       | _ => false
-  //       }
-  //       if passed {
-  //         s.fail("Should NOT be valid against schema in the not property.")
-  //       }
-  //     })
-  //   // needs to come before primitives
-  //   | {enum: []} => anySchema
-  //   | {enum: [p]} => p->primitiveToSchema
-  //   | {enum: primitives} =>
-  //     S.union(primitives->Js.Array2.map(primitiveToSchema))->castAnySchemaToJsonableS
-  //   | {const} => const->primitiveToSchema
-  //   | {type_} if type_->Arrayable.isArray =>
-  //     let types = type_->(magic: Arrayable.t<'a> => array<'a>)
-  //     S.union(
-  //       types->Js.Array2.map(type_ => {
-  //         jsonSchema->merge({type_: Arrayable.single(type_)})->toRescriptSchema
-  //       }),
-  //     )
-  //   | {type_} if type_ === Arrayable.single(#string) =>
-  //     let schema = S.string
-  //     let schema = switch jsonSchema {
-  //     | {pattern} => schema->S.pattern(Js.Re.fromString(pattern))
-  //     | _ => schema
-  //     }
-
-  //     let schema = switch jsonSchema {
-  //     | {minLength} => schema->S.stringMinLength(minLength)
-  //     | _ => schema
-  //     }
-  //     let schema = switch jsonSchema {
-  //     | {maxLength} => schema->S.stringMaxLength(maxLength)
-  //     | _ => schema
-  //     }
-  //     switch jsonSchema {
-  //     | {format: "email"} => schema->S.email->castAnySchemaToJsonableS
-  //     | {format: "uri"} => schema->S.url->castAnySchemaToJsonableS
-  //     | {format: "uuid"} => schema->S.uuid->castAnySchemaToJsonableS
-  //     | {format: "date-time"} => schema->S.datetime->castAnySchemaToJsonableS
-  //     | _ => schema->castAnySchemaToJsonableS
-  //     }
-
-  //   | {type_} if type_ === Arrayable.single(#integer) => jsonSchema->toIntSchema
-  //   | {type_, format: "int64"} if type_ === Arrayable.single(#number) => jsonSchema->toIntSchema
-  //   | {type_, multipleOf: 1.} if type_ === Arrayable.single(#number) => jsonSchema->toIntSchema
-  //   | {type_} if type_ === Arrayable.single(#number) => {
-  //       let schema = S.float
-  //       let schema = switch jsonSchema {
-  //       | {minimum} => schema->S.floatMin(minimum)
-  //       | {exclusiveMinimum} => schema->S.floatMin(exclusiveMinimum +. 1.)
-  //       | _ => schema
-  //       }
-  //       let schema = switch jsonSchema {
-  //       | {maximum} => schema->S.floatMax(maximum)
-  //       | {exclusiveMinimum} => schema->S.floatMax(exclusiveMinimum -. 1.)
-  //       | _ => schema
-  //       }
-  //       schema->castAnySchemaToJsonableS
-  //     }
-  //   | {type_} if type_ === Arrayable.single(#boolean) => S.bool->castAnySchemaToJsonableS
-  //   | {type_} if type_ === Arrayable.single(#null) =>
-  //     S.literal(%raw(`null`))->castAnySchemaToJsonableS
-  //   | {if_, then, else_} => {
-  //       let ifSchema = if_->definitionToSchema
-  //       let thenSchema = then->definitionToSchema
-  //       let elseSchema = else_->definitionToSchema
-  //       anySchema->S.refine(_ => data => {
-  //         let passed = try {
-  //           data->S.assertOrThrow(ifSchema)
-  //           true
-  //         } catch {
-  //         | _ => false
-  //         }
-  //         if passed {
-  //           data->S.assertOrThrow(thenSchema)
-  //         } else {
-  //           data->S.assertOrThrow(elseSchema)
-  //         }
-  //       })
-  //     }
-  //   | _ => anySchema
-  //   }
-
-  //   let schema = switch jsonSchema {
-  //   | {description} => schema->S.describe(description)
-  //   | _ => schema
-  //   }
-
-  //   let schema = switch jsonSchema {
-  //   | {description} => schema->S.describe(description)
-  //   | _ => schema
-  //   }
-
-  //   schema
-  // }
 }
 
 let toJSONSchema = schema => {
@@ -5465,6 +5220,260 @@ let extendJSONSchema = (schema, jsonSchema) => {
     | None => jsonSchema
     },
   )
+}
+
+let castAnySchemaToJsonableS = (Obj.magic: schema<'any> => schema<Js.Json.t>)
+let rec fromJSONSchema = {
+  @inline
+  let primitiveToSchema = primitive => {
+    Literal.parse(primitive)->fromInternal->castAnySchemaToJsonableS
+  }
+
+  let toIntSchema = (jsonSchema: JSONSchema.t) => {
+    let schema = int
+    // TODO: Support jsonSchema.multipleOf when it's in rescript-schema
+    // if (typeof jsonSchema.multipleOf === "number" && jsonSchema.multipleOf !== 1) {
+    //  r += `.multipleOf(${jsonSchema.multipleOf})`;
+    // }
+    let schema = switch jsonSchema {
+    | {minimum} => schema->intMin(minimum->Belt.Float.toInt)
+    | {exclusiveMinimum} => schema->intMin((exclusiveMinimum +. 1.)->Belt.Float.toInt)
+    | _ => schema
+    }
+    let schema = switch jsonSchema {
+    | {maximum} => schema->intMax(maximum->Belt.Float.toInt)
+    | {exclusiveMinimum} => schema->intMax((exclusiveMinimum -. 1.)->Belt.Float.toInt)
+    | _ => schema
+    }
+    schema->castAnySchemaToJsonableS
+  }
+
+  let definitionToDefaultValue = definition =>
+    switch definition->JSONSchema.Definition.classify {
+    | Schema(s) => s.default
+    | Boolean(_) => None
+    }
+
+  (jsonSchema: JSONSchema.t) => {
+    let anySchema = json(~validate=false)
+
+    let definitionToSchema = definition =>
+      switch definition->JSONSchema.Definition.classify {
+      | Schema(s) => s->fromJSONSchema
+      | Boolean(_) => anySchema
+      }
+
+    let schema = switch jsonSchema {
+    | _ if (jsonSchema->(Obj.magic: JSONSchema.t => {..}))["nullable"] =>
+      null(
+        jsonSchema
+        ->RescriptJSONSchema.merge({"nullable": false}->(Obj.magic: {..} => JSONSchema.t))
+        ->fromJSONSchema,
+      )->castAnySchemaToJsonableS
+    | {type_} if type_ === JSONSchema.Arrayable.single(#object) =>
+      let schema = switch jsonSchema.properties {
+      | Some(properties) =>
+        let schema = object(s => {
+          let obj = Js.Dict.empty()
+          properties
+          ->Js.Dict.keys
+          ->Js.Array2.forEach(key => {
+            let property = properties->Js.Dict.unsafeGet(key)
+            let propertySchema = property->definitionToSchema
+            let propertySchema = switch jsonSchema.required {
+            | Some(r) if r->Js.Array2.includes(key) => propertySchema
+            | _ =>
+              switch property->definitionToDefaultValue {
+              | Some(defaultValue) =>
+                propertySchema->option->Option.getOr(defaultValue)->castAnySchemaToJsonableS
+              | None => propertySchema->option->castAnySchemaToJsonableS
+              }
+            }
+            Js.Dict.set(obj, key, s.field(key, propertySchema))
+          })
+          obj
+        })
+        let schema = switch jsonSchema {
+        | {additionalProperties} if additionalProperties === JSONSchema.Definition.boolean(false) =>
+          schema->strict
+        | _ => schema
+        }
+        schema->castAnySchemaToJsonableS
+      | None =>
+        switch jsonSchema.additionalProperties {
+        | Some(additionalProperties) =>
+          switch additionalProperties->JSONSchema.Definition.classify {
+          | Boolean(true) => dict(anySchema)->castAnySchemaToJsonableS
+          | Boolean(false) => object(_ => ())->strict->castAnySchemaToJsonableS
+          | Schema(s) => dict(s->fromJSONSchema)->castAnySchemaToJsonableS
+          }
+        | None => Schema.factory(_ => ())->castAnySchemaToJsonableS
+        }
+      }
+
+      // TODO: jsonSchema.anyOf and jsonSchema.oneOf support
+      schema
+    | {type_} if type_ === JSONSchema.Arrayable.single(#array) => {
+        let schema = switch jsonSchema.items {
+        | Some(items) =>
+          switch items->JSONSchema.Arrayable.classify {
+          | Single(single) => array(single->definitionToSchema)
+          | Array(array) =>
+            tuple(s => array->Js.Array2.mapi((d, idx) => s.item(idx, d->definitionToSchema)))
+          }
+        | None => array(anySchema)
+        }
+        let schema = switch jsonSchema.minItems {
+        | Some(min) => schema->arrayMinLength(min)
+        | _ => schema
+        }
+        let schema = switch jsonSchema.maxItems {
+        | Some(max) => schema->arrayMaxLength(max)
+        | _ => schema
+        }
+        schema->castAnySchemaToJsonableS
+      }
+    | {anyOf: []} => anySchema
+    | {anyOf: [d]} => d->definitionToSchema
+    | {anyOf: definitions} => union(definitions->Js.Array2.map(definitionToSchema))
+    | {allOf: []} => anySchema
+    | {allOf: [d]} => d->definitionToSchema
+    | {allOf: definitions} =>
+      anySchema->refine(s => data => {
+        definitions->Js.Array2.forEach(d => {
+          try data->assertOrThrow(d->definitionToSchema) catch {
+          | _ => s.fail("Should pass for all schemas of the allOf property.")
+          }
+        })
+      })
+    | {oneOf: []} => anySchema
+    | {oneOf: [d]} => d->definitionToSchema
+    | {oneOf: definitions} =>
+      anySchema->refine(s => data => {
+        let hasOneValidRef = ref(false)
+        definitions->Js.Array2.forEach(d => {
+          let passed = try {
+            let _ = data->assertOrThrow(d->definitionToSchema)
+            true
+          } catch {
+          | _ => false
+          }
+          if passed {
+            if hasOneValidRef.contents {
+              s.fail("Should pass single schema according to the oneOf property.")
+            }
+            hasOneValidRef.contents = true
+          }
+        })
+        if hasOneValidRef.contents->not {
+          s.fail("Should pass at least one schema according to the oneOf property.")
+        }
+      })
+    | {not} =>
+      anySchema->refine(s => data => {
+        let passed = try {
+          let _ = data->assertOrThrow(not->definitionToSchema)
+          true
+        } catch {
+        | _ => false
+        }
+        if passed {
+          s.fail("Should NOT be valid against schema in the not property.")
+        }
+      })
+    // needs to come before primitives
+    | {enum: []} => anySchema
+    | {enum: [p]} => p->primitiveToSchema
+    | {enum: primitives} =>
+      union(primitives->Js.Array2.map(primitiveToSchema))->castAnySchemaToJsonableS
+    | {const} => const->primitiveToSchema
+    | {type_} if type_->JSONSchema.Arrayable.isArray =>
+      let types = type_->(Obj.magic: JSONSchema.Arrayable.t<'a> => array<'a>)
+      union(
+        types->Js.Array2.map(type_ => {
+          jsonSchema
+          ->RescriptJSONSchema.merge({type_: JSONSchema.Arrayable.single(type_)})
+          ->fromJSONSchema
+        }),
+      )
+    | {type_} if type_ === JSONSchema.Arrayable.single(#string) =>
+      let schema = string
+      let schema = switch jsonSchema {
+      | {pattern: p} => schema->pattern(Js.Re.fromString(p))
+      | _ => schema
+      }
+
+      let schema = switch jsonSchema {
+      | {minLength} => schema->stringMinLength(minLength)
+      | _ => schema
+      }
+      let schema = switch jsonSchema {
+      | {maxLength} => schema->stringMaxLength(maxLength)
+      | _ => schema
+      }
+      switch jsonSchema {
+      | {format: "email"} => schema->email->castAnySchemaToJsonableS
+      | {format: "uri"} => schema->url->castAnySchemaToJsonableS
+      | {format: "uuid"} => schema->uuid->castAnySchemaToJsonableS
+      | {format: "date-time"} => schema->datetime->castAnySchemaToJsonableS
+      | _ => schema->castAnySchemaToJsonableS
+      }
+
+    | {type_} if type_ === JSONSchema.Arrayable.single(#integer) => jsonSchema->toIntSchema
+    | {type_, format: "int64"} if type_ === JSONSchema.Arrayable.single(#number) =>
+      jsonSchema->toIntSchema
+    | {type_, multipleOf: 1.} if type_ === JSONSchema.Arrayable.single(#number) =>
+      jsonSchema->toIntSchema
+    | {type_} if type_ === JSONSchema.Arrayable.single(#number) => {
+        let schema = float
+        let schema = switch jsonSchema {
+        | {minimum} => schema->floatMin(minimum)
+        | {exclusiveMinimum} => schema->floatMin(exclusiveMinimum +. 1.)
+        | _ => schema
+        }
+        let schema = switch jsonSchema {
+        | {maximum} => schema->floatMax(maximum)
+        | {exclusiveMinimum} => schema->floatMax(exclusiveMinimum -. 1.)
+        | _ => schema
+        }
+        schema->castAnySchemaToJsonableS
+      }
+    | {type_} if type_ === JSONSchema.Arrayable.single(#boolean) => bool->castAnySchemaToJsonableS
+    | {type_} if type_ === JSONSchema.Arrayable.single(#null) =>
+      literal(%raw(`null`))->castAnySchemaToJsonableS
+    | {if_, then, else_} => {
+        let ifSchema = if_->definitionToSchema
+        let thenSchema = then->definitionToSchema
+        let elseSchema = else_->definitionToSchema
+        anySchema->refine(_ => data => {
+          let passed = try {
+            let _ = data->assertOrThrow(ifSchema)
+            true
+          } catch {
+          | _ => false
+          }
+          if passed {
+            data->assertOrThrow(thenSchema)
+          } else {
+            data->assertOrThrow(elseSchema)
+          }
+        })
+      }
+    | _ => anySchema
+    }
+
+    let schema = switch jsonSchema {
+    | {description: _} | {deprecated: _} | {examples: _} =>
+      schema->meta({
+        description: ?jsonSchema.description,
+        deprecated: ?jsonSchema.deprecated,
+        examples: ?jsonSchema.examples,
+      })
+    | _ => schema
+    }
+
+    schema
+  }
 }
 
 let min = (schema, minValue, ~message as maybeMessage=?) => {

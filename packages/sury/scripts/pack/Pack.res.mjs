@@ -226,6 +226,10 @@ var filesMapping = [
     "S.toJSONSchema"
   ],
   [
+    "fromJSONSchema",
+    "S.fromJSONSchema"
+  ],
+  [
     "extendJSONSchema",
     "S.extendJSONSchema"
   ],

@@ -170,6 +170,8 @@ var trim = Sury.trim;
 
 var toJSONSchema = Sury.toJSONSchema;
 
+var fromJSONSchema = Sury.fromJSONSchema;
+
 var extendJSONSchema = Sury.extendJSONSchema;
 
 var $$global = Sury.$$global;
@@ -261,6 +263,7 @@ export {
   datetime ,
   trim ,
   toJSONSchema ,
+  fromJSONSchema ,
   extendJSONSchema ,
   $$global ,
   ErrorClass ,

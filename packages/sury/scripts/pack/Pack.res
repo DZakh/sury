@@ -157,6 +157,7 @@ let filesMapping = [
   ("deepStrip", "S.deepStrip"),
   ("to", "S.to"),
   ("toJSONSchema", "S.toJSONSchema"),
+  ("fromJSONSchema", "S.fromJSONSchema"),
   ("extendJSONSchema", "S.extendJSONSchema"),
   ("shape", "S.shape"),
   ("tuple", "S.tuple"),

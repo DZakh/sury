@@ -501,6 +501,7 @@ let datetime: (t<string>, ~message: string=?) => t<Js.Date.t>
 let trim: t<string> => t<string>
 
 let toJSONSchema: t<'value> => JSONSchema.t
+let fromJSONSchema: JSONSchema.t => t<Js.Json.t>
 let extendJSONSchema: (t<'value>, JSONSchema.t) => t<'value>
 
 type globalConfigOverride = {
