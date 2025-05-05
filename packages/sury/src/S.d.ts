@@ -87,13 +87,13 @@ export type FailureResult = {
 
 export type Result<Value> = SuccessResult<Value> | FailureResult;
 
-export type Json =
+export type JSON =
   | string
   | boolean
   | number
   | null
-  | { [key: string]: Json }
-  | Json[];
+  | { [key: string]: JSON }
+  | JSON[];
 
 declare const øbrand: unique symbol;
 
@@ -380,7 +380,7 @@ export const bigint: Schema<bigint, bigint>;
 export const symbol: Schema<symbol, symbol>;
 export const never: Schema<never, never>;
 export const unknown: Schema<unknown, unknown>;
-export const json: (validate: boolean) => Schema<Json, Json>;
+export const json: (validate: boolean) => Schema<JSON, JSON>;
 
 export function safe<Value>(scope: () => Value): Result<Value>;
 export function safeAsync<Value>(
@@ -396,7 +396,7 @@ export function parseOrThrow<Output, Input>(
   schema: Schema<Output, Input>
 ): Output;
 export function parseJsonOrThrow<Output, Input>(
-  json: Json,
+  json: JSON,
   schema: Schema<Output, Input>
 ): Output;
 export function parseJsonStringOrThrow<Output, Input>(
@@ -415,7 +415,7 @@ export function convertOrThrow<Output, Input>(
 export function convertToJsonOrThrow<Output, Input>(
   data: Input,
   schema: Schema<Output, Input>
-): Json;
+): JSON;
 export function convertToJsonStringOrThrow<Output, Input>(
   data: Input,
   schema: Schema<Output, Input>
@@ -428,7 +428,7 @@ export function reverseConvertOrThrow<Output, Input>(
 export function reverseConvertToJsonOrThrow<Output, Input>(
   value: Output,
   schema: Schema<Output, Input>
-): Json;
+): JSON;
 export function reverseConvertToJsonStringOrThrow<Output, Input>(
   value: Output,
   schema: Schema<Output, Input>
@@ -650,7 +650,7 @@ type CompileInputMappings<Input, Output> = {
   Input: Input;
   Output: Output;
   Any: unknown;
-  Json: Json;
+  Json: JSON;
   JsonString: string;
 };
 
@@ -658,7 +658,7 @@ type CompileOutputMappings<Input, Output> = {
   Output: Output;
   Input: Input;
   Assert: void;
-  Json: Json;
+  Json: JSON;
   JsonString: string;
 };
 
@@ -704,9 +704,9 @@ export function to<
 export function toJSONSchema<Output, Input>(
   schema: Schema<Output, Input>
 ): JSONSchema7;
-export function fromJSONSchema<Output extends Json>(
+export function fromJSONSchema<Output extends JSON>(
   jsonSchema: JSONSchema7
-): Schema<Output, Json>;
+): Schema<Output, JSON>;
 export function extendJSONSchema<Output, Input>(
   schema: Schema<Output, Input>,
   jsonSchema: JSONSchema7

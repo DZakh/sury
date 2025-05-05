@@ -7,6 +7,7 @@
 - Fix `S.union` for multiple `S.instance` schemas
 - Include `/docs` into JSR release
 - Add `S.fromJSONSchema`
+- Rename `S.Json` to `S.JSON` for consistency
 
 ### Final release fixes
 

@@ -202,8 +202,8 @@ test("Successfully parses json", (t) => {
 
   t.deepEqual(value, true);
 
-  expectType<SchemaEqual<typeof schema, S.Json, S.Json>>(true);
-  expectType<TypeEqual<typeof value, S.Json>>(true);
+  expectType<SchemaEqual<typeof schema, S.JSON, S.JSON>>(true);
+  expectType<TypeEqual<typeof value, S.JSON>>(true);
 });
 
 test("Successfully parses invalid json without validation", (t) => {
@@ -212,8 +212,8 @@ test("Successfully parses invalid json without validation", (t) => {
 
   t.deepEqual(value, undefined); // This is broken but it's intentional
 
-  expectType<SchemaEqual<typeof schema, S.Json, S.Json>>(true);
-  expectType<TypeEqual<typeof value, S.Json>>(true);
+  expectType<SchemaEqual<typeof schema, S.JSON, S.JSON>>(true);
+  expectType<TypeEqual<typeof value, S.JSON>>(true);
 });
 
 test("Successfully parses undefined", (t) => {
@@ -501,7 +501,7 @@ test("Successfully reverse converts to Json with valid value", (t) => {
 
   t.deepEqual(result, "123");
 
-  expectType<TypeEqual<typeof result, S.Json>>(true);
+  expectType<TypeEqual<typeof result, S.JSON>>(true);
 });
 
 test("Successfully reverse converts to Json string with valid value", (t) => {
@@ -2198,7 +2198,7 @@ test("fromJSONSchema", (t) => {
     type: "string",
     format: "email",
   });
-  expectType<SchemaEqual<typeof emailSchema, string, S.Json>>(true);
+  expectType<SchemaEqual<typeof emailSchema, string, S.JSON>>(true);
   const result = S.safe(() => S.assertOrThrow("example.com", emailSchema));
   t.is(result.error?.message, "Failed asserting: Invalid email address");
 });
@@ -2231,7 +2231,7 @@ test("Compile types", async (t) => {
   t.deepEqual(fn3(null), undefined);
 
   const fn4 = S.compile(schema, "Json", "Output", "Sync");
-  expectType<TypeEqual<typeof fn4, (input: S.Json) => string | undefined>>(
+  expectType<TypeEqual<typeof fn4, (input: S.JSON) => string | undefined>>(
     true
   );
   t.deepEqual(fn4("hello"), "hello");
@@ -2245,7 +2245,7 @@ test("Compile types", async (t) => {
   t.deepEqual(fn5("null"), undefined);
 
   const fn6 = S.compile(schema, "Output", "Json", "Sync");
-  expectType<TypeEqual<typeof fn6, (input: string | undefined) => S.Json>>(
+  expectType<TypeEqual<typeof fn6, (input: string | undefined) => S.JSON>>(
     true
   );
   t.deepEqual(fn6("hello"), "hello");
