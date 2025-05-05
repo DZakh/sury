@@ -2193,6 +2193,16 @@ test("Example of transformed schema", (t) => {
   }
 });
 
+test("fromJSONSchema", (t) => {
+  const emailSchema = S.fromJSONSchema<string>({
+    type: "string",
+    format: "email",
+  });
+  expectType<SchemaEqual<typeof emailSchema, string, S.Json>>(true);
+  const result = S.safe(() => S.assertOrThrow("example.com", emailSchema));
+  t.is(result.error?.message, "Failed asserting: Invalid email address");
+});
+
 test("Compile types", async (t) => {
   const schema = S.union([
     S.string,

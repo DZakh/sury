@@ -704,9 +704,9 @@ export function to<
 export function toJSONSchema<Output, Input>(
   schema: Schema<Output, Input>
 ): JSONSchema7;
-export function fromJSONSchema(
+export function fromJSONSchema<Output extends Json>(
   jsonSchema: JSONSchema7
-): Schema<JSONSchema7, JSONSchema7>;
+): Schema<Output, Json>;
 export function extendJSONSchema<Output, Input>(
   schema: Schema<Output, Input>,
   jsonSchema: JSONSchema7
