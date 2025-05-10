@@ -420,7 +420,7 @@ The `S.null` schema represents a data of a specific type that might be null.
 
 ### **`nullish`**
 
-`S.t<'value> => S.t<option<'value>>`
+`S.t<'value> => S.t<Nullable.t<'value>>`
 
 ```rescript
 let schema = S.nullish(S.string)
@@ -428,14 +428,12 @@ let schema = S.nullish(S.string)
 "Hello World!"->S.parseOrThrow(schema)
 // Some("Hello World!")
 %raw(`null`)->S.parseOrThrow(schema)
-// None
+// Null
 %raw(`undefined`)->S.parseOrThrow(schema)
-// None
+// Undefined
 ```
 
 The `S.nullish` schema represents a data of a specific type that might be null or undefined.
-
-> 🧠 Since `S.nullish` transforms value into `option` type, you can use `Option.getOr`/`Option.getOrWith` for it as well.
 
 ### **`unit`**
 
