@@ -217,7 +217,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: sury-ppx
-          path: packages/sury-ppx/sury-ppx-10.0.0-rc.1.tgz
+          path: packages/sury-ppx/sury-ppx-10.0.0-rc.6.tgz
 
   e2e:
     name: E2E Test
