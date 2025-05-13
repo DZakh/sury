@@ -463,8 +463,9 @@ Ava("fromJSONSchema: string pattern", (function (t) {
         t.deepEqual(jsonRoundTrip(js), js, undefined);
       }));
 
-Ava("fromJSONSchema: description, deprecated, examples", (function (t) {
+Ava("fromJSONSchema: title, description, deprecated, examples", (function (t) {
         var js_type = "string";
+        var js_title = "title";
         var js_description = "desc";
         var js_deprecated = true;
         var js_examples = [
@@ -473,11 +474,13 @@ Ava("fromJSONSchema: description, deprecated, examples", (function (t) {
         ];
         var js = {
           type: js_type,
+          title: js_title,
           description: js_description,
           deprecated: js_deprecated,
           examples: js_examples
         };
         var schema = S.fromJSONSchema(js);
+        t.deepEqual(schema.title, "title", undefined);
         t.deepEqual(schema.description, "desc", undefined);
         t.deepEqual(schema.deprecated, true, undefined);
         t.deepEqual(schema.examples, [

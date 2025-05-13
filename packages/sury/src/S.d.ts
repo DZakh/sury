@@ -131,6 +131,7 @@ export type Schema<Output, Input = unknown> = {
   ): Schema<O, I>;
 
   readonly name?: string;
+  readonly title?: string;
   readonly description?: string;
   readonly deprecated?: boolean;
   readonly examples?: Input[];
@@ -553,6 +554,7 @@ export function recursive<Output, Input = Output>(
 
 export type Meta<Output> = {
   name?: string;
+  title?: string;
   description?: string;
   deprecated?: boolean;
   examples?: Output[];

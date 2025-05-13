@@ -1654,7 +1654,7 @@ test("Successfully parses undefined using the default value from callback", (t) 
   expectType<SchemaEqual<typeof schema, string, string | undefined>>(true);
 });
 
-test("Creates schema with description", (t) => {
+test("Creates schema with description and title", (t) => {
   const undocumentedStringSchema = S.string;
 
   expectType<
@@ -1662,6 +1662,7 @@ test("Creates schema with description", (t) => {
   >(true);
 
   const documentedStringSchema = undocumentedStringSchema.with(S.meta, {
+    title: "My schema",
     description: "A useful bit of text, if you know what to do with it.",
   });
 
@@ -1669,6 +1670,9 @@ test("Creates schema with description", (t) => {
     TypeEqual<typeof documentedStringSchema, S.Schema<string, string>>
   >(true);
 
+  expectType<
+    TypeEqual<typeof documentedStringSchema.title, string | undefined>
+  >(true);
   expectType<
     TypeEqual<typeof documentedStringSchema.description, string | undefined>
   >(true);
@@ -1678,6 +1682,8 @@ test("Creates schema with description", (t) => {
     documentedStringSchema.description,
     "A useful bit of text, if you know what to do with it."
   );
+  t.deepEqual(undocumentedStringSchema.title, undefined);
+  t.deepEqual(documentedStringSchema.title, "My schema");
 });
 
 test("Creates schema with deprecation", (t) => {

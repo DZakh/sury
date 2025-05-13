@@ -265,14 +265,16 @@ test("fromJSONSchema: string pattern", t => {
 
 // 8. Meta
 
-test("fromJSONSchema: description, deprecated, examples", t => {
+test("fromJSONSchema: title, description, deprecated, examples", t => {
   let js = {
     type_: Arrayable.single(#string),
+    title: "title",
     description: "desc",
     deprecated: true,
     examples: [%raw(`"a"`), %raw(`"b"`)],
   }
   let schema = S.fromJSONSchema(js)
+  t->Assert.deepEqual((schema->S.untag).title, Some("title"), ())
   t->Assert.deepEqual((schema->S.untag).description, Some("desc"), ())
   t->Assert.deepEqual((schema->S.untag).deprecated, Some(true), ())
   t->Assert.deepEqual((schema->S.untag).examples, Some([%raw(`"a"`), %raw(`"b"`)]), ())

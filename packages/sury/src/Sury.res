@@ -250,11 +250,12 @@ type additionalItemsMode = | @as("strip") Strip | @as("strict") Strict
 @tag("type")
 type rec t<'value> =
   private
-  | @as("never") Never({name?: string, description?: string, deprecated?: bool})
+  | @as("never") Never({name?: string, title?: string, description?: string, deprecated?: bool})
   | @as("unknown")
   Unknown({
       name?: string,
       description?: string,
+      title?: string,
       deprecated?: bool,
       examples?: array<unknown>,
     })
@@ -262,6 +263,7 @@ type rec t<'value> =
   String({
       const?: string,
       name?: string,
+      title?: string,
       description?: string,
       deprecated?: bool,
       examples?: array<string>,
@@ -271,6 +273,7 @@ type rec t<'value> =
       const?: float,
       format?: numberFormat,
       name?: string,
+      title?: string,
       description?: string,
       deprecated?: bool,
       examples?: array<float>,
@@ -279,6 +282,7 @@ type rec t<'value> =
   BigInt({
       const?: bigint,
       name?: string,
+      title?: string,
       description?: string,
       deprecated?: bool,
       examples?: array<bigint>,
@@ -287,6 +291,7 @@ type rec t<'value> =
   Boolean({
       const?: bool,
       name?: string,
+      title?: string,
       description?: string,
       deprecated?: bool,
       examples?: array<bool>,
@@ -295,6 +300,7 @@ type rec t<'value> =
   Symbol({
       const?: Js.Types.symbol,
       name?: string,
+      title?: string,
       description?: string,
       deprecated?: bool,
       examples?: array<Js.Types.symbol>,
@@ -303,6 +309,7 @@ type rec t<'value> =
   Null({
       const: Js.Types.null_val,
       name?: string,
+      title?: string,
       description?: string,
       deprecated?: bool,
     })
@@ -310,14 +317,23 @@ type rec t<'value> =
   Undefined({
       const: unit,
       name?: string,
+      title?: string,
       description?: string,
       deprecated?: bool,
     })
-  | @as("nan") NaN({const: float, name?: string, description?: string, deprecated?: bool})
+  | @as("nan")
+  NaN({
+      const: float,
+      name?: string,
+      title?: string,
+      description?: string,
+      deprecated?: bool,
+    })
   | @as("function")
   Function({
       const?: Js.Types.function_val,
       name?: string,
+      title?: string,
       description?: string,
       deprecated?: bool,
       examples?: array<Js.Types.function_val>,
@@ -327,6 +343,7 @@ type rec t<'value> =
       class: unknown,
       const?: Js.Types.obj_val,
       name?: string,
+      title?: string,
       description?: string,
       deprecated?: bool,
       examples?: array<Js.Types.obj_val>,
@@ -337,6 +354,7 @@ type rec t<'value> =
       additionalItems: additionalItems,
       unnest?: bool,
       name?: string,
+      title?: string,
       description?: string,
       deprecated?: bool,
       examples?: array<array<unknown>>,
@@ -347,6 +365,7 @@ type rec t<'value> =
       fields: dict<item>,
       additionalItems: additionalItems,
       name?: string,
+      title?: string,
       description?: string,
       deprecated?: bool,
       examples?: array<dict<unknown>>,
@@ -356,6 +375,7 @@ type rec t<'value> =
       anyOf: array<t<unknown>>,
       has: has,
       name?: string,
+      title?: string,
       description?: string,
       deprecated?: bool,
       examples?: array<unknown>,
@@ -363,6 +383,7 @@ type rec t<'value> =
   | @as("json")
   JSON({
       name?: string,
+      title?: string,
       description?: string,
       deprecated?: bool,
       examples?: array<Js.Json.t>,
@@ -378,6 +399,7 @@ and internal = {
   mutable const?: char, // use char to avoid Caml_option.some
   mutable class?: char, // use char to avoid Caml_option.some
   mutable name?: string,
+  mutable title?: string,
   mutable description?: string,
   mutable deprecated?: bool,
   mutable examples?: array<unknown>,
@@ -402,6 +424,7 @@ and internal = {
 }
 and meta<'value> = {
   name?: string,
+  title?: string,
   description?: string,
   deprecated?: bool,
   examples?: array<'value>,
@@ -412,6 +435,7 @@ and untagged = private {
   const?: unknown,
   class?: unknown,
   name?: string,
+  title?: string,
   description?: string,
   deprecated?: bool,
   examples?: array<unknown>,
@@ -3163,6 +3187,11 @@ let meta = (schema: t<'value>, data: meta<'value>) => {
   | Some(name) => mut.name = Some(name)
   | None => ()
   }
+  switch data.title {
+  | Some("") => mut.title = None
+  | Some(title) => mut.title = Some(title)
+  | None => ()
+  }
   switch data.description {
   | Some("") => mut.description = None
   | Some(description) => mut.description = Some(description)
@@ -5186,6 +5215,11 @@ module RescriptJSONSchema = {
     }
 
     switch schema->untag {
+    | {title: m} => jsonSchema.title = Some(m)
+    | _ => ()
+    }
+
+    switch schema->untag {
     | {deprecated} => jsonSchema.deprecated = Some(deprecated)
     | _ => ()
     }
@@ -5474,8 +5508,9 @@ let rec fromJSONSchema = {
     }
 
     let schema = switch jsonSchema {
-    | {description: _} | {deprecated: _} | {examples: _} =>
+    | {description: _} | {deprecated: _} | {examples: _} | {title: _} =>
       schema->meta({
+        title: ?jsonSchema.title,
         description: ?jsonSchema.description,
         deprecated: ?jsonSchema.deprecated,
         examples: ?jsonSchema.examples,

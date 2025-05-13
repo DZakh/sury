@@ -389,6 +389,14 @@ test("JSONSchema of object with deprecated field", t => {
   )
 })
 
+test("JSONSchema with title", t => {
+  t->Assert.deepEqual(
+    S.string->S.meta({title: "My field"})->S.toJSONSchema,
+    %raw(`{"title": "My field", "type": "string"}`),
+    (),
+  )
+})
+
 test("Deprecated message overrides existing description", t => {
   t->Assert.deepEqual(
     S.string

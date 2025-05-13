@@ -9,10 +9,10 @@
 - (rescript) Added `S.nullableAsOption` to replace `S.nullable` from V9
 - (ppx) Returned back `@s.nullable` attribute
 - (ppx) Added support for `Js.nullable` type
+- Add `title` field to schema and allow to set it via `S.meta`
 
 ### Final release fixes
 
-- Add title to meta
 - Add `S.env` to support coercion for union items separately. Like `rescript-envsafe` used to do with `preprocess`
 - Make `S.record` accept two args
 - Update docs
