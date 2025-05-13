@@ -266,7 +266,8 @@ let instance: unknown => t<unknown>
 let dict: t<'value> => t<dict<'value>>
 let option: t<'value> => t<option<'value>>
 let null: t<'value> => t<option<'value>>
-let nullish: t<'value> => t<Js.nullable<'value>>
+let nullable: t<'value> => t<Js.nullable<'value>>
+let nullableAsOption: t<'value> => t<option<'value>>
 let jsonString: (t<'value>, ~space: int=?) => t<'value>
 let union: array<t<'value>> => t<'value>
 let enum: array<'value> => t<'value>

@@ -20,8 +20,10 @@
   - [`Option.getOr`](#optiongetor)
   - [`Option.getOrWith`](#optiongetorwith)
   - [`null`](#null)
-  - [`nullish`](#nullish)
+  - [`nullable`](#nullable)
+  - [`nullableAsOption`](#nullableasoption)
   - [`unit`](#unit)
+  - [`nullAsUnit`](#nullasunit)
   - [`literal`](#literal)
   - [`object`](#object)
     - [Transform object field names](#transform-object-field-names)
@@ -418,12 +420,12 @@ The `S.null` schema represents a data of a specific type that might be null.
 
 > 🧠 Since `S.null` transforms value into `option` type, you can use `Option.getOr`/`Option.getOrWith` for it as well.
 
-### **`nullish`**
+### **`nullable`**
 
 `S.t<'value> => S.t<Nullable.t<'value>>`
 
 ```rescript
-let schema = S.nullish(S.string)
+let schema = S.nullable(S.string)
 
 "Hello World!"->S.parseOrThrow(schema)
 // Some("Hello World!")
@@ -433,7 +435,13 @@ let schema = S.nullish(S.string)
 // Undefined
 ```
 
-The `S.nullish` schema represents a data of a specific type that might be null or undefined.
+The `S.nullable` schema represents a data of `Nullable.t` that might be null or undefined.
+
+### **`nullableAsOption`**
+
+`S.t<'value> => S.t<option<'value>>`
+
+The same as `S.nullable`, but returns `option` type instead of `Nullable.t`. When serializing, it will return `undefined` for `None` values.
 
 ### **`unit`**
 

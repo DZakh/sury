@@ -46,7 +46,9 @@ var option = Sury.option;
 
 var $$null = Sury.$$null;
 
-var nullish = Sury.nullish;
+var nullable = Sury.nullable;
+
+var nullableAsOption = Sury.nullableAsOption;
 
 var jsonString = Sury.jsonString;
 
@@ -201,7 +203,8 @@ export {
   dict ,
   option ,
   $$null ,
-  nullish ,
+  nullable ,
+  nullableAsOption ,
   jsonString ,
   union ,
   $$enum ,

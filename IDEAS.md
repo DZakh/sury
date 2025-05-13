@@ -5,13 +5,14 @@
 ### rc.6
 
 - Fix union bug with `S.unknown` (https://github.com/DZakh/sury/issues/121)
+- (rescript) Renamed `S.nullish` back to `S.nullable`
+- (rescript) Added `S.nullableAsOption` to replace `S.nullable` from V9
+- (ppx) Returned back `@s.nullable` attribute
+- (ppx) Added support for `Js.nullable` type
 
 ### Final release fixes
 
-- Return `@s.nullish` to ppx
-- (rescript) Rename `S.nullish` to `S.nullable`, `S.nullableAsOption`
 - Add title to meta
-
 - Add `S.env` to support coercion for union items separately. Like `rescript-envsafe` used to do with `preprocess`
 - Make `S.record` accept two args
 - Update docs

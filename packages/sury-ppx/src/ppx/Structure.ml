@@ -29,8 +29,9 @@ let rec generateConstrSchemaExpression {Location.txt = identifier; loc}
   | Lident "null", [item_type] ->
     [%expr S.null [%e generateCoreTypeSchemaExpression item_type]]
   | Ldot (Ldot (Lident "Js", "Nullable"), "t"), [item_type]
-  | Ldot (Lident "Nullable", "t"), [item_type] ->
-    [%expr S.nullish [%e generateCoreTypeSchemaExpression item_type]]
+  | Ldot (Lident "Nullable", "t"), [item_type]
+  | Ldot (Lident "Js", "nullable"), [item_type] ->
+    [%expr S.nullable [%e generateCoreTypeSchemaExpression item_type]]
   | Lident "dict", [item_type]
   | Ldot (Ldot (Lident "Js", "Dict"), "t"), [item_type]
   | Ldot (Lident "Dict", "t"), [item_type] ->
@@ -143,11 +144,16 @@ and generateCoreTypeSchemaExpression core_type =
   let customSchemaExpression = getAttributeByName ptyp_attributes "s.matches" in
   let option_factory_expression =
     match
-      ( getAttributeByName ptyp_attributes "s.null" )
+      ( getAttributeByName ptyp_attributes "s.null",
+        getAttributeByName ptyp_attributes "s.nullable" )
     with
-    | Ok None -> [%expr S.option]
-    | Ok (Some _) -> [%expr S.null]
-    | Error s -> fail ptyp_loc s
+    | Ok None, Ok None -> [%expr S.option]
+    | Ok (Some _), Ok None -> [%expr S.null]
+    | Ok None, Ok (Some _) -> [%expr S.nullableAsOption]
+    | Ok (Some _), Ok (Some _) ->
+      fail ptyp_loc
+        "Attributes @s.null and @s.nullable are not supported at the same time"
+    | _, Error s | Error s, _ -> fail ptyp_loc s
   in
   let schema_expression =
     match customSchemaExpression with
@@ -183,7 +189,7 @@ and generateCoreTypeSchemaExpression core_type =
   in
   let handle_attribute schema_expr ({attr_name = {Location.txt}} as attribute) =
     match txt with
-    | "s.matches" | "s.null" -> schema_expr (* handled above *)
+    | "s.matches" | "s.null" | "s.nullable" -> schema_expr (* handled above *)
     | "s.default" ->
         let default_value = getExpressionFromPayload attribute in
         [%expr 

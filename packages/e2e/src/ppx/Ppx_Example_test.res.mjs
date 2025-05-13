@@ -78,6 +78,18 @@ Ava("@s.null with @s.default", (function (t) {
         U.assertEqualSchemas(t, nullWithDefaultSchema, S.$$Option.getOr(S.$$null(S.string), "Unknown"), undefined);
       }));
 
+var nullableSchema = S.nullableAsOption(S.string);
+
+Ava("@s.nullable", (function (t) {
+        U.assertEqualSchemas(t, nullableSchema, S.nullableAsOption(S.string), undefined);
+      }));
+
+var nullableWithDefaultSchema = S.$$Option.getOr(S.nullableAsOption(S.string), "Unknown");
+
+Ava("@s.nullable with @s.default", (function (t) {
+        U.assertEqualSchemas(t, nullableWithDefaultSchema, S.$$Option.getOr(S.nullableAsOption(S.string), "Unknown"), undefined);
+      }));
+
 var deprecatedSchema = S.meta(S.string, {
       description: "Will be removed in APIv2",
       deprecated: true
@@ -108,6 +120,8 @@ export {
   defaultWithSchema ,
   nullSchema ,
   nullWithDefaultSchema ,
+  nullableSchema ,
+  nullableWithDefaultSchema ,
   deprecatedSchema ,
   describeSchema ,
 }

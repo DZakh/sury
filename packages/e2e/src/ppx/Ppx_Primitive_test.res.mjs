@@ -38,6 +38,12 @@ Ava("Option of string schema", (function (t) {
         U.assertEqualSchemas(t, myOptionOfStringSchema, S.option(S.string), undefined);
       }));
 
+var myNullableOfStringSchema = S.nullable(S.string);
+
+Ava("Nullable of string schema", (function (t) {
+        U.assertEqualSchemas(t, myNullableOfStringSchema, S.nullable(S.string), undefined);
+      }));
+
 var myArrayOfStringSchema = S.array(S.string);
 
 Ava("Array of string schema", (function (t) {
@@ -174,6 +180,7 @@ export {
   myUnknownSchema ,
   myNeverSchema ,
   myOptionOfStringSchema ,
+  myNullableOfStringSchema ,
   myArrayOfStringSchema ,
   myListOfStringSchema ,
   myDictOfStringSchema ,

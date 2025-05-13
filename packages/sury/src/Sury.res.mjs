@@ -3652,11 +3652,19 @@ function trim(schema) {
               }));
 }
 
-function nullish(schema) {
+function nullable(schema) {
   return factory([
               schema,
               unit,
               $$null
+            ]);
+}
+
+function nullableAsOption(schema) {
+  return factory([
+              schema,
+              unit,
+              nullAsUnit
             ]);
 }
 
@@ -4555,7 +4563,8 @@ export {
   dict ,
   option ,
   $$null$1 as $$null,
-  nullish ,
+  nullable ,
+  nullableAsOption ,
   jsonString ,
   union ,
   $$enum ,

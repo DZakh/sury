@@ -79,18 +79,20 @@ test("@s.null with @s.default", t => {
   t->assertEqualSchemas(nullWithDefaultSchema, S.null(S.string)->S.Option.getOr("Unknown"))
 })
 
-// FIXME: IT DOESN'T WORK. Fix before V10
-// @schema
-// type nullish = @s.nullish option<string>
-// test("@s.nullish", t => {
-//   t->assertEqualSchemas(nullishSchema, S.nullish(S.string))
-// })
+@schema
+type nullable = @s.nullable option<string>
+test("@s.nullable", t => {
+  t->assertEqualSchemas(nullableSchema, S.nullableAsOption(S.string))
+})
 
-// @schema
-// type nullableWithDefault = @s.nullish @s.default("Unknown") string
-// test("@s.nullish with @s.default", t => {
-//   t->assertEqualSchemas(nullableWithDefaultSchema, S.nullish(S.string)->S.Option.getOr("Unknown"))
-// })
+@schema
+type nullableWithDefault = @s.nullable @s.default("Unknown") string
+test("@s.nullable with @s.default", t => {
+  t->assertEqualSchemas(
+    nullableWithDefaultSchema,
+    S.nullableAsOption(S.string)->S.Option.getOr("Unknown"),
+  )
+})
 
 @schema
 type deprecated = @s.meta({description: "Will be removed in APIv2", deprecated: true}) string

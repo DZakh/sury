@@ -103,7 +103,7 @@ var filesMapping = [
   ],
   [
     "nullish",
-    "S.nullish"
+    "S.nullable"
   ],
   [
     "array",

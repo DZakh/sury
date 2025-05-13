@@ -51,6 +51,12 @@ test("Option of string schema", t => {
 })
 
 @schema
+type myNullableOfString = Nullable.t<string>
+test("Nullable of string schema", t => {
+  t->assertEqualSchemas(myNullableOfStringSchema, S.nullable(S.string))
+})
+
+@schema
 type myArrayOfString = array<string>
 test("Array of string schema", t => {
   t->assertEqualSchemas(myArrayOfStringSchema, S.array(S.string))

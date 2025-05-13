@@ -7,6 +7,7 @@
     "res": "rescript -w",
     "test": "rescript && ava",
     "ppx:install": "node ../sury-ppx/install.cjs",
+    "ppx:build": "cd ../sury-ppx/src && dune build",
     "benchmark": "node ./src/benchmark/Benchmark.res.mjs",
     "benchmark:comparison": "node ./src/benchmark/comparison.js"
   },

@@ -4831,8 +4831,12 @@ let trim = schema => {
   schema->transform(_ => {parser: transformer, serializer: transformer})
 }
 
-let nullish = schema => {
+let nullable = schema => {
   Union.factory([schema->toUnknown, unit->toUnknown, Literal.null->fromInternal])
+}
+
+let nullableAsOption = schema => {
+  Union.factory([schema->toUnknown, unit->toUnknown, nullAsUnit->toUnknown])
 }
 
 // =============
