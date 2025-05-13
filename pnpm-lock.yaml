@@ -87,8 +87,8 @@ importers:
   packages/sury-ppx:
     dependencies:
       sury:
-        specifier: 10.0.0-rc.1
-        version: 10.0.0-rc.1(rescript@11.1.4)
+        specifier: ^10.0.0-rc.5
+        version: 10.0.0-rc.5(rescript@11.1.4)
 
 packages:
 
@@ -905,8 +905,8 @@ packages:
     resolution: {integrity: sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==}
     engines: {node: '>= 0.4'}
 
-  sury@10.0.0-rc.1:
-    resolution: {integrity: sha512-EWRSEP21c56t2ilbjF73r5zy5IvH2g/KmINjzeXUO5wgYGfqTi9NPpBHhR0F9cOtaPB6SeXppHeTB24jJ60yig==}
+  sury@10.0.0-rc.5:
+    resolution: {integrity: sha512-oJNbTd2ZFFeJmbGXzOq1pUY8nTTyVbcleoWlabL6WcrqIUaXyy2UQDdfMXbHzAbnzLeao4O2ZlFlHFNZAtx6Dw==}
     peerDependencies:
       rescript: 11.x
     peerDependenciesMeta:
@@ -1764,7 +1764,7 @@ snapshots:
 
   supports-preserve-symlinks-flag@1.0.0: {}
 
-  sury@10.0.0-rc.1(rescript@11.1.4):
+  sury@10.0.0-rc.5(rescript@11.1.4):
     optionalDependencies:
       rescript: 11.1.4
 
