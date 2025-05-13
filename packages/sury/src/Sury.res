@@ -2178,139 +2178,146 @@ module Union = {
     let start = ref("")
     let end = ref("")
     let caught = ref("")
+    let exit = ref(false)
 
     if deoptIdx !== -1 {
       for idx in 0 to deoptIdx {
-        let schema = schemas->Js.Array2.unsafe_get(idx)
-        let itemCode = b->getItemCode(~schema, ~input, ~output, ~deopt=true, ~path)
-        if itemCode->Stdlib.String.unsafeToBool {
-          let errorVar = `e` ++ idx->Stdlib.Int.unsafeToString
-          start := start.contents ++ `try{${itemCode}}catch(${errorVar}){`
-          end := "}" ++ end.contents
-          caught := `${caught.contents},${errorVar}`
-        }
-      }
-    }
-
-    let nextElse = ref(false)
-    let noop = ref("")
-
-    for idx in 0 to keys->Js.Array2.length - 1 {
-      let schemas = byKey->Js.Dict.unsafeGet(keys->Js.Array2.unsafe_get(idx))
-      let inputVar = input.var(b)
-
-      let isMultiple = schemas->Js.Array2.length > 1
-      let firstSchema = schemas->Js.Array2.unsafe_get(0)
-
-      let cond = ref("")
-
-      let body = if isMultiple {
-        let itemStart = ref("")
-        let itemEnd = ref("")
-        let itemNextElse = ref(false)
-        let itemNoop = ref("")
-        let caught = ref("")
-
-        let itemIdx = ref(0)
-        let lastIdx = schemas->Js.Array2.length - 1
-        while itemIdx.contents <= lastIdx {
-          let schema = schemas->Js.Array2.unsafe_get(itemIdx.contents)
-          let itemCond =
-            (schema->isLiteral ? b->B.validation(~inputVar, ~schema, ~negative=false) : "") ++
-            b->B.refinement(~inputVar, ~schema, ~negative=false)->Js.String2.sliceToEnd(~from=2)
-          let itemCode = b->getItemCode(~schema, ~input, ~output, ~deopt=false, ~path)
-
-          if itemCond->Stdlib.String.unsafeToBool && !(itemCode->Stdlib.String.unsafeToBool) {
-            itemNoop := (
-                itemNoop.contents->Stdlib.String.unsafeToBool
-                  ? `${itemNoop.contents}||${itemCond}`
-                  : itemCond
-              )
-          } else if itemNoop.contents->Stdlib.String.unsafeToBool {
-            let if_ = itemNextElse.contents ? "else if" : "if"
-            itemStart := itemStart.contents ++ if_ ++ `(!(${itemNoop.contents})){`
-            itemEnd := "}" ++ itemEnd.contents
-            itemNoop := ""
-            itemNextElse := false
-          }
-
-          // Have a refinement and can handle the specific case
-          if itemCond->Stdlib.String.unsafeToBool {
-            if itemCode->Stdlib.String.unsafeToBool {
-              let if_ = itemNextElse.contents ? "else if" : "if"
-              itemStart := itemStart.contents ++ if_ ++ `(${itemCond}){${itemCode}}`
-              itemNextElse := true
-            }
-          } // The item without refinement should switch to deopt mode
-          // Since there might be validation in the body
-          else if itemCode->Stdlib.String.unsafeToBool {
-            let errorVar = `e` ++ itemIdx.contents->Stdlib.Int.unsafeToString
-            itemStart :=
-              itemStart.contents ++
-              `${itemNextElse.contents ? "else{" : ""}try{${itemCode}}catch(${errorVar}){`
-            itemEnd := (itemNextElse.contents ? "}" : "") ++ "}" ++ itemEnd.contents
+        if !exit.contents {
+          let schema = schemas->Js.Array2.unsafe_get(idx)
+          let itemCode = b->getItemCode(~schema, ~input, ~output, ~deopt=true, ~path)
+          if itemCode->Stdlib.String.unsafeToBool {
+            let errorVar = `e` ++ idx->Stdlib.Int.unsafeToString
+            start := start.contents ++ `try{${itemCode}}catch(${errorVar}){`
+            end := "}" ++ end.contents
             caught := `${caught.contents},${errorVar}`
-            itemNextElse := false
           } else {
-            // If there's no body, we immideately finish.
-            // Even if there might be other items, this case is always valid
-            itemIdx := lastIdx
+            exit := true
           }
-          itemIdx := itemIdx.contents->Stdlib.Int.plus(1)
         }
-
-        cond :=
-          b->B.validation(
-            ~inputVar,
-            ~schema={tag: firstSchema.tag, builder: %raw(`0`)},
-            ~negative=false,
-          )
-
-        if itemNoop.contents->Stdlib.String.unsafeToBool {
-          if itemStart.contents->Stdlib.String.unsafeToBool {
-            if typeValidation {
-              let if_ = itemNextElse.contents ? "else if" : "if"
-              itemStart :=
-                itemStart.contents ++ if_ ++ `(!(${itemNoop.contents})){${fail(caught.contents)}}`
-            }
-          } else {
-            cond := cond.contents ++ `&&(${itemNoop.contents})`
-          }
-        } else if typeValidation && itemStart.contents->Stdlib.String.unsafeToBool {
-          let errorCode = fail(caught.contents)
-          itemStart :=
-            itemStart.contents ++ (itemNextElse.contents ? `else{${errorCode}}` : errorCode)
-        }
-
-        itemStart.contents ++ itemEnd.contents
-      } else {
-        cond :=
-          b->B.validation(~inputVar, ~schema=firstSchema, ~negative=false) ++
-            b->B.refinement(~inputVar, ~schema=firstSchema, ~negative=false)
-        b->getItemCode(~schema=firstSchema, ~input, ~output, ~deopt=false, ~path)
-      }
-      let cond = cond.contents
-
-      if body->Stdlib.String.unsafeToBool || isPriority((firstSchema.tag :> string), byKey) {
-        let if_ = nextElse.contents ? "else if" : "if"
-        start := start.contents ++ if_ ++ `(${cond}){${body}}`
-        nextElse := true
-      } else {
-        noop := (noop.contents->Stdlib.String.unsafeToBool ? `${noop.contents}||${cond}` : cond)
       }
     }
 
-    if typeValidation || deoptIdx === lastIdx {
-      let errorCode = fail(caught.contents)
-      start :=
-        start.contents ++ if noop.contents->Stdlib.String.unsafeToBool {
-          let if_ = nextElse.contents ? "else if" : "if"
-          if_ ++ `(!(${noop.contents})){${errorCode}}`
-        } else if nextElse.contents {
-          `else{${errorCode}}`
+    if !exit.contents {
+      let nextElse = ref(false)
+      let noop = ref("")
+
+      for idx in 0 to keys->Js.Array2.length - 1 {
+        let schemas = byKey->Js.Dict.unsafeGet(keys->Js.Array2.unsafe_get(idx))
+        let inputVar = input.var(b)
+
+        let isMultiple = schemas->Js.Array2.length > 1
+        let firstSchema = schemas->Js.Array2.unsafe_get(0)
+
+        let cond = ref("")
+
+        let body = if isMultiple {
+          let itemStart = ref("")
+          let itemEnd = ref("")
+          let itemNextElse = ref(false)
+          let itemNoop = ref("")
+          let caught = ref("")
+
+          let itemIdx = ref(0)
+          let lastIdx = schemas->Js.Array2.length - 1
+          while itemIdx.contents <= lastIdx {
+            let schema = schemas->Js.Array2.unsafe_get(itemIdx.contents)
+            let itemCond =
+              (schema->isLiteral ? b->B.validation(~inputVar, ~schema, ~negative=false) : "") ++
+              b->B.refinement(~inputVar, ~schema, ~negative=false)->Js.String2.sliceToEnd(~from=2)
+            let itemCode = b->getItemCode(~schema, ~input, ~output, ~deopt=false, ~path)
+
+            if itemCond->Stdlib.String.unsafeToBool && !(itemCode->Stdlib.String.unsafeToBool) {
+              itemNoop := (
+                  itemNoop.contents->Stdlib.String.unsafeToBool
+                    ? `${itemNoop.contents}||${itemCond}`
+                    : itemCond
+                )
+            } else if itemNoop.contents->Stdlib.String.unsafeToBool {
+              let if_ = itemNextElse.contents ? "else if" : "if"
+              itemStart := itemStart.contents ++ if_ ++ `(!(${itemNoop.contents})){`
+              itemEnd := "}" ++ itemEnd.contents
+              itemNoop := ""
+              itemNextElse := false
+            }
+
+            // Have a refinement and can handle the specific case
+            if itemCond->Stdlib.String.unsafeToBool {
+              if itemCode->Stdlib.String.unsafeToBool {
+                let if_ = itemNextElse.contents ? "else if" : "if"
+                itemStart := itemStart.contents ++ if_ ++ `(${itemCond}){${itemCode}}`
+                itemNextElse := true
+              }
+            } // The item without refinement should switch to deopt mode
+            // Since there might be validation in the body
+            else if itemCode->Stdlib.String.unsafeToBool {
+              let errorVar = `e` ++ itemIdx.contents->Stdlib.Int.unsafeToString
+              itemStart :=
+                itemStart.contents ++
+                `${itemNextElse.contents ? "else{" : ""}try{${itemCode}}catch(${errorVar}){`
+              itemEnd := (itemNextElse.contents ? "}" : "") ++ "}" ++ itemEnd.contents
+              caught := `${caught.contents},${errorVar}`
+              itemNextElse := false
+            } else {
+              // If there's no body, we immideately finish.
+              // Even if there might be other items, this case is always valid
+              itemIdx := lastIdx
+            }
+            itemIdx := itemIdx.contents->Stdlib.Int.plus(1)
+          }
+
+          cond :=
+            b->B.validation(
+              ~inputVar,
+              ~schema={tag: firstSchema.tag, builder: %raw(`0`)},
+              ~negative=false,
+            )
+
+          if itemNoop.contents->Stdlib.String.unsafeToBool {
+            if itemStart.contents->Stdlib.String.unsafeToBool {
+              if typeValidation {
+                let if_ = itemNextElse.contents ? "else if" : "if"
+                itemStart :=
+                  itemStart.contents ++ if_ ++ `(!(${itemNoop.contents})){${fail(caught.contents)}}`
+              }
+            } else {
+              cond := cond.contents ++ `&&(${itemNoop.contents})`
+            }
+          } else if typeValidation && itemStart.contents->Stdlib.String.unsafeToBool {
+            let errorCode = fail(caught.contents)
+            itemStart :=
+              itemStart.contents ++ (itemNextElse.contents ? `else{${errorCode}}` : errorCode)
+          }
+
+          itemStart.contents ++ itemEnd.contents
         } else {
-          errorCode
+          cond :=
+            b->B.validation(~inputVar, ~schema=firstSchema, ~negative=false) ++
+              b->B.refinement(~inputVar, ~schema=firstSchema, ~negative=false)
+          b->getItemCode(~schema=firstSchema, ~input, ~output, ~deopt=false, ~path)
         }
+        let cond = cond.contents
+
+        if body->Stdlib.String.unsafeToBool || isPriority((firstSchema.tag :> string), byKey) {
+          let if_ = nextElse.contents ? "else if" : "if"
+          start := start.contents ++ if_ ++ `(${cond}){${body}}`
+          nextElse := true
+        } else {
+          noop := (noop.contents->Stdlib.String.unsafeToBool ? `${noop.contents}||${cond}` : cond)
+        }
+      }
+
+      if typeValidation || deoptIdx === lastIdx {
+        let errorCode = fail(caught.contents)
+        start :=
+          start.contents ++ if noop.contents->Stdlib.String.unsafeToBool {
+            let if_ = nextElse.contents ? "else if" : "if"
+            if_ ++ `(!(${noop.contents})){${errorCode}}`
+          } else if nextElse.contents {
+            `else{${errorCode}}`
+          } else {
+            errorCode
+          }
+      }
     }
 
     b.code = b.code ++ start.contents ++ end.contents

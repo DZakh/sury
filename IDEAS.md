@@ -2,14 +2,15 @@
 
 ## v10
 
-### rc.5
+### rc.6
 
-- Fix `S.union` for multiple `S.instance` schemas
-- Include `/docs` into JSR release
-- Add `S.fromJSONSchema`
-- Rename `S.Json` to `S.JSON` for consistency
+- Fix union bug with `S.unknown` (https://github.com/DZakh/sury/issues/121)
 
 ### Final release fixes
+
+- Return `@s.nullish` to ppx
+- (rescript) Rename `S.nullish` to `S.nullable`, `S.nullableAsOption`
+- Add title to meta
 
 - Add `S.env` to support coercion for union items separately. Like `rescript-envsafe` used to do with `preprocess`
 - Make `S.record` accept two args

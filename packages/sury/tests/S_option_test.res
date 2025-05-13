@@ -242,6 +242,34 @@ test("Option with unknown", t => {
   t->Assert.deepEqual(Some(%raw(`"foo"`))->S.reverseConvertOrThrow(schema), %raw(`"foo"`), ())
   t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
 
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(!(i===void 0)){e[0](i)}return i}`)
+  t->U.assertCompiledCodeIsNoop(~schema, ~op=#Parse)
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
+})
+
+test("Option with transformed unknown", t => {
+  let schema = S.option(S.unknown->S.shape(v => {"field": v}))
+
+  t->Assert.deepEqual(
+    Some(%raw(`undefined`))->S.reverseConvertOrThrow(schema),
+    %raw(`undefined`),
+    (),
+  )
+  t->Assert.deepEqual(
+    Some({"field": %raw(`"foo"`)})->S.reverseConvertOrThrow(schema),
+    %raw(`"foo"`),
+    (),
+  )
+  t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    // TODO: Validation can be removed
+    `i=>{try{let v0={"field":i,};if(typeof v0!=="object"||!v0){e[0](v0)}i=v0}catch(e0){if(!(i===void 0)){e[1](i,e0)}}return i}`,
+  )
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#ReverseConvert,
+    `i=>{if(typeof i==="object"&&i){i=i["field"]}return i}`,
+  )
 })

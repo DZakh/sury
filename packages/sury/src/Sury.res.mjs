@@ -1520,117 +1520,125 @@ function builder$1(b, input, selfSchema, path) {
   var start = "";
   var end = "";
   var caught = "";
+  var exit$1 = false;
   if (deoptIdx$1 !== -1) {
     for(var idx$1 = 0; idx$1 <= deoptIdx$1; ++idx$1){
-      var schema$1 = schemas[idx$1];
-      var itemCode = getItemCode(b, schema$1, input, input, true, path);
-      if (itemCode) {
-        var errorVar = "e" + idx$1;
-        start = start + ("try{" + itemCode + "}catch(" + errorVar + "){");
-        end = "}" + end;
-        caught = caught + "," + errorVar;
+      if (!exit$1) {
+        var schema$1 = schemas[idx$1];
+        var itemCode = getItemCode(b, schema$1, input, input, true, path);
+        if (itemCode) {
+          var errorVar = "e" + idx$1;
+          start = start + ("try{" + itemCode + "}catch(" + errorVar + "){");
+          end = "}" + end;
+          caught = caught + "," + errorVar;
+        } else {
+          exit$1 = true;
+        }
       }
       
     }
   }
-  var nextElse = false;
-  var noop = "";
-  for(var idx$2 = 0 ,idx_finish = keys$1.length; idx$2 < idx_finish; ++idx$2){
-    var schemas$1 = byKey$1[keys$1[idx$2]];
-    var inputVar = input.v(b);
-    var isMultiple = schemas$1.length > 1;
-    var firstSchema = schemas$1[0];
-    var cond = "";
-    var body;
-    if (isMultiple) {
-      var itemStart = "";
-      var itemEnd = "";
-      var itemNextElse = false;
-      var itemNoop = "";
-      var caught$1 = "";
-      var itemIdx = 0;
-      var lastIdx$1 = schemas$1.length - 1 | 0;
-      while(itemIdx <= lastIdx$1) {
-        var schema$2 = schemas$1[itemIdx];
-        var itemCond = (
-          isLiteral(schema$2) ? validation(b, inputVar, schema$2, false) : ""
-        ) + refinement(b, inputVar, schema$2, false).slice(2);
-        var itemCode$1 = getItemCode(b, schema$2, input, input, false, path);
-        if (itemCond && !itemCode$1) {
-          itemNoop = itemNoop ? itemNoop + "||" + itemCond : itemCond;
-        } else if (itemNoop) {
-          var if_ = itemNextElse ? "else if" : "if";
-          itemStart = itemStart + if_ + ("(!(" + itemNoop + ")){");
-          itemEnd = "}" + itemEnd;
-          itemNoop = "";
-          itemNextElse = false;
-        }
-        if (itemCond) {
-          if (itemCode$1) {
-            var if_$1 = itemNextElse ? "else if" : "if";
-            itemStart = itemStart + if_$1 + ("(" + itemCond + "){" + itemCode$1 + "}");
-            itemNextElse = true;
+  if (!exit$1) {
+    var nextElse = false;
+    var noop = "";
+    for(var idx$2 = 0 ,idx_finish = keys$1.length; idx$2 < idx_finish; ++idx$2){
+      var schemas$1 = byKey$1[keys$1[idx$2]];
+      var inputVar = input.v(b);
+      var isMultiple = schemas$1.length > 1;
+      var firstSchema = schemas$1[0];
+      var cond = "";
+      var body;
+      if (isMultiple) {
+        var itemStart = "";
+        var itemEnd = "";
+        var itemNextElse = false;
+        var itemNoop = "";
+        var caught$1 = "";
+        var itemIdx = 0;
+        var lastIdx$1 = schemas$1.length - 1 | 0;
+        while(itemIdx <= lastIdx$1) {
+          var schema$2 = schemas$1[itemIdx];
+          var itemCond = (
+            isLiteral(schema$2) ? validation(b, inputVar, schema$2, false) : ""
+          ) + refinement(b, inputVar, schema$2, false).slice(2);
+          var itemCode$1 = getItemCode(b, schema$2, input, input, false, path);
+          if (itemCond && !itemCode$1) {
+            itemNoop = itemNoop ? itemNoop + "||" + itemCond : itemCond;
+          } else if (itemNoop) {
+            var if_ = itemNextElse ? "else if" : "if";
+            itemStart = itemStart + if_ + ("(!(" + itemNoop + ")){");
+            itemEnd = "}" + itemEnd;
+            itemNoop = "";
+            itemNextElse = false;
           }
-          
-        } else if (itemCode$1) {
-          var errorVar$1 = "e" + itemIdx;
-          itemStart = itemStart + ((
-              itemNextElse ? "else{" : ""
-            ) + "try{" + itemCode$1 + "}catch(" + errorVar$1 + "){");
-          itemEnd = (
-            itemNextElse ? "}" : ""
-          ) + "}" + itemEnd;
-          caught$1 = caught$1 + "," + errorVar$1;
-          itemNextElse = false;
-        } else {
-          itemIdx = lastIdx$1;
-        }
-        itemIdx = itemIdx + 1;
-      };
-      cond = validation(b, inputVar, {
-            type: firstSchema.type,
-            b: 0
-          }, false);
-      if (itemNoop) {
-        if (itemStart) {
-          if (typeValidation) {
-            var if_$2 = itemNextElse ? "else if" : "if";
-            itemStart = itemStart + if_$2 + ("(!(" + itemNoop + ")){" + fail(caught$1) + "}");
+          if (itemCond) {
+            if (itemCode$1) {
+              var if_$1 = itemNextElse ? "else if" : "if";
+              itemStart = itemStart + if_$1 + ("(" + itemCond + "){" + itemCode$1 + "}");
+              itemNextElse = true;
+            }
+            
+          } else if (itemCode$1) {
+            var errorVar$1 = "e" + itemIdx;
+            itemStart = itemStart + ((
+                itemNextElse ? "else{" : ""
+              ) + "try{" + itemCode$1 + "}catch(" + errorVar$1 + "){");
+            itemEnd = (
+              itemNextElse ? "}" : ""
+            ) + "}" + itemEnd;
+            caught$1 = caught$1 + "," + errorVar$1;
+            itemNextElse = false;
+          } else {
+            itemIdx = lastIdx$1;
           }
-          
-        } else {
-          cond = cond + ("&&(" + itemNoop + ")");
+          itemIdx = itemIdx + 1;
+        };
+        cond = validation(b, inputVar, {
+              type: firstSchema.type,
+              b: 0
+            }, false);
+        if (itemNoop) {
+          if (itemStart) {
+            if (typeValidation) {
+              var if_$2 = itemNextElse ? "else if" : "if";
+              itemStart = itemStart + if_$2 + ("(!(" + itemNoop + ")){" + fail(caught$1) + "}");
+            }
+            
+          } else {
+            cond = cond + ("&&(" + itemNoop + ")");
+          }
+        } else if (typeValidation && itemStart) {
+          var errorCode = fail(caught$1);
+          itemStart = itemStart + (
+            itemNextElse ? "else{" + errorCode + "}" : errorCode
+          );
         }
-      } else if (typeValidation && itemStart) {
-        var errorCode = fail(caught$1);
-        itemStart = itemStart + (
-          itemNextElse ? "else{" + errorCode + "}" : errorCode
-        );
+        body = itemStart + itemEnd;
+      } else {
+        cond = validation(b, inputVar, firstSchema, false) + refinement(b, inputVar, firstSchema, false);
+        body = getItemCode(b, firstSchema, input, input, false, path);
       }
-      body = itemStart + itemEnd;
-    } else {
-      cond = validation(b, inputVar, firstSchema, false) + refinement(b, inputVar, firstSchema, false);
-      body = getItemCode(b, firstSchema, input, input, false, path);
+      var cond$1 = cond;
+      if (body || isPriority(firstSchema.type, byKey$1)) {
+        var if_$3 = nextElse ? "else if" : "if";
+        start = start + if_$3 + ("(" + cond$1 + "){" + body + "}");
+        nextElse = true;
+      } else {
+        noop = noop ? noop + "||" + cond$1 : cond$1;
+      }
     }
-    var cond$1 = cond;
-    if (body || isPriority(firstSchema.type, byKey$1)) {
-      var if_$3 = nextElse ? "else if" : "if";
-      start = start + if_$3 + ("(" + cond$1 + "){" + body + "}");
-      nextElse = true;
-    } else {
-      noop = noop ? noop + "||" + cond$1 : cond$1;
+    if (typeValidation || deoptIdx$1 === lastIdx) {
+      var errorCode$1 = fail(caught);
+      var tmp;
+      if (noop) {
+        var if_$4 = nextElse ? "else if" : "if";
+        tmp = if_$4 + ("(!(" + noop + ")){" + errorCode$1 + "}");
+      } else {
+        tmp = nextElse ? "else{" + errorCode$1 + "}" : errorCode$1;
+      }
+      start = start + tmp;
     }
-  }
-  if (typeValidation || deoptIdx$1 === lastIdx) {
-    var errorCode$1 = fail(caught);
-    var tmp;
-    if (noop) {
-      var if_$4 = nextElse ? "else if" : "if";
-      tmp = if_$4 + ("(!(" + noop + ")){" + errorCode$1 + "}");
-    } else {
-      tmp = nextElse ? "else{" + errorCode$1 + "}" : errorCode$1;
-    }
-    start = start + tmp;
+    
   }
   b.c = b.c + start + end;
   if (input.a) {
@@ -2699,85 +2707,6 @@ function output$2() {
   }
 }
 
-function definitionToSchema(definition) {
-  if (!(typeof definition === "object" && definition !== null)) {
-    return parse(definition);
-  }
-  if (definition["~standard"]) {
-    return definition;
-  }
-  if (Array.isArray(definition)) {
-    var reversedItems = [];
-    var isTransformed = false;
-    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
-      var schema = definitionToSchema(definition[idx]);
-      var reversed = reverse(schema);
-      var $$location = idx.toString();
-      var inlinedLocation = "\"" + $$location + "\"";
-      definition[idx] = {
-        schema: schema,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-      reversedItems[idx] = {
-        schema: reversed,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-      if (schema !== reversed) {
-        isTransformed = true;
-      }
-      
-    }
-    return {
-            type: "array",
-            b: builder$3,
-            additionalItems: "strict",
-            items: definition,
-            output: isTransformed ? (function () {
-                  return {
-                          type: "array",
-                          b: builder$3,
-                          additionalItems: "strict",
-                          items: reversedItems
-                        };
-                }) : undefined
-          };
-  }
-  var cnstr = definition.constructor;
-  if (cnstr && cnstr !== Object) {
-    return {
-            type: "instance",
-            b: noop,
-            const: definition,
-            class: cnstr
-          };
-  }
-  var fieldNames = Object.keys(definition);
-  var length = fieldNames.length;
-  var items = [];
-  for(var idx$1 = 0; idx$1 < length; ++idx$1){
-    var $$location$1 = fieldNames[idx$1];
-    var inlinedLocation$1 = fromString($$location$1);
-    var schema$1 = definitionToSchema(definition[$$location$1]);
-    var item = {
-      schema: schema$1,
-      location: $$location$1,
-      inlinedLocation: inlinedLocation$1
-    };
-    definition[$$location$1] = item;
-    items[idx$1] = item;
-  }
-  return {
-          type: "object",
-          b: builder$3,
-          additionalItems: globalConfig.a,
-          items: items,
-          fields: definition,
-          output: output$2
-        };
-}
-
 function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
   if (!(typeof definition === "object" && definition !== null)) {
     return {
@@ -2857,6 +2786,85 @@ function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
             output: output$2
           },
           a: false
+        };
+}
+
+function definitionToSchema(definition) {
+  if (!(typeof definition === "object" && definition !== null)) {
+    return parse(definition);
+  }
+  if (definition["~standard"]) {
+    return definition;
+  }
+  if (Array.isArray(definition)) {
+    var reversedItems = [];
+    var isTransformed = false;
+    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
+      var schema = definitionToSchema(definition[idx]);
+      var reversed = reverse(schema);
+      var $$location = idx.toString();
+      var inlinedLocation = "\"" + $$location + "\"";
+      definition[idx] = {
+        schema: schema,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+      reversedItems[idx] = {
+        schema: reversed,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+      if (schema !== reversed) {
+        isTransformed = true;
+      }
+      
+    }
+    return {
+            type: "array",
+            b: builder$3,
+            additionalItems: "strict",
+            items: definition,
+            output: isTransformed ? (function () {
+                  return {
+                          type: "array",
+                          b: builder$3,
+                          additionalItems: "strict",
+                          items: reversedItems
+                        };
+                }) : undefined
+          };
+  }
+  var cnstr = definition.constructor;
+  if (cnstr && cnstr !== Object) {
+    return {
+            type: "instance",
+            b: noop,
+            const: definition,
+            class: cnstr
+          };
+  }
+  var fieldNames = Object.keys(definition);
+  var length = fieldNames.length;
+  var items = [];
+  for(var idx$1 = 0; idx$1 < length; ++idx$1){
+    var $$location$1 = fieldNames[idx$1];
+    var inlinedLocation$1 = fromString($$location$1);
+    var schema$1 = definitionToSchema(definition[$$location$1]);
+    var item = {
+      schema: schema$1,
+      location: $$location$1,
+      inlinedLocation: inlinedLocation$1
+    };
+    definition[$$location$1] = item;
+    items[idx$1] = item;
+  }
+  return {
+          type: "object",
+          b: builder$3,
+          additionalItems: globalConfig.a,
+          items: items,
+          fields: definition,
+          output: output$2
         };
 }
 

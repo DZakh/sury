@@ -280,10 +280,11 @@ test("Doesn't serialize union to JSON when at least one item is not JSON-able", 
 
   // Not related to the test, just check that it doesn't crash while we are at it
   t->Assert.deepEqual("foo"->S.reverseConvertOrThrow(schema), %raw(`"foo"`), ())
+  t->Assert.deepEqual(%raw(`123`)->S.reverseConvertOrThrow(schema), %raw(`123`), ())
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{try{if(typeof i!=="string"){e[0](i)}}catch(e0){e[1](i,e0)}return i}`,
+    `i=>{try{if(typeof i!=="string"){e[0](i)}}catch(e0){}return i}`,
   )
 })
 

@@ -827,3 +827,13 @@ test("Issue https://github.com/DZakh/rescript-schema/issues/101", t => {
     (),
   )
 })
+
+test("Regression https://github.com/DZakh/sury/issues/121", t => {
+  let schema = S.union([S.literal(%raw(`null`))->S.toUnknown, S.unknown])
+
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{try{if(i!==null){e[0](i)}}catch(e0){}return i}`)
+
+  let data = %raw(`{a: 'hey'}`)
+  t->Assert.deepEqual(data->S.parseOrThrow(schema), data, ())
+  t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(schema), %raw(`null`), ())
+})
