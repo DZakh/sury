@@ -151,7 +151,7 @@ export type Schema<Output, Input = unknown> = {
     }
   | {
       readonly type: "number";
-      readonly format?: "int32";
+      readonly format?: "int32" | "port";
       readonly const?: number;
     }
   | {

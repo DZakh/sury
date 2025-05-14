@@ -22,13 +22,9 @@ test("Uses fallback value when parsing failed", t => {
 test("Doesn't affect serializing in any way", t => {
   let schema = S.int->S.port->S.catch(_ => 8080)
 
-  t->U.assertThrows(
+  t->U.assertThrowsMessage(
     () => -1->S.reverseConvertOrThrow(schema),
-    {
-      code: InvalidOperation({description: "Invalid port"}),
-      operation: ReverseConvert,
-      path: S.Path.empty,
-    },
+    `Failed converting: Expected port, received -1`,
   )
 })
 
@@ -72,13 +68,9 @@ test("Can use s.fail inside of S.catch", t => {
     },
   )
   t->Assert.deepEqual(3000->S.reverseConvertOrThrow(schema), %raw(`3000`), ())
-  t->U.assertThrows(
+  t->U.assertThrowsMessage(
     () => -1->S.reverseConvertOrThrow(schema),
-    {
-      code: InvalidOperation({description: "Invalid port"}),
-      operation: ReverseConvert,
-      path: S.Path.empty,
-    },
+    `Failed converting: Expected port, received -1`,
   )
 })
 

@@ -2036,6 +2036,22 @@ test("Successfully parses recursive object", (t) => {
   );
 });
 
+test("Refinement on schema", (t) => {
+  const portSchema = S.int32.with(S.port);
+  if (portSchema.type === "number") {
+    t.deepEqual(portSchema.format, "port");
+  } else {
+    t.fail("portSchema should be a number");
+  }
+
+  const portSchemaFromNumber = S.number.with(S.port);
+  if (portSchemaFromNumber.type === "number") {
+    t.deepEqual(portSchemaFromNumber.format, "port");
+  } else {
+    t.fail("portSchemaFromNumber should be a number");
+  }
+});
+
 test("Example", (t) => {
   // Create login schema with email and password
   const loginSchema = S.schema({

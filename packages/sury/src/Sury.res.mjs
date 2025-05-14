@@ -714,26 +714,35 @@ function refinement(b, inputVar, schema, negative) {
   var gt = negative ? "<" : ">";
   var match = schema.type;
   var tag;
+  var exit = 0;
   var match$1 = schema.const;
   if (match$1 !== undefined) {
     return "";
   }
-  if (schema.format !== undefined) {
-    return and_ + inputVar + lt + "2147483647" + and_ + inputVar + gt + "-2147483648" + and_ + inputVar + "%1" + eq + "0";
+  var match$2 = schema.format;
+  if (match$2 !== undefined) {
+    if (match$2 === "int32") {
+      return and_ + inputVar + lt + "2147483647" + and_ + inputVar + gt + "-2147483648" + and_ + inputVar + "%1" + eq + "0";
+    }
+    exit = 2;
+  } else {
+    exit = 2;
   }
-  switch (match) {
-    case "number" :
-        if (globalConfig.n) {
-          return "";
-        } else {
-          return and_ + not_ + "Number.isNaN(" + inputVar + ")";
-        }
-    case "array" :
-    case "object" :
-        tag = match;
-        break;
-    default:
-      return "";
+  if (exit === 2) {
+    switch (match) {
+      case "number" :
+          if (globalConfig.n) {
+            return "";
+          } else {
+            return and_ + not_ + "Number.isNaN(" + inputVar + ")";
+          }
+      case "array" :
+      case "object" :
+          tag = match;
+          break;
+      default:
+        return "";
+    }
   }
   var additionalItems = schema.additionalItems;
   var items = schema.items;
@@ -746,9 +755,9 @@ function refinement(b, inputVar, schema, negative) {
       additionalItems === "strip" ? "" : and_ + not_ + "Array.isArray(" + inputVar + ")"
     );
   for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
-    var match$2 = items[idx];
-    var inlinedLocation = match$2.inlinedLocation;
-    var item = match$2.schema;
+    var match$3 = items[idx];
+    var inlinedLocation = match$3.inlinedLocation;
+    var item = match$3.schema;
     var itemCode;
     if (isLiteral(item) && !item.catch || schema.unnest) {
       itemCode = validation(b, inputVar + ("[" + inlinedLocation + "]"), item, negative);
@@ -2279,10 +2288,16 @@ function to(from, target) {
           }
           break;
       case "number" :
-          if (fromOutput.format !== undefined) {
-            var match$2 = target.type;
-            if (match$2 === "number" && target.format === undefined) {
-              coercion = extendCoercion;
+          var match$2 = fromOutput.format;
+          if (match$2 === "int32") {
+            var match$3 = target.type;
+            if (match$3 === "number") {
+              var match$4 = target.format;
+              if (match$4 !== undefined) {
+                exit$1 = 2;
+              } else {
+                coercion = extendCoercion;
+              }
             } else {
               exit$1 = 2;
             }
@@ -2306,8 +2321,8 @@ function to(from, target) {
   }
   if (exit$1 === 2) {
     var $$const$1 = fromOutput.const;
-    var match$3 = target.type;
-    if (match$3 === "string") {
+    var match$5 = target.type;
+    if (match$5 === "string") {
       if (isFromLiteral) {
         coercion = (function (b, param, param$1) {
             return {
@@ -2329,8 +2344,8 @@ function to(from, target) {
             exit = 1;
         }
         if (exit$3 === 3) {
-          var match$4 = target.type;
-          if (match$4 === "string") {
+          var match$6 = target.type;
+          if (match$6 === "string") {
             coercion = (function (b, inputVar, param) {
                 return {
                         b: b,
@@ -2679,87 +2694,6 @@ function builder$3(parentB, input, selfSchema, path) {
   }
 }
 
-function nested(fieldName) {
-  var parentCtx = this;
-  var cacheId = "~" + fieldName;
-  var ctx = parentCtx[cacheId];
-  if (ctx !== undefined) {
-    return Caml_option.valFromOption(ctx);
-  }
-  var schemas = [];
-  var fields = {};
-  var items = [];
-  var schema = toStandard({
-        type: "object",
-        b: builder$3,
-        additionalItems: globalConfig.a,
-        items: items,
-        fields: fields,
-        output: output$2
-      });
-  var target = parentCtx.f(fieldName, schema)[itemSymbol];
-  var field = function (fieldName, schema) {
-    var inlinedLocation = fromString(fieldName);
-    if (fields[fieldName]) {
-      throw new Error("[Schema] " + ("The field " + inlinedLocation + " defined twice"));
-    }
-    var ditem_2 = schema;
-    var ditem_4 = "[" + inlinedLocation + "]";
-    var ditem = {
-      k: 1,
-      inlinedLocation: inlinedLocation,
-      location: fieldName,
-      schema: ditem_2,
-      of: target,
-      p: ditem_4
-    };
-    fields[fieldName] = ditem;
-    items.push(ditem);
-    schemas.push(schema);
-    return proxify(ditem);
-  };
-  var tag = function (tag$1, asValue) {
-    field(tag$1, definitionToSchema(asValue));
-  };
-  var fieldOr = function (fieldName, schema, or) {
-    return field(fieldName, getOr(factory$1(schema, undefined), or));
-  };
-  var flatten = function (schema) {
-    var match = schema.type;
-    if (match === "object") {
-      var flattenedItems = schema.items;
-      if (schema.advanced) {
-        var message = "Unsupported nested flatten for advanced object schema '" + toExpression(schema) + "'";
-        throw new Error("[Schema] " + message);
-      }
-      var match$1 = reverse(schema);
-      var match$2 = match$1.type;
-      if (match$2 === "object" && match$1.advanced !== true) {
-        var result = {};
-        for(var idx = 0 ,idx_finish = flattenedItems.length; idx < idx_finish; ++idx){
-          var item = flattenedItems[idx];
-          result[item.location] = field(item.location, item.schema);
-        }
-        return result;
-      }
-      var message$1 = "Unsupported nested flatten for transformed schema '" + toExpression(schema) + "'";
-      throw new Error("[Schema] " + message$1);
-    }
-    var message$2 = "The '" + toExpression(schema) + "' schema can't be flattened";
-    throw new Error("[Schema] " + message$2);
-  };
-  var ctx$1 = {
-    field: field,
-    f: field,
-    fieldOr: fieldOr,
-    tag: tag,
-    nested: nested,
-    flatten: flatten
-  };
-  parentCtx[cacheId] = ctx$1;
-  return ctx$1;
-}
-
 function output$2() {
   var items = this.items;
   var reversedFields = {};
@@ -2955,6 +2889,87 @@ function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
           },
           a: false
         };
+}
+
+function nested(fieldName) {
+  var parentCtx = this;
+  var cacheId = "~" + fieldName;
+  var ctx = parentCtx[cacheId];
+  if (ctx !== undefined) {
+    return Caml_option.valFromOption(ctx);
+  }
+  var schemas = [];
+  var fields = {};
+  var items = [];
+  var schema = toStandard({
+        type: "object",
+        b: builder$3,
+        additionalItems: globalConfig.a,
+        items: items,
+        fields: fields,
+        output: output$2
+      });
+  var target = parentCtx.f(fieldName, schema)[itemSymbol];
+  var field = function (fieldName, schema) {
+    var inlinedLocation = fromString(fieldName);
+    if (fields[fieldName]) {
+      throw new Error("[Schema] " + ("The field " + inlinedLocation + " defined twice"));
+    }
+    var ditem_2 = schema;
+    var ditem_4 = "[" + inlinedLocation + "]";
+    var ditem = {
+      k: 1,
+      inlinedLocation: inlinedLocation,
+      location: fieldName,
+      schema: ditem_2,
+      of: target,
+      p: ditem_4
+    };
+    fields[fieldName] = ditem;
+    items.push(ditem);
+    schemas.push(schema);
+    return proxify(ditem);
+  };
+  var tag = function (tag$1, asValue) {
+    field(tag$1, definitionToSchema(asValue));
+  };
+  var fieldOr = function (fieldName, schema, or) {
+    return field(fieldName, getOr(factory$1(schema, undefined), or));
+  };
+  var flatten = function (schema) {
+    var match = schema.type;
+    if (match === "object") {
+      var flattenedItems = schema.items;
+      if (schema.advanced) {
+        var message = "Unsupported nested flatten for advanced object schema '" + toExpression(schema) + "'";
+        throw new Error("[Schema] " + message);
+      }
+      var match$1 = reverse(schema);
+      var match$2 = match$1.type;
+      if (match$2 === "object" && match$1.advanced !== true) {
+        var result = {};
+        for(var idx = 0 ,idx_finish = flattenedItems.length; idx < idx_finish; ++idx){
+          var item = flattenedItems[idx];
+          result[item.location] = field(item.location, item.schema);
+        }
+        return result;
+      }
+      var message$1 = "Unsupported nested flatten for transformed schema '" + toExpression(schema) + "'";
+      throw new Error("[Schema] " + message$1);
+    }
+    var message$2 = "The '" + toExpression(schema) + "' schema can't be flattened";
+    throw new Error("[Schema] " + message$2);
+  };
+  var ctx$1 = {
+    field: field,
+    f: field,
+    fieldOr: fieldOr,
+    tag: tag,
+    nested: nested,
+    flatten: flatten
+  };
+  parentCtx[cacheId] = ctx$1;
+  return ctx$1;
 }
 
 function advancedReverse(definition, to, flattened) {
@@ -3479,14 +3494,21 @@ function intMax(schema, maxValue, maybeMessage) {
               }));
 }
 
-function port(schema, messageOpt) {
-  var message = messageOpt !== undefined ? messageOpt : "Invalid port";
-  return addRefinement(schema, metadataId$2, {
-              kind: "Port",
-              message: message
-            }, (function (b, inputVar, param, path) {
-                return "if(" + inputVar + "<1||" + inputVar + ">65535){" + fail(b, message, path) + "}";
-              }));
+function port(schema, message) {
+  var mutStandard = internalRefine(schema, (function (b, inputVar, selfSchema, path) {
+          return inputVar + ">0&&" + inputVar + "<65536&&" + inputVar + "%1===0||" + (
+                  message !== undefined ? fail(b, message, path) : failWithArg(b, path, (function (input) {
+                            return {
+                                    TAG: "InvalidType",
+                                    expected: selfSchema,
+                                    received: input
+                                  };
+                          }), inputVar)
+                ) + ";";
+        }));
+  mutStandard.format = "port";
+  reverse(mutStandard).format = "port";
+  return mutStandard;
 }
 
 function floatMin(schema, minValue, maybeMessage) {
@@ -3864,22 +3886,24 @@ function internalToJSONSchema(schema) {
         }
         break;
     case "number" :
+        var format = schema.format;
         var $$const$1 = schema.const;
-        if (schema.format !== undefined) {
-          jsonSchema.type = "integer";
-          refinements$2(schema).forEach(function (refinement) {
-                var match = refinement.kind;
-                if (typeof match !== "object") {
-                  return ;
-                } else {
+        if (format !== undefined) {
+          if (format === "int32") {
+            jsonSchema.type = "integer";
+            refinements$2(schema).forEach(function (refinement) {
+                  var match = refinement.kind;
                   if (match.TAG === "Min") {
                     jsonSchema.minimum = match.value;
                   } else {
                     jsonSchema.maximum = match.value;
                   }
-                  return ;
-                }
-              });
+                });
+          } else {
+            jsonSchema.type = "integer";
+            jsonSchema.maximum = 65535;
+            jsonSchema.minimum = 0;
+          }
         } else {
           jsonSchema.type = "number";
           refinements$3(schema).forEach(function (refinement) {

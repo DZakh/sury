@@ -9,9 +9,9 @@ test("Successfully parses valid data", t => {
 test("Fails to parse invalid data", t => {
   let schema = S.int->S.port
 
-  t->U.assertThrows(
+  t->U.assertThrowsMessage(
     () => 65536->S.parseOrThrow(schema),
-    {code: OperationFailed("Invalid port"), operation: Parse, path: S.Path.empty},
+    `Failed parsing: Expected port, received 65536`,
   )
 })
 
@@ -24,9 +24,9 @@ test("Successfully serializes valid value", t => {
 test("Fails to serialize invalid value", t => {
   let schema = S.int->S.port
 
-  t->U.assertThrows(
+  t->U.assertThrowsMessage(
     () => -80->S.reverseConvertOrThrow(schema),
-    {code: OperationFailed("Invalid port"), operation: ReverseConvert, path: S.Path.empty},
+    `Failed converting: Expected port, received -80`,
   )
 })
 
@@ -39,8 +39,12 @@ test("Returns custom error message", t => {
   )
 })
 
-test("Returns refinement", t => {
+test("Reflects refinement on schema", t => {
   let schema = S.int->S.port
 
-  t->Assert.deepEqual(schema->S.Int.refinements, [{kind: Port, message: "Invalid port"}], ())
+  t->Assert.deepEqual((schema->S.untag).format, Some(Port), ())
+  switch schema {
+  | Number({format}) => t->Assert.deepEqual(format, Port, ())
+  | _ => t->Assert.fail("Expected Number with format Port")
+  }
 })

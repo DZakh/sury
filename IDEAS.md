@@ -2,14 +2,13 @@
 
 ## v10
 
-### rc.6
+### rc.7
 
-- Fix union bug with `S.unknown` (https://github.com/DZakh/sury/issues/121)
-- (rescript) Renamed `S.nullish` back to `S.nullable`
-- (rescript) Added `S.nullableAsOption` to replace `S.nullable` from V9
-- (ppx) Returned back `@s.nullable` attribute
-- (ppx) Added support for `Js.nullable` type
-- Add `title` field to schema and allow to set it via `S.meta`
+- Improve JSONSchema of `S.port` to include `minimum` and `maximum`
+- Expose `port` as `format` field on `number` schemas
+- (rescript) Deprecate `Port` refinement metadata in favor of `format` field on `number` schemas
+- Fix port to not allow decimal numbers
+- Improved the default error message for `S.port`
 
 ### Final release fixes
 

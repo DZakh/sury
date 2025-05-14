@@ -240,9 +240,9 @@ type standard = {
   validate: 'any 'value. 'any => {"value": 'value},
 }
 
-type numberFormat = | @as("int32") Int32
+type numberFormat = | @as("int32") Int32 | @as("port") Port
 
-type internalFormat = numberFormat
+type format = numberFormat
 
 @unboxed
 type additionalItemsMode = | @as("strip") Strip | @as("strict") Strict
@@ -403,7 +403,7 @@ and internal = {
   mutable description?: string,
   mutable deprecated?: bool,
   mutable examples?: array<unknown>,
-  format?: internalFormat,
+  mutable format?: format,
   mutable has?: dict<bool>,
   advanced?: bool, // TODO: Rename/remove it when have a chance
   mutable anyOf?: array<internal>,
@@ -434,6 +434,7 @@ and untagged = private {
   tag: tag,
   const?: unknown,
   class?: unknown,
+  format?: format,
   name?: string,
   title?: string,
   description?: string,
@@ -2876,7 +2877,7 @@ module Int = {
     type kind =
       | Min({value: int})
       | Max({value: int})
-      | Port
+
     type t = {
       kind: kind,
       message: string,
@@ -2993,7 +2994,7 @@ let rec to = (from, target) => {
               b.code ++
               switch format {
               | None => `Number.isNaN(${outputVar})`
-              | Some(Int32) =>
+              | Some(_) =>
                 `(${b
                   ->B.refinement(~inputVar=outputVar, ~schema=target, ~negative=true)
                   ->Js.String2.sliceToEnd(~from=2)})`
@@ -4611,17 +4612,29 @@ let intMax = (schema, maxValue, ~message as maybeMessage=?) => {
   )
 }
 
-let port = (schema, ~message="Invalid port") => {
-  schema->addRefinement(
-    ~metadataId=Int.Refinement.metadataId,
-    ~refiner=(b, ~inputVar, ~selfSchema as _, ~path) => {
-      `if(${inputVar}<1||${inputVar}>65535){${b->B.fail(~message, ~path)}}`
-    },
-    ~refinement={
-      kind: Port,
-      message,
-    },
-  )
+let port = (schema, ~message=?) => {
+  let mutStandard =
+    schema
+    ->internalRefine((b, ~inputVar, ~selfSchema, ~path) => {
+      `${inputVar}>0&&${inputVar}<65536&&${inputVar}%1===0||${switch message {
+        | Some(m) => b->B.fail(~message=m, ~path)
+        | None =>
+          b->B.failWithArg(
+            ~path,
+            input => InvalidType({
+              expected: selfSchema->fromInternal,
+              received: input,
+            }),
+            inputVar,
+          )
+        }};`
+    })
+    ->toInternal
+
+  mutStandard.format = Some(Port)
+  (mutStandard->reverse).format = Some(Port)
+
+  mutStandard->fromInternal
 }
 
 let floatMin = (schema, minValue, ~message as maybeMessage=?) => {
@@ -5029,11 +5042,15 @@ module RescriptJSONSchema = {
         ->Int.refinements
         ->Js.Array2.forEach(refinement => {
           switch refinement {
-          | {kind: Port} => ()
           | {kind: Max({value})} => jsonSchema.maximum = Some(value->Js.Int.toFloat)
           | {kind: Min({value})} => jsonSchema.minimum = Some(value->Js.Int.toFloat)
           }
         })
+      | Some(Port) => {
+          jsonSchema.type_ = Some(Arrayable.single(#integer))
+          jsonSchema.maximum = Some(65535.)
+          jsonSchema.minimum = Some(0.)
+        }
       | None =>
         jsonSchema.type_ = Some(Arrayable.single(#number))
         schema
@@ -5526,7 +5543,7 @@ let min = (schema, minValue, ~message as maybeMessage=?) => {
   switch schema {
   | String(_) => schema->stringMinLength(minValue, ~message=?maybeMessage)
   | Array(_) => schema->arrayMinLength(minValue, ~message=?maybeMessage)
-  | Number({format: Int32}) => schema->intMin(minValue, ~message=?maybeMessage)
+  | Number({format: Int32 | Port}) => schema->intMin(minValue, ~message=?maybeMessage)
   | Number(_) => schema->floatMin(minValue->Obj.magic, ~message=?maybeMessage)
   | _ =>
     InternalError.panic(
@@ -5539,7 +5556,7 @@ let max = (schema, maxValue, ~message as maybeMessage=?) => {
   switch schema {
   | String(_) => schema->stringMaxLength(maxValue, ~message=?maybeMessage)
   | Array(_) => schema->arrayMaxLength(maxValue, ~message=?maybeMessage)
-  | Number({format: Int32}) => schema->intMax(maxValue, ~message=?maybeMessage)
+  | Number({format: Int32 | Port}) => schema->intMax(maxValue, ~message=?maybeMessage)
   | Number(_) => schema->floatMax(maxValue->Obj.magic, ~message=?maybeMessage)
   | _ =>
     InternalError.panic(

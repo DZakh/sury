@@ -118,8 +118,15 @@ test("JSONSchema of int with max", t => {
 })
 
 test("JSONSchema of port", t => {
-  // FIXME: Use minimum and maximum
-  t->Assert.deepEqual(S.int->S.port->S.toJSONSchema, %raw(`{"type": "integer"}`), ())
+  t->Assert.deepEqual(
+    S.int->S.port->S.toJSONSchema,
+    %raw(`{
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+    }`),
+    (),
+  )
 })
 
 test("JSONSchema of float with min", t => {

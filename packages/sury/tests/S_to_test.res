@@ -330,6 +330,37 @@ test("Coerce from string to int32", t => {
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return ""+i}`)
 })
 
+test("Coerce from string to port", t => {
+  let schema = S.string->S.to(S.int->S.port)
+
+  t->Assert.deepEqual("10"->S.parseOrThrow(schema), 10, ())
+  t->U.assertThrowsMessage(
+    () => "2147483648"->S.parseOrThrow(schema),
+    `Failed parsing: Expected port, received 2147483648`,
+  )
+  t->U.assertThrowsMessage(
+    () => "10.2"->S.parseOrThrow(schema),
+    `Failed parsing: Expected port, received 10.2`,
+  )
+  t->Assert.deepEqual(10->S.reverseConvertOrThrow(schema), %raw(`"10"`), ())
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(typeof i!=="string"){e[2](i)}let v0=+i;(Number.isNaN(v0))&&e[0](i);v0>0&&v0<65536&&v0%1===0||e[1](v0);return v0}`,
+  )
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Convert,
+    `i=>{let v0=+i;(Number.isNaN(v0))&&e[0](i);v0>0&&v0<65536&&v0%1===0||e[1](v0);return v0}`,
+  )
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#ReverseConvert,
+    `i=>{i>0&&i<65536&&i%1===0||e[0](i);return ""+i}`,
+  )
+})
+
 test("Coerce from true to bool", t => {
   let schema = S.literal(true)->S.to(S.bool)
 

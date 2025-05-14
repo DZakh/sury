@@ -20,7 +20,9 @@ module Path: {
   let concat: (t, t) => t
 }
 
-type numberFormat = | @as("int32") Int32
+type numberFormat = | @as("int32") Int32 | @as("port") Port
+
+type format = numberFormat
 
 @unboxed
 type additionalItemsMode = | @as("strip") Strip | @as("strict") Strict
@@ -197,6 +199,7 @@ and untagged = private {
   tag: tag,
   const?: unknown,
   class?: unknown,
+  format?: format,
   name?: string,
   title?: string,
   description?: string,
@@ -443,7 +446,7 @@ module Int: {
     type kind =
       | Min({value: int})
       | Max({value: int})
-      | Port
+
     type t = {
       kind: kind,
       message: string,
