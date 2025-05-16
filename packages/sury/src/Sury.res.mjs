@@ -1571,23 +1571,22 @@ function builder$1(b, input, selfSchema, path) {
             isLiteral(schema$2) ? validation(b, inputVar, schema$2, false) : ""
           ) + refinement(b, inputVar, schema$2, false).slice(2);
           var itemCode$1 = getItemCode(b, schema$2, input, input, false, path);
-          if (itemCond && !itemCode$1) {
-            itemNoop = itemNoop ? itemNoop + "||" + itemCond : itemCond;
-          } else if (itemNoop) {
-            var if_ = itemNextElse ? "else if" : "if";
-            itemStart = itemStart + if_ + ("(!(" + itemNoop + ")){");
-            itemEnd = "}" + itemEnd;
-            itemNoop = "";
-            itemNextElse = false;
-          }
           if (itemCond) {
             if (itemCode$1) {
-              var if_$1 = itemNextElse ? "else if" : "if";
-              itemStart = itemStart + if_$1 + ("(" + itemCond + "){" + itemCode$1 + "}");
+              var if_ = itemNextElse ? "else if" : "if";
+              itemStart = itemStart + if_ + ("(" + itemCond + "){" + itemCode$1 + "}");
               itemNextElse = true;
+            } else {
+              itemNoop = itemNoop ? itemNoop + "||" + itemCond : itemCond;
             }
-            
           } else if (itemCode$1) {
+            if (itemNoop) {
+              var if_$1 = itemNextElse ? "else if" : "if";
+              itemStart = itemStart + if_$1 + ("(!(" + itemNoop + ")){");
+              itemEnd = "}" + itemEnd;
+              itemNoop = "";
+              itemNextElse = false;
+            }
             var errorVar$1 = "e" + itemIdx;
             itemStart = itemStart + ((
                 itemNextElse ? "else{" : ""
@@ -1598,6 +1597,7 @@ function builder$1(b, input, selfSchema, path) {
             caught$1 = caught$1 + "," + errorVar$1;
             itemNextElse = false;
           } else {
+            itemNoop = "";
             itemIdx = lastIdx$1;
           }
           itemIdx = itemIdx + 1;

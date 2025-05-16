@@ -2166,6 +2166,9 @@ module Union = {
       let schema = schemas->Js.Array2.unsafe_get(idx)
 
       switch schema.tag {
+      // The tags without a determined refinement,
+      // for which we can't apply optimizations.
+      // So we run them and everything before them in a deopt mode.
       | Union
       | JSON
       | Unknown
@@ -2203,6 +2206,9 @@ module Union = {
     let start = ref("")
     let end = ref("")
     let caught = ref("")
+
+    // If we got a case which always passes,
+    // we can exit early
     let exit = ref(false)
 
     if deoptIdx !== -1 {
@@ -2242,6 +2248,19 @@ module Union = {
           let itemNoop = ref("")
           let caught = ref("")
 
+          // Accumulate schemas code by refinement (discriminant)
+          // so if we have two schemas with the same discriminant
+          // We can generate a single switch statement
+          // with try/catch blocks for each item
+          // If we come across an item without a discriminant
+          // we need to dump all accumulated schemas in try block
+          // and have the item without discriminant as catch all
+          // If we come across an item without a discriminant
+          // and without any code, it means that this item is always valid
+          // and we should exit early
+          // TODO:
+          // let withDiscriminant = Js.Dict.empty()
+
           let itemIdx = ref(0)
           let lastIdx = schemas->Js.Array2.length - 1
           while itemIdx.contents <= lastIdx {
@@ -2251,30 +2270,41 @@ module Union = {
               b->B.refinement(~inputVar, ~schema, ~negative=false)->Js.String2.sliceToEnd(~from=2)
             let itemCode = b->getItemCode(~schema, ~input, ~output, ~deopt=false, ~path)
 
-            if itemCond->Stdlib.String.unsafeToBool && !(itemCode->Stdlib.String.unsafeToBool) {
+            switch (itemCond->Stdlib.String.unsafeToBool, itemCode->Stdlib.String.unsafeToBool) {
+            // Have a discriminant with additional parsing logic
+            | (true, true) => {
+                let if_ = itemNextElse.contents ? "else if" : "if"
+                itemStart := itemStart.contents ++ if_ ++ `(${itemCond}){${itemCode}}`
+                itemNextElse := true
+              }
+            // We have a condition but without additional parsing logic
+            // So we accumulate it in case it's needed for a refinement later
+            | (true, false) =>
               itemNoop := (
                   itemNoop.contents->Stdlib.String.unsafeToBool
                     ? `${itemNoop.contents}||${itemCond}`
                     : itemCond
                 )
-            } else if itemNoop.contents->Stdlib.String.unsafeToBool {
-              let if_ = itemNextElse.contents ? "else if" : "if"
-              itemStart := itemStart.contents ++ if_ ++ `(!(${itemNoop.contents})){`
-              itemEnd := "}" ++ itemEnd.contents
-              itemNoop := ""
-              itemNextElse := false
-            }
 
-            // Have a refinement and can handle the specific case
-            if itemCond->Stdlib.String.unsafeToBool {
-              if itemCode->Stdlib.String.unsafeToBool {
-                let if_ = itemNextElse.contents ? "else if" : "if"
-                itemStart := itemStart.contents ++ if_ ++ `(${itemCond}){${itemCode}}`
-                itemNextElse := true
+            // If we don't have a condition (discriminant)
+            // and additional parsing logic,
+            // it means that this item is always passes
+            // so we can remove preceding accumulated refinements
+            // and exit early even if there are other items
+            | (false, false) => {
+                itemNoop := ""
+                itemIdx := lastIdx
               }
-            } // The item without refinement should switch to deopt mode
+            // The item without refinement should switch to deopt mode
             // Since there might be validation in the body
-            else if itemCode->Stdlib.String.unsafeToBool {
+            | (false, true) =>
+              if itemNoop.contents->Stdlib.String.unsafeToBool {
+                let if_ = itemNextElse.contents ? "else if" : "if"
+                itemStart := itemStart.contents ++ if_ ++ `(!(${itemNoop.contents})){`
+                itemEnd := "}" ++ itemEnd.contents
+                itemNoop := ""
+                itemNextElse := false
+              }
               let errorVar = `e` ++ itemIdx.contents->Stdlib.Int.unsafeToString
               itemStart :=
                 itemStart.contents ++
@@ -2282,11 +2312,8 @@ module Union = {
               itemEnd := (itemNextElse.contents ? "}" : "") ++ "}" ++ itemEnd.contents
               caught := `${caught.contents},${errorVar}`
               itemNextElse := false
-            } else {
-              // If there's no body, we immideately finish.
-              // Even if there might be other items, this case is always valid
-              itemIdx := lastIdx
             }
+
             itemIdx := itemIdx.contents->Stdlib.Int.plus(1)
           }
 

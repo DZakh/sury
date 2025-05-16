@@ -164,6 +164,15 @@ test("Parses when second schema misses parser", t => {
   )
 })
 
+test("Parses with string catch all", t => {
+  let schema = S.union([S.literal("apple"), S.string, S.literal("banana")])
+
+  t->Assert.deepEqual("apple"->S.parseOrThrow(schema), "apple", ())
+  t->Assert.deepEqual("foo"->S.parseOrThrow(schema), "foo", ())
+
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(!(typeof i==="string")){e[0](i)}return i}`)
+})
+
 test("Serializes when second struct misses serializer", t => {
   let schema = S.union([S.literal(#apple), S.string->S.transform(_ => {parser: _ => #apple})])
 
@@ -836,4 +845,34 @@ test("Regression https://github.com/DZakh/sury/issues/121", t => {
   let data = %raw(`{a: 'hey'}`)
   t->Assert.deepEqual(data->S.parseOrThrow(schema), data, ())
   t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(schema), %raw(`null`), ())
+})
+
+test("Union of strings with different refinements", t => {
+  let schema = S.union([S.string->S.email, S.string->S.url])
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(typeof i==="string"){try{if(!e[0].test(i)){e[1]()}}catch(e0){try{try{new URL(i)}catch(_){e[2]()}}catch(e1){e[3](i,e0,e1)}}}else{e[4](i)}return i}`,
+  )
+})
+
+test("Objects with the same discriminant", t => {
+  let schema = S.union([
+    S.object(s => {
+      s.tag("type", "A")
+      Ok(s.field("value", S.enum(["foo", "bar"])))
+    }),
+    S.object(s => {
+      s.tag("type", "A")
+      Error(s.field("value", S.string))
+    }),
+  ])
+
+  // FIXME: This is broken
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(typeof i==="object"&&i){if(i["type"]==="A"){let v0=i["value"];if(!(typeof v0==="string"&&(v0==="foo"||v0==="bar"))){e[0](v0)}i={"TAG":e[1],"_0":v0,}}else if(i["type"]==="A"){let v1=i["value"];if(typeof v1!=="string"){e[2](v1)}i={"TAG":e[3],"_0":v1,}}else{e[4](i)}}else{e[5](i)}return i}`,
+  )
 })

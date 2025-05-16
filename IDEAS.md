@@ -10,6 +10,7 @@
 - Fix port to not allow decimal numbers
 - Improved the default error message for `S.port`
 - Add `S.void` to TS API
+- Fix union case with catch all item without transformations and refinements
 
 ### Final release fixes
 
