@@ -327,11 +327,14 @@ sourePaths.forEach(function (path) {
 
 function writeSjsEsm(path) {
   Nodefs.writeFileSync(path, Buffer.from([
-                "/* @ts-self-types=\"./S.d.ts\" */",
-                "import * as S from \"./Sury.res.mjs\";"
-              ].concat(filesMapping.map(function (param) {
-                      return "export const " + param[0] + " = " + param[1];
-                    })).join("\n")), {
+                  "/* @ts-self-types=\"./S.d.ts\" */",
+                  "import * as S from \"./Sury.res.mjs\";"
+                ].concat(filesMapping.map(function (param) {
+                        return "export const " + param[0] + " = " + param[1];
+                      })).concat([
+                  "var void_ = S.unit",
+                  "export { void_ as void }"
+                ]).join("\n")), {
         encoding: "utf8"
       });
 }

@@ -9,6 +9,7 @@
 - (rescript) Deprecate `Port` refinement metadata in favor of `format` field on `number` schemas
 - Fix port to not allow decimal numbers
 - Improved the default error message for `S.port`
+- Add `S.void` to TS API
 
 ### Final release fixes
 

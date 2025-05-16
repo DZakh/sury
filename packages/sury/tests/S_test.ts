@@ -226,6 +226,16 @@ test("Successfully parses undefined", (t) => {
   expectType<TypeEqual<typeof value, undefined>>(true);
 });
 
+test("Successfully parses void", (t) => {
+  const schema = S.void;
+  const value = S.parseOrThrow(undefined, schema);
+
+  t.deepEqual(value, undefined);
+
+  expectType<SchemaEqual<typeof schema, void, void>>(true);
+  expectType<TypeEqual<typeof value, void>>(true);
+});
+
 test("Fails to parse never", (t) => {
   const schema = S.never;
 
@@ -2036,7 +2046,7 @@ test("Successfully parses recursive object", (t) => {
   );
 });
 
-test("Refinement on schema", (t) => {
+test("Port schema", (t) => {
   const portSchema = S.int32.with(S.port);
   if (portSchema.type === "number") {
     t.deepEqual(portSchema.format, "port");
@@ -2044,11 +2054,56 @@ test("Refinement on schema", (t) => {
     t.fail("portSchema should be a number");
   }
 
+  expectType<SchemaEqual<typeof portSchema, number, number>>(true);
+
   const portSchemaFromNumber = S.number.with(S.port);
   if (portSchemaFromNumber.type === "number") {
     t.deepEqual(portSchemaFromNumber.format, "port");
+
+    t.throws(
+      () => {
+        S.parseOrThrow(10.2, portSchemaFromNumber);
+      },
+      {
+        name: "SuryError",
+        message: "Failed parsing: Expected port, received 10.2",
+      },
+      "Should prevent non-integer numbers"
+    );
   } else {
     t.fail("portSchemaFromNumber should be a number");
+  }
+
+  const portCoercedFromString = S.string.with(S.to, S.number).with(S.port);
+  expectType<SchemaEqual<typeof portCoercedFromString, number, string>>(true);
+
+  t.deepEqual(
+    portCoercedFromString.type,
+    "string",
+    "Schema metadata should be of the input type"
+  );
+  // FIXME:
+  // t.deepEqual(
+  //   (portCoercedFromString as any).format,
+  //   "port",
+  //   "Shouldn't add port format to the string input type"
+  // );
+
+  if (S.reverse(portCoercedFromString).type === "number") {
+    t.deepEqual(S.parseOrThrow("10", portCoercedFromString), 10);
+    t.throws(
+      () => {
+        S.parseOrThrow(10.2, portCoercedFromString);
+      },
+      {
+        name: "SuryError",
+        message: "Failed parsing: Expected port, received 10.2",
+      },
+      "Should prevent non-integer numbers"
+    );
+    t.deepEqual(S.reverseConvertOrThrow(10, portCoercedFromString), "10");
+  } else {
+    t.fail("portCoercedFromString should be a number");
   }
 });
 

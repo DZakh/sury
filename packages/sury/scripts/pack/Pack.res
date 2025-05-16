@@ -195,6 +195,7 @@ let writeSjsEsm = path => {
     path,
     [`/* @ts-self-types="./S.d.ts" */`, "import * as S from \"./Sury.res.mjs\";"]
     ->Array.concat(filesMapping->Array.map(((name, value)) => `export const ${name} = ${value}`))
+    ->Array.concat([`var void_ = S.unit`, `export { void_ as void }`])
     ->Array.join("\n")
     ->NodeJs.Buffer.fromString,
     {

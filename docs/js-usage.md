@@ -14,11 +14,9 @@
   - [JSON Schema](#json-schema)
   - [Standard Schema](#standard-schema)
 - [Defining schemas](#defining-schemas)
-- [Literals](#literals)
 - [Strings](#strings)
   - [ISO datetimes](#iso-datetimes)
 - [Numbers](#numbers)
-- [NaNs](#nans)
 - [Optionals](#optionals)
 - [Nullables](#nullables)
 - [Nullish](#nullish)
@@ -338,42 +336,37 @@ const { object } = await generateObject({
 ```ts
 import * as S from "sury";
 
-// primitive values
+// Primitive values
 S.string;
 S.number;
 S.int32;
 S.boolean;
 S.bigint;
 S.symbol;
+S.void;
 
-// catch-all types
-// allows any value
+// Literal values
+// Supports any JS type
+// Validated using strict equal checks
+S.schema("tuna");
+S.schema(12);
+S.schema(2n);
+S.schema(true);
+S.schema(undefined);
+S.schema(null);
+S.schema(Symbol("terrific"));
+
+// NaN literals
+// Validated using Number.isNaN
+S.schema(NaN);
+
+// Catch-all types
+// Allows any value
 S.unknown;
 
-// never type
-// allows no values
+// Never type
+// Allows no values
 S.never;
-```
-
-## Literals
-
-Literal schemas represent a [literal type](https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#literal-types), like `"hello world"` or `5`.
-
-```ts
-const tuna = S.schema("tuna");
-const twelve = S.schema(12);
-const twobig = S.schema(2n);
-const tru = S.schema(true);
-const empty = S.schema(undefined);
-const null = S.schema(null)
-const terrific = S.schema(Symbol("terrific"));
-```
-
-Compared to other libraries, the `S.schema` in **Sury** supports literally any value. They are validated using strict equal checks. With the exception of plain objects and arrays, they are validated using deep equal checks. So the schema like this will work correctly:
-
-```ts
-const cliArgsSchema = S.schema(["help", "lint"]);
-// ^ This is going to be the S.Schema<["help", "lint"]> type
 ```
 
 ## Strings
@@ -432,16 +425,6 @@ Optionally, you can pass in a second argument to provide a custom error message.
 ```ts
 S.max(S.number, 5, "this👏is👏too👏big");
 ```
-
-## NaNs
-
-There's no specific schema for NaN, just use `S.schema` as for everything else:
-
-```ts
-const nanSchema = S.schema(NaN);
-```
-
-It's going to use `Number.isNaN` check under the hood.
 
 ## Optionals
 

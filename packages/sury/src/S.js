@@ -66,3 +66,5 @@ export const pattern = S.pattern
 export const datetime = S.datetime
 export const trim = S.trim
 export const global = S.$$global
+const void_ = S.unit
+export { void_ as void }

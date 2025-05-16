@@ -381,6 +381,8 @@ export const bigint: Schema<bigint, bigint>;
 export const symbol: Schema<symbol, symbol>;
 export const never: Schema<never, never>;
 export const unknown: Schema<unknown, unknown>;
+declare const void_: Schema<void, void>;
+export { void_ as void };
 export const json: (validate: boolean) => Schema<JSON, JSON>;
 
 export function safe<Value>(scope: () => Value): Result<Value>;
