@@ -95,7 +95,7 @@ function assertThrowsMessage(t, cb, errorMessage) {
     }
     throw exn;
   }
-  t.fail("Asserted result is not Error. Recieved: " + JSON.stringify(any));
+  t.fail("Asserted result is not S.Error \"" + errorMessage + "\". Instead got: " + JSON.stringify(any));
 }
 
 async function assertThrowsAsync(t, cb, errorPayload) {

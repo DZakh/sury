@@ -869,10 +869,18 @@ test("Objects with the same discriminant", t => {
     }),
   ])
 
-  // FIXME: This is broken
+  t->Assert.deepEqual(%raw(`{"type":"A","value":"foo"}`)->S.parseOrThrow(schema), Ok("foo"), ())
+  t->Assert.deepEqual(%raw(`{"type":"A","value":"baz"}`)->S.parseOrThrow(schema), Error("baz"), ())
+  t->U.assertThrowsMessage(
+    () => %raw(`{"type":"A","value":1}`)->S.parseOrThrow(schema),
+    `Failed parsing: Expected { type: "A"; value: "foo" | "bar"; } | { type: "A"; value: string; }, received { type: "A"; value: 1; }
+- At ["value"]: Expected "foo" | "bar", received 1
+- At ["value"]: Expected string, received 1`,
+  )
+
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="object"&&i){if(i["type"]==="A"){let v0=i["value"];if(!(typeof v0==="string"&&(v0==="foo"||v0==="bar"))){e[0](v0)}i={"TAG":e[1],"_0":v0,}}else if(i["type"]==="A"){let v1=i["value"];if(typeof v1!=="string"){e[2](v1)}i={"TAG":e[3],"_0":v1,}}else{e[4](i)}}else{e[5](i)}return i}`,
+    `i=>{if(typeof i==="object"&&i){if(i["type"]==="A"){try{let v0=i["value"];if(!(typeof v0==="string"&&(v0==="foo"||v0==="bar"))){e[0](v0)}i={"TAG":e[1],"_0":v0,}}catch(e0){try{let v1=i["value"];if(typeof v1!=="string"){e[2](v1)}i={"TAG":e[3],"_0":v1,}}catch(e1){e[4](i,e0,e1)}}}else{e[5](i)}}else{e[6](i)}return i}`,
   )
 })

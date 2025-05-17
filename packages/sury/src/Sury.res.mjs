@@ -1563,6 +1563,7 @@ function builder$1(b, input, selfSchema, path) {
         var itemNextElse = false;
         var itemNoop = "";
         var caught$1 = "";
+        var byDiscriminant = {};
         var itemIdx = 0;
         var lastIdx$1 = schemas$1.length - 1 | 0;
         while(itemIdx <= lastIdx$1) {
@@ -1573,32 +1574,68 @@ function builder$1(b, input, selfSchema, path) {
           var itemCode$1 = getItemCode(b, schema$2, input, input, false, path);
           if (itemCond) {
             if (itemCode$1) {
-              var if_ = itemNextElse ? "else if" : "if";
-              itemStart = itemStart + if_ + ("(" + itemCond + "){" + itemCode$1 + "}");
-              itemNextElse = true;
+              var match = byDiscriminant[itemCond];
+              if (match !== undefined) {
+                if (typeof match === "string") {
+                  byDiscriminant[itemCond] = [
+                    match,
+                    itemCode$1
+                  ];
+                } else {
+                  match.push(itemCode$1);
+                }
+              } else {
+                byDiscriminant[itemCond] = itemCode$1;
+              }
             } else {
               itemNoop = itemNoop ? itemNoop + "||" + itemCond : itemCond;
             }
-          } else if (itemCode$1) {
-            if (itemNoop) {
-              var if_$1 = itemNextElse ? "else if" : "if";
-              itemStart = itemStart + if_$1 + ("(!(" + itemNoop + ")){");
-              itemEnd = "}" + itemEnd;
-              itemNoop = "";
-              itemNextElse = false;
+          }
+          if (!itemCond || itemIdx === lastIdx$1) {
+            var accedDiscriminants = Object.keys(byDiscriminant);
+            for(var idx$3 = 0 ,idx_finish$1 = accedDiscriminants.length; idx$3 < idx_finish$1; ++idx$3){
+              var discrim = accedDiscriminants[idx$3];
+              var if_ = itemNextElse ? "else if" : "if";
+              itemStart = itemStart + if_ + ("(" + discrim + "){");
+              var code = byDiscriminant[discrim];
+              if (typeof code === "string") {
+                itemStart = itemStart + code + "}";
+              } else {
+                var caught$2 = "";
+                for(var idx$4 = 0 ,idx_finish$2 = code.length; idx$4 < idx_finish$2; ++idx$4){
+                  var code$1 = code[idx$4];
+                  var errorVar$1 = "e" + idx$4;
+                  itemStart = itemStart + ("try{" + code$1 + "}catch(" + errorVar$1 + "){");
+                  caught$2 = caught$2 + "," + errorVar$1;
+                }
+                itemStart = itemStart + fail(caught$2) + "}".repeat(code.length) + "}";
+              }
+              itemNextElse = true;
             }
-            var errorVar$1 = "e" + itemIdx;
-            itemStart = itemStart + ((
-                itemNextElse ? "else{" : ""
-              ) + "try{" + itemCode$1 + "}catch(" + errorVar$1 + "){");
-            itemEnd = (
-              itemNextElse ? "}" : ""
-            ) + "}" + itemEnd;
-            caught$1 = caught$1 + "," + errorVar$1;
-            itemNextElse = false;
-          } else {
-            itemNoop = "";
-            itemIdx = lastIdx$1;
+            byDiscriminant = {};
+          }
+          if (!itemCond) {
+            if (itemCode$1) {
+              if (itemNoop) {
+                var if_$1 = itemNextElse ? "else if" : "if";
+                itemStart = itemStart + if_$1 + ("(!(" + itemNoop + ")){");
+                itemEnd = "}" + itemEnd;
+                itemNoop = "";
+                itemNextElse = false;
+              }
+              var errorVar$2 = "e" + itemIdx;
+              itemStart = itemStart + ((
+                  itemNextElse ? "else{" : ""
+                ) + "try{" + itemCode$1 + "}catch(" + errorVar$2 + "){");
+              itemEnd = (
+                itemNextElse ? "}" : ""
+              ) + "}" + itemEnd;
+              caught$1 = caught$1 + "," + errorVar$2;
+              itemNextElse = false;
+            } else {
+              itemNoop = "";
+              itemIdx = lastIdx$1;
+            }
           }
           itemIdx = itemIdx + 1;
         };
@@ -2694,6 +2731,87 @@ function builder$3(parentB, input, selfSchema, path) {
   }
 }
 
+function nested(fieldName) {
+  var parentCtx = this;
+  var cacheId = "~" + fieldName;
+  var ctx = parentCtx[cacheId];
+  if (ctx !== undefined) {
+    return Caml_option.valFromOption(ctx);
+  }
+  var schemas = [];
+  var fields = {};
+  var items = [];
+  var schema = toStandard({
+        type: "object",
+        b: builder$3,
+        additionalItems: globalConfig.a,
+        items: items,
+        fields: fields,
+        output: output$2
+      });
+  var target = parentCtx.f(fieldName, schema)[itemSymbol];
+  var field = function (fieldName, schema) {
+    var inlinedLocation = fromString(fieldName);
+    if (fields[fieldName]) {
+      throw new Error("[Schema] " + ("The field " + inlinedLocation + " defined twice"));
+    }
+    var ditem_2 = schema;
+    var ditem_4 = "[" + inlinedLocation + "]";
+    var ditem = {
+      k: 1,
+      inlinedLocation: inlinedLocation,
+      location: fieldName,
+      schema: ditem_2,
+      of: target,
+      p: ditem_4
+    };
+    fields[fieldName] = ditem;
+    items.push(ditem);
+    schemas.push(schema);
+    return proxify(ditem);
+  };
+  var tag = function (tag$1, asValue) {
+    field(tag$1, definitionToSchema(asValue));
+  };
+  var fieldOr = function (fieldName, schema, or) {
+    return field(fieldName, getOr(factory$1(schema, undefined), or));
+  };
+  var flatten = function (schema) {
+    var match = schema.type;
+    if (match === "object") {
+      var flattenedItems = schema.items;
+      if (schema.advanced) {
+        var message = "Unsupported nested flatten for advanced object schema '" + toExpression(schema) + "'";
+        throw new Error("[Schema] " + message);
+      }
+      var match$1 = reverse(schema);
+      var match$2 = match$1.type;
+      if (match$2 === "object" && match$1.advanced !== true) {
+        var result = {};
+        for(var idx = 0 ,idx_finish = flattenedItems.length; idx < idx_finish; ++idx){
+          var item = flattenedItems[idx];
+          result[item.location] = field(item.location, item.schema);
+        }
+        return result;
+      }
+      var message$1 = "Unsupported nested flatten for transformed schema '" + toExpression(schema) + "'";
+      throw new Error("[Schema] " + message$1);
+    }
+    var message$2 = "The '" + toExpression(schema) + "' schema can't be flattened";
+    throw new Error("[Schema] " + message$2);
+  };
+  var ctx$1 = {
+    field: field,
+    f: field,
+    fieldOr: fieldOr,
+    tag: tag,
+    nested: nested,
+    flatten: flatten
+  };
+  parentCtx[cacheId] = ctx$1;
+  return ctx$1;
+}
+
 function output$2() {
   var items = this.items;
   var reversedFields = {};
@@ -2889,87 +3007,6 @@ function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
           },
           a: false
         };
-}
-
-function nested(fieldName) {
-  var parentCtx = this;
-  var cacheId = "~" + fieldName;
-  var ctx = parentCtx[cacheId];
-  if (ctx !== undefined) {
-    return Caml_option.valFromOption(ctx);
-  }
-  var schemas = [];
-  var fields = {};
-  var items = [];
-  var schema = toStandard({
-        type: "object",
-        b: builder$3,
-        additionalItems: globalConfig.a,
-        items: items,
-        fields: fields,
-        output: output$2
-      });
-  var target = parentCtx.f(fieldName, schema)[itemSymbol];
-  var field = function (fieldName, schema) {
-    var inlinedLocation = fromString(fieldName);
-    if (fields[fieldName]) {
-      throw new Error("[Schema] " + ("The field " + inlinedLocation + " defined twice"));
-    }
-    var ditem_2 = schema;
-    var ditem_4 = "[" + inlinedLocation + "]";
-    var ditem = {
-      k: 1,
-      inlinedLocation: inlinedLocation,
-      location: fieldName,
-      schema: ditem_2,
-      of: target,
-      p: ditem_4
-    };
-    fields[fieldName] = ditem;
-    items.push(ditem);
-    schemas.push(schema);
-    return proxify(ditem);
-  };
-  var tag = function (tag$1, asValue) {
-    field(tag$1, definitionToSchema(asValue));
-  };
-  var fieldOr = function (fieldName, schema, or) {
-    return field(fieldName, getOr(factory$1(schema, undefined), or));
-  };
-  var flatten = function (schema) {
-    var match = schema.type;
-    if (match === "object") {
-      var flattenedItems = schema.items;
-      if (schema.advanced) {
-        var message = "Unsupported nested flatten for advanced object schema '" + toExpression(schema) + "'";
-        throw new Error("[Schema] " + message);
-      }
-      var match$1 = reverse(schema);
-      var match$2 = match$1.type;
-      if (match$2 === "object" && match$1.advanced !== true) {
-        var result = {};
-        for(var idx = 0 ,idx_finish = flattenedItems.length; idx < idx_finish; ++idx){
-          var item = flattenedItems[idx];
-          result[item.location] = field(item.location, item.schema);
-        }
-        return result;
-      }
-      var message$1 = "Unsupported nested flatten for transformed schema '" + toExpression(schema) + "'";
-      throw new Error("[Schema] " + message$1);
-    }
-    var message$2 = "The '" + toExpression(schema) + "' schema can't be flattened";
-    throw new Error("[Schema] " + message$2);
-  };
-  var ctx$1 = {
-    field: field,
-    f: field,
-    fieldOr: fieldOr,
-    tag: tag,
-    nested: nested,
-    flatten: flatten
-  };
-  parentCtx[cacheId] = ctx$1;
-  return ctx$1;
 }
 
 function advancedReverse(definition, to, flattened) {

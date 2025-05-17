@@ -2096,6 +2096,9 @@ module Never = {
 }
 
 module Union = {
+  @unboxed
+  type itemCode = Single(string) | Multiple(array<string>)
+
   let getItemCode = (b, ~schema, ~input, ~output: val, ~deopt, ~path) => {
     try {
       let bb = b->B.scope
@@ -2258,8 +2261,7 @@ module Union = {
           // If we come across an item without a discriminant
           // and without any code, it means that this item is always valid
           // and we should exit early
-          // TODO:
-          // let withDiscriminant = Js.Dict.empty()
+          let byDiscriminant = ref(Js.Dict.empty())
 
           let itemIdx = ref(0)
           let lastIdx = schemas->Js.Array2.length - 1
@@ -2270,48 +2272,82 @@ module Union = {
               b->B.refinement(~inputVar, ~schema, ~negative=false)->Js.String2.sliceToEnd(~from=2)
             let itemCode = b->getItemCode(~schema, ~input, ~output, ~deopt=false, ~path)
 
-            switch (itemCond->Stdlib.String.unsafeToBool, itemCode->Stdlib.String.unsafeToBool) {
-            // Have a discriminant with additional parsing logic
-            | (true, true) => {
+            // Accumulate item parser when it has a discriminant
+            if itemCond->Stdlib.String.unsafeToBool {
+              if itemCode->Stdlib.String.unsafeToBool {
+                switch byDiscriminant.contents->Stdlib.Dict.unsafeGetOption(itemCond) {
+                | Some(Multiple(arr)) => arr->Js.Array2.push(itemCode)->ignore
+                | Some(Single(code)) =>
+                  byDiscriminant.contents->Js.Dict.set(itemCond, Multiple([code, itemCode]))
+                | None => byDiscriminant.contents->Js.Dict.set(itemCond, Single(itemCode))
+                }
+              } else {
+                // We have a condition but without additional parsing logic
+                // So we accumulate it in case it's needed for a refinement later
+                itemNoop := (
+                    itemNoop.contents->Stdlib.String.unsafeToBool
+                      ? `${itemNoop.contents}||${itemCond}`
+                      : itemCond
+                  )
+              }
+            }
+
+            // Allocate all accumulated discriminants
+            // If we have an item without a discriminant
+            // and need to deopt. Or we are at the last item
+            if itemCond->Stdlib.String.unsafeToBool->not || itemIdx.contents === lastIdx {
+              let accedDiscriminants = byDiscriminant.contents->Js.Dict.keys
+              for idx in 0 to accedDiscriminants->Js.Array2.length - 1 {
+                let discrim = accedDiscriminants->Js.Array2.unsafe_get(idx)
                 let if_ = itemNextElse.contents ? "else if" : "if"
-                itemStart := itemStart.contents ++ if_ ++ `(${itemCond}){${itemCode}}`
+                itemStart := itemStart.contents ++ if_ ++ `(${discrim}){`
+                switch byDiscriminant.contents->Js.Dict.unsafeGet(discrim) {
+                | Single(code) => itemStart := itemStart.contents ++ code ++ "}"
+                | Multiple(arr) =>
+                  let caught = ref("")
+                  for idx in 0 to arr->Js.Array2.length - 1 {
+                    let code = arr->Js.Array2.unsafe_get(idx)
+                    let errorVar = `e` ++ idx->Stdlib.Int.unsafeToString
+                    itemStart := itemStart.contents ++ `try{${code}}catch(${errorVar}){`
+                    caught := `${caught.contents},${errorVar}`
+                  }
+                  itemStart :=
+                    itemStart.contents ++
+                    fail(caught.contents) ++
+                    Js.String2.repeat("}", arr->Js.Array2.length) ++ "}"
+                }
                 itemNextElse := true
               }
-            // We have a condition but without additional parsing logic
-            // So we accumulate it in case it's needed for a refinement later
-            | (true, false) =>
-              itemNoop := (
-                  itemNoop.contents->Stdlib.String.unsafeToBool
-                    ? `${itemNoop.contents}||${itemCond}`
-                    : itemCond
-                )
+              byDiscriminant.contents = Js.Dict.empty()
+            }
 
-            // If we don't have a condition (discriminant)
-            // and additional parsing logic,
-            // it means that this item is always passes
-            // so we can remove preceding accumulated refinements
-            // and exit early even if there are other items
-            | (false, false) => {
+            if itemCond->Stdlib.String.unsafeToBool->not {
+              // If we don't have a condition (discriminant)
+              // and additional parsing logic,
+              // it means that this item is always passes
+              // so we can remove preceding accumulated refinements
+              // and exit early even if there are other items
+              if itemCode->Stdlib.String.unsafeToBool->not {
                 itemNoop := ""
                 itemIdx := lastIdx
-              }
-            // The item without refinement should switch to deopt mode
-            // Since there might be validation in the body
-            | (false, true) =>
-              if itemNoop.contents->Stdlib.String.unsafeToBool {
-                let if_ = itemNextElse.contents ? "else if" : "if"
-                itemStart := itemStart.contents ++ if_ ++ `(!(${itemNoop.contents})){`
-                itemEnd := "}" ++ itemEnd.contents
-                itemNoop := ""
+              } else {
+                // The item without refinement should switch to deopt mode
+                // Since there might be validation in the body
+                if itemNoop.contents->Stdlib.String.unsafeToBool {
+                  let if_ = itemNextElse.contents ? "else if" : "if"
+                  itemStart := itemStart.contents ++ if_ ++ `(!(${itemNoop.contents})){`
+                  itemEnd := "}" ++ itemEnd.contents
+                  itemNoop := ""
+                  itemNextElse := false
+                }
+                let errorVar = `e` ++ itemIdx.contents->Stdlib.Int.unsafeToString
+                itemStart :=
+                  itemStart.contents ++
+                  `${itemNextElse.contents ? "else{" : ""}try{${itemCode}}catch(${errorVar}){`
+                itemEnd := (itemNextElse.contents ? "}" : "") ++ "}" ++ itemEnd.contents
+                caught := `${caught.contents},${errorVar}`
                 itemNextElse := false
               }
-              let errorVar = `e` ++ itemIdx.contents->Stdlib.Int.unsafeToString
-              itemStart :=
-                itemStart.contents ++
-                `${itemNextElse.contents ? "else{" : ""}try{${itemCode}}catch(${errorVar}){`
-              itemEnd := (itemNextElse.contents ? "}" : "") ++ "}" ++ itemEnd.contents
-              caught := `${caught.contents},${errorVar}`
-              itemNextElse := false
             }
 
             itemIdx := itemIdx.contents->Stdlib.Int.plus(1)
