@@ -11,6 +11,7 @@
 - Improved the default error message for `S.port`
 - Add `S.void` to TS API
 - Fix union case with catch all item without transformations and refinements
+- (rescript) Add OpenAPI module from rescript-openapi
 
 ### Final release fixes
 
