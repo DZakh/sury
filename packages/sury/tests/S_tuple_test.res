@@ -206,7 +206,7 @@ test("Fails to create tuple schema with single item defined multiple times", t =
       )
     },
     ~expectations={
-      message: `[Schema] The item ["0"] is defined multiple times`,
+      message: `[Sury] The item ["0"] is defined multiple times`,
     },
     (),
   )

@@ -946,7 +946,7 @@ test("Fails to create object schema with single field defined multiple times", t
       )
     },
     ~expectations={
-      message: `[Schema] The field "field" defined twice with incompatible schemas`,
+      message: `[Sury] The field "field" defined twice with incompatible schemas`,
     },
     (),
   )

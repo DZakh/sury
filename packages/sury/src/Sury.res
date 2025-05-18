@@ -394,8 +394,7 @@ and schema<'a> = t<'a>
 and internal = {
   @as("type")
   mutable tag: tag,
-  @as("b")
-  mutable builder: builder,
+  mutable builder?: builder,
   mutable const?: char, // use char to avoid Caml_option.some
   mutable class?: char, // use char to avoid Caml_option.some
   mutable name?: string,
@@ -405,7 +404,7 @@ and internal = {
   mutable examples?: array<unknown>,
   mutable format?: format,
   mutable has?: dict<bool>,
-  advanced?: bool, // TODO: Rename/remove it when have a chance
+  mutable advanced?: bool, // TODO: Rename/remove it when have a chance
   mutable anyOf?: array<internal>,
   mutable additionalItems?: additionalItems,
   mutable items?: array<item>,
@@ -602,7 +601,51 @@ d(p, 'RE_EXN_ID', {
 function w(fn, ...args) {
   return fn(this, ...args)
 }
+
+var Schema = function() {}, sp = Object.create(null);
+d(sp, 'with', {
+  get() {
+    return (fn, ...args) => fn(this, ...args)
+  },
+});
+d(sp, '~standard', {
+  get() {
+    return {
+      version: 1,
+      vendor: vendor,
+      // TODO:
+      validate: () => {}
+    }
+  },
+});
+Schema.prototype = sp;
 `)
+
+  // schema.standard = Some({
+  //   version: 1,
+  //   vendor,
+  //   validate: input => {
+  //     try {
+  //       {
+  //         "value": (schema->fromInternal->operationFn(Flag.typeValidation))(
+  //           input->Obj.magic,
+  //         )->Obj.magic,
+  //       }
+  //     } catch {
+  //     | _ => {
+  //         let error = %raw(`exn`)->InternalError.getOrRethrow
+  //         {
+  //           "issues": [
+  //             {
+  //               "message": error->ErrorClass.message,
+  //               "path": error.path === Path.empty ? None : Some(error.path->Path.toArray),
+  //             },
+  //           ],
+  //         }->Obj.magic
+  //       }
+  //     }
+  //   },
+  // })
 
   @new
   external make: (~code: errorCode, ~flag: int, ~path: Path.t) => error = "SuryError"
@@ -617,8 +660,11 @@ function w(fn, ...args) {
 
   // TODO: Throw S.Error
   @inline
-  let panic = message => Stdlib.Exn.raiseError(Stdlib.Exn.makeError(`[Schema] ${message}`))
+  let panic = message => Stdlib.Exn.raiseError(Stdlib.Exn.makeError(`[Sury] ${message}`))
 }
+
+// @new
+// external base: unit => internal = "Schema"
 
 type s<'value> = {
   schema: t<'value>,
@@ -1334,7 +1380,10 @@ module Builder = {
 
     @inline
     let parse = (b: b, ~schema, ~input, ~path) => {
-      schema.builder(b, ~input, ~selfSchema=schema, ~path)
+      switch schema.builder {
+      | Some(builder) => builder(b, ~input, ~selfSchema=schema, ~path)
+      | None => input
+      }
     }
 
     let parseWithTypeValidation = (b: b, ~schema, ~input, ~path) => {
@@ -1364,7 +1413,7 @@ let nonJsonableTags = Stdlib.Set.fromArray([
   Symbol,
 ])
 
-let rec internalCompile = (builder: builder, ~schema, ~flag) => {
+let rec internalCompile = (~schema, ~flag) => {
   let b = B.rootScope(~flag)
 
   if flag->Flag.unsafeHas(Flag.jsonableOutput) {
@@ -1374,7 +1423,7 @@ let rec internalCompile = (builder: builder, ~schema, ~flag) => {
 
   let input = {b, var: B._var, isAsync: false, inline: Builder.intitialInputVar}
 
-  let output = builder(b, ~input, ~selfSchema=schema, ~path=Path.empty)
+  let output = B.parse(b, ~schema, ~input, ~path=Path.empty)
   schema.isAsync = Some(output.isAsync)
 
   if b.varsAllocation !== "" {
@@ -1431,7 +1480,7 @@ and operationFn = (s, o) => {
     %raw(`s[o]`)
   } else {
     let ss = o->Flag.unsafeHas(Flag.reverse) ? s->reverse : s
-    let f = ss.builder->internalCompile(~schema=ss, ~flag=o)
+    let f = internalCompile(~schema=ss, ~flag=o)
     let _ = %raw(`s[o] = f`)
     f
   }
@@ -1767,7 +1816,7 @@ let isAsync = schema => {
         isAsync: false,
         inline: Builder.intitialInputVar,
       }
-      let output = schema.builder(b, ~input, ~selfSchema=schema, ~path=Path.empty)
+      let output = B.parse(b, ~schema, ~input, ~path=Path.empty)
       schema.isAsync = Some(output.isAsync)
       output.isAsync
     } catch {
@@ -1869,41 +1918,45 @@ let recursive = fn => {
 
   mergeInPlace(placeholder, schema)
   placeholder.name = Some(schema->fromInternal->toExpression)
-  placeholder.builder = builder
+  placeholder.builder = Some(builder)
   placeholder.output = Some(output)
 
-  let initialParseOperationBuilder = schema.builder
-  schema.builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
-    let inputVar = b->B.Val.var(input)
-    let bb = b->B.scope
-    let opOutput = initialParseOperationBuilder(bb, ~input, ~selfSchema, ~path=Path.empty)
-    let opBodyCode = bb->B.allocateScope ++ `return ${opOutput.inline}`
-    b.code = b.code ++ `let ${r}=${inputVar}=>{${opBodyCode}};`
-    b->B.withPathPrepend(~input, ~path, (b, ~input, ~path as _) => {
-      b->B.transform(
-        ~input,
-        (_b, ~input) => {
-          let output = B.Val.map(r, input)
-          if opOutput.isAsync {
-            output.isAsync = true
-            placeholder.builder = Builder.make(
-              (b, ~input, ~selfSchema as _, ~path as _) => {
-                b->B.transform(
-                  ~input,
-                  (_b, ~input) => {
-                    let output = B.Val.map(r, input)
-                    output.isAsync = true
-                    output
+  let initialParseOperationBuilder = schema.builder->Stdlib.Option.unsafeUnwrap
+  schema.builder = Some(
+    Builder.make((b, ~input, ~selfSchema, ~path) => {
+      let inputVar = b->B.Val.var(input)
+      let bb = b->B.scope
+      let opOutput = initialParseOperationBuilder(bb, ~input, ~selfSchema, ~path=Path.empty)
+      let opBodyCode = bb->B.allocateScope ++ `return ${opOutput.inline}`
+      b.code = b.code ++ `let ${r}=${inputVar}=>{${opBodyCode}};`
+      b->B.withPathPrepend(~input, ~path, (b, ~input, ~path as _) => {
+        b->B.transform(
+          ~input,
+          (_b, ~input) => {
+            let output = B.Val.map(r, input)
+            if opOutput.isAsync {
+              output.isAsync = true
+              placeholder.builder = Some(
+                Builder.make(
+                  (b, ~input, ~selfSchema as _, ~path as _) => {
+                    b->B.transform(
+                      ~input,
+                      (_b, ~input) => {
+                        let output = B.Val.map(r, input)
+                        output.isAsync = true
+                        output
+                      },
+                    )
                   },
-                )
-              },
-            )
-          }
-          output
-        },
-      )
-    })
-  })
+                ),
+              )
+            }
+            output
+          },
+        )
+      })
+    }),
+  )
 
   let initialReverse = schema.output->Obj.magic->Stdlib.Fn.bind(~this=schema)
   schema.output = Some(
@@ -1912,23 +1965,25 @@ let recursive = fn => {
       let mut = initialReversed->copy
       mut.output = schema->Obj.magic
       schema.output = mut->Obj.magic
-      mut.builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
-        let inputVar = b->B.Val.var(input)
-        let bb = b->B.scope
-        let initialInput = {
-          ...input,
-          b: bb,
-        }
-        let opOutput = initialReversed.builder(
-          bb,
-          ~input=initialInput,
-          ~selfSchema,
-          ~path=Path.empty,
-        )
-        let opBodyCode = bb->B.allocateScope ++ `return ${opOutput.inline}`
-        b.code = b.code ++ `let ${r}=${inputVar}=>{${opBodyCode}};`
-        b->B.withPathPrepend(~input, ~path, (_b, ~input, ~path as _) => B.Val.map(r, input))
-      })
+      mut.builder = Some(
+        Builder.make((b, ~input, ~selfSchema, ~path) => {
+          let inputVar = b->B.Val.var(input)
+          let bb = b->B.scope
+          let initialInput = {
+            ...input,
+            b: bb,
+          }
+          let opOutput = (initialReversed.builder->Stdlib.Option.unsafeUnwrap)(
+            bb,
+            ~input=initialInput,
+            ~selfSchema,
+            ~path=Path.empty,
+          )
+          let opBodyCode = bb->B.allocateScope ++ `return ${opOutput.inline}`
+          b.code = b.code ++ `let ${r}=${inputVar}=>{${opBodyCode}};`
+          b->B.withPathPrepend(~input, ~path, (_b, ~input, ~path as _) => B.Val.map(r, input))
+        }),
+      )
       mut
     },
   )
@@ -1948,28 +2003,32 @@ let noValidation = (schema, value) => {
 let internalRefine = (schema, refiner) => {
   let schema = schema->toInternal
   let mut = schema->copy
-  mut.builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
-    b->B.transform(~input=b->B.parse(~schema, ~input, ~path), (b, ~input) => {
-      let bb = b->B.scope
-      let rCode = refiner(bb, ~inputVar=bb->B.Val.var(input), ~selfSchema, ~path)
-      b.code = b.code ++ bb->B.allocateScope ++ rCode
-      input
-    })
-  })
+  mut.builder = Some(
+    Builder.make((b, ~input, ~selfSchema, ~path) => {
+      b->B.transform(~input=b->B.parse(~schema, ~input, ~path), (b, ~input) => {
+        let bb = b->B.scope
+        let rCode = refiner(bb, ~inputVar=bb->B.Val.var(input), ~selfSchema, ~path)
+        b.code = b.code ++ bb->B.allocateScope ++ rCode
+        input
+      })
+    }),
+  )
   mut.output = Some(
     () => {
       let schema = schema->reverse
       let mut = schema->copy
-      mut.builder = (b, ~input, ~selfSchema, ~path) => {
-        b->B.parse(
-          ~schema,
-          ~input=b->B.transform(~input, (b, ~input) => {
-            b.code = b.code ++ refiner(b, ~inputVar=b->B.Val.var(input), ~selfSchema, ~path)
-            input
-          }),
-          ~path,
-        )
-      }
+      mut.builder = Some(
+        (b, ~input, ~selfSchema, ~path) => {
+          b->B.parse(
+            ~schema,
+            ~input=b->B.transform(~input, (b, ~input) => {
+              b.code = b.code ++ refiner(b, ~inputVar=b->B.Val.var(input), ~selfSchema, ~path)
+              input
+            }),
+            ~path,
+          )
+        },
+      )
       mut
     },
   )
@@ -2008,22 +2067,24 @@ let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) =
 ) => {
   let schema = schema->toInternal
   let mut = schema->copy
-  mut.builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
-    let input = b->B.parse(~schema, ~input, ~path)
+  mut.builder = Some(
+    Builder.make((b, ~input, ~selfSchema, ~path) => {
+      let input = b->B.parse(~schema, ~input, ~path)
 
-    switch transformer(b->B.effectCtx(~selfSchema, ~path)) {
-    | {parser, asyncParser: ?None} => b->B.embedSyncOperation(~input, ~fn=parser)
-    | {parser: ?None, asyncParser} => b->B.embedAsyncOperation(~input, ~fn=asyncParser)
-    | {parser: ?None, asyncParser: ?None, serializer: ?None} => input
-    | {parser: ?None, asyncParser: ?None, serializer: _} =>
-      b->B.invalidOperation(~path, ~description=`The S.transform parser is missing`)
-    | {parser: _, asyncParser: _} =>
-      b->B.invalidOperation(
-        ~path,
-        ~description=`The S.transform doesn't allow parser and asyncParser at the same time. Remove parser in favor of asyncParser`,
-      )
-    }
-  })
+      switch transformer(b->B.effectCtx(~selfSchema, ~path)) {
+      | {parser, asyncParser: ?None} => b->B.embedSyncOperation(~input, ~fn=parser)
+      | {parser: ?None, asyncParser} => b->B.embedAsyncOperation(~input, ~fn=asyncParser)
+      | {parser: ?None, asyncParser: ?None, serializer: ?None} => input
+      | {parser: ?None, asyncParser: ?None, serializer: _} =>
+        b->B.invalidOperation(~path, ~description=`The S.transform parser is missing`)
+      | {parser: _, asyncParser: _} =>
+        b->B.invalidOperation(
+          ~path,
+          ~description=`The S.transform doesn't allow parser and asyncParser at the same time. Remove parser in favor of asyncParser`,
+        )
+      }
+    }),
+  )
   mut.output = Some(
     () => {
       let schema = schema->reverse
@@ -2459,7 +2520,7 @@ module Union = {
         let schema = schemas->Js.Array2.unsafe_get(idx)
 
         // Check if the union is not transformed
-        if schema.tag === Union && schema.builder === builder {
+        if schema.tag === Union && schema.builder === Some(builder) {
           schema.anyOf
           ->Stdlib.Option.unsafeUnwrap
           ->Js.Array2.forEach(item => {
@@ -2550,7 +2611,7 @@ module Option = {
       let mut = item->copy
 
       mut.output = Some(nestedNone)
-      mut.builder = builder
+      mut.builder = Some(builder)
 
       mut
     }
@@ -2591,7 +2652,7 @@ module Option = {
                     ...item,
                     schema: {
                       tag: fSchema.tag,
-                      builder: fSchema.builder,
+                      builder: ?fSchema.builder,
                       const: fSchema.const->Obj.magic->Stdlib.Int.plus(1)->Obj.magic,
                     }->fromInternal,
                   }
@@ -2623,17 +2684,19 @@ module Option = {
     let schema = schema->toInternal
     let mut = schema->copy
     mut->Metadata.setInPlace(~id=defaultMetadataId, default)
-    mut.builder = Builder.make((b, ~input, ~selfSchema as _, ~path) => {
-      b->B.transform(~input=b->B.parse(~schema, ~input, ~path), (b, ~input) => {
-        let inputVar = b->B.Val.var(input)
-        b->B.val(
-          `${inputVar}===void 0?${switch default {
-            | Value(v) => b->B.embed(v)
-            | Callback(cb) => `${b->B.embed(cb)}()`
-            }}:${inputVar}`,
-        )
-      })
-    })
+    mut.builder = Some(
+      Builder.make((b, ~input, ~selfSchema as _, ~path) => {
+        b->B.transform(~input=b->B.parse(~schema, ~input, ~path), (b, ~input) => {
+          let inputVar = b->B.Val.var(input)
+          b->B.val(
+            `${inputVar}===void 0?${switch default {
+              | Value(v) => b->B.embed(v)
+              | Callback(cb) => `${b->B.embed(cb)}()`
+              }}:${inputVar}`,
+          )
+        })
+      }),
+    )
     mut.output = Some(
       () => {
         let reversed = schema->reverse
@@ -2898,27 +2961,29 @@ module JsonString = {
       output: () => {
         let reversed = item->reverse
         let mut = reversed->copy
-        mut.builder = Builder.make((b, ~input, ~selfSchema as _, ~path) => {
-          let prevFlag = b.global.flag
-          b.global.flag = prevFlag->Flag.with(Flag.jsonableOutput)
+        mut.builder = Some(
+          Builder.make((b, ~input, ~selfSchema as _, ~path) => {
+            let prevFlag = b.global.flag
+            b.global.flag = prevFlag->Flag.with(Flag.jsonableOutput)
 
-          jsonableValidation(
-            ~output=reversed,
-            ~parent=reversed,
-            ~path=Path.empty,
-            ~flag=b.global.flag,
-            ~recSet=None,
-          )
-
-          let output =
-            b->B.val(
-              `JSON.stringify(${(b->B.parse(~schema=reversed, ~input, ~path)).inline}${space > 0
-                  ? `,null,${space->Stdlib.Int.unsafeToString}`
-                  : ""})`,
+            jsonableValidation(
+              ~output=reversed,
+              ~parent=reversed,
+              ~path=Path.empty,
+              ~flag=b.global.flag,
+              ~recSet=None,
             )
-          b.global.flag = prevFlag
-          output
-        })
+
+            let output =
+              b->B.val(
+                `JSON.stringify(${(b->B.parse(~schema=reversed, ~input, ~path)).inline}${space > 0
+                    ? `,null,${space->Stdlib.Int.unsafeToString}`
+                    : ""})`,
+              )
+            b.global.flag = prevFlag
+            output
+          }),
+        )
         mut
       },
     }->toStandard
@@ -3081,35 +3146,37 @@ let rec to = (from, target) => {
         }
 
         let mut = from->copy
-        mut.builder = Builder.make((b, ~input, ~selfSchema as _, ~path) => {
-          let input = b->B.parse(~schema=from, ~input, ~path)
+        mut.builder = Some(
+          Builder.make((b, ~input, ~selfSchema as _, ~path) => {
+            let input = b->B.parse(~schema=from, ~input, ~path)
 
-          if coercion === extendCoercion {
-            b->B.parse(~schema=target, ~input, ~path)
-          } else if coercion === shrinkCoercion {
-            b->B.parseWithTypeValidation(~schema=target, ~input, ~path)
-          } else {
-            let bb = b->B.scope
-            let inputVar = input.var(bb)
-            let output = bb->B.parse(
-              ~schema=target,
-              ~input=bb->coercion(
-                ~inputVar,
-                ~failCoercion=bb->B.failWithArg(
-                  ~path,
-                  input => InvalidType({
-                    expected: target->fromInternal,
-                    received: input,
-                  }),
-                  inputVar,
+            if coercion === extendCoercion {
+              b->B.parse(~schema=target, ~input, ~path)
+            } else if coercion === shrinkCoercion {
+              b->B.parseWithTypeValidation(~schema=target, ~input, ~path)
+            } else {
+              let bb = b->B.scope
+              let inputVar = input.var(bb)
+              let output = bb->B.parse(
+                ~schema=target,
+                ~input=bb->coercion(
+                  ~inputVar,
+                  ~failCoercion=bb->B.failWithArg(
+                    ~path,
+                    input => InvalidType({
+                      expected: target->fromInternal,
+                      received: input,
+                    }),
+                    inputVar,
+                  ),
                 ),
-              ),
-              ~path,
-            )
-            b.code = b.code ++ bb->B.allocateScope
-            output
-          }
-        })
+                ~path,
+              )
+              b.code = b.code ++ bb->B.allocateScope
+              output
+            }
+          }),
+        )
 
         mut.output = Some(
           () => {
@@ -3213,30 +3280,32 @@ module Catch = {
 let catch = (schema, getFallbackValue) => {
   let schema = schema->toInternal
   let mut = schema->copy
-  mut.builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
-    let inputVar = b->B.Val.var(input)
+  mut.builder = Some(
+    Builder.make((b, ~input, ~selfSchema, ~path) => {
+      let inputVar = b->B.Val.var(input)
 
-    b->B.withCatch(
-      ~input,
-      ~catch=(b, ~errorVar) => Some(
-        b->B.val(
-          `${b->B.embed((input, internalError) =>
-              getFallbackValue({
-                Catch.input,
-                error: internalError,
-                schema: selfSchema->fromInternal,
-                fail: (message, ~path as customPath=Path.empty) => {
-                  b->B.raise(~path=path->Path.concat(customPath), ~code=OperationFailed(message))
-                },
-              })
-            )}(${inputVar},${errorVar})`,
+      b->B.withCatch(
+        ~input,
+        ~catch=(b, ~errorVar) => Some(
+          b->B.val(
+            `${b->B.embed((input, internalError) =>
+                getFallbackValue({
+                  Catch.input,
+                  error: internalError,
+                  schema: selfSchema->fromInternal,
+                  fail: (message, ~path as customPath=Path.empty) => {
+                    b->B.raise(~path=path->Path.concat(customPath), ~code=OperationFailed(message))
+                  },
+                })
+              )}(${inputVar},${errorVar})`,
+          ),
         ),
-      ),
-      b => {
-        b->B.parseWithTypeValidation(~schema, ~input, ~path)
-      },
-    )
-  })
+        b => {
+          b->B.parseWithTypeValidation(~schema, ~input, ~path)
+        },
+      )
+    }),
+  )
   mut.noValidation = Some(true)
   mut.catch = Some(true)
   mut->toStandard
@@ -3639,121 +3708,123 @@ module Schema = {
     | Node(_) => ritem->getRitemReversed
     }
 
-    mut.builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
-      let getRitemInput = ritem => {
-        ritem->getRitemPath === Path.empty
-          ? input
-          : b->B.val(`${b->B.Val.var(input)}${ritem->getRitemPath}`)
-      }
+    mut.builder = Some(
+      Builder.make((b, ~input, ~selfSchema, ~path) => {
+        let getRitemInput = ritem => {
+          ritem->getRitemPath === Path.empty
+            ? input
+            : b->B.val(`${b->B.Val.var(input)}${ritem->getRitemPath}`)
+        }
 
-      let rec reversedToInput = (reversed, ~originalPath) => {
-        if reversed->isLiteral {
-          b->B.embedVal(reversed.const)
-        } else {
-          switch reversed {
-          | {items, tag, ?additionalItems}
-            // Ignore S.dict and S.array
-            if additionalItems->Obj.magic->Js.typeof === "string" => {
-              let isArray = tag === Array
-              let objectVal = b->B.Val.Object.make(~isArray)
-              for idx in 0 to items->Js.Array2.length - 1 {
-                let item = items->Js.Array2.unsafe_get(idx)
-                let itemPath =
-                  originalPath->Path.concat(Path.fromInlinedLocation(item.inlinedLocation))
-                let itemInput = switch ritemsByItemPath->Stdlib.Dict.unsafeGetOption(itemPath) {
-                | Some(ritem) => ritem->getRitemInput
-                | None => item.schema->toInternal->reversedToInput(~originalPath=itemPath)
+        let rec reversedToInput = (reversed, ~originalPath) => {
+          if reversed->isLiteral {
+            b->B.embedVal(reversed.const)
+          } else {
+            switch reversed {
+            | {items, tag, ?additionalItems}
+              // Ignore S.dict and S.array
+              if additionalItems->Obj.magic->Js.typeof === "string" => {
+                let isArray = tag === Array
+                let objectVal = b->B.Val.Object.make(~isArray)
+                for idx in 0 to items->Js.Array2.length - 1 {
+                  let item = items->Js.Array2.unsafe_get(idx)
+                  let itemPath =
+                    originalPath->Path.concat(Path.fromInlinedLocation(item.inlinedLocation))
+                  let itemInput = switch ritemsByItemPath->Stdlib.Dict.unsafeGetOption(itemPath) {
+                  | Some(ritem) => ritem->getRitemInput
+                  | None => item.schema->toInternal->reversedToInput(~originalPath=itemPath)
+                  }
+                  objectVal->B.Val.Object.add(item.inlinedLocation, itemInput)
                 }
-                objectVal->B.Val.Object.add(item.inlinedLocation, itemInput)
+                objectVal->B.Val.Object.complete(~isArray)
               }
-              objectVal->B.Val.Object.complete(~isArray)
+            | _ =>
+              b->B.invalidOperation(
+                ~path,
+                ~description={
+                  switch originalPath {
+                  | "" => `Schema isn't registered`
+                  | _ => `Schema for ${originalPath} isn't registered`
+                  }
+                },
+              )
             }
-          | _ =>
-            b->B.invalidOperation(
+          }
+        }
+
+        let getItemOutput = (item, ~itemPath) => {
+          switch item->getItemRitem {
+          | Some(ritem) => {
+              let reversed = ritem->getRitemReversed
+              let itemInput = ritem->getRitemInput
+              let path = path->Path.concat(ritem->getRitemPath)
+              if (
+                ritem->getRitemPath !== Path.empty &&
+                b.global.flag->Flag.unsafeHas(Flag.typeValidation) &&
+                !(reversed->isLiteral) &&
+                reversed.tag !== Object
+              ) {
+                b.code = b.code ++ b->B.typeFilterCode(~schema=reversed, ~input=itemInput, ~path)
+              }
+              b->B.parse(~schema=reversed, ~input=itemInput, ~path)
+            }
+          | None =>
+            // It's fine to use getUnsafeDitemSchema here, because this will never be called on ItemField
+            let reversed = item->getUnsafeDitemSchema->reverse
+            let input = reversedToInput(reversed, ~originalPath=itemPath)
+
+            let prevFlag = b.global.flag
+
+            // TODO: Should refactor to use Flag.flatten
+            b.global.flag = prevFlag->Flag.without(Flag.typeValidation)
+            let output = b->B.parse(~schema=reversed, ~input, ~path)
+            b.global.flag = prevFlag
+            output
+          }
+        }
+
+        switch to {
+        | Some(ditem) => ditem->getItemOutput(~itemPath=Path.empty)
+        | None => {
+            b->objectStrictModeCheck(
+              ~input,
+              ~items=selfSchema.items->Stdlib.Option.unsafeUnwrap,
+              ~selfSchema,
               ~path,
-              ~description={
-                switch originalPath {
-                | "" => `Schema isn't registered`
-                | _ => `Schema for ${originalPath} isn't registered`
-                }
-              },
             )
+
+            let isArray = (originalSchema: internal).tag === Array
+            let items = originalSchema.items->Stdlib.Option.unsafeUnwrap
+            let objectVal = b->B.Val.Object.make(~isArray)
+            switch flattened {
+            | None => ()
+            | Some(rootItems) =>
+              for idx in 0 to rootItems->Js.Array2.length - 1 {
+                objectVal->B.Val.Object.merge(
+                  rootItems->Js.Array2.unsafe_get(idx)->getItemOutput(~itemPath=Path.empty),
+                )
+              }
+            }
+
+            for idx in 0 to items->Js.Array2.length - 1 {
+              let item: item = items->Js.Array2.unsafe_get(idx)
+
+              // TODO: Improve a hack to ignore items belonging to a flattened schema
+              if !(objectVal->Obj.magic->Stdlib.Dict.has(item.inlinedLocation)) {
+                objectVal->B.Val.Object.add(
+                  item.inlinedLocation,
+                  item
+                  ->itemToDitem
+                  ->getItemOutput(~itemPath=item.inlinedLocation->Path.fromInlinedLocation),
+                )
+              }
+            }
+
+            objectVal->B.Val.Object.complete(~isArray)
           }
         }
-      }
-
-      let getItemOutput = (item, ~itemPath) => {
-        switch item->getItemRitem {
-        | Some(ritem) => {
-            let reversed = ritem->getRitemReversed
-            let itemInput = ritem->getRitemInput
-            let path = path->Path.concat(ritem->getRitemPath)
-            if (
-              ritem->getRitemPath !== Path.empty &&
-              b.global.flag->Flag.unsafeHas(Flag.typeValidation) &&
-              !(reversed->isLiteral) &&
-              reversed.tag !== Object
-            ) {
-              b.code = b.code ++ b->B.typeFilterCode(~schema=reversed, ~input=itemInput, ~path)
-            }
-            b->B.parse(~schema=reversed, ~input=itemInput, ~path)
-          }
-        | None =>
-          // It's fine to use getUnsafeDitemSchema here, because this will never be called on ItemField
-          let reversed = item->getUnsafeDitemSchema->reverse
-          let input = reversedToInput(reversed, ~originalPath=itemPath)
-
-          let prevFlag = b.global.flag
-
-          // TODO: Should refactor to use Flag.flatten
-          b.global.flag = prevFlag->Flag.without(Flag.typeValidation)
-          let output = b->B.parse(~schema=reversed, ~input, ~path)
-          b.global.flag = prevFlag
-          output
-        }
-      }
-
-      switch to {
-      | Some(ditem) => ditem->getItemOutput(~itemPath=Path.empty)
-      | None => {
-          b->objectStrictModeCheck(
-            ~input,
-            ~items=selfSchema.items->Stdlib.Option.unsafeUnwrap,
-            ~selfSchema,
-            ~path,
-          )
-
-          let isArray = (originalSchema: internal).tag === Array
-          let items = originalSchema.items->Stdlib.Option.unsafeUnwrap
-          let objectVal = b->B.Val.Object.make(~isArray)
-          switch flattened {
-          | None => ()
-          | Some(rootItems) =>
-            for idx in 0 to rootItems->Js.Array2.length - 1 {
-              objectVal->B.Val.Object.merge(
-                rootItems->Js.Array2.unsafe_get(idx)->getItemOutput(~itemPath=Path.empty),
-              )
-            }
-          }
-
-          for idx in 0 to items->Js.Array2.length - 1 {
-            let item: item = items->Js.Array2.unsafe_get(idx)
-
-            // TODO: Improve a hack to ignore items belonging to a flattened schema
-            if !(objectVal->Obj.magic->Stdlib.Dict.has(item.inlinedLocation)) {
-              objectVal->B.Val.Object.add(
-                item.inlinedLocation,
-                item
-                ->itemToDitem
-                ->getItemOutput(~itemPath=item.inlinedLocation->Path.fromInlinedLocation),
-              )
-            }
-          }
-
-          objectVal->B.Val.Object.complete(~isArray)
-        }
-      }
-    })
+      }),
+    )
 
     mut
   }
@@ -3769,26 +3840,28 @@ module Schema = {
       })
       let definition: unknown = definer(item->proxify)->Obj.magic
 
-      mut.builder = Builder.make((b, ~input, ~selfSchema as _, ~path) => {
-        let itemOutput = b->B.parse(~schema, ~input, ~path)
+      mut.builder = Some(
+        Builder.make((b, ~input, ~selfSchema as _, ~path) => {
+          let itemOutput = b->B.parse(~schema, ~input, ~path)
 
-        let bb = b->B.scope
-        let rec getItemOutput = item => {
-          switch item {
-          | ItemField({target: item, inlinedLocation}) =>
-            bb->B.Val.get(item->getItemOutput, inlinedLocation)
-          | _ => itemOutput
+          let bb = b->B.scope
+          let rec getItemOutput = item => {
+            switch item {
+            | ItemField({target: item, inlinedLocation}) =>
+              bb->B.Val.get(item->getItemOutput, inlinedLocation)
+            | _ => itemOutput
+            }
           }
-        }
-        let output =
-          bb->definitionToOutput(
-            ~definition=definition->(Obj.magic: unknown => Definition.t<ditem>),
-            ~getItemOutput,
-          )
-        b.code = b.code ++ bb->B.allocateScope
+          let output =
+            bb->definitionToOutput(
+              ~definition=definition->(Obj.magic: unknown => Definition.t<ditem>),
+              ~getItemOutput,
+            )
+          b.code = b.code ++ bb->B.allocateScope
 
-        output
-      })
+          output
+        }),
+      )
       mut.output = Some(advancedReverse(~definition, ~to=item))
 
       mut->toStandard

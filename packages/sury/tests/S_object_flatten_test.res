@@ -159,7 +159,7 @@ test("Flatten schema with duplicated field of the same type (flatten first)", t 
       )
     },
     ~expectations={
-      message: `[Schema] The field "foo" defined twice with incompatible schemas`,
+      message: `[Sury] The field "foo" defined twice with incompatible schemas`,
     },
     (),
   )
@@ -203,7 +203,7 @@ test("Flatten schema with duplicated field of different type", t => {
       )
     },
     ~expectations={
-      message: `[Schema] The field "foo" defined twice with incompatible schemas`,
+      message: `[Sury] The field "foo" defined twice with incompatible schemas`,
     },
     (),
   )
@@ -269,7 +269,7 @@ test("Fails to flatten non-object schema", t => {
       )
     },
     ~expectations={
-      message: `[Schema] The 'string' schema can\'t be flattened`,
+      message: `[Sury] The 'string' schema can\'t be flattened`,
     },
     (),
   )

@@ -7,7 +7,7 @@ test("Throws for a Union schema factory without schemas", t => {
       S.union([])
     },
     ~expectations={
-      message: "[Schema] S.union requires at least one item",
+      message: "[Sury] S.union requires at least one item",
     },
     (),
   )

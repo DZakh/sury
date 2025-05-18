@@ -2,17 +2,23 @@
 
 ## v10
 
-### rc.7
+### rc.8
 
-- Improve JSONSchema of `S.port` to include `minimum` and `maximum`
-- Expose `port` as `format` field on `number` schemas
-- (rescript) Deprecate `Port` refinement metadata in favor of `format` field on `number` schemas
-- Fix port to not allow decimal numbers
-- Improved the default error message for `S.port`
-- Add `S.void` to TS API
-- Fix union case with catch all item without transformations and refinements
-- Fix union case when there are multiple objects with the same discriminant literals
-- (rescript) Add OpenAPI module from rescript-openapi
+- Start refactoring internal schema representation to reflect transformations
+
+```diff
+console.log(S.boolean)
+
+// Before:
+- {type: 'boolean', ~standard: Object, b: ƒ, with: ƒ}
+
+// After:
++ Schema <[Object: null prototype]> { type: 'boolean' }
+// or
++ @Object { type: 'boolean' }
+```
+
+// TODO: Search for tag:
 
 ### Final release fixes
 
