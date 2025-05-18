@@ -1865,7 +1865,7 @@ module Metadata = {
     let schema = schema->toInternal
     let mut = schema->copy
     mut->setInPlace(~id, metadata)
-    mut->toStandard
+    mut->fromInternal
   }
 }
 
@@ -1885,12 +1885,16 @@ let recursive = fn => {
     }),
   }
 
-  let placeholder: internal = {
-    tag: Unknown,
-    builder,
-    output,
-    name: "Self",
-  }
+  let placeholder =
+    {
+      tag: Unknown,
+      builder,
+      output,
+      name: "Self",
+    }
+    ->toStandard
+    ->toInternal
+
   let schema = fn(placeholder->fromInternal)->toInternal
 
   mergeInPlace(placeholder, schema)
@@ -1966,7 +1970,7 @@ let recursive = fn => {
     },
   )
 
-  schema->toStandard
+  schema->fromInternal
 }
 
 let noValidation = (schema, value) => {
@@ -1975,7 +1979,7 @@ let noValidation = (schema, value) => {
 
   // FIXME: Test for discriminant literal
   mut.noValidation = Some(value) // TODO: Better test reverse
-  mut->toStandard
+  mut->fromInternal
 }
 
 let internalRefine = (schema, refiner) => {
@@ -2010,7 +2014,7 @@ let internalRefine = (schema, refiner) => {
       mut
     },
   )
-  mut->toStandard
+  mut->fromInternal
 }
 
 let refine: (t<'value>, s<'value> => 'value => unit) => t<'value> = (schema, refiner) => {
@@ -2083,7 +2087,7 @@ let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) =
     },
   )
   mut.isAsync = None
-  mut->toStandard
+  mut->fromInternal
 }
 
 let unit = Literal.undefined->toStandard
@@ -2690,7 +2694,7 @@ module Option = {
         }
       },
     )
-    mut->toStandard
+    mut->fromInternal
   }
 
   let getOr = (schema, defalutValue) =>
@@ -2798,7 +2802,7 @@ module Object = {
         mut.items = Some(newItems)
         mut.fields = Some(newFields)
       }
-      mut->toStandard
+      mut->fromInternal
     | _ => schema->fromInternal
     }
   }
@@ -3155,7 +3159,7 @@ let rec to = (from, target) => {
           },
         )
 
-        mut->toStandard
+        mut->fromInternal
       }
     }
   }
@@ -3282,7 +3286,7 @@ let catch = (schema, getFallbackValue) => {
   )
   mut.noValidation = Some(true)
   mut.catch = Some(true)
-  mut->toStandard
+  mut->fromInternal
 }
 
 // TODO: Better test reverse
@@ -3314,7 +3318,7 @@ let meta = (schema: t<'value>, data: meta<'value>) => {
     mut.examples = Some(examples->Stdlib.Array.map(schema->fromInternal->operationFn(Flag.reverse)))
   | None => ()
   }
-  mut->toStandard
+  mut->fromInternal
 }
 
 module Schema = {
@@ -3838,7 +3842,7 @@ module Schema = {
       )
       mut.output = Some(advancedReverse(~definition, ~to=item))
 
-      mut->toStandard
+      mut->fromInternal
     }
   }
   and nested = fieldName => {

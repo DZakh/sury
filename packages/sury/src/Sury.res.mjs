@@ -1196,7 +1196,7 @@ function get$1(schema, id) {
 function set$1(schema, id, metadata) {
   var mut = copy(schema);
   mut[id] = metadata;
-  return new Schema(mut);
+  return mut;
 }
 
 function recursive(fn) {
@@ -1215,12 +1215,12 @@ function recursive(fn) {
               })
           };
   };
-  var placeholder = {
-    type: "unknown",
-    builder: builder,
-    name: "Self",
-    output: output
-  };
+  var placeholder = new Schema({
+        type: "unknown",
+        builder: builder,
+        name: "Self",
+        output: output
+      });
   var schema = fn(placeholder);
   mergeInPlace(placeholder, schema);
   placeholder.name = toExpression(schema);
@@ -1284,13 +1284,13 @@ function recursive(fn) {
         });
       return mut;
     });
-  return new Schema(schema);
+  return schema;
 }
 
 function noValidation(schema, value) {
   var mut = copy(schema);
   mut.noValidation = value;
-  return new Schema(mut);
+  return mut;
 }
 
 function internalRefine(schema, refiner) {
@@ -1326,7 +1326,7 @@ function internalRefine(schema, refiner) {
         });
       return mut;
     });
-  return new Schema(mut);
+  return mut;
 }
 
 function refine(schema, refiner) {
@@ -1400,7 +1400,7 @@ function transform$1(schema, transformer) {
             };
     });
   mut.isAsync = undefined;
-  return new Schema(mut);
+  return mut;
 }
 
 var unit = new Schema($$undefined);
@@ -1956,7 +1956,7 @@ function getWithDefault(schema, $$default) {
         return reversed;
       }
     });
-  return new Schema(mut);
+  return mut;
 }
 
 function getOr(schema, defalutValue) {
@@ -2063,7 +2063,7 @@ function setAdditionalItems(schema, additionalItems, deep) {
     mut.items = newItems;
     mut.fields = newFields;
   }
-  return new Schema(mut);
+  return mut;
 }
 
 function strip(schema) {
@@ -2466,7 +2466,7 @@ function to(from, target) {
   mut.output = (function () {
       return to(reverse(target), fromOutput);
     });
-  return new Schema(mut);
+  return mut;
 }
 
 function list(schema) {
@@ -2570,7 +2570,7 @@ function $$catch(schema, getFallbackValue) {
     });
   mut.noValidation = true;
   mut.catch = true;
-  return new Schema(mut);
+  return mut;
 }
 
 function meta(schema, data) {
@@ -2611,7 +2611,7 @@ function meta(schema, data) {
       mut.examples = undefined;
     }
   }
-  return new Schema(mut);
+  return mut;
 }
 
 function getFullDitemPath(ditem) {
@@ -3245,7 +3245,7 @@ function shape(schema, definer) {
       return output;
     });
   mut.output = advancedReverse(definition, item, undefined);
-  return new Schema(mut);
+  return mut;
 }
 
 function object(definer) {
