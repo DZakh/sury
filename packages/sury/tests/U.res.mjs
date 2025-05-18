@@ -146,7 +146,6 @@ function cleanUpSchema(schema) {
           case "of" :
           case "output" :
           case "p" :
-          case "~standard" :
               return ;
           default:
             if (typeof value === "function") {

@@ -18,7 +18,7 @@ console.log(S.boolean)
 + @Object { type: 'boolean' }
 ```
 
-// TODO: Search for tag:
+- Use `Sury` instead of `Schema` in a panic error message
 
 ### Final release fixes
 

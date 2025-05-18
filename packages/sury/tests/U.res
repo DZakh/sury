@@ -153,7 +153,6 @@ let rec cleanUpSchema = schema => {
     switch key {
     | "output"
     | "advanced"
-    | "~standard"
     | "isAsync" => ()
     // ditemToItem leftovers FIXME:
     | "k" | "p" | "of" => ()

@@ -49,6 +49,18 @@ module Stdlib = {
     let immutableEmpty = %raw(`{}`)
 
     @val external internalClass: Js.Types.obj_val => string = "Object.prototype.toString.call"
+
+    // Define a type for the property descriptor
+    type propertyDescriptor<'a> = {
+      configurable?: bool,
+      enumerable?: bool,
+      writable?: bool,
+      value?: 'a,
+      get?: unit => 'a,
+      set?: 'a => unit,
+    }
+
+    external defineProperty: ('obj, string, propertyDescriptor<'a>) => 'obj = "d"
   }
 
   module Array = {
@@ -598,54 +610,19 @@ d(p, 'RE_EXN_ID', {
   value: $$Error,
 });
 
-function w(fn, ...args) {
-  return fn(this, ...args)
-}
-
-var Schema = function() {}, sp = Object.create(null);
+var Schema = function(opts) {
+  for (let k in opts) {
+    this[k] = opts[k]
+  }
+}, sp = Object.create(null);
 d(sp, 'with', {
   get() {
     return (fn, ...args) => fn(this, ...args)
   },
 });
-d(sp, '~standard', {
-  get() {
-    return {
-      version: 1,
-      vendor: vendor,
-      // TODO:
-      validate: () => {}
-    }
-  },
-});
+// Also has ~standard below
 Schema.prototype = sp;
 `)
-
-  // schema.standard = Some({
-  //   version: 1,
-  //   vendor,
-  //   validate: input => {
-  //     try {
-  //       {
-  //         "value": (schema->fromInternal->operationFn(Flag.typeValidation))(
-  //           input->Obj.magic,
-  //         )->Obj.magic,
-  //       }
-  //     } catch {
-  //     | _ => {
-  //         let error = %raw(`exn`)->InternalError.getOrRethrow
-  //         {
-  //           "issues": [
-  //             {
-  //               "message": error->ErrorClass.message,
-  //               "path": error.path === Path.empty ? None : Some(error.path->Path.toArray),
-  //             },
-  //           ],
-  //         }->Obj.magic
-  //       }
-  //     }
-  //   },
-  // })
 
   @new
   external make: (~code: errorCode, ~flag: int, ~path: Path.t) => error = "SuryError"
@@ -663,8 +640,8 @@ Schema.prototype = sp;
   let panic = message => Stdlib.Exn.raiseError(Stdlib.Exn.makeError(`[Sury] ${message}`))
 }
 
-// @new
-// external base: unit => internal = "Schema"
+@new
+external toStandard: internal => t<'value> = "Schema"
 
 type s<'value> = {
   schema: t<'value>,
@@ -696,7 +673,7 @@ module Flag = {
 // FIXME: If output (reverse) is populated on the schema,
 // it'll stay on the copied one, which will cause issues
 let copy: internal => internal = %raw(`(schema) => {
-  let c = {}
+  let c = new Schema()
   for (let k in schema) {
     if (k > "a") {
       c[k] = schema[k]
@@ -1394,8 +1371,6 @@ module Builder = {
     }
   }
 
-  let noop = make((_b, ~input, ~selfSchema as _, ~path as _) => input)
-
   let noopOperation = i => i->Obj.magic
 
   @inline
@@ -1479,8 +1454,7 @@ and operationFn = (s, o) => {
   if %raw(`o in s`) {
     %raw(`s[o]`)
   } else {
-    let ss = o->Flag.unsafeHas(Flag.reverse) ? s->reverse : s
-    let f = internalCompile(~schema=ss, ~flag=o)
+    let f = internalCompile(~schema=o->Flag.unsafeHas(Flag.reverse) ? s->reverse : s, ~flag=o)
     let _ = %raw(`s[o] = f`)
     f
   }
@@ -1510,35 +1484,6 @@ and reverse = (schema: internal) => {
       reversed
     }
   }
-}
-and toStandard = (schema: internal) => {
-  (schema->Obj.magic)["with"] = %raw(`w`)
-  schema.standard = Some({
-    version: 1,
-    vendor,
-    validate: input => {
-      try {
-        {
-          "value": (schema->fromInternal->operationFn(Flag.typeValidation))(
-            input->Obj.magic,
-          )->Obj.magic,
-        }
-      } catch {
-      | _ => {
-          let error = %raw(`exn`)->InternalError.getOrRethrow
-          {
-            "issues": [
-              {
-                "message": error->ErrorClass.message,
-                "path": error.path === Path.empty ? None : Some(error.path->Path.toArray),
-              },
-            ],
-          }->Obj.magic
-        }
-      }
-    },
-  })
-  schema->(Obj.magic: internal => t<'any>)
 }
 and jsonableValidation = (~output, ~parent, ~path, ~flag, ~recSet) => {
   let tag = output.tag
@@ -1595,6 +1540,41 @@ and jsonableValidation = (~output, ~parent, ~path, ~flag, ~recSet) => {
   | _ => ()
   }
 }
+
+Stdlib.Object.defineProperty(
+  %raw(`sp`),
+  "~standard",
+  {
+    get: () => {
+      let schema = %raw(`this`)
+      {
+        version: 1,
+        vendor,
+        validate: input => {
+          try {
+            {
+              "value": (schema->fromInternal->operationFn(Flag.typeValidation))(
+                input->Obj.magic,
+              )->Obj.magic,
+            }
+          } catch {
+          | _ => {
+              let error = %raw(`exn`)->InternalError.getOrRethrow
+              {
+                "issues": [
+                  {
+                    "message": error->ErrorClass.message,
+                    "path": error.path === Path.empty ? None : Some(error.path->Path.toArray),
+                  },
+                ],
+              }->Obj.magic
+            }
+          }
+        },
+      }
+    },
+  },
+)
 
 type rec input<'value, 'computed> =
   | @as("Output") Value: input<'value, 'value>
@@ -1766,20 +1746,17 @@ module Literal = {
   let undefined = {
     tag: Undefined,
     const: %raw(`void 0`),
-    builder: Builder.noop,
   }
 
   let null = {
     tag: Null,
     const: %raw(`null`),
-    builder: Builder.noop,
   }
 
   @inline
   let make = tag => {
     {
-      tag,
-      builder: Builder.noop,
+      tag: tag,
     }
   }
 
@@ -1921,6 +1898,7 @@ let recursive = fn => {
   placeholder.builder = Some(builder)
   placeholder.output = Some(output)
 
+  // TODO: Test that Stdlib.Option.unsafeUnwrap is save for S.recursive(_ => S.string)
   let initialParseOperationBuilder = schema.builder->Stdlib.Option.unsafeUnwrap
   schema.builder = Some(
     Builder.make((b, ~input, ~selfSchema, ~path) => {
@@ -2132,7 +2110,6 @@ let nullAsUnit = {
 
 let unknown = {
   tag: Unknown,
-  builder: Builder.noop,
 }->toStandard
 
 module Never = {
@@ -2936,7 +2913,6 @@ module String = {
 
   let schema = {
     tag: String,
-    builder: Builder.noop,
   }->toStandard
 }
 
@@ -2992,12 +2968,10 @@ module JsonString = {
 
 let bool = {
   tag: Boolean,
-  builder: Builder.noop,
 }->toStandard
 
 let symbol = {
   tag: Symbol,
-  builder: Builder.noop,
 }->toStandard
 
 module Int = {
@@ -3024,7 +2998,6 @@ module Int = {
   let schema = {
     tag: Number,
     format: Int32,
-    builder: Builder.noop,
   }->toStandard
 }
 
@@ -3050,14 +3023,12 @@ module Float = {
 
   let schema = {
     tag: Number,
-    builder: Builder.noop,
   }->toStandard
 }
 
 module BigInt = {
   let schema = {
     tag: BigInt,
-    builder: Builder.noop,
   }->toStandard
 }
 
@@ -3203,69 +3174,72 @@ let instance = class_ => {
   {
     tag: Instance,
     class: class_->Obj.magic,
-    builder: Builder.noop,
   }->toStandard
 }
 
 let rec json = (~validate) =>
   {
     tag: JSON, // FIXME: Store validate on schema
-    builder: validate
-      ? Builder.make((b, ~input, ~selfSchema, ~path) => {
-          let rec parse = (input, ~path=path) => {
-            switch input->Stdlib.Type.typeof {
-            | #number if Js.Float.isNaN(input->(Obj.magic: unknown => float))->not =>
-              input->(Obj.magic: unknown => Js.Json.t)
-            | #object =>
-              if input === %raw(`null`) {
-                input->(Obj.magic: unknown => Js.Json.t)
-              } else if input->Stdlib.Array.isArray {
-                let input = input->(Obj.magic: unknown => array<unknown>)
-                let output = []
-                for idx in 0 to input->Js.Array2.length - 1 {
-                  let inputItem = input->Js.Array2.unsafe_get(idx)
-                  output
-                  ->Js.Array2.push(
-                    inputItem->parse(
-                      ~path=path->Path.concat(Path.fromLocation(idx->Js.Int.toString)),
-                    ),
+    builder: ?(
+      validate
+        ? Some(
+            Builder.make((b, ~input, ~selfSchema, ~path) => {
+              let rec parse = (input, ~path=path) => {
+                switch input->Stdlib.Type.typeof {
+                | #number if Js.Float.isNaN(input->(Obj.magic: unknown => float))->not =>
+                  input->(Obj.magic: unknown => Js.Json.t)
+                | #object =>
+                  if input === %raw(`null`) {
+                    input->(Obj.magic: unknown => Js.Json.t)
+                  } else if input->Stdlib.Array.isArray {
+                    let input = input->(Obj.magic: unknown => array<unknown>)
+                    let output = []
+                    for idx in 0 to input->Js.Array2.length - 1 {
+                      let inputItem = input->Js.Array2.unsafe_get(idx)
+                      output
+                      ->Js.Array2.push(
+                        inputItem->parse(
+                          ~path=path->Path.concat(Path.fromLocation(idx->Js.Int.toString)),
+                        ),
+                      )
+                      ->ignore
+                    }
+                    output->Js.Json.array
+                  } else {
+                    let input = input->(Obj.magic: unknown => dict<unknown>)
+                    let keys = input->Js.Dict.keys
+                    let output = Js.Dict.empty()
+                    for idx in 0 to keys->Js.Array2.length - 1 {
+                      let key = keys->Js.Array2.unsafe_get(idx)
+                      let field = input->Js.Dict.unsafeGet(key)
+                      output->Js.Dict.set(
+                        key,
+                        field->parse(~path=path->Path.concat(Path.fromLocation(key))),
+                      )
+                    }
+                    output->Js.Json.object_
+                  }
+
+                | #string
+                | #boolean =>
+                  input->(Obj.magic: unknown => Js.Json.t)
+
+                | _ =>
+                  b->B.raise(
+                    ~path,
+                    ~code=InvalidType({
+                      expected: selfSchema->fromInternal,
+                      received: input,
+                    }),
                   )
-                  ->ignore
                 }
-                output->Js.Json.array
-              } else {
-                let input = input->(Obj.magic: unknown => dict<unknown>)
-                let keys = input->Js.Dict.keys
-                let output = Js.Dict.empty()
-                for idx in 0 to keys->Js.Array2.length - 1 {
-                  let key = keys->Js.Array2.unsafe_get(idx)
-                  let field = input->Js.Dict.unsafeGet(key)
-                  output->Js.Dict.set(
-                    key,
-                    field->parse(~path=path->Path.concat(Path.fromLocation(key))),
-                  )
-                }
-                output->Js.Json.object_
               }
 
-            | #string
-            | #boolean =>
-              input->(Obj.magic: unknown => Js.Json.t)
-
-            | _ =>
-              b->B.raise(
-                ~path,
-                ~code=InvalidType({
-                  expected: selfSchema->fromInternal,
-                  received: input,
-                }),
-              )
-            }
-          }
-
-          B.Val.map(b->B.embed(parse), input)
-        })
-      : Builder.noop,
+              B.Val.map(b->B.embed(parse), input)
+            }),
+          )
+        : None
+    ),
     output: () => validate ? json(~validate=false)->toInternal : %raw(`this`),
   }->toStandard
 
@@ -4283,7 +4257,6 @@ module Schema = {
             tag: Instance,
             class: cnstr,
             const: definition->Obj.magic,
-            builder: Builder.noop,
           }
         } else {
           let node = definition->(Obj.magic: unknown => dict<unknown>)

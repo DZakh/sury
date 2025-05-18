@@ -113,26 +113,17 @@ d(p, 'RE_EXN_ID', {
   value: $$Error,
 });
 
-function w(fn, ...args) {
-  return fn(this, ...args)
-}
-
-var Schema = function() {}, sp = Object.create(null);
+var Schema = function(opts) {
+  for (let k in opts) {
+    this[k] = opts[k]
+  }
+}, sp = Object.create(null);
 d(sp, 'with', {
   get() {
     return (fn, ...args) => fn(this, ...args)
   },
 });
-d(sp, '~standard', {
-  get() {
-    return {
-      version: 1,
-      vendor: vendor,
-      // TODO:
-      validate: () => {}
-    }
-  },
-});
+// Also has ~standard below
 Schema.prototype = sp;
 ;
 
@@ -148,7 +139,7 @@ function has(acc, flag) {
 }
 
 var copy = ((schema) => {
-  let c = {}
+  let c = new Schema()
   for (let k in schema) {
     if (k > "a") {
       c[k] = schema[k]
@@ -829,10 +820,6 @@ function parseWithTypeValidation(b, schema, input, path) {
   }
 }
 
-function noop(_b, input, param, param$1) {
-  return input;
-}
-
 function noopOperation(i) {
   return i;
 }
@@ -845,94 +832,6 @@ var nonJsonableTags = new Set([
       "instance",
       "symbol"
     ]);
-
-function internalCompile(schema, flag) {
-  var b = rootScope(flag);
-  if (flag & 8) {
-    var output = reverse(schema);
-    jsonableValidation(output, output, "", flag, undefined);
-  }
-  var input = {
-    b: b,
-    v: _var,
-    i: "i",
-    a: false
-  };
-  var builder = schema.builder;
-  var output$1 = builder !== undefined ? builder(b, input, schema, "") : input;
-  schema.isAsync = output$1.a;
-  if (b.l !== "") {
-    b.c = "let " + b.l + ";" + b.c;
-  }
-  if (flag & 1 || isLiteral(schema)) {
-    b.c = typeFilterCode(b, schema, input, "") + b.c;
-  }
-  if (b.c === "" && output$1 === input && !(flag & 22)) {
-    return noopOperation;
-  }
-  var inlinedOutput = flag & 4 ? "void 0" : output$1.i;
-  if (flag & 16) {
-    inlinedOutput = "JSON.stringify(" + inlinedOutput + ")";
-  }
-  if (flag & 2 && !output$1.a) {
-    inlinedOutput = "Promise.resolve(" + inlinedOutput + ")";
-  }
-  var inlinedFunction = "i=>{" + b.c + "return " + inlinedOutput + "}";
-  return new Function("e", "s", "return " + inlinedFunction)(b.g.e, s);
-}
-
-function operationFn(s, o) {
-  if ((o in s)) {
-    return (s[o]);
-  }
-  var ss = o & 32 ? reverse(s) : s;
-  var f = internalCompile(ss, o);
-  ((s[o] = f));
-  return f;
-}
-
-function reverse(schema) {
-  var fn = schema.output;
-  if (fn === undefined) {
-    return schema;
-  }
-  if (typeof fn === "object") {
-    return fn;
-  }
-  var reversed = fn.call(schema);
-  var reversed$1 = reversed.output === undefined ? copy(reversed) : reversed;
-  if (reversed$1["~standard"] === undefined) {
-    toStandard(reversed$1);
-  }
-  schema.output = reversed$1;
-  reversed$1.output = schema;
-  return reversed$1;
-}
-
-function toStandard(schema) {
-  schema.with = w;
-  schema["~standard"] = {
-    version: 1,
-    vendor: vendor,
-    validate: (function (input) {
-        try {
-          return {
-                  value: operationFn(schema, 1)(input)
-                };
-        }
-        catch (exn){
-          var error = getOrRethrow(exn);
-          return {
-                  issues: [{
-                      message: message(error),
-                      path: error.path === "" ? undefined : toArray(error.path)
-                    }]
-                };
-        }
-      })
-  };
-  return schema;
-}
 
 function jsonableValidation(output, parent, path, flag, recSet) {
   var tag = output.type;
@@ -977,6 +876,94 @@ function jsonableValidation(output, parent, path, flag, recSet) {
         jsonableValidation(item.schema, output, path + ("[" + item.inlinedLocation + "]"), flag, recSet$2);
       });
 }
+
+function reverse(schema) {
+  var fn = schema.output;
+  if (fn === undefined) {
+    return schema;
+  }
+  if (typeof fn === "object") {
+    return fn;
+  }
+  var reversed = fn.call(schema);
+  var reversed$1 = reversed.output === undefined ? copy(reversed) : reversed;
+  if (reversed$1["~standard"] === undefined) {
+    new Schema(reversed$1);
+  }
+  schema.output = reversed$1;
+  reversed$1.output = schema;
+  return reversed$1;
+}
+
+function internalCompile(schema, flag) {
+  var b = rootScope(flag);
+  if (flag & 8) {
+    var output = reverse(schema);
+    jsonableValidation(output, output, "", flag, undefined);
+  }
+  var input = {
+    b: b,
+    v: _var,
+    i: "i",
+    a: false
+  };
+  var builder = schema.builder;
+  var output$1 = builder !== undefined ? builder(b, input, schema, "") : input;
+  schema.isAsync = output$1.a;
+  if (b.l !== "") {
+    b.c = "let " + b.l + ";" + b.c;
+  }
+  if (flag & 1 || isLiteral(schema)) {
+    b.c = typeFilterCode(b, schema, input, "") + b.c;
+  }
+  if (b.c === "" && output$1 === input && !(flag & 22)) {
+    return noopOperation;
+  }
+  var inlinedOutput = flag & 4 ? "void 0" : output$1.i;
+  if (flag & 16) {
+    inlinedOutput = "JSON.stringify(" + inlinedOutput + ")";
+  }
+  if (flag & 2 && !output$1.a) {
+    inlinedOutput = "Promise.resolve(" + inlinedOutput + ")";
+  }
+  var inlinedFunction = "i=>{" + b.c + "return " + inlinedOutput + "}";
+  return new Function("e", "s", "return " + inlinedFunction)(b.g.e, s);
+}
+
+function operationFn(s, o) {
+  if ((o in s)) {
+    return (s[o]);
+  }
+  var f = internalCompile(o & 32 ? reverse(s) : s, o);
+  ((s[o] = f));
+  return f;
+}
+
+d(sp, "~standard", {
+      get: (function () {
+          var schema = this;
+          return {
+                  version: 1,
+                  vendor: vendor,
+                  validate: (function (input) {
+                      try {
+                        return {
+                                value: operationFn(schema, 1)(input)
+                              };
+                      }
+                      catch (exn){
+                        var error = getOrRethrow(exn);
+                        return {
+                                issues: [{
+                                    message: message(error),
+                                    path: error.path === "" ? undefined : toArray(error.path)
+                                  }]
+                              };
+                      }
+                    })
+                };
+        })
+    });
 
 function compile(schema, input, output, mode, typeValidationOpt) {
   var typeValidation = typeValidationOpt !== undefined ? typeValidationOpt : true;
@@ -1096,13 +1083,11 @@ function assertOrThrow(any, schema) {
 
 var $$undefined = {
   type: "undefined",
-  builder: noop,
   const: (void 0)
 };
 
 var $$null = {
   type: "null",
-  builder: noop,
   const: null
 };
 
@@ -1114,19 +1099,16 @@ function parse(value) {
   var schema;
   if ($$typeof === "object") {
     var i = {
-      type: "instance",
-      builder: noop
+      type: "instance"
     };
     i.class = value.constructor;
     schema = i;
   } else {
     schema = $$typeof === "undefined" ? $$undefined : (
         $$typeof === "number" && Number.isNaN(value) ? ({
-              type: "nan",
-              builder: noop
+              type: "nan"
             }) : ({
-              type: $$typeof,
-              builder: noop
+              type: $$typeof
             })
       );
   }
@@ -1214,7 +1196,7 @@ function get$1(schema, id) {
 function set$1(schema, id, metadata) {
   var mut = copy(schema);
   mut[id] = metadata;
-  return toStandard(mut);
+  return new Schema(mut);
 }
 
 function recursive(fn) {
@@ -1302,13 +1284,13 @@ function recursive(fn) {
         });
       return mut;
     });
-  return toStandard(schema);
+  return new Schema(schema);
 }
 
 function noValidation(schema, value) {
   var mut = copy(schema);
   mut.noValidation = value;
-  return toStandard(mut);
+  return new Schema(mut);
 }
 
 function internalRefine(schema, refiner) {
@@ -1344,7 +1326,7 @@ function internalRefine(schema, refiner) {
         });
       return mut;
     });
-  return toStandard(mut);
+  return new Schema(mut);
 }
 
 function refine(schema, refiner) {
@@ -1418,10 +1400,10 @@ function transform$1(schema, transformer) {
             };
     });
   mut.isAsync = undefined;
-  return toStandard(mut);
+  return new Schema(mut);
 }
 
-var unit = toStandard($$undefined);
+var unit = new Schema($$undefined);
 
 function output() {
   return {
@@ -1438,7 +1420,7 @@ function output() {
         };
 }
 
-var nullAsUnit = toStandard({
+var nullAsUnit = new Schema({
       type: "null",
       builder: (function (b, param, param$1, param$2) {
           return {
@@ -1452,9 +1434,8 @@ var nullAsUnit = toStandard({
       output: output
     });
 
-var unknown = toStandard({
-      type: "unknown",
-      builder: noop
+var unknown = new Schema({
+      type: "unknown"
     });
 
 function builder(b, input, selfSchema, path) {
@@ -1468,7 +1449,7 @@ function builder(b, input, selfSchema, path) {
   return input;
 }
 
-var schema = toStandard({
+var schema = new Schema({
       type: "never",
       builder: builder
     });
@@ -1789,7 +1770,7 @@ function factory(schemas) {
         has[tmp] = true;
       }
     }
-    return toStandard({
+    return new Schema({
                 type: "union",
                 builder: builder$1,
                 has: has,
@@ -1975,7 +1956,7 @@ function getWithDefault(schema, $$default) {
         return reversed;
       }
     });
-  return toStandard(mut);
+  return new Schema(mut);
 }
 
 function getOr(schema, defalutValue) {
@@ -2004,7 +1985,7 @@ function refinements(schema) {
 }
 
 function factory$2(item$1) {
-  return toStandard({
+  return new Schema({
               type: "array",
               builder: (function (b, input, param, path) {
                   var inputVar = input.v(b);
@@ -2082,7 +2063,7 @@ function setAdditionalItems(schema, additionalItems, deep) {
     mut.items = newItems;
     mut.fields = newFields;
   }
-  return toStandard(mut);
+  return new Schema(mut);
 }
 
 function strip(schema) {
@@ -2102,7 +2083,7 @@ function deepStrict(schema) {
 }
 
 function factory$3(item$1) {
-  return toStandard({
+  return new Schema({
               type: "object",
               builder: (function (b, input, param, path) {
                   var inputVar = input.v(b);
@@ -2178,14 +2159,13 @@ var emailRegex = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-
 
 var datetimeRe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
 
-var schema$1 = toStandard({
-      type: "string",
-      builder: noop
+var schema$1 = new Schema({
+      type: "string"
     });
 
 function factory$4(item, spaceOpt) {
   var space = spaceOpt !== undefined ? spaceOpt : 0;
-  return toStandard({
+  return new Schema({
               type: "string",
               builder: (function (b, input, param, path) {
                   var jsonVal = allocateVal(b);
@@ -2223,14 +2203,12 @@ function factory$4(item, spaceOpt) {
             });
 }
 
-var bool = toStandard({
-      type: "boolean",
-      builder: noop
+var bool = new Schema({
+      type: "boolean"
     });
 
-var symbol = toStandard({
-      type: "symbol",
-      builder: noop
+var symbol = new Schema({
+      type: "symbol"
     });
 
 var metadataId$2 = "m:Int.refinements";
@@ -2244,9 +2222,8 @@ function refinements$2(schema) {
   }
 }
 
-var schema$2 = toStandard({
+var schema$2 = new Schema({
       type: "number",
-      builder: noop,
       format: "int32"
     });
 
@@ -2261,14 +2238,12 @@ function refinements$3(schema) {
   }
 }
 
-var schema$3 = toStandard({
-      type: "number",
-      builder: noop
+var schema$3 = new Schema({
+      type: "number"
     });
 
-var schema$4 = toStandard({
-      type: "bigint",
-      builder: noop
+var schema$4 = new Schema({
+      type: "bigint"
     });
 
 function to(from, target) {
@@ -2491,7 +2466,7 @@ function to(from, target) {
   mut.output = (function () {
       return to(reverse(target), fromOutput);
     });
-  return toStandard(mut);
+  return new Schema(mut);
 }
 
 function list(schema) {
@@ -2504,15 +2479,14 @@ function list(schema) {
 }
 
 function instance(class_) {
-  return toStandard({
+  return new Schema({
               type: "instance",
-              builder: noop,
               class: class_
             });
 }
 
 function json(validate) {
-  return toStandard({
+  return new Schema({
               type: "json",
               builder: validate ? (function (b, input, selfSchema, path) {
                     var parse = function (input, pathOpt) {
@@ -2553,7 +2527,7 @@ function json(validate) {
                                 }, path$1);
                     };
                     return map(embed(b, parse), input);
-                  }) : noop,
+                  }) : undefined,
               output: (function () {
                   if (validate) {
                     return json(false);
@@ -2596,7 +2570,7 @@ function $$catch(schema, getFallbackValue) {
     });
   mut.noValidation = true;
   mut.catch = true;
-  return toStandard(mut);
+  return new Schema(mut);
 }
 
 function meta(schema, data) {
@@ -2637,7 +2611,7 @@ function meta(schema, data) {
       mut.examples = undefined;
     }
   }
-  return toStandard(mut);
+  return new Schema(mut);
 }
 
 function getFullDitemPath(ditem) {
@@ -2798,7 +2772,7 @@ function nested(fieldName) {
   var schemas = [];
   var fields = {};
   var items = [];
-  var schema = toStandard({
+  var schema = new Schema({
         type: "object",
         builder: builder$3,
         additionalItems: globalConfig.a,
@@ -2874,42 +2848,6 @@ function nested(fieldName) {
   return ctx$1;
 }
 
-function output$2() {
-  var items = this.items;
-  var reversedFields = {};
-  var reversedItems = [];
-  var isTransformed = false;
-  for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
-    var match = items[idx];
-    var $$location = match.location;
-    var schema = match.schema;
-    var reversed = reverse(schema);
-    var item_inlinedLocation = match.inlinedLocation;
-    var item = {
-      schema: reversed,
-      location: $$location,
-      inlinedLocation: item_inlinedLocation
-    };
-    reversedFields[$$location] = item;
-    reversedItems.push(item);
-    if (schema !== reversed) {
-      isTransformed = true;
-    }
-    
-  }
-  if (isTransformed) {
-    return {
-            type: "object",
-            builder: builder$3,
-            additionalItems: globalConfig.a,
-            items: reversedItems,
-            fields: reversedFields
-          };
-  } else {
-    return this;
-  }
-}
-
 function definitionToSchema(definition) {
   if (!(typeof definition === "object" && definition !== null)) {
     return parse(definition);
@@ -2959,7 +2897,6 @@ function definitionToSchema(definition) {
   if (cnstr && cnstr !== Object) {
     return {
             type: "instance",
-            builder: noop,
             const: definition,
             class: cnstr
           };
@@ -2987,6 +2924,42 @@ function definitionToSchema(definition) {
           fields: definition,
           output: output$2
         };
+}
+
+function output$2() {
+  var items = this.items;
+  var reversedFields = {};
+  var reversedItems = [];
+  var isTransformed = false;
+  for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
+    var match = items[idx];
+    var $$location = match.location;
+    var schema = match.schema;
+    var reversed = reverse(schema);
+    var item_inlinedLocation = match.inlinedLocation;
+    var item = {
+      schema: reversed,
+      location: $$location,
+      inlinedLocation: item_inlinedLocation
+    };
+    reversedFields[$$location] = item;
+    reversedItems.push(item);
+    if (schema !== reversed) {
+      isTransformed = true;
+    }
+    
+  }
+  if (isTransformed) {
+    return {
+            type: "object",
+            builder: builder$3,
+            additionalItems: globalConfig.a,
+            items: reversedItems,
+            fields: reversedFields
+          };
+  } else {
+    return this;
+  }
 }
 
 function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
@@ -3272,7 +3245,7 @@ function shape(schema, definer) {
       return output;
     });
   mut.output = advancedReverse(definition, item, undefined);
-  return toStandard(mut);
+  return new Schema(mut);
 }
 
 function object(definer) {
@@ -3349,7 +3322,7 @@ function object(definer) {
     flatten: flatten
   };
   var definition = definer(ctx);
-  return toStandard({
+  return new Schema({
               type: "object",
               builder: advancedBuilder(definition, flattened),
               advanced: true,
@@ -3398,7 +3371,7 @@ function tuple(definer) {
     }
     
   }
-  return toStandard({
+  return new Schema({
               type: "array",
               builder: advancedBuilder(definition, undefined),
               additionalItems: "strict",
@@ -3416,7 +3389,7 @@ var ctx = {
 };
 
 function factory$5(definer) {
-  return toStandard(definitionToSchema(definer(ctx)));
+  return new Schema(definitionToSchema(definer(ctx)));
 }
 
 function factory$6(item) {
@@ -3424,7 +3397,7 @@ function factory$6(item) {
 }
 
 function js_schema(definition) {
-  return toStandard(definitionToSchema(definition));
+  return new Schema(definitionToSchema(definition));
 }
 
 function $$enum(values) {
@@ -3437,7 +3410,7 @@ function unnest(schema) {
     if (items.length === 0) {
       throw new Error("[Sury] Invalid empty object for S.unnest schema.");
     }
-    return toStandard({
+    return new Schema({
                 type: "array",
                 builder: (function (b, input, param, path) {
                     var inputVar = input.v(b);
@@ -3567,14 +3540,14 @@ function tuple1(v0) {
 }
 
 function tuple2(v0, v1) {
-  return toStandard(definitionToSchema([
+  return new Schema(definitionToSchema([
                   v0,
                   v1
                 ]));
 }
 
 function tuple3(v0, v1, v2) {
-  return toStandard(definitionToSchema([
+  return new Schema(definitionToSchema([
                   v0,
                   v1,
                   v2
@@ -3836,7 +3809,7 @@ function js_refine(schema, refiner) {
               }));
 }
 
-function noop$1(a) {
+function noop(a) {
   return a;
 }
 
@@ -3848,7 +3821,7 @@ function js_asyncParserRefine(schema, refine) {
                                         return v;
                                       });
                           }),
-                        s: noop$1
+                        s: noop
                       };
               }));
 }
@@ -3899,7 +3872,7 @@ function js_merge(s1, s2) {
         items.push(item);
         fields[item.location] = item;
       }
-      return toStandard({
+      return new Schema({
                   type: "object",
                   builder: (function (b, input, param, path) {
                       var builder = s1.builder;
@@ -4646,7 +4619,7 @@ var union = factory;
 
 var parseJsonOrThrow = parseOrThrow;
 
-var Schema = {};
+var Schema$1 = {};
 
 var schema$5 = factory$5;
 
@@ -4744,7 +4717,7 @@ export {
   recursive ,
   noValidation ,
   toExpression ,
-  Schema ,
+  Schema$1 as Schema,
   schema$5 as schema,
   $$Object ,
   object ,
