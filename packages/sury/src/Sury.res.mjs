@@ -808,8 +808,8 @@ function parse(b, _schema, _input, path) {
   while(true) {
     var input = _input;
     var schema = _schema;
-    var builder = schema.builder;
-    var input$1 = builder !== undefined ? builder(b, input, schema, path) : input;
+    var parser = schema.parser;
+    var input$1 = parser !== undefined ? parser(b, input, schema, path) : input;
     var validateTo = false;
     var input$2;
     if (schema.coerce) {
@@ -1449,7 +1449,7 @@ function set$1(schema, id, metadata) {
 function recursive(fn) {
   var r = "r" + globalConfig.r;
   globalConfig.r = globalConfig.r + 1 | 0;
-  var builder = function (b, input, param, param$1) {
+  var parser = function (b, input, param, param$1) {
     return transform(b, input, (function (_b, input) {
                   return map(r, input);
                 }));
@@ -1457,23 +1457,23 @@ function recursive(fn) {
   var output = function () {
     var mut = new Schema();
     mut.type = "unknown";
-    mut.builder = (function (_b, input, param, param$1) {
+    mut.parser = (function (_b, input, param, param$1) {
         return map(r, input);
       });
     return mut;
   };
   var placeholder = new Schema();
   placeholder.type = "unknown";
-  placeholder.builder = builder;
+  placeholder.parser = parser;
   placeholder.output = output;
   placeholder.name = "Self";
   var schema = fn(placeholder);
   mergeInPlace(placeholder, schema);
   placeholder.name = toExpression(schema);
-  placeholder.builder = builder;
+  placeholder.parser = parser;
   placeholder.output = output;
-  var initialParseOperationBuilder = schema.builder;
-  schema.builder = (function (b, input, selfSchema, path) {
+  var initialParseOperationBuilder = schema.parser;
+  schema.parser = (function (b, input, selfSchema, path) {
       var inputVar = input.v(b);
       var bb = {
         c: "",
@@ -1489,7 +1489,7 @@ function recursive(fn) {
                                   var output = map(r, input);
                                   if (opOutput.a) {
                                     output.a = true;
-                                    placeholder.builder = (function (b, input, param, param$1) {
+                                    placeholder.parser = (function (b, input, param, param$1) {
                                         return transform(b, input, (function (_b, input) {
                                                       var output = map(r, input);
                                                       output.a = true;
@@ -1507,7 +1507,7 @@ function recursive(fn) {
       var mut = copy(initialReversed);
       mut.output = schema;
       schema.output = mut;
-      mut.builder = (function (b, input, selfSchema, path) {
+      mut.parser = (function (b, input, selfSchema, path) {
           var inputVar = input.v(b);
           var bb = {
             c: "",
@@ -1521,7 +1521,7 @@ function recursive(fn) {
             i: input.i,
             a: input.a
           };
-          var opOutput = initialReversed.builder(bb, initialInput, selfSchema, "");
+          var opOutput = initialReversed.parser(bb, initialInput, selfSchema, "");
           var opBodyCode = allocateScope(bb) + ("return " + opOutput.i);
           b.c = b.c + ("let " + r + "=" + inputVar + "=>{" + opBodyCode + "};");
           return withPathPrepend(b, input, path, undefined, undefined, (function (_b, input, param) {
@@ -1541,7 +1541,7 @@ function noValidation(schema, value) {
 
 function internalRefine(schema, refiner) {
   var mut = copy(schema);
-  mut.builder = (function (b, input, selfSchema, path) {
+  mut.parser = (function (b, input, selfSchema, path) {
       return transform(b, parse(b, schema, input, path), (function (b, input) {
                     var bb = {
                       c: "",
@@ -1557,7 +1557,7 @@ function internalRefine(schema, refiner) {
   mut.output = (function () {
       var schema$1 = reverse(schema);
       var mut = copy(schema$1);
-      mut.builder = (function (b, input, selfSchema, path) {
+      mut.parser = (function (b, input, selfSchema, path) {
           return parse(b, schema$1, transform(b, input, (function (b, input) {
                             b.c = b.c + refiner(b, input.v(b), selfSchema, path);
                             return input;
@@ -1581,7 +1581,7 @@ function addRefinement(schema, metadataId, refinement, refiner) {
 
 function transform$1(schema, transformer) {
   var mut = copy(schema);
-  mut.builder = (function (b, input, selfSchema, path) {
+  mut.parser = (function (b, input, selfSchema, path) {
       var input$1 = parse(b, schema, input, path);
       var match = transformer(effectCtx(b, selfSchema, path));
       var parser = match.p;
@@ -1612,7 +1612,7 @@ function transform$1(schema, transformer) {
       var schema$1 = reverse(schema);
       return {
               type: "unknown",
-              builder: (function (b, input, selfSchema, path) {
+              parser: (function (b, input, selfSchema, path) {
                   var match = transformer(effectCtx(b, selfSchema, path));
                   var serializer = match.s;
                   if (serializer !== undefined) {
@@ -1633,7 +1633,7 @@ function output() {
   var mut = new Schema();
   mut.type = "undefined";
   mut.const = (void 0);
-  mut.builder = (function (b, param, param$1, param$2) {
+  mut.parser = (function (b, param, param$1, param$2) {
       return {
               b: b,
               v: _notVar,
@@ -1650,7 +1650,7 @@ mut.type = "null";
 
 mut.const = null;
 
-mut.builder = (function (b, param, param$1, param$2) {
+mut.parser = (function (b, param, param$1, param$2) {
     return {
             b: b,
             v: _notVar,
@@ -1665,7 +1665,7 @@ var unknown = new Schema();
 
 unknown.type = "unknown";
 
-function builder(b, input, selfSchema, path) {
+function parser(b, input, selfSchema, path) {
   b.c = b.c + failWithArg(b, path, (function (input) {
           return {
                   TAG: "InvalidType",
@@ -1680,7 +1680,7 @@ var never = new Schema();
 
 never.type = "never";
 
-never.builder = builder;
+never.parser = parser;
 
 function getItemCode(b, schema, input, output, deopt, path) {
   try {
@@ -1722,7 +1722,7 @@ function isPriority(tag, byKey) {
   }
 }
 
-function builder$1(b, input, selfSchema, path) {
+function parser$1(b, input, selfSchema, path) {
   var fail = function (caught) {
     return embed(b, (function (param) {
                   var args = arguments;
@@ -1894,7 +1894,7 @@ function builder$1(b, input, selfSchema, path) {
         };
         cond = validation(b, inputVar, {
               type: firstSchema.type,
-              builder: 0
+              parser: 0
             }, false);
         if (itemNoop) {
           if (itemStart) {
@@ -1977,7 +1977,7 @@ function factory(schemas) {
     var anyOf = new Set();
     for(var idx = 0 ,idx_finish = schemas.length; idx < idx_finish; ++idx){
       var schema = schemas[idx];
-      if (schema.type === "union" && schema.builder === builder$1) {
+      if (schema.type === "union" && schema.parser === parser$1) {
         schema.anyOf.forEach(function (item) {
               anyOf.add(item);
             });
@@ -2000,7 +2000,7 @@ function factory(schemas) {
     var mut = new Schema();
     mut.type = "union";
     mut.anyOf = Array.from(anyOf);
-    mut.builder = builder$1;
+    mut.parser = parser$1;
     mut.output = output$1;
     mut.has = has;
     return mut;
@@ -2046,7 +2046,7 @@ function nestedNone() {
   fields[nestedLoc] = item;
   return {
           type: "object",
-          builder: (function (b, param, selfSchema, param$1) {
+          parser: (function (b, param, selfSchema, param$1) {
               return {
                       b: b,
                       v: _notVar,
@@ -2060,7 +2060,7 @@ function nestedNone() {
         };
 }
 
-function builder$2(b, param, selfSchema, param$1) {
+function parser$2(b, param, selfSchema, param$1) {
   return {
           b: b,
           v: _notVar,
@@ -2072,7 +2072,7 @@ function builder$2(b, param, selfSchema, param$1) {
 function nestedOption(item) {
   var mut = copy(item);
   mut.output = nestedNone;
-  mut.builder = builder$2;
+  mut.parser = parser$2;
   return mut;
 }
 
@@ -2118,7 +2118,7 @@ function factory$1(item, unitOpt) {
                 var fSchema = item$1.schema;
                 var newItem_schema = {
                   type: fSchema.type,
-                  builder: fSchema.builder,
+                  parser: fSchema.parser,
                   const: fSchema.const + 1
                 };
                 var newItem_location = item$1.location;
@@ -2158,7 +2158,7 @@ function factory$1(item, unitOpt) {
 function getWithDefault(schema, $$default) {
   var mut = copy(schema);
   mut[defaultMetadataId] = $$default;
-  mut.builder = (function (b, input, param, path) {
+  mut.parser = (function (b, input, param, path) {
       return transform(b, parse(b, schema, input, path), (function (b, input) {
                     var inputVar = input.v(b);
                     var tmp;
@@ -2215,7 +2215,7 @@ function factory$2(item$1) {
   mut.type = "array";
   mut.additionalItems = item$1;
   mut.items = immutableEmpty$1;
-  mut.builder = (function (b, input, param, path) {
+  mut.parser = (function (b, input, param, path) {
       var inputVar = input.v(b);
       var iteratorVar = varWithoutAllocation(b.g);
       var bb = {
@@ -2314,7 +2314,7 @@ function factory$3(item$1) {
   mut.fields = immutableEmpty;
   mut.items = immutableEmpty$1;
   mut.additionalItems = item$1;
-  mut.builder = (function (b, input, param, path) {
+  mut.parser = (function (b, input, param, path) {
       var inputVar = input.v(b);
       var keyVar = varWithoutAllocation(b.g);
       var bb = {
@@ -2393,7 +2393,7 @@ function factory$4(item, spaceOpt) {
   var space = spaceOpt !== undefined ? spaceOpt : 0;
   var mut = new Schema();
   mut.type = "string";
-  mut.builder = (function (b, input, param, path) {
+  mut.parser = (function (b, input, param, path) {
       var jsonVal = allocateVal(b);
       b.c = b.c + ("try{" + jsonVal.i + "=JSON.parse(" + input.i + ")}catch(t){" + failWithArg(b, path, (function (message) {
                 return {
@@ -2406,7 +2406,7 @@ function factory$4(item, spaceOpt) {
   mut.output = (function () {
       var reversed = reverse(item);
       var mut = copy(reversed);
-      mut.builder = (function (b, input, param, path) {
+      mut.parser = (function (b, input, param, path) {
           var prevFlag = b.g.o;
           b.g.o = prevFlag | 8;
           jsonableValidation(reversed, reversed, "", b.g.o, undefined);
@@ -2506,7 +2506,7 @@ function json(validate) {
   var mut = new Schema();
   mut.type = "json";
   if (validate) {
-    mut.builder = (function (b, input, selfSchema, path) {
+    mut.parser = (function (b, input, selfSchema, path) {
         var parse = function (input, pathOpt) {
           var path$1 = pathOpt !== undefined ? pathOpt : path;
           var match = typeof input;
@@ -2561,7 +2561,7 @@ var Catch = {};
 
 function $$catch(schema, getFallbackValue) {
   var mut = copy(schema);
-  mut.builder = (function (b, input, selfSchema, path) {
+  mut.parser = (function (b, input, selfSchema, path) {
       var inputVar = input.v(b);
       return withCatch(b, input, (function (b, errorVar) {
                     return {
@@ -2736,7 +2736,7 @@ function proxify(item) {
             });
 }
 
-function builder$3(parentB, input, selfSchema, path) {
+function parser$3(parentB, input, selfSchema, path) {
   var additionalItems = selfSchema.additionalItems;
   var items = selfSchema.items;
   var isArray = selfSchema.type === "array";
@@ -2820,7 +2820,7 @@ function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
     return {
             k: 2,
             p: path,
-            s: (mut.type = "array", mut.items = items, mut.additionalItems = "strict", mut.builder = builder, mut.output = output$2, mut),
+            s: (mut.type = "array", mut.items = items, mut.additionalItems = "strict", mut.parser = parser, mut.output = output$2, mut),
             a: true
           };
   }
@@ -2845,7 +2845,7 @@ function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
   return {
           k: 2,
           p: path,
-          s: (mut$1.type = "object", mut$1.items = items$1, mut$1.fields = fields, mut$1.additionalItems = globalConfig.a, mut$1.advanced = true, mut$1.builder = builder, mut$1.output = output$2, mut$1),
+          s: (mut$1.type = "object", mut$1.items = items$1, mut$1.fields = fields, mut$1.additionalItems = globalConfig.a, mut$1.advanced = true, mut$1.parser = parser, mut$1.output = output$2, mut$1),
           a: false
         };
 }
@@ -2881,7 +2881,7 @@ function output$2() {
   mut.items = reversedItems;
   mut.fields = reversedFields;
   mut.additionalItems = globalConfig.a;
-  mut.builder = builder$3;
+  mut.parser = parser$3;
   return mut;
 }
 
@@ -2919,14 +2919,14 @@ function definitionToSchema(definition) {
     mut.type = "array";
     mut.items = definition;
     mut.additionalItems = "strict";
-    mut.builder = builder$3;
+    mut.parser = parser$3;
     if (isTransformed) {
       mut.output = (function () {
           var mut = new Schema();
           mut.type = "array";
           mut.items = reversedItems;
           mut.additionalItems = "strict";
-          mut.builder = builder$3;
+          mut.parser = parser$3;
           return mut;
         });
     }
@@ -2960,7 +2960,7 @@ function definitionToSchema(definition) {
   mut$1.items = items;
   mut$1.fields = definition;
   mut$1.additionalItems = globalConfig.a;
-  mut$1.builder = builder$3;
+  mut$1.parser = parser$3;
   mut$1.output = output$2;
   return mut$1;
 }
@@ -2980,7 +2980,7 @@ function nested(fieldName) {
   schema.items = items;
   schema.fields = fields;
   schema.additionalItems = globalConfig.a;
-  schema.builder = builder$3;
+  schema.parser = parser$3;
   schema.output = output$2;
   var target = parentCtx.f(fieldName, schema)[itemSymbol];
   var field = function (fieldName, schema) {
@@ -3125,7 +3125,7 @@ function advancedReverse(definition, to, flattened) {
           break;
       
     }
-    mut.builder = (function (b, input, selfSchema, path) {
+    mut.parser = (function (b, input, selfSchema, path) {
         var getRitemInput = function (ritem) {
           if (ritem.p === "") {
             return input;
@@ -3218,7 +3218,7 @@ function shape(schema, definer) {
     i: 0
   };
   var definition = definer(proxify(item));
-  mut.builder = (function (b, input, param, path) {
+  mut.parser = (function (b, input, param, path) {
       var itemOutput = parse(b, schema, input, path);
       var bb = {
         c: "",
@@ -3324,7 +3324,7 @@ function object(definer) {
   mut.fields = fields;
   mut.additionalItems = globalConfig.a;
   mut.advanced = true;
-  mut.builder = advancedBuilder(definition, flattened);
+  mut.parser = advancedBuilder(definition, flattened);
   mut.output = advancedReverse(definition, undefined, flattened);
   return mut;
 }
@@ -3371,7 +3371,7 @@ function tuple(definer) {
   mut.type = "array";
   mut.items = items;
   mut.additionalItems = "strict";
-  mut.builder = advancedBuilder(definition, undefined);
+  mut.parser = advancedBuilder(definition, undefined);
   mut.output = advancedReverse(definition, undefined, undefined);
   return mut;
 }
@@ -3417,7 +3417,7 @@ function unnest(schema) {
                 };
         });
     mut.additionalItems = "strict";
-    mut.builder = (function (b, input, param, path) {
+    mut.parser = (function (b, input, param, path) {
         var inputVar = input.v(b);
         var iteratorVar = varWithoutAllocation(b.g);
         var bb = {
@@ -3469,7 +3469,7 @@ function unnest(schema) {
         mut.type = "array";
         mut.items = immutableEmpty$1;
         mut.additionalItems = schema$1;
-        mut.builder = (function (b, input, param, path) {
+        mut.parser = (function (b, input, param, path) {
             var inputVar = input.v(b);
             var iteratorVar = varWithoutAllocation(b.g);
             var outputVar = varWithoutAllocation(b.g);
@@ -3869,7 +3869,7 @@ function js_merge(s1, s2) {
       mut.fields = fields;
       mut.additionalItems = s2.additionalItems;
       mut.advanced = true;
-      mut.builder = (function (b, input, param, path) {
+      mut.parser = (function (b, input, param, path) {
           var s1Result = parse(b, s1, input, path);
           var s2Result = parse(b, s2, input, path);
           return {
@@ -3882,7 +3882,7 @@ function js_merge(s1, s2) {
       mut.output = (function () {
           var mut = new Schema();
           mut.type = "unknown";
-          mut.builder = (function (b, param, param$1, path) {
+          mut.parser = (function (b, param, param$1, path) {
               return invalidOperation(b, path, "The S.merge serializing is not supported yet");
             });
           return mut;

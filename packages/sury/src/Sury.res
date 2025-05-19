@@ -406,7 +406,7 @@ and schema<'a> = t<'a>
 and internal = {
   @as("type")
   mutable tag: tag,
-  mutable builder?: builder,
+  mutable parser?: builder,
   // A schema we transform to
   mutable to?: internal,
   // Whether we used S.to to coerce to the `to` schema
@@ -1357,8 +1357,8 @@ module Builder = {
     }
 
     let rec parse = (b: b, ~schema, ~input, ~path) => {
-      let input = switch schema.builder {
-      | Some(builder) => builder(b, ~input, ~selfSchema=schema, ~path)
+      let input = switch schema.parser {
+      | Some(parser) => parser(b, ~input, ~selfSchema=schema, ~path)
       | None => input
       }
       let validateTo = ref(false)
@@ -1996,7 +1996,7 @@ let recursive = fn => {
   let r = "r" ++ globalConfig.recCounter->Stdlib.Int.unsafeToString
   globalConfig.recCounter = globalConfig.recCounter + 1
 
-  let builder = Builder.make((b, ~input, ~selfSchema as _, ~path as _) => {
+  let parser = Builder.make((b, ~input, ~selfSchema as _, ~path as _) => {
     b->B.transform(~input, (_b, ~input) => {
       B.Val.map(r, input)
     })
@@ -2004,7 +2004,7 @@ let recursive = fn => {
   let output = () => {
     let mut = base()
     mut.tag = Unknown
-    mut.builder = Some(
+    mut.parser = Some(
       Builder.make((_b, ~input, ~selfSchema as _, ~path as _) => {
         B.Val.map(r, input)
       }),
@@ -2014,7 +2014,7 @@ let recursive = fn => {
 
   let placeholder: internal = base()
   placeholder.tag = Unknown
-  placeholder.builder = Some(builder)
+  placeholder.parser = Some(parser)
   placeholder.output = Some(output)
   placeholder.name = Some("Self")
 
@@ -2022,13 +2022,13 @@ let recursive = fn => {
 
   mergeInPlace(placeholder, schema)
   placeholder.name = Some(schema->fromInternal->toExpression)
-  placeholder.builder = Some(builder)
+  placeholder.parser = Some(parser)
   placeholder.output = Some(output)
 
   // TODO: Test that it won't break with unsafeUnwrap
   // eg case S.recursive(_ => S.string)
-  let initialParseOperationBuilder = schema.builder->Stdlib.Option.unsafeUnwrap
-  schema.builder = Some(
+  let initialParseOperationBuilder = schema.parser->Stdlib.Option.unsafeUnwrap
+  schema.parser = Some(
     Builder.make((b, ~input, ~selfSchema, ~path) => {
       let inputVar = b->B.Val.var(input)
       let bb = b->B.scope
@@ -2042,7 +2042,7 @@ let recursive = fn => {
             let output = B.Val.map(r, input)
             if opOutput.isAsync {
               output.isAsync = true
-              placeholder.builder = Some(
+              placeholder.parser = Some(
                 Builder.make(
                   (b, ~input, ~selfSchema as _, ~path as _) => {
                     b->B.transform(
@@ -2071,7 +2071,7 @@ let recursive = fn => {
       let mut = initialReversed->copy
       mut.output = schema->Obj.magic
       schema.output = mut->Obj.magic
-      mut.builder = Some(
+      mut.parser = Some(
         Builder.make((b, ~input, ~selfSchema, ~path) => {
           let inputVar = b->B.Val.var(input)
           let bb = b->B.scope
@@ -2079,7 +2079,7 @@ let recursive = fn => {
             ...input,
             b: bb,
           }
-          let opOutput = (initialReversed.builder->Stdlib.Option.unsafeUnwrap)(
+          let opOutput = (initialReversed.parser->Stdlib.Option.unsafeUnwrap)(
             bb,
             ~input=initialInput,
             ~selfSchema,
@@ -2109,7 +2109,7 @@ let noValidation = (schema, value) => {
 let internalRefine = (schema, refiner) => {
   let schema = schema->toInternal
   let mut = schema->copy
-  mut.builder = Some(
+  mut.parser = Some(
     Builder.make((b, ~input, ~selfSchema, ~path) => {
       b->B.transform(~input=b->B.parse(~schema, ~input, ~path), (b, ~input) => {
         let bb = b->B.scope
@@ -2123,7 +2123,7 @@ let internalRefine = (schema, refiner) => {
     () => {
       let schema = schema->reverse
       let mut = schema->copy
-      mut.builder = Some(
+      mut.parser = Some(
         (b, ~input, ~selfSchema, ~path) => {
           b->B.parse(
             ~schema,
@@ -2173,7 +2173,7 @@ let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) =
 ) => {
   let schema = schema->toInternal
   let mut = schema->copy
-  mut.builder = Some(
+  mut.parser = Some(
     Builder.make((b, ~input, ~selfSchema, ~path) => {
       let input = b->B.parse(~schema, ~input, ~path)
 
@@ -2201,7 +2201,7 @@ let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) =
       let schema = schema->reverse
       {
         tag: Unknown,
-        builder: (b, ~input, ~selfSchema, ~path) => {
+        parser: (b, ~input, ~selfSchema, ~path) => {
           switch transformer(b->B.effectCtx(~selfSchema, ~path)) {
           | {serializer} =>
             b->B.parse(~schema, ~input=b->B.embedSyncOperation(~input, ~fn=serializer), ~path)
@@ -2226,7 +2226,7 @@ let nullAsUnit = {
     let mut = base()
     mut.tag = Undefined
     mut.const = %raw(`void 0`)
-    mut.builder = Some(
+    mut.parser = Some(
       Builder.make((b, ~input as _, ~selfSchema as _, ~path as _) => {
         b->B.val("null")
       }),
@@ -2236,7 +2236,7 @@ let nullAsUnit = {
   let mut = base()
   mut.tag = Null
   mut.const = %raw(`null`)
-  mut.builder = Some(
+  mut.parser = Some(
     Builder.make((b, ~input as _, ~selfSchema as _, ~path as _) => {
       b->B.val("void 0")
     }),
@@ -2250,7 +2250,7 @@ unknown.tag = Unknown
 let unknown = unknown->fromInternal
 
 module Never = {
-  let builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
+  let parser = Builder.make((b, ~input, ~selfSchema, ~path) => {
     b.code =
       b.code ++
       b->B.failWithArg(
@@ -2267,7 +2267,7 @@ module Never = {
 
 let never = base()
 never.tag = Never
-never.builder = Some(Never.builder)
+never.parser = Some(Never.parser)
 let never = never->fromInternal
 
 module Union = {
@@ -2310,7 +2310,7 @@ module Union = {
       (tag === (NaN: tag :> string) && byKey->Stdlib.Dict.has((Number: tag :> string)))
   }
 
-  let builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
+  let parser = Builder.make((b, ~input, ~selfSchema, ~path) => {
     let fail = caught => {
       `${b->B.embed(_ => {
           let args = %raw(`arguments`)
@@ -2531,7 +2531,7 @@ module Union = {
           cond :=
             b->B.validation(
               ~inputVar,
-              ~schema={tag: firstSchema.tag, builder: %raw(`0`)},
+              ~schema={tag: firstSchema.tag, parser: %raw(`0`)},
               ~negative=false,
             )
 
@@ -2634,7 +2634,7 @@ module Union = {
         let schema = schemas->Js.Array2.unsafe_get(idx)
 
         // Check if the union is not transformed
-        if schema.tag === Union && schema.builder === Some(builder) {
+        if schema.tag === Union && schema.parser === Some(parser) {
           schema.anyOf
           ->Stdlib.Option.unsafeUnwrap
           ->Js.Array2.forEach(item => {
@@ -2657,7 +2657,7 @@ module Union = {
       let mut = base()
       mut.tag = Union
       mut.anyOf = Some(anyOf->Stdlib.Set.toArray)
-      mut.builder = Some(builder)
+      mut.parser = Some(parser)
       mut.output = Some(output)
       mut.has = Some(has)
       mut->fromInternal
@@ -2705,13 +2705,13 @@ module Option = {
         fields,
         items: [item],
         additionalItems: Strip,
-        builder: Builder.make((b, ~input as _, ~selfSchema, ~path as _) => {
+        parser: Builder.make((b, ~input as _, ~selfSchema, ~path as _) => {
           b->B.val(b->B.inlineConst(selfSchema->reverse))
         }),
       }
     }
 
-    let builder = Builder.make((b, ~input as _, ~selfSchema, ~path as _) => {
+    let parser = Builder.make((b, ~input as _, ~selfSchema, ~path as _) => {
       b->B.val(
         `{${inLoc}:${(
             (
@@ -2725,7 +2725,7 @@ module Option = {
       let mut = item->copy
 
       mut.output = Some(nestedNone)
-      mut.builder = Some(builder)
+      mut.parser = Some(parser)
 
       mut
     }
@@ -2766,7 +2766,7 @@ module Option = {
                     ...item,
                     schema: {
                       tag: fSchema.tag,
-                      builder: ?fSchema.builder,
+                      parser: ?fSchema.parser,
                       const: fSchema.const->Obj.magic->Stdlib.Int.plus(1)->Obj.magic,
                     }->fromInternal,
                   }
@@ -2798,7 +2798,7 @@ module Option = {
     let schema = schema->toInternal
     let mut = schema->copy
     mut->Metadata.setInPlace(~id=defaultMetadataId, default)
-    mut.builder = Some(
+    mut.parser = Some(
       Builder.make((b, ~input, ~selfSchema as _, ~path) => {
         b->B.transform(~input=b->B.parse(~schema, ~input, ~path), (b, ~input) => {
           let inputVar = b->B.Val.var(input)
@@ -2864,7 +2864,7 @@ module Array = {
     mut.tag = Array
     mut.additionalItems = Some(Schema(item->fromInternal))
     mut.items = Some(Stdlib.Array.immutableEmpty)
-    mut.builder = Some(
+    mut.parser = Some(
       Builder.make((b, ~input, ~selfSchema as _, ~path) => {
         let inputVar = b->B.Val.var(input)
         let iteratorVar = b.global->B.varWithoutAllocation
@@ -2972,7 +2972,7 @@ module Dict = {
     mut.fields = Some(Stdlib.Object.immutableEmpty)
     mut.items = Some(Stdlib.Array.immutableEmpty)
     mut.additionalItems = Some(Schema(item->fromInternal))
-    mut.builder = Some(
+    mut.parser = Some(
       Builder.make((b, ~input, ~selfSchema as _, ~path) => {
         let inputVar = b->B.Val.var(input)
         let keyVar = b.global->B.varWithoutAllocation
@@ -3067,7 +3067,7 @@ module JsonString = {
     let item = item->toInternal
     let mut = base()
     mut.tag = String
-    mut.builder = Some(
+    mut.parser = Some(
       Builder.make((b, ~input, ~selfSchema as _, ~path) => {
         let jsonVal = b->B.allocateVal
 
@@ -3086,7 +3086,7 @@ module JsonString = {
       () => {
         let reversed = item->reverse
         let mut = reversed->copy
-        mut.builder = Some(
+        mut.parser = Some(
           Builder.make((b, ~input, ~selfSchema as _, ~path) => {
             let prevFlag = b.global.flag
             b.global.flag = prevFlag->Flag.with(Flag.jsonableOutput)
@@ -3197,7 +3197,7 @@ let rec to = (from, target) => {
     | _ => {
         let mut = from->copy
 
-        // mut.builder = Some(
+        // mut.parser = Some(
         //   Builder.make((b, ~input, ~selfSchema as _, ~path) => {
         //     let input = b->B.parse(~schema=from, ~input, ~path)
 
@@ -3263,7 +3263,7 @@ let rec json = (~validate) => {
   let mut = base()
   mut.tag = JSON // FIXME: Store validate on schema
   if validate {
-    mut.builder = Some(
+    mut.parser = Some(
       Builder.make((b, ~input, ~selfSchema, ~path) => {
         let rec parse = (input, ~path=path) => {
           switch input->Stdlib.Type.typeof {
@@ -3335,7 +3335,7 @@ module Catch = {
 let catch = (schema, getFallbackValue) => {
   let schema = schema->toInternal
   let mut = schema->copy
-  mut.builder = Some(
+  mut.parser = Some(
     Builder.make((b, ~input, ~selfSchema, ~path) => {
       let inputVar = b->B.Val.var(input)
 
@@ -3580,7 +3580,7 @@ module Schema = {
       },
     })
 
-  let rec builder = (parentB, ~input, ~selfSchema, ~path) => {
+  let rec parser = (parentB, ~input, ~selfSchema, ~path) => {
     let additionalItems = selfSchema.additionalItems
     let items = selfSchema.items->Stdlib.Option.unsafeUnwrap
     let isArray = selfSchema.tag === Array
@@ -3664,7 +3664,7 @@ module Schema = {
       mut.items = Some(reversedItems)
       mut.fields = Some(reversedFields)
       mut.additionalItems = Some(globalConfig.defaultAdditionalItems)
-      mut.builder = Some(builder)
+      mut.parser = Some(parser)
       mut
     } else {
       %raw(`this`)
@@ -3758,12 +3758,12 @@ module Schema = {
     let mut = switch ritem {
     | Registred(_)
     | Discriminant(_) =>
-      // Need to copy the schema here, because we're going to override the builder
+      // Need to copy the schema here, because we're going to override the parser
       ritem->getRitemReversed->copy
     | Node(_) => ritem->getRitemReversed
     }
 
-    mut.builder = Some(
+    mut.parser = Some(
       Builder.make((b, ~input, ~selfSchema, ~path) => {
         let getRitemInput = ritem => {
           ritem->getRitemPath === Path.empty
@@ -3895,7 +3895,7 @@ module Schema = {
       })
       let definition: unknown = definer(item->proxify)->Obj.magic
 
-      mut.builder = Some(
+      mut.parser = Some(
         Builder.make((b, ~input, ~selfSchema as _, ~path) => {
           let itemOutput = b->B.parse(~schema, ~input, ~path)
 
@@ -3940,7 +3940,7 @@ module Schema = {
           schema.items = Some(items)
           schema.fields = Some(fields)
           schema.additionalItems = Some(globalConfig.defaultAdditionalItems)
-          schema.builder = Some(builder)
+          schema.parser = Some(parser)
           schema.output = Some(output)
           schema->fromInternal
         }
@@ -4127,7 +4127,7 @@ module Schema = {
       mut.fields = Some(fields)
       mut.additionalItems = Some(globalConfig.defaultAdditionalItems)
       mut.advanced = Some(true)
-      mut.builder = Some(advancedBuilder(~definition, ~flattened))
+      mut.parser = Some(advancedBuilder(~definition, ~flattened))
       mut.output = Some(advancedReverse(~definition, ~flattened))
       mut->fromInternal
     }
@@ -4183,7 +4183,7 @@ module Schema = {
     mut.tag = Array
     mut.items = Some(items)
     mut.additionalItems = Some(Strict)
-    mut.builder = Some(advancedBuilder(~definition))
+    mut.parser = Some(advancedBuilder(~definition))
     mut.output = Some(advancedReverse(~definition))
     mut->fromInternal
   }
@@ -4229,7 +4229,7 @@ module Schema = {
                 mut.tag = Array
                 mut.items = Some(items)
                 mut.additionalItems = Some(Strict)
-                mut.builder = Some(Never.builder)
+                mut.parser = Some(Never.parser)
                 mut.output = Some(output)
                 mut
               },
@@ -4269,7 +4269,7 @@ module Schema = {
                 mut.fields = Some(fields)
                 mut.additionalItems = Some(globalConfig.defaultAdditionalItems)
                 mut.advanced = Some(true)
-                mut.builder = Some(Never.builder)
+                mut.parser = Some(Never.parser)
                 mut.output = Some(output)
                 mut
               },
@@ -4324,7 +4324,7 @@ module Schema = {
         mut.tag = Array
         mut.items = Some(items)
         mut.additionalItems = Some(Strict)
-        mut.builder = Some(builder)
+        mut.parser = Some(parser)
         if isTransformed.contents {
           mut.output = Some(
             () => {
@@ -4332,7 +4332,7 @@ module Schema = {
               mut.tag = Array
               mut.items = Some(reversedItems)
               mut.additionalItems = Some(Strict)
-              mut.builder = Some(builder)
+              mut.parser = Some(parser)
               mut
             },
           )
@@ -4368,7 +4368,7 @@ module Schema = {
           mut.items = Some(items)
           mut.fields = Some(node->(Obj.magic: dict<unknown> => dict<item>))
           mut.additionalItems = Some(globalConfig.defaultAdditionalItems)
-          mut.builder = Some(builder)
+          mut.parser = Some(parser)
           mut.output = Some(output)
           mut
         }
@@ -4425,7 +4425,7 @@ let unnest = schema => {
       }),
     )
     mut.additionalItems = Some(Strict)
-    mut.builder = Some(
+    mut.parser = Some(
       Builder.make((b, ~input, ~selfSchema as _, ~path) => {
         let inputVar = b->B.Val.var(input)
         let iteratorVar = b.global->B.varWithoutAllocation
@@ -4477,7 +4477,7 @@ let unnest = schema => {
         mut.tag = Array
         mut.items = Some(Stdlib.Array.immutableEmpty)
         mut.additionalItems = Some(Schema(schema->fromInternal))
-        mut.builder = Some(
+        mut.parser = Some(
           Builder.make((b, ~input, ~selfSchema as _, ~path) => {
             let inputVar = b->B.Val.var(input)
             let iteratorVar = b.global->B.varWithoutAllocation
@@ -5167,7 +5167,7 @@ let js_merge = (s1, s2) => {
     mut.fields = Some(fields)
     mut.additionalItems = Some(additionalItems)
     mut.advanced = Some(true)
-    mut.builder = Some(
+    mut.parser = Some(
       Builder.make((b, ~input, ~selfSchema as _, ~path) => {
         let s1Result = b->B.parse(~schema=s1, ~input, ~path)
         let s2Result = b->B.parse(~schema=s2, ~input, ~path)
@@ -5179,7 +5179,7 @@ let js_merge = (s1, s2) => {
       () => {
         let mut = base()
         mut.tag = Unknown
-        mut.builder = Some(
+        mut.parser = Some(
           Builder.make((b, ~input as _, ~selfSchema as _, ~path) => {
             b->B.invalidOperation(
               ~path,
