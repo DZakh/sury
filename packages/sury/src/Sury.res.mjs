@@ -144,6 +144,18 @@ var copy = ((schema) => {
   return c
 });
 
+function update(schema, fn) {
+  var root = copy(schema);
+  var mut = root;
+  while(mut.to) {
+    var next = copy(mut.to);
+    mut.to = next;
+    mut = next;
+  };
+  fn(mut);
+  return root;
+}
+
 var mergeInPlace = ((target, schema) => {
   for (let k in schema) {
     if (k > "a") {
@@ -808,11 +820,20 @@ function parse(b, _schema, _input, path) {
   while(true) {
     var input = _input;
     var schema = _schema;
+    var refiner = schema.refiner;
+    if (refiner !== undefined) {
+      refiner(b, input, schema, path);
+    }
+    var to = schema.to;
+    if (to === undefined) {
+      return input;
+    }
     var parser = schema.parser;
-    var input$1 = parser !== undefined ? parser(b, input, schema, path) : input;
-    var validateTo = false;
-    var input$2;
-    if (schema.coerce) {
+    var input$1;
+    if (parser !== undefined) {
+      input$1 = parser(b, input, schema, path);
+    } else {
+      var validateTo = false;
       var extendCoercion = 0;
       var shrinkCoercion = 1;
       var target = schema.to;
@@ -994,11 +1015,12 @@ function parse(b, _schema, _input, path) {
         var message = "Coercion from " + toExpression(schema) + " to " + toExpression(target) + " is not supported";
         throw new Error("[Sury] " + message);
       }
+      var input$2;
       if (coercion === extendCoercion) {
-        input$2 = input$1;
+        input$2 = input;
       } else if (coercion === shrinkCoercion) {
         validateTo = true;
-        input$2 = input$1;
+        input$2 = input;
       } else {
         var bb = {
           c: "",
@@ -1006,7 +1028,7 @@ function parse(b, _schema, _input, path) {
           a: initialAllocate,
           g: b.g
         };
-        var inputVar = input$1.v(bb);
+        var inputVar = input.v(bb);
         var output = coercion(bb, inputVar, failWithArg(bb, path, (function(target){
                 return function (input) {
                   return {
@@ -1019,17 +1041,12 @@ function parse(b, _schema, _input, path) {
         b.c = b.c + allocateScope(bb);
         input$2 = output;
       }
-    } else {
-      input$2 = input$1;
+      if (validateTo) {
+        b.c = b.c + typeFilterCode(b, to, input$2, path);
+      }
+      input$1 = input$2;
     }
-    var to = schema.to;
-    if (to === undefined) {
-      return input$2;
-    }
-    if (validateTo) {
-      b.c = b.c + typeFilterCode(b, to, input$2, path);
-    }
-    _input = input$2;
+    _input = input$1;
     _schema = to;
     continue ;
   };
@@ -1063,9 +1080,12 @@ function newReverse(schema) {
   var fromMut = copy(schema);
   var toMut = copy(newReverse(to));
   fromMut.to = undefined;
-  if (fromMut.coerce) {
-    fromMut.coerce = undefined;
-    toMut.coerce = true;
+  var parser = fromMut.parser;
+  if (parser !== undefined) {
+    fromMut.parser = toMut.serializer;
+    toMut.parser = fromMut.serializer;
+    fromMut.serializer = undefined;
+    toMut.serializer = parser;
   }
   toMut.to = fromMut;
   return toMut;
@@ -1540,32 +1560,32 @@ function noValidation(schema, value) {
 }
 
 function internalRefine(schema, refiner) {
-  var mut = copy(schema);
-  mut.parser = (function (b, input, selfSchema, path) {
-      return transform(b, parse(b, schema, input, path), (function (b, input) {
-                    var bb = {
-                      c: "",
-                      l: "",
-                      a: initialAllocate,
-                      g: b.g
-                    };
-                    var rCode = refiner(bb, input.v(bb), selfSchema, path);
-                    b.c = b.c + allocateScope(bb) + rCode;
-                    return input;
-                  }));
-    });
-  mut.output = (function () {
-      var schema$1 = reverse(schema);
-      var mut = copy(schema$1);
-      mut.parser = (function (b, input, selfSchema, path) {
-          return parse(b, schema$1, transform(b, input, (function (b, input) {
-                            b.c = b.c + refiner(b, input.v(b), selfSchema, path);
-                            return input;
-                          })), path);
-        });
-      return mut;
-    });
-  return mut;
+  return update(schema, (function (mut) {
+                mut.refiner = (function (b, input, selfSchema, path) {
+                    return transform(b, input, (function (b, input) {
+                                  var bb = {
+                                    c: "",
+                                    l: "",
+                                    a: initialAllocate,
+                                    g: b.g
+                                  };
+                                  var rCode = refiner(bb, input.v(bb), selfSchema, path);
+                                  b.c = b.c + allocateScope(bb) + rCode;
+                                  return input;
+                                }));
+                  });
+                mut.output = (function () {
+                    var schema$1 = reverse(schema);
+                    var mut = copy(schema$1);
+                    mut.refiner = (function (b, input, selfSchema, path) {
+                        return transform(b, input, (function (b, input) {
+                                      b.c = b.c + refiner(b, input.v(b), selfSchema, path);
+                                      return input;
+                                    }));
+                      });
+                    return mut;
+                  });
+              }));
 }
 
 function refine(schema, refiner) {
@@ -1580,53 +1600,62 @@ function addRefinement(schema, metadataId, refinement, refiner) {
 }
 
 function transform$1(schema, transformer) {
-  var mut = copy(schema);
-  mut.parser = (function (b, input, selfSchema, path) {
-      var input$1 = parse(b, schema, input, path);
-      var match = transformer(effectCtx(b, selfSchema, path));
-      var parser = match.p;
-      if (parser !== undefined) {
-        if (match.a !== undefined) {
-          return invalidOperation(b, path, "The S.transform doesn't allow parser and asyncParser at the same time. Remove parser in favor of asyncParser");
-        } else {
-          return embedSyncOperation(b, input$1, parser);
-        }
-      }
-      var asyncParser = match.a;
-      if (asyncParser !== undefined) {
-        if (!(b.g.o & 2)) {
-          raise(b, "UnexpectedAsync", "");
-        }
-        var val = embedSyncOperation(b, input$1, asyncParser);
-        val.a = true;
-        return val;
-      } else if (match.s !== undefined) {
-        return invalidOperation(b, path, "The S.transform parser is missing");
-      } else {
-        return input$1;
-      }
-    });
-  var to = new Schema();
-  mut.to = (to.type = "unknown", to);
-  mut.output = (function () {
-      var schema$1 = reverse(schema);
-      return {
-              type: "unknown",
-              parser: (function (b, input, selfSchema, path) {
-                  var match = transformer(effectCtx(b, selfSchema, path));
-                  var serializer = match.s;
-                  if (serializer !== undefined) {
-                    return parse(b, schema$1, embedSyncOperation(b, input, serializer), path);
-                  } else if (match.a !== undefined || match.p !== undefined) {
-                    return invalidOperation(b, path, "The S.transform serializer is missing");
-                  } else {
-                    return parse(b, schema$1, input, path);
-                  }
-                })
-            };
-    });
-  mut.isAsync = undefined;
-  return mut;
+  return update(schema, (function (mut) {
+                mut.parser = (function (b, input, selfSchema, path) {
+                    var match = transformer(effectCtx(b, selfSchema, path));
+                    var parser = match.p;
+                    if (parser !== undefined) {
+                      if (match.a !== undefined) {
+                        return invalidOperation(b, path, "The S.transform doesn't allow parser and asyncParser at the same time. Remove parser in favor of asyncParser");
+                      } else {
+                        return embedSyncOperation(b, input, parser);
+                      }
+                    }
+                    var asyncParser = match.a;
+                    if (asyncParser !== undefined) {
+                      if (!(b.g.o & 2)) {
+                        raise(b, "UnexpectedAsync", "");
+                      }
+                      var val = embedSyncOperation(b, input, asyncParser);
+                      val.a = true;
+                      return val;
+                    } else if (match.s !== undefined) {
+                      return invalidOperation(b, path, "The S.transform parser is missing");
+                    } else {
+                      return input;
+                    }
+                  });
+                var to = new Schema();
+                mut.to = (to.type = "unknown", to.serializer = (function (b, input, selfSchema, path) {
+                      var match = transformer(effectCtx(b, selfSchema, path));
+                      var serializer = match.s;
+                      if (serializer !== undefined) {
+                        return embedSyncOperation(b, input, serializer);
+                      } else if (match.a !== undefined || match.p !== undefined) {
+                        return invalidOperation(b, path, "The S.transform serializer is missing");
+                      } else {
+                        return input;
+                      }
+                    }), to);
+                mut.output = (function () {
+                    var schema$1 = reverse(schema);
+                    return {
+                            type: "unknown",
+                            parser: (function (b, input, selfSchema, path) {
+                                var match = transformer(effectCtx(b, selfSchema, path));
+                                var serializer = match.s;
+                                if (serializer !== undefined) {
+                                  return parse(b, schema$1, embedSyncOperation(b, input, serializer), path);
+                                } else if (match.a !== undefined || match.p !== undefined) {
+                                  return invalidOperation(b, path, "The S.transform serializer is missing");
+                                } else {
+                                  return parse(b, schema$1, input, path);
+                                }
+                              })
+                          };
+                  });
+                mut.isAsync = undefined;
+              }));
 }
 
 function output() {
@@ -1722,7 +1751,7 @@ function isPriority(tag, byKey) {
   }
 }
 
-function parser$1(b, input, selfSchema, path) {
+function refiner(b, input, selfSchema, path) {
   var fail = function (caught) {
     return embed(b, (function (param) {
                   var args = arguments;
@@ -1977,7 +2006,7 @@ function factory(schemas) {
     var anyOf = new Set();
     for(var idx = 0 ,idx_finish = schemas.length; idx < idx_finish; ++idx){
       var schema = schemas[idx];
-      if (schema.type === "union" && schema.parser === parser$1) {
+      if (schema.type === "union" && schema.to === undefined) {
         schema.anyOf.forEach(function (item) {
               anyOf.add(item);
             });
@@ -2000,7 +2029,7 @@ function factory(schemas) {
     var mut = new Schema();
     mut.type = "union";
     mut.anyOf = Array.from(anyOf);
-    mut.parser = parser$1;
+    mut.refiner = refiner;
     mut.output = output$1;
     mut.has = has;
     return mut;
@@ -2060,7 +2089,7 @@ function nestedNone() {
         };
 }
 
-function parser$2(b, param, selfSchema, param$1) {
+function parser$1(b, param, selfSchema, param$1) {
   return {
           b: b,
           v: _notVar,
@@ -2072,7 +2101,7 @@ function parser$2(b, param, selfSchema, param$1) {
 function nestedOption(item) {
   var mut = copy(item);
   mut.output = nestedNone;
-  mut.parser = parser$2;
+  mut.parser = parser$1;
   return mut;
 }
 
@@ -2479,11 +2508,11 @@ function to(from, target) {
     return factory(anyOf.map(function (target) {
                     return to(from, target);
                   }));
+  } else {
+    return update(from, (function (mut) {
+                  mut.to = target;
+                }));
   }
-  var mut = copy(from);
-  mut.to = target;
-  mut.coerce = true;
-  return mut;
 }
 
 function list(schema) {
@@ -2736,7 +2765,7 @@ function proxify(item) {
             });
 }
 
-function parser$3(parentB, input, selfSchema, path) {
+function parser$2(parentB, input, selfSchema, path) {
   var additionalItems = selfSchema.additionalItems;
   var items = selfSchema.items;
   var isArray = selfSchema.type === "array";
@@ -2850,41 +2879,6 @@ function definitionToRitem(definition, path, ritems, ritemsByItemPath) {
         };
 }
 
-function output$2() {
-  var items = this.items;
-  var reversedFields = {};
-  var reversedItems = [];
-  var isTransformed = false;
-  for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
-    var match = items[idx];
-    var $$location = match.location;
-    var schema = match.schema;
-    var reversed = reverse(schema);
-    var item_inlinedLocation = match.inlinedLocation;
-    var item = {
-      schema: reversed,
-      location: $$location,
-      inlinedLocation: item_inlinedLocation
-    };
-    reversedFields[$$location] = item;
-    reversedItems.push(item);
-    if (schema !== reversed) {
-      isTransformed = true;
-    }
-    
-  }
-  if (!isTransformed) {
-    return this;
-  }
-  var mut = new Schema();
-  mut.type = "object";
-  mut.items = reversedItems;
-  mut.fields = reversedFields;
-  mut.additionalItems = globalConfig.a;
-  mut.parser = parser$3;
-  return mut;
-}
-
 function definitionToSchema(definition) {
   if (!(typeof definition === "object" && definition !== null)) {
     return parse$1(definition);
@@ -2919,14 +2913,14 @@ function definitionToSchema(definition) {
     mut.type = "array";
     mut.items = definition;
     mut.additionalItems = "strict";
-    mut.parser = parser$3;
+    mut.parser = parser$2;
     if (isTransformed) {
       mut.output = (function () {
           var mut = new Schema();
           mut.type = "array";
           mut.items = reversedItems;
           mut.additionalItems = "strict";
-          mut.parser = parser$3;
+          mut.parser = parser$2;
           return mut;
         });
     }
@@ -2960,9 +2954,44 @@ function definitionToSchema(definition) {
   mut$1.items = items;
   mut$1.fields = definition;
   mut$1.additionalItems = globalConfig.a;
-  mut$1.parser = parser$3;
+  mut$1.parser = parser$2;
   mut$1.output = output$2;
   return mut$1;
+}
+
+function output$2() {
+  var items = this.items;
+  var reversedFields = {};
+  var reversedItems = [];
+  var isTransformed = false;
+  for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
+    var match = items[idx];
+    var $$location = match.location;
+    var schema = match.schema;
+    var reversed = reverse(schema);
+    var item_inlinedLocation = match.inlinedLocation;
+    var item = {
+      schema: reversed,
+      location: $$location,
+      inlinedLocation: item_inlinedLocation
+    };
+    reversedFields[$$location] = item;
+    reversedItems.push(item);
+    if (schema !== reversed) {
+      isTransformed = true;
+    }
+    
+  }
+  if (!isTransformed) {
+    return this;
+  }
+  var mut = new Schema();
+  mut.type = "object";
+  mut.items = reversedItems;
+  mut.fields = reversedFields;
+  mut.additionalItems = globalConfig.a;
+  mut.parser = parser$2;
+  return mut;
 }
 
 function nested(fieldName) {
@@ -2980,7 +3009,7 @@ function nested(fieldName) {
   schema.items = items;
   schema.fields = fields;
   schema.additionalItems = globalConfig.a;
-  schema.parser = parser$3;
+  schema.parser = parser$2;
   schema.output = output$2;
   var target = parentCtx.f(fieldName, schema)[itemSymbol];
   var field = function (fieldName, schema) {
@@ -3048,64 +3077,6 @@ function nested(fieldName) {
   };
   parentCtx[cacheId] = ctx$1;
   return ctx$1;
-}
-
-function advancedBuilder(definition, flattened) {
-  return function (parentB, input, selfSchema, path) {
-    var isFlatten = parentB.g.o & 64;
-    var outputs = isFlatten ? input : ({});
-    var b = {
-      c: "",
-      l: "",
-      a: initialAllocate,
-      g: parentB.g
-    };
-    if (!isFlatten) {
-      var items = selfSchema.items;
-      var inputVar = input.v(b);
-      for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
-        var match = items[idx];
-        var inlinedLocation = match.inlinedLocation;
-        var schema = match.schema;
-        var itemPath = "[" + inlinedLocation + "]";
-        var itemInput = {
-          b: b,
-          v: _notVar,
-          i: inputVar + itemPath,
-          a: false
-        };
-        var path$1 = path + itemPath;
-        if (b.g.o & 1 && !isLiteral(schema) && schema.type !== "object") {
-          b.c = b.c + typeFilterCode(b, schema, itemInput, path$1);
-        }
-        outputs[inlinedLocation] = parse(b, schema, itemInput, path$1);
-      }
-      objectStrictModeCheck(b, input, items, selfSchema, path);
-    }
-    if (flattened !== undefined) {
-      var prevFlag = b.g.o;
-      b.g.o = prevFlag | 64;
-      for(var idx$1 = 0 ,idx_finish$1 = flattened.length; idx$1 < idx_finish$1; ++idx$1){
-        var item = flattened[idx$1];
-        outputs[item.i] = parse(b, item.schema, outputs, path);
-      }
-      b.g.o = prevFlag;
-    }
-    var getItemOutput = function (item) {
-      switch (item.k) {
-        case 0 :
-            return outputs[item.inlinedLocation];
-        case 1 :
-            return get(b, getItemOutput(item.of), item.inlinedLocation);
-        case 2 :
-            return outputs[item.i];
-        
-      }
-    };
-    var output = definitionToOutput(b, definition, getItemOutput);
-    parentB.c = parentB.c + allocateScope(b);
-    return output;
-  };
 }
 
 function advancedReverse(definition, to, flattened) {
@@ -3206,6 +3177,64 @@ function advancedReverse(definition, to, flattened) {
         return complete(objectVal, isArray);
       });
     return mut;
+  };
+}
+
+function advancedBuilder(definition, flattened) {
+  return function (parentB, input, selfSchema, path) {
+    var isFlatten = parentB.g.o & 64;
+    var outputs = isFlatten ? input : ({});
+    var b = {
+      c: "",
+      l: "",
+      a: initialAllocate,
+      g: parentB.g
+    };
+    if (!isFlatten) {
+      var items = selfSchema.items;
+      var inputVar = input.v(b);
+      for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
+        var match = items[idx];
+        var inlinedLocation = match.inlinedLocation;
+        var schema = match.schema;
+        var itemPath = "[" + inlinedLocation + "]";
+        var itemInput = {
+          b: b,
+          v: _notVar,
+          i: inputVar + itemPath,
+          a: false
+        };
+        var path$1 = path + itemPath;
+        if (b.g.o & 1 && !isLiteral(schema) && schema.type !== "object") {
+          b.c = b.c + typeFilterCode(b, schema, itemInput, path$1);
+        }
+        outputs[inlinedLocation] = parse(b, schema, itemInput, path$1);
+      }
+      objectStrictModeCheck(b, input, items, selfSchema, path);
+    }
+    if (flattened !== undefined) {
+      var prevFlag = b.g.o;
+      b.g.o = prevFlag | 64;
+      for(var idx$1 = 0 ,idx_finish$1 = flattened.length; idx$1 < idx_finish$1; ++idx$1){
+        var item = flattened[idx$1];
+        outputs[item.i] = parse(b, item.schema, outputs, path);
+      }
+      b.g.o = prevFlag;
+    }
+    var getItemOutput = function (item) {
+      switch (item.k) {
+        case 0 :
+            return outputs[item.inlinedLocation];
+        case 1 :
+            return get(b, getItemOutput(item.of), item.inlinedLocation);
+        case 2 :
+            return outputs[item.i];
+        
+      }
+    };
+    var output = definitionToOutput(b, definition, getItemOutput);
+    parentB.c = parentB.c + allocateScope(b);
+    return output;
   };
 }
 
