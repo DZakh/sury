@@ -406,11 +406,17 @@ and schema<'a> = t<'a>
 and internal = {
   @as("type")
   mutable tag: tag,
+  // Builder for transforming to the "to" schema
+  // If missing, should apply coercion logic
   mutable parser?: builder,
+  // A field on the "to" schema,
+  // to turn it into "parser", when reversing
+  mutable serializer?: builder,
+  // Builder refine that the value matches the schema
+  // Applies for both parsing and serializing
+  mutable refiner?: builder,
   // A schema we transform to
   mutable to?: internal,
-  // Whether we used S.to to coerce to the `to` schema
-  mutable coerce?: bool,
   mutable const?: char, // use char to avoid Caml_option.some
   mutable class?: char, // use char to avoid Caml_option.some
   mutable name?: string,
@@ -681,6 +687,18 @@ let copy: internal => internal = %raw(`(schema) => {
   }
   return c
 }`)
+let update = (schema: internal, fn): t<'value> => {
+  let root = schema->copy
+  let mut = ref(root)
+  while mut.contents.to->Obj.magic {
+    let next = mut.contents.to->Stdlib.Option.unsafeUnwrap->copy
+    mut.contents.to = Some(next)
+    mut := next
+  }
+  // This should be the Output schema
+  fn(mut.contents)
+  root->fromInternal
+}
 let mergeInPlace: (internal, internal) => unit = %raw(`(target, schema) => {
   for (let k in schema) {
     if (k > "a") {
@@ -1357,116 +1375,121 @@ module Builder = {
     }
 
     let rec parse = (b: b, ~schema, ~input, ~path) => {
-      let input = switch schema.parser {
-      | Some(parser) => parser(b, ~input, ~selfSchema=schema, ~path)
-      | None => input
-      }
-      let validateTo = ref(false)
-      let input = if schema.coerce->Stdlib.Option.unsafeUnwrap {
-        let extendCoercion = %raw(`0`)
-        let shrinkCoercion = %raw(`1`)
-        let target = schema.to->Stdlib.Option.unsafeUnwrap
-
-        let isFromLiteral = schema->isLiteral
-        let isTargetLiteral = target->isLiteral
-
-        let coercion = switch (schema, target) {
-        | (_, _) if isFromLiteral && isTargetLiteral =>
-          (b, ~inputVar as _, ~failCoercion as _) => {
-            b->val(b->inlineConst(target))
-          }
-        | ({tag: fromTag}, {tag: targetTag})
-          if fromTag === targetTag && isFromLiteral && !isTargetLiteral => extendCoercion
-        | (_, {tag: Unknown}) => extendCoercion
-        | ({tag: Unknown}, _) => shrinkCoercion
-        | ({tag: String}, {tag: String, const: _}) => shrinkCoercion
-        | ({tag: String}, {tag: String}) // FIXME: validate that refinements match
-        | ({tag: Number, format: Int32}, {tag: Number, format: ?None}) => extendCoercion
-        | ({tag: Boolean | Number | BigInt | Undefined | Null | NaN, ?const}, {tag: String})
-          if isFromLiteral =>
-          (b, ~inputVar as _, ~failCoercion as _) => b->val(`"${const->Obj.magic}"`)
-
-        | ({tag: Boolean | Number | BigInt}, {tag: String}) =>
-          (b, ~inputVar, ~failCoercion as _) => b->val(`""+${inputVar}`)
-        | ({tag: String}, {tag: Boolean | Number | BigInt | Undefined | Null | NaN, ?const})
-          if isTargetLiteral =>
-          (b, ~inputVar, ~failCoercion) => {
-            b.code = b.code ++ `${inputVar}==="${const->Obj.magic}"||${failCoercion};`
-            b->val(b->inlineConst(target))
-          }
-        | ({tag: String}, {tag: Boolean}) =>
-          (b, ~inputVar, ~failCoercion) => {
-            let output = b->allocateVal
-            b.code =
-              b.code ++
-              `(${output.inline}=${inputVar}==="true")||${inputVar}==="false"||${failCoercion};`
-            output
-          }
-
-        | ({tag: String}, {tag: Number, ?format}) =>
-          (b, ~inputVar, ~failCoercion) => {
-            let output = b->val(`+${inputVar}`)
-            let outputVar = output.var(b)
-            b.code =
-              b.code ++
-              switch format {
-              | None => `Number.isNaN(${outputVar})`
-              | Some(_) =>
-                `(${b
-                  ->refinement(~inputVar=outputVar, ~schema=target, ~negative=true)
-                  ->Js.String2.sliceToEnd(~from=2)})`
-              } ++
-              `&&${failCoercion};`
-            output
-          }
-        | ({tag: String}, {tag: BigInt}) =>
-          (b, ~inputVar, ~failCoercion) => {
-            let output = b->allocateVal
-            b.code = b.code ++ `try{${output.inline}=BigInt(${inputVar})}catch(_){${failCoercion}}`
-            output
-          }
-
-        | _ =>
-          InternalError.panic(
-            `Coercion from ${schema->fromInternal->toExpression} to ${target
-              ->fromInternal
-              ->toExpression} is not supported`,
-          )
-        }
-
-        if coercion === extendCoercion {
-          input
-        } else if coercion === shrinkCoercion {
-          validateTo := true
-          input
-        } else {
-          let bb = b->scope
-          let inputVar = input.var(bb)
-          let output = bb->coercion(
-            ~inputVar,
-            ~failCoercion=bb->failWithArg(
-              ~path,
-              input => InvalidType({
-                expected: target->fromInternal,
-                received: input,
-              }),
-              inputVar,
-            ),
-          )
-          b.code = b.code ++ bb->allocateScope
-          output
-        }
-      } else {
-        input
+      switch schema.refiner {
+      | Some(refiner) =>
+        let _ = refiner(b, ~input, ~selfSchema=schema, ~path)
+      | None => ()
       }
       switch schema.to {
-      | None => input
-      | Some(to) => {
-          if validateTo.contents {
-            b.code = b.code ++ b->typeFilterCode(~schema=to, ~input, ~path)
+      | Some(to) =>
+        let input = switch schema.parser {
+        | Some(parser) => parser(b, ~input, ~selfSchema=schema, ~path)
+        | None => {
+            let validateTo = ref(false)
+            let input = {
+              let extendCoercion = %raw(`0`)
+              let shrinkCoercion = %raw(`1`)
+              let target = schema.to->Stdlib.Option.unsafeUnwrap
+
+              let isFromLiteral = schema->isLiteral
+              let isTargetLiteral = target->isLiteral
+
+              let coercion = switch (schema, target) {
+              | (_, _) if isFromLiteral && isTargetLiteral =>
+                (b, ~inputVar as _, ~failCoercion as _) => {
+                  b->val(b->inlineConst(target))
+                }
+              | ({tag: fromTag}, {tag: targetTag})
+                if fromTag === targetTag && isFromLiteral && !isTargetLiteral => extendCoercion
+              | (_, {tag: Unknown}) => extendCoercion
+              | ({tag: Unknown}, _) => shrinkCoercion
+              | ({tag: String}, {tag: String, const: _}) => shrinkCoercion
+              | ({tag: String}, {tag: String}) // FIXME: validate that refinements match
+              | ({tag: Number, format: Int32}, {tag: Number, format: ?None}) => extendCoercion
+              | ({tag: Boolean | Number | BigInt | Undefined | Null | NaN, ?const}, {tag: String})
+                if isFromLiteral =>
+                (b, ~inputVar as _, ~failCoercion as _) => b->val(`"${const->Obj.magic}"`)
+
+              | ({tag: Boolean | Number | BigInt}, {tag: String}) =>
+                (b, ~inputVar, ~failCoercion as _) => b->val(`""+${inputVar}`)
+              | ({tag: String}, {tag: Boolean | Number | BigInt | Undefined | Null | NaN, ?const})
+                if isTargetLiteral =>
+                (b, ~inputVar, ~failCoercion) => {
+                  b.code = b.code ++ `${inputVar}==="${const->Obj.magic}"||${failCoercion};`
+                  b->val(b->inlineConst(target))
+                }
+              | ({tag: String}, {tag: Boolean}) =>
+                (b, ~inputVar, ~failCoercion) => {
+                  let output = b->allocateVal
+                  b.code =
+                    b.code ++
+                    `(${output.inline}=${inputVar}==="true")||${inputVar}==="false"||${failCoercion};`
+                  output
+                }
+
+              | ({tag: String}, {tag: Number, ?format}) =>
+                (b, ~inputVar, ~failCoercion) => {
+                  let output = b->val(`+${inputVar}`)
+                  let outputVar = output.var(b)
+                  b.code =
+                    b.code ++
+                    switch format {
+                    | None => `Number.isNaN(${outputVar})`
+                    | Some(_) =>
+                      `(${b
+                        ->refinement(~inputVar=outputVar, ~schema=target, ~negative=true)
+                        ->Js.String2.sliceToEnd(~from=2)})`
+                    } ++
+                    `&&${failCoercion};`
+                  output
+                }
+              | ({tag: String}, {tag: BigInt}) =>
+                (b, ~inputVar, ~failCoercion) => {
+                  let output = b->allocateVal
+                  b.code =
+                    b.code ++ `try{${output.inline}=BigInt(${inputVar})}catch(_){${failCoercion}}`
+                  output
+                }
+
+              | _ =>
+                InternalError.panic(
+                  `Coercion from ${schema->fromInternal->toExpression} to ${target
+                    ->fromInternal
+                    ->toExpression} is not supported`,
+                )
+              }
+
+              if coercion === extendCoercion {
+                input
+              } else if coercion === shrinkCoercion {
+                validateTo := true
+                input
+              } else {
+                let bb = b->scope
+                let inputVar = input.var(bb)
+                let output = bb->coercion(
+                  ~inputVar,
+                  ~failCoercion=bb->failWithArg(
+                    ~path,
+                    input => InvalidType({
+                      expected: target->fromInternal,
+                      received: input,
+                    }),
+                    inputVar,
+                  ),
+                )
+                b.code = b.code ++ bb->allocateScope
+                output
+              }
+            }
+            if validateTo.contents {
+              b.code = b.code ++ b->typeFilterCode(~schema=to, ~input, ~path)
+            }
+            input
           }
-          b->parse(~schema=to, ~input, ~path)
         }
+        b->parse(~schema=to, ~input, ~path)
+      | None => input
       }
     }
 
@@ -1572,9 +1595,15 @@ and newReverse = (schema: internal) => {
       let fromMut = copy(schema)
       let toMut = copy(newReverse(to))
       fromMut.to = None
-      if fromMut.coerce->Stdlib.Option.unsafeUnwrap {
-        fromMut.coerce = None
-        toMut.coerce = Some(true)
+      switch fromMut.parser {
+      | Some(parser) => {
+          // FIXME: This is probably wrong
+          fromMut.parser = toMut.serializer
+          toMut.parser = fromMut.serializer
+          fromMut.serializer = None
+          toMut.serializer = Some(parser)
+        }
+      | None => ()
       }
       toMut.to = Some(fromMut)
       toMut
@@ -2108,37 +2137,37 @@ let noValidation = (schema, value) => {
 
 let internalRefine = (schema, refiner) => {
   let schema = schema->toInternal
-  let mut = schema->copy
-  mut.parser = Some(
-    Builder.make((b, ~input, ~selfSchema, ~path) => {
-      b->B.transform(~input=b->B.parse(~schema, ~input, ~path), (b, ~input) => {
-        let bb = b->B.scope
-        let rCode = refiner(bb, ~inputVar=bb->B.Val.var(input), ~selfSchema, ~path)
-        b.code = b.code ++ bb->B.allocateScope ++ rCode
-        input
-      })
-    }),
-  )
-  mut.output = Some(
-    () => {
-      let schema = schema->reverse
-      let mut = schema->copy
-      mut.parser = Some(
-        (b, ~input, ~selfSchema, ~path) => {
-          b->B.parse(
-            ~schema,
-            ~input=b->B.transform(~input, (b, ~input) => {
+  update(schema, mut => {
+    // FIXME: Should extend an already existing refiner
+    mut.refiner = Some(
+      Builder.make((b, ~input, ~selfSchema, ~path) => {
+        b->B.transform(
+          ~input,
+          (b, ~input) => {
+            let bb = b->B.scope
+            let rCode = refiner(bb, ~inputVar=bb->B.Val.var(input), ~selfSchema, ~path)
+            b.code = b.code ++ bb->B.allocateScope ++ rCode
+            input
+          },
+        )
+      }),
+    )
+    mut.output = Some(
+      () => {
+        let schema = schema->reverse
+        let mut = schema->copy
+        mut.refiner = Some(
+          (b, ~input, ~selfSchema, ~path) => {
+            b->B.transform(~input, (b, ~input) => {
               b.code = b.code ++ refiner(b, ~inputVar=b->B.Val.var(input), ~selfSchema, ~path)
               input
-            }),
-            ~path,
-          )
-        },
-      )
-      mut
-    },
-  )
-  mut->fromInternal
+            })
+          },
+        )
+        mut
+      },
+    )
+  })
 }
 
 let refine: (t<'value>, s<'value> => 'value => unit) => t<'value> = (schema, refiner) => {
@@ -2172,51 +2201,60 @@ let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) =
   transformer,
 ) => {
   let schema = schema->toInternal
-  let mut = schema->copy
-  mut.parser = Some(
-    Builder.make((b, ~input, ~selfSchema, ~path) => {
-      let input = b->B.parse(~schema, ~input, ~path)
-
-      switch transformer(b->B.effectCtx(~selfSchema, ~path)) {
-      | {parser, asyncParser: ?None} => b->B.embedSyncOperation(~input, ~fn=parser)
-      | {parser: ?None, asyncParser} => b->B.embedAsyncOperation(~input, ~fn=asyncParser)
-      | {parser: ?None, asyncParser: ?None, serializer: ?None} => input
-      | {parser: ?None, asyncParser: ?None, serializer: _} =>
-        b->B.invalidOperation(~path, ~description=`The S.transform parser is missing`)
-      | {parser: _, asyncParser: _} =>
-        b->B.invalidOperation(
-          ~path,
-          ~description=`The S.transform doesn't allow parser and asyncParser at the same time. Remove parser in favor of asyncParser`,
-        )
-      }
-    }),
-  )
-  mut.to = Some({
-    let to = base()
-    to.tag = Unknown
-    to
-  })
-  mut.output = Some(
-    () => {
-      let schema = schema->reverse
-      {
-        tag: Unknown,
-        parser: (b, ~input, ~selfSchema, ~path) => {
+  update(schema, mut => {
+    mut.parser = Some(
+      Builder.make((b, ~input, ~selfSchema, ~path) => {
+        switch transformer(b->B.effectCtx(~selfSchema, ~path)) {
+        | {parser, asyncParser: ?None} => b->B.embedSyncOperation(~input, ~fn=parser)
+        | {parser: ?None, asyncParser} => b->B.embedAsyncOperation(~input, ~fn=asyncParser)
+        | {parser: ?None, asyncParser: ?None, serializer: ?None} => input
+        | {parser: ?None, asyncParser: ?None, serializer: _} =>
+          b->B.invalidOperation(~path, ~description=`The S.transform parser is missing`)
+        | {parser: _, asyncParser: _} =>
+          b->B.invalidOperation(
+            ~path,
+            ~description=`The S.transform doesn't allow parser and asyncParser at the same time. Remove parser in favor of asyncParser`,
+          )
+        }
+      }),
+    )
+    mut.to = Some({
+      let to = base()
+      to.tag = Unknown
+      to.serializer = Some(
+        (b, ~input, ~selfSchema, ~path) => {
           switch transformer(b->B.effectCtx(~selfSchema, ~path)) {
-          | {serializer} =>
-            b->B.parse(~schema, ~input=b->B.embedSyncOperation(~input, ~fn=serializer), ~path)
-          | {parser: ?None, asyncParser: ?None, serializer: ?None} =>
-            b->B.parse(~schema, ~input, ~path)
+          | {serializer} => b->B.embedSyncOperation(~input, ~fn=serializer)
+          | {parser: ?None, asyncParser: ?None, serializer: ?None} => input
           | {serializer: ?None, asyncParser: ?Some(_)}
           | {serializer: ?None, parser: ?Some(_)} =>
             b->B.invalidOperation(~path, ~description=`The S.transform serializer is missing`)
           }
         },
-      }
-    },
-  )
-  mut.isAsync = None
-  mut->fromInternal
+      )
+      to
+    })
+    mut.output = Some(
+      () => {
+        let schema = schema->reverse
+        {
+          tag: Unknown,
+          parser: (b, ~input, ~selfSchema, ~path) => {
+            switch transformer(b->B.effectCtx(~selfSchema, ~path)) {
+            | {serializer} =>
+              b->B.parse(~schema, ~input=b->B.embedSyncOperation(~input, ~fn=serializer), ~path)
+            | {parser: ?None, asyncParser: ?None, serializer: ?None} =>
+              b->B.parse(~schema, ~input, ~path)
+            | {serializer: ?None, asyncParser: ?Some(_)}
+            | {serializer: ?None, parser: ?Some(_)} =>
+              b->B.invalidOperation(~path, ~description=`The S.transform serializer is missing`)
+            }
+          },
+        }
+      },
+    )
+    mut.isAsync = None
+  })
 }
 
 let unit = Literal.undefined->fromInternal
@@ -2310,7 +2348,7 @@ module Union = {
       (tag === (NaN: tag :> string) && byKey->Stdlib.Dict.has((Number: tag :> string)))
   }
 
-  let parser = Builder.make((b, ~input, ~selfSchema, ~path) => {
+  let refiner = Builder.make((b, ~input, ~selfSchema, ~path) => {
     let fail = caught => {
       `${b->B.embed(_ => {
           let args = %raw(`arguments`)
@@ -2634,7 +2672,7 @@ module Union = {
         let schema = schemas->Js.Array2.unsafe_get(idx)
 
         // Check if the union is not transformed
-        if schema.tag === Union && schema.parser === Some(parser) {
+        if schema.tag === Union && schema.to === None {
           schema.anyOf
           ->Stdlib.Option.unsafeUnwrap
           ->Js.Array2.forEach(item => {
@@ -2657,7 +2695,7 @@ module Union = {
       let mut = base()
       mut.tag = Union
       mut.anyOf = Some(anyOf->Stdlib.Set.toArray)
-      mut.parser = Some(parser)
+      mut.refiner = Some(refiner)
       mut.output = Some(output)
       mut.has = Some(has)
       mut->fromInternal
@@ -3194,51 +3232,51 @@ let rec to = (from, target) => {
     switch target {
     | {anyOf} =>
       Union.factory(anyOf->Js.Array2.map(target => to(from->fromInternal, target->fromInternal)))
-    | _ => {
-        let mut = from->copy
-
-        // mut.parser = Some(
-        //   Builder.make((b, ~input, ~selfSchema as _, ~path) => {
-        //     let input = b->B.parse(~schema=from, ~input, ~path)
-
-        // if coercion === extendCoercion {
-        //   b->B.parse(~schema=target, ~input, ~path)
-        // } else if coercion === shrinkCoercion {
-        //   b->B.parseWithTypeValidation(~schema=target, ~input, ~path)
-        // } else {
-        //   let bb = b->B.scope
-        //   let inputVar = input.var(bb)
-        //   let output = bb->B.parse(
-        //     ~schema=target,
-        //     ~input=bb->coercion(
-        //       ~inputVar,
-        //       ~failCoercion=bb->B.failWithArg(
-        //         ~path,
-        //         input => InvalidType({
-        //           expected: target->fromInternal,
-        //           received: input,
-        //         }),
-        //         inputVar,
-        //       ),
-        //     ),
-        //     ~path,
-        //   )
-        //   b.code = b.code ++ bb->B.allocateScope
-        //   output
-        // }
-        //   }),
-        // )
+    | _ =>
+      update(from, mut => {
         mut.to = Some(target)
-        mut.coerce = Some(true)
+      })
 
-        // mut.output = Some(
-        //   () => {
-        //     to(target->reverse->fromInternal, fromOutput->fromInternal)->toInternal
-        //   },
-        // )
+    // mut.parser = Some(
+    //   Builder.make((b, ~input, ~selfSchema as _, ~path) => {
+    //     let input = b->B.parse(~schema=from, ~input, ~path)
 
-        mut->fromInternal
-      }
+    // if coercion === extendCoercion {
+    //   b->B.parse(~schema=target, ~input, ~path)
+    // } else if coercion === shrinkCoercion {
+    //   b->B.parseWithTypeValidation(~schema=target, ~input, ~path)
+    // } else {
+    //   let bb = b->B.scope
+    //   let inputVar = input.var(bb)
+    //   let output = bb->B.parse(
+    //     ~schema=target,
+    //     ~input=bb->coercion(
+    //       ~inputVar,
+    //       ~failCoercion=bb->B.failWithArg(
+    //         ~path,
+    //         input => InvalidType({
+    //           expected: target->fromInternal,
+    //           received: input,
+    //         }),
+    //         inputVar,
+    //       ),
+    //     ),
+    //     ~path,
+    //   )
+    //   b.code = b.code ++ bb->B.allocateScope
+    //   output
+    // }
+    //   }),
+    // )
+    // mut.to = Some(target)
+
+    // mut.output = Some(
+    //   () => {
+    //     to(target->reverse->fromInternal, fromOutput->fromInternal)->toInternal
+    //   },
+    // )
+
+    // mut->fromInternal
     }
   }
 }
