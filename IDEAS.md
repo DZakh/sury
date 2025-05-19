@@ -20,6 +20,13 @@ console.log(S.boolean)
 
 - Use `Sury` instead of `Schema` in a panic error message
 
+// TODO: Update internal representation:
+
+- Remove `coerce: true`. Rely on `parser` to be present (S.transform, or S.shape). If it's missing, then use the coerce flow
+- Split `builder` into `parser` and `refiner`. Have `serializer` for the reverse flow.
+- Add `S.to(from, target, parser, serializer)` instead of `S.transform`?
+- Add `S.any`?
+
 ### Final release fixes
 
 - Add `S.env` to support coercion for union items separately. Like `rescript-envsafe` used to do with `preprocess`
