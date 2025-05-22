@@ -687,7 +687,7 @@ let copy: internal => internal = %raw(`(schema) => {
   }
   return c
 }`)
-let update = (schema: internal, fn): t<'value> => {
+let updateOutput = (schema: internal, fn): t<'value> => {
   let root = schema->copy
   let mut = ref(root)
   while mut.contents.to->Obj.magic {
@@ -1590,25 +1590,34 @@ and operationFn = (s, o) => {
   }
 }
 and newReverse = (schema: internal) => {
-  switch schema {
-  | {to} => {
-      let fromMut = copy(schema)
-      let toMut = copy(newReverse(to))
-      fromMut.to = None
-      switch fromMut.parser {
-      | Some(parser) => {
-          // FIXME: This is probably wrong
-          fromMut.parser = toMut.serializer
-          toMut.parser = fromMut.serializer
-          fromMut.serializer = None
-          toMut.serializer = Some(parser)
+  switch schema.to {
+  | Some(_) => {
+      let reversedHead = ref(None)
+      let current = ref(Some(schema))
+
+      while current.contents->Obj.magic {
+        let mut = current.contents->Stdlib.Option.unsafeUnwrap->copy
+        let next = mut.to
+        switch reversedHead.contents {
+        | None => %raw(`delete mut.to`)
+        | Some(to) => mut.to = Some(to)
         }
-      | None => ()
+        let parser = mut.parser
+        switch mut.serializer {
+        | Some(serializer) => mut.parser = Some(serializer)
+        | None => %raw(`delete mut.parser`)
+        }
+        switch parser {
+        | Some(parser) => mut.serializer = Some(parser)
+        | None => %raw(`delete mut.serializer`)
+        }
+        reversedHead := Some(mut)
+        current := next
       }
-      toMut.to = Some(fromMut)
-      toMut
+
+      reversedHead.contents->Stdlib.Option.unsafeUnwrap
     }
-  | _ => schema
+  | None => schema
   }
 }
 and reverse = (schema: internal) => {
@@ -2130,14 +2139,15 @@ let noValidation = (schema, value) => {
   let schema = schema->toInternal
   let mut = schema->copy
 
-  // FIXME: Test for discriminant literal
-  mut.noValidation = Some(value) // TODO: Better test reverse
+  // TODO: Test for discriminant literal
+  // TODO: Better test reverse
+  mut.noValidation = Some(value)
   mut->fromInternal
 }
 
 let internalRefine = (schema, refiner) => {
   let schema = schema->toInternal
-  update(schema, mut => {
+  updateOutput(schema, mut => {
     // FIXME: Should extend an already existing refiner
     mut.refiner = Some(
       Builder.make((b, ~input, ~selfSchema, ~path) => {
@@ -2201,7 +2211,7 @@ let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) =
   transformer,
 ) => {
   let schema = schema->toInternal
-  update(schema, mut => {
+  updateOutput(schema, mut => {
     mut.parser = Some(
       Builder.make((b, ~input, ~selfSchema, ~path) => {
         switch transformer(b->B.effectCtx(~selfSchema, ~path)) {
@@ -3233,7 +3243,7 @@ let rec to = (from, target) => {
     | {anyOf} =>
       Union.factory(anyOf->Js.Array2.map(target => to(from->fromInternal, target->fromInternal)))
     | _ =>
-      update(from, mut => {
+      updateOutput(from, mut => {
         mut.to = Some(target)
       })
 
