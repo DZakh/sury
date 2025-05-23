@@ -372,6 +372,9 @@ export function union<A, B extends unknown[]>(
   UnknownToOutput<A> | UnknownArrayToOutput<B>[number],
   UnknownToInput<A> | UnknownArrayToInput<B>[number]
 >;
+export function union<T extends unknown>(
+  schemas: T[]
+): Schema<UnknownToOutput<T>, UnknownToInput<T>>;
 
 export const string: Schema<string, string>;
 export const boolean: Schema<boolean, boolean>;
