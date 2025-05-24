@@ -1589,64 +1589,36 @@ and operationFn = (s, o) => {
     f
   }
 }
-and newReverse = (schema: internal) => {
-  switch schema.to {
-  | Some(_) => {
-      let reversedHead = ref(None)
-      let current = ref(Some(schema))
-
-      while current.contents->Obj.magic {
-        let mut = current.contents->Stdlib.Option.unsafeUnwrap->copy
-        let next = mut.to
-        switch reversedHead.contents {
-        | None => %raw(`delete mut.to`)
-        | Some(to) => mut.to = Some(to)
-        }
-        let parser = mut.parser
-        switch mut.serializer {
-        | Some(serializer) => mut.parser = Some(serializer)
-        | None => %raw(`delete mut.parser`)
-        }
-        switch parser {
-        | Some(parser) => mut.serializer = Some(parser)
-        | None => %raw(`delete mut.serializer`)
-        }
-        reversedHead := Some(mut)
-        current := next
-      }
-
-      reversedHead.contents->Stdlib.Option.unsafeUnwrap
-    }
-  | None => schema
-  }
-}
 and reverse = (schema: internal) => {
-  switch schema.to {
-  | None =>
-    // Old logic
-    switch schema.output {
-    | None => schema
-    | Some(fn) =>
-      if Js.typeof(fn) === "object" {
-        fn->Obj.magic
-      } else {
-        let reversed = (fn->Obj.magic)["call"](schema)
-        // If the reversed schema is reversing to self,
-        // it's mostlikely a primitive, which we can't mutate,
-        // so we can just copy it
-        let reversed = if reversed.output === None {
-          reversed->copy
-        } else {
-          reversed
-        }
+  let reversedHead = ref(None)
+  let current = ref(Some(schema))
 
-        schema.output = reversed->Obj.magic
-        reversed.output = schema->Obj.magic
-        reversed
-      }
+  while current.contents->Obj.magic {
+    let mut = current.contents->Stdlib.Option.unsafeUnwrap->copy
+    let next = mut.to
+    switch reversedHead.contents {
+    | None => %raw(`delete mut.to`)
+    | Some(to) => mut.to = Some(to)
     }
-  | Some(_) => newReverse(schema)
+    let parser = mut.parser
+    switch mut.serializer {
+    | Some(serializer) => mut.parser = Some(serializer)
+    | None => %raw(`delete mut.parser`)
+    }
+    switch parser {
+    | Some(parser) => mut.serializer = Some(parser)
+    | None => %raw(`delete mut.serializer`)
+    }
+    switch mut.additionalItems {
+    | Some(Schema(schema)) =>
+      mut.additionalItems = Some(Schema(schema->toInternal->reverse->fromInternal))
+    | _ => ()
+    }
+    reversedHead := Some(mut)
+    current := next
   }
+
+  reversedHead.contents->Stdlib.Option.unsafeUnwrap
 }
 and jsonableValidation = (~output, ~parent, ~path, ~flag, ~recSet) => {
   let tag = output.tag
@@ -2706,7 +2678,6 @@ module Union = {
       mut.tag = Union
       mut.anyOf = Some(anyOf->Stdlib.Set.toArray)
       mut.refiner = Some(refiner)
-      mut.output = Some(output)
       mut.has = Some(has)
       mut->fromInternal
     }
@@ -2905,14 +2876,14 @@ module Array = {
     }
   }
 
-  let rec factory = item => {
+  let factory = item => {
     let item = item->toInternal
 
     let mut = base()
     mut.tag = Array
     mut.additionalItems = Some(Schema(item->fromInternal))
     mut.items = Some(Stdlib.Array.immutableEmpty)
-    mut.parser = Some(
+    mut.refiner = Some(
       Builder.make((b, ~input, ~selfSchema as _, ~path) => {
         let inputVar = b->B.Val.var(input)
         let iteratorVar = b.global->B.varWithoutAllocation
@@ -2948,7 +2919,6 @@ module Array = {
         }
       }),
     )
-    mut.output = Some(Output.item(~factory, ~item))
     mut->fromInternal
   }
 }

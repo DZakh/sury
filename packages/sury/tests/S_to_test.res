@@ -1,11 +1,11 @@
 open Ava
 
-Only.test("Coerce from string to string", t => {
+test("Coerce from string to string", t => {
   let schema = S.string->S.to(S.string)
   t->Assert.is(schema, S.string, ())
 })
 
-Only.test("Coerce from string to bool", t => {
+test("Coerce from string to bool", t => {
   let schema = S.string->S.to(S.bool)
 
   t->Assert.deepEqual("false"->S.parseOrThrow(schema), false, ())
@@ -36,7 +36,7 @@ Only.test("Coerce from string to bool", t => {
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return ""+i}`)
 })
 
-Only.test("Coerce from bool to string", t => {
+test("Coerce from bool to string", t => {
   let schema = S.bool->S.to(S.string)
 
   t->Assert.deepEqual(false->S.parseOrThrow(schema), "false", ())
@@ -67,7 +67,7 @@ Only.test("Coerce from bool to string", t => {
   )
 })
 
-Only.test("Coerce from string to bool literal", t => {
+test("Coerce from string to bool literal", t => {
   let schema = S.string->S.to(S.literal(false))
 
   t->Assert.deepEqual("false"->S.parseOrThrow(schema), false, ())
@@ -92,7 +92,7 @@ Only.test("Coerce from string to bool literal", t => {
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{if(i!==false){e[1](i)}return "false"}`)
 })
 
-Only.test("Coerce from string to null literal", t => {
+test("Coerce from string to null literal", t => {
   let schema = S.string->S.to(S.literal(%raw(`null`)))
 
   t->Assert.deepEqual("null"->S.parseOrThrow(schema), %raw(`null`), ())
@@ -117,7 +117,7 @@ Only.test("Coerce from string to null literal", t => {
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{if(i!==null){e[1](i)}return "null"}`)
 })
 
-Only.test("Coerce from string to undefined literal", t => {
+test("Coerce from string to undefined literal", t => {
   let schema = S.string->S.to(S.literal(%raw(`undefined`)))
 
   t->Assert.deepEqual("undefined"->S.parseOrThrow(schema), %raw(`undefined`), ())
@@ -146,7 +146,7 @@ Only.test("Coerce from string to undefined literal", t => {
   )
 })
 
-Only.test("Coerce from string to NaN literal", t => {
+test("Coerce from string to NaN literal", t => {
   let schema = S.string->S.to(S.literal(%raw(`NaN`)))
 
   t->Assert.deepEqual("NaN"->S.parseOrThrow(schema), %raw(`NaN`), ())
@@ -175,7 +175,7 @@ Only.test("Coerce from string to NaN literal", t => {
   )
 })
 
-Only.test("Coerce from string to string literal", t => {
+test("Coerce from string to string literal", t => {
   let quotedString = `"'\``
   let schema = S.string->S.to(S.literal(quotedString))
 
@@ -212,7 +212,7 @@ Only.test("Coerce from string to string literal", t => {
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{if(i!=="\\"\'\`"){e[0](i)}return i}`)
 })
 
-Only.test("Coerce from object shaped as string to float", t => {
+test("Coerce from object shaped as string to float", t => {
   let schema = S.object(s => s.field("foo", S.string))->S.to(S.float)
 
   t->Assert.deepEqual({"foo": "123"}->S.parseOrThrow(schema), 123., ())
@@ -226,41 +226,38 @@ Only.test("Coerce from object shaped as string to float", t => {
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return {"foo":""+i,}}`)
 })
 
-Only.test(
-  "Coerce to literal can be used as tag and automatically embeded on reverse operation",
-  t => {
-    let schema = S.object(s => {
-      let _ = s.field("tag", S.string->S.to(S.literal(true)))
-    })
+test("Coerce to literal can be used as tag and automatically embeded on reverse operation", t => {
+  let schema = S.object(s => {
+    let _ = s.field("tag", S.string->S.to(S.literal(true)))
+  })
 
-    t->Assert.deepEqual(()->S.reverseConvertOrThrow(schema), %raw(`{"tag": "true"}`), ())
-    t->U.assertCompiledCode(
-      ~schema,
-      ~op=#ReverseConvert,
-      `i=>{if(i!==void 0){e[2](i)}return {"tag":"true",}}`,
-    )
+  t->Assert.deepEqual(()->S.reverseConvertOrThrow(schema), %raw(`{"tag": "true"}`), ())
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#ReverseConvert,
+    `i=>{if(i!==void 0){e[2](i)}return {"tag":"true",}}`,
+  )
 
-    t->Assert.deepEqual({"tag": "true"}->S.parseOrThrow(schema), (), ())
-    t->U.assertThrows(
-      () => {"tag": "false"}->S.parseOrThrow(schema),
-      {
-        code: InvalidType({
-          expected: S.literal(true)->S.toUnknown,
-          received: %raw(`"false"`),
-        }),
-        path: S.Path.fromLocation("tag"),
-        operation: Parse,
-      },
-    )
-    t->U.assertCompiledCode(
-      ~schema,
-      ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i){e[3](i)}let v0=i["tag"];if(typeof v0!=="string"){e[0](v0)}v0==="true"||e[1](v0);return e[2]}`,
-    )
-  },
-)
+  t->Assert.deepEqual({"tag": "true"}->S.parseOrThrow(schema), (), ())
+  t->U.assertThrows(
+    () => {"tag": "false"}->S.parseOrThrow(schema),
+    {
+      code: InvalidType({
+        expected: S.literal(true)->S.toUnknown,
+        received: %raw(`"false"`),
+      }),
+      path: S.Path.fromLocation("tag"),
+      operation: Parse,
+    },
+  )
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(typeof i!=="object"||!i){e[3](i)}let v0=i["tag"];if(typeof v0!=="string"){e[0](v0)}v0==="true"||e[1](v0);return e[2]}`,
+  )
+})
 
-Only.test("Coerce from string to float", t => {
+test("Coerce from string to float", t => {
   let schema = S.string->S.to(S.float)
 
   t->Assert.deepEqual("10"->S.parseOrThrow(schema), 10., ())
@@ -292,7 +289,7 @@ Only.test("Coerce from string to float", t => {
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return ""+i}`)
 })
 
-Only.test("Coerce from string to int32", t => {
+test("Coerce from string to int32", t => {
   let schema = S.string->S.to(S.int)
 
   t->Assert.deepEqual("10"->S.parseOrThrow(schema), 10, ())
@@ -333,7 +330,7 @@ Only.test("Coerce from string to int32", t => {
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return ""+i}`)
 })
 
-Only.test("Coerce from string to port", t => {
+test("Coerce from string to port", t => {
   let schema = S.string->S.to(S.int->S.port)
 
   t->Assert.deepEqual("10"->S.parseOrThrow(schema), 10, ())
@@ -364,14 +361,14 @@ Only.test("Coerce from string to port", t => {
   )
 })
 
-Only.test("Coerce from true to bool", t => {
+test("Coerce from true to bool", t => {
   let schema = S.literal(true)->S.to(S.bool)
 
   t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(i!==true){e[0](i)}return i}`)
   t->U.assertCompiledCode(~schema, ~op=#Convert, `i=>{if(i!==true){e[0](i)}return i}`)
 })
 
-Only.test("Coerce from string to bigint literal", t => {
+test("Coerce from string to bigint literal", t => {
   let schema = S.string->S.to(S.literal(10n))
 
   t->Assert.deepEqual("10"->S.parseOrThrow(schema), 10n, ())
@@ -397,7 +394,7 @@ Only.test("Coerce from string to bigint literal", t => {
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{if(i!==10n){e[1](i)}return "10"}`)
 })
 
-Only.test("Coerce from string to bigint", t => {
+test("Coerce from string to bigint", t => {
   let schema = S.string->S.to(S.bigint)
 
   t->Assert.deepEqual("10"->S.parseOrThrow(schema), 10n, ())
@@ -427,7 +424,7 @@ Only.test("Coerce from string to bigint", t => {
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return ""+i}`)
 })
 
-Only.test("Coerce string after a transform", t => {
+test("Coerce string after a transform", t => {
   let schema = S.string->S.transform(_ => {parser: v => v, serializer: v => v})->S.to(S.bool)
 
   t->U.assertThrowsMessage(
@@ -454,7 +451,7 @@ type numberOrBoolean = Number(float) | Boolean(bool)
 
 // FIXME: Test nested union
 // FIXME: Test transformed union
-Only.test("Coerce string to unboxed union (each item separately)", t => {
+test("Coerce string to unboxed union (each item separately)", t => {
   let schema =
     S.string->S.to(
       S.union([
@@ -495,7 +492,7 @@ Only.test("Coerce string to unboxed union (each item separately)", t => {
   )
 })
 
-// Only.test("Coerce string to JSON schema", t => {
+// test("Coerce string to JSON schema", t => {
 //   let schema = S.string->S.to(
 //     S.recursive(self => {
 //       S.union([
@@ -516,7 +513,7 @@ Only.test("Coerce string to unboxed union (each item separately)", t => {
 //   )
 // })
 
-Only.test("Keeps description of the schema we are coercing to (not working)", t => {
+test("Keeps description of the schema we are coercing to (not working)", t => {
   // Fix it later if it's needed
   let schema = S.string->S.to(S.string->S.meta({description: "To descr"}))
   t->Assert.is((schema->S.untag).description, None, ())
@@ -529,7 +526,7 @@ Only.test("Keeps description of the schema we are coercing to (not working)", t 
   t->Assert.is((schema->S.untag).description, Some("From descr"), ())
 })
 
-Only.test("Coerce from unit to null literal", t => {
+test("Coerce from unit to null literal", t => {
   let schema = S.unit->S.to(S.literal(%raw(`null`)))
 
   t->Assert.deepEqual(()->S.parseOrThrow(schema), %raw(`null`), ())
@@ -550,7 +547,7 @@ Only.test("Coerce from unit to null literal", t => {
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{if(i!==null){e[1](i)}return void 0}`)
 })
 
-Only.test("Coerce from string to optional bool", t => {
+test("Coerce from string to optional bool", t => {
   let schema = S.string->S.to(S.option(S.bool))
 
   t->Assert.deepEqual("undefined"->S.parseOrThrow(schema), None, ())
