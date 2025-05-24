@@ -2382,3 +2382,45 @@ test("Preprocess nested fields", (t) => {
     },
   });
 });
+
+test("Union of object keys", (t) => {
+  const allCurrencies = {
+    USD: 1,
+    BGP: 2,
+    EUR: 3,
+  };
+
+  const schema = S.union(Object.keys(allCurrencies));
+  expectType<SchemaEqual<typeof schema, string, string>>(true);
+  t.deepEqual(S.parseOrThrow("USD", schema), "USD");
+  t.throws(() => S.parseOrThrow("GBP", schema), {
+    name: "SuryError",
+    message: `Failed parsing: Expected "USD" | "BGP" | "EUR", received "GBP"`,
+  });
+
+  const schema2 = S.union(
+    Object.keys(allCurrencies) as (keyof typeof allCurrencies)[]
+  );
+  expectType<
+    SchemaEqual<typeof schema2, "USD" | "BGP" | "EUR", "USD" | "BGP" | "EUR">
+  >(true);
+  t.deepEqual(S.parseOrThrow("USD", schema), "USD");
+  t.throws(() => S.parseOrThrow("GBP", schema), {
+    name: "SuryError",
+    message: `Failed parsing: Expected "USD" | "BGP" | "EUR", received "GBP"`,
+  });
+
+  const schema3 = S.union(
+    (Object.keys(allCurrencies) as (keyof typeof allCurrencies)[]).map(
+      (literal) => S.schema(literal)
+    )
+  );
+  expectType<
+    SchemaEqual<typeof schema3, "USD" | "BGP" | "EUR", "USD" | "BGP" | "EUR">
+  >(true);
+  t.deepEqual(S.parseOrThrow("USD", schema), "USD");
+  t.throws(() => S.parseOrThrow("GBP", schema), {
+    name: "SuryError",
+    message: `Failed parsing: Expected "USD" | "BGP" | "EUR", received "GBP"`,
+  });
+});

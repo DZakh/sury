@@ -406,7 +406,17 @@ and schema<'a> = t<'a>
 and internal = {
   @as("type")
   mutable tag: tag,
-  mutable builder?: builder,
+  // Builder for transforming to the "to" schema
+  // If missing, should apply coercion logic
+  mutable parser?: builder,
+  // A field on the "to" schema,
+  // to turn it into "parser", when reversing
+  mutable serializer?: builder,
+  // Builder refine that the value matches the schema
+  // Applies for both parsing and serializing
+  mutable refiner?: builder,
+  // A schema we transform to
+  mutable to?: internal,
   mutable const?: char, // use char to avoid Caml_option.some
   mutable class?: char, // use char to avoid Caml_option.some
   mutable name?: string,
@@ -677,6 +687,18 @@ let copy: internal => internal = %raw(`(schema) => {
   }
   return c
 }`)
+let updateOutput = (schema: internal, fn): t<'value> => {
+  let root = schema->copy
+  let mut = ref(root)
+  while mut.contents.to->Obj.magic {
+    let next = mut.contents.to->Stdlib.Option.unsafeUnwrap->copy
+    mut.contents.to = Some(next)
+    mut := next
+  }
+  // This should be the Output schema
+  fn(mut.contents)
+  root->fromInternal
+}
 let mergeInPlace: (internal, internal) => unit = %raw(`(target, schema) => {
   for (let k in schema) {
     if (k > "a") {
@@ -1352,9 +1374,121 @@ module Builder = {
       }
     }
 
-    let parse = (b: b, ~schema, ~input, ~path) => {
-      switch schema.builder {
-      | Some(builder) => builder(b, ~input, ~selfSchema=schema, ~path)
+    let rec parse = (b: b, ~schema, ~input, ~path) => {
+      switch schema.refiner {
+      | Some(refiner) =>
+        let _ = refiner(b, ~input, ~selfSchema=schema, ~path)
+      | None => ()
+      }
+      switch schema.to {
+      | Some(to) =>
+        let input = switch schema.parser {
+        | Some(parser) => parser(b, ~input, ~selfSchema=schema, ~path)
+        | None => {
+            let validateTo = ref(false)
+            let input = {
+              let extendCoercion = %raw(`0`)
+              let shrinkCoercion = %raw(`1`)
+              let target = schema.to->Stdlib.Option.unsafeUnwrap
+
+              let isFromLiteral = schema->isLiteral
+              let isTargetLiteral = target->isLiteral
+
+              let coercion = switch (schema, target) {
+              | (_, _) if isFromLiteral && isTargetLiteral =>
+                (b, ~inputVar as _, ~failCoercion as _) => {
+                  b->val(b->inlineConst(target))
+                }
+              | ({tag: fromTag}, {tag: targetTag})
+                if fromTag === targetTag && isFromLiteral && !isTargetLiteral => extendCoercion
+              | (_, {tag: Unknown}) => extendCoercion
+              | ({tag: Unknown}, _) => shrinkCoercion
+              | ({tag: String}, {tag: String, const: _}) => shrinkCoercion
+              | ({tag: String}, {tag: String}) // FIXME: validate that refinements match
+              | ({tag: Number, format: Int32}, {tag: Number, format: ?None}) => extendCoercion
+              | ({tag: Boolean | Number | BigInt | Undefined | Null | NaN, ?const}, {tag: String})
+                if isFromLiteral =>
+                (b, ~inputVar as _, ~failCoercion as _) => b->val(`"${const->Obj.magic}"`)
+
+              | ({tag: Boolean | Number | BigInt}, {tag: String}) =>
+                (b, ~inputVar, ~failCoercion as _) => b->val(`""+${inputVar}`)
+              | ({tag: String}, {tag: Boolean | Number | BigInt | Undefined | Null | NaN, ?const})
+                if isTargetLiteral =>
+                (b, ~inputVar, ~failCoercion) => {
+                  b.code = b.code ++ `${inputVar}==="${const->Obj.magic}"||${failCoercion};`
+                  b->val(b->inlineConst(target))
+                }
+              | ({tag: String}, {tag: Boolean}) =>
+                (b, ~inputVar, ~failCoercion) => {
+                  let output = b->allocateVal
+                  b.code =
+                    b.code ++
+                    `(${output.inline}=${inputVar}==="true")||${inputVar}==="false"||${failCoercion};`
+                  output
+                }
+
+              | ({tag: String}, {tag: Number, ?format}) =>
+                (b, ~inputVar, ~failCoercion) => {
+                  let output = b->val(`+${inputVar}`)
+                  let outputVar = output.var(b)
+                  b.code =
+                    b.code ++
+                    switch format {
+                    | None => `Number.isNaN(${outputVar})`
+                    | Some(_) =>
+                      `(${b
+                        ->refinement(~inputVar=outputVar, ~schema=target, ~negative=true)
+                        ->Js.String2.sliceToEnd(~from=2)})`
+                    } ++
+                    `&&${failCoercion};`
+                  output
+                }
+              | ({tag: String}, {tag: BigInt}) =>
+                (b, ~inputVar, ~failCoercion) => {
+                  let output = b->allocateVal
+                  b.code =
+                    b.code ++ `try{${output.inline}=BigInt(${inputVar})}catch(_){${failCoercion}}`
+                  output
+                }
+
+              | _ =>
+                InternalError.panic(
+                  `Coercion from ${schema->fromInternal->toExpression} to ${target
+                    ->fromInternal
+                    ->toExpression} is not supported`,
+                )
+              }
+
+              if coercion === extendCoercion {
+                input
+              } else if coercion === shrinkCoercion {
+                validateTo := true
+                input
+              } else {
+                let bb = b->scope
+                let inputVar = input.var(bb)
+                let output = bb->coercion(
+                  ~inputVar,
+                  ~failCoercion=bb->failWithArg(
+                    ~path,
+                    input => InvalidType({
+                      expected: target->fromInternal,
+                      received: input,
+                    }),
+                    inputVar,
+                  ),
+                )
+                b.code = b.code ++ bb->allocateScope
+                output
+              }
+            }
+            if validateTo.contents {
+              b.code = b.code ++ b->typeFilterCode(~schema=to, ~input, ~path)
+            }
+            input
+          }
+        }
+        b->parse(~schema=to, ~input, ~path)
       | None => input
       }
     }
@@ -1456,27 +1590,35 @@ and operationFn = (s, o) => {
   }
 }
 and reverse = (schema: internal) => {
-  switch schema.output {
-  | None => schema
-  | Some(fn) =>
-    if Js.typeof(fn) === "object" {
-      fn->Obj.magic
-    } else {
-      let reversed = (fn->Obj.magic)["call"](schema)
-      // If the reversed schema is reversing to self,
-      // it's mostlikely a primitive, which we can't mutate,
-      // so we can just copy it
-      let reversed = if reversed.output === None {
-        reversed->copy
-      } else {
-        reversed
-      }
+  let reversedHead = ref(None)
+  let current = ref(Some(schema))
 
-      schema.output = reversed->Obj.magic
-      reversed.output = schema->Obj.magic
-      reversed
+  while current.contents->Obj.magic {
+    let mut = current.contents->Stdlib.Option.unsafeUnwrap->copy
+    let next = mut.to
+    switch reversedHead.contents {
+    | None => %raw(`delete mut.to`)
+    | Some(to) => mut.to = Some(to)
     }
+    let parser = mut.parser
+    switch mut.serializer {
+    | Some(serializer) => mut.parser = Some(serializer)
+    | None => %raw(`delete mut.parser`)
+    }
+    switch parser {
+    | Some(parser) => mut.serializer = Some(parser)
+    | None => %raw(`delete mut.serializer`)
+    }
+    switch mut.additionalItems {
+    | Some(Schema(schema)) =>
+      mut.additionalItems = Some(Schema(schema->toInternal->reverse->fromInternal))
+    | _ => ()
+    }
+    reversedHead := Some(mut)
+    current := next
   }
+
+  reversedHead.contents->Stdlib.Option.unsafeUnwrap
 }
 and jsonableValidation = (~output, ~parent, ~path, ~flag, ~recSet) => {
   let tag = output.tag
@@ -1864,7 +2006,7 @@ let recursive = fn => {
   let r = "r" ++ globalConfig.recCounter->Stdlib.Int.unsafeToString
   globalConfig.recCounter = globalConfig.recCounter + 1
 
-  let builder = Builder.make((b, ~input, ~selfSchema as _, ~path as _) => {
+  let parser = Builder.make((b, ~input, ~selfSchema as _, ~path as _) => {
     b->B.transform(~input, (_b, ~input) => {
       B.Val.map(r, input)
     })
@@ -1872,7 +2014,7 @@ let recursive = fn => {
   let output = () => {
     let mut = base()
     mut.tag = Unknown
-    mut.builder = Some(
+    mut.parser = Some(
       Builder.make((_b, ~input, ~selfSchema as _, ~path as _) => {
         B.Val.map(r, input)
       }),
@@ -1882,7 +2024,7 @@ let recursive = fn => {
 
   let placeholder: internal = base()
   placeholder.tag = Unknown
-  placeholder.builder = Some(builder)
+  placeholder.parser = Some(parser)
   placeholder.output = Some(output)
   placeholder.name = Some("Self")
 
@@ -1890,13 +2032,13 @@ let recursive = fn => {
 
   mergeInPlace(placeholder, schema)
   placeholder.name = Some(schema->fromInternal->toExpression)
-  placeholder.builder = Some(builder)
+  placeholder.parser = Some(parser)
   placeholder.output = Some(output)
 
   // TODO: Test that it won't break with unsafeUnwrap
   // eg case S.recursive(_ => S.string)
-  let initialParseOperationBuilder = schema.builder->Stdlib.Option.unsafeUnwrap
-  schema.builder = Some(
+  let initialParseOperationBuilder = schema.parser->Stdlib.Option.unsafeUnwrap
+  schema.parser = Some(
     Builder.make((b, ~input, ~selfSchema, ~path) => {
       let inputVar = b->B.Val.var(input)
       let bb = b->B.scope
@@ -1910,7 +2052,7 @@ let recursive = fn => {
             let output = B.Val.map(r, input)
             if opOutput.isAsync {
               output.isAsync = true
-              placeholder.builder = Some(
+              placeholder.parser = Some(
                 Builder.make(
                   (b, ~input, ~selfSchema as _, ~path as _) => {
                     b->B.transform(
@@ -1939,7 +2081,7 @@ let recursive = fn => {
       let mut = initialReversed->copy
       mut.output = schema->Obj.magic
       schema.output = mut->Obj.magic
-      mut.builder = Some(
+      mut.parser = Some(
         Builder.make((b, ~input, ~selfSchema, ~path) => {
           let inputVar = b->B.Val.var(input)
           let bb = b->B.scope
@@ -1947,7 +2089,7 @@ let recursive = fn => {
             ...input,
             b: bb,
           }
-          let opOutput = (initialReversed.builder->Stdlib.Option.unsafeUnwrap)(
+          let opOutput = (initialReversed.parser->Stdlib.Option.unsafeUnwrap)(
             bb,
             ~input=initialInput,
             ~selfSchema,
@@ -1969,44 +2111,45 @@ let noValidation = (schema, value) => {
   let schema = schema->toInternal
   let mut = schema->copy
 
-  // FIXME: Test for discriminant literal
-  mut.noValidation = Some(value) // TODO: Better test reverse
+  // TODO: Test for discriminant literal
+  // TODO: Better test reverse
+  mut.noValidation = Some(value)
   mut->fromInternal
 }
 
 let internalRefine = (schema, refiner) => {
   let schema = schema->toInternal
-  let mut = schema->copy
-  mut.builder = Some(
-    Builder.make((b, ~input, ~selfSchema, ~path) => {
-      b->B.transform(~input=b->B.parse(~schema, ~input, ~path), (b, ~input) => {
-        let bb = b->B.scope
-        let rCode = refiner(bb, ~inputVar=bb->B.Val.var(input), ~selfSchema, ~path)
-        b.code = b.code ++ bb->B.allocateScope ++ rCode
-        input
-      })
-    }),
-  )
-  mut.output = Some(
-    () => {
-      let schema = schema->reverse
-      let mut = schema->copy
-      mut.builder = Some(
-        (b, ~input, ~selfSchema, ~path) => {
-          b->B.parse(
-            ~schema,
-            ~input=b->B.transform(~input, (b, ~input) => {
+  updateOutput(schema, mut => {
+    // FIXME: Should extend an already existing refiner
+    mut.refiner = Some(
+      Builder.make((b, ~input, ~selfSchema, ~path) => {
+        b->B.transform(
+          ~input,
+          (b, ~input) => {
+            let bb = b->B.scope
+            let rCode = refiner(bb, ~inputVar=bb->B.Val.var(input), ~selfSchema, ~path)
+            b.code = b.code ++ bb->B.allocateScope ++ rCode
+            input
+          },
+        )
+      }),
+    )
+    mut.output = Some(
+      () => {
+        let schema = schema->reverse
+        let mut = schema->copy
+        mut.refiner = Some(
+          (b, ~input, ~selfSchema, ~path) => {
+            b->B.transform(~input, (b, ~input) => {
               b.code = b.code ++ refiner(b, ~inputVar=b->B.Val.var(input), ~selfSchema, ~path)
               input
-            }),
-            ~path,
-          )
-        },
-      )
-      mut
-    },
-  )
-  mut->fromInternal
+            })
+          },
+        )
+        mut
+      },
+    )
+  })
 }
 
 let refine: (t<'value>, s<'value> => 'value => unit) => t<'value> = (schema, refiner) => {
@@ -2040,46 +2183,60 @@ let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) =
   transformer,
 ) => {
   let schema = schema->toInternal
-  let mut = schema->copy
-  mut.builder = Some(
-    Builder.make((b, ~input, ~selfSchema, ~path) => {
-      let input = b->B.parse(~schema, ~input, ~path)
-
-      switch transformer(b->B.effectCtx(~selfSchema, ~path)) {
-      | {parser, asyncParser: ?None} => b->B.embedSyncOperation(~input, ~fn=parser)
-      | {parser: ?None, asyncParser} => b->B.embedAsyncOperation(~input, ~fn=asyncParser)
-      | {parser: ?None, asyncParser: ?None, serializer: ?None} => input
-      | {parser: ?None, asyncParser: ?None, serializer: _} =>
-        b->B.invalidOperation(~path, ~description=`The S.transform parser is missing`)
-      | {parser: _, asyncParser: _} =>
-        b->B.invalidOperation(
-          ~path,
-          ~description=`The S.transform doesn't allow parser and asyncParser at the same time. Remove parser in favor of asyncParser`,
-        )
-      }
-    }),
-  )
-  mut.output = Some(
-    () => {
-      let schema = schema->reverse
-      {
-        tag: Unknown,
-        builder: (b, ~input, ~selfSchema, ~path) => {
+  updateOutput(schema, mut => {
+    mut.parser = Some(
+      Builder.make((b, ~input, ~selfSchema, ~path) => {
+        switch transformer(b->B.effectCtx(~selfSchema, ~path)) {
+        | {parser, asyncParser: ?None} => b->B.embedSyncOperation(~input, ~fn=parser)
+        | {parser: ?None, asyncParser} => b->B.embedAsyncOperation(~input, ~fn=asyncParser)
+        | {parser: ?None, asyncParser: ?None, serializer: ?None} => input
+        | {parser: ?None, asyncParser: ?None, serializer: _} =>
+          b->B.invalidOperation(~path, ~description=`The S.transform parser is missing`)
+        | {parser: _, asyncParser: _} =>
+          b->B.invalidOperation(
+            ~path,
+            ~description=`The S.transform doesn't allow parser and asyncParser at the same time. Remove parser in favor of asyncParser`,
+          )
+        }
+      }),
+    )
+    mut.to = Some({
+      let to = base()
+      to.tag = Unknown
+      to.serializer = Some(
+        (b, ~input, ~selfSchema, ~path) => {
           switch transformer(b->B.effectCtx(~selfSchema, ~path)) {
-          | {serializer} =>
-            b->B.parse(~schema, ~input=b->B.embedSyncOperation(~input, ~fn=serializer), ~path)
-          | {parser: ?None, asyncParser: ?None, serializer: ?None} =>
-            b->B.parse(~schema, ~input, ~path)
+          | {serializer} => b->B.embedSyncOperation(~input, ~fn=serializer)
+          | {parser: ?None, asyncParser: ?None, serializer: ?None} => input
           | {serializer: ?None, asyncParser: ?Some(_)}
           | {serializer: ?None, parser: ?Some(_)} =>
             b->B.invalidOperation(~path, ~description=`The S.transform serializer is missing`)
           }
         },
-      }
-    },
-  )
-  mut.isAsync = None
-  mut->fromInternal
+      )
+      to
+    })
+    mut.output = Some(
+      () => {
+        let schema = schema->reverse
+        {
+          tag: Unknown,
+          parser: (b, ~input, ~selfSchema, ~path) => {
+            switch transformer(b->B.effectCtx(~selfSchema, ~path)) {
+            | {serializer} =>
+              b->B.parse(~schema, ~input=b->B.embedSyncOperation(~input, ~fn=serializer), ~path)
+            | {parser: ?None, asyncParser: ?None, serializer: ?None} =>
+              b->B.parse(~schema, ~input, ~path)
+            | {serializer: ?None, asyncParser: ?Some(_)}
+            | {serializer: ?None, parser: ?Some(_)} =>
+              b->B.invalidOperation(~path, ~description=`The S.transform serializer is missing`)
+            }
+          },
+        }
+      },
+    )
+    mut.isAsync = None
+  })
 }
 
 let unit = Literal.undefined->fromInternal
@@ -2089,7 +2246,7 @@ let nullAsUnit = {
     let mut = base()
     mut.tag = Undefined
     mut.const = %raw(`void 0`)
-    mut.builder = Some(
+    mut.parser = Some(
       Builder.make((b, ~input as _, ~selfSchema as _, ~path as _) => {
         b->B.val("null")
       }),
@@ -2099,7 +2256,7 @@ let nullAsUnit = {
   let mut = base()
   mut.tag = Null
   mut.const = %raw(`null`)
-  mut.builder = Some(
+  mut.parser = Some(
     Builder.make((b, ~input as _, ~selfSchema as _, ~path as _) => {
       b->B.val("void 0")
     }),
@@ -2113,7 +2270,7 @@ unknown.tag = Unknown
 let unknown = unknown->fromInternal
 
 module Never = {
-  let builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
+  let parser = Builder.make((b, ~input, ~selfSchema, ~path) => {
     b.code =
       b.code ++
       b->B.failWithArg(
@@ -2130,7 +2287,7 @@ module Never = {
 
 let never = base()
 never.tag = Never
-never.builder = Some(Never.builder)
+never.parser = Some(Never.parser)
 let never = never->fromInternal
 
 module Union = {
@@ -2173,7 +2330,7 @@ module Union = {
       (tag === (NaN: tag :> string) && byKey->Stdlib.Dict.has((Number: tag :> string)))
   }
 
-  let builder = Builder.make((b, ~input, ~selfSchema, ~path) => {
+  let refiner = Builder.make((b, ~input, ~selfSchema, ~path) => {
     let fail = caught => {
       `${b->B.embed(_ => {
           let args = %raw(`arguments`)
@@ -2394,7 +2551,7 @@ module Union = {
           cond :=
             b->B.validation(
               ~inputVar,
-              ~schema={tag: firstSchema.tag, builder: %raw(`0`)},
+              ~schema={tag: firstSchema.tag, parser: %raw(`0`)},
               ~negative=false,
             )
 
@@ -2497,7 +2654,7 @@ module Union = {
         let schema = schemas->Js.Array2.unsafe_get(idx)
 
         // Check if the union is not transformed
-        if schema.tag === Union && schema.builder === Some(builder) {
+        if schema.tag === Union && schema.to === None {
           schema.anyOf
           ->Stdlib.Option.unsafeUnwrap
           ->Js.Array2.forEach(item => {
@@ -2520,8 +2677,7 @@ module Union = {
       let mut = base()
       mut.tag = Union
       mut.anyOf = Some(anyOf->Stdlib.Set.toArray)
-      mut.builder = Some(builder)
-      mut.output = Some(output)
+      mut.refiner = Some(refiner)
       mut.has = Some(has)
       mut->fromInternal
     }
@@ -2568,13 +2724,13 @@ module Option = {
         fields,
         items: [item],
         additionalItems: Strip,
-        builder: Builder.make((b, ~input as _, ~selfSchema, ~path as _) => {
+        parser: Builder.make((b, ~input as _, ~selfSchema, ~path as _) => {
           b->B.val(b->B.inlineConst(selfSchema->reverse))
         }),
       }
     }
 
-    let builder = Builder.make((b, ~input as _, ~selfSchema, ~path as _) => {
+    let parser = Builder.make((b, ~input as _, ~selfSchema, ~path as _) => {
       b->B.val(
         `{${inLoc}:${(
             (
@@ -2588,7 +2744,7 @@ module Option = {
       let mut = item->copy
 
       mut.output = Some(nestedNone)
-      mut.builder = Some(builder)
+      mut.parser = Some(parser)
 
       mut
     }
@@ -2629,7 +2785,7 @@ module Option = {
                     ...item,
                     schema: {
                       tag: fSchema.tag,
-                      builder: ?fSchema.builder,
+                      parser: ?fSchema.parser,
                       const: fSchema.const->Obj.magic->Stdlib.Int.plus(1)->Obj.magic,
                     }->fromInternal,
                   }
@@ -2661,7 +2817,7 @@ module Option = {
     let schema = schema->toInternal
     let mut = schema->copy
     mut->Metadata.setInPlace(~id=defaultMetadataId, default)
-    mut.builder = Some(
+    mut.parser = Some(
       Builder.make((b, ~input, ~selfSchema as _, ~path) => {
         b->B.transform(~input=b->B.parse(~schema, ~input, ~path), (b, ~input) => {
           let inputVar = b->B.Val.var(input)
@@ -2720,14 +2876,14 @@ module Array = {
     }
   }
 
-  let rec factory = item => {
+  let factory = item => {
     let item = item->toInternal
 
     let mut = base()
     mut.tag = Array
     mut.additionalItems = Some(Schema(item->fromInternal))
     mut.items = Some(Stdlib.Array.immutableEmpty)
-    mut.builder = Some(
+    mut.refiner = Some(
       Builder.make((b, ~input, ~selfSchema as _, ~path) => {
         let inputVar = b->B.Val.var(input)
         let iteratorVar = b.global->B.varWithoutAllocation
@@ -2759,7 +2915,6 @@ module Array = {
         }
       }),
     )
-    mut.output = Some(Output.item(~factory, ~item))
     mut->fromInternal
   }
 }
@@ -2831,7 +2986,7 @@ module Dict = {
     mut.fields = Some(Stdlib.Object.immutableEmpty)
     mut.items = Some(Stdlib.Array.immutableEmpty)
     mut.additionalItems = Some(Schema(item->fromInternal))
-    mut.builder = Some(
+    mut.parser = Some(
       Builder.make((b, ~input, ~selfSchema as _, ~path) => {
         let inputVar = b->B.Val.var(input)
         let keyVar = b.global->B.varWithoutAllocation
@@ -2926,7 +3081,7 @@ module JsonString = {
     let item = item->toInternal
     let mut = base()
     mut.tag = String
-    mut.builder = Some(
+    mut.parser = Some(
       Builder.make((b, ~input, ~selfSchema as _, ~path) => {
         let jsonVal = b->B.allocateVal
 
@@ -2945,7 +3100,7 @@ module JsonString = {
       () => {
         let reversed = item->reverse
         let mut = reversed->copy
-        mut.builder = Some(
+        mut.parser = Some(
           Builder.make((b, ~input, ~selfSchema as _, ~path) => {
             let prevFlag = b.global.flag
             b.global.flag = prevFlag->Flag.with(Flag.jsonableOutput)
@@ -3053,119 +3208,51 @@ let rec to = (from, target) => {
     switch target {
     | {anyOf} =>
       Union.factory(anyOf->Js.Array2.map(target => to(from->fromInternal, target->fromInternal)))
-    | _ => {
-        let extendCoercion = %raw(`0`)
-        let shrinkCoercion = %raw(`1`)
+    | _ =>
+      updateOutput(from, mut => {
+        mut.to = Some(target)
+      })
 
-        let fromOutput = from->reverse
-        let isFromLiteral = from->isLiteral
-        let isTargetLiteral = target->isLiteral
+    // mut.parser = Some(
+    //   Builder.make((b, ~input, ~selfSchema as _, ~path) => {
+    //     let input = b->B.parse(~schema=from, ~input, ~path)
 
-        let coercion = switch (fromOutput, target) {
-        | (_, _) if isFromLiteral && isTargetLiteral =>
-          (b, ~inputVar as _, ~failCoercion as _) => {
-            b->B.val(b->B.inlineConst(target))
-          }
-        | ({tag: fromTag}, {tag: targetTag})
-          if fromTag === targetTag && isFromLiteral && !isTargetLiteral => extendCoercion
-        | (_, {tag: Unknown}) => extendCoercion
-        | ({tag: Unknown}, _) => shrinkCoercion
-        | ({tag: String}, {tag: String, const: _}) => shrinkCoercion
-        | ({tag: String}, {tag: String}) // FIXME: validate that refinements match
-        | ({tag: Number, format: Int32}, {tag: Number, format: ?None}) => extendCoercion
-        | ({tag: Boolean | Number | BigInt | Undefined | Null | NaN, ?const}, {tag: String})
-          if isFromLiteral =>
-          (b, ~inputVar as _, ~failCoercion as _) => b->B.val(`"${const->Obj.magic}"`)
+    // if coercion === extendCoercion {
+    //   b->B.parse(~schema=target, ~input, ~path)
+    // } else if coercion === shrinkCoercion {
+    //   b->B.parseWithTypeValidation(~schema=target, ~input, ~path)
+    // } else {
+    //   let bb = b->B.scope
+    //   let inputVar = input.var(bb)
+    //   let output = bb->B.parse(
+    //     ~schema=target,
+    //     ~input=bb->coercion(
+    //       ~inputVar,
+    //       ~failCoercion=bb->B.failWithArg(
+    //         ~path,
+    //         input => InvalidType({
+    //           expected: target->fromInternal,
+    //           received: input,
+    //         }),
+    //         inputVar,
+    //       ),
+    //     ),
+    //     ~path,
+    //   )
+    //   b.code = b.code ++ bb->B.allocateScope
+    //   output
+    // }
+    //   }),
+    // )
+    // mut.to = Some(target)
 
-        | ({tag: Boolean | Number | BigInt}, {tag: String}) =>
-          (b, ~inputVar, ~failCoercion as _) => b->B.val(`""+${inputVar}`)
-        | ({tag: String}, {tag: Boolean | Number | BigInt | Undefined | Null | NaN, ?const})
-          if isTargetLiteral =>
-          (b, ~inputVar, ~failCoercion) => {
-            b.code = b.code ++ `${inputVar}==="${const->Obj.magic}"||${failCoercion};`
-            b->B.val(b->B.inlineConst(target))
-          }
-        | ({tag: String}, {tag: Boolean}) =>
-          (b, ~inputVar, ~failCoercion) => {
-            let output = b->B.allocateVal
-            b.code =
-              b.code ++
-              `(${output.inline}=${inputVar}==="true")||${inputVar}==="false"||${failCoercion};`
-            output
-          }
+    // mut.output = Some(
+    //   () => {
+    //     to(target->reverse->fromInternal, fromOutput->fromInternal)->toInternal
+    //   },
+    // )
 
-        | ({tag: String}, {tag: Number, ?format}) =>
-          (b, ~inputVar, ~failCoercion) => {
-            let output = b->B.val(`+${inputVar}`)
-            let outputVar = output.var(b)
-            b.code =
-              b.code ++
-              switch format {
-              | None => `Number.isNaN(${outputVar})`
-              | Some(_) =>
-                `(${b
-                  ->B.refinement(~inputVar=outputVar, ~schema=target, ~negative=true)
-                  ->Js.String2.sliceToEnd(~from=2)})`
-              } ++
-              `&&${failCoercion};`
-            output
-          }
-        | ({tag: String}, {tag: BigInt}) =>
-          (b, ~inputVar, ~failCoercion) => {
-            let output = b->B.allocateVal
-            b.code = b.code ++ `try{${output.inline}=BigInt(${inputVar})}catch(_){${failCoercion}}`
-            output
-          }
-
-        | _ =>
-          InternalError.panic(
-            `S.to from ${fromOutput->fromInternal->toExpression} to ${target
-              ->fromInternal
-              ->toExpression} is not supported`,
-          )
-        }
-
-        let mut = from->copy
-        mut.builder = Some(
-          Builder.make((b, ~input, ~selfSchema as _, ~path) => {
-            let input = b->B.parse(~schema=from, ~input, ~path)
-
-            if coercion === extendCoercion {
-              b->B.parse(~schema=target, ~input, ~path)
-            } else if coercion === shrinkCoercion {
-              b->B.parseWithTypeValidation(~schema=target, ~input, ~path)
-            } else {
-              let bb = b->B.scope
-              let inputVar = input.var(bb)
-              let output = bb->B.parse(
-                ~schema=target,
-                ~input=bb->coercion(
-                  ~inputVar,
-                  ~failCoercion=bb->B.failWithArg(
-                    ~path,
-                    input => InvalidType({
-                      expected: target->fromInternal,
-                      received: input,
-                    }),
-                    inputVar,
-                  ),
-                ),
-                ~path,
-              )
-              b.code = b.code ++ bb->B.allocateScope
-              output
-            }
-          }),
-        )
-
-        mut.output = Some(
-          () => {
-            to(target->reverse->fromInternal, fromOutput->fromInternal)->toInternal
-          },
-        )
-
-        mut->fromInternal
-      }
+    // mut->fromInternal
     }
   }
 }
@@ -3190,7 +3277,7 @@ let rec json = (~validate) => {
   let mut = base()
   mut.tag = JSON // FIXME: Store validate on schema
   if validate {
-    mut.builder = Some(
+    mut.parser = Some(
       Builder.make((b, ~input, ~selfSchema, ~path) => {
         let rec parse = (input, ~path=path) => {
           switch input->Stdlib.Type.typeof {
@@ -3262,7 +3349,7 @@ module Catch = {
 let catch = (schema, getFallbackValue) => {
   let schema = schema->toInternal
   let mut = schema->copy
-  mut.builder = Some(
+  mut.parser = Some(
     Builder.make((b, ~input, ~selfSchema, ~path) => {
       let inputVar = b->B.Val.var(input)
 
@@ -3507,7 +3594,7 @@ module Schema = {
       },
     })
 
-  let rec builder = (parentB, ~input, ~selfSchema, ~path) => {
+  let rec parser = (parentB, ~input, ~selfSchema, ~path) => {
     let additionalItems = selfSchema.additionalItems
     let items = selfSchema.items->Stdlib.Option.unsafeUnwrap
     let isArray = selfSchema.tag === Array
@@ -3591,7 +3678,7 @@ module Schema = {
       mut.items = Some(reversedItems)
       mut.fields = Some(reversedFields)
       mut.additionalItems = Some(globalConfig.defaultAdditionalItems)
-      mut.builder = Some(builder)
+      mut.parser = Some(parser)
       mut
     } else {
       %raw(`this`)
@@ -3685,12 +3772,12 @@ module Schema = {
     let mut = switch ritem {
     | Registred(_)
     | Discriminant(_) =>
-      // Need to copy the schema here, because we're going to override the builder
+      // Need to copy the schema here, because we're going to override the parser
       ritem->getRitemReversed->copy
     | Node(_) => ritem->getRitemReversed
     }
 
-    mut.builder = Some(
+    mut.parser = Some(
       Builder.make((b, ~input, ~selfSchema, ~path) => {
         let getRitemInput = ritem => {
           ritem->getRitemPath === Path.empty
@@ -3822,7 +3909,7 @@ module Schema = {
       })
       let definition: unknown = definer(item->proxify)->Obj.magic
 
-      mut.builder = Some(
+      mut.parser = Some(
         Builder.make((b, ~input, ~selfSchema as _, ~path) => {
           let itemOutput = b->B.parse(~schema, ~input, ~path)
 
@@ -3867,7 +3954,7 @@ module Schema = {
           schema.items = Some(items)
           schema.fields = Some(fields)
           schema.additionalItems = Some(globalConfig.defaultAdditionalItems)
-          schema.builder = Some(builder)
+          schema.parser = Some(parser)
           schema.output = Some(output)
           schema->fromInternal
         }
@@ -4054,7 +4141,7 @@ module Schema = {
       mut.fields = Some(fields)
       mut.additionalItems = Some(globalConfig.defaultAdditionalItems)
       mut.advanced = Some(true)
-      mut.builder = Some(advancedBuilder(~definition, ~flattened))
+      mut.parser = Some(advancedBuilder(~definition, ~flattened))
       mut.output = Some(advancedReverse(~definition, ~flattened))
       mut->fromInternal
     }
@@ -4110,7 +4197,7 @@ module Schema = {
     mut.tag = Array
     mut.items = Some(items)
     mut.additionalItems = Some(Strict)
-    mut.builder = Some(advancedBuilder(~definition))
+    mut.parser = Some(advancedBuilder(~definition))
     mut.output = Some(advancedReverse(~definition))
     mut->fromInternal
   }
@@ -4156,7 +4243,7 @@ module Schema = {
                 mut.tag = Array
                 mut.items = Some(items)
                 mut.additionalItems = Some(Strict)
-                mut.builder = Some(Never.builder)
+                mut.parser = Some(Never.parser)
                 mut.output = Some(output)
                 mut
               },
@@ -4196,7 +4283,7 @@ module Schema = {
                 mut.fields = Some(fields)
                 mut.additionalItems = Some(globalConfig.defaultAdditionalItems)
                 mut.advanced = Some(true)
-                mut.builder = Some(Never.builder)
+                mut.parser = Some(Never.parser)
                 mut.output = Some(output)
                 mut
               },
@@ -4251,7 +4338,7 @@ module Schema = {
         mut.tag = Array
         mut.items = Some(items)
         mut.additionalItems = Some(Strict)
-        mut.builder = Some(builder)
+        mut.parser = Some(parser)
         if isTransformed.contents {
           mut.output = Some(
             () => {
@@ -4259,7 +4346,7 @@ module Schema = {
               mut.tag = Array
               mut.items = Some(reversedItems)
               mut.additionalItems = Some(Strict)
-              mut.builder = Some(builder)
+              mut.parser = Some(parser)
               mut
             },
           )
@@ -4295,7 +4382,7 @@ module Schema = {
           mut.items = Some(items)
           mut.fields = Some(node->(Obj.magic: dict<unknown> => dict<item>))
           mut.additionalItems = Some(globalConfig.defaultAdditionalItems)
-          mut.builder = Some(builder)
+          mut.parser = Some(parser)
           mut.output = Some(output)
           mut
         }
@@ -4352,7 +4439,7 @@ let unnest = schema => {
       }),
     )
     mut.additionalItems = Some(Strict)
-    mut.builder = Some(
+    mut.parser = Some(
       Builder.make((b, ~input, ~selfSchema as _, ~path) => {
         let inputVar = b->B.Val.var(input)
         let iteratorVar = b.global->B.varWithoutAllocation
@@ -4404,7 +4491,7 @@ let unnest = schema => {
         mut.tag = Array
         mut.items = Some(Stdlib.Array.immutableEmpty)
         mut.additionalItems = Some(Schema(schema->fromInternal))
-        mut.builder = Some(
+        mut.parser = Some(
           Builder.make((b, ~input, ~selfSchema as _, ~path) => {
             let inputVar = b->B.Val.var(input)
             let iteratorVar = b.global->B.varWithoutAllocation
@@ -5094,7 +5181,7 @@ let js_merge = (s1, s2) => {
     mut.fields = Some(fields)
     mut.additionalItems = Some(additionalItems)
     mut.advanced = Some(true)
-    mut.builder = Some(
+    mut.parser = Some(
       Builder.make((b, ~input, ~selfSchema as _, ~path) => {
         let s1Result = b->B.parse(~schema=s1, ~input, ~path)
         let s2Result = b->B.parse(~schema=s2, ~input, ~path)
@@ -5106,7 +5193,7 @@ let js_merge = (s1, s2) => {
       () => {
         let mut = base()
         mut.tag = Unknown
-        mut.builder = Some(
+        mut.parser = Some(
           Builder.make((b, ~input as _, ~selfSchema as _, ~path) => {
             b->B.invalidOperation(
               ~path,
