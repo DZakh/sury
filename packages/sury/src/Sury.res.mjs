@@ -1294,17 +1294,6 @@ function compile(schema, input, output, mode, typeValidationOpt) {
   };
 }
 
-function item(factory, item$1) {
-  return function () {
-    var reversed = reverse(item$1);
-    if (reversed === item$1) {
-      return this;
-    } else {
-      return factory(reversed);
-    }
-  };
-}
-
 function parseOrThrow(any, schema) {
   return operationFn(schema, 1)(any);
 }
@@ -2335,59 +2324,61 @@ function deepStrict(schema) {
   return setAdditionalItems(schema, "strict", true);
 }
 
-function factory$3(item$1) {
+function dictRefiner(b, input, selfSchema, path) {
+  var item = selfSchema.additionalItems;
+  var inputVar = input.v(b);
+  var keyVar = varWithoutAllocation(b.g);
+  var bb = {
+    c: "",
+    l: "",
+    a: initialAllocate,
+    g: b.g
+  };
+  var itemInput = {
+    b: bb,
+    v: _notVar,
+    i: inputVar + "[" + keyVar + "]",
+    a: false
+  };
+  var itemOutput = withPathPrepend(bb, itemInput, path, keyVar, undefined, (function (b, input, path) {
+          return parseWithTypeValidation(b, item, input, path);
+        }));
+  var itemCode = allocateScope(bb);
+  var isTransformed = itemInput !== itemOutput;
+  var output = isTransformed ? ({
+        b: b,
+        v: _notVar,
+        i: "{}",
+        a: false
+      }) : input;
+  if (isTransformed || itemCode !== "") {
+    b.c = b.c + ("for(let " + keyVar + " in " + inputVar + "){" + itemCode + (
+        isTransformed ? addKey(b, output, keyVar, itemOutput) : ""
+      ) + "}");
+  }
+  if (!itemOutput.a) {
+    return output;
+  }
+  var resolveVar = varWithoutAllocation(b.g);
+  var rejectVar = varWithoutAllocation(b.g);
+  var asyncParseResultVar = varWithoutAllocation(b.g);
+  var counterVar = varWithoutAllocation(b.g);
+  var outputVar = output.v(b);
+  return {
+          b: b,
+          v: _notVar,
+          i: "new Promise((" + resolveVar + "," + rejectVar + ")=>{let " + counterVar + "=Object.keys(" + outputVar + ").length;for(let " + keyVar + " in " + outputVar + "){" + outputVar + "[" + keyVar + "].then(" + asyncParseResultVar + "=>{" + outputVar + "[" + keyVar + "]=" + asyncParseResultVar + ";if(" + counterVar + "--===1){" + resolveVar + "(" + outputVar + ")}}," + rejectVar + ")}})",
+          a: true
+        };
+}
+
+function factory$3(item) {
   var mut = new Schema();
   mut.type = "object";
   mut.fields = immutableEmpty;
   mut.items = immutableEmpty$1;
-  mut.additionalItems = item$1;
-  mut.parser = (function (b, input, param, path) {
-      var inputVar = input.v(b);
-      var keyVar = varWithoutAllocation(b.g);
-      var bb = {
-        c: "",
-        l: "",
-        a: initialAllocate,
-        g: b.g
-      };
-      var itemInput = {
-        b: bb,
-        v: _notVar,
-        i: inputVar + "[" + keyVar + "]",
-        a: false
-      };
-      var itemOutput = withPathPrepend(bb, itemInput, path, keyVar, undefined, (function (b, input, path) {
-              return parseWithTypeValidation(b, item$1, input, path);
-            }));
-      var itemCode = allocateScope(bb);
-      var isTransformed = itemInput !== itemOutput;
-      var output = isTransformed ? ({
-            b: b,
-            v: _notVar,
-            i: "{}",
-            a: false
-          }) : input;
-      if (isTransformed || itemCode !== "") {
-        b.c = b.c + ("for(let " + keyVar + " in " + inputVar + "){" + itemCode + (
-            isTransformed ? addKey(b, output, keyVar, itemOutput) : ""
-          ) + "}");
-      }
-      if (!itemOutput.a) {
-        return output;
-      }
-      var resolveVar = varWithoutAllocation(b.g);
-      var rejectVar = varWithoutAllocation(b.g);
-      var asyncParseResultVar = varWithoutAllocation(b.g);
-      var counterVar = varWithoutAllocation(b.g);
-      var outputVar = output.v(b);
-      return {
-              b: b,
-              v: _notVar,
-              i: "new Promise((" + resolveVar + "," + rejectVar + ")=>{let " + counterVar + "=Object.keys(" + outputVar + ").length;for(let " + keyVar + " in " + outputVar + "){" + outputVar + "[" + keyVar + "].then(" + asyncParseResultVar + "=>{" + outputVar + "[" + keyVar + "]=" + asyncParseResultVar + ";if(" + counterVar + "--===1){" + resolveVar + "(" + outputVar + ")}}," + rejectVar + ")}})",
-              a: true
-            };
-    });
-  mut.output = item(factory$3, item$1);
+  mut.additionalItems = item;
+  mut.refiner = dictRefiner;
   return mut;
 }
 
@@ -2430,26 +2421,24 @@ function factory$4(item, spaceOpt) {
               }), "t.message") + "}");
       return parseWithTypeValidation(b, item, jsonVal, path);
     });
-  mut.output = (function () {
-      var reversed = reverse(item);
-      var mut = copy(reversed);
-      mut.parser = (function (b, input, param, path) {
-          var prevFlag = b.g.o;
-          b.g.o = prevFlag | 8;
-          jsonableValidation(reversed, reversed, "", b.g.o, undefined);
-          var output = {
-            b: b,
-            v: _notVar,
-            i: "JSON.stringify(" + parse(b, reversed, input, path).i + (
-              space > 0 ? ",null," + space : ""
-            ) + ")",
-            a: false
-          };
-          b.g.o = prevFlag;
-          return output;
-        });
-      return mut;
+  var to = copy(item);
+  to.serializer = (function (b, input, selfSchema, path) {
+      var reversed = reverse(selfSchema);
+      var prevFlag = b.g.o;
+      b.g.o = prevFlag | 8;
+      jsonableValidation(reversed, reversed, "", b.g.o, undefined);
+      var output = {
+        b: b,
+        v: _notVar,
+        i: "JSON.stringify(" + parse(b, reversed, input, path).i + (
+          space > 0 ? ",null," + space : ""
+        ) + ")",
+        a: false
+      };
+      b.g.o = prevFlag;
+      return output;
     });
+  mut.to = to;
   return mut;
 }
 
@@ -2807,86 +2796,6 @@ function parser$2(parentB, input, selfSchema, path) {
   }
 }
 
-function definitionToSchema(definition) {
-  if (!(typeof definition === "object" && definition !== null)) {
-    return parse$1(definition);
-  }
-  if (definition["~standard"]) {
-    return definition;
-  }
-  if (Array.isArray(definition)) {
-    var reversedItems = [];
-    var isTransformed = false;
-    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
-      var schema = definitionToSchema(definition[idx]);
-      var reversed = reverse(schema);
-      var $$location = idx.toString();
-      var inlinedLocation = "\"" + $$location + "\"";
-      definition[idx] = {
-        schema: schema,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-      reversedItems[idx] = {
-        schema: reversed,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-      if (schema !== reversed) {
-        isTransformed = true;
-      }
-      
-    }
-    var mut = new Schema();
-    mut.type = "array";
-    mut.items = definition;
-    mut.additionalItems = "strict";
-    mut.parser = parser$2;
-    if (isTransformed) {
-      mut.output = (function () {
-          var mut = new Schema();
-          mut.type = "array";
-          mut.items = reversedItems;
-          mut.additionalItems = "strict";
-          mut.parser = parser$2;
-          return mut;
-        });
-    }
-    return mut;
-  }
-  var cnstr = definition.constructor;
-  if (cnstr && cnstr !== Object) {
-    return {
-            type: "instance",
-            const: definition,
-            class: cnstr
-          };
-  }
-  var fieldNames = Object.keys(definition);
-  var length = fieldNames.length;
-  var items = [];
-  for(var idx$1 = 0; idx$1 < length; ++idx$1){
-    var $$location$1 = fieldNames[idx$1];
-    var inlinedLocation$1 = fromString($$location$1);
-    var schema$1 = definitionToSchema(definition[$$location$1]);
-    var item = {
-      schema: schema$1,
-      location: $$location$1,
-      inlinedLocation: inlinedLocation$1
-    };
-    definition[$$location$1] = item;
-    items[idx$1] = item;
-  }
-  var mut$1 = new Schema();
-  mut$1.type = "object";
-  mut$1.items = items;
-  mut$1.fields = definition;
-  mut$1.additionalItems = globalConfig.a;
-  mut$1.parser = parser$2;
-  mut$1.output = output$1;
-  return mut$1;
-}
-
 function output$1() {
   var items = this.items;
   var reversedFields = {};
@@ -3077,62 +2986,84 @@ function nested(fieldName) {
   return ctx$1;
 }
 
-function advancedBuilder(definition, flattened) {
-  return function (parentB, input, selfSchema, path) {
-    var isFlatten = parentB.g.o & 64;
-    var outputs = isFlatten ? input : ({});
-    var b = {
-      c: "",
-      l: "",
-      a: initialAllocate,
-      g: parentB.g
-    };
-    if (!isFlatten) {
-      var items = selfSchema.items;
-      var inputVar = input.v(b);
-      for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
-        var match = items[idx];
-        var inlinedLocation = match.inlinedLocation;
-        var schema = match.schema;
-        var itemPath = "[" + inlinedLocation + "]";
-        var itemInput = {
-          b: b,
-          v: _notVar,
-          i: inputVar + itemPath,
-          a: false
-        };
-        var path$1 = path + itemPath;
-        if (b.g.o & 1 && !isLiteral(schema) && schema.type !== "object") {
-          b.c = b.c + typeFilterCode(b, schema, itemInput, path$1);
-        }
-        outputs[inlinedLocation] = parse(b, schema, itemInput, path$1);
+function definitionToSchema(definition) {
+  if (!(typeof definition === "object" && definition !== null)) {
+    return parse$1(definition);
+  }
+  if (definition["~standard"]) {
+    return definition;
+  }
+  if (Array.isArray(definition)) {
+    var reversedItems = [];
+    var isTransformed = false;
+    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
+      var schema = definitionToSchema(definition[idx]);
+      var reversed = reverse(schema);
+      var $$location = idx.toString();
+      var inlinedLocation = "\"" + $$location + "\"";
+      definition[idx] = {
+        schema: schema,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+      reversedItems[idx] = {
+        schema: reversed,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+      if (schema !== reversed) {
+        isTransformed = true;
       }
-      objectStrictModeCheck(b, input, items, selfSchema, path);
+      
     }
-    if (flattened !== undefined) {
-      var prevFlag = b.g.o;
-      b.g.o = prevFlag | 64;
-      for(var idx$1 = 0 ,idx_finish$1 = flattened.length; idx$1 < idx_finish$1; ++idx$1){
-        var item = flattened[idx$1];
-        outputs[item.i] = parse(b, item.schema, outputs, path);
-      }
-      b.g.o = prevFlag;
+    var mut = new Schema();
+    mut.type = "array";
+    mut.items = definition;
+    mut.additionalItems = "strict";
+    mut.parser = parser$2;
+    if (isTransformed) {
+      mut.output = (function () {
+          var mut = new Schema();
+          mut.type = "array";
+          mut.items = reversedItems;
+          mut.additionalItems = "strict";
+          mut.parser = parser$2;
+          return mut;
+        });
     }
-    var getItemOutput = function (item) {
-      switch (item.k) {
-        case 0 :
-            return outputs[item.inlinedLocation];
-        case 1 :
-            return get(b, getItemOutput(item.of), item.inlinedLocation);
-        case 2 :
-            return outputs[item.i];
-        
-      }
+    return mut;
+  }
+  var cnstr = definition.constructor;
+  if (cnstr && cnstr !== Object) {
+    return {
+            type: "instance",
+            const: definition,
+            class: cnstr
+          };
+  }
+  var fieldNames = Object.keys(definition);
+  var length = fieldNames.length;
+  var items = [];
+  for(var idx$1 = 0; idx$1 < length; ++idx$1){
+    var $$location$1 = fieldNames[idx$1];
+    var inlinedLocation$1 = fromString($$location$1);
+    var schema$1 = definitionToSchema(definition[$$location$1]);
+    var item = {
+      schema: schema$1,
+      location: $$location$1,
+      inlinedLocation: inlinedLocation$1
     };
-    var output = definitionToOutput(b, definition, getItemOutput);
-    parentB.c = parentB.c + allocateScope(b);
-    return output;
-  };
+    definition[$$location$1] = item;
+    items[idx$1] = item;
+  }
+  var mut$1 = new Schema();
+  mut$1.type = "object";
+  mut$1.items = items;
+  mut$1.fields = definition;
+  mut$1.additionalItems = globalConfig.a;
+  mut$1.parser = parser$2;
+  mut$1.output = output$1;
+  return mut$1;
 }
 
 function advancedReverse(definition, to, flattened) {
@@ -3233,6 +3164,64 @@ function advancedReverse(definition, to, flattened) {
         return complete(objectVal, isArray);
       });
     return mut;
+  };
+}
+
+function advancedBuilder(definition, flattened) {
+  return function (parentB, input, selfSchema, path) {
+    var isFlatten = parentB.g.o & 64;
+    var outputs = isFlatten ? input : ({});
+    var b = {
+      c: "",
+      l: "",
+      a: initialAllocate,
+      g: parentB.g
+    };
+    if (!isFlatten) {
+      var items = selfSchema.items;
+      var inputVar = input.v(b);
+      for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
+        var match = items[idx];
+        var inlinedLocation = match.inlinedLocation;
+        var schema = match.schema;
+        var itemPath = "[" + inlinedLocation + "]";
+        var itemInput = {
+          b: b,
+          v: _notVar,
+          i: inputVar + itemPath,
+          a: false
+        };
+        var path$1 = path + itemPath;
+        if (b.g.o & 1 && !isLiteral(schema) && schema.type !== "object") {
+          b.c = b.c + typeFilterCode(b, schema, itemInput, path$1);
+        }
+        outputs[inlinedLocation] = parse(b, schema, itemInput, path$1);
+      }
+      objectStrictModeCheck(b, input, items, selfSchema, path);
+    }
+    if (flattened !== undefined) {
+      var prevFlag = b.g.o;
+      b.g.o = prevFlag | 64;
+      for(var idx$1 = 0 ,idx_finish$1 = flattened.length; idx$1 < idx_finish$1; ++idx$1){
+        var item = flattened[idx$1];
+        outputs[item.i] = parse(b, item.schema, outputs, path);
+      }
+      b.g.o = prevFlag;
+    }
+    var getItemOutput = function (item) {
+      switch (item.k) {
+        case 0 :
+            return outputs[item.inlinedLocation];
+        case 1 :
+            return get(b, getItemOutput(item.of), item.inlinedLocation);
+        case 2 :
+            return outputs[item.i];
+        
+      }
+    };
+    var output = definitionToOutput(b, definition, getItemOutput);
+    parentB.c = parentB.c + allocateScope(b);
+    return output;
   };
 }
 

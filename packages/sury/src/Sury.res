@@ -1824,19 +1824,6 @@ let compile = (
   }
 }
 
-module Output = {
-  let item = (~factory, ~item) => {
-    () => {
-      let reversed = item->reverse
-      if reversed === item {
-        %raw(`this`)
-      } else {
-        factory(reversed->fromInternal)->toInternal
-      }
-    }
-  }
-}
-
 // =============
 // Operations
 // =============
@@ -2986,53 +2973,54 @@ let deepStrict = schema => {
 }
 
 module Dict = {
-  let rec factory = item => {
+  let dictRefiner = Builder.make((b, ~input, ~selfSchema, ~path) => {
+    let item = selfSchema.additionalItems->(Obj.magic: option<additionalItems> => internal)
+
+    let inputVar = b->B.Val.var(input)
+    let keyVar = b.global->B.varWithoutAllocation
+
+    let bb = b->B.scope
+    let itemInput = bb->B.val(`${inputVar}[${keyVar}]`)
+    let itemOutput =
+      bb->B.withPathPrepend(~path, ~input=itemInput, ~dynamicLocationVar=keyVar, (
+        b,
+        ~input,
+        ~path,
+      ) => b->B.parseWithTypeValidation(~schema=item, ~input, ~path))
+    let itemCode = bb->B.allocateScope
+    let isTransformed = itemInput !== itemOutput
+    let output = isTransformed ? b->B.val("{}") : input
+
+    if isTransformed || itemCode !== "" {
+      b.code =
+        b.code ++
+        `for(let ${keyVar} in ${inputVar}){${itemCode}${isTransformed
+            ? b->B.Val.addKey(output, keyVar, itemOutput)
+            : ""}}`
+    }
+
+    if itemOutput.isAsync {
+      let resolveVar = b.global->B.varWithoutAllocation
+      let rejectVar = b.global->B.varWithoutAllocation
+      let asyncParseResultVar = b.global->B.varWithoutAllocation
+      let counterVar = b.global->B.varWithoutAllocation
+      let outputVar = b->B.Val.var(output)
+      b->B.asyncVal(
+        `new Promise((${resolveVar},${rejectVar})=>{let ${counterVar}=Object.keys(${outputVar}).length;for(let ${keyVar} in ${outputVar}){${outputVar}[${keyVar}].then(${asyncParseResultVar}=>{${outputVar}[${keyVar}]=${asyncParseResultVar};if(${counterVar}--===1){${resolveVar}(${outputVar})}},${rejectVar})}})`,
+      )
+    } else {
+      output
+    }
+  })
+
+  let factory = item => {
     let item = item->toInternal
     let mut = base()
     mut.tag = Object
     mut.fields = Some(Stdlib.Object.immutableEmpty)
     mut.items = Some(Stdlib.Array.immutableEmpty)
     mut.additionalItems = Some(Schema(item->fromInternal))
-    mut.parser = Some(
-      Builder.make((b, ~input, ~selfSchema as _, ~path) => {
-        let inputVar = b->B.Val.var(input)
-        let keyVar = b.global->B.varWithoutAllocation
-
-        let bb = b->B.scope
-        let itemInput = bb->B.val(`${inputVar}[${keyVar}]`)
-        let itemOutput =
-          bb->B.withPathPrepend(~path, ~input=itemInput, ~dynamicLocationVar=keyVar, (
-            b,
-            ~input,
-            ~path,
-          ) => b->B.parseWithTypeValidation(~schema=item, ~input, ~path))
-        let itemCode = bb->B.allocateScope
-        let isTransformed = itemInput !== itemOutput
-        let output = isTransformed ? b->B.val("{}") : input
-
-        if isTransformed || itemCode !== "" {
-          b.code =
-            b.code ++
-            `for(let ${keyVar} in ${inputVar}){${itemCode}${isTransformed
-                ? b->B.Val.addKey(output, keyVar, itemOutput)
-                : ""}}`
-        }
-
-        if itemOutput.isAsync {
-          let resolveVar = b.global->B.varWithoutAllocation
-          let rejectVar = b.global->B.varWithoutAllocation
-          let asyncParseResultVar = b.global->B.varWithoutAllocation
-          let counterVar = b.global->B.varWithoutAllocation
-          let outputVar = b->B.Val.var(output)
-          b->B.asyncVal(
-            `new Promise((${resolveVar},${rejectVar})=>{let ${counterVar}=Object.keys(${outputVar}).length;for(let ${keyVar} in ${outputVar}){${outputVar}[${keyVar}].then(${asyncParseResultVar}=>{${outputVar}[${keyVar}]=${asyncParseResultVar};if(${counterVar}--===1){${resolveVar}(${outputVar})}},${rejectVar})}})`,
-          )
-        } else {
-          output
-        }
-      }),
-    )
-    mut.output = Some(Output.item(~factory, ~item))
+    mut.refiner = Some(dictRefiner)
     mut->fromInternal
   }
 }
@@ -3103,36 +3091,34 @@ module JsonString = {
         b->B.parseWithTypeValidation(~schema=item, ~input=jsonVal, ~path)
       }),
     )
-    mut.output = Some(
-      () => {
-        let reversed = item->reverse
-        let mut = reversed->copy
-        mut.parser = Some(
-          Builder.make((b, ~input, ~selfSchema as _, ~path) => {
-            let prevFlag = b.global.flag
-            b.global.flag = prevFlag->Flag.with(Flag.jsonableOutput)
+    let to = item->copy
+    to.serializer = Some(
+      Builder.make((b, ~input, ~selfSchema, ~path) => {
+        let reversed = selfSchema->reverse
 
-            jsonableValidation(
-              ~output=reversed,
-              ~parent=reversed,
-              ~path=Path.empty,
-              ~flag=b.global.flag,
-              ~recSet=None,
-            )
+        let prevFlag = b.global.flag
+        b.global.flag = prevFlag->Flag.with(Flag.jsonableOutput)
 
-            let output =
-              b->B.val(
-                `JSON.stringify(${(b->B.parse(~schema=reversed, ~input, ~path)).inline}${space > 0
-                    ? `,null,${space->Stdlib.Int.unsafeToString}`
-                    : ""})`,
-              )
-            b.global.flag = prevFlag
-            output
-          }),
+        jsonableValidation(
+          ~output=reversed,
+          ~parent=reversed,
+          ~path=Path.empty,
+          ~flag=b.global.flag,
+          ~recSet=None,
         )
-        mut
-      },
+
+        let output =
+          b->B.val(
+            `JSON.stringify(${(b->B.parse(~schema=reversed, ~input, ~path)).inline}${space > 0
+                ? `,null,${space->Stdlib.Int.unsafeToString}`
+                : ""})`,
+          )
+        b.global.flag = prevFlag
+        output
+      }),
     )
+    mut.to = Some(to)
+
     mut->fromInternal
   }
 }
