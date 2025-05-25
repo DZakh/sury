@@ -56,7 +56,7 @@ module CommonWithNested = {
     )
   })
 
-  Only.test("Compiled async parse code snapshot", t => {
+  test("Compiled async parse code snapshot", t => {
     let schema = S.array(S.unknown->S.transform(_ => {asyncParser: i => Promise.resolve(i)}))
 
     t->U.assertCompiledCode(
@@ -86,7 +86,7 @@ module CommonWithNested = {
 
   test("Reverse to self", t => {
     let schema = factory()
-    t->Assert.is(schema->S.reverse, schema->S.toUnknown, ())
+    t->U.assertEqualSchemas(schema->S.reverse, schema->S.toUnknown)
   })
 
   test("Succesfully uses reversed schema for parsing back to initial value", t => {
@@ -97,7 +97,11 @@ module CommonWithNested = {
 
 test("Reverse child schema", t => {
   let schema = S.array(S.null(S.string))
-  t->U.assertEqualSchemas(schema->S.reverse, S.array(S.option(S.string))->S.toUnknown)
+
+  t->U.assertEqualSchemas(
+    schema->S.reverse,
+    S.array(S.union([S.string->S.toUnknown, S.nullAsUnit->S.reverse]))->S.toUnknown,
+  )
 })
 
 test("Successfully parses matrix", t => {

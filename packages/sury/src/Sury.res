@@ -1375,10 +1375,13 @@ module Builder = {
     }
 
     let rec parse = (b: b, ~schema, ~input, ~path) => {
-      switch schema.refiner {
+      let input = switch schema.refiner {
       | Some(refiner) =>
-        let _ = refiner(b, ~input, ~selfSchema=schema, ~path)
-      | None => ()
+        // Some refiners like union might return a new
+        // instance of value. This is used for an assumption
+        // that it's transformed.
+        refiner(b, ~input, ~selfSchema=schema, ~path)
+      | None => input
       }
       switch schema.to {
       | Some(to) =>
@@ -1613,6 +1616,28 @@ and reverse = (schema: internal) => {
     | Some(Schema(schema)) =>
       mut.additionalItems = Some(Schema(schema->toInternal->reverse->fromInternal))
     | _ => ()
+    }
+    switch mut.anyOf {
+    | Some(anyOf) =>
+      let has = Js.Dict.empty()
+      let newAnyOf = []
+      for idx in 0 to anyOf->Js.Array2.length - 1 {
+        let s = anyOf->Js.Array2.unsafe_get(idx)
+        let reversed = s->reverse
+        newAnyOf->Js.Array2.push(reversed)->ignore
+        has->Js.Dict.set(
+          switch reversed.tag {
+          | Union
+          | JSON =>
+            (Unknown: tag :> string)
+          | v => (v: tag :> string)
+          },
+          true,
+        )
+      }
+      mut.has = Some(has)
+      mut.anyOf = Some(newAnyOf)
+    | None => ()
     }
     reversedHead := Some(mut)
     current := next
@@ -2241,29 +2266,11 @@ let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) =
 
 let unit = Literal.undefined->fromInternal
 
-let nullAsUnit = {
-  let output = () => {
-    let mut = base()
-    mut.tag = Undefined
-    mut.const = %raw(`void 0`)
-    mut.parser = Some(
-      Builder.make((b, ~input as _, ~selfSchema as _, ~path as _) => {
-        b->B.val("null")
-      }),
-    )
-    mut
-  }
-  let mut = base()
-  mut.tag = Null
-  mut.const = %raw(`null`)
-  mut.parser = Some(
-    Builder.make((b, ~input as _, ~selfSchema as _, ~path as _) => {
-      b->B.val("void 0")
-    }),
-  )
-  mut.output = Some(output)
-  mut->fromInternal
-}
+let nullAsUnit = base()
+nullAsUnit.tag = Null
+nullAsUnit.const = %raw(`null`)
+nullAsUnit.to = Some(unit->toInternal)
+let nullAsUnit = nullAsUnit->fromInternal
 
 let unknown = base()
 unknown.tag = Unknown
@@ -2876,49 +2883,45 @@ module Array = {
     }
   }
 
-  let factory = item => {
-    let item = item->toInternal
+  let arrayRefiner = Builder.make((b, ~input, ~selfSchema, ~path) => {
+    let item = selfSchema.additionalItems->(Obj.magic: option<additionalItems> => internal)
 
+    let inputVar = b->B.Val.var(input)
+    let iteratorVar = b.global->B.varWithoutAllocation
+
+    let bb = b->B.scope
+    let itemInput = bb->B.val(`${inputVar}[${iteratorVar}]`)
+    let itemOutput =
+      bb->B.withPathPrepend(~input=itemInput, ~path, ~dynamicLocationVar=iteratorVar, (
+        b,
+        ~input,
+        ~path,
+      ) => b->B.parseWithTypeValidation(~schema=item, ~input, ~path))
+    let itemCode = bb->B.allocateScope
+    let isTransformed = itemInput !== itemOutput
+    let output = isTransformed ? b->B.val(`new Array(${inputVar}.length)`) : input
+
+    if isTransformed || itemCode !== "" {
+      b.code =
+        b.code ++
+        `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${itemCode}${isTransformed
+            ? b->B.Val.addKey(output, iteratorVar, itemOutput)
+            : ""}}`
+    }
+
+    if itemOutput.isAsync {
+      output.b->B.asyncVal(`Promise.all(${output.inline})`)
+    } else {
+      output
+    }
+  })
+
+  let factory = item => {
     let mut = base()
     mut.tag = Array
-    mut.additionalItems = Some(Schema(item->fromInternal))
+    mut.additionalItems = Some(Schema(item->toInternal->fromInternal))
     mut.items = Some(Stdlib.Array.immutableEmpty)
-    mut.refiner = Some(
-      Builder.make((b, ~input, ~selfSchema as _, ~path) => {
-        let inputVar = b->B.Val.var(input)
-        let iteratorVar = b.global->B.varWithoutAllocation
-
-        let bb = b->B.scope
-        let itemInput = bb->B.val(`${inputVar}[${iteratorVar}]`)
-        let itemOutput =
-          bb->B.withPathPrepend(~input=itemInput, ~path, ~dynamicLocationVar=iteratorVar, (
-            b,
-            ~input,
-            ~path,
-          ) => b->B.parseWithTypeValidation(~schema=item, ~input, ~path))
-        let itemCode = bb->B.allocateScope
-        let isTransformed = itemInput !== itemOutput
-        let output = isTransformed
-        // Return it back after val allocation is fixed
-          ? // b->B.val(`new Array(${inputVar}.length)`)
-            b->B.val(`[]`)
-          : input
-
-        if isTransformed || itemCode !== "" {
-          b.code =
-            b.code ++
-            `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${itemCode}${isTransformed
-                ? b->B.Val.addKey(output, iteratorVar, itemOutput)
-                : ""}}`
-        }
-
-        if itemOutput.isAsync {
-          output.b->B.asyncVal(`Promise.all(${output.inline})`)
-        } else {
-          output
-        }
-      }),
-    )
+    mut.refiner = Some(arrayRefiner)
     mut->fromInternal
   }
 }
