@@ -33,13 +33,9 @@ test("Successfully serializes JSON object", t => {
 
 test("Fails to serialize Option schema", t => {
   let schema = S.jsonString(S.option(S.bool))
-  t->U.assertThrows(
+  t->U.assertThrowsMessage(
     () => None->S.reverseConvertOrThrow(schema),
-    {
-      code: InvalidJsonSchema(S.option(S.bool)->S.toUnknown),
-      operation: ReverseConvertToJson,
-      path: S.Path.empty,
-    },
+    `Failed converting: boolean | undefined is not valid JSON`,
   )
 })
 
@@ -66,13 +62,9 @@ test(
   t => {
     let schema = S.jsonString(S.object(s => s.field("foo", S.unknown)))
 
-    t->U.assertThrows(
+    t->U.assertThrowsMessage(
       () => %raw(`"foo"`)->S.reverseConvertOrThrow(S.jsonString(schema, ~space=2)),
-      {
-        code: InvalidJsonSchema(S.unknown),
-        operation: ReverseConvertToJson,
-        path: S.Path.empty,
-      },
+      `Failed converting at ["foo"]: { foo: unknown; } is not valid JSON`,
     )
   },
 )
@@ -121,7 +113,7 @@ test("Compiled serialize code snapshot with space", t => {
 
 test("Reverse schema to the original schema", t => {
   let schema = S.jsonString(S.bool)
-  t->U.assertEqualSchemas(schema->S.reverse, S.bool->S.toUnknown)
+  t->U.assertEqualSchemas(schema->S.reverse, S.bool->S.to(S.string)->S.toUnknown)
 })
 
 test("Succesfully uses reversed schema for parsing back to initial value", t => {
