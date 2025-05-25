@@ -1496,10 +1496,14 @@ module Builder = {
       }
     }
 
-    let parseWithTypeValidation = (b: b, ~schema, ~input, ~path) => {
+    let typeValidation = (b: b, ~schema, ~input, ~path) => {
       if b.global.flag->Flag.unsafeHas(Flag.typeValidation) || schema->isLiteral {
         b.code = b.code ++ b->typeFilterCode(~schema, ~input, ~path)
       }
+    }
+
+    let parseWithTypeValidation = (b: b, ~schema, ~input, ~path) => {
+      b->typeValidation(~schema, ~input, ~path)
       b->parse(~schema, ~input, ~path)
     }
   }
@@ -3079,7 +3083,6 @@ module JsonString = {
     mut.parser = Some(
       Builder.make((b, ~input, ~selfSchema as _, ~path) => {
         let jsonVal = b->B.allocateVal
-
         b.code =
           b.code ++
           `try{${jsonVal.inline}=JSON.parse(${input.inline})}catch(t){${b->B.failWithArg(
@@ -3087,34 +3090,29 @@ module JsonString = {
               message => OperationFailed(message),
               "t.message",
             )}}`
-
-        b->B.parseWithTypeValidation(~schema=item, ~input=jsonVal, ~path)
+        b->B.typeValidation(~schema=item, ~input=jsonVal, ~path)
+        jsonVal
       }),
     )
     let to = item->copy
     to.serializer = Some(
-      Builder.make((b, ~input, ~selfSchema, ~path) => {
-        let reversed = selfSchema->reverse
-
-        let prevFlag = b.global.flag
-        b.global.flag = prevFlag->Flag.with(Flag.jsonableOutput)
+      Builder.make((b, ~input, ~selfSchema, ~path as _) => {
+        // let prevFlag = b.global.flag
+        // b.global.flag = prevFlag->Flag.with(Flag.jsonableOutput)
 
         jsonableValidation(
-          ~output=reversed,
-          ~parent=reversed,
+          ~output=selfSchema,
+          ~parent=selfSchema,
           ~path=Path.empty,
           ~flag=b.global.flag,
           ~recSet=None,
         )
 
-        let output =
-          b->B.val(
-            `JSON.stringify(${(b->B.parse(~schema=reversed, ~input, ~path)).inline}${space > 0
-                ? `,null,${space->Stdlib.Int.unsafeToString}`
-                : ""})`,
-          )
-        b.global.flag = prevFlag
-        output
+        b->B.val(
+          `JSON.stringify(${input.inline}${space > 0
+              ? `,null,${space->Stdlib.Int.unsafeToString}`
+              : ""})`,
+        )
       }),
     )
     mut.to = Some(to)
