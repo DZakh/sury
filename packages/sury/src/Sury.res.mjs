@@ -1100,23 +1100,42 @@ function reverse(schema) {
     } else {
       ((delete mut.serializer));
     }
-    var match = mut.additionalItems;
-    if (match !== undefined) {
-      if (match === "strip" || match === "strict") {
-        match === "strip";
-      } else {
-        mut.additionalItems = reverse(match);
+    var items = mut.items;
+    if (items !== undefined) {
+      var fields = {};
+      var newItems = new Array(items.length);
+      for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
+        var item = items[idx];
+        var reversed_schema = reverse(item.schema);
+        var reversed_location = item.location;
+        var reversed_inlinedLocation = item.inlinedLocation;
+        var reversed = {
+          schema: reversed_schema,
+          location: reversed_location,
+          inlinedLocation: reversed_inlinedLocation
+        };
+        fields[item.location] = reversed;
+        newItems[idx] = reversed;
       }
+      mut.items = newItems;
+      var match = mut.fields;
+      if (match !== undefined) {
+        mut.fields = fields;
+      }
+      
+    }
+    if (typeof mut.additionalItems === "object") {
+      mut.additionalItems = reverse(mut.additionalItems);
     }
     var anyOf = mut.anyOf;
     if (anyOf !== undefined) {
       var has = {};
       var newAnyOf = [];
-      for(var idx = 0 ,idx_finish = anyOf.length; idx < idx_finish; ++idx){
-        var s = anyOf[idx];
-        var reversed = reverse(s);
-        newAnyOf.push(reversed);
-        var v = reversed.type;
+      for(var idx$1 = 0 ,idx_finish$1 = anyOf.length; idx$1 < idx_finish$1; ++idx$1){
+        var s = anyOf[idx$1];
+        var reversed$1 = reverse(s);
+        newAnyOf.push(reversed$1);
+        var v = reversed$1.type;
         var tmp;
         switch (v) {
           case "union" :
@@ -2754,7 +2773,7 @@ function proxify(item) {
             });
 }
 
-function parser$2(parentB, input, selfSchema, path) {
+function schemaRefiner(parentB, input, selfSchema, path) {
   var additionalItems = selfSchema.additionalItems;
   var items = selfSchema.items;
   var isArray = selfSchema.type === "array";
@@ -2788,7 +2807,9 @@ function parser$2(parentB, input, selfSchema, path) {
   }
   objectStrictModeCheck(b, input, items, selfSchema, path);
   parentB.c = parentB.c + allocateScope(b);
-  if ((additionalItems !== "strip" || b.g.o & 32) && selfSchema === reverse(selfSchema)) {
+  if ((additionalItems !== "strip" || b.g.o & 32) && objectVal$1.i === items.map(function (i) {
+            return i.inlinedLocation + ":" + input.i + "[" + i.inlinedLocation + "],";
+          }).join("")) {
     objectVal$1.v = input.v;
     objectVal$1.i = input.i;
     objectVal$1.a = input.a;
@@ -2899,88 +2920,8 @@ function output$1() {
   mut.items = reversedItems;
   mut.fields = reversedFields;
   mut.additionalItems = globalConfig.a;
-  mut.parser = parser$2;
+  mut.parser = schemaRefiner;
   return mut;
-}
-
-function definitionToSchema(definition) {
-  if (!(typeof definition === "object" && definition !== null)) {
-    return parse$1(definition);
-  }
-  if (definition["~standard"]) {
-    return definition;
-  }
-  if (Array.isArray(definition)) {
-    var reversedItems = [];
-    var isTransformed = false;
-    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
-      var schema = definitionToSchema(definition[idx]);
-      var reversed = reverse(schema);
-      var $$location = idx.toString();
-      var inlinedLocation = "\"" + $$location + "\"";
-      definition[idx] = {
-        schema: schema,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-      reversedItems[idx] = {
-        schema: reversed,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-      if (schema !== reversed) {
-        isTransformed = true;
-      }
-      
-    }
-    var mut = new Schema();
-    mut.type = "array";
-    mut.items = definition;
-    mut.additionalItems = "strict";
-    mut.parser = parser$2;
-    if (isTransformed) {
-      mut.output = (function () {
-          var mut = new Schema();
-          mut.type = "array";
-          mut.items = reversedItems;
-          mut.additionalItems = "strict";
-          mut.parser = parser$2;
-          return mut;
-        });
-    }
-    return mut;
-  }
-  var cnstr = definition.constructor;
-  if (cnstr && cnstr !== Object) {
-    return {
-            type: "instance",
-            const: definition,
-            class: cnstr
-          };
-  }
-  var fieldNames = Object.keys(definition);
-  var length = fieldNames.length;
-  var items = [];
-  for(var idx$1 = 0; idx$1 < length; ++idx$1){
-    var $$location$1 = fieldNames[idx$1];
-    var inlinedLocation$1 = fromString($$location$1);
-    var schema$1 = definitionToSchema(definition[$$location$1]);
-    var item = {
-      schema: schema$1,
-      location: $$location$1,
-      inlinedLocation: inlinedLocation$1
-    };
-    definition[$$location$1] = item;
-    items[idx$1] = item;
-  }
-  var mut$1 = new Schema();
-  mut$1.type = "object";
-  mut$1.items = items;
-  mut$1.fields = definition;
-  mut$1.additionalItems = globalConfig.a;
-  mut$1.parser = parser$2;
-  mut$1.output = output$1;
-  return mut$1;
 }
 
 function nested(fieldName) {
@@ -2998,7 +2939,7 @@ function nested(fieldName) {
   schema.items = items;
   schema.fields = fields;
   schema.additionalItems = globalConfig.a;
-  schema.parser = parser$2;
+  schema.parser = schemaRefiner;
   schema.output = output$1;
   var target = parentCtx.f(fieldName, schema)[itemSymbol];
   var field = function (fieldName, schema) {
@@ -3066,6 +3007,63 @@ function nested(fieldName) {
   };
   parentCtx[cacheId] = ctx$1;
   return ctx$1;
+}
+
+function definitionToSchema(definition) {
+  if (!(typeof definition === "object" && definition !== null)) {
+    return parse$1(definition);
+  }
+  if (definition["~standard"]) {
+    return definition;
+  }
+  if (Array.isArray(definition)) {
+    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
+      var schema = definitionToSchema(definition[idx]);
+      var $$location = idx.toString();
+      var inlinedLocation = "\"" + $$location + "\"";
+      definition[idx] = {
+        schema: schema,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+    }
+    var mut = new Schema();
+    mut.type = "array";
+    mut.items = definition;
+    mut.additionalItems = "strict";
+    mut.refiner = schemaRefiner;
+    return mut;
+  }
+  var cnstr = definition.constructor;
+  if (cnstr && cnstr !== Object) {
+    return {
+            type: "instance",
+            const: definition,
+            class: cnstr
+          };
+  }
+  var fieldNames = Object.keys(definition);
+  var length = fieldNames.length;
+  var items = [];
+  for(var idx$1 = 0; idx$1 < length; ++idx$1){
+    var $$location$1 = fieldNames[idx$1];
+    var inlinedLocation$1 = fromString($$location$1);
+    var schema$1 = definitionToSchema(definition[$$location$1]);
+    var item = {
+      schema: schema$1,
+      location: $$location$1,
+      inlinedLocation: inlinedLocation$1
+    };
+    definition[$$location$1] = item;
+    items[idx$1] = item;
+  }
+  var mut$1 = new Schema();
+  mut$1.type = "object";
+  mut$1.items = items;
+  mut$1.fields = definition;
+  mut$1.additionalItems = globalConfig.a;
+  mut$1.refiner = schemaRefiner;
+  return mut$1;
 }
 
 function advancedReverse(definition, to, flattened) {
@@ -3418,6 +3416,56 @@ function $$enum(values) {
   return factory(values.map(js_schema));
 }
 
+function unnestSerializer(b, input, selfSchema, path) {
+  var schema = selfSchema.additionalItems;
+  var items = schema.items;
+  var inputVar = input.v(b);
+  var iteratorVar = varWithoutAllocation(b.g);
+  var outputVar = varWithoutAllocation(b.g);
+  var bb = {
+    c: "",
+    l: "",
+    a: initialAllocate,
+    g: b.g
+  };
+  var itemInput = {
+    b: bb,
+    v: _notVar,
+    i: inputVar + "[" + iteratorVar + "]",
+    a: false
+  };
+  var itemOutput = withPathPrepend(bb, itemInput, path, iteratorVar, (function (bb, output) {
+          var initialArraysCode = "";
+          var settingCode = "";
+          for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
+            var toItem = items[idx];
+            initialArraysCode = initialArraysCode + ("new Array(" + inputVar + ".length),");
+            settingCode = settingCode + (outputVar + "[" + idx + "][" + iteratorVar + "]=" + get(b, output, toItem.inlinedLocation).i + ";");
+          }
+          b.a(outputVar + "=[" + initialArraysCode + "]");
+          bb.c = bb.c + settingCode;
+        }), (function (b, input, path) {
+          return parseWithTypeValidation(b, schema, input, path);
+        }));
+  var itemCode = allocateScope(bb);
+  b.c = b.c + ("for(let " + iteratorVar + "=0;" + iteratorVar + "<" + inputVar + ".length;++" + iteratorVar + "){" + itemCode + "}");
+  if (itemOutput.a) {
+    return {
+            b: b,
+            v: _notVar,
+            i: "Promise.all(" + outputVar + ")",
+            a: true
+          };
+  } else {
+    return {
+            b: b,
+            v: _var,
+            i: outputVar,
+            a: false
+          };
+  }
+}
+
 function unnest(schema) {
   if (schema.type === "object") {
     var items = schema.items;
@@ -3481,62 +3529,13 @@ function unnest(schema) {
           return output;
         }
       });
-    mut.output = (function () {
-        var schema$1 = reverse(schema);
-        var mut = new Schema();
-        mut.type = "array";
-        mut.items = immutableEmpty$1;
-        mut.additionalItems = schema$1;
-        mut.parser = (function (b, input, param, path) {
-            var inputVar = input.v(b);
-            var iteratorVar = varWithoutAllocation(b.g);
-            var outputVar = varWithoutAllocation(b.g);
-            var bb = {
-              c: "",
-              l: "",
-              a: initialAllocate,
-              g: b.g
-            };
-            var itemInput = {
-              b: bb,
-              v: _notVar,
-              i: inputVar + "[" + iteratorVar + "]",
-              a: false
-            };
-            var itemOutput = withPathPrepend(bb, itemInput, path, iteratorVar, (function (bb, output) {
-                    var initialArraysCode = "";
-                    var settingCode = "";
-                    for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
-                      var item = items[idx];
-                      initialArraysCode = initialArraysCode + ("new Array(" + inputVar + ".length),");
-                      settingCode = settingCode + (outputVar + "[" + idx + "][" + iteratorVar + "]=" + get(b, output, item.inlinedLocation).i + ";");
-                    }
-                    b.a(outputVar + "=[" + initialArraysCode + "]");
-                    bb.c = bb.c + settingCode;
-                  }), (function (b, input, path) {
-                    return parseWithTypeValidation(b, schema$1, input, path);
-                  }));
-            var itemCode = allocateScope(bb);
-            b.c = b.c + ("for(let " + iteratorVar + "=0;" + iteratorVar + "<" + inputVar + ".length;++" + iteratorVar + "){" + itemCode + "}");
-            if (itemOutput.a) {
-              return {
-                      b: b,
-                      v: _notVar,
-                      i: "Promise.all(" + outputVar + ")",
-                      a: true
-                    };
-            } else {
-              return {
-                      b: b,
-                      v: _var,
-                      i: outputVar,
-                      a: false
-                    };
-            }
-          });
-        return mut;
-      });
+    var to = new Schema();
+    to.type = "array";
+    to.items = immutableEmpty$1;
+    to.additionalItems = schema;
+    to.serializer = unnestSerializer;
     mut.unnest = true;
+    mut.to = to;
     return mut;
   }
   throw new Error("[Sury] S.unnest supports only object schemas.");
@@ -4661,7 +4660,7 @@ var Float = {
 
 var Array_Refinement = {};
 
-var $$Array = {
+var $$Array$1 = {
   Refinement: Array_Refinement,
   refinements: refinements
 };
@@ -4741,7 +4740,7 @@ export {
   $$String$1 as $$String,
   Int ,
   Float ,
-  $$Array ,
+  $$Array$1 as $$Array,
   Metadata ,
   reverse ,
   ErrorClass ,
