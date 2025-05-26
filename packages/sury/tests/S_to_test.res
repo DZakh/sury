@@ -54,11 +54,7 @@ test("Coerce from bool to string", t => {
   )
   t->Assert.deepEqual("false"->S.reverseConvertOrThrow(schema), %raw(`false`), ())
 
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Parse,
-    `i=>{if(typeof i!=="boolean"){e[1](i)}return \"\"+i}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(typeof i!=="boolean"){e[0](i)}return ""+i}`)
   t->U.assertCompiledCode(~schema, ~op=#Convert, `i=>{return \"\"+i}`)
   t->U.assertCompiledCode(
     ~schema,
@@ -89,7 +85,7 @@ test("Coerce from string to bool literal", t => {
     ~op=#Parse,
     `i=>{if(typeof i!=="string"){e[1](i)}i==="false"||e[0](i);return false}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{if(i!==false){e[1](i)}return "false"}`)
+  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{if(i!==false){e[0](i)}return "false"}`)
 })
 
 test("Coerce from string to null literal", t => {
@@ -114,7 +110,7 @@ test("Coerce from string to null literal", t => {
     ~op=#Parse,
     `i=>{if(typeof i!=="string"){e[1](i)}i==="null"||e[0](i);return null}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{if(i!==null){e[1](i)}return "null"}`)
+  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{if(i!==null){e[0](i)}return "null"}`)
 })
 
 test("Coerce from string to undefined literal", t => {
@@ -142,7 +138,7 @@ test("Coerce from string to undefined literal", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{if(i!==void 0){e[1](i)}return "undefined"}`,
+    `i=>{if(i!==void 0){e[0](i)}return "undefined"}`,
   )
 })
 
@@ -171,7 +167,7 @@ test("Coerce from string to NaN literal", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{if(!Number.isNaN(i)){e[1](i)}return "NaN"}`,
+    `i=>{if(!Number.isNaN(i)){e[0](i)}return "NaN"}`,
   )
 })
 
@@ -391,7 +387,7 @@ test("Coerce from string to bigint literal", t => {
     `i=>{if(typeof i!=="string"){e[1](i)}i==="10"||e[0](i);return 10n}`,
   )
   t->U.assertCompiledCode(~schema, ~op=#Convert, `i=>{i==="10"||e[0](i);return 10n}`)
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{if(i!==10n){e[1](i)}return "10"}`)
+  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{if(i!==10n){e[0](i)}return "10"}`)
 })
 
 test("Coerce from string to bigint", t => {
@@ -543,8 +539,8 @@ test("Coerce from unit to null literal", t => {
   )
   t->Assert.deepEqual(%raw(`null`)->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
 
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(i!==void 0){e[1](i)}return null}`)
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{if(i!==null){e[1](i)}return void 0}`)
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(i!==void 0){e[0](i)}return null}`)
+  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{if(i!==null){e[0](i)}return void 0}`)
 })
 
 test("Coerce from string to optional bool", t => {
