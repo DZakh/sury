@@ -1616,11 +1616,37 @@ and reverse = (schema: internal) => {
     | Some(parser) => mut.serializer = Some(parser)
     | None => %raw(`delete mut.serializer`)
     }
-    switch mut.additionalItems {
-    | Some(Schema(schema)) =>
-      mut.additionalItems = Some(Schema(schema->toInternal->reverse->fromInternal))
-    | _ => ()
+    switch mut.items {
+    | Some(items) =>
+      let fields = Js.Dict.empty()
+      let newItems = Belt.Array.makeUninitializedUnsafe(items->Js.Array2.length)
+      for idx in 0 to items->Js.Array2.length - 1 {
+        let item = items->Js.Array2.unsafe_get(idx)
+        let reversed = {
+          ...item,
+          schema: item.schema->toInternal->reverse->fromInternal,
+        }
+        fields->Js.Dict.set(item.location, reversed)
+        newItems->Js.Array2.unsafe_set(idx, reversed)
+      }
+      mut.items = Some(newItems)
+      switch mut.fields {
+      | Some(_) => mut.fields = Some(fields)
+      | None => ()
+      }
+    | None => ()
     }
+    if mut.additionalItems->Stdlib.Type.typeof === #object {
+      mut.additionalItems = Some(
+        Schema(
+          mut.additionalItems
+          ->(Obj.magic: option<additionalItems> => internal)
+          ->reverse
+          ->fromInternal,
+        ),
+      )
+    }
+
     switch mut.anyOf {
     | Some(anyOf) =>
       let has = Js.Dict.empty()
@@ -3585,7 +3611,7 @@ module Schema = {
       },
     })
 
-  let rec parser = (parentB, ~input, ~selfSchema, ~path) => {
+  let rec schemaRefiner = (parentB, ~input, ~selfSchema, ~path) => {
     let additionalItems = selfSchema.additionalItems
     let items = selfSchema.items->Stdlib.Option.unsafeUnwrap
     let isArray = selfSchema.tag === Array
@@ -3630,7 +3656,13 @@ module Schema = {
 
       if (
         (additionalItems !== Some(Strip) || b.global.flag->Flag.unsafeHas(Flag.reverse)) &&
-          selfSchema === selfSchema->reverse
+          // A hacky way to detect that the schema is not transformed
+          // If we don't Strip or perform a reverse operation, return the original
+          // instance of Val, so other code also think that the schema value is not transformed
+          objectVal.inline ===
+            items
+            ->Js.Array2.map(i => `${i.inlinedLocation}:${input.inline}[${i.inlinedLocation}],`)
+            ->Js.Array2.joinWith("")
       ) {
         objectVal.var = input.var
         objectVal.inline = input.inline
@@ -3669,7 +3701,7 @@ module Schema = {
       mut.items = Some(reversedItems)
       mut.fields = Some(reversedFields)
       mut.additionalItems = Some(globalConfig.defaultAdditionalItems)
-      mut.parser = Some(parser)
+      mut.parser = Some(schemaRefiner)
       mut
     } else {
       %raw(`this`)
@@ -3945,7 +3977,7 @@ module Schema = {
           schema.items = Some(items)
           schema.fields = Some(fields)
           schema.additionalItems = Some(globalConfig.defaultAdditionalItems)
-          schema.parser = Some(parser)
+          schema.parser = Some(schemaRefiner)
           schema.output = Some(output)
           schema->fromInternal
         }
@@ -4295,11 +4327,8 @@ module Schema = {
         definition->(Obj.magic: unknown => internal)
       } else if definition->Stdlib.Array.isArray {
         let node = definition->(Obj.magic: unknown => array<unknown>)
-        let reversedItems = []
-        let isTransformed = ref(false)
         for idx in 0 to node->Js.Array2.length - 1 {
           let schema = node->Js.Array2.unsafe_get(idx)->definitionToSchema
-          let reversed = schema->reverse
           let location = idx->Js.Int.toString
           let inlinedLocation = `"${location}"`
           node->Js.Array2.unsafe_set(
@@ -4310,18 +4339,6 @@ module Schema = {
               schema: schema->fromInternal,
             }->(Obj.magic: item => unknown),
           )
-          reversedItems->Js.Array2.unsafe_set(
-            idx,
-            {
-              location,
-              inlinedLocation,
-              schema: reversed->fromInternal,
-            },
-          )
-
-          if schema !== reversed {
-            isTransformed := true
-          }
         }
         let items = node->(Obj.magic: array<unknown> => array<item>)
 
@@ -4329,19 +4346,7 @@ module Schema = {
         mut.tag = Array
         mut.items = Some(items)
         mut.additionalItems = Some(Strict)
-        mut.parser = Some(parser)
-        if isTransformed.contents {
-          mut.output = Some(
-            () => {
-              let mut = base()
-              mut.tag = Array
-              mut.items = Some(reversedItems)
-              mut.additionalItems = Some(Strict)
-              mut.parser = Some(parser)
-              mut
-            },
-          )
-        }
+        mut.refiner = Some(schemaRefiner)
         mut
       } else {
         let cnstr = (definition->Obj.magic)["constructor"]
@@ -4373,8 +4378,7 @@ module Schema = {
           mut.items = Some(items)
           mut.fields = Some(node->(Obj.magic: dict<unknown> => dict<item>))
           mut.additionalItems = Some(globalConfig.defaultAdditionalItems)
-          mut.parser = Some(parser)
-          mut.output = Some(output)
+          mut.refiner = Some(schemaRefiner)
           mut
         }
       }
@@ -4409,6 +4413,60 @@ let js_schema = definition => definition->Obj.magic->Schema.definitionToSchema->
 let literal = js_schema
 
 let enum = values => Union.factory(values->Js.Array2.map(literal))
+
+let unnestSerializer = Builder.make((b, ~input, ~selfSchema, ~path) => {
+  let schema = selfSchema.additionalItems->(Obj.magic: option<additionalItems> => internal)
+  let items = schema.items->Stdlib.Option.unsafeUnwrap
+
+  let inputVar = b->B.Val.var(input)
+  let iteratorVar = b.global->B.varWithoutAllocation
+  let outputVar = b.global->B.varWithoutAllocation
+
+  let bb = b->B.scope
+  let itemInput = bb->B.val(`${inputVar}[${iteratorVar}]`)
+  let itemOutput = bb->B.withPathPrepend(
+    ~input=itemInput,
+    ~path,
+    ~dynamicLocationVar=iteratorVar,
+    ~appendSafe=(bb, ~output) => {
+      let initialArraysCode = ref("")
+      let settingCode = ref("")
+      for idx in 0 to items->Js.Array2.length - 1 {
+        let toItem = items->Js.Array2.unsafe_get(idx)
+        initialArraysCode := initialArraysCode.contents ++ `new Array(${inputVar}.length),`
+        settingCode :=
+          settingCode.contents ++
+          `${outputVar}[${idx->Stdlib.Int.unsafeToString}][${iteratorVar}]=${(
+              b->B.Val.get(output, toItem.inlinedLocation)
+            ).inline};`
+      }
+      b.allocate(`${outputVar}=[${initialArraysCode.contents}]`)
+      bb.code = bb.code ++ settingCode.contents
+    },
+    (b, ~input, ~path) => b->B.parseWithTypeValidation(~schema, ~input, ~path),
+  )
+  let itemCode = bb->B.allocateScope
+
+  b.code =
+    b.code ++
+    `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${itemCode}}`
+
+  if itemOutput.isAsync {
+    {
+      b,
+      var: B._notVar,
+      inline: `Promise.all(${outputVar})`,
+      isAsync: true,
+    }
+  } else {
+    {
+      b,
+      var: B._var,
+      inline: outputVar,
+      isAsync: false,
+    }
+  }
+})
 
 let unnest = schema => {
   switch schema {
@@ -4475,70 +4533,16 @@ let unnest = schema => {
         }
       }),
     )
-    mut.output = Some(
-      () => {
-        let schema = schema->reverse
-        let mut = base()
-        mut.tag = Array
-        mut.items = Some(Stdlib.Array.immutableEmpty)
-        mut.additionalItems = Some(Schema(schema->fromInternal))
-        mut.parser = Some(
-          Builder.make((b, ~input, ~selfSchema as _, ~path) => {
-            let inputVar = b->B.Val.var(input)
-            let iteratorVar = b.global->B.varWithoutAllocation
-            let outputVar = b.global->B.varWithoutAllocation
 
-            let bb = b->B.scope
-            let itemInput = bb->B.val(`${inputVar}[${iteratorVar}]`)
-            let itemOutput = bb->B.withPathPrepend(
-              ~input=itemInput,
-              ~path,
-              ~dynamicLocationVar=iteratorVar,
-              ~appendSafe=(bb, ~output) => {
-                let initialArraysCode = ref("")
-                let settingCode = ref("")
-                for idx in 0 to items->Js.Array2.length - 1 {
-                  let item = items->Js.Array2.unsafe_get(idx)
-                  initialArraysCode :=
-                    initialArraysCode.contents ++ `new Array(${inputVar}.length),`
-                  settingCode :=
-                    settingCode.contents ++
-                    `${outputVar}[${idx->Stdlib.Int.unsafeToString}][${iteratorVar}]=${(
-                        b->B.Val.get(output, item.inlinedLocation)
-                      ).inline};`
-                }
-                b.allocate(`${outputVar}=[${initialArraysCode.contents}]`)
-                bb.code = bb.code ++ settingCode.contents
-              },
-              (b, ~input, ~path) => b->B.parseWithTypeValidation(~schema, ~input, ~path),
-            )
-            let itemCode = bb->B.allocateScope
+    let to = base()
+    to.tag = Array
+    to.items = Some(Stdlib.Array.immutableEmpty)
+    to.additionalItems = Some(Schema(schema->fromInternal))
+    to.serializer = Some(unnestSerializer)
 
-            b.code =
-              b.code ++
-              `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${itemCode}}`
-
-            if itemOutput.isAsync {
-              {
-                b,
-                var: B._notVar,
-                inline: `Promise.all(${outputVar})`,
-                isAsync: true,
-              }
-            } else {
-              {
-                b,
-                var: B._var,
-                inline: outputVar,
-                isAsync: false,
-              }
-            }
-          }),
-        )
-        mut
-      },
-    )
     mut.unnest = Some(true)
+    mut.to = Some(to)
+
     mut->fromInternal
   | _ => InternalError.panic("S.unnest supports only object schemas.")
   }
