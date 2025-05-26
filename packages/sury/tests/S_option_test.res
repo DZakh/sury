@@ -61,7 +61,7 @@ module Common = {
 
   test("Reverse to self", t => {
     let schema = factory()
-    t->Assert.is(schema->S.reverse, schema->S.toUnknown, ())
+    t->U.assertEqualSchemas(schema->S.reverse, schema->S.toUnknown)
   })
 
   test("Succesfully uses reversed schema for parsing back to initial value", t => {
@@ -76,7 +76,11 @@ test("Classify schema", t => {
 
   t->U.assertEqualSchemas(
     schema->S.toUnknown,
-    S.union([S.string->S.toUnknown, S.unit->S.toUnknown, S.literal(%raw(`null`))->S.toUnknown]),
+    S.union([
+      S.string->S.toUnknown,
+      S.unit->S.toUnknown,
+      S.nullAsUnit->S.to(S.literal({"BS_PRIVATE_NESTED_SOME_NONE": 0}))->S.toUnknown,
+    ]),
   )
 
   t->U.assertEqualSchemas(
@@ -84,7 +88,7 @@ test("Classify schema", t => {
     S.union([
       S.string->S.toUnknown,
       S.unit->S.toUnknown,
-      S.literal({"BS_PRIVATE_NESTED_SOME_NONE": 0})->S.toUnknown,
+      S.literal({"BS_PRIVATE_NESTED_SOME_NONE": 0})->S.to(S.nullAsUnit->S.reverse)->S.toUnknown,
     ]),
   )
 })
