@@ -69,6 +69,7 @@ test("Successfully parses schema with transformation", t => {
           None
         },
     })
+    ->S.to(S.option(S.string))
     ->S.Option.getOr("not positive")
 
   t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), "not positive", ())
@@ -86,7 +87,7 @@ test("Compiled parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(!(typeof i==="boolean"||i===void 0)){e[0](i)}return i===void 0?e[1]:i}`,
+    `i=>{if(i===void 0){i=false}else if(!(typeof i==="boolean")){e[1](i)}return i}`,
   )
 })
 

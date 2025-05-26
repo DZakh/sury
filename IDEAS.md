@@ -1,10 +1,6 @@
 # Ideas draft
 
-## v10
-
-### rc.8
-
-- Start refactoring internal schema representation to reflect transformations
+## v11
 
 ```diff
 console.log(S.boolean)
@@ -19,12 +15,18 @@ console.log(S.boolean)
 ```
 
 - Use `Sury` instead of `Schema` in a panic error message
+- Added `default` field to the schema. Removed `S.Option.default` previously exposed to ReScript users. Schemas with `default` are now more optimised and have correct data representation.
+  // FIXME: Default callback; JSON Schema support; TS types and tests
+
+- Start refactoring internal schema representation to reflect transformations
 
 // TODO: Update internal representation:
 
-- Remove `coerce: true`. Rely on `parser` to be present (S.transform, or S.shape). If it's missing, then use the coerce flow
-- Split `builder` into `parser` and `refiner`. Have `serializer` for the reverse flow.
+### ideas
+
 - Add `S.to(from, target, parser, serializer)` instead of `S.transform`?
+- Remove `s.fail` with `throw new Error`
+- Make built-in refinements not work with `unknown`. Use `S.to` (manually & automatically) to deside the type first
 - Add `S.any`?
 
 ### Final release fixes
@@ -33,11 +35,9 @@ console.log(S.boolean)
 - Make `S.record` accept two args
 - Update docs
 
-## v11
+## v11 initial
 
-- Remove `s.fail` in favor of `throw new Error` ???
 - Add `s.parseChild` to EffectContext ???
-- Make built-in refinements not work with `unknown`. Use `S.to` (manually & automatically) to deside the type first
 - Start using rescript v12 (Fix unboxed types in JSONSchema module)
 - Support arrays for `S.to`
 - Remove fieldOr in favor of optionOr?

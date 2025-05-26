@@ -270,6 +270,7 @@ type rec t<'value> =
       title?: string,
       deprecated?: bool,
       examples?: array<unknown>,
+      default?: unknown,
     })
   | @as("string")
   String({
@@ -279,6 +280,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<string>,
+      default?: string,
     })
   | @as("number")
   Number({
@@ -289,6 +291,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<float>,
+      default?: float,
     })
   | @as("bigint")
   BigInt({
@@ -298,6 +301,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<bigint>,
+      default?: bigint,
     })
   | @as("boolean")
   Boolean({
@@ -307,6 +311,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<bool>,
+      default?: bool,
     })
   | @as("symbol")
   Symbol({
@@ -316,6 +321,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<Js.Types.symbol>,
+      default?: Js.Types.symbol,
     })
   | @as("null")
   Null({
@@ -349,6 +355,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<Js.Types.function_val>,
+      default?: Js.Types.function_val,
     })
   | @as("instance")
   Instance({
@@ -359,6 +366,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<Js.Types.obj_val>,
+      default?: Js.Types.obj_val,
     })
   | @as("array")
   Array({
@@ -370,6 +378,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<array<unknown>>,
+      default?: array<unknown>,
     })
   | @as("object")
   Object({
@@ -381,6 +390,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<dict<unknown>>,
+      default?: dict<unknown>,
     }) // TODO: Add const for Object and Tuple
   | @as("union")
   Union({
@@ -391,6 +401,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<unknown>,
+      default?: unknown,
     })
   | @as("json")
   JSON({
@@ -399,6 +410,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<Js.Json.t>,
+      default?: Js.Json.t,
     }) // TODO: Remove it in favor of Union
 @unboxed and additionalItems = | ...additionalItemsMode | Schema(t<unknown>)
 // TODO: Add recursive
@@ -424,6 +436,7 @@ and internal = {
   mutable description?: string,
   mutable deprecated?: bool,
   mutable examples?: array<unknown>,
+  mutable default?: unknown,
   mutable format?: format,
   mutable has?: dict<bool>,
   mutable advanced?: bool, // TODO: Rename/remove it when have a chance
@@ -461,6 +474,7 @@ and untagged = private {
   description?: string,
   deprecated?: bool,
   examples?: array<unknown>,
+  default?: unknown,
   unnest?: bool,
   noValidation?: bool,
   items?: array<item>,
@@ -1596,6 +1610,12 @@ and operationFn = (s, o) => {
     f
   }
 }
+and getOutput = (schema: internal) => {
+  switch schema.to {
+  | Some(to) => getOutput(to)
+  | None => schema
+  }
+}
 and reverse = (schema: internal) => {
   let reversedHead = ref(None)
   let current = ref(Some(schema))
@@ -2258,25 +2278,6 @@ let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) =
       )
       to
     })
-    mut.output = Some(
-      () => {
-        let schema = schema->reverse
-        {
-          tag: Unknown,
-          parser: (b, ~input, ~selfSchema, ~path) => {
-            switch transformer(b->B.effectCtx(~selfSchema, ~path)) {
-            | {serializer} =>
-              b->B.parse(~schema, ~input=b->B.embedSyncOperation(~input, ~fn=serializer), ~path)
-            | {parser: ?None, asyncParser: ?None, serializer: ?None} =>
-              b->B.parse(~schema, ~input, ~path)
-            | {serializer: ?None, asyncParser: ?Some(_)}
-            | {serializer: ?None, parser: ?Some(_)} =>
-              b->B.invalidOperation(~path, ~description=`The S.transform serializer is missing`)
-            }
-          },
-        }
-      },
-    )
     mut.isAsync = None
   })
 }
@@ -2660,7 +2661,7 @@ module Union = {
     }
   })
 
-  let rec factory = schemas => {
+  let factory = schemas => {
     let schemas: array<internal> = schemas->Obj.magic
     // TODO:
     // 1. Fitler out items without parser
@@ -2704,22 +2705,6 @@ module Union = {
       mut.refiner = Some(refiner)
       mut.has = Some(has)
       mut->fromInternal
-    }
-  }
-  and output = () => {
-    let schemas = (%raw(`this`): internal).anyOf->Stdlib.Option.unsafeUnwrap
-    let items = []
-    let toSelf = ref(true)
-    for idx in 0 to schemas->Js.Array2.length - 1 {
-      let schema = schemas->Js.Array2.unsafe_get(idx)
-      let reversed = schema->reverse
-      items->Js.Array2.unsafe_set(idx, reversed->fromInternal)
-      toSelf := toSelf.contents && schema === reversed
-    }
-    if toSelf.contents {
-      %raw(`this`)
-    } else {
-      factory(items)->toInternal
     }
   }
 }
@@ -2830,7 +2815,6 @@ module Option = {
         }
 
         mut.anyOf = Some(anyOf)
-        mut.output = Some(Union.output) // FIXME: Shouldn't manually update output
         mut->reverse->fromInternal
       }
     | _ => Union.factory([item->fromInternal, unit->toUnknown])
@@ -2838,39 +2822,40 @@ module Option = {
   }
 
   let getWithDefault = (schema: t<option<'value>>, default) => {
-    let schema = schema->toInternal
-    let mut = schema->copy
-    mut->Metadata.setInPlace(~id=defaultMetadataId, default)
-    mut.parser = Some(
-      Builder.make((b, ~input, ~selfSchema as _, ~path) => {
-        b->B.transform(~input=b->B.parse(~schema, ~input, ~path), (b, ~input) => {
-          let inputVar = b->B.Val.var(input)
-          b->B.val(
-            `${inputVar}===void 0?${switch default {
-              | Value(v) => b->B.embed(v)
-              | Callback(cb) => `${b->B.embed(cb)}()`
-              }}:${inputVar}`,
-          )
-        })
-      }),
-    )
-    mut.output = Some(
-      () => {
-        let reversed = schema->reverse
-        switch reversed {
-        | {anyOf} =>
-          // FIXME: What if the union is transformed
-          // FIXME: Looks broken
-          Union.factory(
-            anyOf
-            ->Js.Array2.filter(s => s->isOptional->not)
-            ->(Obj.magic: array<internal> => array<t<unknown>>),
-          )->toInternal
-        | _ => reversed
+    schema
+    ->toInternal
+    ->updateOutput(mut => {
+      switch mut.anyOf {
+      | None => InternalError.panic("Setting default only works for schemas with optional output.")
+      | Some(items) => {
+          let newItems = Belt.Array.makeUninitializedUnsafe(items->Js.Array2.length)
+          let defaultValue = switch default {
+          | Value(v) => v
+          | Callback(_) => InternalError.panic("FIXME: Default callbacks are not supported yet.")
+          }
+          let defaultLiteral = Literal.parse(defaultValue)
+          for idx in 0 to items->Js.Array2.length - 1 {
+            let item = items->Js.Array2.unsafe_get(idx)
+            let itemOutput = item->getOutput
+            let newItem = if itemOutput.tag === Undefined {
+              item
+              ->updateOutput(itemMut => {
+                itemMut.to = Some(defaultLiteral)
+              })
+              ->toInternal
+            } else {
+              item
+            }
+            // FIXME: Ensure that default has the same type as the item
+            // Or maybe not, but need to make it properly with JSON Schema
+            // FIXME: Update schema.has
+            newItems->Js.Array2.unsafe_set(idx, newItem)
+          }
+          mut.anyOf = Some(newItems)
         }
-      },
-    )
-    mut->fromInternal
+      }
+      mut->Metadata.setInPlace(~id=defaultMetadataId, default)
+    })
   }
 
   let getOr = (schema, defalutValue) =>
