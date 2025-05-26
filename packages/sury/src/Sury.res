@@ -2759,7 +2759,7 @@ module Option = {
     | {tag: Union, ?anyOf, ?has} =>
       item->updateOutput(mut => {
         let schemas = anyOf->Stdlib.Option.unsafeUnwrap
-        let has = has->Stdlib.Option.unsafeUnwrap
+        let mutHas = has->Stdlib.Option.unsafeUnwrap->Stdlib.Dict.copy
 
         let newAnyOf = []
         for idx in 0 to schemas->Array.length - 1 {
@@ -2768,12 +2768,7 @@ module Option = {
           ->Js.Array2.push(
             switch schema->getOutput {
             | {tag: Undefined} => {
-                if !(has->Stdlib.Dict.has((Object: tag :> string))) {
-                  // TODO: Replace with dict{} in ReScript v12
-                  let d = Js.Dict.empty()
-                  d->Js.Dict.set((Object: tag :> string), true)
-                  mut.has = Some(d->Stdlib.Dict.mixin(has))
-                }
+                mutHas->Js.Dict.set(((unit->toInternal).tag: tag :> string), true)
                 newAnyOf->Js.Array2.push(unit->toInternal)->ignore
                 schema->nestedOption
               }
@@ -2807,10 +2802,12 @@ module Option = {
         }
 
         if newAnyOf->Js.Array2.length === schemas->Js.Array2.length {
+          mutHas->Js.Dict.set(((unit->toInternal).tag: tag :> string), true)
           newAnyOf->Js.Array2.push(unit->toInternal)->ignore
         }
 
         mut.anyOf = Some(newAnyOf)
+        mut.has = Some(mutHas)
       })
     | _ => Union.factory([item->fromInternal, unit->toUnknown])
     }
