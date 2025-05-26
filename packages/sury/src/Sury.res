@@ -1388,6 +1388,24 @@ module Builder = {
       }
     }
 
+    let withCoerceScope = (b, ~input, ~path, ~target, coercion) => {
+      let bb = b->scope
+      let inputVar = input.var(bb)
+      let output = bb->coercion(
+        ~inputVar,
+        ~failCoercion=bb->failWithArg(
+          ~path,
+          input => InvalidType({
+            expected: target->fromInternal,
+            received: input,
+          }),
+          inputVar,
+        ),
+      )
+      b.code = b.code ++ bb->allocateScope
+      output
+    }
+
     let rec parse = (b: b, ~schema, ~input, ~path) => {
       let input = switch schema.refiner {
       | Some(refiner) =>
@@ -1404,48 +1422,45 @@ module Builder = {
         | None => {
             let validateTo = ref(false)
             let input = {
-              let extendCoercion = %raw(`0`)
-              let shrinkCoercion = %raw(`1`)
               let target = schema.to->Stdlib.Option.unsafeUnwrap
 
               let isFromLiteral = schema->isLiteral
               let isTargetLiteral = target->isLiteral
 
-              let coercion = switch (schema, target) {
-              | (_, _) if isFromLiteral && isTargetLiteral =>
-                (b, ~inputVar as _, ~failCoercion as _) => {
-                  b->val(b->inlineConst(target))
-                }
+              switch (schema, target) {
+              | (_, _) if isFromLiteral && isTargetLiteral => b->val(b->inlineConst(target))
               | ({tag: fromTag}, {tag: targetTag})
-                if fromTag === targetTag && isFromLiteral && !isTargetLiteral => extendCoercion
-              | (_, {tag: Unknown}) => extendCoercion
-              | ({tag: Unknown}, _) => shrinkCoercion
-              | ({tag: String}, {tag: String, const: _}) => shrinkCoercion
+                if fromTag === targetTag && isFromLiteral && !isTargetLiteral => input
+              | (_, {tag: Unknown}) => input
+              | ({tag: Unknown}, _) | ({tag: String}, {tag: String, const: _}) => {
+                  validateTo := true
+                  input
+                }
               | ({tag: String}, {tag: String}) // FIXME: validate that refinements match
-              | ({tag: Number, format: Int32}, {tag: Number, format: ?None}) => extendCoercion
+              | ({tag: Number, format: Int32}, {tag: Number, format: ?None}) => input
               | ({tag: Boolean | Number | BigInt | Undefined | Null | NaN, ?const}, {tag: String})
                 if isFromLiteral =>
-                (b, ~inputVar as _, ~failCoercion as _) => b->val(`"${const->Obj.magic}"`)
+                b->val(`"${const->Obj.magic}"`)
 
-              | ({tag: Boolean | Number | BigInt}, {tag: String}) =>
-                (b, ~inputVar, ~failCoercion as _) => b->val(`""+${inputVar}`)
+              | ({tag: Boolean | Number | BigInt}, {tag: String}) => b->val(`""+${input.inline}`)
               | ({tag: String}, {tag: Boolean | Number | BigInt | Undefined | Null | NaN, ?const})
                 if isTargetLiteral =>
-                (b, ~inputVar, ~failCoercion) => {
+                b->withCoerceScope(~input, ~path, ~target, (b, ~inputVar, ~failCoercion) => {
                   b.code = b.code ++ `${inputVar}==="${const->Obj.magic}"||${failCoercion};`
                   b->val(b->inlineConst(target))
-                }
+                })
+
               | ({tag: String}, {tag: Boolean}) =>
-                (b, ~inputVar, ~failCoercion) => {
+                b->withCoerceScope(~input, ~path, ~target, (b, ~inputVar, ~failCoercion) => {
                   let output = b->allocateVal
                   b.code =
                     b.code ++
                     `(${output.inline}=${inputVar}==="true")||${inputVar}==="false"||${failCoercion};`
                   output
-                }
+                })
 
               | ({tag: String}, {tag: Number, ?format}) =>
-                (b, ~inputVar, ~failCoercion) => {
+                b->withCoerceScope(~input, ~path, ~target, (b, ~inputVar, ~failCoercion) => {
                   let output = b->val(`+${inputVar}`)
                   let outputVar = output.var(b)
                   b.code =
@@ -1459,14 +1474,14 @@ module Builder = {
                     } ++
                     `&&${failCoercion};`
                   output
-                }
+                })
               | ({tag: String}, {tag: BigInt}) =>
-                (b, ~inputVar, ~failCoercion) => {
+                b->withCoerceScope(~input, ~path, ~target, (b, ~inputVar, ~failCoercion) => {
                   let output = b->allocateVal
                   b.code =
                     b.code ++ `try{${output.inline}=BigInt(${inputVar})}catch(_){${failCoercion}}`
                   output
-                }
+                })
 
               | _ =>
                 InternalError.panic(
@@ -1474,29 +1489,6 @@ module Builder = {
                     ->fromInternal
                     ->toExpression} is not supported`,
                 )
-              }
-
-              if coercion === extendCoercion {
-                input
-              } else if coercion === shrinkCoercion {
-                validateTo := true
-                input
-              } else {
-                let bb = b->scope
-                let inputVar = input.var(bb)
-                let output = bb->coercion(
-                  ~inputVar,
-                  ~failCoercion=bb->failWithArg(
-                    ~path,
-                    input => InvalidType({
-                      expected: target->fromInternal,
-                      received: input,
-                    }),
-                    inputVar,
-                  ),
-                )
-                b.code = b.code ++ bb->allocateScope
-                output
               }
             }
             if validateTo.contents {
@@ -2727,14 +2719,14 @@ module Option = {
       }
       let fields = Js.Dict.empty()
       fields->Js.Dict.set(nestedLoc, item)
-
       {
         tag: Object,
         fields,
         items: [item],
         additionalItems: Strip,
-        parser: Builder.make((b, ~input as _, ~selfSchema, ~path as _) => {
-          b->B.val(b->B.inlineConst(selfSchema->reverse))
+        // TODO: Support this as a default coercion
+        serializer: Builder.make((b, ~input as _, ~selfSchema, ~path as _) => {
+          b->B.val(b->B.inlineConst(selfSchema.to->Stdlib.Option.unsafeUnwrap))
         }),
       }
     }
@@ -2743,39 +2735,38 @@ module Option = {
       b->B.val(
         `{${inLoc}:${(
             (
-              (selfSchema->reverse).items->Stdlib.Option.unsafeUnwrap->Js.Array2.unsafe_get(0)
+              (selfSchema->getOutput).items->Stdlib.Option.unsafeUnwrap->Js.Array2.unsafe_get(0)
             ).schema->toInternal
           ).const->Obj.magic}}`,
       )
     })
 
     item => {
-      let mut = item->copy
-
-      mut.output = Some(nestedNone)
-      mut.parser = Some(parser)
-
-      mut
+      item
+      ->updateOutput(mut => {
+        mut.to = Some(nestedNone())
+        mut.parser = Some(parser)
+      })
+      ->toInternal
     }
   }
 
   let factory = (item, ~unit=unit) => {
     let item = item->toInternal
 
-    switch item->reverse {
+    switch item->getOutput {
     | {tag: Undefined} => Union.factory([unit->toUnknown, item->nestedOption->fromInternal])
-    | {tag: Union, ?has} as reversed
-      if has->Stdlib.Option.unsafeUnwrap->Stdlib.Dict.has((Undefined: tag :> string)) => {
-        let mut = reversed->copy
-        let schemas = mut.anyOf->Stdlib.Option.unsafeUnwrap
-        let has = mut.has->Stdlib.Option.unsafeUnwrap
+    | {tag: Union, ?anyOf, ?has} =>
+      item->updateOutput(mut => {
+        let schemas = anyOf->Stdlib.Option.unsafeUnwrap
+        let has = has->Stdlib.Option.unsafeUnwrap
 
-        let anyOf = []
+        let newAnyOf = []
         for idx in 0 to schemas->Array.length - 1 {
           let schema = schemas->Js.Array2.unsafe_get(idx)
-          anyOf
+          newAnyOf
           ->Js.Array2.push(
-            switch schema {
+            switch schema->getOutput {
             | {tag: Undefined} => {
                 if !(has->Stdlib.Dict.has((Object: tag :> string))) {
                   // TODO: Replace with dict{} in ReScript v12
@@ -2783,12 +2774,14 @@ module Option = {
                   d->Js.Dict.set((Object: tag :> string), true)
                   mut.has = Some(d->Stdlib.Dict.mixin(has))
                 }
-                anyOf->Js.Array2.push(unit->toInternal->reverse)->ignore
-                schema->reverse->nestedOption->reverse
+                newAnyOf->Js.Array2.push(unit->toInternal)->ignore
+                schema->nestedOption
               }
             | {fields} =>
               switch fields->Stdlib.Dict.unsafeGetOption(nestedLoc) {
-              | Some(item) => {
+              | Some(item) =>
+                schema
+                ->updateOutput(mut => {
                   let fSchema = item.schema->toInternal
                   let newItem = {
                     ...item,
@@ -2798,14 +2791,13 @@ module Option = {
                       const: fSchema.const->Obj.magic->Stdlib.Int.plus(1)->Obj.magic,
                     }->fromInternal,
                   }
-                  let mut = schema->copy
+
                   let fields = Js.Dict.empty()
                   fields->Js.Dict.set(nestedLoc, newItem)
                   mut.items = Some([newItem])
                   mut.fields = Some(fields)
-                  (mut->reverse).output = mut->Obj.magic
-                  mut
-                }
+                })
+                ->toInternal
               | None => schema
               }
             | _ => schema
@@ -2814,9 +2806,12 @@ module Option = {
           ->ignore
         }
 
-        mut.anyOf = Some(anyOf)
-        mut->reverse->fromInternal
-      }
+        if newAnyOf->Js.Array2.length === schemas->Js.Array2.length {
+          newAnyOf->Js.Array2.push(unit->toInternal)->ignore
+        }
+
+        mut.anyOf = Some(newAnyOf)
+      })
     | _ => Union.factory([item->fromInternal, unit->toUnknown])
     }
   }
@@ -2846,6 +2841,8 @@ module Option = {
             } else {
               item
             }
+            // FIXME: Should delete schema.default on reverse?
+            // FIXME: Should delete schema.unnest on reverse?
             // FIXME: Ensure that default has the same type as the item
             // Or maybe not, but need to make it properly with JSON Schema
             // FIXME: Update schema.has
