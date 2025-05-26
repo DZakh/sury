@@ -56,6 +56,7 @@ type rec t<'value> =
       title?: string,
       deprecated?: bool,
       examples?: array<unknown>,
+      default?: unknown,
     })
   | @as("string")
   String({
@@ -65,6 +66,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<string>,
+      default?: string,
     })
   | @as("number")
   Number({
@@ -75,6 +77,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<float>,
+      default?: float,
     })
   | @as("bigint")
   BigInt({
@@ -84,6 +87,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<bigint>,
+      default?: bigint,
     })
   | @as("boolean")
   Boolean({
@@ -93,6 +97,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<bool>,
+      default?: bool,
     })
   | @as("symbol")
   Symbol({
@@ -102,6 +107,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<Js.Types.symbol>,
+      default?: Js.Types.symbol,
     })
   | @as("null")
   Null({
@@ -135,6 +141,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<Js.Types.function_val>,
+      default?: Js.Types.function_val,
     })
   | @as("instance")
   Instance({
@@ -145,6 +152,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<Js.Types.obj_val>,
+      default?: Js.Types.obj_val,
     })
   | @as("array")
   Array({
@@ -156,6 +164,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<array<unknown>>,
+      default?: array<unknown>,
     })
   | @as("object")
   Object({
@@ -167,7 +176,8 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<dict<unknown>>,
-    })
+      default?: dict<unknown>,
+    }) // TODO: Add const for Object and Tuple
   | @as("union")
   Union({
       anyOf: array<t<unknown>>,
@@ -177,6 +187,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<unknown>,
+      default?: unknown,
     })
   | @as("json")
   JSON({
@@ -185,6 +196,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<Js.Json.t>,
+      default?: Js.Json.t,
     })
 and schema<'a> = t<'a>
 and meta<'value> = {
@@ -205,6 +217,7 @@ and untagged = private {
   description?: string,
   deprecated?: bool,
   examples?: array<unknown>,
+  default?: unknown,
   unnest?: bool,
   noValidation?: bool,
   items?: array<item>,
@@ -412,10 +425,6 @@ let tuple2: (t<'v1>, t<'v2>) => t<('v1, 'v2)>
 let tuple3: (t<'v1>, t<'v2>, t<'v3>) => t<('v1, 'v2, 'v3)>
 
 module Option: {
-  type default = Value(unknown) | Callback(unit => unknown)
-
-  let default: t<'value> => option<default>
-
   let getOr: (t<option<'value>>, 'value) => t<'value>
   let getOrWith: (t<option<'value>>, unit => 'value) => t<'value>
 }
