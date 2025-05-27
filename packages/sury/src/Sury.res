@@ -1638,6 +1638,12 @@ and reverse = (schema: internal) => {
           ...item,
           schema: item.schema->toInternal->reverse->fromInternal,
         }
+
+        // Keep ritem if it's present. Super unsafe and might break
+        // TODO: Test double reverse
+        if (item->Obj.magic)["r"] {
+          (reversed->Obj.magic)["r"] = (item->Obj.magic)["r"]
+        }
         fields->Js.Dict.set(item.location, reversed)
         newItems->Js.Array2.unsafe_set(idx, reversed)
       }
@@ -2188,21 +2194,6 @@ let internalRefine = (schema, refiner) => {
         )
       }),
     )
-    mut.output = Some(
-      () => {
-        let schema = schema->reverse
-        let mut = schema->copy
-        mut.refiner = Some(
-          (b, ~input, ~selfSchema, ~path) => {
-            b->B.transform(~input, (b, ~input) => {
-              b.code = b.code ++ refiner(b, ~inputVar=b->B.Val.var(input), ~selfSchema, ~path)
-              input
-            })
-          },
-        )
-        mut
-      },
-    )
   })
 }
 
@@ -2270,7 +2261,7 @@ let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) =
       )
       to
     })
-    mut.isAsync = None
+    let _ = %raw(`delete mut.isAsync`)
   })
 }
 
@@ -3419,7 +3410,7 @@ module Schema = {
     ItemField({
         inlinedLocation: string,
         location: string,
-        schema?: internal,
+        schema: internal,
         @as("of")
         target: ditem,
         @as("p")
@@ -3436,9 +3427,9 @@ module Schema = {
   // Like ditem but for reversed schema
   @tag("k")
   type ritem =
-    | @as(0) Registred({@as("p") path: Path.t, @as("i") item: ditem, @as("s") schema: internal})
+    | @as(0) Registred({@as("p") path: Path.t, @as("s") schema: internal})
     | @as(1) Discriminant({@as("p") path: Path.t, @as("s") schema: internal})
-    | @as(2) Node({@as("p") path: Path.t, @as("s") schema: internal, @as("a") isArray: bool})
+    | @as(2) Node({@as("p") path: Path.t, @as("s") schema: internal})
 
   type advancedObjectCtx = {
     // Public API for JS/TS users.
@@ -3482,40 +3473,16 @@ module Schema = {
     }
   }
 
+  // Can probably only keep the target path
   @inline
   let setItemRitem = (item: ditem, ritem: ritem) => (item->Obj.magic)["r"] = ritem
   @inline
   let getItemRitem = (item: ditem): option<ritem> => (item->Obj.magic)["r"]
 
   @inline
-  let getUnsafeDitemSchema = (item: ditem) => (item->Obj.magic)["schema"]
+  let getDitemSchema = (item: ditem): internal => (item->Obj.magic)["schema"]
   @inline
   let getUnsafeDitemIndex = (item: ditem): string => (item->Obj.magic)["i"]
-
-  let rec getItemSchema = item => {
-    switch item {
-    | ItemField({schema})
-    | Root({schema})
-    | Item({schema}) => schema
-    | ItemField({target, location, inlinedLocation}) => {
-        let targetReversed = target->getItemSchema
-        let maybeReversedItem = switch targetReversed {
-        | {fields} => fields->Stdlib.Dict.unsafeGetOption(location)
-        // If there are no fields, then it must be Tuple
-        | {?items} =>
-          items->Stdlib.Option.unsafeUnwrap->Stdlib.Array.unsafeGetOptionByString(location)
-        }
-        if maybeReversedItem === None {
-          InternalError.panic(
-            `Impossible to reverse the ${inlinedLocation} access of '${targetReversed
-              ->fromInternal
-              ->toExpression}' schema`,
-          )
-        }
-        (maybeReversedItem->Stdlib.Option.unsafeUnwrap).schema->toInternal
-      }
-    }
-  }
 
   let rec definitionToOutput = (b, ~definition: Definition.t<ditem>, ~getItemOutput) => {
     if definition->Definition.isNode {
@@ -3578,6 +3545,23 @@ module Schema = {
           let location = prop->(Obj.magic: unknown => string)
           let inlinedLocation = location->Stdlib.Inlined.Value.fromString
           ItemField({
+            schema: {
+              let targetReversed = item->getDitemSchema
+              let maybeReversedItem = switch targetReversed {
+              | {fields} => fields->Stdlib.Dict.unsafeGetOption(location)
+              // If there are no fields, then it must be Tuple
+              | {?items} =>
+                items->Stdlib.Option.unsafeUnwrap->Stdlib.Array.unsafeGetOptionByString(location)
+              }
+              if maybeReversedItem === None {
+                InternalError.panic(
+                  `Impossible to reverse the ${inlinedLocation} access of '${targetReversed
+                    ->fromInternal
+                    ->toExpression}' schema`,
+                )
+              }
+              (maybeReversedItem->Stdlib.Option.unsafeUnwrap).schema->toInternal
+            },
             inlinedLocation,
             location,
             target: item,
@@ -3659,40 +3643,6 @@ module Schema = {
     }
   }
 
-  and output = () => {
-    let items = (%raw(`this`): internal).items->Stdlib.Option.unsafeUnwrap
-    let reversedFields = Js.Dict.empty()
-    let reversedItems = []
-
-    let isTransformed = ref(false)
-    for idx in 0 to items->Js.Array2.length - 1 {
-      let {schema, location, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
-      let schema = schema->toInternal
-      let reversed = schema->reverse
-      let item = {
-        location,
-        inlinedLocation,
-        schema: reversed->fromInternal,
-      }
-      reversedFields->Js.Dict.set(location, item)
-      reversedItems->Js.Array2.push(item)->ignore
-      if schema !== reversed {
-        isTransformed.contents = true
-      }
-    }
-    if isTransformed.contents {
-      let mut = base()
-      mut.tag = Object
-      mut.items = Some(reversedItems)
-      mut.fields = Some(reversedFields)
-      mut.additionalItems = Some(globalConfig.defaultAdditionalItems)
-      mut.parser = Some(schemaRefiner)
-      mut
-    } else {
-      %raw(`this`)
-    }
-  }
-
   and advancedBuilder = (~definition, ~flattened: option<array<ditem>>=?) => (
     parentB,
     ~input,
@@ -3742,7 +3692,7 @@ module Schema = {
         outputs
         ->Js.Dict.set(
           item->getUnsafeDitemIndex,
-          b->B.parse(~schema=item->getUnsafeDitemSchema, ~input=outputs->Obj.magic, ~path),
+          b->B.parse(~schema=item->getDitemSchema, ~input=outputs->Obj.magic, ~path),
         )
         ->ignore
       }
@@ -3769,14 +3719,11 @@ module Schema = {
     output
   }
   and definitionToTarget = (~definition, ~to=?, ~flattened=?) => {
-    // FIXME:
-    let originalSchema = %raw(`this`)
-
     let definition = definition->(Obj.magic: unknown => Definition.t<ditem>)
 
     let ritemsByItemPath = Js.Dict.empty()
-    let ritems = []
-    let ritem = definition->definitionToRitem(~path=Path.empty, ~ritems, ~ritemsByItemPath)
+
+    let ritem = definition->definitionToRitem(~path=Path.empty, ~ritemsByItemPath)
 
     let mut = switch ritem {
     | Registred(_)
@@ -3834,7 +3781,7 @@ module Schema = {
         let getItemOutput = (item, ~itemPath) => {
           switch item->getItemRitem {
           | Some(ritem) => {
-              let schema = ritem->getRitemSchema
+              let schema = item->getDitemSchema
               let itemInput = ritem->getRitemInput
 
               let path = path->Path.concat(ritem->getRitemPath)
@@ -3849,14 +3796,16 @@ module Schema = {
               b->B.parse(~schema, ~input=itemInput, ~path)
             }
           | None =>
-            // It's fine to use getUnsafeDitemSchema here, because this will never be called on ItemField
-            schemaToOutput(item->getUnsafeDitemSchema, ~originalPath=itemPath)
+            // It's fine to use getDitemSchema here, because this will never be called on ItemField
+            schemaToOutput(item->getDitemSchema, ~originalPath=itemPath)
           }
         }
 
         switch to {
         | Some(ditem) => ditem->getItemOutput(~itemPath=Path.empty)
         | None => {
+            let originalSchema = selfSchema.to->Stdlib.Option.unsafeUnwrap
+
             b->objectStrictModeCheck(
               ~input,
               ~items=selfSchema.items->Stdlib.Option.unsafeUnwrap,
@@ -3955,8 +3904,7 @@ module Schema = {
           schema.items = Some(items)
           schema.fields = Some(fields)
           schema.additionalItems = Some(globalConfig.defaultAdditionalItems)
-          schema.parser = Some(schemaRefiner)
-          schema.output = Some(output)
+          schema.refiner = Some(schemaRefiner)
           schema->fromInternal
         }
 
@@ -4266,14 +4214,13 @@ module Schema = {
   //     Literal.parse(definition->Definition.toConstant)
   //   }
   // }
-  and definitionToRitem = (definition: Definition.t<ditem>, ~path, ~ritems, ~ritemsByItemPath) => {
+  and definitionToRitem = (definition: Definition.t<ditem>, ~path, ~ritemsByItemPath) => {
     if definition->Definition.isNode {
       switch definition->Definition.toEmbededItem {
       | Some(item) =>
         let ritem = Registred({
           path,
-          item,
-          schema: item->getItemSchema,
+          schema: item->getDitemSchema,
         })
         item->setItemRitem(ritem)
         ritemsByItemPath->Js.Dict.set(item->getFullDitemPath, ritem)
@@ -4289,10 +4236,8 @@ module Schema = {
               let ritem = definitionToRitem(
                 node->Js.Array2.unsafe_get(idx),
                 ~path=path->Path.concat(Path.fromInlinedLocation(inlinedLocation)),
-                ~ritems,
                 ~ritemsByItemPath,
               )
-              ritems->Js.Array2.push(ritem)->ignore
               let item = {
                 location,
                 inlinedLocation,
@@ -4302,7 +4247,6 @@ module Schema = {
             }
             Node({
               path,
-              isArray: true,
               schema: {
                 let mut = base()
                 mut.tag = Array
@@ -4324,10 +4268,8 @@ module Schema = {
               let ritem = definitionToRitem(
                 node->Js.Dict.unsafeGet(location),
                 ~path=path->Path.concat(Path.fromInlinedLocation(inlinedLocation)),
-                ~ritems,
                 ~ritemsByItemPath,
               )
-              ritems->Js.Array2.push(ritem)->ignore
               let item = {
                 location,
                 inlinedLocation,
@@ -4339,7 +4281,6 @@ module Schema = {
 
             Node({
               path,
-              isArray: false,
               schema: {
                 let mut = base()
                 mut.tag = Object

@@ -33,7 +33,7 @@ test("Correctly parses transformed", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="boolean"){i=""+i}else if(!(i===void 0||i===null)){e[1](i)}return i}`,
+    `i=>{if(typeof i==="boolean"){i=""+i}else if(!(i===void 0||i===null)){e[0](i)}return i}`,
   )
 })
 

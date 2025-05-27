@@ -22,6 +22,7 @@ console.log(S.boolean)
 
 - Start refactoring internal schema representation to reflect transformations
   // FIXME: advanced is broken
+  // TODO: Can reuse the S.schema logic for S.object to not recreate an object on serializing
 
 // TODO: Update internal representation:
 
