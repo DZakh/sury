@@ -18,7 +18,10 @@ console.log(S.boolean)
 - Added `default` field to the schema. Removed `S.Option.default` previously exposed to ReScript users. Schemas with `default` are now more optimised and have correct data representation.
   // FIXME: Default callback; JSON Schema support; TS types and tests
 
+- Fixed reverse parsing of shrinked schemas with `S.shape`
+
 - Start refactoring internal schema representation to reflect transformations
+  // FIXME: advanced is broken
 
 // TODO: Update internal representation:
 

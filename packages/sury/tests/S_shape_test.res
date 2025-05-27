@@ -182,7 +182,7 @@ test(
 test("Reverse convert of tagged tuple with destructured literal", t => {
   let schema = S.tuple2(S.literal(true), S.literal(12))->S.shape(((_, twelve)) => twelve)
 
-  t->U.assertEqualSchemas(schema->S.reverse, S.literal(12)->S.toUnknown)
+  t->U.assertEqualSchemas(schema->S.reverse, S.literal(12)->S.shape(i1 => (true, i1))->S.toUnknown)
 
   t->Assert.deepEqual(12->S.reverseConvertOrThrow(schema), %raw(`[true, 12]`), ())
 
@@ -198,7 +198,12 @@ test("Reverse convert of tagged tuple with destructured bool", t => {
       literal,
     ))
 
-  t->U.assertEqualSchemas(schema->S.reverse, S.tuple2(S.bool, S.literal("foo"))->S.toUnknown)
+  t->U.assertEqualSchemas(
+    schema->S.reverse,
+    S.tuple2(S.bool, S.literal("foo"))
+    ->S.shape(((item, literal)) => (true, literal, item))
+    ->S.toUnknown,
+  )
 
   t->Assert.deepEqual(
     (false, "foo")->S.reverseConvertOrThrow(schema),
@@ -206,11 +211,11 @@ test("Reverse convert of tagged tuple with destructured bool", t => {
     (),
   )
 
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return [e[0],i["1"],i["0"],]}`)
+  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return [true,i["1"],i["0"],]}`)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseParse,
-    `i=>{if(!Array.isArray(i)||i.length!==2||i["1"]!=="foo"){e[1](i)}return [e[0],i["1"],i["0"],]}`,
+    `i=>{if(!Array.isArray(i)||i.length!==2||i["1"]!=="foo"){e[1](i)}let v0=i["0"];if(typeof v0!=="boolean"){e[0](v0)}return [true,i["1"],v0,]}`,
   )
 })
 
@@ -311,7 +316,7 @@ test(
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{if(i!=="foo"){e[2](i)}return [e[0],e[1],]}`,
+      `i=>{if(i!=="foo"){e[0](i)}return [true,12,]}`,
     )
   },
 )
@@ -347,7 +352,7 @@ test("Works with variant schema used multiple times as a child schema", t => {
 
 test("Reverse variant schema to literal", t => {
   let schema = S.literal("foo")->S.shape(_ => ())
-  t->U.assertEqualSchemas(schema->S.reverse, S.unit->S.toUnknown)
+  t->U.assertEqualSchemas(schema->S.reverse, S.unit->S.to(S.literal("foo"))->S.toUnknown)
 })
 
 test("Succesfully uses reversed variant schema to literal for parsing back to initial value", t => {
@@ -400,7 +405,9 @@ test("Reverse with output of nested object/tuple schema", t => {
           },
         ),
       )
-    })->S.toUnknown,
+    })
+    ->S.to(S.bool)
+    ->S.toUnknown,
   )
 })
 
