@@ -1259,7 +1259,7 @@ module Compiled = {
       t->U.assertCompiledCode(
         ~schema,
         ~op=#ReverseConvert,
-        `i=>{return {"tag":e[0],"FOO":i["foo"],"BAR":i["bar"],}}`,
+        `i=>{return {"tag":0,"FOO":i["foo"],"BAR":i["bar"],}}`,
       )
     },
   )

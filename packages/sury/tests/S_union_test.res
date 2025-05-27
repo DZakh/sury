@@ -598,7 +598,7 @@ test("Nested union doesn't mutate the input", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["foo"];if(typeof v0==="boolean"){v0=""+v0}else if(!(typeof v0==="string")){e[1](v0)}return {"foo":v0,}}`,
+    `i=>{if(typeof i!=="object"||!i){e[1](i)}let v0=i["foo"];if(typeof v0==="boolean"){v0=""+v0}else if(!(typeof v0==="string")){e[0](v0)}return {"foo":v0,}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
