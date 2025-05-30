@@ -3027,7 +3027,7 @@ function definitionToTarget(definition, to, flattened) {
         if (ritem === undefined) {
           return schemaToOutput(item.schema, itemPath);
         }
-        var targetSchema = getOutputSchema(item.schema);
+        var targetSchema = itemPath === "" ? getOutputSchema(item.schema) : item.schema;
         var itemInput = getRitemInput(ritem);
         var path$1 = path + ritem.p;
         if (ritem.p !== "" && b.g.o & 1 && !isLiteral(targetSchema) && targetSchema.type !== "object") {

@@ -3800,7 +3800,16 @@ module Schema = {
         let getItemOutput = (item, ~itemPath) => {
           switch item->getItemRitem {
           | Some(ritem) => {
-              let targetSchema = item->getDitemSchema->getOutputSchema
+              // If item is transformed to root, then we
+              // don't want to apply the whole parse chain,
+              // but only to the output schema.
+              // Because it'll be parsed later anyways.
+              let targetSchema = if itemPath === Path.empty {
+                item->getDitemSchema->getOutputSchema
+              } else {
+                item->getDitemSchema
+              }
+
               let itemInput = ritem->getRitemInput
 
               let path = path->Path.concat(ritem->getRitemPath)
