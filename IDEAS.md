@@ -19,6 +19,7 @@ console.log(S.boolean)
   // FIXME: Default callback; JSON Schema support; TS types and tests
 
 - Fixed reverse parsing of shrinked schemas with `S.shape`
+- Fixed reverse parsing of `S.option(S.object(_ => ()))` in ReScript
 
 - Start refactoring internal schema representation to reflect transformations
   // FIXME: advanced is broken
