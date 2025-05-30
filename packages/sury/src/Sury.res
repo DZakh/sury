@@ -1492,7 +1492,10 @@ module Builder = {
               }
             }
             if validateTo.contents {
-              b.code = b.code ++ b->typeFilterCode(~schema=to, ~input, ~path)
+              // Setting it immediately to b.code might result in
+              // resetting b.code accumulated inside of typeFilterCode
+              let filterCode = b->typeFilterCode(~schema=to, ~input, ~path)
+              b.code = b.code ++ filterCode
             }
             input
           }

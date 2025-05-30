@@ -199,7 +199,7 @@ test(
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i){e[2](i)}let v1;let v0=i["foo"];if(typeof v0!=="string"){e[0](v0)}v1=e[1]({"foo":v0,});return v1["faz"]}`,
+      `i=>{if(typeof i!=="object"||!i){e[4](i)}let v1;let v0=i["foo"];if(typeof v0!=="string"){e[0](v0)}v1=e[1]({"foo":v0,});if(typeof v1!=="object"||!v1){e[2](v1)}let v2=v1["faz"];if(typeof v2!=="string"){e[3](v2)}return v2}`,
     )
     t->Assert.deepEqual(
       {
