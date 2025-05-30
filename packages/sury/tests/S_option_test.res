@@ -209,18 +209,18 @@ test(
 
     t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), None, ())
     t->Assert.deepEqual(%raw(`{}`)->S.parseOrThrow(schema), Some(), ())
-    t->Assert.deepEqual(Some()->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
+    t->Assert.deepEqual(Some()->S.reverseConvertOrThrow(schema), %raw(`{}`), ())
     t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
 
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i==="object"&&i){i={"BS_PRIVATE_NESTED_SOME_NONE":0}}else if(!(i===void 0)){e[0](i)}return i}`,
+      `i=>{if(typeof i==="object"&&i){i={"BS_PRIVATE_NESTED_SOME_NONE":0}}else if(!(i===void 0)){e[1](i)}return i}`,
     )
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{if(typeof i==="object"&&i&&i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=undefined}return i}`,
+      `i=>{if(typeof i==="object"&&i&&i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i={}}return i}`,
     )
   },
 )
