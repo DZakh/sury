@@ -150,6 +150,31 @@ test(
 test(
   "Successfully parses when transformed object schema is destructured - it does create an object and extracts a field from it afterwards",
   t => {
+    t->Assert.throws(
+      () => {
+        S.schema(
+          s =>
+            {
+              "foo": s.matches(S.string),
+            },
+        )
+        ->S.transform(
+          _ => {
+            parser: obj =>
+              {
+                "faz": obj["foo"],
+              },
+          },
+        )
+        ->S.shape(obj => obj["faz"])
+      },
+      ~expectations={
+        message: `[Sury] Cannot read property "faz" of unknown`,
+      },
+      ~message=`Case without S.to before S.shape`,
+      (),
+    )
+
     let schema =
       S.schema(s =>
         {
@@ -162,6 +187,13 @@ test(
             "faz": obj["foo"],
           },
       })
+      ->S.to(
+        S.schema(s =>
+          {
+            "faz": s.matches(S.string),
+          }
+        ),
+      )
       ->S.shape(obj => obj["faz"])
 
     t->U.assertCompiledCode(
@@ -186,7 +218,7 @@ test("Reverse convert of tagged tuple with destructured literal", t => {
 
   t->Assert.deepEqual(12->S.reverseConvertOrThrow(schema), %raw(`[true, 12]`), ())
 
-  let code = `i=>{if(i!==12){e[1](i)}return [e[0],i,]}`
+  let code = `i=>{if(i!==12){e[0](i)}return [true,i,]}`
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, code)
   t->U.assertCompiledCode(~schema, ~op=#ReverseParse, code)
 })
@@ -388,25 +420,17 @@ test("Reverse with output of nested object/tuple schema", t => {
   })
   t->U.assertEqualSchemas(
     schema->S.reverse,
-    S.object(s => {
-      let _ = s.field(
-        "nested",
-        S.object(
-          s => {
-            let _ = s.field(
-              "field",
-              S.tuple(
-                s => {
-                  let _ = s.item(0, S.bool)
-                  s.tag(1, true)
-                },
-              ),
-            )
-          },
-        ),
-      )
+    S.schema(s => {
+      {
+        "nested": {
+          "field": (s.matches(S.bool), true),
+        },
+      }
     })
-    ->S.to(S.bool)
+    ->S.shape(v => {
+      let (b, _) = v["nested"]["field"]
+      b
+    })
     ->S.toUnknown,
   )
 })

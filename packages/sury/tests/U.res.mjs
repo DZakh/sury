@@ -140,12 +140,12 @@ function cleanUpSchema(schema) {
         var value = param[1];
         var key = param[0];
         switch (key) {
-          case "advanced" :
           case "isAsync" :
           case "k" :
           case "of" :
           case "output" :
           case "p" :
+          case "r" :
               return ;
           default:
             if (typeof value === "function") {

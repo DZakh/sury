@@ -1190,7 +1190,7 @@ function jsonableValidation(output, parent, path, flag, recSet) {
       });
 }
 
-function getOutput(_schema) {
+function getOutputSchema(_schema) {
   while(true) {
     var schema = _schema;
     var to = schema.to;
@@ -2056,7 +2056,7 @@ function parser$1(b, param, selfSchema, param$1) {
   return {
           b: b,
           v: _notVar,
-          i: "{" + inLoc + ":" + getOutput(selfSchema).items[0].schema.const + "}",
+          i: "{" + inLoc + ":" + getOutputSchema(selfSchema).items[0].schema.const + "}",
           a: false
         };
 }
@@ -2070,7 +2070,7 @@ function nestedOption(item) {
 
 function factory$1(item, unitOpt) {
   var unit = unitOpt !== undefined ? unitOpt : $$undefined;
-  var match = getOutput(item);
+  var match = getOutputSchema(item);
   var match$1 = match.type;
   switch (match$1) {
     case "undefined" :
@@ -2086,7 +2086,7 @@ function factory$1(item, unitOpt) {
                       var newAnyOf = [];
                       for(var idx = 0 ,idx_finish = anyOf.length; idx < idx_finish; ++idx){
                         var schema = anyOf[idx];
-                        var match = getOutput(schema);
+                        var match = getOutputSchema(schema);
                         var match$1 = match.type;
                         var tmp;
                         if (match$1 === "undefined") {
@@ -2153,7 +2153,7 @@ function getWithDefault(schema, $$default) {
                   var defaultLiteral = parse$1(defaultValue);
                   for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
                     var item = items[idx];
-                    var itemOutput = getOutput(item);
+                    var itemOutput = getOutputSchema(item);
                     var newItem = itemOutput.type === "undefined" ? updateOutput(item, (function (itemMut) {
                               itemMut.to = defaultLiteral;
                             })) : item;
@@ -2681,12 +2681,14 @@ function proxify(item) {
                     return item;
                   }
                   var inlinedLocation = fromString(prop);
-                  var targetReversed = item.schema;
+                  var targetReversed = getOutputSchema(item.schema);
                   var items = targetReversed.items;
                   var fields = targetReversed.fields;
-                  var maybeReversedItem = fields !== undefined ? fields[prop] : items[prop];
+                  var maybeReversedItem = fields !== undefined ? fields[prop] : (
+                      items !== undefined ? items[prop] : undefined
+                    );
                   if (maybeReversedItem === undefined) {
-                    var message = "Impossible to reverse the " + inlinedLocation + " access of '" + toExpression(targetReversed) + "' schema";
+                    var message = "Cannot read property " + inlinedLocation + " of " + toExpression(targetReversed);
                     throw new Error("[Sury] " + message);
                   }
                   return proxify({
@@ -2901,7 +2903,7 @@ function definitionToRitem(definition, path, ritemsByItemPath) {
   }
   var item = definition[itemSymbol];
   if (item !== undefined) {
-    var ritem_1 = item.schema;
+    var ritem_1 = getOutputSchema(item.schema);
     var ritem = {
       k: 0,
       p: path,
@@ -2984,7 +2986,7 @@ function definitionToTarget(definition, to, flattened) {
         }
       };
       var schemaToOutput = function (schema, originalPath) {
-        var outputSchema = getOutput(schema);
+        var outputSchema = getOutputSchema(schema);
         if (isLiteral(outputSchema)) {
           return {
                   b: b,
@@ -2992,6 +2994,14 @@ function definitionToTarget(definition, to, flattened) {
                   i: inlineConst(b, outputSchema),
                   a: false
                 };
+        }
+        if (isLiteral(schema)) {
+          return parse(b, schema, {
+                      b: b,
+                      v: _notVar,
+                      i: inlineConst(b, schema),
+                      a: false
+                    }, path);
         }
         var tag = outputSchema.type;
         var additionalItems = outputSchema.additionalItems;
@@ -3016,13 +3026,13 @@ function definitionToTarget(definition, to, flattened) {
         if (ritem === undefined) {
           return schemaToOutput(item.schema, itemPath);
         }
-        var schema = item.schema;
+        var targetSchema = getOutputSchema(item.schema);
         var itemInput = getRitemInput(ritem);
         var path$1 = path + ritem.p;
-        if (ritem.p !== "" && b.g.o & 1 && !isLiteral(schema) && schema.type !== "object") {
-          b.c = b.c + typeFilterCode(b, schema, itemInput, path$1);
+        if (ritem.p !== "" && b.g.o & 1 && !isLiteral(targetSchema) && targetSchema.type !== "object") {
+          b.c = b.c + typeFilterCode(b, targetSchema, itemInput, path$1);
         }
-        return parse(b, schema, itemInput, path$1);
+        return parse(b, targetSchema, itemInput, path$1);
       };
       if (to !== undefined) {
         return getItemOutput(to, "");
@@ -3116,8 +3126,7 @@ function shape(schema, definer) {
                   i: 0
                 };
                 var definition = definer(proxify(ditem));
-                mut.parser = (function (b, input, param, path) {
-                    var itemOutput = parse(b, schema, input, path);
+                mut.parser = (function (b, input, param, param$1) {
                     var bb = {
                       c: "",
                       l: "",
@@ -3130,7 +3139,7 @@ function shape(schema, definer) {
                             return get(bb, getItemOutput(item.of), item.inlinedLocation);
                         case 0 :
                         case 2 :
-                            return itemOutput;
+                            return input;
                         
                       }
                     };

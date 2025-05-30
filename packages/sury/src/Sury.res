@@ -1602,9 +1602,9 @@ and operationFn = (s, o) => {
     f
   }
 }
-and getOutput = (schema: internal) => {
+and getOutputSchema = (schema: internal) => {
   switch schema.to {
-  | Some(to) => getOutput(to)
+  | Some(to) => getOutputSchema(to)
   | None => schema
   }
 }
@@ -2726,7 +2726,9 @@ module Option = {
       b->B.val(
         `{${inLoc}:${(
             (
-              (selfSchema->getOutput).items->Stdlib.Option.unsafeUnwrap->Js.Array2.unsafe_get(0)
+              (selfSchema->getOutputSchema).items
+              ->Stdlib.Option.unsafeUnwrap
+              ->Js.Array2.unsafe_get(0)
             ).schema->toInternal
           ).const->Obj.magic}}`,
       )
@@ -2745,7 +2747,7 @@ module Option = {
   let factory = (item, ~unit=unit) => {
     let item = item->toInternal
 
-    switch item->getOutput {
+    switch item->getOutputSchema {
     | {tag: Undefined} => Union.factory([unit->toUnknown, item->nestedOption->fromInternal])
     | {tag: Union, ?anyOf, ?has} =>
       item->updateOutput(mut => {
@@ -2757,7 +2759,7 @@ module Option = {
           let schema = schemas->Js.Array2.unsafe_get(idx)
           newAnyOf
           ->Js.Array2.push(
-            switch schema->getOutput {
+            switch schema->getOutputSchema {
             | {tag: Undefined} => {
                 mutHas->Js.Dict.set(((unit->toInternal).tag: tag :> string), true)
                 newAnyOf->Js.Array2.push(unit->toInternal)->ignore
@@ -2819,7 +2821,7 @@ module Option = {
           let defaultLiteral = Literal.parse(defaultValue)
           for idx in 0 to items->Js.Array2.length - 1 {
             let item = items->Js.Array2.unsafe_get(idx)
-            let itemOutput = item->getOutput
+            let itemOutput = item->getOutputSchema
             let newItem = if itemOutput.tag === Undefined {
               item
               ->updateOutput(itemMut => {
@@ -3198,6 +3200,18 @@ let rec to = (from, target) => {
     | _ =>
       updateOutput(from, mut => {
         mut.to = Some(target)
+        // A tricky part about parser is that we don't know the input type in ReScript
+        // so we need to directly parse to output instead of input
+        // switch parser {
+        // | Some(p) =>
+        //   mut.parser = Some(
+        //     Builder.make((b, ~input, ~selfSchema as _, ~path as _) => {
+        //       // TODO: Support async, reverse, nested parsing
+        //       b->B.embedSyncOperation(~input, ~fn=p)
+        //     }),
+        //   )
+        // | None => ()
+        // }
       })
 
     // mut.parser = Some(
@@ -3546,18 +3560,18 @@ module Schema = {
           let inlinedLocation = location->Stdlib.Inlined.Value.fromString
           ItemField({
             schema: {
-              let targetReversed = item->getDitemSchema
+              let targetReversed = item->getDitemSchema->getOutputSchema
               let maybeReversedItem = switch targetReversed {
               | {fields} => fields->Stdlib.Dict.unsafeGetOption(location)
               // If there are no fields, then it must be Tuple
-              | {?items} =>
-                items->Stdlib.Option.unsafeUnwrap->Stdlib.Array.unsafeGetOptionByString(location)
+              | {items} => items->Stdlib.Array.unsafeGetOptionByString(location)
+              | _ => None
               }
               if maybeReversedItem === None {
                 InternalError.panic(
-                  `Impossible to reverse the ${inlinedLocation} access of '${targetReversed
+                  `Cannot read property ${inlinedLocation} of ${targetReversed
                     ->fromInternal
-                    ->toExpression}' schema`,
+                    ->toExpression}`,
                 )
               }
               (maybeReversedItem->Stdlib.Option.unsafeUnwrap).schema->toInternal
@@ -3742,9 +3756,11 @@ module Schema = {
         }
 
         let rec schemaToOutput = (schema, ~originalPath) => {
-          let outputSchema = schema->getOutput
+          let outputSchema = schema->getOutputSchema
           if outputSchema->isLiteral {
             b->B.val(b->B.inlineConst(outputSchema))
+          } else if schema->isLiteral {
+            b->B.parse(~schema, ~input=b->B.val(b->B.inlineConst(schema)), ~path)
           } else {
             switch outputSchema {
             | {items, tag, ?additionalItems}
@@ -3781,23 +3797,22 @@ module Schema = {
         let getItemOutput = (item, ~itemPath) => {
           switch item->getItemRitem {
           | Some(ritem) => {
-              let schema = item->getDitemSchema
+              let targetSchema = item->getDitemSchema->getOutputSchema
               let itemInput = ritem->getRitemInput
 
               let path = path->Path.concat(ritem->getRitemPath)
               if (
                 ritem->getRitemPath !== Path.empty &&
                 b.global.flag->Flag.unsafeHas(Flag.typeValidation) &&
-                !(schema->isLiteral) &&
-                schema.tag !== Object
+                !(targetSchema->isLiteral) &&
+                targetSchema.tag !== Object
               ) {
-                b.code = b.code ++ b->B.typeFilterCode(~schema, ~input=itemInput, ~path)
+                b.code =
+                  b.code ++ b->B.typeFilterCode(~schema=targetSchema, ~input=itemInput, ~path)
               }
-              b->B.parse(~schema, ~input=itemInput, ~path)
+              b->B.parse(~schema=targetSchema, ~input=itemInput, ~path)
             }
-          | None =>
-            // It's fine to use getDitemSchema here, because this will never be called on ItemField
-            schemaToOutput(item->getDitemSchema, ~originalPath=itemPath)
+          | None => schemaToOutput(item->getDitemSchema, ~originalPath=itemPath)
           }
         }
 
@@ -3861,15 +3876,13 @@ module Schema = {
         let definition: unknown = definer(ditem->proxify)->Obj.magic
 
         mut.parser = Some(
-          Builder.make((b, ~input, ~selfSchema as _, ~path) => {
-            let itemOutput = b->B.parse(~schema, ~input, ~path)
-
+          Builder.make((b, ~input, ~selfSchema as _, ~path as _) => {
             let bb = b->B.scope
             let rec getItemOutput = item => {
               switch item {
               | ItemField({target: item, inlinedLocation}) =>
                 bb->B.Val.get(item->getItemOutput, inlinedLocation)
-              | _ => itemOutput
+              | _ => input
               }
             }
             let output =
@@ -4220,7 +4233,7 @@ module Schema = {
       | Some(item) =>
         let ritem = Registred({
           path,
-          schema: item->getDitemSchema,
+          schema: item->getDitemSchema->getOutputSchema,
         })
         item->setItemRitem(ritem)
         ritemsByItemPath->Js.Dict.set(item->getFullDitemPath, ritem)
