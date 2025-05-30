@@ -231,7 +231,7 @@ test("Coerce to literal can be used as tag and automatically embeded on reverse 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{if(i!==void 0){e[2](i)}return {"tag":"true",}}`,
+    `i=>{if(i!==void 0){e[0](i)}return {"tag":"true",}}`,
   )
 
   t->Assert.deepEqual({"tag": "true"}->S.parseOrThrow(schema), (), ())

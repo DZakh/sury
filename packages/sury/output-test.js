@@ -1,16 +1,5 @@
 (i) => {
   if (typeof i !== "object" || !i) {
-    e[2](i);
-  }
-  let v0 = i["foo"];
-  if (typeof v0 !== "string") {
-    e[0](v0);
-  }
-  return { TAG: e[1], _0: v0 };
-};
-
-(i) => {
-  if (typeof i !== "object" || !i) {
     e[3](i);
   }
   let v0 = i["foo"];
