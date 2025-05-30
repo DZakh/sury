@@ -308,6 +308,15 @@ test("Compiled code snapshot of variant applied to object", t => {
     `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["foo"];if(typeof v0!=="string"){e[0](v0)}return {"TAG":e[1],"_0":v0,}}`,
   )
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return {"foo":i["_0"],}}`)
+
+  let schema = S.object(s => s.field("foo", S.string->S.to(S.bool)))->S.shape(s => Ok(s))
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(typeof i!=="object"||!i){e[3](i)}let v0=i["foo"];if(typeof v0!=="string"){e[0](v0)}let v1;(v1=v0==="true")||v0==="false"||e[1](v0);return {"TAG":e[2],"_0":v1,}}`,
+  )
+  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return {"foo":""+i["_0"],}}`)
 })
 
 test("Compiled parse code snapshot", t => {
@@ -363,6 +372,17 @@ test("Works with variant schema used multiple times as a child schema", t => {
     }
   )
 
+  t->U.assertCompiledCode(
+    ~schema=appVersionsSchema,
+    ~op=#Parse,
+    `i=>{if(typeof i!=="object"||!i){e[4](i)}let v0=i["ios"],v1=i["android"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="string"){e[2](v1)}return {"ios":{"current":v0,"minimum":e[1],},"android":{"current":v1,"minimum":e[3],},}}`,
+  )
+  t->U.assertCompiledCode(
+    ~schema=appVersionsSchema,
+    ~op=#ReverseConvert,
+    `i=>{let v0=i["ios"],v1=i["android"];return {"ios":v0["current"],"android":v1["current"],}}`,
+  )
+
   let rawAppVersions = {
     "ios": "1.1",
     "android": "1.2",
@@ -372,14 +392,13 @@ test("Works with variant schema used multiple times as a child schema", t => {
     "android": {"current": "1.2", "minimum": "1.0"},
   }
 
-  let value = rawAppVersions->S.parseOrThrow(appVersionsSchema)
-  t->Assert.deepEqual(value, appVersions, ())
+  t->Assert.deepEqual(rawAppVersions->S.parseOrThrow(appVersionsSchema), appVersions, ())
 
-  let data = appVersions->S.reverseConvertToJsonOrThrow(appVersionsSchema)
-  t->Assert.deepEqual(data, rawAppVersions->Obj.magic, ())
-
-  let data = appVersions->S.reverseConvertToJsonOrThrow(appVersionsSchema)
-  t->Assert.deepEqual(data, rawAppVersions->Obj.magic, ())
+  t->Assert.deepEqual(
+    appVersions->S.reverseConvertToJsonOrThrow(appVersionsSchema),
+    rawAppVersions->Obj.magic,
+    (),
+  )
 })
 
 test("Reverse variant schema to literal", t => {
