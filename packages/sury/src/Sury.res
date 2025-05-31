@@ -515,8 +515,8 @@ and val = {
   mutable var: b => string,
   @as("i")
   mutable inline: string,
-  @as("a")
-  mutable isAsync: bool,
+  @as("f")
+  mutable flag: flag,
 }
 and b = {
   @as("c")
@@ -674,6 +674,12 @@ external base: unit => internal = "Schema"
 type s<'value> = {
   schema: t<'value>,
   fail: 'a. (string, ~path: Path.t=?) => 'a,
+}
+
+module ValFlag = {
+  @inline let none = 0
+  @inline let input = 1
+  @inline let async = 2
 }
 
 module Flag = {
@@ -992,22 +998,22 @@ module Builder = {
     let allocateVal = (b: b): val => {
       let v = b.global->varWithoutAllocation
       b.allocate(v)
-      {b, var: _var, isAsync: false, inline: v}
+      {b, var: _var, inline: v, flag: ValFlag.none}
     }
 
     @inline
     let val = (b: b, initial: string): val => {
-      {b, var: _notVar, inline: initial, isAsync: false}
+      {b, var: _notVar, inline: initial, flag: ValFlag.none}
     }
 
     @inline
     let embedVal = (b: b, value): val => {
-      {b, var: _var, inline: b->embed(value), isAsync: false}
+      {b, var: _var, inline: b->embed(value), flag: ValFlag.none}
     }
 
     @inline
     let asyncVal = (b: b, initial: string): val => {
-      {b, var: _notVar, inline: initial, isAsync: true}
+      {b, var: _notVar, inline: initial, flag: ValFlag.async}
     }
 
     module Val = {
@@ -1035,7 +1041,7 @@ module Builder = {
             b,
             var: _notVar,
             inline: "",
-            isAsync: false,
+            flag: ValFlag.none,
             join: isArray ? arrayJoin : objectJoin,
             asyncCount: 0,
             promiseAllContent: "",
@@ -1045,7 +1051,7 @@ module Builder = {
         let add = (objectVal, inlinedLocation, val: val) => {
           // inlinedLocation is either an int or a quoted string, so it's safe to store it directly on val
           objectVal->(Obj.magic: t => dict<val>)->Js.Dict.set(inlinedLocation, val)
-          if val.isAsync {
+          if val.flag->Flag.unsafeHas(ValFlag.async) {
             objectVal.promiseAllContent = objectVal.promiseAllContent ++ val.inline ++ ","
             objectVal.inline =
               objectVal.inline ++ objectVal.join(inlinedLocation, `a[${%raw(`objectVal.c++`)}]`)
@@ -1071,7 +1077,7 @@ module Builder = {
             ? "[" ++ objectVal.inline ++ "]"
             : "{" ++ objectVal.inline ++ "}"
           if objectVal.asyncCount->Obj.magic {
-            objectVal.isAsync = true
+            objectVal.flag = objectVal.flag->Flag.with(ValFlag.async)
             objectVal.inline = `Promise.all([${objectVal.promiseAllContent}]).then(a=>(${objectVal.inline}))`
           }
           (objectVal :> val)
@@ -1091,16 +1097,20 @@ module Builder = {
         if input === val {
           ""
         } else {
+          // FIXME: Remove original ValFlag
           let inputVar = b->var(input)
-          switch (input, val) {
-          | ({isAsync: false}, {isAsync: true}) => {
-              input.isAsync = true
+          switch (
+            input.flag->Flag.unsafeHas(ValFlag.async),
+            val.flag->Flag.unsafeHas(ValFlag.async),
+          ) {
+          | (false, true) => {
+              input.flag = input.flag->Flag.with(ValFlag.async)
               `${inputVar}=${val.inline}`
             }
-          | ({isAsync: false}, {isAsync: false})
-          | ({isAsync: true}, {isAsync: true}) =>
+          | (false, false)
+          | (true, true) =>
             `${inputVar}=${val.inline}`
-          | ({isAsync: true}, {isAsync: false}) => `${inputVar}=Promise.resolve(${val.inline})`
+          | (true, false) => `${inputVar}=Promise.resolve(${val.inline})`
           }
         }
       }
@@ -1119,7 +1129,7 @@ module Builder = {
       }
 
       let map = (inlinedFn, input: val) => {
-        {b: input.b, var: _notVar, inline: `${inlinedFn}(${input.inline})`, isAsync: false}
+        {b: input.b, var: _notVar, inline: `${inlinedFn}(${input.inline})`, flag: ValFlag.none}
       }
     }
 
@@ -1129,13 +1139,13 @@ module Builder = {
     }
 
     let transform = (b: b, ~input: val, operation) => {
-      if input.isAsync {
+      if input.flag->Flag.unsafeHas(ValFlag.async) {
         let bb = b->scope
         let operationInput: val = {
           b,
           var: _var,
           inline: bb.global->varWithoutAllocation,
-          isAsync: false,
+          flag: ValFlag.none,
         }
         let operationOutputVal = operation(bb, ~input=operationInput)
         let operationCode = bb->allocateScope
@@ -1155,7 +1165,7 @@ module Builder = {
     }
 
     let embedSyncOperation = (b: b, ~input: val, ~fn: 'input => 'output) => {
-      if input.isAsync {
+      if input.flag->Flag.unsafeHas(ValFlag.async) {
         input.b->asyncVal(`${input.inline}.then(${b->embed(fn)})`)
       } else {
         Val.map(b->embed(fn), input)
@@ -1167,7 +1177,7 @@ module Builder = {
         b->raise(~code=UnexpectedAsync, ~path=Path.empty)
       }
       let val = b->embedSyncOperation(~input, ~fn)
-      val.isAsync = true
+      val.flag = val.flag->Flag.with(ValFlag.async)
       val
     }
 
@@ -1218,13 +1228,13 @@ module Builder = {
       if isNoop {
         fnOutput
       } else {
-        let isAsync = fnOutput.isAsync
+        let isAsync = fnOutput.flag->Flag.unsafeHas(ValFlag.async)
         let output =
           input === fnOutput
             ? input
             : switch appendSafe {
               | Some(_) => fnOutput
-              | None => {b, var: _notVar, inline: "", isAsync}
+              | None => {b, var: _notVar, inline: "", flag: isAsync ? ValFlag.async : ValFlag.none}
               }
 
         let catchCode = switch maybeResolveVal {
@@ -1550,10 +1560,11 @@ let rec internalCompile = (~schema, ~flag) => {
     jsonableValidation(~output, ~parent=output, ~path=Path.empty, ~flag, ~recSet=None)
   }
 
-  let input = {b, var: B._var, isAsync: false, inline: Builder.intitialInputVar}
+  let input = {b, var: B._var, inline: Builder.intitialInputVar, flag: ValFlag.none}
 
   let output = B.parse(b, ~schema, ~input, ~path=Path.empty)
-  schema.isAsync = Some(output.isAsync)
+  let isAsync = output.flag->Flag.has(ValFlag.async)
+  schema.isAsync = Some(isAsync)
 
   if b.varsAllocation !== "" {
     b.code = `let ${b.varsAllocation};${b.code}`
@@ -1586,7 +1597,7 @@ let rec internalCompile = (~schema, ~flag) => {
     if flag->Flag.unsafeHas(Flag.jsonStringOutput) {
       inlinedOutput := `JSON.stringify(${inlinedOutput.contents})`
     }
-    if flag->Flag.unsafeHas(Flag.async) && !output.isAsync {
+    if flag->Flag.unsafeHas(Flag.async) && !isAsync {
       inlinedOutput := `Promise.resolve(${inlinedOutput.contents})`
     }
 
@@ -1994,12 +2005,13 @@ let isAsync = schema => {
       let input = {
         b,
         var: B._var,
-        isAsync: false,
+        flag: ValFlag.input,
         inline: Builder.intitialInputVar,
       }
       let output = B.parse(b, ~schema, ~input, ~path=Path.empty)
-      schema.isAsync = Some(output.isAsync)
-      output.isAsync
+      let isAsync = output.flag->Flag.has(ValFlag.async)
+      schema.isAsync = Some(isAsync)
+      isAsync
     } catch {
     | _ => {
         let _ = %raw(`exn`)->InternalError.getOrRethrow
@@ -2121,8 +2133,8 @@ let recursive = fn => {
           ~input,
           (_b, ~input) => {
             let output = B.Val.map(r, input)
-            if opOutput.isAsync {
-              output.isAsync = true
+            if opOutput.flag->Flag.unsafeHas(ValFlag.async) {
+              output.flag = output.flag->Flag.with(ValFlag.async)
               placeholder.parser = Some(
                 Builder.make(
                   (b, ~input, ~selfSchema as _, ~path as _) => {
@@ -2130,7 +2142,7 @@ let recursive = fn => {
                       ~input,
                       (_b, ~input) => {
                         let output = B.Val.map(r, input)
-                        output.isAsync = true
+                        output.flag = output.flag->Flag.with(ValFlag.async)
                         output
                       },
                     )
@@ -2329,8 +2341,8 @@ module Union = {
           bb.code = bb.code ++ bb->B.typeFilterCode(~schema=reversed, ~input=itemOutput, ~path)
         }
 
-        if itemOutput.isAsync {
-          output.isAsync = true
+        if itemOutput.flag->Flag.unsafeHas(ValFlag.async) {
+          output.flag = output.flag->Flag.with(ValFlag.async)
         }
         bb.code =
           bb.code ++
@@ -2625,7 +2637,7 @@ module Union = {
 
     b.code = b.code ++ start.contents ++ end.contents
 
-    if output.isAsync {
+    if output.flag->Flag.unsafeHas(ValFlag.async) {
       b->B.asyncVal(`Promise.resolve(${output.inline})`)
     } else if output.var === B._var {
       // TODO: Think how to make it more robust
@@ -2910,7 +2922,7 @@ module Array = {
             : ""}}`
     }
 
-    if itemOutput.isAsync {
+    if itemOutput.flag->Flag.unsafeHas(ValFlag.async) {
       output.b->B.asyncVal(`Promise.all(${output.inline})`)
     } else {
       output
@@ -3013,7 +3025,7 @@ module Dict = {
             : ""}}`
     }
 
-    if itemOutput.isAsync {
+    if itemOutput.flag->Flag.unsafeHas(ValFlag.async) {
       let resolveVar = b.global->B.varWithoutAllocation
       let rejectVar = b.global->B.varWithoutAllocation
       let asyncParseResultVar = b.global->B.varWithoutAllocation
@@ -3658,7 +3670,7 @@ module Schema = {
       ) {
         objectVal.var = input.var
         objectVal.inline = initialInput
-        objectVal.isAsync = input.isAsync
+        objectVal.flag = input.flag
         (objectVal :> val)
       } else {
         objectVal->B.Val.Object.complete(~isArray)
@@ -4464,19 +4476,19 @@ let unnestSerializer = Builder.make((b, ~input, ~selfSchema, ~path) => {
     b.code ++
     `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${itemCode}}`
 
-  if itemOutput.isAsync {
+  if itemOutput.flag->Flag.unsafeHas(ValFlag.async) {
     {
       b,
       var: B._notVar,
       inline: `Promise.all(${outputVar})`,
-      isAsync: true,
+      flag: ValFlag.async,
     }
   } else {
     {
       b,
       var: B._var,
       inline: outputVar,
-      isAsync: false,
+      flag: ValFlag.none,
     }
   }
 })
@@ -4539,7 +4551,7 @@ let unnest = schema => {
           b.code ++
           `for(let ${iteratorVar}=0;${iteratorVar}<${outputVar}.length;++${iteratorVar}){${itemCode}}`
 
-        if itemOutput.isAsync {
+        if itemOutput.flag->Flag.unsafeHas(ValFlag.async) {
           output.b->B.asyncVal(`Promise.all(${output.inline})`)
         } else {
           output

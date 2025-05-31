@@ -38,8 +38,7 @@ console.log(S.boolean)
 ### ideas
 
 - rename `serializer` to reverse parser ?
-- rename `S.toUnknown` to `S.castToUnknown` - make `foo->S.to(S.unknown)` stricter ??
-- Add `S.castToAny`
+- Make `foo->S.to(S.unknown)` stricter ??
 
 - Add `S.to(from, target, parser, serializer)` instead of `S.transform`?
 - Remove `s.fail` with `throw new Error`
