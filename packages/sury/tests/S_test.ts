@@ -1835,7 +1835,7 @@ test("Env schema: Reggression version", (t) => {
 
   t.deepEqual(
     S.compile(env(S.boolean), "Input", "Output", "Sync", true).toString(),
-    `i=>{if(typeof i==="string"){if(i==="t"){i=true}else if(i==="1"){i=true}else if(i==="f"){i=false}else if(i==="0"){i=false}else{try{let v0;(v0=i==="true")||i==="false"||e[4](i);i=v0}catch(e4){e[5](i,e4)}}}else{e[6](i)}return i}`
+    `i=>{if(typeof i==="string"){if(i==="t"){i=true}else if(i==="1"){i=true}else if(i==="f"){i=false}else if(i==="0"){i=false}else{try{let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}catch(e4){e[1](i,e4)}}}else{e[2](i)}return i}`
   );
 
   t.deepEqual(S.parseOrThrow("t", env(S.boolean)), true);
@@ -2044,6 +2044,57 @@ test("Successfully parses recursive object", (t) => {
       ],
     }
   );
+});
+
+test("Recursive object with S.shape", (t) => {
+  type Node = {
+    id: string;
+    children: Node[];
+  };
+
+  let nodeSchema = S.recursive<Node, unknown>((nodeSchema) =>
+    S.schema({
+      ID: S.string,
+      CHILDREN: S.array(nodeSchema),
+    }).with(S.shape, (input) => ({
+      id: input.ID,
+      children: input.CHILDREN,
+    }))
+  );
+
+  expectType<SchemaEqual<typeof nodeSchema, Node, unknown>>(true);
+
+  t.deepEqual(
+    S.parseOrThrow(
+      {
+        id: "1",
+        children: [
+          { id: "2", children: [] },
+          { id: "3", children: [{ id: "4", children: [] }] },
+        ],
+      },
+      nodeSchema
+    ),
+    {
+      id: "1",
+      children: [
+        { id: "2", children: [] },
+        { id: "3", children: [{ id: "4", children: [] }] },
+      ],
+    }
+  );
+});
+
+test("Recursive with self as transform target", (t) => {
+  type Node = Node[];
+
+  let nodeSchema = S.recursive<Node, string>((self) =>
+    S.string.with(S.to, S.array(self))
+  );
+
+  expectType<SchemaEqual<typeof nodeSchema, Node, string>>(true);
+
+  t.deepEqual(S.parseOrThrow(`["[]","[]"]`, nodeSchema), [[], []]);
 });
 
 test("Port schema", (t) => {
