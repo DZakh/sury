@@ -2190,11 +2190,14 @@ let noValidation = (schema, value) => {
 let internalRefine = (schema, refiner) => {
   let schema = schema->toInternal
   updateOutput(schema, mut => {
-    // FIXME: Should extend an already existing refiner
+    let prevRefiner = mut.refiner
     mut.refiner = Some(
       Builder.make((b, ~input, ~selfSchema, ~path) => {
         b->B.transform(
-          ~input,
+          ~input=switch prevRefiner {
+          | Some(prevRefiner) => prevRefiner(b, ~input, ~selfSchema, ~path)
+          | None => input
+          },
           (b, ~input) => {
             let bb = b->B.scope
             let rCode = refiner(bb, ~inputVar=bb->B.Val.var(input), ~selfSchema, ~path)

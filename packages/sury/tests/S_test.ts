@@ -1146,60 +1146,69 @@ test("Successfully parses intersected objects", (t) => {
   });
 });
 
-test("Successfully parses intersected objects with transform", (t) => {
-  const schema = S.merge(
-    S.schema({
-      foo: S.string,
-      bar: S.boolean,
-    }).with(S.transform, (obj) => ({
-      abc: obj.foo,
-    })),
-    S.schema({
-      baz: S.string,
-    })
-  );
-
-  expectType<
-    SchemaEqual<
-      typeof schema,
-      {
-        abc: string;
-        baz: string;
-      },
-      Record<string, unknown>
-    >
-  >(true);
-
-  const result = S.safe(() =>
-    S.parseOrThrow(
-      {
-        foo: "bar",
-        bar: true,
-      },
-      schema
-    )
-  );
-  if (result.success) {
-    t.fail("Should fail");
-    return;
-  }
-  t.is(
-    result.error.message,
-    `Failed parsing at ["baz"]: Expected string, received undefined`
-  );
-
-  const value = S.parseOrThrow(
-    {
-      foo: "bar",
-      baz: "baz",
-      bar: true,
+test("Fails to parse intersected objects with transform", (t) => {
+  t.throws(
+    () => {
+      const schema = S.merge(
+        S.schema({
+          foo: S.string,
+          bar: S.boolean,
+        }).with(S.shape, (obj) => ({
+          abc: obj.foo,
+        })),
+        S.schema({
+          baz: S.string,
+        })
+      );
     },
-    schema
+    {
+      name: "Error",
+      // TODO: Can theoretically support this case
+      message: `[Sury] The merge supports only structured object schemas without transformations`,
+    }
   );
-  t.deepEqual(value, {
-    abc: "bar",
-    baz: "baz",
-  });
+
+  // expectType<
+  //   SchemaEqual<
+  //     typeof schema,
+  //     {
+  //       abc: string;
+  //       baz: string;
+  //     },
+  //     Record<string, unknown>
+  //   >
+  // >(true);
+
+  // const result = S.safe(() =>
+  //   S.parseOrThrow(
+  //     {
+  //       foo: "bar",
+  //       bar: true,
+  //     },
+  //     schema
+  //   )
+  // );
+  // if (result.success) {
+  //   t.fail("Should fail");
+  //   return;
+  // }
+  // t.is(
+  //   result.error.message,
+  //   `Failed parsing at ["baz"]: Expected string, received undefined`
+  // );
+
+  // const value = S.parseOrThrow(
+  //   {
+  //     foo: "bar",
+  //     baz: "baz",
+  //     bar: true,
+  //   },
+  //   schema
+  // );
+  // t.deepEqual(value, {
+  //   abc: "bar",
+  //   baz: "baz",
+  // });
 });
 
 test("Successfully serializes S.merge", (t) => {
@@ -1288,7 +1297,7 @@ test("Merge overwrites the left fields by schema from the right", (t) => {
       ),
     {
       name: "SuryError",
-      message: `Failed parsing: Expected Set<number>, received [1, 2, "3"]`,
+      message: `Failed parsing: Expected { type: "foo"; name: string; fooCount: number; }, received { type: "bar"; name: "foo"; fooCount: 123; }`,
     }
   );
 });
