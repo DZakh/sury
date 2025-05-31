@@ -1096,6 +1096,11 @@ test("Successfully parses intersected objects", (t) => {
     })
   );
 
+  t.deepEqual(
+    S.compile(schema, "Input", "Output", "Sync", true).toString(),
+    `i=>{if(typeof i!=="object"||!i){e[3](i)}let v0=i["foo"],v1=i["bar"],v2=i["baz"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="boolean"){e[1](v1)}if(typeof v2!=="string"){e[2](v2)}return {"foo":v0,"bar":v1,"baz":v2,}}`
+  );
+
   expectType<
     SchemaEqual<
       typeof schema,
@@ -1197,7 +1202,7 @@ test("Successfully parses intersected objects with transform", (t) => {
   });
 });
 
-test("Fails to serialize merge. Not supported yet", (t) => {
+test("Successfully serializes S.merge", (t) => {
   const schema = S.merge(
     S.schema({
       foo: S.string,
@@ -1208,23 +1213,83 @@ test("Fails to serialize merge. Not supported yet", (t) => {
     })
   );
 
-  const result = S.safe(() =>
-    S.convertOrThrow(
-      {
-        foo: "bar",
-        bar: true,
-        baz: "string",
-      },
-      S.reverse(schema)
-    )
+  t.deepEqual(
+    S.compile(schema, "Output", "Input", "Sync", true).toString(),
+    `i=>{if(typeof i!=="object"||!i){e[3](i)}let v0=i["foo"],v1=i["bar"],v2=i["baz"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="boolean"){e[1](v1)}if(typeof v2!=="string"){e[2](v2)}return {"foo":v0,"bar":v1,"baz":v2,}}`
   );
-  if (result.success) {
-    t.fail("Should fail");
-    return;
-  }
-  t.is(
-    result.error.message,
-    `Failed converting: The S.merge serializing is not supported yet`
+
+  const value = S.reverseConvertOrThrow(
+    {
+      foo: "bar",
+      baz: "baz",
+      bar: true,
+    },
+    schema
+  );
+  expectType<TypeEqual<typeof value, Record<string, unknown>>>(true);
+
+  t.deepEqual(value, {
+    foo: "bar",
+    baz: "baz",
+    bar: true,
+  });
+});
+
+test("Merge overwrites the left fields by schema from the right", (t) => {
+  const baseSchema = S.schema({
+    type: S.union(["foo", "bar"]),
+    name: S.string,
+  });
+
+  const fooSchema = S.merge(
+    baseSchema,
+    S.schema({
+      type: "foo" as const,
+      fooCount: S.number,
+    })
+  );
+
+  const value = S.parseOrThrow(
+    {
+      type: "foo",
+      name: "foo",
+      fooCount: 123,
+    },
+    fooSchema
+  );
+
+  expectType<
+    SchemaEqual<
+      typeof fooSchema,
+      {
+        type: "foo";
+        name: string;
+        fooCount: number;
+      },
+      Record<string, unknown>
+    >
+  >(true);
+
+  t.deepEqual(value, {
+    type: "foo",
+    name: "foo",
+    fooCount: 123,
+  });
+
+  t.throws(
+    () =>
+      S.parseOrThrow(
+        {
+          type: "bar",
+          name: "foo",
+          fooCount: 123,
+        },
+        fooSchema
+      ),
+    {
+      name: "SuryError",
+      message: `Failed parsing: Expected Set<number>, received [1, 2, "3"]`,
+    }
   );
 });
 

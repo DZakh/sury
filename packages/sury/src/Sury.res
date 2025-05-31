@@ -117,6 +117,9 @@ module Stdlib = {
     @val
     external mixin: (dict<'a>, dict<'a>) => dict<'a> = "Object.assign"
 
+    @val
+    external values: dict<'a> => array<'a> = "Object.values"
+
     @get_index
     external unsafeGetOption: (dict<'a>, string) => option<'a> = ""
 
@@ -2284,25 +2287,23 @@ let unknown = base()
 unknown.tag = Unknown
 let unknown = unknown->fromInternal
 
-module Never = {
-  let parser = Builder.make((b, ~input, ~selfSchema, ~path) => {
-    b.code =
-      b.code ++
-      b->B.failWithArg(
-        ~path,
-        input => InvalidType({
-          expected: selfSchema->fromInternal,
-          received: input,
-        }),
-        input.inline,
-      ) ++ ";"
-    input
-  })
-}
+let neverBuilder = Builder.make((b, ~input, ~selfSchema, ~path) => {
+  b.code =
+    b.code ++
+    b->B.failWithArg(
+      ~path,
+      input => InvalidType({
+        expected: selfSchema->fromInternal,
+        received: input,
+      }),
+      input.inline,
+    ) ++ ";"
+  input
+})
 
 let never = base()
 never.tag = Never
-never.parser = Some(Never.parser)
+never.refiner = Some(neverBuilder)
 let never = never->fromInternal
 
 module Union = {
@@ -4283,7 +4284,7 @@ module Schema = {
                 mut.tag = Array
                 mut.items = Some(items)
                 mut.additionalItems = Some(Strict)
-                mut.serializer = Some(Never.parser)
+                mut.serializer = Some(neverBuilder)
                 mut
               },
             })
@@ -4318,7 +4319,7 @@ module Schema = {
                 mut.items = Some(items)
                 mut.fields = Some(fields)
                 mut.additionalItems = Some(globalConfig.defaultAdditionalItems)
-                mut.serializer = Some(Never.parser)
+                mut.serializer = Some(neverBuilder)
                 mut
               },
             })
@@ -5166,52 +5167,33 @@ let js_nullable = (schema, maybeOr) => {
 }
 
 let js_merge = (s1, s2) => {
-  switch (s1, s2) {
-  | (Object({items: items1, fields: fields1}), Object({items: items2, additionalItems})) =>
-    let s1 = s1->toInternal
-    let s2 = s2->toInternal
-
-    let items = []->Js.Array2.concat(items1)
+  switch switch (s1, s2) {
+  | (
+      Object({fields: fields1, additionalItems: additionalItems1}),
+      Object({items: items2, additionalItems: additionalItems2}),
+    )
+    // Filter out S.record schemas
+    if additionalItems1->Stdlib.Type.typeof === #string &&
+    additionalItems2->Stdlib.Type.typeof === #string &&
+    !((s1->toInternal).to->Obj.magic) &&
+    !((s2->toInternal).to->Obj.magic) =>
     let fields = fields1->Stdlib.Dict.copy
     for idx in 0 to items2->Js.Array2.length - 1 {
       let item = items2->Js.Array2.unsafe_get(idx)
-      if fields->Stdlib.Dict.has(item.location) {
-        InternalError.panic(`The field ${item.inlinedLocation} is defined multiple times`)
-      }
-      items->Js.Array2.push(item)->ignore
       fields->Js.Dict.set(item.location, item)
     }
     let mut = base()
     mut.tag = Object
-    mut.items = Some(items)
+    mut.items = Some(fields->Stdlib.Dict.values)
     mut.fields = Some(fields)
-    mut.additionalItems = Some(additionalItems)
-    mut.advanced = Some(true)
-    mut.parser = Some(
-      Builder.make((b, ~input, ~selfSchema as _, ~path) => {
-        let s1Result = b->B.parse(~schema=s1, ~input, ~path)
-        let s2Result = b->B.parse(~schema=s2, ~input, ~path)
-        // TODO: Check that these are objects
-        b->B.val(`{...${s1Result.inline}, ...${s2Result.inline}}`)
-      }),
-    )
-    mut.output = Some(
-      () => {
-        let mut = base()
-        mut.tag = Unknown
-        mut.parser = Some(
-          Builder.make((b, ~input as _, ~selfSchema as _, ~path) => {
-            b->B.invalidOperation(
-              ~path,
-              ~description=`The S.merge serializing is not supported yet`,
-            )
-          }),
-        )
-        mut
-      },
-    )
-    mut->fromInternal
-  | _ => InternalError.panic("The merge supports only Object schemas")
+    mut.additionalItems = Some(additionalItems1)
+    mut.refiner = Some(Schema.schemaRefiner)
+    Some(mut->fromInternal)
+  | _ => None
+  } {
+  | Some(s) => s
+  | None =>
+    InternalError.panic("The merge supports only structured object schemas without transformations")
   }
 }
 
