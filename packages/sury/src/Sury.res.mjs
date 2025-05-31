@@ -441,7 +441,7 @@ function allocateVal(b) {
           b: b,
           v: _var,
           i: v,
-          a: false
+          f: 0
         };
 }
 
@@ -458,7 +458,7 @@ function make(b, isArray) {
           b: b,
           v: _notVar,
           i: "",
-          a: false,
+          f: 0,
           j: isArray ? arrayJoin : objectJoin,
           c: 0,
           p: ""
@@ -467,7 +467,7 @@ function make(b, isArray) {
 
 function add(objectVal, inlinedLocation, val) {
   objectVal[inlinedLocation] = val;
-  if (val.a) {
+  if (val.f & 2) {
     objectVal.p = objectVal.p + val.i + ",";
     objectVal.i = objectVal.i + objectVal.j(inlinedLocation, "a[" + (objectVal.c++) + "]");
   } else {
@@ -486,7 +486,7 @@ function merge(target, subObjectVal) {
 function complete(objectVal, isArray) {
   objectVal.i = isArray ? "[" + objectVal.i + "]" : "{" + objectVal.i + "}";
   if (objectVal.c) {
-    objectVal.a = true;
+    objectVal.f = objectVal.f | 2;
     objectVal.i = "Promise.all([" + objectVal.p + "]).then(a=>(" + objectVal.i + "))";
   }
   return objectVal;
@@ -501,20 +501,16 @@ function set(b, input, val) {
     return "";
   }
   var inputVar = input.v(b);
-  var match = input.a;
+  var match = input.f & 2;
+  var match$1 = val.f & 2;
   if (match) {
-    var match$1 = val.a;
     if (!match$1) {
       return inputVar + "=Promise.resolve(" + val.i + ")";
     }
     
-  } else {
-    var match$2 = val.a;
-    if (match$2) {
-      input.a = true;
-      return inputVar + "=" + val.i;
-    }
-    
+  } else if (match$1) {
+    input.f = input.f | 2;
+    return inputVar + "=" + val.i;
   }
   return inputVar + "=" + val.i;
 }
@@ -528,7 +524,7 @@ function get(b, targetVal, inlinedLocation) {
             b: b,
             v: _notVar,
             i: targetVal.v(b) + ("[" + inlinedLocation + "]"),
-            a: false
+            f: 0
           };
   }
 }
@@ -542,12 +538,12 @@ function map(inlinedFn, input) {
           b: input.b,
           v: _notVar,
           i: inlinedFn + "(" + input.i + ")",
-          a: false
+          f: 0
         };
 }
 
 function transform(b, input, operation) {
-  if (!input.a) {
+  if (!(input.f & 2)) {
     return operation(b, input);
   }
   var bb = {
@@ -560,7 +556,7 @@ function transform(b, input, operation) {
     b: b,
     v: _var,
     i: varWithoutAllocation(bb.g),
-    a: false
+    f: 0
   };
   var operationOutputVal = operation(bb, operationInput);
   var operationCode = allocateScope(bb);
@@ -568,7 +564,7 @@ function transform(b, input, operation) {
           b: input.b,
           v: _notVar,
           i: input.i + ".then(" + operationInput.v(b) + "=>{" + operationCode + "return " + operationOutputVal.i + "})",
-          a: true
+          f: 2
         };
 }
 
@@ -577,12 +573,12 @@ function raise(b, code, path) {
 }
 
 function embedSyncOperation(b, input, fn) {
-  if (input.a) {
+  if (input.f & 2) {
     return {
             b: input.b,
             v: _notVar,
             i: input.i + ".then(" + embed(b, fn) + ")",
-            a: true
+            f: 2
           };
   } else {
     return map(embed(b, fn), input);
@@ -646,13 +642,13 @@ function withCatch(b, input, $$catch, appendSafe, fn) {
   if (isNoop) {
     return fnOutput;
   }
-  var isAsync = fnOutput.a;
+  var isAsync = fnOutput.f & 2;
   var output = input === fnOutput ? input : (
       appendSafe !== undefined ? fnOutput : ({
             b: b,
             v: _notVar,
             i: "",
-            a: isAsync
+            f: isAsync ? 2 : 0
           })
     );
   var catchCode$1 = maybeResolveVal !== undefined ? (function (catchLocation) {
@@ -864,7 +860,7 @@ function parse(b, _schema, _input, path) {
           b: b,
           v: _notVar,
           i: inlineConst(b, target),
-          a: false
+          f: 0
         };
       } else if (fromTag === targetTag && isFromLiteral && !isTargetLiteral || targetTag === "unknown") {
         input$3 = input$1;
@@ -904,7 +900,7 @@ function parse(b, _schema, _input, path) {
                                 b: b,
                                 v: _notVar,
                                 i: inlineConst(b, target),
-                                a: false
+                                f: 0
                               };
                       }
                       }(target,$$const)));
@@ -918,7 +914,7 @@ function parse(b, _schema, _input, path) {
                                 b: b,
                                 v: _notVar,
                                 i: "+" + inputVar,
-                                a: false
+                                f: 0
                               };
                               var outputVar = output.v(b);
                               b.c = b.c + (
@@ -990,7 +986,7 @@ function parse(b, _schema, _input, path) {
               b: b,
               v: _notVar,
               i: "\"" + $$const$1 + "\"",
-              a: false
+              f: 0
             };
           } else {
             var exit$3 = 0;
@@ -1010,7 +1006,7 @@ function parse(b, _schema, _input, path) {
                   b: b,
                   v: _notVar,
                   i: "\"\"+" + input$1.i,
-                  a: false
+                  f: 0
                 };
               } else {
                 exit = 1;
@@ -1063,6 +1059,50 @@ var nonJsonableTags = new Set([
       "instance",
       "symbol"
     ]);
+
+function jsonableValidation(output, parent, path, flag, recSet) {
+  var tag = output.type;
+  if (tag === "undefined" && parent.type !== "object" || nonJsonableTags.has(tag)) {
+    throw new SuryError({
+              TAG: "InvalidJsonSchema",
+              _0: parent
+            }, flag, path);
+  }
+  var match = output.type;
+  switch (match) {
+    case "array" :
+    case "object" :
+    case "union" :
+        break;
+    default:
+      return ;
+  }
+  var recSet$1 = recSet !== undefined ? Caml_option.valFromOption(recSet) : new Set();
+  if (recSet$1.has(output)) {
+    return ;
+  }
+  recSet$1.add(output);
+  var recSet$2 = Caml_option.some(recSet$1);
+  if (tag === "union") {
+    output.anyOf.forEach(function (s) {
+          jsonableValidation(s, parent, path, flag, recSet$2);
+        });
+    return ;
+  }
+  var additionalItems = output.additionalItems;
+  var items = output.items;
+  if (items === undefined) {
+    return ;
+  }
+  if (additionalItems === "strip" || additionalItems === "strict") {
+    additionalItems === "strip";
+  } else {
+    jsonableValidation(additionalItems, parent, path, flag, recSet$2);
+  }
+  items.forEach(function (item) {
+        jsonableValidation(item.schema, output, path + ("[" + item.inlinedLocation + "]"), flag, recSet$2);
+      });
+}
 
 function reverse(schema) {
   var reversedHead;
@@ -1147,50 +1187,6 @@ function reverse(schema) {
   return reversedHead;
 }
 
-function jsonableValidation(output, parent, path, flag, recSet) {
-  var tag = output.type;
-  if (tag === "undefined" && parent.type !== "object" || nonJsonableTags.has(tag)) {
-    throw new SuryError({
-              TAG: "InvalidJsonSchema",
-              _0: parent
-            }, flag, path);
-  }
-  var match = output.type;
-  switch (match) {
-    case "array" :
-    case "object" :
-    case "union" :
-        break;
-    default:
-      return ;
-  }
-  var recSet$1 = recSet !== undefined ? Caml_option.valFromOption(recSet) : new Set();
-  if (recSet$1.has(output)) {
-    return ;
-  }
-  recSet$1.add(output);
-  var recSet$2 = Caml_option.some(recSet$1);
-  if (tag === "union") {
-    output.anyOf.forEach(function (s) {
-          jsonableValidation(s, parent, path, flag, recSet$2);
-        });
-    return ;
-  }
-  var additionalItems = output.additionalItems;
-  var items = output.items;
-  if (items === undefined) {
-    return ;
-  }
-  if (additionalItems === "strip" || additionalItems === "strict") {
-    additionalItems === "strip";
-  } else {
-    jsonableValidation(additionalItems, parent, path, flag, recSet$2);
-  }
-  items.forEach(function (item) {
-        jsonableValidation(item.schema, output, path + ("[" + item.inlinedLocation + "]"), flag, recSet$2);
-      });
-}
-
 function getOutputSchema(_schema) {
   while(true) {
     var schema = _schema;
@@ -1213,10 +1209,11 @@ function internalCompile(schema, flag) {
     b: b,
     v: _var,
     i: "i",
-    a: false
+    f: 0
   };
   var output$1 = parse(b, schema, input, "");
-  schema.isAsync = output$1.a;
+  var isAsync = has(output$1.f, 2);
+  schema.isAsync = isAsync;
   if (b.l !== "") {
     b.c = "let " + b.l + ";" + b.c;
   }
@@ -1230,7 +1227,7 @@ function internalCompile(schema, flag) {
   if (flag & 16) {
     inlinedOutput = "JSON.stringify(" + inlinedOutput + ")";
   }
-  if (flag & 2 && !output$1.a) {
+  if (flag & 2 && !isAsync) {
     inlinedOutput = "Promise.resolve(" + inlinedOutput + ")";
   }
   var inlinedFunction = "i=>{" + b.c + "return " + inlinedOutput + "}";
@@ -1433,11 +1430,12 @@ function isAsync(schema) {
       b: b,
       v: _var,
       i: "i",
-      a: false
+      f: 1
     };
     var output = parse(b, schema, input, "");
-    schema.isAsync = output.a;
-    return output.a;
+    var isAsync$1 = has(output.f, 2);
+    schema.isAsync = isAsync$1;
+    return isAsync$1;
   }
   catch (exn){
     getOrRethrow(exn);
@@ -1545,12 +1543,12 @@ function recursive(fn) {
       return withPathPrepend(b, input, path, undefined, undefined, (function (b, input, param) {
                     return transform(b, input, (function (_b, input) {
                                   var output = map(r, input);
-                                  if (opOutput.a) {
-                                    output.a = true;
+                                  if (opOutput.f & 2) {
+                                    output.f = output.f | 2;
                                     placeholder.parser = (function (b, input, param, param$1) {
                                         return transform(b, input, (function (_b, input) {
                                                       var output = map(r, input);
-                                                      output.a = true;
+                                                      output.f = output.f | 2;
                                                       return output;
                                                     }));
                                       });
@@ -1577,7 +1575,7 @@ function recursive(fn) {
             b: bb,
             v: input.v,
             i: input.i,
-            a: input.a
+            f: input.f
           };
           var opOutput = initialReversed.parser(bb, initialInput, selfSchema, "");
           var opBodyCode = allocateScope(bb) + ("return " + opOutput.i);
@@ -1645,7 +1643,7 @@ function transform$1(schema, transformer) {
                         raise(b, "UnexpectedAsync", "");
                       }
                       var val = embedSyncOperation(b, input, asyncParser);
-                      val.a = true;
+                      val.f = val.f | 2;
                       return val;
                     } else if (match.s !== undefined) {
                       return invalidOperation(b, path, "The S.transform parser is missing");
@@ -1716,8 +1714,8 @@ function getItemCode(b, schema, input, output, deopt, path) {
         var reversed = reverse(schema);
         bb.c = bb.c + typeFilterCode(bb, reversed, itemOutput, path);
       }
-      if (itemOutput.a) {
-        output.a = true;
+      if (itemOutput.f & 2) {
+        output.f = output.f | 2;
       }
       bb.c = bb.c + (output.v(b) + "=" + itemOutput.i);
     }
@@ -1956,12 +1954,12 @@ function refiner(b, input, selfSchema, path) {
     
   }
   b.c = b.c + start + end;
-  if (input.a) {
+  if (input.f & 2) {
     return {
             b: b,
             v: _notVar,
             i: "Promise.resolve(" + input.i + ")",
-            a: true
+            f: 2
           };
   } else if (input.v === _var) {
     if (b.c === "" && input.b.c === "" && (input.b.l === input.i + "=" + initialInline || initialInline === "i")) {
@@ -1975,7 +1973,7 @@ function refiner(b, input, selfSchema, path) {
               b: input.b,
               v: input.v,
               i: input.i,
-              a: input.a
+              f: input.f
             };
     }
   } else {
@@ -2045,7 +2043,7 @@ function nestedNone() {
                       b: b,
                       v: _notVar,
                       i: inlineConst(b, selfSchema.to),
-                      a: false
+                      f: 0
                     };
             }),
           additionalItems: "strip",
@@ -2059,7 +2057,7 @@ function parser(b, param, selfSchema, param$1) {
           b: b,
           v: _notVar,
           i: "{" + inLoc + ":" + getOutputSchema(selfSchema).items[0].schema.const + "}",
-          a: false
+          f: 0
         };
 }
 
@@ -2208,7 +2206,7 @@ function arrayRefiner(b, input, selfSchema, path) {
     b: bb,
     v: _notVar,
     i: inputVar + "[" + iteratorVar + "]",
-    a: false
+    f: 0
   };
   var itemOutput = withPathPrepend(bb, itemInput, path, iteratorVar, undefined, (function (b, input, path) {
           return parseWithTypeValidation(b, item, input, path);
@@ -2219,19 +2217,19 @@ function arrayRefiner(b, input, selfSchema, path) {
         b: b,
         v: _notVar,
         i: "new Array(" + inputVar + ".length)",
-        a: false
+        f: 0
       }) : input;
   if (isTransformed || itemCode !== "") {
     b.c = b.c + ("for(let " + iteratorVar + "=0;" + iteratorVar + "<" + inputVar + ".length;++" + iteratorVar + "){" + itemCode + (
         isTransformed ? addKey(b, output, iteratorVar, itemOutput) : ""
       ) + "}");
   }
-  if (itemOutput.a) {
+  if (itemOutput.f & 2) {
     return {
             b: output.b,
             v: _notVar,
             i: "Promise.all(" + output.i + ")",
-            a: true
+            f: 2
           };
   } else {
     return output;
@@ -2308,7 +2306,7 @@ function dictRefiner(b, input, selfSchema, path) {
     b: bb,
     v: _notVar,
     i: inputVar + "[" + keyVar + "]",
-    a: false
+    f: 0
   };
   var itemOutput = withPathPrepend(bb, itemInput, path, keyVar, undefined, (function (b, input, path) {
           return parseWithTypeValidation(b, item, input, path);
@@ -2319,14 +2317,14 @@ function dictRefiner(b, input, selfSchema, path) {
         b: b,
         v: _notVar,
         i: "{}",
-        a: false
+        f: 0
       }) : input;
   if (isTransformed || itemCode !== "") {
     b.c = b.c + ("for(let " + keyVar + " in " + inputVar + "){" + itemCode + (
         isTransformed ? addKey(b, output, keyVar, itemOutput) : ""
       ) + "}");
   }
-  if (!itemOutput.a) {
+  if (!(itemOutput.f & 2)) {
     return output;
   }
   var resolveVar = varWithoutAllocation(b.g);
@@ -2338,7 +2336,7 @@ function dictRefiner(b, input, selfSchema, path) {
           b: b,
           v: _notVar,
           i: "new Promise((" + resolveVar + "," + rejectVar + ")=>{let " + counterVar + "=Object.keys(" + outputVar + ").length;for(let " + keyVar + " in " + outputVar + "){" + outputVar + "[" + keyVar + "].then(" + asyncParseResultVar + "=>{" + outputVar + "[" + keyVar + "]=" + asyncParseResultVar + ";if(" + counterVar + "--===1){" + resolveVar + "(" + outputVar + ")}}," + rejectVar + ")}})",
-          a: true
+          f: 2
         };
 }
 
@@ -2401,7 +2399,7 @@ function factory$4(item, spaceOpt) {
               i: "JSON.stringify(" + input.i + (
                 space > 0 ? ",null," + space : ""
               ) + ")",
-              a: false
+              f: 0
             };
     });
   mut.to = to;
@@ -2563,7 +2561,7 @@ function $$catch(schema, getFallbackValue) {
                                                   })
                                               });
                                   })) + "(" + inputVar + "," + errorVar + ")",
-                            a: false
+                            f: 0
                           };
                   }), undefined, (function (b) {
                     return parseWithTypeValidation(b, schema, input, path);
@@ -2633,7 +2631,7 @@ function definitionToOutput(b, definition, getItemOutput) {
             b: b,
             v: _var,
             i: embed(b, definition),
-            a: false
+            f: 0
           };
   }
   var item = definition[itemSymbol];
@@ -2745,11 +2743,68 @@ function schemaRefiner(parentB, input, selfSchema, path) {
         })) {
     objectVal$1.v = input.v;
     objectVal$1.i = initialInput;
-    objectVal$1.a = input.a;
+    objectVal$1.f = input.f;
     return objectVal$1;
   } else {
     return complete(objectVal$1, isArray);
   }
+}
+
+function definitionToSchema(definition) {
+  if (!(typeof definition === "object" && definition !== null)) {
+    return parse$1(definition);
+  }
+  if (definition["~standard"]) {
+    return definition;
+  }
+  if (Array.isArray(definition)) {
+    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
+      var schema = definitionToSchema(definition[idx]);
+      var $$location = idx.toString();
+      var inlinedLocation = "\"" + $$location + "\"";
+      definition[idx] = {
+        schema: schema,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+    }
+    var mut = new Schema();
+    mut.type = "array";
+    mut.items = definition;
+    mut.additionalItems = "strict";
+    mut.refiner = schemaRefiner;
+    return mut;
+  }
+  var cnstr = definition.constructor;
+  if (cnstr && cnstr !== Object) {
+    return {
+            type: "instance",
+            const: definition,
+            class: cnstr
+          };
+  }
+  var fieldNames = Object.keys(definition);
+  var length = fieldNames.length;
+  var items = [];
+  for(var idx$1 = 0; idx$1 < length; ++idx$1){
+    var $$location$1 = fieldNames[idx$1];
+    var inlinedLocation$1 = fromString($$location$1);
+    var schema$1 = definitionToSchema(definition[$$location$1]);
+    var item = {
+      schema: schema$1,
+      location: $$location$1,
+      inlinedLocation: inlinedLocation$1
+    };
+    definition[$$location$1] = item;
+    items[idx$1] = item;
+  }
+  var mut$1 = new Schema();
+  mut$1.type = "object";
+  mut$1.items = items;
+  mut$1.fields = definition;
+  mut$1.additionalItems = globalConfig.a;
+  mut$1.refiner = schemaRefiner;
+  return mut$1;
 }
 
 function definitionToRitem(definition, path, ritemsByItemPath) {
@@ -2815,63 +2870,6 @@ function definitionToRitem(definition, path, ritemsByItemPath) {
           p: path,
           s: (mut$1.type = "object", mut$1.items = items$1, mut$1.fields = fields, mut$1.additionalItems = globalConfig.a, mut$1.serializer = neverBuilder, mut$1)
         };
-}
-
-function definitionToSchema(definition) {
-  if (!(typeof definition === "object" && definition !== null)) {
-    return parse$1(definition);
-  }
-  if (definition["~standard"]) {
-    return definition;
-  }
-  if (Array.isArray(definition)) {
-    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
-      var schema = definitionToSchema(definition[idx]);
-      var $$location = idx.toString();
-      var inlinedLocation = "\"" + $$location + "\"";
-      definition[idx] = {
-        schema: schema,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-    }
-    var mut = new Schema();
-    mut.type = "array";
-    mut.items = definition;
-    mut.additionalItems = "strict";
-    mut.refiner = schemaRefiner;
-    return mut;
-  }
-  var cnstr = definition.constructor;
-  if (cnstr && cnstr !== Object) {
-    return {
-            type: "instance",
-            const: definition,
-            class: cnstr
-          };
-  }
-  var fieldNames = Object.keys(definition);
-  var length = fieldNames.length;
-  var items = [];
-  for(var idx$1 = 0; idx$1 < length; ++idx$1){
-    var $$location$1 = fieldNames[idx$1];
-    var inlinedLocation$1 = fromString($$location$1);
-    var schema$1 = definitionToSchema(definition[$$location$1]);
-    var item = {
-      schema: schema$1,
-      location: $$location$1,
-      inlinedLocation: inlinedLocation$1
-    };
-    definition[$$location$1] = item;
-    items[idx$1] = item;
-  }
-  var mut$1 = new Schema();
-  mut$1.type = "object";
-  mut$1.items = items;
-  mut$1.fields = definition;
-  mut$1.additionalItems = globalConfig.a;
-  mut$1.refiner = schemaRefiner;
-  return mut$1;
 }
 
 function nested(fieldName) {
@@ -2979,7 +2977,7 @@ function advancedBuilder(definition, flattened) {
           b: b,
           v: _notVar,
           i: inputVar + itemPath,
-          a: false
+          f: 0
         };
         var path$1 = path + itemPath;
         if (b.g.o & 1 && !isLiteral(schema) && schema.type !== "object") {
@@ -3039,7 +3037,7 @@ function definitionToTarget(definition, to, flattened) {
                   b: b,
                   v: _notVar,
                   i: input.v(b) + ritem.p,
-                  a: false
+                  f: 0
                 };
         }
       };
@@ -3050,7 +3048,7 @@ function definitionToTarget(definition, to, flattened) {
                   b: b,
                   v: _notVar,
                   i: inlineConst(b, outputSchema),
-                  a: false
+                  f: 0
                 };
         }
         if (isLiteral(schema)) {
@@ -3058,7 +3056,7 @@ function definitionToTarget(definition, to, flattened) {
                       b: b,
                       v: _notVar,
                       i: inlineConst(b, schema),
-                      a: false
+                      f: 0
                     }, path);
         }
         var tag = outputSchema.type;
@@ -3323,7 +3321,7 @@ function unnestSerializer(b, input, selfSchema, path) {
     b: bb,
     v: _notVar,
     i: inputVar + "[" + iteratorVar + "]",
-    a: false
+    f: 0
   };
   var itemOutput = withPathPrepend(bb, itemInput, path, iteratorVar, (function (bb, output) {
           var initialArraysCode = "";
@@ -3340,19 +3338,19 @@ function unnestSerializer(b, input, selfSchema, path) {
         }));
   var itemCode = allocateScope(bb);
   b.c = b.c + ("for(let " + iteratorVar + "=0;" + iteratorVar + "<" + inputVar + ".length;++" + iteratorVar + "){" + itemCode + "}");
-  if (itemOutput.a) {
+  if (itemOutput.f & 2) {
     return {
             b: b,
             v: _notVar,
             i: "Promise.all(" + outputVar + ")",
-            a: true
+            f: 2
           };
   } else {
     return {
             b: b,
             v: _var,
             i: outputVar,
-            a: false
+            f: 0
           };
   }
 }
@@ -3391,7 +3389,7 @@ function unnest(schema) {
                 b: bb,
                 v: _notVar,
                 i: inputVar + "[" + idx + "][" + iteratorVar + "]",
-                a: false
+                f: 0
               });
           lengthCode = lengthCode + (inputVar + "[" + idx + "].length,");
         }
@@ -3399,7 +3397,7 @@ function unnest(schema) {
           b: b,
           v: _notVar,
           i: "new Array(Math.max(" + lengthCode + "))",
-          a: false
+          f: 0
         };
         var outputVar = output.v(b);
         var itemOutput = withPathPrepend(bb, complete(itemInput, false), path, iteratorVar, (function (bb, itemOutput) {
@@ -3409,12 +3407,12 @@ function unnest(schema) {
               }));
         var itemCode = allocateScope(bb);
         b.c = b.c + ("for(let " + iteratorVar + "=0;" + iteratorVar + "<" + outputVar + ".length;++" + iteratorVar + "){" + itemCode + "}");
-        if (itemOutput.a) {
+        if (itemOutput.f & 2) {
           return {
                   b: output.b,
                   v: _notVar,
                   i: "Promise.all(" + output.i + ")",
-                  a: true
+                  f: 2
                 };
         } else {
           return output;
@@ -3627,7 +3625,7 @@ function pattern(schema, re, messageOpt) {
                   b: b,
                   v: _var,
                   i: embed(b, re),
-                  a: false
+                  f: 0
                 };
                 return reVal.i + ".lastIndex=0;if(!" + reVal.i + ".test(" + inputVar + ")){" + fail(b, message, path) + "}";
               }));
