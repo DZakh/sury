@@ -524,6 +524,10 @@ and b = {
   mutable allocate: string => unit,
   @as("g")
   global: bGlobal,
+  // A hacky workaround to prevent applying the refiner twice
+  // FIXME: Test whether it needs to be applied for serializing
+  @as("r")
+  mutable skipNextRefiner?: bool,
 }
 and bGlobal = {
   @as("c")
@@ -1408,12 +1412,12 @@ module Builder = {
 
     let rec parse = (b: b, ~schema, ~input, ~path) => {
       let input = switch schema.refiner {
-      | Some(refiner) =>
+      | Some(refiner) if !(b.skipNextRefiner->Obj.magic) =>
         // Some refiners like union might return a new
         // instance of value. This is used for an assumption
         // that it's transformed.
         refiner(b, ~input, ~selfSchema=schema, ~path)
-      | None => input
+      | _ => input
       }
       switch schema.to {
       | Some(to) =>
@@ -3732,6 +3736,7 @@ module Schema = {
       )
 
     parentB.code = parentB.code ++ b->B.allocateScope
+    parentB.skipNextRefiner = Some(true)
 
     output
   }
@@ -3903,6 +3908,7 @@ module Schema = {
                 ~getItemOutput,
               )
             b.code = b.code ++ bb->B.allocateScope
+            b.skipNextRefiner = Some(true)
 
             output
           }),
