@@ -387,8 +387,9 @@ let noValidation: (t<'value>, bool) => t<'value>
 
 let toExpression: t<'value> => string
 
-external toUnknown: t<'any> => t<unknown> = "%identity"
-external untag: t<'any> => untagged = "%identity"
+external toUnknown: t<'value> => t<unknown> = "%identity"
+external castToAny: t<'value> => t<'any> = "%identity"
+external untag: t<'value> => untagged = "%identity"
 
 module Schema: {
   type s = {@as("m") matches: 'value. t<'value> => 'value}

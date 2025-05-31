@@ -234,6 +234,33 @@ test("JSONSchema of tuple", t => {
   )
 })
 
+test("JSONSchema of object of literals schema", t => {
+  t->Assert.deepEqual(
+    S.schema(_ =>
+      {
+        "foo": "bar",
+        "zoo": 123,
+      }
+    )->S.toJSONSchema,
+    %raw(`{
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "foo": {
+          "type": "string",
+          "const": "bar"
+        },
+        "zoo": {
+          "type": "number",
+          "const": 123
+        }
+      },
+      "required": ["foo", "zoo"]
+  }`),
+    (),
+  )
+})
+
 test("JSONSchema of enum", t => {
   t->Assert.deepEqual(
     S.enum(["Yes", "No"])->S.toJSONSchema,
