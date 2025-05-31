@@ -252,7 +252,7 @@ test("Field name in a format of a path is handled properly", t => {
   t->U.assertThrows(
     () => %raw(`{"bar": "foo"}`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: S.string->S.toUnknown, received: %raw(`undefined`)}),
+      code: InvalidType({expected: S.string->S.castToUnknown, received: %raw(`undefined`)}),
       operation: Parse,
       path: S.Path.fromArray([`["abc"]["cde"]`]),
     },

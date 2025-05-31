@@ -60,7 +60,7 @@ test("Fails to parse Object field", t => {
   t->U.assertThrows(
     () => data->S.parseOrThrow(schema),
     {
-      code: InvalidType({received: %raw(`undefined`), expected: schema->S.toUnknown}),
+      code: InvalidType({received: %raw(`undefined`), expected: schema->S.castToUnknown}),
       operation: Parse,
       path: S.Path.fromLocation("bar"),
     },
@@ -74,7 +74,7 @@ test("Fails to parse matrix field", t => {
   t->U.assertThrows(
     () => data->S.parseOrThrow(schema),
     {
-      code: InvalidType({received: %raw(`undefined`), expected: schema->S.toUnknown}),
+      code: InvalidType({received: %raw(`undefined`), expected: schema->S.castToUnknown}),
       operation: Parse,
       path: S.Path.fromArray(["1", "0"]),
     },
@@ -86,7 +86,7 @@ test("Fails to parse NaN", t => {
   t->U.assertThrows(
     () => %raw(`NaN`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({received: %raw(`NaN`), expected: schema->S.toUnknown}),
+      code: InvalidType({received: %raw(`NaN`), expected: schema->S.castToUnknown}),
       operation: Parse,
       path: S.Path.empty,
     },
@@ -98,7 +98,7 @@ test("Fails to parse undefined", t => {
   t->U.assertThrows(
     () => %raw(`undefined`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({received: %raw(`undefined`), expected: schema->S.toUnknown}),
+      code: InvalidType({received: %raw(`undefined`), expected: schema->S.castToUnknown}),
       operation: Parse,
       path: S.Path.empty,
     },
@@ -123,7 +123,7 @@ test("Compiled serialize code snapshot", t => {
 
 test("Reverse schema to S.json(~validate=false) with validate=true", t => {
   let schema = S.json(~validate=true)
-  t->U.assertEqualSchemas(schema->S.reverse, S.json(~validate=false)->S.toUnknown)
+  t->U.assertEqualSchemas(schema->S.reverse, S.json(~validate=false)->S.castToUnknown)
 })
 
 test("Succesfully uses reversed schema with validate=true for parsing back to initial value", t => {
@@ -133,7 +133,7 @@ test("Succesfully uses reversed schema with validate=true for parsing back to in
 
 test("Reverse schema to self with validate=false", t => {
   let schema = S.json(~validate=false)
-  t->Assert.is(schema->S.reverse, schema->S.toUnknown, ())
+  t->Assert.is(schema->S.reverse, schema->S.castToUnknown, ())
 })
 
 test(

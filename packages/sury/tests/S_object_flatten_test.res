@@ -332,7 +332,6 @@ test("Can destructure flattened schema", t => {
   t->U.assertCompiledCode(
     ~op=#ReverseConvert,
     ~schema=entitySchema,
-    // FIXME: Can be improved
-    `i=>{let v0={"name":i["name"],"age":i["age"],};return {"name":v0["name"],"age":v0["age"],"id":i["id"],}}`,
+    `i=>{return {"name":i["name"],"age":i["age"],"id":i["id"],}}`,
   )
 })

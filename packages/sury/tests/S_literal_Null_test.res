@@ -21,7 +21,7 @@ module Common = {
       () => invalidTypeAny->S.parseOrThrow(schema),
       {
         code: InvalidType({
-          expected: S.literal(%raw(`null`))->S.toUnknown,
+          expected: S.literal(%raw(`null`))->S.castToUnknown,
           received: invalidTypeAny,
         }),
         operation: Parse,
@@ -42,7 +42,10 @@ module Common = {
     t->U.assertThrows(
       () => invalidValue->S.reverseConvertOrThrow(schema),
       {
-        code: InvalidType({expected: S.literal(%raw(`null`))->S.toUnknown, received: invalidValue}),
+        code: InvalidType({
+          expected: S.literal(%raw(`null`))->S.castToUnknown,
+          received: invalidValue,
+        }),
         operation: ReverseConvert,
         path: S.Path.empty,
       },
@@ -63,7 +66,7 @@ module Common = {
 
   test("Reverse schema to self", t => {
     let schema = factory()
-    t->Assert.is(schema->S.reverse, schema->S.toUnknown, ())
+    t->Assert.is(schema->S.reverse, schema->S.castToUnknown, ())
   })
 
   test("Succesfully uses reversed schema for parsing back to initial value", t => {

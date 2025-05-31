@@ -10,7 +10,7 @@ test("Correctly parses", t => {
   t->U.assertThrows(
     () => %raw(`"foo"`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: schema->S.toUnknown, received: %raw(`"foo"`)}),
+      code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`"foo"`)}),
       operation: Parse,
       path: S.Path.empty,
     },
@@ -33,7 +33,7 @@ test("Correctly parses transformed", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="boolean"){i=""+i}else if(!(i===void 0||i===null)){e[1](i)}return i}`,
+    `i=>{if(typeof i==="boolean"){i=""+i}else if(!(i===void 0||i===null)){e[0](i)}return i}`,
   )
 })
 

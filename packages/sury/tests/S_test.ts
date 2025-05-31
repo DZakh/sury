@@ -1096,6 +1096,11 @@ test("Successfully parses intersected objects", (t) => {
     })
   );
 
+  t.deepEqual(
+    S.compile(schema, "Input", "Output", "Sync", true).toString(),
+    `i=>{if(typeof i!=="object"||!i){e[3](i)}let v0=i["foo"],v1=i["bar"],v2=i["baz"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="boolean"){e[1](v1)}if(typeof v2!=="string"){e[2](v2)}return {"foo":v0,"bar":v1,"baz":v2,}}`
+  );
+
   expectType<
     SchemaEqual<
       typeof schema,
@@ -1141,63 +1146,72 @@ test("Successfully parses intersected objects", (t) => {
   });
 });
 
-test("Successfully parses intersected objects with transform", (t) => {
-  const schema = S.merge(
-    S.schema({
-      foo: S.string,
-      bar: S.boolean,
-    }).with(S.transform, (obj) => ({
-      abc: obj.foo,
-    })),
-    S.schema({
-      baz: S.string,
-    })
-  );
-
-  expectType<
-    SchemaEqual<
-      typeof schema,
-      {
-        abc: string;
-        baz: string;
-      },
-      Record<string, unknown>
-    >
-  >(true);
-
-  const result = S.safe(() =>
-    S.parseOrThrow(
-      {
-        foo: "bar",
-        bar: true,
-      },
-      schema
-    )
-  );
-  if (result.success) {
-    t.fail("Should fail");
-    return;
-  }
-  t.is(
-    result.error.message,
-    `Failed parsing at ["baz"]: Expected string, received undefined`
-  );
-
-  const value = S.parseOrThrow(
-    {
-      foo: "bar",
-      baz: "baz",
-      bar: true,
+test("Fails to parse intersected objects with transform", (t) => {
+  t.throws(
+    () => {
+      const schema = S.merge(
+        S.schema({
+          foo: S.string,
+          bar: S.boolean,
+        }).with(S.shape, (obj) => ({
+          abc: obj.foo,
+        })),
+        S.schema({
+          baz: S.string,
+        })
+      );
     },
-    schema
+    {
+      name: "Error",
+      // TODO: Can theoretically support this case
+      message: `[Sury] The merge supports only structured object schemas without transformations`,
+    }
   );
-  t.deepEqual(value, {
-    abc: "bar",
-    baz: "baz",
-  });
+
+  // expectType<
+  //   SchemaEqual<
+  //     typeof schema,
+  //     {
+  //       abc: string;
+  //       baz: string;
+  //     },
+  //     Record<string, unknown>
+  //   >
+  // >(true);
+
+  // const result = S.safe(() =>
+  //   S.parseOrThrow(
+  //     {
+  //       foo: "bar",
+  //       bar: true,
+  //     },
+  //     schema
+  //   )
+  // );
+  // if (result.success) {
+  //   t.fail("Should fail");
+  //   return;
+  // }
+  // t.is(
+  //   result.error.message,
+  //   `Failed parsing at ["baz"]: Expected string, received undefined`
+  // );
+
+  // const value = S.parseOrThrow(
+  //   {
+  //     foo: "bar",
+  //     baz: "baz",
+  //     bar: true,
+  //   },
+  //   schema
+  // );
+  // t.deepEqual(value, {
+  //   abc: "bar",
+  //   baz: "baz",
+  // });
 });
 
-test("Fails to serialize merge. Not supported yet", (t) => {
+test("Successfully serializes S.merge", (t) => {
   const schema = S.merge(
     S.schema({
       foo: S.string,
@@ -1208,23 +1222,83 @@ test("Fails to serialize merge. Not supported yet", (t) => {
     })
   );
 
-  const result = S.safe(() =>
-    S.convertOrThrow(
-      {
-        foo: "bar",
-        bar: true,
-        baz: "string",
-      },
-      S.reverse(schema)
-    )
+  t.deepEqual(
+    S.compile(schema, "Output", "Input", "Sync", true).toString(),
+    `i=>{if(typeof i!=="object"||!i){e[3](i)}let v0=i["foo"],v1=i["bar"],v2=i["baz"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="boolean"){e[1](v1)}if(typeof v2!=="string"){e[2](v2)}return {"foo":v0,"bar":v1,"baz":v2,}}`
   );
-  if (result.success) {
-    t.fail("Should fail");
-    return;
-  }
-  t.is(
-    result.error.message,
-    `Failed converting: The S.merge serializing is not supported yet`
+
+  const value = S.reverseConvertOrThrow(
+    {
+      foo: "bar",
+      baz: "baz",
+      bar: true,
+    },
+    schema
+  );
+  expectType<TypeEqual<typeof value, Record<string, unknown>>>(true);
+
+  t.deepEqual(value, {
+    foo: "bar",
+    baz: "baz",
+    bar: true,
+  });
+});
+
+test("Merge overwrites the left fields by schema from the right", (t) => {
+  const baseSchema = S.schema({
+    type: S.union(["foo", "bar"]),
+    name: S.string,
+  });
+
+  const fooSchema = S.merge(
+    baseSchema,
+    S.schema({
+      type: "foo" as const,
+      fooCount: S.number,
+    })
+  );
+
+  const value = S.parseOrThrow(
+    {
+      type: "foo",
+      name: "foo",
+      fooCount: 123,
+    },
+    fooSchema
+  );
+
+  expectType<
+    SchemaEqual<
+      typeof fooSchema,
+      {
+        type: "foo";
+        name: string;
+        fooCount: number;
+      },
+      Record<string, unknown>
+    >
+  >(true);
+
+  t.deepEqual(value, {
+    type: "foo",
+    name: "foo",
+    fooCount: 123,
+  });
+
+  t.throws(
+    () =>
+      S.parseOrThrow(
+        {
+          type: "bar",
+          name: "foo",
+          fooCount: 123,
+        },
+        fooSchema
+      ),
+    {
+      name: "SuryError",
+      message: `Failed parsing: Expected { type: "foo"; name: string; fooCount: number; }, received { type: "bar"; name: "foo"; fooCount: 123; }`,
+    }
   );
 });
 
@@ -1835,7 +1909,7 @@ test("Env schema: Reggression version", (t) => {
 
   t.deepEqual(
     S.compile(env(S.boolean), "Input", "Output", "Sync", true).toString(),
-    `i=>{if(typeof i==="string"){if(i==="t"){i=true}else if(i==="1"){i=true}else if(i==="f"){i=false}else if(i==="0"){i=false}else{try{let v0;(v0=i==="true")||i==="false"||e[4](i);i=v0}catch(e4){e[5](i,e4)}}}else{e[6](i)}return i}`
+    `i=>{if(typeof i==="string"){if(i==="t"){i=true}else if(i==="1"){i=true}else if(i==="f"){i=false}else if(i==="0"){i=false}else{try{let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}catch(e4){e[1](i,e4)}}}else{e[2](i)}return i}`
   );
 
   t.deepEqual(S.parseOrThrow("t", env(S.boolean)), true);
@@ -2044,6 +2118,57 @@ test("Successfully parses recursive object", (t) => {
       ],
     }
   );
+});
+
+test("Recursive object with S.shape", (t) => {
+  type Node = {
+    id: string;
+    children: Node[];
+  };
+
+  let nodeSchema = S.recursive<Node, unknown>((nodeSchema) =>
+    S.schema({
+      ID: S.string,
+      CHILDREN: S.array(nodeSchema),
+    }).with(S.shape, (input) => ({
+      id: input.ID,
+      children: input.CHILDREN,
+    }))
+  );
+
+  expectType<SchemaEqual<typeof nodeSchema, Node, unknown>>(true);
+
+  t.deepEqual(
+    S.parseOrThrow(
+      {
+        id: "1",
+        children: [
+          { id: "2", children: [] },
+          { id: "3", children: [{ id: "4", children: [] }] },
+        ],
+      },
+      nodeSchema
+    ),
+    {
+      id: "1",
+      children: [
+        { id: "2", children: [] },
+        { id: "3", children: [{ id: "4", children: [] }] },
+      ],
+    }
+  );
+});
+
+test("Recursive with self as transform target", (t) => {
+  type Node = Node[];
+
+  let nodeSchema = S.recursive<Node, string>((self) =>
+    S.string.with(S.to, S.array(self))
+  );
+
+  expectType<SchemaEqual<typeof nodeSchema, Node, string>>(true);
+
+  t.deepEqual(S.parseOrThrow(`["[]","[]"]`, nodeSchema), [[], []]);
 });
 
 test("Port schema", (t) => {
