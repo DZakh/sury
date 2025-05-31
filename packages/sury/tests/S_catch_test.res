@@ -34,7 +34,7 @@ test("Provides ctx to use in catch", t => {
     t->Assert.deepEqual(
       s.error,
       U.error({
-        code: InvalidType({received: %raw(`123`), expected: S.string->S.toUnknown}),
+        code: InvalidType({received: %raw(`123`), expected: S.string->S.castToUnknown}),
         operation: Parse,
         path: S.Path.empty,
       }),

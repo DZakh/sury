@@ -8,7 +8,7 @@ test("Successfully parses", t => {
     () => 1->S.parseOrThrow(schema),
     {
       code: S.InvalidType({
-        expected: schema->S.toUnknown,
+        expected: schema->S.castToUnknown,
         received: %raw(`1`),
       }),
       operation: Parse,
@@ -26,7 +26,7 @@ test("Works for literals", t => {
     () => 1->S.parseOrThrow(schema),
     {
       code: S.InvalidType({
-        expected: schema->S.toUnknown,
+        expected: schema->S.castToUnknown,
         received: %raw(`1`),
       }),
       operation: Parse,

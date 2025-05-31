@@ -19,7 +19,7 @@ module Common = {
     t->U.assertThrows(
       () => invalidAny->S.parseOrThrow(schema),
       {
-        code: InvalidType({expected: schema->S.toUnknown, received: invalidAny}),
+        code: InvalidType({expected: schema->S.castToUnknown, received: invalidAny}),
         operation: Parse,
         path: S.Path.empty,
       },
@@ -61,7 +61,7 @@ module Common = {
 
   test("Reverse to self", t => {
     let schema = factory()
-    t->U.assertEqualSchemas(schema->S.reverse, schema->S.toUnknown)
+    t->U.assertEqualSchemas(schema->S.reverse, schema->S.castToUnknown)
   })
 
   test("Succesfully uses reversed schema for parsing back to initial value", t => {
@@ -75,20 +75,20 @@ test("Classify schema", t => {
   let schema = S.option(S.null(S.string))
 
   t->U.assertEqualSchemas(
-    schema->S.toUnknown,
+    schema->S.castToUnknown,
     S.union([
-      S.string->S.toUnknown,
-      S.unit->S.toUnknown,
-      S.nullAsUnit->S.to(S.literal({"BS_PRIVATE_NESTED_SOME_NONE": 0}))->S.toUnknown,
+      S.string->S.castToUnknown,
+      S.unit->S.castToUnknown,
+      S.nullAsUnit->S.to(S.literal({"BS_PRIVATE_NESTED_SOME_NONE": 0}))->S.castToUnknown,
     ]),
   )
 
   t->U.assertEqualSchemas(
     schema->S.reverse,
     S.union([
-      S.string->S.toUnknown,
-      S.unit->S.toUnknown,
-      S.literal({"BS_PRIVATE_NESTED_SOME_NONE": 0})->S.to(S.nullAsUnit->S.reverse)->S.toUnknown,
+      S.string->S.castToUnknown,
+      S.unit->S.castToUnknown,
+      S.literal({"BS_PRIVATE_NESTED_SOME_NONE": 0})->S.to(S.nullAsUnit->S.reverse)->S.castToUnknown,
     ]),
   )
 })
@@ -105,7 +105,7 @@ test("Fails to parse JS null", t => {
   t->U.assertThrows(
     () => %raw(`null`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: schema->S.toUnknown, received: %raw(`null`)}),
+      code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`null`)}),
       operation: Parse,
       path: S.Path.empty,
     },
@@ -118,7 +118,7 @@ test("Fails to parse JS undefined when schema doesn't allow optional data", t =>
   t->U.assertThrows(
     () => %raw(`undefined`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: schema->S.toUnknown, received: %raw(`undefined`)}),
+      code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`undefined`)}),
       operation: Parse,
       path: S.Path.empty,
     },

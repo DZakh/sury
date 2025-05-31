@@ -88,7 +88,7 @@ test("Fails to reverse convert Option schema", t => {
   t->U.assertThrows(
     () => None->S.reverseConvertToJsonOrThrow(schema),
     {
-      code: InvalidJsonSchema(schema->S.toUnknown),
+      code: InvalidJsonSchema(schema->S.castToUnknown),
       operation: ReverseConvertToJson,
       path: S.Path.empty,
     },
@@ -157,7 +157,7 @@ test("Fails to reverse convert Undefined literal", t => {
   t->U.assertThrows(
     () => ()->S.reverseConvertToJsonOrThrow(schema),
     {
-      code: InvalidJsonSchema(schema->S.toUnknown),
+      code: InvalidJsonSchema(schema->S.castToUnknown),
       operation: ReverseConvertToJson,
       path: S.Path.empty,
     },
@@ -170,7 +170,7 @@ test("Fails to reverse convert Function literal", t => {
   t->U.assertThrows(
     () => fn->S.reverseConvertToJsonOrThrow(schema),
     {
-      code: InvalidJsonSchema(schema->S.toUnknown),
+      code: InvalidJsonSchema(schema->S.castToUnknown),
       operation: ReverseConvertToJson,
       path: S.Path.empty,
     },
@@ -197,7 +197,7 @@ test("Fails to reverse convert Symbol literal", t => {
   t->U.assertThrows(
     () => symbol->S.reverseConvertToJsonOrThrow(schema),
     {
-      code: InvalidJsonSchema(schema->S.toUnknown),
+      code: InvalidJsonSchema(schema->S.castToUnknown),
       operation: ReverseConvertToJson,
       path: S.Path.empty,
     },
@@ -210,7 +210,7 @@ test("Fails to reverse convert BigInt literal", t => {
   t->U.assertThrows(
     () => bigint->S.reverseConvertToJsonOrThrow(schema),
     {
-      code: InvalidJsonSchema(schema->S.toUnknown),
+      code: InvalidJsonSchema(schema->S.castToUnknown),
       operation: ReverseConvertToJson,
       path: S.Path.empty,
     },
@@ -231,7 +231,7 @@ test("Fails to reverse convert NaN literal", t => {
   t->U.assertThrows(
     () => ()->S.reverseConvertToJsonOrThrow(schema),
     {
-      code: InvalidJsonSchema(schema->S.toUnknown),
+      code: InvalidJsonSchema(schema->S.castToUnknown),
       operation: ReverseConvertToJson,
       path: S.Path.empty,
     },
@@ -249,7 +249,7 @@ test("Fails to reverse convert Never schema", t => {
   t->U.assertThrows(
     () => Obj.magic(123)->S.reverseConvertToJsonOrThrow(S.never),
     {
-      code: InvalidType({expected: S.never->S.toUnknown, received: Obj.magic(123)}),
+      code: InvalidType({expected: S.never->S.castToUnknown, received: Obj.magic(123)}),
       operation: ReverseConvertToJson,
       path: S.Path.empty,
     },

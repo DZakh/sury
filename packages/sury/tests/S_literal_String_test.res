@@ -21,7 +21,7 @@ module Common = {
       () => invalidAny->S.parseOrThrow(schema),
       {
         code: InvalidType({
-          expected: S.literal("ReScript is Great!")->S.toUnknown,
+          expected: S.literal("ReScript is Great!")->S.castToUnknown,
           received: "Hello world!"->Obj.magic,
         }),
         operation: Parse,
@@ -37,7 +37,7 @@ module Common = {
       () => invalidTypeAny->S.parseOrThrow(schema),
       {
         code: InvalidType({
-          expected: S.literal("ReScript is Great!")->S.toUnknown,
+          expected: S.literal("ReScript is Great!")->S.castToUnknown,
           received: invalidTypeAny,
         }),
         operation: Parse,
@@ -59,7 +59,7 @@ module Common = {
       () => invalidValue->S.reverseConvertOrThrow(schema),
       {
         code: InvalidType({
-          expected: S.literal("ReScript is Great!")->S.toUnknown,
+          expected: S.literal("ReScript is Great!")->S.castToUnknown,
           received: "Hello world!"->Obj.magic,
         }),
         operation: ReverseConvert,
@@ -90,7 +90,7 @@ module Common = {
 
   test("Reverse schema to self", t => {
     let schema = factory()
-    t->Assert.is(schema->S.reverse, schema->S.toUnknown, ())
+    t->Assert.is(schema->S.reverse, schema->S.castToUnknown, ())
   })
 
   test("Succesfully uses reversed schema for parsing back to initial value", t => {

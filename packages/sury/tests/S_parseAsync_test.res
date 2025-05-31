@@ -29,7 +29,7 @@ let invalidAsyncRefine = S.transform(_, s => {
 //     %raw(`123`)->S.parseAnyAsyncInStepsWith(schema),
 //     Error(
 //       U.error({
-//         code: InvalidType({expected: schema->S.toUnknown, received: %raw(`123`)}),
+//         code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`123`)}),
 //         operation: ParseAsync,
 //         path: S.Path.empty,
 //       }),
@@ -255,7 +255,7 @@ let invalidAsyncRefine = S.transform(_, s => {
 //       }->S.parseAnyAsyncInStepsWith(schema),
 //       Error(
 //         U.error({
-//           code: InvalidType({expected: invalidSchema->S.toUnknown, received: %raw(`true`)}),
+//           code: InvalidType({expected: invalidSchema->S.castToUnknown, received: %raw(`true`)}),
 //           operation: ParseAsync,
 //           path: S.Path.fromArray(["k2"]),
 //         }),
@@ -387,7 +387,7 @@ let invalidAsyncRefine = S.transform(_, s => {
 //       %raw(`[1, true, 3]`)->S.parseAnyAsyncInStepsWith(schema),
 //       Error(
 //         U.error({
-//           code: InvalidType({expected: invalidSchema->S.toUnknown, received: %raw(`true`)}),
+//           code: InvalidType({expected: invalidSchema->S.castToUnknown, received: %raw(`true`)}),
 //           operation: ParseAsync,
 //           path: S.Path.fromArray(["1"]),
 //         }),
@@ -498,17 +498,17 @@ module Union = {
   //         {
   //           code: InvalidUnion([
   //             U.error({
-  //               code: InvalidType({expected: S.literal(1.), received: input})->S.toUnknown,
+  //               code: InvalidType({expected: S.literal(1.), received: input})->S.castToUnknown,
   //               path: S.Path.empty,
   //               operation: ParseAsync,
   //             }),
   //             U.error({
-  //               code: InvalidType({expected: S.literal(2.), received: input})->S.toUnknown,
+  //               code: InvalidType({expected: S.literal(2.), received: input})->S.castToUnknown,
   //               path: S.Path.empty,
   //               operation: ParseAsync,
   //             }),
   //             U.error({
-  //               code: InvalidType({expected: S.literal(3.), received: input})->S.toUnknown,
+  //               code: InvalidType({expected: S.literal(3.), received: input})->S.castToUnknown,
   //               path: S.Path.empty,
   //               operation: ParseAsync,
   //             }),
@@ -564,7 +564,7 @@ module Union = {
 //       %raw(`[1, 2, true]`)->S.parseAnyAsyncInStepsWith(schema),
 //       Error(
 //         U.error({
-//           code: InvalidType({expected: invalidSchema->S.toUnknown, received: %raw(`true`)}),
+//           code: InvalidType({expected: invalidSchema->S.castToUnknown, received: %raw(`true`)}),
 //           operation: ParseAsync,
 //           path: S.Path.fromArray(["2"]),
 //         }),
@@ -643,7 +643,7 @@ module Union = {
 //       {"k1": 1, "k2": 2, "k3": true}->S.parseAnyAsyncInStepsWith(schema),
 //       Error(
 //         U.error({
-//           code: InvalidType({expected: invalidSchema->S.toUnknown, received: %raw(`true`)}),
+//           code: InvalidType({expected: invalidSchema->S.castToUnknown, received: %raw(`true`)}),
 //           operation: ParseAsync,
 //           path: S.Path.fromArray(["k3"]),
 //         }),
@@ -744,7 +744,7 @@ module Union = {
 //       true->S.parseAnyAsyncInStepsWith(schema),
 //       Error(
 //         U.error({
-//           code: InvalidType({expected: schema->S.toUnknown, received: %raw(`true`)}),
+//           code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`true`)}),
 //           operation: ParseAsync,
 //           path: S.Path.empty,
 //         }),
@@ -795,7 +795,7 @@ module Union = {
 //       true->S.parseAnyAsyncInStepsWith(schema),
 //       Error(
 //         U.error({
-//           code: InvalidType({expected: schema->S.toUnknown, received: %raw(`true`)}),
+//           code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`true`)}),
 //           operation: ParseAsync,
 //           path: S.Path.empty,
 //         }),
@@ -847,7 +847,7 @@ module Union = {
 //       true->S.parseAnyAsyncInStepsWith(schema),
 //       Error(
 //         U.error({
-//           code: InvalidType({expected: schema->S.toUnknown, received: %raw(`true`)}),
+//           code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`true`)}),
 //           operation: ParseAsync,
 //           path: S.Path.empty,
 //         }),
@@ -899,7 +899,7 @@ module Union = {
 //       "true"->S.parseAnyAsyncInStepsWith(schema),
 //       Error(
 //         U.error({
-//           code: InvalidType({expected: invalidSchema->S.toUnknown, received: %raw(`true`)}),
+//           code: InvalidType({expected: invalidSchema->S.castToUnknown, received: %raw(`true`)}),
 //           operation: ParseAsync,
 //           path: S.Path.empty,
 //         }),

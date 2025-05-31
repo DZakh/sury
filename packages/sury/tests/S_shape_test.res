@@ -23,7 +23,7 @@ test("Fails to parse wrapped schema", t => {
   t->U.assertThrows(
     () => 123->S.parseOrThrow(schema),
     {
-      code: InvalidType({received: 123->Obj.magic, expected: schema->S.toUnknown}),
+      code: InvalidType({received: 123->Obj.magic, expected: schema->S.castToUnknown}),
       operation: Parse,
       path: S.Path.empty,
     },
@@ -214,7 +214,10 @@ test(
 test("Reverse convert of tagged tuple with destructured literal", t => {
   let schema = S.tuple2(S.literal(true), S.literal(12))->S.shape(((_, twelve)) => twelve)
 
-  t->U.assertEqualSchemas(schema->S.reverse, S.literal(12)->S.shape(i1 => (true, i1))->S.toUnknown)
+  t->U.assertEqualSchemas(
+    schema->S.reverse,
+    S.literal(12)->S.shape(i1 => (true, i1))->S.castToUnknown,
+  )
 
   t->Assert.deepEqual(12->S.reverseConvertOrThrow(schema), %raw(`[true, 12]`), ())
 
@@ -234,7 +237,7 @@ test("Reverse convert of tagged tuple with destructured bool", t => {
     schema->S.reverse,
     S.tuple2(S.bool, S.literal("foo"))
     ->S.shape(((item, literal)) => (true, literal, item))
-    ->S.toUnknown,
+    ->S.castToUnknown,
   )
 
   t->Assert.deepEqual(
@@ -403,7 +406,7 @@ test("Works with variant schema used multiple times as a child schema", t => {
 
 test("Reverse variant schema to literal", t => {
   let schema = S.literal("foo")->S.shape(_ => ())
-  t->U.assertEqualSchemas(schema->S.reverse, S.unit->S.to(S.literal("foo"))->S.toUnknown)
+  t->U.assertEqualSchemas(schema->S.reverse, S.unit->S.to(S.literal("foo"))->S.castToUnknown)
 })
 
 test("Succesfully uses reversed variant schema to literal for parsing back to initial value", t => {
@@ -413,8 +416,8 @@ test("Succesfully uses reversed variant schema to literal for parsing back to in
 
 test("Reverse variant schema to self", t => {
   let schema = S.bool->S.shape(v => v)
-  t->Assert.not(schema->S.reverse, schema->S.toUnknown, ())
-  t->U.assertEqualSchemas(schema->S.reverse, schema->S.toUnknown)
+  t->Assert.not(schema->S.reverse, schema->S.castToUnknown, ())
+  t->U.assertEqualSchemas(schema->S.reverse, schema->S.castToUnknown)
 })
 
 test("Succesfully uses reversed variant schema to self for parsing back to initial value", t => {
@@ -450,7 +453,7 @@ test("Reverse with output of nested object/tuple schema", t => {
       let (b, _) = v["nested"]["field"]
       b
     })
-    ->S.toUnknown,
+    ->S.castToUnknown,
   )
 })
 

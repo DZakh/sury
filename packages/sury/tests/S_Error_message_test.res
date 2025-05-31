@@ -51,7 +51,7 @@ test("InvalidOperation error", t => {
 test("InvalidType error", t => {
   t->Assert.is(
     U.error({
-      code: InvalidType({expected: S.string->S.toUnknown, received: Obj.magic(true)}),
+      code: InvalidType({expected: S.string->S.castToUnknown, received: Obj.magic(true)}),
       operation: Parse,
       path: S.Path.empty,
     }).message,
@@ -75,7 +75,7 @@ test("UnexpectedAsync error", t => {
 test("InvalidType with literal error", t => {
   t->Assert.is(
     U.error({
-      code: InvalidType({expected: S.literal(false)->S.toUnknown, received: true->Obj.magic}),
+      code: InvalidType({expected: S.literal(false)->S.castToUnknown, received: true->Obj.magic}),
       operation: Parse,
       path: S.Path.empty,
     }).message,
@@ -100,7 +100,7 @@ test("InvalidType error (replacement for InvalidTupleSize)", t => {
   t->Assert.is(
     U.error({
       code: InvalidType({
-        expected: S.tuple2(S.bool, S.int)->S.toUnknown,
+        expected: S.tuple2(S.bool, S.int)->S.castToUnknown,
         received: (1, 2, "foo")->Obj.magic,
       }),
       operation: Parse,
@@ -120,7 +120,7 @@ test("InvalidType error with union errors", t => {
         unionErrors: [
           U.error({
             code: InvalidType({
-              expected: S.literal("circle")->S.toUnknown,
+              expected: S.literal("circle")->S.castToUnknown,
               received: "oval"->Obj.magic,
             }),
             operation: Parse,
@@ -128,7 +128,7 @@ test("InvalidType error with union errors", t => {
           }),
           U.error({
             code: InvalidType({
-              expected: S.literal("square")->S.toUnknown,
+              expected: S.literal("square")->S.castToUnknown,
               received: "oval"->Obj.magic,
             }),
             operation: Parse,
@@ -136,7 +136,7 @@ test("InvalidType error with union errors", t => {
           }),
           U.error({
             code: InvalidType({
-              expected: S.literal("triangle")->S.toUnknown,
+              expected: S.literal("triangle")->S.castToUnknown,
               received: "oval"->Obj.magic,
             }),
             operation: Parse,
@@ -163,17 +163,26 @@ test("InvalidUnion filters similar reasons", t => {
         received: "foo"->Obj.magic,
         unionErrors: [
           U.error({
-            code: InvalidType({expected: S.bool->S.toUnknown, received: %raw(`"Hello world!"`)}),
+            code: InvalidType({
+              expected: S.bool->S.castToUnknown,
+              received: %raw(`"Hello world!"`),
+            }),
             operation: Parse,
             path: S.Path.empty,
           }),
           U.error({
-            code: InvalidType({expected: S.bool->S.toUnknown, received: %raw(`"Hello world!"`)}),
+            code: InvalidType({
+              expected: S.bool->S.castToUnknown,
+              received: %raw(`"Hello world!"`),
+            }),
             operation: Parse,
             path: S.Path.empty,
           }),
           U.error({
-            code: InvalidType({expected: S.bool->S.toUnknown, received: %raw(`"Hello world!"`)}),
+            code: InvalidType({
+              expected: S.bool->S.castToUnknown,
+              received: %raw(`"Hello world!"`),
+            }),
             operation: Parse,
             path: S.Path.empty,
           }),
@@ -197,12 +206,12 @@ test("Nested InvalidUnion error", t => {
         unionErrors: [
           U.error({
             code: InvalidType({
-              expected: S.bool->S.toUnknown,
+              expected: S.bool->S.castToUnknown,
               received: "foo"->Obj.magic,
               unionErrors: [
                 U.error({
                   code: InvalidType({
-                    expected: S.bool->S.toUnknown,
+                    expected: S.bool->S.castToUnknown,
                     received: %raw(`"Hello world!"`),
                   }),
                   operation: Parse,
@@ -210,7 +219,7 @@ test("Nested InvalidUnion error", t => {
                 }),
                 U.error({
                   code: InvalidType({
-                    expected: S.bool->S.toUnknown,
+                    expected: S.bool->S.castToUnknown,
                     received: %raw(`"Hello world!"`),
                   }),
                   operation: Parse,
@@ -218,7 +227,7 @@ test("Nested InvalidUnion error", t => {
                 }),
                 U.error({
                   code: InvalidType({
-                    expected: S.bool->S.toUnknown,
+                    expected: S.bool->S.castToUnknown,
                     received: %raw(`"Hello world!"`),
                   }),
                   operation: Parse,
@@ -244,7 +253,7 @@ test("Nested InvalidUnion error", t => {
 test("InvalidJsonSchema error", t => {
   t->Assert.is(
     U.error({
-      code: InvalidJsonSchema(S.option(S.literal(true))->S.toUnknown),
+      code: InvalidJsonSchema(S.option(S.literal(true))->S.castToUnknown),
       operation: ReverseConvertToJson,
       path: S.Path.empty,
     }).message,

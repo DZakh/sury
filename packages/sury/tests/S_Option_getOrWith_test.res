@@ -43,7 +43,7 @@ test("Fails to parse data with default", t => {
   t->U.assertThrows(
     () => %raw(`"string"`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: schema->S.toUnknown, received: %raw(`"string"`)}),
+      code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`"string"`)}),
       operation: Parse,
       path: S.Path.empty,
     },

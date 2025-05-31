@@ -44,7 +44,7 @@ module Common = {
       () => invalid->S.parseOrThrow(schema->S.reverse),
       {
         code: InvalidType({
-          expected: schema->S.toUnknown,
+          expected: schema->S.castToUnknown,
           received: %raw(`123`),
         }),
         operation: Parse,
@@ -60,7 +60,7 @@ module Common = {
       () => %raw(`null`)->S.parseOrThrow(schema),
       {
         code: InvalidType({
-          expected: S.literal(Dict.fromArray([("foo", "bar")]))->S.toUnknown,
+          expected: S.literal(Dict.fromArray([("foo", "bar")]))->S.castToUnknown,
           received: %raw(`null`),
         }),
         operation: Parse,
@@ -93,7 +93,7 @@ module Common = {
 
   test("Reverse schema to self", t => {
     let schema = factory()
-    t->Assert.is(schema->S.reverse, schema->S.toUnknown, ())
+    t->Assert.is(schema->S.reverse, schema->S.castToUnknown, ())
   })
 
   test("Succesfully uses reversed schema for parsing back to initial value", t => {
@@ -154,7 +154,7 @@ module EmptyDict = {
 
   test("Reverse empty dict literal schema to self", t => {
     let schema = factory()
-    t->Assert.is(schema->S.reverse, schema->S.toUnknown, ())
+    t->Assert.is(schema->S.reverse, schema->S.castToUnknown, ())
   })
 
   test(

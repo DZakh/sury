@@ -27,6 +27,8 @@ console.log(S.boolean)
   - Now supports overwriting fields with the same name
   - TODO: Improve the TS type
 
+- ReScript: Added `S.castToAny` and renamed `S.toUnknown` -> `S.castToUnknown`. This is to prevent confusion with `->S.to(S.unknown)` which is a very different operation.
+
 - Start refactoring internal schema representation to reflect transformations
   // FIXME: advanced is broken
   // TODO: Can reuse the S.schema logic for S.object to not recreate an object on serializing

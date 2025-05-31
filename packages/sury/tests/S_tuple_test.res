@@ -21,7 +21,7 @@ module Tuple0 = {
       () => invalidAny->S.parseOrThrow(schema),
       {
         code: InvalidType({
-          expected: schema->S.toUnknown,
+          expected: schema->S.castToUnknown,
           received: invalidAny,
         }),
         operation: Parse,
@@ -42,7 +42,7 @@ module Tuple0 = {
     t->U.assertThrows(
       () => invalidTypeAny->S.parseOrThrow(schema),
       {
-        code: InvalidType({expected: schema->S.toUnknown, received: invalidTypeAny}),
+        code: InvalidType({expected: schema->S.castToUnknown, received: invalidTypeAny}),
         operation: Parse,
         path: S.Path.empty,
       },
@@ -59,7 +59,10 @@ module Tuple0 = {
 test("Fills holes with S.unit", t => {
   let schema = S.tuple(s => (s.item(0, S.string), s.item(2, S.int)))
 
-  t->U.assertEqualSchemas(schema->S.toUnknown, S.tuple3(S.string, S.unit, S.int)->S.toUnknown)
+  t->U.assertEqualSchemas(
+    schema->S.castToUnknown,
+    S.tuple3(S.string, S.unit, S.int)->S.castToUnknown,
+  )
 })
 
 test("Successfully parses tuple with holes", t => {
@@ -74,7 +77,10 @@ test("Fails to parse tuple with holes", t => {
   t->U.assertThrows(
     () => %raw(`["value", "smth", 123]`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: schema->S.toUnknown, received: %raw(`["value", "smth", 123]`)}),
+      code: InvalidType({
+        expected: schema->S.castToUnknown,
+        received: %raw(`["value", "smth", 123]`),
+      }),
       operation: Parse,
       path: S.Path.empty,
     },
@@ -224,7 +230,7 @@ test("Tuple schema parsing checks order", t => {
   t->U.assertThrows(
     () => %raw(`"foo"`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: schema->S.toUnknown, received: %raw(`"foo"`)}),
+      code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`"foo"`)}),
       operation: Parse,
       path: S.Path.empty,
     },
@@ -234,7 +240,7 @@ test("Tuple schema parsing checks order", t => {
     () => %raw(`["value"]`)->S.parseOrThrow(schema),
     {
       code: InvalidType({
-        expected: schema->S.toUnknown,
+        expected: schema->S.castToUnknown,
         received: %raw(`["value"]`),
       }),
       operation: Parse,
@@ -246,7 +252,7 @@ test("Tuple schema parsing checks order", t => {
     () => %raw(`["value", "value", "value"]`)->S.parseOrThrow(schema->S.strict),
     {
       code: InvalidType({
-        expected: schema->S.toUnknown,
+        expected: schema->S.castToUnknown,
         received: %raw(`["value", "value", "value"]`),
       }),
       operation: Parse,
@@ -257,7 +263,7 @@ test("Tuple schema parsing checks order", t => {
   t->U.assertThrows(
     () => %raw(`["value", "wrong"]`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: schema->S.toUnknown, received: %raw(`["value", "wrong"]`)}),
+      code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`["value", "wrong"]`)}),
       operation: Parse,
       path: S.Path.empty,
     },
@@ -266,7 +272,7 @@ test("Tuple schema parsing checks order", t => {
   t->U.assertThrows(
     () => %raw(`[1, "value"]`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: S.string->S.toUnknown, received: %raw(`1`)}),
+      code: InvalidType({expected: S.string->S.castToUnknown, received: %raw(`1`)}),
       operation: Parse,
       path: S.Path.fromLocation("0"),
     },
@@ -395,7 +401,7 @@ test("Works with tuple schema used multiple times as a child schema", t => {
 
 test("Reverse empty tuple schema to literal", t => {
   let schema = S.tuple(_ => ())
-  t->U.assertEqualSchemas(schema->S.reverse, S.unit->S.toUnknown)
+  t->U.assertEqualSchemas(schema->S.reverse, S.unit->S.castToUnknown)
 })
 
 test("Succesfully uses reversed empty tuple schema for parsing back to initial value", t => {
@@ -408,7 +414,7 @@ test("Reverse tagged tuple to literal without payload", t => {
     s.tag(0, "test")
     #Test
   })
-  t->U.assertEqualSchemas(schema->S.reverse, S.literal(#Test)->S.toUnknown)
+  t->U.assertEqualSchemas(schema->S.reverse, S.literal(#Test)->S.castToUnknown)
 })
 
 test(
@@ -427,7 +433,7 @@ test("Reverse tagged tuple to primitive schema", t => {
     s.tag(0, "test")
     s.item(1, S.bool)
   })
-  t->U.assertEqualSchemas(schema->S.reverse, S.bool->S.toUnknown)
+  t->U.assertEqualSchemas(schema->S.reverse, S.bool->S.castToUnknown)
 })
 
 test(
