@@ -2278,7 +2278,7 @@ let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) =
   })
 }
 
-let unit = Literal.undefined->fromInternal
+let unit: t<unit> = Literal.undefined->fromInternal
 
 let nullAsUnit = base()
 nullAsUnit.tag = Null
@@ -2288,7 +2288,7 @@ let nullAsUnit = nullAsUnit->fromInternal
 
 let unknown = base()
 unknown.tag = Unknown
-let unknown = unknown->fromInternal
+let unknown: t<unknown> = unknown->fromInternal
 
 let neverBuilder = Builder.make((b, ~input, ~selfSchema, ~path) => {
   b.code =
@@ -2307,7 +2307,7 @@ let neverBuilder = Builder.make((b, ~input, ~selfSchema, ~path) => {
 let never = base()
 never.tag = Never
 never.refiner = Some(neverBuilder)
-let never = never->fromInternal
+let never: t<never> = never->fromInternal
 
 module Union = {
   @unboxed
@@ -3081,7 +3081,7 @@ module String = {
 
   let schema = base()
   schema.tag = String
-  let schema = schema->fromInternal
+  let schema: t<string> = schema->fromInternal
 }
 
 module JsonString = {
@@ -3132,11 +3132,11 @@ module JsonString = {
 
 let bool = base()
 bool.tag = Boolean
-let bool = bool->fromInternal
+let bool: t<bool> = bool->fromInternal
 
 let symbol = base()
 symbol.tag = Symbol
-let symbol = symbol->fromInternal
+let symbol: t<Js.Types.symbol> = symbol->fromInternal
 
 module Int = {
   module Refinement = {
@@ -3602,6 +3602,7 @@ module Schema = {
     let additionalItems = selfSchema.additionalItems
     let items = selfSchema.items->Stdlib.Option.unsafeUnwrap
     let isArray = selfSchema.tag === Array
+    let initialInput = input.inline
 
     if parentB.global.flag->Flag.unsafeHas(Flag.flatten) {
       let objectVal = parentB->B.Val.Object.make(~isArray)
@@ -3646,20 +3647,16 @@ module Schema = {
           // A hacky way to detect that the schema is not transformed
           // If we don't Strip or perform a reverse operation, return the original
           // instance of Val, so other code also think that the schema value is not transformed
-          objectVal.inline === (
-              isArray
-                ? items
-                  ->Js.Array2.map(i => `${input.inline}[${i.inlinedLocation}],`)
-                  ->Js.Array2.joinWith("")
-                : items
-                  ->Js.Array2.map(i =>
-                    `${i.inlinedLocation}:${input.inline}[${i.inlinedLocation}],`
-                  )
-                  ->Js.Array2.joinWith("")
-            )
+          items->Js.Array2.every(item => {
+            (
+              objectVal
+              ->(Obj.magic: B.Val.Object.t => dict<val>)
+              ->Js.Dict.unsafeGet(item.inlinedLocation)
+            ).inline === `${input.inline}[${item.inlinedLocation}]`
+          })
       ) {
         objectVal.var = input.var
-        objectVal.inline = input.inline
+        objectVal.inline = initialInput
         objectVal.isAsync = input.isAsync
         (objectVal :> val)
       } else {

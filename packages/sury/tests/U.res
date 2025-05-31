@@ -199,3 +199,7 @@ let assertReverseParsesBack = (t, schema: S.t<'value>, value: 'value) => {
     (),
   )
 }
+
+let assertReverseReversesBack = (t, schema: S.t<'value>) => {
+  t->assertEqualSchemas(schema->S.toUnknown, schema->S.reverse->S.reverse)
+}

@@ -37,11 +37,12 @@ console.log(S.boolean)
 
 - rename `serializer` to reverse parser ?
 - rename `S.toUnknown` to `S.castToUnknown` - make `foo->S.to(S.unknown)` stricter ??
+- Add `S.castToAny`
 
 - Add `S.to(from, target, parser, serializer)` instead of `S.transform`?
 - Remove `s.fail` with `throw new Error`
 - Make built-in refinements not work with `unknown`. Use `S.to` (manually & automatically) to deside the type first
-- Add `S.any`?
+- Add `S.any` (at least for ReScript)?
 
 ### Final release fixes
 

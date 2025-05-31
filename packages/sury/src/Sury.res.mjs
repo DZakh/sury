@@ -2709,6 +2709,7 @@ function schemaRefiner(parentB, input, selfSchema, path) {
   var additionalItems = selfSchema.additionalItems;
   var items = selfSchema.items;
   var isArray = selfSchema.type === "array";
+  var initialInput = input.i;
   if (parentB.g.o & 64) {
     var objectVal = make(parentB, isArray);
     for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
@@ -2739,15 +2740,11 @@ function schemaRefiner(parentB, input, selfSchema, path) {
   }
   objectStrictModeCheck(b, input, items, selfSchema, path);
   parentB.c = parentB.c + allocateScope(b);
-  if ((additionalItems !== "strip" || b.g.o & 32) && objectVal$1.i === (
-      isArray ? items.map(function (i) {
-                return input.i + "[" + i.inlinedLocation + "],";
-              }).join("") : items.map(function (i) {
-                return i.inlinedLocation + ":" + input.i + "[" + i.inlinedLocation + "],";
-              }).join("")
-    )) {
+  if ((additionalItems !== "strip" || b.g.o & 32) && items.every(function (item) {
+          return objectVal$1[item.inlinedLocation].i === input.i + "[" + item.inlinedLocation + "]";
+        })) {
     objectVal$1.v = input.v;
-    objectVal$1.i = input.i;
+    objectVal$1.i = initialInput;
     objectVal$1.a = input.a;
     return objectVal$1;
   } else {
