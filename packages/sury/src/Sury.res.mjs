@@ -1064,16 +1064,48 @@ var nonJsonableTags = new Set([
       "symbol"
     ]);
 
-function getOutputSchema(_schema) {
-  while(true) {
-    var schema = _schema;
-    var to = schema.to;
-    if (to === undefined) {
-      return schema;
-    }
-    _schema = to;
-    continue ;
-  };
+function jsonableValidation(output, parent, path, flag, recSet) {
+  var tag = output.type;
+  if (tag === "undefined" && parent.type !== "object" || nonJsonableTags.has(tag)) {
+    throw new SuryError({
+              TAG: "InvalidJsonSchema",
+              _0: parent
+            }, flag, path);
+  }
+  var match = output.type;
+  switch (match) {
+    case "array" :
+    case "object" :
+    case "union" :
+        break;
+    default:
+      return ;
+  }
+  var recSet$1 = recSet !== undefined ? Caml_option.valFromOption(recSet) : new Set();
+  if (recSet$1.has(output)) {
+    return ;
+  }
+  recSet$1.add(output);
+  var recSet$2 = Caml_option.some(recSet$1);
+  if (tag === "union") {
+    output.anyOf.forEach(function (s) {
+          jsonableValidation(s, parent, path, flag, recSet$2);
+        });
+    return ;
+  }
+  var additionalItems = output.additionalItems;
+  var items = output.items;
+  if (items === undefined) {
+    return ;
+  }
+  if (additionalItems === "strip" || additionalItems === "strict") {
+    additionalItems === "strip";
+  } else {
+    jsonableValidation(additionalItems, parent, path, flag, recSet$2);
+  }
+  items.forEach(function (item) {
+        jsonableValidation(item.schema, output, path + ("[" + item.inlinedLocation + "]"), flag, recSet$2);
+      });
 }
 
 function reverse(schema) {
@@ -1159,48 +1191,16 @@ function reverse(schema) {
   return reversedHead;
 }
 
-function jsonableValidation(output, parent, path, flag, recSet) {
-  var tag = output.type;
-  if (tag === "undefined" && parent.type !== "object" || nonJsonableTags.has(tag)) {
-    throw new SuryError({
-              TAG: "InvalidJsonSchema",
-              _0: parent
-            }, flag, path);
-  }
-  var match = output.type;
-  switch (match) {
-    case "array" :
-    case "object" :
-    case "union" :
-        break;
-    default:
-      return ;
-  }
-  var recSet$1 = recSet !== undefined ? Caml_option.valFromOption(recSet) : new Set();
-  if (recSet$1.has(output)) {
-    return ;
-  }
-  recSet$1.add(output);
-  var recSet$2 = Caml_option.some(recSet$1);
-  if (tag === "union") {
-    output.anyOf.forEach(function (s) {
-          jsonableValidation(s, parent, path, flag, recSet$2);
-        });
-    return ;
-  }
-  var additionalItems = output.additionalItems;
-  var items = output.items;
-  if (items === undefined) {
-    return ;
-  }
-  if (additionalItems === "strip" || additionalItems === "strict") {
-    additionalItems === "strip";
-  } else {
-    jsonableValidation(additionalItems, parent, path, flag, recSet$2);
-  }
-  items.forEach(function (item) {
-        jsonableValidation(item.schema, output, path + ("[" + item.inlinedLocation + "]"), flag, recSet$2);
-      });
+function getOutputSchema(_schema) {
+  while(true) {
+    var schema = _schema;
+    var to = schema.to;
+    if (to === undefined) {
+      return schema;
+    }
+    _schema = to;
+    continue ;
+  };
 }
 
 function internalCompile(schema, flag) {
@@ -1680,7 +1680,7 @@ var unknown = new Schema();
 
 unknown.type = "unknown";
 
-function parser(b, input, selfSchema, path) {
+function neverBuilder(b, input, selfSchema, path) {
   b.c = b.c + failWithArg(b, path, (function (input) {
           return {
                   TAG: "InvalidType",
@@ -1695,7 +1695,7 @@ var never = new Schema();
 
 never.type = "never";
 
-never.parser = parser;
+never.refiner = neverBuilder;
 
 function getItemCode(b, schema, input, output, deopt, path) {
   try {
@@ -2053,7 +2053,7 @@ function nestedNone() {
         };
 }
 
-function parser$1(b, param, selfSchema, param$1) {
+function parser(b, param, selfSchema, param$1) {
   return {
           b: b,
           v: _notVar,
@@ -2065,7 +2065,7 @@ function parser$1(b, param, selfSchema, param$1) {
 function nestedOption(item) {
   return updateOutput(item, (function (mut) {
                 mut.to = nestedNone();
-                mut.parser = parser$1;
+                mut.parser = parser;
               }));
 }
 
@@ -2792,7 +2792,7 @@ function definitionToRitem(definition, path, ritemsByItemPath) {
     return {
             k: 2,
             p: path,
-            s: (mut.type = "array", mut.items = items, mut.additionalItems = "strict", mut.serializer = parser, mut)
+            s: (mut.type = "array", mut.items = items, mut.additionalItems = "strict", mut.serializer = neverBuilder, mut)
           };
   }
   var fieldNames = Object.keys(definition);
@@ -2815,7 +2815,7 @@ function definitionToRitem(definition, path, ritemsByItemPath) {
   return {
           k: 2,
           p: path,
-          s: (mut$1.type = "object", mut$1.items = items$1, mut$1.fields = fields, mut$1.additionalItems = globalConfig.a, mut$1.serializer = parser, mut$1)
+          s: (mut$1.type = "object", mut$1.items = items$1, mut$1.fields = fields, mut$1.additionalItems = globalConfig.a, mut$1.serializer = neverBuilder, mut$1)
         };
 }
 
@@ -3760,48 +3760,33 @@ function js_nullable(schema, maybeOr) {
 }
 
 function js_merge(s1, s2) {
-  if (s1.type === "object") {
-    if (s2.type === "object") {
+  var s;
+  if (s1.type === "object" && s2.type === "object") {
+    var additionalItems1 = s1.additionalItems;
+    if (typeof additionalItems1 === "string" && typeof s2.additionalItems === "string" && !s1.to && !s2.to) {
       var items2 = s2.items;
-      var items = [].concat(s1.items);
       var fields = Object.assign({}, s1.fields);
       for(var idx = 0 ,idx_finish = items2.length; idx < idx_finish; ++idx){
         var item = items2[idx];
-        if (fields[item.location]) {
-          throw new Error("[Sury] " + ("The field " + item.inlinedLocation + " is defined multiple times"));
-        }
-        items.push(item);
         fields[item.location] = item;
       }
       var mut = new Schema();
       mut.type = "object";
-      mut.items = items;
+      mut.items = Object.values(fields);
       mut.fields = fields;
-      mut.additionalItems = s2.additionalItems;
-      mut.advanced = true;
-      mut.parser = (function (b, input, param, path) {
-          var s1Result = parse(b, s1, input, path);
-          var s2Result = parse(b, s2, input, path);
-          return {
-                  b: b,
-                  v: _notVar,
-                  i: "{..." + s1Result.i + ", ..." + s2Result.i + "}",
-                  a: false
-                };
-        });
-      mut.output = (function () {
-          var mut = new Schema();
-          mut.type = "unknown";
-          mut.parser = (function (b, param, param$1, path) {
-              return invalidOperation(b, path, "The S.merge serializing is not supported yet");
-            });
-          return mut;
-        });
-      return mut;
+      mut.additionalItems = additionalItems1;
+      mut.refiner = schemaRefiner;
+      s = mut;
+    } else {
+      s = undefined;
     }
-    throw new Error("[Sury] The merge supports only Object schemas");
+  } else {
+    s = undefined;
   }
-  throw new Error("[Sury] The merge supports only Object schemas");
+  if (s !== undefined) {
+    return s;
+  }
+  throw new Error("[Sury] The merge supports only structured object schemas without transformations");
 }
 
 function $$global(override) {

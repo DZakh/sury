@@ -21,6 +21,12 @@ console.log(S.boolean)
 - Fixed reverse parsing of shrinked schemas with `S.shape`
 - Fixed reverse parsing of `S.option(S.object(_ => ()))` in ReScript
 
+- JS/TS `S.merge` now supports only structured object schemas without transformations, but becomes more performant and powerful:
+
+  - Now supports reverse parsing (serializing)
+  - Now supports overwriting fields with the same name
+  - TODO: Improve the TS type
+
 - Start refactoring internal schema representation to reflect transformations
   // FIXME: advanced is broken
   // TODO: Can reuse the S.schema logic for S.object to not recreate an object on serializing
