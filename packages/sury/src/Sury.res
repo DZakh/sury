@@ -567,6 +567,7 @@ and jsResult<'value> = | @as(true) Success({value: 'value}) | @as(false) Failure
 type exn += private Error(error)
 
 external toUnknown: t<'any> => t<unknown> = "%identity"
+external castToAny: t<'value> => t<'any> = "%identity"
 external untag: t<'any> => untagged = "%identity"
 external toInternal: t<'any> => internal = "%identity"
 external fromInternal: internal => t<'any> = "%identity"
