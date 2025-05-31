@@ -20,7 +20,7 @@ module Common = {
     t->U.assertThrows(
       () => invalidAny->S.parseOrThrow(schema),
       {
-        code: InvalidType({expected: S.literal(123.)->S.toUnknown, received: 444.->Obj.magic}),
+        code: InvalidType({expected: S.literal(123.)->S.castToUnknown, received: 444.->Obj.magic}),
         operation: Parse,
         path: S.Path.empty,
       },
@@ -33,7 +33,7 @@ module Common = {
     t->U.assertThrows(
       () => invalidTypeAny->S.parseOrThrow(schema),
       {
-        code: InvalidType({expected: S.literal(123.)->S.toUnknown, received: invalidTypeAny}),
+        code: InvalidType({expected: S.literal(123.)->S.castToUnknown, received: invalidTypeAny}),
         operation: Parse,
         path: S.Path.empty,
       },
@@ -52,7 +52,7 @@ module Common = {
     t->U.assertThrows(
       () => invalidValue->S.reverseConvertOrThrow(schema),
       {
-        code: InvalidType({expected: S.literal(123.)->S.toUnknown, received: invalidValue}),
+        code: InvalidType({expected: S.literal(123.)->S.castToUnknown, received: invalidValue}),
         operation: ReverseConvert,
         path: S.Path.empty,
       },
@@ -73,7 +73,7 @@ module Common = {
 
   test("Reverse schema to self", t => {
     let schema = factory()
-    t->U.assertEqualSchemas(schema->S.reverse, schema->S.toUnknown)
+    t->U.assertEqualSchemas(schema->S.reverse, schema->S.castToUnknown)
   })
 
   test("Succesfully uses reversed schema for parsing back to initial value", t => {
@@ -88,7 +88,10 @@ test("Formatting of negative number with a decimal point in an error message", t
   t->U.assertThrows(
     () => %raw(`"foo"`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: S.literal(-123.567)->S.toUnknown, received: "foo"->Obj.magic}),
+      code: InvalidType({
+        expected: S.literal(-123.567)->S.castToUnknown,
+        received: "foo"->Obj.magic,
+      }),
       operation: Parse,
       path: S.Path.empty,
     },

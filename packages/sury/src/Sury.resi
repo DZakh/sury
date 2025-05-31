@@ -387,7 +387,7 @@ let noValidation: (t<'value>, bool) => t<'value>
 
 let toExpression: t<'value> => string
 
-external toUnknown: t<'value> => t<unknown> = "%identity"
+external castToUnknown: t<'value> => t<unknown> = "%identity"
 external castToAny: t<'value> => t<'any> = "%identity"
 external untag: t<'value> => untagged = "%identity"
 

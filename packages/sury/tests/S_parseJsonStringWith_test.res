@@ -39,7 +39,7 @@ test("Fails to parse", t => {
   t->U.assertThrows(
     () => "123"->S.parseJsonStringOrThrow(schema),
     {
-      code: InvalidType({expected: schema->S.toUnknown, received: Obj.magic(123)}),
+      code: InvalidType({expected: schema->S.castToUnknown, received: Obj.magic(123)}),
       operation: Parse,
       path: S.Path.empty,
     },

@@ -18,7 +18,7 @@ module Common = {
       () => invalid->S.parseOrThrow(schema),
       {
         code: InvalidType({
-          expected: S.literal(("bar", true))->S.toUnknown,
+          expected: S.literal(("bar", true))->S.castToUnknown,
           received: invalid,
         }),
         operation: Parse,
@@ -56,7 +56,7 @@ module Common = {
       () => %raw(`{0: "bar",1:true}`)->S.parseOrThrow(schema),
       {
         code: InvalidType({
-          expected: S.literal(("bar", true))->S.toUnknown,
+          expected: S.literal(("bar", true))->S.castToUnknown,
           received: %raw(`{0: "bar",1:true}`),
         }),
         operation: Parse,
@@ -72,7 +72,7 @@ module Common = {
       () => %raw(`["bar", true, false]`)->S.parseOrThrow(schema->S.strict),
       {
         code: InvalidType({
-          expected: S.literal(("bar", true))->S.toUnknown,
+          expected: S.literal(("bar", true))->S.castToUnknown,
           received: %raw(`["bar", true, false]`),
         }),
         operation: Parse,
@@ -99,7 +99,7 @@ module Common = {
 
   test("Reverse schema to self", t => {
     let schema = factory()
-    t->Assert.is(schema->S.reverse, schema->S.toUnknown, ())
+    t->Assert.is(schema->S.reverse, schema->S.castToUnknown, ())
   })
 
   test("Succesfully uses reversed schema for parsing back to initial value", t => {
@@ -128,7 +128,7 @@ module EmptyArray = {
       () => invalid->S.parseOrThrow(schema->S.strict),
       {
         code: InvalidType({
-          expected: S.literal([])->S.toUnknown,
+          expected: S.literal([])->S.castToUnknown,
           received: invalid->U.castAnyToUnknown,
         }),
         operation: Parse,
@@ -167,7 +167,7 @@ module EmptyArray = {
 
   test("Reverse empty array literal schema to self", t => {
     let schema = factory()
-    t->Assert.is(schema->S.reverse, schema->S.toUnknown, ())
+    t->Assert.is(schema->S.reverse, schema->S.castToUnknown, ())
   })
 
   test(

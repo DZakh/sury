@@ -18,7 +18,7 @@ module Common = {
     t->U.assertThrows(
       () => invalidAny->S.parseOrThrow(schema),
       {
-        code: InvalidType({expected: schema->S.toUnknown, received: invalidAny}),
+        code: InvalidType({expected: schema->S.castToUnknown, received: invalidAny}),
         operation: Parse,
         path: S.Path.empty,
       },
@@ -49,7 +49,7 @@ module Common = {
 
   test("Reverse schema to self", t => {
     let schema = factory()
-    t->Assert.is(schema->S.reverse, schema->S.toUnknown, ())
+    t->Assert.is(schema->S.reverse, schema->S.castToUnknown, ())
   })
 
   test("Succesfully uses reversed schema for parsing back to initial value", t => {
@@ -64,7 +64,7 @@ test("Fails to parse int when JSON is a number bigger than +2^31", t => {
   t->U.assertThrows(
     () => %raw(`2147483648`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: schema->S.toUnknown, received: %raw(`2147483648`)}),
+      code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`2147483648`)}),
       operation: Parse,
       path: S.Path.empty,
     },
@@ -78,7 +78,7 @@ test("Fails to parse int when JSON is a number lower than -2^31", t => {
   t->U.assertThrows(
     () => %raw(`-2147483649`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: schema->S.toUnknown, received: %raw(`-2147483649`)}),
+      code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`-2147483649`)}),
       operation: Parse,
       path: S.Path.empty,
     },
@@ -92,7 +92,7 @@ test("Fails to parse NaN", t => {
   t->U.assertThrows(
     () => %raw(`NaN`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: schema->S.toUnknown, received: %raw(`NaN`)}),
+      code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`NaN`)}),
       operation: Parse,
       path: S.Path.empty,
     },

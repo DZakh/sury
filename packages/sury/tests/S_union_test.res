@@ -259,7 +259,7 @@ module Advanced = {
 
     let error: U.errorPayload = {
       code: InvalidType({
-        expected: shapeSchema->S.toUnknown,
+        expected: shapeSchema->S.castToUnknown,
         received: shape->Obj.magic,
       }),
       operation: Parse,
@@ -283,7 +283,7 @@ module Advanced = {
 
     let error: U.errorPayload = {
       code: InvalidType({
-        expected: shapeSchema->S.toUnknown,
+        expected: shapeSchema->S.castToUnknown,
         received: shape->Obj.magic,
       }),
       operation: Parse,
@@ -309,7 +309,7 @@ module Advanced = {
       () => %raw(`"Hello world!"`)->S.parseOrThrow(shapeSchema),
       {
         code: InvalidType({
-          expected: shapeSchema->S.toUnknown,
+          expected: shapeSchema->S.castToUnknown,
           received: %raw(`"Hello world!"`),
         }),
         operation: Parse,
@@ -648,7 +648,7 @@ test("Reverse schema with items", t => {
 
   t->U.assertEqualSchemas(
     schema->S.reverse,
-    S.union([S.literal(%raw(`0`)), S.bool->S.toUnknown, S.nullAsUnit->S.reverse]),
+    S.union([S.literal(%raw(`0`)), S.bool->S.castToUnknown, S.nullAsUnit->S.reverse]),
   )
 })
 
@@ -838,7 +838,7 @@ test("Issue https://github.com/DZakh/rescript-schema/issues/101", t => {
 })
 
 test("Regression https://github.com/DZakh/sury/issues/121", t => {
-  let schema = S.union([S.literal(%raw(`null`))->S.toUnknown, S.unknown])
+  let schema = S.union([S.literal(%raw(`null`))->S.castToUnknown, S.unknown])
 
   t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{try{if(i!==null){e[0](i)}}catch(e0){}return i}`)
 

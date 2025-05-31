@@ -19,7 +19,7 @@ module Common = {
     t->U.assertThrows(
       () => invalidAny->S.parseOrThrow(schema),
       {
-        code: InvalidType({expected: schema->S.toUnknown, received: invalidAny}),
+        code: InvalidType({expected: schema->S.castToUnknown, received: invalidAny}),
         operation: Parse,
         path: S.Path.empty,
       },
@@ -57,13 +57,13 @@ module Common = {
     let schema = factory()
     t->U.assertEqualSchemas(
       schema->S.reverse,
-      S.union([S.string->S.toUnknown, S.nullAsUnit->S.reverse]),
+      S.union([S.string->S.castToUnknown, S.nullAsUnit->S.reverse]),
     )
   })
 
   test("Reverse of reverse returns the original schema", t => {
     let schema = factory()
-    t->U.assertEqualSchemas(schema->S.reverse->S.reverse, schema->S.toUnknown)
+    t->U.assertEqualSchemas(schema->S.reverse->S.reverse, schema->S.castToUnknown)
   })
 
   test("Succesfully uses reversed schema for parsing back to initial value", t => {
@@ -85,7 +85,7 @@ test("Fails to parse JS undefined", t => {
   t->U.assertThrows(
     () => %raw(`undefined`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: schema->S.toUnknown, received: %raw(`undefined`)}),
+      code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`undefined`)}),
       operation: Parse,
       path: S.Path.empty,
     },
@@ -99,7 +99,7 @@ test("Fails to parse object with missing field that marked as null", t => {
   t->U.assertThrows(
     () => %raw(`{}`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: fieldSchema->S.toUnknown, received: %raw(`undefined`)}),
+      code: InvalidType({expected: fieldSchema->S.castToUnknown, received: %raw(`undefined`)}),
       operation: Parse,
       path: S.Path.fromArray(["nullableField"]),
     },
@@ -112,7 +112,7 @@ test("Fails to parse JS null when schema doesn't allow optional data", t => {
   t->U.assertThrows(
     () => %raw(`null`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: schema->S.toUnknown, received: %raw(`null`)}),
+      code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`null`)}),
       operation: Parse,
       path: S.Path.empty,
     },

@@ -26,7 +26,7 @@ module CommonWithNested = {
     t->U.assertThrows(
       () => invalidAny->S.parseOrThrow(schema),
       {
-        code: InvalidType({expected: schema->S.toUnknown, received: invalidAny}),
+        code: InvalidType({expected: schema->S.castToUnknown, received: invalidAny}),
         operation: Parse,
         path: S.Path.empty,
       },
@@ -39,7 +39,7 @@ module CommonWithNested = {
     t->U.assertThrows(
       () => nestedInvalidAny->S.parseOrThrow(schema),
       {
-        code: InvalidType({expected: S.string->S.toUnknown, received: %raw(`true`)}),
+        code: InvalidType({expected: S.string->S.castToUnknown, received: %raw(`true`)}),
         operation: Parse,
         path: S.Path.fromArray(["key2"]),
       },
@@ -86,7 +86,7 @@ module CommonWithNested = {
 
   test("Reverse to self", t => {
     let schema = factory()
-    t->U.assertEqualSchemas(schema->S.reverse, schema->S.toUnknown)
+    t->U.assertEqualSchemas(schema->S.reverse, schema->S.castToUnknown)
   })
 
   test("Succesfully uses reversed schema for parsing back to initial value", t => {
@@ -99,7 +99,7 @@ test("Reverse child schema", t => {
   let schema = S.dict(S.null(S.string))
   t->U.assertEqualSchemas(
     schema->S.reverse,
-    S.dict(S.union([S.string->S.toUnknown, S.nullAsUnit->S.reverse]))->S.toUnknown,
+    S.dict(S.union([S.string->S.castToUnknown, S.nullAsUnit->S.reverse]))->S.castToUnknown,
   )
 })
 

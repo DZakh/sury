@@ -226,7 +226,7 @@ test(
       () => %raw(`["foo", true]`)->S.parseOrThrow(schema->S.strict),
       {
         code: InvalidType({
-          expected: schema->S.strict->S.toUnknown,
+          expected: schema->S.strict->S.castToUnknown,
           received: %raw(`["foo", true]`),
         }),
         operation: Parse,
@@ -247,7 +247,7 @@ test(
       () => %raw(`["foo", true, 1]`)->S.parseOrThrow(schema),
       {
         code: InvalidType({
-          expected: schema->S.strict->S.toUnknown,
+          expected: schema->S.strict->S.castToUnknown,
           received: %raw(`["foo", true, 1]`),
         }),
         operation: Parse,

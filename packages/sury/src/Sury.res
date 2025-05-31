@@ -566,7 +566,7 @@ and jsResult<'value> = | @as(true) Success({value: 'value}) | @as(false) Failure
 
 type exn += private Error(error)
 
-external toUnknown: t<'any> => t<unknown> = "%identity"
+external castToUnknown: t<'any> => t<unknown> = "%identity"
 external castToAny: t<'value> => t<'any> = "%identity"
 external untag: t<'any> => untagged = "%identity"
 external toInternal: t<'any> => internal = "%identity"
@@ -1840,7 +1840,7 @@ let compile = (
   let input = input->(Obj.magic: input<'schemaInput, 'input> => internalInput)
   let mode = mode->(Obj.magic: mode<'transformedOutput, 'output> => internalMode)
 
-  let schema = schema->toUnknown
+  let schema = schema->castToUnknown
 
   let flag = ref(Flag.none)
   switch output {
@@ -2760,7 +2760,7 @@ module Option = {
     let item = item->toInternal
 
     switch item->getOutputSchema {
-    | {tag: Undefined} => Union.factory([unit->toUnknown, item->nestedOption->fromInternal])
+    | {tag: Undefined} => Union.factory([unit->castToUnknown, item->nestedOption->fromInternal])
     | {tag: Union, ?anyOf, ?has} =>
       item->updateOutput(mut => {
         let schemas = anyOf->Stdlib.Option.unsafeUnwrap
@@ -2814,7 +2814,7 @@ module Option = {
         mut.anyOf = Some(newAnyOf)
         mut.has = Some(mutHas)
       })
-    | _ => Union.factory([item->fromInternal, unit->toUnknown])
+    | _ => Union.factory([item->fromInternal, unit->castToUnknown])
     }
   }
 
@@ -2956,7 +2956,7 @@ module Object = {
               item.schema->(Obj.magic: t<unknown> => t<'a>),
               additionalItems,
               ~deep,
-            )->toUnknown
+            )->castToUnknown
           let newItem = newSchema === item.schema ? item : {...item, schema: newSchema}
           newFields->Js.Dict.set(item.location, newItem)
           newItems->Js.Array2.push(newItem)->ignore
@@ -4167,7 +4167,7 @@ module Schema = {
         let ditem = {
           location,
           inlinedLocation,
-          schema: unit->toUnknown,
+          schema: unit->castToUnknown,
         }
 
         items->Js.Array2.unsafe_set(idx, ditem)
@@ -4777,7 +4777,7 @@ let unnest = schema => {
 //   }
 
 //   schema => {
-//     schema->toUnknown->internalInline()
+//     schema->castToUnknown->internalInline()
 //   }
 // }
 
@@ -4794,9 +4794,11 @@ let shape = Schema.shape
 let tuple = Schema.tuple
 let tuple1 = v0 => tuple(s => s.item(0, v0))
 let tuple2 = (v0, v1) =>
-  Schema.definitionToSchema([v0->toUnknown, v1->toUnknown]->Obj.magic)->fromInternal
+  Schema.definitionToSchema([v0->castToUnknown, v1->castToUnknown]->Obj.magic)->fromInternal
 let tuple3 = (v0, v1, v2) =>
-  Schema.definitionToSchema([v0->toUnknown, v1->toUnknown, v2->toUnknown]->Obj.magic)->fromInternal
+  Schema.definitionToSchema(
+    [v0->castToUnknown, v1->castToUnknown, v2->castToUnknown]->Obj.magic,
+  )->fromInternal
 let union = Union.factory
 let jsonString = JsonString.factory
 
@@ -5100,11 +5102,11 @@ let trim = schema => {
 }
 
 let nullable = schema => {
-  Union.factory([schema->toUnknown, unit->toUnknown, Literal.null->fromInternal])
+  Union.factory([schema->castToUnknown, unit->castToUnknown, Literal.null->fromInternal])
 }
 
 let nullableAsOption = schema => {
-  Union.factory([schema->toUnknown, unit->toUnknown, nullAsUnit->toUnknown])
+  Union.factory([schema->castToUnknown, unit->castToUnknown, nullAsUnit->castToUnknown])
 }
 
 // =============
@@ -5149,7 +5151,7 @@ let js_asyncParserRefine = (schema, refine) => {
 
 let js_optional = (schema, maybeOr) => {
   // TODO: maybeOr should be part of the unit schema
-  let schema = Union.factory([schema->toUnknown, unit->toUnknown])
+  let schema = Union.factory([schema->castToUnknown, unit->castToUnknown])
   switch maybeOr {
   | Some(or) if Js.typeof(or) === "function" => schema->Option.getOrWith(or->Obj.magic)->Obj.magic
   | Some(or) => schema->Option.getOr(or->Obj.magic)->Obj.magic
@@ -5159,7 +5161,7 @@ let js_optional = (schema, maybeOr) => {
 
 let js_nullable = (schema, maybeOr) => {
   // TODO: maybeOr should be part of the unit schema
-  let schema = Union.factory([schema->toUnknown, nullAsUnit->toUnknown])
+  let schema = Union.factory([schema->castToUnknown, nullAsUnit->castToUnknown])
   switch maybeOr {
   | Some(or) if Js.typeof(or) === "function" => schema->Option.getOrWith(or->Obj.magic)->Obj.magic
   | Some(or) => schema->Option.getOr(or->Obj.magic)->Obj.magic
