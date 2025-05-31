@@ -1034,11 +1034,10 @@ test("Can destructure fields of simple nested objects", t => {
     %raw(`{"nested": {"foo": "foo", "bar": "bar"}}`),
     (),
   )
-  // FIXME: Can be improved
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{let v0={"foo":i["foz"],"bar":i["baz"],};return {"nested":{"foo":v0["foo"],"bar":v0["bar"],},}}`,
+    `i=>{return {"nested":{"foo":i["foz"],"bar":i["baz"],},}}`,
   )
 })
 
@@ -1297,7 +1296,8 @@ test(
 
 test("Reverse empty object schema to literal", t => {
   let schema = S.object(_ => ())
-  t->U.assertEqualSchemas(schema->S.reverse, S.unit->S.toUnknown)
+  t->U.assertEqualSchemas(schema->S.reverse, S.unit->S.shape(_ => Js.Dict.empty())->S.toUnknown)
+  t->U.assertReverseReversesBack(schema)
   t->U.assertReverseParsesBack(schema, ())
 })
 
@@ -1315,7 +1315,18 @@ test("Reverse tagged object to literal without payload", t => {
     s.tag("kind", "test")
     #Test
   })
-  t->U.assertEqualSchemas(schema->S.reverse, S.literal(#Test)->S.toUnknown)
+  t->U.assertEqualSchemas(
+    schema->S.reverse,
+    S.literal(#Test)
+    ->S.shape(_ =>
+      {
+        "kind": "test",
+      }
+    )
+    ->S.toUnknown,
+  )
+
+  t->U.assertReverseReversesBack(schema)
   t->U.assertReverseParsesBack(schema, #Test)
 })
 
@@ -1324,7 +1335,19 @@ test("Reverse tagged object to primitive schema", t => {
     s.tag("kind", "test")
     s.field("field", S.bool)
   })
-  t->U.assertEqualSchemas(schema->S.reverse, S.bool->S.toUnknown)
+  t->U.assertEqualSchemas(
+    schema->S.reverse,
+    S.bool
+    ->S.shape(bool =>
+      {
+        "kind": "test",
+        "field": bool,
+      }
+    )
+    ->S.toUnknown,
+  )
+
+  t->U.assertReverseReversesBack(schema)
   t->U.assertReverseParsesBack(schema, true)
 })
 
@@ -1341,7 +1364,7 @@ test("Reverse object with discriminant which is an object transformed to literal
     )
     s.field("field", S.bool)
   })
-  t->U.assertEqualSchemas(schema->S.reverse, S.bool->S.toUnknown)
+  t->U.assertReverseReversesBack(schema)
   t->U.assertReverseParsesBack(schema, true)
 })
 
@@ -1356,24 +1379,23 @@ test("Reverse with output of nested object/tuple schema", t => {
   })
   t->U.assertEqualSchemas(
     schema->S.reverse,
-    S.object(s => {
-      let _ = s.field(
-        "nested",
-        S.object(
-          s => {
-            let _ = s.field(
-              "field",
-              S.tuple(
-                s => {
-                  let _ = s.item(0, S.bool)
-                  s.tag(1, true)
-                },
-              ),
-            )
-          },
-        ),
-      )
-    })->S.toUnknown,
+    S.schema(s => {
+      {
+        "nested": {
+          "field": (s.matches(S.bool), true),
+        },
+      }
+    })
+    ->S.shape(data =>
+      {
+        "kind": "test",
+        "raw_field": {
+          let (v, _) = data["nested"]["field"]
+          v
+        },
+      }
+    )
+    ->S.toUnknown,
   )
   t->U.assertReverseParsesBack(schema, {"nested": {"field": (true, true)}})
 })

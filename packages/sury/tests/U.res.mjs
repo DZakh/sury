@@ -179,6 +179,10 @@ function assertReverseParsesBack(t, schema, value) {
   t.deepEqual(S.parseOrThrow(S.reverseConvertOrThrow(value, schema), schema), value, undefined);
 }
 
+function assertReverseReversesBack(t, schema) {
+  unsafeAssertEqualSchemas(t, schema, S.reverse(S.reverse(schema)), undefined);
+}
+
 var assertEqualSchemas = unsafeAssertEqualSchemas;
 
 export {
@@ -199,5 +203,6 @@ export {
   assertCompiledCodeIsNoop ,
   assertEqualSchemas ,
   assertReverseParsesBack ,
+  assertReverseReversesBack ,
 }
 /* noopOpCode Not a pure module */
