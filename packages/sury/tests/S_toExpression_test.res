@@ -133,14 +133,14 @@ test("Expression of renamed schema", t => {
     {
       path: S.Path.empty,
       operation: Parse,
-      code: InvalidType({expected: renamedSchema->S.toUnknown, received: "smth"->Obj.magic}),
+      code: InvalidType({expected: renamedSchema->S.castToUnknown, received: "smth"->Obj.magic}),
     },
   )
   t->Assert.is(
     U.error({
       path: S.Path.empty,
       operation: Parse,
-      code: InvalidType({expected: renamedSchema->S.toUnknown, received: "smth"->Obj.magic}),
+      code: InvalidType({expected: renamedSchema->S.castToUnknown, received: "smth"->Obj.magic}),
     }).message,
     `Failed parsing: Expected Ethers.BigInt, received "smth"`,
     (),

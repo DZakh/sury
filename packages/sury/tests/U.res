@@ -152,10 +152,9 @@ let rec cleanUpSchema = schema => {
   ->Array.forEach(((key, value)) => {
     switch key {
     | "output"
-    | "advanced"
     | "isAsync" => ()
     // ditemToItem leftovers FIXME:
-    | "k" | "p" | "of" => ()
+    | "k" | "p" | "of" | "r" => ()
     | _ =>
       if typeof(value) === #function {
         ()
@@ -199,4 +198,8 @@ let assertReverseParsesBack = (t, schema: S.t<'value>, value: 'value) => {
     value,
     (),
   )
+}
+
+let assertReverseReversesBack = (t, schema: S.t<'value>) => {
+  t->assertEqualSchemas(schema->S.castToUnknown, schema->S.reverse->S.reverse)
 }

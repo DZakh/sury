@@ -24,7 +24,7 @@ test("Fails to parse object with inlinable string field", t => {
   t->U.assertThrows(
     () => %raw(`{field: 123}`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: S.string->S.toUnknown, received: %raw(`123`)}),
+      code: InvalidType({expected: S.string->S.castToUnknown, received: %raw(`123`)}),
       operation: Parse,
       path: S.Path.fromArray(["field"]),
     },
@@ -71,7 +71,7 @@ test("Fails to parse object with inlinable bool field", t => {
   t->U.assertThrows(
     () => %raw(`{field: 123}`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: S.bool->S.toUnknown, received: %raw(`123`)}),
+      code: InvalidType({expected: S.bool->S.castToUnknown, received: %raw(`123`)}),
       operation: Parse,
       path: S.Path.fromArray(["field"]),
     },
@@ -116,7 +116,7 @@ test("Fails to parse object with inlinable never field", t => {
   t->U.assertThrows(
     () => %raw(`{field: true}`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: S.never->S.toUnknown, received: %raw(`true`)}),
+      code: InvalidType({expected: S.never->S.castToUnknown, received: %raw(`true`)}),
       operation: Parse,
       path: S.Path.fromArray(["field"]),
     },
@@ -143,7 +143,7 @@ test("Fails to parse object with inlinable float field", t => {
   t->U.assertThrows(
     () => %raw(`{field: true}`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: S.float->S.toUnknown, received: %raw(`true`)}),
+      code: InvalidType({expected: S.float->S.castToUnknown, received: %raw(`true`)}),
       operation: Parse,
       path: S.Path.fromArray(["field"]),
     },
@@ -170,7 +170,7 @@ test("Fails to parse object with inlinable int field", t => {
   t->U.assertThrows(
     () => %raw(`{field: true}`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: S.int->S.toUnknown, received: %raw(`true`)}),
+      code: InvalidType({expected: S.int->S.castToUnknown, received: %raw(`true`)}),
       operation: Parse,
       path: S.Path.fromArray(["field"]),
     },
@@ -211,7 +211,7 @@ test("Fails to parse object when provided invalid data", t => {
   t->U.assertThrows(
     () => %raw(`12`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: schema->S.toUnknown, received: %raw(`12`)}),
+      code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`12`)}),
       operation: Parse,
       path: S.Path.empty,
     },
@@ -1034,11 +1034,10 @@ test("Can destructure fields of simple nested objects", t => {
     %raw(`{"nested": {"foo": "foo", "bar": "bar"}}`),
     (),
   )
-  // FIXME: Can be improved
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{let v0={"foo":i["foz"],"bar":i["baz"],};return {"nested":{"foo":v0["foo"],"bar":v0["bar"],},}}`,
+    `i=>{return {"nested":{"foo":i["foz"],"bar":i["baz"],},}}`,
   )
 })
 
@@ -1054,7 +1053,7 @@ test("Object schema parsing checks order", t => {
   t->U.assertThrows(
     () => %raw(`"foo"`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: schema->S.toUnknown, received: %raw(`"foo"`)}),
+      code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`"foo"`)}),
       operation: Parse,
       path: S.Path.empty,
     },
@@ -1067,7 +1066,7 @@ test("Object schema parsing checks order", t => {
       ),
     {
       code: InvalidType({
-        expected: schema->S.toUnknown,
+        expected: schema->S.castToUnknown,
         received: %raw(`{tag: "wrong", key: 123, unknownKey: "value", unknownKey2: "value"}`),
       }),
       operation: Parse,
@@ -1081,7 +1080,7 @@ test("Object schema parsing checks order", t => {
         schema,
       ),
     {
-      code: InvalidType({expected: S.string->S.toUnknown, received: %raw(`123`)}),
+      code: InvalidType({expected: S.string->S.castToUnknown, received: %raw(`123`)}),
       operation: Parse,
       path: S.Path.fromLocation("key"),
     },
@@ -1259,7 +1258,7 @@ module Compiled = {
       t->U.assertCompiledCode(
         ~schema,
         ~op=#ReverseConvert,
-        `i=>{return {"tag":e[0],"FOO":i["foo"],"BAR":i["bar"],}}`,
+        `i=>{return {"tag":0,"FOO":i["foo"],"BAR":i["bar"],}}`,
       )
     },
   )
@@ -1297,7 +1296,8 @@ test(
 
 test("Reverse empty object schema to literal", t => {
   let schema = S.object(_ => ())
-  t->U.assertEqualSchemas(schema->S.reverse, S.unit->S.toUnknown)
+  t->U.assertEqualSchemas(schema->S.reverse, S.unit->S.shape(_ => Js.Dict.empty())->S.castToUnknown)
+  t->U.assertReverseReversesBack(schema)
   t->U.assertReverseParsesBack(schema, ())
 })
 
@@ -1315,7 +1315,18 @@ test("Reverse tagged object to literal without payload", t => {
     s.tag("kind", "test")
     #Test
   })
-  t->U.assertEqualSchemas(schema->S.reverse, S.literal(#Test)->S.toUnknown)
+  t->U.assertEqualSchemas(
+    schema->S.reverse,
+    S.literal(#Test)
+    ->S.shape(_ =>
+      {
+        "kind": "test",
+      }
+    )
+    ->S.castToUnknown,
+  )
+
+  t->U.assertReverseReversesBack(schema)
   t->U.assertReverseParsesBack(schema, #Test)
 })
 
@@ -1324,7 +1335,19 @@ test("Reverse tagged object to primitive schema", t => {
     s.tag("kind", "test")
     s.field("field", S.bool)
   })
-  t->U.assertEqualSchemas(schema->S.reverse, S.bool->S.toUnknown)
+  t->U.assertEqualSchemas(
+    schema->S.reverse,
+    S.bool
+    ->S.shape(bool =>
+      {
+        "kind": "test",
+        "field": bool,
+      }
+    )
+    ->S.castToUnknown,
+  )
+
+  t->U.assertReverseReversesBack(schema)
   t->U.assertReverseParsesBack(schema, true)
 })
 
@@ -1341,7 +1364,7 @@ test("Reverse object with discriminant which is an object transformed to literal
     )
     s.field("field", S.bool)
   })
-  t->U.assertEqualSchemas(schema->S.reverse, S.bool->S.toUnknown)
+  t->U.assertReverseReversesBack(schema)
   t->U.assertReverseParsesBack(schema, true)
 })
 
@@ -1356,24 +1379,23 @@ test("Reverse with output of nested object/tuple schema", t => {
   })
   t->U.assertEqualSchemas(
     schema->S.reverse,
-    S.object(s => {
-      let _ = s.field(
-        "nested",
-        S.object(
-          s => {
-            let _ = s.field(
-              "field",
-              S.tuple(
-                s => {
-                  let _ = s.item(0, S.bool)
-                  s.tag(1, true)
-                },
-              ),
-            )
-          },
-        ),
-      )
-    })->S.toUnknown,
+    S.schema(s => {
+      {
+        "nested": {
+          "field": (s.matches(S.bool), true),
+        },
+      }
+    })
+    ->S.shape(data =>
+      {
+        "kind": "test",
+        "raw_field": {
+          let (v, _) = data["nested"]["field"]
+          v
+        },
+      }
+    )
+    ->S.castToUnknown,
   )
   t->U.assertReverseParsesBack(schema, {"nested": {"field": (true, true)}})
 })
