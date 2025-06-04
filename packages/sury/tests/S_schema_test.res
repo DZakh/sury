@@ -34,7 +34,7 @@ test("Object with embeded schema", t => {
     ~message=`i=>{if(typeof i!=="object"||!i||i["foo"]!=="bar"){e[1](i)}let v0=i["zoo"];if(typeof v0!=="number"||v0>2147483647||v0<-2147483648||v0%1!==0){e[0](v0)}return {"foo":i["foo"],"zoo":v0,}}`,
     (),
   )
-  t->Assert.is(schema->U.getCompiledCodeString(~op=#ReverseConvert), `i=>{return i}`, ())
+  t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
   t->Assert.is(
     objectSchema->U.getCompiledCodeString(~op=#ReverseConvert),
     `i=>{return {"foo":i["foo"],"zoo":i["zoo"],}}`,
@@ -90,7 +90,7 @@ test("Strict object with embeded returns input without object recreation", t => 
     `i=>{if(typeof i!=="object"||!i||Array.isArray(i)||i["foo"]!=="bar"){e[2](i)}let v0=i["zoo"],v1;if(typeof v0!=="number"||v0>2147483647||v0<-2147483648||v0%1!==0){e[0](v0)}for(v1 in i){if(v1!=="foo"&&v1!=="zoo"){e[1](v1)}}return i}`,
     (),
   )
-  t->Assert.is(schema->U.getCompiledCodeString(~op=#ReverseConvert), `i=>{return i}`, ())
+  t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
 })
 
 test("Tuple with embeded schema", t => {
@@ -113,7 +113,7 @@ test("Tuple with embeded schema", t => {
     `i=>{if(!Array.isArray(i)||i.length!==3||i["1"]!==void 0||i["2"]!=="bar"){e[1](i)}let v0=i["0"];if(typeof v0!=="string"){e[0](v0)}return [v0,i["1"],i["2"],]}`,
     (),
   )
-  t->Assert.is(schema->U.getCompiledCodeString(~op=#ReverseConvert), `i=>{return i}`, ())
+  t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
   t->Assert.is(
     tupleSchema->U.getCompiledCodeString(~op=#ReverseConvert),
     `i=>{return [i["0"],i["1"],i["2"],]}`,
@@ -260,8 +260,7 @@ test(
       ~op=#Parse,
       `i=>{if(!Array.isArray(i)||i.length!==2){e[2](i)}let v0=i["0"],v1=i["1"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="boolean"){e[1](v1)}return i}`,
     )
-    // FIXME: Make it noop
-    t->U.assertCompiledCode(~schema, ~op=#Convert, `i=>{return i}`)
+    t->U.assertCompiledCodeIsNoop(~schema, ~op=#Convert)
   },
 )
 
@@ -282,7 +281,7 @@ test("Object schema with empty object field", t => {
     ~op=#Parse,
     `i=>{if(typeof i!=="object"||!i||typeof i["foo"]!=="object"||!i["foo"]){e[0](i)}return {"foo":{},}}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return i}`)
+  t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
 })
 
 test("Object schema with nested object field containing only literal", t => {

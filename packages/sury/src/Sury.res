@@ -111,8 +111,7 @@ module Stdlib = {
   }
 
   module Dict = {
-    @val
-    external copy: (@as(json`{}`) _, dict<'a>) => dict<'a> = "Object.assign"
+    let copy: dict<'a> => dict<'a> = %raw(`(d) => ({...d})`)
 
     @val
     external mixin: (dict<'a>, dict<'a>) => dict<'a> = "Object.assign"
@@ -706,7 +705,7 @@ module Flag = {
 // Should actually benchmark whether it's faster
 // FIXME: If output (reverse) is populated on the schema,
 // it'll stay on the copied one, which will cause issues
-let copy: internal => internal = %raw(`(schema) => {
+let copyWithoutCache: internal => internal = %raw(`(schema) => {
   let c = new Schema()
   for (let k in schema) {
     if (k > "a") {
@@ -716,10 +715,10 @@ let copy: internal => internal = %raw(`(schema) => {
   return c
 }`)
 let updateOutput = (schema: internal, fn): t<'value> => {
-  let root = schema->copy
+  let root = schema->copyWithoutCache
   let mut = ref(root)
   while mut.contents.to->Obj.magic {
-    let next = mut.contents.to->Stdlib.Option.unsafeUnwrap->copy
+    let next = mut.contents.to->Stdlib.Option.unsafeUnwrap->copyWithoutCache
     mut.contents.to = Some(next)
     mut := next
   }
@@ -1120,7 +1119,11 @@ module Builder = {
         ->(Obj.magic: val => dict<val>)
         ->Stdlib.Dict.unsafeGetOption(inlinedLocation) {
         | Some(val) => val
-        | None => b->val(`${b->var(targetVal)}${Path.fromInlinedLocation(inlinedLocation)}`)
+        | None => {
+            let val = b->val(`${b->var(targetVal)}${Path.fromInlinedLocation(inlinedLocation)}`)
+            targetVal->(Obj.magic: val => dict<val>)->Js.Dict.set(inlinedLocation, val)
+            val
+          }
         }
       }
 
@@ -1635,7 +1638,7 @@ and reverse = (schema: internal) => {
   let current = ref(Some(schema))
 
   while current.contents->Obj.magic {
-    let mut = current.contents->Stdlib.Option.unsafeUnwrap->copy
+    let mut = current.contents->Stdlib.Option.unsafeUnwrap->copyWithoutCache
     let next = mut.to
     switch reversedHead.contents {
     | None => %raw(`delete mut.to`)
@@ -2079,7 +2082,7 @@ module Metadata = {
 
   let set = (schema, ~id: Id.t<'metadata>, metadata: 'metadata) => {
     let schema = schema->toInternal
-    let mut = schema->copy
+    let mut = schema->copyWithoutCache
     mut->setInPlace(~id, metadata)
     mut->fromInternal
   }
@@ -2161,7 +2164,7 @@ let recursive = fn => {
   schema.output = Some(
     () => {
       let initialReversed = initialReverse()
-      let mut = initialReversed->copy
+      let mut = initialReversed->copyWithoutCache
       mut.output = schema->Obj.magic
       schema.output = mut->Obj.magic
       mut.parser = Some(
@@ -2192,7 +2195,7 @@ let recursive = fn => {
 
 let noValidation = (schema, value) => {
   let schema = schema->toInternal
-  let mut = schema->copy
+  let mut = schema->copyWithoutCache
 
   // TODO: Test for discriminant literal
   // TODO: Better test reverse
@@ -2492,7 +2495,12 @@ module Union = {
 
           let itemIdx = ref(0)
           let lastIdx = schemas->Js.Array2.length - 1
+          let shouldCopyInput = firstSchema.tag === Object
           while itemIdx.contents <= lastIdx {
+            // The object schema mixins field vals to input
+            // we don't want to keep them between cases
+            let input = shouldCopyInput ? input->Obj.magic->Stdlib.Dict.copy->Obj.magic : input
+
             let schema = schemas->Js.Array2.unsafe_get(itemIdx.contents)
             let itemCond =
               (schema->isLiteral ? b->B.validation(~inputVar, ~schema, ~negative=false) : "") ++
@@ -2954,7 +2962,7 @@ module Object = {
     | {additionalItems: currentAdditionalItems, ?items}
       if currentAdditionalItems !== additionalItems &&
         currentAdditionalItems->Js.typeof !== "object" =>
-      let mut = schema->copy
+      let mut = schema->copyWithoutCache
       mut.additionalItems = Some(additionalItems)
       if deep {
         let items = items->Stdlib.Option.unsafeUnwrap
@@ -3116,7 +3124,7 @@ module JsonString = {
         jsonVal
       }),
     )
-    let to = item->copy
+    let to = item->copyWithoutCache
     to.serializer = Some(
       Builder.make((b, ~input, ~selfSchema, ~path as _) => {
         // let prevFlag = b.global.flag
@@ -3373,7 +3381,7 @@ module Catch = {
 }
 let catch = (schema, getFallbackValue) => {
   let schema = schema->toInternal
-  let mut = schema->copy
+  let mut = schema->copyWithoutCache
   mut.parser = Some(
     Builder.make((b, ~input, ~selfSchema, ~path) => {
       let inputVar = b->B.Val.var(input)
@@ -3408,7 +3416,7 @@ let catch = (schema, getFallbackValue) => {
 // TODO: Better test reverse
 let meta = (schema: t<'value>, data: meta<'value>) => {
   let schema = schema->toInternal
-  let mut = schema->copy
+  let mut = schema->copyWithoutCache
   switch data.name {
   | Some("") => mut.name = None
   | Some(name) => mut.name = Some(name)
@@ -3615,7 +3623,6 @@ module Schema = {
     let additionalItems = selfSchema.additionalItems
     let items = selfSchema.items->Stdlib.Option.unsafeUnwrap
     let isArray = selfSchema.tag === Array
-    let initialInput = input.inline
 
     if parentB.global.flag->Flag.unsafeHas(Flag.flatten) {
       let objectVal = parentB->B.Val.Object.make(~isArray)
@@ -3661,17 +3668,15 @@ module Schema = {
           // If we don't Strip or perform a reverse operation, return the original
           // instance of Val, so other code also think that the schema value is not transformed
           items->Js.Array2.every(item => {
-            (
-              objectVal
-              ->(Obj.magic: B.Val.Object.t => dict<val>)
+            objectVal
+            ->(Obj.magic: B.Val.Object.t => dict<val>)
+            ->Js.Dict.unsafeGet(item.inlinedLocation) ===
+              input
+              ->(Obj.magic: val => dict<val>)
               ->Js.Dict.unsafeGet(item.inlinedLocation)
-            ).inline === `${input.inline}[${item.inlinedLocation}]`
           })
       ) {
-        objectVal.var = input.var
-        objectVal.inline = initialInput
-        objectVal.flag = input.flag
-        (objectVal :> val)
+        input
       } else {
         objectVal->B.Val.Object.complete(~isArray)
       }
@@ -3765,7 +3770,7 @@ module Schema = {
     | Registred(_)
     | Discriminant(_) =>
       // Need to copy the schema here, because we're going to override the serializer
-      ritem->getRitemSchema->copy
+      ritem->getRitemSchema->copyWithoutCache
     | Node(_) => ritem->getRitemSchema
     }
 
