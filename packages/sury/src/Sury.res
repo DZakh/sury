@@ -2742,7 +2742,11 @@ module Array = {
           ) => b->B.parseWithTypeValidation(~schema=item, ~input, ~path))
         let itemCode = bb->B.allocateScope
         let isTransformed = itemInput !== itemOutput
-        let output = isTransformed ? b->B.val(`new Array(${inputVar}.length)`) : input
+        let output = isTransformed
+        // Return it back after val allocation is fixed
+          ? // b->B.val(`new Array(${inputVar}.length)`)
+            b->B.val(`[]`)
+          : input
 
         if isTransformed || itemCode !== "" {
           b.code =

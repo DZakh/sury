@@ -1994,7 +1994,7 @@ function factory$2(item$1) {
       var output = isTransformed ? ({
             b: b,
             v: _notVar,
-            i: "new Array(" + inputVar + ".length)",
+            i: "[]",
             a: false
           }) : input;
       if (isTransformed || itemCode !== "") {

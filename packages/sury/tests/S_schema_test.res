@@ -331,3 +331,23 @@ test("Object schema with nested object field containing only literal", t => {
   )
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{let v0=i["foo"];return i}`)
 })
+
+test("https://github.com/DZakh/sury/issues/131", t => {
+  let testSchema = S.schema(s =>
+    {
+      "foobar": s.matches(S.array(S.option(S.string))),
+    }
+  )
+
+  let json = (%raw(`{"weird": true}`): Js.Json.t)
+  t->U.assertThrowsMessage(
+    () => json->S.parseOrThrow(testSchema),
+    `Failed parsing at ["foobar"]: Expected (string | undefined)[], received undefined`,
+  )
+
+  t->U.assertCompiledCode(
+    ~schema=testSchema,
+    ~op=#Parse,
+    `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["foobar"],v5=[];if(!Array.isArray(v0)){e[0](v0)}for(let v1=0;v1<v0.length;++v1){let v3=v0[v1],v4;try{if(!(typeof v3==="string"||v3===void 0)){e[1](v3)}v4=v3}catch(v2){if(v2&&v2.s===s){v2.path="[\\"foobar\\"]"+\'["\'+v1+\'"]\'+v2.path}throw v2}v5[v1]=v4}return {"foobar":v5,}}`,
+  )
+})
