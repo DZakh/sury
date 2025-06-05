@@ -339,7 +339,7 @@ test("https://github.com/DZakh/sury/issues/131", t => {
     }
   )
 
-  let json = (%raw(`{"weird": true}`): Js.Json.t)
+  let json = (%raw(`{"weird": true}`): JSON.t)
   t->U.assertThrowsMessage(
     () => json->S.parseOrThrow(testSchema),
     `Failed parsing at ["foobar"]: Expected (string | undefined)[], received undefined`,
