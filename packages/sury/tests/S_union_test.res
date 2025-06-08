@@ -293,7 +293,7 @@ module Advanced = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i){e[9](i)}let v0=i["field"];if(typeof v0==="object"&&v0){if(v0["kind"]==="circle"){let v1=v0["radius"];if(typeof v1!=="number"||Number.isNaN(v1)){e[0](v1)}v0={"TAG":e[1],"radius":v1,}}else if(v0["kind"]==="square"){let v2=v0["x"];if(typeof v2!=="number"||Number.isNaN(v2)){e[2](v2)}v0={"TAG":e[3],"x":v2,}}else if(v0["kind"]==="triangle"){let v3=v0["x"],v4=v0["y"];if(typeof v3!=="number"||Number.isNaN(v3)){e[4](v3)}if(typeof v4!=="number"||Number.isNaN(v4)){e[5](v4)}v0={"TAG":e[6],"x":v3,"y":v4,}}else{e[7](v0)}}else{e[8](v0)}return v0}`,
+      `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["field"];if(typeof v0==="object"&&v0){if(v0["kind"]==="circle"){let v1=v0["radius"];if(typeof v1!=="number"||Number.isNaN(v1)){e[1](v1)}v0={"TAG":e[2],"radius":v1,}}else if(v0["kind"]==="square"){let v2=v0["x"];if(typeof v2!=="number"||Number.isNaN(v2)){e[3](v2)}v0={"TAG":e[4],"x":v2,}}else if(v0["kind"]==="triangle"){let v3=v0["x"],v4=v0["y"];if(typeof v3!=="number"||Number.isNaN(v3)){e[5](v3)}if(typeof v4!=="number"||Number.isNaN(v4)){e[6](v4)}v0={"TAG":e[7],"x":v3,"y":v4,}}else{e[8](v0)}}else{e[9](v0)}return v0}`,
     )
 
     t->U.assertThrows(() => data->S.parseOrThrow(schema), error)
@@ -426,7 +426,7 @@ test("Array should be checked before object even if it's later item in the union
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(Array.isArray(i)){for(let v0=0;v0<i.length;++v0){let v2=i[v0];try{if(typeof v2!=="string"){e[0](v2)}}catch(v1){if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1}}}else if(typeof i==="object"&&i){let v3=i["foo"];if(typeof v3!=="string"){e[1](v3)}i=[v3,]}else{e[2](i)}return i}`,
+    `i=>{if(Array.isArray(i)){for(let v0=0;v0<i.length;++v0){try{let v2=i[v0];if(typeof v2!=="string"){e[0](v2)}}catch(v1){if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1}}}else if(typeof i==="object"&&i){let v3=i["foo"];if(typeof v3!=="string"){e[1](v3)}i=[v3,]}else{e[2](i)}return i}`,
   )
 })
 
@@ -584,7 +584,7 @@ test("Union with nested variant", t => {
     ~schema,
     ~op=#ReverseConvert,
     // TODO: Can make it work without the second case since it doesn't do anything besides i=i
-    `i=>{if(typeof i==="object"&&i){if(typeof i["foo"]==="object"&&i["foo"]&&typeof i["foo"]["tag"]==="object"&&i["foo"]["tag"]&&i["foo"]["tag"]["NAME"]==="Null"){let v0=i["foo"];let v1=v0["tag"];let v2=v1["VAL"];if(v2===void 0){v2=null}i={"foo":{"tag":{"NAME":v1["NAME"],"VAL":v2,},},}}else if(typeof i["foo"]==="object"&&i["foo"]&&typeof i["foo"]["tag"]==="object"&&i["foo"]["tag"]&&i["foo"]["tag"]["NAME"]==="Option"){let v3=i["foo"];let v4=v3["tag"];}}return i}`,
+    `i=>{if(typeof i==="object"&&i){if(typeof i["foo"]==="object"&&i["foo"]&&typeof i["foo"]["tag"]==="object"&&i["foo"]["tag"]&&i["foo"]["tag"]["NAME"]==="Null"){let v0=i["foo"];let v1=v0["tag"];let v2=v1["VAL"];if(v2===void 0){v2=null}i={"foo":{"tag":{"NAME":v1["NAME"],"VAL":v2,},},}}else if(typeof i["foo"]==="object"&&i["foo"]&&typeof i["foo"]["tag"]==="object"&&i["foo"]["tag"]&&i["foo"]["tag"]["NAME"]==="Option"){let v3=i["foo"];let v4=v3["tag"];let v5=v4["VAL"];i={"foo":{"tag":{"NAME":v4["NAME"],"VAL":v5,},},}}}return i}`,
   )
 })
 
@@ -598,7 +598,7 @@ test("Nested union doesn't mutate the input", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[1](i)}let v0=i["foo"];if(typeof v0==="boolean"){v0=""+v0}else if(!(typeof v0==="string")){e[0](v0)}return {"foo":v0,}}`,
+    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["foo"];if(typeof v0==="boolean"){v0=""+v0}else if(!(typeof v0==="string")){e[1](v0)}return {"foo":v0,}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
