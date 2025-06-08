@@ -1098,7 +1098,7 @@ test("Successfully parses intersected objects", (t) => {
 
   t.deepEqual(
     S.compile(schema, "Input", "Output", "Sync", true).toString(),
-    `i=>{if(typeof i!=="object"||!i){e[3](i)}let v0=i["foo"],v1=i["bar"],v2=i["baz"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="boolean"){e[1](v1)}if(typeof v2!=="string"){e[2](v2)}return {"foo":v0,"bar":v1,"baz":v2,}}`
+    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["foo"],v1=i["bar"],v2=i["baz"];if(typeof v0!=="string"){e[1](v0)}if(typeof v1!=="boolean"){e[2](v1)}if(typeof v2!=="string"){e[3](v2)}return {"foo":v0,"bar":v1,"baz":v2,}}`
   );
 
   expectType<
@@ -1224,7 +1224,7 @@ test("Successfully serializes S.merge", (t) => {
 
   t.deepEqual(
     S.compile(schema, "Output", "Input", "Sync", true).toString(),
-    `i=>{if(typeof i!=="object"||!i){e[3](i)}let v0=i["foo"],v1=i["bar"],v2=i["baz"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="boolean"){e[1](v1)}if(typeof v2!=="string"){e[2](v2)}return i}`
+    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["foo"],v1=i["bar"],v2=i["baz"];if(typeof v0!=="string"){e[1](v0)}if(typeof v1!=="boolean"){e[2](v1)}if(typeof v2!=="string"){e[3](v2)}return i}`
   );
 
   const value = S.reverseConvertOrThrow(

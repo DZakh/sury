@@ -524,12 +524,10 @@ and b = {
   mutable varsAllocation: string,
   @as("a")
   mutable allocate: string => unit,
+  @as("f")
+  mutable filterCode: string,
   @as("g")
   global: bGlobal,
-  // A hacky workaround to prevent applying the refiner twice
-  // FIXME: Test whether it needs to be applied for serializing
-  @as("r")
-  mutable skipNextRefiner?: bool,
 }
 and bGlobal = {
   @as("c")
@@ -542,6 +540,8 @@ and bGlobal = {
   mutable varCounter: int,
   @as("o")
   mutable flag: int,
+  @as("f")
+  mutable filterCode: string,
   @as("e")
   embeded: array<unknown>,
 }
@@ -677,8 +677,11 @@ type s<'value> = {
 
 module ValFlag = {
   @inline let none = 0
-  @inline let input = 1
+  @inline let valid = 1
   @inline let async = 2
+  // A hacky workaround to prevent applying the refiner twice
+  // FIXME: Test whether it needs to be applied for serializing
+  @inline let refined = 4
 }
 
 module Flag = {
@@ -692,8 +695,8 @@ module Flag = {
   @inline let flatten = 64
 
   external with: (flag, flag) => flag = "%orint"
-  // @inline
-  // let without = (flags, flag) => flags->with(flag)->lxor(flag)
+  @inline
+  let without = (flags, flag) => flags->with(flag)->lxor(flag)
 
   let unsafeHas = (acc: flag, flag) => acc->land(flag)->(Obj.magic: int => bool)
   let has = (acc: flag, flag) => acc->land(flag) !== 0
@@ -948,6 +951,7 @@ module Builder = {
         varCounter: -1,
         embeded: [],
         flag,
+        filterCode: "",
       }
       (global->Obj.magic)["g"] = global
       global->(Obj.magic: bGlobal => b)
@@ -958,6 +962,7 @@ module Builder = {
       {
         allocate: initialAllocate,
         global: b.global,
+        filterCode: "",
         code: "",
         varsAllocation: "",
       }
@@ -969,7 +974,9 @@ module Builder = {
       // linked to allocated scopes
       let _ = %raw(`delete b.a`)
       let varsAllocation = b.varsAllocation
-      varsAllocation === "" ? b.code : `let ${varsAllocation};${b.code}`
+      varsAllocation === ""
+        ? b.filterCode ++ b.code
+        : `${b.filterCode}let ${varsAllocation};${b.code}`
     }
 
     let varWithoutAllocation = (global: bGlobal) => {
@@ -984,7 +991,7 @@ module Builder = {
       let v = b.global->varWithoutAllocation
       switch val.inline {
       | "" => val.b.allocate(v)
-      | i if val.b.allocate !== %raw(`void 0`) => val.b.allocate(`${v}=${i}`)
+      | i if b.allocate !== %raw(`void 0`) => b.allocate(`${v}=${i}`)
       | i =>
         b.code = b.code ++ `${v}=${i};`
         b.global.allocate(v)
@@ -997,22 +1004,27 @@ module Builder = {
     let allocateVal = (b: b): val => {
       let v = b.global->varWithoutAllocation
       b.allocate(v)
-      {b, var: _var, inline: v, flag: ValFlag.none}
+      {b, var: _var, inline: v, flag: ValFlag.valid}
     }
 
     @inline
     let val = (b: b, initial: string): val => {
+      {b, var: _notVar, inline: initial, flag: ValFlag.valid}
+    }
+
+    @inline
+    let notValidVal = (b: b, initial: string): val => {
       {b, var: _notVar, inline: initial, flag: ValFlag.none}
     }
 
     @inline
     let embedVal = (b: b, value): val => {
-      {b, var: _var, inline: b->embed(value), flag: ValFlag.none}
+      {b, var: _var, inline: b->embed(value), flag: ValFlag.valid}
     }
 
     @inline
     let asyncVal = (b: b, initial: string): val => {
-      {b, var: _notVar, inline: initial, flag: ValFlag.async}
+      {b, var: _notVar, inline: initial, flag: ValFlag.async->Flag.with(ValFlag.valid)}
     }
 
     module Val = {
@@ -1079,6 +1091,7 @@ module Builder = {
             objectVal.flag = objectVal.flag->Flag.with(ValFlag.async)
             objectVal.inline = `Promise.all([${objectVal.promiseAllContent}]).then(a=>(${objectVal.inline}))`
           }
+          objectVal.flag = objectVal.flag->Flag.with(ValFlag.valid)
           (objectVal :> val)
         }
       }
@@ -1120,7 +1133,12 @@ module Builder = {
         ->Stdlib.Dict.unsafeGetOption(inlinedLocation) {
         | Some(val) => val
         | None => {
-            let val = b->val(`${b->var(targetVal)}${Path.fromInlinedLocation(inlinedLocation)}`)
+            let val = {
+              b,
+              var: _notVar,
+              inline: `${b->var(targetVal)}${Path.fromInlinedLocation(inlinedLocation)}`,
+              flag: ValFlag.none,
+            }
             targetVal->(Obj.magic: val => dict<val>)->Js.Dict.set(inlinedLocation, val)
             val
           }
@@ -1427,13 +1445,25 @@ module Builder = {
       output
     }
 
-    let rec parse = (b: b, ~schema, ~input, ~path) => {
+    let rec parse = (prevB: b, ~schema, ~input, ~path) => {
+      let b = scope(prevB)
+
+      if (
+        !(input.flag->Flag.unsafeHas(ValFlag.valid)) &&
+        (b.global.flag->Flag.unsafeHas(Flag.typeValidation) || schema->isLiteral)
+      ) {
+        b.filterCode = prevB->typeFilterCode(~schema, ~input, ~path)
+        input.flag = input.flag->Flag.with(ValFlag.valid)
+      }
+
       let input = switch schema.refiner {
-      | Some(refiner) if !(b.skipNextRefiner->Obj.magic) =>
+      | Some(refiner) if !(input.flag->Flag.unsafeHas(ValFlag.refined)) =>
         // Some refiners like union might return a new
         // instance of value. This is used for an assumption
         // that it's transformed.
-        refiner(b, ~input, ~selfSchema=schema, ~path)
+        let output = refiner(b, ~input, ~selfSchema=schema, ~path)
+        output.flag = output.flag->Flag.with(ValFlag.refined)
+        output
       | _ => input
       }
       switch schema.to {
@@ -1441,88 +1471,84 @@ module Builder = {
         let input = switch schema.parser {
         | Some(parser) => parser(b, ~input, ~selfSchema=schema, ~path)
         | None => {
-            let validateTo = ref(false)
-            let input = {
-              let target = schema.to->Stdlib.Option.unsafeUnwrap
+            let target = schema.to->Stdlib.Option.unsafeUnwrap
 
-              let isFromLiteral = schema->isLiteral
-              let isTargetLiteral = target->isLiteral
+            let isFromLiteral = schema->isLiteral
+            let isTargetLiteral = target->isLiteral
 
-              switch (schema, target) {
-              | (_, _) if isFromLiteral && isTargetLiteral => b->val(b->inlineConst(target))
-              | ({tag: fromTag}, {tag: targetTag})
-                if fromTag === targetTag && isFromLiteral && !isTargetLiteral => input
-              | (_, {tag: Unknown}) => input
-              | ({tag: Unknown}, _) | ({tag: String}, {tag: String, const: _}) => {
-                  validateTo := true
-                  input
-                }
-              | ({tag: String}, {tag: String}) // FIXME: validate that refinements match
-              | ({tag: Number, format: Int32}, {tag: Number, format: ?None}) => input
-              | ({tag: Boolean | Number | BigInt | Undefined | Null | NaN, ?const}, {tag: String})
-                if isFromLiteral =>
-                b->val(`"${const->Obj.magic}"`)
-
-              | ({tag: Boolean | Number | BigInt}, {tag: String}) => b->val(`""+${input.inline}`)
-              | ({tag: String}, {tag: Boolean | Number | BigInt | Undefined | Null | NaN, ?const})
-                if isTargetLiteral =>
-                b->withCoerceScope(~input, ~path, ~target, (b, ~inputVar, ~failCoercion) => {
-                  b.code = b.code ++ `${inputVar}==="${const->Obj.magic}"||${failCoercion};`
-                  b->val(b->inlineConst(target))
-                })
-
-              | ({tag: String}, {tag: Boolean}) =>
-                b->withCoerceScope(~input, ~path, ~target, (b, ~inputVar, ~failCoercion) => {
-                  let output = b->allocateVal
-                  b.code =
-                    b.code ++
-                    `(${output.inline}=${inputVar}==="true")||${inputVar}==="false"||${failCoercion};`
-                  output
-                })
-
-              | ({tag: String}, {tag: Number, ?format}) =>
-                b->withCoerceScope(~input, ~path, ~target, (b, ~inputVar, ~failCoercion) => {
-                  let output = b->val(`+${inputVar}`)
-                  let outputVar = output.var(b)
-                  b.code =
-                    b.code ++
-                    switch format {
-                    | None => `Number.isNaN(${outputVar})`
-                    | Some(_) =>
-                      `(${b
-                        ->refinement(~inputVar=outputVar, ~schema=target, ~negative=true)
-                        ->Js.String2.sliceToEnd(~from=2)})`
-                    } ++
-                    `&&${failCoercion};`
-                  output
-                })
-              | ({tag: String}, {tag: BigInt}) =>
-                b->withCoerceScope(~input, ~path, ~target, (b, ~inputVar, ~failCoercion) => {
-                  let output = b->allocateVal
-                  b.code =
-                    b.code ++ `try{${output.inline}=BigInt(${inputVar})}catch(_){${failCoercion}}`
-                  output
-                })
-
-              | _ =>
-                InternalError.panic(
-                  `Coercion from ${schema->fromInternal->toExpression} to ${target
-                    ->fromInternal
-                    ->toExpression} is not supported`,
-                )
+            switch (schema, target) {
+            | (_, _) if isFromLiteral && isTargetLiteral => b->val(b->inlineConst(target))
+            | ({tag: fromTag}, {tag: targetTag})
+              if fromTag === targetTag && isFromLiteral && !isTargetLiteral => input
+            | (_, {tag: Unknown}) => input
+            | ({tag: Unknown}, _) | ({tag: String}, {tag: String, const: _}) => {
+                input.flag = input.flag->Flag.without(ValFlag.valid)
+                input
               }
+            | ({tag: String}, {tag: String}) // FIXME: validate that refinements match
+            | ({tag: Number, format: Int32}, {tag: Number, format: ?None}) => input
+            | ({tag: Boolean | Number | BigInt | Undefined | Null | NaN, ?const}, {tag: String})
+              if isFromLiteral =>
+              b->val(`"${const->Obj.magic}"`)
+
+            | ({tag: Boolean | Number | BigInt}, {tag: String}) => b->val(`""+${input.inline}`)
+            | ({tag: String}, {tag: Boolean | Number | BigInt | Undefined | Null | NaN, ?const})
+              if isTargetLiteral =>
+              b->withCoerceScope(~input, ~path, ~target, (b, ~inputVar, ~failCoercion) => {
+                b.code = b.code ++ `${inputVar}==="${const->Obj.magic}"||${failCoercion};`
+                b->val(b->inlineConst(target))
+              })
+
+            | ({tag: String}, {tag: Boolean}) =>
+              b->withCoerceScope(~input, ~path, ~target, (b, ~inputVar, ~failCoercion) => {
+                let output = b->allocateVal
+                b.code =
+                  b.code ++
+                  `(${output.inline}=${inputVar}==="true")||${inputVar}==="false"||${failCoercion};`
+                output
+              })
+
+            | ({tag: String}, {tag: Number, ?format}) =>
+              b->withCoerceScope(~input, ~path, ~target, (b, ~inputVar, ~failCoercion) => {
+                let output = b->val(`+${inputVar}`)
+                let outputVar = output.var(b)
+                b.code =
+                  b.code ++
+                  switch format {
+                  | None => `Number.isNaN(${outputVar})`
+                  | Some(_) =>
+                    `(${b
+                      ->refinement(~inputVar=outputVar, ~schema=target, ~negative=true)
+                      ->Js.String2.sliceToEnd(~from=2)})`
+                  } ++
+                  `&&${failCoercion};`
+                output
+              })
+            | ({tag: String}, {tag: BigInt}) =>
+              b->withCoerceScope(~input, ~path, ~target, (b, ~inputVar, ~failCoercion) => {
+                let output = b->allocateVal
+                b.code =
+                  b.code ++ `try{${output.inline}=BigInt(${inputVar})}catch(_){${failCoercion}}`
+                output
+              })
+
+            | _ =>
+              InternalError.panic(
+                `Coercion from ${schema->fromInternal->toExpression} to ${target
+                  ->fromInternal
+                  ->toExpression} is not supported`,
+              )
             }
-            if validateTo.contents {
-              // Setting it immediately to b.code might result in
-              // resetting b.code accumulated inside of typeFilterCode
-              let filterCode = b->typeFilterCode(~schema=to, ~input, ~path)
-              b.code = b.code ++ filterCode
-            }
-            input
           }
         }
-        b->parse(~schema=to, ~input, ~path)
-      | None => input
+
+        let output = b->parse(~schema=to, ~input, ~path)
+        prevB.code = prevB.code ++ b->allocateScope
+        output
+      | None => {
+          prevB.code = prevB.code ++ b->allocateScope
+          input
+        }
       }
     }
 
@@ -1533,7 +1559,7 @@ module Builder = {
     }
 
     let parseWithTypeValidation = (b: b, ~schema, ~input, ~path) => {
-      b->typeValidation(~schema, ~input, ~path)
+      // b->typeValidation(~schema, ~input, ~path)
       b->parse(~schema, ~input, ~path)
     }
   }
@@ -1563,22 +1589,22 @@ let rec internalCompile = (~schema, ~flag) => {
     jsonableValidation(~output, ~parent=output, ~path=Path.empty, ~flag, ~recSet=None)
   }
 
-  let input = {b, var: B._var, inline: Builder.intitialInputVar, flag: ValFlag.none}
+  let input = {
+    b,
+    var: B._var,
+    inline: Builder.intitialInputVar,
+    flag: flag->Flag.has(Flag.typeValidation) || schema->isLiteral ? ValFlag.none : ValFlag.valid,
+  }
 
   let output = B.parse(b, ~schema, ~input, ~path=Path.empty)
+
+  let code = b->B.allocateScope
+
   let isAsync = output.flag->Flag.has(ValFlag.async)
   schema.isAsync = Some(isAsync)
 
-  if b.varsAllocation !== "" {
-    b.code = `let ${b.varsAllocation};${b.code}`
-  }
-
-  if flag->Flag.unsafeHas(Flag.typeValidation) || schema->isLiteral {
-    b.code = b->B.typeFilterCode(~schema, ~input, ~path=Path.empty) ++ b.code
-  }
-
   if (
-    b.code === "" &&
+    code === "" &&
     output === input &&
     !(
       flag->Flag.unsafeHas(
@@ -1604,7 +1630,7 @@ let rec internalCompile = (~schema, ~flag) => {
       inlinedOutput := `Promise.resolve(${inlinedOutput.contents})`
     }
 
-    let inlinedFunction = `${Builder.intitialInputVar}=>{${b.code}return ${inlinedOutput.contents}}`
+    let inlinedFunction = `${Builder.intitialInputVar}=>{${code}return ${inlinedOutput.contents}}`
 
     // Js.log(inlinedFunction)
 
@@ -2008,7 +2034,7 @@ let isAsync = schema => {
       let input = {
         b,
         var: B._var,
-        flag: ValFlag.input,
+        flag: ValFlag.none,
         inline: Builder.intitialInputVar,
       }
       let output = B.parse(b, ~schema, ~input, ~path=Path.empty)
@@ -2215,9 +2241,8 @@ let internalRefine = (schema, refiner) => {
           | None => input
           },
           (b, ~input) => {
-            let bb = b->B.scope
-            let rCode = refiner(bb, ~inputVar=bb->B.Val.var(input), ~selfSchema, ~path)
-            b.code = b.code ++ bb->B.allocateScope ++ rCode
+            let rCode = refiner(b, ~inputVar=b->B.Val.var(input), ~selfSchema, ~path)
+            b.code = b.code ++ rCode
             input
           },
         )
@@ -2333,7 +2358,12 @@ module Union = {
     try {
       let bb = b->B.scope
       if deopt {
-        bb.code = bb.code ++ bb->B.typeFilterCode(~schema, ~input, ~path)
+        let filterCode = bb->B.typeFilterCode(~schema, ~input, ~path)
+        bb.code = bb.code ++ filterCode
+      }
+      let input = {
+        ...input,
+        flag: input.flag->Flag.with(ValFlag.valid),
       }
       let itemOutput = bb->B.parse(~schema, ~input, ~path)
 
@@ -2495,12 +2525,7 @@ module Union = {
 
           let itemIdx = ref(0)
           let lastIdx = schemas->Js.Array2.length - 1
-          let shouldCopyInput = firstSchema.tag === Object
           while itemIdx.contents <= lastIdx {
-            // The object schema mixins field vals to input
-            // we don't want to keep them between cases
-            let input = shouldCopyInput ? input->Obj.magic->Stdlib.Dict.copy->Obj.magic : input
-
             let schema = schemas->Js.Array2.unsafe_get(itemIdx.contents)
             let itemCond =
               (schema->isLiteral ? b->B.validation(~inputVar, ~schema, ~negative=false) : "") ++
@@ -2911,7 +2936,7 @@ module Array = {
     let iteratorVar = b.global->B.varWithoutAllocation
 
     let bb = b->B.scope
-    let itemInput = bb->B.val(`${inputVar}[${iteratorVar}]`)
+    let itemInput = bb->B.notValidVal(`${inputVar}[${iteratorVar}]`)
     let itemOutput =
       bb->B.withPathPrepend(~input=itemInput, ~path, ~dynamicLocationVar=iteratorVar, (
         b,
@@ -3014,7 +3039,7 @@ module Dict = {
     let keyVar = b.global->B.varWithoutAllocation
 
     let bb = b->B.scope
-    let itemInput = bb->B.val(`${inputVar}[${keyVar}]`)
+    let itemInput = bb->B.notValidVal(`${inputVar}[${keyVar}]`)
     let itemOutput =
       bb->B.withPathPrepend(~path, ~input=itemInput, ~dynamicLocationVar=keyVar, (
         b,
@@ -3564,7 +3589,7 @@ module Schema = {
     ) {
       let key = b->B.allocateVal
       let keyVar = key.inline
-      b.code = b.code ++ `for(${keyVar} in ${input.inline}){if(`
+      b.code = b.code ++ `for(${keyVar} in ${b->B.Val.var(input)}){if(`
       switch items {
       | [] => b.code = b.code ++ "true"
       | _ =>
@@ -3642,17 +3667,14 @@ module Schema = {
       for idx in 0 to items->Js.Array2.length - 1 {
         let {schema, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
         let schema = schema->toInternal
-        let itemPath = inlinedLocation->Path.fromInlinedLocation
 
         let itemInput = b->B.Val.get(input, inlinedLocation)
-        let path = path->Path.concat(itemPath)
+        let path = path->Path.concat(inlinedLocation->Path.fromInlinedLocation)
 
         if (
-          b.global.flag->Flag.unsafeHas(Flag.typeValidation) &&
-          !(schema->isLiteral) &&
-          schema.tag !== Object
+          input.flag->Flag.unsafeHas(ValFlag.valid) && (schema->isLiteral || schema.tag === Object)
         ) {
-          b.code = b.code ++ b->B.typeFilterCode(~schema, ~input=itemInput, ~path)
+          itemInput.flag = itemInput.flag->Flag.with(Flag.typeValidation)
         }
 
         objectVal->B.Val.Object.add(inlinedLocation, b->B.parse(~schema, ~input=itemInput, ~path))
@@ -3684,36 +3706,28 @@ module Schema = {
   }
 
   and advancedBuilder = (~definition, ~flattened: option<array<ditem>>=?) => (
-    parentB,
+    b,
     ~input,
     ~selfSchema,
     ~path,
   ) => {
-    let isFlatten = parentB.global.flag->Flag.unsafeHas(Flag.flatten)
+    let isFlatten = b.global.flag->Flag.unsafeHas(Flag.flatten)
     let outputs = isFlatten ? input->Obj.magic : Js.Dict.empty()
-
-    let b = parentB->B.scope
 
     if !isFlatten {
       let items = selfSchema.items->Stdlib.Option.unsafeUnwrap
-
-      let inputVar = b->B.Val.var(input)
 
       for idx in 0 to items->Js.Array2.length - 1 {
         let {schema, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
         let schema = schema->toInternal
 
-        let itemPath = inlinedLocation->Path.fromInlinedLocation
-
-        let itemInput = b->B.val(`${inputVar}${itemPath}`)
-        let path = path->Path.concat(itemPath)
+        let itemInput = b->B.Val.get(input, inlinedLocation)
+        let path = path->Path.concat(inlinedLocation->Path.fromInlinedLocation)
 
         if (
-          b.global.flag->Flag.unsafeHas(Flag.typeValidation) &&
-          !(schema->isLiteral) &&
-          schema.tag !== Object
+          input.flag->Flag.unsafeHas(ValFlag.valid) && (schema->isLiteral || schema.tag === Object)
         ) {
-          b.code = b.code ++ b->B.typeFilterCode(~schema, ~input=itemInput, ~path)
+          itemInput.flag = itemInput.flag->Flag.with(Flag.typeValidation)
         }
 
         outputs->Js.Dict.set(inlinedLocation, b->B.parse(~schema, ~input=itemInput, ~path))
@@ -3753,9 +3767,6 @@ module Schema = {
         ~definition=definition->(Obj.magic: unknown => Definition.t<ditem>),
         ~getItemOutput,
       )
-
-    parentB.code = parentB.code ++ b->B.allocateScope
-    parentB.skipNextRefiner = Some(true)
 
     output
   }
@@ -3927,7 +3938,6 @@ module Schema = {
                 ~getItemOutput,
               )
             b.code = b.code ++ bb->B.allocateScope
-            b.skipNextRefiner = Some(true)
 
             output
           }),

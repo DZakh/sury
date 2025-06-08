@@ -87,7 +87,7 @@ test("Strict object with embeded returns input without object recreation", t => 
 
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Parse),
-    `i=>{if(typeof i!=="object"||!i||Array.isArray(i)||i["foo"]!=="bar"){e[2](i)}let v0=i["zoo"],v1;if(typeof v0!=="number"||v0>2147483647||v0<-2147483648||v0%1!==0){e[0](v0)}for(v1 in i){if(v1!=="foo"&&v1!=="zoo"){e[1](v1)}}return i}`,
+    `i=>{if(typeof i!=="object"||!i||Array.isArray(i)||i["foo"]!=="bar"){e[0](i)}let v0=i["zoo"],v1;if(typeof v0!=="number"||v0>2147483647||v0<-2147483648||v0%1!==0){e[1](v0)}for(v1 in i){if(v1!=="foo"&&v1!=="zoo"){e[2](v1)}}return i}`,
     (),
   )
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
@@ -105,12 +105,12 @@ test("Tuple with embeded schema", t => {
   // S.schema does return i without tuple recreation
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Parse),
-    `i=>{if(!Array.isArray(i)||i.length!==3||i["1"]!==void 0||i["2"]!=="bar"){e[1](i)}let v0=i["0"];if(typeof v0!=="string"){e[0](v0)}return i}`,
+    `i=>{if(!Array.isArray(i)||i.length!==3||i["1"]!==void 0||i["2"]!=="bar"){e[0](i)}let v0=i["0"];if(typeof v0!=="string"){e[1](v0)}return i}`,
     (),
   )
   t->Assert.is(
     tupleSchema->U.getCompiledCodeString(~op=#Parse),
-    `i=>{if(!Array.isArray(i)||i.length!==3||i["1"]!==void 0||i["2"]!=="bar"){e[1](i)}let v0=i["0"];if(typeof v0!=="string"){e[0](v0)}return [v0,i["1"],i["2"],]}`,
+    `i=>{if(!Array.isArray(i)||i.length!==3||i["1"]!==void 0||i["2"]!=="bar"){e[0](i)}let v0=i["0"];if(typeof v0!=="string"){e[1](v0)}return [v0,i["1"],i["2"],]}`,
     (),
   )
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
@@ -258,7 +258,7 @@ test(
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(!Array.isArray(i)||i.length!==2){e[2](i)}let v0=i["0"],v1=i["1"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="boolean"){e[1](v1)}return i}`,
+      `i=>{if(!Array.isArray(i)||i.length!==2){e[0](i)}let v0=i["0"],v1=i["1"];if(typeof v0!=="string"){e[1](v0)}if(typeof v1!=="boolean"){e[2](v1)}return i}`,
     )
     t->U.assertCompiledCodeIsNoop(~schema, ~op=#Convert)
   },
