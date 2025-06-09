@@ -3404,7 +3404,7 @@ module Catch = {
 let catch = (schema, getFallbackValue) => {
   let schema = schema->toInternal
   let mut = schema->copyWithoutCache
-  mut.parser = Some(
+  mut.refiner = Some(
     Builder.make((b, ~input, ~selfSchema, ~path) => {
       let inputVar = b->B.Val.var(input)
 
@@ -4406,7 +4406,7 @@ let unnestSerializer = Builder.make((b, ~input, ~selfSchema, ~path) => {
   let outputVar = b.global->B.varWithoutAllocation
 
   let bb = b->B.scope
-  let itemInput = bb->B.val(`${inputVar}[${iteratorVar}]`)
+  let itemInput = bb->B.notValidVal(`${inputVar}[${iteratorVar}]`)
   let itemOutput = bb->B.withPathPrepend(
     ~input=itemInput,
     ~path,
@@ -4483,7 +4483,7 @@ let unnest = schema => {
           let item = items->Js.Array2.unsafe_get(idx)
           itemInput->B.Val.Object.add(
             item.inlinedLocation,
-            bb->B.val(`${inputVar}[${idx->Stdlib.Int.unsafeToString}][${iteratorVar}]`),
+            bb->B.notValidVal(`${inputVar}[${idx->Stdlib.Int.unsafeToString}][${iteratorVar}]`),
           )
           lengthCode :=
             lengthCode.contents ++ `${inputVar}[${idx->Stdlib.Int.unsafeToString}].length,`
