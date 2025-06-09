@@ -820,23 +820,14 @@ function typeFilterCode(b, schema, input, path) {
 }
 
 function withCoerceScope(b, input, path, target, coercion) {
-  var bb = {
-    c: "",
-    l: "",
-    a: initialAllocate,
-    f: "",
-    g: b.g
-  };
-  var inputVar = input.v(bb);
-  var output = coercion(bb, inputVar, failWithArg(bb, path, (function (input) {
-              return {
-                      TAG: "InvalidType",
-                      expected: target,
-                      received: input
-                    };
-            }), inputVar));
-  b.c = b.c + allocateScope(bb);
-  return output;
+  var inputVar = input.v(b);
+  return coercion(b, inputVar, failWithArg(b, path, (function (input) {
+                    return {
+                            TAG: "InvalidType",
+                            expected: target,
+                            received: input
+                          };
+                  }), inputVar));
 }
 
 function parse(prevB, schema, input, path) {
@@ -1051,10 +1042,6 @@ function typeValidation(b, schema, input, path) {
   
 }
 
-function parseWithTypeValidation(b, schema, input, path) {
-  return parse(b, schema, input, path);
-}
-
 function noopOperation(i) {
   return i;
 }
@@ -1067,50 +1054,6 @@ var nonJsonableTags = new Set([
       "instance",
       "symbol"
     ]);
-
-function jsonableValidation(output, parent, path, flag, recSet) {
-  var tag = output.type;
-  if (tag === "undefined" && parent.type !== "object" || nonJsonableTags.has(tag)) {
-    throw new SuryError({
-              TAG: "InvalidJsonSchema",
-              _0: parent
-            }, flag, path);
-  }
-  var match = output.type;
-  switch (match) {
-    case "array" :
-    case "object" :
-    case "union" :
-        break;
-    default:
-      return ;
-  }
-  var recSet$1 = recSet !== undefined ? Caml_option.valFromOption(recSet) : new Set();
-  if (recSet$1.has(output)) {
-    return ;
-  }
-  recSet$1.add(output);
-  var recSet$2 = Caml_option.some(recSet$1);
-  if (tag === "union") {
-    output.anyOf.forEach(function (s) {
-          jsonableValidation(s, parent, path, flag, recSet$2);
-        });
-    return ;
-  }
-  var additionalItems = output.additionalItems;
-  var items = output.items;
-  if (items === undefined) {
-    return ;
-  }
-  if (additionalItems === "strip" || additionalItems === "strict") {
-    additionalItems === "strip";
-  } else {
-    jsonableValidation(additionalItems, parent, path, flag, recSet$2);
-  }
-  items.forEach(function (item) {
-        jsonableValidation(item.schema, output, path + ("[" + item.inlinedLocation + "]"), flag, recSet$2);
-      });
-}
 
 function reverse(schema) {
   var reversedHead;
@@ -1193,6 +1136,50 @@ function reverse(schema) {
     current = next;
   };
   return reversedHead;
+}
+
+function jsonableValidation(output, parent, path, flag, recSet) {
+  var tag = output.type;
+  if (tag === "undefined" && parent.type !== "object" || nonJsonableTags.has(tag)) {
+    throw new SuryError({
+              TAG: "InvalidJsonSchema",
+              _0: parent
+            }, flag, path);
+  }
+  var match = output.type;
+  switch (match) {
+    case "array" :
+    case "object" :
+    case "union" :
+        break;
+    default:
+      return ;
+  }
+  var recSet$1 = recSet !== undefined ? Caml_option.valFromOption(recSet) : new Set();
+  if (recSet$1.has(output)) {
+    return ;
+  }
+  recSet$1.add(output);
+  var recSet$2 = Caml_option.some(recSet$1);
+  if (tag === "union") {
+    output.anyOf.forEach(function (s) {
+          jsonableValidation(s, parent, path, flag, recSet$2);
+        });
+    return ;
+  }
+  var additionalItems = output.additionalItems;
+  var items = output.items;
+  if (items === undefined) {
+    return ;
+  }
+  if (additionalItems === "strip" || additionalItems === "strict") {
+    additionalItems === "strip";
+  } else {
+    jsonableValidation(additionalItems, parent, path, flag, recSet$2);
+  }
+  items.forEach(function (item) {
+        jsonableValidation(item.schema, output, path + ("[" + item.inlinedLocation + "]"), flag, recSet$2);
+      });
 }
 
 function getOutputSchema(_schema) {
@@ -2217,7 +2204,7 @@ function arrayRefiner(b, input, selfSchema, path) {
     f: 0
   };
   var itemOutput = withPathPrepend(bb, itemInput, path, iteratorVar, undefined, (function (b, input, path) {
-          return parseWithTypeValidation(b, item, input, path);
+          return parse(b, item, input, path);
         }));
   var itemCode = allocateScope(bb);
   var isTransformed = itemInput !== itemOutput;
@@ -2318,7 +2305,7 @@ function dictRefiner(b, input, selfSchema, path) {
     f: 0
   };
   var itemOutput = withPathPrepend(bb, itemInput, path, keyVar, undefined, (function (b, input, path) {
-          return parseWithTypeValidation(b, item, input, path);
+          return parse(b, item, input, path);
         }));
   var itemCode = allocateScope(bb);
   var isTransformed = itemInput !== itemOutput;
@@ -2572,7 +2559,7 @@ function $$catch(schema, getFallbackValue) {
                             f: 1
                           };
                   }), undefined, (function (b) {
-                    return parseWithTypeValidation(b, schema, input, path);
+                    return parse(b, schema, input, path);
                   }));
     });
   mut.noValidation = true;
@@ -2711,12 +2698,12 @@ function proxify(item) {
             });
 }
 
-function schemaRefiner(parentB, input, selfSchema, path) {
+function schemaRefiner(b, input, selfSchema, path) {
   var additionalItems = selfSchema.additionalItems;
   var items = selfSchema.items;
   var isArray = selfSchema.type === "array";
-  if (parentB.g.o & 64) {
-    var objectVal = make(parentB, isArray);
+  if (b.g.o & 64) {
+    var objectVal = make(b, isArray);
     for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
       var match = items[idx];
       var inlinedLocation = match.inlinedLocation;
@@ -2724,13 +2711,6 @@ function schemaRefiner(parentB, input, selfSchema, path) {
     }
     return complete(objectVal, isArray);
   }
-  var b = {
-    c: "",
-    l: "",
-    a: initialAllocate,
-    f: "",
-    g: parentB.g
-  };
   var objectVal$1 = make(b, isArray);
   for(var idx$1 = 0 ,idx_finish$1 = items.length; idx$1 < idx_finish$1; ++idx$1){
     var match$1 = items[idx$1];
@@ -2744,7 +2724,6 @@ function schemaRefiner(parentB, input, selfSchema, path) {
     add(objectVal$1, inlinedLocation$1, parse(b, schema, itemInput, path$1));
   }
   objectStrictModeCheck(b, input, items, selfSchema, path);
-  parentB.c = parentB.c + allocateScope(b);
   if ((additionalItems !== "strip" || b.g.o & 32) && items.every(function (item) {
           return objectVal$1[item.inlinedLocation] === input[item.inlinedLocation];
         })) {
@@ -2752,6 +2731,129 @@ function schemaRefiner(parentB, input, selfSchema, path) {
   } else {
     return complete(objectVal$1, isArray);
   }
+}
+
+function definitionToRitem(definition, path, ritemsByItemPath) {
+  if (!(typeof definition === "object" && definition !== null)) {
+    return {
+            k: 1,
+            p: path,
+            s: copyWithoutCache(parse$1(definition))
+          };
+  }
+  var item = definition[itemSymbol];
+  if (item !== undefined) {
+    var ritemSchema = copyWithoutCache(getOutputSchema(item.schema));
+    ((delete ritemSchema.serializer));
+    var ritem = {
+      k: 0,
+      p: path,
+      s: ritemSchema
+    };
+    item.r = ritem;
+    ritemsByItemPath[getFullDitemPath(item)] = ritem;
+    return ritem;
+  }
+  if (Array.isArray(definition)) {
+    var items = [];
+    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
+      var $$location = idx.toString();
+      var inlinedLocation = "\"" + $$location + "\"";
+      var ritem$1 = definitionToRitem(definition[idx], path + ("[" + inlinedLocation + "]"), ritemsByItemPath);
+      var item_schema = ritem$1.s;
+      var item$1 = {
+        schema: item_schema,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+      items[idx] = item$1;
+    }
+    var mut = new Schema();
+    return {
+            k: 2,
+            p: path,
+            s: (mut.type = "array", mut.items = items, mut.additionalItems = "strict", mut.serializer = neverBuilder, mut)
+          };
+  }
+  var fieldNames = Object.keys(definition);
+  var fields = {};
+  var items$1 = [];
+  for(var idx$1 = 0 ,idx_finish$1 = fieldNames.length; idx$1 < idx_finish$1; ++idx$1){
+    var $$location$1 = fieldNames[idx$1];
+    var inlinedLocation$1 = fromString($$location$1);
+    var ritem$2 = definitionToRitem(definition[$$location$1], path + ("[" + inlinedLocation$1 + "]"), ritemsByItemPath);
+    var item_schema$1 = ritem$2.s;
+    var item$2 = {
+      schema: item_schema$1,
+      location: $$location$1,
+      inlinedLocation: inlinedLocation$1
+    };
+    items$1[idx$1] = item$2;
+    fields[$$location$1] = item$2;
+  }
+  var mut$1 = new Schema();
+  return {
+          k: 2,
+          p: path,
+          s: (mut$1.type = "object", mut$1.items = items$1, mut$1.fields = fields, mut$1.additionalItems = globalConfig.a, mut$1.serializer = neverBuilder, mut$1)
+        };
+}
+
+function definitionToSchema(definition) {
+  if (!(typeof definition === "object" && definition !== null)) {
+    return parse$1(definition);
+  }
+  if (definition["~standard"]) {
+    return definition;
+  }
+  if (Array.isArray(definition)) {
+    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
+      var schema = definitionToSchema(definition[idx]);
+      var $$location = idx.toString();
+      var inlinedLocation = "\"" + $$location + "\"";
+      definition[idx] = {
+        schema: schema,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+    }
+    var mut = new Schema();
+    mut.type = "array";
+    mut.items = definition;
+    mut.additionalItems = "strict";
+    mut.refiner = schemaRefiner;
+    return mut;
+  }
+  var cnstr = definition.constructor;
+  if (cnstr && cnstr !== Object) {
+    return {
+            type: "instance",
+            const: definition,
+            class: cnstr
+          };
+  }
+  var fieldNames = Object.keys(definition);
+  var length = fieldNames.length;
+  var items = [];
+  for(var idx$1 = 0; idx$1 < length; ++idx$1){
+    var $$location$1 = fieldNames[idx$1];
+    var inlinedLocation$1 = fromString($$location$1);
+    var schema$1 = definitionToSchema(definition[$$location$1]);
+    var item = {
+      schema: schema$1,
+      location: $$location$1,
+      inlinedLocation: inlinedLocation$1
+    };
+    definition[$$location$1] = item;
+    items[idx$1] = item;
+  }
+  var mut$1 = new Schema();
+  mut$1.type = "object";
+  mut$1.items = items;
+  mut$1.fields = definition;
+  mut$1.additionalItems = globalConfig.a;
+  mut$1.refiner = schemaRefiner;
+  return mut$1;
 }
 
 function nested(fieldName) {
@@ -2827,127 +2929,47 @@ function nested(fieldName) {
   return ctx$1;
 }
 
-function definitionToSchema(definition) {
-  if (!(typeof definition === "object" && definition !== null)) {
-    return parse$1(definition);
-  }
-  if (definition["~standard"]) {
-    return definition;
-  }
-  if (Array.isArray(definition)) {
-    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
-      var schema = definitionToSchema(definition[idx]);
-      var $$location = idx.toString();
-      var inlinedLocation = "\"" + $$location + "\"";
-      definition[idx] = {
-        schema: schema,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
+function advancedBuilder(definition, flattened) {
+  return function (b, input, selfSchema, path) {
+    var isFlatten = b.g.o & 64;
+    var outputs = isFlatten ? input : ({});
+    if (!isFlatten) {
+      var items = selfSchema.items;
+      for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
+        var match = items[idx];
+        var inlinedLocation = match.inlinedLocation;
+        var schema = match.schema;
+        var itemInput = get(b, input, inlinedLocation);
+        var path$1 = path + ("[" + inlinedLocation + "]");
+        if (input.f & 1 && (isLiteral(schema) || schema.type === "object")) {
+          itemInput.f = itemInput.f | 1;
+        }
+        outputs[inlinedLocation] = parse(b, schema, itemInput, path$1);
+      }
+      objectStrictModeCheck(b, input, items, selfSchema, path);
     }
-    var mut = new Schema();
-    mut.type = "array";
-    mut.items = definition;
-    mut.additionalItems = "strict";
-    mut.refiner = schemaRefiner;
-    return mut;
-  }
-  var cnstr = definition.constructor;
-  if (cnstr && cnstr !== Object) {
-    return {
-            type: "instance",
-            const: definition,
-            class: cnstr
-          };
-  }
-  var fieldNames = Object.keys(definition);
-  var length = fieldNames.length;
-  var items = [];
-  for(var idx$1 = 0; idx$1 < length; ++idx$1){
-    var $$location$1 = fieldNames[idx$1];
-    var inlinedLocation$1 = fromString($$location$1);
-    var schema$1 = definitionToSchema(definition[$$location$1]);
-    var item = {
-      schema: schema$1,
-      location: $$location$1,
-      inlinedLocation: inlinedLocation$1
-    };
-    definition[$$location$1] = item;
-    items[idx$1] = item;
-  }
-  var mut$1 = new Schema();
-  mut$1.type = "object";
-  mut$1.items = items;
-  mut$1.fields = definition;
-  mut$1.additionalItems = globalConfig.a;
-  mut$1.refiner = schemaRefiner;
-  return mut$1;
-}
-
-function definitionToRitem(definition, path, ritemsByItemPath) {
-  if (!(typeof definition === "object" && definition !== null)) {
-    return {
-            k: 1,
-            p: path,
-            s: copyWithoutCache(parse$1(definition))
-          };
-  }
-  var item = definition[itemSymbol];
-  if (item !== undefined) {
-    var ritemSchema = copyWithoutCache(getOutputSchema(item.schema));
-    ((delete ritemSchema.serializer));
-    var ritem = {
-      k: 0,
-      p: path,
-      s: ritemSchema
-    };
-    item.r = ritem;
-    ritemsByItemPath[getFullDitemPath(item)] = ritem;
-    return ritem;
-  }
-  if (Array.isArray(definition)) {
-    var items = [];
-    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
-      var $$location = idx.toString();
-      var inlinedLocation = "\"" + $$location + "\"";
-      var ritem$1 = definitionToRitem(definition[idx], path + ("[" + inlinedLocation + "]"), ritemsByItemPath);
-      var item_schema = ritem$1.s;
-      var item$1 = {
-        schema: item_schema,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-      items[idx] = item$1;
+    if (flattened !== undefined) {
+      var prevFlag = b.g.o;
+      b.g.o = prevFlag | 64;
+      for(var idx$1 = 0 ,idx_finish$1 = flattened.length; idx$1 < idx_finish$1; ++idx$1){
+        var item = flattened[idx$1];
+        outputs[item.i] = parse(b, item.schema, input, path);
+      }
+      b.g.o = prevFlag;
     }
-    var mut = new Schema();
-    return {
-            k: 2,
-            p: path,
-            s: (mut.type = "array", mut.items = items, mut.additionalItems = "strict", mut.serializer = neverBuilder, mut)
-          };
-  }
-  var fieldNames = Object.keys(definition);
-  var fields = {};
-  var items$1 = [];
-  for(var idx$1 = 0 ,idx_finish$1 = fieldNames.length; idx$1 < idx_finish$1; ++idx$1){
-    var $$location$1 = fieldNames[idx$1];
-    var inlinedLocation$1 = fromString($$location$1);
-    var ritem$2 = definitionToRitem(definition[$$location$1], path + ("[" + inlinedLocation$1 + "]"), ritemsByItemPath);
-    var item_schema$1 = ritem$2.s;
-    var item$2 = {
-      schema: item_schema$1,
-      location: $$location$1,
-      inlinedLocation: inlinedLocation$1
+    var getItemOutput = function (item) {
+      switch (item.k) {
+        case 0 :
+            return outputs[item.inlinedLocation];
+        case 1 :
+            return get(b, getItemOutput(item.of), item.inlinedLocation);
+        case 2 :
+            return outputs[item.i];
+        
+      }
     };
-    items$1[idx$1] = item$2;
-    fields[$$location$1] = item$2;
-  }
-  var mut$1 = new Schema();
-  return {
-          k: 2,
-          p: path,
-          s: (mut$1.type = "object", mut$1.items = items$1, mut$1.fields = fields, mut$1.additionalItems = globalConfig.a, mut$1.serializer = neverBuilder, mut$1)
-        };
+    return definitionToOutput(b, definition, getItemOutput);
+  };
 }
 
 function definitionToTarget(definition, to, flattened) {
@@ -3044,49 +3066,6 @@ function definitionToTarget(definition, to, flattened) {
   return mut;
 }
 
-function advancedBuilder(definition, flattened) {
-  return function (b, input, selfSchema, path) {
-    var isFlatten = b.g.o & 64;
-    var outputs = isFlatten ? input : ({});
-    if (!isFlatten) {
-      var items = selfSchema.items;
-      for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
-        var match = items[idx];
-        var inlinedLocation = match.inlinedLocation;
-        var schema = match.schema;
-        var itemInput = get(b, input, inlinedLocation);
-        var path$1 = path + ("[" + inlinedLocation + "]");
-        if (input.f & 1 && (isLiteral(schema) || schema.type === "object")) {
-          itemInput.f = itemInput.f | 1;
-        }
-        outputs[inlinedLocation] = parse(b, schema, itemInput, path$1);
-      }
-      objectStrictModeCheck(b, input, items, selfSchema, path);
-    }
-    if (flattened !== undefined) {
-      var prevFlag = b.g.o;
-      b.g.o = prevFlag | 64;
-      for(var idx$1 = 0 ,idx_finish$1 = flattened.length; idx$1 < idx_finish$1; ++idx$1){
-        var item = flattened[idx$1];
-        outputs[item.i] = parse(b, item.schema, input, path);
-      }
-      b.g.o = prevFlag;
-    }
-    var getItemOutput = function (item) {
-      switch (item.k) {
-        case 0 :
-            return outputs[item.inlinedLocation];
-        case 1 :
-            return get(b, getItemOutput(item.of), item.inlinedLocation);
-        case 2 :
-            return outputs[item.i];
-        
-      }
-    };
-    return definitionToOutput(b, definition, getItemOutput);
-  };
-}
-
 function shape(schema, definer) {
   return updateOutput(schema, (function (mut) {
                 var ditem = {
@@ -3097,26 +3076,17 @@ function shape(schema, definer) {
                 };
                 var definition = definer(proxify(ditem));
                 mut.parser = (function (b, input, param, param$1) {
-                    var bb = {
-                      c: "",
-                      l: "",
-                      a: initialAllocate,
-                      f: "",
-                      g: b.g
-                    };
                     var getItemOutput = function (item) {
                       switch (item.k) {
                         case 1 :
-                            return get(bb, getItemOutput(item.of), item.inlinedLocation);
+                            return get(b, getItemOutput(item.of), item.inlinedLocation);
                         case 0 :
                         case 2 :
                             return input;
                         
                       }
                     };
-                    var output = definitionToOutput(bb, definition, getItemOutput);
-                    b.c = b.c + allocateScope(bb);
-                    return output;
+                    return definitionToOutput(b, definition, getItemOutput);
                   });
                 mut.to = definitionToTarget(definition, ditem, undefined);
               }));
@@ -3307,7 +3277,7 @@ function unnestSerializer(b, input, selfSchema, path) {
           b.a(outputVar + "=[" + initialArraysCode + "]");
           bb.c = bb.c + settingCode;
         }), (function (b, input, path) {
-          return parseWithTypeValidation(b, schema, input, path);
+          return parse(b, schema, input, path);
         }));
   var itemCode = allocateScope(bb);
   b.c = b.c + ("for(let " + iteratorVar + "=0;" + iteratorVar + "<" + inputVar + ".length;++" + iteratorVar + "){" + itemCode + "}");

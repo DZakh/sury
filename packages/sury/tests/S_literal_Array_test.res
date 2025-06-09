@@ -94,12 +94,13 @@ module Common = {
   test("Compiled serialize code snapshot", t => {
     let schema = factory()
 
-    t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return i}`)
+    t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
   })
 
   test("Reverse schema to self", t => {
     let schema = factory()
-    t->Assert.is(schema->S.reverse, schema->S.castToUnknown, ())
+    t->U.assertReverseReversesBack(schema)
+    t->U.assertReverseParsesBack(schema, ("bar", true))
   })
 
   test("Succesfully uses reversed schema for parsing back to initial value", t => {
@@ -162,12 +163,13 @@ module EmptyArray = {
   test("Compiled serialize code snapshot of empty array literal schema", t => {
     let schema = factory()
 
-    t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return i}`)
+    t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
   })
 
   test("Reverse empty array literal schema to self", t => {
     let schema = factory()
-    t->Assert.is(schema->S.reverse, schema->S.castToUnknown, ())
+    t->U.assertReverseReversesBack(schema)
+    t->U.assertReverseParsesBack(schema, [])
   })
 
   test(

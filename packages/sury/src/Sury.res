@@ -1425,11 +1425,10 @@ module Builder = {
     }
 
     let withCoerceScope = (b, ~input, ~path, ~target, coercion) => {
-      let bb = b->scope
-      let inputVar = input.var(bb)
-      let output = bb->coercion(
+      let inputVar = input.var(b)
+      b->coercion(
         ~inputVar,
-        ~failCoercion=bb->failWithArg(
+        ~failCoercion=b->failWithArg(
           ~path,
           input => InvalidType({
             expected: target->fromInternal,
@@ -1438,8 +1437,6 @@ module Builder = {
           inputVar,
         ),
       )
-      b.code = b.code ++ bb->allocateScope
-      output
     }
 
     let rec parse = (prevB: b, ~schema, ~input, ~path) => {
@@ -1551,11 +1548,6 @@ module Builder = {
       if b.global.flag->Flag.unsafeHas(Flag.typeValidation) || schema->isLiteral {
         b.code = b.code ++ b->typeFilterCode(~schema, ~input, ~path)
       }
-    }
-
-    let parseWithTypeValidation = (b: b, ~schema, ~input, ~path) => {
-      // b->typeValidation(~schema, ~input, ~path)
-      b->parse(~schema, ~input, ~path)
     }
   }
 
@@ -2937,7 +2929,7 @@ module Array = {
         b,
         ~input,
         ~path,
-      ) => b->B.parseWithTypeValidation(~schema=item, ~input, ~path))
+      ) => b->B.parse(~schema=item, ~input, ~path))
     let itemCode = bb->B.allocateScope
     let isTransformed = itemInput !== itemOutput
     let output = isTransformed ? b->B.val(`new Array(${inputVar}.length)`) : input
@@ -3040,7 +3032,7 @@ module Dict = {
         b,
         ~input,
         ~path,
-      ) => b->B.parseWithTypeValidation(~schema=item, ~input, ~path))
+      ) => b->B.parse(~schema=item, ~input, ~path))
     let itemCode = bb->B.allocateScope
     let isTransformed = itemInput !== itemOutput
     let output = isTransformed ? b->B.val("{}") : input
@@ -3273,7 +3265,7 @@ let rec to = (from, target) => {
     // if coercion === extendCoercion {
     //   b->B.parse(~schema=target, ~input, ~path)
     // } else if coercion === shrinkCoercion {
-    //   b->B.parseWithTypeValidation(~schema=target, ~input, ~path)
+    //   b->B.parse(~schema=target, ~input, ~path)
     // } else {
     //   let bb = b->B.scope
     //   let inputVar = input.var(bb)
@@ -3425,7 +3417,7 @@ let catch = (schema, getFallbackValue) => {
           ),
         ),
         b => {
-          b->B.parseWithTypeValidation(~schema, ~input, ~path)
+          b->B.parse(~schema, ~input, ~path)
         },
       )
     }),
@@ -3641,13 +3633,13 @@ module Schema = {
       },
     })
 
-  let rec schemaRefiner = (parentB, ~input, ~selfSchema, ~path) => {
+  let rec schemaRefiner = (b, ~input, ~selfSchema, ~path) => {
     let additionalItems = selfSchema.additionalItems
     let items = selfSchema.items->Stdlib.Option.unsafeUnwrap
     let isArray = selfSchema.tag === Array
 
-    if parentB.global.flag->Flag.unsafeHas(Flag.flatten) {
-      let objectVal = parentB->B.Val.Object.make(~isArray)
+    if b.global.flag->Flag.unsafeHas(Flag.flatten) {
+      let objectVal = b->B.Val.Object.make(~isArray)
       for idx in 0 to items->Js.Array2.length - 1 {
         let {inlinedLocation} = items->Js.Array2.unsafe_get(idx)
         objectVal->B.Val.Object.add(
@@ -3657,8 +3649,6 @@ module Schema = {
       }
       objectVal->B.Val.Object.complete(~isArray)
     } else {
-      let b = parentB->B.scope // TODO: Remove the scope by grouping all typeFilters together
-
       let objectVal = b->B.Val.Object.make(~isArray)
 
       for idx in 0 to items->Js.Array2.length - 1 {
@@ -3678,8 +3668,6 @@ module Schema = {
       }
 
       b->objectStrictModeCheck(~input, ~items, ~selfSchema, ~path)
-
-      parentB.code = parentB.code ++ b->B.allocateScope
 
       if (
         (additionalItems !== Some(Strip) || b.global.flag->Flag.unsafeHas(Flag.reverse)) &&
@@ -3942,20 +3930,18 @@ module Schema = {
 
         mut.parser = Some(
           Builder.make((b, ~input, ~selfSchema as _, ~path as _) => {
-            let bb = b->B.scope
             let rec getItemOutput = item => {
               switch item {
               | ItemField({target: item, inlinedLocation}) =>
-                bb->B.Val.get(item->getItemOutput, inlinedLocation)
+                b->B.Val.get(item->getItemOutput, inlinedLocation)
               | _ => input
               }
             }
             let output =
-              bb->definitionToOutput(
+              b->definitionToOutput(
                 ~definition=definition->(Obj.magic: unknown => Definition.t<ditem>),
                 ~getItemOutput,
               )
-            b.code = b.code ++ bb->B.allocateScope
 
             output
           }),
@@ -4426,7 +4412,7 @@ let unnestSerializer = Builder.make((b, ~input, ~selfSchema, ~path) => {
       b.allocate(`${outputVar}=[${initialArraysCode.contents}]`)
       bb.code = bb.code ++ settingCode.contents
     },
-    (b, ~input, ~path) => b->B.parseWithTypeValidation(~schema, ~input, ~path),
+    (b, ~input, ~path) => b->B.parse(~schema, ~input, ~path),
   )
   let itemCode = bb->B.allocateScope
 
