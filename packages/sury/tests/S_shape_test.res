@@ -116,7 +116,7 @@ test(
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i){e[1](i)}let v0=i["foo"];if(typeof v0!=="string"){e[0](v0)}return v0}`,
+      `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["foo"];if(typeof v0!=="string"){e[1](v0)}return v0}`,
     )
   },
 )
@@ -142,7 +142,7 @@ test(
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i||typeof i["foo"]!=="object"||!i["foo"]){e[1](i)}let v0=i["foo"];let v1=v0["bar"];if(typeof v1!=="string"){e[0](v1)}return v1}`,
+      `i=>{if(typeof i!=="object"||!i||typeof i["foo"]!=="object"||!i["foo"]){e[0](i)}let v0=i["foo"],v1=v0["bar"];if(typeof v1!=="string"){e[1](v1)}return v1}`,
     )
   },
 )
@@ -199,7 +199,7 @@ test(
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i){e[4](i)}let v1;let v0=i["foo"];if(typeof v0!=="string"){e[0](v0)}v1=e[1]({"foo":v0,});if(typeof v1!=="object"||!v1){e[2](v1)}let v2=v1["faz"];if(typeof v2!=="string"){e[3](v2)}return v2}`,
+      `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["foo"];if(typeof v0!=="string"){e[1](v0)}let v1=e[2]({"foo":v0,});if(typeof v1!=="object"||!v1){e[3](v1)}let v2=v1["faz"];if(typeof v2!=="string"){e[4](v2)}return v2}`,
     )
     t->Assert.deepEqual(
       {
@@ -250,7 +250,7 @@ test("Reverse convert of tagged tuple with destructured bool", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseParse,
-    `i=>{if(!Array.isArray(i)||i.length!==2||i["1"]!=="foo"){e[1](i)}let v0=i["0"];if(typeof v0!=="boolean"){e[0](v0)}return [true,i["1"],v0,]}`,
+    `i=>{if(!Array.isArray(i)||i.length!==2||i["1"]!=="foo"){e[0](i)}let v0=i["0"];if(typeof v0!=="boolean"){e[1](v0)}return [true,i["1"],i["0"],]}`,
   )
 })
 
@@ -292,7 +292,7 @@ test("Can destructure object value passed to S.shape", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["foo"],v1=i["bar"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="string"){e[1](v1)}return {"foo":v0,"bar":v1,}}`,
+    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["foo"],v1=i["bar"];if(typeof v0!=="string"){e[1](v0)}if(typeof v1!=="string"){e[2](v1)}return {"foo":v0,"bar":v1,}}`,
   )
   // FIXME: Can be improved
   t->U.assertCompiledCode(
@@ -308,7 +308,7 @@ test("Compiled code snapshot of variant applied to object", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["foo"];if(typeof v0!=="string"){e[0](v0)}return {"TAG":e[1],"_0":v0,}}`,
+    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["foo"];if(typeof v0!=="string"){e[1](v0)}return {"TAG":e[2],"_0":v0,}}`,
   )
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return {"foo":i["_0"],}}`)
 
@@ -317,7 +317,7 @@ test("Compiled code snapshot of variant applied to object", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[3](i)}let v0=i["foo"];if(typeof v0!=="string"){e[0](v0)}let v1;(v1=v0==="true")||v0==="false"||e[1](v0);return {"TAG":e[2],"_0":v1,}}`,
+    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["foo"];if(typeof v0!=="string"){e[1](v0)}let v1;(v1=v0==="true")||v0==="false"||e[2](v0);return {"TAG":e[3],"_0":v1,}}`,
   )
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return {"foo":""+i["_0"],}}`)
 })
@@ -328,7 +328,7 @@ test("Compiled parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="string"){e[1](i)}return {"TAG":e[0],"_0":i,}}`,
+    `i=>{if(typeof i!=="string"){e[0](i)}return {"TAG":e[1],"_0":i,}}`,
   )
 })
 
@@ -378,12 +378,12 @@ test("Works with variant schema used multiple times as a child schema", t => {
   t->U.assertCompiledCode(
     ~schema=appVersionsSchema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[4](i)}let v0=i["ios"],v1=i["android"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="string"){e[2](v1)}return {"ios":{"current":v0,"minimum":e[1],},"android":{"current":v1,"minimum":e[3],},}}`,
+    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["ios"],v1=i["android"];if(typeof v0!=="string"){e[1](v0)}if(typeof v1!=="string"){e[3](v1)}return {"ios":{"current":v0,"minimum":e[2],},"android":{"current":v1,"minimum":e[4],},}}`,
   )
   t->U.assertCompiledCode(
     ~schema=appVersionsSchema,
     ~op=#ReverseConvert,
-    `i=>{let v0=i["ios"],v1=i["android"];return {"ios":v0["current"],"android":v1["current"],}}`,
+    `i=>{let v0=i["ios"];let v1=i["android"];return {"ios":v0["current"],"android":v1["current"],}}`,
   )
 
   let rawAppVersions = {
