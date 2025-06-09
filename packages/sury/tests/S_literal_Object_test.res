@@ -88,12 +88,13 @@ module Common = {
   test("Compiled serialize code snapshot", t => {
     let schema = factory()
 
-    t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return i}`)
+    t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
   })
 
   test("Reverse schema to self", t => {
     let schema = factory()
-    t->Assert.is(schema->S.reverse, schema->S.castToUnknown, ())
+    t->U.assertReverseReversesBack(schema)
+    t->U.assertReverseParsesBack(schema, %raw(`{foo: "bar"}`))
   })
 
   test("Succesfully uses reversed schema for parsing back to initial value", t => {
@@ -142,19 +143,20 @@ module EmptyDict = {
     t->U.assertCompiledCode(
       ~schema=schema->S.strict,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i||Array.isArray(i)){e[1](i)}let v0;for(v0 in i){if(true){e[0](v0)}}return i}`,
+      `i=>{if(typeof i!=="object"||!i||Array.isArray(i)){e[0](i)}let v0;for(v0 in i){if(true){e[1](v0)}}return i}`,
     )
   })
 
   test("Compiled serialize code snapshot of empty dict literal schema", t => {
     let schema = factory()
 
-    t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return i}`)
+    t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
   })
 
   test("Reverse empty dict literal schema to self", t => {
     let schema = factory()
-    t->Assert.is(schema->S.reverse, schema->S.castToUnknown, ())
+    t->U.assertReverseReversesBack(schema)
+    t->U.assertReverseParsesBack(schema, %raw(`{}`))
   })
 
   test(
