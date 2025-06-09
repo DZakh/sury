@@ -2549,7 +2549,7 @@ var Catch = {};
 
 function $$catch(schema, getFallbackValue) {
   var mut = copyWithoutCache(schema);
-  mut.parser = (function (b, input, selfSchema, path) {
+  mut.refiner = (function (b, input, selfSchema, path) {
       var inputVar = input.v(b);
       return withCatch(b, input, (function (b, errorVar) {
                     return {
@@ -3294,7 +3294,7 @@ function unnestSerializer(b, input, selfSchema, path) {
     b: bb,
     v: _notVar,
     i: inputVar + "[" + iteratorVar + "]",
-    f: 1
+    f: 0
   };
   var itemOutput = withPathPrepend(bb, itemInput, path, iteratorVar, (function (bb, output) {
           var initialArraysCode = "";
@@ -3363,7 +3363,7 @@ function unnest(schema) {
                 b: bb,
                 v: _notVar,
                 i: inputVar + "[" + idx + "][" + iteratorVar + "]",
-                f: 1
+                f: 0
               });
           lengthCode = lengthCode + (inputVar + "[" + idx + "].length,");
         }
