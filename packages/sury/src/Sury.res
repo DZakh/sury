@@ -441,7 +441,6 @@ and internal = {
   mutable default?: unknown,
   mutable format?: format,
   mutable has?: dict<bool>,
-  mutable advanced?: bool, // TODO: Rename/remove it when have a chance
   mutable anyOf?: array<internal>,
   mutable additionalItems?: additionalItems,
   mutable items?: array<item>,
@@ -3818,7 +3817,12 @@ module Schema = {
                   let itemPath =
                     originalPath->Path.concat(Path.fromInlinedLocation(item.inlinedLocation))
                   let itemInput = switch ritemsByItemPath->Stdlib.Dict.unsafeGetOption(itemPath) {
-                  | Some(ritem) => ritem->getRitemInput
+                  | Some(ritem) =>
+                    b->B.parse(
+                      ~schema=item.schema->toInternal,
+                      ~input=ritem->getRitemInput,
+                      ~path=ritem->getRitemPath,
+                    )
                   | None => item.schema->toInternal->schemaToOutput(~originalPath=itemPath)
                   }
                   objectVal->B.Val.Object.add(item.inlinedLocation, itemInput)
@@ -4020,35 +4024,23 @@ module Schema = {
         let flatten = schema => {
           let schema = schema->toInternal
           switch schema {
-          | {tag: Object, items: ?flattenedItems, ?advanced} => {
-              if advanced->Stdlib.Option.unsafeUnwrap {
+          | {tag: Object, items: ?flattenedItems, ?to} => {
+              if to->Obj.magic {
                 InternalError.panic(
-                  `Unsupported nested flatten for advanced object schema '${schema
+                  `Unsupported nested flatten for transformed object schema ${schema
                     ->fromInternal
-                    ->toExpression}'`,
+                    ->toExpression}`,
                 )
               }
-              switch schema->reverse {
-              | {tag: Object, ?advanced} if advanced !== Some(true) =>
-                let flattenedItems = flattenedItems->Stdlib.Option.unsafeUnwrap
-                let result = Js.Dict.empty()
-                for idx in 0 to flattenedItems->Js.Array2.length - 1 {
-                  let item = flattenedItems->Js.Array2.unsafe_get(idx)
-                  result->Js.Dict.set(item.location, field(item.location, item.schema))
-                }
-                result->Obj.magic
-              | _ =>
-                InternalError.panic(
-                  `Unsupported nested flatten for transformed schema '${schema
-                    ->fromInternal
-                    ->toExpression}'`,
-                )
+              let flattenedItems = flattenedItems->Stdlib.Option.unsafeUnwrap
+              let result = Js.Dict.empty()
+              for idx in 0 to flattenedItems->Js.Array2.length - 1 {
+                let item = flattenedItems->Js.Array2.unsafe_get(idx)
+                result->Js.Dict.set(item.location, field(item.location, item.schema))
               }
+              result->Obj.magic
             }
-          | _ =>
-            InternalError.panic(
-              `The '${schema->fromInternal->toExpression}' schema can't be flattened`,
-            )
+          | _ => InternalError.panic(`Can't flatten ${schema->fromInternal->toExpression} schema`)
           }
         }
 

@@ -246,11 +246,16 @@ test("Reverse convert of tagged tuple with destructured bool", t => {
     (),
   )
 
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return [true,i["1"],i["0"],]}`)
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#ReverseConvert,
+    `i=>{let v0=i["1"];if(v0!=="foo"){e[0](v0)}return [true,v0,i["0"],]}`,
+  )
+  // FIXME: Prevent duplicated check for literal
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseParse,
-    `i=>{if(!Array.isArray(i)||i.length!==2||i["1"]!=="foo"){e[0](i)}let v0=i["0"];if(typeof v0!=="boolean"){e[1](v0)}return [true,i["1"],i["0"],]}`,
+    `i=>{if(!Array.isArray(i)||i.length!==2||i["1"]!=="foo"){e[0](i)}let v0=i["1"],v1=i["0"];if(v0!=="foo"){e[1](v0)}if(typeof v1!=="boolean"){e[2](v1)}return [true,v0,v1,]}`,
   )
 })
 
