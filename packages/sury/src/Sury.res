@@ -679,9 +679,6 @@ module ValFlag = {
   @inline let none = 0
   @inline let valid = 1
   @inline let async = 2
-  // A hacky workaround to prevent applying the refiner twice
-  // FIXME: Test whether it needs to be applied for serializing
-  @inline let refined = 4
 }
 
 module Flag = {
@@ -1457,13 +1454,11 @@ module Builder = {
       }
 
       let input = switch schema.refiner {
-      | Some(refiner) if !(input.flag->Flag.unsafeHas(ValFlag.refined)) =>
+      | Some(refiner) =>
         // Some refiners like union might return a new
         // instance of value. This is used for an assumption
         // that it's transformed.
-        let output = refiner(b, ~input, ~selfSchema=schema, ~path)
-        output.flag = output.flag->Flag.with(ValFlag.refined)
-        output
+        refiner(b, ~input, ~selfSchema=schema, ~path)
       | _ => input
       }
       switch schema.to {
@@ -3727,7 +3722,7 @@ module Schema = {
         if (
           input.flag->Flag.unsafeHas(ValFlag.valid) && (schema->isLiteral || schema.tag === Object)
         ) {
-          itemInput.flag = itemInput.flag->Flag.with(Flag.typeValidation)
+          itemInput.flag = itemInput.flag->Flag.with(ValFlag.valid)
         }
 
         outputs->Js.Dict.set(inlinedLocation, b->B.parse(~schema, ~input=itemInput, ~path))
@@ -3785,12 +3780,28 @@ module Schema = {
     | Node(_) => ritem->getRitemSchema
     }
 
+    // This should be done in the parser/serializer
+    let _ = %raw(`delete mut.refiner`)
+
     mut.serializer = Some(
       Builder.make((b, ~input, ~selfSchema, ~path) => {
         let getRitemInput = ritem => {
           ritem->getRitemPath === Path.empty
             ? input
-            : b->B.val(`${b->B.Val.var(input)}${ritem->getRitemPath}`)
+            : {
+                {
+                  b,
+                  var: B._notVar,
+                  inline: `${b->B.Val.var(input)}${ritem->getRitemPath}`,
+                  // For S.object and S.tuple the value should be already validated,
+                  // but not for S.shape
+                  flag: if to->Obj.magic {
+                    ValFlag.none
+                  } else {
+                    ValFlag.valid
+                  },
+                }
+              }
         }
 
         let rec schemaToOutput = (schema, ~originalPath) => {
