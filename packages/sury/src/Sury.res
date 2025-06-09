@@ -3326,68 +3326,70 @@ let instance = class_ => {
   mut->fromInternal
 }
 
-let rec json = (~validate) => {
-  let mut = base()
-  mut.tag = JSON // FIXME: Store validate on schema
-  if validate {
-    mut.parser = Some(
-      Builder.make((b, ~input, ~selfSchema, ~path) => {
-        let rec parse = (input, ~path=path) => {
-          switch input->Stdlib.Type.typeof {
-          | #number if Js.Float.isNaN(input->(Obj.magic: unknown => float))->not =>
-            input->(Obj.magic: unknown => Js.Json.t)
-          | #object =>
-            if input === %raw(`null`) {
-              input->(Obj.magic: unknown => Js.Json.t)
-            } else if input->Stdlib.Array.isArray {
-              let input = input->(Obj.magic: unknown => array<unknown>)
-              let output = []
-              for idx in 0 to input->Js.Array2.length - 1 {
-                let inputItem = input->Js.Array2.unsafe_get(idx)
-                output
-                ->Js.Array2.push(
-                  inputItem->parse(
-                    ~path=path->Path.concat(Path.fromLocation(idx->Js.Int.toString)),
-                  ),
-                )
-                ->ignore
-              }
-              output->Js.Json.array
-            } else {
-              let input = input->(Obj.magic: unknown => dict<unknown>)
-              let keys = input->Js.Dict.keys
-              let output = Js.Dict.empty()
-              for idx in 0 to keys->Js.Array2.length - 1 {
-                let key = keys->Js.Array2.unsafe_get(idx)
-                let field = input->Js.Dict.unsafeGet(key)
-                output->Js.Dict.set(
-                  key,
-                  field->parse(~path=path->Path.concat(Path.fromLocation(key))),
-                )
-              }
-              output->Js.Json.object_
-            }
-
-          | #string
-          | #boolean =>
-            input->(Obj.magic: unknown => Js.Json.t)
-
-          | _ =>
-            b->B.raise(
-              ~path,
-              ~code=InvalidType({
-                expected: selfSchema->fromInternal,
-                received: input,
-              }),
+let jsonRefiner = Builder.make((b, ~input, ~selfSchema, ~path) => {
+  if (
+    selfSchema.noValidation->Stdlib.Option.unsafeUnwrap ||
+      !(b.global.flag->Flag.unsafeHas(Flag.typeValidation))
+  ) {
+    input
+  } else {
+    let rec parse = (input, ~path=path) => {
+      switch input->Stdlib.Type.typeof {
+      | #number if Js.Float.isNaN(input->(Obj.magic: unknown => float))->not =>
+        input->(Obj.magic: unknown => Js.Json.t)
+      | #object =>
+        if input === %raw(`null`) {
+          input->(Obj.magic: unknown => Js.Json.t)
+        } else if input->Stdlib.Array.isArray {
+          let input = input->(Obj.magic: unknown => array<unknown>)
+          let output = []
+          for idx in 0 to input->Js.Array2.length - 1 {
+            let inputItem = input->Js.Array2.unsafe_get(idx)
+            output
+            ->Js.Array2.push(
+              inputItem->parse(~path=path->Path.concat(Path.fromLocation(idx->Js.Int.toString))),
             )
+            ->ignore
           }
+          output->Js.Json.array
+        } else {
+          let input = input->(Obj.magic: unknown => dict<unknown>)
+          let keys = input->Js.Dict.keys
+          let output = Js.Dict.empty()
+          for idx in 0 to keys->Js.Array2.length - 1 {
+            let key = keys->Js.Array2.unsafe_get(idx)
+            let field = input->Js.Dict.unsafeGet(key)
+            output->Js.Dict.set(key, field->parse(~path=path->Path.concat(Path.fromLocation(key))))
+          }
+          output->Js.Json.object_
         }
 
-        B.Val.map(b->B.embed(parse), input)
-      }),
-    )
+      | #string
+      | #boolean =>
+        input->(Obj.magic: unknown => Js.Json.t)
+
+      | _ =>
+        b->B.raise(
+          ~path,
+          ~code=InvalidType({
+            expected: selfSchema->fromInternal,
+            received: input,
+          }),
+        )
+      }
+    }
+
+    B.Val.map(b->B.embed(parse), input)
   }
-  mut.output = Some(() => validate ? json(~validate=false)->toInternal : %raw(`this`))
+})
+
+let json = (~validate) => {
+  let mut = base()
+  mut.tag = JSON
+  if !validate {
+    mut.noValidation = Some(true)
+  }
+  mut.refiner = Some(jsonRefiner)
   mut->fromInternal
 }
 
