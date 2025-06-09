@@ -59,10 +59,8 @@ module Tuple0 = {
 test("Fills holes with S.unit", t => {
   let schema = S.tuple(s => (s.item(0, S.string), s.item(2, S.int)))
 
-  t->U.assertEqualSchemas(
-    schema->S.castToUnknown,
-    S.tuple3(S.string, S.unit, S.int)->S.castToUnknown,
-  )
+  t->U.assertReverseReversesBack(schema)
+  t->U.assertReverseParsesBack(schema, ("value", 123))
 })
 
 test("Successfully parses tuple with holes", t => {
@@ -90,7 +88,7 @@ test("Fails to parse tuple with holes", t => {
 test("Successfully serializes tuple with holes", t => {
   let schema = S.tuple(s => (s.item(0, S.string), s.item(2, S.int)))
 
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return [i["0"],e[0],i["1"],]}`)
+  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return [i["0"],void 0,i["1"],]}`)
   t->Assert.deepEqual(("value", 123)->S.reverseConvertOrThrow(schema), %raw(`["value",, 123]`), ())
 })
 
@@ -301,7 +299,7 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(!Array.isArray(i)||i.length!==2){e[2](i)}let v0=i["0"],v1=i["1"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="boolean"){e[1](v1)}return [v0,v1,]}`,
+      `i=>{if(!Array.isArray(i)||i.length!==2){e[0](i)}let v0=i["0"],v1=i["1"];if(typeof v0!=="string"){e[1](v0)}if(typeof v1!=="boolean"){e[2](v1)}return [v0,v1,]}`,
     )
   })
 
@@ -314,7 +312,7 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(!Array.isArray(i)||i.length!==2){e[2](i)}let v0=i["1"];if(typeof v0!=="boolean"){e[1](v0)}return Promise.all([e[0](i["0"]),]).then(a=>([a[0],v0,]))}`,
+      `i=>{if(!Array.isArray(i)||i.length!==2){e[0](i)}let v0=i["1"];if(typeof v0!=="boolean"){e[2](v0)}return Promise.all([e[1](i["0"]),]).then(a=>([a[0],v0,]))}`,
     )
   })
 
@@ -346,7 +344,7 @@ module Compiled = {
       t->U.assertCompiledCode(
         ~schema,
         ~op=#Parse,
-        `i=>{if(!Array.isArray(i)||i.length!==3||i["0"]!==0){e[3](i)}let v0=i["1"],v1=i["2"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="boolean"){e[1](v1)}return {"foo":v0,"bar":v1,"zoo":e[2],}}`,
+        `i=>{if(!Array.isArray(i)||i.length!==3||i["0"]!==0){e[0](i)}let v0=i["1"],v1=i["2"];if(typeof v0!=="string"){e[1](v0)}if(typeof v1!=="boolean"){e[2](v1)}return {"foo":v0,"bar":v1,"zoo":e[3],}}`,
       )
     },
   )
@@ -363,7 +361,7 @@ module Compiled = {
         }
       })
 
-      t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return [e[0],i["foo"],i["bar"],]}`)
+      t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return [0,i["foo"],i["bar"],]}`)
     },
   )
 }
@@ -401,7 +399,8 @@ test("Works with tuple schema used multiple times as a child schema", t => {
 
 test("Reverse empty tuple schema to literal", t => {
   let schema = S.tuple(_ => ())
-  t->U.assertEqualSchemas(schema->S.reverse, S.unit->S.castToUnknown)
+  t->U.assertReverseReversesBack(schema)
+  t->U.assertReverseParsesBack(schema, ())
 })
 
 test("Succesfully uses reversed empty tuple schema for parsing back to initial value", t => {
@@ -414,7 +413,8 @@ test("Reverse tagged tuple to literal without payload", t => {
     s.tag(0, "test")
     #Test
   })
-  t->U.assertEqualSchemas(schema->S.reverse, S.literal(#Test)->S.castToUnknown)
+  t->U.assertReverseReversesBack(schema)
+  t->U.assertReverseParsesBack(schema, #Test)
 })
 
 test(
@@ -433,7 +433,8 @@ test("Reverse tagged tuple to primitive schema", t => {
     s.tag(0, "test")
     s.item(1, S.bool)
   })
-  t->U.assertEqualSchemas(schema->S.reverse, S.bool->S.castToUnknown)
+  t->U.assertReverseReversesBack(schema)
+  t->U.assertReverseParsesBack(schema, true)
 })
 
 test(
