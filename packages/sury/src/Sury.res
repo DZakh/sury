@@ -1404,7 +1404,7 @@ module Builder = {
 
     let typeFilterCode = (b: b, ~schema, ~input, ~path) => {
       switch schema {
-      | {tag: Unknown | Union | JSON | Never} | {noValidation: true} => ""
+      | {tag: Unknown | Union | JSON | Never} => ""
       | _ => {
           let inputVar = b->Val.var(input)
 
@@ -1446,7 +1446,9 @@ module Builder = {
         !(input.flag->Flag.unsafeHas(ValFlag.valid)) &&
         (b.global.flag->Flag.unsafeHas(Flag.typeValidation) || schema->isLiteral)
       ) {
-        b.filterCode = prevB->typeFilterCode(~schema, ~input, ~path)
+        if !(schema.noValidation->Stdlib.Option.unsafeUnwrap) {
+          b.filterCode = prevB->typeFilterCode(~schema, ~input, ~path)
+        }
         input.flag = input.flag->Flag.with(ValFlag.valid)
       }
 

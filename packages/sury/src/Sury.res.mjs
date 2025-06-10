@@ -797,10 +797,6 @@ function refinement(b, inputVar, schema, negative) {
 
 function typeFilterCode(b, schema, input, path) {
   var match = schema.type;
-  var match$1 = schema.noValidation;
-  if (match$1 !== undefined && match$1) {
-    return "";
-  }
   switch (match) {
     case "never" :
     case "unknown" :
@@ -839,7 +835,9 @@ function parse(prevB, schema, input, path) {
     g: prevB.g
   };
   if (!(input.f & 1) && (b.g.o & 1 || isLiteral(schema))) {
-    b.f = typeFilterCode(prevB, schema, input, path);
+    if (!schema.noValidation) {
+      b.f = typeFilterCode(prevB, schema, input, path);
+    }
     input.f = input.f | 1;
   }
   var refiner = schema.refiner;
