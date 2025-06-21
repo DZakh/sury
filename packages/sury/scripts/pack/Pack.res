@@ -193,9 +193,12 @@ sourePaths->Array.forEach(path => {
 let writeSjsEsm = path => {
   NodeJs.Fs.writeFileSyncWith(
     path,
-    [`/* @ts-self-types="./S.d.ts" */`, "import * as S from \"./Sury.res.mjs\";"]
-    ->Array.concat(filesMapping->Array.map(((name, value)) => `export const ${name} = ${value}`))
-    ->Array.concat([`var void_ = S.unit`, `export { void_ as void }`])
+    [
+      `/* @ts-self-types="./S.d.ts" */`,
+      `import * as S from "./Sury.res.mjs"`,
+      `export { unit as void } from "./Sury.res.mjs"`,
+    ]
+    ->Array.concat(filesMapping->Array.map(((name, value)) => `export var ${name} = ${value}`))
     ->Array.join("\n")
     ->NodeJs.Buffer.fromString,
     {
@@ -214,6 +217,7 @@ NodeJs.Fs.writeFileSyncWith(
   NodeJs.Path.join2(artifactsPath, "./src/S.js"),
   [`/* @ts-self-types="./S.d.ts" */`, "var S = require(\"./Sury.res.js\");"]
   ->Array.concat(filesMapping->Array.map(((name, value)) => `exports.${name} = ${value}`))
+  ->Array.concat([`exports.void = S.unit`])
   ->Array.join("\n")
   ->NodeJs.Buffer.fromString,
   {
