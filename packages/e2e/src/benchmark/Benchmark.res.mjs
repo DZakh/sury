@@ -73,48 +73,48 @@ S.$$global({
       disableNanNumberValidation: true
     });
 
-var schema = S.recursive(function (schema) {
-      return S.union([
-                  S.object(function (s) {
-                        s.tag("type", "A");
-                        return {
-                                TAG: "A",
-                                _0: s.f("nested", S.array(schema))
-                              };
-                      }),
-                  S.literal("B"),
-                  S.literal("C"),
-                  S.literal("D"),
-                  S.literal("E"),
-                  S.literal("F"),
-                  S.literal("G"),
-                  S.literal("H"),
-                  S.literal("I"),
-                  S.literal("J"),
-                  S.literal("K"),
-                  S.literal("L"),
-                  S.literal("M"),
-                  S.literal("N"),
-                  S.literal("O"),
-                  S.literal("P"),
-                  S.literal("Q"),
-                  S.literal("R"),
-                  S.literal("S"),
-                  S.literal("T"),
-                  S.literal("U"),
-                  S.literal("V"),
-                  S.literal("W"),
-                  S.literal("X"),
-                  S.literal("Y"),
-                  S.object(function (s) {
-                        s.tag("type", "Z");
-                        return {
-                                TAG: "Z",
-                                _0: s.f("nested", S.array(schema))
-                              };
-                      })
-                ]);
-    });
+var schema = S.recursive("CrazyUnion", (function (schema) {
+        return S.union([
+                    S.object(function (s) {
+                          s.tag("type", "A");
+                          return {
+                                  TAG: "A",
+                                  _0: s.f("nested", S.array(schema))
+                                };
+                        }),
+                    S.literal("B"),
+                    S.literal("C"),
+                    S.literal("D"),
+                    S.literal("E"),
+                    S.literal("F"),
+                    S.literal("G"),
+                    S.literal("H"),
+                    S.literal("I"),
+                    S.literal("J"),
+                    S.literal("K"),
+                    S.literal("L"),
+                    S.literal("M"),
+                    S.literal("N"),
+                    S.literal("O"),
+                    S.literal("P"),
+                    S.literal("Q"),
+                    S.literal("R"),
+                    S.literal("S"),
+                    S.literal("T"),
+                    S.literal("U"),
+                    S.literal("V"),
+                    S.literal("W"),
+                    S.literal("X"),
+                    S.literal("Y"),
+                    S.object(function (s) {
+                          s.tag("type", "Z");
+                          return {
+                                  TAG: "Z",
+                                  _0: s.f("nested", S.array(schema))
+                                };
+                        })
+                  ]);
+      }));
 
 var testData1 = {
   TAG: "Z",

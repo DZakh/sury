@@ -35,6 +35,8 @@ console.log(S.boolean)
 
 // TODO: Update internal representation:
 
+- Updated `S.recursive` to require an identifier. Recursive schemas now have a better performance and an internal representation matching JSON Schema spec. Sury schema now also exposes `$ref` and `$defs` fields, as well as introduces new `ref` type, while previous `json` type got deprecated.
+
 ### ideas
 
 - rename `serializer` to reverse parser ?

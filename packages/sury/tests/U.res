@@ -103,45 +103,64 @@ let getCompiledCodeString = (
     | #ReverseConvertToJson
   ],
 ) => {
-  (
-    switch op {
-    | #Parse
-    | #ParseAsync =>
-      if op === #ParseAsync || schema->S.isAsync {
-        let fn = schema->S.compile(~input=Any, ~output=Value, ~mode=Async, ~typeValidation=true)
+  let toCode = schema =>
+    (
+      switch op {
+      | #Parse
+      | #ParseAsync =>
+        if op === #ParseAsync || schema->S.isAsync {
+          let fn = schema->S.compile(~input=Any, ~output=Value, ~mode=Async, ~typeValidation=true)
+          fn->magic
+        } else {
+          let fn = schema->S.compile(~input=Any, ~output=Value, ~mode=Sync, ~typeValidation=true)
+          fn->magic
+        }
+      | #Convert =>
+        let fn = schema->S.compile(~input=Any, ~output=Value, ~mode=Sync, ~typeValidation=false)
         fn->magic
-      } else {
-        let fn = schema->S.compile(~input=Any, ~output=Value, ~mode=Sync, ~typeValidation=true)
+      | #ConvertAsync =>
+        let fn = schema->S.compile(~input=Any, ~output=Value, ~mode=Async, ~typeValidation=false)
         fn->magic
+      | #Assert =>
+        let fn = schema->S.compile(~input=Any, ~output=Assert, ~mode=Sync, ~typeValidation=true)
+        fn->magic
+      | #ReverseParse => {
+          let fn =
+            schema->S.compile(~input=Value, ~output=Unknown, ~mode=Sync, ~typeValidation=true)
+          fn->magic
+        }
+      | #ReverseConvert => {
+          let fn =
+            schema->S.compile(~input=Value, ~output=Unknown, ~mode=Sync, ~typeValidation=false)
+          fn->magic
+        }
+      | #ReverseConvertAsync => {
+          let fn =
+            schema->S.compile(~input=Value, ~output=Unknown, ~mode=Async, ~typeValidation=false)
+          fn->magic
+        }
+      | #ReverseConvertToJson => {
+          let fn = schema->S.compile(~input=Value, ~output=Json, ~mode=Sync, ~typeValidation=false)
+          fn->magic
+        }
       }
-    | #Convert =>
-      let fn = schema->S.compile(~input=Any, ~output=Value, ~mode=Sync, ~typeValidation=false)
-      fn->magic
-    | #ConvertAsync =>
-      let fn = schema->S.compile(~input=Any, ~output=Value, ~mode=Async, ~typeValidation=false)
-      fn->magic
-    | #Assert =>
-      let fn = schema->S.compile(~input=Any, ~output=Assert, ~mode=Sync, ~typeValidation=true)
-      fn->magic
-    | #ReverseParse => {
-        let fn = schema->S.compile(~input=Value, ~output=Unknown, ~mode=Sync, ~typeValidation=true)
-        fn->magic
+    )["toString"]()
+
+  let code = ref(schema->toCode)
+
+  switch (schema->S.untag).defs {
+  | Some(defs) =>
+    defs->Dict.forEachWithKey((schema, key) =>
+      try {
+        code := code.contents ++ "\n" ++ `${key}: ${schema->toCode}`
+      } catch {
+      | _ => ()
       }
-    | #ReverseConvert => {
-        let fn = schema->S.compile(~input=Value, ~output=Unknown, ~mode=Sync, ~typeValidation=false)
-        fn->magic
-      }
-    | #ReverseConvertAsync => {
-        let fn =
-          schema->S.compile(~input=Value, ~output=Unknown, ~mode=Async, ~typeValidation=false)
-        fn->magic
-      }
-    | #ReverseConvertToJson => {
-        let fn = schema->S.compile(~input=Value, ~output=Json, ~mode=Sync, ~typeValidation=false)
-        fn->magic
-      }
-    }
-  )["toString"]()
+    )
+  | None => ()
+  }
+
+  code.contents
 }
 
 let rec cleanUpSchema = schema => {

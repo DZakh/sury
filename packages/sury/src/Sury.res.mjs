@@ -79,7 +79,7 @@ function isOptional(schema) {
 }
 
 var globalConfig = {
-  r: 0,
+  d: undefined,
   a: "strip",
   n: false
 };
@@ -139,7 +139,7 @@ function has(acc, flag) {
 var copyWithoutCache = ((schema) => {
   let c = new Schema()
   for (let k in schema) {
-    if (k > "a") {
+    if (!+k[0]) {
       c[k] = schema[k]
     }
   }
@@ -158,17 +158,9 @@ function updateOutput(schema, fn) {
   return root;
 }
 
-var mergeInPlace = ((target, schema) => {
-  for (let k in schema) {
-    if (k > "a") {
-      target[k] = schema[k]
-    }
-  }
-});
-
 var resetOperationsCache = ((schema) => {
   for (let k in schema) {
-    if (+k) {
+    if (+k[0]) {
       delete schema[k];
     }
   }
@@ -386,7 +378,7 @@ function initialAllocate(v) {
   b.a = secondAllocate;
 }
 
-function rootScope(flag) {
+function rootScope(flag, defs) {
   var $$global = {
     c: "",
     l: "",
@@ -394,7 +386,8 @@ function rootScope(flag) {
     v: -1,
     o: flag,
     f: "",
-    e: []
+    e: [],
+    d: defs
   };
   $$global.g = $$global;
   return $$global;
@@ -544,33 +537,6 @@ function map(inlinedFn, input) {
           v: _notVar,
           i: inlinedFn + "(" + input.i + ")",
           f: 0
-        };
-}
-
-function transform(b, input, operation) {
-  if (!(input.f & 2)) {
-    return operation(b, input);
-  }
-  var bb = {
-    c: "",
-    l: "",
-    a: initialAllocate,
-    f: "",
-    g: b.g
-  };
-  var operationInput = {
-    b: b,
-    v: _var,
-    i: varWithoutAllocation(bb.g),
-    f: 0
-  };
-  var operationOutputVal = operation(bb, operationInput);
-  var operationCode = allocateScope(bb);
-  return {
-          b: input.b,
-          v: _notVar,
-          i: input.i + ".then(" + operationInput.v(b) + "=>{" + operationCode + "return " + operationOutputVal.i + "})",
-          f: 3
         };
 }
 
@@ -802,6 +768,7 @@ function typeFilterCode(b, schema, input, path) {
     case "unknown" :
     case "union" :
     case "json" :
+    case "ref" :
         return "";
     default:
       var inputVar = input.v(b);
@@ -826,7 +793,32 @@ function withCoerceScope(b, input, path, target, coercion) {
                   }), inputVar));
 }
 
-function parse(prevB, schema, input, path) {
+function typeValidation(b, schema, input, path) {
+  if (b.g.o & 1 || isLiteral(schema)) {
+    b.c = b.c + typeFilterCode(b, schema, input, path);
+    return ;
+  }
+  
+}
+
+function noopOperation(i) {
+  return i;
+}
+
+var nonJsonableTags = new Set([
+      "unknown",
+      "nan",
+      "bigint",
+      "function",
+      "instance",
+      "symbol"
+    ]);
+
+var unknown = new Schema();
+
+unknown.type = "unknown";
+
+function parse(prevB, schema, inputArg, path) {
   var b = {
     c: "",
     l: "",
@@ -834,20 +826,54 @@ function parse(prevB, schema, input, path) {
     f: "",
     g: prevB.g
   };
-  if (!(input.f & 1) && (b.g.o & 1 || isLiteral(schema))) {
+  if (schema.$defs) {
+    b.g.d = schema.$defs;
+  }
+  if (!(inputArg.f & 1) && (b.g.o & 1 || isLiteral(schema))) {
     if (!schema.noValidation) {
-      b.f = typeFilterCode(prevB, schema, input, path);
+      b.f = typeFilterCode(prevB, schema, inputArg, path);
     }
-    input.f = input.f | 1;
+    inputArg.f = inputArg.f | 1;
+  }
+  var input = inputArg;
+  var ref = schema.$ref;
+  if (ref !== undefined) {
+    var defs = b.g.d;
+    var identifier = ref.slice(8);
+    var def = defs[identifier];
+    var fn = def[b.g.o];
+    var recOperation;
+    if (fn !== undefined) {
+      var fn$1 = Caml_option.valFromOption(fn);
+      recOperation = fn$1 === 0 ? embed(b, def) + ("[" + b.g.o + "]") : embed(b, fn$1);
+    } else {
+      def[b.g.o] = 0;
+      var fn$2 = internalCompile(def, b.g.o, b.g.d);
+      def[b.g.o] = fn$2;
+      recOperation = embed(b, fn$2);
+    }
+    input = withPathPrepend(b, input, path, undefined, undefined, (function (param, input, param$1) {
+            var output = map(recOperation, input);
+            if (def.isAsync === undefined) {
+              var defsMut = copy(defs);
+              defsMut[identifier] = unknown;
+              isAsyncInternal(def, defsMut);
+            }
+            if (def.isAsync) {
+              output.f = output.f | 2;
+            }
+            return output;
+          }));
   }
   var refiner = schema.refiner;
-  var input$1 = refiner !== undefined ? refiner(b, input, schema, path) : input;
+  if (refiner !== undefined) {
+    input = refiner(b, input, schema, path);
+  }
   var to = schema.to;
   if (to !== undefined) {
     var parser = schema.parser;
-    var input$2;
     if (parser !== undefined) {
-      input$2 = parser(b, input$1, schema, path);
+      input = parser(b, input, schema, path);
     } else {
       var target = schema.to;
       var isFromLiteral = isLiteral(schema);
@@ -858,15 +884,13 @@ function parse(prevB, schema, input, path) {
       var exit$2 = 0;
       var targetTag = target.type;
       if (isFromLiteral && isTargetLiteral) {
-        input$2 = {
+        input = {
           b: b,
           v: _notVar,
           i: inlineConst(b, target),
           f: 1
         };
-      } else if (fromTag === targetTag && isFromLiteral && !isTargetLiteral || targetTag === "unknown") {
-        input$2 = input$1;
-      } else {
+      } else if (!(fromTag === targetTag && isFromLiteral && !isTargetLiteral) && targetTag !== "unknown") {
         switch (fromTag) {
           case "string" :
               var match = target.type;
@@ -876,8 +900,6 @@ function parse(prevB, schema, input, path) {
                     var match$1 = target.const;
                     if (match$1 !== undefined) {
                       exit = 1;
-                    } else {
-                      input$2 = input$1;
                     }
                     break;
                 case "number" :
@@ -894,7 +916,7 @@ function parse(prevB, schema, input, path) {
               if (exit$3 === 4) {
                 var $$const = target.const;
                 if (isTargetLiteral) {
-                  input$2 = withCoerceScope(b, input$1, path, target, (function (b, inputVar, failCoercion) {
+                  input = withCoerceScope(b, input, path, target, (function (b, inputVar, failCoercion) {
                           b.c = b.c + (inputVar + "===\"" + $$const + "\"||" + failCoercion + ";");
                           return {
                                   b: b,
@@ -907,7 +929,7 @@ function parse(prevB, schema, input, path) {
                   switch (match) {
                     case "number" :
                         var format = target.format;
-                        input$2 = withCoerceScope(b, input$1, path, target, (function (b, inputVar, failCoercion) {
+                        input = withCoerceScope(b, input, path, target, (function (b, inputVar, failCoercion) {
                                 var output = {
                                   b: b,
                                   v: _notVar,
@@ -922,14 +944,14 @@ function parse(prevB, schema, input, path) {
                               }));
                         break;
                     case "bigint" :
-                        input$2 = withCoerceScope(b, input$1, path, target, (function (b, inputVar, failCoercion) {
+                        input = withCoerceScope(b, input, path, target, (function (b, inputVar, failCoercion) {
                                 var output = allocateVal(b);
                                 b.c = b.c + ("try{" + output.i + "=BigInt(" + inputVar + ")}catch(_){" + failCoercion + "}");
                                 return output;
                               }));
                         break;
                     case "boolean" :
-                        input$2 = withCoerceScope(b, input$1, path, target, (function (b, inputVar, failCoercion) {
+                        input = withCoerceScope(b, input, path, target, (function (b, inputVar, failCoercion) {
                                 var output = allocateVal(b);
                                 b.c = b.c + ("(" + output.i + "=" + inputVar + "===\"true\")||" + inputVar + "===\"false\"||" + failCoercion + ";");
                                 return output;
@@ -949,9 +971,8 @@ function parse(prevB, schema, input, path) {
                   var match$4 = target.format;
                   if (match$4 !== undefined) {
                     exit$2 = 3;
-                  } else {
-                    input$2 = input$1;
                   }
+                  
                 } else {
                   exit$2 = 3;
                 }
@@ -978,7 +999,7 @@ function parse(prevB, schema, input, path) {
         var match$5 = target.type;
         if (match$5 === "string") {
           if (isFromLiteral) {
-            input$2 = {
+            input = {
               b: b,
               v: _notVar,
               i: "\"" + $$const$1 + "\"",
@@ -998,10 +1019,10 @@ function parse(prevB, schema, input, path) {
             if (exit$4 === 4) {
               var match$6 = target.type;
               if (match$6 === "string") {
-                input$2 = {
+                input = {
                   b: b,
                   v: _notVar,
-                  i: "\"\"+" + input$1.i,
+                  i: "\"\"+" + input.i,
                   f: 1
                 };
               } else {
@@ -1019,39 +1040,15 @@ function parse(prevB, schema, input, path) {
         throw new Error("[Sury] " + message);
       }
       if (exit === 1) {
-        input$1.f = (input$1.f | 1) ^ 1;
-        input$2 = input$1;
+        input.f = (input.f | 1) ^ 1;
       }
       
     }
-    var output = parse(b, to, input$2, path);
-    prevB.c = prevB.c + allocateScope(b);
-    return output;
+    input = parse(b, to, input, path);
   }
   prevB.c = prevB.c + allocateScope(b);
-  return input$1;
+  return input;
 }
-
-function typeValidation(b, schema, input, path) {
-  if (b.g.o & 1 || isLiteral(schema)) {
-    b.c = b.c + typeFilterCode(b, schema, input, path);
-    return ;
-  }
-  
-}
-
-function noopOperation(i) {
-  return i;
-}
-
-var nonJsonableTags = new Set([
-      "unknown",
-      "nan",
-      "bigint",
-      "function",
-      "instance",
-      "symbol"
-    ]);
 
 function reverse(schema) {
   var reversedHead;
@@ -1120,6 +1117,7 @@ function reverse(schema) {
         switch (v) {
           case "union" :
           case "json" :
+          case "ref" :
               tmp = "unknown";
               break;
           default:
@@ -1130,10 +1128,81 @@ function reverse(schema) {
       mut.has = has;
       mut.anyOf = newAnyOf;
     }
+    var defs = mut.$defs;
+    if (defs !== undefined) {
+      var reversedDefs = {};
+      for(var idx$2 = 0 ,idx_finish$2 = Object.keys(defs).length; idx$2 < idx_finish$2; ++idx$2){
+        var key = Object.keys(defs)[idx$2];
+        reversedDefs[key] = reverse(defs[key]);
+      }
+      mut.$defs = reversedDefs;
+    }
     reversedHead = mut;
     current = next;
   };
   return reversedHead;
+}
+
+function internalCompile(schema, flag, defs) {
+  var b = rootScope(flag, defs);
+  if (flag & 8) {
+    var output = reverse(schema);
+    jsonableValidation(output, output, "", flag, undefined);
+  }
+  var input = {
+    b: b,
+    v: _var,
+    i: "i",
+    f: has(flag, 1) || isLiteral(schema) ? 0 : 1
+  };
+  var output$1 = parse(b, schema, input, "");
+  var code = allocateScope(b);
+  var isAsync = has(output$1.f, 2);
+  schema.isAsync = isAsync;
+  if (code === "" && output$1 === input && !(flag & 22)) {
+    return noopOperation;
+  }
+  var inlinedOutput = flag & 4 ? "void 0" : output$1.i;
+  if (flag & 16) {
+    inlinedOutput = "JSON.stringify(" + inlinedOutput + ")";
+  }
+  if (flag & 2 && !isAsync) {
+    inlinedOutput = "Promise.resolve(" + inlinedOutput + ")";
+  }
+  var inlinedFunction = "i=>{" + code + "return " + inlinedOutput + "}";
+  return new Function("e", "s", "return " + inlinedFunction)(b.g.e, s);
+}
+
+function isAsyncInternal(schema, defs) {
+  try {
+    var b = rootScope(2, defs);
+    var input = {
+      b: b,
+      v: _var,
+      i: "i",
+      f: 0
+    };
+    var output = parse(b, schema, input, "");
+    var isAsync = has(output.f, 2);
+    schema.isAsync = isAsync;
+    return isAsync;
+  }
+  catch (exn){
+    getOrRethrow(exn);
+    return false;
+  }
+}
+
+function getOutputSchema(_schema) {
+  while(true) {
+    var schema = _schema;
+    var to = schema.to;
+    if (to === undefined) {
+      return schema;
+    }
+    _schema = to;
+    continue ;
+  };
 }
 
 function jsonableValidation(output, parent, path, flag, recSet) {
@@ -1180,53 +1249,11 @@ function jsonableValidation(output, parent, path, flag, recSet) {
       });
 }
 
-function getOutputSchema(_schema) {
-  while(true) {
-    var schema = _schema;
-    var to = schema.to;
-    if (to === undefined) {
-      return schema;
-    }
-    _schema = to;
-    continue ;
-  };
-}
-
-function internalCompile(schema, flag) {
-  var b = rootScope(flag);
-  if (flag & 8) {
-    var output = reverse(schema);
-    jsonableValidation(output, output, "", flag, undefined);
-  }
-  var input = {
-    b: b,
-    v: _var,
-    i: "i",
-    f: has(flag, 1) || isLiteral(schema) ? 0 : 1
-  };
-  var output$1 = parse(b, schema, input, "");
-  var code = allocateScope(b);
-  var isAsync = has(output$1.f, 2);
-  schema.isAsync = isAsync;
-  if (code === "" && output$1 === input && !(flag & 22)) {
-    return noopOperation;
-  }
-  var inlinedOutput = flag & 4 ? "void 0" : output$1.i;
-  if (flag & 16) {
-    inlinedOutput = "JSON.stringify(" + inlinedOutput + ")";
-  }
-  if (flag & 2 && !isAsync) {
-    inlinedOutput = "Promise.resolve(" + inlinedOutput + ")";
-  }
-  var inlinedFunction = "i=>{" + code + "return " + inlinedOutput + "}";
-  return new Function("e", "s", "return " + inlinedFunction)(b.g.e, s);
-}
-
 function operationFn(s, o) {
   if ((o in s)) {
     return (s[o]);
   }
-  var f = internalCompile(o & 32 ? reverse(s) : s, o);
+  var f = internalCompile(o & 32 ? reverse(s) : s, o, 0);
   ((s[o] = f));
   return f;
 }
@@ -1411,23 +1438,8 @@ function isAsync(schema) {
   var v = schema.isAsync;
   if (v !== undefined) {
     return v;
-  }
-  try {
-    var b = rootScope(2);
-    var input = {
-      b: b,
-      v: _var,
-      i: "i",
-      f: 0
-    };
-    var output = parse(b, schema, input, "");
-    var isAsync$1 = has(output.f, 2);
-    schema.isAsync = isAsync$1;
-    return isAsync$1;
-  }
-  catch (exn){
-    getOrRethrow(exn);
-    return false;
+  } else {
+    return isAsyncInternal(schema, 0);
   }
 }
 
@@ -1490,92 +1502,26 @@ function set$1(schema, id, metadata) {
   return mut;
 }
 
-function recursive(fn) {
-  var r = "r" + globalConfig.r;
-  globalConfig.r = globalConfig.r + 1 | 0;
-  var parser = function (b, input, param, param$1) {
-    return transform(b, input, (function (_b, input) {
-                  return map(r, input);
-                }));
-  };
-  var output = function () {
-    var mut = new Schema();
-    mut.type = "unknown";
-    mut.parser = (function (_b, input, param, param$1) {
-        return map(r, input);
-      });
-    return mut;
-  };
-  var placeholder = new Schema();
-  placeholder.type = "unknown";
-  placeholder.parser = parser;
-  placeholder.output = output;
-  placeholder.name = "Self";
-  var schema = fn(placeholder);
-  mergeInPlace(placeholder, schema);
-  placeholder.name = toExpression(schema);
-  placeholder.parser = parser;
-  placeholder.output = output;
-  var initialParseOperationBuilder = schema.parser;
-  schema.parser = (function (b, input, selfSchema, path) {
-      var inputVar = input.v(b);
-      var bb = {
-        c: "",
-        l: "",
-        a: initialAllocate,
-        f: "",
-        g: b.g
-      };
-      var opOutput = initialParseOperationBuilder(bb, input, selfSchema, "");
-      var opBodyCode = allocateScope(bb) + ("return " + opOutput.i);
-      b.c = b.c + ("let " + r + "=" + inputVar + "=>{" + opBodyCode + "};");
-      return withPathPrepend(b, input, path, undefined, undefined, (function (b, input, param) {
-                    return transform(b, input, (function (_b, input) {
-                                  var output = map(r, input);
-                                  if (opOutput.f & 2) {
-                                    output.f = output.f | 2;
-                                    placeholder.parser = (function (b, input, param, param$1) {
-                                        return transform(b, input, (function (_b, input) {
-                                                      var output = map(r, input);
-                                                      output.f = output.f | 2;
-                                                      return output;
-                                                    }));
-                                      });
-                                  }
-                                  return output;
-                                }));
-                  }));
-    });
-  var initialReverse = schema.output.bind(schema);
-  schema.output = (function () {
-      var initialReversed = initialReverse();
-      var mut = copyWithoutCache(initialReversed);
-      mut.output = schema;
-      schema.output = mut;
-      mut.parser = (function (b, input, selfSchema, path) {
-          var inputVar = input.v(b);
-          var bb = {
-            c: "",
-            l: "",
-            a: initialAllocate,
-            f: "",
-            g: b.g
-          };
-          var initialInput = {
-            b: bb,
-            v: input.v,
-            i: input.i,
-            f: input.f
-          };
-          var opOutput = initialReversed.parser(bb, initialInput, selfSchema, "");
-          var opBodyCode = allocateScope(bb) + ("return " + opOutput.i);
-          b.c = b.c + ("let " + r + "=" + inputVar + "=>{" + opBodyCode + "};");
-          return withPathPrepend(b, input, path, undefined, undefined, (function (_b, input, param) {
-                        return map(r, input);
-                      }));
-        });
-      return mut;
-    });
+function recursive(name, fn) {
+  var ref = "#/$defs/" + name;
+  var refSchema = new Schema();
+  refSchema.type = "ref";
+  refSchema.$ref = ref;
+  refSchema.name = name;
+  var isNestedRec = globalConfig.d;
+  if (!isNestedRec) {
+    globalConfig.d = {};
+  }
+  globalConfig.d[name] = fn(refSchema);
+  if (isNestedRec) {
+    return refSchema;
+  }
+  var schema = new Schema();
+  schema.type = "ref";
+  schema.$ref = ref;
+  schema.name = name;
+  schema.$defs = globalConfig.d;
+  globalConfig.d = undefined;
   return schema;
 }
 
@@ -1589,11 +1535,36 @@ function internalRefine(schema, refiner) {
   return updateOutput(schema, (function (mut) {
                 var prevRefiner = mut.refiner;
                 mut.refiner = (function (b, input, selfSchema, path) {
-                    return transform(b, prevRefiner !== undefined ? prevRefiner(b, input, selfSchema, path) : input, (function (b, input) {
-                                  var rCode = refiner(b, input.v(b), selfSchema, path);
-                                  b.c = b.c + rCode;
-                                  return input;
-                                }));
+                    var input$1 = prevRefiner !== undefined ? prevRefiner(b, input, selfSchema, path) : input;
+                    var operation = function (b, input) {
+                      var rCode = refiner(b, input.v(b), selfSchema, path);
+                      b.c = b.c + rCode;
+                      return input;
+                    };
+                    if (!(input$1.f & 2)) {
+                      return operation(b, input$1);
+                    }
+                    var bb = {
+                      c: "",
+                      l: "",
+                      a: initialAllocate,
+                      f: "",
+                      g: b.g
+                    };
+                    var operationInput = {
+                      b: b,
+                      v: _var,
+                      i: varWithoutAllocation(bb.g),
+                      f: 0
+                    };
+                    var operationOutputVal = operation(bb, operationInput);
+                    var operationCode = allocateScope(bb);
+                    return {
+                            b: input$1.b,
+                            v: _notVar,
+                            i: input$1.i + ".then(" + operationInput.v(b) + "=>{" + operationCode + "return " + operationOutputVal.i + "})",
+                            f: 3
+                          };
                   });
               }));
 }
@@ -1609,7 +1580,7 @@ function addRefinement(schema, metadataId, refinement, refiner) {
   return internalRefine(set$1(schema, metadataId, refinements !== undefined ? refinements.concat(refinement) : [refinement]), refiner);
 }
 
-function transform$1(schema, transformer) {
+function transform(schema, transformer) {
   return updateOutput(schema, (function (mut) {
                 mut.parser = (function (b, input, selfSchema, path) {
                     var match = transformer(effectCtx(b, selfSchema, path));
@@ -1658,10 +1629,6 @@ nullAsUnit.type = "null";
 nullAsUnit.const = null;
 
 nullAsUnit.to = $$undefined;
-
-var unknown = new Schema();
-
-unknown.type = "unknown";
 
 function neverBuilder(b, input, selfSchema, path) {
   b.c = b.c + failWithArg(b, path, (function (input) {
@@ -1756,6 +1723,7 @@ function refiner(b, input, selfSchema, path) {
       case "unknown" :
       case "union" :
       case "json" :
+      case "ref" :
           exit = 1;
           break;
       default:
@@ -1995,6 +1963,7 @@ function factory(schemas) {
         switch (v) {
           case "union" :
           case "json" :
+          case "ref" :
               tmp = "unknown";
               break;
           default:
@@ -2461,7 +2430,7 @@ function to(from, target) {
 }
 
 function list(schema) {
-  return transform$1(factory$2(schema), (function (param) {
+  return transform(factory$2(schema), (function (param) {
                 return {
                         p: Belt_List.fromArray,
                         s: Belt_List.toArray
@@ -2731,72 +2700,6 @@ function schemaRefiner(b, input, selfSchema, path) {
   }
 }
 
-function definitionToRitem(definition, path, ritemsByItemPath) {
-  if (!(typeof definition === "object" && definition !== null)) {
-    return {
-            k: 1,
-            p: path,
-            s: copyWithoutCache(parse$1(definition))
-          };
-  }
-  var item = definition[itemSymbol];
-  if (item !== undefined) {
-    var ritemSchema = copyWithoutCache(getOutputSchema(item.schema));
-    ((delete ritemSchema.serializer));
-    var ritem = {
-      k: 0,
-      p: path,
-      s: ritemSchema
-    };
-    item.r = ritem;
-    ritemsByItemPath[getFullDitemPath(item)] = ritem;
-    return ritem;
-  }
-  if (Array.isArray(definition)) {
-    var items = [];
-    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
-      var $$location = idx.toString();
-      var inlinedLocation = "\"" + $$location + "\"";
-      var ritem$1 = definitionToRitem(definition[idx], path + ("[" + inlinedLocation + "]"), ritemsByItemPath);
-      var item_schema = ritem$1.s;
-      var item$1 = {
-        schema: item_schema,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-      items[idx] = item$1;
-    }
-    var mut = new Schema();
-    return {
-            k: 2,
-            p: path,
-            s: (mut.type = "array", mut.items = items, mut.additionalItems = "strict", mut.serializer = neverBuilder, mut)
-          };
-  }
-  var fieldNames = Object.keys(definition);
-  var fields = {};
-  var items$1 = [];
-  for(var idx$1 = 0 ,idx_finish$1 = fieldNames.length; idx$1 < idx_finish$1; ++idx$1){
-    var $$location$1 = fieldNames[idx$1];
-    var inlinedLocation$1 = fromString($$location$1);
-    var ritem$2 = definitionToRitem(definition[$$location$1], path + ("[" + inlinedLocation$1 + "]"), ritemsByItemPath);
-    var item_schema$1 = ritem$2.s;
-    var item$2 = {
-      schema: item_schema$1,
-      location: $$location$1,
-      inlinedLocation: inlinedLocation$1
-    };
-    items$1[idx$1] = item$2;
-    fields[$$location$1] = item$2;
-  }
-  var mut$1 = new Schema();
-  return {
-          k: 2,
-          p: path,
-          s: (mut$1.type = "object", mut$1.items = items$1, mut$1.fields = fields, mut$1.additionalItems = globalConfig.a, mut$1.serializer = neverBuilder, mut$1)
-        };
-}
-
 function definitionToSchema(definition) {
   if (!(typeof definition === "object" && definition !== null)) {
     return parse$1(definition);
@@ -2925,6 +2828,72 @@ function nested(fieldName) {
   };
   parentCtx[cacheId] = ctx$1;
   return ctx$1;
+}
+
+function definitionToRitem(definition, path, ritemsByItemPath) {
+  if (!(typeof definition === "object" && definition !== null)) {
+    return {
+            k: 1,
+            p: path,
+            s: copyWithoutCache(parse$1(definition))
+          };
+  }
+  var item = definition[itemSymbol];
+  if (item !== undefined) {
+    var ritemSchema = copyWithoutCache(getOutputSchema(item.schema));
+    ((delete ritemSchema.serializer));
+    var ritem = {
+      k: 0,
+      p: path,
+      s: ritemSchema
+    };
+    item.r = ritem;
+    ritemsByItemPath[getFullDitemPath(item)] = ritem;
+    return ritem;
+  }
+  if (Array.isArray(definition)) {
+    var items = [];
+    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
+      var $$location = idx.toString();
+      var inlinedLocation = "\"" + $$location + "\"";
+      var ritem$1 = definitionToRitem(definition[idx], path + ("[" + inlinedLocation + "]"), ritemsByItemPath);
+      var item_schema = ritem$1.s;
+      var item$1 = {
+        schema: item_schema,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+      items[idx] = item$1;
+    }
+    var mut = new Schema();
+    return {
+            k: 2,
+            p: path,
+            s: (mut.type = "array", mut.items = items, mut.additionalItems = "strict", mut.serializer = neverBuilder, mut)
+          };
+  }
+  var fieldNames = Object.keys(definition);
+  var fields = {};
+  var items$1 = [];
+  for(var idx$1 = 0 ,idx_finish$1 = fieldNames.length; idx$1 < idx_finish$1; ++idx$1){
+    var $$location$1 = fieldNames[idx$1];
+    var inlinedLocation$1 = fromString($$location$1);
+    var ritem$2 = definitionToRitem(definition[$$location$1], path + ("[" + inlinedLocation$1 + "]"), ritemsByItemPath);
+    var item_schema$1 = ritem$2.s;
+    var item$2 = {
+      schema: item_schema$1,
+      location: $$location$1,
+      inlinedLocation: inlinedLocation$1
+    };
+    items$1[idx$1] = item$2;
+    fields[$$location$1] = item$2;
+  }
+  var mut$1 = new Schema();
+  return {
+          k: 2,
+          p: path,
+          s: (mut$1.type = "object", mut$1.items = items$1, mut$1.fields = fields, mut$1.additionalItems = globalConfig.a, mut$1.serializer = neverBuilder, mut$1)
+        };
 }
 
 function advancedBuilder(definition, flattened) {
@@ -3580,7 +3549,7 @@ function datetime(schema, messageOpt) {
     message: message
   };
   var refinements = schema[metadataId$1];
-  return transform$1(set$1(schema, metadataId$1, refinements !== undefined ? refinements.concat(refinement) : [refinement]), (function (s) {
+  return transform(set$1(schema, metadataId$1, refinements !== undefined ? refinements.concat(refinement) : [refinement]), (function (s) {
                 return {
                         p: (function (string) {
                             if (!datetimeRe.test(string)) {
@@ -3599,7 +3568,7 @@ function trim(schema) {
   var transformer = function (string) {
     return string.trim();
   };
-  return transform$1(schema, (function (param) {
+  return transform(schema, (function (param) {
                 return {
                         p: transformer,
                         s: transformer
@@ -3628,7 +3597,7 @@ function js_union(values) {
 }
 
 function js_transform(schema, maybeParser, maybeSerializer) {
-  return transform$1(schema, (function (s) {
+  return transform(schema, (function (s) {
                 return {
                         p: maybeParser !== undefined ? (function (v) {
                               return maybeParser(v, s);
@@ -3653,7 +3622,7 @@ function noop(a) {
 }
 
 function js_asyncParserRefine(schema, refine) {
-  return transform$1(schema, (function (s) {
+  return transform(schema, (function (s) {
                 return {
                         a: (function (v) {
                             return refine(v, s).then(function () {
@@ -3728,7 +3697,6 @@ function js_merge(s1, s2) {
 }
 
 function $$global(override) {
-  globalConfig.r = 0;
   var defaultAdditionalItems = override.defaultAdditionalItems;
   globalConfig.a = defaultAdditionalItems !== undefined ? defaultAdditionalItems : "strip";
   var prevDisableNanNumberCheck = globalConfig.n;
@@ -4517,7 +4485,7 @@ export {
   meta ,
   Catch ,
   $$catch ,
-  transform$1 as transform,
+  transform ,
   refine ,
   shape ,
   to ,

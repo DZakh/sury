@@ -128,7 +128,7 @@ module CrazyUnion = {
     | Y
     | Z(array<test>)
 
-  let schema = S.recursive(schema =>
+  let schema = S.recursive("CrazyUnion", schema =>
     S.union([
       S.object(s => {
         s.tag("type", "A")

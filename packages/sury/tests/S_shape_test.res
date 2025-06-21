@@ -13,7 +13,7 @@ asyncTest("Parses with wrapping async schema in variant", async t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="string"){e[2](i)}return Promise.all([e[0](i),]).then(a=>({"TAG":e[1],"_0":a[0],}))}`,
+    `i=>{if(typeof i!=="string"){e[0](i)}return Promise.all([e[1](i),]).then(a=>({"TAG":e[2],"_0":a[0],}))}`,
   )
 })
 

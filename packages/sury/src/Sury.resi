@@ -44,6 +44,7 @@ type tag =
   | @as("object") Object
   | @as("union") Union
   | @as("json") JSON
+  | @as("ref") Ref
 
 @tag("type")
 type rec t<'value> =
@@ -198,6 +199,7 @@ type rec t<'value> =
       examples?: array<Js.Json.t>,
       default?: Js.Json.t,
     })
+  | @as("ref") Ref({@as("$ref") ref: string})
 and schema<'a> = t<'a>
 and meta<'value> = {
   name?: string,
@@ -209,6 +211,10 @@ and meta<'value> = {
 and untagged = private {
   @as("type")
   tag: tag,
+  @as("$ref")
+  ref?: string,
+  @as("$defs")
+  defs?: dict<t<unknown>>,
   const?: unknown,
   class?: unknown,
   format?: format,
@@ -381,7 +387,7 @@ let assertOrThrow: ('any, t<'value>) => unit
 
 let isAsync: t<'value> => bool
 
-let recursive: (t<'value> => t<'value>) => t<'value>
+let recursive: (string, t<'value> => t<'value>) => t<'value>
 
 let noValidation: (t<'value>, bool) => t<'value>
 

@@ -2090,7 +2090,7 @@ test("Successfully parses recursive object", (t) => {
     children: Node[];
   };
 
-  let nodeSchema = S.recursive<Node>((nodeSchema) =>
+  let nodeSchema = S.recursive<Node, Node>("Node", (nodeSchema) =>
     S.schema({
       id: S.string,
       children: S.array(nodeSchema),
@@ -2120,13 +2120,77 @@ test("Successfully parses recursive object", (t) => {
   );
 });
 
+test("Mutually recursive objects", (t) => {
+  type User = {
+    email: string;
+    posts: Post[];
+  };
+  type Post = {
+    title: string;
+    author: User;
+  };
+
+  const makeUserSchema = (postSchema: S.Schema<Post>) =>
+    S.schema({
+      email: S.string,
+      posts: S.array(postSchema),
+    });
+  const makePostSchema = (userSchema: S.Schema<User>) =>
+    S.schema({
+      Title: S.string,
+      Author: userSchema,
+    }).with(S.shape, (post) => ({
+      title: post.Title,
+      author: post.Author,
+    }));
+
+  const userSchema = S.recursive<User>("User", (userSchema) =>
+    makeUserSchema(S.recursive<Post>("Post", (_) => makePostSchema(userSchema)))
+  );
+  const postSchema = S.recursive<Post>("Post", (postSchema) =>
+    makePostSchema(S.recursive<User>("User", (_) => makeUserSchema(postSchema)))
+  );
+
+  expectType<SchemaEqual<typeof userSchema, User, unknown>>(true);
+  expectType<SchemaEqual<typeof postSchema, Post, unknown>>(true);
+
+  t.deepEqual(
+    S.parseOrThrow(
+      {
+        email: "test@test.com",
+        posts: [
+          { Title: "Hello", Author: { email: "test@test.com", posts: [] } },
+        ],
+      },
+      userSchema
+    ),
+    {
+      email: "test@test.com",
+      posts: [
+        { title: "Hello", author: { email: "test@test.com", posts: [] } },
+      ],
+    }
+  );
+
+  t.deepEqual(
+    S.parseOrThrow(
+      {
+        Title: "Hello",
+        Author: { email: "test@test.com", posts: [] },
+      },
+      postSchema
+    ),
+    { title: "Hello", author: { email: "test@test.com", posts: [] } }
+  );
+});
+
 test("Recursive object with S.shape", (t) => {
   type Node = {
     id: string;
     children: Node[];
   };
 
-  let nodeSchema = S.recursive<Node, unknown>((nodeSchema) =>
+  let nodeSchema = S.recursive<Node>("Node", (nodeSchema) =>
     S.schema({
       ID: S.string,
       CHILDREN: S.array(nodeSchema),
@@ -2141,10 +2205,10 @@ test("Recursive object with S.shape", (t) => {
   t.deepEqual(
     S.parseOrThrow(
       {
-        id: "1",
-        children: [
-          { id: "2", children: [] },
-          { id: "3", children: [{ id: "4", children: [] }] },
+        ID: "1",
+        CHILDREN: [
+          { ID: "2", CHILDREN: [] },
+          { ID: "3", CHILDREN: [{ ID: "4", CHILDREN: [] }] },
         ],
       },
       nodeSchema
@@ -2162,7 +2226,7 @@ test("Recursive object with S.shape", (t) => {
 test("Recursive with self as transform target", (t) => {
   type Node = Node[];
 
-  let nodeSchema = S.recursive<Node, string>((self) =>
+  let nodeSchema = S.recursive<Node, string>("Node", (self) =>
     S.string.with(S.to, S.array(self))
   );
 
@@ -2289,7 +2353,7 @@ test("parseJsonStringOrThrow", async (t) => {
 });
 
 test("ArkType pattern matching", async (t) => {
-  const schema = S.recursive((self) =>
+  const schema = S.recursive("DbJSON", (self) =>
     S.union([
       S.to(S.bigint, S.string),
       S.string,

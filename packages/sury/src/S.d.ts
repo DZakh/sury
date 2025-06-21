@@ -130,6 +130,9 @@ export type Schema<Output, Input = unknown> = {
     arg2: A2
   ): Schema<O, I>;
 
+  readonly $ref?: string;
+  readonly $defs?: Record<string, Schema<unknown>>;
+
   readonly name?: string;
   readonly title?: string;
   readonly description?: string;
@@ -553,7 +556,8 @@ export function merge<O1, O2>(
   Record<string, unknown>
 >;
 
-export function recursive<Output, Input = Output>(
+export function recursive<Output, Input = unknown>(
+  identifier: string,
   definer: (schema: Schema<Output, Input>) => Schema<Output, Input>
 ): Schema<Output, Input>;
 

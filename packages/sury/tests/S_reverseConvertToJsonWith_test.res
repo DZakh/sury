@@ -324,7 +324,7 @@ module SerializesDeepRecursive = {
       | Connective(Connective.t<t>)
       | Comparison(Comparison.t)
 
-    let schema = S.recursive(innerSchema =>
+    let schema = S.recursive("Condition", innerSchema =>
       S.union([
         S.object(s => {
           s.tag("type", "or")
