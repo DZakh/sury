@@ -387,6 +387,20 @@ test("Successfully parses nullable string", (t) => {
   expectType<TypeEqual<typeof value1, string | undefined>>(true);
 });
 
+test("Successfully parses nullable of array with default", (t) => {
+  const schema = S.nullable(S.array(S.string), []);
+  const value1 = S.parseOrThrow(["foo"], schema);
+  const value2 = S.parseOrThrow(null, schema);
+
+  t.deepEqual(value1, ["foo"]);
+  t.deepEqual(value2, []);
+
+  expectType<TypeEqual<S.Schema<string[], string[] | null>, typeof schema>>(
+    true
+  );
+  expectType<TypeEqual<typeof value1, string[]>>(true);
+});
+
 test("Successfully parses nullable string with default", (t) => {
   const schema = S.nullable(S.string, "bar");
   const value1 = S.parseOrThrow("foo", schema);
