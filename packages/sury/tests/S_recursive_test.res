@@ -65,6 +65,13 @@ asyncTest("Successfully parses recursive object using S.parseAsyncOrThrow", t =>
     )
   })
 
+  t->U.assertCompiledCode(
+    ~schema=nodeSchema,
+    ~op=#ParseAsync,
+    `i=>{return Promise.resolve(e[0](i))}
+Node: i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["Id"],v1=i["Children"];if(typeof v0!=="string"){e[1](v0)}if(!Array.isArray(v1)){e[2](v1)}let v5=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v4;try{v4=e[3][3](v1[v2])}catch(v3){if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+'["'+v2+'"]'+v3.path}throw v3}v5[v2]=v4}return {"id":v0,"children":v5,}}`,
+  )
+
   %raw(`{
     "Id": "1",
     "Children": [
@@ -492,7 +499,8 @@ asyncTest("Successfully parses recursive object with async parse function", t =>
   t->U.assertCompiledCode(
     ~schema=nodeSchema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[4](i)}let r0=i=>{let v0=i["Id"],v1=i["Children"],v6=[];if(typeof v0!=="string"){e[0](v0)}if(!Array.isArray(v1)){e[2](v1)}for(let v2=0;v2<v1.length;++v2){let v4=v1[v2],v5;try{if(typeof v4!=="object"||!v4){e[3](v4)}v5=r0(v4).catch(v3=>{if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+\'["\'+v2+\'"]\'+v3.path}throw v3})}catch(v3){if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+\'["\'+v2+\'"]\'+v3.path}throw v3}v6[v2]=v5}return Promise.all([e[1](v0),Promise.all(v6),]).then(a=>({"id":a[0],"children":a[1],}))};return r0(i)}`,
+    `i=>{return e[0](i)}
+Node: i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["Id"],v1=i["Children"];if(typeof v0!=="string"){e[1](v0)}if(!Array.isArray(v1)){e[3](v1)}let v5=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v4;try{v4=e[4][3](v1[v2]).catch(v3=>{if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+'["'+v2+'"]'+v3.path}throw v3})}catch(v3){if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+'["'+v2+'"]'+v3.path}throw v3}v5[v2]=v4}return Promise.all([e[2](v0),Promise.all(v5),]).then(a=>({"id":a[0],"children":a[1],}))}`,
   )
 
   %raw(`{

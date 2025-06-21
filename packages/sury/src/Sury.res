@@ -1492,22 +1492,23 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg, ~path) => {
     // Ignore #/$defs/
     let identifier = ref->Js.String2.sliceToEnd(~from=8)
     let def = defs->Js.Dict.unsafeGet(identifier)
-    let recOperation = switch def->Obj.magic->X.Dict.unsafeGetOptionByInt(b.global.flag) {
+    let flag = b.global.flag
+    let recOperation = switch def->Obj.magic->X.Dict.unsafeGetOptionByInt(flag) {
     | Some(fn) =>
       // A hacky way to prevent infinite recursion
       if fn === %raw(`0`) {
-        b->B.embed(def) ++ `[${b.global.flag->X.Int.unsafeToString}]`
+        b->B.embed(def) ++ `[${flag->X.Int.unsafeToString}]`
       } else {
         b->B.embed(fn)
       }
     | None => {
         def
         ->Obj.magic
-        ->X.Dict.setByInt(b.global.flag, 0)
-        let fn = internalCompile(~schema=def, ~flag=b.global.flag, ~defs=b.global.defs)
+        ->X.Dict.setByInt(flag, 0)
+        let fn = internalCompile(~schema=def, ~flag, ~defs=b.global.defs)
         def
         ->Obj.magic
-        ->X.Dict.setByInt(b.global.flag, fn)
+        ->X.Dict.setByInt(flag, fn)
         b->B.embed(fn)
       }
     }
@@ -1702,7 +1703,7 @@ and internalCompile = (~schema, ~flag, ~defs) => {
     if flag->Flag.unsafeHas(Flag.jsonStringOutput) {
       inlinedOutput := `JSON.stringify(${inlinedOutput.contents})`
     }
-    if flag->Flag.unsafeHas(Flag.async) && !isAsync {
+    if flag->Flag.unsafeHas(Flag.async) && !isAsync && !(defs->Obj.magic) {
       inlinedOutput := `Promise.resolve(${inlinedOutput.contents})`
     }
 

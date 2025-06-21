@@ -145,7 +145,9 @@ function getCompiledCodeString(schema, op) {
               code.contents = code.contents + "\n" + (key + ": " + toCode(schema));
               return ;
             }
-            catch (exn){
+            catch (raw_exn){
+              var exn = Caml_js_exceptions.internalToOCamlException(raw_exn);
+              console.error(exn);
               return ;
             }
           }));

@@ -841,15 +841,16 @@ function parse(prevB, schema, inputArg, path) {
     var defs = b.g.d;
     var identifier = ref.slice(8);
     var def = defs[identifier];
-    var fn = def[b.g.o];
+    var flag = b.g.o;
+    var fn = def[flag];
     var recOperation;
     if (fn !== undefined) {
       var fn$1 = Caml_option.valFromOption(fn);
-      recOperation = fn$1 === 0 ? embed(b, def) + ("[" + b.g.o + "]") : embed(b, fn$1);
+      recOperation = fn$1 === 0 ? embed(b, def) + ("[" + flag + "]") : embed(b, fn$1);
     } else {
-      def[b.g.o] = 0;
-      var fn$2 = internalCompile(def, b.g.o, b.g.d);
-      def[b.g.o] = fn$2;
+      def[flag] = 0;
+      var fn$2 = internalCompile(def, flag, b.g.d);
+      def[flag] = fn$2;
       recOperation = embed(b, fn$2);
     }
     input = withPathPrepend(b, input, path, undefined, undefined, (function (param, input, param$1) {
@@ -1166,7 +1167,7 @@ function internalCompile(schema, flag, defs) {
   if (flag & 16) {
     inlinedOutput = "JSON.stringify(" + inlinedOutput + ")";
   }
-  if (flag & 2 && !isAsync) {
+  if (flag & 2 && !isAsync && !defs) {
     inlinedOutput = "Promise.resolve(" + inlinedOutput + ")";
   }
   var inlinedFunction = "i=>{" + code + "return " + inlinedOutput + "}";
@@ -2757,6 +2758,72 @@ function definitionToSchema(definition) {
   return mut$1;
 }
 
+function definitionToRitem(definition, path, ritemsByItemPath) {
+  if (!(typeof definition === "object" && definition !== null)) {
+    return {
+            k: 1,
+            p: path,
+            s: copyWithoutCache(parse$1(definition))
+          };
+  }
+  var item = definition[itemSymbol];
+  if (item !== undefined) {
+    var ritemSchema = copyWithoutCache(getOutputSchema(item.schema));
+    ((delete ritemSchema.serializer));
+    var ritem = {
+      k: 0,
+      p: path,
+      s: ritemSchema
+    };
+    item.r = ritem;
+    ritemsByItemPath[getFullDitemPath(item)] = ritem;
+    return ritem;
+  }
+  if (Array.isArray(definition)) {
+    var items = [];
+    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
+      var $$location = idx.toString();
+      var inlinedLocation = "\"" + $$location + "\"";
+      var ritem$1 = definitionToRitem(definition[idx], path + ("[" + inlinedLocation + "]"), ritemsByItemPath);
+      var item_schema = ritem$1.s;
+      var item$1 = {
+        schema: item_schema,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+      items[idx] = item$1;
+    }
+    var mut = new Schema();
+    return {
+            k: 2,
+            p: path,
+            s: (mut.type = "array", mut.items = items, mut.additionalItems = "strict", mut.serializer = neverBuilder, mut)
+          };
+  }
+  var fieldNames = Object.keys(definition);
+  var fields = {};
+  var items$1 = [];
+  for(var idx$1 = 0 ,idx_finish$1 = fieldNames.length; idx$1 < idx_finish$1; ++idx$1){
+    var $$location$1 = fieldNames[idx$1];
+    var inlinedLocation$1 = fromString($$location$1);
+    var ritem$2 = definitionToRitem(definition[$$location$1], path + ("[" + inlinedLocation$1 + "]"), ritemsByItemPath);
+    var item_schema$1 = ritem$2.s;
+    var item$2 = {
+      schema: item_schema$1,
+      location: $$location$1,
+      inlinedLocation: inlinedLocation$1
+    };
+    items$1[idx$1] = item$2;
+    fields[$$location$1] = item$2;
+  }
+  var mut$1 = new Schema();
+  return {
+          k: 2,
+          p: path,
+          s: (mut$1.type = "object", mut$1.items = items$1, mut$1.fields = fields, mut$1.additionalItems = globalConfig.a, mut$1.serializer = neverBuilder, mut$1)
+        };
+}
+
 function nested(fieldName) {
   var parentCtx = this;
   var cacheId = "~" + fieldName;
@@ -2828,115 +2895,6 @@ function nested(fieldName) {
   };
   parentCtx[cacheId] = ctx$1;
   return ctx$1;
-}
-
-function definitionToRitem(definition, path, ritemsByItemPath) {
-  if (!(typeof definition === "object" && definition !== null)) {
-    return {
-            k: 1,
-            p: path,
-            s: copyWithoutCache(parse$1(definition))
-          };
-  }
-  var item = definition[itemSymbol];
-  if (item !== undefined) {
-    var ritemSchema = copyWithoutCache(getOutputSchema(item.schema));
-    ((delete ritemSchema.serializer));
-    var ritem = {
-      k: 0,
-      p: path,
-      s: ritemSchema
-    };
-    item.r = ritem;
-    ritemsByItemPath[getFullDitemPath(item)] = ritem;
-    return ritem;
-  }
-  if (Array.isArray(definition)) {
-    var items = [];
-    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
-      var $$location = idx.toString();
-      var inlinedLocation = "\"" + $$location + "\"";
-      var ritem$1 = definitionToRitem(definition[idx], path + ("[" + inlinedLocation + "]"), ritemsByItemPath);
-      var item_schema = ritem$1.s;
-      var item$1 = {
-        schema: item_schema,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-      items[idx] = item$1;
-    }
-    var mut = new Schema();
-    return {
-            k: 2,
-            p: path,
-            s: (mut.type = "array", mut.items = items, mut.additionalItems = "strict", mut.serializer = neverBuilder, mut)
-          };
-  }
-  var fieldNames = Object.keys(definition);
-  var fields = {};
-  var items$1 = [];
-  for(var idx$1 = 0 ,idx_finish$1 = fieldNames.length; idx$1 < idx_finish$1; ++idx$1){
-    var $$location$1 = fieldNames[idx$1];
-    var inlinedLocation$1 = fromString($$location$1);
-    var ritem$2 = definitionToRitem(definition[$$location$1], path + ("[" + inlinedLocation$1 + "]"), ritemsByItemPath);
-    var item_schema$1 = ritem$2.s;
-    var item$2 = {
-      schema: item_schema$1,
-      location: $$location$1,
-      inlinedLocation: inlinedLocation$1
-    };
-    items$1[idx$1] = item$2;
-    fields[$$location$1] = item$2;
-  }
-  var mut$1 = new Schema();
-  return {
-          k: 2,
-          p: path,
-          s: (mut$1.type = "object", mut$1.items = items$1, mut$1.fields = fields, mut$1.additionalItems = globalConfig.a, mut$1.serializer = neverBuilder, mut$1)
-        };
-}
-
-function advancedBuilder(definition, flattened) {
-  return function (b, input, selfSchema, path) {
-    var isFlatten = b.g.o & 64;
-    var outputs = isFlatten ? input : ({});
-    if (!isFlatten) {
-      var items = selfSchema.items;
-      for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
-        var match = items[idx];
-        var inlinedLocation = match.inlinedLocation;
-        var schema = match.schema;
-        var itemInput = get(b, input, inlinedLocation);
-        var path$1 = path + ("[" + inlinedLocation + "]");
-        if (input.f & 1 && (isLiteral(schema) || schema.type === "object")) {
-          itemInput.f = itemInput.f | 1;
-        }
-        outputs[inlinedLocation] = parse(b, schema, itemInput, path$1);
-      }
-      objectStrictModeCheck(b, input, items, selfSchema, path);
-    }
-    if (flattened !== undefined) {
-      var prevFlag = b.g.o;
-      b.g.o = prevFlag | 64;
-      for(var idx$1 = 0 ,idx_finish$1 = flattened.length; idx$1 < idx_finish$1; ++idx$1){
-        var item = flattened[idx$1];
-        outputs[item.i] = parse(b, item.schema, input, path);
-      }
-      b.g.o = prevFlag;
-    }
-    var getItemOutput = function (item) {
-      switch (item.k) {
-        case 0 :
-            return outputs[item.inlinedLocation];
-        case 1 :
-            return get(b, getItemOutput(item.of), item.inlinedLocation);
-        case 2 :
-            return outputs[item.i];
-        
-      }
-    };
-    return definitionToOutput(b, definition, getItemOutput);
-  };
 }
 
 function definitionToTarget(definition, to, flattened) {
@@ -3031,6 +2989,49 @@ function definitionToTarget(definition, to, flattened) {
       return complete(objectVal, isArray);
     });
   return mut;
+}
+
+function advancedBuilder(definition, flattened) {
+  return function (b, input, selfSchema, path) {
+    var isFlatten = b.g.o & 64;
+    var outputs = isFlatten ? input : ({});
+    if (!isFlatten) {
+      var items = selfSchema.items;
+      for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
+        var match = items[idx];
+        var inlinedLocation = match.inlinedLocation;
+        var schema = match.schema;
+        var itemInput = get(b, input, inlinedLocation);
+        var path$1 = path + ("[" + inlinedLocation + "]");
+        if (input.f & 1 && (isLiteral(schema) || schema.type === "object")) {
+          itemInput.f = itemInput.f | 1;
+        }
+        outputs[inlinedLocation] = parse(b, schema, itemInput, path$1);
+      }
+      objectStrictModeCheck(b, input, items, selfSchema, path);
+    }
+    if (flattened !== undefined) {
+      var prevFlag = b.g.o;
+      b.g.o = prevFlag | 64;
+      for(var idx$1 = 0 ,idx_finish$1 = flattened.length; idx$1 < idx_finish$1; ++idx$1){
+        var item = flattened[idx$1];
+        outputs[item.i] = parse(b, item.schema, input, path);
+      }
+      b.g.o = prevFlag;
+    }
+    var getItemOutput = function (item) {
+      switch (item.k) {
+        case 0 :
+            return outputs[item.inlinedLocation];
+        case 1 :
+            return get(b, getItemOutput(item.of), item.inlinedLocation);
+        case 2 :
+            return outputs[item.i];
+        
+      }
+    };
+    return definitionToOutput(b, definition, getItemOutput);
+  };
 }
 
 function shape(schema, definer) {

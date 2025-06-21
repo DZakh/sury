@@ -154,7 +154,7 @@ let getCompiledCodeString = (
       try {
         code := code.contents ++ "\n" ++ `${key}: ${schema->toCode}`
       } catch {
-      | _ => ()
+      | exn => Js.Console.error(exn)
       }
     )
   | None => ()
