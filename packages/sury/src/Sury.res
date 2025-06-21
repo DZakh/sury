@@ -9,7 +9,7 @@ module Obj = {
   external magic: 'a => 'b = "%identity"
 }
 
-module Stdlib = {
+module X = {
   module Proxy = {
     type traps<'a> = {get?: (~target: 'a, ~prop: unknown) => unknown}
 
@@ -211,14 +211,13 @@ module Path = {
   let fromInlinedLocation = inlinedLocation => `[${inlinedLocation}]`
 
   @inline
-  let fromLocation = location => `[${location->Stdlib.Inlined.Value.fromString}]`
+  let fromLocation = location => `[${location->X.Inlined.Value.fromString}]`
 
   let fromArray = array => {
     switch array {
     | [] => ""
     | [location] => fromLocation(location)
-    | _ =>
-      "[" ++ array->Js.Array2.map(Stdlib.Inlined.Value.fromString)->Js.Array2.joinWith("][") ++ "]"
+    | _ => "[" ++ array->Js.Array2.map(X.Inlined.Value.fromString)->Js.Array2.joinWith("][") ++ "]"
     }
   }
 
@@ -227,9 +226,9 @@ module Path = {
 
 let vendor = "sury"
 // Internal symbol to easily identify the error
-let s = Stdlib.Symbol.make(vendor)
+let s = X.Symbol.make(vendor)
 // Internal symbol to identify item proxy
-let itemSymbol = Stdlib.Symbol.make(vendor ++ ":item")
+let itemSymbol = X.Symbol.make(vendor ++ ":item")
 
 type tag =
   | @as("string") String
@@ -596,7 +595,7 @@ let isLiteral: internal => bool = %raw(`s => "const" in s`)
 let isOptional = schema => {
   switch schema.tag {
   | Undefined => true
-  | Union => schema.has->Stdlib.Option.unsafeUnwrap->Stdlib.Dict.has((Undefined: tag :> string))
+  | Union => schema.has->X.Option.unsafeUnwrap->X.Dict.has((Undefined: tag :> string))
   | _ => false
   }
 }
@@ -679,7 +678,7 @@ Schema.prototype = sp;
 
   // TODO: Throw S.Error
   @inline
-  let panic = message => Stdlib.Exn.raiseError(Stdlib.Exn.makeError(`[Sury] ${message}`))
+  let panic = message => X.Exn.raiseError(X.Exn.makeError(`[Sury] ${message}`))
 }
 
 @new
@@ -731,7 +730,7 @@ let updateOutput = (schema: internal, fn): t<'value> => {
   let root = schema->copyWithoutCache
   let mut = ref(root)
   while mut.contents.to->Obj.magic {
-    let next = mut.contents.to->Stdlib.Option.unsafeUnwrap->copyWithoutCache
+    let next = mut.contents.to->X.Option.unsafeUnwrap->copyWithoutCache
     mut.contents.to = Some(next)
     mut := next
   }
@@ -748,11 +747,11 @@ let resetOperationsCache: internal => unit = %raw(`(schema) => {
 }`)
 
 let rec stringify = unknown => {
-  let typeOfValue = unknown->Stdlib.Type.typeof
+  let typeOfValue = unknown->X.Type.typeof
   switch typeOfValue {
   | #undefined => "undefined"
   | #object if unknown === %raw(`null`) => "null"
-  | #object if unknown->Stdlib.Array.isArray => {
+  | #object if unknown->X.Array.isArray => {
       let array = unknown->(Obj.magic: unknown => array<unknown>)
       let string = ref("[")
       for i in 0 to array->Array.length - 1 {
@@ -774,7 +773,7 @@ let rec stringify = unknown => {
       string := `${string.contents}${key}: ${stringify(value)}; `
     }
     string.contents ++ "}"
-  | #object => unknown->Obj.magic->Stdlib.Object.internalClass
+  | #object => unknown->Obj.magic->X.Object.internalClass
   | #string => `"${unknown->Obj.magic}"`
   | #number
   | #function
@@ -797,7 +796,7 @@ let rec toExpression = schema => {
     ->Js.Array2.joinWith(" | ")
   | {format} => (format :> string)
   | {tag: Object, ?items, ?additionalItems} =>
-    let items = items->Stdlib.Option.unsafeUnwrap
+    let items = items->X.Option.unsafeUnwrap
     if items->Js.Array2.length === 0 {
       if additionalItems->Js.typeof === "object" {
         let additionalItems: internal = additionalItems->Obj.magic
@@ -813,7 +812,7 @@ let rec toExpression = schema => {
         ->Js.Array2.joinWith(" ")} }`
     }
   | {tag: Array, ?items, ?additionalItems} =>
-    let items = items->Stdlib.Option.unsafeUnwrap
+    let items = items->X.Option.unsafeUnwrap
     if additionalItems->Js.typeof === "object" {
       let additionalItems: internal = additionalItems->Obj.magic
       let itemName = additionalItems->fromInternal->toExpression
@@ -855,13 +854,13 @@ module ErrorClass = {
           let reasonsDict = Js.Dict.empty()
           for idx in 0 to errors->Js.Array2.length - 1 {
             let error = errors->Js.Array2.unsafe_get(idx)
-            let reason = error->reason(~nestedLevel=nestedLevel->Stdlib.Int.plus(1))
+            let reason = error->reason(~nestedLevel=nestedLevel->X.Int.plus(1))
             let location = switch error.path {
             | "" => ""
             | nonEmptyPath => `At ${nonEmptyPath}: `
             }
             let line = `- ${location}${reason}`
-            if reasonsDict->Js.Dict.unsafeGet(line)->Stdlib.Int.unsafeToBool->not {
+            if reasonsDict->Js.Dict.unsafeGet(line)->X.Int.unsafeToBool->not {
               reasonsDict->Js.Dict.set(line, 1)
               m := m.contents ++ lineBreak ++ line
             }
@@ -924,7 +923,7 @@ module Builder = {
       switch schema {
       | {tag: Symbol | Instance | Function, ?const} => b->embed(const->Obj.magic)
       | {tag: Undefined} => "void 0"
-      | {tag: String, ?const} => const->Obj.magic->Stdlib.Inlined.Value.fromString
+      | {tag: String, ?const} => const->Obj.magic->X.Inlined.Value.fromString
       | {tag: BigInt, ?const} => const->Obj.magic ++ "n"
       | {?const} => const->Obj.magic
       }
@@ -984,9 +983,9 @@ module Builder = {
     }
 
     let varWithoutAllocation = (global: bGlobal) => {
-      let newCounter = global.varCounter->Stdlib.Int.plus(1)
+      let newCounter = global.varCounter->X.Int.plus(1)
       global.varCounter = newCounter
-      `v${newCounter->Stdlib.Int.unsafeToString}`
+      `v${newCounter->X.Int.unsafeToString}`
     }
 
     let _var = _b => (%raw(`this`)).inline
@@ -1135,7 +1134,7 @@ module Builder = {
       let get = (b, targetVal: val, inlinedLocation) => {
         switch targetVal
         ->(Obj.magic: val => dict<val>)
-        ->Stdlib.Dict.unsafeGetOption(inlinedLocation) {
+        ->X.Dict.unsafeGetOption(inlinedLocation) {
         | Some(val) => val
         | None => {
             let val = {
@@ -1187,7 +1186,7 @@ module Builder = {
     }
 
     let raise = (b: b, ~code, ~path) => {
-      Stdlib.Exn.raiseAny(InternalError.make(~code, ~flag=b.global.flag, ~path))
+      X.Exn.raiseAny(InternalError.make(~code, ~flag=b.global.flag, ~path))
     }
 
     let embedSyncOperation = (b: b, ~input: val, ~fn: 'input => 'output) => {
@@ -1301,7 +1300,7 @@ module Builder = {
         try b->withCatch(
           ~input,
           ~catch=(b, ~errorVar) => {
-            b.code = `${errorVar}.path=${path->Stdlib.Inlined.Value.fromString}+${switch maybeDynamicLocationVar {
+            b.code = `${errorVar}.path=${path->X.Inlined.Value.fromString}+${switch maybeDynamicLocationVar {
               | Some(var) => `'["'+${var}+'"]'+`
               | _ => ""
               }}${errorVar}.path`
@@ -1312,7 +1311,7 @@ module Builder = {
         ) catch {
         | _ =>
           let error = %raw(`exn`)->InternalError.getOrRethrow
-          Stdlib.Exn.raiseAny(
+          X.Exn.raiseAny(
             InternalError.make(
               ~path=path->Path.concat(Path.dynamic)->Path.concat(error.path),
               ~code=error.code,
@@ -1362,16 +1361,16 @@ module Builder = {
           `${and_}${not_}Number.isNaN(${inputVar})`
         }
       | {tag: Object as tag | Array as tag, ?additionalItems, ?items} => {
-          let additionalItems = additionalItems->Stdlib.Option.unsafeUnwrap
-          let items = items->Stdlib.Option.unsafeUnwrap
+          let additionalItems = additionalItems->X.Option.unsafeUnwrap
+          let items = items->X.Option.unsafeUnwrap
 
           let length = items->Js.Array2.length
 
           let code = ref(
             if tag === Array {
               switch additionalItems {
-              | Strict => `${and_}${inputVar}.length${eq}${length->Stdlib.Int.unsafeToString}`
-              | Strip => `${and_}${inputVar}.length${gt}${length->Stdlib.Int.unsafeToString}`
+              | Strict => `${and_}${inputVar}.length${eq}${length->X.Int.unsafeToString}`
+              | Strip => `${and_}${inputVar}.length${gt}${length->X.Int.unsafeToString}`
               | Schema(_) => ""
               }
             } else if additionalItems === Strip {
@@ -1384,8 +1383,8 @@ module Builder = {
             let {schema: item, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
             let item = item->toInternal
             let itemCode = if (
-              (item->isLiteral && !(item.catch->Stdlib.Option.unsafeUnwrap)) ||
-                schema.unnest->Stdlib.Option.unsafeUnwrap
+              (item->isLiteral && !(item.catch->X.Option.unsafeUnwrap)) ||
+                schema.unnest->X.Option.unsafeUnwrap
             ) {
               b->validation(
                 ~inputVar=Path.concat(inputVar, Path.fromInlinedLocation(inlinedLocation)),
@@ -1462,14 +1461,7 @@ module Builder = {
 // TODO: Split validation code and transformation code
 module B = Builder.B
 
-let nonJsonableTags = Stdlib.Set.fromArray([
-  (Unknown: tag),
-  NaN,
-  BigInt,
-  Function,
-  Instance,
-  Symbol,
-])
+let nonJsonableTags = X.Set.fromArray([(Unknown: tag), NaN, BigInt, Function, Instance, Symbol])
 
 let unknown = base()
 unknown.tag = Unknown
@@ -1486,7 +1478,7 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg, ~path) => {
     !(inputArg.flag->Flag.unsafeHas(ValFlag.valid)) &&
     (b.global.flag->Flag.unsafeHas(Flag.typeValidation) || schema->isLiteral)
   ) {
-    if !(schema.noValidation->Stdlib.Option.unsafeUnwrap) {
+    if !(schema.noValidation->X.Option.unsafeUnwrap) {
       b.filterCode = prevB->B.typeFilterCode(~schema, ~input=inputArg, ~path)
     }
     inputArg.flag = inputArg.flag->Flag.with(ValFlag.valid)
@@ -1496,26 +1488,26 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg, ~path) => {
 
   switch schema.ref {
   | Some(ref) =>
-    let defs = b.global.defs->Stdlib.Option.unsafeUnwrap
+    let defs = b.global.defs->X.Option.unsafeUnwrap
     // Ignore #/$defs/
     let identifier = ref->Js.String2.sliceToEnd(~from=8)
     let def = defs->Js.Dict.unsafeGet(identifier)
-    let recOperation = switch def->Obj.magic->Stdlib.Dict.unsafeGetOptionByInt(b.global.flag) {
+    let recOperation = switch def->Obj.magic->X.Dict.unsafeGetOptionByInt(b.global.flag) {
     | Some(fn) =>
       // A hacky way to prevent infinite recursion
       if fn === %raw(`0`) {
-        b->B.embed(def) ++ `[${b.global.flag->Stdlib.Int.unsafeToString}]`
+        b->B.embed(def) ++ `[${b.global.flag->X.Int.unsafeToString}]`
       } else {
         b->B.embed(fn)
       }
     | None => {
         def
         ->Obj.magic
-        ->Stdlib.Dict.setByInt(b.global.flag, 0)
+        ->X.Dict.setByInt(b.global.flag, 0)
         let fn = internalCompile(~schema=def, ~flag=b.global.flag, ~defs=b.global.defs)
         def
         ->Obj.magic
-        ->Stdlib.Dict.setByInt(b.global.flag, fn)
+        ->X.Dict.setByInt(b.global.flag, fn)
         b->B.embed(fn)
       }
     }
@@ -1523,11 +1515,11 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg, ~path) => {
       b->B.withPathPrepend(~input=input.contents, ~path, (_, ~input, ~path as _) => {
         let output = B.Val.map(recOperation, input)
         if def.isAsync === None {
-          let defsMut = defs->Stdlib.Dict.copy
+          let defsMut = defs->X.Dict.copy
           defsMut->Js.Dict.set(identifier, unknown->toInternal)
           let _ = def->isAsyncInternal(~defs=Some(defsMut))
         }
-        if def.isAsync->Stdlib.Option.unsafeUnwrap {
+        if def.isAsync->X.Option.unsafeUnwrap {
           output.flag = output.flag->Flag.with(ValFlag.async)
         }
         output
@@ -1548,7 +1540,7 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg, ~path) => {
     switch schema.parser {
     | Some(parser) => input := parser(b, ~input=input.contents, ~selfSchema=schema, ~path)
     | None => {
-        let target = schema.to->Stdlib.Option.unsafeUnwrap
+        let target = schema.to->X.Option.unsafeUnwrap
 
         let isFromLiteral = schema->isLiteral
         let isTargetLiteral = target->isLiteral
@@ -1718,7 +1710,7 @@ and internalCompile = (~schema, ~flag, ~defs) => {
 
     // Js.log(inlinedFunction)
 
-    Stdlib.Function.make2(
+    X.Function.make2(
       ~ctxVarName1="e",
       ~ctxVarValue1=b.global.embeded,
       ~ctxVarName2="s",
@@ -1752,7 +1744,7 @@ and reverse = (schema: internal) => {
   let current = ref(Some(schema))
 
   while current.contents->Obj.magic {
-    let mut = current.contents->Stdlib.Option.unsafeUnwrap->copyWithoutCache
+    let mut = current.contents->X.Option.unsafeUnwrap->copyWithoutCache
     let next = mut.to
     switch reversedHead.contents {
     | None => %raw(`delete mut.to`)
@@ -1793,7 +1785,7 @@ and reverse = (schema: internal) => {
       }
     | None => ()
     }
-    if mut.additionalItems->Stdlib.Type.typeof === #object {
+    if mut.additionalItems->X.Type.typeof === #object {
       mut.additionalItems = Some(
         Schema(
           mut.additionalItems
@@ -1841,34 +1833,32 @@ and reverse = (schema: internal) => {
     current := next
   }
 
-  reversedHead.contents->Stdlib.Option.unsafeUnwrap
+  reversedHead.contents->X.Option.unsafeUnwrap
 }
 and jsonableValidation = (~output, ~parent, ~path, ~flag, ~recSet) => {
   let tag = output.tag
-  if (tag === Undefined && parent.tag !== Object) || nonJsonableTags->Stdlib.Set.has(tag) {
-    Stdlib.Exn.raiseAny(
-      InternalError.make(~code=InvalidJsonSchema(parent->fromInternal), ~flag, ~path),
-    )
+  if (tag === Undefined && parent.tag !== Object) || nonJsonableTags->X.Set.has(tag) {
+    X.Exn.raiseAny(InternalError.make(~code=InvalidJsonSchema(parent->fromInternal), ~flag, ~path))
   }
   switch output {
   | {tag: Union | Array | Object} =>
     let recSet = switch recSet {
-    | None => Stdlib.Set.make()
+    | None => X.Set.make()
     | Some(set) => set
     }
-    if recSet->Stdlib.Set.has(output) {
+    if recSet->X.Set.has(output) {
       ()
     } else {
-      recSet->Stdlib.Set.add(output)
+      recSet->X.Set.add(output)
       let recSet = Some(recSet)
       if tag === Union {
         output.anyOf
-        ->Stdlib.Option.unsafeUnwrap
+        ->X.Option.unsafeUnwrap
         ->Js.Array2.forEach(s => jsonableValidation(~output=s, ~parent, ~path, ~flag, ~recSet))
       } else {
         switch output {
         | {items, ?additionalItems} => {
-            switch additionalItems->Stdlib.Option.unsafeUnwrap {
+            switch additionalItems->X.Option.unsafeUnwrap {
             | Schema(additionalItems) =>
               jsonableValidation(
                 ~output=additionalItems->toInternal,
@@ -1899,7 +1889,7 @@ and jsonableValidation = (~output, ~parent, ~path, ~flag, ~recSet) => {
   }
 }
 
-Stdlib.Object.defineProperty(
+X.Object.defineProperty(
   %raw(`sp`),
   "~standard",
   {
@@ -2013,7 +2003,7 @@ let compile = (
     jsonString => {
       try jsonString->Obj.magic->Js.Json.parseExn->fn catch {
       | _ =>
-        Stdlib.Exn.raiseAny(
+        X.Exn.raiseAny(
           InternalError.make(~code=OperationFailed(%raw(`exn.message`)), ~flag, ~path=Path.empty),
         )
       }
@@ -2038,7 +2028,7 @@ let parseJsonStringOrThrow = (jsonString: string, schema: t<'value>): 'value => 
     jsonString->Js.Json.parseExn
   } catch {
   | _ =>
-    Stdlib.Exn.raiseAny(
+    X.Exn.raiseAny(
       InternalError.make(
         ~code=OperationFailed(%raw(`exn.message`)),
         ~flag=Flag.typeValidation,
@@ -2086,7 +2076,7 @@ let assertOrThrow = (any, schema) => {
 }
 
 module Literal = {
-  open Stdlib
+  open X
 
   let undefined = base()
   undefined.tag = Undefined
@@ -2116,7 +2106,7 @@ module Literal = {
           i.class = (value->Obj.magic)["constructor"]
           i
         }
-      | typeof => make(typeof->(Obj.magic: Stdlib.Type.t => tag))
+      | typeof => make(typeof->(Obj.magic: X.Type.t => tag))
       }
       schema.const = Some(value->Obj.magic)
       schema
@@ -2152,9 +2142,9 @@ let js_safe = fn => {
 
 let js_safeAsync = fn => {
   try {
-    fn()->Stdlib.Promise.thenResolveWithCatch(value => Success({value: value}), wrapExnToFailure)
+    fn()->X.Promise.thenResolveWithCatch(value => Success({value: value}), wrapExnToFailure)
   } catch {
-  | _ => Stdlib.Promise.resolve(wrapExnToFailure(%raw(`exn`)))
+  | _ => X.Promise.resolve(wrapExnToFailure(%raw(`exn`)))
   }
 }
 
@@ -2209,7 +2199,7 @@ let recursive = (name, fn) => {
   }
 
   globalConfig.defsAccumulator
-  ->Stdlib.Option.unsafeUnwrap
+  ->X.Option.unsafeUnwrap
   ->Js.Dict.set(name, fn(refSchema->fromInternal)->toInternal)
 
   if isNestedRec {
@@ -2271,7 +2261,7 @@ let addRefinement = (schema, ~metadataId, ~refinement, ~refiner) => {
   ->Metadata.set(
     ~id=metadataId,
     switch schema->Metadata.get(~id=metadataId) {
-    | Some(refinements) => refinements->Stdlib.Array.append(refinement)
+    | Some(refinements) => refinements->X.Array.append(refinement)
     | None => [refinement]
     },
   )
@@ -2396,8 +2386,8 @@ module Union = {
 
   let isPriority = (tag: string, byKey: dict<array<internal>>) => {
     ((tag === (Array: tag :> string) || tag === (Instance: tag :> string)) &&
-      byKey->Stdlib.Dict.has((Object: tag :> string))) ||
-      (tag === (NaN: tag :> string) && byKey->Stdlib.Dict.has((Number: tag :> string)))
+      byKey->X.Dict.has((Object: tag :> string))) ||
+      (tag === (NaN: tag :> string) && byKey->X.Dict.has((Number: tag :> string)))
   }
 
   let refiner = Builder.make((b, ~input, ~selfSchema, ~path) => {
@@ -2411,7 +2401,7 @@ module Union = {
               received: args->Js.Array2.unsafe_get(0),
               unionErrors: ?(
                 args->Js.Array2.length > 1
-                  ? Some(args->Stdlib.Array.fromArguments->Js.Array2.sliceFrom(1))
+                  ? Some(args->X.Array.fromArguments->Js.Array2.sliceFrom(1))
                   : None
               ),
             }),
@@ -2419,7 +2409,7 @@ module Union = {
         })}(${input.var(b)}${caught})`
     }
 
-    let schemas = selfSchema.anyOf->Stdlib.Option.unsafeUnwrap
+    let schemas = selfSchema.anyOf->X.Option.unsafeUnwrap
     let typeValidation = b.global.flag->Flag.unsafeHas(Flag.typeValidation)
 
     // FIXME: Test with async
@@ -2448,7 +2438,7 @@ module Union = {
 
       | tag =>
         let key = tag === Instance ? (schema.class->Obj.magic)["name"] : (tag :> string)
-        switch byKey.contents->Stdlib.Dict.unsafeGetOption(key) {
+        switch byKey.contents->X.Dict.unsafeGetOption(key) {
         | Some(arr) =>
           // There can only be one valid. Dedupe
           if tag !== Undefined && tag !== Null && tag !== NaN {
@@ -2485,8 +2475,8 @@ module Union = {
         if !exit.contents {
           let schema = schemas->Js.Array2.unsafe_get(idx)
           let itemCode = b->getItemCode(~schema, ~input, ~output, ~deopt=true, ~path)
-          if itemCode->Stdlib.String.unsafeToBool {
-            let errorVar = `e` ++ idx->Stdlib.Int.unsafeToString
+          if itemCode->X.String.unsafeToBool {
+            let errorVar = `e` ++ idx->X.Int.unsafeToString
             start := start.contents ++ `try{${itemCode}}catch(${errorVar}){`
             end := "}" ++ end.contents
             caught := `${caught.contents},${errorVar}`
@@ -2539,9 +2529,9 @@ module Union = {
             let itemCode = b->getItemCode(~schema, ~input, ~output, ~deopt=false, ~path)
 
             // Accumulate item parser when it has a discriminant
-            if itemCond->Stdlib.String.unsafeToBool {
-              if itemCode->Stdlib.String.unsafeToBool {
-                switch byDiscriminant.contents->Stdlib.Dict.unsafeGetOption(itemCond) {
+            if itemCond->X.String.unsafeToBool {
+              if itemCode->X.String.unsafeToBool {
+                switch byDiscriminant.contents->X.Dict.unsafeGetOption(itemCond) {
                 | Some(Multiple(arr)) => arr->Js.Array2.push(itemCode)->ignore
                 | Some(Single(code)) =>
                   byDiscriminant.contents->Js.Dict.set(itemCond, Multiple([code, itemCode]))
@@ -2551,7 +2541,7 @@ module Union = {
                 // We have a condition but without additional parsing logic
                 // So we accumulate it in case it's needed for a refinement later
                 itemNoop := (
-                    itemNoop.contents->Stdlib.String.unsafeToBool
+                    itemNoop.contents->X.String.unsafeToBool
                       ? `${itemNoop.contents}||${itemCond}`
                       : itemCond
                   )
@@ -2561,7 +2551,7 @@ module Union = {
             // Allocate all accumulated discriminants
             // If we have an item without a discriminant
             // and need to deopt. Or we are at the last item
-            if itemCond->Stdlib.String.unsafeToBool->not || itemIdx.contents === lastIdx {
+            if itemCond->X.String.unsafeToBool->not || itemIdx.contents === lastIdx {
               let accedDiscriminants = byDiscriminant.contents->Js.Dict.keys
               for idx in 0 to accedDiscriminants->Js.Array2.length - 1 {
                 let discrim = accedDiscriminants->Js.Array2.unsafe_get(idx)
@@ -2573,7 +2563,7 @@ module Union = {
                   let caught = ref("")
                   for idx in 0 to arr->Js.Array2.length - 1 {
                     let code = arr->Js.Array2.unsafe_get(idx)
-                    let errorVar = `e` ++ idx->Stdlib.Int.unsafeToString
+                    let errorVar = `e` ++ idx->X.Int.unsafeToString
                     itemStart := itemStart.contents ++ `try{${code}}catch(${errorVar}){`
                     caught := `${caught.contents},${errorVar}`
                   }
@@ -2587,26 +2577,26 @@ module Union = {
               byDiscriminant.contents = Js.Dict.empty()
             }
 
-            if itemCond->Stdlib.String.unsafeToBool->not {
+            if itemCond->X.String.unsafeToBool->not {
               // If we don't have a condition (discriminant)
               // and additional parsing logic,
               // it means that this item is always passes
               // so we can remove preceding accumulated refinements
               // and exit early even if there are other items
-              if itemCode->Stdlib.String.unsafeToBool->not {
+              if itemCode->X.String.unsafeToBool->not {
                 itemNoop := ""
                 itemIdx := lastIdx
               } else {
                 // The item without refinement should switch to deopt mode
                 // Since there might be validation in the body
-                if itemNoop.contents->Stdlib.String.unsafeToBool {
+                if itemNoop.contents->X.String.unsafeToBool {
                   let if_ = itemNextElse.contents ? "else if" : "if"
                   itemStart := itemStart.contents ++ if_ ++ `(!(${itemNoop.contents})){`
                   itemEnd := "}" ++ itemEnd.contents
                   itemNoop := ""
                   itemNextElse := false
                 }
-                let errorVar = `e` ++ itemIdx.contents->Stdlib.Int.unsafeToString
+                let errorVar = `e` ++ itemIdx.contents->X.Int.unsafeToString
                 itemStart :=
                   itemStart.contents ++
                   `${itemNextElse.contents ? "else{" : ""}try{${itemCode}}catch(${errorVar}){`
@@ -2616,7 +2606,7 @@ module Union = {
               }
             }
 
-            itemIdx := itemIdx.contents->Stdlib.Int.plus(1)
+            itemIdx := itemIdx.contents->X.Int.plus(1)
           }
 
           cond :=
@@ -2626,8 +2616,8 @@ module Union = {
               ~negative=false,
             )
 
-          if itemNoop.contents->Stdlib.String.unsafeToBool {
-            if itemStart.contents->Stdlib.String.unsafeToBool {
+          if itemNoop.contents->X.String.unsafeToBool {
+            if itemStart.contents->X.String.unsafeToBool {
               if typeValidation {
                 let if_ = itemNextElse.contents ? "else if" : "if"
                 itemStart :=
@@ -2636,7 +2626,7 @@ module Union = {
             } else {
               cond := cond.contents ++ `&&(${itemNoop.contents})`
             }
-          } else if typeValidation && itemStart.contents->Stdlib.String.unsafeToBool {
+          } else if typeValidation && itemStart.contents->X.String.unsafeToBool {
             let errorCode = fail(caught.contents)
             itemStart :=
               itemStart.contents ++ (itemNextElse.contents ? `else{${errorCode}}` : errorCode)
@@ -2651,19 +2641,19 @@ module Union = {
         }
         let cond = cond.contents
 
-        if body->Stdlib.String.unsafeToBool || isPriority((firstSchema.tag :> string), byKey) {
+        if body->X.String.unsafeToBool || isPriority((firstSchema.tag :> string), byKey) {
           let if_ = nextElse.contents ? "else if" : "if"
           start := start.contents ++ if_ ++ `(${cond}){${body}}`
           nextElse := true
         } else {
-          noop := (noop.contents->Stdlib.String.unsafeToBool ? `${noop.contents}||${cond}` : cond)
+          noop := (noop.contents->X.String.unsafeToBool ? `${noop.contents}||${cond}` : cond)
         }
       }
 
       if typeValidation || deoptIdx === lastIdx {
         let errorCode = fail(caught.contents)
         start :=
-          start.contents ++ if noop.contents->Stdlib.String.unsafeToBool {
+          start.contents ++ if noop.contents->X.String.unsafeToBool {
             let if_ = nextElse.contents ? "else if" : "if"
             if_ ++ `(!(${noop.contents})){${errorCode}}`
           } else if nextElse.contents {
@@ -2719,7 +2709,7 @@ module Union = {
     | [schema] => schema->fromInternal
     | _ =>
       let has = Js.Dict.empty()
-      let anyOf = Stdlib.Set.make()
+      let anyOf = X.Set.make()
 
       for idx in 0 to schemas->Js.Array2.length - 1 {
         let schema = schemas->Js.Array2.unsafe_get(idx)
@@ -2727,13 +2717,13 @@ module Union = {
         // Check if the union is not transformed
         if schema.tag === Union && schema.to === None {
           schema.anyOf
-          ->Stdlib.Option.unsafeUnwrap
+          ->X.Option.unsafeUnwrap
           ->Js.Array2.forEach(item => {
-            anyOf->Stdlib.Set.add(item)
+            anyOf->X.Set.add(item)
           })
-          let _ = has->Stdlib.Dict.mixin(schema.has->Stdlib.Option.unsafeUnwrap)
+          let _ = has->X.Dict.mixin(schema.has->X.Option.unsafeUnwrap)
         } else {
-          anyOf->Stdlib.Set.add(schema)
+          anyOf->X.Set.add(schema)
           has->Js.Dict.set(
             (switch schema.tag {
             | Union
@@ -2748,7 +2738,7 @@ module Union = {
       }
       let mut = base()
       mut.tag = Union
-      mut.anyOf = Some(anyOf->Stdlib.Set.toArray)
+      mut.anyOf = Some(anyOf->X.Set.toArray)
       mut.refiner = Some(refiner)
       mut.has = Some(has)
       mut->fromInternal
@@ -2781,7 +2771,7 @@ module Option = {
         additionalItems: Strip,
         // TODO: Support this as a default coercion
         serializer: Builder.make((b, ~input as _, ~selfSchema, ~path as _) => {
-          b->B.val(b->B.inlineConst(selfSchema.to->Stdlib.Option.unsafeUnwrap))
+          b->B.val(b->B.inlineConst(selfSchema.to->X.Option.unsafeUnwrap))
         }),
       }
     }
@@ -2791,7 +2781,7 @@ module Option = {
         `{${inLoc}:${(
             (
               (selfSchema->getOutputSchema).items
-              ->Stdlib.Option.unsafeUnwrap
+              ->X.Option.unsafeUnwrap
               ->Js.Array2.unsafe_get(0)
             ).schema->toInternal
           ).const->Obj.magic}}`,
@@ -2815,8 +2805,8 @@ module Option = {
     | {tag: Undefined} => Union.factory([unit->castToUnknown, item->nestedOption->fromInternal])
     | {tag: Union, ?anyOf, ?has} =>
       item->updateOutput(mut => {
-        let schemas = anyOf->Stdlib.Option.unsafeUnwrap
-        let mutHas = has->Stdlib.Option.unsafeUnwrap->Stdlib.Dict.copy
+        let schemas = anyOf->X.Option.unsafeUnwrap
+        let mutHas = has->X.Option.unsafeUnwrap->X.Dict.copy
 
         let newAnyOf = []
         for idx in 0 to schemas->Array.length - 1 {
@@ -2830,7 +2820,7 @@ module Option = {
                 schema->nestedOption
               }
             | {fields} =>
-              switch fields->Stdlib.Dict.unsafeGetOption(nestedLoc) {
+              switch fields->X.Dict.unsafeGetOption(nestedLoc) {
               | Some(item) =>
                 schema
                 ->updateOutput(mut => {
@@ -2840,7 +2830,7 @@ module Option = {
                     schema: {
                       tag: fSchema.tag,
                       parser: ?fSchema.parser,
-                      const: fSchema.const->Obj.magic->Stdlib.Int.plus(1)->Obj.magic,
+                      const: fSchema.const->Obj.magic->X.Int.plus(1)->Obj.magic,
                     }->fromInternal,
                   }
 
@@ -2973,7 +2963,7 @@ module Array = {
     let mut = base()
     mut.tag = Array
     mut.additionalItems = Some(Schema(item->toInternal->fromInternal))
-    mut.items = Some(Stdlib.Array.immutableEmpty)
+    mut.items = Some(X.Array.immutableEmpty)
     mut.refiner = Some(arrayRefiner)
     mut->fromInternal
   }
@@ -2997,7 +2987,7 @@ module Object = {
       let mut = schema->copyWithoutCache
       mut.additionalItems = Some(additionalItems)
       if deep {
-        let items = items->Stdlib.Option.unsafeUnwrap
+        let items = items->X.Option.unsafeUnwrap
 
         let newItems = []
         let newFields = Js.Dict.empty()
@@ -3083,8 +3073,8 @@ module Dict = {
     let item = item->toInternal
     let mut = base()
     mut.tag = Object
-    mut.fields = Some(Stdlib.Object.immutableEmpty)
-    mut.items = Some(Stdlib.Array.immutableEmpty)
+    mut.fields = Some(X.Object.immutableEmpty)
+    mut.items = Some(X.Array.immutableEmpty)
     mut.additionalItems = Some(Schema(item->fromInternal))
     mut.refiner = Some(dictRefiner)
     mut->fromInternal
@@ -3172,7 +3162,7 @@ module JsonString = {
 
         b->B.val(
           `JSON.stringify(${input.inline}${space > 0
-              ? `,null,${space->Stdlib.Int.unsafeToString}`
+              ? `,null,${space->X.Int.unsafeToString}`
               : ""})`,
         )
       }),
@@ -3340,19 +3330,19 @@ let instance = class_ => {
 
 let jsonRefiner = Builder.make((b, ~input, ~selfSchema, ~path) => {
   if (
-    selfSchema.noValidation->Stdlib.Option.unsafeUnwrap ||
+    selfSchema.noValidation->X.Option.unsafeUnwrap ||
       !(b.global.flag->Flag.unsafeHas(Flag.typeValidation))
   ) {
     input
   } else {
     let rec parse = (input, ~path=path) => {
-      switch input->Stdlib.Type.typeof {
+      switch input->X.Type.typeof {
       | #number if Js.Float.isNaN(input->(Obj.magic: unknown => float))->not =>
         input->(Obj.magic: unknown => Js.Json.t)
       | #object =>
         if input === %raw(`null`) {
           input->(Obj.magic: unknown => Js.Json.t)
-        } else if input->Stdlib.Array.isArray {
+        } else if input->X.Array.isArray {
           let input = input->(Obj.magic: unknown => array<unknown>)
           let output = []
           for idx in 0 to input->Js.Array2.length - 1 {
@@ -3473,7 +3463,7 @@ let meta = (schema: t<'value>, data: meta<'value>) => {
   switch data.examples {
   | Some([]) => mut.examples = None
   | Some(examples) =>
-    mut.examples = Some(examples->Stdlib.Array.map(schema->fromInternal->operationFn(Flag.reverse)))
+    mut.examples = Some(examples->X.Array.map(schema->fromInternal->operationFn(Flag.reverse)))
   | None => ()
   }
   mut->fromInternal
@@ -3527,14 +3517,14 @@ module Schema = {
 
     @inline
     let isNode = (definition: 'any) =>
-      definition->Stdlib.Type.typeof === #object && definition !== %raw(`null`)
+      definition->X.Type.typeof === #object && definition !== %raw(`null`)
 
     let toConstant = (Obj.magic: t<'embeded> => unknown)
     let toNode = (Obj.magic: t<'embeded> => node<'embeded>)
 
     @inline
     let toEmbededItem = (definition: t<'embeded>): option<ditem> =>
-      definition->Obj.magic->Stdlib.Dict.unsafeGetOptionBySymbol(itemSymbol)
+      definition->Obj.magic->X.Dict.unsafeGetOptionBySymbol(itemSymbol)
   }
 
   @inline
@@ -3570,7 +3560,7 @@ module Schema = {
       | Some(item) => item->getItemOutput
       | None => {
           let node = definition->Definition.toNode
-          let isArray = Stdlib.Array.isArray(node)
+          let isArray = X.Array.isArray(node)
           let keys = node->Js.Dict.keys
 
           let objectVal = b->B.Val.Object.make(~isArray)
@@ -3578,7 +3568,7 @@ module Schema = {
           for idx in 0 to keys->Js.Array2.length - 1 {
             let key = keys->Js.Array2.unsafe_get(idx)
             objectVal->B.Val.Object.add(
-              isArray ? `"${key}"` : key->Stdlib.Inlined.Value.fromString,
+              isArray ? `"${key}"` : key->X.Inlined.Value.fromString,
               b->definitionToOutput(~definition=node->Js.Dict.unsafeGet(key), ~getItemOutput),
             )
           }
@@ -3617,20 +3607,20 @@ module Schema = {
   }
 
   let rec proxify = (item: ditem): 'a =>
-    Stdlib.Object.immutableEmpty->Stdlib.Proxy.make({
+    X.Object.immutableEmpty->X.Proxy.make({
       get: (~target as _, ~prop) => {
         if prop === itemSymbol->Obj.magic {
           item->Obj.magic
         } else {
           let location = prop->(Obj.magic: unknown => string)
-          let inlinedLocation = location->Stdlib.Inlined.Value.fromString
+          let inlinedLocation = location->X.Inlined.Value.fromString
           ItemField({
             schema: {
               let targetReversed = item->getDitemSchema->getOutputSchema
               let maybeReversedItem = switch targetReversed {
-              | {fields} => fields->Stdlib.Dict.unsafeGetOption(location)
+              | {fields} => fields->X.Dict.unsafeGetOption(location)
               // If there are no fields, then it must be Tuple
-              | {items} => items->Stdlib.Array.unsafeGetOptionByString(location)
+              | {items} => items->X.Array.unsafeGetOptionByString(location)
               | _ => None
               }
               if maybeReversedItem === None {
@@ -3640,7 +3630,7 @@ module Schema = {
                     ->toExpression}`,
                 )
               }
-              (maybeReversedItem->Stdlib.Option.unsafeUnwrap).schema->toInternal
+              (maybeReversedItem->X.Option.unsafeUnwrap).schema->toInternal
             },
             inlinedLocation,
             location,
@@ -3655,7 +3645,7 @@ module Schema = {
 
   let rec schemaRefiner = (b, ~input, ~selfSchema, ~path) => {
     let additionalItems = selfSchema.additionalItems
-    let items = selfSchema.items->Stdlib.Option.unsafeUnwrap
+    let items = selfSchema.items->X.Option.unsafeUnwrap
     let isArray = selfSchema.tag === Array
 
     if b.global.flag->Flag.unsafeHas(Flag.flatten) {
@@ -3720,7 +3710,7 @@ module Schema = {
     let outputs = isFlatten ? input->Obj.magic : Js.Dict.empty()
 
     if !isFlatten {
-      let items = selfSchema.items->Stdlib.Option.unsafeUnwrap
+      let items = selfSchema.items->X.Option.unsafeUnwrap
 
       for idx in 0 to items->Js.Array2.length - 1 {
         let {schema, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
@@ -3763,7 +3753,7 @@ module Schema = {
       | ItemField({target: item, inlinedLocation}) =>
         b->B.Val.get(item->getItemOutput, inlinedLocation)
       | Item({inlinedLocation}) => outputs->Js.Dict.unsafeGet(inlinedLocation)
-      | Root({idx}) => outputs->Js.Dict.unsafeGet(idx->Stdlib.Int.unsafeToString)
+      | Root({idx}) => outputs->Js.Dict.unsafeGet(idx->X.Int.unsafeToString)
       }
     }
 
@@ -3824,7 +3814,7 @@ module Schema = {
                   let item = items->Js.Array2.unsafe_get(idx)
                   let itemPath =
                     originalPath->Path.concat(Path.fromInlinedLocation(item.inlinedLocation))
-                  let itemInput = switch ritemsByItemPath->Stdlib.Dict.unsafeGetOption(itemPath) {
+                  let itemInput = switch ritemsByItemPath->X.Dict.unsafeGetOption(itemPath) {
                   | Some(ritem) =>
                     b->parse(
                       ~schema=item.schema->toInternal,
@@ -3887,17 +3877,17 @@ module Schema = {
         switch to {
         | Some(ditem) => ditem->getItemOutput(~itemPath=Path.empty, ~shouldReverse=false)
         | None => {
-            let originalSchema = selfSchema.to->Stdlib.Option.unsafeUnwrap
+            let originalSchema = selfSchema.to->X.Option.unsafeUnwrap
 
             b->objectStrictModeCheck(
               ~input,
-              ~items=selfSchema.items->Stdlib.Option.unsafeUnwrap,
+              ~items=selfSchema.items->X.Option.unsafeUnwrap,
               ~selfSchema,
               ~path,
             )
 
             let isArray = (originalSchema: internal).tag === Array
-            let items = originalSchema.items->Stdlib.Option.unsafeUnwrap
+            let items = originalSchema.items->X.Option.unsafeUnwrap
             let objectVal = b->B.Val.Object.make(~isArray)
             switch flattened {
             | None => ()
@@ -3915,7 +3905,7 @@ module Schema = {
               let item: item = items->Js.Array2.unsafe_get(idx)
 
               // TODO: Improve the hack to ignore items belonging to a flattened schema
-              if !(objectVal->Obj.magic->Stdlib.Dict.has(item.inlinedLocation)) {
+              if !(objectVal->Obj.magic->X.Dict.has(item.inlinedLocation)) {
                 objectVal->B.Val.Object.add(
                   item.inlinedLocation,
                   item
@@ -3974,7 +3964,7 @@ module Schema = {
     let parentCtx = %raw(`this`) // TODO: Add a check that it's binded?
     let cacheId = `~${fieldName}`
 
-    switch parentCtx->Stdlib.Dict.unsafeGetOption(cacheId) {
+    switch parentCtx->X.Dict.unsafeGetOption(cacheId) {
     | Some(ctx) => ctx
     | None => {
         let schemas = []
@@ -3995,14 +3985,14 @@ module Schema = {
         let target =
           parentCtx.field(fieldName, schema)
           ->Definition.toEmbededItem
-          ->Stdlib.Option.unsafeUnwrap
+          ->X.Option.unsafeUnwrap
 
         let field:
           type value. (string, schema<value>) => value =
           (fieldName, schema) => {
             let schema = schema->toInternal
-            let inlinedLocation = fieldName->Stdlib.Inlined.Value.fromString
-            if fields->Stdlib.Dict.has(fieldName) {
+            let inlinedLocation = fieldName->X.Inlined.Value.fromString
+            if fields->X.Dict.has(fieldName) {
               InternalError.panic(`The field ${inlinedLocation} defined twice`)
             }
             let ditem: ditem = ItemField({
@@ -4038,7 +4028,7 @@ module Schema = {
                     ->toExpression}`,
                 )
               }
-              let flattenedItems = flattenedItems->Stdlib.Option.unsafeUnwrap
+              let flattenedItems = flattenedItems->X.Option.unsafeUnwrap
               let result = Js.Dict.empty()
               for idx in 0 to flattenedItems->Js.Array2.length - 1 {
                 let item = flattenedItems->Js.Array2.unsafe_get(idx)
@@ -4078,11 +4068,11 @@ module Schema = {
         let schema = schema->toInternal
         switch schema {
         | {tag: Object, items: ?flattenedItems} => {
-            let flattenedItems = flattenedItems->Stdlib.Option.unsafeUnwrap
+            let flattenedItems = flattenedItems->X.Option.unsafeUnwrap
             for idx in 0 to flattenedItems->Js.Array2.length - 1 {
               let {location, inlinedLocation, schema: flattenedSchema} =
                 flattenedItems->Js.Array2.unsafe_get(idx)
-              switch fields->Stdlib.Dict.unsafeGetOption(location) {
+              switch fields->X.Dict.unsafeGetOption(location) {
               | Some(item: item) if item.schema === flattenedSchema => ()
               | Some(_) =>
                 InternalError.panic(
@@ -4118,8 +4108,8 @@ module Schema = {
         type value. (string, schema<value>) => value =
         (fieldName, schema) => {
           let schema = schema->toInternal
-          let inlinedLocation = fieldName->Stdlib.Inlined.Value.fromString
-          if fields->Stdlib.Dict.has(fieldName) {
+          let inlinedLocation = fieldName->X.Inlined.Value.fromString
+          if fields->X.Dict.has(fieldName) {
             InternalError.panic(
               `The field ${inlinedLocation} defined twice with incompatible schemas`,
             )
@@ -4175,7 +4165,7 @@ module Schema = {
           let schema = schema->toInternal
           let location = idx->Js.Int.toString
           let inlinedLocation = `"${location}"`
-          if items->Stdlib.Array.has(idx) {
+          if items->X.Array.has(idx) {
             InternalError.panic(`The item [${inlinedLocation}] is defined multiple times`)
           } else {
             let ditem = Item({
@@ -4236,7 +4226,7 @@ module Schema = {
         ritem
       | None => {
           let node = definition->Definition.toNode
-          if node->Stdlib.Array.isArray {
+          if node->X.Array.isArray {
             let node = node->(Obj.magic: Definition.node<ditem> => array<Definition.t<ditem>>)
             let items = []
             for idx in 0 to node->Js.Array2.length - 1 {
@@ -4273,7 +4263,7 @@ module Schema = {
             let items = []
             for idx in 0 to fieldNames->Js.Array2.length - 1 {
               let location = fieldNames->Js.Array2.unsafe_get(idx)
-              let inlinedLocation = location->Stdlib.Inlined.Value.fromString
+              let inlinedLocation = location->X.Inlined.Value.fromString
               let ritem = definitionToRitem(
                 node->Js.Dict.unsafeGet(location),
                 ~path=path->Path.concat(Path.fromInlinedLocation(inlinedLocation)),
@@ -4314,7 +4304,7 @@ module Schema = {
     if definition->Definition.isNode {
       if definition->isSchemaObject {
         definition->(Obj.magic: unknown => internal)
-      } else if definition->Stdlib.Array.isArray {
+      } else if definition->X.Array.isArray {
         let node = definition->(Obj.magic: unknown => array<unknown>)
         for idx in 0 to node->Js.Array2.length - 1 {
           let schema = node->Js.Array2.unsafe_get(idx)->definitionToSchema
@@ -4352,7 +4342,7 @@ module Schema = {
           let items = []
           for idx in 0 to length - 1 {
             let location = fieldNames->Js.Array2.unsafe_get(idx)
-            let inlinedLocation = location->Stdlib.Inlined.Value.fromString
+            let inlinedLocation = location->X.Inlined.Value.fromString
             let schema = node->Js.Dict.unsafeGet(location)->definitionToSchema
             let item = {
               schema: schema->fromInternal,
@@ -4405,7 +4395,7 @@ let enum = values => Union.factory(values->Js.Array2.map(literal))
 
 let unnestSerializer = Builder.make((b, ~input, ~selfSchema, ~path) => {
   let schema = selfSchema.additionalItems->(Obj.magic: option<additionalItems> => internal)
-  let items = schema.items->Stdlib.Option.unsafeUnwrap
+  let items = schema.items->X.Option.unsafeUnwrap
 
   let inputVar = b->B.Val.var(input)
   let iteratorVar = b.global->B.varWithoutAllocation
@@ -4425,7 +4415,7 @@ let unnestSerializer = Builder.make((b, ~input, ~selfSchema, ~path) => {
         initialArraysCode := initialArraysCode.contents ++ `new Array(${inputVar}.length),`
         settingCode :=
           settingCode.contents ++
-          `${outputVar}[${idx->Stdlib.Int.unsafeToString}][${iteratorVar}]=${(
+          `${outputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]=${(
               b->B.Val.get(output, toItem.inlinedLocation)
             ).inline};`
       }
@@ -4489,10 +4479,9 @@ let unnest = schema => {
           let item = items->Js.Array2.unsafe_get(idx)
           itemInput->B.Val.Object.add(
             item.inlinedLocation,
-            bb->B.notValidVal(`${inputVar}[${idx->Stdlib.Int.unsafeToString}][${iteratorVar}]`),
+            bb->B.notValidVal(`${inputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]`),
           )
-          lengthCode :=
-            lengthCode.contents ++ `${inputVar}[${idx->Stdlib.Int.unsafeToString}].length,`
+          lengthCode := lengthCode.contents ++ `${inputVar}[${idx->X.Int.unsafeToString}].length,`
         }
 
         let output = b->B.val(`new Array(Math.max(${lengthCode.contents}))`)
@@ -4525,7 +4514,7 @@ let unnest = schema => {
 
     let to = base()
     to.tag = Array
-    to.items = Some(Stdlib.Array.immutableEmpty)
+    to.items = Some(X.Array.immutableEmpty)
     to.additionalItems = Some(Schema(schema->fromInternal))
     to.serializer = Some(unnestSerializer)
 
@@ -4552,13 +4541,13 @@ let unnest = schema => {
 //             | Some(n) => n
 //             | None => 0
 //             }
-//             variantNamesCounter->Js.Dict.set(variantName, numberOfVariantNames->Stdlib.Int.plus(1))
+//             variantNamesCounter->Js.Dict.set(variantName, numberOfVariantNames->X.Int.plus(1))
 //             let variantName = switch numberOfVariantNames {
 //             | 0 => variantName
 //             | _ =>
-//               variantName ++ numberOfVariantNames->Stdlib.Int.plus(1)->Stdlib.Int.unsafeToString
+//               variantName ++ numberOfVariantNames->X.Int.plus(1)->X.Int.unsafeToString
 //             }
-//             let inlinedVariant = `#${variantName->Stdlib.Inlined.Value.fromString}`
+//             let inlinedVariant = `#${variantName->X.Inlined.Value.fromString}`
 //             s->internalInline(~variant=inlinedVariant, ())
 //           })
 //           ->Js.Array2.joinWith(", ")}])`
@@ -4572,7 +4561,7 @@ let unnest = schema => {
 //     | Tuple({items}) =>
 //       `S.tuple(s => (${items
 //         ->Js.Array2.mapi((schema, idx) =>
-//           `s.item(${idx->Stdlib.Int.unsafeToString}, ${schema.schema->internalInline()})`
+//           `s.item(${idx->X.Int.unsafeToString}, ${schema.schema->internalInline()})`
 //         )
 //         ->Js.Array2.joinWith(", ")}))`
 //     | Object({items: []}) => `S.object(_ => ())`
@@ -4601,14 +4590,14 @@ let unnest = schema => {
 
 //     let inlinedSchema = switch schema->Option.default {
 //     | Some(default) => {
-//         metadataMap->Stdlib.Dict.deleteInPlace(Option.defaultMetadataId->Metadata.Id.toKey)
+//         metadataMap->X.Dict.deleteInPlace(Option.defaultMetadataId->Metadata.Id.toKey)
 //         switch default {
 //         | Value(defaultValue) =>
 //           inlinedSchema ++
-//           `->S.Option.getOr(%raw(\`${defaultValue->Stdlib.Inlined.Value.stringify}\`))`
+//           `->S.Option.getOr(%raw(\`${defaultValue->X.Inlined.Value.stringify}\`))`
 //         | Callback(defaultCb) =>
 //           inlinedSchema ++
-//           `->S.Option.getOrWith(() => %raw(\`${defaultCb()->Stdlib.Inlined.Value.stringify}\`))`
+//           `->S.Option.getOrWith(() => %raw(\`${defaultCb()->X.Inlined.Value.stringify}\`))`
 //         }
 //       }
 
@@ -4617,8 +4606,8 @@ let unnest = schema => {
 
 //     let inlinedSchema = switch schema->deprecation {
 //     | Some(message) => {
-//         metadataMap->Stdlib.Dict.deleteInPlace(deprecationMetadataId->Metadata.Id.toKey)
-//         inlinedSchema ++ `->S.deprecate(${message->Stdlib.Inlined.Value.fromString})`
+//         metadataMap->X.Dict.deleteInPlace(deprecationMetadataId->Metadata.Id.toKey)
+//         inlinedSchema ++ `->S.deprecate(${message->X.Inlined.Value.fromString})`
 //       }
 
 //     | None => inlinedSchema
@@ -4626,8 +4615,8 @@ let unnest = schema => {
 
 //     let inlinedSchema = switch schema->description {
 //     | Some(message) => {
-//         metadataMap->Stdlib.Dict.deleteInPlace(descriptionMetadataId->Metadata.Id.toKey)
-//         inlinedSchema ++ `->S.describe(${message->Stdlib.Inlined.Value.stringify})`
+//         metadataMap->X.Dict.deleteInPlace(descriptionMetadataId->Metadata.Id.toKey)
+//         inlinedSchema ++ `->S.describe(${message->X.Inlined.Value.stringify})`
 //       }
 
 //     | None => inlinedSchema
@@ -4644,30 +4633,30 @@ let unnest = schema => {
 //       switch schema->String.refinements {
 //       | [] => inlinedSchema
 //       | refinements =>
-//         metadataMap->Stdlib.Dict.deleteInPlace(String.Refinement.metadataId->Metadata.Id.toKey)
+//         metadataMap->X.Dict.deleteInPlace(String.Refinement.metadataId->Metadata.Id.toKey)
 //         inlinedSchema ++
 //         refinements
 //         ->Js.Array2.map(refinement => {
 //           switch refinement {
 //           | {kind: Email, message} =>
-//             `->S.email(~message=${message->Stdlib.Inlined.Value.fromString})`
-//           | {kind: Url, message} => `->S.url(~message=${message->Stdlib.Inlined.Value.fromString})`
+//             `->S.email(~message=${message->X.Inlined.Value.fromString})`
+//           | {kind: Url, message} => `->S.url(~message=${message->X.Inlined.Value.fromString})`
 //           | {kind: Uuid, message} =>
-//             `->S.uuid(~message=${message->Stdlib.Inlined.Value.fromString})`
+//             `->S.uuid(~message=${message->X.Inlined.Value.fromString})`
 //           | {kind: Cuid, message} =>
-//             `->S.cuid(~message=${message->Stdlib.Inlined.Value.fromString})`
+//             `->S.cuid(~message=${message->X.Inlined.Value.fromString})`
 //           | {kind: Min({length}), message} =>
-//             `->S.stringMinLength(${length->Stdlib.Int.unsafeToString}, ~message=${message->Stdlib.Inlined.Value.fromString})`
+//             `->S.stringMinLength(${length->X.Int.unsafeToString}, ~message=${message->X.Inlined.Value.fromString})`
 //           | {kind: Max({length}), message} =>
-//             `->S.stringMaxLength(${length->Stdlib.Int.unsafeToString}, ~message=${message->Stdlib.Inlined.Value.fromString})`
+//             `->S.stringMaxLength(${length->X.Int.unsafeToString}, ~message=${message->X.Inlined.Value.fromString})`
 //           | {kind: Length({length}), message} =>
-//             `->S.stringLength(${length->Stdlib.Int.unsafeToString}, ~message=${message->Stdlib.Inlined.Value.fromString})`
+//             `->S.stringLength(${length->X.Int.unsafeToString}, ~message=${message->X.Inlined.Value.fromString})`
 //           | {kind: Pattern({re}), message} =>
 //             `->S.pattern(%re(${re
-//               ->Stdlib.Re.toString
-//               ->Stdlib.Inlined.Value.fromString}), ~message=${message->Stdlib.Inlined.Value.fromString})`
+//               ->X.Re.toString
+//               ->X.Inlined.Value.fromString}), ~message=${message->X.Inlined.Value.fromString})`
 //           | {kind: Datetime, message} =>
-//             `->S.datetime(~message=${message->Stdlib.Inlined.Value.fromString})`
+//             `->S.datetime(~message=${message->X.Inlined.Value.fromString})`
 //           }
 //         })
 //         ->Js.Array2.joinWith("")
@@ -4677,17 +4666,17 @@ let unnest = schema => {
 //       switch schema->Int.refinements {
 //       | [] => inlinedSchema
 //       | refinements =>
-//         metadataMap->Stdlib.Dict.deleteInPlace(Int.Refinement.metadataId->Metadata.Id.toKey)
+//         metadataMap->X.Dict.deleteInPlace(Int.Refinement.metadataId->Metadata.Id.toKey)
 //         inlinedSchema ++
 //         refinements
 //         ->Js.Array2.map(refinement => {
 //           switch refinement {
 //           | {kind: Max({value}), message} =>
-//             `->S.intMax(${value->Stdlib.Int.unsafeToString}, ~message=${message->Stdlib.Inlined.Value.fromString})`
+//             `->S.intMax(${value->X.Int.unsafeToString}, ~message=${message->X.Inlined.Value.fromString})`
 //           | {kind: Min({value}), message} =>
-//             `->S.intMin(${value->Stdlib.Int.unsafeToString}, ~message=${message->Stdlib.Inlined.Value.fromString})`
+//             `->S.intMin(${value->X.Int.unsafeToString}, ~message=${message->X.Inlined.Value.fromString})`
 //           | {kind: Port, message} =>
-//             `->S.port(~message=${message->Stdlib.Inlined.Value.fromString})`
+//             `->S.port(~message=${message->X.Inlined.Value.fromString})`
 //           }
 //         })
 //         ->Js.Array2.joinWith("")
@@ -4697,15 +4686,15 @@ let unnest = schema => {
 //       switch schema->Float.refinements {
 //       | [] => inlinedSchema
 //       | refinements =>
-//         metadataMap->Stdlib.Dict.deleteInPlace(Float.Refinement.metadataId->Metadata.Id.toKey)
+//         metadataMap->X.Dict.deleteInPlace(Float.Refinement.metadataId->Metadata.Id.toKey)
 //         inlinedSchema ++
 //         refinements
 //         ->Js.Array2.map(refinement => {
 //           switch refinement {
 //           | {kind: Max({value}), message} =>
-//             `->S.floatMax(${value->Stdlib.Inlined.Float.toRescript}, ~message=${message->Stdlib.Inlined.Value.fromString})`
+//             `->S.floatMax(${value->X.Inlined.Float.toRescript}, ~message=${message->X.Inlined.Value.fromString})`
 //           | {kind: Min({value}), message} =>
-//             `->S.floatMin(${value->Stdlib.Inlined.Float.toRescript}, ~message=${message->Stdlib.Inlined.Value.fromString})`
+//             `->S.floatMin(${value->X.Inlined.Float.toRescript}, ~message=${message->X.Inlined.Value.fromString})`
 //           }
 //         })
 //         ->Js.Array2.joinWith("")
@@ -4715,17 +4704,17 @@ let unnest = schema => {
 //       switch schema->Array.refinements {
 //       | [] => inlinedSchema
 //       | refinements =>
-//         metadataMap->Stdlib.Dict.deleteInPlace(Array.Refinement.metadataId->Metadata.Id.toKey)
+//         metadataMap->X.Dict.deleteInPlace(Array.Refinement.metadataId->Metadata.Id.toKey)
 //         inlinedSchema ++
 //         refinements
 //         ->Js.Array2.map(refinement => {
 //           switch refinement {
 //           | {kind: Max({length}), message} =>
-//             `->S.arrayMaxLength(${length->Stdlib.Int.unsafeToString}, ~message=${message->Stdlib.Inlined.Value.fromString})`
+//             `->S.arrayMaxLength(${length->X.Int.unsafeToString}, ~message=${message->X.Inlined.Value.fromString})`
 //           | {kind: Min({length}), message} =>
-//             `->S.arrayMinLength(${length->Stdlib.Int.unsafeToString}, ~message=${message->Stdlib.Inlined.Value.fromString})`
+//             `->S.arrayMinLength(${length->X.Int.unsafeToString}, ~message=${message->X.Inlined.Value.fromString})`
 //           | {kind: Length({length}), message} =>
-//             `->S.arrayLength(${length->Stdlib.Int.unsafeToString}, ~message=${message->Stdlib.Inlined.Value.fromString})`
+//             `->S.arrayLength(${length->X.Int.unsafeToString}, ~message=${message->X.Inlined.Value.fromString})`
 //           }
 //         })
 //         ->Js.Array2.joinWith("")
@@ -4785,7 +4774,7 @@ let jsonString = JsonString.factory
 let intMin = (schema, minValue, ~message as maybeMessage=?) => {
   let message = switch maybeMessage {
   | Some(m) => m
-  | None => `Number must be greater than or equal to ${minValue->Stdlib.Int.unsafeToString}`
+  | None => `Number must be greater than or equal to ${minValue->X.Int.unsafeToString}`
   }
   schema->addRefinement(
     ~metadataId=Int.Refinement.metadataId,
@@ -4802,7 +4791,7 @@ let intMin = (schema, minValue, ~message as maybeMessage=?) => {
 let intMax = (schema, maxValue, ~message as maybeMessage=?) => {
   let message = switch maybeMessage {
   | Some(m) => m
-  | None => `Number must be lower than or equal to ${maxValue->Stdlib.Int.unsafeToString}`
+  | None => `Number must be lower than or equal to ${maxValue->X.Int.unsafeToString}`
   }
   schema->addRefinement(
     ~metadataId=Int.Refinement.metadataId,
@@ -4844,7 +4833,7 @@ let port = (schema, ~message=?) => {
 let floatMin = (schema, minValue, ~message as maybeMessage=?) => {
   let message = switch maybeMessage {
   | Some(m) => m
-  | None => `Number must be greater than or equal to ${minValue->Stdlib.Float.unsafeToString}`
+  | None => `Number must be greater than or equal to ${minValue->X.Float.unsafeToString}`
   }
   schema->addRefinement(
     ~metadataId=Float.Refinement.metadataId,
@@ -4861,7 +4850,7 @@ let floatMin = (schema, minValue, ~message as maybeMessage=?) => {
 let floatMax = (schema, maxValue, ~message as maybeMessage=?) => {
   let message = switch maybeMessage {
   | Some(m) => m
-  | None => `Number must be lower than or equal to ${maxValue->Stdlib.Float.unsafeToString}`
+  | None => `Number must be lower than or equal to ${maxValue->X.Float.unsafeToString}`
   }
   schema->addRefinement(
     ~metadataId=Float.Refinement.metadataId,
@@ -4878,7 +4867,7 @@ let floatMax = (schema, maxValue, ~message as maybeMessage=?) => {
 let arrayMinLength = (schema, length, ~message as maybeMessage=?) => {
   let message = switch maybeMessage {
   | Some(m) => m
-  | None => `Array must be ${length->Stdlib.Int.unsafeToString} or more items long`
+  | None => `Array must be ${length->X.Int.unsafeToString} or more items long`
   }
   schema->addRefinement(
     ~metadataId=Array.Refinement.metadataId,
@@ -4895,7 +4884,7 @@ let arrayMinLength = (schema, length, ~message as maybeMessage=?) => {
 let arrayMaxLength = (schema, length, ~message as maybeMessage=?) => {
   let message = switch maybeMessage {
   | Some(m) => m
-  | None => `Array must be ${length->Stdlib.Int.unsafeToString} or fewer items long`
+  | None => `Array must be ${length->X.Int.unsafeToString} or fewer items long`
   }
   schema->addRefinement(
     ~metadataId=Array.Refinement.metadataId,
@@ -4912,7 +4901,7 @@ let arrayMaxLength = (schema, length, ~message as maybeMessage=?) => {
 let arrayLength = (schema, length, ~message as maybeMessage=?) => {
   let message = switch maybeMessage {
   | Some(m) => m
-  | None => `Array must be exactly ${length->Stdlib.Int.unsafeToString} items long`
+  | None => `Array must be exactly ${length->X.Int.unsafeToString} items long`
   }
   schema->addRefinement(
     ~metadataId=Array.Refinement.metadataId,
@@ -4929,7 +4918,7 @@ let arrayLength = (schema, length, ~message as maybeMessage=?) => {
 let stringMinLength = (schema, length, ~message as maybeMessage=?) => {
   let message = switch maybeMessage {
   | Some(m) => m
-  | None => `String must be ${length->Stdlib.Int.unsafeToString} or more characters long`
+  | None => `String must be ${length->X.Int.unsafeToString} or more characters long`
   }
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
@@ -4946,7 +4935,7 @@ let stringMinLength = (schema, length, ~message as maybeMessage=?) => {
 let stringMaxLength = (schema, length, ~message as maybeMessage=?) => {
   let message = switch maybeMessage {
   | Some(m) => m
-  | None => `String must be ${length->Stdlib.Int.unsafeToString} or fewer characters long`
+  | None => `String must be ${length->X.Int.unsafeToString} or fewer characters long`
   }
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
@@ -4963,7 +4952,7 @@ let stringMaxLength = (schema, length, ~message as maybeMessage=?) => {
 let stringLength = (schema, length, ~message as maybeMessage=?) => {
   let message = switch maybeMessage {
   | Some(m) => m
-  | None => `String must be exactly ${length->Stdlib.Int.unsafeToString} characters long`
+  | None => `String must be exactly ${length->X.Int.unsafeToString} characters long`
   }
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
@@ -5056,7 +5045,7 @@ let datetime = (schema, ~message=`Invalid datetime string! Expected UTC`) => {
     ~id=String.Refinement.metadataId,
     {
       switch schema->Metadata.get(~id=String.Refinement.metadataId) {
-      | Some(refinements) => refinements->Stdlib.Array.append(refinement)
+      | Some(refinements) => refinements->X.Array.append(refinement)
       | None => [refinement]
       }
     },
@@ -5119,7 +5108,7 @@ let noop = a => a
 let js_asyncParserRefine = (schema, refine) => {
   schema->transform(s => {
     {
-      asyncParser: v => refine(v, s)->Stdlib.Promise.thenResolve(() => v),
+      asyncParser: v => refine(v, s)->X.Promise.thenResolve(() => v),
       serializer: noop,
     }
   })
@@ -5152,18 +5141,18 @@ let js_merge = (s1, s2) => {
       Object({items: items2, additionalItems: additionalItems2}),
     )
     // Filter out S.record schemas
-    if additionalItems1->Stdlib.Type.typeof === #string &&
-    additionalItems2->Stdlib.Type.typeof === #string &&
+    if additionalItems1->X.Type.typeof === #string &&
+    additionalItems2->X.Type.typeof === #string &&
     !((s1->toInternal).to->Obj.magic) &&
     !((s2->toInternal).to->Obj.magic) =>
-    let fields = fields1->Stdlib.Dict.copy
+    let fields = fields1->X.Dict.copy
     for idx in 0 to items2->Js.Array2.length - 1 {
       let item = items2->Js.Array2.unsafe_get(idx)
       fields->Js.Dict.set(item.location, item)
     }
     let mut = base()
     mut.tag = Object
-    mut.items = Some(fields->Stdlib.Dict.values)
+    mut.items = Some(fields->X.Dict.values)
     mut.fields = Some(fields)
     mut.additionalItems = Some(additionalItems1)
     mut.refiner = Some(Schema.schemaRefiner)
