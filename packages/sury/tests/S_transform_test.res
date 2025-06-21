@@ -4,13 +4,13 @@ open RescriptCore
 test("Parses unknown primitive with transformation to the same type", t => {
   let schema = S.string->S.transform(_ => {parser: value => value->String.trim})
 
-  t->Assert.deepEqual("  Hello world!"->S.parseOrThrow(schema), "Hello world!", ())
+  t->Assert.deepEqual("  Hello world!"->S.parseOrThrow(schema), "Hello world!")
 })
 
 test("Parses unknown primitive with transformation to another type", t => {
   let schema = S.int->S.transform(_ => {parser: value => value->Int.toFloat})
 
-  t->Assert.deepEqual(123->S.parseOrThrow(schema), 123., ())
+  t->Assert.deepEqual(123->S.parseOrThrow(schema), 123.)
 })
 
 asyncTest(
@@ -20,7 +20,7 @@ asyncTest(
       asyncParser: value => Promise.resolve()->Promise.thenResolve(() => value->Int.toFloat),
     })
 
-    t->Assert.deepEqual(await 123->S.parseAsyncOrThrow(schema), 123., ())
+    t->Assert.deepEqual(await 123->S.parseAsyncOrThrow(schema), 123.)
   },
 )
 
@@ -104,14 +104,13 @@ test("Transform parser passes through non rescript-schema errors", t => {
     ~expectations={
       message: "Application crashed",
     },
-    (),
   )
 })
 
 test("Transform parser passes through other rescript exceptions", t => {
   let schema = S.array(S.string->S.transform(_ => {parser: _ => U.raiseTestException()}))
 
-  t->U.assertThrowsTestException(() => {["Hello world!"]->S.parseOrThrow(schema)}, ())
+  t->U.assertThrowsTestException(() => {["Hello world!"]->S.parseOrThrow(schema)})
 })
 
 test("Transform definition passes through non rescript-schema errors", t => {
@@ -122,26 +121,25 @@ test("Transform definition passes through non rescript-schema errors", t => {
     ~expectations={
       message: "Application crashed",
     },
-    (),
   )
 })
 
 test("Transform definition passes through other rescript exceptions", t => {
   let schema = S.array(S.string->S.transform(_ => U.raiseTestException()))
 
-  t->U.assertThrowsTestException(() => {["Hello world!"]->S.parseOrThrow(schema)}, ())
+  t->U.assertThrowsTestException(() => {["Hello world!"]->S.parseOrThrow(schema)})
 })
 
 test("Successfully serializes primitive with transformation to the same type", t => {
   let schema = S.string->S.transform(_ => {serializer: value => value->String.trim})
 
-  t->Assert.deepEqual("  Hello world!"->S.reverseConvertOrThrow(schema), %raw(`"Hello world!"`), ())
+  t->Assert.deepEqual("  Hello world!"->S.reverseConvertOrThrow(schema), %raw(`"Hello world!"`))
 })
 
 test("Successfully serializes primitive with transformation to another type", t => {
   let schema = S.float->S.transform(_ => {serializer: value => value->Int.toFloat})
 
-  t->Assert.deepEqual(123->S.reverseConvertOrThrow(schema), %raw(`123`), ())
+  t->Assert.deepEqual(123->S.reverseConvertOrThrow(schema), %raw(`123`))
 })
 
 test("Transformed Primitive serializing fails when serializer isn't provided", t => {
@@ -204,7 +202,7 @@ test(
       serializer: value => value->Int.fromFloat,
     })
 
-    t->Assert.deepEqual(any->S.parseOrThrow(schema)->S.reverseConvertOrThrow(schema), any, ())
+    t->Assert.deepEqual(any->S.parseOrThrow(schema)->S.reverseConvertOrThrow(schema), any)
   },
 )
 
@@ -235,13 +233,13 @@ test("Fails to parse async using parseOrThrow", t => {
 test("Successfully parses with empty transform", t => {
   let schema = S.string->S.transform(_ => {})
 
-  t->Assert.deepEqual(%raw(`"Hello world!"`)->S.parseOrThrow(schema), "Hello world!", ())
+  t->Assert.deepEqual(%raw(`"Hello world!"`)->S.parseOrThrow(schema), "Hello world!")
 })
 
 test("Successfully serializes with empty transform", t => {
   let schema = S.string->S.transform(_ => {})
 
-  t->Assert.deepEqual("Hello world!"->S.reverseConvertOrThrow(schema), %raw(`"Hello world!"`), ())
+  t->Assert.deepEqual("Hello world!"->S.reverseConvertOrThrow(schema), %raw(`"Hello world!"`))
 })
 
 asyncTest("Successfully parses async using parseAsyncOrThrow", t => {
@@ -250,7 +248,7 @@ asyncTest("Successfully parses async using parseAsyncOrThrow", t => {
   %raw(`"Hello world!"`)
   ->S.parseAsyncOrThrow(schema)
   ->Promise.thenResolve(result => {
-    t->Assert.deepEqual(result, "Hello world!", ())
+    t->Assert.deepEqual(result, "Hello world!")
   })
 })
 
@@ -279,7 +277,7 @@ asyncTest("Can apply other actions after async transform", t => {
   %raw(`"    Hello world!"`)
   ->S.parseAsyncOrThrow(schema)
   ->Promise.thenResolve(result => {
-    t->Assert.deepEqual(result, "Hello world!", ())
+    t->Assert.deepEqual(result, "Hello world!")
   })
 })
 

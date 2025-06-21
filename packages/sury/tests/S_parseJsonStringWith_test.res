@@ -3,13 +3,13 @@ open Ava
 test("Successfully parses", t => {
   let schema = S.bool
 
-  t->Assert.deepEqual("true"->S.parseJsonStringOrThrow(schema), true, ())
+  t->Assert.deepEqual("true"->S.parseJsonStringOrThrow(schema), true)
 })
 
 test("Successfully parses unknown", t => {
   let schema = S.unknown
 
-  t->Assert.deepEqual("true"->S.parseJsonStringOrThrow(schema), true->Obj.magic, ())
+  t->Assert.deepEqual("true"->S.parseJsonStringOrThrow(schema), true->Obj.magic)
 })
 
 test("Fails to parse JSON", t => {
@@ -18,8 +18,8 @@ test("Fails to parse JSON", t => {
   switch "123,"->S.parseJsonStringOrThrow(schema) {
   | _ => t->Assert.fail("Must return Error")
   | exception S.Error({code, flag, path}) => {
-      t->Assert.deepEqual(flag, S.Flag.typeValidation, ())
-      t->Assert.deepEqual(path, S.Path.empty, ())
+      t->Assert.deepEqual(flag, S.Flag.typeValidation)
+      t->Assert.deepEqual(path, S.Path.empty)
       switch code {
       // Different errors for different Node.js versions
       | OperationFailed("Unexpected token , in JSON at position 3")

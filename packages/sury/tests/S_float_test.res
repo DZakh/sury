@@ -9,7 +9,7 @@ module Common = {
   test("Successfully parses", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(any->S.parseOrThrow(schema), value, ())
+    t->Assert.deepEqual(any->S.parseOrThrow(schema), value)
   })
 
   test("Fails to parse", t => {
@@ -28,7 +28,7 @@ module Common = {
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), any, ())
+    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), any)
   })
 
   test("Compiled parse code snapshot", t => {
@@ -49,7 +49,7 @@ module Common = {
 
   test("Reverse schema to S.float", t => {
     let schema = factory()
-    t->Assert.is(schema->S.reverse, schema->S.castToUnknown, ())
+    t->Assert.is(schema->S.reverse, schema->S.castToUnknown)
   })
 
   test("Succesfully uses reversed schema for parsing back to initial value", t => {
@@ -61,7 +61,7 @@ module Common = {
 test("Successfully parses number with a fractional part", t => {
   let schema = S.float
 
-  t->Assert.deepEqual(%raw(`123.123`)->S.parseOrThrow(schema), 123.123, ())
+  t->Assert.deepEqual(%raw(`123.123`)->S.parseOrThrow(schema), 123.123)
 })
 
 test("Fails to parse NaN", t => {

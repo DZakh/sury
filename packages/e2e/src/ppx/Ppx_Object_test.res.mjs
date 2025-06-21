@@ -21,7 +21,7 @@ Ava("Simple object schema", (function (t) {
         t.deepEqual(S.parseOrThrow({label:"foo",value:1}, simpleObjectSchema), {
               label: "foo",
               value: 1
-            }, undefined);
+            });
       }));
 
 var objectWithAliasSchema = S.schema(function (s) {
@@ -41,7 +41,7 @@ Ava("The @as attribute for the object schema is ignored since it doesn't work", 
         t.deepEqual(S.parseOrThrow({"label":"foo",value:1}, objectWithAliasSchema), {
               label: "foo",
               value: 1
-            }, undefined);
+            });
       }));
 
 export {

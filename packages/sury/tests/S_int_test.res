@@ -9,7 +9,7 @@ module Common = {
   test("Successfully parses", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(any->S.parseOrThrow(schema), value, ())
+    t->Assert.deepEqual(any->S.parseOrThrow(schema), value)
   })
 
   test("Fails to parse", t => {
@@ -28,7 +28,7 @@ module Common = {
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), any, ())
+    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), any)
   })
 
   test("Compiled parse code snapshot", t => {
@@ -70,7 +70,7 @@ test("Fails to parse int when JSON is a number bigger than +2^31", t => {
       path: S.Path.empty,
     },
   )
-  t->Assert.deepEqual(%raw(`2147483647`)->S.parseOrThrow(schema), 2147483647, ())
+  t->Assert.deepEqual(%raw(`2147483647`)->S.parseOrThrow(schema), 2147483647)
 })
 
 test("Fails to parse int when JSON is a number lower than -2^31", t => {
@@ -84,7 +84,7 @@ test("Fails to parse int when JSON is a number lower than -2^31", t => {
       path: S.Path.empty,
     },
   )
-  t->Assert.deepEqual(%raw(`-2147483648`)->S.parseOrThrow(schema), -2147483648, ())
+  t->Assert.deepEqual(%raw(`-2147483648`)->S.parseOrThrow(schema), -2147483648)
 })
 
 test("Fails to parse NaN", t => {

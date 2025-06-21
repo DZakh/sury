@@ -26,11 +26,11 @@ Ava("fromJSONSchema: string", (function (t) {
           type: js_type
         };
         var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow("foo", schema), "foo", undefined);
-        t.throws((function () {
-                return S.parseOrThrow(123, schema);
-              }), undefined, undefined);
-        t.deepEqual(jsonRoundTrip(js), js, undefined);
+        t.deepEqual(S.parseOrThrow("foo", schema), "foo");
+        t.throws(function () {
+              return S.parseOrThrow(123, schema);
+            });
+        t.deepEqual(jsonRoundTrip(js), js);
       }));
 
 Ava("fromJSONSchema: number", (function (t) {
@@ -39,11 +39,11 @@ Ava("fromJSONSchema: number", (function (t) {
           type: js_type
         };
         var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow(1.5, schema), 1.5, undefined);
-        t.throws((function () {
-                return S.parseOrThrow("foo", schema);
-              }), undefined, undefined);
-        t.deepEqual(jsonRoundTrip(js), js, undefined);
+        t.deepEqual(S.parseOrThrow(1.5, schema), 1.5);
+        t.throws(function () {
+              return S.parseOrThrow("foo", schema);
+            });
+        t.deepEqual(jsonRoundTrip(js), js);
       }));
 
 Ava("fromJSONSchema: integer", (function (t) {
@@ -52,11 +52,11 @@ Ava("fromJSONSchema: integer", (function (t) {
           type: js_type
         };
         var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow(42, schema), 42, undefined);
-        t.throws((function () {
-                return S.parseOrThrow(1.5, schema);
-              }), undefined, undefined);
-        t.deepEqual(jsonRoundTrip(js), js, undefined);
+        t.deepEqual(S.parseOrThrow(42, schema), 42);
+        t.throws(function () {
+              return S.parseOrThrow(1.5, schema);
+            });
+        t.deepEqual(jsonRoundTrip(js), js);
       }));
 
 Ava("fromJSONSchema: boolean", (function (t) {
@@ -65,11 +65,11 @@ Ava("fromJSONSchema: boolean", (function (t) {
           type: js_type
         };
         var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow(true, schema), true, undefined);
-        t.throws((function () {
-                return S.parseOrThrow(0, schema);
-              }), undefined, undefined);
-        t.deepEqual(jsonRoundTrip(js), js, undefined);
+        t.deepEqual(S.parseOrThrow(true, schema), true);
+        t.throws(function () {
+              return S.parseOrThrow(0, schema);
+            });
+        t.deepEqual(jsonRoundTrip(js), js);
       }));
 
 Ava("fromJSONSchema: null", (function (t) {
@@ -78,11 +78,11 @@ Ava("fromJSONSchema: null", (function (t) {
           type: js_type
         };
         var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow(null, schema), null, undefined);
-        t.throws((function () {
-                return S.parseOrThrow(0, schema);
-              }), undefined, undefined);
-        t.deepEqual(jsonRoundTrip(js), js, undefined);
+        t.deepEqual(S.parseOrThrow(null, schema), null);
+        t.throws(function () {
+              return S.parseOrThrow(0, schema);
+            });
+        t.deepEqual(jsonRoundTrip(js), js);
       }));
 
 Ava("fromJSONSchema: const", (function (t) {
@@ -91,11 +91,11 @@ Ava("fromJSONSchema: const", (function (t) {
           const: js_const
         };
         var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow("foo", schema), "foo", undefined);
-        t.throws((function () {
-                return S.parseOrThrow("bar", schema);
-              }), undefined, undefined);
-        t.deepEqual(jsonRoundTrip(js), js, undefined);
+        t.deepEqual(S.parseOrThrow("foo", schema), "foo");
+        t.throws(function () {
+              return S.parseOrThrow("bar", schema);
+            });
+        t.deepEqual(jsonRoundTrip(js), js);
       }));
 
 Ava("fromJSONSchema: enum", (function (t) {
@@ -108,11 +108,11 @@ Ava("fromJSONSchema: enum", (function (t) {
           enum: js_enum
         };
         var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow("a", schema), "a", undefined);
-        t.throws((function () {
-                return S.parseOrThrow("z", schema);
-              }), undefined, undefined);
-        t.deepEqual(jsonRoundTrip(js), js, undefined);
+        t.deepEqual(S.parseOrThrow("a", schema), "a");
+        t.throws(function () {
+              return S.parseOrThrow("z", schema);
+            });
+        t.deepEqual(jsonRoundTrip(js), js);
       }));
 
 Ava("fromJSONSchema: array of string", (function (t) {
@@ -131,14 +131,14 @@ Ava("fromJSONSchema: array of string", (function (t) {
                 ], schema), [
               "a",
               "b"
-            ], undefined);
-        t.throws((function () {
-                return S.parseOrThrow([
-                            1,
-                            2
-                          ], schema);
-              }), undefined, undefined);
-        t.deepEqual(jsonRoundTrip(js), js, undefined);
+            ]);
+        t.throws(function () {
+              return S.parseOrThrow([
+                          1,
+                          2
+                        ], schema);
+            });
+        t.deepEqual(jsonRoundTrip(js), js);
       }));
 
 Ava("fromJSONSchema: array with minItems/maxItems", (function (t) {
@@ -161,19 +161,19 @@ Ava("fromJSONSchema: array with minItems/maxItems", (function (t) {
                 ], schema), [
               1,
               2
-            ], undefined);
-        t.throws((function () {
-                return S.parseOrThrow([1], schema);
-              }), undefined, undefined);
-        t.throws((function () {
-                return S.parseOrThrow([
-                            1,
-                            2,
-                            3,
-                            4
-                          ], schema);
-              }), undefined, undefined);
-        t.deepEqual(jsonRoundTrip(js), js, undefined);
+            ]);
+        t.throws(function () {
+              return S.parseOrThrow([1], schema);
+            });
+        t.throws(function () {
+              return S.parseOrThrow([
+                          1,
+                          2,
+                          3,
+                          4
+                        ], schema);
+            });
+        t.deepEqual(jsonRoundTrip(js), js);
       }));
 
 Ava("fromJSONSchema: tuple", (function (t) {
@@ -201,14 +201,14 @@ Ava("fromJSONSchema: tuple", (function (t) {
                 ], schema), [
               "a",
               1
-            ], undefined);
-        t.throws((function () {
-                return S.parseOrThrow([
-                            1,
-                            "a"
-                          ], schema);
-              }), undefined, undefined);
-        t.deepEqual(jsonRoundTrip(js), js, undefined);
+            ]);
+        t.throws(function () {
+              return S.parseOrThrow([
+                          1,
+                          "a"
+                        ], schema);
+            });
+        t.deepEqual(jsonRoundTrip(js), js);
       }));
 
 Ava("fromJSONSchema: object with properties", (function (t) {
@@ -240,13 +240,13 @@ Ava("fromJSONSchema: object with properties", (function (t) {
                 }, schema), {
               foo: "hi",
               bar: 1
-            }, undefined);
-        t.throws((function () {
-                return S.parseOrThrow({
-                            bar: 1
-                          }, schema);
-              }), undefined, undefined);
-        t.deepEqual(jsonRoundTrip(js), js, undefined);
+            });
+        t.throws(function () {
+              return S.parseOrThrow({
+                          bar: 1
+                        }, schema);
+            });
+        t.deepEqual(jsonRoundTrip(js), js);
       }));
 
 Ava("fromJSONSchema: object with additionalProperties false", (function (t) {
@@ -268,14 +268,14 @@ Ava("fromJSONSchema: object with additionalProperties false", (function (t) {
                   foo: "hi"
                 }, schema), {
               foo: "hi"
-            }, undefined);
-        t.throws((function () {
-                return S.parseOrThrow({
-                            foo: "hi",
-                            bar: 1
-                          }, schema);
-              }), undefined, undefined);
-        t.deepEqual(jsonRoundTrip(js), js, undefined);
+            });
+        t.throws(function () {
+              return S.parseOrThrow({
+                          foo: "hi",
+                          bar: 1
+                        }, schema);
+            });
+        t.deepEqual(jsonRoundTrip(js), js);
       }));
 
 Ava("fromJSONSchema: object with additionalProperties true", (function (t) {
@@ -292,8 +292,8 @@ Ava("fromJSONSchema: object with additionalProperties true", (function (t) {
                 }, schema), {
               foo: 1,
               bar: 2
-            }, undefined);
-        t.deepEqual(jsonRoundTrip(js), js, undefined);
+            });
+        t.deepEqual(jsonRoundTrip(js), js);
       }));
 
 Ava("fromJSONSchema: anyOf", (function (t) {
@@ -309,12 +309,12 @@ Ava("fromJSONSchema: anyOf", (function (t) {
           anyOf: js_anyOf
         };
         var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow("hi", schema), "hi", undefined);
-        t.deepEqual(S.parseOrThrow(1, schema), 1, undefined);
-        t.throws((function () {
-                return S.parseOrThrow(true, schema);
-              }), undefined, undefined);
-        t.deepEqual(jsonRoundTrip(js), js, undefined);
+        t.deepEqual(S.parseOrThrow("hi", schema), "hi");
+        t.deepEqual(S.parseOrThrow(1, schema), 1);
+        t.throws(function () {
+              return S.parseOrThrow(true, schema);
+            });
+        t.deepEqual(jsonRoundTrip(js), js);
       }));
 
 Ava("fromJSONSchema: oneOf", (function (t) {
@@ -330,12 +330,12 @@ Ava("fromJSONSchema: oneOf", (function (t) {
           oneOf: js_oneOf
         };
         var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow("hi", schema), "hi", undefined);
-        t.deepEqual(S.parseOrThrow(1, schema), 1, undefined);
-        t.throws((function () {
-                return S.parseOrThrow(true, schema);
-              }), undefined, undefined);
-        t.deepEqual(jsonRoundTrip(js), js, undefined);
+        t.deepEqual(S.parseOrThrow("hi", schema), "hi");
+        t.deepEqual(S.parseOrThrow(1, schema), 1);
+        t.throws(function () {
+              return S.parseOrThrow(true, schema);
+            });
+        t.deepEqual(jsonRoundTrip(js), js);
       }));
 
 Ava("fromJSONSchema: allOf", (function (t) {
@@ -353,11 +353,11 @@ Ava("fromJSONSchema: allOf", (function (t) {
           allOf: js_allOf
         };
         var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow(5, schema), 5, undefined);
-        t.throws((function () {
-                return S.parseOrThrow(20, schema);
-              }), undefined, undefined);
-        t.deepEqual(jsonRoundTrip(js), js, undefined);
+        t.deepEqual(S.parseOrThrow(5, schema), 5);
+        t.throws(function () {
+              return S.parseOrThrow(20, schema);
+            });
+        t.deepEqual(jsonRoundTrip(js), js);
       }));
 
 Ava("fromJSONSchema: not", (function (t) {
@@ -368,11 +368,11 @@ Ava("fromJSONSchema: not", (function (t) {
           not: js_not
         };
         var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow(1, schema), 1, undefined);
-        t.throws((function () {
-                return S.parseOrThrow("hi", schema);
-              }), undefined, undefined);
-        t.deepEqual(jsonRoundTrip(js), js, undefined);
+        t.deepEqual(S.parseOrThrow(1, schema), 1);
+        t.throws(function () {
+              return S.parseOrThrow("hi", schema);
+            });
+        t.deepEqual(jsonRoundTrip(js), js);
       }));
 
 Ava("fromJSONSchema: nullable true", (function (t) {
@@ -383,9 +383,9 @@ Ava("fromJSONSchema: nullable true", (function (t) {
           nullable: js_nullable
         };
         var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow("hi", schema), "hi", undefined);
-        t.deepEqual(S.parseOrThrow(null, schema), null, undefined);
-        t.deepEqual(jsonRoundTrip(js), js, undefined);
+        t.deepEqual(S.parseOrThrow("hi", schema), "hi");
+        t.deepEqual(S.parseOrThrow(null, schema), null);
+        t.deepEqual(jsonRoundTrip(js), js);
       }));
 
 Ava("fromJSONSchema: nullable false", (function (t) {
@@ -396,11 +396,11 @@ Ava("fromJSONSchema: nullable false", (function (t) {
           nullable: js_nullable
         };
         var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow("hi", schema), "hi", undefined);
-        t.throws((function () {
-                return S.parseOrThrow(null, schema);
-              }), undefined, undefined);
-        t.deepEqual(jsonRoundTrip(js), js, undefined);
+        t.deepEqual(S.parseOrThrow("hi", schema), "hi");
+        t.throws(function () {
+              return S.parseOrThrow(null, schema);
+            });
+        t.deepEqual(jsonRoundTrip(js), js);
       }));
 
 Ava("fromJSONSchema: string format email", (function (t) {
@@ -411,11 +411,11 @@ Ava("fromJSONSchema: string format email", (function (t) {
           format: js_format
         };
         var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow("foo@bar.com", schema), "foo@bar.com", undefined);
-        t.throws((function () {
-                return S.parseOrThrow("not-an-email", schema);
-              }), undefined, undefined);
-        t.deepEqual(jsonRoundTrip(js), js, undefined);
+        t.deepEqual(S.parseOrThrow("foo@bar.com", schema), "foo@bar.com");
+        t.throws(function () {
+              return S.parseOrThrow("not-an-email", schema);
+            });
+        t.deepEqual(jsonRoundTrip(js), js);
       }));
 
 Ava("fromJSONSchema: string format uuid", (function (t) {
@@ -426,11 +426,11 @@ Ava("fromJSONSchema: string format uuid", (function (t) {
           format: js_format
         };
         var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow("123e4567-e89b-12d3-a456-426614174000", schema), "123e4567-e89b-12d3-a456-426614174000", undefined);
-        t.throws((function () {
-                return S.parseOrThrow("not-a-uuid", schema);
-              }), undefined, undefined);
-        t.deepEqual(jsonRoundTrip(js), js, undefined);
+        t.deepEqual(S.parseOrThrow("123e4567-e89b-12d3-a456-426614174000", schema), "123e4567-e89b-12d3-a456-426614174000");
+        t.throws(function () {
+              return S.parseOrThrow("not-a-uuid", schema);
+            });
+        t.deepEqual(jsonRoundTrip(js), js);
       }));
 
 Ava("fromJSONSchema: string format date-time", (function (t) {
@@ -441,11 +441,11 @@ Ava("fromJSONSchema: string format date-time", (function (t) {
           format: js_format
         };
         var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow("2020-01-01T00:00:00Z", schema), "2020-01-01T00:00:00Z", undefined);
-        t.throws((function () {
-                return S.parseOrThrow("not-a-date", schema);
-              }), undefined, undefined);
-        t.deepEqual(jsonRoundTrip(js), js, undefined);
+        t.deepEqual(S.parseOrThrow("2020-01-01T00:00:00Z", schema), "2020-01-01T00:00:00Z");
+        t.throws(function () {
+              return S.parseOrThrow("not-a-date", schema);
+            });
+        t.deepEqual(jsonRoundTrip(js), js);
       }));
 
 Ava("fromJSONSchema: string pattern", (function (t) {
@@ -456,11 +456,11 @@ Ava("fromJSONSchema: string pattern", (function (t) {
           pattern: js_pattern
         };
         var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow("foo", schema), "foo", undefined);
-        t.throws((function () {
-                return S.parseOrThrow("bar", schema);
-              }), undefined, undefined);
-        t.deepEqual(jsonRoundTrip(js), js, undefined);
+        t.deepEqual(S.parseOrThrow("foo", schema), "foo");
+        t.throws(function () {
+              return S.parseOrThrow("bar", schema);
+            });
+        t.deepEqual(jsonRoundTrip(js), js);
       }));
 
 Ava("fromJSONSchema: title, description, deprecated, examples", (function (t) {
@@ -480,23 +480,23 @@ Ava("fromJSONSchema: title, description, deprecated, examples", (function (t) {
           examples: js_examples
         };
         var schema = S.fromJSONSchema(js);
-        t.deepEqual(schema.title, "title", undefined);
-        t.deepEqual(schema.description, "desc", undefined);
-        t.deepEqual(schema.deprecated, true, undefined);
+        t.deepEqual(schema.title, "title");
+        t.deepEqual(schema.description, "desc");
+        t.deepEqual(schema.deprecated, true);
         t.deepEqual(schema.examples, [
               "a",
               "b"
-            ], undefined);
-        t.deepEqual(jsonRoundTrip(js), js, undefined);
+            ]);
+        t.deepEqual(jsonRoundTrip(js), js);
       }));
 
 Ava("fromJSONSchema: empty schema is any", (function (t) {
         var js = {};
         var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow("foo", schema), "foo", undefined);
-        t.deepEqual(S.parseOrThrow(1, schema), 1, undefined);
-        t.deepEqual(S.parseOrThrow(true, schema), true, undefined);
-        t.deepEqual(jsonRoundTrip(js), js, undefined);
+        t.deepEqual(S.parseOrThrow("foo", schema), "foo");
+        t.deepEqual(S.parseOrThrow(1, schema), 1);
+        t.deepEqual(S.parseOrThrow(true, schema), true);
+        t.deepEqual(jsonRoundTrip(js), js);
       }));
 
 Ava("fromJSONSchema: unknown type is any", (function (t) {
@@ -505,19 +505,19 @@ Ava("fromJSONSchema: unknown type is any", (function (t) {
           type: js_type
         };
         var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow("foo", schema), "foo", undefined);
-        t.deepEqual(S.parseOrThrow(1, schema), 1, undefined);
-        t.deepEqual(S.parseOrThrow(true, schema), true, undefined);
-        t.deepEqual(jsonRoundTrip(js), js, undefined);
+        t.deepEqual(S.parseOrThrow("foo", schema), "foo");
+        t.deepEqual(S.parseOrThrow(1, schema), 1);
+        t.deepEqual(S.parseOrThrow(true, schema), true);
+        t.deepEqual(jsonRoundTrip(js), js);
       }));
 
 Ava("fromJSONSchema: round-trip for string schema", (function (t) {
         var round = roundTrip(S.string);
-        t.deepEqual(S.parseOrThrow("foo", round), "foo", undefined);
-        t.throws((function () {
-                return S.parseOrThrow(1, round);
-              }), undefined, undefined);
-        t.deepEqual(S.toJSONSchema(round), S.toJSONSchema(S.string), undefined);
+        t.deepEqual(S.parseOrThrow("foo", round), "foo");
+        t.throws(function () {
+              return S.parseOrThrow(1, round);
+            });
+        t.deepEqual(S.toJSONSchema(round), S.toJSONSchema(S.string));
       }));
 
 Ava("fromJSONSchema: round-trip for object schema", (function (t) {
@@ -529,13 +529,13 @@ Ava("fromJSONSchema: round-trip for object schema", (function (t) {
                   foo: "bar"
                 }, round), {
               foo: "bar"
-            }, undefined);
-        t.throws((function () {
-                return S.parseOrThrow({
-                            foo: 1
-                          }, round);
-              }), undefined, undefined);
-        t.deepEqual(S.toJSONSchema(round), S.toJSONSchema(orig), undefined);
+            });
+        t.throws(function () {
+              return S.parseOrThrow({
+                          foo: 1
+                        }, round);
+            });
+        t.deepEqual(S.toJSONSchema(round), S.toJSONSchema(orig));
       }));
 
 export {

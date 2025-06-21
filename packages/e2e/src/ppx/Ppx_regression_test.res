@@ -33,13 +33,13 @@ module CknittelBugReport = {
         b: 42,
       },
     }
-    t->Assert.deepEqual(B(x)->S.reverseConvertOrThrow(schema), %raw(`{"payload":{"b":42}}`), ())
+    t->Assert.deepEqual(B(x)->S.reverseConvertOrThrow(schema), %raw(`{"payload":{"b":42}}`))
     let x = {
       A.payload: {
         a: "foo",
       },
     }
-    t->Assert.deepEqual(A(x)->S.reverseConvertOrThrow(schema), %raw(`{"payload":{"a":"foo"}}`), ())
+    t->Assert.deepEqual(A(x)->S.reverseConvertOrThrow(schema), %raw(`{"payload":{"a":"foo"}}`))
   })
 }
 
@@ -73,7 +73,7 @@ module CknittelBugReport2 = {
       `i=>{if(typeof i!=="object"||!i){e[6](i)}let v0=i["test"];if(typeof v0==="object"&&v0){if(v0["type"]==="a"){let v1=v0["x"];if(typeof v1!=="number"||v1>2147483647||v1<-2147483648||v1%1!==0){e[0](v1)}v0={"TAG":e[1],"_0":{"x":v1,},}}else if(v0["type"]==="b"){let v2=v0["y"];if(typeof v2!=="string"){e[2](v2)}v0={"TAG":e[3],"_0":{"y":v2,},}}else{e[4](v0)}}else if(!(v0===void 0)){e[5](v0)}return {"test":v0,}}`,
     )
 
-    t->Assert.deepEqual(S.parseJsonStringOrThrow("{}", schema), {test: None}, ())
+    t->Assert.deepEqual(S.parseJsonStringOrThrow("{}", schema), {test: None})
   })
 
   type responseError = {serviceCode: string, text: string}
@@ -100,10 +100,6 @@ module CknittelBugReport2 = {
       `i=>{if(typeof i==="object"&&i){if(typeof i["statusCode"]==="object"&&i["statusCode"]&&i["statusCode"]["kind"]==="ok"){let v0=i["statusCode"];let v1=v0["text"];try{if(v1!==""){e[1](v1)}}catch(v2){if(v2&&v2.s===s){v1=e[0](v1,v2)}else{throw v2}}i={"TAG":e[2],"_0":e[3],}}else if(typeof i["statusCode"]==="object"&&i["statusCode"]&&i["statusCode"]["kind"]==="serviceError"){let v3=i["statusCode"];let v4=v3["serviceCode"],v5=v3["text"];if(typeof v4!=="string"){e[4](v4)}if(typeof v5!=="string"){e[5](v5)}i={"TAG":e[6],"_0":{"serviceCode":v4,"text":v5,},}}else{e[7](i)}}else{e[8](i)}return i}`,
     )
 
-    t->Assert.deepEqual(
-      S.parseJsonStringOrThrow(`{"statusCode": {"kind": "ok"}}`, schema),
-      Ok(),
-      (),
-    )
+    t->Assert.deepEqual(S.parseJsonStringOrThrow(`{"statusCode": {"kind": "ok"}}`, schema), Ok())
   })
 }

@@ -4,13 +4,13 @@ open RescriptCore
 test("Successfully parses JSON", t => {
   let schema = S.string
 
-  t->Assert.deepEqual(`"Foo"`->S.parseOrThrow(S.jsonString(schema)), "Foo", ())
+  t->Assert.deepEqual(`"Foo"`->S.parseOrThrow(S.jsonString(schema)), "Foo")
 })
 
 test("Successfully serializes JSON", t => {
   let schema = S.string
 
-  t->Assert.deepEqual(`Foo`->S.reverseConvertOrThrow(S.jsonString(schema)), %raw(`'"Foo"'`), ())
+  t->Assert.deepEqual(`Foo`->S.reverseConvertOrThrow(S.jsonString(schema)), %raw(`'"Foo"'`))
 })
 
 test("Successfully serializes JSON object", t => {
@@ -27,7 +27,6 @@ test("Successfully serializes JSON object", t => {
       "baz": [1, 3],
     }->S.reverseConvertOrThrow(S.jsonString(schema)),
     %raw(`'{"foo":"bar","baz":[1,3]}'`),
-    (),
   )
 })
 
@@ -53,7 +52,6 @@ test("Successfully serializes JSON object with space", t => {
       "baz": [1, 3],
     }->S.reverseConvertOrThrow(S.jsonString(schema, ~space=2)),
     %raw(`'{\n  "foo": "bar",\n  "baz": [\n    1,\n    3\n  ]\n}'`),
-    (),
   )
 })
 

@@ -10,7 +10,7 @@ module CommonWithNested = {
   test("Successfully parses", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(any->S.parseOrThrow(schema), value, ())
+    t->Assert.deepEqual(any->S.parseOrThrow(schema), value)
   })
 
   test("Fails to parse", t => {
@@ -19,11 +19,11 @@ module CommonWithNested = {
     switch invalidAny->S.parseOrThrow(schema) {
     | _ => t->Assert.fail("Unexpected result.")
     | exception S.Error(e) => {
-        t->Assert.deepEqual(e.flag, S.Flag.typeValidation, ())
-        t->Assert.deepEqual(e.path, S.Path.empty, ())
+        t->Assert.deepEqual(e.flag, S.Flag.typeValidation)
+        t->Assert.deepEqual(e.path, S.Path.empty)
         switch e.code {
         | InvalidType({expected, received}) => {
-            t->Assert.deepEqual(received, invalidAny, ())
+            t->Assert.deepEqual(received, invalidAny)
             t->U.unsafeAssertEqualSchemas(expected, schema)
           }
         | _ => t->Assert.fail("Unexpected code.")
@@ -48,7 +48,7 @@ module CommonWithNested = {
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), any, ())
+    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), any)
   })
 }
 
@@ -58,6 +58,5 @@ test("Successfully parses list of optional items", t => {
   t->Assert.deepEqual(
     %raw(`["a", undefined, undefined, "b"]`)->S.parseOrThrow(schema),
     list{Some("a"), None, None, Some("b")},
-    (),
   )
 })

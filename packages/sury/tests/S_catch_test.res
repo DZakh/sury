@@ -4,19 +4,19 @@ open RescriptCore
 test("Doesn't affect valid parsing", t => {
   let schema = S.string->S.catch(_ => "fallback")
 
-  t->Assert.deepEqual("abc"->S.parseOrThrow(schema), "abc", ())
+  t->Assert.deepEqual("abc"->S.parseOrThrow(schema), "abc")
 })
 
 test("Doesn't do anything with unknown schema", t => {
   let schema = S.unknown->S.catch(_ => %raw(`"fallback"`))
 
-  t->Assert.deepEqual("abc"->S.parseOrThrow(schema), %raw(`"abc"`), ())
+  t->Assert.deepEqual("abc"->S.parseOrThrow(schema), %raw(`"abc"`))
 })
 
 test("Uses fallback value when parsing failed", t => {
   let schema = S.string->S.catch(_ => "fallback")
 
-  t->Assert.deepEqual(123->S.parseOrThrow(schema), "fallback", ())
+  t->Assert.deepEqual(123->S.parseOrThrow(schema), "fallback")
 })
 
 test("Doesn't affect serializing in any way", t => {
@@ -38,13 +38,12 @@ test("Provides ctx to use in catch", t => {
         operation: Parse,
         path: S.Path.empty,
       }),
-      (),
     )
-    t->Assert.deepEqual(s.input, %raw(`123`), ())
+    t->Assert.deepEqual(s.input, %raw(`123`))
     "fallback"
   })
 
-  t->Assert.deepEqual(123->S.parseOrThrow(schema), "fallback", ())
+  t->Assert.deepEqual(123->S.parseOrThrow(schema), "fallback")
 })
 
 test("Can use s.fail inside of S.catch", t => {
@@ -57,8 +56,8 @@ test("Can use s.fail inside of S.catch", t => {
       | exception S.Error(_) => s.fail("Fallback value only supported for strings.")
       }
     })
-  t->Assert.deepEqual(3000->S.parseOrThrow(schema), 3000, ())
-  t->Assert.deepEqual("3000"->S.parseOrThrow(schema), 8080, ())
+  t->Assert.deepEqual(3000->S.parseOrThrow(schema), 3000)
+  t->Assert.deepEqual("3000"->S.parseOrThrow(schema), 8080)
   t->U.assertThrows(
     () => true->S.parseOrThrow(schema),
     {
@@ -67,7 +66,7 @@ test("Can use s.fail inside of S.catch", t => {
       path: S.Path.empty,
     },
   )
-  t->Assert.deepEqual(3000->S.reverseConvertOrThrow(schema), %raw(`3000`), ())
+  t->Assert.deepEqual(3000->S.reverseConvertOrThrow(schema), %raw(`3000`))
   t->U.assertThrowsMessage(
     () => -1->S.reverseConvertOrThrow(schema),
     `Failed converting: Expected port, received -1`,
@@ -80,14 +79,14 @@ asyncTest("Uses fallback value when async schema parsing failed during the sync 
     ->S.transform(_ => {asyncParser: i => Promise.resolve(i)})
     ->S.catch(_ => "fallback")
 
-  t->Assert.deepEqual(await 123->S.parseAsyncOrThrow(schema), "fallback", ())
+  t->Assert.deepEqual(await 123->S.parseAsyncOrThrow(schema), "fallback")
 })
 
 asyncTest("Uses fallback value when async schema parsing failed during the async part", async t => {
   let schema =
     S.string->S.transform(s => {asyncParser: _ => s.fail("foo")})->S.catch(_ => "fallback")
 
-  t->Assert.deepEqual(await "123"->S.parseAsyncOrThrow(schema), "fallback", ())
+  t->Assert.deepEqual(await "123"->S.parseAsyncOrThrow(schema), "fallback")
 })
 
 asyncTest(
@@ -100,7 +99,7 @@ asyncTest(
       })
       ->S.catch(_ => "fallback")
 
-    t->Assert.deepEqual(await "123"->S.parseAsyncOrThrow(schema), "fallback", ())
+    t->Assert.deepEqual(await "123"->S.parseAsyncOrThrow(schema), "fallback")
   },
 )
 

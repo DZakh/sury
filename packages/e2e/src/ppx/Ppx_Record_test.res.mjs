@@ -22,7 +22,7 @@ Ava("Simple record schema", (function (t) {
         t.deepEqual(S.parseOrThrow({label:"foo",value:1}, simpleRecordSchema), {
               label: "foo",
               value: 1
-            }, undefined);
+            });
       }));
 
 var recordWithAliasSchema = S.schema(function (s) {
@@ -42,7 +42,7 @@ Ava("Record schema with alias for field name", (function (t) {
         t.deepEqual(S.parseOrThrow({"aliased-label":"foo",value:1}, recordWithAliasSchema), {
               "aliased-label": "foo",
               value: 1
-            }, undefined);
+            });
       }));
 
 var recordWithOptionalSchema = S.schema(function (s) {
@@ -62,11 +62,11 @@ Ava("Record schema with optional fields", (function (t) {
         t.deepEqual(S.parseOrThrow({"label":"foo",value:1}, recordWithOptionalSchema), {
               label: "foo",
               value: 1
-            }, undefined);
+            });
         t.deepEqual(S.parseOrThrow({}, recordWithOptionalSchema), {
               label: undefined,
               value: undefined
-            }, undefined);
+            });
       }));
 
 var recordWithNullableFieldSchema = S.schema(function (s) {
@@ -83,10 +83,10 @@ Ava("Record schema with nullable field", (function (t) {
                 }), undefined);
         t.deepEqual(S.parseOrThrow({}, recordWithNullableFieldSchema), {
               subscription: undefined
-            }, undefined);
+            });
         t.deepEqual(S.parseOrThrow({"subscription":null}, recordWithNullableFieldSchema), {
               subscription: Caml_option.some(undefined)
-            }, undefined);
+            });
       }));
 
 export {

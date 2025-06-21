@@ -15,7 +15,7 @@ test("Successfully parses", t => {
       path: S.Path.empty,
     },
   )
-  t->Assert.deepEqual(1->S.parseOrThrow(schemaWithoutTypeValidation), %raw(`1`), ())
+  t->Assert.deepEqual(1->S.parseOrThrow(schemaWithoutTypeValidation), %raw(`1`))
 })
 
 test("Works for literals", t => {
@@ -33,6 +33,6 @@ test("Works for literals", t => {
       path: S.Path.empty,
     },
   )
-  t->Assert.deepEqual(1->S.parseOrThrow(schemaWithoutTypeValidation), %raw(`1`), ())
+  t->Assert.deepEqual(1->S.parseOrThrow(schemaWithoutTypeValidation), %raw(`1`))
   t->U.assertCompiledCodeIsNoop(~schema=schemaWithoutTypeValidation, ~op=#Parse)
 })

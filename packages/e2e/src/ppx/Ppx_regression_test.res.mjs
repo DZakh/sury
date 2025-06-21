@@ -61,7 +61,7 @@ Ava("Union serializing of objects with optional fields", (function (t) {
                       b: 42
                     }
                   }
-                }, schema$2), {"payload":{"b":42}}, undefined);
+                }, schema$2), {"payload":{"b":42}});
         t.deepEqual(S.reverseConvertOrThrow({
                   TAG: "A",
                   _0: {
@@ -69,7 +69,7 @@ Ava("Union serializing of objects with optional fields", (function (t) {
                       a: "foo"
                     }
                   }
-                }, schema$2), {"payload":{"a":"foo"}}, undefined);
+                }, schema$2), {"payload":{"a":"foo"}});
       }));
 
 var CknittelBugReport = {
@@ -116,7 +116,7 @@ Ava("Successfully parses nested optional union", (function (t) {
         U.assertCompiledCode(t, schema$2, "Parse", "i=>{if(typeof i!==\"object\"||!i){e[6](i)}let v0=i[\"test\"];if(typeof v0===\"object\"&&v0){if(v0[\"type\"]===\"a\"){let v1=v0[\"x\"];if(typeof v1!==\"number\"||v1>2147483647||v1<-2147483648||v1%1!==0){e[0](v1)}v0={\"TAG\":e[1],\"_0\":{\"x\":v1,},}}else if(v0[\"type\"]===\"b\"){let v2=v0[\"y\"];if(typeof v2!==\"string\"){e[2](v2)}v0={\"TAG\":e[3],\"_0\":{\"y\":v2,},}}else{e[4](v0)}}else if(!(v0===void 0)){e[5](v0)}return {\"test\":v0,}}", undefined);
         t.deepEqual(S.parseJsonStringOrThrow("{}", schema$2), {
               test: undefined
-            }, undefined);
+            });
       }));
 
 Ava("Nested literal field with catch", (function (t) {
@@ -146,7 +146,7 @@ Ava("Nested literal field with catch", (function (t) {
         t.deepEqual(S.parseJsonStringOrThrow("{\"statusCode\": {\"kind\": \"ok\"}}", schema), {
               TAG: "Ok",
               _0: undefined
-            }, undefined);
+            });
       }));
 
 var CknittelBugReport2 = {

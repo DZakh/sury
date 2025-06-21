@@ -54,12 +54,12 @@ let error = ({operation, code, path}: errorPayload): S.error => {
 }
 
 let assertThrowsTestException = {
-  (t, fn, ~message=?, ()) => {
+  (t, fn, ~message=?) => {
     try {
       let _ = fn()
       t->Assert.fail("Didn't throw")
     } catch {
-    | Test => t->Assert.pass(~message?, ())
+    | Test => t->Assert.pass(~message?)
     | _ => t->Assert.fail("Thrown another exception")
     }
   }
@@ -68,7 +68,7 @@ let assertThrowsTestException = {
 let assertThrows = (t, cb, errorPayload) => {
   switch cb() {
   | any => t->Assert.fail("Asserted result is not Error. Recieved: " ++ any->unsafeStringify)
-  | exception S.Error({message}) => t->Assert.is(message, error(errorPayload).message, ())
+  | exception S.Error({message}) => t->Assert.is(message, error(errorPayload).message)
   }
 }
 
@@ -78,14 +78,14 @@ let assertThrowsMessage = (t, cb, errorMessage) => {
     t->Assert.fail(
       `Asserted result is not S.Error "${errorMessage}". Instead got: ${any->unsafeStringify}`,
     )
-  | exception S.Error({message}) => t->Assert.is(message, errorMessage, ())
+  | exception S.Error({message}) => t->Assert.is(message, errorMessage)
   }
 }
 
 let assertThrowsAsync = async (t, cb, errorPayload) => {
   switch await cb() {
   | any => t->Assert.fail("Asserted result is not Error. Recieved: " ++ any->unsafeStringify)
-  | exception S.Error({message}) => t->Assert.is(message, error(errorPayload).message, ())
+  | exception S.Error({message}) => t->Assert.is(message, error(errorPayload).message)
   }
 }
 
@@ -191,11 +191,11 @@ let rec cleanUpSchema = schema => {
 }
 
 let unsafeAssertEqualSchemas = (t, s1: S.t<'v1>, s2: S.t<'v2>, ~message=?) => {
-  t->Assert.unsafeDeepEqual(s1->cleanUpSchema, s2->cleanUpSchema, ~message?, ())
+  t->Assert.unsafeDeepEqual(s1->cleanUpSchema, s2->cleanUpSchema, ~message?)
 }
 
 let assertCompiledCode = (t, ~schema, ~op, code, ~message=?) => {
-  t->Assert.is(schema->getCompiledCodeString(~op), code, ~message?, ())
+  t->Assert.is(schema->getCompiledCodeString(~op), code, ~message?)
 }
 
 let assertCompiledCodeIsNoop = (t, ~schema, ~op, ~message=?) => {
@@ -215,7 +215,6 @@ let assertReverseParsesBack = (t, schema: S.t<'value>, value: 'value) => {
     ->S.reverseConvertOrThrow(schema)
     ->S.parseOrThrow(schema),
     value,
-    (),
   )
 }
 

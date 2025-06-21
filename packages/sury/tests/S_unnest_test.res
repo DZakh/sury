@@ -34,13 +34,11 @@ test("Successfully parses and reverse converts a simple object with unnest", t =
   t->Assert.deepEqual(
     %raw(`[["a", "b"], [0, 1]]`)->S.parseOrThrow(schema),
     [{"foo": "a", "bar": 0}, {"foo": "b", "bar": 1}],
-    (),
   )
 
   t->Assert.deepEqual(
     [{"foo": "a", "bar": 0}, {"foo": "b", "bar": 1}]->S.reverseConvertOrThrow(schema),
     %raw(`[["a", "b"], [0, 1]]`),
-    (),
   )
 
   let example = S.unnest(
@@ -83,13 +81,11 @@ test("Transforms nullable fields", t => {
   t->Assert.deepEqual(
     %raw(`[["a", "b"], [0, null]]`)->S.parseOrThrow(schema),
     [{"foo": "a", "bar": Some(0)}, {"foo": "b", "bar": None}],
-    (),
   )
 
   t->Assert.deepEqual(
     [{"foo": "a", "bar": Some(0)}, {"foo": "b", "bar": None}]->S.reverseConvertOrThrow(schema),
     %raw(`[["a", "b"], [0, null]]`),
-    (),
   )
 })
 
@@ -117,7 +113,6 @@ test("Case with missing item at the end", t => {
   t->Assert.deepEqual(
     %raw(`[["a", "b"], [true, true, false]]`)->S.parseOrThrow(schema),
     [{"foo": Some("a"), "bar": true}, {"foo": Some("b"), "bar": true}, {"foo": None, "bar": false}],
-    (),
   )
 
   t->Assert.deepEqual(
@@ -127,7 +122,6 @@ test("Case with missing item at the end", t => {
       {"foo": None, "bar": false},
     ]->S.reverseConvertOrThrow(schema),
     %raw(`[["a", "b", undefined], [true, true, false]]`),
-    (),
   )
 })
 
@@ -139,7 +133,6 @@ test("Handles empty objects", t => {
     ~expectations={
       message: "[Sury] Invalid empty object for S.unnest schema.",
     },
-    (),
   )
 })
 
@@ -151,6 +144,5 @@ test("Handles non-object schemas", t => {
     ~expectations={
       message: "[Sury] S.unnest supports only object schemas.",
     },
-    (),
   )
 })

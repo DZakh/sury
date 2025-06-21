@@ -11,7 +11,7 @@ module CommonWithNested = {
   test("Successfully parses", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(any->S.parseOrThrow(schema), value, ())
+    t->Assert.deepEqual(any->S.parseOrThrow(schema), value)
   })
 
   test("Fails to parse", t => {
@@ -43,7 +43,7 @@ module CommonWithNested = {
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), any, ())
+    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), any)
   })
 
   test("Compiled parse code snapshot", t => {
@@ -110,7 +110,6 @@ test("Successfully parses matrix", t => {
   t->Assert.deepEqual(
     %raw(`[["a", "b"], ["c", "d"]]`)->S.parseOrThrow(schema),
     [["a", "b"], ["c", "d"]],
-    (),
   )
 })
 
@@ -133,6 +132,5 @@ test("Successfully parses array of optional items", t => {
   t->Assert.deepEqual(
     %raw(`["a", undefined, undefined, "b"]`)->S.parseOrThrow(schema),
     [Some("a"), None, None, Some("b")],
-    (),
   )
 })

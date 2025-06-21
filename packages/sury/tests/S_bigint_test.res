@@ -9,7 +9,7 @@ module Common = {
   test("Successfully parses", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(any->S.parseOrThrow(schema), value, ())
+    t->Assert.deepEqual(any->S.parseOrThrow(schema), value)
   })
 
   test("Fails to parse", t => {
@@ -36,13 +36,13 @@ module Common = {
 
   test("BigInt name", t => {
     let schema = factory()
-    t->Assert.is(schema->S.toExpression, "bigint", ())
+    t->Assert.is(schema->S.toExpression, "bigint")
   })
 
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), any, ())
+    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), any)
   })
 
   test("Compiled parse code snapshot", t => {
@@ -59,7 +59,7 @@ module Common = {
 
   test("Reverse schema to self", t => {
     let schema = factory()
-    t->Assert.is(schema->S.reverse, schema->S.castToUnknown, ())
+    t->Assert.is(schema->S.reverse, schema->S.castToUnknown)
   })
 
   test("Succesfully uses reversed schema for parsing back to initial value", t => {

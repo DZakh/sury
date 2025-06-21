@@ -6,7 +6,7 @@ test("Successfully refines on parsing", t => {
       s.fail("Should be positive")
     })
 
-  t->Assert.deepEqual(%raw(`12`)->S.parseOrThrow(schema), 12, ())
+  t->Assert.deepEqual(%raw(`12`)->S.parseOrThrow(schema), 12)
   t->U.assertThrows(
     () => %raw(`-12`)->S.parseOrThrow(schema),
     {
@@ -39,7 +39,7 @@ test("Successfully refines on serializing", t => {
       s.fail("Should be positive")
     })
 
-  t->Assert.deepEqual(12->S.reverseConvertOrThrow(schema), %raw("12"), ())
+  t->Assert.deepEqual(12->S.reverseConvertOrThrow(schema), %raw("12"))
   t->U.assertThrows(
     () => -12->S.reverseConvertOrThrow(schema),
     {
@@ -67,7 +67,6 @@ test("Successfully parses simple object with empty refine", t => {
       "foo": "string",
       "bar": true,
     },
-    (),
   )
 })
 
@@ -91,7 +90,7 @@ test("Reverse schema to the original schema", t => {
     if value < 0 {
       s.fail("Should be positive")
     })
-  t->Assert.not(schema->S.reverse, schema->S.castToUnknown, ())
+  t->Assert.not(schema->S.reverse, schema->S.castToUnknown)
   t->U.assertEqualSchemas(schema->S.reverse, S.int->S.castToUnknown)
 })
 
@@ -116,6 +115,6 @@ module Issue79 = {
     )
     t->U.assertCompiledCode(~schema, ~op=#Convert, `i=>{let v0=i["myField"];e[0](v0);return v0}`)
 
-    t->Assert.deepEqual(jsonString->S.parseJsonStringOrThrow(schema), Value("test"), ())
+    t->Assert.deepEqual(jsonString->S.parseJsonStringOrThrow(schema), Value("test"))
   })
 }

@@ -7,7 +7,7 @@ test("Uses default value when parsing optional unknown primitive", t => {
 
   let schema = S.float->S.option->S.Option.getOr(value)
 
-  t->Assert.deepEqual(any->S.parseOrThrow(schema), value, ())
+  t->Assert.deepEqual(any->S.parseOrThrow(schema), value)
 })
 
 test("Uses default value when nullable optional unknown primitive", t => {
@@ -16,19 +16,19 @@ test("Uses default value when nullable optional unknown primitive", t => {
 
   let schema = S.float->S.null->S.Option.getOr(value)
 
-  t->Assert.deepEqual(any->S.parseOrThrow(schema), value, ())
+  t->Assert.deepEqual(any->S.parseOrThrow(schema), value)
 })
 
 test("Successfully parses with default when provided JS undefined", t => {
   let schema = S.bool->S.option->S.Option.getOr(false)
 
-  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), false, ())
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), false)
 })
 
 test("Successfully parses with default when provided primitive", t => {
   let schema = S.bool->S.option->S.Option.getOr(false)
 
-  t->Assert.deepEqual(%raw(`true`)->S.parseOrThrow(schema), true, ())
+  t->Assert.deepEqual(%raw(`true`)->S.parseOrThrow(schema), true)
 })
 
 test("Successfully serializes nested option with default value", t => {
@@ -39,9 +39,8 @@ test("Successfully serializes nested option with default value", t => {
   t->Assert.deepEqual(
     Some(Some(Some(Some(None))))->S.reverseConvertOrThrow(schema),
     %raw(`undefined`),
-    (),
   )
-  t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
+  t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`))
 })
 
 test("Fails to parse data with default", t => {
@@ -72,13 +71,13 @@ test("Successfully parses schema with transformation", t => {
     ->S.to(S.option(S.string))
     ->S.Option.getOr("not positive")
 
-  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), "not positive", ())
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), "not positive")
 })
 
 test("Successfully serializes schema with transformation", t => {
   let schema = S.string->S.trim->S.option->S.Option.getOr("default")
 
-  t->Assert.deepEqual(" abc"->S.reverseConvertOrThrow(schema), %raw(`"abc"`), ())
+  t->Assert.deepEqual(" abc"->S.reverseConvertOrThrow(schema), %raw(`"abc"`))
 })
 
 test("Compiled parse code snapshot", t => {
@@ -98,7 +97,7 @@ asyncTest("Compiled async parse code snapshot", async t => {
     ->S.option
     ->S.Option.getOr(false)
 
-  t->Assert.deepEqual(await None->S.parseAsyncOrThrow(schema), false, ())
+  t->Assert.deepEqual(await None->S.parseAsyncOrThrow(schema), false)
 
   t->U.assertCompiledCode(
     ~schema,

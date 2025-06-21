@@ -21,13 +21,13 @@ module Common = {
   test("Successfully parses", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.parseOrThrow(schema), value, ())
+    t->Assert.deepEqual(value->S.parseOrThrow(schema), value)
   })
 
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), value->U.castAnyToUnknown, ())
+    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), value->U.castAnyToUnknown)
   })
 
   test("Fails to serialize invalid", t => {
@@ -37,7 +37,6 @@ module Common = {
       invalid->S.reverseConvertOrThrow(schema),
       invalid,
       ~message=`Convert operation doesn't validate anything and assumes a valid input`,
-      (),
     )
 
     t->U.assertThrows(
@@ -72,7 +71,7 @@ module Common = {
   test("Can parse object instances, reduces it to normal object by default", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(makeNotPlainValue()->S.parseOrThrow(schema), {"foo": "bar"}, ())
+    t->Assert.deepEqual(makeNotPlainValue()->S.parseOrThrow(schema), {"foo": "bar"})
   })
 
   test("Compiled parse code snapshot", t => {
@@ -111,25 +110,25 @@ module EmptyDict = {
   test("Successfully parses empty dict literal schema", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.parseOrThrow(schema), value, ())
+    t->Assert.deepEqual(value->S.parseOrThrow(schema), value)
   })
 
   test("Strips extra fields passed to empty dict literal schema", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(invalid->S.parseOrThrow(schema), Dict.make(), ())
+    t->Assert.deepEqual(invalid->S.parseOrThrow(schema), Dict.make())
   })
 
   test("Successfully serializes empty dict literal schema", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), value->U.castAnyToUnknown, ())
+    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), value->U.castAnyToUnknown)
   })
 
   test("Ignores extra fields during conversion of empty object literal", t => {
     let schema = factory()
 
-    t->Assert.is(invalid->S.reverseConvertOrThrow(schema), invalid->Obj.magic, ())
+    t->Assert.is(invalid->S.reverseConvertOrThrow(schema), invalid->Obj.magic)
   })
 
   test("Compiled parse code snapshot of empty dict literal schema", t => {

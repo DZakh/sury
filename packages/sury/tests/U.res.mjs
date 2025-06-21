@@ -51,7 +51,7 @@ function error(param) {
   return S.ErrorClass.constructor(param.code, tmp, param.path);
 }
 
-function assertThrowsTestException(t, fn, message, param) {
+function assertThrowsTestException(t, fn, message) {
   try {
     fn();
     return t.fail("Didn't throw");
@@ -75,7 +75,7 @@ function assertThrows(t, cb, errorPayload) {
   catch (raw_exn){
     var exn = Caml_js_exceptions.internalToOCamlException(raw_exn);
     if (exn.RE_EXN_ID === S.$$Error) {
-      t.is(exn._1.message, error(errorPayload).message, undefined);
+      t.is(exn._1.message, error(errorPayload).message);
       return ;
     }
     throw exn;
@@ -91,7 +91,7 @@ function assertThrowsMessage(t, cb, errorMessage) {
   catch (raw_exn){
     var exn = Caml_js_exceptions.internalToOCamlException(raw_exn);
     if (exn.RE_EXN_ID === S.$$Error) {
-      t.is(exn._1.message, errorMessage, undefined);
+      t.is(exn._1.message, errorMessage);
       return ;
     }
     throw exn;
@@ -107,7 +107,7 @@ async function assertThrowsAsync(t, cb, errorPayload) {
   catch (raw_exn){
     var exn = Caml_js_exceptions.internalToOCamlException(raw_exn);
     if (exn.RE_EXN_ID === S.$$Error) {
-      t.is(exn._1.message, error(errorPayload).message, undefined);
+      t.is(exn._1.message, error(errorPayload).message);
       return ;
     }
     throw exn;
@@ -197,7 +197,7 @@ function assertCompiledCodeIsNoop(t, schema, op, message) {
 }
 
 function assertReverseParsesBack(t, schema, value) {
-  t.deepEqual(S.parseOrThrow(S.reverseConvertOrThrow(value, schema), schema), value, undefined);
+  t.deepEqual(S.parseOrThrow(S.reverseConvertOrThrow(value, schema), schema), value);
 }
 
 function assertReverseReversesBack(t, schema) {

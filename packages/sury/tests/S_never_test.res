@@ -44,7 +44,7 @@ module Common = {
 
   test("Reverse schema to self", t => {
     let schema = factory()
-    t->Assert.is(schema->S.reverse, schema->S.castToUnknown, ())
+    t->Assert.is(schema->S.reverse, schema->S.castToUnknown)
   })
 }
 
@@ -86,7 +86,6 @@ module ObjectField = {
         "key": "value",
         "oldKey": None,
       },
-      (),
     )
   })
 }

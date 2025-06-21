@@ -130,7 +130,6 @@ module Positive = {
             "field": "bar",
           }->S.parseOrThrow(schema),
           {"field": "bar"},
-          (),
         )
       },
     )
@@ -153,7 +152,6 @@ module Positive = {
             "discriminant": testData.discriminantData,
             "field": "bar",
           }->Obj.magic,
-          (),
         )
       },
     )
@@ -227,7 +225,6 @@ module Negative = {
             "field": "bar",
           }->S.parseOrThrow(schema),
           {"field": "bar"},
-          (),
         )
       },
     )
@@ -276,7 +273,6 @@ module NestedNegative = {
           "field": "bar",
         }->S.parseOrThrow(schema),
         {"field": "bar"},
-        (),
       )
     },
   )

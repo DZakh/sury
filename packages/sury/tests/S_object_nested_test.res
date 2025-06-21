@@ -32,7 +32,6 @@ test("Object with a single nested field with S.null", t => {
   t->Assert.deepEqual(
     Some("bar")->S.reverseConvertOrThrow(schema),
     %raw(`{"nested":{"foo":"bar"}}`),
-    (),
   )
 })
 
@@ -253,7 +252,7 @@ test("Nested tags on reverse convert", t => {
     s.nested("nested").tag("tag", "value")
   })
 
-  t->Assert.deepEqual(()->S.reverseConvertOrThrow(schema), %raw(`{"nested":{"tag":"value"}}`), ())
+  t->Assert.deepEqual(()->S.reverseConvertOrThrow(schema), %raw(`{"nested":{"tag":"value"}}`))
 })
 
 test("Nested preprocessed tags on reverse convert", t => {
@@ -291,12 +290,10 @@ test("Nested preprocessed tags on reverse convert", t => {
   t->Assert.deepEqual(
     ()->S.reverseConvertOrThrow(schema),
     %raw(`{"nested":{"tag":"_value", "intTag":"_1"}}`),
-    (),
   )
 
   t->Assert.deepEqual(
     %raw(`{"nested":{"tag":"_value", "intTag":"_1"}}`)->S.parseOrThrow(schema),
-    (),
     (),
   )
 })
@@ -406,7 +403,6 @@ test("s.nested conflicts with s.field", t => {
     ~expectations={
       message: `[Sury] The field "nested" defined twice with incompatible schemas`,
     },
-    (),
   )
 })
 
@@ -422,7 +418,6 @@ test("s.nested.flattened doesn't work with S.object", t => {
     ~expectations={
       message: `[Sury] Unsupported nested flatten for transformed object schema { foo: string; }`,
     },
-    (),
   )
 })
 
@@ -445,7 +440,6 @@ test("s.nested.flattened doesn't work with transformed S.schema", t => {
     ~expectations={
       message: `[Sury] Unsupported nested flatten for transformed object schema { foo: string; }`,
     },
-    (),
   )
 })
 
@@ -468,7 +462,6 @@ test("s.nested.flattened doesn't work with S.schema->S.shape", t => {
     ~expectations={
       message: `[Sury] Unsupported nested flatten for transformed object schema { foo: string; }`,
     },
-    (),
   )
 })
 
@@ -484,7 +477,6 @@ test("s.nested.flattened doesn't work with S.string", t => {
     ~expectations={
       message: `[Sury] Can\'t flatten string schema`,
     },
-    (),
   )
 })
 
@@ -518,7 +510,6 @@ test("s.nested.flattened doesn't work with S.schema->S.shape to self", t => {
     ~expectations={
       message: `[Sury] Unsupported nested flatten for transformed object schema { foo: string; }`,
     },
-    (),
   )
 })
 
@@ -542,6 +533,5 @@ test("s.nested.flatten conflicts with s.nested.field", t => {
     ~expectations={
       message: `[Sury] The field "foo" defined twice`,
     },
-    (),
   )
 })

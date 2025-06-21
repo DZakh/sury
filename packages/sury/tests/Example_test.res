@@ -48,7 +48,6 @@ test("Example", t => {
       rating: Restricted,
       deprecatedAgeRestriction: Some(17),
     },
-    (),
   )
   t->Assert.deepEqual(
     {
@@ -65,7 +64,6 @@ test("Example", t => {
         "Tags": ["Loved"],
         "Age": undefined,
       }`),
-    (),
   )
 })
 
@@ -109,7 +107,6 @@ test("Custom schema", t => {
   t->Assert.deepEqual(
     S.parseOrThrow(%raw(`new Set([1, 2, 3])`), intSetSchema),
     Set.fromArray([1, 2, 3]),
-    (),
   )
   t->U.assertThrowsMessage(
     () => S.parseOrThrow(%raw(`new Set([1, 2, "3"])`), intSetSchema),

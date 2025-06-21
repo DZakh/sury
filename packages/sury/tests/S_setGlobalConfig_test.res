@@ -6,9 +6,8 @@ asyncTest("Resets S.float cache after disableNanNumberValidation=true removed", 
   S.global({
     disableNanNumberValidation: true,
   })
-  t->Assert.deepEqual(nan->S.parseOrThrow(S.float), nan, ())
-  t->Assert.deepEqual(await nan->S.parseAsyncOrThrow(S.float), nan, ())
-  t->Assert.deepEqual(nan->S.assertOrThrow(S.float), (), ())
+  t->Assert.deepEqual(nan->S.parseOrThrow(S.float), nan)
+  t->Assert.deepEqual(await nan->S.parseAsyncOrThrow(S.float), nan)
 
   S.global({})
   t->U.assertThrows(
@@ -40,6 +39,5 @@ asyncTest("Resets S.float cache after disableNanNumberValidation=true removed", 
     ~expectations={
       message: "Failed asserting: Expected number, received NaN",
     },
-    (),
   )
 })

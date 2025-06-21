@@ -28,7 +28,6 @@ test("Successfully parses recursive object", t => {
       id: "1",
       children: [{id: "2", children: []}, {id: "3", children: [{id: "4", children: []}]}],
     },
-    (),
   )
 })
 
@@ -51,7 +50,6 @@ test("Fails to parses recursive object when provided invalid type", t => {
     | exception S.Error({message}) => message
     },
     `Failed parsing at ["Children"]["0"]: Expected { Id: string; Children: Node[]; }, received "invalid"`,
-    (),
   )
 })
 
@@ -87,7 +85,6 @@ Node: i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["Id"],v1=i["Children"];if
         id: "1",
         children: [{id: "2", children: []}, {id: "3", children: [{id: "4", children: []}]}],
       },
-      (),
     )
   })
 })
@@ -123,7 +120,6 @@ Node: i=>{let v0=i["children"],v4=new Array(v0.length);for(let v1=0;v1<v0.length
           {"Id": "3", "Children": [{"Id": "4", "Children": []}]},
         ],
       }`),
-    (),
   )
 })
 
@@ -278,7 +274,6 @@ test("Parses multiple nested recursive object inside of another object", t => {
         children: [{id: "2", children: []}, {id: "3", children: [{id: "4", children: []}]}],
       },
     },
-    (),
   )
 })
 
@@ -353,7 +348,6 @@ Node: i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["Id"],v1=i["Children"];if
           {id: "node_3", children: [{id: "node_4", children: []}]},
         ],
       },
-      (),
     )
 
     t->U.assertCompiledCode(~schema=nodeSchema, ~op=#ReverseConvert, `i=>{return e[0](i)}`)
@@ -372,7 +366,6 @@ Node: i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["Id"],v1=i["Children"];if
           {"Id": "3", "Children": [{"Id": "4", "Children": []}]},
         ],
       }->Obj.magic,
-      (),
     )
   },
 )
@@ -412,7 +405,6 @@ test("Recursively transforms nested objects when added transform to the placehol
         {id: "child_3", children: [{id: "child_4", children: []}]},
       ],
     },
-    (),
   )
   t->Assert.deepEqual(
     {
@@ -429,7 +421,6 @@ test("Recursively transforms nested objects when added transform to the placehol
         {"Id": "3", "Children": [{"Id": "4", "Children": []}]},
       ],
     }->Obj.magic,
-    (),
   )
 })
 
@@ -458,7 +449,6 @@ test("Shallowly transforms object when added transform to the S.recursive result
       id: "parent_1",
       children: [{id: "2", children: []}, {id: "3", children: [{id: "4", children: []}]}],
     },
-    (),
   )
   t->Assert.deepEqual(
     {
@@ -472,7 +462,6 @@ test("Shallowly transforms object when added transform to the S.recursive result
         {"Id": "3", "Children": [{"Id": "4", "Children": []}]},
       ],
     }->Obj.magic,
-    (),
   )
 
   t->U.assertCompiledCode(
@@ -518,7 +507,6 @@ Node: i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["Id"],v1=i["Children"];if
         id: "1",
         children: [{id: "2", children: []}, {id: "3", children: [{id: "4", children: []}]}],
       },
-      (),
     )
   })
 })
@@ -556,7 +544,7 @@ test("Parses recursive object with async fields in parallel", t => {
   ->S.parseAsyncOrThrow(nodeSchema)
   ->ignore
 
-  t->Assert.deepEqual(actionCounter.contents, 4, ())
+  t->Assert.deepEqual(actionCounter.contents, 4)
 
   t->U.assertCompiledCode(
     ~schema=nodeSchema,

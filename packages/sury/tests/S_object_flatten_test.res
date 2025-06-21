@@ -96,7 +96,6 @@ test("Can flatten strict object", t => {
     | _ => assert(false)
     },
     S.Strip,
-    (),
   )
   t->U.unsafeAssertEqualSchemas(
     schema,
@@ -153,7 +152,6 @@ test("Flatten schema with duplicated field of the same type (flatten first)", t 
     ~expectations={
       message: `[Sury] The field "foo" defined twice with incompatible schemas`,
     },
-    (),
   )
 })
 
@@ -190,7 +188,6 @@ test("Flatten schema with duplicated field of different type", t => {
     ~expectations={
       message: `[Sury] The field "foo" defined twice with incompatible schemas`,
     },
-    (),
   )
 })
 
@@ -216,7 +213,7 @@ test("Can flatten renamed object schema", t => {
     ~op=#Parse,
     `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["bar"],v1=i["foo"];if(typeof v0!=="string"){e[1](v0)}if(typeof v1!=="string"){e[2](v1)}return {"bar":v0,"foo":v1,}}`,
   )
-  t->Assert.is(schema->S.toExpression, `{ bar: string; foo: string; }`, ())
+  t->Assert.is(schema->S.toExpression, `{ bar: string; foo: string; }`)
 })
 
 test("Can flatten transformed object schema", t => {
@@ -248,7 +245,6 @@ test("Fails to flatten non-object schema", t => {
     ~expectations={
       message: `[Sury] The 'string' schema can\'t be flattened`,
     },
-    (),
   )
 })
 
@@ -263,7 +259,6 @@ test("Successfully serializes simple object with flatten", t => {
   t->Assert.deepEqual(
     {"foo": "foo", "bar": "bar"}->S.reverseConvertOrThrow(schema),
     %raw(`{"foo": "foo", "bar": "bar"}`),
-    (),
   )
   t->U.assertCompiledCode(
     ~op=#ReverseConvert,
@@ -304,7 +299,6 @@ test("Can destructure flattened schema", t => {
   t->Assert.deepEqual(
     {id: "1", name: "Dmitry", age: 23}->S.reverseConvertToJsonOrThrow(entitySchema),
     %raw(`{id: "1", name: "Dmitry", age: 23}`),
-    (),
   )
   t->U.assertCompiledCode(
     ~op=#ReverseConvert,

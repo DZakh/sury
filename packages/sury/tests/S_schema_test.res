@@ -32,13 +32,11 @@ test("Object with embeded schema", t => {
     schema->U.getCompiledCodeString(~op=#Parse),
     objectSchema->U.getCompiledCodeString(~op=#Parse),
     ~message=`i=>{if(typeof i!=="object"||!i||i["foo"]!=="bar"){e[1](i)}let v0=i["zoo"];if(typeof v0!=="number"||v0>2147483647||v0<-2147483648||v0%1!==0){e[0](v0)}return {"foo":i["foo"],"zoo":v0,}}`,
-    (),
   )
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
   t->Assert.is(
     objectSchema->U.getCompiledCodeString(~op=#ReverseConvert),
     `i=>{return {"foo":i["foo"],"zoo":i["zoo"],}}`,
-    (),
   )
 })
 
@@ -59,17 +57,14 @@ test("Object with embeded transformed schema", t => {
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Parse),
     objectSchema->U.getCompiledCodeString(~op=#Parse),
-    (),
   )
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#ReverseConvert),
     `i=>{let v0=i["zoo"];if(v0===void 0){v0=null}return {"foo":i["foo"],"zoo":v0,}}`,
-    (),
   )
   t->Assert.is(
     objectSchema->U.getCompiledCodeString(~op=#ReverseConvert),
     `i=>{let v0=i["zoo"];if(v0===void 0){v0=null}return {"foo":i["foo"],"zoo":v0,}}`,
-    (),
   )
 })
 
@@ -88,13 +83,12 @@ test("Strict object with embeded returns input without object recreation", t => 
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Parse),
     `i=>{if(typeof i!=="object"||!i||Array.isArray(i)||i["foo"]!=="bar"){e[0](i)}let v0=i["zoo"],v1;if(typeof v0!=="number"||v0>2147483647||v0<-2147483648||v0%1!==0){e[1](v0)}for(v1 in i){if(v1!=="foo"&&v1!=="zoo"){e[2](v1)}}return i}`,
-    (),
   )
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
 })
 
 test("Tuple with embeded schema", t => {
-  let schema = S.schema(s => (s.matches(S.string), (), "bar"))
+  let schema = S.schema(s => (s.matches(S.string), "bar"))
   let tupleSchema = S.tuple(s => (
     s.item(0, S.string),
     s.item(1, S.literal()),
@@ -106,23 +100,20 @@ test("Tuple with embeded schema", t => {
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Parse),
     `i=>{if(!Array.isArray(i)||i.length!==3||i["1"]!==void 0||i["2"]!=="bar"){e[0](i)}let v0=i["0"];if(typeof v0!=="string"){e[1](v0)}return i}`,
-    (),
   )
   t->Assert.is(
     tupleSchema->U.getCompiledCodeString(~op=#Parse),
     `i=>{if(!Array.isArray(i)||i.length!==3||i["1"]!==void 0||i["2"]!=="bar"){e[0](i)}let v0=i["0"];if(typeof v0!=="string"){e[1](v0)}return [v0,i["1"],i["2"],]}`,
-    (),
   )
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
   t->Assert.is(
     tupleSchema->U.getCompiledCodeString(~op=#ReverseConvert),
     `i=>{return [i["0"],i["1"],i["2"],]}`,
-    (),
   )
 })
 
 test("Tuple with embeded transformed schema", t => {
-  let schema = S.schema(s => (s.matches(S.null(S.string)), (), "bar"))
+  let schema = S.schema(s => (s.matches(S.null(S.string)), "bar"))
   let tupleSchema = S.tuple(s => (
     s.item(0, S.null(S.string)),
     s.item(1, S.literal()),
@@ -133,17 +124,14 @@ test("Tuple with embeded transformed schema", t => {
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Parse),
     tupleSchema->U.getCompiledCodeString(~op=#Parse),
-    (),
   )
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#ReverseConvert),
     `i=>{let v0=i["0"];if(v0===void 0){v0=null}return [v0,i["1"],i["2"],]}`,
-    (),
   )
   t->Assert.is(
     tupleSchema->U.getCompiledCodeString(~op=#ReverseConvert),
     `i=>{let v0=i["0"];if(v0===void 0){v0=null}return [v0,i["1"],i["2"],]}`,
-    (),
   )
 })
 
@@ -175,17 +163,14 @@ test("Nested object with embeded schema", t => {
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Parse),
     objectSchema->U.getCompiledCodeString(~op=#Parse),
-    (),
   )
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#ReverseConvert),
     `i=>{let v0=i["nested"];return i}`,
-    (),
   )
   t->Assert.is(
     objectSchema->U.getCompiledCodeString(~op=#ReverseConvert),
     `i=>{let v0=i["nested"];return {"nested":{"foo":v0["foo"],"zoo":v0["zoo"],},}}`,
-    (),
   )
 })
 
@@ -220,7 +205,7 @@ test(
       }
     )
 
-    t->Assert.deepEqual(%raw(`["foo", true]`)->S.parseOrThrow(schema), {"0": "foo", "1": true}, ())
+    t->Assert.deepEqual(%raw(`["foo", true]`)->S.parseOrThrow(schema), {"0": "foo", "1": true})
 
     t->U.assertThrows(
       () => %raw(`["foo", true]`)->S.parseOrThrow(schema->S.strict),
@@ -241,7 +226,7 @@ test(
   t => {
     let schema = S.schema(s => (s.matches(S.string), s.matches(S.bool)))->S.strict
 
-    t->Assert.deepEqual(%raw(`["foo", true]`)->S.parseOrThrow(schema), ("foo", true), ())
+    t->Assert.deepEqual(%raw(`["foo", true]`)->S.parseOrThrow(schema), ("foo", true))
 
     t->U.assertThrows(
       () => %raw(`["foo", true, 1]`)->S.parseOrThrow(schema),

@@ -3,7 +3,7 @@ open Ava
 test("Gets default value when Option.getOr is used", t => {
   let schema = S.option(S.float)->S.Option.getOr(123.)
 
-  t->Assert.deepEqual((schema->S.untag).default, Some(123.->(U.magic: float => unknown)), ())
+  t->Assert.deepEqual((schema->S.untag).default, Some(123.->(U.magic: float => unknown)))
 })
 
 test("Returns the last default value", t => {
@@ -20,11 +20,7 @@ test("Returns the last default value", t => {
     })
     ->S.Option.getOr("not positive")
 
-  t->Assert.deepEqual(
-    (schema->S.untag).default,
-    Some("not positive"->(U.magic: string => unknown)),
-    (),
-  )
+  t->Assert.deepEqual((schema->S.untag).default, Some("not positive"->(U.magic: string => unknown)))
 })
 
 // FIXME:
@@ -42,5 +38,5 @@ test("Returns the last default value", t => {
 test("Doesn't get default value for schemas without default", t => {
   let schema = S.float
 
-  t->Assert.deepEqual((schema->S.untag).default, None, ())
+  t->Assert.deepEqual((schema->S.untag).default, None)
 })

@@ -8,7 +8,7 @@ module Common = {
   test("Successfully parses", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.parseOrThrow(schema), value, ())
+    t->Assert.deepEqual(value->S.parseOrThrow(schema), value)
   })
 
   test("Fails to parse invalid", t => {
@@ -30,7 +30,7 @@ module Common = {
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), value->U.castAnyToUnknown, ())
+    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), value->U.castAnyToUnknown)
   })
 
   test("Fails to serialize invalid", t => {
@@ -40,7 +40,6 @@ module Common = {
       invalid->S.reverseConvertOrThrow(schema),
       invalid,
       ~message="Convert operation doesn't validate anything and assumes a valid input",
-      (),
     )
 
     t->U.assertThrowsMessage(
@@ -117,13 +116,13 @@ module EmptyArray = {
   test("Successfully parses empty array literal schema", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.parseOrThrow(schema), value, ())
+    t->Assert.deepEqual(value->S.parseOrThrow(schema), value)
   })
 
   test("Ignores extra items in strip mode and prevents in strict (default)", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(invalid->S.parseOrThrow(schema->S.strip), [], ())
+    t->Assert.deepEqual(invalid->S.parseOrThrow(schema->S.strip), [])
 
     t->U.assertThrows(
       () => invalid->S.parseOrThrow(schema->S.strict),
@@ -141,13 +140,13 @@ module EmptyArray = {
   test("Successfully serializes empty array literal schema", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), value->U.castAnyToUnknown, ())
+    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), value->U.castAnyToUnknown)
   })
 
   test("Serialize array with excess item in strict mode and it passes through", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(invalid->S.reverseConvertOrThrow(schema->S.strict), invalid->Obj.magic, ())
+    t->Assert.deepEqual(invalid->S.reverseConvertOrThrow(schema->S.strict), invalid->Obj.magic)
   })
 
   test("Compiled parse code snapshot of empty array literal schema", t => {

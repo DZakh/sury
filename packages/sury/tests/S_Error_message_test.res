@@ -8,7 +8,6 @@ test("OperationFailed error", t => {
       path: S.Path.empty,
     }).message,
     "Failed parsing: Should be positive",
-    (),
   )
 })
 
@@ -20,7 +19,6 @@ test("Error with Serializing operation", t => {
       path: S.Path.empty,
     }).message,
     "Failed converting: Should be positive",
-    (),
   )
 })
 
@@ -32,7 +30,6 @@ test("Error with path", t => {
       path: S.Path.fromArray(["0", "foo"]),
     }).message,
     `Failed parsing at ["0"]["foo"]: Should be positive`,
-    (),
   )
 })
 
@@ -44,7 +41,6 @@ test("InvalidOperation error", t => {
       path: S.Path.empty,
     }).message,
     "Failed parsing: The S.transform serializer is missing",
-    (),
   )
 })
 
@@ -56,7 +52,6 @@ test("InvalidType error", t => {
       path: S.Path.empty,
     }).message,
     "Failed parsing: Expected string, received true",
-    (),
   )
 })
 
@@ -68,7 +63,6 @@ test("UnexpectedAsync error", t => {
       path: S.Path.empty,
     }).message,
     "Failed parsing: Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead",
-    (),
   )
 })
 
@@ -80,7 +74,6 @@ test("InvalidType with literal error", t => {
       path: S.Path.empty,
     }).message,
     "Failed parsing: Expected false, received true",
-    (),
   )
 })
 
@@ -92,7 +85,6 @@ test("ExcessField error", t => {
       path: S.Path.empty,
     }).message,
     `Failed parsing: Unrecognized key "unknownKey"`,
-    (),
   )
 })
 
@@ -107,7 +99,6 @@ test("InvalidType error (replacement for InvalidTupleSize)", t => {
       path: S.Path.empty,
     }).message,
     `Failed parsing: Expected [boolean, int32], received [1, 2, "foo"]`,
-    (),
   )
 })
 
@@ -151,7 +142,6 @@ test("InvalidType error with union errors", t => {
 - At ["kind"]: Expected "circle", received "oval"
 - At ["kind"]: Expected "square", received "oval"
 - At ["kind"]: Expected "triangle", received "oval"`,
-    (),
   )
 })
 
@@ -193,7 +183,6 @@ test("InvalidUnion filters similar reasons", t => {
     }).message,
     `Failed parsing: Expected unknown, received "foo"
 - Expected boolean, received "Hello world!"`,
-    (),
   )
 })
 
@@ -246,7 +235,6 @@ test("Nested InvalidUnion error", t => {
     `Failed parsing: Expected unknown, received "foo"
 - Expected boolean, received "foo"
   - Expected boolean, received "Hello world!"`,
-    (),
   )
 })
 
@@ -258,6 +246,5 @@ test("InvalidJsonSchema error", t => {
       path: S.Path.empty,
     }).message,
     `Failed converting to JSON: true | undefined is not valid JSON`,
-    (),
   )
 })
