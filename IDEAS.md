@@ -30,13 +30,13 @@ console.log(S.boolean)
 - ReScript: Added `S.castToAny` and renamed `S.toUnknown` -> `S.castToUnknown`. This is to prevent confusion with `->S.to(S.unknown)` which is a very different operation.
 
 - Start refactoring internal schema representation to reflect transformations
-  // FIXME: advanced is broken
   // TODO: Can reuse the S.schema logic for S.object to not recreate an object on serializing
-
-// TODO: Update internal representation:
 
 - Updated `S.recursive` to require an identifier. Recursive schemas now have a better performance and an internal representation matching JSON Schema spec. Sury schema now also exposes `$ref` and `$defs` fields, as well as introduces new `ref` type, while previous `json` type got deprecated.
 - Removed `S.catch` from ReScript API. You can use a combination of `S.unknown`, `S.union` and `S.transform` instead.
+- `S.json(validate)` changed to `S.json` and now uses recursive schema as internal representation. The `json` schema type was removed. You can use `S.json.with(S.noValidation, true)` or `S.json.with(S.deep, S.noValidation, true)`
+  // FIXME: This is not implemented
+  // FIXME: Remove `S.deepStrict` and `S.deepStrip` if `S.deep` works ?
 
 ### ideas
 

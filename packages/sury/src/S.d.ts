@@ -10,7 +10,7 @@ export declare namespace StandardSchemaV1 {
     /** The version number of the standard. */
     readonly version: 1;
     /** The vendor name of the schema library. */
-    readonly vendor: string;
+    readonly vendor: "sury";
     /** Validates unknown input values. */
     readonly validate: (
       value: unknown
@@ -95,8 +95,6 @@ export type JSON =
   | { [key: string]: JSON }
   | JSON[];
 
-declare const øbrand: unique symbol;
-
 export type Schema<Output, Input = unknown> = {
   with<Transformed>(
     transform: (
@@ -138,9 +136,9 @@ export type Schema<Output, Input = unknown> = {
   readonly description?: string;
   readonly deprecated?: boolean;
   readonly examples?: Input[];
+  readonly noValidation?: boolean;
 
   readonly ["~standard"]: StandardSchemaV1.Props<Input, Output>;
-  readonly [øbrand]: unknown;
 } & (
   | {
       readonly type: "never";

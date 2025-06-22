@@ -1645,7 +1645,7 @@ and internalCompile = (~schema, ~flag, ~defs) => {
 
   if flag->Flag.unsafeHas(Flag.jsonableOutput) {
     let output = schema->reverse
-    jsonableValidation(~output, ~parent=output, ~path=Path.empty, ~flag, ~recSet=None)
+    jsonableValidation(~output, ~parent=output, ~path=Path.empty, ~flag)
   }
 
   let input = {
@@ -1817,56 +1817,38 @@ and reverse = (schema: internal) => {
 
   reversedHead.contents->X.Option.unsafeUnwrap
 }
-and jsonableValidation = (~output, ~parent, ~path, ~flag, ~recSet) => {
+and jsonableValidation = (~output, ~parent, ~path, ~flag) => {
   let tag = output.tag
   if (tag === Undefined && parent.tag !== Object) || nonJsonableTags->X.Set.has(tag) {
     X.Exn.raiseAny(InternalError.make(~code=InvalidJsonSchema(parent->fromInternal), ~flag, ~path))
   }
   switch output {
   | {tag: Union | Array | Object} =>
-    let recSet = switch recSet {
-    | None => X.Set.make()
-    | Some(set) => set
-    }
-    if recSet->X.Set.has(output) {
-      ()
+    if tag === Union {
+      output.anyOf
+      ->X.Option.unsafeUnwrap
+      ->Js.Array2.forEach(s => jsonableValidation(~output=s, ~parent, ~path, ~flag))
     } else {
-      recSet->X.Set.add(output)
-      let recSet = Some(recSet)
-      if tag === Union {
-        output.anyOf
-        ->X.Option.unsafeUnwrap
-        ->Js.Array2.forEach(s => jsonableValidation(~output=s, ~parent, ~path, ~flag, ~recSet))
-      } else {
-        switch output {
-        | {items, ?additionalItems} => {
-            switch additionalItems->X.Option.unsafeUnwrap {
-            | Schema(additionalItems) =>
-              jsonableValidation(
-                ~output=additionalItems->toInternal,
-                ~parent,
-                ~path,
-                ~flag,
-                ~recSet,
-              )
+      switch output {
+      | {items, ?additionalItems} => {
+          switch additionalItems->X.Option.unsafeUnwrap {
+          | Schema(additionalItems) =>
+            jsonableValidation(~output=additionalItems->toInternal, ~parent, ~path, ~flag)
 
-            | _ => ()
-            }
-            items->Js.Array2.forEach(item => {
-              jsonableValidation(
-                ~output=item.schema->toInternal,
-                ~parent=output,
-                ~path=path->Path.concat(Path.fromInlinedLocation(item.inlinedLocation)),
-                ~flag,
-                ~recSet,
-              )
-            })
+          | _ => ()
           }
-        | _ => ()
+          items->Js.Array2.forEach(item => {
+            jsonableValidation(
+              ~output=item.schema->toInternal,
+              ~parent=output,
+              ~path=path->Path.concat(Path.fromInlinedLocation(item.inlinedLocation)),
+              ~flag,
+            )
+          })
         }
+      | _ => ()
       }
     }
-
   | _ => ()
   }
 }
@@ -3139,7 +3121,6 @@ module JsonString = {
           ~parent=selfSchema,
           ~path=Path.empty,
           ~flag=b.global.flag,
-          ~recSet=None,
         )
 
         b->B.val(
@@ -5320,13 +5301,7 @@ module RescriptJSONSchema = {
 
 let toJSONSchema = schema => {
   let target = schema->toInternal
-  jsonableValidation(
-    ~output=target,
-    ~parent=target,
-    ~path=Path.empty,
-    ~flag=Flag.jsonableOutput,
-    ~recSet=None,
-  )
+  jsonableValidation(~output=target, ~parent=target, ~path=Path.empty, ~flag=Flag.jsonableOutput)
   target->fromInternal->RescriptJSONSchema.internalToJSONSchema
 }
 

@@ -1048,7 +1048,7 @@ function parse(prevB, schema, inputArg, path) {
   return input;
 }
 
-function jsonableValidation(output, parent, path, flag, recSet) {
+function jsonableValidation(output, parent, path, flag) {
   var tag = output.type;
   if (tag === "undefined" && parent.type !== "object" || nonJsonableTags.has(tag)) {
     throw new SuryError({
@@ -1065,15 +1065,9 @@ function jsonableValidation(output, parent, path, flag, recSet) {
     default:
       return ;
   }
-  var recSet$1 = recSet !== undefined ? Caml_option.valFromOption(recSet) : new Set();
-  if (recSet$1.has(output)) {
-    return ;
-  }
-  recSet$1.add(output);
-  var recSet$2 = Caml_option.some(recSet$1);
   if (tag === "union") {
     output.anyOf.forEach(function (s) {
-          jsonableValidation(s, parent, path, flag, recSet$2);
+          jsonableValidation(s, parent, path, flag);
         });
     return ;
   }
@@ -1085,10 +1079,10 @@ function jsonableValidation(output, parent, path, flag, recSet) {
   if (additionalItems === "strip" || additionalItems === "strict") {
     additionalItems === "strip";
   } else {
-    jsonableValidation(additionalItems, parent, path, flag, recSet$2);
+    jsonableValidation(additionalItems, parent, path, flag);
   }
   items.forEach(function (item) {
-        jsonableValidation(item.schema, output, path + ("[" + item.inlinedLocation + "]"), flag, recSet$2);
+        jsonableValidation(item.schema, output, path + ("[" + item.inlinedLocation + "]"), flag);
       });
 }
 
@@ -1200,7 +1194,7 @@ function internalCompile(schema, flag, defs) {
   var b = rootScope(flag, defs);
   if (flag & 8) {
     var output = reverse(schema);
-    jsonableValidation(output, output, "", flag, undefined);
+    jsonableValidation(output, output, "", flag);
   }
   var input = {
     b: b,
@@ -2356,7 +2350,7 @@ function factory$4(item, spaceOpt) {
     });
   var to = copyWithoutCache(item);
   to.serializer = (function (b, input, selfSchema, param) {
-      jsonableValidation(selfSchema, selfSchema, "", b.g.o, undefined);
+      jsonableValidation(selfSchema, selfSchema, "", b.g.o);
       return {
               b: b,
               v: _notVar,
@@ -2678,63 +2672,6 @@ function definitionToRitem(definition, path, ritemsByItemPath) {
         };
 }
 
-function definitionToSchema(definition) {
-  if (!(typeof definition === "object" && definition !== null)) {
-    return parse$1(definition);
-  }
-  if (definition["~standard"]) {
-    return definition;
-  }
-  if (Array.isArray(definition)) {
-    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
-      var schema = definitionToSchema(definition[idx]);
-      var $$location = idx.toString();
-      var inlinedLocation = "\"" + $$location + "\"";
-      definition[idx] = {
-        schema: schema,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-    }
-    var mut = new Schema();
-    mut.type = "array";
-    mut.items = definition;
-    mut.additionalItems = "strict";
-    mut.refiner = schemaRefiner;
-    return mut;
-  }
-  var cnstr = definition.constructor;
-  if (cnstr && cnstr !== Object) {
-    return {
-            type: "instance",
-            const: definition,
-            class: cnstr
-          };
-  }
-  var fieldNames = Object.keys(definition);
-  var length = fieldNames.length;
-  var items = [];
-  for(var idx$1 = 0; idx$1 < length; ++idx$1){
-    var $$location$1 = fieldNames[idx$1];
-    var inlinedLocation$1 = fromString($$location$1);
-    var schema$1 = definitionToSchema(definition[$$location$1]);
-    var item = {
-      schema: schema$1,
-      location: $$location$1,
-      inlinedLocation: inlinedLocation$1
-    };
-    definition[$$location$1] = item;
-    items[idx$1] = item;
-  }
-  var mut$1 = new Schema();
-  mut$1.type = "object";
-  mut$1.items = items;
-  mut$1.fields = definition;
-  mut$1.additionalItems = globalConfig.a;
-  mut$1.refiner = schemaRefiner;
-  return mut$1;
-}
-
 function nested(fieldName) {
   var parentCtx = this;
   var cacheId = "~" + fieldName;
@@ -2806,6 +2743,63 @@ function nested(fieldName) {
   };
   parentCtx[cacheId] = ctx$1;
   return ctx$1;
+}
+
+function definitionToSchema(definition) {
+  if (!(typeof definition === "object" && definition !== null)) {
+    return parse$1(definition);
+  }
+  if (definition["~standard"]) {
+    return definition;
+  }
+  if (Array.isArray(definition)) {
+    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
+      var schema = definitionToSchema(definition[idx]);
+      var $$location = idx.toString();
+      var inlinedLocation = "\"" + $$location + "\"";
+      definition[idx] = {
+        schema: schema,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+    }
+    var mut = new Schema();
+    mut.type = "array";
+    mut.items = definition;
+    mut.additionalItems = "strict";
+    mut.refiner = schemaRefiner;
+    return mut;
+  }
+  var cnstr = definition.constructor;
+  if (cnstr && cnstr !== Object) {
+    return {
+            type: "instance",
+            const: definition,
+            class: cnstr
+          };
+  }
+  var fieldNames = Object.keys(definition);
+  var length = fieldNames.length;
+  var items = [];
+  for(var idx$1 = 0; idx$1 < length; ++idx$1){
+    var $$location$1 = fieldNames[idx$1];
+    var inlinedLocation$1 = fromString($$location$1);
+    var schema$1 = definitionToSchema(definition[$$location$1]);
+    var item = {
+      schema: schema$1,
+      location: $$location$1,
+      inlinedLocation: inlinedLocation$1
+    };
+    definition[$$location$1] = item;
+    items[idx$1] = item;
+  }
+  var mut$1 = new Schema();
+  mut$1.type = "object";
+  mut$1.items = items;
+  mut$1.fields = definition;
+  mut$1.additionalItems = globalConfig.a;
+  mut$1.refiner = schemaRefiner;
+  return mut$1;
 }
 
 function definitionToTarget(definition, to, flattened) {
@@ -3891,7 +3885,7 @@ function internalToJSONSchema(schema) {
 }
 
 function toJSONSchema(schema) {
-  jsonableValidation(schema, schema, "", 8, undefined);
+  jsonableValidation(schema, schema, "", 8);
   return internalToJSONSchema(schema);
 }
 

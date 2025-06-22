@@ -1046,18 +1046,16 @@ The `never` schema will fail parsing for every value.
 
 ### **`json`**
 
-`(~validate: bool) => S.t<JSON.t>`
+`S.t<JSON.t>`
 
 ```rescript
-let schema = S.json(~validate=true)
+let schema = S.json
 
 `"abc"`->S.parseOrThrow(schema)
 // "abc" of type JSON.t
 ```
 
 The `S.json` schema represents a data that is compatible with JSON.
-
-It accepts a `validate` as an argument. If it's true, then the value will be validated as valid JSON; otherwise, it unsafely casts it to the `JSON.t` type.
 
 ### **`jsonString`**
 
