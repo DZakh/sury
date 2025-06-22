@@ -912,7 +912,7 @@ type Node = {
   children: Node[];
 };
 
-const nodeSchema = S.recursive<Node>((nodeSchema) =>
+const nodeSchema = S.recursive<Node, Node>("Node", (nodeSchema) =>
   S.schema({
     id: S.string,
     children: S.array(nodeSchema),

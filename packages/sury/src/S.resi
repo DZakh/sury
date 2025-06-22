@@ -319,16 +319,6 @@ let enum: array<'value> => t<'value>
 
 let meta: (t<'value>, meta<'value>) => t<'value>
 
-module Catch: {
-  type s<'value> = {
-    @as("e") error: error,
-    @as("i") input: unknown,
-    @as("s") schema: t<'value>,
-    @as("f") fail: 'a. (string, ~path: Path.t=?) => 'a,
-  }
-}
-let catch: (t<'value>, Catch.s<'value> => 'value) => t<'value>
-
 type transformDefinition<'input, 'output> = {
   @as("p")
   parser?: 'input => 'output,

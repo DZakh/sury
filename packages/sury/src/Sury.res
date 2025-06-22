@@ -454,7 +454,6 @@ and internal = {
   mutable none?: internal, // This is for S.option
   mutable fields?: dict<item>,
   mutable noValidation?: bool,
-  mutable catch?: bool,
   mutable unnest?: bool,
   @as("$ref")
   mutable ref?: string,
@@ -1382,10 +1381,7 @@ module Builder = {
           for idx in 0 to items->Js.Array2.length - 1 {
             let {schema: item, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
             let item = item->toInternal
-            let itemCode = if (
-              (item->isLiteral && !(item.catch->X.Option.unsafeUnwrap)) ||
-                schema.unnest->X.Option.unsafeUnwrap
-            ) {
+            let itemCode = if item->isLiteral || schema.unnest->X.Option.unsafeUnwrap {
               b->validation(
                 ~inputVar=Path.concat(inputVar, Path.fromInlinedLocation(inlinedLocation)),
                 ~schema=item,
@@ -3389,48 +3385,6 @@ let json = (~validate) => {
     mut.noValidation = Some(true)
   }
   mut.refiner = Some(jsonRefiner)
-  mut->fromInternal
-}
-
-module Catch = {
-  type s<'value> = {
-    @as("e") error: error,
-    @as("i") input: unknown,
-    @as("s") schema: t<'value>,
-    @as("f") fail: 'a. (string, ~path: Path.t=?) => 'a,
-  }
-}
-let catch = (schema, getFallbackValue) => {
-  let schema = schema->toInternal
-  let mut = schema->copyWithoutCache
-  mut.refiner = Some(
-    Builder.make((b, ~input, ~selfSchema, ~path) => {
-      let inputVar = b->B.Val.var(input)
-
-      b->B.withCatch(
-        ~input,
-        ~catch=(b, ~errorVar) => Some(
-          b->B.val(
-            `${b->B.embed((input, internalError) =>
-                getFallbackValue({
-                  Catch.input,
-                  error: internalError,
-                  schema: selfSchema->fromInternal,
-                  fail: (message, ~path as customPath=Path.empty) => {
-                    b->B.raise(~path=path->Path.concat(customPath), ~code=OperationFailed(message))
-                  },
-                })
-              )}(${inputVar},${errorVar})`,
-          ),
-        ),
-        b => {
-          b->parse(~schema, ~input, ~path)
-        },
-      )
-    }),
-  )
-  mut.noValidation = Some(true)
-  mut.catch = Some(true)
   mut->fromInternal
 }
 

@@ -36,6 +36,7 @@ console.log(S.boolean)
 // TODO: Update internal representation:
 
 - Updated `S.recursive` to require an identifier. Recursive schemas now have a better performance and an internal representation matching JSON Schema spec. Sury schema now also exposes `$ref` and `$defs` fields, as well as introduces new `ref` type, while previous `json` type got deprecated.
+- Removed `S.catch` from ReScript API. You can use a combination of `S.unknown`, `S.union` and `S.transform` instead.
 
 ### ideas
 

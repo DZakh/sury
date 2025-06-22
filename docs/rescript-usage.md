@@ -52,8 +52,6 @@
   - [`json`](#json)
   - [`jsonString`](#jsonString)
   - [`meta`](#meta)
-  - [`catch`](#catch)
-  - [`custom`](#custom)
   - [`recursive`](#recursive)
 - [Custom schema](#custom-schema)
 - [Refinements](#refinements)
@@ -1097,39 +1095,9 @@ schema->S.toJSONSchema
 // }
 ```
 
-### **`catch`**
-
-`(S.t<'value>, S.Catch.s<'value> => 'value) => S.t<'value>`
-
-Use `S.catch` to provide a "catch value" to be returned instead of a parsing error.
-
-```rescript
-let schema = S.float->S.catch(_ => 42.)
-
-5->S.parseOrThrow(schema)
-// 5.
-"tuna"->S.parseOrThrow(schema)
-// 42.
-```
-
-Also, the callback `S.catch` receives a catch context as a first argument. It contains the caught error and the initial data provided to the parse function.
-
-```rescript
-let schema = S.float->S.catch(s => {
-  Console.log(s.error) // The caught error
-  Console.log(s.input) // The data provided to the parse function
-  42.
-})
-```
-
-Conceptually, this is how **Sury** processes "catch values":
-
-1. The data is parsed using the base schema
-2. If the parsing fails, the "catch value" is returned
-
 ### **`recursive`**
 
-`(t<'value> => t<'value>) => t<'value>`
+`(string, t<'value> => t<'value>) => t<'value>`
 
 You can define a recursive schema in **Sury**.
 
@@ -1139,7 +1107,7 @@ type rec node = {
   children: array<node>,
 }
 
-let nodeSchema = S.recursive(nodeSchema => {
+let nodeSchema = S.recursive("Node", nodeSchema => {
   S.object(s => {
     id: s.field("Id", S.string),
     children: s.field("Children", S.array(nodeSchema)),
@@ -1180,7 +1148,7 @@ The same schema works for serializing:
 You can also use asynchronous parser:
 
 ```rescript
-let nodeSchema = S.recursive(nodeSchema => {
+let nodeSchema = S.recursive("Node", nodeSchema => {
   S.object(s => {
     params: s.field("Id", S.string)->S.transform(_ => {asyncParser: id => loadParams(~id)}),
     children: s.field("Children", S.array(nodeSchema)),
