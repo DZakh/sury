@@ -1983,8 +1983,6 @@ function factory(schemas) {
   throw new Error("[Sury] S.union requires at least one item");
 }
 
-var defaultMetadataId = "m:Option.default";
-
 var nestedLoc = "BS_PRIVATE_NESTED_SOME_NONE";
 
 var inLoc = "\"" + nestedLoc + "\"";
@@ -2122,10 +2120,10 @@ function getWithDefault(schema, $$default) {
                     newItems[idx] = newItem;
                   }
                   mut.anyOf = newItems;
-                } else {
-                  throw new Error("[Sury] Setting default only works for schemas with optional output.");
+                  mut.default = Caml_option.some(defaultValue);
+                  return ;
                 }
-                mut[defaultMetadataId] = $$default;
+                throw new Error("[Sury] Setting default only works for schemas with optional output.");
               }));
 }
 
@@ -3890,12 +3888,9 @@ function internalToJSONSchema(schema) {
               
             });
         var itemsNumber$1 = items$1.length;
-        var $$default = schema[defaultMetadataId];
+        var $$default = schema.default;
         if ($$default !== undefined) {
-          var serialize = operationFn(schema, 32);
-          var tmp;
-          tmp = $$default.TAG === "Value" ? $$default._0 : $$default._0();
-          jsonSchema.default = serialize(tmp);
+          jsonSchema.default = Caml_option.valFromOption($$default);
         }
         if (itemsNumber$1 === 1) {
           Object.assign(jsonSchema, items$1[0]);

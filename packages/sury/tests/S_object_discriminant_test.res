@@ -291,7 +291,7 @@ module NestedNegative = {
         () => {"field": "bar"}->S.reverseConvertOrThrow(schema),
         {
           code: InvalidOperation({
-            description: `Schema for ["discriminant"] isn\'t registered`,
+            description: `Schema for ["discriminant"]["nestedField"] isn\'t registered`,
           }),
           operation: ReverseConvert,
           path: S.Path.empty,

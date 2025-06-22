@@ -2750,10 +2750,6 @@ module Union = {
 module Option = {
   type default = Value(unknown) | Callback(unit => unknown)
 
-  let defaultMetadataId: Metadata.Id.t<default> = Metadata.Id.internal("Option.default")
-
-  let default = schema => schema->Metadata.get(~id=defaultMetadataId)
-
   let nestedLoc = "BS_PRIVATE_NESTED_SOME_NONE"
   let nestedOption = {
     let inLoc = `"${nestedLoc}"`
@@ -2894,9 +2890,9 @@ module Option = {
             newItems->Js.Array2.unsafe_set(idx, newItem)
           }
           mut.anyOf = Some(newItems)
+          mut.default = Some(defaultValue)
         }
       }
-      mut->Metadata.setInPlace(~id=defaultMetadataId, default)
     })
   }
 
@@ -5314,17 +5310,8 @@ module RescriptJSONSchema = {
 
         let itemsNumber = items->Js.Array2.length
 
-        switch schema->Option.default {
-        | Some(default) =>
-          let serialize = schema->operationFn(Flag.reverse)
-          jsonSchema.default = Some(
-            switch default {
-            | Value(v) => v
-            | Callback(cb) => cb()
-            }
-            ->serialize
-            ->(Obj.magic: unknown => Js.Json.t),
-          )
+        switch (schema->untag).default {
+        | Some(default) => jsonSchema.default = Some(default->(Obj.magic: unknown => Js.Json.t))
         | None => ()
         }
 
@@ -5337,37 +5324,6 @@ module RescriptJSONSchema = {
           jsonSchema.anyOf = Some(items)
         }
       }
-
-    // | S.Option(childSchema) => {
-    //     if childSchema->isOptionalSchema {
-    //       Error.raise(UnsupportedNestedOptional)
-    //     }
-
-    //     let childJsonSchema = fromRescriptSchema(childSchema)
-    //     jsonSchema->Mutable.mixin(childJsonSchema)
-
-    // FIXME: Default
-    //     switch schema->S.Option.default {
-    //     | Some(default) =>
-    //       let defaultValue = switch default {
-    //       | Value(v) => v
-    //       | Callback(cb) => cb()
-    //       }
-    //       jsonSchema.default = Some(
-    //         try Some(defaultValue)
-    //         ->(magic: option<unknown> => unknown)
-    //         ->S.reverseConvertToJsonOrThrow(childSchema) catch {
-    //         | S.Raised(destructingError) =>
-    //           Error.raise(
-    //             DefaultDestructingFailed({
-    //               destructingErrorMessage: destructingError->S.Error.message,
-    //             }),
-    //           )
-    //         },
-    //       )
-    //     | None => ()
-    //     }
-    //   }
     | Object({items, additionalItems}) =>
       switch additionalItems {
       | Schema(childSchema) => {
