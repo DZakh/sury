@@ -49,7 +49,8 @@ module Common = {
 
   test("Reverse schema to S.float", t => {
     let schema = factory()
-    t->Assert.is(schema->S.reverse, schema->S.castToUnknown)
+    t->U.assertEqualSchemas(schema->S.reverse, schema->S.castToUnknown)
+    t->U.assertReverseReversesBack(schema)
   })
 
   test("Succesfully uses reversed schema for parsing back to initial value", t => {

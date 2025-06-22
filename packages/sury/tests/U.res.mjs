@@ -83,7 +83,7 @@ function assertThrows(t, cb, errorPayload) {
   t.fail("Asserted result is not Error. Recieved: " + JSON.stringify(any));
 }
 
-function assertThrowsMessage(t, cb, errorMessage) {
+function assertThrowsMessage(t, cb, errorMessage, message) {
   var any;
   try {
     any = cb();
@@ -91,7 +91,7 @@ function assertThrowsMessage(t, cb, errorMessage) {
   catch (raw_exn){
     var exn = Caml_js_exceptions.internalToOCamlException(raw_exn);
     if (exn.RE_EXN_ID === S.$$Error) {
-      t.is(exn._1.message, errorMessage);
+      t.is(exn._1.message, errorMessage, message !== undefined ? Caml_option.valFromOption(message) : undefined);
       return ;
     }
     throw exn;

@@ -86,23 +86,33 @@ test("Compiled parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(i===void 0){i=false}else if(!(typeof i==="boolean")){e[1](i)}return i}`,
+    `i=>{if(i===void 0){i=false}else if(!(typeof i==="boolean")){e[0](i)}return i}`,
   )
 })
 
 asyncTest("Compiled async parse code snapshot", async t => {
   let schema =
-    S.bool
-    ->S.transform(_ => {asyncParser: i => Promise.resolve(i)})
-    ->S.option
-    ->S.Option.getOr(false)
+    S.option(S.bool->S.transform(_ => {asyncParser: i => Promise.resolve(i)}))->S.Option.getOr(
+      false,
+    )
 
   t->Assert.deepEqual(await None->S.parseAsyncOrThrow(schema), false)
-
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="boolean"){i=e[0](i)}else if(!(i===void 0)){e[1](i)}return Promise.resolve(i).then(v0=>{return v0===void 0?e[2]:v0})}`,
+    `i=>{if(typeof i==="boolean"){i=e[0](i)}else if(i===void 0){i=false}else{e[1](i)}return Promise.resolve(i)}`,
+  )
+
+  let schema =
+    S.option(S.bool)
+    ->S.Option.getOr(false)
+    ->S.transform(_ => {asyncParser: i => Promise.resolve(i)})
+
+  t->Assert.deepEqual(await None->S.parseAsyncOrThrow(schema), false)
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(i===void 0){i=false}else if(!(typeof i==="boolean")){e[0](i)}return e[1](i)}`,
   )
 })
 

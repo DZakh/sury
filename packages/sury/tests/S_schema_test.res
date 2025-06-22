@@ -88,7 +88,7 @@ test("Strict object with embeded returns input without object recreation", t => 
 })
 
 test("Tuple with embeded schema", t => {
-  let schema = S.schema(s => (s.matches(S.string), "bar"))
+  let schema = S.schema(s => (s.matches(S.string), (), "bar"))
   let tupleSchema = S.tuple(s => (
     s.item(0, S.string),
     s.item(1, S.literal()),
@@ -113,7 +113,7 @@ test("Tuple with embeded schema", t => {
 })
 
 test("Tuple with embeded transformed schema", t => {
-  let schema = S.schema(s => (s.matches(S.null(S.string)), "bar"))
+  let schema = S.schema(s => (s.matches(S.null(S.string)), (), "bar"))
   let tupleSchema = S.tuple(s => (
     s.item(0, S.null(S.string)),
     s.item(1, S.literal()),
@@ -305,6 +305,6 @@ test("https://github.com/DZakh/sury/issues/131", t => {
   t->U.assertCompiledCode(
     ~schema=testSchema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["foobar"],v5=[];if(!Array.isArray(v0)){e[0](v0)}for(let v1=0;v1<v0.length;++v1){let v3=v0[v1],v4;try{if(!(typeof v3==="string"||v3===void 0)){e[1](v3)}v4=v3}catch(v2){if(v2&&v2.s===s){v2.path="[\\"foobar\\"]"+\'["\'+v1+\'"]\'+v2.path}throw v2}v5[v1]=v4}return {"foobar":v5,}}`,
+    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["foobar"];if(!Array.isArray(v0)){e[1](v0)}let v5=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v4;try{let v3=v0[v1];if(!(typeof v3==="string"||v3===void 0)){e[2](v3)}v4=v3}catch(v2){if(v2&&v2.s===s){v2.path="[\\"foobar\\"]"+\'["\'+v1+\'"]\'+v2.path}throw v2}v5[v1]=v4}return {"foobar":v5,}}`,
   )
 })

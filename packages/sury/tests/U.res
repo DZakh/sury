@@ -72,13 +72,14 @@ let assertThrows = (t, cb, errorPayload) => {
   }
 }
 
-let assertThrowsMessage = (t, cb, errorMessage) => {
+let assertThrowsMessage = (t, cb, errorMessage, ~message=?) => {
   switch cb() {
   | any =>
     t->Assert.fail(
       `Asserted result is not S.Error "${errorMessage}". Instead got: ${any->unsafeStringify}`,
     )
-  | exception S.Error({message}) => t->Assert.is(message, errorMessage)
+  | exception S.Error({message: actualErrorMessage}) =>
+    t->Assert.is(actualErrorMessage, errorMessage, ~message?)
   }
 }
 

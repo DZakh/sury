@@ -122,20 +122,8 @@ test("Expression of renamed schema", t => {
   t->Assert.deepEqual(originalSchema->S.toExpression, "never")
   t->Assert.deepEqual(renamedSchema->S.toExpression, "Ethers.BigInt")
   // Uses new name when failing
-  t->U.assertThrows(
+  t->U.assertThrowsMessage(
     () => "smth"->S.parseOrThrow(renamedSchema),
-    {
-      path: S.Path.empty,
-      operation: Parse,
-      code: InvalidType({expected: renamedSchema->S.castToUnknown, received: "smth"->Obj.magic}),
-    },
-  )
-  t->Assert.is(
-    U.error({
-      path: S.Path.empty,
-      operation: Parse,
-      code: InvalidType({expected: renamedSchema->S.castToUnknown, received: "smth"->Obj.magic}),
-    }).message,
     `Failed parsing: Expected Ethers.BigInt, received "smth"`,
   )
   let schema = S.null(S.never)->S.meta({name: "Ethers.BigInt"})
@@ -153,7 +141,68 @@ test("Expression of renamed schema", t => {
   // TODO: Can be improved. No need to duplicate Expected/received error
   t->U.assertThrowsMessage(
     () => %raw(`"smth"`)->S.parseOrThrow(schema->S.reverse),
-    `Failed parsing: Expected never | undefined, received "smth"
+    `Failed parsing: Expected Ethers.BigInt, received "smth"
 - Expected never, received "smth"`,
+  )
+})
+
+test("Expression of recursive schema", t => {
+  let nodeSchema = S.recursive("Node", nodeSchema => {
+    S.object(
+      s =>
+        {
+          "id": s.field("Id", S.string),
+          "children": s.field("Children", S.array(nodeSchema)),
+        },
+    )
+  })
+
+  let renamedRoot = nodeSchema->S.meta({name: `NodeRoot`})
+
+  t->Assert.deepEqual(nodeSchema->S.toExpression, `Node`)
+  t->Assert.deepEqual(renamedRoot->S.toExpression, `NodeRoot`)
+
+  t->U.assertThrowsMessage(
+    () => %raw(`null`)->S.parseOrThrow(nodeSchema),
+    `Failed parsing: Expected { Id: string; Children: Node[]; }, received null`,
+  )
+  t->U.assertThrowsMessage(
+    () => %raw(`null`)->S.parseOrThrow(S.tuple1(nodeSchema)),
+    `Failed parsing: Expected [Node], received null`,
+  )
+  t->U.assertThrowsMessage(
+    () => %raw(`null`)->S.parseOrThrow(S.tuple1(renamedRoot)),
+    `Failed parsing: Expected [NodeRoot], received null`,
+  )
+  t->U.assertThrowsMessage(
+    ~message=`It shouldn't rename node schema ref name`,
+    () =>
+      %raw(`{
+      Id: "0",
+      Children: [null]
+    }`)->S.parseOrThrow(renamedRoot),
+    `Failed parsing at ["Children"]["0"]: Expected { Id: string; Children: Node[]; }, received null`,
+  )
+})
+
+test("Expression of deeply renamed recursive schema - Doesn't work as intended", t => {
+  let nodeSchema = S.recursive("Node", nodeSchema => {
+    S.object(
+      s =>
+        {
+          "id": s.field("Id", S.string),
+          "children": s.field("Children", S.array(nodeSchema)),
+        },
+    )->S.meta({name: "MyNode"})
+  })
+
+  t->Assert.deepEqual(nodeSchema->S.toExpression, `Node`)
+  t->U.assertThrowsMessage(
+    () => %raw(`null`)->S.parseOrThrow(nodeSchema),
+    `Failed parsing: Expected MyNode, received null`,
+  )
+  t->U.assertThrowsMessage(
+    () => %raw(`{Id: "0"}`)->S.parseOrThrow(nodeSchema),
+    `Failed parsing at ["Children"]: Expected Node[], received undefined`,
   )
 })
