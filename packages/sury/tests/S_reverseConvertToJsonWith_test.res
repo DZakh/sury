@@ -90,7 +90,7 @@ test("Allows to convert to JSON with option as an object field", t => {
 test("Allows to convert to JSON with optional S.json as an object field", t => {
   let schema = S.schema(s =>
     {
-      "foo": s.matches(S.option(S.json(~validate=false))),
+      "foo": s.matches(S.option(S.json)),
     }
   )
   t->Assert.deepEqual(

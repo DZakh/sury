@@ -197,7 +197,7 @@ test("Successfully parses unknown", (t) => {
 });
 
 test("Successfully parses json", (t) => {
-  const schema = S.json(true);
+  const schema = S.json;
   const value = S.parseOrThrow(true, schema);
 
   t.deepEqual(value, true);
@@ -207,10 +207,20 @@ test("Successfully parses json", (t) => {
 });
 
 test("Successfully parses invalid json without validation", (t) => {
-  const schema = S.json(false);
-  const value = S.parseOrThrow(undefined, schema);
+  const schema = S.json.with(S.noValidation, true);
 
-  t.deepEqual(value, undefined); // This is broken but it's intentional
+  const value = S.parseOrThrow(undefined, schema);
+  t.deepEqual(
+    S.parseOrThrow(undefined, schema),
+    undefined,
+    "This is wrong but it's intentional"
+  );
+
+  t.deepEqual(
+    S.parseOrThrow([undefined], schema),
+    [undefined],
+    "But nested should fail"
+  ); // This is broken but it's intentional
 
   expectType<SchemaEqual<typeof schema, S.JSON, S.JSON>>(true);
   expectType<TypeEqual<typeof value, S.JSON>>(true);

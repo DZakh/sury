@@ -628,8 +628,35 @@ test("JSONSchema of unknown schema", t => {
 })
 
 test("JSON schema doesn't affect final schema", t => {
-  let schema = S.json(~validate=false)
+  let schema = S.json
+  t->Assert.deepEqual(schema->S.toJSONSchema, %raw(`{}`))
+})
 
+test("JSONSchema of recursive schema", t => {
+  let schema = S.recursive("Node", nodeSchema => {
+    S.object(
+      s =>
+        {
+          "id": s.field("Id", S.string),
+          "children": s.field("Children", S.array(nodeSchema)),
+        },
+    )
+  })
+  // FIXME:
+  t->Assert.deepEqual(schema->S.toJSONSchema, %raw(`{}`))
+})
+
+test("JSONSchema of recursive schema with non-jsonable field", t => {
+  let schema = S.recursive("Node", nodeSchema => {
+    S.object(
+      s =>
+        {
+          "id": s.field("Id", S.bigint),
+          "children": s.field("Children", S.array(nodeSchema)),
+        },
+    )
+  })
+  // FIXME:
   t->Assert.deepEqual(schema->S.toJSONSchema, %raw(`{}`))
 })
 

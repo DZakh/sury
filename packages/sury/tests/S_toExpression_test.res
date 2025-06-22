@@ -164,7 +164,7 @@ test("Expression of recursive schema", t => {
 
   t->U.assertThrowsMessage(
     () => %raw(`null`)->S.parseOrThrow(nodeSchema),
-    `Failed parsing: Expected { Id: string; Children: Node[]; }, received null`,
+    `Failed parsing: Expected Node, received null`,
   )
   t->U.assertThrowsMessage(
     () => %raw(`null`)->S.parseOrThrow(S.tuple1(nodeSchema)),
@@ -181,11 +181,11 @@ test("Expression of recursive schema", t => {
       Id: "0",
       Children: [null]
     }`)->S.parseOrThrow(renamedRoot),
-    `Failed parsing at ["Children"]["0"]: Expected { Id: string; Children: Node[]; }, received null`,
+    `Failed parsing at ["Children"]["0"]: Expected Node, received null`,
   )
 })
 
-test("Expression of deeply renamed recursive schema - Doesn't work as intended", t => {
+test("Expression of deeply renamed recursive schema", t => {
   let nodeSchema = S.recursive("Node", nodeSchema => {
     S.object(
       s =>
@@ -196,13 +196,13 @@ test("Expression of deeply renamed recursive schema - Doesn't work as intended",
     )->S.meta({name: "MyNode"})
   })
 
-  t->Assert.deepEqual(nodeSchema->S.toExpression, `Node`)
+  t->Assert.deepEqual(nodeSchema->S.toExpression, `MyNode`)
   t->U.assertThrowsMessage(
     () => %raw(`null`)->S.parseOrThrow(nodeSchema),
     `Failed parsing: Expected MyNode, received null`,
   )
   t->U.assertThrowsMessage(
     () => %raw(`{Id: "0"}`)->S.parseOrThrow(nodeSchema),
-    `Failed parsing at ["Children"]: Expected Node[], received undefined`,
+    `Failed parsing at ["Children"]: Expected MyNode[], received undefined`,
   )
 })

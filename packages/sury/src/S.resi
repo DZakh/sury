@@ -43,7 +43,6 @@ type tag =
   | @as("array") Array
   | @as("object") Object
   | @as("union") Union
-  | @as("json") JSON
   | @as("ref") Ref
 
 @tag("type")
@@ -190,15 +189,6 @@ type rec t<'value> =
       examples?: array<unknown>,
       default?: unknown,
     })
-  | @as("json")
-  JSON({
-      name?: string,
-      title?: string,
-      description?: string,
-      deprecated?: bool,
-      examples?: array<Js.Json.t>,
-      default?: Js.Json.t,
-    })
   | @as("ref") Ref({@as("$ref") ref: string})
 and schema<'a> = t<'a>
 and meta<'value> = {
@@ -300,8 +290,7 @@ let int: t<int>
 let float: t<float>
 let bigint: t<bigint>
 let symbol: t<Js.Types.symbol>
-
-let json: (~validate: bool) => t<Js.Json.t>
+let json: t<Js.Json.t>
 
 let literal: 'value => t<'value>
 let array: t<'value> => t<array<'value>>

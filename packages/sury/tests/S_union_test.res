@@ -116,9 +116,13 @@ test("Serializes when both schemas misses serializer", t => {
 })
 
 test("When union of json and string schemas, should parse the first one", t => {
-  let schema = S.union([S.json(~validate=false)->S.shape(_ => #json), S.string->S.shape(_ => #str)])
+  let schema = S.union([S.json->S.shape(_ => #json), S.string->S.shape(_ => #str)])
 
   t->Assert.deepEqual(%raw(`"string"`)->S.parseOrThrow(schema), #json)
+  t->U.assertThrowsMessage(
+    () => %raw(`undefined`)->S.parseOrThrow(schema),
+    `FIXME: Should validate that it's a valid JSON`,
+  )
 
   t->U.assertCompiledCode(
     ~schema,

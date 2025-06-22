@@ -224,6 +224,10 @@ export type Schema<Output, Input = unknown> = {
         boolean
       >;
     }
+  | {
+      readonly type: "ref";
+      readonly $ref: string;
+    }
 );
 
 export type Item = {
@@ -389,7 +393,7 @@ export const never: Schema<never, never>;
 export const unknown: Schema<unknown, unknown>;
 declare const void_: Schema<void, void>;
 export { void_ as void };
-export const json: (validate: boolean) => Schema<JSON, JSON>;
+export const json: Schema<JSON, JSON>;
 
 export function safe<Value>(scope: () => Value): Result<Value>;
 export function safeAsync<Value>(

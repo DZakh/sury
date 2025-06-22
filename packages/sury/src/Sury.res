@@ -246,7 +246,6 @@ type tag =
   | @as("array") Array
   | @as("object") Object
   | @as("union") Union
-  | @as("json") JSON
   | @as("ref") Ref
 
 type standard = {
@@ -406,22 +405,12 @@ type rec t<'value> =
       examples?: array<unknown>,
       default?: unknown,
     })
-  | @as("json")
-  JSON({
-      name?: string,
-      title?: string,
-      description?: string,
-      deprecated?: bool,
-      examples?: array<Js.Json.t>,
-      default?: Js.Json.t,
-    }) // TODO: Remove it in favor of Union
   | @as("ref")
   Ref({
       @as("$ref")
       ref: string,
     })
 @unboxed and additionalItems = | ...additionalItemsMode | Schema(t<unknown>)
-// TODO: Add recursive
 and schema<'a> = t<'a>
 and internal = {
   @as("type")
@@ -450,15 +439,11 @@ and internal = {
   mutable anyOf?: array<internal>,
   mutable additionalItems?: additionalItems,
   mutable items?: array<item>,
-  mutable some?: internal, // This is for S.option
-  mutable none?: internal, // This is for S.option
   mutable fields?: dict<item>,
   mutable noValidation?: bool,
   mutable unnest?: bool,
   @as("$ref")
   mutable ref?: string,
-  @as("$anchor")
-  mutable anchor?: string,
   @as("$defs")
   mutable defs?: dict<internal>,
   mutable isAsync?: bool, // Optional value means that it's not lazily computed yet.
@@ -1407,7 +1392,7 @@ module Builder = {
 
     let typeFilterCode = (b: b, ~schema, ~input, ~path) => {
       switch schema {
-      | {tag: Unknown | Union | JSON | Ref | Never} => ""
+      | {tag: Unknown | Union | Ref | Never} => ""
       | _ => {
           let inputVar = b->Val.var(input)
 
@@ -1457,6 +1442,7 @@ module Builder = {
 // TODO: Split validation code and transformation code
 module B = Builder.B
 
+// FIXME: Recursive
 let nonJsonableTags = X.Set.fromArray([(Unknown: tag), NaN, BigInt, Function, Instance, Symbol])
 
 let unknown = base()
@@ -1803,7 +1789,6 @@ and reverse = (schema: internal) => {
         has->Js.Dict.set(
           switch reversed.tag {
           | Union
-          | JSON
           | Ref =>
             (Unknown: tag :> string)
           | v => (v: tag :> string)
@@ -2182,8 +2167,9 @@ module Metadata = {
   }
 }
 
+let defsPath = `#/$defs/`
 let recursive = (name, fn) => {
-  let ref = `#/$defs/${name}`
+  let ref = `${defsPath}${name}`
   let refSchema = base()
   refSchema.tag = Ref
   refSchema.ref = Some(ref)
@@ -2194,18 +2180,23 @@ let recursive = (name, fn) => {
   if !isNestedRec {
     globalConfig.defsAccumulator = Some(Js.Dict.empty())
   }
-
+  let def = fn(refSchema->fromInternal)->toInternal
+  if def.name->Obj.magic {
+    refSchema.name = def.name
+  } else {
+    def.name = Some(name)
+  }
   globalConfig.defsAccumulator
   ->X.Option.unsafeUnwrap
-  ->Js.Dict.set(name, fn(refSchema->fromInternal)->toInternal)
+  ->Js.Dict.set(name, def)
 
   if isNestedRec {
     refSchema->fromInternal
   } else {
     let schema = base()
     schema.tag = Ref
+    schema.name = def.name
     schema.ref = Some(ref)
-    schema.name = Some(name)
     schema.defs = globalConfig.defsAccumulator
 
     globalConfig.defsAccumulator = None
@@ -2425,7 +2416,6 @@ module Union = {
       // for which we can't apply optimizations.
       // So we run them and everything before them in a deopt mode.
       | Union
-      | JSON
       | Ref
       | Unknown
       | Never =>
@@ -2724,7 +2714,6 @@ module Union = {
           has->Js.Dict.set(
             (switch schema.tag {
             | Union
-            | JSON
             | Ref =>
               Unknown
             | v => v
@@ -3198,7 +3187,7 @@ module Int = {
   let schema = base()
   schema.tag = Number
   schema.format = Some(Int32)
-  let schema = schema->fromInternal
+  let schema: schema<int> = schema->fromInternal
 }
 
 module Float = {
@@ -3223,13 +3212,13 @@ module Float = {
 
   let schema = base()
   schema.tag = Number
-  let schema = schema->fromInternal
+  let schema: schema<float> = schema->fromInternal
 }
 
 module BigInt = {
   let schema = base()
   schema.tag = BigInt
-  let schema = schema->fromInternal
+  let schema: schema<bigint> = schema->fromInternal
 }
 
 let rec to = (from, target) => {
@@ -3318,73 +3307,6 @@ let instance = class_ => {
   let mut = base()
   mut.tag = Instance
   mut.class = class_->Obj.magic
-  mut->fromInternal
-}
-
-let jsonRefiner = Builder.make((b, ~input, ~selfSchema, ~path) => {
-  if (
-    selfSchema.noValidation->X.Option.unsafeUnwrap ||
-      !(b.global.flag->Flag.unsafeHas(Flag.typeValidation))
-  ) {
-    input
-  } else {
-    let rec parse = (input, ~path=path) => {
-      switch input->X.Type.typeof {
-      | #number if Js.Float.isNaN(input->(Obj.magic: unknown => float))->not =>
-        input->(Obj.magic: unknown => Js.Json.t)
-      | #object =>
-        if input === %raw(`null`) {
-          input->(Obj.magic: unknown => Js.Json.t)
-        } else if input->X.Array.isArray {
-          let input = input->(Obj.magic: unknown => array<unknown>)
-          let output = []
-          for idx in 0 to input->Js.Array2.length - 1 {
-            let inputItem = input->Js.Array2.unsafe_get(idx)
-            output
-            ->Js.Array2.push(
-              inputItem->parse(~path=path->Path.concat(Path.fromLocation(idx->Js.Int.toString))),
-            )
-            ->ignore
-          }
-          output->Js.Json.array
-        } else {
-          let input = input->(Obj.magic: unknown => dict<unknown>)
-          let keys = input->Js.Dict.keys
-          let output = Js.Dict.empty()
-          for idx in 0 to keys->Js.Array2.length - 1 {
-            let key = keys->Js.Array2.unsafe_get(idx)
-            let field = input->Js.Dict.unsafeGet(key)
-            output->Js.Dict.set(key, field->parse(~path=path->Path.concat(Path.fromLocation(key))))
-          }
-          output->Js.Json.object_
-        }
-
-      | #string
-      | #boolean =>
-        input->(Obj.magic: unknown => Js.Json.t)
-
-      | _ =>
-        b->B.raise(
-          ~path,
-          ~code=InvalidType({
-            expected: selfSchema->fromInternal,
-            received: input,
-          }),
-        )
-      }
-    }
-
-    B.Val.map(b->B.embed(parse), input)
-  }
-})
-
-let json = (~validate) => {
-  let mut = base()
-  mut.tag = JSON
-  if !validate {
-    mut.noValidation = Some(true)
-  }
-  mut.refiner = Some(jsonRefiner)
   mut->fromInternal
 }
 
@@ -4718,6 +4640,46 @@ let tuple3 = (v0, v1, v2) =>
 let union = Union.factory
 let jsonString = JsonString.factory
 
+let jsonName = `JSON`
+let json = {
+  let jsonRef = base()
+  jsonRef.tag = Ref
+  jsonRef.ref = Some(`${defsPath}${jsonName}`)
+  jsonRef.name = Some(jsonName)
+  let json = base()
+  json.tag = jsonRef.tag
+  json.ref = jsonRef.ref
+  json.name = Some(jsonName)
+  let defs = Js.Dict.empty()
+  defs->Js.Dict.set(
+    jsonName,
+    {
+      name: jsonName,
+      tag: Union,
+      anyOf: [
+        String.schema->toInternal,
+        bool->toInternal,
+        float->toInternal,
+        Literal.null,
+        Dict.factory(jsonRef->fromInternal)->toInternal,
+        Array.factory(jsonRef->fromInternal)->toInternal,
+      ],
+      // FIXME: use dict{} in V12
+      has: %raw(`{
+        string: true,
+        boolean: true,
+        number: true,
+        null: true,
+        object: true,
+        array: true,
+      }`),
+      refiner: Union.refiner,
+    },
+  )
+  json.defs = Some(defs)
+  json->fromInternal
+}
+
 // =============
 // Built-in refinements
 // =============
@@ -5311,8 +5273,8 @@ module RescriptJSONSchema = {
           }
         }
       }
-    | JSON(_)
     | Unknown(_) => ()
+    | Ref({ref}) if ref === `${defsPath}${jsonName}` => ()
     | Null(_) => jsonSchema.type_ = Some(Arrayable.single(#null))
     | Never(_) => jsonSchema.not = Some(Definition.schema({}))
     // This case should never happen,
@@ -5411,7 +5373,7 @@ let rec fromJSONSchema = {
     }
 
   (jsonSchema: JSONSchema.t) => {
-    let anySchema = json(~validate=false)
+    let anySchema = json
 
     let definitionToSchema = definition =>
       switch definition->JSONSchema.Definition.classify {
