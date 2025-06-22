@@ -461,3 +461,18 @@ test(
     t->U.assertReverseParsesBack(schema, {"nested": {"field": (true, true)}})
   },
 )
+
+test("S.json shaped to literal should keep validation", t => {
+  let schema = S.json->S.shape(_ => "foo")
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{return e[1]}
+JSON: i=>{if(Array.isArray(i)){let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v2;try{v2=e[0][1](i[v0])}catch(v1){if(v1&&v1.s===s){v1.path=""+'["'+v0+'"]'+v1.path}throw v1}v3[v0]=v2}i=v3}else if(typeof i==="object"&&i&&!Array.isArray(i)){let v7={};for(let v4 in i){let v6;try{v6=e[1][1](i[v4])}catch(v5){if(v5&&v5.s===s){v5.path=""+'["'+v4+'"]'+v5.path}throw v5}v7[v4]=v6}i=v7}else if(!(typeof i==="string"||typeof i==="boolean"||typeof i==="number"&&!Number.isNaN(i)||i===null)){e[2](i)}return i}`,
+  )
+
+  t->Assert.deepEqual("foo"->S.parseOrThrow(schema), "foo")
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), %raw(`undefined`))
+  t->Assert.deepEqual("bar"->S.parseOrThrow(schema), "bar")
+})

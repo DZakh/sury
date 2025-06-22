@@ -169,7 +169,7 @@ type rec t<'value> =
   | @as("object")
   Object({
       items: array<item>,
-      fields: dict<item>,
+      properties: dict<t<unknown>>,
       additionalItems: additionalItems,
       name?: string,
       title?: string,
@@ -217,7 +217,7 @@ and untagged = private {
   unnest?: bool,
   noValidation?: bool,
   items?: array<item>,
-  fields?: dict<item>,
+  properties?: dict<t<unknown>>,
   additionalItems?: additionalItems,
   anyOf?: array<t<unknown>>,
   has?: dict<bool>,

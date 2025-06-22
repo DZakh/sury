@@ -18,7 +18,7 @@ module X = {
   }
 
   module Option = {
-    external unsafeUnwrap: option<'a> => 'a = "%identity"
+    external getUnsafe: option<'a> => 'a = "%identity"
   }
 
   module Type = {
@@ -385,7 +385,7 @@ type rec t<'value> =
   | @as("object")
   Object({
       items: array<item>,
-      fields: dict<item>,
+      properties: dict<t<unknown>>,
       additionalItems: additionalItems,
       name?: string,
       title?: string,
@@ -439,7 +439,7 @@ and internal = {
   mutable anyOf?: array<internal>,
   mutable additionalItems?: additionalItems,
   mutable items?: array<item>,
-  mutable fields?: dict<item>,
+  mutable properties?: dict<internal>,
   mutable noValidation?: bool,
   mutable unnest?: bool,
   @as("$ref")
@@ -476,7 +476,7 @@ and untagged = private {
   unnest?: bool,
   noValidation?: bool,
   items?: array<item>,
-  fields?: dict<item>,
+  properties?: dict<t<unknown>>,
   additionalItems?: additionalItems,
   anyOf?: array<t<unknown>>,
   has?: dict<bool>,
@@ -579,7 +579,7 @@ let isLiteral: internal => bool = %raw(`s => "const" in s`)
 let isOptional = schema => {
   switch schema.tag {
   | Undefined => true
-  | Union => schema.has->X.Option.unsafeUnwrap->X.Dict.has((Undefined: tag :> string))
+  | Union => schema.has->X.Option.getUnsafe->X.Dict.has((Undefined: tag :> string))
   | _ => false
   }
 }
@@ -714,7 +714,7 @@ let updateOutput = (schema: internal, fn): t<'value> => {
   let root = schema->copyWithoutCache
   let mut = ref(root)
   while mut.contents.to->Obj.magic {
-    let next = mut.contents.to->X.Option.unsafeUnwrap->copyWithoutCache
+    let next = mut.contents.to->X.Option.getUnsafe->copyWithoutCache
     mut.contents.to = Some(next)
     mut := next
   }
@@ -780,7 +780,7 @@ let rec toExpression = schema => {
     ->Js.Array2.joinWith(" | ")
   | {format} => (format :> string)
   | {tag: Object, ?items, ?additionalItems} =>
-    let items = items->X.Option.unsafeUnwrap
+    let items = items->X.Option.getUnsafe
     if items->Js.Array2.length === 0 {
       if additionalItems->Js.typeof === "object" {
         let additionalItems: internal = additionalItems->Obj.magic
@@ -796,7 +796,7 @@ let rec toExpression = schema => {
         ->Js.Array2.joinWith(" ")} }`
     }
   | {tag: Array, ?items, ?additionalItems} =>
-    let items = items->X.Option.unsafeUnwrap
+    let items = items->X.Option.getUnsafe
     if additionalItems->Js.typeof === "object" {
       let additionalItems: internal = additionalItems->Obj.magic
       let itemName = additionalItems->fromInternal->toExpression
@@ -1345,8 +1345,8 @@ module Builder = {
           `${and_}${not_}Number.isNaN(${inputVar})`
         }
       | {tag: Object as tag | Array as tag, ?additionalItems, ?items} => {
-          let additionalItems = additionalItems->X.Option.unsafeUnwrap
-          let items = items->X.Option.unsafeUnwrap
+          let additionalItems = additionalItems->X.Option.getUnsafe
+          let items = items->X.Option.getUnsafe
 
           let length = items->Js.Array2.length
 
@@ -1366,7 +1366,7 @@ module Builder = {
           for idx in 0 to items->Js.Array2.length - 1 {
             let {schema: item, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
             let item = item->toInternal
-            let itemCode = if item->isLiteral || schema.unnest->X.Option.unsafeUnwrap {
+            let itemCode = if item->isLiteral || schema.unnest->X.Option.getUnsafe {
               b->validation(
                 ~inputVar=Path.concat(inputVar, Path.fromInlinedLocation(inlinedLocation)),
                 ~schema=item,
@@ -1460,7 +1460,7 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg, ~path) => {
     !(inputArg.flag->Flag.unsafeHas(ValFlag.valid)) &&
     (b.global.flag->Flag.unsafeHas(Flag.typeValidation) || schema->isLiteral)
   ) {
-    if !(schema.noValidation->X.Option.unsafeUnwrap) {
+    if !(schema.noValidation->X.Option.getUnsafe) {
       b.filterCode = prevB->B.typeFilterCode(~schema, ~input=inputArg, ~path)
     }
     inputArg.flag = inputArg.flag->Flag.with(ValFlag.valid)
@@ -1470,7 +1470,7 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg, ~path) => {
 
   switch schema.ref {
   | Some(ref) =>
-    let defs = b.global.defs->X.Option.unsafeUnwrap
+    let defs = b.global.defs->X.Option.getUnsafe
     // Ignore #/$defs/
     let identifier = ref->Js.String2.sliceToEnd(~from=8)
     let def = defs->Js.Dict.unsafeGet(identifier)
@@ -1502,7 +1502,7 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg, ~path) => {
           defsMut->Js.Dict.set(identifier, unknown->toInternal)
           let _ = def->isAsyncInternal(~defs=Some(defsMut))
         }
-        if def.isAsync->X.Option.unsafeUnwrap {
+        if def.isAsync->X.Option.getUnsafe {
           output.flag = output.flag->Flag.with(ValFlag.async)
         }
         output
@@ -1523,7 +1523,7 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg, ~path) => {
     switch schema.parser {
     | Some(parser) => input := parser(b, ~input=input.contents, ~selfSchema=schema, ~path)
     | None => {
-        let target = schema.to->X.Option.unsafeUnwrap
+        let target = schema.to->X.Option.getUnsafe
 
         let isFromLiteral = schema->isLiteral
         let isTargetLiteral = target->isLiteral
@@ -1727,7 +1727,7 @@ and reverse = (schema: internal) => {
   let current = ref(Some(schema))
 
   while current.contents->Obj.magic {
-    let mut = current.contents->X.Option.unsafeUnwrap->copyWithoutCache
+    let mut = current.contents->X.Option.getUnsafe->copyWithoutCache
     let next = mut.to
     switch reversedHead.contents {
     | None => %raw(`delete mut.to`)
@@ -1744,7 +1744,7 @@ and reverse = (schema: internal) => {
     }
     switch mut.items {
     | Some(items) =>
-      let fields = Js.Dict.empty()
+      let properties = Js.Dict.empty()
       let newItems = Belt.Array.makeUninitializedUnsafe(items->Js.Array2.length)
       for idx in 0 to items->Js.Array2.length - 1 {
         let item = items->Js.Array2.unsafe_get(idx)
@@ -1758,12 +1758,13 @@ and reverse = (schema: internal) => {
         if (item->Obj.magic)["r"] {
           (reversed->Obj.magic)["r"] = (item->Obj.magic)["r"]
         }
-        fields->Js.Dict.set(item.location, reversed)
+        properties->Js.Dict.set(item.location, reversed.schema->toInternal)
         newItems->Js.Array2.unsafe_set(idx, reversed)
       }
       mut.items = Some(newItems)
-      switch mut.fields {
-      | Some(_) => mut.fields = Some(fields)
+      switch mut.properties {
+      | Some(_) => mut.properties = Some(properties)
+      // Skip tuple
       | None => ()
       }
     | None => ()
@@ -1815,7 +1816,7 @@ and reverse = (schema: internal) => {
     current := next
   }
 
-  reversedHead.contents->X.Option.unsafeUnwrap
+  reversedHead.contents->X.Option.getUnsafe
 }
 and jsonableValidation = (~output, ~parent, ~path, ~flag) => {
   let tag = output.tag
@@ -1826,12 +1827,12 @@ and jsonableValidation = (~output, ~parent, ~path, ~flag) => {
   | {tag: Union | Array | Object} =>
     if tag === Union {
       output.anyOf
-      ->X.Option.unsafeUnwrap
+      ->X.Option.getUnsafe
       ->Js.Array2.forEach(s => jsonableValidation(~output=s, ~parent, ~path, ~flag))
     } else {
       switch output {
       | {items, ?additionalItems} => {
-          switch additionalItems->X.Option.unsafeUnwrap {
+          switch additionalItems->X.Option.getUnsafe {
           | Schema(additionalItems) =>
             jsonableValidation(~output=additionalItems->toInternal, ~parent, ~path, ~flag)
 
@@ -2169,7 +2170,7 @@ let recursive = (name, fn) => {
     def.name = Some(name)
   }
   globalConfig.defsAccumulator
-  ->X.Option.unsafeUnwrap
+  ->X.Option.getUnsafe
   ->Js.Dict.set(name, def)
 
   if isNestedRec {
@@ -2379,7 +2380,7 @@ module Union = {
         })}(${input.var(b)}${caught})`
     }
 
-    let schemas = selfSchema.anyOf->X.Option.unsafeUnwrap
+    let schemas = selfSchema.anyOf->X.Option.getUnsafe
     let typeValidation = b.global.flag->Flag.unsafeHas(Flag.typeValidation)
 
     // FIXME: Test with async
@@ -2686,11 +2687,11 @@ module Union = {
         // Check if the union is not transformed
         if schema.tag === Union && schema.to === None {
           schema.anyOf
-          ->X.Option.unsafeUnwrap
+          ->X.Option.getUnsafe
           ->Js.Array2.forEach(item => {
             anyOf->X.Set.add(item)
           })
-          let _ = has->X.Dict.mixin(schema.has->X.Option.unsafeUnwrap)
+          let _ = has->X.Dict.mixin(schema.has->X.Option.getUnsafe)
         } else {
           anyOf->X.Set.add(schema)
           has->Js.Dict.set(
@@ -2718,34 +2719,36 @@ module Option = {
   type default = Value(unknown) | Callback(unit => unknown)
 
   let nestedLoc = "BS_PRIVATE_NESTED_SOME_NONE"
+  let inlinedNestedLoc = `"${nestedLoc}"`
   let nestedOption = {
-    let inLoc = `"${nestedLoc}"`
     let nestedNone = () => {
+      let itemSchema = Literal.parse(0)
       let item: item = {
-        schema: Literal.parse(0)->fromInternal,
+        schema: itemSchema->fromInternal,
         location: nestedLoc,
-        inlinedLocation: inLoc,
+        inlinedLocation: inlinedNestedLoc,
       }
-      let fields = Js.Dict.empty()
-      fields->Js.Dict.set(nestedLoc, item)
+      // FIXME: dict{}
+      let properties = Js.Dict.empty()
+      properties->Js.Dict.set(nestedLoc, itemSchema)
       {
         tag: Object,
-        fields,
+        properties,
         items: [item],
         additionalItems: Strip,
         // TODO: Support this as a default coercion
         serializer: Builder.make((b, ~input as _, ~selfSchema, ~path as _) => {
-          b->B.val(b->B.inlineConst(selfSchema.to->X.Option.unsafeUnwrap))
+          b->B.val(b->B.inlineConst(selfSchema.to->X.Option.getUnsafe))
         }),
       }
     }
 
     let parser = Builder.make((b, ~input as _, ~selfSchema, ~path as _) => {
       b->B.val(
-        `{${inLoc}:${(
+        `{${inlinedNestedLoc}:${(
             (
               (selfSchema->getOutputSchema).items
-              ->X.Option.unsafeUnwrap
+              ->X.Option.getUnsafe
               ->Js.Array2.unsafe_get(0)
             ).schema->toInternal
           ).const->Obj.magic}}`,
@@ -2769,8 +2772,8 @@ module Option = {
     | {tag: Undefined} => Union.factory([unit->castToUnknown, item->nestedOption->fromInternal])
     | {tag: Union, ?anyOf, ?has} =>
       item->updateOutput(mut => {
-        let schemas = anyOf->X.Option.unsafeUnwrap
-        let mutHas = has->X.Option.unsafeUnwrap->X.Dict.copy
+        let schemas = anyOf->X.Option.getUnsafe
+        let mutHas = has->X.Option.getUnsafe->X.Dict.copy
 
         let newAnyOf = []
         for idx in 0 to schemas->Array.length - 1 {
@@ -2783,25 +2786,26 @@ module Option = {
                 newAnyOf->Js.Array2.push(unit->toInternal)->ignore
                 schema->nestedOption
               }
-            | {fields} =>
-              switch fields->X.Dict.unsafeGetOption(nestedLoc) {
-              | Some(item) =>
+            | {properties} =>
+              switch properties->X.Dict.unsafeGetOption(nestedLoc) {
+              | Some(nestedSchema) =>
                 schema
                 ->updateOutput(mut => {
-                  let fSchema = item.schema->toInternal
                   let newItem = {
-                    ...item,
+                    location: nestedLoc,
+                    inlinedLocation: inlinedNestedLoc,
                     schema: {
-                      tag: fSchema.tag,
-                      parser: ?fSchema.parser,
-                      const: fSchema.const->Obj.magic->X.Int.plus(1)->Obj.magic,
+                      tag: nestedSchema.tag,
+                      parser: ?nestedSchema.parser,
+                      const: nestedSchema.const->Obj.magic->X.Int.plus(1)->Obj.magic,
                     }->fromInternal,
                   }
 
-                  let fields = Js.Dict.empty()
-                  fields->Js.Dict.set(nestedLoc, newItem)
+                  // FIXME: dict{}
+                  let properties = Js.Dict.empty()
+                  properties->Js.Dict.set(nestedLoc, newItem.schema->toInternal)
                   mut.items = Some([newItem])
-                  mut.fields = Some(fields)
+                  mut.properties = Some(properties)
                 })
                 ->toInternal
               | None => schema
@@ -2951,10 +2955,10 @@ module Object = {
       let mut = schema->copyWithoutCache
       mut.additionalItems = Some(additionalItems)
       if deep {
-        let items = items->X.Option.unsafeUnwrap
+        let items = items->X.Option.getUnsafe
 
         let newItems = []
-        let newFields = Js.Dict.empty()
+        let newProperties = Js.Dict.empty()
         for idx in 0 to items->Js.Array2.length - 1 {
           let item = items->Js.Array2.unsafe_get(idx)
           let newSchema =
@@ -2964,11 +2968,11 @@ module Object = {
               ~deep,
             )->castToUnknown
           let newItem = newSchema === item.schema ? item : {...item, schema: newSchema}
-          newFields->Js.Dict.set(item.location, newItem)
+          newProperties->Js.Dict.set(item.location, newSchema->toInternal)
           newItems->Js.Array2.push(newItem)->ignore
         }
         mut.items = Some(newItems)
-        mut.fields = Some(newFields)
+        mut.properties = Some(newProperties)
       }
       mut->fromInternal
     | _ => schema->fromInternal
@@ -3037,7 +3041,7 @@ module Dict = {
     let item = item->toInternal
     let mut = base()
     mut.tag = Object
-    mut.fields = Some(X.Object.immutableEmpty)
+    mut.properties = Some(X.Object.immutableEmpty)
     mut.items = Some(X.Array.immutableEmpty)
     mut.additionalItems = Some(Schema(item->fromInternal))
     mut.refiner = Some(dictRefiner)
@@ -3471,20 +3475,20 @@ module Schema = {
           ItemField({
             schema: {
               let targetReversed = item->getDitemSchema->getOutputSchema
-              let maybeReversedItem = switch targetReversed {
-              | {fields} => fields->X.Dict.unsafeGetOption(location)
-              // If there are no fields, then it must be Tuple
+              let maybeField = switch targetReversed {
+              | {properties} => properties->X.Dict.unsafeGetOption(location)
+              // If there are no properties, then it must be Tuple
               | {items} => items->X.Array.unsafeGetOptionByString(location)
               | _ => None
               }
-              if maybeReversedItem === None {
+              if maybeField === None {
                 InternalError.panic(
                   `Cannot read property ${inlinedLocation} of ${targetReversed
                     ->fromInternal
                     ->toExpression}`,
                 )
               }
-              (maybeReversedItem->X.Option.unsafeUnwrap).schema->toInternal
+              maybeField->X.Option.getUnsafe->toInternal
             },
             inlinedLocation,
             location,
@@ -3499,7 +3503,7 @@ module Schema = {
 
   let rec schemaRefiner = (b, ~input, ~selfSchema, ~path) => {
     let additionalItems = selfSchema.additionalItems
-    let items = selfSchema.items->X.Option.unsafeUnwrap
+    let items = selfSchema.items->X.Option.getUnsafe
     let isArray = selfSchema.tag === Array
 
     if b.global.flag->Flag.unsafeHas(Flag.flatten) {
@@ -3564,7 +3568,7 @@ module Schema = {
     let outputs = isFlatten ? input->Obj.magic : Js.Dict.empty()
 
     if !isFlatten {
-      let items = selfSchema.items->X.Option.unsafeUnwrap
+      let items = selfSchema.items->X.Option.getUnsafe
 
       for idx in 0 to items->Js.Array2.length - 1 {
         let {schema, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
@@ -3731,17 +3735,17 @@ module Schema = {
         switch to {
         | Some(ditem) => ditem->getItemOutput(~itemPath=Path.empty, ~shouldReverse=false)
         | None => {
-            let originalSchema = selfSchema.to->X.Option.unsafeUnwrap
+            let originalSchema = selfSchema.to->X.Option.getUnsafe
 
             b->objectStrictModeCheck(
               ~input,
-              ~items=selfSchema.items->X.Option.unsafeUnwrap,
+              ~items=selfSchema.items->X.Option.getUnsafe,
               ~selfSchema,
               ~path,
             )
 
             let isArray = (originalSchema: internal).tag === Array
-            let items = originalSchema.items->X.Option.unsafeUnwrap
+            let items = originalSchema.items->X.Option.getUnsafe
             let objectVal = b->B.Val.Object.make(~isArray)
             switch flattened {
             | None => ()
@@ -3839,7 +3843,7 @@ module Schema = {
         let target =
           parentCtx.field(fieldName, schema)
           ->Definition.toEmbededItem
-          ->X.Option.unsafeUnwrap
+          ->X.Option.getUnsafe
 
         let field:
           type value. (string, schema<value>) => value =
@@ -3882,7 +3886,7 @@ module Schema = {
                     ->toExpression}`,
                 )
               }
-              let flattenedItems = flattenedItems->X.Option.unsafeUnwrap
+              let flattenedItems = flattenedItems->X.Option.getUnsafe
               let result = Js.Dict.empty()
               for idx in 0 to flattenedItems->Js.Array2.length - 1 {
                 let item = flattenedItems->Js.Array2.unsafe_get(idx)
@@ -3922,7 +3926,7 @@ module Schema = {
         let schema = schema->toInternal
         switch schema {
         | {tag: Object, items: ?flattenedItems} => {
-            let flattenedItems = flattenedItems->X.Option.unsafeUnwrap
+            let flattenedItems = flattenedItems->X.Option.getUnsafe
             for idx in 0 to flattenedItems->Js.Array2.length - 1 {
               let {location, inlinedLocation, schema: flattenedSchema} =
                 flattenedItems->Js.Array2.unsafe_get(idx)
@@ -4249,7 +4253,7 @@ let enum = values => Union.factory(values->Js.Array2.map(literal))
 
 let unnestSerializer = Builder.make((b, ~input, ~selfSchema, ~path) => {
   let schema = selfSchema.additionalItems->(Obj.magic: option<additionalItems> => internal)
-  let items = schema.items->X.Option.unsafeUnwrap
+  let items = schema.items->X.Option.getUnsafe
 
   let inputVar = b->B.Val.var(input)
   let iteratorVar = b.global->B.varWithoutAllocation
