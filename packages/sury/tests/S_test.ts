@@ -219,8 +219,8 @@ test("Successfully parses invalid json without validation", (t) => {
   t.deepEqual(
     S.parseOrThrow([undefined], schema),
     [undefined],
-    "But nested should fail"
-  ); // This is broken but it's intentional
+    "Nested should theoretically fail, but currently it doesn't"
+  );
 
   expectType<SchemaEqual<typeof schema, S.JSON, S.JSON>>(true);
   expectType<TypeEqual<typeof value, S.JSON>>(true);

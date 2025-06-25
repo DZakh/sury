@@ -1471,7 +1471,11 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg, ~path) => {
     // Ignore #/$defs/
     let identifier = ref->Js.String2.sliceToEnd(~from=8)
     let def = defs->Js.Dict.unsafeGet(identifier)
-    let flag = b.global.flag
+    let flag = if schema.noValidation->X.Option.getUnsafe {
+      b.global.flag->Flag.without(Flag.typeValidation)
+    } else {
+      b.global.flag
+    }
     let recOperation = switch def->Obj.magic->X.Dict.unsafeGetOptionByInt(flag) {
     | Some(fn) =>
       // A hacky way to prevent infinite recursion

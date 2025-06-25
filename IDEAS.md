@@ -33,10 +33,10 @@ console.log(S.boolean)
   // TODO: Can reuse the S.schema logic for S.object to not recreate an object on serializing
 
 - Updated `S.recursive` to require an identifier. Recursive schemas now have a better performance and an internal representation matching JSON Schema spec. Sury schema now also exposes `$ref` and `$defs` fields, as well as introduces new `ref` type, while previous `json` type got deprecated.
+
 - Removed `S.catch` from ReScript API. You can use a combination of `S.unknown`, `S.union` and `S.transform` instead.
-- `S.json(validate)` changed to `S.json` and now uses recursive schema as internal representation. The `json` schema type was removed. You can use `S.json.with(S.noValidation, true)` or `S.json.with(S.deep, S.noValidation, true)`
-  // FIXME: This is not implemented
-  // FIXME: Remove `S.deepStrict` and `S.deepStrip` if `S.deep` works ?
+
+- `S.json(validate)` changed to `S.json` and now uses recursive schema as internal representation. The `json` schema type was removed. To create a JSON schema without validation you can use `S.json.with(S.noValidation, true)`
 
 - Changed internal representation of the object schema to have JSON Schema-like `properties` field instead of `fields`.
 
@@ -72,6 +72,7 @@ console.log(S.boolean)
 
 ## v???
 
+- Remove `S.deepStrict` and `S.deepStrip` in favor of `S.deep` (if it works)
 - Make S.serializeToJsonString super fast
 - Somehow determine whether transformed or not (including shape)
 - Add JSDoc

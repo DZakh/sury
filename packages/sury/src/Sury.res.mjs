@@ -838,7 +838,7 @@ function parse(prevB, schema, inputArg, path) {
     var defs = b.g.d;
     var identifier = ref.slice(8);
     var def = defs[identifier];
-    var flag = b.g.o;
+    var flag = schema.noValidation ? (b.g.o | 1) ^ 1 : b.g.o;
     var fn = def[flag];
     var recOperation;
     if (fn !== undefined) {
