@@ -2236,13 +2236,19 @@ test("Recursive object with S.shape", (t) => {
 test("Recursive with self as transform target", (t) => {
   type Node = Node[];
 
-  let nodeSchema = S.recursive<Node, string>("Node", (self) =>
-    S.string.with(S.to, S.array(self))
+  t.throws(
+    () => {
+      let nodeSchema = S.recursive<Node, string>("Node", (self) =>
+        S.string.with(S.to, S.array(self))
+      );
+      expectType<SchemaEqual<typeof nodeSchema, Node, string>>(true);
+
+      t.deepEqual(S.parseOrThrow(`["[]","[]"]`, nodeSchema), [[], []]);
+    },
+    {
+      message: "[Sury] Coercion from Node to Node[] is not supported",
+    }
   );
-
-  expectType<SchemaEqual<typeof nodeSchema, Node, string>>(true);
-
-  t.deepEqual(S.parseOrThrow(`["[]","[]"]`, nodeSchema), [[], []]);
 });
 
 test("Port schema", (t) => {

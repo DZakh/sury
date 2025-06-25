@@ -111,9 +111,6 @@ module X = {
     @val
     external mixin: (dict<'a>, dict<'a>) => dict<'a> = "Object.assign"
 
-    @val
-    external values: dict<'a> => array<'a> = "Object.values"
-
     @get_index
     external unsafeGetOption: (dict<'a>, string) => option<'a> = ""
 
@@ -3478,7 +3475,11 @@ module Schema = {
               let maybeField = switch targetReversed {
               | {properties} => properties->X.Dict.unsafeGetOption(location)
               // If there are no properties, then it must be Tuple
-              | {items} => items->X.Array.unsafeGetOptionByString(location)
+              | {items} =>
+                switch items->X.Array.unsafeGetOptionByString(location) {
+                | Some(i) => Some(i.schema->toInternal)
+                | None => None
+                }
               | _ => None
               }
               if maybeField === None {
@@ -3488,7 +3489,7 @@ module Schema = {
                     ->toExpression}`,
                 )
               }
-              maybeField->X.Option.getUnsafe->toInternal
+              maybeField->X.Option.getUnsafe
             },
             inlinedLocation,
             location,
@@ -3827,14 +3828,14 @@ module Schema = {
     | None => {
         let schemas = []
 
-        let fields = Js.Dict.empty()
+        let properties = Js.Dict.empty()
         let items = []
 
         let schema = {
           let schema = base()
           schema.tag = Object
           schema.items = Some(items)
-          schema.fields = Some(fields)
+          schema.properties = Some(properties)
           schema.additionalItems = Some(globalConfig.defaultAdditionalItems)
           schema.refiner = Some(schemaRefiner)
           schema->fromInternal
@@ -3850,7 +3851,7 @@ module Schema = {
           (fieldName, schema) => {
             let schema = schema->toInternal
             let inlinedLocation = fieldName->X.Inlined.Value.fromString
-            if fields->X.Dict.has(fieldName) {
+            if properties->X.Dict.has(fieldName) {
               InternalError.panic(`The field ${inlinedLocation} defined twice`)
             }
             let ditem: ditem = ItemField({
@@ -3861,7 +3862,7 @@ module Schema = {
               path: Path.fromInlinedLocation(inlinedLocation),
             })
             let item = ditem->ditemToItem
-            fields->Js.Dict.set(fieldName, item)
+            properties->Js.Dict.set(fieldName, schema)
             items->Js.Array2.push(item)->ignore
             schemas->Js.Array2.push(schema)->ignore
             ditem->proxify
@@ -3920,7 +3921,7 @@ module Schema = {
     definer => {
       let flattened = %raw(`void 0`)
       let items = []
-      let fields = Js.Dict.empty()
+      let properties = Js.Dict.empty()
 
       let flatten = schema => {
         let schema = schema->toInternal
@@ -3930,20 +3931,21 @@ module Schema = {
             for idx in 0 to flattenedItems->Js.Array2.length - 1 {
               let {location, inlinedLocation, schema: flattenedSchema} =
                 flattenedItems->Js.Array2.unsafe_get(idx)
-              switch fields->X.Dict.unsafeGetOption(location) {
-              | Some(item: item) if item.schema === flattenedSchema => ()
+              let flattenedSchema = flattenedSchema->toInternal
+              switch properties->X.Dict.unsafeGetOption(location) {
+              | Some(schema) if schema === flattenedSchema => ()
               | Some(_) =>
                 InternalError.panic(
                   `The field ${inlinedLocation} defined twice with incompatible schemas`,
                 )
               | None =>
                 let item = Item({
-                  schema: flattenedSchema->toInternal,
+                  schema: flattenedSchema,
                   location,
                   inlinedLocation,
                 })->ditemToItem
                 items->Js.Array2.push(item)->ignore
-                fields->Js.Dict.set(location, item)
+                properties->Js.Dict.set(location, flattenedSchema)
               }
             }
             let f = %raw(`flattened || (flattened = [])`)
@@ -3967,7 +3969,7 @@ module Schema = {
         (fieldName, schema) => {
           let schema = schema->toInternal
           let inlinedLocation = fieldName->X.Inlined.Value.fromString
-          if fields->X.Dict.has(fieldName) {
+          if properties->X.Dict.has(fieldName) {
             InternalError.panic(
               `The field ${inlinedLocation} defined twice with incompatible schemas`,
             )
@@ -3978,7 +3980,7 @@ module Schema = {
             location: fieldName,
           })
           let item = ditem->ditemToItem
-          fields->Js.Dict.set(fieldName, item)
+          properties->Js.Dict.set(fieldName, schema)
           items->Js.Array2.push(item)->ignore
           ditem->proxify
         }
@@ -4007,7 +4009,7 @@ module Schema = {
       let mut = base()
       mut.tag = Object
       mut.items = Some(items)
-      mut.fields = Some(fields)
+      mut.properties = Some(properties)
       mut.additionalItems = Some(globalConfig.defaultAdditionalItems)
       mut.parser = Some(advancedBuilder(~definition, ~flattened))
       mut.to = Some(definitionToTarget(~definition, ~flattened))
@@ -4117,7 +4119,7 @@ module Schema = {
             let fieldNames = node->Js.Dict.keys
             let node = node->(Obj.magic: Definition.node<ditem> => dict<Definition.t<ditem>>)
 
-            let fields = Js.Dict.empty()
+            let properties = Js.Dict.empty()
             let items = []
             for idx in 0 to fieldNames->Js.Array2.length - 1 {
               let location = fieldNames->Js.Array2.unsafe_get(idx)
@@ -4133,7 +4135,7 @@ module Schema = {
                 schema: ritem->getRitemSchema->fromInternal,
               }
               items->Js.Array2.unsafe_set(idx, item)
-              fields->Js.Dict.set(location, item)
+              properties->Js.Dict.set(location, item.schema->toInternal)
             }
 
             Node({
@@ -4142,7 +4144,7 @@ module Schema = {
                 let mut = base()
                 mut.tag = Object
                 mut.items = Some(items)
-                mut.fields = Some(fields)
+                mut.properties = Some(properties)
                 mut.additionalItems = Some(globalConfig.defaultAdditionalItems)
                 mut.serializer = Some(neverBuilder)
                 mut
@@ -4207,13 +4209,13 @@ module Schema = {
               location,
               inlinedLocation,
             }
-            node->Js.Dict.set(location, item->(Obj.magic: item => unknown))
+            node->Js.Dict.set(location, schema->(Obj.magic: internal => unknown))
             items->Js.Array2.unsafe_set(idx, item)
           }
           let mut = base()
           mut.tag = Object
           mut.items = Some(items)
-          mut.fields = Some(node->(Obj.magic: dict<unknown> => dict<item>))
+          mut.properties = Some(node->(Obj.magic: dict<unknown> => dict<internal>))
           mut.additionalItems = Some(globalConfig.defaultAdditionalItems)
           mut.refiner = Some(schemaRefiner)
           mut
@@ -5035,7 +5037,7 @@ let js_nullable = (schema, maybeOr) => {
 let js_merge = (s1, s2) => {
   switch switch (s1, s2) {
   | (
-      Object({fields: fields1, additionalItems: additionalItems1}),
+      Object({items: items1, additionalItems: additionalItems1}),
       Object({items: items2, additionalItems: additionalItems2}),
     )
     // Filter out S.record schemas
@@ -5043,15 +5045,39 @@ let js_merge = (s1, s2) => {
     additionalItems2->X.Type.typeof === #string &&
     !((s1->toInternal).to->Obj.magic) &&
     !((s2->toInternal).to->Obj.magic) =>
-    let fields = fields1->X.Dict.copy
+    let properties = Js.Dict.empty()
+    let locations = []
+    let inlinedLocations = []
+    let items = []
+    for idx in 0 to items1->Js.Array2.length - 1 {
+      let item = items1->Js.Array2.unsafe_get(idx)
+      locations->Js.Array2.push(item.location)->ignore
+      inlinedLocations->Js.Array2.push(item.inlinedLocation)->ignore
+      properties->Js.Dict.set(item.location, item.schema->toInternal)
+    }
     for idx in 0 to items2->Js.Array2.length - 1 {
       let item = items2->Js.Array2.unsafe_get(idx)
-      fields->Js.Dict.set(item.location, item)
+      if !(properties->X.Dict.has(item.location)) {
+        locations->Js.Array2.push(item.location)->ignore
+        inlinedLocations->Js.Array2.push(item.inlinedLocation)->ignore
+      }
+      properties->Js.Dict.set(item.location, item.schema->toInternal)
     }
+    for idx in 0 to locations->Js.Array2.length - 1 {
+      let location = locations->Js.Array2.unsafe_get(idx)
+      items
+      ->Js.Array2.push({
+        location,
+        inlinedLocation: inlinedLocations->Js.Array2.unsafe_get(idx),
+        schema: properties->Js.Dict.unsafeGet(location)->fromInternal,
+      })
+      ->ignore
+    }
+
     let mut = base()
     mut.tag = Object
-    mut.items = Some(fields->X.Dict.values)
-    mut.fields = Some(fields)
+    mut.items = Some(items)
+    mut.properties = Some(properties)
     mut.additionalItems = Some(additionalItems1)
     mut.refiner = Some(Schema.schemaRefiner)
     Some(mut->fromInternal)

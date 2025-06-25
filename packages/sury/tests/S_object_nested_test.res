@@ -58,19 +58,13 @@ test("Object with a single nested field with S.transform", t => {
     )
   )
 
-  Js.log((schema->S.reverse->Obj.magic)["to"]["fields"]["nested"]["schema"]["fields"]["foo"])
-
-  // t->U.assertCompiledCode(
-  //   ~schema,
-  //   ~op=#Parse,
-  //   `i=>{if(typeof i!=="object"||!i||typeof i["nested"]!=="object"||!i["nested"]){e[0](i)}let v0=i["nested"],v1=v0["foo"];if(typeof v1!=="number"||Number.isNaN(v1)){e[1](v1)}return e[2](v1)}`,
-  // )
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(typeof i!=="object"||!i||typeof i["nested"]!=="object"||!i["nested"]){e[0](i)}let v0=i["nested"],v1=v0["foo"];if(typeof v1!=="number"||Number.isNaN(v1)){e[1](v1)}return e[2](v1)}`,
+  )
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return {"nested":{"foo":e[0](i),},}}`)
-  // t->Assert.deepEqual(
-  //   "123.4"->S.reverseConvertOrThrow(schema),
-  //   %raw(`{"nested":{"foo":123.4}}`),
-  //   (),
-  // )
+  t->Assert.deepEqual("123.4"->S.reverseConvertOrThrow(schema), %raw(`{"nested":{"foo":123.4}}`))
 })
 
 test("Object with a nested tag and optional field", t => {

@@ -197,7 +197,9 @@ export type Schema<Output, Input = unknown> = {
   | {
       readonly type: "object";
       readonly items: Item[];
-      readonly properties: Record<string, Schema<unknown>>;
+      readonly properties: {
+        [key: string]: Schema<unknown>;
+      };
       readonly additionalItems: "strip" | "strict" | Schema<unknown>;
     }
   | {

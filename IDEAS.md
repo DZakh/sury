@@ -38,7 +38,12 @@ console.log(S.boolean)
   // FIXME: This is not implemented
   // FIXME: Remove `S.deepStrict` and `S.deepStrip` if `S.deep` works ?
 
+- Changed internal representation of the object schema to have JSON Schema-like `properties` field instead of `fields`.
+
 ### ideas
+
+- Add `S.parseFromOrThrow(fromSchema, toSchema)` and `convertFromOrThrow` + async.
+  Remove `reverseConvert` and `parseJsonOrThrow`, `parseJsonStringOrThrow`, `convertToJsonOrThrow`, `convertToJsonStringOrThrow`, `reverseConvertOrThrow`, `reverseConvertToJsonOrThrow`, `reverseConvertToJsonStringOrThrow`
 
 - rename `serializer` to reverse parser ?
 - Make `foo->S.to(S.unknown)` stricter ??

@@ -1048,42 +1048,34 @@ function parse(prevB, schema, inputArg, path) {
   return input;
 }
 
-function jsonableValidation(output, parent, path, flag) {
-  var tag = output.type;
-  if (tag === "undefined" && parent.type !== "object" || nonJsonableTags.has(tag)) {
-    throw new SuryError({
-              TAG: "InvalidJsonSchema",
-              _0: parent
-            }, flag, path);
+function internalCompile(schema, flag, defs) {
+  var b = rootScope(flag, defs);
+  if (flag & 8) {
+    var output = reverse(schema);
+    jsonableValidation(output, output, "", flag);
   }
-  var match = output.type;
-  switch (match) {
-    case "array" :
-    case "object" :
-    case "union" :
-        break;
-    default:
-      return ;
+  var input = {
+    b: b,
+    v: _var,
+    i: "i",
+    f: has(flag, 1) || isLiteral(schema) ? 0 : 1
+  };
+  var output$1 = parse(b, schema, input, "");
+  var code = allocateScope(b);
+  var isAsync = has(output$1.f, 2);
+  schema.isAsync = isAsync;
+  if (code === "" && output$1 === input && !(flag & 22)) {
+    return noopOperation;
   }
-  if (tag === "union") {
-    output.anyOf.forEach(function (s) {
-          jsonableValidation(s, parent, path, flag);
-        });
-    return ;
+  var inlinedOutput = flag & 4 ? "void 0" : output$1.i;
+  if (flag & 16) {
+    inlinedOutput = "JSON.stringify(" + inlinedOutput + ")";
   }
-  var additionalItems = output.additionalItems;
-  var items = output.items;
-  if (items === undefined) {
-    return ;
+  if (flag & 2 && !isAsync && !defs) {
+    inlinedOutput = "Promise.resolve(" + inlinedOutput + ")";
   }
-  if (additionalItems === "strip" || additionalItems === "strict") {
-    additionalItems === "strip";
-  } else {
-    jsonableValidation(additionalItems, parent, path, flag);
-  }
-  items.forEach(function (item) {
-        jsonableValidation(item.schema, output, path + ("[" + item.inlinedLocation + "]"), flag);
-      });
+  var inlinedFunction = "i=>{" + code + "return " + inlinedOutput + "}";
+  return new Function("e", "s", "return " + inlinedFunction)(b.g.e, s);
 }
 
 function reverse(schema) {
@@ -1112,7 +1104,7 @@ function reverse(schema) {
     }
     var items = mut.items;
     if (items !== undefined) {
-      var fields = {};
+      var properties = {};
       var newItems = new Array(items.length);
       for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
         var item = items[idx];
@@ -1127,13 +1119,13 @@ function reverse(schema) {
         if (item.r) {
           reversed.r = item.r;
         }
-        fields[item.location] = reversed;
+        properties[item.location] = reversed_schema;
         newItems[idx] = reversed;
       }
       mut.items = newItems;
-      var match = mut.fields;
+      var match = mut.properties;
       if (match !== undefined) {
-        mut.fields = fields;
+        mut.properties = properties;
       }
       
     }
@@ -1178,48 +1170,6 @@ function reverse(schema) {
   return reversedHead;
 }
 
-function getOutputSchema(_schema) {
-  while(true) {
-    var schema = _schema;
-    var to = schema.to;
-    if (to === undefined) {
-      return schema;
-    }
-    _schema = to;
-    continue ;
-  };
-}
-
-function internalCompile(schema, flag, defs) {
-  var b = rootScope(flag, defs);
-  if (flag & 8) {
-    var output = reverse(schema);
-    jsonableValidation(output, output, "", flag);
-  }
-  var input = {
-    b: b,
-    v: _var,
-    i: "i",
-    f: has(flag, 1) || isLiteral(schema) ? 0 : 1
-  };
-  var output$1 = parse(b, schema, input, "");
-  var code = allocateScope(b);
-  var isAsync = has(output$1.f, 2);
-  schema.isAsync = isAsync;
-  if (code === "" && output$1 === input && !(flag & 22)) {
-    return noopOperation;
-  }
-  var inlinedOutput = flag & 4 ? "void 0" : output$1.i;
-  if (flag & 16) {
-    inlinedOutput = "JSON.stringify(" + inlinedOutput + ")";
-  }
-  if (flag & 2 && !isAsync && !defs) {
-    inlinedOutput = "Promise.resolve(" + inlinedOutput + ")";
-  }
-  var inlinedFunction = "i=>{" + code + "return " + inlinedOutput + "}";
-  return new Function("e", "s", "return " + inlinedFunction)(b.g.e, s);
-}
-
 function isAsyncInternal(schema, defs) {
   try {
     var b = rootScope(2, defs);
@@ -1238,6 +1188,56 @@ function isAsyncInternal(schema, defs) {
     getOrRethrow(exn);
     return false;
   }
+}
+
+function jsonableValidation(output, parent, path, flag) {
+  var tag = output.type;
+  if (tag === "undefined" && parent.type !== "object" || nonJsonableTags.has(tag)) {
+    throw new SuryError({
+              TAG: "InvalidJsonSchema",
+              _0: parent
+            }, flag, path);
+  }
+  var match = output.type;
+  switch (match) {
+    case "array" :
+    case "object" :
+    case "union" :
+        break;
+    default:
+      return ;
+  }
+  if (tag === "union") {
+    output.anyOf.forEach(function (s) {
+          jsonableValidation(s, parent, path, flag);
+        });
+    return ;
+  }
+  var additionalItems = output.additionalItems;
+  var items = output.items;
+  if (items === undefined) {
+    return ;
+  }
+  if (additionalItems === "strip" || additionalItems === "strict") {
+    additionalItems === "strip";
+  } else {
+    jsonableValidation(additionalItems, parent, path, flag);
+  }
+  items.forEach(function (item) {
+        jsonableValidation(item.schema, output, path + ("[" + item.inlinedLocation + "]"), flag);
+      });
+}
+
+function getOutputSchema(_schema) {
+  while(true) {
+    var schema = _schema;
+    var to = schema.to;
+    if (to === undefined) {
+      return schema;
+    }
+    _schema = to;
+    continue ;
+  };
 }
 
 function operationFn(s, o) {
@@ -1981,17 +1981,17 @@ function factory(schemas) {
 
 var nestedLoc = "BS_PRIVATE_NESTED_SOME_NONE";
 
-var inLoc = "\"" + nestedLoc + "\"";
+var inlinedNestedLoc = "\"" + nestedLoc + "\"";
 
 function nestedNone() {
-  var item_schema = parse$1(0);
+  var itemSchema = parse$1(0);
   var item = {
-    schema: item_schema,
+    schema: itemSchema,
     location: nestedLoc,
-    inlinedLocation: inLoc
+    inlinedLocation: inlinedNestedLoc
   };
-  var fields = {};
-  fields[nestedLoc] = item;
+  var properties = {};
+  properties[nestedLoc] = itemSchema;
   return {
           type: "object",
           serializer: (function (b, param, selfSchema, param$1) {
@@ -2004,7 +2004,7 @@ function nestedNone() {
             }),
           additionalItems: "strip",
           items: [item],
-          fields: fields
+          properties: properties
         };
 }
 
@@ -2012,7 +2012,7 @@ function parser(b, param, selfSchema, param$1) {
   return {
           b: b,
           v: _notVar,
-          i: "{" + inLoc + ":" + getOutputSchema(selfSchema).items[0].schema.const + "}",
+          i: "{" + inlinedNestedLoc + ":" + getOutputSchema(selfSchema).items[0].schema.const + "}",
           f: 1
         };
 }
@@ -2050,30 +2050,27 @@ function factory$1(item, unitOpt) {
                           newAnyOf.push(unit);
                           tmp = nestedOption(schema);
                         } else {
-                          var fields = match.fields;
-                          if (fields !== undefined) {
-                            var item = fields[nestedLoc];
-                            tmp = item !== undefined ? updateOutput(schema, (function(item){
+                          var properties = match.properties;
+                          if (properties !== undefined) {
+                            var nestedSchema = properties[nestedLoc];
+                            tmp = nestedSchema !== undefined ? updateOutput(schema, (function(nestedSchema){
                                   return function (mut) {
-                                    var fSchema = item.schema;
                                     var newItem_schema = {
-                                      type: fSchema.type,
-                                      parser: fSchema.parser,
-                                      const: fSchema.const + 1
+                                      type: nestedSchema.type,
+                                      parser: nestedSchema.parser,
+                                      const: nestedSchema.const + 1
                                     };
-                                    var newItem_location = item.location;
-                                    var newItem_inlinedLocation = item.inlinedLocation;
                                     var newItem = {
                                       schema: newItem_schema,
-                                      location: newItem_location,
-                                      inlinedLocation: newItem_inlinedLocation
+                                      location: nestedLoc,
+                                      inlinedLocation: inlinedNestedLoc
                                     };
-                                    var fields = {};
-                                    fields[nestedLoc] = newItem;
+                                    var properties = {};
+                                    properties[nestedLoc] = newItem_schema;
                                     mut.items = [newItem];
-                                    mut.fields = fields;
+                                    mut.properties = properties;
                                   }
-                                  }(item))) : schema;
+                                  }(nestedSchema))) : schema;
                           } else {
                             tmp = schema;
                           }
@@ -2215,7 +2212,7 @@ function setAdditionalItems(schema, additionalItems, deep) {
   mut.additionalItems = additionalItems;
   if (deep) {
     var newItems = [];
-    var newFields = {};
+    var newProperties = {};
     for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
       var item = items[idx];
       var newSchema = setAdditionalItems(item.schema, additionalItems, deep);
@@ -2224,11 +2221,11 @@ function setAdditionalItems(schema, additionalItems, deep) {
             location: item.location,
             inlinedLocation: item.inlinedLocation
           });
-      newFields[item.location] = newItem;
+      newProperties[item.location] = newSchema;
       newItems.push(newItem);
     }
     mut.items = newItems;
-    mut.fields = newFields;
+    mut.properties = newProperties;
   }
   return mut;
 }
@@ -2301,7 +2298,7 @@ function dictRefiner(b, input, selfSchema, path) {
 function factory$3(item) {
   var mut = new Schema();
   mut.type = "object";
-  mut.fields = immutableEmpty;
+  mut.properties = immutableEmpty;
   mut.items = immutableEmpty$1;
   mut.additionalItems = item;
   mut.refiner = dictRefiner;
@@ -2551,11 +2548,17 @@ function proxify(item) {
                   var inlinedLocation = fromString(prop);
                   var targetReversed = getOutputSchema(item.schema);
                   var items = targetReversed.items;
-                  var fields = targetReversed.fields;
-                  var maybeReversedItem = fields !== undefined ? fields[prop] : (
-                      items !== undefined ? items[prop] : undefined
-                    );
-                  if (maybeReversedItem === undefined) {
+                  var properties = targetReversed.properties;
+                  var maybeField;
+                  if (properties !== undefined) {
+                    maybeField = properties[prop];
+                  } else if (items !== undefined) {
+                    var i = items[prop];
+                    maybeField = i !== undefined ? i.schema : undefined;
+                  } else {
+                    maybeField = undefined;
+                  }
+                  if (maybeField === undefined) {
                     var message = "Cannot read property " + inlinedLocation + " of " + toExpression(targetReversed);
                     throw new Error("[Sury] " + message);
                   }
@@ -2563,7 +2566,7 @@ function proxify(item) {
                               k: 1,
                               inlinedLocation: inlinedLocation,
                               location: prop,
-                              schema: maybeReversedItem.schema,
+                              schema: maybeField,
                               of: item,
                               p: "[" + inlinedLocation + "]"
                             });
@@ -2649,7 +2652,7 @@ function definitionToRitem(definition, path, ritemsByItemPath) {
           };
   }
   var fieldNames = Object.keys(definition);
-  var fields = {};
+  var properties = {};
   var items$1 = [];
   for(var idx$1 = 0 ,idx_finish$1 = fieldNames.length; idx$1 < idx_finish$1; ++idx$1){
     var $$location$1 = fieldNames[idx$1];
@@ -2662,13 +2665,13 @@ function definitionToRitem(definition, path, ritemsByItemPath) {
       inlinedLocation: inlinedLocation$1
     };
     items$1[idx$1] = item$2;
-    fields[$$location$1] = item$2;
+    properties[$$location$1] = item_schema$1;
   }
   var mut$1 = new Schema();
   return {
           k: 2,
           p: path,
-          s: (mut$1.type = "object", mut$1.items = items$1, mut$1.fields = fields, mut$1.additionalItems = globalConfig.a, mut$1.serializer = neverBuilder, mut$1)
+          s: (mut$1.type = "object", mut$1.items = items$1, mut$1.properties = properties, mut$1.additionalItems = globalConfig.a, mut$1.serializer = neverBuilder, mut$1)
         };
 }
 
@@ -2680,18 +2683,18 @@ function nested(fieldName) {
     return Caml_option.valFromOption(ctx);
   }
   var schemas = [];
-  var fields = {};
+  var properties = {};
   var items = [];
   var schema = new Schema();
   schema.type = "object";
   schema.items = items;
-  schema.fields = fields;
+  schema.properties = properties;
   schema.additionalItems = globalConfig.a;
   schema.refiner = schemaRefiner;
   var target = parentCtx.f(fieldName, schema)[itemSymbol];
   var field = function (fieldName, schema) {
     var inlinedLocation = fromString(fieldName);
-    if (fields[fieldName]) {
+    if (properties[fieldName]) {
       throw new Error("[Sury] " + ("The field " + inlinedLocation + " defined twice"));
     }
     var ditem_4 = "[" + inlinedLocation + "]";
@@ -2703,7 +2706,7 @@ function nested(fieldName) {
       of: target,
       p: ditem_4
     };
-    fields[fieldName] = ditem;
+    properties[fieldName] = schema;
     items.push(ditem);
     schemas.push(schema);
     return proxify(ditem);
@@ -2790,13 +2793,13 @@ function definitionToSchema(definition) {
       location: $$location$1,
       inlinedLocation: inlinedLocation$1
     };
-    definition[$$location$1] = item;
+    definition[$$location$1] = schema$1;
     items[idx$1] = item;
   }
   var mut$1 = new Schema();
   mut$1.type = "object";
   mut$1.items = items;
-  mut$1.fields = definition;
+  mut$1.properties = definition;
   mut$1.additionalItems = globalConfig.a;
   mut$1.refiner = schemaRefiner;
   return mut$1;
@@ -2968,7 +2971,7 @@ function shape(schema, definer) {
 function object(definer) {
   var flattened = (void 0);
   var items = [];
-  var fields = {};
+  var properties = {};
   var flatten = function (schema) {
     var match = schema.type;
     if (match === "object") {
@@ -2978,40 +2981,40 @@ function object(definer) {
         var inlinedLocation = match$1.inlinedLocation;
         var $$location = match$1.location;
         var flattenedSchema = match$1.schema;
-        var item = fields[$$location];
-        if (item !== undefined) {
-          if (item.schema !== flattenedSchema) {
+        var schema$1 = properties[$$location];
+        if (schema$1 !== undefined) {
+          if (schema$1 !== flattenedSchema) {
             throw new Error("[Sury] " + ("The field " + inlinedLocation + " defined twice with incompatible schemas"));
           }
           
         } else {
-          var item$1 = {
+          var item = {
             k: 0,
             schema: flattenedSchema,
             inlinedLocation: inlinedLocation,
             location: $$location
           };
-          items.push(item$1);
-          fields[$$location] = item$1;
+          items.push(item);
+          properties[$$location] = flattenedSchema;
         }
       }
       var f = (flattened || (flattened = []));
       var item_2 = f.length;
-      var item$2 = {
+      var item$1 = {
         k: 2,
         schema: schema,
         p: "",
         i: item_2
       };
-      f.push(item$2);
-      return proxify(item$2);
+      f.push(item$1);
+      return proxify(item$1);
     }
     var message = "The '" + toExpression(schema) + "' schema can't be flattened";
     throw new Error("[Sury] " + message);
   };
   var field = function (fieldName, schema) {
     var inlinedLocation = fromString(fieldName);
-    if (fields[fieldName]) {
+    if (properties[fieldName]) {
       throw new Error("[Sury] " + ("The field " + inlinedLocation + " defined twice with incompatible schemas"));
     }
     var ditem = {
@@ -3020,7 +3023,7 @@ function object(definer) {
       inlinedLocation: inlinedLocation,
       location: fieldName
     };
-    fields[fieldName] = ditem;
+    properties[fieldName] = schema;
     items.push(ditem);
     return proxify(ditem);
   };
@@ -3042,7 +3045,7 @@ function object(definer) {
   var mut = new Schema();
   mut.type = "object";
   mut.items = items;
-  mut.fields = fields;
+  mut.properties = properties;
   mut.additionalItems = globalConfig.a;
   mut.parser = advancedBuilder(definition, flattened);
   mut.to = definitionToTarget(definition, undefined, flattened);
@@ -3622,15 +3625,37 @@ function js_merge(s1, s2) {
     var additionalItems1 = s1.additionalItems;
     if (typeof additionalItems1 === "string" && typeof s2.additionalItems === "string" && !s1.to && !s2.to) {
       var items2 = s2.items;
-      var fields = copy(s1.fields);
-      for(var idx = 0 ,idx_finish = items2.length; idx < idx_finish; ++idx){
-        var item = items2[idx];
-        fields[item.location] = item;
+      var items1 = s1.items;
+      var properties = {};
+      var locations = [];
+      var inlinedLocations = [];
+      var items = [];
+      for(var idx = 0 ,idx_finish = items1.length; idx < idx_finish; ++idx){
+        var item = items1[idx];
+        locations.push(item.location);
+        inlinedLocations.push(item.inlinedLocation);
+        properties[item.location] = item.schema;
+      }
+      for(var idx$1 = 0 ,idx_finish$1 = items2.length; idx$1 < idx_finish$1; ++idx$1){
+        var item$1 = items2[idx$1];
+        if (!properties[item$1.location]) {
+          locations.push(item$1.location);
+          inlinedLocations.push(item$1.inlinedLocation);
+        }
+        properties[item$1.location] = item$1.schema;
+      }
+      for(var idx$2 = 0 ,idx_finish$2 = locations.length; idx$2 < idx_finish$2; ++idx$2){
+        var $$location = locations[idx$2];
+        items.push({
+              schema: properties[$$location],
+              location: $$location,
+              inlinedLocation: inlinedLocations[idx$2]
+            });
       }
       var mut = new Schema();
       mut.type = "object";
-      mut.items = Object.values(fields);
-      mut.fields = fields;
+      mut.items = items;
+      mut.properties = properties;
       mut.additionalItems = additionalItems1;
       mut.refiner = schemaRefiner;
       s = mut;
