@@ -1446,6 +1446,13 @@ let unknown = base()
 unknown.tag = Unknown
 let unknown: t<unknown> = unknown->fromInternal
 
+let setHas = (has, tag: tag) => {
+  has->Js.Dict.set(
+    tag === Union || tag === Ref ? (Unknown: tag :> string) : (tag: tag :> string),
+    true,
+  )
+}
+
 let rec parse = (prevB: b, ~schema, ~input as inputArg, ~path) => {
   let b = B.scope(prevB)
 
@@ -1791,15 +1798,7 @@ and reverse = (schema: internal) => {
         let s = anyOf->Js.Array2.unsafe_get(idx)
         let reversed = s->reverse
         newAnyOf->Js.Array2.push(reversed)->ignore
-        has->Js.Dict.set(
-          switch reversed.tag {
-          | Union
-          | Ref =>
-            (Unknown: tag :> string)
-          | v => (v: tag :> string)
-          },
-          true,
-        )
+        has->setHas(reversed.tag)
       }
       mut.has = Some(has)
       mut.anyOf = Some(newAnyOf)
@@ -2698,15 +2697,7 @@ module Union = {
           let _ = has->X.Dict.mixin(schema.has->X.Option.getUnsafe)
         } else {
           anyOf->X.Set.add(schema)
-          has->Js.Dict.set(
-            (switch schema.tag {
-            | Union
-            | Ref =>
-              Unknown
-            | v => v
-            }: tag :> string),
-            true,
-          )
+          has->setHas(schema.tag)
         }
       }
       let mut = base()
@@ -2837,39 +2828,91 @@ module Option = {
     ->toInternal
     ->updateOutput(mut => {
       switch mut.anyOf {
-      | None => InternalError.panic("Setting default only works for schemas with optional output.")
-      | Some(items) => {
-          let newItems = Belt.Array.makeUninitializedUnsafe(items->Js.Array2.length)
-          let defaultValue = switch default {
-          | Value(v) => v
-          | Callback(_) => InternalError.panic("FIXME: Default callbacks are not supported yet.")
-          }
-          let defaultLiteral = Literal.parse(defaultValue)
-          for idx in 0 to items->Js.Array2.length - 1 {
-            let item = items->Js.Array2.unsafe_get(idx)
+      | Some(anyOf) => {
+          let newAnyOf = []
+          let newHas = Js.Dict.empty()
+          for idx in 0 to anyOf->Js.Array2.length - 1 {
+            let item = anyOf->Js.Array2.unsafe_get(idx)
             let itemOutput = item->getOutputSchema
-            let newItem = if itemOutput.tag === Undefined {
-              item
-              ->updateOutput(itemMut => {
-                itemMut.to = Some(defaultLiteral)
-              })
-              ->toInternal
-            } else {
-              item
+            if itemOutput.tag !== Undefined {
+              newAnyOf->Js.Array2.push(itemOutput)->ignore
+              newHas->setHas(itemOutput.tag)
             }
             // FIXME: Should delete schema.default on reverse?
             // FIXME: Should delete schema.unnest on reverse?
             // FIXME: Ensure that default has the same type as the item
             // Or maybe not, but need to make it properly with JSON Schema
-            // FIXME: Update schema.has
-            newItems->Js.Array2.unsafe_set(idx, newItem)
           }
-          mut.anyOf = Some(newItems)
-          mut.default = Some(defaultValue)
+
+          if newAnyOf->Js.Array2.length === anyOf->Js.Array2.length {
+            InternalError.panic(
+              `${mut->fromInternal->toExpression} doesn't have undefined case for default`,
+            )
+          }
+
+          mut.parser = Some(
+            Builder.make((b, ~input, ~selfSchema as _, ~path as _) => {
+              let inputVar = input.var(b)
+              b->B.val(
+                `${inputVar}===void 0?${switch default {
+                  | Value(v) => b->B.inlineConst(Literal.parse(v))
+                  | Callback(cb) => `${b->B.embed(cb)}()`
+                  }}:${inputVar}`,
+              )
+            }),
+          )
+          mut.to = Some({
+            tag: Union,
+            anyOf: newAnyOf,
+            has: newHas,
+            serializer: Union.refiner,
+          })
+
+          switch default {
+          | Value(v) => mut.default = Some(v)
+          | Callback(_) => ()
+          }
         }
+      | None => InternalError.panic(`Can't set default for ${mut->fromInternal->toExpression}`)
       }
     })
   }
+
+  //  let getWithDefault = (schema: t<option<'value>>, default) => {
+  //   let schema = schema->toInternal
+  //   let mut = schema->copy
+  //   mut->Metadata.setInPlace(~id=defaultMetadataId, default)
+  //   mut.builder = Some(
+  //     Builder.make((b, ~input, ~selfSchema as _, ~path) => {
+  //       b->B.transform(~input=b->B.parse(~schema, ~input, ~path), (b, ~input) => {
+  //         let inputVar = b->B.Val.var(input)
+  // b->B.val(
+  //   `${inputVar}===void 0?${switch default {
+  //     | Value(v) => b->B.embed(v)
+  //     | Callback(cb) => `${b->B.embed(cb)}()`
+  //     }}:${inputVar}`,
+  // )
+  //       })
+  //     }),
+  //   )
+  //   mut.output = Some(
+  //     () => {
+  //       let reversed = schema->reverse
+  //       switch reversed {
+  //       | {anyOf} =>
+  //         // FIXME: What if the union is transformed
+  //         // FIXME: Looks broken
+  //         Union.factory(
+  //           anyOf
+  //           ->Js.Array2.filter(s => s->isOptional->not)
+  //           ->(Obj.magic: array<internal> => array<t<unknown>>),
+  //         )->toInternal
+  //       | _ => reversed
+  //       }
+  //     },
+  //   )
+  //   mut->fromInternal
+  // }
 
   let getOr = (schema, defalutValue) =>
     schema->getWithDefault(Value(defalutValue->castAnyToUnknown))

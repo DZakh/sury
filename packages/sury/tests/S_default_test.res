@@ -18,6 +18,7 @@ test("Returns the last default value", t => {
           None
         },
     })
+    ->S.to(S.option(S.string))
     ->S.Option.getOr("not positive")
 
   t->Assert.deepEqual((schema->S.untag).default, Some("not positive"->(U.magic: string => unknown)))

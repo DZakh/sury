@@ -368,6 +368,32 @@ test("Successfully parses optional string", (t) => {
   expectType<TypeEqual<typeof value2, string | undefined>>(true);
 });
 
+test("Optional enum", (t) => {
+  const statuses = S.union(["Win", "Draw", "Loss"]);
+  const schema = S.optional(statuses);
+
+  t.deepEqual(S.parseOrThrow("Win", schema), "Win");
+  t.deepEqual(S.parseOrThrow(undefined, schema), undefined);
+
+  expectType<
+    TypeEqual<
+      S.Schema<
+        "Win" | "Draw" | "Loss" | undefined,
+        "Win" | "Draw" | "Loss" | undefined
+      >,
+      typeof schema
+    >
+  >(true);
+
+  const brokenInfer = S.optional(S.union(["Win", "Draw", "Loss"]));
+  expectType<
+    TypeEqual<
+      S.Schema<string | undefined, string | undefined>,
+      typeof brokenInfer
+    >
+  >(true);
+});
+
 test("Successfully parses schema wrapped in optional multiple times", (t) => {
   const schema = S.optional(S.optional(S.optional(S.string)));
   const value1 = S.parseOrThrow("foo", schema);

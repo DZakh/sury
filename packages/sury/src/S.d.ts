@@ -461,7 +461,11 @@ export function tuple<Output, Input extends unknown[]>(
   }) => Output
 ): Schema<Output, Input>;
 
-export function optional<Output, Input, Or = undefined>(
+export function optional<
+  Output,
+  Input,
+  Or extends Output | undefined = undefined
+>(
   schema: Schema<Output, Input>,
   or?: (() => Or) | Or,
   // To make .with work
@@ -471,7 +475,11 @@ export function optional<Output, Input, Or = undefined>(
   Input | undefined
 >;
 
-export function nullable<Output, Input, Or = undefined>(
+export function nullable<
+  Output,
+  Input,
+  Or extends Output | undefined = undefined
+>(
   schema: Schema<Output, Input>,
   or?: (() => Or) | Or,
   // To make .with work

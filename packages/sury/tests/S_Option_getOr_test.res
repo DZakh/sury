@@ -38,8 +38,10 @@ test("Successfully serializes nested option with default value", t => {
 
   t->Assert.deepEqual(
     Some(Some(Some(Some(None))))->S.reverseConvertOrThrow(schema),
-    %raw(`undefined`),
+    Some(Some(Some(Some(None))))->Obj.magic,
   )
+  // FIXME: I'm not sure this is correct
+  t->Assert.deepEqual(Some(None)->S.reverseConvertOrThrow(schema), %raw(`undefined`))
   t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`))
 })
 
@@ -72,6 +74,11 @@ test("Successfully parses schema with transformation", t => {
     ->S.Option.getOr("not positive")
 
   t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), "not positive")
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{try{if(!(typeof i==="number"&&!Number.isNaN(i)||i===void 0)){e[0](i)}let v0=e[1](i===void 0?-123:i);if(typeof v0!=="string"){e[2](v0)}i=v0}catch(e0){try{if(!(typeof i==="number"&&!Number.isNaN(i)||i===void 0)){e[3](i)}let v1=e[4](i===void 0?-123:i);if(v1!==void 0){e[5](v1)}i=v1}catch(e1){e[6](i,e0,e1)}}return i===void 0?"not positive":i}`,
+  )
 })
 
 test("Successfully serializes schema with transformation", t => {
