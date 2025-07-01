@@ -862,6 +862,7 @@ function parse(prevB, schema, inputArg, path) {
             }
             return output;
           }));
+    input.v(b);
   }
   var refiner = schema.refiner;
   if (refiner !== undefined) {

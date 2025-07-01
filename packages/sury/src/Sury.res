@@ -1508,6 +1508,9 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg, ~path) => {
         }
         output
       })
+    // Force rec function execution
+    // for the case when the value is not used
+    let _ = input.contents.var(b)
   | None => ()
   }
 

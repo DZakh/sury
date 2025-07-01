@@ -121,13 +121,14 @@ test("When union of json and string schemas, should parse the first one", t => {
   t->Assert.deepEqual(%raw(`"string"`)->S.parseOrThrow(schema), #json)
   t->U.assertThrowsMessage(
     () => %raw(`undefined`)->S.parseOrThrow(schema),
-    `FIXME: Should validate that it's a valid JSON`,
+    `Failed parsing: Expected JSON | string, received undefined
+- Expected JSON, received undefined`,
   )
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{i=e[0]}catch(e0){if(typeof i==="string"){i=e[1]}else{e[2](i,e0)}}return i}`,
+    `i=>{try{let v0=e[0](i);i=e[1]}catch(e0){if(typeof i==="string"){i=e[2]}else{e[3](i,e0)}}return i}`,
   )
 })
 
@@ -716,16 +717,16 @@ module CrazyUnion = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{return e[0](i)}
-Crazy: i=>{if(typeof i==="object"&&i){if(i["type"]==="A"){let v0=i["nested"];if(!Array.isArray(v0)){e[0](v0)}let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v3;try{v3=e[1][1](v0[v1])}catch(v2){if(v2&&v2.s===s){v2.path="[\\"nested\\"]"+'["'+v1+'"]'+v2.path}throw v2}v4[v1]=v3}i={"TAG":e[2],"_0":v4,}}else if(i["type"]==="Z"){let v5=i["nested"];if(!Array.isArray(v5)){e[3](v5)}let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){let v8;try{v8=e[4][1](v5[v6])}catch(v7){if(v7&&v7.s===s){v7.path="[\\"nested\\"]"+'["'+v6+'"]'+v7.path}throw v7}v9[v6]=v8}i={"TAG":e[5],"_0":v9,}}else{e[6](i)}}else if(!(typeof i==="string"&&(i==="B"||i==="C"||i==="D"||i==="E"||i==="F"||i==="G"||i==="H"||i==="I"||i==="J"||i==="K"||i==="L"||i==="M"||i==="N"||i==="O"||i==="P"||i==="Q"||i==="R"||i==="S"||i==="T"||i==="U"||i==="V"||i==="W"||i==="X"||i==="Y"))){e[7](i)}return i}`,
+      `i=>{let v0=e[0](i);return v0}
+Crazy: i=>{if(typeof i==="object"&&i){if(i["type"]==="A"){let v0=i["nested"];if(!Array.isArray(v0)){e[0](v0)}let v5=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v4;try{let v3=e[1][1](v0[v1]);v4=v3}catch(v2){if(v2&&v2.s===s){v2.path="[\\"nested\\"]"+'["'+v1+'"]'+v2.path}throw v2}v5[v1]=v4}i={"TAG":e[2],"_0":v5,}}else if(i["type"]==="Z"){let v6=i["nested"];if(!Array.isArray(v6)){e[3](v6)}let v11=new Array(v6.length);for(let v7=0;v7<v6.length;++v7){let v10;try{let v9=e[4][1](v6[v7]);v10=v9}catch(v8){if(v8&&v8.s===s){v8.path="[\\"nested\\"]"+'["'+v7+'"]'+v8.path}throw v8}v11[v7]=v10}i={"TAG":e[5],"_0":v11,}}else{e[6](i)}}else if(!(typeof i==="string"&&(i==="B"||i==="C"||i==="D"||i==="E"||i==="F"||i==="G"||i==="H"||i==="I"||i==="J"||i==="K"||i==="L"||i==="M"||i==="N"||i==="O"||i==="P"||i==="Q"||i==="R"||i==="S"||i==="T"||i==="U"||i==="V"||i==="W"||i==="X"||i==="Y"))){e[7](i)}return i}`,
     )
   })
 
   test("Compiled serialize code snapshot of crazy union", t => {
     S.global({})
     let reversed = schema->S.reverse
-    let code = `i=>{return e[0](i)}
-Crazy: i=>{if(typeof i==="object"&&i){if(i["TAG"]==="A"){let v0=i["_0"],v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v3;try{v3=e[0][0](v0[v1])}catch(v2){if(v2&&v2.s===s){v2.path="[\\"_0\\"]"+'["'+v1+'"]'+v2.path}throw v2}v4[v1]=v3}i={"type":"A","nested":v4,}}else if(i["TAG"]==="Z"){let v5=i["_0"],v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){let v8;try{v8=e[1][0](v5[v6])}catch(v7){if(v7&&v7.s===s){v7.path="[\\"_0\\"]"+'["'+v6+'"]'+v7.path}throw v7}v9[v6]=v8}i={"type":"Z","nested":v9,}}}return i}`
+    let code = `i=>{let v0=e[0](i);return v0}
+Crazy: i=>{if(typeof i==="object"&&i){if(i["TAG"]==="A"){let v0=i["_0"],v5=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v4;try{let v3=e[0][0](v0[v1]);v4=v3}catch(v2){if(v2&&v2.s===s){v2.path="[\\"_0\\"]"+'["'+v1+'"]'+v2.path}throw v2}v5[v1]=v4}i={"type":"A","nested":v5,}}else if(i["TAG"]==="Z"){let v6=i["_0"],v11=new Array(v6.length);for(let v7=0;v7<v6.length;++v7){let v10;try{let v9=e[1][0](v6[v7]);v10=v9}catch(v8){if(v8&&v8.s===s){v8.path="[\\"_0\\"]"+'["'+v7+'"]'+v8.path}throw v8}v11[v7]=v10}i={"type":"Z","nested":v11,}}}return i}`
     t->U.assertCompiledCode(~schema=reversed, ~op=#Convert, code)
     // There was an issue with reverse when it doesn't return the same code on second run
     t->U.assertCompiledCode(~schema=reversed, ~op=#Convert, code)
