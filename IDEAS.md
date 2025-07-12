@@ -16,7 +16,10 @@ console.log(S.boolean)
 
 - Use `Sury` instead of `Schema` in a panic error message
 - Added `default` field to the schema. Removed `S.Option.default` previously exposed to ReScript users. Schemas with `default` are now more optimised and have correct data representation.
-  // FIXME: Default callback; JSON Schema support; TS types and tests
+
+  - Regression: Removed the ability to set default for optional union schema.
+  - Regression: `S.Option.getOrWith` is not reflected on schema
+    // FIXME: Default callback; JSON Schema support; TS types and tests
 
 - Fixed reverse parsing of shrinked schemas with `S.shape`
 - Fixed reverse parsing of `S.option(S.object(_ => ()))` in ReScript
@@ -43,7 +46,7 @@ console.log(S.boolean)
 ### ideas
 
 - Add `S.parseFromOrThrow(fromSchema, toSchema)` and `convertFromOrThrow` + async.
-  Remove `reverseConvert` and `parseJsonOrThrow`, `parseJsonStringOrThrow`, `convertToJsonOrThrow`, `convertToJsonStringOrThrow`, `reverseConvertOrThrow`, `reverseConvertToJsonOrThrow`, `reverseConvertToJsonStringOrThrow`
+  Deprecate `reverseConvert` and `parseJsonOrThrow`, `parseJsonStringOrThrow`, `convertToJsonOrThrow`, `convertToJsonStringOrThrow`, `reverseConvertOrThrow`, `reverseConvertToJsonOrThrow`, `reverseConvertToJsonStringOrThrow`
 
 - rename `serializer` to reverse parser ?
 - Make `foo->S.to(S.unknown)` stricter ??

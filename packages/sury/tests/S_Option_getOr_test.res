@@ -32,17 +32,24 @@ test("Successfully parses with default when provided primitive", t => {
 })
 
 test("Successfully serializes nested option with default value", t => {
-  let schema = S.option(
-    S.option(S.option(S.option(S.option(S.option(S.bool)))->S.Option.getOr(Some(Some(true))))),
-  )
+  t->Assert.throws(
+    () => {
+      let schema = S.option(
+        S.option(S.option(S.option(S.option(S.option(S.bool)))->S.Option.getOr(Some(Some(true))))),
+      )
 
-  t->Assert.deepEqual(
-    Some(Some(Some(Some(None))))->S.reverseConvertOrThrow(schema),
-    Some(Some(Some(Some(None))))->Obj.magic,
+      t->Assert.deepEqual(
+        Some(Some(Some(Some(None))))->S.reverseConvertOrThrow(schema),
+        Some(Some(Some(Some(None))))->Obj.magic,
+      )
+      // FIXME: I'm not sure this is correct
+      t->Assert.deepEqual(Some(None)->S.reverseConvertOrThrow(schema), %raw(`undefined`))
+      t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`))
+    },
+    ~expectations={
+      message: `[Sury] Can\'t set default for boolean | undefined | undefined | undefined`,
+    },
   )
-  // FIXME: I'm not sure this is correct
-  t->Assert.deepEqual(Some(None)->S.reverseConvertOrThrow(schema), %raw(`undefined`))
-  t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`))
 })
 
 test("Fails to parse data with default", t => {

@@ -32,9 +32,11 @@ test("Successfully parses with default when provided primitive", t => {
 })
 
 test("Successfully parses nested option with default value", t => {
-  let schema = S.option(S.bool)->S.option->S.Option.getOrWith(() => Some(true))
+  t->Assert.throws(() => {
+    let schema = S.option(S.bool)->S.option->S.Option.getOrWith(() => Some(true))
 
-  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), Some(true))
+    t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), Some(true))
+  }, ~expectations={message: "[Sury] Can\'t set default for boolean | undefined | undefined"})
 })
 
 test("Fails to parse data with default", t => {

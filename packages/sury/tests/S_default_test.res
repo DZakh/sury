@@ -6,7 +6,7 @@ test("Gets default value when Option.getOr is used", t => {
   t->Assert.deepEqual((schema->S.untag).default, Some(123.->(U.magic: float => unknown)))
 })
 
-test("Returns the last default value", t => {
+test("Returns the first default value, but can get the last one as well", t => {
   let schema =
     S.option(S.float)
     ->S.Option.getOr(123.)
@@ -21,20 +21,18 @@ test("Returns the last default value", t => {
     ->S.to(S.option(S.string))
     ->S.Option.getOr("not positive")
 
-  t->Assert.deepEqual((schema->S.untag).default, Some("not positive"->(U.magic: string => unknown)))
+  // FIXME: Make S.to properly work with union
+  // FIXME: Test .default in TS
+  t->Assert.deepEqual((schema->S.untag).default, Some(123.->U.magic))
+  // FIXME: Add case with getting default from to
 })
 
-// FIXME:
-// test("Gets default value when Option.getOrWith is used", t => {
-//   let cb = () => 123.
-//   let schema = S.option(S.float)->S.Option.getOrWith(cb)
+test("Currently doesn't store default value on schema set by Option.getOrWith", t => {
+  let cb = () => 123.
+  let schema = S.option(S.float)->S.Option.getOrWith(cb)
 
-//   t->Assert.deepEqual(
-//     schema->S.Option.default,
-//     Some(Callback(cb->(U.magic: (unit => float) => unit => unknown))),
-//     (),
-//   )
-// })
+  t->Assert.deepEqual((schema->S.untag).default, None)
+})
 
 test("Doesn't get default value for schemas without default", t => {
   let schema = S.float

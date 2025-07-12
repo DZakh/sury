@@ -79,7 +79,7 @@ test("Compiled serialize code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema=filmSchema,
     ~op=#ReverseConvert,
-    `i=>{let v0=i["tags"];let v3=i["rating"];let v4=i["deprecatedAgeRestriction"];return {"Id":i["id"],"Title":i["title"],"Tags":v0,"Rating":v3,"Age":v4,}}`,
+    `i=>{let v0=i["tags"];let v5=i["rating"];return {"Id":i["id"],"Title":i["title"],"Tags":v0,"Rating":v5,"Age":i["deprecatedAgeRestriction"],}}`,
   )
 })
 

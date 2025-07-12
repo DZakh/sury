@@ -479,30 +479,37 @@ test("JSONSchema of reversed object with S.option(S.option(_)) field", t => {
   )
 })
 
-test("Transformed schema schema with default fails when destruction failed", t => {
-  let schema = S.object(s =>
-    s.field(
-      "field",
-      S.option(
-        S.bool->S.transform(
-          _ => {
-            parser: bool => {
-              switch bool {
-              | true => "true"
-              | false => ""
-              }
+test(
+  "Successfully creates JSON schema for default field which we can't serialize. Just omit it from JSON Schema",
+  t => {
+    let schema = S.object(s =>
+      s.field(
+        "field",
+        S.option(
+          S.bool->S.transform(
+            _ => {
+              parser: bool => {
+                switch bool {
+                | true => "true"
+                | false => ""
+                }
+              },
             },
-          },
-        ),
-      )->S.Option.getOr("true"),
+          ),
+        )->S.Option.getOr("true"),
+      )
     )
-  )
 
-  t->U.assertThrowsMessage(
-    () => schema->S.toJSONSchema,
-    `Failed converting: The S.transform serializer is missing`,
-  )
-})
+    t->Assert.deepEqual(
+      schema->S.toJSONSchema,
+      %raw(`{
+        "type": "object",
+        "properties": {"field": {"type": "boolean"}}, // No 'default: true' here, but that's fine
+        "additionalProperties": true,
+      }`),
+    )
+  },
+)
 
 test("Transformed schema schema uses default with correct type", t => {
   let schema = S.object(s =>
@@ -525,7 +532,7 @@ test("Transformed schema schema uses default with correct type", t => {
             },
           },
         ),
-      )->S.Option.getOrWith(() => "true"),
+      )->S.Option.getOr("true"),
     )
   )
 
@@ -535,6 +542,20 @@ test("Transformed schema schema uses default with correct type", t => {
       "type": "object",
       "properties": {"field": {"default": true, "type": "boolean"}},
       "additionalProperties": true,
+    }`),
+  )
+})
+
+test("Currently Option.getOrWith is not reflected on JSON schema", t => {
+  let schema = S.null(S.bool)->S.Option.getOrWith(() => true)
+
+  t->Assert.deepEqual(
+    schema->S.toJSONSchema,
+    %raw(`{
+      "anyOf": [
+        {"type": "boolean"},
+        {"type": "null"}
+      ],
     }`),
   )
 })

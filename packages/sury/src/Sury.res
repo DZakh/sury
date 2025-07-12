@@ -2838,27 +2838,25 @@ module Option = {
     ->toInternal
     ->updateOutput(mut => {
       switch mut.anyOf {
-      | Some(anyOf) => {
-          let newAnyOf = []
-          let newHas = Js.Dict.empty()
-          for idx in 0 to anyOf->Js.Array2.length - 1 {
-            let item = anyOf->Js.Array2.unsafe_get(idx)
-            let itemOutput = item->getOutputSchema
-            if itemOutput.tag !== Undefined {
-              newAnyOf->Js.Array2.push(itemOutput)->ignore
-              newHas->setHas(itemOutput.tag)
-            }
-            // FIXME: Should delete schema.default on reverse?
-            // FIXME: Should delete schema.unnest on reverse?
-            // FIXME: Ensure that default has the same type as the item
-            // Or maybe not, but need to make it properly with JSON Schema
-          }
+      | Some([s1, s2]) => {
+          let s1Output = s1->getOutputSchema
+          let s2Output = s2->getOutputSchema
 
-          if newAnyOf->Js.Array2.length === anyOf->Js.Array2.length {
+          let item = switch (s1Output, s2Output) {
+          | ({tag: Undefined}, {tag: Undefined}) =>
+            InternalError.panic(`Can't set default for ${mut->fromInternal->toExpression}`)
+          | ({tag: Undefined}, _) => s2
+          | (_, {tag: Undefined}) => s1
+          | _ =>
             InternalError.panic(
-              `${mut->fromInternal->toExpression} doesn't have undefined case for default`,
+              `${mut->fromInternal->toExpression} doesn't have undefined case to default`,
             )
           }
+
+          // FIXME: Should delete schema.default on reverse?
+          // FIXME: Should delete schema.unnest on reverse?
+          // FIXME: Ensure that default has the same type as the item
+          // Or maybe not, but need to make it properly with JSON Schema
 
           mut.parser = Some(
             Builder.make((b, ~input, ~selfSchema as _, ~path as _) => {
@@ -2876,19 +2874,30 @@ module Option = {
               )
             }),
           )
-          mut.to = Some({
-            tag: Union,
-            anyOf: newAnyOf,
-            has: newHas,
-            serializer: Union.refiner,
-          })
+          let to = (item === s1 ? s1Output : s2Output)->copyWithoutCache
+          switch to.refiner {
+          | Some(refiner) => {
+              to.serializer = Some(refiner)
+              %raw(`delete to.refiner`)
+            }
+          | None => to.serializer = Some((_b, ~input, ~selfSchema as _, ~path as _) => input)
+          }
+          mut.to = Some(to)
 
           switch default {
-          | Value(v) => mut.default = Some(v)
+          | Value(v) =>
+            try mut.default =
+              operationFn(item->fromInternal, Flag.reverse)(v)->(
+                Obj.magic: unknown => option<unknown>
+              ) catch {
+            | _ => ()
+            }
           | Callback(_) => ()
           }
         }
-      | None => InternalError.panic(`Can't set default for ${mut->fromInternal->toExpression}`)
+      | Some(_)
+      | None =>
+        InternalError.panic(`Can't set default for ${mut->fromInternal->toExpression}`)
       }
     })
   }
