@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 test("Successfully parses object with quotes in a field name", t => {
   let schema = S.object(s =>
@@ -8,7 +7,7 @@ test("Successfully parses object with quotes in a field name", t => {
     }
   )
 
-  t->Assert.deepEqual(%raw(`{"\"\'\`": "bar"}`)->S.parseOrThrow(schema), {"field": "bar"}, ())
+  t->Assert.deepEqual(%raw(`{"\"\'\`": "bar"}`)->S.parseOrThrow(schema), {"field": "bar"})
 })
 
 test("Successfully serializing object with quotes in a field name", t => {
@@ -18,11 +17,7 @@ test("Successfully serializing object with quotes in a field name", t => {
     }
   )
 
-  t->Assert.deepEqual(
-    {"field": "bar"}->S.reverseConvertOrThrow(schema),
-    %raw(`{"\"\'\`": "bar"}`),
-    (),
-  )
+  t->Assert.deepEqual({"field": "bar"}->S.reverseConvertOrThrow(schema), %raw(`{"\"\'\`": "bar"}`))
 })
 
 test("Successfully parses object transformed to object with quotes in a field name", t => {
@@ -32,7 +27,7 @@ test("Successfully parses object transformed to object with quotes in a field na
     }
   )
 
-  t->Assert.deepEqual(%raw(`{"field": "bar"}`)->S.parseOrThrow(schema), {"\"\'\`": "bar"}, ())
+  t->Assert.deepEqual(%raw(`{"field": "bar"}`)->S.parseOrThrow(schema), {"\"\'\`": "bar"})
 })
 
 test("Successfully serializes object transformed to object with quotes in a field name", t => {
@@ -42,11 +37,7 @@ test("Successfully serializes object transformed to object with quotes in a fiel
     }
   )
 
-  t->Assert.deepEqual(
-    {"\"\'\`": "bar"}->S.reverseConvertOrThrow(schema),
-    %raw(`{"field": "bar"}`),
-    (),
-  )
+  t->Assert.deepEqual({"\"\'\`": "bar"}->S.reverseConvertOrThrow(schema), %raw(`{"field": "bar"}`))
 })
 
 test("Successfully parses object with discriminant which has quotes as the field name", t => {
@@ -63,7 +54,6 @@ test("Successfully parses object with discriminant which has quotes as the field
       "field": "bar",
     }`)->S.parseOrThrow(schema),
     {"field": "bar"},
-    (),
   )
 })
 
@@ -81,7 +71,6 @@ test("Successfully serializes object with discriminant which has quotes as the f
         "\"\'\`": null,
         "field": "bar",
       }`),
-    (),
   )
 })
 
@@ -99,7 +88,6 @@ test("Successfully parses object with discriminant which has quotes as the liter
       "field": "bar",
     }`)->S.parseOrThrow(schema),
     {"field": "bar"},
-    (),
   )
 })
 
@@ -119,7 +107,6 @@ test(
           "kind": "\"\'\`",
           "field": "bar",
         }`),
-      (),
     )
   },
 )
@@ -140,7 +127,6 @@ test(
         "\"\'\`": "hardcoded",
         "field": "bar",
       },
-      (),
     )
   },
 )
@@ -161,7 +147,6 @@ test(
         "field": "bar",
       }->S.reverseConvertOrThrow(schema),
       %raw(`{"field": "bar"}`),
-      (),
     )
   },
 )
@@ -182,7 +167,6 @@ test(
         "hardcoded": "\"\'\`",
         "field": "bar",
       },
-      (),
     )
   },
 )
@@ -203,7 +187,6 @@ test(
         "field": "bar",
       }->S.reverseConvertOrThrow(schema),
       %raw(`{"field": "bar"}`),
-      (),
     )
   },
 )
@@ -252,7 +235,7 @@ test("Field name in a format of a path is handled properly", t => {
   t->U.assertThrows(
     () => %raw(`{"bar": "foo"}`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: S.string->S.toUnknown, received: %raw(`undefined`)}),
+      code: InvalidType({expected: S.string->S.castToUnknown, received: %raw(`undefined`)}),
       operation: Parse,
       path: S.Path.fromArray([`["abc"]["cde"]`]),
     },

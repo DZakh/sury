@@ -1,5 +1,3 @@
-open RescriptCore
-
 let projectPath = "./"
 let artifactsPath = NodeJs.Path.join2(projectPath, "./artifacts")
 let sourePaths = ["package.json", "src", "rescript.json", "README.md", "jsr.json"]
@@ -14,20 +12,20 @@ module Stdlib = {
     let rec update = (json, path, value) => {
       let dict = switch json->JSON.Decode.object {
       | Some(dict) => dict->Dict.copy
-      | None => RescriptCore.Dict.make()
+      | None => dict{}
       }
       switch path {
       | list{} => value
       | list{key} => {
-          dict->RescriptCore.Dict.set(key, value)
+          dict->Stdlib.Dict.set(key, value)
           dict->JSON.Encode.object
         }
       | list{key, ...path} => {
-          dict->RescriptCore.Dict.set(
+          dict->Stdlib.Dict.set(
             key,
             dict
-            ->RescriptCore.Dict.get(key)
-            ->Option.getOr(RescriptCore.Dict.make()->JSON.Encode.object)
+            ->Stdlib.Dict.get(key)
+            ->Option.getOr(Stdlib.Dict.make()->JSON.Encode.object)
             ->update(path, value),
           )
           dict->JSON.Encode.object
@@ -70,7 +68,7 @@ module Rollup = {
       input?: string,
       plugins?: array<Plugin.t>,
       @as("external")
-      external_?: array<Re.t>,
+      external_?: array<RegExp.t>,
     }
   }
 
@@ -117,8 +115,8 @@ let filesMapping = [
   ("Error", "S.ErrorClass.value"),
   ("string", "S.string"),
   ("boolean", "S.bool"),
-  ("int32", "S.$$int"),
-  ("number", "S.$$float"),
+  ("int32", "S.int"),
+  ("number", "S.float"),
   ("bigint", "S.bigint"),
   ("symbol", "S.symbol"),
   ("json", "S.json"),
@@ -179,7 +177,7 @@ let filesMapping = [
   ("pattern", "S.pattern"),
   ("datetime", "S.datetime"),
   ("trim", "S.trim"),
-  ("global", "S.$$global"),
+  ("global", "S.global"),
 ]
 
 sourePaths->Array.forEach(path => {
@@ -232,7 +230,7 @@ let updateJsonFile = (~src, ~path, ~value) => {
       encoding: "utf8",
     },
   )
-  let packageJson = packageJsonData->NodeJs.Buffer.toString->JSON.parseExn
+  let packageJson = packageJsonData->NodeJs.Buffer.toString->JSON.parseOrThrow
   let updatedPackageJson =
     packageJson->Stdlib.Json.update(path->List.fromArray, value)->JSON.stringify(~space=2)
   NodeJs.Fs.writeFileSyncWith(

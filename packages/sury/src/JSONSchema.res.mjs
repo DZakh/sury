@@ -4,31 +4,31 @@
 function classify(arrayable) {
   if (Array.isArray(arrayable)) {
     return {
-            TAG: "Array",
-            _0: arrayable
-          };
+      TAG: "Array",
+      _0: arrayable
+    };
   } else {
     return {
-            TAG: "Single",
-            _0: arrayable
-          };
+      TAG: "Single",
+      _0: arrayable
+    };
   }
 }
 
-var Arrayable = {
+let Arrayable = {
   classify: classify
 };
 
-var Mutable = {};
+let Mutable = {};
 
-var Definition = {};
+let Definition = {};
 
-var Dependency = {};
+let Dependency = {};
 
 export {
-  Arrayable ,
-  Mutable ,
-  Definition ,
-  Dependency ,
+  Arrayable,
+  Mutable,
+  Definition,
+  Dependency,
 }
 /* No side effect */

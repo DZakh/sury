@@ -5,16 +5,16 @@ import * as Execa from "execa";
 import * as Rollup from "rollup";
 import * as Nodefs from "node:fs";
 import * as Nodepath from "node:path";
-import * as Core__JSON from "@rescript/core/src/Core__JSON.res.mjs";
-import * as Core__List from "@rescript/core/src/Core__List.res.mjs";
-import * as Core__Option from "@rescript/core/src/Core__Option.res.mjs";
+import * as Stdlib_JSON from "rescript/lib/es6/Stdlib_JSON.js";
+import * as Stdlib_List from "rescript/lib/es6/Stdlib_List.js";
+import * as Stdlib_Option from "rescript/lib/es6/Stdlib_Option.js";
 import * as PluginNodeResolve from "@rollup/plugin-node-resolve";
 
-var projectPath = "./";
+let projectPath = "./";
 
-var artifactsPath = Nodepath.join(projectPath, "./artifacts");
+let artifactsPath = Nodepath.join(projectPath, "./artifacts");
 
-var sourePaths = [
+let sourePaths = [
   "package.json",
   "src",
   "rescript.json",
@@ -23,15 +23,15 @@ var sourePaths = [
 ];
 
 function update(json, path, value) {
-  var dict = Core__JSON.Decode.object(json);
-  var dict$1 = dict !== undefined ? Object.assign({}, dict) : ({});
-  if (!path) {
+  let dict = Stdlib_JSON.Decode.object(json);
+  let dict$1 = dict !== undefined ? Object.assign({}, dict) : ({});
+  if (path === 0) {
     return value;
   }
-  var path$1 = path.tl;
-  var key = path.hd;
-  if (path$1) {
-    dict$1[key] = update(Core__Option.getOr(dict$1[key], {}), path$1, value);
+  let path$1 = path.tl;
+  let key = path.hd;
+  if (path$1 !== 0) {
+    dict$1[key] = update(Stdlib_Option.getOr(dict$1[key], {}), path$1, value);
     return dict$1;
   } else {
     dict$1[key] = value;
@@ -41,9 +41,9 @@ function update(json, path, value) {
 
 if (Nodefs.existsSync(artifactsPath)) {
   Fs.rmSync(artifactsPath, {
-        recursive: true,
-        force: true
-      });
+    recursive: true,
+    force: true
+  });
 }
 
 Nodefs.mkdirSync(artifactsPath);
@@ -52,7 +52,7 @@ Nodefs.mkdirSync(Nodepath.join(artifactsPath, "tests"));
 
 Nodefs.mkdirSync(Nodepath.join(artifactsPath, "scripts"));
 
-var filesMapping = [
+let filesMapping = [
   [
     "Error",
     "S.ErrorClass.value"
@@ -67,11 +67,11 @@ var filesMapping = [
   ],
   [
     "int32",
-    "S.$$int"
+    "S.int"
   ],
   [
     "number",
-    "S.$$float"
+    "S.float"
   ],
   [
     "bigint",
@@ -315,26 +315,24 @@ var filesMapping = [
   ],
   [
     "global",
-    "S.$$global"
+    "S.global"
   ]
 ];
 
-sourePaths.forEach(function (path) {
-      Fs.cpSync(Nodepath.join(projectPath, path), Nodepath.join(artifactsPath, path), {
-            recursive: true
-          });
-    });
+sourePaths.forEach(path => {
+  Fs.cpSync(Nodepath.join(projectPath, path), Nodepath.join(artifactsPath, path), {
+    recursive: true
+  });
+});
 
 function writeSjsEsm(path) {
   Nodefs.writeFileSync(path, Buffer.from([
-                "/* @ts-self-types=\"./S.d.ts\" */",
-                "import * as S from \"./Sury.res.mjs\"",
-                "export { unit as void } from \"./Sury.res.mjs\""
-              ].concat(filesMapping.map(function (param) {
-                      return "export var " + param[0] + " = " + param[1];
-                    })).join("\n")), {
-        encoding: "utf8"
-      });
+    "/* @ts-self-types=\"./S.d.ts\" */",
+    "import * as S from \"./Sury.res.mjs\"",
+    "export { unit as void } from \"./Sury.res.mjs\""
+  ].concat(filesMapping.map(param => "export var " + param[0] + " = " + param[1])).join("\n")), {
+    encoding: "utf8"
+  });
 }
 
 writeSjsEsm(Nodepath.join(projectPath, "./src/S.js"));
@@ -342,39 +340,37 @@ writeSjsEsm(Nodepath.join(projectPath, "./src/S.js"));
 writeSjsEsm(Nodepath.join(artifactsPath, "./src/S.mjs"));
 
 Nodefs.writeFileSync(Nodepath.join(artifactsPath, "./src/S.js"), Buffer.from([
-                "/* @ts-self-types=\"./S.d.ts\" */",
-                "var S = require(\"./Sury.res.js\");"
-              ].concat(filesMapping.map(function (param) {
-                      return "exports." + param[0] + " = " + param[1];
-                    })).concat(["exports.void = S.unit"]).join("\n")), {
-      encoding: "utf8"
-    });
+  "/* @ts-self-types=\"./S.d.ts\" */",
+  "var S = require(\"./Sury.res.js\");"
+].concat(filesMapping.map(param => "exports." + param[0] + " = " + param[1])).concat(["exports.void = S.unit"]).join("\n")), {
+  encoding: "utf8"
+});
 
 function updateJsonFile(src, path, value) {
-  var packageJsonData = Nodefs.readFileSync(src, {
-        encoding: "utf8"
-      });
-  var packageJson = JSON.parse(packageJsonData.toString());
-  var updatedPackageJson = JSON.stringify(update(packageJson, Core__List.fromArray(path), value), undefined, 2);
+  let packageJsonData = Nodefs.readFileSync(src, {
+    encoding: "utf8"
+  });
+  let packageJson = JSON.parse(packageJsonData.toString());
+  let updatedPackageJson = JSON.stringify(update(packageJson, Stdlib_List.fromArray(path), value), undefined, 2);
   Nodefs.writeFileSync(src, Buffer.from(updatedPackageJson), {
-        encoding: "utf8"
-      });
+    encoding: "utf8"
+  });
 }
 
 Execa.execaSync("pnpm", ["rescript"], {
-      cwd: artifactsPath
-    });
+  cwd: artifactsPath
+});
 
 async function resolveRescriptRuntime(format, input, output) {
-  var bundle = await Rollup.rollup({
-        input: Nodepath.join(artifactsPath, input),
-        plugins: [PluginNodeResolve.nodeResolve()]
-      });
+  let bundle = await Rollup.rollup({
+    input: Nodepath.join(artifactsPath, input),
+    plugins: [PluginNodeResolve.nodeResolve()]
+  });
   await bundle.write({
-        file: Nodepath.join(artifactsPath, output),
-        format: format,
-        exports: "named"
-      });
+    file: Nodepath.join(artifactsPath, output),
+    format: format,
+    exports: "named"
+  });
   return await bundle.close();
 }
 
@@ -389,16 +385,13 @@ updateJsonFile(Nodepath.join(artifactsPath, "package.json"), ["type"], "commonjs
 updateJsonFile(Nodepath.join(artifactsPath, "package.json"), ["private"], false);
 
 Fs.rmSync(Nodepath.join(artifactsPath, "lib"), {
-      recursive: true,
-      force: true
-    });
+  recursive: true,
+  force: true
+});
 
 Fs.rmSync(Nodepath.join(artifactsPath, "node_modules"), {
-      recursive: true,
-      force: true
-    });
+  recursive: true,
+  force: true
+});
 
-export {
-  
-}
 /* artifactsPath Not a pure module */

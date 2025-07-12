@@ -3,8 +3,8 @@ open Ava
 test("Successfully parses valid data", t => {
   let schema = S.array(S.int)->S.min(1)
 
-  t->Assert.deepEqual([1]->S.parseOrThrow(schema), [1], ())
-  t->Assert.deepEqual([1, 2, 3, 4]->S.parseOrThrow(schema), [1, 2, 3, 4], ())
+  t->Assert.deepEqual([1]->S.parseOrThrow(schema), [1])
+  t->Assert.deepEqual([1, 2, 3, 4]->S.parseOrThrow(schema), [1, 2, 3, 4])
 })
 
 test("Fails to parse invalid data", t => {
@@ -23,8 +23,8 @@ test("Fails to parse invalid data", t => {
 test("Successfully serializes valid value", t => {
   let schema = S.array(S.int)->S.min(1)
 
-  t->Assert.deepEqual([1]->S.reverseConvertOrThrow(schema), %raw(`[1]`), ())
-  t->Assert.deepEqual([1, 2, 3, 4]->S.reverseConvertOrThrow(schema), %raw(`[1,2,3,4]`), ())
+  t->Assert.deepEqual([1]->S.reverseConvertOrThrow(schema), %raw(`[1]`))
+  t->Assert.deepEqual([1, 2, 3, 4]->S.reverseConvertOrThrow(schema), %raw(`[1,2,3,4]`))
 })
 
 test("Fails to serialize invalid value", t => {
@@ -55,6 +55,5 @@ test("Returns refinement", t => {
   t->Assert.deepEqual(
     schema->S.Array.refinements,
     [{kind: Min({length: 1}), message: "Array must be 1 or more items long"}],
-    (),
   )
 })

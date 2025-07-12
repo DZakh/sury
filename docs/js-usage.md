@@ -360,13 +360,17 @@ S.schema(Symbol("terrific"));
 // Validated using Number.isNaN
 S.schema(NaN);
 
-// Catch-all types
+// Catch-all type
 // Allows any value
 S.unknown;
 
 // Never type
 // Allows no values
 S.never;
+
+// JSON type
+// Allows string | boolean | number | null | Record<string, JSON> | JSON[]
+S.json;
 ```
 
 ## Strings
@@ -813,16 +817,6 @@ type NumberCache = S.Output<typeof numberCacheSchema>;
 // => { [k: string]: number }
 ```
 
-## JSON
-
-The `S.json` schema makes sure that the value is compatible with JSON.
-
-It accepts a boolean as an argument. If it's true, then the value will be validated as valid JSON; otherwise, it unsafely casts it to the `S.Json` type.
-
-```ts
-S.parseOrThrow(`"foo"`, S.json(true)); // passes
-```
-
 ## JSON string
 
 ```ts
@@ -912,7 +906,7 @@ type Node = {
   children: Node[];
 };
 
-const nodeSchema = S.recursive<Node>((nodeSchema) =>
+const nodeSchema = S.recursive<Node, Node>("Node", (nodeSchema) =>
   S.schema({
     id: S.string,
     children: S.array(nodeSchema),

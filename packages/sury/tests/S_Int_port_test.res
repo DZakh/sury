@@ -3,7 +3,7 @@ open Ava
 test("Successfully parses valid data", t => {
   let schema = S.int->S.port
 
-  t->Assert.deepEqual(8080->S.parseOrThrow(schema), 8080, ())
+  t->Assert.deepEqual(8080->S.parseOrThrow(schema), 8080)
 })
 
 test("Fails to parse invalid data", t => {
@@ -18,7 +18,7 @@ test("Fails to parse invalid data", t => {
 test("Successfully serializes valid value", t => {
   let schema = S.int->S.port
 
-  t->Assert.deepEqual(8080->S.reverseConvertOrThrow(schema), %raw(`8080`), ())
+  t->Assert.deepEqual(8080->S.reverseConvertOrThrow(schema), %raw(`8080`))
 })
 
 test("Fails to serialize invalid value", t => {
@@ -42,9 +42,9 @@ test("Returns custom error message", t => {
 test("Reflects refinement on schema", t => {
   let schema = S.int->S.port
 
-  t->Assert.deepEqual((schema->S.untag).format, Some(Port), ())
+  t->Assert.deepEqual((schema->S.untag).format, Some(Port))
   switch schema {
-  | Number({format}) => t->Assert.deepEqual(format, Port, ())
+  | Number({format}) => t->Assert.deepEqual(format, Port)
   | _ => t->Assert.fail("Expected Number with format Port")
   }
 })

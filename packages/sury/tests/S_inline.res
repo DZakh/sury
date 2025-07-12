@@ -2,12 +2,12 @@
 
 // test("Supports String", t => {
 //   let schema = S.string
-//   t->Assert.deepEqual(schema->S.inline, `S.string`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.string`)
 // })
 
 // test("Doesn't support transforms and refinements", t => {
 //   let schema = S.string->S.transform(_ => {parser: ignore})->S.refine(_ => ignore)
-//   t->Assert.deepEqual(schema->S.inline, `S.string`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.string`)
 // })
 
 // test("Supports built-in String.email refinement", t => {
@@ -15,7 +15,7 @@
 //   let schemaInlineResult = S.string->S.email(~message="Invalid email address")
 
 //   t->U.assertEqualSchemas(schema, schemaInlineResult)
-//   t->Assert.deepEqual(schema->S.inline, `S.string->S.email(~message="Invalid email address")`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.string->S.email(~message="Invalid email address")`)
 // })
 
 // test("Supports built-in String.datetime refinement", t => {
@@ -35,7 +35,7 @@
 //   let schemaInlineResult = S.string->S.url(~message="Invalid url")
 
 //   t->U.assertEqualSchemas(schema, schemaInlineResult)
-//   t->Assert.deepEqual(schema->S.inline, `S.string->S.url(~message="Invalid url")`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.string->S.url(~message="Invalid url")`)
 // })
 
 // test("Supports built-in String.uuid refinement", t => {
@@ -43,7 +43,7 @@
 //   let schemaInlineResult = S.string->S.uuid(~message="Invalid UUID")
 
 //   t->U.assertEqualSchemas(schema, schemaInlineResult)
-//   t->Assert.deepEqual(schema->S.inline, `S.string->S.uuid(~message="Invalid UUID")`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.string->S.uuid(~message="Invalid UUID")`)
 // })
 
 // test("Supports built-in String.cuid refinement", t => {
@@ -51,7 +51,7 @@
 //   let schemaInlineResult = S.string->S.cuid(~message="Invalid CUID")
 
 //   t->U.assertEqualSchemas(schema, schemaInlineResult)
-//   t->Assert.deepEqual(schema->S.inline, `S.string->S.cuid(~message="Invalid CUID")`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.string->S.cuid(~message="Invalid CUID")`)
 // })
 
 // test("Supports built-in String.min refinement", t => {
@@ -98,12 +98,12 @@
 //   let schemaInlineResult = S.string->S.pattern(~message="Invalid", %re("/0-9/"))
 
 //   t->U.assertEqualSchemas(schema, schemaInlineResult)
-//   t->Assert.deepEqual(schema->S.inline, `S.string->S.pattern(%re("/0-9/"), ~message="Invalid")`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.string->S.pattern(%re("/0-9/"), ~message="Invalid")`)
 // })
 
 // test("Supports Int", t => {
 //   let schema = S.int
-//   t->Assert.deepEqual(schema->S.inline, `S.int`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.int`)
 // })
 
 // test("Supports built-in Int.max refinement", t => {
@@ -135,12 +135,12 @@
 //   let schemaInlineResult = S.int->S.port(~message="Invalid port")
 
 //   t->U.assertEqualSchemas(schema, schemaInlineResult)
-//   t->Assert.deepEqual(schema->S.inline, `S.int->S.port(~message="Invalid port")`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.int->S.port(~message="Invalid port")`)
 // })
 
 // test("Supports Float", t => {
 //   let schema = S.float
-//   t->Assert.deepEqual(schema->S.inline, `S.float`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.float`)
 // })
 
 // test("Supports built-in Float.max refinement", t => {
@@ -212,80 +212,80 @@
 
 // test("Supports Bool", t => {
 //   let schema = S.bool
-//   t->Assert.deepEqual(schema->S.inline, `S.bool`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.bool`)
 // })
 
 // test("Supports Unknown", t => {
 //   let schema = S.unknown
-//   t->Assert.deepEqual(schema->S.inline, `S.unknown`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.unknown`)
 // })
 
 // test("Treats custom schema factory as Unknown", t => {
 //   let schema = S.custom("Test", s => s.fail("User error"))
-//   t->Assert.deepEqual(schema->S.inline, `S.unknown`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.unknown`)
 // })
 
 // test("Supports Never", t => {
 //   let schema = S.never
-//   t->Assert.deepEqual(schema->S.inline, `S.never`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.never`)
 // })
 
 // test("Supports JSON", t => {
 //   let schema = S.json(~validate=false)
-//   t->Assert.deepEqual(schema->S.inline, `S.json(~validate=false)`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.json(~validate=false)`)
 
 //   let schema = S.json(~validate=true)
-//   t->Assert.deepEqual(schema->S.inline, `S.json(~validate=true)`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.json(~validate=true)`)
 // })
 
 // test("Supports String Literal", t => {
 //   let schema = S.literal("foo")
-//   t->Assert.deepEqual(schema->S.inline, `S.literal(%raw(\`"foo"\`))`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.literal(%raw(\`"foo"\`))`)
 // })
 
 // test("Escapes the String Literal value", t => {
 //   let schema = S.literal(`"foo"`)
-//   t->Assert.deepEqual(schema->S.inline, `S.literal(%raw(\`"\\"foo\\""\`))`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.literal(%raw(\`"\\"foo\\""\`))`)
 // })
 
 // test("Supports Number Literal like int", t => {
 //   let schema = S.literal(3)
-//   t->Assert.deepEqual(schema->S.inline, `S.literal(%raw(\`3\`))`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.literal(%raw(\`3\`))`)
 // })
 
 // test("Supports Number Literal", t => {
 //   let schema = S.literal(3.)
-//   t->Assert.deepEqual(schema->S.inline, `S.literal(%raw(\`3\`))`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.literal(%raw(\`3\`))`)
 // })
 
 // test("Supports Number Literal with decimal", t => {
 //   let schema = S.literal(3.3)
-//   t->Assert.deepEqual(schema->S.inline, `S.literal(%raw(\`3.3\`))`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.literal(%raw(\`3.3\`))`)
 // })
 
 // test("Supports Boolean Literal", t => {
 //   let schema = S.literal(true)
-//   t->Assert.deepEqual(schema->S.inline, `S.literal(%raw(\`true\`))`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.literal(%raw(\`true\`))`)
 // })
 
 // test("Supports Undefined Literal", t => {
 //   let schema = S.literal()
-//   t->Assert.deepEqual(schema->S.inline, `S.literal(%raw(\`undefined\`))`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.literal(%raw(\`undefined\`))`)
 // })
 
 // test("Supports Null Literal", t => {
 //   let schema = S.literal(%raw(`null`))
-//   t->Assert.deepEqual(schema->S.inline, `S.literal(%raw(\`null\`))`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.literal(%raw(\`null\`))`)
 // })
 
 // test("Supports NaN Literal", t => {
 //   let schema = S.literal(%raw(`NaN`))
-//   t->Assert.deepEqual(schema->S.inline, `S.literal(%raw(\`NaN\`))`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.literal(%raw(\`NaN\`))`)
 // })
 
 // test("Supports Option", t => {
 //   let schema = S.option(S.string)
-//   t->Assert.deepEqual(schema->S.inline, `S.option(S.string)`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.option(S.string)`)
 // })
 
 // test("Supports Option.getOrWith", t => {
@@ -303,22 +303,22 @@
 //   let schema = S.float->S.option->S.Option.getOr(4.)
 //   let _ = S.float->S.option->S.Option.getOr(%raw(`4`))
 
-//   t->Assert.deepEqual(schema->S.inline, `S.option(S.float)->S.Option.getOr(%raw(\`4\`))`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.option(S.float)->S.Option.getOr(%raw(\`4\`))`)
 // })
 
 // test("Supports Deprecated with message", t => {
 //   let schema = S.string->S.deprecate("Will be removed in API v2.")
-//   t->Assert.deepEqual(schema->S.inline, `S.string->S.deprecate("Will be removed in API v2.")`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.string->S.deprecate("Will be removed in API v2.")`)
 // })
 
 // test("Supports Null", t => {
 //   let schema = S.null(S.string)
-//   t->Assert.deepEqual(schema->S.inline, `S.null(S.string)`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.null(S.string)`)
 // })
 
 // test("Supports Array", t => {
 //   let schema = S.array(S.string)
-//   t->Assert.deepEqual(schema->S.inline, `S.array(S.string)`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.array(S.string)`)
 // })
 
 // test("Supports built-in Array.max refinement", t => {
@@ -362,7 +362,7 @@
 
 // test("Supports Dict", t => {
 //   let schema = S.dict(S.string)
-//   t->Assert.deepEqual(schema->S.inline, `S.dict(S.string)`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.dict(S.string)`)
 // })
 
 // test("Supports tuple1", t => {
@@ -370,7 +370,7 @@
 //   let schemaInlineResult = S.tuple1(S.string)
 
 //   t->U.assertEqualSchemas(schema, schemaInlineResult)
-//   t->Assert.deepEqual(schema->S.inline, `S.tuple1(S.string)`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.tuple1(S.string)`)
 // })
 
 // test("Supports tuple2", t => {
@@ -378,7 +378,7 @@
 //   let schemaInlineResult = S.tuple2(S.string, S.int)
 
 //   t->U.assertEqualSchemas(schema, schemaInlineResult)
-//   t->Assert.deepEqual(schema->S.inline, `S.tuple2(S.string, S.int)`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.tuple2(S.string, S.int)`)
 // })
 
 // test("Supports tuple3", t => {
@@ -386,7 +386,7 @@
 //   let schemaInlineResult = S.tuple3(S.string, S.int, S.bool)
 
 //   t->U.assertEqualSchemas(schema, schemaInlineResult)
-//   t->Assert.deepEqual(schema->S.inline, `S.tuple3(S.string, S.int, S.bool)`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.tuple3(S.string, S.int, S.bool)`)
 // })
 
 // test("Supports Tuple with 4 items", t => {
@@ -427,7 +427,7 @@
 
 // test("Supports description", t => {
 //   let schema = S.string->S.describe("It's a string")
-//   t->Assert.deepEqual(schema->S.inline, `S.string->S.describe("It's a string")`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.string->S.describe("It's a string")`)
 // })
 
 // // test("Uses S.transform for primitive schemas inside of union", t => {
@@ -494,12 +494,12 @@
 
 // test("Supports strip", t => {
 //   let schema = S.object(_ => ())->S.strip
-//   t->Assert.deepEqual(schema->S.inline, `S.object(_ => ())`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.object(_ => ())`)
 // })
 
 // test("Supports strict", t => {
 //   let schema = S.object(_ => ())->S.strict
-//   t->Assert.deepEqual(schema->S.inline, `S.object(_ => ())->S.strict`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.object(_ => ())->S.strict`)
 // })
 
 // test("Supports empty Object (ignores transformations)", t => {
@@ -507,7 +507,7 @@
 //   let schemaInlineResult = S.object(_ => ())
 
 //   t->U.assertEqualSchemas(schema, schemaInlineResult->(U.magic: S.t<unit> => S.t<int>))
-//   t->Assert.deepEqual(schema->S.inline, `S.object(_ => ())`, ())
+//   t->Assert.deepEqual(schema->S.inline, `S.object(_ => ())`)
 // })
 
 // test("Supports empty Object in union", t => {

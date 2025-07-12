@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 let validAsyncRefine = S.transform(_, _ => {
   asyncParser: value => value->Promise.resolve,
@@ -18,7 +17,7 @@ let invalidAsyncRefine = S.transform(_, s => {
 //   (
 //     %raw(`"Hello world!"`)->S.parseAnyAsyncInStepsWith(schema)->Result.getExn
 //   )()->Promise.thenResolve(result => {
-//     t->Assert.deepEqual(result, Ok("Hello world!"), ())
+//     t->Assert.deepEqual(result, Ok("Hello world!"))
 //   })
 // })
 
@@ -29,7 +28,7 @@ let invalidAsyncRefine = S.transform(_, s => {
 //     %raw(`123`)->S.parseAnyAsyncInStepsWith(schema),
 //     Error(
 //       U.error({
-//         code: InvalidType({expected: schema->S.toUnknown, received: %raw(`123`)}),
+//         code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`123`)}),
 //         operation: ParseAsync,
 //         path: S.Path.empty,
 //       }),
@@ -44,7 +43,7 @@ let invalidAsyncRefine = S.transform(_, s => {
 //   (
 //     %raw(`"Hello world!"`)->S.parseAnyAsyncInStepsWith(schema)->Result.getExn
 //   )()->Promise.thenResolve(result => {
-//     t->Assert.deepEqual(result, Ok("Hello world!"), ())
+//     t->Assert.deepEqual(result, Ok("Hello world!"))
 //   })
 // })
 
@@ -255,7 +254,7 @@ let invalidAsyncRefine = S.transform(_, s => {
 //       }->S.parseAnyAsyncInStepsWith(schema),
 //       Error(
 //         U.error({
-//           code: InvalidType({expected: invalidSchema->S.toUnknown, received: %raw(`true`)}),
+//           code: InvalidType({expected: invalidSchema->S.castToUnknown, received: %raw(`true`)}),
 //           operation: ParseAsync,
 //           path: S.Path.fromArray(["k2"]),
 //         }),
@@ -327,7 +326,7 @@ let invalidAsyncRefine = S.transform(_, s => {
 //     ->S.parseAsyncOrThrow(schema)
 //     ->ignore
 
-//     t->Assert.deepEqual(actionCounter.contents, 2, ())
+//     t->Assert.deepEqual(actionCounter.contents, 2)
 //   })
 
 //   asyncTest("[Object] Doesn't wait for pending async items when fails to parse", t => {
@@ -375,7 +374,7 @@ let invalidAsyncRefine = S.transform(_, s => {
 //     (
 //       [1, 2, 3]->S.parseAnyAsyncInStepsWith(schema)->Result.getExn
 //     )()->Promise.thenResolve(result => {
-//       t->Assert.deepEqual(result, Ok(1, 2, 3), ())
+//       t->Assert.deepEqual(result, Ok(1, 2, 3))
 //     })
 //   })
 
@@ -387,7 +386,7 @@ let invalidAsyncRefine = S.transform(_, s => {
 //       %raw(`[1, true, 3]`)->S.parseAnyAsyncInStepsWith(schema),
 //       Error(
 //         U.error({
-//           code: InvalidType({expected: invalidSchema->S.toUnknown, received: %raw(`true`)}),
+//           code: InvalidType({expected: invalidSchema->S.castToUnknown, received: %raw(`true`)}),
 //           operation: ParseAsync,
 //           path: S.Path.fromArray(["1"]),
 //         }),
@@ -436,7 +435,7 @@ let invalidAsyncRefine = S.transform(_, s => {
 
 //     [1, 2]->S.parseAsyncOrThrow(schema)->ignore
 
-//     t->Assert.deepEqual(actionCounter.contents, 2, ())
+//     t->Assert.deepEqual(actionCounter.contents, 2)
 //   })
 
 //   asyncTest("[Tuple] Doesn't wait for pending async items when fails to parse", t => {
@@ -467,13 +466,13 @@ module Union = {
 
   //   Promise.all([
   //     (1->S.parseAnyAsyncInStepsWith(schema)->Result.getExn)()->Promise.thenResolve(result => {
-  //       t->Assert.deepEqual(result, Ok(1), ())
+  //       t->Assert.deepEqual(result, Ok(1))
   //     }),
   //     (2->S.parseAnyAsyncInStepsWith(schema)->Result.getExn)()->Promise.thenResolve(result => {
-  //       t->Assert.deepEqual(result, Ok(2), ())
+  //       t->Assert.deepEqual(result, Ok(2))
   //     }),
   //     (3->S.parseAnyAsyncInStepsWith(schema)->Result.getExn)()->Promise.thenResolve(result => {
-  //       t->Assert.deepEqual(result, Ok(3), ())
+  //       t->Assert.deepEqual(result, Ok(3))
   //     }),
   //   ])->Promise.thenResolve(_ => ())
   // })
@@ -498,17 +497,17 @@ module Union = {
   //         {
   //           code: InvalidUnion([
   //             U.error({
-  //               code: InvalidType({expected: S.literal(1.), received: input})->S.toUnknown,
+  //               code: InvalidType({expected: S.literal(1.), received: input})->S.castToUnknown,
   //               path: S.Path.empty,
   //               operation: ParseAsync,
   //             }),
   //             U.error({
-  //               code: InvalidType({expected: S.literal(2.), received: input})->S.toUnknown,
+  //               code: InvalidType({expected: S.literal(2.), received: input})->S.castToUnknown,
   //               path: S.Path.empty,
   //               operation: ParseAsync,
   //             }),
   //             U.error({
-  //               code: InvalidType({expected: S.literal(3.), received: input})->S.toUnknown,
+  //               code: InvalidType({expected: S.literal(3.), received: input})->S.castToUnknown,
   //               path: S.Path.empty,
   //               operation: ParseAsync,
   //             }),
@@ -541,7 +540,7 @@ module Union = {
 
     2->S.parseAsyncOrThrow(schema)->ignore
 
-    t->Assert.deepEqual(actionCounter.contents, 1, ())
+    t->Assert.deepEqual(actionCounter.contents, 1)
   })
 }
 
@@ -552,7 +551,7 @@ module Union = {
 //     (
 //       [1, 2, 3]->S.parseAnyAsyncInStepsWith(schema)->Result.getExn
 //     )()->Promise.thenResolve(result => {
-//       t->Assert.deepEqual(result, Ok([1, 2, 3]), ())
+//       t->Assert.deepEqual(result, Ok([1, 2, 3]))
 //     })
 //   })
 
@@ -564,7 +563,7 @@ module Union = {
 //       %raw(`[1, 2, true]`)->S.parseAnyAsyncInStepsWith(schema),
 //       Error(
 //         U.error({
-//           code: InvalidType({expected: invalidSchema->S.toUnknown, received: %raw(`true`)}),
+//           code: InvalidType({expected: invalidSchema->S.castToUnknown, received: %raw(`true`)}),
 //           operation: ParseAsync,
 //           path: S.Path.fromArray(["2"]),
 //         }),
@@ -587,7 +586,7 @@ module Union = {
 
 //     [1, 2]->S.parseAsyncOrThrow(schema)->ignore
 
-//     t->Assert.deepEqual(actionCounter.contents, 2, ())
+//     t->Assert.deepEqual(actionCounter.contents, 2)
 //   })
 
 //   asyncTest("[Array] Doesn't wait for pending async items when fails to parse", t => {
@@ -631,7 +630,7 @@ module Union = {
 //     (
 //       {"k1": 1, "k2": 2, "k3": 3}->S.parseAnyAsyncInStepsWith(schema)->Result.getExn
 //     )()->Promise.thenResolve(result => {
-//       t->Assert.deepEqual(result, Ok(Dict.fromArray([("k1", 1), ("k2", 2), ("k3", 3)])), ())
+//       t->Assert.deepEqual(result, Ok(Dict.fromArray([("k1", 1), ("k2", 2), ("k3", 3)])))
 //     })
 //   })
 
@@ -643,7 +642,7 @@ module Union = {
 //       {"k1": 1, "k2": 2, "k3": true}->S.parseAnyAsyncInStepsWith(schema),
 //       Error(
 //         U.error({
-//           code: InvalidType({expected: invalidSchema->S.toUnknown, received: %raw(`true`)}),
+//           code: InvalidType({expected: invalidSchema->S.castToUnknown, received: %raw(`true`)}),
 //           operation: ParseAsync,
 //           path: S.Path.fromArray(["k3"]),
 //         }),
@@ -666,7 +665,7 @@ module Union = {
 
 //     {"k1": 1, "k2": 2}->S.parseAsyncOrThrow(schema)->ignore
 
-//     t->Assert.deepEqual(actionCounter.contents, 2, ())
+//     t->Assert.deepEqual(actionCounter.contents, 2)
 //   })
 
 //   asyncTest("[Dict] Doesn't wait for pending async items when fails to parse", t => {
@@ -709,12 +708,12 @@ module Union = {
 
 //     Promise.all([
 //       (1->S.parseAnyAsyncInStepsWith(schema)->Result.getExn)()->Promise.thenResolve(result => {
-//         t->Assert.deepEqual(result, Ok(Some(1)), ())
+//         t->Assert.deepEqual(result, Ok(Some(1)))
 //       }),
 //       (
 //         %raw(`null`)->S.parseAnyAsyncInStepsWith(schema)->Result.getExn
 //       )()->Promise.thenResolve(result => {
-//         t->Assert.deepEqual(result, Ok(None), ())
+//         t->Assert.deepEqual(result, Ok(None))
 //       }),
 //     ])->Promise.thenResolve(_ => ())
 //   })
@@ -744,7 +743,7 @@ module Union = {
 //       true->S.parseAnyAsyncInStepsWith(schema),
 //       Error(
 //         U.error({
-//           code: InvalidType({expected: schema->S.toUnknown, received: %raw(`true`)}),
+//           code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`true`)}),
 //           operation: ParseAsync,
 //           path: S.Path.empty,
 //         }),
@@ -760,12 +759,12 @@ module Union = {
 
 //     Promise.all([
 //       (1->S.parseAnyAsyncInStepsWith(schema)->Result.getExn)()->Promise.thenResolve(result => {
-//         t->Assert.deepEqual(result, Ok(Some(1)), ())
+//         t->Assert.deepEqual(result, Ok(Some(1)))
 //       }),
 //       (
 //         %raw(`undefined`)->S.parseAnyAsyncInStepsWith(schema)->Result.getExn
 //       )()->Promise.thenResolve(result => {
-//         t->Assert.deepEqual(result, Ok(None), ())
+//         t->Assert.deepEqual(result, Ok(None))
 //       }),
 //     ])->Promise.thenResolve(_ => ())
 //   })
@@ -795,7 +794,7 @@ module Union = {
 //       true->S.parseAnyAsyncInStepsWith(schema),
 //       Error(
 //         U.error({
-//           code: InvalidType({expected: schema->S.toUnknown, received: %raw(`true`)}),
+//           code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`true`)}),
 //           operation: ParseAsync,
 //           path: S.Path.empty,
 //         }),
@@ -811,12 +810,12 @@ module Union = {
 
 //     Promise.all([
 //       (1->S.parseAnyAsyncInStepsWith(schema)->Result.getExn)()->Promise.thenResolve(result => {
-//         t->Assert.deepEqual(result, Ok(1), ())
+//         t->Assert.deepEqual(result, Ok(1))
 //       }),
 //       (
 //         %raw(`undefined`)->S.parseAnyAsyncInStepsWith(schema)->Result.getExn
 //       )()->Promise.thenResolve(result => {
-//         t->Assert.deepEqual(result, Ok(10), ())
+//         t->Assert.deepEqual(result, Ok(10))
 //       }),
 //     ])->Promise.thenResolve(_ => ())
 //   })
@@ -847,7 +846,7 @@ module Union = {
 //       true->S.parseAnyAsyncInStepsWith(schema),
 //       Error(
 //         U.error({
-//           code: InvalidType({expected: schema->S.toUnknown, received: %raw(`true`)}),
+//           code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`true`)}),
 //           operation: ParseAsync,
 //           path: S.Path.empty,
 //         }),
@@ -868,7 +867,7 @@ module Union = {
 //     )
 
 //     ("1"->S.parseAnyAsyncInStepsWith(schema)->Result.getExn)()->Promise.thenResolve(result => {
-//       t->Assert.deepEqual(result, Ok(1), ())
+//       t->Assert.deepEqual(result, Ok(1))
 //     })
 //   })
 
@@ -899,7 +898,7 @@ module Union = {
 //       "true"->S.parseAnyAsyncInStepsWith(schema),
 //       Error(
 //         U.error({
-//           code: InvalidType({expected: invalidSchema->S.toUnknown, received: %raw(`true`)}),
+//           code: InvalidType({expected: invalidSchema->S.castToUnknown, received: %raw(`true`)}),
 //           operation: ParseAsync,
 //           path: S.Path.empty,
 //         }),

@@ -10,7 +10,7 @@ export declare namespace StandardSchemaV1 {
     /** The version number of the standard. */
     readonly version: 1;
     /** The vendor name of the schema library. */
-    readonly vendor: string;
+    readonly vendor: "sury";
     /** Validates unknown input values. */
     readonly validate: (
       value: unknown
@@ -95,8 +95,6 @@ export type JSON =
   | { [key: string]: JSON }
   | JSON[];
 
-declare const øbrand: unique symbol;
-
 export type Schema<Output, Input = unknown> = {
   with<Transformed>(
     transform: (
@@ -130,14 +128,17 @@ export type Schema<Output, Input = unknown> = {
     arg2: A2
   ): Schema<O, I>;
 
+  readonly $ref?: string;
+  readonly $defs?: Record<string, Schema<unknown>>;
+
   readonly name?: string;
   readonly title?: string;
   readonly description?: string;
   readonly deprecated?: boolean;
   readonly examples?: Input[];
+  readonly noValidation?: boolean;
 
   readonly ["~standard"]: StandardSchemaV1.Props<Input, Output>;
-  readonly [øbrand]: unknown;
 } & (
   | {
       readonly type: "never";
@@ -190,14 +191,15 @@ export type Schema<Output, Input = unknown> = {
   | {
       readonly type: "array";
       readonly items: Item[];
-      readonly fields: Record<string, Item>;
       readonly additionalItems: "strip" | "strict" | Schema<unknown>;
       readonly unnest?: true;
     }
   | {
       readonly type: "object";
       readonly items: Item[];
-      readonly fields: Record<string, Item>;
+      readonly properties: {
+        [key: string]: Schema<unknown>;
+      };
       readonly additionalItems: "strip" | "strict" | Schema<unknown>;
     }
   | {
@@ -220,6 +222,10 @@ export type Schema<Output, Input = unknown> = {
         | "object",
         boolean
       >;
+    }
+  | {
+      readonly type: "ref";
+      readonly $ref: string;
     }
 );
 
@@ -386,7 +392,7 @@ export const never: Schema<never, never>;
 export const unknown: Schema<unknown, unknown>;
 declare const void_: Schema<void, void>;
 export { void_ as void };
-export const json: (validate: boolean) => Schema<JSON, JSON>;
+export const json: Schema<JSON, JSON>;
 
 export function safe<Value>(scope: () => Value): Result<Value>;
 export function safeAsync<Value>(
@@ -558,7 +564,8 @@ export function merge<O1, O2>(
   Record<string, unknown>
 >;
 
-export function recursive<Output, Input = Output>(
+export function recursive<Output, Input = unknown>(
+  identifier: string,
   definer: (schema: Schema<Output, Input>) => Schema<Output, Input>
 ): Schema<Output, Input>;
 

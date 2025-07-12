@@ -8,18 +8,18 @@ function isReference(_withReference) {
 function classify(withRef) {
   if (isReference(withRef)) {
     return {
-            TAG: "Reference",
-            _0: withRef
-          };
+      TAG: "Reference",
+      _0: withRef
+    };
   } else {
     return {
-            TAG: "Object",
-            _0: withRef
-          };
+      TAG: "Object",
+      _0: withRef
+    };
   }
 }
 
-var WithReference = {
+let WithReference = {
   isReference: isReference,
   classify: classify
 };
@@ -31,28 +31,28 @@ function isReference$1(_withReference) {
 function classify$1(withRef) {
   if (isReference$1(withRef)) {
     return {
-            TAG: "Reference",
-            _0: withRef
-          };
+      TAG: "Reference",
+      _0: withRef
+    };
   } else {
     return {
-            TAG: "Object",
-            _0: withRef
-          };
+      TAG: "Object",
+      _0: withRef
+    };
   }
 }
 
-var WithReference$1 = {
+let WithReference$1 = {
   isReference: isReference$1,
   classify: classify$1
 };
 
-var Mutable = {
+let Mutable = {
   WithReference: WithReference$1
 };
 
 export {
-  WithReference ,
-  Mutable ,
+  WithReference,
+  Mutable,
 }
 /* No side effect */

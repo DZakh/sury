@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 module Positive = {
   module TestData = {
@@ -130,7 +129,6 @@ module Positive = {
             "field": "bar",
           }->S.parseOrThrow(schema),
           {"field": "bar"},
-          (),
         )
       },
     )
@@ -153,7 +151,6 @@ module Positive = {
             "discriminant": testData.discriminantData,
             "field": "bar",
           }->Obj.magic,
-          (),
         )
       },
     )
@@ -227,7 +224,6 @@ module Negative = {
             "field": "bar",
           }->S.parseOrThrow(schema),
           {"field": "bar"},
-          (),
         )
       },
     )
@@ -276,7 +272,6 @@ module NestedNegative = {
           "field": "bar",
         }->S.parseOrThrow(schema),
         {"field": "bar"},
-        (),
       )
     },
   )
@@ -295,7 +290,7 @@ module NestedNegative = {
         () => {"field": "bar"}->S.reverseConvertOrThrow(schema),
         {
           code: InvalidOperation({
-            description: `Schema for ["discriminant"] isn\'t registered`,
+            description: `Schema for ["discriminant"]["nestedField"] isn\'t registered`,
           }),
           operation: ReverseConvert,
           path: S.Path.empty,
@@ -320,7 +315,7 @@ test(`Fails to parse object with invalid data passed to discriminant field`, t =
         "field": "bar",
       }->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: S.string->S.toUnknown, received: Obj.magic(false)}),
+      code: InvalidType({expected: S.string->S.castToUnknown, received: Obj.magic(false)}),
       operation: Parse,
       path: S.Path.fromArray(["discriminant"]),
     },
@@ -342,7 +337,7 @@ test(`Parses discriminant fields before registered fields`, t => {
         "field": false,
       }->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: S.string->S.toUnknown, received: Obj.magic(false)}),
+      code: InvalidType({expected: S.string->S.castToUnknown, received: Obj.magic(false)}),
       operation: Parse,
       path: S.Path.fromArray(["discriminant"]),
     },

@@ -1,10 +1,10 @@
 open Ava
 
-test("Keeps operation of the error passed to S.Error.raise", t => {
+test("Keeps operation of the error passed to S.Error.throw", t => {
   let schema = S.array(
     S.string->S.transform(_ => {
       parser: _ =>
-        U.raiseError(
+        U.throwError(
           U.error({
             code: OperationFailed("User error"),
             operation: ReverseConvert,
