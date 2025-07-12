@@ -53,7 +53,7 @@ test("JSONSchema of uuid schema", t => {
 
 test("JSONSchema of pattern schema", t => {
   t->Assert.deepEqual(
-    S.string->S.pattern(%re("/abc/g"))->S.toJSONSchema,
+    S.string->S.pattern(/abc/g)->S.toJSONSchema,
     %raw(`{"type": "string","pattern": "/abc/g"}`),
   )
 })

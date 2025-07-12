@@ -1,6 +1,5 @@
 open Ava
 open U
-open RescriptCore
 
 @schema
 type poly = [#one | #two]

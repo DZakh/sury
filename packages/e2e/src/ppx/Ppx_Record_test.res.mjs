@@ -3,96 +3,80 @@
 import * as S from "sury/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
 import Ava from "ava";
-import * as Caml_option from "rescript/lib/es6/caml_option.js";
+import * as Primitive_option from "rescript/lib/es6/Primitive_option.js";
 
-var simpleRecordSchema = S.schema(function (s) {
-      return {
-              label: s.m(S.string),
-              value: s.m(S.$$int)
-            };
-    });
+let simpleRecordSchema = S.schema(s => ({
+  label: s.m(S.string),
+  value: s.m(S.int)
+}));
 
-Ava("Simple record schema", (function (t) {
-        U.assertEqualSchemas(t, simpleRecordSchema, S.schema(function (s) {
-                  return {
-                          label: s.m(S.string),
-                          value: s.m(S.$$int)
-                        };
-                }), undefined);
-        t.deepEqual(S.parseOrThrow({label:"foo",value:1}, simpleRecordSchema), {
-              label: "foo",
-              value: 1
-            });
-      }));
+Ava("Simple record schema", t => {
+  U.assertEqualSchemas(t, simpleRecordSchema, S.schema(s => ({
+    label: s.m(S.string),
+    value: s.m(S.int)
+  })), undefined);
+  t.deepEqual(S.parseOrThrow({label:"foo",value:1}, simpleRecordSchema), {
+    label: "foo",
+    value: 1
+  });
+});
 
-var recordWithAliasSchema = S.schema(function (s) {
-      return {
-              "aliased-label": s.m(S.string),
-              value: s.m(S.$$int)
-            };
-    });
+let recordWithAliasSchema = S.schema(s => ({
+  "aliased-label": s.m(S.string),
+  value: s.m(S.int)
+}));
 
-Ava("Record schema with alias for field name", (function (t) {
-        U.assertEqualSchemas(t, recordWithAliasSchema, S.schema(function (s) {
-                  return {
-                          "aliased-label": s.m(S.string),
-                          value: s.m(S.$$int)
-                        };
-                }), undefined);
-        t.deepEqual(S.parseOrThrow({"aliased-label":"foo",value:1}, recordWithAliasSchema), {
-              "aliased-label": "foo",
-              value: 1
-            });
-      }));
+Ava("Record schema with alias for field name", t => {
+  U.assertEqualSchemas(t, recordWithAliasSchema, S.schema(s => ({
+    "aliased-label": s.m(S.string),
+    value: s.m(S.int)
+  })), undefined);
+  t.deepEqual(S.parseOrThrow({"aliased-label":"foo",value:1}, recordWithAliasSchema), {
+    "aliased-label": "foo",
+    value: 1
+  });
+});
 
-var recordWithOptionalSchema = S.schema(function (s) {
-      return {
-              label: s.m(S.option(S.string)),
-              value: s.m(S.option(S.$$int))
-            };
-    });
+let recordWithOptionalSchema = S.schema(s => ({
+  label: s.m(S.option(S.string)),
+  value: s.m(S.option(S.int))
+}));
 
-Ava("Record schema with optional fields", (function (t) {
-        U.assertEqualSchemas(t, recordWithOptionalSchema, S.schema(function (s) {
-                  return {
-                          label: s.m(S.option(S.string)),
-                          value: s.m(S.option(S.$$int))
-                        };
-                }), undefined);
-        t.deepEqual(S.parseOrThrow({"label":"foo",value:1}, recordWithOptionalSchema), {
-              label: "foo",
-              value: 1
-            });
-        t.deepEqual(S.parseOrThrow({}, recordWithOptionalSchema), {
-              label: undefined,
-              value: undefined
-            });
-      }));
+Ava("Record schema with optional fields", t => {
+  U.assertEqualSchemas(t, recordWithOptionalSchema, S.schema(s => ({
+    label: s.m(S.option(S.string)),
+    value: s.m(S.option(S.int))
+  })), undefined);
+  t.deepEqual(S.parseOrThrow({"label":"foo",value:1}, recordWithOptionalSchema), {
+    label: "foo",
+    value: 1
+  });
+  t.deepEqual(S.parseOrThrow({}, recordWithOptionalSchema), {
+    label: undefined,
+    value: undefined
+  });
+});
 
-var recordWithNullableFieldSchema = S.schema(function (s) {
-      return {
-              subscription: s.m(S.option(S.$$null(S.string)))
-            };
-    });
+let recordWithNullableFieldSchema = S.schema(s => ({
+  subscription: s.m(S.option(S.$$null(S.string)))
+}));
 
-Ava("Record schema with nullable field", (function (t) {
-        U.assertEqualSchemas(t, recordWithNullableFieldSchema, S.schema(function (s) {
-                  return {
-                          subscription: s.m(S.option(S.$$null(S.string)))
-                        };
-                }), undefined);
-        t.deepEqual(S.parseOrThrow({}, recordWithNullableFieldSchema), {
-              subscription: undefined
-            });
-        t.deepEqual(S.parseOrThrow({"subscription":null}, recordWithNullableFieldSchema), {
-              subscription: Caml_option.some(undefined)
-            });
-      }));
+Ava("Record schema with nullable field", t => {
+  U.assertEqualSchemas(t, recordWithNullableFieldSchema, S.schema(s => ({
+    subscription: s.m(S.option(S.$$null(S.string)))
+  })), undefined);
+  t.deepEqual(S.parseOrThrow({}, recordWithNullableFieldSchema), {
+    subscription: undefined
+  });
+  t.deepEqual(S.parseOrThrow({"subscription":null}, recordWithNullableFieldSchema), {
+    subscription: Primitive_option.some(undefined)
+  });
+});
 
 export {
-  simpleRecordSchema ,
-  recordWithAliasSchema ,
-  recordWithOptionalSchema ,
-  recordWithNullableFieldSchema ,
+  simpleRecordSchema,
+  recordWithAliasSchema,
+  recordWithOptionalSchema,
+  recordWithNullableFieldSchema,
 }
 /* simpleRecordSchema Not a pure module */

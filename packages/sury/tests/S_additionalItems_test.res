@@ -42,7 +42,7 @@ test("Works correctly when the same unknown keys strategy applyed multiple times
   t->Assert.deepEqual(any->S.parseOrThrow(schema), value)
 })
 
-test("Doesn't raise an error when unknown keys strategy applyed to a non Object schema", t => {
+test("Doesn't throw an error when unknown keys strategy applyed to a non Object schema", t => {
   t->Assert.notThrows(() => {
     S.string->S.strip->ignore
   })

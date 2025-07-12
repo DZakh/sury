@@ -2,7 +2,7 @@
 
 import * as S from "../src/S.res.mjs";
 import Ava from "ava";
-import * as Caml_option from "rescript/lib/es6/caml_option.js";
+import * as Primitive_option from "rescript/lib/es6/Primitive_option.js";
 
 function roundTrip(schema) {
   return S.fromJSONSchema(S.toJSONSchema(schema));
@@ -20,528 +20,478 @@ function eq(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-Ava("fromJSONSchema: string", (function (t) {
-        var js_type = "string";
-        var js = {
-          type: js_type
-        };
-        var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow("foo", schema), "foo");
-        t.throws(function () {
-              return S.parseOrThrow(123, schema);
-            });
-        t.deepEqual(jsonRoundTrip(js), js);
-      }));
+Ava("fromJSONSchema: string", t => {
+  let js_type = "string";
+  let js = {
+    type: js_type
+  };
+  let schema = S.fromJSONSchema(js);
+  t.deepEqual(S.parseOrThrow("foo", schema), "foo");
+  t.throws(() => S.parseOrThrow(123, schema));
+  t.deepEqual(S.toJSONSchema(S.fromJSONSchema(js)), js);
+});
 
-Ava("fromJSONSchema: number", (function (t) {
-        var js_type = "number";
-        var js = {
-          type: js_type
-        };
-        var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow(1.5, schema), 1.5);
-        t.throws(function () {
-              return S.parseOrThrow("foo", schema);
-            });
-        t.deepEqual(jsonRoundTrip(js), js);
-      }));
+Ava("fromJSONSchema: number", t => {
+  let js_type = "number";
+  let js = {
+    type: js_type
+  };
+  let schema = S.fromJSONSchema(js);
+  t.deepEqual(S.parseOrThrow(1.5, schema), 1.5);
+  t.throws(() => S.parseOrThrow("foo", schema));
+  t.deepEqual(S.toJSONSchema(S.fromJSONSchema(js)), js);
+});
 
-Ava("fromJSONSchema: integer", (function (t) {
-        var js_type = "integer";
-        var js = {
-          type: js_type
-        };
-        var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow(42, schema), 42);
-        t.throws(function () {
-              return S.parseOrThrow(1.5, schema);
-            });
-        t.deepEqual(jsonRoundTrip(js), js);
-      }));
+Ava("fromJSONSchema: integer", t => {
+  let js_type = "integer";
+  let js = {
+    type: js_type
+  };
+  let schema = S.fromJSONSchema(js);
+  t.deepEqual(S.parseOrThrow(42, schema), 42);
+  t.throws(() => S.parseOrThrow(1.5, schema));
+  t.deepEqual(S.toJSONSchema(S.fromJSONSchema(js)), js);
+});
 
-Ava("fromJSONSchema: boolean", (function (t) {
-        var js_type = "boolean";
-        var js = {
-          type: js_type
-        };
-        var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow(true, schema), true);
-        t.throws(function () {
-              return S.parseOrThrow(0, schema);
-            });
-        t.deepEqual(jsonRoundTrip(js), js);
-      }));
+Ava("fromJSONSchema: boolean", t => {
+  let js_type = "boolean";
+  let js = {
+    type: js_type
+  };
+  let schema = S.fromJSONSchema(js);
+  t.deepEqual(S.parseOrThrow(true, schema), true);
+  t.throws(() => S.parseOrThrow(0, schema));
+  t.deepEqual(S.toJSONSchema(S.fromJSONSchema(js)), js);
+});
 
-Ava("fromJSONSchema: null", (function (t) {
-        var js_type = "null";
-        var js = {
-          type: js_type
-        };
-        var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow(null, schema), null);
-        t.throws(function () {
-              return S.parseOrThrow(0, schema);
-            });
-        t.deepEqual(jsonRoundTrip(js), js);
-      }));
+Ava("fromJSONSchema: null", t => {
+  let js_type = "null";
+  let js = {
+    type: js_type
+  };
+  let schema = S.fromJSONSchema(js);
+  t.deepEqual(S.parseOrThrow(null, schema), null);
+  t.throws(() => S.parseOrThrow(0, schema));
+  t.deepEqual(S.toJSONSchema(S.fromJSONSchema(js)), js);
+});
 
-Ava("fromJSONSchema: const", (function (t) {
-        var js_const = "foo";
-        var js = {
-          const: js_const
-        };
-        var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow("foo", schema), "foo");
-        t.throws(function () {
-              return S.parseOrThrow("bar", schema);
-            });
-        t.deepEqual(jsonRoundTrip(js), js);
-      }));
+Ava("fromJSONSchema: const", t => {
+  let js_const = "foo";
+  let js = {
+    const: js_const
+  };
+  let schema = S.fromJSONSchema(js);
+  t.deepEqual(S.parseOrThrow("foo", schema), "foo");
+  t.throws(() => S.parseOrThrow("bar", schema));
+  t.deepEqual(S.toJSONSchema(S.fromJSONSchema(js)), js);
+});
 
-Ava("fromJSONSchema: enum", (function (t) {
-        var js_enum = [
-          "a",
-          "b",
-          "c"
-        ];
-        var js = {
-          enum: js_enum
-        };
-        var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow("a", schema), "a");
-        t.throws(function () {
-              return S.parseOrThrow("z", schema);
-            });
-        t.deepEqual(jsonRoundTrip(js), js);
-      }));
+Ava("fromJSONSchema: enum", t => {
+  let js_enum = [
+    "a",
+    "b",
+    "c"
+  ];
+  let js = {
+    enum: js_enum
+  };
+  let schema = S.fromJSONSchema(js);
+  t.deepEqual(S.parseOrThrow("a", schema), "a");
+  t.throws(() => S.parseOrThrow("z", schema));
+  t.deepEqual(S.toJSONSchema(S.fromJSONSchema(js)), js);
+});
 
-Ava("fromJSONSchema: array of string", (function (t) {
-        var js_type = "array";
-        var js_items = {
-          type: "string"
-        };
-        var js = {
-          type: js_type,
-          items: js_items
-        };
-        var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow([
-                  "a",
-                  "b"
-                ], schema), [
-              "a",
-              "b"
-            ]);
-        t.throws(function () {
-              return S.parseOrThrow([
-                          1,
-                          2
-                        ], schema);
-            });
-        t.deepEqual(jsonRoundTrip(js), js);
-      }));
+Ava("fromJSONSchema: array of string", t => {
+  let js_type = "array";
+  let js_items = {
+    type: "string"
+  };
+  let js = {
+    type: js_type,
+    items: js_items
+  };
+  let schema = S.fromJSONSchema(js);
+  t.deepEqual(S.parseOrThrow([
+    "a",
+    "b"
+  ], schema), [
+    "a",
+    "b"
+  ]);
+  t.throws(() => S.parseOrThrow([
+    1,
+    2
+  ], schema));
+  t.deepEqual(S.toJSONSchema(S.fromJSONSchema(js)), js);
+});
 
-Ava("fromJSONSchema: array with minItems/maxItems", (function (t) {
-        var js_type = "array";
-        var js_items = {
-          type: "number"
-        };
-        var js_maxItems = 3;
-        var js_minItems = 2;
-        var js = {
-          type: js_type,
-          items: js_items,
-          maxItems: js_maxItems,
-          minItems: js_minItems
-        };
-        var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow([
-                  1,
-                  2
-                ], schema), [
-              1,
-              2
-            ]);
-        t.throws(function () {
-              return S.parseOrThrow([1], schema);
-            });
-        t.throws(function () {
-              return S.parseOrThrow([
-                          1,
-                          2,
-                          3,
-                          4
-                        ], schema);
-            });
-        t.deepEqual(jsonRoundTrip(js), js);
-      }));
+Ava("fromJSONSchema: array with minItems/maxItems", t => {
+  let js_type = "array";
+  let js_items = {
+    type: "number"
+  };
+  let js_maxItems = 3;
+  let js_minItems = 2;
+  let js = {
+    type: js_type,
+    items: js_items,
+    maxItems: js_maxItems,
+    minItems: js_minItems
+  };
+  let schema = S.fromJSONSchema(js);
+  t.deepEqual(S.parseOrThrow([
+    1,
+    2
+  ], schema), [
+    1,
+    2
+  ]);
+  t.throws(() => S.parseOrThrow([1], schema));
+  t.throws(() => S.parseOrThrow([
+    1,
+    2,
+    3,
+    4
+  ], schema));
+  t.deepEqual(S.toJSONSchema(S.fromJSONSchema(js)), js);
+});
 
-Ava("fromJSONSchema: tuple", (function (t) {
-        var js_type = "array";
-        var js_items = [
-          {
-            type: "string"
-          },
-          {
-            type: "number"
-          }
-        ];
-        var js_maxItems = 2;
-        var js_minItems = 2;
-        var js = {
-          type: js_type,
-          items: js_items,
-          maxItems: js_maxItems,
-          minItems: js_minItems
-        };
-        var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow([
-                  "a",
-                  1
-                ], schema), [
-              "a",
-              1
-            ]);
-        t.throws(function () {
-              return S.parseOrThrow([
-                          1,
-                          "a"
-                        ], schema);
-            });
-        t.deepEqual(jsonRoundTrip(js), js);
-      }));
+Ava("fromJSONSchema: tuple", t => {
+  let js_type = "array";
+  let js_items = [
+    {
+      type: "string"
+    },
+    {
+      type: "number"
+    }
+  ];
+  let js_maxItems = 2;
+  let js_minItems = 2;
+  let js = {
+    type: js_type,
+    items: js_items,
+    maxItems: js_maxItems,
+    minItems: js_minItems
+  };
+  let schema = S.fromJSONSchema(js);
+  t.deepEqual(S.parseOrThrow([
+    "a",
+    1
+  ], schema), [
+    "a",
+    1
+  ]);
+  t.throws(() => S.parseOrThrow([
+    1,
+    "a"
+  ], schema));
+  t.deepEqual(S.toJSONSchema(S.fromJSONSchema(js)), js);
+});
 
-Ava("fromJSONSchema: object with properties", (function (t) {
-        var js_type = "object";
-        var js_required = ["foo"];
-        var js_properties = Object.fromEntries([
-              [
-                "foo",
-                {
-                  type: "string"
-                }
-              ],
-              [
-                "bar",
-                {
-                  type: "number"
-                }
-              ]
-            ]);
-        var js = {
-          type: js_type,
-          required: js_required,
-          properties: js_properties
-        };
-        var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow({
-                  foo: "hi",
-                  bar: 1
-                }, schema), {
-              foo: "hi",
-              bar: 1
-            });
-        t.throws(function () {
-              return S.parseOrThrow({
-                          bar: 1
-                        }, schema);
-            });
-        t.deepEqual(jsonRoundTrip(js), js);
-      }));
+Ava("fromJSONSchema: object with properties", t => {
+  let js_type = "object";
+  let js_required = ["foo"];
+  let js_properties = Object.fromEntries([
+    [
+      "foo",
+      {
+        type: "string"
+      }
+    ],
+    [
+      "bar",
+      {
+        type: "number"
+      }
+    ]
+  ]);
+  let js = {
+    type: js_type,
+    required: js_required,
+    properties: js_properties
+  };
+  let schema = S.fromJSONSchema(js);
+  t.deepEqual(S.parseOrThrow({
+    foo: "hi",
+    bar: 1
+  }, schema), {
+    foo: "hi",
+    bar: 1
+  });
+  t.throws(() => S.parseOrThrow({
+    bar: 1
+  }, schema));
+  t.deepEqual(S.toJSONSchema(S.fromJSONSchema(js)), js);
+});
 
-Ava("fromJSONSchema: object with additionalProperties false", (function (t) {
-        var js_type = "object";
-        var js_properties = Object.fromEntries([[
-                "foo",
-                {
-                  type: "string"
-                }
-              ]]);
-        var js_additionalProperties = Caml_option.some(false);
-        var js = {
-          type: js_type,
-          properties: js_properties,
-          additionalProperties: js_additionalProperties
-        };
-        var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow({
-                  foo: "hi"
-                }, schema), {
-              foo: "hi"
-            });
-        t.throws(function () {
-              return S.parseOrThrow({
-                          foo: "hi",
-                          bar: 1
-                        }, schema);
-            });
-        t.deepEqual(jsonRoundTrip(js), js);
-      }));
+Ava("fromJSONSchema: object with additionalProperties false", t => {
+  let js_type = "object";
+  let js_properties = Object.fromEntries([[
+      "foo",
+      {
+        type: "string"
+      }
+    ]]);
+  let js_additionalProperties = Primitive_option.some(false);
+  let js = {
+    type: js_type,
+    properties: js_properties,
+    additionalProperties: js_additionalProperties
+  };
+  let schema = S.fromJSONSchema(js);
+  t.deepEqual(S.parseOrThrow({
+    foo: "hi"
+  }, schema), {
+    foo: "hi"
+  });
+  t.throws(() => S.parseOrThrow({
+    foo: "hi",
+    bar: 1
+  }, schema));
+  t.deepEqual(S.toJSONSchema(S.fromJSONSchema(js)), js);
+});
 
-Ava("fromJSONSchema: object with additionalProperties true", (function (t) {
-        var js_type = "object";
-        var js_additionalProperties = Caml_option.some(true);
-        var js = {
-          type: js_type,
-          additionalProperties: js_additionalProperties
-        };
-        var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow({
-                  foo: 1,
-                  bar: 2
-                }, schema), {
-              foo: 1,
-              bar: 2
-            });
-        t.deepEqual(jsonRoundTrip(js), js);
-      }));
+Ava("fromJSONSchema: object with additionalProperties true", t => {
+  let js_type = "object";
+  let js_additionalProperties = Primitive_option.some(true);
+  let js = {
+    type: js_type,
+    additionalProperties: js_additionalProperties
+  };
+  let schema = S.fromJSONSchema(js);
+  t.deepEqual(S.parseOrThrow({
+    foo: 1,
+    bar: 2
+  }, schema), {
+    foo: 1,
+    bar: 2
+  });
+  t.deepEqual(S.toJSONSchema(S.fromJSONSchema(js)), js);
+});
 
-Ava("fromJSONSchema: anyOf", (function (t) {
-        var js_anyOf = [
-          {
-            type: "string"
-          },
-          {
-            type: "number"
-          }
-        ];
-        var js = {
-          anyOf: js_anyOf
-        };
-        var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow("hi", schema), "hi");
-        t.deepEqual(S.parseOrThrow(1, schema), 1);
-        t.throws(function () {
-              return S.parseOrThrow(true, schema);
-            });
-        t.deepEqual(jsonRoundTrip(js), js);
-      }));
+Ava("fromJSONSchema: anyOf", t => {
+  let js_anyOf = [
+    {
+      type: "string"
+    },
+    {
+      type: "number"
+    }
+  ];
+  let js = {
+    anyOf: js_anyOf
+  };
+  let schema = S.fromJSONSchema(js);
+  t.deepEqual(S.parseOrThrow("hi", schema), "hi");
+  t.deepEqual(S.parseOrThrow(1, schema), 1);
+  t.throws(() => S.parseOrThrow(true, schema));
+  t.deepEqual(S.toJSONSchema(S.fromJSONSchema(js)), js);
+});
 
-Ava("fromJSONSchema: oneOf", (function (t) {
-        var js_oneOf = [
-          {
-            type: "string"
-          },
-          {
-            type: "number"
-          }
-        ];
-        var js = {
-          oneOf: js_oneOf
-        };
-        var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow("hi", schema), "hi");
-        t.deepEqual(S.parseOrThrow(1, schema), 1);
-        t.throws(function () {
-              return S.parseOrThrow(true, schema);
-            });
-        t.deepEqual(jsonRoundTrip(js), js);
-      }));
+Ava("fromJSONSchema: oneOf", t => {
+  let js_oneOf = [
+    {
+      type: "string"
+    },
+    {
+      type: "number"
+    }
+  ];
+  let js = {
+    oneOf: js_oneOf
+  };
+  let schema = S.fromJSONSchema(js);
+  t.deepEqual(S.parseOrThrow("hi", schema), "hi");
+  t.deepEqual(S.parseOrThrow(1, schema), 1);
+  t.throws(() => S.parseOrThrow(true, schema));
+  t.deepEqual(S.toJSONSchema(S.fromJSONSchema(js)), js);
+});
 
-Ava("fromJSONSchema: allOf", (function (t) {
-        var js_allOf = [
-          {
-            type: "number",
-            minimum: 0
-          },
-          {
-            type: "number",
-            maximum: 10
-          }
-        ];
-        var js = {
-          allOf: js_allOf
-        };
-        var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow(5, schema), 5);
-        t.throws(function () {
-              return S.parseOrThrow(20, schema);
-            });
-        t.deepEqual(jsonRoundTrip(js), js);
-      }));
+Ava("fromJSONSchema: allOf", t => {
+  let js_allOf = [
+    {
+      type: "number",
+      minimum: 0
+    },
+    {
+      type: "number",
+      maximum: 10
+    }
+  ];
+  let js = {
+    allOf: js_allOf
+  };
+  let schema = S.fromJSONSchema(js);
+  t.deepEqual(S.parseOrThrow(5, schema), 5);
+  t.throws(() => S.parseOrThrow(20, schema));
+  t.deepEqual(S.toJSONSchema(S.fromJSONSchema(js)), js);
+});
 
-Ava("fromJSONSchema: not", (function (t) {
-        var js_not = {
-          type: "string"
-        };
-        var js = {
-          not: js_not
-        };
-        var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow(1, schema), 1);
-        t.throws(function () {
-              return S.parseOrThrow("hi", schema);
-            });
-        t.deepEqual(jsonRoundTrip(js), js);
-      }));
+Ava("fromJSONSchema: not", t => {
+  let js_not = {
+    type: "string"
+  };
+  let js = {
+    not: js_not
+  };
+  let schema = S.fromJSONSchema(js);
+  t.deepEqual(S.parseOrThrow(1, schema), 1);
+  t.throws(() => S.parseOrThrow("hi", schema));
+  t.deepEqual(S.toJSONSchema(S.fromJSONSchema(js)), js);
+});
 
-Ava("fromJSONSchema: nullable true", (function (t) {
-        var js_type = "string";
-        var js_nullable = true;
-        var js = {
-          type: js_type,
-          nullable: js_nullable
-        };
-        var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow("hi", schema), "hi");
-        t.deepEqual(S.parseOrThrow(null, schema), null);
-        t.deepEqual(jsonRoundTrip(js), js);
-      }));
+Ava("fromJSONSchema: nullable true", t => {
+  let js_type = "string";
+  let js_nullable = true;
+  let js = {
+    type: js_type,
+    nullable: js_nullable
+  };
+  let schema = S.fromJSONSchema(js);
+  t.deepEqual(S.parseOrThrow("hi", schema), "hi");
+  t.deepEqual(S.parseOrThrow(null, schema), null);
+  t.deepEqual(S.toJSONSchema(S.fromJSONSchema(js)), js);
+});
 
-Ava("fromJSONSchema: nullable false", (function (t) {
-        var js_type = "string";
-        var js_nullable = false;
-        var js = {
-          type: js_type,
-          nullable: js_nullable
-        };
-        var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow("hi", schema), "hi");
-        t.throws(function () {
-              return S.parseOrThrow(null, schema);
-            });
-        t.deepEqual(jsonRoundTrip(js), js);
-      }));
+Ava("fromJSONSchema: nullable false", t => {
+  let js_type = "string";
+  let js_nullable = false;
+  let js = {
+    type: js_type,
+    nullable: js_nullable
+  };
+  let schema = S.fromJSONSchema(js);
+  t.deepEqual(S.parseOrThrow("hi", schema), "hi");
+  t.throws(() => S.parseOrThrow(null, schema));
+  t.deepEqual(S.toJSONSchema(S.fromJSONSchema(js)), js);
+});
 
-Ava("fromJSONSchema: string format email", (function (t) {
-        var js_type = "string";
-        var js_format = "email";
-        var js = {
-          type: js_type,
-          format: js_format
-        };
-        var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow("foo@bar.com", schema), "foo@bar.com");
-        t.throws(function () {
-              return S.parseOrThrow("not-an-email", schema);
-            });
-        t.deepEqual(jsonRoundTrip(js), js);
-      }));
+Ava("fromJSONSchema: string format email", t => {
+  let js_type = "string";
+  let js_format = "email";
+  let js = {
+    type: js_type,
+    format: js_format
+  };
+  let schema = S.fromJSONSchema(js);
+  t.deepEqual(S.parseOrThrow("foo@bar.com", schema), "foo@bar.com");
+  t.throws(() => S.parseOrThrow("not-an-email", schema));
+  t.deepEqual(S.toJSONSchema(S.fromJSONSchema(js)), js);
+});
 
-Ava("fromJSONSchema: string format uuid", (function (t) {
-        var js_type = "string";
-        var js_format = "uuid";
-        var js = {
-          type: js_type,
-          format: js_format
-        };
-        var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow("123e4567-e89b-12d3-a456-426614174000", schema), "123e4567-e89b-12d3-a456-426614174000");
-        t.throws(function () {
-              return S.parseOrThrow("not-a-uuid", schema);
-            });
-        t.deepEqual(jsonRoundTrip(js), js);
-      }));
+Ava("fromJSONSchema: string format uuid", t => {
+  let js_type = "string";
+  let js_format = "uuid";
+  let js = {
+    type: js_type,
+    format: js_format
+  };
+  let schema = S.fromJSONSchema(js);
+  t.deepEqual(S.parseOrThrow("123e4567-e89b-12d3-a456-426614174000", schema), "123e4567-e89b-12d3-a456-426614174000");
+  t.throws(() => S.parseOrThrow("not-a-uuid", schema));
+  t.deepEqual(S.toJSONSchema(S.fromJSONSchema(js)), js);
+});
 
-Ava("fromJSONSchema: string format date-time", (function (t) {
-        var js_type = "string";
-        var js_format = "date-time";
-        var js = {
-          type: js_type,
-          format: js_format
-        };
-        var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow("2020-01-01T00:00:00Z", schema), "2020-01-01T00:00:00Z");
-        t.throws(function () {
-              return S.parseOrThrow("not-a-date", schema);
-            });
-        t.deepEqual(jsonRoundTrip(js), js);
-      }));
+Ava("fromJSONSchema: string format date-time", t => {
+  let js_type = "string";
+  let js_format = "date-time";
+  let js = {
+    type: js_type,
+    format: js_format
+  };
+  let schema = S.fromJSONSchema(js);
+  t.deepEqual(S.parseOrThrow("2020-01-01T00:00:00Z", schema), "2020-01-01T00:00:00Z");
+  t.throws(() => S.parseOrThrow("not-a-date", schema));
+  t.deepEqual(S.toJSONSchema(S.fromJSONSchema(js)), js);
+});
 
-Ava("fromJSONSchema: string pattern", (function (t) {
-        var js_type = "string";
-        var js_pattern = "^foo$";
-        var js = {
-          type: js_type,
-          pattern: js_pattern
-        };
-        var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow("foo", schema), "foo");
-        t.throws(function () {
-              return S.parseOrThrow("bar", schema);
-            });
-        t.deepEqual(jsonRoundTrip(js), js);
-      }));
+Ava("fromJSONSchema: string pattern", t => {
+  let js_type = "string";
+  let js_pattern = "^foo$";
+  let js = {
+    type: js_type,
+    pattern: js_pattern
+  };
+  let schema = S.fromJSONSchema(js);
+  t.deepEqual(S.parseOrThrow("foo", schema), "foo");
+  t.throws(() => S.parseOrThrow("bar", schema));
+  t.deepEqual(S.toJSONSchema(S.fromJSONSchema(js)), js);
+});
 
-Ava("fromJSONSchema: title, description, deprecated, examples", (function (t) {
-        var js_type = "string";
-        var js_title = "title";
-        var js_description = "desc";
-        var js_deprecated = true;
-        var js_examples = [
-          "a",
-          "b"
-        ];
-        var js = {
-          type: js_type,
-          title: js_title,
-          description: js_description,
-          deprecated: js_deprecated,
-          examples: js_examples
-        };
-        var schema = S.fromJSONSchema(js);
-        t.deepEqual(schema.title, "title");
-        t.deepEqual(schema.description, "desc");
-        t.deepEqual(schema.deprecated, true);
-        t.deepEqual(schema.examples, [
-              "a",
-              "b"
-            ]);
-        t.deepEqual(jsonRoundTrip(js), js);
-      }));
+Ava("fromJSONSchema: title, description, deprecated, examples", t => {
+  let js_type = "string";
+  let js_title = "title";
+  let js_description = "desc";
+  let js_deprecated = true;
+  let js_examples = [
+    "a",
+    "b"
+  ];
+  let js = {
+    type: js_type,
+    title: js_title,
+    description: js_description,
+    deprecated: js_deprecated,
+    examples: js_examples
+  };
+  let schema = S.fromJSONSchema(js);
+  t.deepEqual(schema.title, "title");
+  t.deepEqual(schema.description, "desc");
+  t.deepEqual(schema.deprecated, true);
+  t.deepEqual(schema.examples, [
+    "a",
+    "b"
+  ]);
+  t.deepEqual(S.toJSONSchema(S.fromJSONSchema(js)), js);
+});
 
-Ava("fromJSONSchema: empty schema is any", (function (t) {
-        var js = {};
-        var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow("foo", schema), "foo");
-        t.deepEqual(S.parseOrThrow(1, schema), 1);
-        t.deepEqual(S.parseOrThrow(true, schema), true);
-        t.deepEqual(jsonRoundTrip(js), js);
-      }));
+Ava("fromJSONSchema: empty schema is any", t => {
+  let js = {};
+  let schema = S.fromJSONSchema(js);
+  t.deepEqual(S.parseOrThrow("foo", schema), "foo");
+  t.deepEqual(S.parseOrThrow(1, schema), 1);
+  t.deepEqual(S.parseOrThrow(true, schema), true);
+  t.deepEqual(S.toJSONSchema(S.fromJSONSchema(js)), js);
+});
 
-Ava("fromJSONSchema: unknown type is any", (function (t) {
-        var js_type = "unknownType";
-        var js = {
-          type: js_type
-        };
-        var schema = S.fromJSONSchema(js);
-        t.deepEqual(S.parseOrThrow("foo", schema), "foo");
-        t.deepEqual(S.parseOrThrow(1, schema), 1);
-        t.deepEqual(S.parseOrThrow(true, schema), true);
-        t.deepEqual(jsonRoundTrip(js), js);
-      }));
+Ava("fromJSONSchema: unknown type is any", t => {
+  let js_type = "unknownType";
+  let js = {
+    type: js_type
+  };
+  let schema = S.fromJSONSchema(js);
+  t.deepEqual(S.parseOrThrow("foo", schema), "foo");
+  t.deepEqual(S.parseOrThrow(1, schema), 1);
+  t.deepEqual(S.parseOrThrow(true, schema), true);
+  t.deepEqual(S.toJSONSchema(S.fromJSONSchema(js)), js);
+});
 
-Ava("fromJSONSchema: round-trip for string schema", (function (t) {
-        var round = roundTrip(S.string);
-        t.deepEqual(S.parseOrThrow("foo", round), "foo");
-        t.throws(function () {
-              return S.parseOrThrow(1, round);
-            });
-        t.deepEqual(S.toJSONSchema(round), S.toJSONSchema(S.string));
-      }));
+Ava("fromJSONSchema: round-trip for string schema", t => {
+  let round = S.fromJSONSchema(S.toJSONSchema(S.string));
+  t.deepEqual(S.parseOrThrow("foo", round), "foo");
+  t.throws(() => S.parseOrThrow(1, round));
+  t.deepEqual(S.toJSONSchema(round), S.toJSONSchema(S.string));
+});
 
-Ava("fromJSONSchema: round-trip for object schema", (function (t) {
-        var orig = S.object(function (s) {
-              return s.f("foo", S.string);
-            });
-        var round = roundTrip(orig);
-        t.deepEqual(S.parseOrThrow({
-                  foo: "bar"
-                }, round), {
-              foo: "bar"
-            });
-        t.throws(function () {
-              return S.parseOrThrow({
-                          foo: 1
-                        }, round);
-            });
-        t.deepEqual(S.toJSONSchema(round), S.toJSONSchema(orig));
-      }));
+Ava("fromJSONSchema: round-trip for object schema", t => {
+  let orig = S.object(s => s.f("foo", S.string));
+  let round = S.fromJSONSchema(S.toJSONSchema(orig));
+  t.deepEqual(S.parseOrThrow({
+    foo: "bar"
+  }, round), {
+    foo: "bar"
+  });
+  t.throws(() => S.parseOrThrow({
+    foo: 1
+  }, round));
+  t.deepEqual(S.toJSONSchema(round), S.toJSONSchema(orig));
+});
 
 export {
-  roundTrip ,
-  jsonRoundTrip ,
-  parse ,
-  eq ,
+  roundTrip,
+  jsonRoundTrip,
+  parse,
+  eq,
 }
 /*  Not a pure module */

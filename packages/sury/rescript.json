@@ -21,9 +21,5 @@
       "subdirs": true
     }
   ],
-  "bs-dev-dependencies": [
-    "@rescript/core",
-    "@dzakh/rescript-ava",
-    "rescript-nodejs"
-  ]
+  "dev-dependencies": ["@dzakh/rescript-ava", "rescript-nodejs"]
 }

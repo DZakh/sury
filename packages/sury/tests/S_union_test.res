@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 S.enableJson()
 
@@ -461,7 +460,7 @@ test("Successfully serializes unboxed variant", t => {
   let toInt =
     S.string
     ->S.transform(_ => {
-      parser: string => string->Int.fromString->Option.getExn,
+      parser: string => string->Int.fromString->Option.getOrThrow,
       serializer: Int.toString(_),
     })
     ->S.shape(i => Int(i))

@@ -1,5 +1,5 @@
 open Ava
-open RescriptCore
+
 open U
 
 // TODO: Automatically enable it in PPX

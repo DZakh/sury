@@ -1,6 +1,5 @@
 open Ava
 open JSONSchema
-open RescriptCore
 
 // Helper for round-trip: S -> toJSONSchema -> fromJSONSchema -> S
 let roundTrip = schema => schema->S.toJSONSchema->S.fromJSONSchema

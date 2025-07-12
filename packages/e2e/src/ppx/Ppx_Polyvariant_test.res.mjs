@@ -4,74 +4,50 @@ import * as S from "sury/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
 import Ava from "ava";
 
-var polySchema = S.union([
-      S.literal("one"),
-      S.literal("two")
-    ]);
+let polySchema = S.union([
+  S.literal("one"),
+  S.literal("two")
+]);
 
-Ava("Polymorphic variant", (function (t) {
-        U.assertEqualSchemas(t, polySchema, S.union([
-                  S.literal("one"),
-                  S.literal("two")
-                ]), undefined);
-      }));
+Ava("Polymorphic variant", t => U.assertEqualSchemas(t, polySchema, S.union([
+  S.literal("one"),
+  S.literal("two")
+]), undefined));
 
-var polyWithSingleItemSchema = S.literal("single");
+let polyWithSingleItemSchema = S.literal("single");
 
-Ava("Polymorphic variant with single item becomes a literal schema of the item", (function (t) {
-        U.assertEqualSchemas(t, polyWithSingleItemSchema, S.literal("single"), undefined);
-      }));
+Ava("Polymorphic variant with single item becomes a literal schema of the item", t => U.assertEqualSchemas(t, polyWithSingleItemSchema, S.literal("single"), undefined));
 
-var polyEmbededSchema = S.shape(S.string, (function (param) {
-        return "one";
-      }));
+let polyEmbededSchema = S.shape(S.string, param => "one");
 
-Ava("Embed custom schema for polymorphic variants", (function (t) {
-        U.assertEqualSchemas(t, polyEmbededSchema, S.shape(S.string, (function (param) {
-                    return "one";
-                  })), undefined);
-      }));
+Ava("Embed custom schema for polymorphic variants", t => U.assertEqualSchemas(t, polyEmbededSchema, S.shape(S.string, param => "one"), undefined));
 
-var dictFieldSchema = S.dict(S.literal("one"));
+let dictFieldSchema = S.dict(S.literal("one"));
 
-Ava("Supported as a dict field", (function (t) {
-        U.assertEqualSchemas(t, dictFieldSchema, S.dict(S.literal("one")), undefined);
-      }));
+Ava("Supported as a dict field", t => U.assertEqualSchemas(t, dictFieldSchema, S.dict(S.literal("one")), undefined));
 
-var recordFieldSchema = S.schema(function (s) {
-      return {
-              poly: s.m(S.literal("one"))
-            };
-    });
+let recordFieldSchema = S.schema(s => ({
+  poly: s.m(S.literal("one"))
+}));
 
-Ava("Supported as a record field", (function (t) {
-        U.assertEqualSchemas(t, recordFieldSchema, S.schema(function (s) {
-                  return {
-                          poly: s.m(S.literal("one"))
-                        };
-                }), undefined);
-      }));
+Ava("Supported as a record field", t => U.assertEqualSchemas(t, recordFieldSchema, S.schema(s => ({
+  poly: s.m(S.literal("one"))
+})), undefined));
 
-var objectFieldSchema = S.schema(function (s) {
-      return {
-              poly: s.m(S.literal("one"))
-            };
-    });
+let objectFieldSchema = S.schema(s => ({
+  poly: s.m(S.literal("one"))
+}));
 
-Ava("Supported as an object field", (function (t) {
-        U.assertEqualSchemas(t, objectFieldSchema, S.schema(function (s) {
-                  return {
-                          poly: s.m(S.literal("one"))
-                        };
-                }), undefined);
-      }));
+Ava("Supported as an object field", t => U.assertEqualSchemas(t, objectFieldSchema, S.schema(s => ({
+  poly: s.m(S.literal("one"))
+})), undefined));
 
 export {
-  polySchema ,
-  polyWithSingleItemSchema ,
-  polyEmbededSchema ,
-  dictFieldSchema ,
-  recordFieldSchema ,
-  objectFieldSchema ,
+  polySchema,
+  polyWithSingleItemSchema,
+  polyEmbededSchema,
+  dictFieldSchema,
+  recordFieldSchema,
+  objectFieldSchema,
 }
 /* polySchema Not a pure module */

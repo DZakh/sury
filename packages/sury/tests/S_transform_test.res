@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 test("Parses unknown primitive with transformation to the same type", t => {
   let schema = S.string->S.transform(_ => {parser: value => value->String.trim})
@@ -37,7 +36,7 @@ test("Fails to parse primitive with transform when parser isn't provided", t => 
   )
 })
 
-test("Fails to parse when user raises error in a Transformed Primitive parser", t => {
+test("Fails to parse when user throws error in a Transformed Primitive parser", t => {
   let schema = S.string->S.transform(s => {parser: _ => s.fail("User error")})
 
   t->U.assertThrows(
@@ -46,11 +45,11 @@ test("Fails to parse when user raises error in a Transformed Primitive parser", 
   )
 })
 
-test("Uses the path from S.Error.raise called in the transform parser", t => {
+test("Uses the path from S.Error.throw called in the transform parser", t => {
   let schema = S.array(
     S.string->S.transform(_ => {
       parser: _ =>
-        U.raiseError(
+        U.throwError(
           U.error({
             code: OperationFailed("User error"),
             operation: Parse,
@@ -70,11 +69,11 @@ test("Uses the path from S.Error.raise called in the transform parser", t => {
   )
 })
 
-test("Uses the path from S.Error.raise called in the transform serializer", t => {
+test("Uses the path from S.Error.throw called in the transform serializer", t => {
   let schema = S.array(
     S.string->S.transform(_ => {
       serializer: _ =>
-        U.raiseError(
+        U.throwError(
           U.error({
             code: OperationFailed("User error"),
             operation: ReverseConvert,
@@ -96,7 +95,7 @@ test("Uses the path from S.Error.raise called in the transform serializer", t =>
 
 test("Transform parser passes through non rescript-schema errors", t => {
   let schema = S.array(
-    S.string->S.transform(_ => {parser: _ => Exn.raiseError("Application crashed")}),
+    S.string->S.transform(_ => {parser: _ => JsError.throwWithMessage("Application crashed")}),
   )
 
   t->Assert.throws(
@@ -108,13 +107,13 @@ test("Transform parser passes through non rescript-schema errors", t => {
 })
 
 test("Transform parser passes through other rescript exceptions", t => {
-  let schema = S.array(S.string->S.transform(_ => {parser: _ => U.raiseTestException()}))
+  let schema = S.array(S.string->S.transform(_ => {parser: _ => U.throwTestException()}))
 
   t->U.assertThrowsTestException(() => {["Hello world!"]->S.parseOrThrow(schema)})
 })
 
 test("Transform definition passes through non rescript-schema errors", t => {
-  let schema = S.array(S.string->S.transform(_ => Exn.raiseError("Application crashed")))
+  let schema = S.array(S.string->S.transform(_ => JsError.throwWithMessage("Application crashed")))
 
   t->Assert.throws(
     () => {["Hello world!"]->S.parseOrThrow(schema)},
@@ -125,7 +124,7 @@ test("Transform definition passes through non rescript-schema errors", t => {
 })
 
 test("Transform definition passes through other rescript exceptions", t => {
-  let schema = S.array(S.string->S.transform(_ => U.raiseTestException()))
+  let schema = S.array(S.string->S.transform(_ => U.throwTestException()))
 
   t->U.assertThrowsTestException(() => {["Hello world!"]->S.parseOrThrow(schema)})
 })
@@ -155,7 +154,7 @@ test("Transformed Primitive serializing fails when serializer isn't provided", t
   )
 })
 
-test("Fails to serialize when user raises error in a Transformed Primitive serializer", t => {
+test("Fails to serialize when user throws error in a Transformed Primitive serializer", t => {
   let schema = S.string->S.transform(s => {serializer: _ => s.fail("User error")})
 
   t->U.assertThrows(

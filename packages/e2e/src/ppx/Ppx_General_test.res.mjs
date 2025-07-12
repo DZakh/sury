@@ -4,65 +4,47 @@ import * as S from "sury/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
 import Ava from "ava";
 
-Ava("Creates schema with the name schema from t type", (function (t) {
-        U.assertEqualSchemas(t, S.string, S.string, undefined);
-      }));
+Ava("Creates schema with the name schema from t type", t => U.assertEqualSchemas(t, S.string, S.string, undefined));
 
-Ava("Creates schema with the type name and schema at the for non t types", (function (t) {
-        U.assertEqualSchemas(t, S.$$int, S.$$int, undefined);
-      }));
+Ava("Creates schema with the type name and schema at the for non t types", t => U.assertEqualSchemas(t, S.int, S.int, undefined));
 
-var reusedTypesSchema = S.schema(function (s) {
-      return [
-              s.m(S.string),
-              s.m(S.$$int),
-              s.m(S.bool),
-              s.m(S.$$float)
-            ];
-    });
+let reusedTypesSchema = S.schema(s => [
+  s.m(S.string),
+  s.m(S.int),
+  s.m(S.bool),
+  s.m(S.float)
+]);
 
-Ava("Can reuse schemas from other types", (function (t) {
-        U.assertEqualSchemas(t, reusedTypesSchema, S.schema(function (s) {
-                  return [
-                          s.m(S.string),
-                          s.m(S.$$int),
-                          s.m(S.bool),
-                          s.m(S.$$float)
-                        ];
-                }), undefined);
-      }));
+Ava("Can reuse schemas from other types", t => U.assertEqualSchemas(t, reusedTypesSchema, S.schema(s => [
+  s.m(S.string),
+  s.m(S.int),
+  s.m(S.bool),
+  s.m(S.float)
+]), undefined));
 
-var stringWithDefaultSchema = S.$$Option.getOr(S.option(S.string), "Foo");
+let stringWithDefaultSchema = S.Option.getOr(S.option(S.string), "Foo");
 
-Ava("Creates schema with default", (function (t) {
-        U.assertEqualSchemas(t, stringWithDefaultSchema, S.$$Option.getOr(S.option(S.string), "Foo"), undefined);
-      }));
+Ava("Creates schema with default", t => U.assertEqualSchemas(t, stringWithDefaultSchema, S.Option.getOr(S.option(S.string), "Foo"), undefined));
 
-var stringWithDefaultAndMatchesSchema = S.$$Option.getOr(S.option(S.url(S.string, undefined)), "Foo");
+let stringWithDefaultAndMatchesSchema = S.Option.getOr(S.option(S.url(S.string, undefined)), "Foo");
 
-Ava("Creates schema with default using @s.matches", (function (t) {
-        U.assertEqualSchemas(t, stringWithDefaultAndMatchesSchema, S.$$Option.getOr(S.option(S.url(S.string, undefined)), "Foo"), undefined);
-      }));
+Ava("Creates schema with default using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultAndMatchesSchema, S.Option.getOr(S.option(S.url(S.string, undefined)), "Foo"), undefined));
 
-var stringWithDefaultNullAndMatchesSchema = S.$$Option.getOr(S.$$null(S.url(S.string, undefined)), "Foo");
+let stringWithDefaultNullAndMatchesSchema = S.Option.getOr(S.$$null(S.url(S.string, undefined)), "Foo");
 
-Ava("Creates schema with default null using @s.matches", (function (t) {
-        U.assertEqualSchemas(t, stringWithDefaultNullAndMatchesSchema, S.$$Option.getOr(S.$$null(S.url(S.string, undefined)), "Foo"), undefined);
-      }));
+Ava("Creates schema with default null using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultNullAndMatchesSchema, S.Option.getOr(S.$$null(S.url(S.string, undefined)), "Foo"), undefined));
 
-var ignoredNullWithMatchesSchema = S.option(S.string);
+let ignoredNullWithMatchesSchema = S.option(S.string);
 
-Ava("@s.null doesn't override @s.matches(S.option(_))", (function (t) {
-        U.assertEqualSchemas(t, ignoredNullWithMatchesSchema, S.option(S.string), undefined);
-      }));
+Ava("@s.null doesn't override @s.matches(S.option(_))", t => U.assertEqualSchemas(t, ignoredNullWithMatchesSchema, S.option(S.string), undefined));
 
-var schema = S.string;
+let schema = S.string;
 
-var fooSchema = S.$$int;
+let fooSchema = S.int;
 
 export {
-  schema ,
-  fooSchema ,
-  reusedTypesSchema ,
+  schema,
+  fooSchema,
+  reusedTypesSchema,
 }
 /*  Not a pure module */

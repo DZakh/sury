@@ -4,149 +4,131 @@ import * as S from "sury/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
 import Ava from "ava";
 
-var payloadSchema = S.schema(function (s) {
-      return {
-              a: s.m(S.option(S.string))
-            };
-    });
+let payloadSchema = S.schema(s => ({
+  a: s.m(S.option(S.string))
+}));
 
-var schema = S.schema(function (s) {
-      return {
-              payload: s.m(payloadSchema)
-            };
-    });
+let schema = S.schema(s => ({
+  payload: s.m(payloadSchema)
+}));
 
-var A = {
+let A = {
   payloadSchema: payloadSchema,
   schema: schema
 };
 
-var payloadSchema$1 = S.schema(function (s) {
-      return {
-              b: s.m(S.option(S.$$int))
-            };
-    });
+let payloadSchema$1 = S.schema(s => ({
+  b: s.m(S.option(S.int))
+}));
 
-var schema$1 = S.schema(function (s) {
-      return {
-              payload: s.m(payloadSchema$1)
-            };
-    });
+let schema$1 = S.schema(s => ({
+  payload: s.m(payloadSchema$1)
+}));
 
-var B = {
+let B = {
   payloadSchema: payloadSchema$1,
   schema: schema$1
 };
 
-Ava("Union serializing of objects with optional fields", (function (t) {
-        var schema$2 = S.union([
-              S.shape(schema, (function (m) {
-                      return {
-                              TAG: "A",
-                              _0: m
-                            };
-                    })),
-              S.shape(schema$1, (function (m) {
-                      return {
-                              TAG: "B",
-                              _0: m
-                            };
-                    }))
-            ]);
-        U.assertCompiledCode(t, schema$2, "ReverseConvert", "i=>{if(typeof i===\"object\"&&i){if(i[\"TAG\"]===\"A\"&&typeof i[\"_0\"]===\"object\"&&i[\"_0\"]&&typeof i[\"_0\"][\"payload\"]===\"object\"&&i[\"_0\"][\"payload\"]){let v0=i[\"_0\"];let v1=v0[\"payload\"];i=v0}else if(i[\"TAG\"]===\"B\"&&typeof i[\"_0\"]===\"object\"&&i[\"_0\"]&&typeof i[\"_0\"][\"payload\"]===\"object\"&&i[\"_0\"][\"payload\"]){let v2=i[\"_0\"];let v3=v2[\"payload\"];i=v2}}return i}", undefined);
-        t.deepEqual(S.reverseConvertOrThrow({
-                  TAG: "B",
-                  _0: {
-                    payload: {
-                      b: 42
-                    }
-                  }
-                }, schema$2), {"payload":{"b":42}});
-        t.deepEqual(S.reverseConvertOrThrow({
-                  TAG: "A",
-                  _0: {
-                    payload: {
-                      a: "foo"
-                    }
-                  }
-                }, schema$2), {"payload":{"a":"foo"}});
-      }));
+Ava("Union serializing of objects with optional fields", t => {
+  let schema$2 = S.union([
+    S.shape(schema, m => ({
+      TAG: "A",
+      _0: m
+    })),
+    S.shape(schema$1, m => ({
+      TAG: "B",
+      _0: m
+    }))
+  ]);
+  U.assertCompiledCode(t, schema$2, "ReverseConvert", "i=>{if(typeof i===\"object\"&&i){if(i[\"TAG\"]===\"A\"&&typeof i[\"_0\"]===\"object\"&&i[\"_0\"]&&typeof i[\"_0\"][\"payload\"]===\"object\"&&i[\"_0\"][\"payload\"]){let v0=i[\"_0\"];let v1=v0[\"payload\"];i=v0}else if(i[\"TAG\"]===\"B\"&&typeof i[\"_0\"]===\"object\"&&i[\"_0\"]&&typeof i[\"_0\"][\"payload\"]===\"object\"&&i[\"_0\"][\"payload\"]){let v2=i[\"_0\"];let v3=v2[\"payload\"];i=v2}}return i}", undefined);
+  t.deepEqual(S.reverseConvertOrThrow({
+    TAG: "B",
+    _0: {
+      payload: {
+        b: 42
+      }
+    }
+  }, schema$2), {"payload":{"b":42}});
+  t.deepEqual(S.reverseConvertOrThrow({
+    TAG: "A",
+    _0: {
+      payload: {
+        a: "foo"
+      }
+    }
+  }, schema$2), {"payload":{"a":"foo"}});
+});
 
-var CknittelBugReport = {
+let CknittelBugReport = {
   A: A,
   B: B
 };
 
-var aSchema = S.schema(function (s) {
+let aSchema = S.schema(s => ({
+  x: s.m(S.int)
+}));
+
+let bSchema = S.schema(s => ({
+  y: s.m(S.string)
+}));
+
+let testSchema = S.union([
+  S.object(s => {
+    s.tag("type", "a");
+    return {
+      TAG: "A",
+      _0: s.flatten(aSchema)
+    };
+  }),
+  S.object(s => {
+    s.tag("type", "b");
+    return {
+      TAG: "B",
+      _0: s.flatten(bSchema)
+    };
+  })
+]);
+
+let schema$2 = S.schema(s => ({
+  test: s.m(S.option(testSchema))
+}));
+
+Ava("Successfully parses nested optional union", t => {
+  U.assertCompiledCode(t, schema$2, "Parse", "i=>{if(typeof i!==\"object\"||!i){e[0](i)}let v0=i[\"test\"];if(typeof v0===\"object\"&&v0){if(v0[\"type\"]===\"a\"){let v1=v0[\"x\"];if(typeof v1!==\"number\"||v1>2147483647||v1<-2147483648||v1%1!==0){e[1](v1)}v0={\"TAG\":\"A\",\"_0\":{\"x\":v1,},}}else if(v0[\"type\"]===\"b\"){let v2=v0[\"y\"];if(typeof v2!==\"string\"){e[2](v2)}v0={\"TAG\":\"B\",\"_0\":{\"y\":v2,},}}else{e[3](v0)}}else if(!(v0===void 0)){e[4](v0)}return {\"test\":v0,}}", undefined);
+  t.deepEqual(S.parseJsonStringOrThrow("{}", schema$2), {
+    test: undefined
+  });
+});
+
+Ava("Nested literal field with catch", t => {
+  let schema = S.union([
+    S.object(s => {
+      s.nested("statusCode").f("kind", S.literal("ok"));
       return {
-              x: s.m(S.$$int)
-            };
-    });
-
-var bSchema = S.schema(function (s) {
+        TAG: "Ok",
+        _0: undefined
+      };
+    }),
+    S.object(s => {
+      s.nested("statusCode").f("kind", S.literal("serviceError"));
       return {
-              y: s.m(S.string)
-            };
-    });
+        TAG: "Error",
+        _0: {
+          serviceCode: s.nested("statusCode").f("serviceCode", S.string),
+          text: s.nested("statusCode").f("text", S.string)
+        }
+      };
+    })
+  ]);
+  U.assertCompiledCode(t, schema, "Parse", "i=>{if(typeof i===\"object\"&&i){if(typeof i[\"statusCode\"]===\"object\"&&i[\"statusCode\"]&&i[\"statusCode\"][\"kind\"]===\"ok\"){i={\"TAG\":\"Ok\",\"_0\":void 0,}}else if(typeof i[\"statusCode\"]===\"object\"&&i[\"statusCode\"]&&i[\"statusCode\"][\"kind\"]===\"serviceError\"){let v0=i[\"statusCode\"],v1=v0[\"serviceCode\"],v2=v0[\"text\"];if(typeof v1!==\"string\"){e[0](v1)}if(typeof v2!==\"string\"){e[1](v2)}i={\"TAG\":\"Error\",\"_0\":{\"serviceCode\":v1,\"text\":v2,},}}else{e[2](i)}}else{e[3](i)}return i}", undefined);
+  t.deepEqual(S.parseJsonStringOrThrow("{\"statusCode\": {\"kind\": \"ok\"}}", schema), {
+    TAG: "Ok",
+    _0: undefined
+  });
+});
 
-var testSchema = S.union([
-      S.object(function (s) {
-            s.tag("type", "a");
-            return {
-                    TAG: "A",
-                    _0: s.flatten(aSchema)
-                  };
-          }),
-      S.object(function (s) {
-            s.tag("type", "b");
-            return {
-                    TAG: "B",
-                    _0: s.flatten(bSchema)
-                  };
-          })
-    ]);
-
-var schema$2 = S.schema(function (s) {
-      return {
-              test: s.m(S.option(testSchema))
-            };
-    });
-
-Ava("Successfully parses nested optional union", (function (t) {
-        U.assertCompiledCode(t, schema$2, "Parse", "i=>{if(typeof i!==\"object\"||!i){e[0](i)}let v0=i[\"test\"];if(typeof v0===\"object\"&&v0){if(v0[\"type\"]===\"a\"){let v1=v0[\"x\"];if(typeof v1!==\"number\"||v1>2147483647||v1<-2147483648||v1%1!==0){e[1](v1)}v0={\"TAG\":\"A\",\"_0\":{\"x\":v1,},}}else if(v0[\"type\"]===\"b\"){let v2=v0[\"y\"];if(typeof v2!==\"string\"){e[2](v2)}v0={\"TAG\":\"B\",\"_0\":{\"y\":v2,},}}else{e[3](v0)}}else if(!(v0===void 0)){e[4](v0)}return {\"test\":v0,}}", undefined);
-        t.deepEqual(S.parseJsonStringOrThrow("{}", schema$2), {
-              test: undefined
-            });
-      }));
-
-Ava("Nested literal field with catch", (function (t) {
-        var schema = S.union([
-              S.object(function (s) {
-                    s.nested("statusCode").f("kind", S.literal("ok"));
-                    return {
-                            TAG: "Ok",
-                            _0: undefined
-                          };
-                  }),
-              S.object(function (s) {
-                    s.nested("statusCode").f("kind", S.literal("serviceError"));
-                    return {
-                            TAG: "Error",
-                            _0: {
-                              serviceCode: s.nested("statusCode").f("serviceCode", S.string),
-                              text: s.nested("statusCode").f("text", S.string)
-                            }
-                          };
-                  })
-            ]);
-        U.assertCompiledCode(t, schema, "Parse", "i=>{if(typeof i===\"object\"&&i){if(typeof i[\"statusCode\"]===\"object\"&&i[\"statusCode\"]&&i[\"statusCode\"][\"kind\"]===\"ok\"){i={\"TAG\":\"Ok\",\"_0\":void 0,}}else if(typeof i[\"statusCode\"]===\"object\"&&i[\"statusCode\"]&&i[\"statusCode\"][\"kind\"]===\"serviceError\"){let v0=i[\"statusCode\"],v1=v0[\"serviceCode\"],v2=v0[\"text\"];if(typeof v1!==\"string\"){e[0](v1)}if(typeof v2!==\"string\"){e[1](v2)}i={\"TAG\":\"Error\",\"_0\":{\"serviceCode\":v1,\"text\":v2,},}}else{e[2](i)}}else{e[3](i)}return i}", undefined);
-        t.deepEqual(S.parseJsonStringOrThrow("{\"statusCode\": {\"kind\": \"ok\"}}", schema), {
-              TAG: "Ok",
-              _0: undefined
-            });
-      }));
-
-var CknittelBugReport2 = {
+let CknittelBugReport2 = {
   aSchema: aSchema,
   bSchema: bSchema,
   testSchema: testSchema,
@@ -154,7 +136,7 @@ var CknittelBugReport2 = {
 };
 
 export {
-  CknittelBugReport ,
-  CknittelBugReport2 ,
+  CknittelBugReport,
+  CknittelBugReport2,
 }
 /* payloadSchema Not a pure module */

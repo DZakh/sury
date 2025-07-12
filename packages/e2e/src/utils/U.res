@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 // The hack to bypass wallaby adding tags
 // and turning the function into:
@@ -15,7 +14,7 @@ external magic: 'a => 'b = "%identity"
 external castAnyToUnknown: 'any => unknown = "%identity"
 external castUnknownToAny: unknown => 'any = "%identity"
 
-let raiseError = (error: S.error) => raise(error->Obj.magic)
+let throwError = (error: S.error) => throw(error->Obj.magic)
 
 %%private(
   @val @scope("JSON")
@@ -25,7 +24,7 @@ let raiseError = (error: S.error) => raise(error->Obj.magic)
 let unsafeGetVariantPayload = variant => (variant->Obj.magic)["_0"]
 
 exception Test
-let raiseTestException = () => raise(Test)
+let throwTestException = () => throw(Test)
 
 type taggedFlag =
   | Parse

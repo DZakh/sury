@@ -12,13 +12,11 @@
     "in-source": true
   },
   "suffix": ".res.mjs",
-  "bs-dependencies": ["sury"],
-  "bs-dev-dependencies": ["@rescript/core", "@dzakh/rescript-ava"],
-  "ppx-flags": ["../sury-ppx/bin"],
-  "warnings": {
-    "error": true,
-    "number": "-48-44"
-  },
+  "dependencies": ["sury"],
+  "dev-dependencies": ["@dzakh/rescript-ava"],
+  "ppx-flags": [
+    "/Users/dzakh/code/DZakh/rescript-schema/packages/sury-ppx/bin"
+  ],
   "gentypeconfig": {
     "generatedFileExtension": ".gen.ts"
   }

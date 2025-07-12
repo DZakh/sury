@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 type rec node = {
   id: string,
@@ -128,11 +127,12 @@ test("Fails to parse nested recursive object", t => {
         id: s.field(
           "Id",
           S.string->S.refine(
-            s => id => {
-              if id === "4" {
-                s.fail("Invalid id")
-              }
-            },
+            s =>
+              id => {
+                if id === "4" {
+                  s.fail("Invalid id")
+                }
+              },
           ),
         ),
         children: s.field("Children", S.array(nodeSchema)),
@@ -169,11 +169,12 @@ test("Fails to parse nested recursive object inside of another object", t => {
               id: s.field(
                 "Id",
                 S.string->S.refine(
-                  s => id => {
-                    if id === "4" {
-                      s.fail("Invalid id")
-                    }
-                  },
+                  s =>
+                    id => {
+                      if id === "4" {
+                        s.fail("Invalid id")
+                      }
+                    },
                 ),
               ),
               children: s.field("Children", S.array(nodeSchema)),
@@ -280,11 +281,12 @@ test("Fails to serialise nested recursive object", t => {
         id: s.field(
           "Id",
           S.string->S.refine(
-            s => id => {
-              if id === "4" {
-                s.fail("Invalid id")
-              }
-            },
+            s =>
+              id => {
+                if id === "4" {
+                  s.fail("Invalid id")
+                }
+              },
           ),
         ),
         children: s.field("Children", S.array(nodeSchema)),
@@ -318,7 +320,7 @@ test(
       )->S.transform(
         _ => {
           parser: node => {...node, id: `node_${node.id}`},
-          serializer: node => {...node, id: node.id->String.sliceToEnd(~start=5)},
+          serializer: node => {...node, id: node.id->String.slice(~start=5)},
         },
       )
     })
@@ -381,7 +383,7 @@ test("Recursively transforms nested objects when added transform to the placehol
             nodeSchema->S.transform(
               _ => {
                 parser: node => {...node, id: `child_${node.id}`},
-                serializer: node => {...node, id: node.id->String.sliceToEnd(~start=6)},
+                serializer: node => {...node, id: node.id->String.slice(~start=6)},
               },
             ),
           ),
@@ -434,7 +436,7 @@ test("Shallowly transforms object when added transform to the S.recursive result
     )
   })->S.transform(_ => {
     parser: node => {...node, id: `parent_${node.id}`},
-    serializer: node => {...node, id: node.id->String.sliceToEnd(~start=7)},
+    serializer: node => {...node, id: node.id->String.slice(~start=7)},
   })
 
   t->Assert.deepEqual(

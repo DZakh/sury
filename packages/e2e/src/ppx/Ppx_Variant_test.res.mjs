@@ -4,191 +4,137 @@ import * as S from "sury/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
 import Ava from "ava";
 
-var variantSchema = S.union([
-      S.literal("One"),
-      S.literal("Two")
-    ]);
+let variantSchema = S.union([
+  S.literal("One"),
+  S.literal("Two")
+]);
 
-Ava("Variant", (function (t) {
-        U.assertEqualSchemas(t, variantSchema, S.union([
-                  S.literal("One"),
-                  S.literal("Two")
-                ]), undefined);
-      }));
+Ava("Variant", t => U.assertEqualSchemas(t, variantSchema, S.union([
+  S.literal("One"),
+  S.literal("Two")
+]), undefined));
 
-var variantWithSingleItemSchema = S.literal("Single");
+let variantWithSingleItemSchema = S.literal("Single");
 
-Ava("Variant with single item becomes a literal schema of the item", (function (t) {
-        U.assertEqualSchemas(t, variantWithSingleItemSchema, S.literal("Single"), undefined);
-      }));
+Ava("Variant with single item becomes a literal schema of the item", t => U.assertEqualSchemas(t, variantWithSingleItemSchema, S.literal("Single"), undefined));
 
-var variantWithAliasSchema = S.union([
-      S.literal("하나"),
-      S.literal("Two")
-    ]);
+let variantWithAliasSchema = S.union([
+  S.literal("하나"),
+  S.literal("Two")
+]);
 
-Ava("Variant with partial @as usage", (function (t) {
-        U.assertEqualSchemas(t, variantWithAliasSchema, S.union([
-                  S.literal("하나"),
-                  S.literal("Two")
-                ]), undefined);
-      }));
+Ava("Variant with partial @as usage", t => U.assertEqualSchemas(t, variantWithAliasSchema, S.union([
+  S.literal("하나"),
+  S.literal("Two")
+]), undefined));
 
-var variantWithPayloadsSchema = S.union([
-      S.literal("Constant"),
-      S.schema(function (s) {
-            return {
-                    TAG: "SinglePayload",
-                    _0: s.m(S.$$int)
-                  };
-          }),
-      S.schema(function (s) {
-            return {
-                    TAG: "TuplePayload",
-                    _0: s.m(S.$$int),
-                    _1: s.m(S.string)
-                  };
-          }),
-      S.schema(function (s) {
-            return {
-                    TAG: "RecordPayload",
-                    foo: s.m(S.$$float)
-                  };
-          })
-    ]);
+let variantWithPayloadsSchema = S.union([
+  S.literal("Constant"),
+  S.schema(s => ({
+    TAG: "SinglePayload",
+    _0: s.m(S.int)
+  })),
+  S.schema(s => ({
+    TAG: "TuplePayload",
+    _0: s.m(S.int),
+    _1: s.m(S.string)
+  })),
+  S.schema(s => ({
+    TAG: "RecordPayload",
+    foo: s.m(S.float)
+  }))
+]);
 
-Ava("Variant with payloads", (function (t) {
-        U.assertEqualSchemas(t, variantWithPayloadsSchema, S.union([
-                  S.literal("Constant"),
-                  S.schema(function (s) {
-                        return {
-                                TAG: "SinglePayload",
-                                _0: s.m(S.$$int)
-                              };
-                      }),
-                  S.schema(function (s) {
-                        return {
-                                TAG: "TuplePayload",
-                                _0: s.m(S.$$int),
-                                _1: s.m(S.string)
-                              };
-                      }),
-                  S.schema(function (s) {
-                        return {
-                                TAG: "RecordPayload",
-                                foo: s.m(S.$$float)
-                              };
-                      })
-                ]), undefined);
-      }));
+Ava("Variant with payloads", t => U.assertEqualSchemas(t, variantWithPayloadsSchema, S.union([
+  S.literal("Constant"),
+  S.schema(s => ({
+    TAG: "SinglePayload",
+    _0: s.m(S.int)
+  })),
+  S.schema(s => ({
+    TAG: "TuplePayload",
+    _0: s.m(S.int),
+    _1: s.m(S.string)
+  })),
+  S.schema(s => ({
+    TAG: "RecordPayload",
+    foo: s.m(S.float)
+  }))
+]), undefined));
 
-var unboxedVariantSchema = S.union([
-      S.literal("Constant"),
-      S.schema(function (s) {
-            return s.m(S.$$int);
-          }),
-      S.schema(function (s) {
-            return s.m(S.string);
-          })
-    ]);
+let unboxedVariantSchema = S.union([
+  S.literal("Constant"),
+  S.schema(s => (s.m(S.int))),
+  S.schema(s => (s.m(S.string)))
+]);
 
-Ava("Unboxed variant", (function (t) {
-        U.assertEqualSchemas(t, unboxedVariantSchema, S.union([
-                  S.literal("Constant"),
-                  S.schema(function (s) {
-                        return s.m(S.$$int);
-                      }),
-                  S.schema(function (s) {
-                        return s.m(S.string);
-                      })
-                ]), undefined);
-      }));
+Ava("Unboxed variant", t => U.assertEqualSchemas(t, unboxedVariantSchema, S.union([
+  S.literal("Constant"),
+  S.schema(s => (s.m(S.int))),
+  S.schema(s => (s.m(S.string)))
+]), undefined));
 
-var taggedVariantSchema = S.union([
-      S.schema(function (s) {
-            return {
-                    kind: "circle",
-                    radius: s.m(S.$$float)
-                  };
-          }),
-      S.schema(function (s) {
-            return {
-                    kind: "square",
-                    x: s.m(S.$$float)
-                  };
-          }),
-      S.schema(function (s) {
-            return {
-                    kind: "triangle",
-                    x: s.m(S.$$float),
-                    y: s.m(S.$$float)
-                  };
-          })
-    ]);
+let taggedVariantSchema = S.union([
+  S.schema(s => ({
+    kind: "circle",
+    radius: s.m(S.float)
+  })),
+  S.schema(s => ({
+    kind: "square",
+    x: s.m(S.float)
+  })),
+  S.schema(s => ({
+    kind: "triangle",
+    x: s.m(S.float),
+    y: s.m(S.float)
+  }))
+]);
 
-Ava("Tagged variant", (function (t) {
-        U.assertEqualSchemas(t, taggedVariantSchema, S.union([
-                  S.schema(function (s) {
-                        return {
-                                kind: "circle",
-                                radius: s.m(S.$$float)
-                              };
-                      }),
-                  S.schema(function (s) {
-                        return {
-                                kind: "square",
-                                x: s.m(S.$$float)
-                              };
-                      }),
-                  S.schema(function (s) {
-                        return {
-                                kind: "triangle",
-                                x: s.m(S.$$float),
-                                y: s.m(S.$$float)
-                              };
-                      })
-                ]), undefined);
-      }));
+Ava("Tagged variant", t => U.assertEqualSchemas(t, taggedVariantSchema, S.union([
+  S.schema(s => ({
+    kind: "circle",
+    radius: s.m(S.float)
+  })),
+  S.schema(s => ({
+    kind: "square",
+    x: s.m(S.float)
+  })),
+  S.schema(s => ({
+    kind: "triangle",
+    x: s.m(S.float),
+    y: s.m(S.float)
+  }))
+]), undefined));
 
-var taggedInlinedAliasSchema = S.union([
-      S.schema(function (s) {
-            return {
-                    type: "Foo",
-                    Foo: s.m(S.string)
-                  };
-          }),
-      S.schema(function (s) {
-            return {
-                    type: "Bar",
-                    Bar: s.m(S.string)
-                  };
-          })
-    ]);
+let taggedInlinedAliasSchema = S.union([
+  S.schema(s => ({
+    type: "Foo",
+    Foo: s.m(S.string)
+  })),
+  S.schema(s => ({
+    type: "Bar",
+    Bar: s.m(S.string)
+  }))
+]);
 
-Ava("Tagged variant with inlined alias", (function (t) {
-        U.assertEqualSchemas(t, taggedInlinedAliasSchema, S.union([
-                  S.schema(function (s) {
-                        return {
-                                type: "Foo",
-                                Foo: s.m(S.string)
-                              };
-                      }),
-                  S.schema(function (s) {
-                        return {
-                                type: "Bar",
-                                Bar: s.m(S.string)
-                              };
-                      })
-                ]), undefined);
-      }));
+Ava("Tagged variant with inlined alias", t => U.assertEqualSchemas(t, taggedInlinedAliasSchema, S.union([
+  S.schema(s => ({
+    type: "Foo",
+    Foo: s.m(S.string)
+  })),
+  S.schema(s => ({
+    type: "Bar",
+    Bar: s.m(S.string)
+  }))
+]), undefined));
 
 export {
-  variantSchema ,
-  variantWithSingleItemSchema ,
-  variantWithAliasSchema ,
-  variantWithPayloadsSchema ,
-  unboxedVariantSchema ,
-  taggedVariantSchema ,
-  taggedInlinedAliasSchema ,
+  variantSchema,
+  variantWithSingleItemSchema,
+  variantWithAliasSchema,
+  variantWithPayloadsSchema,
+  unboxedVariantSchema,
+  taggedVariantSchema,
+  taggedInlinedAliasSchema,
 }
 /* variantSchema Not a pure module */

@@ -5,13 +5,13 @@ DIR=$(dirname "$0")
 
 if [ -f $DIR/src/_build/default/bin/bin.exe ]; then
     # Use the dev build
-    $DIR/src/_build/default/bin/bin.exe $@
+    $DIR/src/_build/default/bin/bin.exe "$@"
 elif [ "$(uname)" = "Darwin" ]; then
     # Run the Mac PPX
-    $DIR/ppx-osx.exe $@
+    $DIR/ppx-osx.exe "$@"
 elif [ "$(expr substr $(uname -s) 1 5)" = "Linux" ]; then
     # Run the Linux PPX
-    $DIR/ppx-linux.exe $@
+    $DIR/ppx-linux.exe "$@"
 else
     echo "No release available for '$(uname)'"
     exit 1

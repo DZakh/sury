@@ -16,10 +16,7 @@ importers:
     dependencies:
       '@dzakh/rescript-ava':
         specifier: 3.1.0
-        version: 3.1.0(ava@5.2.0)(rescript@11.1.0)
-      '@rescript/core':
-        specifier: 1.3.0
-        version: 1.3.0(rescript@11.1.0)
+        version: 3.1.0(ava@5.2.0)(rescript@12.0.0-beta.5)
       '@sinclair/typebox':
         specifier: 0.34.33
         version: 0.34.33
@@ -33,8 +30,8 @@ importers:
         specifier: 2.1.4
         version: 2.1.4
       rescript:
-        specifier: 11.1.0
-        version: 11.1.0
+        specifier: 12.0.0-beta.5
+        version: 12.0.0-beta.5
       sury:
         specifier: file:../sury
         version: link:../sury
@@ -49,10 +46,10 @@ importers:
     devDependencies:
       '@dzakh/rescript-ava':
         specifier: 3.1.0
-        version: 3.1.0(ava@5.2.0)(rescript@11.1.0)
-      '@rescript/core':
-        specifier: 1.3.0
-        version: 1.3.0(rescript@11.1.0)
+        version: 3.1.0(ava@5.2.0)(rescript@12.0.0-beta.5)
+      '@rescript/darwin-arm64':
+        specifier: 12.0.0-beta.5
+        version: 12.0.0-beta.5
       '@rollup/plugin-node-resolve':
         specifier: 16.0.0
         version: 16.0.0(rollup@3.21.0)
@@ -66,8 +63,8 @@ importers:
         specifier: 7.1.1
         version: 7.1.1
       rescript:
-        specifier: 11.1.0
-        version: 11.1.0
+        specifier: 12.0.0-beta.5
+        version: 12.0.0-beta.5
       rescript-nodejs:
         specifier: 16.1.0
         version: 16.1.0
@@ -88,7 +85,7 @@ importers:
     dependencies:
       sury:
         specifier: ^11.0.0-alpha.2
-        version: 11.0.0-alpha.2(rescript@11.1.0)
+        version: 11.0.0-alpha.2(rescript@11.1.4)
 
 packages:
 
@@ -133,10 +130,35 @@ packages:
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
 
-  '@rescript/core@1.3.0':
-    resolution: {integrity: sha512-wNZOZ63sYcaIYZCmTZeIPCeLa3HCGgPbIOR8zjyNkoBYUlxNV8Nb2ZyqlXR5Mb9ttvv8fTV56JbKhyVEZEYo8g==}
-    peerDependencies:
-      rescript: ^11.1.0-rc.7
+  '@rescript/darwin-arm64@12.0.0-beta.5':
+    resolution: {integrity: sha512-hIy6TQKTzy3SdP3nGAzOc1fqb2Va5ejrn5RCZu6Scst9qH4uZ+chMS4Vv+yac1tD9bkTeixeXGj98NlLgukAvw==}
+    engines: {node: '>=20.11.0'}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@rescript/darwin-x64@12.0.0-beta.5':
+    resolution: {integrity: sha512-B7n7N0W3tzNTiDrA7sjMa4vzYhTph2PbzVFpLDbNYSAAhzIuNM2RxaAHZHpIneUk8BnSYjHV/yualnQRVaiSLQ==}
+    engines: {node: '>=20.11.0'}
+    cpu: [x64]
+    os: [darwin]
+
+  '@rescript/linux-arm64@12.0.0-beta.5':
+    resolution: {integrity: sha512-8Wvy77ihO4au/+NOjlXPfZipWNen57XKCMWywZy6AJdAnwDJrgCAazxcPmtk/jPrREfHvIodMFEA35MZN37v1A==}
+    engines: {node: '>=20.11.0'}
+    cpu: [arm64]
+    os: [linux]
+
+  '@rescript/linux-x64@12.0.0-beta.5':
+    resolution: {integrity: sha512-B+m1lmf8uyf9reX8nlMwwmxugvhoRMde1NRxdZrfBq+K08/d5wCX/PtnOVPiKsS2m4Iy7TLhNoSQWBqTI3JJ7A==}
+    engines: {node: '>=20.11.0'}
+    cpu: [x64]
+    os: [linux]
+
+  '@rescript/win32-x64@12.0.0-beta.5':
+    resolution: {integrity: sha512-odHAOLoevIvXwESFvi4WSal33wve0jWN8oeq9UFuhqXobvI9GaEGO7oJwvEWFEGraa8ofJCTe41DJb2sWYvEDA==}
+    engines: {node: '>=20.11.0'}
+    cpu: [x64]
+    os: [win32]
 
   '@rollup/plugin-node-resolve@16.0.0':
     resolution: {integrity: sha512-0FPvAeVUT/zdWoO0jnb/V5BlBsUSNfkIOtFHzMO4H9MOklrmQFY6FduVHKucNb/aTFxvnGhj4MNj/T1oNdDfNg==}
@@ -786,9 +808,14 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
-  rescript@11.1.0:
-    resolution: {integrity: sha512-9la2Dv+ACylQ77I8s4spPu1JnLZXbH5WgxcLHLLUBWgFFSiv0wXqgzWztrBIZqwFgVX5BYcwldUqUVcEzdCyHg==}
+  rescript@11.1.4:
+    resolution: {integrity: sha512-0bGU0bocihjSC6MsE3TMjHjY0EUpchyrREquLS8VsZ3ohSMD+VHUEwimEfB3kpBI1vYkw3UFZ3WD8R28guz/Vw==}
     engines: {node: '>=10'}
+    hasBin: true
+
+  rescript@12.0.0-beta.5:
+    resolution: {integrity: sha512-khIb1ABW7DEG1/HkTdP4r26IypKBfh8mrmOBWFtcSLkhQWCC5Vwl6uH+yjQ9jdpbBXXDh+xaELCmgfa2ZhdMHg==}
+    engines: {node: '>=20.11.0'}
     hasBin: true
 
   resolve-cwd@3.0.0:
@@ -1012,10 +1039,10 @@ snapshots:
 
   '@bcoe/v8-coverage@0.2.3': {}
 
-  '@dzakh/rescript-ava@3.1.0(ava@5.2.0)(rescript@11.1.0)':
+  '@dzakh/rescript-ava@3.1.0(ava@5.2.0)(rescript@12.0.0-beta.5)':
     dependencies:
       ava: 5.2.0
-      rescript: 11.1.0
+      rescript: 12.0.0-beta.5
 
   '@istanbuljs/schema@0.1.3': {}
 
@@ -1040,9 +1067,19 @@ snapshots:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.15.0
 
-  '@rescript/core@1.3.0(rescript@11.1.0)':
-    dependencies:
-      rescript: 11.1.0
+  '@rescript/darwin-arm64@12.0.0-beta.5': {}
+
+  '@rescript/darwin-x64@12.0.0-beta.5':
+    optional: true
+
+  '@rescript/linux-arm64@12.0.0-beta.5':
+    optional: true
+
+  '@rescript/linux-x64@12.0.0-beta.5':
+    optional: true
+
+  '@rescript/win32-x64@12.0.0-beta.5':
+    optional: true
 
   '@rollup/plugin-node-resolve@16.0.0(rollup@3.21.0)':
     dependencies:
@@ -1658,7 +1695,16 @@ snapshots:
 
   rescript@11.0.1: {}
 
-  rescript@11.1.0: {}
+  rescript@11.1.4:
+    optional: true
+
+  rescript@12.0.0-beta.5:
+    optionalDependencies:
+      '@rescript/darwin-arm64': 12.0.0-beta.5
+      '@rescript/darwin-x64': 12.0.0-beta.5
+      '@rescript/linux-arm64': 12.0.0-beta.5
+      '@rescript/linux-x64': 12.0.0-beta.5
+      '@rescript/win32-x64': 12.0.0-beta.5
 
   resolve-cwd@3.0.0:
     dependencies:
@@ -1756,9 +1802,9 @@ snapshots:
 
   supports-preserve-symlinks-flag@1.0.0: {}
 
-  sury@11.0.0-alpha.2(rescript@11.1.0):
+  sury@11.0.0-alpha.2(rescript@11.1.4):
     optionalDependencies:
-      rescript: 11.1.0
+      rescript: 11.1.4
 
   temp-dir@3.0.0: {}
 

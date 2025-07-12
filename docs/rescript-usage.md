@@ -68,9 +68,6 @@
   - [`noValidation`](#noValidation)
 
 - [Error handling](#error-handling)
-  - [`Error.make`](#errormake)
-  - [`Error.raise`](#errorraise)
-  - [`Error.message`](#errormessage)
 - [Global config](#global-config)
   - [`defaultAdditionalItems`](#defaultAdditionalItems)
   - [`disableNanNumberValidation`](#disablenannumbervalidation)
@@ -1311,7 +1308,7 @@ For some cases you might want to simply assert the input value is valid. For thi
 | --------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | S.assertOrThrow | `('any, S.t<'value>) => ()` | Asserts that the input value is valid. Since the operation doesn't return a value, it's 2-3 times faster than `parseOrThrow` depending on the schema |
 
-All operations either return the output value or raise an exception which you can catch with `try/catch` block:
+All operations either return the output value or throw an exception which you can catch with `try/catch` block:
 
 ```rescript
 try true->S.parseOrThrow(schema) catch {

@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 test("Object with a single nested field", t => {
   let schema = S.object(s => s.nested("nested").field("foo", S.string))
@@ -255,7 +254,7 @@ test("Nested preprocessed tags on reverse convert", t => {
     ->S.transform(s => {
       parser: v => {
         if v->String.startsWith("_") {
-          v->String.sliceToEnd(~start=1)
+          v->String.slice(~start=1)
         } else {
           s.fail("String should start with an underscore")
         }

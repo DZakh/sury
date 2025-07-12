@@ -9,7 +9,7 @@ test(
           ~code=OperationFailed("Should be positive"),
           ~flag=S.Flag.typeValidation,
           ~path=S.Path.empty,
-        )->U.raiseError
+        )->U.throwError
       },
       ~expectations={
         message: "Failed parsing: Should be positive",
@@ -27,9 +27,9 @@ test("Raised error is also the S.Error exeption and can be caught with catch", t
   )
   t->ExecutionContext.plan(1)
   try {
-    let _ = U.raiseError(error)
-    t->Assert.fail("Should raise before the line")
+    let _ = U.throwError(error)
+    t->Assert.fail("Should throw before the line")
   } catch {
-  | S.Error(raisedError) => t->Assert.is(error, raisedError)
+  | S.Error(throwdError) => t->Assert.is(error, throwdError)
   }
 })

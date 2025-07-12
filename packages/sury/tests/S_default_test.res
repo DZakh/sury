@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 test("Gets default value when Option.getOr is used", t => {
   let schema = S.option(S.float)->S.Option.getOr(123.)
@@ -24,23 +23,23 @@ test("Returns the first default value, but can get the last one as well", t => {
 
   t->Assert.deepEqual((schema->S.untag).tag, Union)
   t->Assert.deepEqual((schema->S.untag).default, Some(123.->U.magic))
-  t->Assert.deepEqual(((schema->S.untag).to->Option.getExn->S.untag).tag, Number)
+  t->Assert.deepEqual(((schema->S.untag).to->Option.getOrThrow->S.untag).tag, Number)
   t->Assert.deepEqual(
-    (((schema->S.untag).to->Option.getExn->S.untag).to->Option.getExn->S.untag).tag,
+    (((schema->S.untag).to->Option.getOrThrow->S.untag).to->Option.getOrThrow->S.untag).tag,
     Unknown,
   )
   t->Assert.deepEqual(
     (
-      (((schema->S.untag).to->Option.getExn->S.untag).to->Option.getExn->S.untag).to
-      ->Option.getExn
+      (((schema->S.untag).to->Option.getOrThrow->S.untag).to->Option.getOrThrow->S.untag).to
+      ->Option.getOrThrow
       ->S.untag
     ).tag,
     Union,
   )
   t->Assert.deepEqual(
     (
-      (((schema->S.untag).to->Option.getExn->S.untag).to->Option.getExn->S.untag).to
-      ->Option.getExn
+      (((schema->S.untag).to->Option.getOrThrow->S.untag).to->Option.getOrThrow->S.untag).to
+      ->Option.getOrThrow
       ->S.untag
     ).default,
     Some("not positive"->U.magic),
@@ -48,11 +47,11 @@ test("Returns the first default value, but can get the last one as well", t => {
   t->Assert.deepEqual(
     (
       (
-        (((schema->S.untag).to->Option.getExn->S.untag).to->Option.getExn->S.untag).to
-        ->Option.getExn
+        (((schema->S.untag).to->Option.getOrThrow->S.untag).to->Option.getOrThrow->S.untag).to
+        ->Option.getOrThrow
         ->S.untag
       ).to
-      ->Option.getExn
+      ->Option.getOrThrow
       ->S.untag
     ).tag,
     String,
