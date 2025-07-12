@@ -572,7 +572,7 @@ test("Union with nested variant", t => {
     ~schema,
     ~op=#ReverseConvert,
     // TODO: Can make it work without the second case since it doesn't do anything besides i=i
-    `i=>{if(typeof i==="object"&&i){if(typeof i["foo"]==="object"&&i["foo"]&&typeof i["foo"]["tag"]==="object"&&i["foo"]["tag"]&&i["foo"]["tag"]["NAME"]==="Null"){let v0=i["foo"];let v1=v0["tag"];let v2=v1["VAL"];if(v2===void 0){v2=null}i={"foo":{"tag":{"NAME":v1["NAME"],"VAL":v2,},},}}else if(typeof i["foo"]==="object"&&i["foo"]&&typeof i["foo"]["tag"]==="object"&&i["foo"]["tag"]&&i["foo"]["tag"]["NAME"]==="Option"){let v3=i["foo"];let v4=v3["tag"];let v5=v4["VAL"];i={"foo":{"tag":{"NAME":v4["NAME"],"VAL":v5,},},}}}return i}`,
+    `i=>{if(typeof i==="object"&&i){if(typeof i["foo"]==="object"&&i["foo"]&&typeof i["foo"]["tag"]==="object"&&i["foo"]["tag"]&&i["foo"]["tag"]["NAME"]==="Null"){let v0=i["foo"];let v1=v0["tag"];let v2=v1["VAL"];if(v2===void 0){v2=null}i={"foo":{"tag":{"NAME":v1["NAME"],"VAL":v2,},},}}else if(typeof i["foo"]==="object"&&i["foo"]&&typeof i["foo"]["tag"]==="object"&&i["foo"]["tag"]&&i["foo"]["tag"]["NAME"]==="Option"){let v3=i["foo"];let v4=v3["tag"];}}return i}`,
   )
 })
 
@@ -591,7 +591,7 @@ test("Nested union doesn't mutate the input", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Convert,
-    `i=>{let v0=i["foo"];if(typeof v0==="boolean"){v0=""+v0}return {"foo":v0,}}`,
+    `i=>{let v0=i["foo"];if(typeof v0==="boolean"){v0=""+i["foo"]}return {"foo":v0,}}`,
   )
 })
 
@@ -804,12 +804,12 @@ test("Issue https://github.com/DZakh/rescript-schema/issues/101", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{if(typeof i==="object"&&i){if(i["NAME"]==="request"&&typeof i["VAL"]==="object"&&i["VAL"]){let v0=i["VAL"];i=i}else if(i["NAME"]==="response"&&typeof i["VAL"]==="object"&&i["VAL"]){let v1=i["VAL"];i=i}}return i}`,
+    `i=>{if(typeof i==="object"&&i){if(i["NAME"]==="request"&&typeof i["VAL"]==="object"&&i["VAL"]){let v0=i["VAL"];}else if(i["NAME"]==="response"&&typeof i["VAL"]==="object"&&i["VAL"]){let v1=i["VAL"];let v2=v1["response"];i={"NAME":i["NAME"],"VAL":{"collectionName":v1["collectionName"],"response":v2,},}}}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="object"&&i){if(i["NAME"]==="request"&&typeof i["VAL"]==="object"&&i["VAL"]){let v0=i["VAL"];let v1=v0["collectionName"];if(typeof v1!=="string"){e[0](v1)}i={"NAME":i["NAME"],"VAL":{"collectionName":v1,},}}else if(i["NAME"]==="response"&&typeof i["VAL"]==="object"&&i["VAL"]){let v2=i["VAL"];let v3=v2["collectionName"],v4=v2["response"];if(typeof v3!=="string"){e[1](v3)}if(!(typeof v4==="string"&&(v4==="accepted"||v4==="rejected"))){e[2](v4)}i={"NAME":i["NAME"],"VAL":{"collectionName":v3,"response":v4,},}}else{e[3](i)}}else{e[4](i)}return i}`,
+    `i=>{if(typeof i==="object"&&i){if(i["NAME"]==="request"&&typeof i["VAL"]==="object"&&i["VAL"]){let v0=i["VAL"],v1=v0["collectionName"];if(typeof v1!=="string"){e[0](v1)}i={"NAME":i["NAME"],"VAL":{"collectionName":v1,},}}else if(i["NAME"]==="response"&&typeof i["VAL"]==="object"&&i["VAL"]){let v2=i["VAL"],v3=v2["collectionName"];if(typeof v3!=="string"){e[1](v3)}let v4=v2["response"];if(!(typeof v4==="string"&&(v4==="accepted"||v4==="rejected"))){e[2](v4)}i={"NAME":i["NAME"],"VAL":{"collectionName":v3,"response":v4,},}}else{e[3](i)}}else{e[4](i)}return i}`,
   )
 
   t->Assert.deepEqual(

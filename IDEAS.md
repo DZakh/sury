@@ -52,6 +52,7 @@ console.log(S.boolean)
 - Remove `s.fail` with `throw new Error`
 - Make built-in refinements not work with `unknown`. Use `S.to` (manually & automatically) to deside the type first
 - Add `S.any` (at least for ReScript)?
+- Better inline empty recursive schema operations (union convert)
 
 ### Final release fixes
 

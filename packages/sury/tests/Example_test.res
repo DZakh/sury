@@ -71,7 +71,7 @@ test("Compiled parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema=filmSchema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["Id"],v1=i["Title"];if(typeof v0!=="number"||Number.isNaN(v0)){e[1](v0)}if(typeof v1!=="string"){e[2](v1)}let v2=i["Tags"];if(Array.isArray(v2)){for(let v3=0;v3<v2.length;++v3){try{let v5=v2[v3];if(typeof v5!=="string"){e[3](v5)}}catch(v4){if(v4&&v4.s===s){v4.path="[\\"Tags\\"]"+\'["\'+v3+\'"]\'+v4.path}throw v4}}}else if(v2===void 0){v2=e[4]}else{e[5](v2)}let v6=i["Rating"];if(!(typeof v6==="string"&&(v6==="G"||v6==="PG"||v6==="PG13"||v6==="R"))){e[6](v6)}let v7=i["Age"];if(!(typeof v7==="number"&&v7<2147483647&&v7>-2147483648&&v7%1===0||v7===void 0)){e[7](v7)}return {"id":v0,"title":v1,"tags":v2,"rating":v6,"deprecatedAgeRestriction":v7,}}`,
+    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["Id"],v1=i["Title"];if(typeof v0!=="number"||Number.isNaN(v0)){e[1](v0)}if(typeof v1!=="string"){e[2](v1)}let v6=i["Tags"];if(Array.isArray(v6)){let v2=i["Tags"];for(let v3=0;v3<v2.length;++v3){try{let v5=v2[v3];if(typeof v5!=="string"){e[3](v5)}}catch(v4){if(v4&&v4.s===s){v4.path="[\\"Tags\\"]"+\'["\'+v3+\'"]\'+v4.path}throw v4}}}else if(!(v6===void 0)){e[4](v6)}let v7=i["Rating"];if(!(typeof v7==="string"&&(v7==="G"||v7==="PG"||v7==="PG13"||v7==="R"))){e[6](v7)}let v8=i["Age"];if(!(typeof v8==="number"&&v8<2147483647&&v8>-2147483648&&v8%1===0||v8===void 0)){e[7](v8)}return {"id":v0,"title":v1,"tags":v6===void 0?e[5]:v6,"rating":v7,"deprecatedAgeRestriction":v8,}}`,
   )
 })
 

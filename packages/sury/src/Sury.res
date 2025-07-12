@@ -2386,7 +2386,6 @@ module Union = {
     let schemas = selfSchema.anyOf->X.Option.getUnsafe
     let typeValidation = b.global.flag->Flag.unsafeHas(Flag.typeValidation)
 
-    // FIXME: Test with async
     let output = input
     let initialInline = input.inline
 
@@ -2466,14 +2465,16 @@ module Union = {
 
       for idx in 0 to keys->Js.Array2.length - 1 {
         let schemas = byKey->Js.Dict.unsafeGet(keys->Js.Array2.unsafe_get(idx))
-        let inputVar = input.var(b)
 
         let isMultiple = schemas->Js.Array2.length > 1
         let firstSchema = schemas->Js.Array2.unsafe_get(0)
 
-        let cond = ref("")
+        // Make cond as a weird callback, to prevent input.var call until it's needed
+        let cond = ref(%raw(`0`))
 
         let body = if isMultiple {
+          let inputVar = input.var(b)
+
           let itemStart = ref("")
           let itemEnd = ref("")
           let itemNextElse = ref(false)
@@ -2583,10 +2584,13 @@ module Union = {
           }
 
           cond :=
-            b->B.validation(
-              ~inputVar,
-              ~schema={tag: firstSchema.tag, parser: %raw(`0`)},
-              ~negative=false,
+            (
+              (~inputVar) =>
+                b->B.validation(
+                  ~inputVar,
+                  ~schema={tag: firstSchema.tag, parser: %raw(`0`)},
+                  ~negative=false,
+                )
             )
 
           if itemNoop.contents->X.String.unsafeToBool {
@@ -2597,7 +2601,8 @@ module Union = {
                   itemStart.contents ++ if_ ++ `(!(${itemNoop.contents})){${fail(caught.contents)}}`
               }
             } else {
-              cond := cond.contents ++ `&&(${itemNoop.contents})`
+              let condBefore = cond.contents
+              cond := ((~inputVar) => condBefore(~inputVar) ++ `&&(${itemNoop.contents})`)
             }
           } else if typeValidation && itemStart.contents->X.String.unsafeToBool {
             let errorCode = fail(caught.contents)
@@ -2608,17 +2613,22 @@ module Union = {
           itemStart.contents ++ itemEnd.contents
         } else {
           cond :=
-            b->B.validation(~inputVar, ~schema=firstSchema, ~negative=false) ++
-              b->B.refinement(~inputVar, ~schema=firstSchema, ~negative=false)
+            (
+              (~inputVar) => {
+                b->B.validation(~inputVar, ~schema=firstSchema, ~negative=false) ++
+                  b->B.refinement(~inputVar, ~schema=firstSchema, ~negative=false)
+              }
+            )
+
           b->getItemCode(~schema=firstSchema, ~input, ~output, ~deopt=false, ~path)
         }
-        let cond = cond.contents
 
         if body->X.String.unsafeToBool || isPriority((firstSchema.tag :> string), byKey) {
           let if_ = nextElse.contents ? "else if" : "if"
-          start := start.contents ++ if_ ++ `(${cond}){${body}}`
+          start := start.contents ++ if_ ++ `(${cond.contents(~inputVar=input.var(b))}){${body}}`
           nextElse := true
-        } else {
+        } else if typeValidation {
+          let cond = cond.contents(~inputVar=input.var(b))
           noop := (noop.contents->X.String.unsafeToBool ? `${noop.contents}||${cond}` : cond)
         }
       }

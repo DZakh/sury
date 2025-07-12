@@ -93,7 +93,7 @@ test("Compiled parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(i===void 0){i=false}else if(!(typeof i==="boolean")){e[0](i)}return i}`,
+    `i=>{if(!(typeof i==="boolean"||i===void 0)){e[0](i)}return i===void 0?false:i}`,
   )
 })
 

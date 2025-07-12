@@ -1774,16 +1774,18 @@ function refiner(b, input, selfSchema, path) {
     var noop = "";
     for(var idx$2 = 0 ,idx_finish = keys$1.length; idx$2 < idx_finish; ++idx$2){
       var schemas$1 = byKey$1[keys$1[idx$2]];
-      var inputVar = input.v(b);
       var isMultiple = schemas$1.length > 1;
       var firstSchema = schemas$1[0];
-      var cond = "";
+      var cond = 0;
       var body;
       if (isMultiple) {
+        var inputVar = input.v(b);
         var itemStart = "";
         var itemEnd = "";
         var itemNextElse = false;
-        var itemNoop = "";
+        var itemNoop = {
+          contents: ""
+        };
         var caught$1 = "";
         var byDiscriminant = {};
         var itemIdx = 0;
@@ -1810,7 +1812,7 @@ function refiner(b, input, selfSchema, path) {
                 byDiscriminant[itemCond] = itemCode$1;
               }
             } else {
-              itemNoop = itemNoop ? itemNoop + "||" + itemCond : itemCond;
+              itemNoop.contents = itemNoop.contents ? itemNoop.contents + "||" + itemCond : itemCond;
             }
           }
           if (!itemCond || itemIdx === lastIdx$1) {
@@ -1838,11 +1840,11 @@ function refiner(b, input, selfSchema, path) {
           }
           if (!itemCond) {
             if (itemCode$1) {
-              if (itemNoop) {
+              if (itemNoop.contents) {
                 var if_$1 = itemNextElse ? "else if" : "if";
-                itemStart = itemStart + if_$1 + ("(!(" + itemNoop + ")){");
+                itemStart = itemStart + if_$1 + ("(!(" + itemNoop.contents + ")){");
                 itemEnd = "}" + itemEnd;
-                itemNoop = "";
+                itemNoop.contents = "";
                 itemNextElse = false;
               }
               var errorVar$2 = "e" + itemIdx;
@@ -1855,25 +1857,34 @@ function refiner(b, input, selfSchema, path) {
               caught$1 = caught$1 + "," + errorVar$2;
               itemNextElse = false;
             } else {
-              itemNoop = "";
+              itemNoop.contents = "";
               itemIdx = lastIdx$1;
             }
           }
           itemIdx = itemIdx + 1;
         };
-        cond = validation(b, inputVar, {
-              type: firstSchema.type,
-              parser: 0
-            }, false);
-        if (itemNoop) {
+        cond = (function(firstSchema){
+        return function (inputVar) {
+          return validation(b, inputVar, {
+                      type: firstSchema.type,
+                      parser: 0
+                    }, false);
+        }
+        }(firstSchema));
+        if (itemNoop.contents) {
           if (itemStart) {
             if (typeValidation) {
               var if_$2 = itemNextElse ? "else if" : "if";
-              itemStart = itemStart + if_$2 + ("(!(" + itemNoop + ")){" + fail(caught$1) + "}");
+              itemStart = itemStart + if_$2 + ("(!(" + itemNoop.contents + ")){" + fail(caught$1) + "}");
             }
             
           } else {
-            cond = cond + ("&&(" + itemNoop + ")");
+            var condBefore = cond;
+            cond = (function(itemNoop,condBefore){
+            return function (inputVar) {
+              return condBefore(inputVar) + ("&&(" + itemNoop.contents + ")");
+            }
+            }(itemNoop,condBefore));
           }
         } else if (typeValidation && itemStart) {
           var errorCode = fail(caught$1);
@@ -1883,17 +1894,22 @@ function refiner(b, input, selfSchema, path) {
         }
         body = itemStart + itemEnd;
       } else {
-        cond = validation(b, inputVar, firstSchema, false) + refinement(b, inputVar, firstSchema, false);
+        cond = (function(firstSchema){
+        return function (inputVar) {
+          return validation(b, inputVar, firstSchema, false) + refinement(b, inputVar, firstSchema, false);
+        }
+        }(firstSchema));
         body = getItemCode(b, firstSchema, input, input, false, path);
       }
-      var cond$1 = cond;
       if (body || isPriority(firstSchema.type, byKey$1)) {
         var if_$3 = nextElse ? "else if" : "if";
-        start = start + if_$3 + ("(" + cond$1 + "){" + body + "}");
+        start = start + if_$3 + ("(" + cond(input.v(b)) + "){" + body + "}");
         nextElse = true;
-      } else {
+      } else if (typeValidation) {
+        var cond$1 = cond(input.v(b));
         noop = noop ? noop + "||" + cond$1 : cond$1;
       }
+      
     }
     if (typeValidation || deoptIdx$1 === lastIdx) {
       var errorCode$1 = fail(caught);
@@ -2618,6 +2634,63 @@ function schemaRefiner(b, input, selfSchema, path) {
   }
 }
 
+function definitionToSchema(definition) {
+  if (!(typeof definition === "object" && definition !== null)) {
+    return parse$1(definition);
+  }
+  if (definition["~standard"]) {
+    return definition;
+  }
+  if (Array.isArray(definition)) {
+    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
+      var schema = definitionToSchema(definition[idx]);
+      var $$location = idx.toString();
+      var inlinedLocation = "\"" + $$location + "\"";
+      definition[idx] = {
+        schema: schema,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+    }
+    var mut = new Schema();
+    mut.type = "array";
+    mut.items = definition;
+    mut.additionalItems = "strict";
+    mut.refiner = schemaRefiner;
+    return mut;
+  }
+  var cnstr = definition.constructor;
+  if (cnstr && cnstr !== Object) {
+    return {
+            type: "instance",
+            const: definition,
+            class: cnstr
+          };
+  }
+  var fieldNames = Object.keys(definition);
+  var length = fieldNames.length;
+  var items = [];
+  for(var idx$1 = 0; idx$1 < length; ++idx$1){
+    var $$location$1 = fieldNames[idx$1];
+    var inlinedLocation$1 = fromString($$location$1);
+    var schema$1 = definitionToSchema(definition[$$location$1]);
+    var item = {
+      schema: schema$1,
+      location: $$location$1,
+      inlinedLocation: inlinedLocation$1
+    };
+    definition[$$location$1] = schema$1;
+    items[idx$1] = item;
+  }
+  var mut$1 = new Schema();
+  mut$1.type = "object";
+  mut$1.items = items;
+  mut$1.properties = definition;
+  mut$1.additionalItems = globalConfig.a;
+  mut$1.refiner = schemaRefiner;
+  return mut$1;
+}
+
 function definitionToRitem(definition, path, ritemsByItemPath) {
   if (!(typeof definition === "object" && definition !== null)) {
     return {
@@ -2682,63 +2755,6 @@ function definitionToRitem(definition, path, ritemsByItemPath) {
           p: path,
           s: (mut$1.type = "object", mut$1.items = items$1, mut$1.properties = properties, mut$1.additionalItems = globalConfig.a, mut$1.serializer = neverBuilder, mut$1)
         };
-}
-
-function definitionToSchema(definition) {
-  if (!(typeof definition === "object" && definition !== null)) {
-    return parse$1(definition);
-  }
-  if (definition["~standard"]) {
-    return definition;
-  }
-  if (Array.isArray(definition)) {
-    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
-      var schema = definitionToSchema(definition[idx]);
-      var $$location = idx.toString();
-      var inlinedLocation = "\"" + $$location + "\"";
-      definition[idx] = {
-        schema: schema,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-    }
-    var mut = new Schema();
-    mut.type = "array";
-    mut.items = definition;
-    mut.additionalItems = "strict";
-    mut.refiner = schemaRefiner;
-    return mut;
-  }
-  var cnstr = definition.constructor;
-  if (cnstr && cnstr !== Object) {
-    return {
-            type: "instance",
-            const: definition,
-            class: cnstr
-          };
-  }
-  var fieldNames = Object.keys(definition);
-  var length = fieldNames.length;
-  var items = [];
-  for(var idx$1 = 0; idx$1 < length; ++idx$1){
-    var $$location$1 = fieldNames[idx$1];
-    var inlinedLocation$1 = fromString($$location$1);
-    var schema$1 = definitionToSchema(definition[$$location$1]);
-    var item = {
-      schema: schema$1,
-      location: $$location$1,
-      inlinedLocation: inlinedLocation$1
-    };
-    definition[$$location$1] = schema$1;
-    items[idx$1] = item;
-  }
-  var mut$1 = new Schema();
-  mut$1.type = "object";
-  mut$1.items = items;
-  mut$1.properties = definition;
-  mut$1.additionalItems = globalConfig.a;
-  mut$1.refiner = schemaRefiner;
-  return mut$1;
 }
 
 function nested(fieldName) {
