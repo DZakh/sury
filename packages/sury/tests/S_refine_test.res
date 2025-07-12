@@ -1,10 +1,12 @@
 open Ava
 
 test("Successfully refines on parsing", t => {
-  let schema = S.int->S.refine(s => value =>
-    if value < 0 {
-      s.fail("Should be positive")
-    })
+  let schema = S.int->S.refine(s =>
+    value =>
+      if value < 0 {
+        s.fail("Should be positive")
+      }
+  )
 
   t->Assert.deepEqual(%raw(`12`)->S.parseOrThrow(schema), 12)
   t->U.assertThrows(
@@ -18,10 +20,12 @@ test("Successfully refines on parsing", t => {
 })
 
 test("Fails with custom path", t => {
-  let schema = S.int->S.refine(s => value =>
-    if value < 0 {
-      s.fail(~path=S.Path.fromArray(["data", "myInt"]), "Should be positive")
-    })
+  let schema = S.int->S.refine(s =>
+    value =>
+      if value < 0 {
+        s.fail(~path=S.Path.fromArray(["data", "myInt"]), "Should be positive")
+      }
+  )
 
   t->U.assertThrows(
     () => %raw(`-12`)->S.parseOrThrow(schema),
@@ -34,10 +38,12 @@ test("Fails with custom path", t => {
 })
 
 test("Successfully refines on serializing", t => {
-  let schema = S.int->S.refine(s => value =>
-    if value < 0 {
-      s.fail("Should be positive")
-    })
+  let schema = S.int->S.refine(s =>
+    value =>
+      if value < 0 {
+        s.fail("Should be positive")
+      }
+  )
 
   t->Assert.deepEqual(12->S.reverseConvertOrThrow(schema), %raw("12"))
   t->U.assertThrows(
@@ -86,19 +92,23 @@ test("Compiled parse code snapshot for simple object with refine", t => {
 })
 
 test("Reverse schema to the original schema", t => {
-  let schema = S.int->S.refine(s => value =>
-    if value < 0 {
-      s.fail("Should be positive")
-    })
+  let schema = S.int->S.refine(s =>
+    value =>
+      if value < 0 {
+        s.fail("Should be positive")
+      }
+  )
   t->Assert.not(schema->S.reverse, schema->S.castToUnknown)
   t->U.assertEqualSchemas(schema->S.reverse, S.int->S.castToUnknown)
 })
 
 test("Succesfully uses reversed schema for parsing back to initial value", t => {
-  let schema = S.int->S.refine(s => value =>
-    if value < 0 {
-      s.fail("Should be positive")
-    })
+  let schema = S.int->S.refine(s =>
+    value =>
+      if value < 0 {
+        s.fail("Should be positive")
+      }
+  )
   t->U.assertReverseParsesBack(schema, 12)
 })
 

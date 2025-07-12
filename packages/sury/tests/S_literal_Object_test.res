@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 module Common = {
   let value = {"foo": "bar"}

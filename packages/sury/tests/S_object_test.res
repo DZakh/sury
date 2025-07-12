@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 @live
 type options = {fast?: bool, mode?: int}
@@ -267,7 +266,7 @@ test("Successfully parses object with transformed field", t => {
   t->Assert.deepEqual(%raw(`{string: "bar"}`)->S.parseOrThrow(schema), {"string": "barfield"})
 })
 
-test("Fails to parse object when transformed field has raises error", t => {
+test("Fails to parse object when transformed field has throws error", t => {
   let schema = S.object(s =>
     {
       "field": s.field("field", S.string->S.transform(s => {parser: _ => s.fail("User error")})),
@@ -320,7 +319,7 @@ test("Successfully serializes object with transformed field", t => {
   )
 })
 
-test("Fails to serializes object when transformed field has raises error", t => {
+test("Fails to serializes object when transformed field has throws error", t => {
   let schema = S.object(s =>
     {
       "field": s.field(

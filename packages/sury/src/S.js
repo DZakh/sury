@@ -4,8 +4,8 @@ export { unit as void } from "./Sury.res.mjs"
 export var Error = S.ErrorClass.value
 export var string = S.string
 export var boolean = S.bool
-export var int32 = S.$$int
-export var number = S.$$float
+export var int32 = S.int
+export var number = S.float
 export var bigint = S.bigint
 export var symbol = S.symbol
 export var json = S.json
@@ -66,4 +66,4 @@ export var url = S.url
 export var pattern = S.pattern
 export var datetime = S.datetime
 export var trim = S.trim
-export var global = S.$$global
+export var global = S.global

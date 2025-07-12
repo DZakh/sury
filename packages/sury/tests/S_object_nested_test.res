@@ -1,5 +1,4 @@
 open Ava
-open RescriptCore
 
 test("Object with a single nested field", t => {
   let schema = S.object(s => s.nested("nested").field("foo", S.string))

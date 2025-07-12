@@ -2,267 +2,267 @@
 
 import * as Sury from "./Sury.res.mjs";
 
-var Path = Sury.Path;
+let Path = Sury.Path;
 
-var $$Error = Sury.$$Error;
+let $$Error = Sury.$$Error;
 
-var Flag = Sury.Flag;
+let Flag = Sury.Flag;
 
-var never = Sury.never;
+let never = Sury.never;
 
-var unknown = Sury.unknown;
+let unknown = Sury.unknown;
 
-var unit = Sury.unit;
+let unit = Sury.unit;
 
-var nullAsUnit = Sury.nullAsUnit;
+let nullAsUnit = Sury.nullAsUnit;
 
-var string = Sury.string;
+let string = Sury.string;
 
-var bool = Sury.bool;
+let bool = Sury.bool;
 
-var $$int = Sury.$$int;
+let int = Sury.int;
 
-var $$float = Sury.$$float;
+let float = Sury.float;
 
-var bigint = Sury.bigint;
+let bigint = Sury.bigint;
 
-var symbol = Sury.symbol;
+let symbol = Sury.symbol;
 
-var json = Sury.json;
+let json = Sury.json;
 
-var literal = Sury.literal;
+let literal = Sury.literal;
 
-var array = Sury.array;
+let array = Sury.array;
 
-var unnest = Sury.unnest;
+let unnest = Sury.unnest;
 
-var list = Sury.list;
+let list = Sury.list;
 
-var instance = Sury.instance;
+let instance = Sury.instance;
 
-var dict = Sury.dict;
+let dict = Sury.dict;
 
-var option = Sury.option;
+let option = Sury.option;
 
-var $$null = Sury.$$null;
+let $$null = Sury.$$null;
 
-var nullable = Sury.nullable;
+let nullable = Sury.nullable;
 
-var nullableAsOption = Sury.nullableAsOption;
+let nullableAsOption = Sury.nullableAsOption;
 
-var jsonString = Sury.jsonString;
+let jsonString = Sury.jsonString;
 
-var union = Sury.union;
+let union = Sury.union;
 
-var $$enum = Sury.$$enum;
+let $$enum = Sury.$$enum;
 
-var meta = Sury.meta;
+let meta = Sury.meta;
 
-var transform = Sury.transform;
+let transform = Sury.transform;
 
-var refine = Sury.refine;
+let refine = Sury.refine;
 
-var shape = Sury.shape;
+let shape = Sury.shape;
 
-var to = Sury.to;
+let to = Sury.to;
 
-var compile = Sury.compile;
+let compile = Sury.compile;
 
-var parseOrThrow = Sury.parseOrThrow;
+let parseOrThrow = Sury.parseOrThrow;
 
-var parseJsonOrThrow = Sury.parseJsonOrThrow;
+let parseJsonOrThrow = Sury.parseJsonOrThrow;
 
-var parseJsonStringOrThrow = Sury.parseJsonStringOrThrow;
+let parseJsonStringOrThrow = Sury.parseJsonStringOrThrow;
 
-var parseAsyncOrThrow = Sury.parseAsyncOrThrow;
+let parseAsyncOrThrow = Sury.parseAsyncOrThrow;
 
-var convertOrThrow = Sury.convertOrThrow;
+let convertOrThrow = Sury.convertOrThrow;
 
-var convertToJsonOrThrow = Sury.convertToJsonOrThrow;
+let convertToJsonOrThrow = Sury.convertToJsonOrThrow;
 
-var convertToJsonStringOrThrow = Sury.convertToJsonStringOrThrow;
+let convertToJsonStringOrThrow = Sury.convertToJsonStringOrThrow;
 
-var convertAsyncOrThrow = Sury.convertAsyncOrThrow;
+let convertAsyncOrThrow = Sury.convertAsyncOrThrow;
 
-var reverseConvertOrThrow = Sury.reverseConvertOrThrow;
+let reverseConvertOrThrow = Sury.reverseConvertOrThrow;
 
-var reverseConvertToJsonOrThrow = Sury.reverseConvertToJsonOrThrow;
+let reverseConvertToJsonOrThrow = Sury.reverseConvertToJsonOrThrow;
 
-var reverseConvertToJsonStringOrThrow = Sury.reverseConvertToJsonStringOrThrow;
+let reverseConvertToJsonStringOrThrow = Sury.reverseConvertToJsonStringOrThrow;
 
-var assertOrThrow = Sury.assertOrThrow;
+let assertOrThrow = Sury.assertOrThrow;
 
-var isAsync = Sury.isAsync;
+let isAsync = Sury.isAsync;
 
-var recursive = Sury.recursive;
+let recursive = Sury.recursive;
 
-var noValidation = Sury.noValidation;
+let noValidation = Sury.noValidation;
 
-var toExpression = Sury.toExpression;
+let toExpression = Sury.toExpression;
 
-var Schema = Sury.Schema;
+let Schema = Sury.Schema;
 
-var schema = Sury.schema;
+let schema = Sury.schema;
 
-var $$Object = Sury.$$Object;
+let $$Object = Sury.$$Object;
 
-var object = Sury.object;
+let object = Sury.object;
 
-var strip = Sury.strip;
+let strip = Sury.strip;
 
-var deepStrip = Sury.deepStrip;
+let deepStrip = Sury.deepStrip;
 
-var strict = Sury.strict;
+let strict = Sury.strict;
 
-var deepStrict = Sury.deepStrict;
+let deepStrict = Sury.deepStrict;
 
-var Tuple = Sury.Tuple;
+let Tuple = Sury.Tuple;
 
-var tuple = Sury.tuple;
+let tuple = Sury.tuple;
 
-var tuple1 = Sury.tuple1;
+let tuple1 = Sury.tuple1;
 
-var tuple2 = Sury.tuple2;
+let tuple2 = Sury.tuple2;
 
-var tuple3 = Sury.tuple3;
+let tuple3 = Sury.tuple3;
 
-var $$Option = Sury.$$Option;
+let Option = Sury.Option;
 
-var $$String = Sury.$$String;
+let $$String = Sury.$$String;
 
-var Int = Sury.Int;
+let Int = Sury.Int;
 
-var Float = Sury.Float;
+let Float = Sury.Float;
 
-var $$Array = Sury.$$Array;
+let $$Array = Sury.$$Array;
 
-var Metadata = Sury.Metadata;
+let Metadata = Sury.Metadata;
 
-var reverse = Sury.reverse;
+let reverse = Sury.reverse;
 
-var min = Sury.min;
+let min = Sury.min;
 
-var floatMin = Sury.floatMin;
+let floatMin = Sury.floatMin;
 
-var max = Sury.max;
+let max = Sury.max;
 
-var floatMax = Sury.floatMax;
+let floatMax = Sury.floatMax;
 
-var length = Sury.length;
+let length = Sury.length;
 
-var port = Sury.port;
+let port = Sury.port;
 
-var email = Sury.email;
+let email = Sury.email;
 
-var uuid = Sury.uuid;
+let uuid = Sury.uuid;
 
-var cuid = Sury.cuid;
+let cuid = Sury.cuid;
 
-var url = Sury.url;
+let url = Sury.url;
 
-var pattern = Sury.pattern;
+let pattern = Sury.pattern;
 
-var datetime = Sury.datetime;
+let datetime = Sury.datetime;
 
-var trim = Sury.trim;
+let trim = Sury.trim;
 
-var toJSONSchema = Sury.toJSONSchema;
+let toJSONSchema = Sury.toJSONSchema;
 
-var fromJSONSchema = Sury.fromJSONSchema;
+let fromJSONSchema = Sury.fromJSONSchema;
 
-var extendJSONSchema = Sury.extendJSONSchema;
+let extendJSONSchema = Sury.extendJSONSchema;
 
-var $$global = Sury.$$global;
+let global = Sury.global;
 
-var ErrorClass = Sury.ErrorClass;
+let ErrorClass = Sury.ErrorClass;
 
 export {
-  Path ,
-  $$Error ,
-  Flag ,
-  never ,
-  unknown ,
-  unit ,
-  nullAsUnit ,
-  string ,
-  bool ,
-  $$int ,
-  $$float ,
-  bigint ,
-  symbol ,
-  json ,
-  literal ,
-  array ,
-  unnest ,
-  list ,
-  instance ,
-  dict ,
-  option ,
-  $$null ,
-  nullable ,
-  nullableAsOption ,
-  jsonString ,
-  union ,
-  $$enum ,
-  meta ,
-  transform ,
-  refine ,
-  shape ,
-  to ,
-  compile ,
-  parseOrThrow ,
-  parseJsonOrThrow ,
-  parseJsonStringOrThrow ,
-  parseAsyncOrThrow ,
-  convertOrThrow ,
-  convertToJsonOrThrow ,
-  convertToJsonStringOrThrow ,
-  convertAsyncOrThrow ,
-  reverseConvertOrThrow ,
-  reverseConvertToJsonOrThrow ,
-  reverseConvertToJsonStringOrThrow ,
-  assertOrThrow ,
-  isAsync ,
-  recursive ,
-  noValidation ,
-  toExpression ,
-  Schema ,
-  schema ,
-  $$Object ,
-  object ,
-  strip ,
-  deepStrip ,
-  strict ,
-  deepStrict ,
-  Tuple ,
-  tuple ,
-  tuple1 ,
-  tuple2 ,
-  tuple3 ,
-  $$Option ,
-  $$String ,
-  Int ,
-  Float ,
-  $$Array ,
-  Metadata ,
-  reverse ,
-  min ,
-  floatMin ,
-  max ,
-  floatMax ,
-  length ,
-  port ,
-  email ,
-  uuid ,
-  cuid ,
-  url ,
-  pattern ,
-  datetime ,
-  trim ,
-  toJSONSchema ,
-  fromJSONSchema ,
-  extendJSONSchema ,
-  $$global ,
-  ErrorClass ,
+  Path,
+  $$Error,
+  Flag,
+  never,
+  unknown,
+  unit,
+  nullAsUnit,
+  string,
+  bool,
+  int,
+  float,
+  bigint,
+  symbol,
+  json,
+  literal,
+  array,
+  unnest,
+  list,
+  instance,
+  dict,
+  option,
+  $$null,
+  nullable,
+  nullableAsOption,
+  jsonString,
+  union,
+  $$enum,
+  meta,
+  transform,
+  refine,
+  shape,
+  to,
+  compile,
+  parseOrThrow,
+  parseJsonOrThrow,
+  parseJsonStringOrThrow,
+  parseAsyncOrThrow,
+  convertOrThrow,
+  convertToJsonOrThrow,
+  convertToJsonStringOrThrow,
+  convertAsyncOrThrow,
+  reverseConvertOrThrow,
+  reverseConvertToJsonOrThrow,
+  reverseConvertToJsonStringOrThrow,
+  assertOrThrow,
+  isAsync,
+  recursive,
+  noValidation,
+  toExpression,
+  Schema,
+  schema,
+  $$Object,
+  object,
+  strip,
+  deepStrip,
+  strict,
+  deepStrict,
+  Tuple,
+  tuple,
+  tuple1,
+  tuple2,
+  tuple3,
+  Option,
+  $$String,
+  Int,
+  Float,
+  $$Array,
+  Metadata,
+  reverse,
+  min,
+  floatMin,
+  max,
+  floatMax,
+  length,
+  port,
+  email,
+  uuid,
+  cuid,
+  url,
+  pattern,
+  datetime,
+  trim,
+  toJSONSchema,
+  fromJSONSchema,
+  extendJSONSchema,
+  global,
+  ErrorClass,
 }
 /* Sury Not a pure module */

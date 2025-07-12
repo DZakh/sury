@@ -21,12 +21,6 @@ module X = {
     external getUnsafe: option<'a> => 'a = "%identity"
   }
 
-  module Type = {
-    type t = [#undefined | #object | #boolean | #number | #bigint | #string | #symbol | #function]
-
-    external typeof: 'a => t = "#typeof"
-  }
-
   module Promise = {
     type t<+'a> = promise<'a>
 
@@ -86,9 +80,9 @@ module X = {
     @new
     external makeError: string => error = "Error"
 
-    let raiseAny = (any: 'any): 'a => any->Obj.magic->raise
+    let throwAny = (any: 'any): 'a => any->Obj.magic->throw
 
-    let raiseError: error => 'a = raiseAny
+    let throwError: error => 'a = throwAny
   }
 
   module Int = {
@@ -157,6 +151,8 @@ module X = {
     let make2 = (~ctxVarName1, ~ctxVarValue1, ~ctxVarName2, ~ctxVarValue2, ~inlinedFunction) => {
       _make([ctxVarName1, ctxVarName2, `return ${inlinedFunction}`])(ctxVarValue1, ctxVarValue2)
     }
+
+    external toExpression: 'a => 'a = "%unsafe_to_method"
   }
 
   module Symbol = {
@@ -653,13 +649,13 @@ Schema.prototype = sp;
     if %raw("exn&&exn.s===s") {
       exn->(Obj.magic: exn => error)
     } else {
-      raise(exn)
+      throw(exn)
     }
   }
 
   // TODO: Throw S.Error
   @inline
-  let panic = message => X.Exn.raiseError(X.Exn.makeError(`[Sury] ${message}`))
+  let panic = message => X.Exn.throwError(X.Exn.makeError(`[Sury] ${message}`))
 }
 
 @new
@@ -688,10 +684,10 @@ module Flag = {
 
   external with: (flag, flag) => flag = "%orint"
   @inline
-  let without = (flags, flag) => flags->with(flag)->lxor(flag)
+  let without = (flags, flag) => flags->with(flag)->Int.bitwiseXor(flag)
 
-  let unsafeHas = (acc: flag, flag) => acc->land(flag)->(Obj.magic: int => bool)
-  let has = (acc: flag, flag) => acc->land(flag) !== 0
+  let unsafeHas = (acc: flag, flag) => acc->Int.bitwiseAnd(flag)->(Obj.magic: int => bool)
+  let has = (acc: flag, flag) => acc->Int.bitwiseAnd(flag) !== 0
 }
 
 // Need to copy without operations cache
@@ -728,7 +724,7 @@ let resetOperationsCache: internal => unit = %raw(`(schema) => {
 }`)
 
 let rec stringify = unknown => {
-  let typeOfValue = unknown->X.Type.typeof
+  let typeOfValue = unknown->Type.typeof
   switch typeOfValue {
   | #undefined => "undefined"
   | #object if unknown === %raw(`null`) => "null"
@@ -1166,8 +1162,8 @@ module Builder = {
       }
     }
 
-    let raise = (b: b, ~code, ~path) => {
-      X.Exn.raiseAny(InternalError.make(~code, ~flag=b.global.flag, ~path))
+    let throw = (b: b, ~code, ~path) => {
+      X.Exn.throwAny(InternalError.make(~code, ~flag=b.global.flag, ~path))
     }
 
     let embedSyncOperation = (b: b, ~input: val, ~fn: 'input => 'output) => {
@@ -1180,7 +1176,7 @@ module Builder = {
 
     let embedAsyncOperation = (b: b, ~input, ~fn: 'input => promise<'output>) => {
       if !(b.global.flag->Flag.unsafeHas(Flag.async)) {
-        b->raise(~code=UnexpectedAsync, ~path=Path.empty)
+        b->throw(~code=UnexpectedAsync, ~path=Path.empty)
       }
       let val = b->embedSyncOperation(~input, ~fn)
       val.flag = val.flag->Flag.with(ValFlag.async)
@@ -1189,25 +1185,25 @@ module Builder = {
 
     let failWithArg = (b: b, ~path, fn: 'arg => errorCode, arg) => {
       `${b->embed(arg => {
-          b->raise(~path, ~code=fn(arg))
+          b->throw(~path, ~code=fn(arg))
         })}(${arg})`
     }
 
     let fail = (b: b, ~message, ~path) => {
       `${b->embed(() => {
-          b->raise(~path, ~code=OperationFailed(message))
+          b->throw(~path, ~code=OperationFailed(message))
         })}()`
     }
 
     let effectCtx = (b, ~selfSchema, ~path) => {
       schema: selfSchema->fromInternal,
       fail: (message, ~path as customPath=Path.empty) => {
-        b->raise(~path=path->Path.concat(customPath), ~code=OperationFailed(message))
+        b->throw(~path=path->Path.concat(customPath), ~code=OperationFailed(message))
       },
     }
 
     let invalidOperation = (b: b, ~path, ~description) => {
-      b->raise(~path, ~code=InvalidOperation({description: description}))
+      b->throw(~path, ~code=InvalidOperation({description: description}))
     }
 
     // TODO: Refactor
@@ -1292,7 +1288,7 @@ module Builder = {
         ) catch {
         | _ =>
           let error = %raw(`exn`)->InternalError.getOrRethrow
-          X.Exn.raiseAny(
+          X.Exn.throwAny(
             InternalError.make(
               ~path=path->Path.concat(Path.dynamic)->Path.concat(error.path),
               ~code=error.code,
@@ -1780,7 +1776,7 @@ and reverse = (schema: internal) => {
       }
     | None => ()
     }
-    if mut.additionalItems->X.Type.typeof === #object {
+    if mut.additionalItems->Type.typeof === #object {
       mut.additionalItems = Some(
         Schema(
           mut.additionalItems
@@ -1824,7 +1820,7 @@ and reverse = (schema: internal) => {
 and jsonableValidation = (~output, ~parent, ~path, ~flag) => {
   let tag = output.tag
   if (tag === Undefined && parent.tag !== Object) || nonJsonableTags->X.Set.has(tag) {
-    X.Exn.raiseAny(InternalError.make(~code=InvalidJsonSchema(parent->fromInternal), ~flag, ~path))
+    X.Exn.throwAny(InternalError.make(~code=InvalidJsonSchema(parent->fromInternal), ~flag, ~path))
   }
   switch output {
   | {tag: Union | Array | Object} =>
@@ -1861,34 +1857,36 @@ X.Object.defineProperty(
   %raw(`sp`),
   "~standard",
   {
-    get: () => {
-      let schema = %raw(`this`)
-      {
-        version: 1,
-        vendor,
-        validate: input => {
-          try {
-            {
-              "value": (schema->fromInternal->operationFn(Flag.typeValidation))(
-                input->Obj.magic,
-              )->Obj.magic,
-            }
-          } catch {
-          | _ => {
-              let error = %raw(`exn`)->InternalError.getOrRethrow
+    get: (
+      () => {
+        let schema = %raw(`this`)
+        {
+          version: 1,
+          vendor,
+          validate: input => {
+            try {
               {
-                "issues": [
-                  {
-                    "message": error->ErrorClass.message,
-                    "path": error.path === Path.empty ? None : Some(error.path->Path.toArray),
-                  },
-                ],
-              }->Obj.magic
+                "value": (schema->fromInternal->operationFn(Flag.typeValidation))(
+                  input->Obj.magic,
+                )->Obj.magic,
+              }
+            } catch {
+            | _ => {
+                let error = %raw(`exn`)->InternalError.getOrRethrow
+                {
+                  "issues": [
+                    {
+                      "message": error->ErrorClass.message,
+                      "path": error.path === Path.empty ? None : Some(error.path->Path.toArray),
+                    },
+                  ],
+                }->Obj.magic
+              }
             }
-          }
-        },
+          },
+        }
       }
-    },
+    )->X.Function.toExpression,
   },
 )
 
@@ -1971,7 +1969,7 @@ let compile = (
     jsonString => {
       try jsonString->Obj.magic->Js.Json.parseExn->fn catch {
       | _ =>
-        X.Exn.raiseAny(
+        X.Exn.throwAny(
           InternalError.make(~code=OperationFailed(%raw(`exn.message`)), ~flag, ~path=Path.empty),
         )
       }
@@ -1996,7 +1994,7 @@ let parseJsonStringOrThrow = (jsonString: string, schema: t<'value>): 'value => 
     jsonString->Js.Json.parseExn
   } catch {
   | _ =>
-    X.Exn.raiseAny(
+    X.Exn.throwAny(
       InternalError.make(
         ~code=OperationFailed(%raw(`exn.message`)),
         ~flag=Flag.typeValidation,
@@ -2044,8 +2042,6 @@ let assertOrThrow = (any, schema) => {
 }
 
 module Literal = {
-  open X
-
   let undefined = base()
   undefined.tag = Undefined
   undefined.const = %raw(`void 0`)
@@ -2074,7 +2070,7 @@ module Literal = {
           i.class = (value->Obj.magic)["constructor"]
           i
         }
-      | typeof => make(typeof->(Obj.magic: X.Type.t => tag))
+      | typeof => make(typeof->(Obj.magic: Type.t => tag))
       }
       schema.const = Some(value->Obj.magic)
       schema
@@ -2094,7 +2090,7 @@ let wrapExnToFailure = exn => {
   if %raw("exn&&exn.s===s") {
     Failure({error: exn->(Obj.magic: exn => error)})
   } else {
-    raise(exn)
+    throw(exn)
   }
 }
 
@@ -2366,9 +2362,9 @@ module Union = {
 
   let refiner = Builder.make((b, ~input, ~selfSchema, ~path) => {
     let fail = caught => {
-      `${b->B.embed(_ => {
+      `${b->B.embed((_ => {
           let args = %raw(`arguments`)
-          b->B.raise(
+          b->B.throw(
             ~path,
             ~code=InvalidType({
               expected: selfSchema->fromInternal,
@@ -2380,7 +2376,7 @@ module Union = {
               ),
             }),
           )
-        })}(${input.var(b)}${caught})`
+        })->X.Function.toExpression)}(${input.var(b)}${caught})`
     }
 
     let schemas = selfSchema.anyOf->X.Option.getUnsafe
@@ -3130,12 +3126,12 @@ module String = {
     }
   }
 
-  let cuidRegex = %re(`/^c[^\s-]{8,}$/i`)
-  let uuidRegex = %re(`/^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/i`)
+  let cuidRegex = /^c[^\s-]{8,}$/i
+  let uuidRegex = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/i
   // Adapted from https://stackoverflow.com/a/46181/1550155
-  let emailRegex = %re(`/^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i`)
+  let emailRegex = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i
   // Adapted from https://stackoverflow.com/a/3143231
-  let datetimeRe = %re(`/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/`)
+  let datetimeRe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/
 
   let schema = base()
   schema.tag = String
@@ -3422,7 +3418,7 @@ module Schema = {
 
     @inline
     let isNode = (definition: 'any) =>
-      definition->X.Type.typeof === #object && definition !== %raw(`null`)
+      definition->Type.typeof === #object && definition !== %raw(`null`)
 
     let toConstant = (Obj.magic: t<'embeded> => unknown)
     let toNode = (Obj.magic: t<'embeded> => node<'embeded>)
@@ -3609,71 +3605,68 @@ module Schema = {
     }
   }
 
-  and advancedBuilder = (~definition, ~flattened: option<array<ditem>>=?) => (
-    b,
-    ~input,
-    ~selfSchema,
-    ~path,
-  ) => {
-    let isFlatten = b.global.flag->Flag.unsafeHas(Flag.flatten)
-    let outputs = isFlatten ? input->Obj.magic : Js.Dict.empty()
+  and advancedBuilder = (~definition, ~flattened: option<array<ditem>>=?) =>
+    (b, ~input, ~selfSchema, ~path) => {
+      let isFlatten = b.global.flag->Flag.unsafeHas(Flag.flatten)
+      let outputs = isFlatten ? input->Obj.magic : Js.Dict.empty()
 
-    if !isFlatten {
-      let items = selfSchema.items->X.Option.getUnsafe
+      if !isFlatten {
+        let items = selfSchema.items->X.Option.getUnsafe
 
-      for idx in 0 to items->Js.Array2.length - 1 {
-        let {schema, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
-        let schema = schema->toInternal
+        for idx in 0 to items->Js.Array2.length - 1 {
+          let {schema, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
+          let schema = schema->toInternal
 
-        let itemInput = b->B.Val.get(input, inlinedLocation)
-        let path = path->Path.concat(inlinedLocation->Path.fromInlinedLocation)
+          let itemInput = b->B.Val.get(input, inlinedLocation)
+          let path = path->Path.concat(inlinedLocation->Path.fromInlinedLocation)
 
-        if (
-          input.flag->Flag.unsafeHas(ValFlag.valid) && (schema->isLiteral || schema.tag === Object)
-        ) {
-          itemInput.flag = itemInput.flag->Flag.with(ValFlag.valid)
+          if (
+            input.flag->Flag.unsafeHas(ValFlag.valid) &&
+              (schema->isLiteral || schema.tag === Object)
+          ) {
+            itemInput.flag = itemInput.flag->Flag.with(ValFlag.valid)
+          }
+
+          outputs->Js.Dict.set(inlinedLocation, b->parse(~schema, ~input=itemInput, ~path))
         }
 
-        outputs->Js.Dict.set(inlinedLocation, b->parse(~schema, ~input=itemInput, ~path))
+        b->objectStrictModeCheck(~input, ~items, ~selfSchema, ~path)
       }
 
-      b->objectStrictModeCheck(~input, ~items, ~selfSchema, ~path)
-    }
+      switch flattened {
+      | None => ()
+      | Some(rootItems) =>
+        let prevFlag = b.global.flag
+        b.global.flag = prevFlag->Flag.with(Flag.flatten)
+        for idx in 0 to rootItems->Js.Array2.length - 1 {
+          let item = rootItems->Js.Array2.unsafe_get(idx)
+          outputs
+          ->Js.Dict.set(
+            item->getUnsafeDitemIndex,
+            b->parse(~schema=item->getDitemSchema, ~input, ~path),
+          )
+          ->ignore
+        }
+        b.global.flag = prevFlag
+      }
 
-    switch flattened {
-    | None => ()
-    | Some(rootItems) =>
-      let prevFlag = b.global.flag
-      b.global.flag = prevFlag->Flag.with(Flag.flatten)
-      for idx in 0 to rootItems->Js.Array2.length - 1 {
-        let item = rootItems->Js.Array2.unsafe_get(idx)
-        outputs
-        ->Js.Dict.set(
-          item->getUnsafeDitemIndex,
-          b->parse(~schema=item->getDitemSchema, ~input, ~path),
+      let rec getItemOutput = item => {
+        switch item {
+        | ItemField({target: item, inlinedLocation}) =>
+          b->B.Val.get(item->getItemOutput, inlinedLocation)
+        | Item({inlinedLocation}) => outputs->Js.Dict.unsafeGet(inlinedLocation)
+        | Root({idx}) => outputs->Js.Dict.unsafeGet(idx->X.Int.unsafeToString)
+        }
+      }
+
+      let output =
+        b->definitionToOutput(
+          ~definition=definition->(Obj.magic: unknown => Definition.t<ditem>),
+          ~getItemOutput,
         )
-        ->ignore
-      }
-      b.global.flag = prevFlag
+
+      output
     }
-
-    let rec getItemOutput = item => {
-      switch item {
-      | ItemField({target: item, inlinedLocation}) =>
-        b->B.Val.get(item->getItemOutput, inlinedLocation)
-      | Item({inlinedLocation}) => outputs->Js.Dict.unsafeGet(inlinedLocation)
-      | Root({idx}) => outputs->Js.Dict.unsafeGet(idx->X.Int.unsafeToString)
-      }
-    }
-
-    let output =
-      b->definitionToOutput(
-        ~definition=definition->(Obj.magic: unknown => Definition.t<ditem>),
-        ~getItemOutput,
-      )
-
-    output
-  }
   and definitionToTarget = (~definition, ~to=?, ~flattened=?) => {
     let definition = definition->(Obj.magic: unknown => Definition.t<ditem>)
 
@@ -4662,7 +4655,7 @@ let int = Int.schema
 let float = Float.schema
 let bigint = BigInt.schema
 let null = Null.factory
-let option = Option.factory->Obj.magic
+let option = item => item->Option.factory(~unit)
 let array = Array.factory
 let dict = Dict.factory
 let shape = Schema.shape
@@ -5091,8 +5084,8 @@ let js_merge = (s1, s2) => {
       Object({items: items2, additionalItems: additionalItems2}),
     )
     // Filter out S.record schemas
-    if additionalItems1->X.Type.typeof === #string &&
-    additionalItems2->X.Type.typeof === #string &&
+    if additionalItems1->Type.typeof === #string &&
+    additionalItems2->Type.typeof === #string &&
     !((s1->toInternal).to->Obj.magic) &&
     !((s2->toInternal).to->Obj.magic) =>
     let properties = Js.Dict.empty()
@@ -5512,48 +5505,54 @@ let rec fromJSONSchema = {
     | {allOf: []} => anySchema
     | {allOf: [d]} => d->definitionToSchema
     | {allOf: definitions} =>
-      anySchema->refine(s => data => {
-        definitions->Js.Array2.forEach(d => {
-          try data->assertOrThrow(d->definitionToSchema) catch {
-          | _ => s.fail("Should pass for all schemas of the allOf property.")
-          }
-        })
-      })
+      anySchema->refine(s =>
+        data => {
+          definitions->Js.Array2.forEach(d => {
+            try data->assertOrThrow(d->definitionToSchema) catch {
+            | _ => s.fail("Should pass for all schemas of the allOf property.")
+            }
+          })
+        }
+      )
     | {oneOf: []} => anySchema
     | {oneOf: [d]} => d->definitionToSchema
     | {oneOf: definitions} =>
-      anySchema->refine(s => data => {
-        let hasOneValidRef = ref(false)
-        definitions->Js.Array2.forEach(d => {
+      anySchema->refine(s =>
+        data => {
+          let hasOneValidRef = ref(false)
+          definitions->Js.Array2.forEach(d => {
+            let passed = try {
+              let _ = data->assertOrThrow(d->definitionToSchema)
+              true
+            } catch {
+            | _ => false
+            }
+            if passed {
+              if hasOneValidRef.contents {
+                s.fail("Should pass single schema according to the oneOf property.")
+              }
+              hasOneValidRef.contents = true
+            }
+          })
+          if hasOneValidRef.contents->not {
+            s.fail("Should pass at least one schema according to the oneOf property.")
+          }
+        }
+      )
+    | {not} =>
+      anySchema->refine(s =>
+        data => {
           let passed = try {
-            let _ = data->assertOrThrow(d->definitionToSchema)
+            let _ = data->assertOrThrow(not->definitionToSchema)
             true
           } catch {
           | _ => false
           }
           if passed {
-            if hasOneValidRef.contents {
-              s.fail("Should pass single schema according to the oneOf property.")
-            }
-            hasOneValidRef.contents = true
+            s.fail("Should NOT be valid against schema in the not property.")
           }
-        })
-        if hasOneValidRef.contents->not {
-          s.fail("Should pass at least one schema according to the oneOf property.")
         }
-      })
-    | {not} =>
-      anySchema->refine(s => data => {
-        let passed = try {
-          let _ = data->assertOrThrow(not->definitionToSchema)
-          true
-        } catch {
-        | _ => false
-        }
-        if passed {
-          s.fail("Should NOT be valid against schema in the not property.")
-        }
-      })
+      )
     // needs to come before primitives
     | {enum: []} => anySchema
     | {enum: [p]} => p->primitiveToSchema
@@ -5618,19 +5617,21 @@ let rec fromJSONSchema = {
         let ifSchema = if_->definitionToSchema
         let thenSchema = then->definitionToSchema
         let elseSchema = else_->definitionToSchema
-        anySchema->refine(_ => data => {
-          let passed = try {
-            let _ = data->assertOrThrow(ifSchema)
-            true
-          } catch {
-          | _ => false
+        anySchema->refine(_ =>
+          data => {
+            let passed = try {
+              let _ = data->assertOrThrow(ifSchema)
+              true
+            } catch {
+            | _ => false
+            }
+            if passed {
+              data->assertOrThrow(thenSchema)
+            } else {
+              data->assertOrThrow(elseSchema)
+            }
           }
-          if passed {
-            data->assertOrThrow(thenSchema)
-          } else {
-            data->assertOrThrow(elseSchema)
-          }
-        })
+        )
       }
     | _ => anySchema
     }
