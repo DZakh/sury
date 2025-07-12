@@ -540,6 +540,33 @@ function map(inlinedFn, input) {
         };
 }
 
+function transform(b, input, operation) {
+  if (!(input.f & 2)) {
+    return operation(b, input);
+  }
+  var bb = {
+    c: "",
+    l: "",
+    a: initialAllocate,
+    f: "",
+    g: b.g
+  };
+  var operationInput = {
+    b: b,
+    v: _var,
+    i: varWithoutAllocation(bb.g),
+    f: 0
+  };
+  var operationOutputVal = operation(bb, operationInput);
+  var operationCode = allocateScope(bb);
+  return {
+          b: input.b,
+          v: _notVar,
+          i: input.i + ".then(" + operationInput.v(b) + "=>{" + operationCode + "return " + operationOutputVal.i + "})",
+          f: 3
+        };
+}
+
 function raise(b, code, path) {
   throw new SuryError(code, b.g.o, path);
 }
@@ -1529,36 +1556,11 @@ function internalRefine(schema, refiner) {
   return updateOutput(schema, (function (mut) {
                 var prevRefiner = mut.refiner;
                 mut.refiner = (function (b, input, selfSchema, path) {
-                    var input$1 = prevRefiner !== undefined ? prevRefiner(b, input, selfSchema, path) : input;
-                    var operation = function (b, input) {
-                      var rCode = refiner(b, input.v(b), selfSchema, path);
-                      b.c = b.c + rCode;
-                      return input;
-                    };
-                    if (!(input$1.f & 2)) {
-                      return operation(b, input$1);
-                    }
-                    var bb = {
-                      c: "",
-                      l: "",
-                      a: initialAllocate,
-                      f: "",
-                      g: b.g
-                    };
-                    var operationInput = {
-                      b: b,
-                      v: _var,
-                      i: varWithoutAllocation(bb.g),
-                      f: 0
-                    };
-                    var operationOutputVal = operation(bb, operationInput);
-                    var operationCode = allocateScope(bb);
-                    return {
-                            b: input$1.b,
-                            v: _notVar,
-                            i: input$1.i + ".then(" + operationInput.v(b) + "=>{" + operationCode + "return " + operationOutputVal.i + "})",
-                            f: 3
-                          };
+                    return transform(b, prevRefiner !== undefined ? prevRefiner(b, input, selfSchema, path) : input, (function (b, input) {
+                                  var rCode = refiner(b, input.v(b), selfSchema, path);
+                                  b.c = b.c + rCode;
+                                  return input;
+                                }));
                   });
               }));
 }
@@ -1574,7 +1576,7 @@ function addRefinement(schema, metadataId, refinement, refiner) {
   return internalRefine(set$1(schema, metadataId, refinements !== undefined ? refinements.concat(refinement) : [refinement]), refiner);
 }
 
-function transform(schema, transformer) {
+function transform$1(schema, transformer) {
   return updateOutput(schema, (function (mut) {
                 mut.parser = (function (b, input, selfSchema, path) {
                     var match = transformer(effectCtx(b, selfSchema, path));
@@ -2097,15 +2099,17 @@ function getWithDefault(schema, $$default) {
                     throw new Error("[Sury] " + message);
                   }
                   mut.parser = (function (b, input, param, param$1) {
-                      var inputVar = input.v(b);
-                      var tmp;
-                      tmp = $$default.TAG === "Value" ? inlineConst(b, parse$1($$default._0)) : embed(b, $$default._0) + "()";
-                      return {
-                              b: b,
-                              v: _notVar,
-                              i: inputVar + "===void 0?" + tmp + ":" + inputVar,
-                              f: 1
-                            };
+                      return transform(b, input, (function (b, input) {
+                                    var inputVar = input.v(b);
+                                    var tmp;
+                                    tmp = $$default.TAG === "Value" ? inlineConst(b, parse$1($$default._0)) : embed(b, $$default._0) + "()";
+                                    return {
+                                            b: b,
+                                            v: _notVar,
+                                            i: inputVar + "===void 0?" + tmp + ":" + inputVar,
+                                            f: 1
+                                          };
+                                  }));
                     });
                   mut.to = {
                     type: "union",
@@ -2427,7 +2431,7 @@ function to(from, target) {
 }
 
 function list(schema) {
-  return transform(factory$2(schema), (function (param) {
+  return transform$1(factory$2(schema), (function (param) {
                 return {
                         p: Belt_List.fromArray,
                         s: Belt_List.toArray
@@ -2810,49 +2814,6 @@ function nested(fieldName) {
   return ctx$1;
 }
 
-function advancedBuilder(definition, flattened) {
-  return function (b, input, selfSchema, path) {
-    var isFlatten = b.g.o & 64;
-    var outputs = isFlatten ? input : ({});
-    if (!isFlatten) {
-      var items = selfSchema.items;
-      for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
-        var match = items[idx];
-        var inlinedLocation = match.inlinedLocation;
-        var schema = match.schema;
-        var itemInput = get(b, input, inlinedLocation);
-        var path$1 = path + ("[" + inlinedLocation + "]");
-        if (input.f & 1 && (isLiteral(schema) || schema.type === "object")) {
-          itemInput.f = itemInput.f | 1;
-        }
-        outputs[inlinedLocation] = parse(b, schema, itemInput, path$1);
-      }
-      objectStrictModeCheck(b, input, items, selfSchema, path);
-    }
-    if (flattened !== undefined) {
-      var prevFlag = b.g.o;
-      b.g.o = prevFlag | 64;
-      for(var idx$1 = 0 ,idx_finish$1 = flattened.length; idx$1 < idx_finish$1; ++idx$1){
-        var item = flattened[idx$1];
-        outputs[item.i] = parse(b, item.schema, input, path);
-      }
-      b.g.o = prevFlag;
-    }
-    var getItemOutput = function (item) {
-      switch (item.k) {
-        case 0 :
-            return outputs[item.inlinedLocation];
-        case 1 :
-            return get(b, getItemOutput(item.of), item.inlinedLocation);
-        case 2 :
-            return outputs[item.i];
-        
-      }
-    };
-    return definitionToOutput(b, definition, getItemOutput);
-  };
-}
-
 function definitionToTarget(definition, to, flattened) {
   var ritemsByItemPath = {};
   var ritem = definitionToRitem(definition, "", ritemsByItemPath);
@@ -2945,6 +2906,49 @@ function definitionToTarget(definition, to, flattened) {
       return complete(objectVal, isArray);
     });
   return mut;
+}
+
+function advancedBuilder(definition, flattened) {
+  return function (b, input, selfSchema, path) {
+    var isFlatten = b.g.o & 64;
+    var outputs = isFlatten ? input : ({});
+    if (!isFlatten) {
+      var items = selfSchema.items;
+      for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
+        var match = items[idx];
+        var inlinedLocation = match.inlinedLocation;
+        var schema = match.schema;
+        var itemInput = get(b, input, inlinedLocation);
+        var path$1 = path + ("[" + inlinedLocation + "]");
+        if (input.f & 1 && (isLiteral(schema) || schema.type === "object")) {
+          itemInput.f = itemInput.f | 1;
+        }
+        outputs[inlinedLocation] = parse(b, schema, itemInput, path$1);
+      }
+      objectStrictModeCheck(b, input, items, selfSchema, path);
+    }
+    if (flattened !== undefined) {
+      var prevFlag = b.g.o;
+      b.g.o = prevFlag | 64;
+      for(var idx$1 = 0 ,idx_finish$1 = flattened.length; idx$1 < idx_finish$1; ++idx$1){
+        var item = flattened[idx$1];
+        outputs[item.i] = parse(b, item.schema, input, path);
+      }
+      b.g.o = prevFlag;
+    }
+    var getItemOutput = function (item) {
+      switch (item.k) {
+        case 0 :
+            return outputs[item.inlinedLocation];
+        case 1 :
+            return get(b, getItemOutput(item.of), item.inlinedLocation);
+        case 2 :
+            return outputs[item.i];
+        
+      }
+    };
+    return definitionToOutput(b, definition, getItemOutput);
+  };
 }
 
 function shape(schema, definer) {
@@ -3507,7 +3511,7 @@ function datetime(schema, messageOpt) {
     message: message
   };
   var refinements = schema[metadataId$1];
-  return transform(set$1(schema, metadataId$1, refinements !== undefined ? refinements.concat(refinement) : [refinement]), (function (s) {
+  return transform$1(set$1(schema, metadataId$1, refinements !== undefined ? refinements.concat(refinement) : [refinement]), (function (s) {
                 return {
                         p: (function (string) {
                             if (!datetimeRe.test(string)) {
@@ -3526,7 +3530,7 @@ function trim(schema) {
   var transformer = function (string) {
     return string.trim();
   };
-  return transform(schema, (function (param) {
+  return transform$1(schema, (function (param) {
                 return {
                         p: transformer,
                         s: transformer
@@ -3555,7 +3559,7 @@ function js_union(values) {
 }
 
 function js_transform(schema, maybeParser, maybeSerializer) {
-  return transform(schema, (function (s) {
+  return transform$1(schema, (function (s) {
                 return {
                         p: maybeParser !== undefined ? (function (v) {
                               return maybeParser(v, s);
@@ -3580,7 +3584,7 @@ function noop(a) {
 }
 
 function js_asyncParserRefine(schema, refine) {
-  return transform(schema, (function (s) {
+  return transform$1(schema, (function (s) {
                 return {
                         a: (function (v) {
                             return refine(v, s).then(function () {
@@ -4463,7 +4467,7 @@ export {
   union ,
   $$enum ,
   meta ,
-  transform ,
+  transform$1 as transform,
   refine ,
   shape ,
   to ,

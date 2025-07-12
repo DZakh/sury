@@ -2852,12 +2852,17 @@ module Option = {
 
           mut.parser = Some(
             Builder.make((b, ~input, ~selfSchema as _, ~path as _) => {
-              let inputVar = input.var(b)
-              b->B.val(
-                `${inputVar}===void 0?${switch default {
-                  | Value(v) => b->B.inlineConst(Literal.parse(v))
-                  | Callback(cb) => `${b->B.embed(cb)}()`
-                  }}:${inputVar}`,
+              b->B.transform(
+                ~input,
+                (b, ~input) => {
+                  let inputVar = input.var(b)
+                  b->B.val(
+                    `${inputVar}===void 0?${switch default {
+                      | Value(v) => b->B.inlineConst(Literal.parse(v))
+                      | Callback(cb) => `${b->B.embed(cb)}()`
+                      }}:${inputVar}`,
+                  )
+                },
               )
             }),
           )
