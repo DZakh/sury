@@ -37,6 +37,8 @@ console.log(S.boolean)
 
 - Updated `S.recursive` to require an identifier. Recursive schemas now have a better performance and an internal representation matching JSON Schema spec. Sury schema now also exposes `$ref` and `$defs` fields, as well as introduces new `ref` type, while previous `json` type got deprecated.
 
+  - Additionally `S.toJSONSchema` now supports recursive schemas.
+
 - Removed `S.catch` from ReScript API. You can use a combination of `S.unknown`, `S.union` and `S.transform` instead.
 
 - `S.json(validate)` changed to `S.json` and now uses recursive schema as internal representation. The `json` schema type was removed. To create a JSON schema without validation you can use `S.json.with(S.noValidation, true)`

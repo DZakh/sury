@@ -663,22 +663,91 @@ test("JSONSchema of recursive schema", t => {
         },
     )
   })
-  // FIXME:
-  t->Assert.deepEqual(schema->S.toJSONSchema, %raw(`{}`))
+
+  t->Assert.deepEqual(
+    schema->S.toJSONSchema,
+    %raw(`{
+      $defs: {
+        Node: {
+          additionalProperties: true,
+          properties: {
+            Children: { items: { $ref: "#/$defs/Node" }, type: "array" },
+            Id: { type: "string" },
+          },
+          required: ["Id", "Children"],
+          type: "object",
+        },
+      },
+      $ref: "#/$defs/Node",
+    }`),
+  )
+})
+
+test("JSONSchema of nested recursive schema", t => {
+  let schema = S.schema(s =>
+    {
+      "node": s.matches(
+        S.recursive(
+          "Node",
+          nodeSchema => {
+            S.object(
+              s =>
+                {
+                  "id": s.field("Id", S.string),
+                  "children": s.field("Children", S.array(nodeSchema)),
+                },
+            )
+          },
+        ),
+      ),
+    }
+  )
+
+  t->Assert.deepEqual(
+    schema->S.toJSONSchema,
+    %raw(`{
+      type: 'object',
+      properties: { node: { '$ref': '#/$defs/Node' } },
+      additionalProperties: true,
+      required: [ 'node' ],
+      '$defs': {
+        Node: {
+          type: 'object',
+          properties: {
+            Children: { items: { $ref: "#/$defs/Node" }, type: "array" },
+            Id: { type: "string" },
+          },
+          additionalProperties: true,
+          required: [ 'Id', 'Children' ]
+        }
+      }
+    }`),
+  )
 })
 
 test("JSONSchema of recursive schema with non-jsonable field", t => {
-  let schema = S.recursive("Node", nodeSchema => {
-    S.object(
-      s =>
-        {
-          "id": s.field("Id", S.bigint),
-          "children": s.field("Children", S.array(nodeSchema)),
+  t->Assert.throws(
+    () => {
+      let schema = S.recursive(
+        "Node",
+        nodeSchema => {
+          S.object(
+            s =>
+              {
+                "id": s.field("Id", S.bigint),
+                "children": s.field("Children", S.array(nodeSchema)),
+              },
+          )
         },
-    )
-  })
-  // FIXME:
-  t->Assert.deepEqual(schema->S.toJSONSchema, %raw(`{}`))
+      )
+      schema->S.toJSONSchema
+    },
+    // FIXME: This doesn't have the most readable message
+    // Because isJsonable check doesn't work properly with recursive schemas
+    ~expectations={
+      message: "[Sury] Unexpected schema type",
+    },
+  )
 })
 
 test("Fails to create schema for schemas with optional items", t => {

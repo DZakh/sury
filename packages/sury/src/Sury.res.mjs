@@ -1220,19 +1220,13 @@ function jsonableValidation(output, parent, path, flag) {
               _0: parent
             }, flag, path);
   }
-  var match = output.type;
-  switch (match) {
-    case "array" :
-    case "object" :
-    case "union" :
-        break;
-    default:
-      return ;
-  }
   if (tag === "union") {
     output.anyOf.forEach(function (s) {
           jsonableValidation(s, parent, path, flag);
         });
+    return ;
+  }
+  if (!(tag === "array" || tag === "object")) {
     return ;
   }
   var additionalItems = output.additionalItems;
@@ -3726,7 +3720,7 @@ function $$global(override) {
 
 var jsonSchemaMetadataId = "m:JSONSchema";
 
-function internalToJSONSchema(schema) {
+function internalToJSONSchema(schema, defs) {
   var jsonSchema = {};
   switch (schema.type) {
     case "never" :
@@ -3831,7 +3825,7 @@ function internalToJSONSchema(schema) {
         if (additionalItems === "strip" || additionalItems === "strict") {
           exit = 1;
         } else {
-          jsonSchema.items = Caml_option.some(internalToJSONSchema(additionalItems));
+          jsonSchema.items = Caml_option.some(internalToJSONSchema(additionalItems, defs));
           jsonSchema.type = "array";
           refinements(schema).forEach(function (refinement) {
                 var match = refinement.kind;
@@ -3853,7 +3847,7 @@ function internalToJSONSchema(schema) {
         }
         if (exit === 1) {
           var items = schema.items.map(function (item) {
-                return internalToJSONSchema(item.schema);
+                return internalToJSONSchema(item.schema, defs);
               });
           var itemsNumber = items.length;
           jsonSchema.items = Caml_option.some(items);
@@ -3869,13 +3863,13 @@ function internalToJSONSchema(schema) {
           exit$1 = 1;
         } else {
           jsonSchema.type = "object";
-          jsonSchema.additionalProperties = Caml_option.some(internalToJSONSchema(additionalItems$1));
+          jsonSchema.additionalProperties = Caml_option.some(internalToJSONSchema(additionalItems$1, defs));
         }
         if (exit$1 === 1) {
           var properties = {};
           var required = [];
           schema.items.forEach(function (item) {
-                var fieldSchema = internalToJSONSchema(item.schema);
+                var fieldSchema = internalToJSONSchema(item.schema, defs);
                 if (!isOptional(item.schema)) {
                   required.push(item.location);
                 }
@@ -3899,7 +3893,7 @@ function internalToJSONSchema(schema) {
               if (childSchema.type === "undefined") {
                 return ;
               }
-              items$1.push(internalToJSONSchema(childSchema));
+              items$1.push(internalToJSONSchema(childSchema, defs));
               if (isLiteral(childSchema)) {
                 literals.push(childSchema.const);
                 return ;
@@ -3920,8 +3914,11 @@ function internalToJSONSchema(schema) {
         }
         break;
     case "ref" :
-        if (schema.$ref !== defsPath + jsonName) {
-          throw new Error("[Sury] Unexpected schema type");
+        var ref = schema.$ref;
+        if (ref === defsPath + jsonName) {
+          
+        } else {
+          jsonSchema.$ref = ref;
         }
         break;
     default:
@@ -3943,6 +3940,10 @@ function internalToJSONSchema(schema) {
   if (examples !== undefined) {
     jsonSchema.examples = examples;
   }
+  var schemaDefs = schema.$defs;
+  if (schemaDefs !== undefined) {
+    Object.assign(defs, schemaDefs);
+  }
   var metadataRawSchema = schema[jsonSchemaMetadataId];
   if (metadataRawSchema !== undefined) {
     Object.assign(jsonSchema, metadataRawSchema);
@@ -3952,7 +3953,17 @@ function internalToJSONSchema(schema) {
 
 function toJSONSchema(schema) {
   jsonableValidation(schema, schema, "", 8);
-  return internalToJSONSchema(schema);
+  var defs = {};
+  var jsonSchema = internalToJSONSchema(schema, defs);
+  ((delete defs.JSON));
+  var defsKeys = Object.keys(defs);
+  if (defsKeys.length) {
+    defsKeys.forEach(function (key) {
+          defs[key] = internalToJSONSchema(defs[key], 0);
+        });
+    jsonSchema.$defs = defs;
+  }
+  return jsonSchema;
 }
 
 function extendJSONSchema(schema, jsonSchema) {

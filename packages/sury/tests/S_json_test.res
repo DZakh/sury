@@ -83,7 +83,6 @@ test("Fails to parse matrix field", t => {
 
 test("Fails to parse NaN", t => {
   let schema = S.json
-  Js.log(schema)
   t->U.assertThrows(
     () => %raw(`NaN`)->S.parseOrThrow(schema),
     {

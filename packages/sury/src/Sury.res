@@ -1826,34 +1826,30 @@ and jsonableValidation = (~output, ~parent, ~path, ~flag) => {
   if (tag === Undefined && parent.tag !== Object) || nonJsonableTags->X.Set.has(tag) {
     X.Exn.raiseAny(InternalError.make(~code=InvalidJsonSchema(parent->fromInternal), ~flag, ~path))
   }
-  switch output {
-  | {tag: Union | Array | Object} =>
-    if tag === Union {
-      output.anyOf
-      ->X.Option.getUnsafe
-      ->Js.Array2.forEach(s => jsonableValidation(~output=s, ~parent, ~path, ~flag))
-    } else {
-      switch output {
-      | {items, ?additionalItems} => {
-          switch additionalItems->X.Option.getUnsafe {
-          | Schema(additionalItems) =>
-            jsonableValidation(~output=additionalItems->toInternal, ~parent, ~path, ~flag)
+  if tag === Union {
+    output.anyOf
+    ->X.Option.getUnsafe
+    ->Js.Array2.forEach(s => jsonableValidation(~output=s, ~parent, ~path, ~flag))
+  } else if tag === Array || tag === Object {
+    switch output {
+    | {items, ?additionalItems} => {
+        switch additionalItems->X.Option.getUnsafe {
+        | Schema(additionalItems) =>
+          jsonableValidation(~output=additionalItems->toInternal, ~parent, ~path, ~flag)
 
-          | _ => ()
-          }
-          items->Js.Array2.forEach(item => {
-            jsonableValidation(
-              ~output=item.schema->toInternal,
-              ~parent=output,
-              ~path=path->Path.concat(Path.fromInlinedLocation(item.inlinedLocation)),
-              ~flag,
-            )
-          })
+        | _ => ()
         }
-      | _ => ()
+        items->Js.Array2.forEach(item => {
+          jsonableValidation(
+            ~output=item.schema->toInternal,
+            ~parent=output,
+            ~path=path->Path.concat(Path.fromInlinedLocation(item.inlinedLocation)),
+            ~flag,
+          )
+        })
       }
+    | _ => ()
     }
-  | _ => ()
   }
 }
 
@@ -5188,7 +5184,7 @@ module RescriptJSONSchema = {
   @val
   external merge: (@as(json`{}`) _, t, t) => t = "Object.assign"
 
-  let rec internalToJSONSchema = (schema: schema<unknown>): JSONSchema.t => {
+  let rec internalToJSONSchema = (schema: schema<unknown>, ~defs): JSONSchema.t => {
     let jsonSchema: Mutable.t = {}
     switch schema {
     | String({?const}) =>
@@ -5258,7 +5254,7 @@ module RescriptJSONSchema = {
       switch additionalItems {
       | Schema(childSchema) =>
         jsonSchema.items = Some(
-          Arrayable.single(Definition.schema(internalToJSONSchema(childSchema))),
+          Arrayable.single(Definition.schema(internalToJSONSchema(childSchema, ~defs))),
         )
         jsonSchema.type_ = Some(Arrayable.single(#array))
         schema
@@ -5275,7 +5271,7 @@ module RescriptJSONSchema = {
         })
       | _ => {
           let items = items->Js.Array2.map(item => {
-            Definition.schema(internalToJSONSchema(item.schema))
+            Definition.schema(internalToJSONSchema(item.schema, ~defs))
           })
           let itemsNumber = items->Js.Array2.length
 
@@ -5295,7 +5291,9 @@ module RescriptJSONSchema = {
           // Filter out undefined to support optional fields
           | Undefined(_) => ()
           | _ => {
-              items->Js.Array2.push(Definition.schema(internalToJSONSchema(childSchema)))->ignore
+              items
+              ->Js.Array2.push(Definition.schema(internalToJSONSchema(childSchema, ~defs)))
+              ->ignore
               switch childSchema->toInternal->isLiteral {
               | true =>
                 literals
@@ -5330,14 +5328,14 @@ module RescriptJSONSchema = {
       | Schema(childSchema) => {
           jsonSchema.type_ = Some(Arrayable.single(#object))
           jsonSchema.additionalProperties = Some(
-            Definition.schema(internalToJSONSchema(childSchema)),
+            Definition.schema(internalToJSONSchema(childSchema, ~defs)),
           )
         }
       | _ => {
           let properties = Js.Dict.empty()
           let required = []
           items->Js.Array2.forEach(item => {
-            let fieldSchema = internalToJSONSchema(item.schema)
+            let fieldSchema = internalToJSONSchema(item.schema, ~defs)
             if item.schema->toInternal->isOptional->not {
               required->Js.Array2.push(item.location)->ignore
             }
@@ -5360,6 +5358,7 @@ module RescriptJSONSchema = {
       }
     | Unknown(_) => ()
     | Ref({ref}) if ref === `${defsPath}${jsonName}` => ()
+    | Ref({ref}) => jsonSchema.ref = Some(ref)
     | Null(_) => jsonSchema.type_ = Some(Arrayable.single(#null))
     | Never(_) => jsonSchema.not = Some(Definition.schema({}))
     // This case should never happen,
@@ -5394,6 +5393,12 @@ module RescriptJSONSchema = {
     | _ => ()
     }
 
+    switch schema->untag {
+    | {defs: schemaDefs} =>
+      let _ = defs->X.Dict.mixin(schemaDefs)
+    | _ => ()
+    }
+
     switch schema->Metadata.get(~id=jsonSchemaMetadataId) {
     | Some(metadataRawSchema) => jsonSchema->Mutable.mixin(metadataRawSchema)
     | None => ()
@@ -5406,7 +5411,30 @@ module RescriptJSONSchema = {
 let toJSONSchema = schema => {
   let target = schema->toInternal
   jsonableValidation(~output=target, ~parent=target, ~path=Path.empty, ~flag=Flag.jsonableOutput)
-  target->fromInternal->RescriptJSONSchema.internalToJSONSchema
+  let defs = Js.Dict.empty()
+  let jsonSchema = target->fromInternal->RescriptJSONSchema.internalToJSONSchema(~defs)
+  let _ = %raw(`delete defs.JSON`)
+  let defsKeys = defs->Js.Dict.keys
+  if defsKeys->Js.Array2.length->X.Int.unsafeToBool {
+    // Reuse the same object to prevent allocations
+    // Nothing critical, just because we can
+    let jsonSchemDefs = defs->(Obj.magic: dict<t<unknown>> => dict<JSONSchema.definition>)
+    defsKeys->Js.Array2.forEach(key => {
+      jsonSchemDefs->Js.Dict.set(
+        key,
+        defs
+        ->Js.Dict.unsafeGet(key)
+        ->RescriptJSONSchema.internalToJSONSchema(
+          // It's not possible to have nested recursive schema.
+          // It should be grouped to a single $defs of the most top-level schema.
+          ~defs=%raw(`0`),
+        )
+        ->JSONSchema.Definition.schema,
+      )
+    })
+    (jsonSchema->JSONSchema.Mutable.fromReadOnly).defs = Some(jsonSchemDefs)
+  }
+  jsonSchema
 }
 
 let extendJSONSchema = (schema, jsonSchema) => {
