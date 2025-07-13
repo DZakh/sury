@@ -562,9 +562,9 @@ type exn += private Error(error)
 
 external castToUnknown: t<'any> => t<unknown> = "%identity"
 external castToAny: t<'value> => t<'any> = "%identity"
+external castToInternal: t<'any> => internal = "%identity"
+external castToPublic: internal => t<'any> = "%identity"
 external untag: t<'any> => untagged = "%identity"
-external toInternal: t<'any> => internal = "%identity"
-external fromInternal: internal => t<'any> = "%identity"
 
 // This is dirty
 @inline
@@ -717,7 +717,7 @@ let updateOutput = (schema: internal, fn): t<'value> => {
   }
   // This should be the Output schema
   fn(mut.contents)
-  root->fromInternal
+  root->castToPublic
 }
 let resetOperationsCache: internal => unit = %raw(`(schema) => {
   for (let k in schema) {
@@ -766,7 +766,7 @@ let rec stringify = unknown => {
 }
 
 let rec toExpression = schema => {
-  let schema = schema->toInternal
+  let schema = schema->castToInternal
   switch schema {
   | {name} => name
   | {const} => const->Obj.magic->stringify
@@ -781,14 +781,14 @@ let rec toExpression = schema => {
     if items->Js.Array2.length === 0 {
       if additionalItems->Js.typeof === "object" {
         let additionalItems: internal = additionalItems->Obj.magic
-        `{ [key: string]: ${additionalItems->fromInternal->toExpression}; }`
+        `{ [key: string]: ${additionalItems->castToPublic->toExpression}; }`
       } else {
         `{}`
       }
     } else {
       `{ ${items
         ->Js.Array2.map(item => {
-          `${item.location}: ${item.schema->toInternal->fromInternal->toExpression};`
+          `${item.location}: ${item.schema->castToInternal->castToPublic->toExpression};`
         })
         ->Js.Array2.joinWith(" ")} }`
     }
@@ -796,7 +796,7 @@ let rec toExpression = schema => {
     let items = items->X.Option.getUnsafe
     if additionalItems->Js.typeof === "object" {
       let additionalItems: internal = additionalItems->Obj.magic
-      let itemName = additionalItems->fromInternal->toExpression
+      let itemName = additionalItems->castToPublic->toExpression
       if additionalItems.tag === Union {
         `(${itemName})`
       } else {
@@ -804,7 +804,7 @@ let rec toExpression = schema => {
       } ++ "[]"
     } else {
       `[${items
-        ->Js.Array2.map(item => item.schema->toInternal->fromInternal->toExpression)
+        ->Js.Array2.map(item => item.schema->castToInternal->castToPublic->toExpression)
         ->Js.Array2.joinWith(", ")}]`
     }
 
@@ -1200,7 +1200,7 @@ module Builder = {
     }
 
     let effectCtx = (b, ~selfSchema, ~path) => {
-      schema: selfSchema->fromInternal,
+      schema: selfSchema->castToPublic,
       fail: (message, ~path as customPath=Path.empty) => {
         b->raise(~path=path->Path.concat(customPath), ~code=OperationFailed(message))
       },
@@ -1362,7 +1362,7 @@ module Builder = {
           )
           for idx in 0 to items->Js.Array2.length - 1 {
             let {schema: item, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
-            let item = item->toInternal
+            let item = item->castToInternal
             let itemCode = if item->isLiteral || schema.unnest->X.Option.getUnsafe {
               b->validation(
                 ~inputVar=Path.concat(inputVar, Path.fromInlinedLocation(inlinedLocation)),
@@ -1400,7 +1400,7 @@ module Builder = {
             )}){${b->failWithArg(
               ~path,
               input => InvalidType({
-                expected: schema->fromInternal,
+                expected: schema->castToPublic,
                 received: input,
               }),
               inputVar,
@@ -1416,7 +1416,7 @@ module Builder = {
         ~failCoercion=b->failWithArg(
           ~path,
           input => InvalidType({
-            expected: target->fromInternal,
+            expected: target->castToPublic,
             received: input,
           }),
           inputVar,
@@ -1444,7 +1444,7 @@ let nonJsonableTags = X.Set.fromArray([(Unknown: tag), NaN, BigInt, Function, In
 
 let unknown = base()
 unknown.tag = Unknown
-let unknown: t<unknown> = unknown->fromInternal
+let unknown: t<unknown> = unknown->castToPublic
 
 let setHas = (has, tag: tag) => {
   has->Js.Dict.set(
@@ -1507,7 +1507,7 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg, ~path) => {
         let output = B.Val.map(recOperation, input)
         if def.isAsync === None {
           let defsMut = defs->X.Dict.copy
-          defsMut->Js.Dict.set(identifier, unknown->toInternal)
+          defsMut->Js.Dict.set(identifier, unknown->castToInternal)
           let _ = def->isAsyncInternal(~defs=Some(defsMut))
         }
         if def.isAsync->X.Option.getUnsafe {
@@ -1616,8 +1616,8 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg, ~path) => {
 
         | _ =>
           InternalError.panic(
-            `Coercion from ${schema->fromInternal->toExpression} to ${target
-              ->fromInternal
+            `Coercion from ${schema->castToPublic->toExpression} to ${target
+              ->castToPublic
               ->toExpression} is not supported`,
           )
         }
@@ -1714,7 +1714,7 @@ and internalCompile = (~schema, ~flag, ~defs) => {
   }
 }
 and operationFn = (s, o) => {
-  let s = s->toInternal
+  let s = s->castToInternal
   if %raw(`o in s`) {
     %raw(`s[o]`)
   } else {
@@ -1761,7 +1761,7 @@ and reverse = (schema: internal) => {
         let item = items->Js.Array2.unsafe_get(idx)
         let reversed = {
           ...item,
-          schema: item.schema->toInternal->reverse->fromInternal,
+          schema: item.schema->castToInternal->reverse->castToPublic,
         }
 
         // Keep ritem if it's present. Super unsafe and might break
@@ -1769,7 +1769,7 @@ and reverse = (schema: internal) => {
         if (item->Obj.magic)["r"] {
           (reversed->Obj.magic)["r"] = (item->Obj.magic)["r"]
         }
-        properties->Js.Dict.set(item.location, reversed.schema->toInternal)
+        properties->Js.Dict.set(item.location, reversed.schema->castToInternal)
         newItems->Js.Array2.unsafe_set(idx, reversed)
       }
       mut.items = Some(newItems)
@@ -1786,7 +1786,7 @@ and reverse = (schema: internal) => {
           mut.additionalItems
           ->(Obj.magic: option<additionalItems> => internal)
           ->reverse
-          ->fromInternal,
+          ->castToPublic,
         ),
       )
     }
@@ -1824,7 +1824,7 @@ and reverse = (schema: internal) => {
 and jsonableValidation = (~output, ~parent, ~path, ~flag) => {
   let tag = output.tag
   if (tag === Undefined && parent.tag !== Object) || nonJsonableTags->X.Set.has(tag) {
-    X.Exn.raiseAny(InternalError.make(~code=InvalidJsonSchema(parent->fromInternal), ~flag, ~path))
+    X.Exn.raiseAny(InternalError.make(~code=InvalidJsonSchema(parent->castToPublic), ~flag, ~path))
   }
   if tag === Union {
     output.anyOf
@@ -1835,13 +1835,13 @@ and jsonableValidation = (~output, ~parent, ~path, ~flag) => {
     | {items, ?additionalItems} => {
         switch additionalItems->X.Option.getUnsafe {
         | Schema(additionalItems) =>
-          jsonableValidation(~output=additionalItems->toInternal, ~parent, ~path, ~flag)
+          jsonableValidation(~output=additionalItems->castToInternal, ~parent, ~path, ~flag)
 
         | _ => ()
         }
         items->Js.Array2.forEach(item => {
           jsonableValidation(
-            ~output=item.schema->toInternal,
+            ~output=item.schema->castToInternal,
             ~parent=output,
             ~path=path->Path.concat(Path.fromInlinedLocation(item.inlinedLocation)),
             ~flag,
@@ -1865,7 +1865,7 @@ X.Object.defineProperty(
         validate: input => {
           try {
             {
-              "value": (schema->fromInternal->operationFn(Flag.typeValidation))(
+              "value": (schema->castToPublic->operationFn(Flag.typeValidation))(
                 input->Obj.magic,
               )->Obj.magic,
             }
@@ -2079,7 +2079,7 @@ module Literal = {
 }
 
 let isAsync = schema => {
-  let schema = schema->toInternal
+  let schema = schema->castToInternal
   switch schema.isAsync {
   | None => schema->isAsyncInternal(~defs=%raw(`0`))
   | Some(v) => v
@@ -2142,10 +2142,10 @@ module Metadata = {
   }
 
   let set = (schema, ~id: Id.t<'metadata>, metadata: 'metadata) => {
-    let schema = schema->toInternal
+    let schema = schema->castToInternal
     let mut = schema->copyWithoutCache
     mut->setInPlace(~id, metadata)
-    mut->fromInternal
+    mut->castToPublic
   }
 }
 
@@ -2162,7 +2162,7 @@ let recursive = (name, fn) => {
   if !isNestedRec {
     globalConfig.defsAccumulator = Some(Js.Dict.empty())
   }
-  let def = fn(refSchema->fromInternal)->toInternal
+  let def = fn(refSchema->castToPublic)->castToInternal
   if def.name->Obj.magic {
     refSchema.name = def.name
   } else {
@@ -2173,7 +2173,7 @@ let recursive = (name, fn) => {
   ->Js.Dict.set(name, def)
 
   if isNestedRec {
-    refSchema->fromInternal
+    refSchema->castToPublic
   } else {
     let schema = base()
     schema.tag = Ref
@@ -2183,22 +2183,22 @@ let recursive = (name, fn) => {
 
     globalConfig.defsAccumulator = None
 
-    schema->fromInternal
+    schema->castToPublic
   }
 }
 
 let noValidation = (schema, value) => {
-  let schema = schema->toInternal
+  let schema = schema->castToInternal
   let mut = schema->copyWithoutCache
 
   // TODO: Test for discriminant literal
   // TODO: Better test reverse
   mut.noValidation = Some(value)
-  mut->fromInternal
+  mut->castToPublic
 }
 
 let internalRefine = (schema, refiner) => {
-  let schema = schema->toInternal
+  let schema = schema->castToInternal
   updateOutput(schema, mut => {
     let prevRefiner = mut.refiner
     mut.refiner = Some(
@@ -2250,7 +2250,7 @@ let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) =
   schema,
   transformer,
 ) => {
-  let schema = schema->toInternal
+  let schema = schema->castToInternal
   updateOutput(schema, mut => {
     mut.parser = Some(
       Builder.make((b, ~input, ~selfSchema, ~path) => {
@@ -2288,13 +2288,13 @@ let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) =
   })
 }
 
-let unit: t<unit> = Literal.undefined->fromInternal
+let unit: t<unit> = Literal.undefined->castToPublic
 
 let nullAsUnit = base()
 nullAsUnit.tag = Null
 nullAsUnit.const = %raw(`null`)
-nullAsUnit.to = Some(unit->toInternal)
-let nullAsUnit = nullAsUnit->fromInternal
+nullAsUnit.to = Some(unit->castToInternal)
+let nullAsUnit = nullAsUnit->castToPublic
 
 let neverBuilder = Builder.make((b, ~input, ~selfSchema, ~path) => {
   b.code =
@@ -2302,7 +2302,7 @@ let neverBuilder = Builder.make((b, ~input, ~selfSchema, ~path) => {
     b->B.failWithArg(
       ~path,
       input => InvalidType({
-        expected: selfSchema->fromInternal,
+        expected: selfSchema->castToPublic,
         received: input,
       }),
       input.inline,
@@ -2313,7 +2313,7 @@ let neverBuilder = Builder.make((b, ~input, ~selfSchema, ~path) => {
 let never = base()
 never.tag = Never
 never.refiner = Some(neverBuilder)
-let never: t<never> = never->fromInternal
+let never: t<never> = never->castToPublic
 
 module Union = {
   @unboxed
@@ -2367,7 +2367,7 @@ module Union = {
           b->B.raise(
             ~path,
             ~code=InvalidType({
-              expected: selfSchema->fromInternal,
+              expected: selfSchema->castToPublic,
               received: args->Js.Array2.unsafe_get(0),
               unionErrors: ?(
                 args->Js.Array2.length > 1
@@ -2685,7 +2685,7 @@ module Union = {
     // 4. Provide correct `has` value for Union and JSON
     switch schemas {
     | [] => InternalError.panic("S.union requires at least one item")
-    | [schema] => schema->fromInternal
+    | [schema] => schema->castToPublic
     | _ =>
       let has = Js.Dict.empty()
       let anyOf = X.Set.make()
@@ -2711,7 +2711,7 @@ module Union = {
       mut.anyOf = Some(anyOf->X.Set.toArray)
       mut.refiner = Some(refiner)
       mut.has = Some(has)
-      mut->fromInternal
+      mut->castToPublic
     }
   }
 }
@@ -2725,7 +2725,7 @@ module Option = {
     let nestedNone = () => {
       let itemSchema = Literal.parse(0)
       let item: item = {
-        schema: itemSchema->fromInternal,
+        schema: itemSchema->castToPublic,
         location: nestedLoc,
         inlinedLocation: inlinedNestedLoc,
       }
@@ -2751,7 +2751,7 @@ module Option = {
               (selfSchema->getOutputSchema).items
               ->X.Option.getUnsafe
               ->Js.Array2.unsafe_get(0)
-            ).schema->toInternal
+            ).schema->castToInternal
           ).const->Obj.magic}}`,
       )
     })
@@ -2762,15 +2762,15 @@ module Option = {
         mut.to = Some(nestedNone())
         mut.parser = Some(parser)
       })
-      ->toInternal
+      ->castToInternal
     }
   }
 
   let factory = (item, ~unit=unit) => {
-    let item = item->toInternal
+    let item = item->castToInternal
 
     switch item->getOutputSchema {
-    | {tag: Undefined} => Union.factory([unit->castToUnknown, item->nestedOption->fromInternal])
+    | {tag: Undefined} => Union.factory([unit->castToUnknown, item->nestedOption->castToPublic])
     | {tag: Union, ?anyOf, ?has} =>
       item->updateOutput(mut => {
         let schemas = anyOf->X.Option.getUnsafe
@@ -2783,8 +2783,8 @@ module Option = {
           ->Js.Array2.push(
             switch schema->getOutputSchema {
             | {tag: Undefined} => {
-                mutHas->Js.Dict.set(((unit->toInternal).tag: tag :> string), true)
-                newAnyOf->Js.Array2.push(unit->toInternal)->ignore
+                mutHas->Js.Dict.set(((unit->castToInternal).tag: tag :> string), true)
+                newAnyOf->Js.Array2.push(unit->castToInternal)->ignore
                 schema->nestedOption
               }
             | {properties} =>
@@ -2799,16 +2799,16 @@ module Option = {
                       tag: nestedSchema.tag,
                       parser: ?nestedSchema.parser,
                       const: nestedSchema.const->Obj.magic->X.Int.plus(1)->Obj.magic,
-                    }->fromInternal,
+                    }->castToPublic,
                   }
 
                   // FIXME: dict{}
                   let properties = Js.Dict.empty()
-                  properties->Js.Dict.set(nestedLoc, newItem.schema->toInternal)
+                  properties->Js.Dict.set(nestedLoc, newItem.schema->castToInternal)
                   mut.items = Some([newItem])
                   mut.properties = Some(properties)
                 })
-                ->toInternal
+                ->castToInternal
               | None => schema
               }
             | _ => schema
@@ -2818,20 +2818,20 @@ module Option = {
         }
 
         if newAnyOf->Js.Array2.length === schemas->Js.Array2.length {
-          mutHas->Js.Dict.set(((unit->toInternal).tag: tag :> string), true)
-          newAnyOf->Js.Array2.push(unit->toInternal)->ignore
+          mutHas->Js.Dict.set(((unit->castToInternal).tag: tag :> string), true)
+          newAnyOf->Js.Array2.push(unit->castToInternal)->ignore
         }
 
         mut.anyOf = Some(newAnyOf)
         mut.has = Some(mutHas)
       })
-    | _ => Union.factory([item->fromInternal, unit->castToUnknown])
+    | _ => Union.factory([item->castToPublic, unit->castToUnknown])
     }
   }
 
   let getWithDefault = (schema: t<option<'value>>, default) => {
     schema
-    ->toInternal
+    ->castToInternal
     ->updateOutput(mut => {
       switch mut.anyOf {
       | Some([s1, s2]) => {
@@ -2840,12 +2840,12 @@ module Option = {
 
           let item = switch (s1Output, s2Output) {
           | ({tag: Undefined}, {tag: Undefined}) =>
-            InternalError.panic(`Can't set default for ${mut->fromInternal->toExpression}`)
+            InternalError.panic(`Can't set default for ${mut->castToPublic->toExpression}`)
           | ({tag: Undefined}, _) => s2
           | (_, {tag: Undefined}) => s1
           | _ =>
             InternalError.panic(
-              `${mut->fromInternal->toExpression} doesn't have undefined case to default`,
+              `${mut->castToPublic->toExpression} doesn't have undefined case to default`,
             )
           }
 
@@ -2883,7 +2883,7 @@ module Option = {
           switch default {
           | Value(v) =>
             try mut.default =
-              operationFn(item->fromInternal, Flag.reverse)(v)->(
+              operationFn(item->castToPublic, Flag.reverse)(v)->(
                 Obj.magic: unknown => option<unknown>
               ) catch {
             | _ => ()
@@ -2893,46 +2893,10 @@ module Option = {
         }
       | Some(_)
       | None =>
-        InternalError.panic(`Can't set default for ${mut->fromInternal->toExpression}`)
+        InternalError.panic(`Can't set default for ${mut->castToPublic->toExpression}`)
       }
     })
   }
-
-  //  let getWithDefault = (schema: t<option<'value>>, default) => {
-  //   let schema = schema->toInternal
-  //   let mut = schema->copy
-  //   mut->Metadata.setInPlace(~id=defaultMetadataId, default)
-  //   mut.builder = Some(
-  //     Builder.make((b, ~input, ~selfSchema as _, ~path) => {
-  //       b->B.transform(~input=b->B.parse(~schema, ~input, ~path), (b, ~input) => {
-  //         let inputVar = b->B.Val.var(input)
-  // b->B.val(
-  //   `${inputVar}===void 0?${switch default {
-  //     | Value(v) => b->B.embed(v)
-  //     | Callback(cb) => `${b->B.embed(cb)}()`
-  //     }}:${inputVar}`,
-  // )
-  //       })
-  //     }),
-  //   )
-  //   mut.output = Some(
-  //     () => {
-  //       let reversed = schema->reverse
-  //       switch reversed {
-  //       | {anyOf} =>
-  //         // FIXME: What if the union is transformed
-  //         // FIXME: Looks broken
-  //         Union.factory(
-  //           anyOf
-  //           ->Js.Array2.filter(s => s->isOptional->not)
-  //           ->(Obj.magic: array<internal> => array<t<unknown>>),
-  //         )->toInternal
-  //       | _ => reversed
-  //       }
-  //     },
-  //   )
-  //   mut->fromInternal
-  // }
 
   let getOr = (schema, defalutValue) =>
     schema->getWithDefault(Value(defalutValue->castAnyToUnknown))
@@ -2997,10 +2961,10 @@ module Array = {
   let factory = item => {
     let mut = base()
     mut.tag = Array
-    mut.additionalItems = Some(Schema(item->toInternal->fromInternal))
+    mut.additionalItems = Some(Schema(item->castToInternal->castToPublic))
     mut.items = Some(X.Array.immutableEmpty)
     mut.refiner = Some(arrayRefiner)
-    mut->fromInternal
+    mut->castToPublic
   }
 }
 
@@ -3014,7 +2978,7 @@ module Object = {
   }
 
   let rec setAdditionalItems = (schema, additionalItems, ~deep) => {
-    let schema = schema->toInternal
+    let schema = schema->castToInternal
     switch schema {
     | {additionalItems: currentAdditionalItems, ?items}
       if currentAdditionalItems !== additionalItems &&
@@ -3035,14 +2999,14 @@ module Object = {
               ~deep,
             )->castToUnknown
           let newItem = newSchema === item.schema ? item : {...item, schema: newSchema}
-          newProperties->Js.Dict.set(item.location, newSchema->toInternal)
+          newProperties->Js.Dict.set(item.location, newSchema->castToInternal)
           newItems->Js.Array2.push(newItem)->ignore
         }
         mut.items = Some(newItems)
         mut.properties = Some(newProperties)
       }
-      mut->fromInternal
-    | _ => schema->fromInternal
+      mut->castToPublic
+    | _ => schema->castToPublic
     }
   }
 }
@@ -3105,14 +3069,14 @@ module Dict = {
   })
 
   let factory = item => {
-    let item = item->toInternal
+    let item = item->castToInternal
     let mut = base()
     mut.tag = Object
     mut.properties = Some(X.Object.immutableEmpty)
     mut.items = Some(X.Array.immutableEmpty)
-    mut.additionalItems = Some(Schema(item->fromInternal))
+    mut.additionalItems = Some(Schema(item->castToPublic))
     mut.refiner = Some(dictRefiner)
-    mut->fromInternal
+    mut->castToPublic
   }
 }
 
@@ -3159,12 +3123,12 @@ module String = {
 
   let schema = base()
   schema.tag = String
-  let schema: t<string> = schema->fromInternal
+  let schema: t<string> = schema->castToPublic
 }
 
 module JsonString = {
   let factory = (item, ~space=0) => {
-    let item = item->toInternal
+    let item = item->castToInternal
     let mut = base()
     mut.tag = String
     mut.parser = Some(
@@ -3203,17 +3167,17 @@ module JsonString = {
     )
     mut.to = Some(to)
 
-    mut->fromInternal
+    mut->castToPublic
   }
 }
 
 let bool = base()
 bool.tag = Boolean
-let bool: t<bool> = bool->fromInternal
+let bool: t<bool> = bool->castToPublic
 
 let symbol = base()
 symbol.tag = Symbol
-let symbol: t<Js.Types.symbol> = symbol->fromInternal
+let symbol: t<Js.Types.symbol> = symbol->castToPublic
 
 module Int = {
   module Refinement = {
@@ -3239,7 +3203,7 @@ module Int = {
   let schema = base()
   schema.tag = Number
   schema.format = Some(Int32)
-  let schema: schema<int> = schema->fromInternal
+  let schema: schema<int> = schema->castToPublic
 }
 
 module Float = {
@@ -3264,27 +3228,27 @@ module Float = {
 
   let schema = base()
   schema.tag = Number
-  let schema: schema<float> = schema->fromInternal
+  let schema: schema<float> = schema->castToPublic
 }
 
 module BigInt = {
   let schema = base()
   schema.tag = BigInt
-  let schema: schema<bigint> = schema->fromInternal
+  let schema: schema<bigint> = schema->castToPublic
 }
 
 let rec to = (from, target) => {
-  let from = from->toInternal
-  let target = target->toInternal
+  let from = from->castToInternal
+  let target = target->castToInternal
 
   // It makes sense, since S.to quite often will be used
   // inside of a framework where we don't control what's the to argument
   if from === target {
-    from->fromInternal
+    from->castToPublic
   } else {
     switch target {
     | {anyOf} =>
-      Union.factory(anyOf->Js.Array2.map(target => to(from->fromInternal, target->fromInternal)))
+      Union.factory(anyOf->Js.Array2.map(target => to(from->castToPublic, target->castToPublic)))
     | _ =>
       updateOutput(from, mut => {
         mut.to = Some(target)
@@ -3320,7 +3284,7 @@ let rec to = (from, target) => {
     //       ~failCoercion=bb->B.failWithArg(
     //         ~path,
     //         input => InvalidType({
-    //           expected: target->fromInternal,
+    //           expected: target->castToPublic,
     //           received: input,
     //         }),
     //         inputVar,
@@ -3337,11 +3301,11 @@ let rec to = (from, target) => {
 
     // mut.output = Some(
     //   () => {
-    //     to(target->reverse->fromInternal, fromOutput->fromInternal)->toInternal
+    //     to(target->reverse->castToPublic, fromOutput->castToPublic)->castToInternal
     //   },
     // )
 
-    // mut->fromInternal
+    // mut->castToPublic
     }
   }
 }
@@ -3359,12 +3323,12 @@ let instance = class_ => {
   let mut = base()
   mut.tag = Instance
   mut.class = class_->Obj.magic
-  mut->fromInternal
+  mut->castToPublic
 }
 
 // TODO: Better test reverse
 let meta = (schema: t<'value>, data: meta<'value>) => {
-  let schema = schema->toInternal
+  let schema = schema->castToInternal
   let mut = schema->copyWithoutCache
   switch data.name {
   | Some("") => mut.name = None
@@ -3388,10 +3352,10 @@ let meta = (schema: t<'value>, data: meta<'value>) => {
   switch data.examples {
   | Some([]) => mut.examples = None
   | Some(examples) =>
-    mut.examples = Some(examples->X.Array.map(schema->fromInternal->operationFn(Flag.reverse)))
+    mut.examples = Some(examples->X.Array.map(schema->castToPublic->operationFn(Flag.reverse)))
   | None => ()
   }
-  mut->fromInternal
+  mut->castToPublic
 }
 
 module Schema = {
@@ -3547,7 +3511,7 @@ module Schema = {
               // If there are no properties, then it must be Tuple
               | {items} =>
                 switch items->X.Array.unsafeGetOptionByString(location) {
-                | Some(i) => Some(i.schema->toInternal)
+                | Some(i) => Some(i.schema->castToInternal)
                 | None => None
                 }
               | _ => None
@@ -3555,7 +3519,7 @@ module Schema = {
               if maybeField === None {
                 InternalError.panic(
                   `Cannot read property ${inlinedLocation} of ${targetReversed
-                    ->fromInternal
+                    ->castToPublic
                     ->toExpression}`,
                 )
               }
@@ -3592,7 +3556,7 @@ module Schema = {
 
       for idx in 0 to items->Js.Array2.length - 1 {
         let {schema, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
-        let schema = schema->toInternal
+        let schema = schema->castToInternal
 
         let itemInput = b->B.Val.get(input, inlinedLocation)
         let path = path->Path.concat(inlinedLocation->Path.fromInlinedLocation)
@@ -3643,7 +3607,7 @@ module Schema = {
 
       for idx in 0 to items->Js.Array2.length - 1 {
         let {schema, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
-        let schema = schema->toInternal
+        let schema = schema->castToInternal
 
         let itemInput = b->B.Val.get(input, inlinedLocation)
         let path = path->Path.concat(inlinedLocation->Path.fromInlinedLocation)
@@ -3746,11 +3710,11 @@ module Schema = {
                   let itemInput = switch ritemsByItemPath->X.Dict.unsafeGetOption(itemPath) {
                   | Some(ritem) =>
                     b->parse(
-                      ~schema=item.schema->toInternal,
+                      ~schema=item.schema->castToInternal,
                       ~input=ritem->getRitemInput,
                       ~path=ritem->getRitemPath,
                     )
-                  | None => item.schema->toInternal->schemaToOutput(~originalPath=itemPath)
+                  | None => item.schema->castToInternal->schemaToOutput(~originalPath=itemPath)
                   }
                   objectVal->B.Val.Object.add(item.inlinedLocation, itemInput)
                 }
@@ -3858,7 +3822,7 @@ module Schema = {
 
   and shape = {
     (schema: t<'value>, definer: 'value => 'variant): t<'variant> => {
-      let schema = schema->toInternal
+      let schema = schema->castToInternal
       schema->updateOutput(mut => {
         let ditem: ditem = Root({
           schema,
@@ -3908,7 +3872,7 @@ module Schema = {
           schema.properties = Some(properties)
           schema.additionalItems = Some(globalConfig.defaultAdditionalItems)
           schema.refiner = Some(schemaRefiner)
-          schema->fromInternal
+          schema->castToPublic
         }
 
         let target =
@@ -3919,7 +3883,7 @@ module Schema = {
         let field:
           type value. (string, schema<value>) => value =
           (fieldName, schema) => {
-            let schema = schema->toInternal
+            let schema = schema->castToInternal
             let inlinedLocation = fieldName->X.Inlined.Value.fromString
             if properties->X.Dict.has(fieldName) {
               InternalError.panic(`The field ${inlinedLocation} defined twice`)
@@ -3939,7 +3903,7 @@ module Schema = {
           }
 
         let tag = (tag, asValue) => {
-          let _ = field(tag, definitionToSchema(asValue->Obj.magic)->fromInternal)
+          let _ = field(tag, definitionToSchema(asValue->Obj.magic)->castToPublic)
         }
 
         let fieldOr = (fieldName, schema, or) => {
@@ -3947,13 +3911,13 @@ module Schema = {
         }
 
         let flatten = schema => {
-          let schema = schema->toInternal
+          let schema = schema->castToInternal
           switch schema {
           | {tag: Object, items: ?flattenedItems, ?to} => {
               if to->Obj.magic {
                 InternalError.panic(
                   `Unsupported nested flatten for transformed object schema ${schema
-                    ->fromInternal
+                    ->castToPublic
                     ->toExpression}`,
                 )
               }
@@ -3965,7 +3929,7 @@ module Schema = {
               }
               result->Obj.magic
             }
-          | _ => InternalError.panic(`Can't flatten ${schema->fromInternal->toExpression} schema`)
+          | _ => InternalError.panic(`Can't flatten ${schema->castToPublic->toExpression} schema`)
           }
         }
 
@@ -3994,14 +3958,14 @@ module Schema = {
       let properties = Js.Dict.empty()
 
       let flatten = schema => {
-        let schema = schema->toInternal
+        let schema = schema->castToInternal
         switch schema {
         | {tag: Object, items: ?flattenedItems} => {
             let flattenedItems = flattenedItems->X.Option.getUnsafe
             for idx in 0 to flattenedItems->Js.Array2.length - 1 {
               let {location, inlinedLocation, schema: flattenedSchema} =
                 flattenedItems->Js.Array2.unsafe_get(idx)
-              let flattenedSchema = flattenedSchema->toInternal
+              let flattenedSchema = flattenedSchema->castToInternal
               switch properties->X.Dict.unsafeGetOption(location) {
               | Some(schema) if schema === flattenedSchema => ()
               | Some(_) =>
@@ -4029,7 +3993,7 @@ module Schema = {
           }
         | _ =>
           InternalError.panic(
-            `The '${schema->fromInternal->toExpression}' schema can't be flattened`,
+            `The '${schema->castToPublic->toExpression}' schema can't be flattened`,
           )
         }
       }
@@ -4037,7 +4001,7 @@ module Schema = {
       let field:
         type value. (string, schema<value>) => value =
         (fieldName, schema) => {
-          let schema = schema->toInternal
+          let schema = schema->castToInternal
           let inlinedLocation = fieldName->X.Inlined.Value.fromString
           if properties->X.Dict.has(fieldName) {
             InternalError.panic(
@@ -4056,7 +4020,7 @@ module Schema = {
         }
 
       let tag = (tag, asValue) => {
-        let _ = field(tag, definitionToSchema(asValue->Obj.magic)->fromInternal)
+        let _ = field(tag, definitionToSchema(asValue->Obj.magic)->castToPublic)
       }
 
       let fieldOr = (fieldName, schema, or) => {
@@ -4083,7 +4047,7 @@ module Schema = {
       mut.additionalItems = Some(globalConfig.defaultAdditionalItems)
       mut.parser = Some(advancedBuilder(~definition, ~flattened))
       mut.to = Some(definitionToTarget(~definition, ~flattened))
-      mut->fromInternal
+      mut->castToPublic
     }
   and tuple = definer => {
     let items = []
@@ -4092,7 +4056,7 @@ module Schema = {
       let item:
         type value. (int, schema<value>) => value =
         (idx, schema) => {
-          let schema = schema->toInternal
+          let schema = schema->castToInternal
           let location = idx->Js.Int.toString
           let inlinedLocation = `"${location}"`
           if items->X.Array.has(idx) {
@@ -4109,7 +4073,7 @@ module Schema = {
         }
 
       let tag = (idx, asValue) => {
-        let _ = item(idx, definitionToSchema(asValue->Obj.magic)->fromInternal)
+        let _ = item(idx, definitionToSchema(asValue->Obj.magic)->castToPublic)
       }
 
       {
@@ -4139,7 +4103,7 @@ module Schema = {
     mut.additionalItems = Some(Strict)
     mut.parser = Some(advancedBuilder(~definition))
     mut.to = Some(definitionToTarget(~definition))
-    mut->fromInternal
+    mut->castToPublic
   }
   and definitionToRitem = (definition: Definition.t<ditem>, ~path, ~ritemsByItemPath) => {
     if definition->Definition.isNode {
@@ -4170,7 +4134,7 @@ module Schema = {
               let item = {
                 location,
                 inlinedLocation,
-                schema: ritem->getRitemSchema->fromInternal,
+                schema: ritem->getRitemSchema->castToPublic,
               }
               items->Js.Array2.unsafe_set(idx, item)
             }
@@ -4202,10 +4166,10 @@ module Schema = {
               let item = {
                 location,
                 inlinedLocation,
-                schema: ritem->getRitemSchema->fromInternal,
+                schema: ritem->getRitemSchema->castToPublic,
               }
               items->Js.Array2.unsafe_set(idx, item)
-              properties->Js.Dict.set(location, item.schema->toInternal)
+              properties->Js.Dict.set(location, item.schema->castToInternal)
             }
 
             Node({
@@ -4245,7 +4209,7 @@ module Schema = {
             {
               location,
               inlinedLocation,
-              schema: schema->fromInternal,
+              schema: schema->castToPublic,
             }->(Obj.magic: item => unknown),
           )
         }
@@ -4275,7 +4239,7 @@ module Schema = {
             let inlinedLocation = location->X.Inlined.Value.fromString
             let schema = node->Js.Dict.unsafeGet(location)->definitionToSchema
             let item = {
-              schema: schema->fromInternal,
+              schema: schema->castToPublic,
               location,
               inlinedLocation,
             }
@@ -4306,7 +4270,7 @@ module Schema = {
     definer(ctx->(Obj.magic: s => 'value))
     ->(Obj.magic: 'definition => unknown)
     ->definitionToSchema
-    ->fromInternal
+    ->castToPublic
   }
 }
 
@@ -4318,7 +4282,7 @@ module Null = {
 
 let schema = Schema.factory
 
-let js_schema = definition => definition->Obj.magic->Schema.definitionToSchema->fromInternal
+let js_schema = definition => definition->Obj.magic->Schema.definitionToSchema->castToPublic
 let literal = js_schema
 
 let enum = values => Union.factory(values->Js.Array2.map(literal))
@@ -4383,7 +4347,7 @@ let unnest = schema => {
     if items->Js.Array2.length === 0 {
       InternalError.panic("Invalid empty object for S.unnest schema.")
     }
-    let schema = schema->toInternal
+    let schema = schema->castToInternal
     let mut = base()
     mut.tag = Array
     mut.items = Some(
@@ -4445,20 +4409,20 @@ let unnest = schema => {
     let to = base()
     to.tag = Array
     to.items = Some(X.Array.immutableEmpty)
-    to.additionalItems = Some(Schema(schema->fromInternal))
+    to.additionalItems = Some(Schema(schema->castToPublic))
     to.serializer = Some(unnestSerializer)
 
     mut.unnest = Some(true)
     mut.to = Some(to)
 
-    mut->fromInternal
+    mut->castToPublic
   | _ => InternalError.panic("S.unnest supports only object schemas.")
   }
 }
 
 // let inline = {
 //   let rec internalInline = (schema, ~variant as maybeVariant=?, ()) => {
-//     let mut = schema->toInternal->copy
+//     let mut = schema->castToInternal->copy
 
 //     let inlinedSchema = switch mut {
 //     | {?const} if isLiteral(mut) => `S.literal(%raw(\`${literal->Literal.toString}\`))`
@@ -4689,11 +4653,11 @@ let shape = Schema.shape
 let tuple = Schema.tuple
 let tuple1 = v0 => tuple(s => s.item(0, v0))
 let tuple2 = (v0, v1) =>
-  Schema.definitionToSchema([v0->castToUnknown, v1->castToUnknown]->Obj.magic)->fromInternal
+  Schema.definitionToSchema([v0->castToUnknown, v1->castToUnknown]->Obj.magic)->castToPublic
 let tuple3 = (v0, v1, v2) =>
   Schema.definitionToSchema(
     [v0->castToUnknown, v1->castToUnknown, v2->castToUnknown]->Obj.magic,
-  )->fromInternal
+  )->castToPublic
 let union = Union.factory
 let jsonString = JsonString.factory
 
@@ -4714,12 +4678,12 @@ let json = {
       name: jsonName,
       tag: Union,
       anyOf: [
-        String.schema->toInternal,
-        bool->toInternal,
-        float->toInternal,
+        String.schema->castToInternal,
+        bool->castToInternal,
+        float->castToInternal,
         Literal.null,
-        Dict.factory(jsonRef->fromInternal)->toInternal,
-        Array.factory(jsonRef->fromInternal)->toInternal,
+        Dict.factory(jsonRef->castToPublic)->castToInternal,
+        Array.factory(jsonRef->castToPublic)->castToInternal,
       ],
       // FIXME: use dict{} in V12
       has: %raw(`{
@@ -4734,7 +4698,7 @@ let json = {
     },
   )
   json.defs = Some(defs)
-  json->fromInternal
+  json->castToPublic
 }
 
 // =============
@@ -4785,19 +4749,19 @@ let port = (schema, ~message=?) => {
           b->B.failWithArg(
             ~path,
             input => InvalidType({
-              expected: selfSchema->fromInternal,
+              expected: selfSchema->castToPublic,
               received: input,
             }),
             inputVar,
           )
         }};`
     })
-    ->toInternal
+    ->castToInternal
 
   mutStandard.format = Some(Port)
   (mutStandard->reverse).format = Some(Port)
 
-  mutStandard->fromInternal
+  mutStandard->castToPublic
 }
 
 let floatMin = (schema, minValue, ~message as maybeMessage=?) => {
@@ -5037,7 +5001,7 @@ let trim = schema => {
 }
 
 let nullable = schema => {
-  Union.factory([schema->castToUnknown, unit->castToUnknown, Literal.null->fromInternal])
+  Union.factory([schema->castToUnknown, unit->castToUnknown, Literal.null->castToPublic])
 }
 
 let nullableAsOption = schema => {
@@ -5113,8 +5077,8 @@ let js_merge = (s1, s2) => {
     // Filter out S.record schemas
     if additionalItems1->X.Type.typeof === #string &&
     additionalItems2->X.Type.typeof === #string &&
-    !((s1->toInternal).to->Obj.magic) &&
-    !((s2->toInternal).to->Obj.magic) =>
+    !((s1->castToInternal).to->Obj.magic) &&
+    !((s2->castToInternal).to->Obj.magic) =>
     let properties = Js.Dict.empty()
     let locations = []
     let inlinedLocations = []
@@ -5123,7 +5087,7 @@ let js_merge = (s1, s2) => {
       let item = items1->Js.Array2.unsafe_get(idx)
       locations->Js.Array2.push(item.location)->ignore
       inlinedLocations->Js.Array2.push(item.inlinedLocation)->ignore
-      properties->Js.Dict.set(item.location, item.schema->toInternal)
+      properties->Js.Dict.set(item.location, item.schema->castToInternal)
     }
     for idx in 0 to items2->Js.Array2.length - 1 {
       let item = items2->Js.Array2.unsafe_get(idx)
@@ -5131,7 +5095,7 @@ let js_merge = (s1, s2) => {
         locations->Js.Array2.push(item.location)->ignore
         inlinedLocations->Js.Array2.push(item.inlinedLocation)->ignore
       }
-      properties->Js.Dict.set(item.location, item.schema->toInternal)
+      properties->Js.Dict.set(item.location, item.schema->castToInternal)
     }
     for idx in 0 to locations->Js.Array2.length - 1 {
       let location = locations->Js.Array2.unsafe_get(idx)
@@ -5139,7 +5103,7 @@ let js_merge = (s1, s2) => {
       ->Js.Array2.push({
         location,
         inlinedLocation: inlinedLocations->Js.Array2.unsafe_get(idx),
-        schema: properties->Js.Dict.unsafeGet(location)->fromInternal,
+        schema: properties->Js.Dict.unsafeGet(location)->castToPublic,
       })
       ->ignore
     }
@@ -5150,7 +5114,7 @@ let js_merge = (s1, s2) => {
     mut.properties = Some(properties)
     mut.additionalItems = Some(additionalItems1)
     mut.refiner = Some(Schema.schemaRefiner)
-    Some(mut->fromInternal)
+    Some(mut->castToPublic)
   | _ => None
   } {
   | Some(s) => s
@@ -5170,7 +5134,7 @@ let global = override => {
   | None => initialDisableNanNumberProtection
   }
   if prevDisableNanNumberCheck != globalConfig.disableNanNumberValidation {
-    resetOperationsCache(float->toInternal)
+    resetOperationsCache(float->castToInternal)
   }
 }
 
@@ -5294,11 +5258,11 @@ module RescriptJSONSchema = {
               items
               ->Js.Array2.push(Definition.schema(internalToJSONSchema(childSchema, ~defs)))
               ->ignore
-              switch childSchema->toInternal->isLiteral {
+              switch childSchema->castToInternal->isLiteral {
               | true =>
                 literals
                 ->Js.Array2.push(
-                  (childSchema->toInternal).const->(Obj.magic: option<char> => Js.Json.t),
+                  (childSchema->castToInternal).const->(Obj.magic: option<char> => Js.Json.t),
                 )
                 ->ignore
               | false => ()
@@ -5336,7 +5300,7 @@ module RescriptJSONSchema = {
           let required = []
           items->Js.Array2.forEach(item => {
             let fieldSchema = internalToJSONSchema(item.schema, ~defs)
-            if item.schema->toInternal->isOptional->not {
+            if item.schema->castToInternal->isOptional->not {
               required->Js.Array2.push(item.location)->ignore
             }
             properties->Js.Dict.set(item.location, Definition.schema(fieldSchema))
@@ -5409,10 +5373,10 @@ module RescriptJSONSchema = {
 }
 
 let toJSONSchema = schema => {
-  let target = schema->toInternal
+  let target = schema->castToInternal
   jsonableValidation(~output=target, ~parent=target, ~path=Path.empty, ~flag=Flag.jsonableOutput)
   let defs = Js.Dict.empty()
-  let jsonSchema = target->fromInternal->RescriptJSONSchema.internalToJSONSchema(~defs)
+  let jsonSchema = target->castToPublic->RescriptJSONSchema.internalToJSONSchema(~defs)
   let _ = %raw(`delete defs.JSON`)
   let defsKeys = defs->Js.Dict.keys
   if defsKeys->Js.Array2.length->X.Int.unsafeToBool {
@@ -5451,7 +5415,7 @@ let castAnySchemaToJsonableS = (Obj.magic: schema<'any> => schema<Js.Json.t>)
 let rec fromJSONSchema = {
   @inline
   let primitiveToSchema = primitive => {
-    Literal.parse(primitive)->fromInternal->castAnySchemaToJsonableS
+    Literal.parse(primitive)->castToPublic->castAnySchemaToJsonableS
   }
 
   let toIntSchema = (jsonSchema: JSONSchema.t) => {
