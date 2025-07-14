@@ -4296,7 +4296,7 @@ let unnestSerializer = Builder.make((b, ~input, ~selfSchema, ~path) => {
   let outputVar = b.global->B.varWithoutAllocation
 
   let bb = b->B.scope
-  let itemInput = bb->B.notValidVal(`${inputVar}[${iteratorVar}]`)
+  let itemInput = {b: bb, var: B._var, inline: `${inputVar}[${iteratorVar}]`, flag: ValFlag.none}
   let itemOutput = bb->B.withPathPrepend(
     ~input=itemInput,
     ~path,
@@ -4329,14 +4329,14 @@ let unnestSerializer = Builder.make((b, ~input, ~selfSchema, ~path) => {
       b,
       var: B._notVar,
       inline: `Promise.all(${outputVar})`,
-      flag: ValFlag.async,
+      flag: ValFlag.async->Flag.with(ValFlag.valid),
     }
   } else {
     {
       b,
       var: B._var,
       inline: outputVar,
-      flag: ValFlag.none,
+      flag: ValFlag.valid,
     }
   }
 })

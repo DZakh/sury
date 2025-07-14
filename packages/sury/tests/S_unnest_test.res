@@ -23,12 +23,12 @@ test("Successfully parses and reverse converts a simple object with unnest", t =
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{let v1=[new Array(i.length),new Array(i.length),];for(let v0=0;v0<i.length;++v0){let v3=i[v0];v1[0][v0]=v3["foo"];v1[1][v0]=v3["bar"];}return v1}`,
+    `i=>{let v1=[new Array(i.length),new Array(i.length),];for(let v0=0;v0<i.length;++v0){v1[0][v0]=i[v0]["foo"];v1[1][v0]=i[v0]["bar"];}return v1}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseParse,
-    `i=>{if(!Array.isArray(i)){e[3](i)}let v1=[new Array(i.length),new Array(i.length),];for(let v0=0;v0<i.length;++v0){let v3=i[v0];try{if(typeof v3!=="object"||!v3){e[0](v3)}let v4=v3["foo"],v5=v3["bar"];if(typeof v4!=="string"){e[1](v4)}if(typeof v5!=="number"||v5>2147483647||v5<-2147483648||v5%1!==0){e[2](v5)}v1[0][v0]=v4;v1[1][v0]=v5;}catch(v2){if(v2&&v2.s===s){v2.path=""+\'["\'+v0+\'"]\'+v2.path}throw v2}}return v1}`,
+    `i=>{if(!Array.isArray(i)){e[0](i)}let v1=[new Array(i.length),new Array(i.length),];for(let v0=0;v0<i.length;++v0){try{if(typeof i[v0]!=="object"||!i[v0]){e[1](i[v0])}let v3=i[v0]["foo"],v4=i[v0]["bar"];if(typeof v3!=="string"){e[2](v3)}if(typeof v4!=="number"||v4>2147483647||v4<-2147483648||v4%1!==0){e[3](v4)}v1[0][v0]=v3;v1[1][v0]=v4;}catch(v2){if(v2&&v2.s===s){v2.path=""+\'["\'+v0+\'"]\'+v2.path}throw v2}}return v1}`,
   )
 
   t->Assert.deepEqual(
@@ -53,7 +53,7 @@ test("Successfully parses and reverse converts a simple object with unnest", t =
   t->U.assertCompiledCode(
     ~schema=example,
     ~op=#ReverseConvert,
-    `i=>{let v1=[new Array(i.length),new Array(i.length),new Array(i.length),];for(let v0=0;v0<i.length;++v0){let v3=i[v0];try{let v4=v3["name"];if(v4===void 0){v4=null}v1[0][v0]=v3["id"];v1[1][v0]=v4;v1[2][v0]=v3["deleted"];}catch(v2){if(v2&&v2.s===s){v2.path=""+\'["\'+v0+\'"]\'+v2.path}throw v2}}return v1}`,
+    `i=>{let v1=[new Array(i.length),new Array(i.length),new Array(i.length),];for(let v0=0;v0<i.length;++v0){try{let v3=i[v0]["name"];if(v3===void 0){v3=null}v1[0][v0]=i[v0]["id"];v1[1][v0]=v3;v1[2][v0]=i[v0]["deleted"];}catch(v2){if(v2&&v2.s===s){v2.path=""+\'["\'+v0+\'"]\'+v2.path}throw v2}}return v1}`,
   )
 })
 
@@ -75,7 +75,7 @@ test("Transforms nullable fields", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{let v1=[new Array(i.length),new Array(i.length),];for(let v0=0;v0<i.length;++v0){try{let v3=i[v0];let v4=v3["bar"];if(v4===void 0){v4=null}v1[0][v0]=v3["foo"];v1[1][v0]=v4;}catch(v2){if(v2&&v2.s===s){v2.path=""+\'["\'+v0+\'"]\'+v2.path}throw v2}}return v1}`,
+    `i=>{let v1=[new Array(i.length),new Array(i.length),];for(let v0=0;v0<i.length;++v0){try{let v3=i[v0]["bar"];if(v3===void 0){v3=null}v1[0][v0]=i[v0]["foo"];v1[1][v0]=v3;}catch(v2){if(v2&&v2.s===s){v2.path=""+\'["\'+v0+\'"]\'+v2.path}throw v2}}return v1}`,
   )
 
   t->Assert.deepEqual(
@@ -107,7 +107,7 @@ test("Case with missing item at the end", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{let v1=[new Array(i.length),new Array(i.length),];for(let v0=0;v0<i.length;++v0){let v3=i[v0];v1[0][v0]=v3["foo"];v1[1][v0]=v3["bar"];}return v1}`,
+    `i=>{let v1=[new Array(i.length),new Array(i.length),];for(let v0=0;v0<i.length;++v0){v1[0][v0]=i[v0]["foo"];v1[1][v0]=i[v0]["bar"];}return v1}`,
   )
 
   t->Assert.deepEqual(

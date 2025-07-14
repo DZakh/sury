@@ -3173,7 +3173,7 @@ function unnestSerializer(b, input, selfSchema, path) {
   };
   var itemInput = {
     b: bb,
-    v: _notVar,
+    v: _var,
     i: inputVar + "[" + iteratorVar + "]",
     f: 0
   };
@@ -3197,14 +3197,14 @@ function unnestSerializer(b, input, selfSchema, path) {
             b: b,
             v: _notVar,
             i: "Promise.all(" + outputVar + ")",
-            f: 2
+            f: 3
           };
   } else {
     return {
             b: b,
             v: _var,
             i: outputVar,
-            f: 0
+            f: 1
           };
   }
 }
