@@ -17,7 +17,7 @@ let rec generateConstrSchemaExpression {Location.txt = identifier; loc}
   | Lident "unknown", _ -> [%expr S.unknown]
   | Ldot (Lident "S", "never"), _ -> [%expr S.never]
   | Ldot (Ldot (Lident "Js", "Json"), "t"), _ | Ldot (Lident "JSON", "t"), _ ->
-    [%expr S.json ~validate:true]
+    [%expr S.json]
   | Lident "array", [item_type] ->
     [%expr S.array [%e generateCoreTypeSchemaExpression item_type]]
   | Lident "list", [item_type] ->
@@ -191,31 +191,27 @@ and generateCoreTypeSchemaExpression core_type =
     match txt with
     | "s.matches" | "s.null" | "s.nullable" -> schema_expr (* handled above *)
     | "s.default" ->
-        let default_value = getExpressionFromPayload attribute in
-        [%expr 
-          S.Option.getOr
-            ([%e option_factory_expression] [%e schema_expr])
-            [%e default_value]]
+      let default_value = getExpressionFromPayload attribute in
+      [%expr
+        S.Option.getOr
+          ([%e option_factory_expression] [%e schema_expr])
+          [%e default_value]]
     | "s.defaultWith" ->
-        let default_fn = getExpressionFromPayload attribute in
-        [%expr
-          S.Option.getOrWith
-            ([%e option_factory_expression] [%e schema_expr])
-            [%e default_fn]]
-    | "s.strict" ->
-        [%expr S.strict [%e schema_expr]]
-    | "s.strip" ->
-      [%expr S.strip [%e schema_expr]]
-    | "s.deepStrict" ->
-        [%expr S.deepStrict [%e schema_expr]]
-    | "s.deepStrip" ->
-      [%expr S.deepStrip [%e schema_expr]]
-    | "s.noValidation" ->
-      [%expr S.noValidation [%e schema_expr]]
+      let default_fn = getExpressionFromPayload attribute in
+      [%expr
+        S.Option.getOrWith
+          ([%e option_factory_expression] [%e schema_expr])
+          [%e default_fn]]
+    | "s.strict" -> [%expr S.strict [%e schema_expr]]
+    | "s.strip" -> [%expr S.strip [%e schema_expr]]
+    | "s.deepStrict" -> [%expr S.deepStrict [%e schema_expr]]
+    | "s.deepStrip" -> [%expr S.deepStrip [%e schema_expr]]
+    | "s.noValidation" -> [%expr S.noValidation [%e schema_expr]]
     | "s.meta" ->
-        let meta_value = getExpressionFromPayload attribute in
-        [%expr S.meta [%e schema_expr] [%e meta_value]]
-    | txt when txt <> "" && String.length txt >= 2 && String.sub txt 0 2 = "s." ->
+      let meta_value = getExpressionFromPayload attribute in
+      [%expr S.meta [%e schema_expr] [%e meta_value]]
+    | txt when txt <> "" && String.length txt >= 2 && String.sub txt 0 2 = "s."
+      ->
       fail ptyp_loc ("Unsupported schema attribute: \"@" ^ txt ^ "\"")
     | _ -> schema_expr
   in

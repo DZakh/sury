@@ -74,16 +74,12 @@ Ava("Dict of string schema from Core", (function (t) {
         U.assertEqualSchemas(t, myDictOfStringFromCoreSchema, S.dict(S.string), undefined);
       }));
 
-var myJsonSchema = S.json(true);
-
 Ava("Json schema", (function (t) {
-        U.assertEqualSchemas(t, myJsonSchema, S.json(true), undefined);
+        U.assertEqualSchemas(t, S.json, S.json, undefined);
       }));
 
-var myJsonFromCoreSchema = S.json(true);
-
 Ava("Json schema from Core", (function (t) {
-        U.assertEqualSchemas(t, myJsonFromCoreSchema, S.json(true), undefined);
+        U.assertEqualSchemas(t, S.json, S.json, undefined);
       }));
 
 var myTupleSchema = S.schema(function (s) {
@@ -115,20 +111,20 @@ var myBigTupleSchema = S.schema(function (s) {
     });
 
 Ava("Big tuple schema", (function (t) {
-        U.assertEqualSchemas(t, myBigTupleSchema, S.tuple(function (s) {
+        U.assertEqualSchemas(t, myBigTupleSchema, S.schema(function (s) {
                   return [
-                          s.item(0, S.string),
-                          s.item(1, S.string),
-                          s.item(2, S.string),
-                          s.item(3, S.$$int),
-                          s.item(4, S.$$int),
-                          s.item(5, S.$$int),
-                          s.item(6, S.$$float),
-                          s.item(7, S.$$float),
-                          s.item(8, S.$$float),
-                          s.item(9, S.bool),
-                          s.item(10, S.bool),
-                          s.item(11, S.bool)
+                          s.m(S.string),
+                          s.m(S.string),
+                          s.m(S.string),
+                          s.m(S.$$int),
+                          s.m(S.$$int),
+                          s.m(S.$$int),
+                          s.m(S.$$float),
+                          s.m(S.$$float),
+                          s.m(S.$$float),
+                          s.m(S.bool),
+                          s.m(S.bool),
+                          s.m(S.bool)
                         ];
                 }), undefined);
       }));
@@ -170,6 +166,10 @@ var myUnitSchema = S.unit;
 var myUnknownSchema = S.unknown;
 
 var myNeverSchema = S.never;
+
+var myJsonSchema = S.json;
+
+var myJsonFromCoreSchema = S.json;
 
 export {
   myStringSchema ,

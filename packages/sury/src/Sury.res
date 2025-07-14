@@ -696,12 +696,12 @@ module Flag = {
 
 // Need to copy without operations cache
 // which use flag as a key.
-// !+k[0] is hacky way to skip all numbers
+// k > "a" is hacky way to skip all numbers
 // Should actually benchmark whether it's faster
 let copyWithoutCache: internal => internal = %raw(`(schema) => {
   let c = new Schema()
   for (let k in schema) {
-    if (!+k[0]) {
+    if (k > "a" || k === "$ref" || k === "$defs") {
       c[k] = schema[k]
     }
   }
@@ -719,9 +719,9 @@ let updateOutput = (schema: internal, fn): t<'value> => {
   fn(mut.contents)
   root->castToPublic
 }
-let resetOperationsCache: internal => unit = %raw(`(schema) => {
+let resetCacheInPlace: internal => unit = %raw(`(schema) => {
   for (let k in schema) {
-    if (+k[0]) {
+    if (Number(k[0])) {
       delete schema[k];
     }
   }
@@ -5134,7 +5134,7 @@ let global = override => {
   | None => initialDisableNanNumberProtection
   }
   if prevDisableNanNumberCheck != globalConfig.disableNanNumberValidation {
-    resetOperationsCache(float->castToInternal)
+    resetCacheInPlace(float->castToInternal)
   }
 }
 

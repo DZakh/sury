@@ -57,3 +57,12 @@ test("Correctly reverse convert transformed", t => {
     `i=>{if(typeof i==="string"){let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}return i}`,
   )
 })
+
+test("Correctly parses with default", t => {
+  let schema = S.nullableAsOption(S.bool)->S.Option.getOr(false)
+
+  t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(schema), false)
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), false)
+  t->Assert.deepEqual(%raw(`false`)->S.parseOrThrow(schema), false)
+  t->Assert.deepEqual(%raw(`true`)->S.parseOrThrow(schema), true)
+})

@@ -25,18 +25,18 @@ var filmSchema = S.schema(function (s) {
     });
 
 Ava("Main example", (function (t) {
-        U.assertEqualSchemas(t, filmSchema, S.object(function (s) {
+        U.assertEqualSchemas(t, filmSchema, S.schema(function (s) {
                   return {
-                          Id: s.f("Id", S.$$float),
-                          Title: s.f("Title", S.string),
-                          Tags: s.fieldOr("Tags", S.array(S.string), []),
-                          Rating: s.f("Rating", S.union([
+                          Id: s.m(S.$$float),
+                          Title: s.m(S.string),
+                          Tags: s.m(S.$$Option.getOr(S.option(S.array(S.string)), [])),
+                          Rating: s.m(S.union([
                                     S.literal("G"),
                                     S.literal("PG"),
                                     S.literal("PG13"),
                                     S.literal("R")
                                   ])),
-                          Age: s.f("Age", S.meta(S.option(S.$$int), {
+                          Age: s.m(S.meta(S.option(S.$$int), {
                                     description: "Use rating instead",
                                     deprecated: true
                                   }))

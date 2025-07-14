@@ -1,5 +1,5 @@
 const suryPath = "./packages/sury";
-const e2ePath = "./packages/e2e";
+// const e2ePath = "./packages/e2e";
 
 export default () => ({
   files: [

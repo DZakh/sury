@@ -13,10 +13,10 @@ var simpleRecordSchema = S.schema(function (s) {
     });
 
 Ava("Simple record schema", (function (t) {
-        U.assertEqualSchemas(t, simpleRecordSchema, S.object(function (s) {
+        U.assertEqualSchemas(t, simpleRecordSchema, S.schema(function (s) {
                   return {
-                          label: s.f("label", S.string),
-                          value: s.f("value", S.$$int)
+                          label: s.m(S.string),
+                          value: s.m(S.$$int)
                         };
                 }), undefined);
         t.deepEqual(S.parseOrThrow({label:"foo",value:1}, simpleRecordSchema), {
@@ -33,10 +33,10 @@ var recordWithAliasSchema = S.schema(function (s) {
     });
 
 Ava("Record schema with alias for field name", (function (t) {
-        U.assertEqualSchemas(t, recordWithAliasSchema, S.object(function (s) {
+        U.assertEqualSchemas(t, recordWithAliasSchema, S.schema(function (s) {
                   return {
-                          "aliased-label": s.f("aliased-label", S.string),
-                          value: s.f("value", S.$$int)
+                          "aliased-label": s.m(S.string),
+                          value: s.m(S.$$int)
                         };
                 }), undefined);
         t.deepEqual(S.parseOrThrow({"aliased-label":"foo",value:1}, recordWithAliasSchema), {
@@ -53,10 +53,10 @@ var recordWithOptionalSchema = S.schema(function (s) {
     });
 
 Ava("Record schema with optional fields", (function (t) {
-        U.assertEqualSchemas(t, recordWithOptionalSchema, S.object(function (s) {
+        U.assertEqualSchemas(t, recordWithOptionalSchema, S.schema(function (s) {
                   return {
-                          label: s.f("label", S.option(S.string)),
-                          value: s.f("value", S.option(S.$$int))
+                          label: s.m(S.option(S.string)),
+                          value: s.m(S.option(S.$$int))
                         };
                 }), undefined);
         t.deepEqual(S.parseOrThrow({"label":"foo",value:1}, recordWithOptionalSchema), {
@@ -76,9 +76,9 @@ var recordWithNullableFieldSchema = S.schema(function (s) {
     });
 
 Ava("Record schema with nullable field", (function (t) {
-        U.assertEqualSchemas(t, recordWithNullableFieldSchema, S.object(function (s) {
+        U.assertEqualSchemas(t, recordWithNullableFieldSchema, S.schema(function (s) {
                   return {
-                          subscription: s.f("subscription", S.option(S.$$null(S.string)))
+                          subscription: s.m(S.option(S.$$null(S.string)))
                         };
                 }), undefined);
         t.deepEqual(S.parseOrThrow({}, recordWithNullableFieldSchema), {

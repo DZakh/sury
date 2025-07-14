@@ -56,8 +56,10 @@ console.log(S.boolean)
 - Add `S.to(from, target, parser, serializer)` instead of `S.transform`?
 - Remove `s.fail` with `throw new Error`
 - Make built-in refinements not work with `unknown`. Use `S.to` (manually & automatically) to deside the type first
-- Add `S.any` (at least for ReScript)?
+- Add `S.any` (Maybe in JS? In ReScript only possible to have `castToAny`)
 - Better inline empty recursive schema operations (union convert)
+- Don't iterate over JSON value when it's `S.json` convert without parsing
+- Add `S.date.with(S.migrationFrom, S.string, <optionalParser>)`.
 
 ### Final release fixes
 

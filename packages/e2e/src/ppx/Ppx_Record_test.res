@@ -9,9 +9,9 @@ type simpleRecord = {
 test("Simple record schema", t => {
   t->assertEqualSchemas(
     simpleRecordSchema,
-    S.object(s => {
-      label: s.field("label", S.string),
-      value: s.field("value", S.int),
+    S.schema(s => {
+      label: s.matches(S.string),
+      value: s.matches(S.int),
     }),
   )
   t->Assert.deepEqual(
@@ -28,9 +28,9 @@ type recordWithAlias = {
 test("Record schema with alias for field name", t => {
   t->assertEqualSchemas(
     recordWithAliasSchema,
-    S.object(s => {
-      label: s.field("aliased-label", S.string),
-      value: s.field("value", S.int),
+    S.schema(s => {
+      label: s.matches(S.string),
+      value: s.matches(S.int),
     }),
   )
   t->Assert.deepEqual(
@@ -47,9 +47,9 @@ type recordWithOptional = {
 test("Record schema with optional fields", t => {
   t->assertEqualSchemas(
     recordWithOptionalSchema,
-    S.object(s => {
-      label: s.field("label", S.option(S.string)),
-      value: ?s.field("value", S.option(S.int)),
+    S.schema(s => {
+      label: s.matches(S.option(S.string)),
+      value: ?s.matches(S.option(S.int)),
     }),
   )
   t->Assert.deepEqual(
@@ -69,8 +69,8 @@ type recordWithNullableField = {
 test("Record schema with nullable field", t => {
   t->assertEqualSchemas(
     recordWithNullableFieldSchema,
-    S.object(s => {
-      subscription: s.field("subscription", S.option(S.null(S.string))),
+    S.schema(s => {
+      subscription: s.matches(S.option(S.null(S.string))),
     }),
   )
   t->Assert.deepEqual(

@@ -22,12 +22,12 @@ var reusedTypesSchema = S.schema(function (s) {
     });
 
 Ava("Can reuse schemas from other types", (function (t) {
-        U.assertEqualSchemas(t, reusedTypesSchema, S.tuple(function (s) {
+        U.assertEqualSchemas(t, reusedTypesSchema, S.schema(function (s) {
                   return [
-                          s.item(0, S.string),
-                          s.item(1, S.$$int),
-                          s.item(2, S.bool),
-                          s.item(3, S.$$float)
+                          s.m(S.string),
+                          s.m(S.$$int),
+                          s.m(S.bool),
+                          s.m(S.$$float)
                         ];
                 }), undefined);
       }));

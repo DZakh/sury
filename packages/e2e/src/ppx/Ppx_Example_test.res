@@ -25,12 +25,11 @@ type film = {
 test("Main example", t => {
   t->assertEqualSchemas(
     filmSchema,
-    S.object(s => {
-      id: s.field("Id", S.float),
-      title: s.field("Title", S.string),
-      tags: s.fieldOr("Tags", S.array(S.string), []),
-      rating: s.field(
-        "Rating",
+    S.schema(s => {
+      id: s.matches(S.float),
+      title: s.matches(S.string),
+      tags: s.matches(S.option(S.array(S.string))->S.Option.getOr([])),
+      rating: s.matches(
         S.union([
           S.literal(GeneralAudiences),
           S.literal(ParentalGuidanceSuggested),
@@ -38,8 +37,7 @@ test("Main example", t => {
           S.literal(Restricted),
         ]),
       ),
-      deprecatedAgeRestriction: s.field(
-        "Age",
+      deprecatedAgeRestriction: s.matches(
         S.option(S.int)->S.meta({description: "Use rating instead", deprecated: true}),
       ),
     }),

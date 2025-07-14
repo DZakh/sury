@@ -139,7 +139,7 @@ function has(acc, flag) {
 var copyWithoutCache = ((schema) => {
   let c = new Schema()
   for (let k in schema) {
-    if (!+k[0]) {
+    if (k > "a" || k === "$ref" || k === "$defs") {
       c[k] = schema[k]
     }
   }
@@ -158,9 +158,9 @@ function updateOutput(schema, fn) {
   return root;
 }
 
-var resetOperationsCache = ((schema) => {
+var resetCacheInPlace = ((schema) => {
   for (let k in schema) {
-    if (+k[0]) {
+    if (Number(k[0])) {
       delete schema[k];
     }
   }
@@ -3713,7 +3713,7 @@ function $$global(override) {
   var disableNanNumberValidation = override.disableNanNumberValidation;
   globalConfig.n = disableNanNumberValidation !== undefined ? disableNanNumberValidation : false;
   if (prevDisableNanNumberCheck !== globalConfig.n) {
-    return resetOperationsCache(schema$2);
+    return resetCacheInPlace(schema$2);
   }
   
 }
