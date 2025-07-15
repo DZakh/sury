@@ -476,3 +476,39 @@ S.object - reverse convert x 55,405,268 ops/sec ±1.92% (89 runs sampled)
 S.string - parse x 64,571,685 ops/sec ±1.48% (91 runs sampled)
 S.string - reverse convert x 64,480,839 ops/sec ±1.96% (89 runs sampled)
  */
+
+/*
+v11.0.0-alpha.0
+
+testData1 serialize: 2.523ms
+testData1 parse: 1.367ms
+testData2 serialize: 0.866ms
+testData2 parse: 0.513ms
+makeObjectSchema: 0.067ms
+parseOrThrow: 1: 0.287ms
+parseOrThrow: 2: 0.004ms
+parseOrThrow: 3: 0.003ms
+serializeWith: 1: 0.083ms
+serializeWith: 2: 0.002ms
+serializeWith: 3: 0.001ms
+S.Error.make: 0.03ms
+S.schema - make x 1,842,285 ops/sec ±0.60% (94 runs sampled)
+S.schema - make + parse x 110,817 ops/sec ±0.34% (90 runs sampled)
+S.schema - parse x 56,094,436 ops/sec ±1.43% (93 runs sampled)
+S.schema - parse strict x 23,828,192 ops/sec ±0.54% (97 runs sampled)
+S.schema - make + reverse x 445,124 ops/sec ±0.33% (97 runs sampled)
+S.schema - make + reverse convert x 134,718 ops/sec ±1.12% (98 runs sampled)
+S.schema - reverse convert x 77,229,668 ops/sec ±2.34% (93 runs sampled)
+S.schema - reverse convert (compiled) x 179,007,439 ops/sec ±6.12% (78 runs sampled)
+S.schema - assert x 64,880,688 ops/sec ±2.78% (90 runs sampled)
+S.schema - assert (compiled) x 103,022,830 ops/sec ±2.45% (95 runs sampled)
+S.schema - assert strict x 23,551,566 ops/sec ±0.68% (96 runs sampled)
+S.object - make x 261,716 ops/sec ±1.24% (95 runs sampled)
+S.object - make + parse x 70,015 ops/sec ±0.90% (94 runs sampled)
+S.object - parse x 40,620,418 ops/sec ±1.03% (95 runs sampled)
+S.object - make + reverse x 111,013 ops/sec ±5.43% (96 runs sampled)
+S.object - make + reverse convert x 67,716 ops/sec ±0.65% (93 runs sampled)
+S.object - reverse convert x 44,494,112 ops/sec ±1.24% (90 runs sampled)
+S.string - parse x 58,630,597 ops/sec ±1.36% (95 runs sampled)
+S.string - reverse convert x 57,733,298 ops/sec ±1.52% (93 runs sampled)
+ */

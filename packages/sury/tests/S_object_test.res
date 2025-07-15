@@ -1272,7 +1272,7 @@ test(
 
 test("Reverse empty object schema to literal", t => {
   let schema = S.object(_ => ())
-  t->U.assertEqualSchemas(schema->S.reverse, S.unit->S.shape(_ => Js.Dict.empty())->S.castToUnknown)
+  t->U.assertEqualSchemas(schema->S.reverse, S.unit->S.shape(_ => Dict.make())->S.castToUnknown)
   t->U.assertReverseReversesBack(schema)
   t->U.assertReverseParsesBack(schema, ())
 })
