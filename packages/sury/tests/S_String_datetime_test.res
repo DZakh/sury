@@ -7,17 +7,14 @@ test("Successfully parses valid data", t => {
   t->Assert.deepEqual(
     "2020-01-01T00:00:00Z"->S.parseOrThrow(schema),
     Date.fromString("2020-01-01T00:00:00Z"),
-    (),
   )
   t->Assert.deepEqual(
     "2020-01-01T00:00:00.123Z"->S.parseOrThrow(schema),
     Date.fromString("2020-01-01T00:00:00.123Z"),
-    (),
   )
   t->Assert.deepEqual(
     "2020-01-01T00:00:00.123456Z"->S.parseOrThrow(schema),
     Date.fromString("2020-01-01T00:00:00.123456Z"),
-    (),
   )
 })
 
@@ -62,7 +59,6 @@ test("Successfully serializes valid value", t => {
   t->Assert.deepEqual(
     Date.fromString("2020-01-01T00:00:00.123Z")->S.reverseConvertOrThrow(schema),
     %raw(`"2020-01-01T00:00:00.123Z"`),
-    (),
   )
 })
 
@@ -72,7 +68,6 @@ test("Trims precision to 3 digits when serializing", t => {
   t->Assert.deepEqual(
     Date.fromString("2020-01-01T00:00:00.123456Z")->S.reverseConvertOrThrow(schema),
     %raw(`"2020-01-01T00:00:00.123Z"`),
-    (),
   )
 })
 
@@ -82,6 +77,5 @@ test("Returns refinement", t => {
   t->Assert.deepEqual(
     schema->S.String.refinements,
     [{kind: Datetime, message: "Invalid datetime string! Expected UTC"}],
-    (),
   )
 })

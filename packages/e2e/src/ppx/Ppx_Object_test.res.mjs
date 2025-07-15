@@ -12,16 +12,16 @@ var simpleObjectSchema = S.schema(function (s) {
     });
 
 Ava("Simple object schema", (function (t) {
-        U.assertEqualSchemas(t, simpleObjectSchema, S.object(function (s) {
+        U.assertEqualSchemas(t, simpleObjectSchema, S.schema(function (s) {
                   return {
-                          label: s.f("label", S.string),
-                          value: s.f("value", S.$$int)
+                          label: s.m(S.string),
+                          value: s.m(S.$$int)
                         };
                 }), undefined);
         t.deepEqual(S.parseOrThrow({label:"foo",value:1}, simpleObjectSchema), {
               label: "foo",
               value: 1
-            }, undefined);
+            });
       }));
 
 var objectWithAliasSchema = S.schema(function (s) {
@@ -32,16 +32,16 @@ var objectWithAliasSchema = S.schema(function (s) {
     });
 
 Ava("The @as attribute for the object schema is ignored since it doesn't work", (function (t) {
-        U.assertEqualSchemas(t, objectWithAliasSchema, S.object(function (s) {
+        U.assertEqualSchemas(t, objectWithAliasSchema, S.schema(function (s) {
                   return {
-                          label: s.f("label", S.string),
-                          value: s.f("value", S.$$int)
+                          label: s.m(S.string),
+                          value: s.m(S.$$int)
                         };
                 }), undefined);
         t.deepEqual(S.parseOrThrow({"label":"foo",value:1}, objectWithAliasSchema), {
               label: "foo",
               value: 1
-            }, undefined);
+            });
       }));
 
 export {

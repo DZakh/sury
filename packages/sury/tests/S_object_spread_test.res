@@ -24,6 +24,5 @@ test("Successfully parses manually created schema using type spread", t => {
   t->Assert.deepEqual(
     %raw(`{a: 1, b: 2, c: 3.3, d: true}`)->S.parseOrThrow(zSchema),
     {a: 1, b: 2, c: 3.3, d: true},
-    (),
   )
 })

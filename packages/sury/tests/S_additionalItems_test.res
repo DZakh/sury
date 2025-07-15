@@ -7,7 +7,7 @@ test("Successfully parses Object with unknown keys by default", t => {
 
   let schema = S.object(s => s.field("key", S.string))
 
-  t->Assert.deepEqual(any->S.parseOrThrow(schema), "value", ())
+  t->Assert.deepEqual(any->S.parseOrThrow(schema), "value")
 })
 
 test("Fails fast and shows only one excees key in the error message", t => {
@@ -30,7 +30,7 @@ test("Successfully parses Object with unknown keys when Strip strategy applyed",
 
   let schema = S.object(s => s.field("key", S.string))->S.strip
 
-  t->Assert.deepEqual(any->S.parseOrThrow(schema), value, ())
+  t->Assert.deepEqual(any->S.parseOrThrow(schema), value)
 })
 
 test("Works correctly when the same unknown keys strategy applyed multiple times", t => {
@@ -39,16 +39,16 @@ test("Works correctly when the same unknown keys strategy applyed multiple times
 
   let schema = S.object(s => s.field("key", S.string))->S.strip->S.strip->S.strip
 
-  t->Assert.deepEqual(any->S.parseOrThrow(schema), value, ())
+  t->Assert.deepEqual(any->S.parseOrThrow(schema), value)
 })
 
 test("Doesn't raise an error when unknown keys strategy applyed to a non Object schema", t => {
   t->Assert.notThrows(() => {
     S.string->S.strip->ignore
-  }, ())
+  })
   t->Assert.notThrows(() => {
     S.string->S.strict->ignore
-  }, ())
+  })
 })
 
 test("Can reset unknown keys strategy applying Strict strategy", t => {
@@ -64,9 +64,9 @@ test("Can reset unknown keys strategy applying Strict strategy", t => {
 
 test("Ignores additional items override for S.array and S.dict", t => {
   let schema = S.array(S.string)
-  t->Assert.is(schema->S.strict, schema, ())
+  t->Assert.is(schema->S.strict, schema)
   let schema = S.dict(S.string)
-  t->Assert.is(schema->S.strict, schema, ())
+  t->Assert.is(schema->S.strict, schema)
   let schema = S.array(S.string)->S.strict
-  t->Assert.is(schema->S.strip, schema, ())
+  t->Assert.is(schema->S.strip, schema)
 })

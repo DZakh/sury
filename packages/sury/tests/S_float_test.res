@@ -9,7 +9,7 @@ module Common = {
   test("Successfully parses", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(any->S.parseOrThrow(schema), value, ())
+    t->Assert.deepEqual(any->S.parseOrThrow(schema), value)
   })
 
   test("Fails to parse", t => {
@@ -18,7 +18,7 @@ module Common = {
     t->U.assertThrows(
       () => invalidAny->S.parseOrThrow(schema),
       {
-        code: InvalidType({expected: schema->S.toUnknown, received: invalidAny}),
+        code: InvalidType({expected: schema->S.castToUnknown, received: invalidAny}),
         operation: Parse,
         path: S.Path.empty,
       },
@@ -28,7 +28,7 @@ module Common = {
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), any, ())
+    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), any)
   })
 
   test("Compiled parse code snapshot", t => {
@@ -49,7 +49,8 @@ module Common = {
 
   test("Reverse schema to S.float", t => {
     let schema = factory()
-    t->Assert.is(schema->S.reverse, schema->S.toUnknown, ())
+    t->U.assertEqualSchemas(schema->S.reverse, schema->S.castToUnknown)
+    t->U.assertReverseReversesBack(schema)
   })
 
   test("Succesfully uses reversed schema for parsing back to initial value", t => {
@@ -61,7 +62,7 @@ module Common = {
 test("Successfully parses number with a fractional part", t => {
   let schema = S.float
 
-  t->Assert.deepEqual(%raw(`123.123`)->S.parseOrThrow(schema), 123.123, ())
+  t->Assert.deepEqual(%raw(`123.123`)->S.parseOrThrow(schema), 123.123)
 })
 
 test("Fails to parse NaN", t => {
@@ -70,7 +71,7 @@ test("Fails to parse NaN", t => {
   t->U.assertThrows(
     () => %raw(`NaN`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: schema->S.toUnknown, received: %raw(`NaN`)}),
+      code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`NaN`)}),
       operation: Parse,
       path: S.Path.empty,
     },

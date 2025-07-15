@@ -3,7 +3,7 @@ open Ava
 test("Successfully parses", t => {
   let schema = S.bool
 
-  t->Assert.deepEqual(true->S.reverseConvertToJsonStringOrThrow(schema), "true", ())
+  t->Assert.deepEqual(true->S.reverseConvertToJsonStringOrThrow(schema), "true")
 })
 
 test("Successfully parses object", t => {
@@ -20,7 +20,6 @@ test("Successfully parses object", t => {
       "isDeleted": true,
     }->S.reverseConvertToJsonStringOrThrow(schema),
     `{"id":"0","isDeleted":true}`,
-    (),
   )
 })
 
@@ -41,7 +40,6 @@ test("Successfully parses object with space", t => {
   "id": "0",
   "isDeleted": true
 }`,
-    (),
   )
 })
 

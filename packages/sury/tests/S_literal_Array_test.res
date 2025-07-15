@@ -8,7 +8,7 @@ module Common = {
   test("Successfully parses", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.parseOrThrow(schema), value, ())
+    t->Assert.deepEqual(value->S.parseOrThrow(schema), value)
   })
 
   test("Fails to parse invalid", t => {
@@ -18,7 +18,7 @@ module Common = {
       () => invalid->S.parseOrThrow(schema),
       {
         code: InvalidType({
-          expected: S.literal(("bar", true))->S.toUnknown,
+          expected: S.literal(("bar", true))->S.castToUnknown,
           received: invalid,
         }),
         operation: Parse,
@@ -30,7 +30,7 @@ module Common = {
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), value->U.castAnyToUnknown, ())
+    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), value->U.castAnyToUnknown)
   })
 
   test("Fails to serialize invalid", t => {
@@ -40,7 +40,6 @@ module Common = {
       invalid->S.reverseConvertOrThrow(schema),
       invalid,
       ~message="Convert operation doesn't validate anything and assumes a valid input",
-      (),
     )
 
     t->U.assertThrowsMessage(
@@ -56,7 +55,7 @@ module Common = {
       () => %raw(`{0: "bar",1:true}`)->S.parseOrThrow(schema),
       {
         code: InvalidType({
-          expected: S.literal(("bar", true))->S.toUnknown,
+          expected: S.literal(("bar", true))->S.castToUnknown,
           received: %raw(`{0: "bar",1:true}`),
         }),
         operation: Parse,
@@ -72,7 +71,7 @@ module Common = {
       () => %raw(`["bar", true, false]`)->S.parseOrThrow(schema->S.strict),
       {
         code: InvalidType({
-          expected: S.literal(("bar", true))->S.toUnknown,
+          expected: S.literal(("bar", true))->S.castToUnknown,
           received: %raw(`["bar", true, false]`),
         }),
         operation: Parse,
@@ -94,12 +93,13 @@ module Common = {
   test("Compiled serialize code snapshot", t => {
     let schema = factory()
 
-    t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return i}`)
+    t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
   })
 
   test("Reverse schema to self", t => {
     let schema = factory()
-    t->Assert.is(schema->S.reverse, schema->S.toUnknown, ())
+    t->U.assertReverseReversesBack(schema)
+    t->U.assertReverseParsesBack(schema, ("bar", true))
   })
 
   test("Succesfully uses reversed schema for parsing back to initial value", t => {
@@ -116,19 +116,19 @@ module EmptyArray = {
   test("Successfully parses empty array literal schema", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.parseOrThrow(schema), value, ())
+    t->Assert.deepEqual(value->S.parseOrThrow(schema), value)
   })
 
   test("Ignores extra items in strip mode and prevents in strict (default)", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(invalid->S.parseOrThrow(schema->S.strip), [], ())
+    t->Assert.deepEqual(invalid->S.parseOrThrow(schema->S.strip), [])
 
     t->U.assertThrows(
       () => invalid->S.parseOrThrow(schema->S.strict),
       {
         code: InvalidType({
-          expected: S.literal([])->S.toUnknown,
+          expected: S.literal([])->S.castToUnknown,
           received: invalid->U.castAnyToUnknown,
         }),
         operation: Parse,
@@ -140,13 +140,13 @@ module EmptyArray = {
   test("Successfully serializes empty array literal schema", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), value->U.castAnyToUnknown, ())
+    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), value->U.castAnyToUnknown)
   })
 
   test("Serialize array with excess item in strict mode and it passes through", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(invalid->S.reverseConvertOrThrow(schema->S.strict), invalid->Obj.magic, ())
+    t->Assert.deepEqual(invalid->S.reverseConvertOrThrow(schema->S.strict), invalid->Obj.magic)
   })
 
   test("Compiled parse code snapshot of empty array literal schema", t => {
@@ -162,12 +162,13 @@ module EmptyArray = {
   test("Compiled serialize code snapshot of empty array literal schema", t => {
     let schema = factory()
 
-    t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return i}`)
+    t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
   })
 
   test("Reverse empty array literal schema to self", t => {
     let schema = factory()
-    t->Assert.is(schema->S.reverse, schema->S.toUnknown, ())
+    t->U.assertReverseReversesBack(schema)
+    t->U.assertReverseParsesBack(schema, [])
   })
 
   test(

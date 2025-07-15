@@ -3,7 +3,7 @@ open Ava
 test("Successfully parses valid data", t => {
   let schema = S.string->S.url
 
-  t->Assert.deepEqual("http://dzakh.dev"->S.parseOrThrow(schema), "http://dzakh.dev", ())
+  t->Assert.deepEqual("http://dzakh.dev"->S.parseOrThrow(schema), "http://dzakh.dev")
 })
 
 test("Fails to parse invalid data", t => {
@@ -21,7 +21,6 @@ test("Successfully serializes valid value", t => {
   t->Assert.deepEqual(
     "http://dzakh.dev"->S.reverseConvertOrThrow(schema),
     %raw(`"http://dzakh.dev"`),
-    (),
   )
 })
 

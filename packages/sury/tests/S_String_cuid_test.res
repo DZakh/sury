@@ -6,7 +6,6 @@ test("Successfully parses valid data", t => {
   t->Assert.deepEqual(
     "ckopqwooh000001la8mbi2im9"->S.parseOrThrow(schema),
     "ckopqwooh000001la8mbi2im9",
-    (),
   )
 })
 
@@ -25,7 +24,6 @@ test("Successfully serializes valid value", t => {
   t->Assert.deepEqual(
     "ckopqwooh000001la8mbi2im9"->S.reverseConvertOrThrow(schema),
     %raw(`"ckopqwooh000001la8mbi2im9"`),
-    (),
   )
 })
 
@@ -50,5 +48,5 @@ test("Returns custom error message", t => {
 test("Returns refinement", t => {
   let schema = S.string->S.cuid
 
-  t->Assert.deepEqual(schema->S.String.refinements, [{kind: Cuid, message: "Invalid CUID"}], ())
+  t->Assert.deepEqual(schema->S.String.refinements, [{kind: Cuid, message: "Invalid CUID"}])
 })

@@ -52,8 +52,6 @@
   - [`json`](#json)
   - [`jsonString`](#jsonString)
   - [`meta`](#meta)
-  - [`catch`](#catch)
-  - [`custom`](#custom)
   - [`recursive`](#recursive)
 - [Custom schema](#custom-schema)
 - [Refinements](#refinements)
@@ -173,59 +171,61 @@ Compiled parser code
 ```javascript
 (i) => {
   if (typeof i !== "object" || !i) {
-    e[7](i);
+    e[0](i);
   }
   let v0 = i["Id"],
-    v1 = i["Title"],
-    v2 = i["Tags"],
-    v6 = i["Rating"],
-    v7 = i["Age"];
+    v1 = i["Title"];
   if (typeof v0 !== "number" || Number.isNaN(v0)) {
-    e[0](v0);
+    e[1](v0);
   }
   if (typeof v1 !== "string") {
-    e[1](v1);
+    e[2](v1);
   }
-  if (v2 !== void 0 && !Array.isArray(v2)) {
-    e[2](v2);
-  }
-  if (v2 !== void 0) {
+  let v2 = i["Tags"];
+  if (Array.isArray(v2)) {
     for (let v3 = 0; v3 < v2.length; ++v3) {
-      let v5 = v2[v3];
       try {
+        let v5 = v2[v3];
         if (typeof v5 !== "string") {
           e[3](v5);
         }
       } catch (v4) {
         if (v4 && v4.s === s) {
-          v4.path = '["Tags"]' + '["' + v3 + '"]' + v4.path;
+          v4.path = '["Tags"]' + "[\"'+v3+'\"]" + v4.path;
         }
         throw v4;
       }
     }
+  } else if (v2 === void 0) {
+    v2 = e[4];
+  } else {
+    e[5](v2);
   }
-  if (v6 !== "G") {
-    if (v6 !== "PG") {
-      if (v6 !== "PG13") {
-        if (v6 !== "R") {
-          e[5](v6);
-        }
-      }
-    }
-  }
+  let v6 = i["Rating"];
   if (
-    v7 !== void 0 &&
-    (typeof v7 !== "number" ||
-      v7 > 2147483647 ||
-      v7 < -2147483648 ||
-      v7 % 1 !== 0)
+    !(
+      typeof v6 === "string" &&
+      (v6 === "G" || v6 === "PG" || v6 === "PG13" || v6 === "R")
+    )
   ) {
-    e[6](v7);
+    e[6](v6);
+  }
+  let v7 = i["Age"];
+  if (
+    !(
+      (typeof v7 === "number" &&
+        v7 < 2147483647 &&
+        v7 > -2147483648 &&
+        v7 % 1 === 0) ||
+      v7 === void 0
+    )
+  ) {
+    e[7](v7);
   }
   return {
     id: v0,
     title: v1,
-    tags: v2 === void 0 ? e[4] : v2,
+    tags: v2,
     rating: v6,
     deprecatedAgeRestriction: v7,
   };
@@ -1046,18 +1046,16 @@ The `never` schema will fail parsing for every value.
 
 ### **`json`**
 
-`(~validate: bool) => S.t<JSON.t>`
+`S.t<JSON.t>`
 
 ```rescript
-let schema = S.json(~validate=true)
+let schema = S.json
 
 `"abc"`->S.parseOrThrow(schema)
 // "abc" of type JSON.t
 ```
 
 The `S.json` schema represents a data that is compatible with JSON.
-
-It accepts a `validate` as an argument. If it's true, then the value will be validated as valid JSON; otherwise, it unsafely casts it to the `JSON.t` type.
 
 ### **`jsonString`**
 
@@ -1095,39 +1093,9 @@ schema->S.toJSONSchema
 // }
 ```
 
-### **`catch`**
-
-`(S.t<'value>, S.Catch.s<'value> => 'value) => S.t<'value>`
-
-Use `S.catch` to provide a "catch value" to be returned instead of a parsing error.
-
-```rescript
-let schema = S.float->S.catch(_ => 42.)
-
-5->S.parseOrThrow(schema)
-// 5.
-"tuna"->S.parseOrThrow(schema)
-// 42.
-```
-
-Also, the callback `S.catch` receives a catch context as a first argument. It contains the caught error and the initial data provided to the parse function.
-
-```rescript
-let schema = S.float->S.catch(s => {
-  Console.log(s.error) // The caught error
-  Console.log(s.input) // The data provided to the parse function
-  42.
-})
-```
-
-Conceptually, this is how **Sury** processes "catch values":
-
-1. The data is parsed using the base schema
-2. If the parsing fails, the "catch value" is returned
-
 ### **`recursive`**
 
-`(t<'value> => t<'value>) => t<'value>`
+`(string, t<'value> => t<'value>) => t<'value>`
 
 You can define a recursive schema in **Sury**.
 
@@ -1137,7 +1105,7 @@ type rec node = {
   children: array<node>,
 }
 
-let nodeSchema = S.recursive(nodeSchema => {
+let nodeSchema = S.recursive("Node", nodeSchema => {
   S.object(s => {
     id: s.field("Id", S.string),
     children: s.field("Children", S.array(nodeSchema)),
@@ -1178,7 +1146,7 @@ The same schema works for serializing:
 You can also use asynchronous parser:
 
 ```rescript
-let nodeSchema = S.recursive(nodeSchema => {
+let nodeSchema = S.recursive("Node", nodeSchema => {
   S.object(s => {
     params: s.field("Id", S.string)->S.transform(_ => {asyncParser: id => loadParams(~id)}),
     children: s.field("Children", S.array(nodeSchema)),

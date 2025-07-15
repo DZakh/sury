@@ -10,7 +10,7 @@ module Common = {
   test("Successfully parses", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(any->S.parseOrThrow(schema), value, ())
+    t->Assert.deepEqual(any->S.parseOrThrow(schema), value)
   })
 
   test("Fails to parse", t => {
@@ -19,7 +19,7 @@ module Common = {
     t->U.assertThrows(
       () => invalidAny->S.parseOrThrow(schema),
       {
-        code: InvalidType({expected: schema->S.toUnknown, received: invalidAny}),
+        code: InvalidType({expected: schema->S.castToUnknown, received: invalidAny}),
         operation: Parse,
         path: S.Path.empty,
       },
@@ -29,7 +29,7 @@ module Common = {
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), any, ())
+    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), any)
   })
 
   test("Compiled parse code snapshot", t => {
@@ -61,7 +61,7 @@ module Common = {
 
   test("Reverse to self", t => {
     let schema = factory()
-    t->Assert.is(schema->S.reverse, schema->S.toUnknown, ())
+    t->U.assertEqualSchemas(schema->S.reverse, schema->S.castToUnknown)
   })
 
   test("Succesfully uses reversed schema for parsing back to initial value", t => {
@@ -75,16 +75,20 @@ test("Classify schema", t => {
   let schema = S.option(S.null(S.string))
 
   t->U.assertEqualSchemas(
-    schema->S.toUnknown,
-    S.union([S.string->S.toUnknown, S.unit->S.toUnknown, S.literal(%raw(`null`))->S.toUnknown]),
+    schema->S.castToUnknown,
+    S.union([
+      S.string->S.castToUnknown,
+      S.unit->S.castToUnknown,
+      S.nullAsUnit->S.to(S.literal({"BS_PRIVATE_NESTED_SOME_NONE": 0}))->S.castToUnknown,
+    ]),
   )
 
   t->U.assertEqualSchemas(
     schema->S.reverse,
     S.union([
-      S.string->S.toUnknown,
-      S.unit->S.toUnknown,
-      S.literal({"BS_PRIVATE_NESTED_SOME_NONE": 0})->S.toUnknown,
+      S.string->S.castToUnknown,
+      S.unit->S.castToUnknown,
+      S.literal({"BS_PRIVATE_NESTED_SOME_NONE": 0})->S.to(S.nullAsUnit->S.reverse)->S.castToUnknown,
     ]),
   )
 })
@@ -92,7 +96,7 @@ test("Classify schema", t => {
 test("Successfully parses primitive", t => {
   let schema = S.option(S.bool)
 
-  t->Assert.deepEqual(JSON.Encode.bool(true)->S.parseOrThrow(schema), Some(true), ())
+  t->Assert.deepEqual(JSON.Encode.bool(true)->S.parseOrThrow(schema), Some(true))
 })
 
 test("Fails to parse JS null", t => {
@@ -101,7 +105,7 @@ test("Fails to parse JS null", t => {
   t->U.assertThrows(
     () => %raw(`null`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: schema->S.toUnknown, received: %raw(`null`)}),
+      code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`null`)}),
       operation: Parse,
       path: S.Path.empty,
     },
@@ -114,7 +118,7 @@ test("Fails to parse JS undefined when schema doesn't allow optional data", t =>
   t->U.assertThrows(
     () => %raw(`undefined`)->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: schema->S.toUnknown, received: %raw(`undefined`)}),
+      code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`undefined`)}),
       operation: Parse,
       path: S.Path.empty,
     },
@@ -124,11 +128,11 @@ test("Fails to parse JS undefined when schema doesn't allow optional data", t =>
 test("Serializes Some(None) to undefined for option nested in null", t => {
   let schema = S.null(S.option(S.bool))
 
-  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), Some(None), ())
-  t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(schema), None, ())
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), Some(None))
+  t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(schema), None)
 
-  t->Assert.deepEqual(Some(None)->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
-  t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`null`), ())
+  t->Assert.deepEqual(Some(None)->S.reverseConvertOrThrow(schema), %raw(`undefined`))
+  t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`null`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -145,9 +149,9 @@ test("Serializes Some(None) to undefined for option nested in null", t => {
 test("Applies valFromOption for Some()", t => {
   let schema = S.option(S.literal())
 
-  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), None, ())
-  t->Assert.deepEqual(Some()->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
-  t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), None)
+  t->Assert.deepEqual(Some()->S.reverseConvertOrThrow(schema), %raw(`undefined`))
+  t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`))
 
   t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(!(i===void 0)){e[0](i)}return i}`)
   t->U.assertCompiledCode(
@@ -160,10 +164,10 @@ test("Applies valFromOption for Some()", t => {
 test("Nested option support", t => {
   let schema = S.option(S.option(S.bool))
 
-  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), None, ())
-  t->Assert.deepEqual(Some(Some(true))->S.reverseConvertOrThrow(schema), %raw(`true`), ())
-  t->Assert.deepEqual(Some(None)->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
-  t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), None)
+  t->Assert.deepEqual(Some(Some(true))->S.reverseConvertOrThrow(schema), %raw(`true`))
+  t->Assert.deepEqual(Some(None)->S.reverseConvertOrThrow(schema), %raw(`undefined`))
+  t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -180,11 +184,11 @@ test("Nested option support", t => {
 test("Triple nested option support", t => {
   let schema = S.option(S.option(S.option(S.bool)))
 
-  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), None, ())
-  t->Assert.deepEqual(Some(Some(Some(true)))->S.reverseConvertOrThrow(schema), %raw(`true`), ())
-  t->Assert.deepEqual(Some(Some(None))->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
-  t->Assert.deepEqual(Some(None)->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
-  t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), None)
+  t->Assert.deepEqual(Some(Some(Some(true)))->S.reverseConvertOrThrow(schema), %raw(`true`))
+  t->Assert.deepEqual(Some(Some(None))->S.reverseConvertOrThrow(schema), %raw(`undefined`))
+  t->Assert.deepEqual(Some(None)->S.reverseConvertOrThrow(schema), %raw(`undefined`))
+  t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -203,20 +207,20 @@ test(
   t => {
     let schema = S.option(S.object(_ => ()))
 
-    t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), None, ())
-    t->Assert.deepEqual(%raw(`{}`)->S.parseOrThrow(schema), Some(), ())
-    t->Assert.deepEqual(Some()->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
-    t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
+    t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), None)
+    t->Assert.deepEqual(%raw(`{}`)->S.parseOrThrow(schema), Some())
+    t->Assert.deepEqual(Some()->S.reverseConvertOrThrow(schema), %raw(`{}`))
+    t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`))
 
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i==="object"&&i){i={"BS_PRIVATE_NESTED_SOME_NONE":0}}else if(!(i===void 0)){e[0](i)}return i}`,
+      `i=>{if(typeof i==="object"&&i){i={"BS_PRIVATE_NESTED_SOME_NONE":0}}else if(!(i===void 0)){e[1](i)}return i}`,
     )
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{if(typeof i==="object"&&i&&i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=undefined}return i}`,
+      `i=>{if(typeof i==="object"&&i&&i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i={}}return i}`,
     )
   },
 )
@@ -225,8 +229,8 @@ test("Doesn't apply valFromOption for non-undefined literals in option", t => {
   let schema: S.t<option<Null.t<unknown>>> = S.option(S.literal(%raw(`null`)))
 
   // Note: It'll fail without a type annotation, but we can't do anything here
-  t->Assert.deepEqual(Some(%raw(`null`))->S.reverseConvertOrThrow(schema), %raw(`null`), ())
-  t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
+  t->Assert.deepEqual(Some(%raw(`null`))->S.reverseConvertOrThrow(schema), %raw(`null`))
+  t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`))
 
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
 })
@@ -237,10 +241,9 @@ test("Option with unknown", t => {
   t->Assert.deepEqual(
     Some(%raw(`undefined`))->S.reverseConvertOrThrow(schema),
     %raw(`{BS_PRIVATE_NESTED_SOME_NONE: 0}`),
-    (),
   )
-  t->Assert.deepEqual(Some(%raw(`"foo"`))->S.reverseConvertOrThrow(schema), %raw(`"foo"`), ())
-  t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
+  t->Assert.deepEqual(Some(%raw(`"foo"`))->S.reverseConvertOrThrow(schema), %raw(`"foo"`))
+  t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`))
 
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#Parse)
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
@@ -249,17 +252,12 @@ test("Option with unknown", t => {
 test("Option with transformed unknown", t => {
   let schema = S.option(S.unknown->S.shape(v => {"field": v}))
 
-  t->Assert.deepEqual(
-    Some(%raw(`undefined`))->S.reverseConvertOrThrow(schema),
-    %raw(`undefined`),
-    (),
-  )
+  t->Assert.deepEqual(Some(%raw(`undefined`))->S.reverseConvertOrThrow(schema), %raw(`undefined`))
   t->Assert.deepEqual(
     Some({"field": %raw(`"foo"`)})->S.reverseConvertOrThrow(schema),
     %raw(`"foo"`),
-    (),
   )
-  t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`), ())
+  t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`))
 
   t->U.assertCompiledCode(
     ~schema,

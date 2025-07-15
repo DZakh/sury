@@ -11,6 +11,7 @@ export var symbol = S.symbol
 export var json = S.json
 export var never = S.never
 export var unknown = S.unknown
+export var any = S.unknown
 export var optional = S.js_optional
 export var nullable = S.js_nullable
 export var nullish = S.nullable

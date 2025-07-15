@@ -3,7 +3,7 @@ open Ava
 test("Successfully parses valid data", t => {
   let schema = S.string->S.email
 
-  t->Assert.deepEqual("dzakh.dev@gmail.com"->S.parseOrThrow(schema), "dzakh.dev@gmail.com", ())
+  t->Assert.deepEqual("dzakh.dev@gmail.com"->S.parseOrThrow(schema), "dzakh.dev@gmail.com")
 })
 
 test("Fails to parse invalid data", t => {
@@ -25,7 +25,6 @@ test("Successfully serializes valid value", t => {
   t->Assert.deepEqual(
     "dzakh.dev@gmail.com"->S.reverseConvertOrThrow(schema),
     %raw(`"dzakh.dev@gmail.com"`),
-    (),
   )
 })
 
@@ -57,6 +56,5 @@ test("Returns refinement", t => {
   t->Assert.deepEqual(
     schema->S.String.refinements,
     [{kind: Email, message: "Invalid email address"}],
-    (),
   )
 })

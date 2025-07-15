@@ -6,7 +6,7 @@ test("Successfully refines on parsing", t => {
       s.fail("Should be positive")
     })
 
-  t->Assert.deepEqual(%raw(`12`)->S.parseOrThrow(schema), 12, ())
+  t->Assert.deepEqual(%raw(`12`)->S.parseOrThrow(schema), 12)
   t->U.assertThrows(
     () => %raw(`-12`)->S.parseOrThrow(schema),
     {
@@ -39,7 +39,7 @@ test("Successfully refines on serializing", t => {
       s.fail("Should be positive")
     })
 
-  t->Assert.deepEqual(12->S.reverseConvertOrThrow(schema), %raw("12"), ())
+  t->Assert.deepEqual(12->S.reverseConvertOrThrow(schema), %raw("12"))
   t->U.assertThrows(
     () => -12->S.reverseConvertOrThrow(schema),
     {
@@ -67,7 +67,6 @@ test("Successfully parses simple object with empty refine", t => {
       "foo": "string",
       "bar": true,
     },
-    (),
   )
 })
 
@@ -82,7 +81,7 @@ test("Compiled parse code snapshot for simple object with refine", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[3](i)}let v2;let v0=i["foo"],v1=i["bar"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="boolean"){e[1](v1)}v2={"foo":v0,"bar":v1,};e[2](v2);return v2}`,
+    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["foo"],v1=i["bar"];if(typeof v0!=="string"){e[1](v0)}if(typeof v1!=="boolean"){e[2](v1)}let v2={"foo":v0,"bar":v1,};e[3](v2);return v2}`,
   )
 })
 
@@ -91,8 +90,8 @@ test("Reverse schema to the original schema", t => {
     if value < 0 {
       s.fail("Should be positive")
     })
-  t->Assert.not(schema->S.reverse, schema->S.toUnknown, ())
-  t->U.assertEqualSchemas(schema->S.reverse, S.int->S.toUnknown)
+  t->Assert.not(schema->S.reverse, schema->S.castToUnknown)
+  t->U.assertEqualSchemas(schema->S.reverse, S.int->S.castToUnknown)
 })
 
 test("Succesfully uses reversed schema for parsing back to initial value", t => {
@@ -112,10 +111,10 @@ module Issue79 = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["myField"];if(!(typeof v0==="string"||v0===void 0||v0===null)){e[0](v0)}e[1](v0);return v0}`,
+      `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["myField"];if(!(typeof v0==="string"||v0===void 0||v0===null)){e[1](v0)}e[2](v0);return v0}`,
     )
-    t->U.assertCompiledCode(~schema, ~op=#Convert, `i=>{let v1;v1=i["myField"];e[0](v1);return v1}`)
+    t->U.assertCompiledCode(~schema, ~op=#Convert, `i=>{let v0=i["myField"];e[0](v0);return v0}`)
 
-    t->Assert.deepEqual(jsonString->S.parseJsonStringOrThrow(schema), Value("test"), ())
+    t->Assert.deepEqual(jsonString->S.parseJsonStringOrThrow(schema), Value("test"))
   })
 }

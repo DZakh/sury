@@ -196,8 +196,18 @@ test("Successfully parses unknown", (t) => {
   expectType<TypeEqual<typeof value, unknown>>(true);
 });
 
+test("Successfully parses any", (t) => {
+  const schema = S.any;
+  const value = S.parseOrThrow(true, schema);
+
+  t.deepEqual(value, true);
+
+  expectType<SchemaEqual<typeof schema, any, any>>(true);
+  expectType<TypeEqual<typeof value, any>>(true);
+});
+
 test("Successfully parses json", (t) => {
-  const schema = S.json(true);
+  const schema = S.json;
   const value = S.parseOrThrow(true, schema);
 
   t.deepEqual(value, true);
@@ -207,10 +217,20 @@ test("Successfully parses json", (t) => {
 });
 
 test("Successfully parses invalid json without validation", (t) => {
-  const schema = S.json(false);
-  const value = S.parseOrThrow(undefined, schema);
+  const schema = S.json.with(S.noValidation, true);
 
-  t.deepEqual(value, undefined); // This is broken but it's intentional
+  const value = S.parseOrThrow(undefined, schema);
+  t.deepEqual(
+    S.parseOrThrow(undefined, schema),
+    undefined,
+    "This is wrong but it's intentional"
+  );
+
+  t.deepEqual(
+    S.parseOrThrow([undefined], schema),
+    [undefined],
+    "Nested should theoretically fail, but currently it doesn't"
+  );
 
   expectType<SchemaEqual<typeof schema, S.JSON, S.JSON>>(true);
   expectType<TypeEqual<typeof value, S.JSON>>(true);
@@ -356,6 +376,32 @@ test("Successfully parses optional string", (t) => {
   >(true);
   expectType<TypeEqual<typeof value1, string | undefined>>(true);
   expectType<TypeEqual<typeof value2, string | undefined>>(true);
+});
+
+test("Optional enum", (t) => {
+  const statuses = S.union(["Win", "Draw", "Loss"]);
+  const schema = S.optional(statuses);
+
+  t.deepEqual(S.parseOrThrow("Win", schema), "Win");
+  t.deepEqual(S.parseOrThrow(undefined, schema), undefined);
+
+  expectType<
+    TypeEqual<
+      S.Schema<
+        "Win" | "Draw" | "Loss" | undefined,
+        "Win" | "Draw" | "Loss" | undefined
+      >,
+      typeof schema
+    >
+  >(true);
+
+  const brokenInfer = S.optional(S.union(["Win", "Draw", "Loss"]));
+  expectType<
+    TypeEqual<
+      S.Schema<string | undefined, string | undefined>,
+      typeof brokenInfer
+    >
+  >(true);
 });
 
 test("Successfully parses schema wrapped in optional multiple times", (t) => {
@@ -1110,6 +1156,11 @@ test("Successfully parses intersected objects", (t) => {
     })
   );
 
+  t.deepEqual(
+    S.compile(schema, "Input", "Output", "Sync", true).toString(),
+    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["foo"],v1=i["bar"],v2=i["baz"];if(typeof v0!=="string"){e[1](v0)}if(typeof v1!=="boolean"){e[2](v1)}if(typeof v2!=="string"){e[3](v2)}return {"foo":v0,"bar":v1,"baz":v2,}}`
+  );
+
   expectType<
     SchemaEqual<
       typeof schema,
@@ -1155,63 +1206,72 @@ test("Successfully parses intersected objects", (t) => {
   });
 });
 
-test("Successfully parses intersected objects with transform", (t) => {
-  const schema = S.merge(
-    S.schema({
-      foo: S.string,
-      bar: S.boolean,
-    }).with(S.transform, (obj) => ({
-      abc: obj.foo,
-    })),
-    S.schema({
-      baz: S.string,
-    })
-  );
-
-  expectType<
-    SchemaEqual<
-      typeof schema,
-      {
-        abc: string;
-        baz: string;
-      },
-      Record<string, unknown>
-    >
-  >(true);
-
-  const result = S.safe(() =>
-    S.parseOrThrow(
-      {
-        foo: "bar",
-        bar: true,
-      },
-      schema
-    )
-  );
-  if (result.success) {
-    t.fail("Should fail");
-    return;
-  }
-  t.is(
-    result.error.message,
-    `Failed parsing at ["baz"]: Expected string, received undefined`
-  );
-
-  const value = S.parseOrThrow(
-    {
-      foo: "bar",
-      baz: "baz",
-      bar: true,
+test("Fails to parse intersected objects with transform", (t) => {
+  t.throws(
+    () => {
+      const schema = S.merge(
+        S.schema({
+          foo: S.string,
+          bar: S.boolean,
+        }).with(S.shape, (obj) => ({
+          abc: obj.foo,
+        })),
+        S.schema({
+          baz: S.string,
+        })
+      );
     },
-    schema
+    {
+      name: "Error",
+      // TODO: Can theoretically support this case
+      message: `[Sury] The merge supports only structured object schemas without transformations`,
+    }
   );
-  t.deepEqual(value, {
-    abc: "bar",
-    baz: "baz",
-  });
+
+  // expectType<
+  //   SchemaEqual<
+  //     typeof schema,
+  //     {
+  //       abc: string;
+  //       baz: string;
+  //     },
+  //     Record<string, unknown>
+  //   >
+  // >(true);
+
+  // const result = S.safe(() =>
+  //   S.parseOrThrow(
+  //     {
+  //       foo: "bar",
+  //       bar: true,
+  //     },
+  //     schema
+  //   )
+  // );
+  // if (result.success) {
+  //   t.fail("Should fail");
+  //   return;
+  // }
+  // t.is(
+  //   result.error.message,
+  //   `Failed parsing at ["baz"]: Expected string, received undefined`
+  // );
+
+  // const value = S.parseOrThrow(
+  //   {
+  //     foo: "bar",
+  //     baz: "baz",
+  //     bar: true,
+  //   },
+  //   schema
+  // );
+  // t.deepEqual(value, {
+  //   abc: "bar",
+  //   baz: "baz",
+  // });
 });
 
-test("Fails to serialize merge. Not supported yet", (t) => {
+test("Successfully serializes S.merge", (t) => {
   const schema = S.merge(
     S.schema({
       foo: S.string,
@@ -1222,23 +1282,83 @@ test("Fails to serialize merge. Not supported yet", (t) => {
     })
   );
 
-  const result = S.safe(() =>
-    S.convertOrThrow(
-      {
-        foo: "bar",
-        bar: true,
-        baz: "string",
-      },
-      S.reverse(schema)
-    )
+  t.deepEqual(
+    S.compile(schema, "Output", "Input", "Sync", true).toString(),
+    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["foo"],v1=i["bar"],v2=i["baz"];if(typeof v0!=="string"){e[1](v0)}if(typeof v1!=="boolean"){e[2](v1)}if(typeof v2!=="string"){e[3](v2)}return i}`
   );
-  if (result.success) {
-    t.fail("Should fail");
-    return;
-  }
-  t.is(
-    result.error.message,
-    `Failed converting: The S.merge serializing is not supported yet`
+
+  const value = S.reverseConvertOrThrow(
+    {
+      foo: "bar",
+      baz: "baz",
+      bar: true,
+    },
+    schema
+  );
+  expectType<TypeEqual<typeof value, Record<string, unknown>>>(true);
+
+  t.deepEqual(value, {
+    foo: "bar",
+    baz: "baz",
+    bar: true,
+  });
+});
+
+test("Merge overwrites the left fields by schema from the right", (t) => {
+  const baseSchema = S.schema({
+    type: S.union(["foo", "bar"]),
+    name: S.string,
+  });
+
+  const fooSchema = S.merge(
+    baseSchema,
+    S.schema({
+      type: "foo" as const,
+      fooCount: S.number,
+    })
+  );
+
+  const value = S.parseOrThrow(
+    {
+      type: "foo",
+      name: "foo",
+      fooCount: 123,
+    },
+    fooSchema
+  );
+
+  expectType<
+    SchemaEqual<
+      typeof fooSchema,
+      {
+        type: "foo";
+        name: string;
+        fooCount: number;
+      },
+      Record<string, unknown>
+    >
+  >(true);
+
+  t.deepEqual(value, {
+    type: "foo",
+    name: "foo",
+    fooCount: 123,
+  });
+
+  t.throws(
+    () =>
+      S.parseOrThrow(
+        {
+          type: "bar",
+          name: "foo",
+          fooCount: 123,
+        },
+        fooSchema
+      ),
+    {
+      name: "SuryError",
+      message: `Failed parsing: Expected { type: "foo"; name: string; fooCount: number; }, received { type: "bar"; name: "foo"; fooCount: 123; }`,
+    }
   );
 });
 
@@ -1664,8 +1784,24 @@ test("Successfully parses undefined using the default value", (t) => {
   const value = S.parseOrThrow(undefined, schema);
 
   t.deepEqual(value, "foo");
+  t.deepEqual(schema.default, "foo");
 
+  expectType<TypeEqual<typeof schema.default, string | undefined>>(true);
   expectType<SchemaEqual<typeof schema, string, string | undefined>>(true);
+});
+
+test("Successfully parses undefined using the default value for transformed schema", (t) => {
+  // FIXME: Test that it works correctly:
+  // const schema = S.boolean.with(S.optional, false).with(S.to, S.string);
+  const schema = S.boolean.with(S.to, S.string).with(S.optional, "false");
+
+  const value = S.parseOrThrow(undefined, schema);
+
+  t.deepEqual(value, "false");
+  t.deepEqual(schema.default, false);
+
+  expectType<TypeEqual<typeof schema.default, boolean | undefined>>(true);
+  expectType<SchemaEqual<typeof schema, string, boolean | undefined>>(true);
 });
 
 test("Successfully parses undefined using the default value from callback", (t) => {
@@ -1674,6 +1810,11 @@ test("Successfully parses undefined using the default value from callback", (t) 
   const value = S.parseOrThrow(undefined, schema);
 
   t.deepEqual(value, "foo");
+  t.deepEqual(
+    schema.default,
+    undefined,
+    "Currently doesn't work with callback default"
+  );
 
   expectType<SchemaEqual<typeof schema, string, string | undefined>>(true);
 });
@@ -1849,7 +1990,7 @@ test("Env schema: Reggression version", (t) => {
 
   t.deepEqual(
     S.compile(env(S.boolean), "Input", "Output", "Sync", true).toString(),
-    `i=>{if(typeof i==="string"){if(i==="t"){i=true}else if(i==="1"){i=true}else if(i==="f"){i=false}else if(i==="0"){i=false}else{try{let v0;(v0=i==="true")||i==="false"||e[4](i);i=v0}catch(e4){e[5](i,e4)}}}else{e[6](i)}return i}`
+    `i=>{if(typeof i==="string"){if(i==="t"){i=true}else if(i==="1"){i=true}else if(i==="f"){i=false}else if(i==="0"){i=false}else{try{let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}catch(e4){e[1](i,e4)}}}else{e[2](i)}return i}`
   );
 
   t.deepEqual(S.parseOrThrow("t", env(S.boolean)), true);
@@ -1953,6 +2094,11 @@ test("Full Set schema", (t) => {
 test("Coerce string to number", (t) => {
   const schema = S.to(S.string, S.number);
 
+  t.is(schema.to, S.number);
+
+  expectType<SchemaEqual<typeof schema, number, string>>(true);
+  expectType<TypeEqual<typeof schema.to, S.Schema<unknown> | undefined>>(true);
+
   t.deepEqual(S.parseOrThrow("123", schema), 123);
   t.deepEqual(S.parseOrThrow("123.4", schema), 123.4);
   t.deepEqual(S.reverseConvertOrThrow(123, schema), "123");
@@ -2030,7 +2176,7 @@ test("Successfully parses recursive object", (t) => {
     children: Node[];
   };
 
-  let nodeSchema = S.recursive<Node>((nodeSchema) =>
+  let nodeSchema = S.recursive<Node, Node>("Node", (nodeSchema) =>
     S.schema({
       id: S.string,
       children: S.array(nodeSchema),
@@ -2056,6 +2202,127 @@ test("Successfully parses recursive object", (t) => {
         { id: "2", children: [] },
         { id: "3", children: [{ id: "4", children: [] }] },
       ],
+    }
+  );
+});
+
+test("Mutually recursive objects", (t) => {
+  type User = {
+    email: string;
+    posts: Post[];
+  };
+  type Post = {
+    title: string;
+    author: User;
+  };
+
+  const makeUserSchema = (postSchema: S.Schema<Post>) =>
+    S.schema({
+      email: S.string,
+      posts: S.array(postSchema),
+    });
+  const makePostSchema = (userSchema: S.Schema<User>) =>
+    S.schema({
+      Title: S.string,
+      Author: userSchema,
+    }).with(S.shape, (post) => ({
+      title: post.Title,
+      author: post.Author,
+    }));
+
+  const userSchema = S.recursive<User>("User", (userSchema) =>
+    makeUserSchema(S.recursive<Post>("Post", (_) => makePostSchema(userSchema)))
+  );
+  const postSchema = S.recursive<Post>("Post", (postSchema) =>
+    makePostSchema(S.recursive<User>("User", (_) => makeUserSchema(postSchema)))
+  );
+
+  expectType<SchemaEqual<typeof userSchema, User, unknown>>(true);
+  expectType<SchemaEqual<typeof postSchema, Post, unknown>>(true);
+
+  t.deepEqual(
+    S.parseOrThrow(
+      {
+        email: "test@test.com",
+        posts: [
+          { Title: "Hello", Author: { email: "test@test.com", posts: [] } },
+        ],
+      },
+      userSchema
+    ),
+    {
+      email: "test@test.com",
+      posts: [
+        { title: "Hello", author: { email: "test@test.com", posts: [] } },
+      ],
+    }
+  );
+
+  t.deepEqual(
+    S.parseOrThrow(
+      {
+        Title: "Hello",
+        Author: { email: "test@test.com", posts: [] },
+      },
+      postSchema
+    ),
+    { title: "Hello", author: { email: "test@test.com", posts: [] } }
+  );
+});
+
+test("Recursive object with S.shape", (t) => {
+  type Node = {
+    id: string;
+    children: Node[];
+  };
+
+  let nodeSchema = S.recursive<Node>("Node", (nodeSchema) =>
+    S.schema({
+      ID: S.string,
+      CHILDREN: S.array(nodeSchema),
+    }).with(S.shape, (input) => ({
+      id: input.ID,
+      children: input.CHILDREN,
+    }))
+  );
+
+  expectType<SchemaEqual<typeof nodeSchema, Node, unknown>>(true);
+
+  t.deepEqual(
+    S.parseOrThrow(
+      {
+        ID: "1",
+        CHILDREN: [
+          { ID: "2", CHILDREN: [] },
+          { ID: "3", CHILDREN: [{ ID: "4", CHILDREN: [] }] },
+        ],
+      },
+      nodeSchema
+    ),
+    {
+      id: "1",
+      children: [
+        { id: "2", children: [] },
+        { id: "3", children: [{ id: "4", children: [] }] },
+      ],
+    }
+  );
+});
+
+test("Recursive with self as transform target", (t) => {
+  type Node = Node[];
+
+  t.throws(
+    () => {
+      let nodeSchema = S.recursive<Node, string>("Node", (self) =>
+        S.string.with(S.to, S.array(self))
+      );
+      expectType<SchemaEqual<typeof nodeSchema, Node, string>>(true);
+
+      t.deepEqual(S.parseOrThrow(`["[]","[]"]`, nodeSchema), [[], []]);
+    },
+    {
+      message: "[Sury] Coercion from Node to Node[] is not supported",
     }
   );
 });
@@ -2178,7 +2445,7 @@ test("parseJsonStringOrThrow", async (t) => {
 });
 
 test("ArkType pattern matching", async (t) => {
-  const schema = S.recursive((self) =>
+  const schema = S.recursive("DbJSON", (self) =>
     S.union([
       S.to(S.bigint, S.string),
       S.string,
@@ -2398,6 +2665,7 @@ test("Preprocess nested fields", (t) => {
 });
 
 test("Union of object keys", (t) => {
+  // https://github.com/DZakh/sury/issues/128
   const allCurrencies = {
     USD: 1,
     BGP: 2,
@@ -2436,5 +2704,20 @@ test("Union of object keys", (t) => {
   t.throws(() => S.parseOrThrow("GBP", schema), {
     name: "SuryError",
     message: `Failed parsing: Expected "USD" | "BGP" | "EUR", received "GBP"`,
+  });
+});
+
+test("Union of dynamic enum as const", (t) => {
+  // https://github.com/DZakh/sury/issues/137
+  const test = ["a", "b", "c"] as const;
+  const schema = S.union(test);
+
+  expectType<SchemaEqual<typeof schema, "a" | "b" | "c", "a" | "b" | "c">>(
+    true
+  );
+  t.deepEqual(S.parseOrThrow("a", schema), "a");
+  t.throws(() => S.parseOrThrow("d", schema), {
+    name: "SuryError",
+    message: `Failed parsing: Expected "a" | "b" | "c", received "d"`,
   });
 });

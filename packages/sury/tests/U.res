@@ -54,12 +54,12 @@ let error = ({operation, code, path}: errorPayload): S.error => {
 }
 
 let assertThrowsTestException = {
-  (t, fn, ~message=?, ()) => {
+  (t, fn, ~message=?) => {
     try {
       let _ = fn()
       t->Assert.fail("Didn't throw")
     } catch {
-    | Test => t->Assert.pass(~message?, ())
+    | Test => t->Assert.pass(~message?)
     | _ => t->Assert.fail("Thrown another exception")
     }
   }
@@ -68,24 +68,25 @@ let assertThrowsTestException = {
 let assertThrows = (t, cb, errorPayload) => {
   switch cb() {
   | any => t->Assert.fail("Asserted result is not Error. Recieved: " ++ any->unsafeStringify)
-  | exception S.Error({message}) => t->Assert.is(message, error(errorPayload).message, ())
+  | exception S.Error({message}) => t->Assert.is(message, error(errorPayload).message)
   }
 }
 
-let assertThrowsMessage = (t, cb, errorMessage) => {
+let assertThrowsMessage = (t, cb, errorMessage, ~message=?) => {
   switch cb() {
   | any =>
     t->Assert.fail(
       `Asserted result is not S.Error "${errorMessage}". Instead got: ${any->unsafeStringify}`,
     )
-  | exception S.Error({message}) => t->Assert.is(message, errorMessage, ())
+  | exception S.Error({message: actualErrorMessage}) =>
+    t->Assert.is(actualErrorMessage, errorMessage, ~message?)
   }
 }
 
 let assertThrowsAsync = async (t, cb, errorPayload) => {
   switch await cb() {
   | any => t->Assert.fail("Asserted result is not Error. Recieved: " ++ any->unsafeStringify)
-  | exception S.Error({message}) => t->Assert.is(message, error(errorPayload).message, ())
+  | exception S.Error({message}) => t->Assert.is(message, error(errorPayload).message)
   }
 }
 
@@ -103,45 +104,64 @@ let getCompiledCodeString = (
     | #ReverseConvertToJson
   ],
 ) => {
-  (
-    switch op {
-    | #Parse
-    | #ParseAsync =>
-      if op === #ParseAsync || schema->S.isAsync {
-        let fn = schema->S.compile(~input=Any, ~output=Value, ~mode=Async, ~typeValidation=true)
+  let toCode = schema =>
+    (
+      switch op {
+      | #Parse
+      | #ParseAsync =>
+        if op === #ParseAsync || schema->S.isAsync {
+          let fn = schema->S.compile(~input=Any, ~output=Value, ~mode=Async, ~typeValidation=true)
+          fn->magic
+        } else {
+          let fn = schema->S.compile(~input=Any, ~output=Value, ~mode=Sync, ~typeValidation=true)
+          fn->magic
+        }
+      | #Convert =>
+        let fn = schema->S.compile(~input=Any, ~output=Value, ~mode=Sync, ~typeValidation=false)
         fn->magic
-      } else {
-        let fn = schema->S.compile(~input=Any, ~output=Value, ~mode=Sync, ~typeValidation=true)
+      | #ConvertAsync =>
+        let fn = schema->S.compile(~input=Any, ~output=Value, ~mode=Async, ~typeValidation=false)
         fn->magic
+      | #Assert =>
+        let fn = schema->S.compile(~input=Any, ~output=Assert, ~mode=Sync, ~typeValidation=true)
+        fn->magic
+      | #ReverseParse => {
+          let fn =
+            schema->S.compile(~input=Value, ~output=Unknown, ~mode=Sync, ~typeValidation=true)
+          fn->magic
+        }
+      | #ReverseConvert => {
+          let fn =
+            schema->S.compile(~input=Value, ~output=Unknown, ~mode=Sync, ~typeValidation=false)
+          fn->magic
+        }
+      | #ReverseConvertAsync => {
+          let fn =
+            schema->S.compile(~input=Value, ~output=Unknown, ~mode=Async, ~typeValidation=false)
+          fn->magic
+        }
+      | #ReverseConvertToJson => {
+          let fn = schema->S.compile(~input=Value, ~output=Json, ~mode=Sync, ~typeValidation=false)
+          fn->magic
+        }
       }
-    | #Convert =>
-      let fn = schema->S.compile(~input=Any, ~output=Value, ~mode=Sync, ~typeValidation=false)
-      fn->magic
-    | #ConvertAsync =>
-      let fn = schema->S.compile(~input=Any, ~output=Value, ~mode=Async, ~typeValidation=false)
-      fn->magic
-    | #Assert =>
-      let fn = schema->S.compile(~input=Any, ~output=Assert, ~mode=Sync, ~typeValidation=true)
-      fn->magic
-    | #ReverseParse => {
-        let fn = schema->S.compile(~input=Value, ~output=Unknown, ~mode=Sync, ~typeValidation=true)
-        fn->magic
+    )["toString"]()
+
+  let code = ref(schema->toCode)
+
+  switch (schema->S.untag).defs {
+  | Some(defs) =>
+    defs->Dict.forEachWithKey((schema, key) =>
+      try {
+        code := code.contents ++ "\n" ++ `${key}: ${schema->toCode}`
+      } catch {
+      | exn => Console.error(exn)
       }
-    | #ReverseConvert => {
-        let fn = schema->S.compile(~input=Value, ~output=Unknown, ~mode=Sync, ~typeValidation=false)
-        fn->magic
-      }
-    | #ReverseConvertAsync => {
-        let fn =
-          schema->S.compile(~input=Value, ~output=Unknown, ~mode=Async, ~typeValidation=false)
-        fn->magic
-      }
-    | #ReverseConvertToJson => {
-        let fn = schema->S.compile(~input=Value, ~output=Json, ~mode=Sync, ~typeValidation=false)
-        fn->magic
-      }
-    }
-  )["toString"]()
+    )
+  | None => ()
+  }
+
+  code.contents
 }
 
 let rec cleanUpSchema = schema => {
@@ -152,10 +172,9 @@ let rec cleanUpSchema = schema => {
   ->Array.forEach(((key, value)) => {
     switch key {
     | "output"
-    | "advanced"
     | "isAsync" => ()
     // ditemToItem leftovers FIXME:
-    | "k" | "p" | "of" => ()
+    | "k" | "p" | "of" | "r" => ()
     | _ =>
       if typeof(value) === #function {
         ()
@@ -173,11 +192,11 @@ let rec cleanUpSchema = schema => {
 }
 
 let unsafeAssertEqualSchemas = (t, s1: S.t<'v1>, s2: S.t<'v2>, ~message=?) => {
-  t->Assert.unsafeDeepEqual(s1->cleanUpSchema, s2->cleanUpSchema, ~message?, ())
+  t->Assert.unsafeDeepEqual(s1->cleanUpSchema, s2->cleanUpSchema, ~message?)
 }
 
 let assertCompiledCode = (t, ~schema, ~op, code, ~message=?) => {
-  t->Assert.is(schema->getCompiledCodeString(~op), code, ~message?, ())
+  t->Assert.is(schema->getCompiledCodeString(~op), code, ~message?)
 }
 
 let assertCompiledCodeIsNoop = (t, ~schema, ~op, ~message=?) => {
@@ -197,6 +216,9 @@ let assertReverseParsesBack = (t, schema: S.t<'value>, value: 'value) => {
     ->S.reverseConvertOrThrow(schema)
     ->S.parseOrThrow(schema),
     value,
-    (),
   )
+}
+
+let assertReverseReversesBack = (t, schema: S.t<'value>) => {
+  t->assertEqualSchemas(schema->S.castToUnknown, schema->S.reverse->S.reverse)
 }

@@ -31,20 +31,20 @@ type recordField = {poly: [#one]}
 test("Supported as a record field", t => {
   t->assertEqualSchemas(
     recordFieldSchema,
-    S.object(s => {
-      poly: s.field("poly", S.literal(#one)),
+    S.schema(s => {
+      poly: s.matches(S.literal(#one)),
     }),
   )
 })
 
 @schema
 type objectField = {"poly": [#one]}
-test("Supported as a object field", t => {
+test("Supported as an object field", t => {
   t->assertEqualSchemas(
     objectFieldSchema,
-    S.object(s =>
+    S.schema(s =>
       {
-        "poly": s.field("poly", S.literal(#one)),
+        "poly": s.matches(S.literal(#one)),
       }
     ),
   )

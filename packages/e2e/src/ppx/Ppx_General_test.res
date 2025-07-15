@@ -20,7 +20,7 @@ type reusedTypes = (t, foo, @s.matches(S.bool) bar, float)
 test("Can reuse schemas from other types", t => {
   t->assertEqualSchemas(
     reusedTypesSchema,
-    S.tuple(s => (s.item(0, schema), s.item(1, fooSchema), s.item(2, S.bool), s.item(3, S.float))),
+    S.schema(s => (s.matches(schema), s.matches(fooSchema), s.matches(S.bool), s.matches(S.float))),
   )
 })
 

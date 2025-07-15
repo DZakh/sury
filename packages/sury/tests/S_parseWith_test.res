@@ -4,13 +4,13 @@ open RescriptCore
 test("Successfully parses", t => {
   let schema = S.bool
 
-  t->Assert.deepEqual(JSON.Encode.bool(true)->S.parseOrThrow(schema), true, ())
+  t->Assert.deepEqual(JSON.Encode.bool(true)->S.parseOrThrow(schema), true)
 })
 
 test("Successfully parses unknown", t => {
   let schema = S.unknown
 
-  t->Assert.deepEqual(JSON.Encode.bool(true)->S.parseOrThrow(schema), true->Obj.magic, ())
+  t->Assert.deepEqual(JSON.Encode.bool(true)->S.parseOrThrow(schema), true->Obj.magic)
 })
 
 test("Fails to parse", t => {
@@ -19,7 +19,7 @@ test("Fails to parse", t => {
   t->U.assertThrows(
     () => %raw("123")->S.parseOrThrow(schema),
     {
-      code: InvalidType({expected: schema->S.toUnknown, received: %raw("123")}),
+      code: InvalidType({expected: schema->S.castToUnknown, received: %raw("123")}),
       operation: Parse,
       path: S.Path.empty,
     },
@@ -31,5 +31,5 @@ test("Fails to parse with unwraped result", t => {
 
   t->Assert.throws(() => {
     %raw("123")->S.parseOrThrow(schema)
-  }, ~expectations={message: "Failed parsing: Expected boolean, received 123"}, ())
+  }, ~expectations={message: "Failed parsing: Expected boolean, received 123"})
 })

@@ -11,13 +11,13 @@ module CommonWithNested = {
   test("Successfully parses", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(any->S.parseOrThrow(schema), value, ())
+    t->Assert.deepEqual(any->S.parseOrThrow(schema), value)
   })
 
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), any, ())
+    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), any)
   })
 
   test("Fails to parse", t => {
@@ -26,7 +26,7 @@ module CommonWithNested = {
     t->U.assertThrows(
       () => invalidAny->S.parseOrThrow(schema),
       {
-        code: InvalidType({expected: schema->S.toUnknown, received: invalidAny}),
+        code: InvalidType({expected: schema->S.castToUnknown, received: invalidAny}),
         operation: Parse,
         path: S.Path.empty,
       },
@@ -39,7 +39,7 @@ module CommonWithNested = {
     t->U.assertThrows(
       () => nestedInvalidAny->S.parseOrThrow(schema),
       {
-        code: InvalidType({expected: S.string->S.toUnknown, received: %raw(`true`)}),
+        code: InvalidType({expected: S.string->S.castToUnknown, received: %raw(`true`)}),
         operation: Parse,
         path: S.Path.fromArray(["key2"]),
       },
@@ -52,7 +52,7 @@ module CommonWithNested = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i||Array.isArray(i)){e[1](i)}for(let v0 in i){let v2=i[v0];try{if(typeof v2!=="string"){e[0](v2)}}catch(v1){if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1}}return i}`,
+      `i=>{if(typeof i!=="object"||!i||Array.isArray(i)){e[0](i)}for(let v0 in i){try{let v2=i[v0];if(typeof v2!=="string"){e[1](v2)}}catch(v1){if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1}}return i}`,
     )
   })
 
@@ -62,7 +62,7 @@ module CommonWithNested = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i||Array.isArray(i)){e[1](i)}let v3={};for(let v0 in i){let v2;try{v2=e[0](i[v0]).catch(v1=>{if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1})}catch(v1){if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1}v3[v0]=v2}return new Promise((v4,v5)=>{let v7=Object.keys(v3).length;for(let v0 in v3){v3[v0].then(v6=>{v3[v0]=v6;if(v7--===1){v4(v3)}},v5)}})}`,
+      `i=>{if(typeof i!=="object"||!i||Array.isArray(i)){e[0](i)}let v3={};for(let v0 in i){let v2;try{v2=e[1](i[v0]).catch(v1=>{if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1})}catch(v1){if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1}v3[v0]=v2}return new Promise((v4,v5)=>{let v7=Object.keys(v3).length;for(let v0 in v3){v3[v0].then(v6=>{v3[v0]=v6;if(v7--===1){v4(v3)}},v5)}})}`,
     )
   })
 
@@ -80,13 +80,13 @@ module CommonWithNested = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{let v4={};for(let v0 in i){let v2=i[v0],v3;try{if(v2===void 0){v2=null}v3=v2}catch(v1){if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1}v4[v0]=v3}return v4}`,
+      `i=>{let v4={};for(let v0 in i){let v3;try{let v2=i[v0];if(v2===void 0){v2=null}v3=v2}catch(v1){if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1}v4[v0]=v3}return v4}`,
     )
   })
 
   test("Reverse to self", t => {
     let schema = factory()
-    t->Assert.is(schema->S.reverse, schema->S.toUnknown, ())
+    t->U.assertEqualSchemas(schema->S.reverse, schema->S.castToUnknown)
   })
 
   test("Succesfully uses reversed schema for parsing back to initial value", t => {
@@ -97,7 +97,10 @@ module CommonWithNested = {
 
 test("Reverse child schema", t => {
   let schema = S.dict(S.null(S.string))
-  t->U.assertEqualSchemas(schema->S.reverse, S.dict(S.option(S.string))->S.toUnknown)
+  t->U.assertEqualSchemas(
+    schema->S.reverse,
+    S.dict(S.union([S.string->S.castToUnknown, S.nullAsUnit->S.reverse]))->S.castToUnknown,
+  )
 })
 
 test("Successfully parses dict with int keys", t => {
@@ -106,7 +109,6 @@ test("Successfully parses dict with int keys", t => {
   t->Assert.deepEqual(
     %raw(`{1:"b",2:"d"}`)->S.parseOrThrow(schema),
     Dict.fromArray([("1", "b"), ("2", "d")]),
-    (),
   )
 })
 
@@ -119,7 +121,6 @@ test("Applies operation for each item on serializing", t => {
         "a": "1",
         "b": "2",
       }`),
-    (),
   )
 })
 
@@ -142,6 +143,5 @@ test("Successfully parses dict with optional items", t => {
   t->Assert.deepEqual(
     %raw(`{"key1":"value1","key2":undefined}`)->S.parseOrThrow(schema),
     Dict.fromArray([("key1", Some("value1")), ("key2", None)]),
-    (),
   )
 })

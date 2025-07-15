@@ -13,9 +13,8 @@ test(
       },
       ~expectations={
         message: "Failed parsing: Should be positive",
-        instanceOf: S.ErrorClass.value->(U.magic: S.ErrorClass.t => ThrowsExpectation.instanceOf),
+        instanceOf: S.ErrorClass.value->(U.magic: S.ErrorClass.t => 'instanceOf),
       },
-      (),
     )
   },
 )
@@ -31,6 +30,6 @@ test("Raised error is also the S.Error exeption and can be caught with catch", t
     let _ = U.raiseError(error)
     t->Assert.fail("Should raise before the line")
   } catch {
-  | S.Error(raisedError) => t->Assert.is(error, raisedError, ())
+  | S.Error(raisedError) => t->Assert.is(error, raisedError)
   }
 })

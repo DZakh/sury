@@ -45,9 +45,9 @@ var recordFieldSchema = S.schema(function (s) {
     });
 
 Ava("Supported as a record field", (function (t) {
-        U.assertEqualSchemas(t, recordFieldSchema, S.object(function (s) {
+        U.assertEqualSchemas(t, recordFieldSchema, S.schema(function (s) {
                   return {
-                          poly: s.f("poly", S.literal("one"))
+                          poly: s.m(S.literal("one"))
                         };
                 }), undefined);
       }));
@@ -58,10 +58,10 @@ var objectFieldSchema = S.schema(function (s) {
             };
     });
 
-Ava("Supported as a object field", (function (t) {
-        U.assertEqualSchemas(t, objectFieldSchema, S.object(function (s) {
+Ava("Supported as an object field", (function (t) {
+        U.assertEqualSchemas(t, objectFieldSchema, S.schema(function (s) {
                   return {
-                          poly: s.f("poly", S.literal("one"))
+                          poly: s.m(S.literal("one"))
                         };
                 }), undefined);
       }));

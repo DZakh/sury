@@ -15,8 +15,8 @@ importers:
   packages/e2e:
     dependencies:
       '@dzakh/rescript-ava':
-        specifier: 2.3.0
-        version: 2.3.0(ava@5.2.0)(rescript@11.1.0)
+        specifier: 3.1.0
+        version: 3.1.0(ava@5.2.0)(rescript@11.1.0)
       '@rescript/core':
         specifier: 1.3.0
         version: 1.3.0(rescript@11.1.0)
@@ -48,8 +48,8 @@ importers:
   packages/sury:
     devDependencies:
       '@dzakh/rescript-ava':
-        specifier: 2.3.0
-        version: 2.3.0(ava@5.2.0)(rescript@11.1.0)
+        specifier: 3.1.0
+        version: 3.1.0(ava@5.2.0)(rescript@11.1.0)
       '@rescript/core':
         specifier: 1.3.0
         version: 1.3.0(rescript@11.1.0)
@@ -101,11 +101,11 @@ packages:
   '@bcoe/v8-coverage@0.2.3':
     resolution: {integrity: sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==}
 
-  '@dzakh/rescript-ava@2.3.0':
-    resolution: {integrity: sha512-str7Fh+lYxWNf+wDAHykw84bqKodrwU5swLcYNjc8BJc3N4ECyNBA3o5vFNsq0zZw+1eExARs8mUnB2ZQSmRGg==}
+  '@dzakh/rescript-ava@3.1.0':
+    resolution: {integrity: sha512-endQ+HhoSokFS6SvrCfvX+5m9HAcpgsk+sMtS53BchnoWNeGGtwJKRfUSE4EwQTbG/6bjDRQQyFKskrlve7OQg==}
     peerDependencies:
-      ava: 5.2.x
-      rescript: 10.1.x || ~11.0.0-alpha
+      ava: ^5.2.0 || 6
+      rescript: 11.x
 
   '@istanbuljs/schema@0.1.3':
     resolution: {integrity: sha512-ZXRY4jNvVgSVQ8DL3LTcakaAtXwTVUxE81hslsyD2AtoXW/wVob10HkOJ1X/pAlcI7D+2YoZKg5do8G/w6RYgA==}
@@ -1017,7 +1017,7 @@ snapshots:
 
   '@bcoe/v8-coverage@0.2.3': {}
 
-  '@dzakh/rescript-ava@2.3.0(ava@5.2.0)(rescript@11.1.0)':
+  '@dzakh/rescript-ava@3.1.0(ava@5.2.0)(rescript@11.1.0)':
     dependencies:
       ava: 5.2.0
       rescript: 11.1.0

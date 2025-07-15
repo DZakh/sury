@@ -25,7 +25,7 @@ module CknittelBugReport = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{if(typeof i==="object"&&i){if(i["TAG"]==="A"&&typeof i["_0"]==="object"&&i["_0"]&&typeof i["_0"]["payload"]==="object"&&i["_0"]["payload"]){let v0=i["_0"];let v1=v0["payload"];i=v0}else if(i["TAG"]==="B"&&typeof i["_0"]==="object"&&i["_0"]&&typeof i["_0"]["payload"]==="object"&&i["_0"]["payload"]){let v3=i["_0"];let v4=v3["payload"];i=v3}}return i}`,
+      `i=>{if(typeof i==="object"&&i){if(i["TAG"]==="A"&&typeof i["_0"]==="object"&&i["_0"]&&typeof i["_0"]["payload"]==="object"&&i["_0"]["payload"]){let v0=i["_0"];let v1=v0["payload"];i=v0}else if(i["TAG"]==="B"&&typeof i["_0"]==="object"&&i["_0"]&&typeof i["_0"]["payload"]==="object"&&i["_0"]["payload"]){let v2=i["_0"];let v3=v2["payload"];i=v2}}return i}`,
     )
 
     let x = {
@@ -33,13 +33,13 @@ module CknittelBugReport = {
         b: 42,
       },
     }
-    t->Assert.deepEqual(B(x)->S.reverseConvertOrThrow(schema), %raw(`{"payload":{"b":42}}`), ())
+    t->Assert.deepEqual(B(x)->S.reverseConvertOrThrow(schema), %raw(`{"payload":{"b":42}}`))
     let x = {
       A.payload: {
         a: "foo",
       },
     }
-    t->Assert.deepEqual(A(x)->S.reverseConvertOrThrow(schema), %raw(`{"payload":{"a":"foo"}}`), ())
+    t->Assert.deepEqual(A(x)->S.reverseConvertOrThrow(schema), %raw(`{"payload":{"a":"foo"}}`))
   })
 }
 
@@ -70,10 +70,10 @@ module CknittelBugReport2 = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i){e[6](i)}let v0=i["test"];if(typeof v0==="object"&&v0){if(v0["type"]==="a"){let v1=v0["x"];if(typeof v1!=="number"||v1>2147483647||v1<-2147483648||v1%1!==0){e[0](v1)}v0={"TAG":e[1],"_0":{"x":v1,},}}else if(v0["type"]==="b"){let v2=v0["y"];if(typeof v2!=="string"){e[2](v2)}v0={"TAG":e[3],"_0":{"y":v2,},}}else{e[4](v0)}}else if(!(v0===void 0)){e[5](v0)}return {"test":v0,}}`,
+      `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["test"];if(typeof v0==="object"&&v0){if(v0["type"]==="a"){let v1=v0["x"];if(typeof v1!=="number"||v1>2147483647||v1<-2147483648||v1%1!==0){e[1](v1)}v0={"TAG":e[2],"_0":{"x":v1,},}}else if(v0["type"]==="b"){let v2=v0["y"];if(typeof v2!=="string"){e[3](v2)}v0={"TAG":e[4],"_0":{"y":v2,},}}else{e[5](v0)}}else if(!(v0===void 0)){e[6](v0)}return {"test":v0,}}`,
     )
 
-    t->Assert.deepEqual(S.parseJsonStringOrThrow("{}", schema), {test: None}, ())
+    t->Assert.deepEqual(S.parseJsonStringOrThrow("{}", schema), {test: None})
   })
 
   type responseError = {serviceCode: string, text: string}
@@ -82,7 +82,6 @@ module CknittelBugReport2 = {
     let schema = S.union([
       S.object(s => {
         let _ = s.nested("statusCode").field("kind", S.literal("ok"))
-        let _ = s.nested("statusCode").field("text", S.literal("")->S.catch(_ => ""))
         Ok()
       }),
       S.object(s => {
@@ -97,13 +96,9 @@ module CknittelBugReport2 = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i==="object"&&i){if(typeof i["statusCode"]==="object"&&i["statusCode"]&&i["statusCode"]["kind"]==="ok"){let v0=i["statusCode"];let v1=v0["text"];try{if(v1!==""){e[1](v1)}}catch(v2){if(v2&&v2.s===s){v1=e[0](v1,v2)}else{throw v2}}i={"TAG":e[2],"_0":e[3],}}else if(typeof i["statusCode"]==="object"&&i["statusCode"]&&i["statusCode"]["kind"]==="serviceError"){let v3=i["statusCode"];let v4=v3["serviceCode"],v5=v3["text"];if(typeof v4!=="string"){e[4](v4)}if(typeof v5!=="string"){e[5](v5)}i={"TAG":e[6],"_0":{"serviceCode":v4,"text":v5,},}}else{e[7](i)}}else{e[8](i)}return i}`,
+      `i=>{if(typeof i==="object"&&i){if(typeof i["statusCode"]==="object"&&i["statusCode"]&&i["statusCode"]["kind"]==="ok"){let v0=i["statusCode"];i={"TAG":e[0],"_0":e[1],}}else if(typeof i["statusCode"]==="object"&&i["statusCode"]&&i["statusCode"]["kind"]==="serviceError"){let v1=i["statusCode"],v2=v1["serviceCode"],v3=v1["text"];if(typeof v2!=="string"){e[2](v2)}if(typeof v3!=="string"){e[3](v3)}i={"TAG":e[4],"_0":{"serviceCode":v2,"text":v3,},}}else{e[5](i)}}else{e[6](i)}return i}`,
     )
 
-    t->Assert.deepEqual(
-      S.parseJsonStringOrThrow(`{"statusCode": {"kind": "ok"}}`, schema),
-      Ok(),
-      (),
-    )
+    t->Assert.deepEqual(S.parseJsonStringOrThrow(`{"statusCode": {"kind": "ok"}}`, schema), Ok())
   })
 }

@@ -9,7 +9,6 @@ test("Throws for a Union schema factory without schemas", t => {
     ~expectations={
       message: "[Sury] S.union requires at least one item",
     },
-    (),
   )
 })
 
@@ -22,7 +21,7 @@ test("Successfully creates a Union schema factory with single schema and flatten
 test("Successfully parses polymorphic variants", t => {
   let schema = S.union([S.literal(#apple), S.literal(#orange)])
 
-  t->Assert.deepEqual(%raw(`"apple"`)->S.parseOrThrow(schema), #apple, ())
+  t->Assert.deepEqual(%raw(`"apple"`)->S.parseOrThrow(schema), #apple)
 })
 
 test("Parses when both schemas misses parser and have the same type", t => {
@@ -36,7 +35,7 @@ test("Parses when both schemas misses parser and have the same type", t => {
     t->Assert.fail("Expected to throw")
   } catch {
   | S.Error(error) =>
-    t->Assert.is(error.message, `Failed parsing: Expected string | string, received null`, ())
+    t->Assert.is(error.message, `Failed parsing: Expected string | string, received null`)
   }
 
   try {
@@ -48,7 +47,6 @@ test("Parses when both schemas misses parser and have the same type", t => {
       error.message,
       `Failed parsing: Expected string | string, received "foo"
 - The S.transform parser is missing`,
-      (),
     )
   }
 
@@ -70,7 +68,7 @@ test("Parses when both schemas misses parser and have different types", t => {
     t->Assert.fail("Expected to throw")
   } catch {
   | S.Error(error) =>
-    t->Assert.is(error.message, `Failed parsing: Expected "apple" | string, received null`, ())
+    t->Assert.is(error.message, `Failed parsing: Expected "apple" | string, received null`)
   }
 
   try {
@@ -82,7 +80,6 @@ test("Parses when both schemas misses parser and have different types", t => {
       error.message,
       `Failed parsing: Expected "apple" | string, received "abc"
 - The S.transform parser is missing`,
-      (),
     )
   }
 
@@ -108,7 +105,6 @@ test("Serializes when both schemas misses serializer", t => {
       error.message,
       `Failed converting: Expected unknown | unknown, received null
 - The S.transform serializer is missing`,
-      (),
     )
   }
 
@@ -120,14 +116,19 @@ test("Serializes when both schemas misses serializer", t => {
 })
 
 test("When union of json and string schemas, should parse the first one", t => {
-  let schema = S.union([S.json(~validate=false)->S.shape(_ => #json), S.string->S.shape(_ => #str)])
+  let schema = S.union([S.json->S.shape(_ => #json), S.string->S.shape(_ => #str)])
 
-  t->Assert.deepEqual(%raw(`"string"`)->S.parseOrThrow(schema), #json, ())
+  t->Assert.deepEqual(%raw(`"string"`)->S.parseOrThrow(schema), #json)
+  t->U.assertThrowsMessage(
+    () => %raw(`undefined`)->S.parseOrThrow(schema),
+    `Failed parsing: Expected JSON | string, received undefined
+- Expected JSON, received undefined`,
+  )
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{i=e[0]}catch(e0){if(typeof i==="string"){i=e[1]}else{e[2](i,e0)}}return i}`,
+    `i=>{try{let v0=e[0](i);i=e[1]}catch(e0){if(typeof i==="string"){i=e[2]}else{e[3](i,e0)}}return i}`,
   )
 })
 
@@ -141,9 +142,9 @@ test("Ensures parsing order with unknown schema", t => {
     S.bigint->Obj.magic,
   ])
 
-  t->Assert.deepEqual(%raw(`"string"`)->S.parseOrThrow(schema), "pass", ())
-  t->Assert.deepEqual(%raw(`"to"`)->S.parseOrThrow(schema), "to", ())
-  t->Assert.deepEqual(%raw(`true`)->S.parseOrThrow(schema), %raw(`true`), ())
+  t->Assert.deepEqual(%raw(`"string"`)->S.parseOrThrow(schema), "pass")
+  t->Assert.deepEqual(%raw(`"to"`)->S.parseOrThrow(schema), "to")
+  t->Assert.deepEqual(%raw(`true`)->S.parseOrThrow(schema), %raw(`true`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -155,7 +156,7 @@ test("Ensures parsing order with unknown schema", t => {
 test("Parses when second schema misses parser", t => {
   let schema = S.union([S.literal(#apple), S.string->S.transform(_ => {serializer: _ => "apple"})])
 
-  t->Assert.deepEqual("apple"->S.parseOrThrow(schema), #apple, ())
+  t->Assert.deepEqual("apple"->S.parseOrThrow(schema), #apple)
 
   t->U.assertCompiledCode(
     ~schema,
@@ -167,8 +168,8 @@ test("Parses when second schema misses parser", t => {
 test("Parses with string catch all", t => {
   let schema = S.union([S.literal("apple"), S.string, S.literal("banana")])
 
-  t->Assert.deepEqual("apple"->S.parseOrThrow(schema), "apple", ())
-  t->Assert.deepEqual("foo"->S.parseOrThrow(schema), "foo", ())
+  t->Assert.deepEqual("apple"->S.parseOrThrow(schema), "apple")
+  t->Assert.deepEqual("foo"->S.parseOrThrow(schema), "foo")
 
   t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(!(typeof i==="string")){e[0](i)}return i}`)
 })
@@ -176,7 +177,7 @@ test("Parses with string catch all", t => {
 test("Serializes when second struct misses serializer", t => {
   let schema = S.union([S.literal(#apple), S.string->S.transform(_ => {parser: _ => #apple})])
 
-  t->Assert.deepEqual(#apple->S.reverseConvertOrThrow(schema), %raw(`"apple"`), ())
+  t->Assert.deepEqual(#apple->S.reverseConvertOrThrow(schema), %raw(`"apple"`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -223,7 +224,6 @@ module Advanced = {
       "radius": 1,
     }`)->S.parseOrThrow(shapeSchema),
       Circle({radius: 1.}),
-      (),
     )
   })
 
@@ -234,7 +234,6 @@ module Advanced = {
       "x": 2,
     }`)->S.parseOrThrow(shapeSchema),
       Square({x: 2.}),
-      (),
     )
   })
 
@@ -246,7 +245,6 @@ module Advanced = {
       "y": 3,
     }`)->S.parseOrThrow(shapeSchema),
       Triangle({x: 2., y: 3.}),
-      (),
     )
   })
 
@@ -259,7 +257,7 @@ module Advanced = {
 
     let error: U.errorPayload = {
       code: InvalidType({
-        expected: shapeSchema->S.toUnknown,
+        expected: shapeSchema->S.castToUnknown,
         received: shape->Obj.magic,
       }),
       operation: Parse,
@@ -283,7 +281,7 @@ module Advanced = {
 
     let error: U.errorPayload = {
       code: InvalidType({
-        expected: shapeSchema->S.toUnknown,
+        expected: shapeSchema->S.castToUnknown,
         received: shape->Obj.magic,
       }),
       operation: Parse,
@@ -293,14 +291,13 @@ module Advanced = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i){e[9](i)}let v0=i["field"];if(typeof v0==="object"&&v0){if(v0["kind"]==="circle"){let v1=v0["radius"];if(typeof v1!=="number"||Number.isNaN(v1)){e[0](v1)}v0={"TAG":e[1],"radius":v1,}}else if(v0["kind"]==="square"){let v2=v0["x"];if(typeof v2!=="number"||Number.isNaN(v2)){e[2](v2)}v0={"TAG":e[3],"x":v2,}}else if(v0["kind"]==="triangle"){let v3=v0["x"],v4=v0["y"];if(typeof v3!=="number"||Number.isNaN(v3)){e[4](v3)}if(typeof v4!=="number"||Number.isNaN(v4)){e[5](v4)}v0={"TAG":e[6],"x":v3,"y":v4,}}else{e[7](v0)}}else{e[8](v0)}return v0}`,
+      `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["field"];if(typeof v0==="object"&&v0){if(v0["kind"]==="circle"){let v1=v0["radius"];if(typeof v1!=="number"||Number.isNaN(v1)){e[1](v1)}v0={"TAG":e[2],"radius":v1,}}else if(v0["kind"]==="square"){let v2=v0["x"];if(typeof v2!=="number"||Number.isNaN(v2)){e[3](v2)}v0={"TAG":e[4],"x":v2,}}else if(v0["kind"]==="triangle"){let v3=v0["x"],v4=v0["y"];if(typeof v3!=="number"||Number.isNaN(v3)){e[5](v3)}if(typeof v4!=="number"||Number.isNaN(v4)){e[6](v4)}v0={"TAG":e[7],"x":v3,"y":v4,}}else{e[8](v0)}}else{e[9](v0)}return v0}`,
     )
 
     t->U.assertThrows(() => data->S.parseOrThrow(schema), error)
     t->Assert.is(
       (error->U.error).message,
       `Failed parsing at ["field"]: Expected { kind: "circle"; radius: number; } | { kind: "square"; x: number; } | { kind: "triangle"; x: number; y: number; }, received { kind: "oval"; x: 2; y: 3; }`,
-      (),
     )
   })
 
@@ -309,7 +306,7 @@ module Advanced = {
       () => %raw(`"Hello world!"`)->S.parseOrThrow(shapeSchema),
       {
         code: InvalidType({
-          expected: shapeSchema->S.toUnknown,
+          expected: shapeSchema->S.castToUnknown,
           received: %raw(`"Hello world!"`),
         }),
         operation: Parse,
@@ -337,7 +334,7 @@ module Advanced = {
     let v = Triangle({x: 2., y: 3.})
 
     // This is not valid but expected behavior. Use parse to ensure type validation
-    t->Assert.is(v->S.reverseConvertOrThrow(incompleteSchema), v->Obj.magic, ())
+    t->Assert.is(v->S.reverseConvertOrThrow(incompleteSchema), v->Obj.magic)
   })
 
   test("Successfully serializes Circle shape", t => {
@@ -347,7 +344,6 @@ module Advanced = {
           "kind": "circle",
           "radius": 1,
         }`),
-      (),
     )
   })
 
@@ -358,7 +354,6 @@ module Advanced = {
         "kind": "square",
         "x": 2,
       }`),
-      (),
     )
   })
 
@@ -370,7 +365,6 @@ module Advanced = {
         "x": 2,
         "y": 3,
       }`),
-      (),
     )
   })
 
@@ -386,7 +380,7 @@ module Advanced = {
     t->U.assertCompiledCode(
       ~schema=shapeSchema,
       ~op=#ReverseConvert,
-      `i=>{if(typeof i==="object"&&i){if(i["TAG"]==="Circle"){i={"kind":e[0],"radius":i["radius"],}}else if(i["TAG"]==="Square"){i={"kind":e[1],"x":i["x"],}}else if(i["TAG"]==="Triangle"){i={"kind":e[2],"x":i["x"],"y":i["y"],}}}return i}`,
+      `i=>{if(typeof i==="object"&&i){if(i["TAG"]==="Circle"){i={"kind":"circle","radius":i["radius"],}}else if(i["TAG"]==="Square"){i={"kind":"square","x":i["x"],}}else if(i["TAG"]==="Triangle"){i={"kind":"triangle","x":i["x"],"y":i["y"],}}}return i}`,
     )
   })
 }
@@ -402,8 +396,8 @@ test("NaN should be checked before number even if it's later item in the union",
     S.literal(%raw(`NaN`))->S.shape(_ => None),
   ])
 
-  t->Assert.deepEqual(%raw(`NaN`)->S.parseOrThrow(schema), None, ())
-  t->Assert.deepEqual(1.->S.parseOrThrow(schema), Some(1.), ())
+  t->Assert.deepEqual(%raw(`NaN`)->S.parseOrThrow(schema), None)
+  t->Assert.deepEqual(1.->S.parseOrThrow(schema), Some(1.))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -420,13 +414,13 @@ test("Array should be checked before object even if it's later item in the union
 
   let schema = S.union([S.object(s => [s.field("foo", S.string)]), S.array(S.string)])
 
-  t->Assert.deepEqual(%raw(`["baz"]`)->S.parseOrThrow(schema), ["baz"], ())
-  t->Assert.deepEqual(%raw(`{"foo": "bar"}`)->S.parseOrThrow(schema), ["bar"], ())
+  t->Assert.deepEqual(%raw(`["baz"]`)->S.parseOrThrow(schema), ["baz"])
+  t->Assert.deepEqual(%raw(`{"foo": "bar"}`)->S.parseOrThrow(schema), ["bar"])
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(Array.isArray(i)){for(let v0=0;v0<i.length;++v0){let v2=i[v0];try{if(typeof v2!=="string"){e[0](v2)}}catch(v1){if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1}}}else if(typeof i==="object"&&i){let v3=i["foo"];if(typeof v3!=="string"){e[1](v3)}i=[v3,]}else{e[2](i)}return i}`,
+    `i=>{if(Array.isArray(i)){for(let v0=0;v0<i.length;++v0){try{let v2=i[v0];if(typeof v2!=="string"){e[0](v2)}}catch(v1){if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1}}}else if(typeof i==="object"&&i){let v3=i["foo"];if(typeof v3!=="string"){e[1](v3)}i=[v3,]}else{e[2](i)}return i}`,
   )
 })
 
@@ -439,12 +433,8 @@ test("Instance schema should be checked before object even if it's later item in
     S.instance(%raw(`Set`))->Obj.magic,
   ])
 
-  t->Assert.deepEqual(
-    %raw(`new Set(["baz"])`)->S.parseOrThrow(schema),
-    %raw(`new Set(["baz"])`),
-    (),
-  )
-  t->Assert.deepEqual(%raw(`{"foo": "bar"}`)->S.parseOrThrow(schema), ["bar"], ())
+  t->Assert.deepEqual(%raw(`new Set(["baz"])`)->S.parseOrThrow(schema), %raw(`new Set(["baz"])`))
+  t->Assert.deepEqual(%raw(`{"foo": "bar"}`)->S.parseOrThrow(schema), ["bar"])
 
   t->U.assertCompiledCode(
     ~schema,
@@ -476,9 +466,9 @@ test("Successfully serializes unboxed variant", t => {
   let toString = S.string->S.shape(s => String(s))
   let schema = S.union([toInt, toString])
 
-  t->Assert.deepEqual("123"->S.parseOrThrow(schema), Int(123), ())
-  t->Assert.deepEqual(String("abc")->S.reverseConvertOrThrow(schema), %raw(`"abc"`), ())
-  t->Assert.deepEqual(Int(123)->S.reverseConvertOrThrow(schema), %raw(`"123"`), ())
+  t->Assert.deepEqual("123"->S.parseOrThrow(schema), Int(123))
+  t->Assert.deepEqual(String("abc")->S.reverseConvertOrThrow(schema), %raw(`"abc"`))
+  t->Assert.deepEqual(Int(123)->S.reverseConvertOrThrow(schema), %raw(`"123"`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -496,9 +486,9 @@ test("Successfully serializes unboxed variant", t => {
   // since it's the second
   let schema = S.union([toString, toInt])
 
-  t->Assert.deepEqual("123"->S.parseOrThrow(schema), String("123"), ())
-  t->Assert.deepEqual(String("abc")->S.reverseConvertOrThrow(schema), %raw(`"abc"`), ())
-  t->Assert.deepEqual(Int(123)->S.reverseConvertOrThrow(schema), %raw(`"123"`), ())
+  t->Assert.deepEqual("123"->S.parseOrThrow(schema), String("123"))
+  t->Assert.deepEqual(String("abc")->S.reverseConvertOrThrow(schema), %raw(`"abc"`))
+  t->Assert.deepEqual(Int(123)->S.reverseConvertOrThrow(schema), %raw(`"123"`))
 
   t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(!(typeof i==="string")){e[0](i)}return i}`)
   t->U.assertCompiledCode(
@@ -542,13 +532,12 @@ asyncTest("Compiled async parse code snapshot", async t => {
     `i=>{if(typeof i==="number"){if(i===0){i=e[0](i)}}return Promise.resolve(i)}`,
   )
 
-  t->Assert.deepEqual(await 1->S.parseAsyncOrThrow(schema), 1, ())
+  t->Assert.deepEqual(await 1->S.parseAsyncOrThrow(schema), 1)
   t->Assert.throws(
     () => 2->S.parseAsyncOrThrow(schema),
     ~expectations={
       message: "Failed async parsing: Expected 0 | 1, received 2",
     },
-    (),
   )
 })
 
@@ -577,14 +566,13 @@ test("Union with nested variant", t => {
       },
     }->S.reverseConvertOrThrow(schema),
     %raw(`{"foo":{"tag":{"NAME":"Null","VAL":null}}}`),
-    (),
   )
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
     // TODO: Can make it work without the second case since it doesn't do anything besides i=i
-    `i=>{if(typeof i==="object"&&i){if(typeof i["foo"]==="object"&&i["foo"]&&typeof i["foo"]["tag"]==="object"&&i["foo"]["tag"]&&i["foo"]["tag"]["NAME"]==="Null"){let v0=i["foo"];let v1=v0["tag"];let v2=v1["VAL"];if(v2===void 0){v2=null}i={"foo":{"tag":{"NAME":v1["NAME"],"VAL":v2,},},}}else if(typeof i["foo"]==="object"&&i["foo"]&&typeof i["foo"]["tag"]==="object"&&i["foo"]["tag"]&&i["foo"]["tag"]["NAME"]==="Option"){let v3=i["foo"];let v4=v3["tag"];i=i}}return i}`,
+    `i=>{if(typeof i==="object"&&i){if(typeof i["foo"]==="object"&&i["foo"]&&typeof i["foo"]["tag"]==="object"&&i["foo"]["tag"]&&i["foo"]["tag"]["NAME"]==="Null"){let v0=i["foo"];let v1=v0["tag"];let v2=v1["VAL"];if(v2===void 0){v2=null}i={"foo":{"tag":{"NAME":v1["NAME"],"VAL":v2,},},}}else if(typeof i["foo"]==="object"&&i["foo"]&&typeof i["foo"]["tag"]==="object"&&i["foo"]["tag"]&&i["foo"]["tag"]["NAME"]==="Option"){let v3=i["foo"];let v4=v3["tag"];}}return i}`,
   )
 })
 
@@ -598,12 +586,12 @@ test("Nested union doesn't mutate the input", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["foo"];if(typeof v0==="boolean"){v0=""+v0}else if(!(typeof v0==="string")){e[1](v0)}return {"foo":v0,}}`,
+    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["foo"];if(typeof v0==="boolean"){v0=""+v0}else if(!(typeof v0==="string")){e[1](v0)}return {"foo":v0,}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Convert,
-    `i=>{let v0=i["foo"];if(typeof v0==="boolean"){v0=""+v0}return {"foo":v0,}}`,
+    `i=>{let v0=i["foo"];if(typeof v0==="boolean"){v0=""+i["foo"]}return {"foo":v0,}}`,
   )
 })
 
@@ -620,7 +608,7 @@ test("Compiled serialize code snapshot of objects returning literal fields", t =
     S.object(s => s.field("bar", S.literal(1))),
   ])
 
-  t->Assert.deepEqual(1->S.reverseConvertOrThrow(schema), %raw(`{"bar":1}`), ())
+  t->Assert.deepEqual(1->S.reverseConvertOrThrow(schema), %raw(`{"bar":1}`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -648,7 +636,7 @@ test("Reverse schema with items", t => {
 
   t->U.assertEqualSchemas(
     schema->S.reverse,
-    S.union([S.literal(%raw(`0`)), S.option(S.bool)])->S.toUnknown,
+    S.union([S.literal(%raw(`0`)), S.bool->S.castToUnknown, S.nullAsUnit->S.reverse]),
   )
 })
 
@@ -687,7 +675,7 @@ module CrazyUnion = {
     | Y
     | Z(array<test>)
 
-  let schema = S.recursive(schema =>
+  let schema = S.recursive("Crazy", schema =>
     S.union([
       S.object(s => {
         s.tag("type", "A")
@@ -729,16 +717,19 @@ module CrazyUnion = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{let r0=i=>{if(typeof i==="object"&&i){if(i["type"]==="A"){let v0=i["nested"],v4=[];if(!Array.isArray(v0)){e[0](v0)}for(let v1=0;v1<v0.length;++v1){let v3;try{v3=r0(v0[v1])}catch(v2){if(v2&&v2.s===s){v2.path="[\\"nested\\"]"+\'["\'+v1+\'"]\'+v2.path}throw v2}v4[v1]=v3}i={"TAG":e[1],"_0":v4,}}else if(i["type"]==="Z"){let v5=i["nested"],v9=[];if(!Array.isArray(v5)){e[2](v5)}for(let v6=0;v6<v5.length;++v6){let v8;try{v8=r0(v5[v6])}catch(v7){if(v7&&v7.s===s){v7.path="[\\"nested\\"]"+\'["\'+v6+\'"]\'+v7.path}throw v7}v9[v6]=v8}i={"TAG":e[3],"_0":v9,}}else{e[4](i)}}else if(!(typeof i==="string"&&(i==="B"||i==="C"||i==="D"||i==="E"||i==="F"||i==="G"||i==="H"||i==="I"||i==="J"||i==="K"||i==="L"||i==="M"||i==="N"||i==="O"||i==="P"||i==="Q"||i==="R"||i==="S"||i==="T"||i==="U"||i==="V"||i==="W"||i==="X"||i==="Y"))){e[5](i)}return i};return r0(i)}`,
+      `i=>{let v0=e[0](i);return v0}
+Crazy: i=>{if(typeof i==="object"&&i){if(i["type"]==="A"){let v0=i["nested"];if(!Array.isArray(v0)){e[0](v0)}let v5=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v4;try{let v3=e[1][1](v0[v1]);v4=v3}catch(v2){if(v2&&v2.s===s){v2.path="[\\"nested\\"]"+'["'+v1+'"]'+v2.path}throw v2}v5[v1]=v4}i={"TAG":e[2],"_0":v5,}}else if(i["type"]==="Z"){let v6=i["nested"];if(!Array.isArray(v6)){e[3](v6)}let v11=new Array(v6.length);for(let v7=0;v7<v6.length;++v7){let v10;try{let v9=e[4][1](v6[v7]);v10=v9}catch(v8){if(v8&&v8.s===s){v8.path="[\\"nested\\"]"+'["'+v7+'"]'+v8.path}throw v8}v11[v7]=v10}i={"TAG":e[5],"_0":v11,}}else{e[6](i)}}else if(!(typeof i==="string"&&(i==="B"||i==="C"||i==="D"||i==="E"||i==="F"||i==="G"||i==="H"||i==="I"||i==="J"||i==="K"||i==="L"||i==="M"||i==="N"||i==="O"||i==="P"||i==="Q"||i==="R"||i==="S"||i==="T"||i==="U"||i==="V"||i==="W"||i==="X"||i==="Y"))){e[7](i)}return i}`,
     )
   })
 
   test("Compiled serialize code snapshot of crazy union", t => {
     S.global({})
-    let code = `i=>{let r0=i=>{if(typeof i==="object"&&i){if(i["TAG"]==="A"){let v0=i["_0"],v4=[];for(let v1=0;v1<v0.length;++v1){let v3;try{v3=r0(v0[v1])}catch(v2){if(v2&&v2.s===s){v2.path="[\\"_0\\"]"+\'["\'+v1+\'"]\'+v2.path}throw v2}v4[v1]=v3}i={"type":e[0],"nested":v4,}}else if(i["TAG"]==="Z"){let v5=i["_0"],v9=[];for(let v6=0;v6<v5.length;++v6){let v8;try{v8=r0(v5[v6])}catch(v7){if(v7&&v7.s===s){v7.path="[\\"_0\\"]"+\'["\'+v6+\'"]\'+v7.path}throw v7}v9[v6]=v8}i={"type":e[1],"nested":v9,}}}return i};return r0(i)}`
-    t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, code)
+    let reversed = schema->S.reverse
+    let code = `i=>{let v0=e[0](i);return v0}
+Crazy: i=>{if(typeof i==="object"&&i){if(i["TAG"]==="A"){let v0=i["_0"],v5=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v4;try{let v3=e[0][0](v0[v1]);v4=v3}catch(v2){if(v2&&v2.s===s){v2.path="[\\"_0\\"]"+'["'+v1+'"]'+v2.path}throw v2}v5[v1]=v4}i={"type":"A","nested":v5,}}else if(i["TAG"]==="Z"){let v6=i["_0"],v11=new Array(v6.length);for(let v7=0;v7<v6.length;++v7){let v10;try{let v9=e[1][0](v6[v7]);v10=v9}catch(v8){if(v8&&v8.s===s){v8.path="[\\"_0\\"]"+'["'+v7+'"]'+v8.path}throw v8}v11[v7]=v10}i={"type":"Z","nested":v11,}}}return i}`
+    t->U.assertCompiledCode(~schema=reversed, ~op=#Convert, code)
     // There was an issue with reverse when it doesn't return the same code on second run
-    t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, code)
+    t->U.assertCompiledCode(~schema=reversed, ~op=#Convert, code)
   })
 }
 
@@ -770,7 +761,6 @@ test("json-rpc response", t => {
         "result": ["foo", "bar"]
       }`)->S.parseOrThrow(getLogsResponseSchema),
     Ok(["foo", "bar"]),
-    (),
   )
 
   t->Assert.deepEqual(
@@ -782,7 +772,6 @@ test("json-rpc response", t => {
         }
       }`)->S.parseOrThrow(getLogsResponseSchema),
     Error(#LogsNotFound),
-    (),
   )
 
   t->Assert.deepEqual(
@@ -795,7 +784,6 @@ test("json-rpc response", t => {
         }
       }`)->S.parseOrThrow(getLogsResponseSchema),
     Error(#InvalidData("foo")),
-    (),
   )
 })
 
@@ -816,12 +804,12 @@ test("Issue https://github.com/DZakh/rescript-schema/issues/101", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{if(typeof i==="object"&&i){if(i["NAME"]==="request"&&typeof i["VAL"]==="object"&&i["VAL"]){let v0=i["VAL"];i=i}else if(i["NAME"]==="response"&&typeof i["VAL"]==="object"&&i["VAL"]){let v1=i["VAL"];i=i}}return i}`,
+    `i=>{if(typeof i==="object"&&i){if(i["NAME"]==="request"&&typeof i["VAL"]==="object"&&i["VAL"]){let v0=i["VAL"];}else if(i["NAME"]==="response"&&typeof i["VAL"]==="object"&&i["VAL"]){let v1=i["VAL"];let v2=v1["response"];i={"NAME":i["NAME"],"VAL":{"collectionName":v1["collectionName"],"response":v2,},}}}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="object"&&i){if(i["NAME"]==="request"&&typeof i["VAL"]==="object"&&i["VAL"]){let v0=i["VAL"];let v1=v0["collectionName"];if(typeof v1!=="string"){e[0](v1)}i={"NAME":i["NAME"],"VAL":{"collectionName":v1,},}}else if(i["NAME"]==="response"&&typeof i["VAL"]==="object"&&i["VAL"]){let v2=i["VAL"];let v3=v2["collectionName"],v4=v2["response"];if(typeof v3!=="string"){e[1](v3)}if(!(typeof v4==="string"&&(v4==="accepted"||v4==="rejected"))){e[2](v4)}i={"NAME":i["NAME"],"VAL":{"collectionName":v3,"response":v4,},}}else{e[3](i)}}else{e[4](i)}return i}`,
+    `i=>{if(typeof i==="object"&&i){if(i["NAME"]==="request"&&typeof i["VAL"]==="object"&&i["VAL"]){let v0=i["VAL"],v1=v0["collectionName"];if(typeof v1!=="string"){e[0](v1)}i={"NAME":i["NAME"],"VAL":{"collectionName":v1,},}}else if(i["NAME"]==="response"&&typeof i["VAL"]==="object"&&i["VAL"]){let v2=i["VAL"],v3=v2["collectionName"];if(typeof v3!=="string"){e[1](v3)}let v4=v2["response"];if(!(typeof v4==="string"&&(v4==="accepted"||v4==="rejected"))){e[2](v4)}i={"NAME":i["NAME"],"VAL":{"collectionName":v3,"response":v4,},}}else{e[3](i)}}else{e[4](i)}return i}`,
   )
 
   t->Assert.deepEqual(
@@ -833,18 +821,17 @@ test("Issue https://github.com/DZakh/rescript-schema/issues/101", t => {
       "collectionName": "foo",
       "response": "accepted",
     })->Obj.magic,
-    (),
   )
 })
 
 test("Regression https://github.com/DZakh/sury/issues/121", t => {
-  let schema = S.union([S.literal(%raw(`null`))->S.toUnknown, S.unknown])
+  let schema = S.union([S.literal(%raw(`null`))->S.castToUnknown, S.unknown])
 
   t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{try{if(i!==null){e[0](i)}}catch(e0){}return i}`)
 
   let data = %raw(`{a: 'hey'}`)
-  t->Assert.deepEqual(data->S.parseOrThrow(schema), data, ())
-  t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(schema), %raw(`null`), ())
+  t->Assert.deepEqual(data->S.parseOrThrow(schema), data)
+  t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(schema), %raw(`null`))
 })
 
 test("Union of strings with different refinements", t => {
@@ -869,8 +856,8 @@ test("Objects with the same discriminant", t => {
     }),
   ])
 
-  t->Assert.deepEqual(%raw(`{"type":"A","value":"foo"}`)->S.parseOrThrow(schema), Ok("foo"), ())
-  t->Assert.deepEqual(%raw(`{"type":"A","value":"baz"}`)->S.parseOrThrow(schema), Error("baz"), ())
+  t->Assert.deepEqual(%raw(`{"type":"A","value":"foo"}`)->S.parseOrThrow(schema), Ok("foo"))
+  t->Assert.deepEqual(%raw(`{"type":"A","value":"baz"}`)->S.parseOrThrow(schema), Error("baz"))
   t->U.assertThrowsMessage(
     () => %raw(`{"type":"A","value":1}`)->S.parseOrThrow(schema),
     `Failed parsing: Expected { type: "A"; value: "foo" | "bar"; } | { type: "A"; value: string; }, received { type: "A"; value: 1; }

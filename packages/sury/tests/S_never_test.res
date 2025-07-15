@@ -10,7 +10,7 @@ module Common = {
     t->U.assertThrows(
       () => any->S.parseOrThrow(schema),
       {
-        code: InvalidType({expected: S.never->S.toUnknown, received: any}),
+        code: InvalidType({expected: S.never->S.castToUnknown, received: any}),
         operation: Parse,
         path: S.Path.empty,
       },
@@ -23,7 +23,7 @@ module Common = {
     t->U.assertThrows(
       () => any->S.reverseConvertOrThrow(schema),
       {
-        code: InvalidType({expected: schema->S.toUnknown, received: any}),
+        code: InvalidType({expected: schema->S.castToUnknown, received: any}),
         operation: ReverseConvert,
         path: S.Path.empty,
       },
@@ -44,7 +44,8 @@ module Common = {
 
   test("Reverse schema to self", t => {
     let schema = factory()
-    t->Assert.is(schema->S.reverse, schema->S.toUnknown, ())
+    t->U.assertEqualSchemas(schema->S.reverse, schema->S.castToUnknown)
+    t->U.assertReverseReversesBack(schema)
   })
 }
 
@@ -60,7 +61,7 @@ module ObjectField = {
     t->U.assertThrows(
       () => %raw(`{"key":"value"}`)->S.parseOrThrow(schema),
       {
-        code: InvalidType({expected: S.never->S.toUnknown, received: %raw(`undefined`)}),
+        code: InvalidType({expected: S.never->S.castToUnknown, received: %raw(`undefined`)}),
         operation: Parse,
         path: S.Path.fromArray(["oldKey"]),
       },
@@ -86,7 +87,6 @@ module ObjectField = {
         "key": "value",
         "oldKey": None,
       },
-      (),
     )
   })
 }

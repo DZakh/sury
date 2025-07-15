@@ -58,10 +58,6 @@ var $$enum = Sury.$$enum;
 
 var meta = Sury.meta;
 
-var Catch = Sury.Catch;
-
-var $$catch = Sury.$$catch;
-
 var transform = Sury.transform;
 
 var refine = Sury.refine;
@@ -209,8 +205,6 @@ export {
   union ,
   $$enum ,
   meta ,
-  Catch ,
-  $$catch ,
   transform ,
   refine ,
   shape ,

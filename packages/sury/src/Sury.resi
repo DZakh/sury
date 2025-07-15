@@ -43,7 +43,7 @@ type tag =
   | @as("array") Array
   | @as("object") Object
   | @as("union") Union
-  | @as("json") JSON
+  | @as("ref") Ref
 
 @tag("type")
 type rec t<'value> =
@@ -56,6 +56,7 @@ type rec t<'value> =
       title?: string,
       deprecated?: bool,
       examples?: array<unknown>,
+      default?: unknown,
     })
   | @as("string")
   String({
@@ -65,6 +66,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<string>,
+      default?: string,
     })
   | @as("number")
   Number({
@@ -75,6 +77,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<float>,
+      default?: float,
     })
   | @as("bigint")
   BigInt({
@@ -84,6 +87,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<bigint>,
+      default?: bigint,
     })
   | @as("boolean")
   Boolean({
@@ -93,6 +97,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<bool>,
+      default?: bool,
     })
   | @as("symbol")
   Symbol({
@@ -102,6 +107,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<Js.Types.symbol>,
+      default?: Js.Types.symbol,
     })
   | @as("null")
   Null({
@@ -135,6 +141,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<Js.Types.function_val>,
+      default?: Js.Types.function_val,
     })
   | @as("instance")
   Instance({
@@ -145,6 +152,7 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<Js.Types.obj_val>,
+      default?: Js.Types.obj_val,
     })
   | @as("array")
   Array({
@@ -156,18 +164,20 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<array<unknown>>,
+      default?: array<unknown>,
     })
   | @as("object")
   Object({
       items: array<item>,
-      fields: dict<item>,
+      properties: dict<t<unknown>>,
       additionalItems: additionalItems,
       name?: string,
       title?: string,
       description?: string,
       deprecated?: bool,
       examples?: array<dict<unknown>>,
-    })
+      default?: dict<unknown>,
+    }) // TODO: Add const for Object and Tuple
   | @as("union")
   Union({
       anyOf: array<t<unknown>>,
@@ -177,15 +187,9 @@ type rec t<'value> =
       description?: string,
       deprecated?: bool,
       examples?: array<unknown>,
+      default?: unknown,
     })
-  | @as("json")
-  JSON({
-      name?: string,
-      title?: string,
-      description?: string,
-      deprecated?: bool,
-      examples?: array<Js.Json.t>,
-    })
+  | @as("ref") Ref({@as("$ref") ref: string})
 and schema<'a> = t<'a>
 and meta<'value> = {
   name?: string,
@@ -197,6 +201,10 @@ and meta<'value> = {
 and untagged = private {
   @as("type")
   tag: tag,
+  @as("$ref")
+  ref?: string,
+  @as("$defs")
+  defs?: dict<t<unknown>>,
   const?: unknown,
   class?: unknown,
   format?: format,
@@ -205,13 +213,15 @@ and untagged = private {
   description?: string,
   deprecated?: bool,
   examples?: array<unknown>,
+  default?: unknown,
   unnest?: bool,
   noValidation?: bool,
   items?: array<item>,
-  fields?: dict<item>,
+  properties?: dict<t<unknown>>,
   additionalItems?: additionalItems,
   anyOf?: array<t<unknown>>,
   has?: dict<bool>,
+  to?: t<unknown>,
 }
 @unboxed and additionalItems = | ...additionalItemsMode | Schema(t<unknown>)
 and item = {
@@ -281,8 +291,7 @@ let int: t<int>
 let float: t<float>
 let bigint: t<bigint>
 let symbol: t<Js.Types.symbol>
-
-let json: (~validate: bool) => t<Js.Json.t>
+let json: t<Js.Json.t>
 
 let literal: 'value => t<'value>
 let array: t<'value> => t<array<'value>>
@@ -299,16 +308,6 @@ let union: array<t<'value>> => t<'value>
 let enum: array<'value> => t<'value>
 
 let meta: (t<'value>, meta<'value>) => t<'value>
-
-module Catch: {
-  type s<'value> = {
-    @as("e") error: error,
-    @as("i") input: unknown,
-    @as("s") schema: t<'value>,
-    @as("f") fail: 'a. (string, ~path: Path.t=?) => 'a,
-  }
-}
-let catch: (t<'value>, Catch.s<'value> => 'value) => t<'value>
 
 type transformDefinition<'input, 'output> = {
   @as("p")
@@ -368,14 +367,15 @@ let assertOrThrow: ('any, t<'value>) => unit
 
 let isAsync: t<'value> => bool
 
-let recursive: (t<'value> => t<'value>) => t<'value>
+let recursive: (string, t<'value> => t<'value>) => t<'value>
 
 let noValidation: (t<'value>, bool) => t<'value>
 
 let toExpression: t<'value> => string
 
-external toUnknown: t<'any> => t<unknown> = "%identity"
-external untag: t<'any> => untagged = "%identity"
+external castToUnknown: t<'value> => t<unknown> = "%identity"
+external castToAny: t<'value> => t<'any> = "%identity"
+external untag: t<'value> => untagged = "%identity"
 
 module Schema: {
   type s = {@as("m") matches: 'value. t<'value> => 'value}
@@ -412,10 +412,6 @@ let tuple2: (t<'v1>, t<'v2>) => t<('v1, 'v2)>
 let tuple3: (t<'v1>, t<'v2>, t<'v3>) => t<('v1, 'v2, 'v3)>
 
 module Option: {
-  type default = Value(unknown) | Callback(unit => unknown)
-
-  let default: t<'value> => option<default>
-
   let getOr: (t<option<'value>>, 'value) => t<'value>
   let getOrWith: (t<option<'value>>, unit => 'value) => t<'value>
 }
