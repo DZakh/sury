@@ -2834,19 +2834,30 @@ module Option = {
     ->castToInternal
     ->updateOutput(mut => {
       switch mut.anyOf {
-      | Some([s1, s2]) => {
-          let s1Output = s1->getOutputSchema
-          let s2Output = s2->getOutputSchema
+      | Some(anyOf) => {
+          let item = ref(None)
+          let itemOutputSchema = ref(None)
 
-          let item = switch (s1Output, s2Output) {
-          | ({tag: Undefined}, {tag: Undefined}) =>
-            InternalError.panic(`Can't set default for ${mut->castToPublic->toExpression}`)
-          | ({tag: Undefined}, _) => s2
-          | (_, {tag: Undefined}) => s1
-          | _ =>
-            InternalError.panic(
-              `${mut->castToPublic->toExpression} doesn't have undefined case to default`,
-            )
+          for idx in 0 to anyOf->Array.length - 1 {
+            let schema = anyOf->Array.unsafe_get(idx)
+            let outputSchema = schema->getOutputSchema
+            switch outputSchema.tag {
+            | Undefined => ()
+            | _ =>
+              switch item.contents {
+              | None => {
+                  item := Some(schema)
+                  itemOutputSchema := Some(outputSchema)
+                }
+              | Some(_) =>
+                InternalError.panic(`Can't set default for ${mut->castToPublic->toExpression}`)
+              }
+            }
+          }
+
+          let item = switch item.contents {
+          | None => InternalError.panic(`Can't set default for ${mut->castToPublic->toExpression}`)
+          | Some(s) => s
           }
 
           // FIXME: Should delete schema.default on reverse?
@@ -2870,7 +2881,7 @@ module Option = {
               )
             }),
           )
-          let to = (item === s1 ? s1Output : s2Output)->copyWithoutCache
+          let to = itemOutputSchema.contents->X.Option.getUnsafe->copyWithoutCache
           switch to.refiner {
           | Some(refiner) => {
               to.serializer = Some(refiner)
@@ -2891,9 +2902,7 @@ module Option = {
           | Callback(_) => ()
           }
         }
-      | Some(_)
-      | None =>
-        InternalError.panic(`Can't set default for ${mut->castToPublic->toExpression}`)
+      | None => InternalError.panic(`Can't set default for ${mut->castToPublic->toExpression}`)
       }
     })
   }

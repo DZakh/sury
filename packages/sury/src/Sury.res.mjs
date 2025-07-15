@@ -2091,29 +2091,32 @@ function factory$1(item, unitOpt) {
 
 function getWithDefault(schema, $$default) {
   return updateOutput(schema, (function (mut) {
-                var match = mut.anyOf;
-                if (match !== undefined && match.length === 2) {
-                  var s1 = match[0];
-                  var s2 = match[1];
-                  var s1Output = getOutputSchema(s1);
-                  var s2Output = getOutputSchema(s2);
-                  var match$1 = s1Output.type;
+                var anyOf = mut.anyOf;
+                if (anyOf !== undefined) {
                   var item;
-                  if (match$1 === "undefined") {
-                    var match$2 = s2Output.type;
-                    if (match$2 === "undefined") {
-                      var message = "Can't set default for " + toExpression(mut);
-                      throw new Error("[Sury] " + message);
+                  var itemOutputSchema;
+                  for(var idx = 0 ,idx_finish = anyOf.length; idx < idx_finish; ++idx){
+                    var schema = anyOf[idx];
+                    var outputSchema = getOutputSchema(schema);
+                    var match = outputSchema.type;
+                    if (match !== "undefined") {
+                      var match$1 = item;
+                      if (match$1 !== undefined) {
+                        var message = "Can't set default for " + toExpression(mut);
+                        throw new Error("[Sury] " + message);
+                      }
+                      item = schema;
+                      itemOutputSchema = outputSchema;
                     }
-                    item = s2;
+                    
+                  }
+                  var s = item;
+                  var item$1;
+                  if (s !== undefined) {
+                    item$1 = s;
                   } else {
-                    var match$3 = s2Output.type;
-                    if (match$3 === "undefined") {
-                      item = s1;
-                    } else {
-                      var message$1 = toExpression(mut) + " doesn't have undefined case to default";
-                      throw new Error("[Sury] " + message$1);
-                    }
+                    var message$1 = "Can't set default for " + toExpression(mut);
+                    throw new Error("[Sury] " + message$1);
                   }
                   mut.parser = (function (b, input, param, param$1) {
                       return transform(b, input, (function (b, input) {
@@ -2128,7 +2131,7 @@ function getWithDefault(schema, $$default) {
                                           };
                                   }));
                     });
-                  var to = copyWithoutCache(item === s1 ? s1Output : s2Output);
+                  var to = copyWithoutCache(itemOutputSchema);
                   var refiner = to.refiner;
                   if (refiner !== undefined) {
                     to.serializer = refiner;
@@ -2143,15 +2146,16 @@ function getWithDefault(schema, $$default) {
                     return ;
                   }
                   try {
-                    mut.default = operationFn(item, 32)($$default._0);
+                    mut.default = operationFn(item$1, 32)($$default._0);
                     return ;
                   }
                   catch (exn){
                     return ;
                   }
+                } else {
+                  var message$2 = "Can't set default for " + toExpression(mut);
+                  throw new Error("[Sury] " + message$2);
                 }
-                var message$2 = "Can't set default for " + toExpression(mut);
-                throw new Error("[Sury] " + message$2);
               }));
 }
 
