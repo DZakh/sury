@@ -1760,8 +1760,24 @@ test("Successfully parses undefined using the default value", (t) => {
   const value = S.parseOrThrow(undefined, schema);
 
   t.deepEqual(value, "foo");
+  t.deepEqual(schema.default, "foo");
 
+  expectType<TypeEqual<typeof schema.default, string | undefined>>(true);
   expectType<SchemaEqual<typeof schema, string, string | undefined>>(true);
+});
+
+test("Successfully parses undefined using the default value for transformed schema", (t) => {
+  // FIXME: Test that it works correctly:
+  // const schema = S.boolean.with(S.optional, false).with(S.to, S.string);
+  const schema = S.boolean.with(S.to, S.string).with(S.optional, "false");
+
+  const value = S.parseOrThrow(undefined, schema);
+
+  t.deepEqual(value, "false");
+  t.deepEqual(schema.default, false);
+
+  expectType<TypeEqual<typeof schema.default, boolean | undefined>>(true);
+  expectType<SchemaEqual<typeof schema, string, boolean | undefined>>(true);
 });
 
 test("Successfully parses undefined using the default value from callback", (t) => {
@@ -1770,6 +1786,11 @@ test("Successfully parses undefined using the default value from callback", (t) 
   const value = S.parseOrThrow(undefined, schema);
 
   t.deepEqual(value, "foo");
+  t.deepEqual(
+    schema.default,
+    undefined,
+    "Currently doesn't work with callback default"
+  );
 
   expectType<SchemaEqual<typeof schema, string, string | undefined>>(true);
 });
@@ -2048,6 +2069,11 @@ test("Full Set schema", (t) => {
 
 test("Coerce string to number", (t) => {
   const schema = S.to(S.string, S.number);
+
+  t.is(schema.to, S.number);
+
+  expectType<SchemaEqual<typeof schema, number, string>>(true);
+  expectType<TypeEqual<typeof schema.to, S.Schema<unknown> | undefined>>(true);
 
   t.deepEqual(S.parseOrThrow("123", schema), 123);
   t.deepEqual(S.parseOrThrow("123.4", schema), 123.4);

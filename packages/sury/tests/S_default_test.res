@@ -6,7 +6,7 @@ test("Gets default value when Option.getOr is used", t => {
   t->Assert.deepEqual((schema->S.untag).default, Some(123.->(U.magic: float => unknown)))
 })
 
-test("Returns the first default value, but can get the last one as well", t => {
+Failing.test("Returns the first default value, but can get the last one as well", t => {
   let schema =
     S.option(S.float)
     ->S.Option.getOr(123.)

@@ -19,7 +19,6 @@ console.log(S.boolean)
 
   - Regression: Removed the ability to set default for optional union schema.
   - Regression: `S.Option.getOrWith` is not reflected on schema
-    // FIXME: Default callback; JSON Schema support; TS types and tests
 
 - Fixed reverse parsing of shrinked schemas with `S.shape`
 - Fixed reverse parsing of `S.option(S.object(_ => ()))` in ReScript
@@ -60,6 +59,7 @@ console.log(S.boolean)
 - Better inline empty recursive schema operations (union convert)
 - Don't iterate over JSON value when it's `S.json` convert without parsing
 - Add `S.date.with(S.migrationFrom, S.string, <optionalParser>)`.
+- Fix `Returns the first default value, but can get the last one as well` test
 
 ### Final release fixes
 

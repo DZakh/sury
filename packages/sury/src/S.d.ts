@@ -128,7 +128,6 @@ export type Schema<Output, Input = unknown> = {
     arg2: A2
   ): Schema<O, I>;
 
-  readonly $ref?: string;
   readonly $defs?: Record<string, Schema<unknown>>;
 
   readonly name?: string;
@@ -137,6 +136,8 @@ export type Schema<Output, Input = unknown> = {
   readonly deprecated?: boolean;
   readonly examples?: Input[];
   readonly noValidation?: boolean;
+  readonly default?: Input;
+  readonly to?: Schema<unknown>;
 
   readonly ["~standard"]: StandardSchemaV1.Props<Input, Output>;
 } & (

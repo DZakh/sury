@@ -477,6 +477,7 @@ and untagged = private {
   additionalItems?: additionalItems,
   anyOf?: array<t<unknown>>,
   has?: dict<bool>,
+  to?: t<unknown>,
 }
 and item = {
   schema: t<unknown>,

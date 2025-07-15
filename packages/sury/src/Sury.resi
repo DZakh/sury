@@ -221,6 +221,7 @@ and untagged = private {
   additionalItems?: additionalItems,
   anyOf?: array<t<unknown>>,
   has?: dict<bool>,
+  to?: t<unknown>,
 }
 @unboxed and additionalItems = | ...additionalItemsMode | Schema(t<unknown>)
 and item = {
