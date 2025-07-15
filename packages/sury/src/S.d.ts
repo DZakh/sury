@@ -380,7 +380,7 @@ export function union<A, B extends unknown[]>(
   UnknownToInput<A> | UnknownArrayToInput<B>[number]
 >;
 export function union<T extends unknown>(
-  schemas: T[]
+  schemas: readonly T[]
 ): Schema<UnknownToOutput<T>, UnknownToInput<T>>;
 
 export const string: Schema<string, string>;

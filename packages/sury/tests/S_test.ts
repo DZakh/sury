@@ -2651,6 +2651,7 @@ test("Preprocess nested fields", (t) => {
 });
 
 test("Union of object keys", (t) => {
+  // https://github.com/DZakh/sury/issues/128
   const allCurrencies = {
     USD: 1,
     BGP: 2,
@@ -2689,5 +2690,20 @@ test("Union of object keys", (t) => {
   t.throws(() => S.parseOrThrow("GBP", schema), {
     name: "SuryError",
     message: `Failed parsing: Expected "USD" | "BGP" | "EUR", received "GBP"`,
+  });
+});
+
+test("Union of dynamic enum as const", (t) => {
+  // https://github.com/DZakh/sury/issues/137
+  const test = ["a", "b", "c"] as const;
+  const schema = S.union(test);
+
+  expectType<SchemaEqual<typeof schema, "a" | "b" | "c", "a" | "b" | "c">>(
+    true
+  );
+  t.deepEqual(S.parseOrThrow("a", schema), "a");
+  t.throws(() => S.parseOrThrow("d", schema), {
+    name: "SuryError",
+    message: `Failed parsing: Expected "a" | "b" | "c", received "d"`,
   });
 });
