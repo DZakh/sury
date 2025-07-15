@@ -473,7 +473,7 @@ export function optional<
   // To make .with work
   _?: never
 ): Schema<
-  Or extends undefined ? Output | undefined : Output | Or,
+  Or extends undefined ? Output | undefined : Output,
   Input | undefined
 >;
 
@@ -486,10 +486,7 @@ export function nullable<
   or?: (() => Or) | Or,
   // To make .with work
   _?: never
-): Schema<
-  Or extends undefined ? Output | undefined : Output | Or,
-  Input | null
->;
+): Schema<Or extends undefined ? Output | undefined : Output, Input | null>;
 
 export const nullish: <Output, Input>(
   schema: Schema<Output, Input>
