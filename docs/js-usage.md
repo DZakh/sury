@@ -363,6 +363,7 @@ S.schema(NaN);
 // Catch-all type
 // Allows any value
 S.unknown;
+S.any;
 
 // Never type
 // Allows no values

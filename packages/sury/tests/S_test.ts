@@ -196,6 +196,16 @@ test("Successfully parses unknown", (t) => {
   expectType<TypeEqual<typeof value, unknown>>(true);
 });
 
+test("Successfully parses any", (t) => {
+  const schema = S.any;
+  const value = S.parseOrThrow(true, schema);
+
+  t.deepEqual(value, true);
+
+  expectType<SchemaEqual<typeof schema, any, any>>(true);
+  expectType<TypeEqual<typeof value, any>>(true);
+});
+
 test("Successfully parses json", (t) => {
   const schema = S.json;
   const value = S.parseOrThrow(true, schema);

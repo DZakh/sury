@@ -94,6 +94,10 @@ var filesMapping = [
     "S.unknown"
   ],
   [
+    "any",
+    "S.unknown"
+  ],
+  [
     "optional",
     "S.js_optional"
   ],
