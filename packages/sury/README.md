@@ -15,7 +15,7 @@ The fastest schema with next-gen DX.
 - Implements the [Standard Schema](https://standardschema.dev/) spec
 - Built-in JSON Schema support
 - Detailed and easy to understand error messages
-- Declarative transformations with automatic serialization support
+- Declarative transformations with automatic serialization
 - Immutable API with 100+ different operations
 - Flexible global config
 - Opt-in ReScript codegen from type definitions (ppx)
@@ -35,7 +35,7 @@ Also, you can use **Sury** as a building block for your own tools or use existin
 - [For ReScript users](/docs/rescript-usage.md)
 - [For PPX users](/packages/sury-ppx/README.md)
 
-> ⚠️ Be aware that **Sury** uses `new Function` for parsing. The approach is battle tested and has no known security issues. It's also used by TypeBox, Zod@4 and ArkType. Although, some environments like Cloudflare Workers will not allow it.
+> ⚠️ Be aware that **Sury** uses `new Function` for parsing. The approach is battle tested and has no known security issues. It's also used by TypeBox, Zod@4 and ArkType. Even Cloudflare Workers recently added support for it.
 
 ## Resources
 
@@ -65,3 +65,16 @@ At the same time **Sury** is the fastest composable validation library in the en
 | **Codegen-free** (Doesn't need compiler) | ✅                                                | ✅                                      | ✅                                                         | ✅                                                                     | ✅                                    |
 | **Infered TS Type**                      | `S.Schema<{foo: string}, {foo: string}>`          | `z.ZodObject<{foo: z.ZodString}, {}>`   | `TObject<{foo: TString}>`                                  | `v.ObjectSchema<{readonly foo: v.StringSchema<undefined>}, undefined>` | `Type<{foo: string}, {}>`             |
 | **Ecosystem**                            | ⭐️⭐️                                            | ⭐️⭐️⭐️⭐️⭐️                         | ⭐️⭐️⭐️⭐️⭐️                                            | ⭐️⭐️⭐️                                                              | ⭐️⭐️                                |
+
+## Sponsorship
+
+If you're enjoying **Sury** and want to give back, that would be rad!
+
+Your sponsorship doesn't go towards anything specific – it's simply a wonderful way to say "thank you" and make me happy. 😁
+
+Donate with **USDT**:
+
+- ERC20: `0x509fCF7C24A94a776eb92B56B9DA4aA145615529`
+- TRC20: `TFg5hKgkdcrFnPHNgYqfbp9yMyx25uaWrF`
+
+DM me on [X/Twitter](https://x.com/dzakh_dev) if you want to be featured or just to say hi! This would mean so much to me. ✨

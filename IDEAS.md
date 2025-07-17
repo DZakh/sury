@@ -2,48 +2,6 @@
 
 ## v11
 
-```diff
-console.log(S.boolean)
-
-// Before:
-- {type: 'boolean', ~standard: Object, b: ƒ, with: ƒ}
-
-// After:
-+ Schema <[Object: null prototype]> { type: 'boolean' }
-// or
-+ @Object { type: 'boolean' }
-```
-
-- Use `Sury` instead of `Schema` in a panic error message
-- Added `default` field to the schema. Removed `S.Option.default` previously exposed to ReScript users. Schemas with `default` are now more optimised and have correct data representation.
-
-  - Regression: Removed the ability to set default for optional union schema.
-  - Regression: `S.Option.getOrWith` is not reflected on schema
-
-- Fixed reverse parsing of shrinked schemas with `S.shape`
-- Fixed reverse parsing of `S.option(S.object(_ => ()))` in ReScript
-
-- JS/TS `S.merge` now supports only structured object schemas without transformations, but becomes more performant and powerful:
-
-  - Now supports reverse parsing (serializing)
-  - Now supports overwriting fields with the same name
-  - TODO: Improve the TS type
-
-- ReScript: Added `S.castToAny` and renamed `S.toUnknown` -> `S.castToUnknown`. This is to prevent confusion with `->S.to(S.unknown)` which is a very different operation.
-
-- Start refactoring internal schema representation to reflect transformations
-  // TODO: Can reuse the S.schema logic for S.object to not recreate an object on serializing
-
-- Updated `S.recursive` to require an identifier. Recursive schemas now have a better performance and an internal representation matching JSON Schema spec. Sury schema now also exposes `$ref` and `$defs` fields, as well as introduces new `ref` type, while previous `json` type got deprecated.
-
-  - Additionally `S.toJSONSchema` now supports recursive schemas.
-
-- Removed `S.catch` from ReScript API. You can use a combination of `S.unknown`, `S.union` and `S.transform` instead.
-
-- `S.json(validate)` changed to `S.json` and now uses recursive schema as internal representation. The `json` schema type was removed. To create a JSON schema without validation you can use `S.json.with(S.noValidation, true)`
-
-- Changed internal representation of the object schema to have JSON Schema-like `properties` field instead of `fields`.
-
 ### ideas
 
 - Add `S.parseFromOrThrow(fromSchema, toSchema)` and `convertFromOrThrow` + async.
@@ -55,7 +13,6 @@ console.log(S.boolean)
 - Add `S.to(from, target, parser, serializer)` instead of `S.transform`?
 - Remove `s.fail` with `throw new Error`
 - Make built-in refinements not work with `unknown`. Use `S.to` (manually & automatically) to deside the type first
-- Add `S.any` (Maybe in JS? In ReScript only possible to have `castToAny`)
 - Better inline empty recursive schema operations (union convert)
 - Don't iterate over JSON value when it's `S.json` convert without parsing
 - Add `S.date.with(S.migrationFrom, S.string, <optionalParser>)`.
