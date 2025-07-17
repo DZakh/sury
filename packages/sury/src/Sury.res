@@ -637,7 +637,7 @@ d(p, 'RE_EXN_ID', {
   value: $$Error,
 });
 
-var Schema = function() {}, sp = Object.create(null);
+var Schema = function(type) {this.type=type}, sp = Object.create(null);
 d(sp, 'with', {
   get() {
     return (fn, ...args) => fn(this, ...args)
@@ -664,7 +664,7 @@ Schema.prototype = sp;
 }
 
 @new
-external base: unit => internal = "Schema"
+external base: tag => internal = "Schema"
 
 type s<'value> = {
   schema: t<'value>,
@@ -700,7 +700,7 @@ module Flag = {
 // k > "a" is hacky way to skip all numbers
 // Should actually benchmark whether it's faster
 let copyWithoutCache: internal => internal = %raw(`(schema) => {
-  let c = new Schema()
+  let c = new Schema(schema.type)
   for (let k in schema) {
     if (k > "a" || k === "$ref" || k === "$defs") {
       c[k] = schema[k]
@@ -1443,8 +1443,7 @@ module B = Builder.B
 // FIXME: Recursive
 let nonJsonableTags = X.Set.fromArray([(Unknown: tag), NaN, BigInt, Function, Instance, Symbol])
 
-let unknown = base()
-unknown.tag = Unknown
+let unknown = base(Unknown)
 let unknown: t<unknown> = unknown->castToPublic
 
 let setHas = (has, tag: tag) => {
@@ -2043,20 +2042,11 @@ let assertOrThrow = (any, schema) => {
 module Literal = {
   open X
 
-  let undefined = base()
-  undefined.tag = Undefined
+  let undefined = base(Undefined)
   undefined.const = %raw(`void 0`)
 
-  let null = base()
-  null.tag = Null
+  let null = base(Null)
   null.const = %raw(`null`)
-
-  @inline
-  let make = tag => {
-    let mut = base()
-    mut.tag = tag
-    mut
-  }
 
   let parse = (value): internal => {
     let value = value->castAnyToUnknown
@@ -2065,13 +2055,13 @@ module Literal = {
     } else {
       let schema = switch value->Type.typeof {
       | #undefined => undefined
-      | #number if value->(Obj.magic: unknown => float)->Js.Float.isNaN => make(NaN)
+      | #number if value->(Obj.magic: unknown => float)->Js.Float.isNaN => base(NaN)
       | #object => {
-          let i = make(Instance)
+          let i = base(Instance)
           i.class = (value->Obj.magic)["constructor"]
           i
         }
-      | typeof => make(typeof->(Obj.magic: X.Type.t => tag))
+      | typeof => base(typeof->(Obj.magic: X.Type.t => tag))
       }
       schema.const = Some(value->Obj.magic)
       schema
@@ -2153,8 +2143,7 @@ module Metadata = {
 let defsPath = `#/$defs/`
 let recursive = (name, fn) => {
   let ref = `${defsPath}${name}`
-  let refSchema = base()
-  refSchema.tag = Ref
+  let refSchema = base(Ref)
   refSchema.ref = Some(ref)
   refSchema.name = Some(name)
 
@@ -2176,8 +2165,7 @@ let recursive = (name, fn) => {
   if isNestedRec {
     refSchema->castToPublic
   } else {
-    let schema = base()
-    schema.tag = Ref
+    let schema = base(Ref)
     schema.name = def.name
     schema.ref = Some(ref)
     schema.defs = globalConfig.defsAccumulator
@@ -2270,8 +2258,7 @@ let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) =
       }),
     )
     mut.to = Some({
-      let to = base()
-      to.tag = Unknown
+      let to = base(Unknown)
       to.serializer = Some(
         (b, ~input, ~selfSchema, ~path) => {
           switch transformer(b->B.effectCtx(~selfSchema, ~path)) {
@@ -2291,8 +2278,7 @@ let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) =
 
 let unit: t<unit> = Literal.undefined->castToPublic
 
-let nullAsUnit = base()
-nullAsUnit.tag = Null
+let nullAsUnit = base(Null)
 nullAsUnit.const = %raw(`null`)
 nullAsUnit.to = Some(unit->castToInternal)
 let nullAsUnit = nullAsUnit->castToPublic
@@ -2311,8 +2297,7 @@ let neverBuilder = Builder.make((b, ~input, ~selfSchema, ~path) => {
   input
 })
 
-let never = base()
-never.tag = Never
+let never = base(Never)
 never.refiner = Some(neverBuilder)
 let never: t<never> = never->castToPublic
 
@@ -2707,8 +2692,7 @@ module Union = {
           has->setHas(schema.tag)
         }
       }
-      let mut = base()
-      mut.tag = Union
+      let mut = base(Union)
       mut.anyOf = Some(anyOf->X.Set.toArray)
       mut.refiner = Some(refiner)
       mut.has = Some(has)
@@ -2969,8 +2953,7 @@ module Array = {
   })
 
   let factory = item => {
-    let mut = base()
-    mut.tag = Array
+    let mut = base(Array)
     mut.additionalItems = Some(Schema(item->castToInternal->castToPublic))
     mut.items = Some(X.Array.immutableEmpty)
     mut.refiner = Some(arrayRefiner)
@@ -3080,8 +3063,7 @@ module Dict = {
 
   let factory = item => {
     let item = item->castToInternal
-    let mut = base()
-    mut.tag = Object
+    let mut = base(Object)
     mut.properties = Some(X.Object.immutableEmpty)
     mut.items = Some(X.Array.immutableEmpty)
     mut.additionalItems = Some(Schema(item->castToPublic))
@@ -3131,16 +3113,14 @@ module String = {
   // Adapted from https://stackoverflow.com/a/3143231
   let datetimeRe = %re(`/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/`)
 
-  let schema = base()
-  schema.tag = String
+  let schema = base(String)
   let schema: t<string> = schema->castToPublic
 }
 
 module JsonString = {
   let factory = (item, ~space=0) => {
     let item = item->castToInternal
-    let mut = base()
-    mut.tag = String
+    let mut = base(String)
     mut.parser = Some(
       Builder.make((b, ~input, ~selfSchema as _, ~path) => {
         let jsonVal = b->B.allocateVal
@@ -3181,12 +3161,10 @@ module JsonString = {
   }
 }
 
-let bool = base()
-bool.tag = Boolean
+let bool = base(Boolean)
 let bool: t<bool> = bool->castToPublic
 
-let symbol = base()
-symbol.tag = Symbol
+let symbol = base(Symbol)
 let symbol: t<Js.Types.symbol> = symbol->castToPublic
 
 module Int = {
@@ -3210,8 +3188,7 @@ module Int = {
     }
   }
 
-  let schema = base()
-  schema.tag = Number
+  let schema = base(Number)
   schema.format = Some(Int32)
   let schema: schema<int> = schema->castToPublic
 }
@@ -3236,14 +3213,12 @@ module Float = {
     }
   }
 
-  let schema = base()
-  schema.tag = Number
+  let schema = base(Number)
   let schema: schema<float> = schema->castToPublic
 }
 
 module BigInt = {
-  let schema = base()
-  schema.tag = BigInt
+  let schema = base(BigInt)
   let schema: schema<bigint> = schema->castToPublic
 }
 
@@ -3330,8 +3305,7 @@ let list = schema => {
 }
 
 let instance = class_ => {
-  let mut = base()
-  mut.tag = Instance
+  let mut = base(Instance)
   mut.class = class_->Obj.magic
   mut->castToPublic
 }
@@ -3876,8 +3850,7 @@ module Schema = {
         let items = []
 
         let schema = {
-          let schema = base()
-          schema.tag = Object
+          let schema = base(Object)
           schema.items = Some(items)
           schema.properties = Some(properties)
           schema.additionalItems = Some(globalConfig.defaultAdditionalItems)
@@ -4050,8 +4023,7 @@ module Schema = {
 
       let definition = definer((ctx :> Object.s))->(Obj.magic: value => unknown)
 
-      let mut = base()
-      mut.tag = Object
+      let mut = base(Object)
       mut.items = Some(items)
       mut.properties = Some(properties)
       mut.additionalItems = Some(globalConfig.defaultAdditionalItems)
@@ -4107,8 +4079,7 @@ module Schema = {
       }
     }
 
-    let mut = base()
-    mut.tag = Array
+    let mut = base(Array)
     mut.items = Some(items)
     mut.additionalItems = Some(Strict)
     mut.parser = Some(advancedBuilder(~definition))
@@ -4151,8 +4122,7 @@ module Schema = {
             Node({
               path,
               schema: {
-                let mut = base()
-                mut.tag = Array
+                let mut = base(Array)
                 mut.items = Some(items)
                 mut.additionalItems = Some(Strict)
                 mut.serializer = Some(neverBuilder)
@@ -4185,8 +4155,7 @@ module Schema = {
             Node({
               path,
               schema: {
-                let mut = base()
-                mut.tag = Object
+                let mut = base(Object)
                 mut.items = Some(items)
                 mut.properties = Some(properties)
                 mut.additionalItems = Some(globalConfig.defaultAdditionalItems)
@@ -4225,8 +4194,7 @@ module Schema = {
         }
         let items = node->(Obj.magic: array<unknown> => array<item>)
 
-        let mut = base()
-        mut.tag = Array
+        let mut = base(Array)
         mut.items = Some(items)
         mut.additionalItems = Some(Strict)
         mut.refiner = Some(schemaRefiner)
@@ -4256,8 +4224,7 @@ module Schema = {
             node->Js.Dict.set(location, schema->(Obj.magic: internal => unknown))
             items->Js.Array2.unsafe_set(idx, item)
           }
-          let mut = base()
-          mut.tag = Object
+          let mut = base(Object)
           mut.items = Some(items)
           mut.properties = Some(node->(Obj.magic: dict<unknown> => dict<internal>))
           mut.additionalItems = Some(globalConfig.defaultAdditionalItems)
@@ -4358,8 +4325,7 @@ let unnest = schema => {
       InternalError.panic("Invalid empty object for S.unnest schema.")
     }
     let schema = schema->castToInternal
-    let mut = base()
-    mut.tag = Array
+    let mut = base(Array)
     mut.items = Some(
       items->Js.Array2.mapi((item, idx) => {
         let location = idx->Js.Int.toString
@@ -4416,8 +4382,7 @@ let unnest = schema => {
       }),
     )
 
-    let to = base()
-    to.tag = Array
+    let to = base(Array)
     to.items = Some(X.Array.immutableEmpty)
     to.additionalItems = Some(Schema(schema->castToPublic))
     to.serializer = Some(unnestSerializer)
@@ -4673,12 +4638,10 @@ let jsonString = JsonString.factory
 
 let jsonName = `JSON`
 let json = {
-  let jsonRef = base()
-  jsonRef.tag = Ref
+  let jsonRef = base(Ref)
   jsonRef.ref = Some(`${defsPath}${jsonName}`)
   jsonRef.name = Some(jsonName)
-  let json = base()
-  json.tag = jsonRef.tag
+  let json = base(jsonRef.tag)
   json.ref = jsonRef.ref
   json.name = Some(jsonName)
   let defs = Js.Dict.empty()
@@ -5118,8 +5081,7 @@ let js_merge = (s1, s2) => {
       ->ignore
     }
 
-    let mut = base()
-    mut.tag = Object
+    let mut = base(Object)
     mut.items = Some(items)
     mut.properties = Some(properties)
     mut.additionalItems = Some(additionalItems1)
