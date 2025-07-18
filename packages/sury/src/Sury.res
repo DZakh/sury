@@ -1484,7 +1484,7 @@ let setHas = (has, tag: tag) => {
   )
 }
 
-let rec parse = (prevB: b, ~schema, ~input as inputArg, ~path) => {
+let rec parse = (prevB: b, ~schema, ~input as inputArg: val, ~path) => {
   let b = B.scope(prevB)
 
   if schema.defs->Obj.magic {
@@ -1492,13 +1492,14 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg, ~path) => {
   }
 
   if (
-    !(inputArg.flag->Flag.unsafeHas(ValFlag.valid)) &&
-    (b.global.flag->Flag.unsafeHas(Flag.typeValidation) || schema->isLiteral)
+    inputArg.schema.tag === Unknown &&
+      (b.global.flag->Flag.unsafeHas(Flag.typeValidation) || schema->isLiteral)
   ) {
     if !(schema.noValidation->X.Option.getUnsafe) {
       b.filterCode = prevB->B.typeFilterCode(~schema, ~input=inputArg, ~path)
     }
     inputArg.flag = inputArg.flag->Flag.with(ValFlag.valid)
+    inputArg.schema = schema // FIXME: Assign not the whole schema, but only the type part
   }
 
   let input = ref(inputArg)
@@ -2339,16 +2340,22 @@ module Union = {
   @unboxed
   type itemCode = Single(string) | Multiple(array<string>)
 
-  let getItemCode = (b, ~schema, ~input, ~output: val, ~deopt, ~path) => {
+  let getItemCode = (b, ~schema, ~input: val, ~output: val, ~deopt as _, ~path) => {
     try {
       let bb = b->B.scope
-      if deopt {
-        let filterCode = bb->B.typeFilterCode(~schema, ~input, ~path)
-        bb.code = bb.code ++ filterCode
-      }
-      let input = {
+      // if deopt {
+      //   let filterCode = bb->B.typeFilterCode(~schema, ~input, ~path)
+      //   bb.code = bb.code ++ filterCode
+      // }
+      // let input = {
+      //   ...input,
+      //   flag: input.flag->Flag.with(ValFlag.valid),
+      // }
+      // Recreate input val for every union item
+      // since it might be mutated.
+      let input: val = {
         ...input,
-        flag: input.flag->Flag.with(ValFlag.valid),
+        schema: input.schema,
       }
       let itemOutput = bb->parse(~schema, ~input, ~path)
 
