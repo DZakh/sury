@@ -4,6 +4,8 @@
 
 ### ideas
 
+- Add `promise` type and `S.promise` (instead of async flag internally)
+
 - Add `S.parseFromOrThrow(fromSchema, toSchema)` and `convertFromOrThrow` + async.
   Deprecate `reverseConvert` and `parseJsonOrThrow`, `parseJsonStringOrThrow`, `convertToJsonOrThrow`, `convertToJsonStringOrThrow`, `reverseConvertOrThrow`, `reverseConvertToJsonOrThrow`, `reverseConvertToJsonStringOrThrow`
 
