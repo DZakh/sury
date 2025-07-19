@@ -423,10 +423,10 @@ test("Coerce from string to bigint", t => {
 test("Coerce string after a transform", t => {
   let schema = S.string->S.transform(_ => {parser: v => v, serializer: v => v})->S.to(S.bool)
 
-  // t->U.assertThrowsMessage(
-  //   () => "true"->S.parseOrThrow(schema),
-  //   `Failed parsing: Expected boolean, received "true"`,
-  // )
+  t->U.assertThrowsMessage(
+    () => "true"->S.parseOrThrow(schema),
+    `Failed parsing: Expected boolean, received "true"`,
+  )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
