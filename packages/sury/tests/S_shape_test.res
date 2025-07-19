@@ -12,7 +12,7 @@ asyncTest("Parses with wrapping async schema in variant", async t => {
   t->Assert.deepEqual(await "Hello world!"->S.parseAsyncOrThrow(schema), Ok("Hello world!"))
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#Parse,
+    ~op=#ParseAsync,
     `i=>{if(typeof i!=="string"){e[0](i)}return Promise.all([e[1](i),]).then(a=>({"TAG":"Ok","_0":a[0],}))}`,
   )
 })

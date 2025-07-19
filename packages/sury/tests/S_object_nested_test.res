@@ -276,7 +276,7 @@ test("Nested preprocessed tags on reverse convert", t => {
   )
 
   t->U.assertCompiledCode(
-    ~op=#ParseSync,
+    ~op=#Parse,
     ~schema,
     `i=>{if(typeof i!=="object"||!i||typeof i["nested"]!=="object"||!i["nested"]){e[0](i)}let v0=i["nested"],v1=v0["tag"],v3=v0["intTag"];if(typeof v1!=="string"){e[1](v1)}let v2=e[2](v1);if(typeof v2!=="string"){e[3](v2)}if(v2!=="value"){e[4](v2)}if(typeof v3!=="string"){e[5](v3)}let v4=e[6](v3);if(typeof v4!=="string"){e[7](v4)}v4==="1"||e[8](v4);return void 0}`,
   )

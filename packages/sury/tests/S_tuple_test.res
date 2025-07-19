@@ -307,7 +307,7 @@ module Compiled = {
 
     t->U.assertCompiledCode(
       ~schema,
-      ~op=#Parse,
+      ~op=#ParseAsync,
       `i=>{if(!Array.isArray(i)||i.length!==2){e[0](i)}let v0=i["1"];if(typeof v0!=="boolean"){e[2](v0)}return Promise.all([e[1](i["0"]),]).then(a=>([a[0],v0,]))}`,
     )
   })

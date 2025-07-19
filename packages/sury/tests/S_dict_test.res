@@ -61,7 +61,7 @@ module CommonWithNested = {
 
     t->U.assertCompiledCode(
       ~schema,
-      ~op=#Parse,
+      ~op=#ParseAsync,
       `i=>{if(typeof i!=="object"||!i||Array.isArray(i)){e[0](i)}let v3={};for(let v0 in i){let v2;try{v2=e[1](i[v0]).catch(v1=>{if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1})}catch(v1){if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1}v3[v0]=v2}return new Promise((v4,v5)=>{let v7=Object.keys(v3).length;for(let v0 in v3){v3[v0].then(v6=>{v3[v0]=v6;if(v7--===1){v4(v3)}},v5)}})}`,
     )
   })

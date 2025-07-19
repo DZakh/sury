@@ -270,7 +270,7 @@ asyncTest("Can apply other actions after async transform", t => {
 
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#Parse,
+    ~op=#ParseAsync,
     `i=>{if(typeof i!=="string"){e[0](i)}return e[1](i).then(e[2]).then(e[3])}`,
   )
 
@@ -302,7 +302,7 @@ test("Compiled async parse code snapshot", t => {
 
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#Parse,
+    ~op=#ParseAsync,
     `i=>{if(typeof i!=="number"||i>2147483647||i<-2147483648||i%1!==0){e[0](i)}return e[1](i)}`,
   )
 })

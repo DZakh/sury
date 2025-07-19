@@ -1137,7 +1137,7 @@ module Compiled = {
 
     t->U.assertCompiledCode(
       ~schema,
-      ~op=#Parse,
+      ~op=#ParseAsync,
       `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["bar"];if(typeof v0!=="boolean"){e[2](v0)}return Promise.all([e[1](i["foo"]),]).then(a=>({"foo":a[0],"bar":v0,}))}`,
     )
   })
@@ -1149,7 +1149,7 @@ module Compiled = {
 
     t->U.assertCompiledCode(
       ~schema,
-      ~op=#Parse,
+      ~op=#ParseAsync,
       `i=>{if(typeof i!=="object"||!i){e[0](i)}return e[1](i["foo"])}`,
     )
   })

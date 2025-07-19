@@ -489,7 +489,7 @@ asyncTest("Successfully parses recursive object with async parse function", t =>
 
   t->U.assertCompiledCode(
     ~schema=nodeSchema,
-    ~op=#Parse,
+    ~op=#ParseAsync,
     `i=>{let v0=e[0](i);return v0}
 Node: i=>{if(typeof i!=="object"||!i||!Array.isArray(i["Children"])){e[0](i)}let v0=i["Id"];if(typeof v0!=="string"){e[1](v0)}let v1=i["Children"],v6=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v5;try{let v4=e[3][3](v1[v2]);v5=v4.catch(v3=>{if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+'["'+v2+'"]'+v3.path}throw v3})}catch(v3){if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+'["'+v2+'"]'+v3.path}throw v3}v6[v2]=v5}return Promise.all([e[2](v0),Promise.all(v6),]).then(a=>({"id":a[0],"children":a[1],}))}`,
   )

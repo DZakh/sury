@@ -438,7 +438,7 @@ test("Instance schema should be checked before object even if it's later item in
 
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ParseSync,
+    ~op=#Parse,
     `i=>{if(i instanceof e[0]){}else if(typeof i==="object"&&i){let v0=i["foo"];if(typeof v0!=="string"){e[1](v0)}i=[v0,]}else{e[2](i)}return i}`,
   )
 })
@@ -523,7 +523,7 @@ asyncTest("Compiled async parse code snapshot", async t => {
 
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#Parse,
+    ~op=#ParseAsync,
     `i=>{if(typeof i==="number"){if(i===0){i=e[0](i)}else if(!(i===1)){e[1](i)}}else{e[2](i)}return Promise.resolve(i)}`,
   )
   t->U.assertCompiledCode(
