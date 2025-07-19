@@ -684,7 +684,6 @@ type s<'value> = {
 
 module ValFlag = {
   @inline let none = 0
-  @inline let valid = 1
   @inline let async = 2
 }
 
@@ -1000,17 +999,12 @@ module Builder = {
     let allocateVal = (b: b, ~schema): val => {
       let v = b.global->varWithoutAllocation
       b.allocate(v)
-      {b, var: _var, inline: v, flag: ValFlag.valid, schema}
+      {b, var: _var, inline: v, flag: ValFlag.none, schema}
     }
 
     @inline
     let val = (b: b, initial: string, ~schema): val => {
-      {b, var: _notVar, inline: initial, flag: ValFlag.valid, schema}
-    }
-
-    @inline
-    let notValidVal = (b: b, initial: string): val => {
-      {b, var: _notVar, inline: initial, flag: ValFlag.none, schema: unknown}
+      {b, var: _notVar, inline: initial, flag: ValFlag.none, schema}
     }
 
     @inline
@@ -1019,7 +1013,7 @@ module Builder = {
         b,
         var: _notVar,
         inline: initial,
-        flag: ValFlag.async->Flag.with(ValFlag.valid),
+        flag: ValFlag.async,
         schema: unknown, // FIXME: Should pass schema here
       }
     }
@@ -1090,7 +1084,6 @@ module Builder = {
             objectVal.flag = objectVal.flag->Flag.with(ValFlag.async)
             objectVal.inline = `Promise.all([${objectVal.promiseAllContent}]).then(a=>(${objectVal.inline}))`
           }
-          objectVal.flag = objectVal.flag->Flag.with(ValFlag.valid)
           objectVal.schema = schema
           (objectVal :> val)
         }
@@ -1614,8 +1607,7 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg: val, ~path) => {
         | ({tag: fromTag}, {tag: targetTag})
           if fromTag === targetTag && isFromLiteral && !isTargetLiteral => ()
         | (_, {tag: Unknown}) => ()
-        | ({tag: Unknown}, _) | ({tag: String}, {tag: String, const: _}) =>
-          input.contents.flag = input.contents.flag->Flag.without(ValFlag.valid)
+        | ({tag: Unknown}, _) | ({tag: String}, {tag: String, const: _}) => ()
         | ({tag: String}, {tag: String}) // FIXME: validate that refinements match
         | ({tag: Number, format: Int32}, {tag: Number, format: ?None}) => ()
         | ({tag: Boolean | Number | BigInt | Undefined | Null | NaN, ?const}, {tag: String})
@@ -1734,7 +1726,7 @@ and internalCompile = (~schema, ~flag, ~defs) => {
     b,
     var: B._var,
     inline: Builder.intitialInputVar,
-    flag: flag->Flag.has(Flag.typeValidation) || schema->isLiteral ? ValFlag.none : ValFlag.valid,
+    flag: ValFlag.none,
     schema: unknown,
   }
 
@@ -3019,7 +3011,7 @@ module Array = {
     let iteratorVar = b.global->B.varWithoutAllocation
 
     let bb = b->B.scope
-    let itemInput = bb->B.notValidVal(`${inputVar}[${iteratorVar}]`)
+    let itemInput = bb->B.val(`${inputVar}[${iteratorVar}]`, ~schema=unknown) // FIXME: should get from additionalItems
     let itemOutput =
       bb->B.withPathPrepend(~input=itemInput, ~path, ~dynamicLocationVar=iteratorVar, (
         b,
@@ -3123,7 +3115,7 @@ module Dict = {
     let keyVar = b.global->B.varWithoutAllocation
 
     let bb = b->B.scope
-    let itemInput = bb->B.notValidVal(`${inputVar}[${keyVar}]`)
+    let itemInput = bb->B.val(`${inputVar}[${keyVar}]`, ~schema=unknown) // FIXME: should get from additionalItems
     let itemOutput =
       bb->B.withPathPrepend(~path, ~input=itemInput, ~dynamicLocationVar=keyVar, (
         b,
@@ -3668,13 +3660,6 @@ module Schema = {
 
         let itemInput = b->B.Val.get(input, inlinedLocation)
         let path = path->Path.concat(inlinedLocation->Path.fromInlinedLocation)
-
-        if (
-          input.flag->Flag.unsafeHas(ValFlag.valid) && (schema->isLiteral || schema.tag === Object)
-        ) {
-          itemInput.flag = itemInput.flag->Flag.with(Flag.typeValidation)
-        }
-
         objectVal->B.Val.Object.add(inlinedLocation, b->parse(~schema, ~input=itemInput, ~path))
       }
 
@@ -3719,13 +3704,6 @@ module Schema = {
 
         let itemInput = b->B.Val.get(input, inlinedLocation)
         let path = path->Path.concat(inlinedLocation->Path.fromInlinedLocation)
-
-        if (
-          input.flag->Flag.unsafeHas(ValFlag.valid) && (schema->isLiteral || schema.tag === Object)
-        ) {
-          itemInput.flag = itemInput.flag->Flag.with(ValFlag.valid)
-        }
-
         outputs->Js.Dict.set(inlinedLocation, b->parse(~schema, ~input=itemInput, ~path))
       }
 
@@ -3789,13 +3767,7 @@ module Schema = {
                   b,
                   var: B._notVar,
                   inline: `${b->B.Val.var(input)}${ritemPath}`,
-                  // For S.object and S.tuple the value should be already validated,
-                  // but not for S.shape
-                  flag: if to->Obj.magic {
-                    ValFlag.none
-                  } else {
-                    ValFlag.valid
-                  },
+                  flag: ValFlag.none,
                   // FIXME: Replace with simpler lookup by location
                   schema: switch input.schema.items
                   ->X.Option.getUnsafe
@@ -4461,7 +4433,7 @@ let unnestSerializer = Builder.make((b, ~input, ~selfSchema, ~path) => {
       b,
       var: B._notVar,
       inline: `Promise.all(${outputVar})`,
-      flag: ValFlag.async->Flag.with(ValFlag.valid),
+      flag: ValFlag.async,
       schema: selfSchema.to->X.Option.getUnsafe,
     }
   } else {
@@ -4469,7 +4441,7 @@ let unnestSerializer = Builder.make((b, ~input, ~selfSchema, ~path) => {
       b,
       var: B._var,
       inline: outputVar,
-      flag: ValFlag.valid,
+      flag: ValFlag.none,
       schema: selfSchema.to->X.Option.getUnsafe,
     }
   }
@@ -4506,7 +4478,7 @@ let unnest = schema => {
           let item = items->Js.Array2.unsafe_get(idx)
           itemInput->B.Val.Object.add(
             item.inlinedLocation,
-            bb->B.notValidVal(`${inputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]`),
+            bb->B.val(`${inputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]`, ~schema=unknown), // FIXME: should get from somewhere
           )
           lengthCode := lengthCode.contents ++ `${inputVar}[${idx->X.Int.unsafeToString}].length,`
         }
