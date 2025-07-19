@@ -215,7 +215,7 @@ test(
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i==="object"&&i){i={"BS_PRIVATE_NESTED_SOME_NONE":0}}else if(!(i===void 0)){e[1](i)}return i}`,
+      `i=>{if(typeof i==="object"&&i){i={"BS_PRIVATE_NESTED_SOME_NONE":0}}else if(!(i===void 0)){e[0](i)}return i}`,
     )
     t->U.assertCompiledCode(
       ~schema,
@@ -262,8 +262,7 @@ test("Option with transformed unknown", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    // TODO: Validation can be removed
-    `i=>{try{let v0={"field":i,};if(typeof v0!=="object"||!v0){e[0](v0)}i=v0}catch(e0){if(!(i===void 0)){e[1](i,e0)}}return i}`,
+    `i=>{try{i={"field":i,}}catch(e0){if(!(i===void 0)){e[0](i,e0)}}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,

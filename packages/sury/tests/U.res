@@ -94,6 +94,7 @@ let getCompiledCodeString = (
   schema,
   ~op: [
     | #Parse
+    | #ParseSync
     | #ParseAsync
     | #Convert
     | #ConvertAsync
@@ -108,8 +109,9 @@ let getCompiledCodeString = (
     (
       switch op {
       | #Parse
+      | #ParseSync
       | #ParseAsync =>
-        if op === #ParseAsync || schema->S.isAsync {
+        if op === #ParseAsync || (op !== #ParseSync && schema->S.isAsync) {
           let fn = schema->S.compile(~input=Any, ~output=Value, ~mode=Async, ~typeValidation=true)
           fn->magic
         } else {

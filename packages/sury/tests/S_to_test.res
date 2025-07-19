@@ -249,7 +249,7 @@ test("Coerce to literal can be used as tag and automatically embeded on reverse 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["tag"];if(typeof v0!=="string"){e[1](v0)}v0==="true"||e[2](v0);return e[3]}`,
+    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["tag"];if(typeof v0!=="string"){e[1](v0)}v0==="true"||e[2](v0);return void 0}`,
   )
 })
 

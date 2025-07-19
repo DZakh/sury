@@ -13,7 +13,7 @@ asyncTest("Parses with wrapping async schema in variant", async t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="string"){e[0](i)}return Promise.all([e[1](i),]).then(a=>({"TAG":e[2],"_0":a[0],}))}`,
+    `i=>{if(typeof i!=="string"){e[0](i)}return Promise.all([e[1](i),]).then(a=>({"TAG":"Ok","_0":a[0],}))}`,
   )
 })
 
@@ -88,7 +88,7 @@ test("Successfully parses when tuple is destructured", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(!Array.isArray(i)||i.length!==2||i["0"]!==true||i["1"]!==12){e[0](i)}return i["1"]}`,
+    `i=>{if(!Array.isArray(i)||i.length!==2||i["0"]!==true||i["1"]!==12){e[0](i)}return 12}`,
   )
 })
 
@@ -233,16 +233,11 @@ test("Reverse convert of tagged tuple with destructured bool", t => {
 
   t->Assert.deepEqual((false, "foo")->S.reverseConvertOrThrow(schema), %raw(`[true, "foo",false]`))
 
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#ReverseConvert,
-    `i=>{let v0=i["1"];if(v0!=="foo"){e[0](v0)}return [true,v0,i["0"],]}`,
-  )
-  // FIXME: Prevent duplicated check for literal
+  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return [true,i["1"],i["0"],]}`)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseParse,
-    `i=>{if(!Array.isArray(i)||i.length!==2||i["1"]!=="foo"){e[0](i)}let v0=i["1"],v1=i["0"];if(v0!=="foo"){e[1](v0)}if(typeof v1!=="boolean"){e[2](v1)}return [true,v0,v1,]}`,
+    `i=>{if(!Array.isArray(i)||i.length!==2||i["1"]!=="foo"){e[0](i)}let v0=i["0"];if(typeof v0!=="boolean"){e[1](v0)}return [true,i["1"],v0,]}`,
   )
 })
 
@@ -300,7 +295,7 @@ test("Compiled code snapshot of variant applied to object", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["foo"];if(typeof v0!=="string"){e[1](v0)}return {"TAG":e[2],"_0":v0,}}`,
+    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["foo"];if(typeof v0!=="string"){e[1](v0)}return {"TAG":"Ok","_0":v0,}}`,
   )
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return {"foo":i["_0"],}}`)
 
@@ -309,7 +304,7 @@ test("Compiled code snapshot of variant applied to object", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["foo"];if(typeof v0!=="string"){e[1](v0)}let v1;(v1=v0==="true")||v0==="false"||e[2](v0);return {"TAG":e[3],"_0":v1,}}`,
+    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["foo"];if(typeof v0!=="string"){e[1](v0)}let v1;(v1=v0==="true")||v0==="false"||e[2](v0);return {"TAG":"Ok","_0":v1,}}`,
   )
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return {"foo":""+i["_0"],}}`)
 })
@@ -320,7 +315,7 @@ test("Compiled parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="string"){e[0](i)}return {"TAG":e[1],"_0":i,}}`,
+    `i=>{if(typeof i!=="string"){e[0](i)}return {"TAG":"Ok","_0":i,}}`,
   )
 })
 
@@ -370,7 +365,7 @@ test("Works with variant schema used multiple times as a child schema", t => {
   t->U.assertCompiledCode(
     ~schema=appVersionsSchema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["ios"],v1=i["android"];if(typeof v0!=="string"){e[1](v0)}if(typeof v1!=="string"){e[3](v1)}return {"ios":{"current":v0,"minimum":e[2],},"android":{"current":v1,"minimum":e[4],},}}`,
+    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["ios"],v1=i["android"];if(typeof v0!=="string"){e[1](v0)}if(typeof v1!=="string"){e[2](v1)}return {"ios":{"current":v0,"minimum":"1.0",},"android":{"current":v1,"minimum":"1.0",},}}`,
   )
   t->U.assertCompiledCode(
     ~schema=appVersionsSchema,
@@ -468,7 +463,7 @@ test("S.json shaped to literal should keep validation", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{let v0=e[0](i);return e[1]}
+    `i=>{let v0=e[0](i);return "foo"}
 JSON: i=>{if(Array.isArray(i)){let v4=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v3;try{let v2=e[0][1](i[v0]);v3=v2}catch(v1){if(v1&&v1.s===s){v1.path=""+'["'+v0+'"]'+v1.path}throw v1}v4[v0]=v3}i=v4}else if(typeof i==="object"&&i&&!Array.isArray(i)){let v9={};for(let v5 in i){let v8;try{let v7=e[1][1](i[v5]);v8=v7}catch(v6){if(v6&&v6.s===s){v6.path=""+'["'+v5+'"]'+v6.path}throw v6}v9[v5]=v8}i=v9}else if(!(typeof i==="string"||typeof i==="boolean"||typeof i==="number"&&!Number.isNaN(i)||i===null)){e[2](i)}return i}`,
   )
 

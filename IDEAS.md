@@ -1,5 +1,10 @@
 # Ideas draft
 
+## Alpha.2
+
+- Fix array validation during reverse parsing of nested arrays/tuples
+- Tuple literals are not validated during convert operation
+
 ## v11
 
 ### ideas

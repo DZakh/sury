@@ -67,7 +67,7 @@ asyncTest("Successfully parses recursive object using S.parseAsyncOrThrow", t =>
     ~schema=nodeSchema,
     ~op=#ParseAsync,
     `i=>{let v0=e[0](i);return Promise.resolve(v0)}
-Node: i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["Id"],v1=i["Children"];if(typeof v0!=="string"){e[1](v0)}if(!Array.isArray(v1)){e[2](v1)}let v6=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v5;try{let v4=e[3][3](v1[v2]);v5=v4}catch(v3){if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+'["'+v2+'"]'+v3.path}throw v3}v6[v2]=v5}return {"id":v0,"children":v6,}}`,
+Node: i=>{if(typeof i!=="object"||!i||!Array.isArray(i["Children"])){e[0](i)}let v0=i["Id"];if(typeof v0!=="string"){e[1](v0)}let v1=i["Children"],v6=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v5;try{let v4=e[2][3](v1[v2]);v5=v4}catch(v3){if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+'["'+v2+'"]'+v3.path}throw v3}v6[v2]=v5}return {"id":v0,"children":v6,}}`,
   )
 
   %raw(`{
@@ -327,7 +327,7 @@ test(
       ~schema=nodeSchema,
       ~op=#Parse,
       `i=>{let v0=e[0](i);return v0}
-Node: i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["Id"],v1=i["Children"];if(typeof v0!=="string"){e[1](v0)}if(!Array.isArray(v1)){e[2](v1)}let v6=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v5;try{let v4=e[3][1](v1[v2]);v5=v4}catch(v3){if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+'["'+v2+'"]'+v3.path}throw v3}v6[v2]=v5}return e[4]({"id":v0,"children":v6,})}`,
+Node: i=>{if(typeof i!=="object"||!i||!Array.isArray(i["Children"])){e[0](i)}let v0=i["Id"];if(typeof v0!=="string"){e[1](v0)}let v1=i["Children"],v6=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v5;try{let v4=e[2][1](v1[v2]);v5=v4}catch(v3){if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+'["'+v2+'"]'+v3.path}throw v3}v6[v2]=v5}return e[3]({"id":v0,"children":v6,})}`,
     )
     t->Assert.deepEqual(
       {
@@ -468,7 +468,7 @@ test("Shallowly transforms object when added transform to the S.recursive result
     ~schema=nodeSchema,
     ~op=#Parse,
     `i=>{let v0=e[0](i);return e[1](v0)}
-Node: i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["Id"],v1=i["Children"];if(typeof v0!=="string"){e[1](v0)}if(!Array.isArray(v1)){e[2](v1)}let v6=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v5;try{let v4=e[3][1](v1[v2]);v5=v4}catch(v3){if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+'["'+v2+'"]'+v3.path}throw v3}v6[v2]=v5}return {"id":v0,"children":v6,}}`,
+Node: i=>{if(typeof i!=="object"||!i||!Array.isArray(i["Children"])){e[0](i)}let v0=i["Id"];if(typeof v0!=="string"){e[1](v0)}let v1=i["Children"],v6=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v5;try{let v4=e[2][1](v1[v2]);v5=v4}catch(v3){if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+'["'+v2+'"]'+v3.path}throw v3}v6[v2]=v5}return {"id":v0,"children":v6,}}`,
   )
   t->U.assertCompiledCode(
     ~schema=nodeSchema,
@@ -491,7 +491,7 @@ asyncTest("Successfully parses recursive object with async parse function", t =>
     ~schema=nodeSchema,
     ~op=#Parse,
     `i=>{let v0=e[0](i);return v0}
-Node: i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["Id"],v1=i["Children"];if(typeof v0!=="string"){e[1](v0)}if(!Array.isArray(v1)){e[3](v1)}let v6=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v5;try{let v4=e[4][3](v1[v2]);v5=v4.catch(v3=>{if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+'["'+v2+'"]'+v3.path}throw v3})}catch(v3){if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+'["'+v2+'"]'+v3.path}throw v3}v6[v2]=v5}return Promise.all([e[2](v0),Promise.all(v6),]).then(a=>({"id":a[0],"children":a[1],}))}`,
+Node: i=>{if(typeof i!=="object"||!i||!Array.isArray(i["Children"])){e[0](i)}let v0=i["Id"];if(typeof v0!=="string"){e[1](v0)}let v1=i["Children"],v6=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v5;try{let v4=e[3][3](v1[v2]);v5=v4.catch(v3=>{if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+'["'+v2+'"]'+v3.path}throw v3})}catch(v3){if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+'["'+v2+'"]'+v3.path}throw v3}v6[v2]=v5}return Promise.all([e[2](v0),Promise.all(v6),]).then(a=>({"id":a[0],"children":a[1],}))}`,
   )
 
   %raw(`{
@@ -552,7 +552,7 @@ test("Parses recursive object with async fields in parallel", t => {
     ~schema=nodeSchema,
     ~op=#ParseAsync,
     `i=>{let v0=e[0](i);return v0}
-Node: i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["Id"],v1=i["Children"];if(typeof v0!=="string"){e[1](v0)}if(!Array.isArray(v1)){e[3](v1)}let v6=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v5;try{let v4=e[4][3](v1[v2]);v5=v4.catch(v3=>{if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+'["'+v2+'"]'+v3.path}throw v3})}catch(v3){if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+'["'+v2+'"]'+v3.path}throw v3}v6[v2]=v5}return Promise.all([e[2](v0),Promise.all(v6),]).then(a=>({"id":a[0],"children":a[1],}))}`,
+Node: i=>{if(typeof i!=="object"||!i||!Array.isArray(i["Children"])){e[0](i)}let v0=i["Id"];if(typeof v0!=="string"){e[1](v0)}let v1=i["Children"],v6=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v5;try{let v4=e[3][3](v1[v2]);v5=v4.catch(v3=>{if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+'["'+v2+'"]'+v3.path}throw v3})}catch(v3){if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+'["'+v2+'"]'+v3.path}throw v3}v6[v2]=v5}return Promise.all([e[2](v0),Promise.all(v6),]).then(a=>({"id":a[0],"children":a[1],}))}`,
   )
 })
 
@@ -570,6 +570,6 @@ test("Compiled parse code snapshot", t => {
     ~schema,
     ~op=#Parse,
     `i=>{let v0=e[0](i);return v0}
-Node: i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["Id"],v1=i["Children"];if(typeof v0!=="string"){e[1](v0)}if(!Array.isArray(v1)){e[2](v1)}let v6=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v5;try{let v4=e[3][1](v1[v2]);v5=v4}catch(v3){if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+'["'+v2+'"]'+v3.path}throw v3}v6[v2]=v5}return {"id":v0,"children":v6,}}`,
+Node: i=>{if(typeof i!=="object"||!i||!Array.isArray(i["Children"])){e[0](i)}let v0=i["Id"];if(typeof v0!=="string"){e[1](v0)}let v1=i["Children"],v6=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v5;try{let v4=e[2][1](v1[v2]);v5=v4}catch(v3){if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+'["'+v2+'"]'+v3.path}throw v3}v6[v2]=v5}return {"id":v0,"children":v6,}}`,
   )
 })
