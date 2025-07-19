@@ -1,8 +1,15 @@
 # Ideas draft
 
+## Alpha.2
+
+- Fix array validation during reverse parsing of nested arrays/tuples
+- Tuple literals are not validated during convert operation
+
 ## v11
 
 ### ideas
+
+- Add `promise` type and `S.promise` (instead of async flag internally)
 
 - Add `S.parseFromOrThrow(fromSchema, toSchema)` and `convertFromOrThrow` + async.
   Deprecate `reverseConvert` and `parseJsonOrThrow`, `parseJsonStringOrThrow`, `convertToJsonOrThrow`, `convertToJsonStringOrThrow`, `reverseConvertOrThrow`, `reverseConvertToJsonOrThrow`, `reverseConvertToJsonStringOrThrow`

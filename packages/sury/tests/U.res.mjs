@@ -118,15 +118,15 @@ async function assertThrowsAsync(t, cb, errorPayload) {
 function getCompiledCodeString(schema, op) {
   var toCode = function (schema) {
     return (
-              op === "Parse" || op === "ParseAsync" ? (
-                  op === "ParseAsync" || S.isAsync(schema) ? S.compile(schema, "Any", "Output", "Async", true) : S.compile(schema, "Any", "Output", "Sync", true)
-                ) : (
-                  op === "ReverseConvertToJson" ? S.compile(schema, "Output", "Json", "Sync", false) : (
-                      op === "ReverseConvert" ? S.compile(schema, "Output", "Input", "Sync", false) : (
-                          op === "Convert" ? S.compile(schema, "Any", "Output", "Sync", false) : (
-                              op === "Assert" ? S.compile(schema, "Any", "Assert", "Sync", true) : (
-                                  op === "ReverseParse" ? S.compile(schema, "Output", "Input", "Sync", true) : (
-                                      op === "ConvertAsync" ? S.compile(schema, "Any", "Output", "Async", false) : S.compile(schema, "Output", "Input", "Async", false)
+              op === "ParseAsync" ? S.compile(schema, "Any", "Output", "Async", true) : (
+                  op === "Parse" ? S.compile(schema, "Any", "Output", "Sync", true) : (
+                      op === "ReverseConvertToJson" ? S.compile(schema, "Output", "Json", "Sync", false) : (
+                          op === "ReverseConvert" ? S.compile(schema, "Output", "Input", "Sync", false) : (
+                              op === "Convert" ? S.compile(schema, "Any", "Output", "Sync", false) : (
+                                  op === "Assert" ? S.compile(schema, "Any", "Assert", "Sync", true) : (
+                                      op === "ReverseParse" ? S.compile(schema, "Output", "Input", "Sync", true) : (
+                                          op === "ConvertAsync" ? S.compile(schema, "Any", "Output", "Async", false) : S.compile(schema, "Output", "Input", "Async", false)
+                                        )
                                     )
                                 )
                             )

@@ -278,7 +278,7 @@ test("Nested preprocessed tags on reverse convert", t => {
   t->U.assertCompiledCode(
     ~op=#Parse,
     ~schema,
-    `i=>{if(typeof i!=="object"||!i||typeof i["nested"]!=="object"||!i["nested"]){e[0](i)}let v0=i["nested"],v1=v0["tag"],v3=v0["intTag"];if(typeof v1!=="string"){e[1](v1)}let v2=e[2](v1);if(typeof v2!=="string"){e[3](v2)}if(v2!=="value"){e[4](v2)}if(typeof v3!=="string"){e[5](v3)}let v4=e[6](v3);if(typeof v4!=="string"){e[7](v4)}v4==="1"||e[8](v4);return e[9]}`,
+    `i=>{if(typeof i!=="object"||!i||typeof i["nested"]!=="object"||!i["nested"]){e[0](i)}let v0=i["nested"],v1=v0["tag"],v3=v0["intTag"];if(typeof v1!=="string"){e[1](v1)}let v2=e[2](v1);if(typeof v2!=="string"){e[3](v2)}if(v2!=="value"){e[4](v2)}if(typeof v3!=="string"){e[5](v3)}let v4=e[6](v3);if(typeof v4!=="string"){e[7](v4)}v4==="1"||e[8](v4);return void 0}`,
   )
 
   t->Assert.deepEqual(
@@ -289,6 +289,14 @@ test("Nested preprocessed tags on reverse convert", t => {
   t->Assert.deepEqual(
     %raw(`{"nested":{"tag":"_value", "intTag":"_1"}}`)->S.parseOrThrow(schema),
     (),
+  )
+  t->U.assertThrowsMessage(
+    () => %raw(`{"nested":{"tag":"_foo", "intTag":"_1"}}`)->S.parseOrThrow(schema),
+    `Failed parsing at ["nested"]["tag"]: Expected "value", received "foo"`,
+  )
+  t->U.assertThrowsMessage(
+    () => %raw(`{"nested":{"tag":"_value", "intTag":"_2"}}`)->S.parseOrThrow(schema),
+    `Failed parsing at ["nested"]["intTag"]: Expected 1, received "2"`,
   )
 })
 
@@ -342,11 +350,10 @@ test("Object with a deep strict applied to the nested field parent + reverse", t
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    // FIXME: Missing type validation for nested field
     // FIXME: Test for deepStrict applying to flattened nested fields
     // Test deepStrict for reversed schema
     // Test strict & deepStrict for S.shape
-    `i=>{if(typeof i!=="object"||!i||Array.isArray(i)){e[0](i)}let v0;for(v0 in i){if(v0!=="foo"){e[1](v0)}}return {"nested":{"foo":i["foo"],},}}`,
+    `i=>{if(typeof i!=="object"||!i||Array.isArray(i)){e[0](i)}let v0,v1=i["foo"];for(v0 in i){if(v0!=="foo"){e[1](v0)}}if(typeof v1!=="string"){e[2](v1)}return {"nested":{"foo":v1,},}}`,
   )
   t->U.assertCompiledCode(
     ~schema,

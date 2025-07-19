@@ -4,6 +4,24 @@ test("Successfully parses valid data", t => {
   let schema = S.string->S.pattern(%re(`/[0-9]/`))
 
   t->Assert.deepEqual("123"->S.parseOrThrow(schema), "123")
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(typeof i!=="string"){e[0](i)}if(!e[1].test(i)){e[2]()}return i}`,
+  )
+})
+
+test("Successfully parses valid data with global flag", t => {
+  let schema = S.string->S.pattern(%re(`/[0-9]/g`))
+
+  t->Assert.deepEqual("123"->S.parseOrThrow(schema), "123")
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(typeof i!=="string"){e[0](i)}e[1].lastIndex=0;if(!e[2].test(i)){e[3]()}return i}`,
+  )
 })
 
 test("Fails to parse invalid data", t => {

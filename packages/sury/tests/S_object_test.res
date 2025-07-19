@@ -644,7 +644,7 @@ test("Parse reversed schema with nested objects and tuples has type validation",
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseParse,
-    `i=>{if(typeof i!=="object"||!i||i["foo"]!==1||typeof i["obj"]!=="object"||!i["obj"]||i["obj"]["foo"]!==2){e[0](i)}let v0=i["obj"]["bar"],v1=i["tuple"]["1"];if(typeof v0!=="string"){e[1](v0)}if(typeof v1!=="boolean"){e[2](v1)}return {"bar":v0,"baz":v1,}}`,
+    `i=>{if(typeof i!=="object"||!i||i["foo"]!==1||typeof i["obj"]!=="object"||!i["obj"]||i["obj"]["foo"]!==2||!Array.isArray(i["tuple"])||i["tuple"].length!==2||i["tuple"]["0"]!==3){e[0](i)}let v0=i["obj"]["bar"],v1=i["tuple"]["1"];if(typeof v0!=="string"){e[1](v0)}if(typeof v1!=="boolean"){e[2](v1)}return {"bar":v0,"baz":v1,}}`,
   )
 })
 
@@ -1118,7 +1118,7 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i||i["foo"]!==12||typeof i["bar"]!=="object"||!i["bar"]){e[0](i)}let v0=i["bar"],v1=v0["baz"];if(typeof v1!=="string"){e[1](v1)}let v2={"baz":v1,};e[2](v2);return {"foo":i["foo"],"bar":v2,}}`,
+      `i=>{if(typeof i!=="object"||!i||i["foo"]!==12||typeof i["bar"]!=="object"||!i["bar"]){e[0](i)}let v0=i["bar"],v1=v0["baz"];if(typeof v1!=="string"){e[1](v1)}let v2={"baz":v1,};e[2](v2);return {"foo":12,"bar":v2,}}`,
     )
     t->U.assertCompiledCode(
       ~schema,
@@ -1137,7 +1137,7 @@ module Compiled = {
 
     t->U.assertCompiledCode(
       ~schema,
-      ~op=#Parse,
+      ~op=#ParseAsync,
       `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["bar"];if(typeof v0!=="boolean"){e[2](v0)}return Promise.all([e[1](i["foo"]),]).then(a=>({"foo":a[0],"bar":v0,}))}`,
     )
   })
@@ -1149,7 +1149,7 @@ module Compiled = {
 
     t->U.assertCompiledCode(
       ~schema,
-      ~op=#Parse,
+      ~op=#ParseAsync,
       `i=>{if(typeof i!=="object"||!i){e[0](i)}return e[1](i["foo"])}`,
     )
   })
@@ -1194,7 +1194,7 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i||typeof i["nested"]!=="object"||!i["nested"]||Array.isArray(i["nested"])){e[0](i)}let v0,v1=i["nested"];for(v0 in v1){if(true){e[1](v0)}}return {"nested":e[2],}}`,
+      `i=>{if(typeof i!=="object"||!i||typeof i["nested"]!=="object"||!i["nested"]||Array.isArray(i["nested"])){e[0](i)}let v0,v1=i["nested"];for(v0 in v1){if(true){e[1](v0)}}return {"nested":void 0,}}`,
     )
     t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return {"nested":{},}}`)
   })
@@ -1214,7 +1214,7 @@ module Compiled = {
       t->U.assertCompiledCode(
         ~schema,
         ~op=#Parse,
-        `i=>{if(typeof i!=="object"||!i||Array.isArray(i)||i["tag"]!==0){e[0](i)}let v0=i["FOO"],v1=i["BAR"],v2;if(typeof v0!=="string"){e[1](v0)}if(typeof v1!=="boolean"){e[2](v1)}for(v2 in i){if(v2!=="tag"&&v2!=="FOO"&&v2!=="BAR"){e[3](v2)}}return {"foo":v0,"bar":v1,"zoo":e[4],}}`,
+        `i=>{if(typeof i!=="object"||!i||Array.isArray(i)||i["tag"]!==0){e[0](i)}let v0=i["FOO"],v1=i["BAR"],v2;if(typeof v0!=="string"){e[1](v0)}if(typeof v1!=="boolean"){e[2](v1)}for(v2 in i){if(v2!=="tag"&&v2!=="FOO"&&v2!=="BAR"){e[3](v2)}}return {"foo":v0,"bar":v1,"zoo":1,}}`,
       )
     },
   )

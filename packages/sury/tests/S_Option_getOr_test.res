@@ -114,7 +114,7 @@ asyncTest("Compiled async parse code snapshot", async t => {
   t->Assert.deepEqual(await None->S.parseAsyncOrThrow(schema), false)
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#Parse,
+    ~op=#ParseAsync,
     `i=>{if(typeof i==="boolean"){i=e[0](i)}else if(!(i===void 0)){e[1](i)}return Promise.resolve(i).then(v0=>{return v0===void 0?false:v0})}`,
   )
 
@@ -126,7 +126,7 @@ asyncTest("Compiled async parse code snapshot", async t => {
   t->Assert.deepEqual(await None->S.parseAsyncOrThrow(schema), false)
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#Parse,
+    ~op=#ParseAsync,
     `i=>{if(!(typeof i==="boolean"||i===void 0)){e[0](i)}return e[1](i===void 0?false:i)}`,
   )
 })

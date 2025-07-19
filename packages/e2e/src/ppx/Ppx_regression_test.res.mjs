@@ -113,7 +113,7 @@ var schema$2 = S.schema(function (s) {
     });
 
 Ava("Successfully parses nested optional union", (function (t) {
-        U.assertCompiledCode(t, schema$2, "Parse", "i=>{if(typeof i!==\"object\"||!i){e[0](i)}let v0=i[\"test\"];if(typeof v0===\"object\"&&v0){if(v0[\"type\"]===\"a\"){let v1=v0[\"x\"];if(typeof v1!==\"number\"||v1>2147483647||v1<-2147483648||v1%1!==0){e[1](v1)}v0={\"TAG\":e[2],\"_0\":{\"x\":v1,},}}else if(v0[\"type\"]===\"b\"){let v2=v0[\"y\"];if(typeof v2!==\"string\"){e[3](v2)}v0={\"TAG\":e[4],\"_0\":{\"y\":v2,},}}else{e[5](v0)}}else if(!(v0===void 0)){e[6](v0)}return {\"test\":v0,}}", undefined);
+        U.assertCompiledCode(t, schema$2, "Parse", "i=>{if(typeof i!==\"object\"||!i){e[0](i)}let v0=i[\"test\"];if(typeof v0===\"object\"&&v0){if(v0[\"type\"]===\"a\"){let v1=v0[\"x\"];if(typeof v1!==\"number\"||v1>2147483647||v1<-2147483648||v1%1!==0){e[1](v1)}v0={\"TAG\":\"A\",\"_0\":{\"x\":v1,},}}else if(v0[\"type\"]===\"b\"){let v2=v0[\"y\"];if(typeof v2!==\"string\"){e[2](v2)}v0={\"TAG\":\"B\",\"_0\":{\"y\":v2,},}}else{e[3](v0)}}else if(!(v0===void 0)){e[4](v0)}return {\"test\":v0,}}", undefined);
         t.deepEqual(S.parseJsonStringOrThrow("{}", schema$2), {
               test: undefined
             });
@@ -139,7 +139,7 @@ Ava("Nested literal field with catch", (function (t) {
                           };
                   })
             ]);
-        U.assertCompiledCode(t, schema, "Parse", "i=>{if(typeof i===\"object\"&&i){if(typeof i[\"statusCode\"]===\"object\"&&i[\"statusCode\"]&&i[\"statusCode\"][\"kind\"]===\"ok\"){let v0=i[\"statusCode\"];i={\"TAG\":e[0],\"_0\":e[1],}}else if(typeof i[\"statusCode\"]===\"object\"&&i[\"statusCode\"]&&i[\"statusCode\"][\"kind\"]===\"serviceError\"){let v1=i[\"statusCode\"],v2=v1[\"serviceCode\"],v3=v1[\"text\"];if(typeof v2!==\"string\"){e[2](v2)}if(typeof v3!==\"string\"){e[3](v3)}i={\"TAG\":e[4],\"_0\":{\"serviceCode\":v2,\"text\":v3,},}}else{e[5](i)}}else{e[6](i)}return i}", undefined);
+        U.assertCompiledCode(t, schema, "Parse", "i=>{if(typeof i===\"object\"&&i){if(typeof i[\"statusCode\"]===\"object\"&&i[\"statusCode\"]&&i[\"statusCode\"][\"kind\"]===\"ok\"){i={\"TAG\":\"Ok\",\"_0\":void 0,}}else if(typeof i[\"statusCode\"]===\"object\"&&i[\"statusCode\"]&&i[\"statusCode\"][\"kind\"]===\"serviceError\"){let v0=i[\"statusCode\"],v1=v0[\"serviceCode\"],v2=v0[\"text\"];if(typeof v1!==\"string\"){e[0](v1)}if(typeof v2!==\"string\"){e[1](v2)}i={\"TAG\":\"Error\",\"_0\":{\"serviceCode\":v1,\"text\":v2,},}}else{e[2](i)}}else{e[3](i)}return i}", undefined);
         t.deepEqual(S.parseJsonStringOrThrow("{\"statusCode\": {\"kind\": \"ok\"}}", schema), {
               TAG: "Ok",
               _0: undefined

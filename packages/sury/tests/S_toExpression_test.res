@@ -203,6 +203,6 @@ test("Expression of deeply renamed recursive schema", t => {
   )
   t->U.assertThrowsMessage(
     () => %raw(`{Id: "0"}`)->S.parseOrThrow(nodeSchema),
-    `Failed parsing at ["Children"]: Expected MyNode[], received undefined`,
+    `Failed parsing: Expected MyNode, received { Id: "0"; }`,
   )
 })
