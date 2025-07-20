@@ -233,11 +233,11 @@ test("Reverse convert of tagged tuple with destructured bool", t => {
 
   t->Assert.deepEqual((false, "foo")->S.reverseConvertOrThrow(schema), %raw(`[true, "foo",false]`))
 
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return [true,i["1"],i["0"],]}`)
+  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return [true,"foo",i["0"],]}`)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseParse,
-    `i=>{if(!Array.isArray(i)||i.length!==2||i["1"]!=="foo"){e[0](i)}let v0=i["0"];if(typeof v0!=="boolean"){e[1](v0)}return [true,i["1"],v0,]}`,
+    `i=>{if(!Array.isArray(i)||i.length!==2||i["1"]!=="foo"){e[0](i)}let v0=i["0"];if(typeof v0!=="boolean"){e[1](v0)}return [true,"foo",v0,]}`,
   )
 })
 
@@ -254,7 +254,7 @@ test("Reverse convert with value registered multiple times", t => {
     ~schema,
     ~op=#ReverseConvert,
     // `i=>{let v0=i["NAME"],v1=i["VAL"]["0"];if(v0!=="Foo"){e[0](v0)}if(v1!==i["VAL"]["1"]){e[1]()}return v1}`,
-    `i=>{return i["VAL"]["1"]}`,
+    `i=>{let v0=i["VAL"];return v0["1"]}`,
   )
 
   t->Assert.deepEqual(#Foo("abc", "abc")->S.reverseConvertOrThrow(schema), %raw(`"abc"`))
@@ -281,11 +281,10 @@ test("Can destructure object value passed to S.shape", t => {
     ~op=#Parse,
     `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["foo"],v1=i["bar"];if(typeof v0!=="string"){e[1](v0)}if(typeof v1!=="string"){e[2](v1)}return {"foo":v0,"bar":v1,}}`,
   )
-  // FIXME: Can be improved
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{let v0=[i["foo"],i["bar"],];return {"foo":v0["0"],"bar":v0["1"],}}`,
+    `i=>{return {"foo":i["foo"],"bar":i["bar"],}}`,
   )
 })
 

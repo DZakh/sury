@@ -644,7 +644,7 @@ test("Parse reversed schema with nested objects and tuples has type validation",
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseParse,
-    `i=>{if(typeof i!=="object"||!i||i["foo"]!==1||typeof i["obj"]!=="object"||!i["obj"]||i["obj"]["foo"]!==2||!Array.isArray(i["tuple"])||i["tuple"].length!==2||i["tuple"]["0"]!==3){e[0](i)}let v0=i["obj"]["bar"],v1=i["tuple"]["1"];if(typeof v0!=="string"){e[1](v0)}if(typeof v1!=="boolean"){e[2](v1)}return {"bar":v0,"baz":v1,}}`,
+    `i=>{if(typeof i!=="object"||!i||i["foo"]!==1||typeof i["obj"]!=="object"||!i["obj"]||i["obj"]["foo"]!==2||!Array.isArray(i["tuple"])||i["tuple"].length!==2||i["tuple"]["0"]!==3){e[0](i)}let v0=i["obj"],v1=v0["bar"],v2=i["tuple"],v3=v2["1"];if(typeof v1!=="string"){e[1](v1)}if(typeof v3!=="boolean"){e[2](v3)}return {"bar":v1,"baz":v3,}}`,
   )
 })
 
@@ -1123,7 +1123,7 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{let v0=i["bar"];e[0](v0);return {"foo":i["foo"],"bar":{"baz":v0["baz"],},}}`,
+      `i=>{let v0=i["bar"];e[0](v0);return {"foo":12,"bar":{"baz":v0["baz"],},}}`,
     )
   })
 

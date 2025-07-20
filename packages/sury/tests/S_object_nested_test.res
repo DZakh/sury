@@ -387,7 +387,7 @@ test("Object with nested field together with flatten", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{return {"nested":{"foo":i["flattened"]["foo"],"bar":i["field"],},}}`,
+    `i=>{let v0=i["flattened"];return {"nested":{"foo":v0["foo"],"bar":i["field"],},}}`,
   )
 })
 

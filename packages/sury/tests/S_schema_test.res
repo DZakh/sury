@@ -35,7 +35,7 @@ test("Object with embeded schema", t => {
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
   t->Assert.is(
     objectSchema->U.getCompiledCodeString(~op=#ReverseConvert),
-    `i=>{return {"foo":i["foo"],"zoo":i["zoo"],}}`,
+    `i=>{return {"foo":"bar","zoo":i["zoo"],}}`,
   )
 })
 
@@ -63,7 +63,7 @@ test("Object with embeded transformed schema", t => {
   )
   t->Assert.is(
     objectSchema->U.getCompiledCodeString(~op=#ReverseConvert),
-    `i=>{let v0=i["zoo"];if(v0===void 0){v0=null}return {"foo":i["foo"],"zoo":v0,}}`,
+    `i=>{let v0=i["zoo"];if(v0===void 0){v0=null}return {"foo":"bar","zoo":v0,}}`,
   )
 })
 
@@ -107,7 +107,7 @@ test("Tuple with embeded schema", t => {
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
   t->Assert.is(
     tupleSchema->U.getCompiledCodeString(~op=#ReverseConvert),
-    `i=>{return [i["0"],i["1"],i["2"],]}`,
+    `i=>{return [i["0"],void 0,"bar",]}`,
   )
 })
 
@@ -130,7 +130,7 @@ test("Tuple with embeded transformed schema", t => {
   )
   t->Assert.is(
     tupleSchema->U.getCompiledCodeString(~op=#ReverseConvert),
-    `i=>{let v0=i["0"];if(v0===void 0){v0=null}return [v0,i["1"],i["2"],]}`,
+    `i=>{let v0=i["0"];if(v0===void 0){v0=null}return [v0,void 0,"bar",]}`,
   )
 })
 
@@ -169,7 +169,7 @@ test("Nested object with embeded schema", t => {
   )
   t->Assert.is(
     objectSchema->U.getCompiledCodeString(~op=#ReverseConvert),
-    `i=>{let v0=i["nested"];return {"nested":{"foo":v0["foo"],"zoo":v0["zoo"],},}}`,
+    `i=>{let v0=i["nested"];return {"nested":{"foo":"bar","zoo":v0["zoo"],},}}`,
   )
 })
 
