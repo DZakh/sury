@@ -510,7 +510,7 @@ and val = {
   mutable inline: string,
   @as("f")
   mutable flag: flag,
-  @as("t")
+  @as("type")
   mutable tag: tag,
   @as("const")
   mutable const?: char,
@@ -788,6 +788,8 @@ let rec toExpression = schema => {
   switch schema {
   | {name} => name
   | {const} => const->Obj.magic->stringify
+  // Case for val
+  | _ if %raw(`schema.b`) => (schema.tag :> string)
   | {anyOf} =>
     anyOf
     ->(Obj.magic: array<internal> => array<t<'a>>)
@@ -1009,12 +1011,21 @@ module Builder = {
       {b, var: _var, inline: v, flag: ValFlag.none, tag: schema.tag}
     }
 
-    @inline
     let val = (b: b, initial: string, ~schema): val => {
       {b, var: _notVar, inline: initial, flag: ValFlag.none, tag: schema.tag}
     }
 
-    @inline
+    let constVal = (b: b, ~schema): val => {
+      {
+        b,
+        var: _notVar,
+        inline: b->inlineConst(schema),
+        flag: ValFlag.none,
+        tag: schema.tag,
+        const: ?schema.const,
+      }
+    }
+
     let asyncVal = (b: b, initial: string): val => {
       {
         b,
@@ -1135,13 +1146,11 @@ module Builder = {
             | Schema(schema) => schema->castToInternal
             | _ => InternalError.panic("The schema doesn't have additional items")
             }
-            let isConst = schema->isLiteral
+
             let val = {
               b,
               var: _notVar,
-              inline: isConst
-                ? b->inlineConst(schema)
-                : `${b->var(targetVal)}${Path.fromInlinedLocation(inlinedLocation)}`,
+              inline: `${b->var(targetVal)}${Path.fromInlinedLocation(inlinedLocation)}`,
               flag: ValFlag.none,
               tag: schema.tag,
             }
@@ -1469,40 +1478,28 @@ module Builder = {
     }
 
     let typeFilterCode = (b: b, ~schema, ~input, ~path) => {
-      switch schema {
-      | {tag: Unknown | Union | Ref | Never} => ""
-      | _ => {
-          let inputVar = b->Val.var(input)
-
-          `if(${b->validation(~inputVar, ~schema, ~negative=true)}${b->refinement(
-              ~schema,
-              ~inputVar,
-              ~negative=true,
-            )}){${b->failWithArg(
-              ~path,
-              input => InvalidType({
-                expected: schema->castToPublic,
-                received: input,
-              }),
-              inputVar,
-            )}}`
+      if !(schema.noValidation->X.Option.getUnsafe) {
+        switch schema {
+        | {tag: Unknown | Union | Ref | Never} => ""
+        | _ => {
+            let inputVar = b->Val.var(input)
+            `if(${b->validation(~inputVar, ~schema, ~negative=true)}${b->refinement(
+                ~schema,
+                ~inputVar,
+                ~negative=true,
+              )}){${b->failWithArg(
+                ~path,
+                input => InvalidType({
+                  expected: schema->castToPublic,
+                  received: input,
+                }),
+                inputVar,
+              )}}`
+          }
         }
+      } else {
+        ""
       }
-    }
-
-    let withCoerceScope = (b, ~input, ~path, ~target, coercion) => {
-      let inputVar = input.var(b)
-      b->coercion(
-        ~inputVar,
-        ~failCoercion=b->failWithArg(
-          ~path,
-          input => InvalidType({
-            expected: target->castToPublic,
-            received: input,
-          }),
-          inputVar,
-        ),
-      )
     }
   }
 
@@ -1524,6 +1521,26 @@ let setHas = (has, tag: tag) => {
   )
 }
 
+let unsupportedTransform = (~from, ~target) => {
+  InternalError.panic(
+    `Unsupported transformation from ${from->castToPublic->toExpression} to ${target
+      ->castToPublic
+      ->toExpression}`,
+  )
+}
+
+@inline
+let failTransform = (b, ~inputVar, ~path, ~target) => {
+  b->B.failWithArg(
+    ~path,
+    input => InvalidType({
+      expected: target->castToPublic,
+      received: input,
+    }),
+    inputVar,
+  )
+}
+
 let rec parse = (prevB: b, ~schema, ~input as inputArg: val, ~path) => {
   let b = B.scope(prevB)
 
@@ -1531,42 +1548,71 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg: val, ~path) => {
     b.global.defs = schema.defs
   }
 
-  // Js.log({
-  //   "from": inputArg,
-  //   "target": schema->Obj.magic->Js.Json.stringifyWithSpace(2),
-  // })
-
   let input = ref(inputArg)
 
   let isFromLiteral = input.contents->Obj.magic->isLiteral
   let isSchemaLiteral = schema->isLiteral
+  let isSameTag = input.contents.tag === schema.tag
   if schema.tag === Union || schema.tag === Unknown {
     ()
   } else if isSchemaLiteral {
     if isFromLiteral {
       if input.contents.const !== schema.const {
-        input.contents = {
-          b,
-          var: B._notVar,
-          inline: b->B.inlineConst(schema),
-          flag: ValFlag.none,
-          tag: schema.tag,
-          const: ?schema.const,
+        input.contents = b->B.constVal(~schema)
+      }
+    } else if (
+      input.contents.tag === String &&
+        switch schema.tag {
+        | Boolean | Number | BigInt | Undefined | Null | NaN => true
+        | _ => false
         }
-      }
+    ) {
+      let inputVar = input.contents.var(b)
+      b.code =
+        b.code ++
+        `${input.contents.inline}==="${schema.const->Obj.magic}"||${b->failTransform(
+            ~inputVar,
+            ~path,
+            ~target=schema,
+          )};`
+      input := b->B.constVal(~schema)
     } else {
-      // FIXME: More cases + handle noValidation
-      if !(schema.noValidation->X.Option.getUnsafe) {
-        b.filterCode = prevB->B.typeFilterCode(~schema, ~input=input.contents, ~path)
-      }
+      // FIXME: More cases
+
+      b.filterCode = prevB->B.typeFilterCode(~schema, ~input=input.contents, ~path)
       input.contents.tag = schema.tag
       input.contents.const = schema.const
     }
-  } else if input.contents.tag === Unknown {
-    if (
-      b.global.flag->Flag.unsafeHas(Flag.typeValidation) &&
-        !(schema.noValidation->X.Option.getUnsafe)
+  } else if isFromLiteral && !isSchemaLiteral {
+    if isSameTag {
+      ()
+    } else if (
+      schema.tag === String &&
+        switch input.contents.tag {
+        | Boolean | Number | BigInt | Undefined | Null | NaN => true
+        | _ => false
+        }
     ) {
+      let const = %raw(`""+input.const`)
+      input := {
+          b,
+          flag: ValFlag.none,
+          tag: String,
+          const: const->Obj.magic,
+          var: B._notVar,
+          inline: `"${const}"`,
+        }
+    } else {
+      unsupportedTransform(
+        ~from={
+          // FIXME: This will fail for objects. Test it
+          input.contents->Obj.magic
+        },
+        ~target=schema,
+      )
+    }
+  } else if input.contents.tag === Unknown {
+    if b.global.flag->Flag.unsafeHas(Flag.typeValidation) {
       b.filterCode = prevB->B.typeFilterCode(~schema, ~input=input.contents, ~path)
     }
     // FIXME: Make it simpler
@@ -1578,6 +1624,59 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg: val, ~path) => {
     input.contents.properties = refined.properties
     if refined->Obj.magic->isLiteral {
       input.contents.const = refined.const
+    }
+  } else if (
+    schema.tag === String &&
+      switch input.contents.tag {
+      | Boolean | Number | BigInt => true
+      | _ => false
+      }
+  ) {
+    input := b->B.val(`""+${input.contents.inline}`, ~schema)
+  } else if !isSameTag {
+    if input.contents.tag === String {
+      let inputVar = input.contents.var(b)
+      switch schema {
+      | {tag: Boolean} =>
+        let output = b->B.allocateVal(~schema) // FIXME: schema should be only simple bool
+        b.code =
+          b.code ++
+          `(${output.inline}=${inputVar}==="true")||${inputVar}==="false"||${b->failTransform(
+              ~inputVar,
+              ~path,
+              ~target=schema,
+            )};`
+        input := output
+
+      | {tag: Number, ?format} =>
+        let output = b->B.val(`+${inputVar}`, ~schema) // FIXME: schema
+        let outputVar = output.var(b)
+        b.code =
+          b.code ++
+          switch format {
+          | None => `Number.isNaN(${outputVar})`
+          | Some(_) =>
+            `(${b
+              ->B.refinement(~inputVar=outputVar, ~schema, ~negative=true)
+              ->Js.String2.sliceToEnd(~from=2)})`
+          } ++
+          `&&${b->failTransform(~inputVar, ~path, ~target=schema)};`
+        input := output
+
+      | {tag: BigInt} =>
+        let output = b->B.allocateVal(~schema) // FIXME:
+        b.code =
+          b.code ++
+          `try{${output.inline}=BigInt(${inputVar})}catch(_){${b->failTransform(
+              ~inputVar,
+              ~path,
+              ~target=schema,
+            )}}`
+        input := output
+      | _ => unsupportedTransform(~from=input.contents->Obj.magic, ~target=schema)
+      }
+    } else {
+      unsupportedTransform(~from=input.contents->Obj.magic, ~target=schema)
     }
   }
 
@@ -1642,97 +1741,7 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg: val, ~path) => {
   | Some(to) =>
     switch schema.parser {
     | Some(parser) => input := parser(b, ~input=input.contents, ~selfSchema=schema, ~path)
-    | None => {
-        let target = schema.to->X.Option.getUnsafe
-
-        let isFromLiteral = isSchemaLiteral
-        let isTargetLiteral = target->isLiteral
-
-        switch (schema, target) {
-        | (_, _) if isFromLiteral && isTargetLiteral => ()
-        // input := b->B.val(b->B.inlineConst(target), ~schema=target) // FIXME: schema
-        | ({tag: fromTag}, {tag: targetTag})
-          if fromTag === targetTag && isFromLiteral && !isTargetLiteral => ()
-        | (_, {tag: Unknown}) => ()
-        | ({tag: Unknown}, _) | ({tag: String}, {tag: String, const: _}) => ()
-        | ({tag: String}, {tag: String}) // FIXME: validate that refinements match
-        | ({tag: Number, format: Int32}, {tag: Number, format: ?None}) => ()
-        | ({tag: Boolean | Number | BigInt | Undefined | Null | NaN, ?const}, {tag: String})
-          if isFromLiteral =>
-          input := b->B.val(`"${const->Obj.magic}"`, ~schema=target) // FIXME: schema
-
-        | ({tag: Boolean | Number | BigInt}, {tag: String}) =>
-          input := b->B.val(`""+${input.contents.inline}`, ~schema=target) // FIXME: schema
-        | ({tag: String}, {tag: Boolean | Number | BigInt | Undefined | Null | NaN, ?const})
-          if isTargetLiteral =>
-          input :=
-            b->B.withCoerceScope(~input=input.contents, ~path, ~target, (
-              b,
-              ~inputVar,
-              ~failCoercion,
-            ) => {
-              b.code = b.code ++ `${inputVar}==="${const->Obj.magic}"||${failCoercion};`
-              let val = b->B.val(b->B.inlineConst(target), ~schema=target) // FIXME: schema
-              val.const = target.const
-              val
-            })
-
-        | ({tag: String}, {tag: Boolean}) =>
-          input :=
-            b->B.withCoerceScope(~input=input.contents, ~path, ~target, (
-              b,
-              ~inputVar,
-              ~failCoercion,
-            ) => {
-              let output = b->B.allocateVal(~schema=target) // FIXME: schema should be only simple bool
-              b.code =
-                b.code ++
-                `(${output.inline}=${inputVar}==="true")||${inputVar}==="false"||${failCoercion};`
-              output
-            })
-
-        | ({tag: String}, {tag: Number, ?format}) =>
-          input :=
-            b->B.withCoerceScope(~input=input.contents, ~path, ~target, (
-              b,
-              ~inputVar,
-              ~failCoercion,
-            ) => {
-              let output = b->B.val(`+${inputVar}`, ~schema=target) // FIXME: schema
-              let outputVar = output.var(b)
-              b.code =
-                b.code ++
-                switch format {
-                | None => `Number.isNaN(${outputVar})`
-                | Some(_) =>
-                  `(${b
-                    ->B.refinement(~inputVar=outputVar, ~schema=target, ~negative=true)
-                    ->Js.String2.sliceToEnd(~from=2)})`
-                } ++
-                `&&${failCoercion};`
-              output
-            })
-        | ({tag: String}, {tag: BigInt}) =>
-          input :=
-            b->B.withCoerceScope(~input=input.contents, ~path, ~target, (
-              b,
-              ~inputVar,
-              ~failCoercion,
-            ) => {
-              let output = b->B.allocateVal(~schema=target) // FIXME:
-              b.code =
-                b.code ++ `try{${output.inline}=BigInt(${inputVar})}catch(_){${failCoercion}}`
-              output
-            })
-
-        | _ =>
-          InternalError.panic(
-            `Coercion from ${schema->castToPublic->toExpression} to ${target
-              ->castToPublic
-              ->toExpression} is not supported`,
-          )
-        }
-      }
+    | None => ()
     }
 
     input := b->parse(~schema=to, ~input=input.contents, ~path)
@@ -2835,15 +2844,7 @@ module Option = {
         additionalItems: Strip,
         // TODO: Support this as a default coercion
         serializer: Builder.make((b, ~input as _, ~selfSchema, ~path as _) => {
-          let val =
-            b->B.val(
-              b->B.inlineConst(selfSchema.to->X.Option.getUnsafe),
-              ~schema=selfSchema.to->X.Option.getUnsafe,
-            )
-
-          // FIXME: Have it more sane way to set const
-          val.const = (selfSchema.to->X.Option.getUnsafe).const
-          val
+          b->B.constVal(~schema=selfSchema.to->X.Option.getUnsafe)
         }),
       }
     }
@@ -3577,14 +3578,7 @@ module Schema = {
     ~outputSchema,
   ) => {
     if outputSchema->isLiteral {
-      {
-        b,
-        var: B._notVar,
-        inline: b->B.inlineConst(outputSchema),
-        flag: ValFlag.none,
-        tag: outputSchema.tag,
-        const: ?outputSchema.const,
-      }
+      b->B.constVal(~schema=outputSchema)
     } else {
       switch definition->Definition.toEmbededItem {
       | Some(item) => item->getItemOutput
@@ -3827,14 +3821,9 @@ module Schema = {
         let rec schemaToOutput = (schema, ~originalPath) => {
           let outputSchema = schema->getOutputSchema
           if outputSchema->isLiteral {
-            let val = b->B.val(b->B.inlineConst(outputSchema), ~schema=outputSchema) // FIXME: schema
-            val.const = outputSchema.const
-            val
+            b->B.constVal(~schema=outputSchema)
           } else if schema->isLiteral {
-            // FIXME: schema
-            let val = b->B.val(b->B.inlineConst(schema), ~schema)
-            val.const = schema.const
-            b->parse(~schema, ~input=val, ~path)
+            b->parse(~schema, ~input=b->B.constVal(~schema), ~path)
           } else {
             switch outputSchema {
             | {items, tag, ?additionalItems}

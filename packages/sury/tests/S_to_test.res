@@ -573,3 +573,28 @@ test("Coerce from string to optional bool", t => {
     `i=>{if(typeof i==="boolean"){i=""+i}else if(i===void 0){i="undefined"}return i}`,
   )
 })
+
+test("Coerce from object to string", t => {
+  let schema = S.schema(s =>
+    {
+      "foo": s.matches(S.string),
+    }
+  )->S.to(S.string)
+
+  t->Assert.throws(
+    () => {
+      %raw(`{"foo": "bar"}`)->S.parseOrThrow(schema)
+    },
+    ~expectations={
+      message: "[Sury] Unsupported transformation from object to string",
+    },
+  )
+  t->Assert.throws(
+    () => {
+      %raw(`{"foo": "bar"}`)->S.reverseConvertOrThrow(schema)
+    },
+    ~expectations={
+      message: "[Sury] Unsupported transformation from string to { foo: string; }",
+    },
+  )
+})

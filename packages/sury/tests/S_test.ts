@@ -2322,7 +2322,7 @@ test("Recursive with self as transform target", (t) => {
       t.deepEqual(S.parseOrThrow(`["[]","[]"]`, nodeSchema), [[], []]);
     },
     {
-      message: "[Sury] Coercion from Node to Node[] is not supported",
+      message: "[Sury] Unsupported transformation from string to Node[]",
     }
   );
 });
