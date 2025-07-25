@@ -1,4 +1,5 @@
 open Ava
+open RescriptCore
 
 test("Gets default value when Option.getOr is used", t => {
   let schema = S.option(S.float)->S.Option.getOr(123.)
@@ -6,7 +7,7 @@ test("Gets default value when Option.getOr is used", t => {
   t->Assert.deepEqual((schema->S.untag).default, Some(123.->(U.magic: float => unknown)))
 })
 
-Failing.test("Returns the first default value, but can get the last one as well", t => {
+test("Returns the first default value, but can get the last one as well", t => {
   let schema =
     S.option(S.float)
     ->S.Option.getOr(123.)
@@ -21,10 +22,41 @@ Failing.test("Returns the first default value, but can get the last one as well"
     ->S.to(S.option(S.string))
     ->S.Option.getOr("not positive")
 
-  // FIXME: Make S.to properly work with union
-  // FIXME: Test .default in TS
+  t->Assert.deepEqual((schema->S.untag).tag, Union)
   t->Assert.deepEqual((schema->S.untag).default, Some(123.->U.magic))
-  // FIXME: Add case with getting default from to
+  t->Assert.deepEqual(((schema->S.untag).to->Option.getExn->S.untag).tag, Number)
+  t->Assert.deepEqual(
+    (((schema->S.untag).to->Option.getExn->S.untag).to->Option.getExn->S.untag).tag,
+    Unknown,
+  )
+  t->Assert.deepEqual(
+    (
+      (((schema->S.untag).to->Option.getExn->S.untag).to->Option.getExn->S.untag).to
+      ->Option.getExn
+      ->S.untag
+    ).tag,
+    Union,
+  )
+  t->Assert.deepEqual(
+    (
+      (((schema->S.untag).to->Option.getExn->S.untag).to->Option.getExn->S.untag).to
+      ->Option.getExn
+      ->S.untag
+    ).default,
+    Some("not positive"->U.magic),
+  )
+  t->Assert.deepEqual(
+    (
+      (
+        (((schema->S.untag).to->Option.getExn->S.untag).to->Option.getExn->S.untag).to
+        ->Option.getExn
+        ->S.untag
+      ).to
+      ->Option.getExn
+      ->S.untag
+    ).tag,
+    String,
+  )
 })
 
 test("Currently doesn't store default value on schema set by Option.getOrWith", t => {

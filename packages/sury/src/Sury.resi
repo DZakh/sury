@@ -30,8 +30,6 @@ type additionalItemsMode = | @as("strip") Strip | @as("strict") Strict
 type tag =
   | @as("string") String
   | @as("number") Number
-  | @as("never") Never
-  | @as("unknown") Unknown
   | @as("bigint") BigInt
   | @as("boolean") Boolean
   | @as("symbol") Symbol
@@ -43,6 +41,8 @@ type tag =
   | @as("array") Array
   | @as("object") Object
   | @as("union") Union
+  | @as("never") Never
+  | @as("unknown") Unknown
   | @as("ref") Ref
 
 @tag("type")

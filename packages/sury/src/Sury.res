@@ -230,8 +230,6 @@ let itemSymbol = X.Symbol.make(vendor ++ ":item")
 type tag =
   | @as("string") String
   | @as("number") Number
-  | @as("never") Never
-  | @as("unknown") Unknown
   | @as("bigint") BigInt
   | @as("boolean") Boolean
   | @as("symbol") Symbol
@@ -243,6 +241,8 @@ type tag =
   | @as("array") Array
   | @as("object") Object
   | @as("union") Union
+  | @as("never") Never
+  | @as("unknown") Unknown
   | @as("ref") Ref
 
 type standard = {
@@ -250,6 +250,8 @@ type standard = {
   vendor: string,
   validate: 'any 'value. 'any => {"value": 'value},
 }
+
+type internalDefault = {}
 
 type numberFormat = | @as("int32") Int32 | @as("port") Port
 
@@ -430,7 +432,8 @@ and internal = {
   mutable description?: string,
   mutable deprecated?: bool,
   mutable examples?: array<unknown>,
-  mutable default?: unknown,
+  mutable default?: internalDefault,
+  mutable fromDefault?: internalDefault,
   mutable format?: format,
   mutable has?: dict<bool>,
   mutable anyOf?: array<internal>,
@@ -710,6 +713,49 @@ module Flag = {
 
   let unsafeHas = (acc: flag, flag) => acc->land(flag)->(Obj.magic: int => bool)
   let has = (acc: flag, flag) => acc->land(flag) !== 0
+}
+
+module TagFlag = {
+  @inline let unknown = 1
+  @inline let string = 2
+  @inline let number = 4
+  @inline let boolean = 8
+  @inline let undefined = 16
+  @inline let null = 32
+  // @inline let object = 64
+  @inline let array = 128
+  @inline let union = 256
+  @inline let ref = 512
+  @inline let bigint = 1024
+  @inline let nan = 2048
+  // @inline let function = 4096
+  @inline let instance = 8192
+  @inline let never = 16384
+  // @inline let symbol = 32768
+
+  let flags = %raw(`{
+    unknown: 1,
+    string: 2,
+    number: 4,
+    boolean: 8,
+    undefined: 16,
+    null: 32,
+    object: 64,
+    array: 128,
+    union: 256,
+    ref: 512,
+    bigint: 1024,
+    nan: 2048,
+    "function": 4096,
+    instance: 8192,
+    never: 16384,
+    symbol: 32768,
+  }`)
+
+  @inline
+  let get = (tag: tag) => flags->Js.Dict.unsafeGet((tag :> string))
+  @inline
+  let isArray = tag => tag->get->Flag.unsafeHas(array)
 }
 
 // Need to copy without operations cache
@@ -1550,10 +1596,17 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg: val, ~path) => {
 
   let input = ref(inputArg)
 
+  // Js.log({
+  //   "input": input.contents,
+  //   "schema": schema,
+  // })
+
   let isFromLiteral = input.contents->Obj.magic->isLiteral
   let isSchemaLiteral = schema->isLiteral
   let isSameTag = input.contents.tag === schema.tag
-  if schema.tag === Union || schema.tag === Unknown {
+  let schemaTagFlag = TagFlag.get(schema.tag)
+  let inputTagFlag = TagFlag.get(input.contents.tag)
+  if schemaTagFlag->Flag.unsafeHas(TagFlag.union->Flag.with(TagFlag.unknown)) {
     ()
   } else if isSchemaLiteral {
     if isFromLiteral {
@@ -1561,11 +1614,16 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg: val, ~path) => {
         input.contents = b->B.constVal(~schema)
       }
     } else if (
-      input.contents.tag === String &&
-        switch schema.tag {
-        | Boolean | Number | BigInt | Undefined | Null | NaN => true
-        | _ => false
-        }
+      inputTagFlag->Flag.unsafeHas(TagFlag.string) &&
+        schemaTagFlag->Flag.unsafeHas(
+          TagFlag.boolean->Flag.with(
+            TagFlag.number->Flag.with(
+              TagFlag.bigint->Flag.with(
+                TagFlag.undefined->Flag.with(TagFlag.null->Flag.with(TagFlag.nan)),
+              ),
+            ),
+          ),
+        )
     ) {
       let inputVar = input.contents.var(b)
       b.code =
@@ -1587,11 +1645,16 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg: val, ~path) => {
     if isSameTag {
       ()
     } else if (
-      schema.tag === String &&
-        switch input.contents.tag {
-        | Boolean | Number | BigInt | Undefined | Null | NaN => true
-        | _ => false
-        }
+      schemaTagFlag->Flag.unsafeHas(TagFlag.string) &&
+        inputTagFlag->Flag.unsafeHas(
+          TagFlag.boolean->Flag.with(
+            TagFlag.number->Flag.with(
+              TagFlag.bigint->Flag.with(
+                TagFlag.undefined->Flag.with(TagFlag.null->Flag.with(TagFlag.nan)),
+              ),
+            ),
+          ),
+        )
     ) {
       let const = %raw(`""+input.const`)
       input := {
@@ -1603,15 +1666,9 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg: val, ~path) => {
           inline: `"${const}"`,
         }
     } else {
-      unsupportedTransform(
-        ~from={
-          // FIXME: This will fail for objects. Test it
-          input.contents->Obj.magic
-        },
-        ~target=schema,
-      )
+      unsupportedTransform(~from=input.contents->Obj.magic, ~target=schema)
     }
-  } else if input.contents.tag === Unknown {
+  } else if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
     if b.global.flag->Flag.unsafeHas(Flag.typeValidation) {
       b.filterCode = prevB->B.typeFilterCode(~schema, ~input=input.contents, ~path)
     }
@@ -1626,15 +1683,14 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg: val, ~path) => {
       input.contents.const = refined.const
     }
   } else if (
-    schema.tag === String &&
-      switch input.contents.tag {
-      | Boolean | Number | BigInt => true
-      | _ => false
-      }
+    schemaTagFlag->Flag.unsafeHas(TagFlag.string) &&
+      inputTagFlag->Flag.unsafeHas(
+        TagFlag.boolean->Flag.with(TagFlag.number->Flag.with(TagFlag.bigint)),
+      )
   ) {
     input := b->B.val(`""+${input.contents.inline}`, ~schema)
   } else if !isSameTag {
-    if input.contents.tag === String {
+    if inputTagFlag->Flag.unsafeHas(TagFlag.string) {
       let inputVar = input.contents.var(b)
       switch schema {
       | {tag: Boolean} =>
@@ -1874,6 +1930,15 @@ and reverse = (schema: internal) => {
     switch parser {
     | Some(parser) => mut.serializer = Some(parser)
     | None => %raw(`delete mut.serializer`)
+    }
+    let fromDefault = mut.fromDefault
+    switch mut.default {
+    | Some(default) => mut.fromDefault = Some(default)
+    | None => %raw(`delete mut.fromDefault`)
+    }
+    switch fromDefault {
+    | Some(fromDefault) => mut.default = Some(fromDefault)
+    | None => %raw(`delete mut.default`)
     }
     switch mut.items {
     | Some(items) =>
@@ -2460,10 +2525,10 @@ module Union = {
     }
   }
 
-  let isPriority = (tag: string, byKey: dict<array<internal>>) => {
-    ((tag === (Array: tag :> string) || tag === (Instance: tag :> string)) &&
+  let isPriority = (tagFlag, byKey: dict<array<internal>>) => {
+    (tagFlag->Flag.unsafeHas(TagFlag.array->Flag.with(TagFlag.instance)) &&
       byKey->X.Dict.has((Object: tag :> string))) ||
-      (tag === (NaN: tag :> string) && byKey->X.Dict.has((Number: tag :> string)))
+      (tagFlag->Flag.unsafeHas(TagFlag.nan) && byKey->X.Dict.has((Number: tag :> string)))
   }
 
   let refiner = Builder.make((b, ~input, ~selfSchema, ~path) => {
@@ -2496,30 +2561,55 @@ module Union = {
     let byKey = ref(Js.Dict.empty())
     let keys = ref([])
     for idx in 0 to lastIdx {
-      let schema = schemas->Js.Array2.unsafe_get(idx)
+      let schema = switch selfSchema.to {
+      | Some(target) if !(selfSchema.parser->Obj.magic) =>
+        updateOutput(schemas->Js.Array2.unsafe_get(idx), mut => {
+          mut.to = Some(target)
+        })->castToInternal
+      | _ => schemas->Js.Array2.unsafe_get(idx)
+      }
+      let tag = schema.tag
+      let tagFlag = TagFlag.get(tag)
 
-      switch schema.tag {
-      // The tags without a determined refinement,
+      if (
+        tagFlag->Flag.unsafeHas(TagFlag.undefined) &&
+          selfSchema->Obj.magic->X.Dict.has("fromDefault")
+      ) {
+        // skip it
+        ()
+      } // The tags without a determined refinement,
       // for which we can't apply optimizations.
       // So we run them and everything before them in a deopt mode.
-      | Union
-      | Ref
-      | Unknown
-      | Never =>
+      else if (
+        tagFlag->Flag.unsafeHas(
+          TagFlag.union
+          ->Flag.with(TagFlag.ref)
+          ->Flag.with(TagFlag.unknown)
+          ->Flag.with(TagFlag.never),
+        ) || (!(input.tag->TagFlag.get->Flag.unsafeHas(TagFlag.unknown)) && input.tag !== tag)
+      ) {
         deoptIdx := idx
         byKey := Js.Dict.empty()
         keys := []
-
-      | tag =>
-        let key = tag === Instance ? (schema.class->Obj.magic)["name"] : (tag :> string)
+      } else {
+        let key =
+          tagFlag->Flag.unsafeHas(TagFlag.instance)
+            ? (schema.class->Obj.magic)["name"]
+            : (tag :> string)
         switch byKey.contents->X.Dict.unsafeGetOption(key) {
         | Some(arr) =>
           // There can only be one valid. Dedupe
-          if tag !== Undefined && tag !== Null && tag !== NaN {
+          if (
+            !(
+              tagFlag->Flag.unsafeHas(
+                TagFlag.undefined->Flag.with(TagFlag.null)->Flag.with(TagFlag.nan),
+              )
+            )
+          ) {
             arr->Js.Array2.push(schema)->ignore
           }
         | None => {
-            if isPriority((tag :> string), byKey.contents) {
+            if isPriority(tagFlag, byKey.contents) {
               // Not the fastest way, but it's the simplest way
               // to make sure NaN is checked before number
               // And instance and array checked before object
@@ -2728,7 +2818,7 @@ module Union = {
           b->getItemCode(~schema=firstSchema, ~input, ~output, ~deopt=false, ~path)
         }
 
-        if body->X.String.unsafeToBool || isPriority((firstSchema.tag :> string), byKey) {
+        if body->X.String.unsafeToBool || isPriority(firstSchema.tag->TagFlag.get, byKey) {
           let if_ = nextElse.contents ? "else if" : "if"
           start := start.contents ++ if_ ++ `(${cond.contents(~inputVar=input.var(b))}){${body}}`
           nextElse := true
@@ -2966,7 +3056,6 @@ module Option = {
           | Some(s) => s
           }
 
-          // FIXME: Should delete schema.default on reverse?
           // FIXME: Should delete schema.unnest on reverse?
           // FIXME: Ensure that default has the same type as the item
           // Or maybe not, but need to make it properly with JSON Schema
@@ -3002,7 +3091,7 @@ module Option = {
           | Value(v) =>
             try mut.default =
               operationFn(item->castToPublic, Flag.reverse)(v)->(
-                Obj.magic: unknown => option<unknown>
+                Obj.magic: unknown => option<internalDefault>
               ) catch {
             | _ => ()
             }
@@ -3366,7 +3455,7 @@ module Float = {
   }
 }
 
-let rec to = (from, target) => {
+let to = (from, target) => {
   let from = from->castToInternal
   let target = target->castToInternal
 
@@ -3375,67 +3464,21 @@ let rec to = (from, target) => {
   if from === target {
     from->castToPublic
   } else {
-    switch target {
-    | {anyOf} =>
-      Union.factory(anyOf->Js.Array2.map(target => to(from->castToPublic, target->castToPublic)))
-    | _ =>
-      updateOutput(from, mut => {
-        mut.to = Some(target)
-        // A tricky part about parser is that we don't know the input type in ReScript
-        // so we need to directly parse to output instead of input
-        // switch parser {
-        // | Some(p) =>
-        //   mut.parser = Some(
-        //     Builder.make((b, ~input, ~selfSchema as _, ~path as _) => {
-        //       // TODO: Support async, reverse, nested parsing
-        //       b->B.embedSyncOperation(~input, ~fn=p)
-        //     }),
-        //   )
-        // | None => ()
-        // }
-      })
-
-    // mut.parser = Some(
-    //   Builder.make((b, ~input, ~selfSchema as _, ~path) => {
-    //     let input = b->parse(~schema=from, ~input, ~path)
-
-    // if coercion === extendCoercion {
-    //   b->parse(~schema=target, ~input, ~path)
-    // } else if coercion === shrinkCoercion {
-    //   b->parse(~schema=target, ~input, ~path)
-    // } else {
-    //   let bb = b->B.scope
-    //   let inputVar = input.var(bb)
-    //   let output = bb->parse(
-    //     ~schema=target,
-    //     ~input=bb->coercion(
-    //       ~inputVar,
-    //       ~failCoercion=bb->B.failWithArg(
-    //         ~path,
-    //         input => InvalidType({
-    //           expected: target->castToPublic,
-    //           received: input,
-    //         }),
-    //         inputVar,
-    //       ),
-    //     ),
-    //     ~path,
-    //   )
-    //   b.code = b.code ++ bb->B.allocateScope
-    //   output
-    // }
-    //   }),
-    // )
-    // mut.to = Some(target)
-
-    // mut.output = Some(
-    //   () => {
-    //     to(target->reverse->castToPublic, fromOutput->castToPublic)->castToInternal
-    //   },
-    // )
-
-    // mut->castToPublic
-    }
+    updateOutput(from, mut => {
+      mut.to = Some(target)
+      // A tricky part about parser is that we don't know the input type in ReScript
+      // so we need to directly parse to output instead of input
+      // switch parser {
+      // | Some(p) =>
+      //   mut.parser = Some(
+      //     Builder.make((b, ~input, ~selfSchema as _, ~path as _) => {
+      //       // TODO: Support async, reverse, nested parsing
+      //       b->B.embedSyncOperation(~input, ~fn=p)
+      //     }),
+      //   )
+      // | None => ()
+      // }
+    })
   }
 }
 
@@ -3584,7 +3627,7 @@ module Schema = {
       | Some(item) => item->getItemOutput
       | None => {
           let node = definition->Definition.toNode
-          let isArray = outputSchema.tag === Array
+          let isArray = TagFlag.isArray(outputSchema.tag)
           let objectVal = b->B.Val.Object.make(~isArray)
 
           outputSchema.items
@@ -3676,7 +3719,7 @@ module Schema = {
   let rec schemaRefiner = (b, ~input: val, ~selfSchema, ~path) => {
     let additionalItems = selfSchema.additionalItems
     let items = selfSchema.items->X.Option.getUnsafe
-    let isArray = selfSchema.tag === Array
+    let isArray = TagFlag.isArray(selfSchema.tag)
 
     if b.global.flag->Flag.unsafeHas(Flag.flatten) {
       let objectVal = b->B.Val.Object.make(~isArray)
@@ -3829,7 +3872,7 @@ module Schema = {
             | {items, tag, ?additionalItems}
               // Ignore S.dict and S.array
               if additionalItems->Obj.magic->Js.typeof === "string" => {
-                let isArray = tag === Array
+                let isArray = TagFlag.isArray(tag)
                 let objectVal = b->B.Val.Object.make(~isArray)
                 for idx in 0 to items->Js.Array2.length - 1 {
                   let item = items->Js.Array2.unsafe_get(idx)

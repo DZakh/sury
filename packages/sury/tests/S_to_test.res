@@ -464,7 +464,7 @@ test("Coerce string to unboxed union (each item separately)", t => {
       "t"->S.parseOrThrow(schema)
     },
     ~expectations={
-      message: `Failed parsing: Expected string | string, received "t"
+      message: `Failed parsing: Expected number | boolean, received "t"
 - Expected number, received "t"
 - Expected boolean, received "t"`,
     },
@@ -473,13 +473,13 @@ test("Coerce string to unboxed union (each item separately)", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){try{let v0=+i;Number.isNaN(v0)&&e[0](i);i=v0}catch(e0){try{let v1;(v1=i==="true")||i==="false"||e[1](i);i=v1}catch(e1){e[2](i,e0,e1)}}}else{e[3](i)}return i}`,
+    `i=>{if(typeof i!=="string"){e[0](i)}try{let v0=+i;Number.isNaN(v0)&&e[1](i);i=v0}catch(e0){try{let v1;(v1=i==="true")||i==="false"||e[2](i);i=v1}catch(e1){e[3](i,e0,e1)}}return i}`,
   )
 
   t->Assert.deepEqual(Number(10.)->S.reverseConvertOrThrow(schema), %raw(`"10"`))
   t->Assert.deepEqual(Boolean(true)->S.reverseConvertOrThrow(schema), %raw(`"true"`))
 
-  // TODO: Can be improved
+  // // TODO: Can be improved
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
@@ -565,7 +565,7 @@ test("Coerce from string to optional bool", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){try{let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}catch(e0){try{i==="undefined"||e[1](i);i=void 0}catch(e1){e[2](i,e0,e1)}}}else{e[3](i)}return i}`,
+    `i=>{if(typeof i!=="string"){e[0](i)}try{let v0;(v0=i==="true")||i==="false"||e[1](i);i=v0}catch(e0){try{i==="undefined"||e[2](i);i=void 0}catch(e1){e[3](i,e0,e1)}}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,

@@ -9,6 +9,8 @@
 
 ### ideas
 
+- Optimise bundle size
+
 - Add `promise` type and `S.promise` (instead of async flag internally)
 
 - Add `S.parseFromOrThrow(fromSchema, toSchema)` and `convertFromOrThrow` + async.
@@ -23,7 +25,6 @@
 - Better inline empty recursive schema operations (union convert)
 - Don't iterate over JSON value when it's `S.json` convert without parsing
 - Add `S.date.with(S.migrationFrom, S.string, <optionalParser>)`.
-- Fix `Returns the first default value, but can get the last one as well` test
 
 ### Final release fixes
 

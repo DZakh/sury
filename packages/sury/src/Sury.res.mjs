@@ -152,6 +152,25 @@ function has(acc, flag) {
   return (acc & flag) !== 0;
 }
 
+var flags = {
+    unknown: 1,
+    string: 2,
+    number: 4,
+    boolean: 8,
+    undefined: 16,
+    null: 32,
+    object: 64,
+    array: 128,
+    union: 256,
+    ref: 512,
+    bigint: 1024,
+    nan: 2048,
+    "function": 4096,
+    instance: 8192,
+    never: 16384,
+    symbol: 32768,
+  };
+
 var copyWithoutCache = ((schema) => {
   let c = new Schema(schema.type)
   for (let k in schema) {
@@ -890,9 +909,9 @@ function typeFilterCode(b, schema, input, path) {
   }
   var match = schema.type;
   switch (match) {
+    case "union" :
     case "never" :
     case "unknown" :
-    case "union" :
     case "ref" :
         return "";
     default:
@@ -944,69 +963,33 @@ function parse(prevB, schema, inputArg, path) {
   var isFromLiteral = isLiteral(input);
   var isSchemaLiteral = isLiteral(schema);
   var isSameTag = input.type === schema.type;
-  if (!(schema.type === "union" || schema.type === "unknown")) {
+  var schemaTagFlag = flags[schema.type];
+  var inputTagFlag = flags[input.type];
+  if (!(schemaTagFlag & 257)) {
     if (isSchemaLiteral) {
       if (isFromLiteral) {
         if (input.const !== schema.const) {
           input = constVal(b, schema);
         }
         
+      } else if (inputTagFlag & 2 && schemaTagFlag & 3132) {
+        var inputVar = input.v(b);
+        b.c = b.c + (input.i + "===\"" + schema.const + "\"||" + failWithArg(b, path, (function (input) {
+                  return {
+                          TAG: "InvalidType",
+                          expected: schema,
+                          received: input
+                        };
+                }), inputVar) + ";");
+        input = constVal(b, schema);
       } else {
-        var tmp = false;
-        if (input.type === "string") {
-          var match = schema.type;
-          var tmp$1;
-          switch (match) {
-            case "number" :
-            case "bigint" :
-            case "boolean" :
-            case "null" :
-            case "undefined" :
-            case "nan" :
-                tmp$1 = true;
-                break;
-            default:
-              tmp$1 = false;
-          }
-          tmp = tmp$1;
-        }
-        if (tmp) {
-          var inputVar = input.v(b);
-          b.c = b.c + (input.i + "===\"" + schema.const + "\"||" + failWithArg(b, path, (function (input) {
-                    return {
-                            TAG: "InvalidType",
-                            expected: schema,
-                            received: input
-                          };
-                  }), inputVar) + ";");
-          input = constVal(b, schema);
-        } else {
-          b.f = typeFilterCode(prevB, schema, input, path);
-          input.type = schema.type;
-          input.const = schema.const;
-        }
+        b.f = typeFilterCode(prevB, schema, input, path);
+        input.type = schema.type;
+        input.const = schema.const;
       }
     } else if (isFromLiteral && !isSchemaLiteral) {
       if (!isSameTag) {
-        var tmp$2 = false;
-        if (schema.type === "string") {
-          var match$1 = input.type;
-          var tmp$3;
-          switch (match$1) {
-            case "number" :
-            case "bigint" :
-            case "boolean" :
-            case "null" :
-            case "undefined" :
-            case "nan" :
-                tmp$3 = true;
-                break;
-            default:
-              tmp$3 = false;
-          }
-          tmp$2 = tmp$3;
-        }
-        if (tmp$2) {
+        if (schemaTagFlag & 2 && inputTagFlag & 3132) {
           var $$const = (""+input.const);
           input = {
             b: b,
@@ -1021,7 +1004,7 @@ function parse(prevB, schema, inputArg, path) {
         }
       }
       
-    } else if (input.type === "unknown") {
+    } else if (inputTagFlag & 1) {
       if (b.g.o & 1) {
         b.f = typeFilterCode(prevB, schema, input, path);
       }
@@ -1035,75 +1018,58 @@ function parse(prevB, schema, inputArg, path) {
         input.const = refined.const;
       }
       
-    } else {
-      var tmp$4 = false;
-      if (schema.type === "string") {
-        var match$2 = input.type;
-        var tmp$5;
-        switch (match$2) {
+    } else if (schemaTagFlag & 2 && inputTagFlag & 1036) {
+      input = val(b, "\"\"+" + input.i, schema);
+    } else if (!isSameTag) {
+      if (inputTagFlag & 2) {
+        var inputVar$1 = input.v(b);
+        var match = schema.type;
+        switch (match) {
           case "number" :
+              var format = schema.format;
+              var output = val(b, "+" + inputVar$1, schema);
+              var outputVar = output.v(b);
+              b.c = b.c + (
+                format !== undefined ? "(" + refinement(b, outputVar, schema, true).slice(2) + ")" : "Number.isNaN(" + outputVar + ")"
+              ) + ("&&" + failWithArg(b, path, (function (input) {
+                        return {
+                                TAG: "InvalidType",
+                                expected: schema,
+                                received: input
+                              };
+                      }), inputVar$1) + ";");
+              input = output;
+              break;
           case "bigint" :
+              var output$1 = allocateVal(b, schema);
+              b.c = b.c + ("try{" + output$1.i + "=BigInt(" + inputVar$1 + ")}catch(_){" + failWithArg(b, path, (function (input) {
+                        return {
+                                TAG: "InvalidType",
+                                expected: schema,
+                                received: input
+                              };
+                      }), inputVar$1) + "}");
+              input = output$1;
+              break;
           case "boolean" :
-              tmp$5 = true;
+              var output$2 = allocateVal(b, schema);
+              b.c = b.c + ("(" + output$2.i + "=" + inputVar$1 + "===\"true\")||" + inputVar$1 + "===\"false\"||" + failWithArg(b, path, (function (input) {
+                        return {
+                                TAG: "InvalidType",
+                                expected: schema,
+                                received: input
+                              };
+                      }), inputVar$1) + ";");
+              input = output$2;
               break;
           default:
-            tmp$5 = false;
+            unsupportedTransform(input, schema);
         }
-        tmp$4 = tmp$5;
+      } else {
+        unsupportedTransform(input, schema);
       }
-      if (tmp$4) {
-        input = val(b, "\"\"+" + input.i, schema);
-      } else if (!isSameTag) {
-        if (input.type === "string") {
-          var inputVar$1 = input.v(b);
-          var match$3 = schema.type;
-          switch (match$3) {
-            case "number" :
-                var format = schema.format;
-                var output = val(b, "+" + inputVar$1, schema);
-                var outputVar = output.v(b);
-                b.c = b.c + (
-                  format !== undefined ? "(" + refinement(b, outputVar, schema, true).slice(2) + ")" : "Number.isNaN(" + outputVar + ")"
-                ) + ("&&" + failWithArg(b, path, (function (input) {
-                          return {
-                                  TAG: "InvalidType",
-                                  expected: schema,
-                                  received: input
-                                };
-                        }), inputVar$1) + ";");
-                input = output;
-                break;
-            case "bigint" :
-                var output$1 = allocateVal(b, schema);
-                b.c = b.c + ("try{" + output$1.i + "=BigInt(" + inputVar$1 + ")}catch(_){" + failWithArg(b, path, (function (input) {
-                          return {
-                                  TAG: "InvalidType",
-                                  expected: schema,
-                                  received: input
-                                };
-                        }), inputVar$1) + "}");
-                input = output$1;
-                break;
-            case "boolean" :
-                var output$2 = allocateVal(b, schema);
-                b.c = b.c + ("(" + output$2.i + "=" + inputVar$1 + "===\"true\")||" + inputVar$1 + "===\"false\"||" + failWithArg(b, path, (function (input) {
-                          return {
-                                  TAG: "InvalidType",
-                                  expected: schema,
-                                  received: input
-                                };
-                        }), inputVar$1) + ";");
-                input = output$2;
-                break;
-            default:
-              unsupportedTransform(input, schema);
-          }
-        } else {
-          unsupportedTransform(input, schema);
-        }
-      }
-      
     }
+    
   }
   var ref = schema.$ref;
   if (ref !== undefined) {
@@ -1152,35 +1118,36 @@ function parse(prevB, schema, inputArg, path) {
   return input;
 }
 
-function internalCompile(schema, flag, defs) {
-  var b = rootScope(flag, defs);
-  if (flag & 8) {
-    var output = reverse(schema);
-    jsonableValidation(output, output, "", flag);
+function jsonableValidation(output, parent, path, flag) {
+  var tag = output.type;
+  if (tag === "undefined" && parent.type !== "object" || nonJsonableTags.has(tag)) {
+    throw new SuryError({
+              TAG: "InvalidJsonSchema",
+              _0: parent
+            }, flag, path);
   }
-  var input = {
-    b: b,
-    v: _var,
-    i: "i",
-    f: 0,
-    type: "unknown"
-  };
-  var output$1 = parse(b, schema, input, "");
-  var code = allocateScope(b);
-  var isAsync = has(output$1.f, 2);
-  schema.isAsync = isAsync;
-  if (code === "" && output$1 === input && !(flag & 22)) {
-    return noopOperation;
+  if (tag === "union") {
+    output.anyOf.forEach(function (s) {
+          jsonableValidation(s, parent, path, flag);
+        });
+    return ;
   }
-  var inlinedOutput = flag & 4 ? "void 0" : output$1.i;
-  if (flag & 16) {
-    inlinedOutput = "JSON.stringify(" + inlinedOutput + ")";
+  if (!(tag === "array" || tag === "object")) {
+    return ;
   }
-  if (flag & 2 && !isAsync && !defs) {
-    inlinedOutput = "Promise.resolve(" + inlinedOutput + ")";
+  var additionalItems = output.additionalItems;
+  var items = output.items;
+  if (items === undefined) {
+    return ;
   }
-  var inlinedFunction = "i=>{" + code + "return " + inlinedOutput + "}";
-  return new Function("e", "s", "return " + inlinedFunction)(b.g.e, s);
+  if (additionalItems === "strip" || additionalItems === "strict") {
+    additionalItems === "strip";
+  } else {
+    jsonableValidation(additionalItems, parent, path, flag);
+  }
+  items.forEach(function (item) {
+        jsonableValidation(item.schema, output, path + ("[" + item.inlinedLocation + "]"), flag);
+      });
 }
 
 function reverse(schema) {
@@ -1206,6 +1173,18 @@ function reverse(schema) {
       mut.serializer = parser;
     } else {
       ((delete mut.serializer));
+    }
+    var fromDefault = mut.fromDefault;
+    var $$default = mut.default;
+    if ($$default !== undefined) {
+      mut.fromDefault = $$default;
+    } else {
+      ((delete mut.fromDefault));
+    }
+    if (fromDefault !== undefined) {
+      mut.default = fromDefault;
+    } else {
+      ((delete mut.default));
     }
     var items = mut.items;
     if (items !== undefined) {
@@ -1265,36 +1244,47 @@ function reverse(schema) {
   return reversedHead;
 }
 
-function jsonableValidation(output, parent, path, flag) {
-  var tag = output.type;
-  if (tag === "undefined" && parent.type !== "object" || nonJsonableTags.has(tag)) {
-    throw new SuryError({
-              TAG: "InvalidJsonSchema",
-              _0: parent
-            }, flag, path);
+function internalCompile(schema, flag, defs) {
+  var b = rootScope(flag, defs);
+  if (flag & 8) {
+    var output = reverse(schema);
+    jsonableValidation(output, output, "", flag);
   }
-  if (tag === "union") {
-    output.anyOf.forEach(function (s) {
-          jsonableValidation(s, parent, path, flag);
-        });
-    return ;
+  var input = {
+    b: b,
+    v: _var,
+    i: "i",
+    f: 0,
+    type: "unknown"
+  };
+  var output$1 = parse(b, schema, input, "");
+  var code = allocateScope(b);
+  var isAsync = has(output$1.f, 2);
+  schema.isAsync = isAsync;
+  if (code === "" && output$1 === input && !(flag & 22)) {
+    return noopOperation;
   }
-  if (!(tag === "array" || tag === "object")) {
-    return ;
+  var inlinedOutput = flag & 4 ? "void 0" : output$1.i;
+  if (flag & 16) {
+    inlinedOutput = "JSON.stringify(" + inlinedOutput + ")";
   }
-  var additionalItems = output.additionalItems;
-  var items = output.items;
-  if (items === undefined) {
-    return ;
+  if (flag & 2 && !isAsync && !defs) {
+    inlinedOutput = "Promise.resolve(" + inlinedOutput + ")";
   }
-  if (additionalItems === "strip" || additionalItems === "strict") {
-    additionalItems === "strip";
-  } else {
-    jsonableValidation(additionalItems, parent, path, flag);
-  }
-  items.forEach(function (item) {
-        jsonableValidation(item.schema, output, path + ("[" + item.inlinedLocation + "]"), flag);
-      });
+  var inlinedFunction = "i=>{" + code + "return " + inlinedOutput + "}";
+  return new Function("e", "s", "return " + inlinedFunction)(b.g.e, s);
+}
+
+function getOutputSchema(_schema) {
+  while(true) {
+    var schema = _schema;
+    var to = schema.to;
+    if (to === undefined) {
+      return schema;
+    }
+    _schema = to;
+    continue ;
+  };
 }
 
 function isAsyncInternal(schema, defs) {
@@ -1316,18 +1306,6 @@ function isAsyncInternal(schema, defs) {
     getOrRethrow(exn);
     return false;
   }
-}
-
-function getOutputSchema(_schema) {
-  while(true) {
-    var schema = _schema;
-    var to = schema.to;
-    if (to === undefined) {
-      return schema;
-    }
-    _schema = to;
-    continue ;
-  };
 }
 
 function operationFn(s, o) {
@@ -1719,10 +1697,10 @@ function getItemCode(b, schema, input, output, deopt, path) {
   }
 }
 
-function isPriority(tag, byKey) {
-  if ((tag === "array" || tag === "instance") && byKey["object"]) {
+function isPriority(tagFlag, byKey) {
+  if (tagFlag & 8320 && byKey["object"]) {
     return true;
-  } else if (tag === "nan") {
+  } else if (tagFlag & 2048) {
     return byKey["number"];
   } else {
     return false;
@@ -1749,37 +1727,36 @@ function refiner(b, input, selfSchema, path) {
   var byKey = {};
   var keys = [];
   for(var idx = 0; idx <= lastIdx; ++idx){
-    var schema = schemas[idx];
+    var target = selfSchema.to;
+    var schema = target !== undefined && !selfSchema.parser ? updateOutput(schemas[idx], (function(target){
+          return function (mut) {
+            mut.to = target;
+          }
+          }(target))) : schemas[idx];
     var tag = schema.type;
-    var exit = 0;
-    switch (tag) {
-      case "never" :
-      case "unknown" :
-      case "union" :
-      case "ref" :
-          exit = 1;
-          break;
-      default:
-        var key = tag === "instance" ? schema.class.name : tag;
+    var tagFlag = flags[tag];
+    if (!(tagFlag & 16 && selfSchema["fromDefault"])) {
+      if (tagFlag & 17153 || !(flags[input.type] & 1) && input.type !== tag) {
+        deoptIdx = idx;
+        byKey = {};
+        keys = [];
+      } else {
+        var key = tagFlag & 8192 ? schema.class.name : tag;
         var arr = byKey[key];
         if (arr !== undefined) {
-          if (tag !== "undefined" && tag !== "null" && tag !== "nan") {
+          if (!(tagFlag & 2096)) {
             arr.push(schema);
           }
           
         } else {
-          if (isPriority(tag, byKey)) {
+          if (isPriority(tagFlag, byKey)) {
             keys.unshift(key);
           } else {
             keys.push(key);
           }
           byKey[key] = [schema];
         }
-    }
-    if (exit === 1) {
-      deoptIdx = idx;
-      byKey = {};
-      keys = [];
+      }
     }
     
   }
@@ -1789,10 +1766,10 @@ function refiner(b, input, selfSchema, path) {
   var start = "";
   var end = "";
   var caught = "";
-  var exit$1 = false;
+  var exit = false;
   if (deoptIdx$1 !== -1) {
     for(var idx$1 = 0; idx$1 <= deoptIdx$1; ++idx$1){
-      if (!exit$1) {
+      if (!exit) {
         var schema$1 = schemas[idx$1];
         var itemCode = getItemCode(b, schema$1, input, input, true, path);
         if (itemCode) {
@@ -1801,13 +1778,13 @@ function refiner(b, input, selfSchema, path) {
           end = "}" + end;
           caught = caught + "," + errorVar;
         } else {
-          exit$1 = true;
+          exit = true;
         }
       }
       
     }
   }
-  if (!exit$1) {
+  if (!exit) {
     var nextElse = false;
     var noop = "";
     for(var idx$2 = 0 ,idx_finish = keys$1.length; idx$2 < idx_finish; ++idx$2){
@@ -1939,7 +1916,7 @@ function refiner(b, input, selfSchema, path) {
         }(firstSchema));
         body = getItemCode(b, firstSchema, input, input, false, path);
       }
-      if (body || isPriority(firstSchema.type, byKey$1)) {
+      if (body || isPriority(flags[firstSchema.type], byKey$1)) {
         var if_$3 = nextElse ? "else if" : "if";
         start = start + if_$3 + ("(" + cond(input.v(b)) + "){" + body + "}");
         nextElse = true;
@@ -2440,12 +2417,6 @@ function refinements$3(schema) {
 function to(from, target) {
   if (from === target) {
     return from;
-  }
-  var anyOf = target.anyOf;
-  if (anyOf !== undefined) {
-    return factory(anyOf.map(function (target) {
-                    return to(from, target);
-                  }));
   } else {
     return updateOutput(from, (function (mut) {
                   mut.to = target;
@@ -2529,7 +2500,7 @@ function definitionToOutput(b, definition, getItemOutput, outputSchema) {
   if (item !== undefined) {
     return getItemOutput(item);
   }
-  var isArray = outputSchema.type === "array";
+  var isArray = flags[outputSchema.type] & 128;
   var objectVal = make(b, isArray);
   outputSchema.items.forEach(function (item) {
         add(objectVal, item.inlinedLocation, definitionToOutput(b, definition[item.location], getItemOutput, item.schema));
@@ -2601,7 +2572,7 @@ function proxify(item) {
 function schemaRefiner(b, input, selfSchema, path) {
   var additionalItems = selfSchema.additionalItems;
   var items = selfSchema.items;
-  var isArray = selfSchema.type === "array";
+  var isArray = flags[selfSchema.type] & 128;
   if (b.g.o & 64) {
     var objectVal = make(b, isArray);
     for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
@@ -2627,72 +2598,6 @@ function schemaRefiner(b, input, selfSchema, path) {
   } else {
     return complete(objectVal$1, isArray);
   }
-}
-
-function definitionToRitem(definition, path, ritemsByItemPath) {
-  if (!(typeof definition === "object" && definition !== null)) {
-    return {
-            k: 1,
-            p: path,
-            s: copyWithoutCache(parse$1(definition))
-          };
-  }
-  var item = definition[itemSymbol];
-  if (item !== undefined) {
-    var ritemSchema = copyWithoutCache(getOutputSchema(item.schema));
-    ((delete ritemSchema.serializer));
-    var ritem = {
-      k: 0,
-      p: path,
-      s: ritemSchema
-    };
-    item.r = ritem;
-    ritemsByItemPath[getFullDitemPath(item)] = ritem;
-    return ritem;
-  }
-  if (Array.isArray(definition)) {
-    var items = [];
-    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
-      var $$location = idx.toString();
-      var inlinedLocation = "\"" + $$location + "\"";
-      var ritem$1 = definitionToRitem(definition[idx], path + ("[" + inlinedLocation + "]"), ritemsByItemPath);
-      var item_schema = ritem$1.s;
-      var item$1 = {
-        schema: item_schema,
-        location: $$location,
-        inlinedLocation: inlinedLocation
-      };
-      items[idx] = item$1;
-    }
-    var mut = new Schema("array");
-    return {
-            k: 2,
-            p: path,
-            s: (mut.items = items, mut.additionalItems = "strict", mut.serializer = neverBuilder, mut)
-          };
-  }
-  var fieldNames = Object.keys(definition);
-  var properties = {};
-  var items$1 = [];
-  for(var idx$1 = 0 ,idx_finish$1 = fieldNames.length; idx$1 < idx_finish$1; ++idx$1){
-    var $$location$1 = fieldNames[idx$1];
-    var inlinedLocation$1 = fromString($$location$1);
-    var ritem$2 = definitionToRitem(definition[$$location$1], path + ("[" + inlinedLocation$1 + "]"), ritemsByItemPath);
-    var item_schema$1 = ritem$2.s;
-    var item$2 = {
-      schema: item_schema$1,
-      location: $$location$1,
-      inlinedLocation: inlinedLocation$1
-    };
-    items$1[idx$1] = item$2;
-    properties[$$location$1] = item_schema$1;
-  }
-  var mut$1 = new Schema("object");
-  return {
-          k: 2,
-          p: path,
-          s: (mut$1.items = items$1, mut$1.properties = properties, mut$1.additionalItems = globalConfig.a, mut$1.serializer = neverBuilder, mut$1)
-        };
 }
 
 function definitionToSchema(definition) {
@@ -2822,6 +2727,72 @@ function nested(fieldName) {
   return ctx$1;
 }
 
+function definitionToRitem(definition, path, ritemsByItemPath) {
+  if (!(typeof definition === "object" && definition !== null)) {
+    return {
+            k: 1,
+            p: path,
+            s: copyWithoutCache(parse$1(definition))
+          };
+  }
+  var item = definition[itemSymbol];
+  if (item !== undefined) {
+    var ritemSchema = copyWithoutCache(getOutputSchema(item.schema));
+    ((delete ritemSchema.serializer));
+    var ritem = {
+      k: 0,
+      p: path,
+      s: ritemSchema
+    };
+    item.r = ritem;
+    ritemsByItemPath[getFullDitemPath(item)] = ritem;
+    return ritem;
+  }
+  if (Array.isArray(definition)) {
+    var items = [];
+    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
+      var $$location = idx.toString();
+      var inlinedLocation = "\"" + $$location + "\"";
+      var ritem$1 = definitionToRitem(definition[idx], path + ("[" + inlinedLocation + "]"), ritemsByItemPath);
+      var item_schema = ritem$1.s;
+      var item$1 = {
+        schema: item_schema,
+        location: $$location,
+        inlinedLocation: inlinedLocation
+      };
+      items[idx] = item$1;
+    }
+    var mut = new Schema("array");
+    return {
+            k: 2,
+            p: path,
+            s: (mut.items = items, mut.additionalItems = "strict", mut.serializer = neverBuilder, mut)
+          };
+  }
+  var fieldNames = Object.keys(definition);
+  var properties = {};
+  var items$1 = [];
+  for(var idx$1 = 0 ,idx_finish$1 = fieldNames.length; idx$1 < idx_finish$1; ++idx$1){
+    var $$location$1 = fieldNames[idx$1];
+    var inlinedLocation$1 = fromString($$location$1);
+    var ritem$2 = definitionToRitem(definition[$$location$1], path + ("[" + inlinedLocation$1 + "]"), ritemsByItemPath);
+    var item_schema$1 = ritem$2.s;
+    var item$2 = {
+      schema: item_schema$1,
+      location: $$location$1,
+      inlinedLocation: inlinedLocation$1
+    };
+    items$1[idx$1] = item$2;
+    properties[$$location$1] = item_schema$1;
+  }
+  var mut$1 = new Schema("object");
+  return {
+          k: 2,
+          p: path,
+          s: (mut$1.items = items$1, mut$1.properties = properties, mut$1.additionalItems = globalConfig.a, mut$1.serializer = neverBuilder, mut$1)
+        };
+}
+
 function advancedBuilder(definition, flattened) {
   return function (b, input, selfSchema, path) {
     var isFlatten = b.g.o & 64;
@@ -2898,7 +2869,7 @@ function definitionToTarget(definition, to, flattened) {
         var additionalItems = outputSchema.additionalItems;
         var items = outputSchema.items;
         if (items !== undefined && typeof additionalItems === "string") {
-          var isArray = tag === "array";
+          var isArray = flags[tag] & 128;
           var objectVal = make(b, isArray);
           for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
             var item = items[idx];
