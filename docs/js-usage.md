@@ -1134,21 +1134,6 @@ Currently, ReScript Schema supports the following coercions (🔄 means reverse 
 
 There are plans to add more support in future versions and make it extensible.
 
-### **`standard`**
-
-```ts
-const docsSchema = S.schema({
-  id: S.number,
-  content: S.string,
-});
-
-//     ┌─── StandardSchemaV1<{ id: number; content: string; }>
-//     ▼
-const standardSchema = S.standard(docsSchema);
-```
-
-Converts ReScript Schema into [Standard Schema](https://standardschema.dev/). You can use it to integrate with 20+ other libraries. Checkout the [Standard Schema](https://standardschema.dev/) to learn more. 👀
-
 ### **`name`**
 
 ```ts
