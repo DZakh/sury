@@ -537,8 +537,8 @@ function make(b, isArray) {
         };
 }
 
-function add(objectVal, inlinedLocation, val) {
-  objectVal.p[inlinedLocation] = val;
+function add(objectVal, $$location, inlinedLocation, val) {
+  objectVal.p[$$location] = val;
   if (val.f & 2) {
     objectVal.r = objectVal.r + val.i + ",";
     objectVal.i = objectVal.i + objectVal.j(inlinedLocation, "a[" + (objectVal.c++) + "]");
@@ -548,10 +548,10 @@ function add(objectVal, inlinedLocation, val) {
 }
 
 function merge(target, subObjectVal) {
-  var inlinedLocations = Object.keys(subObjectVal.p);
-  for(var idx = 0 ,idx_finish = inlinedLocations.length; idx < idx_finish; ++idx){
-    var inlinedLocation = inlinedLocations[idx];
-    add(target, inlinedLocation, subObjectVal.p[inlinedLocation]);
+  var locations = Object.keys(subObjectVal.p);
+  for(var idx = 0 ,idx_finish = locations.length; idx < idx_finish; ++idx){
+    var $$location = locations[idx];
+    add(target, $$location, fromString($$location), subObjectVal.p[$$location]);
   }
 }
 
@@ -587,9 +587,9 @@ function set(b, input, val) {
   return inputVar + "=" + val.i;
 }
 
-function get(b, targetVal, inlinedLocation) {
+function get(b, targetVal, $$location) {
   var properties = targetVal.p;
-  var val = properties[inlinedLocation];
+  var val = properties[$$location];
   if (val !== undefined) {
     return val;
   }
@@ -606,11 +606,11 @@ function get(b, targetVal, inlinedLocation) {
   var val$1 = {
     b: b,
     v: _notVar,
-    i: targetVal.v(b) + ("[" + inlinedLocation + "]"),
+    i: targetVal.v(b) + ("[" + fromString($$location) + "]"),
     f: 0,
     type: schema$1.type
   };
-  properties[inlinedLocation] = val$1;
+  properties[$$location] = val$1;
   return val$1;
 }
 
@@ -897,7 +897,7 @@ function makeRefinedOf(b, input, schema) {
             type: schema.type
           };
           loop(mut$1, schema);
-          properties[item.inlinedLocation] = mut$1;
+          properties[item.location] = mut$1;
         });
     mut.p = properties;
     mut.a = unknown;
@@ -2519,7 +2519,7 @@ function definitionToOutput(b, definition, getItemOutput, outputSchema) {
   var isArray = flags[outputSchema.type] & 128;
   var objectVal = make(b, isArray);
   outputSchema.items.forEach(function (item) {
-        add(objectVal, item.inlinedLocation, definitionToOutput(b, definition[item.location], getItemOutput, item.schema));
+        add(objectVal, item.location, item.inlinedLocation, definitionToOutput(b, definition[item.location], getItemOutput, item.schema));
       });
   return complete(objectVal, isArray);
 }
@@ -2593,22 +2593,23 @@ function schemaRefiner(b, input, selfSchema, path) {
     var objectVal = make(b, isArray);
     for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
       var match = items[idx];
-      var inlinedLocation = match.inlinedLocation;
-      add(objectVal, inlinedLocation, input.p[inlinedLocation]);
+      var $$location = match.location;
+      add(objectVal, $$location, match.inlinedLocation, input.p[$$location]);
     }
     return complete(objectVal, isArray);
   }
   var objectVal$1 = make(b, isArray);
   for(var idx$1 = 0 ,idx_finish$1 = items.length; idx$1 < idx_finish$1; ++idx$1){
     var match$1 = items[idx$1];
-    var inlinedLocation$1 = match$1.inlinedLocation;
-    var itemInput = get(b, input, inlinedLocation$1);
-    var path$1 = path + ("[" + inlinedLocation$1 + "]");
-    add(objectVal$1, inlinedLocation$1, parse(b, match$1.schema, itemInput, path$1));
+    var inlinedLocation = match$1.inlinedLocation;
+    var $$location$1 = match$1.location;
+    var itemInput = get(b, input, $$location$1);
+    var path$1 = path + ("[" + inlinedLocation + "]");
+    add(objectVal$1, $$location$1, inlinedLocation, parse(b, match$1.schema, itemInput, path$1));
   }
   objectStrictModeCheck(b, input, items, selfSchema, path);
   if ((additionalItems !== "strip" || b.g.o & 32) && items.every(function (item) {
-          return objectVal$1.p[item.inlinedLocation] === input.p[item.inlinedLocation];
+          return objectVal$1.p[item.location] === input.p[item.location];
         })) {
     return input;
   } else {
@@ -2830,7 +2831,7 @@ function definitionToTarget(definition, to, flattened) {
           }
           var $$location = locations[0];
           _locations = locations.slice(1);
-          _input = get(b, input$1, fromString($$location));
+          _input = get(b, input$1, $$location);
           continue ;
         };
       };
@@ -2853,7 +2854,7 @@ function definitionToTarget(definition, to, flattened) {
             var itemPath = originalPath + ("[" + item.inlinedLocation + "]");
             var ritem = ritemsByItemPath[itemPath];
             var itemInput = ritem !== undefined ? parse(b, item.schema, getRitemInput(ritem), ritem.p) : schemaToOutput(item.schema, itemPath);
-            add(objectVal, item.inlinedLocation, itemInput);
+            add(objectVal, item.location, item.inlinedLocation, itemInput);
           }
           return complete(objectVal, isArray);
         }
@@ -2887,8 +2888,8 @@ function definitionToTarget(definition, to, flattened) {
       }
       for(var idx$1 = 0 ,idx_finish$1 = items.length; idx$1 < idx_finish$1; ++idx$1){
         var item = items[idx$1];
-        if (!objectVal.p[item.inlinedLocation]) {
-          add(objectVal, item.inlinedLocation, getItemOutput(item, "[" + item.inlinedLocation + "]", false));
+        if (!objectVal.p[item.location]) {
+          add(objectVal, item.location, item.inlinedLocation, getItemOutput(item, "[" + item.inlinedLocation + "]", false));
         }
         
       }
@@ -2905,10 +2906,10 @@ function advancedBuilder(definition, flattened) {
       var items = selfSchema.items;
       for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
         var match = items[idx];
-        var inlinedLocation = match.inlinedLocation;
-        var itemInput = get(b, input, inlinedLocation);
-        var path$1 = path + ("[" + inlinedLocation + "]");
-        outputs[inlinedLocation] = parse(b, match.schema, itemInput, path$1);
+        var $$location = match.location;
+        var itemInput = get(b, input, $$location);
+        var path$1 = path + ("[" + match.inlinedLocation + "]");
+        outputs[$$location] = parse(b, match.schema, itemInput, path$1);
       }
       objectStrictModeCheck(b, input, items, selfSchema, path);
     }
@@ -2924,9 +2925,9 @@ function advancedBuilder(definition, flattened) {
     var getItemOutput = function (item) {
       switch (item.k) {
         case 0 :
-            return outputs[item.inlinedLocation];
+            return outputs[item.location];
         case 1 :
-            return get(b, getItemOutput(item.of), item.inlinedLocation);
+            return get(b, getItemOutput(item.of), item.location);
         case 2 :
             return outputs[item.i];
         
@@ -2949,7 +2950,7 @@ function shape(schema, definer) {
                     var getItemOutput = function (item) {
                       switch (item.k) {
                         case 1 :
-                            return get(b, getItemOutput(item.of), item.inlinedLocation);
+                            return get(b, getItemOutput(item.of), item.location);
                         case 0 :
                         case 2 :
                             return input;
@@ -3141,7 +3142,7 @@ function unnestSerializer(b, input, selfSchema, path) {
           for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
             var toItem = items[idx];
             initialArraysCode = initialArraysCode + ("new Array(" + inputVar + ".length),");
-            settingCode = settingCode + (outputVar + "[" + idx + "][" + iteratorVar + "]=" + get(b, output, toItem.inlinedLocation).i + ";");
+            settingCode = settingCode + (outputVar + "[" + idx + "][" + iteratorVar + "]=" + get(b, output, toItem.location).i + ";");
           }
           b.a(outputVar + "=[" + initialArraysCode + "]");
           bb.c = bb.c + settingCode;
@@ -3199,7 +3200,7 @@ function unnest(schema) {
         var lengthCode = "";
         for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
           var item = items[idx];
-          add(itemInput, item.inlinedLocation, val(bb, inputVar + "[" + idx + "][" + iteratorVar + "]", unknown));
+          add(itemInput, item.location, item.inlinedLocation, val(bb, inputVar + "[" + idx + "][" + iteratorVar + "]", unknown));
           lengthCode = lengthCode + (inputVar + "[" + idx + "].length,");
         }
         var output = val(b, "new Array(Math.max(" + lengthCode + "))", selfSchema.to);
