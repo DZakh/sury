@@ -233,7 +233,6 @@ export type Schema<Output, Input = unknown> = {
 export type Item = {
   readonly schema: Schema<unknown>;
   readonly location: string;
-  readonly inlinedLocation: string;
 };
 
 export abstract class Path {

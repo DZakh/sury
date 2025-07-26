@@ -227,7 +227,6 @@ and untagged = private {
 and item = {
   schema: t<unknown>,
   location: string,
-  inlinedLocation: string,
 }
 and has = {
   string?: bool,

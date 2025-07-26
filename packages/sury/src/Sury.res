@@ -485,7 +485,6 @@ and untagged = private {
 and item = {
   schema: t<unknown>,
   location: string,
-  inlinedLocation: string,
 }
 and has = {
   string?: bool,
@@ -976,6 +975,20 @@ module Builder = {
       }
     }
 
+    // Escape it once per compiled operation.
+    // Use bGlobal as cache, so we don't allocate another object + it's garbage collected.
+    let inlineLocation = (b: b, location) => {
+      let key = `"${location}"`
+      switch b.global->(Obj.magic: bGlobal => dict<string>)->X.Dict.unsafeGetOption(key) {
+      | Some(i) => i
+      | None => {
+          let inlinedLocation = location->X.Inlined.Value.fromString
+          b.global->(Obj.magic: bGlobal => dict<string>)->Js.Dict.set(key, inlinedLocation)
+          inlinedLocation
+        }
+      }
+    }
+
     let secondAllocate = v => {
       let b = %raw(`this`)
       b.varsAllocation = b.varsAllocation ++ "," ++ v
@@ -1117,8 +1130,8 @@ module Builder = {
           }
         }
 
-        let add = (objectVal, ~location, ~inlinedLocation, val: val) => {
-          // inlinedLocation is either an int or a quoted string, so it's safe to store it directly on val
+        let add = (objectVal, ~location, val: val) => {
+          let inlinedLocation = objectVal.b->inlineLocation(location)
           objectVal.properties->X.Option.getUnsafe->Js.Dict.set(location, val)
           if val.flag->Flag.unsafeHas(ValFlag.async) {
             objectVal.promiseAllContent = objectVal.promiseAllContent ++ val.inline ++ ","
@@ -1135,7 +1148,6 @@ module Builder = {
             let location = locations->Js.Array2.unsafe_get(idx)
             target->add(
               ~location,
-              ~inlinedLocation=location->X.Inlined.Value.fromString,
               subObjectVal.properties->X.Option.getUnsafe->Js.Dict.unsafeGet(location),
             )
           }
@@ -1452,16 +1464,22 @@ module Builder = {
             },
           )
           for idx in 0 to items->Js.Array2.length - 1 {
-            let {schema: item, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
+            let {schema: item, location} = items->Js.Array2.unsafe_get(idx)
             let item = item->castToInternal
             let itemCode = if item->isLiteral || schema.unnest->X.Option.getUnsafe {
               b->validation(
-                ~inputVar=Path.concat(inputVar, Path.fromInlinedLocation(inlinedLocation)),
+                ~inputVar=Path.concat(
+                  inputVar,
+                  Path.fromInlinedLocation(b->inlineLocation(location)),
+                ),
                 ~schema=item,
                 ~negative,
               )
             } else if item.items->Obj.magic {
-              let inputVar = Path.concat(inputVar, Path.fromInlinedLocation(inlinedLocation))
+              let inputVar = Path.concat(
+                inputVar,
+                Path.fromInlinedLocation(b->inlineLocation(location)),
+              )
               // TODO: Support noValidation
               b->validation(~inputVar, ~schema=item, ~negative) ++
                 b->refinement(~inputVar, ~schema=item, ~negative)
@@ -1506,7 +1524,7 @@ module Builder = {
                   var: _notVar,
                   inline: isConst
                     ? b->inlineConst(schema)
-                    : `${mut.var(b)}${Path.fromInlinedLocation(item.inlinedLocation)}`,
+                    : `${mut.var(b)}${Path.fromInlinedLocation(b->inlineLocation(item.location))}`,
                   flag: ValFlag.none,
                   tag: schema.tag,
                 }
@@ -2052,7 +2070,7 @@ and jsonableValidation = (~output, ~parent, ~path, ~flag) => {
           jsonableValidation(
             ~output=item.schema->castToInternal,
             ~parent=output,
-            ~path=path->Path.concat(Path.fromInlinedLocation(item.inlinedLocation)),
+            ~path=path->Path.concat(Path.fromLocation(item.location)),
             ~flag,
           )
         })
@@ -2937,14 +2955,13 @@ module Option = {
   type default = Value(unknown) | Callback(unit => unknown)
 
   let nestedLoc = "BS_PRIVATE_NESTED_SOME_NONE"
-  let inlinedNestedLoc = `"${nestedLoc}"`
+
   let nestedOption = {
     let nestedNone = () => {
       let itemSchema = Literal.parse(0)
       let item: item = {
         schema: itemSchema->castToPublic,
         location: nestedLoc,
-        inlinedLocation: inlinedNestedLoc,
       }
       // FIXME: dict{}
       let properties = Js.Dict.empty()
@@ -2963,7 +2980,7 @@ module Option = {
 
     let parser = Builder.make((b, ~input as _, ~selfSchema, ~path as _) => {
       b->B.val(
-        `{${inlinedNestedLoc}:${(
+        `{${nestedLoc}:${(
             (
               (selfSchema->getOutputSchema).items
               ->X.Option.getUnsafe
@@ -3012,7 +3029,6 @@ module Option = {
                 ->updateOutput(mut => {
                   let newItem = {
                     location: nestedLoc,
-                    inlinedLocation: inlinedNestedLoc,
                     schema: {
                       tag: nestedSchema.tag,
                       parser: ?nestedSchema.parser,
@@ -3554,10 +3570,9 @@ module Schema = {
   // Definition item
   @tag("k")
   type rec ditem =
-    | @as(0) Item({schema: internal, inlinedLocation: string, location: string}) // Needed only for ditemToItem
+    | @as(0) Item({schema: internal, location: string}) // Needed only for ditemToItem
     | @as(1)
     ItemField({
-        inlinedLocation: string,
         location: string,
         schema: internal,
         @as("of")
@@ -3616,8 +3631,8 @@ module Schema = {
 
   let rec getFullDitemPath = (ditem: ditem) => {
     switch ditem {
-    | ItemField({target, path}) => Path.concat(target->getFullDitemPath, path)
-    | Item({inlinedLocation}) => inlinedLocation->Path.fromInlinedLocation
+    | ItemField({target, path}) => Path.concat(getFullDitemPath(target), path)
+    | Item({location}) => location->Path.fromLocation
     | Root({path}) => path
     }
   }
@@ -3654,7 +3669,6 @@ module Schema = {
           ->Js.Array2.forEach(item => {
             objectVal->B.Val.Object.add(
               ~location=item.location,
-              ~inlinedLocation=item.inlinedLocation,
               b->definitionToOutput(
                 ~definition=node->Js.Dict.unsafeGet(item.location),
                 ~getItemOutput,
@@ -3682,11 +3696,11 @@ module Schema = {
       | [] => b.code = b.code ++ "true"
       | _ =>
         for idx in 0 to items->Js.Array2.length - 1 {
-          let {inlinedLocation} = items->Js.Array2.unsafe_get(idx)
+          let {location} = items->Js.Array2.unsafe_get(idx)
           if idx !== 0 {
             b.code = b.code ++ "&&"
           }
-          b.code = b.code ++ `${keyVar}!==${inlinedLocation}`
+          b.code = b.code ++ `${keyVar}!==${b->B.inlineLocation(location)}`
         }
       }
       b.code =
@@ -3725,7 +3739,6 @@ module Schema = {
               }
               maybeField->X.Option.getUnsafe
             },
-            inlinedLocation,
             location,
             target: item,
             path: Path.fromInlinedLocation(inlinedLocation),
@@ -3744,9 +3757,8 @@ module Schema = {
     if b.global.flag->Flag.unsafeHas(Flag.flatten) {
       let objectVal = b->B.Val.Object.make(~isArray)
       for idx in 0 to items->Js.Array2.length - 1 {
-        let {inlinedLocation, location} = items->Js.Array2.unsafe_get(idx)
+        let {location} = items->Js.Array2.unsafe_get(idx)
         objectVal->B.Val.Object.add(
-          ~inlinedLocation,
           ~location,
           input.properties->X.Option.getUnsafe->Js.Dict.unsafeGet(location),
         )
@@ -3756,16 +3768,12 @@ module Schema = {
       let objectVal = b->B.Val.Object.make(~isArray)
 
       for idx in 0 to items->Js.Array2.length - 1 {
-        let {schema, inlinedLocation, location} = items->Js.Array2.unsafe_get(idx)
+        let {schema, location} = items->Js.Array2.unsafe_get(idx)
         let schema = schema->castToInternal
 
         let itemInput = b->B.Val.get(input, location)
-        let path = path->Path.concat(inlinedLocation->Path.fromInlinedLocation)
-        objectVal->B.Val.Object.add(
-          ~location,
-          ~inlinedLocation,
-          b->parse(~schema, ~input=itemInput, ~path),
-        )
+        let path = path->Path.concat(b->B.inlineLocation(location)->Path.fromInlinedLocation)
+        objectVal->B.Val.Object.add(~location, b->parse(~schema, ~input=itemInput, ~path))
       }
 
       b->objectStrictModeCheck(~input, ~items, ~selfSchema, ~path)
@@ -3804,11 +3812,11 @@ module Schema = {
       let items = selfSchema.items->X.Option.getUnsafe
 
       for idx in 0 to items->Js.Array2.length - 1 {
-        let {schema, location, inlinedLocation} = items->Js.Array2.unsafe_get(idx)
+        let {schema, location} = items->Js.Array2.unsafe_get(idx)
         let schema = schema->castToInternal
 
         let itemInput = b->B.Val.get(input, location)
-        let path = path->Path.concat(inlinedLocation->Path.fromInlinedLocation)
+        let path = path->Path.concat(b->B.inlineLocation(location)->Path.fromInlinedLocation)
         outputs->Js.Dict.set(location, b->parse(~schema, ~input=itemInput, ~path))
       }
 
@@ -3901,7 +3909,9 @@ module Schema = {
                 for idx in 0 to items->Js.Array2.length - 1 {
                   let item = items->Js.Array2.unsafe_get(idx)
                   let itemPath =
-                    originalPath->Path.concat(Path.fromInlinedLocation(item.inlinedLocation))
+                    originalPath->Path.concat(
+                      Path.fromInlinedLocation(b->B.inlineLocation(item.location)),
+                    )
                   let itemInput = switch ritemsByItemPath->X.Dict.unsafeGetOption(itemPath) {
                   | Some(ritem) =>
                     b->parse(
@@ -3911,11 +3921,7 @@ module Schema = {
                     )
                   | None => item.schema->castToInternal->schemaToOutput(~originalPath=itemPath)
                   }
-                  objectVal->B.Val.Object.add(
-                    ~location=item.location,
-                    ~inlinedLocation=item.inlinedLocation,
-                    itemInput,
-                  )
+                  objectVal->B.Val.Object.add(~location=item.location, itemInput)
                 }
                 objectVal->B.Val.Object.complete(~isArray)
               }
@@ -3991,11 +3997,10 @@ module Schema = {
               if !(objectVal.properties->X.Option.getUnsafe->X.Dict.has(item.location)) {
                 objectVal->B.Val.Object.add(
                   ~location=item.location,
-                  ~inlinedLocation=item.inlinedLocation,
                   item
                   ->itemToDitem
                   ->getItemOutput(
-                    ~itemPath=item.inlinedLocation->Path.fromInlinedLocation,
+                    ~itemPath=b->B.inlineLocation(item.location)->Path.fromInlinedLocation,
                     ~shouldReverse=false,
                   ),
                 )
@@ -4082,7 +4087,6 @@ module Schema = {
               target,
               schema,
               location: fieldName,
-              inlinedLocation,
               path: Path.fromInlinedLocation(inlinedLocation),
             })
             let item = ditem->ditemToItem
@@ -4153,20 +4157,18 @@ module Schema = {
         | {tag: Object, items: ?flattenedItems} => {
             let flattenedItems = flattenedItems->X.Option.getUnsafe
             for idx in 0 to flattenedItems->Js.Array2.length - 1 {
-              let {location, inlinedLocation, schema: flattenedSchema} =
-                flattenedItems->Js.Array2.unsafe_get(idx)
+              let {location, schema: flattenedSchema} = flattenedItems->Js.Array2.unsafe_get(idx)
               let flattenedSchema = flattenedSchema->castToInternal
               switch properties->X.Dict.unsafeGetOption(location) {
               | Some(schema) if schema === flattenedSchema => ()
               | Some(_) =>
                 InternalError.panic(
-                  `The field ${inlinedLocation} defined twice with incompatible schemas`,
+                  `The field "${location}" defined twice with incompatible schemas`,
                 )
               | None =>
                 let item = Item({
                   schema: flattenedSchema,
                   location,
-                  inlinedLocation,
                 })->ditemToItem
                 items->Js.Array2.push(item)->ignore
                 properties->Js.Dict.set(location, flattenedSchema)
@@ -4192,15 +4194,12 @@ module Schema = {
         type value. (string, schema<value>) => value =
         (fieldName, schema) => {
           let schema = schema->castToInternal
-          let inlinedLocation = fieldName->X.Inlined.Value.fromString
+
           if properties->X.Dict.has(fieldName) {
-            InternalError.panic(
-              `The field ${inlinedLocation} defined twice with incompatible schemas`,
-            )
+            InternalError.panic(`The field "${fieldName}" defined twice with incompatible schemas`)
           }
           let ditem: ditem = Item({
             schema,
-            inlinedLocation,
             location: fieldName,
           })
           let item = ditem->ditemToItem
@@ -4247,14 +4246,12 @@ module Schema = {
         (idx, schema) => {
           let schema = schema->castToInternal
           let location = idx->Js.Int.toString
-          let inlinedLocation = `"${location}"`
           if items->X.Array.has(idx) {
-            InternalError.panic(`The item [${inlinedLocation}] is defined multiple times`)
+            InternalError.panic(`The item [${location}] is defined multiple times`)
           } else {
             let ditem = Item({
               schema,
               location,
-              inlinedLocation,
             })
             items->Js.Array2.unsafe_set(idx, ditem->ditemToItem)
             ditem->proxify
@@ -4275,13 +4272,10 @@ module Schema = {
     for idx in 0 to items->Js.Array2.length - 1 {
       if items->Js.Array2.unsafe_get(idx)->Obj.magic->not {
         let location = idx->Js.Int.toString
-        let inlinedLocation = `"${location}"`
         let ditem = {
           location,
-          inlinedLocation,
           schema: unit->castToUnknown,
         }
-
         items->Js.Array2.unsafe_set(idx, ditem)
       }
     }
@@ -4321,7 +4315,6 @@ module Schema = {
               )
               let item = {
                 location,
-                inlinedLocation,
                 schema: ritem->getRitemSchema->castToPublic,
               }
               items->Js.Array2.unsafe_set(idx, item)
@@ -4352,7 +4345,6 @@ module Schema = {
               )
               let item = {
                 location,
-                inlinedLocation,
                 schema: ritem->getRitemSchema->castToPublic,
               }
               items->Js.Array2.unsafe_set(idx, item)
@@ -4389,12 +4381,10 @@ module Schema = {
         for idx in 0 to node->Js.Array2.length - 1 {
           let schema = node->Js.Array2.unsafe_get(idx)->definitionToSchema
           let location = idx->Js.Int.toString
-          let inlinedLocation = `"${location}"`
           node->Js.Array2.unsafe_set(
             idx,
             {
               location,
-              inlinedLocation,
               schema: schema->castToPublic,
             }->(Obj.magic: item => unknown),
           )
@@ -4421,12 +4411,10 @@ module Schema = {
           let items = []
           for idx in 0 to length - 1 {
             let location = fieldNames->Js.Array2.unsafe_get(idx)
-            let inlinedLocation = location->X.Inlined.Value.fromString
             let schema = node->Js.Dict.unsafeGet(location)->definitionToSchema
             let item = {
               schema: schema->castToPublic,
               location,
-              inlinedLocation,
             }
             node->Js.Dict.set(location, schema->(Obj.magic: internal => unknown))
             items->Js.Array2.unsafe_set(idx, item)
@@ -4546,7 +4534,6 @@ let unnest = schema => {
         let location = idx->Js.Int.toString
         {
           schema: Array.factory(item.schema),
-          inlinedLocation: `"${location}"`,
           location,
         }
       }),
@@ -4564,7 +4551,6 @@ let unnest = schema => {
           let item = items->Js.Array2.unsafe_get(idx)
           itemInput->B.Val.Object.add(
             ~location=item.location,
-            ~inlinedLocation=item.inlinedLocation,
             bb->B.val(`${inputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]`, ~schema=unknown), // FIXME: should get from somewhere
           )
           lengthCode := lengthCode.contents ++ `${inputVar}[${idx->X.Int.unsafeToString}].length,`
@@ -5234,19 +5220,16 @@ let js_merge = (s1, s2) => {
     !((s2->castToInternal).to->Obj.magic) =>
     let properties = Js.Dict.empty()
     let locations = []
-    let inlinedLocations = []
     let items = []
     for idx in 0 to items1->Js.Array2.length - 1 {
       let item = items1->Js.Array2.unsafe_get(idx)
       locations->Js.Array2.push(item.location)->ignore
-      inlinedLocations->Js.Array2.push(item.inlinedLocation)->ignore
       properties->Js.Dict.set(item.location, item.schema->castToInternal)
     }
     for idx in 0 to items2->Js.Array2.length - 1 {
       let item = items2->Js.Array2.unsafe_get(idx)
       if !(properties->X.Dict.has(item.location)) {
         locations->Js.Array2.push(item.location)->ignore
-        inlinedLocations->Js.Array2.push(item.inlinedLocation)->ignore
       }
       properties->Js.Dict.set(item.location, item.schema->castToInternal)
     }
@@ -5255,7 +5238,6 @@ let js_merge = (s1, s2) => {
       items
       ->Js.Array2.push({
         location,
-        inlinedLocation: inlinedLocations->Js.Array2.unsafe_get(idx),
         schema: properties->Js.Dict.unsafeGet(location)->castToPublic,
       })
       ->ignore

@@ -137,7 +137,7 @@ test("Serializes Some(None) to undefined for option nested in null", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(i===null){i=void 0}else if(i===void 0){i={"BS_PRIVATE_NESTED_SOME_NONE":0}}else if(!(typeof i==="boolean")){e[0](i)}return i}`,
+    `i=>{if(i===null){i=void 0}else if(i===void 0){i={BS_PRIVATE_NESTED_SOME_NONE:0}}else if(!(typeof i==="boolean")){e[0](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -215,7 +215,7 @@ test(
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i==="object"&&i){i={"BS_PRIVATE_NESTED_SOME_NONE":0}}else if(!(i===void 0)){e[0](i)}return i}`,
+      `i=>{if(typeof i==="object"&&i){i={BS_PRIVATE_NESTED_SOME_NONE:0}}else if(!(i===void 0)){e[0](i)}return i}`,
     )
     t->U.assertCompiledCode(
       ~schema,
