@@ -171,7 +171,7 @@ module X = {
         let rec loop = idx => {
           switch string->Js.String2.get(idx)->(Obj.magic: string => option<string>) {
           | None => `"${string}"`
-          | Some("\"") => string->Js.Json.stringifyAny->Obj.magic
+          | Some("\"") | Some("\n") => string->Js.Json.stringifyAny->Obj.magic
           | Some(_) => loop(idx + 1)
           }
         }

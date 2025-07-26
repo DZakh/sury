@@ -4,6 +4,7 @@
 
 - Fix array validation during reverse parsing of nested arrays/tuples
 - Tuple literals are not validated during convert operation
+- Escape fields with \n
 
 ## v11
 

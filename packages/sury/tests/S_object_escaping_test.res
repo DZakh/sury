@@ -11,6 +11,16 @@ test("Successfully parses object with quotes in a field name", t => {
   t->Assert.deepEqual(%raw(`{"\"\'\`": "bar"}`)->S.parseOrThrow(schema), {"field": "bar"})
 })
 
+test("Successfully parses object with new line in a field name", t => {
+  let schema = S.object(s =>
+    {
+      "field": s.field("\n", S.string),
+    }
+  )
+
+  t->Assert.deepEqual(%raw(`{"\n": "bar"}`)->S.parseOrThrow(schema), {"field": "bar"})
+})
+
 test("Successfully serializing object with quotes in a field name", t => {
   let schema = S.object(s =>
     {

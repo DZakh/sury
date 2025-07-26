@@ -19,11 +19,14 @@ function fromString(string) {
     if (match === undefined) {
       return "\"" + string + "\"";
     }
-    if (match === "\"") {
-      return JSON.stringify(string);
+    switch (match) {
+      case "\"" :
+      case "\n" :
+          return JSON.stringify(string);
+      default:
+        _idx = idx + 1 | 0;
+        continue ;
     }
-    _idx = idx + 1 | 0;
-    continue ;
   };
 }
 
