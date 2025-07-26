@@ -598,3 +598,22 @@ test("Coerce from object to string", t => {
     },
   )
 })
+
+test("Coerce from string to JSON and then to bigint", t => {
+  let schema = S.string->S.to(S.json)->S.to(S.bigint)
+
+  t->Assert.deepEqual("123"->S.parseOrThrow(schema), %raw(`123n`))
+  t->Assert.deepEqual(123n->S.reverseConvertOrThrow(schema), %raw(`"123"`))
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(typeof i!=="string"){e[0](i)}let v0;try{v0=BigInt(i)}catch(_){e[1](i)}return v0}`,
+  )
+  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return ""+i}`)
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#ReverseParse,
+    `i=>{if(typeof i!=="bigint"){e[0](i)}return ""+i}`,
+  )
+})

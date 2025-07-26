@@ -631,7 +631,7 @@ var d = Object.defineProperty, p = SuryError.prototype;
 d(p, 'message', {
   get() {
       return message(this);
-  }
+  },
 })
 d(p, 'reason', {
   get() {
@@ -1587,6 +1587,12 @@ let failTransform = (b, ~inputVar, ~path, ~target) => {
   )
 }
 
+let jsonName = `JSON`
+
+let inputToString = (b, input: val) => {
+  b->B.val(`""+${input.inline}`, ~schema=string)
+}
+
 let rec parse = (prevB: b, ~schema, ~input as inputArg: val, ~path) => {
   let b = B.scope(prevB)
 
@@ -1606,8 +1612,21 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg: val, ~path) => {
   let isSameTag = input.contents.tag === schema.tag
   let schemaTagFlag = TagFlag.get(schema.tag)
   let inputTagFlag = TagFlag.get(input.contents.tag)
+  let isUnsupported = ref(false)
   if schemaTagFlag->Flag.unsafeHas(TagFlag.union->Flag.with(TagFlag.unknown)) {
     ()
+  } else if !(inputTagFlag->Flag.unsafeHas(TagFlag.unknown)) && schema.name === Some(jsonName) {
+    if (
+      inputTagFlag->Flag.unsafeHas(
+        TagFlag.string->Flag.with(TagFlag.number)->Flag.with(TagFlag.boolean),
+      )
+    ) {
+      ()
+    } else if inputTagFlag->Flag.unsafeHas(TagFlag.bigint) {
+      input := b->inputToString(input.contents)
+    } else {
+      isUnsupported := true
+    }
   } else if isSchemaLiteral {
     if isFromLiteral {
       if input.contents.const !== schema.const {
@@ -1666,21 +1685,70 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg: val, ~path) => {
           inline: `"${const}"`,
         }
     } else {
-      unsupportedTransform(~from=input.contents->Obj.magic, ~target=schema)
+      isUnsupported := true
     }
   } else if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
-    if b.global.flag->Flag.unsafeHas(Flag.typeValidation) {
-      b.filterCode = prevB->B.typeFilterCode(~schema, ~input=input.contents, ~path)
-    }
-    // FIXME: Make it simpler
-    let refined = b->B.makeRefinedOf(~input=input.contents, ~schema)
-    input.contents.tag = refined.tag
-    input.contents.inline = refined.inline
-    input.contents.var = refined.var
-    input.contents.additionalItems = refined.additionalItems
-    input.contents.properties = refined.properties
-    if refined->Obj.magic->isLiteral {
-      input.contents.const = refined.const
+    switch schema.ref {
+    | Some(ref) =>
+      let defs = b.global.defs->X.Option.getUnsafe
+      // Ignore #/$defs/
+      let identifier = ref->Js.String2.sliceToEnd(~from=8)
+      let def = defs->Js.Dict.unsafeGet(identifier)
+      let flag = if schema.noValidation->X.Option.getUnsafe {
+        b.global.flag->Flag.without(Flag.typeValidation)
+      } else {
+        b.global.flag
+      }
+      let recOperation = switch def->Obj.magic->X.Dict.unsafeGetOptionByInt(flag) {
+      | Some(fn) =>
+        // A hacky way to prevent infinite recursion
+        if fn === %raw(`0`) {
+          b->B.embed(def) ++ `[${flag->X.Int.unsafeToString}]`
+        } else {
+          b->B.embed(fn)
+        }
+      | None => {
+          def
+          ->Obj.magic
+          ->X.Dict.setByInt(flag, 0)
+          let fn = internalCompile(~schema=def, ~flag, ~defs=b.global.defs)
+          def
+          ->Obj.magic
+          ->X.Dict.setByInt(flag, fn)
+          b->B.embed(fn)
+        }
+      }
+      input :=
+        b->B.withPathPrepend(~input=input.contents, ~path, (_, ~input, ~path as _) => {
+          let output = B.Val.map(recOperation, input)
+          if def.isAsync === None {
+            let defsMut = defs->X.Dict.copy
+            defsMut->Js.Dict.set(identifier, unknown)
+            let _ = def->isAsyncInternal(~defs=Some(defsMut))
+          }
+          if def.isAsync->X.Option.getUnsafe {
+            output.flag = output.flag->Flag.with(ValFlag.async)
+          }
+          output
+        })
+      // Force rec function execution
+      // for the case when the value is not used
+      let _ = input.contents.var(b)
+    | None => {
+        if b.global.flag->Flag.unsafeHas(Flag.typeValidation) {
+          b.filterCode = prevB->B.typeFilterCode(~schema, ~input=input.contents, ~path)
+        }
+        // FIXME: Make it simpler
+        let refined = b->B.makeRefinedOf(~input=input.contents, ~schema)
+        input.contents.tag = refined.tag
+        input.contents.inline = refined.inline
+        input.contents.var = refined.var
+        input.contents.additionalItems = refined.additionalItems
+        input.contents.properties = refined.properties
+        if refined->Obj.magic->isLiteral {
+          input.contents.const = refined.const
+        }
+      }
     }
   } else if (
     schemaTagFlag->Flag.unsafeHas(TagFlag.string) &&
@@ -1688,12 +1756,11 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg: val, ~path) => {
         TagFlag.boolean->Flag.with(TagFlag.number->Flag.with(TagFlag.bigint)),
       )
   ) {
-    input := b->B.val(`""+${input.contents.inline}`, ~schema)
+    input := b->inputToString(input.contents)
   } else if !isSameTag {
     if inputTagFlag->Flag.unsafeHas(TagFlag.string) {
       let inputVar = input.contents.var(b)
-      switch schema {
-      | {tag: Boolean} =>
+      if schemaTagFlag->Flag.unsafeHas(TagFlag.boolean) {
         let output = b->B.allocateVal(~schema) // FIXME: schema should be only simple bool
         b.code =
           b.code ++
@@ -1703,13 +1770,12 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg: val, ~path) => {
               ~target=schema,
             )};`
         input := output
-
-      | {tag: Number, ?format} =>
+      } else if schemaTagFlag->Flag.unsafeHas(TagFlag.number) {
         let output = b->B.val(`+${inputVar}`, ~schema) // FIXME: schema
         let outputVar = output.var(b)
         b.code =
           b.code ++
-          switch format {
+          switch schema.format {
           | None => `Number.isNaN(${outputVar})`
           | Some(_) =>
             `(${b
@@ -1718,8 +1784,7 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg: val, ~path) => {
           } ++
           `&&${b->failTransform(~inputVar, ~path, ~target=schema)};`
         input := output
-
-      | {tag: BigInt} =>
+      } else if schemaTagFlag->Flag.unsafeHas(TagFlag.bigint) {
         let output = b->B.allocateVal(~schema) // FIXME:
         b.code =
           b.code ++
@@ -1729,60 +1794,16 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg: val, ~path) => {
               ~target=schema,
             )}}`
         input := output
-      | _ => unsupportedTransform(~from=input.contents->Obj.magic, ~target=schema)
+      } else {
+        isUnsupported := true
       }
     } else {
-      unsupportedTransform(~from=input.contents->Obj.magic, ~target=schema)
+      isUnsupported := true
     }
   }
 
-  switch schema.ref {
-  | Some(ref) =>
-    let defs = b.global.defs->X.Option.getUnsafe
-    // Ignore #/$defs/
-    let identifier = ref->Js.String2.sliceToEnd(~from=8)
-    let def = defs->Js.Dict.unsafeGet(identifier)
-    let flag = if schema.noValidation->X.Option.getUnsafe {
-      b.global.flag->Flag.without(Flag.typeValidation)
-    } else {
-      b.global.flag
-    }
-    let recOperation = switch def->Obj.magic->X.Dict.unsafeGetOptionByInt(flag) {
-    | Some(fn) =>
-      // A hacky way to prevent infinite recursion
-      if fn === %raw(`0`) {
-        b->B.embed(def) ++ `[${flag->X.Int.unsafeToString}]`
-      } else {
-        b->B.embed(fn)
-      }
-    | None => {
-        def
-        ->Obj.magic
-        ->X.Dict.setByInt(flag, 0)
-        let fn = internalCompile(~schema=def, ~flag, ~defs=b.global.defs)
-        def
-        ->Obj.magic
-        ->X.Dict.setByInt(flag, fn)
-        b->B.embed(fn)
-      }
-    }
-    input :=
-      b->B.withPathPrepend(~input=input.contents, ~path, (_, ~input, ~path as _) => {
-        let output = B.Val.map(recOperation, input)
-        if def.isAsync === None {
-          let defsMut = defs->X.Dict.copy
-          defsMut->Js.Dict.set(identifier, unknown)
-          let _ = def->isAsyncInternal(~defs=Some(defsMut))
-        }
-        if def.isAsync->X.Option.getUnsafe {
-          output.flag = output.flag->Flag.with(ValFlag.async)
-        }
-        output
-      })
-    // Force rec function execution
-    // for the case when the value is not used
-    let _ = input.contents.var(b)
-  | None => ()
+  if isUnsupported.contents {
+    unsupportedTransform(~from=input.contents->Obj.magic, ~target=schema)
   }
 
   switch schema.refiner {
@@ -3327,7 +3348,6 @@ module String = {
   let datetimeRe = %re(`/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/`)
 }
 
-let jsonName = `JSON`
 let json = {
   let jsonRef = base(Ref)
   jsonRef.ref = Some(`${defsPath}${jsonName}`)
@@ -3380,8 +3400,6 @@ module JsonString = {
               message => OperationFailed(message),
               "t.message",
             )}}`
-
-        // b->B.typeValidation(~schema=item, ~input=jsonVal, ~path)
         jsonVal
       }),
     )

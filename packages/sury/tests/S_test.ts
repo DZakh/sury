@@ -2721,3 +2721,25 @@ test("Union of dynamic enum as const", (t) => {
     message: `Failed parsing: Expected "a" | "b" | "c", received "d"`,
   });
 });
+
+test("Overwrite error message", (t) => {
+  const schema = S.string.with(S.min, 3, "Invalid string");
+
+  const fieldSchema = <O, I>(schema: S.Schema<O, I>): S.Schema<O, I> => {
+    return S.unknown.with(S.transform, (v) => {
+      try {
+        return S.parseOrThrow(v, schema);
+      } catch (e) {
+        if (e instanceof S.Error) {
+          throw new Error(e.reason);
+        }
+        throw e;
+      }
+    }) satisfies S.Schema<O, unknown> as S.Schema<O, I>;
+  };
+
+  t.throws(() => S.parseOrThrow("hi", fieldSchema(schema)), {
+    name: "Error",
+    message: "Invalid string",
+  });
+});
