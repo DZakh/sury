@@ -255,6 +255,7 @@ and errorCode =
   | OperationFailed(string)
   | InvalidOperation({description: string})
   | InvalidType({expected: schema<unknown>, received: unknown, unionErrors?: array<error>})
+  | UnsupportedTransformation({from: schema<unknown>, to: schema<unknown>})
   | ExcessField(string)
   | UnexpectedAsync
   | InvalidJsonSchema(schema<unknown>)

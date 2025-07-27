@@ -2322,7 +2322,8 @@ test("Recursive with self as transform target", (t) => {
       t.deepEqual(S.parseOrThrow(`["[]","[]"]`, nodeSchema), [[], []]);
     },
     {
-      message: "[Sury] Unsupported transformation from string to Node[]",
+      message:
+        "Failed parsing: Unsupported transformation from string to Node[]",
     }
   );
 });

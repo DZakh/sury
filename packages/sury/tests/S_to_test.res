@@ -581,22 +581,12 @@ test("Coerce from object to string", t => {
     }
   )->S.to(S.string)
 
-  t->Assert.throws(
-    () => {
-      %raw(`{"foo": "bar"}`)->S.parseOrThrow(schema)
-    },
-    ~expectations={
-      message: "[Sury] Unsupported transformation from object to string",
-    },
-  )
-  t->Assert.throws(
-    () => {
-      %raw(`{"foo": "bar"}`)->S.reverseConvertOrThrow(schema)
-    },
-    ~expectations={
-      message: "[Sury] Unsupported transformation from string to { foo: string; }",
-    },
-  )
+  t->U.assertThrowsMessage(() => {
+    %raw(`{"foo": "bar"}`)->S.parseOrThrow(schema)
+  }, `Failed parsing: Unsupported transformation from { foo: string; } to string`)
+  t->U.assertThrowsMessage(() => {
+    %raw(`{"foo": "bar"}`)->S.reverseConvertOrThrow(schema)
+  }, `Failed converting: Unsupported transformation from string to { foo: string; }`)
 })
 
 test("Coerce from string to JSON and then to bigint", t => {
@@ -618,21 +608,96 @@ test("Coerce from string to JSON and then to bigint", t => {
   )
 })
 
-Failing.test("Coerce from JSON and then to bigint", t => {
-  let schema = S.json->S.to(S.bigint)
+// Only.test("Coerce from JSON to bigint", t => {
+//   let schema = S.json->S.to(S.bigint)
+
+//   t->Assert.deepEqual("123"->S.parseOrThrow(schema), %raw(`123n`))
+//   t->Assert.deepEqual(123->S.parseOrThrow(schema), %raw(`123n`))
+//   t->U.assertThrowsMessage(() => {
+//     true->S.parseOrThrow(schema)
+//   }, "foo")
+
+//   t->Assert.deepEqual(123n->S.reverseConvertOrThrow(schema), %raw(`"123"`))
+
+//   t->U.assertCompiledCode(
+//     ~schema,
+//     ~op=#Parse,
+//     `i=>{if(typeof i!=="string"){e[0](i)}let v0;try{v0=BigInt(i)}catch(_){e[1](i)}return v0}`,
+//   )
+//   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return ""+i}`)
+//   t->U.assertCompiledCode(
+//     ~schema,
+//     ~op=#ReverseParse,
+//     `i=>{if(typeof i!=="bigint"){e[0](i)}return ""+i}`,
+//   )
+// })
+
+test("Coerce from union to bigint", t => {
+  let schema =
+    S.union([S.string->S.castToUnknown, S.float->S.castToUnknown, S.bool->S.castToUnknown])->S.to(
+      S.bigint,
+    )
 
   t->Assert.deepEqual("123"->S.parseOrThrow(schema), %raw(`123n`))
-  t->Assert.deepEqual(123n->S.reverseConvertOrThrow(schema), %raw(`"123"`))
+  t->Assert.deepEqual(123->S.parseOrThrow(schema), %raw(`123n`))
+  t->U.assertThrowsMessage(() => {
+    true->S.parseOrThrow(schema)
+  }, "Failed parsing: Unsupported transformation from boolean to bigint")
+  t->U.assertThrowsMessage(() => {
+    123n->S.parseOrThrow(schema)
+  }, "Failed parsing: Expected string | number | boolean, received 123n")
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="string"){e[0](i)}let v0;try{v0=BigInt(i)}catch(_){e[1](i)}return v0}`,
+    `i=>{if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0}else if(typeof i==="number"&&!Number.isNaN(i)){i=BigInt(i)}else if(typeof i==="boolean"){throw e[1]}else{e[2](i)}return i}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return ""+i}`)
+
+  t->Assert.deepEqual(123n->S.reverseConvertOrThrow(schema), %raw(`"123"`))
+
+  // TODO: Can be improved
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#ReverseConvert,
+    `i=>{try{i=""+i}catch(e0){try{throw e[0]}catch(e1){try{throw e[1]}catch(e2){e[2](i,e0,e1,e2)}}}return i}`,
+  )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseParse,
-    `i=>{if(typeof i!=="bigint"){e[0](i)}return ""+i}`,
+    `i=>{if(typeof i!=="bigint"){e[0](i)}try{i=""+i}catch(e0){try{throw e[1]}catch(e1){try{throw e[2]}catch(e2){e[3](i,e0,e1,e2)}}}return i}`,
+  )
+})
+
+test("Coerce from union to bigint and then to string", t => {
+  let schema =
+    S.union([S.string->S.castToUnknown, S.float->S.castToUnknown, S.bool->S.castToUnknown])
+    ->S.to(S.bigint)
+    ->S.to(S.string)
+
+  t->Assert.deepEqual("123"->S.parseOrThrow(schema), %raw(`"123"`))
+  t->Assert.deepEqual(123->S.parseOrThrow(schema), %raw(`"123"`))
+  t->U.assertThrowsMessage(() => {
+    true->S.parseOrThrow(schema)
+  }, "Failed parsing: Unsupported transformation from boolean to bigint")
+  t->U.assertThrowsMessage(() => {
+    123n->S.parseOrThrow(schema)
+  }, "Failed parsing: Expected string | number | boolean, received 123n")
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=""+v0}else if(typeof i==="number"&&!Number.isNaN(i)){i=""+BigInt(i)}else if(typeof i==="boolean"){throw e[1]}else{e[2](i)}return i}`,
+  )
+
+  t->Assert.deepEqual("123"->S.reverseConvertOrThrow(schema), %raw(`"123"`))
+  t->U.assertThrowsMessage(() => {
+    "abc"->S.reverseConvertOrThrow(schema)
+  }, `Failed parsing: Expected bigint, received "abc"`)
+
+  // TODO: Can be improved
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#ReverseConvert,
+    `i=>{let v0;try{v0=BigInt(i)}catch(_){e[0](i)}try{v0=""+v0}catch(e0){try{throw e[1]}catch(e1){try{throw e[2]}catch(e2){e[3](v0,e0,e1,e2)}}}return v0}`,
   )
 })

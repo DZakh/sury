@@ -19,6 +19,8 @@ module X = {
 
   module Option = {
     external getUnsafe: option<'a> => 'a = "%identity"
+
+    // external unsafeToBool: option<'a> => bool = "%identity"
   }
 
   module Type = {
@@ -514,11 +516,10 @@ and val = {
   mutable flag: flag,
   @as("type")
   mutable tag: tag,
-  @as("const")
   mutable const?: char,
-  @as("p")
-  mutable // FIXME: stop using inlinedLocation
-  properties?: dict<val>,
+  @as("t")
+  mutable skipTo?: bool,
+  mutable properties?: dict<val>,
   @as("a")
   mutable additionalItems?: additionalItems,
 }
@@ -564,6 +565,7 @@ and errorCode =
   | OperationFailed(string)
   | InvalidOperation({description: string})
   | InvalidType({expected: schema<unknown>, received: unknown, unionErrors?: array<error>})
+  | UnsupportedTransformation({from: schema<unknown>, to: schema<unknown>})
   | ExcessField(string)
   | UnexpectedAsync
   | InvalidJsonSchema(schema<unknown>)
@@ -833,17 +835,17 @@ let rec toExpression = schema => {
   switch schema {
   | {name} => name
   | {const} => const->Obj.magic->stringify
-  // Case for val
-  | _ if %raw(`schema.b`) => (schema.tag :> string)
+
   | {anyOf} =>
     anyOf
     ->(Obj.magic: array<internal> => array<t<'a>>)
     ->Js.Array2.map(toExpression)
     ->Js.Array2.joinWith(" | ")
   | {format} => (format :> string)
-  | {tag: Object, ?items, ?additionalItems} =>
-    let items = items->X.Option.getUnsafe
-    if items->Js.Array2.length === 0 {
+  | {tag: Object, ?properties, ?additionalItems} =>
+    let properties = properties->X.Option.getUnsafe
+    let locations = properties->Js.Dict.keys
+    if locations->Js.Array2.length === 0 {
       if additionalItems->Js.typeof === "object" {
         let additionalItems: internal = additionalItems->Obj.magic
         `{ [key: string]: ${additionalItems->castToPublic->toExpression}; }`
@@ -851,12 +853,16 @@ let rec toExpression = schema => {
         `{}`
       }
     } else {
-      `{ ${items
-        ->Js.Array2.map(item => {
-          `${item.location}: ${item.schema->castToInternal->castToPublic->toExpression};`
+      `{ ${locations
+        ->Js.Array2.map(location => {
+          `${location}: ${properties->Js.Dict.unsafeGet(location)->castToPublic->toExpression};`
         })
         ->Js.Array2.joinWith(" ")} }`
     }
+
+  | {tag: NaN} => "NaN"
+  // Case for val
+  | {tag} if %raw(`schema.b`) => (tag :> string)
   | {tag: Array, ?items, ?additionalItems} =>
     let items = items->X.Option.getUnsafe
     if additionalItems->Js.typeof === "object" {
@@ -872,8 +878,6 @@ let rec toExpression = schema => {
         ->Js.Array2.map(item => item.schema->castToInternal->castToPublic->toExpression)
         ->Js.Array2.joinWith(", ")}]`
     }
-
-  | {tag: NaN} => "NaN"
   | {tag: Instance, ?class} => (class->Obj.magic)["name"]
   | {tag} => (tag :> string)
   }
@@ -890,6 +894,8 @@ module ErrorClass = {
     switch error.code {
     | OperationFailed(reason) => reason
     | InvalidOperation({description}) => description
+    | UnsupportedTransformation({from, to}) =>
+      `Unsupported transformation from ${from->toExpression} to ${to->toExpression}`
     | UnexpectedAsync => "Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead"
     | ExcessField(fieldName) => `Unrecognized key "${fieldName}"`
     | InvalidType({expected: schema, received, ?unionErrors}) =>
@@ -1586,11 +1592,13 @@ let setHas = (has, tag: tag) => {
   )
 }
 
-let unsupportedTransform = (~from, ~target) => {
-  InternalError.panic(
-    `Unsupported transformation from ${from->castToPublic->toExpression} to ${target
-      ->castToPublic
-      ->toExpression}`,
+let unsupportedTransform = (b, ~from, ~target, ~path) => {
+  b->B.raise(
+    ~code=UnsupportedTransformation({
+      from: from->(Obj.magic: val => schema<unknown>),
+      to: target->castToPublic,
+    }),
+    ~path,
   )
 }
 
@@ -1634,7 +1642,7 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg: val, ~path) => {
   let isUnsupported = ref(false)
   if schemaTagFlag->Flag.unsafeHas(TagFlag.union->Flag.with(TagFlag.unknown)) {
     ()
-  } else if !(inputTagFlag->Flag.unsafeHas(TagFlag.unknown)) && schema.name === Some(jsonName) {
+  } else if schema.name === Some(jsonName) && !(inputTagFlag->Flag.unsafeHas(TagFlag.unknown)) {
     if (
       inputTagFlag->Flag.unsafeHas(
         TagFlag.string->Flag.with(TagFlag.number)->Flag.with(TagFlag.boolean),
@@ -1816,13 +1824,19 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg: val, ~path) => {
       } else {
         isUnsupported := true
       }
+    } else if inputTagFlag->Flag.unsafeHas(TagFlag.number) {
+      if schemaTagFlag->Flag.unsafeHas(TagFlag.bigint) {
+        input := b->B.val(`BigInt(${input.contents.inline})`, ~schema) // FIXME:
+      } else {
+        isUnsupported := true
+      }
     } else {
       isUnsupported := true
     }
   }
 
   if isUnsupported.contents {
-    unsupportedTransform(~from=input.contents->Obj.magic, ~target=schema)
+    b->unsupportedTransform(~from=input.contents->Obj.magic, ~target=schema, ~path)
   }
 
   switch schema.refiner {
@@ -1840,7 +1854,10 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg: val, ~path) => {
     | None => ()
     }
 
-    input := b->parse(~schema=to, ~input=input.contents, ~path)
+    if input.contents.skipTo !== Some(true) {
+      input := b->parse(~schema=to, ~input=input.contents, ~path)
+    }
+
   | None => ()
   }
 
@@ -2884,6 +2901,13 @@ module Union = {
 
     b.code = b.code ++ start.contents ++ end.contents
 
+    output.tag = switch selfSchema.to {
+    | Some(to) => {
+        output.skipTo = Some(true)
+        (to->getOutputSchema).tag
+      }
+    | None => Union
+    }
     if output.flag->Flag.unsafeHas(ValFlag.async) {
       b->B.asyncVal(`Promise.resolve(${output.inline})`)
     } else if output.var === B._var {

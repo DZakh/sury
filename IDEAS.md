@@ -6,6 +6,9 @@
 - Tuple literals are not validated during convert operation
 - Escape fields with \n
 - Removed `inlinedLocation` from `item` type.
+- Support `S.string->S.to(S.json)->S.to(S.bigint)`
+- Support `S.union([S.string, S.number, S.boolean]).with(S.to, S.bigint)`
+- Support `S.union([S.string, S.number, S.boolean]).with(S.to, S.bigint).with(S.to, S.string)`
 
 ## v11
 
