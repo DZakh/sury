@@ -797,11 +797,14 @@ let resetCacheInPlace: internal => unit = %raw(`(schema) => {
 }`)
 
 let rec stringify = unknown => {
-  let typeOfValue = unknown->X.Type.typeof
-  switch typeOfValue {
-  | #undefined => "undefined"
-  | #object if unknown === %raw(`null`) => "null"
-  | #object if unknown->X.Array.isArray => {
+  let tagFlag = unknown->X.Type.typeof->(Obj.magic: X.Type.t => tag)->TagFlag.get
+
+  if tagFlag->Flag.unsafeHas(TagFlag.undefined) {
+    "undefined"
+  } else if tagFlag->Flag.unsafeHas(TagFlag.object) {
+    if unknown === %raw(`null`) {
+      "null"
+    } else if unknown->X.Array.isArray {
       let array = unknown->(Obj.magic: unknown => array<unknown>)
       let string = ref("[")
       for i in 0 to array->Array.length - 1 {
@@ -811,26 +814,27 @@ let rec stringify = unknown => {
         string := string.contents ++ array->Js.Array2.unsafe_get(i)->stringify
       }
       string.contents ++ "]"
+    } else if (
+      (unknown->(Obj.magic: 'a => {"constructor": unknown}))["constructor"] === %raw("Object")
+    ) {
+      let dict = unknown->(Obj.magic: unknown => dict<unknown>)
+      let keys = Js.Dict.keys(dict)
+      let string = ref("{ ")
+      for i in 0 to keys->Array.length - 1 {
+        let key = keys->Js.Array2.unsafe_get(i)
+        let value = dict->Js.Dict.unsafeGet(key)
+        string := `${string.contents}${key}: ${stringify(value)}; `
+      }
+      string.contents ++ "}"
+    } else {
+      unknown->Obj.magic->X.Object.internalClass
     }
-  | #object
-    if (unknown->(Obj.magic: 'a => {"constructor": unknown}))["constructor"] === %raw("Object") =>
-    let dict = unknown->(Obj.magic: unknown => dict<unknown>)
-    let keys = Js.Dict.keys(dict)
-    let string = ref("{ ")
-    for i in 0 to keys->Array.length - 1 {
-      let key = keys->Js.Array2.unsafe_get(i)
-      let value = dict->Js.Dict.unsafeGet(key)
-      string := `${string.contents}${key}: ${stringify(value)}; `
-    }
-    string.contents ++ "}"
-  | #object => unknown->Obj.magic->X.Object.internalClass
-  | #string => `"${unknown->Obj.magic}"`
-  | #number
-  | #function
-  | #boolean
-  | #symbol =>
+  } else if tagFlag->Flag.unsafeHas(TagFlag.string) {
+    `"${unknown->Obj.magic}"`
+  } else if tagFlag->Flag.unsafeHas(TagFlag.bigint) {
+    `${unknown->Obj.magic}n`
+  } else {
     (unknown->Obj.magic)["toString"]()
-  | #bigint => `${unknown->Obj.magic}n`
   }
 }
 
@@ -2655,7 +2659,7 @@ module Union = {
         let keys = ref([])
         for idx in 0 to lastIdx {
           let schema = switch selfSchema.to {
-          | Some(target) if !(selfSchema.parser->Obj.magic) =>
+          | Some(target) if !(selfSchema.parser->Obj.magic) && target.tag !== Union =>
             updateOutput(schemas->Js.Array2.unsafe_get(idx), mut => {
               mut.to = Some(target)
             })->castToInternal
@@ -2972,11 +2976,11 @@ module Union = {
 
         o.anyOf = selfSchema.anyOf
         o.tag = switch selfSchema.to {
-        | Some(to) => {
+        | Some(to) if to.tag !== Union => {
             o.skipTo = Some(true)
             (to->getOutputSchema).tag
           }
-        | None => Union
+        | _ => Union
         }
 
         o

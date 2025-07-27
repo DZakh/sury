@@ -205,18 +205,17 @@ var resetCacheInPlace = ((schema) => {
 });
 
 function stringify(unknown) {
-  var typeOfValue = typeof unknown;
-  if (typeOfValue === "number" || typeOfValue === "function" || typeOfValue === "boolean" || typeOfValue === "symbol") {
-    return unknown.toString();
+  var tagFlag = flags[typeof unknown];
+  if (tagFlag & 16) {
+    return "undefined";
   }
-  if (typeOfValue === "string") {
-    return "\"" + unknown + "\"";
-  }
-  if (typeOfValue !== "object") {
-    if (typeOfValue === "undefined") {
-      return "undefined";
-    } else {
+  if (!(tagFlag & 64)) {
+    if (tagFlag & 2) {
+      return "\"" + unknown + "\"";
+    } else if (tagFlag & 1024) {
       return unknown + "n";
+    } else {
+      return unknown.toString();
     }
   }
   if (unknown === null) {
@@ -1798,7 +1797,7 @@ function refiner(b, input, selfSchema, path) {
   var keys = [];
   for(var idx = 0; idx <= lastIdx; ++idx){
     var target = selfSchema.to;
-    var schema = target !== undefined && !selfSchema.parser ? updateOutput(schemas[idx], (function(target){
+    var schema = target !== undefined && !selfSchema.parser && target.type !== "union" ? updateOutput(schemas[idx], (function(target){
           return function (mut) {
             mut.to = target;
           }
@@ -2017,7 +2016,7 @@ function refiner(b, input, selfSchema, path) {
     );
   o.anyOf = selfSchema.anyOf;
   var to = selfSchema.to;
-  o.type = to !== undefined ? (o.t = true, getOutputSchema(to).type) : "union";
+  o.type = to !== undefined && to.type !== "union" ? (o.t = true, getOutputSchema(to).type) : "union";
   return o;
 }
 

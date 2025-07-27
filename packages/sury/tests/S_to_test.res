@@ -702,15 +702,46 @@ test("Coerce from union to bigint and then to string", t => {
   )
 })
 
-// test("Coerce from union to wider union", t => {
-//   let schema =
-//     S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])->S.to(
-//       S.union([S.string->S.castToUnknown, S.float->S.castToUnknown, S.bool->S.castToUnknown]),
-//     )
+test("Coerce from union to wider union should keep the original value type", t => {
+  let schema =
+    S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])->S.to(
+      S.union([S.string->S.castToUnknown, S.float->S.castToUnknown, S.bool->S.castToUnknown]),
+    )
 
-//   t->U.assertCompiledCode(
-//     ~schema,
-//     ~op=#Parse,
-//     `i=>{if(typeof i==="number"&&!Number.isNaN(i)){try{i=""+i}catch(e0){}i=i}else if(!(typeof i==="string")){e[0](i)}return i}`,
-//   )
-// })
+  t->Assert.deepEqual("123"->S.parseOrThrow(schema), %raw(`"123"`))
+  t->Assert.deepEqual(123->S.parseOrThrow(schema), %raw(`123`))
+  t->U.assertThrowsMessage(() => {
+    true->S.parseOrThrow(schema)
+  }, "Failed parsing: Expected string | number, received true")
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(!(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))){e[0](i)}return i}`,
+  )
+})
+
+test("Fails to transform union to union to string (no reason for this, just not supported)", t => {
+  let schema =
+    S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])
+    ->S.to(S.union([S.string->S.castToUnknown, S.float->S.castToUnknown, S.bool->S.castToUnknown]))
+    ->S.to(S.string)
+
+  t->U.assertThrowsMessage(() => {
+    true->S.parseOrThrow(schema)
+  }, "Failed parsing: Unsupported transformation from string | number to string")
+})
+
+test(
+  "Coerce from union to wider union fails if the order of items is different (no reason for this, just not supported)",
+  t => {
+    let schema =
+      S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])->S.to(
+        S.union([S.float->S.castToUnknown, S.string->S.castToUnknown, S.bool->S.castToUnknown]),
+      )
+
+    t->U.assertThrowsMessage(() => {
+      true->S.parseOrThrow(schema)
+    }, "Failed parsing: Unsupported transformation from string | number to number | string | boolean")
+  },
+)
