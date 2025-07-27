@@ -1122,18 +1122,6 @@ S.parseOrThrow("abc", schema); //? throws: Failed parsing: Expected number, rece
 S.reverseConvertOrThrow(123, schema); //? "123"
 ```
 
-Currently, ReScript Schema supports the following coercions (🔄 means reverse support):
-
-- from `string` to `string` 🔄
-- from `string` to literal `string`, `boolean`, `number`, `bigint` `null`, `undefined`, `NaN` 🔄
-- from `string` to `boolean` 🔄
-- from `string` to `int32` 🔄
-- from `string` to `number` 🔄
-- from `string` to `bigint` 🔄
-- from `int32` to `number`
-
-There are plans to add more support in future versions and make it extensible.
-
 ### **`name`**
 
 ```ts

@@ -1399,18 +1399,6 @@ let schema = S.string->S.to(S.float)
 123.->S.reverseConvertOrThrow(schema) //? "123"
 ```
 
-Currently, ReScript Schema supports the following coercions (🔄 means reverse support):
-
-- from `string` to `string` 🔄
-- from `string` to literal `string`, `boolean`, `number`, `bigint` `null`, `undefined`, `NaN` 🔄
-- from `string` to `boolean` 🔄
-- from `string` to `int32` 🔄
-- from `string` to `number` 🔄
-- from `string` to `bigint` 🔄
-- from `int32` to `number`
-
-There are plans to add more support in future versions and make it extensible.
-
 ### **`classify`**
 
 `(S.t<'value>) => S.tagged`

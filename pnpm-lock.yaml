@@ -88,7 +88,7 @@ importers:
     dependencies:
       sury:
         specifier: ^10.0.0
-        version: 10.0.0(rescript@11.1.4)
+        version: 10.0.0(rescript@11.1.0)
 
 packages:
 
@@ -788,11 +788,6 @@ packages:
 
   rescript@11.1.0:
     resolution: {integrity: sha512-9la2Dv+ACylQ77I8s4spPu1JnLZXbH5WgxcLHLLUBWgFFSiv0wXqgzWztrBIZqwFgVX5BYcwldUqUVcEzdCyHg==}
-    engines: {node: '>=10'}
-    hasBin: true
-
-  rescript@11.1.4:
-    resolution: {integrity: sha512-0bGU0bocihjSC6MsE3TMjHjY0EUpchyrREquLS8VsZ3ohSMD+VHUEwimEfB3kpBI1vYkw3UFZ3WD8R28guz/Vw==}
     engines: {node: '>=10'}
     hasBin: true
 
@@ -1665,9 +1660,6 @@ snapshots:
 
   rescript@11.1.0: {}
 
-  rescript@11.1.4:
-    optional: true
-
   resolve-cwd@3.0.0:
     dependencies:
       resolve-from: 5.0.0
@@ -1764,9 +1756,9 @@ snapshots:
 
   supports-preserve-symlinks-flag@1.0.0: {}
 
-  sury@10.0.0(rescript@11.1.4):
+  sury@10.0.0(rescript@11.1.0):
     optionalDependencies:
-      rescript: 11.1.4
+      rescript: 11.1.0
 
   temp-dir@3.0.0: {}
 
