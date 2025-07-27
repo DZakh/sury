@@ -701,3 +701,16 @@ test("Coerce from union to bigint and then to string", t => {
     `i=>{let v0;try{v0=BigInt(i)}catch(_){e[0](i)}try{v0=""+v0}catch(e0){try{throw e[1]}catch(e1){try{throw e[2]}catch(e2){e[3](v0,e0,e1,e2)}}}return v0}`,
   )
 })
+
+// test("Coerce from union to wider union", t => {
+//   let schema =
+//     S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])->S.to(
+//       S.union([S.string->S.castToUnknown, S.float->S.castToUnknown, S.bool->S.castToUnknown]),
+//     )
+
+//   t->U.assertCompiledCode(
+//     ~schema,
+//     ~op=#Parse,
+//     `i=>{if(typeof i==="number"&&!Number.isNaN(i)){try{i=""+i}catch(e0){}i=i}else if(!(typeof i==="string")){e[0](i)}return i}`,
+//   )
+// })

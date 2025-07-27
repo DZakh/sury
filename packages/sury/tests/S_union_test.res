@@ -871,3 +871,64 @@ test("Objects with the same discriminant", t => {
     `i=>{if(typeof i==="object"&&i){if(i["type"]==="A"){try{let v0=i["value"];if(!(typeof v0==="string"&&(v0==="foo"||v0==="bar"))){e[0](v0)}i={"TAG":"Ok","_0":v0,}}catch(e0){try{let v1=i["value"];if(typeof v1!=="string"){e[1](v1)}i={"TAG":"Error","_0":v1,}}catch(e1){e[2](i,e0,e1)}}}else{e[3](i)}}else{e[4](i)}return i}`,
   )
 })
+
+module CknittelBugReport = {
+  module A = {
+    type payload = {a?: string}
+
+    let payloadSchema = S.schema(s => {
+      a: ?s.matches(S.option(S.string)),
+    })
+
+    type t = {payload: payload}
+
+    let schema = S.schema(s => {
+      payload: s.matches(payloadSchema),
+    })
+  }
+
+  module B = {
+    type payload = {b?: int}
+
+    let payloadSchema = S.schema(s => {
+      b: ?s.matches(S.option(S.int)),
+    })
+
+    type t = {payload: payload}
+
+    let schema = S.schema(s => {
+      payload: s.matches(payloadSchema),
+    })
+  }
+
+  type value = A(A.t) | B(B.t)
+
+  test("Union serializing of objects with optional fields", t => {
+    let schema = S.union([A.schema->S.shape(m => A(m)), B.schema->S.shape(m => B(m))])
+
+    t->U.assertCompiledCode(
+      ~schema,
+      ~op=#Parse,
+      `i=>{if(typeof i==="object"&&i){if(typeof i["payload"]==="object"&&i["payload"]){try{let v0=i["payload"];let v1=v0["a"];if(!(typeof v1==="string"||v1===void 0)){e[0](v1)}i={"TAG":"A","_0":{"payload":{"a":v1,},},}}catch(e0){try{let v2=i["payload"];let v3=v2["b"];if(!(typeof v3==="number"&&v3<2147483647&&v3>-2147483648&&v3%1===0||v3===void 0)){e[1](v3)}i={"TAG":"B","_0":{"payload":{"b":v3,},},}}catch(e1){e[2](i,e0,e1)}}}else{e[3](i)}}else{e[4](i)}return i}`,
+    )
+
+    t->U.assertCompiledCode(
+      ~schema,
+      ~op=#ReverseConvert,
+      `i=>{if(typeof i==="object"&&i){if(i["TAG"]==="A"&&typeof i["_0"]==="object"&&i["_0"]&&typeof i["_0"]["payload"]==="object"&&i["_0"]["payload"]){let v0=i["_0"];let v1=v0["payload"];i=v0}else if(i["TAG"]==="B"&&typeof i["_0"]==="object"&&i["_0"]&&typeof i["_0"]["payload"]==="object"&&i["_0"]["payload"]){let v2=i["_0"];let v3=v2["payload"];i=v2}}return i}`,
+    )
+
+    let x = {
+      B.payload: {
+        b: 42,
+      },
+    }
+    t->Assert.deepEqual(B(x)->S.reverseConvertOrThrow(schema), %raw(`{"payload":{"b":42}}`))
+    let x = {
+      A.payload: {
+        a: "foo",
+      },
+    }
+    t->Assert.deepEqual(A(x)->S.reverseConvertOrThrow(schema), %raw(`{"payload":{"a":"foo"}}`))
+  })
+}
