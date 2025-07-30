@@ -1059,16 +1059,16 @@ The `S.json` schema represents a data that is compatible with JSON.
 
 ### **`jsonString`**
 
-`(S.t<'value>, ~space: int=?) => S.t<'value>`
+`(~space: int=?) => S.t<'value>`
 
 ```rescript
-let schema = S.jsonString(S.int)
+let schema = S.jsonString()->S.to(S.int)
 
 "123"->S.parseOrThrow(schema)
 // 123
 ```
 
-The `S.jsonString` schema represents JSON string containing value of a specific type.
+The `S.jsonString` schema represents JSON string.
 
 ### **`meta`**
 

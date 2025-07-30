@@ -149,6 +149,7 @@ export type Schema<Output, Input = unknown> = {
     }
   | {
       readonly type: "string";
+      readonly format?: "json";
       readonly const?: string;
     }
   | {
@@ -394,6 +395,7 @@ export const any: Schema<any, any>;
 declare const void_: Schema<void, void>;
 export { void_ as void };
 export const json: Schema<JSON, JSON>;
+export const jsonString: (space?: number) => Schema<string, string>;
 
 export function safe<Value>(scope: () => Value): Result<Value>;
 export function safeAsync<Value>(
@@ -510,11 +512,6 @@ export const unnest: <Output, Input extends Record<string, unknown>>(
 export const record: <Output, Input>(
   schema: Schema<Output, Input>
 ) => Schema<Record<string, Output>, Record<string, Input>>;
-
-export const jsonString: <Output>(
-  schema: Schema<Output, unknown>,
-  space?: number
-) => Schema<Output, string>;
 
 type ObjectCtx<Input extends Record<string, unknown>> = {
   field: <FieldOutput>(

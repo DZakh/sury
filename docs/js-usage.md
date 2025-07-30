@@ -821,13 +821,13 @@ type NumberCache = S.Output<typeof numberCacheSchema>;
 ## JSON string
 
 ```ts
-const schema = S.jsonString(S.int);
+const schema = S.jsonString().with(S.to, S.int);
 
 S.parseOrThrow("123", schema);
 // => 123
 ```
 
-The `S.jsonString` schema represents JSON string containing value of a specific type.
+The `S.jsonString` schema represents JSON string.
 
 ## Instance
 

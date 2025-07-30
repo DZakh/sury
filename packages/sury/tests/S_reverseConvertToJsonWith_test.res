@@ -198,7 +198,7 @@ test("Fails to reverse convert Dict literal with invalid field", t => {
   let schema = S.literal(dict)
   t->U.assertThrowsMessage(
     () => dict->S.reverseConvertToJsonOrThrow(schema),
-    `Failed converting to JSON at ["foo"]: { foo: 123n; } is not valid JSON`,
+    `Failed converting to JSON: { foo: 123n; } is not valid JSON`,
   )
 })
 
@@ -235,7 +235,7 @@ test("Fails to reverse convert Never schema", t => {
 test("Fails to reverse convert object with invalid nested schema", t => {
   t->U.assertThrowsMessage(
     () => Obj.magic(true)->S.reverseConvertToJsonOrThrow(S.object(s => s.field("foo", S.unknown))),
-    `Failed converting to JSON at ["foo"]: { foo: unknown; } is not valid JSON`,
+    `Failed converting to JSON: { foo: unknown; } is not valid JSON`,
   )
 })
 

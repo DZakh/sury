@@ -321,19 +321,45 @@ test("Successfully parses record", (t) => {
 });
 
 test("Successfully parses JSON string", (t) => {
-  const schema = S.jsonString(S.boolean);
+  const schema = S.jsonString().with(S.to, S.boolean);
   const value = S.parseOrThrow(`true`, schema);
 
   t.deepEqual(value, true);
+  t.deepEqual(schema.type === "string" && schema.format === "json", true);
 
   expectType<SchemaEqual<typeof schema, boolean, string>>(true);
   expectType<TypeEqual<typeof value, boolean>>(true);
 });
 
+test("Parse JSON string, extract a field, and serialize it back to JSON string", (t) => {
+  const schema = S.jsonString()
+    .with(
+      S.to,
+      S.schema({
+        type: "info",
+        value: S.number,
+      }).with(S.shape, (msg) => msg.value)
+    )
+    .with(S.to, S.jsonString());
+
+  t.deepEqual(S.parseOrThrow(`{"type": "info", "value": 123}`, schema), "123");
+  t.throws(() => S.parseOrThrow(`{"type": "info", "value": "123"}`, schema), {
+    name: "SuryError",
+    message: `Failed parsing at ["value"]: Expected number, received "123"`,
+  });
+
+  t.deepEqual(
+    S.reverseConvertOrThrow("123", schema),
+    `{"type":"info","value":123}`
+  );
+
+  expectType<SchemaEqual<typeof schema, string, string>>(true);
+});
+
 test("Successfully serialized JSON object", (t) => {
   const objectSchema = S.schema({ foo: [1, S.number] });
-  const schema = S.jsonString(objectSchema);
-  const schemaWithSpace = S.jsonString(objectSchema, 2);
+  const schema = S.jsonString().with(S.to, objectSchema);
+  const schemaWithSpace = S.jsonString(2).with(S.to, objectSchema);
 
   const value = S.convertOrThrow({ foo: [1, 2] }, S.reverse(schema));
   t.deepEqual(value, '{"foo":[1,2]}');
