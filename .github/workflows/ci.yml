@@ -12,7 +12,7 @@ on:
 jobs:
   sury:
     name: Sury - Build & Test & Lint & Pack
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
@@ -42,7 +42,39 @@ jobs:
 
   ppx-build-linux:
     name: ppx-build-linux
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: packages/sury-ppx/src
+    strategy:
+      matrix:
+        ocaml-compiler:
+          - 4.12.1
+    container:
+      image: ocaml/opam:alpine-3.16-ocaml-4.12
+      options: --user root
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Opam init
+        run: opam init -a --disable-sandboxing --compiler=${{ matrix.ocaml-compiler }}
+
+      - name: Install deps
+        run: opam install . --deps-only --with-test
+
+      - name: Build
+        run: opam exec -- dune build --profile static
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ppx-build-linux
+          path: packages/sury-ppx/src/_build/default/bin/bin.exe
+          if-no-files-found: error
+
+  ppx-build-linux-arm:
+    name: ppx-build-linux-arm
+    runs-on: ubuntu-24.04-arm
     defaults:
       run:
         working-directory: packages/sury-ppx/src
@@ -167,8 +199,15 @@ jobs:
 
   pack-sury-ppx:
     name: Pack sury-ppx
-    needs: [ppx-build-linux, ppx-build-macos, ppx-build-macos-x64, ppx-build-windows]
-    runs-on: ubuntu-latest
+    needs:
+      [
+        ppx-build-linux,
+        ppx-build-linux-arm,
+        ppx-build-macos,
+        ppx-build-macos-x64,
+        ppx-build-windows,
+      ]
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
@@ -183,6 +222,12 @@ jobs:
         with:
           name: ppx-build-linux
           path: binaries/linux
+
+      - name: Download ppx linux-ARM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ppx-build-linux-arm
+          path: binaries/linux-arm
 
       - name: Download macOS artifacts
         uses: actions/download-artifact@master
@@ -205,6 +250,7 @@ jobs:
       - name: Move ppx artifacts
         run: |
           mv binaries/linux/bin.exe packages/sury-ppx/ppx-linux.exe
+          mv binaries/linux-arm/bin.exe packages/sury-ppx/ppx-linux-arm.exe
           mv binaries/macos/bin.exe packages/sury-ppx/ppx-osx.exe
           mv binaries/macos-x64/bin.exe packages/sury-ppx/ppx-osx-x64.exe
           mv binaries/windows/bin.exe packages/sury-ppx/ppx-windows.exe
@@ -222,7 +268,7 @@ jobs:
   e2e:
     name: E2E Test
     needs: [ppx-build-linux]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
