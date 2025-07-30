@@ -50,14 +50,13 @@ jobs:
       matrix:
         ocaml-compiler:
           - 4.12.1
-    container:
-      image: ocaml/opam:alpine-3.16-ocaml-4.12
-      options: --user root
     steps:
       - uses: actions/checkout@v4
 
-      - name: Opam init
-        run: opam init -a --disable-sandboxing --compiler=${{ matrix.ocaml-compiler }}
+      - name: Use OCaml ${{ matrix.ocaml-compiler}}
+        uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: ${{ matrix.ocaml-compiler }}
 
       - name: Install deps
         run: opam install . --deps-only --with-test
@@ -85,7 +84,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: ocaml/setup-ocaml@v3
+      - name: Use OCaml ${{ matrix.ocaml-compiler}}
+        uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
 
@@ -116,7 +116,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Use OCaml ${{ matrix.ocaml-compiler}}
-        uses: ocaml/setup-ocaml@v2
+        uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
 
@@ -127,7 +127,7 @@ jobs:
         run: opam exec -- dune build
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@master
+        uses: actions/upload-artifact@v4
         with:
           name: ppx-build-macos
           path: packages/sury-ppx/src/_build/default/bin/bin.exe
@@ -147,7 +147,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Use OCaml ${{ matrix.ocaml-compiler}}
-        uses: ocaml/setup-ocaml@v2
+        uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
 
@@ -158,7 +158,7 @@ jobs:
         run: opam exec -- dune build
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@master
+        uses: actions/upload-artifact@v4
         with:
           name: ppx-build-macos-x64
           path: packages/sury-ppx/src/_build/default/bin/bin.exe
@@ -178,7 +178,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Use OCaml ${{ matrix.ocaml-compiler}}
-        uses: ocaml/setup-ocaml@v2
+        uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
 
@@ -189,7 +189,7 @@ jobs:
         run: opam exec -- dune build
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@master
+        uses: actions/upload-artifact@v4
         with:
           name: ppx-build-windows
           path: packages/sury-ppx/src/_build/default/bin/bin.exe
