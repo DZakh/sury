@@ -98,7 +98,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ppx-build-linux
+          name: ppx-build-linux-arm
           path: packages/sury-ppx/src/_build/default/bin/bin.exe
           if-no-files-found: error
 
