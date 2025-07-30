@@ -46,17 +46,13 @@ jobs:
     defaults:
       run:
         working-directory: packages/sury-ppx/src
-    strategy:
-      matrix:
-        ocaml-compiler:
-          - 5.3.0
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use OCaml ${{ matrix.ocaml-compiler}}
-        uses: ocaml/setup-ocaml@v3
+      - name: Setup Dune
+        uses: ocaml-dune/setup-dune@v0
         with:
-          ocaml-compiler: ${{ matrix.ocaml-compiler }}
+          automagic: true
 
       - name: Build
         run: dune build --profile static
@@ -74,17 +70,13 @@ jobs:
     defaults:
       run:
         working-directory: packages/sury-ppx/src
-    strategy:
-      matrix:
-        ocaml-compiler:
-          - 5.3.0
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use OCaml ${{ matrix.ocaml-compiler}}
-        uses: ocaml/setup-ocaml@v3
+      - name: Setup Dune
+        uses: ocaml-dune/setup-dune@v0
         with:
-          ocaml-compiler: ${{ matrix.ocaml-compiler }}
+          automagic: true
 
       - name: Build
         run: dune build --profile static
@@ -102,17 +94,13 @@ jobs:
     defaults:
       run:
         working-directory: packages/sury-ppx/src
-    strategy:
-      matrix:
-        ocaml-compiler:
-          - 5.3.0
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use OCaml ${{ matrix.ocaml-compiler}}
-        uses: ocaml/setup-ocaml@v3
+      - name: Setup Dune
+        uses: ocaml-dune/setup-dune@v0
         with:
-          ocaml-compiler: ${{ matrix.ocaml-compiler }}
+          automagic: true
 
       - name: Build
         run: dune build
@@ -130,17 +118,13 @@ jobs:
     defaults:
       run:
         working-directory: packages/sury-ppx/src
-    strategy:
-      matrix:
-        ocaml-compiler:
-          - 5.3.0
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use OCaml ${{ matrix.ocaml-compiler}}
-        uses: ocaml/setup-ocaml@v3
+      - name: Setup Dune
+        uses: ocaml-dune/setup-dune@v0
         with:
-          ocaml-compiler: ${{ matrix.ocaml-compiler }}
+          automagic: true
 
       - name: Build
         run: dune build
@@ -158,17 +142,13 @@ jobs:
     defaults:
       run:
         working-directory: packages/sury-ppx/src
-    strategy:
-      matrix:
-        ocaml-compiler:
-          - 5.3.0
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use OCaml ${{ matrix.ocaml-compiler}}
-        uses: ocaml/setup-ocaml@v3
+      - name: Setup Dune
+        uses: ocaml-dune/setup-dune@v0
         with:
-          ocaml-compiler: ${{ matrix.ocaml-compiler }}
+          automagic: true
 
       - name: Build
         run: dune build
