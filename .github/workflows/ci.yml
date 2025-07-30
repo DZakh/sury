@@ -82,14 +82,12 @@ jobs:
       matrix:
         ocaml-compiler:
           - 4.12.1
-    container:
-      image: ocaml/opam:alpine-3.16-ocaml-4.12
-      options: --user root
     steps:
       - uses: actions/checkout@v4
 
-      - name: Opam init
-        run: opam init -a --disable-sandboxing --compiler=${{ matrix.ocaml-compiler }}
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: ${{ matrix.ocaml-compiler }}
 
       - name: Install deps
         run: opam install . --deps-only --with-test
