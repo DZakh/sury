@@ -1,0 +1,12 @@
+(version v0.17.0)
+
+(build
+ (run dune build -p %{pkg-self:name} -j %{jobs}))
+
+(depends ocaml dune)
+
+(source
+ (fetch
+  (url
+   https://github.com/janestreet/ocaml-compiler-libs/archive/refs/tags/v0.17.0.tar.gz)
+  (checksum md5=aaf66efea8752475c25a942443579b41)))

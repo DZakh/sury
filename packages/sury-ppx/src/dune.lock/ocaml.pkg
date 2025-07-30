@@ -1,0 +1,20 @@
+(version 5.3.0)
+
+(build
+ (withenv
+  ((= CAML_LD_LIBRARY_PATH "")
+   (= LSAN_OPTIONS detect_leaks=0,exitcode=0)
+   (= ASAN_OPTIONS detect_leaks=0,exitcode=0))
+  (run
+   ocaml
+   %{pkg:ocaml-config:share}/gen_ocaml_config.ml
+   %{pkg-self:version}
+   %{pkg-self:name})))
+
+(depends ocaml-config ocaml-base-compiler)
+
+(exported_env
+ (+= OCAMLTOP_INCLUDE_PATH "\%{toplevel}%")
+ (= CAML_LD_LIBRARY_PATH "\%{_:stubsdir}%")
+ (+= CAML_LD_LIBRARY_PATH "\%{lib}%/stublibs")
+ (= OCAML_TOPLEVEL_PATH "\%{toplevel}%"))

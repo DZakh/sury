@@ -1,0 +1,12 @@
+(version v0.17.0)
+
+(build
+ (run dune build -p %{pkg-self:name} -j %{jobs}))
+
+(depends ocaml dune)
+
+(source
+ (fetch
+  (url
+   https://github.com/janestreet/sexplib0/archive/refs/tags/v0.17.0.tar.gz)
+  (checksum md5=abafe8fd1d6302e55a315f4d78960d2a)))

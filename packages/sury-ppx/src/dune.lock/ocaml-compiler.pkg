@@ -1,0 +1,138 @@
+(version 5.3.0)
+
+(install
+ (withenv
+  ((= MSYS2_ARG_CONV_EXCL *)
+   (= LSAN_OPTIONS detect_leaks=0,exitcode=0)
+   (= ASAN_OPTIONS detect_leaks=0,exitcode=0))
+  (run %{make} install)))
+
+(build
+ (withenv
+  ((= MSYS2_ARG_CONV_EXCL *)
+   (= LSAN_OPTIONS detect_leaks=0,exitcode=0)
+   (= ASAN_OPTIONS detect_leaks=0,exitcode=0))
+  (progn
+   (run
+    ./configure
+    (when
+     (catch_undefined_var
+      (and_absorb_undefined_var
+       %{pkg:system-msvc:installed}
+       %{pkg:arch-x86_64:installed})
+      false)
+     --host=x86_64-pc-windows)
+    (when
+     (catch_undefined_var
+      (and_absorb_undefined_var
+       %{pkg:system-msvc:installed}
+       %{pkg:arch-x86_32:installed})
+      false)
+     --host=i686-pc-windows)
+    --prefix=%{prefix}
+    --docdir=%{doc}/ocaml
+    (when
+     (catch_undefined_var %{pkg:system-msvc:installed} false)
+     --with-winpthreads-msvc=%{pkg:winpthreads:share})
+    -C
+    (when
+     (catch_undefined_var %{pkg:ocaml-option-afl:installed} false)
+     --with-afl)
+    (when
+     (catch_undefined_var %{pkg:ocaml-option-bytecode-only:installed} false)
+     --disable-native-compiler)
+    (when
+     (catch_undefined_var
+      %{pkg:ocaml-option-no-flat-float-array:installed}
+      false)
+     --disable-flat-float-array)
+    (when
+     (catch_undefined_var %{pkg:ocaml-option-flambda:installed} false)
+     --enable-flambda)
+    (when
+     (catch_undefined_var %{pkg:ocaml-option-fp:installed} false)
+     --enable-frame-pointers)
+    (when
+     (catch_undefined_var %{pkg:ocaml-option-no-compression:installed} false)
+     --without-zstd)
+    (when
+     (catch_undefined_var %{pkg:ocaml-option-tsan:installed} false)
+     --enable-tsan)
+    (when
+     (catch_undefined_var
+      (and_absorb_undefined_var
+       (not %{pkg:ocaml-option-32bit:installed})
+       (not %{pkg:ocaml-option-musl:installed})
+       true)
+      false)
+     CC=cc)
+    (when
+     (catch_undefined_var
+      (and_absorb_undefined_var %{pkg:ocaml-option-tsan:installed} true)
+      false)
+     CC=clang)
+    (when
+     (catch_undefined_var
+      (and_absorb_undefined_var %{pkg:ocaml-option-musl:installed} true)
+      false)
+     CC=musl-gcc)
+    (when
+     (catch_undefined_var
+      (and_absorb_undefined_var %{pkg:ocaml-option-musl:installed} true)
+      false)
+     "CFLAGS=-Os -mno-outline-atomics")
+    (when
+     (catch_undefined_var
+      (or_absorb_undefined_var
+       %{pkg:ocaml-option-leak-sanitizer:installed}
+       false)
+      false)
+     LDFLAGS=-Wl,--no-as-needed,-ldl)
+    (when
+     (catch_undefined_var %{pkg:ocaml-option-leak-sanitizer:installed} false)
+     "CC=gcc -ldl -fsanitize=leak -fno-omit-frame-pointer -O1 -g")
+    (when
+     (catch_undefined_var
+      (and_absorb_undefined_var
+       %{pkg:ocaml-option-address-sanitizer:installed}
+       true)
+      false)
+     "CC=clang -fsanitize=address -fno-omit-frame-pointer -O1 -g")
+    (when
+     (catch_undefined_var
+      (and_absorb_undefined_var %{pkg:ocaml-option-32bit:installed} true)
+      false)
+     "CC=gcc -Wl,-read_only_relocs,suppress -arch i386 -m32")
+    (when
+     (catch_undefined_var
+      (and_absorb_undefined_var %{pkg:ocaml-option-musl:installed} true)
+      false)
+     "ASPP=musl-gcc -c")
+    (when
+     (catch_undefined_var
+      (and_absorb_undefined_var %{pkg:ocaml-option-32bit:installed} true)
+      false)
+     --host=i386-apple-darwin13.2.0)
+    (when
+     (catch_undefined_var %{pkg:ocaml-option-static:installed} false)
+     LIBS=-static)
+    --disable-warn-error)
+   (run %{make} -j%{jobs}))))
+
+(source
+ (fetch
+  (url
+   https://github.com/ocaml/ocaml/releases/download/5.3.0/ocaml-5.3.0.tar.gz)
+  (checksum
+   sha256=22c1dd9de21bf43b62d1909041fb5fad648905227bf69550a6a6bef31e654f38)))
+
+(exported_env
+ (= CAML_LD_LIBRARY_PATH "\%{lib}%/stublibs"))
+
+(extra_sources
+ (ocaml-compiler.install
+  (fetch
+   (url
+    https://raw.githubusercontent.com/ocaml/ocaml/899b8f3bece45f55161dad72eaa223c2bb7202e8/ocaml-variants.install)
+   (checksum
+    sha256=7af3dc34e6f9f3be2ffd8d32cd64fa650d6a036c86c4821a7033d24a90fba11c))))
