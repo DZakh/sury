@@ -178,7 +178,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Use OCaml ${{ matrix.ocaml-compiler}}
-        uses: ocaml/setup-ocaml@v3
+        uses: ocaml/setup-ocaml@v2
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
 
@@ -186,7 +186,7 @@ jobs:
         run: opam install . --deps-only --with-test
 
       - name: Build
-        run: opam exec -- bash -c "dune build"
+        run: opam exec -- dune build
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
