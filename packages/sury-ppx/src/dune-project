@@ -1,2 +1,13 @@
-(lang dune 2.7)
+(lang dune 3.19)
+
 (name sury-ppx)
+
+(package
+ (name sury-ppx)
+ (depends
+  (ocaml
+   (>= 4.12.1))
+  (dune
+   (>= 2.7))
+  (ppxlib
+   (>= 0.24.0))))
