@@ -58,8 +58,11 @@ jobs:
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
 
+      - name: Install deps
+        run: opam install . --deps-only --with-test
+
       - name: Build
-        run: dune build --profile static
+        run: opam exec -- dune build --profile static
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -86,8 +89,11 @@ jobs:
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
 
+      - name: Install deps
+        run: opam install . --deps-only --with-test
+
       - name: Build
-        run: dune build --profile static
+        run: opam exec -- dune build --profile static
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -114,8 +120,11 @@ jobs:
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
 
+      - name: Install deps
+        run: opam install . --deps-only --with-test
+
       - name: Build
-        run: dune build
+        run: opam exec -- dune build
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -142,8 +151,11 @@ jobs:
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
 
+      - name: Install deps
+        run: opam install . --deps-only --with-test
+
       - name: Build
-        run: dune build
+        run: opam exec -- dune build
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -170,8 +182,11 @@ jobs:
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
 
+      - name: Install deps
+        run: opam install . --deps-only --with-test
+
       - name: Build
-        run: dune build
+        run: opam exec -- dune build
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
