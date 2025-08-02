@@ -30,6 +30,14 @@ var symbol = Sury.symbol;
 
 var json = Sury.json;
 
+var enableJson = Sury.enableJson;
+
+var jsonString = Sury.jsonString;
+
+var jsonStringWithSpace = Sury.jsonStringWithSpace;
+
+var enableJsonString = Sury.enableJsonString;
+
 var literal = Sury.literal;
 
 var array = Sury.array;
@@ -49,8 +57,6 @@ var $$null = Sury.$$null;
 var nullable = Sury.nullable;
 
 var nullableAsOption = Sury.nullableAsOption;
-
-var jsonString = Sury.jsonString;
 
 var union = Sury.union;
 
@@ -191,6 +197,10 @@ export {
   bigint ,
   symbol ,
   json ,
+  enableJson ,
+  jsonString ,
+  jsonStringWithSpace ,
+  enableJsonString ,
   literal ,
   array ,
   unnest ,
@@ -201,7 +211,6 @@ export {
   $$null ,
   nullable ,
   nullableAsOption ,
-  jsonString ,
   union ,
   $$enum ,
   meta ,

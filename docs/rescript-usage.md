@@ -1049,6 +1049,8 @@ The `never` schema will fail parsing for every value.
 `S.t<JSON.t>`
 
 ```rescript
+S.enableJson() // ❕ Call at the project root.
+
 let schema = S.json
 
 `"abc"`->S.parseOrThrow(schema)
@@ -1059,16 +1061,20 @@ The `S.json` schema represents a data that is compatible with JSON.
 
 ### **`jsonString`**
 
-`(~space: int=?) => S.t<'value>`
+`S.t<string>`
 
 ```rescript
-let schema = S.jsonString()->S.to(S.int)
+S.enableJsonString() // ❕ Call at the project root.
+
+let schema = S.jsonString->S.to(S.int)
 
 "123"->S.parseOrThrow(schema)
 // 123
 ```
 
 The `S.jsonString` schema represents JSON string.
+
+There's also `S.jsonStringWithSpace` to configure space in the JSON string during serialization.
 
 ### **`meta`**
 

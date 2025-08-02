@@ -113,7 +113,9 @@ test("Successfully parses dict with int keys", t => {
 })
 
 test("Applies operation for each item on serializing", t => {
-  let schema = S.dict(S.jsonString()->S.to(S.int))
+  S.enableJsonString()
+
+  let schema = S.dict(S.jsonString->S.to(S.int))
 
   t->Assert.deepEqual(
     Dict.fromArray([("a", 1), ("b", 2)])->S.reverseConvertOrThrow(schema),

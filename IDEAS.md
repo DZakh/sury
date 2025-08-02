@@ -2,11 +2,13 @@
 
 ## Alpha.2
 
+- Added `S.enableJson` and `S.enableJsonString`
+- `S.jsonString` doesn't accept arguments anymore
+- Added `S.jsonStringWithSpace`
+
 ## v11
 
 ### ideas
-
-- Optimise bundle size
 
 - Add `promise` type and `S.promise` (instead of async flag internally)
 

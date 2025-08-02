@@ -370,8 +370,19 @@ S.any;
 S.never;
 
 // JSON type
+S.enableJson(); // ❕ Call at the project root.
 // Allows string | boolean | number | null | Record<string, JSON> | JSON[]
 S.json;
+
+// JSON string
+S.enableJsonString(); // ❕ Call at the project root.
+// Asserts that the input is a valid JSON string
+S.jsonString;
+S.jsonStringWithSpace(2);
+// Parses JSON string and validates that it's a number
+S.jsonString.with(S.to, S.number);
+// Serializes number to JSON string
+S.number.with(S.to, S.jsonString);
 ```
 
 ## Strings
@@ -817,17 +828,6 @@ const numberCacheSchema = S.record(S.number);
 type NumberCache = S.Output<typeof numberCacheSchema>;
 // => { [k: string]: number }
 ```
-
-## JSON string
-
-```ts
-const schema = S.jsonString().with(S.to, S.int);
-
-S.parseOrThrow("123", schema);
-// => 123
-```
-
-The `S.jsonString` schema represents JSON string.
 
 ## Instance
 

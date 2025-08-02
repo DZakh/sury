@@ -15,6 +15,28 @@ type SchemaEqual<
 // Can use genType schema
 // expectType<SchemaEqual<typeof stringSchema, string, unknown>>(true);
 
+test("JSON string demo", (t) => {
+  // t.throws(() => S.parseOrThrow("123", S.jsonString), {
+  //   name: "Error",
+  //   message:
+  //     "[Sury] Schema S.jsonString is not enabled. To start using it, add S.enableJsonString() at the project root.",
+  // });
+
+  t.deepEqual(S.parseOrThrow("123", S.jsonString), "123");
+  // i=>{if(typeof i!=="string"){e[0](i)}try{JSON.parse(i)}catch(t){e[1](i)}return i}
+
+  const schemaWithTo = S.jsonString.with(S.to, S.number);
+  t.deepEqual(S.parseOrThrow("123", schemaWithTo), 123);
+  // i=>{if(typeof i!=="string"){e[0](i)}let v0;try{v0=JSON.parse(i)}catch(t){e[1](i)}if(typeof v0!=="number"||Number.isNaN(v0)){e[2](v0)}return v0}
+
+  const schemaWithTo2 = S.number.with(S.to, S.jsonString);
+  t.deepEqual(S.convertOrThrow(123, schemaWithTo2), "123");
+  // i=>{return ""+i}
+});
+
+S.enableJson();
+S.enableJsonString();
+
 test("Successfully parses string", (t) => {
   const schema = S.string;
   const value = S.parseOrThrow("123", schema);
@@ -321,7 +343,7 @@ test("Successfully parses record", (t) => {
 });
 
 test("Successfully parses JSON string", (t) => {
-  const schema = S.jsonString().with(S.to, S.boolean);
+  const schema = S.jsonString.with(S.to, S.boolean);
   const value = S.parseOrThrow(`true`, schema);
 
   t.deepEqual(value, true);
@@ -332,7 +354,7 @@ test("Successfully parses JSON string", (t) => {
 });
 
 test("Parse JSON string, extract a field, and serialize it back to JSON string", (t) => {
-  const schema = S.jsonString()
+  const schema = S.jsonString
     .with(
       S.to,
       S.schema({
@@ -340,7 +362,7 @@ test("Parse JSON string, extract a field, and serialize it back to JSON string",
         value: S.number,
       }).with(S.shape, (msg) => msg.value)
     )
-    .with(S.to, S.jsonString());
+    .with(S.to, S.jsonString);
 
   t.deepEqual(S.parseOrThrow(`{"type": "info", "value": 123}`, schema), "123");
   t.throws(() => S.parseOrThrow(`{"type": "info", "value": "123"}`, schema), {
@@ -358,8 +380,8 @@ test("Parse JSON string, extract a field, and serialize it back to JSON string",
 
 test("Successfully serialized JSON object", (t) => {
   const objectSchema = S.schema({ foo: [1, S.number] });
-  const schema = S.jsonString().with(S.to, objectSchema);
-  const schemaWithSpace = S.jsonString(2).with(S.to, objectSchema);
+  const schema = S.jsonString.with(S.to, objectSchema);
+  const schemaWithSpace = S.jsonStringWithSpace(2).with(S.to, objectSchema);
 
   const value = S.convertOrThrow({ foo: [1, 2] }, S.reverse(schema));
   t.deepEqual(value, '{"foo":[1,2]}');
@@ -2010,7 +2032,7 @@ test("Env schema: Reggression version", (t) => {
     ) {
       return S.string.with(S.to, schema);
     } else {
-      return S.jsonString(schema);
+      return S.jsonString.with(S.to, schema);
     }
   };
 

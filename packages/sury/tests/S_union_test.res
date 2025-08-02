@@ -1,6 +1,8 @@
 open Ava
 open RescriptCore
 
+S.enableJson()
+
 test("Throws for a Union schema factory without schemas", t => {
   t->Assert.throws(
     () => {

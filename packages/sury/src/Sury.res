@@ -107,6 +107,11 @@ module X = {
   }
 
   module String = {
+    let capitalize = (string: string): string => {
+      string->Js.String2.slice(~from=0, ~to_=1)->Js.String2.toUpperCase ++
+        string->Js.String2.sliceToEnd(~from=1)
+    }
+
     external unsafeToBool: string => bool = "%identity"
   }
 
@@ -449,6 +454,7 @@ and internal = {
   mutable properties?: dict<internal>,
   mutable noValidation?: bool,
   mutable unnest?: bool,
+  mutable space?: int,
   @as("$ref")
   mutable ref?: string,
   @as("$defs")
@@ -686,6 +692,26 @@ Schema.prototype = sp;
 
 @new
 external base: tag => internal = "Schema"
+
+let shakenRef = "as"
+
+let shakenTraps: X.Proxy.traps<internal> = {
+  get: (~target, ~prop) => {
+    switch target->Obj.magic->X.Dict.getUnsafeOption(shakenRef) {
+    | Some(l) if prop !== shakenRef->Obj.magic =>
+      InternalError.panic(
+        `Schema S.${l} is not enabled. To start using it, add S.enable${l->X.String.capitalize}() at the project root.`,
+      )
+    | _ => target->Obj.magic->Js.Dict.unsafeGet(prop->Obj.magic)
+    }
+  },
+}
+
+let shaken = (apiName: string) => {
+  let mut = base(Never)
+  mut->Obj.magic->Js.Dict.set(shakenRef, apiName)
+  mut->X.Proxy.make(shakenTraps)
+}
 
 let unknown = base(Unknown)
 let bool = base(Boolean)
@@ -3489,29 +3515,33 @@ module String = {
   let datetimeRe = %re(`/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/`)
 }
 
-let json = {
-  let jsonRef = base(Ref)
-  jsonRef.ref = Some(`${defsPath}${jsonName}`)
-  jsonRef.name = Some(jsonName)
-  let json = base(jsonRef.tag)
-  json.ref = jsonRef.ref
-  json.name = Some(jsonName)
-  let defs = Js.Dict.empty()
-  defs->Js.Dict.set(
-    jsonName,
-    {
-      name: jsonName,
-      tag: Union,
-      anyOf: [
-        string,
-        bool,
-        float,
-        Literal.null,
-        Dict.factory(jsonRef->castToPublic)->castToInternal,
-        Array.factory(jsonRef->castToPublic)->castToInternal,
-      ],
-      // FIXME: use dict{} in V12
-      has: %raw(`{
+let json = shaken("json")
+
+let enableJson = () => {
+  if json->Obj.magic->Js.Dict.unsafeGet(shakenRef)->Obj.magic {
+    let _ = %raw(`delete json.as`)
+    let jsonRef = base(Ref)
+    jsonRef.ref = Some(`${defsPath}${jsonName}`)
+    jsonRef.name = Some(jsonName)
+    json.tag = jsonRef.tag
+    json.ref = jsonRef.ref
+    json.name = Some(jsonName)
+    let defs = Js.Dict.empty()
+    defs->Js.Dict.set(
+      jsonName,
+      {
+        name: jsonName,
+        tag: Union,
+        anyOf: [
+          string,
+          bool,
+          float,
+          Literal.null,
+          Dict.factory(jsonRef->castToPublic)->castToInternal,
+          Array.factory(jsonRef->castToPublic)->castToInternal,
+        ],
+        // FIXME: use dict{} in V12
+        has: %raw(`{
         string: true,
         boolean: true,
         number: true,
@@ -3519,14 +3549,16 @@ let json = {
         object: true,
         array: true,
       }`),
-      refiner: Union.refiner,
-    },
-  )
-  json.defs = Some(defs)
-  json
+        refiner: Union.refiner,
+      },
+    )
+    json.defs = Some(defs)
+  }
 }
 
-let jsonString = {
+let jsonString = shaken("jsonString")
+
+let enableJsonString = {
   let inlineJsonString = (b, ~schema, ~selfSchema, ~path) => {
     let tagFlag = schema.tag->TagFlag.get
     let const = schema.const
@@ -3543,110 +3575,118 @@ let jsonString = {
     }
   }
 
-  (~space=0) => {
-    let mut = base(String)
-    mut.format = Some(JSON)
-    mut.name = Some(`${jsonName} string`)
-    mut.refiner = Some(
-      Builder.make((b, ~input as inputArg, ~selfSchema, ~path) => {
-        let inputTagFlag = inputArg.tag->TagFlag.get
-        let input = ref(inputArg)
+  () => {
+    if jsonString->Obj.magic->Js.Dict.unsafeGet(shakenRef)->Obj.magic {
+      let _ = %raw(`delete jsonString.as`)
+      jsonString.tag = String
+      jsonString.format = Some(JSON)
+      jsonString.name = Some(`${jsonName} string`)
+      jsonString.refiner = Some(
+        Builder.make((b, ~input as inputArg, ~selfSchema, ~path) => {
+          let inputTagFlag = inputArg.tag->TagFlag.get
+          let input = ref(inputArg)
 
-        if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
-          let to = selfSchema.to->X.Option.getUnsafe
-          let hasTo: bool = to->Obj.magic
+          if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
+            let to = selfSchema.to->X.Option.getUnsafe
+            let hasTo: bool = to->Obj.magic
 
-          if hasTo && to->isLiteral {
-            let inputVar = b->B.Val.var(input.contents)
-            b.filterCode = `${inputVar}===${b->inlineJsonString(
-                ~selfSchema,
-                ~schema=to,
-                ~path,
-              )}||${b->B.failWithArg(
-                ~path,
-                input => InvalidType({
-                  expected: to->castToPublic,
-                  received: input,
-                }),
-                inputVar,
-              )};`
-            input := b->B.constVal(~schema=to)
-          } else if hasTo && to.format === Some(JSON) {
-            ()
+            if hasTo && to->isLiteral {
+              let inputVar = b->B.Val.var(input.contents)
+              b.filterCode = `${inputVar}===${b->inlineJsonString(
+                  ~selfSchema,
+                  ~schema=to,
+                  ~path,
+                )}||${b->B.failWithArg(
+                  ~path,
+                  input => InvalidType({
+                    expected: to->castToPublic,
+                    received: input,
+                  }),
+                  inputVar,
+                )};`
+              input := b->B.constVal(~schema=to)
+            } else if hasTo && to.format === Some(JSON) {
+              ()
+            } else {
+              let inputVar = b->B.Val.var(input.contents)
+              let withTypeValidation = b.global.flag->Flag.unsafeHas(Flag.typeValidation)
+
+              // FIXME: Should have the check in allocate scope?
+              if withTypeValidation {
+                b.filterCode = b->B.typeFilterCode(~schema=string, ~input=input.contents, ~path)
+              }
+
+              // FIXME: S.refine should run here
+
+              if hasTo || withTypeValidation {
+                b.code =
+                  b.code ++
+                  `try{${if hasTo {
+                      jsonableValidation(~output=to, ~parent=to, ~path, ~flag=b.global.flag)
+
+                      let targetVal = b->B.allocateVal(~schema=unknown)
+                      input := targetVal
+                      targetVal.inline ++ "="
+                    } else {
+                      ""
+                    }}JSON.parse(${inputVar})}catch(t){${b->B.failWithArg(
+                      ~path,
+                      input => InvalidType({
+                        expected: selfSchema->castToPublic,
+                        received: input,
+                      }),
+                      inputVar,
+                    )}}`
+              }
+            }
           } else {
-            let inputVar = b->B.Val.var(input.contents)
-            let withTypeValidation = b.global.flag->Flag.unsafeHas(Flag.typeValidation)
-
-            // FIXME: Should have the check in allocate scope?
-            if withTypeValidation {
-              b.filterCode = b->B.typeFilterCode(~schema=string, ~input=input.contents, ~path)
-            }
-
-            // FIXME: S.refine should run here
-
-            if hasTo || withTypeValidation {
-              b.code =
-                b.code ++
-                `try{${if hasTo {
-                    jsonableValidation(~output=to, ~parent=to, ~path, ~flag=b.global.flag)
-
-                    let targetVal = b->B.allocateVal(~schema=unknown)
-                    input := targetVal
-                    targetVal.inline ++ "="
-                  } else {
-                    ""
-                  }}JSON.parse(${inputVar})}catch(t){${b->B.failWithArg(
-                    ~path,
-                    input => InvalidType({
-                      expected: selfSchema->castToPublic,
-                      received: input,
-                    }),
-                    inputVar,
-                  )}}`
-            }
-          }
-        } else {
-          if input.contents->Obj.magic->isLiteral {
-            input :=
-              b->B.val(
-                b->inlineJsonString(~selfSchema, ~schema=input.contents->Obj.magic, ~path),
-                ~schema=string,
+            if input.contents->Obj.magic->isLiteral {
+              input :=
+                b->B.val(
+                  b->inlineJsonString(~selfSchema, ~schema=input.contents->Obj.magic, ~path),
+                  ~schema=string,
+                )
+            } else if inputTagFlag->Flag.unsafeHas(TagFlag.string) {
+              if input.contents.format !== Some(JSON) {
+                input := b->B.val(`JSON.stringify(${input.contents.inline})`, ~schema=string)
+              }
+            } else if inputTagFlag->Flag.unsafeHas(TagFlag.number->Flag.with(TagFlag.boolean)) {
+              input := b->inputToString(input.contents)
+            } else if inputTagFlag->Flag.unsafeHas(TagFlag.bigint) {
+              input := b->B.val(`"\\""+${input.contents.inline}+"\\""`, ~schema=string)
+            } else if inputTagFlag->Flag.unsafeHas(TagFlag.object->Flag.with(TagFlag.array)) {
+              jsonableValidation(
+                ~output=input.contents->Obj.magic,
+                ~parent=input.contents->Obj.magic,
+                ~path,
+                ~flag=b.global.flag,
               )
-          } else if inputTagFlag->Flag.unsafeHas(TagFlag.string) {
-            if input.contents.format !== Some(JSON) {
-              input := b->B.val(`JSON.stringify(${input.contents.inline})`, ~schema=string)
+              input :=
+                b->B.val(
+                  `JSON.stringify(${input.contents.inline}${switch selfSchema.space {
+                    | Some(0)
+                    | None => ""
+                    | Some(v) => `,null,${v->X.Int.unsafeToString}`
+                    }})`,
+                  ~schema=string,
+                )
+            } else {
+              b->B.unsupportedTransform(~from=input.contents, ~target=selfSchema, ~path)
             }
-          } else if inputTagFlag->Flag.unsafeHas(TagFlag.number->Flag.with(TagFlag.boolean)) {
-            input := b->inputToString(input.contents)
-          } else if inputTagFlag->Flag.unsafeHas(TagFlag.bigint) {
-            input := b->B.val(`"\\""+${input.contents.inline}+"\\""`, ~schema=string)
-          } else if inputTagFlag->Flag.unsafeHas(TagFlag.object->Flag.with(TagFlag.array)) {
-            Js.log(input.contents->Obj.magic)
-            jsonableValidation(
-              ~output=input.contents->Obj.magic,
-              ~parent=input.contents->Obj.magic,
-              ~path,
-              ~flag=b.global.flag,
-            )
-            input :=
-              b->B.val(
-                `JSON.stringify(${input.contents.inline}${space > 0
-                    ? `,null,${space->X.Int.unsafeToString}`
-                    : ""})`,
-                ~schema=string,
-              )
-          } else {
-            b->B.unsupportedTransform(~from=input.contents, ~target=selfSchema, ~path)
+            input.contents.format = Some(JSON)
           }
-          input.contents.format = Some(JSON)
-        }
 
-        input.contents
-      }),
-    )
-
-    mut->castToPublic
+          input.contents
+        }),
+      )
+    }
   }
+}
+
+let jsonStringWithSpace = (space: int) => {
+  let mut = jsonString->copyWithoutCache
+  mut.space = Some(space)
+  mut->castToPublic
 }
 
 module Int = {
@@ -6042,6 +6082,7 @@ let length = (schema, length, ~message as maybeMessage=?) => {
 
 let unknown: t<unknown> = unknown->castToPublic
 let json: t<Js.Json.t> = json->castToPublic
+let jsonString: t<string> = jsonString->castToPublic
 let bool: t<bool> = bool->castToPublic
 let symbol: t<Js.Types.symbol> = symbol->castToPublic
 let string: t<string> = string->castToPublic

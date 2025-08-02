@@ -130,6 +130,10 @@ var filesMapping = [
     "S.jsonString"
   ],
   [
+    "jsonStringWithSpace",
+    "S.jsonStringWithSpace"
+  ],
+  [
     "union",
     "S.js_union"
   ],
@@ -320,6 +324,14 @@ var filesMapping = [
   [
     "global",
     "S.$$global"
+  ],
+  [
+    "enableJson",
+    "S.enableJson"
+  ],
+  [
+    "enableJsonString",
+    "S.enableJsonString"
   ]
 ];
 

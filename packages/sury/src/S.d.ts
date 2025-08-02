@@ -394,8 +394,13 @@ export const unknown: Schema<unknown, unknown>;
 export const any: Schema<any, any>;
 declare const void_: Schema<void, void>;
 export { void_ as void };
+
 export const json: Schema<JSON, JSON>;
-export const jsonString: (space?: number) => Schema<string, string>;
+export function enableJson(): void;
+
+export const jsonString: Schema<string, string>;
+export const jsonStringWithSpace: (space: number) => Schema<string, string>;
+export function enableJsonString(): void;
 
 export function safe<Value>(scope: () => Value): Result<Value>;
 export function safeAsync<Value>(

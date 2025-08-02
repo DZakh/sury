@@ -1,5 +1,7 @@
 open Ava
 
+S.enableJson()
+
 test("Coerce from string to string", t => {
   let schema = S.string->S.to(S.string)
   t->Assert.is(schema, S.string)
