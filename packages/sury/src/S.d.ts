@@ -255,6 +255,7 @@ export abstract class ErrorCode {
 export type Output<T> = T extends Schema<infer Output, unknown>
   ? Output
   : never;
+export type Infer<T> = Output<T>;
 export type Input<T> = T extends Schema<unknown, infer Input> ? Input : never;
 
 export type UnknownToOutput<T> = T extends Schema<unknown>
