@@ -260,7 +260,7 @@ test("Parses JSON string to unit", t => {
 })
 
 test("Parses JSON string to dict", t => {
-  let value = Js.Dict.fromArray([("foo", true)])
+  let value = Dict.fromArray([("foo", true)])
   let schema = S.jsonString->S.to(S.dict(S.bool))
 
   t->Assert.deepEqual(`{"foo": true}`->S.parseOrThrow(schema), value)
