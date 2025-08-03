@@ -2,6 +2,9 @@ open Ava
 open RescriptCore
 open U
 
+// TODO: Automatically enable it in PPX
+S.enableJson()
+
 @schema
 type myString = string
 test("String schema", t => {

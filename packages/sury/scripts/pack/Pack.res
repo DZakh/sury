@@ -133,6 +133,7 @@ let filesMapping = [
   ("unnest", "S.unnest"),
   ("record", "S.dict"),
   ("jsonString", "S.jsonString"),
+  ("jsonStringWithSpace", "S.jsonStringWithSpace"),
   ("union", "S.js_union"),
   ("object", "S.object"),
   ("schema", "S.js_schema"),
@@ -181,6 +182,8 @@ let filesMapping = [
   ("datetime", "S.datetime"),
   ("trim", "S.trim"),
   ("global", "S.$$global"),
+  ("enableJson", "S.enableJson"),
+  ("enableJsonString", "S.enableJsonString"),
 ]
 
 sourePaths->Array.forEach(path => {

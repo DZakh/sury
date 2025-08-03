@@ -21,8 +21,9 @@ module Path: {
 }
 
 type numberFormat = | @as("int32") Int32 | @as("port") Port
+type stringFormat = | @as("json") JSON
 
-type format = numberFormat
+type format = | ...numberFormat | ...stringFormat
 
 @unboxed
 type additionalItemsMode = | @as("strip") Strip | @as("strict") Strict
@@ -61,6 +62,7 @@ type rec t<'value> =
   | @as("string")
   String({
       const?: string,
+      format?: stringFormat,
       name?: string,
       title?: string,
       description?: string,
@@ -291,7 +293,13 @@ let int: t<int>
 let float: t<float>
 let bigint: t<bigint>
 let symbol: t<Js.Types.symbol>
+
 let json: t<Js.Json.t>
+let enableJson: unit => unit
+
+let jsonString: t<string>
+let jsonStringWithSpace: int => t<string>
+let enableJsonString: unit => unit
 
 let literal: 'value => t<'value>
 let array: t<'value> => t<array<'value>>
@@ -303,7 +311,6 @@ let option: t<'value> => t<option<'value>>
 let null: t<'value> => t<option<'value>>
 let nullable: t<'value> => t<Js.nullable<'value>>
 let nullableAsOption: t<'value> => t<option<'value>>
-let jsonString: (t<'value>, ~space: int=?) => t<'value>
 let union: array<t<'value>> => t<'value>
 let enum: array<'value> => t<'value>
 

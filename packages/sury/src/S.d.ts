@@ -10,7 +10,7 @@ export declare namespace StandardSchemaV1 {
     /** The version number of the standard. */
     readonly version: 1;
     /** The vendor name of the schema library. */
-    readonly vendor: "sury";
+    readonly vendor: string;
     /** Validates unknown input values. */
     readonly validate: (
       value: unknown
@@ -149,6 +149,7 @@ export type Schema<Output, Input = unknown> = {
     }
   | {
       readonly type: "string";
+      readonly format?: "json";
       readonly const?: string;
     }
   | {
@@ -254,10 +255,11 @@ export abstract class ErrorCode {
 export type Output<T> = T extends Schema<infer Output, unknown>
   ? Output
   : never;
+export type Infer<T> = Output<T>;
 export type Input<T> = T extends Schema<unknown, infer Input> ? Input : never;
 
-export type UnknownToOutput<T> = T extends Schema<unknown>
-  ? Output<T>
+export type UnknownToOutput<T> = T extends Schema<infer Output, unknown>
+  ? Output
   : T extends (...args: any[]) => any
   ? T
   : T extends unknown[]
@@ -276,8 +278,8 @@ export type UnknownToOutput<T> = T extends Schema<unknown>
     >
   : T;
 
-export type UnknownToInput<T> = T extends Schema<unknown>
-  ? Input<T>
+export type UnknownToInput<T> = T extends Schema<unknown, infer Input>
+  ? Input
   : T extends (...args: any[]) => any
   ? T
   : T extends unknown[]
@@ -393,7 +395,13 @@ export const unknown: Schema<unknown, unknown>;
 export const any: Schema<any, any>;
 declare const void_: Schema<void, void>;
 export { void_ as void };
+
 export const json: Schema<JSON, JSON>;
+export function enableJson(): void;
+
+export const jsonString: Schema<string, string>;
+export const jsonStringWithSpace: (space: number) => Schema<string, string>;
+export function enableJsonString(): void;
 
 export function safe<Value>(scope: () => Value): Result<Value>;
 export function safeAsync<Value>(
@@ -510,11 +518,6 @@ export const unnest: <Output, Input extends Record<string, unknown>>(
 export const record: <Output, Input>(
   schema: Schema<Output, Input>
 ) => Schema<Record<string, Output>, Record<string, Input>>;
-
-export const jsonString: <Output>(
-  schema: Schema<Output, unknown>,
-  space?: number
-) => Schema<Output, string>;
 
 type ObjectCtx<Input extends Record<string, unknown>> = {
   field: <FieldOutput>(

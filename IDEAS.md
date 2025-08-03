@@ -1,12 +1,10 @@
 # Ideas draft
 
-## Alpha.2
+## Alpha.3
 
 ## v11
 
 ### ideas
-
-- Optimise bundle size
 
 - Add `promise` type and `S.promise` (instead of async flag internally)
 
@@ -22,6 +20,7 @@
 - Better inline empty recursive schema operations (union convert)
 - Don't iterate over JSON value when it's `S.json` convert without parsing
 - Add `S.date.with(S.migrationFrom, S.string, <optionalParser>)`.
+- Allow to pass {} instead of S.schema({}) to S.array and other schemas
 
 ### Final release fixes
 

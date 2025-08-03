@@ -4,6 +4,8 @@ import * as S from "sury/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
 import Ava from "ava";
 
+S.enableJson();
+
 Ava("String schema", (function (t) {
         U.assertEqualSchemas(t, S.string, S.string, undefined);
       }));

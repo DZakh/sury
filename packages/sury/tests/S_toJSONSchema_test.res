@@ -1,5 +1,7 @@
 open Ava
 
+S.enableJson()
+
 test("JSONSchema of bool schema", t => {
   t->Assert.deepEqual(S.bool->S.toJSONSchema, %raw(`{"type": "boolean"}`))
 })
@@ -772,7 +774,7 @@ test("Fails to create schema for schemas with optional items", t => {
 test("JSONSchema error of nested object has path", t => {
   t->U.assertThrowsMessage(
     () => S.object(s => s.nested("nested").field("field", S.bigint))->S.toJSONSchema,
-    `Failed converting to JSON at ["nested"]["field"]: { field: bigint; } is not valid JSON`,
+    `Failed converting to JSON: { nested: { field: bigint; }; } is not valid JSON`,
   )
 })
 
