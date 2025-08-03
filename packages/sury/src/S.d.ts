@@ -10,7 +10,7 @@ export declare namespace StandardSchemaV1 {
     /** The version number of the standard. */
     readonly version: 1;
     /** The vendor name of the schema library. */
-    readonly vendor: "sury";
+    readonly vendor: string;
     /** Validates unknown input values. */
     readonly validate: (
       value: unknown
@@ -258,8 +258,8 @@ export type Output<T> = T extends Schema<infer Output, unknown>
 export type Infer<T> = Output<T>;
 export type Input<T> = T extends Schema<unknown, infer Input> ? Input : never;
 
-export type UnknownToOutput<T> = T extends Schema<unknown>
-  ? Output<T>
+export type UnknownToOutput<T> = T extends Schema<infer Output, unknown>
+  ? Output
   : T extends (...args: any[]) => any
   ? T
   : T extends unknown[]
@@ -278,8 +278,8 @@ export type UnknownToOutput<T> = T extends Schema<unknown>
     >
   : T;
 
-export type UnknownToInput<T> = T extends Schema<unknown>
-  ? Input<T>
+export type UnknownToInput<T> = T extends Schema<unknown, infer Input>
+  ? Input
   : T extends (...args: any[]) => any
   ? T
   : T extends unknown[]

@@ -122,7 +122,7 @@ if (!result.success) {
 
 ### Inferred types
 
-**Sury** automatically infers the static type from the schema definition. It has a really nice type on hover, which you can extract by using `S.Output<typeof schema>` or `S.Input<typeof schema>`.
+**Sury** automatically infers the static type from the schema definition. It has a really nice type on hover, which you can extract by using `S.Infer<typeof schema>`, `S.Output<typeof schema>`, or `S.Input<typeof schema>`.
 
 ```ts
 const Player = S.schema({
@@ -131,7 +131,7 @@ const Player = S.schema({
 });
 //? S.Schema<{ username: string; xp: number }, { username: string; xp: number }>
 
-type Player = S.Output<typeof Player>;
+type Player = S.Infer<typeof Player>;
 
 // Use it in your code
 const player: Player = { username: "billie", xp: 100 };
@@ -450,7 +450,7 @@ You can make any schema optional with `S.optional`.
 const schema = S.optional(S.string);
 
 S.parseOrThrow(undefined, schema); // => returns undefined
-type A = S.Output<typeof schema>; // string | undefined
+type A = S.Infer<typeof schema>; // string | undefined
 ```
 
 You can pass a default value to the second argument of `S.optional`.
@@ -459,7 +459,7 @@ You can pass a default value to the second argument of `S.optional`.
 const stringWithDefaultSchema = S.optional(S.string, "tuna");
 
 S.parseOrThrow(undefined, stringWithDefaultSchema); // => returns "tuna"
-type A = S.Output<typeof stringWithDefaultSchema>; // string
+type A = S.Infer<typeof stringWithDefaultSchema>; // string
 ```
 
 Optionally, you can pass a function as a default value that will be re-executed whenever a default value needs to be generated:
@@ -510,7 +510,7 @@ const dogSchema = S.schema({
 });
 
 // extract the inferred type like this
-type Dog = S.Output<typeof dogSchema>;
+type Dog = S.Infer<typeof dogSchema>;
 
 // equivalent to:
 type Dog = {
@@ -568,7 +568,7 @@ S.parseOrThrow(
 // => returns { id: 1, name: "John" }
 
 // Infer output TypeScript type of the userSchema
-type User = S.Output<typeof userSchema>; // { id: number; name: string }
+type User = S.Infer<typeof userSchema>; // { id: number; name: string }
 ```
 
 Compared to using `S.transform`, the approach has 0 performance overhead. Also, you can use the same schema to convert the parsed data back to the initial format:
@@ -641,7 +641,7 @@ const baseTeacherSchema = S.schema({ students: S.array(S.string) });
 const hasIDSchema = S.schema({ id: S.string });
 
 const teacherSchema = S.merge(baseTeacherSchema, hasIDSchema);
-type Teacher = S.Output<typeof teacherSchema>; // => { students: string[], id: string }
+type Teacher = S.Infer<typeof teacherSchema>; // => { students: string[], id: string }
 ```
 
 > 🧠 The function will throw if the schemas share keys. The returned schema also inherits the "unknownKeys" policy (strip/strict) of B.
@@ -730,7 +730,7 @@ const athleteSchema = S.schema([
   }, // statistics
 ]);
 
-type Athlete = S.Output<typeof athleteSchema>;
+type Athlete = S.Infer<typeof athleteSchema>;
 // type Athlete = [string, number, { pointsScored: number }]
 ```
 
@@ -750,7 +750,7 @@ const athleteSchema = S.tuple((s) => ({
   ),
 }));
 
-type Athlete = S.Output<typeof athleteSchema>;
+type Athlete = S.Infer<typeof athleteSchema>;
 // type Athlete = {
 //   name: string;
 //   jerseyNumber: number;
@@ -813,7 +813,7 @@ Creating a schema for a enum-like union was never so easy:
 ```ts
 const schema = S.union(["Win", "Draw", "Loss"]);
 
-typeof S.Output<schema>; // Win | Draw | Loss
+typeof S.Infer<schema>; // Win | Draw | Loss
 ```
 
 ## Records
@@ -825,7 +825,7 @@ If you want to validate the values of an object against some schema but don't ca
 ```ts
 const numberCacheSchema = S.record(S.number);
 
-type NumberCache = S.Output<typeof numberCacheSchema>;
+type NumberCache = S.Infer<typeof numberCacheSchema>;
 // => { [k: string]: number }
 ```
 
@@ -890,7 +890,7 @@ const mySet = <T>(itemSchema: S.Schema<T>): S.Schema<Set<T>> =>
     });
 
 const numberSetSchema = mySet(S.number);
-type NumberSet = S.Output<typeof numberSetSchema>; // Set<number>
+type NumberSet = S.Infer<typeof numberSetSchema>; // Set<number>
 
 S.parseOrThrow(new Set([1, 2, 3]), numberSetSchema); // passes
 S.parseOrThrow(new Set([1, 2, "3"]), numberSetSchema); // throws S.Error: Failed parsing: Expected number, received "3"
@@ -944,7 +944,7 @@ const userSchema = S.schema({
   name: S.string,
 });
 
-type User = S.Output<typeof userSchema>; // { id: string, name: string }
+type User = S.Infer<typeof userSchema>; // { id: string, name: string }
 
 // Need to use parseAsync which will return a promise with S.Result
 await S.parseAsyncOrThrow(
