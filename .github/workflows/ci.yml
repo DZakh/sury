@@ -185,6 +185,9 @@ jobs:
       - name: Install deps
         run: opam install . --deps-only --with-test
 
+      - name: Build running a bash script
+        run: opam exec -- bash ./dune_build.sh
+
       - name: Build
         run: opam exec -- dune build
 
