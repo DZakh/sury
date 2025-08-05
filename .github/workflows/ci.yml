@@ -181,12 +181,13 @@ jobs:
         uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
+          dune-cache: true
 
       - name: Install deps
         run: opam install . --deps-only --with-test
 
       - name: Build running a bash script
-        run: opam exec -- bash ./dune_build.sh
+        run: opam exec --debug -v -- bash ./dune_build.sh
 
       - name: Build
         run: opam exec -- dune build
