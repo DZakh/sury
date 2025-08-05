@@ -12,9 +12,9 @@ homepage: "https://github.com/DZakh/rescript-schema"
 bug-reports: "https://github.com/DZakh/rescript-schema/issues"
 dev-repo: "git+https://github.com/DZakh/rescript-schema.git"
 depends: [
-  "ocaml" { = "4.12.1"}
-  "dune" { >= "2.7"}
-  "ppxlib" { = "0.24.0"}
+  "ocaml" { >= "4.12.1"}
+  "dune" { >= "3.19"}
+  "ppxlib" { = "0.34.0" }
 ]
 build: [
   ["dune" "build" "-p" name "-j" jobs]
