@@ -26,7 +26,7 @@ Make sure running the below commands in `packages/sury-ppx/src`.
 1. Create a sandbox with opam
 
 ```
-opam switch create sury-ppx 4.12.1
+opam switch create sury-ppx 5.3.0
 ```
 
 Or
