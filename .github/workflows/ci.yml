@@ -265,7 +265,9 @@ jobs:
 
   e2e:
     name: E2E Test
-    permissions: write-all
+    permissions:
+      contents: write
+      pull-requests: write
     needs: [ppx-build-linux]
     runs-on: ubuntu-24.04
     steps:
