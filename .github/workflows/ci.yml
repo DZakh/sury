@@ -197,14 +197,7 @@ jobs:
 
   pack-sury-ppx:
     name: Pack sury-ppx
-    needs:
-      [
-        ppx-build-linux,
-        ppx-build-linux-arm,
-        ppx-build-macos,
-        ppx-build-macos-x64,
-        ppx-build-windows,
-      ]
+    needs: [ppx-build-linux, ppx-build-linux-arm, ppx-build-macos, ppx-build-macos-x64, ppx-build-windows]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -261,7 +254,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: sury-ppx
-          path: packages/sury-ppx/sury-ppx-10.0.0-rc.6.tgz
+          path: packages/sury-ppx/sury-ppx-11.0.0-alpha.2.tgz
 
   e2e:
     name: E2E Test

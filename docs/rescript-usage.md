@@ -57,15 +57,16 @@
 - [Refinements](#refinements)
 - [Transforms](#transforms)
 - [Functions on schema](#functions-on-schema)
+
   - [`Built-in operations`](#built-in-operations)
   - [`compile`](#compile)
   - [`reverse`](#reverse)
   - [`to`](#to)
-  - [`classify`](#classify)
   - [`isAsync`](#isasync)
   - [`name`](#name)
   - [`toExpression`](#toExpression)
   - [`noValidation`](#noValidation)
+
 - [Error handling](#error-handling)
   - [`Error.make`](#errormake)
   - [`Error.raise`](#errorraise)
@@ -1404,17 +1405,6 @@ let schema = S.string->S.to(S.float)
 // Reverse works correctly as well 🔥
 123.->S.reverseConvertOrThrow(schema) //? "123"
 ```
-
-### **`classify`**
-
-`(S.t<'value>) => S.tagged`
-
-```rescript
-S.string->S.classify
-// String
-```
-
-This can be useful for building other tools like [`rescript-json-schema`](https://github.com/DZakh/rescript-json-schema).
 
 ### **`isAsync`**
 
