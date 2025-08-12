@@ -41,3 +41,11 @@ test("Assert output with Async mode", t => {
   let fn = schema->S.compile(~input=Any, ~output=Assert, ~mode=Async, ~typeValidation=true)
   t->assertCode(fn, `i=>{if(typeof i!=="string"){e[0](i)}return Promise.resolve(void 0)}`)
 })
+
+test("Immitate assert output with S.to and literal", t => {
+  let fn =
+    S.string
+    ->S.to(S.literal(true)->S.noValidation(true))
+    ->S.compile(~input=Any, ~output=Value, ~mode=Sync, ~typeValidation=true)
+  t->assertCode(fn, `i=>{if(typeof i!=="string"){e[0](i)}return true}`)
+})
