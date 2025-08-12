@@ -12,14 +12,9 @@ test("Arrayable", t => {
 })
 
 test("Definition", t => {
-  t->Assert.deepEqual(
-    JSONSchema.Definition.schema({title: "foo"})->JSONSchema.Definition.classify,
-    JSONSchema.Definition.Schema({title: "foo"}),
-  )
-  t->Assert.deepEqual(
-    JSONSchema.Definition.boolean(true)->JSONSchema.Definition.classify,
-    JSONSchema.Definition.Boolean(true),
-  )
+  t->Assert.deepEqual(JSONSchema.Schema({title: "foo"}), %raw(`{title: "foo"}`))
+  t->Assert.deepEqual(JSONSchema.Never, %raw(`false`))
+  t->Assert.deepEqual(JSONSchema.Any, %raw(`true`))
 })
 
 test("Dependency", t => {

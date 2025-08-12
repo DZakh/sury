@@ -63,14 +63,14 @@ type rec t = {
    * @see https://datatracker.ietf.org/doc/html/draft-bhutton-json-schema-validation-00#appendix-A
    */
   @as("$defs")
-  defs?: Js.Dict.t<definition>,
+  defs?: dict<definition>,
   /**
    * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.1
    */
   @as("type")
   type_?: Arrayable.t<typeName>,
-  enum?: array<Js.Json.t>,
-  const?: Js.Json.t,
+  enum?: array<JSON.t>,
+  const?: JSON.t,
   /**
    * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.2
    */
@@ -100,10 +100,10 @@ type rec t = {
   maxProperties?: int,
   minProperties?: int,
   required?: array<string>,
-  properties?: Js.Dict.t<definition>,
-  patternProperties?: Js.Dict.t<definition>,
+  properties?: dict<definition>,
+  patternProperties?: dict<definition>,
   additionalProperties?: definition,
-  dependencies?: Js.Dict.t<dependency>,
+  dependencies?: dict<dependency>,
   propertyNames?: definition,
   /**
    * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.6
@@ -132,7 +132,7 @@ type rec t = {
   /**
    * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-9
    */
-  definitions?: Js.Dict.t<definition>,
+  definitions?: dict<definition>,
   /**
    * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-10
    */
@@ -140,12 +140,12 @@ type rec t = {
   description?: string,
   deprecated?: bool,
   nullable?: bool,
-  default?: Js.Json.t,
+  default?: JSON.t,
   readOnly?: bool,
   writeOnly?: bool,
-  examples?: array<Js.Json.t>,
+  examples?: array<JSON.t>,
 }
-and definition
+@unboxed and definition = Schema(t) | @as(false) Never | @as(true) Any
 and dependency
 
 module Mutable = {
@@ -162,14 +162,14 @@ module Mutable = {
    * @see https://datatracker.ietf.org/doc/html/draft-bhutton-json-schema-validation-00#appendix-A
    */
     @as("$defs")
-    mutable defs?: Js.Dict.t<definition>,
+    mutable defs?: dict<definition>,
     /**
    * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.1
    */
     @as("type")
     mutable type_?: Arrayable.t<typeName>,
-    mutable enum?: array<Js.Json.t>,
-    mutable const?: Js.Json.t,
+    mutable enum?: array<JSON.t>,
+    mutable const?: JSON.t,
     /**
    * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.2
    */
@@ -199,10 +199,10 @@ module Mutable = {
     mutable maxProperties?: int,
     mutable minProperties?: int,
     mutable required?: array<string>,
-    mutable properties?: Js.Dict.t<definition>,
-    mutable patternProperties?: Js.Dict.t<definition>,
+    mutable properties?: dict<definition>,
+    mutable patternProperties?: dict<definition>,
     mutable additionalProperties?: definition,
-    mutable dependencies?: Js.Dict.t<dependency>,
+    mutable dependencies?: dict<dependency>,
     mutable propertyNames?: definition,
     /**
    * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.6
@@ -231,7 +231,7 @@ module Mutable = {
     /**
    * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-9
    */
-    mutable definitions?: Js.Dict.t<definition>,
+    mutable definitions?: dict<definition>,
     /**
    * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-10
    */
@@ -239,10 +239,10 @@ module Mutable = {
     mutable description?: string,
     mutable deprecated?: bool,
     mutable nullable?: bool,
-    mutable default?: Js.Json.t,
+    mutable default?: JSON.t,
     mutable readOnly?: bool,
     mutable writeOnly?: bool,
-    mutable examples?: array<Js.Json.t>,
+    mutable examples?: array<JSON.t>,
   }
 
   external fromReadOnly: readOnly => t = "%identity"
@@ -250,16 +250,6 @@ module Mutable = {
 
   @val
   external mixin: (t, readOnly) => unit = "Object.assign"
-}
-
-module Definition = {
-  @unboxed
-  type tagged = Schema(t) | Boolean(bool)
-
-  external schema: t => definition = "%identity"
-  external boolean: bool => definition = "%identity"
-
-  external classify: definition => tagged = "%identity"
 }
 
 module Dependency = {

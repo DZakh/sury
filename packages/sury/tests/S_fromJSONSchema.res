@@ -78,7 +78,7 @@ test("fromJSONSchema: enum", t => {
 test("fromJSONSchema: array of string", t => {
   let js = {
     type_: Arrayable.single(#array),
-    items: Arrayable.single(Definition.schema({type_: Arrayable.single(#string)})),
+    items: Arrayable.single(Schema({type_: Arrayable.single(#string)})),
   }
   let schema = S.fromJSONSchema(js)
   t->Assert.deepEqual(parse(schema, ["a", "b"]), ["a", "b"])
@@ -89,7 +89,7 @@ test("fromJSONSchema: array of string", t => {
 test("fromJSONSchema: array with minItems/maxItems", t => {
   let js = {
     type_: Arrayable.single(#array),
-    items: Arrayable.single(Definition.schema({type_: Arrayable.single(#number)})),
+    items: Arrayable.single(Schema({type_: Arrayable.single(#number)})),
     minItems: 2,
     maxItems: 3,
   }
@@ -104,8 +104,8 @@ test("fromJSONSchema: tuple", t => {
   let js = {
     type_: Arrayable.single(#array),
     items: Arrayable.array([
-      Definition.schema({type_: Arrayable.single(#string)}),
-      Definition.schema({type_: Arrayable.single(#number)}),
+      Schema({type_: Arrayable.single(#string)}),
+      Schema({type_: Arrayable.single(#number)}),
     ]),
     minItems: 2,
     maxItems: 2,
@@ -122,8 +122,8 @@ test("fromJSONSchema: object with properties", t => {
   let js = {
     type_: Arrayable.single(#object),
     properties: Dict.fromArray([
-      ("foo", Definition.schema({type_: Arrayable.single(#string)})),
-      ("bar", Definition.schema({type_: Arrayable.single(#number)})),
+      ("foo", Schema({type_: Arrayable.single(#string)})),
+      ("bar", Schema({type_: Arrayable.single(#number)})),
     ]),
     required: ["foo"],
   }
@@ -136,8 +136,8 @@ test("fromJSONSchema: object with properties", t => {
 test("fromJSONSchema: object with additionalProperties false", t => {
   let js = {
     type_: Arrayable.single(#object),
-    properties: Dict.fromArray([("foo", Definition.schema({type_: Arrayable.single(#string)}))]),
-    additionalProperties: Definition.boolean(false),
+    properties: Dict.fromArray([("foo", Schema({type_: Arrayable.single(#string)}))]),
+    additionalProperties: Never,
   }
   let schema = S.fromJSONSchema(js)
   t->Assert.deepEqual(parse(schema, {"foo": "hi"}), {"foo": "hi"})
@@ -148,7 +148,7 @@ test("fromJSONSchema: object with additionalProperties false", t => {
 test("fromJSONSchema: object with additionalProperties true", t => {
   let js = {
     type_: Arrayable.single(#object),
-    additionalProperties: Definition.boolean(true),
+    additionalProperties: Any,
   }
   let schema = S.fromJSONSchema(js)
   t->Assert.deepEqual(parse(schema, {"foo": 1, "bar": 2}), {"foo": 1, "bar": 2})
@@ -159,10 +159,7 @@ test("fromJSONSchema: object with additionalProperties true", t => {
 
 test("fromJSONSchema: anyOf", t => {
   let js = {
-    anyOf: [
-      Definition.schema({type_: Arrayable.single(#string)}),
-      Definition.schema({type_: Arrayable.single(#number)}),
-    ],
+    anyOf: [Schema({type_: Arrayable.single(#string)}), Schema({type_: Arrayable.single(#number)})],
   }
   let schema = S.fromJSONSchema(js)
   t->Assert.deepEqual(parse(schema, "hi"), "hi")
@@ -173,10 +170,7 @@ test("fromJSONSchema: anyOf", t => {
 
 test("fromJSONSchema: oneOf", t => {
   let js = {
-    oneOf: [
-      Definition.schema({type_: Arrayable.single(#string)}),
-      Definition.schema({type_: Arrayable.single(#number)}),
-    ],
+    oneOf: [Schema({type_: Arrayable.single(#string)}), Schema({type_: Arrayable.single(#number)})],
   }
   let schema = S.fromJSONSchema(js)
   t->Assert.deepEqual(parse(schema, "hi"), "hi")
@@ -188,8 +182,8 @@ test("fromJSONSchema: oneOf", t => {
 test("fromJSONSchema: allOf", t => {
   let js = {
     allOf: [
-      Definition.schema({type_: Arrayable.single(#number), minimum: 0.}),
-      Definition.schema({type_: Arrayable.single(#number), maximum: 10.}),
+      Schema({type_: Arrayable.single(#number), minimum: 0.}),
+      Schema({type_: Arrayable.single(#number), maximum: 10.}),
     ],
   }
   let schema = S.fromJSONSchema(js)
@@ -199,7 +193,7 @@ test("fromJSONSchema: allOf", t => {
 })
 
 test("fromJSONSchema: not", t => {
-  let js = {not: Definition.schema({type_: Arrayable.single(#string)})}
+  let js = {not: Schema({type_: Arrayable.single(#string)})}
   let schema = S.fromJSONSchema(js)
   t->Assert.deepEqual(parse(schema, 1), 1)
   t->Assert.throws(() => parse(schema, "hi"))

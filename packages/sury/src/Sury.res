@@ -3541,15 +3541,14 @@ let enableJson = () => {
           Dict.factory(jsonRef->castToPublic)->castToInternal,
           Array.factory(jsonRef->castToPublic)->castToInternal,
         ],
-        // FIXME: use dict{} in V12
-        has: %raw(`{
-        string: true,
-        boolean: true,
-        number: true,
-        null: true,
-        object: true,
-        array: true,
-      }`),
+        has: dict{
+          "string": true,
+          "boolean": true,
+          "number": true,
+          "null": true,
+          "object": true,
+          "array": true,
+        },
         refiner: Union.refiner,
       },
     )
@@ -5590,9 +5589,7 @@ module RescriptJSONSchema = {
     | Array({additionalItems, items}) =>
       switch additionalItems {
       | Schema(childSchema) =>
-        jsonSchema.items = Some(
-          Arrayable.single(Definition.schema(internalToJSONSchema(childSchema, ~defs))),
-        )
+        jsonSchema.items = Some(Arrayable.single(Schema(internalToJSONSchema(childSchema, ~defs))))
         jsonSchema.type_ = Some(Arrayable.single(#array))
         schema
         ->Array.refinements
@@ -5608,7 +5605,7 @@ module RescriptJSONSchema = {
         })
       | _ => {
           let items = items->Js.Array2.map(item => {
-            Definition.schema(internalToJSONSchema(item.schema, ~defs))
+            Schema(internalToJSONSchema(item.schema, ~defs))
           })
           let itemsNumber = items->Js.Array2.length
 
@@ -5629,7 +5626,7 @@ module RescriptJSONSchema = {
           | Undefined(_) => ()
           | _ => {
               items
-              ->Js.Array2.push(Definition.schema(internalToJSONSchema(childSchema, ~defs)))
+              ->Js.Array2.push(Schema(internalToJSONSchema(childSchema, ~defs)))
               ->ignore
               switch childSchema->castToInternal->isLiteral {
               | true =>
@@ -5664,9 +5661,7 @@ module RescriptJSONSchema = {
       switch additionalItems {
       | Schema(childSchema) => {
           jsonSchema.type_ = Some(Arrayable.single(#object))
-          jsonSchema.additionalProperties = Some(
-            Definition.schema(internalToJSONSchema(childSchema, ~defs)),
-          )
+          jsonSchema.additionalProperties = Some(Schema(internalToJSONSchema(childSchema, ~defs)))
         }
       | _ => {
           let properties = Js.Dict.empty()
@@ -5676,17 +5671,19 @@ module RescriptJSONSchema = {
             if item.schema->castToInternal->isOptional->not {
               required->Js.Array2.push(item.location)->ignore
             }
-            properties->Js.Dict.set(item.location, Definition.schema(fieldSchema))
+            properties->Js.Dict.set(item.location, Schema(fieldSchema))
           })
-          let additionalProperties = switch additionalItems {
-          | Strict => false
-          | Strip => true
-          | Schema(_) => true
-          }
 
           jsonSchema.type_ = Some(Arrayable.single(#object))
           jsonSchema.properties = Some(properties)
-          jsonSchema.additionalProperties = Some(Definition.boolean(additionalProperties))
+          jsonSchema.additionalProperties = Some(
+            switch additionalItems {
+            | Strict => JSONSchema.Never
+            | Strip
+            | Schema(_) =>
+              JSONSchema.Any
+            },
+          )
           switch required {
           | [] => ()
           | required => jsonSchema.required = Some(required)
@@ -5697,7 +5694,7 @@ module RescriptJSONSchema = {
     | Ref({ref}) if ref === `${defsPath}${jsonName}` => ()
     | Ref({ref}) => jsonSchema.ref = Some(ref)
     | Null(_) => jsonSchema.type_ = Some(Arrayable.single(#null))
-    | Never(_) => jsonSchema.not = Some(Definition.schema({}))
+    | Never(_) => jsonSchema.not = Some(Schema({}))
     // This case should never happen,
     // since we have jsonableValidate in the toJSONSchema function
     | _ => InternalError.panic("Unexpected schema type")
@@ -5766,7 +5763,7 @@ let toJSONSchema = schema => {
           // It should be grouped to a single $defs of the most top-level schema.
           ~defs=%raw(`0`),
         )
-        ->JSONSchema.Definition.schema,
+        ->Schema,
       )
     })
     (jsonSchema->JSONSchema.Mutable.fromReadOnly).defs = Some(jsonSchemDefs)
@@ -5810,19 +5807,20 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
     schema->castAnySchemaToJsonableS
   }
 
-  let definitionToDefaultValue = definition =>
-    switch definition->JSONSchema.Definition.classify {
+  let definitionToDefaultValue = (definition: JSONSchema.definition) =>
+    switch definition {
     | Schema(s) => s.default
-    | Boolean(_) => None
+    | _ => None
     }
 
   (jsonSchema: JSONSchema.t) => {
     let anySchema = json->castToPublic
 
-    let definitionToSchema = definition =>
-      switch definition->JSONSchema.Definition.classify {
+    let definitionToSchema = (definition: JSONSchema.definition) =>
+      switch definition {
       | Schema(s) => s->fromJSONSchema
-      | Boolean(_) => anySchema
+      | Any => anySchema
+      | Never => never->castToAny
       }
 
     let schema = switch jsonSchema {
@@ -5856,17 +5854,16 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
           obj
         })
         let schema = switch jsonSchema {
-        | {additionalProperties} if additionalProperties === JSONSchema.Definition.boolean(false) =>
-          schema->strict
+        | {additionalProperties} if additionalProperties === Never => schema->strict
         | _ => schema
         }
         schema->castAnySchemaToJsonableS
       | None =>
         switch jsonSchema.additionalProperties {
         | Some(additionalProperties) =>
-          switch additionalProperties->JSONSchema.Definition.classify {
-          | Boolean(true) => dict(anySchema)->castAnySchemaToJsonableS
-          | Boolean(false) => object(_ => ())->strict->castAnySchemaToJsonableS
+          switch additionalProperties {
+          | Any => dict(anySchema)->castAnySchemaToJsonableS
+          | Never => object(_ => ())->strict->castAnySchemaToJsonableS
           | Schema(s) => dict(s->fromJSONSchema)->castAnySchemaToJsonableS
           }
         | None => Schema.factory(_ => ())->castAnySchemaToJsonableS

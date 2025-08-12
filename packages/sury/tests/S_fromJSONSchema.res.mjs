@@ -2,7 +2,6 @@
 
 import * as S from "../src/S.res.mjs";
 import Ava from "ava";
-import * as Primitive_option from "rescript/lib/es6/Primitive_option.js";
 
 function roundTrip(schema) {
   return S.fromJSONSchema(S.toJSONSchema(schema));
@@ -233,7 +232,7 @@ Ava("fromJSONSchema: object with additionalProperties false", t => {
         type: "string"
       }
     ]]);
-  let js_additionalProperties = Primitive_option.some(false);
+  let js_additionalProperties = false;
   let js = {
     type: js_type,
     properties: js_properties,
@@ -254,7 +253,7 @@ Ava("fromJSONSchema: object with additionalProperties false", t => {
 
 Ava("fromJSONSchema: object with additionalProperties true", t => {
   let js_type = "object";
-  let js_additionalProperties = Primitive_option.some(true);
+  let js_additionalProperties = true;
   let js = {
     type: js_type,
     additionalProperties: js_additionalProperties

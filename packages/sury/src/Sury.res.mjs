@@ -2352,13 +2352,13 @@ function enableJson() {
     refiner: refiner,
     name: jsonName,
     has: {
-        string: true,
-        boolean: true,
-        number: true,
-        null: true,
-        object: true,
-        array: true,
-      },
+      string: true,
+      boolean: true,
+      number: true,
+      null: true,
+      object: true,
+      array: true
+    },
     anyOf: [
       string,
       bool,
@@ -3713,7 +3713,7 @@ function internalToJSONSchema(schema, defs) {
       if (additionalItems === "strip" || additionalItems === "strict") {
         exit = 1;
       } else {
-        jsonSchema.items = Primitive_option.some(internalToJSONSchema(additionalItems, defs));
+        jsonSchema.items = internalToJSONSchema(additionalItems, defs);
         jsonSchema.type = "array";
         refinements(schema).forEach(refinement => {
           let match = refinement.kind;
@@ -3733,7 +3733,7 @@ function internalToJSONSchema(schema, defs) {
         });
       }
       if (exit === 1) {
-        let items = schema.items.map(item => internalToJSONSchema(item.schema, defs));
+        let items = schema.items.map(item => (internalToJSONSchema(item.schema, defs)));
         let itemsNumber = items.length;
         jsonSchema.items = Primitive_option.some(items);
         jsonSchema.type = "array";
@@ -3748,7 +3748,7 @@ function internalToJSONSchema(schema, defs) {
         exit$1 = 1;
       } else {
         jsonSchema.type = "object";
-        jsonSchema.additionalProperties = Primitive_option.some(internalToJSONSchema(additionalItems$1, defs));
+        jsonSchema.additionalProperties = internalToJSONSchema(additionalItems$1, defs);
       }
       if (exit$1 === 1) {
         let properties = {};
@@ -3760,11 +3760,11 @@ function internalToJSONSchema(schema, defs) {
           }
           properties[item.location] = fieldSchema;
         });
-        let additionalProperties;
-        additionalProperties = additionalItems$1 === "strip" || additionalItems$1 === "strict" ? additionalItems$1 === "strip" : true;
         jsonSchema.type = "object";
         jsonSchema.properties = properties;
-        jsonSchema.additionalProperties = Primitive_option.some(additionalProperties);
+        let tmp;
+        tmp = additionalItems$1 === "strip" || additionalItems$1 === "strict" ? additionalItems$1 === "strip" : true;
+        jsonSchema.additionalProperties = tmp;
         if (required.length !== 0) {
           jsonSchema.required = required;
         }
@@ -3880,18 +3880,23 @@ function toIntSchema(jsonSchema) {
 }
 
 function definitionToDefaultValue(definition) {
-  if (typeof definition === "object") {
+  if (typeof definition !== "object") {
+    return;
+  } else {
     return definition.default;
   }
-  
 }
 
 function fromJSONSchema(jsonSchema) {
   let definitionToSchema$1 = definition => {
-    if (typeof definition === "object") {
-      return fromJSONSchema(definition);
+    if (typeof definition !== "object") {
+      if (definition === false) {
+        return never;
+      } else {
+        return json;
+      }
     } else {
-      return json;
+      return fromJSONSchema(definition);
     }
   };
   let type_ = jsonSchema.type;
@@ -3937,17 +3942,14 @@ function fromJSONSchema(jsonSchema) {
           return obj;
         });
         let additionalProperties = jsonSchema.additionalProperties;
-        schema = additionalProperties !== undefined && Primitive_option.valFromOption(additionalProperties) === false ? strict(schema$1) : schema$1;
+        schema = additionalProperties === false ? strict(schema$1) : schema$1;
       } else {
         let additionalProperties$1 = jsonSchema.additionalProperties;
-        if (additionalProperties$1 !== undefined) {
-          let additionalProperties$2 = Primitive_option.valFromOption(additionalProperties$1);
-          schema = typeof additionalProperties$2 === "object" ? factory$3(fromJSONSchema(additionalProperties$2)) : (
-              additionalProperties$2 ? factory$3(json) : strict(object(param => {}))
-            );
-        } else {
-          schema = definitionToSchema();
-        }
+        schema = additionalProperties$1 !== undefined ? (
+            typeof additionalProperties$1 !== "object" ? (
+                additionalProperties$1 === false ? strict(object(param => {})) : factory$3(json)
+              ) : factory$3(fromJSONSchema(additionalProperties$1))
+          ) : definitionToSchema();
       }
     } else if (type_$1 === "array") {
       let items = jsonSchema.items;
@@ -4030,11 +4032,10 @@ function fromJSONSchema(jsonSchema) {
       } else {
         let not = jsonSchema.not;
         if (not !== undefined) {
-          let not$1 = Primitive_option.valFromOption(not);
           schema = refine(json, s => (data => {
             let passed;
             try {
-              assertOrThrow(data, definitionToSchema$1(not$1));
+              assertOrThrow(data, definitionToSchema$1(not));
               passed = true;
             } catch (exn) {
               passed = false;
@@ -4136,9 +4137,9 @@ function fromJSONSchema(jsonSchema) {
       if (then !== undefined) {
         let else_ = jsonSchema.else;
         if (else_ !== undefined) {
-          let ifSchema = definitionToSchema$1(Primitive_option.valFromOption(if_));
-          let thenSchema = definitionToSchema$1(Primitive_option.valFromOption(then));
-          let elseSchema = definitionToSchema$1(Primitive_option.valFromOption(else_));
+          let ifSchema = definitionToSchema$1(if_);
+          let thenSchema = definitionToSchema$1(then);
+          let elseSchema = definitionToSchema$1(else_);
           schema = refine(json, param => (data => {
             let passed;
             try {
