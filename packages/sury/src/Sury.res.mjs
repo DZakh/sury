@@ -178,6 +178,10 @@ var $$float = new Schema("number");
 
 var bigint = new Schema("bigint");
 
+var unit = new Schema("undefined");
+
+unit.const = (void 0);
+
 function has(acc, flag) {
   return (acc & flag) !== 0;
 }
@@ -1027,13 +1031,15 @@ function parse(prevB, schema, inputArg, path) {
         
       } else if (inputTagFlag & 2 && schemaTagFlag & 3132) {
         var inputVar = input.v(b);
-        b.c = b.c + (input.i + "===\"" + schema.const + "\"||" + failWithArg(b, path, (function (input) {
+        b.f = schema.noValidation ? "" : input.i + "===\"" + schema.const + "\"||" + failWithArg(b, path, (function (input) {
                   return {
                           TAG: "InvalidType",
                           expected: schema,
                           received: input
                         };
-                }), inputVar) + ";");
+                }), inputVar) + ";";
+        input = constVal(b, schema);
+      } else if (schema.noValidation) {
         input = constVal(b, schema);
       } else {
         b.f = typeFilterCode(prevB, schema, input, path);
@@ -1175,41 +1181,62 @@ function parse(prevB, schema, inputArg, path) {
   return input;
 }
 
-function jsonableValidation(output, parent, path, flag) {
-  var tagFlag = flags[output.type];
-  if (tagFlag & 48129 || tagFlag & 16 && parent.type !== "object") {
-    throw new SuryError({
-              TAG: "InvalidJsonSchema",
-              _0: parent
-            }, flag, path);
+function isAsyncInternal(schema, defs) {
+  try {
+    var b = rootScope(2, defs);
+    var input = {
+      b: b,
+      v: _var,
+      i: "i",
+      f: 0,
+      type: "unknown"
+    };
+    var output = parse(b, schema, input, "");
+    var isAsync = has(output.f, 2);
+    schema.isAsync = isAsync;
+    return isAsync;
   }
-  if (tagFlag & 256) {
-    output.anyOf.forEach(function (s) {
-          jsonableValidation(s, parent, path, flag);
-        });
-    return ;
+  catch (exn){
+    getOrRethrow(exn);
+    return false;
   }
-  if (!(tagFlag & 192)) {
-    return ;
+}
+
+function internalCompile(schema, flag, defs) {
+  var b = rootScope(flag, defs);
+  if (flag & 8) {
+    var output = reverse(schema);
+    jsonableValidation(output, output, "", flag);
   }
-  var additionalItems = output.additionalItems;
-  if (additionalItems === "strip" || additionalItems === "strict") {
-    additionalItems === "strip";
-  } else {
-    jsonableValidation(additionalItems, parent, path, flag);
+  var input = {
+    b: b,
+    v: _var,
+    i: "i",
+    f: 0,
+    type: "unknown"
+  };
+  var schema$1 = flag & 4 ? updateOutput(schema, (function (mut) {
+            var t = new Schema(unit.type);
+            t.const = unit.const;
+            t.noValidation = true;
+            mut.to = t;
+          })) : schema;
+  var output$1 = parse(b, schema$1, input, "");
+  var code = allocateScope(b);
+  var isAsync = has(output$1.f, 2);
+  schema$1.isAsync = isAsync;
+  if (code === "" && output$1 === input && !(flag & 18)) {
+    return noopOperation;
   }
-  var p = output.properties;
-  if (p !== undefined) {
-    var keys = Object.keys(p);
-    for(var idx = 0 ,idx_finish = keys.length; idx < idx_finish; ++idx){
-      var key = keys[idx];
-      jsonableValidation(p[key], parent, path, flag);
-    }
-    return ;
+  var inlinedOutput = output$1.i;
+  if (flag & 16) {
+    inlinedOutput = "JSON.stringify(" + inlinedOutput + ")";
   }
-  output.items.forEach(function (item) {
-        jsonableValidation(item.schema, output, path + ("[" + fromString(item.location) + "]"), flag);
-      });
+  if (flag & 2 && !isAsync && !defs) {
+    inlinedOutput = "Promise.resolve(" + inlinedOutput + ")";
+  }
+  var inlinedFunction = "i=>{" + code + "return " + inlinedOutput + "}";
+  return new Function("e", "s", "return " + inlinedFunction)(b.g.e, s);
 }
 
 function reverse(schema) {
@@ -1304,6 +1331,43 @@ function reverse(schema) {
   return reversedHead;
 }
 
+function jsonableValidation(output, parent, path, flag) {
+  var tagFlag = flags[output.type];
+  if (tagFlag & 48129 || tagFlag & 16 && parent.type !== "object") {
+    throw new SuryError({
+              TAG: "InvalidJsonSchema",
+              _0: parent
+            }, flag, path);
+  }
+  if (tagFlag & 256) {
+    output.anyOf.forEach(function (s) {
+          jsonableValidation(s, parent, path, flag);
+        });
+    return ;
+  }
+  if (!(tagFlag & 192)) {
+    return ;
+  }
+  var additionalItems = output.additionalItems;
+  if (additionalItems === "strip" || additionalItems === "strict") {
+    additionalItems === "strip";
+  } else {
+    jsonableValidation(additionalItems, parent, path, flag);
+  }
+  var p = output.properties;
+  if (p !== undefined) {
+    var keys = Object.keys(p);
+    for(var idx = 0 ,idx_finish = keys.length; idx < idx_finish; ++idx){
+      var key = keys[idx];
+      jsonableValidation(p[key], parent, path, flag);
+    }
+    return ;
+  }
+  output.items.forEach(function (item) {
+        jsonableValidation(item.schema, output, path + ("[" + fromString(item.location) + "]"), flag);
+      });
+}
+
 function getOutputSchema(_schema) {
   while(true) {
     var schema = _schema;
@@ -1314,58 +1378,6 @@ function getOutputSchema(_schema) {
     _schema = to;
     continue ;
   };
-}
-
-function internalCompile(schema, flag, defs) {
-  var b = rootScope(flag, defs);
-  if (flag & 8) {
-    var output = reverse(schema);
-    jsonableValidation(output, output, "", flag);
-  }
-  var input = {
-    b: b,
-    v: _var,
-    i: "i",
-    f: 0,
-    type: "unknown"
-  };
-  var output$1 = parse(b, schema, input, "");
-  var code = allocateScope(b);
-  var isAsync = has(output$1.f, 2);
-  schema.isAsync = isAsync;
-  if (code === "" && output$1 === input && !(flag & 22)) {
-    return noopOperation;
-  }
-  var inlinedOutput = flag & 4 ? "void 0" : output$1.i;
-  if (flag & 16) {
-    inlinedOutput = "JSON.stringify(" + inlinedOutput + ")";
-  }
-  if (flag & 2 && !isAsync && !defs) {
-    inlinedOutput = "Promise.resolve(" + inlinedOutput + ")";
-  }
-  var inlinedFunction = "i=>{" + code + "return " + inlinedOutput + "}";
-  return new Function("e", "s", "return " + inlinedFunction)(b.g.e, s);
-}
-
-function isAsyncInternal(schema, defs) {
-  try {
-    var b = rootScope(2, defs);
-    var input = {
-      b: b,
-      v: _var,
-      i: "i",
-      f: 0,
-      type: "unknown"
-    };
-    var output = parse(b, schema, input, "");
-    var isAsync = has(output.f, 2);
-    schema.isAsync = isAsync;
-    return isAsync;
-  }
-  catch (exn){
-    getOrRethrow(exn);
-    return false;
-  }
 }
 
 function operationFn(s, o) {
@@ -1508,10 +1520,6 @@ function assertOrThrow(any, schema) {
   return operationFn(schema, 5)(any);
 }
 
-var $$undefined = new Schema("undefined");
-
-$$undefined.const = (void 0);
-
 var $$null = new Schema("null");
 
 $$null.const = null;
@@ -1527,7 +1535,7 @@ function parse$1(value) {
     i.class = value.constructor;
     schema = i;
   } else {
-    schema = $$typeof === "undefined" ? $$undefined : (
+    schema = $$typeof === "undefined" ? unit : (
         $$typeof === "number" ? (
             Number.isNaN(value) ? new Schema("nan") : new Schema($$typeof)
           ) : new Schema($$typeof)
@@ -1710,7 +1718,7 @@ var nullAsUnit = new Schema("null");
 
 nullAsUnit.const = null;
 
-nullAsUnit.to = $$undefined;
+nullAsUnit.to = unit;
 
 function neverBuilder(b, input, selfSchema, path) {
   b.c = b.c + failWithArg(b, path, (function (input) {
@@ -2092,13 +2100,13 @@ function nestedOption(item) {
 }
 
 function factory$1(item, unitOpt) {
-  var unit = unitOpt !== undefined ? unitOpt : $$undefined;
+  var unit$1 = unitOpt !== undefined ? unitOpt : unit;
   var match = getOutputSchema(item);
   var match$1 = match.type;
   switch (match$1) {
     case "undefined" :
         return factory([
-                    unit,
+                    unit$1,
                     nestedOption(item)
                   ]);
     case "union" :
@@ -2113,8 +2121,8 @@ function factory$1(item, unitOpt) {
                         var match$1 = match.type;
                         var tmp;
                         if (match$1 === "undefined") {
-                          mutHas[unit.type] = true;
-                          newAnyOf.push(unit);
+                          mutHas[unit$1.type] = true;
+                          newAnyOf.push(unit$1);
                           tmp = nestedOption(schema);
                         } else {
                           var properties = match.properties;
@@ -2144,8 +2152,8 @@ function factory$1(item, unitOpt) {
                         newAnyOf.push(tmp);
                       }
                       if (newAnyOf.length === anyOf.length) {
-                        mutHas[unit.type] = true;
-                        newAnyOf.push(unit);
+                        mutHas[unit$1.type] = true;
+                        newAnyOf.push(unit$1);
                       }
                       mut.anyOf = newAnyOf;
                       mut.has = mutHas;
@@ -2153,7 +2161,7 @@ function factory$1(item, unitOpt) {
     default:
       return factory([
                   item,
-                  unit
+                  unit$1
                 ]);
   }
 }
@@ -2749,70 +2757,6 @@ function schemaRefiner(b, input, selfSchema, path) {
   }
 }
 
-function definitionToRitem(definition, path, ritemsByItemPath) {
-  if (!(typeof definition === "object" && definition !== null)) {
-    return {
-            k: 1,
-            p: path,
-            s: copyWithoutCache(parse$1(definition))
-          };
-  }
-  var item = definition[itemSymbol];
-  if (item !== undefined) {
-    var ritemSchema = copyWithoutCache(getOutputSchema(item.schema));
-    ((delete ritemSchema.serializer));
-    var ritem = {
-      k: 0,
-      p: path,
-      s: ritemSchema
-    };
-    item.r = ritem;
-    ritemsByItemPath[getFullDitemPath(item)] = ritem;
-    return ritem;
-  }
-  if (Array.isArray(definition)) {
-    var items = [];
-    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
-      var $$location = idx.toString();
-      var inlinedLocation = "\"" + $$location + "\"";
-      var ritem$1 = definitionToRitem(definition[idx], path + ("[" + inlinedLocation + "]"), ritemsByItemPath);
-      var item_schema = ritem$1.s;
-      var item$1 = {
-        schema: item_schema,
-        location: $$location
-      };
-      items[idx] = item$1;
-    }
-    var mut = new Schema("array");
-    return {
-            k: 2,
-            p: path,
-            s: (mut.items = items, mut.additionalItems = "strict", mut.serializer = neverBuilder, mut)
-          };
-  }
-  var fieldNames = Object.keys(definition);
-  var properties = {};
-  var items$1 = [];
-  for(var idx$1 = 0 ,idx_finish$1 = fieldNames.length; idx$1 < idx_finish$1; ++idx$1){
-    var $$location$1 = fieldNames[idx$1];
-    var inlinedLocation$1 = fromString($$location$1);
-    var ritem$2 = definitionToRitem(definition[$$location$1], path + ("[" + inlinedLocation$1 + "]"), ritemsByItemPath);
-    var item_schema$1 = ritem$2.s;
-    var item$2 = {
-      schema: item_schema$1,
-      location: $$location$1
-    };
-    items$1[idx$1] = item$2;
-    properties[$$location$1] = item_schema$1;
-  }
-  var mut$1 = new Schema("object");
-  return {
-          k: 2,
-          p: path,
-          s: (mut$1.items = items$1, mut$1.properties = properties, mut$1.additionalItems = globalConfig.a, mut$1.serializer = neverBuilder, mut$1)
-        };
-}
-
 function definitionToSchema(definition) {
   if (!(typeof definition === "object" && definition !== null)) {
     return parse$1(definition);
@@ -2935,6 +2879,110 @@ function nested(fieldName) {
   return ctx$1;
 }
 
+function definitionToRitem(definition, path, ritemsByItemPath) {
+  if (!(typeof definition === "object" && definition !== null)) {
+    return {
+            k: 1,
+            p: path,
+            s: copyWithoutCache(parse$1(definition))
+          };
+  }
+  var item = definition[itemSymbol];
+  if (item !== undefined) {
+    var ritemSchema = copyWithoutCache(getOutputSchema(item.schema));
+    ((delete ritemSchema.serializer));
+    var ritem = {
+      k: 0,
+      p: path,
+      s: ritemSchema
+    };
+    item.r = ritem;
+    ritemsByItemPath[getFullDitemPath(item)] = ritem;
+    return ritem;
+  }
+  if (Array.isArray(definition)) {
+    var items = [];
+    for(var idx = 0 ,idx_finish = definition.length; idx < idx_finish; ++idx){
+      var $$location = idx.toString();
+      var inlinedLocation = "\"" + $$location + "\"";
+      var ritem$1 = definitionToRitem(definition[idx], path + ("[" + inlinedLocation + "]"), ritemsByItemPath);
+      var item_schema = ritem$1.s;
+      var item$1 = {
+        schema: item_schema,
+        location: $$location
+      };
+      items[idx] = item$1;
+    }
+    var mut = new Schema("array");
+    return {
+            k: 2,
+            p: path,
+            s: (mut.items = items, mut.additionalItems = "strict", mut.serializer = neverBuilder, mut)
+          };
+  }
+  var fieldNames = Object.keys(definition);
+  var properties = {};
+  var items$1 = [];
+  for(var idx$1 = 0 ,idx_finish$1 = fieldNames.length; idx$1 < idx_finish$1; ++idx$1){
+    var $$location$1 = fieldNames[idx$1];
+    var inlinedLocation$1 = fromString($$location$1);
+    var ritem$2 = definitionToRitem(definition[$$location$1], path + ("[" + inlinedLocation$1 + "]"), ritemsByItemPath);
+    var item_schema$1 = ritem$2.s;
+    var item$2 = {
+      schema: item_schema$1,
+      location: $$location$1
+    };
+    items$1[idx$1] = item$2;
+    properties[$$location$1] = item_schema$1;
+  }
+  var mut$1 = new Schema("object");
+  return {
+          k: 2,
+          p: path,
+          s: (mut$1.items = items$1, mut$1.properties = properties, mut$1.additionalItems = globalConfig.a, mut$1.serializer = neverBuilder, mut$1)
+        };
+}
+
+function advancedBuilder(definition, flattened) {
+  return function (b, input, selfSchema, path) {
+    var isFlatten = b.g.o & 64;
+    var outputs = isFlatten ? input.properties : ({});
+    if (!isFlatten) {
+      var items = selfSchema.items;
+      for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
+        var match = items[idx];
+        var $$location = match.location;
+        var itemInput = get(b, input, $$location);
+        var inlinedLocation = inlineLocation(b, $$location);
+        var path$1 = path + ("[" + inlinedLocation + "]");
+        outputs[$$location] = parse(b, match.schema, itemInput, path$1);
+      }
+      objectStrictModeCheck(b, input, items, selfSchema, path);
+    }
+    if (flattened !== undefined) {
+      var prevFlag = b.g.o;
+      b.g.o = prevFlag | 64;
+      for(var idx$1 = 0 ,idx_finish$1 = flattened.length; idx$1 < idx_finish$1; ++idx$1){
+        var item = flattened[idx$1];
+        outputs[item.i] = parse(b, item.schema, input, path);
+      }
+      b.g.o = prevFlag;
+    }
+    var getItemOutput = function (item) {
+      switch (item.k) {
+        case 0 :
+            return outputs[item.location];
+        case 1 :
+            return get(b, getItemOutput(item.of), item.location);
+        case 2 :
+            return outputs[item.i];
+        
+      }
+    };
+    return definitionToOutput(b, definition, getItemOutput, selfSchema.to);
+  };
+}
+
 function definitionToTarget(definition, to, flattened) {
   var ritemsByItemPath = {};
   var ritem = definitionToRitem(definition, "", ritemsByItemPath);
@@ -3023,46 +3071,6 @@ function definitionToTarget(definition, to, flattened) {
       return complete(objectVal, isArray);
     });
   return mut;
-}
-
-function advancedBuilder(definition, flattened) {
-  return function (b, input, selfSchema, path) {
-    var isFlatten = b.g.o & 64;
-    var outputs = isFlatten ? input.properties : ({});
-    if (!isFlatten) {
-      var items = selfSchema.items;
-      for(var idx = 0 ,idx_finish = items.length; idx < idx_finish; ++idx){
-        var match = items[idx];
-        var $$location = match.location;
-        var itemInput = get(b, input, $$location);
-        var inlinedLocation = inlineLocation(b, $$location);
-        var path$1 = path + ("[" + inlinedLocation + "]");
-        outputs[$$location] = parse(b, match.schema, itemInput, path$1);
-      }
-      objectStrictModeCheck(b, input, items, selfSchema, path);
-    }
-    if (flattened !== undefined) {
-      var prevFlag = b.g.o;
-      b.g.o = prevFlag | 64;
-      for(var idx$1 = 0 ,idx_finish$1 = flattened.length; idx$1 < idx_finish$1; ++idx$1){
-        var item = flattened[idx$1];
-        outputs[item.i] = parse(b, item.schema, input, path);
-      }
-      b.g.o = prevFlag;
-    }
-    var getItemOutput = function (item) {
-      switch (item.k) {
-        case 0 :
-            return outputs[item.location];
-        case 1 :
-            return get(b, getItemOutput(item.of), item.location);
-        case 2 :
-            return outputs[item.i];
-        
-      }
-    };
-    return definitionToOutput(b, definition, getItemOutput, selfSchema.to);
-  };
 }
 
 function shape(schema, definer) {
@@ -3197,7 +3205,7 @@ function tuple(definer) {
     if (!items[idx]) {
       var $$location = idx.toString();
       var ditem = {
-        schema: $$undefined,
+        schema: unit,
         location: $$location
       };
       items[idx] = ditem;
@@ -3582,7 +3590,7 @@ function trim(schema) {
 function nullable(schema) {
   return factory([
               schema,
-              $$undefined,
+              unit,
               $$null
             ]);
 }
@@ -3590,7 +3598,7 @@ function nullable(schema) {
 function nullableAsOption(schema) {
   return factory([
               schema,
-              $$undefined,
+              unit,
               nullAsUnit
             ]);
 }
@@ -3640,7 +3648,7 @@ function js_asyncParserRefine(schema, refine) {
 function js_optional(schema, maybeOr) {
   var schema$1 = factory([
         schema,
-        $$undefined
+        unit
       ]);
   if (maybeOr === undefined) {
     return schema$1;
@@ -4419,8 +4427,6 @@ var Flag = {
   reverse: 32,
   has: has
 };
-
-var unit = $$undefined;
 
 var literal = js_schema;
 

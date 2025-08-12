@@ -721,6 +721,8 @@ let int = base(Number)
 int.format = Some(Int32)
 let float = base(Number)
 let bigint = base(BigInt)
+let unit = base(Undefined)
+unit.const = %raw(`void 0`)
 
 type s<'value> = {
   schema: t<'value>,
@@ -1715,7 +1717,7 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg: val, ~path) => {
   } else if isSchemaLiteral {
     if isFromLiteral {
       if input.contents.const !== schema.const {
-        input.contents = b->B.constVal(~schema)
+        input := b->B.constVal(~schema)
       }
     } else if (
       inputTagFlag->Flag.unsafeHas(TagFlag.string) &&
@@ -1730,13 +1732,15 @@ let rec parse = (prevB: b, ~schema, ~input as inputArg: val, ~path) => {
         )
     ) {
       let inputVar = input.contents.var(b)
-      b.code =
-        b.code ++
-        `${input.contents.inline}==="${schema.const->Obj.magic}"||${b->failTransform(
-            ~inputVar,
-            ~path,
-            ~target=schema,
-          )};`
+      b.filterCode = schema.noValidation->X.Option.getUnsafe
+        ? ""
+        : `${input.contents.inline}==="${schema.const->Obj.magic}"||${b->failTransform(
+              ~inputVar,
+              ~path,
+              ~target=schema,
+            )};`
+      input := b->B.constVal(~schema)
+    } else if schema.noValidation->X.Option.getUnsafe {
       input := b->B.constVal(~schema)
     } else {
       // FIXME: More cases
@@ -1959,6 +1963,19 @@ and internalCompile = (~schema, ~flag, ~defs) => {
     tag: Unknown,
   }
 
+  let schema = if flag->Flag.unsafeHas(Flag.assertOutput) {
+    schema
+    ->updateOutput(mut => {
+      let t = base(unit.tag)
+      t.const = unit.const
+      t.noValidation = Some(true)
+      mut.to = Some(t)
+    })
+    ->castToInternal
+  } else {
+    schema
+  }
+
   let output = parse(b, ~schema, ~input, ~path=Path.empty)
 
   let code = b->B.allocateScope
@@ -1969,23 +1986,11 @@ and internalCompile = (~schema, ~flag, ~defs) => {
   if (
     code === "" &&
     output === input &&
-    !(
-      flag->Flag.unsafeHas(
-        Flag.assertOutput
-        ->Flag.with(Flag.async)
-        ->Flag.with(Flag.jsonStringOutput),
-      )
-    )
+    !(flag->Flag.unsafeHas(Flag.async->Flag.with(Flag.jsonStringOutput)))
   ) {
     Builder.noopOperation
   } else {
-    let inlinedOutput = ref(
-      if flag->Flag.unsafeHas(Flag.assertOutput) {
-        `void 0`
-      } else {
-        output.inline
-      },
-    )
+    let inlinedOutput = ref(output.inline)
     if flag->Flag.unsafeHas(Flag.jsonStringOutput) {
       inlinedOutput := `JSON.stringify(${inlinedOutput.contents})`
     }
@@ -2026,6 +2031,7 @@ and getOutputSchema = (schema: internal) => {
   | None => schema
   }
 }
+// FIXME: Cache reverse results
 and reverse = (schema: internal) => {
   let reversedHead = ref(None)
   let current = ref(Some(schema))
@@ -2362,9 +2368,6 @@ let assertOrThrow = (any, schema) => {
 module Literal = {
   open X
 
-  let undefined = base(Undefined)
-  undefined.const = %raw(`void 0`)
-
   let null = base(Null)
   null.const = %raw(`null`)
 
@@ -2374,7 +2377,7 @@ module Literal = {
       null
     } else {
       let schema = switch value->Type.typeof {
-      | #undefined => undefined
+      | #undefined => unit
       | #number if value->(Obj.magic: unknown => float)->Js.Float.isNaN => base(NaN)
       | #object => {
           let i = base(Instance)
@@ -2596,11 +2599,9 @@ let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) =
   })
 }
 
-let unit: t<unit> = Literal.undefined->castToPublic
-
 let nullAsUnit = base(Null)
 nullAsUnit.const = %raw(`null`)
-nullAsUnit.to = Some(unit->castToInternal)
+nullAsUnit.to = Some(unit)
 let nullAsUnit = nullAsUnit->castToPublic
 
 let neverBuilder = Builder.make((b, ~input, ~selfSchema, ~path) => {
@@ -3145,7 +3146,7 @@ module Option = {
     }
   }
 
-  let factory = (item, ~unit=unit) => {
+  let factory = (item, ~unit=unit->castToPublic) => {
     let item = item->castToInternal
 
     switch item->getOutputSchema {
@@ -4517,7 +4518,7 @@ module Schema = {
         let location = idx->Js.Int.toString
         let ditem = {
           location,
-          schema: unit->castToUnknown,
+          schema: unit->castToPublic,
         }
         items->Js.Array2.unsafe_set(idx, ditem)
       }
@@ -5382,11 +5383,11 @@ let trim = schema => {
 }
 
 let nullable = schema => {
-  Union.factory([schema->castToUnknown, unit->castToUnknown, Literal.null->castToPublic])
+  Union.factory([schema->castToUnknown, unit->castToPublic, Literal.null->castToPublic])
 }
 
 let nullableAsOption = schema => {
-  Union.factory([schema->castToUnknown, unit->castToUnknown, nullAsUnit->castToUnknown])
+  Union.factory([schema->castToUnknown, unit->castToPublic, nullAsUnit->castToUnknown])
 }
 
 // =============
@@ -5431,7 +5432,7 @@ let js_asyncParserRefine = (schema, refine) => {
 
 let js_optional = (schema, maybeOr) => {
   // TODO: maybeOr should be part of the unit schema
-  let schema = Union.factory([schema->castToUnknown, unit->castToUnknown])
+  let schema = Union.factory([schema->castToUnknown, unit->castToPublic])
   switch maybeOr {
   | Some(or) if Js.typeof(or) === "function" => schema->Option.getOrWith(or->Obj.magic)->Obj.magic
   | Some(or) => schema->Option.getOr(or->Obj.magic)->Obj.magic
@@ -6089,3 +6090,4 @@ let string: t<string> = string->castToPublic
 let int: t<int> = int->castToPublic
 let float: t<float> = float->castToPublic
 let bigint: t<bigint> = bigint->castToPublic
+let unit: t<unit> = unit->castToPublic

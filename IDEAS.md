@@ -2,14 +2,48 @@
 
 ## Alpha.3
 
+- `S.unknown.with(S.to, S.schema(true).with(S.noValidation, true))` - Support transformation to literals without validation, to be able to set the output value. (This is how assert works)
+
 ## v11
 
 ### ideas
 
 - Add `promise` type and `S.promise` (instead of async flag internally)
 
-- Add `S.parseFromOrThrow(fromSchema, toSchema)` and `convertFromOrThrow` + async.
-  Deprecate `reverseConvert` and `parseJsonOrThrow`, `parseJsonStringOrThrow`, `convertToJsonOrThrow`, `convertToJsonStringOrThrow`, `reverseConvertOrThrow`, `reverseConvertToJsonOrThrow`, `reverseConvertToJsonStringOrThrow`
+```diff
+const userSchema = S.schema({
+  id: S.string,
+  name: S.string
+})
+
+S.parseOrThrow(data, userSchema)
+
+- S.parseJsonOrThrow(data, userSchema)
++ S.convertFromOrThrow(data, S.json, userSchema)
+
+- S.parseJsonStringOrThrow(data, userSchema)
++ S.convertFromOrThrow(data, S.jsonString, userSchema)
+
+- S.reverseConvertOrThrow(user, userSchema)
++ S.convertOrThrow(user, S.reverse(userSchema))
+
+- S.reverseConvertToJsonOrThrow(user, userSchema)
++ S.convertFromOrThrow(user, userSchema, S.json)
+
+- S.reverseConvertToJsonStringOrThrow(user, userSchema)
++ S.convertFromOrThrow(user, userSchema, S.jsonString)
+
+- S.reverseConvertToJsonStringOrThrow(user, userSchema, 2)
++ S.convertFromOrThrow(user, userSchema, S.jsonStringWithSpace(2))
+
+S.convertOrThrow(data, userSchema)
+
+- S.convertToJsonOrThrow(data, userSchema)
++ S.convertOrThrow(data, userSchema.with(S.to, S.json))
+
+- S.convertToJsonStringOrThrow(data, userSchema)
++ S.convertOrThrow(data, userSchema.with(S.to, S.jsonString))
+```
 
 - rename `serializer` to reverse parser ?
 - Make `foo->S.to(S.unknown)` stricter ??
