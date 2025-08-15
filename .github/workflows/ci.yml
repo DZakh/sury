@@ -11,7 +11,7 @@ on:
 
 jobs:
   sury:
-    name: Sury - Build & Test & Lint & Pack
+    name: Sury - Build & Test & Pack
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -32,8 +32,9 @@ jobs:
         with:
           files: packages/sury/coverage/lcov.info
 
-      - run: pnpm lint:stdlib
-        working-directory: packages/sury
+      # Doesn't work with rescript v12
+      # - run: pnpm lint:stdlib
+      #   working-directory: packages/sury
 
       - uses: actions/upload-artifact@v4
         with:
