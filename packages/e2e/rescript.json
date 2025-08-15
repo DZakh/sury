@@ -14,9 +14,7 @@
   "suffix": ".res.mjs",
   "dependencies": ["sury"],
   "dev-dependencies": ["@dzakh/rescript-ava"],
-  "ppx-flags": [
-    "/Users/dzakh/code/DZakh/rescript-schema/packages/sury-ppx/bin"
-  ],
+  "ppx-flags": ["sury-ppx/bin"],
   "gentypeconfig": {
     "generatedFileExtension": ".gen.ts"
   }
