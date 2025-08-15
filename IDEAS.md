@@ -4,7 +4,7 @@
 
 - `S.unknown.with(S.to, S.schema(true).with(S.noValidation, true))` - Support transformation to literals without validation, to be able to set the output value. (This is how assert works)
 - Use ReScript v12
-- Use unboxed variants for JSONSchema definitions
+- Use unboxed variants for JSONSchema definitions and dependencies
 
 ## v11
 

@@ -146,7 +146,7 @@ type rec t = {
   examples?: array<JSON.t>,
 }
 @unboxed and definition = Schema(t) | @as(false) Never | @as(true) Any
-and dependency
+@unboxed and dependency = RequiredSchema(t) | RequiredProperties(array<string>)
 
 module Mutable = {
   type readOnly = t
@@ -244,20 +244,12 @@ module Mutable = {
     mutable writeOnly?: bool,
     mutable examples?: array<JSON.t>,
   }
+  @unboxed and definition = Schema(t) | @as(false) Never | @as(true) Any
+  @unboxed and dependency = RequiredSchema(t) | RequiredProperties(array<string>)
 
   external fromReadOnly: readOnly => t = "%identity"
   external toReadOnly: t => readOnly = "%identity"
 
   @val
   external mixin: (t, readOnly) => unit = "Object.assign"
-}
-
-module Dependency = {
-  @unboxed
-  type tagged = Schema(t) | Required(array<string>)
-
-  external required: array<string> => dependency = "%identity"
-  external schema: t => dependency = "%identity"
-
-  external classify: dependency => tagged = "%identity"
 }

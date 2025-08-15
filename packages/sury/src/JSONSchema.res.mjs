@@ -21,11 +21,8 @@ let Arrayable = {
 
 let Mutable = {};
 
-let Dependency = {};
-
 export {
   Arrayable,
   Mutable,
-  Dependency,
 }
 /* No side effect */

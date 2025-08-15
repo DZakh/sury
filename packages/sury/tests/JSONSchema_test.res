@@ -18,12 +18,9 @@ test("Definition", t => {
 })
 
 test("Dependency", t => {
+  t->Assert.deepEqual(JSONSchema.RequiredSchema({title: "foo"}), %raw(`{title: "foo"}`))
   t->Assert.deepEqual(
-    JSONSchema.Dependency.schema({title: "foo"})->JSONSchema.Dependency.classify,
-    JSONSchema.Dependency.Schema({title: "foo"}),
-  )
-  t->Assert.deepEqual(
-    JSONSchema.Dependency.required(["field1", "field2"])->JSONSchema.Dependency.classify,
-    JSONSchema.Dependency.Required(["field1", "field2"]),
+    JSONSchema.RequiredProperties(["field1", "field2"]),
+    %raw(`["field1", "field2"]`),
   )
 })
