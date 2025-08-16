@@ -1669,6 +1669,8 @@ let failTransform = (b, ~inputVar, ~path, ~target) => {
 
 let jsonName = `JSON`
 
+let jsonString = shaken("jsonString")
+
 let inputToString = (b, input: val) => {
   b->B.val(`""+${input.inline}`, ~schema=string)
 }
@@ -1968,6 +1970,12 @@ and internalCompile = (~schema, ~flag, ~defs) => {
       mut.to = Some(t)
     })
     ->castToInternal
+  } else if flag->Flag.unsafeHas(Flag.jsonStringOutput) {
+    schema
+    ->updateOutput(mut => {
+      mut.to = Some(jsonString)
+    })
+    ->castToInternal
   } else {
     schema
   }
@@ -1979,17 +1987,10 @@ and internalCompile = (~schema, ~flag, ~defs) => {
   let isAsync = output.flag->Flag.has(ValFlag.async)
   schema.isAsync = Some(isAsync)
 
-  if (
-    code === "" &&
-    output === input &&
-    !(flag->Flag.unsafeHas(Flag.async->Flag.with(Flag.jsonStringOutput)))
-  ) {
+  if code === "" && output === input && !(flag->Flag.unsafeHas(Flag.async)) {
     Builder.noopOperation
   } else {
     let inlinedOutput = ref(output.inline)
-    if flag->Flag.unsafeHas(Flag.jsonStringOutput) {
-      inlinedOutput := `JSON.stringify(${inlinedOutput.contents})`
-    }
     if flag->Flag.unsafeHas(Flag.async) && !isAsync && !(defs->Obj.magic) {
       inlinedOutput := `Promise.resolve(${inlinedOutput.contents})`
     }
@@ -3555,8 +3556,6 @@ let enableJson = () => {
     json.defs = Some(defs)
   }
 }
-
-let jsonString = shaken("jsonString")
 
 let enableJsonString = {
   let inlineJsonString = (b, ~schema, ~selfSchema, ~path) => {

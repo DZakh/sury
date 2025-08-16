@@ -1,5 +1,7 @@
 open Ava
 
+S.enableJsonString()
+
 let assertCode = (t, fn: 'a => 'b, code) => {
   t->Assert.is((fn->Obj.magic)["toString"](), code)
 }
@@ -17,9 +19,9 @@ test("Doesn't compile primitive unknown with assert output to noop", t => {
 })
 
 test("Doesn't compile to noop when primitive converted to json string", t => {
-  let schema = S.string
+  let schema = S.bool
   let fn = schema->S.compile(~input=Any, ~output=JsonString, ~mode=Sync, ~typeValidation=false)
-  t->assertCode(fn, `i=>{return JSON.stringify(i)}`)
+  t->assertCode(fn, `i=>{return ""+i}`)
 })
 
 test("JsonString output with Async mode", t => {
