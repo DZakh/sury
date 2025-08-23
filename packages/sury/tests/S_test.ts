@@ -1995,7 +1995,7 @@ test("Standard schema", (t) => {
   t.deepEqual(schema["~standard"]["validate"](undefined), {
     issues: [
       {
-        message: "Failed parsing: Expected string | null, received undefined",
+        message: "Expected string | null, received undefined",
         path: undefined,
       },
     ],

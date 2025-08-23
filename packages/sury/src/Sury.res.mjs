@@ -85,103 +85,6 @@ function isOptional(schema) {
   }
 }
 
-let globalConfig = {
-  d: undefined,
-  a: "strip",
-  n: false
-};
-
-class SuryError extends Error {
-  constructor(code, flag, path) {
-    super();
-    this.flag = flag;
-    this.code = code;
-    this.path = path;
-  }
-}
-
-var d = Object.defineProperty, p = SuryError.prototype;
-d(p, 'message', {
-  get() {
-      return message(this);
-  },
-})
-d(p, 'reason', {
-  get() {
-      return reason(this);
-  }
-})
-d(p, 'name', {value: 'SuryError'})
-d(p, 's', {value: s})
-d(p, '_1', {
-  get() {
-    return this
-  },
-});
-d(p, 'RE_EXN_ID', {
-  value: $$Error,
-});
-
-var Schema = function(type) {this.type=type}, sp = Object.create(null);
-d(sp, 'with', {
-  get() {
-    return (fn, ...args) => fn(this, ...args)
-  },
-});
-// Also has ~standard below
-Schema.prototype = sp;
-;
-
-function getOrRethrow(exn) {
-  if ((exn&&exn.s===s)) {
-    return exn;
-  }
-  throw exn;
-}
-
-let shakenRef = "as";
-
-let shakenTraps = {
-  get: (target, prop) => {
-    let l = target[shakenRef];
-    if (l === undefined) {
-      return target[prop];
-    }
-    if (prop === shakenRef) {
-      return target[prop];
-    }
-    let l$1 = Primitive_option.valFromOption(l);
-    let message = "Schema S." + l$1 + " is not enabled. To start using it, add S.enable" + capitalize(l$1) + "() at the project root.";
-    throw new Error("[Sury] " + message);
-  }
-};
-
-function shaken(apiName) {
-  let mut = new Schema("never");
-  mut[shakenRef] = apiName;
-  return new Proxy(mut, shakenTraps);
-}
-
-let unknown = new Schema("unknown");
-
-let bool = new Schema("boolean");
-
-let symbol = new Schema("symbol");
-
-let string = new Schema("string");
-
-let int = new Schema("number");
-
-int.format = "int32";
-
-let float = new Schema("number");
-
-let bigint = new Schema("bigint");
-
-let unit = new Schema("undefined");
-
-unit.const = (void 0);
-
 function has(acc, flag) {
   return (acc & flag) !== 0;
 }
@@ -204,36 +107,6 @@ let flags = {
     never: 16384,
     symbol: 32768,
   };
-
-let copyWithoutCache = ((schema) => {
-  let c = new Schema(schema.type)
-  for (let k in schema) {
-    if (k > "a" || k === "$ref" || k === "$defs") {
-      c[k] = schema[k]
-    }
-  }
-  return c
-});
-
-function updateOutput(schema, fn) {
-  let root = copyWithoutCache(schema);
-  let mut = root;
-  while (mut.to) {
-    let next = copyWithoutCache(mut.to);
-    mut.to = next;
-    mut = next;
-  };
-  fn(mut);
-  return root;
-}
-
-let resetCacheInPlace = ((schema) => {
-  for (let k in schema) {
-    if (Number(k[0])) {
-      delete schema[k];
-    }
-  }
-});
 
 function stringify(unknown) {
   let tagFlag = flags[typeof unknown];
@@ -332,10 +205,52 @@ function toExpression(schema) {
   }
 }
 
-let value = SuryError;
+class SuryError extends Error {
+  constructor(code, flag, path) {
+    super();
+    this.flag = flag;
+    this.code = code;
+    this.path = path;
+  }
+}
 
-function constructor(prim0, prim1, prim2) {
-  return new SuryError(prim0, prim1, prim2);
+var d = Object.defineProperty, p = SuryError.prototype;
+d(p, 'message', {
+  get() {
+      return message(this);
+  },
+})
+d(p, 'reason', {
+  get() {
+      return reason(this);
+  }
+})
+d(p, 'name', {value: 'SuryError'})
+d(p, 's', {value: s})
+d(p, '_1', {
+  get() {
+    return this
+  },
+});
+d(p, 'RE_EXN_ID', {
+  value: $$Error,
+});
+
+var Schema = function(type) {this.type=type}, sp = Object.create(null);
+d(sp, 'with', {
+  get() {
+    return (fn, ...args) => fn(this, ...args)
+  },
+});
+// Also has ~standard below
+Schema.prototype = sp;
+;
+
+function getOrRethrow(exn) {
+  if ((exn&&exn.s===s)) {
+    return exn;
+  }
+  throw exn;
 }
 
 function reason(error, nestedLevelOpt) {
@@ -378,10 +293,6 @@ function reason(error, nestedLevelOpt) {
   }
 }
 
-function reason$1(error) {
-  return reason(error, undefined);
-}
-
 function message(error) {
   let op = error.flag;
   let text = "Failed ";
@@ -403,11 +314,95 @@ function message(error) {
   return text + tmp + ": " + reason(error, undefined);
 }
 
+let globalConfig = {
+  m: message,
+  d: undefined,
+  a: "strip",
+  n: false
+};
+
+let shakenRef = "as";
+
+let shakenTraps = {
+  get: (target, prop) => {
+    let l = target[shakenRef];
+    if (l === undefined) {
+      return target[prop];
+    }
+    if (prop === shakenRef) {
+      return target[prop];
+    }
+    let l$1 = Primitive_option.valFromOption(l);
+    let message = "Schema S." + l$1 + " is not enabled. To start using it, add S.enable" + capitalize(l$1) + "() at the project root.";
+    throw new Error("[Sury] " + message);
+  }
+};
+
+function shaken(apiName) {
+  let mut = new Schema("never");
+  mut[shakenRef] = apiName;
+  return new Proxy(mut, shakenTraps);
+}
+
+let unknown = new Schema("unknown");
+
+let bool = new Schema("boolean");
+
+let symbol = new Schema("symbol");
+
+let string = new Schema("string");
+
+let int = new Schema("number");
+
+int.format = "int32";
+
+let float = new Schema("number");
+
+let bigint = new Schema("bigint");
+
+let unit = new Schema("undefined");
+
+unit.const = (void 0);
+
+let copyWithoutCache = ((schema) => {
+  let c = new Schema(schema.type)
+  for (let k in schema) {
+    if (k > "a" || k === "$ref" || k === "$defs") {
+      c[k] = schema[k]
+    }
+  }
+  return c
+});
+
+function updateOutput(schema, fn) {
+  let root = copyWithoutCache(schema);
+  let mut = root;
+  while (mut.to) {
+    let next = copyWithoutCache(mut.to);
+    mut.to = next;
+    mut = next;
+  };
+  fn(mut);
+  return root;
+}
+
+let resetCacheInPlace = ((schema) => {
+  for (let k in schema) {
+    if (Number(k[0])) {
+      delete schema[k];
+    }
+  }
+});
+
+let value = SuryError;
+
+function constructor(prim0, prim1, prim2) {
+  return new SuryError(prim0, prim1, prim2);
+}
+
 let ErrorClass = {
   value: value,
-  constructor: constructor,
-  reason: reason$1,
-  message: message
+  constructor: constructor
 };
 
 function embed(b, value) {
@@ -1156,6 +1151,39 @@ function parse(prevB, schema, inputArg, path) {
   return input;
 }
 
+function jsonableValidation(output, parent, path, flag) {
+  let tagFlag = flags[output.type];
+  if (tagFlag & 48129 || tagFlag & 16 && parent.type !== "object") {
+    throw new SuryError({
+      TAG: "InvalidJsonSchema",
+      _0: parent
+    }, flag, path);
+  }
+  if (tagFlag & 256) {
+    output.anyOf.forEach(s => jsonableValidation(s, parent, path, flag));
+    return;
+  }
+  if (!(tagFlag & 192)) {
+    return;
+  }
+  let additionalItems = output.additionalItems;
+  if (additionalItems === "strip" || additionalItems === "strict") {
+    additionalItems === "strip";
+  } else {
+    jsonableValidation(additionalItems, parent, path, flag);
+  }
+  let p = output.properties;
+  if (p !== undefined) {
+    let keys = Object.keys(p);
+    for (let idx = 0, idx_finish = keys.length; idx < idx_finish; ++idx) {
+      let key = keys[idx];
+      jsonableValidation(p[key], parent, path, flag);
+    }
+    return;
+  }
+  output.items.forEach(item => jsonableValidation(item.schema, output, path + ("[" + fromString(item.location) + "]"), flag));
+}
+
 function internalCompile(schema, flag, defs) {
   let b = rootScope(flag, defs);
   if (flag & 8) {
@@ -1213,39 +1241,6 @@ function isAsyncInternal(schema, defs) {
     getOrRethrow(exn);
     return false;
   }
-}
-
-function jsonableValidation(output, parent, path, flag) {
-  let tagFlag = flags[output.type];
-  if (tagFlag & 48129 || tagFlag & 16 && parent.type !== "object") {
-    throw new SuryError({
-      TAG: "InvalidJsonSchema",
-      _0: parent
-    }, flag, path);
-  }
-  if (tagFlag & 256) {
-    output.anyOf.forEach(s => jsonableValidation(s, parent, path, flag));
-    return;
-  }
-  if (!(tagFlag & 192)) {
-    return;
-  }
-  let additionalItems = output.additionalItems;
-  if (additionalItems === "strip" || additionalItems === "strict") {
-    additionalItems === "strip";
-  } else {
-    jsonableValidation(additionalItems, parent, path, flag);
-  }
-  let p = output.properties;
-  if (p !== undefined) {
-    let keys = Object.keys(p);
-    for (let idx = 0, idx_finish = keys.length; idx < idx_finish; ++idx) {
-      let key = keys[idx];
-      jsonableValidation(p[key], parent, path, flag);
-    }
-    return;
-  }
-  output.items.forEach(item => jsonableValidation(item.schema, output, path + ("[" + fromString(item.location) + "]"), flag));
 }
 
 function reverse(schema) {
@@ -1376,7 +1371,7 @@ d(sp, "~standard", {
           let error = getOrRethrow(exn);
           return {
             issues: [{
-                message: message(error),
+                message: reason(error, undefined),
                 path: error.path === "" ? undefined : toArray(error.path)
               }]
           };
@@ -2868,6 +2863,45 @@ function nested(fieldName) {
   return ctx$1;
 }
 
+function advancedBuilder(definition, flattened) {
+  return (b, input, selfSchema, path) => {
+    let isFlatten = b.g.o & 64;
+    let outputs = isFlatten ? input.properties : ({});
+    if (!isFlatten) {
+      let items = selfSchema.items;
+      for (let idx = 0, idx_finish = items.length; idx < idx_finish; ++idx) {
+        let match = items[idx];
+        let location = match.location;
+        let itemInput = get(b, input, location);
+        let inlinedLocation = inlineLocation(b, location);
+        let path$1 = path + ("[" + inlinedLocation + "]");
+        outputs[location] = parse(b, match.schema, itemInput, path$1);
+      }
+      objectStrictModeCheck(b, input, items, selfSchema, path);
+    }
+    if (flattened !== undefined) {
+      let prevFlag = b.g.o;
+      b.g.o = prevFlag | 64;
+      for (let idx$1 = 0, idx_finish$1 = flattened.length; idx$1 < idx_finish$1; ++idx$1) {
+        let item = flattened[idx$1];
+        outputs[item.i] = parse(b, item.schema, input, path);
+      }
+      b.g.o = prevFlag;
+    }
+    let getItemOutput = item => {
+      switch (item.k) {
+        case 0 :
+          return outputs[item.location];
+        case 1 :
+          return get(b, getItemOutput(item.of), item.location);
+        case 2 :
+          return outputs[item.i];
+      }
+    };
+    return definitionToOutput(b, definition, getItemOutput, selfSchema.to);
+  };
+}
+
 function definitionToTarget(definition, to, flattened) {
   let ritemsByItemPath = {};
   let ritem = definitionToRitem(definition, "", ritemsByItemPath);
@@ -2956,45 +2990,6 @@ function definitionToTarget(definition, to, flattened) {
     return complete(objectVal, isArray);
   };
   return mut;
-}
-
-function advancedBuilder(definition, flattened) {
-  return (b, input, selfSchema, path) => {
-    let isFlatten = b.g.o & 64;
-    let outputs = isFlatten ? input.properties : ({});
-    if (!isFlatten) {
-      let items = selfSchema.items;
-      for (let idx = 0, idx_finish = items.length; idx < idx_finish; ++idx) {
-        let match = items[idx];
-        let location = match.location;
-        let itemInput = get(b, input, location);
-        let inlinedLocation = inlineLocation(b, location);
-        let path$1 = path + ("[" + inlinedLocation + "]");
-        outputs[location] = parse(b, match.schema, itemInput, path$1);
-      }
-      objectStrictModeCheck(b, input, items, selfSchema, path);
-    }
-    if (flattened !== undefined) {
-      let prevFlag = b.g.o;
-      b.g.o = prevFlag | 64;
-      for (let idx$1 = 0, idx_finish$1 = flattened.length; idx$1 < idx_finish$1; ++idx$1) {
-        let item = flattened[idx$1];
-        outputs[item.i] = parse(b, item.schema, input, path);
-      }
-      b.g.o = prevFlag;
-    }
-    let getItemOutput = item => {
-      switch (item.k) {
-        case 0 :
-          return outputs[item.location];
-        case 1 :
-          return get(b, getItemOutput(item.of), item.location);
-        case 2 :
-          return outputs[item.i];
-      }
-    };
-    return definitionToOutput(b, definition, getItemOutput, selfSchema.to);
-  };
 }
 
 function shape(schema, definer) {

@@ -600,126 +600,6 @@ let isOptional = schema => {
   }
 }
 
-type globalConfig = {
-  @as("d")
-  mutable defsAccumulator: option<dict<internal>>,
-  @as("a")
-  mutable defaultAdditionalItems: additionalItems,
-  @as("n")
-  mutable disableNanNumberValidation: bool,
-}
-
-type globalConfigOverride = {
-  defaultAdditionalItems?: additionalItemsMode,
-  disableNanNumberValidation?: bool,
-}
-
-let initialOnAdditionalItems: additionalItemsMode = Strip
-let initialDisableNanNumberProtection = false
-let globalConfig: globalConfig = {
-  defsAccumulator: None,
-  defaultAdditionalItems: (initialOnAdditionalItems :> additionalItems),
-  disableNanNumberValidation: initialDisableNanNumberProtection,
-}
-
-module InternalError = {
-  %%raw(`
-class SuryError extends Error {
-  constructor(code, flag, path) {
-    super();
-    this.flag = flag;
-    this.code = code;
-    this.path = path;
-  }
-}
-
-var d = Object.defineProperty, p = SuryError.prototype;
-d(p, 'message', {
-  get() {
-      return message(this);
-  },
-})
-d(p, 'reason', {
-  get() {
-      return reason(this);
-  }
-})
-d(p, 'name', {value: 'SuryError'})
-d(p, 's', {value: s})
-d(p, '_1', {
-  get() {
-    return this
-  },
-});
-d(p, 'RE_EXN_ID', {
-  value: $$Error,
-});
-
-var Schema = function(type) {this.type=type}, sp = Object.create(null);
-d(sp, 'with', {
-  get() {
-    return (fn, ...args) => fn(this, ...args)
-  },
-});
-// Also has ~standard below
-Schema.prototype = sp;
-`)
-
-  @new
-  external make: (~code: errorCode, ~flag: int, ~path: Path.t) => error = "SuryError"
-
-  let getOrRethrow = (exn: exn) => {
-    if %raw("exn&&exn.s===s") {
-      exn->(Obj.magic: exn => error)
-    } else {
-      throw(exn)
-    }
-  }
-
-  // TODO: Throw S.Error
-  @inline
-  let panic = message => X.Exn.throwError(X.Exn.makeError(`[Sury] ${message}`))
-}
-
-@new
-external base: tag => internal = "Schema"
-
-let shakenRef = "as"
-
-let shakenTraps: X.Proxy.traps<internal> = {
-  get: (~target, ~prop) => {
-    switch target->Obj.magic->X.Dict.getUnsafeOption(shakenRef) {
-    | Some(l) if prop !== shakenRef->Obj.magic =>
-      InternalError.panic(
-        `Schema S.${l} is not enabled. To start using it, add S.enable${l->X.String.capitalize}() at the project root.`,
-      )
-    | _ => target->Obj.magic->Js.Dict.unsafeGet(prop->Obj.magic)
-    }
-  },
-}
-
-let shaken = (apiName: string) => {
-  let mut = base(Never)
-  mut->Obj.magic->Js.Dict.set(shakenRef, apiName)
-  mut->X.Proxy.make(shakenTraps)
-}
-
-let unknown = base(Unknown)
-let bool = base(Boolean)
-let symbol = base(Symbol)
-let string = base(String)
-let int = base(Number)
-int.format = Some(Int32)
-let float = base(Number)
-let bigint = base(BigInt)
-let unit = base(Undefined)
-unit.const = %raw(`void 0`)
-
-type s<'value> = {
-  schema: t<'value>,
-  fail: 'a. (string, ~path: Path.t=?) => 'a,
-}
-
 module ValFlag = {
   @inline let none = 0
   @inline let async = 2
@@ -785,39 +665,6 @@ module TagFlag = {
   @inline
   let isArray = tag => tag->get->Flag.unsafeHas(array)
 }
-
-// Need to copy without operations cache
-// which use flag as a key.
-// k > "a" is hacky way to skip all numbers
-// Should actually benchmark whether it's faster
-let copyWithoutCache: internal => internal = %raw(`(schema) => {
-  let c = new Schema(schema.type)
-  for (let k in schema) {
-    if (k > "a" || k === "$ref" || k === "$defs") {
-      c[k] = schema[k]
-    }
-  }
-  return c
-}`)
-let updateOutput = (schema: internal, fn): t<'value> => {
-  let root = schema->copyWithoutCache
-  let mut = ref(root)
-  while mut.contents.to->Obj.magic {
-    let next = mut.contents.to->X.Option.getUnsafe->copyWithoutCache
-    mut.contents.to = Some(next)
-    mut := next
-  }
-  // This should be the Output schema
-  fn(mut.contents)
-  root->castToPublic
-}
-let resetCacheInPlace: internal => unit = %raw(`(schema) => {
-  for (let k in schema) {
-    if (Number(k[0])) {
-      delete schema[k];
-    }
-  }
-}`)
 
 let rec stringify = unknown => {
   let tagFlag = unknown->Type.typeof->(Obj.magic: Type.t => tag)->TagFlag.get
@@ -914,12 +761,63 @@ let rec toExpression = schema => {
   }
 }
 
-module ErrorClass = {
-  type t
+module InternalError = {
+  %%raw(`
+class SuryError extends Error {
+  constructor(code, flag, path) {
+    super();
+    this.flag = flag;
+    this.code = code;
+    this.path = path;
+  }
+}
 
-  let value: t = %raw("SuryError")
+var d = Object.defineProperty, p = SuryError.prototype;
+d(p, 'message', {
+  get() {
+      return message(this);
+  },
+})
+d(p, 'reason', {
+  get() {
+      return reason(this);
+  }
+})
+d(p, 'name', {value: 'SuryError'})
+d(p, 's', {value: s})
+d(p, '_1', {
+  get() {
+    return this
+  },
+});
+d(p, 'RE_EXN_ID', {
+  value: $$Error,
+});
 
-  let constructor = InternalError.make
+var Schema = function(type) {this.type=type}, sp = Object.create(null);
+d(sp, 'with', {
+  get() {
+    return (fn, ...args) => fn(this, ...args)
+  },
+});
+// Also has ~standard below
+Schema.prototype = sp;
+`)
+
+  @new
+  external make: (~code: errorCode, ~flag: int, ~path: Path.t) => error = "SuryError"
+
+  let getOrRethrow = (exn: exn) => {
+    if %raw("exn&&exn.s===s") {
+      exn->(Obj.magic: exn => error)
+    } else {
+      throw(exn)
+    }
+  }
+
+  // TODO: Throw S.Error
+  @inline
+  let panic = message => X.Exn.throwError(X.Exn.makeError(`[Sury] ${message}`))
 
   let rec reason = (error: error, ~nestedLevel=0) => {
     switch error.code {
@@ -987,6 +885,111 @@ module ErrorClass = {
       | nonEmptyPath => ` at ${nonEmptyPath}`
       }}: ${error->reason}`
   }
+}
+
+type globalConfig = {
+  @as("m")
+  message: error => string,
+  @as("d")
+  mutable defsAccumulator: option<dict<internal>>,
+  @as("a")
+  mutable defaultAdditionalItems: additionalItems,
+  @as("n")
+  mutable disableNanNumberValidation: bool,
+}
+
+type globalConfigOverride = {
+  defaultAdditionalItems?: additionalItemsMode,
+  disableNanNumberValidation?: bool,
+}
+
+let initialOnAdditionalItems: additionalItemsMode = Strip
+let initialDisableNanNumberProtection = false
+let globalConfig: globalConfig = {
+  message: InternalError.message,
+  defsAccumulator: None,
+  defaultAdditionalItems: (initialOnAdditionalItems :> additionalItems),
+  disableNanNumberValidation: initialDisableNanNumberProtection,
+}
+
+@new
+external base: tag => internal = "Schema"
+
+let shakenRef = "as"
+
+let shakenTraps: X.Proxy.traps<internal> = {
+  get: (~target, ~prop) => {
+    switch target->Obj.magic->X.Dict.getUnsafeOption(shakenRef) {
+    | Some(l) if prop !== shakenRef->Obj.magic =>
+      InternalError.panic(
+        `Schema S.${l} is not enabled. To start using it, add S.enable${l->X.String.capitalize}() at the project root.`,
+      )
+    | _ => target->Obj.magic->Js.Dict.unsafeGet(prop->Obj.magic)
+    }
+  },
+}
+
+let shaken = (apiName: string) => {
+  let mut = base(Never)
+  mut->Obj.magic->Js.Dict.set(shakenRef, apiName)
+  mut->X.Proxy.make(shakenTraps)
+}
+
+let unknown = base(Unknown)
+let bool = base(Boolean)
+let symbol = base(Symbol)
+let string = base(String)
+let int = base(Number)
+int.format = Some(Int32)
+let float = base(Number)
+let bigint = base(BigInt)
+let unit = base(Undefined)
+unit.const = %raw(`void 0`)
+
+type s<'value> = {
+  schema: t<'value>,
+  fail: 'a. (string, ~path: Path.t=?) => 'a,
+}
+
+// Need to copy without operations cache
+// which use flag as a key.
+// k > "a" is hacky way to skip all numbers
+// Should actually benchmark whether it's faster
+let copyWithoutCache: internal => internal = %raw(`(schema) => {
+  let c = new Schema(schema.type)
+  for (let k in schema) {
+    if (k > "a" || k === "$ref" || k === "$defs") {
+      c[k] = schema[k]
+    }
+  }
+  return c
+}`)
+let updateOutput = (schema: internal, fn): t<'value> => {
+  let root = schema->copyWithoutCache
+  let mut = ref(root)
+  while mut.contents.to->Obj.magic {
+    let next = mut.contents.to->X.Option.getUnsafe->copyWithoutCache
+    mut.contents.to = Some(next)
+    mut := next
+  }
+  // This should be the Output schema
+  fn(mut.contents)
+  root->castToPublic
+}
+let resetCacheInPlace: internal => unit = %raw(`(schema) => {
+  for (let k in schema) {
+    if (Number(k[0])) {
+      delete schema[k];
+    }
+  }
+}`)
+
+module ErrorClass = {
+  type t
+
+  let value: t = %raw("SuryError")
+
+  let constructor = InternalError.make
 }
 
 module Builder = {
@@ -2194,7 +2197,7 @@ X.Object.defineProperty(
                 {
                   "issues": [
                     {
-                      "message": error->ErrorClass.message,
+                      "message": error->InternalError.reason,
                       "path": error.path === Path.empty ? None : Some(error.path->Path.toArray),
                     },
                   ],

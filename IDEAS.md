@@ -5,6 +5,7 @@
 - Use built-in JSON String transformation for JSON String output in `S.compile`
 - Fix https://github.com/DZakh/sury/issues/150
 - Add `S.brand` for TS API
+- Update Standard Schema error message to only include reason part
 
 ## v11
 
