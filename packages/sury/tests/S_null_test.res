@@ -168,3 +168,35 @@ test("Serializes Some(None) to null for null nested in null", t => {
     `i=>{if(i===void 0){i=null}else if(typeof i==="object"&&i&&i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=null}return i}`,
   )
 })
+
+// https://github.com/DZakh/sury/issues/150
+module OuterRecord = {
+  module Inner = {
+    type t = {k?: option<int>}
+
+    let schema = S.schema((s): t => {
+      k: ?s.matches(S.option(S.null(S.int))),
+    })
+  }
+
+  type t = {record?: option<Inner.t>}
+
+  let schema = S.schema(s => {
+    record: ?s.matches(S.option(S.null(Inner.schema))),
+  })
+
+  test("Record schema with optional nullable field", t => {
+    let record = {record: None}
+
+    t->Assert.deepEqual(record, %raw(`{ record: { BS_PRIVATE_NESTED_SOME_NONE: 0 } }`))
+    t->Assert.deepEqual(record->S.reverseConvertOrThrow(schema), %raw(`{ record: null }`))
+    t->Assert.deepEqual(record->S.reverseConvertToJsonStringOrThrow(schema), `{"record":null}`)
+
+    Js.log(schema->S.reverse)
+    t->U.assertCompiledCode(
+      ~schema,
+      ~op=#ReverseConvert,
+      `i=>{let v0=i["record"];if(typeof v0==="object"&&v0){if(v0["BS_PRIVATE_NESTED_SOME_NONE"]===0){v0=null}else{try{let v1=v0["k"];if(typeof v1==="object"&&v1&&v1["BS_PRIVATE_NESTED_SOME_NONE"]===0){v1=null}v0={"k":v1,}}catch(e1){}}}return {"record":v0,}}`,
+    )
+  })
+}

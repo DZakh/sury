@@ -2619,6 +2619,8 @@ let never = base(Never)
 never.refiner = Some(neverBuilder)
 let never: t<never> = never->castToPublic
 
+let nestedLoc = "BS_PRIVATE_NESTED_SOME_NONE"
+
 module Union = {
   @unboxed
   type itemCode = Single(string) | Multiple(array<string>)
@@ -2765,8 +2767,16 @@ module Union = {
                 : (tag :> string)
             switch byKey.contents->X.Dict.getUnsafeOption(key) {
             | Some(arr) =>
-              // There can only be one valid. Dedupe
               if (
+                tagFlag->Flag.unsafeHas(TagFlag.object) &&
+                  schema.properties->X.Option.getUnsafe->Dict.has(nestedLoc)
+              ) {
+                // This is a special case for https://github.com/DZakh/sury/issues/150
+                // When nested option goes together with an empty object schema
+                // Since we put None case check second, we need to change priority here.
+                arr->Js.Array2.unshift(schema)->ignore
+              } else if (
+                // There can only be one valid. Dedupe
                 !(
                   tagFlag->Flag.unsafeHas(
                     TagFlag.undefined->Flag.with(TagFlag.null)->Flag.with(TagFlag.nan),
@@ -3099,8 +3109,6 @@ module Union = {
 
 module Option = {
   type default = Value(unknown) | Callback(unit => unknown)
-
-  let nestedLoc = "BS_PRIVATE_NESTED_SOME_NONE"
 
   let nestedOption = {
     let nestedNone = () => {
