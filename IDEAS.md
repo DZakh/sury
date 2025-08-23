@@ -3,6 +3,8 @@
 ## Alpha.4
 
 - Use built-in JSON String transformation for JSON String output in `S.compile`
+- Fix https://github.com/DZakh/sury/issues/150
+- Add `S.brand` for TS API
 
 ## v11
 

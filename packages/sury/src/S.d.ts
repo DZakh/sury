@@ -118,6 +118,10 @@ export type Schema<Output, Input = unknown> = {
   ): Schema<Output, Input>;
   // with(message: string): t<Output, Input>; TODO: implement
   with<O, I>(fn: (schema: Schema<Output, Input>) => Schema<O, I>): Schema<O, I>;
+  with<O, I, A1 extends string>(
+    fn: (schema: Schema<Output, Input>, arg1: A1) => Schema<O, I>,
+    arg1: A1
+  ): Schema<O, I>;
   with<O, I, A1>(
     fn: (schema: Schema<Output, Input>, arg1: A1) => Schema<O, I>,
     arg1: A1
@@ -297,6 +301,19 @@ export type UnknownToInput<T> = T extends Schema<unknown, infer Input>
       }
     >
   : T;
+
+export type Brand<T, ID extends string> = T & {
+  /**
+   *  TypeScript won't suggest strings beginning with a space as properties.
+   *  Useful for symbol-like string properties.
+   */
+  readonly [" brand"]: [T, ID];
+};
+
+export function brand<ID extends string, Output = unknown, Input = unknown>(
+  schema: Schema<Output, Input>,
+  brandId: ID
+): Schema<Brand<Output, ID>, Input>;
 
 // Grok told that it makes things faster
 // TODO: Verify it with ArkType test framework

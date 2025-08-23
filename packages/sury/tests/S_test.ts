@@ -2600,6 +2600,18 @@ test("Example of transformed schema", (t) => {
   }
 });
 
+test("Brand", (t) => {
+  const schema = S.string.with(S.brand, "Foo");
+  type Foo = S.Infer<typeof schema>;
+  expectType<SchemaEqual<typeof schema, S.Brand<string, "Foo">, string>>(true);
+  const result = S.parseOrThrow("hello", schema);
+  expectType<S.Brand<string, "Foo">>(result);
+  t.deepEqual(result, "hello");
+
+  // @ts-expect-error - Branded string is not assignable to string
+  const a: Foo = "bar";
+});
+
 test("fromJSONSchema", (t) => {
   const emailSchema = S.fromJSONSchema<string>({
     type: "string",

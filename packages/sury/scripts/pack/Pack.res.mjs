@@ -332,6 +332,10 @@ let filesMapping = [
   [
     "global",
     "S.global"
+  ],
+  [
+    "brand",
+    "s => s"
   ]
 ];
 

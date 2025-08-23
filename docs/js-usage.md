@@ -14,6 +14,7 @@
   - [JSON Schema](#json-schema)
   - [Standard Schema](#standard-schema)
 - [Defining schemas](#defining-schemas)
+  - [Advanced schemas](#advanced-schemas)
 - [Strings](#strings)
   - [ISO datetimes](#iso-datetimes)
 - [Numbers](#numbers)
@@ -368,20 +369,40 @@ S.any;
 // Never type
 // Allows no values
 S.never;
+```
 
+### Advanced schemas
+
+The goal of **Sury** is to provide the best DX. To achieve that, everything is a schema — use it directly without a `()` call. However, some schemas are opt‑in to keep bundle size small, so you must enable them explicitly. This also helps prevent your team from using the wrong API.
+
+Enable the schemas you need at the project root:
+
+```ts
+S.enableJson();
+S.enableJsonString();
+```
+
+And use them as usual:
+
+> 🧠 Don't forget `S.to` which comes with powerful coercion logic.
+
+```ts
 // JSON type
-S.enableJson(); // ❕ Call at the project root.
 // Allows string | boolean | number | null | Record<string, JSON> | JSON[]
 S.json;
 
 // JSON string
-S.enableJsonString(); // ❕ Call at the project root.
+
 // Asserts that the input is a valid JSON string
 S.jsonString;
 S.jsonStringWithSpace(2);
+
 // Parses JSON string and validates that it's a number
+// JSON string -> number
 S.jsonString.with(S.to, S.number);
+
 // Serializes number to JSON string
+// number -> JSON string
 S.number.with(S.to, S.jsonString);
 ```
 
@@ -866,6 +887,41 @@ S.toJSONSchema(documentedStringSchema);
 //   "description": "A useful bit of text, if you know what to do with it."
 // }
 ```
+
+## Brand
+
+Add a type-only symbol to an existing type so that only values produced by validation satisfy it.
+
+Use `S.brand` to attach a nominal brand to a schema's output. This is a TypeScript-only marker: it does not change runtime behavior. Combine it with `S.refine` (or any validation) so only validated values can acquire the brand.
+
+```ts
+// Brand a string as a UserId
+const UserId = S.string.with(S.brand, "UserId");
+type UserId = S.Infer<typeof UserId>; // S.Brand<string, "UserId">
+
+const id: UserId = S.parseOrThrow("u_123", UserId); // OK
+const asString: string = id; // OK: branded value is assignable to string
+// @ts-expect-error - A plain string is not assignable to a branded string
+const notId: UserId = "u_123";
+```
+
+You can define brands for refined constraints, like even numbers:
+
+```ts
+const even = S.number
+  .with(S.refine, (value, s) => {
+    if (value % 2 !== 0) s.fail("Expected an even number");
+  })
+  .with(S.brand, "even");
+
+type Even = S.Infer<typeof even>; // S.Brand<number, "even">
+
+const good: Even = S.parseOrThrow(2, even); // OK
+// @ts-expect-error - number is not assignable to brand "even"
+const bad: Even = 5;
+```
+
+For more information on branding in general, check out [this excellent article](https://www.learningtypescript.com/articles/branded-types) from [Josh Goldberg](https://github.com/joshuakgoldberg).
 
 ## Custom schema
 

@@ -182,6 +182,7 @@ let filesMapping = [
   ("enableJson", "S.enableJson"),
   ("enableJsonString", "S.enableJsonString"),
   ("global", "S.global"),
+  ("brand", "s => s"),
 ]
 
 sourePaths->Array.forEach(path => {
