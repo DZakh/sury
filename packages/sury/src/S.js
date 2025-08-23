@@ -71,4 +71,4 @@ export var trim = S.trim
 export var enableJson = S.enableJson
 export var enableJsonString = S.enableJsonString
 export var global = S.global
-export var brand = s => s
+export var brand = S.brand

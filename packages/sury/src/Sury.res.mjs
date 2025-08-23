@@ -2558,6 +2558,12 @@ function meta(schema, data) {
   return mut;
 }
 
+function brand(schema, id) {
+  let mut = copyWithoutCache(schema);
+  mut.name = id;
+  return mut;
+}
+
 function getFullDitemPath(ditem) {
   switch (ditem.k) {
     case 0 :
@@ -2862,45 +2868,6 @@ function nested(fieldName) {
   return ctx$1;
 }
 
-function advancedBuilder(definition, flattened) {
-  return (b, input, selfSchema, path) => {
-    let isFlatten = b.g.o & 64;
-    let outputs = isFlatten ? input.properties : ({});
-    if (!isFlatten) {
-      let items = selfSchema.items;
-      for (let idx = 0, idx_finish = items.length; idx < idx_finish; ++idx) {
-        let match = items[idx];
-        let location = match.location;
-        let itemInput = get(b, input, location);
-        let inlinedLocation = inlineLocation(b, location);
-        let path$1 = path + ("[" + inlinedLocation + "]");
-        outputs[location] = parse(b, match.schema, itemInput, path$1);
-      }
-      objectStrictModeCheck(b, input, items, selfSchema, path);
-    }
-    if (flattened !== undefined) {
-      let prevFlag = b.g.o;
-      b.g.o = prevFlag | 64;
-      for (let idx$1 = 0, idx_finish$1 = flattened.length; idx$1 < idx_finish$1; ++idx$1) {
-        let item = flattened[idx$1];
-        outputs[item.i] = parse(b, item.schema, input, path);
-      }
-      b.g.o = prevFlag;
-    }
-    let getItemOutput = item => {
-      switch (item.k) {
-        case 0 :
-          return outputs[item.location];
-        case 1 :
-          return get(b, getItemOutput(item.of), item.location);
-        case 2 :
-          return outputs[item.i];
-      }
-    };
-    return definitionToOutput(b, definition, getItemOutput, selfSchema.to);
-  };
-}
-
 function definitionToTarget(definition, to, flattened) {
   let ritemsByItemPath = {};
   let ritem = definitionToRitem(definition, "", ritemsByItemPath);
@@ -2989,6 +2956,45 @@ function definitionToTarget(definition, to, flattened) {
     return complete(objectVal, isArray);
   };
   return mut;
+}
+
+function advancedBuilder(definition, flattened) {
+  return (b, input, selfSchema, path) => {
+    let isFlatten = b.g.o & 64;
+    let outputs = isFlatten ? input.properties : ({});
+    if (!isFlatten) {
+      let items = selfSchema.items;
+      for (let idx = 0, idx_finish = items.length; idx < idx_finish; ++idx) {
+        let match = items[idx];
+        let location = match.location;
+        let itemInput = get(b, input, location);
+        let inlinedLocation = inlineLocation(b, location);
+        let path$1 = path + ("[" + inlinedLocation + "]");
+        outputs[location] = parse(b, match.schema, itemInput, path$1);
+      }
+      objectStrictModeCheck(b, input, items, selfSchema, path);
+    }
+    if (flattened !== undefined) {
+      let prevFlag = b.g.o;
+      b.g.o = prevFlag | 64;
+      for (let idx$1 = 0, idx_finish$1 = flattened.length; idx$1 < idx_finish$1; ++idx$1) {
+        let item = flattened[idx$1];
+        outputs[item.i] = parse(b, item.schema, input, path);
+      }
+      b.g.o = prevFlag;
+    }
+    let getItemOutput = item => {
+      switch (item.k) {
+        case 0 :
+          return outputs[item.location];
+        case 1 :
+          return get(b, getItemOutput(item.of), item.location);
+        case 2 :
+          return outputs[item.i];
+      }
+    };
+    return definitionToOutput(b, definition, getItemOutput, selfSchema.to);
+  };
 }
 
 function shape(schema, definer) {
@@ -4408,6 +4414,7 @@ export {
   fromJSONSchema,
   extendJSONSchema,
   global,
+  brand,
   js_safe,
   js_safeAsync,
   js_union,

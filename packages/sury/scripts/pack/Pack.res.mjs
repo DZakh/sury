@@ -335,7 +335,7 @@ let filesMapping = [
   ],
   [
     "brand",
-    "s => s"
+    "S.brand"
   ]
 ];
 

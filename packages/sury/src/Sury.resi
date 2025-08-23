@@ -548,6 +548,8 @@ let global: globalConfigOverride => unit
 @tag("success")
 type jsResult<'value>
 
+let brand: (t<'value>, string) => t<'value>
+
 let js_safe: (unit => 'v) => jsResult<'v>
 let js_safeAsync: (unit => promise<'v>) => promise<jsResult<'v>>
 

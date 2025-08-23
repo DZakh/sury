@@ -2607,6 +2607,7 @@ test("Brand", (t) => {
   const result = S.parseOrThrow("hello", schema);
   expectType<S.Brand<string, "Foo">>(result);
   t.deepEqual(result, "hello");
+  t.deepEqual(schema.name, "Foo", "Should also set the brand id as the name");
 
   // @ts-expect-error - Branded string is not assignable to string
   const a: Foo = "bar";

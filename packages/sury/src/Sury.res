@@ -3808,6 +3808,13 @@ let meta = (schema: t<'value>, data: meta<'value>) => {
   mut->castToPublic
 }
 
+let brand = (schema: t<'value>, id: string) => {
+  let schema = schema->castToInternal
+  let mut = schema->copyWithoutCache
+  mut.name = Some(id)
+  mut->castToPublic
+}
+
 module Schema = {
   type s = {@as("m") matches: 'value. t<'value> => 'value}
 
