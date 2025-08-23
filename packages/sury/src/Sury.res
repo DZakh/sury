@@ -126,11 +126,6 @@ module X = {
 
     @get_index
     external getUnsafeOptionBySymbol: (dict<'a>, Js.Types.symbol) => option<'a> = ""
-
-    @inline
-    let has = (dict, key) => {
-      dict->Js.Dict.unsafeGet(key)->(Obj.magic: 'a => bool)
-    }
   }
 
   module Float = {
@@ -594,13 +589,13 @@ external untag: t<'any> => untagged = "%identity"
 @inline
 let isSchemaObject = obj => (obj->Obj.magic).standard->Obj.magic
 
-// TODO: Can be improved after ReScript supports `in` (https://github.com/rescript-lang/rescript/issues/7313)
-let isLiteral: internal => bool = %raw(`s => "const" in s`)
+let constField = "const"
+let isLiteral = (schema: internal) => schema->Obj.magic->Dict.has(constField)
 
 let isOptional = schema => {
   switch schema.tag {
   | Undefined => true
-  | Union => schema.has->X.Option.getUnsafe->X.Dict.has((Undefined: tag :> string))
+  | Union => schema.has->X.Option.getUnsafe->Dict.has((Undefined: tag :> string))
   | _ => false
   }
 }
@@ -2660,8 +2655,8 @@ module Union = {
 
   let isPriority = (tagFlag, byKey: dict<array<internal>>) => {
     (tagFlag->Flag.unsafeHas(TagFlag.array->Flag.with(TagFlag.instance)) &&
-      byKey->X.Dict.has((Object: tag :> string))) ||
-      (tagFlag->Flag.unsafeHas(TagFlag.nan) && byKey->X.Dict.has((Number: tag :> string)))
+      byKey->Dict.has((Object: tag :> string))) ||
+      (tagFlag->Flag.unsafeHas(TagFlag.nan) && byKey->Dict.has((Number: tag :> string)))
   }
 
   let isWiderUnionSchema = (~schemaAnyOf, ~inputAnyOf) => {
@@ -2742,7 +2737,7 @@ module Union = {
 
           if (
             tagFlag->Flag.unsafeHas(TagFlag.undefined) &&
-              selfSchema->Obj.magic->X.Dict.has("fromDefault")
+              selfSchema->Obj.magic->Dict.has("fromDefault")
           ) {
             // skip it
             ()
@@ -4240,7 +4235,7 @@ module Schema = {
               let item: item = items->Js.Array2.unsafe_get(idx)
 
               // TODO: Improve the hack to ignore items belonging to a flattened schema
-              if !(objectVal.properties->X.Option.getUnsafe->X.Dict.has(item.location)) {
+              if !(objectVal.properties->X.Option.getUnsafe->Stdlib.Dict.has(item.location)) {
                 objectVal->B.Val.Object.add(
                   ~location=item.location,
                   item
@@ -4326,7 +4321,7 @@ module Schema = {
           (fieldName, schema) => {
             let schema = schema->castToInternal
             let inlinedLocation = fieldName->X.Inlined.Value.fromString
-            if properties->X.Dict.has(fieldName) {
+            if properties->Stdlib.Dict.has(fieldName) {
               InternalError.panic(`The field ${inlinedLocation} defined twice`)
             }
             let ditem: ditem = ItemField({
@@ -4441,7 +4436,7 @@ module Schema = {
         (fieldName, schema) => {
           let schema = schema->castToInternal
 
-          if properties->X.Dict.has(fieldName) {
+          if properties->Stdlib.Dict.has(fieldName) {
             InternalError.panic(`The field "${fieldName}" defined twice with incompatible schemas`)
           }
           let ditem: ditem = Item({
@@ -5473,7 +5468,7 @@ let js_merge = (s1, s2) => {
     }
     for idx in 0 to items2->Js.Array2.length - 1 {
       let item = items2->Js.Array2.unsafe_get(idx)
-      if !(properties->X.Dict.has(item.location)) {
+      if !(properties->Stdlib.Dict.has(item.location)) {
         locations->Js.Array2.push(item.location)->ignore
       }
       properties->Js.Dict.set(item.location, item.schema->castToInternal)
