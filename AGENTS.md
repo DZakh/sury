@@ -102,17 +102,20 @@ Every transformation may return an async value. To continue the transformation c
 
 ## Val
 
-The `val` represents a value at a specific point in the transformation pipeline during code generation.
+The `val` represents a value at a specific point in time during compilation. Each `val` is immutable and captures the state of the transformation at that moment.
 
 Key properties:
 
-- `schema` - The actual type of the value
-- `expected` - The schema of decoder
+- `schema` - The actual type of the value at this point
+- `expected` - The schema of decoder (used to skip unnecessary validations when actual type is already compatible)
 - `var` - Returns the variable name in generated code
 - `inline` - The value as an inline code expression
-- `code` - Accumulated generated code (used by all transformation steps)
-- `validation` - Built-in type check condition for the decoder (e.g., `typeof x === "string"`). Different from custom refiners.
-- `from` - The previous val in the chain (tracks transformation history)
 - `path` - Current location in the data structure (for error messages)
 
-The decoder uses `schema` vs `expected` to skip unnecessary validations when the actual type is already compatible.
+Transformation tracking (relative to `.prev`):
+
+- `prev` - The previous val in the chain, indicating where this value originated from
+- `code` - Generated code describing the transformation from `.prev` to this val
+- `validation` - Built-in type check condition from `.prev` (e.g., `typeof x === "string"`). Different from custom refiners.
+
+This design allows tracing back through the transformation history, where each step records what code was generated and what validations were applied to get from the previous state to the current one.
