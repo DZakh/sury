@@ -777,7 +777,41 @@ let rec toExpression = schema => {
     ->(Obj.magic: array<internal> => array<t<'a>>)
     ->Js.Array2.map(toExpression)
     ->Js.Array2.joinWith(" | ")
+  | {format: ?Some(CompactColumns), ?to, ?properties} => {
+      // For compactColumns, show the column types if we have properties from .to
+      let propsToUse = switch (properties, to) {
+      | (Some(props), _) => Some(props)
+      | (None, Some(toSchema)) => toSchema.properties
+      | _ => None
+      }
+      switch propsToUse {
+      | Some(props) =>
+        let keys = props->Js.Dict.keys
+        `[${keys
+          ->Js.Array2.map(key => {
+            let propSchema = props->Js.Dict.unsafeGet(key)->castToPublic
+            `${propSchema->toExpression}[]`
+          })
+          ->Js.Array2.joinWith(", ")}]`
+      | None => "unknown[][]"
+      }
+    }
   | {format} => (format :> string)
+  // Object schema with .to = compactColumns (reversed compactColumns chain)
+  // The input is an array of objects, so append []
+  | {tag: Object, ?to: Some({format: ?Some(CompactColumns)}), ?properties} => {
+      let properties = properties->X.Option.getUnsafe
+      let locations = properties->Js.Dict.keys
+      if locations->Js.Array2.length === 0 {
+        `{}[]`
+      } else {
+        `{ ${locations
+          ->Js.Array2.map(location => {
+            `${location}: ${properties->Js.Dict.unsafeGet(location)->castToPublic->toExpression};`
+          })
+          ->Js.Array2.joinWith(" ")} }[]`
+      }
+    }
   | {tag: Object, ?properties, ?additionalItems} =>
     let properties = properties->X.Option.getUnsafe
     let locations = properties->Js.Dict.keys
@@ -2543,9 +2577,20 @@ and arrayDecoder: builder = (~input as unknownInput, ~selfSchema as _) => {
 and objectDecoder: Builder.t = (~input as unknownInput, ~selfSchema as _) => {
   let isUnion = unknownInput.isUnion->X.Option.getUnsafe
   let expectedSchema = unknownInput.expected
-  let unknownInputTagFlag = unknownInput.schema.tag->TagFlag.get
 
-  let input = if unknownInputTagFlag->Flag.unsafeHas(TagFlag.unknown->Flag.with(TagFlag.object)) {
+  // If .to is compactColumns, skip object processing and pass through to compactColumns
+  // This happens in the reversed chain: objectSchema -> compactColumns
+  // The input is an array of objects that compactColumns needs to process
+  switch expectedSchema.to {
+  | Some({format: ?Some(CompactColumns)}) => {
+      let output = unknownInput->B.refine
+      output.skipTo = Some(false) // Ensure compactColumns decoder runs
+      output
+    }
+  | _ => {
+      let unknownInputTagFlag = unknownInput.schema.tag->TagFlag.get
+
+      let input = if unknownInputTagFlag->Flag.unsafeHas(TagFlag.unknown->Flag.with(TagFlag.object)) {
     let validation = ref(None)
     let isObjectInput = unknownInputTagFlag->Flag.unsafeHas(TagFlag.object)
     let schema = if !isObjectInput {
@@ -2719,6 +2764,8 @@ and objectDecoder: Builder.t = (~input as unknownInput, ~selfSchema as _) => {
         o
       }
     }
+    }
+  }
   }
 }
 
@@ -4552,21 +4599,6 @@ let to = (from, target) => {
   // inside of a framework where we don't control what's the to argument
   if from === target {
     from->castToPublic
-  } else if from.format === Some(CompactColumns) {
-    // For compactColumns, don't chain via .to to avoid objectSchema decoder running in reverse.
-    // Instead, store properties directly and let compactColumns handle everything.
-    switch target.properties {
-    | Some(props) =>
-      updateOutput(from, mut => {
-        mut.properties = Some(props)
-        // Don't set mut.to - compactColumns handles both directions internally
-      })
-    | None =>
-      // Non-object schemas are not supported with compactColumns
-      updateOutput(from, mut => {
-        mut.to = Some(target)
-      })
-    }
   } else {
     updateOutput(from, mut => {
       mut.to = Some(target)
@@ -5358,13 +5390,9 @@ let compactColumnsDecoder = Builder.make((~input, ~selfSchema) => {
       }
 
       // Determine direction: forward (parsing) vs reverse (encoding)
-      // After reverse(), parser is set (from original serializer), so we can use that to detect direction
-      // Forward: no parser (original schema)
-      // Reverse: has parser (reversed schema)
-      let isForwardDirection = switch selfSchema.parser {
-      | Some(_) => false
-      | None => true
-      }
+      // In forward direction: compactColumns.to = objectSchema (has .to)
+      // In reverse direction: compactColumns.to = None (at end of reversed chain)
+      let isForwardDirection = selfSchema.to !== None
 
       if isForwardDirection {
         // Forward direction: columnar → rows
@@ -5411,7 +5439,8 @@ let compactColumnsDecoder = Builder.make((~input, ~selfSchema) => {
         output.codeFromPrev =
           output.codeFromPrev ++
           `for(let ${iteratorVar}=0;${iteratorVar}<${outputVar}.length;++${iteratorVar}){${outputVar}[${iteratorVar}]={${itemBuildCode.contents}};}`
-        // No skipTo needed since compactColumns doesn't chain via .to anymore
+        // Skip the .to chain decoder since we've already built the objects
+        output.skipTo = Some(true)
         output
       } else {
         // Reverse direction: rows → columnar
@@ -5437,6 +5466,8 @@ let compactColumnsDecoder = Builder.make((~input, ~selfSchema) => {
         output.codeFromPrev =
           output.codeFromPrev ++
           `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${settingCode.contents}}`
+        // Skip the reversed .to chain decoder since we've already built the columnar data
+        output.skipTo = Some(true)
         output
       }
     }

@@ -627,6 +627,7 @@ export const array: <Output, Input>(
 ) => Schema<Output[], Input[]>;
 
 // CompactColumns schema marker type for proper S.to type inference
+// When using S.to(compactColumns, objectSchema), the output is TargetOutput[]
 export type CompactColumnsSchema<CellOutput, CellInput> = Schema<
   CellOutput[],
   CellInput[][]
@@ -786,7 +787,7 @@ export function shape<Shape = unknown, Output = unknown, Input = unknown>(
 ): Schema<Shape, Input>;
 
 // Overload for compactColumns: output becomes an array of target output
-export function to<CellInput = unknown, TargetOutput = unknown>(
+export function to<CellInput, TargetOutput>(
   schema: CompactColumnsSchema<unknown, CellInput>,
   target: Schema<TargetOutput, unknown>
 ): Schema<TargetOutput[], CellInput[][]>;

@@ -36,7 +36,7 @@ test("Expression of compactColumns schema", t => {
       ),
     )
     ->S.toExpression,
-    "unknown",
+    "[string[], int32[]]",
   )
 })
 
