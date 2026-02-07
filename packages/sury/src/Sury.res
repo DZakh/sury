@@ -3100,7 +3100,19 @@ let appendRefiner = (~existingDecoder: builder, refiner) => {
 let internalRefine = (schema, refiner) => {
   let schema = schema->castToInternal
   updateOutput(schema, mut => {
-    mut.decoder = appendRefiner(~existingDecoder=mut.decoder, refiner(mut))
+    let refinerCode = refiner(mut)
+    let existingRefiner = mut.refiner
+    mut.refiner = Some(
+      (~input, ~selfSchema) => {
+        let output = switch existingRefiner {
+        | Some(existing) => existing(~input, ~selfSchema)
+        | None => input
+        }
+        output.codeAfterValidation =
+          output.codeAfterValidation ++ refinerCode(~input=output, ~selfSchema)
+        output
+      },
+    )
   })
 }
 
