@@ -455,9 +455,9 @@ and internal = {
   // Logic for built-in encoding from the schema type
   mutable encoder?: builder,
   // Custom validations on input (before decoder)
-  mutable inputRefiner?: (~input: val, ~selfSchema: internal) => string,
+  mutable inputRefiner?: (~input: val) => string,
   // Custom validations on output (after decoder)
-  mutable refiner?: (~input: val, ~selfSchema: internal) => string,
+  mutable refiner?: (~input: val) => string,
   // A schema we transform to
   mutable to?: internal,
   // When transforming with changing shape,
@@ -2040,14 +2040,14 @@ let rec parse = (input: val, ~withEncoder: bool=false) => {
       switch expected.inputRefiner {
       | Some(inputRefiner) =>
         output.contents.codeAfterValidation =
-          output.contents.codeAfterValidation ++ inputRefiner(~input=output.contents, ~selfSchema=expected)
+          output.contents.codeAfterValidation ++ inputRefiner(~input=output.contents)
       | None => ()
       }
       // Call refiner after decoder
       switch expected.refiner {
       | Some(refiner) =>
         output.contents.codeAfterValidation =
-          output.contents.codeAfterValidation ++ refiner(~input=output.contents, ~selfSchema=expected)
+          output.contents.codeAfterValidation ++ refiner(~input=output.contents)
       | None => ()
       }
 
@@ -3105,21 +3105,21 @@ let internalRefine = (schema, refiner) => {
   let schema = schema->castToInternal
   updateOutput(schema, mut => {
     let refinerCode = refiner(mut)
-    mut.refiner = Some(
-      switch mut.refiner {
-      | Some(existingRefiner) =>
-        (~input, ~selfSchema) => {
-          existingRefiner(~input, ~selfSchema) ++ refinerCode(~input, ~selfSchema)
-        }
-      | None => refinerCode
-      },
-    )
+    switch mut.refiner {
+    | Some(existingRefiner) =>
+      mut.refiner = Some(
+        (~input) => {
+          existingRefiner(~input) ++ refinerCode(~input)
+        },
+      )
+    | None => mut.refiner = Some(refinerCode)
+    }
   })
 }
 
 let refine: (t<'value>, s<'value> => 'value => unit) => t<'value> = (schema, refiner) => {
   schema->internalRefine(_ =>
-    (~input, ~selfSchema as _) => {
+    (~input) => {
       `${input->B.embed(refiner(input->B.effectCtx))}(${input.var()});`
     }
   )
@@ -5775,7 +5775,7 @@ let intMin = (schema, minValue, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=Int.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `if(${input.var()}<${input->B.embed(minValue)}){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -5792,7 +5792,7 @@ let intMax = (schema, maxValue, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=Int.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `if(${input.var()}>${input->B.embed(maxValue)}){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -5805,7 +5805,7 @@ let intMax = (schema, maxValue, ~message as maybeMessage=?) => {
 let port = (schema, ~message=?) => {
   schema->internalRefine(mut => {
     mut.format = Some(Port)
-    (~input, ~selfSchema as _) => {
+    (~input) => {
       let inputVar = input.var()
       `${inputVar}>0&&${inputVar}<65536&&${inputVar}%1===0||${switch message {
         | Some(m) => input->B.fail(~message=m)
@@ -5822,7 +5822,7 @@ let floatMin = (schema, minValue, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=Float.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `if(${input.var()}<${input->B.embed(minValue)}){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -5839,7 +5839,7 @@ let floatMax = (schema, maxValue, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=Float.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `if(${input.var()}>${input->B.embed(maxValue)}){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -5856,7 +5856,7 @@ let arrayMinLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=Array.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `if(${input.var()}.length<${input->B.embed(length)}){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -5873,7 +5873,7 @@ let arrayMaxLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=Array.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `if(${input.var()}.length>${input->B.embed(length)}){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -5890,7 +5890,7 @@ let arrayLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=Array.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `if(${input.var()}.length!==${input->B.embed(length)}){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -5907,7 +5907,7 @@ let stringMinLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `if(${input.var()}.length<${input->B.embed(length)}){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -5924,7 +5924,7 @@ let stringMaxLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `if(${input.var()}.length>${input->B.embed(length)}){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -5941,7 +5941,7 @@ let stringLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `if(${input.var()}.length!==${input->B.embed(length)}){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -5954,7 +5954,7 @@ let stringLength = (schema, length, ~message as maybeMessage=?) => {
 let email = (schema, ~message=`Invalid email address`) => {
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `if(!${input->B.embed(String.emailRegex)}.test(${input.var()})){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -5967,7 +5967,7 @@ let email = (schema, ~message=`Invalid email address`) => {
 let uuid = (schema, ~message=`Invalid UUID`) => {
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `if(!${input->B.embed(String.uuidRegex)}.test(${input.var()})){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -5980,7 +5980,7 @@ let uuid = (schema, ~message=`Invalid UUID`) => {
 let cuid = (schema, ~message=`Invalid CUID`) => {
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `if(!${input->B.embed(String.cuidRegex)}.test(${input.var()})){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -5993,7 +5993,7 @@ let cuid = (schema, ~message=`Invalid CUID`) => {
 let url = (schema, ~message=`Invalid url`) => {
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `try{new URL(${input.var()})}catch(_){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -6006,7 +6006,7 @@ let url = (schema, ~message=`Invalid url`) => {
 let pattern = (schema, re, ~message=`Invalid pattern`) => {
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       let embededRe = input->B.embed(re)
       if re->Js.Re.global {
         // TODO Write a regression test when it's needed
