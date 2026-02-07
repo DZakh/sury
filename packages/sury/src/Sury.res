@@ -455,9 +455,9 @@ and internal = {
   // Logic for built-in encoding from the schema type
   mutable encoder?: builder,
   // Custom validations on input (before decoder)
-  mutable inputRefiner?: builder,
+  mutable inputRefiner?: (~input: val, ~selfSchema: internal) => string,
   // Custom validations on output (after decoder)
-  mutable refiner?: builder,
+  mutable refiner?: (~input: val, ~selfSchema: internal) => string,
   // A schema we transform to
   mutable to?: internal,
   // When transforming with changing shape,
@@ -2038,12 +2038,16 @@ let rec parse = (input: val, ~withEncoder: bool=false) => {
 
       // FIXME: inputRefiner should correctly be run for schema input (before decoder)
       switch expected.inputRefiner {
-      | Some(inputRefiner) => output := inputRefiner(~input=output.contents, ~selfSchema=expected)
+      | Some(inputRefiner) =>
+        output.contents.codeAfterValidation =
+          output.contents.codeAfterValidation ++ inputRefiner(~input=output.contents, ~selfSchema=expected)
       | None => ()
       }
       // Call refiner after decoder
       switch expected.refiner {
-      | Some(refiner) => output := refiner(~input=output.contents, ~selfSchema=expected)
+      | Some(refiner) =>
+        output.contents.codeAfterValidation =
+          output.contents.codeAfterValidation ++ refiner(~input=output.contents, ~selfSchema=expected)
       | None => ()
       }
 
@@ -3101,16 +3105,13 @@ let internalRefine = (schema, refiner) => {
   let schema = schema->castToInternal
   updateOutput(schema, mut => {
     let refinerCode = refiner(mut)
-    let existingRefiner = mut.refiner
     mut.refiner = Some(
-      (~input, ~selfSchema) => {
-        let output = switch existingRefiner {
-        | Some(existing) => existing(~input, ~selfSchema)
-        | None => input
+      switch mut.refiner {
+      | Some(existingRefiner) =>
+        (~input, ~selfSchema) => {
+          existingRefiner(~input, ~selfSchema) ++ refinerCode(~input, ~selfSchema)
         }
-        output.codeAfterValidation =
-          output.codeAfterValidation ++ refinerCode(~input=output, ~selfSchema)
-        output
+      | None => refinerCode
       },
     )
   })
