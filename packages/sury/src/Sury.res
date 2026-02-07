@@ -2581,16 +2581,17 @@ and objectDecoder: Builder.t = (~input as unknownInput, ~selfSchema as _) => {
   // If .to is compactColumns, skip object processing and pass through to compactColumns
   // This happens in the reversed chain: objectSchema -> compactColumns
   // The input is an array of objects that compactColumns needs to process
-  switch expectedSchema.to {
-  | Some({format: ?Some(CompactColumns)}) => {
-      let output = unknownInput->B.refine
-      output.skipTo = Some(false) // Ensure compactColumns decoder runs
-      output
-    }
-  | _ => {
-      let unknownInputTagFlag = unknownInput.schema.tag->TagFlag.get
+  let shouldSkipForCompactColumns = switch expectedSchema.to {
+  | Some(toSchema) => toSchema.format === Some(CompactColumns)
+  | None => false
+  }
 
-      let input = if unknownInputTagFlag->Flag.unsafeHas(TagFlag.unknown->Flag.with(TagFlag.object)) {
+  if shouldSkipForCompactColumns {
+    unknownInput->B.refine
+  } else {
+    let unknownInputTagFlag = unknownInput.schema.tag->TagFlag.get
+
+    let input = if unknownInputTagFlag->Flag.unsafeHas(TagFlag.unknown->Flag.with(TagFlag.object)) {
     let validation = ref(None)
     let isObjectInput = unknownInputTagFlag->Flag.unsafeHas(TagFlag.object)
     let schema = if !isObjectInput {
@@ -2763,7 +2764,6 @@ and objectDecoder: Builder.t = (~input as unknownInput, ~selfSchema as _) => {
         o.vals = objectVal.vals
         o
       }
-    }
     }
   }
   }
@@ -4602,18 +4602,6 @@ let to = (from, target) => {
   } else {
     updateOutput(from, mut => {
       mut.to = Some(target)
-      // A tricky part about parser is that we don't know the input type in ReScript
-      // so we need to directly parse to output instead of input
-      // switch parser {
-      // | Some(p) =>
-      //   mut.parser = Some(
-      //     Builder.make((b, ~input, ~selfSchema as _, ~path as _) => {
-      //       // TODO: Support async, reverse, nested parsing
-      //       b->B.embedSyncOperation(~input, ~fn=p)
-      //     }),
-      //   )
-      // | None => ()
-      // }
     })
   }
 }

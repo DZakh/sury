@@ -575,6 +575,11 @@ export function asyncEncoder<
   ...schemas: Schemas
 ): (data: ExtractFirstOutput<Schemas>) => Promise<ExtractLastInput<Schemas>>;
 
+export function reverseConvertOrThrow<Input>(
+  data: unknown,
+  schema: Schema<unknown, Input>
+): Input;
+
 export function assert<Output, Input>(
   schema: Schema<Output, Input>,
   data: unknown
@@ -626,18 +631,9 @@ export const array: <Output, Input>(
   schema: Schema<Output, Input>
 ) => Schema<Output[], Input[]>;
 
-// CompactColumns schema marker type for proper S.to type inference
-// When using S.to(compactColumns, objectSchema), the output is TargetOutput[]
-export type CompactColumnsSchema<CellOutput, CellInput> = Schema<
-  CellOutput[],
-  CellInput[][]
-> & {
-  readonly format?: "compactColumns";
-};
-
 export const compactColumns: <Output, Input>(
   schema: Schema<Output, Input>
-) => CompactColumnsSchema<Output, Input>;
+) => Schema<Output[], Input[][]>;
 
 export const record: <Output, Input>(
   schema: Schema<Output, Input>
@@ -785,12 +781,6 @@ export function shape<Shape = unknown, Output = unknown, Input = unknown>(
   schema: Schema<Output, Input>,
   shaper: (value: Output) => Shape
 ): Schema<Shape, Input>;
-
-// Overload for compactColumns: output becomes an array of target output
-export function to<CellInput, TargetOutput>(
-  schema: CompactColumnsSchema<unknown, CellInput>,
-  target: Schema<TargetOutput, unknown>
-): Schema<TargetOutput[], CellInput[][]>;
 
 export function to<
   Output = unknown,

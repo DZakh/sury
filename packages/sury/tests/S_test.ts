@@ -2100,13 +2100,9 @@ test("CompactColumns schema", (t) => {
     })
   );
 
-  // Note: compactColumns creates raw objects, field-level transformations
-  // like nullable are not applied (null stays as null)
-  type RawItem = { id: string; name: string | null; deleted: boolean };
-
-  // Test decoder (parser)
-  const decoder = S.decoder(schema) as (input: unknown[][]) => RawItem[];
-  const parsed = decoder([
+  // Test parsing columnar data to row objects
+  const parse = S.parser(schema);
+  const parsed = parse([
     ["0", "1"],
     ["Hello", null],
     [false, true],
@@ -2116,20 +2112,19 @@ test("CompactColumns schema", (t) => {
     { id: "1", name: null, deleted: true },
   ]);
 
-  // Test encoder
-  const encoder = S.encoder(schema) as (input: RawItem[]) => unknown[][];
-  const value = encoder([
-    { id: "0", name: "Hello", deleted: false },
-    { id: "1", name: null, deleted: true },
-  ]);
-
-  const expected = [
+  // Test encoding row objects back to columnar data
+  const encoded = S.reverseConvertOrThrow(
+    [
+      { id: "0", name: "Hello", deleted: false },
+      { id: "1", name: null, deleted: true },
+    ],
+    schema
+  );
+  t.deepEqual(encoded, [
     ["0", "1"],
     ["Hello", null],
     [false, true],
-  ];
-
-  t.deepEqual(value, expected);
+  ]);
 });
 
 test("CompactColumns with json and bigint", (t) => {
@@ -2141,13 +2136,9 @@ test("CompactColumns with json and bigint", (t) => {
     })
   );
 
-  // Note: compactColumns creates raw objects, field-level transformations
-  // like bigint are not applied (strings stay as strings)
-  type RawItem = { id: string; amount: string };
-
-  // Test decoder - values stay as-is (strings not converted to bigint)
-  const decoder = S.decoder(schema) as unknown as (input: S.JSON[][]) => RawItem[];
-  const parsed = decoder([
+  // Test parsing - values stay as-is (strings not converted to bigint)
+  const parse = S.parser(schema);
+  const parsed = parse([
     ["0", "1"],
     ["12345678901234567890", "98765432109876543210"],
   ]);
@@ -2156,14 +2147,15 @@ test("CompactColumns with json and bigint", (t) => {
     { id: "1", amount: "98765432109876543210" },
   ]);
 
-  // Test encoder - values stay as-is
-  const encoder = S.encoder(schema) as unknown as (input: RawItem[]) => S.JSON[][];
-  const value = encoder([
-    { id: "0", amount: "12345678901234567890" },
-    { id: "1", amount: "98765432109876543210" },
-  ]);
-
-  t.deepEqual(value, [
+  // Test encoding - values stay as-is
+  const encoded = S.reverseConvertOrThrow(
+    [
+      { id: "0", amount: "12345678901234567890" },
+      { id: "1", amount: "98765432109876543210" },
+    ],
+    schema
+  );
+  t.deepEqual(encoded, [
     ["0", "1"],
     ["12345678901234567890", "98765432109876543210"],
   ]);
