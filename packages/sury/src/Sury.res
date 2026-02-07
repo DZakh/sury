@@ -6118,9 +6118,29 @@ let js_to = {
   }
 }
 
-let js_refine = (schema, refiner) => {
+let js_refine = (schema, refineCheck, refineOptions) => {
   schema->refine(s => {
-    v => refiner(v, s)
+    v => {
+      if !refineCheck(v) {
+        let error = switch refineOptions {
+        | Some(options) =>
+          switch (options->Obj.magic)["error"] {
+          | Some(e) => e
+          | None => "Refinement failed"
+          }
+        | None => "Refinement failed"
+        }
+        let path = switch refineOptions {
+        | Some(options) =>
+          switch (options->Obj.magic)["path"] {
+          | Some(p) => Path.fromArray(p)
+          | None => Path.empty
+          }
+        | None => Path.empty
+        }
+        s.fail(error, ~path)
+      }
+    }
   })
 }
 

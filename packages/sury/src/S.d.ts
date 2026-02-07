@@ -107,15 +107,23 @@ export type Schema<Output, Input = unknown> = {
     decode?: ((value: Output) => TargetInput) | undefined,
     encode?: (value: TargetInput) => Output
   ): Schema<TargetOutput, Input>;
-  // I don't know how, but it makes both S.refine and S.shape work
-  with<Shape>(
+  with(
     refine: (
       schema: Schema<unknown, unknown>,
-      refiner:
+      refineCheck: (value: unknown) => boolean,
+      refineOptions?: { error?: string; path?: string[] }
+    ) => Schema<unknown, unknown>,
+    refineCheck: (value: Output) => boolean,
+    refineOptions?: { error?: string; path?: string[] }
+  ): Schema<Output, Input>;
+  with<Shape>(
+    fn: (
+      schema: Schema<unknown, unknown>,
+      callback:
         | ((value: unknown, s: EffectCtx<unknown, unknown>) => unknown)
         | undefined
     ) => Schema<unknown, unknown>,
-    refiner:
+    callback:
       | ((value: Output, s: EffectCtx<unknown, unknown>) => Shape)
       | undefined
   ): Schema<Shape, Input>;
@@ -714,7 +722,11 @@ export function asyncParserRefine<Output, Input>(
 
 export function refine<Output, Input>(
   schema: Schema<Output, Input>,
-  refiner: (value: Output, s: EffectCtx<Output, Input>) => void
+  refineCheck: (value: Output) => boolean,
+  refineOptions?: {
+    error?: string;
+    path?: string[];
+  }
 ): Schema<Output, Input>;
 
 export const min: <Output extends string | number | unknown[], Input>(

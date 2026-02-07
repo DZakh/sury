@@ -4037,8 +4037,14 @@ function js_to(schema, target, maybeDecoder, maybeEncoder) {
   });
 }
 
-function js_refine(schema, refiner) {
-  return refine$1(schema, s => (v => refiner(v, s)));
+function js_refine(schema, refineCheck, refineOptions) {
+  return refine$1(schema, s => (v => {
+    if (!refineCheck(v)) {
+      let error = refineOptions !== undefined && refineOptions.error !== undefined ? refineOptions.error : "Refinement failed";
+      let path = refineOptions !== undefined && refineOptions.path !== undefined ? fromArray(refineOptions.path) : "";
+      s.fail(error, path);
+    }
+  }));
 }
 
 function noop(a) {
