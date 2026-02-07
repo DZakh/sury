@@ -5214,6 +5214,7 @@ module Schema = {
     let targetSchema = input.expected.to->X.Option.getUnsafe
     let output = getShapedSerializerOutput(~input, ~acc=Some(acc), ~targetSchema, ~path=Path.empty)
 
+    output.hasTransform = Some(true)
     output.prev = Some(input)
 
     output

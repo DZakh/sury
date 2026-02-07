@@ -3458,6 +3458,7 @@ function shapedSerializer(input, param) {
   prepareShapedSerializerAcc(acc, input);
   let targetSchema = input.e.to;
   let output = getShapedSerializerOutput(input, acc, targetSchema, "");
+  output.t = true;
   output.prev = input;
   return output;
 }
