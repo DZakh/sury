@@ -24,6 +24,12 @@ test("Expression of Array schema", t => {
   t->Assert.deepEqual(S.array(S.string)->S.toExpression, "string[]")
 })
 
+test("Expression of compactColumns schema without S.to", t => {
+  t->Assert.deepEqual(S.compactColumns(S.unknown)->S.toExpression, "unknown[][]")
+  t->Assert.deepEqual(S.compactColumns(S.string)->S.toExpression, "string[][]")
+  t->Assert.deepEqual(S.compactColumns(S.int)->S.toExpression, "int32[][]")
+})
+
 test("Expression of compactColumns schema", t => {
   t->Assert.deepEqual(
     S.compactColumns(S.unknown)

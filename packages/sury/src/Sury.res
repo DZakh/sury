@@ -777,7 +777,7 @@ let rec toExpression = schema => {
     ->(Obj.magic: array<internal> => array<t<'a>>)
     ->Js.Array2.map(toExpression)
     ->Js.Array2.joinWith(" | ")
-  | {format: ?Some(CompactColumns), ?to, ?properties} => {
+  | {format: ?Some(CompactColumns), ?to, ?properties, ?additionalItems} => {
       // For compactColumns, show the column types if we have properties from .to
       let propsToUse = switch (properties, to) {
       | (Some(props), _) => Some(props)
@@ -793,7 +793,20 @@ let rec toExpression = schema => {
             `${propSchema->toExpression}[]`
           })
           ->Js.Array2.joinWith(", ")}]`
-      | None => "unknown[][]"
+      | None =>
+        // No S.to applied, get the inner schema expression from additionalItems
+        // additionalItems contains the inner array schema, which itself has additionalItems
+        switch additionalItems {
+        | Some(Schema(innerArraySchema)) =>
+          let innerArrayInternal = innerArraySchema->castToInternal
+          switch innerArrayInternal.additionalItems {
+          | Some(Schema(itemSchema)) =>
+            let itemSchemaUnknown: t<'a> = itemSchema->Obj.magic
+            `${itemSchemaUnknown->toExpression}[][]`
+          | _ => "unknown[][]"
+          }
+        | _ => "unknown[][]"
+        }
       }
     }
   | {format} => (format :> string)

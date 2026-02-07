@@ -38,7 +38,6 @@ export var decoder = S.getDecoder
 export var asyncDecoder = S.asyncDecoder
 export var encoder = S.encoder
 export var asyncEncoder = S.asyncEncoder
-export var reverseConvertOrThrow = S.reverseConvertOrThrow
 export var assert = S.js_assert
 export var recursive = S.recursive
 export var merge = S.js_merge

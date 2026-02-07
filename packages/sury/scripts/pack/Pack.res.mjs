@@ -110,6 +110,10 @@ let filesMapping = [
     "S.array"
   ],
   [
+    "compactColumns",
+    "S.compactColumns"
+  ],
+  [
     "instance",
     "S.instance"
   ],

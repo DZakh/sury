@@ -2106,20 +2106,18 @@ test("CompactColumns schema", (t) => {
     ["0", "1"],
     ["Hello", null],
     [false, true],
-  ]);
+  ] as unknown[][]);
   t.deepEqual(parsed, [
     { id: "0", name: "Hello", deleted: false },
     { id: "1", name: null, deleted: true },
   ]);
 
   // Test encoding row objects back to columnar data
-  const encoded = S.reverseConvertOrThrow(
-    [
-      { id: "0", name: "Hello", deleted: false },
-      { id: "1", name: null, deleted: true },
-    ],
-    schema
-  );
+  const encode = S.encoder(schema);
+  const encoded = encode([
+    { id: "0", name: "Hello", deleted: false },
+    { id: "1", name: null, deleted: true },
+  ] as any);
   t.deepEqual(encoded, [
     ["0", "1"],
     ["Hello", null],
@@ -2141,20 +2139,18 @@ test("CompactColumns with json and bigint", (t) => {
   const parsed = parse([
     ["0", "1"],
     ["12345678901234567890", "98765432109876543210"],
-  ]);
+  ] as S.JSON[][]);
   t.deepEqual(parsed, [
     { id: "0", amount: "12345678901234567890" },
     { id: "1", amount: "98765432109876543210" },
   ]);
 
   // Test encoding - values stay as-is
-  const encoded = S.reverseConvertOrThrow(
-    [
-      { id: "0", amount: "12345678901234567890" },
-      { id: "1", amount: "98765432109876543210" },
-    ],
-    schema
-  );
+  const encode = S.encoder(schema);
+  const encoded = encode([
+    { id: "0", amount: "12345678901234567890" },
+    { id: "1", amount: "98765432109876543210" },
+  ] as any);
   t.deepEqual(encoded, [
     ["0", "1"],
     ["12345678901234567890", "98765432109876543210"],

@@ -575,11 +575,6 @@ export function asyncEncoder<
   ...schemas: Schemas
 ): (data: ExtractFirstOutput<Schemas>) => Promise<ExtractLastInput<Schemas>>;
 
-export function reverseConvertOrThrow<Input>(
-  data: unknown,
-  schema: Schema<unknown, Input>
-): Input;
-
 export function assert<Output, Input>(
   schema: Schema<Output, Input>,
   data: unknown
@@ -633,7 +628,7 @@ export const array: <Output, Input>(
 
 export const compactColumns: <Output, Input>(
   schema: Schema<Output, Input>
-) => Schema<Output[], Input[][]>;
+) => Schema<Output[][], Input[][]>;
 
 export const record: <Output, Input>(
   schema: Schema<Output, Input>
