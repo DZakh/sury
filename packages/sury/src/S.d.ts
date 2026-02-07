@@ -626,9 +626,17 @@ export const array: <Output, Input>(
   schema: Schema<Output, Input>
 ) => Schema<Output[], Input[]>;
 
+// CompactColumns schema marker type for proper S.to type inference
+export type CompactColumnsSchema<CellOutput, CellInput> = Schema<
+  CellOutput[],
+  CellInput[][]
+> & {
+  readonly format?: "compactColumns";
+};
+
 export const compactColumns: <Output, Input>(
   schema: Schema<Output, Input>
-) => Schema<Output[][], Input[][]>;
+) => CompactColumnsSchema<Output, Input>;
 
 export const record: <Output, Input>(
   schema: Schema<Output, Input>
@@ -776,6 +784,12 @@ export function shape<Shape = unknown, Output = unknown, Input = unknown>(
   schema: Schema<Output, Input>,
   shaper: (value: Output) => Shape
 ): Schema<Shape, Input>;
+
+// Overload for compactColumns: output becomes an array of target output
+export function to<CellInput = unknown, TargetOutput = unknown>(
+  schema: CompactColumnsSchema<unknown, CellInput>,
+  target: Schema<TargetOutput, unknown>
+): Schema<TargetOutput[], CellInput[][]>;
 
 export function to<
   Output = unknown,

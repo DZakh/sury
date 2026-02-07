@@ -161,7 +161,7 @@ type rec t<'value> =
   Array({
       items: array<t<unknown>>,
       additionalItems: additionalItems,
-      format?: format,
+      format?: arrayFormat,
       name?: string,
       title?: string,
       description?: string,

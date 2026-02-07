@@ -69,9 +69,10 @@ test("Case with missing item at the end", t => {
 })
 
 test("Handles empty objects", t => {
+  let schema = S.compactColumns(S.unknown)->S.to(S.object(_ => ()))
   t->Assert.throws(
     () => {
-      S.compactColumns(S.unknown)->S.to(S.object(_ => ()))->S.parseOrThrow(%raw(`[]`))
+      %raw(`[]`)->S.parseOrThrow(schema)
     },
     ~expectations={
       message: "[Sury] Invalid empty object for S.compactColumns schema.",
@@ -80,12 +81,13 @@ test("Handles empty objects", t => {
 })
 
 test("Handles non-object schemas", t => {
+  let schema = S.compactColumns(S.unknown)->S.to(S.tuple2(S.string, S.int))
   t->Assert.throws(
     () => {
-      S.compactColumns(S.unknown)->S.to(S.tuple2(S.string, S.int))->S.parseOrThrow(%raw(`[]`))
+      %raw(`[]`)->S.parseOrThrow(schema)
     },
     ~expectations={
-      message: "[Sury] Conversion from \"unknown\" to \"unknown\" is not supported",
+      message: "Failed at [\"0\"]: Unsupported conversion from unknown[] to string",
     },
   )
 })
