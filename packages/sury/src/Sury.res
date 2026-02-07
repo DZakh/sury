@@ -3093,14 +3093,6 @@ let noValidation = (schema, value) => {
   mut->castToPublic
 }
 
-let appendRefiner = (~existingDecoder: builder, refiner) => {
-  (~input, ~selfSchema) => {
-    let output = existingDecoder(~input, ~selfSchema)
-    output.codeAfterValidation = output.codeAfterValidation ++ refiner(~input=output, ~selfSchema)
-    output
-  }
-}
-
 let internalRefine = (schema, makeRefiner) => {
   let schema = schema->castToInternal
   updateOutput(schema, mut => {
