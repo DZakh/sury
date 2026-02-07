@@ -911,7 +911,7 @@ let globalConfig: globalConfig = {
 let valueOptions = Js.Dict.empty()
 let configurableValueOptions = %raw(`{configurable: true}`)
 let valKey = "value"
-let reverseKey = "r"
+let reversedKey = "r"
 
 @new
 external base: unit => internal = "Schema"
@@ -921,7 +921,7 @@ let base = (tag, ~selfReverse) => {
   s.seq = %raw(`seq++`)
   if selfReverse {
     valueOptions->Js.Dict.set(valKey, s->Obj.magic)
-    let _ = X.Object.defineProperty(s, reverseKey, valueOptions->Obj.magic)
+    let _ = X.Object.defineProperty(s, reversedKey, valueOptions->Obj.magic)
   }
   s
 }
@@ -2177,8 +2177,8 @@ and getOutputSchema = (schema: internal) => {
 }
 // FIXME: Define it as a schema property
 and reverse = (schema: internal) => {
-  if schema->Obj.magic->Stdlib.Dict.has(reverseKey)->Obj.magic {
-    schema->Obj.magic->Stdlib.Dict.getUnsafe(reverseKey)->Obj.magic
+  if schema->Obj.magic->Stdlib.Dict.has(reversedKey)->Obj.magic {
+    schema->Obj.magic->Stdlib.Dict.getUnsafe(reversedKey)->Obj.magic
   } else {
     let reversedHead = ref(None)
     let current = ref(Some(schema))
@@ -2285,9 +2285,9 @@ and reverse = (schema: internal) => {
     // for some reason Wallaby still shows the property
     let r = reversedHead.contents->X.Option.getUnsafe
     valueOptions->Js.Dict.set(valKey, r->Obj.magic)
-    let _ = X.Object.defineProperty(schema, reverseKey, valueOptions->Obj.magic)
+    let _ = X.Object.defineProperty(schema, reversedKey, valueOptions->Obj.magic)
     valueOptions->Js.Dict.set(valKey, schema->Obj.magic)
-    let _ = X.Object.defineProperty(r, reverseKey, valueOptions->Obj.magic)
+    let _ = X.Object.defineProperty(r, reversedKey, valueOptions->Obj.magic)
     r
   }
 }
@@ -2400,8 +2400,9 @@ let rec makeObjectVal = (prev: val, ~schema): B.Val.Object.t => {
   }
 }
 and array = item => {
-  let mut = base(arrayTag, ~selfReverse=false)
-  mut.additionalItems = Some(Schema(item->castToInternal->castToPublic))
+  let itemInternal = item->castToInternal
+  let mut = base(arrayTag, ~selfReverse=itemInternal->Obj.magic->Stdlib.Dict.getUnsafe(reversedKey) === itemInternal->Obj.magic)
+  mut.additionalItems = Some(Schema(itemInternal->castToPublic))
   mut.items = Some(X.Array.immutableEmpty)
   mut.decoder = arrayDecoder
   mut->castToPublic
@@ -3202,7 +3203,7 @@ let nestedLoc = "BS_PRIVATE_NESTED_SOME_NONE"
 module Dict = {
   let factory = item => {
     let item = item->castToInternal
-    let mut = base(objectTag, ~selfReverse=false)
+    let mut = base(objectTag, ~selfReverse=item->Obj.magic->Stdlib.Dict.getUnsafe(reversedKey) === item->Obj.magic)
     mut.properties = Some(X.Object.immutableEmpty)
     mut.additionalItems = Some(Schema(item->castToPublic))
     mut.decoder = objectDecoder
