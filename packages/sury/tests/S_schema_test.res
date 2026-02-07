@@ -125,11 +125,11 @@ test("Tuple with embeded transformed schema", t => {
   )
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#ReverseConvert),
-    `i=>{let v0=i["0"];if(v0===void 0){v0=null}return [v0,void 0,"bar",]}`,
+    `i=>{let v0=i["0"];if(v0===void 0){v0=null}else if(!(typeof v0==="string")){e[0](v0)}return [v0,void 0,"bar",]}`,
   )
   t->Assert.is(
     tupleSchema->U.getCompiledCodeString(~op=#ReverseConvert),
-    `i=>{let v0=i["0"];if(v0===void 0){v0=null}return [v0,void 0,"bar",]}`,
+    `i=>{let v0=i["0"];if(v0===void 0){v0=null}else if(!(typeof v0==="string")){e[0](v0)}return [v0,void 0,"bar",]}`,
   )
 })
 
