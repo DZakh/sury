@@ -7,9 +7,8 @@
 #   cd packages/sury && pnpm exec ava --no-worker-threads 2>&1 | grep "✘ \[fail\]" | sort > /tmp/after.txt
 #   diff failing-tests.snapshot.txt /tmp/after.txt
 #
-# Total: 42 failing tests
+# Total: 39 failing tests
 
-  ✘ [fail]: Example_test.res › Compiled serialize code snapshot
   ✘ [fail]: Example_test.res › Example Error thrown in test
   ✘ [fail]: S_jsonString_test.res › Can apply refinement to JSON string with S.to after
   ✘ [fail]: S_null_test.res › Record schema with optional nullable field Error thrown in test
@@ -26,11 +25,9 @@
   ✘ [fail]: S_object_withoutDeclaredFields_test.res › Successfully parses object with excess keys and returns transformed value
   ✘ [fail]: S_parseAsync_test.res › [Union] Passes with Parse operation. Async item should fail Asserted result is not S.Exn "Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead". Instead got: 2
   ✘ [fail]: S_recursive_test.res › Fails to serialise nested recursive object Error thrown in test
-  ✘ [fail]: S_recursive_test.res › Parses recursive object with async fields in parallel
   ✘ [fail]: S_recursive_test.res › Recursively transforms all objects when added transform to the recursive's function returned schema
   ✘ [fail]: S_recursive_test.res › Recursively transforms nested objects when added transform to the placeholder schema Error thrown in test
   ✘ [fail]: S_recursive_test.res › Shallowly transforms object when added transform to the S.recursive result Error thrown in test
-  ✘ [fail]: S_recursive_test.res › Successfully parses recursive object using S.parseAsyncOrThrow
   ✘ [fail]: S_recursive_test.res › Successfully serializes recursive object
   ✘ [fail]: S_refine_test.res › Compiled parse code snapshot for simple object with refine
   ✘ [fail]: S_refine_test.res › Successfully parses
