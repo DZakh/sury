@@ -87,8 +87,8 @@ test("Fails to parse undefined", t => {
   )
 })
 
-let jsonParseCode = `i=>{let v0;v0=e[0](i);return v0}
-JSON: i=>{if(Array.isArray(i)){for(let v0=0;v0<i.length;++v0){try{let v1;v1=e[0]["unknown->JSON--0"](i[v0]);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}}else if(typeof i==="object"&&i&&!Array.isArray(i)){for(let v3 in i){try{let v4;v4=e[1]["unknown->JSON--0"](i[v3]);}catch(v5){v5.path='["'+v3+'"]'+v5.path;throw v5}}}else if(!(typeof i==="string"||typeof i==="boolean"||typeof i==="number"&&!Number.isNaN(i)||i===null)){e[2](i)}return i}`
+let jsonParseCode = `i=>{e[0](i);return i}
+JSON: i=>{if(Array.isArray(i)){for(let v0=0;v0<i.length;++v0){try{e[0]["unknown->JSON--0"](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}}else if(typeof i==="object"&&i&&!Array.isArray(i)){for(let v2 in i){try{e[1]["unknown->JSON--0"](i[v2]);}catch(v3){v3.path='["'+v2+'"]'+v3.path;throw v3}}}else if(!(typeof i==="string"||typeof i==="boolean"||typeof i==="number"&&!Number.isNaN(i)||i===null)){e[2](i)}return i}`
 test("Compiled parse code snapshot", t => {
   let schema = S.json
 

@@ -2807,21 +2807,30 @@ let recursiveDecoder = Builder.make((~input, ~selfSchema as _) => {
     }
   }
 
-  let outputVar = input.global->B.varWithoutAllocation
-  input.allocate(outputVar)
+  let hasTransform = def.hasTransform === Some(true)
+  let isAsync = def.isAsync->X.Option.getUnsafe
 
-  let output = input->B.next(outputVar, ~schema=expectedSchema, ~expected=expectedSchema)
-  output.var = B._var
-  output.prev = None
+  let output = if hasTransform || isAsync {
+    let outputVar = input.global->B.varWithoutAllocation
+    input.allocate(outputVar)
 
-  output.codeFromPrev = `${outputVar}=${recOperation.contents}(${input.inline});`
+    let output = input->B.next(outputVar, ~schema=expectedSchema, ~expected=expectedSchema)
+    output.var = B._var
 
-  // Use the cached values from def (correctly set after compilation)
-  output.hasTransform = def.hasTransform
-  if def.isAsync->X.Option.getUnsafe {
-    output.flag = output.flag->Flag.with(ValFlag.async)
+    output.codeFromPrev = `${outputVar}=${recOperation.contents}(${input.inline});`
+
+    if isAsync {
+      output.flag = output.flag->Flag.with(ValFlag.async)
+    }
+    output
+  } else {
+    // No transform: call for validation but don't capture result
+    let output = input->B.refine(~schema=expectedSchema, ~expected=expectedSchema)
+    output.codeFromPrev = `${recOperation.contents}(${input.inline});`
+    output
   }
 
+  output.prev = None
   output.codeFromPrev = output->B.mergeWithPathPrepend(~parent=input)
   output.prev = Some(input)
 

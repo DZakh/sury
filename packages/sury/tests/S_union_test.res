@@ -127,7 +127,7 @@ test("When union of json and string schemas, should parse the first one", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{let v0;v0=e[0](i);i="json"}catch(e0){if(typeof i==="string"){i="str"}else{e[1](i,e0)}}return i}`,
+    `i=>{try{e[0](i);i="json"}catch(e0){if(typeof i==="string"){i="str"}else{e[1](i,e0)}}return i}`,
   )
 })
 
