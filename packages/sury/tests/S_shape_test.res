@@ -408,12 +408,11 @@ test(
 test("S.json shaped to literal should keep validation", t => {
   let schema = S.json->S.shape(_ => "foo")
 
-  // TODO: Shouldn't recreate value during validation
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{let v0;v0=e[0](i);return "foo"}
-JSON: i=>{if(Array.isArray(i)){let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v1;v1=e[0]["unknown->JSON--0"](i[v0]);v3[v0]=v1}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}i=v3}else if(typeof i==="object"&&i&&!Array.isArray(i)){let v7={};for(let v4 in i){try{let v5;v5=e[1]["unknown->JSON--0"](i[v4]);v7[v4]=v5}catch(v6){v6.path='["'+v4+'"]'+v6.path;throw v6}}i=v7}else if(!(typeof i==="string"||typeof i==="boolean"||typeof i==="number"&&!Number.isNaN(i)||i===null)){e[2](i)}return i}`,
+    `i=>{e[0](i);return "foo"}
+JSON: i=>{if(Array.isArray(i)){for(let v0=0;v0<i.length;++v0){try{e[0]["unknown->JSON--0"](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}}else if(typeof i==="object"&&i&&!Array.isArray(i)){for(let v2 in i){try{e[1]["unknown->JSON--0"](i[v2]);}catch(v3){v3.path='["'+v2+'"]'+v3.path;throw v3}}}else if(!(typeof i==="string"||typeof i==="boolean"||typeof i==="number"&&!Number.isNaN(i)||i===null)){e[2](i)}return i}`,
   )
 
   t->Assert.deepEqual("foo"->S.parseOrThrow(schema), "foo")

@@ -491,6 +491,7 @@ and internal = {
   @as("$defs")
   mutable defs?: dict<internal>,
   mutable isAsync?: bool, // Optional value means that it's not lazily computed yet.
+  mutable hasTransform?: bool, // Optional value means that it's not lazily computed yet.
   @as("~standard")
   mutable standard?: standard, // This is optional for convenience. The object added on make call
 }
@@ -2136,6 +2137,8 @@ and compileDecoder = (~schema, ~expected, ~flag, ~defs) => {
 
   let isAsync = output.flag->Flag.has(ValFlag.async)
   expected.isAsync = Some(isAsync)
+  let hasTransform = output.hasTransform === Some(true)
+  expected.hasTransform = Some(hasTransform)
 
   if (
     code === "" &&
@@ -2726,10 +2729,10 @@ and objectDecoder: Builder.t = (~input as unknownInput, ~selfSchema as _) => {
 let recursiveDecoder = Builder.make((~input, ~selfSchema as _) => {
   let expectedSchema = input.expected
 
-  let ref = expectedSchema.ref->X.Option.getUnsafe
+  let schemaRef = expectedSchema.ref->X.Option.getUnsafe
   let defs = input.global.defs->X.Option.getUnsafe
   // Ignore #/$defs/
-  let identifier = ref->Js.String2.sliceToEnd(~from=8)
+  let identifier = schemaRef->Js.String2.sliceToEnd(~from=8)
   let def = defs->Js.Dict.unsafeGet(identifier)
   let flag = input.global.flag
 
@@ -2740,48 +2743,94 @@ let recursiveDecoder = Builder.make((~input, ~selfSchema as _) => {
   }
 
   let key = `${inputSchema.seq->Obj.magic}-${def.seq->Obj.magic}--${flag->Obj.magic}`
-  let recOperation = switch def->Obj.magic->X.Dict.getUnsafeOption(key) {
+  let recOperation = ref("")
+
+  switch def->Obj.magic->X.Dict.getUnsafeOption(key) {
   | Some(fn) =>
-    // A hacky way to prevent infinite recursion
-    if fn === %raw(`0`) {
-      input->B.embed(def) ++ `["${key}"]`
-    } else {
-      input->B.embed(fn)
-    }
+    // Circular reference (fn === 0) or already compiled
+    recOperation := if fn === %raw(`0`) {
+        input->B.embed(def) ++ `["${key}"]`
+      } else {
+        input->B.embed(fn)
+      }
   | None => {
-      configurableValueOptions->Js.Dict.set(valKey, 0->Obj.magic)
-      // Use defineProperty, so the cache keys are not enumerable
-      let _ = X.Object.defineProperty(def, key, configurableValueOptions->Obj.magic)
+      // Optimistic compilation with recompile if assumptions were wrong
+      let assumedHasTransform = ref(def.hasTransform->Option.getOr(false))
+      let assumedIsAsync = ref(def.isAsync->Option.getOr(false))
+      let compileNeeded = ref(true)
+      let finalFn = ref(Obj.magic(0))
 
-      let fn = compileDecoder(~schema=inputSchema, ~expected=def, ~flag, ~defs=Some(defs))
+      while compileNeeded.contents {
+        compileNeeded := false
 
-      valueOptions->Js.Dict.set(valKey, fn)
-      // Use defineProperty, so the cache keys are not enumerable
-      let _ = X.Object.defineProperty(def, key, valueOptions->Obj.magic)
+        // Set optimistic values on def before compiling (if not already set)
+        // Inner circular references will read these values
+        if def.hasTransform === None {
+          def.hasTransform = Some(assumedHasTransform.contents)
+        }
+        if def.isAsync === None {
+          def.isAsync = Some(assumedIsAsync.contents)
+        }
 
-      input->B.embed(fn)
+        // Mark as in-progress
+        configurableValueOptions->Js.Dict.set(valKey, 0->Obj.magic)
+        let _ = X.Object.defineProperty(def, key, configurableValueOptions->Obj.magic)
+
+        // Compile
+        let fn = compileDecoder(~schema=inputSchema, ~expected=def, ~flag, ~defs=Some(defs))
+
+        // Cache result
+        valueOptions->Js.Dict.set(valKey, fn)
+        let _ = X.Object.defineProperty(def, key, valueOptions->Obj.magic)
+
+        finalFn := fn
+
+        // Check if actual values differ from assumed
+        let actualHasTransform = def.hasTransform->X.Option.getUnsafe
+        let actualIsAsync = def.isAsync->X.Option.getUnsafe
+
+        if (
+          actualHasTransform !== assumedHasTransform.contents ||
+            actualIsAsync !== assumedIsAsync.contents
+        ) {
+          // Wrong assumption - update and recompile
+          assumedHasTransform := actualHasTransform
+          assumedIsAsync := actualIsAsync
+          // Delete cached function to force recompilation
+          let _ = %raw(`delete def[key]`)
+          compileNeeded := true
+        }
+      }
+
+      // Embed only the final compiled function to avoid wasting embed slots on recompiles
+      recOperation := input->B.embed(finalFn.contents)
     }
   }
 
-  let outputVar = input.global->B.varWithoutAllocation
-  input.allocate(outputVar)
+  let hasTransform = def.hasTransform === Some(true)
+  let isAsync = def.isAsync->X.Option.getUnsafe
 
-  let output = input->B.next(outputVar, ~schema=expectedSchema, ~expected=expectedSchema)
-  output.var = B._var
+  let output = if hasTransform || isAsync {
+    let outputVar = input.global->B.varWithoutAllocation
+    input.allocate(outputVar)
+
+    let output = input->B.next(outputVar, ~schema=expectedSchema, ~expected=expectedSchema)
+    output.var = B._var
+
+    output.codeFromPrev = `${outputVar}=${recOperation.contents}(${input.inline});`
+
+    if isAsync {
+      output.flag = output.flag->Flag.with(ValFlag.async)
+    }
+    output
+  } else {
+    // No transform: call for validation but don't capture result
+    let output = input->B.refine(~schema=expectedSchema, ~expected=expectedSchema)
+    output.codeFromPrev = `${recOperation.contents}(${input.inline});`
+    output
+  }
+
   output.prev = None
-
-  output.codeFromPrev = `${outputVar}=${recOperation}(${input.inline});`
-
-  if def.isAsync === None {
-    let defsMut = defs->X.Dict.copy
-    defsMut->Js.Dict.set(identifier, unknown)
-    // FIXME: Can it be done better?
-    let _ = def->isAsyncInternal(~defs=Some(defsMut))
-  }
-  if def.isAsync->X.Option.getUnsafe {
-    output.flag = output.flag->Flag.with(ValFlag.async)
-  }
-
   output.codeFromPrev = output->B.mergeWithPathPrepend(~parent=input)
   output.prev = Some(input)
 
@@ -5170,6 +5219,7 @@ module Schema = {
 
     let output = getShapedSerializerOutput(~input, ~acc=Some(acc), ~targetSchema, ~path=Path.empty)
 
+    output.hasTransform = Some(true)
     output.prev = Some(input)
 
     output
