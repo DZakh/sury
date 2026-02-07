@@ -65,8 +65,8 @@ asyncTest("Successfully parses recursive object using S.parseAsyncOrThrow", t =>
   t->U.assertCompiledCode(
     ~schema=nodeSchema,
     ~op=#ParseAsync,
-    `i=>{let v0=e[0](i);return Promise.resolve(v0)}
-Node: i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["Id"],v1=i["Children"];if(typeof v0!=="string"){e[1](v0)}if(!Array.isArray(v1)){e[2](v1)}let v6=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v5;try{let v4=e[3][3](v1[v2]);v5=v4}catch(v3){if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+'["'+v2+'"]'+v3.path}throw v3}v6[v2]=v5}return {"id":v0,"children":v6,}}`,
+    `i=>{let v0;v0=e[0](i);return Promise.resolve(v0)}
+Node: i=>{if(typeof i!=="object"||!i){e[3](i)}let v0=i["Id"],v1=i["Children"];if(typeof v0!=="string"){e[0](v0)}if(!Array.isArray(v1)){e[2](v1)}let v5=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){try{let v3;v3=e[1]["unknown->Node--1"](v1[v2]);v5[v2]=v3}catch(v4){v4.path="[\\"Children\\"]"+'["'+v2+'"]'+v4.path;throw v4}}return {"id":v0,"children":v5,}}`,
   )
 
   %raw(`{
@@ -544,8 +544,8 @@ test("Parses recursive object with async fields in parallel", t => {
   t->U.assertCompiledCode(
     ~schema=nodeSchema,
     ~op=#ParseAsync,
-    `i=>{let v0=e[0](i);return v0}
-Node: i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["Id"],v1=i["Children"];if(typeof v0!=="string"){e[1](v0)}if(!Array.isArray(v1)){e[3](v1)}let v6=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v5;try{let v4=e[4][3](v1[v2]);v5=v4.catch(v3=>{if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+'["'+v2+'"]'+v3.path}throw v3})}catch(v3){if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+'["'+v2+'"]'+v3.path}throw v3}v6[v2]=v5}return Promise.all([e[2](v0),Promise.all(v6),]).then(a=>({"id":a[0],"children":a[1],}))}`,
+    `i=>{let v0;v0=e[0](i);return v0}
+Node: i=>{if(typeof i!=="object"||!i){e[5](i)}let v1=i["Id"],v2=i["Children"];if(typeof v1!=="string"){e[2](v1)}let v0;try{v0=e[0](i["Id"]).catch(x=>e[1](x))}catch(x){e[1](x)}if(!Array.isArray(v2)){e[4](v2)}let v6=new Array(v2.length);for(let v3=0;v3<v2.length;++v3){try{let v4;v4=e[3]["unknown->Node--1"](v2[v3]);v6[v3]=v4.catch(v5=>{v5.path="[\\"Children\\"]"+'["'+v3+'"]'+v5.path;throw v5})}catch(v5){v5.path="[\\"Children\\"]"+'["'+v3+'"]'+v5.path;throw v5}}return Promise.all([v0,Promise.all(v6),]).then(a=>({"id":a[0],"children":a[1],}))}`,
   )
 })
 
