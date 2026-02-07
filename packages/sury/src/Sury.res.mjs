@@ -3655,39 +3655,77 @@ function $$enum(values) {
 }
 
 function compactColumnsEncoder(input, selfSchema) {
+  let inputTagFlag = flags[input.s.type];
+  let isArrayInput = inputTagFlag & 128;
+  if (isArrayInput && !input.s.properties) {
+    return input;
+  }
   let match = input.s;
   let p = match.properties;
   let maybeProperties;
   if (p !== undefined) {
     maybeProperties = p;
   } else {
-    let p$1 = selfSchema.properties;
-    if (p$1 !== undefined) {
-      maybeProperties = p$1;
+    let match$1 = input.s.additionalItems;
+    let exit = 0;
+    if (match$1 !== undefined && match$1 !== "strip" && match$1 !== "strict") {
+      let p$1 = match$1.properties;
+      if (p$1 !== undefined) {
+        maybeProperties = p$1;
+      } else {
+        let p$2 = selfSchema.properties;
+        if (p$2 !== undefined) {
+          maybeProperties = p$2;
+        } else {
+          let match$2 = input.e;
+          if (match$2 !== undefined) {
+            let p$3 = match$2.properties;
+            maybeProperties = p$3 !== undefined ? p$3 : undefined;
+          } else {
+            maybeProperties = undefined;
+          }
+        }
+      }
     } else {
-      let p$2 = input.e.properties;
-      maybeProperties = p$2 !== undefined ? p$2 : undefined;
+      exit = 1;
     }
+    if (exit === 1) {
+      let p$4 = selfSchema.properties;
+      if (p$4 !== undefined) {
+        maybeProperties = p$4;
+      } else {
+        let match$3 = input.e;
+        if (match$3 !== undefined) {
+          let p$5 = match$3.properties;
+          maybeProperties = p$5 !== undefined ? p$5 : undefined;
+        } else {
+          maybeProperties = undefined;
+        }
+      }
+    }
+    
   }
-  if (maybeProperties === undefined) {
-    return unsupportedConversion(input, input.s, input.e);
+  if (maybeProperties !== undefined) {
+    let keys = Object.keys(maybeProperties);
+    let inputVar = input.v();
+    let iteratorVar = varWithoutAllocation(input.g);
+    let outputVar = varWithoutAllocation(input.g);
+    let initialArraysCode = "";
+    let settingCode = "";
+    for (let idx = 0, idx_finish = keys.length; idx < idx_finish; ++idx) {
+      let key = keys[idx];
+      initialArraysCode = initialArraysCode + ("new Array(" + inputVar + ".length),");
+      settingCode = settingCode + (outputVar + "[" + idx + "][" + iteratorVar + "]=" + inputVar + "[" + iteratorVar + "][" + fromString(key) + "];");
+    }
+    input.a(outputVar + "=[" + initialArraysCode + "]");
+    let output = next(input, outputVar, base(arrayTag, false), undefined);
+    output.v = _var;
+    output.cp = output.cp + ("for(let " + iteratorVar + "=0;" + iteratorVar + "<" + inputVar + ".length;++" + iteratorVar + "){" + settingCode + "}");
+    return output;
   }
-  let keys = Object.keys(maybeProperties);
-  let inputVar = input.v();
-  let iteratorVar = varWithoutAllocation(input.g);
-  let outputVar = varWithoutAllocation(input.g);
-  let initialArraysCode = "";
-  let settingCode = "";
-  for (let idx = 0, idx_finish = keys.length; idx < idx_finish; ++idx) {
-    let key = keys[idx];
-    initialArraysCode = initialArraysCode + ("new Array(" + inputVar + ".length),");
-    settingCode = settingCode + (outputVar + "[" + idx + "][" + iteratorVar + "]=" + inputVar + "[" + iteratorVar + "][" + fromString(key) + "];");
-  }
-  input.a(outputVar + "=[" + initialArraysCode + "]");
-  let output = next(input, outputVar, base(arrayTag, false), undefined);
-  output.v = _var;
-  output.cp = output.cp + ("for(let " + iteratorVar + "=0;" + iteratorVar + "<" + inputVar + ".length;++" + iteratorVar + "){" + settingCode + "}");
-  return output;
+  let expected = input.e;
+  let target = expected !== undefined ? expected : selfSchema;
+  return unsupportedConversion(input, input.s, target);
 }
 
 function compactColumnsDecoder(input, selfSchema) {
@@ -3695,12 +3733,15 @@ function compactColumnsDecoder(input, selfSchema) {
   let isArrayInput = inputTagFlag & 128;
   let isUnknownInput = inputTagFlag & 1;
   let match = selfSchema.to;
-  let maybeProperties;
+  let match$1;
   let exit = 0;
   if (match !== undefined) {
     let p = match.properties;
     if (p !== undefined) {
-      maybeProperties = p;
+      match$1 = [
+        p,
+        true
+      ];
     } else {
       exit = 1;
     }
@@ -3708,32 +3749,65 @@ function compactColumnsDecoder(input, selfSchema) {
     exit = 1;
   }
   if (exit === 1) {
-    let p$1 = selfSchema.properties;
-    if (p$1 !== undefined) {
-      maybeProperties = p$1;
-    } else {
-      let match$1 = input.s;
-      let p$2 = match$1.properties;
-      if (p$2 !== undefined) {
-        maybeProperties = p$2;
+    let match$2 = input.s.additionalItems;
+    let exit$1 = 0;
+    if (match$2 !== undefined && match$2 !== "strip" && match$2 !== "strict") {
+      let p$1 = match$2.properties;
+      if (p$1 !== undefined) {
+        match$1 = [
+          p$1,
+          false
+        ];
       } else {
-        let match$2 = input.s.additionalItems;
-        if (match$2 !== undefined && match$2 !== "strip" && match$2 !== "strict") {
-          let p$3 = match$2.properties;
-          maybeProperties = p$3 !== undefined ? p$3 : undefined;
+        let p$2 = selfSchema.properties;
+        if (p$2 !== undefined) {
+          match$1 = [
+            p$2,
+            isUnknownInput || isArrayInput
+          ];
         } else {
-          maybeProperties = undefined;
+          let match$3 = input.s;
+          let p$3 = match$3.properties;
+          match$1 = p$3 !== undefined ? [
+              p$3,
+              false
+            ] : [
+              undefined,
+              true
+            ];
         }
       }
+    } else {
+      exit$1 = 2;
     }
+    if (exit$1 === 2) {
+      let p$4 = selfSchema.properties;
+      if (p$4 !== undefined) {
+        match$1 = [
+          p$4,
+          isUnknownInput || isArrayInput
+        ];
+      } else {
+        let match$4 = input.s;
+        let p$5 = match$4.properties;
+        match$1 = p$5 !== undefined ? [
+            p$5,
+            false
+          ] : [
+            undefined,
+            true
+          ];
+      }
+    }
+    
   }
+  let maybeProperties = match$1[0];
   if (maybeProperties !== undefined) {
     let keys = Object.keys(maybeProperties);
     if (keys.length === 0) {
       throw new Error("[Sury] Invalid empty object for S.compactColumns schema.");
     }
-    let isForwardDirection = selfSchema.to !== undefined;
-    if (isForwardDirection) {
+    if (match$1[1]) {
       if (!isUnknownInput && !isArrayInput) {
         unsupportedConversion(input, input.s, selfSchema);
       }

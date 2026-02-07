@@ -5306,47 +5306,81 @@ let literal = js_schema
 let enum = values => Union.factory(values->Js.Array2.map(literal))
 
 let compactColumnsEncoder = Builder.make((~input, ~selfSchema) => {
-  // Try to get properties from input.schema, selfSchema, or expected
-  let maybeProperties = switch input.schema {
-  | {properties: ?Some(p)} => Some(p)
-  | _ =>
-    switch selfSchema.properties {
-    | Some(p) => Some(p)
+  let inputTagFlag = input.schema.tag->TagFlag.get
+  let isArrayInput = inputTagFlag->Flag.unsafeHas(TagFlag.array)
+
+  // If the input is already an array (columnar format), just pass through
+  // This happens when the encoder is called as a parser after the decoder
+  // has already done the conversion in the reverse direction
+  if isArrayInput && !(input.schema.properties->Obj.magic) {
+    input
+  } else {
+    // Try to get properties from various sources
+    // This encoder is used as serializer (forward) or parser (after reverse)
+    let maybeProperties = switch input.schema {
+    | {properties: ?Some(p)} => Some(p)
+    | _ =>
+      // Check if input is array of objects (additionalItems contains the item schema)
+      switch input.schema.additionalItems {
+      | Some(Schema(itemSchema)) =>
+        let itemInternal = itemSchema->castToInternal
+        switch itemInternal {
+        | {properties: ?Some(p)} => Some(p)
+        | _ =>
+          switch selfSchema.properties {
+          | Some(p) => Some(p)
+          | None =>
+            switch (input.expected->Obj.magic: option<internal>) {
+            | Some({properties: ?Some(p)}) => Some(p)
+            | _ => None
+            }
+          }
+        }
+      | _ =>
+        switch selfSchema.properties {
+        | Some(p) => Some(p)
+        | None =>
+          switch (input.expected->Obj.magic: option<internal>) {
+          | Some({properties: ?Some(p)}) => Some(p)
+          | _ => None
+          }
+        }
+      }
+    }
+
+    switch maybeProperties {
+    | Some(properties) => {
+        let keys = properties->Js.Dict.keys
+        let inputVar = input.var()
+        let iteratorVar = input.global->B.varWithoutAllocation
+        let outputVar = input.global->B.varWithoutAllocation
+
+        let initialArraysCode = ref("")
+        let settingCode = ref("")
+        for idx in 0 to keys->Js.Array2.length - 1 {
+          let key = keys->Js.Array2.unsafe_get(idx)
+          initialArraysCode := initialArraysCode.contents ++ `new Array(${inputVar}.length),`
+          settingCode :=
+            settingCode.contents ++
+            `${outputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]=${inputVar}[${iteratorVar}][${key->X.Inlined.Value.fromString}];`
+        }
+
+        input.allocate(`${outputVar}=[${initialArraysCode.contents}]`)
+
+        let output = input->B.next(outputVar, ~schema=base(arrayTag, ~selfReverse=false))
+        output.var = B._var
+        output.codeFromPrev =
+          output.codeFromPrev ++
+          `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${settingCode.contents}}`
+        output
+      }
     | None =>
-      switch input.expected.properties {
-      | Some(p) => Some(p)
-      | None => None
+      let target = switch (input.expected->Obj.magic: option<internal>) {
+      | Some(expected) => expected
+      | None => selfSchema
       }
+      input->B.unsupportedConversion(~from=input.schema, ~target)
     }
-  }
-
-  switch maybeProperties {
-  | Some(properties) => {
-      let keys = properties->Js.Dict.keys
-      let inputVar = input.var()
-      let iteratorVar = input.global->B.varWithoutAllocation
-      let outputVar = input.global->B.varWithoutAllocation
-
-      let initialArraysCode = ref("")
-      let settingCode = ref("")
-      for idx in 0 to keys->Js.Array2.length - 1 {
-        let key = keys->Js.Array2.unsafe_get(idx)
-        initialArraysCode := initialArraysCode.contents ++ `new Array(${inputVar}.length),`
-        settingCode :=
-          settingCode.contents ++
-          `${outputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]=${inputVar}[${iteratorVar}][${key->X.Inlined.Value.fromString}];`
-      }
-
-      input.allocate(`${outputVar}=[${initialArraysCode.contents}]`)
-
-      let output = input->B.next(outputVar, ~schema=base(arrayTag, ~selfReverse=false))
-      output.var = B._var
-      output.codeFromPrev =
-        output.codeFromPrev ++
-        `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${settingCode.contents}}`
-      output
-    }
-  | None => input->B.unsupportedConversion(~from=input.schema, ~target=input.expected)
   }
 })
 
@@ -5357,27 +5391,38 @@ let compactColumnsDecoder = Builder.make((~input, ~selfSchema) => {
   let isArrayInput = inputTagFlag->Flag.unsafeHas(TagFlag.array)
   let isUnknownInput = inputTagFlag->Flag.unsafeHas(TagFlag.unknown)
 
-  // Try to get properties from selfSchema.to (forward direction) or selfSchema.properties (reverse direction)
-  let maybeProperties = switch selfSchema.to {
-  | Some({properties: ?Some(p)}) => Some(p)
+  // Try to get properties and determine direction based on where we find them
+  // - Forward (columnar → objects): properties come from selfSchema.to
+  // - Reverse (objects → columnar): properties come from input.schema (array of objects)
+  let (maybeProperties, isForwardDirection) = switch selfSchema.to {
+  | Some({properties: ?Some(p)}) => (Some(p), true)
   | _ =>
-    // In reverse direction, properties are stored directly on selfSchema (copied during S.to)
-    switch selfSchema.properties {
-    | Some(p) => Some(p)
-    | None =>
-      // Fallback: check if input.schema has properties
-      switch input.schema {
-      | {properties: ?Some(p)} => Some(p)
+    // Check if input is array of objects (additionalItems contains the item schema)
+    // This indicates reverse direction
+    switch input.schema.additionalItems {
+    | Some(Schema(itemSchema)) =>
+      let itemInternal = itemSchema->castToInternal
+      switch itemInternal {
+      | {properties: ?Some(p)} => (Some(p), false)
       | _ =>
-        // Check if input is array of objects (additionalItems contains the item schema)
-        switch input.schema.additionalItems {
-        | Some(Schema(itemSchema)) =>
-          let itemInternal = itemSchema->castToInternal
-          switch itemInternal {
-          | {properties: ?Some(p)} => Some(p)
-          | _ => None
+        // Try selfSchema.properties or input.schema.properties
+        switch selfSchema.properties {
+        | Some(p) => (Some(p), isUnknownInput || isArrayInput)
+        | None =>
+          switch input.schema {
+          | {properties: ?Some(p)} => (Some(p), false)
+          | _ => (None, true)
           }
-        | _ => None
+        }
+      }
+    | _ =>
+      // No additionalItems, try other fallbacks
+      switch selfSchema.properties {
+      | Some(p) => (Some(p), isUnknownInput || isArrayInput)
+      | None =>
+        switch input.schema {
+        | {properties: ?Some(p)} => (Some(p), false)
+        | _ => (None, true)
         }
       }
     }
@@ -5389,11 +5434,6 @@ let compactColumnsDecoder = Builder.make((~input, ~selfSchema) => {
       if keys->Js.Array2.length === 0 {
         InternalError.panic("Invalid empty object for S.compactColumns schema.")
       }
-
-      // Determine direction: forward (parsing) vs reverse (encoding)
-      // In forward direction: compactColumns.to = objectSchema (has .to)
-      // In reverse direction: compactColumns.to = None (at end of reversed chain)
-      let isForwardDirection = selfSchema.to !== None
 
       if isForwardDirection {
         // Forward direction: columnar → rows
@@ -5490,6 +5530,18 @@ let compactColumns = inputSchema => {
   mut.decoder = compactColumnsDecoder
   // Use serializer so it becomes parser after reverse
   mut.serializer = Some(compactColumnsEncoder)
+  // A tricky part about parser is that we don't know the input type in ReScript
+  // so we need to directly parse to output instead of input
+  // switch parser {
+  // | Some(p) =>
+  //   mut.parser = Some(
+  //     Builder.make((b, ~input, ~selfSchema as _, ~path as _) => {
+  //       // TODO: Support async, reverse, nested parsing
+  //       b->B.embedSyncOperation(~input, ~fn=p)
+  //     }),
+  //   )
+  // | None => ()
+  // }
   mut->castToPublic
 }
 
