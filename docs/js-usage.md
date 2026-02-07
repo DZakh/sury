@@ -898,8 +898,8 @@ You can define brands for refined constraints, like even numbers:
 
 ```ts
 const even = S.number
-  .with(S.refine, (value, s) => {
-    if (value % 2 !== 0) s.fail("Expected an even number");
+  .with(S.refine, (value) => value % 2 === 0, {
+    error: "Expected an even number",
   })
   .with(S.brand, "even");
 
@@ -974,12 +974,12 @@ const nodeSchema = S.recursive<Node, Node>("Node", (nodeSchema) =>
 **Sury** lets you provide custom validation logic via refinements. It's useful to add checks that's not possible to cover with type system. For instance: checking that a number is an integer or that a string is a valid email address.
 
 ```ts
-const shortStringSchema = S.string.with(S.refine, (value, s) => {
-  if (value.length > 255) {
-    s.fail("String can't be more than 255 characters");
-  }
+const shortStringSchema = S.string.with(S.refine, (value) => value.length <= 255, {
+  error: "String can't be more than 255 characters",
 });
 ```
+
+The refine function takes a boolean-returning check and an optional options object with `error` (custom error message) and `path` (custom error path). When the check returns `false`, the schema fails with the provided error message (or `"Refinement failed"` by default).
 
 The refine function is applied for both parser and serializer.
 
