@@ -3101,18 +3101,18 @@ let appendRefiner = (~existingDecoder: builder, refiner) => {
   }
 }
 
-let internalRefine = (schema, refiner) => {
+let internalRefine = (schema, makeRefiner) => {
   let schema = schema->castToInternal
   updateOutput(schema, mut => {
-    let refinerCode = refiner(mut)
+    let refiner = makeRefiner(mut)
     switch mut.refiner {
     | Some(existingRefiner) =>
       mut.refiner = Some(
         (~input) => {
-          existingRefiner(~input) ++ refinerCode(~input)
+          existingRefiner(~input) ++ refiner(~input)
         },
       )
-    | None => mut.refiner = Some(refinerCode)
+    | None => mut.refiner = Some(refiner)
     }
   })
 }

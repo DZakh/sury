@@ -2030,14 +2030,14 @@ function noValidation(schema, value) {
   return mut;
 }
 
-function internalRefine(schema, refiner) {
+function internalRefine(schema, makeRefiner) {
   return updateOutput(schema, mut => {
-    let refinerCode = refiner(mut);
+    let refiner = makeRefiner(mut);
     let existingRefiner = mut.refiner;
     if (existingRefiner !== undefined) {
-      mut.refiner = input => existingRefiner(input) + refinerCode(input);
+      mut.refiner = input => existingRefiner(input) + refiner(input);
     } else {
-      mut.refiner = refinerCode;
+      mut.refiner = refiner;
     }
   });
 }
