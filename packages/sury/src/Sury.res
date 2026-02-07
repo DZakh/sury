@@ -6119,29 +6119,34 @@ let js_to = {
 }
 
 let js_refine = (schema, refineCheck, refineOptions) => {
-  schema->refine(s => {
-    v => {
-      if !refineCheck(v) {
-        let error = switch refineOptions {
-        | Some(options) =>
-          switch (options->Obj.magic)["error"] {
-          | Some(e) => e
-          | None => "Refinement failed"
-          }
-        | None => "Refinement failed"
-        }
-        let path = switch refineOptions {
-        | Some(options) =>
-          switch (options->Obj.magic)["path"] {
-          | Some(p) => Path.fromArray(p)
-          | None => Path.empty
-          }
-        | None => Path.empty
-        }
-        s.fail(error, ~path)
-      }
+  let message = switch refineOptions {
+  | Some(options) =>
+    switch (options->Obj.magic)["error"] {
+    | Some(e) => e
+    | None => "Refinement failed"
     }
-  })
+  | None => "Refinement failed"
+  }
+  let extraPath = switch refineOptions {
+  | Some(options) =>
+    switch (options->Obj.magic)["path"] {
+    | Some(p) => Path.fromArray(p)
+    | None => Path.empty
+    }
+  | None => Path.empty
+  }
+  schema->internalRefine(_ =>
+    (~input) => {
+      let failCode = if extraPath === Path.empty {
+        input->B.fail(~message)
+      } else {
+        `${input->B.embed(() => {
+            input->B.throw(Custom({reason: message, path: input.path->Path.concat(extraPath)}))
+          })}()`
+      }
+      `if(!${input->B.embed(refineCheck)}(${input.var()})){${failCode}}`
+    }
+  )
 }
 
 let noop = a => a

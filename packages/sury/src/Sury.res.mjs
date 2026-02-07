@@ -4038,12 +4038,19 @@ function js_to(schema, target, maybeDecoder, maybeEncoder) {
 }
 
 function js_refine(schema, refineCheck, refineOptions) {
-  return refine$1(schema, s => (v => {
-    if (!refineCheck(v)) {
-      let error = refineOptions !== undefined && refineOptions.error !== undefined ? refineOptions.error : "Refinement failed";
-      let path = refineOptions !== undefined && refineOptions.path !== undefined ? fromArray(refineOptions.path) : "";
-      s.fail(error, path);
-    }
+  let message = refineOptions !== undefined && refineOptions.error !== undefined ? refineOptions.error : "Refinement failed";
+  let extraPath = refineOptions !== undefined && refineOptions.path !== undefined ? fromArray(refineOptions.path) : "";
+  return internalRefine(schema, param => (input => {
+    let failCode = extraPath === ""
+      ? fail(input, message)
+      : embed(input, () => {
+          throw new SuryError({
+            code: "custom",
+            path: input.path + extraPath,
+            reason: message
+          });
+        }) + "()";
+    return "if(!" + embed(input, refineCheck) + "(" + input.v() + ")){" + failCode + "}";
   }));
 }
 
