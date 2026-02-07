@@ -1,5 +1,12 @@
 # Ideas draft
 
+## Alpha.6
+
+- Added `S.compactColumns` - transforms columnar data (`[[a1,a2], [b1,b2]]`) to/from row objects (`[{foo:a1,bar:b1}, {foo:a2,bar:b2}]`)
+- TypeScript: Use `S.encoder(schema)` for encoding (replaces internal `reverseConvertOrThrow`)
+- `S.compactColumns` type is `Schema<Output[][], Input[][]>`
+- `S.toExpression` now shows proper type for `S.compactColumns` without `S.to` (e.g., `"string[][]"`)
+
 ## Alpha.5
 
 - TS API: Removed `S.transform` in favor of `S.to`
