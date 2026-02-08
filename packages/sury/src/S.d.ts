@@ -715,7 +715,7 @@ export function noValidation<Output, Input>(
   value: boolean
 ): Schema<Output, Input>;
 
-export function asyncParserRefine<Output, Input>(
+export function asyncDecoderAssert<Output, Input>(
   schema: Schema<Output, Input>,
   refiner: (value: Output, s: EffectCtx<Output, Input>) => Promise<void>
 ): Schema<Output, Input>;

@@ -1015,11 +1015,11 @@ const evenPositive = S.number
 
 The refine function is applied for both parsing and serializing.
 
-Also, you can have an asynchronous refinement (for parser only):
+Also, you can have an asynchronous assertion (for decoder/parser only):
 
 ```ts
 const userSchema = S.schema({
-  id: S.string.with(S.uuid).with(S.asyncParserRefine, async (id, s) => {
+  id: S.string.with(S.uuid).with(S.asyncDecoderAssert, async (id, s) => {
     const isActiveUser = await checkIsActiveUser(id);
     if (!isActiveUser) {
       s.fail(`The user ${id} is inactive.`);

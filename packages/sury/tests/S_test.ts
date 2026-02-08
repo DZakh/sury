@@ -819,7 +819,7 @@ test("Fails to parse with refine with path option", (t) => {
 });
 
 test("Successfully parses async schema", async (t) => {
-  const schema = S.string.with(S.asyncParserRefine, async (string) => {
+  const schema = S.string.with(S.asyncDecoderAssert, async (string) => {
     expectType<TypeEqual<typeof string, string>>(true);
   });
   const value = await S.safeAsync(() => S.asyncParser(schema)("123"));
@@ -830,7 +830,7 @@ test("Successfully parses async schema", async (t) => {
 });
 
 test("Fails to parses async schema", async (t) => {
-  const schema = S.string.with(S.asyncParserRefine, async (_, s) => {
+  const schema = S.string.with(S.asyncDecoderAssert, async (_, s) => {
     return Promise.resolve().then(() => {
       s.fail("User error");
     });

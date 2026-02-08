@@ -3,6 +3,7 @@
 ## Alpha.5
 
 - TS/JS API: Changed `S.refine` from callback-based `(value, s) => { s.fail("...") }` to boolean-returning `(value) => boolean` with optional `{ error?: string, path?: string[] }` options. The check returns `true` when valid, `false` when invalid. ReScript `S.refine` is unchanged.
+- TS/JS API: Renamed `S.asyncParserRefine` to `S.asyncDecoderAssert`
 - TS API: Removed `S.transform` in favor of `S.to`
 - Add `S.uint8Array` and `S.enableUint8Array`
 - Updated `InvalidType` error code to include the received schema

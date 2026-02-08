@@ -4058,7 +4058,7 @@ function noop(a) {
   return a;
 }
 
-function js_asyncParserRefine(schema, refine) {
+function js_asyncDecoderAssert(schema, refine) {
   return transform(schema, s => ({
     a: v => refine(v, s).then(() => v),
     s: noop
@@ -4943,7 +4943,7 @@ export {
   js_union,
   js_optional,
   js_nullable,
-  js_asyncParserRefine,
+  js_asyncDecoderAssert,
   js_refine,
   js_to,
   js_schema,
