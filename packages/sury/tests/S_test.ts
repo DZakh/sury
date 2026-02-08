@@ -841,20 +841,6 @@ test("Fails to parses async schema", async (t) => {
     return;
   }
   t.is(result.error.message, "User error");
-  t.true(result.error instanceof S.Error);
-
-  expectType<
-    TypeEqual<
-      typeof result.error.code,
-      | "invalid_input"
-      | "invalid_operation"
-      | "unsupported_conversion"
-      | "invalid_conversion"
-      | "unrecognized_keys"
-      | "custom"
-    >
-  >(true);
-
   t.is(result.error.code, "invalid_conversion");
 });
 

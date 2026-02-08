@@ -1015,7 +1015,7 @@ const evenPositive = S.number
 
 The refine function is applied for both parsing and serializing.
 
-Also, you can have an asynchronous assertion (for decoder/parser only):
+Also, you can have an asynchronous assertion (for decoder only):
 
 ```ts
 const userSchema = S.schema({
