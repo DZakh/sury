@@ -830,10 +830,8 @@ test("Successfully parses async schema", async (t) => {
 });
 
 test("Fails to parses async schema", async (t) => {
-  const schema = S.string.with(S.asyncDecoderAssert, async (_, s) => {
-    return Promise.resolve().then(() => {
-      s.fail("User error");
-    });
+  const schema = S.string.with(S.asyncDecoderAssert, async () => {
+    throw new Error("User error");
   });
 
   const result = await S.safeAsync(() => S.asyncParser(schema)("123"));
@@ -857,21 +855,7 @@ test("Fails to parses async schema", async (t) => {
     >
   >(true);
 
-  if (result.error.code === "custom") {
-    expectType<
-      TypeEqual<
-        typeof result.error,
-        {
-          readonly code: "custom";
-          readonly path: S.Path;
-          readonly message: string;
-          readonly reason: string;
-        }
-      >
-    >(true);
-  } else {
-    t.fail("Should be custom error");
-  }
+  t.is(result.error.code, "invalid_conversion");
 });
 
 test("Successfully parses object by provided shape", (t) => {

@@ -6150,10 +6150,10 @@ let js_refine = (schema, refineCheck, refineOptions) => {
 }
 
 let noop = a => a
-let js_asyncDecoderAssert = (schema, refine) => {
-  schema->transform(s => {
+let js_asyncDecoderAssert = (schema, assertFn) => {
+  schema->transform(_ => {
     {
-      asyncParser: v => refine(v, s)->X.Promise.thenResolve(() => v),
+      asyncParser: v => assertFn(v)->X.Promise.thenResolve(() => v),
       serializer: noop,
     }
   })

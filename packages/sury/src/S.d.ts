@@ -69,10 +69,6 @@ export declare namespace StandardSchemaV1 {
   >["output"];
 }
 
-export type EffectCtx<Output, Input> = {
-  readonly schema: Schema<Output, Input>;
-  readonly fail: (message: string) => never;
-};
 
 export type SuccessResult<Value> = {
   readonly success: true;
@@ -116,16 +112,13 @@ export type Schema<Output, Input = unknown> = {
     refineCheck: (value: Output) => boolean,
     refineOptions?: { error?: string; path?: string[] }
   ): Schema<Output, Input>;
+  // I don't know how, but it makes both S.refine and S.shape work
   with<Shape>(
     fn: (
       schema: Schema<unknown, unknown>,
-      callback:
-        | ((value: unknown, s: EffectCtx<unknown, unknown>) => unknown)
-        | undefined
+      callback: ((value: unknown) => unknown) | undefined
     ) => Schema<unknown, unknown>,
-    callback:
-      | ((value: Output, s: EffectCtx<unknown, unknown>) => Shape)
-      | undefined
+    callback: ((value: Output) => Shape) | undefined
   ): Schema<Shape, Input>;
   // with(message: string): t<Output, Input>; TODO: implement
   with<O, I>(fn: (schema: Schema<Output, Input>) => Schema<O, I>): Schema<O, I>;
@@ -717,7 +710,7 @@ export function noValidation<Output, Input>(
 
 export function asyncDecoderAssert<Output, Input>(
   schema: Schema<Output, Input>,
-  refiner: (value: Output, s: EffectCtx<Output, Input>) => Promise<void>
+  assertFn: (value: Output) => Promise<void>
 ): Schema<Output, Input>;
 
 export function refine<Output, Input>(

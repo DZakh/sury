@@ -4058,9 +4058,9 @@ function noop(a) {
   return a;
 }
 
-function js_asyncDecoderAssert(schema, refine) {
-  return transform(schema, s => ({
-    a: v => refine(v, s).then(() => v),
+function js_asyncDecoderAssert(schema, assertFn) {
+  return transform(schema, param => ({
+    a: v => assertFn(v).then(() => v),
     s: noop
   }));
 }
