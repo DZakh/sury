@@ -971,7 +971,17 @@ const nodeSchema = S.recursive<Node, Node>("Node", (nodeSchema) =>
 
 ## Refinements
 
-**Sury** lets you provide custom validation logic via refinements. It's useful to add checks that's not possible to cover with type system. For instance: checking that a number is an integer or that a string is a valid email address.
+**Sury** lets you provide custom validation logic via refinements. Refinements let you define checks that are not expressible in the type system alone — for example, checking that a number is positive or that a string is a valid URL.
+
+```ts
+const positiveNumber = S.number.with(S.refine, (value) => value > 0);
+```
+
+Refinement functions should return `true` to indicate success or `false` to signal failure. By default, a failed refinement throws with the message `"Refinement failed"`.
+
+#### Custom error message
+
+Provide a custom error message via the `error` option:
 
 ```ts
 const shortStringSchema = S.string.with(S.refine, (value) => value.length <= 255, {
@@ -979,9 +989,31 @@ const shortStringSchema = S.string.with(S.refine, (value) => value.length <= 255
 });
 ```
 
-The refine function takes a boolean-returning check and an optional options object with `error` (custom error message) and `path` (custom error path). When the check returns `false`, the schema fails with the provided error message (or `"Refinement failed"` by default).
+#### Custom error path
 
-The refine function is applied for both parser and serializer.
+When refining an object schema, you can use the `path` option to attach the error to a specific field:
+
+```ts
+const passwordForm = S.schema({
+  password: S.string,
+  confirm: S.string,
+}).with(S.refine, (data) => data.password === data.confirm, {
+  error: "Passwords don't match",
+  path: ["confirm"],
+});
+```
+
+#### Chaining refinements
+
+Refinements can be chained. Each refinement is applied in order:
+
+```ts
+const evenPositive = S.number
+  .with(S.refine, (val) => val > 0, { error: "Must be positive" })
+  .with(S.refine, (val) => val % 2 === 0, { error: "Must be even" });
+```
+
+The refine function is applied for both parsing and serializing.
 
 Also, you can have an asynchronous refinement (for parser only):
 
