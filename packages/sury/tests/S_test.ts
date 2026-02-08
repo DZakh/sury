@@ -801,6 +801,23 @@ test("Fails to parses with refine raising an error", (t) => {
   );
 });
 
+test("Fails to parse with refine with path option", (t) => {
+  const schema = S.string.with(S.refine, () => false, {
+    error: "User error",
+    path: ["data", "field"],
+  });
+
+  t.throws(
+    () => {
+      S.parser(schema)("123");
+    },
+    {
+      name: "SuryError",
+      message: `Failed at ["data"]["field"]: User error`,
+    }
+  );
+});
+
 test("Successfully parses async schema", async (t) => {
   const schema = S.string.with(S.asyncParserRefine, async (string) => {
     expectType<TypeEqual<typeof string, string>>(true);
