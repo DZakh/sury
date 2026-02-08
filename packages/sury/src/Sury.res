@@ -5431,11 +5431,28 @@ let compactColumnsDecoder = Builder.make((~input, ~selfSchema) => {
   switch maybeProperties {
   | Some(properties) => {
       let keys = properties->Js.Dict.keys
-      if keys->Js.Array2.length === 0 {
-        InternalError.panic("Invalid empty object for S.compactColumns schema.")
-      }
 
-      if isForwardDirection {
+      // Handle empty objects - just validate input format and return empty array
+      if keys->Js.Array2.length === 0 {
+        if isForwardDirection {
+          if isUnknownInput {
+            input.validation = Some(
+              (~inputVar, ~negative) => {
+                `${B.exp(~negative)}Array.isArray(${inputVar})` ++
+                `${B.and_(~negative)}${inputVar}.length${B.eq(~negative)}0`
+              },
+            )
+          }
+          let output = input->B.next("[]", ~schema=base(arrayTag, ~selfReverse=false))
+          output.skipTo = Some(true)
+          output
+        } else {
+          // Reverse direction with empty object - return empty columnar format
+          let output = input->B.next("[]", ~schema=base(arrayTag, ~selfReverse=false))
+          output.skipTo = Some(true)
+          output
+        }
+      } else if isForwardDirection {
         // Forward direction: columnar → rows
         if !isUnknownInput && !isArrayInput {
           input->B.unsupportedConversion(~from=input.schema, ~target=selfSchema)
@@ -5513,11 +5530,8 @@ let compactColumnsDecoder = Builder.make((~input, ~selfSchema) => {
       }
     }
   | None =>
-    // No properties found, try array decoder
-    if !isUnknownInput && !isArrayInput {
-      input->B.unsupportedConversion(~from=input.schema, ~target=selfSchema)
-    }
-    arrayDecoder(~input, ~selfSchema)
+    // No properties found - S.compactColumns requires an object schema with S.to
+    InternalError.panic("S.compactColumns supports only object schemas. Use S.compactColumns(S.unknown)->S.to(objectSchema).")
   }
 })
 

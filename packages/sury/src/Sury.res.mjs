@@ -3801,13 +3801,30 @@ function compactColumnsDecoder(input, selfSchema) {
     }
     
   }
+  let isForwardDirection = match$1[1];
   let maybeProperties = match$1[0];
   if (maybeProperties !== undefined) {
     let keys = Object.keys(maybeProperties);
     if (keys.length === 0) {
-      throw new Error("[Sury] Invalid empty object for S.compactColumns schema.");
+      if (isForwardDirection) {
+        if (isUnknownInput) {
+          input.validation = (inputVar, negative) => (
+            negative ? "!" : ""
+          ) + "Array.isArray(" + inputVar + ")" + ((
+            negative ? "||" : "&&"
+          ) + inputVar + ".length" + (
+            negative ? "!==" : "==="
+          ) + "0");
+        }
+        let output = next(input, "[]", base(arrayTag, false), undefined);
+        output.k = true;
+        return output;
+      }
+      let output$1 = next(input, "[]", base(arrayTag, false), undefined);
+      output$1.k = true;
+      return output$1;
     }
-    if (match$1[1]) {
+    if (isForwardDirection) {
       if (!isUnknownInput && !isArrayInput) {
         unsupportedConversion(input, input.s, selfSchema);
       }
@@ -3835,11 +3852,11 @@ function compactColumnsDecoder(input, selfSchema) {
         itemBuildCode = itemBuildCode + (fromString(key) + ":" + inputVar + "[" + idx + "][" + iteratorVar + "],");
       }
       input.a(outputVar + "=new Array(Math.max(" + lengthCode + "))");
-      let output = next(input, outputVar, base(arrayTag, false), undefined);
-      output.v = _var;
-      output.cp = output.cp + ("for(let " + iteratorVar + "=0;" + iteratorVar + "<" + outputVar + ".length;++" + iteratorVar + "){" + outputVar + "[" + iteratorVar + "]={" + itemBuildCode + "};}");
-      output.k = true;
-      return output;
+      let output$2 = next(input, outputVar, base(arrayTag, false), undefined);
+      output$2.v = _var;
+      output$2.cp = output$2.cp + ("for(let " + iteratorVar + "=0;" + iteratorVar + "<" + outputVar + ".length;++" + iteratorVar + "){" + outputVar + "[" + iteratorVar + "]={" + itemBuildCode + "};}");
+      output$2.k = true;
+      return output$2;
     }
     let inputVar$1 = input.v();
     let iteratorVar$1 = varWithoutAllocation(input.g);
@@ -3852,16 +3869,13 @@ function compactColumnsDecoder(input, selfSchema) {
       settingCode = settingCode + (outputVar$1 + "[" + idx$1 + "][" + iteratorVar$1 + "]=" + inputVar$1 + "[" + iteratorVar$1 + "][" + fromString(key$1) + "];");
     }
     input.a(outputVar$1 + "=[" + initialArraysCode + "]");
-    let output$1 = next(input, outputVar$1, base(arrayTag, false), undefined);
-    output$1.v = _var;
-    output$1.cp = output$1.cp + ("for(let " + iteratorVar$1 + "=0;" + iteratorVar$1 + "<" + inputVar$1 + ".length;++" + iteratorVar$1 + "){" + settingCode + "}");
-    output$1.k = true;
-    return output$1;
+    let output$3 = next(input, outputVar$1, base(arrayTag, false), undefined);
+    output$3.v = _var;
+    output$3.cp = output$3.cp + ("for(let " + iteratorVar$1 + "=0;" + iteratorVar$1 + "<" + inputVar$1 + ".length;++" + iteratorVar$1 + "){" + settingCode + "}");
+    output$3.k = true;
+    return output$3;
   }
-  if (!isUnknownInput && !isArrayInput) {
-    unsupportedConversion(input, input.s, selfSchema);
-  }
-  return arrayDecoder(input, selfSchema);
+  throw new Error("[Sury] S.compactColumns supports only object schemas. Use S.compactColumns(S.unknown)->S.to(objectSchema).");
 }
 
 function compactColumns(inputSchema) {

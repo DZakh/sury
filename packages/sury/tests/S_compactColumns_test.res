@@ -119,24 +119,25 @@ test("Case with missing item at the end", t => {
 
 test("Handles empty objects", t => {
   let schema = S.compactColumns(S.unknown)->S.to(S.object(_ => ()))
-  t->Assert.throws(
-    () => {
-      %raw(`[]`)->S.parseOrThrow(schema)
-    },
-    ~expectations={
-      message: "[Sury] Invalid empty object for S.compactColumns schema.",
-    },
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(!Array.isArray(i)||i.length!==0){e[0](i)}return []}`,
   )
+
+  // Parse empty columnar input to empty array
+  t->Assert.deepEqual(%raw(`[]`)->S.parseOrThrow(schema), %raw(`[]`))
 })
 
 test("Handles non-object schemas", t => {
   let schema = S.compactColumns(S.unknown)->S.to(S.tuple2(S.string, S.int))
   t->Assert.throws(
     () => {
-      %raw(`[]`)->S.parseOrThrow(schema)
+      %raw(`[["a"], [0]]`)->S.parseOrThrow(schema)
     },
     ~expectations={
-      message: "Failed at [\"0\"]: Unsupported conversion from unknown[] to string",
+      message: "[Sury] S.compactColumns supports only object schemas. Use S.compactColumns(S.unknown)->S.to(objectSchema).",
     },
   )
 })
