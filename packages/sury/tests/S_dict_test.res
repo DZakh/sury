@@ -118,7 +118,7 @@ test("Applies operation for each item on serializing", t => {
 })
 
 test("Fails to serialize dict item", t => {
-  let schema = S.dict(S.string->S.refine(s => _ => s.fail("User error")))
+  let schema = S.dict(S.string->S.refine(_ => false, ~error="User error"))
 
   t->U.assertThrowsMessage(
     () => Dict.fromArray([("a", "aa"), ("b", "bb")])->S.reverseConvertOrThrow(schema),

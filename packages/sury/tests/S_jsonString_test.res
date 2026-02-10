@@ -436,55 +436,39 @@ test("Compiled async parse code snapshot", t => {
 })
 
 test("Can apply refinement to JSON string", t => {
-  let schema = S.jsonString->S.refine(s =>
-    v =>
-      if v !== "123" {
-        s.fail("Expected 123")
-      }
-  )
+  let schema = S.jsonString->S.refine(v => v === "123", ~error="Expected 123")
 
   t->U.assertThrowsMessage(() => `124`->S.parseOrThrow(schema), `Expected 123`)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="string"){e[2](i)}try{JSON.parse(i)}catch(t){e[0](i)}e[1](i);return i}`,
+    `i=>{if(typeof i!=="string"){e[3](i)}try{JSON.parse(i)}catch(t){e[0](i)}if(!e[2](i)){e[1]()}return i}`,
   )
 })
 
 test("Can apply refinement to JSON string with S.to after", t => {
   let schema =
     S.jsonString
-    ->S.refine(s =>
-      v =>
-        if v !== "123" {
-          s.fail("Expected 123")
-        }
-    )
+    ->S.refine(v => v === "123", ~error="Expected 123")
     ->S.to(S.int)
 
   t->U.assertThrowsMessage(() => `124`->S.parseOrThrow(schema), `Expected 123`)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    // TODO: Can be improved
-    `i=>{if(typeof i!=="string"){e[4](i)}let v0;try{JSON.parse(i)}catch(t){e[0](i)}e[1](i);try{v0=JSON.parse(i)}catch(t){e[2](i)}if(typeof v0!=="number"||v0>2147483647||v0<-2147483648||v0%1!==0){e[3](v0)}return v0}`,
+    `i=>{if(typeof i!=="string"){e[4](i)}let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}if(typeof v0!=="number"||v0>2147483647||v0<-2147483648||v0%1!==0){e[3](v0)}if(!e[2](v0)){e[1]()}return v0}`,
   )
 })
 
 test("Can apply refinement to JSON string with S.to before", t => {
   let schema = S.int->S.to(
-    S.jsonString->S.refine(s =>
-      v =>
-        if v !== "123" {
-          s.fail("Expected 123")
-        }
-    ),
+    S.jsonString->S.refine(v => v === "123", ~error="Expected 123"),
   )
 
   t->U.assertThrowsMessage(() => 124->S.parseOrThrow(schema), `Expected 123`)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="number"||i>2147483647||i<-2147483648||i%1!==0){e[1](i)}let v0=""+i;e[0](v0);return v0}`,
+    `i=>{if(typeof i!=="number"||i>2147483647||i<-2147483648||i%1!==0){e[2](i)}let v0=""+i;if(!e[1](v0)){e[0]()}return v0}`,
   )
 })

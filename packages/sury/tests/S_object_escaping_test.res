@@ -204,7 +204,7 @@ test(
 test("Has proper error path when fails to parse object with quotes in a field name", t => {
   let schema = S.object(s =>
     {
-      "field": s.field("\"\'\`", S.string->S.refine(s => _ => s.fail("User error"))),
+      "field": s.field("\"\'\`", S.string->S.refine(_ => false, ~error="User error")),
     }
   )
 
@@ -217,7 +217,7 @@ test("Has proper error path when fails to parse object with quotes in a field na
 test("Has proper error path when fails to serialize object with quotes in a field name", t => {
   let schema = S.object(s =>
     Dict.fromArray([
-      ("\"\'\`", s.field("field", S.string->S.refine(s => _ => s.fail("User error")))),
+      ("\"\'\`", s.field("field", S.string->S.refine(_ => false, ~error="User error"))),
     ])
   )
 

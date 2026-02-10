@@ -33,7 +33,7 @@ test(
   t => {
     let schema = S.object(s =>
       {
-        "field": s.field("field", S.array(S.string->S.refine(s => _ => s.fail("User error")))),
+        "field": s.field("field", S.array(S.string->S.refine(_ => false, ~error="User error"))),
       }
     )
 
@@ -1047,7 +1047,7 @@ module Compiled = {
               {
                 "baz": s.field("baz", S.string),
               },
-          )->S.refine(_ => _ => ()),
+          )->S.refine(_ => true),
         ),
       }
     )
@@ -1055,12 +1055,12 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i){e[4](i)}let v0=i["foo"],v1=i["bar"];if(v0!==12){e[0](v0)}if(typeof v1!=="object"||!v1){e[3](v1)}let v2=v1["baz"],v3={"baz":v2,};if(typeof v2!=="string"){e[1](v2)}e[2](v3);return {"foo":v0,"bar":v3,}}`,
+      `i=>{if(typeof i!=="object"||!i){e[3](i)}let v0=i["foo"],v1=i["bar"];if(v0!==12){e[0](v0)}if(typeof v1!=="object"||!v1){e[2](v1)}let v2=v1["baz"];if(typeof v2!=="string"){e[1](v2)}return {"foo":v0,"bar":{"baz":v2,},}}`,
     )
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{let v0=i["bar"];e[0](v0);return i}`,
+      `i=>{let v0=i["bar"];if(!e[1](v0)){e[0]()}if(!e[3](v0)){e[2]()}return {"foo":12,"bar":{"baz":v0["baz"],},}}`,
     )
   })
 

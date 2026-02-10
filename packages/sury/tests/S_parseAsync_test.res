@@ -3,7 +3,7 @@ open Ava
 let validAsyncRefine = S.transform(_, _ => {
   asyncParser: value => value->Promise.resolve,
 })
-let invalidSyncRefine = S.refine(_, s => _ => s.fail("Sync user error"))
+let invalidSyncRefine = S.refine(_, _ => false, ~error="Sync user error")
 let unresolvedPromise = Promise.make((_, _) => ())
 let makeInvalidPromise = (s: S.s<'a>) =>
   Promise.resolve()->Promise.then(() => s.fail("Async user error"))
