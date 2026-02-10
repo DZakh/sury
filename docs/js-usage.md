@@ -898,8 +898,8 @@ You can define brands for refined constraints, like even numbers:
 
 ```ts
 const even = S.number
-  .with(S.refine, (value, s) => {
-    if (value % 2 !== 0) s.fail("Expected an even number");
+  .with(S.refine, (value) => value % 2 === 0, {
+    error: "Expected an even number",
   })
   .with(S.brand, "even");
 
@@ -971,26 +971,58 @@ const nodeSchema = S.recursive<Node, Node>("Node", (nodeSchema) =>
 
 ## Refinements
 
-**Sury** lets you provide custom validation logic via refinements. It's useful to add checks that's not possible to cover with type system. For instance: checking that a number is an integer or that a string is a valid email address.
+**Sury** lets you provide custom validation logic via refinements. Refinements let you define checks that are not expressible in the type system alone — for example, checking that a number is positive or that a string is a valid URL.
 
 ```ts
-const shortStringSchema = S.string.with(S.refine, (value, s) => {
-  if (value.length > 255) {
-    s.fail("String can't be more than 255 characters");
-  }
+const positiveNumber = S.number.with(S.refine, (value) => value > 0);
+```
+
+Refinement functions should return `true` to indicate success or `false` to signal failure. By default, a failed refinement throws with the message `"Refinement failed"`.
+
+#### Custom error message
+
+Provide a custom error message via the `error` option:
+
+```ts
+const shortStringSchema = S.string.with(S.refine, (value) => value.length <= 255, {
+  error: "String can't be more than 255 characters",
 });
 ```
 
-The refine function is applied for both parser and serializer.
+#### Custom error path
 
-Also, you can have an asynchronous refinement (for parser only):
+When refining an object schema, you can use the `path` option to attach the error to a specific field:
+
+```ts
+const passwordForm = S.schema({
+  password: S.string,
+  confirm: S.string,
+}).with(S.refine, (data) => data.password === data.confirm, {
+  error: "Passwords don't match",
+  path: ["confirm"],
+});
+```
+
+#### Chaining refinements
+
+Refinements can be chained. Each refinement is applied in order:
+
+```ts
+const evenPositive = S.number
+  .with(S.refine, (val) => val > 0, { error: "Must be positive" })
+  .with(S.refine, (val) => val % 2 === 0, { error: "Must be even" });
+```
+
+The refine function is applied for both parsing and serializing.
+
+Also, you can have an asynchronous assertion (for decoder only):
 
 ```ts
 const userSchema = S.schema({
-  id: S.string.with(S.uuid).with(S.asyncParserRefine, async (id, s) => {
+  id: S.string.with(S.uuid).with(S.asyncDecoderAssert, async (id) => {
     const isActiveUser = await checkIsActiveUser(id);
     if (!isActiveUser) {
-      s.fail(`The user ${id} is inactive.`);
+      throw new Error(`The user ${id} is inactive.`);
     }
   }),
   name: S.string,

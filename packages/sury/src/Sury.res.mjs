@@ -4037,17 +4037,30 @@ function js_to(schema, target, maybeDecoder, maybeEncoder) {
   });
 }
 
-function js_refine(schema, refiner) {
-  return refine$1(schema, s => (v => refiner(v, s)));
+function js_refine(schema, refineCheck, refineOptions) {
+  let message = refineOptions !== undefined && refineOptions.error !== undefined ? refineOptions.error : "Refinement failed";
+  let extraPath = refineOptions !== undefined && refineOptions.path !== undefined ? fromArray(refineOptions.path) : "";
+  return internalRefine(schema, param => (input => {
+    let failCode = extraPath === ""
+      ? fail(input, message)
+      : embed(input, () => {
+          throw new SuryError({
+            code: "custom",
+            path: input.path + extraPath,
+            reason: message
+          });
+        }) + "()";
+    return "if(!" + embed(input, refineCheck) + "(" + input.v() + ")){" + failCode + "}";
+  }));
 }
 
 function noop(a) {
   return a;
 }
 
-function js_asyncParserRefine(schema, refine) {
-  return transform(schema, s => ({
-    a: v => refine(v, s).then(() => v),
+function js_asyncDecoderAssert(schema, assertFn) {
+  return transform(schema, param => ({
+    a: v => assertFn(v).then(() => v),
     s: noop
   }));
 }
@@ -4930,7 +4943,7 @@ export {
   js_union,
   js_optional,
   js_nullable,
-  js_asyncParserRefine,
+  js_asyncDecoderAssert,
   js_refine,
   js_to,
   js_schema,

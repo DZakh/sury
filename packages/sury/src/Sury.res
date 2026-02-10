@@ -6118,17 +6118,42 @@ let js_to = {
   }
 }
 
-let js_refine = (schema, refiner) => {
-  schema->refine(s => {
-    v => refiner(v, s)
-  })
+let js_refine = (schema, refineCheck, refineOptions) => {
+  let message = switch refineOptions {
+  | Some(options) =>
+    switch (options->Obj.magic)["error"] {
+    | Some(e) => e
+    | None => "Refinement failed"
+    }
+  | None => "Refinement failed"
+  }
+  let extraPath = switch refineOptions {
+  | Some(options) =>
+    switch (options->Obj.magic)["path"] {
+    | Some(p) => Path.fromArray(p)
+    | None => Path.empty
+    }
+  | None => Path.empty
+  }
+  schema->internalRefine(_ =>
+    (~input) => {
+      let failCode = if extraPath === Path.empty {
+        input->B.fail(~message)
+      } else {
+        `${input->B.embed(() => {
+            input->B.throw(Custom({reason: message, path: input.path->Path.concat(extraPath)}))
+          })}()`
+      }
+      `if(!${input->B.embed(refineCheck)}(${input.var()})){${failCode}}`
+    }
+  )
 }
 
 let noop = a => a
-let js_asyncParserRefine = (schema, refine) => {
-  schema->transform(s => {
+let js_asyncDecoderAssert = (schema, assertFn) => {
+  schema->transform(_ => {
     {
-      asyncParser: v => refine(v, s)->X.Promise.thenResolve(() => v),
+      asyncParser: v => assertFn(v)->X.Promise.thenResolve(() => v),
       serializer: noop,
     }
   })
