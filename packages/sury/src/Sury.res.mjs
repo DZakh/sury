@@ -3877,8 +3877,13 @@ function compactColumnsDecoder(input, selfSchema) {
       let itemBuildCode = "";
       for (let idx = 0, idx_finish = keys.length; idx < idx_finish; ++idx) {
         let key = keys[idx];
+        let rawValueCode = inputVar + "[" + idx + "][" + iteratorVar + "]";
+        let fieldSchema = maybeProperties[key];
+        let has = fieldSchema.has;
+        let hasNullVariant = has !== undefined ? has[nullTag] !== undefined : false;
+        let fieldValueCode = hasNullVariant ? rawValueCode + "===null?void 0:" + rawValueCode : rawValueCode;
         lengthCode = lengthCode + (inputVar + "[" + idx + "].length,");
-        itemBuildCode = itemBuildCode + (fromString(key) + ":" + inputVar + "[" + idx + "][" + iteratorVar + "],");
+        itemBuildCode = itemBuildCode + (fromString(key) + ":" + fieldValueCode + ",");
       }
       input.a(outputVar + "=new Array(Math.max(" + lengthCode + "))");
       let output$2 = next(input, outputVar, base(arrayTag, false), undefined);
@@ -3894,8 +3899,24 @@ function compactColumnsDecoder(input, selfSchema) {
     let settingCode = "";
     for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
       let key$1 = keys[idx$1];
+      let rawValueCode$1 = inputVar$1 + "[" + iteratorVar$1 + "][" + fromString(key$1) + "]";
+      let fieldSchema$1 = maybeProperties[key$1];
+      let anyOf = fieldSchema$1.anyOf;
+      let hasUndefinedToNullTransform = anyOf !== undefined ? anyOf.some(item => {
+          let itemTagFlag = flags[item.type];
+          if (!(itemTagFlag & 16)) {
+            return false;
+          }
+          let toSchema = item.to;
+          if (toSchema === undefined) {
+            return false;
+          }
+          let toTagFlag = flags[toSchema.type];
+          return toTagFlag & 32;
+        }) : false;
+      let fieldValueCode$1 = hasUndefinedToNullTransform ? rawValueCode$1 + "===void 0?null:" + rawValueCode$1 : rawValueCode$1;
       initialArraysCode = initialArraysCode + ("new Array(" + inputVar$1 + ".length),");
-      settingCode = settingCode + (outputVar$1 + "[" + idx$1 + "][" + iteratorVar$1 + "]=" + inputVar$1 + "[" + iteratorVar$1 + "][" + fromString(key$1) + "];");
+      settingCode = settingCode + (outputVar$1 + "[" + idx$1 + "][" + iteratorVar$1 + "]=" + fieldValueCode$1 + ";");
     }
     input.a(outputVar$1 + "=[" + initialArraysCode + "]");
     let output$3 = next(input, outputVar$1, base(arrayTag, false), undefined);

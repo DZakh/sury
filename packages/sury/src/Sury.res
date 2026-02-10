@@ -5545,10 +5545,28 @@ let compactColumnsDecoder = Builder.make((~input, ~selfSchema) => {
         let itemBuildCode = ref("")
         for idx in 0 to keys->Js.Array2.length - 1 {
           let key = keys->Js.Array2.unsafe_get(idx)
+          let rawValueCode = `${inputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]`
+          let fieldSchema = properties->Js.Dict.unsafeGet(key)
+          // Check if this field has a null variant in the union (e.g., nullAsOption)
+          // by checking the 'has' dict for the null type
+          let hasNullVariant = switch fieldSchema.has {
+          | Some(has) =>
+            switch has->X.Dict.getUnsafeOption((nullTag :> string)) {
+            | Some(_) => true
+            | None => false
+            }
+          | None => false
+          }
+          let fieldValueCode = if hasNullVariant {
+            // This is a union with null - convert null to undefined inline
+            `${rawValueCode}===null?void 0:${rawValueCode}`
+          } else {
+            rawValueCode
+          }
           lengthCode := lengthCode.contents ++ `${inputVar}[${idx->X.Int.unsafeToString}].length,`
           itemBuildCode :=
             itemBuildCode.contents ++
-            `${key->X.Inlined.Value.fromString}:${inputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}],`
+            `${key->X.Inlined.Value.fromString}:${fieldValueCode},`
         }
 
         input.allocate(`${outputVar}=new Array(Math.max(${lengthCode.contents}))`)
@@ -5572,10 +5590,38 @@ let compactColumnsDecoder = Builder.make((~input, ~selfSchema) => {
         let settingCode = ref("")
         for idx in 0 to keys->Js.Array2.length - 1 {
           let key = keys->Js.Array2.unsafe_get(idx)
+          let rawValueCode = `${inputVar}[${iteratorVar}][${key->X.Inlined.Value.fromString}]`
+          let fieldSchema = properties->Js.Dict.unsafeGet(key)
+          // Check if this field converts undefined to null (reversed nullAsOption)
+          // This happens when the schema is a union containing a variant that:
+          // - Has tag = undefined AND has a .to that outputs null
+          let hasUndefinedToNullTransform = switch fieldSchema.anyOf {
+          | Some(anyOf) =>
+            anyOf->Js.Array2.some(item => {
+              let itemTagFlag = item.tag->TagFlag.get
+              if itemTagFlag->Flag.unsafeHas(TagFlag.undefined) {
+                switch item.to {
+                | Some(toSchema) =>
+                  let toTagFlag = toSchema.tag->TagFlag.get
+                  toTagFlag->Flag.unsafeHas(TagFlag.null)
+                | None => false
+                }
+              } else {
+                false
+              }
+            })
+          | None => false
+          }
+          let fieldValueCode = if hasUndefinedToNullTransform {
+            // Convert undefined back to null for serialization
+            `${rawValueCode}===void 0?null:${rawValueCode}`
+          } else {
+            rawValueCode
+          }
           initialArraysCode := initialArraysCode.contents ++ `new Array(${inputVar}.length),`
           settingCode :=
             settingCode.contents ++
-            `${outputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]=${inputVar}[${iteratorVar}][${key->X.Inlined.Value.fromString}];`
+            `${outputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]=${fieldValueCode};`
         }
 
         input.allocate(`${outputVar}=[${initialArraysCode.contents}]`)

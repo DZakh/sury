@@ -2101,6 +2101,7 @@ test("CompactColumns schema", (t) => {
   );
 
   // Test parsing columnar data to row objects
+  // S.nullable converts null to undefined on parsing
   const parse = S.parser(schema);
   const parsed = parse([
     ["0", "1"],
@@ -2109,14 +2110,15 @@ test("CompactColumns schema", (t) => {
   ] as unknown[][]);
   t.deepEqual(parsed, [
     { id: "0", name: "Hello", deleted: false },
-    { id: "1", name: null, deleted: true },
+    { id: "1", name: undefined, deleted: true },
   ]);
 
   // Test encoding row objects back to columnar data
+  // S.nullable converts undefined back to null on encoding
   const encode = S.encoder(schema);
   const encoded = encode([
     { id: "0", name: "Hello", deleted: false },
-    { id: "1", name: null, deleted: true },
+    { id: "1", name: undefined, deleted: true },
   ] as any);
   t.deepEqual(encoded, [
     ["0", "1"],
