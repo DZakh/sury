@@ -456,9 +456,9 @@ and internal = {
   // Logic for built-in encoding from the schema type
   mutable encoder?: builder,
   // Custom validations on input (before decoder)
-  mutable inputRefiner?: builder,
+  mutable inputRefiner?: (~input: val) => string,
   // Custom validations on output (after decoder)
-  mutable refiner?: builder,
+  mutable refiner?: (~input: val) => string,
   // A schema we transform to
   mutable to?: internal,
   // When transforming with changing shape,
@@ -491,6 +491,7 @@ and internal = {
   @as("$defs")
   mutable defs?: dict<internal>,
   mutable isAsync?: bool, // Optional value means that it's not lazily computed yet.
+  mutable hasTransform?: bool, // Optional value means that it's not lazily computed yet.
   @as("~standard")
   mutable standard?: standard, // This is optional for convenience. The object added on make call
 }
@@ -956,7 +957,7 @@ let globalConfig: globalConfig = {
 let valueOptions = Js.Dict.empty()
 let configurableValueOptions = %raw(`{configurable: true}`)
 let valKey = "value"
-let reverseKey = "r"
+let reversedKey = "r"
 
 @new
 external base: unit => internal = "Schema"
@@ -966,7 +967,7 @@ let base = (tag, ~selfReverse) => {
   s.seq = %raw(`seq++`)
   if selfReverse {
     valueOptions->Js.Dict.set(valKey, s->Obj.magic)
-    let _ = X.Object.defineProperty(s, reverseKey, valueOptions->Obj.magic)
+    let _ = X.Object.defineProperty(s, reversedKey, valueOptions->Obj.magic)
   }
   s
 }
@@ -2083,12 +2084,16 @@ let rec parse = (input: val, ~withEncoder: bool=false) => {
 
       // FIXME: inputRefiner should correctly be run for schema input (before decoder)
       switch expected.inputRefiner {
-      | Some(inputRefiner) => output := inputRefiner(~input=output.contents, ~selfSchema=expected)
+      | Some(inputRefiner) =>
+        output.contents.codeAfterValidation =
+          output.contents.codeAfterValidation ++ inputRefiner(~input=output.contents)
       | None => ()
       }
       // Call refiner after decoder
       switch expected.refiner {
-      | Some(refiner) => output := refiner(~input=output.contents, ~selfSchema=expected)
+      | Some(refiner) =>
+        output.contents.codeAfterValidation =
+          output.contents.codeAfterValidation ++ refiner(~input=output.contents)
       | None => ()
       }
 
@@ -2182,6 +2187,8 @@ and compileDecoder = (~schema, ~expected, ~flag, ~defs) => {
 
   let isAsync = output.flag->Flag.has(ValFlag.async)
   expected.isAsync = Some(isAsync)
+  let hasTransform = output.hasTransform === Some(true)
+  expected.hasTransform = Some(hasTransform)
 
   if (
     code === "" &&
@@ -2216,8 +2223,8 @@ and getOutputSchema = (schema: internal) => {
 }
 // FIXME: Define it as a schema property
 and reverse = (schema: internal) => {
-  if schema->Obj.magic->Stdlib.Dict.has(reverseKey)->Obj.magic {
-    schema->Obj.magic->Stdlib.Dict.getUnsafe(reverseKey)->Obj.magic
+  if schema->Obj.magic->Stdlib.Dict.has(reversedKey)->Obj.magic {
+    schema->Obj.magic->Stdlib.Dict.getUnsafe(reversedKey)->Obj.magic
   } else {
     let reversedHead = ref(None)
     let current = ref(Some(schema))
@@ -2324,9 +2331,9 @@ and reverse = (schema: internal) => {
     // for some reason Wallaby still shows the property
     let r = reversedHead.contents->X.Option.getUnsafe
     valueOptions->Js.Dict.set(valKey, r->Obj.magic)
-    let _ = X.Object.defineProperty(schema, reverseKey, valueOptions->Obj.magic)
+    let _ = X.Object.defineProperty(schema, reversedKey, valueOptions->Obj.magic)
     valueOptions->Js.Dict.set(valKey, schema->Obj.magic)
-    let _ = X.Object.defineProperty(r, reverseKey, valueOptions->Obj.magic)
+    let _ = X.Object.defineProperty(r, reversedKey, valueOptions->Obj.magic)
     r
   }
 }
@@ -2439,8 +2446,9 @@ let rec makeObjectVal = (prev: val, ~schema): B.Val.Object.t => {
   }
 }
 and array = item => {
-  let mut = base(arrayTag, ~selfReverse=false)
-  mut.additionalItems = Some(Schema(item->castToInternal->castToPublic))
+  let itemInternal = item->castToInternal
+  let mut = base(arrayTag, ~selfReverse=itemInternal->Obj.magic->Stdlib.Dict.getUnsafe(reversedKey) === itemInternal->Obj.magic)
+  mut.additionalItems = Some(Schema(itemInternal->castToPublic))
   mut.items = Some(X.Array.immutableEmpty)
   mut.decoder = arrayDecoder
   mut->castToPublic
@@ -2785,10 +2793,10 @@ and objectDecoder: Builder.t = (~input as unknownInput, ~selfSchema as _) => {
 let recursiveDecoder = Builder.make((~input, ~selfSchema as _) => {
   let expectedSchema = input.expected
 
-  let ref = expectedSchema.ref->X.Option.getUnsafe
+  let schemaRef = expectedSchema.ref->X.Option.getUnsafe
   let defs = input.global.defs->X.Option.getUnsafe
   // Ignore #/$defs/
-  let identifier = ref->Js.String2.sliceToEnd(~from=8)
+  let identifier = schemaRef->Js.String2.sliceToEnd(~from=8)
   let def = defs->Js.Dict.unsafeGet(identifier)
   let flag = input.global.flag
 
@@ -2799,48 +2807,94 @@ let recursiveDecoder = Builder.make((~input, ~selfSchema as _) => {
   }
 
   let key = `${inputSchema.seq->Obj.magic}-${def.seq->Obj.magic}--${flag->Obj.magic}`
-  let recOperation = switch def->Obj.magic->X.Dict.getUnsafeOption(key) {
+  let recOperation = ref("")
+
+  switch def->Obj.magic->X.Dict.getUnsafeOption(key) {
   | Some(fn) =>
-    // A hacky way to prevent infinite recursion
-    if fn === %raw(`0`) {
-      input->B.embed(def) ++ `["${key}"]`
-    } else {
-      input->B.embed(fn)
-    }
+    // Circular reference (fn === 0) or already compiled
+    recOperation := if fn === %raw(`0`) {
+        input->B.embed(def) ++ `["${key}"]`
+      } else {
+        input->B.embed(fn)
+      }
   | None => {
-      configurableValueOptions->Js.Dict.set(valKey, 0->Obj.magic)
-      // Use defineProperty, so the cache keys are not enumerable
-      let _ = X.Object.defineProperty(def, key, configurableValueOptions->Obj.magic)
+      // Optimistic compilation with recompile if assumptions were wrong
+      let assumedHasTransform = ref(def.hasTransform->Option.getOr(false))
+      let assumedIsAsync = ref(def.isAsync->Option.getOr(false))
+      let compileNeeded = ref(true)
+      let finalFn = ref(Obj.magic(0))
 
-      let fn = compileDecoder(~schema=inputSchema, ~expected=def, ~flag, ~defs=Some(defs))
+      while compileNeeded.contents {
+        compileNeeded := false
 
-      valueOptions->Js.Dict.set(valKey, fn)
-      // Use defineProperty, so the cache keys are not enumerable
-      let _ = X.Object.defineProperty(def, key, valueOptions->Obj.magic)
+        // Set optimistic values on def before compiling (if not already set)
+        // Inner circular references will read these values
+        if def.hasTransform === None {
+          def.hasTransform = Some(assumedHasTransform.contents)
+        }
+        if def.isAsync === None {
+          def.isAsync = Some(assumedIsAsync.contents)
+        }
 
-      input->B.embed(fn)
+        // Mark as in-progress
+        configurableValueOptions->Js.Dict.set(valKey, 0->Obj.magic)
+        let _ = X.Object.defineProperty(def, key, configurableValueOptions->Obj.magic)
+
+        // Compile
+        let fn = compileDecoder(~schema=inputSchema, ~expected=def, ~flag, ~defs=Some(defs))
+
+        // Cache result
+        valueOptions->Js.Dict.set(valKey, fn)
+        let _ = X.Object.defineProperty(def, key, valueOptions->Obj.magic)
+
+        finalFn := fn
+
+        // Check if actual values differ from assumed
+        let actualHasTransform = def.hasTransform->X.Option.getUnsafe
+        let actualIsAsync = def.isAsync->X.Option.getUnsafe
+
+        if (
+          actualHasTransform !== assumedHasTransform.contents ||
+            actualIsAsync !== assumedIsAsync.contents
+        ) {
+          // Wrong assumption - update and recompile
+          assumedHasTransform := actualHasTransform
+          assumedIsAsync := actualIsAsync
+          // Delete cached function to force recompilation
+          let _ = %raw(`delete def[key]`)
+          compileNeeded := true
+        }
+      }
+
+      // Embed only the final compiled function to avoid wasting embed slots on recompiles
+      recOperation := input->B.embed(finalFn.contents)
     }
   }
 
-  let outputVar = input.global->B.varWithoutAllocation
-  input.allocate(outputVar)
+  let hasTransform = def.hasTransform === Some(true)
+  let isAsync = def.isAsync->X.Option.getUnsafe
 
-  let output = input->B.next(outputVar, ~schema=expectedSchema, ~expected=expectedSchema)
-  output.var = B._var
+  let output = if hasTransform || isAsync {
+    let outputVar = input.global->B.varWithoutAllocation
+    input.allocate(outputVar)
+
+    let output = input->B.next(outputVar, ~schema=expectedSchema, ~expected=expectedSchema)
+    output.var = B._var
+
+    output.codeFromPrev = `${outputVar}=${recOperation.contents}(${input.inline});`
+
+    if isAsync {
+      output.flag = output.flag->Flag.with(ValFlag.async)
+    }
+    output
+  } else {
+    // No transform: call for validation but don't capture result
+    let output = input->B.refine(~schema=expectedSchema, ~expected=expectedSchema)
+    output.codeFromPrev = `${recOperation.contents}(${input.inline});`
+    output
+  }
+
   output.prev = None
-
-  output.codeFromPrev = `${outputVar}=${recOperation}(${input.inline});`
-
-  if def.isAsync === None {
-    let defsMut = defs->X.Dict.copy
-    defsMut->Js.Dict.set(identifier, unknown)
-    // FIXME: Can it be done better?
-    let _ = def->isAsyncInternal(~defs=Some(defsMut))
-  }
-  if def.isAsync->X.Option.getUnsafe {
-    output.flag = output.flag->Flag.with(ValFlag.async)
-  }
-
   output.codeFromPrev = output->B.mergeWithPathPrepend(~parent=input)
   output.prev = Some(input)
 
@@ -3099,24 +3153,25 @@ let noValidation = (schema, value) => {
   mut->castToPublic
 }
 
-let appendRefiner = (~existingDecoder: builder, refiner) => {
-  (~input, ~selfSchema) => {
-    let output = existingDecoder(~input, ~selfSchema)
-    output.codeAfterValidation = output.codeAfterValidation ++ refiner(~input=output, ~selfSchema)
-    output
-  }
-}
-
-let internalRefine = (schema, refiner) => {
+let internalRefine = (schema, makeRefiner) => {
   let schema = schema->castToInternal
   updateOutput(schema, mut => {
-    mut.decoder = appendRefiner(~existingDecoder=mut.decoder, refiner(mut))
+    let refiner = makeRefiner(mut)
+    switch mut.refiner {
+    | Some(existingRefiner) =>
+      mut.refiner = Some(
+        (~input) => {
+          existingRefiner(~input) ++ refiner(~input)
+        },
+      )
+    | None => mut.refiner = Some(refiner)
+    }
   })
 }
 
 let refine: (t<'value>, s<'value> => 'value => unit) => t<'value> = (schema, refiner) => {
   schema->internalRefine(_ =>
-    (~input, ~selfSchema as _) => {
+    (~input) => {
       `${input->B.embed(refiner(input->B.effectCtx))}(${input.var()});`
     }
   )
@@ -3207,7 +3262,7 @@ let nestedLoc = "BS_PRIVATE_NESTED_SOME_NONE"
 module Dict = {
   let factory = item => {
     let item = item->castToInternal
-    let mut = base(objectTag, ~selfReverse=false)
+    let mut = base(objectTag, ~selfReverse=item->Obj.magic->Stdlib.Dict.getUnsafe(reversedKey) === item->Obj.magic)
     mut.properties = Some(X.Object.immutableEmpty)
     mut.additionalItems = Some(Schema(item->castToPublic))
     mut.decoder = objectDecoder
@@ -4359,7 +4414,7 @@ let enableJson = () => {
     json.name = Some(jsonName)
     json.decoder = jsonDecoder
     json.encoder = Some(jsonEncoder)
-    let defs = Js.Dict.empty()
+
     let anyOf = [
       string,
       bool,
@@ -4372,16 +4427,16 @@ let enableJson = () => {
     anyOf->Js.Array2.forEach(schema => {
       has->Js.Dict.set((schema.tag :> string), true)
     })
-    defs->Js.Dict.set(
-      jsonName,
-      {
-        name: jsonName,
-        tag: unionTag,
-        anyOf,
-        has,
-        decoder: Union.unionDecoder,
-      },
-    )
+
+    let jsonDef = base(unionTag, ~selfReverse=true)
+    jsonDef.anyOf = Some(anyOf)
+    jsonDef.has = Some(has)
+    jsonDef.decoder = Union.unionDecoder
+    jsonDef.name = Some(jsonName)
+    jsonDef.tag = unionTag
+
+    let defs = Js.Dict.empty()
+    defs->Js.Dict.set(jsonName, jsonDef)
     json.defs = Some(defs)
   }
 }
@@ -5112,7 +5167,11 @@ module Schema = {
     ~path,
   ) => {
     switch acc {
-    | Some({val}) => val->B.Val.scope
+    | Some({val}) => {
+        let v = val->B.Val.scope
+        v.hasTransform = Some(true)
+        v
+      }
     | _ =>
       if targetSchema->isLiteral {
         let v = input->B.nextConst(~schema=targetSchema, ~expected=targetSchema)
@@ -5209,8 +5268,10 @@ module Schema = {
     prepareShapedSerializerAcc(~acc, ~input)
 
     let targetSchema = input.expected.to->X.Option.getUnsafe
+
     let output = getShapedSerializerOutput(~input, ~acc=Some(acc), ~targetSchema, ~path=Path.empty)
 
+    output.hasTransform = Some(true)
     output.prev = Some(input)
 
     output
@@ -5807,7 +5868,7 @@ let intMin = (schema, minValue, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=Int.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `if(${input.var()}<${input->B.embed(minValue)}){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -5824,7 +5885,7 @@ let intMax = (schema, maxValue, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=Int.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `if(${input.var()}>${input->B.embed(maxValue)}){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -5837,7 +5898,7 @@ let intMax = (schema, maxValue, ~message as maybeMessage=?) => {
 let port = (schema, ~message=?) => {
   schema->internalRefine(mut => {
     mut.format = Some(Port)
-    (~input, ~selfSchema as _) => {
+    (~input) => {
       let inputVar = input.var()
       `${inputVar}>0&&${inputVar}<65536&&${inputVar}%1===0||${switch message {
         | Some(m) => input->B.fail(~message=m)
@@ -5854,7 +5915,7 @@ let floatMin = (schema, minValue, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=Float.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `if(${input.var()}<${input->B.embed(minValue)}){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -5871,7 +5932,7 @@ let floatMax = (schema, maxValue, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=Float.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `if(${input.var()}>${input->B.embed(maxValue)}){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -5888,7 +5949,7 @@ let arrayMinLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=Array.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `if(${input.var()}.length<${input->B.embed(length)}){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -5905,7 +5966,7 @@ let arrayMaxLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=Array.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `if(${input.var()}.length>${input->B.embed(length)}){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -5922,7 +5983,7 @@ let arrayLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=Array.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `if(${input.var()}.length!==${input->B.embed(length)}){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -5939,7 +6000,7 @@ let stringMinLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `if(${input.var()}.length<${input->B.embed(length)}){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -5956,7 +6017,7 @@ let stringMaxLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `if(${input.var()}.length>${input->B.embed(length)}){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -5973,7 +6034,7 @@ let stringLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `if(${input.var()}.length!==${input->B.embed(length)}){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -5986,7 +6047,7 @@ let stringLength = (schema, length, ~message as maybeMessage=?) => {
 let email = (schema, ~message=`Invalid email address`) => {
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `if(!${input->B.embed(String.emailRegex)}.test(${input.var()})){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -5999,7 +6060,7 @@ let email = (schema, ~message=`Invalid email address`) => {
 let uuid = (schema, ~message=`Invalid UUID`) => {
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `if(!${input->B.embed(String.uuidRegex)}.test(${input.var()})){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -6012,7 +6073,7 @@ let uuid = (schema, ~message=`Invalid UUID`) => {
 let cuid = (schema, ~message=`Invalid CUID`) => {
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `if(!${input->B.embed(String.cuidRegex)}.test(${input.var()})){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -6025,7 +6086,7 @@ let cuid = (schema, ~message=`Invalid CUID`) => {
 let url = (schema, ~message=`Invalid url`) => {
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       `try{new URL(${input.var()})}catch(_){${input->B.fail(~message)}}`
     },
     ~refinement={
@@ -6038,7 +6099,7 @@ let url = (schema, ~message=`Invalid url`) => {
 let pattern = (schema, re, ~message=`Invalid pattern`) => {
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input, ~selfSchema as _) => {
+    ~refiner=(~input) => {
       let embededRe = input->B.embed(re)
       if re->Js.Re.global {
         // TODO Write a regression test when it's needed

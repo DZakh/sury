@@ -87,27 +87,19 @@ test("Fails to parse undefined", t => {
   )
 })
 
+let jsonParseCode = `i=>{e[0](i);return i}
+JSON: i=>{if(Array.isArray(i)){for(let v0=0;v0<i.length;++v0){try{e[0]["unknown->JSON--0"](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}}else if(typeof i==="object"&&i&&!Array.isArray(i)){for(let v2 in i){try{e[1]["unknown->JSON--0"](i[v2]);}catch(v3){v3.path='["'+v2+'"]'+v3.path;throw v3}}}else if(!(typeof i==="string"||typeof i==="boolean"||typeof i==="number"&&!Number.isNaN(i)||i===null)){e[2](i)}return i}`
 test("Compiled parse code snapshot", t => {
   let schema = S.json
 
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Parse,
-    `i=>{let v0=e[0](i);return v0}
-JSON: i=>{if(Array.isArray(i)){let v4=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v2=e[0][1](i[v0]),v3;try{v3=v2}catch(v1){if(v1&&v1.s===s){v1.path=""+'["'+v0+'"]'+v1.path}throw v1}v4[v0]=v3}i=v4}else if(typeof i==="object"&&i&&!Array.isArray(i)){let v9={};for(let v5 in i){let v7=e[1][1](i[v5]),v8;try{v8=v7}catch(v6){if(v6&&v6.s===s){v6.path=""+'["'+v5+'"]'+v6.path}throw v6}v9[v5]=v8}i=v9}else if(!(typeof i==="string"||typeof i==="boolean"||typeof i==="number"&&!Number.isNaN(i)||i===null)){e[2](i)}return i}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#Parse, jsonParseCode)
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#Convert)
 })
 
 test("Compiled serialize code snapshot", t => {
   let schema = S.json
   t->U.assertCompiledCodeIsNoop(~schema=schema->S.reverse, ~op=#Convert)
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#ReverseParse,
-    `i=>{let v0=e[0](i);return v0}
-JSON: i=>{if(Array.isArray(i)){let v4=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v2=e[0][1](i[v0]),v3;try{v3=v2}catch(v1){if(v1&&v1.s===s){v1.path=""+'["'+v0+'"]'+v1.path}throw v1}v4[v0]=v3}i=v4}else if(typeof i==="object"&&i&&!Array.isArray(i)){let v9={};for(let v5 in i){let v7=e[1][1](i[v5]),v8;try{v8=v7}catch(v6){if(v6&&v6.s===s){v6.path=""+'["'+v5+'"]'+v6.path}throw v6}v9[v5]=v8}i=v9}else if(!(typeof i==="string"||typeof i==="boolean"||typeof i==="number"&&!Number.isNaN(i)||i===null)){e[2](i)}return i}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#ReverseParse, jsonParseCode)
 })
 
 test("Reverse schema to S.json", t => {

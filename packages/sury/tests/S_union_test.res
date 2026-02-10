@@ -127,7 +127,7 @@ test("When union of json and string schemas, should parse the first one", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{let v0;v0=e[0](i);i="json"}catch(e0){if(typeof i==="string"){i="str"}else{e[1](i,e0)}}return i}`,
+    `i=>{try{e[0](i);i="json"}catch(e0){if(typeof i==="string"){i="str"}else{e[1](i,e0)}}return i}`,
   )
 })
 
@@ -787,7 +787,7 @@ test("json-rpc response", t => {
     ~schema=getLogsResponseSchema,
     ~op=#ReverseConvert,
     // FIXME: Exhaustive check doesn't work
-    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["TAG"]==="Ok"){let v0=i["_0"];if(!Array.isArray(v0)){e[1](v0)}for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];if(typeof v2!=="string"){e[0](v2)}}catch(v3){v3.path="[\\"_0\\"]"+\'["\'+v1+\'"]\'+v3.path;throw v3}}i={"result":v0,}}else if(i["TAG"]==="Error"){let v6=i["_0"];if(typeof v6==="string"){if(v6==="LogsNotFound"){v6={"message":"NotFound",}}}else if(typeof v6==="object"&&v6&&!Array.isArray(v6)){if(v6["NAME"]==="InvalidData"){let v7=v6["VAL"];if(typeof v7!=="string"){e[2](v7)}v6={"message":"Invalid","data":v7,}}}else{e[3](v6)}if(typeof v6==="string"){if(v6==="LogsNotFound"){v6={"message":"NotFound",}}}else if(typeof v6==="object"&&v6&&!Array.isArray(v6)){if(v6["NAME"]==="InvalidData"){let v8=v6["VAL"];if(typeof v8!=="string"){e[4](v8)}v6={"message":"Invalid","data":v8,}}}else{e[5](v6)}if(typeof v6==="string"){if(v6==="LogsNotFound"){v6={"message":"NotFound",}}}else if(typeof v6==="object"&&v6&&!Array.isArray(v6)){if(v6["NAME"]==="InvalidData"){let v9=v6["VAL"];if(typeof v9!=="string"){e[6](v9)}v6={"message":"Invalid","data":v9,}}}else{e[7](v6)}i={"error":v6,}}else{e[8](i)}}else{e[9](i)}return i}`,
+    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["TAG"]==="Ok"){let v0=i["_0"];if(!Array.isArray(v0)){e[1](v0)}for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];if(typeof v2!=="string"){e[0](v2)}}catch(v3){v3.path="[\\"_0\\"]"+\'["\'+v1+\'"]\'+v3.path;throw v3}}i={"result":v0,}}else if(i["TAG"]==="Error"){let v5=i["_0"];if(typeof v5==="string"){if(v5==="LogsNotFound"){v5={"message":"NotFound",}}}else if(typeof v5==="object"&&v5&&!Array.isArray(v5)){if(v5["NAME"]==="InvalidData"){let v6=v5["VAL"];if(typeof v6!=="string"){e[2](v6)}v5={"message":"Invalid","data":v6,}}}else{e[3](v5)}i={"error":v5,}}else{e[4](i)}}else{e[5](i)}return i}`,
   )
 })
 

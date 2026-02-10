@@ -416,7 +416,7 @@ test("Converts JSON string to object with unknown field", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{let v0;v0=e[0](i);return JSON.stringify({"foo":v0,})}`,
+    `i=>{e[0](i);return JSON.stringify({"foo":i,})}`,
   )
 
   t->Assert.deepEqual(%raw(`"foo"`)->S.reverseConvertOrThrow(schema), %raw(`'{"foo":"foo"}'`))

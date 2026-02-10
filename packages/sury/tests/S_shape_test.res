@@ -15,7 +15,7 @@ asyncTest("Parses with wrapping async schema in variant", async t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{if(typeof i!=="string"){e[1](i)}return Promise.all([e[0](i),]).then(a=>({"TAG":"Ok","_0":a[0],}))}`,
+    `i=>{if(typeof i!=="string"){e[2](i)}let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0.then(v0=>{return {"TAG":"Ok","_0":v0,}})}`,
   )
 })
 
@@ -129,29 +129,29 @@ test(
 test(
   "Successfully parses when transformed object schema is destructured - it does create an object and extracts a field from it afterwards",
   t => {
-    // t->Assert.throws(
-    //   () => {
-    //     S.schema(
-    //       s =>
-    //         {
-    //           "foo": s.matches(S.string),
-    //         },
-    //     )
-    //     ->S.transform(
-    //       _ => {
-    //         parser: obj =>
-    //           {
-    //             "faz": obj["foo"],
-    //           },
-    //       },
-    //     )
-    //     ->S.shape(obj => obj["faz"])
-    //   },
-    //   ~expectations={
-    //     message: `[Sury] Cannot read property "faz" of unknown`,
-    //   },
-    //   ~message=`Case without S.to before S.shape`,
-    // )
+    t->Assert.throws(
+      () => {
+        S.schema(
+          s =>
+            {
+              "foo": s.matches(S.string),
+            },
+        )
+        ->S.transform(
+          _ => {
+            parser: obj =>
+              {
+                "faz": obj["foo"],
+              },
+          },
+        )
+        ->S.shape(obj => obj["faz"])
+      },
+      ~expectations={
+        message: `[Sury] Cannot read property "faz" of unknown`,
+      },
+      ~message=`Case without S.to before S.shape`,
+    )
 
     let schema =
       S.schema(s =>
@@ -172,12 +172,12 @@ test(
           }
         ),
       )
-    // ->S.shape(obj => obj["faz"])
+      ->S.shape(obj => obj["faz"])
 
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["foo"];if(typeof v0!=="string"){e[1](v0)}let v1=e[2]({"foo":v0,});if(typeof v1!=="object"||!v1){e[3](v1)}let v2=v1["faz"];if(typeof v2!=="string"){e[4](v2)}return v2}`,
+      `i=>{if(typeof i!=="object"||!i){e[5](i)}let v0=i["foo"];if(typeof v0!=="string"){e[0](v0)}let v1;try{v1=e[1]({"foo":v0,})}catch(x){e[2](x)}if(typeof v1!=="object"||!v1){e[4](v1)}let v2=v1["faz"];if(typeof v2!=="string"){e[3](v2)}return v2}`,
     )
     t->Assert.deepEqual(
       {
@@ -338,12 +338,12 @@ test("Works with variant schema used multiple times as a child schema", t => {
   t->U.assertCompiledCode(
     ~schema=appVersionsSchema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["ios"],v1=i["android"];if(typeof v0!=="string"){e[1](v0)}if(typeof v1!=="string"){e[2](v1)}return {"ios":{"current":v0,"minimum":"1.0",},"android":{"current":v1,"minimum":"1.0",},}}`,
+    `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["ios"],v1=i["android"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="string"){e[1](v1)}return {"ios":{"current":i["ios"],"minimum":"1.0",},"android":{"current":i["android"],"minimum":"1.0",},}}`,
   )
   t->U.assertCompiledCode(
     ~schema=appVersionsSchema,
     ~op=#ReverseConvert,
-    `i=>{let v0=i["ios"];let v1=i["android"];return {"ios":v0["current"],"android":v1["current"],}}`,
+    `i=>{let v0=i["ios"],v1=i["android"];return {"ios":v0["current"],"android":v1["current"],}}`,
   )
 
   let rawAppVersions = {
@@ -411,8 +411,8 @@ test("S.json shaped to literal should keep validation", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{let v0;v0=e[0](i);return "foo"}
-JSON: i=>{if(Array.isArray(i)){let v4=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v2=e[0][1](i[v0]),v3;try{v3=v2}catch(v1){if(v1&&v1.s===s){v1.path=""+'["'+v0+'"]'+v1.path}throw v1}v4[v0]=v3}i=v4}else if(typeof i==="object"&&i&&!Array.isArray(i)){let v9={};for(let v5 in i){let v7=e[1][1](i[v5]),v8;try{v8=v7}catch(v6){if(v6&&v6.s===s){v6.path=""+'["'+v5+'"]'+v6.path}throw v6}v9[v5]=v8}i=v9}else if(!(typeof i==="string"||typeof i==="boolean"||typeof i==="number"&&!Number.isNaN(i)||i===null)){e[2](i)}return i}`,
+    `i=>{e[0](i);return "foo"}
+JSON: i=>{if(Array.isArray(i)){for(let v0=0;v0<i.length;++v0){try{e[0]["unknown->JSON--0"](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}}else if(typeof i==="object"&&i&&!Array.isArray(i)){for(let v2 in i){try{e[1]["unknown->JSON--0"](i[v2]);}catch(v3){v3.path='["'+v2+'"]'+v3.path;throw v3}}}else if(!(typeof i==="string"||typeof i==="boolean"||typeof i==="number"&&!Number.isNaN(i)||i===null)){e[2](i)}return i}`,
   )
 
   t->Assert.deepEqual("foo"->S.parseOrThrow(schema), "foo")

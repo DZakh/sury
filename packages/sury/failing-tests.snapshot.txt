@@ -7,74 +7,44 @@
 #   cd packages/sury && pnpm exec ava --no-worker-threads 2>&1 | grep "✘ \[fail\]" | sort > /tmp/after.txt
 #   diff failing-tests.snapshot.txt /tmp/after.txt
 #
-# Total: 69 failing tests
+# Total: 39 failing tests
 
-  ✘ [fail]: S_json_test.res › Compiled parse code snapshot
-  ✘ [fail]: S_json_test.res › Compiled serialize code snapshot
+  ✘ [fail]: Example_test.res › Example Error thrown in test
   ✘ [fail]: S_jsonString_test.res › Can apply refinement to JSON string with S.to after
-  ✘ [fail]: S_jsonString_test.res › Converts JSON string to object with unknown field
-  ✘ [fail]: S_jsonString_test.res › Nested JSON string
-  ✘ [fail]: S_jsonString_test.res › Parses JSON string to array
-  ✘ [fail]: S_jsonString_test.res › Parses JSON string to bigint
-  ✘ [fail]: S_jsonString_test.res › Parses JSON string to dict
-  ✘ [fail]: S_literal_Object_test.res › Compiled parse code snapshot
   ✘ [fail]: S_null_test.res › Record schema with optional nullable field Error thrown in test
   ✘ [fail]: S_object_discriminant_test.res › Fails to serialize object with discriminant that we don't know how to serialize "true | null"
-  ✘ [fail]: S_object_discriminant_test.res › Fails to serialize object with discriminant that we don't know how to serialize "true[]" Asserted result is not S.Exn "Missing input for true[] at ["discriminant"]". Instead got: {"discriminant":[],"field":"bar"}
-  ✘ [fail]: S_object_discriminant_test.res › Fails to serialize object with discriminant that we don't know how to serialize "{ [key: string]: true; }" Asserted result is not S.Exn "Missing input for { [key: string]: true; } at ["discriminant"]". Instead got: {"discriminant":{},"field":"bar"}
-  ✘ [fail]: S_object_discriminant_test.res › Successfully serializes object with discriminant "{ "'`: ""'`"; nestedField: false; }" and values needed to be escaped
-  ✘ [fail]: S_object_discriminant_test.res › Successfully serializes object with discriminant "{ nestedDiscriminant: "abc"; nestedField: false; }"
+  ✘ [fail]: S_object_discriminant_test.res › Fails to serialize object with discriminant that we don't know how to serialize "true[]" Error thrown in test
+  ✘ [fail]: S_object_discriminant_test.res › Fails to serialize object with discriminant that we don't know how to serialize "{ [key: string]: true; }" Error thrown in test
   ✘ [fail]: S_object_flatten_test.res › Can flatten transformed object schema
+  ✘ [fail]: S_object_flatten_test.res › Flatten schema with duplicated field of the same type (flatten last) Error thrown in test
+  ✘ [fail]: S_object_flatten_test.res › Successfully serializes simple object with flatten Error thrown in test
   ✘ [fail]: S_object_nested_test.res › Nested preprocessed tags on reverse convert
   ✘ [fail]: S_object_nested_test.res › Object with a single nested field with S.nullAsOption
   ✘ [fail]: S_object_nested_test.res › Object with a single nested field with S.transform
   ✘ [fail]: S_object_test.res › Compiled code snapshot for refined nested object
-  ✘ [fail]: S_object_test.res › Successfully parses strict object from benchmark
   ✘ [fail]: S_object_withoutDeclaredFields_test.res › Successfully parses object with excess keys and returns transformed value
-  ✘ [fail]: S_Option_getOr_test.res › Successfully serializes schema with transformation
-  ✘ [fail]: S_Option_getOrWith_test.res › Successfully serializes schema with transformation
   ✘ [fail]: S_parseAsync_test.res › [Union] Passes with Parse operation. Async item should fail Asserted result is not S.Exn "Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead". Instead got: 2
-  ✘ [fail]: S_parseJsonStringWith_test.res › Fails to parse JSON Invalid reason
-  ✘ [fail]: S_parseJsonStringWith_test.res › Successfully parses unknown
   ✘ [fail]: S_recursive_test.res › Fails to serialise nested recursive object Error thrown in test
-  ✘ [fail]: S_recursive_test.res › Parses recursive object with async fields in parallel
   ✘ [fail]: S_recursive_test.res › Recursively transforms all objects when added transform to the recursive's function returned schema
   ✘ [fail]: S_recursive_test.res › Recursively transforms nested objects when added transform to the placeholder schema Error thrown in test
   ✘ [fail]: S_recursive_test.res › Shallowly transforms object when added transform to the S.recursive result Error thrown in test
-  ✘ [fail]: S_recursive_test.res › Successfully parses recursive object using S.parseAsyncOrThrow
   ✘ [fail]: S_recursive_test.res › Successfully serializes recursive object
   ✘ [fail]: S_refine_test.res › Compiled parse code snapshot for simple object with refine
   ✘ [fail]: S_refine_test.res › Successfully parses
-  ✘ [fail]: S_reverseConvertToJsonStringOrThrow_test.res › Successfully parses object
-  ✘ [fail]: S_reverseConvertToJsonStringOrThrow_test.res › Successfully parses object with space
-  ✘ [fail]: S_reverseConvertToJsonStringOrThrow_test.res › Successfully serializes unknown schema Error thrown in test
-  ✘ [fail]: S_reverseConvertToJsonWith_test.res › Allows to convert to JSON with option as an object field Error thrown in test
-  ✘ [fail]: S_reverseConvertToJsonWith_test.res › Allows to convert to JSON with option as dict field Error thrown in test
-  ✘ [fail]: S_reverseConvertToJsonWith_test.res › Allows to convert to JSON with optional S.json as an object field Error thrown in test
-  ✘ [fail]: S_reverseConvertToJsonWith_test.res › Doesn't allow to encode tuple with optional item to JSON Asserted result is not S.Exn "Unsupported conversion from boolean | undefined to JSON". Instead got: [null]
-  ✘ [fail]: S_reverseConvertToJsonWith_test.res › Encodes object with unknown schema to JSON Error thrown in test
-  ✘ [fail]: S_reverseConvertToJsonWith_test.res › Encodes tuple with unknown item to JSON Error thrown in test
   ✘ [fail]: S_reverseConvertToJsonWith_test.res › Serializes deeply recursive schema
   ✘ [fail]: S_schema_test.res › Nested object with embeded schema
-  ✘ [fail]: S_schema_test.res › Object schema with nested object field containing only literal
   ✘ [fail]: S_schema_test.res › Object with embeded transformed schema
-  ✘ [fail]: S_schema_test.res › Strict object with embeded returns input without object recreation
-  ✘ [fail]: S_schema_test.res › Strict tuple schema should check the exact number of items, but it can optimize input recreation
   ✘ [fail]: S_schema_test.res › Tuple with embeded schema
   ✘ [fail]: S_schema_test.res › Tuple with embeded transformed schema
-  ✘ [fail]: S_shape_test.res › Can destructure object value passed to S.shape
-  ✘ [fail]: S_shape_test.res › Parses with wrapping async schema in variant
-  ✘ [fail]: S_shape_test.res › S.json shaped to literal should keep validation
-  ✘ [fail]: S_shape_test.res › Successfully parses when transformed object schema is destructured - it does create an object and extracts a field from it afterwards
-  ✘ [fail]: S_shape_test.res › Works with variant schema used multiple times as a child schema
   ✘ [fail]: S_test › ArkType pattern matching
-  ✘ [fail]: S_test › Parse JSON string, extract a field, and serialize it back to JSON string
-  ✘ [fail]: S_test › Unnest schema
+  ✘ [fail]: S_test › Recursive with self as transform target
+  ✘ [fail]: S_test › Unnest schema Error thrown in test
   ✘ [fail]: S_to_test.res › Coerce from union to bigint with refinement on union
   ✘ [fail]: S_to_test.res › Coerce from union to bigint with refinement on union (with an item transformed to) Should apply refinement after the item transformation
   ✘ [fail]: S_to_test.res › Coerce from union to wider union should keep the original value type
   ✘ [fail]: S_to_test.res › Coerce string to custom JSON schema I don't know what we expect here, but currently it works this way
   ✘ [fail]: S_to_test.res › Transform from union to wider union with different items order (applies decoder to both one at a time)
   ✘ [fail]: S_union_test.res › Compiled serialize code snapshot of crazy union
+  ✘ [fail]: S_union_test.res › Compiled serialize code snapshot of objects returning literal fields
+  ✘ [fail]: S_union_test.res › Serializes when second struct misses serializer
   ✘ [fail]: S_union_test.res › json-rpc response
-  ✘ [fail]: S_union_test.res › Successfully serializes unboxed variant

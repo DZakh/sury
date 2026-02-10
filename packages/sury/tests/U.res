@@ -151,6 +151,7 @@ let rec cleanUpSchema = schema => {
     switch key {
     | "output"
     | "isAsync"
+    | "hasTransform"
     | "seq" => ()
     // ditemToItem leftovers FIXME:
     | "k" | "p" | "of" | "r" => ()
