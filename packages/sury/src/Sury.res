@@ -6153,21 +6153,7 @@ let noop = a => a
 let js_asyncDecoderAssert = (schema, assertFn) => {
   schema->transform(_ => {
     {
-      asyncParser: v =>
-        assertFn(v)
-        ->X.Promise.catch(e => {
-          if e->Stdlib.JsExn.asJsExn->Option.isSome && (e->Obj.magic)["code"] !== undefined {
-            Stdlib.JsExn.throw(e->Obj.magic)
-          }
-          let message = switch e->Stdlib.JsExn.asJsExn {
-          | Some(jsExn) => jsExn->Stdlib.JsExn.message->Option.getOr(e->Obj.magic->Stdlib.String.make)
-          | None => e->Obj.magic->Stdlib.String.make
-          }
-          Stdlib.JsExn.throw(
-            InternalError.make(Custom({reason: message, path: Path.empty})),
-          )
-        })
-        ->X.Promise.thenResolve(() => v),
+      asyncParser: v => assertFn(v)->X.Promise.thenResolve(() => v),
       serializer: noop,
     }
   })

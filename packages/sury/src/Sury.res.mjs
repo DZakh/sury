@@ -4060,10 +4060,7 @@ function noop(a) {
 
 function js_asyncDecoderAssert(schema, assertFn) {
   return transform(schema, param => ({
-    a: v => assertFn(v).catch(e => {
-      if (e instanceof SuryError) { throw e; }
-      throw new SuryError({ code: "custom", path: "", reason: e instanceof Error ? e.message : String(e) });
-    }).then(() => v),
+    a: v => assertFn(v).then(() => v),
     s: noop
   }));
 }

@@ -855,7 +855,7 @@ test("Fails to parses async schema", async (t) => {
     >
   >(true);
 
-  t.is(result.error.code, "custom");
+  t.is(result.error.code, "invalid_conversion");
 });
 
 test("Successfully parses object by provided shape", (t) => {
