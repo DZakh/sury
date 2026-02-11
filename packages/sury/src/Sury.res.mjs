@@ -3765,12 +3765,16 @@ function compactColumnsDecoder(input, selfSchema) {
   let match$1;
   let exit = 0;
   if (match !== undefined) {
-    let p = match.properties;
-    if (p !== undefined) {
-      match$1 = [
-        p,
-        true
-      ];
+    let match$2 = match.additionalItems;
+    if (match$2 !== undefined && match$2 !== "strip" && match$2 !== "strict") {
+      let p = match$2.properties;
+      match$1 = p !== undefined ? [
+          p,
+          true
+        ] : [
+          undefined,
+          true
+        ];
     } else {
       exit = 1;
     }
@@ -3778,10 +3782,10 @@ function compactColumnsDecoder(input, selfSchema) {
     exit = 1;
   }
   if (exit === 1) {
-    let match$2 = input.s.additionalItems;
+    let match$3 = input.s.additionalItems;
     let exit$1 = 0;
-    if (match$2 !== undefined && match$2 !== "strip" && match$2 !== "strict") {
-      let p$1 = match$2.properties;
+    if (match$3 !== undefined && match$3 !== "strip" && match$3 !== "strict") {
+      let p$1 = match$3.properties;
       if (p$1 !== undefined) {
         match$1 = [
           p$1,
@@ -3795,8 +3799,8 @@ function compactColumnsDecoder(input, selfSchema) {
             isUnknownInput || isArrayInput
           ];
         } else {
-          let match$3 = input.s;
-          let p$3 = match$3.properties;
+          let match$4 = input.s;
+          let p$3 = match$4.properties;
           match$1 = p$3 !== undefined ? [
               p$3,
               false
@@ -3817,8 +3821,8 @@ function compactColumnsDecoder(input, selfSchema) {
           isUnknownInput || isArrayInput
         ];
       } else {
-        let match$4 = input.s;
-        let p$5 = match$4.properties;
+        let match$5 = input.s;
+        let p$5 = match$5.properties;
         match$1 = p$5 !== undefined ? [
             p$5,
             false
@@ -3925,7 +3929,7 @@ function compactColumnsDecoder(input, selfSchema) {
     output$3.k = true;
     return output$3;
   }
-  throw new Error("[Sury] S.compactColumns supports only object schemas. Use S.compactColumns(S.unknown)->S.to(objectSchema).");
+  throw new Error("[Sury] S.compactColumns supports only object schemas. Use S.compactColumns(S.unknown)->S.to(S.array(objectSchema)).");
 }
 
 function compactColumns(inputSchema) {

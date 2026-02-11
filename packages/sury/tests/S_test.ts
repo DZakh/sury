@@ -2093,11 +2093,13 @@ test("Env schema: Reggression version", (t) => {
 test("CompactColumns schema", (t) => {
   const schema = S.to(
     S.compactColumns(S.unknown),
-    S.schema({
-      id: S.string,
-      name: S.nullable(S.string),
-      deleted: S.boolean,
-    })
+    S.array(
+      S.schema({
+        id: S.string,
+        name: S.nullable(S.string),
+        deleted: S.boolean,
+      })
+    )
   );
 
   // Test parsing columnar data to row objects
@@ -2130,10 +2132,12 @@ test("CompactColumns schema", (t) => {
 test("CompactColumns with json and bigint", (t) => {
   const schema = S.to(
     S.compactColumns(S.json),
-    S.schema({
-      id: S.string,
-      amount: S.bigint,
-    })
+    S.array(
+      S.schema({
+        id: S.string,
+        amount: S.bigint,
+      })
+    )
   );
 
   // Test parsing - values stay as-is (strings not converted to bigint)

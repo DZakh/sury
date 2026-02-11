@@ -3,11 +3,13 @@ open Ava
 test("Successfully parses and reverse converts a simple object with compactColumns", t => {
   let schema =
     S.compactColumns(S.unknown)->S.to(
-      S.schema(s =>
-        {
-          "foo": s.matches(S.string),
-          "bar": s.matches(S.int),
-        }
+      S.array(
+        S.schema(s =>
+          {
+            "foo": s.matches(S.string),
+            "bar": s.matches(S.int),
+          }
+        ),
       ),
     )
 
@@ -19,7 +21,7 @@ test("Successfully parses and reverse converts a simple object with compactColum
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{let v1=[new Array(i.length),new Array(i.length),];for(let v0=0;v0<i.length;++v0){v1[0][v0]=i[v0]["foo"];v1[1][v0]=i[v0]["bar"];}return v1}`,
+    `i=>{for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}let v4=[new Array(i.length),new Array(i.length),];for(let v3=0;v3<i.length;++v3){v4[0][v3]=i[v3]["foo"];v4[1][v3]=i[v3]["bar"];}return v4}`,
   )
 
   t->Assert.deepEqual(
@@ -36,11 +38,13 @@ test("Successfully parses and reverse converts a simple object with compactColum
 test("Transforms nullable fields", t => {
   let schema =
     S.compactColumns(S.unknown)->S.to(
-      S.schema(s =>
-        {
-          "foo": s.matches(S.string),
-          "bar": s.matches(S.nullAsOption(S.int)),
-        }
+      S.array(
+        S.schema(s =>
+          {
+            "foo": s.matches(S.string),
+            "bar": s.matches(S.nullAsOption(S.int)),
+          }
+        ),
       ),
     )
 
@@ -52,7 +56,7 @@ test("Transforms nullable fields", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{let v1=[new Array(i.length),new Array(i.length),];for(let v0=0;v0<i.length;++v0){v1[0][v0]=i[v0]["foo"];v1[1][v0]=i[v0]["bar"]===void 0?null:i[v0]["bar"];}return v1}`,
+    `i=>{let v4=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];let v2=v1["bar"];if(v2===void 0){v2=null}else if(!(typeof v2==="number"&&!Number.isNaN(v2)&&(v2<2147483647&&v2>-2147483648&&v2%1===0))){e[0](v2)}v4[v0]={"foo":v1["foo"],"bar":v2,}}catch(v3){v3.path='["'+v0+'"]'+v3.path;throw v3}}let v6=[new Array(v4.length),new Array(v4.length),];for(let v5=0;v5<v4.length;++v5){v6[0][v5]=v4[v5]["foo"];v6[1][v5]=v4[v5]["bar"]===void 0?null:v4[v5]["bar"];}return v6}`,
   )
 
   t->Assert.deepEqual(
@@ -69,11 +73,13 @@ test("Transforms nullable fields", t => {
 test("Case with missing item at the end", t => {
   let schema =
     S.compactColumns(S.unknown)->S.to(
-      S.schema(s =>
-        {
-          "foo": s.matches(S.option(S.string)),
-          "bar": s.matches(S.bool),
-        }
+      S.array(
+        S.schema(s =>
+          {
+            "foo": s.matches(S.option(S.string)),
+            "bar": s.matches(S.bool),
+          }
+        ),
       ),
     )
 
@@ -85,7 +91,7 @@ test("Case with missing item at the end", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{let v1=[new Array(i.length),new Array(i.length),];for(let v0=0;v0<i.length;++v0){v1[0][v0]=i[v0]["foo"];v1[1][v0]=i[v0]["bar"];}return v1}`,
+    `i=>{for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}let v4=[new Array(i.length),new Array(i.length),];for(let v3=0;v3<i.length;++v3){v4[0][v3]=i[v3]["foo"];v4[1][v3]=i[v3]["bar"];}return v4}`,
   )
 
   t->Assert.deepEqual(
@@ -100,7 +106,7 @@ test("Case with missing item at the end", t => {
 })
 
 test("Handles empty objects", t => {
-  let schema = S.compactColumns(S.unknown)->S.to(S.object(_ => ()))
+  let schema = S.compactColumns(S.unknown)->S.to(S.array(S.object(_ => ())))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -113,13 +119,13 @@ test("Handles empty objects", t => {
 })
 
 test("Handles non-object schemas", t => {
-  let schema = S.compactColumns(S.unknown)->S.to(S.tuple2(S.string, S.int))
+  let schema = S.compactColumns(S.unknown)->S.to(S.array(S.tuple2(S.string, S.int)))
   t->Assert.throws(
     () => {
       %raw(`[["a"], [0]]`)->S.parseOrThrow(schema)
     },
     ~expectations={
-      message: "[Sury] S.compactColumns supports only object schemas. Use S.compactColumns(S.unknown)->S.to(objectSchema).",
+      message: "[Sury] S.compactColumns supports only object schemas. Use S.compactColumns(S.unknown)->S.to(S.array(objectSchema)).",
     },
   )
 })

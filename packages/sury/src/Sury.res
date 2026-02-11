@@ -5453,10 +5453,16 @@ let compactColumnsDecoder = Builder.make((~input, ~selfSchema) => {
   let isUnknownInput = inputTagFlag->Flag.unsafeHas(TagFlag.unknown)
 
   // Try to get properties and determine direction based on where we find them
-  // - Forward (columnar → objects): properties come from selfSchema.to
+  // - Forward (columnar → objects): properties come from selfSchema.to (which is S.array(objectSchema))
+  //   so we need to get them from selfSchema.to.additionalItems.properties
   // - Reverse (objects → columnar): properties come from input.schema (array of objects)
   let (maybeProperties, isForwardDirection) = switch selfSchema.to {
-  | Some({properties: ?Some(p)}) => (Some(p), true)
+  | Some({additionalItems: ?Some(Schema(itemSchema))}) =>
+    let itemInternal = itemSchema->castToInternal
+    switch itemInternal {
+    | {properties: ?Some(p)} => (Some(p), true)
+    | _ => (None, true)
+    }
   | _ =>
     // Check if input is array of objects (additionalItems contains the item schema)
     // This indicates reverse direction
@@ -5637,8 +5643,8 @@ let compactColumnsDecoder = Builder.make((~input, ~selfSchema) => {
       }
     }
   | None =>
-    // No properties found - S.compactColumns requires an object schema with S.to
-    InternalError.panic("S.compactColumns supports only object schemas. Use S.compactColumns(S.unknown)->S.to(objectSchema).")
+    // No properties found - S.compactColumns requires an array of objects schema with S.to
+    InternalError.panic("S.compactColumns supports only object schemas. Use S.compactColumns(S.unknown)->S.to(S.array(objectSchema)).")
   }
 })
 
