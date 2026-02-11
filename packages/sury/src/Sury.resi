@@ -171,6 +171,7 @@ type rec t<'value> =
   | @as("object")
   Object({
       properties: dict<t<unknown>>,
+      required: array<string>,
       additionalItems: additionalItems,
       name?: string,
       title?: string,
@@ -220,6 +221,7 @@ and untagged = private {
   noValidation?: bool,
   items?: array<t<unknown>>,
   properties?: dict<t<unknown>>,
+  required?: array<string>,
   additionalItems?: additionalItems,
   anyOf?: array<t<unknown>>,
   has?: dict<bool>,
@@ -378,6 +380,7 @@ let schema: (Schema.s => 'value) => t<'value>
 module Object: {
   type rec s = {
     @as("f") field: 'value. (string, t<'value>) => 'value,
+    @as("o") optional: 'value. (string, t<'value>) => 'value,
     fieldOr: 'value. (string, t<'value>, 'value) => 'value,
     tag: 'value. (string, 'value) => unit,
     nested: string => s,

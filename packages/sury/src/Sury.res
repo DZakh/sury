@@ -412,6 +412,7 @@ type rec t<'value> =
   | @as("object")
   Object({
       properties: dict<t<unknown>>,
+      required: array<string>,
       additionalItems: additionalItems,
       name?: string,
       title?: string,
@@ -483,6 +484,7 @@ and internal = {
   mutable additionalItems?: additionalItems,
   mutable items?: array<internal>,
   mutable properties?: dict<internal>,
+  mutable required?: array<string>,
   mutable noValidation?: bool,
   mutable unnest?: bool,
   mutable space?: int,
@@ -523,6 +525,7 @@ and untagged = private {
   noValidation?: bool,
   items?: array<t<unknown>>,
   properties?: dict<t<unknown>>,
+  required?: array<string>,
   additionalItems?: additionalItems,
   anyOf?: array<t<unknown>>,
   has?: dict<bool>,
@@ -2382,6 +2385,7 @@ let rec makeObjectVal = (prev: val, ~schema): B.Val.Object.t => {
           {
             tag: objectTag,
             properties: Js.Dict.empty(),
+            required: [],
             additionalItems: Strict,
             decoder: objectDecoder,
           }
@@ -2568,6 +2572,7 @@ and objectDecoder: Builder.t = (~input as unknownInput, ~selfSchema as _) => {
         )
       let mut = base(objectTag, ~selfReverse=false)
       mut.properties = Some(X.Object.immutableEmpty)
+      mut.required = Some([])
       mut.additionalItems = Some(Schema(unknown->castToPublic))
       mut
     } else {
@@ -3205,6 +3210,7 @@ module Dict = {
     let item = item->castToInternal
     let mut = base(objectTag, ~selfReverse=item->Obj.magic->Stdlib.Dict.getUnsafe(reversedKey) === item->Obj.magic)
     mut.properties = Some(X.Object.immutableEmpty)
+    mut.required = Some([])
     mut.additionalItems = Some(Schema(item->castToPublic))
     mut.decoder = objectDecoder
     mut->castToPublic
@@ -3926,6 +3932,7 @@ module Option = {
       {
         tag: objectTag,
         properties,
+        required: [],
         additionalItems: Strip,
         decoder: objectDecoder,
         // TODO: Support this as a default coercion
@@ -4099,6 +4106,7 @@ module Option = {
 module Object = {
   type rec s = {
     @as("f") field: 'value. (string, t<'value>) => 'value,
+    @as("o") optional: 'value. (string, t<'value>) => 'value,
     fieldOr: 'value. (string, t<'value>, 'value) => 'value,
     tag: 'value. (string, 'value) => unit,
     nested: string => s,
@@ -4308,6 +4316,10 @@ let jsonDecoder = (~input, ~selfSchema as _) => {
       properties->Stdlib.Dict.set(key, json)
     })
     expected.properties = Some(properties)
+    switch input.schema.required {
+    | Some(r) => expected.required = Some(r)
+    | None => ()
+    }
     expected.additionalItems = Some(
       switch input.schema.additionalItems->X.Option.getUnsafe {
       | Schema(_) => Schema(json->castToPublic)
@@ -4692,6 +4704,7 @@ module Schema = {
     // needed only because we use @as for field to reduce bundle-size
     // of ReScript compiled code
     @as("field") _jsField: 'value. (string, schema<'value>) => 'value,
+    @as("optional") _jsOptional: 'value. (string, schema<'value>) => 'value,
     // Public API for ReScript users
     ...Object.s,
   }
@@ -4773,10 +4786,12 @@ module Schema = {
     | Some(ctx) => ctx
     | None => {
         let properties = Js.Dict.empty()
+        let required = []
 
         let schema = {
           let schema = base(objectTag, ~selfReverse=false)
           schema.properties = Some(properties)
+          schema.required = Some(required)
           schema.additionalItems = Some(globalConfig.defaultAdditionalItems)
           schema.decoder = objectDecoder
           schema->castToPublic
@@ -4788,7 +4803,7 @@ module Schema = {
           ->X.Option.getUnsafe: internal
         )
 
-        let field:
+        let optional:
           type value. (string, schema<value>) => value =
           (fieldName, schema) => {
             let schema = schema->castToInternal
@@ -4803,12 +4818,20 @@ module Schema = {
             )
           }
 
+        let field:
+          type value. (string, schema<value>) => value =
+          (fieldName, schema) => {
+            let result = optional(fieldName, schema)
+            required->Js.Array2.push(fieldName)->ignore
+            result
+          }
+
         let tag = (tag, asValue) => {
           let _ = field(tag, definitionToSchema(asValue->Obj.magic)->castToPublic)
         }
 
         let fieldOr = (fieldName, schema, or) => {
-          field(fieldName, Option.factory(schema)->Option.getOr(or))
+          optional(fieldName, Option.factory(schema)->Option.getOr(or))
         }
 
         let flatten = schema => {
@@ -4829,8 +4852,15 @@ module Schema = {
                 let key = flattenedKeys->Js.Array2.unsafe_get(idx)
                 result->Js.Dict.set(
                   key,
-                  field(key, flattenedProperties->Js.Dict.unsafeGet(key)->castToPublic),
+                  optional(key, flattenedProperties->Js.Dict.unsafeGet(key)->castToPublic),
                 )
+              }
+              switch schema.required {
+              | Some(r) =>
+                for idx in 0 to r->Js.Array2.length - 1 {
+                  required->Js.Array2.push(r->Js.Array2.unsafe_get(idx))->ignore
+                }
+              | None => ()
               }
               result->Obj.magic
             }
@@ -4841,8 +4871,10 @@ module Schema = {
         let ctx: advancedObjectCtx = {
           // js/ts methods
           _jsField: field,
+          _jsOptional: optional,
           // methods
           field,
+          optional,
           fieldOr,
           tag,
           nested,
@@ -4860,6 +4892,7 @@ module Schema = {
     definer => {
       let flattened: option<array<internal>> = %raw(`void 0`)
       let properties = Js.Dict.empty()
+      let required = []
 
       let flatten = schema => {
         let schema = schema->castToInternal
@@ -4877,6 +4910,13 @@ module Schema = {
               | None => properties->Js.Dict.set(key, flattenedSchema)
               }
             }
+            switch schema.required {
+            | Some(r) =>
+              for idx in 0 to r->Js.Array2.length - 1 {
+                required->Js.Array2.push(r->Js.Array2.unsafe_get(idx))->ignore
+              }
+            | None => ()
+            }
             let f = %raw(`flattened || (flattened = [])`)
             schema->proxifyShapedSchema(
               ~from=inputFrom,
@@ -4890,7 +4930,7 @@ module Schema = {
         }
       }
 
-      let field:
+      let optional:
         type value. (string, schema<value>) => value =
         (fieldName, schema) => {
           let schema = schema->castToInternal
@@ -4902,19 +4942,29 @@ module Schema = {
           schema->proxifyShapedSchema(~from=[fieldName])
         }
 
+      let field:
+        type value. (string, schema<value>) => value =
+        (fieldName, schema) => {
+          let result = optional(fieldName, schema)
+          required->Js.Array2.push(fieldName)->ignore
+          result
+        }
+
       let tag = (tag, asValue) => {
         let _ = field(tag, definitionToSchema(asValue->Obj.magic)->castToPublic)
       }
 
       let fieldOr = (fieldName, schema, or) => {
-        field(fieldName, Option.factory(schema)->Option.getOr(or))
+        optional(fieldName, Option.factory(schema)->Option.getOr(or))
       }
 
       let ctx = {
         // js/ts methods
         _jsField: field,
+        _jsOptional: optional,
         // methods
         field,
+        optional,
         fieldOr,
         tag,
         nested,
@@ -4925,6 +4975,7 @@ module Schema = {
 
       let mut = base(objectTag, ~selfReverse=false)
       mut.properties = Some(properties)
+      mut.required = Some(required)
       mut.additionalItems = Some(globalConfig.defaultAdditionalItems)
       mut.decoder = objectDecoder
       mut.parser = Some(shapedParser)
@@ -5288,6 +5339,7 @@ module Schema = {
             }
             let mut = base(objectTag, ~selfReverse=false)
             mut.properties = Some(node->(Obj.magic: dict<unknown> => dict<internal>))
+            mut.required = Some(fieldNames->Js.Array2.copy)
             mut.additionalItems = Some(globalConfig.defaultAdditionalItems)
             mut.decoder = objectDecoder
             mut
@@ -6182,8 +6234,8 @@ let js_nullable = (schema, maybeOr) => {
 let js_merge = (s1, s2) => {
   switch switch (s1, s2) {
   | (
-      Object({properties: properties1, additionalItems: additionalItems1}),
-      Object({properties: properties2, additionalItems: additionalItems2}),
+      Object({properties: properties1, required: required1, additionalItems: additionalItems1}),
+      Object({properties: properties2, required: required2, additionalItems: additionalItems2}),
     )
     // Filter out S.record schemas
     if additionalItems1->Type.typeof === #string &&
@@ -6198,8 +6250,23 @@ let js_merge = (s1, s2) => {
       properties->Js.Dict.set(key, properties2->Js.Dict.unsafeGet(key))
     }
 
+    // Merge required: start with required1, filter out keys overridden by s2,
+    // then add required2
+    let required = []
+    let keys2Set = keys2
+    for idx in 0 to required1->Js.Array2.length - 1 {
+      let key = required1->Js.Array2.unsafe_get(idx)
+      if !(keys2Set->Js.Array2.includes(key)) {
+        required->Js.Array2.push(key)->ignore
+      }
+    }
+    for idx in 0 to required2->Js.Array2.length - 1 {
+      required->Js.Array2.push(required2->Js.Array2.unsafe_get(idx))->ignore
+    }
+
     let mut = base(objectTag, ~selfReverse=false)
     mut.properties = Some(properties->(Obj.magic: dict<t<unknown>> => dict<internal>))
+    mut.required = Some(required)
     mut.additionalItems = Some(additionalItems1)
     mut.decoder = objectDecoder
     Some(mut->castToPublic)
@@ -6389,7 +6456,7 @@ module RescriptJSONSchema = {
           jsonSchema.anyOf = Some(items)
         }
       }
-    | Object({properties, additionalItems}) =>
+    | Object({properties, required, additionalItems}) =>
       switch additionalItems {
       | Schema(childSchema) => {
           jsonSchema.type_ = Some(Arrayable.single(#object))
@@ -6405,7 +6472,6 @@ module RescriptJSONSchema = {
           )
         }
       | _ => {
-          let required = []
           let keys = properties->Js.Dict.keys
           let jsonProperties = Js.Dict.empty()
 
@@ -6418,9 +6484,6 @@ module RescriptJSONSchema = {
               ~defs,
               ~parent=schema,
             )
-            if itemSchema->castToInternal->isOptional->not {
-              required->Js.Array2.push(key)->ignore
-            }
             jsonProperties->Js.Dict.set(key, Schema(fieldSchema))
           }
 

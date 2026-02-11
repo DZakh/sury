@@ -209,6 +209,7 @@ export type Schema<Output, Input = unknown> = {
       readonly properties: {
         [key: string]: Schema<unknown>;
       };
+      readonly required: string[];
       readonly additionalItems: "strip" | "strict" | Schema<unknown>;
     }
   | {
@@ -637,6 +638,10 @@ export const record: <Output, Input>(
 
 type ObjectCtx<Input extends Record<string, unknown>> = {
   field: <FieldOutput>(
+    name: string,
+    schema: Schema<FieldOutput, unknown>
+  ) => FieldOutput;
+  optional: <FieldOutput>(
     name: string,
     schema: Schema<FieldOutput, unknown>
   ) => FieldOutput;
