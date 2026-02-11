@@ -456,7 +456,8 @@ test("Can apply refinement to JSON string with S.to after", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="string"){e[4](i)}let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}if(typeof v0!=="number"||v0>2147483647||v0<-2147483648||v0%1!==0){e[3](v0)}if(!e[2](v0)){e[1]()}return v0}`,
+    // TODO: Can be improved
+    `i=>{if(typeof i!=="string"){e[4](i)}let v0;try{JSON.parse(i)}catch(t){e[0](i)}if(!e[1](i)){e[5]()}try{v0=JSON.parse(i)}catch(t){e[2](i)}if(typeof v0!=="number"||v0>2147483647||v0<-2147483648||v0%1!==0){e[3](v0)}return v0}`,
   )
 })
 

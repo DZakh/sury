@@ -693,7 +693,7 @@ test("Coerce from union to bigint with refinement on union", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0}else if(typeof i==="number"&&!Number.isNaN(i)){i=BigInt(i)}else if(typeof i==="boolean"){e[2](i,e[1])}else{e[3](i)}if(!e[5](i)){e[4]()}return i}`,
+    `i=>{if(typeof i==="string"){if(!e[0](i)){e[1]()}let v0;try{v0=BigInt(i)}catch(_){e[2](i)}i=v0}else if(typeof i==="number"&&!Number.isNaN(i)){if(!e[0](i)){e[1]()}i=BigInt(i)}else if(typeof i==="boolean"){throw e[4]}else{e[5](i)}return i}`,
   )
 })
 
@@ -710,7 +710,7 @@ test("Coerce from union to bigint with refinement on union (with an item transfo
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0}else if(typeof i==="number"&&!Number.isNaN(i)){let v2=""+i;let v1;try{v1=BigInt(v2)}catch(_){e[1](v2)}i=v1}else if(typeof i==="boolean"){e[3](i,e[2])}else{e[4](i)}if(!e[6](i)){e[5]()}return i}`,
+    `i=>{if(typeof i==="string"){if(!e[0](i)){e[1]()}let v0;try{v0=BigInt(i)}catch(_){e[2](i)}i=v0}else if(typeof i==="number"&&!Number.isNaN(i)){let v1=""+i;if(!e[0](v1)){e[1]()}let v2;try{v2=BigInt(v1)}catch(_){e[3](v1)}i=v2}else if(typeof i==="boolean"){throw e[5]}else{e[6](i)}return i}`,
     ~message="Should apply refinement after the item transformation",
   )
 })
