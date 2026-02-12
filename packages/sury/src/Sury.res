@@ -4106,7 +4106,6 @@ module Option = {
 module Object = {
   type rec s = {
     @as("f") field: 'value. (string, t<'value>) => 'value,
-    @as("o") optional: 'value. (string, t<'value>) => 'value,
     fieldOr: 'value. (string, t<'value>, 'value) => 'value,
     tag: 'value. (string, 'value) => unit,
     nested: string => s,
@@ -4704,7 +4703,6 @@ module Schema = {
     // needed only because we use @as for field to reduce bundle-size
     // of ReScript compiled code
     @as("field") _jsField: 'value. (string, schema<'value>) => 'value,
-    @as("optional") _jsOptional: 'value. (string, schema<'value>) => 'value,
     // Public API for ReScript users
     ...Object.s,
   }
@@ -4803,7 +4801,7 @@ module Schema = {
           ->X.Option.getUnsafe: internal
         )
 
-        let optional:
+        let field:
           type value. (string, schema<value>) => value =
           (fieldName, schema) => {
             let schema = schema->castToInternal
@@ -4812,18 +4810,11 @@ module Schema = {
               InternalError.panic(`The field ${inlinedLocation} defined twice`)
             }
             properties->Js.Dict.set(fieldName, schema)
+            required->Js.Array2.push(fieldName)->ignore
             schema->proxifyShapedSchema(
               ~from=parentSchema.from->X.Option.getUnsafe->X.Array.append(fieldName),
               ~fromFlattened=?parentSchema.fromFlattened,
             )
-          }
-
-        let field:
-          type value. (string, schema<value>) => value =
-          (fieldName, schema) => {
-            let result = optional(fieldName, schema)
-            required->Js.Array2.push(fieldName)->ignore
-            result
           }
 
         let tag = (tag, asValue) => {
@@ -4831,7 +4822,7 @@ module Schema = {
         }
 
         let fieldOr = (fieldName, schema, or) => {
-          optional(fieldName, Option.factory(schema)->Option.getOr(or))
+          field(fieldName, Option.factory(schema)->Option.getOr(or))
         }
 
         let flatten = schema => {
@@ -4852,15 +4843,8 @@ module Schema = {
                 let key = flattenedKeys->Js.Array2.unsafe_get(idx)
                 result->Js.Dict.set(
                   key,
-                  optional(key, flattenedProperties->Js.Dict.unsafeGet(key)->castToPublic),
+                  field(key, flattenedProperties->Js.Dict.unsafeGet(key)->castToPublic),
                 )
-              }
-              switch schema.required {
-              | Some(r) =>
-                for idx in 0 to r->Js.Array2.length - 1 {
-                  required->Js.Array2.push(r->Js.Array2.unsafe_get(idx))->ignore
-                }
-              | None => ()
               }
               result->Obj.magic
             }
@@ -4871,10 +4855,8 @@ module Schema = {
         let ctx: advancedObjectCtx = {
           // js/ts methods
           _jsField: field,
-          _jsOptional: optional,
           // methods
           field,
-          optional,
           fieldOr,
           tag,
           nested,
@@ -4930,7 +4912,7 @@ module Schema = {
         }
       }
 
-      let optional:
+      let field:
         type value. (string, schema<value>) => value =
         (fieldName, schema) => {
           let schema = schema->castToInternal
@@ -4939,15 +4921,8 @@ module Schema = {
             InternalError.panic(`The field "${fieldName}" defined twice with incompatible schemas`)
           }
           properties->Js.Dict.set(fieldName, schema)
-          schema->proxifyShapedSchema(~from=[fieldName])
-        }
-
-      let field:
-        type value. (string, schema<value>) => value =
-        (fieldName, schema) => {
-          let result = optional(fieldName, schema)
           required->Js.Array2.push(fieldName)->ignore
-          result
+          schema->proxifyShapedSchema(~from=[fieldName])
         }
 
       let tag = (tag, asValue) => {
@@ -4955,16 +4930,14 @@ module Schema = {
       }
 
       let fieldOr = (fieldName, schema, or) => {
-        optional(fieldName, Option.factory(schema)->Option.getOr(or))
+        field(fieldName, Option.factory(schema)->Option.getOr(or))
       }
 
       let ctx = {
         // js/ts methods
         _jsField: field,
-        _jsOptional: optional,
         // methods
         field,
-        optional,
         fieldOr,
         tag,
         nested,

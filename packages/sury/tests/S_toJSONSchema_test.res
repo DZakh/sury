@@ -364,11 +364,12 @@ test("JSONSchema of object with strict mode", t => {
 
 test("JSONSchema of object with optional field", t => {
   t->Assert.deepEqual(
-    S.object(s => s.optional("field", S.option(S.string)))->S.toJSONSchema,
+    S.object(s => s.field("field", S.option(S.string)))->S.toJSONSchema,
     %raw(`{
       "type": "object",
       "properties": {"field": {"type": "string"}},
       "additionalProperties": true,
+      "required": ["field"],
     }`),
   )
 })
@@ -437,7 +438,7 @@ test("JSONSchema of object with one optional and one normal field", t => {
   t->Assert.deepEqual(
     S.object(s => (
       s.field("field", S.string),
-      s.optional("optionalField", S.option(S.string)),
+      s.field("optionalField", S.option(S.string)),
     ))->S.toJSONSchema,
     %raw(`{
       "type": "object",
@@ -447,7 +448,7 @@ test("JSONSchema of object with one optional and one normal field", t => {
         },
         "optionalField": {"type": "string"},
       },
-      "required": ["field"],
+      "required": ["field", "optionalField"],
       "additionalProperties": true,
     }`),
   )
@@ -462,7 +463,7 @@ test("JSONSchema of optional root schema", t => {
 
 test("JSONSchema of object with S.option(S.option(_)) field", t => {
   t->Assert.deepEqual(
-    S.object(s => s.optional("field", S.option(S.option(S.string))))->S.toJSONSchema,
+    S.object(s => s.field("field", S.option(S.option(S.string))))->S.toJSONSchema,
     %raw(`{
       "type": "object",
       "properties": {
@@ -470,6 +471,7 @@ test("JSONSchema of object with S.option(S.option(_)) field", t => {
           "type": "string",
         },
       },
+      "required": ["field"],
       "additionalProperties": true,
     }`),
   )
@@ -486,7 +488,7 @@ test(
   "Successfully creates JSON schema for default field which we can't serialize. Just omit it from JSON Schema",
   t => {
     let schema = S.object(s =>
-      s.optional(
+      s.field(
         "field",
         S.option(
           S.bool->S.transform(
@@ -508,6 +510,7 @@ test(
       %raw(`{
         "type": "object",
         "properties": {"field": {"type": "boolean"}}, // No 'default: true' here, but that's fine
+        "required": ["field"],
         "additionalProperties": true,
       }`),
     )
@@ -516,7 +519,7 @@ test(
 
 test("Transformed schema schema uses default with correct type", t => {
   let schema = S.object(s =>
-    s.optional(
+    s.field(
       "field",
       S.option(
         S.bool->S.transform(
@@ -544,6 +547,7 @@ test("Transformed schema schema uses default with correct type", t => {
     %raw(`{
       "type": "object",
       "properties": {"field": {"default": true, "type": "boolean"}},
+      "required": ["field"],
       "additionalProperties": true,
     }`),
   )
@@ -629,7 +633,7 @@ test("Multiple additional raw schemas are merged together", t => {
 
 test("Additional raw schema works with optional fields", t => {
   let schema = S.object(s =>
-    s.optional("optionalField", S.option(S.string)->S.extendJSONSchema({nullable: true}))
+    s.field("optionalField", S.option(S.string)->S.extendJSONSchema({nullable: true}))
   )
 
   t->Assert.deepEqual(
@@ -639,6 +643,7 @@ test("Additional raw schema works with optional fields", t => {
       "properties": {
         "optionalField": {"nullable": true, "type": "string"},
       },
+      "required": ["optionalField"],
       "additionalProperties": true,
     }`),
   )
@@ -797,7 +802,7 @@ module Example = {
           S.literal(Restricted),
         ]),
       ),
-      deprecatedAgeRestriction: s.optional(
+      deprecatedAgeRestriction: s.field(
         "Age",
         S.option(S.int)->S.meta({description: "Use rating instead", deprecated: true}),
       ),
@@ -821,7 +826,7 @@ module Example = {
           },
         },
         additionalProperties: true,
-        required: ["Id", "Title", "Rating"],
+        required: ["Id", "Title", "Tags", "Rating", "Age"],
       }`),
     )
   })

@@ -641,10 +641,6 @@ type ObjectCtx<Input extends Record<string, unknown>> = {
     name: string,
     schema: Schema<FieldOutput, unknown>
   ) => FieldOutput;
-  optional: <FieldOutput>(
-    name: string,
-    schema: Schema<FieldOutput, unknown>
-  ) => FieldOutput;
   fieldOr: <FieldOutput>(
     name: string,
     schema: Schema<FieldOutput, unknown>,
