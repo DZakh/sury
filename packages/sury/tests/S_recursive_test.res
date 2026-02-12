@@ -126,14 +126,7 @@ test("Fails to parse nested recursive object", t => {
       s => {
         id: s.field(
           "Id",
-          S.string->S.refine(
-            s =>
-              id => {
-                if id === "4" {
-                  s.fail("Invalid id")
-                }
-              },
-          ),
+          S.string->S.refine(id => id !== "4", ~error="Invalid id"),
         ),
         children: s.field("Children", S.array(nodeSchema)),
       },
@@ -162,14 +155,7 @@ test("Fails to parse nested recursive object inside of another object", t => {
             s => {
               id: s.field(
                 "Id",
-                S.string->S.refine(
-                  s =>
-                    id => {
-                      if id === "4" {
-                        s.fail("Invalid id")
-                      }
-                    },
-                ),
+                S.string->S.refine(id => id !== "4", ~error="Invalid id"),
               ),
               children: s.field("Children", S.array(nodeSchema)),
             },
@@ -268,14 +254,7 @@ test("Fails to serialise nested recursive object", t => {
       s => {
         id: s.field(
           "Id",
-          S.string->S.refine(
-            s =>
-              id => {
-                if id === "4" {
-                  s.fail("Invalid id")
-                }
-              },
-          ),
+          S.string->S.refine(id => id !== "4", ~error="Invalid id"),
         ),
         children: s.field("Children", S.array(nodeSchema)),
       },
