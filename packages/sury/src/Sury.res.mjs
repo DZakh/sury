@@ -3504,11 +3504,15 @@ function getShapedSerializerOutput(input, acc, targetSchema, path) {
           flattenedAcc.forEach((acc, idx) => {
             let flattenedOutput = getShapedSerializerOutput(input, acc, reverse(flattened[idx]), path);
             let vals = flattenedOutput.d;
-            let locations = Object.keys(vals);
-            for (let idx$1 = 0, idx_finish = locations.length; idx$1 < idx_finish; ++idx$1) {
-              let location = locations[idx$1];
-              add(v$2, location, vals[location]);
+            if (vals !== undefined) {
+              let locations = Object.keys(vals);
+              for (let idx$1 = 0, idx_finish = locations.length; idx$1 < idx_finish; ++idx$1) {
+                let location = locations[idx$1];
+                add(v$2, location, vals[location]);
+              }
+              return;
             }
+            
           });
         }
         
