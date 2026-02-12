@@ -5235,7 +5235,10 @@ module Schema = {
                   ~targetSchema=flattenedSchemas->Js.Array2.unsafe_get(idx)->reverse,
                   ~path,
                 )
-                v->B.Val.Object.merge(flattenedOutput.vals->X.Option.getUnsafe)
+                switch flattenedOutput.vals {
+                | Some(vals) => v->B.Val.Object.merge(vals)
+                | None => ()
+                }
               })
             | _ => ()
             }

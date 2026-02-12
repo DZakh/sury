@@ -57,7 +57,7 @@ test("Example", t => {
       title: "Sad & sed",
       rating: ParentalStronglyCautioned,
       deprecatedAgeRestriction: None,
-    }->S.reverseConvertToJsonOrThrow(filmSchema),
+    }->S.reverseConvertOrThrow(filmSchema),
     %raw(`{
         "Id": 2,
         "Title": "Sad & sed",
