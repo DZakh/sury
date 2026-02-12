@@ -778,54 +778,32 @@ let rec toExpression = schema => {
     ->(Obj.magic: array<internal> => array<t<'a>>)
     ->Js.Array2.map(toExpression)
     ->Js.Array2.joinWith(" | ")
-  | {format: ?Some(CompactColumns), ?to, ?properties, ?additionalItems} => {
+  | {format: ?Some(CompactColumns), ?to, ?additionalItems} => {
       // For compactColumns, show the column types if we have properties from .to
-      let propsToUse = switch (properties, to) {
-      | (Some(props), _) => Some(props)
-      | (None, Some(toSchema)) => toSchema.properties
-      | _ => None
-      }
-      switch propsToUse {
-      | Some(props) =>
-        let keys = props->Js.Dict.keys
-        `[${keys
-          ->Js.Array2.map(key => {
-            let propSchema = props->Js.Dict.unsafeGet(key)->castToPublic
-            `${propSchema->toExpression}[]`
-          })
-          ->Js.Array2.joinWith(", ")}]`
+      switch to {
+      | Some(toSchema) =>
+        switch toSchema.properties {
+        | Some(props) =>
+          let keys = props->Js.Dict.keys
+          `[${keys
+            ->Js.Array2.map(key => {
+              let propSchema = props->Js.Dict.unsafeGet(key)->castToPublic
+              `${propSchema->toExpression}[]`
+            })
+            ->Js.Array2.joinWith(", ")}]`
+        | None => "unknown[][]"
+        }
       | None =>
-        // No S.to applied, get the inner schema expression from additionalItems
-        // additionalItems contains the inner array schema, which itself has additionalItems
+        // No S.to applied, reuse the array expression logic
         switch additionalItems {
         | Some(Schema(innerArraySchema)) =>
-          let innerArrayInternal = innerArraySchema->castToInternal
-          switch innerArrayInternal.additionalItems {
-          | Some(Schema(itemSchema)) =>
-            let itemSchemaUnknown: t<'a> = itemSchema->Obj.magic
-            `${itemSchemaUnknown->toExpression}[][]`
-          | _ => "unknown[][]"
-          }
+          let innerArraySchemaTyped: t<'a> = innerArraySchema->Obj.magic
+          `${innerArraySchemaTyped->toExpression}[]`
         | _ => "unknown[][]"
         }
       }
     }
   | {format} => (format :> string)
-  // Object schema with .to = compactColumns (reversed compactColumns chain)
-  // The input is an array of objects, so append []
-  | {tag: Object, ?to: Some({format: ?Some(CompactColumns)}), ?properties} => {
-      let properties = properties->X.Option.getUnsafe
-      let locations = properties->Js.Dict.keys
-      if locations->Js.Array2.length === 0 {
-        `{}[]`
-      } else {
-        `{ ${locations
-          ->Js.Array2.map(location => {
-            `${location}: ${properties->Js.Dict.unsafeGet(location)->castToPublic->toExpression};`
-          })
-          ->Js.Array2.joinWith(" ")} }[]`
-      }
-    }
   | {tag: Object, ?properties, ?additionalItems} =>
     let properties = properties->X.Option.getUnsafe
     let locations = properties->Js.Dict.keys
@@ -2599,20 +2577,9 @@ and objectDecoder: Builder.t = (~input as unknownInput, ~selfSchema as _) => {
   let isUnion = unknownInput.isUnion->X.Option.getUnsafe
   let expectedSchema = unknownInput.expected
 
-  // If .to is compactColumns, skip object processing and pass through to compactColumns
-  // This happens in the reversed chain: objectSchema -> compactColumns
-  // The input is an array of objects that compactColumns needs to process
-  let shouldSkipForCompactColumns = switch expectedSchema.to {
-  | Some(toSchema) => toSchema.format === Some(CompactColumns)
-  | None => false
-  }
+  let unknownInputTagFlag = unknownInput.schema.tag->TagFlag.get
 
-  if shouldSkipForCompactColumns {
-    unknownInput->B.refine
-  } else {
-    let unknownInputTagFlag = unknownInput.schema.tag->TagFlag.get
-
-    let input = if unknownInputTagFlag->Flag.unsafeHas(TagFlag.unknown->Flag.with(TagFlag.object)) {
+  let input = if unknownInputTagFlag->Flag.unsafeHas(TagFlag.unknown->Flag.with(TagFlag.object)) {
     let validation = ref(None)
     let isObjectInput = unknownInputTagFlag->Flag.unsafeHas(TagFlag.object)
     let schema = if !isObjectInput {
@@ -2786,7 +2753,6 @@ and objectDecoder: Builder.t = (~input as unknownInput, ~selfSchema as _) => {
         o
       }
     }
-  }
   }
 }
 
@@ -5235,10 +5201,7 @@ module Schema = {
                   ~targetSchema=flattenedSchemas->Js.Array2.unsafe_get(idx)->reverse,
                   ~path,
                 )
-                switch flattenedOutput.vals {
-                | Some(vals) => v->B.Val.Object.merge(vals)
-                | None => ()
-                }
+                v->B.Val.Object.merge(flattenedOutput.vals->X.Option.getUnsafe)
               })
             | _ => ()
             }
@@ -5678,8 +5641,7 @@ let compactColumns = inputSchema => {
   let mut = array(innerArray)->castToInternal
   mut.format = Some(CompactColumns)
   mut.decoder = compactColumnsDecoder
-  // Use serializer so it becomes parser after reverse
-  mut.serializer = Some(compactColumnsEncoder)
+  mut.encoder = Some(compactColumnsEncoder)
   // A tricky part about parser is that we don't know the input type in ReScript
   // so we need to directly parse to output instead of input
   // switch parser {

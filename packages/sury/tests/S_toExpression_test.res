@@ -50,11 +50,13 @@ test("Expression of reversed compactColumns schema", t => {
   t->Assert.deepEqual(
     S.compactColumns(S.unknown)
     ->S.to(
-      S.schema(s =>
-        {
-          "foo": s.matches(S.string),
-          "bar": s.matches(S.int),
-        }
+      S.array(
+        S.schema(s =>
+          {
+            "foo": s.matches(S.string),
+            "bar": s.matches(S.int),
+          }
+        ),
       ),
     )
     ->S.reverse
