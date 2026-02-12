@@ -98,7 +98,7 @@ var filesMapping = [
   ["extendJSONSchema", "S.extendJSONSchema"],
   ["shape", "S.shape"],
   ["tuple", "S.tuple"],
-  ["asyncParserRefine", "S.js_asyncParserRefine"],
+  ["asyncDecoderAssert", "S.js_asyncDecoderAssert"],
   ["refine", "S.js_refine"],
   ["transform", "S.js_to"],
   ["meta", "S.meta"],

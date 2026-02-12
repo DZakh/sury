@@ -254,8 +254,8 @@ let filesMapping = [
     "S.tuple"
   ],
   [
-    "asyncParserRefine",
-    "S.js_asyncParserRefine"
+    "asyncDecoderAssert",
+    "S.js_asyncDecoderAssert"
   ],
   [
     "refine",

@@ -1214,21 +1214,55 @@ S.parseOrThrow(%raw(`[1, 2, 3]`), intSetSchema) // throws S.Error: Expected Set.
 
 ## Refinements
 
-**Sury** lets you provide custom validation logic via refinements. It's useful to add checks that's not possible to cover with type system. For instance: checking that a number is an integer or that a string is a valid email address.
+**Sury** lets you provide custom validation logic via refinements. Refinements let you define checks that are not expressible in the type system alone — for example, checking that a number is positive or that a string is a valid email address.
 
 ### **`refine`**
 
-`(S.t<'value>, S.s<'value> => 'value => unit) => S.t<'value>`
+`(S.t<'value>, 'value => bool, ~error: string=?, ~path: array<string>=?) => S.t<'value>`
 
 ```rescript
-let shortStringSchema = S.string->S.refine(s => value =>
-  if value->String.length > 255 {
-    s.fail("String can't be more than 255 characters")
-  }
+let positiveNumberSchema = S.int->S.refine(value => value > 0)
+```
+
+Refinement functions should return `true` to indicate success or `false` to signal failure. By default, a failed refinement throws with the message `"Refinement failed"`.
+
+#### Custom error message
+
+Provide a custom error message via the `~error` labeled argument:
+
+```rescript
+let shortStringSchema = S.string->S.refine(
+  value => value->String.length <= 255,
+  ~error="String can't be more than 255 characters",
 )
 ```
 
-The refine function is applied for both parser and serializer.
+#### Custom error path
+
+When refining an object schema, you can use the `~path` labeled argument to attach the error to a specific field:
+
+```rescript
+let passwordFormSchema = S.object(s => {
+  "password": s.field("password", S.string),
+  "confirm": s.field("confirm", S.string),
+})->S.refine(
+  data => data["password"] === data["confirm"],
+  ~error="Passwords don't match",
+  ~path=["confirm"],
+)
+```
+
+#### Chaining refinements
+
+Refinements can be chained. Each refinement is applied in order:
+
+```rescript
+let evenPositiveSchema = S.int
+  ->S.refine(value => value > 0, ~error="Must be positive")
+  ->S.refine(value => mod(value, 2) === 0, ~error="Must be even")
+```
+
+The refine function is applied for both parsing and serializing.
 
 ## Transforms
 

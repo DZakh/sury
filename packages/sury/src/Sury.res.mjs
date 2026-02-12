@@ -2070,8 +2070,19 @@ function internalRefine(schema, makeRefiner) {
   });
 }
 
-function refine$1(schema, refiner) {
-  return internalRefine(schema, param => (input => embed(input, refiner(effectCtx(input))) + "(" + input.v() + ");"));
+function refine$1(schema, refineCheck, error, path) {
+  let message = error !== undefined ? error : "Refinement failed";
+  let extraPath = path !== undefined ? fromArray(path) : "";
+  return internalRefine(schema, param => (input => {
+    let failCode = extraPath === "" ? fail(input, message) : embed(input, () => {
+        throw new SuryError({
+          code: "custom",
+          path: input.path + extraPath,
+          reason: message
+        });
+      }) + "()";
+    return "if(!" + embed(input, refineCheck) + "(" + input.v() + ")){" + failCode + "}";
+  }));
 }
 
 function addRefinement(schema, metadataId, refinement, refiner) {
@@ -3217,16 +3228,6 @@ function proxifyShapedSchema(schema, from, fromFlattened) {
   });
 }
 
-function shapedSerializer(input, param) {
-  let acc = {};
-  prepareShapedSerializerAcc(acc, input);
-  let targetSchema = input.e.to;
-  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
-  output.t = true;
-  output.prev = input;
-  return output;
-}
-
 function traverseDefinition(definition, onNode) {
   if (typeof definition !== "object" || definition === null) {
     return parse(definition);
@@ -3268,20 +3269,6 @@ function traverseDefinition(definition, onNode) {
   return mut$2;
 }
 
-function getValByFrom(_input, from, _idx) {
-  while (true) {
-    let idx = _idx;
-    let input = _input;
-    let key = from[idx];
-    if (key === undefined) {
-      return input;
-    }
-    _idx = idx + 1 | 0;
-    _input = input.d[key];
-    continue;
-  };
-}
-
 function getShapedParserOutput(input, targetSchema) {
   let from = targetSchema.from;
   let fromFlattened = targetSchema.fromFlattened;
@@ -3317,6 +3304,95 @@ function getShapedParserOutput(input, targetSchema) {
   }
   v.prev = undefined;
   return v;
+}
+
+function getValByFrom(_input, from, _idx) {
+  while (true) {
+    let idx = _idx;
+    let input = _input;
+    let key = from[idx];
+    if (key === undefined) {
+      return input;
+    }
+    _idx = idx + 1 | 0;
+    _input = input.d[key];
+    continue;
+  };
+}
+
+function prepareShapedSerializerAcc(acc, input) {
+  let match = input.e;
+  let from = match.from;
+  if (from !== undefined) {
+    let fromFlattened = match.fromFlattened;
+    let accAtFrom;
+    if (fromFlattened !== undefined) {
+      if (acc.flattened === undefined) {
+        acc.flattened = [];
+      }
+      let acc$1 = acc.flattened[fromFlattened];
+      if (acc$1 !== undefined) {
+        accAtFrom = acc$1;
+      } else {
+        let newAcc = {};
+        acc.flattened[fromFlattened] = newAcc;
+        accAtFrom = newAcc;
+      }
+    } else {
+      accAtFrom = acc;
+    }
+    for (let idx = 0, idx_finish = from.length; idx < idx_finish; ++idx) {
+      let key = from[idx];
+      let p = accAtFrom.properties;
+      let p$1;
+      if (p !== undefined) {
+        p$1 = p;
+      } else {
+        let p$2 = {};
+        accAtFrom.properties = p$2;
+        p$1 = p$2;
+      }
+      let acc$2 = p$1[key];
+      let tmp;
+      if (acc$2 !== undefined) {
+        tmp = acc$2;
+      } else {
+        let newAcc$1 = {};
+        p$1[key] = newAcc$1;
+        tmp = newAcc$1;
+      }
+      accAtFrom = tmp;
+    }
+    accAtFrom.val = input;
+    return;
+  }
+  let vals = input.d;
+  if (vals === undefined) {
+    return;
+  }
+  let keys = Object.keys(vals);
+  for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
+    prepareShapedSerializerAcc(acc, vals[keys[idx$1]]);
+  }
+}
+
+function shapedSerializer(input, param) {
+  let acc = {};
+  prepareShapedSerializerAcc(acc, input);
+  let targetSchema = input.e.to;
+  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
+  output.t = true;
+  output.prev = input;
+  return output;
+}
+
+function definitionToSchema(definition) {
+  return traverseDefinition(definition, node => {
+    if (node["~standard"]) {
+      return node;
+    }
+    
+  });
 }
 
 function nested(fieldName) {
@@ -3380,15 +3456,6 @@ function nested(fieldName) {
   };
   parentCtx[cacheId] = ctx$1;
   return ctx$1;
-}
-
-function definitionToSchema(definition) {
-  return traverseDefinition(definition, node => {
-    if (node["~standard"]) {
-      return node;
-    }
-    
-  });
 }
 
 function getShapedSerializerOutput(input, acc, targetSchema, path) {
@@ -3470,62 +3537,6 @@ function getShapedSerializerOutput(input, acc, targetSchema, path) {
     }
   }
   return complete(v$2);
-}
-
-function prepareShapedSerializerAcc(acc, input) {
-  let match = input.e;
-  let from = match.from;
-  if (from !== undefined) {
-    let fromFlattened = match.fromFlattened;
-    let accAtFrom;
-    if (fromFlattened !== undefined) {
-      if (acc.flattened === undefined) {
-        acc.flattened = [];
-      }
-      let acc$1 = acc.flattened[fromFlattened];
-      if (acc$1 !== undefined) {
-        accAtFrom = acc$1;
-      } else {
-        let newAcc = {};
-        acc.flattened[fromFlattened] = newAcc;
-        accAtFrom = newAcc;
-      }
-    } else {
-      accAtFrom = acc;
-    }
-    for (let idx = 0, idx_finish = from.length; idx < idx_finish; ++idx) {
-      let key = from[idx];
-      let p = accAtFrom.properties;
-      let p$1;
-      if (p !== undefined) {
-        p$1 = p;
-      } else {
-        let p$2 = {};
-        accAtFrom.properties = p$2;
-        p$1 = p$2;
-      }
-      let acc$2 = p$1[key];
-      let tmp;
-      if (acc$2 !== undefined) {
-        tmp = acc$2;
-      } else {
-        let newAcc$1 = {};
-        p$1[key] = newAcc$1;
-        tmp = newAcc$1;
-      }
-      accAtFrom = tmp;
-    }
-    accAtFrom.val = input;
-    return;
-  }
-  let vals = input.d;
-  if (vals === undefined) {
-    return;
-  }
-  let keys = Object.keys(vals);
-  for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
-    prepareShapedSerializerAcc(acc, vals[keys[idx$1]]);
-  }
 }
 
 function definitionToShapedSchema(definition) {
@@ -4210,17 +4221,40 @@ function js_to(schema, target, maybeDecoder, maybeEncoder) {
   });
 }
 
-function js_refine(schema, refiner) {
-  return refine$1(schema, s => (v => refiner(v, s)));
+function js_refine(schema, refineCheck, refineOptions) {
+  let message;
+  if (refineOptions !== undefined) {
+    let e = Primitive_option.valFromOption(refineOptions).error;
+    message = e !== undefined ? Primitive_option.valFromOption(e) : "Refinement failed";
+  } else {
+    message = "Refinement failed";
+  }
+  let extraPath;
+  if (refineOptions !== undefined) {
+    let p = Primitive_option.valFromOption(refineOptions).path;
+    extraPath = p !== undefined ? fromArray(Primitive_option.valFromOption(p)) : "";
+  } else {
+    extraPath = "";
+  }
+  return internalRefine(schema, param => (input => {
+    let failCode = extraPath === "" ? fail(input, message) : embed(input, () => {
+        throw new SuryError({
+          code: "custom",
+          path: input.path + extraPath,
+          reason: message
+        });
+      }) + "()";
+    return "if(!" + embed(input, refineCheck) + "(" + input.v() + ")){" + failCode + "}";
+  }));
 }
 
 function noop(a) {
   return a;
 }
 
-function js_asyncParserRefine(schema, refine) {
-  return transform(schema, s => ({
-    a: v => refine(v, s).then(() => v),
+function js_asyncDecoderAssert(schema, assertFn) {
+  return transform(schema, param => ({
+    a: v => assertFn(v).then(() => v),
     s: noop
   }));
 }
@@ -4686,64 +4720,47 @@ function fromJSONSchema(jsonSchema) {
     } else if (definitions !== undefined) {
       let len$1 = definitions.length;
       schema = len$1 !== 1 ? (
-          len$1 !== 0 ? refine$1(json, s => (data => {
-              definitions.forEach(d => {
-                try {
-                  return assertOrThrow(data, definitionToSchema$1(d));
-                } catch (exn) {
-                  return s.fail("Should pass for all schemas of the allOf property.", undefined);
-                }
-              });
-            })) : json
+          len$1 !== 0 ? refine$1(json, data => definitions.every(d => {
+              try {
+                assertOrThrow(data, definitionToSchema$1(d));
+                return true;
+              } catch (exn) {
+                return false;
+              }
+            }), "Should pass for all schemas of the allOf property.", undefined) : json
         ) : definitionToSchema$1(definitions[0]);
     } else {
       let definitions$2 = jsonSchema.oneOf;
       if (definitions$2 !== undefined) {
         let len$2 = definitions$2.length;
         schema = len$2 !== 1 ? (
-            len$2 !== 0 ? refine$1(json, s => (data => {
-                let hasOneValidRef = {
-                  contents: false
+            len$2 !== 0 ? refine$1(json, data => {
+                let validCount = {
+                  contents: 0
                 };
                 definitions$2.forEach(d => {
-                  let passed;
                   try {
                     assertOrThrow(data, definitionToSchema$1(d));
-                    passed = true;
+                    validCount.contents = validCount.contents + 1 | 0;
+                    return;
                   } catch (exn) {
-                    passed = false;
-                  }
-                  if (passed) {
-                    if (hasOneValidRef.contents) {
-                      s.fail("Should pass single schema according to the oneOf property.", undefined);
-                    }
-                    hasOneValidRef.contents = true;
                     return;
                   }
-                  
                 });
-                if (!hasOneValidRef.contents) {
-                  return s.fail("Should pass at least one schema according to the oneOf property.", undefined);
-                }
-                
-              })) : json
+                return validCount.contents === 1;
+              }, "Should pass exactly one schema according to the oneOf property.", undefined) : json
           ) : definitionToSchema$1(definitions$2[0]);
       } else {
         let not = jsonSchema.not;
         if (not !== undefined) {
-          schema = refine$1(json, s => (data => {
-            let passed;
+          schema = refine$1(json, data => {
             try {
               assertOrThrow(data, definitionToSchema$1(not));
-              passed = true;
+              return false;
             } catch (exn) {
-              passed = false;
+              return true;
             }
-            if (passed) {
-              return s.fail("Should NOT be valid against schema in the not property.", undefined);
-            }
-            
-          }));
+          }, "Should NOT be valid against schema in the not property.", undefined);
         } else if (primitives !== undefined) {
           let len$3 = primitives.length;
           schema = len$3 !== 1 ? (
@@ -4839,7 +4856,7 @@ function fromJSONSchema(jsonSchema) {
           let ifSchema = definitionToSchema$1(if_);
           let thenSchema = definitionToSchema$1(then);
           let elseSchema = definitionToSchema$1(else_);
-          schema = refine$1(json, param => (data => {
+          schema = refine$1(json, data => {
             let passed;
             try {
               assertOrThrow(data, ifSchema);
@@ -4847,12 +4864,17 @@ function fromJSONSchema(jsonSchema) {
             } catch (exn) {
               passed = false;
             }
-            if (passed) {
-              return assertOrThrow(data, thenSchema);
-            } else {
-              return assertOrThrow(data, elseSchema);
+            try {
+              if (passed) {
+                assertOrThrow(data, thenSchema);
+              } else {
+                assertOrThrow(data, elseSchema);
+              }
+              return true;
+            } catch (exn$1) {
+              return false;
             }
-          }));
+          }, "Should pass the if/then/else schema validation.", undefined);
         } else {
           schema = json;
         }
@@ -5103,7 +5125,7 @@ export {
   js_union,
   js_optional,
   js_nullable,
-  js_asyncParserRefine,
+  js_asyncDecoderAssert,
   js_refine,
   js_to,
   js_schema,

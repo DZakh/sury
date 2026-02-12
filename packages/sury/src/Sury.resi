@@ -333,7 +333,7 @@ type transformDefinition<'input, 'output> = {
 }
 let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) => t<'output>
 
-let refine: (t<'value>, s<'value> => 'value => unit) => t<'value>
+let refine: (t<'value>, 'value => bool, ~error: string=?, ~path: array<string>=?) => t<'value>
 
 let shape: (t<'value>, 'value => 'shape) => t<'shape>
 
@@ -554,8 +554,8 @@ let js_union: array<unknown> => t<'value>
 let js_optional: (t<'v>, option<unknown>) => t<option<'v>>
 let js_nullable: (t<'v>, option<unknown>) => t<option<'v>>
 
-let js_asyncParserRefine: (t<'output>, ('output, s<'output>) => promise<unit>) => t<'output>
-let js_refine: (t<'output>, ('output, s<'output>) => unit) => t<'output>
+let js_asyncDecoderAssert: (t<'output>, 'output => promise<unit>) => t<'output>
+let js_refine: (t<'output>, 'output => bool, option<{..}>) => t<'output>
 
 let js_to: (
   t<'value>,

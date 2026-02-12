@@ -764,6 +764,7 @@ test("Successfully converts reversed schema with transform to another type", (t)
 test("Successfully parses with refine", (t) => {
   const schema = S.string.with(S.refine, (string) => {
     expectType<TypeEqual<typeof string, string>>(true);
+    return true;
   });
   const value = S.parser(schema)("123");
 
@@ -775,6 +776,7 @@ test("Successfully parses with refine", (t) => {
 test("Successfully reverse converts with refine", (t) => {
   const schema = S.string.with(S.refine, (string) => {
     expectType<TypeEqual<typeof string, string>>(true);
+    return true;
   });
   const result = S.encoder(schema)("123");
 
@@ -784,8 +786,8 @@ test("Successfully reverse converts with refine", (t) => {
 });
 
 test("Fails to parses with refine raising an error", (t) => {
-  const schema = S.string.with(S.refine, (_, s) => {
-    s.fail("User error");
+  const schema = S.string.with(S.refine, () => false, {
+    error: "User error",
   });
 
   t.throws(
@@ -799,8 +801,25 @@ test("Fails to parses with refine raising an error", (t) => {
   );
 });
 
+test("Fails to parse with refine with path option", (t) => {
+  const schema = S.string.with(S.refine, () => false, {
+    error: "User error",
+    path: ["data", "field"],
+  });
+
+  t.throws(
+    () => {
+      S.parser(schema)("123");
+    },
+    {
+      name: "SuryError",
+      message: `Failed at ["data"]["field"]: User error`,
+    }
+  );
+});
+
 test("Successfully parses async schema", async (t) => {
-  const schema = S.string.with(S.asyncParserRefine, async (string) => {
+  const schema = S.string.with(S.asyncDecoderAssert, async (string) => {
     expectType<TypeEqual<typeof string, string>>(true);
   });
   const value = await S.safeAsync(() => S.asyncParser(schema)("123"));
@@ -811,10 +830,8 @@ test("Successfully parses async schema", async (t) => {
 });
 
 test("Fails to parses async schema", async (t) => {
-  const schema = S.string.with(S.asyncParserRefine, async (_, s) => {
-    return Promise.resolve().then(() => {
-      s.fail("User error");
-    });
+  const schema = S.string.with(S.asyncDecoderAssert, async () => {
+    throw new Error("User error");
   });
 
   const result = await S.safeAsync(() => S.asyncParser(schema)("123"));
@@ -838,21 +855,7 @@ test("Fails to parses async schema", async (t) => {
     >
   >(true);
 
-  if (result.error.code === "custom") {
-    expectType<
-      TypeEqual<
-        typeof result.error,
-        {
-          readonly code: "custom";
-          readonly path: S.Path;
-          readonly message: string;
-          readonly reason: string;
-        }
-      >
-    >(true);
-  } else {
-    t.fail("Should be custom error");
-  }
+  t.is(result.error.code, "invalid_conversion");
 });
 
 test("Successfully parses object by provided shape", (t) => {

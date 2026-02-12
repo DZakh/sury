@@ -333,7 +333,7 @@ type transformDefinition<'input, 'output> = {
 }
 let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) => t<'output>
 
-let refine: (t<'value>, s<'value> => 'value => unit) => t<'value>
+let refine: (t<'value>, 'value => bool, ~error: string=?, ~path: array<string>=?) => t<'value>
 
 let shape: (t<'value>, 'value => 'shape) => t<'shape>
 

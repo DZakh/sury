@@ -3169,10 +3169,30 @@ let internalRefine = (schema, makeRefiner) => {
   })
 }
 
-let refine: (t<'value>, s<'value> => 'value => unit) => t<'value> = (schema, refiner) => {
+let refine: (t<'value>, 'value => bool, ~error: string=?, ~path: array<string>=?) => t<'value> = (
+  schema,
+  refineCheck,
+  ~error=?,
+  ~path=?,
+) => {
+  let message = switch error {
+  | Some(e) => e
+  | None => "Refinement failed"
+  }
+  let extraPath = switch path {
+  | Some(p) => Path.fromArray(p)
+  | None => Path.empty
+  }
   schema->internalRefine(_ =>
     (~input) => {
-      `${input->B.embed(refiner(input->B.effectCtx))}(${input.var()});`
+      let failCode = if extraPath === Path.empty {
+        input->B.fail(~message)
+      } else {
+        `${input->B.embed(() => {
+            input->B.throw(Custom({reason: message, path: input.path->Path.concat(extraPath)}))
+          })}()`
+      }
+      `if(!${input->B.embed(refineCheck)}(${input.var()})){${failCode}}`
     }
   )
 }
@@ -6270,17 +6290,42 @@ let js_to = {
   }
 }
 
-let js_refine = (schema, refiner) => {
-  schema->refine(s => {
-    v => refiner(v, s)
-  })
+let js_refine = (schema, refineCheck, refineOptions) => {
+  let message = switch refineOptions {
+  | Some(options) =>
+    switch (options->Obj.magic)["error"] {
+    | Some(e) => e
+    | None => "Refinement failed"
+    }
+  | None => "Refinement failed"
+  }
+  let extraPath = switch refineOptions {
+  | Some(options) =>
+    switch (options->Obj.magic)["path"] {
+    | Some(p) => Path.fromArray(p)
+    | None => Path.empty
+    }
+  | None => Path.empty
+  }
+  schema->internalRefine(_ =>
+    (~input) => {
+      let failCode = if extraPath === Path.empty {
+        input->B.fail(~message)
+      } else {
+        `${input->B.embed(() => {
+            input->B.throw(Custom({reason: message, path: input.path->Path.concat(extraPath)}))
+          })}()`
+      }
+      `if(!${input->B.embed(refineCheck)}(${input.var()})){${failCode}}`
+    }
+  )
 }
 
 let noop = a => a
-let js_asyncParserRefine = (schema, refine) => {
-  schema->transform(s => {
+let js_asyncDecoderAssert = (schema, assertFn) => {
+  schema->transform(_ => {
     {
-      asyncParser: v => refine(v, s)->X.Promise.thenResolve(() => v),
+      asyncParser: v => assertFn(v)->X.Promise.thenResolve(() => v),
       serializer: noop,
     }
   })
@@ -6795,53 +6840,48 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
     | {allOf: []} => anySchema
     | {allOf: [d]} => d->definitionToSchema
     | {allOf: definitions} =>
-      anySchema->refine(s =>
+      anySchema->refine(
         data => {
-          definitions->Js.Array2.forEach(d => {
-            try data->assertOrThrow(d->definitionToSchema) catch {
-            | _ => s.fail("Should pass for all schemas of the allOf property.")
-            }
-          })
-        }
-      )
-    | {oneOf: []} => anySchema
-    | {oneOf: [d]} => d->definitionToSchema
-    | {oneOf: definitions} =>
-      anySchema->refine(s =>
-        data => {
-          let hasOneValidRef = ref(false)
-          definitions->Js.Array2.forEach(d => {
-            let passed = try {
-              let _ = data->assertOrThrow(d->definitionToSchema)
+          definitions->Js.Array2.every(d => {
+            try {
+              data->assertOrThrow(d->definitionToSchema)
               true
             } catch {
             | _ => false
             }
-            if passed {
-              if hasOneValidRef.contents {
-                s.fail("Should pass single schema according to the oneOf property.")
-              }
-              hasOneValidRef.contents = true
+          })
+        },
+        ~error="Should pass for all schemas of the allOf property.",
+      )
+    | {oneOf: []} => anySchema
+    | {oneOf: [d]} => d->definitionToSchema
+    | {oneOf: definitions} =>
+      anySchema->refine(
+        data => {
+          let validCount = ref(0)
+          definitions->Js.Array2.forEach(d => {
+            try {
+              let _ = data->assertOrThrow(d->definitionToSchema)
+              validCount := validCount.contents + 1
+            } catch {
+            | _ => ()
             }
           })
-          if hasOneValidRef.contents->not {
-            s.fail("Should pass at least one schema according to the oneOf property.")
-          }
-        }
+          validCount.contents === 1
+        },
+        ~error="Should pass exactly one schema according to the oneOf property.",
       )
     | {not} =>
-      anySchema->refine(s =>
+      anySchema->refine(
         data => {
-          let passed = try {
+          try {
             let _ = data->assertOrThrow(not->definitionToSchema)
-            true
+            false
           } catch {
-          | _ => false
+          | _ => true
           }
-          if passed {
-            s.fail("Should NOT be valid against schema in the not property.")
-          }
-        }
+        },
+        ~error="Should NOT be valid against schema in the not property.",
       )
     // needs to come before primitives
     | {enum: []} => anySchema
@@ -6908,7 +6948,7 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
         let ifSchema = if_->definitionToSchema
         let thenSchema = then->definitionToSchema
         let elseSchema = else_->definitionToSchema
-        anySchema->refine(_ =>
+        anySchema->refine(
           data => {
             let passed = try {
               let _ = data->assertOrThrow(ifSchema)
@@ -6916,12 +6956,18 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
             } catch {
             | _ => false
             }
-            if passed {
-              data->assertOrThrow(thenSchema)
-            } else {
-              data->assertOrThrow(elseSchema)
+            try {
+              if passed {
+                data->assertOrThrow(thenSchema)
+              } else {
+                data->assertOrThrow(elseSchema)
+              }
+              true
+            } catch {
+            | _ => false
             }
-          }
+          },
+          ~error="Should pass the if/then/else schema validation.",
         )
       }
     | _ => anySchema
