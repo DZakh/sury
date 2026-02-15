@@ -1993,86 +1993,98 @@ module Literal = {
 }
 
 let rec parse = (input: val, ~withEncoder: bool=false) => {
-  let expected = input.expected
+  let input = ref(input)
+  let withEncoder = ref(withEncoder)
+  let looping = ref(true)
 
-  if input.expected.defs->Obj.magic {
-    if input.global.defs->Obj.magic {
-      let _ =
-        input.global.defs
-        ->Stdlib.Option.getUnsafe
-        ->Stdlib.Dict.assign(input.expected.defs->Stdlib.Option.getUnsafe)
+  while looping.contents {
+    looping := false
+    let currentInput = input.contents
+    let expected = currentInput.expected
+
+    if currentInput.expected.defs->Obj.magic {
+      if currentInput.global.defs->Obj.magic {
+        let _ =
+          currentInput.global.defs
+          ->Stdlib.Option.getUnsafe
+          ->Stdlib.Dict.assign(currentInput.expected.defs->Stdlib.Option.getUnsafe)
+      } else {
+        currentInput.global.defs = currentInput.expected.defs
+      }
+    }
+
+    if currentInput.flag->Flag.unsafeHas(ValFlag.async) {
+      let operationInputVar = currentInput.var()
+      let operationInput =
+        currentInput->B.next(operationInputVar, ~schema=currentInput.schema, ~expected=currentInput.expected)
+      operationInput.var = B._var
+      operationInput.prev = None
+
+      let operationOutput = operationInput->parse
+      let operationCode = operationOutput->B.merge
+      if operationInput.inline !== operationOutput.inline || operationCode !== "" {
+        currentInput.inline = `${currentInput.inline}.then(${operationInputVar}=>{${operationCode}return ${operationOutput.inline}})`
+      }
+      currentInput.schema = operationOutput.schema
+      currentInput.expected = operationOutput.expected
     } else {
-      input.global.defs = input.expected.defs
-    }
-  }
+      let output = ref(currentInput)
 
-  if input.flag->Flag.unsafeHas(ValFlag.async) {
-    let operationInputVar = input.var()
-    let operationInput =
-      input->B.next(operationInputVar, ~schema=input.schema, ~expected=input.expected)
-    operationInput.var = B._var
-    operationInput.prev = None
-
-    let operationOutput = operationInput->parse
-    let operationCode = operationOutput->B.merge
-    if operationInput.inline !== operationOutput.inline || operationCode !== "" {
-      input.inline = `${input.inline}.then(${operationInputVar}=>{${operationCode}return ${operationOutput.inline}})`
-    }
-    input.schema = operationOutput.schema
-    input.expected = operationOutput.expected
-    input
-  } else {
-    let output = ref(input)
-
-    switch output.contents.schema.encoder {
-    | Some(encoder)
-      if withEncoder &&
-      output.contents.schema !== output.contents.expected &&
-      output.contents.expected.tag !== unknownTag =>
-      output := encoder(~input=output.contents, ~selfSchema=output.contents.expected)
-    | _ => ()
-    }
-
-    if output.contents.skipTo !== Some(true) {
-      output := expected.decoder(~input=output.contents, ~selfSchema=expected)
-
-      // FIXME: inputRefiner should correctly be run for schema input (before decoder)
-      switch expected.inputRefiner {
-      | Some(inputRefiner) =>
-        output.contents.codeAfterValidation =
-          output.contents.codeAfterValidation ++ inputRefiner(~input=output.contents)
-      | None => ()
-      }
-      // Call refiner after decoder
-      switch expected.refiner {
-      | Some(refiner) =>
-        output.contents.codeAfterValidation =
-          output.contents.codeAfterValidation ++ refiner(~input=output.contents)
-      | None => ()
+      switch output.contents.schema.encoder {
+      | Some(encoder)
+        if withEncoder.contents &&
+        output.contents.schema !== output.contents.expected &&
+        output.contents.expected.tag !== unknownTag =>
+        output := encoder(~input=output.contents, ~selfSchema=output.contents.expected)
+      | _ => ()
       }
 
-      switch output.contents.expected.to {
-      | Some(to) =>
-        switch output.contents.expected {
-        | {parser} => output := parser(~input=output.contents, ~selfSchema=output.contents.expected)
-        | _ =>
-          switch output.contents.schema.encoder {
-          | Some(encoder) if to.tag !== unknownTag =>
-            output := encoder(~input=output.contents, ~selfSchema=to)
-          | _ => ()
+      if output.contents.skipTo !== Some(true) {
+        output := expected.decoder(~input=output.contents, ~selfSchema=expected)
+
+        // FIXME: inputRefiner should correctly be run for schema input (before decoder)
+        switch expected.inputRefiner {
+        | Some(inputRefiner) =>
+          output.contents.codeAfterValidation =
+            output.contents.codeAfterValidation ++ inputRefiner(~input=output.contents)
+        | None => ()
+        }
+        // Call refiner after decoder
+        switch expected.refiner {
+        | Some(refiner) =>
+          output.contents.codeAfterValidation =
+            output.contents.codeAfterValidation ++ refiner(~input=output.contents)
+        | None => ()
+        }
+
+        switch output.contents.expected.to {
+        | Some(to) =>
+          switch output.contents.expected {
+          | {parser} => output := parser(~input=output.contents, ~selfSchema=output.contents.expected)
+          | _ =>
+            switch output.contents.schema.encoder {
+            | Some(encoder) if to.tag !== unknownTag =>
+              output := encoder(~input=output.contents, ~selfSchema=to)
+            | _ => ()
+            }
           }
-        }
 
-        if output.contents.skipTo !== Some(true) {
-          output := parse(output.contents->B.refine(~expected=to))
+          if output.contents.skipTo !== Some(true) {
+            input := output.contents->B.refine(~expected=to)
+            withEncoder := false
+            looping := true
+          }
+        | None => ()
         }
+      }
 
-      | None => ()
+      if !looping.contents {
+        input := output.contents
       }
     }
-
-    output.contents
   }
+
+  input.contents
 }
 and parseDynamic = input => {
   try input->parse(~withEncoder=true) catch {
