@@ -559,6 +559,10 @@ and val = {
   // The schema of the value that is being parsed
   @as("s")
   mutable schema: internal,
+  // Whether the schema of the val is at the output part
+  // Needed for schemas like S.array(S.nullAsOption) where child schemas might be transformed
+  @as("o")
+  mutable isOutput?: bool,
   // The schema of the value that we expect to parse into
   @as("e")
   mutable expected: internal,
@@ -1993,98 +1997,113 @@ module Literal = {
 }
 
 let rec parse = (input: val, ~withEncoder: bool=false) => {
-  let input = ref(input)
-  let withEncoder = ref(withEncoder)
-  let looping = ref(true)
+  let valRef = ref(input)
+  let step: ref<[#decode | #encode | #convert | #exit]> = ref(withEncoder ? #encode : #decode)
 
-  while looping.contents {
-    looping := false
-    let currentInput = input.contents
-    let expected = currentInput.expected
+  while step.contents !== #exit {
+    let loopInput = valRef.contents
 
-    if currentInput.expected.defs->Obj.magic {
-      if currentInput.global.defs->Obj.magic {
+    if loopInput.expected.defs->Obj.magic {
+      if loopInput.global.defs->Obj.magic {
         let _ =
-          currentInput.global.defs
+          loopInput.global.defs
           ->Stdlib.Option.getUnsafe
-          ->Stdlib.Dict.assign(currentInput.expected.defs->Stdlib.Option.getUnsafe)
+          ->Stdlib.Dict.assign(loopInput.expected.defs->Stdlib.Option.getUnsafe)
       } else {
-        currentInput.global.defs = currentInput.expected.defs
+        loopInput.global.defs = loopInput.expected.defs
       }
     }
 
-    if currentInput.flag->Flag.unsafeHas(ValFlag.async) {
-      let operationInputVar = currentInput.var()
+    if loopInput.flag->Flag.unsafeHas(ValFlag.async) && step.contents !== #convert {
+      let operationInputVar = loopInput.var()
       let operationInput =
-        currentInput->B.next(operationInputVar, ~schema=currentInput.schema, ~expected=currentInput.expected)
+        loopInput->B.next(operationInputVar, ~schema=loopInput.schema, ~expected=loopInput.expected)
       operationInput.var = B._var
       operationInput.prev = None
 
       let operationOutput = operationInput->parse
+
       let operationCode = operationOutput->B.merge
       if operationInput.inline !== operationOutput.inline || operationCode !== "" {
-        currentInput.inline = `${currentInput.inline}.then(${operationInputVar}=>{${operationCode}return ${operationOutput.inline}})`
+        loopInput.inline = `${loopInput.inline}.then(${operationInputVar}=>{${operationCode}return ${operationOutput.inline}})`
       }
-      currentInput.schema = operationOutput.schema
-      currentInput.expected = operationOutput.expected
+      loopInput.schema = operationOutput.schema
+      loopInput.expected = operationOutput.expected
+      step := #exit
     } else {
-      let output = ref(currentInput)
+      switch step.contents {
+      | #encode =>
+        switch loopInput.schema.encoder {
+        | Some(encoder)
+          if loopInput.schema !== loopInput.expected && loopInput.expected.tag !== unknownTag =>
+          let output = encoder(~input=loopInput, ~selfSchema=loopInput.expected)
+          valRef := output
+          step := if output.skipTo->Option.getUnsafe {
+              #exit
+            } else if output.schema !== loopInput.schema {
+              // #encode FIXME: ???
+              #decode
+            } else {
+              #decode
+            }
 
-      switch output.contents.schema.encoder {
-      | Some(encoder)
-        if withEncoder.contents &&
-        output.contents.schema !== output.contents.expected &&
-        output.contents.expected.tag !== unknownTag =>
-        output := encoder(~input=output.contents, ~selfSchema=output.contents.expected)
-      | _ => ()
-      }
-
-      if output.contents.skipTo !== Some(true) {
-        output := expected.decoder(~input=output.contents, ~selfSchema=expected)
-
-        // FIXME: inputRefiner should correctly be run for schema input (before decoder)
-        switch expected.inputRefiner {
-        | Some(inputRefiner) =>
-          output.contents.codeAfterValidation =
-            output.contents.codeAfterValidation ++ inputRefiner(~input=output.contents)
-        | None => ()
+        | _ => step := #decode
         }
-        // Call refiner after decoder
-        switch expected.refiner {
-        | Some(refiner) =>
-          output.contents.codeAfterValidation =
-            output.contents.codeAfterValidation ++ refiner(~input=output.contents)
-        | None => ()
+      | #decode => {
+          let output = loopInput.expected.decoder(~input=loopInput, ~selfSchema=loopInput.expected)
+          valRef := output
+          if output.skipTo->Option.getUnsafe {
+            step := #exit
+            // } else if output.expected !== loopInput.expected {
+            //   step := #convert
+          } else {
+            // FIXME: inputRefiner should correctly be run for schema input (before decoder)
+            switch loopInput.expected.inputRefiner {
+            | Some(inputRefiner) =>
+              output.codeAfterValidation = output.codeAfterValidation ++ inputRefiner(~input=output)
+            | None => ()
+            }
+            // Call refiner after decoder
+            switch loopInput.expected.refiner {
+            | Some(refiner) =>
+              output.codeAfterValidation = output.codeAfterValidation ++ refiner(~input=output)
+            | None => ()
+            }
+            step := #convert
+          }
         }
-
-        switch output.contents.expected.to {
+      | _ =>
+        switch loopInput.expected.to {
         | Some(to) =>
-          switch output.contents.expected {
-          | {parser} => output := parser(~input=output.contents, ~selfSchema=output.contents.expected)
-          | _ =>
-            switch output.contents.schema.encoder {
-            | Some(encoder) if to.tag !== unknownTag =>
-              output := encoder(~input=output.contents, ~selfSchema=to)
-            | _ => ()
+          switch loopInput.expected {
+          | {parser} =>
+            let output = parser(~input=loopInput, ~selfSchema=loopInput.expected)
+            valRef := output
+
+            Js.log(loopInput)
+            Js.log(output)
+
+            if output.skipTo->Option.getUnsafe {
+              step := #exit
+            } else if loopInput.expected !== output.expected {
+              step := #convert
+            } else {
+              valRef := valRef.contents->B.refine(~expected=to)
+              step := #encode
+            }
+          | _ => {
+              valRef := valRef.contents->B.refine(~expected=to)
+              step := #encode
             }
           }
 
-          if output.contents.skipTo !== Some(true) {
-            input := output.contents->B.refine(~expected=to)
-            withEncoder := false
-            looping := true
-          }
-        | None => ()
+        | None => step := #exit
         }
-      }
-
-      if !looping.contents {
-        input := output.contents
       }
     }
   }
 
-  input.contents
+  valRef.contents
 }
 and parseDynamic = input => {
   try input->parse(~withEncoder=true) catch {
@@ -2170,7 +2189,7 @@ and compileDecoder = (~schema, ~expected, ~flag, ~defs) => {
 
     let inlinedFunction = `${B.operationArgVar}=>{${code}return ${inlinedOutput.contents}}`
 
-    // Js.log(inlinedFunction)
+    Js.log(inlinedFunction)
 
     X.Function.make2(
       ~ctxVarName1="e",
@@ -2413,7 +2432,11 @@ let rec makeObjectVal = (prev: val, ~schema): B.Val.Object.t => {
 }
 and array = item => {
   let itemInternal = item->castToInternal
-  let mut = base(arrayTag, ~selfReverse=itemInternal->Obj.magic->Stdlib.Dict.getUnsafe(reversedKey) === itemInternal->Obj.magic)
+  let mut = base(
+    arrayTag,
+    ~selfReverse=itemInternal->Obj.magic->Stdlib.Dict.getUnsafe(reversedKey) ===
+      itemInternal->Obj.magic,
+  )
   mut.additionalItems = Some(Schema(itemInternal->castToPublic))
   mut.items = Some(X.Array.immutableEmpty)
   mut.decoder = arrayDecoder
@@ -3235,7 +3258,10 @@ let nestedLoc = "BS_PRIVATE_NESTED_SOME_NONE"
 module Dict = {
   let factory = item => {
     let item = item->castToInternal
-    let mut = base(objectTag, ~selfReverse=item->Obj.magic->Stdlib.Dict.getUnsafe(reversedKey) === item->Obj.magic)
+    let mut = base(
+      objectTag,
+      ~selfReverse=item->Obj.magic->Stdlib.Dict.getUnsafe(reversedKey) === item->Obj.magic,
+    )
     mut.properties = Some(X.Object.immutableEmpty)
     mut.additionalItems = Some(Schema(item->castToPublic))
     mut.decoder = objectDecoder
@@ -3309,12 +3335,12 @@ module Union = {
     }
 
     if (
-      initialInputTagFlag->Flag.unsafeHas(TagFlag.union) &&
+      (initialInputTagFlag->Flag.unsafeHas(TagFlag.union) &&
       isWiderUnionSchema(
         ~schemaAnyOf=schemas,
         ~inputAnyOf=input.schema.anyOf->X.Option.getUnsafe,
       ) &&
-      toPerCase === None
+      toPerCase === None) || (input.isOutput->Option.getUnsafe && input.expected === input.schema)
     ) {
       input
     } else {
@@ -3902,6 +3928,7 @@ module Union = {
         }
       | _ => selfSchema
       }
+      o.isOutput = Some(true)
 
       o
     }
@@ -4471,6 +4498,7 @@ let enableJsonString = {
         let inputVar = input.var()
         output.codeFromPrev = `try{${outputVar}=JSON.parse(${inputVar})}catch(t){${B.embedInvalidInput(
             ~input,
+            ~expected=input.schema,
           )}}`
         let v = output->parse
         v.skipTo = Some(true)
@@ -4489,10 +4517,13 @@ let enableJsonString = {
       let to = expectedSchema.to->X.Option.getUnsafe
       // Whether we can optimize encoding during decoding
       let preEncode: bool =
-        to->Obj.magic && to.tag !== unknownTag && !(expectedSchema.parser->Obj.magic) // && !(selfSchema.refiner->Obj.magic) FIXME:
+        to->Obj.magic &&
+        to.tag !== unknownTag &&
+        !(expectedSchema.parser->Obj.magic) &&
+        !(expectedSchema.refiner->Obj.magic)
 
       let stringVal = stringDecoder(~input, ~selfSchema=%raw(`null`))
-      stringVal.schema = string
+      stringVal.schema = expectedSchema
       stringVal.expected = expectedSchema
 
       if preEncode {
@@ -5070,8 +5101,8 @@ module Schema = {
     v.prev = None
     v
   }
-  and shapedParser = (~input, ~selfSchema) => {
-    switch selfSchema.flattened {
+  and shapedParser = (~input, ~selfSchema as _) => {
+    switch input.expected.flattened {
     | Some(flattened) =>
       let flattenedVals = []
       for idx in 0 to flattened->Js.Array2.length - 1 {
@@ -5084,8 +5115,9 @@ module Schema = {
     | None => ()
     }
 
-    let targetSchema = selfSchema.to->X.Option.getUnsafe
+    let targetSchema = input.expected.to->X.Option.getUnsafe
     let output = getShapedParserOutput(~input, ~targetSchema)
+    output.hasTransform = Some(true)
     output.prev = Some(input)
     output.skipTo = Some(targetSchema.to === None)
     output
@@ -5156,7 +5188,9 @@ module Schema = {
     | Some({val}) => {
         let v = val->B.Val.scope
         v.hasTransform = Some(true)
-        v
+        v.schema = targetSchema
+        v.expected = targetSchema
+        v->parse
       }
     | _ =>
       if targetSchema->isLiteral {
@@ -5254,12 +5288,9 @@ module Schema = {
     prepareShapedSerializerAcc(~acc, ~input)
 
     let targetSchema = input.expected.to->X.Option.getUnsafe
-
     let output = getShapedSerializerOutput(~input, ~acc=Some(acc), ~targetSchema, ~path=Path.empty)
-
     output.hasTransform = Some(true)
     output.prev = Some(input)
-
     output
   }
 
@@ -6699,50 +6730,38 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
     | {anyOf: definitions} => union(definitions->Js.Array2.map(definitionToSchema))
     | {allOf: []} => anySchema
     | {allOf: [d]} => d->definitionToSchema
-    | {allOf: definitions} =>
-      anySchema->refine(
-        data => {
-          definitions->Js.Array2.every(d => {
-            try {
-              data->assertOrThrow(d->definitionToSchema)
-              true
-            } catch {
-            | _ => false
-            }
-          })
-        },
-        ~error="Should pass for all schemas of the allOf property.",
-      )
+    | {allOf: definitions} => anySchema->refine(data => {
+        definitions->Js.Array2.every(d => {
+          try {
+            data->assertOrThrow(d->definitionToSchema)
+            true
+          } catch {
+          | _ => false
+          }
+        })
+      }, ~error="Should pass for all schemas of the allOf property.")
     | {oneOf: []} => anySchema
     | {oneOf: [d]} => d->definitionToSchema
-    | {oneOf: definitions} =>
-      anySchema->refine(
-        data => {
-          let validCount = ref(0)
-          definitions->Js.Array2.forEach(d => {
-            try {
-              let _ = data->assertOrThrow(d->definitionToSchema)
-              validCount := validCount.contents + 1
-            } catch {
-            | _ => ()
-            }
-          })
-          validCount.contents === 1
-        },
-        ~error="Should pass exactly one schema according to the oneOf property.",
-      )
-    | {not} =>
-      anySchema->refine(
-        data => {
+    | {oneOf: definitions} => anySchema->refine(data => {
+        let validCount = ref(0)
+        definitions->Js.Array2.forEach(d => {
           try {
-            let _ = data->assertOrThrow(not->definitionToSchema)
-            false
+            let _ = data->assertOrThrow(d->definitionToSchema)
+            validCount := validCount.contents + 1
           } catch {
-          | _ => true
+          | _ => ()
           }
-        },
-        ~error="Should NOT be valid against schema in the not property.",
-      )
+        })
+        validCount.contents === 1
+      }, ~error="Should pass exactly one schema according to the oneOf property.")
+    | {not} => anySchema->refine(data => {
+        try {
+          let _ = data->assertOrThrow(not->definitionToSchema)
+          false
+        } catch {
+        | _ => true
+        }
+      }, ~error="Should NOT be valid against schema in the not property.")
     // needs to come before primitives
     | {enum: []} => anySchema
     | {enum: [p]} => p->primitiveToSchema
@@ -6808,27 +6827,24 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
         let ifSchema = if_->definitionToSchema
         let thenSchema = then->definitionToSchema
         let elseSchema = else_->definitionToSchema
-        anySchema->refine(
-          data => {
-            let passed = try {
-              let _ = data->assertOrThrow(ifSchema)
-              true
-            } catch {
-            | _ => false
+        anySchema->refine(data => {
+          let passed = try {
+            let _ = data->assertOrThrow(ifSchema)
+            true
+          } catch {
+          | _ => false
+          }
+          try {
+            if passed {
+              data->assertOrThrow(thenSchema)
+            } else {
+              data->assertOrThrow(elseSchema)
             }
-            try {
-              if passed {
-                data->assertOrThrow(thenSchema)
-              } else {
-                data->assertOrThrow(elseSchema)
-              }
-              true
-            } catch {
-            | _ => false
-            }
-          },
-          ~error="Should pass the if/then/else schema validation.",
-        )
+            true
+          } catch {
+          | _ => false
+          }
+        }, ~error="Should pass the if/then/else schema validation.")
       }
     | _ => anySchema
     }

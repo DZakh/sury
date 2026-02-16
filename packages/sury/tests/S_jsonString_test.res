@@ -456,15 +456,13 @@ test("Can apply refinement to JSON string with S.to after", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    // TODO: Can be improved
-    `i=>{if(typeof i!=="string"){e[4](i)}let v0;try{JSON.parse(i)}catch(t){e[0](i)}if(!e[1](i)){e[5]()}try{v0=JSON.parse(i)}catch(t){e[2](i)}if(typeof v0!=="number"||v0>2147483647||v0<-2147483648||v0%1!==0){e[3](v0)}return v0}`,
+    // TODO: Can be improved to perform JSON.parse only once
+    `i=>{if(typeof i!=="string"){e[5](i)}try{JSON.parse(i)}catch(t){e[0](i)}if(!e[2](i)){e[1]()}let v0;try{v0=JSON.parse(i)}catch(t){e[3](i)}if(typeof v0!=="number"||v0>2147483647||v0<-2147483648||v0%1!==0){e[4](v0)}return v0}`,
   )
 })
 
 test("Can apply refinement to JSON string with S.to before", t => {
-  let schema = S.int->S.to(
-    S.jsonString->S.refine(v => v === "123", ~error="Expected 123"),
-  )
+  let schema = S.int->S.to(S.jsonString->S.refine(v => v === "123", ~error="Expected 123"))
 
   t->U.assertThrowsMessage(() => 124->S.parseOrThrow(schema), `Expected 123`)
   t->U.assertCompiledCode(

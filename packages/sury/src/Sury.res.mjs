@@ -1185,89 +1185,86 @@ function parse(value) {
 
 function parse$1(input, withEncoderOpt) {
   let withEncoder = withEncoderOpt !== undefined ? withEncoderOpt : false;
-  let input$1 = input;
-  let withEncoder$1 = withEncoder;
-  let looping = true;
-  while (looping) {
-    looping = false;
-    let currentInput = input$1;
-    let expected = currentInput.e;
-    if (currentInput.e.$defs) {
-      if (currentInput.g.d) {
-        Object.assign(currentInput.g.d, currentInput.e.$defs);
+  let valRef = input;
+  let step = withEncoder ? "encode" : "decode";
+  while (step !== "exit") {
+    let loopInput = valRef;
+    if (loopInput.e.$defs) {
+      if (loopInput.g.d) {
+        Object.assign(loopInput.g.d, loopInput.e.$defs);
       } else {
-        currentInput.g.d = currentInput.e.$defs;
+        loopInput.g.d = loopInput.e.$defs;
       }
     }
-    if (currentInput.f & 1) {
-      let operationInputVar = currentInput.v();
-      let operationInput = next(currentInput, operationInputVar, currentInput.s, currentInput.e);
+    if (loopInput.f & 1 && step !== "convert") {
+      let operationInputVar = loopInput.v();
+      let operationInput = next(loopInput, operationInputVar, loopInput.s, loopInput.e);
       operationInput.v = _var;
       operationInput.prev = undefined;
       let operationOutput = parse$1(operationInput, undefined);
       let operationCode = merge(operationOutput);
       if (operationInput.i !== operationOutput.i || operationCode !== "") {
-        currentInput.i = currentInput.i + ".then(" + operationInputVar + "=>{" + operationCode + "return " + operationOutput.i + "})";
+        loopInput.i = loopInput.i + ".then(" + operationInputVar + "=>{" + operationCode + "return " + operationOutput.i + "})";
       }
-      currentInput.s = operationOutput.s;
-      currentInput.e = operationOutput.e;
+      loopInput.s = operationOutput.s;
+      loopInput.e = operationOutput.e;
+      step = "exit";
     } else {
-      let output = currentInput;
-      let encoder = output.s.encoder;
-      if (encoder !== undefined && withEncoder$1 && output.s !== output.e && output.e.type !== unknownTag) {
-        output = encoder(output, output.e);
-      }
-      if (output.k !== true) {
-        output = expected.decoder(output, expected);
-        let inputRefiner = expected.inputRefiner;
-        if (inputRefiner !== undefined) {
-          output.c = output.c + inputRefiner(output);
+      let match = step;
+      if (match === "decode") {
+        let output = loopInput.e.decoder(loopInput, loopInput.e);
+        valRef = output;
+        if (output.k) {
+          step = "exit";
+        } else {
+          let inputRefiner = loopInput.e.inputRefiner;
+          if (inputRefiner !== undefined) {
+            output.c = output.c + inputRefiner(output);
+          }
+          let refiner = loopInput.e.refiner;
+          if (refiner !== undefined) {
+            output.c = output.c + refiner(output);
+          }
+          step = "convert";
         }
-        let refiner = expected.refiner;
-        if (refiner !== undefined) {
-          output.c = output.c + refiner(output);
+      } else if (match === "encode") {
+        let encoder = loopInput.s.encoder;
+        if (encoder !== undefined && loopInput.s !== loopInput.e && loopInput.e.type !== unknownTag) {
+          let output$1 = encoder(loopInput, loopInput.e);
+          valRef = output$1;
+          step = output$1.k ? "exit" : "decode";
+        } else {
+          step = "decode";
         }
-        let to = output.e.to;
+      } else {
+        let to = loopInput.e.to;
         if (to !== undefined) {
-          let match = output.e;
-          let parser = match.parser;
+          let match$1 = loopInput.e;
+          let parser = match$1.parser;
           if (parser !== undefined) {
-            output = parser(output, output.e);
-          } else {
-            let encoder$1 = output.s.encoder;
-            if (encoder$1 !== undefined && to.type !== unknownTag) {
-              output = encoder$1(output, to);
+            let output$2 = parser(loopInput, loopInput.e);
+            valRef = output$2;
+            console.log(loopInput);
+            console.log(output$2);
+            if (output$2.k) {
+              step = "exit";
+            } else if (loopInput.e !== output$2.e) {
+              step = "convert";
+            } else {
+              valRef = refine(valRef, undefined, undefined, to);
+              step = "encode";
             }
-            
+          } else {
+            valRef = refine(valRef, undefined, undefined, to);
+            step = "encode";
           }
-          if (output.k !== true) {
-            input$1 = refine(output, undefined, undefined, to);
-            withEncoder$1 = false;
-            looping = true;
-          }
-          
+        } else {
+          step = "exit";
         }
-        
       }
-      if (!looping) {
-        input$1 = output;
-      }
-      
     }
   };
-  return input$1;
-}
-
-function getOutputSchema(_schema) {
-  while (true) {
-    let schema = _schema;
-    let to = schema.to;
-    if (to === undefined) {
-      return schema;
-    }
-    _schema = to;
-    continue;
-  };
+  return valRef;
 }
 
 function reverse(schema) {
@@ -1375,6 +1372,18 @@ function reverse(schema) {
   return r;
 }
 
+function getOutputSchema(_schema) {
+  while (true) {
+    let schema = _schema;
+    let to = schema.to;
+    if (to === undefined) {
+      return schema;
+    }
+    _schema = to;
+    continue;
+  };
+}
+
 function parseDynamic(input) {
   try {
     return parse$1(input, true);
@@ -1404,6 +1413,7 @@ function compileDecoder(schema, expected, flag, defs) {
     inlinedOutput = "Promise.resolve(" + inlinedOutput + ")";
   }
   let inlinedFunction = "i=>{" + code + "return " + inlinedOutput + "}";
+  console.log(inlinedFunction);
   let ctxVarValue1 = input.g.e;
   return new Function("e", "s", "return " + inlinedFunction)(ctxVarValue1, s);
 }
@@ -2187,7 +2197,7 @@ function unionDecoder(input, selfSchema) {
     let to = selfSchema.to;
     toPerCase = to !== undefined ? to : undefined;
   }
-  if (initialInputTagFlag & 256 && isWiderUnionSchema(schemas, input.s.anyOf) && toPerCase === undefined) {
+  if (initialInputTagFlag & 256 && isWiderUnionSchema(schemas, input.s.anyOf) && toPerCase === undefined || input.o && input.e === input.s) {
     return input;
   }
   if (input.s.encoder === undefined && initialInputTagFlag & 768) {
@@ -2541,6 +2551,7 @@ function unionDecoder(input, selfSchema) {
       output.v === _var && input.c === "" && output.c === "" && (output.l === output.i + "=" + initialInline || initialInline === "i") ? (input.l = "", input.a = initialAllocate, input.v = _notVar, input.i = initialInline, input) : output
     );
   o.s = toPerCase !== undefined ? (o.k = true, getOutputSchema(toPerCase)) : selfSchema;
+  o.o = true;
   return o;
 }
 
@@ -2999,7 +3010,7 @@ function jsonStringEncoder(input, to) {
   let output$1 = next(input, outputVar, nextSchema, nextSchema);
   output$1.v = _var;
   let inputVar = input.v();
-  output$1.cp = "try{" + outputVar + "=JSON.parse(" + inputVar + ")}catch(t){" + embedInvalidInput(input, undefined) + "}";
+  output$1.cp = "try{" + outputVar + "=JSON.parse(" + inputVar + ")}catch(t){" + embedInvalidInput(input, input.s) + "}";
   let v = parse$1(output$1, undefined);
   v.k = true;
   return v;
@@ -3010,9 +3021,9 @@ function jsonStringDecoder(input, param) {
   let expectedSchema = input.e;
   if (inputTagFlag & 1) {
     let to = expectedSchema.to;
-    let preEncode = to && to.type !== unknownTag && !expectedSchema.parser;
+    let preEncode = to && to.type !== unknownTag && !expectedSchema.parser && !expectedSchema.refiner;
     let stringVal = stringDecoder(input, null);
-    stringVal.s = string;
+    stringVal.s = expectedSchema;
     stringVal.e = expectedSchema;
     if (preEncode) {
       return jsonStringEncoder(stringVal, to);
@@ -3275,7 +3286,9 @@ function getShapedSerializerOutput(input, acc, targetSchema, path) {
     if (val !== undefined) {
       let v = scope(val);
       v.t = true;
-      return v;
+      v.s = targetSchema;
+      v.e = targetSchema;
+      return parse$1(v, undefined);
     }
     
   }
@@ -3530,8 +3543,8 @@ function definitionToShapedSchema(definition) {
   return s;
 }
 
-function shapedParser(input, selfSchema) {
-  let flattened = selfSchema.flattened;
+function shapedParser(input, param) {
+  let flattened = input.e.flattened;
   if (flattened !== undefined) {
     let flattenedVals = [];
     for (let idx = 0, idx_finish = flattened.length; idx < idx_finish; ++idx) {
@@ -3542,8 +3555,9 @@ function shapedParser(input, selfSchema) {
     }
     input.fv = flattenedVals;
   }
-  let targetSchema = selfSchema.to;
+  let targetSchema = input.e.to;
   let output = getShapedParserOutput(input, targetSchema);
+  output.t = true;
   output.prev = input;
   output.k = targetSchema.to === undefined;
   return output;
