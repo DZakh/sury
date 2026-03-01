@@ -559,9 +559,13 @@ and val = {
   // The schema of the value that is being parsed
   @as("s")
   mutable schema: internal,
-  // Whether the schema of the val is at the output part
+  // Whether the val is at input part of expected schema
+  // This means that when decoding we need to do it from input to output instead of unknown to output
+  @as("ii")
+  mutable isInput?: bool,
+  // Whether the val is at output part of expected schema
   // Needed for schemas like S.array(S.nullAsOption) where child schemas might be transformed
-  @as("o")
+  @as("io")
   mutable isOutput?: bool,
   // The schema of the value that we expect to parse into
   @as("e")
@@ -1277,6 +1281,16 @@ module Builder = {
         | _ => ()
         }
 
+        // FIXME: This is not well-thought + we also have custom merge logic in union decoder which should be updated
+        if val.isOutput->X.Option.getUnsafe && val.expected.refiner->Obj.magic {
+          currentCode :=
+            currentCode.contents ++ (val.expected.refiner->X.Option.getUnsafe)(~input=val)
+        }
+        if val.isInput->X.Option.getUnsafe && val.expected.inputRefiner->Obj.magic {
+          currentCode :=
+            currentCode.contents ++ (val.expected.inputRefiner->X.Option.getUnsafe)(~input=val)
+        }
+
         if val.varsAllocation !== "" {
           currentCode := currentCode.contents ++ `let ${val.varsAllocation};`
         }
@@ -1505,6 +1519,8 @@ module Builder = {
           allocate: initialAllocate,
           skipTo: false,
           validation: None,
+          isInput: false,
+          isOutput: false,
         }
         if shouldLink {
           let valVar: unit => string = %raw(`val.v.bind(val)`)
@@ -1569,7 +1585,8 @@ module Builder = {
     }
 
     let embedTransformation = (~input: val, ~fn: 'input => 'output, ~isAsync) => {
-      let output = input->allocateVal(~schema=unknown)
+      let output =
+        input->allocateVal(~schema=unknown, ~expected=input.expected.to->Option.getUnsafe)
       output.hasTransform = Some(true) // FIXME: Remove allocateVal in favor of input.allocate
       if isAsync {
         if !(input.global.flag->Flag.unsafeHas(Flag.async)) {
@@ -1998,9 +2015,15 @@ module Literal = {
 
 let rec parse = (input: val, ~withEncoder: bool=false) => {
   let valRef = ref(input)
-  let step: ref<[#decode | #encode | #convert | #exit]> = ref(withEncoder ? #encode : #decode)
+  let appliedEncoderRef = ref(None)
 
-  while step.contents !== #exit {
+  while (
+    {
+      !(valRef.contents.isOutput->Option.getUnsafe) || valRef.contents.expected.to->Obj.magic
+    }
+  ) {
+    let appliedEncoder = appliedEncoderRef.contents
+    appliedEncoderRef := None
     let loopInput = valRef.contents
 
     if loopInput.expected.defs->Obj.magic {
@@ -2014,7 +2037,11 @@ let rec parse = (input: val, ~withEncoder: bool=false) => {
       }
     }
 
-    if loopInput.flag->Flag.unsafeHas(ValFlag.async) && step.contents !== #convert {
+    if (
+      loopInput.flag->Flag.unsafeHas(
+        ValFlag.async,
+      ) /* FIXME: why was it needed? && step.contents !== #convert */
+    ) {
       let operationInputVar = loopInput.var()
       let operationInput =
         loopInput->B.next(operationInputVar, ~schema=loopInput.schema, ~expected=loopInput.expected)
@@ -2029,75 +2056,36 @@ let rec parse = (input: val, ~withEncoder: bool=false) => {
       }
       loopInput.schema = operationOutput.schema
       loopInput.expected = operationOutput.expected
-      step := #exit
+      loopInput.isOutput = operationOutput.isOutput
+      loopInput.isInput = operationOutput.isInput
+    } else if loopInput.isOutput->Option.getUnsafe {
+      // It's guaranteed that to is not None, because it's checked in the while condition
+      let to = loopInput.expected.to->Option.getUnsafe
+      switch loopInput.expected {
+      | {parser} => valRef := parser(~input=loopInput, ~selfSchema=loopInput.expected)
+      | _ => valRef := valRef.contents->B.refine(~expected=to)
+      }
     } else {
-      switch step.contents {
-      | #encode =>
-        switch loopInput.schema.encoder {
-        | Some(encoder)
-          if loopInput.schema !== loopInput.expected && loopInput.expected.tag !== unknownTag =>
-          let output = encoder(~input=loopInput, ~selfSchema=loopInput.expected)
-          valRef := output
-          step := if output.skipTo->Option.getUnsafe {
-              #exit
-            } else if output.schema !== loopInput.schema {
-              // #encode FIXME: ???
-              #decode
-            } else {
-              #decode
-            }
+      let maybeEncoder = loopInput.schema.encoder
+      if (
+        !(loopInput.isInput->Option.getUnsafe) &&
+        maybeEncoder->Obj.magic &&
+        maybeEncoder->Obj.magic !== appliedEncoder &&
+        loopInput.schema !== loopInput.expected &&
+        loopInput.expected.tag !== unknownTag
+      ) {
+        valRef := (maybeEncoder->Option.getUnsafe)(~input=loopInput, ~selfSchema=loopInput.expected)
+      }
 
-        | _ => step := #decode
-        }
-      | #decode => {
-          let output = loopInput.expected.decoder(~input=loopInput, ~selfSchema=loopInput.expected)
-          valRef := output
-          if output.skipTo->Option.getUnsafe {
-            step := #exit
-            // } else if output.expected !== loopInput.expected {
-            //   step := #convert
-          } else {
-            // FIXME: inputRefiner should correctly be run for schema input (before decoder)
-            switch loopInput.expected.inputRefiner {
-            | Some(inputRefiner) =>
-              output.codeAfterValidation = output.codeAfterValidation ++ inputRefiner(~input=output)
-            | None => ()
-            }
-            // Call refiner after decoder
-            switch loopInput.expected.refiner {
-            | Some(refiner) =>
-              output.codeAfterValidation = output.codeAfterValidation ++ refiner(~input=output)
-            | None => ()
-            }
-            step := #convert
-          }
-        }
-      | _ =>
-        switch loopInput.expected.to {
-        | Some(to) =>
-          switch loopInput.expected {
-          | {parser} =>
-            let output = parser(~input=loopInput, ~selfSchema=loopInput.expected)
-            valRef := output
-
-            Js.log(loopInput)
-            Js.log(output)
-
-            if output.skipTo->Option.getUnsafe {
-              step := #exit
-            } else if loopInput.expected !== output.expected {
-              step := #convert
-            } else {
-              valRef := valRef.contents->B.refine(~expected=to)
-              step := #encode
-            }
-          | _ => {
-              valRef := valRef.contents->B.refine(~expected=to)
-              step := #encode
-            }
-          }
-
-        | None => step := #exit
+      // If encoder didn't change the value, we can decode it,
+      // otherwise let's start the loop from the beginning
+      if loopInput !== valRef.contents {
+        appliedEncoderRef := Some(maybeEncoder->Option.getUnsafe)
+      } else {
+        valRef := loopInput.expected.decoder(~input=loopInput, ~selfSchema=loopInput.expected)
+        if !(valRef.contents.isOutput->Option.getUnsafe) {
+          valRef.contents.isInput = Some(true)
+          valRef.contents.isOutput = Some(true)
         }
       }
     }
@@ -2189,7 +2177,7 @@ and compileDecoder = (~schema, ~expected, ~flag, ~defs) => {
 
     let inlinedFunction = `${B.operationArgVar}=>{${code}return ${inlinedOutput.contents}}`
 
-    Js.log(inlinedFunction)
+    // Js.log(inlinedFunction)
 
     X.Function.make2(
       ~ctxVarName1="e",
@@ -3921,14 +3909,14 @@ module Union = {
         output
       }
 
-      o.schema = switch toPerCase {
+      o.expected = switch toPerCase {
       | Some(to) => {
           o.skipTo = Some(true)
+          o.isOutput = Some(true)
           to->getOutputSchema
         }
       | _ => selfSchema
       }
-      o.isOutput = Some(true)
 
       o
     }
@@ -4307,6 +4295,8 @@ let jsonEncoder = Builder.make((~input, ~selfSchema as to) => {
     let output = input->B.refine(~schema=unknown, ~expected=jsonExpected)->parse
     output.schema.additionalItems = Some(Schema(json->castToPublic))
     output.expected = to
+    output.isInput = Some(false)
+    output.isOutput = Some(false)
     output
   } else if toTagFlag->Flag.unsafeHas(TagFlag.object) {
     // Validate that the input is an object
@@ -4315,6 +4305,8 @@ let jsonEncoder = Builder.make((~input, ~selfSchema as to) => {
     let output = input->B.refine(~schema=unknown, ~expected=jsonExpected)->parse
     output.schema.additionalItems = Some(Schema(json->castToPublic))
     output.expected = to
+    output.isInput = Some(false)
+    output.isOutput = Some(false)
     output
   } else {
     input
@@ -4353,10 +4345,7 @@ let jsonDecoder = (~input, ~selfSchema as _) => {
       },
     )
     expected.to = input.expected.to
-
-    let output = input->B.refine(~expected)->parse
-    output.skipTo = Some(true)
-    output
+    input->B.refine(~expected)->parse
   } else if inputTagFlag->Flag.unsafeHas(TagFlag.object) {
     let expected = base(objectTag, ~selfReverse=false)
     let properties = Js.Dict.empty()
@@ -4375,10 +4364,7 @@ let jsonDecoder = (~input, ~selfSchema as _) => {
     )
     expected.decoder = objectDecoder
     expected.to = input.expected.to
-
-    let output = input->B.refine(~expected)->parse
-    output.skipTo = Some(true)
-    output
+    input->B.refine(~expected)->parse
   } else if inputTagFlag->Flag.unsafeHas(TagFlag.ref) {
     // FIXME: Should be a unified solution for ref inputs
     recursiveDecoder(~input, ~selfSchema=input.expected)
@@ -4482,9 +4468,7 @@ let enableJsonString = {
         jsonStringConstSchema.const = input->constSchemaToJsonStringConst(~schema=to)->Obj.magic
         jsonStringConstSchema.to = Some(to)
         jsonStringConstSchema.decoder = Literal.literalDecoder
-        let output = input->B.refine(~expected=jsonStringConstSchema)->parse
-        output.skipTo = Some(true)
-        output
+        input->B.refine(~expected=jsonStringConstSchema)
       } else {
         let outputVar = input.global->B.varWithoutAllocation
         input.allocate(outputVar)
@@ -4493,6 +4477,8 @@ let enableJsonString = {
         nextSchema.to = Some(to)
 
         let output = input->B.next(outputVar, ~schema=nextSchema, ~expected=nextSchema)
+        output.isInput = Some(true)
+        output.isOutput = Some(true)
         output.var = B._var
 
         let inputVar = input.var()
@@ -4500,9 +4486,8 @@ let enableJsonString = {
             ~input,
             ~expected=input.schema,
           )}}`
-        let v = output->parse
-        v.skipTo = Some(true)
-        v
+
+        output
       }
     } else {
       input
