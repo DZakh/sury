@@ -573,8 +573,6 @@ and val = {
   mutable prev?: val,
   @as("f")
   mutable flag: flag,
-  @as("k")
-  mutable skipTo?: bool,
   @as("d")
   mutable vals?: dict<val>,
   @as("fv")
@@ -1339,6 +1337,7 @@ module Builder = {
         path: prev.path,
         global: prev.global,
         hasTransform: true,
+        vals: ?prev.vals,
       }
     }
 
@@ -1404,7 +1403,7 @@ module Builder = {
     }
 
     let asyncVal = (from: val, initial: string): val => {
-      let v = from->next(initial, ~schema=unknown)
+      let v = from->next(initial, ~schema=from.schema)
       v.flag = ValFlag.async
       v
     }
@@ -1517,7 +1516,6 @@ module Builder = {
           varsAllocation: "",
           hasTransform: false,
           allocate: initialAllocate,
-          skipTo: false,
           validation: None,
           isInput: false,
           isOutput: false,
@@ -2046,6 +2044,8 @@ let rec parse = (input: val, ~withEncoder: bool=false) => {
       let operationInput =
         loopInput->B.next(operationInputVar, ~schema=loopInput.schema, ~expected=loopInput.expected)
       operationInput.var = B._var
+      operationInput.isInput = loopInput.isInput
+      operationInput.isOutput = loopInput.isOutput
       operationInput.prev = None
 
       let operationOutput = operationInput->parse
@@ -2741,7 +2741,6 @@ and objectDecoder: Builder.t = (~input as unknownInput, ~selfSchema as _) => {
 
       // After input.schema was used, set it to selfSchema
       // so it has a more accurate name in error messages
-
       if shouldRecreateInput.contents {
         objectVal->B.Val.Object.complete
       } else {
@@ -3231,13 +3230,12 @@ nullAsUnit.to = Some(unit)
 nullAsUnit.decoder = Literal.literalDecoder
 let nullAsUnit = nullAsUnit->castToPublic
 
-let neverBuilder = Builder.make((~input, ~selfSchema as _) => {
-  input.codeAfterValidation = input.codeAfterValidation ++ B.embedInvalidInput(~input) ++ ";"
-  input.skipTo = Some(true)
-  input
-})
-
 let never = base(neverTag, ~selfReverse=true)
+let neverBuilder = Builder.make((~input, ~selfSchema as _) => {
+  let output = input->B.refine(~expected=never)
+  output.codeFromPrev = B.embedInvalidInput(~input) ++ ";"
+  output
+})
 never.decoder = neverBuilder
 let never: t<never> = never->castToPublic
 
@@ -3911,7 +3909,6 @@ module Union = {
 
       o.expected = switch toPerCase {
       | Some(to) => {
-          o.skipTo = Some(true)
           o.isOutput = Some(true)
           to->getOutputSchema
         }
@@ -4273,21 +4270,15 @@ let jsonEncoder = Builder.make((~input, ~selfSchema as to) => {
       ->Flag.with(TagFlag.null),
     )
   ) {
-    let output = input->B.refine(~schema=unknown, ~expected=to)->parse
-    output.skipTo = Some(true)
-    output
+    input->B.refine(~schema=unknown, ~expected=to)->parse
   } else if toTagFlag->Flag.unsafeHas(TagFlag.bigint) {
     let jsonExpected = string->copySchema
     jsonExpected.to = Some(to)
-    let output = input->B.refine(~schema=unknown, ~expected=jsonExpected)->parse
-    output.skipTo = Some(true)
-    output
+    input->B.refine(~schema=unknown, ~expected=jsonExpected)->parse
   } else if toTagFlag->Flag.unsafeHas(TagFlag.undefined->Flag.with(TagFlag.nan)) {
     let jsonExpected = nullLiteral->copySchema
     jsonExpected.to = Some(to)
-    let output = input->B.refine(~schema=unknown, ~expected=jsonExpected)->parse
-    output.skipTo = Some(true)
-    output
+    input->B.refine(~schema=unknown, ~expected=jsonExpected)->parse
   } else if toTagFlag->Flag.unsafeHas(TagFlag.array) {
     // Validate that the input is an array
     // and then update the schema to be an array of json instead of array of unknown
@@ -5050,6 +5041,7 @@ module Schema = {
         input->B.nextConst(~schema=targetSchema)
       } else {
         let output = makeObjectVal(input, ~schema=targetSchema)
+        output.isOutput = Some(true)
         switch targetSchema {
         | {items} =>
           for idx in 0 to items->Js.Array2.length - 1 {
@@ -5084,6 +5076,7 @@ module Schema = {
       }
     }
     v.prev = None
+    v.expected = targetSchema
     v
   }
   and shapedParser = (~input, ~selfSchema as _) => {
@@ -5104,7 +5097,6 @@ module Schema = {
     let output = getShapedParserOutput(~input, ~targetSchema)
     output.hasTransform = Some(true)
     output.prev = Some(input)
-    output.skipTo = Some(targetSchema.to === None)
     output
   }
 
@@ -5187,6 +5179,7 @@ module Schema = {
       } else {
         let v = makeObjectVal(input, ~schema=targetSchema)
         v.expected = targetSchema
+        v.isOutput = Some(true)
         v.prev = None
         v.parent = Some(input)
         v.var = B._notVarAtParent
