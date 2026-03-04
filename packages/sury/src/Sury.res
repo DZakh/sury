@@ -1478,35 +1478,18 @@ module Builder = {
         `${objVal.var()}[${key}]=${value.inline}`
       }
 
-      let set = (b: val, input: val, val) => {
-        if input === val {
-          ""
-        } else {
-          // FIXME: Remove original ValFlag
-          let inputVar = b->var
-          switch (
-            input.flag->Flag.unsafeHas(ValFlag.async),
-            val.flag->Flag.unsafeHas(ValFlag.async),
-          ) {
-          | (false, true) => {
-              input.flag = input.flag->Flag.with(ValFlag.async)
-              `${inputVar}=${val.inline}`
-            }
-          | (false, false)
-          | (true, true) =>
-            `${inputVar}=${val.inline}`
-          | (true, false) => `${inputVar}=Promise.resolve(${val.inline})`
-          }
-        }
-      }
-
       let scope = (val: val) => {
         let shouldLink = val.var !== _var
 
         // TODO: Don't use spread
         // TODO: Simplify bond
         let nextVal = {
-          ...val,
+          inline: val.inline,
+          schema: val.schema,
+          expected: val.expected,
+          flag: val.flag,
+          path: val.path,
+          global: val.global,
           var: shouldLink ? _bondVar : _var,
           bond: val,
           prev: ?None,
@@ -1562,19 +1545,27 @@ module Builder = {
             }
 
             let pathAppend = Path.fromInlinedLocation(parent.global->inlineLocation(location))
-            let item = parent->next(
-              if schema->isLiteral {
+
+            let item = {
+              // FIXME: vals and other object.val fields should be copied
+              var: _notVarAtParent,
+              inline: if schema->isLiteral {
                 parent->inlineConst(schema)
               } else {
                 `${parent->var}${pathAppend}`
               },
-              ~schema,
-            )
-            item.hasTransform = Some(false)
-            item.prev = None
-            item.parent = Some(parent)
-            item.path = parent.path->Path.concat(pathAppend)
-            item.var = _notVarAtParent
+              flag: ValFlag.none,
+              schema,
+              expected: schema,
+              codeFromPrev: "",
+              codeAfterValidation: "",
+              varsAllocation: "",
+              allocate: initialAllocate,
+              validation: None,
+              path: parent.path->Path.concat(pathAppend),
+              global: parent.global,
+              parent,
+            }
             vals->Js.Dict.set(location, item)
             item
           }
@@ -3194,7 +3185,8 @@ let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) =
         | {parser, asyncParser: ?None} => B.embedTransformation(~input, ~fn=parser, ~isAsync=false)
         | {parser: ?None, asyncParser} =>
           B.embedTransformation(~input, ~fn=asyncParser, ~isAsync=true)
-        | {parser: ?None, asyncParser: ?None, serializer: ?None} => input
+        | {parser: ?None, asyncParser: ?None, serializer: ?None} =>
+          input->B.refine(~expected=input.expected.to->Option.getUnsafe)
         | {parser: ?None, asyncParser: ?None, serializer: _} =>
           input->B.invalidOperation(~description=`The S.transform parser is missing`)
         | {parser: _, asyncParser: _} =>
@@ -3211,7 +3203,8 @@ let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) =
         (~input, ~selfSchema as _) => {
           switch transformer(input->B.effectCtx) {
           | {serializer} => B.embedTransformation(~input, ~fn=serializer, ~isAsync=false)
-          | {parser: ?None, asyncParser: ?None, serializer: ?None} => input
+          | {parser: ?None, asyncParser: ?None, serializer: ?None} =>
+            input->B.refine(~expected=input.expected.to->Option.getUnsafe)
           | {serializer: ?None, asyncParser: ?Some(_)}
           | {serializer: ?None, parser: ?Some(_)} =>
             input->B.invalidOperation(~description=`The S.transform serializer is missing`)
@@ -3973,20 +3966,24 @@ module Option = {
         additionalItems: Strip,
         decoder: objectDecoder,
         // TODO: Support this as a default coercion
-        serializer: Builder.make((~input, ~selfSchema) => {
-          input->B.nextConst(~schema=selfSchema.to->X.Option.getUnsafe)
+        serializer: Builder.make((~input, ~selfSchema as _) => {
+          let nextSchema = input.expected.to->X.Option.getUnsafe
+          input->B.nextConst(~schema=nextSchema, ~expected=nextSchema)
+          // FIXME: Need to set isOutput?
         }),
       }
     }
 
-    let parser = Builder.make((~input, ~selfSchema) => {
+    let parser = Builder.make((~input, ~selfSchema as _) => {
+      let nextSchema = input.expected.to->X.Option.getUnsafe
       input->B.next(
         `{${nestedLoc}:${(
-            (selfSchema->getOutputSchema).properties
+            (input.expected->getOutputSchema).properties
             ->X.Option.getUnsafe
             ->Js.Dict.unsafeGet(nestedLoc)
           ).const->Obj.magic}}`,
-        ~schema=selfSchema.to->X.Option.getUnsafe,
+        ~schema=nextSchema,
+        ~expected=nextSchema,
       )
     })
 
@@ -5175,7 +5172,8 @@ module Schema = {
         v.prev = None
         v.parent = Some(input)
         v.var = B._notVarAtParent
-        v
+        v.isOutput = Some(true)
+        v->parse
       } else {
         let v = makeObjectVal(input, ~schema=targetSchema)
         v.expected = targetSchema

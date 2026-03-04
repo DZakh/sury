@@ -180,7 +180,7 @@ test("Coerce to literal can be used as tag and automatically embeded on reverse 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    // TODO: Test that it'll work with S.refine on S.string
+    // FIXME: Test that it'll work with S.refine on S.string
     `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["tag"];if(typeof v0!=="string"){e[1](v0)}if(v0!=="true"){e[0](v0)}return void 0}`,
   )
 })
@@ -245,12 +245,12 @@ test("Coerce from string to port", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="string"){e[2](i)}let v0=+i;if(Number.isNaN(v0)){e[1](i)}v0>0&&v0<65536&&v0%1===0||e[0](v0);return v0}`,
+    `i=>{if(typeof i!=="string"){e[2](i)}let v0=+i;if(Number.isNaN(v0)){e[0](i)}v0>0&&v0<65536&&v0%1===0||e[1](v0);return v0}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Convert,
-    `i=>{let v0=+i;if(Number.isNaN(v0)){e[1](i)}v0>0&&v0<65536&&v0%1===0||e[0](v0);return v0}`,
+    `i=>{let v0=+i;if(Number.isNaN(v0)){e[0](i)}v0>0&&v0<65536&&v0%1===0||e[1](v0);return v0}`,
   )
   t->U.assertCompiledCode(
     ~schema,
