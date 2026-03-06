@@ -2005,7 +2005,7 @@ module Literal = {
 let rec parse = (input: val, ~withEncoder: bool=false) => {
   let valRef = ref(input)
   let appliedEncoderRef = ref(None)
-
+  let loopCount = ref(0)
   while (
     {
       !(valRef.contents.isOutput->Option.getUnsafe) || valRef.contents.expected.to->Obj.magic
@@ -2014,6 +2014,15 @@ let rec parse = (input: val, ~withEncoder: bool=false) => {
     let appliedEncoder = appliedEncoderRef.contents
     appliedEncoderRef := None
     let loopInput = valRef.contents
+
+    loopCount := loopCount.contents + 1
+
+    Js.log(loopInput)
+
+    if loopCount.contents > 10 {
+      let error = %raw(`new Error("Loop count exceeded 100")`)
+      X.Exn.throwAny(error)
+    }
 
     if loopInput.expected.defs->Obj.magic {
       if loopInput.global.defs->Obj.magic {
@@ -3062,7 +3071,7 @@ module Metadata = {
 let defsPath = `#/$defs/`
 let recursive = (name, fn) => {
   let ref = `${defsPath}${name}`
-  let refSchema = base(refTag, ~selfReverse=true)
+  let refSchema = base(refTag, ~selfReverse=false)
   refSchema.ref = Some(ref)
   refSchema.name = Some(name)
   refSchema.decoder = recursiveDecoder
@@ -3085,7 +3094,7 @@ let recursive = (name, fn) => {
   if isNestedRec {
     refSchema->castToPublic
   } else {
-    let schema = base(refTag, ~selfReverse=true)
+    let schema = base(refTag, ~selfReverse=false)
     schema.name = def.name
     schema.ref = Some(ref)
     schema.defs = globalConfig.defsAccumulator
@@ -6120,10 +6129,14 @@ let js_union = values =>
 let js_to = {
   // FIXME: Test how it'll work if we have async var as input
   // FIXME: Might not work well with object targets
-  let customBuilder = (~target, ~fn) => {
+  let customBuilder = (~fn) => {
     Builder.make((~input, ~selfSchema as _) => {
-      let output = input->B.allocateVal(~schema=target)
-      output.codeAfterValidation = `try{${output.inline}=${input->B.embed(
+      let target = input.expected.to->X.Option.getUnsafe
+      let outputVar = input.global->B.varWithoutAllocation
+      input.allocate(outputVar)
+      let output = input->B.next(outputVar, ~schema=target, ~expected=target)
+      output.var = B._var
+      output.codeFromPrev = `try{${output.inline}=${input->B.embed(
           fn,
         )}(${input.inline})}catch(x){${output->B.failWithArg(
           e => B.makeInvalidConversionDetails(~input, ~to=target, ~cause=e),
@@ -6141,16 +6154,15 @@ let js_to = {
   ) => {
     updateOutput(schema->castToInternal, mut => {
       let target = target->castToInternal
-      let target = switch maybeEncoder {
+      switch maybeEncoder {
       | Some(fn) =>
         let targetMut = target->copySchema
-        targetMut.serializer = Some(customBuilder(~target=schema->castToInternal, ~fn))
-        targetMut
-      | None => target
+        targetMut.serializer = Some(customBuilder(~fn))
+        mut.to = Some(targetMut)
+      | None => mut.to = Some(target)
       }
-      mut.to = Some(target)
       switch maybeDecoder {
-      | Some(fn) => mut.parser = Some(customBuilder(~target, ~fn))
+      | Some(fn) => mut.parser = Some(customBuilder(~fn))
       | None => ()
       }
     })
