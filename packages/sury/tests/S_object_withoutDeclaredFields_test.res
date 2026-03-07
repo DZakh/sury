@@ -28,10 +28,10 @@ test("Fails to parse object with excess keys when UnknownKeys are strict", t => 
 })
 
 test("Successfully parses object with excess keys and returns transformed value", t => {
-  let transformedValue = {"bas": true}
-  let schema = S.object(_ => transformedValue)
+  // FIXME: S.object mutatate `let transformedValue = {"bas": true}`
+  let schema = S.object(_ => {"bas": true})
 
-  t->Assert.deepEqual(%raw(`{field:"bar"}`)->S.parseOrThrow(schema), transformedValue)
+  t->Assert.deepEqual(%raw(`{field:"bar"}`)->S.parseOrThrow(schema), {"bas": true})
 })
 
 test("Successfully serializes transformed value to empty object", t => {

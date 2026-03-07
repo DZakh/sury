@@ -1500,8 +1500,8 @@ module Builder = {
           hasTransform: false,
           allocate: initialAllocate,
           validation: None,
-          isInput: false,
-          isOutput: false,
+          isInput: ?val.isInput,
+          isOutput: ?val.isOutput,
         }
         if shouldLink {
           let valVar: unit => string = %raw(`val.v.bind(val)`)
@@ -1942,9 +1942,8 @@ module Literal = {
           )
       ) {
         // This is to have a nicer error message
-        let stringConstSchema = base(stringTag, ~selfReverse=true)
+        let stringConstSchema = base(stringTag, ~selfReverse=false)
         stringConstSchema.const = %raw(`"" + expectedSchema.const`)
-        stringConstSchema.to = Some(expectedSchema)
 
         let stringConstVal =
           input->B.nextConst(~schema=stringConstSchema, ~expected=stringConstSchema)
@@ -1958,7 +1957,7 @@ module Literal = {
           },
         )
 
-        stringConstVal->B.nextConst(~schema=expectedSchema)
+        stringConstVal->B.nextConst(~schema=expectedSchema, ~expected=expectedSchema)
       } else if schemaTagFlag->Flag.unsafeHas(TagFlag.nan) {
         input->B.refine(~schema=expectedSchema, ~validation=(~inputVar, ~negative) => {
           `${B.exp(~negative)}Number.isNaN(${inputVar})`
@@ -2018,8 +2017,7 @@ let rec parse = (input: val, ~withEncoder: bool=false) => {
     loopCount := loopCount.contents + 1
 
     Js.log(loopInput)
-
-    if loopCount.contents > 10 {
+    if loopCount.contents > 50 {
       let error = %raw(`new Error("Loop count exceeded 100")`)
       X.Exn.throwAny(error)
     }
@@ -2108,27 +2106,7 @@ and parseDynamic = input => {
     X.Exn.throwAny(error)
   }
 }
-// FIXME: It can be removed in favor better parse fn logic
-and transformVal = (~input: val, operation) => {
-  if input.flag->Flag.unsafeHas(ValFlag.async) {
-    let operationInputVar = input.global->B.varWithoutAllocation
-    let operationInput =
-      input->B.next(operationInputVar, ~schema=input.schema, ~expected=input.expected)
-    operationInput.var = B._var
-    operationInput.prev = None
 
-    let operationOutputVal = operation(~input=operationInput)
-    let output = operationOutputVal->parse
-    let operationCode = output->B.merge
-
-    input.inline = `${input.inline}.then(${operationInputVar}=>{${operationCode}return ${output.inline}})`
-    input.schema = output.schema
-    input.expected = output.expected
-    input
-  } else {
-    operation(~input)
-  }
-}
 and isAsyncInternal = (schema, ~defs) => {
   try {
     let input = B.operationArg(~flag=Flag.async, ~defs, ~schema=unknown, ~expected=schema)
@@ -2177,7 +2155,7 @@ and compileDecoder = (~schema, ~expected, ~flag, ~defs) => {
 
     let inlinedFunction = `${B.operationArgVar}=>{${code}return ${inlinedOutput.contents}}`
 
-    // Js.log(inlinedFunction)
+    Js.log(inlinedFunction)
 
     X.Function.make2(
       ~ctxVarName1="e",
@@ -4100,27 +4078,34 @@ module Option = {
           // Or maybe not, but need to make it properly with JSON Schema
 
           mut.parser = Some(
-            Builder.make((~input, ~selfSchema) => {
-              transformVal(
-                ~input,
-                (~input) => {
-                  let inputVar = input.var()
-                  input->B.next(
-                    `${inputVar}===void 0?${switch default {
-                      | Value(v) => input->B.inlineConst(Literal.parse(v))
-                      | Callback(cb) => `${input->B.embed(cb)}()`
-                      }}:${inputVar}`,
-                    ~schema=selfSchema.to->X.Option.getUnsafe,
-                    ~expected=selfSchema.to->X.Option.getUnsafe,
-                  )
-                },
+            Builder.make((~input, ~selfSchema as _) => {
+              let nextSchema = input.expected.to->X.Option.getUnsafe
+              let inputVar = input.var()
+              input->B.next(
+                `${inputVar}===void 0?${switch default {
+                  | Value(v) => input->B.inlineConst(Literal.parse(v))
+                  | Callback(cb) => `${input->B.embed(cb)}()`
+                  }}:${inputVar}`,
+                ~schema=nextSchema,
+                ~expected=nextSchema,
               )
             }),
           )
           let to = itemOutputSchema.contents->X.Option.getUnsafe->copySchema
 
-          to.serializer = Some(to.decoder)
-          to.decoder = (~input, ~selfSchema as _) => input
+          let originalDecoder = to.decoder
+          to.serializer = Some(
+            Builder.make((~input, ~selfSchema) => {
+              let nextSchema = input.expected.to->X.Option.getUnsafe
+              originalDecoder(~input, ~selfSchema)->B.refine(
+                ~schema=nextSchema,
+                ~expected=nextSchema,
+              )
+            }),
+          )
+
+          // FIXME: This looks wrong, but this is how it was with prev architecture
+          to.decoder = noopDecoder
 
           mut.to = Some(to)
 
