@@ -26,7 +26,7 @@ test("Object with a single nested field with S.nullAsOption", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{if(i===void 0){i=null}return {"nested":{"foo":i,},}}`,
+    `i=>{if(i===void 0){i=null}else if(!(typeof i==="string")){e[0](i)}return {"nested":{"foo":i,},}}`,
   )
   t->Assert.deepEqual(
     Some("bar")->S.reverseConvertOrThrow(schema),
@@ -60,9 +60,13 @@ test("Object with a single nested field with S.transform", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["nested"];if(typeof v0!=="object"||!v0){e[1](v0)}let v1=v0["foo"];if(typeof v1!=="number"||Number.isNaN(v1)){e[2](v1)}return e[3](v1)}`,
+    `i=>{if(typeof i!=="object"||!i){e[4](i)}let v0=i["nested"];if(typeof v0!=="object"||!v0){e[3](v0)}let v2=v0["foo"];if(typeof v2!=="number"||Number.isNaN(v2)){e[2](v2)}let v1;try{v1=e[0](v0["foo"])}catch(x){e[1](x)}return v1}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return {"nested":{"foo":e[0](i),},}}`)
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#ReverseConvert,
+    `i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}if(typeof v0!=="number"||Number.isNaN(v0)){e[2](v0)}return {"nested":{"foo":v0,},}}`,
+  )
   t->Assert.deepEqual("123.4"->S.reverseConvertOrThrow(schema), %raw(`{"nested":{"foo":123.4}}`))
 })
 
@@ -245,13 +249,13 @@ test("Nested preprocessed tags on reverse convert", t => {
   t->U.assertCompiledCode(
     ~op=#ReverseConvert,
     ~schema,
-    `i=>{if(i!==void 0){e[0](i)}return {"nested":{"tag":e[1]("value"),"intTag":e[2]("1"),},}}`,
+    `i=>{if(i!==void 0){e[6](i)}let v0;try{v0=e[0]("value")}catch(x){e[1](x)}if(typeof v0!=="string"){e[2](v0)}let v1;try{v1=e[3]("1")}catch(x){e[4](x)}if(typeof v1!=="string"){e[5](v1)}return {"nested":{"tag":v0,"intTag":v1,},}}`,
   )
 
   t->U.assertCompiledCode(
     ~op=#Parse,
     ~schema,
-    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["nested"];if(typeof v0!=="object"||!v0){e[1](v0)}let v1=v0["tag"],v3=v0["intTag"];if(typeof v1!=="string"){e[2](v1)}let v2=e[3](v1);if(typeof v2!=="string"){e[4](v2)}if(v2!=="value"){e[5](v2)}if(typeof v3!=="string"){e[6](v3)}let v4=e[7](v3);if(typeof v4!=="string"){e[8](v4)}v4==="1"||e[9](v4);return void 0}`,
+    `i=>{if(typeof i!=="object"||!i){e[11](i)}let v0=i["nested"];if(typeof v0!=="object"||!v0){e[10](v0)}let v2=v0["tag"],v4=v0["intTag"];if(typeof v2!=="string"){e[4](v2)}let v1;try{v1=e[0](v0["tag"])}catch(x){e[1](x)}if(typeof v1!=="string"){e[3](v1)}if(v1!=="value"){e[2](v1)}if(typeof v4!=="string"){e[9](v4)}let v3;try{v3=e[5](v0["intTag"])}catch(x){e[6](x)}if(typeof v3!=="string"){e[8](v3)}if(v3!=="1"){e[7](v3)}return void 0}`,
   )
 
   t->Assert.deepEqual(
@@ -269,7 +273,7 @@ test("Nested preprocessed tags on reverse convert", t => {
   )
   t->U.assertThrowsMessage(
     () => %raw(`{"nested":{"tag":"_value", "intTag":"_2"}}`)->S.parseOrThrow(schema),
-    `Failed at ["nested"]["intTag"]: Expected 1, received "2"`,
+    `Failed at ["nested"]["intTag"]: Expected "1", received "2"`,
   )
 })
 
