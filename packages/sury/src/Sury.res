@@ -1113,7 +1113,13 @@ module Builder = {
       }
       switch val.inline {
       | "" => target.allocate(v)
-      | i => target.allocate(`${v}=${i}`)
+      | i =>
+        if val.codeFromPrev !== "" {
+          target.allocate(v)
+          val.codeFromPrev = `${val.codeFromPrev}${v}=${i};`
+        } else {
+          target.allocate(`${v}=${i}`)
+        }
       }
       val.var = _var
       val.inline = v
@@ -1390,14 +1396,6 @@ module Builder = {
       }
     }
 
-    let allocateVal = (from: val, ~schema, ~expected=from.expected): val => {
-      let var = from.global->varWithoutAllocation
-      from.codeAfterValidation = from.codeAfterValidation ++ `let ${var};`
-      let v = from->next(var, ~schema, ~expected)
-      v.var = _var
-      v
-    }
-
     let nextConst = (from: val, ~schema, ~expected=?): val => {
       from->next(from->inlineConst(schema), ~schema, ~expected?)
     }
@@ -1461,8 +1459,11 @@ module Builder = {
             : "{" ++ objectVal.inline ++ "}"
           if objectVal.asyncCount->Obj.magic {
             objectVal.flag = objectVal.flag->Flag.with(ValFlag.async)
+
+            // TODO: Can be improved: Instead of inline, continue the parser
             objectVal.inline = `Promise.all([${objectVal.promiseAllContent}]).then(a=>(${objectVal.inline}))`
           }
+
           // FIXME: Test whether it's needed
           // objectVal.additionalItems = Some(Strict)
           (objectVal :> val)
@@ -1481,18 +1482,16 @@ module Builder = {
       let scope = (val: val) => {
         let shouldLink = val.var !== _var
 
-        // TODO: Don't use spread
         // TODO: Simplify bond
         let nextVal = {
           inline: val.inline,
           schema: val.schema,
           expected: val.expected,
-          flag: val.flag,
+          flag: Flag.none,
           path: val.path,
           global: val.global,
           var: shouldLink ? _bondVar : _var,
           bond: val,
-          prev: ?None,
           codeAfterValidation: "",
           codeFromPrev: "",
           isUnion: false,
@@ -1502,6 +1501,7 @@ module Builder = {
           validation: None,
           isInput: ?val.isInput,
           isOutput: ?val.isOutput,
+          vals: ?val.vals, // TODO: Is this correct?
         }
         if shouldLink {
           let valVar: unit => string = %raw(`val.v.bind(val)`)
@@ -1574,9 +1574,11 @@ module Builder = {
     }
 
     let embedTransformation = (~input: val, ~fn: 'input => 'output, ~isAsync) => {
+      let outputVar = input.global->varWithoutAllocation
+      input.allocate(outputVar)
       let output =
-        input->allocateVal(~schema=unknown, ~expected=input.expected.to->Option.getUnsafe)
-      output.hasTransform = Some(true) // FIXME: Remove allocateVal in favor of input.allocate
+        input->next(outputVar, ~schema=unknown, ~expected=input.expected.to->Option.getUnsafe)
+      output.var = _var
       if isAsync {
         if !(input.global.flag->Flag.unsafeHas(Flag.async)) {
           input->throw(
@@ -1593,15 +1595,10 @@ module Builder = {
           e => makeInvalidConversionDetails(~input, ~to=unknown, ~cause=e),
           `x`,
         )}`
-      output.codeAfterValidation = `try{${output.inline}=${embededFn}(${input.inline})${isAsync
+      output.codeFromPrev = `try{${outputVar}=${embededFn}(${input.inline})${isAsync
           ? `.catch(x=>${failure})`
           : ""}}catch(x){${failure}}`
       output
-      // if input.flag->Flag.unsafeHas(ValFlag.async) {
-      //   input->asyncVal(`${input.inline}.then(${input->embed(fn)})`)
-      // } else {
-      //   input->Val.map(input->embed(fn))
-      // }
     }
 
     let fail = (b: val, ~message) => {
@@ -2039,23 +2036,22 @@ let rec parse = (input: val, ~withEncoder: bool=false) => {
       ) /* FIXME: why was it needed? && step.contents !== #convert */
     ) {
       let operationInputVar = loopInput.var()
-      let operationInput =
-        loopInput->B.next(operationInputVar, ~schema=loopInput.schema, ~expected=loopInput.expected)
-      operationInput.var = B._var
-      operationInput.isInput = loopInput.isInput
-      operationInput.isOutput = loopInput.isOutput
-      operationInput.prev = None
-
+      let operationInput = loopInput->B.Val.scope
       let operationOutput = operationInput->parse
-
       let operationCode = operationOutput->B.merge
       if operationInput.inline !== operationOutput.inline || operationCode !== "" {
-        loopInput.inline = `${loopInput.inline}.then(${operationInputVar}=>{${operationCode}return ${operationOutput.inline}})`
+        valRef :=
+          loopInput->B.next(
+            `${operationInputVar}.then(${operationInputVar}=>{${operationCode}return ${operationOutput.inline}})`,
+            ~schema=operationOutput.schema,
+            ~expected=operationOutput.expected,
+          )
+      } else {
+        valRef :=
+          loopInput->B.refine(~schema=operationOutput.schema, ~expected=operationOutput.expected)
       }
-      loopInput.schema = operationOutput.schema
-      loopInput.expected = operationOutput.expected
-      loopInput.isOutput = operationOutput.isOutput
-      loopInput.isInput = operationOutput.isInput
+      valRef.contents.flag = valRef.contents.flag->Flag.with(ValFlag.async)
+      valRef.contents.isOutput = Some(true)
     } else if loopInput.isOutput->Option.getUnsafe {
       // It's guaranteed that to is not None, because it's checked in the while condition
       let to = loopInput.expected.to->Option.getUnsafe

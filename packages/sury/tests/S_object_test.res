@@ -1072,10 +1072,11 @@ module Compiled = {
       }
     )
 
+    // TODO: Can be improved
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ParseAsync,
-      `i=>{if(typeof i!=="object"||!i){e[3](i)}let v1=i["bar"];let v0;try{v0=e[0](i["foo"]).catch(x=>e[1](x))}catch(x){e[1](x)}if(typeof v1!=="boolean"){e[2](v1)}return Promise.all([v0,]).then(a=>({"foo":a[0],"bar":v1,}))}`,
+      `i=>{if(typeof i!=="object"||!i){e[3](i)}let v1=i["bar"],v2;let v0;try{v0=e[0](i["foo"]).catch(x=>e[1](x))}catch(x){e[1](x)}if(typeof v1!=="boolean"){e[2](v1)}v2=Promise.all([v0,]).then(a=>({"foo":a[0],"bar":v1,}));return v2.then(v2=>{return {"foo":v0,"bar":v1,}})}`,
     )
   })
 
