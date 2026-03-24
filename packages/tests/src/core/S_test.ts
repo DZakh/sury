@@ -872,6 +872,24 @@ test("Successfully parses object with transformed field", (t) => {
   >(true);
 });
 
+test("Issue #156: missing nested array field reports a field error instead of crashing", (t) => {
+  const ruleSchema = S.object((s) => ({
+    patterns: s.field("patterns", S.array(S.array(S.string))),
+  }));
+  const configSchema = S.object((s) => ({
+    rules: s.field("rules", S.array(ruleSchema)),
+  }));
+
+  t.throws(
+    () => S.parseJsonStringOrThrow("{}", configSchema),
+    {
+      name: "RescriptSchemaError",
+      message:
+        'Failed parsing at ["rules"]. Reason: Expected array<{ patterns: array<array<string>>; }>, received undefined',
+    }
+  );
+});
+
 test("Fails to parse strict object with exccess fields", (t) => {
   const schema = S.strict(
     S.schema({
