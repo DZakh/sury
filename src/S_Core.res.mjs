@@ -1301,14 +1301,11 @@ function factory$2(schema) {
     let itemOutput = withPathPrepend(bb, itemInput, path, iteratorVar, undefined, (b, input, path) => parseWithTypeValidation(b, schema, input, path));
     let itemCode = allocateScope(bb);
     let isTransformed = itemInput !== itemOutput;
-    let output = isTransformed ? ({
-        b: b,
-        v: _notVar,
-        i: "new Array(" + inputVar + ".length)",
-        a: false
-      }) : input;
+    let output = isTransformed ? allocateVal(b) : input;
     if (isTransformed || itemCode !== "") {
-      b.c = b.c + ("for(let " + iteratorVar + "=0;" + iteratorVar + "<" + inputVar + ".length;++" + iteratorVar + "){" + itemCode + (
+      b.c = b.c + (
+        isTransformed ? output.i + "=new Array(" + inputVar + ".length);" : ""
+      ) + ("for(let " + iteratorVar + "=0;" + iteratorVar + "<" + inputVar + ".length;++" + iteratorVar + "){" + itemCode + (
         isTransformed ? addKey(b, output, iteratorVar, itemOutput) : ""
       ) + "}");
     }

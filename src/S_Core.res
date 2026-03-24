@@ -2097,11 +2097,12 @@ module Array = {
           ) => b->B.parseWithTypeValidation(~schema, ~input, ~path))
         let itemCode = bb->B.allocateScope
         let isTransformed = itemInput !== itemOutput
-        let output = isTransformed ? b->B.val(`new Array(${inputVar}.length)`) : input
+        let output = isTransformed ? b->B.allocateVal : input
 
         if isTransformed || itemCode !== "" {
           b.code =
             b.code ++
+            (isTransformed ? `${output.inline}=new Array(${inputVar}.length);` : "") ++
             `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${itemCode}${isTransformed
                 ? b->B.Val.addKey(output, iteratorVar, itemOutput)
                 : ""}}`
