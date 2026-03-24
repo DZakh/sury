@@ -1,6 +1,6 @@
 {
   "name": "rescript-schema",
-  "version": "9.5.0",
+  "version": "9.5.1",
   "private": true,
   "description": "🧬 The fastest parser in the entire JavaScript ecosystem with a focus on small bundle size and top-notch DX",
   "keywords": [
