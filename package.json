@@ -1,6 +1,6 @@
 {
   "name": "rescript-schema",
-  "version": "9.3.0-rescript12.0",
+  "version": "9.4.0",
   "private": true,
   "description": "🧬 The fastest parser in the entire JavaScript ecosystem with a focus on small bundle size and top-notch DX",
   "keywords": [
@@ -22,6 +22,17 @@
   "homepage": "https://github.com/DZakh/rescript-schema#readme",
   "bugs": {
     "url": "https://github.com/DZakh/rescript-schema/issues"
+  },
+  "exports": {
+    ".": {
+      "import": "./src/S.mjs",
+      "require": "./src/S.js",
+      "types": "./src/S.d.ts"
+    },
+    "./src/*": "./src/*",
+    "./RescriptSchema.gen.js": {
+      "types": "./RescriptSchema.gen.d.ts"
+    }
   },
   "repository": {
     "type": "git",
