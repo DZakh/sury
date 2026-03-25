@@ -1722,6 +1722,7 @@ module Builder = {
   }
 
   let noopOperation = i => i->Obj.magic
+  (noopOperation->Obj.magic)["embedded"] = X.Array.immutableEmpty
 }
 // TODO: Split validation code and transformation code
 module B = Builder.B
@@ -2013,7 +2014,7 @@ let rec parse = (input: val, ~withEncoder: bool=false) => {
 
     loopCount := loopCount.contents + 1
 
-    Js.log(loopInput)
+    // Js.log(loopInput)
     if loopCount.contents > 50 {
       let error = %raw(`new Error("Loop count exceeded 100")`)
       X.Exn.throwAny(error)
@@ -2151,15 +2152,15 @@ and compileDecoder = (~schema, ~expected, ~flag, ~defs) => {
 
     let inlinedFunction = `${B.operationArgVar}=>{${code}return ${inlinedOutput.contents}}`
 
-    Js.log(inlinedFunction)
-
-    X.Function.make2(
+    let fn = X.Function.make2(
       ~ctxVarName1="e",
       ~ctxVarValue1=input.global.embeded,
       ~ctxVarName2="s",
       ~ctxVarValue2=s,
       ~inlinedFunction,
     )
+    (fn->Obj.magic)["embedded"] = input.global.embeded
+    fn
   }
 }
 and getOutputSchema = (schema: internal) => {
@@ -2511,6 +2512,8 @@ and arrayDecoder: builder = (~input as unknownInput, ~selfSchema as _) => {
       let key = idx->Js.Int.toString
       let itemInput = input->B.Val.get(key)
       itemInput.expected = schema
+      itemInput.isInput = Some(false)
+      itemInput.isOutput = Some(false)
       itemInput.isUnion = Some(isUnion) // We want to controll validation on the decoder side
       let itemOutput = itemInput->parse(~withEncoder=true)
 
@@ -2535,7 +2538,6 @@ and arrayDecoder: builder = (~input as unknownInput, ~selfSchema as _) => {
 
     // After input.schema was used, set it to selfSchema
     // so it has a more accurate name in error messages
-
     if shouldRecreateInput.contents {
       objectVal->B.Val.Object.complete
     } else {
@@ -2661,6 +2663,8 @@ and objectDecoder: Builder.t = (~input as unknownInput, ~selfSchema as _) => {
 
         let itemInput = input->B.Val.get(key)
         itemInput.expected = schema
+        itemInput.isInput = Some(false)
+        itemInput.isOutput = Some(false)
         itemInput.isUnion = Some(isUnion) // We want to controll validation on the decoder side
         let itemOutput = itemInput->parse(~withEncoder=true)
 
