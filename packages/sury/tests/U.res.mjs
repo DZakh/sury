@@ -84,38 +84,51 @@ async function asyncAssertThrowsMessage(t, cb, errorMessage, message) {
   return t.fail("Asserted result is not S.Exn \"" + errorMessage + "\". Instead got: " + JSON.stringify(any));
 }
 
-function getCompiledCodeString(schema, op) {
-  let toCode = schema => (
-    op === "ParseAsync" ? S.makeAsyncConvertOrThrow(S.unknown, schema, undefined) : (
-        op === "Parse" ? S.makeConvertOrThrow(S.unknown, schema, undefined) : (
-            op === "ReverseConvertToJson" ? S.makeConvertOrThrow(schema, S.json, undefined) : (
-                op === "ReverseConvert" ? S.makeConvertOrThrow(schema, S.unknown, undefined) : (
-                    op === "Convert" ? S.makeConvertOrThrow(S.reverse(schema), S.unknown, undefined) : (
-                        op === "Assert" ? S.makeConvertOrThrow(S.unknown, S.to(schema, S.noValidation(S.literal(), true)), undefined) : (
-                            op === "ReverseParse" ? S.makeConvertOrThrow(S.unknown, S.reverse(schema), undefined) : (
-                                op === "ConvertAsync" ? S.makeAsyncConvertOrThrow(S.reverse(schema), S.unknown, undefined) : S.makeAsyncConvertOrThrow(schema, S.unknown, undefined)
-                              )
-                          )
-                      )
-                  )
-              )
-          )
-      )
-  ).toString();
-  let code = {
-    contents: toCode(schema)
+function getCompiledCodeString(schema, op, embedded) {
+  let toFn = schema => {
+    if (op === "ParseAsync") {
+      return S.makeAsyncConvertOrThrow(S.unknown, schema, undefined);
+    } else if (op === "Parse") {
+      return S.makeConvertOrThrow(S.unknown, schema, undefined);
+    } else if (op === "ReverseConvertToJson") {
+      return S.makeConvertOrThrow(schema, S.json, undefined);
+    } else if (op === "ReverseConvert") {
+      return S.makeConvertOrThrow(schema, S.unknown, undefined);
+    } else if (op === "Convert") {
+      return S.makeConvertOrThrow(S.reverse(schema), S.unknown, undefined);
+    } else if (op === "Assert") {
+      return S.makeConvertOrThrow(S.unknown, S.to(schema, S.noValidation(S.literal(), true)), undefined);
+    } else if (op === "ReverseParse") {
+      return S.makeConvertOrThrow(S.unknown, S.reverse(schema), undefined);
+    } else if (op === "ConvertAsync") {
+      return S.makeAsyncConvertOrThrow(S.reverse(schema), S.unknown, undefined);
+    } else {
+      return S.makeAsyncConvertOrThrow(schema, S.unknown, undefined);
+    }
   };
-  let defs = schema.$defs;
-  if (defs !== undefined && code.contents !== noopOpCode) {
-    Stdlib_Dict.forEachWithKey(defs, (schema, key) => {
-      try {
-        let defCode = toCode(schema).replaceAll(S.unknown.seq.toString() + "-" + schema.seq.toString(), "unknown->" + key);
-        code.contents = code.contents + "\n" + (key + ": " + defCode);
-        return;
-      } catch (_exn) {
-        return;
-      }
+  let fn = toFn(schema);
+  let code = {
+    contents: fn.toString()
+  };
+  if (embedded !== undefined) {
+    embedded.forEach(param => {
+      code.contents = code.contents + "\n" + (param[0] + ": " + fn.embedded[param[1]]);
     });
+  } else {
+    let defs = schema.$defs;
+    if (defs !== undefined && code.contents !== noopOpCode) {
+      Stdlib_Dict.forEachWithKey(defs, (schema, key) => {
+        try {
+          let defFn = toFn(schema);
+          let defCode = defFn.toString().replaceAll(S.unknown.seq.toString() + "-" + schema.seq.toString(), "unknown->" + key);
+          code.contents = code.contents + "\n" + (key + ": " + defCode);
+          return;
+        } catch (_exn) {
+          return;
+        }
+      });
+    }
+    
   }
   return code.contents;
 }
@@ -155,12 +168,12 @@ function unsafeAssertEqualSchemas(t, s1, s2, message) {
   t.deepEqual(cleanUpSchema(s1), cleanUpSchema(s2), message !== undefined ? Primitive_option.valFromOption(message) : undefined);
 }
 
-function assertCompiledCode(t, schema, op, code, message) {
-  t.is(getCompiledCodeString(schema, op), code, message !== undefined ? Primitive_option.valFromOption(message) : undefined);
+function assertCompiledCode(t, schema, op, code, embedded, message) {
+  t.is(getCompiledCodeString(schema, op, embedded), code, message !== undefined ? Primitive_option.valFromOption(message) : undefined);
 }
 
 function assertCompiledCodeIsNoop(t, schema, op, message) {
-  assertCompiledCode(t, schema, op, noopOpCode, message);
+  assertCompiledCode(t, schema, op, noopOpCode, undefined, message);
 }
 
 function assertReverseParsesBack(t, schema, value) {
