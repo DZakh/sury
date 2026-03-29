@@ -544,7 +544,7 @@ and has = {
   array?: bool,
   object?: bool,
 }
-and builder = (~input: val, ~selfSchema: internal) => val
+and builder = (~input: val) => val
 and val = {
   // We might have the same value, but different instances of the val object
   // Use the bond field, to connect the var call
@@ -952,7 +952,7 @@ let shaken = (apiName: string) => {
   mut->X.Proxy.make(shakenTraps)
 }
 
-let noopDecoder = (~input, ~selfSchema as _) => input
+let noopDecoder = (~input) => input
 
 let unknown = base(unknownTag, ~selfReverse=true)
 unknown.decoder = noopDecoder
@@ -1006,7 +1006,7 @@ module Error = {
 module Builder = {
   type t = builder
 
-  let make = (Obj.magic: ((~input: val, ~selfSchema: internal) => val) => t)
+  let make = (Obj.magic: ((~input: val) => val) => t)
 
   module B = {
     let eq = (~negative) => negative ? "!==" : "==="
@@ -1718,7 +1718,7 @@ let int32FormatValidation = (~inputVar, ~negative) => {
     )}-2147483648${B.and_(~negative)}${inputVar}%1${B.eq(~negative)}0`
 }
 
-let numberDecoder = Builder.make((~input, ~selfSchema as _) => {
+let numberDecoder = Builder.make((~input) => {
   let inputTagFlag = input.schema.tag->TagFlag.get
   if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
     input->B.refine(~schema=input.expected, ~validation=(~inputVar, ~negative) => {
@@ -1766,7 +1766,7 @@ let numberDecoder = Builder.make((~input, ~selfSchema as _) => {
 float.decoder = numberDecoder
 int.decoder = numberDecoder
 
-let stringDecoder = Builder.make((~input, ~selfSchema as _) => {
+let stringDecoder = Builder.make((~input) => {
   let inputTagFlag = input.schema.tag->TagFlag.get
   if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
     input->B.refine(~schema=input.expected, ~validation=(~inputVar, ~negative) => {
@@ -1802,7 +1802,7 @@ let stringDecoder = Builder.make((~input, ~selfSchema as _) => {
 
 string.decoder = stringDecoder
 
-let booleanDecoder = Builder.make((~input, ~selfSchema as _) => {
+let booleanDecoder = Builder.make((~input) => {
   let inputTagFlag = input.schema.tag->TagFlag.get
   if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
     input->B.refine(~schema=input.expected, ~validation=(~inputVar, ~negative) => {
@@ -1829,7 +1829,7 @@ let booleanDecoder = Builder.make((~input, ~selfSchema as _) => {
 
 bool.decoder = booleanDecoder
 
-let bigintDecoder = Builder.make((~input, ~selfSchema as _) => {
+let bigintDecoder = Builder.make((~input) => {
   let inputTagFlag = input.schema.tag->TagFlag.get
 
   if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
@@ -1857,7 +1857,7 @@ let bigintDecoder = Builder.make((~input, ~selfSchema as _) => {
 
 bigint.decoder = bigintDecoder
 
-let symbolDecoder = Builder.make((~input, ~selfSchema as _) => {
+let symbolDecoder = Builder.make((~input) => {
   let inputTagFlag = input.schema.tag->TagFlag.get
   if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
     input->B.refine(~schema=input.expected, ~validation=(~inputVar, ~negative) => {
@@ -1894,7 +1894,7 @@ let jsonStringWithSpace = (space: int) => {
 let json = shaken("json")
 
 module Literal = {
-  let literalDecoder = Builder.make((~input, ~selfSchema as _) => {
+  let literalDecoder = Builder.make((~input) => {
     let expectedSchema = input.expected
     if expectedSchema.noValidation->X.Option.getUnsafe {
       input->B.nextConst(~schema=expectedSchema)
@@ -2038,7 +2038,7 @@ let rec parse = (input: val, ~withEncoder: bool=false) => {
       // It's guaranteed that to is not None, because it's checked in the while condition
       let to = loopInput.expected.to->Option.getUnsafe
       switch loopInput.expected {
-      | {parser} => valRef := parser(~input=loopInput, ~selfSchema=loopInput.expected)
+      | {parser} => valRef := parser(~input=loopInput)
       | _ => valRef := valRef.contents->B.refine(~expected=to)
       }
     } else {
@@ -2050,7 +2050,7 @@ let rec parse = (input: val, ~withEncoder: bool=false) => {
         loopInput.schema !== loopInput.expected &&
         loopInput.expected.tag !== unknownTag
       ) {
-        valRef := (maybeEncoder->Option.getUnsafe)(~input=loopInput, ~selfSchema=loopInput.expected)
+        valRef := (maybeEncoder->Option.getUnsafe)(~input=loopInput)
       }
 
       // If encoder didn't change the value, we can decode it,
@@ -2058,7 +2058,7 @@ let rec parse = (input: val, ~withEncoder: bool=false) => {
       if loopInput !== valRef.contents {
         appliedEncoderRef := Some(maybeEncoder->Option.getUnsafe)
       } else {
-        valRef := loopInput.expected.decoder(~input=loopInput, ~selfSchema=loopInput.expected)
+        valRef := loopInput.expected.decoder(~input=loopInput)
         if !(valRef.contents.isOutput->Option.getUnsafe) {
           valRef.contents.isInput = Some(true)
           valRef.contents.isOutput = Some(true)
@@ -2405,7 +2405,7 @@ and array = item => {
   mut.decoder = arrayDecoder
   mut->castToPublic
 }
-and arrayDecoder: builder = (~input as unknownInput, ~selfSchema as _) => {
+and arrayDecoder: builder = (~input as unknownInput) => {
   let isUnion = unknownInput.isUnion->X.Option.getUnsafe
   let expectedSchema = unknownInput.expected
   let unknownInputTagFlag = unknownInput.schema.tag->TagFlag.get
@@ -2548,7 +2548,7 @@ and arrayDecoder: builder = (~input as unknownInput, ~selfSchema as _) => {
     }
   }
 }
-and objectDecoder: Builder.t = (~input as unknownInput, ~selfSchema as _) => {
+and objectDecoder: Builder.t = (~input as unknownInput) => {
   let isUnion = unknownInput.isUnion->X.Option.getUnsafe
   let expectedSchema = unknownInput.expected
   let unknownInputTagFlag = unknownInput.schema.tag->TagFlag.get
@@ -2731,7 +2731,7 @@ and objectDecoder: Builder.t = (~input as unknownInput, ~selfSchema as _) => {
   }
 }
 
-let recursiveDecoder = Builder.make((~input, ~selfSchema as _) => {
+let recursiveDecoder = Builder.make((~input) => {
   let expectedSchema = input.expected
 
   let schemaRef = expectedSchema.ref->X.Option.getUnsafe
@@ -2842,7 +2842,7 @@ let recursiveDecoder = Builder.make((~input, ~selfSchema as _) => {
   output
 })
 
-let instanceDecoder = Builder.make((~input, ~selfSchema as _) => {
+let instanceDecoder = Builder.make((~input) => {
   let inputTagFlag = input.schema.tag->TagFlag.get
   if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
     input->B.refine(~schema=input.expected, ~validation=(~inputVar, ~negative) => {
@@ -3167,7 +3167,7 @@ let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) =
   let schema = schema->castToInternal
   updateOutput(schema, mut => {
     mut.parser = Some(
-      Builder.make((~input, ~selfSchema as _) => {
+      Builder.make((~input) => {
         switch transformer(input->B.effectCtx) {
         | {parser, asyncParser: ?None} => B.embedTransformation(~input, ~fn=parser, ~isAsync=false)
         | {parser: ?None, asyncParser} =>
@@ -3187,7 +3187,7 @@ let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) =
       let to = base(unknownTag, ~selfReverse=false)
       to.decoder = noopDecoder
       to.serializer = Some(
-        (~input, ~selfSchema as _) => {
+        (~input) => {
           switch transformer(input->B.effectCtx) {
           | {serializer} => B.embedTransformation(~input, ~fn=serializer, ~isAsync=false)
           | {parser: ?None, asyncParser: ?None, serializer: ?None} =>
@@ -3211,7 +3211,7 @@ nullAsUnit.decoder = Literal.literalDecoder
 let nullAsUnit = nullAsUnit->castToPublic
 
 let never = base(neverTag, ~selfReverse=true)
-let neverBuilder = Builder.make((~input, ~selfSchema as _) => {
+let neverBuilder = Builder.make((~input) => {
   let output = input->B.refine(~expected=never)
   output.codeFromPrev = B.embedInvalidInput(~input) ++ ";"
   output
@@ -3291,7 +3291,8 @@ module Union = {
     })
   }
 
-  let unionDecoder = Builder.make((~input, ~selfSchema) => {
+  let unionDecoder = Builder.make((~input) => {
+    let selfSchema = input.expected
     let schemas = selfSchema.anyOf->X.Option.getUnsafe
     let initialInputTagFlag = input.schema.tag->TagFlag.get
 
@@ -3953,7 +3954,7 @@ module Option = {
         additionalItems: Strip,
         decoder: objectDecoder,
         // TODO: Support this as a default coercion
-        serializer: Builder.make((~input, ~selfSchema as _) => {
+        serializer: Builder.make((~input) => {
           let nextSchema = input.expected.to->X.Option.getUnsafe
           input->B.nextConst(~schema=nextSchema, ~expected=nextSchema)
           // FIXME: Need to set isOutput?
@@ -3961,7 +3962,7 @@ module Option = {
       }
     }
 
-    let parser = Builder.make((~input, ~selfSchema as _) => {
+    let parser = Builder.make((~input) => {
       let nextSchema = input.expected.to->X.Option.getUnsafe
       input->B.next(
         `{${nestedLoc}:${(
@@ -4078,7 +4079,7 @@ module Option = {
           // Or maybe not, but need to make it properly with JSON Schema
 
           mut.parser = Some(
-            Builder.make((~input, ~selfSchema as _) => {
+            Builder.make((~input) => {
               let nextSchema = input.expected.to->X.Option.getUnsafe
               let inputVar = input.var()
               input->B.next(
@@ -4095,12 +4096,9 @@ module Option = {
 
           let originalDecoder = to.decoder
           to.serializer = Some(
-            Builder.make((~input, ~selfSchema) => {
+            Builder.make((~input) => {
               let nextSchema = input.expected.to->X.Option.getUnsafe
-              originalDecoder(~input, ~selfSchema)->B.refine(
-                ~schema=nextSchema,
-                ~expected=nextSchema,
-              )
+              originalDecoder(~input)->B.refine(~schema=nextSchema, ~expected=nextSchema)
             }),
           )
 
@@ -4250,7 +4248,9 @@ module String = {
   let datetimeRe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/
 }
 
-let jsonEncoder = Builder.make((~input, ~selfSchema as to) => {
+let jsonEncoder = Builder.make((~input) => {
+  let selfSchema = input.expected
+  let to = selfSchema
   let toTagFlag = to.tag->TagFlag.get
 
   if (
@@ -4295,7 +4295,7 @@ let jsonEncoder = Builder.make((~input, ~selfSchema as to) => {
   }
 })
 
-let jsonDecoder = (~input, ~selfSchema as _) => {
+let jsonDecoder = (~input) => {
   let inputTagFlag = input.schema.tag->TagFlag.get
 
   if (
@@ -4349,19 +4349,19 @@ let jsonDecoder = (~input, ~selfSchema as _) => {
     input->B.refine(~expected)->parse
   } else if inputTagFlag->Flag.unsafeHas(TagFlag.ref) {
     // FIXME: Should be a unified solution for ref inputs
-    recursiveDecoder(~input, ~selfSchema=input.expected)
+    recursiveDecoder(~input)
   } else if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
     let to = input.expected.to->X.Option.getUnsafe
     // Whether we can optimize encoding during decoding
     let preEncode: bool = to->Obj.magic && !(input.expected.parser->Obj.magic) // && !(selfSchema.refiner->Obj.magic) FIXME:
     if preEncode {
       input.schema = json
-      jsonEncoder(~input, ~selfSchema=input.expected)
+      jsonEncoder(~input)
     } else if input.expected.noValidation->X.Option.getUnsafe {
       input.schema = json
       input
     } else {
-      recursiveDecoder(~input, ~selfSchema=input.expected)
+      recursiveDecoder(~input)
     }
   } else {
     input->B.unsupportedConversion(~from=input.schema, ~target=input.expected)
@@ -4443,7 +4443,8 @@ let enableJsonString = {
     }
   }
 
-  let jsonStringEncoder = Builder.make((~input, ~selfSchema as to) => {
+  let jsonStringEncoder = Builder.make((~input) => {
+    let to = input.expected
     if to.format !== Some(JSON) {
       if to->isLiteral {
         let jsonStringConstSchema = base(stringTag, ~selfReverse=true)
@@ -4476,7 +4477,7 @@ let enableJsonString = {
     }
   })
 
-  let jsonStringDecoder = Builder.make((~input, ~selfSchema as _) => {
+  let jsonStringDecoder = Builder.make((~input) => {
     let inputTagFlag = input.schema.tag->TagFlag.get
     let expectedSchema = input.expected
 
@@ -4489,12 +4490,14 @@ let enableJsonString = {
         !(expectedSchema.parser->Obj.magic) &&
         !(expectedSchema.refiner->Obj.magic)
 
-      let stringVal = stringDecoder(~input, ~selfSchema=%raw(`null`))
+      let stringVal = stringDecoder(~input)
       stringVal.schema = expectedSchema
       stringVal.expected = expectedSchema
 
       if preEncode {
-        jsonStringEncoder(~input=stringVal, ~selfSchema=to)
+        jsonStringEncoder(
+          ~input=stringVal /* ~selfSchema=to FIXME: Removal of this could break something */,
+        )
       } else {
         let stringVar = stringVal.var()
         let output = stringVal->B.refine(~schema=expectedSchema)
@@ -4552,7 +4555,7 @@ let enableUint8Array = () => {
     let _ = %raw(`delete uint8Array.as`)
     uint8Array.tag = instanceTag
     uint8Array.class = %raw(`Uint8Array`)
-    uint8Array.decoder = Builder.make((~input as inputArg, ~selfSchema as _) => {
+    uint8Array.decoder = Builder.make((~input as inputArg) => {
       let inputTagFlag = inputArg.schema.tag->TagFlag.get
       let input = ref(inputArg)
 
@@ -4565,7 +4568,7 @@ let enableUint8Array = () => {
             ~schema=uint8Array,
           )
       } else if inputTagFlag->Flag.unsafeHas(TagFlag.unknown->Flag.with(TagFlag.instance)) {
-        input := instanceDecoder(~input=input.contents, ~selfSchema=%raw(`null`))
+        input := instanceDecoder(~input=input.contents)
       }
 
       switch inputArg.expected {
@@ -4647,7 +4650,7 @@ let to = (from, target) => {
       // switch parser {
       // | Some(p) =>
       //   mut.parser = Some(
-      //     Builder.make((b, ~input, ~selfSchema as _, ~path as _) => {
+      //     Builder.make((b, ~input, , ~path as _) => {
       //       // TODO: Support async, reverse, nested parsing
       //       b->B.embedSyncOperation(~input, ~fn=p)
       //     }),
@@ -5070,7 +5073,7 @@ module Schema = {
     v.expected = targetSchema
     v
   }
-  and shapedParser = (~input, ~selfSchema as _) => {
+  and shapedParser = (~input) => {
     switch input.expected.flattened {
     | Some(flattened) =>
       let flattenedVals = []
@@ -5253,7 +5256,7 @@ module Schema = {
       }
     }
   }
-  and shapedSerializer = (~input, ~selfSchema as _) => {
+  and shapedSerializer = (~input) => {
     let acc: shapedSerializerAcc = {}
     prepareShapedSerializerAcc(~acc, ~input)
 
@@ -5353,7 +5356,8 @@ let literal = js_schema
 
 let enum = values => Union.factory(values->Js.Array2.map(literal))
 
-let unnestSerializer = Builder.make((~input, ~selfSchema) => {
+let unnestSerializer = Builder.make((~input) => {
+  let selfSchema = input.expected
   let schema = selfSchema.additionalItems->(Obj.magic: option<additionalItems> => internal)
   let items = schema.items->X.Option.getUnsafe
 
@@ -5439,7 +5443,8 @@ let unnest = schema => {
     )
     mut.additionalItems = Some(Strict)
     mut.parser = Some(
-      Builder.make((~input, ~selfSchema) => {
+      Builder.make((~input) => {
+        let selfSchema = input.expected
         let b = input
         let inputTagFlag = input.schema.tag->TagFlag.get
         if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
@@ -6115,7 +6120,7 @@ let js_to = {
   // FIXME: Test how it'll work if we have async var as input
   // FIXME: Might not work well with object targets
   let customBuilder = (~fn) => {
-    Builder.make((~input, ~selfSchema as _) => {
+    Builder.make((~input) => {
       let target = input.expected.to->X.Option.getUnsafe
       let outputVar = input.global->B.varWithoutAllocation
       input.allocate(outputVar)
