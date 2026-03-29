@@ -453,7 +453,7 @@ and internal = {
   // Logic for built-in decoding to the schema type
   mutable decoder: builder,
   // Logic for built-in encoding from the schema type
-  mutable encoder?: builder,
+  mutable encoder?: encoder,
   // Custom validations on input (before decoder)
   mutable inputRefiner?: (~input: val) => string,
   // Custom validations on output (after decoder)
@@ -545,6 +545,7 @@ and has = {
   object?: bool,
 }
 and builder = (~input: val) => val
+and encoder = (~input: val, ~target: internal) => val
 and val = {
   // We might have the same value, but different instances of the val object
   // Use the bond field, to connect the var call
@@ -1007,6 +1008,7 @@ module Builder = {
   type t = builder
 
   let make = (Obj.magic: ((~input: val) => val) => t)
+  let encoder = (Obj.magic: ((~input: val, ~target: internal) => val) => encoder)
 
   module B = {
     let eq = (~negative) => negative ? "!==" : "==="
@@ -1980,7 +1982,7 @@ module Literal = {
   }
 }
 
-let rec parse = (input: val, ~withEncoder: bool=false) => {
+let rec parse = (input: val) => {
   let valRef = ref(input)
   let appliedEncoderRef = ref(None)
   let loopCount = ref(0)
@@ -2050,7 +2052,7 @@ let rec parse = (input: val, ~withEncoder: bool=false) => {
         loopInput.schema !== loopInput.expected &&
         loopInput.expected.tag !== unknownTag
       ) {
-        valRef := (maybeEncoder->Option.getUnsafe)(~input=loopInput)
+        valRef := (maybeEncoder->Option.getUnsafe)(~input=loopInput, ~target=loopInput.expected)
       }
 
       // If encoder didn't change the value, we can decode it,
@@ -2070,7 +2072,7 @@ let rec parse = (input: val, ~withEncoder: bool=false) => {
   valRef.contents
 }
 and parseDynamic = input => {
-  try input->parse(~withEncoder=true) catch {
+  try input->parse catch {
   | _ =>
     let error = %raw(`exn`)->InternalError.getOrRethrow
     (error->Obj.magic)["path"] = {
@@ -2111,7 +2113,7 @@ and compileDecoder = (~schema, ~expected, ~flag, ~defs) => {
     ~expected,
   )
 
-  let output = input->parse(~withEncoder=true)
+  let output = input->parse
   let code = output->B.merge
 
   let isAsync = output.flag->Flag.has(ValFlag.async)
@@ -2515,7 +2517,7 @@ and arrayDecoder: builder = (~input as unknownInput) => {
       itemInput.isInput = Some(false)
       itemInput.isOutput = Some(false)
       itemInput.isUnion = Some(isUnion) // We want to controll validation on the decoder side
-      let itemOutput = itemInput->parse(~withEncoder=true)
+      let itemOutput = itemInput->parse
 
       switch itemOutput.validation {
       | Some(validation) if isUnion && schema->isLiteral =>
@@ -2666,7 +2668,7 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
         itemInput.isInput = Some(false)
         itemInput.isOutput = Some(false)
         itemInput.isUnion = Some(isUnion) // We want to controll validation on the decoder side
-        let itemOutput = itemInput->parse(~withEncoder=true)
+        let itemOutput = itemInput->parse
 
         switch itemOutput.validation {
         | Some(validation) if isUnion && schema->isLiteral =>
@@ -3687,7 +3689,7 @@ module Union = {
             }
 
             let typeValidationOutput = try {
-              typeValidationInput->parse(~withEncoder=true)
+              typeValidationInput->parse
             } catch {
             | _ => {
                 typeValidationInput.validation = None
@@ -4251,10 +4253,8 @@ module String = {
   let datetimeRe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/
 }
 
-let jsonEncoder = Builder.make((~input) => {
-  let selfSchema = input.expected
-  let to = selfSchema
-  let toTagFlag = to.tag->TagFlag.get
+let jsonEncoder = Builder.encoder((~input, ~target) => {
+  let toTagFlag = target.tag->TagFlag.get
 
   if (
     toTagFlag->Flag.unsafeHas(
@@ -4264,14 +4264,14 @@ let jsonEncoder = Builder.make((~input) => {
       ->Flag.with(TagFlag.null),
     )
   ) {
-    input->B.refine(~schema=unknown, ~expected=to)->parse
+    input->B.refine(~schema=unknown, ~expected=target)->parse
   } else if toTagFlag->Flag.unsafeHas(TagFlag.bigint) {
     let jsonExpected = string->copySchema
-    jsonExpected.to = Some(to)
+    jsonExpected.to = Some(target)
     input->B.refine(~schema=unknown, ~expected=jsonExpected)->parse
   } else if toTagFlag->Flag.unsafeHas(TagFlag.undefined->Flag.with(TagFlag.nan)) {
     let jsonExpected = nullLiteral->copySchema
-    jsonExpected.to = Some(to)
+    jsonExpected.to = Some(target)
     input->B.refine(~schema=unknown, ~expected=jsonExpected)->parse
   } else if toTagFlag->Flag.unsafeHas(TagFlag.array) {
     // Validate that the input is an array
@@ -4279,7 +4279,7 @@ let jsonEncoder = Builder.make((~input) => {
     let jsonExpected = array(unknown->castToPublic)->castToInternal
     let output = input->B.refine(~schema=unknown, ~expected=jsonExpected)->parse
     output.schema.additionalItems = Some(Schema(json->castToPublic))
-    output.expected = to
+    output.expected = target
     output.isInput = Some(false)
     output.isOutput = Some(false)
     output
@@ -4289,7 +4289,7 @@ let jsonEncoder = Builder.make((~input) => {
     let jsonExpected = Dict.factory(unknown->castToPublic)->castToInternal
     let output = input->B.refine(~schema=unknown, ~expected=jsonExpected)->parse
     output.schema.additionalItems = Some(Schema(json->castToPublic))
-    output.expected = to
+    output.expected = target
     output.isInput = Some(false)
     output.isOutput = Some(false)
     output
@@ -4359,7 +4359,7 @@ let jsonDecoder = (~input) => {
     let preEncode: bool = to->Obj.magic && !(input.expected.parser->Obj.magic) // && !(selfSchema.refiner->Obj.magic) FIXME:
     if preEncode {
       input.schema = json
-      jsonEncoder(~input)
+      jsonEncoder(~input, ~target=input.expected)
     } else if input.expected.noValidation->X.Option.getUnsafe {
       input.schema = json
       input
@@ -4430,9 +4430,9 @@ let enableJsonString = {
     }
   }
 
-  let constSchemaToJsonStringConst = (input, ~schema) => {
-    let tagFlag = schema.tag->TagFlag.get
-    let const = schema.const
+  let constSchemaToJsonStringConst = (input, ~target) => {
+    let tagFlag = target.tag->TagFlag.get
+    let const = target.const
     if tagFlag->Flag.unsafeHas(TagFlag.undefined->Flag.with(TagFlag.null)) {
       `null`
     } else if tagFlag->Flag.unsafeHas(TagFlag.string) {
@@ -4442,17 +4442,16 @@ let enableJsonString = {
     } else if tagFlag->Flag.unsafeHas(TagFlag.number->Flag.with(TagFlag.boolean)) {
       %raw(`""+$$const`)
     } else {
-      input->B.unsupportedConversion(~from=schema, ~target=input.expected)
+      input->B.unsupportedConversion(~from=input.schema, ~target)
     }
   }
 
-  let jsonStringEncoder = Builder.make((~input) => {
-    let to = input.expected
-    if to.format !== Some(JSON) {
-      if to->isLiteral {
+  let jsonStringEncoder = Builder.encoder((~input, ~target) => {
+    if target.format !== Some(JSON) {
+      if target->isLiteral {
         let jsonStringConstSchema = base(stringTag, ~selfReverse=true)
-        jsonStringConstSchema.const = input->constSchemaToJsonStringConst(~schema=to)->Obj.magic
-        jsonStringConstSchema.to = Some(to)
+        jsonStringConstSchema.const = input->constSchemaToJsonStringConst(~target)->Obj.magic
+        jsonStringConstSchema.to = Some(target)
         jsonStringConstSchema.decoder = Literal.literalDecoder
         input->B.refine(~expected=jsonStringConstSchema)
       } else {
@@ -4460,7 +4459,7 @@ let enableJsonString = {
         input.allocate(outputVar)
 
         let nextSchema = json->copySchema
-        nextSchema.to = Some(to)
+        nextSchema.to = Some(target)
 
         let output = input->B.next(outputVar, ~schema=nextSchema, ~expected=nextSchema)
         output.isInput = Some(true)
@@ -4498,9 +4497,7 @@ let enableJsonString = {
       stringVal.expected = expectedSchema
 
       if preEncode {
-        jsonStringEncoder(
-          ~input=stringVal /* ~selfSchema=to FIXME: Removal of this could break something */,
-        )
+        jsonStringEncoder(~input=stringVal, ~target=to)
       } else {
         let stringVar = stringVal.var()
         let output = stringVal->B.refine(~schema=expectedSchema)

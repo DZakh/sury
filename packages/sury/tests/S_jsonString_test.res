@@ -201,11 +201,12 @@ test("Parses JSON string to bigint literal", t => {
 test("Parses JSON string to symbol literal", t => {
   let symbol = %raw(`Symbol("foo")`)
 
+  // TODO: Test that it works with literal having noValidation
   let schema = S.jsonString->S.to(S.literal(symbol))
 
   t->U.assertThrowsMessage(
     () => `true`->S.parseOrThrow(schema),
-    `Unsupported conversion from Symbol(foo) to JSON string`,
+    `Unsupported conversion from JSON string to Symbol(foo)`,
   )
 
   t->U.assertThrowsMessage(
