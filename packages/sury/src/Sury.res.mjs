@@ -736,19 +736,10 @@ function add(objectVal, location, val) {
   objectVal.d[location] = val;
   if (val.f & 1) {
     objectVal.r = objectVal.r + val.i + ",";
-    objectVal.i = objectVal.i + objectVal.j(inlinedLocation, "a[" + (objectVal.ac++) + "]");
+    objectVal.i = objectVal.i + objectVal.j(inlinedLocation, val.i);
   } else {
     objectVal.i = objectVal.i + objectVal.j(inlinedLocation, val.i);
   }
-}
-
-function complete(objectVal) {
-  objectVal.i = objectVal.s.type === arrayTag ? "[" + objectVal.i + "]" : "{" + objectVal.i + "}";
-  if (objectVal.ac) {
-    objectVal.f = objectVal.f | 1;
-    objectVal.i = "Promise.all([" + objectVal.r + "]).then(a=>(" + objectVal.i + "))";
-  }
-  return objectVal;
 }
 
 function addKey(objVal, key, value) {
@@ -1486,9 +1477,24 @@ function makeObjectVal(prev, schema) {
     path: prev.path,
     g: prev.g,
     j: schema.type === arrayTag ? arrayJoin : objectJoin,
-    ac: 0,
     r: ""
   };
+}
+
+function completeObjectVal(objectVal) {
+  objectVal.i = objectVal.s.type === arrayTag ? "[" + objectVal.i + "]" : "{" + objectVal.i + "}";
+  if (objectVal.r) {
+    let operationInput = scope(objectVal);
+    operationInput.io = true;
+    let operationOutput = parse$1(operationInput, undefined);
+    let operationCode = merge(operationOutput);
+    objectVal.i = "Promise.all([" + objectVal.r + "]).then(([" + objectVal.r + "])=>{" + operationCode + "return " + operationOutput.i + "})";
+    objectVal.f = objectVal.f | 1;
+    objectVal.s = operationOutput.s;
+    objectVal.e = operationOutput.e;
+    objectVal.io = true;
+  }
+  return objectVal;
 }
 
 function array(item) {
@@ -1597,7 +1603,7 @@ function arrayDecoder(unknownInput, param) {
     
   }
   if (shouldRecreateInput) {
-    return complete(objectVal);
+    return completeObjectVal(objectVal);
   }
   let o = refine(input, undefined, undefined, undefined);
   o.cp = objectVal.cp;
@@ -1746,7 +1752,7 @@ function objectDecoder(unknownInput, param) {
       }), keyVar$1) + "}}");
     }
     if (shouldRecreateInput) {
-      return complete(objectVal);
+      return completeObjectVal(objectVal);
     }
     let o = refine(input, undefined, undefined, undefined);
     o.cp = objectVal.cp;
@@ -3202,6 +3208,92 @@ function proxifyShapedSchema(schema, from, fromFlattened) {
   });
 }
 
+function getValByFrom(_input, from, _idx) {
+  while (true) {
+    let idx = _idx;
+    let input = _input;
+    let key = from[idx];
+    if (key === undefined) {
+      return input;
+    }
+    _idx = idx + 1 | 0;
+    _input = input.d[key];
+    continue;
+  };
+}
+
+function nested(fieldName) {
+  let parentCtx = this;
+  let cacheId = "~" + fieldName;
+  let ctx = parentCtx[cacheId];
+  if (ctx !== undefined) {
+    return Primitive_option.valFromOption(ctx);
+  }
+  let properties = {};
+  let schema = base(objectTag, false);
+  schema.properties = properties;
+  schema.additionalItems = globalConfig.a;
+  schema.decoder = objectDecoder;
+  let parentSchema = parentCtx.f(fieldName, schema)[itemSymbol];
+  let field = (fieldName, schema) => {
+    let inlinedLocation = fromString(fieldName);
+    if (fieldName in properties) {
+      throw new Error("[Sury] " + ("The field " + inlinedLocation + " defined twice"));
+    }
+    properties[fieldName] = schema;
+    return proxifyShapedSchema(schema, parentSchema.from.concat(fieldName), parentSchema.fromFlattened);
+  };
+  let tag = (tag$1, asValue) => {
+    field(tag$1, definitionToSchema(asValue));
+  };
+  let fieldOr = (fieldName, schema, or) => {
+    let schema$1 = factory$2(schema, undefined);
+    return field(fieldName, getWithDefault(schema$1, {
+      TAG: "Value",
+      _0: or
+    }));
+  };
+  let flatten = schema => {
+    let match = schema.type;
+    if (match === "object") {
+      let to = schema.to;
+      let flattenedProperties = schema.properties;
+      if (to) {
+        let message = "Unsupported nested flatten for transformed object schema " + toExpression(schema);
+        throw new Error("[Sury] " + message);
+      }
+      let flattenedKeys = Object.keys(flattenedProperties);
+      let result = {};
+      for (let idx = 0, idx_finish = flattenedKeys.length; idx < idx_finish; ++idx) {
+        let key = flattenedKeys[idx];
+        result[key] = field(key, flattenedProperties[key]);
+      }
+      return result;
+    }
+    let message$1 = "Can't flatten " + toExpression(schema) + " schema";
+    throw new Error("[Sury] " + message$1);
+  };
+  let ctx$1 = {
+    field: field,
+    f: field,
+    fieldOr: fieldOr,
+    tag: tag,
+    nested: nested,
+    flatten: flatten
+  };
+  parentCtx[cacheId] = ctx$1;
+  return ctx$1;
+}
+
+function definitionToSchema(definition) {
+  return traverseDefinition(definition, node => {
+    if (node["~standard"]) {
+      return node;
+    }
+    
+  });
+}
+
 function traverseDefinition(definition, onNode) {
   if (typeof definition !== "object" || definition === null) {
     return parse(definition);
@@ -3285,83 +3377,11 @@ function getShapedParserOutput(input, targetSchema) {
         throw new Error("[Sury] " + message);
       }
     }
-    v = complete(output);
+    v = completeObjectVal(output);
   }
   v.prev = undefined;
   v.e = targetSchema;
   return v;
-}
-
-function nested(fieldName) {
-  let parentCtx = this;
-  let cacheId = "~" + fieldName;
-  let ctx = parentCtx[cacheId];
-  if (ctx !== undefined) {
-    return Primitive_option.valFromOption(ctx);
-  }
-  let properties = {};
-  let schema = base(objectTag, false);
-  schema.properties = properties;
-  schema.additionalItems = globalConfig.a;
-  schema.decoder = objectDecoder;
-  let parentSchema = parentCtx.f(fieldName, schema)[itemSymbol];
-  let field = (fieldName, schema) => {
-    let inlinedLocation = fromString(fieldName);
-    if (fieldName in properties) {
-      throw new Error("[Sury] " + ("The field " + inlinedLocation + " defined twice"));
-    }
-    properties[fieldName] = schema;
-    return proxifyShapedSchema(schema, parentSchema.from.concat(fieldName), parentSchema.fromFlattened);
-  };
-  let tag = (tag$1, asValue) => {
-    field(tag$1, definitionToSchema(asValue));
-  };
-  let fieldOr = (fieldName, schema, or) => {
-    let schema$1 = factory$2(schema, undefined);
-    return field(fieldName, getWithDefault(schema$1, {
-      TAG: "Value",
-      _0: or
-    }));
-  };
-  let flatten = schema => {
-    let match = schema.type;
-    if (match === "object") {
-      let to = schema.to;
-      let flattenedProperties = schema.properties;
-      if (to) {
-        let message = "Unsupported nested flatten for transformed object schema " + toExpression(schema);
-        throw new Error("[Sury] " + message);
-      }
-      let flattenedKeys = Object.keys(flattenedProperties);
-      let result = {};
-      for (let idx = 0, idx_finish = flattenedKeys.length; idx < idx_finish; ++idx) {
-        let key = flattenedKeys[idx];
-        result[key] = field(key, flattenedProperties[key]);
-      }
-      return result;
-    }
-    let message$1 = "Can't flatten " + toExpression(schema) + " schema";
-    throw new Error("[Sury] " + message$1);
-  };
-  let ctx$1 = {
-    field: field,
-    f: field,
-    fieldOr: fieldOr,
-    tag: tag,
-    nested: nested,
-    flatten: flatten
-  };
-  parentCtx[cacheId] = ctx$1;
-  return ctx$1;
-}
-
-function definitionToSchema(definition) {
-  return traverseDefinition(definition, node => {
-    if (node["~standard"]) {
-      return node;
-    }
-    
-  });
 }
 
 function prepareShapedSerializerAcc(acc, input) {
@@ -3502,21 +3522,7 @@ function getShapedSerializerOutput(input, acc, targetSchema, path) {
       invalidOperation(input, "Missing input for " + toExpression(targetSchema) + tmp$2);
     }
   }
-  return complete(v$2);
-}
-
-function getValByFrom(_input, from, _idx) {
-  while (true) {
-    let idx = _idx;
-    let input = _input;
-    let key = from[idx];
-    if (key === undefined) {
-      return input;
-    }
-    _idx = idx + 1 | 0;
-    _input = input.d[key];
-    continue;
-  };
+  return completeObjectVal(v$2);
 }
 
 function shapedParser(input, param) {
@@ -3764,7 +3770,7 @@ function unnest(schema) {
       }
       let output = next(input, "new Array(Math.max(" + lengthCode + "))", selfSchema.to, undefined);
       let outputVar = output.v();
-      let itemInput$1 = complete(itemInput);
+      let itemInput$1 = completeObjectVal(itemInput);
       let itemOutput = withPathPrepend(itemInput$1, iteratorVar, (bb, itemOutput) => {
         bb.c = bb.c + addKey(output, iteratorVar, itemOutput) + ";";
       }, input => parse$1(input, undefined));
