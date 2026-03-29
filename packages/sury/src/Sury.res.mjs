@@ -2228,6 +2228,8 @@ function unionDecoder(input) {
       let input = scope(typeValidationOutput);
       input.u = true;
       input.t = typeValidationOutput.t;
+      input.ii = false;
+      input.io = false;
       input.e = arr[itemIdx];
       let isLast = itemIdx === lastIdx;
       let isFirst = itemIdx === 2;
