@@ -1412,8 +1412,6 @@ module Builder = {
           ...val,
           @as("j")
           mutable join: (string, string) => string,
-          @as("ac")
-          mutable asyncCount: int,
           @as("r")
           mutable promiseAllContent: string,
         }
@@ -1438,8 +1436,7 @@ module Builder = {
           objectVal.vals->X.Option.getUnsafe->Js.Dict.set(location, val)
           if val.flag->Flag.unsafeHas(ValFlag.async) {
             objectVal.promiseAllContent = objectVal.promiseAllContent ++ val.inline ++ ","
-            objectVal.inline =
-              objectVal.inline ++ objectVal.join(inlinedLocation, `a[${%raw(`objectVal.ac++`)}]`)
+            objectVal.inline = objectVal.inline ++ objectVal.join(inlinedLocation, val.inline)
           } else {
             objectVal.inline = objectVal.inline ++ objectVal.join(inlinedLocation, val.inline)
           }
@@ -1451,22 +1448,6 @@ module Builder = {
             let location = locations->Js.Array2.unsafe_get(idx)
             target->add(~location, vals->Js.Dict.unsafeGet(location))
           }
-        }
-
-        let complete = (objectVal: t) => {
-          objectVal.inline = objectVal.schema.tag === arrayTag
-            ? "[" ++ objectVal.inline ++ "]"
-            : "{" ++ objectVal.inline ++ "}"
-          if objectVal.asyncCount->Obj.magic {
-            objectVal.flag = objectVal.flag->Flag.with(ValFlag.async)
-
-            // TODO: Can be improved: Instead of inline, continue the parser
-            objectVal.inline = `Promise.all([${objectVal.promiseAllContent}]).then(a=>(${objectVal.inline}))`
-          }
-
-          // FIXME: Test whether it's needed
-          // objectVal.additionalItems = Some(Strict)
-          (objectVal :> val)
         }
       }
 
@@ -2386,12 +2367,31 @@ let rec makeObjectVal = (prev: val, ~schema): B.Val.Object.t => {
     codeFromPrev: "",
     codeAfterValidation: "",
     varsAllocation: "",
-    asyncCount: 0,
     allocate: B.initialAllocate,
     validation: None,
     path: prev.path,
     global: prev.global,
   }
+}
+and completeObjectVal = (objectVal: B.Val.Object.t) => {
+  objectVal.inline = objectVal.schema.tag === arrayTag
+    ? "[" ++ objectVal.inline ++ "]"
+    : "{" ++ objectVal.inline ++ "}"
+  if objectVal.promiseAllContent->Obj.magic {
+    let operationInput = (objectVal :> val)->B.Val.scope
+    operationInput.isOutput = Some(true)
+    let operationOutput = operationInput->parse
+    let operationCode = operationOutput->B.merge
+
+    objectVal.inline = `Promise.all([${objectVal.promiseAllContent}]).then(([${objectVal.promiseAllContent}])=>{${operationCode}return ${operationOutput.inline}})`
+    objectVal.flag = objectVal.flag->Flag.with(ValFlag.async)
+    objectVal.schema = operationOutput.schema
+    objectVal.expected = operationOutput.expected
+    objectVal.isOutput = Some(true)
+  }
+  // FIXME: Test whether it's needed
+  // objectVal.additionalItems = Some(Strict)
+  (objectVal :> val)
 }
 and array = item => {
   let itemInternal = item->castToInternal
@@ -2539,7 +2539,7 @@ and arrayDecoder: builder = (~input as unknownInput, ~selfSchema as _) => {
     // After input.schema was used, set it to selfSchema
     // so it has a more accurate name in error messages
     if shouldRecreateInput.contents {
-      objectVal->B.Val.Object.complete
+      objectVal->completeObjectVal
     } else {
       let o = input->B.refine
       o.codeFromPrev = objectVal.codeFromPrev
@@ -2720,7 +2720,7 @@ and objectDecoder: Builder.t = (~input as unknownInput, ~selfSchema as _) => {
       // After input.schema was used, set it to selfSchema
       // so it has a more accurate name in error messages
       if shouldRecreateInput.contents {
-        objectVal->B.Val.Object.complete
+        objectVal->completeObjectVal
       } else {
         let o = input->B.refine
         o.codeFromPrev = objectVal.codeFromPrev
@@ -5063,7 +5063,7 @@ module Schema = {
               ->toExpression}`,
           )
         }
-        output->B.Val.Object.complete
+        output->completeObjectVal
       }
     }
     v.prev = None
@@ -5249,7 +5249,7 @@ module Schema = {
           )
         }
 
-        v->B.Val.Object.complete
+        v->completeObjectVal
       }
     }
   }
@@ -5513,7 +5513,7 @@ let unnest = schema => {
           )
         let outputVar = B.Val.var(output)
 
-        let itemInput = itemInput->B.Val.Object.complete
+        let itemInput = itemInput->completeObjectVal
         let itemOutput = B.withPathPrepend(
           ~input=itemInput,
           ~dynamicLocationVar=iteratorVar,
