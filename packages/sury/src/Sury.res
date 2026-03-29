@@ -3377,6 +3377,8 @@ module Union = {
           let input = typeValidationOutput->B.Val.scope
           input.isUnion = Some(true)
           input.hasTransform = typeValidationOutput.hasTransform
+          input.isInput = Some(false)
+          input.isOutput = Some(false)
           input.expected =
             arr->Stdlib.Array.getUnsafe(itemIdx.contents)->(Obj.magic: unknown => internal)
 
@@ -3683,6 +3685,7 @@ module Union = {
             } else {
               unknown
             }
+
             let typeValidationOutput = try {
               typeValidationInput->parse(~withEncoder=true)
             } catch {
