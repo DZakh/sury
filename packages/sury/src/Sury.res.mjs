@@ -1210,7 +1210,6 @@ function parse$1(input) {
     }
     if (loopInput.f & 1) {
       let operationInputVar = loopInput.v();
-      console.log(operationInputVar);
       let operationInput = scope(loopInput);
       let operationOutput = parse$1(operationInput);
       let operationCode = merge(operationOutput);
@@ -1483,7 +1482,11 @@ function completeObjectVal(objectVal) {
     operationInput.io = true;
     let operationOutput = parse$1(operationInput);
     let operationCode = merge(operationOutput);
-    objectVal.i = "Promise.all([" + objectVal.r + "]).then(([" + objectVal.r + "])=>{" + operationCode + "return " + operationOutput.i + "})";
+    if (operationCode === "" && objectVal.r === operationOutput.i + ",") {
+      objectVal.i = operationOutput.i;
+    } else {
+      objectVal.i = "Promise.all([" + objectVal.r + "]).then(([" + objectVal.r + "])=>{" + operationCode + "return " + operationOutput.i + "})";
+    }
     objectVal.f = objectVal.f | 1;
     objectVal.s = operationOutput.s;
     objectVal.e = operationOutput.e;

@@ -7,44 +7,40 @@
 #   cd packages/sury && pnpm exec ava --no-worker-threads 2>&1 | grep "✘ \[fail\]" | sort > /tmp/after.txt
 #   diff failing-tests.snapshot.txt /tmp/after.txt
 #
-# Total: 39 failing tests
+# Total: 35 failing tests
 
-  ✘ [fail]: Example_test.res › Example Error thrown in test
-  ✘ [fail]: S_jsonString_test.res › Can apply refinement to JSON string with S.to after
-  ✘ [fail]: S_null_test.res › Record schema with optional nullable field Error thrown in test
+  ✘ [fail]: Example_test.res › Compiled serialize code snapshot
+  ✘ [fail]: Example_test.res › Example
   ✘ [fail]: S_object_discriminant_test.res › Fails to serialize object with discriminant that we don't know how to serialize "true | null"
-  ✘ [fail]: S_object_discriminant_test.res › Fails to serialize object with discriminant that we don't know how to serialize "true[]" Error thrown in test
-  ✘ [fail]: S_object_discriminant_test.res › Fails to serialize object with discriminant that we don't know how to serialize "{ [key: string]: true; }" Error thrown in test
+  ✘ [fail]: S_object_discriminant_test.res › Fails to serialize object with discriminant that we don't know how to serialize "true[]"
+  ✘ [fail]: S_object_discriminant_test.res › Fails to serialize object with discriminant that we don't know how to serialize "{ [key: string]: true; }"
+  ✘ [fail]: S_object_discriminant_test.res › Successfully serializes object with discriminant "{ "'`: ""'`"; nestedField: false; }" and values needed to be escaped
+  ✘ [fail]: S_object_discriminant_test.res › Successfully serializes object with discriminant "{ nestedDiscriminant: "abc"; nestedField: false; }"
+  ✘ [fail]: S_object_flatten_test.res › Can flatten S.schema
   ✘ [fail]: S_object_flatten_test.res › Can flatten transformed object schema
-  ✘ [fail]: S_object_flatten_test.res › Flatten schema with duplicated field of the same type (flatten last) Error thrown in test
-  ✘ [fail]: S_object_flatten_test.res › Successfully serializes simple object with flatten Error thrown in test
-  ✘ [fail]: S_object_nested_test.res › Nested preprocessed tags on reverse convert
-  ✘ [fail]: S_object_nested_test.res › Object with a single nested field with S.nullAsOption
-  ✘ [fail]: S_object_nested_test.res › Object with a single nested field with S.transform
   ✘ [fail]: S_object_test.res › Compiled code snapshot for refined nested object
-  ✘ [fail]: S_object_withoutDeclaredFields_test.res › Successfully parses object with excess keys and returns transformed value
-  ✘ [fail]: S_parseAsync_test.res › [Union] Passes with Parse operation. Async item should fail Asserted result is not S.Exn "Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead". Instead got: 2
-  ✘ [fail]: S_recursive_test.res › Fails to serialise nested recursive object Error thrown in test
+  ✘ [fail]: S_recursive_test.res › Fails to serialise nested recursive object
+  ✘ [fail]: S_recursive_test.res › Parses recursive object with async fields in parallel
   ✘ [fail]: S_recursive_test.res › Recursively transforms all objects when added transform to the recursive's function returned schema
-  ✘ [fail]: S_recursive_test.res › Recursively transforms nested objects when added transform to the placeholder schema Error thrown in test
-  ✘ [fail]: S_recursive_test.res › Shallowly transforms object when added transform to the S.recursive result Error thrown in test
+  ✘ [fail]: S_recursive_test.res › Recursively transforms nested objects when added transform to the placeholder schema
+  ✘ [fail]: S_recursive_test.res › Shallowly transforms object when added transform to the S.recursive result
+  ✘ [fail]: S_recursive_test.res › Successfully parses recursive object with async parse function
   ✘ [fail]: S_recursive_test.res › Successfully serializes recursive object
   ✘ [fail]: S_refine_test.res › Compiled parse code snapshot for simple object with refine
   ✘ [fail]: S_refine_test.res › Successfully parses
+  ✘ [fail]: S_reverseConvertToJsonWith_test.res › Allows to convert to JSON with optional S.json as an object field
   ✘ [fail]: S_reverseConvertToJsonWith_test.res › Serializes deeply recursive schema
-  ✘ [fail]: S_schema_test.res › Nested object with embeded schema
-  ✘ [fail]: S_schema_test.res › Object with embeded transformed schema
-  ✘ [fail]: S_schema_test.res › Tuple with embeded schema
-  ✘ [fail]: S_schema_test.res › Tuple with embeded transformed schema
-  ✘ [fail]: S_test › ArkType pattern matching
-  ✘ [fail]: S_test › Recursive with self as transform target
-  ✘ [fail]: S_test › Unnest schema Error thrown in test
+  ✘ [fail]: S_test.ts › Successfully parses advanced object with all features
+  ✘ [fail]: S_test.ts › Unnest schema
+  ✘ [fail]: S_toExpression_test.res › Expression of renamed schema
   ✘ [fail]: S_to_test.res › Coerce from union to bigint with refinement on union
-  ✘ [fail]: S_to_test.res › Coerce from union to bigint with refinement on union (with an item transformed to) Should apply refinement after the item transformation
+  ✘ [fail]: S_to_test.res › Coerce from union to bigint with refinement on union (with an item transformed to)
   ✘ [fail]: S_to_test.res › Coerce from union to wider union should keep the original value type
-  ✘ [fail]: S_to_test.res › Coerce string to custom JSON schema I don't know what we expect here, but currently it works this way
+  ✘ [fail]: S_to_test.res › Coerce string to custom JSON schema
   ✘ [fail]: S_to_test.res › Transform from union to wider union with different items order (applies decoder to both one at a time)
   ✘ [fail]: S_union_test.res › Compiled serialize code snapshot of crazy union
-  ✘ [fail]: S_union_test.res › Compiled serialize code snapshot of objects returning literal fields
+  ✘ [fail]: S_union_test.res › Ensures parsing order with unknown schema
+  ✘ [fail]: S_union_test.res › NaN should be checked before number even if it's later item in the union
   ✘ [fail]: S_union_test.res › Serializes when second struct misses serializer
+  ✘ [fail]: S_union_test.res › Union of strings with different refinements
   ✘ [fail]: S_union_test.res › json-rpc response

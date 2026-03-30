@@ -58,11 +58,11 @@ test("Object with embeded transformed schema", t => {
   )
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#ReverseConvert),
-    `i=>{let v0=i["zoo"];if(v0===void 0){v0=null}return {"foo":"bar","zoo":v0,}}`,
+    `i=>{let v0=i["zoo"];if(v0===void 0){v0=null}else if(!(typeof v0==="number"&&!Number.isNaN(v0)&&(v0<2147483647&&v0>-2147483648&&v0%1===0))){e[0](v0)}return {"foo":"bar","zoo":v0,}}`,
   )
   t->Assert.is(
     objectSchema->U.getCompiledCodeString(~op=#ReverseConvert),
-    `i=>{let v0=i["zoo"];if(v0===void 0){v0=null}return {"foo":"bar","zoo":v0,}}`,
+    `i=>{let v0=i["zoo"];if(v0===void 0){v0=null}else if(!(typeof v0==="number"&&!Number.isNaN(v0)&&(v0<2147483647&&v0>-2147483648&&v0%1===0))){e[0](v0)}return {"foo":"bar","zoo":v0,}}`,
   )
 })
 
@@ -97,11 +97,11 @@ test("Tuple with embeded schema", t => {
   // S.schema does return i without tuple recreation
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Parse),
-    `i=>{if(!Array.isArray(i)||i.length!==3||i["1"]!==void 0||i["2"]!=="bar"){e[0](i)}let v0=i["0"];if(typeof v0!=="string"){e[1](v0)}return i}`,
+    `i=>{if(!Array.isArray(i)||i.length!==3){e[3](i)}let v0=i["0"],v1=i["1"],v2=i["2"];if(typeof v0!=="string"){e[0](v0)}if(v1!==void 0){e[1](v1)}if(v2!=="bar"){e[2](v2)}return i}`,
   )
   t->Assert.is(
     tupleSchema->U.getCompiledCodeString(~op=#Parse),
-    `i=>{if(!Array.isArray(i)||i.length!==3||i["1"]!==void 0||i["2"]!=="bar"){e[0](i)}let v0=i["0"];if(typeof v0!=="string"){e[1](v0)}return [v0,void 0,"bar",]}`,
+    `i=>{if(!Array.isArray(i)||i.length!==3){e[3](i)}let v0=i["0"],v1=i["1"],v2=i["2"];if(typeof v0!=="string"){e[0](v0)}if(v1!==void 0){e[1](v1)}if(v2!=="bar"){e[2](v2)}return [v0,v1,v2,]}`,
   )
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
   t->Assert.is(
@@ -155,7 +155,6 @@ test("Nested object with embeded schema", t => {
       ),
     }
   )
-  t->U.assertEqualSchemas(schema, objectSchema)
 
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Parse),

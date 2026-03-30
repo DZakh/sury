@@ -2013,7 +2013,6 @@ let rec parse = (input: val) => {
     ) {
       let operationInputVar = loopInput.var()
 
-      Js.log(operationInputVar)
       let operationInput = loopInput->B.Val.scope
       let operationOutput = operationInput->parse
       let operationCode = operationOutput->B.merge
@@ -2380,7 +2379,11 @@ and completeObjectVal = (objectVal: B.Val.Object.t) => {
     let operationOutput = operationInput->parse
     let operationCode = operationOutput->B.merge
 
-    objectVal.inline = `Promise.all([${objectVal.promiseAllContent}]).then(([${objectVal.promiseAllContent}])=>{${operationCode}return ${operationOutput.inline}})`
+    if operationCode === "" && objectVal.promiseAllContent === `${operationOutput.inline},` {
+      objectVal.inline = operationOutput.inline
+    } else {
+      objectVal.inline = `Promise.all([${objectVal.promiseAllContent}]).then(([${objectVal.promiseAllContent}])=>{${operationCode}return ${operationOutput.inline}})`
+    }
     objectVal.flag = objectVal.flag->Flag.with(ValFlag.async)
     objectVal.schema = operationOutput.schema
     objectVal.expected = operationOutput.expected
