@@ -578,8 +578,6 @@ and val = {
   mutable vals?: dict<val>,
   @as("fv")
   mutable flattenedVals?: array<val>,
-  @as("c")
-  mutable codeAfterValidation: string,
   @as("cp")
   mutable codeFromPrev: string,
   @as("l")
@@ -1133,7 +1131,6 @@ module Builder = {
 
     let operationArg = (~schema, ~expected, ~flag, ~defs): val => {
       {
-        codeAfterValidation: "",
         codeFromPrev: "",
         var: _var,
         inline: operationArgVar,
@@ -1306,7 +1303,7 @@ module Builder = {
         // linked to allocated scopes
         let _ = %raw(`delete val$1.a`)
 
-        currentCode := val.codeFromPrev ++ currentCode.contents ++ val.codeAfterValidation
+        currentCode := val.codeFromPrev ++ currentCode.contents
 
         code := currentCode.contents ++ code.contents
       }
@@ -1338,7 +1335,6 @@ module Builder = {
         schema,
         expected,
         codeFromPrev: "",
-        codeAfterValidation: "",
         varsAllocation: "",
         allocate: initialAllocate,
         validation: None,
@@ -1359,7 +1355,6 @@ module Builder = {
         schema,
         expected,
         codeFromPrev: "",
-        codeAfterValidation: "",
         varsAllocation: "",
         allocate: initialAllocate,
         validation,
@@ -1388,7 +1383,6 @@ module Builder = {
         schema: from.schema.additionalItems->(Obj.magic: option<additionalItems> => internal),
         expected: from.expected.additionalItems->(Obj.magic: option<additionalItems> => internal),
         codeFromPrev: "",
-        codeAfterValidation: "",
         varsAllocation: "",
         parent: from,
         allocate: initialAllocate,
@@ -1475,7 +1469,6 @@ module Builder = {
           global: val.global,
           var: shouldLink ? _bondVar : _var,
           bond: val,
-          codeAfterValidation: "",
           codeFromPrev: "",
           isUnion: false,
           varsAllocation: "",
@@ -1541,7 +1534,6 @@ module Builder = {
               schema,
               expected: schema,
               codeFromPrev: "",
-              codeAfterValidation: "",
               varsAllocation: "",
               allocate: initialAllocate,
               validation: None,
@@ -2020,6 +2012,8 @@ let rec parse = (input: val) => {
       ) /* FIXME: why was it needed? && step.contents !== #convert */
     ) {
       let operationInputVar = loopInput.var()
+
+      Js.log(operationInputVar)
       let operationInput = loopInput->B.Val.scope
       let operationOutput = operationInput->parse
       let operationCode = operationOutput->B.merge
@@ -2134,6 +2128,8 @@ and compileDecoder = (~schema, ~expected, ~flag, ~defs) => {
     }
 
     let inlinedFunction = `${B.operationArgVar}=>{${code}return ${inlinedOutput.contents}}`
+
+    Js.log(inlinedFunction)
 
     let fn = X.Function.make2(
       ~ctxVarName1="e",
@@ -2367,7 +2363,6 @@ let rec makeObjectVal = (prev: val, ~schema): B.Val.Object.t => {
     vals: Js.Dict.empty(),
     hasTransform: true,
     codeFromPrev: "",
-    codeAfterValidation: "",
     varsAllocation: "",
     allocate: B.initialAllocate,
     validation: None,
@@ -3444,7 +3439,7 @@ module Union = {
               // linked to allocated scopes
               let _ = %raw(`delete val.a`)
 
-              currentCode := val.codeFromPrev ++ currentCode.contents ++ val.codeAfterValidation
+              currentCode := val.codeFromPrev ++ currentCode.contents
 
               itemCode := currentCode.contents ++ itemCode.contents
             }
@@ -3826,7 +3821,7 @@ module Union = {
             // linked to allocated scopes
             let _ = %raw(`delete val.a`)
 
-            currentCode := val.codeFromPrev ++ currentCode.contents ++ val.codeAfterValidation
+            currentCode := val.codeFromPrev ++ currentCode.contents
 
             blockCode := currentCode.contents ++ blockCode.contents
           }
@@ -3857,7 +3852,7 @@ module Union = {
           }
       }
 
-      output.codeAfterValidation = output.codeAfterValidation ++ start.contents ++ end.contents
+      output.codeFromPrev = output.codeFromPrev ++ start.contents ++ end.contents
 
       // In case if input.var was called, but output.var wasn't
       if input.inline !== output.inline {
@@ -3866,6 +3861,7 @@ module Union = {
 
       let o = if output.flag->Flag.unsafeHas(ValFlag.async) {
         output.inline = `Promise.resolve(${output.inline})`
+        output.var = B._notVar
         output
       } else if output.var === B._var {
         // TODO: Think how to make it more robust
@@ -3876,8 +3872,8 @@ module Union = {
         // Should refactor mergeWithCatch to make it simpler
         // All of this is a hack to make mergeWithCatch think that there are no changes. eg S.array(S.option(item))
         if (
-          input.codeAfterValidation === "" &&
-          output.codeAfterValidation === "" &&
+          input.codeFromPrev === "" &&
+          output.codeFromPrev === "" &&
           (output.varsAllocation === `${output.inline}=${initialInline}` || initialInline === "i")
         ) {
           // FIXME: Might not be not needed
@@ -4102,7 +4098,7 @@ module Option = {
           let originalDecoder = to.decoder
           to.serializer = Some(
             Builder.make((~input) => {
-              let nextSchema = input.expected.to->X.Option.getUnsafe
+              let nextSchema = item->reverse
               originalDecoder(~input)->B.refine(~schema=nextSchema, ~expected=nextSchema)
             }),
           )
@@ -5393,7 +5389,7 @@ let unnestSerializer = Builder.make((~input) => {
             ).inline};`
       }
       b.allocate(`${outputVar}=[${initialArraysCode.contents}]`)
-      bb.codeAfterValidation = bb.codeAfterValidation ++ settingCode.contents
+      bb.codeFromPrev = bb.codeFromPrev ++ settingCode.contents
     },
     (~input) => {
       // b->parse(~schema, ~input)
@@ -5402,8 +5398,8 @@ let unnestSerializer = Builder.make((~input) => {
   )
   let itemCode = bb->B.merge
 
-  b.codeAfterValidation =
-    b.codeAfterValidation ++
+  b.codeFromPrev =
+    b.codeFromPrev ++
     `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${itemCode}}`
 
   if itemOutput.flag->Flag.unsafeHas(ValFlag.async) {
@@ -5523,8 +5519,8 @@ let unnest = schema => {
           ~input=itemInput,
           ~dynamicLocationVar=iteratorVar,
           ~appendSafe=(bb, ~output as itemOutput) => {
-            bb.codeAfterValidation =
-              bb.codeAfterValidation ++ output->B.Val.addKey(iteratorVar, itemOutput) ++ ";"
+            bb.codeFromPrev =
+              bb.codeFromPrev ++ output->B.Val.addKey(iteratorVar, itemOutput) ++ ";"
           },
           (~input) => {
             // b->parse(~schema, ~input)
@@ -5533,8 +5529,8 @@ let unnest = schema => {
         )
         let itemCode = bb->B.merge
 
-        b.codeAfterValidation =
-          b.codeAfterValidation ++
+        b.codeFromPrev =
+          b.codeFromPrev ++
           `for(let ${iteratorVar}=0;${iteratorVar}<${outputVar}.length;++${iteratorVar}){${itemCode}}`
 
         if itemOutput.flag->Flag.unsafeHas(ValFlag.async) {
