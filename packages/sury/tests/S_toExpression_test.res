@@ -153,7 +153,7 @@ test("Expression of renamed schema", t => {
   t->U.assertThrowsMessage(
     () => %raw(`"smth"`)->S.parseOrThrow(schema->S.reverse),
     `Expected Ethers.BigInt, received "smth"
-- Expected never, received "smth"`,
+  - Expected never, received "smth"`,
   )
 })
 

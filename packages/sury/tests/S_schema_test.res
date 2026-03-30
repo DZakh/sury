@@ -118,7 +118,6 @@ test("Tuple with embeded transformed schema", t => {
     s.item(2, S.literal("bar")),
   ))
 
-  // t->U.assertEqualSchemas(schema, tupleSchema)
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Parse),
     tupleSchema->U.getCompiledCodeString(~op=#Parse),

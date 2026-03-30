@@ -180,7 +180,7 @@ test("Coerce to literal can be used as tag and automatically embeded on reverse 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    // TODO: Test that it'll work with S.refine on S.string
+    // FIXME: Test that it'll work with S.refine on S.string
     `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["tag"];if(typeof v0!=="string"){e[1](v0)}if(v0!=="true"){e[0](v0)}return void 0}`,
   )
 })
@@ -245,12 +245,12 @@ test("Coerce from string to port", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="string"){e[2](i)}let v0=+i;if(Number.isNaN(v0)){e[1](i)}v0>0&&v0<65536&&v0%1===0||e[0](v0);return v0}`,
+    `i=>{if(typeof i!=="string"){e[2](i)}let v0=+i;if(Number.isNaN(v0)){e[0](i)}v0>0&&v0<65536&&v0%1===0||e[1](v0);return v0}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Convert,
-    `i=>{let v0=+i;if(Number.isNaN(v0)){e[1](i)}v0>0&&v0<65536&&v0%1===0||e[0](v0);return v0}`,
+    `i=>{let v0=+i;if(Number.isNaN(v0)){e[0](i)}v0>0&&v0<65536&&v0%1===0||e[1](v0);return v0}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -502,12 +502,14 @@ test("Coerce from JSON to bigint", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
+    ~embedded=[],
     `i=>{if(typeof i!=="string"){e[1](i)}let v0;try{v0=BigInt(i)}catch(_){e[0](i)}return v0}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return ""+i}`)
+  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, ~embedded=[], `i=>{return ""+i}`)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseParse,
+    ~embedded=[],
     `i=>{if(typeof i!=="bigint"){e[0](i)}return ""+i}`,
   )
 })
@@ -521,8 +523,18 @@ test("Coerce from JSON to unit", t => {
   }, "Expected null, received undefined")
   t->Assert.deepEqual(()->S.reverseConvertOrThrow(schema), %raw(`null`))
 
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(i!==null){e[0](i)}return void 0}`)
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{if(i!==void 0){e[0](i)}return null}`)
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    ~embedded=[],
+    `i=>{if(i!==null){e[0](i)}return void 0}`,
+  )
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#ReverseConvert,
+    ~embedded=[],
+    `i=>{if(i!==void 0){e[0](i)}return null}`,
+  )
 })
 
 test("Coerce from JSON to NaN", t => {
@@ -534,10 +546,11 @@ test("Coerce from JSON to NaN", t => {
   }, "Expected null, received undefined")
   t->Assert.deepEqual(%raw(`NaN`)->S.reverseConvertOrThrow(schema), %raw(`null`))
 
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(i!==null){e[0](i)}return NaN}`)
+  t->U.assertCompiledCode(~schema, ~op=#Parse, ~embedded=[], `i=>{if(i!==null){e[0](i)}return NaN}`)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
+    ~embedded=[],
     `i=>{if(!Number.isNaN(i)){e[0](i)}return null}`,
   )
 })
@@ -555,11 +568,13 @@ test("Coerce from JSON to optional bigint", t => {
 
   t->U.assertCompiledCode(
     ~schema,
+    ~embedded=[],
     ~op=#Parse,
     `i=>{if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0}else if(i===null){i=void 0}else{e[1](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
+    ~embedded=[],
     ~op=#ReverseConvert,
     `i=>{if(typeof i==="bigint"){i=""+i}else if(i===void 0){i=null}else{e[0](i)}return i}`,
   )
@@ -577,11 +592,13 @@ test("Coerce from JSON to array of bigint", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
+    ~embedded=[],
     `i=>{if(!Array.isArray(i)){e[2](i)}let v4=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v2=i[v0];if(typeof v2!=="string"){e[1](v2)}let v1;try{v1=BigInt(v2)}catch(_){e[0](v2)}v4[v0]=v1}catch(v3){v3.path=\'["\'+v0+\'"]\'+v3.path;throw v3}}return v4}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
+    ~embedded=[],
     `i=>{let v2=new Array(i.length);for(let v1=0;v1<i.length;++v1){v2[v1]=""+i[v1]}return v2}`,
   )
 })
@@ -598,9 +615,15 @@ test("Coerce from JSON to tuple with bigint", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
+    ~embedded=[],
     `i=>{if(!Array.isArray(i)){e[4](i)}if(i.length!==2){e[3](i)}let v0=i["0"],v2=i["1"];if(typeof v0!=="string"){e[0](v0)}if(typeof v2!=="string"){e[2](v2)}let v1;try{v1=BigInt(v2)}catch(_){e[1](v2)}return [v0,v1,]}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return [i["0"],""+i["1"],]}`)
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#ReverseConvert,
+    ~embedded=[],
+    `i=>{return [i["0"],""+i["1"],]}`,
+  )
 })
 
 // test("Coerce from JSON to object with optional field", t => {

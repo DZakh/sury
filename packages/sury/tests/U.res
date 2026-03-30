@@ -79,64 +79,72 @@ let getCompiledCodeString = (
     | #Assert
     | #ReverseConvertToJson
   ],
+  ~embedded=?,
 ) => {
-  let toCode = schema =>
-    (
-      switch op {
-      | #Parse =>
-        let fn = S.makeConvertOrThrow(S.unknown, schema)
+  let toFn = schema =>
+    switch op {
+    | #Parse =>
+      let fn = S.makeConvertOrThrow(S.unknown, schema)
+      fn->magic
+    | #ParseAsync =>
+      let fn = S.makeAsyncConvertOrThrow(S.unknown, schema)
+      fn->magic
+    | #Convert =>
+      let fn = S.makeConvertOrThrow(schema->S.reverse, S.unknown)
+      fn->magic
+    | #ConvertAsync =>
+      let fn = S.makeAsyncConvertOrThrow(schema->S.reverse, S.unknown)
+      fn->magic
+    | #Assert =>
+      let fn = S.makeConvertOrThrow(S.unknown, schema->S.to(S.literal()->S.noValidation(true)))
+      fn->magic
+    | #ReverseParse => {
+        let fn = S.makeConvertOrThrow(S.unknown, schema->S.reverse)
         fn->magic
-      | #ParseAsync =>
-        let fn = S.makeAsyncConvertOrThrow(S.unknown, schema)
-        fn->magic
-      | #Convert =>
-        let fn = S.makeConvertOrThrow(schema->S.reverse, S.unknown)
-        fn->magic
-      | #ConvertAsync =>
-        let fn = S.makeAsyncConvertOrThrow(schema->S.reverse, S.unknown)
-        fn->magic
-      | #Assert =>
-        let fn = S.makeConvertOrThrow(S.unknown, schema->S.to(S.literal()->S.noValidation(true)))
-        fn->magic
-      | #ReverseParse => {
-          let fn = S.makeConvertOrThrow(S.unknown, schema->S.reverse)
-          fn->magic
-        }
-      | #ReverseConvert => {
-          let fn = S.makeConvertOrThrow(schema, S.unknown)
-          fn->magic
-        }
-      | #ReverseConvertAsync => {
-          let fn = S.makeAsyncConvertOrThrow(schema, S.unknown)
-          fn->magic
-        }
-      | #ReverseConvertToJson => {
-          let fn = S.makeConvertOrThrow(schema, S.json)
-          fn->magic
-        }
       }
-    )["toString"]()
-
-  let code = ref(schema->toCode)
-
-  switch (schema->S.untag).defs {
-  | Some(defs) if code.contents !== noopOpCode =>
-    defs->Dict.forEachWithKey((schema, key) =>
-      try {
-        let defCode =
-          schema
-          ->toCode
-          ->String.replaceAll(
-            `${(S.unknown->S.untag).seq->Float.toString}-${(schema->S.untag).seq->Float.toString}`,
-            `unknown->${key}`,
-          )
-
-        code := code.contents ++ "\n" ++ `${key}: ${defCode}`
-      } catch {
-      | _exn => ()
+    | #ReverseConvert => {
+        let fn = S.makeConvertOrThrow(schema, S.unknown)
+        fn->magic
       }
-    )
-  | _ => ()
+    | #ReverseConvertAsync => {
+        let fn = S.makeAsyncConvertOrThrow(schema, S.unknown)
+        fn->magic
+      }
+    | #ReverseConvertToJson => {
+        let fn = S.makeConvertOrThrow(schema, S.json)
+        fn->magic
+      }
+    }
+
+  let fn = schema->toFn
+  let code = ref(fn["toString"]())
+
+  switch embedded {
+  | Some(embedded) =>
+    embedded->Array.forEach(((name, index)) => {
+      code := code.contents ++ "\n" ++ `${name}: ${fn["embedded"]->Array.getUnsafe(index)}`
+    })
+  | None =>
+    switch (schema->S.untag).defs {
+    | Some(defs) if code.contents !== noopOpCode =>
+      defs->Dict.forEachWithKey((schema, key) =>
+        try {
+          let defFn = schema->toFn
+          let defCode =
+            defFn["toString"]()->String.replaceAll(
+              `${(S.unknown->S.untag).seq->Float.toString}-${(
+                  schema->S.untag
+                ).seq->Float.toString}`,
+              `unknown->${key}`,
+            )
+
+          code := code.contents ++ "\n" ++ `${key}: ${defCode}`
+        } catch {
+        | _exn => ()
+        }
+      )
+    | _ => ()
+    }
   }
 
   code.contents
@@ -175,8 +183,8 @@ let unsafeAssertEqualSchemas = (t, s1: S.t<'v1>, s2: S.t<'v2>, ~message=?) => {
   t->Assert.unsafeDeepEqual(s1->cleanUpSchema, s2->cleanUpSchema, ~message?)
 }
 
-let assertCompiledCode = (t, ~schema, ~op, code, ~message=?) => {
-  t->Assert.is(schema->getCompiledCodeString(~op), code, ~message?)
+let assertCompiledCode = (t, ~schema, ~op, code, ~embedded=?, ~message=?) => {
+  t->Assert.is(schema->getCompiledCodeString(~op, ~embedded?), code, ~message?)
 }
 
 let assertCompiledCodeIsNoop = (t, ~schema, ~op, ~message=?) => {

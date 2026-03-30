@@ -80,7 +80,7 @@ test("Compiled serialize code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema=filmSchema,
     ~op=#ReverseConvert,
-    `i=>{let v0=i["tags"];return {"Id":i["id"],"Title":i["title"],"Tags":i["tags"],"Rating":i["rating"],"Age":i["deprecatedAgeRestriction"],}}`,
+    `i=>{return {"Id":i["id"],"Title":i["title"],"Tags":i["tags"],"Rating":i["rating"],"Age":i["deprecatedAgeRestriction"],}}`,
   )
 })
 
