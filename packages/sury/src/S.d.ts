@@ -210,6 +210,7 @@ export type Schema<Output, Input = unknown> = {
         [key: string]: Schema<unknown>;
       };
       readonly additionalItems: "strip" | "strict" | Schema<unknown>;
+      readonly required?: string[];
     }
   | {
       readonly type: "union";

@@ -172,6 +172,7 @@ type rec t<'value> =
   Object({
       properties: dict<t<unknown>>,
       additionalItems: additionalItems,
+      required?: array<string>,
       name?: string,
       title?: string,
       description?: string,
@@ -219,6 +220,7 @@ and untagged = private {
   unnest?: bool,
   noValidation?: bool,
   items?: array<t<unknown>>,
+  required?: array<string>,
   properties?: dict<t<unknown>>,
   additionalItems?: additionalItems,
   anyOf?: array<t<unknown>>,
