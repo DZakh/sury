@@ -5170,7 +5170,12 @@ module Schema = {
         flattenedInput.expected = flattenedSchema
         flattenedInput.isOutput = Some(false)
         flattenedInput.isInput = Some(false)
-        flattenedVals->Js.Array2.push(flattenedInput->parse)->ignore
+        let flattenedVal = flattenedInput->parse
+        flattenedVals->Js.Array2.push(flattenedVal)->ignore
+        let flattenedCode = flattenedVal->B.merge
+        if flattenedCode !== "" {
+          input.codeFromPrev = input.codeFromPrev ++ flattenedCode
+        }
       }
       input.flattenedVals = Some(flattenedVals)
     | None => ()

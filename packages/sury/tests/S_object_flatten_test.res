@@ -187,7 +187,7 @@ test("Can flatten transformed object schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[3](i)}let v0=i["bar"],v1=i["foo"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="string"){e[1](v1)}return {"bar":e[2](v0),"foo":v1,}}`,
+    `i=>{if(typeof i!=="object"||!i){e[4](i)}let v0=i["bar"],v1=i["foo"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="string"){e[1](v1)}let v2;try{v2=e[2](v0)}catch(x){e[3](x)}return {"bar":v2,"foo":v1,}}`,
   )
 })
 
