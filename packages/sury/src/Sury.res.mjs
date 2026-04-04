@@ -4308,7 +4308,7 @@ function internalToJSONSchema(schema, path, defs, parent) {
               jsonSchema.maxLength = length;
               return;
             case "Pattern" :
-              jsonSchema.pattern = String(match.re);
+              jsonSchema.pattern = match.re.source;
               return;
           }
         }
@@ -4549,6 +4549,7 @@ function definitionToDefaultValue(definition) {
 }
 
 function fromJSONSchema(jsonSchema) {
+  enableJson();
   let definitionToSchema$1 = definition => {
     if (typeof definition !== "object") {
       if (definition === false) {
@@ -4712,7 +4713,10 @@ function fromJSONSchema(jsonSchema) {
               let schema$6 = maxLength !== undefined ? stringMaxLength(schema$5, maxLength, undefined) : schema$5;
               switch (jsonSchema.format) {
                 case "date-time" :
-                  schema = datetime(schema$6, undefined);
+                  schema = addRefinement(schema$6, metadataId$1, {
+                    kind: "Datetime",
+                    message: "Invalid datetime string! Expected UTC"
+                  }, input => "if(!" + embed(input, datetimeRe) + ".test(" + input.v() + ")){" + fail(input, "Invalid datetime string! Expected UTC") + "}");
                   break;
                 case "email" :
                   schema = email(schema$6, undefined);
@@ -4911,7 +4915,7 @@ let Option = {
 
 let String_Refinement = {};
 
-let $$String$1 = {
+let $$String = {
   Refinement: String_Refinement,
   refinements: refinements$1
 };
@@ -5013,7 +5017,7 @@ export {
   tuple2,
   tuple3,
   Option,
-  $$String$1 as $$String,
+  $$String,
   Int,
   Float,
   $$Array$1 as $$Array,

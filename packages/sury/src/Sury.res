@@ -6386,7 +6386,8 @@ module RescriptJSONSchema = {
           }
         | {kind: Max({length})} => jsonSchema.maxLength = Some(length)
         | {kind: Min({length})} => jsonSchema.minLength = Some(length)
-        | {kind: Pattern({re})} => jsonSchema.pattern = Some(re->Js.String2.make)
+        | {kind: Pattern({re})} =>
+          jsonSchema.pattern = Some((re->(Obj.magic: Js.Re.t => {..}))["source"])
         }
       })
       switch const {
@@ -6715,6 +6716,7 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
     }
 
   (jsonSchema: JSONSchema.t) => {
+    enableJson()
     let anySchema = json->castToPublic
 
     let definitionToSchema = (definition: JSONSchema.definition) =>
@@ -6867,7 +6869,19 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
       | {format: "email"} => schema->email->castAnySchemaToJsonableS
       | {format: "uri"} => schema->url->castAnySchemaToJsonableS
       | {format: "uuid"} => schema->uuid->castAnySchemaToJsonableS
-      | {format: "date-time"} => schema->datetime->castAnySchemaToJsonableS
+      | {format: "date-time"} =>
+        schema
+        ->addRefinement(
+          ~metadataId=String.Refinement.metadataId,
+          ~refiner=(~input) => {
+            `if(!${input->B.embed(String.datetimeRe)}.test(${input.var()})){${input->B.fail(~message="Invalid datetime string! Expected UTC")}}`
+          },
+          ~refinement={
+            kind: Datetime,
+            message: "Invalid datetime string! Expected UTC",
+          },
+        )
+        ->castAnySchemaToJsonableS
       | _ => schema->castAnySchemaToJsonableS
       }
 
