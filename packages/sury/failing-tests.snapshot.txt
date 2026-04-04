@@ -1,22 +1,27 @@
 # Failing Tests Baseline Snapshot
-# 
+#
 # To reproduce this list after making changes, run:
-#   cd packages/sury && pnpm exec ava --no-worker-threads 2>&1 | grep "✘ \[fail\]" | sort
+#   cd packages/sury && npx ava 2>&1 | grep "✘ \[fail\]" | sed 's/lib › bs › //' | sed 's/tests › //' | sort -u
 #
-# Compare with this file to see new failures:
-#   cd packages/sury && pnpm exec ava --no-worker-threads 2>&1 | grep "✘ \[fail\]" | sort > /tmp/after.txt
-#   diff failing-tests.snapshot.txt /tmp/after.txt
-#
-# Total: 35 failing tests
+# Total: 42 failing tests
 
-  ✘ [fail]: Example_test.res › Compiled serialize code snapshot
-  ✘ [fail]: Example_test.res › Example
+  ✘ [fail]: S_fromJSONSchema.res › fromJSONSchema: allOf Error thrown in test
+  ✘ [fail]: S_fromJSONSchema.res › fromJSONSchema: const
+  ✘ [fail]: S_fromJSONSchema.res › fromJSONSchema: empty schema is any Error thrown in test
+  ✘ [fail]: S_fromJSONSchema.res › fromJSONSchema: not Error thrown in test
+  ✘ [fail]: S_fromJSONSchema.res › fromJSONSchema: nullable false
+  ✘ [fail]: S_fromJSONSchema.res › fromJSONSchema: nullable true
+  ✘ [fail]: S_fromJSONSchema.res › fromJSONSchema: object with additionalProperties true Error thrown in test
+  ✘ [fail]: S_fromJSONSchema.res › fromJSONSchema: object with properties
+  ✘ [fail]: S_fromJSONSchema.res › fromJSONSchema: oneOf Error thrown in test
+  ✘ [fail]: S_fromJSONSchema.res › fromJSONSchema: string format date-time
+  ✘ [fail]: S_fromJSONSchema.res › fromJSONSchema: string pattern
+  ✘ [fail]: S_fromJSONSchema.res › fromJSONSchema: unknown type is any Error thrown in test
   ✘ [fail]: S_object_discriminant_test.res › Fails to serialize object with discriminant that we don't know how to serialize "true | null"
   ✘ [fail]: S_object_discriminant_test.res › Fails to serialize object with discriminant that we don't know how to serialize "true[]"
   ✘ [fail]: S_object_discriminant_test.res › Fails to serialize object with discriminant that we don't know how to serialize "{ [key: string]: true; }"
   ✘ [fail]: S_object_discriminant_test.res › Successfully serializes object with discriminant "{ "'`: ""'`"; nestedField: false; }" and values needed to be escaped
   ✘ [fail]: S_object_discriminant_test.res › Successfully serializes object with discriminant "{ nestedDiscriminant: "abc"; nestedField: false; }"
-  ✘ [fail]: S_object_flatten_test.res › Can flatten S.schema
   ✘ [fail]: S_object_flatten_test.res › Can flatten transformed object schema
   ✘ [fail]: S_object_test.res › Compiled code snapshot for refined nested object
   ✘ [fail]: S_recursive_test.res › Fails to serialise nested recursive object
@@ -28,10 +33,8 @@
   ✘ [fail]: S_recursive_test.res › Successfully serializes recursive object
   ✘ [fail]: S_refine_test.res › Compiled parse code snapshot for simple object with refine
   ✘ [fail]: S_refine_test.res › Successfully parses
-  ✘ [fail]: S_reverseConvertToJsonWith_test.res › Allows to convert to JSON with optional S.json as an object field
   ✘ [fail]: S_reverseConvertToJsonWith_test.res › Serializes deeply recursive schema
-  ✘ [fail]: S_test.ts › Successfully parses advanced object with all features
-  ✘ [fail]: S_test.ts › Unnest schema
+  ✘ [fail]: S_test › Unnest schema
   ✘ [fail]: S_toExpression_test.res › Expression of renamed schema
   ✘ [fail]: S_to_test.res › Coerce from union to bigint with refinement on union
   ✘ [fail]: S_to_test.res › Coerce from union to bigint with refinement on union (with an item transformed to)

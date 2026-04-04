@@ -2569,7 +2569,7 @@ function unionDecoder(input) {
   let o = output.f & 1 ? (output.i = "Promise.resolve(" + output.i + ")", output.v = _notVar, output) : (
       output.v === _var && input.cp === "" && output.cp === "" && (output.l === output.i + "=" + initialInline || initialInline === "i") ? (input.l = "", input.a = initialAllocate, input.v = _notVar, input.i = initialInline, input) : output
     );
-  o.s = outputAnyOf.length > 0 ? factory$1(outputAnyOf) : never;
+  o.s = outputAnyOf.length ? factory$1(outputAnyOf) : never;
   o.e = toPerCase !== undefined ? (o.io = true, getOutputSchema(toPerCase)) : selfSchema;
   return o;
 }
@@ -3609,6 +3609,8 @@ function shapedParser(input) {
       let flattenedSchema = flattened[idx];
       let flattenedInput = scope(input);
       flattenedInput.e = flattenedSchema;
+      flattenedInput.io = false;
+      flattenedInput.ii = false;
       flattenedVals.push(parse$1(flattenedInput));
     }
     input.fv = flattenedVals;

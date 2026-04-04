@@ -5168,6 +5168,8 @@ module Schema = {
         let flattenedSchema = flattened->Js.Array2.unsafe_get(idx)
         let flattenedInput = input->B.Val.scope
         flattenedInput.expected = flattenedSchema
+        flattenedInput.isOutput = Some(false)
+        flattenedInput.isInput = Some(false)
         flattenedVals->Js.Array2.push(flattenedInput->parse)->ignore
       }
       input.flattenedVals = Some(flattenedVals)
