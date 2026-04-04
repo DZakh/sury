@@ -5261,15 +5261,27 @@ module Schema = {
         v.isOutput = Some(true)
         v->parse
       } else {
-        let v = makeObjectVal(input, ~schema=targetSchema)
-        v.expected = targetSchema
+        // When acc is None (discriminant field with no input), follow the to chain
+        // to get the actual output schema properties (e.g., for reversed transformed objects)
+        let resolvedTargetSchema =
+          if acc === None {
+            targetSchema->getOutputSchema
+          } else {
+            targetSchema
+          }
+        let v = makeObjectVal(input, ~schema=resolvedTargetSchema)
+        v.expected = resolvedTargetSchema
         v.isOutput = Some(true)
         v.prev = None
         v.parent = Some(input)
         v.var = B._notVarAtParent
 
-        switch targetSchema {
-        | {items} =>
+        switch resolvedTargetSchema {
+        | {items}
+          if !(
+            acc === None &&
+              resolvedTargetSchema.additionalItems->Js.typeof === (objectTag :> string)
+          ) =>
           for idx in 0 to items->Js.Array2.length - 1 {
             let location = idx->Js.Int.toString
             v->B.Val.Object.add(
@@ -5287,7 +5299,11 @@ module Schema = {
               ),
             )
           }
-        | {properties, ?flattened} => {
+        | {properties, ?flattened}
+          if !(
+            acc === None &&
+              resolvedTargetSchema.additionalItems->Js.typeof === (objectTag :> string)
+          ) => {
             switch (flattened, acc) {
             | (Some(flattenedSchemas), Some({flattened: flattenedAcc})) =>
               flattenedAcc->Js.Array2.forEachi((acc, idx) => {
@@ -5332,7 +5348,7 @@ module Schema = {
           }
           input->B.invalidOperation(
             ~description={
-              `Missing input for ${targetSchema->castToPublic->toExpression}` ++
+              `Missing input for ${targetSchema->reverse->castToPublic->toExpression}` ++
               switch path {
               | "" => ""
               | _ => ` at ${path}`
