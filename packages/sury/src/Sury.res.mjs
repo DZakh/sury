@@ -3613,11 +3613,7 @@ function shapedParser(input) {
       flattenedInput.ii = false;
       let flattenedVal = parse$1(flattenedInput);
       flattenedVals.push(flattenedVal);
-      let flattenedCode = merge(flattenedVal);
-      if (flattenedCode !== "") {
-        input.cp = input.cp + flattenedCode;
-      }
-      
+      input.cp = input.cp + merge(flattenedVal);
     }
     input.fv = flattenedVals;
   }
