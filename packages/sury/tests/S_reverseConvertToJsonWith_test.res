@@ -80,9 +80,9 @@ test("Allows to convert to JSON with option as an object field", t => {
       "foo": s.matches(S.option(S.bool)),
     }
   )
-  t->U.assertThrowsMessage(
-    () => {"foo": None}->S.reverseConvertToJsonOrThrow(schema),
-    `Failed at ["foo"]: Unsupported conversion from boolean | undefined to JSON`,
+  t->Assert.deepEqual(
+    {"foo": None}->S.reverseConvertToJsonOrThrow(schema),
+    %raw(`{}`),
   )
 })
 
@@ -92,9 +92,9 @@ test("Allows to convert to JSON with optional S.json as an object field", t => {
       "foo": s.matches(S.option(S.json)),
     }
   )
-  t->U.assertThrowsMessage(
-    () => {"foo": None}->S.reverseConvertToJsonOrThrow(schema),
-    `Failed at ["foo"]: Unsupported conversion from JSON | undefined to JSON`,
+  t->Assert.deepEqual(
+    {"foo": None}->S.reverseConvertToJsonOrThrow(schema),
+    %raw(`{}`),
   )
 })
 

@@ -1375,7 +1375,6 @@ function compileDecoder(schema, expected, flag, defs) {
     inlinedOutput = "Promise.resolve(" + inlinedOutput + ")";
   }
   let inlinedFunction = "i=>{" + code + "return " + inlinedOutput + "}";
-  console.log(inlinedFunction);
   let ctxVarValue1 = input.g.e;
   let fn = new Function("e", "s", "return " + inlinedFunction)(ctxVarValue1, s);
   fn.embedded = input.g.e;
@@ -2226,6 +2225,7 @@ function unionDecoder(input) {
     throw new SuryError(errorDetails);
   }) + "(" + input.v() + caught + ")";
   let output = refine(input, undefined, undefined, undefined);
+  let outputAnyOf = [];
   let getArrItemsCode = (arr, isDeopt) => {
     let typeValidationInput = arr[0];
     let typeValidationOutput = arr[1];
@@ -2253,6 +2253,7 @@ function unionDecoder(input) {
       let itemCond = "";
       try {
         let itemOutput = parse$1(input);
+        outputAnyOf.push(itemOutput.s);
         let current = itemOutput;
         while (current !== undefined) {
           let val = current;
@@ -2568,6 +2569,7 @@ function unionDecoder(input) {
   let o = output.f & 1 ? (output.i = "Promise.resolve(" + output.i + ")", output.v = _notVar, output) : (
       output.v === _var && input.cp === "" && output.cp === "" && (output.l === output.i + "=" + initialInline || initialInline === "i") ? (input.l = "", input.a = initialAllocate, input.v = _notVar, input.i = initialInline, input) : output
     );
+  o.s = outputAnyOf.length > 0 ? factory$1(outputAnyOf) : never;
   o.e = toPerCase !== undefined ? (o.io = true, getOutputSchema(toPerCase)) : selfSchema;
   return o;
 }

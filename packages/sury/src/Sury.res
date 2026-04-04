@@ -2119,7 +2119,7 @@ and compileDecoder = (~schema, ~expected, ~flag, ~defs) => {
 
     let inlinedFunction = `${B.operationArgVar}=>{${code}return ${inlinedOutput.contents}}`
 
-    Js.log(inlinedFunction)
+    // Js.log(inlinedFunction)
 
     let fn = X.Function.make2(
       ~ctxVarName1="e",
@@ -3329,7 +3329,7 @@ module Union = {
     })
   }
 
-  let unionDecoder = Builder.make((~input) => {
+  let rec unionDecoder: Builder.t = (~input) => {
     let selfSchema = input.expected
     let schemas = selfSchema.anyOf->X.Option.getUnsafe
     let initialInputTagFlag = input.schema.tag->TagFlag.get
@@ -3383,6 +3383,7 @@ module Union = {
       // Create a copy of the input val, so we can mutate it
       // It's still the same value though, until mutated
       let output = input->B.refine
+      let outputAnyOf = []
 
       let getArrItemsCode = (arr: array<unknown>, ~isDeopt) => {
         let typeValidationInput = arr->Js.Array2.unsafe_get(0)->(Obj.magic: unknown => val)
@@ -3428,6 +3429,7 @@ module Union = {
           let itemCond = ref("")
           try {
             let itemOutput = input->parse
+            outputAnyOf->Js.Array2.push(itemOutput.schema->castToPublic)->ignore
 
             // This is a copy of the S.merge function
             let current = ref(Some(itemOutput))
@@ -3930,6 +3932,12 @@ module Union = {
         output
       }
 
+      // Build the output schema from collected case output schemas
+      o.schema = if outputAnyOf->Stdlib.Array.length->X.Int.unsafeToBool {
+        factory(outputAnyOf)->castToInternal
+      } else {
+        never->castToInternal
+      }
       o.expected = switch toPerCase {
       | Some(to) => {
           o.isOutput = Some(true)
@@ -3940,9 +3948,8 @@ module Union = {
 
       o
     }
-  })
-
-  let factory = schemas => {
+  }
+  and factory = schemas => {
     let schemas: array<internal> = schemas->Obj.magic
     // TODO:
     // 1. Fitler out items without parser
