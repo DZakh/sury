@@ -2528,7 +2528,6 @@ and arrayDecoder: builder = (~input as unknownInput) => {
 
         if itemOutput.flag->Flag.unsafeHas(ValFlag.async) {
           let v = output->B.asyncVal(`Promise.all(${output.inline})`)
-          // Resolve to a simple variable for Promise.all destructuring in completeObjectVal
           let _ = v.var()
           v
         } else {
