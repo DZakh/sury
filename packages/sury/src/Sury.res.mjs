@@ -2953,6 +2953,7 @@ function jsonDecoder(input) {
         itemOutput.o = true;
         add(jsonVal, key, itemOutput);
       } else if (itemVal.s.type === refTag) {
+        itemVal.io = true;
         add(jsonVal, key, itemVal);
       } else {
         itemVal.e = json;

@@ -4427,7 +4427,8 @@ let jsonDecoder = (~input) => {
             jsonVal->B.Val.Object.add(~location=key, itemOutput)
           } else if itemVal.schema.tag === refTag {
             // Recursive refs are already handled by their own recursive function,
-            // so skip redundant json validation
+            // so mark as output to skip redundant json validation
+            itemVal.isOutput = Some(true)
             jsonVal->B.Val.Object.add(~location=key, itemVal)
           } else {
             itemVal.expected = json
