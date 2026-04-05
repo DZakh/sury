@@ -1406,10 +1406,6 @@ module Builder = {
     let asyncVal = (from: val, initial: string): val => {
       let v = from->next(initial, ~schema=from.schema)
       v.flag = ValFlag.async
-      // Force variable allocation so inline is a simple variable name.
-      // This is needed because async vals may end up in Promise.all
-      // destructuring patterns where complex expressions are invalid.
-      let _ = v.var()
       v
     }
 
@@ -2531,7 +2527,10 @@ and arrayDecoder: builder = (~input as unknownInput) => {
         }
 
         if itemOutput.flag->Flag.unsafeHas(ValFlag.async) {
-          output->B.asyncVal(`Promise.all(${output.inline})`)
+          let v = output->B.asyncVal(`Promise.all(${output.inline})`)
+          // Resolve to a simple variable for Promise.all destructuring in completeObjectVal
+          let _ = v.var()
+          v
         } else {
           output
         }
@@ -2673,9 +2672,11 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
           let asyncParseResultVar = output.global->B.varWithoutAllocation
           let counterVar = output.global->B.varWithoutAllocation
           let outputVar = B.Val.var(output)
-          output->B.asyncVal(
+          let v = output->B.asyncVal(
             `new Promise((${resolveVar},${rejectVar})=>{let ${counterVar}=Object.keys(${outputVar}).length;for(let ${keyVar} in ${outputVar}){${outputVar}[${keyVar}].then(${asyncParseResultVar}=>{${outputVar}[${keyVar}]=${asyncParseResultVar};if(${counterVar}--===1){${resolveVar}(${outputVar})}},${rejectVar})}})`,
           )
+          let _ = v.var()
+          v
         } else {
           output
         }
@@ -5647,7 +5648,9 @@ let unnest = schema => {
           `for(let ${iteratorVar}=0;${iteratorVar}<${outputVar}.length;++${iteratorVar}){${itemCode}}`
 
         if itemOutput.flag->Flag.unsafeHas(ValFlag.async) {
-          output->B.asyncVal(`Promise.all(${output.inline})`)
+          let v = output->B.asyncVal(`Promise.all(${output.inline})`)
+          let _ = v.var()
+          v
         } else {
           output
         }
