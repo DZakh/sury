@@ -48,6 +48,7 @@
   - [`tuple1` - `tuple3`](#tuple1---tuple3)
   - [`dict`](#dict)
   - [`unknown`](#unknown)
+  - [`date`](#date)
   - [`instance`](#instance)
   - [`never`](#never)
   - [`json`](#json)
@@ -1021,6 +1022,22 @@ let schema = S.dict(S.string)
 ```
 
 The `dict` schema represents a dictionary of data of a specific type.
+
+### **`date`**
+
+`S.t<Js.Date.t>`
+
+```rescript
+let schema = S.date
+
+Date.fromString("2024-01-01T00:00:00Z")->S.parseOrThrow(schema) // passes
+%raw(`new Date("invalid")`)->S.parseOrThrow(schema) // throws - Invalid Date
+%raw(`"2024-01-01"`)->S.parseOrThrow(schema) // throws - not a Date instance
+```
+
+The `S.date` schema validates that the input is a `Date` instance and rejects Invalid Date.
+
+> Unlike `S.string->S.datetime` which parses ISO datetime strings into Date objects, `S.date` validates existing Date instances directly.
 
 ### **`instance`**
 

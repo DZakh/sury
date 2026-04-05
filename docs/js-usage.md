@@ -37,6 +37,7 @@
 - [Records](#records)
 - [JSON](#json)
 - [JSON string](#json-string)
+- [Date](#date)
 - [Instance](#instance)
 - [Meta](#meta)
 - [Custom schema](#custom-schema)
@@ -395,6 +396,9 @@ S.jsonStringWithSpace(2);
 S.jsonString.with(S.to, S.number);
 // Serializes number to JSON string
 S.number.with(S.to, S.jsonString);
+
+// Asserts that the input is a Date instance and not Invalid Date
+S.date;
 
 // Asserts that the input is an instance of Uint8Array
 S.uint8Array;
@@ -838,6 +842,19 @@ const numberCacheSchema = S.record(S.number);
 type NumberCache = S.Infer<typeof numberCacheSchema>;
 // => { [k: string]: number }
 ```
+
+## Date
+
+`S.date` validates that the input is a `Date` instance and rejects Invalid Date.
+
+```ts
+S.parser(S.date)(new Date()); // passes
+S.parser(S.date)(new Date("2024-01-01T00:00:00Z")); // passes
+S.parser(S.date)(new Date("invalid")); // throws
+S.parser(S.date)("2024-01-01"); // throws - not a Date instance
+```
+
+> Unlike `S.datetime(S.string)` which parses ISO datetime strings into Date objects, `S.date` validates existing Date instances directly.
 
 ## Instance
 
