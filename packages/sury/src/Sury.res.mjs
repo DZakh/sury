@@ -4406,7 +4406,8 @@ function internalToJSONSchema(schema, path, defs, parent) {
         exit$1 = 1;
       } else {
         jsonSchema.type = "object";
-        jsonSchema.additionalProperties = internalToJSONSchema(additionalItems$1, path + "[]", defs, schema);
+        let childJsonSchema = internalToJSONSchema(additionalItems$1, path + "[]", defs, schema);
+        jsonSchema.additionalProperties = Object.keys(childJsonSchema).length === 0 ? true : childJsonSchema;
       }
       if (exit$1 === 1) {
         let required = [];
@@ -4423,9 +4424,9 @@ function internalToJSONSchema(schema, path, defs, parent) {
         }
         jsonSchema.type = "object";
         jsonSchema.properties = jsonProperties;
-        let tmp;
-        tmp = additionalItems$1 === "strip" || additionalItems$1 === "strict" ? additionalItems$1 === "strip" : true;
-        jsonSchema.additionalProperties = tmp;
+        if (additionalItems$1 === "strict") {
+          jsonSchema.additionalProperties = false;
+        }
         if (required.length !== 0) {
           jsonSchema.required = required;
         }
@@ -4776,6 +4777,7 @@ function fromJSONSchema(jsonSchema) {
   }
   if (exit === 1) {
     let if_ = jsonSchema.if;
+    let exit$4 = 0;
     if (if_ !== undefined) {
       let then = jsonSchema.then;
       if (then !== undefined) {
@@ -4804,14 +4806,21 @@ function fromJSONSchema(jsonSchema) {
             }
           }, "Should pass the if/then/else schema validation.", undefined);
         } else {
-          schema = json;
+          exit$4 = 2;
         }
       } else {
-        schema = json;
+        exit$4 = 2;
       }
     } else {
+      exit$4 = 2;
+    }
+    if (exit$4 === 2) {
+      if (jsonSchema.type !== undefined) {
+        throw new Error("[Sury] Unknown JSON Schema type: " + jsonSchema.type);
+      }
       schema = json;
     }
+    
   }
   if (jsonSchema.description === undefined && jsonSchema.deprecated === undefined && jsonSchema.examples === undefined && jsonSchema.title === undefined) {
     return schema;
