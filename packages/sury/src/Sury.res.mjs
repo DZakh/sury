@@ -2952,6 +2952,8 @@ function jsonDecoder(input) {
         let itemOutput = parse$1(itemVal);
         itemOutput.o = true;
         add(jsonVal, key, itemOutput);
+      } else if (itemVal.s.type === refTag) {
+        add(jsonVal, key, itemVal);
       } else {
         itemVal.e = json;
         add(jsonVal, key, parse$1(itemVal));
