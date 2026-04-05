@@ -2896,12 +2896,23 @@ let recursiveDecoder = Builder.make((~input) => {
     output
   }
 
+  // Merge output in isolation to get the compiled code string
   output.prev = None
-  output.codeFromPrev = output->B.mergeWithPathPrepend(~parent=input)
-  output.allocate = B.initialAllocate
-  output.prev = Some(input)
+  let mergedCode = output->B.mergeWithPathPrepend(~parent=input)
 
-  output
+  // Create a fresh val since merge consumed output (deleted allocate, etc.)
+  let result = if hasTransform || isAsync {
+    let r = input->B.next(output.inline, ~schema=expectedSchema, ~expected=expectedSchema)
+    r.var = B._var
+    if isAsync {
+      r.flag = r.flag->Flag.with(ValFlag.async)
+    }
+    r
+  } else {
+    input->B.refine(~schema=expectedSchema, ~expected=expectedSchema)
+  }
+  result.codeFromPrev = mergedCode
+  result
 })
 
 let instanceDecoder = Builder.make((~input) => {
