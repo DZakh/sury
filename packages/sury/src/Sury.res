@@ -3393,6 +3393,7 @@ module Union = {
         let itemEnd = ref("")
         let itemNextElse = ref(false)
         let itemNoop = ref("")
+        let itemNoopExpected: ref<option<internal>> = ref(None)
         let caught = ref("")
 
         // Accumulate schemas code by refinement (discriminant)
@@ -3529,11 +3530,15 @@ module Union = {
             } else {
               // We have a condition but without additional parsing logic
               // So we accumulate it in case it's needed for a refinement later
-              itemNoop := (
-                  itemNoop.contents->X.String.unsafeToBool
-                    ? `${itemNoop.contents}||${itemCond}`
-                    : itemCond
-                )
+              if itemNoop.contents->X.String.unsafeToBool {
+                itemNoop := `${itemNoop.contents}||${itemCond}`
+                // Multiple items contribute to noop, can't use a single expected
+                itemNoopExpected := None
+              } else {
+                itemNoop := itemCond
+                // Track the item's expected schema for error messages
+                itemNoopExpected := Some(input.expected)
+              }
             }
           }
 
@@ -3574,6 +3579,7 @@ module Union = {
               // so we can remove preceding accumulated refinements
               // and exit early even if there are other items
               itemNoop := ""
+              itemNoopExpected := None
               itemIdx := lastIdx
               withExhaustiveCheck := false
             } else {
@@ -3584,6 +3590,7 @@ module Union = {
                 itemStart := itemStart.contents ++ if_ ++ `(!(${itemNoop.contents})){`
                 itemEnd := "}" ++ itemEnd.contents
                 itemNoop := ""
+                itemNoopExpected := None
                 itemNextElse := false
               }
               if isLast && (isDeopt || !withExhaustiveCheck.contents || isFirst) {
@@ -3616,6 +3623,12 @@ module Union = {
                   ) => {
                     `${B.exp(~negative)}(${itemNoop.contents})`
                   })
+                // Use the item's expected schema for error messages
+                // when a single item's condition is folded into type validation
+                switch itemNoopExpected.contents {
+                | Some(expected) => typeValidationOutput.expected = expected
+                | None => ()
+                }
               }
             } else if withExhaustiveCheck.contents {
               let errorCode = fail(caught.contents)
