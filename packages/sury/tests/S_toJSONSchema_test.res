@@ -66,7 +66,7 @@ test("JSONSchema of uuid schema", t => {
 test("JSONSchema of pattern schema", t => {
   t->Assert.deepEqual(
     S.string->S.pattern(/abc/g)->S.toJSONSchema,
-    %raw(`{"type": "string","pattern": "/abc/g"}`),
+    %raw(`{"type": "string","pattern": "abc"}`),
   )
 })
 
@@ -169,7 +169,6 @@ test("JSONSchema of object literal", t => {
     S.literal({"received": true})->S.toJSONSchema,
     %raw(`{
         "type": "object",
-        "additionalProperties": true,
         "properties": {
           "received": {
             "type": "boolean",
@@ -225,7 +224,6 @@ test("JSONSchema of object of literals schema", t => {
     )->S.toJSONSchema,
     %raw(`{
       "type": "object",
-      "additionalProperties": true,
       "properties": {
         "foo": {
           "type": "string",
@@ -345,7 +343,6 @@ test("JSONSchema of object with single string field", t => {
       "type": "object",
       "properties": {"field": {"type": "string"}},
       "required": ["field"],
-      "additionalProperties": true,
     }`),
   )
 })
@@ -368,7 +365,6 @@ test("JSONSchema of object with optional field", t => {
     %raw(`{
       "type": "object",
       "properties": {"field": {"type": "string"}},
-      "additionalProperties": true,
     }`),
   )
 })
@@ -386,7 +382,6 @@ test("JSONSchema of object with deprecated field", t => {
         "description": "Use another field"
       }},
       "required": ["field"],
-      "additionalProperties": true,
     }`),
   )
 })
@@ -424,11 +419,9 @@ test("JSONSchema of nested object", t => {
           "type": "object",
           "properties": {"Field": {"type": "string"}},
           "required": ["Field"],
-          "additionalProperties": true,
         },
       },
       "required": ["objectWithOneStringField"],
-      "additionalProperties": true,
     }`),
   )
 })
@@ -448,7 +441,6 @@ test("JSONSchema of object with one optional and one normal field", t => {
         "optionalField": {"type": "string"},
       },
       "required": ["field"],
-      "additionalProperties": true,
     }`),
   )
 })
@@ -470,7 +462,6 @@ test("JSONSchema of object with S.option(S.option(_)) field", t => {
           "type": "string",
         },
       },
-      "additionalProperties": true,
     }`),
   )
 })
@@ -508,7 +499,6 @@ test(
       %raw(`{
         "type": "object",
         "properties": {"field": {"type": "boolean"}}, // No 'default: true' here, but that's fine
-        "additionalProperties": true,
       }`),
     )
   },
@@ -544,7 +534,6 @@ test("Transformed schema schema uses default with correct type", t => {
     %raw(`{
       "type": "object",
       "properties": {"field": {"default": true, "type": "boolean"}},
-      "additionalProperties": true,
     }`),
   )
 })
@@ -639,7 +628,6 @@ test("Additional raw schema works with optional fields", t => {
       "properties": {
         "optionalField": {"nullable": true, "type": "string"},
       },
-      "additionalProperties": true,
     }`),
   )
 })
@@ -669,7 +657,6 @@ test("JSONSchema of recursive schema", t => {
     %raw(`{
       $defs: {
         Node: {
-          additionalProperties: true,
           properties: {
             Children: { items: { $ref: "#/$defs/Node" }, type: "array" },
             Id: { type: "string" },
@@ -708,7 +695,6 @@ test("JSONSchema of nested recursive schema", t => {
     %raw(`{
       type: 'object',
       properties: { node: { '$ref': '#/$defs/Node' } },
-      additionalProperties: true,
       required: [ 'node' ],
       '$defs': {
         Node: {
@@ -717,7 +703,6 @@ test("JSONSchema of nested recursive schema", t => {
             Children: { items: { $ref: "#/$defs/Node" }, type: "array" },
             Id: { type: "string" },
           },
-          additionalProperties: true,
           required: [ 'Id', 'Children' ]
         }
       }
@@ -820,7 +805,6 @@ module Example = {
             description: "Use rating instead",
           },
         },
-        additionalProperties: true,
         required: ["Id", "Title", "Rating"],
       }`),
     )
