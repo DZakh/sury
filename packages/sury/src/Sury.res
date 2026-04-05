@@ -1406,6 +1406,10 @@ module Builder = {
     let asyncVal = (from: val, initial: string): val => {
       let v = from->next(initial, ~schema=from.schema)
       v.flag = ValFlag.async
+      // Force variable allocation so inline is a simple variable name.
+      // This is needed because async vals may end up in Promise.all
+      // destructuring patterns where complex expressions are invalid.
+      let _ = v.var()
       v
     }
 
@@ -2366,7 +2370,6 @@ and completeObjectVal = (objectVal: B.Val.Object.t) => {
   let isArray = objectVal.schema.tag === arrayTag
   let inline = ref("")
   let promiseAllContent = ref("")
-  let asyncFieldCount = ref(0)
   let optionalSettingCode = ref(None)
 
   let keys = objectVal.vals->X.Option.getUnsafe->Js.Dict.keys
@@ -2376,7 +2379,6 @@ and completeObjectVal = (objectVal: B.Val.Object.t) => {
     let val = objectVal.vals->X.Option.getUnsafe->Js.Dict.unsafeGet(key)
     if val.flag->Flag.unsafeHas(ValFlag.async) {
       promiseAllContent := promiseAllContent.contents ++ val.inline ++ ","
-      asyncFieldCount := asyncFieldCount.contents + 1
     }
     if val.optional->X.Option.getUnsafe {
       let existingFn = optionalSettingCode.contents
@@ -2416,26 +2418,8 @@ and completeObjectVal = (objectVal: B.Val.Object.t) => {
 
     if operationCode === "" && promiseAllContent.contents === `${operationOutput.inline},` {
       valWithRequired.inline = operationOutput.inline
-    } else if asyncFieldCount.contents === 1 {
-      // Single async field: use simple destructuring
-      valWithRequired.inline = `Promise.all([${promiseAllContent.contents}]).then(([${promiseAllContent.contents}])=>{${operationCode}return ${operationOutput.inline}})`
     } else {
-      // Multiple async fields: use indexed access to avoid invalid destructuring targets
-      let asyncIdx = ref(0)
-      let keys = objectVal.vals->X.Option.getUnsafe->Js.Dict.keys
-      for idx in 0 to keys->Js.Array2.length - 1 {
-        let key = keys->Js.Array2.unsafe_get(idx)
-        let val = objectVal.vals->X.Option.getUnsafe->Js.Dict.unsafeGet(key)
-        if val.flag->Flag.unsafeHas(ValFlag.async) {
-          val.inline = `a[${asyncIdx.contents->Int.toString}]`
-          asyncIdx := asyncIdx.contents + 1
-        }
-      }
-      let operationInput2 = valWithRequired->B.Val.scope
-      operationInput2.isOutput = Some(true)
-      let operationOutput2 = operationInput2->parse
-      let operationCode2 = operationOutput2->B.merge
-      valWithRequired.inline = `Promise.all([${promiseAllContent.contents}]).then(a=>{${operationCode2}return ${operationOutput2.inline}})`
+      valWithRequired.inline = `Promise.all([${promiseAllContent.contents}]).then(([${promiseAllContent.contents}])=>{${operationCode}return ${operationOutput.inline}})`
     }
     valWithRequired.flag = valWithRequired.flag->Flag.with(ValFlag.async)
     valWithRequired.schema = operationOutput.schema

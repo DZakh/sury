@@ -53,7 +53,7 @@ module CommonWithNested = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ParseAsync,
-      `i=>{if(typeof i!=="object"||!i||Array.isArray(i)){e[2](i)}let v3={};for(let v0 in i){try{let v1;try{v1=e[0](i[v0]).catch(x=>e[1](x))}catch(x){e[1](x)}v3[v0]=v1.catch(v2=>{v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2})}catch(v2){v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2}}return new Promise((v4,v5)=>{let v7=Object.keys(v3).length;for(let v0 in v3){v3[v0].then(v6=>{v3[v0]=v6;if(v7--===1){v4(v3)}},v5)}})}`,
+      `i=>{if(typeof i!=="object"||!i||Array.isArray(i)){e[2](i)}let v3={};for(let v0 in i){try{let v1;try{v1=e[0](i[v0]).catch(x=>e[1](x))}catch(x){e[1](x)}v3[v0]=v1.catch(v2=>{v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2})}catch(v2){v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2}}let v8=new Promise((v4,v5)=>{let v7=Object.keys(v3).length;for(let v0 in v3){v3[v0].then(v6=>{v3[v0]=v6;if(v7--===1){v4(v3)}},v5)}});return v8}`,
     )
   })
 
