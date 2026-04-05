@@ -4699,6 +4699,30 @@ let enableUint8Array = () => {
   }
 }
 
+let date = {
+  let mut = base(instanceTag, ~selfReverse=true)
+  mut.class = %raw(`Date`)
+  mut.decoder = Builder.make((~input) => {
+    let inputTagFlag = input.schema.tag->TagFlag.get
+    if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
+      let input = input->B.refine(~schema=input.expected, ~validation=(~inputVar, ~negative) => {
+        let c = `${inputVar} instanceof ${input->B.embed(input.expected.class)}`
+        negative ? `!(${c})` : c
+      })
+      input->B.refine(~schema=input.expected, ~validation=(~inputVar, ~negative) => {
+        `${B.exp(~negative=!negative)}Number.isNaN(${inputVar}.getTime())`
+      })
+    } else if (
+      inputTagFlag->Flag.unsafeHas(TagFlag.instance) && input.schema.class === mut.class
+    ) {
+      input
+    } else {
+      input->B.unsupportedConversion(~from=input.schema, ~target=input.expected)
+    }
+  })
+  mut->castToPublic
+}
+
 module Int = {
   module Refinement = {
     type kind =

@@ -40,6 +40,8 @@ let uint8Array = Sury.uint8Array;
 
 let enableUint8Array = Sury.enableUint8Array;
 
+let date = Sury.date;
+
 let literal = Sury.literal;
 
 let array = Sury.array;
@@ -208,6 +210,7 @@ export {
   enableJsonString,
   uint8Array,
   enableUint8Array,
+  date,
   literal,
   array,
   compactColumns,

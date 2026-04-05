@@ -154,6 +154,10 @@ let filesMapping = [
     "S.enableUint8Array"
   ],
   [
+    "date",
+    "S.date"
+  ],
+  [
     "union",
     "S.js_union"
   ],

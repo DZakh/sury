@@ -137,6 +137,7 @@ let filesMapping = [
   ("jsonStringWithSpace", "S.jsonStringWithSpace"),
   ("uint8Array", "S.uint8Array"),
   ("enableUint8Array", "S.enableUint8Array"),
+  ("date", "S.date"),
   ("union", "S.js_union"),
   ("object", "S.object"),
   ("schema", "S.js_schema"),
