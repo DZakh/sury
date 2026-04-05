@@ -44,7 +44,7 @@
     "build": "pnpm rescript --dev && node ./scripts/pack/Pack.res.mjs",
     "res": "rescript watch --dev",
     "test:res": "cd ./packages/tests && rescript clean && rescript watch --dev",
-    "test": "pnpm tsc && ava",
+    "test": "rescript build --dev && pnpm tsc && ava",
     "lint:stdlib": "rescript-stdlib-vendorer lint --ignore-path=src"
   },
   "ava": {

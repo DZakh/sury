@@ -80,9 +80,9 @@ test("Allows to convert to JSON with option as an object field", t => {
       "foo": s.matches(S.option(S.bool)),
     }
   )
-  t->U.assertThrowsMessage(
-    () => {"foo": None}->S.reverseConvertToJsonOrThrow(schema),
-    `Failed at ["foo"]: Unsupported conversion from boolean | undefined to JSON`,
+  t->Assert.deepEqual(
+    {"foo": None}->S.reverseConvertToJsonOrThrow(schema),
+    %raw(`{}`),
   )
 })
 
@@ -92,9 +92,9 @@ test("Allows to convert to JSON with optional S.json as an object field", t => {
       "foo": s.matches(S.option(S.json)),
     }
   )
-  t->U.assertThrowsMessage(
-    () => {"foo": None}->S.reverseConvertToJsonOrThrow(schema),
-    `Failed at ["foo"]: Unsupported conversion from JSON | undefined to JSON`,
+  t->Assert.deepEqual(
+    {"foo": None}->S.reverseConvertToJsonOrThrow(schema),
+    %raw(`{}`),
   )
 })
 
@@ -355,11 +355,11 @@ module SerializesDeepRecursive = {
       ~op=#ReverseConvert,
       `i=>{let v0;try{v0=e[0](i["condition"]);}catch(v1){v1.path="[\\"condition\\"]"+v1.path;throw v1}return {"condition":v0,}}`,
     )
-    // Note: This is incorrect
+    // Note: Can be optimized to not recursively validate JSON values a second time
     t->U.assertCompiledCode(
       ~schema=bodySchema,
       ~op=#ReverseConvertToJson,
-      `i=>{let v0;try{v0=e[0](i["condition"]);}catch(v1){v1.path="[\\"condition\\"]"+v1.path;throw v1}return {"condition":v0,}}`,
+      `i=>{let v0;try{v0=e[0](i["condition"]);}catch(v1){v1.path="[\\"condition\\"]"+v1.path;throw v1}try{e[1](v0);}catch(v2){v2.path="[\\"condition\\"]"+v2.path;throw v2}return {"condition":v0,}}`,
     )
 
     t->Assert.deepEqual(

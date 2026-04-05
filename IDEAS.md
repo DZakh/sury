@@ -24,6 +24,7 @@
 - TS: Updated `S.Error` type to use variants instead of code property
 - ReScript: `S.null` -> `S.nullAsOption`
 - Updated union conversion logic - it now always performs exhaustive validation
+- Encoding to JSON now strips undefined fields
 
 ### TS
 
