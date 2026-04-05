@@ -1,6 +1,8 @@
 open Ava
 open JSONSchema
 
+S.enableJson()
+
 // Helper for round-trip: S -> toJSONSchema -> fromJSONSchema -> S
 let roundTrip = schema => schema->S.toJSONSchema->S.fromJSONSchema
 

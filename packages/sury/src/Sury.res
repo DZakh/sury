@@ -6716,7 +6716,6 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
     }
 
   (jsonSchema: JSONSchema.t) => {
-    enableJson()
     let anySchema = json->castToPublic
 
     let definitionToSchema = (definition: JSONSchema.definition) =>
