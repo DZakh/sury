@@ -7,4 +7,4 @@ packages/sury/artifacts
 lib
 coverage
 .tsimp
-tsconfig.tsbuildinfo
+tsconfig.tsbuildinfopackage-lock.json
