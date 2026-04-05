@@ -133,8 +133,7 @@ test("fromJSONSchema: object with properties", t => {
   let schema = S.fromJSONSchema(js)
   t->Assert.deepEqual(parse(schema, {"foo": "hi", "bar": 1}), {"foo": "hi", "bar": 1})
   t->Assert.throws(() => parse(schema, {"bar": 1}))
-  // toJSONSchema adds additionalProperties: true for non-strict objects
-  t->Assert.deepEqual(jsonRoundTrip(js), {...js, additionalProperties: Any})
+  t->Assert.deepEqual(jsonRoundTrip(js), js)
 })
 
 test("fromJSONSchema: object with additionalProperties false", t => {
@@ -156,11 +155,7 @@ test("fromJSONSchema: object with additionalProperties true", t => {
   }
   let schema = S.fromJSONSchema(js)
   t->Assert.deepEqual(parse(schema, {"foo": 1, "bar": 2}), {"foo": 1, "bar": 2})
-  // dict(json) round-trips to additionalProperties: {} (the json schema definition)
-  t->Assert.deepEqual(
-    jsonRoundTrip(js),
-    {type_: Arrayable.single(#object), additionalProperties: Schema({})},
-  )
+  t->Assert.deepEqual(jsonRoundTrip(js), js)
 })
 
 // 5. Combinators
@@ -300,14 +295,9 @@ test("fromJSONSchema: empty schema is any", t => {
   t->Assert.deepEqual(jsonRoundTrip(js), js)
 })
 
-test("fromJSONSchema: unknown type is any", t => {
+test("fromJSONSchema: unknown type throws", t => {
   let js = {type_: Arrayable.single((Obj.magic("unknownType"): typeName))}
-  let schema = S.fromJSONSchema(js)
-  t->Assert.deepEqual(parse(schema, "foo"), "foo")
-  t->Assert.deepEqual(parse(schema, 1), 1)
-  t->Assert.deepEqual(parse(schema, true), true)
-  // unknown type falls back to json (any), round-trips to empty schema
-  t->Assert.deepEqual(jsonRoundTrip(js), {})
+  t->Assert.throws(() => S.fromJSONSchema(js))
 })
 
 // 10. Round-trip S -> toJSONSchema -> fromJSONSchema -> S

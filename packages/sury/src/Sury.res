@@ -6546,15 +6546,18 @@ module RescriptJSONSchema = {
       switch additionalItems {
       | Schema(childSchema) => {
           jsonSchema.type_ = Some(Arrayable.single(#object))
+          let childJsonSchema = internalToJSONSchema(
+            childSchema,
+            ~path=path->Path.concat(Path.dynamic),
+            ~defs,
+            ~parent=schema,
+          )
           jsonSchema.additionalProperties = Some(
-            Schema(
-              internalToJSONSchema(
-                childSchema,
-                ~path=path->Path.concat(Path.dynamic),
-                ~defs,
-                ~parent=schema,
-              ),
-            ),
+            if (childJsonSchema->Obj.magic: dict<'a>)->Js.Dict.keys->Js.Array2.length === 0 {
+              JSONSchema.Any
+            } else {
+              Schema(childJsonSchema)
+            },
           )
         }
       | _ => {
@@ -6579,14 +6582,12 @@ module RescriptJSONSchema = {
 
           jsonSchema.type_ = Some(Arrayable.single(#object))
           jsonSchema.properties = Some(jsonProperties)
-          jsonSchema.additionalProperties = Some(
-            switch additionalItems {
-            | Strict => JSONSchema.Never
-            | Strip
-            | Schema(_) =>
-              JSONSchema.Any
-            },
-          )
+          switch additionalItems {
+          | Strict =>
+            jsonSchema.additionalProperties = Some(JSONSchema.Never)
+          | Strip
+          | Schema(_) => ()
+          }
           switch required {
           | [] => ()
           | required => jsonSchema.required = Some(required)
@@ -6948,6 +6949,10 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
           }
         }, ~error="Should pass the if/then/else schema validation.")
       }
+    | _ if jsonSchema.type_ !== None =>
+      InternalError.panic(
+        `Unknown JSON Schema type: ${(jsonSchema.type_->Obj.magic: string)}`,
+      )
     | _ => anySchema
     }
 
