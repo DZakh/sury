@@ -297,7 +297,7 @@ test("fromJSONSchema: empty schema is any", t => {
 
 test("fromJSONSchema: unknown type throws", t => {
   let js = {type_: Arrayable.single((Obj.magic("unknownType"): typeName))}
-  t->Assert.throws(() => S.fromJSONSchema(js))
+  t->Assert.throws(() => S.fromJSONSchema(js), ~expectations={message: "[Sury] Unknown JSON Schema type: unknownType"})
 })
 
 // 10. Round-trip S -> toJSONSchema -> fromJSONSchema -> S
