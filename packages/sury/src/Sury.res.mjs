@@ -4566,7 +4566,6 @@ function definitionToDefaultValue(definition) {
 }
 
 function fromJSONSchema(jsonSchema) {
-  enableJson();
   let definitionToSchema$1 = definition => {
     if (typeof definition !== "object") {
       if (definition === false) {
