@@ -1778,6 +1778,10 @@ function objectDecoder(unknownInput) {
 
 function recursiveDecoder(input) {
   let expectedSchema = input.e;
+  if (input.s.type === refTag && input.s.seq !== expectedSchema.seq) {
+    input.io = true;
+    return input;
+  }
   let schemaRef = expectedSchema.$ref;
   let defs = input.g.d;
   let identifier = schemaRef.slice(8);
@@ -1839,6 +1843,7 @@ function recursiveDecoder(input) {
     output$2.cp = recOperation + "(" + input.i + ");";
     output = output$2;
   }
+  output.io = true;
   output.prev = undefined;
   output.cp = mergeWithPathPrepend(output, input, undefined, undefined);
   output.prev = input;
@@ -2952,9 +2957,6 @@ function jsonDecoder(input) {
         let itemOutput = parse$1(itemVal);
         itemOutput.o = true;
         add(jsonVal, key, itemOutput);
-      } else if (itemVal.s.type === refTag) {
-        itemVal.io = true;
-        add(jsonVal, key, itemVal);
       } else {
         itemVal.e = json;
         add(jsonVal, key, parse$1(itemVal));

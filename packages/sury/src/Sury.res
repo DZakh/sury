@@ -2772,6 +2772,13 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
 let recursiveDecoder = Builder.make((~input) => {
   let expectedSchema = input.expected
 
+  // When the input schema is itself a ref (e.g. a recursive field already processed
+  // by its own recursive function), skip redundant validation
+  if input.schema.tag === refTag && input.schema.seq !== expectedSchema.seq {
+    input.isOutput = Some(true)
+    input
+  } else {
+
   let schemaRef = expectedSchema.ref->X.Option.getUnsafe
   let defs = input.global.defs->X.Option.getUnsafe
   // Ignore #/$defs/
@@ -2873,11 +2880,13 @@ let recursiveDecoder = Builder.make((~input) => {
     output
   }
 
+  output.isOutput = Some(true)
   output.prev = None
   output.codeFromPrev = output->B.mergeWithPathPrepend(~parent=input)
   output.prev = Some(input)
 
   output
+  }
 })
 
 let instanceDecoder = Builder.make((~input) => {
@@ -4425,11 +4434,6 @@ let jsonDecoder = (~input) => {
             let itemOutput = itemVal->parse
             itemOutput.optional = Some(true)
             jsonVal->B.Val.Object.add(~location=key, itemOutput)
-          } else if itemVal.schema.tag === refTag {
-            // Recursive refs are already handled by their own recursive function,
-            // so mark as output to skip redundant json validation
-            itemVal.isOutput = Some(true)
-            jsonVal->B.Val.Object.add(~location=key, itemVal)
           } else {
             itemVal.expected = json
             jsonVal->B.Val.Object.add(~location=key, itemVal->parse)
