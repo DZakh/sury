@@ -355,7 +355,7 @@ module SerializesDeepRecursive = {
       ~op=#ReverseConvert,
       `i=>{let v0;try{v0=e[0](i["condition"]);}catch(v1){v1.path="[\\"condition\\"]"+v1.path;throw v1}return {"condition":v0,}}`,
     )
-    // Note: This is incorrect
+    // Note: Can be optimized to not recursively validate JSON values a second time
     t->U.assertCompiledCode(
       ~schema=bodySchema,
       ~op=#ReverseConvertToJson,
