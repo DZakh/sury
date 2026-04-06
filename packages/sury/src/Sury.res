@@ -4699,29 +4699,22 @@ let enableUint8Array = () => {
   }
 }
 
+let invalidDateRefine = (input: val) =>
+  input->B.refine(~schema=input.expected, ~validation=(~inputVar, ~negative) => {
+    `${B.exp(~negative=!negative)}Number.isNaN(${inputVar}.getTime())`
+  })
+
 let date = {
   let mut = base(instanceTag, ~selfReverse=true)
   mut.class = %raw(`Date`)
   mut.decoder = Builder.make((~input) => {
     let inputTagFlag = input.schema.tag->TagFlag.get
     if inputTagFlag->Flag.unsafeHas(TagFlag.string) {
-      // String → Date conversion via new Date(str)
-      let input = input->B.next(
-        `new Date(${input.inline})`,
-        ~schema=mut->castToPublic->castToInternal,
-      )
-      // Invalid Date check after conversion
-      input->B.refine(~schema=input.expected, ~validation=(~inputVar, ~negative) => {
-        `${B.exp(~negative=!negative)}Number.isNaN(${inputVar}.getTime())`
-      })
+      input
+      ->B.next(`new Date(${input.inline})`, ~schema=mut->castToPublic->castToInternal)
+      ->invalidDateRefine
     } else if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
-      let input = input->B.refine(~schema=input.expected, ~validation=(~inputVar, ~negative) => {
-        let c = `${inputVar} instanceof ${input->B.embed(input.expected.class)}`
-        negative ? `!(${c})` : c
-      })
-      input->B.refine(~schema=input.expected, ~validation=(~inputVar, ~negative) => {
-        `${B.exp(~negative=!negative)}Number.isNaN(${inputVar}.getTime())`
-      })
+      instanceDecoder(~input)->invalidDateRefine
     } else if (
       inputTagFlag->Flag.unsafeHas(TagFlag.instance) && input.schema.class === mut.class
     ) {
