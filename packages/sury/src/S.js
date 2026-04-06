@@ -26,6 +26,7 @@ export var enableJsonString = S.enableJsonString
 export var jsonStringWithSpace = S.jsonStringWithSpace
 export var uint8Array = S.uint8Array
 export var enableUint8Array = S.enableUint8Array
+export var date = S.date
 export var union = S.js_union
 export var object = S.object
 export var schema = S.js_schema

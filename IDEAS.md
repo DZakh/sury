@@ -2,6 +2,7 @@
 
 ## Alpha.5
 
+- Add `S.date` — standalone Date instance schema. Validates `instanceof Date` and rejects Invalid Date. Unlike `S.datetime` (which transforms strings to dates), `S.date` directly validates Date objects.
 - Added `S.compactColumns` - transforms columnar data (`[[a1,a2], [b1,b2]]`) to/from row objects (`[{foo:a1,bar:b1}, {foo:a2,bar:b2}]`)
 - TypeScript: Use `S.encoder(schema)` for encoding (replaces internal `reverseConvertOrThrow`)
 - `S.compactColumns` type is `Schema<Output[][], Input[][]>`
@@ -140,7 +141,7 @@ S.parseOrThrow(data, userSchema)
 - Remove fieldOr in favor of optionOr?
 - Allow to pass custom error message via `.with`
 - Make S.to extensible
-- Add S.Date (S.instanceof) and remove S.datetime
+- ~~Add S.Date (S.instanceof) and remove S.datetime~~ (S.date added; S.datetime kept for backward compat)
 - Add refinement info to the tagged type
 
 ## v???

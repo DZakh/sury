@@ -122,6 +122,26 @@ test("Successfully parses string with built-in datetime transform", (t) => {
   expectType<TypeEqual<typeof value, Date>>(true);
 });
 
+test("Successfully parses string to Date with S.to", (t) => {
+  const schema = S.string.with(S.to, S.date);
+  const value = S.parser(schema)("2024-01-01T00:00:00.000Z");
+
+  t.deepEqual(value, new Date("2024-01-01T00:00:00.000Z"));
+
+  expectType<SchemaEqual<typeof schema, Date, string>>(true);
+  expectType<TypeEqual<typeof value, Date>>(true);
+});
+
+test("Successfully converts Date to string with S.to", (t) => {
+  const schema = S.date.with(S.to, S.string);
+  const value = S.decoder(schema)(new Date("2024-01-01T00:00:00.000Z"));
+
+  t.is(value, "2024-01-01T00:00:00.000Z");
+
+  expectType<SchemaEqual<typeof schema, string, Date>>(true);
+  expectType<TypeEqual<typeof value, string>>(true);
+});
+
 test("Successfully parses int", (t) => {
   const schema = S.int32;
   const value = S.parser(schema)(123);

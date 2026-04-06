@@ -4699,6 +4699,46 @@ let enableUint8Array = () => {
   }
 }
 
+let invalidDateRefine = (input: val) =>
+  input->B.refine(~schema=input.expected, ~validation=(~inputVar, ~negative) => {
+    `${B.exp(~negative=!negative)}Number.isNaN(${inputVar}.getTime())`
+  })
+
+let date = {
+  let mut = base(instanceTag, ~selfReverse=true)
+  mut.class = %raw(`Date`)
+  mut.decoder = Builder.make((~input) => {
+    let inputTagFlag = input.schema.tag->TagFlag.get
+    if inputTagFlag->Flag.unsafeHas(TagFlag.string) {
+      input
+      ->B.next(`new Date(${input.inline})`, ~schema=mut->castToPublic->castToInternal)
+      ->invalidDateRefine
+    } else if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
+      instanceDecoder(~input)->invalidDateRefine
+    } else if (
+      inputTagFlag->Flag.unsafeHas(TagFlag.instance) && input.schema.class === mut.class
+    ) {
+      input
+    } else {
+      input->B.unsupportedConversion(~from=input.schema, ~target=input.expected)
+    }
+  })
+  // Encoder: Date → string (via toISOString) when target is string
+  mut.encoder = Some(
+    Builder.encoder((~input, ~target) => {
+      let toTagFlag = target.tag->TagFlag.get
+      if toTagFlag->Flag.unsafeHas(TagFlag.string) {
+        input
+        ->B.next(`${input.inline}.toISOString()`, ~schema=string, ~expected=target)
+        ->parse
+      } else {
+        input
+      }
+    }),
+  )
+  mut->castToPublic
+}
+
 module Int = {
   module Refinement = {
     type kind =
