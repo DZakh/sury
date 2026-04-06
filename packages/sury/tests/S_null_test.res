@@ -181,12 +181,7 @@ module OuterRecord = {
 
     t->Assert.deepEqual(record, %raw(`{ record: { BS_PRIVATE_NESTED_SOME_NONE: 0 } }`))
     t->Assert.deepEqual(record->S.reverseConvertOrThrow(schema), %raw(`{ record: null }`))
-    // Note: reverseConvertToJsonStringOrThrow throws for optional nullable fields
-    // because the union includes `undefined` which can't be converted to JSON
-    t->U.assertThrowsMessage(
-      () => record->S.reverseConvertToJsonStringOrThrow(schema),
-      `Failed at ["record"]: Unsupported conversion from { k: int32 | undefined | { BS_PRIVATE_NESTED_SOME_NONE: 0; }; } | undefined | { BS_PRIVATE_NESTED_SOME_NONE: 0; } to JSON`,
-    )
+    t->Assert.deepEqual(record->S.reverseConvertToJsonStringOrThrow(schema), `{"record":null}`)
 
     t->U.assertCompiledCode(
       ~schema,

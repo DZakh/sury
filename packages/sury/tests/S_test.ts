@@ -2681,7 +2681,6 @@ test("Example of transformed schema", (t) => {
   // 4. Or via JSON Schema
   t.deepEqual(S.toJSONSchema(userSchema), {
     type: "object",
-    additionalProperties: true,
     properties: {
       USER_ID: {
         type: "string",

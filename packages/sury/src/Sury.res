@@ -4753,8 +4753,19 @@ let to = (from, target) => {
   } else {
     updateOutput(from, mut => {
       mut.to = Some(target)
+      // A tricky part about parser is that we don't know the input type in ReScript
+      // so we need to directly parse to output instead of input
+      // switch parser {
+      // | Some(p) =>
+      //   mut.parser = Some(
+      //     Builder.make((b, ~input, , ~path as _) => {
+      //       // TODO: Support async, reverse, nested parsing
+      //       b->B.embedSyncOperation(~input, ~fn=p)
+      //     }),
+      //   )
+      // | None => ()
+      // }
     })
-
   }
 }
 
