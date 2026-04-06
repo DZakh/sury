@@ -15,6 +15,7 @@ export var optional = S.js_optional
 export var nullable = S.js_nullable
 export var nullish = S.nullable
 export var array = S.array
+export var compactColumns = S.compactColumns
 export var instance = S.instance
 export var unnest = S.unnest
 export var record = S.dict

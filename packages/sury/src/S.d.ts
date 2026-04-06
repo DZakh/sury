@@ -91,6 +91,11 @@ export type JSON =
   | { [key: string]: JSON }
   | JSON[];
 
+export type NumberFormat = "int32" | "port";
+export type StringFormat = "json";
+export type ArrayFormat = "compactColumns";
+export type Format = NumberFormat | StringFormat | ArrayFormat;
+
 export type Schema<Output, Input = unknown> = {
   with<TargetOutput = unknown, TargetInput = unknown>(
     to: (
@@ -157,12 +162,12 @@ export type Schema<Output, Input = unknown> = {
     }
   | {
       readonly type: "string";
-      readonly format?: "json";
+      readonly format?: StringFormat;
       readonly const?: string;
     }
   | {
       readonly type: "number";
-      readonly format?: "int32" | "port";
+      readonly format?: NumberFormat;
       readonly const?: number;
     }
   | {
@@ -202,7 +207,7 @@ export type Schema<Output, Input = unknown> = {
       readonly type: "array";
       readonly items: Schema<unknown>;
       readonly additionalItems: "strip" | "strict" | Schema<unknown>;
-      readonly unnest?: true;
+      readonly format?: ArrayFormat;
     }
   | {
       readonly type: "object";
@@ -623,14 +628,9 @@ export const array: <Output, Input>(
   schema: Schema<Output, Input>
 ) => Schema<Output[], Input[]>;
 
-export const unnest: <Output, Input extends Record<string, unknown>>(
+export const compactColumns: <Output, Input>(
   schema: Schema<Output, Input>
-) => Schema<
-  Output[],
-  {
-    [K in keyof Input]: Input[K][];
-  }[keyof Input][]
->;
+) => Schema<Output[][], Input[][]>;
 
 export const record: <Output, Input>(
   schema: Schema<Output, Input>

@@ -2,6 +2,10 @@
 
 ## Alpha.5
 
+- Added `S.compactColumns` - transforms columnar data (`[[a1,a2], [b1,b2]]`) to/from row objects (`[{foo:a1,bar:b1}, {foo:a2,bar:b2}]`)
+- TypeScript: Use `S.encoder(schema)` for encoding (replaces internal `reverseConvertOrThrow`)
+- `S.compactColumns` type is `Schema<Output[][], Input[][]>`
+- `S.toExpression` now shows proper type for `S.compactColumns` without `S.to` (e.g., `"string[][]"`)
 - Changed `S.refine` from callback-based to boolean-returning. TS/JS: `(value) => boolean` with optional `{ error?: string, path?: string[] }` options. ReScript: `'value => bool` with optional `~error: string=?` and `~path: array<string>=?` labeled arguments. The check returns `true` when valid, `false` when invalid.
 - TS/JS API: Renamed `S.asyncParserRefine` to `S.asyncDecoderAssert`. Removed `EffectCtx` (`s`) parameter — throw directly to signal failure instead of calling `s.fail()`
 - TS API: Removed `S.transform` in favor of `S.to`

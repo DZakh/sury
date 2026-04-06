@@ -44,7 +44,7 @@ let literal = Sury.literal;
 
 let array = Sury.array;
 
-let unnest = Sury.unnest;
+let compactColumns = Sury.compactColumns;
 
 let list = Sury.list;
 
@@ -210,7 +210,7 @@ export {
   enableUint8Array,
   literal,
   array,
-  unnest,
+  compactColumns,
   list,
   instance,
   dict,

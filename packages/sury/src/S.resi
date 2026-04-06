@@ -22,8 +22,9 @@ module Path: {
 
 type numberFormat = | @as("int32") Int32 | @as("port") Port
 type stringFormat = | @as("json") JSON
+type arrayFormat = | @as("compactColumns") CompactColumns
 
-type format = | ...numberFormat | ...stringFormat
+type format = | ...numberFormat | ...stringFormat | ...arrayFormat
 
 @unboxed
 type additionalItemsMode = | @as("strip") Strip | @as("strict") Strict
@@ -160,7 +161,7 @@ type rec t<'value> =
   Array({
       items: array<t<unknown>>,
       additionalItems: additionalItems,
-      unnest?: bool,
+      format?: arrayFormat,
       name?: string,
       title?: string,
       description?: string,
@@ -217,7 +218,6 @@ and untagged = private {
   deprecated?: bool,
   examples?: array<unknown>,
   default?: unknown,
-  unnest?: bool,
   noValidation?: bool,
   items?: array<t<unknown>>,
   required?: array<string>,
@@ -311,7 +311,7 @@ let enableUint8Array: unit => unit
 
 let literal: 'value => t<'value>
 let array: t<'value> => t<array<'value>>
-let unnest: t<'value> => t<array<'value>>
+let compactColumns: t<'value> => t<array<array<'value>>>
 let list: t<'value> => t<list<'value>>
 let instance: unknown => t<unknown>
 let dict: t<'value> => t<dict<'value>>

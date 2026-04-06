@@ -281,8 +281,9 @@ type internalDefault = {}
 
 type numberFormat = | @as("int32") Int32 | @as("port") Port
 type stringFormat = | @as("json") JSON
+type arrayFormat = | @as("compactColumns") CompactColumns
 
-type format = | ...numberFormat | ...stringFormat
+type format = | ...numberFormat | ...stringFormat | ...arrayFormat
 
 @unboxed
 type additionalItemsMode = | @as("strip") Strip | @as("strict") Strict
@@ -401,7 +402,7 @@ type rec t<'value> =
   Array({
       items: array<t<unknown>>,
       additionalItems: additionalItems,
-      unnest?: bool,
+      format?: arrayFormat,
       name?: string,
       title?: string,
       description?: string,
@@ -486,7 +487,6 @@ and internal = {
   mutable required?: array<string>,
   mutable properties?: dict<internal>,
   mutable noValidation?: bool,
-  mutable unnest?: bool,
   mutable space?: int,
   @as("$ref")
   mutable ref?: string,
@@ -521,7 +521,6 @@ and untagged = private {
   deprecated?: bool,
   examples?: array<unknown>,
   default?: unknown,
-  unnest?: bool,
   noValidation?: bool,
   items?: array<t<unknown>>,
   required?: array<string>,
@@ -791,6 +790,31 @@ let rec toExpression = schema => {
     ->(Obj.magic: array<internal> => array<t<'a>>)
     ->Js.Array2.map(toExpression)
     ->Js.Array2.joinWith(" | ")
+  | {format: ?Some(CompactColumns), ?to, ?additionalItems} => {
+      // For compactColumns, show the column types if we have properties from .to
+      switch to {
+      | Some(toSchema) =>
+        switch toSchema.properties {
+        | Some(props) =>
+          let keys = props->Js.Dict.keys
+          `[${keys
+            ->Js.Array2.map(key => {
+              let propSchema = props->Js.Dict.unsafeGet(key)->castToPublic
+              `${propSchema->toExpression}[]`
+            })
+            ->Js.Array2.joinWith(", ")}]`
+        | None => "unknown[][]"
+        }
+      | None =>
+        // No S.to applied, reuse the array expression logic
+        switch additionalItems {
+        | Some(Schema(innerArraySchema)) =>
+          let innerArraySchemaTyped: t<'a> = innerArraySchema->Obj.magic
+          `${innerArraySchemaTyped->toExpression}[]`
+        | _ => "unknown[][]"
+        }
+      }
+    }
   | {format} => (format :> string)
   | {tag: Object, ?properties, ?additionalItems} =>
     let properties = properties->X.Option.getUnsafe
@@ -2589,6 +2613,7 @@ and arrayDecoder: builder = (~input as unknownInput) => {
 and objectDecoder: Builder.t = (~input as unknownInput) => {
   let isUnion = unknownInput.isUnion->X.Option.getUnsafe
   let expectedSchema = unknownInput.expected
+
   let unknownInputTagFlag = unknownInput.schema.tag->TagFlag.get
 
   let input = if unknownInputTagFlag->Flag.unsafeHas(TagFlag.unknown->Flag.with(TagFlag.object)) {
@@ -4124,7 +4149,6 @@ module Option = {
           | Some(s) => s
           }
 
-          // FIXME: Should delete schema.unnest on reverse?
           // FIXME: Ensure that default has the same type as the item
           // Or maybe not, but need to make it properly with JSON Schema
 
@@ -5464,99 +5488,125 @@ let literal = js_schema
 
 let enum = values => Union.factory(values->Js.Array2.map(literal))
 
-let unnestSerializer = Builder.make((~input) => {
-  let selfSchema = input.expected
-  let schema = selfSchema.additionalItems->(Obj.magic: option<additionalItems> => internal)
-  let items = schema.items->X.Option.getUnsafe
-
-  let inputVar = input.var()
-  let iteratorVar = input.global->B.varWithoutAllocation
-  let outputVar = input.global->B.varWithoutAllocation
-
-  let b = input
-
-  // let bb = b->B.scope(~path=b.path)
-  let bb = b
-  let itemInput = {
-    ...bb,
-    // FIXME: This is probably wrong
-    var: B._var,
-    inline: `${inputVar}[${iteratorVar}]`,
-    flag: ValFlag.none,
-    schema: unknown, // FIXME:
+let compactColumnsEncoder = Builder.encoder((~input, ~target) => {
+  // target is the compactColumns schema
+  // target.to = S.array(objectSchema), so properties are in target.to.additionalItems.properties
+  let maybeProperties = switch target.to {
+  | Some({additionalItems: ?Some(Schema(itemSchema))}) =>
+    let itemInternal = itemSchema->castToInternal
+    itemInternal.properties
+  | _ => None
   }
-  let itemOutput = B.withPathPrepend(
-    ~input=itemInput,
-    ~dynamicLocationVar=iteratorVar,
-    ~appendSafe=(~output) => {
+
+  switch maybeProperties {
+  | Some(properties) => {
+      let keys = properties->Js.Dict.keys
+      let inputVar = input->B.Val.var
+      let iteratorVar = input.global->B.varWithoutAllocation
+      let outputVar = input.global->B.varWithoutAllocation
+
       let initialArraysCode = ref("")
       let settingCode = ref("")
-      for idx in 0 to items->Js.Array2.length - 1 {
-        let toItem = items->Js.Array2.unsafe_get(idx)
+      for idx in 0 to keys->Js.Array2.length - 1 {
+        let key = keys->Js.Array2.unsafe_get(idx)
+        let rawValueCode = `${inputVar}[${iteratorVar}][${key->X.Inlined.Value.fromString}]`
+        let fieldSchema = properties->Js.Dict.unsafeGet(key)
+        // Check if this field converts undefined to null (reversed nullAsOption)
+        let hasUndefinedToNullTransform = switch fieldSchema.anyOf {
+        | Some(anyOf) =>
+          anyOf->Js.Array2.some(item => {
+            let itemTagFlag = item.tag->TagFlag.get
+            if itemTagFlag->Flag.unsafeHas(TagFlag.undefined) {
+              switch item.to {
+              | Some(toSchema) =>
+                let toTagFlag = toSchema.tag->TagFlag.get
+                toTagFlag->Flag.unsafeHas(TagFlag.null)
+              | None => false
+              }
+            } else {
+              false
+            }
+          })
+        | None => false
+        }
+        let fieldValueCode = if hasUndefinedToNullTransform {
+          `${rawValueCode}===void 0?null:${rawValueCode}`
+        } else {
+          rawValueCode
+        }
         initialArraysCode := initialArraysCode.contents ++ `new Array(${inputVar}.length),`
         settingCode :=
           settingCode.contents ++
-          `${outputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]=${(
-              output->B.Val.get("toItem.location") // FIXME:
-            ).inline};`
+          `${outputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]=${fieldValueCode};`
       }
-      b.allocate(`${outputVar}=[${initialArraysCode.contents}]`)
-      bb.codeFromPrev = bb.codeFromPrev ++ settingCode.contents
-    },
-    (~input) => {
-      // b->parse(~schema, ~input)
-      b->parse
-    },
-  )
-  let itemCode = bb->B.merge
 
-  b.codeFromPrev =
-    b.codeFromPrev ++
-    `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${itemCode}}`
+      input.allocate(`${outputVar}=[${initialArraysCode.contents}]`)
 
-  if itemOutput.flag->Flag.unsafeHas(ValFlag.async) {
-    {
-      ...b,
-      // FIXME: This is probably wrong
-      var: B._notVar,
-      inline: `Promise.all(${outputVar})`,
-      flag: ValFlag.async,
-      schema: base(arrayTag, ~selfReverse=false), // FIXME: full schema
+      let output = input->B.next(outputVar, ~schema=base(arrayTag, ~selfReverse=false))
+      output.var = B._var
+      output.codeFromPrev =
+        output.codeFromPrev ++
+        `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${settingCode.contents}}`
+      output
     }
-  } else {
-    {
-      ...b,
-      // FIXME: This is probably wrong
-      var: B._var,
-      inline: outputVar,
-      flag: ValFlag.none,
-      schema: base(arrayTag, ~selfReverse=false), // FIXME: full schema
-    }
+  | None =>
+    input->B.unsupportedConversion(~from=input.schema, ~target)
   }
 })
 
-let unnest = schema => {
-  switch schema {
-  | Object({properties}) =>
-    let keys = properties->Js.Dict.keys
-    if keys->Js.Array2.length === 0 {
-      InternalError.panic("Invalid empty object for S.unnest schema.")
+let compactColumnsDecoder = (~input) => {
+  let selfSchema = input.expected
+  let inputTagFlag = input.schema.tag->TagFlag.get
+  let isUnknownInput = inputTagFlag->Flag.unsafeHas(TagFlag.unknown)
+
+  // Get properties and determine direction
+  // Forward: properties come from selfSchema.to.additionalItems (S.array(objectSchema))
+  // Reverse: properties come from input.schema.additionalItems (array of objects)
+  let (maybeProperties, isForwardDirection) = switch selfSchema.to {
+  | Some({additionalItems: ?Some(Schema(itemSchema))}) =>
+    let itemInternal = itemSchema->castToInternal
+    switch itemInternal.properties {
+    | Some(_) as p => (p, true)
+    | None => (None, true)
     }
-    let schema = schema->castToInternal
-    let mut = base(arrayTag, ~selfReverse=false)
-    mut.items = Some(
-      keys->Js.Array2.map(key => {
-        array(properties->Js.Dict.unsafeGet(key))->castToInternal
-      }),
-    )
-    mut.additionalItems = Some(Strict)
-    mut.parser = Some(
-      Builder.make((~input) => {
-        let selfSchema = input.expected
-        let b = input
-        let inputTagFlag = input.schema.tag->TagFlag.get
-        if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
-          b.validation = Some(
+  | _ => (None, true)
+  }
+  // If forward didn't find properties, try reverse direction
+  let (maybeProperties, isForwardDirection) = switch maybeProperties {
+  | Some(_) => (maybeProperties, isForwardDirection)
+  | None =>
+    switch input.schema.additionalItems {
+    | Some(Schema(itemSchema)) =>
+      let itemInternal = itemSchema->castToInternal
+      switch itemInternal.properties {
+      | Some(_) as p => (p, false)
+      | None => (None, true)
+      }
+    | _ => (None, true)
+    }
+  }
+
+  switch maybeProperties {
+  | Some(properties) => {
+      let keys = properties->Js.Dict.keys
+
+      if keys->Js.Array2.length === 0 {
+        if isUnknownInput {
+          input.validation = Some(
+            (~inputVar, ~negative) => {
+              `${B.exp(~negative)}Array.isArray(${inputVar})` ++
+              `${B.and_(~negative)}${inputVar}.length${B.eq(~negative)}0`
+            },
+          )
+        }
+        let outputSchema = base(arrayTag, ~selfReverse=false)
+        let output = input->B.next("[]", ~schema=outputSchema, ~expected=outputSchema)
+        output.isOutput = Some(true)
+        output
+      } else if isForwardDirection {
+        // Forward direction: columnar → rows
+        if isUnknownInput {
+          input.validation = Some(
             (~inputVar, ~negative) => {
               `${B.exp(~negative)}Array.isArray(${inputVar})` ++
               `${B.and_(~negative)}${inputVar}.length${B.eq(~negative)}${keys
@@ -5571,99 +5621,113 @@ let unnest = schema => {
                 ->Js.Array2.joinWith("")}`
             },
           )
-          let mut = base(arrayTag, ~selfReverse=false)
-          let itemSchema = array(unknown->castToPublic)
-          mut.items = Some(
-            keys->Js.Array2.map(_ => {
-              itemSchema->castToInternal
-            }),
-          )
-          mut.additionalItems = Some(Strict)
-          input.schema = mut
-        } else if (
-          inputTagFlag->Flag.unsafeHas(TagFlag.array) &&
-          input.schema.items->X.Option.getUnsafe->Js.Array2.length === keys->Js.Array2.length &&
-          input.schema.items
-          ->X.Option.getUnsafe
-          ->Js.Array2.every(s =>
-            s.tag === arrayTag &&
-              switch s.additionalItems {
-              | Some(Schema(_)) => true
-              | _ => false
-              }
-          )
-        ) {
-          ()
-        } else {
-          b->B.unsupportedConversion(~from=input.schema, ~target=selfSchema)
         }
 
         let inputVar = input.var()
-        let iteratorVar = b.global->B.varWithoutAllocation
+        let iteratorVar = input.global->B.varWithoutAllocation
+        let outputVar = input.global->B.varWithoutAllocation
 
-        // let bb = b->B.scope(~path=b.path) // FIXME: The path looks wrong here
-        let bb = b
-        let itemInput = bb->makeObjectVal(~schema)
         let lengthCode = ref("")
+        let itemBuildCode = ref("")
         for idx in 0 to keys->Js.Array2.length - 1 {
           let key = keys->Js.Array2.unsafe_get(idx)
-          itemInput->B.Val.Object.add(
-            ~location=key,
-            bb->B.next(
-              `${inputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]`,
-              ~schema=(
-                input.schema.items->X.Option.getUnsafe->Js.Array2.unsafe_get(idx)
-              ).additionalItems->(Obj.magic: option<additionalItems> => internal),
-            ),
-          )
+          let rawValueCode = `${inputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]`
+          let fieldSchema = properties->Js.Dict.unsafeGet(key)
+          // Check if this field has a null variant (e.g., nullAsOption)
+          let hasNullVariant = switch fieldSchema.has {
+          | Some(has) =>
+            switch has->X.Dict.getUnsafeOption((nullTag :> string)) {
+            | Some(_) => true
+            | None => false
+            }
+          | None => false
+          }
+          let fieldValueCode = if hasNullVariant {
+            `${rawValueCode}===null?void 0:${rawValueCode}`
+          } else {
+            rawValueCode
+          }
           lengthCode := lengthCode.contents ++ `${inputVar}[${idx->X.Int.unsafeToString}].length,`
+          itemBuildCode :=
+            itemBuildCode.contents ++
+            `${key->X.Inlined.Value.fromString}:${fieldValueCode},`
         }
 
-        let output =
-          b->B.next(
-            `new Array(Math.max(${lengthCode.contents}))`,
-            ~schema=selfSchema.to->X.Option.getUnsafe,
-          )
-        let outputVar = B.Val.var(output)
+        input.allocate(`${outputVar}=new Array(Math.max(${lengthCode.contents}))`)
 
-        let itemInput = itemInput->completeObjectVal
-        let itemOutput = B.withPathPrepend(
-          ~input=itemInput,
-          ~dynamicLocationVar=iteratorVar,
-          ~appendSafe=(bb, ~output as itemOutput) => {
-            bb.codeFromPrev =
-              bb.codeFromPrev ++ output->B.Val.addKey(iteratorVar, itemOutput) ++ ";"
-          },
-          (~input) => {
-            // b->parse(~schema, ~input)
-            input->parse
-          },
-        )
-        let itemCode = bb->B.merge
+        let outputSchema = base(arrayTag, ~selfReverse=false)
+        let output = input->B.next(outputVar, ~schema=outputSchema, ~expected=outputSchema)
+        output.var = B._var
+        output.isOutput = Some(true)
+        output.codeFromPrev =
+          output.codeFromPrev ++
+          `for(let ${iteratorVar}=0;${iteratorVar}<${outputVar}.length;++${iteratorVar}){${outputVar}[${iteratorVar}]={${itemBuildCode.contents}};}`
+        output
+      } else {
+        // Reverse direction: rows → columnar
+        let inputVar = input->B.Val.var
+        let iteratorVar = input.global->B.varWithoutAllocation
+        let outputVar = input.global->B.varWithoutAllocation
 
-        b.codeFromPrev =
-          b.codeFromPrev ++
-          `for(let ${iteratorVar}=0;${iteratorVar}<${outputVar}.length;++${iteratorVar}){${itemCode}}`
-
-        if itemOutput.flag->Flag.unsafeHas(ValFlag.async) {
-          output->B.asyncVal(`Promise.all(${output.inline})`)
-        } else {
-          output
+        let initialArraysCode = ref("")
+        let settingCode = ref("")
+        for idx in 0 to keys->Js.Array2.length - 1 {
+          let key = keys->Js.Array2.unsafe_get(idx)
+          let rawValueCode = `${inputVar}[${iteratorVar}][${key->X.Inlined.Value.fromString}]`
+          let fieldSchema = properties->Js.Dict.unsafeGet(key)
+          // Check if this field converts undefined to null (reversed nullAsOption)
+          let hasUndefinedToNullTransform = switch fieldSchema.anyOf {
+          | Some(anyOf) =>
+            anyOf->Js.Array2.some(item => {
+              let itemTagFlag = item.tag->TagFlag.get
+              if itemTagFlag->Flag.unsafeHas(TagFlag.undefined) {
+                switch item.to {
+                | Some(toSchema) =>
+                  let toTagFlag = toSchema.tag->TagFlag.get
+                  toTagFlag->Flag.unsafeHas(TagFlag.null)
+                | None => false
+                }
+              } else {
+                false
+              }
+            })
+          | None => false
+          }
+          let fieldValueCode = if hasUndefinedToNullTransform {
+            `${rawValueCode}===void 0?null:${rawValueCode}`
+          } else {
+            rawValueCode
+          }
+          initialArraysCode := initialArraysCode.contents ++ `new Array(${inputVar}.length),`
+          settingCode :=
+            settingCode.contents ++
+            `${outputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]=${fieldValueCode};`
         }
-      }),
-    )
 
-    let to = base(arrayTag, ~selfReverse=false)
-    to.items = Some(X.Array.immutableEmpty)
-    to.additionalItems = Some(Schema(schema->castToPublic))
-    to.serializer = Some(unnestSerializer)
+        input.allocate(`${outputVar}=[${initialArraysCode.contents}]`)
 
-    mut.unnest = Some(true)
-    mut.to = Some(to)
-
-    mut->castToPublic
-  | _ => InternalError.panic("S.unnest supports only object schemas.")
+        let outputSchema = base(arrayTag, ~selfReverse=false)
+        let output = input->B.next(outputVar, ~schema=outputSchema, ~expected=outputSchema)
+        output.var = B._var
+        output.isOutput = Some(true)
+        output.codeFromPrev =
+          output.codeFromPrev ++
+          `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${settingCode.contents}}`
+        output
+      }
+    }
+  | None =>
+    InternalError.panic("S.compactColumns supports only object schemas. Use S.compactColumns(S.unknown)->S.to(S.array(objectSchema)).")
   }
+}
+
+let compactColumns = inputSchema => {
+  let innerArray = array(inputSchema)
+  let mut = array(innerArray)->castToInternal
+  mut.format = Some(CompactColumns)
+  mut.decoder = compactColumnsDecoder
+  mut.encoder = Some(compactColumnsEncoder)
+  mut->castToPublic
 }
 
 // let inline = {

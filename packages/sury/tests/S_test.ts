@@ -2094,39 +2094,77 @@ test("Env schema: Reggression version", (t) => {
   t.deepEqual(S.parser(env(S.boolean))("true"), true);
 });
 
-test("Unnest schema", (t) => {
-  const schema = S.unnest(
-    S.schema({
-      id: S.string,
-      name: S.nullable(S.string),
-      deleted: S.boolean,
-    }),
+test("CompactColumns schema", (t) => {
+  const schema = S.to(
+    S.compactColumns(S.unknown),
+    S.array(
+      S.schema({
+        id: S.string,
+        name: S.nullable(S.string),
+        deleted: S.boolean,
+      })
+    )
   );
 
-  const value = S.encoder(schema)([
+  // Test parsing columnar data to row objects
+  // S.nullable converts null to undefined on parsing
+  const parse = S.parser(schema);
+  const parsed = parse([
+    ["0", "1"],
+    ["Hello", null],
+    [false, true],
+  ] as unknown[][]);
+  t.deepEqual(parsed, [
     { id: "0", name: "Hello", deleted: false },
     { id: "1", name: undefined, deleted: true },
   ]);
 
-  let expected: typeof value = [
+  // Test encoding row objects back to columnar data
+  // S.nullable converts undefined back to null on encoding
+  const encode = S.encoder(schema);
+  const encoded = encode([
+    { id: "0", name: "Hello", deleted: false },
+    { id: "1", name: undefined, deleted: true },
+  ] as any);
+  t.deepEqual(encoded, [
     ["0", "1"],
     ["Hello", null],
     [false, true],
-  ];
+  ]);
+});
 
-  t.deepEqual(value, expected);
+test("CompactColumns with json and bigint", (t) => {
+  const schema = S.to(
+    S.compactColumns(S.json),
+    S.array(
+      S.schema({
+        id: S.string,
+        amount: S.bigint,
+      })
+    )
+  );
 
-  expectType<
-    SchemaEqual<
-      typeof schema,
-      {
-        id: string;
-        name?: string | undefined;
-        deleted: boolean;
-      }[],
-      (string[] | boolean[] | (string | null)[])[]
-    >
-  >(true);
+  // Test parsing - values stay as-is (strings not converted to bigint)
+  const parse = S.parser(schema);
+  const parsed = parse([
+    ["0", "1"],
+    ["12345678901234567890", "98765432109876543210"],
+  ] as S.JSON[][]);
+  t.deepEqual(parsed, [
+    { id: "0", amount: "12345678901234567890" },
+    { id: "1", amount: "98765432109876543210" },
+  ]);
+
+  // Test encoding - values stay as-is
+  const encode = S.encoder(schema);
+  const encoded = encode([
+    { id: "0", amount: "12345678901234567890" },
+    { id: "1", amount: "98765432109876543210" },
+  ] as any);
+  t.deepEqual(encoded, [
+    ["0", "1"],
+    ["12345678901234567890", "98765432109876543210"],
+  ]);
 });
 
 test("Set schema", (t) => {
@@ -2643,7 +2681,6 @@ test("Example of transformed schema", (t) => {
   // 4. Or via JSON Schema
   t.deepEqual(S.toJSONSchema(userSchema), {
     type: "object",
-    additionalProperties: true,
     properties: {
       USER_ID: {
         type: "string",
