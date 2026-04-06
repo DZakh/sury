@@ -1039,6 +1039,17 @@ The `S.date` schema validates that the input is a `Date` instance and rejects In
 
 > Unlike `S.string->S.datetime` which parses ISO datetime strings into Date objects, `S.date` validates existing Date instances directly.
 
+You can use `S.to` to decode between strings and dates:
+
+```rescript
+// Decode ISO string to Date
+let schema = S.string->S.to(S.date)
+"2024-01-01T00:00:00.000Z"->S.parseOrThrow(schema) // Date
+
+// Encode Date to ISO string
+Date.fromString("2024-01-01T00:00:00.000Z")->S.reverseConvertOrThrow(schema) // "2024-01-01T00:00:00.000Z"
+```
+
 ### **`instance`**
 
 `S.t<instance>`

@@ -856,6 +856,16 @@ S.parser(S.date)("2024-01-01"); // throws - not a Date instance
 
 > Unlike `S.datetime(S.string)` which parses ISO datetime strings into Date objects, `S.date` validates existing Date instances directly.
 
+You can use `S.decoder` with multiple arguments to decode between strings and dates:
+
+```ts
+// Decode ISO string to Date
+S.decoder(S.string, S.date)("2024-01-01T00:00:00.000Z"); // Date
+
+// Decode Date to ISO string
+S.decoder(S.date, S.string)(new Date("2024-01-01T00:00:00.000Z")); // "2024-01-01T00:00:00.000Z"
+```
+
 ## Instance
 
 You can use `S.instance` to check that the input is an instance of a class. This is useful to validate inputs against classes that are exported from third-party libraries.
