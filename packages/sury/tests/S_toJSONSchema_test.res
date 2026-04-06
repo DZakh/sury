@@ -26,8 +26,38 @@ test("JSONSchema of S.json transformed to object with bigint and array of option
       "items": s.matches(S.array(S.option(S.float->S.floatMax(1.)))),
     }
   )
-  // TODO: Should coerce nonJsonableSchema to jsonable JSON Schema
-  t->Assert.deepEqual(S.json->S.to(nonJsonableSchema)->S.toJSONSchema, %raw(`{}`))
+  t->Assert.deepEqual(
+    S.json->S.to(nonJsonableSchema)->S.toJSONSchema,
+    %raw(`{
+      "type": "object",
+      "properties": {
+        "id": {"type": "string"},
+        "data": {},
+        "items": {"type": "array", "items": {"anyOf": [{"type": "number", "maximum": 1}, {"type": "null"}]}}
+      },
+      "required": ["id", "data", "items"]
+    }`),
+  )
+})
+
+test("JSONSchema of S.json->S.to with bigint and option fields", t => {
+  let schema = S.json->S.to(
+    S.schema(s => {
+      "foo": s.matches(S.bigint),
+      "bar": s.matches(S.option(S.bool)),
+    }),
+  )
+  t->Assert.deepEqual(
+    schema->S.toJSONSchema,
+    %raw(`{
+      "type": "object",
+      "properties": {
+        "foo": {"type": "string"},
+        "bar": {"type": "boolean"}
+      },
+      "required": ["foo"]
+    }`),
+  )
 })
 
 test("JSONSchema of email schema", t => {
@@ -49,6 +79,20 @@ test("JSONSchema of datetime schema", t => {
   t->Assert.deepEqual(
     S.string->S.datetime->S.toJSONSchema,
     %raw(`{"type": "string", "format": "date-time"}`),
+  )
+})
+
+test("JSONSchema of S.string->S.to(S.date)", t => {
+  t->Assert.deepEqual(
+    S.string->S.to(S.date)->S.toJSONSchema,
+    %raw(`{"type": "string", "format": "date-time"}`),
+  )
+})
+
+test("JSONSchema of S.string->S.to(S.date) with description", t => {
+  t->Assert.deepEqual(
+    S.string->S.to(S.date)->S.meta({description: "A date"})->S.toJSONSchema,
+    %raw(`{"type": "string", "format": "date-time", "description": "A date"}`),
   )
 })
 

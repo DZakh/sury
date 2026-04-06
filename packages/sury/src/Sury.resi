@@ -21,7 +21,7 @@ module Path: {
 }
 
 type numberFormat = | @as("int32") Int32 | @as("port") Port
-type stringFormat = | @as("json") JSON
+type stringFormat = | @as("json") JSON | @as("date-time") DateTime
 type arrayFormat = | @as("compactColumns") CompactColumns
 
 type format = | ...numberFormat | ...stringFormat | ...arrayFormat
@@ -519,6 +519,7 @@ let uuid: (t<string>, ~message: string=?) => t<string>
 let cuid: (t<string>, ~message: string=?) => t<string>
 let url: (t<string>, ~message: string=?) => t<string>
 let pattern: (t<string>, Js.Re.t, ~message: string=?) => t<string>
+@deprecated("Use S.string->S.to(S.date) instead")
 let datetime: (t<string>, ~message: string=?) => t<Js.Date.t>
 let trim: t<string> => t<string>
 

@@ -21,7 +21,7 @@ module Path: {
 }
 
 type numberFormat = | @as("int32") Int32 | @as("port") Port
-type stringFormat = | @as("json") JSON
+type stringFormat = | @as("json") JSON | @as("date-time") DateTime
 type arrayFormat = | @as("compactColumns") CompactColumns
 
 type format = | ...numberFormat | ...stringFormat | ...arrayFormat

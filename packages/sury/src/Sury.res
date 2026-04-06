@@ -280,7 +280,7 @@ type standard = {
 type internalDefault = {}
 
 type numberFormat = | @as("int32") Int32 | @as("port") Port
-type stringFormat = | @as("json") JSON
+type stringFormat = | @as("json") JSON | @as("date-time") DateTime
 type arrayFormat = | @as("compactColumns") CompactColumns
 
 type format = | ...numberFormat | ...stringFormat | ...arrayFormat
@@ -4728,8 +4728,14 @@ let date = {
     Builder.encoder((~input, ~target) => {
       let toTagFlag = target.tag->TagFlag.get
       if toTagFlag->Flag.unsafeHas(TagFlag.string) {
+        let dateTimeString = string->copySchema
+        dateTimeString.format = Some(DateTime)
         input
-        ->B.next(`${input.inline}.toISOString()`, ~schema=string, ~expected=target)
+        ->B.next(
+          `${input.inline}.toISOString()`,
+          ~schema=dateTimeString,
+          ~expected=target,
+        )
         ->parse
       } else {
         input
@@ -6488,33 +6494,127 @@ module RescriptJSONSchema = {
   @val
   external merge: (@as(json`{}`) _, t, t) => t = "Object.assign"
 
-  let rec internalToJSONSchema = (schema: schema<unknown>, ~path, ~defs, ~parent): JSONSchema.t => {
+  let rec encodeToJsonSchema = (schema: schema<unknown>, ~path, ~defs, ~parent, ~coerceToJson=false): option<JSONSchema.t> => {
+    let schemaInternal = schema->castToInternal
+    // Try to discover the JSON-compatible form by reverse-parsing schemas with .to
+    let outputSchema = if schemaInternal.to->Obj.magic {
+      let reversed = schemaInternal->reverse
+      let input = B.operationArg(
+        ~flag=Flag.none,
+        ~defs=%raw(`0`),
+        ~schema=unknown,
+        ~expected=reversed,
+      )
+      try {
+        let output = input->parse
+        Some(output.schema->castToPublic)
+      } catch {
+      | _ => None
+      }
+    } else {
+      // For schemas without .to, simulate what the JSON encoder does
+      // (only when coercing to JSON context)
+      let tagFlag = schemaInternal.tag->TagFlag.get
+      if coerceToJson && tagFlag->Flag.unsafeHas(TagFlag.bigint) {
+        Some(string->castToPublic)
+      } else if coerceToJson && tagFlag->Flag.unsafeHas(TagFlag.undefined->Flag.with(TagFlag.nan)) {
+        Some(nullLiteral->castToPublic)
+      } else if tagFlag->Flag.unsafeHas(TagFlag.instance) {
+        // Instance types (like Date) - try encoding to string
+        let syntheticSchema = schemaInternal->copySchema
+        syntheticSchema.to = Some(string)
+        let reversed = syntheticSchema->reverse
+        let input = B.operationArg(
+          ~flag=Flag.none,
+          ~defs=%raw(`0`),
+          ~schema=unknown,
+          ~expected=reversed,
+        )
+        try {
+          let output = input->parse
+          Some(output.schema->castToPublic)
+        } catch {
+        | _ => None
+        }
+      } else {
+        None
+      }
+    }
+    switch outputSchema {
+    | Some(outputSchema) => {
+        let outputJsonSchema = internalToJSONSchema(outputSchema, ~path, ~defs, ~parent)
+        let mutableJs = outputJsonSchema->Mutable.fromReadOnly
+        switch schema->untag {
+        | {description: m} => mutableJs.description = Some(m)
+        | _ => ()
+        }
+        switch schema->untag {
+        | {title: m} => mutableJs.title = Some(m)
+        | _ => ()
+        }
+        switch schema->untag {
+        | {deprecated} => mutableJs.deprecated = Some(deprecated)
+        | _ => ()
+        }
+        switch schema->untag {
+        | {examples} =>
+          mutableJs.examples = Some(
+            examples->(Obj.magic: array<unknown> => array<Js.Json.t>),
+          )
+        | _ => ()
+        }
+        switch schema->untag {
+        | {defs: schemaDefs} =>
+          let _ = defs->X.Dict.mixin(schemaDefs)
+        | _ => ()
+        }
+        switch schema->Metadata.get(~id=jsonSchemaMetadataId) {
+        | Some(metadataRawSchema) => mutableJs->Mutable.mixin(metadataRawSchema)
+        | None => ()
+        }
+        Some(mutableJs->Mutable.toReadOnly)
+      }
+    | None => None
+    }
+  }
+  and internalToJSONSchema = (schema: schema<unknown>, ~path, ~defs, ~parent, ~coerceToJson=false): JSONSchema.t => {
     let jsonSchema: Mutable.t = {}
     switch schema {
-    | String({?const}) =>
-      jsonSchema.type_ = Some(Arrayable.single(#string))
-      schema
-      ->String.refinements
-      ->Js.Array2.forEach(refinement => {
-        switch refinement {
-        | {kind: Email} => jsonSchema.format = Some("email")
-        | {kind: Url} => jsonSchema.format = Some("uri")
-        | {kind: Uuid} => jsonSchema.format = Some("uuid")
-        | {kind: Datetime} => jsonSchema.format = Some("date-time")
-        | {kind: Cuid} => ()
-        | {kind: Length({length})} => {
-            jsonSchema.minLength = Some(length)
-            jsonSchema.maxLength = Some(length)
+    | String({?const, ?format}) =>
+      // If string has .to with a different output type, try reverse parsing
+      // to discover the serialized format (e.g. S.string->S.to(S.date) → date-time)
+      switch encodeToJsonSchema(schema, ~path, ~defs, ~parent) {
+      | Some(result) => jsonSchema->Mutable.mixin(result->Obj.magic)
+      | None => {
+          jsonSchema.type_ = Some(Arrayable.single(#string))
+          switch format {
+          | Some(DateTime) => jsonSchema.format = Some("date-time")
+          | Some(JSON) | None => ()
           }
-        | {kind: Max({length})} => jsonSchema.maxLength = Some(length)
-        | {kind: Min({length})} => jsonSchema.minLength = Some(length)
-        | {kind: Pattern({re})} =>
-          jsonSchema.pattern = Some((re->(Obj.magic: Js.Re.t => {..}))["source"])
+          schema
+          ->String.refinements
+          ->Js.Array2.forEach(refinement => {
+            switch refinement {
+            | {kind: Email} => jsonSchema.format = Some("email")
+            | {kind: Url} => jsonSchema.format = Some("uri")
+            | {kind: Uuid} => jsonSchema.format = Some("uuid")
+            | {kind: Datetime} => jsonSchema.format = Some("date-time")
+            | {kind: Cuid} => ()
+            | {kind: Length({length})} => {
+                jsonSchema.minLength = Some(length)
+                jsonSchema.maxLength = Some(length)
+              }
+            | {kind: Max({length})} => jsonSchema.maxLength = Some(length)
+            | {kind: Min({length})} => jsonSchema.minLength = Some(length)
+            | {kind: Pattern({re})} =>
+              jsonSchema.pattern = Some((re->(Obj.magic: Js.Re.t => {..}))["source"])
+            }
+          })
+          switch const {
+          | Some(value) => jsonSchema.const = Some(Js.Json.string(value))
+          | None => ()
+          }
         }
-      })
-      switch const {
-      | Some(value) => jsonSchema.const = Some(Js.Json.string(value))
-      | None => ()
       }
     | Number({?format, ?const}) =>
       switch format {
@@ -6566,6 +6666,7 @@ module RescriptJSONSchema = {
                 ~parent=schema,
                 ~path=path->Path.concat(Path.dynamic),
                 ~defs,
+                ~coerceToJson,
               ),
             ),
           ),
@@ -6591,6 +6692,7 @@ module RescriptJSONSchema = {
                 ~parent=schema,
                 ~path=path->Path.concat(Path.fromLocation(idx->Js.Int.toString)),
                 ~defs,
+                ~coerceToJson,
               ),
             )
           })
@@ -6614,7 +6716,7 @@ module RescriptJSONSchema = {
           | _ => {
               items
               ->Js.Array2.push(
-                Schema(internalToJSONSchema(childSchema, ~parent=schema, ~path, ~defs)),
+                Schema(internalToJSONSchema(childSchema, ~parent=schema, ~path, ~defs, ~coerceToJson)),
               )
               ->ignore
               switch childSchema->castToInternal->isLiteral {
@@ -6655,6 +6757,7 @@ module RescriptJSONSchema = {
             ~path=path->Path.concat(Path.dynamic),
             ~defs,
             ~parent=schema,
+            ~coerceToJson,
           )
           jsonSchema.additionalProperties = Some(
             if (childJsonSchema->Obj.magic: dict<'a>)->Js.Dict.keys->Js.Array2.length === 0 {
@@ -6677,6 +6780,7 @@ module RescriptJSONSchema = {
               ~path=path->Path.concat(Path.fromLocation(key)),
               ~defs,
               ~parent=schema,
+              ~coerceToJson,
             )
             if itemSchema->castToInternal->isOptional->not {
               required->Js.Array2.push(key)->ignore
@@ -6698,27 +6802,48 @@ module RescriptJSONSchema = {
           }
         }
       }
-    | Ref({ref}) if ref === `${defsPath}${jsonName}` => ()
+    | Ref({ref}) if ref === `${defsPath}${jsonName}` => {
+        let schemaInternal = schema->castToInternal
+        switch schemaInternal.to {
+        | Some(toSchema) => {
+            let toJsonSchema = internalToJSONSchema(
+              toSchema->castToPublic,
+              ~path,
+              ~defs,
+              ~parent=schema,
+              ~coerceToJson=true,
+            )
+            jsonSchema->Mutable.mixin(toJsonSchema->Obj.magic)
+          }
+        | None => ()
+        }
+      }
     | Ref({ref}) => jsonSchema.ref = Some(ref)
     | Null(_) => jsonSchema.type_ = Some(Arrayable.single(#null))
     | Never(_) => jsonSchema.not = Some(Schema({}))
 
     | _ =>
-      X.Exn.throwAny(
-        InternalError.make(
-          B.makeInvalidInputDetails(
-            ~received=if (parent->castToInternal).tag->TagFlag.get->Flag.unsafeHas(TagFlag.union) {
-              parent
-            } else {
-              schema
-            },
-            ~expected=json,
-            ~path,
-            ~input=%raw(`0`),
-            ~includeInput=false,
-          ),
-        ),
-      )
+      switch encodeToJsonSchema(schema, ~path, ~defs, ~parent, ~coerceToJson) {
+      | Some(result) => jsonSchema->Mutable.mixin(result->Obj.magic)
+      | None =>
+        if !coerceToJson {
+          X.Exn.throwAny(
+            InternalError.make(
+              B.makeInvalidInputDetails(
+                ~received=if (parent->castToInternal).tag->TagFlag.get->Flag.unsafeHas(TagFlag.union) {
+                  parent
+                } else {
+                  schema
+                },
+                ~expected=json,
+                ~path,
+                ~input=%raw(`0`),
+                ~includeInput=false,
+              ),
+            ),
+          )
+        }
+      }
     }
 
     switch schema->untag {
