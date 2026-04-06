@@ -4729,8 +4729,7 @@ let date = {
       let toTagFlag = target.tag->TagFlag.get
       if toTagFlag->Flag.unsafeHas(TagFlag.string) {
         input
-        ->B.next(`${input.inline}.toISOString()`, ~schema=string)
-        ->B.refine(~expected=target)
+        ->B.next(`${input.inline}.toISOString()`, ~schema=string, ~expected=target)
         ->parse
       } else {
         input
