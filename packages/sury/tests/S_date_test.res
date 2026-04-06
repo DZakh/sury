@@ -42,3 +42,57 @@ test("Schema has instance tag and Date class", t => {
   | _ => t->Assert.fail("Expected instance schema")
   }
 })
+
+// S.string->S.to(S.date) conversion tests
+
+test("Successfully parses string to Date with S.to", t => {
+  let schema = S.string->S.to(S.date)
+  t->Assert.deepEqual(
+    "2024-01-01T00:00:00.000Z"->S.parseOrThrow(schema),
+    Date.fromString("2024-01-01T00:00:00.000Z"),
+  )
+})
+
+test("Successfully parses ISO string with fractional seconds to Date with S.to", t => {
+  let schema = S.string->S.to(S.date)
+  t->Assert.deepEqual(
+    "2024-06-15T12:30:45.123Z"->S.parseOrThrow(schema),
+    Date.fromString("2024-06-15T12:30:45.123Z"),
+  )
+})
+
+test("Fails to parse invalid string to Date with S.to", t => {
+  let schema = S.string->S.to(S.date)
+  t->U.assertThrowsMessage(
+    () => "invalid"->S.parseOrThrow(schema),
+    `Expected Date, received [object Date]`,
+  )
+})
+
+test("Successfully reverse converts string-to-date schema", t => {
+  let schema = S.string->S.to(S.date)
+  let date = Date.fromString("2024-01-01T00:00:00.000Z")
+  t->Assert.deepEqual(
+    date->S.reverseConvertOrThrow(schema),
+    "2024-01-01T00:00:00.000Z"->Obj.magic,
+  )
+})
+
+// S.date->S.to(S.string) conversion tests
+
+test("Successfully converts Date to string with S.to", t => {
+  let schema = S.date->S.to(S.string)
+  let date = Date.fromString("2024-01-01T00:00:00.000Z")
+  t->Assert.deepEqual(
+    date->S.convertOrThrow(schema),
+    "2024-01-01T00:00:00.000Z"->Obj.magic,
+  )
+})
+
+test("Successfully reverse converts date-to-string schema", t => {
+  let schema = S.date->S.to(S.string)
+  t->Assert.deepEqual(
+    "2024-01-01T00:00:00.000Z"->S.reverseConvertOrThrow(schema),
+    Date.fromString("2024-01-01T00:00:00.000Z")->Obj.magic,
+  )
+})

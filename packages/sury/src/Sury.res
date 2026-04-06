@@ -4704,7 +4704,17 @@ let date = {
   mut.class = %raw(`Date`)
   mut.decoder = Builder.make((~input) => {
     let inputTagFlag = input.schema.tag->TagFlag.get
-    if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
+    if inputTagFlag->Flag.unsafeHas(TagFlag.string) {
+      // String → Date conversion via new Date(str)
+      let input = input->B.next(
+        `new Date(${input.inline})`,
+        ~schema=mut->castToPublic->castToInternal,
+      )
+      // Invalid Date check after conversion
+      input->B.refine(~schema=input.expected, ~validation=(~inputVar, ~negative) => {
+        `${B.exp(~negative=!negative)}Number.isNaN(${inputVar}.getTime())`
+      })
+    } else if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
       let input = input->B.refine(~schema=input.expected, ~validation=(~inputVar, ~negative) => {
         let c = `${inputVar} instanceof ${input->B.embed(input.expected.class)}`
         negative ? `!(${c})` : c
@@ -4720,6 +4730,20 @@ let date = {
       input->B.unsupportedConversion(~from=input.schema, ~target=input.expected)
     }
   })
+  // Encoder: Date → string (via toISOString) when target is string
+  mut.encoder = Some(
+    Builder.encoder((~input, ~target) => {
+      let toTagFlag = target.tag->TagFlag.get
+      if toTagFlag->Flag.unsafeHas(TagFlag.string) {
+        input
+        ->B.next(`${input.inline}.toISOString()`, ~schema=string)
+        ->B.refine(~expected=target)
+        ->parse
+      } else {
+        input
+      }
+    }),
+  )
   mut->castToPublic
 }
 
