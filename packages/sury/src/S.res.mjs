@@ -176,8 +176,6 @@ let url = Sury.url;
 
 let pattern = Sury.pattern;
 
-let datetime = Sury.datetime;
-
 let trim = Sury.trim;
 
 let toJSONSchema = Sury.toJSONSchema;
@@ -278,7 +276,6 @@ export {
   cuid,
   url,
   pattern,
-  datetime,
   trim,
   toJSONSchema,
   fromJSONSchema,

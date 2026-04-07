@@ -112,8 +112,8 @@ test("Successfully parses string with built-in transform", (t) => {
   expectType<TypeEqual<typeof value, string>>(true);
 });
 
-test("Successfully parses string with built-in datetime transform", (t) => {
-  const schema = S.datetime(S.string);
+test("Successfully parses string to Date via S.to(S.date)", (t) => {
+  const schema = S.to(S.string, S.date);
   const value = S.parser(schema)("2020-01-01T00:00:00Z");
 
   t.deepEqual(value, new Date("2020-01-01T00:00:00Z"));

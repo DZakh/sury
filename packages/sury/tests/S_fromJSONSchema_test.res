@@ -253,7 +253,7 @@ test("fromJSONSchema: string format uuid", t => {
 test("fromJSONSchema: string format date-time", t => {
   let js = {type_: Arrayable.single(#string), format: "date-time"}
   let schema = S.fromJSONSchema(js)
-  t->Assert.deepEqual(parse(schema, "2020-01-01T00:00:00Z"), "2020-01-01T00:00:00Z")
+  t->Assert.deepEqual(parse(schema, "2020-01-01T00:00:00Z"), Date.fromString("2020-01-01T00:00:00Z"))
   t->Assert.throws(() => parse(schema, "not-a-date"))
   t->Assert.deepEqual(jsonRoundTrip(js), js)
 })

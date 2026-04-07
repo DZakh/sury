@@ -75,13 +75,6 @@ test("JSONSchema of url schema", t => {
   )
 })
 
-test("JSONSchema of datetime schema", t => {
-  t->Assert.deepEqual(
-    S.string->S.datetime->S.toJSONSchema,
-    %raw(`{"type": "string", "format": "date-time"}`),
-  )
-})
-
 test("JSONSchema of S.string->S.to(S.date)", t => {
   t->Assert.deepEqual(
     S.string->S.to(S.date)->S.toJSONSchema,
@@ -114,9 +107,9 @@ test("JSONSchema of pattern schema", t => {
   )
 })
 
-test("JSONSchema of string schema uses the last refinement for format", t => {
+test("JSONSchema of email schema converted to Date takes format from date encoder", t => {
   t->Assert.deepEqual(
-    S.string->S.email->S.datetime->S.toJSONSchema,
+    S.string->S.email->S.to(S.date)->S.toJSONSchema,
     %raw(`{"type": "string", "format": "date-time"}`),
   )
 })

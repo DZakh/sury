@@ -67,7 +67,6 @@ export var uuid = S.uuid
 export var cuid = S.cuid
 export var url = S.url
 export var pattern = S.pattern
-export var datetime = S.datetime
 export var trim = S.trim
 export var global = S.global
 export var brand = S.brand

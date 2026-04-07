@@ -4298,7 +4298,6 @@ module String = {
       | Cuid
       | Url
       | Pattern({re: Js.Re.t})
-      | Datetime
     type t = {
       kind: kind,
       message: string,
@@ -4319,7 +4318,6 @@ module String = {
   // Adapted from https://stackoverflow.com/a/46181/1550155
   let emailRegex = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i
   // Adapted from https://stackoverflow.com/a/3143231
-  let datetimeRe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/
 }
 
 let jsonEncoder = Builder.encoder((~input, ~target) => {
@@ -5905,8 +5903,6 @@ let compactColumns = inputSchema => {
 //             `->S.pattern(%re(${re
 //               ->X.Re.toString
 //               ->X.Inlined.Value.fromString}), ~message=${message->X.Inlined.Value.fromString})`
-//           | {kind: Datetime, message} =>
-//             `->S.datetime(~message=${message->X.Inlined.Value.fromString})`
 //           }
 //         })
 //         ->Js.Array2.joinWith("")
@@ -6272,32 +6268,6 @@ let pattern = (schema, re, ~message=`Invalid pattern`) => {
   )
 }
 
-let datetime = (schema, ~message=`Invalid datetime string! Expected UTC`) => {
-  let refinement = {
-    String.Refinement.kind: Datetime,
-    message,
-  }
-  schema
-  ->Metadata.set(
-    ~id=String.Refinement.metadataId,
-    {
-      switch schema->Metadata.get(~id=String.Refinement.metadataId) {
-      | Some(refinements) => refinements->X.Array.append(refinement)
-      | None => [refinement]
-      }
-    },
-  )
-  ->transform(s => {
-    parser: string => {
-      if String.datetimeRe->Js.Re.test_(string)->not {
-        s.fail(message)
-      }
-      Js.Date.fromString(string)
-    },
-    serializer: date => date->Js.Date.toISOString,
-  })
-}
-
 let trim = schema => {
   let transformer = string => string->Js.String2.trim
   schema->transform(_ => {parser: transformer, serializer: transformer})
@@ -6598,7 +6568,6 @@ module RescriptJSONSchema = {
             | {kind: Email} => jsonSchema.format = Some("email")
             | {kind: Url} => jsonSchema.format = Some("uri")
             | {kind: Uuid} => jsonSchema.format = Some("uuid")
-            | {kind: Datetime} => jsonSchema.format = Some("date-time")
             | {kind: Cuid} => ()
             | {kind: Length({length})} => {
                 jsonSchema.minLength = Some(length)
@@ -7117,18 +7086,7 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
       | {format: "uri"} => schema->url->castAnySchemaToJsonableS
       | {format: "uuid"} => schema->uuid->castAnySchemaToJsonableS
       | {format: "date-time"} =>
-        schema
-        ->addRefinement(
-          ~metadataId=String.Refinement.metadataId,
-          ~refiner=(~input) => {
-            `if(!${input->B.embed(String.datetimeRe)}.test(${input.var()})){${input->B.fail(~message="Invalid datetime string! Expected UTC")}}`
-          },
-          ~refinement={
-            kind: Datetime,
-            message: "Invalid datetime string! Expected UTC",
-          },
-        )
-        ->castAnySchemaToJsonableS
+        schema->to(date)->castAnySchemaToJsonableS
       | _ => schema->castAnySchemaToJsonableS
       }
 

@@ -318,10 +318,6 @@ let filesMapping = [
     "S.pattern"
   ],
   [
-    "datetime",
-    "S.datetime"
-  ],
-  [
     "trim",
     "S.trim"
   ],

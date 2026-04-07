@@ -424,7 +424,6 @@ module String: {
       | Cuid
       | Url
       | Pattern({re: Js.Re.t})
-      | Datetime
     type t = {
       kind: kind,
       message: string,
@@ -519,8 +518,6 @@ let uuid: (t<string>, ~message: string=?) => t<string>
 let cuid: (t<string>, ~message: string=?) => t<string>
 let url: (t<string>, ~message: string=?) => t<string>
 let pattern: (t<string>, Js.Re.t, ~message: string=?) => t<string>
-@deprecated("Use S.string->S.to(S.date) instead")
-let datetime: (t<string>, ~message: string=?) => t<Js.Date.t>
 let trim: t<string> => t<string>
 
 let toJSONSchema: t<'value> => JSONSchema.t

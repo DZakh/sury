@@ -178,7 +178,6 @@ let filesMapping = [
   ("cuid", "S.cuid"),
   ("url", "S.url"),
   ("pattern", "S.pattern"),
-  ("datetime", "S.datetime"),
   ("trim", "S.trim"),
   ("global", "S.global"),
   ("brand", "S.brand"),
