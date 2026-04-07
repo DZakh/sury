@@ -6464,10 +6464,46 @@ module RescriptJSONSchema = {
   @val
   external merge: (@as(json`{}`) _, t, t) => t = "Object.assign"
 
-  let rec encodeToJsonSchema = (schema: schema<unknown>, ~path, ~defs, ~parent, ~coerceToJson=false): option<JSONSchema.t> => {
+  let applyMetadataOverlay = (jsonSchema: Mutable.t, schema: schema<unknown>, ~defs): unit => {
+    switch schema->untag {
+    | {description: m} => jsonSchema.description = Some(m)
+    | _ => ()
+    }
+    switch schema->untag {
+    | {title: m} => jsonSchema.title = Some(m)
+    | _ => ()
+    }
+    switch schema->untag {
+    | {deprecated} => jsonSchema.deprecated = Some(deprecated)
+    | _ => ()
+    }
+    switch schema->untag {
+    | {examples} =>
+      jsonSchema.examples = Some(
+        examples->(
+          Obj.magic: // If a schema is Jsonable,
+          // then examples are Jsonable too.
+          array<unknown> => array<Js.Json.t>
+        ),
+      )
+    | _ => ()
+    }
+    switch schema->untag {
+    | {defs: schemaDefs} =>
+      let _ = defs->X.Dict.mixin(schemaDefs)
+    | _ => ()
+    }
+    switch schema->Metadata.get(~id=jsonSchemaMetadataId) {
+    | Some(metadataRawSchema) => jsonSchema->Mutable.mixin(metadataRawSchema)
+    | None => ()
+    }
+  }
+
+  let rec encodeToJsonSchema = (schema: schema<unknown>, ~path, ~defs, ~parent): option<JSONSchema.t> => {
     let schemaInternal = schema->castToInternal
-    // Try to discover the JSON-compatible form by reverse-parsing schemas with .to
-    let outputSchema = if schemaInternal.to->Obj.magic {
+    if !(schemaInternal.to->Obj.magic) {
+      None
+    } else {
       let reversed = schemaInternal->reverse
       let input = B.operationArg(
         ~flag=Flag.none,
@@ -6475,79 +6511,25 @@ module RescriptJSONSchema = {
         ~schema=unknown,
         ~expected=reversed,
       )
-      try {
+      let outputJsonSchema = try {
         let output = input->parse
-        Some(output.schema->castToPublic)
+        // The parse should produce a val whose .schema reflects the
+        // JSON-compatible transformed structure.
+        internalToJSONSchema(output.schema->castToPublic, ~path, ~defs, ~parent)
       } catch {
-      | _ => None
+      | _ => {
+          let _ = %raw(`exn`)->InternalError.getOrRethrow
+          // Parse failed — fall back to an empty JSON schema. The metadata
+          // overlay from the original schema is still applied below.
+          (({}: Mutable.t)->Mutable.toReadOnly)
+        }
       }
-    } else {
-      // For schemas without .to, simulate what the JSON encoder does
-      // (only when coercing to JSON context)
-      let tagFlag = schemaInternal.tag->TagFlag.get
-      if coerceToJson && tagFlag->Flag.unsafeHas(TagFlag.bigint) {
-        Some(string->castToPublic)
-      } else if coerceToJson && tagFlag->Flag.unsafeHas(TagFlag.undefined->Flag.with(TagFlag.nan)) {
-        Some(nullLiteral->castToPublic)
-      } else if tagFlag->Flag.unsafeHas(TagFlag.instance) {
-        // Instance types (like Date) - try encoding to string
-        let syntheticSchema = schemaInternal->copySchema
-        syntheticSchema.to = Some(string)
-        let reversed = syntheticSchema->reverse
-        let input = B.operationArg(
-          ~flag=Flag.none,
-          ~defs=%raw(`0`),
-          ~schema=unknown,
-          ~expected=reversed,
-        )
-        try {
-          let output = input->parse
-          Some(output.schema->castToPublic)
-        } catch {
-        | _ => None
-        }
-      } else {
-        None
-      }
-    }
-    switch outputSchema {
-    | Some(outputSchema) => {
-        let outputJsonSchema = internalToJSONSchema(outputSchema, ~path, ~defs, ~parent)
-        let mutableJs = outputJsonSchema->Mutable.fromReadOnly
-        switch schema->untag {
-        | {description: m} => mutableJs.description = Some(m)
-        | _ => ()
-        }
-        switch schema->untag {
-        | {title: m} => mutableJs.title = Some(m)
-        | _ => ()
-        }
-        switch schema->untag {
-        | {deprecated} => mutableJs.deprecated = Some(deprecated)
-        | _ => ()
-        }
-        switch schema->untag {
-        | {examples} =>
-          mutableJs.examples = Some(
-            examples->(Obj.magic: array<unknown> => array<Js.Json.t>),
-          )
-        | _ => ()
-        }
-        switch schema->untag {
-        | {defs: schemaDefs} =>
-          let _ = defs->X.Dict.mixin(schemaDefs)
-        | _ => ()
-        }
-        switch schema->Metadata.get(~id=jsonSchemaMetadataId) {
-        | Some(metadataRawSchema) => mutableJs->Mutable.mixin(metadataRawSchema)
-        | None => ()
-        }
-        Some(mutableJs->Mutable.toReadOnly)
-      }
-    | None => None
+      let mutableJs = outputJsonSchema->Mutable.fromReadOnly
+      mutableJs->applyMetadataOverlay(schema, ~defs)
+      Some(mutableJs->Mutable.toReadOnly)
     }
   }
-  and internalToJSONSchema = (schema: schema<unknown>, ~path, ~defs, ~parent, ~coerceToJson=false): JSONSchema.t => {
+  and internalToJSONSchema = (schema: schema<unknown>, ~path, ~defs, ~parent): JSONSchema.t => {
     let jsonSchema: Mutable.t = {}
     switch schema {
     | String({?const, ?format}) =>
@@ -6635,7 +6617,6 @@ module RescriptJSONSchema = {
                 ~parent=schema,
                 ~path=path->Path.concat(Path.dynamic),
                 ~defs,
-                ~coerceToJson,
               ),
             ),
           ),
@@ -6661,7 +6642,6 @@ module RescriptJSONSchema = {
                 ~parent=schema,
                 ~path=path->Path.concat(Path.fromLocation(idx->Js.Int.toString)),
                 ~defs,
-                ~coerceToJson,
               ),
             )
           })
@@ -6685,7 +6665,7 @@ module RescriptJSONSchema = {
           | _ => {
               items
               ->Js.Array2.push(
-                Schema(internalToJSONSchema(childSchema, ~parent=schema, ~path, ~defs, ~coerceToJson)),
+                Schema(internalToJSONSchema(childSchema, ~parent=schema, ~path, ~defs)),
               )
               ->ignore
               switch childSchema->castToInternal->isLiteral {
@@ -6726,7 +6706,6 @@ module RescriptJSONSchema = {
             ~path=path->Path.concat(Path.dynamic),
             ~defs,
             ~parent=schema,
-            ~coerceToJson,
           )
           jsonSchema.additionalProperties = Some(
             if (childJsonSchema->Obj.magic: dict<'a>)->Js.Dict.keys->Js.Array2.length === 0 {
@@ -6749,7 +6728,6 @@ module RescriptJSONSchema = {
               ~path=path->Path.concat(Path.fromLocation(key)),
               ~defs,
               ~parent=schema,
-              ~coerceToJson,
             )
             if itemSchema->castToInternal->isOptional->not {
               required->Js.Array2.push(key)->ignore
@@ -6771,87 +6749,38 @@ module RescriptJSONSchema = {
           }
         }
       }
-    | Ref({ref}) if ref === `${defsPath}${jsonName}` => {
-        let schemaInternal = schema->castToInternal
-        switch schemaInternal.to {
-        | Some(toSchema) => {
-            let toJsonSchema = internalToJSONSchema(
-              toSchema->castToPublic,
-              ~path,
-              ~defs,
-              ~parent=schema,
-              ~coerceToJson=true,
-            )
-            jsonSchema->Mutable.mixin(toJsonSchema->Obj.magic)
-          }
-        | None => ()
-        }
+    | Ref({ref}) if ref === `${defsPath}${jsonName}` =>
+      switch encodeToJsonSchema(schema, ~path, ~defs, ~parent) {
+      | Some(result) => jsonSchema->Mutable.mixin(result->Obj.magic)
+      | None => () // S.json without .to → empty {}
       }
     | Ref({ref}) => jsonSchema.ref = Some(ref)
     | Null(_) => jsonSchema.type_ = Some(Arrayable.single(#null))
     | Never(_) => jsonSchema.not = Some(Schema({}))
 
     | _ =>
-      switch encodeToJsonSchema(schema, ~path, ~defs, ~parent, ~coerceToJson) {
+      switch encodeToJsonSchema(schema, ~path, ~defs, ~parent) {
       | Some(result) => jsonSchema->Mutable.mixin(result->Obj.magic)
       | None =>
-        if !coerceToJson {
-          X.Exn.throwAny(
-            InternalError.make(
-              B.makeInvalidInputDetails(
-                ~received=if (parent->castToInternal).tag->TagFlag.get->Flag.unsafeHas(TagFlag.union) {
-                  parent
-                } else {
-                  schema
-                },
-                ~expected=json,
-                ~path,
-                ~input=%raw(`0`),
-                ~includeInput=false,
-              ),
+        X.Exn.throwAny(
+          InternalError.make(
+            B.makeInvalidInputDetails(
+              ~received=if (parent->castToInternal).tag->TagFlag.get->Flag.unsafeHas(TagFlag.union) {
+                parent
+              } else {
+                schema
+              },
+              ~expected=json,
+              ~path,
+              ~input=%raw(`0`),
+              ~includeInput=false,
             ),
-          )
-        }
+          ),
+        )
       }
     }
 
-    switch schema->untag {
-    | {description: m} => jsonSchema.description = Some(m)
-    | _ => ()
-    }
-
-    switch schema->untag {
-    | {title: m} => jsonSchema.title = Some(m)
-    | _ => ()
-    }
-
-    switch schema->untag {
-    | {deprecated} => jsonSchema.deprecated = Some(deprecated)
-    | _ => ()
-    }
-
-    switch schema->untag {
-    | {examples} =>
-      jsonSchema.examples = Some(
-        examples->(
-          Obj.magic: // If a schema is Jsonable,
-          // then examples are Jsonable too.
-          array<unknown> => array<Js.Json.t>
-        ),
-      )
-    | _ => ()
-    }
-
-    switch schema->untag {
-    | {defs: schemaDefs} =>
-      let _ = defs->X.Dict.mixin(schemaDefs)
-    | _ => ()
-    }
-
-    switch schema->Metadata.get(~id=jsonSchemaMetadataId) {
-    | Some(metadataRawSchema) => jsonSchema->Mutable.mixin(metadataRawSchema)
-    | None => ()
-    }
+    jsonSchema->applyMetadataOverlay(schema, ~defs)
 
     jsonSchema->Mutable.toReadOnly
   }

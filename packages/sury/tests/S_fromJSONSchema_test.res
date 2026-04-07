@@ -258,6 +258,14 @@ test("fromJSONSchema: string format date-time", t => {
   t->Assert.deepEqual(jsonRoundTrip(js), js)
 })
 
+test("Round-trip S.string->S.to(S.date) through toJSONSchema/fromJSONSchema", t => {
+  let schema = S.string->S.to(S.date)
+  let js = schema->S.toJSONSchema
+  t->Assert.deepEqual(js, %raw(`{"type": "string", "format": "date-time"}`))
+  // fromJSONSchema then toJSONSchema should preserve the format
+  t->Assert.deepEqual(js->S.fromJSONSchema->S.toJSONSchema, js)
+})
+
 test("fromJSONSchema: string pattern", t => {
   let js = {type_: Arrayable.single(#string), pattern: "^foo$"}
   let schema = S.fromJSONSchema(js)

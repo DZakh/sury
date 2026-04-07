@@ -4384,58 +4384,22 @@ function global(override) {
 
 let jsonSchemaMetadataId = "m:JSONSchema";
 
-function encodeToJsonSchema(schema, path, defs, parent, coerceToJsonOpt) {
-  let coerceToJson = coerceToJsonOpt !== undefined ? coerceToJsonOpt : false;
-  let outputSchema;
-  if (schema.to) {
-    let reversed = reverse(schema);
-    let input = operationArg(unknown, reversed, 0, 0);
-    try {
-      let output = parse$1(input);
-      outputSchema = output.s;
-    } catch (exn) {
-      outputSchema = undefined;
-    }
-  } else {
-    let tagFlag = flags[schema.type];
-    if (coerceToJson && tagFlag & 1024) {
-      outputSchema = string;
-    } else if (coerceToJson && tagFlag & 2064) {
-      outputSchema = nullLiteral;
-    } else if (tagFlag & 8192) {
-      let syntheticSchema = copySchema(schema);
-      syntheticSchema.to = string;
-      let reversed$1 = reverse(syntheticSchema);
-      let input$1 = operationArg(unknown, reversed$1, 0, 0);
-      try {
-        let output$1 = parse$1(input$1);
-        outputSchema = output$1.s;
-      } catch (exn$1) {
-        outputSchema = undefined;
-      }
-    } else {
-      outputSchema = undefined;
-    }
-  }
-  if (outputSchema === undefined) {
-    return;
-  }
-  let outputJsonSchema = internalToJSONSchema(outputSchema, path, defs, parent, undefined);
+function applyMetadataOverlay(jsonSchema, schema, defs) {
   let m = schema.description;
   if (m !== undefined) {
-    outputJsonSchema.description = m;
+    jsonSchema.description = m;
   }
   let m$1 = schema.title;
   if (m$1 !== undefined) {
-    outputJsonSchema.title = m$1;
+    jsonSchema.title = m$1;
   }
   let deprecated = schema.deprecated;
   if (deprecated !== undefined) {
-    outputJsonSchema.deprecated = deprecated;
+    jsonSchema.deprecated = deprecated;
   }
   let examples = schema.examples;
   if (examples !== undefined) {
-    outputJsonSchema.examples = examples;
+    jsonSchema.examples = examples;
   }
   let schemaDefs = schema.$defs;
   if (schemaDefs !== undefined) {
@@ -4443,13 +4407,31 @@ function encodeToJsonSchema(schema, path, defs, parent, coerceToJsonOpt) {
   }
   let metadataRawSchema = schema[jsonSchemaMetadataId];
   if (metadataRawSchema !== undefined) {
-    Object.assign(outputJsonSchema, metadataRawSchema);
+    Object.assign(jsonSchema, metadataRawSchema);
+    return;
   }
+  
+}
+
+function encodeToJsonSchema(schema, path, defs, parent) {
+  if (!schema.to) {
+    return;
+  }
+  let reversed = reverse(schema);
+  let input = operationArg(unknown, reversed, 0, 0);
+  let outputJsonSchema;
+  try {
+    let output = parse$1(input);
+    outputJsonSchema = internalToJSONSchema(output.s, path, defs, parent);
+  } catch (exn) {
+    getOrRethrow(exn);
+    outputJsonSchema = {};
+  }
+  applyMetadataOverlay(outputJsonSchema, schema, defs);
   return outputJsonSchema;
 }
 
-function internalToJSONSchema(schema, path, defs, parent, coerceToJsonOpt) {
-  let coerceToJson = coerceToJsonOpt !== undefined ? coerceToJsonOpt : false;
+function internalToJSONSchema(schema, path, defs, parent) {
   let jsonSchema = {};
   switch (schema.type) {
     case "never" :
@@ -4458,7 +4440,7 @@ function internalToJSONSchema(schema, path, defs, parent, coerceToJsonOpt) {
     case "string" :
       let format = schema.format;
       let $$const = schema.const;
-      let result = encodeToJsonSchema(schema, path, defs, parent, undefined);
+      let result = encodeToJsonSchema(schema, path, defs, parent);
       if (result !== undefined) {
         Object.assign(jsonSchema, result);
       } else {
@@ -4557,7 +4539,7 @@ function internalToJSONSchema(schema, path, defs, parent, coerceToJsonOpt) {
       if (additionalItems === "strip" || additionalItems === "strict") {
         exit = 1;
       } else {
-        jsonSchema.items = internalToJSONSchema(additionalItems, path + "[]", defs, schema, coerceToJson);
+        jsonSchema.items = internalToJSONSchema(additionalItems, path + "[]", defs, schema);
         jsonSchema.type = "array";
         refinements(schema).forEach(refinement => {
           let match = refinement.kind;
@@ -4579,7 +4561,7 @@ function internalToJSONSchema(schema, path, defs, parent, coerceToJsonOpt) {
       if (exit === 1) {
         let items = schema.items.map((itemSchema, idx) => {
           let location = idx.toString();
-          return internalToJSONSchema(itemSchema, path + ("[" + fromString(location) + "]"), defs, schema, coerceToJson);
+          return internalToJSONSchema(itemSchema, path + ("[" + fromString(location) + "]"), defs, schema);
         });
         let itemsNumber = items.length;
         jsonSchema.items = Primitive_option.some(items);
@@ -4596,7 +4578,7 @@ function internalToJSONSchema(schema, path, defs, parent, coerceToJsonOpt) {
         exit$1 = 1;
       } else {
         jsonSchema.type = "object";
-        let childJsonSchema = internalToJSONSchema(additionalItems$1, path + "[]", defs, schema, coerceToJson);
+        let childJsonSchema = internalToJSONSchema(additionalItems$1, path + "[]", defs, schema);
         jsonSchema.additionalProperties = Object.keys(childJsonSchema).length === 0 ? true : childJsonSchema;
       }
       if (exit$1 === 1) {
@@ -4606,7 +4588,7 @@ function internalToJSONSchema(schema, path, defs, parent, coerceToJsonOpt) {
         for (let idx = 0, idx_finish = keys.length; idx < idx_finish; ++idx) {
           let key = keys[idx];
           let itemSchema = properties[key];
-          let fieldSchema = internalToJSONSchema(itemSchema, path + ("[" + fromString(key) + "]"), defs, schema, coerceToJson);
+          let fieldSchema = internalToJSONSchema(itemSchema, path + ("[" + fromString(key) + "]"), defs, schema);
           if (!isOptional(itemSchema)) {
             required.push(key);
           }
@@ -4630,7 +4612,7 @@ function internalToJSONSchema(schema, path, defs, parent, coerceToJsonOpt) {
         if (childSchema.type === "undefined" && parent.type === objectTag) {
           return;
         }
-        items$1.push(internalToJSONSchema(childSchema, path, defs, schema, coerceToJson));
+        items$1.push(internalToJSONSchema(childSchema, path, defs, schema));
         if (constField in childSchema) {
           literals.push(childSchema.const);
           return;
@@ -4653,10 +4635,9 @@ function internalToJSONSchema(schema, path, defs, parent, coerceToJsonOpt) {
     case "ref" :
       let ref = schema.$ref;
       if (ref === defsPath + jsonName) {
-        let toSchema = schema.to;
-        if (toSchema !== undefined) {
-          let toJsonSchema = internalToJSONSchema(toSchema, path, defs, schema, true);
-          Object.assign(jsonSchema, toJsonSchema);
+        let result$1 = encodeToJsonSchema(schema, path, defs, parent);
+        if (result$1 !== undefined) {
+          Object.assign(jsonSchema, result$1);
         }
         
       } else {
@@ -4664,50 +4645,26 @@ function internalToJSONSchema(schema, path, defs, parent, coerceToJsonOpt) {
       }
       break;
     default:
-      let result$1 = encodeToJsonSchema(schema, path, defs, parent, coerceToJson);
-      if (result$1 !== undefined) {
-        Object.assign(jsonSchema, result$1);
-      } else if (!coerceToJson) {
+      let result$2 = encodeToJsonSchema(schema, path, defs, parent);
+      if (result$2 !== undefined) {
+        Object.assign(jsonSchema, result$2);
+      } else {
         throw new SuryError(makeInvalidInputDetails(json, flags[parent.type] & 256 ? parent : schema, path, 0, false, undefined));
       }
-      
   }
-  let m = schema.description;
-  if (m !== undefined) {
-    jsonSchema.description = m;
-  }
-  let m$1 = schema.title;
-  if (m$1 !== undefined) {
-    jsonSchema.title = m$1;
-  }
-  let deprecated = schema.deprecated;
-  if (deprecated !== undefined) {
-    jsonSchema.deprecated = deprecated;
-  }
-  let examples = schema.examples;
-  if (examples !== undefined) {
-    jsonSchema.examples = examples;
-  }
-  let schemaDefs = schema.$defs;
-  if (schemaDefs !== undefined) {
-    Object.assign(defs, schemaDefs);
-  }
-  let metadataRawSchema = schema[jsonSchemaMetadataId];
-  if (metadataRawSchema !== undefined) {
-    Object.assign(jsonSchema, metadataRawSchema);
-  }
+  applyMetadataOverlay(jsonSchema, schema, defs);
   return jsonSchema;
 }
 
 function toJSONSchema(schema) {
   let defs = {};
-  let jsonSchema = internalToJSONSchema(schema, "", defs, schema, undefined);
+  let jsonSchema = internalToJSONSchema(schema, "", defs, schema);
   ((delete defs.JSON));
   let defsKeys = Object.keys(defs);
   if (defsKeys.length) {
     defsKeys.forEach(key => {
       let schema = defs[key];
-      defs[key] = internalToJSONSchema(schema, "", 0, schema, undefined);
+      defs[key] = internalToJSONSchema(schema, "", 0, schema);
     });
     jsonSchema.$defs = defs;
   }
