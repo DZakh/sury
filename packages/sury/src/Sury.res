@@ -6511,22 +6511,29 @@ module RescriptJSONSchema = {
         ~schema=unknown,
         ~expected=reversed,
       )
-      let outputJsonSchema = try {
+      try {
         let output = input->parse
         // The parse should produce a val whose .schema reflects the
         // JSON-compatible transformed structure.
-        internalToJSONSchema(output.schema->castToPublic, ~path, ~defs, ~parent)
+        let outputJsonSchema = internalToJSONSchema(
+          output.schema->castToPublic,
+          ~path,
+          ~defs,
+          ~parent,
+        )
+        let mutableJs = outputJsonSchema->Mutable.fromReadOnly
+        mutableJs->applyMetadataOverlay(schema, ~defs)
+        Some(mutableJs->Mutable.toReadOnly)
       } catch {
       | _ => {
           let _ = %raw(`exn`)->InternalError.getOrRethrow
-          // Parse failed — fall back to an empty JSON schema. The metadata
-          // overlay from the original schema is still applied below.
-          (({}: Mutable.t)->Mutable.toReadOnly)
+          // Parse failed — let the caller fall through to its own default
+          // (empty {} for the JSON Ref case, existing logic for String, throw
+          // for the catch-all). The outer internalToJSONSchema tail will
+          // apply metadata overlay to whatever the fall-through builds.
+          None
         }
       }
-      let mutableJs = outputJsonSchema->Mutable.fromReadOnly
-      mutableJs->applyMetadataOverlay(schema, ~defs)
-      Some(mutableJs->Mutable.toReadOnly)
     }
   }
   and internalToJSONSchema = (schema: schema<unknown>, ~path, ~defs, ~parent): JSONSchema.t => {

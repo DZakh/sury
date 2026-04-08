@@ -4419,16 +4419,15 @@ function encodeToJsonSchema(schema, path, defs, parent) {
   }
   let reversed = reverse(schema);
   let input = operationArg(unknown, reversed, 0, 0);
-  let outputJsonSchema;
   try {
     let output = parse$1(input);
-    outputJsonSchema = internalToJSONSchema(output.s, path, defs, parent);
+    let outputJsonSchema = internalToJSONSchema(output.s, path, defs, parent);
+    applyMetadataOverlay(outputJsonSchema, schema, defs);
+    return outputJsonSchema;
   } catch (exn) {
     getOrRethrow(exn);
-    outputJsonSchema = {};
+    return;
   }
-  applyMetadataOverlay(outputJsonSchema, schema, defs);
-  return outputJsonSchema;
 }
 
 function internalToJSONSchema(schema, path, defs, parent) {
