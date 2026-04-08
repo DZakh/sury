@@ -4318,6 +4318,7 @@ module String = {
   // Adapted from https://stackoverflow.com/a/46181/1550155
   let emailRegex = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i
   // Adapted from https://stackoverflow.com/a/3143231
+  let datetimeRe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/
 }
 
 let jsonEncoder = Builder.encoder((~input, ~target) => {
@@ -7022,7 +7023,18 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
       | {format: "uri"} => schema->url->castAnySchemaToJsonableS
       | {format: "uuid"} => schema->uuid->castAnySchemaToJsonableS
       | {format: "date-time"} =>
-        schema->to(date)->castAnySchemaToJsonableS
+        schema
+        ->internalRefine(_ =>
+          (~input) => {
+            `if(!${input->B.embed(
+                String.datetimeRe,
+              )}.test(${input.var()})){${input->B.fail(
+                ~message="Invalid datetime string! Expected UTC",
+              )}}`
+          }
+        )
+        ->extendJSONSchema({format: "date-time"})
+        ->castAnySchemaToJsonableS
       | _ => schema->castAnySchemaToJsonableS
       }
 
