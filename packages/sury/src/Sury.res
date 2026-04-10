@@ -1291,16 +1291,6 @@ module Builder = {
         | _ => ()
         }
 
-        // FIXME: This is not well-thought + we also have custom merge logic in union decoder which should be updated
-        if val.isOutput->X.Option.getUnsafe && val.expected.refiner->Obj.magic {
-          currentCode :=
-            currentCode.contents ++ (val.expected.refiner->X.Option.getUnsafe)(~input=val)
-        }
-        if val.isInput->X.Option.getUnsafe && val.expected.inputRefiner->Obj.magic {
-          currentCode :=
-            currentCode.contents ++ (val.expected.inputRefiner->X.Option.getUnsafe)(~input=val)
-        }
-
         if val.varsAllocation !== "" {
           currentCode := currentCode.contents ++ `let ${val.varsAllocation};`
         }
@@ -1589,6 +1579,22 @@ module Builder = {
 
     let invalidOperation = (val: val, ~description) => {
       val->throw(InvalidOperation({reason: description, path: val.path}))
+    }
+
+    // Applies refinements to a val based on its isInput/isOutput flags.
+    // Called after a decoder finalizes the output val in the parse loop.
+    // - isOutput + refiner: validates the decoded output
+    // - isInput + inputRefiner: validates the pre-decoded input
+    let applyRefiners = (val: val) => {
+      let expected = val.expected
+      if val.isInput->X.Option.getUnsafe && expected.inputRefiner->Obj.magic {
+        val.codeFromPrev =
+          val.codeFromPrev ++ (expected.inputRefiner->X.Option.getUnsafe)(~input=val)
+      }
+      if val.isOutput->X.Option.getUnsafe && expected.refiner->Obj.magic {
+        val.codeFromPrev =
+          val.codeFromPrev ++ (expected.refiner->X.Option.getUnsafe)(~input=val)
+      }
     }
 
     let mergeWithCatch = (val: val, ~catch, ~appendSafe=?) => {
@@ -2049,6 +2055,8 @@ let rec parse = (input: val) => {
           valRef.contents.isInput = Some(true)
           valRef.contents.isOutput = Some(true)
         }
+        // Apply refinements after decoder finalization.
+        valRef.contents->B.applyRefiners
       }
     }
   }
@@ -3645,10 +3653,19 @@ module Union = {
         let schema = switch toPerCase {
         | Some(target) =>
           updateOutput(schemas->Js.Array2.unsafe_get(idx), mut => {
-            // switch selfSchema.refiner {
-            // | Some(refiner) => mut.refiner = Some(appendRefiner(mut.refiner, refiner))
-            // | None => ()
-            // }
+            // Propagate the union-level refiner into each per-case schema.
+            // Each case's recursive parse will apply it after the case decoder runs,
+            // before the per-case `to` coercion on the next loop iteration.
+            switch selfSchema.refiner {
+            | Some(refiner) =>
+              mut.refiner = Some(
+                switch mut.refiner {
+                | Some(existing) => (~input) => existing(~input) ++ refiner(~input)
+                | None => refiner
+                },
+              )
+            | None => ()
+            }
             mut.to = Some(target)
           })->castToInternal
         | _ => schemas->Js.Array2.unsafe_get(idx)
