@@ -195,13 +195,10 @@ test("Error path reporting for invalid column value", t => {
       ),
     )
 
-  switch %raw(`[["a"], ["not-an-int"]]`)->S.parseOrThrow(schema) {
-  | _ => t->Assert.fail("Should have thrown")
-  | exception S.Exn(error) =>
-    // Should have a non-empty path pointing into the failing cell.
-    let path = (error->Obj.magic)["path"]
-    t->Assert.notDeepEqual(path, "", ~message="Error path should not be empty")
-  }
+  t->U.assertThrowsMessage(
+    () => %raw(`[["a"], ["not-an-int"]]`)->S.parseOrThrow(schema),
+    `Failed at ["0"]["bar"]: Expected int32, received "not-an-int"`,
+  )
 })
 
 asyncTest("Async field schema", async t => {
