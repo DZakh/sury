@@ -135,10 +135,6 @@ test("Schema has format field set to compactColumns", t => {
   t->Assert.deepEqual((schema->S.untag).format, Some(CompactColumns))
 })
 
-// ──────────────────────────────────────────────────────────────
-// Tests added from review — exercising gaps in coverage
-// ──────────────────────────────────────────────────────────────
-
 test("Typed input schema (non-unknown inputSchema branch)", t => {
   // Exercises the non-unknown branch of itemSchema derivation,
   // where input.schema.additionalItems is walked twice.
