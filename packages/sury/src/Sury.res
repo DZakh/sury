@@ -5541,34 +5541,10 @@ let compactColumnsEncoder = Builder.encoder((~input, ~target) => {
       for idx in 0 to keys->Js.Array2.length - 1 {
         let key = keys->Js.Array2.unsafe_get(idx)
         let rawValueCode = `${inputVar}[${iteratorVar}][${key->X.Inlined.Value.fromString}]`
-        let fieldSchema = properties->Js.Dict.unsafeGet(key)
-        // Check if this field converts undefined to null (reversed nullAsOption)
-        let hasUndefinedToNullTransform = switch fieldSchema.anyOf {
-        | Some(anyOf) =>
-          anyOf->Js.Array2.some(item => {
-            let itemTagFlag = item.tag->TagFlag.get
-            if itemTagFlag->Flag.unsafeHas(TagFlag.undefined) {
-              switch item.to {
-              | Some(toSchema) =>
-                let toTagFlag = toSchema.tag->TagFlag.get
-                toTagFlag->Flag.unsafeHas(TagFlag.null)
-              | None => false
-              }
-            } else {
-              false
-            }
-          })
-        | None => false
-        }
-        let fieldValueCode = if hasUndefinedToNullTransform {
-          `${rawValueCode}===void 0?null:${rawValueCode}`
-        } else {
-          rawValueCode
-        }
         initialArraysCode := initialArraysCode.contents ++ `new Array(${inputVar}.length),`
         settingCode :=
           settingCode.contents ++
-          `${outputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]=${fieldValueCode};`
+          `${outputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]=${rawValueCode};`
       }
 
       input.allocate(`${outputVar}=[${initialArraysCode.contents}]`)
@@ -5653,29 +5629,48 @@ let compactColumnsDecoder = (~input) => {
         let iteratorVar = input.global->B.varWithoutAllocation
         let outputVar = input.global->B.varWithoutAllocation
 
+        // Schema of each raw column value. When input is unknown, items are unknown.
+        // When input is array(array(inputSchema)), derive inputSchema from input.schema.
+        let itemSchema: internal = if isUnknownInput {
+          unknown
+        } else {
+          let innerArray: internal = input.schema.additionalItems->Obj.magic
+          innerArray.additionalItems->Obj.magic
+        }
+
         let lengthCode = ref("")
         let itemBuildCode = ref("")
+        let itemParseCode = ref("")
+        let itemInlines = []
+        let hasAsync = ref(false)
         for idx in 0 to keys->Js.Array2.length - 1 {
           let key = keys->Js.Array2.unsafe_get(idx)
-          let rawValueCode = `${inputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]`
           let fieldSchema = properties->Js.Dict.unsafeGet(key)
-          // Check if this field has a null variant (e.g., nullAsOption)
-          let hasNullVariant = switch fieldSchema.has {
-          | Some(has) =>
-            switch has->X.Dict.getUnsafeOption((nullTag :> string)) {
-            | Some(_) => true
-            | None => false
-            }
-          | None => false
+          let rawValueCode = `${inputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]`
+
+          // Use parse on the field schema to handle transformations (e.g. null->undefined).
+          let itemInput = input->B.Val.scope
+          itemInput.inline = rawValueCode
+          itemInput.schema = itemSchema
+          itemInput.expected = fieldSchema
+          itemInput.var = B._notVarBeforeValidation
+          itemInput.isInput = Some(false)
+          itemInput.isOutput = Some(false)
+          // Path like ["bar"] so validation errors carry the field location.
+          itemInput.path = Path.fromInlinedLocation(input.global->B.inlineLocation(key))
+
+          let itemOutput = itemInput->parse
+          if itemOutput.flag->Flag.unsafeHas(ValFlag.async) {
+            hasAsync := true
           }
-          let fieldValueCode = if hasNullVariant {
-            `${rawValueCode}===null?void 0:${rawValueCode}`
-          } else {
-            rawValueCode
-          }
+          let itemCode = itemOutput->B.merge
+
+          itemParseCode := itemParseCode.contents ++ itemCode
           lengthCode := lengthCode.contents ++ `${inputVar}[${idx->X.Int.unsafeToString}].length,`
+          itemInlines->Js.Array2.push(itemOutput.inline)->ignore
           itemBuildCode :=
-            itemBuildCode.contents ++ `${key->X.Inlined.Value.fromString}:${fieldValueCode},`
+            itemBuildCode.contents ++
+            `${key->X.Inlined.Value.fromString}:${itemOutput.inline},`
         }
 
         input.allocate(`${outputVar}=new Array(Math.max(${lengthCode.contents}))`)
@@ -5684,12 +5679,50 @@ let compactColumnsDecoder = (~input) => {
         let output = input->B.next(outputVar, ~schema=outputSchema, ~expected=outputSchema)
         output.var = B._var
         output.isOutput = Some(true)
-        output.codeFromPrev =
-          output.codeFromPrev ++
-          `for(let ${iteratorVar}=0;${iteratorVar}<${outputVar}.length;++${iteratorVar}){${outputVar}[${iteratorVar}]={${itemBuildCode.contents}};}`
-        output
+
+        // Wrap the row body in a single try/catch that prepends the row index to
+        // any thrown error — giving paths like ["0"]["bar"]. A single wrapper is
+        // used (rather than per-field) so that `let` variables declared while
+        // parsing one field remain in scope for the object construction.
+        let errorVar = input.global->B.varWithoutAllocation
+        let wrapRowBody = body =>
+          if itemParseCode.contents === "" {
+            body
+          } else {
+            `try{${body}}catch(${errorVar}){${errorVar}.path='["'+${iteratorVar}+'"]'+${errorVar}.path;throw ${errorVar}}`
+          }
+
+        if hasAsync.contents {
+          // For async fields, each row becomes a promise that awaits all field values
+          // via Promise.all, and the final output is Promise.all of all row promises.
+          let rowResultVar = input.global->B.varWithoutAllocation
+          let asyncBuildCode =
+            keys
+            ->Js.Array2.mapi((key, idx) =>
+              `${key->X.Inlined.Value.fromString}:${rowResultVar}[${idx->X.Int.unsafeToString}]`
+            )
+            ->Js.Array2.joinWith(",")
+          let promisesCode = itemInlines->Js.Array2.joinWith(",")
+          let rowBody = `${itemParseCode.contents}${outputVar}[${iteratorVar}]=Promise.all([${promisesCode}]).then(${rowResultVar}=>({${asyncBuildCode},}));`
+          output.codeFromPrev =
+            output.codeFromPrev ++
+            `for(let ${iteratorVar}=0;${iteratorVar}<${outputVar}.length;++${iteratorVar}){${wrapRowBody(
+                rowBody,
+              )}}`
+          output->B.asyncVal(`Promise.all(${outputVar})`)
+        } else {
+          let rowBody = `${itemParseCode.contents}${outputVar}[${iteratorVar}]={${itemBuildCode.contents}};`
+          output.codeFromPrev =
+            output.codeFromPrev ++
+            `for(let ${iteratorVar}=0;${iteratorVar}<${outputVar}.length;++${iteratorVar}){${wrapRowBody(
+                rowBody,
+              )}}`
+          output
+        }
       } else {
         // Reverse direction: rows → columnar
+        // The field values have already been transformed by the earlier parse pipeline step
+        // (the object schema's reverse parse), so we can just copy them directly.
         let inputVar = input->B.Val.var
         let iteratorVar = input.global->B.varWithoutAllocation
         let outputVar = input.global->B.varWithoutAllocation
@@ -5699,34 +5732,10 @@ let compactColumnsDecoder = (~input) => {
         for idx in 0 to keys->Js.Array2.length - 1 {
           let key = keys->Js.Array2.unsafe_get(idx)
           let rawValueCode = `${inputVar}[${iteratorVar}][${key->X.Inlined.Value.fromString}]`
-          let fieldSchema = properties->Js.Dict.unsafeGet(key)
-          // Check if this field converts undefined to null (reversed nullAsOption)
-          let hasUndefinedToNullTransform = switch fieldSchema.anyOf {
-          | Some(anyOf) =>
-            anyOf->Js.Array2.some(item => {
-              let itemTagFlag = item.tag->TagFlag.get
-              if itemTagFlag->Flag.unsafeHas(TagFlag.undefined) {
-                switch item.to {
-                | Some(toSchema) =>
-                  let toTagFlag = toSchema.tag->TagFlag.get
-                  toTagFlag->Flag.unsafeHas(TagFlag.null)
-                | None => false
-                }
-              } else {
-                false
-              }
-            })
-          | None => false
-          }
-          let fieldValueCode = if hasUndefinedToNullTransform {
-            `${rawValueCode}===void 0?null:${rawValueCode}`
-          } else {
-            rawValueCode
-          }
           initialArraysCode := initialArraysCode.contents ++ `new Array(${inputVar}.length),`
           settingCode :=
             settingCode.contents ++
-            `${outputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]=${fieldValueCode};`
+            `${outputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]=${rawValueCode};`
         }
 
         input.allocate(`${outputVar}=[${initialArraysCode.contents}]`)
