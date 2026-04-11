@@ -67,39 +67,23 @@ test("Coerce from string to bool literal", t => {
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{i===false||e[0](i);return "false"}`)
 })
 
-// KNOWN BUG: refiner runs before type guard when coercing via `.to`.
-//
-// Refinements on a source schema are appended to `val.codeFromPrev` in
-// `parse` (Sury.res:2209), and `merge` emits `codeFromPrev ++ validation_code`
-// — which places the refiner BEFORE the type guard. A numeric input fails
-// with the refinement message ("non-empty") instead of "Expected string,
-// received 123", because `(123).length > 0` is false and the type guard
-// never gets a chance to run.
-//
-// The FIXME at Sury.res:2048 points at this interaction. All three checks do
-// survive the `.to` coercion (refiner, typeof guard, stringConstVal equality)
-// but their order is wrong. Fix lands when refinements migrate off
-// `codeFromPrev` onto `val.validation` as `{kind: Refinement}` checks.
+// KNOWN BUG: refiner runs before the type guard when coercing via `.to`.
+// `parse` appends refiner code to `codeFromPrev`, and `merge` emits
+// `codeFromPrev ++ validation_code`, so the refiner sees untyped input.
+// Fix lands when refinements migrate off `codeFromPrev` onto `val.validation`.
 test("S.string->S.refine->S.to(S.literal) reports type error before refinement error", t => {
   let schema =
     S.string
     ->S.refine(v => v->String.length > 0, ~error="non-empty")
     ->S.to(S.literal(false))
 
-  // Golden path: happy case still works.
   t->Assert.deepEqual("false"->S.parseOrThrow(schema), false)
-
-  // Refinement fires for empty string — currently correct.
   t->U.assertThrowsMessage(() => ""->S.parseOrThrow(schema), "non-empty")
-
-  // Const check fires for non-matching string — currently correct.
   t->U.assertThrowsMessage(
     () => "true"->S.parseOrThrow(schema),
     `Expected "false", received "true"`,
   )
-
-  // For a non-string input, the type guard should fire first with "Expected string".
-  // Currently the refiner runs first and fails with its own message — BUG.
+  // BUG: currently fails with the refiner's "non-empty" because `(123).length > 0` is false.
   t->U.assertThrowsMessage(() => 123->S.parseOrThrow(schema), `Expected string, received 123`)
 })
 

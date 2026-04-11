@@ -586,9 +586,8 @@ and val = {
   mutable varsAllocation: string,
   @as("a")
   mutable allocate: string => unit,
-  // Absent when the val has no checks. We deliberately never store an empty
-  // array here: a missing field is a cheaper "no validation" than `Some([])`,
-  // and lets hot paths test `val.validation->unsafeToBool` instead of len.
+  // Invariant: absent iff no checks. Never stored as `Some([])` so callers
+  // can test presence with `->unsafeToBool` instead of length.
   @as("vc")
   mutable validation?: array<validationCheck>,
   @as("u")
@@ -614,15 +613,12 @@ and bGlobal = {
   @as("d")
   mutable defs?: dict<internal>,
 }
-// A single validation check attached to a val.
-// Emitted as `${cond(inputVar)}||${embed(fail(val))}(${inputVar});` at merge time.
-// Two adjacent checks sharing a `fail` by reference equality are fused with `&&`.
+// Adjacent checks sharing `fail` by reference equality are fused with `&&`
+// in `emitValidation`, so pass the same helper (e.g. `B.failInvalidType`) to
+// every check on a val if you want them to emit as one `||`-throw line.
 and validationCheck = {
-  // Positive "valid-when-true" JS expression
   @as("c")
   cond: (~inputVar: string) => string,
-  // Emit-time factory: receives the val that owns the check and returns the
-  // runtime error-builder that gets embedded and called when the check fails.
   @as("f")
   fail: (~input: val) => (unknown => errorDetails),
 }
@@ -1286,26 +1282,14 @@ module Builder = {
       details
     }
 
-    // Default `fail` used by `validationCheck` records. A plain top-level
-    // function reference (no partial application, no per-refine closure) so
-    // that every check carrying it shares the same `fail` identity and fuses
-    // with its neighbors in `emitValidation`.
-    //
-    // `input` here is the val that OWNS the check — `emitValidation` passes
-    // `val` as `~input`. All three error fields come from that one val:
-    // `input.expected` (target schema), `input.schema` (source schema),
-    // and `input.path` (error location).
+    // Pass this as `fail` on every check that wants "expected X, received Y"
+    // error semantics. Stable reference → adjacent checks fuse.
     let failInvalidType = (~input: val) => {
-      // FIXME: `received` is wrong for refine-chain vals. `B.refine` sets
-      // `~schema=prev.expected` so `input.schema` ends up equal to
-      // `input.expected` (the target), not the source type. The user-visible
-      // reason string is unaffected because it uses `input->stringify`
-      // (the stringified runtime value), but programmatic consumers reading
-      // `err.received` on a primitive type failure get the target schema.
-      // Fix would be to either reach through `input.prev.schema` (unsafe
-      // optional navigation) or stop mutating `val.schema` to the target in
-      // refine. Direct-assign sites like `compactColumns` are unaffected —
-      // they set `input.schema` to the genuine source type.
+      // FIXME: `input.schema` is the target schema for refine-chain vals
+      // (refine sets `~schema=prev.expected`), so `err.received` ends up
+      // equal to `err.expected` on a primitive type failure. Reason text is
+      // unaffected (it uses `input->stringify`) but programmatic consumers
+      // of `err.received` get the wrong schema.
       let received = input.schema->castToPublic
       let path = input.path
       let expected = input.expected
@@ -1319,10 +1303,9 @@ module Builder = {
         )
     }
 
-    // Emit a throw expression for a direct invalid-input failure (not
-    // attached to a val's validation list). Used inside decoders that build
-    // their own inline JS, e.g. booleanDecoder's `||…||${embedInvalidInput}`
-    // or bigintDecoder's `catch(_){${embedInvalidInput}}`.
+    // Inline variant: emits the throw expression directly. Used by decoders
+    // that splice errors into custom JS (e.g. `catch(_){${embedInvalidInput}}`),
+    // not via the `validationCheck` pipeline.
     let embedInvalidInput = (~input: val, ~expected=input.expected) => {
       let received = input.schema->castToPublic
       let path = input.path
@@ -1339,14 +1322,8 @@ module Builder = {
       )
     }
 
-    // Emit the JS for a val's validation list, respecting `noValidation`.
-    // Adjacent checks that share a `fail` function reference are fused into
-    // one `cond1&&cond2||…;` emission so primitive decoders keep producing a
-    // single throw line. The single-check fast path skips the ref+loop setup.
-    //
-    // Caller must verify `val.validation->unsafeToBool` before dispatching
-    // (so we can unwrap with `getUnsafe`) and pass `inputVar` — the JS
-    // variable holding the runtime value, typically `val.prev.var()`.
+    // Caller must verify `val.validation->unsafeToBool` first — the unwrap
+    // below is unchecked. `inputVar` is usually `val.prev.var()`.
     let emitValidation = (val: val, ~inputVar: string): string => {
       if val.expected.noValidation === Some(true) {
         ""
@@ -1393,7 +1370,6 @@ module Builder = {
         let currentCode = ref("")
 
         if val.validation->X.Option.unsafeToBool {
-          // Validation must be used only when there's a prev value
           let prev = current.contents->X.Option.getUnsafe
           currentCode := val->emitValidation(~inputVar=prev.var())
         }
@@ -1415,10 +1391,8 @@ module Builder = {
       code.contents
     }
 
-    // Fused positive-cond for all checks on a val, e.g. `cond1&&cond2&&cond3`.
-    // Caller guarantees the array is non-empty (union hoist sites check
-    // `val.validation->unsafeToBool` first). Used by union codegen to hoist
-    // a val's validation into a dispatch discriminant.
+    // AND-joins every check's cond — caller guarantees `checks` is non-empty.
+    // Used by union codegen to hoist a val's validation into a dispatch discriminant.
     let mergeChecksCond = (checks: array<validationCheck>, ~inputVar: string): string => {
       let result = ref((checks->Js.Array2.unsafe_get(0)).cond(~inputVar))
       for i in 1 to checks->Js.Array2.length - 1 {
@@ -1447,9 +1421,8 @@ module Builder = {
       }
     }
 
-    // `~checks` is optional so callers can omit it entirely (which keeps
-    // `validation` absent on the resulting val) or pass a non-empty array.
-    // An empty array would break the "absent iff no checks" invariant.
+    // Pass a non-empty `~checks` or omit it. Never pass `~checks=[]` —
+    // that would break the val.validation "absent iff no checks" invariant.
     let refine = (val: val, ~schema=val.schema, ~checks=?, ~expected=val.expected) => {
       let shouldLink = val.var !== _var
       let nextVal = {
@@ -1480,10 +1453,8 @@ module Builder = {
       nextVal
     }
 
-    // Append a check to a val's validation list, allocating the list lazily.
-    // Used by discriminant hoisting and the union synthetic-check emitter —
-    // i.e. places that mutate an existing val rather than building a local
-    // array to pass through `refine`.
+    // Lazy-allocate helper for mutating an existing val (as opposed to
+    // building a local array and passing it through `refine`).
     let pushCheck = (val: val, check: validationCheck) => {
       switch val.validation {
       | Some(arr) => arr->Js.Array2.push(check)->ignore
@@ -2744,10 +2715,10 @@ and arrayDecoder: builder = (~input as unknownInput) => {
       itemInput.isUnion = Some(isUnion) // We want to controll validation on the decoder side
       let itemOutput = itemInput->parse
 
-      // Hoist the child's literal check into the parent as a union discriminant.
-      // Rewrite the check's `cond` to patch the inputVar with the element path;
-      // the `fail` is the shared `B.failInvalidType` so the hoisted check fuses
-      // with the parent's own type check in a single `||` emission.
+      // Hoist a child literal's check onto the parent so union dispatch can
+      // use it as a discriminant. The rewritten cond patches `inputVar` to
+      // `parent[key]`; `fail` stays as the shared `B.failInvalidType` so the
+      // lifted check fuses with the parent's own type guard.
       if isUnion && schema->isLiteral && itemOutput.validation->X.Option.unsafeToBool {
         let pathAppend =
           input.global->B.inlineLocation(key)->Path.fromInlinedLocation
@@ -2759,7 +2730,6 @@ and arrayDecoder: builder = (~input as unknownInput) => {
             fail: check.fail,
           })
         })
-        // Invariant: `validation` is absent iff there are no checks.
         itemOutput.validation = None
       }
 
@@ -2906,9 +2876,7 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
         itemInput.isUnion = Some(isUnion) // We want to controll validation on the decoder side
         let itemOutput = itemInput->parse
 
-        // Hoist the child's literal check into the parent as a union discriminant.
-        // Rewrite the check's `cond` to patch the inputVar with the field path;
-        // the shared `B.failInvalidType` fuses with the parent's own type check.
+        // Same literal-check hoist as arrayDecoder above — see comment there.
         if isUnion && schema->isLiteral && itemOutput.validation->X.Option.unsafeToBool {
           let pathAppend =
             input.global->B.inlineLocation(key)->Path.fromInlinedLocation
@@ -2920,7 +2888,6 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
               fail: check.fail,
             })
           })
-          // Invariant: `validation` is absent iff there are no checks.
           itemOutput.validation = None
         }
 
@@ -3658,10 +3625,9 @@ module Union = {
                         val.codeFromPrev === ""
                     : true
                 ) {
-                  // Cheap enough to hoist as a union dispatch discriminant.
-                  // Note: we intentionally bypass `noValidation` here — the
-                  // condition is used to route between union cases, not to
-                  // reject input, so suppressing it would break dispatch.
+                  // Hoist as a dispatch discriminant. `noValidation` is
+                  // intentionally bypassed here — the cond routes between
+                  // cases, it doesn't reject, so suppressing breaks dispatch.
                   let input = current.contents->X.Option.getUnsafe
                   let inputVar = input.var()
                   let condCode =
@@ -3672,7 +3638,6 @@ module Union = {
                     itemCond := condCode
                   }
                 } else {
-                  // Emit as standard validation block (respects noValidation)
                   let prev = current.contents->X.Option.getUnsafe
                   currentCode := val->B.emitValidation(~inputVar=prev.var())
                 }
@@ -4031,10 +3996,7 @@ module Union = {
                       val.codeFromPrev === ""
                   : true
               ) {
-                // Cheap enough to hoist as a union dispatch discriminant.
-                // Note: we intentionally bypass `noValidation` here — the
-                // condition is used to route between union cases, not to
-                // reject input, so suppressing it would break dispatch.
+                // Same `noValidation` bypass as the other union-merge copy above.
                 let input = current.contents->X.Option.getUnsafe
                 let inputVar = input.var()
                 let condCode =
@@ -4045,7 +4007,6 @@ module Union = {
                   blockCond := condCode
                 }
               } else {
-                // Emit as standard validation block (respects noValidation)
                 let prev = current.contents->X.Option.getUnsafe
                 currentCode := val->B.emitValidation(~inputVar=prev.var())
               }
