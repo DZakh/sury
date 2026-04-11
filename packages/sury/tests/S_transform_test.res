@@ -252,7 +252,7 @@ asyncTest("Can apply other actions after async transform", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{if(typeof i!=="string"){e[6](i)}let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0.then(v0=>{let v1;try{v1=e[2](v0)}catch(x){e[3](x)}let v2;try{v2=e[4](v1).catch(x=>e[5](x))}catch(x){e[5](x)}return v2})}`,
+    `i=>{typeof i==="string"||e[6](i);let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0.then(v0=>{let v1;try{v1=e[2](v0)}catch(x){e[3](x)}let v2;try{v2=e[4](v1).catch(x=>e[5](x))}catch(x){e[5](x)}return v2})}`,
   )
 
   %raw(`"    Hello world!"`)
@@ -271,7 +271,7 @@ test("Compiled parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="number"||i>2147483647||i<-2147483648||i%1!==0){e[2](i)}let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}`,
+    `i=>{typeof i==="number"&&i<=2147483647&&i>=-2147483648&&i%1===0||e[2](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}return v0}`,
   )
 })
 
@@ -284,7 +284,7 @@ test("Compiled async parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{if(typeof i!=="number"||i>2147483647||i<-2147483648||i%1!==0){e[2](i)}let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0}`,
+    `i=>{typeof i==="number"&&i<=2147483647&&i>=-2147483648&&i%1===0||e[2](i);let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0}`,
   )
 })
 
@@ -297,7 +297,7 @@ test("Compiled serialize code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}if(typeof v0!=="number"||v0>2147483647||v0<-2147483648||v0%1!==0){e[2](v0)}return v0}`,
+    `i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[2](v0);return v0}`,
   )
 })
 
@@ -318,7 +318,7 @@ test("Compiled serialize code snapshot with two transforms", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}if(typeof v0!=="number"||v0>2147483647||v0<-2147483648||v0%1!==0){e[5](v0)}let v1;try{v1=e[2](v0)}catch(x){e[3](x)}if(typeof v1!=="string"){e[4](v1)}return v1}`,
+    `i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[5](v0);let v1;try{v1=e[2](v0)}catch(x){e[3](x)}typeof v1==="string"||e[4](v1);return v1}`,
   )
 })
 

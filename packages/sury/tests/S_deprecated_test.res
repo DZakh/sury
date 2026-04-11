@@ -30,5 +30,5 @@ test("Transforms don't remove deprecation", t => {
 test("Deprecated is a metadata only and doesn't make the field optional", t => {
   let schema = S.string->S.meta({deprecated: true, description: "Use number instead."})
 
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(typeof i!=="string"){e[0](i)}return i}`)
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{typeof i==="string"||e[0](i);return i}`)
 })

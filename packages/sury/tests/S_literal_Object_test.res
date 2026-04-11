@@ -65,7 +65,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i){e[1](i)}let v0=i["foo"];if(v0!=="bar"){e[0](v0)}return {"foo":v0,}}`,
+      `i=>{typeof i==="object"&&i||e[1](i);let v0=i["foo"];v0==="bar"||e[0](v0);return {"foo":v0,}}`,
     )
   })
 
@@ -122,12 +122,12 @@ module EmptyDict = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i){e[0](i)}return {}}`,
+      `i=>{typeof i==="object"&&i||e[0](i);return {}}`,
     )
     t->U.assertCompiledCode(
       ~schema=schema->S.strict,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i||Array.isArray(i)){e[1](i)}let v0;for(v0 in i){if(true){e[0](v0)}}return i}`,
+      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0;for(v0 in i){if(true){e[0](v0)}}return i}`,
     )
   })
 

@@ -1,24 +1,3 @@
-# Test Guidelines
-
-## Use Wallaby MCP first
-
-- Use Wallaby.js for test results, errors, and debugging
-- Leverage runtime values and coverage data when debugging tests
-- Fall back to terminal only if Wallaby isn't available
-
-1. Analyze failing tests with Wallaby and identify the cause of the failure.
-2. Use Wallaby's covered files to find relevant implementation files or narrow your search.
-3. Use Wallaby's runtime values tool and coverage tool to support your reasoning.
-4. Suggest and explain a code fix that will resolve the failure.
-5. After the fix, use Wallaby's reported test state to confirm that the test now passes.
-6. If the test still fails, continue iterating with updated Wallaby data until it passes.
-7. If a snapshot update is needed, use Wallaby's snapshot tools for it.
-
-When responding:
-
-- Explain your reasoning step by step.
-- Use runtime and coverage data directly to justify your conclusions.
-
 # Sury Architecture
 
 ## Schema Input and Output Types
