@@ -4700,6 +4700,10 @@ let enableIsoDateTime = () => {
     let datetimeRe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/
     isoDateTime.tag = stringTag
     isoDateTime.decoder = string.decoder
+    // Set `format` directly on the schema so `toJSONSchema` picks up
+    // `"format": "date-time"` from the existing `Some(DateTime)` arm in
+    // `internalToJSONSchemaBase`'s String case — no `extendJSONSchema`
+    // metadata overlay needed.
     isoDateTime.format = Some(DateTime)
     isoDateTime.refiner = Some(
       (~input) => {
