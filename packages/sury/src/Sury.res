@@ -6533,21 +6533,28 @@ module RescriptJSONSchema = {
       }
     }
   }
+  // `S.object`, `S.tuple`/`S.schema` (arrayTag) and the union definer (unionTag)
+  // all set `.to` internally as part of their shaping machinery — see
+  // `definitionToShapedSchema` at ~line 5446 and its call sites. For these
+  // tags, a truthy `.to` does NOT signal a user-applied transform; the normal
+  // tag-based logic in `internalToJSONSchemaBase` already recurses into
+  // properties/items/variants and handles any nested `.to` on children.
+  //
+  // Only "leaf-ish" tags (string, number, ref, etc.) have `.to` set solely by
+  // user-facing `S.to(target)` calls, so only those should trigger the encode
+  // path at the top of `internalToJSONSchema`.
+  //
+  // IMPORTANT: if a new tag is introduced whose factory sets `.to` internally
+  // (for shaping, flattening, etc.), add it to this helper so `toJSONSchema`
+  // doesn't accidentally try to encode-reverse its internal machinery.
+  and hasInternalTo = tag => tag === objectTag || tag === arrayTag || tag === unionTag
+
   and internalToJSONSchema = (schema: schema<unknown>, ~path, ~defs, ~parent): JSONSchema.t => {
     let schemaInternal = schema->castToInternal
     // If the schema has a user-applied .to transform, try the encode path
     // first: reverse the chain and use the resulting JSON-compatible schema.
     // Fall through to the normal tag-based logic when encoding isn't possible.
-    //
-    // Structural tags (object, array, union) also set .to internally for
-    // shaping, so we skip them here — their tag-based logic already recurses
-    // into properties/items/variants and handles nested .to transforms.
-    let hasUserTo =
-      schemaInternal.to->Obj.magic &&
-        {
-          let tag = schemaInternal.tag
-          tag !== objectTag && tag !== arrayTag && tag !== unionTag
-        }
+    let hasUserTo = schemaInternal.to->Obj.magic && !hasInternalTo(schemaInternal.tag)
     let encoded = if hasUserTo {
       encodeToJsonSchema(schema, ~path, ~defs, ~parent)
     } else {

@@ -4368,12 +4368,16 @@ function encodeToJsonSchema(schema, path, defs, parent) {
   }
 }
 
-function internalToJSONSchema(schema, path, defs, parent) {
-  let hasUserTo = false;
-  if (schema.to) {
-    let tag = schema.type;
-    hasUserTo = tag !== objectTag && tag !== arrayTag && tag !== unionTag;
+function hasInternalTo(tag) {
+  if (tag === objectTag || tag === arrayTag) {
+    return true;
+  } else {
+    return tag === unionTag;
   }
+}
+
+function internalToJSONSchema(schema, path, defs, parent) {
+  let hasUserTo = schema.to && !hasInternalTo(schema.type);
   let encoded = hasUserTo ? encodeToJsonSchema(schema, path, defs, parent) : undefined;
   if (encoded !== undefined) {
     applyMetadataOverlay(encoded, schema, defs);

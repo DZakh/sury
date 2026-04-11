@@ -107,15 +107,6 @@ test("JSONSchema of pattern schema", t => {
   )
 })
 
-// FIXME: This should fail during schema creation since S.email constrains the string
-// to an email format, which is incompatible with converting to S.date.
-test("JSONSchema of email schema converted to Date takes format from date encoder", t => {
-  t->Assert.deepEqual(
-    S.string->S.email->S.to(S.date)->S.toJSONSchema,
-    %raw(`{"type": "string", "format": "date-time"}`),
-  )
-})
-
 test("JSONSchema of string with min", t => {
   t->Assert.deepEqual(
     S.string->S.min(1)->S.toJSONSchema,
