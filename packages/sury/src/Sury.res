@@ -615,19 +615,16 @@ and bGlobal = {
   mutable defs?: dict<internal>,
 }
 // A single validation check attached to a val.
-// Emitted as `${cond(inputVar)}||${fail(val, inputVar)};` at merge time.
+// Emitted as `${cond(inputVar)}||${embed(fail(val))}(${inputVar});` at merge time.
 // Two adjacent checks sharing a `fail` by reference equality are fused with `&&`.
 and validationCheck = {
   // Positive "valid-when-true" JS expression
   @as("c")
   cond: (~inputVar: string) => string,
-  // Emits the throw expression for the owning val when this check fails.
-  // Receives the val (source of expected/received/path) and the inputVar
-  // (the JS variable holding the runtime value). Returns e.g. `e[N](v0)`.
-  // Kept as a stable function reference so adjacent checks with the same
-  // `fail` fuse by `===` identity in `emitValidation`.
+  // Emit-time factory: receives the val that owns the check and returns the
+  // runtime error-builder that gets embedded and called when the check fails.
   @as("f")
-  fail: (val, ~inputVar: string) => string,
+  fail: (~input: val) => (unknown => errorDetails),
 }
 and flag = int
 and error = private {
@@ -1289,36 +1286,35 @@ module Builder = {
       details
     }
 
-    // Default `fail` used by `validationCheck` records. A plain function
-    // reference (no partial application, no per-refine closure) so that
-    // every check carrying it shares the same `fail` identity and fuses
+    // Default `fail` used by `validationCheck` records. A plain top-level
+    // function reference (no partial application, no per-refine closure) so
+    // that every check carrying it shares the same `fail` identity and fuses
     // with its neighbors in `emitValidation`.
     //
-    // Reads everything from the val that owns the check: `val.expected`
-    // (target schema), `val.schema` (received schema — see note below),
-    // `val.path` (error location). `inputVar` is the JS variable holding
-    // the runtime value at the call site.
+    // `input` here is the val that OWNS the check — `emitValidation` passes
+    // `val` as `~input`. All three error fields come from that one val:
+    // `input.expected` (target schema), `input.schema` (received schema —
+    // see note below), `input.path` (error location).
     //
-    // Note on `received`: for refine-chain vals `val.schema` equals the
-    // target schema (refine calls set `~schema=input.expected`), so the
+    // Note on `received`: for refine-chain vals `input.schema` equals the
+    // target schema (refine calls set `~schema=prev.expected`), so the
     // structural `err.received` field ends up equal to `err.expected`. The
     // user-visible reason string is unaffected because it uses the
     // stringified runtime value (`input->stringify`), not the schema name.
-    let failInvalidType = (val: val, ~inputVar: string): string => {
-      let received = val.schema->castToPublic
-      let path = val.path
-      let expected = val.expected
-      val->failWithArg(
-        value =>
-          makeInvalidInputDetails(
-            ~expected,
-            ~received,
-            ~path,
-            ~input=value,
-            ~includeInput=true,
-          ),
-        inputVar,
-      )
+    // For direct-assign vals like `compactColumns` where `input.schema` is
+    // the genuine source type, `received` is accurate.
+    let failInvalidType = (~input: val) => {
+      let received = input.schema->castToPublic
+      let path = input.path
+      let expected = input.expected
+      value =>
+        makeInvalidInputDetails(
+          ~expected,
+          ~received,
+          ~path,
+          ~input=value,
+          ~includeInput=true,
+        )
     }
 
     // Emit a throw expression for a direct invalid-input failure (not
@@ -1357,7 +1353,7 @@ module Builder = {
         let len = checks->Js.Array2.length
         if len === 1 {
           let check = checks->Js.Array2.unsafe_get(0)
-          `${check.cond(~inputVar)}||${check.fail(val, ~inputVar)};`
+          `${check.cond(~inputVar)}||${val->failWithArg(check.fail(~input=val), inputVar)};`
         } else {
           let out = ref("")
           let i = ref(0)
@@ -1375,7 +1371,9 @@ module Builder = {
                 "&&" ++ (checks->Js.Array2.unsafe_get(i.contents)).cond(~inputVar)
               i := i.contents + 1
             }
-            out := out.contents ++ `${cond.contents}||${fail(val, ~inputVar)};`
+            out :=
+              out.contents ++
+              `${cond.contents}||${val->failWithArg(fail(~input=val), inputVar)};`
           }
           out.contents
         }
