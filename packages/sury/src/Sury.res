@@ -1293,17 +1293,19 @@ module Builder = {
     //
     // `input` here is the val that OWNS the check — `emitValidation` passes
     // `val` as `~input`. All three error fields come from that one val:
-    // `input.expected` (target schema), `input.schema` (received schema —
-    // see note below), `input.path` (error location).
-    //
-    // Note on `received`: for refine-chain vals `input.schema` equals the
-    // target schema (refine calls set `~schema=prev.expected`), so the
-    // structural `err.received` field ends up equal to `err.expected`. The
-    // user-visible reason string is unaffected because it uses the
-    // stringified runtime value (`input->stringify`), not the schema name.
-    // For direct-assign vals like `compactColumns` where `input.schema` is
-    // the genuine source type, `received` is accurate.
+    // `input.expected` (target schema), `input.schema` (source schema),
+    // and `input.path` (error location).
     let failInvalidType = (~input: val) => {
+      // FIXME: `received` is wrong for refine-chain vals. `B.refine` sets
+      // `~schema=prev.expected` so `input.schema` ends up equal to
+      // `input.expected` (the target), not the source type. The user-visible
+      // reason string is unaffected because it uses `input->stringify`
+      // (the stringified runtime value), but programmatic consumers reading
+      // `err.received` on a primitive type failure get the target schema.
+      // Fix would be to either reach through `input.prev.schema` (unsafe
+      // optional navigation) or stop mutating `val.schema` to the target in
+      // refine. Direct-assign sites like `compactColumns` are unaffected —
+      // they set `input.schema` to the genuine source type.
       let received = input.schema->castToPublic
       let path = input.path
       let expected = input.expected
