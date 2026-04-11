@@ -1285,6 +1285,10 @@ module Builder = {
     // Pass this as `fail` on every check that wants "expected X, received Y"
     // error semantics. Stable reference → adjacent checks fuse.
     let failInvalidType = (~input: val) => {
+      // Snapshot the three fields up front so the returned closure doesn't
+      // retain `input` — otherwise the compiled decoder's embed array would
+      // pin the entire val chain (prev, global, schemas) for its lifetime.
+      //
       // FIXME: `input.schema` is the target schema for refine-chain vals
       // (refine sets `~schema=prev.expected`), so `err.received` ends up
       // equal to `err.expected` on a primitive type failure. Reason text is
@@ -1324,6 +1328,11 @@ module Builder = {
 
     // Caller must verify `val.validation->unsafeToBool` first — the unwrap
     // below is unchecked. `inputVar` is usually `val.prev.var()`.
+    //
+    // `noValidation` suppresses the entire list here. Union codegen's
+    // discriminant path (see Union module) deliberately bypasses this — its
+    // conds route between cases instead of rejecting, so suppressing them
+    // would break dispatch. Don't try to "unify" the two paths.
     let emitValidation = (val: val, ~inputVar: string): string => {
       if val.expected.noValidation === Some(true) {
         ""
@@ -1393,7 +1402,7 @@ module Builder = {
 
     // AND-joins every check's cond — caller guarantees `checks` is non-empty.
     // Used by union codegen to hoist a val's validation into a dispatch discriminant.
-    let mergeChecksCond = (checks: array<validationCheck>, ~inputVar: string): string => {
+    let andJoinChecks = (checks: array<validationCheck>, ~inputVar: string): string => {
       let result = ref((checks->Js.Array2.unsafe_get(0)).cond(~inputVar))
       for i in 1 to checks->Js.Array2.length - 1 {
         result :=
@@ -1459,6 +1468,25 @@ module Builder = {
       switch val.validation {
       | Some(arr) => arr->Js.Array2.push(check)->ignore
       | None => val.validation = Some([check])
+      }
+    }
+
+    // Used in union codegen: splice a literal child's checks into the parent
+    // as dispatch discriminants. Each cond's `inputVar` is rewritten to
+    // `parent[key]`; `fail` stays shared so lifted checks fuse with the
+    // parent's own type guard. No-op if the child has no checks.
+    let hoistChildChecks = (parent: val, ~child: val, ~key: string) => {
+      if child.validation->X.Option.unsafeToBool {
+        let pathAppend = parent.global->inlineLocation(key)->Path.fromInlinedLocation
+        child.validation
+        ->X.Option.getUnsafe
+        ->Js.Array2.forEach(check => {
+          parent->pushCheck({
+            cond: (~inputVar) => check.cond(~inputVar=inputVar ++ pathAppend),
+            fail: check.fail,
+          })
+        })
+        child.validation = None
       }
     }
 
@@ -2715,22 +2743,8 @@ and arrayDecoder: builder = (~input as unknownInput) => {
       itemInput.isUnion = Some(isUnion) // We want to controll validation on the decoder side
       let itemOutput = itemInput->parse
 
-      // Hoist a child literal's check onto the parent so union dispatch can
-      // use it as a discriminant. The rewritten cond patches `inputVar` to
-      // `parent[key]`; `fail` stays as the shared `B.failInvalidType` so the
-      // lifted check fuses with the parent's own type guard.
-      if isUnion && schema->isLiteral && itemOutput.validation->X.Option.unsafeToBool {
-        let pathAppend =
-          input.global->B.inlineLocation(key)->Path.fromInlinedLocation
-        itemOutput.validation
-        ->X.Option.getUnsafe
-        ->Js.Array2.forEach(check => {
-          input->B.pushCheck({
-            cond: (~inputVar) => check.cond(~inputVar=inputVar ++ pathAppend),
-            fail: check.fail,
-          })
-        })
-        itemOutput.validation = None
+      if isUnion && schema->isLiteral {
+        input->B.hoistChildChecks(~child=itemOutput, ~key)
       }
 
       objectVal->B.Val.Object.add(~location=key, itemOutput)
@@ -2876,19 +2890,8 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
         itemInput.isUnion = Some(isUnion) // We want to controll validation on the decoder side
         let itemOutput = itemInput->parse
 
-        // Same literal-check hoist as arrayDecoder above — see comment there.
-        if isUnion && schema->isLiteral && itemOutput.validation->X.Option.unsafeToBool {
-          let pathAppend =
-            input.global->B.inlineLocation(key)->Path.fromInlinedLocation
-          itemOutput.validation
-          ->X.Option.getUnsafe
-          ->Js.Array2.forEach(check => {
-            input->B.pushCheck({
-              cond: (~inputVar) => check.cond(~inputVar=inputVar ++ pathAppend),
-              fail: check.fail,
-            })
-          })
-          itemOutput.validation = None
+        if isUnion && schema->isLiteral {
+          input->B.hoistChildChecks(~child=itemOutput, ~key)
         }
 
         objectVal->B.Val.Object.add(~location=key, itemOutput)
@@ -3631,7 +3634,7 @@ module Union = {
                   let input = current.contents->X.Option.getUnsafe
                   let inputVar = input.var()
                   let condCode =
-                    val.validation->X.Option.getUnsafe->B.mergeChecksCond(~inputVar)
+                    val.validation->X.Option.getUnsafe->B.andJoinChecks(~inputVar)
                   if itemCond.contents->X.String.unsafeToBool {
                     itemCond := `${condCode}&&${itemCond.contents}`
                   } else {
@@ -3897,6 +3900,8 @@ module Union = {
               typeValidationInput->parse
             } catch {
             | _ => {
+                // Discard any checks parse managed to push before throwing,
+                // so the deopt path doesn't see leftover partial state.
                 typeValidationInput.validation = None
                 typeValidationInput
               }
@@ -4000,7 +4005,7 @@ module Union = {
                 let input = current.contents->X.Option.getUnsafe
                 let inputVar = input.var()
                 let condCode =
-                  val.validation->X.Option.getUnsafe->B.mergeChecksCond(~inputVar)
+                  val.validation->X.Option.getUnsafe->B.andJoinChecks(~inputVar)
                 if blockCond.contents->X.String.unsafeToBool {
                   blockCond := `${condCode}&&${blockCond.contents}`
                 } else {
