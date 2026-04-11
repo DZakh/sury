@@ -67,6 +67,49 @@ test("Coerce from string to bool literal", t => {
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{i===false||e[0](i);return "false"}`)
 })
 
+// Refinements on a source schema are currently appended to `val.codeFromPrev`
+// in `parse` (Sury.res:2209), and `merge` emits `codeFromPrev ++ validation_code`
+// — which places the refiner BEFORE the type guard. That ordering is observable
+// here: a numeric input fails with the refinement message ("non-empty") instead
+// of "Expected string, received 123", because `(123).length > 0` is false.
+//
+// The FIXME on Sury.res:2048 ("Test, that when from item has a refinement /
+// and we need to keep existing validation / S.string->S.check->S.to(S.literal(false))")
+// was pointing at this exact interaction. All three checks do survive the `.to`
+// coercion — the refiner, the typeof guard, and the stringConstVal equality —
+// but their order is wrong.
+//
+// Once refinements move off `codeFromPrev` and onto `val.validation` as
+// `{kind: Refinement}` checks, type guards will naturally emit first and the
+// error for a numeric input will say "Expected string" as expected. Until
+// then this is marked failing so a future fix surfaces as a passing `.failing`
+// case (which ava reports as a reverse-regression).
+Failing.test(
+  "S.string->S.refine->S.to(S.literal) reports type error before refinement error",
+  t => {
+    let schema =
+      S.string
+      ->S.refine(v => v->String.length > 0, ~error="non-empty")
+      ->S.to(S.literal(false))
+
+    // Golden path: happy case still works.
+    t->Assert.deepEqual("false"->S.parseOrThrow(schema), false)
+
+    // Refinement fires for empty string — currently correct.
+    t->U.assertThrowsMessage(() => ""->S.parseOrThrow(schema), "non-empty")
+
+    // Const check fires for non-matching string — currently correct.
+    t->U.assertThrowsMessage(
+      () => "true"->S.parseOrThrow(schema),
+      `Expected "false", received "true"`,
+    )
+
+    // For a non-string input, the type guard should fire first with "Expected string".
+    // Currently the refiner runs first and fails with its own message — BUG.
+    t->U.assertThrowsMessage(() => 123->S.parseOrThrow(schema), `Expected string, received 123`)
+  },
+)
+
 test("Coerce from string to null literal", t => {
   let schema = S.string->S.to(S.literal(%raw(`null`)))
 
