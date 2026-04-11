@@ -5655,6 +5655,8 @@ let compactColumnsDecoder = (~input) => {
         let lengthCode = ref("")
         let itemBuildCode = ref("")
         let itemParseCode = ref("")
+        let itemInlines = []
+        let hasAsync = ref(false)
         for idx in 0 to keys->Js.Array2.length - 1 {
           let key = keys->Js.Array2.unsafe_get(idx)
           let fieldSchema = properties->Js.Dict.unsafeGet(key)
@@ -5668,12 +5670,18 @@ let compactColumnsDecoder = (~input) => {
           itemInput.var = B._notVarBeforeValidation
           itemInput.isInput = Some(false)
           itemInput.isOutput = Some(false)
+          // Path like ["bar"] so validation errors carry the field location.
+          itemInput.path = Path.fromInlinedLocation(input.global->B.inlineLocation(key))
 
           let itemOutput = itemInput->parse
+          if itemOutput.flag->Flag.unsafeHas(ValFlag.async) {
+            hasAsync := true
+          }
           let itemCode = itemOutput->B.merge
 
           itemParseCode := itemParseCode.contents ++ itemCode
           lengthCode := lengthCode.contents ++ `${inputVar}[${idx->X.Int.unsafeToString}].length,`
+          itemInlines->Js.Array2.push(itemOutput.inline)->ignore
           itemBuildCode :=
             itemBuildCode.contents ++
             `${key->X.Inlined.Value.fromString}:${itemOutput.inline},`
@@ -5685,10 +5693,46 @@ let compactColumnsDecoder = (~input) => {
         let output = input->B.next(outputVar, ~schema=outputSchema, ~expected=outputSchema)
         output.var = B._var
         output.isOutput = Some(true)
-        output.codeFromPrev =
-          output.codeFromPrev ++
-          `for(let ${iteratorVar}=0;${iteratorVar}<${outputVar}.length;++${iteratorVar}){${itemParseCode.contents}${outputVar}[${iteratorVar}]={${itemBuildCode.contents}};}`
-        output
+
+        // Wrap the row body in a single try/catch that prepends the row index to
+        // any thrown error — giving paths like ["0"]["bar"]. A single wrapper is
+        // used (rather than per-field) so that `let` variables declared while
+        // parsing one field remain in scope for the object construction.
+        let errorVar = input.global->B.varWithoutAllocation
+        let wrapRowBody = body =>
+          if itemParseCode.contents === "" {
+            body
+          } else {
+            `try{${body}}catch(${errorVar}){${errorVar}.path='["'+${iteratorVar}+'"]'+${errorVar}.path;throw ${errorVar}}`
+          }
+
+        if hasAsync.contents {
+          // For async fields, each row becomes a promise that awaits all field values
+          // via Promise.all, and the final output is Promise.all of all row promises.
+          let rowResultVar = input.global->B.varWithoutAllocation
+          let asyncBuildCode =
+            keys
+            ->Js.Array2.mapi((key, idx) =>
+              `${key->X.Inlined.Value.fromString}:${rowResultVar}[${idx->X.Int.unsafeToString}]`
+            )
+            ->Js.Array2.joinWith(",")
+          let promisesCode = itemInlines->Js.Array2.joinWith(",")
+          let rowBody = `${itemParseCode.contents}${outputVar}[${iteratorVar}]=Promise.all([${promisesCode}]).then(${rowResultVar}=>({${asyncBuildCode},}));`
+          output.codeFromPrev =
+            output.codeFromPrev ++
+            `for(let ${iteratorVar}=0;${iteratorVar}<${outputVar}.length;++${iteratorVar}){${wrapRowBody(
+                rowBody,
+              )}}`
+          output->B.asyncVal(`Promise.all(${outputVar})`)
+        } else {
+          let rowBody = `${itemParseCode.contents}${outputVar}[${iteratorVar}]={${itemBuildCode.contents}};`
+          output.codeFromPrev =
+            output.codeFromPrev ++
+            `for(let ${iteratorVar}=0;${iteratorVar}<${outputVar}.length;++${iteratorVar}){${wrapRowBody(
+                rowBody,
+              )}}`
+          output
+        }
       } else {
         // Reverse direction: rows → columnar
         // The field values have already been transformed by the earlier parse pipeline step

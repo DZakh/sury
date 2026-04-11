@@ -3933,7 +3933,11 @@ function compactColumnsDecoder(input) {
       let itemSchema = isUnknownInput ? unknown : input.s.additionalItems.additionalItems;
       let lengthCode = "";
       let itemBuildCode = "";
-      let itemParseCode = "";
+      let itemParseCode = {
+        contents: ""
+      };
+      let itemInlines = [];
+      let hasAsync = false;
       for (let idx = 0, idx_finish = keys.length; idx < idx_finish; ++idx) {
         let key = keys[idx];
         let fieldSchema = maybeProperties$1[key];
@@ -3945,10 +3949,16 @@ function compactColumnsDecoder(input) {
         itemInput.v = _notVarBeforeValidation;
         itemInput.ii = false;
         itemInput.io = false;
+        let inlinedLocation = inlineLocation(input.g, key);
+        itemInput.path = "[" + inlinedLocation + "]";
         let itemOutput = parse$1(itemInput);
+        if (itemOutput.f & 1) {
+          hasAsync = true;
+        }
         let itemCode = merge(itemOutput);
-        itemParseCode = itemParseCode + itemCode;
+        itemParseCode.contents = itemParseCode.contents + itemCode;
         lengthCode = lengthCode + (inputVar + "[" + idx + "].length,");
+        itemInlines.push(itemOutput.i);
         itemBuildCode = itemBuildCode + (fromString(key) + ":" + itemOutput.i + ",");
       }
       input.a(outputVar + "=new Array(Math.max(" + lengthCode + "))");
@@ -3956,7 +3966,24 @@ function compactColumnsDecoder(input) {
       let output$1 = next(input, outputVar, outputSchema$1, outputSchema$1);
       output$1.v = _var;
       output$1.io = true;
-      output$1.cp = output$1.cp + ("for(let " + iteratorVar + "=0;" + iteratorVar + "<" + outputVar + ".length;++" + iteratorVar + "){" + itemParseCode + outputVar + "[" + iteratorVar + "]={" + itemBuildCode + "};}");
+      let errorVar = varWithoutAllocation(input.g);
+      let wrapRowBody = body => {
+        if (itemParseCode.contents === "") {
+          return body;
+        } else {
+          return "try{" + body + "}catch(" + errorVar + "){" + errorVar + ".path='[\"'+" + iteratorVar + "+'\"]'+" + errorVar + ".path;throw " + errorVar + "}";
+        }
+      };
+      if (hasAsync) {
+        let rowResultVar = varWithoutAllocation(input.g);
+        let asyncBuildCode = keys.map((key, idx) => fromString(key) + ":" + rowResultVar + "[" + idx + "]").join(",");
+        let promisesCode = itemInlines.join(",");
+        let rowBody = itemParseCode.contents + outputVar + "[" + iteratorVar + "]=Promise.all([" + promisesCode + "]).then(" + rowResultVar + "=>({" + asyncBuildCode + ",}));";
+        output$1.cp = output$1.cp + ("for(let " + iteratorVar + "=0;" + iteratorVar + "<" + outputVar + ".length;++" + iteratorVar + "){" + wrapRowBody(rowBody) + "}");
+        return asyncVal(output$1, "Promise.all(" + outputVar + ")");
+      }
+      let rowBody$1 = itemParseCode.contents + outputVar + "[" + iteratorVar + "]={" + itemBuildCode + "};";
+      output$1.cp = output$1.cp + ("for(let " + iteratorVar + "=0;" + iteratorVar + "<" + outputVar + ".length;++" + iteratorVar + "){" + wrapRowBody(rowBody$1) + "}");
       return output$1;
     }
     let inputVar$1 = input.v();

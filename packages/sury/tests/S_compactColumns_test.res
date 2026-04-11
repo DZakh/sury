@@ -16,7 +16,7 @@ test("Successfully parses and reverse converts a simple object with compactColum
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(!Array.isArray(i)||i.length!==2||!Array.isArray(i[0])||!Array.isArray(i[1])){e[2](i)}let v1=new Array(Math.max(i[0].length,i[1].length,));for(let v0=0;v0<v1.length;++v0){let v2=i[0][v0];if(typeof v2!=="string"){e[0](v2)}let v3=i[1][v0];if(typeof v3!=="number"||v3>2147483647||v3<-2147483648||v3%1!==0){e[1](v3)}v1[v0]={"foo":v2,"bar":v3,};}return v1}`,
+    `i=>{if(!Array.isArray(i)||i.length!==2||!Array.isArray(i[0])||!Array.isArray(i[1])){e[2](i)}let v1=new Array(Math.max(i[0].length,i[1].length,));for(let v0=0;v0<v1.length;++v0){try{let v2=i[0][v0];if(typeof v2!=="string"){e[0](v2)}let v3=i[1][v0];if(typeof v3!=="number"||v3>2147483647||v3<-2147483648||v3%1!==0){e[1](v3)}v1[v0]={"foo":v2,"bar":v3,};}catch(v4){v4.path='["'+v0+'"]'+v4.path;throw v4}}return v1}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -51,7 +51,7 @@ test("Transforms nullable fields", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(!Array.isArray(i)||i.length!==2||!Array.isArray(i[0])||!Array.isArray(i[1])){e[2](i)}let v1=new Array(Math.max(i[0].length,i[1].length,));for(let v0=0;v0<v1.length;++v0){let v2=i[0][v0];if(typeof v2!=="string"){e[0](v2)}let v3=i[1][v0];if(v3===null){v3=void 0}else if(!(typeof v3==="number"&&!Number.isNaN(v3)&&(v3<2147483647&&v3>-2147483648&&v3%1===0))){e[1](v3)}v1[v0]={"foo":v2,"bar":v3,};}return v1}`,
+    `i=>{if(!Array.isArray(i)||i.length!==2||!Array.isArray(i[0])||!Array.isArray(i[1])){e[2](i)}let v1=new Array(Math.max(i[0].length,i[1].length,));for(let v0=0;v0<v1.length;++v0){try{let v2=i[0][v0];if(typeof v2!=="string"){e[0](v2)}let v3=i[1][v0];if(v3===null){v3=void 0}else if(!(typeof v3==="number"&&!Number.isNaN(v3)&&(v3<2147483647&&v3>-2147483648&&v3%1===0))){e[1](v3)}v1[v0]={"foo":v2,"bar":v3,};}catch(v4){v4.path='["'+v0+'"]'+v4.path;throw v4}}return v1}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -86,7 +86,7 @@ test("Case with missing item at the end", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(!Array.isArray(i)||i.length!==2||!Array.isArray(i[0])||!Array.isArray(i[1])){e[2](i)}let v1=new Array(Math.max(i[0].length,i[1].length,));for(let v0=0;v0<v1.length;++v0){let v2=i[0][v0];if(!(typeof v2==="string"||v2===void 0)){e[0](v2)}let v3=i[1][v0];if(typeof v3!=="boolean"){e[1](v3)}v1[v0]={"foo":v2,"bar":v3,};}return v1}`,
+    `i=>{if(!Array.isArray(i)||i.length!==2||!Array.isArray(i[0])||!Array.isArray(i[1])){e[2](i)}let v1=new Array(Math.max(i[0].length,i[1].length,));for(let v0=0;v0<v1.length;++v0){try{let v2=i[0][v0];if(!(typeof v2==="string"||v2===void 0)){e[0](v2)}let v3=i[1][v0];if(typeof v3!=="boolean"){e[1](v3)}v1[v0]={"foo":v2,"bar":v3,};}catch(v4){v4.path='["'+v0+'"]'+v4.path;throw v4}}return v1}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -181,7 +181,7 @@ test("Invalid field value reports error with path", t => {
   // Second row, bar column contains a non-int value.
   t->U.assertThrowsMessage(
     () => %raw(`[["a", "b"], [0, "not-an-int"]]`)->S.parseOrThrow(schema),
-    `Expected int32, received "not-an-int"`,
+    `Failed at ["1"]["bar"]: Expected int32, received "not-an-int"`,
   )
 })
 
@@ -362,7 +362,7 @@ test("Field with S.refine", t => {
   // Negative age triggers the refinement error.
   t->U.assertThrowsMessage(
     () => %raw(`[[-5], ["bad"]]`)->S.parseOrThrow(schema),
-    `Age must be non-negative`,
+    `Failed at ["0"]["age"]: Age must be non-negative`,
   )
 })
 
