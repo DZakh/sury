@@ -5519,108 +5519,60 @@ let literal = js_schema
 
 let enum = values => Union.factory(values->Js.Array2.map(literal))
 
-let compactColumnsEncoder = Builder.encoder((~input, ~target) => {
-  // target is the compactColumns schema
-  // target.to = S.array(objectSchema), so properties are in target.to.additionalItems.properties
-  let maybeProperties = switch target.to {
-  | Some({additionalItems: ?Some(Schema(itemSchema))}) =>
-    let itemInternal = itemSchema->castToInternal
-    itemInternal.properties
-  | _ => None
-  }
-
-  switch maybeProperties {
-  | Some(properties) => {
-      let keys = properties->Js.Dict.keys
-      let inputVar = input->B.Val.var
-      let iteratorVar = input.global->B.varWithoutAllocation
-      let outputVar = input.global->B.varWithoutAllocation
-
-      let initialArraysCode = ref("")
-      let settingCode = ref("")
-      for idx in 0 to keys->Js.Array2.length - 1 {
-        let key = keys->Js.Array2.unsafe_get(idx)
-        let rawValueCode = `${inputVar}[${iteratorVar}][${key->X.Inlined.Value.fromString}]`
-        initialArraysCode := initialArraysCode.contents ++ `new Array(${inputVar}.length),`
-        settingCode :=
-          settingCode.contents ++
-          `${outputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]=${rawValueCode};`
-      }
-
-      input.allocate(`${outputVar}=[${initialArraysCode.contents}]`)
-
-      let output = input->B.next(outputVar, ~schema=base(arrayTag, ~selfReverse=false))
-      output.var = B._var
-      output.codeFromPrev =
-        output.codeFromPrev ++
-        `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${settingCode.contents}}`
-      output
-    }
-  | None => input->B.unsupportedConversion(~from=input.schema, ~target)
-  }
-})
-
 let compactColumnsDecoder = (~input) => {
   let selfSchema = input.expected
-  let inputTagFlag = input.schema.tag->TagFlag.get
-  let isUnknownInput = inputTagFlag->Flag.unsafeHas(TagFlag.unknown)
+  let isUnknownInput = input.schema.tag->TagFlag.get->Flag.unsafeHas(TagFlag.unknown)
 
-  // Get properties and determine direction
-  // Forward: properties come from selfSchema.to.additionalItems (S.array(objectSchema))
-  // Reverse: properties come from input.schema.additionalItems (array of objects)
-  let (maybeProperties, isForwardDirection) = switch selfSchema.to {
-  | Some({additionalItems: ?Some(Schema(itemSchema))}) =>
-    let itemInternal = itemSchema->castToInternal
-    switch itemInternal.properties {
-    | Some(_) as p => (p, true)
-    | None => (None, true)
+  // Find the object schema whose properties define the columns.
+  // Forward (columnar → rows): props come from selfSchema.to.additionalItems.
+  // Reverse (rows → columnar): props come from input.schema.additionalItems (the
+  // object schema left over after the preceding parse pipeline step).
+  let getItemProps = (s: internal) =>
+    switch s.additionalItems {
+    | Some(Schema(item)) => (item->castToInternal).properties
+    | _ => None
     }
-  | _ => (None, true)
+  let forwardProps = switch selfSchema.to {
+  | Some(to) => getItemProps(to)
+  | None => None
   }
-  // If forward didn't find properties, try reverse direction
-  let (maybeProperties, isForwardDirection) = switch maybeProperties {
-  | Some(_) => (maybeProperties, isForwardDirection)
-  | None =>
-    switch input.schema.additionalItems {
-    | Some(Schema(itemSchema)) =>
-      let itemInternal = itemSchema->castToInternal
-      switch itemInternal.properties {
-      | Some(_) as p => (p, false)
-      | None => (None, true)
-      }
-    | _ => (None, true)
-    }
-  }
+  let isForwardDirection = forwardProps->Obj.magic
+  let maybeProperties = isForwardDirection ? forwardProps : getItemProps(input.schema)
 
   switch maybeProperties {
+  | None =>
+    InternalError.panic(
+      "S.compactColumns supports only object schemas. Use S.compactColumns(S.unknown)->S.to(S.array(objectSchema)).",
+    )
   | Some(properties) => {
       let keys = properties->Js.Dict.keys
+      let keysLen = keys->Js.Array2.length
 
-      if keys->Js.Array2.length === 0 {
-        if isUnknownInput {
-          input.validation = Some(
-            (~inputVar) => {
-              `Array.isArray(${inputVar})&&${inputVar}.length===0`
-            },
-          )
-        }
-        let outputSchema = base(arrayTag, ~selfReverse=false)
-        let output = input->B.next("[]", ~schema=outputSchema, ~expected=outputSchema)
+      // Common output schema/val setup shared by all branches below.
+      let outputSchema = base(arrayTag, ~selfReverse=false)
+      let makeOutput = initial => {
+        let output = input->B.next(initial, ~schema=outputSchema, ~expected=outputSchema)
         output.isOutput = Some(true)
         output
+      }
+
+      if keysLen === 0 {
+        if isUnknownInput {
+          input.validation = Some(
+            (~inputVar) => `Array.isArray(${inputVar})&&${inputVar}.length===0`,
+          )
+        }
+        makeOutput("[]")
       } else if isForwardDirection {
         // Forward direction: columnar → rows
         if isUnknownInput {
           input.validation = Some(
             (~inputVar) => {
-              `Array.isArray(${inputVar})&&${inputVar}.length===${keys
-                ->Js.Array2.length
-                ->X.Int.unsafeToString}` ++
-              `${keys
-                ->Js.Array2.mapi((_, idx) => {
-                  `&&Array.isArray(${inputVar}[${idx->X.Int.unsafeToString}])`
-                })
-                ->Js.Array2.joinWith("")}`
+              let check = ref(`Array.isArray(${inputVar})&&${inputVar}.length===${keysLen->X.Int.unsafeToString}`)
+              for idx in 0 to keysLen - 1 {
+                check := check.contents ++ `&&Array.isArray(${inputVar}[${idx->X.Int.unsafeToString}])`
+              }
+              check.contents
             },
           )
         }
@@ -5641,18 +5593,17 @@ let compactColumnsDecoder = (~input) => {
         let lengthCode = ref("")
         let itemBuildCode = ref("")
         let itemParseCode = ref("")
-        let itemInlines = []
+        let asyncInlines = ref("")
         let hasAsync = ref(false)
-        for idx in 0 to keys->Js.Array2.length - 1 {
+        for idx in 0 to keysLen - 1 {
           let key = keys->Js.Array2.unsafe_get(idx)
-          let fieldSchema = properties->Js.Dict.unsafeGet(key)
-          let rawValueCode = `${inputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]`
+          let idxStr = idx->X.Int.unsafeToString
 
           // Use parse on the field schema to handle transformations (e.g. null->undefined).
           let itemInput = input->B.Val.scope
-          itemInput.inline = rawValueCode
+          itemInput.inline = `${inputVar}[${idxStr}][${iteratorVar}]`
           itemInput.schema = itemSchema
-          itemInput.expected = fieldSchema
+          itemInput.expected = properties->Js.Dict.unsafeGet(key)
           itemInput.var = B._notVarBeforeValidation
           itemInput.isInput = Some(false)
           itemInput.isOutput = Some(false)
@@ -5663,11 +5614,10 @@ let compactColumnsDecoder = (~input) => {
           if itemOutput.flag->Flag.unsafeHas(ValFlag.async) {
             hasAsync := true
           }
-          let itemCode = itemOutput->B.merge
 
-          itemParseCode := itemParseCode.contents ++ itemCode
-          lengthCode := lengthCode.contents ++ `${inputVar}[${idx->X.Int.unsafeToString}].length,`
-          itemInlines->Js.Array2.push(itemOutput.inline)->ignore
+          itemParseCode := itemParseCode.contents ++ itemOutput->B.merge
+          lengthCode := lengthCode.contents ++ `${inputVar}[${idxStr}].length,`
+          asyncInlines := asyncInlines.contents ++ `${itemOutput.inline},`
           itemBuildCode :=
             itemBuildCode.contents ++
             `${key->X.Inlined.Value.fromString}:${itemOutput.inline},`
@@ -5675,48 +5625,43 @@ let compactColumnsDecoder = (~input) => {
 
         input.allocate(`${outputVar}=new Array(Math.max(${lengthCode.contents}))`)
 
-        let outputSchema = base(arrayTag, ~selfReverse=false)
-        let output = input->B.next(outputVar, ~schema=outputSchema, ~expected=outputSchema)
+        let output = makeOutput(outputVar)
         output.var = B._var
-        output.isOutput = Some(true)
 
         // Wrap the row body in a single try/catch that prepends the row index to
         // any thrown error — giving paths like ["0"]["bar"]. A single wrapper is
         // used (rather than per-field) so that `let` variables declared while
         // parsing one field remain in scope for the object construction.
-        let errorVar = input.global->B.varWithoutAllocation
-        let wrapRowBody = body =>
-          if itemParseCode.contents === "" {
-            body
-          } else {
-            `try{${body}}catch(${errorVar}){${errorVar}.path='["'+${iteratorVar}+'"]'+${errorVar}.path;throw ${errorVar}}`
-          }
-
-        if hasAsync.contents {
+        let rowAssign = if hasAsync.contents {
           // For async fields, each row becomes a promise that awaits all field values
           // via Promise.all, and the final output is Promise.all of all row promises.
           let rowResultVar = input.global->B.varWithoutAllocation
-          let asyncBuildCode =
-            keys
-            ->Js.Array2.mapi((key, idx) =>
-              `${key->X.Inlined.Value.fromString}:${rowResultVar}[${idx->X.Int.unsafeToString}]`
-            )
-            ->Js.Array2.joinWith(",")
-          let promisesCode = itemInlines->Js.Array2.joinWith(",")
-          let rowBody = `${itemParseCode.contents}${outputVar}[${iteratorVar}]=Promise.all([${promisesCode}]).then(${rowResultVar}=>({${asyncBuildCode},}));`
-          output.codeFromPrev =
-            output.codeFromPrev ++
-            `for(let ${iteratorVar}=0;${iteratorVar}<${outputVar}.length;++${iteratorVar}){${wrapRowBody(
-                rowBody,
-              )}}`
+          let asyncBuildCode = ref("")
+          for idx in 0 to keysLen - 1 {
+            let key = keys->Js.Array2.unsafe_get(idx)
+            asyncBuildCode :=
+              asyncBuildCode.contents ++
+              `${key->X.Inlined.Value.fromString}:${rowResultVar}[${idx->X.Int.unsafeToString}],`
+          }
+          `${outputVar}[${iteratorVar}]=Promise.all([${asyncInlines.contents}]).then(${rowResultVar}=>({${asyncBuildCode.contents}}));`
+        } else {
+          `${outputVar}[${iteratorVar}]={${itemBuildCode.contents}};`
+        }
+
+        let rowBody = itemParseCode.contents ++ rowAssign
+        let wrappedBody = if itemParseCode.contents === "" {
+          rowBody
+        } else {
+          let errorVar = input.global->B.varWithoutAllocation
+          `try{${rowBody}}catch(${errorVar}){${errorVar}.path='["'+${iteratorVar}+'"]'+${errorVar}.path;throw ${errorVar}}`
+        }
+        output.codeFromPrev =
+          output.codeFromPrev ++
+          `for(let ${iteratorVar}=0;${iteratorVar}<${outputVar}.length;++${iteratorVar}){${wrappedBody}}`
+
+        if hasAsync.contents {
           output->B.asyncVal(`Promise.all(${outputVar})`)
         } else {
-          let rowBody = `${itemParseCode.contents}${outputVar}[${iteratorVar}]={${itemBuildCode.contents}};`
-          output.codeFromPrev =
-            output.codeFromPrev ++
-            `for(let ${iteratorVar}=0;${iteratorVar}<${outputVar}.length;++${iteratorVar}){${wrapRowBody(
-                rowBody,
-              )}}`
           output
         }
       } else {
@@ -5729,31 +5674,24 @@ let compactColumnsDecoder = (~input) => {
 
         let initialArraysCode = ref("")
         let settingCode = ref("")
-        for idx in 0 to keys->Js.Array2.length - 1 {
+        for idx in 0 to keysLen - 1 {
           let key = keys->Js.Array2.unsafe_get(idx)
-          let rawValueCode = `${inputVar}[${iteratorVar}][${key->X.Inlined.Value.fromString}]`
           initialArraysCode := initialArraysCode.contents ++ `new Array(${inputVar}.length),`
           settingCode :=
             settingCode.contents ++
-            `${outputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]=${rawValueCode};`
+            `${outputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]=${inputVar}[${iteratorVar}][${key->X.Inlined.Value.fromString}];`
         }
 
         input.allocate(`${outputVar}=[${initialArraysCode.contents}]`)
 
-        let outputSchema = base(arrayTag, ~selfReverse=false)
-        let output = input->B.next(outputVar, ~schema=outputSchema, ~expected=outputSchema)
+        let output = makeOutput(outputVar)
         output.var = B._var
-        output.isOutput = Some(true)
         output.codeFromPrev =
           output.codeFromPrev ++
           `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${settingCode.contents}}`
         output
       }
     }
-  | None =>
-    InternalError.panic(
-      "S.compactColumns supports only object schemas. Use S.compactColumns(S.unknown)->S.to(S.array(objectSchema)).",
-    )
   }
 }
 
@@ -5762,7 +5700,6 @@ let compactColumns = inputSchema => {
   let mut = array(innerArray)->castToInternal
   mut.format = Some(CompactColumns)
   mut.decoder = compactColumnsDecoder
-  mut.encoder = Some(compactColumnsEncoder)
   mut->castToPublic
 }
 
