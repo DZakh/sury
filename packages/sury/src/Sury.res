@@ -615,16 +615,19 @@ and bGlobal = {
   mutable defs?: dict<internal>,
 }
 // A single validation check attached to a val.
-// Emitted as `${cond(inputVar)}||${embed(fail(input))}(${inputVar});` at merge time.
+// Emitted as `${cond(inputVar)}||${fail(val, inputVar)};` at merge time.
 // Two adjacent checks sharing a `fail` by reference equality are fused with `&&`.
 and validationCheck = {
   // Positive "valid-when-true" JS expression
   @as("c")
   cond: (~inputVar: string) => string,
-  // Emit-time factory: takes the prev val and returns the runtime error-builder
-  // that will be embedded and called when the check fails.
+  // Emits the throw expression for the owning val when this check fails.
+  // Receives the val (source of expected/received/path) and the inputVar
+  // (the JS variable holding the runtime value). Returns e.g. `e[N](v0)`.
+  // Kept as a stable function reference so adjacent checks with the same
+  // `fail` fuse by `===` identity in `emitValidation`.
   @as("f")
-  fail: (~input: val) => (unknown => errorDetails),
+  fail: (val, ~inputVar: string) => string,
 }
 and flag = int
 and error = private {
@@ -1286,15 +1289,26 @@ module Builder = {
       details
     }
 
-    // Factory used by declarative check records (see `validationCheck`).
-    // Outer call runs at emit time against the fresh prev val, so `input.path`
-    // and `input.schema` are read at the right moment. The returned inner
-    // function is embedded via `failWithArg` and only constructs the error
-    // details when the check actually fails at runtime.
-    let failInvalidType = (~expected: internal) => {
-      (~input: val) => {
-        let received = input.schema->castToPublic
-        let path = input.path
+    // Default `fail` used by `validationCheck` records. A plain function
+    // reference (no partial application, no per-refine closure) so that
+    // every check carrying it shares the same `fail` identity and fuses
+    // with its neighbors in `emitValidation`.
+    //
+    // Reads everything from the val that owns the check: `val.expected`
+    // (target schema), `val.schema` (received schema — see note below),
+    // `val.path` (error location). `inputVar` is the JS variable holding
+    // the runtime value at the call site.
+    //
+    // Note on `received`: for refine-chain vals `val.schema` equals the
+    // target schema (refine calls set `~schema=input.expected`), so the
+    // structural `err.received` field ends up equal to `err.expected`. The
+    // user-visible reason string is unaffected because it uses the
+    // stringified runtime value (`input->stringify`), not the schema name.
+    let failInvalidType = (val: val, ~inputVar: string): string => {
+      let received = val.schema->castToPublic
+      let path = val.path
+      let expected = val.expected
+      val->failWithArg(
         value =>
           makeInvalidInputDetails(
             ~expected,
@@ -1302,8 +1316,9 @@ module Builder = {
             ~path,
             ~input=value,
             ~includeInput=true,
-          )
-      }
+          ),
+        inputVar,
+      )
     }
 
     // Emit a throw expression for a direct invalid-input failure (not
@@ -1327,19 +1342,22 @@ module Builder = {
     }
 
     // Emit the JS for a val's validation list, respecting `noValidation`.
-    // Adjacent checks that share a `fail` closure by reference are fused into
+    // Adjacent checks that share a `fail` function reference are fused into
     // one `cond1&&cond2||…;` emission so primitive decoders keep producing a
     // single throw line. The single-check fast path skips the ref+loop setup.
-    let emitValidation = (val: val, ~input: val, ~inputVar: string): string => {
-      // Invariant: if `validation` is present it is non-empty.
-      if val.expected.noValidation === Some(true) || !(val.validation->X.Option.unsafeToBool) {
+    //
+    // Caller must verify `val.validation->unsafeToBool` before dispatching
+    // (so we can unwrap with `getUnsafe`) and pass `inputVar` — the JS
+    // variable holding the runtime value, typically `val.prev.var()`.
+    let emitValidation = (val: val, ~inputVar: string): string => {
+      if val.expected.noValidation === Some(true) {
         ""
       } else {
         let checks = val.validation->X.Option.getUnsafe
         let len = checks->Js.Array2.length
         if len === 1 {
           let check = checks->Js.Array2.unsafe_get(0)
-          `${check.cond(~inputVar)}||${input->failWithArg(check.fail(~input), inputVar)};`
+          `${check.cond(~inputVar)}||${check.fail(val, ~inputVar)};`
         } else {
           let out = ref("")
           let i = ref(0)
@@ -1357,9 +1375,7 @@ module Builder = {
                 "&&" ++ (checks->Js.Array2.unsafe_get(i.contents)).cond(~inputVar)
               i := i.contents + 1
             }
-            out :=
-              out.contents ++
-              `${cond.contents}||${input->failWithArg(fail(~input), inputVar)};`
+            out := out.contents ++ `${cond.contents}||${fail(val, ~inputVar)};`
           }
           out.contents
         }
@@ -1378,8 +1394,8 @@ module Builder = {
 
         if val.validation->X.Option.unsafeToBool {
           // Validation must be used only when there's a prev value
-          let input = current.contents->X.Option.getUnsafe
-          currentCode := val->emitValidation(~input, ~inputVar=input.var())
+          let prev = current.contents->X.Option.getUnsafe
+          currentCode := val->emitValidation(~inputVar=prev.var())
         }
 
         if val.varsAllocation !== "" {
@@ -1794,11 +1810,10 @@ let int32FormatValidation = (~inputVar) => {
 let numberDecoder = Builder.make((~input) => {
   let inputTagFlag = input.schema.tag->TagFlag.get
   if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
-    let fail = B.failInvalidType(~expected=input.expected)
     let checks = [
       {
         cond: (~inputVar) => `typeof ${inputVar}==="${(numberTag :> string)}"`,
-        fail,
+        fail: B.failInvalidType,
       },
     ]
     switch input.expected.format {
@@ -1806,7 +1821,7 @@ let numberDecoder = Builder.make((~input) => {
       checks
       ->Js.Array2.push({
         cond: (~inputVar) => int32FormatValidation(~inputVar),
-        fail,
+        fail: B.failInvalidType,
       })
       ->ignore
     | _ =>
@@ -1814,7 +1829,7 @@ let numberDecoder = Builder.make((~input) => {
         checks
         ->Js.Array2.push({
           cond: (~inputVar) => `!Number.isNaN(${inputVar})`,
-          fail,
+          fail: B.failInvalidType,
         })
         ->ignore
       }
@@ -1834,7 +1849,7 @@ let numberDecoder = Builder.make((~input) => {
           | Some(Int32) => int32FormatValidation(~inputVar=outputVar)
           | _ => `!Number.isNaN(${outputVar})`
           },
-        fail: B.failInvalidType(~expected=input.expected),
+        fail: B.failInvalidType,
       },
     ])
     output
@@ -1846,7 +1861,7 @@ let numberDecoder = Builder.make((~input) => {
       ~checks=[
         {
           cond: (~inputVar) => int32FormatValidation(~inputVar),
-          fail: B.failInvalidType(~expected=input.expected),
+          fail: B.failInvalidType,
         },
       ],
     )
@@ -1866,7 +1881,7 @@ let stringDecoder = Builder.make((~input) => {
       ~checks=[
         {
           cond: (~inputVar) => `typeof ${inputVar}==="${(stringTag :> string)}"`,
-          fail: B.failInvalidType(~expected=input.expected),
+          fail: B.failInvalidType,
         },
       ],
     )
@@ -1908,7 +1923,7 @@ let booleanDecoder = Builder.make((~input) => {
       ~checks=[
         {
           cond: (~inputVar) => `typeof ${inputVar}==="${(booleanTag :> string)}"`,
-          fail: B.failInvalidType(~expected=input.expected),
+          fail: B.failInvalidType,
         },
       ],
     )
@@ -1942,7 +1957,7 @@ let bigintDecoder = Builder.make((~input) => {
       ~checks=[
         {
           cond: (~inputVar) => `typeof ${inputVar}==="${(bigintTag :> string)}"`,
-          fail: B.failInvalidType(~expected=input.expected),
+          fail: B.failInvalidType,
         },
       ],
     )
@@ -1975,7 +1990,7 @@ let symbolDecoder = Builder.make((~input) => {
       ~checks=[
         {
           cond: (~inputVar) => `typeof ${inputVar}==="${(symbolTag :> string)}"`,
-          fail: B.failInvalidType(~expected=input.expected),
+          fail: B.failInvalidType,
         },
       ],
     )
@@ -2049,7 +2064,7 @@ module Literal = {
         stringConstVal.validation = Some([
           {
             cond: (~inputVar) => `${inputVar}==="${stringConstSchema.const->Obj.magic}"`,
-            fail: B.failInvalidType(~expected=stringConstSchema),
+            fail: B.failInvalidType,
           },
         ])
 
@@ -2060,7 +2075,7 @@ module Literal = {
           ~checks=[
             {
               cond: (~inputVar) => `Number.isNaN(${inputVar})`,
-              fail: B.failInvalidType(~expected=expectedSchema),
+              fail: B.failInvalidType,
             },
           ],
         )
@@ -2071,7 +2086,7 @@ module Literal = {
           ~checks=[
             {
               cond: (~inputVar) => `${inputVar}===${input->B.inlineConst(expectedSchema)}`,
-              fail: B.failInvalidType(~expected=expectedSchema),
+              fail: B.failInvalidType,
             },
           ],
         )
@@ -2618,10 +2633,12 @@ and arrayDecoder: builder = (~input as unknownInput) => {
       unknownInput.schema
     }
     let checks: array<validationCheck> = []
-    let fail = B.failInvalidType(~expected=expectedSchema)
     if !isArrayInput {
       checks
-      ->Js.Array2.push({cond: (~inputVar) => `Array.isArray(${inputVar})`, fail})
+      ->Js.Array2.push({
+        cond: (~inputVar) => `Array.isArray(${inputVar})`,
+        fail: B.failInvalidType,
+      })
       ->ignore
     }
 
@@ -2637,7 +2654,7 @@ and arrayDecoder: builder = (~input as unknownInput) => {
         ->Js.Array2.push({
           cond: (~inputVar) =>
             `${inputVar}.length===${expectedLength->X.Int.unsafeToString}`,
-          fail,
+          fail: B.failInvalidType,
         })
         ->ignore
       | Strip =>
@@ -2645,7 +2662,7 @@ and arrayDecoder: builder = (~input as unknownInput) => {
         ->Js.Array2.push({
           cond: (~inputVar) =>
             `${inputVar}.length>=${expectedLength->X.Int.unsafeToString}`,
-          fail,
+          fail: B.failInvalidType,
         })
         ->ignore
 
@@ -2728,22 +2745,18 @@ and arrayDecoder: builder = (~input as unknownInput) => {
       let itemOutput = itemInput->parse
 
       // Hoist the child's literal check into the parent as a union discriminant.
-      // We rewrite the check's `cond` to patch the inputVar with the element path,
-      // and we reuse the parent's existing fail reference so the hoisted check
-      // fuses with the parent's own type check in a single `||` emission.
+      // Rewrite the check's `cond` to patch the inputVar with the element path;
+      // the `fail` is the shared `B.failInvalidType` so the hoisted check fuses
+      // with the parent's own type check in a single `||` emission.
       if isUnion && schema->isLiteral && itemOutput.validation->X.Option.unsafeToBool {
         let pathAppend =
           input.global->B.inlineLocation(key)->Path.fromInlinedLocation
-        let parentFail = switch input.validation {
-        | Some(arr) => (arr->Js.Array2.unsafe_get(0)).fail
-        | None => B.failInvalidType(~expected=input.expected)
-        }
         itemOutput.validation
         ->X.Option.getUnsafe
         ->Js.Array2.forEach(check => {
           input->B.pushCheck({
             cond: (~inputVar) => check.cond(~inputVar=inputVar ++ pathAppend),
-            fail: parentFail,
+            fail: check.fail,
           })
         })
         // Invariant: `validation` is absent iff there are no checks.
@@ -2786,13 +2799,12 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
       unknownInput.schema
     }
     let checks: array<validationCheck> = []
-    let fail = B.failInvalidType(~expected=expectedSchema)
     if !isObjectInput {
       checks
       ->Js.Array2.push({
         cond: (~inputVar) =>
           `typeof ${inputVar}==="${(objectTag :> string)}"&&${inputVar}`,
-        fail,
+        fail: B.failInvalidType,
       })
       ->ignore
       if expectedSchema.additionalItems->X.Option.getUnsafe !== Strip {
@@ -2802,7 +2814,7 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
         checks
         ->Js.Array2.push({
           cond: (~inputVar) => `!Array.isArray(${inputVar})`,
-          fail,
+          fail: B.failInvalidType,
         })
         ->ignore
       }
@@ -2895,21 +2907,17 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
         let itemOutput = itemInput->parse
 
         // Hoist the child's literal check into the parent as a union discriminant.
-        // Reuse the parent's existing fail so the hoisted check fuses with the
-        // parent's own type check in a single `||` emission.
+        // Rewrite the check's `cond` to patch the inputVar with the field path;
+        // the shared `B.failInvalidType` fuses with the parent's own type check.
         if isUnion && schema->isLiteral && itemOutput.validation->X.Option.unsafeToBool {
           let pathAppend =
             input.global->B.inlineLocation(key)->Path.fromInlinedLocation
-          let parentFail = switch input.validation {
-          | Some(arr) => (arr->Js.Array2.unsafe_get(0)).fail
-          | None => B.failInvalidType(~expected=input.expected)
-          }
           itemOutput.validation
           ->X.Option.getUnsafe
           ->Js.Array2.forEach(check => {
             input->B.pushCheck({
               cond: (~inputVar) => check.cond(~inputVar=inputVar ++ pathAppend),
-              fail: parentFail,
+              fail: check.fail,
             })
           })
           // Invariant: `validation` is absent iff there are no checks.
@@ -3086,7 +3094,7 @@ let instanceDecoder = Builder.make((~input) => {
         {
           cond: (~inputVar) =>
             `${inputVar} instanceof ${input->B.embed(input.expected.class)}`,
-          fail: B.failInvalidType(~expected=input.expected),
+          fail: B.failInvalidType,
         },
       ],
     )
@@ -3665,8 +3673,8 @@ module Union = {
                   }
                 } else {
                   // Emit as standard validation block (respects noValidation)
-                  let input = current.contents->X.Option.getUnsafe
-                  currentCode := val->B.emitValidation(~input, ~inputVar=input.var())
+                  let prev = current.contents->X.Option.getUnsafe
+                  currentCode := val->B.emitValidation(~inputVar=prev.var())
                 }
               }
 
@@ -3808,7 +3816,7 @@ module Union = {
               } else {
                 typeValidationOutput->B.pushCheck({
                   cond: (~inputVar as _) => `(${itemNoop.contents})`,
-                  fail: B.failInvalidType(~expected=typeValidationOutput.expected),
+                  fail: B.failInvalidType,
                 })
               }
             } else if withExhaustiveCheck.contents {
@@ -4038,8 +4046,8 @@ module Union = {
                 }
               } else {
                 // Emit as standard validation block (respects noValidation)
-                let input = current.contents->X.Option.getUnsafe
-                currentCode := val->B.emitValidation(~input, ~inputVar=input.var())
+                let prev = current.contents->X.Option.getUnsafe
+                currentCode := val->B.emitValidation(~inputVar=prev.var())
               }
             }
 
@@ -4868,7 +4876,7 @@ let invalidDateRefine = (input: val) =>
     ~checks=[
       {
         cond: (~inputVar) => `!Number.isNaN(${inputVar}.getTime())`,
-        fail: B.failInvalidType(~expected=input.expected),
+        fail: B.failInvalidType,
       },
     ],
   )
@@ -5802,7 +5810,7 @@ let compactColumnsDecoder = (~input) => {
             {
               cond: (~inputVar) =>
                 `Array.isArray(${inputVar})&&${inputVar}.length===0`,
-              fail: B.failInvalidType(~expected=input.expected),
+              fail: B.failInvalidType,
             },
           ])
         }
@@ -5824,7 +5832,7 @@ let compactColumnsDecoder = (~input) => {
                     `&&Array.isArray(${inputVar}[${idx->X.Int.unsafeToString}])`
                   })
                   ->Js.Array2.joinWith("")}`,
-              fail: B.failInvalidType(~expected=input.expected),
+              fail: B.failInvalidType,
             },
           ])
         }
