@@ -40,7 +40,7 @@ module Common = {
   test("Compiled parse code snapshot", t => {
     let schema = factory()
 
-    t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(!Number.isNaN(i)){e[0](i)}return i}`)
+    t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{Number.isNaN(i)||e[0](i);return i}`)
   })
 
   test("Compiled serialize code snapshot", t => {
@@ -49,7 +49,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{if(!Number.isNaN(i)){e[0](i)}return i}`,
+      `i=>{Number.isNaN(i)||e[0](i);return i}`,
     )
   })
 

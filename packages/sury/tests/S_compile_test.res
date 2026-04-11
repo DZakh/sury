@@ -28,17 +28,17 @@ test("JsonString output with Async mode", t => {
 
 test("TypeValidation=false works with assert output", t => {
   let fn = S.makeConvertOrThrow(S.unknown, S.string->S.to(S.literal()->S.noValidation(true)))
-  t->assertCode(fn, `i=>{if(typeof i!=="string"){e[0](i)}return void 0}`)
+  t->assertCode(fn, `i=>{typeof i==="string"||e[0](i);return void 0}`)
   let fn = S.makeConvertOrThrow(S.string, S.string->S.to(S.literal()->S.noValidation(true)))
   t->assertCode(fn, `i=>{return void 0}`)
 })
 
 test("Assert output with Async mode", t => {
   let fn = S.makeAsyncConvertOrThrow(S.unknown, S.string->S.to(S.literal()->S.noValidation(true)))
-  t->assertCode(fn, `i=>{if(typeof i!=="string"){e[0](i)}return Promise.resolve(void 0)}`)
+  t->assertCode(fn, `i=>{typeof i==="string"||e[0](i);return Promise.resolve(void 0)}`)
 })
 
 test("Immitate assert returning true with S.to and literal", t => {
   let fn = S.makeConvertOrThrow(S.unknown, S.string->S.to(S.literal(true)->S.noValidation(true)))
-  t->assertCode(fn, `i=>{if(typeof i!=="string"){e[0](i)}return true}`)
+  t->assertCode(fn, `i=>{typeof i==="string"||e[0](i);return true}`)
 })

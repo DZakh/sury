@@ -58,11 +58,11 @@ test("Object with embeded transformed schema", t => {
   )
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#ReverseConvert),
-    `i=>{let v0=i["zoo"];if(v0===void 0){v0=null}else if(!(typeof v0==="number"&&!Number.isNaN(v0)&&(v0<2147483647&&v0>-2147483648&&v0%1===0))){e[0](v0)}return {"foo":"bar","zoo":v0,}}`,
+    `i=>{let v0=i["zoo"];if(v0===void 0){v0=null}else if(!(typeof v0==="number"&&!Number.isNaN(v0)&&(v0<=2147483647&&v0>=-2147483648&&v0%1===0))){e[0](v0)}return {"foo":"bar","zoo":v0,}}`,
   )
   t->Assert.is(
     objectSchema->U.getCompiledCodeString(~op=#ReverseConvert),
-    `i=>{let v0=i["zoo"];if(v0===void 0){v0=null}else if(!(typeof v0==="number"&&!Number.isNaN(v0)&&(v0<2147483647&&v0>-2147483648&&v0%1===0))){e[0](v0)}return {"foo":"bar","zoo":v0,}}`,
+    `i=>{let v0=i["zoo"];if(v0===void 0){v0=null}else if(!(typeof v0==="number"&&!Number.isNaN(v0)&&(v0<=2147483647&&v0>=-2147483648&&v0%1===0))){e[0](v0)}return {"foo":"bar","zoo":v0,}}`,
   )
 })
 
@@ -80,7 +80,7 @@ test("Strict object with embeded returns input without object recreation", t => 
 
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Parse),
-    `i=>{if(typeof i!=="object"||!i||Array.isArray(i)){e[3](i)}let v0=i["foo"],v1=i["zoo"],v2;if(v0!=="bar"){e[0](v0)}if(typeof v1!=="number"||v1>2147483647||v1<-2147483648||v1%1!==0){e[1](v1)}for(v2 in i){if(v2!=="foo"&&v2!=="zoo"){e[2](v2)}}return i}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["foo"],v1=i["zoo"],v2;v0==="bar"||e[0](v0);typeof v1==="number"&&v1<=2147483647&&v1>=-2147483648&&v1%1===0||e[1](v1);for(v2 in i){if(v2!=="foo"&&v2!=="zoo"){e[2](v2)}}return i}`,
   )
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
 })
@@ -97,11 +97,11 @@ test("Tuple with embeded schema", t => {
   // S.schema does return i without tuple recreation
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Parse),
-    `i=>{if(!Array.isArray(i)||i.length!==3){e[3](i)}let v0=i["0"],v1=i["1"],v2=i["2"];if(typeof v0!=="string"){e[0](v0)}if(v1!==void 0){e[1](v1)}if(v2!=="bar"){e[2](v2)}return i}`,
+    `i=>{Array.isArray(i)&&i.length===3||e[3](i);let v0=i["0"],v1=i["1"],v2=i["2"];typeof v0==="string"||e[0](v0);v1===void 0||e[1](v1);v2==="bar"||e[2](v2);return i}`,
   )
   t->Assert.is(
     tupleSchema->U.getCompiledCodeString(~op=#Parse),
-    `i=>{if(!Array.isArray(i)||i.length!==3){e[3](i)}let v0=i["0"],v1=i["1"],v2=i["2"];if(typeof v0!=="string"){e[0](v0)}if(v1!==void 0){e[1](v1)}if(v2!=="bar"){e[2](v2)}return [v0,v1,v2,]}`,
+    `i=>{Array.isArray(i)&&i.length===3||e[3](i);let v0=i["0"],v1=i["1"],v2=i["2"];typeof v0==="string"||e[0](v0);v1===void 0||e[1](v1);v2==="bar"||e[2](v2);return [v0,v1,v2,]}`,
   )
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
   t->Assert.is(
@@ -225,7 +225,7 @@ test(
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(!Array.isArray(i)||i.length!==2){e[2](i)}let v0=i["0"],v1=i["1"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="boolean"){e[1](v1)}return i}`,
+      `i=>{Array.isArray(i)&&i.length===2||e[2](i);let v0=i["0"],v1=i["1"];typeof v0==="string"||e[0](v0);typeof v1==="boolean"||e[1](v1);return i}`,
     )
     t->U.assertCompiledCodeIsNoop(~schema, ~op=#Convert)
   },
@@ -246,7 +246,7 @@ test("Object schema with empty object field", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[1](i)}let v0=i["foo"];if(typeof v0!=="object"||!v0){e[0](v0)}return {"foo":{},}}`,
+    `i=>{typeof i==="object"&&i||e[1](i);let v0=i["foo"];typeof v0==="object"&&v0||e[0](v0);return {"foo":{},}}`,
   )
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
 })
@@ -266,7 +266,7 @@ test("Object schema with nested object field containing only literal", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["foo"];if(typeof v0!=="object"||!v0){e[1](v0)}let v1=v0["bar"];if(v1!=="baz"){e[0](v1)}return {"foo":{"bar":v1,},}}`,
+    `i=>{typeof i==="object"&&i||e[2](i);let v0=i["foo"];typeof v0==="object"&&v0||e[1](v0);let v1=v0["bar"];v1==="baz"||e[0](v1);return {"foo":{"bar":v1,},}}`,
   )
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
 })
@@ -287,6 +287,6 @@ test("https://github.com/DZakh/sury/issues/131", t => {
   t->U.assertCompiledCode(
     ~schema=testSchema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["foobar"];if(!Array.isArray(v0)){e[1](v0)}for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];if(!(typeof v2==="string"||v2===void 0)){e[0](v2)}}catch(v3){v3.path="[\\"foobar\\"]"+\'["\'+v1+\'"]\'+v3.path;throw v3}}return {"foobar":v0,}}`,
+    `i=>{typeof i==="object"&&i||e[2](i);let v0=i["foobar"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];if(!(typeof v2==="string"||v2===void 0)){e[0](v2)}}catch(v3){v3.path="[\\"foobar\\"]"+\'["\'+v1+\'"]\'+v3.path;throw v3}}return {"foobar":v0,}}`,
   )
 })
