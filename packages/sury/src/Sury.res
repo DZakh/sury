@@ -6500,79 +6500,93 @@ module RescriptJSONSchema = {
     }
   }
 
-  let rec encodeToJsonSchema = (schema: schema<unknown>, ~path, ~defs, ~parent): option<JSONSchema.t> => {
+  let rec encodeToJsonSchema = (schema: schema<unknown>, ~path, ~defs, ~parent): option<
+    JSONSchema.t,
+  > => {
     let schemaInternal = schema->castToInternal
-    if !(schemaInternal.to->Obj.magic) {
-      None
-    } else {
-      let reversed = schemaInternal->reverse
-      let input = B.operationArg(
-        ~flag=Flag.none,
-        ~defs=%raw(`0`),
-        ~schema=unknown,
-        ~expected=reversed,
-      )
-      try {
-        let output = input->parse
-        // The parse should produce a val whose .schema reflects the
-        // JSON-compatible transformed structure.
-        let outputJsonSchema = internalToJSONSchema(
-          output.schema->castToPublic,
-          ~path,
-          ~defs,
-          ~parent,
-        )
-        let mutableJs = outputJsonSchema->Mutable.fromReadOnly
-        mutableJs->applyMetadataOverlay(schema, ~defs)
-        Some(mutableJs->Mutable.toReadOnly)
-      } catch {
-      | _ => {
-          let _ = %raw(`exn`)->InternalError.getOrRethrow
-          // Parse failed — let the caller fall through to its own default
-          // (empty {} for the JSON Ref case, existing logic for String, throw
-          // for the catch-all). The outer internalToJSONSchema tail will
-          // apply metadata overlay to whatever the fall-through builds.
-          None
-        }
+    let reversed = schemaInternal->reverse
+    let input = B.operationArg(
+      ~flag=Flag.none,
+      ~defs=%raw(`0`),
+      ~schema=unknown,
+      ~expected=reversed,
+    )
+    try {
+      let output = input->parse
+      // The parse produces a val whose .schema reflects the
+      // JSON-compatible transformed structure.
+      Some(internalToJSONSchema(output.schema->castToPublic, ~path, ~defs, ~parent))
+    } catch {
+    | _ => {
+        let _ = %raw(`exn`)->InternalError.getOrRethrow
+        // Parse failed — caller falls through to normal tag-based logic.
+        None
       }
     }
   }
   and internalToJSONSchema = (schema: schema<unknown>, ~path, ~defs, ~parent): JSONSchema.t => {
+    let schemaInternal = schema->castToInternal
+    // If the schema has a user-applied .to transform, try the encode path
+    // first: reverse the chain and use the resulting JSON-compatible schema.
+    // Fall through to the normal tag-based logic when encoding isn't possible.
+    //
+    // Structural tags (object, array, union) also set .to internally for
+    // shaping, so we skip them here — their tag-based logic already recurses
+    // into properties/items/variants and handles nested .to transforms.
+    let hasUserTo =
+      schemaInternal.to->Obj.magic &&
+        {
+          let tag = schemaInternal.tag
+          tag !== objectTag && tag !== arrayTag && tag !== unionTag
+        }
+    let encoded = if hasUserTo {
+      encodeToJsonSchema(schema, ~path, ~defs, ~parent)
+    } else {
+      None
+    }
+    switch encoded {
+    | Some(encodedJsonSchema) =>
+      let mutableJs = encodedJsonSchema->Mutable.fromReadOnly
+      mutableJs->applyMetadataOverlay(schema, ~defs)
+      mutableJs->Mutable.toReadOnly
+    | None => internalToJSONSchemaBase(schema, ~path, ~defs, ~parent)
+    }
+  }
+  and internalToJSONSchemaBase = (
+    schema: schema<unknown>,
+    ~path,
+    ~defs,
+    ~parent,
+  ): JSONSchema.t => {
     let jsonSchema: Mutable.t = {}
     switch schema {
-    | String({?const, ?format}) =>
-      // If string has .to with a different output type, try reverse parsing
-      // to discover the serialized format (e.g. S.string->S.to(S.date) → date-time)
-      switch encodeToJsonSchema(schema, ~path, ~defs, ~parent) {
-      | Some(result) => jsonSchema->Mutable.mixin(result->Obj.magic)
-      | None => {
-          jsonSchema.type_ = Some(Arrayable.single(#string))
-          switch format {
-          | Some(DateTime) => jsonSchema.format = Some("date-time")
-          | Some(JSON) | None => ()
-          }
-          schema
-          ->String.refinements
-          ->Js.Array2.forEach(refinement => {
-            switch refinement {
-            | {kind: Email} => jsonSchema.format = Some("email")
-            | {kind: Url} => jsonSchema.format = Some("uri")
-            | {kind: Uuid} => jsonSchema.format = Some("uuid")
-            | {kind: Cuid} => ()
-            | {kind: Length({length})} => {
-                jsonSchema.minLength = Some(length)
-                jsonSchema.maxLength = Some(length)
-              }
-            | {kind: Max({length})} => jsonSchema.maxLength = Some(length)
-            | {kind: Min({length})} => jsonSchema.minLength = Some(length)
-            | {kind: Pattern({re})} =>
-              jsonSchema.pattern = Some((re->(Obj.magic: Js.Re.t => {..}))["source"])
+    | String({?const, ?format}) => {
+        jsonSchema.type_ = Some(Arrayable.single(#string))
+        switch format {
+        | Some(DateTime) => jsonSchema.format = Some("date-time")
+        | Some(JSON) | None => ()
+        }
+        schema
+        ->String.refinements
+        ->Js.Array2.forEach(refinement => {
+          switch refinement {
+          | {kind: Email} => jsonSchema.format = Some("email")
+          | {kind: Url} => jsonSchema.format = Some("uri")
+          | {kind: Uuid} => jsonSchema.format = Some("uuid")
+          | {kind: Cuid} => ()
+          | {kind: Length({length})} => {
+              jsonSchema.minLength = Some(length)
+              jsonSchema.maxLength = Some(length)
             }
-          })
-          switch const {
-          | Some(value) => jsonSchema.const = Some(Js.Json.string(value))
-          | None => ()
+          | {kind: Max({length})} => jsonSchema.maxLength = Some(length)
+          | {kind: Min({length})} => jsonSchema.minLength = Some(length)
+          | {kind: Pattern({re})} =>
+            jsonSchema.pattern = Some((re->(Obj.magic: Js.Re.t => {..}))["source"])
           }
+        })
+        switch const {
+        | Some(value) => jsonSchema.const = Some(Js.Json.string(value))
+        | None => ()
         }
       }
     | Number({?format, ?const}) =>
@@ -6757,35 +6771,27 @@ module RescriptJSONSchema = {
           }
         }
       }
-    | Ref({ref}) if ref === `${defsPath}${jsonName}` =>
-      switch encodeToJsonSchema(schema, ~path, ~defs, ~parent) {
-      | Some(result) => jsonSchema->Mutable.mixin(result->Obj.magic)
-      | None => () // S.json without .to → empty {}
-      }
+    | Ref({ref}) if ref === `${defsPath}${jsonName}` => () // S.json → empty {}
     | Ref({ref}) => jsonSchema.ref = Some(ref)
     | Null(_) => jsonSchema.type_ = Some(Arrayable.single(#null))
     | Never(_) => jsonSchema.not = Some(Schema({}))
 
     | _ =>
-      switch encodeToJsonSchema(schema, ~path, ~defs, ~parent) {
-      | Some(result) => jsonSchema->Mutable.mixin(result->Obj.magic)
-      | None =>
-        X.Exn.throwAny(
-          InternalError.make(
-            B.makeInvalidInputDetails(
-              ~received=if (parent->castToInternal).tag->TagFlag.get->Flag.unsafeHas(TagFlag.union) {
-                parent
-              } else {
-                schema
-              },
-              ~expected=json,
-              ~path,
-              ~input=%raw(`0`),
-              ~includeInput=false,
-            ),
+      X.Exn.throwAny(
+        InternalError.make(
+          B.makeInvalidInputDetails(
+            ~received=if (parent->castToInternal).tag->TagFlag.get->Flag.unsafeHas(TagFlag.union) {
+              parent
+            } else {
+              schema
+            },
+            ~expected=json,
+            ~path,
+            ~input=%raw(`0`),
+            ~includeInput=false,
           ),
-        )
-      }
+        ),
+      )
     }
 
     jsonSchema->applyMetadataOverlay(schema, ~defs)

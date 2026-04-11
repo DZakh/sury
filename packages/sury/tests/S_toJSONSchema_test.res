@@ -66,6 +66,21 @@ test("JSONSchema of S.string with description converted to S.date", t => {
   )
 })
 
+test("JSONSchema of object with transformed field preserves field metadata", t => {
+  t->Assert.deepEqual(
+    S.object(s =>
+      s.field("birthDate", S.string->S.meta({description: "Birth date"})->S.to(S.date))
+    )->S.toJSONSchema,
+    %raw(`{
+      "type": "object",
+      "properties": {
+        "birthDate": {"type": "string", "format": "date-time", "description": "Birth date"}
+      },
+      "required": ["birthDate"]
+    }`),
+  )
+})
+
 test("JSONSchema of cuid schema", t => {
   t->Assert.deepEqual(S.string->S.cuid->S.toJSONSchema, %raw(`{"type": "string"}`))
 })

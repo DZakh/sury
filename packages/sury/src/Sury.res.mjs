@@ -4416,16 +4416,11 @@ function applyMetadataOverlay(jsonSchema, schema, defs) {
 }
 
 function encodeToJsonSchema(schema, path, defs, parent) {
-  if (!schema.to) {
-    return;
-  }
   let reversed = reverse(schema);
   let input = operationArg(unknown, reversed, 0, 0);
   try {
     let output = parse$1(input);
-    let outputJsonSchema = internalToJSONSchema(output.s, path, defs, parent);
-    applyMetadataOverlay(outputJsonSchema, schema, defs);
-    return outputJsonSchema;
+    return internalToJSONSchema(output.s, path, defs, parent);
   } catch (exn) {
     getOrRethrow(exn);
     return;
@@ -4433,18 +4428,24 @@ function encodeToJsonSchema(schema, path, defs, parent) {
 }
 
 function internalToJSONSchema(schema, path, defs, parent) {
-  let jsonSchema = {};
-  switch (schema.type) {
-    case "never" :
-      jsonSchema.not = {};
-      break;
-    case "string" :
-      let format = schema.format;
-      let $$const = schema.const;
-      let result = encodeToJsonSchema(schema, path, defs, parent);
-      if (result !== undefined) {
-        Object.assign(jsonSchema, result);
-      } else {
+  let hasUserTo = false;
+  if (schema.to) {
+    let tag = schema.type;
+    hasUserTo = tag !== objectTag && tag !== arrayTag && tag !== unionTag;
+  }
+  let encoded = hasUserTo ? encodeToJsonSchema(schema, path, defs, parent) : undefined;
+  if (encoded !== undefined) {
+    applyMetadataOverlay(encoded, schema, defs);
+    return encoded;
+  } else {
+    let jsonSchema = {};
+    switch (schema.type) {
+      case "never" :
+        jsonSchema.not = {};
+        break;
+      case "string" :
+        let format = schema.format;
+        let $$const = schema.const;
         jsonSchema.type = "string";
         if (format !== undefined && format !== "json") {
           jsonSchema.format = "date-time";
@@ -4487,16 +4488,29 @@ function internalToJSONSchema(schema, path, defs, parent) {
         if ($$const !== undefined) {
           jsonSchema.const = $$const;
         }
-        
-      }
-      break;
-    case "number" :
-      let format$1 = schema.format;
-      let $$const$1 = schema.const;
-      if (format$1 !== undefined) {
-        if (format$1 === "int32") {
-          jsonSchema.type = "integer";
-          refinements$2(schema).forEach(refinement => {
+        break;
+      case "number" :
+        let format$1 = schema.format;
+        let $$const$1 = schema.const;
+        if (format$1 !== undefined) {
+          if (format$1 === "int32") {
+            jsonSchema.type = "integer";
+            refinements$2(schema).forEach(refinement => {
+              let match = refinement.kind;
+              if (match.TAG === "Min") {
+                jsonSchema.minimum = match.value;
+              } else {
+                jsonSchema.maximum = match.value;
+              }
+            });
+          } else {
+            jsonSchema.type = "integer";
+            jsonSchema.maximum = 65535;
+            jsonSchema.minimum = 0;
+          }
+        } else {
+          jsonSchema.type = "number";
+          refinements$3(schema).forEach(refinement => {
             let match = refinement.kind;
             if (match.TAG === "Min") {
               jsonSchema.minimum = match.value;
@@ -4504,157 +4518,134 @@ function internalToJSONSchema(schema, path, defs, parent) {
               jsonSchema.maximum = match.value;
             }
           });
+        }
+        if ($$const$1 !== undefined) {
+          jsonSchema.const = $$const$1;
+        }
+        break;
+      case "boolean" :
+        let $$const$2 = schema.const;
+        jsonSchema.type = "boolean";
+        if ($$const$2 !== undefined) {
+          jsonSchema.const = $$const$2;
+        }
+        break;
+      case "null" :
+        jsonSchema.type = "null";
+        break;
+      case "array" :
+        let additionalItems = schema.additionalItems;
+        let exit = 0;
+        if (additionalItems === "strip" || additionalItems === "strict") {
+          exit = 1;
         } else {
-          jsonSchema.type = "integer";
-          jsonSchema.maximum = 65535;
-          jsonSchema.minimum = 0;
+          jsonSchema.items = internalToJSONSchema(additionalItems, path + "[]", defs, schema);
+          jsonSchema.type = "array";
+          refinements(schema).forEach(refinement => {
+            let match = refinement.kind;
+            switch (match.TAG) {
+              case "Min" :
+                jsonSchema.minItems = match.length;
+                return;
+              case "Max" :
+                jsonSchema.maxItems = match.length;
+                return;
+              case "Length" :
+                let length = match.length;
+                jsonSchema.maxItems = length;
+                jsonSchema.minItems = length;
+                return;
+            }
+          });
         }
-      } else {
-        jsonSchema.type = "number";
-        refinements$3(schema).forEach(refinement => {
-          let match = refinement.kind;
-          if (match.TAG === "Min") {
-            jsonSchema.minimum = match.value;
-          } else {
-            jsonSchema.maximum = match.value;
+        if (exit === 1) {
+          let items = schema.items.map((itemSchema, idx) => {
+            let location = idx.toString();
+            return internalToJSONSchema(itemSchema, path + ("[" + fromString(location) + "]"), defs, schema);
+          });
+          let itemsNumber = items.length;
+          jsonSchema.items = Primitive_option.some(items);
+          jsonSchema.type = "array";
+          jsonSchema.minItems = itemsNumber;
+          jsonSchema.maxItems = itemsNumber;
+        }
+        break;
+      case "object" :
+        let additionalItems$1 = schema.additionalItems;
+        let properties = schema.properties;
+        let exit$1 = 0;
+        if (additionalItems$1 === "strip" || additionalItems$1 === "strict") {
+          exit$1 = 1;
+        } else {
+          jsonSchema.type = "object";
+          let childJsonSchema = internalToJSONSchema(additionalItems$1, path + "[]", defs, schema);
+          jsonSchema.additionalProperties = Object.keys(childJsonSchema).length === 0 ? true : childJsonSchema;
+        }
+        if (exit$1 === 1) {
+          let required = [];
+          let keys = Object.keys(properties);
+          let jsonProperties = {};
+          for (let idx = 0, idx_finish = keys.length; idx < idx_finish; ++idx) {
+            let key = keys[idx];
+            let itemSchema = properties[key];
+            let fieldSchema = internalToJSONSchema(itemSchema, path + ("[" + fromString(key) + "]"), defs, schema);
+            if (!isOptional(itemSchema)) {
+              required.push(key);
+            }
+            jsonProperties[key] = fieldSchema;
           }
-        });
-      }
-      if ($$const$1 !== undefined) {
-        jsonSchema.const = $$const$1;
-      }
-      break;
-    case "boolean" :
-      let $$const$2 = schema.const;
-      jsonSchema.type = "boolean";
-      if ($$const$2 !== undefined) {
-        jsonSchema.const = $$const$2;
-      }
-      break;
-    case "null" :
-      jsonSchema.type = "null";
-      break;
-    case "array" :
-      let additionalItems = schema.additionalItems;
-      let exit = 0;
-      if (additionalItems === "strip" || additionalItems === "strict") {
-        exit = 1;
-      } else {
-        jsonSchema.items = internalToJSONSchema(additionalItems, path + "[]", defs, schema);
-        jsonSchema.type = "array";
-        refinements(schema).forEach(refinement => {
-          let match = refinement.kind;
-          switch (match.TAG) {
-            case "Min" :
-              jsonSchema.minItems = match.length;
-              return;
-            case "Max" :
-              jsonSchema.maxItems = match.length;
-              return;
-            case "Length" :
-              let length = match.length;
-              jsonSchema.maxItems = length;
-              jsonSchema.minItems = length;
-              return;
+          jsonSchema.type = "object";
+          jsonSchema.properties = jsonProperties;
+          if (additionalItems$1 === "strict") {
+            jsonSchema.additionalProperties = false;
           }
-        });
-      }
-      if (exit === 1) {
-        let items = schema.items.map((itemSchema, idx) => {
-          let location = idx.toString();
-          return internalToJSONSchema(itemSchema, path + ("[" + fromString(location) + "]"), defs, schema);
-        });
-        let itemsNumber = items.length;
-        jsonSchema.items = Primitive_option.some(items);
-        jsonSchema.type = "array";
-        jsonSchema.minItems = itemsNumber;
-        jsonSchema.maxItems = itemsNumber;
-      }
-      break;
-    case "object" :
-      let additionalItems$1 = schema.additionalItems;
-      let properties = schema.properties;
-      let exit$1 = 0;
-      if (additionalItems$1 === "strip" || additionalItems$1 === "strict") {
-        exit$1 = 1;
-      } else {
-        jsonSchema.type = "object";
-        let childJsonSchema = internalToJSONSchema(additionalItems$1, path + "[]", defs, schema);
-        jsonSchema.additionalProperties = Object.keys(childJsonSchema).length === 0 ? true : childJsonSchema;
-      }
-      if (exit$1 === 1) {
-        let required = [];
-        let keys = Object.keys(properties);
-        let jsonProperties = {};
-        for (let idx = 0, idx_finish = keys.length; idx < idx_finish; ++idx) {
-          let key = keys[idx];
-          let itemSchema = properties[key];
-          let fieldSchema = internalToJSONSchema(itemSchema, path + ("[" + fromString(key) + "]"), defs, schema);
-          if (!isOptional(itemSchema)) {
-            required.push(key);
+          if (required.length !== 0) {
+            jsonSchema.required = required;
           }
-          jsonProperties[key] = fieldSchema;
+          
         }
-        jsonSchema.type = "object";
-        jsonSchema.properties = jsonProperties;
-        if (additionalItems$1 === "strict") {
-          jsonSchema.additionalProperties = false;
+        break;
+      case "union" :
+        let literals = [];
+        let items$1 = [];
+        schema.anyOf.forEach(childSchema => {
+          if (childSchema.type === "undefined" && parent.type === objectTag) {
+            return;
+          }
+          items$1.push(internalToJSONSchema(childSchema, path, defs, schema));
+          if (constField in childSchema) {
+            literals.push(childSchema.const);
+            return;
+          }
+          
+        });
+        let itemsNumber$1 = items$1.length;
+        let $$default = schema.default;
+        if ($$default !== undefined) {
+          jsonSchema.default = Primitive_option.valFromOption($$default);
         }
-        if (required.length !== 0) {
-          jsonSchema.required = required;
+        if (itemsNumber$1 === 1) {
+          Object.assign(jsonSchema, items$1[0]);
+        } else if (literals.length === itemsNumber$1) {
+          jsonSchema.enum = literals;
+        } else {
+          jsonSchema.anyOf = items$1;
         }
-        
-      }
-      break;
-    case "union" :
-      let literals = [];
-      let items$1 = [];
-      schema.anyOf.forEach(childSchema => {
-        if (childSchema.type === "undefined" && parent.type === objectTag) {
-          return;
+        break;
+      case "ref" :
+        let ref = schema.$ref;
+        if (ref === defsPath + jsonName) {
+          
+        } else {
+          jsonSchema.$ref = ref;
         }
-        items$1.push(internalToJSONSchema(childSchema, path, defs, schema));
-        if (constField in childSchema) {
-          literals.push(childSchema.const);
-          return;
-        }
-        
-      });
-      let itemsNumber$1 = items$1.length;
-      let $$default = schema.default;
-      if ($$default !== undefined) {
-        jsonSchema.default = Primitive_option.valFromOption($$default);
-      }
-      if (itemsNumber$1 === 1) {
-        Object.assign(jsonSchema, items$1[0]);
-      } else if (literals.length === itemsNumber$1) {
-        jsonSchema.enum = literals;
-      } else {
-        jsonSchema.anyOf = items$1;
-      }
-      break;
-    case "ref" :
-      let ref = schema.$ref;
-      if (ref === defsPath + jsonName) {
-        let result$1 = encodeToJsonSchema(schema, path, defs, parent);
-        if (result$1 !== undefined) {
-          Object.assign(jsonSchema, result$1);
-        }
-        
-      } else {
-        jsonSchema.$ref = ref;
-      }
-      break;
-    default:
-      let result$2 = encodeToJsonSchema(schema, path, defs, parent);
-      if (result$2 !== undefined) {
-        Object.assign(jsonSchema, result$2);
-      } else {
+        break;
+      default:
         throw new SuryError(makeInvalidInputDetails(json, flags[parent.type] & 256 ? parent : schema, path, 0, false, undefined));
-      }
+    }
+    applyMetadataOverlay(jsonSchema, schema, defs);
+    return jsonSchema;
   }
-  applyMetadataOverlay(jsonSchema, schema, defs);
-  return jsonSchema;
 }
 
 function toJSONSchema(schema) {
