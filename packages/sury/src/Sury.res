@@ -5549,7 +5549,15 @@ let compactColumnsDecoder = (~input) => {
       let keysLen = keys->Js.Array2.length
 
       // Common output schema/val setup shared by all branches below.
-      let outputSchema = base(arrayTag, ~selfReverse=false)
+      // In reverse direction we propagate the original chain's .to so that
+      // subsequent steps (e.g. json validation) continue to run.
+      let outputSchema = if isForwardDirection {
+        base(arrayTag, ~selfReverse=false)
+      } else {
+        let s = array(array(unknown->castToPublic))->castToInternal
+        s.to = selfSchema.to
+        s
+      }
       let makeOutput = initial => {
         let output = input->B.next(initial, ~schema=outputSchema, ~expected=outputSchema)
         output.isOutput = Some(true)

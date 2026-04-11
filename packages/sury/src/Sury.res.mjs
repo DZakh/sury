@@ -3771,7 +3771,14 @@ function compactColumnsDecoder(input) {
   if (maybeProperties !== undefined) {
     let keys = Object.keys(maybeProperties);
     let keysLen = keys.length;
-    let outputSchema = base(arrayTag, false);
+    let outputSchema;
+    if (forwardProps) {
+      outputSchema = base(arrayTag, false);
+    } else {
+      let s = array(array(unknown));
+      s.to = selfSchema.to;
+      outputSchema = s;
+    }
     let makeOutput = initial => {
       let output = next(input, initial, outputSchema, outputSchema);
       output.io = true;
