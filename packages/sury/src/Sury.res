@@ -5643,23 +5643,29 @@ let compactColumnsDecoder = (~input) => {
         let iteratorVar = input.global->B.varWithoutAllocation
         let outputVar = input.global->B.varWithoutAllocation
 
+        // selfSchema is array(array(inputSchema)); derive the inner inputSchema,
+        // which is the schema of each raw column value.
+        let itemSchema: internal = {
+          let innerArray: internal = selfSchema.additionalItems->Obj.magic
+          innerArray.additionalItems->Obj.magic
+        }
+
         let lengthCode = ref("")
         let itemBuildCode = ref("")
         let itemParseCode = ref("")
         for idx in 0 to keys->Js.Array2.length - 1 {
           let key = keys->Js.Array2.unsafe_get(idx)
-          let rawValueCode = `${inputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]`
           let fieldSchema = properties->Js.Dict.unsafeGet(key)
+          let rawValueCode = `${inputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]`
 
-          // Use parse on the field schema to handle transformations (e.g. null->undefined)
+          // Use parse on the field schema to handle transformations (e.g. null->undefined).
           let itemInput = input->B.Val.scope
           itemInput.inline = rawValueCode
-          itemInput.schema = unknown
+          itemInput.schema = itemSchema
           itemInput.expected = fieldSchema
           itemInput.var = B._notVarBeforeValidation
           itemInput.isInput = Some(false)
           itemInput.isOutput = Some(false)
-          itemInput.path = Path.empty
 
           let itemOutput = itemInput->parse
           let itemCode = itemOutput->B.merge

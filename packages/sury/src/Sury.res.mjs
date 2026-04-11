@@ -3930,21 +3930,22 @@ function compactColumnsDecoder(input) {
       let inputVar = input.v();
       let iteratorVar = varWithoutAllocation(input.g);
       let outputVar = varWithoutAllocation(input.g);
+      let innerArray = selfSchema.additionalItems;
+      let itemSchema = innerArray.additionalItems;
       let lengthCode = "";
       let itemBuildCode = "";
       let itemParseCode = "";
       for (let idx = 0, idx_finish = keys.length; idx < idx_finish; ++idx) {
         let key = keys[idx];
-        let rawValueCode = inputVar + "[" + idx + "][" + iteratorVar + "]";
         let fieldSchema = maybeProperties$1[key];
+        let rawValueCode = inputVar + "[" + idx + "][" + iteratorVar + "]";
         let itemInput = scope(input);
         itemInput.i = rawValueCode;
-        itemInput.s = unknown;
+        itemInput.s = itemSchema;
         itemInput.e = fieldSchema;
         itemInput.v = _notVarBeforeValidation;
         itemInput.ii = false;
         itemInput.io = false;
-        itemInput.path = "";
         let itemOutput = parse$1(itemInput);
         let itemCode = merge(itemOutput);
         itemParseCode = itemParseCode + itemCode;
