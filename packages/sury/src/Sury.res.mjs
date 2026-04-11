@@ -3758,16 +3758,21 @@ function $$enum(values) {
 function compactColumnsDecoder(input) {
   let selfSchema = input.e;
   let isUnknownInput = flags[input.s.type] & 1;
-  let getItemProps = s => {
-    let match = s.additionalItems;
-    if (match !== undefined && match !== "strip" && match !== "strict") {
-      return match.properties;
-    }
-    
-  };
-  let to = selfSchema.to;
-  let forwardProps = to !== undefined ? getItemProps(to) : undefined;
-  let maybeProperties = forwardProps ? forwardProps : getItemProps(input.s);
+  let match = selfSchema.to;
+  let forwardProps;
+  if (match !== undefined) {
+    let match$1 = match.additionalItems;
+    forwardProps = match$1 !== undefined && match$1 !== "strip" && match$1 !== "strict" ? match$1.properties : undefined;
+  } else {
+    forwardProps = undefined;
+  }
+  let maybeProperties;
+  if (forwardProps) {
+    maybeProperties = forwardProps;
+  } else {
+    let match$2 = input.s.additionalItems;
+    maybeProperties = match$2 !== undefined && match$2 !== "strip" && match$2 !== "strict" ? match$2.properties : undefined;
+  }
   if (maybeProperties !== undefined) {
     let keys = Object.keys(maybeProperties);
     let keysLen = keys.length;
@@ -3779,16 +3784,13 @@ function compactColumnsDecoder(input) {
       s.to = selfSchema.to;
       outputSchema = s;
     }
-    let makeOutput = initial => {
-      let output = next(input, initial, outputSchema, outputSchema);
-      output.io = true;
-      return output;
-    };
     if (keysLen === 0) {
       if (isUnknownInput) {
         input.validation = inputVar => "Array.isArray(" + inputVar + ")&&" + inputVar + ".length===0";
       }
-      return makeOutput("[]");
+      let output = next(input, "[]", outputSchema, outputSchema);
+      output.io = true;
+      return output;
     }
     if (forwardProps) {
       if (isUnknownInput) {
@@ -3830,8 +3832,9 @@ function compactColumnsDecoder(input) {
         itemBuildCode = itemBuildCode + (fromString(key) + ":" + itemOutput.i + ",");
       }
       input.a(outputVar + "=new Array(Math.max(" + lengthCode + "))");
-      let output = makeOutput(outputVar);
-      output.v = _var;
+      let output$1 = next(input, outputVar, outputSchema, outputSchema);
+      output$1.v = _var;
+      output$1.io = true;
       let rowAssign;
       if (hasAsync) {
         let rowResultVar = varWithoutAllocation(input.g);
@@ -3852,11 +3855,11 @@ function compactColumnsDecoder(input) {
         let errorVar = varWithoutAllocation(input.g);
         wrappedBody = "try{" + rowBody + "}catch(" + errorVar + "){" + errorVar + ".path='[\"'+" + iteratorVar + "+'\"]'+" + errorVar + ".path;throw " + errorVar + "}";
       }
-      output.cp = output.cp + ("for(let " + iteratorVar + "=0;" + iteratorVar + "<" + outputVar + ".length;++" + iteratorVar + "){" + wrappedBody + "}");
+      output$1.cp = output$1.cp + ("for(let " + iteratorVar + "=0;" + iteratorVar + "<" + outputVar + ".length;++" + iteratorVar + "){" + wrappedBody + "}");
       if (hasAsync) {
-        return asyncVal(output, "Promise.all(" + outputVar + ")");
+        return asyncVal(output$1, "Promise.all(" + outputVar + ")");
       } else {
-        return output;
+        return output$1;
       }
     }
     let inputVar$1 = input.v();
@@ -3870,10 +3873,11 @@ function compactColumnsDecoder(input) {
       settingCode = settingCode + (outputVar$1 + "[" + idx$2 + "][" + iteratorVar$1 + "]=" + inputVar$1 + "[" + iteratorVar$1 + "][" + fromString(key$2) + "];");
     }
     input.a(outputVar$1 + "=[" + initialArraysCode + "]");
-    let output$1 = makeOutput(outputVar$1);
-    output$1.v = _var;
-    output$1.cp = output$1.cp + ("for(let " + iteratorVar$1 + "=0;" + iteratorVar$1 + "<" + inputVar$1 + ".length;++" + iteratorVar$1 + "){" + settingCode + "}");
-    return output$1;
+    let output$2 = next(input, outputVar$1, outputSchema, outputSchema);
+    output$2.v = _var;
+    output$2.io = true;
+    output$2.cp = output$2.cp + ("for(let " + iteratorVar$1 + "=0;" + iteratorVar$1 + "<" + inputVar$1 + ".length;++" + iteratorVar$1 + "){" + settingCode + "}");
+    return output$2;
   }
   throw new Error("[Sury] S.compactColumns supports only object schemas. Use S.compactColumns(S.unknown)->S.to(S.array(objectSchema)).");
 }

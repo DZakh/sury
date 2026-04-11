@@ -5527,17 +5527,19 @@ let compactColumnsDecoder = (~input) => {
   // Forward (columnar → rows): props come from selfSchema.to.additionalItems.
   // Reverse (rows → columnar): props come from input.schema.additionalItems (the
   // object schema left over after the preceding parse pipeline step).
-  let getItemProps = (s: internal) =>
-    switch s.additionalItems {
+  let forwardProps = switch selfSchema.to {
+  | Some({additionalItems: ?Some(Schema(item))}) => (item->castToInternal).properties
+  | _ => None
+  }
+  let isForwardDirection = forwardProps->Obj.magic
+  let maybeProperties = if isForwardDirection {
+    forwardProps
+  } else {
+    switch input.schema.additionalItems {
     | Some(Schema(item)) => (item->castToInternal).properties
     | _ => None
     }
-  let forwardProps = switch selfSchema.to {
-  | Some(to) => getItemProps(to)
-  | None => None
   }
-  let isForwardDirection = forwardProps->Obj.magic
-  let maybeProperties = isForwardDirection ? forwardProps : getItemProps(input.schema)
 
   switch maybeProperties {
   | None =>
@@ -5548,7 +5550,7 @@ let compactColumnsDecoder = (~input) => {
       let keys = properties->Js.Dict.keys
       let keysLen = keys->Js.Array2.length
 
-      // Common output schema/val setup shared by all branches below.
+      // Common output schema setup shared by all branches below.
       // In reverse direction we propagate the original chain's .to so that
       // subsequent steps (e.g. json validation) continue to run.
       let outputSchema = if isForwardDirection {
@@ -5558,11 +5560,6 @@ let compactColumnsDecoder = (~input) => {
         s.to = selfSchema.to
         s
       }
-      let makeOutput = initial => {
-        let output = input->B.next(initial, ~schema=outputSchema, ~expected=outputSchema)
-        output.isOutput = Some(true)
-        output
-      }
 
       if keysLen === 0 {
         if isUnknownInput {
@@ -5570,7 +5567,9 @@ let compactColumnsDecoder = (~input) => {
             (~inputVar) => `Array.isArray(${inputVar})&&${inputVar}.length===0`,
           )
         }
-        makeOutput("[]")
+        let output = input->B.next("[]", ~schema=outputSchema, ~expected=outputSchema)
+        output.isOutput = Some(true)
+        output
       } else if isForwardDirection {
         // Forward direction: columnar → rows
         if isUnknownInput {
@@ -5633,8 +5632,9 @@ let compactColumnsDecoder = (~input) => {
 
         input.allocate(`${outputVar}=new Array(Math.max(${lengthCode.contents}))`)
 
-        let output = makeOutput(outputVar)
+        let output = input->B.next(outputVar, ~schema=outputSchema, ~expected=outputSchema)
         output.var = B._var
+        output.isOutput = Some(true)
 
         // Wrap the row body in a single try/catch that prepends the row index to
         // any thrown error — giving paths like ["0"]["bar"]. A single wrapper is
@@ -5692,8 +5692,9 @@ let compactColumnsDecoder = (~input) => {
 
         input.allocate(`${outputVar}=[${initialArraysCode.contents}]`)
 
-        let output = makeOutput(outputVar)
+        let output = input->B.next(outputVar, ~schema=outputSchema, ~expected=outputSchema)
         output.var = B._var
+        output.isOutput = Some(true)
         output.codeFromPrev =
           output.codeFromPrev ++
           `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${settingCode.contents}}`
