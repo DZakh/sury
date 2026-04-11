@@ -4368,16 +4368,8 @@ function encodeToJsonSchema(schema, path, defs, parent) {
   }
 }
 
-function hasInternalTo(tag) {
-  if (tag === objectTag || tag === arrayTag) {
-    return true;
-  } else {
-    return tag === unionTag;
-  }
-}
-
 function internalToJSONSchema(schema, path, defs, parent) {
-  let hasUserTo = schema.to && !hasInternalTo(schema.type);
+  let hasUserTo = schema.to && !(flags[schema.type] & 448);
   let encoded = hasUserTo ? encodeToJsonSchema(schema, path, defs, parent) : undefined;
   if (encoded !== undefined) {
     applyMetadataOverlay(encoded, schema, defs);
