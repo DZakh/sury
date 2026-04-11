@@ -3930,8 +3930,7 @@ function compactColumnsDecoder(input) {
       let inputVar = input.v();
       let iteratorVar = varWithoutAllocation(input.g);
       let outputVar = varWithoutAllocation(input.g);
-      let innerArray = selfSchema.additionalItems;
-      let itemSchema = innerArray.additionalItems;
+      let itemSchema = isUnknownInput ? unknown : input.s.additionalItems.additionalItems;
       let lengthCode = "";
       let itemBuildCode = "";
       let itemParseCode = "";

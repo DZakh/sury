@@ -5643,10 +5643,12 @@ let compactColumnsDecoder = (~input) => {
         let iteratorVar = input.global->B.varWithoutAllocation
         let outputVar = input.global->B.varWithoutAllocation
 
-        // selfSchema is array(array(inputSchema)); derive the inner inputSchema,
-        // which is the schema of each raw column value.
-        let itemSchema: internal = {
-          let innerArray: internal = selfSchema.additionalItems->Obj.magic
+        // Schema of each raw column value. When input is unknown, items are unknown.
+        // When input is array(array(inputSchema)), derive inputSchema from input.schema.
+        let itemSchema: internal = if isUnknownInput {
+          unknown
+        } else {
+          let innerArray: internal = input.schema.additionalItems->Obj.magic
           innerArray.additionalItems->Obj.magic
         }
 
