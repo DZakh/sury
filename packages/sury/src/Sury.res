@@ -1471,10 +1471,11 @@ module Builder = {
       }
     }
 
-    // Clear a val's validation list back to absent.
-    // Done via %raw since ReScript may rename locals in the compiled output,
-    // which would break a literal `delete val.vc`.
-    let clearChecks: val => unit = %raw(`function(v){delete v.vc}`)
+    // Clear a val's validation list. Sets the optional field to None,
+    // which compiles to `val.vc = undefined` — same truthy-check semantics
+    // as an absent field (undefined is falsy), without the engine-level
+    // shape churn of a full `delete`.
+    let clearChecks = (val: val) => val.validation = None
 
     let dynamicScope = (from: val, ~locationVar): val => {
       {
