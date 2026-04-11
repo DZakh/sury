@@ -398,3 +398,32 @@ test("Roundtrip: parse -> reverseConvert -> parse", t => {
   let roundtripped = rows->S.reverseConvertOrThrow(schema)->S.parseOrThrow(schema)
   t->Assert.deepEqual(rows, roundtripped)
 })
+
+test("reverseConvertToJsonOrThrow validates non-JSON-able unknown field values", t => {
+  S.enableJson()
+  let schema =
+    S.compactColumns(S.unknown)->S.to(
+      S.array(
+        S.schema(s =>
+          {
+            "foo": s.matches(S.unknown),
+          }
+        ),
+      ),
+    )
+
+  // JSON-compatible values round-trip through the columnar form unchanged.
+  t->Assert.deepEqual(
+    %raw(`[{"foo": "hello"}, {"foo": 42}]`)->S.reverseConvertToJsonOrThrow(schema),
+    %raw(`[["hello", 42]]`),
+  )
+
+  // Non-JSON-able values (e.g. bigint) are rejected by the json step that
+  // runs after the rows → columnar conversion. The path ["0"]["0"] points
+  // at column 0, row 0 of the columnar output (i.e. the "foo" value of the
+  // first row).
+  t->U.assertThrowsMessage(
+    () => %raw(`[{"foo": 123n}]`)->S.reverseConvertToJsonOrThrow(schema),
+    `Failed at ["0"]["0"]: Expected JSON, received 123n`,
+  )
+})

@@ -3755,106 +3755,52 @@ function $$enum(values) {
   return factory$1(values.map(js_schema));
 }
 
-function compactColumnsEncoder(input, target) {
-  let match = target.to;
-  let maybeProperties;
-  if (match !== undefined) {
-    let match$1 = match.additionalItems;
-    maybeProperties = match$1 !== undefined && match$1 !== "strip" && match$1 !== "strict" ? match$1.properties : undefined;
-  } else {
-    maybeProperties = undefined;
-  }
-  if (maybeProperties === undefined) {
-    return unsupportedConversion(input, input.s, target);
-  }
-  let keys = Object.keys(maybeProperties);
-  let inputVar = input.v();
-  let iteratorVar = varWithoutAllocation(input.g);
-  let outputVar = varWithoutAllocation(input.g);
-  let initialArraysCode = "";
-  let settingCode = "";
-  for (let idx = 0, idx_finish = keys.length; idx < idx_finish; ++idx) {
-    let key = keys[idx];
-    let rawValueCode = inputVar + "[" + iteratorVar + "][" + fromString(key) + "]";
-    initialArraysCode = initialArraysCode + ("new Array(" + inputVar + ".length),");
-    settingCode = settingCode + (outputVar + "[" + idx + "][" + iteratorVar + "]=" + rawValueCode + ";");
-  }
-  input.a(outputVar + "=[" + initialArraysCode + "]");
-  let output = next(input, outputVar, base(arrayTag, false), undefined);
-  output.v = _var;
-  output.cp = output.cp + ("for(let " + iteratorVar + "=0;" + iteratorVar + "<" + inputVar + ".length;++" + iteratorVar + "){" + settingCode + "}");
-  return output;
-}
-
 function compactColumnsDecoder(input) {
   let selfSchema = input.e;
-  let inputTagFlag = flags[input.s.type];
-  let isUnknownInput = inputTagFlag & 1;
+  let isUnknownInput = flags[input.s.type] & 1;
   let match = selfSchema.to;
-  let match$1;
+  let forwardProps;
   if (match !== undefined) {
-    let match$2 = match.additionalItems;
-    if (match$2 !== undefined && match$2 !== "strip" && match$2 !== "strict") {
-      let p = match$2.properties;
-      match$1 = p !== undefined ? [
-          p,
-          true
-        ] : [
-          undefined,
-          true
-        ];
-    } else {
-      match$1 = [
-        undefined,
-        true
-      ];
-    }
+    let match$1 = match.additionalItems;
+    forwardProps = match$1 !== undefined && match$1 !== "strip" && match$1 !== "strict" ? match$1.properties : undefined;
   } else {
-    match$1 = [
-      undefined,
-      true
-    ];
+    forwardProps = undefined;
   }
-  let maybeProperties = match$1[0];
-  let match$3;
+  let maybeProperties;
+  if (forwardProps) {
+    maybeProperties = forwardProps;
+  } else {
+    let match$2 = input.s.additionalItems;
+    maybeProperties = match$2 !== undefined && match$2 !== "strip" && match$2 !== "strict" ? match$2.properties : undefined;
+  }
   if (maybeProperties !== undefined) {
-    match$3 = [
-      maybeProperties,
-      match$1[1]
-    ];
-  } else {
-    let match$4 = input.s.additionalItems;
-    if (match$4 !== undefined && match$4 !== "strip" && match$4 !== "strict") {
-      let p$1 = match$4.properties;
-      match$3 = p$1 !== undefined ? [
-          p$1,
-          false
-        ] : [
-          undefined,
-          true
-        ];
+    let keys = Object.keys(maybeProperties);
+    let keysLen = keys.length;
+    let outputSchema;
+    if (forwardProps) {
+      outputSchema = base(arrayTag, false);
     } else {
-      match$3 = [
-        undefined,
-        true
-      ];
+      let s = array(array(unknown));
+      s.to = selfSchema.to;
+      outputSchema = s;
     }
-  }
-  let maybeProperties$1 = match$3[0];
-  if (maybeProperties$1 !== undefined) {
-    let keys = Object.keys(maybeProperties$1);
-    if (keys.length === 0) {
+    if (keysLen === 0) {
       if (isUnknownInput) {
         input.validation = inputVar => "Array.isArray(" + inputVar + ")&&" + inputVar + ".length===0";
       }
-      let outputSchema = base(arrayTag, false);
       let output = next(input, "[]", outputSchema, outputSchema);
       output.io = true;
       return output;
     }
-    if (match$3[1]) {
+    if (forwardProps) {
       if (isUnknownInput) {
-        input.validation = inputVar => "Array.isArray(" + inputVar + ")&&" + inputVar + ".length===" + keys.length + keys.map((param, idx) => "&&Array.isArray(" + inputVar + "[" + idx + "])").join("");
+        input.validation = inputVar => {
+          let check = "Array.isArray(" + inputVar + ")&&" + inputVar + ".length===" + keysLen;
+          for (let idx = 0; idx < keysLen; ++idx) {
+            check = check + ("&&Array.isArray(" + inputVar + "[" + idx + "])");
+          }
+          return check;
+        };
       }
       let inputVar = input.v();
       let iteratorVar = varWithoutAllocation(input.g);
@@ -3862,19 +3808,15 @@ function compactColumnsDecoder(input) {
       let itemSchema = isUnknownInput ? unknown : input.s.additionalItems.additionalItems;
       let lengthCode = "";
       let itemBuildCode = "";
-      let itemParseCode = {
-        contents: ""
-      };
-      let itemInlines = [];
+      let itemParseCode = "";
+      let asyncInlines = "";
       let hasAsync = false;
-      for (let idx = 0, idx_finish = keys.length; idx < idx_finish; ++idx) {
+      for (let idx = 0; idx < keysLen; ++idx) {
         let key = keys[idx];
-        let fieldSchema = maybeProperties$1[key];
-        let rawValueCode = inputVar + "[" + idx + "][" + iteratorVar + "]";
         let itemInput = scope(input);
-        itemInput.i = rawValueCode;
+        itemInput.i = inputVar + "[" + idx + "][" + iteratorVar + "]";
         itemInput.s = itemSchema;
-        itemInput.e = fieldSchema;
+        itemInput.e = maybeProperties[key];
         itemInput.v = _notVarBeforeValidation;
         itemInput.ii = false;
         itemInput.io = false;
@@ -3884,51 +3826,54 @@ function compactColumnsDecoder(input) {
         if (itemOutput.f & 1) {
           hasAsync = true;
         }
-        let itemCode = merge(itemOutput);
-        itemParseCode.contents = itemParseCode.contents + itemCode;
+        itemParseCode = itemParseCode + merge(itemOutput);
         lengthCode = lengthCode + (inputVar + "[" + idx + "].length,");
-        itemInlines.push(itemOutput.i);
+        asyncInlines = asyncInlines + (itemOutput.i + ",");
         itemBuildCode = itemBuildCode + (fromString(key) + ":" + itemOutput.i + ",");
       }
       input.a(outputVar + "=new Array(Math.max(" + lengthCode + "))");
-      let outputSchema$1 = base(arrayTag, false);
-      let output$1 = next(input, outputVar, outputSchema$1, outputSchema$1);
+      let output$1 = next(input, outputVar, outputSchema, outputSchema);
       output$1.v = _var;
       output$1.io = true;
-      let errorVar = varWithoutAllocation(input.g);
-      let wrapRowBody = body => {
-        if (itemParseCode.contents === "") {
-          return body;
-        } else {
-          return "try{" + body + "}catch(" + errorVar + "){" + errorVar + ".path='[\"'+" + iteratorVar + "+'\"]'+" + errorVar + ".path;throw " + errorVar + "}";
-        }
-      };
+      let rowAssign;
       if (hasAsync) {
         let rowResultVar = varWithoutAllocation(input.g);
-        let asyncBuildCode = keys.map((key, idx) => fromString(key) + ":" + rowResultVar + "[" + idx + "]").join(",");
-        let promisesCode = itemInlines.join(",");
-        let rowBody = itemParseCode.contents + outputVar + "[" + iteratorVar + "]=Promise.all([" + promisesCode + "]).then(" + rowResultVar + "=>({" + asyncBuildCode + ",}));";
-        output$1.cp = output$1.cp + ("for(let " + iteratorVar + "=0;" + iteratorVar + "<" + outputVar + ".length;++" + iteratorVar + "){" + wrapRowBody(rowBody) + "}");
-        return asyncVal(output$1, "Promise.all(" + outputVar + ")");
+        let asyncBuildCode = "";
+        for (let idx$1 = 0; idx$1 < keysLen; ++idx$1) {
+          let key$1 = keys[idx$1];
+          asyncBuildCode = asyncBuildCode + (fromString(key$1) + ":" + rowResultVar + "[" + idx$1 + "],");
+        }
+        rowAssign = outputVar + "[" + iteratorVar + "]=Promise.all([" + asyncInlines + "]).then(" + rowResultVar + "=>({" + asyncBuildCode + "}));";
+      } else {
+        rowAssign = outputVar + "[" + iteratorVar + "]={" + itemBuildCode + "};";
       }
-      let rowBody$1 = itemParseCode.contents + outputVar + "[" + iteratorVar + "]={" + itemBuildCode + "};";
-      output$1.cp = output$1.cp + ("for(let " + iteratorVar + "=0;" + iteratorVar + "<" + outputVar + ".length;++" + iteratorVar + "){" + wrapRowBody(rowBody$1) + "}");
-      return output$1;
+      let rowBody = itemParseCode + rowAssign;
+      let wrappedBody;
+      if (itemParseCode === "") {
+        wrappedBody = rowBody;
+      } else {
+        let errorVar = varWithoutAllocation(input.g);
+        wrappedBody = "try{" + rowBody + "}catch(" + errorVar + "){" + errorVar + ".path='[\"'+" + iteratorVar + "+'\"]'+" + errorVar + ".path;throw " + errorVar + "}";
+      }
+      output$1.cp = output$1.cp + ("for(let " + iteratorVar + "=0;" + iteratorVar + "<" + outputVar + ".length;++" + iteratorVar + "){" + wrappedBody + "}");
+      if (hasAsync) {
+        return asyncVal(output$1, "Promise.all(" + outputVar + ")");
+      } else {
+        return output$1;
+      }
     }
     let inputVar$1 = input.v();
     let iteratorVar$1 = varWithoutAllocation(input.g);
     let outputVar$1 = varWithoutAllocation(input.g);
     let initialArraysCode = "";
     let settingCode = "";
-    for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
-      let key$1 = keys[idx$1];
-      let rawValueCode$1 = inputVar$1 + "[" + iteratorVar$1 + "][" + fromString(key$1) + "]";
+    for (let idx$2 = 0; idx$2 < keysLen; ++idx$2) {
+      let key$2 = keys[idx$2];
       initialArraysCode = initialArraysCode + ("new Array(" + inputVar$1 + ".length),");
-      settingCode = settingCode + (outputVar$1 + "[" + idx$1 + "][" + iteratorVar$1 + "]=" + rawValueCode$1 + ";");
+      settingCode = settingCode + (outputVar$1 + "[" + idx$2 + "][" + iteratorVar$1 + "]=" + inputVar$1 + "[" + iteratorVar$1 + "][" + fromString(key$2) + "];");
     }
     input.a(outputVar$1 + "=[" + initialArraysCode + "]");
-    let outputSchema$2 = base(arrayTag, false);
-    let output$2 = next(input, outputVar$1, outputSchema$2, outputSchema$2);
+    let output$2 = next(input, outputVar$1, outputSchema, outputSchema);
     output$2.v = _var;
     output$2.io = true;
     output$2.cp = output$2.cp + ("for(let " + iteratorVar$1 + "=0;" + iteratorVar$1 + "<" + inputVar$1 + ".length;++" + iteratorVar$1 + "){" + settingCode + "}");
@@ -3942,7 +3887,6 @@ function compactColumns(inputSchema) {
   let mut = array(innerArray);
   mut.format = "compactColumns";
   mut.decoder = compactColumnsDecoder;
-  mut.encoder = compactColumnsEncoder;
   return mut;
 }
 
