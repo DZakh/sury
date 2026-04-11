@@ -1286,8 +1286,11 @@ module Builder = {
       details
     }
 
-    // Default type-failure error builder.
-    // Outer call runs at emit time (fresh val); inner function is embedded and runs at throw time.
+    // Factory used by declarative check records (see `validationCheck`).
+    // Outer call runs at emit time against the fresh prev val, so `input.path`
+    // and `input.schema` are read at the right moment. The returned inner
+    // function is embedded via `failWithArg` and only constructs the error
+    // details when the check actually fails at runtime.
     let failInvalidType = (~expected: internal) => {
       (~input: val) => {
         let received = input.schema->castToPublic
@@ -1303,57 +1306,63 @@ module Builder = {
       }
     }
 
-    // Back-compat wrapper. Some non-check code paths (union codegen, direct
-    // failures) still want "emit a throw expression right here". This now
-    // funnels through `failInvalidType` so the embed + call template lives
-    // in one place.
+    // Emit a throw expression for a direct invalid-input failure (not
+    // attached to a val's validation list). Used inside decoders that build
+    // their own inline JS, e.g. booleanDecoder's `||…||${embedInvalidInput}`
+    // or bigintDecoder's `catch(_){${embedInvalidInput}}`.
     let embedInvalidInput = (~input: val, ~expected=input.expected) => {
-      let errorBuilder = failInvalidType(~expected)(~input)
-      input->failWithArg(errorBuilder, input.var())
+      let received = input.schema->castToPublic
+      let path = input.path
+      input->failWithArg(
+        value =>
+          makeInvalidInputDetails(
+            ~expected,
+            ~received,
+            ~path,
+            ~input=value,
+            ~includeInput=true,
+          ),
+        input.var(),
+      )
     }
 
-    // Emit the JS for a val's validation list (if any), respecting noValidation.
-    // Fuses adjacent checks whose `fail` references are `===` into one
-    // short-circuit statement, so hot-path primitives keep producing the same
-    // single `||`-throw line as before.
+    // Emit the JS for a val's validation list, respecting `noValidation`.
+    // Adjacent checks that share a `fail` closure by reference are fused into
+    // one `cond1&&cond2||…;` emission so primitive decoders keep producing a
+    // single throw line. The single-check fast path skips the ref+loop setup.
     let emitValidation = (val: val, ~input: val, ~inputVar: string): string => {
-      // Optional field invariant: if `validation` is present, it's non-empty.
+      // Invariant: if `validation` is present it is non-empty.
       if val.expected.noValidation === Some(true) || !(val.validation->X.Option.unsafeToBool) {
         ""
       } else {
         let checks = val.validation->X.Option.getUnsafe
-        let out = ref("")
-        let pendingCond = ref("")
-        let pendingFail = ref(None)
-
-        let flush = () =>
-          switch pendingFail.contents {
-          | Some(fail) => {
-              let errorBuilder = fail(~input)
-              out :=
-                out.contents ++
-                `${pendingCond.contents}||${input->failWithArg(errorBuilder, inputVar)};`
-              pendingCond := ""
-              pendingFail := None
+        let len = checks->Js.Array2.length
+        if len === 1 {
+          let check = checks->Js.Array2.unsafe_get(0)
+          `${check.cond(~inputVar)}||${input->failWithArg(check.fail(~input), inputVar)};`
+        } else {
+          let out = ref("")
+          let i = ref(0)
+          while i.contents < len {
+            let head = checks->Js.Array2.unsafe_get(i.contents)
+            let fail = head.fail
+            let cond = ref(head.cond(~inputVar))
+            i := i.contents + 1
+            // Extend the fused cond while the next check shares this `fail`.
+            while (
+              i.contents < len && (checks->Js.Array2.unsafe_get(i.contents)).fail === fail
+            ) {
+              cond :=
+                cond.contents ++
+                "&&" ++ (checks->Js.Array2.unsafe_get(i.contents)).cond(~inputVar)
+              i := i.contents + 1
             }
-          | None => ()
+            out :=
+              out.contents ++
+              `${cond.contents}||${input->failWithArg(fail(~input), inputVar)};`
           }
-
-        for i in 0 to checks->Js.Array2.length - 1 {
-          let check = checks->Js.Array2.unsafe_get(i)
-          let condCode = check.cond(~inputVar)
-          switch pendingFail.contents {
-          | Some(f) if f === check.fail =>
-            pendingCond := `${pendingCond.contents}&&${condCode}`
-          | _ => {
-              flush()
-              pendingCond := condCode
-              pendingFail := Some(check.fail)
-            }
-          }
+          out.contents
         }
-        flush()
-        out.contents
       }
     }
 
@@ -1391,21 +1400,16 @@ module Builder = {
     }
 
     // Fused positive-cond for all checks on a val, e.g. `cond1&&cond2&&cond3`.
-    // Empty string when there are no checks. Used by union codegen to hoist
+    // Caller guarantees the array is non-empty (union hoist sites check
+    // `val.validation->unsafeToBool` first). Used by union codegen to hoist
     // a val's validation into a dispatch discriminant.
     let mergeChecksCond = (checks: array<validationCheck>, ~inputVar: string): string => {
-      let len = checks->Js.Array2.length
-      if len === 0 {
-        ""
-      } else {
-        let result = ref((checks->Js.Array2.unsafe_get(0)).cond(~inputVar))
-        for i in 1 to len - 1 {
-          result :=
-            result.contents ++
-            "&&" ++ (checks->Js.Array2.unsafe_get(i)).cond(~inputVar)
-        }
-        result.contents
+      let result = ref((checks->Js.Array2.unsafe_get(0)).cond(~inputVar))
+      for i in 1 to checks->Js.Array2.length - 1 {
+        result :=
+          result.contents ++ "&&" ++ (checks->Js.Array2.unsafe_get(i)).cond(~inputVar)
       }
+      result.contents
     }
 
     let next = (prev: val, initial: string, ~schema, ~expected=prev.expected): val => {
@@ -1470,12 +1474,6 @@ module Builder = {
       | None => val.validation = Some([check])
       }
     }
-
-    // Clear a val's validation list. Sets the optional field to None,
-    // which compiles to `val.vc = undefined` — same truthy-check semantics
-    // as an absent field (undefined is falsy), without the engine-level
-    // shape churn of a full `delete`.
-    let clearChecks = (val: val) => val.validation = None
 
     let dynamicScope = (from: val, ~locationVar): val => {
       {
@@ -2749,7 +2747,7 @@ and arrayDecoder: builder = (~input as unknownInput) => {
           })
         })
         // Invariant: `validation` is absent iff there are no checks.
-        itemOutput->B.clearChecks
+        itemOutput.validation = None
       }
 
       objectVal->B.Val.Object.add(~location=key, itemOutput)
@@ -2915,7 +2913,7 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
             })
           })
           // Invariant: `validation` is absent iff there are no checks.
-          itemOutput->B.clearChecks
+          itemOutput.validation = None
         }
 
         objectVal->B.Val.Object.add(~location=key, itemOutput)
@@ -3926,8 +3924,7 @@ module Union = {
               typeValidationInput->parse
             } catch {
             | _ => {
-                // Invariant: `validation` is absent iff there are no checks.
-                typeValidationInput->B.clearChecks
+                typeValidationInput.validation = None
                 typeValidationInput
               }
             }
