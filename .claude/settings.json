@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_response.filePath // .tool_input.file_path' | { read -r f; if [[ \"$f\" == *.res ]]; then npx rescript format \"$f\" > /dev/null; fi; } 2>/dev/null || true",
+            "statusMessage": "Formatting ReScript..."
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -630,12 +630,6 @@ function merge(val) {
       let validationCode = validation(inputVar, true);
       currentCode = "if(" + validationCode + "){" + embedInvalidInput(input, val$1.e) + "}";
     }
-    if (val$1.io && val$1.e.refiner) {
-      currentCode = currentCode + val$1.e.refiner(val$1);
-    }
-    if (val$1.ii && val$1.e.inputRefiner) {
-      currentCode = currentCode + val$1.e.inputRefiner(val$1);
-    }
     if (val$1.l !== "") {
       currentCode = currentCode + ("let " + val$1.l + ";");
     }
@@ -1223,6 +1217,13 @@ function parse$1(input) {
         if (!valRef.io) {
           valRef.ii = true;
           valRef.io = true;
+          if (valRef.e.inputRefiner) {
+            valRef.cp = valRef.cp + valRef.e.inputRefiner(valRef);
+          }
+          if (valRef.e.refiner) {
+            valRef.cp = valRef.cp + valRef.e.refiner(valRef);
+          }
+          
         }
         
       }

@@ -790,29 +790,28 @@ let rec toExpression = schema => {
     ->(Obj.magic: array<internal> => array<t<'a>>)
     ->Js.Array2.map(toExpression)
     ->Js.Array2.joinWith(" | ")
-  | {format: ?Some(CompactColumns), ?to, ?additionalItems} => {
-      // For compactColumns, show the column types if we have properties from .to
-      switch to {
-      | Some(toSchema) =>
-        switch toSchema.properties {
-        | Some(props) =>
-          let keys = props->Js.Dict.keys
-          `[${keys
-            ->Js.Array2.map(key => {
-              let propSchema = props->Js.Dict.unsafeGet(key)->castToPublic
-              `${propSchema->toExpression}[]`
-            })
-            ->Js.Array2.joinWith(", ")}]`
-        | None => "unknown[][]"
-        }
-      | None =>
-        // No S.to applied, reuse the array expression logic
-        switch additionalItems {
-        | Some(Schema(innerArraySchema)) =>
-          let innerArraySchemaTyped: t<'a> = innerArraySchema->Obj.magic
-          `${innerArraySchemaTyped->toExpression}[]`
-        | _ => "unknown[][]"
-        }
+  | {format: ?Some(CompactColumns), ?to, ?additionalItems} =>
+    // For compactColumns, show the column types if we have properties from .to
+    switch to {
+    | Some(toSchema) =>
+      switch toSchema.properties {
+      | Some(props) =>
+        let keys = props->Js.Dict.keys
+        `[${keys
+          ->Js.Array2.map(key => {
+            let propSchema = props->Js.Dict.unsafeGet(key)->castToPublic
+            `${propSchema->toExpression}[]`
+          })
+          ->Js.Array2.joinWith(", ")}]`
+      | None => "unknown[][]"
+      }
+    | None =>
+      // No S.to applied, reuse the array expression logic
+      switch additionalItems {
+      | Some(Schema(innerArraySchema)) =>
+        let innerArraySchemaTyped: t<'a> = innerArraySchema->Obj.magic
+        `${innerArraySchemaTyped->toExpression}[]`
+      | _ => "unknown[][]"
       }
     }
   | {format} => (format :> string)
@@ -1313,16 +1312,6 @@ module Builder = {
               `if(${validationCode}){${embedInvalidInput(~input, ~expected=val.expected)}}`
           }
         | _ => ()
-        }
-
-        // FIXME: This is not well-thought + we also have custom merge logic in union decoder which should be updated
-        if val.isOutput->X.Option.getUnsafe && val.expected.refiner->Obj.magic {
-          currentCode :=
-            currentCode.contents ++ (val.expected.refiner->X.Option.getUnsafe)(~input=val)
-        }
-        if val.isInput->X.Option.getUnsafe && val.expected.inputRefiner->Obj.magic {
-          currentCode :=
-            currentCode.contents ++ (val.expected.inputRefiner->X.Option.getUnsafe)(~input=val)
         }
 
         if val.varsAllocation !== "" {
@@ -2069,9 +2058,26 @@ let rec parse = (input: val) => {
         appliedEncoderRef := Some(maybeEncoder->Option.getUnsafe)
       } else {
         valRef := loopInput.expected.decoder(~input=loopInput)
+
+        // If the decoder's return value is not marked as isOutput,
+        // we treat it as a primitive decoder with no internal transformations.
+        // Otherwise, we assume internal transformations are present,
+        // and expect the decoder itself to handle refinements and manage isInput/isOutput flags.
         if !(valRef.contents.isOutput->Option.getUnsafe) {
           valRef.contents.isInput = Some(true)
           valRef.contents.isOutput = Some(true)
+
+          // FIXME: This is not well-thought + we also have custom merge logic in union decoder which should be updated
+          if valRef.contents.expected.inputRefiner->Obj.magic {
+            valRef.contents.codeFromPrev =
+              valRef.contents.codeFromPrev ++
+              (valRef.contents.expected.inputRefiner->X.Option.getUnsafe)(~input=valRef.contents)
+          }
+          if valRef.contents.expected.refiner->Obj.magic {
+            valRef.contents.codeFromPrev =
+              valRef.contents.codeFromPrev ++
+              (valRef.contents.expected.refiner->X.Option.getUnsafe)(~input=valRef.contents)
+          }
         }
       }
     }
@@ -4715,14 +4721,13 @@ let date = {
       ->invalidDateRefine
     } else if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
       instanceDecoder(~input)->invalidDateRefine
-    } else if (
-      inputTagFlag->Flag.unsafeHas(TagFlag.instance) && input.schema.class === mut.class
-    ) {
+    } else if inputTagFlag->Flag.unsafeHas(TagFlag.instance) && input.schema.class === mut.class {
       input
     } else {
       input->B.unsupportedConversion(~from=input.schema, ~target=input.expected)
     }
   })
+
   // Encoder: Date → string (via toISOString) when target is string
   mut.encoder = Some(
     Builder.encoder((~input, ~target) => {
@@ -5329,12 +5334,11 @@ module Schema = {
       } else {
         // When acc is None (discriminant field with no input), follow the to chain
         // to get the actual output schema properties (e.g., for reversed transformed objects)
-        let resolvedTargetSchema =
-          if acc === None {
-            targetSchema->getOutputSchema
-          } else {
-            targetSchema
-          }
+        let resolvedTargetSchema = if acc === None {
+          targetSchema->getOutputSchema
+        } else {
+          targetSchema
+        }
         let v = makeObjectVal(input, ~schema=resolvedTargetSchema)
         v.expected = resolvedTargetSchema
         v.isOutput = Some(true)
@@ -5589,8 +5593,7 @@ let compactColumnsEncoder = Builder.encoder((~input, ~target) => {
         `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${settingCode.contents}}`
       output
     }
-  | None =>
-    input->B.unsupportedConversion(~from=input.schema, ~target)
+  | None => input->B.unsupportedConversion(~from=input.schema, ~target)
   }
 })
 
@@ -5689,8 +5692,7 @@ let compactColumnsDecoder = (~input) => {
           }
           lengthCode := lengthCode.contents ++ `${inputVar}[${idx->X.Int.unsafeToString}].length,`
           itemBuildCode :=
-            itemBuildCode.contents ++
-            `${key->X.Inlined.Value.fromString}:${fieldValueCode},`
+            itemBuildCode.contents ++ `${key->X.Inlined.Value.fromString}:${fieldValueCode},`
         }
 
         input.allocate(`${outputVar}=new Array(Math.max(${lengthCode.contents}))`)
@@ -5757,7 +5759,9 @@ let compactColumnsDecoder = (~input) => {
       }
     }
   | None =>
-    InternalError.panic("S.compactColumns supports only object schemas. Use S.compactColumns(S.unknown)->S.to(S.array(objectSchema)).")
+    InternalError.panic(
+      "S.compactColumns supports only object schemas. Use S.compactColumns(S.unknown)->S.to(S.array(objectSchema)).",
+    )
   }
 }
 
@@ -6687,8 +6691,7 @@ module RescriptJSONSchema = {
           jsonSchema.type_ = Some(Arrayable.single(#object))
           jsonSchema.properties = Some(jsonProperties)
           switch additionalItems {
-          | Strict =>
-            jsonSchema.additionalProperties = Some(JSONSchema.Never)
+          | Strict => jsonSchema.additionalProperties = Some(JSONSchema.Never)
           | Strip
           | Schema(_) => ()
           }
@@ -6996,7 +6999,9 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
         ->addRefinement(
           ~metadataId=String.Refinement.metadataId,
           ~refiner=(~input) => {
-            `if(!${input->B.embed(String.datetimeRe)}.test(${input.var()})){${input->B.fail(~message="Invalid datetime string! Expected UTC")}}`
+            `if(!${input->B.embed(String.datetimeRe)}.test(${input.var()})){${input->B.fail(
+                ~message="Invalid datetime string! Expected UTC",
+              )}}`
           },
           ~refinement={
             kind: Datetime,
@@ -7054,9 +7059,7 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
         }, ~error="Should pass the if/then/else schema validation.")
       }
     | _ if jsonSchema.type_ !== None =>
-      InternalError.panic(
-        `Unknown JSON Schema type: ${(jsonSchema.type_->Obj.magic: string)}`,
-      )
+      InternalError.panic(`Unknown JSON Schema type: ${(jsonSchema.type_->Obj.magic: string)}`)
     | _ => anySchema
     }
 
