@@ -5597,6 +5597,26 @@ let compactColumnsDecoder = (~input) => {
           innerArray.additionalItems->Obj.magic
         }
 
+        // When the caller declared the source as `compactColumns(S.json)`, the
+        // columnar values are already valid JSON (string | number | boolean |
+        // null | object | array) and the target field schema is treated as a
+        // type hint only — bigint, Date, etc. have no JSON representation, so
+        // running the per-field parse pipeline would falsely reject them.
+        // Detect this via selfSchema (the compactColumns schema itself) rather
+        // than input.schema, because the top-level parser starts from
+        // `unknown` and has no direct handle on the declared source type.
+        // Identity check on the `json` proxy avoids triggering the "not
+        // enabled" panic that `json.ref` would raise when this decoder is
+        // compiled for schemas that don't use json at all.
+        let isJsonInput = switch selfSchema.additionalItems {
+        | Some(Schema(inner)) =>
+          switch (inner->castToInternal).additionalItems {
+          | Some(Schema(innerItem)) => innerItem->Obj.magic === json
+          | _ => false
+          }
+        | _ => false
+        }
+
         let lengthCode = ref("")
         let itemBuildCode = ref("")
         let itemParseCode = ref("")
@@ -5605,29 +5625,36 @@ let compactColumnsDecoder = (~input) => {
         for idx in 0 to keysLen - 1 {
           let key = keys->Js.Array2.unsafe_get(idx)
           let idxStr = idx->X.Int.unsafeToString
+          let rawValueCode = `${inputVar}[${idxStr}][${iteratorVar}]`
 
-          // Use parse on the field schema to handle transformations (e.g. null->undefined).
-          let itemInput = input->B.Val.scope
-          itemInput.inline = `${inputVar}[${idxStr}][${iteratorVar}]`
-          itemInput.schema = itemSchema
-          itemInput.expected = properties->Js.Dict.unsafeGet(key)
-          itemInput.var = B._notVarBeforeValidation
-          itemInput.isInput = Some(false)
-          itemInput.isOutput = Some(false)
-          // Path like ["bar"] so validation errors carry the field location.
-          itemInput.path = Path.fromInlinedLocation(input.global->B.inlineLocation(key))
+          let itemInline = if isJsonInput {
+            rawValueCode
+          } else {
+            // Use parse on the field schema to handle transformations (e.g. null->undefined).
+            let itemInput = input->B.Val.scope
+            itemInput.inline = rawValueCode
+            itemInput.schema = itemSchema
+            itemInput.expected = properties->Js.Dict.unsafeGet(key)
+            itemInput.var = B._notVarBeforeValidation
+            itemInput.isInput = Some(false)
+            itemInput.isOutput = Some(false)
+            // Path like ["bar"] so validation errors carry the field location.
+            itemInput.path = Path.fromInlinedLocation(input.global->B.inlineLocation(key))
 
-          let itemOutput = itemInput->parse
-          if itemOutput.flag->Flag.unsafeHas(ValFlag.async) {
-            hasAsync := true
+            let itemOutput = itemInput->parse
+            if itemOutput.flag->Flag.unsafeHas(ValFlag.async) {
+              hasAsync := true
+            }
+
+            itemParseCode := itemParseCode.contents ++ itemOutput->B.merge
+            itemOutput.inline
           }
 
-          itemParseCode := itemParseCode.contents ++ itemOutput->B.merge
           lengthCode := lengthCode.contents ++ `${inputVar}[${idxStr}].length,`
-          asyncInlines := asyncInlines.contents ++ `${itemOutput.inline},`
+          asyncInlines := asyncInlines.contents ++ `${itemInline},`
           itemBuildCode :=
             itemBuildCode.contents ++
-            `${key->X.Inlined.Value.fromString}:${itemOutput.inline},`
+            `${key->X.Inlined.Value.fromString}:${itemInline},`
         }
 
         input.allocate(`${outputVar}=new Array(Math.max(${lengthCode.contents}))`)
