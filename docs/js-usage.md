@@ -421,10 +421,11 @@ S.url(S.string); // Invalid url
 S.uuid(S.string); // Invalid UUID
 S.cuid(S.string); // Invalid CUID
 S.pattern(S.string, %re(`/[0-9]/`)); // Invalid
-S.datetime(S.string); // Invalid datetime string! Expected UTC
 
 S.trim(S.string); // trim whitespaces
 ```
+
+> For ISO 8601 UTC datetime strings use the dedicated standalone `S.isoDateTime` schema — see [ISO datetimes](#iso-datetimes) below.
 
 > ⚠️ Validating email addresses is nearly impossible with just code. Different clients and servers accept different things and many diverge from the various specs defining "valid" emails. The ONLY real way to validate an email address is to send a verification email to it and check that the user got it. With that in mind, Sury picks a relatively simple regex that does not cover all cases.
 
@@ -437,17 +438,25 @@ S.length(S.string, 5, "SMS code should be 5 digits long");
 
 ### ISO datetimes
 
-The `S.datetime(S.string)` function has following UTC validation: no timezone offsets with arbitrary sub-second decimal precision.
+`S.isoDateTime` is a **standalone** string schema (`S.Schema<string, string>`) that validates ISO 8601 UTC datetime strings: no timezone offsets allowed, with arbitrary sub-second decimal precision. Because the regex used to validate the input lives inside `S.enableIsoDateTime`, it is tree-shaken from your bundle unless you opt in — call `S.enableIsoDateTime()` once at your project root before using the schema.
 
 ```ts
-const datetimeSchema = S.datetime(S.string);
-// The datetimeSchema has the type S.Schema<Date, string>
-// String is transformed to the Date instance
+S.enableIsoDateTime(); // ❕ Call at the project root.
 
-S.parser(datetimeSchema)("2020-01-01T00:00:00Z"); // pass
-S.parser(datetimeSchema)("2020-01-01T00:00:00.123Z"); // pass
-S.parser(datetimeSchema)("2020-01-01T00:00:00.123456Z"); // pass (arbitrary precision)
-S.parser(datetimeSchema)("2020-01-01T00:00:00+02:00"); // fail (no offsets allowed)
+const schema = S.isoDateTime;
+// schema has the type S.Schema<string, string>
+
+S.parser(schema)("2020-01-01T00:00:00Z"); // pass
+S.parser(schema)("2020-01-01T00:00:00.123Z"); // pass
+S.parser(schema)("2020-01-01T00:00:00.123456Z"); // pass (arbitrary precision)
+S.parser(schema)("2020-01-01T00:00:00+02:00"); // fail (no offsets allowed)
+```
+
+To decode an ISO datetime string into a `Date`, combine it with `S.to(S.date)`:
+
+```ts
+const schema = S.to(S.string, S.date);
+// schema has the type S.Schema<Date, string>
 ```
 
 ## Numbers
@@ -854,7 +863,7 @@ S.parser(S.date)(new Date("invalid")); // throws
 S.parser(S.date)("2024-01-01"); // throws - not a Date instance
 ```
 
-> Unlike `S.datetime(S.string)` which parses ISO datetime strings into Date objects, `S.date` validates existing Date instances directly.
+> Unlike `S.isoDateTime` (which validates ISO datetime strings) and `S.to(S.string, S.date)` (which decodes ISO strings into Date objects), `S.date` validates existing Date instances directly.
 
 You can use `S.decoder` with multiple arguments to decode between strings and dates:
 

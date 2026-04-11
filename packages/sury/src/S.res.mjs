@@ -40,6 +40,10 @@ let uint8Array = Sury.uint8Array;
 
 let enableUint8Array = Sury.enableUint8Array;
 
+let isoDateTime = Sury.isoDateTime;
+
+let enableIsoDateTime = Sury.enableIsoDateTime;
+
 let date = Sury.date;
 
 let literal = Sury.literal;
@@ -208,6 +212,8 @@ export {
   enableJsonString,
   uint8Array,
   enableUint8Array,
+  isoDateTime,
+  enableIsoDateTime,
   date,
   literal,
   array,

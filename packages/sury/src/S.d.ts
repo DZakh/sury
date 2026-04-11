@@ -494,6 +494,9 @@ export function enableJsonString(): void;
 export const uint8Array: Schema<Uint8Array, Uint8Array>;
 export function enableUint8Array(): void;
 
+export const isoDateTime: Schema<string, string>;
+export function enableIsoDateTime(): void;
+
 export const date: Schema<Date, Date>;
 
 export function safe<Value>(scope: () => Value): Result<Value>;

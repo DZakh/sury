@@ -66,6 +66,14 @@ test("JSONSchema of S.string with description converted to S.date", t => {
   )
 })
 
+test("JSONSchema of S.isoDateTime", t => {
+  S.enableIsoDateTime()
+  t->Assert.deepEqual(
+    S.isoDateTime->S.toJSONSchema,
+    %raw(`{"type": "string", "format": "date-time"}`),
+  )
+})
+
 test("JSONSchema of object with transformed field preserves field metadata", t => {
   t->Assert.deepEqual(
     S.object(s =>

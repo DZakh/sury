@@ -309,6 +309,9 @@ let enableJsonString: unit => unit
 let uint8Array: t<Uint8Array.t>
 let enableUint8Array: unit => unit
 
+let isoDateTime: t<string>
+let enableIsoDateTime: unit => unit
+
 let date: t<Js.Date.t>
 
 let literal: 'value => t<'value>

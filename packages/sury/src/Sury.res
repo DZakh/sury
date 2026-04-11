@@ -4317,8 +4317,6 @@ module String = {
   let uuidRegex = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/i
   // Adapted from https://stackoverflow.com/a/46181/1550155
   let emailRegex = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i
-  // Adapted from https://stackoverflow.com/a/3143231
-  let datetimeRe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/
 }
 
 let jsonEncoder = Builder.encoder((~input, ~target) => {
@@ -4695,6 +4693,30 @@ let enableUint8Array = () => {
       | _ => input.contents
       }
     })
+  }
+}
+
+let isoDateTime = shaken("isoDateTime")
+
+let enableIsoDateTime = () => {
+  if isoDateTime->Obj.magic->Js.Dict.unsafeGet(shakenRef)->Obj.magic {
+    let _ = %raw(`delete isoDateTime.as`)
+    // Adapted from https://stackoverflow.com/a/3143231
+    // Kept inline so the regex is only pulled into the bundle when
+    // `enableIsoDateTime` is imported; unused otherwise it's tree-shaken away.
+    let datetimeRe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/
+    isoDateTime.tag = stringTag
+    isoDateTime.decoder = string.decoder
+    isoDateTime.format = Some(DateTime)
+    isoDateTime.refiner = Some(
+      (~input) => {
+        `if(!${input->B.embed(
+            datetimeRe,
+          )}.test(${input.var()})){${input->B.fail(
+            ~message="Invalid datetime string! Expected UTC",
+          )}}`
+      },
+    )
   }
 }
 
@@ -7029,18 +7051,8 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
       | {format: "uri"} => schema->url->castAnySchemaToJsonableS
       | {format: "uuid"} => schema->uuid->castAnySchemaToJsonableS
       | {format: "date-time"} =>
-        schema
-        ->internalRefine(_ =>
-          (~input) => {
-            `if(!${input->B.embed(
-                String.datetimeRe,
-              )}.test(${input.var()})){${input->B.fail(
-                ~message="Invalid datetime string! Expected UTC",
-              )}}`
-          }
-        )
-        ->extendJSONSchema({format: "date-time"})
-        ->castAnySchemaToJsonableS
+        enableIsoDateTime()
+        isoDateTime->castToPublic->castAnySchemaToJsonableS
       | _ => schema->castAnySchemaToJsonableS
       }
 
@@ -7153,6 +7165,7 @@ let unknown: t<unknown> = unknown->castToPublic
 let json: t<Js.Json.t> = json->castToPublic
 let jsonString: t<string> = jsonString->castToPublic
 let uint8Array: t<Uint8Array.t> = uint8Array->castToPublic
+let isoDateTime: t<string> = isoDateTime->castToPublic
 let bool: t<bool> = bool->castToPublic
 let symbol: t<Js.Types.symbol> = symbol->castToPublic
 let string: t<string> = string->castToPublic
