@@ -6539,21 +6539,17 @@ module RescriptJSONSchema = {
   }
   and internalToJSONSchema = (schema: schema<unknown>, ~path, ~defs, ~parent): JSONSchema.t => {
     let schemaInternal = schema->castToInternal
-    // If the schema has a user-applied .to transform, try the encode path
-    // first: reverse the chain and use the resulting JSON-compatible schema.
-    // Fall through to the normal tag-based logic when encoding isn't possible.
+    // Try the encode path when the schema has a user-applied `.to`: reverse
+    // the chain and derive the JSON-compatible shape. We exclude structural
+    // tags (object/array/union) because their `.to` is set internally by
+    // `definitionToShapedSchema` for shaping — not by user `S.to(x)` — and
+    // `internalToJSONSchemaBase` already handles any nested `.to` on children
+    // via recursion into properties/items/variants. Without this exclusion,
+    // `toJSONSchema` would encode-reverse the shaping machinery of plain
+    // objects and produce bogus output.
     //
-    // `S.object`, `S.tuple`/`S.schema` (arrayTag) and the union definer
-    // (unionTag) all set `.to` internally as part of their shaping machinery
-    // (see `definitionToShapedSchema`). For those tags a truthy `.to` does NOT
-    // signal a user-applied transform — the normal tag-based logic in
-    // `internalToJSONSchemaBase` already recurses into properties/items/variants
-    // and handles any nested `.to` on children. Only "leaf-ish" tags have `.to`
-    // set solely by user-facing `S.to(target)` calls.
-    //
-    // IMPORTANT: if a new tag is introduced whose factory sets `.to` internally
-    // (for shaping, flattening, etc.), add its TagFlag to the mask below so
-    // `toJSONSchema` doesn't accidentally try to encode-reverse its internals.
+    // If a new tag is introduced whose factory sets `.to` internally, add
+    // its `TagFlag` to the mask below.
     let hasUserTo =
       schemaInternal.to->Obj.magic &&
         !(
