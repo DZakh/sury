@@ -3831,23 +3831,8 @@ function compactColumnsEncoder(input, target) {
   for (let idx = 0, idx_finish = keys.length; idx < idx_finish; ++idx) {
     let key = keys[idx];
     let rawValueCode = inputVar + "[" + iteratorVar + "][" + fromString(key) + "]";
-    let fieldSchema = maybeProperties[key];
-    let anyOf = fieldSchema.anyOf;
-    let hasUndefinedToNullTransform = anyOf !== undefined ? anyOf.some(item => {
-        let itemTagFlag = flags[item.type];
-        if (!(itemTagFlag & 16)) {
-          return false;
-        }
-        let toSchema = item.to;
-        if (toSchema === undefined) {
-          return false;
-        }
-        let toTagFlag = flags[toSchema.type];
-        return toTagFlag & 32;
-      }) : false;
-    let fieldValueCode = hasUndefinedToNullTransform ? rawValueCode + "===void 0?null:" + rawValueCode : rawValueCode;
     initialArraysCode = initialArraysCode + ("new Array(" + inputVar + ".length),");
-    settingCode = settingCode + (outputVar + "[" + idx + "][" + iteratorVar + "]=" + fieldValueCode + ";");
+    settingCode = settingCode + (outputVar + "[" + idx + "][" + iteratorVar + "]=" + rawValueCode + ";");
   }
   input.a(outputVar + "=[" + initialArraysCode + "]");
   let output = next(input, outputVar, base(arrayTag, false), undefined);
@@ -3947,22 +3932,31 @@ function compactColumnsDecoder(input) {
       let outputVar = varWithoutAllocation(input.g);
       let lengthCode = "";
       let itemBuildCode = "";
+      let itemParseCode = "";
       for (let idx = 0, idx_finish = keys.length; idx < idx_finish; ++idx) {
         let key = keys[idx];
         let rawValueCode = inputVar + "[" + idx + "][" + iteratorVar + "]";
         let fieldSchema = maybeProperties$1[key];
-        let has = fieldSchema.has;
-        let hasNullVariant = has !== undefined ? has[nullTag] !== undefined : false;
-        let fieldValueCode = hasNullVariant ? rawValueCode + "===null?void 0:" + rawValueCode : rawValueCode;
+        let itemInput = scope(input);
+        itemInput.i = rawValueCode;
+        itemInput.s = unknown;
+        itemInput.e = fieldSchema;
+        itemInput.v = _notVarBeforeValidation;
+        itemInput.ii = false;
+        itemInput.io = false;
+        itemInput.path = "";
+        let itemOutput = parse$1(itemInput);
+        let itemCode = merge(itemOutput);
+        itemParseCode = itemParseCode + itemCode;
         lengthCode = lengthCode + (inputVar + "[" + idx + "].length,");
-        itemBuildCode = itemBuildCode + (fromString(key) + ":" + fieldValueCode + ",");
+        itemBuildCode = itemBuildCode + (fromString(key) + ":" + itemOutput.i + ",");
       }
       input.a(outputVar + "=new Array(Math.max(" + lengthCode + "))");
       let outputSchema$1 = base(arrayTag, false);
       let output$1 = next(input, outputVar, outputSchema$1, outputSchema$1);
       output$1.v = _var;
       output$1.io = true;
-      output$1.cp = output$1.cp + ("for(let " + iteratorVar + "=0;" + iteratorVar + "<" + outputVar + ".length;++" + iteratorVar + "){" + outputVar + "[" + iteratorVar + "]={" + itemBuildCode + "};}");
+      output$1.cp = output$1.cp + ("for(let " + iteratorVar + "=0;" + iteratorVar + "<" + outputVar + ".length;++" + iteratorVar + "){" + itemParseCode + outputVar + "[" + iteratorVar + "]={" + itemBuildCode + "};}");
       return output$1;
     }
     let inputVar$1 = input.v();
@@ -3973,23 +3967,8 @@ function compactColumnsDecoder(input) {
     for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
       let key$1 = keys[idx$1];
       let rawValueCode$1 = inputVar$1 + "[" + iteratorVar$1 + "][" + fromString(key$1) + "]";
-      let fieldSchema$1 = maybeProperties$1[key$1];
-      let anyOf = fieldSchema$1.anyOf;
-      let hasUndefinedToNullTransform = anyOf !== undefined ? anyOf.some(item => {
-          let itemTagFlag = flags[item.type];
-          if (!(itemTagFlag & 16)) {
-            return false;
-          }
-          let toSchema = item.to;
-          if (toSchema === undefined) {
-            return false;
-          }
-          let toTagFlag = flags[toSchema.type];
-          return toTagFlag & 32;
-        }) : false;
-      let fieldValueCode$1 = hasUndefinedToNullTransform ? rawValueCode$1 + "===void 0?null:" + rawValueCode$1 : rawValueCode$1;
       initialArraysCode = initialArraysCode + ("new Array(" + inputVar$1 + ".length),");
-      settingCode = settingCode + (outputVar$1 + "[" + idx$1 + "][" + iteratorVar$1 + "]=" + fieldValueCode$1 + ";");
+      settingCode = settingCode + (outputVar$1 + "[" + idx$1 + "][" + iteratorVar$1 + "]=" + rawValueCode$1 + ";");
     }
     input.a(outputVar$1 + "=[" + initialArraysCode + "]");
     let outputSchema$2 = base(arrayTag, false);

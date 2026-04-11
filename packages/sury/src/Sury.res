@@ -5550,34 +5550,10 @@ let compactColumnsEncoder = Builder.encoder((~input, ~target) => {
       for idx in 0 to keys->Js.Array2.length - 1 {
         let key = keys->Js.Array2.unsafe_get(idx)
         let rawValueCode = `${inputVar}[${iteratorVar}][${key->X.Inlined.Value.fromString}]`
-        let fieldSchema = properties->Js.Dict.unsafeGet(key)
-        // Check if this field converts undefined to null (reversed nullAsOption)
-        let hasUndefinedToNullTransform = switch fieldSchema.anyOf {
-        | Some(anyOf) =>
-          anyOf->Js.Array2.some(item => {
-            let itemTagFlag = item.tag->TagFlag.get
-            if itemTagFlag->Flag.unsafeHas(TagFlag.undefined) {
-              switch item.to {
-              | Some(toSchema) =>
-                let toTagFlag = toSchema.tag->TagFlag.get
-                toTagFlag->Flag.unsafeHas(TagFlag.null)
-              | None => false
-              }
-            } else {
-              false
-            }
-          })
-        | None => false
-        }
-        let fieldValueCode = if hasUndefinedToNullTransform {
-          `${rawValueCode}===void 0?null:${rawValueCode}`
-        } else {
-          rawValueCode
-        }
         initialArraysCode := initialArraysCode.contents ++ `new Array(${inputVar}.length),`
         settingCode :=
           settingCode.contents ++
-          `${outputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]=${fieldValueCode};`
+          `${outputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]=${rawValueCode};`
       }
 
       input.allocate(`${outputVar}=[${initialArraysCode.contents}]`)
@@ -5669,28 +5645,30 @@ let compactColumnsDecoder = (~input) => {
 
         let lengthCode = ref("")
         let itemBuildCode = ref("")
+        let itemParseCode = ref("")
         for idx in 0 to keys->Js.Array2.length - 1 {
           let key = keys->Js.Array2.unsafe_get(idx)
           let rawValueCode = `${inputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]`
           let fieldSchema = properties->Js.Dict.unsafeGet(key)
-          // Check if this field has a null variant (e.g., nullAsOption)
-          let hasNullVariant = switch fieldSchema.has {
-          | Some(has) =>
-            switch has->X.Dict.getUnsafeOption((nullTag :> string)) {
-            | Some(_) => true
-            | None => false
-            }
-          | None => false
-          }
-          let fieldValueCode = if hasNullVariant {
-            `${rawValueCode}===null?void 0:${rawValueCode}`
-          } else {
-            rawValueCode
-          }
+
+          // Use parse on the field schema to handle transformations (e.g. null->undefined)
+          let itemInput = input->B.Val.scope
+          itemInput.inline = rawValueCode
+          itemInput.schema = unknown
+          itemInput.expected = fieldSchema
+          itemInput.var = B._notVarBeforeValidation
+          itemInput.isInput = Some(false)
+          itemInput.isOutput = Some(false)
+          itemInput.path = Path.empty
+
+          let itemOutput = itemInput->parse
+          let itemCode = itemOutput->B.merge
+
+          itemParseCode := itemParseCode.contents ++ itemCode
           lengthCode := lengthCode.contents ++ `${inputVar}[${idx->X.Int.unsafeToString}].length,`
           itemBuildCode :=
             itemBuildCode.contents ++
-            `${key->X.Inlined.Value.fromString}:${fieldValueCode},`
+            `${key->X.Inlined.Value.fromString}:${itemOutput.inline},`
         }
 
         input.allocate(`${outputVar}=new Array(Math.max(${lengthCode.contents}))`)
@@ -5701,10 +5679,12 @@ let compactColumnsDecoder = (~input) => {
         output.isOutput = Some(true)
         output.codeFromPrev =
           output.codeFromPrev ++
-          `for(let ${iteratorVar}=0;${iteratorVar}<${outputVar}.length;++${iteratorVar}){${outputVar}[${iteratorVar}]={${itemBuildCode.contents}};}`
+          `for(let ${iteratorVar}=0;${iteratorVar}<${outputVar}.length;++${iteratorVar}){${itemParseCode.contents}${outputVar}[${iteratorVar}]={${itemBuildCode.contents}};}`
         output
       } else {
         // Reverse direction: rows → columnar
+        // The field values have already been transformed by the earlier parse pipeline step
+        // (the object schema's reverse parse), so we can just copy them directly.
         let inputVar = input->B.Val.var
         let iteratorVar = input.global->B.varWithoutAllocation
         let outputVar = input.global->B.varWithoutAllocation
@@ -5714,34 +5694,10 @@ let compactColumnsDecoder = (~input) => {
         for idx in 0 to keys->Js.Array2.length - 1 {
           let key = keys->Js.Array2.unsafe_get(idx)
           let rawValueCode = `${inputVar}[${iteratorVar}][${key->X.Inlined.Value.fromString}]`
-          let fieldSchema = properties->Js.Dict.unsafeGet(key)
-          // Check if this field converts undefined to null (reversed nullAsOption)
-          let hasUndefinedToNullTransform = switch fieldSchema.anyOf {
-          | Some(anyOf) =>
-            anyOf->Js.Array2.some(item => {
-              let itemTagFlag = item.tag->TagFlag.get
-              if itemTagFlag->Flag.unsafeHas(TagFlag.undefined) {
-                switch item.to {
-                | Some(toSchema) =>
-                  let toTagFlag = toSchema.tag->TagFlag.get
-                  toTagFlag->Flag.unsafeHas(TagFlag.null)
-                | None => false
-                }
-              } else {
-                false
-              }
-            })
-          | None => false
-          }
-          let fieldValueCode = if hasUndefinedToNullTransform {
-            `${rawValueCode}===void 0?null:${rawValueCode}`
-          } else {
-            rawValueCode
-          }
           initialArraysCode := initialArraysCode.contents ++ `new Array(${inputVar}.length),`
           settingCode :=
             settingCode.contents ++
-            `${outputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]=${fieldValueCode};`
+            `${outputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]=${rawValueCode};`
         }
 
         input.allocate(`${outputVar}=[${initialArraysCode.contents}]`)
