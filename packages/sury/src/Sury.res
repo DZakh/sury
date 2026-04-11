@@ -586,7 +586,7 @@ and val = {
   mutable varsAllocation: string,
   @as("a")
   mutable allocate: string => unit,
-  mutable validation: option<(~inputVar: string, ~negative: bool) => string>,
+  mutable validation: option<(~inputVar: string) => string>,
   @as("u")
   mutable isUnion?: bool,
   // Whether the chain starting from the root prev has a transformation
@@ -790,29 +790,28 @@ let rec toExpression = schema => {
     ->(Obj.magic: array<internal> => array<t<'a>>)
     ->Js.Array2.map(toExpression)
     ->Js.Array2.joinWith(" | ")
-  | {format: ?Some(CompactColumns), ?to, ?additionalItems} => {
-      // For compactColumns, show the column types if we have properties from .to
-      switch to {
-      | Some(toSchema) =>
-        switch toSchema.properties {
-        | Some(props) =>
-          let keys = props->Js.Dict.keys
-          `[${keys
-            ->Js.Array2.map(key => {
-              let propSchema = props->Js.Dict.unsafeGet(key)->castToPublic
-              `${propSchema->toExpression}[]`
-            })
-            ->Js.Array2.joinWith(", ")}]`
-        | None => "unknown[][]"
-        }
-      | None =>
-        // No S.to applied, reuse the array expression logic
-        switch additionalItems {
-        | Some(Schema(innerArraySchema)) =>
-          let innerArraySchemaTyped: t<'a> = innerArraySchema->Obj.magic
-          `${innerArraySchemaTyped->toExpression}[]`
-        | _ => "unknown[][]"
-        }
+  | {format: ?Some(CompactColumns), ?to, ?additionalItems} =>
+    // For compactColumns, show the column types if we have properties from .to
+    switch to {
+    | Some(toSchema) =>
+      switch toSchema.properties {
+      | Some(props) =>
+        let keys = props->Js.Dict.keys
+        `[${keys
+          ->Js.Array2.map(key => {
+            let propSchema = props->Js.Dict.unsafeGet(key)->castToPublic
+            `${propSchema->toExpression}[]`
+          })
+          ->Js.Array2.joinWith(", ")}]`
+      | None => "unknown[][]"
+      }
+    | None =>
+      // No S.to applied, reuse the array expression logic
+      switch additionalItems {
+      | Some(Schema(innerArraySchema)) =>
+        let innerArraySchemaTyped: t<'a> = innerArraySchema->Obj.magic
+        `${innerArraySchemaTyped->toExpression}[]`
+      | _ => "unknown[][]"
       }
     }
   | {format} => (format :> string)
@@ -1040,11 +1039,6 @@ module Builder = {
   let encoder = (Obj.magic: ((~input: val, ~target: internal) => val) => encoder)
 
   module B = {
-    let eq = (~negative) => negative ? "!==" : "==="
-    let and_ = (~negative) => negative ? "||" : "&&"
-    let exp = (~negative) => negative ? "!" : ""
-    let lt = (~negative) => negative ? ">" : "<"
-
     let embed = (b: val, value) => {
       let e = b.global.embeded
       let l = e->Js.Array2.length
@@ -1308,21 +1302,11 @@ module Builder = {
             // Validation must be used only when there's a prev value
             let input = current.contents->X.Option.getUnsafe
             let inputVar = input.var()
-            let validationCode = validation(~inputVar, ~negative=true)
+            let validationCode = validation(~inputVar)
             currentCode :=
-              `if(${validationCode}){${embedInvalidInput(~input, ~expected=val.expected)}}`
+              `${validationCode}||${embedInvalidInput(~input, ~expected=val.expected)};`
           }
         | _ => ()
-        }
-
-        // FIXME: This is not well-thought + we also have custom merge logic in union decoder which should be updated
-        if val.isOutput->X.Option.getUnsafe && val.expected.refiner->Obj.magic {
-          currentCode :=
-            currentCode.contents ++ (val.expected.refiner->X.Option.getUnsafe)(~input=val)
-        }
-        if val.isInput->X.Option.getUnsafe && val.expected.inputRefiner->Obj.magic {
-          currentCode :=
-            currentCode.contents ++ (val.expected.inputRefiner->X.Option.getUnsafe)(~input=val)
         }
 
         if val.varsAllocation !== "" {
@@ -1344,14 +1328,14 @@ module Builder = {
 
     let appendValidation = (validation1, validation2) => {
       Some(
-        (~inputVar, ~negative) => {
+        (~inputVar) => {
           {
             switch validation1 {
-            | Some(prevValidation) => prevValidation(~inputVar, ~negative) ++ and_(~negative)
+            | Some(prevValidation) => prevValidation(~inputVar) ++ "&&"
             | None => ""
             }
           } ++
-          validation2(~inputVar, ~negative)
+          validation2(~inputVar)
         },
       )
     }
@@ -1721,26 +1705,24 @@ let inputToString = (input: val) => {
   input->B.next(`""+${input.inline}`, ~schema=string)
 }
 
-let int32FormatValidation = (~inputVar, ~negative) => {
-  `${inputVar}${B.lt(~negative)}2147483647${B.and_(~negative)}${inputVar}${B.lt(
-      ~negative=!negative,
-    )}-2147483648${B.and_(~negative)}${inputVar}%1${B.eq(~negative)}0`
+let int32FormatValidation = (~inputVar) => {
+  `${inputVar}<=2147483647&&${inputVar}>=-2147483648&&${inputVar}%1===0`
 }
 
 let numberDecoder = Builder.make((~input) => {
   let inputTagFlag = input.schema.tag->TagFlag.get
   if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
-    input->B.refine(~schema=input.expected, ~validation=(~inputVar, ~negative) => {
-      `typeof ${inputVar}${B.eq(~negative)}"${(numberTag :> string)}"` ++
+    input->B.refine(~schema=input.expected, ~validation=(~inputVar) => {
+      `typeof ${inputVar}==="${(numberTag :> string)}"` ++
       {
         switch input.expected.format {
-        | Some(Int32) => `${B.and_(~negative)}${int32FormatValidation(~inputVar, ~negative)}`
+        | Some(Int32) => `&&${int32FormatValidation(~inputVar)}`
 
         | _ =>
           if input.global.flag->Flag.unsafeHas(Flag.disableNanNumberValidation) {
             ""
           } else {
-            `${B.and_(~negative)}${B.exp(~negative=!negative)}Number.isNaN(${inputVar})`
+            `&&!Number.isNaN(${inputVar})`
           }
         }
       }
@@ -1753,10 +1735,10 @@ let numberDecoder = Builder.make((~input) => {
     output.var = B._var
 
     output.validation = Some(
-      (~inputVar as _, ~negative) => {
+      (~inputVar as _) => {
         switch input.expected.format {
-        | Some(Int32) => int32FormatValidation(~inputVar=outputVar, ~negative)
-        | _ => `${B.exp(~negative=!negative)}Number.isNaN(${outputVar})`
+        | Some(Int32) => int32FormatValidation(~inputVar=outputVar)
+        | _ => `!Number.isNaN(${outputVar})`
         }
       },
     )
@@ -1764,8 +1746,8 @@ let numberDecoder = Builder.make((~input) => {
   } else if !(inputTagFlag->Flag.unsafeHas(TagFlag.number)) {
     input->B.unsupportedConversion(~from=input.schema, ~target=input.expected)
   } else if input.schema.format !== input.expected.format && input.expected.format === Some(Int32) {
-    input->B.refine(~schema=input.expected, ~validation=(~inputVar, ~negative) => {
-      int32FormatValidation(~inputVar, ~negative)
+    input->B.refine(~schema=input.expected, ~validation=(~inputVar) => {
+      int32FormatValidation(~inputVar)
     })
   } else {
     input
@@ -1778,8 +1760,8 @@ int.decoder = numberDecoder
 let stringDecoder = Builder.make((~input) => {
   let inputTagFlag = input.schema.tag->TagFlag.get
   if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
-    input->B.refine(~schema=input.expected, ~validation=(~inputVar, ~negative) => {
-      `typeof ${inputVar}${B.eq(~negative)}"${(stringTag :> string)}"`
+    input->B.refine(~schema=input.expected, ~validation=(~inputVar) => {
+      `typeof ${inputVar}==="${(stringTag :> string)}"`
     })
   } else if (
     inputTagFlag->Flag.unsafeHas(
@@ -1814,8 +1796,8 @@ string.decoder = stringDecoder
 let booleanDecoder = Builder.make((~input) => {
   let inputTagFlag = input.schema.tag->TagFlag.get
   if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
-    input->B.refine(~schema=input.expected, ~validation=(~inputVar, ~negative) => {
-      `typeof ${inputVar}${B.eq(~negative)}"${(booleanTag :> string)}"`
+    input->B.refine(~schema=input.expected, ~validation=(~inputVar) => {
+      `typeof ${inputVar}==="${(booleanTag :> string)}"`
     })
   } else if inputTagFlag->Flag.unsafeHas(TagFlag.string) {
     let outputVar = input.global->B.varWithoutAllocation
@@ -1842,8 +1824,8 @@ let bigintDecoder = Builder.make((~input) => {
   let inputTagFlag = input.schema.tag->TagFlag.get
 
   if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
-    input->B.refine(~schema=input.expected, ~validation=(~inputVar, ~negative) => {
-      `typeof ${inputVar}${B.eq(~negative)}"${(bigintTag :> string)}"`
+    input->B.refine(~schema=input.expected, ~validation=(~inputVar) => {
+      `typeof ${inputVar}==="${(bigintTag :> string)}"`
     })
   } // TODO: Skip formats which 100% don't match
   else if inputTagFlag->Flag.unsafeHas(TagFlag.string) {
@@ -1869,8 +1851,8 @@ bigint.decoder = bigintDecoder
 let symbolDecoder = Builder.make((~input) => {
   let inputTagFlag = input.schema.tag->TagFlag.get
   if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
-    input->B.refine(~schema=input.expected, ~validation=(~inputVar, ~negative) => {
-      `typeof ${inputVar}${B.eq(~negative)}"${(symbolTag :> string)}"`
+    input->B.refine(~schema=input.expected, ~validation=(~inputVar) => {
+      `typeof ${inputVar}==="${(symbolTag :> string)}"`
     })
   } else if !(inputTagFlag->Flag.unsafeHas(TagFlag.symbol)) {
     input->B.unsupportedConversion(~from=input.schema, ~target=input.expected)
@@ -1940,20 +1922,20 @@ module Literal = {
         // and we need to keep existing validation
         // S.string->S.check->S.to(S.literal(false))
         stringConstVal.validation = Some(
-          (~inputVar, ~negative) => {
-            `${inputVar}${B.eq(~negative)}"${stringConstSchema.const->Obj.magic}"`
+          (~inputVar) => {
+            `${inputVar}==="${stringConstSchema.const->Obj.magic}"`
           },
         )
 
         stringConstVal->B.nextConst(~schema=expectedSchema, ~expected=expectedSchema)
       } else if schemaTagFlag->Flag.unsafeHas(TagFlag.nan) {
-        input->B.refine(~schema=expectedSchema, ~validation=(~inputVar, ~negative) => {
-          `${B.exp(~negative)}Number.isNaN(${inputVar})`
+        input->B.refine(~schema=expectedSchema, ~validation=(~inputVar) => {
+          `Number.isNaN(${inputVar})`
         })
       } else {
         // TODO: Determine impossible cases during compilation
-        input->B.refine(~schema=expectedSchema, ~validation=(~inputVar, ~negative) => {
-          `${inputVar}${B.eq(~negative)}${input->B.inlineConst(expectedSchema)}`
+        input->B.refine(~schema=expectedSchema, ~validation=(~inputVar) => {
+          `${inputVar}===${input->B.inlineConst(expectedSchema)}`
         })
       }
     }
@@ -2069,9 +2051,26 @@ let rec parse = (input: val) => {
         appliedEncoderRef := Some(maybeEncoder->Option.getUnsafe)
       } else {
         valRef := loopInput.expected.decoder(~input=loopInput)
+
+        // If the decoder's return value is not marked as isOutput,
+        // we treat it as a primitive decoder with no internal transformations.
+        // Otherwise, we assume internal transformations are present,
+        // and expect the decoder itself to handle refinements and manage isInput/isOutput flags.
         if !(valRef.contents.isOutput->Option.getUnsafe) {
           valRef.contents.isInput = Some(true)
           valRef.contents.isOutput = Some(true)
+
+          // FIXME: This is not well-thought + we also have custom merge logic in union decoder which should be updated
+          if valRef.contents.expected.inputRefiner->Obj.magic {
+            valRef.contents.codeFromPrev =
+              valRef.contents.codeFromPrev ++
+              (valRef.contents.expected.inputRefiner->X.Option.getUnsafe)(~input=valRef.contents)
+          }
+          if valRef.contents.expected.refiner->Obj.magic {
+            valRef.contents.codeFromPrev =
+              valRef.contents.codeFromPrev ++
+              (valRef.contents.expected.refiner->X.Option.getUnsafe)(~input=valRef.contents)
+          }
         }
       }
     }
@@ -2478,7 +2477,7 @@ and arrayDecoder: builder = (~input as unknownInput) => {
     let validation = ref(None)
     let isArrayInput = unknownInputTagFlag->Flag.unsafeHas(TagFlag.array)
     let schema = if !isArrayInput {
-      validation := Some((~inputVar, ~negative) => `${B.exp(~negative)}Array.isArray(${inputVar})`)
+      validation := Some((~inputVar) => `Array.isArray(${inputVar})`)
       array(unknown->castToPublic)->castToInternal
     } else {
       unknownInput.schema
@@ -2493,13 +2492,13 @@ and arrayDecoder: builder = (~input as unknownInput) => {
       switch expectedSchema.additionalItems->X.Option.getUnsafe {
       | Strict =>
         validation :=
-          validation.contents->B.appendValidation((~inputVar, ~negative) =>
-            `${inputVar}.length${B.eq(~negative)}${expectedLength->X.Int.unsafeToString}`
+          validation.contents->B.appendValidation((~inputVar) =>
+            `${inputVar}.length===${expectedLength->X.Int.unsafeToString}`
           )
       | Strip =>
         validation :=
-          validation.contents->B.appendValidation((~inputVar, ~negative) =>
-            `${inputVar}.length${B.lt(~negative=!negative)}${expectedLength->X.Int.unsafeToString}`
+          validation.contents->B.appendValidation((~inputVar) =>
+            `${inputVar}.length>=${expectedLength->X.Int.unsafeToString}`
           )
 
       | _ => ()
@@ -2582,10 +2581,9 @@ and arrayDecoder: builder = (~input as unknownInput) => {
       switch itemOutput.validation {
       | Some(validation) if isUnion && schema->isLiteral =>
         input.validation =
-          input.validation->B.appendValidation((~inputVar, ~negative) => {
+          input.validation->B.appendValidation((~inputVar) => {
             validation(
               ~inputVar=inputVar ++ input.global->B.inlineLocation(key)->Path.fromInlinedLocation,
-              ~negative,
             )
           })
         itemOutput.validation = None
@@ -2623,10 +2621,8 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
       // TODO: Use dictFactory here
       validation :=
         Some(
-          (~inputVar, ~negative) =>
-            `typeof ${inputVar}${B.eq(~negative)}"${(objectTag :> string)}"${B.and_(
-                ~negative,
-              )}${B.exp(~negative)}${inputVar}`,
+          (~inputVar) =>
+            `typeof ${inputVar}==="${(objectTag :> string)}"&&${inputVar}`,
         )
       let mut = base(objectTag, ~selfReverse=false)
       mut.properties = Some(X.Object.immutableEmpty)
@@ -2641,8 +2637,8 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
       // For other cases we might optimize it,
       // this is why the check is a must have
       validation :=
-        validation.contents->B.appendValidation((~inputVar, ~negative) =>
-          `${B.exp(~negative=!negative)}Array.isArray(${inputVar})`
+        validation.contents->B.appendValidation((~inputVar) =>
+          `!Array.isArray(${inputVar})`
         )
     }
 
@@ -2734,10 +2730,9 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
         switch itemOutput.validation {
         | Some(validation) if isUnion && schema->isLiteral =>
           input.validation =
-            input.validation->B.appendValidation((~inputVar, ~negative) => {
+            input.validation->B.appendValidation((~inputVar) => {
               validation(
                 ~inputVar=inputVar ++ input.global->B.inlineLocation(key)->Path.fromInlinedLocation,
-                ~negative,
               )
             })
           itemOutput.validation = None
@@ -2908,9 +2903,8 @@ let recursiveDecoder = Builder.make((~input) => {
 let instanceDecoder = Builder.make((~input) => {
   let inputTagFlag = input.schema.tag->TagFlag.get
   if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
-    input->B.refine(~schema=input.expected, ~validation=(~inputVar, ~negative) => {
-      let c = `${inputVar} instanceof ${input->B.embed(input.expected.class)}`
-      negative ? `!(${c})` : c
+    input->B.refine(~schema=input.expected, ~validation=(~inputVar) => {
+      `${inputVar} instanceof ${input->B.embed(input.expected.class)}`
     })
   } else if (
     inputTagFlag->Flag.unsafeHas(TagFlag.instance) && input.schema.class === input.expected.class
@@ -3476,7 +3470,7 @@ module Union = {
                   // Validation must be used only when there's a prev value
                   let input = current.contents->X.Option.getUnsafe
                   let inputVar = input.var()
-                  let condCode = validation(~inputVar, ~negative=false)
+                  let condCode = validation(~inputVar)
                   if itemCond.contents->X.String.unsafeToBool {
                     itemCond := `${condCode}&&${itemCond.contents}`
                   } else {
@@ -3486,12 +3480,12 @@ module Union = {
                   // Validation must be used only when there's a prev value
                   let input = current.contents->X.Option.getUnsafe
                   let inputVar = input.var()
-                  let validationCode = validation(~inputVar, ~negative=true)
+                  let validationCode = validation(~inputVar)
                   currentCode :=
-                    `if(${validationCode}){${B.embedInvalidInput(
+                    `${validationCode}||${B.embedInvalidInput(
                         ~input=val,
                         ~expected=val.expected,
-                      )}}`
+                      )};`
                 } else {
                   ()
                 }
@@ -3637,9 +3631,8 @@ module Union = {
                 typeValidationOutput.validation =
                   typeValidationOutput.validation->B.appendValidation((
                     ~inputVar as _,
-                    ~negative,
                   ) => {
-                    `${B.exp(~negative)}(${itemNoop.contents})`
+                    `(${itemNoop.contents})`
                   })
               }
             } else if withExhaustiveCheck.contents {
@@ -3858,7 +3851,7 @@ module Union = {
                 // Validation must be used only when there's a prev value
                 let input = current.contents->X.Option.getUnsafe
                 let inputVar = input.var()
-                let condCode = validation(~inputVar, ~negative=false)
+                let condCode = validation(~inputVar)
                 if blockCond.contents->X.String.unsafeToBool {
                   blockCond := `${condCode}&&${blockCond.contents}`
                 } else {
@@ -3868,12 +3861,12 @@ module Union = {
                 // Validation must be used only when there's a prev value
                 let input = current.contents->X.Option.getUnsafe
                 let inputVar = input.var()
-                let validationCode = validation(~inputVar, ~negative=true)
+                let validationCode = validation(~inputVar)
                 currentCode :=
-                  `if(${validationCode}){${B.embedInvalidInput(
+                  `${validationCode}||${B.embedInvalidInput(
                       ~input=val,
                       ~expected=val.expected,
-                    )}}`
+                    )};`
               } else {
                 ()
               }
@@ -4721,8 +4714,8 @@ let enableIsoDateTime = () => {
 }
 
 let invalidDateRefine = (input: val) =>
-  input->B.refine(~schema=input.expected, ~validation=(~inputVar, ~negative) => {
-    `${B.exp(~negative=!negative)}Number.isNaN(${inputVar}.getTime())`
+  input->B.refine(~schema=input.expected, ~validation=(~inputVar) => {
+    `!Number.isNaN(${inputVar}.getTime())`
   })
 
 let date = {
@@ -4736,14 +4729,13 @@ let date = {
       ->invalidDateRefine
     } else if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
       instanceDecoder(~input)->invalidDateRefine
-    } else if (
-      inputTagFlag->Flag.unsafeHas(TagFlag.instance) && input.schema.class === mut.class
-    ) {
+    } else if inputTagFlag->Flag.unsafeHas(TagFlag.instance) && input.schema.class === mut.class {
       input
     } else {
       input->B.unsupportedConversion(~from=input.schema, ~target=input.expected)
     }
   })
+
   // Encoder: Date → string (via toISOString) when target is string
   mut.encoder = Some(
     Builder.encoder((~input, ~target) => {
@@ -5356,12 +5348,11 @@ module Schema = {
       } else {
         // When acc is None (discriminant field with no input), follow the to chain
         // to get the actual output schema properties (e.g., for reversed transformed objects)
-        let resolvedTargetSchema =
-          if acc === None {
-            targetSchema->getOutputSchema
-          } else {
-            targetSchema
-          }
+        let resolvedTargetSchema = if acc === None {
+          targetSchema->getOutputSchema
+        } else {
+          targetSchema
+        }
         let v = makeObjectVal(input, ~schema=resolvedTargetSchema)
         v.expected = resolvedTargetSchema
         v.isOutput = Some(true)
@@ -5616,8 +5607,7 @@ let compactColumnsEncoder = Builder.encoder((~input, ~target) => {
         `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${settingCode.contents}}`
       output
     }
-  | None =>
-    input->B.unsupportedConversion(~from=input.schema, ~target)
+  | None => input->B.unsupportedConversion(~from=input.schema, ~target)
   }
 })
 
@@ -5660,9 +5650,8 @@ let compactColumnsDecoder = (~input) => {
       if keys->Js.Array2.length === 0 {
         if isUnknownInput {
           input.validation = Some(
-            (~inputVar, ~negative) => {
-              `${B.exp(~negative)}Array.isArray(${inputVar})` ++
-              `${B.and_(~negative)}${inputVar}.length${B.eq(~negative)}0`
+            (~inputVar) => {
+              `Array.isArray(${inputVar})&&${inputVar}.length===0`
             },
           )
         }
@@ -5674,16 +5663,13 @@ let compactColumnsDecoder = (~input) => {
         // Forward direction: columnar → rows
         if isUnknownInput {
           input.validation = Some(
-            (~inputVar, ~negative) => {
-              `${B.exp(~negative)}Array.isArray(${inputVar})` ++
-              `${B.and_(~negative)}${inputVar}.length${B.eq(~negative)}${keys
+            (~inputVar) => {
+              `Array.isArray(${inputVar})&&${inputVar}.length===${keys
                 ->Js.Array2.length
                 ->X.Int.unsafeToString}` ++
               `${keys
                 ->Js.Array2.mapi((_, idx) => {
-                  `${B.and_(~negative)}${B.exp(
-                      ~negative,
-                    )}Array.isArray(${inputVar}[${idx->X.Int.unsafeToString}])`
+                  `&&Array.isArray(${inputVar}[${idx->X.Int.unsafeToString}])`
                 })
                 ->Js.Array2.joinWith("")}`
             },
@@ -5716,8 +5702,7 @@ let compactColumnsDecoder = (~input) => {
           }
           lengthCode := lengthCode.contents ++ `${inputVar}[${idx->X.Int.unsafeToString}].length,`
           itemBuildCode :=
-            itemBuildCode.contents ++
-            `${key->X.Inlined.Value.fromString}:${fieldValueCode},`
+            itemBuildCode.contents ++ `${key->X.Inlined.Value.fromString}:${fieldValueCode},`
         }
 
         input.allocate(`${outputVar}=new Array(Math.max(${lengthCode.contents}))`)
@@ -5784,7 +5769,9 @@ let compactColumnsDecoder = (~input) => {
       }
     }
   | None =>
-    InternalError.panic("S.compactColumns supports only object schemas. Use S.compactColumns(S.unknown)->S.to(S.array(objectSchema)).")
+    InternalError.panic(
+      "S.compactColumns supports only object schemas. Use S.compactColumns(S.unknown)->S.to(S.array(objectSchema)).",
+    )
   }
 }
 
@@ -6782,8 +6769,7 @@ module RescriptJSONSchema = {
           jsonSchema.type_ = Some(Arrayable.single(#object))
           jsonSchema.properties = Some(jsonProperties)
           switch additionalItems {
-          | Strict =>
-            jsonSchema.additionalProperties = Some(JSONSchema.Never)
+          | Strict => jsonSchema.additionalProperties = Some(JSONSchema.Never)
           | Strip
           | Schema(_) => ()
           }
@@ -7103,9 +7089,7 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
         }, ~error="Should pass the if/then/else schema validation.")
       }
     | _ if jsonSchema.type_ !== None =>
-      InternalError.panic(
-        `Unknown JSON Schema type: ${(jsonSchema.type_->Obj.magic: string)}`,
-      )
+      InternalError.panic(`Unknown JSON Schema type: ${(jsonSchema.type_->Obj.magic: string)}`)
     | _ => anySchema
     }
 

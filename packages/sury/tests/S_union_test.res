@@ -147,7 +147,7 @@ test("Ensures parsing order with unknown schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{if(typeof i!=="string"){e[2](i)}if(i.length!==e[0]){e[1]()}}catch(e2){try{if(typeof i!=="boolean"){e[3](i)}}catch(e3){try{let v0;try{v0=e[4](i)}catch(x){e[5](x)}i=v0}catch(e4){if(!(typeof i==="number"&&!Number.isNaN(i)||typeof i==="bigint")){e[6](i,e2,e3,e4)}}}}return i}`,
+    `i=>{try{typeof i==="string"||e[2](i);if(i.length!==e[0]){e[1]()}}catch(e2){try{typeof i==="boolean"||e[3](i);}catch(e3){try{let v0;try{v0=e[4](i)}catch(x){e[5](x)}i=v0}catch(e4){if(!(typeof i==="number"&&!Number.isNaN(i)||typeof i==="bigint")){e[6](i,e2,e3,e4)}}}}return i}`,
   )
 })
 
@@ -285,7 +285,7 @@ module Advanced = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i){e[6](i)}let v0=i["field"];if(typeof v0==="object"&&v0&&!Array.isArray(v0)){if(v0["kind"]==="circle"){let v1=v0["radius"];if(typeof v1!=="number"||Number.isNaN(v1)){e[0](v1)}v0={"TAG":"Circle","radius":v1,}}else if(v0["kind"]==="square"){let v2=v0["x"];if(typeof v2!=="number"||Number.isNaN(v2)){e[1](v2)}v0={"TAG":"Square","x":v2,}}else if(v0["kind"]==="triangle"){let v3=v0["x"],v4=v0["y"];if(typeof v3!=="number"||Number.isNaN(v3)){e[2](v3)}if(typeof v4!=="number"||Number.isNaN(v4)){e[3](v4)}v0={"TAG":"Triangle","x":v3,"y":v4,}}else{e[4](v0)}}else{e[5](v0)}return v0}`,
+      `i=>{typeof i==="object"&&i||e[6](i);let v0=i["field"];if(typeof v0==="object"&&v0&&!Array.isArray(v0)){if(v0["kind"]==="circle"){let v1=v0["radius"];typeof v1==="number"&&!Number.isNaN(v1)||e[0](v1);v0={"TAG":"Circle","radius":v1,}}else if(v0["kind"]==="square"){let v2=v0["x"];typeof v2==="number"&&!Number.isNaN(v2)||e[1](v2);v0={"TAG":"Square","x":v2,}}else if(v0["kind"]==="triangle"){let v3=v0["x"],v4=v0["y"];typeof v3==="number"&&!Number.isNaN(v3)||e[2](v3);typeof v4==="number"&&!Number.isNaN(v4)||e[3](v4);v0={"TAG":"Triangle","x":v3,"y":v4,}}else{e[4](v0)}}else{e[5](v0)}return v0}`,
     )
 
     t->U.assertThrowsMessage(
@@ -360,7 +360,7 @@ module Advanced = {
     t->U.assertCompiledCode(
       ~schema=shapeSchema,
       ~op=#Parse,
-      `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["kind"]==="circle"){let v0=i["radius"];if(typeof v0!=="number"||Number.isNaN(v0)){e[0](v0)}i={"TAG":"Circle","radius":v0,}}else if(i["kind"]==="square"){let v1=i["x"];if(typeof v1!=="number"||Number.isNaN(v1)){e[1](v1)}i={"TAG":"Square","x":v1,}}else if(i["kind"]==="triangle"){let v2=i["x"],v3=i["y"];if(typeof v2!=="number"||Number.isNaN(v2)){e[2](v2)}if(typeof v3!=="number"||Number.isNaN(v3)){e[3](v3)}i={"TAG":"Triangle","x":v2,"y":v3,}}else{e[4](i)}}else{e[5](i)}return i}`,
+      `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["kind"]==="circle"){let v0=i["radius"];typeof v0==="number"&&!Number.isNaN(v0)||e[0](v0);i={"TAG":"Circle","radius":v0,}}else if(i["kind"]==="square"){let v1=i["x"];typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);i={"TAG":"Square","x":v1,}}else if(i["kind"]==="triangle"){let v2=i["x"],v3=i["y"];typeof v2==="number"&&!Number.isNaN(v2)||e[2](v2);typeof v3==="number"&&!Number.isNaN(v3)||e[3](v3);i={"TAG":"Triangle","x":v2,"y":v3,}}else{e[4](i)}}else{e[5](i)}return i}`,
     )
   })
 
@@ -369,7 +369,7 @@ module Advanced = {
       ~schema=shapeSchema,
       ~op=#ReverseConvert,
       // TODO: Can be optimized
-      `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["TAG"]==="Circle"){let v0=i["radius"];if(typeof v0!=="number"||Number.isNaN(v0)){e[0](v0)}i={"kind":"circle","radius":v0,}}else if(i["TAG"]==="Square"){let v1=i["x"];if(typeof v1!=="number"||Number.isNaN(v1)){e[1](v1)}i={"kind":"square","x":v1,}}else if(i["TAG"]==="Triangle"){let v2=i["x"],v3=i["y"];if(typeof v2!=="number"||Number.isNaN(v2)){e[2](v2)}if(typeof v3!=="number"||Number.isNaN(v3)){e[3](v3)}i={"kind":"triangle","x":v2,"y":v3,}}else{e[4](i)}}else{e[5](i)}return i}`,
+      `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["TAG"]==="Circle"){let v0=i["radius"];typeof v0==="number"&&!Number.isNaN(v0)||e[0](v0);i={"kind":"circle","radius":v0,}}else if(i["TAG"]==="Square"){let v1=i["x"];typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);i={"kind":"square","x":v1,}}else if(i["TAG"]==="Triangle"){let v2=i["x"],v3=i["y"];typeof v2==="number"&&!Number.isNaN(v2)||e[2](v2);typeof v3==="number"&&!Number.isNaN(v3)||e[3](v3);i={"kind":"triangle","x":v2,"y":v3,}}else{e[4](i)}}else{e[5](i)}return i}`,
     )
   })
 }
@@ -409,7 +409,7 @@ test("Array should be checked before object even if it's later item in the union
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(Array.isArray(i)){for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];if(typeof v1!=="string"){e[0](v1)}}catch(v2){v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2}}}else if(typeof i==="object"&&i&&!Array.isArray(i)){let v3=i["foo"];if(typeof v3!=="string"){e[1](v3)}i=[v3,]}else{e[2](i)}return i}`,
+    `i=>{if(Array.isArray(i)){for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2}}}else if(typeof i==="object"&&i&&!Array.isArray(i)){let v3=i["foo"];typeof v3==="string"||e[1](v3);i=[v3,]}else{e[2](i)}return i}`,
   )
 })
 
@@ -428,7 +428,7 @@ test("Instance schema should be checked before object even if it's later item in
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(i instanceof e[0]){}else if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["foo"];if(typeof v0!=="string"){e[1](v0)}i=[v0,]}else{e[2](i)}return i}`,
+    `i=>{if(i instanceof e[0]){}else if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["foo"];typeof v0==="string"||e[1](v0);i=[v0,]}else{e[2](i)}return i}`,
   )
 })
 
@@ -468,7 +468,7 @@ test("Successfully serializes unboxed variant", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}if(typeof v0!=="string"){e[2](v0)}i=v0}catch(e0){if(!(typeof i==="string")){e[3](i,e0)}}return i}`,
+    `i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i=v0}catch(e0){if(!(typeof i==="string")){e[3](i,e0)}}return i}`,
   )
 
   // The same, but toString schema is the first
@@ -484,7 +484,7 @@ test("Successfully serializes unboxed variant", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{try{if(typeof i!=="string"){e[0](i)}}catch(e1){try{let v0;try{v0=e[1](i)}catch(x){e[2](x)}if(typeof v0!=="string"){e[3](v0)}i=v0}catch(e2){e[4](i,e1,e2)}}return i}`,
+    `i=>{try{typeof i==="string"||e[0](i);}catch(e1){try{let v0;try{v0=e[1](i)}catch(x){e[2](x)}typeof v0==="string"||e[3](v0);i=v0}catch(e2){e[4](i,e1,e2)}}return i}`,
   )
 })
 
@@ -570,7 +570,7 @@ test("Union with nested variant", t => {
     ~schema,
     ~op=#ReverseConvert,
     // TODO: Can optimize it
-    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["foo"];if(typeof v0!=="object"||!v0){e[2](v0)}let v1=v0["tag"];if(typeof v1!=="object"||!v1||v1["NAME"]!=="Null"){e[1](v1)}let v2=v1["VAL"];if(v2===void 0){v2=null}else if(!(typeof v2==="string")){e[0](v2)}i={"foo":{"tag":{"NAME":v1["NAME"],"VAL":v2,},},}}catch(e0){try{let v3=i["foo"];if(typeof v3!=="object"||!v3){e[5](v3)}let v4=v3["tag"];if(typeof v4!=="object"||!v4||v4["NAME"]!=="Option"){e[4](v4)}let v5=v4["VAL"];if(!(typeof v5==="string"||v5===void 0)){e[3](v5)}i={"foo":{"tag":{"NAME":v4["NAME"],"VAL":v5,},},}}catch(e1){e[6](i,e0,e1)}}}else{e[7](i)}return i}`,
+    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["foo"];typeof v0==="object"&&v0||e[2](v0);let v1=v0["tag"];typeof v1==="object"&&v1&&v1["NAME"]==="Null"||e[1](v1);let v2=v1["VAL"];if(v2===void 0){v2=null}else if(!(typeof v2==="string")){e[0](v2)}i={"foo":{"tag":{"NAME":v1["NAME"],"VAL":v2,},},}}catch(e0){try{let v3=i["foo"];typeof v3==="object"&&v3||e[5](v3);let v4=v3["tag"];typeof v4==="object"&&v4&&v4["NAME"]==="Option"||e[4](v4);let v5=v4["VAL"];if(!(typeof v5==="string"||v5===void 0)){e[3](v5)}i={"foo":{"tag":{"NAME":v4["NAME"],"VAL":v5,},},}}catch(e1){e[6](i,e0,e1)}}}else{e[7](i)}return i}`,
   )
 })
 
@@ -585,7 +585,7 @@ test("Nested union doesn't mutate the input", t => {
     ~schema,
     ~op=#Parse,
     // FIXME: i["foo"] shouldn't be duplicated
-    `i=>{if(typeof i!=="object"||!i){e[1](i)}let v0=i["foo"];if(typeof v0==="boolean"){v0=""+i["foo"]}else if(!(typeof v0==="string")){e[0](v0)}return {"foo":v0,}}`,
+    `i=>{typeof i==="object"&&i||e[1](i);let v0=i["foo"];if(typeof v0==="boolean"){v0=""+i["foo"]}else if(!(typeof v0==="string")){e[0](v0)}return {"foo":v0,}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -710,7 +710,7 @@ module CrazyUnion = {
       ~schema,
       ~op=#Parse,
       `i=>{let v0;v0=e[0](i);return v0}
-Crazy: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["type"]==="A"){let v0=i["nested"];if(!Array.isArray(v0)){e[1](v0)}let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2;v2=e[0]["unknown->Crazy--0"](v0[v1]);v4[v1]=v2}catch(v3){v3.path="[\\"nested\\"]"+'["'+v1+'"]'+v3.path;throw v3}}i={"TAG":"A","_0":v4,}}else if(i["type"]==="Z"){let v5=i["nested"];if(!Array.isArray(v5)){e[3](v5)}let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){try{let v7;v7=e[2]["unknown->Crazy--0"](v5[v6]);v9[v6]=v7}catch(v8){v8.path="[\\"nested\\"]"+'["'+v6+'"]'+v8.path;throw v8}}i={"TAG":"Z","_0":v9,}}else{e[4](i)}}else if(!(typeof i==="string"&&(i==="B"||i==="C"||i==="D"||i==="E"||i==="F"||i==="G"||i==="H"||i==="I"||i==="J"||i==="K"||i==="L"||i==="M"||i==="N"||i==="O"||i==="P"||i==="Q"||i==="R"||i==="S"||i==="T"||i==="U"||i==="V"||i==="W"||i==="X"||i==="Y"))){e[5](i)}return i}`,
+Crazy: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["type"]==="A"){let v0=i["nested"];Array.isArray(v0)||e[1](v0);let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2;v2=e[0]["unknown->Crazy--0"](v0[v1]);v4[v1]=v2}catch(v3){v3.path="[\\"nested\\"]"+'["'+v1+'"]'+v3.path;throw v3}}i={"TAG":"A","_0":v4,}}else if(i["type"]==="Z"){let v5=i["nested"];Array.isArray(v5)||e[3](v5);let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){try{let v7;v7=e[2]["unknown->Crazy--0"](v5[v6]);v9[v6]=v7}catch(v8){v8.path="[\\"nested\\"]"+'["'+v6+'"]'+v8.path;throw v8}}i={"TAG":"Z","_0":v9,}}else{e[4](i)}}else if(!(typeof i==="string"&&(i==="B"||i==="C"||i==="D"||i==="E"||i==="F"||i==="G"||i==="H"||i==="I"||i==="J"||i==="K"||i==="L"||i==="M"||i==="N"||i==="O"||i==="P"||i==="Q"||i==="R"||i==="S"||i==="T"||i==="U"||i==="V"||i==="W"||i==="X"||i==="Y"))){e[5](i)}return i}`,
     )
   })
 
@@ -808,12 +808,12 @@ test("Issue https://github.com/DZakh/rescript-schema/issues/101", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["NAME"]==="request"){let v0=i["VAL"];if(typeof v0!=="object"||!v0){e[1](v0)}let v1=v0["collectionName"];if(typeof v1!=="string"){e[0](v1)}i={"NAME":i["NAME"],"VAL":{"collectionName":v1,},}}else if(i["NAME"]==="response"){let v2=i["VAL"];if(typeof v2!=="object"||!v2){e[4](v2)}let v3=v2["collectionName"],v4=v2["response"];if(typeof v3!=="string"){e[2](v3)}if(!(typeof v4==="string"&&(v4==="accepted"||v4==="rejected"))){e[3](v4)}i={"NAME":i["NAME"],"VAL":{"collectionName":v3,"response":v4,},}}else{e[5](i)}}else{e[6](i)}return i}`,
+    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["NAME"]==="request"){let v0=i["VAL"];typeof v0==="object"&&v0||e[1](v0);let v1=v0["collectionName"];typeof v1==="string"||e[0](v1);i={"NAME":i["NAME"],"VAL":{"collectionName":v1,},}}else if(i["NAME"]==="response"){let v2=i["VAL"];typeof v2==="object"&&v2||e[4](v2);let v3=v2["collectionName"],v4=v2["response"];typeof v3==="string"||e[2](v3);if(!(typeof v4==="string"&&(v4==="accepted"||v4==="rejected"))){e[3](v4)}i={"NAME":i["NAME"],"VAL":{"collectionName":v3,"response":v4,},}}else{e[5](i)}}else{e[6](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["NAME"]==="request"){let v0=i["VAL"];if(typeof v0!=="object"||!v0){e[1](v0)}let v1=v0["collectionName"];if(typeof v1!=="string"){e[0](v1)}i={"NAME":i["NAME"],"VAL":{"collectionName":v1,},}}else if(i["NAME"]==="response"){let v2=i["VAL"];if(typeof v2!=="object"||!v2){e[4](v2)}let v3=v2["collectionName"],v4=v2["response"];if(typeof v3!=="string"){e[2](v3)}if(!(typeof v4==="string"&&(v4==="accepted"||v4==="rejected"))){e[3](v4)}i={"NAME":i["NAME"],"VAL":{"collectionName":v3,"response":v4,},}}else{e[5](i)}}else{e[6](i)}return i}`,
+    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["NAME"]==="request"){let v0=i["VAL"];typeof v0==="object"&&v0||e[1](v0);let v1=v0["collectionName"];typeof v1==="string"||e[0](v1);i={"NAME":i["NAME"],"VAL":{"collectionName":v1,},}}else if(i["NAME"]==="response"){let v2=i["VAL"];typeof v2==="object"&&v2||e[4](v2);let v3=v2["collectionName"],v4=v2["response"];typeof v3==="string"||e[2](v3);if(!(typeof v4==="string"&&(v4==="accepted"||v4==="rejected"))){e[3](v4)}i={"NAME":i["NAME"],"VAL":{"collectionName":v3,"response":v4,},}}else{e[5](i)}}else{e[6](i)}return i}`,
   )
 
   t->Assert.deepEqual(
@@ -831,7 +831,7 @@ test("Issue https://github.com/DZakh/rescript-schema/issues/101", t => {
 test("Regression https://github.com/DZakh/sury/issues/121", t => {
   let schema = S.union([S.literal(%raw(`null`))->S.castToUnknown, S.unknown])
 
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{try{if(i!==null){e[0](i)}}catch(e1){}return i}`)
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{try{i===null||e[0](i);}catch(e1){}return i}`)
 
   let data = %raw(`{a: 'hey'}`)
   t->Assert.deepEqual(data->S.parseOrThrow(schema), data)
@@ -879,7 +879,7 @@ test("Objects with the same discriminant", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["type"]==="A"){try{let v0=i["value"];if(!(typeof v0==="string"&&(v0==="foo"||v0==="bar"))){e[0](v0)}i={"TAG":"Ok","_0":v0,}}catch(e0){try{let v1=i["value"];if(typeof v1!=="string"){e[1](v1)}i={"TAG":"Error","_0":v1,}}catch(e1){e[2](i,e0,e1)}}}else{e[3](i)}}else{e[4](i)}return i}`,
+    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["type"]==="A"){try{let v0=i["value"];if(!(typeof v0==="string"&&(v0==="foo"||v0==="bar"))){e[0](v0)}i={"TAG":"Ok","_0":v0,}}catch(e0){try{let v1=i["value"];typeof v1==="string"||e[1](v1);i={"TAG":"Error","_0":v1,}}catch(e1){e[2](i,e0,e1)}}}else{e[3](i)}}else{e[4](i)}return i}`,
   )
 })
 
@@ -920,13 +920,13 @@ module CknittelBugReport = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["payload"];if(typeof v0!=="object"||!v0){e[1](v0)}let v1=v0["a"];if(!(typeof v1==="string"||v1===void 0)){e[0](v1)}i={"TAG":"A","_0":{"payload":{"a":v1,},},}}catch(e0){try{let v2=i["payload"];if(typeof v2!=="object"||!v2){e[3](v2)}let v3=v2["b"];if(!(typeof v3==="number"&&!Number.isNaN(v3)&&(v3<2147483647&&v3>-2147483648&&v3%1===0)||v3===void 0)){e[2](v3)}i={"TAG":"B","_0":{"payload":{"b":v3,},},}}catch(e1){e[4](i,e0,e1)}}}else{e[5](i)}return i}`,
+      `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["payload"];typeof v0==="object"&&v0||e[1](v0);let v1=v0["a"];if(!(typeof v1==="string"||v1===void 0)){e[0](v1)}i={"TAG":"A","_0":{"payload":{"a":v1,},},}}catch(e0){try{let v2=i["payload"];typeof v2==="object"&&v2||e[3](v2);let v3=v2["b"];if(!(typeof v3==="number"&&!Number.isNaN(v3)&&(v3<=2147483647&&v3>=-2147483648&&v3%1===0)||v3===void 0)){e[2](v3)}i={"TAG":"B","_0":{"payload":{"b":v3,},},}}catch(e1){e[4](i,e0,e1)}}}else{e[5](i)}return i}`,
     )
 
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["TAG"]==="A"){let v0=i["_0"];if(typeof v0!=="object"||!v0){e[2](v0)}let v1=v0["payload"];if(typeof v1!=="object"||!v1){e[1](v1)}let v2=v1["a"];if(!(typeof v2==="string"||v2===void 0)){e[0](v2)}i={"payload":{"a":v2,},}}else if(i["TAG"]==="B"){let v3=i["_0"];if(typeof v3!=="object"||!v3){e[5](v3)}let v4=v3["payload"];if(typeof v4!=="object"||!v4){e[4](v4)}let v5=v4["b"];if(!(typeof v5==="number"&&!Number.isNaN(v5)&&(v5<2147483647&&v5>-2147483648&&v5%1===0)||v5===void 0)){e[3](v5)}i={"payload":{"b":v5,},}}else{e[6](i)}}else{e[7](i)}return i}`,
+      `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["TAG"]==="A"){let v0=i["_0"];typeof v0==="object"&&v0||e[2](v0);let v1=v0["payload"];typeof v1==="object"&&v1||e[1](v1);let v2=v1["a"];if(!(typeof v2==="string"||v2===void 0)){e[0](v2)}i={"payload":{"a":v2,},}}else if(i["TAG"]==="B"){let v3=i["_0"];typeof v3==="object"&&v3||e[5](v3);let v4=v3["payload"];typeof v4==="object"&&v4||e[4](v4);let v5=v4["b"];if(!(typeof v5==="number"&&!Number.isNaN(v5)&&(v5<=2147483647&&v5>=-2147483648&&v5%1===0)||v5===void 0)){e[3](v5)}i={"payload":{"b":v5,},}}else{e[6](i)}}else{e[7](i)}return i}`,
     )
 
     let x = {
@@ -950,6 +950,6 @@ test("Optional of int32 should keep a format validation", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(!(typeof i==="number"&&!Number.isNaN(i)&&(i<2147483647&&i>-2147483648&&i%1===0)||i===void 0)){e[0](i)}return i}`,
+    `i=>{if(!(typeof i==="number"&&!Number.isNaN(i)&&(i<=2147483647&&i>=-2147483648&&i%1===0)||i===void 0)){e[0](i)}return i}`,
   )
 })

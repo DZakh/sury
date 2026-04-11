@@ -53,7 +53,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(i!=="ReScript is Great!"){e[0](i)}return i}`,
+      `i=>{i==="ReScript is Great!"||e[0](i);return i}`,
     )
   })
 
@@ -63,7 +63,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{if(i!=="ReScript is Great!"){e[0](i)}return i}`,
+      `i=>{i==="ReScript is Great!"||e[0](i);return i}`,
     )
   })
 

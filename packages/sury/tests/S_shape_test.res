@@ -15,7 +15,7 @@ asyncTest("Parses with wrapping async schema in variant", async t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{if(typeof i!=="string"){e[2](i)}let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0.then(v0=>{return {"TAG":"Ok","_0":v0,}})}`,
+    `i=>{typeof i==="string"||e[2](i);let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0.then(v0=>{return {"TAG":"Ok","_0":v0,}})}`,
   )
 })
 
@@ -74,7 +74,7 @@ test("Successfully parses when tuple is destructured", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(!Array.isArray(i)||i.length!==2){e[2](i)}let v0=i["0"],v1=i["1"];if(v0!==true){e[0](v0)}if(v1!==12){e[1](v1)}return v1}`,
+    `i=>{Array.isArray(i)&&i.length===2||e[2](i);let v0=i["0"],v1=i["1"];v0===true||e[0](v0);v1===12||e[1](v1);return v1}`,
   )
 })
 
@@ -96,7 +96,7 @@ test(
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i){e[1](i)}let v0=i["foo"];if(typeof v0!=="string"){e[0](v0)}return v0}`,
+      `i=>{typeof i==="object"&&i||e[1](i);let v0=i["foo"];typeof v0==="string"||e[0](v0);return v0}`,
     )
   },
 )
@@ -121,7 +121,7 @@ test(
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["foo"];if(typeof v0!=="object"||!v0){e[1](v0)}let v1=v0["bar"];if(typeof v1!=="string"){e[0](v1)}return v1}`,
+      `i=>{typeof i==="object"&&i||e[2](i);let v0=i["foo"];typeof v0==="object"&&v0||e[1](v0);let v1=v0["bar"];typeof v1==="string"||e[0](v1);return v1}`,
     )
   },
 )
@@ -177,7 +177,7 @@ test(
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i){e[5](i)}let v0=i["foo"];if(typeof v0!=="string"){e[0](v0)}let v1;try{v1=e[1]({"foo":v0,})}catch(x){e[2](x)}if(typeof v1!=="object"||!v1){e[4](v1)}let v2=v1["faz"];if(typeof v2!=="string"){e[3](v2)}return v2}`,
+      `i=>{typeof i==="object"&&i||e[5](i);let v0=i["foo"];typeof v0==="string"||e[0](v0);let v1;try{v1=e[1]({"foo":v0,})}catch(x){e[2](x)}typeof v1==="object"&&v1||e[4](v1);let v2=v1["faz"];typeof v2==="string"||e[3](v2);return v2}`,
     )
     t->Assert.deepEqual(
       {
@@ -193,7 +193,7 @@ test("Reverse convert of tagged tuple with destructured literal", t => {
 
   t->Assert.deepEqual(12->S.reverseConvertOrThrow(schema), %raw(`[true, 12]`))
 
-  let code = `i=>{if(i!==12){e[0](i)}return [true,i,]}`
+  let code = `i=>{i===12||e[0](i);return [true,i,]}`
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, code)
   t->U.assertCompiledCode(~schema, ~op=#ReverseParse, code)
 })
@@ -211,7 +211,7 @@ test("Reverse convert of tagged tuple with destructured bool", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseParse,
-    `i=>{if(!Array.isArray(i)||i.length!==2){e[2](i)}let v0=i["0"],v1=i["1"];if(typeof v0!=="boolean"){e[0](v0)}if(v1!=="foo"){e[1](v1)}return [true,v1,v0,]}`,
+    `i=>{Array.isArray(i)&&i.length===2||e[2](i);let v0=i["0"],v1=i["1"];typeof v0==="boolean"||e[0](v0);v1==="foo"||e[1](v1);return [true,v1,v0,]}`,
   )
 })
 
@@ -253,7 +253,7 @@ test("Can destructure object value passed to S.shape", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["foo"],v1=i["bar"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="string"){e[1](v1)}return {"foo":v0,"bar":v1,}}`,
+    `i=>{typeof i==="object"&&i||e[2](i);let v0=i["foo"],v1=i["bar"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);return {"foo":v0,"bar":v1,}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -268,7 +268,7 @@ test("Compiled code snapshot of variant applied to object", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[1](i)}let v0=i["foo"];if(typeof v0!=="string"){e[0](v0)}return {"TAG":"Ok","_0":v0,}}`,
+    `i=>{typeof i==="object"&&i||e[1](i);let v0=i["foo"];typeof v0==="string"||e[0](v0);return {"TAG":"Ok","_0":v0,}}`,
   )
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return {"foo":i["_0"],}}`)
 
@@ -277,7 +277,7 @@ test("Compiled code snapshot of variant applied to object", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[2](i)}let v1=i["foo"];if(typeof v1!=="string"){e[1](v1)}let v0;(v0=v1==="true")||v1==="false"||e[0](v1);return {"TAG":"Ok","_0":v0,}}`,
+    `i=>{typeof i==="object"&&i||e[2](i);let v1=i["foo"];typeof v1==="string"||e[1](v1);let v0;(v0=v1==="true")||v1==="false"||e[0](v1);return {"TAG":"Ok","_0":v0,}}`,
   )
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return {"foo":""+i["_0"],}}`)
 })
@@ -288,14 +288,14 @@ test("Compiled parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="string"){e[0](i)}return {"TAG":"Ok","_0":i,}}`,
+    `i=>{typeof i==="string"||e[0](i);return {"TAG":"Ok","_0":i,}}`,
   )
 })
 
 test("Compiled parse code snapshot without transform", t => {
   let schema = S.string->S.shape(s => s)
 
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(typeof i!=="string"){e[0](i)}return i}`)
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{typeof i==="string"||e[0](i);return i}`)
 })
 
 test("Compiled serialize code snapshot", t => {
@@ -320,7 +320,7 @@ test(
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{if(i!=="foo"){e[0](i)}return [true,12,]}`,
+      `i=>{i==="foo"||e[0](i);return [true,12,]}`,
     )
   },
 )
@@ -338,7 +338,7 @@ test("Works with variant schema used multiple times as a child schema", t => {
   t->U.assertCompiledCode(
     ~schema=appVersionsSchema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[2](i)}let v0=i["ios"],v1=i["android"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="string"){e[1](v1)}return {"ios":{"current":i["ios"],"minimum":"1.0",},"android":{"current":i["android"],"minimum":"1.0",},}}`,
+    `i=>{typeof i==="object"&&i||e[2](i);let v0=i["ios"],v1=i["android"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);return {"ios":{"current":i["ios"],"minimum":"1.0",},"android":{"current":i["android"],"minimum":"1.0",},}}`,
   )
   t->U.assertCompiledCode(
     ~schema=appVersionsSchema,

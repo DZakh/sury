@@ -1,10 +1,14 @@
 # Failing Tests Baseline Snapshot
 #
 # To reproduce this list after making changes, run:
-#   cd packages/sury && npx ava 2>&1 | grep "✘ \[fail\]" | sed 's/lib › bs › //' | sed 's/tests › //' | sort -u
+#   cd packages/sury && npx ava 2>&1 | grep "✘ \[fail\]" | sed 's/lib › bs › //' | sed 's/tests › //' | sed 's/ Error thrown in test//' | sort -u
 #
-# Total: 24 failing tests
+# Total: 26 failing tests
 
+  ✘ [fail]: S_dict_test.res › Fails to serialize dict item
+  ✘ [fail]: S_Float_max_test.res › Compiled parse code snapshot
+  ✘ [fail]: S_jsonString_test.res › Can apply refinement to JSON string with S.to after
+  ✘ [fail]: S_object_escaping_test.res › Has proper error path when fails to parse object with quotes in a field name
   ✘ [fail]: S_object_test.res › Compiled code snapshot for refined nested object
   ✘ [fail]: S_recursive_test.res › Fails to serialise nested recursive object
   ✘ [fail]: S_recursive_test.res › Parses recursive object with async fields in parallel
@@ -15,17 +19,15 @@
   ✘ [fail]: S_recursive_test.res › Successfully serializes recursive object
   ✘ [fail]: S_refine_test.res › Compiled parse code snapshot for simple object with refine
   ✘ [fail]: S_refine_test.res › Successfully parses
-  ✘ [fail]: S_reverseConvertToJsonWith_test.res › Serializes deeply recursive schema
-  ✘ [fail]: S_test › Unnest schema
-  ✘ [fail]: S_toExpression_test.res › Expression of renamed schema
+  ✘ [fail]: S_String_pattern_test.res › Successfully parses valid data
+  ✘ [fail]: S_String_pattern_test.res › Successfully parses valid data with global flag
+  ✘ [fail]: S_to_test.res › Coerce from string to port
   ✘ [fail]: S_to_test.res › Coerce from union to bigint with refinement on union
-  ✘ [fail]: S_to_test.res › Coerce from union to bigint with refinement on union (with an item transformed to)
+  ✘ [fail]: S_to_test.res › Coerce from union to bigint with refinement on union (with an item transformed to) Should apply refinement after the item transformation
   ✘ [fail]: S_to_test.res › Coerce from union to wider union should keep the original value type
-  ✘ [fail]: S_to_test.res › Coerce string to custom JSON schema
+  ✘ [fail]: S_to_test.res › Coerce string to custom JSON schema I don't know what we expect here, but currently it works this way
   ✘ [fail]: S_to_test.res › Transform from union to wider union with different items order (applies decoder to both one at a time)
+  ✘ [fail]: S_toExpression_test.res › Expression of renamed schema
   ✘ [fail]: S_union_test.res › Compiled serialize code snapshot of crazy union
-  ✘ [fail]: S_union_test.res › Ensures parsing order with unknown schema
-  ✘ [fail]: S_union_test.res › NaN should be checked before number even if it's later item in the union
-  ✘ [fail]: S_union_test.res › Serializes when second struct misses serializer
-  ✘ [fail]: S_union_test.res › Union of strings with different refinements
   ✘ [fail]: S_union_test.res › json-rpc response
+  ✘ [fail]: S_union_test.res › Serializes when second struct misses serializer
