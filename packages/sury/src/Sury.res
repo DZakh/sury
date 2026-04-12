@@ -6539,17 +6539,10 @@ module RescriptJSONSchema = {
   }
   and internalToJSONSchema = (schema: schema<unknown>, ~path, ~defs, ~parent): JSONSchema.t => {
     let schemaInternal = schema->castToInternal
-    // Try the encode path when the schema has a user-applied `.to`: reverse
-    // the chain and derive the JSON-compatible shape. We exclude structural
-    // tags (object/array/union) because their `.to` is set internally by
-    // `definitionToShapedSchema` for shaping — not by user `S.to(x)` — and
-    // `internalToJSONSchemaBase` already handles any nested `.to` on children
-    // via recursion into properties/items/variants. Without this exclusion,
-    // `toJSONSchema` would encode-reverse the shaping machinery of plain
-    // objects and produce bogus output.
-    //
-    // If a new tag is introduced whose factory sets `.to` internally, add
-    // its `TagFlag` to the mask below.
+    // When a schema has `.to`, we can try to encode-reverse it to get a more
+    // precise JSON schema (e.g. `format: "date-time"` for `S.string->S.to(S.date)`).
+    // But for structural tags (object/array/union) encoding would lose items
+    // metadata, so we only attempt it for leaf tags where it's safe.
     let hasUserTo =
       schemaInternal.to->Obj.magic &&
         !(
