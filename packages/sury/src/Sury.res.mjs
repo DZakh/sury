@@ -4101,13 +4101,13 @@ function tuple3(v0, v1, v2) {
 }
 
 function assertNumber(n) {
-  if (typeof n === "number") {
+  if (!(typeof n !== "number" || (Number.isNaN(n)))) {
     return;
   }
   throw new SuryError({
     code: "invalid_operation",
     path: "",
-    reason: "Expected number, received " + typeof n
+    reason: "Expected number, received " + stringify(n)
   });
 }
 

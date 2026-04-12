@@ -6215,12 +6215,12 @@ let union = Union.factory
 // =============
 
 let assertNumber: 'a => unit = n =>
-  if Js.typeof(n->Obj.magic) !== "number" {
+  if Js.typeof(n->Obj.magic) !== "number" || %raw(`Number.isNaN(n)`) {
     X.Exn.throwAny(
       InternalError.make(
         InvalidOperation({
           path: Path.empty,
-          reason: `Expected number, received ${(Stdlib.Type.typeof(n->Obj.magic) :> string)}`,
+          reason: `Expected number, received ${n->Obj.magic->stringify}`,
         }),
       ),
     )
