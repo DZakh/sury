@@ -38,6 +38,7 @@
 - [JSON](#json)
 - [JSON string](#json-string)
 - [Date](#date)
+- [ISO DateTime](#iso-datetime)
 - [Instance](#instance)
 - [Meta](#meta)
 - [Custom schema](#custom-schema)
@@ -874,6 +875,21 @@ S.decoder(S.string, S.date)("2024-01-01T00:00:00.000Z"); // Date
 // Decode Date to ISO string
 S.decoder(S.date, S.string)(new Date("2024-01-01T00:00:00.000Z")); // "2024-01-01T00:00:00.000Z"
 ```
+
+## ISO DateTime
+
+`S.Schema<string, string>`
+
+```ts
+S.enableIsoDateTime(); // ❕ Call at the project root.
+
+const schema = S.isoDateTime;
+
+S.parser(schema)("2020-01-01T00:00:00Z"); // "2020-01-01T00:00:00Z"
+S.parser(schema)("not-a-date"); // throws
+```
+
+Standalone string schema that validates ISO 8601 UTC datetime strings. The regex is tree-shaken from the bundle unless you call `S.enableIsoDateTime()`. See also [ISO datetimes](#iso-datetimes) under Strings for more details and examples.
 
 ## Instance
 

@@ -49,6 +49,7 @@
   - [`dict`](#dict)
   - [`unknown`](#unknown)
   - [`date`](#date)
+  - [`isoDateTime`](#isodatetime)
   - [`instance`](#instance)
   - [`never`](#never)
   - [`json`](#json)
@@ -1058,6 +1059,21 @@ let schema = S.string->S.to(S.date)
 // Encode Date to ISO string
 Date.fromString("2024-01-01T00:00:00.000Z")->S.reverseConvertOrThrow(schema) // "2024-01-01T00:00:00.000Z"
 ```
+
+### **`isoDateTime`**
+
+`S.t<string>`
+
+```rescript
+S.enableIsoDateTime() // ❕ Call at the project root.
+
+let schema = S.isoDateTime
+
+"2020-01-01T00:00:00Z"->S.parseOrThrow(schema) // "2020-01-01T00:00:00Z"
+"not-a-date"->S.parseOrThrow(schema) // throws
+```
+
+Standalone string schema that validates ISO 8601 UTC datetime strings. The regex is tree-shaken from the bundle unless you call `S.enableIsoDateTime()`. See also [ISO datetimes](#iso-datetimes) under Strings for more details and examples.
 
 ### **`instance`**
 

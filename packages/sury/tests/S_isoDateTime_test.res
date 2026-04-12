@@ -14,6 +14,12 @@ test("Successfully parses valid data", t => {
     "2020-01-01T00:00:00.123456Z"->S.parseOrThrow(schema),
     "2020-01-01T00:00:00.123456Z",
   )
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(!e[0].test(i)){e[1]()}typeof i==="string"||e[2](i);return i}`,
+  )
 })
 
 test("Fails to parse non UTC date string", t => {
