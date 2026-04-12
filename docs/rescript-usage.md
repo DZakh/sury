@@ -1439,13 +1439,16 @@ let decodeAsync = S.decoder(~from=S.unknown, ~to=schema, ~flag=S.Flag.async)
 
 `(S.t<'value>) => unknown => 'value`
 
-Returns a compiled decode function for a single schema, transforming `unknown` input to the schema's output type.
+Returns a compiled decode function for a single schema, transforming from the schema's input type to its output type. This is useful for schemas with internal transformations.
 
 ```rescript
-let decode = S.decoder1(S.string)
+let schema = S.array(S.nullAsOption(S.string))
+let decode = S.decoder1(schema)
 
-decode("Hello world!")
-// "Hello world!"
+// Input: array<Js.nullable<string>> (schema input)
+// Output: array<option<string>> (schema output)
+decode(%raw(`["foo", null, "bar"]`))
+// [Some("foo"), None, Some("bar")]
 ```
 
 ### **`reverse`**
