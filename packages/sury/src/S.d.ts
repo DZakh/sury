@@ -92,7 +92,7 @@ export type JSON =
   | JSON[];
 
 export type NumberFormat = "int32" | "port";
-export type StringFormat = "json";
+export type StringFormat = "json" | "date-time";
 export type ArrayFormat = "compactColumns";
 export type Format = NumberFormat | StringFormat | ArrayFormat;
 
@@ -494,6 +494,9 @@ export function enableJsonString(): void;
 export const uint8Array: Schema<Uint8Array, Uint8Array>;
 export function enableUint8Array(): void;
 
+export const isoDateTime: Schema<string, string>;
+export function enableIsoDateTime(): void;
+
 export const date: Schema<Date, Date>;
 
 export function safe<Value>(scope: () => Value): Result<Value>;
@@ -763,10 +766,6 @@ export const url: <Input>(
   message?: string
 ) => Schema<string, Input>;
 export const pattern: (re: RegExp, message?: string) => Schema<string, string>;
-export const datetime: <Input>(
-  schema: Schema<string, Input>,
-  message?: string
-) => Schema<Date, Input>;
 export const trim: <Input>(
   schema: Schema<string, Input>
 ) => Schema<string, Input>;

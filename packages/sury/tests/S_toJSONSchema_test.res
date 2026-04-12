@@ -45,10 +45,47 @@ test("JSONSchema of url schema", t => {
   )
 })
 
-test("JSONSchema of datetime schema", t => {
+test("JSONSchema of S.string->S.to(S.date)", t => {
   t->Assert.deepEqual(
-    S.string->S.datetime->S.toJSONSchema,
+    S.string->S.to(S.date)->S.toJSONSchema,
     %raw(`{"type": "string", "format": "date-time"}`),
+  )
+})
+
+test("JSONSchema of S.string->S.to(S.date) with description", t => {
+  t->Assert.deepEqual(
+    S.string->S.to(S.date)->S.meta({description: "A date"})->S.toJSONSchema,
+    %raw(`{"type": "string", "format": "date-time", "description": "A date"}`),
+  )
+})
+
+test("JSONSchema of S.string with description converted to S.date", t => {
+  t->Assert.deepEqual(
+    S.string->S.meta({description: "A date"})->S.to(S.date)->S.toJSONSchema,
+    %raw(`{"type": "string", "format": "date-time", "description": "A date"}`),
+  )
+})
+
+test("JSONSchema of S.isoDateTime", t => {
+  S.enableIsoDateTime()
+  t->Assert.deepEqual(
+    S.isoDateTime->S.toJSONSchema,
+    %raw(`{"type": "string", "format": "date-time"}`),
+  )
+})
+
+test("JSONSchema of object with transformed field preserves field metadata", t => {
+  t->Assert.deepEqual(
+    S.object(s =>
+      s.field("birthDate", S.string->S.meta({description: "Birth date"})->S.to(S.date))
+    )->S.toJSONSchema,
+    %raw(`{
+      "type": "object",
+      "properties": {
+        "birthDate": {"type": "string", "format": "date-time", "description": "Birth date"}
+      },
+      "required": ["birthDate"]
+    }`),
   )
 })
 
@@ -67,13 +104,6 @@ test("JSONSchema of pattern schema", t => {
   t->Assert.deepEqual(
     S.string->S.pattern(/abc/g)->S.toJSONSchema,
     %raw(`{"type": "string","pattern": "abc"}`),
-  )
-})
-
-test("JSONSchema of string schema uses the last refinement for format", t => {
-  t->Assert.deepEqual(
-    S.string->S.email->S.datetime->S.toJSONSchema,
-    %raw(`{"type": "string", "format": "date-time"}`),
   )
 })
 

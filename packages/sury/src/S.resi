@@ -21,7 +21,7 @@ module Path: {
 }
 
 type numberFormat = | @as("int32") Int32 | @as("port") Port
-type stringFormat = | @as("json") JSON
+type stringFormat = | @as("json") JSON | @as("date-time") DateTime
 type arrayFormat = | @as("compactColumns") CompactColumns
 
 type format = | ...numberFormat | ...stringFormat | ...arrayFormat
@@ -309,6 +309,9 @@ let enableJsonString: unit => unit
 let uint8Array: t<Uint8Array.t>
 let enableUint8Array: unit => unit
 
+let isoDateTime: t<string>
+let enableIsoDateTime: unit => unit
+
 let date: t<Js.Date.t>
 
 let literal: 'value => t<'value>
@@ -424,7 +427,6 @@ module String: {
       | Cuid
       | Url
       | Pattern({re: Js.Re.t})
-      | Datetime
     type t = {
       kind: kind,
       message: string,
@@ -505,7 +507,6 @@ let uuid: (t<string>, ~message: string=?) => t<string>
 let cuid: (t<string>, ~message: string=?) => t<string>
 let url: (t<string>, ~message: string=?) => t<string>
 let pattern: (t<string>, Js.Re.t, ~message: string=?) => t<string>
-let datetime: (t<string>, ~message: string=?) => t<Js.Date.t>
 let trim: t<string> => t<string>
 
 let toJSONSchema: t<'value> => JSONSchema.t
