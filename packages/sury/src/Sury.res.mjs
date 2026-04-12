@@ -3878,19 +3878,16 @@ function compactColumnsDecoder(input) {
       outputSchema = s;
     }
     if (keysLen === 0) {
-      if (isUnknownInput) {
-        input.vc = [{
+      let input$1 = isUnknownInput ? refine(input, undefined, [{
             c: inputVar => "Array.isArray(" + inputVar + ")&&" + inputVar + ".length===0",
             f: failInvalidType
-          }];
-      }
-      let output = next(input, "[]", outputSchema, outputSchema);
+          }], undefined) : input;
+      let output = next(input$1, "[]", outputSchema, outputSchema);
       output.io = true;
       return output;
     }
     if (forwardProps) {
-      if (isUnknownInput) {
-        input.vc = [{
+      let input$2 = isUnknownInput ? refine(input, undefined, [{
             c: inputVar => {
               let check = "Array.isArray(" + inputVar + ")&&" + inputVar + ".length===" + keysLen;
               for (let idx = 0; idx < keysLen; ++idx) {
@@ -3899,12 +3896,11 @@ function compactColumnsDecoder(input) {
               return check;
             },
             f: failInvalidType
-          }];
-      }
-      let inputVar = input.v();
-      let iteratorVar = varWithoutAllocation(input.g);
-      let outputVar = varWithoutAllocation(input.g);
-      let itemSchema = isUnknownInput ? unknown : input.s.additionalItems.additionalItems;
+          }], undefined) : input;
+      let inputVar = input$2.v();
+      let iteratorVar = varWithoutAllocation(input$2.g);
+      let outputVar = varWithoutAllocation(input$2.g);
+      let itemSchema = isUnknownInput ? unknown : input$2.s.additionalItems.additionalItems;
       let lengthCode = "";
       let itemBuildCode = "";
       let itemParseCode = "";
@@ -3912,14 +3908,14 @@ function compactColumnsDecoder(input) {
       let hasAsync = false;
       for (let idx = 0; idx < keysLen; ++idx) {
         let key = keys[idx];
-        let itemInput = scope(input);
+        let itemInput = scope(input$2);
         itemInput.i = inputVar + "[" + idx + "][" + iteratorVar + "]";
         itemInput.s = itemSchema;
         itemInput.e = maybeProperties[key];
         itemInput.v = _notVarBeforeValidation;
         itemInput.ii = false;
         itemInput.io = false;
-        let inlinedLocation = inlineLocation(input.g, key);
+        let inlinedLocation = inlineLocation(input$2.g, key);
         itemInput.path = "[" + inlinedLocation + "]";
         let itemOutput = parse$1(itemInput);
         if (itemOutput.f & 1) {
@@ -3930,13 +3926,13 @@ function compactColumnsDecoder(input) {
         asyncInlines = asyncInlines + (itemOutput.i + ",");
         itemBuildCode = itemBuildCode + (fromString(key) + ":" + itemOutput.i + ",");
       }
-      input.a(outputVar + "=new Array(Math.max(" + lengthCode + "))");
-      let output$1 = next(input, outputVar, outputSchema, outputSchema);
+      input$2.a(outputVar + "=new Array(Math.max(" + lengthCode + "))");
+      let output$1 = next(input$2, outputVar, outputSchema, outputSchema);
       output$1.v = _var;
       output$1.io = true;
       let rowAssign;
       if (hasAsync) {
-        let rowResultVar = varWithoutAllocation(input.g);
+        let rowResultVar = varWithoutAllocation(input$2.g);
         let asyncBuildCode = "";
         for (let idx$1 = 0; idx$1 < keysLen; ++idx$1) {
           let key$1 = keys[idx$1];
@@ -3951,7 +3947,7 @@ function compactColumnsDecoder(input) {
       if (itemParseCode === "") {
         wrappedBody = rowBody;
       } else {
-        let errorVar = varWithoutAllocation(input.g);
+        let errorVar = varWithoutAllocation(input$2.g);
         wrappedBody = "try{" + rowBody + "}catch(" + errorVar + "){" + errorVar + ".path='[\"'+" + iteratorVar + "+'\"]'+" + errorVar + ".path;throw " + errorVar + "}";
       }
       output$1.cp = output$1.cp + ("for(let " + iteratorVar + "=0;" + iteratorVar + "<" + outputVar + ".length;++" + iteratorVar + "){" + wrappedBody + "}");

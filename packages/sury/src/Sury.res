@@ -5704,37 +5704,45 @@ let compactColumnsDecoder = (~input) => {
       }
 
       if keysLen === 0 {
-        if isUnknownInput {
-          input.checks = Some([
-            {
-              cond: (~inputVar) =>
-                `Array.isArray(${inputVar})&&${inputVar}.length===0`,
-              fail: B.failInvalidType,
-            },
-          ])
+        let input = if isUnknownInput {
+          input->B.refine(
+            ~checks=[
+              {
+                cond: (~inputVar) =>
+                  `Array.isArray(${inputVar})&&${inputVar}.length===0`,
+                fail: B.failInvalidType,
+              },
+            ],
+          )
+        } else {
+          input
         }
         let output = input->B.next("[]", ~schema=outputSchema, ~expected=outputSchema)
         output.isOutput = Some(true)
         output
       } else if isForwardDirection {
         // Forward direction: columnar → rows
-        if isUnknownInput {
-          input.checks = Some([
-            {
-              cond: (~inputVar) => {
-                let check = ref(
-                  `Array.isArray(${inputVar})&&${inputVar}.length===${keysLen->X.Int.unsafeToString}`,
-                )
-                for idx in 0 to keysLen - 1 {
-                  check :=
-                    check.contents ++
-                    `&&Array.isArray(${inputVar}[${idx->X.Int.unsafeToString}])`
-                }
-                check.contents
+        let input = if isUnknownInput {
+          input->B.refine(
+            ~checks=[
+              {
+                cond: (~inputVar) => {
+                  let check = ref(
+                    `Array.isArray(${inputVar})&&${inputVar}.length===${keysLen->X.Int.unsafeToString}`,
+                  )
+                  for idx in 0 to keysLen - 1 {
+                    check :=
+                      check.contents ++
+                      `&&Array.isArray(${inputVar}[${idx->X.Int.unsafeToString}])`
+                  }
+                  check.contents
+                },
+                fail: B.failInvalidType,
               },
-              fail: B.failInvalidType,
-            },
-          ])
+            ],
+          )
+        } else {
+          input
         }
 
         let inputVar = input.var()
