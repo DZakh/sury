@@ -2473,7 +2473,7 @@ test("Recursive with self as transform target", (t) => {
       t.deepEqual(S.parser(nodeSchema)(`["[]","[]"]`), [[], []]);
     },
     {
-      message: "Unsupported conversion from Node to Node[]",
+      message: "Unsupported decode from Node to Node[]",
     },
   );
 });
@@ -2594,6 +2594,13 @@ test("Decode from json", async (t) => {
 
   t.deepEqual(S.decoder(S.json, schema)("hello"), "hello");
   t.deepEqual(S.decoder(S.json, schema)(null), undefined);
+
+  // Date fields should be encoded to ISO string when decoding to JSON
+  const dateSchema = S.schema({ field: S.date });
+  const dateToJson = S.decoder(dateSchema, S.json);
+  t.deepEqual(dateToJson({ field: new Date("2024-01-01T00:00:00.000Z") }), {
+    field: "2024-01-01T00:00:00.000Z",
+  });
 });
 
 test("Decode from json string", async (t) => {

@@ -104,7 +104,7 @@ test("Doesn't allow to convert to JSON array with optional items", t => {
 
   t->U.assertThrowsMessage(
     () => [None]->S.decodeOrThrow(~from=schema, ~to=S.json),
-    "Failed at []: Unsupported conversion from boolean | undefined to JSON",
+    "Failed at []: Can't decode boolean | undefined to JSON",
   )
 })
 
@@ -113,7 +113,7 @@ test("Doesn't allow to encode tuple with optional item to JSON", t => {
 
   t->U.assertThrowsMessage(
     () => None->S.decodeOrThrow(~from=schema, ~to=S.json),
-    `Unsupported conversion from boolean | undefined to JSON`,
+    `Can't decode boolean | undefined to JSON`,
   )
 })
 
@@ -122,7 +122,7 @@ test("Allows to convert to JSON with option as dict field", t => {
 
   t->U.assertThrowsMessage(
     () => dict{"foo": None}->S.decodeOrThrow(~from=schema, ~to=S.json),
-    `Failed at []: Unsupported conversion from boolean | undefined to JSON`,
+    `Failed at []: Can't decode boolean | undefined to JSON`,
   )
 })
 
@@ -136,7 +136,7 @@ test("Fails to encode Function to JSON", t => {
   let schema = S.literal(fn)
   t->U.assertThrowsMessage(
     () => fn->S.decodeOrThrow(~from=schema, ~to=S.json),
-    `Unsupported conversion from Function to JSON`,
+    `Can't decode Function to JSON`,
   )
 })
 
@@ -146,7 +146,7 @@ test("Fails to encode Error literal to JSON", t => {
 
   t->U.assertThrowsMessage(
     () => error->S.decodeOrThrow(~from=schema, ~to=S.json),
-    `Unsupported conversion from [object Error] to JSON`,
+    `Can't decode [object Error] to JSON`,
   )
   t->Assert.is(error->S.decodeOrThrow(~from=schema, ~to=S.unknown), error)
   t->U.assertThrowsMessage(
@@ -160,7 +160,7 @@ test("Fails to encode Symbol to JSON", t => {
   let schema = S.literal(symbol)
   t->U.assertThrowsMessage(
     () => symbol->S.decodeOrThrow(~from=schema, ~to=S.json),
-    `Unsupported conversion from Symbol() to JSON`,
+    `Can't decode Symbol() to JSON`,
   )
 })
 

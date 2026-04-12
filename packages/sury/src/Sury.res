@@ -1784,7 +1784,7 @@ module Builder = {
         UnsupportedConversion({
           from: from->castToPublic,
           to: target->castToPublic,
-          reason: `Unsupported conversion from ${from->castToPublic->toExpression} to ${target
+          reason: `Unsupported decode from ${from->castToPublic->toExpression} to ${target
             ->castToPublic
             ->toExpression}`,
           path: b.path,
@@ -4542,9 +4542,6 @@ let jsonDecoder = (~input) => {
     input
   } else if inputTagFlag->Flag.unsafeHas(TagFlag.undefined->Flag.with(TagFlag.nan)) {
     input->B.nextConst(~schema=nullLiteral)
-  } else if inputTagFlag->Flag.unsafeHas(TagFlag.bigint) {
-    // FIXME: Support number here
-    input->inputToString
   } else if inputTagFlag->Flag.unsafeHas(TagFlag.array) {
     let expected = base(arrayTag, ~selfReverse=false)
     expected.items = Some(
@@ -4618,7 +4615,21 @@ let jsonDecoder = (~input) => {
       recursiveDecoder(~input)
     }
   } else {
-    input->B.unsupportedConversion(~from=input.schema, ~target=input.expected)
+    try {
+      let attempt = input->B.Val.scope
+      attempt.expected = string
+      attempt->parse
+    } catch {
+    | _ =>
+      input->B.throw(
+        UnsupportedConversion({
+          from: input.schema->castToPublic,
+          to: json->castToPublic,
+          reason: `Can't decode ${input.schema->castToPublic->toExpression} to JSON`,
+          path: input.path,
+        }),
+      )
+    }
   }
 }
 
