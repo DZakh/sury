@@ -1298,7 +1298,7 @@ test("Successfully parses intersected objects", (t) => {
 
   t.deepEqual(
     S.parser(schema).toString(),
-    `i=>{if(typeof i!=="object"||!i){e[3](i)}let v0=i["foo"],v1=i["bar"],v2=i["baz"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="boolean"){e[1](v1)}if(typeof v2!=="string"){e[2](v2)}return {"foo":v0,"bar":v1,"baz":v2,}}`,
+    `i=>{typeof i==="object"&&i||e[3](i);let v0=i["foo"],v1=i["bar"],v2=i["baz"];typeof v0==="string"||e[0](v0);typeof v1==="boolean"||e[1](v1);typeof v2==="string"||e[2](v2);return {"foo":v0,"bar":v1,"baz":v2,}}`,
   );
 
   expectType<
@@ -1418,7 +1418,7 @@ test("Successfully serializes S.merge", (t) => {
 
   t.deepEqual(
     S.parser(S.reverse(schema)).toString(),
-    `i=>{if(typeof i!=="object"||!i){e[3](i)}let v0=i["foo"],v1=i["bar"],v2=i["baz"];if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="boolean"){e[1](v1)}if(typeof v2!=="string"){e[2](v2)}return {"foo":v0,"bar":v1,"baz":v2,}}`,
+    `i=>{typeof i==="object"&&i||e[3](i);let v0=i["foo"],v1=i["bar"],v2=i["baz"];typeof v0==="string"||e[0](v0);typeof v1==="boolean"||e[1](v1);typeof v2==="string"||e[2](v2);return {"foo":v0,"bar":v1,"baz":v2,}}`,
   );
   t.deepEqual(
     S.encoder(schema).toString().startsWith("function noopOperation(i) {"),
@@ -2164,23 +2164,23 @@ test("CompactColumns with json and bigint", (t) => {
     )
   );
 
-  // Test parsing - values stay as-is (strings not converted to bigint)
+  // Test parsing - json strings are converted to bigint via BigInt()
   const parse = S.parser(schema);
   const parsed = parse([
     ["0", "1"],
     ["12345678901234567890", "98765432109876543210"],
-  ] as S.JSON[][]);
+  ]);
   t.deepEqual(parsed, [
-    { id: "0", amount: "12345678901234567890" },
-    { id: "1", amount: "98765432109876543210" },
+    { id: "0", amount: 12345678901234567890n },
+    { id: "1", amount: 98765432109876543210n },
   ]);
 
-  // Test encoding - values stay as-is
+  // Test encoding - bigint values are converted back to strings for json
   const encode = S.encoder(schema);
   const encoded = encode([
-    { id: "0", amount: "12345678901234567890" },
-    { id: "1", amount: "98765432109876543210" },
-  ] as any);
+    { id: "0", amount: 12345678901234567890n },
+    { id: "1", amount: 98765432109876543210n },
+  ]);
   t.deepEqual(encoded, [
     ["0", "1"],
     ["12345678901234567890", "98765432109876543210"],
@@ -2199,7 +2199,7 @@ test("Set schema", (t) => {
   const parser = S.parser(schema);
   expectType<TypeEqual<typeof parser, (input: unknown) => Set<unknown>>>(true);
 
-  t.is(parser.toString(), "i=>{if(!(i instanceof e[0])){e[1](i)}return i}");
+  t.is(parser.toString(), "i=>{i instanceof e[0]||e[1](i);return i}");
 
   const data = new Set(["foo", "bar"]);
   t.is(parser(data), data);
@@ -2629,7 +2629,7 @@ test("Parse to literal with no validation to emulate assert", async (t) => {
   t.deepEqual(fn({ foo: "bar" }), true);
   t.deepEqual(
     fn.toString(),
-    `i=>{if(typeof i!=="object"||!i){e[1](i)}let v0=i["foo"];if(typeof v0!=="string"){e[0](v0)}return true}`,
+    `i=>{typeof i==="object"&&i||e[1](i);let v0=i["foo"];typeof v0==="string"||e[0](v0);return true}`,
   );
 });
 
@@ -2863,7 +2863,7 @@ test("Preprocess nested fields", (t) => {
 
   t.deepEqual(
     fn.toString(),
-    `i=>{if(i!==void 0){e[4](i)}let v0;try{v0=e[0]("foo")}catch(x){e[1](x)}let v1;try{v1=e[2]("1")}catch(x){e[3](x)}return {"nested":{"tag":v0,"numberTag":v1,},}}`,
+    `i=>{i===void 0||e[4](i);let v0;try{v0=e[0]("foo")}catch(x){e[1](x)}let v1;try{v1=e[2]("1")}catch(x){e[3](x)}return {"nested":{"tag":v0,"numberTag":v1,},}}`,
   );
 
   const value = fn(undefined);
@@ -2969,7 +2969,7 @@ test("Uint8Array", (t) => {
   t.deepEqual(S.parser(S.uint8Array)(data), data);
   t.deepEqual(
     S.parser(S.uint8Array).toString(),
-    `i=>{if(!(i instanceof e[0])){e[1](i)}return i}`,
+    `i=>{i instanceof e[0]||e[1](i);return i}`,
   );
 
   t.deepEqual(
@@ -2982,6 +2982,6 @@ test("Uint8Array", (t) => {
   );
   t.deepEqual(
     S.decoder(S.unknown, S.uint8Array, S.jsonString).toString(),
-    `i=>{if(!(i instanceof e[1])){e[2](i)}return JSON.stringify(e[0].decode(i))}`,
+    `i=>{i instanceof e[1]||e[2](i);return JSON.stringify(e[0].decode(i))}`,
   );
 });
