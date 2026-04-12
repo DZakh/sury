@@ -74,12 +74,16 @@ I left on cleaning up validation code and moving everything to their own decoder
 
 ### ReScript operation functions
 
-Only `parseOrThrow` and `decodeOrThrow` (+ async variants) with labeled args `~to`, `~from`, and optional `~between`.
+Only `parseOrThrow`, `assertOrThrow`, `decodeOrThrow`, and `decodeUnsafeOrThrow` (+ async variants) with labeled args `~to`, `~from`, and optional `~between`.
 
-- `parseOrThrow` - validates input type + transforms. Only `~to` arg (no `~from`).
+- `parseOrThrow` - validates input type + transforms. `~to` required, optional `~between`.
 - `parseAsyncOrThrow` - async version of `parseOrThrow`
-- `decodeOrThrow` - skips input type validation, only transforms. Has `~to`, `~from`, and optional `~between`.
+- `assertOrThrow` - validates input and returns unit. `~to` required, optional `~between`.
+- `assertAsyncOrThrow` - async version of `assertOrThrow`
+- `decodeOrThrow` - skips input type validation, only transforms. `~from` required, optional `~to` and `~between`.
 - `decodeAsyncOrThrow` - async version of `decodeOrThrow`
+- `decodeUnsafeOrThrow` - transforms a single schema from input to output without validation. Unsafe because ReScript schema type only knows the output type.
+- `decodeUnsafeAsyncOrThrow` - async version of `decodeUnsafeOrThrow`
 
 ```rescript
 let userSchema = S.schema(s => {
@@ -87,27 +91,35 @@ let userSchema = S.schema(s => {
   name: s.matches(S.string),
 })
 
-// --- parseOrThrow (with input validation, only ~to) ---
+// --- parseOrThrow (with input validation, ~to required, optional ~between) ---
 
 // Parse any -> output (current S.parseOrThrow)
 data->S.parseOrThrow(~to=userSchema)
 
+// Parse with intermediate schema
+data->S.parseOrThrow(~between=intermediateSchema, ~to=userSchema)
+
 // Parse async (current S.parseAsyncOrThrow)
 data->S.parseAsyncOrThrow(~to=userSchema)
 
-// Assert only (current S.assertOrThrow) — just ~to, discard result
-data->S.parseOrThrow(~to=userSchema)->ignore
+// --- assertOrThrow (validate only, returns unit) ---
 
-// --- decodeOrThrow (without input type validation, ~to, ~from, ~between) ---
+// Assert (current S.assertOrThrow)
+data->S.assertOrThrow(~to=userSchema)
+
+// Assert with intermediate schema
+data->S.assertOrThrow(~between=intermediateSchema, ~to=userSchema)
+
+// Assert async
+data->S.assertAsyncOrThrow(~to=userSchema)
+
+// --- decodeOrThrow (no input type validation, ~from required) ---
 
 // Decode JSON -> output (current S.parseJsonOrThrow)
 data->S.decodeOrThrow(~from=S.json, ~to=userSchema)
 
 // Decode JSON string -> output (current S.parseJsonStringOrThrow)
 data->S.decodeOrThrow(~from=S.jsonString, ~to=userSchema)
-
-// Convert any -> output (current S.convertOrThrow)
-data->S.decodeOrThrow(~to=userSchema)
 
 // Reverse: output -> any (current S.reverseConvertOrThrow)
 user->S.decodeOrThrow(~from=userSchema)
@@ -122,8 +134,18 @@ user->S.decodeOrThrow(~from=userSchema, ~to=S.jsonString)
 data->S.decodeOrThrow(~from=S.json, ~between=userSchema, ~to=outputSchema)
 
 // Async variants (current S.convertAsyncOrThrow / S.reverseConvertAsyncOrThrow)
-data->S.decodeAsyncOrThrow(~to=userSchema)
+data->S.decodeAsyncOrThrow(~from=S.json, ~to=userSchema)
 user->S.decodeAsyncOrThrow(~from=userSchema)
+
+// --- decodeUnsafeOrThrow (single schema, input -> output, no validation) ---
+// Unsafe: ReScript schema type S.t<'value> only knows the output type,
+// so the caller must ensure the input matches the schema's input type.
+
+// current S.convertOrThrow
+data->S.decodeUnsafeOrThrow(userSchema)
+
+// Async variant (current S.convertAsyncOrThrow)
+data->S.decodeUnsafeAsyncOrThrow(userSchema)
 ```
 
 ### TS operation functions
