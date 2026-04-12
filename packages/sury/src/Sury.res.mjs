@@ -3805,15 +3805,8 @@ function compactColumnsDecoder(input) {
       let inputVar = input.v();
       let iteratorVar = varWithoutAllocation(input.g);
       let outputVar = varWithoutAllocation(input.g);
-      let itemSchema = isUnknownInput ? unknown : input.s.additionalItems.additionalItems;
-      let match$3 = selfSchema.additionalItems;
-      let isJsonInput;
-      if (match$3 !== undefined && match$3 !== "strip" && match$3 !== "strict") {
-        let match$4 = match$3.additionalItems;
-        isJsonInput = match$4 !== undefined && match$4 !== "strip" && match$4 !== "strict" ? match$4 === json : false;
-      } else {
-        isJsonInput = false;
-      }
+      let innerArray = selfSchema.additionalItems;
+      let itemSchema = innerArray.additionalItems;
       let lengthCode = "";
       let itemBuildCode = "";
       let itemParseCode = "";
@@ -3822,29 +3815,23 @@ function compactColumnsDecoder(input) {
       for (let idx = 0; idx < keysLen; ++idx) {
         let key = keys[idx];
         let rawValueCode = inputVar + "[" + idx + "][" + iteratorVar + "]";
-        let itemInline;
-        if (isJsonInput) {
-          itemInline = rawValueCode;
-        } else {
-          let itemInput = scope(input);
-          itemInput.i = rawValueCode;
-          itemInput.s = itemSchema;
-          itemInput.e = maybeProperties[key];
-          itemInput.v = _notVarBeforeValidation;
-          itemInput.ii = false;
-          itemInput.io = false;
-          let inlinedLocation = inlineLocation(input.g, key);
-          itemInput.path = "[" + inlinedLocation + "]";
-          let itemOutput = parse$1(itemInput);
-          if (itemOutput.f & 1) {
-            hasAsync = true;
-          }
-          itemParseCode = itemParseCode + merge(itemOutput);
-          itemInline = itemOutput.i;
+        let itemInput = scope(input);
+        itemInput.i = rawValueCode;
+        itemInput.s = itemSchema;
+        itemInput.e = maybeProperties[key];
+        itemInput.v = _notVarBeforeValidation;
+        itemInput.ii = false;
+        itemInput.io = false;
+        let inlinedLocation = inlineLocation(input.g, key);
+        itemInput.path = "[" + inlinedLocation + "]";
+        let itemOutput = parse$1(itemInput);
+        if (itemOutput.f & 1) {
+          hasAsync = true;
         }
+        itemParseCode = itemParseCode + merge(itemOutput);
         lengthCode = lengthCode + (inputVar + "[" + idx + "].length,");
-        asyncInlines = asyncInlines + (itemInline + ",");
-        itemBuildCode = itemBuildCode + (fromString(key) + ":" + itemInline + ",");
+        asyncInlines = asyncInlines + (itemOutput.i + ",");
+        itemBuildCode = itemBuildCode + (fromString(key) + ":" + itemOutput.i + ",");
       }
       input.a(outputVar + "=new Array(Math.max(" + lengthCode + "))");
       let output$1 = next(input, outputVar, outputSchema, outputSchema);

@@ -5588,33 +5588,15 @@ let compactColumnsDecoder = (~input) => {
         let iteratorVar = input.global->B.varWithoutAllocation
         let outputVar = input.global->B.varWithoutAllocation
 
-        // Schema of each raw column value. When input is unknown, items are unknown.
-        // When input is array(array(inputSchema)), derive inputSchema from input.schema.
-        let itemSchema: internal = if isUnknownInput {
-          unknown
-        } else {
-          let innerArray: internal = input.schema.additionalItems->Obj.magic
+        // Schema of each raw column value. Derive from selfSchema (the
+        // compactColumns schema itself, i.e. input.expected) so we know
+        // the declared source type even when the top-level parser starts
+        // from `unknown`. This lets parse figure out the right conversion
+        // for each field — e.g. json→bigint routes through jsonEncoder
+        // (string→BigInt), while unknown→int validates typeof.
+        let itemSchema: internal = {
+          let innerArray: internal = selfSchema.additionalItems->Obj.magic
           innerArray.additionalItems->Obj.magic
-        }
-
-        // When the caller declared the source as `compactColumns(S.json)`, the
-        // columnar values are already valid JSON (string | number | boolean |
-        // null | object | array) and the target field schema is treated as a
-        // type hint only — bigint, Date, etc. have no JSON representation, so
-        // running the per-field parse pipeline would falsely reject them.
-        // Detect this via selfSchema (the compactColumns schema itself) rather
-        // than input.schema, because the top-level parser starts from
-        // `unknown` and has no direct handle on the declared source type.
-        // Identity check on the `json` proxy avoids triggering the "not
-        // enabled" panic that `json.ref` would raise when this decoder is
-        // compiled for schemas that don't use json at all.
-        let isJsonInput = switch selfSchema.additionalItems {
-        | Some(Schema(inner)) =>
-          switch (inner->castToInternal).additionalItems {
-          | Some(Schema(innerItem)) => innerItem->Obj.magic === json
-          | _ => false
-          }
-        | _ => false
         }
 
         let lengthCode = ref("")
@@ -5627,34 +5609,28 @@ let compactColumnsDecoder = (~input) => {
           let idxStr = idx->X.Int.unsafeToString
           let rawValueCode = `${inputVar}[${idxStr}][${iteratorVar}]`
 
-          let itemInline = if isJsonInput {
-            rawValueCode
-          } else {
-            // Use parse on the field schema to handle transformations (e.g. null->undefined).
-            let itemInput = input->B.Val.scope
-            itemInput.inline = rawValueCode
-            itemInput.schema = itemSchema
-            itemInput.expected = properties->Js.Dict.unsafeGet(key)
-            itemInput.var = B._notVarBeforeValidation
-            itemInput.isInput = Some(false)
-            itemInput.isOutput = Some(false)
-            // Path like ["bar"] so validation errors carry the field location.
-            itemInput.path = Path.fromInlinedLocation(input.global->B.inlineLocation(key))
+          // Use parse on the field schema to handle transformations (e.g. null->undefined).
+          let itemInput = input->B.Val.scope
+          itemInput.inline = rawValueCode
+          itemInput.schema = itemSchema
+          itemInput.expected = properties->Js.Dict.unsafeGet(key)
+          itemInput.var = B._notVarBeforeValidation
+          itemInput.isInput = Some(false)
+          itemInput.isOutput = Some(false)
+          // Path like ["bar"] so validation errors carry the field location.
+          itemInput.path = Path.fromInlinedLocation(input.global->B.inlineLocation(key))
 
-            let itemOutput = itemInput->parse
-            if itemOutput.flag->Flag.unsafeHas(ValFlag.async) {
-              hasAsync := true
-            }
-
-            itemParseCode := itemParseCode.contents ++ itemOutput->B.merge
-            itemOutput.inline
+          let itemOutput = itemInput->parse
+          if itemOutput.flag->Flag.unsafeHas(ValFlag.async) {
+            hasAsync := true
           }
 
+          itemParseCode := itemParseCode.contents ++ itemOutput->B.merge
           lengthCode := lengthCode.contents ++ `${inputVar}[${idxStr}].length,`
-          asyncInlines := asyncInlines.contents ++ `${itemInline},`
+          asyncInlines := asyncInlines.contents ++ `${itemOutput.inline},`
           itemBuildCode :=
             itemBuildCode.contents ++
-            `${key->X.Inlined.Value.fromString}:${itemInline},`
+            `${key->X.Inlined.Value.fromString}:${itemOutput.inline},`
         }
 
         input.allocate(`${outputVar}=new Array(Math.max(${lengthCode.contents}))`)
