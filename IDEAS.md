@@ -82,13 +82,13 @@ Only `parseOrThrow`, `assertOrThrow`, and `decodeOrThrow` (+ async variants) wit
 - `parseAsyncOrThrow` - async version of `parseOrThrow`
 - `assertOrThrow` - validates input and returns unit. `~to` required, optional `~through`.
 - `assertAsyncOrThrow` - async version of `assertOrThrow`
-- `decodeOrThrow` - skips input type validation, only transforms. `~from` required, optional `~to` and `~through`.
+- `decodeOrThrow` - skips input type validation, only transforms. `~from` and `~to` required, optional `~through`.
 - `decodeAsyncOrThrow` - async version of `decodeOrThrow`
 
 #### Builder functions (return compiled functions)
 
 - `parser` - compiles a parse function (with validation). `~to` required, optional `~through`. Returns `'any => 'value`.
-- `decoder` - compiles a decode function (no validation). `~from` required, optional `~to` and `~through`. Returns `'from => 'to`.
+- `decoder` - compiles a decode function (no validation). `~from` and `~to` required, optional `~through`. Returns `'from => 'to`.
 - `decoder1` - compiles a decode function for a single schema from input to output (no validation). Takes a single schema. Returns `'any => 'value`. This is the "decodeInput" equivalent — ReScript `S.t<'value>` only knows the output type, so the caller must ensure the data matches the schema's input type.
 
 ```rescript
@@ -119,7 +119,7 @@ data->S.assertOrThrow(~through=[schemaA, schemaB], ~to=userSchema)
 // Assert async
 data->S.assertAsyncOrThrow(~to=userSchema)
 
-// --- decodeOrThrow (no input type validation, ~from required) ---
+// --- decodeOrThrow (no input type validation, ~from and ~to required) ---
 
 // Decode JSON -> output (current S.parseJsonOrThrow)
 data->S.decodeOrThrow(~from=S.json, ~to=userSchema)
@@ -128,7 +128,7 @@ data->S.decodeOrThrow(~from=S.json, ~to=userSchema)
 data->S.decodeOrThrow(~from=S.jsonString, ~to=userSchema)
 
 // Reverse: output -> any (current S.reverseConvertOrThrow)
-user->S.decodeOrThrow(~from=userSchema)
+user->S.decodeOrThrow(~from=userSchema, ~to=S.unknown)
 
 // Reverse: output -> JSON (current S.reverseConvertToJsonOrThrow)
 user->S.decodeOrThrow(~from=userSchema, ~to=S.json)
@@ -136,7 +136,7 @@ user->S.decodeOrThrow(~from=userSchema, ~to=S.json)
 // Reverse: output -> JSON string (current S.reverseConvertToJsonStringOrThrow)
 user->S.decodeOrThrow(~from=userSchema, ~to=S.jsonString)
 
-// Through intermediate schemas
+// Through intermediate schemas (~through before ~to)
 data->S.decodeOrThrow(~from=S.json, ~through=[schemaA, schemaB], ~to=outputSchema)
 
 // Async variants (current S.convertAsyncOrThrow / S.reverseConvertAsyncOrThrow)
@@ -155,6 +155,9 @@ data->decodeJson // Js.Json.t => user
 
 let encode = S.decoder(~from=userSchema, ~to=S.json)
 user->encode // user => Js.Json.t
+
+let pipeline = S.decoder(~from=S.json, ~through=[schemaA, schemaB], ~to=outputSchema)
+data->pipeline // Js.Json.t => output
 
 // decoder1: compiled single-schema decode (input -> output, current S.convertOrThrow)
 let convert = S.decoder1(userSchema)
