@@ -589,7 +589,7 @@ and val = {
   // Invariant: absent iff no checks. Never stored as `Some([])` so callers
   // can test presence with `->unsafeToBool` instead of length.
   @as("vc")
-  mutable validation?: array<validationCheck>,
+  mutable checks?: array<check>,
   @as("u")
   mutable isUnion?: bool,
   // Whether the chain starting from the root prev has a transformation
@@ -614,9 +614,9 @@ and bGlobal = {
   mutable defs?: dict<internal>,
 }
 // Adjacent checks sharing `fail` by reference equality are fused with `&&`
-// in `emitValidation`, so pass the same helper (e.g. `B.failInvalidType`) to
+// in `emitChecks`, so pass the same helper (e.g. `B.failInvalidType`) to
 // every check on a val if you want them to emit as one `||`-throw line.
-and validationCheck = {
+and check = {
   @as("c")
   cond: (~inputVar: string) => string,
   @as("f")
@@ -1309,7 +1309,7 @@ module Builder = {
 
     // Inline variant: emits the throw expression directly. Used by decoders
     // that splice errors into custom JS (e.g. `catch(_){${embedInvalidInput}}`),
-    // not via the `validationCheck` pipeline.
+    // not via the `check` pipeline.
     let embedInvalidInput = (~input: val, ~expected=input.expected) => {
       let received = input.schema->castToPublic
       let path = input.path
@@ -1326,45 +1326,37 @@ module Builder = {
       )
     }
 
-    // Caller must verify `val.validation->unsafeToBool` first — the unwrap
-    // below is unchecked. `inputVar` is usually `val.prev.var()`.
-    //
-    // `noValidation` suppresses the entire list here. Union codegen's
-    // discriminant path (see Union module) deliberately bypasses this — its
-    // conds route between cases instead of rejecting, so suppressing them
-    // would break dispatch. Don't try to "unify" the two paths.
-    let emitValidation = (val: val, ~inputVar: string): string => {
-      if val.expected.noValidation === Some(true) {
-        ""
+    // Caller must verify `val.checks->unsafeToBool` and
+    // `val.expected.noValidation !== Some(true)` first — the unwrap below
+    // is unchecked. `inputVar` is usually `val.prev.var()`.
+    let emitChecks = (val: val, ~inputVar: string): string => {
+      let checks = val.checks->X.Option.getUnsafe
+      let len = checks->Js.Array2.length
+      if len === 1 {
+        let check = checks->Js.Array2.unsafe_get(0)
+        `${check.cond(~inputVar)}||${val->failWithArg(check.fail(~input=val), inputVar)};`
       } else {
-        let checks = val.validation->X.Option.getUnsafe
-        let len = checks->Js.Array2.length
-        if len === 1 {
-          let check = checks->Js.Array2.unsafe_get(0)
-          `${check.cond(~inputVar)}||${val->failWithArg(check.fail(~input=val), inputVar)};`
-        } else {
-          let out = ref("")
-          let i = ref(0)
-          while i.contents < len {
-            let head = checks->Js.Array2.unsafe_get(i.contents)
-            let fail = head.fail
-            let cond = ref(head.cond(~inputVar))
+        let out = ref("")
+        let i = ref(0)
+        while i.contents < len {
+          let head = checks->Js.Array2.unsafe_get(i.contents)
+          let fail = head.fail
+          let cond = ref(head.cond(~inputVar))
+          i := i.contents + 1
+          // Extend the fused cond while the next check shares this `fail`.
+          while (
+            i.contents < len && (checks->Js.Array2.unsafe_get(i.contents)).fail === fail
+          ) {
+            cond :=
+              cond.contents ++
+              "&&" ++ (checks->Js.Array2.unsafe_get(i.contents)).cond(~inputVar)
             i := i.contents + 1
-            // Extend the fused cond while the next check shares this `fail`.
-            while (
-              i.contents < len && (checks->Js.Array2.unsafe_get(i.contents)).fail === fail
-            ) {
-              cond :=
-                cond.contents ++
-                "&&" ++ (checks->Js.Array2.unsafe_get(i.contents)).cond(~inputVar)
-              i := i.contents + 1
-            }
-            out :=
-              out.contents ++
-              `${cond.contents}||${val->failWithArg(fail(~input=val), inputVar)};`
           }
-          out.contents
+          out :=
+            out.contents ++
+            `${cond.contents}||${val->failWithArg(fail(~input=val), inputVar)};`
         }
+        out.contents
       }
     }
 
@@ -1378,9 +1370,9 @@ module Builder = {
 
         let currentCode = ref("")
 
-        if val.validation->X.Option.unsafeToBool {
+        if val.checks->X.Option.unsafeToBool && val.expected.noValidation !== Some(true) {
           let prev = current.contents->X.Option.getUnsafe
-          currentCode := val->emitValidation(~inputVar=prev.var())
+          currentCode := val->emitChecks(~inputVar=prev.var())
         }
 
         if val.varsAllocation !== "" {
@@ -1401,8 +1393,8 @@ module Builder = {
     }
 
     // AND-joins every check's cond — caller guarantees `checks` is non-empty.
-    // Used by union codegen to hoist a val's validation into a dispatch discriminant.
-    let andJoinChecks = (checks: array<validationCheck>, ~inputVar: string): string => {
+    // Used by union codegen to hoist a val's checks into a dispatch discriminant.
+    let andJoinChecks = (checks: array<check>, ~inputVar: string): string => {
       let result = ref((checks->Js.Array2.unsafe_get(0)).cond(~inputVar))
       for i in 1 to checks->Js.Array2.length - 1 {
         result :=
@@ -1431,7 +1423,7 @@ module Builder = {
     }
 
     // Pass a non-empty `~checks` or omit it. Never pass `~checks=[]` —
-    // that would break the val.validation "absent iff no checks" invariant.
+    // that would break the val.checks "absent iff no checks" invariant.
     let refine = (val: val, ~schema=val.schema, ~checks=?, ~expected=val.expected) => {
       let shouldLink = val.var !== _var
       let nextVal = {
@@ -1444,7 +1436,7 @@ module Builder = {
         codeFromPrev: "",
         varsAllocation: "",
         allocate: initialAllocate,
-        validation: ?checks,
+        checks: ?checks,
         path: val.path,
         global: val.global,
         hasTransform: ?val.hasTransform,
@@ -1464,10 +1456,10 @@ module Builder = {
 
     // Lazy-allocate helper for mutating an existing val (as opposed to
     // building a local array and passing it through `refine`).
-    let pushCheck = (val: val, check: validationCheck) => {
-      switch val.validation {
+    let pushCheck = (val: val, check: check) => {
+      switch val.checks {
       | Some(arr) => arr->Js.Array2.push(check)->ignore
-      | None => val.validation = Some([check])
+      | None => val.checks = Some([check])
       }
     }
 
@@ -1476,9 +1468,9 @@ module Builder = {
     // `parent[key]`; `fail` stays shared so lifted checks fuse with the
     // parent's own type guard. No-op if the child has no checks.
     let hoistChildChecks = (parent: val, ~child: val, ~key: string) => {
-      if child.validation->X.Option.unsafeToBool {
+      if child.checks->X.Option.unsafeToBool {
         let pathAppend = parent.global->inlineLocation(key)->Path.fromInlinedLocation
-        child.validation
+        child.checks
         ->X.Option.getUnsafe
         ->Js.Array2.forEach(check => {
           parent->pushCheck({
@@ -1486,7 +1478,7 @@ module Builder = {
             fail: check.fail,
           })
         })
-        child.validation = None
+        child.checks = None
       }
     }
 
@@ -1841,7 +1833,7 @@ let numberDecoder = Builder.make((~input) => {
     let output = input->B.next(outputVar, ~schema=input.expected)
     output.var = B._var
 
-    output.validation = Some([
+    output.checks = Some([
       {
         cond: (~inputVar as _) =>
           switch input.expected.format {
@@ -2060,7 +2052,7 @@ module Literal = {
         // FIXME: Test, that when from item has a refinement
         // and we need to keep existing validation
         // S.string->S.check->S.to(S.literal(false))
-        stringConstVal.validation = Some([
+        stringConstVal.checks = Some([
           {
             cond: (~inputVar) => `${inputVar}==="${stringConstSchema.const->Obj.magic}"`,
             fail: B.failInvalidType,
@@ -2631,7 +2623,7 @@ and arrayDecoder: builder = (~input as unknownInput) => {
     } else {
       unknownInput.schema
     }
-    let checks: array<validationCheck> = []
+    let checks: array<check> = []
     if !isArrayInput {
       checks
       ->Js.Array2.push({
@@ -2782,7 +2774,7 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
     } else {
       unknownInput.schema
     }
-    let checks: array<validationCheck> = []
+    let checks: array<check> = []
     if !isObjectInput {
       checks
       ->Js.Array2.push({
@@ -3621,7 +3613,7 @@ module Union = {
 
               let currentCode = ref("")
 
-              if val.validation->X.Option.unsafeToBool {
+              if val.checks->X.Option.unsafeToBool {
                 if (
                   val.hasTransform === Some(true)
                     ? (val.prev->X.Option.getUnsafe).hasTransform !== Some(true) &&
@@ -3634,15 +3626,15 @@ module Union = {
                   let input = current.contents->X.Option.getUnsafe
                   let inputVar = input.var()
                   let condCode =
-                    val.validation->X.Option.getUnsafe->B.andJoinChecks(~inputVar)
+                    val.checks->X.Option.getUnsafe->B.andJoinChecks(~inputVar)
                   if itemCond.contents->X.String.unsafeToBool {
                     itemCond := `${condCode}&&${itemCond.contents}`
                   } else {
                     itemCond := condCode
                   }
-                } else {
+                } else if val.expected.noValidation !== Some(true) {
                   let prev = current.contents->X.Option.getUnsafe
-                  currentCode := val->B.emitValidation(~inputVar=prev.var())
+                  currentCode := val->B.emitChecks(~inputVar=prev.var())
                 }
               }
 
@@ -3902,7 +3894,7 @@ module Union = {
             | _ => {
                 // Discard any checks parse managed to push before throwing,
                 // so the deopt path doesn't see leftover partial state.
-                typeValidationInput.validation = None
+                typeValidationInput.checks = None
                 typeValidationInput
               }
             }
@@ -3931,7 +3923,7 @@ module Union = {
               valRef := v.prev
               shouldDeopt :=
                 !(
-                  v.validation->X.Option.unsafeToBool && (
+                  v.checks->X.Option.unsafeToBool && (
                       v.hasTransform === Some(true)
                         ? (v.prev->X.Option.getUnsafe).hasTransform !== Some(true) &&
                             v.codeFromPrev === ""
@@ -3994,7 +3986,7 @@ module Union = {
 
             let currentCode = ref("")
 
-            if val.validation->X.Option.unsafeToBool {
+            if val.checks->X.Option.unsafeToBool {
               if (
                 val.hasTransform === Some(true)
                   ? (val.prev->X.Option.getUnsafe).hasTransform !== Some(true) &&
@@ -4005,15 +3997,15 @@ module Union = {
                 let input = current.contents->X.Option.getUnsafe
                 let inputVar = input.var()
                 let condCode =
-                  val.validation->X.Option.getUnsafe->B.andJoinChecks(~inputVar)
+                  val.checks->X.Option.getUnsafe->B.andJoinChecks(~inputVar)
                 if blockCond.contents->X.String.unsafeToBool {
                   blockCond := `${condCode}&&${blockCond.contents}`
                 } else {
                   blockCond := condCode
                 }
-              } else {
+              } else if val.expected.noValidation !== Some(true) {
                 let prev = current.contents->X.Option.getUnsafe
-                currentCode := val->B.emitValidation(~inputVar=prev.var())
+                currentCode := val->B.emitChecks(~inputVar=prev.var())
               }
             }
 
@@ -5713,7 +5705,7 @@ let compactColumnsDecoder = (~input) => {
 
       if keysLen === 0 {
         if isUnknownInput {
-          input.validation = Some([
+          input.checks = Some([
             {
               cond: (~inputVar) =>
                 `Array.isArray(${inputVar})&&${inputVar}.length===0`,
@@ -5727,7 +5719,7 @@ let compactColumnsDecoder = (~input) => {
       } else if isForwardDirection {
         // Forward direction: columnar → rows
         if isUnknownInput {
-          input.validation = Some([
+          input.checks = Some([
             {
               cond: (~inputVar) => {
                 let check = ref(

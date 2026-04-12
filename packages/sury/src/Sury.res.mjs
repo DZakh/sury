@@ -623,10 +623,7 @@ function embedInvalidInput(input, expectedOpt) {
   return failWithArg(input, value => makeInvalidInputDetails(expected, received, path, value, true, undefined), input.v());
 }
 
-function emitValidation(val, inputVar) {
-  if (val.e.noValidation === true) {
-    return "";
-  }
+function emitChecks(val, inputVar) {
   let checks = val.vc;
   let len = checks.length;
   if (len === 1) {
@@ -656,9 +653,9 @@ function merge(val) {
     let val$1 = current;
     current = val$1.prev;
     let currentCode = "";
-    if (val$1.vc) {
+    if (val$1.vc && val$1.e.noValidation !== true) {
       let prev = current;
-      currentCode = emitValidation(val$1, prev.v());
+      currentCode = emitChecks(val$1, prev.v());
     }
     if (val$1.l !== "") {
       currentCode = currentCode + ("let " + val$1.l + ";");
@@ -2312,10 +2309,11 @@ function unionDecoder(input) {
               let inputVar = input$1.v();
               let condCode = andJoinChecks(val.vc, inputVar);
               itemCond = itemCond ? condCode + "&&" + itemCond : condCode;
-            } else {
+            } else if (val.e.noValidation !== true) {
               let prev = current;
-              currentCode = emitValidation(val, prev.v());
+              currentCode = emitChecks(val, prev.v());
             }
+            
           }
           if (val.l !== "") {
             currentCode = currentCode + ("let " + val.l + ";");
@@ -2570,10 +2568,11 @@ function unionDecoder(input) {
             let inputVar = input$1.v();
             let condCode = andJoinChecks(val.vc, inputVar);
             blockCond = blockCond ? condCode + "&&" + blockCond : condCode;
-          } else {
+          } else if (val.e.noValidation !== true) {
             let prev = current;
-            currentCode = emitValidation(val, prev.v());
+            currentCode = emitChecks(val, prev.v());
           }
+          
         }
         if (val.l !== "") {
           currentCode = currentCode + ("let " + val.l + ";");
