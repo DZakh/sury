@@ -2169,7 +2169,7 @@ test("CompactColumns with json and bigint", (t) => {
   const parsed = parse([
     ["0", "1"],
     ["12345678901234567890", "98765432109876543210"],
-  ] as S.JSON[][]);
+  ]);
   t.deepEqual(parsed, [
     { id: "0", amount: 12345678901234567890n },
     { id: "1", amount: 98765432109876543210n },
@@ -2180,7 +2180,7 @@ test("CompactColumns with json and bigint", (t) => {
   const encoded = encode([
     { id: "0", amount: 12345678901234567890n },
     { id: "1", amount: 98765432109876543210n },
-  ] as any);
+  ]);
   t.deepEqual(encoded, [
     ["0", "1"],
     [12345678901234567890n, 98765432109876543210n],

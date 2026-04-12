@@ -3806,7 +3806,8 @@ function compactColumnsDecoder(input) {
       let iteratorVar = varWithoutAllocation(input.g);
       let outputVar = varWithoutAllocation(input.g);
       let innerArray = selfSchema.additionalItems;
-      let itemSchema = innerArray.additionalItems;
+      let declaredItemSchema = innerArray.additionalItems;
+      let runtimeItemSchema = isUnknownInput ? unknown : input.s.additionalItems.additionalItems;
       let lengthCode = "";
       let itemBuildCode = "";
       let itemParseCode = "";
@@ -3815,10 +3816,19 @@ function compactColumnsDecoder(input) {
       for (let idx = 0; idx < keysLen; ++idx) {
         let key = keys[idx];
         let rawValueCode = inputVar + "[" + idx + "][" + iteratorVar + "]";
+        let fieldSchema = maybeProperties[key];
+        let itemExpected;
+        if (declaredItemSchema !== runtimeItemSchema) {
+          let chained = copySchema(declaredItemSchema);
+          chained.to = fieldSchema;
+          itemExpected = chained;
+        } else {
+          itemExpected = fieldSchema;
+        }
         let itemInput = scope(input);
         itemInput.i = rawValueCode;
-        itemInput.s = itemSchema;
-        itemInput.e = maybeProperties[key];
+        itemInput.s = runtimeItemSchema;
+        itemInput.e = itemExpected;
         itemInput.v = _notVarBeforeValidation;
         itemInput.ii = false;
         itemInput.io = false;

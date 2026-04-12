@@ -5588,14 +5588,18 @@ let compactColumnsDecoder = (~input) => {
         let iteratorVar = input.global->B.varWithoutAllocation
         let outputVar = input.global->B.varWithoutAllocation
 
-        // Schema of each raw column value. Derive from selfSchema (the
-        // compactColumns schema itself, i.e. input.expected) so we know
-        // the declared source type even when the top-level parser starts
-        // from `unknown`. This lets parse figure out the right conversion
-        // for each field — e.g. json→bigint routes through jsonEncoder
-        // (string→BigInt), while unknown→int validates typeof.
-        let itemSchema: internal = {
+        // Declared source item type from selfSchema (the compactColumns schema).
+        let declaredItemSchema: internal = {
           let innerArray: internal = selfSchema.additionalItems->Obj.magic
+          innerArray.additionalItems->Obj.magic
+        }
+
+        // Actual runtime item type: unknown for top-level parser, or
+        // the typed source when the caller passed already-typed data.
+        let runtimeItemSchema: internal = if isUnknownInput {
+          unknown
+        } else {
+          let innerArray: internal = input.schema.additionalItems->Obj.magic
           innerArray.additionalItems->Obj.magic
         }
 
@@ -5609,11 +5613,24 @@ let compactColumnsDecoder = (~input) => {
           let idxStr = idx->X.Int.unsafeToString
           let rawValueCode = `${inputVar}[${idxStr}][${iteratorVar}]`
 
-          // Use parse on the field schema to handle transformations (e.g. null->undefined).
+          let fieldSchema = properties->Js.Dict.unsafeGet(key)
+
+          // When the declared source differs from the runtime type
+          // (e.g. runtime=unknown, declared=json), chain through the
+          // declared type first so parse validates the value matches
+          // the source schema before converting to the field type.
+          let itemExpected = if declaredItemSchema !== runtimeItemSchema {
+            let chained = declaredItemSchema->copySchema
+            chained.to = Some(fieldSchema)
+            chained
+          } else {
+            fieldSchema
+          }
+
           let itemInput = input->B.Val.scope
           itemInput.inline = rawValueCode
-          itemInput.schema = itemSchema
-          itemInput.expected = properties->Js.Dict.unsafeGet(key)
+          itemInput.schema = runtimeItemSchema
+          itemInput.expected = itemExpected
           itemInput.var = B._notVarBeforeValidation
           itemInput.isInput = Some(false)
           itemInput.isOutput = Some(false)
