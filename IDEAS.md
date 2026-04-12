@@ -142,10 +142,10 @@ user->S.decodeAsyncOrThrow(~from=userSchema)
 // so the caller must ensure the input matches the schema's input type.
 
 // current S.convertOrThrow
-data->S.decodeUnsafeOrThrow(userSchema)
+data->S.decodeUnsafeOrThrow(~to=userSchema)
 
 // Async variant (current S.convertAsyncOrThrow)
-data->S.decodeUnsafeAsyncOrThrow(userSchema)
+data->S.decodeUnsafeAsyncOrThrow(~to=userSchema)
 ```
 
 ### TS operation functions
