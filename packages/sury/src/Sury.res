@@ -4616,9 +4616,8 @@ let jsonDecoder = (~input) => {
     }
   } else {
     try {
-      let attempt = input->B.Val.scope
-      attempt.expected = string
-      attempt->parse
+      input.expected = string
+      input->parse
     } catch {
     | _ =>
       input->B.throw(
