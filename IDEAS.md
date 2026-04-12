@@ -89,7 +89,7 @@ Only `parseOrThrow`, `assertOrThrow`, and `decodeOrThrow` (+ async variants) wit
 
 - `parser` - compiles a parse function (with validation). `~to` required, optional `~through`. Returns `'any => 'value`.
 - `decoder` - compiles a decode function (no validation). `~from` and `~to` required, optional `~through`. Returns `'from => 'to`.
-- `decoder1` - compiles a decode function for a single schema from input to output (no validation). Takes a single schema. Returns `'any => 'value`. This is the "decodeInput" equivalent — ReScript `S.t<'value>` only knows the output type, so the caller must ensure the data matches the schema's input type.
+- `decoder1` - compiles a decode function for a single schema from input to output (no validation). Takes a single schema. Returns `unknown => 'value`. This is the "decodeInput" equivalent — ReScript `S.t<'value>` only knows the output type, so the caller must ensure the data matches the schema's input type.
 
 ```rescript
 let userSchema = S.schema(s => {
@@ -161,7 +161,7 @@ data->pipeline // Js.Json.t => output
 
 // decoder1: compiled single-schema decode (input -> output, current S.convertOrThrow)
 let convert = S.decoder1(userSchema)
-data->convert // 'any => user
+data->convert // unknown => user
 ```
 
 ### TS operation functions
