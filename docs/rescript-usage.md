@@ -43,7 +43,7 @@
     - [Enums](#enums)
   - [`array`](#array)
   - [`list`](#list)
-  - [`unnest`](#unnest)
+  - [`compactColumns`](#compactcolumns)
   - [`tuple`](#tuple)
   - [`tuple1` - `tuple3`](#tuple1---tuple3)
   - [`dict`](#dict)
@@ -126,7 +126,7 @@ let filmSchema = S.object(s => {
       S.literal(Restricted),
     ]),
   ),
-  deprecatedAgeRestriction: s.field("Age", S.option(S.int)->S.deprecated("Use rating instead")),
+  deprecatedAgeRestriction: s.field("Age", S.option(S.int)->S.meta({deprecated: true})),
 })
 
 // 3. Parse data using the schema
@@ -932,12 +932,12 @@ let schema = S.list(S.string)
 
 The `S.list` schema represents an array of data of a specific type which is transformed to ReScript's list data-structure.
 
-### **`unnest`**
+### **`compactColumns`**
 
-`S.t<'value> => S.t<array<'value>>`
+`S.t<'value> => S.t<array<array<'value>>>`
 
 ```rescript
-let schema = S.unnest(S.schema(s => {
+let schema = S.compactColumns(S.schema(s => {
   id: s.matches(S.string),
   name: s.matches(S.nullAsOption(S.string)),
   deleted: s.matches(S.bool),
@@ -949,7 +949,7 @@ let schema = S.unnest(S.schema(s => {
 
 The helper function is inspired by the article [Boosting Postgres INSERT Performance by 2x With UNNEST](https://www.timescale.com/blog/boosting-postgres-insert-performance). It allows you to flatten a nested array of objects into arrays of values by field.
 
-The main concern of the approach described in the article is usability. And ReScript Schema completely solves the problem, providing a simple and intuitive API that is even more performant than `S.array`.
+The main concern of the approach described in the article is usability. And **Sury** completely solves the problem, providing a simple and intuitive API that is even more performant than `S.array`.
 
 <details>
 
@@ -1564,7 +1564,7 @@ Used internally for readable error messages.
 S.literal({"abc": 123})->S.toExpression
 // "{ "abc": 123 }"
 
-S.string->S.name("Address")->S.toExpression
+S.string->S.meta({name: "Address"})->S.toExpression
 // "Address"
 ```
 

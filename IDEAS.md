@@ -43,37 +43,7 @@
 - `S.assertOrThrow` -> `S.assert(schema, data)`
 - `S.compile` -> `S.decoder` or `S.encoder` or `S.parser`
 
-## v11
-
-### ideas
-
-- Add `promise` type and `S.promise` (instead of async flag internally)
-
-TODO:
-
-Test null<> in ppx
-
-```
-// Test that refinement works correctly with reverse
-
-S.reverse(S.schema({
-  foo: S.string->S.to(S.number)
-})->S.refine(value => value.foo > 0))
-```
-
-I left on cleaning up validation code and moving everything to their own decoder functions
-
-- Make reverse a property on schema, so it's not shown when logging
-- Keep current operationFn approach. Rename to makeOperation
-- Use define property to be enumerable and simplify copy
-- Add counter and set unique id to each schema
-- Use the unique id to cache the operationFn (from/to) in the schema (partially solves garbage collection problem)
-- Also cache reverse result
-- makeParseOrThrow
-- parseOrThrow(schema)(data) for ts api
-- deprecate compile
-
-### ReScript operation functions
+### ReScript
 
 | Before | After |
 |---|---|
@@ -93,13 +63,30 @@ I left on cleaning up validation code and moving everything to their own decoder
 | `S.compile(schema, ~input=Value, ~output=Unknown, ~mode=Sync, ~typeValidation=false)` | `S.decoder(~from=schema, ~to=S.unknown)` |
 | `S.compile(schema, ~input=Value, ~output=Unknown, ~mode=Async, ~typeValidation=false)` | `S.asyncDecoder(~from=schema, ~to=S.unknown)` |
 
+## v11
+
+### ideas
+
+- Add `promise` type and `S.promise` (instead of async flag internally)
+
+TODO:
+
+Test null<> in ppx
+
+```
+// Test that refinement works correctly with reverse
+
+S.reverse(S.schema({
+  foo: S.string->S.to(S.number)
+})->S.refine(value => value.foo > 0))
+```
+
 ### TS operation functions
 
 - rename `serializer` to reverse parser ?
 - Make `foo->S.to(S.unknown)` stricter ??
 
 - Add `S.to(from, target, parser, serializer)` instead of `S.transform`?
-- Remove `s.fail` with `throw new Error`
 - Make built-in refinements not work with `unknown`. Use `S.to` (manually & automatically) to deside the type first
 - Better inline empty recursive schema operations (union convert)
 - Don't iterate over JSON value when it's `S.json` convert without parsing
