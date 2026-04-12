@@ -67,10 +67,6 @@ test("Coerce from string to bool literal", t => {
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{i===false||e[0](i);return "false"}`)
 })
 
-// KNOWN BUG: refiner runs before the type guard when coercing via `.to`.
-// `parse` appends refiner code to `codeFromPrev`, and `merge` emits
-// `codeFromPrev ++ validation_code`, so the refiner sees untyped input.
-// Fix lands when refinements migrate off `codeFromPrev` onto `val.validation`.
 test("S.string->S.refine->S.to(S.literal) reports type error before refinement error", t => {
   let schema =
     S.string
@@ -83,7 +79,6 @@ test("S.string->S.refine->S.to(S.literal) reports type error before refinement e
     () => "true"->S.parseOrThrow(schema),
     `Expected "false", received "true"`,
   )
-  // BUG: currently fails with the refiner's "non-empty" because `(123).length > 0` is false.
   t->U.assertThrowsMessage(() => 123->S.parseOrThrow(schema), `Expected string, received 123`)
 })
 

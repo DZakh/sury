@@ -147,7 +147,7 @@ test("Ensures parsing order with unknown schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{typeof i==="string"||e[2](i);if(i.length!==e[0]){e[1]()}}catch(e2){try{typeof i==="boolean"||e[3](i);}catch(e3){try{let v0;try{v0=e[4](i)}catch(x){e[5](x)}i=v0}catch(e4){if(!(typeof i==="number"&&!Number.isNaN(i)||typeof i==="bigint")){e[6](i,e2,e3,e4)}}}}return i}`,
+    `i=>{try{typeof i==="string"&&(i.length===e[0])||e[1](i);}catch(e2){try{typeof i==="boolean"||e[2](i);}catch(e3){try{let v0;try{v0=e[3](i)}catch(x){e[4](x)}i=v0}catch(e4){if(!(typeof i==="number"&&!Number.isNaN(i)||typeof i==="bigint")){e[5](i,e2,e3,e4)}}}}return i}`,
   )
 })
 
@@ -391,7 +391,7 @@ test("NaN should be checked before number even if it's later item in the union",
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(Number.isNaN(i)){i=void 0}else if(typeof i==="number"){if(i<e[0]){e[1]()}}else{e[2](i)}return i}`,
+    `i=>{if(Number.isNaN(i)){i=void 0}else if(!(typeof i==="number"&&(i>=e[0]))){e[1](i)}return i}`,
   )
 
   S.global({})
@@ -843,15 +843,13 @@ test("Union of strings with different refinements", t => {
 
   t->U.assertThrowsMessage(
     () => %raw(`"123"`)->S.parseOrThrow(schema),
-    `Expected string | string, received "123"
-- Invalid email address
-- Invalid url`,
+    `Expected string | string, received "123"`,
   )
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){try{if(!e[0].test(i)){e[1]()}}catch(e0){try{try{new URL(i)}catch(_){e[2]()}}catch(e1){e[3](i,e0,e1)}}}else{e[4](i)}return i}`,
+    `i=>{if(!(typeof i==="string"&&(e[0].test(i)||e[1](i)))){e[2](i)}return i}`,
   )
 })
 
