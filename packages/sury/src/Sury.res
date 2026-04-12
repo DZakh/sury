@@ -2224,9 +2224,11 @@ let rec parse = (input: val) => {
                 checks->Js.Array2.push(arr->Js.Array2.unsafe_get(i))->ignore
               }
             }
-            valRef.contents = valRef.contents->B.refine(~checks)
-            valRef.contents.isInput = Some(true)
-            valRef.contents.isOutput = Some(true)
+            if checks->Js.Array2.length > 0 {
+              valRef.contents = valRef.contents->B.refine(~checks)
+              valRef.contents.isInput = Some(true)
+              valRef.contents.isOutput = Some(true)
+            }
           }
         }
       }

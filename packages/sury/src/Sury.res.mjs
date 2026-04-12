@@ -1276,9 +1276,12 @@ function parse$1(input) {
                 checks.push(arr$1[i$1]);
               }
             }
-            valRef = refine(valRef, undefined, checks, undefined);
-            valRef.ii = true;
-            valRef.io = true;
+            if (checks.length > 0) {
+              valRef = refine(valRef, undefined, checks, undefined);
+              valRef.ii = true;
+              valRef.io = true;
+            }
+            
           }
           
         }
