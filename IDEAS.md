@@ -74,16 +74,16 @@ I left on cleaning up validation code and moving everything to their own decoder
 
 ### ReScript operation functions
 
-Only `parseOrThrow`, `assertOrThrow`, `decodeOrThrow`, and `decodeUnsafeOrThrow` (+ async variants) with labeled args `~to`, `~from`, and optional `~between`.
+Only `parseOrThrow`, `assertOrThrow`, `decodeOrThrow`, and `decodeInputOrThrow` (+ async variants) with labeled args `~to`, `~from`, and optional `~through` (array of schemas).
 
-- `parseOrThrow` - validates input type + transforms. `~to` required, optional `~between`.
+- `parseOrThrow` - validates input type + transforms. `~to` required, optional `~through`.
 - `parseAsyncOrThrow` - async version of `parseOrThrow`
-- `assertOrThrow` - validates input and returns unit. `~to` required, optional `~between`.
+- `assertOrThrow` - validates input and returns unit. `~to` required, optional `~through`.
 - `assertAsyncOrThrow` - async version of `assertOrThrow`
-- `decodeOrThrow` - skips input type validation, only transforms. `~from` required, optional `~to` and `~between`.
+- `decodeOrThrow` - skips input type validation, only transforms. `~from` required, optional `~to` and `~through`.
 - `decodeAsyncOrThrow` - async version of `decodeOrThrow`
-- `decodeUnsafeOrThrow` - transforms a single schema from input to output without validation. Unsafe because ReScript schema type only knows the output type.
-- `decodeUnsafeAsyncOrThrow` - async version of `decodeUnsafeOrThrow`
+- `decodeInputOrThrow` - transforms a single schema from input to output without validation. `~to` required. "Input" because ReScript schema type `S.t<'value>` only knows the output type, so the caller must ensure the data matches the schema's input type.
+- `decodeInputAsyncOrThrow` - async version of `decodeInputOrThrow`
 
 ```rescript
 let userSchema = S.schema(s => {
@@ -91,13 +91,13 @@ let userSchema = S.schema(s => {
   name: s.matches(S.string),
 })
 
-// --- parseOrThrow (with input validation, ~to required, optional ~between) ---
+// --- parseOrThrow (with input validation, ~to required, optional ~through) ---
 
 // Parse any -> output (current S.parseOrThrow)
 data->S.parseOrThrow(~to=userSchema)
 
-// Parse with intermediate schema
-data->S.parseOrThrow(~between=intermediateSchema, ~to=userSchema)
+// Parse through intermediate schemas
+data->S.parseOrThrow(~through=[schemaA, schemaB], ~to=userSchema)
 
 // Parse async (current S.parseAsyncOrThrow)
 data->S.parseAsyncOrThrow(~to=userSchema)
@@ -107,8 +107,8 @@ data->S.parseAsyncOrThrow(~to=userSchema)
 // Assert (current S.assertOrThrow)
 data->S.assertOrThrow(~to=userSchema)
 
-// Assert with intermediate schema
-data->S.assertOrThrow(~between=intermediateSchema, ~to=userSchema)
+// Assert through intermediate schemas
+data->S.assertOrThrow(~through=[schemaA, schemaB], ~to=userSchema)
 
 // Assert async
 data->S.assertAsyncOrThrow(~to=userSchema)
@@ -130,22 +130,22 @@ user->S.decodeOrThrow(~from=userSchema, ~to=S.json)
 // Reverse: output -> JSON string (current S.reverseConvertToJsonStringOrThrow)
 user->S.decodeOrThrow(~from=userSchema, ~to=S.jsonString)
 
-// Between two schemas
-data->S.decodeOrThrow(~from=S.json, ~between=userSchema, ~to=outputSchema)
+// Through intermediate schemas
+data->S.decodeOrThrow(~from=S.json, ~through=[schemaA, schemaB], ~to=outputSchema)
 
 // Async variants (current S.convertAsyncOrThrow / S.reverseConvertAsyncOrThrow)
 data->S.decodeAsyncOrThrow(~from=S.json, ~to=userSchema)
-user->S.decodeAsyncOrThrow(~from=userSchema)
+user->S.decodeAsyncOrThrow(~from=userSchema, ~to=S.unknown)
 
-// --- decodeUnsafeOrThrow (single schema, input -> output, no validation) ---
-// Unsafe: ReScript schema type S.t<'value> only knows the output type,
-// so the caller must ensure the input matches the schema's input type.
+// --- decodeInputOrThrow (single schema, input -> output, no validation) ---
+// "Input" because ReScript S.t<'value> only knows the output type,
+// so the caller must ensure the data matches the schema's input type.
 
 // current S.convertOrThrow
-data->S.decodeUnsafeOrThrow(~to=userSchema)
+data->S.decodeInputOrThrow(~to=userSchema)
 
 // Async variant (current S.convertAsyncOrThrow)
-data->S.decodeUnsafeAsyncOrThrow(~to=userSchema)
+data->S.decodeInputAsyncOrThrow(~to=userSchema)
 ```
 
 ### TS operation functions
