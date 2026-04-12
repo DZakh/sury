@@ -10,14 +10,14 @@ module Common = {
   test("Successfully parses", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(any->S.parseOrThrow(schema), value)
+    t->Assert.deepEqual(any->S.parseOrThrow(~to=schema), value)
   })
 
   test("Fails to parse invalid type", t => {
     let schema = factory()
 
     t->U.assertThrowsMessage(
-      () => invalidTypeAny->S.parseOrThrow(schema),
+      () => invalidTypeAny->S.parseOrThrow(~to=schema),
       `Expected undefined, received "Hello world!"`,
     )
   })
@@ -25,14 +25,14 @@ module Common = {
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), any)
+    t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), any)
   })
 
   test("Fails to serialize invalid value", t => {
     let schema = factory()
 
     t->U.assertThrowsMessage(
-      () => invalidValue->S.reverseConvertOrThrow(schema),
+      () => invalidValue->S.decodeOrThrow(~from=schema, ~to=S.unknown),
       `Expected undefined, received 123`,
     )
   })

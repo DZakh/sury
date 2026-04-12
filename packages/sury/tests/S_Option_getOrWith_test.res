@@ -6,7 +6,7 @@ test("Uses default value when parsing optional unknown primitive", t => {
 
   let schema = S.float->S.option->S.Option.getOrWith(() => value)
 
-  t->Assert.deepEqual(any->S.parseOrThrow(schema), value)
+  t->Assert.deepEqual(any->S.parseOrThrow(~to=schema), value)
 })
 
 test("Uses default value when nullable optional unknown primitive", t => {
@@ -15,26 +15,26 @@ test("Uses default value when nullable optional unknown primitive", t => {
 
   let schema = S.float->S.nullAsOption->S.Option.getOrWith(() => value)
 
-  t->Assert.deepEqual(any->S.parseOrThrow(schema), value)
+  t->Assert.deepEqual(any->S.parseOrThrow(~to=schema), value)
 })
 
 test("Successfully parses with default when provided JS undefined", t => {
   let schema = S.bool->S.option->S.Option.getOrWith(() => false)
 
-  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), false)
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), false)
 })
 
 test("Successfully parses with default when provided primitive", t => {
   let schema = S.bool->S.option->S.Option.getOrWith(() => false)
 
-  t->Assert.deepEqual(%raw(`true`)->S.parseOrThrow(schema), true)
+  t->Assert.deepEqual(%raw(`true`)->S.parseOrThrow(~to=schema), true)
 })
 
 test("Successfully parses nested option with default value", t => {
   t->Assert.throws(() => {
     let schema = S.option(S.bool)->S.option->S.Option.getOrWith(() => Some(true))
 
-    t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), Some(true))
+    t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), Some(true))
   }, ~expectations={message: "[Sury] Can\'t set default for boolean | undefined | undefined"})
 })
 
@@ -42,7 +42,7 @@ test("Fails to parse data with default", t => {
   let schema = S.bool->S.option->S.Option.getOrWith(() => false)
 
   t->U.assertThrowsMessage(
-    () => %raw(`"string"`)->S.parseOrThrow(schema),
+    () => %raw(`"string"`)->S.parseOrThrow(~to=schema),
     `Expected boolean | undefined, received "string"`,
   )
 })
@@ -50,7 +50,7 @@ test("Fails to parse data with default", t => {
 test("Successfully serializes schema with transformation", t => {
   let schema = S.string->S.trim->S.option->S.Option.getOrWith(() => "default")
 
-  t->Assert.deepEqual(" abc"->S.reverseConvertOrThrow(schema), %raw(`"abc"`))
+  t->Assert.deepEqual(" abc"->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"abc"`))
 })
 
 test("Compiled parse code snapshot", t => {

@@ -130,7 +130,7 @@ let filmSchema = S.object(s => {
   "Title": "My first film",
   "Rating": "R",
   "Age": 17
-}->S.parseOrThrow(filmSchema)
+}->S.parseOrThrow(~to=filmSchema)
 // {
 //   id: 1.,
 //   title: "My first film",
@@ -146,7 +146,7 @@ let filmSchema = S.object(s => {
   title: "Sad & sed",
   rating: ParentalStronglyCautioned,
   deprecatedAgeRestriction: None,
-}->S.reverseConvertOrThrow(filmSchema)
+}->S.decodeOrThrow(~from=filmSchema, ~to=S.unknown)
 // {
 //   "Id": 2,
 //   "Title": "Sad & sed",
@@ -265,7 +265,7 @@ Compiled serializer code
 ```rescript
 let schema = S.string
 
-"Hello World!"->S.parseOrThrow(schema)
+"Hello World!"->S.parseOrThrow(~to=schema)
 // "Hello World!"
 ```
 
@@ -305,10 +305,10 @@ let datetimeSchema = S.string->S.datetime
 // The datetimeSchema has the type S.t<Date.t>
 // String is transformed to the Date.t instance
 
-"2020-01-01T00:00:00Z"->S.parseOrThrow(datetimeSchema) // pass
-"2020-01-01T00:00:00.123Z"->S.parseOrThrow(datetimeSchema) // pass
-"2020-01-01T00:00:00.123456Z"->S.parseOrThrow(datetimeSchema) // pass (arbitrary precision)
-"2020-01-01T00:00:00+02:00"->S.parseOrThrow(datetimeSchema) // fail (no offsets allowed)
+"2020-01-01T00:00:00Z"->S.parseOrThrow(~to=datetimeSchema) // pass
+"2020-01-01T00:00:00.123Z"->S.parseOrThrow(~to=datetimeSchema) // pass
+"2020-01-01T00:00:00.123456Z"->S.parseOrThrow(~to=datetimeSchema) // pass (arbitrary precision)
+"2020-01-01T00:00:00+02:00"->S.parseOrThrow(~to=datetimeSchema) // fail (no offsets allowed)
 ```
 
 ### **`bool`**
@@ -363,9 +363,9 @@ The `S.symbol` schema represents a data that is a symbol.
 ```rescript
 let schema = S.option(S.string)
 
-"Hello World!"->S.parseOrThrow(schema)
+"Hello World!"->S.parseOrThrow(~to=schema)
 // Some("Hello World!")
-%raw(`undefined`)->S.parseOrThrow(schema)
+%raw(`undefined`)->S.parseOrThrow(~to=schema)
 // None
 ```
 
@@ -378,9 +378,9 @@ The `S.option` schema represents a data of a specific type that might be undefin
 ```rescript
 let schema = S.option(S.string)->S.Option.getOr("Hello World!")
 
-%raw(`undefined`)->S.parseOrThrow(schema)
+%raw(`undefined`)->S.parseOrThrow(~to=schema)
 // "Hello World!"
-"Goodbye World!"->S.parseOrThrow(schema)
+"Goodbye World!"->S.parseOrThrow(~to=schema)
 // "Goodbye World!"
 ```
 
@@ -395,9 +395,9 @@ The `Option.getOr` augments a schema to add transformation logic for default val
 ```rescript
 let schema = S.option(S.array(S.string))->S.Option.getOrWith(() => ["Hello World!"])
 
-%raw(`undefined`)->S.parseOrThrow(schema)
+%raw(`undefined`)->S.parseOrThrow(~to=schema)
 // ["Hello World!"]
-["Goodbye World!"]->S.parseOrThrow(schema)
+["Goodbye World!"]->S.parseOrThrow(~to=schema)
 // ["Goodbye World!"]
 ```
 
@@ -410,9 +410,9 @@ Also you can use `Option.getOrWith` for lazy evaluation of the default value.
 ```rescript
 let schema = S.null(S.string)
 
-"Hello World!"->S.parseOrThrow(schema)
+"Hello World!"->S.parseOrThrow(~to=schema)
 // Value("Hello World!")
-%raw(`null`)->S.parseOrThrow(schema)
+%raw(`null`)->S.parseOrThrow(~to=schema)
 // Null
 ```
 
@@ -425,9 +425,9 @@ The `S.null` schema represents a data of a specific type that might be null.
 ```rescript
 let schema = S.nullAsOption(S.string)
 
-"Hello World!"->S.parseOrThrow(schema)
+"Hello World!"->S.parseOrThrow(~to=schema)
 // Some("Hello World!")
-%raw(`null`)->S.parseOrThrow(schema)
+%raw(`null`)->S.parseOrThrow(~to=schema)
 // None
 ```
 
@@ -442,11 +442,11 @@ The `S.nullAsOption` schema represents a data of a specific type that might be n
 ```rescript
 let schema = S.nullable(S.string)
 
-"Hello World!"->S.parseOrThrow(schema)
+"Hello World!"->S.parseOrThrow(~to=schema)
 // Some("Hello World!")
-%raw(`null`)->S.parseOrThrow(schema)
+%raw(`null`)->S.parseOrThrow(~to=schema)
 // Null
-%raw(`undefined`)->S.parseOrThrow(schema)
+%raw(`undefined`)->S.parseOrThrow(~to=schema)
 // Undefined
 ```
 
@@ -522,8 +522,8 @@ let pointSchema = S.object(s => {
 })
 
 // It can be used both for parsing and serializing
-{"x": 1, "y": -4}->S.parseOrThrow(pointSchema)
-{x: 1, y: -4}->S.reverseConvertOrThrow(pointSchema)
+{"x": 1, "y": -4}->S.parseOrThrow(~to=pointSchema)
+{x: 1, y: -4}->S.decodeOrThrow(~from=pointSchema, ~to=S.unknown)
 ```
 
 The `object` schema represents an object value, that can be transformed into any ReScript value. Here are some examples:
@@ -544,9 +544,9 @@ let schema = S.object(s => {
 {
   "USER_ID": 1,
   "USER_NAME": "John",
-}->S.parseOrThrow(schema)
+}->S.parseOrThrow(~to=schema)
 // {id: 1, name: "John"}
-{id: 1, name: "John"}->S.reverseConvertOrThrow(schema)
+{id: 1, name: "John"}->S.decodeOrThrow(~from=schema, ~to=S.unknown)
 // {"USER_ID": 1, "USER_NAME": "John"}
 ```
 
@@ -566,14 +566,14 @@ let schema = S.object(s => {
 // It will have the S.t<(int, string)> type
 let schema = S.object(s => (s.field("USER_ID", S.int), s.field("USER_NAME", S.string)))
 
-{"USER_ID":1,"USER_NAME":"John"}->S.parseOrThrow(schema)
+{"USER_ID":1,"USER_NAME":"John"}->S.parseOrThrow(~to=schema)
 // (1, "John")
 ```
 
 The same schema also works for serializing:
 
 ```rescript
-(1, "John")->S.reverseConvertOrThrow(schema)
+(1, "John")->S.decodeOrThrow(~from=schema, ~to=S.unknown)
 // {"USER_ID":1,"USER_NAME":"John"}
 ```
 
@@ -593,7 +593,7 @@ let schema = S.object(s => {
 {
   "kind": "circle",
   "radius": 1,
-}->S.parseOrThrow(schema)
+}->S.parseOrThrow(~to=schema)
 // Circle({radius: 1})
 ```
 
@@ -614,7 +614,7 @@ let schema = S.schema(s => Circle({
 You can use the schema for parsing as well as serializing:
 
 ```rescript
-Circle({radius: 1})->S.reverseConvertOrThrow(schema)
+Circle({radius: 1})->S.decodeOrThrow(~from=schema, ~to=S.unknown)
 // {
 //   "kind": "circle",
 //   "radius": 1,
@@ -692,7 +692,7 @@ let schema = S.object(_ => ())->S.strict
 
 {
   "someField": "value",
-}->S.parseOrThrow(schema)
+}->S.parseOrThrow(~to=schema)
 // throws S.error with the message: `Unrecognized key  "unknownKey"`
 ```
 
@@ -716,7 +716,7 @@ let schema = S.object(_ => ())->S.strip
 
 {
   "someField": "value",
-}->S.parseOrThrow(schema)
+}->S.parseOrThrow(~to=schema)
 // ()
 ```
 
@@ -792,14 +792,14 @@ type shape = Circle({radius: float}) | Square({x: float}) | Triangle({x: float, 
 // It will have the S.t<shape> type
 let schema = S.float->S.shape(radius => Circle({radius: radius}))
 
-1->S.parseOrThrow(schema)
+1->S.parseOrThrow(~to=schema)
 // Circle({radius: 1.})
 ```
 
 The same schema also works for serializing:
 
 ```rescript
-Circle({radius: 1})->S.reverseConvertOrThrow(schema)
+Circle({radius: 1})->S.decodeOrThrow(~from=schema, ~to=S.unknown)
 // 1
 ```
 
@@ -848,12 +848,12 @@ let shapeSchema = S.union([
 {
   "kind": "circle",
   "radius": 1,
-}->S.parseOrThrow(shapeSchema)
+}->S.parseOrThrow(~to=shapeSchema)
 // Circle({radius: 1.})
 ```
 
 ```rescript
-Square({x: 2.})->S.reverseConvertOrThrow(shapeSchema)
+Square({x: 2.})->S.decodeOrThrow(~from=shapeSchema, ~to=S.unknown)
 // {
 //   "kind": "square",
 //   "x": 2,
@@ -873,7 +873,7 @@ let schema = S.union([
   S.literal(Loss),
 ])
 
-"draw"->S.parseOrThrow(schema)
+"draw"->S.parseOrThrow(~to=schema)
 // Draw
 ```
 
@@ -890,7 +890,7 @@ let schema = S.enum([Win, Draw, Loss])
 ```rescript
 let schema = S.array(S.string)
 
-["Hello", "World"]->S.parseOrThrow(schema)
+["Hello", "World"]->S.parseOrThrow(~to=schema)
 // ["Hello", "World"]
 ```
 
@@ -911,7 +911,7 @@ S.array(itemSchema)->S.length(5) // Array must be exactly 5 items long
 ```rescript
 let schema = S.list(S.string)
 
-["Hello", "World"]->S.parseOrThrow(schema)
+["Hello", "World"]->S.parseOrThrow(~to=schema)
 // list{"Hello", "World"}
 ```
 
@@ -928,7 +928,7 @@ let schema = S.unnest(S.schema(s => {
   deleted: s.matches(S.bool),
 }))
 
-[{id: "0", name: Some("Hello"), deleted: false}, {id: "1", name: None, deleted: true}]->S.reverseConvertOrThrow(schema)
+[{id: "0", name: Some("Hello"), deleted: false}, {id: "1", name: None, deleted: true}]->S.decodeOrThrow(~from=schema, ~to=S.unknown)
 // [["0", "1"], ["Hello", null], [false, true]]
 ```
 
@@ -988,8 +988,8 @@ let pointSchema = S.tuple(s => {
 })
 
 // It can be used both for parsing and serializing
-["point", 1, -4]->S.parseOrThrow(pointSchema)
-{ x: 1, y: -4 }->S.reverseConvertOrThrow(pointSchema)
+["point", 1, -4]->S.parseOrThrow(~to=pointSchema)
+{ x: 1, y: -4 }->S.decodeOrThrow(~from=pointSchema, ~to=S.unknown)
 ```
 
 The `S.tuple` schema represents that a data is an array of a specific length with values each of a specific type.
@@ -1003,7 +1003,7 @@ For short tuples without the need for transformation, there are wrappers over `S
 ```rescript
 let schema = S.tuple3(S.string, S.int, S.bool)
 
-%raw(`["a", 1, true]`)->S.parseOrThrow(schema)
+%raw(`["a", 1, true]`)->S.parseOrThrow(~to=schema)
 // ("a", 1, true)
 ```
 
@@ -1017,7 +1017,7 @@ let schema = S.dict(S.string)
 {
   "foo": "bar",
   "baz": "qux",
-}->S.parseOrThrow(schema)
+}->S.parseOrThrow(~to=schema)
 // dict{foo: "bar", baz: "qux"}
 ```
 
@@ -1030,9 +1030,9 @@ The `dict` schema represents a dictionary of data of a specific type.
 ```rescript
 let schema = S.date
 
-Date.fromString("2024-01-01T00:00:00Z")->S.parseOrThrow(schema) // passes
-%raw(`new Date("invalid")`)->S.parseOrThrow(schema) // throws - Invalid Date
-%raw(`"2024-01-01"`)->S.parseOrThrow(schema) // throws - not a Date instance
+Date.fromString("2024-01-01T00:00:00Z")->S.parseOrThrow(~to=schema) // passes
+%raw(`new Date("invalid")`)->S.parseOrThrow(~to=schema) // throws - Invalid Date
+%raw(`"2024-01-01"`)->S.parseOrThrow(~to=schema) // throws - not a Date instance
 ```
 
 The `S.date` schema validates that the input is a `Date` instance and rejects Invalid Date.
@@ -1044,10 +1044,10 @@ You can use `S.to` to decode between strings and dates:
 ```rescript
 // Decode ISO string to Date
 let schema = S.string->S.to(S.date)
-"2024-01-01T00:00:00.000Z"->S.parseOrThrow(schema) // Date
+"2024-01-01T00:00:00.000Z"->S.parseOrThrow(~to=schema) // Date
 
 // Encode Date to ISO string
-Date.fromString("2024-01-01T00:00:00.000Z")->S.reverseConvertOrThrow(schema) // "2024-01-01T00:00:00.000Z"
+Date.fromString("2024-01-01T00:00:00.000Z")->S.decodeOrThrow(~from=schema, ~to=S.unknown) // "2024-01-01T00:00:00.000Z"
 ```
 
 ### **`instance`**
@@ -1067,7 +1067,7 @@ The `S.instance` schema represents an instance of a class. Requires some type ca
 ```rescript
 let schema = S.unknown
 
-"Hello World!"->S.parseOrThrow(schema)
+"Hello World!"->S.parseOrThrow(~to=schema)
 // "Hello World!"
 ```
 
@@ -1080,7 +1080,7 @@ The `S.unknown` schema represents any data.
 ```rescript
 let schema = S.never
 
-%raw(`undefined`)->S.parseOrThrow(schema)
+%raw(`undefined`)->S.parseOrThrow(~to=schema)
 // throws S.error with the message: `Expected never, received undefined`
 ```
 
@@ -1095,7 +1095,7 @@ S.enableJson() // ❕ Call at the project root.
 
 let schema = S.json
 
-`"abc"`->S.parseOrThrow(schema)
+`"abc"`->S.parseOrThrow(~to=schema)
 // "abc" of type JSON.t
 ```
 
@@ -1110,7 +1110,7 @@ S.enableJsonString() // ❕ Call at the project root.
 
 let schema = S.jsonString->S.to(S.int)
 
-"123"->S.parseOrThrow(schema)
+"123"->S.parseOrThrow(~to=schema)
 // 123
 ```
 
@@ -1168,7 +1168,7 @@ let nodeSchema = S.recursive("Node", nodeSchema => {
     {"Id": "2", "Children": []},
     {"Id": "3", "Children": [{"Id": "4", "Children": []}]},
   ],
-}->S.parseOrThrow(nodeSchema)
+}->S.parseOrThrow(~to=nodeSchema)
 // {
 //   id: "1",
 //   children: [{id: "2", children: []}, {id: "3", children: [{id: "4", children: []}]}],
@@ -1181,7 +1181,7 @@ The same schema works for serializing:
 {
   id: "1",
   children: [{id: "2", children: []}, {id: "3", children: [{id: "4", children: []}]}],
-}->S.reverseConvertOrThrow(nodeSchema)
+}->S.decodeOrThrow(~from=nodeSchema, ~to=S.unknown)
 // {
 //   "Id": "1",
 //   "Children": [
@@ -1224,7 +1224,7 @@ let mySet = itemSchema => {
       ->Obj.magic
       ->Set.forEach(
         item => {
-          output->Set.add(S.parseOrThrow(item, itemSchema))
+          output->Set.add(S.parseOrThrow(item, ~to=itemSchema))
         },
       )
       output
@@ -1235,9 +1235,9 @@ let mySet = itemSchema => {
 
 let intSetSchema = mySet(S.int)
 
-S.parseOrThrow(%raw(`new Set([1, 2, 3])`), intSetSchema) // passes
-S.parseOrThrow(%raw(`new Set([1, 2, "3"])`), intSetSchema) // throws S.Error: Expected int32, received "3"
-S.parseOrThrow(%raw(`[1, 2, 3]`), intSetSchema) // throws S.Error: Expected Set.t<int32>, received [1, 2, 3]
+S.parseOrThrow(%raw(`new Set([1, 2, 3])`), ~to=intSetSchema) // passes
+S.parseOrThrow(%raw(`new Set([1, 2, "3"])`), ~to=intSetSchema) // throws S.Error: Expected int32, received "3"
+S.parseOrThrow(%raw(`[1, 2, 3]`), ~to=intSetSchema) // throws S.Error: Expected Set.t<int32>, received [1, 2, 3]
 ```
 
 ## Refinements
@@ -1328,7 +1328,7 @@ let userSchema =
     serializer: user => user.id,
   })
 
-await "1"->S.parseAsyncOrThrow(userSchema)
+await "1"->S.parseAsyncOrThrow(~to=userSchema)
 // {
 //   id: "1",
 //   name: "John",
@@ -1337,7 +1337,7 @@ await "1"->S.parseAsyncOrThrow(userSchema)
 {
   id: "1",
   name: "John",
-}->S.reverseConvertOrThrow(userSchema)
+}->S.decodeOrThrow(~from=userSchema, ~to=S.unknown)
 // "1"
 ```
 
@@ -1389,7 +1389,7 @@ For some cases you might want to simply assert the input value is valid. For thi
 All operations either return the output value or throw an exception which you can catch with `try/catch` block:
 
 ```rescript
-try true->S.parseOrThrow(schema) catch {
+try true->S.parseOrThrow(~to=schema) catch {
 | S.Error(error) => Console.log(error.message)
 }
 ```
@@ -1451,15 +1451,15 @@ S.nullAsOption(S.string)->S.reverse
 ```rescript
 let schema = S.object(s => s.field("foo", S.string))
 
-{"foo": "bar"}->S.parseOrThrow(schema)
+{"foo": "bar"}->S.parseOrThrow(~to=schema)
 // "bar"
 
 let reversed = schema->S.reverse
 
-"bar"->S.parseOrThrow(reversed)
+"bar"->S.parseOrThrow(~to=reversed)
 // {"foo": "bar"}
 
-123->S.parseOrThrow(reversed)
+123->S.parseOrThrow(~to=reversed)
 // throws S.error with the message: `Expected string, received 123`
 ```
 
@@ -1474,8 +1474,8 @@ This very powerful API allows you to coerce another data type in a declarative w
 ```rescript
 let schema = S.string->S.to(S.float)
 
-"123"->S.parseOrThrow(schema) //? 123.
-"abc"->S.parseOrThrow(schema) //? throws: Expected number, received "abc"
+"123"->S.parseOrThrow(~to=schema) //? 123.
+"abc"->S.parseOrThrow(~to=schema) //? throws: Expected number, received "abc"
 
 // Reverse works correctly as well 🔥
 123.->S.reverseConvertOrThrow(schema) //? "123"
@@ -1529,7 +1529,7 @@ let schema = S.object(s => s.field("abc", S.int))->S.noValidation(true)
 
 {
   "abc": 123,
-}->S.parseOrThrow(schema) // This doesn't have `if (typeof i !== "object" || !i) {` check. But field types are still validated.
+}->S.parseOrThrow(~to=schema) // This doesn't have `if (typeof i !== "object" || !i) {` check. But field types are still validated.
 // 123
 ```
 
@@ -1544,14 +1544,14 @@ This can be useful to optimise `S.object` parsing when you construct the input d
 ```rescript
 let schema = S.literal(false)
 
-true->S.parseOrThrow(schema)
+true->S.parseOrThrow(~to=schema)
 // throws S.error with the message: `Expected false, received true`
 ```
 
 If you want to handle the error, the best way to use `try/catch` block:
 
 ```rescript
-try true->S.parseOrThrow(schema) catch {
+try true->S.parseOrThrow(~to=schema) catch {
 | S.Error(error) => Console.log(error.message)
 }
 ```

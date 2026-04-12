@@ -6,40 +6,40 @@ test("Supports String", t => {
   let schema = S.json
   let data = JSON.Encode.string("Foo")
 
-  t->Assert.deepEqual(data->S.parseOrThrow(schema), data)
-  t->Assert.deepEqual(data->S.reverseConvertToJsonOrThrow(schema), data)
+  t->Assert.deepEqual(data->S.parseOrThrow(~to=schema), data)
+  t->Assert.deepEqual(data->S.decodeOrThrow(~from=schema, ~to=S.json), data)
 })
 
 test("Supports Number", t => {
   let schema = S.json
   let data = JSON.Encode.float(123.)
 
-  t->Assert.deepEqual(data->S.parseOrThrow(schema), data)
-  t->Assert.deepEqual(data->S.reverseConvertToJsonOrThrow(schema), data)
+  t->Assert.deepEqual(data->S.parseOrThrow(~to=schema), data)
+  t->Assert.deepEqual(data->S.decodeOrThrow(~from=schema, ~to=S.json), data)
 })
 
 test("Supports Bool", t => {
   let schema = S.json
   let data = JSON.Encode.bool(true)
 
-  t->Assert.deepEqual(data->S.parseOrThrow(schema), data)
-  t->Assert.deepEqual(data->S.reverseConvertToJsonOrThrow(schema), data)
+  t->Assert.deepEqual(data->S.parseOrThrow(~to=schema), data)
+  t->Assert.deepEqual(data->S.decodeOrThrow(~from=schema, ~to=S.json), data)
 })
 
 test("Supports Null", t => {
   let schema = S.json
   let data = JSON.Encode.null
 
-  t->Assert.deepEqual(data->S.parseOrThrow(schema), data)
-  t->Assert.deepEqual(data->S.reverseConvertToJsonOrThrow(schema), data)
+  t->Assert.deepEqual(data->S.parseOrThrow(~to=schema), data)
+  t->Assert.deepEqual(data->S.decodeOrThrow(~from=schema, ~to=S.json), data)
 })
 
 test("Supports Array", t => {
   let schema = S.json
   let data = JSON.Encode.array([JSON.Encode.string("foo"), JSON.Encode.null])
 
-  t->Assert.deepEqual(data->S.parseOrThrow(schema), data)
-  t->Assert.deepEqual(data->S.reverseConvertToJsonOrThrow(schema), data)
+  t->Assert.deepEqual(data->S.parseOrThrow(~to=schema), data)
+  t->Assert.deepEqual(data->S.decodeOrThrow(~from=schema, ~to=S.json), data)
 })
 
 test("Supports Object", t => {
@@ -48,8 +48,8 @@ test("Supports Object", t => {
     [("bar", JSON.Encode.string("foo")), ("baz", JSON.Encode.null)]->Dict.fromArray,
   )
 
-  t->Assert.deepEqual(data->S.parseOrThrow(schema), data)
-  t->Assert.deepEqual(data->S.reverseConvertToJsonOrThrow(schema), data)
+  t->Assert.deepEqual(data->S.parseOrThrow(~to=schema), data)
+  t->Assert.deepEqual(data->S.decodeOrThrow(~from=schema, ~to=S.json), data)
 })
 
 test("Fails to parse Object field", t => {
@@ -59,7 +59,7 @@ test("Fails to parse Object field", t => {
   )
 
   t->U.assertThrowsMessage(
-    () => data->S.parseOrThrow(schema),
+    () => data->S.parseOrThrow(~to=schema),
     `Failed at ["bar"]: Expected JSON, received undefined`,
   )
 })
@@ -69,20 +69,20 @@ test("Fails to parse matrix field", t => {
   let data = %raw(`[1,[undefined]]`)
 
   t->U.assertThrowsMessage(
-    () => data->S.parseOrThrow(schema),
+    () => data->S.parseOrThrow(~to=schema),
     `Failed at ["1"]["0"]: Expected JSON, received undefined`,
   )
 })
 
 test("Fails to parse NaN", t => {
   let schema = S.json
-  t->U.assertThrowsMessage(() => %raw(`NaN`)->S.parseOrThrow(schema), `Expected JSON, received NaN`)
+  t->U.assertThrowsMessage(() => %raw(`NaN`)->S.parseOrThrow(~to=schema), `Expected JSON, received NaN`)
 })
 
 test("Fails to parse undefined", t => {
   let schema = S.json
   t->U.assertThrowsMessage(
-    () => %raw(`undefined`)->S.parseOrThrow(schema),
+    () => %raw(`undefined`)->S.parseOrThrow(~to=schema),
     `Expected JSON, received undefined`,
   )
 })

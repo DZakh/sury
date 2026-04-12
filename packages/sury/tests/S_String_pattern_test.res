@@ -3,7 +3,7 @@ open Ava
 test("Successfully parses valid data", t => {
   let schema = S.string->S.pattern(/[0-9]/)
 
-  t->Assert.deepEqual("123"->S.parseOrThrow(schema), "123")
+  t->Assert.deepEqual("123"->S.parseOrThrow(~to=schema), "123")
 
   t->U.assertCompiledCode(
     ~schema,
@@ -15,7 +15,7 @@ test("Successfully parses valid data", t => {
 test("Successfully parses valid data with global flag", t => {
   let schema = S.string->S.pattern(/[0-9]/g)
 
-  t->Assert.deepEqual("123"->S.parseOrThrow(schema), "123")
+  t->Assert.deepEqual("123"->S.parseOrThrow(~to=schema), "123")
 
   t->U.assertCompiledCode(
     ~schema,
@@ -27,25 +27,25 @@ test("Successfully parses valid data with global flag", t => {
 test("Fails to parse invalid data", t => {
   let schema = S.string->S.pattern(/[0-9]/)
 
-  t->U.assertThrowsMessage(() => "abc"->S.parseOrThrow(schema), `Invalid pattern`)
+  t->U.assertThrowsMessage(() => "abc"->S.parseOrThrow(~to=schema), `Invalid pattern`)
 })
 
 test("Successfully serializes valid value", t => {
   let schema = S.string->S.pattern(/[0-9]/)
 
-  t->Assert.deepEqual("123"->S.reverseConvertOrThrow(schema), %raw(`"123"`))
+  t->Assert.deepEqual("123"->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
 })
 
 test("Fails to serialize invalid value", t => {
   let schema = S.string->S.pattern(/[0-9]/)
 
-  t->U.assertThrowsMessage(() => "abc"->S.reverseConvertOrThrow(schema), `Invalid pattern`)
+  t->U.assertThrowsMessage(() => "abc"->S.decodeOrThrow(~from=schema, ~to=S.unknown), `Invalid pattern`)
 })
 
 test("Returns custom error message", t => {
   let schema = S.string->S.pattern(~message="Custom", /[0-9]/)
 
-  t->U.assertThrowsMessage(() => "abc"->S.parseOrThrow(schema), `Custom`)
+  t->U.assertThrowsMessage(() => "abc"->S.parseOrThrow(~to=schema), `Custom`)
 })
 
 test("Returns refinement", t => {

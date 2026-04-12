@@ -22,7 +22,7 @@ test("Successfully parses recursive object", t => {
         {"Id": "2", "Children": []},
         {"Id": "3", "Children": [{"Id": "4", "Children": []}]},
       ],
-    }->S.parseOrThrow(nodeSchema),
+    }->S.parseOrThrow(~to=nodeSchema),
     {
       id: "1",
       children: [{id: "2", children: []}, {id: "3", children: [{id: "4", children: []}]}],
@@ -44,7 +44,7 @@ test("Fails to parses recursive object when provided invalid type", t => {
     switch {
       "Id": "1",
       "Children": ["invalid"],
-    }->S.parseOrThrow(nodeSchema) {
+    }->S.parseOrThrow(~to=nodeSchema) {
     | _ => "Shouldn't pass"
     | exception S.Exn({message}) => message
     },
@@ -76,7 +76,7 @@ Node: i=>{typeof i==="object"&&i||e[3](i);let v0=i["Id"],v1=i["Children"];typeof
       {"Id": "3", "Children": [{"Id": "4", "Children": []}]},
     ],
   }`)
-  ->S.parseAsyncOrThrow(nodeSchema)
+  ->S.parseAsyncOrThrow(~to=nodeSchema)
   ->Promise.thenResolve(result => {
     t->Assert.deepEqual(
       result,
@@ -109,7 +109,7 @@ Node: i=>{let v0=i["children"],v5=new Array(v0.length);for(let v1=0;v1<v0.length
     {
       id: "1",
       children: [{id: "2", children: []}, {id: "3", children: [{id: "4", children: []}]}],
-    }->S.reverseConvertOrThrow(nodeSchema),
+    }->S.decodeOrThrow(~from=nodeSchema, ~to=S.unknown),
     %raw(`{
         "Id": "1",
         "Children": [
@@ -140,7 +140,7 @@ test("Fails to parse nested recursive object", t => {
         {"Id": "2", "Children": []},
         {"Id": "3", "Children": [{"Id": "4", "Children": []}]},
       ],
-    }->S.parseOrThrow(nodeSchema)
+    }->S.parseOrThrow(~to=nodeSchema)
   , `Failed at ["Children"]["1"]["Children"]["0"]["Id"]: Invalid id`)
 })
 
@@ -174,7 +174,7 @@ test("Fails to parse nested recursive object inside of another object", t => {
           {"Id": "3", "Children": [{"Id": "4", "Children": []}]},
         ],
       },
-    }->S.parseOrThrow(schema)
+    }->S.parseOrThrow(~to=schema)
   , `Failed at ["recursive"]["Children"]["1"]["Children"]["0"]["Id"]: Invalid id`)
 })
 
@@ -234,7 +234,7 @@ test("Parses multiple nested recursive object inside of another object", t => {
           {"Id": "3", "Children": [{"Id": "4", "Children": []}]},
         ],
       },
-    }->S.parseOrThrow(schema),
+    }->S.parseOrThrow(~to=schema),
     {
       "recursive1": {
         id: "1",
@@ -266,7 +266,7 @@ test("Fails to serialise nested recursive object", t => {
       {
         id: "1",
         children: [{id: "2", children: []}, {id: "3", children: [{id: "4", children: []}]}],
-      }->S.reverseConvertOrThrow(nodeSchema),
+      }->S.decodeOrThrow(~from=nodeSchema, ~to=S.unknown),
     `{
       code: OperationFailed("Invalid id"),
       operation: ReverseConvert,
@@ -305,7 +305,7 @@ Node: i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["Id"],v1=i["Children"];if
           {"Id": "2", "Children": []},
           {"Id": "3", "Children": [{"Id": "4", "Children": []}]},
         ],
-      }->S.parseOrThrow(nodeSchema),
+      }->S.parseOrThrow(~to=nodeSchema),
       {
         id: "node_1",
         children: [
@@ -328,7 +328,7 @@ Node: i=>{let v0=e[0](i);let v1=v0["children"],v6=new Array(v1.length);for(let v
           {id: "node_2", children: []},
           {id: "node_3", children: [{id: "node_4", children: []}]},
         ],
-      }->S.reverseConvertOrThrow(nodeSchema),
+      }->S.decodeOrThrow(~from=nodeSchema, ~to=S.unknown),
       {
         "Id": "1",
         "Children": [
@@ -367,7 +367,7 @@ test("Recursively transforms nested objects when added transform to the placehol
         {"Id": "2", "Children": []},
         {"Id": "3", "Children": [{"Id": "4", "Children": []}]},
       ],
-    }->S.parseOrThrow(nodeSchema),
+    }->S.parseOrThrow(~to=nodeSchema),
     {
       id: "1",
       children: [
@@ -383,7 +383,7 @@ test("Recursively transforms nested objects when added transform to the placehol
         {id: "child_2", children: []},
         {id: "child_3", children: [{id: "child_4", children: []}]},
       ],
-    }->S.reverseConvertOrThrow(nodeSchema),
+    }->S.decodeOrThrow(~from=nodeSchema, ~to=S.unknown),
     {
       "Id": "1",
       "Children": [
@@ -415,7 +415,7 @@ test("Shallowly transforms object when added transform to the S.recursive result
         {"Id": "2", "Children": []},
         {"Id": "3", "Children": [{"Id": "4", "Children": []}]},
       ],
-    }->S.parseOrThrow(nodeSchema),
+    }->S.parseOrThrow(~to=nodeSchema),
     {
       id: "parent_1",
       children: [{id: "2", children: []}, {id: "3", children: [{id: "4", children: []}]}],
@@ -425,7 +425,7 @@ test("Shallowly transforms object when added transform to the S.recursive result
     {
       id: "parent_1",
       children: [{id: "2", children: []}, {id: "3", children: [{id: "4", children: []}]}],
-    }->S.reverseConvertOrThrow(nodeSchema),
+    }->S.decodeOrThrow(~from=nodeSchema, ~to=S.unknown),
     {
       "Id": "1",
       "Children": [
@@ -473,7 +473,7 @@ Node: i=>{if(typeof i!=="object"||!i){e[5](i)}let v1=i["Id"],v2=i["Children"];if
       {"Id": "3", "Children": [{"Id": "4", "Children": []}]},
     ],
   }`)
-  ->S.parseAsyncOrThrow(nodeSchema)
+  ->S.parseAsyncOrThrow(~to=nodeSchema)
   ->Promise.thenResolve(result => {
     t->Assert.deepEqual(
       result,
@@ -515,7 +515,7 @@ test("Parses recursive object with async fields in parallel", t => {
       {"Id": "3", "Children": [{"Id": "4", "Children": []}]},
     ],
   }`)
-  ->S.parseAsyncOrThrow(nodeSchema)
+  ->S.parseAsyncOrThrow(~to=nodeSchema)
   ->ignore
 
   t->Assert.deepEqual(actionCounter.contents, 4)

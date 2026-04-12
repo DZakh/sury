@@ -25,12 +25,12 @@ test("Successfully parses and reverse converts a simple object with compactColum
   )
 
   t->Assert.deepEqual(
-    %raw(`[["a", "b"], [0, 1]]`)->S.parseOrThrow(schema),
+    %raw(`[["a", "b"], [0, 1]]`)->S.parseOrThrow(~to=schema),
     %raw(`[{"foo": "a", "bar": 0}, {"foo": "b", "bar": 1}]`),
   )
 
   t->Assert.deepEqual(
-    %raw(`[{"foo": "a", "bar": 0}, {"foo": "b", "bar": 1}]`)->S.reverseConvertOrThrow(schema),
+    %raw(`[{"foo": "a", "bar": 0}, {"foo": "b", "bar": 1}]`)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`[["a", "b"], [0, 1]]`),
   )
 })
@@ -60,12 +60,12 @@ test("Transforms nullable fields", t => {
   )
 
   t->Assert.deepEqual(
-    %raw(`[["a", "b"], [0, null]]`)->S.parseOrThrow(schema),
+    %raw(`[["a", "b"], [0, null]]`)->S.parseOrThrow(~to=schema),
     %raw(`[{"foo": "a", "bar": 0}, {"foo": "b", "bar": undefined}]`),
   )
 
   t->Assert.deepEqual(
-    %raw(`[{"foo": "a", "bar": 0}, {"foo": "b", "bar": undefined}]`)->S.reverseConvertOrThrow(schema),
+    %raw(`[{"foo": "a", "bar": 0}, {"foo": "b", "bar": undefined}]`)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`[["a", "b"], [0, null]]`),
   )
 })
@@ -95,12 +95,12 @@ test("Case with missing item at the end", t => {
   )
 
   t->Assert.deepEqual(
-    %raw(`[["a", "b"], [true, true, false]]`)->S.parseOrThrow(schema),
+    %raw(`[["a", "b"], [true, true, false]]`)->S.parseOrThrow(~to=schema),
     %raw(`[{"foo": "a", "bar": true}, {"foo": "b", "bar": true}, {"foo": undefined, "bar": false}]`),
   )
 
   t->Assert.deepEqual(
-    %raw(`[{"foo": "a", "bar": true}, {"foo": "b", "bar": true}, {"foo": undefined, "bar": false}]`)->S.reverseConvertOrThrow(schema),
+    %raw(`[{"foo": "a", "bar": true}, {"foo": "b", "bar": true}, {"foo": undefined, "bar": false}]`)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`[["a", "b", undefined], [true, true, false]]`),
   )
 })
@@ -115,14 +115,14 @@ test("Handles empty objects", t => {
   )
 
   // Parse empty columnar input to empty array
-  t->Assert.deepEqual(%raw(`[]`)->S.parseOrThrow(schema), %raw(`[]`))
+  t->Assert.deepEqual(%raw(`[]`)->S.parseOrThrow(~to=schema), %raw(`[]`))
 })
 
 test("Handles non-object schemas", t => {
   let schema = S.compactColumns(S.unknown)->S.to(S.array(S.tuple2(S.string, S.int)))
   t->Assert.throws(
     () => {
-      %raw(`[["a"], [0]]`)->S.parseOrThrow(schema)
+      %raw(`[["a"], [0]]`)->S.parseOrThrow(~to=schema)
     },
     ~expectations={
       message: "[Sury] S.compactColumns supports only object schemas. Use S.compactColumns(S.unknown)->S.to(S.array(objectSchema)).",
@@ -151,12 +151,12 @@ test("Typed input schema (non-unknown inputSchema branch)", t => {
     )
 
   t->Assert.deepEqual(
-    %raw(`[["a", "b"], ["c", "d"]]`)->S.parseOrThrow(schema),
+    %raw(`[["a", "b"], ["c", "d"]]`)->S.parseOrThrow(~to=schema),
     %raw(`[{"foo": "a", "bar": "c"}, {"foo": "b", "bar": "d"}]`),
   )
 
   t->Assert.deepEqual(
-    %raw(`[{"foo": "a", "bar": "c"}, {"foo": "b", "bar": "d"}]`)->S.reverseConvertOrThrow(schema),
+    %raw(`[{"foo": "a", "bar": "c"}, {"foo": "b", "bar": "d"}]`)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`[["a", "b"], ["c", "d"]]`),
   )
 })
@@ -176,7 +176,7 @@ test("Invalid field value reports error with path", t => {
 
   // Second row, bar column contains a non-int value.
   t->U.assertThrowsMessage(
-    () => %raw(`[["a", "b"], [0, "not-an-int"]]`)->S.parseOrThrow(schema),
+    () => %raw(`[["a", "b"], [0, "not-an-int"]]`)->S.parseOrThrow(~to=schema),
     `Failed at ["1"]["bar"]: Expected int32, received "not-an-int"`,
   )
 })
@@ -196,7 +196,7 @@ test("Error path reporting for invalid column value", t => {
     )
 
   t->U.assertThrowsMessage(
-    () => %raw(`[["a"], ["not-an-int"]]`)->S.parseOrThrow(schema),
+    () => %raw(`[["a"], ["not-an-int"]]`)->S.parseOrThrow(~to=schema),
     `Failed at ["0"]["bar"]: Expected int32, received "not-an-int"`,
   )
 })
@@ -215,7 +215,7 @@ asyncTest("Async field schema", async t => {
     )
 
   t->Assert.deepEqual(
-    await %raw(`[["a", "b"], [0, 1]]`)->S.parseAsyncOrThrow(schema),
+    await %raw(`[["a", "b"], [0, 1]]`)->S.parseAsyncOrThrow(~to=schema),
     %raw(`[{"foo": "a", "bar": 0}, {"foo": "b", "bar": 1}]`),
   )
 })
@@ -234,7 +234,7 @@ test("Field schema with S.transform", t => {
     )
 
   t->Assert.deepEqual(
-    %raw(`[["a", "b"], [0, 1]]`)->S.parseOrThrow(schema),
+    %raw(`[["a", "b"], [0, 1]]`)->S.parseOrThrow(~to=schema),
     %raw(`[{"foo": "A", "bar": 0}, {"foo": "B", "bar": 1}]`),
   )
 })
@@ -253,12 +253,12 @@ test("Nullable field (null | undefined)", t => {
     )
 
   t->Assert.deepEqual(
-    %raw(`[["a", null], [0, 1]]`)->S.parseOrThrow(schema),
+    %raw(`[["a", null], [0, 1]]`)->S.parseOrThrow(~to=schema),
     %raw(`[{"foo": "a", "bar": 0}, {"foo": null, "bar": 1}]`),
   )
 
   t->Assert.deepEqual(
-    %raw(`[{"foo": "a", "bar": 0}, {"foo": null, "bar": 1}]`)->S.reverseConvertOrThrow(schema),
+    %raw(`[{"foo": "a", "bar": 0}, {"foo": null, "bar": 1}]`)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`[["a", null], [0, 1]]`),
   )
 })
@@ -279,13 +279,14 @@ test("More than 2 fields", t => {
     )
 
   t->Assert.deepEqual(
-    %raw(`[["x", "y"], [1, 2], [true, false], [1.5, 2.5]]`)->S.parseOrThrow(schema),
+    %raw(`[["x", "y"], [1, 2], [true, false], [1.5, 2.5]]`)->S.parseOrThrow(~to=schema),
     %raw(`[{"a": "x", "b": 1, "c": true, "d": 1.5}, {"a": "y", "b": 2, "c": false, "d": 2.5}]`),
   )
 
   t->Assert.deepEqual(
-    %raw(`[{"a": "x", "b": 1, "c": true, "d": 1.5}, {"a": "y", "b": 2, "c": false, "d": 2.5}]`)->S.reverseConvertOrThrow(
-      schema,
+    %raw(`[{"a": "x", "b": 1, "c": true, "d": 1.5}, {"a": "y", "b": 2, "c": false, "d": 2.5}]`)->S.decodeOrThrow(
+      ~from=schema,
+      ~to=S.unknown,
     ),
     %raw(`[["x", "y"], [1, 2], [true, false], [1.5, 2.5]]`),
   )
@@ -304,12 +305,12 @@ test("Single-field object", t => {
     )
 
   t->Assert.deepEqual(
-    %raw(`[["a", "b", "c"]]`)->S.parseOrThrow(schema),
+    %raw(`[["a", "b", "c"]]`)->S.parseOrThrow(~to=schema),
     %raw(`[{"only": "a"}, {"only": "b"}, {"only": "c"}]`),
   )
 
   t->Assert.deepEqual(
-    %raw(`[{"only": "a"}, {"only": "b"}, {"only": "c"}]`)->S.reverseConvertOrThrow(schema),
+    %raw(`[{"only": "a"}, {"only": "b"}, {"only": "c"}]`)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`[["a", "b", "c"]]`),
   )
 })
@@ -328,7 +329,7 @@ test("Union field", t => {
     )
 
   t->Assert.deepEqual(
-    %raw(`[[1, "two"], [true, false]]`)->S.parseOrThrow(schema),
+    %raw(`[[1, "two"], [true, false]]`)->S.parseOrThrow(~to=schema),
     %raw(`[{"foo": 1, "bar": true}, {"foo": "two", "bar": false}]`),
   )
 })
@@ -348,13 +349,13 @@ test("Field with S.refine", t => {
 
   // Valid row parses successfully.
   t->Assert.deepEqual(
-    %raw(`[[10, 20], ["alice", "bob"]]`)->S.parseOrThrow(schema),
+    %raw(`[[10, 20], ["alice", "bob"]]`)->S.parseOrThrow(~to=schema),
     %raw(`[{"age": 10, "name": "alice"}, {"age": 20, "name": "bob"}]`),
   )
 
   // Negative age triggers the refinement error.
   t->U.assertThrowsMessage(
-    () => %raw(`[[-5], ["bad"]]`)->S.parseOrThrow(schema),
+    () => %raw(`[[-5], ["bad"]]`)->S.parseOrThrow(~to=schema),
     `Failed at ["0"]["age"]: Age must be non-negative`,
   )
 })
@@ -375,7 +376,7 @@ test("reverseConvertToJsonOrThrow with nullable field", t => {
 
   let value = %raw(`[{"foo": "a", "bar": 0}, {"foo": "b", "bar": undefined}]`)
   t->Assert.deepEqual(
-    value->S.reverseConvertToJsonOrThrow(schema),
+    value->S.decodeOrThrow(~from=schema, ~to=S.json),
     %raw(`[["a", "b"], [0, null]]`),
   )
 })
@@ -394,8 +395,8 @@ test("Roundtrip: parse -> reverseConvert -> parse", t => {
     )
 
   let columnar = %raw(`[["a", "b", "c"], [0, null, 2]]`)
-  let rows = columnar->S.parseOrThrow(schema)
-  let roundtripped = rows->S.reverseConvertOrThrow(schema)->S.parseOrThrow(schema)
+  let rows = columnar->S.parseOrThrow(~to=schema)
+  let roundtripped = rows->S.decodeOrThrow(~from=schema, ~to=S.unknown)->S.parseOrThrow(~to=schema)
   t->Assert.deepEqual(rows, roundtripped)
 })
 
@@ -414,7 +415,7 @@ test("reverseConvertToJsonOrThrow validates non-JSON-able unknown field values",
 
   // JSON-compatible values round-trip through the columnar form unchanged.
   t->Assert.deepEqual(
-    %raw(`[{"foo": "hello"}, {"foo": 42}]`)->S.reverseConvertToJsonOrThrow(schema),
+    %raw(`[{"foo": "hello"}, {"foo": 42}]`)->S.decodeOrThrow(~from=schema, ~to=S.json),
     %raw(`[["hello", 42]]`),
   )
 
@@ -423,7 +424,7 @@ test("reverseConvertToJsonOrThrow validates non-JSON-able unknown field values",
   // at column 0, row 0 of the columnar output (i.e. the "foo" value of the
   // first row).
   t->U.assertThrowsMessage(
-    () => %raw(`[{"foo": 123n}]`)->S.reverseConvertToJsonOrThrow(schema),
+    () => %raw(`[{"foo": 123n}]`)->S.decodeOrThrow(~from=schema, ~to=S.json),
     `Failed at ["0"]["0"]: Expected JSON, received 123n`,
   )
 })

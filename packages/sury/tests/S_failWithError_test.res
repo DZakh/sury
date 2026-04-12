@@ -16,7 +16,7 @@ test("Keeps operation of the error passed to S.Error.throw", t => {
   )
 
   t->U.assertThrowsMessage(
-    () => ["Hello world!"]->S.parseOrThrow(schema),
+    () => ["Hello world!"]->S.parseOrThrow(~to=schema),
     `Failed at ["0"]["a"]["b"]: User error`,
   )
 })
@@ -34,7 +34,7 @@ test("Works with failing outside of the parser", t => {
   )
 
   t->U.assertThrowsMessage(
-    () => ["Hello world!"]->S.parseOrThrow(schema),
+    () => ["Hello world!"]->S.parseOrThrow(~to=schema),
     `Failed at ["field"]["a"]["b"]: User error`,
   )
 })
@@ -54,7 +54,7 @@ test("Works with failing outside of the parser inside of array", t => {
   )
 
   t->U.assertThrowsMessage(
-    () => ["Hello world!"]->S.parseOrThrow(schema),
+    () => ["Hello world!"]->S.parseOrThrow(~to=schema),
     `Failed at ["field"][]["a"]["b"]: User error`,
   )
 })
