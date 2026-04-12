@@ -61,7 +61,9 @@
 - [Functions on schema](#functions-on-schema)
 
   - [`Built-in operations`](#built-in-operations)
-  - [`compile`](#compile)
+  - [`parser`](#parser)
+  - [`decoder`](#decoder)
+  - [`decoder1`](#decoder1)
   - [`reverse`](#reverse)
   - [`to`](#to)
   - [`isAsync`](#isasync)
@@ -1345,46 +1347,52 @@ await "1"->S.parseAsyncOrThrow(~to=userSchema)
 
 ### Built-in operations
 
-The library provides a bunch of built-in operations that can be used to parse, convert, and assert values.
+The library provides a bunch of built-in operations that can be used to parse, decode, and assert values.
 
-Parsing means that the input value is validated against the schema and transformed to the expected output type. You can use the following operations to parse values:
+**Parsing** validates the input value against the schema and transforms it to the expected output type:
 
-| Operation                | Interface                                | Description                                                   |
-| ------------------------ | ---------------------------------------- | ------------------------------------------------------------- |
-| S.parseOrThrow           | `('any, S.t<'value>) => 'value`          | Parses any value with the schema                              |
-| S.parseJsonOrThrow       | `(Js.Json.t, S.t<'value>) => 'value`     | Parses JSON value with the schema                             |
-| S.parseJsonStringOrThrow | `(string, S.t<'value>) => 'value`        | Parses JSON string with the schema                            |
-| S.parseAsyncOrThrow      | `('any, S.t<'value>) => promise<'value>` | Parses any value with the schema having async transformations |
+| Operation           | Interface                                            | Description                                                   |
+| ------------------- | ---------------------------------------------------- | ------------------------------------------------------------- |
+| S.parseOrThrow      | `('any, ~to: S.t<'value>) => 'value`                | Parses any value with the schema                              |
+| S.parseAsyncOrThrow | `('any, ~to: S.t<'value>) => promise<'value>`       | Parses any value with the schema having async transformations |
 
-For advanced users you can only transform to the output type without type validations. But be careful, since the input type is not checked:
+**Decoding** transforms between schemas without input validation. Be careful, since the input type is not checked:
 
-| Operation                    | Interface                                | Description                                                        |
-| ---------------------------- | ---------------------------------------- | ------------------------------------------------------------------ |
-| S.convertOrThrow             | `('any, S.t<'value>) => 'value`          | Converts any value to the output type                              |
-| S.convertToJsonOrThrow       | `('any, S.t<'value>) => Js.Json.t`       | Converts any value to JSON                                         |
-| S.convertToJsonStringOrThrow | `('any, S.t<'value>) => string`          | Converts any value to JSON string                                  |
-| S.convertAsyncOrThrow        | `('any, S.t<'value>) => promise<'value>` | Converts any value to the output type having async transformations |
+| Operation              | Interface                                                              | Description                                          |
+| ---------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------- |
+| S.decodeOrThrow        | `('from, ~from: S.t<'from>, ~to: S.t<'to>) => 'to`                   | Decodes a value from one schema to another           |
+| S.decodeAsyncOrThrow   | `('from, ~from: S.t<'from>, ~to: S.t<'to>) => promise<'to>`          | Async version of decodeOrThrow                       |
 
-Note, that in this case only type validations are skipped. If your schema has refinements or transforms, they will be applied.
+Common decode patterns:
+
+```rescript
+// Parse JSON value (replaces S.parseJsonOrThrow)
+data->S.decodeOrThrow(~from=S.json, ~to=schema)
+
+// Parse JSON string (replaces S.parseJsonStringOrThrow)
+data->S.decodeOrThrow(~from=S.jsonString, ~to=schema)
+
+// Serialize to unknown (replaces S.reverseConvertOrThrow)
+data->S.decodeOrThrow(~from=schema, ~to=S.unknown)
+
+// Serialize to JSON (replaces S.reverseConvertToJsonOrThrow)
+data->S.decodeOrThrow(~from=schema, ~to=S.json)
+
+// Serialize to JSON string (replaces S.reverseConvertToJsonStringOrThrow)
+data->S.decodeOrThrow(~from=schema, ~to=S.jsonString)
+
+// Serialize to JSON string with space
+data->S.decodeOrThrow(~from=schema, ~to=S.jsonStringWithSpace(2))
+```
 
 Also, you can use `S.noValidation` helper to turn off type validations for the schema even when it's used with a parse operation.
 
-More often than converting input to output, you'll need to perform the reversed operation. It's usually called "serializing" or "decoding". The ReScript Schema has a unique mental model and provides an ability to reverse any schema with `S.reverse` which you can later use with all possible kinds of operations. But for convinence, there's a few helper functions that can be used to convert output values to the initial format:
+**Asserting** validates the input value without returning a transformed result:
 
-| Operation                           | Interface                                | Description                                                           |
-| ----------------------------------- | ---------------------------------------- | --------------------------------------------------------------------- |
-| S.reverseConvertOrThrow             | `('value, S.t<'value>) => 'any`          | Converts schema value to the output type                              |
-| S.reverseConvertToJsonOrThrow       | `('value, S.t<'value>) => Js.Json.t`     | Converts schema value to JSON                                         |
-| S.reverseConvertToJsonStringOrThrow | `('value, S.t<'value>) => string`        | Converts schema value to JSON string                                  |
-| S.reverseConvertAsyncOrThrow        | `('value, S.t<'value>) => promise<'any>` | Converts schema value to the output type having async transformations |
-
-This is literally the same as convert operations applied to the reversed schema.
-
-For some cases you might want to simply assert the input value is valid. For this there's `S.assertOrThrow` operation:
-
-| Operation       | Interface                   | Description                                                                                                                                          |
-| --------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| S.assertOrThrow | `('any, S.t<'value>) => ()` | Asserts that the input value is valid. Since the operation doesn't return a value, it's 2-3 times faster than `parseOrThrow` depending on the schema |
+| Operation            | Interface                                            | Description                                                                                                                                          |
+| -------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S.assertOrThrow      | `('any, ~to: S.t<'value>) => ()`                    | Asserts that the input value is valid. Since the operation doesn't return a value, it's 2-3 times faster than `parseOrThrow` depending on the schema |
+| S.assertAsyncOrThrow | `('any, ~to: S.t<'value>) => promise<()>`            | Async version of assertOrThrow                                                                                                                       |
 
 All operations either return the output value or throw an exception which you can catch with `try/catch` block:
 
@@ -1394,50 +1402,51 @@ try true->S.parseOrThrow(~to=schema) catch {
 }
 ```
 
-### **`compile`**
+### **`parser`**
 
-`(S.t<'value>, ~input: input<'value, 'input>, ~output: output<'value, 'transformedOutput>, ~mode: mode<'transformedOutput, 'output>, ~typeValidation: bool=?) => 'input => 'output`
+`(~to: S.t<'value>) => 'any => 'value`
 
-If you want to have the most possible performance, or the built-in operations doesn't cover your specific use case, you can use `compile` to create fine-tuned operation functions.
+Returns a compiled parse function that validates input and transforms it to the schema's output type. This is the most performant way to parse values repeatedly.
 
 ```rescript
-let operation = S.compile(
-  S.string,
-  ~input=Any,
-  ~output=Assert,
-  ~mode=Async,
-)
-await operation("Hello world!")
-// ()
+let parse = S.parser(~to=S.string)
+
+parse("Hello world!")
+// "Hello world!"
 ```
 
-For example, in the example above we've created an async assert operation, which is not available by default.
+### **`decoder`**
 
-You can configure compiled function `input` with the following options:
+`(~from: S.t<'from>, ~to: S.t<'to>, ~flag: S.Flag.t=?) => 'from => 'to`
 
-- `Value` - accepts `'value` of `S.t<'value>` and reverses the operation
-- `Unknown` - accepts `unknown`
-- `Any` - accepts `'any`
-- `Json` - accepts `Js.Json.t`
-- `JsonString` - accepts `string` and applies `JSON.parse` before parsing
+Returns a compiled decode function that transforms values from one schema to another without input validation. You can pass `~flag=S.Flag.async` for an async decoder.
 
-You can configure compiled function `output` with the following options:
+```rescript
+// Compile a serializer (replaces makeConvertOrThrow(S.reverse(schema), S.unknown))
+let serialize = S.decoder(~from=schema, ~to=S.unknown)
 
-- `Value` - returns `'value` of `S.t<'value>`
-- `Unknown` - returns `unknown`
-- `Assert` - returns `unit`
-- `Json` - validates that the schema is JSON compatible and returns `Js.Json.t`
-- `JsonString` - validates that the schema is JSON compatible and converts output to JSON string
+// Compile a JSON decoder
+let decodeJson = S.decoder(~from=S.json, ~to=schema)
 
-You can configure compiled function `mode` with the following options:
+// Compile a JSON string serializer
+let toJsonString = S.decoder(~from=schema, ~to=S.jsonString)
 
-- `Sync` - for sync operations
-- `Async` - for async operations - will wrap result in a promise
+// Compile an async decoder
+let decodeAsync = S.decoder(~from=S.unknown, ~to=schema, ~flag=S.Flag.async)
+```
 
-And you can configure compiled function `typeValidation` with the following options:
+### **`decoder1`**
 
-- `true (default)` - performs type validation
-- `false` - doesn't perform type validation and only converts data to the output format. Note that refines are still applied.
+`(S.t<'value>) => unknown => 'value`
+
+Returns a compiled decode function for a single schema, transforming `unknown` input to the schema's output type.
+
+```rescript
+let decode = S.decoder1(S.string)
+
+decode("Hello world!")
+// "Hello world!"
+```
 
 ### **`reverse`**
 
@@ -1478,7 +1487,7 @@ let schema = S.string->S.to(S.float)
 "abc"->S.parseOrThrow(~to=schema) //? throws: Expected number, received "abc"
 
 // Reverse works correctly as well 🔥
-123.->S.reverseConvertOrThrow(schema) //? "123"
+123.->S.decodeOrThrow(~from=schema, ~to=S.unknown) //? "123"
 ```
 
 ### **`isAsync`**
