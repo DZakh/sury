@@ -1055,12 +1055,12 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{typeof i==="object"&&i||e[3](i);let v0=i["foo"],v1=i["bar"];v0===12||e[0](v0);typeof v1==="object"&&v1||e[2](v1);let v2=v1["baz"];typeof v2==="string"||e[1](v2);return {"foo":v0,"bar":{"baz":v2,},}}`,
+      `i=>{if(typeof i!=="object"||!i){e[4](i)}let v0=i["foo"],v1=i["bar"];if(v0!==12){e[0](v0)}if(typeof v1!=="object"||!v1){e[3](v1)}let v2=v1["baz"],v3={"baz":v2,};if(typeof v2!=="string"){e[1](v2)}if(!e[2](v3)){e[5]()}return {"foo":v0,"bar":v3,}}`,
     )
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{let v0=i["bar"];e[0](v0)||e[1](v0);return i}`,
+      `i=>{let v0=i["bar"];if(!e[0](v0)){e[1]()}return i}`,
     )
   })
 
