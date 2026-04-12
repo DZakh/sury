@@ -4616,7 +4616,9 @@ let jsonDecoder = (~input) => {
     }
   } else {
     try {
-      input.expected = string
+      let expected = string->copySchema
+      expected.to = Some(input.expected)
+      input.expected = expected
       input->parse
     } catch {
     | _ =>
