@@ -980,7 +980,7 @@ function inputToString(input) {
 }
 
 function int32FormatValidation(inputVar) {
-  return inputVar + "<2147483648&&" + inputVar + ">-2147483649&&" + inputVar + "%1===0";
+  return inputVar + "<=2147483647&&" + inputVar + ">=-2147483648&&" + inputVar + "%1===0";
 }
 
 function numberDecoder(input) {

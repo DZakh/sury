@@ -1804,7 +1804,7 @@ let inputToString = (input: val) => {
 }
 
 let int32FormatValidation = (~inputVar) => {
-  `${inputVar}<2147483648&&${inputVar}>-2147483649&&${inputVar}%1===0`
+  `${inputVar}<=2147483647&&${inputVar}>=-2147483648&&${inputVar}%1===0`
 }
 
 let numberDecoder = Builder.make((~input) => {
