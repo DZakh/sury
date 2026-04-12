@@ -1,48 +1,5 @@
 # Ideas draft
 
-## Alpha.5
-
-- Add `S.date` — standalone Date instance schema. Validates `instanceof Date` and rejects Invalid Date. Unlike `S.isoDateTime` (which validates ISO 8601 UTC strings) and `S.string->S.to(S.date)` (which decodes ISO strings into Date objects), `S.date` directly validates existing Date instances.
-- Add `S.isoDateTime` and `S.enableIsoDateTime` — standalone string schema that validates ISO 8601 UTC datetime strings (no timezone offsets, arbitrary sub-second precision). Reuses the built-in string decoder; the regex lives inside `enableIsoDateTime` so it is tree-shaken from the bundle when unused. Replaces the removed `S.datetime` for the "validate an ISO string" use case — for string↔Date conversion use `S.string->S.to(S.date)`.
-- Added `S.compactColumns` - transforms columnar data (`[[a1,a2], [b1,b2]]`) to/from row objects (`[{foo:a1,bar:b1}, {foo:a2,bar:b2}]`)
-- TypeScript: Use `S.encoder(schema)` for encoding (replaces internal `reverseConvertOrThrow`)
-- `S.compactColumns` type is `Schema<Output[][], Input[][]>`
-- `S.toExpression` now shows proper type for `S.compactColumns` without `S.to` (e.g., `"string[][]"`)
-- Changed `S.refine` from callback-based to boolean-returning. TS/JS: `(value) => boolean` with optional `{ error?: string, path?: string[] }` options. ReScript: `'value => bool` with optional `~error: string=?` and `~path: array<string>=?` labeled arguments. The check returns `true` when valid, `false` when invalid.
-- TS/JS API: Renamed `S.asyncParserRefine` to `S.asyncDecoderAssert`. Removed `EffectCtx` (`s`) parameter — throw directly to signal failure instead of calling `s.fail()`
-- TS API: Removed `S.transform` in favor of `S.to`
-- Add `S.uint8Array` and `S.enableUint8Array`
-- Updated `InvalidType` error code to include the received schema
-- Updated internal representation of object schema - removed `items` fields. Updated internalt representation of tuple schema - `items` field is now an array of schemas instead of array of items. The `item` type is removed.
-- Removed `Failed parsing/converting/asserting` when the error is at root
-- Renamed `Failed parsing/converting/asserting at path` to `Failed at path`
-- ReScript: Removed `schema` from `S.transform` and `S.refine` context
-- ReScript:
-  - `S.ErrorClass.constructor` -> `S.Error.make` - now accepts full error details and doesn't require `flag` parameter
-  - `S.ErrorClass.t` -> `S.Error.class`
-  - `S.ErrorClass.value` -> `S.Error.class`
-  - Reworked error code and added `S.Error.classify` to turn error into a variant of all possible error codes
-- All errors thrown in transform/refine are wrapped in `SuryError`
-- TS: Updated `S.Error` type to use variants instead of code property
-- ReScript: `S.null` -> `S.nullAsOption`
-- Updated union conversion logic - it now always performs exhaustive validation
-- Encoding to JSON now strips undefined fields
-
-### TS
-
-- `S.parseOrThrow` -> `S.parser(schema)(data)`
-- `S.parseJsonOrThrow` -> `S.decoder(S.json, schema)(data)`
-- `S.parseJsonStringOrThrow` -> `S.decoder(S.jsonString, schema)(data)`
-- `S.parseAsyncOrThrow` -> `S.asyncParser(schema)(data)`
-- `S.convertOrThrow` -> `S.decoder(schema)(data)`
-- `S.convertToJsonOrThrow` -> `S.decoder(schema, S.json)(data)`
-- `S.convertToJsonStringOrThrow` -> `S.decoder(schema, S.jsonString)(data)`
-- `S.reverseConvertOrThrow` -> `S.encoder(schema)(data)`
-- `S.reverseConvertToJsonOrThrow` -> `S.encoder(schema, S.json)(data)`
-- `S.reverseConvertToJsonStringOrThrow` -> `S.encoder(schema, S.jsonString)(data)`
-- `S.assertOrThrow` -> `S.assert(schema, data)`
-- `S.compile` -> `S.decoder` or `S.encoder` or `S.parser`
-
 ## v11
 
 ### ideas
@@ -62,36 +19,6 @@ S.reverse(S.schema({
 ```
 
 I left on cleaning up validation code and moving everything to their own decoder functions
-
-- Make reverse a property on schema, so it's not shown when logging
-- Keep current operationFn approach. Rename to makeOperation
-- Use define property to be enumerable and simplify copy
-- Add counter and set unique id to each schema
-- Use the unique id to cache the operationFn (from/to) in the schema (partially solves garbage collection problem)
-- Also cache reverse result
-- makeParseOrThrow
-- parseOrThrow(schema)(data) for ts api
-- deprecate compile
-
-### ReScript operation functions
-
-| Before | After |
-|---|---|
-| `S.parseOrThrow(data, schema)` | `S.parseOrThrow(data, ~to=schema)` |
-| `S.parseAsyncOrThrow(data, schema)` | `S.parseAsyncOrThrow(data, ~to=schema)` |
-| `S.parseJsonOrThrow(data, schema)` | `S.decodeOrThrow(data, ~from=S.json, ~to=schema)` |
-| `S.parseJsonStringOrThrow(data, schema)` | `S.decodeOrThrow(data, ~from=S.jsonString, ~to=schema)` |
-| `S.assertOrThrow(data, schema)` | `S.assertOrThrow(data, ~to=schema)` |
-| — | `S.assertAsyncOrThrow(data, ~to=schema)` |
-| `S.reverseConvertOrThrow(data, schema)` | `S.decodeOrThrow(data, ~from=schema, ~to=S.unknown)` |
-| `S.reverseConvertToJsonOrThrow(data, schema)` | `S.decodeOrThrow(data, ~from=schema, ~to=S.json)` |
-| `S.reverseConvertToJsonStringOrThrow(data, schema)` | `S.decodeOrThrow(data, ~from=schema, ~to=S.jsonString)` |
-| `S.reverseConvertToJsonStringOrThrow(data, schema, ~space=2)` | `S.decodeOrThrow(data, ~from=schema, ~to=S.jsonStringWithSpace(2))` |
-| `S.convertOrThrow(data, schema)` | `S.decoder1(schema)(data)` |
-| `S.compile(schema, ~input=Any, ~output=Value, ~mode=Sync, ~typeValidation=true)` | `S.parser(~to=schema)` |
-| `S.compile(schema, ~input=Any, ~output=Value, ~mode=Async, ~typeValidation=true)` | `S.asyncParser(~to=schema)` |
-| `S.compile(schema, ~input=Value, ~output=Unknown, ~mode=Sync, ~typeValidation=false)` | `S.decoder(~from=schema, ~to=S.unknown)` |
-| `S.compile(schema, ~input=Value, ~output=Unknown, ~mode=Async, ~typeValidation=false)` | `S.asyncDecoder(~from=schema, ~to=S.unknown)` |
 
 ### TS operation functions
 
