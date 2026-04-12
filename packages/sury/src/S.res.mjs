@@ -46,6 +46,26 @@ let isoDateTime = Sury.isoDateTime;
 
 let enableIsoDateTime = Sury.enableIsoDateTime;
 
+let port = Sury.port;
+
+let enablePort = Sury.enablePort;
+
+let email = Sury.email;
+
+let enableEmail = Sury.enableEmail;
+
+let uuid = Sury.uuid;
+
+let enableUuid = Sury.enableUuid;
+
+let cuid = Sury.cuid;
+
+let enableCuid = Sury.enableCuid;
+
+let url = Sury.url;
+
+let enableUrl = Sury.enableUrl;
+
 let date = Sury.date;
 
 let literal = Sury.literal;
@@ -166,16 +186,6 @@ let floatMax = Sury.floatMax;
 
 let length = Sury.length;
 
-let port = Sury.port;
-
-let email = Sury.email;
-
-let uuid = Sury.uuid;
-
-let cuid = Sury.cuid;
-
-let url = Sury.url;
-
 let pattern = Sury.pattern;
 
 let trim = Sury.trim;
@@ -213,6 +223,16 @@ export {
   enableUint8Array,
   isoDateTime,
   enableIsoDateTime,
+  port,
+  enablePort,
+  email,
+  enableEmail,
+  uuid,
+  enableUuid,
+  cuid,
+  enableCuid,
+  url,
+  enableUrl,
   date,
   literal,
   array,
@@ -273,11 +293,6 @@ export {
   max,
   floatMax,
   length,
-  port,
-  email,
-  uuid,
-  cuid,
-  url,
   pattern,
   trim,
   toJSONSchema,

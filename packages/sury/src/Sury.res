@@ -280,7 +280,13 @@ type standard = {
 type internalDefault = {}
 
 type numberFormat = | @as("int32") Int32 | @as("port") Port
-type stringFormat = | @as("json") JSON | @as("date-time") DateTime
+type stringFormat =
+  | @as("json") JSON
+  | @as("date-time") DateTime
+  | @as("email") Email
+  | @as("uuid") Uuid
+  | @as("cuid") Cuid
+  | @as("url") Url
 type arrayFormat = | @as("compactColumns") CompactColumns
 
 type format = | ...numberFormat | ...stringFormat | ...arrayFormat
@@ -4439,10 +4445,6 @@ module String = {
       | Min({length: int})
       | Max({length: int})
       | Length({length: int})
-      | Email
-      | Uuid
-      | Cuid
-      | Url
       | Pattern({re: Js.Re.t})
     type t = {
       kind: kind,
@@ -4458,11 +4460,6 @@ module String = {
     | None => []
     }
   }
-
-  let cuidRegex = /^c[^\s-]{8,}$/i
-  let uuidRegex = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/i
-  // Adapted from https://stackoverflow.com/a/46181/1550155
-  let emailRegex = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i
 }
 
 let jsonEncoder = Builder.encoder((~input, ~target) => {
@@ -4861,6 +4858,94 @@ let enableIsoDateTime = () => {
     isoDateTime.refiner = Some(
       (~input) => {
         [{cond: (~inputVar) => `${input->B.embed(datetimeRe)}.test(${inputVar})`, fail: B.failCustom("Invalid datetime string! Expected UTC")}]
+      },
+    )
+  }
+}
+
+let port = shaken("port")
+
+let enablePort = () => {
+  if port->Obj.magic->Js.Dict.unsafeGet(shakenRef)->Obj.magic {
+    let _ = %raw(`delete port.as`)
+    port.tag = numberTag
+    port.decoder = int.decoder
+    port.format = Some(Port)
+    port.refiner = Some(
+      (~input as _) => {
+        [{
+          cond: (~inputVar) => `${inputVar}>0&&${inputVar}<65536&&${inputVar}%1===0`,
+          fail: B.failInvalidType,
+        }]
+      },
+    )
+  }
+}
+
+let email = shaken("email")
+
+let enableEmail = () => {
+  if email->Obj.magic->Js.Dict.unsafeGet(shakenRef)->Obj.magic {
+    let _ = %raw(`delete email.as`)
+    // Adapted from https://stackoverflow.com/a/46181/1550155
+    let emailRegex = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i
+    email.tag = stringTag
+    email.decoder = string.decoder
+    email.format = Some(Email)
+    email.refiner = Some(
+      (~input) => {
+        [{cond: (~inputVar) => `${input->B.embed(emailRegex)}.test(${inputVar})`, fail: B.failCustom("Invalid email address")}]
+      },
+    )
+  }
+}
+
+let uuid = shaken("uuid")
+
+let enableUuid = () => {
+  if uuid->Obj.magic->Js.Dict.unsafeGet(shakenRef)->Obj.magic {
+    let _ = %raw(`delete uuid.as`)
+    let uuidRegex = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/i
+    uuid.tag = stringTag
+    uuid.decoder = string.decoder
+    uuid.format = Some(Uuid)
+    uuid.refiner = Some(
+      (~input) => {
+        [{cond: (~inputVar) => `${input->B.embed(uuidRegex)}.test(${inputVar})`, fail: B.failCustom("Invalid UUID")}]
+      },
+    )
+  }
+}
+
+let cuid = shaken("cuid")
+
+let enableCuid = () => {
+  if cuid->Obj.magic->Js.Dict.unsafeGet(shakenRef)->Obj.magic {
+    let _ = %raw(`delete cuid.as`)
+    let cuidRegex = /^c[^\s-]{8,}$/i
+    cuid.tag = stringTag
+    cuid.decoder = string.decoder
+    cuid.format = Some(Cuid)
+    cuid.refiner = Some(
+      (~input) => {
+        [{cond: (~inputVar) => `${input->B.embed(cuidRegex)}.test(${inputVar})`, fail: B.failCustom("Invalid CUID")}]
+      },
+    )
+  }
+}
+
+let url = shaken("url")
+
+let enableUrl = () => {
+  if url->Obj.magic->Js.Dict.unsafeGet(shakenRef)->Obj.magic {
+    let _ = %raw(`delete url.as`)
+    let urlValidator: unknown = %raw(`s=>{try{new URL(s);return true}catch(_){return false}}`)
+    url.tag = stringTag
+    url.decoder = string.decoder
+    url.format = Some(Url)
+    url.refiner = Some(
+      (~input) => {
+        [{cond: (~inputVar) => `${input->B.embed(urlValidator)}(${inputVar})`, fail: B.failCustom("Invalid url")}]
       },
     )
   }
@@ -6262,23 +6347,6 @@ let intMax = (schema, maxValue, ~message as maybeMessage=?) => {
   )
 }
 
-let port = (schema, ~message=?) => {
-  schema->internalRefine(mut => {
-    mut.format = Some(Port)
-    (~input) => {
-      [
-        {
-          cond: (~inputVar) => `${inputVar}>0&&${inputVar}<65536&&${inputVar}%1===0`,
-          fail: switch message {
-          | Some(m) => (~input) => {let path = input.path; _value => Custom({reason: m, path})}
-          | None => B.failInvalidType
-          },
-        },
-      ]
-    }
-  })
-}
-
 let floatMin = (schema, minValue, ~message as maybeMessage=?) => {
   assertNumber(minValue)
   let message = switch maybeMessage {
@@ -6423,61 +6491,8 @@ let stringLength = (schema, length, ~message as maybeMessage=?) => {
   )
 }
 
-let email = (schema, ~message=`Invalid email address`) => {
-  schema->addRefinement(
-    ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input) => {
-      [{cond: (~inputVar) => `${input->B.embed(String.emailRegex)}.test(${inputVar})`, fail: B.failCustom(message)}]
-    },
-    ~refinement={
-      kind: Email,
-      message,
-    },
-  )
-}
-
-let uuid = (schema, ~message=`Invalid UUID`) => {
-  schema->addRefinement(
-    ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input) => {
-      [{cond: (~inputVar) => `${input->B.embed(String.uuidRegex)}.test(${inputVar})`, fail: B.failCustom(message)}]
-    },
-    ~refinement={
-      kind: Uuid,
-      message,
-    },
-  )
-}
-
-let cuid = (schema, ~message=`Invalid CUID`) => {
-  schema->addRefinement(
-    ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input) => {
-      [{cond: (~inputVar) => `${input->B.embed(String.cuidRegex)}.test(${inputVar})`, fail: B.failCustom(message)}]
-    },
-    ~refinement={
-      kind: Cuid,
-      message,
-    },
-  )
-}
-
-let urlValidator: unknown = %raw(`s=>{try{new URL(s);return true}catch(_){return false}}`)
-let url = (schema, ~message=`Invalid url`) => {
-  schema->addRefinement(
-    ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input) => {
-      [{cond: (~inputVar) => `${input->B.embed(urlValidator)}(${inputVar})`, fail: B.failCustom(message)}]
-    },
-    ~refinement={
-      kind: Url,
-      message,
-    },
-  )
-}
-
-let pattern = (schema, re, ~message=`Invalid pattern`) => {
-  schema->addRefinement(
+let pattern = (re, ~message=`Invalid pattern`) => {
+  (string->castToPublic)->addRefinement(
     ~metadataId=String.Refinement.metadataId,
     ~refiner=(~input) => {
       let embededRe = input->B.embed(re)
@@ -6799,16 +6814,15 @@ module RescriptJSONSchema = {
         jsonSchema.type_ = Some(Arrayable.single(#string))
         switch format {
         | Some(DateTime) => jsonSchema.format = Some("date-time")
-        | Some(JSON) | None => ()
+        | Some(Email) => jsonSchema.format = Some("email")
+        | Some(Uuid) => jsonSchema.format = Some("uuid")
+        | Some(Url) => jsonSchema.format = Some("uri")
+        | Some(Cuid) | Some(JSON) | None => ()
         }
         schema
         ->String.refinements
         ->Js.Array2.forEach(refinement => {
           switch refinement {
-          | {kind: Email} => jsonSchema.format = Some("email")
-          | {kind: Url} => jsonSchema.format = Some("uri")
-          | {kind: Uuid} => jsonSchema.format = Some("uuid")
-          | {kind: Cuid} => ()
           | {kind: Length({length})} => {
               jsonSchema.minLength = Some(length)
               jsonSchema.maxLength = Some(length)
@@ -7244,12 +7258,35 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
         }),
       )
     | {type_} if type_ === JSONSchema.Arrayable.single(#string) =>
-      let schema = string->castToPublic
       let schema = switch jsonSchema {
-      | {pattern: p} => schema->pattern(Js.Re.fromString(p))
+      | {format: "email"} =>
+        enableEmail()
+        email->castToPublic
+      | {format: "uri"} =>
+        enableUrl()
+        url->castToPublic
+      | {format: "uuid"} =>
+        enableUuid()
+        uuid->castToPublic
+      | {format: "date-time"} =>
+        enableIsoDateTime()
+        isoDateTime->castToPublic
+      | _ => string->castToPublic
+      }
+      let schema = switch jsonSchema {
+      | {pattern: p} =>
+        let re = Js.Re.fromString(p)
+        let refinement: String.Refinement.t = {kind: Pattern({re: re}), message: "Invalid pattern"}
+        schema->addRefinement(
+          ~metadataId=String.Refinement.metadataId,
+          ~refiner=(~input) => {
+            let embededRe = input->B.embed(re)
+            [{cond: (~inputVar) => `${embededRe}.test(${inputVar})`, fail: B.failCustom("Invalid pattern")}]
+          },
+          ~refinement,
+        )
       | _ => schema
       }
-
       let schema = switch jsonSchema {
       | {minLength} => schema->stringMinLength(minLength)
       | _ => schema
@@ -7258,15 +7295,7 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
       | {maxLength} => schema->stringMaxLength(maxLength)
       | _ => schema
       }
-      switch jsonSchema {
-      | {format: "email"} => schema->email->castAnySchemaToJsonableS
-      | {format: "uri"} => schema->url->castAnySchemaToJsonableS
-      | {format: "uuid"} => schema->uuid->castAnySchemaToJsonableS
-      | {format: "date-time"} =>
-        enableIsoDateTime()
-        isoDateTime->castToPublic->castAnySchemaToJsonableS
-      | _ => schema->castAnySchemaToJsonableS
-      }
+      schema->castAnySchemaToJsonableS
 
     | {type_} if type_ === JSONSchema.Arrayable.single(#integer) => jsonSchema->toIntSchema
     | {type_, format: "int64"} if type_ === JSONSchema.Arrayable.single(#number) =>
@@ -7376,6 +7405,11 @@ let json: t<Js.Json.t> = json->castToPublic
 let jsonString: t<string> = jsonString->castToPublic
 let uint8Array: t<Uint8Array.t> = uint8Array->castToPublic
 let isoDateTime: t<string> = isoDateTime->castToPublic
+let port: t<int> = port->castToPublic
+let email: t<string> = email->castToPublic
+let uuid: t<string> = uuid->castToPublic
+let cuid: t<string> = cuid->castToPublic
+let url: t<string> = url->castToPublic
 let bool: t<bool> = bool->castToPublic
 let symbol: t<Js.Types.symbol> = symbol->castToPublic
 let string: t<string> = string->castToPublic

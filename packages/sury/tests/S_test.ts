@@ -2479,7 +2479,9 @@ test("Recursive with self as transform target", (t) => {
 });
 
 test("Port schema", (t) => {
-  const portSchema = S.int32.with(S.port);
+  S.enablePort();
+
+  const portSchema = S.port;
   if (portSchema.type === "number") {
     t.deepEqual(portSchema.format, "port");
   } else {
@@ -2488,25 +2490,18 @@ test("Port schema", (t) => {
 
   expectType<SchemaEqual<typeof portSchema, number, number>>(true);
 
-  const portSchemaFromNumber = S.number.with(S.port);
-  if (portSchemaFromNumber.type === "number") {
-    t.deepEqual(portSchemaFromNumber.format, "port");
+  t.throws(
+    () => {
+      S.parser(portSchema)(10.2);
+    },
+    {
+      name: "SuryError",
+      message: "Expected port, received 10.2",
+    },
+    "Should prevent non-integer numbers",
+  );
 
-    t.throws(
-      () => {
-        S.parser(portSchemaFromNumber)(10.2);
-      },
-      {
-        name: "SuryError",
-        message: "Expected port, received 10.2",
-      },
-      "Should prevent non-integer numbers",
-    );
-  } else {
-    t.fail("portSchemaFromNumber should be a number");
-  }
-
-  const portCoercedFromString = S.string.with(S.to, S.number).with(S.port);
+  const portCoercedFromString = S.string.with(S.to, S.port);
   expectType<SchemaEqual<typeof portCoercedFromString, number, string>>(true);
 
   if (portCoercedFromString.type === "string") {
@@ -2548,9 +2543,10 @@ test("Port schema", (t) => {
 });
 
 test("Example", (t) => {
+  S.enableEmail();
   // Create login schema with email and password
   const loginSchema = S.schema({
-    email: S.string.with(S.email),
+    email: S.email,
     password: S.string.with(S.min, 8),
   });
 

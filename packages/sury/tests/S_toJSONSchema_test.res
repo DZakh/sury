@@ -31,15 +31,17 @@ test("JSONSchema of S.json transformed to object with bigint and array of option
 })
 
 test("JSONSchema of email schema", t => {
+  S.enableEmail()
   t->Assert.deepEqual(
-    S.string->S.email->S.toJSONSchema,
+    S.email->S.toJSONSchema,
     %raw(`{"type": "string", "format": "email"}`),
   )
 })
 
 test("JSONSchema of url schema", t => {
+  S.enableUrl()
   t->Assert.deepEqual(
-    S.string->S.url->S.toJSONSchema,
+    S.url->S.toJSONSchema,
     %raw(`{"type": "string", "format": "uri"}`),
     ~message="The format should be uri for url schema",
   )
@@ -90,19 +92,21 @@ test("JSONSchema of object with transformed field preserves field metadata", t =
 })
 
 test("JSONSchema of cuid schema", t => {
-  t->Assert.deepEqual(S.string->S.cuid->S.toJSONSchema, %raw(`{"type": "string"}`))
+  S.enableCuid()
+  t->Assert.deepEqual(S.cuid->S.toJSONSchema, %raw(`{"type": "string"}`))
 })
 
 test("JSONSchema of uuid schema", t => {
+  S.enableUuid()
   t->Assert.deepEqual(
-    S.string->S.uuid->S.toJSONSchema,
+    S.uuid->S.toJSONSchema,
     %raw(`{"type": "string", "format": "uuid"}`),
   )
 })
 
 test("JSONSchema of pattern schema", t => {
   t->Assert.deepEqual(
-    S.string->S.pattern(/abc/g)->S.toJSONSchema,
+    S.pattern(/abc/g)->S.toJSONSchema,
     %raw(`{"type": "string","pattern": "abc"}`),
   )
 })
@@ -144,8 +148,9 @@ test("JSONSchema of int with max", t => {
 })
 
 test("JSONSchema of port", t => {
+  S.enablePort()
   t->Assert.deepEqual(
-    S.int->S.port->S.toJSONSchema,
+    S.port->S.toJSONSchema,
     %raw(`{
       "type": "integer",
       "minimum": 0,

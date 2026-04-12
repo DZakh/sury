@@ -2883,12 +2883,6 @@ function refinements$1(schema) {
   }
 }
 
-let cuidRegex = /^c[^\s-]{8,}$/i;
-
-let uuidRegex = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/i;
-
-let emailRegex = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i;
-
 function jsonEncoder(input, target) {
   let toTagFlag = flags[target.type];
   if (toTagFlag & 46) {
@@ -3243,6 +3237,119 @@ function enableIsoDateTime() {
     }];
 }
 
+let port = shaken("port");
+
+function enablePort() {
+  if (port[shakenRef]) {
+    ((delete port.as));
+    port.type = numberTag;
+    port.decoder = int.decoder;
+    port.format = "port";
+    port.refiner = param => [{
+        c: inputVar => inputVar + ">0&&" + inputVar + "<65536&&" + inputVar + "%1===0",
+        f: failInvalidType
+      }];
+    return;
+  }
+  
+}
+
+let email = shaken("email");
+
+function enableEmail() {
+  if (!email[shakenRef]) {
+    return;
+  }
+  ((delete email.as));
+  let emailRegex = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i;
+  email.type = stringTag;
+  email.decoder = string.decoder;
+  email.format = "email";
+  email.refiner = input => [{
+      c: inputVar => embed(input, emailRegex) + ".test(" + inputVar + ")",
+      f: input => {
+        let path = input.path;
+        return _value => ({
+          code: "custom",
+          path: path,
+          reason: "Invalid email address"
+        });
+      }
+    }];
+}
+
+let uuid = shaken("uuid");
+
+function enableUuid() {
+  if (!uuid[shakenRef]) {
+    return;
+  }
+  ((delete uuid.as));
+  let uuidRegex = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/i;
+  uuid.type = stringTag;
+  uuid.decoder = string.decoder;
+  uuid.format = "uuid";
+  uuid.refiner = input => [{
+      c: inputVar => embed(input, uuidRegex) + ".test(" + inputVar + ")",
+      f: input => {
+        let path = input.path;
+        return _value => ({
+          code: "custom",
+          path: path,
+          reason: "Invalid UUID"
+        });
+      }
+    }];
+}
+
+let cuid = shaken("cuid");
+
+function enableCuid() {
+  if (!cuid[shakenRef]) {
+    return;
+  }
+  ((delete cuid.as));
+  let cuidRegex = /^c[^\s-]{8,}$/i;
+  cuid.type = stringTag;
+  cuid.decoder = string.decoder;
+  cuid.format = "cuid";
+  cuid.refiner = input => [{
+      c: inputVar => embed(input, cuidRegex) + ".test(" + inputVar + ")",
+      f: input => {
+        let path = input.path;
+        return _value => ({
+          code: "custom",
+          path: path,
+          reason: "Invalid CUID"
+        });
+      }
+    }];
+}
+
+let url = shaken("url");
+
+function enableUrl() {
+  if (!url[shakenRef]) {
+    return;
+  }
+  ((delete url.as));
+  let urlValidator = (s=>{try{new URL(s);return true}catch(_){return false}});
+  url.type = stringTag;
+  url.decoder = string.decoder;
+  url.format = "url";
+  url.refiner = input => [{
+      c: inputVar => embed(input, urlValidator) + "(" + inputVar + ")",
+      f: input => {
+        let path = input.path;
+        return _value => ({
+          code: "custom",
+          path: path,
+          reason: "Invalid url"
+        });
+      }
+    }];
+}
+
 function invalidDateRefine(input) {
   return refine(input, input.e, [{
       c: inputVar => "!Number.isNaN(" + inputVar + ".getTime())",
@@ -3392,6 +3499,72 @@ function proxifyShapedSchema(schema, from, fromFlattened) {
   });
 }
 
+function traverseDefinition(definition, onNode) {
+  if (typeof definition !== "object" || definition === null) {
+    return parse(definition);
+  }
+  let s = onNode(definition);
+  if (s !== undefined) {
+    return s;
+  }
+  if (Array.isArray(definition)) {
+    for (let idx = 0, idx_finish = definition.length; idx < idx_finish; ++idx) {
+      let schema = traverseDefinition(definition[idx], onNode);
+      definition[idx] = schema;
+    }
+    let mut = base(arrayTag, false);
+    mut.items = definition;
+    mut.additionalItems = "strict";
+    mut.decoder = arrayDecoder;
+    return mut;
+  }
+  let cnstr = definition.constructor;
+  if (cnstr && cnstr !== Object) {
+    let mut$1 = base(instanceTag, true);
+    mut$1.class = cnstr;
+    mut$1.const = definition;
+    mut$1.decoder = literalDecoder;
+    return mut$1;
+  }
+  let fieldNames = Object.keys(definition);
+  let length = fieldNames.length;
+  for (let idx$1 = 0; idx$1 < length; ++idx$1) {
+    let location = fieldNames[idx$1];
+    let schema$1 = traverseDefinition(definition[location], onNode);
+    definition[location] = schema$1;
+  }
+  let mut$2 = base(objectTag, false);
+  mut$2.required = fieldNames;
+  mut$2.properties = definition;
+  mut$2.additionalItems = globalConfig.a;
+  mut$2.decoder = objectDecoder;
+  return mut$2;
+}
+
+function getValByFrom(_input, from, _idx) {
+  while (true) {
+    let idx = _idx;
+    let input = _input;
+    let key = from[idx];
+    if (key === undefined) {
+      return input;
+    }
+    _idx = idx + 1 | 0;
+    _input = input.d[key];
+    continue;
+  };
+}
+
+function shapedSerializer(input) {
+  let acc = {};
+  prepareShapedSerializerAcc(acc, input);
+  let targetSchema = input.e.to;
+  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
+  output.t = true;
+  output.prev = input;
+  return output;
+}
+
 function getShapedSerializerOutput(input, acc, targetSchema, path) {
   let exit = 0;
   if (acc !== undefined) {
@@ -3492,46 +3665,43 @@ function getShapedSerializerOutput(input, acc, targetSchema, path) {
   
 }
 
-function traverseDefinition(definition, onNode) {
-  if (typeof definition !== "object" || definition === null) {
-    return parse(definition);
-  }
-  let s = onNode(definition);
-  if (s !== undefined) {
-    return s;
-  }
-  if (Array.isArray(definition)) {
-    for (let idx = 0, idx_finish = definition.length; idx < idx_finish; ++idx) {
-      let schema = traverseDefinition(definition[idx], onNode);
-      definition[idx] = schema;
+function getShapedParserOutput(input, targetSchema) {
+  let from = targetSchema.from;
+  let fromFlattened = targetSchema.fromFlattened;
+  let v;
+  if (fromFlattened !== undefined) {
+    v = scope(getValByFrom(input.fv[fromFlattened], targetSchema.from, 0));
+  } else if (from !== undefined) {
+    v = scope(getValByFrom(input, from, 0));
+  } else if (constField in targetSchema) {
+    v = nextConst(input, targetSchema, undefined);
+  } else {
+    let output = makeObjectVal(input, targetSchema);
+    output.io = true;
+    let items = targetSchema.items;
+    if (items !== undefined) {
+      for (let idx = 0, idx_finish = items.length; idx < idx_finish; ++idx) {
+        let location = idx.toString();
+        add(output, location, getShapedParserOutput(input, items[idx]));
+      }
+    } else {
+      let properties = targetSchema.properties;
+      if (properties !== undefined) {
+        let keys = Object.keys(properties);
+        for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
+          let location$1 = keys[idx$1];
+          add(output, location$1, getShapedParserOutput(input, properties[location$1]));
+        }
+      } else {
+        let message = "Don't know where the value is coming from: " + toExpression(targetSchema);
+        throw new Error("[Sury] " + message);
+      }
     }
-    let mut = base(arrayTag, false);
-    mut.items = definition;
-    mut.additionalItems = "strict";
-    mut.decoder = arrayDecoder;
-    return mut;
+    v = completeObjectVal(output);
   }
-  let cnstr = definition.constructor;
-  if (cnstr && cnstr !== Object) {
-    let mut$1 = base(instanceTag, true);
-    mut$1.class = cnstr;
-    mut$1.const = definition;
-    mut$1.decoder = literalDecoder;
-    return mut$1;
-  }
-  let fieldNames = Object.keys(definition);
-  let length = fieldNames.length;
-  for (let idx$1 = 0; idx$1 < length; ++idx$1) {
-    let location = fieldNames[idx$1];
-    let schema$1 = traverseDefinition(definition[location], onNode);
-    definition[location] = schema$1;
-  }
-  let mut$2 = base(objectTag, false);
-  mut$2.required = fieldNames;
-  mut$2.properties = definition;
-  mut$2.additionalItems = globalConfig.a;
-  mut$2.decoder = objectDecoder;
-  return mut$2;
+  v.prev = undefined;
+  v.e = targetSchema;
+  return v;
 }
 
 function prepareShapedSerializerAcc(acc, input) {
@@ -3588,68 +3758,6 @@ function prepareShapedSerializerAcc(acc, input) {
   for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
     prepareShapedSerializerAcc(acc, vals[keys[idx$1]]);
   }
-}
-
-function getShapedParserOutput(input, targetSchema) {
-  let from = targetSchema.from;
-  let fromFlattened = targetSchema.fromFlattened;
-  let v;
-  if (fromFlattened !== undefined) {
-    v = scope(getValByFrom(input.fv[fromFlattened], targetSchema.from, 0));
-  } else if (from !== undefined) {
-    v = scope(getValByFrom(input, from, 0));
-  } else if (constField in targetSchema) {
-    v = nextConst(input, targetSchema, undefined);
-  } else {
-    let output = makeObjectVal(input, targetSchema);
-    output.io = true;
-    let items = targetSchema.items;
-    if (items !== undefined) {
-      for (let idx = 0, idx_finish = items.length; idx < idx_finish; ++idx) {
-        let location = idx.toString();
-        add(output, location, getShapedParserOutput(input, items[idx]));
-      }
-    } else {
-      let properties = targetSchema.properties;
-      if (properties !== undefined) {
-        let keys = Object.keys(properties);
-        for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
-          let location$1 = keys[idx$1];
-          add(output, location$1, getShapedParserOutput(input, properties[location$1]));
-        }
-      } else {
-        let message = "Don't know where the value is coming from: " + toExpression(targetSchema);
-        throw new Error("[Sury] " + message);
-      }
-    }
-    v = completeObjectVal(output);
-  }
-  v.prev = undefined;
-  v.e = targetSchema;
-  return v;
-}
-
-function getValByFrom(_input, from, _idx) {
-  while (true) {
-    let idx = _idx;
-    let input = _input;
-    let key = from[idx];
-    if (key === undefined) {
-      return input;
-    }
-    _idx = idx + 1 | 0;
-    _input = input.d[key];
-    continue;
-  };
-}
-
-function definitionToSchema(definition) {
-  return traverseDefinition(definition, node => {
-    if (node["~standard"]) {
-      return node;
-    }
-    
-  });
 }
 
 function nested(fieldName) {
@@ -3718,14 +3826,13 @@ function nested(fieldName) {
   return ctx$1;
 }
 
-function shapedSerializer(input) {
-  let acc = {};
-  prepareShapedSerializerAcc(acc, input);
-  let targetSchema = input.e.to;
-  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
-  output.t = true;
-  output.prev = input;
-  return output;
+function definitionToSchema(definition) {
+  return traverseDefinition(definition, node => {
+    if (node["~standard"]) {
+      return node;
+    }
+    
+  });
 }
 
 function shapedParser(input) {
@@ -4141,23 +4248,6 @@ function intMax(schema, maxValue, maybeMessage) {
     }]);
 }
 
-function port(schema, message) {
-  return internalRefine(schema, mut => {
-    mut.format = "port";
-    return input => [{
-        c: inputVar => inputVar + ">0&&" + inputVar + "<65536&&" + inputVar + "%1===0",
-        f: message !== undefined ? input => {
-            let path = input.path;
-            return _value => ({
-              code: "custom",
-              path: path,
-              reason: message
-            });
-          } : failInvalidType
-      }];
-  });
-}
-
 function floatMin(schema, minValue, maybeMessage) {
   assertNumber(minValue);
   let message = maybeMessage !== undefined ? maybeMessage : "Number must be greater than or equal to " + minValue;
@@ -4248,55 +4338,9 @@ function stringMaxLength(schema, length, maybeMessage) {
     }]);
 }
 
-function email(schema, messageOpt) {
-  let message = messageOpt !== undefined ? messageOpt : "Invalid email address";
-  return addRefinement(schema, metadataId$1, {
-    kind: "Email",
-    message: message
-  }, input => [{
-      c: inputVar => embed(input, emailRegex) + ".test(" + inputVar + ")",
-      f: failCustom(message)
-    }]);
-}
-
-function uuid(schema, messageOpt) {
-  let message = messageOpt !== undefined ? messageOpt : "Invalid UUID";
-  return addRefinement(schema, metadataId$1, {
-    kind: "Uuid",
-    message: message
-  }, input => [{
-      c: inputVar => embed(input, uuidRegex) + ".test(" + inputVar + ")",
-      f: failCustom(message)
-    }]);
-}
-
-function cuid(schema, messageOpt) {
-  let message = messageOpt !== undefined ? messageOpt : "Invalid CUID";
-  return addRefinement(schema, metadataId$1, {
-    kind: "Cuid",
-    message: message
-  }, input => [{
-      c: inputVar => embed(input, cuidRegex) + ".test(" + inputVar + ")",
-      f: failCustom(message)
-    }]);
-}
-
-let urlValidator = (s=>{try{new URL(s);return true}catch(_){return false}});
-
-function url(schema, messageOpt) {
-  let message = messageOpt !== undefined ? messageOpt : "Invalid url";
-  return addRefinement(schema, metadataId$1, {
-    kind: "Url",
-    message: message
-  }, input => [{
-      c: inputVar => embed(input, urlValidator) + "(" + inputVar + ")",
-      f: failCustom(message)
-    }]);
-}
-
-function pattern(schema, re, messageOpt) {
+function pattern(re, messageOpt) {
   let message = messageOpt !== undefined ? messageOpt : "Invalid pattern";
-  return addRefinement(schema, metadataId$1, {
+  return addRefinement(string, metadataId$1, {
     kind: {
       TAG: "Pattern",
       re: re
@@ -4570,42 +4614,42 @@ function internalToJSONSchema(schema, path, defs, parent) {
         let format = schema.format;
         let $$const = schema.const;
         jsonSchema.type = "string";
-        if (format !== undefined && format !== "json") {
-          jsonSchema.format = "date-time";
+        if (format !== undefined) {
+          switch (format) {
+            case "date-time" :
+              jsonSchema.format = "date-time";
+              break;
+            case "email" :
+              jsonSchema.format = "email";
+              break;
+            case "uuid" :
+              jsonSchema.format = "uuid";
+              break;
+            case "json" :
+            case "cuid" :
+              break;
+            case "url" :
+              jsonSchema.format = "uri";
+              break;
+          }
         }
         refinements$1(schema).forEach(refinement => {
           let match = refinement.kind;
-          if (typeof match !== "object") {
-            switch (match) {
-              case "Email" :
-                jsonSchema.format = "email";
-                return;
-              case "Uuid" :
-                jsonSchema.format = "uuid";
-                return;
-              case "Cuid" :
-                return;
-              case "Url" :
-                jsonSchema.format = "uri";
-                return;
-            }
-          } else {
-            switch (match.TAG) {
-              case "Min" :
-                jsonSchema.minLength = match.length;
-                return;
-              case "Max" :
-                jsonSchema.maxLength = match.length;
-                return;
-              case "Length" :
-                let length = match.length;
-                jsonSchema.minLength = length;
-                jsonSchema.maxLength = length;
-                return;
-              case "Pattern" :
-                jsonSchema.pattern = match.re.source;
-                return;
-            }
+          switch (match.TAG) {
+            case "Min" :
+              jsonSchema.minLength = match.length;
+              return;
+            case "Max" :
+              jsonSchema.maxLength = match.length;
+              return;
+            case "Length" :
+              let length = match.length;
+              jsonSchema.minLength = length;
+              jsonSchema.maxLength = length;
+              return;
+            case "Pattern" :
+              jsonSchema.pattern = match.re.source;
+              return;
           }
         });
         if ($$const !== undefined) {
@@ -4978,29 +5022,60 @@ function fromJSONSchema(jsonSchema) {
                 type: Primitive_option.some(type_)
               }))));
             } else if (type_$2 === "string") {
-              let p = jsonSchema.pattern;
-              let schema$4 = p !== undefined ? pattern(string, new RegExp(p), undefined) : string;
-              let minLength = jsonSchema.minLength;
-              let schema$5 = minLength !== undefined ? stringMinLength(schema$4, minLength, undefined) : schema$4;
-              let maxLength = jsonSchema.maxLength;
-              let schema$6 = maxLength !== undefined ? stringMaxLength(schema$5, maxLength, undefined) : schema$5;
+              let schema$4;
               switch (jsonSchema.format) {
                 case "date-time" :
                   enableIsoDateTime();
-                  schema = isoDateTime;
+                  schema$4 = isoDateTime;
                   break;
                 case "email" :
-                  schema = email(schema$6, undefined);
+                  enableEmail();
+                  schema$4 = email;
                   break;
                 case "uri" :
-                  schema = url(schema$6, undefined);
+                  enableUrl();
+                  schema$4 = url;
                   break;
                 case "uuid" :
-                  schema = uuid(schema$6, undefined);
+                  enableUuid();
+                  schema$4 = uuid;
                   break;
                 default:
-                  schema = schema$6;
+                  schema$4 = string;
               }
+              let p = jsonSchema.pattern;
+              let schema$5;
+              if (p !== undefined) {
+                let re = new RegExp(p);
+                let refinement_kind = {
+                  TAG: "Pattern",
+                  re: re
+                };
+                let refinement = {
+                  kind: refinement_kind,
+                  message: "Invalid pattern"
+                };
+                schema$5 = addRefinement(schema$4, metadataId$1, refinement, input => {
+                  let embededRe = embed(input, re);
+                  return [{
+                      c: inputVar => embededRe + ".test(" + inputVar + ")",
+                      f: input => {
+                        let path = input.path;
+                        return _value => ({
+                          code: "custom",
+                          path: path,
+                          reason: "Invalid pattern"
+                        });
+                      }
+                    }];
+                });
+              } else {
+                schema$5 = schema$4;
+              }
+              let minLength = jsonSchema.minLength;
+              let schema$6 = minLength !== undefined ? stringMinLength(schema$5, minLength, undefined) : schema$5;
+              let maxLength = jsonSchema.maxLength;
+              schema = maxLength !== undefined ? stringMaxLength(schema$6, maxLength, undefined) : schema$6;
             } else if (type_$2 === "integer" || jsonSchema.format === "int64" && type_$2 === "number") {
               schema = toIntSchema(jsonSchema);
             } else {
@@ -5264,6 +5339,16 @@ export {
   enableUint8Array,
   isoDateTime,
   enableIsoDateTime,
+  port,
+  enablePort,
+  email,
+  enableEmail,
+  uuid,
+  enableUuid,
+  cuid,
+  enableCuid,
+  url,
+  enableUrl,
   date,
   literal,
   array,
@@ -5325,11 +5410,6 @@ export {
   max,
   floatMax,
   length,
-  port,
-  email,
-  uuid,
-  cuid,
-  url,
   pattern,
   trim,
   toJSONSchema,
