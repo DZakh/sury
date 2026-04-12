@@ -81,15 +81,12 @@ S.reverse(S.schema({
 })->S.refine(value => value.foo > 0))
 ```
 
-I left on cleaning up validation code and moving everything to their own decoder functions
-
 ### TS operation functions
 
 - rename `serializer` to reverse parser ?
 - Make `foo->S.to(S.unknown)` stricter ??
 
 - Add `S.to(from, target, parser, serializer)` instead of `S.transform`?
-- Remove `s.fail` with `throw new Error`
 - Make built-in refinements not work with `unknown`. Use `S.to` (manually & automatically) to deside the type first
 - Better inline empty recursive schema operations (union convert)
 - Don't iterate over JSON value when it's `S.json` convert without parsing
