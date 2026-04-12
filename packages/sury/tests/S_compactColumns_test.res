@@ -427,3 +427,50 @@ test("reverseConvertToJsonOrThrow validates non-JSON-able unknown field values",
     `Failed at ["0"]["0"]: Expected JSON, received 123n`,
   )
 })
+
+test("Json source with bigint field converts string↔bigint", t => {
+  S.enableJson()
+  let schema =
+    S.compactColumns(S.json)->S.to(
+      S.array(
+        S.schema(s =>
+          {
+            "id": s.matches(S.string),
+            "amount": s.matches(S.bigint),
+          }
+        ),
+      ),
+    )
+
+  // Forward: json strings are converted to bigint via BigInt()
+  t->Assert.deepEqual(
+    %raw(`[["0", "1"], ["12345678901234567890", "98765432109876543210"]]`)->S.parseOrThrow(schema),
+    %raw(`[{"id": "0", "amount": 12345678901234567890n}, {"id": "1", "amount": 98765432109876543210n}]`),
+  )
+
+  // Reverse: bigint values are converted back to strings for json
+  t->Assert.deepEqual(
+    %raw(`[{"id": "0", "amount": 12345678901234567890n}, {"id": "1", "amount": 98765432109876543210n}]`)->S.reverseConvertOrThrow(schema),
+    %raw(`[["0", "1"], ["12345678901234567890", "98765432109876543210"]]`),
+  )
+})
+
+test("Json source roundtrip with bigint", t => {
+  S.enableJson()
+  let schema =
+    S.compactColumns(S.json)->S.to(
+      S.array(
+        S.schema(s =>
+          {
+            "id": s.matches(S.string),
+            "amount": s.matches(S.bigint),
+          }
+        ),
+      ),
+    )
+
+  let columnar = %raw(`[["0", "1"], ["12345678901234567890", "98765432109876543210"]]`)
+  let rows = columnar->S.parseOrThrow(schema)
+  let roundtripped = rows->S.reverseConvertOrThrow(schema)->S.parseOrThrow(schema)
+  t->Assert.deepEqual(rows, roundtripped)
+})

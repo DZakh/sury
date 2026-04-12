@@ -2175,7 +2175,7 @@ test("CompactColumns with json and bigint", (t) => {
     { id: "1", amount: 98765432109876543210n },
   ]);
 
-  // Test encoding - bigint values are copied as-is into columns
+  // Test encoding - bigint values are converted back to strings for json
   const encode = S.encoder(schema);
   const encoded = encode([
     { id: "0", amount: 12345678901234567890n },
@@ -2183,7 +2183,7 @@ test("CompactColumns with json and bigint", (t) => {
   ]);
   t.deepEqual(encoded, [
     ["0", "1"],
-    [12345678901234567890n, 98765432109876543210n],
+    ["12345678901234567890", "98765432109876543210"],
   ]);
 });
 

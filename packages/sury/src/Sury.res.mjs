@@ -3972,18 +3972,47 @@ function compactColumnsDecoder(input) {
     let inputVar$1 = input.v();
     let iteratorVar$1 = varWithoutAllocation(input.g);
     let outputVar$1 = varWithoutAllocation(input.g);
+    let innerArray$1 = selfSchema.additionalItems;
+    let declaredItemSchema$1 = innerArray$1.additionalItems;
+    let needsPerFieldTransform = declaredItemSchema$1 !== unknown;
     let initialArraysCode = "";
     let settingCode = "";
+    let perFieldCode = "";
     for (let idx$2 = 0; idx$2 < keysLen; ++idx$2) {
       let key$2 = keys[idx$2];
       initialArraysCode = initialArraysCode + ("new Array(" + inputVar$1 + ".length),");
-      settingCode = settingCode + (outputVar$1 + "[" + idx$2 + "][" + iteratorVar$1 + "]=" + inputVar$1 + "[" + iteratorVar$1 + "][" + fromString(key$2) + "];");
+      if (needsPerFieldTransform) {
+        let fieldSchema$1 = maybeProperties[key$2];
+        let rawValueCode$1 = inputVar$1 + "[" + iteratorVar$1 + "][" + fromString(key$2) + "]";
+        let itemInput$1 = scope(input);
+        itemInput$1.i = rawValueCode$1;
+        itemInput$1.s = fieldSchema$1;
+        itemInput$1.e = declaredItemSchema$1;
+        itemInput$1.v = _notVarBeforeValidation;
+        itemInput$1.ii = false;
+        itemInput$1.io = false;
+        let inlinedLocation$1 = inlineLocation(input.g, key$2);
+        itemInput$1.path = "[" + inlinedLocation$1 + "]";
+        let itemOutput$1 = parse$1(itemInput$1);
+        perFieldCode = perFieldCode + merge(itemOutput$1);
+        settingCode = settingCode + (outputVar$1 + "[" + idx$2 + "][" + iteratorVar$1 + "]=" + itemOutput$1.i + ";");
+      } else {
+        settingCode = settingCode + (outputVar$1 + "[" + idx$2 + "][" + iteratorVar$1 + "]=" + inputVar$1 + "[" + iteratorVar$1 + "][" + fromString(key$2) + "];");
+      }
     }
     input.a(outputVar$1 + "=[" + initialArraysCode + "]");
     let output$2 = next(input, outputVar$1, outputSchema, outputSchema);
     output$2.v = _var;
     output$2.io = true;
-    output$2.cp = output$2.cp + ("for(let " + iteratorVar$1 + "=0;" + iteratorVar$1 + "<" + inputVar$1 + ".length;++" + iteratorVar$1 + "){" + settingCode + "}");
+    let loopBody = perFieldCode + settingCode;
+    let wrappedBody$1;
+    if (needsPerFieldTransform && perFieldCode !== "") {
+      let errorVar$1 = varWithoutAllocation(input.g);
+      wrappedBody$1 = "try{" + loopBody + "}catch(" + errorVar$1 + "){" + errorVar$1 + ".path='[\"'+" + iteratorVar$1 + "+'\"]'+" + errorVar$1 + ".path;throw " + errorVar$1 + "}";
+    } else {
+      wrappedBody$1 = loopBody;
+    }
+    output$2.cp = output$2.cp + ("for(let " + iteratorVar$1 + "=0;" + iteratorVar$1 + "<" + inputVar$1 + ".length;++" + iteratorVar$1 + "){" + wrappedBody$1 + "}");
     return output$2;
   }
   throw new Error("[Sury] S.compactColumns supports only object schemas. Use S.compactColumns(S.unknown)->S.to(S.array(objectSchema)).");
