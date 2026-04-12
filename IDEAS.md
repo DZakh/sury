@@ -2,7 +2,8 @@
 
 ## Alpha.5
 
-- Add `S.date` — standalone Date instance schema. Validates `instanceof Date` and rejects Invalid Date. Unlike `S.datetime` (which transforms strings to dates), `S.date` directly validates Date objects.
+- Add `S.date` — standalone Date instance schema. Validates `instanceof Date` and rejects Invalid Date. Unlike `S.isoDateTime` (which validates ISO 8601 UTC strings) and `S.string->S.to(S.date)` (which decodes ISO strings into Date objects), `S.date` directly validates existing Date instances.
+- Add `S.isoDateTime` and `S.enableIsoDateTime` — standalone string schema that validates ISO 8601 UTC datetime strings (no timezone offsets, arbitrary sub-second precision). Reuses the built-in string decoder; the regex lives inside `enableIsoDateTime` so it is tree-shaken from the bundle when unused. Replaces the removed `S.datetime` for the "validate an ISO string" use case — for string↔Date conversion use `S.string->S.to(S.date)`.
 - Added `S.compactColumns` - transforms columnar data (`[[a1,a2], [b1,b2]]`) to/from row objects (`[{foo:a1,bar:b1}, {foo:a2,bar:b2}]`)
 - TypeScript: Use `S.encoder(schema)` for encoding (replaces internal `reverseConvertOrThrow`)
 - `S.compactColumns` type is `Schema<Output[][], Input[][]>`

@@ -258,6 +258,36 @@ test("fromJSONSchema: string format date-time", t => {
   t->Assert.deepEqual(jsonRoundTrip(js), js)
 })
 
+test("Round-trip S.string->S.to(S.date) through toJSONSchema/fromJSONSchema", t => {
+  let schema = S.string->S.to(S.date)
+  let js = schema->S.toJSONSchema
+  t->Assert.deepEqual(js, %raw(`{"type": "string", "format": "date-time"}`))
+  // fromJSONSchema then toJSONSchema should preserve the format
+  t->Assert.deepEqual(js->S.fromJSONSchema->S.toJSONSchema, js)
+})
+
+// Unlike email/uri/uuid formats, which compose with minLength/maxLength/pattern
+// (via schema->email, etc.), `format: "date-time"` resolves to the standalone
+// S.isoDateTime singleton. Any sibling pattern/min/max refinements on the
+// incoming JSON schema are intentionally discarded for this case — ISO 8601
+// datetime strings have a fully anchored shape so length/pattern constraints
+// are redundant with the regex validator inside enableIsoDateTime. This test
+// pins that behavior so it can't silently regress.
+test("fromJSONSchema: format date-time ignores sibling minLength/maxLength/pattern", t => {
+  let js = {
+    type_: Arrayable.single(#string),
+    format: "date-time",
+    minLength: 10000,
+    maxLength: 1,
+    pattern: "^nope$",
+  }
+  let schema = S.fromJSONSchema(js)
+  // A valid ISO datetime still parses even though minLength=10000 would reject it.
+  t->Assert.deepEqual(parse(schema, "2020-01-01T00:00:00Z"), "2020-01-01T00:00:00Z"->Obj.magic)
+  // A non-ISO string still fails — the datetime validator runs.
+  t->Assert.throws(() => parse(schema, "not-a-date"))
+})
+
 test("fromJSONSchema: string pattern", t => {
   let js = {type_: Arrayable.single(#string), pattern: "^foo$"}
   let schema = S.fromJSONSchema(js)

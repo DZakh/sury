@@ -280,7 +280,7 @@ type standard = {
 type internalDefault = {}
 
 type numberFormat = | @as("int32") Int32 | @as("port") Port
-type stringFormat = | @as("json") JSON
+type stringFormat = | @as("json") JSON | @as("date-time") DateTime
 type arrayFormat = | @as("compactColumns") CompactColumns
 
 type format = | ...numberFormat | ...stringFormat | ...arrayFormat
@@ -4427,7 +4427,6 @@ module String = {
       | Cuid
       | Url
       | Pattern({re: Js.Re.t})
-      | Datetime
     type t = {
       kind: kind,
       message: string,
@@ -4447,8 +4446,6 @@ module String = {
   let uuidRegex = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/i
   // Adapted from https://stackoverflow.com/a/46181/1550155
   let emailRegex = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i
-  // Adapted from https://stackoverflow.com/a/3143231
-  let datetimeRe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/
 }
 
 let jsonEncoder = Builder.encoder((~input, ~target) => {
@@ -4828,6 +4825,34 @@ let enableUint8Array = () => {
   }
 }
 
+let isoDateTime = shaken("isoDateTime")
+
+let enableIsoDateTime = () => {
+  if isoDateTime->Obj.magic->Js.Dict.unsafeGet(shakenRef)->Obj.magic {
+    let _ = %raw(`delete isoDateTime.as`)
+    // Adapted from https://stackoverflow.com/a/3143231
+    // Kept inline so the regex is only pulled into the bundle when
+    // `enableIsoDateTime` is imported; unused otherwise it's tree-shaken away.
+    let datetimeRe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/
+    isoDateTime.tag = stringTag
+    isoDateTime.decoder = string.decoder
+    // Set `format` directly on the schema so `toJSONSchema` picks up
+    // `"format": "date-time"` from the existing `Some(DateTime)` arm in
+    // `internalToJSONSchemaBase`'s String case — no `extendJSONSchema`
+    // metadata overlay needed.
+    isoDateTime.format = Some(DateTime)
+    isoDateTime.refiner = Some(
+      (~input) => {
+        `if(!${input->B.embed(
+            datetimeRe,
+          )}.test(${input.var()})){${input->B.fail(
+            ~message="Invalid datetime string! Expected UTC",
+          )}}`
+      },
+    )
+  }
+}
+
 let invalidDateRefine = (input: val) =>
   input->B.refine(
     ~schema=input.expected,
@@ -4862,8 +4887,14 @@ let date = {
     Builder.encoder((~input, ~target) => {
       let toTagFlag = target.tag->TagFlag.get
       if toTagFlag->Flag.unsafeHas(TagFlag.string) {
+        let dateTimeString = string->copySchema
+        dateTimeString.format = Some(DateTime)
         input
-        ->B.next(`${input.inline}.toISOString()`, ~schema=string, ~expected=target)
+        ->B.next(
+          `${input.inline}.toISOString()`,
+          ~schema=dateTimeString,
+          ~expected=target,
+        )
         ->parse
       } else {
         input
@@ -6060,8 +6091,6 @@ let compactColumns = inputSchema => {
 //             `->S.pattern(%re(${re
 //               ->X.Re.toString
 //               ->X.Inlined.Value.fromString}), ~message=${message->X.Inlined.Value.fromString})`
-//           | {kind: Datetime, message} =>
-//             `->S.datetime(~message=${message->X.Inlined.Value.fromString})`
 //           }
 //         })
 //         ->Js.Array2.joinWith("")
@@ -6427,32 +6456,6 @@ let pattern = (schema, re, ~message=`Invalid pattern`) => {
   )
 }
 
-let datetime = (schema, ~message=`Invalid datetime string! Expected UTC`) => {
-  let refinement = {
-    String.Refinement.kind: Datetime,
-    message,
-  }
-  schema
-  ->Metadata.set(
-    ~id=String.Refinement.metadataId,
-    {
-      switch schema->Metadata.get(~id=String.Refinement.metadataId) {
-      | Some(refinements) => refinements->X.Array.append(refinement)
-      | None => [refinement]
-      }
-    },
-  )
-  ->transform(s => {
-    parser: string => {
-      if String.datetimeRe->Js.Re.test_(string)->not {
-        s.fail(message)
-      }
-      Js.Date.fromString(string)
-    },
-    serializer: date => date->Js.Date.toISOString,
-  })
-}
-
 let trim = schema => {
   let transformer = string => string->Js.String2.trim
   schema->transform(_ => {parser: transformer, serializer: transformer})
@@ -6649,33 +6652,129 @@ module RescriptJSONSchema = {
   @val
   external merge: (@as(json`{}`) _, t, t) => t = "Object.assign"
 
-  let rec internalToJSONSchema = (schema: schema<unknown>, ~path, ~defs, ~parent): JSONSchema.t => {
+  let applyMetadataOverlay = (jsonSchema: Mutable.t, schema: schema<unknown>, ~defs): unit => {
+    switch schema->untag {
+    | {description: m} => jsonSchema.description = Some(m)
+    | _ => ()
+    }
+    switch schema->untag {
+    | {title: m} => jsonSchema.title = Some(m)
+    | _ => ()
+    }
+    switch schema->untag {
+    | {deprecated} => jsonSchema.deprecated = Some(deprecated)
+    | _ => ()
+    }
+    switch schema->untag {
+    | {examples} =>
+      jsonSchema.examples = Some(
+        examples->(
+          Obj.magic: // If a schema is Jsonable,
+          // then examples are Jsonable too.
+          array<unknown> => array<Js.Json.t>
+        ),
+      )
+    | _ => ()
+    }
+    switch schema->untag {
+    | {defs: schemaDefs} =>
+      let _ = defs->X.Dict.mixin(schemaDefs)
+    | _ => ()
+    }
+    switch schema->Metadata.get(~id=jsonSchemaMetadataId) {
+    | Some(metadataRawSchema) => jsonSchema->Mutable.mixin(metadataRawSchema)
+    | None => ()
+    }
+  }
+
+  let rec encodeToJsonSchema = (schema: schema<unknown>, ~path, ~defs, ~parent): option<
+    JSONSchema.t,
+  > => {
+    let schemaInternal = schema->castToInternal
+    let reversed = schemaInternal->reverse
+    let input = B.operationArg(
+      ~flag=Flag.none,
+      ~defs=%raw(`0`),
+      ~schema=unknown,
+      ~expected=reversed,
+    )
+    try {
+      let output = input->parse
+      // The parse produces a val whose .schema reflects the
+      // JSON-compatible transformed structure.
+      Some(internalToJSONSchema(output.schema->castToPublic, ~path, ~defs, ~parent))
+    } catch {
+    | _ => {
+        let _ = %raw(`exn`)->InternalError.getOrRethrow
+        // Parse failed — caller falls through to normal tag-based logic.
+        None
+      }
+    }
+  }
+  and internalToJSONSchema = (schema: schema<unknown>, ~path, ~defs, ~parent): JSONSchema.t => {
+    let schemaInternal = schema->castToInternal
+    // When a schema has `.to`, we can try to encode-reverse it to get a more
+    // precise JSON schema (e.g. `format: "date-time"` for `S.string->S.to(S.date)`).
+    // But for structural tags (object/array/union) encoding would lose items
+    // metadata, so we only attempt it for leaf tags where it's safe.
+    let hasUserTo =
+      schemaInternal.to->Obj.magic &&
+        !(
+          schemaInternal.tag
+          ->TagFlag.get
+          ->Flag.unsafeHas(
+            TagFlag.object->Flag.with(TagFlag.array)->Flag.with(TagFlag.union),
+          )
+        )
+    let encoded = if hasUserTo {
+      encodeToJsonSchema(schema, ~path, ~defs, ~parent)
+    } else {
+      None
+    }
+    switch encoded {
+    | Some(encodedJsonSchema) =>
+      let mutableJs = encodedJsonSchema->Mutable.fromReadOnly
+      mutableJs->applyMetadataOverlay(schema, ~defs)
+      mutableJs->Mutable.toReadOnly
+    | None => internalToJSONSchemaBase(schema, ~path, ~defs, ~parent)
+    }
+  }
+  and internalToJSONSchemaBase = (
+    schema: schema<unknown>,
+    ~path,
+    ~defs,
+    ~parent,
+  ): JSONSchema.t => {
     let jsonSchema: Mutable.t = {}
     switch schema {
-    | String({?const}) =>
-      jsonSchema.type_ = Some(Arrayable.single(#string))
-      schema
-      ->String.refinements
-      ->Js.Array2.forEach(refinement => {
-        switch refinement {
-        | {kind: Email} => jsonSchema.format = Some("email")
-        | {kind: Url} => jsonSchema.format = Some("uri")
-        | {kind: Uuid} => jsonSchema.format = Some("uuid")
-        | {kind: Datetime} => jsonSchema.format = Some("date-time")
-        | {kind: Cuid} => ()
-        | {kind: Length({length})} => {
-            jsonSchema.minLength = Some(length)
-            jsonSchema.maxLength = Some(length)
-          }
-        | {kind: Max({length})} => jsonSchema.maxLength = Some(length)
-        | {kind: Min({length})} => jsonSchema.minLength = Some(length)
-        | {kind: Pattern({re})} =>
-          jsonSchema.pattern = Some((re->(Obj.magic: Js.Re.t => {..}))["source"])
+    | String({?const, ?format}) => {
+        jsonSchema.type_ = Some(Arrayable.single(#string))
+        switch format {
+        | Some(DateTime) => jsonSchema.format = Some("date-time")
+        | Some(JSON) | None => ()
         }
-      })
-      switch const {
-      | Some(value) => jsonSchema.const = Some(Js.Json.string(value))
-      | None => ()
+        schema
+        ->String.refinements
+        ->Js.Array2.forEach(refinement => {
+          switch refinement {
+          | {kind: Email} => jsonSchema.format = Some("email")
+          | {kind: Url} => jsonSchema.format = Some("uri")
+          | {kind: Uuid} => jsonSchema.format = Some("uuid")
+          | {kind: Cuid} => ()
+          | {kind: Length({length})} => {
+              jsonSchema.minLength = Some(length)
+              jsonSchema.maxLength = Some(length)
+            }
+          | {kind: Max({length})} => jsonSchema.maxLength = Some(length)
+          | {kind: Min({length})} => jsonSchema.minLength = Some(length)
+          | {kind: Pattern({re})} =>
+            jsonSchema.pattern = Some((re->(Obj.magic: Js.Re.t => {..}))["source"])
+          }
+        })
+        switch const {
+        | Some(value) => jsonSchema.const = Some(Js.Json.string(value))
+        | None => ()
+        }
       }
     | Number({?format, ?const}) =>
       switch format {
@@ -6858,7 +6957,7 @@ module RescriptJSONSchema = {
           }
         }
       }
-    | Ref({ref}) if ref === `${defsPath}${jsonName}` => ()
+    | Ref({ref}) if ref === `${defsPath}${jsonName}` => () // S.json → empty {}
     | Ref({ref}) => jsonSchema.ref = Some(ref)
     | Null(_) => jsonSchema.type_ = Some(Arrayable.single(#null))
     | Never(_) => jsonSchema.not = Some(Schema({}))
@@ -6881,43 +6980,7 @@ module RescriptJSONSchema = {
       )
     }
 
-    switch schema->untag {
-    | {description: m} => jsonSchema.description = Some(m)
-    | _ => ()
-    }
-
-    switch schema->untag {
-    | {title: m} => jsonSchema.title = Some(m)
-    | _ => ()
-    }
-
-    switch schema->untag {
-    | {deprecated} => jsonSchema.deprecated = Some(deprecated)
-    | _ => ()
-    }
-
-    switch schema->untag {
-    | {examples} =>
-      jsonSchema.examples = Some(
-        examples->(
-          Obj.magic: // If a schema is Jsonable,
-          // then examples are Jsonable too.
-          array<unknown> => array<Js.Json.t>
-        ),
-      )
-    | _ => ()
-    }
-
-    switch schema->untag {
-    | {defs: schemaDefs} =>
-      let _ = defs->X.Dict.mixin(schemaDefs)
-    | _ => ()
-    }
-
-    switch schema->Metadata.get(~id=jsonSchemaMetadataId) {
-    | Some(metadataRawSchema) => jsonSchema->Mutable.mixin(metadataRawSchema)
-    | None => ()
-    }
+    jsonSchema->applyMetadataOverlay(schema, ~defs)
 
     jsonSchema->Mutable.toReadOnly
   }
@@ -7152,20 +7215,8 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
       | {format: "uri"} => schema->url->castAnySchemaToJsonableS
       | {format: "uuid"} => schema->uuid->castAnySchemaToJsonableS
       | {format: "date-time"} =>
-        schema
-        ->addRefinement(
-          ~metadataId=String.Refinement.metadataId,
-          ~refiner=(~input) => {
-            `if(!${input->B.embed(String.datetimeRe)}.test(${input.var()})){${input->B.fail(
-                ~message="Invalid datetime string! Expected UTC",
-              )}}`
-          },
-          ~refinement={
-            kind: Datetime,
-            message: "Invalid datetime string! Expected UTC",
-          },
-        )
-        ->castAnySchemaToJsonableS
+        enableIsoDateTime()
+        isoDateTime->castToPublic->castAnySchemaToJsonableS
       | _ => schema->castAnySchemaToJsonableS
       }
 
@@ -7276,6 +7327,7 @@ let unknown: t<unknown> = unknown->castToPublic
 let json: t<Js.Json.t> = json->castToPublic
 let jsonString: t<string> = jsonString->castToPublic
 let uint8Array: t<Uint8Array.t> = uint8Array->castToPublic
+let isoDateTime: t<string> = isoDateTime->castToPublic
 let bool: t<bool> = bool->castToPublic
 let symbol: t<Js.Types.symbol> = symbol->castToPublic
 let string: t<string> = string->castToPublic

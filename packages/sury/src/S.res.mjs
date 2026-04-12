@@ -40,6 +40,10 @@ let uint8Array = Sury.uint8Array;
 
 let enableUint8Array = Sury.enableUint8Array;
 
+let isoDateTime = Sury.isoDateTime;
+
+let enableIsoDateTime = Sury.enableIsoDateTime;
+
 let date = Sury.date;
 
 let literal = Sury.literal;
@@ -176,8 +180,6 @@ let url = Sury.url;
 
 let pattern = Sury.pattern;
 
-let datetime = Sury.datetime;
-
 let trim = Sury.trim;
 
 let toJSONSchema = Sury.toJSONSchema;
@@ -210,6 +212,8 @@ export {
   enableJsonString,
   uint8Array,
   enableUint8Array,
+  isoDateTime,
+  enableIsoDateTime,
   date,
   literal,
   array,
@@ -278,7 +282,6 @@ export {
   cuid,
   url,
   pattern,
-  datetime,
   trim,
   toJSONSchema,
   fromJSONSchema,

@@ -49,6 +49,7 @@
   - [`dict`](#dict)
   - [`unknown`](#unknown)
   - [`date`](#date)
+  - [`isoDateTime`](#isodatetime)
   - [`instance`](#instance)
   - [`never`](#never)
   - [`json`](#json)
@@ -282,10 +283,11 @@ S.string->S.url // Invalid url
 S.string->S.uuid // Invalid UUID
 S.string->S.cuid // Invalid CUID
 S.string->S.pattern(%re(`/[0-9]/`)) // Invalid
-S.string->S.datetime // Invalid datetime string! Expected UTC
 
 S.string->S.trim // trim whitespaces
 ```
+
+> For ISO 8601 UTC datetime strings use the dedicated standalone `S.isoDateTime` schema — see [ISO datetimes](#iso-datetimes) below.
 
 > ⚠️ Validating email addresses is nearly impossible with just code. Different clients and servers accept different things and many diverge from the various specs defining "valid" emails. The ONLY real way to validate an email address is to send a verification email to it and check that the user got it. With that in mind, Sury picks a relatively simple regex that does not cover all cases.
 
@@ -298,17 +300,25 @@ S.string->S.length(5, ~message="SMS code should be 5 digits long")
 
 #### ISO datetimes
 
-The `S.string->S.datetime` function has following UTC validation: no timezone offsets with arbitrary sub-second decimal precision.
+`S.isoDateTime` is a **standalone** string schema (`S.t<string>`) that validates ISO 8601 UTC datetime strings: no timezone offsets allowed, with arbitrary sub-second decimal precision. Because the regex used to validate the input lives inside `S.enableIsoDateTime`, it is tree-shaken from your bundle unless you opt in — call `S.enableIsoDateTime()` once at your project root before using the schema.
 
 ```rescript
-let datetimeSchema = S.string->S.datetime
-// The datetimeSchema has the type S.t<Date.t>
-// String is transformed to the Date.t instance
+S.enableIsoDateTime() // ❕ Call at the project root.
 
-"2020-01-01T00:00:00Z"->S.parseOrThrow(datetimeSchema) // pass
-"2020-01-01T00:00:00.123Z"->S.parseOrThrow(datetimeSchema) // pass
-"2020-01-01T00:00:00.123456Z"->S.parseOrThrow(datetimeSchema) // pass (arbitrary precision)
-"2020-01-01T00:00:00+02:00"->S.parseOrThrow(datetimeSchema) // fail (no offsets allowed)
+let schema = S.isoDateTime
+// schema has the type S.t<string>
+
+"2020-01-01T00:00:00Z"->S.parseOrThrow(schema) // pass
+"2020-01-01T00:00:00.123Z"->S.parseOrThrow(schema) // pass
+"2020-01-01T00:00:00.123456Z"->S.parseOrThrow(schema) // pass (arbitrary precision)
+"2020-01-01T00:00:00+02:00"->S.parseOrThrow(schema) // fail (no offsets allowed)
+```
+
+To decode an ISO datetime string into a `Date.t`, combine it with `S.to(S.date)`:
+
+```rescript
+let schema = S.string->S.to(S.date)
+// schema has the type S.t<Date.t>
 ```
 
 ### **`bool`**
@@ -1037,7 +1047,7 @@ Date.fromString("2024-01-01T00:00:00Z")->S.parseOrThrow(schema) // passes
 
 The `S.date` schema validates that the input is a `Date` instance and rejects Invalid Date.
 
-> Unlike `S.string->S.datetime` which parses ISO datetime strings into Date objects, `S.date` validates existing Date instances directly.
+> Unlike `S.isoDateTime` (which validates ISO datetime strings) and `S.string->S.to(S.date)` (which decodes ISO strings into Date objects), `S.date` validates existing Date instances directly.
 
 You can use `S.to` to decode between strings and dates:
 
@@ -1049,6 +1059,21 @@ let schema = S.string->S.to(S.date)
 // Encode Date to ISO string
 Date.fromString("2024-01-01T00:00:00.000Z")->S.reverseConvertOrThrow(schema) // "2024-01-01T00:00:00.000Z"
 ```
+
+### **`isoDateTime`**
+
+`S.t<string>`
+
+```rescript
+S.enableIsoDateTime() // ❕ Call at the project root.
+
+let schema = S.isoDateTime
+
+"2020-01-01T00:00:00Z"->S.parseOrThrow(schema) // "2020-01-01T00:00:00Z"
+"not-a-date"->S.parseOrThrow(schema) // throws
+```
+
+Standalone string schema that validates ISO 8601 UTC datetime strings. The regex is tree-shaken from the bundle unless you call `S.enableIsoDateTime()`. See also [ISO datetimes](#iso-datetimes) under Strings for more details and examples.
 
 ### **`instance`**
 
