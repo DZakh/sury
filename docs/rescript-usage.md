@@ -61,6 +61,9 @@
 - [Functions on schema](#functions-on-schema)
 
   - [`Built-in operations`](#built-in-operations)
+  - [`parseOrThrow`](#parseorthrow)
+  - [`decodeOrThrow`](#decodeorthrow)
+  - [`assertOrThrow`](#assertorthrow)
   - [`parser`](#parser)
   - [`decoder`](#decoder)
   - [`decoder1`](#decoder1)

@@ -74,95 +74,23 @@ I left on cleaning up validation code and moving everything to their own decoder
 
 ### ReScript operation functions
 
-Only `parseOrThrow`, `assertOrThrow`, and `decodeOrThrow` (+ async variants) with labeled args `~to`, `~from`, and optional `~through` (array of schemas). Plus compiled builder functions `parser`, `decoder`, and `decoder1`.
-
-#### OrThrow functions (immediate execution)
-
-- `parseOrThrow` - validates input type + transforms. `~to` required, optional `~through`.
-- `parseAsyncOrThrow` - async version of `parseOrThrow`
-- `assertOrThrow` - validates input and returns unit. `~to` required, optional `~through`.
-- `assertAsyncOrThrow` - async version of `assertOrThrow`
-- `decodeOrThrow` - skips input type validation, only transforms. `~from` and `~to` required, optional `~through`.
-- `decodeAsyncOrThrow` - async version of `decodeOrThrow`
-
-#### Builder functions (return compiled functions)
-
-- `parser` - compiles a parse function (with validation). `~to` required, optional `~through`. Returns `'any => 'value`.
-- `decoder` - compiles a decode function (no validation). `~from` and `~to` required, optional `~through`. Returns `'from => 'to`.
-- `decoder1` - compiles a decode function for a single schema from input to output (no validation). Takes a single schema. Returns `unknown => 'value`. This is the "decodeInput" equivalent — ReScript `S.t<'value>` only knows the output type, so the caller must ensure the data matches the schema's input type.
-
-```rescript
-let userSchema = S.schema(s => {
-  id: s.matches(S.string),
-  name: s.matches(S.string),
-})
-
-// --- parseOrThrow (with input validation, ~to required, optional ~through) ---
-
-// Parse any -> output (current S.parseOrThrow)
-data->S.parseOrThrow(~to=userSchema)
-
-// Parse through intermediate schemas
-data->S.parseOrThrow(~through=[schemaA, schemaB], ~to=userSchema)
-
-// Parse async (current S.parseAsyncOrThrow)
-data->S.parseAsyncOrThrow(~to=userSchema)
-
-// --- assertOrThrow (validate only, returns unit) ---
-
-// Assert (current S.assertOrThrow)
-data->S.assertOrThrow(~to=userSchema)
-
-// Assert through intermediate schemas
-data->S.assertOrThrow(~through=[schemaA, schemaB], ~to=userSchema)
-
-// Assert async
-data->S.assertAsyncOrThrow(~to=userSchema)
-
-// --- decodeOrThrow (no input type validation, ~from and ~to required) ---
-
-// Decode JSON -> output (current S.parseJsonOrThrow)
-data->S.decodeOrThrow(~from=S.json, ~to=userSchema)
-
-// Decode JSON string -> output (current S.parseJsonStringOrThrow)
-data->S.decodeOrThrow(~from=S.jsonString, ~to=userSchema)
-
-// Reverse: output -> any (current S.reverseConvertOrThrow)
-user->S.decodeOrThrow(~from=userSchema, ~to=S.unknown)
-
-// Reverse: output -> JSON (current S.reverseConvertToJsonOrThrow)
-user->S.decodeOrThrow(~from=userSchema, ~to=S.json)
-
-// Reverse: output -> JSON string (current S.reverseConvertToJsonStringOrThrow)
-user->S.decodeOrThrow(~from=userSchema, ~to=S.jsonString)
-
-// Through intermediate schemas (~through before ~to)
-data->S.decodeOrThrow(~from=S.json, ~through=[schemaA, schemaB], ~to=outputSchema)
-
-// Async variants (current S.convertAsyncOrThrow / S.reverseConvertAsyncOrThrow)
-data->S.decodeAsyncOrThrow(~from=S.json, ~to=userSchema)
-user->S.decodeAsyncOrThrow(~from=userSchema, ~to=S.unknown)
-
-// --- Builder functions (return compiled functions) ---
-
-// parser: compiled parse function (current S.makeConvertOrThrow(S.unknown, schema))
-let parse = S.parser(~to=userSchema)
-data->parse // 'any => user
-
-// decoder: compiled decode function (current S.makeConvertOrThrow(from, to))
-let decodeJson = S.decoder(~from=S.json, ~to=userSchema)
-data->decodeJson // Js.Json.t => user
-
-let encode = S.decoder(~from=userSchema, ~to=S.json)
-user->encode // user => Js.Json.t
-
-let pipeline = S.decoder(~from=S.json, ~through=[schemaA, schemaB], ~to=outputSchema)
-data->pipeline // Js.Json.t => output
-
-// decoder1: compiled single-schema decode (input -> output, current S.convertOrThrow)
-let convert = S.decoder1(userSchema)
-data->convert // unknown => user
-```
+| Before | After |
+|---|---|
+| `S.parseOrThrow(data, schema)` | `S.parseOrThrow(data, ~to=schema)` |
+| `S.parseAsyncOrThrow(data, schema)` | `S.parseAsyncOrThrow(data, ~to=schema)` |
+| `S.parseJsonOrThrow(data, schema)` | `S.decodeOrThrow(data, ~from=S.json, ~to=schema)` |
+| `S.parseJsonStringOrThrow(data, schema)` | `S.decodeOrThrow(data, ~from=S.jsonString, ~to=schema)` |
+| `S.assertOrThrow(data, schema)` | `S.assertOrThrow(data, ~to=schema)` |
+| — | `S.assertAsyncOrThrow(data, ~to=schema)` |
+| `S.reverseConvertOrThrow(data, schema)` | `S.decodeOrThrow(data, ~from=schema, ~to=S.unknown)` |
+| `S.reverseConvertToJsonOrThrow(data, schema)` | `S.decodeOrThrow(data, ~from=schema, ~to=S.json)` |
+| `S.reverseConvertToJsonStringOrThrow(data, schema)` | `S.decodeOrThrow(data, ~from=schema, ~to=S.jsonString)` |
+| `S.reverseConvertToJsonStringOrThrow(data, schema, ~space=2)` | `S.decodeOrThrow(data, ~from=schema, ~to=S.jsonStringWithSpace(2))` |
+| `S.convertOrThrow(data, schema)` | `S.decoder1(schema)(data)` |
+| `S.makeConvertOrThrow(from, to)` | `S.decoder(~from, ~to)` |
+| `S.makeAsyncConvertOrThrow(from, to)` | `S.asyncDecoder(~from, ~to)` |
+| `S.makeConvertOrThrow(S.unknown, schema)` | `S.parser(~to=schema)` |
+| `S.makeAsyncConvertOrThrow(S.unknown, schema)` | `S.asyncParser(~to=schema)` |
 
 ### TS operation functions
 
