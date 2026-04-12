@@ -74,7 +74,9 @@ I left on cleaning up validation code and moving everything to their own decoder
 
 ### ReScript operation functions
 
-Only `parseOrThrow`, `assertOrThrow`, `decodeOrThrow`, and `decodeInputOrThrow` (+ async variants) with labeled args `~to`, `~from`, and optional `~through` (array of schemas).
+Only `parseOrThrow`, `assertOrThrow`, and `decodeOrThrow` (+ async variants) with labeled args `~to`, `~from`, and optional `~through` (array of schemas). Plus compiled builder functions `parser`, `decoder`, and `decoder1`.
+
+#### OrThrow functions (immediate execution)
 
 - `parseOrThrow` - validates input type + transforms. `~to` required, optional `~through`.
 - `parseAsyncOrThrow` - async version of `parseOrThrow`
@@ -82,8 +84,12 @@ Only `parseOrThrow`, `assertOrThrow`, `decodeOrThrow`, and `decodeInputOrThrow` 
 - `assertAsyncOrThrow` - async version of `assertOrThrow`
 - `decodeOrThrow` - skips input type validation, only transforms. `~from` required, optional `~to` and `~through`.
 - `decodeAsyncOrThrow` - async version of `decodeOrThrow`
-- `decodeInputOrThrow` - transforms a single schema from input to output without validation. `~to` required. "Input" because ReScript schema type `S.t<'value>` only knows the output type, so the caller must ensure the data matches the schema's input type.
-- `decodeInputAsyncOrThrow` - async version of `decodeInputOrThrow`
+
+#### Builder functions (return compiled functions)
+
+- `parser` - compiles a parse function (with validation). `~to` required, optional `~through`. Returns `'any => 'value`.
+- `decoder` - compiles a decode function (no validation). `~from` required, optional `~to` and `~through`. Returns `'from => 'to`.
+- `decoder1` - compiles a decode function for a single schema from input to output (no validation). Takes a single schema. Returns `'any => 'value`. This is the "decodeInput" equivalent — ReScript `S.t<'value>` only knows the output type, so the caller must ensure the data matches the schema's input type.
 
 ```rescript
 let userSchema = S.schema(s => {
@@ -137,15 +143,22 @@ data->S.decodeOrThrow(~from=S.json, ~through=[schemaA, schemaB], ~to=outputSchem
 data->S.decodeAsyncOrThrow(~from=S.json, ~to=userSchema)
 user->S.decodeAsyncOrThrow(~from=userSchema, ~to=S.unknown)
 
-// --- decodeInputOrThrow (single schema, input -> output, no validation) ---
-// "Input" because ReScript S.t<'value> only knows the output type,
-// so the caller must ensure the data matches the schema's input type.
+// --- Builder functions (return compiled functions) ---
 
-// current S.convertOrThrow
-data->S.decodeInputOrThrow(~to=userSchema)
+// parser: compiled parse function (current S.makeConvertOrThrow(S.unknown, schema))
+let parse = S.parser(~to=userSchema)
+data->parse // 'any => user
 
-// Async variant (current S.convertAsyncOrThrow)
-data->S.decodeInputAsyncOrThrow(~to=userSchema)
+// decoder: compiled decode function (current S.makeConvertOrThrow(from, to))
+let decodeJson = S.decoder(~from=S.json, ~to=userSchema)
+data->decodeJson // Js.Json.t => user
+
+let encode = S.decoder(~from=userSchema, ~to=S.json)
+user->encode // user => Js.Json.t
+
+// decoder1: compiled single-schema decode (input -> output, current S.convertOrThrow)
+let convert = S.decoder1(userSchema)
+data->convert // 'any => user
 ```
 
 ### TS operation functions
