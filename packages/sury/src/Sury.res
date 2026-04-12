@@ -2019,7 +2019,14 @@ module Literal = {
   let literalDecoder = Builder.make((~input) => {
     let expectedSchema = input.expected
     if expectedSchema.noValidation->X.Option.getUnsafe {
-      input->B.nextConst(~schema=expectedSchema)
+      let val = input->B.nextConst(~schema=expectedSchema)
+      val.checks = Some([
+        {
+          cond: (~inputVar) => `${inputVar}===${input->B.inlineConst(expectedSchema)}`,
+          fail: B.failInvalidType,
+        },
+      ])
+      val
     } else if input.schema->isLiteral {
       // FIXME: test NaN case
       if input.schema.const === expectedSchema.const {
