@@ -78,7 +78,7 @@ Let's start with a simple object schema for the purpose of this guide. I use the
 ```ts
 import * as S from "sury"; // 4.3 kB (min + gzip)
 
-const Player = S.schema({
+const playerSchema = S.schema({
   username: S.string,
   xp: S.number,
 });
@@ -91,14 +91,14 @@ const Player = S.schema({
 The most basic use-case for a schema is to parse unknown data. If the data is valid, the function will return a strongly-typed deep clone of the input. (With stripped fields by default)
 
 ```ts
-S.parser(Player)({ username: "billie", xp: 100 });
+S.parser(playerSchema)({ username: "billie", xp: 100 });
 // => returns { username: "billie", xp: 100 }
 ```
 
 If the data is invalid, the function will throw an error.
 
 ```ts
-S.parser(Player)({ username: "billie", xp: "not a number" });
+S.parser(playerSchema)({ username: "billie", xp: "not a number" });
 // => throws S.Error: Failed at ["xp"]: Expected number, got string
 ```
 
@@ -106,11 +106,11 @@ S.parser(Player)({ username: "billie", xp: "not a number" });
 
 ```ts
 const result = S.safe(() =>
-  S.parser(Player)({ username: "billie", xp: "not a number" })
+  S.parser(playerSchema)({ username: "billie", xp: "not a number" })
 );
 // Or for async operations:
 const result = await S.safeAsync(() =>
-  S.asyncParser(Player)({ username: "billie", xp: "not a number" })
+  S.asyncParser(playerSchema)({ username: "billie", xp: "not a number" })
 );
 
 // The result type is a discriminated union, so you can handle both cases conveniently:
@@ -128,13 +128,13 @@ if (!result.success) {
 **Sury** automatically infers the static type from the schema definition. It has a really nice type on hover, which you can extract by using `S.Infer<typeof schema>`, `S.Output<typeof schema>`, or `S.Input<typeof schema>`.
 
 ```ts
-const Player = S.schema({
+const playerSchema = S.schema({
   username: S.string,
   xp: S.number,
 });
 //? S.Schema<{ username: string; xp: number }, { username: string; xp: number }>
 
-type Player = S.Infer<typeof Player>;
+type Player = S.Infer<typeof playerSchema>;
 
 // Use it in your code
 const player: Player = { username: "billie", xp: 100 };
@@ -145,7 +145,7 @@ const player: Player = { username: "billie", xp: 100 };
 If you wonder why the schema needs an `Input` type, it's because **Sury** supports serializing data back to the initial format.
 
 ```ts
-S.encoder(Player)({ username: "billie", xp: 100 });
+S.encoder(playerSchema)({ username: "billie", xp: 100 });
 // => returns { username: "billie", xp: 100 }
 ```
 
@@ -156,7 +156,7 @@ Doesn't look like a big deal, with the example above. But if you have a more com
 //    S.to - for easy & fast coercion
 //    S.shape - for fields transformation
 //    S.meta - with examples in Output format
-const User = S.schema({
+const userSchema = S.schema({
   USER_ID: S.string.with(S.to, S.bigint),
   USER_NAME: S.string,
 })
@@ -257,7 +257,7 @@ console.log(
 But for better interoperability, you can convert it to the official JSON Schema specification. Let's take the `User` schema from the example above and convert it:
 
 ```ts
-S.toJSONSchema(User);
+S.toJSONSchema(userSchema);
 // {
 //   type: "object",
 //   additionalProperties: true,
@@ -897,11 +897,11 @@ class Test {
   name: string;
 }
 
-const TestSchema = S.instance(Test);
+const testSchema = S.instance(Test);
 
 const blob: any = "whatever";
-S.parser(TestSchema)(new Test()); // passes
-S.parser(TestSchema)(blob); // throws S.Error: Expected Test, received "whatever"
+S.parser(testSchema)(new Test()); // passes
+S.parser(testSchema)(blob); // throws S.Error: Expected Test, received "whatever"
 ```
 
 ## Meta
@@ -934,10 +934,10 @@ Use `S.brand` to attach a nominal brand to a schema's output. This is a TypeScri
 
 ```ts
 // Brand a string as a UserId
-const UserId = S.string.with(S.brand, "UserId");
-type UserId = S.Infer<typeof UserId>; // S.Brand<string, "UserId">
+const userIdSchema = S.string.with(S.brand, "UserId");
+type UserId = S.Infer<typeof userIdSchema>; // S.Brand<string, "UserId">
 
-const id: UserId = S.parser(UserId)("u_123"); // OK
+const id: UserId = S.parser(userIdSchema)("u_123"); // OK
 const asString: string = id; // OK: branded value is assignable to string
 // @ts-expect-error - A plain string is not assignable to a branded string
 const notId: UserId = "u_123";
@@ -946,15 +946,15 @@ const notId: UserId = "u_123";
 You can define brands for refined constraints, like even numbers:
 
 ```ts
-const even = S.number
+const evenSchema = S.number
   .with(S.refine, (value) => value % 2 === 0, {
     error: "Expected an even number",
   })
   .with(S.brand, "even");
 
-type Even = S.Infer<typeof even>; // S.Brand<number, "even">
+type Even = S.Infer<typeof evenSchema>; // S.Brand<number, "even">
 
-const good: Even = S.parser(even)(2); // OK
+const good: Even = S.parser(evenSchema)(2); // OK
 // @ts-expect-error - number is not assignable to brand "even"
 const bad: Even = 5;
 ```
@@ -1023,7 +1023,7 @@ const nodeSchema = S.recursive<Node, Node>("Node", (nodeSchema) =>
 **Sury** lets you provide custom validation logic via refinements. Refinements let you define checks that are not expressible in the type system alone — for example, checking that a number is positive or that a string is a valid URL.
 
 ```ts
-const positiveNumber = S.number.with(S.refine, (value) => value > 0);
+const positiveNumberSchema = S.number.with(S.refine, (value) => value > 0);
 ```
 
 Refinement functions should return `true` to indicate success or `false` to signal failure. By default, a failed refinement throws with the message `"Refinement failed"`.
@@ -1043,7 +1043,7 @@ const shortStringSchema = S.string.with(S.refine, (value) => value.length <= 255
 When refining an object schema, you can use the `path` option to attach the error to a specific field:
 
 ```ts
-const passwordForm = S.schema({
+const passwordFormSchema = S.schema({
   password: S.string,
   confirm: S.string,
 }).with(S.refine, (data) => data.password === data.confirm, {
@@ -1057,7 +1057,7 @@ const passwordForm = S.schema({
 Refinements can be chained. Each refinement is applied in order:
 
 ```ts
-const evenPositive = S.number
+const evenPositiveSchema = S.number
   .with(S.refine, (val) => val > 0, { error: "Must be positive" })
   .with(S.refine, (val) => val % 2 === 0, { error: "Must be even" });
 ```
@@ -1305,7 +1305,7 @@ Or the async version:
 
 ```ts
 const result = await S.safeAsync(async () => {
-  const passed = await S.asyncParser(S.schema(S.boolean))(data);
+  const passed = await S.asyncParser(S.boolean)(data);
   return passed ? 1 : 0;
 });
 ```
