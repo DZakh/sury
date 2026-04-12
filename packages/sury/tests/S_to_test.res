@@ -67,10 +67,6 @@ test("Coerce from string to bool literal", t => {
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{i===false||e[0](i);return "false"}`)
 })
 
-// KNOWN BUG: refiner runs before the type guard when coercing via `.to`.
-// `parse` appends refiner code to `codeFromPrev`, and `merge` emits
-// `codeFromPrev ++ validation_code`, so the refiner sees untyped input.
-// Fix lands when refinements migrate off `codeFromPrev` onto `val.validation`.
 test("S.string->S.refine->S.to(S.literal) reports type error before refinement error", t => {
   let schema =
     S.string
@@ -83,7 +79,6 @@ test("S.string->S.refine->S.to(S.literal) reports type error before refinement e
     () => "true"->S.parseOrThrow(~to=schema),
     `Expected "false", received "true"`,
   )
-  // BUG: currently fails with the refiner's "non-empty" because `(123).length > 0` is false.
   t->U.assertThrowsMessage(() => 123->S.parseOrThrow(~to=schema), `Expected string, received 123`)
 })
 
@@ -265,12 +260,12 @@ test("Coerce from string to port", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="string"){e[2](i)}let v0=+i;if(Number.isNaN(v0)){e[0](i)}v0>0&&v0<65536&&v0%1===0||e[1](v0);return v0}`,
+    `i=>{typeof i==="string"||e[2](i);let v0=+i;!Number.isNaN(v0)||e[1](i);v0>0&&v0<65536&&v0%1===0||e[0](v0);return v0}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Convert,
-    `i=>{let v0=+i;if(Number.isNaN(v0)){e[0](i)}v0>0&&v0<65536&&v0%1===0||e[1](v0);return v0}`,
+    `i=>{let v0=+i;!Number.isNaN(v0)||e[1](i);v0>0&&v0<65536&&v0%1===0||e[0](v0);return v0}`,
   )
   t->U.assertCompiledCode(
     ~schema,

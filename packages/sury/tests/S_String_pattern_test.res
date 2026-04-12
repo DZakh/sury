@@ -8,7 +8,7 @@ test("Successfully parses valid data", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="string"){e[0](i)}if(!e[1].test(i)){e[2]()}return i}`,
+    `i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}`,
   )
 })
 
@@ -20,7 +20,7 @@ test("Successfully parses valid data with global flag", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="string"){e[0](i)}e[1].lastIndex=0;if(!e[1].test(i)){e[2]()}return i}`,
+    `i=>{typeof i==="string"||e[2](i);(e[0].lastIndex=0,e[0].test(i))||e[1](i);return i}`,
   )
 })
 

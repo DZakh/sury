@@ -443,7 +443,7 @@ test("Can apply refinement to JSON string", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[3](i);try{JSON.parse(i)}catch(t){e[0](i)}if(!e[2](i)){e[1]()}return i}`,
+    `i=>{typeof i==="string"||e[3](i);try{JSON.parse(i)}catch(t){e[0](i)}e[1](i)||e[2](i);return i}`,
   )
 })
 
@@ -458,7 +458,7 @@ test("Can apply refinement to JSON string with S.to after", t => {
     ~schema,
     ~op=#Parse,
     // TODO: Can be improved to perform JSON.parse only once
-    `i=>{if(typeof i!=="string"){e[5](i)}try{JSON.parse(i)}catch(t){e[0](i)}if(!e[4](i)){e[3]()}let v0;try{v0=JSON.parse(i)}catch(t){e[1](i)}if(typeof v0!=="number"||v0>2147483647||v0<-2147483648||v0%1!==0){e[2](v0)}return v0}`,
+    `i=>{typeof i==="string"||e[5](i);try{JSON.parse(i)}catch(t){e[0](i)}e[1](i)||e[4](i);let v0;try{v0=JSON.parse(i)}catch(t){e[2](i)}typeof v0==="number"&&v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[3](v0);return v0}`,
   )
 })
 
@@ -469,6 +469,6 @@ test("Can apply refinement to JSON string with S.to before", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="number"&&i<=2147483647&&i>=-2147483648&&i%1===0||e[2](i);let v0=""+i;if(!e[1](v0)){e[0]()}return v0}`,
+    `i=>{typeof i==="number"&&i<=2147483647&&i>=-2147483648&&i%1===0||e[2](i);let v0=""+i;e[0](v0)||e[1](v0);return v0}`,
   )
 })

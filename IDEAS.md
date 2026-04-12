@@ -101,14 +101,18 @@ S.reverse(S.schema({
 
 ### Known bugs left over from the validation refactor (`val.validation: array<validationCheck>`)
 
-- **Refiners run before type guards when coerced via `.to`.** `parse` appends
-  refiner code to `val.codeFromPrev`, and `merge` emits `codeFromPrev ++
-  validation_code`, so `S.string->S.refine(...)->S.to(S.literal(false))` runs
-  the refiner on raw unknown input. A numeric input fails with the refinement
-  message instead of "Expected string, received 123". Fix: migrate refinements
-  off `codeFromPrev` onto `val.validation` as a distinct check kind. Failing
-  regression test already in place: `S_to_test.res › S.string->S.refine->S.to(S.literal)
-  reports type error before refinement error`.
+- **Union discriminant hoists refinement checks with `&&` instead of `;`.**
+  Now that refinements are structured checks, the union item merge loop
+  hoists all checks on a val via `andJoinChecks`, fusing type checks and
+  refinement checks into one `&&`-joined condition with a single error throw.
+  This causes two problems: (1) `typeof==="string"&&length===N` shares one
+  error instead of separate type/refinement errors, and (2) same-type items
+  with different refinements (e.g. `S.union([S.string->S.email, S.string->S.url])`)
+  lose per-item error messages. Fix: split hoisted checks by `fail` reference —
+  first group (type checks) → discriminant condition, remaining groups
+  (refinement checks) → body code as `cond||fail;`. For same-type items with
+  different refinements, use if/else if dispatch on the refinement cond instead
+  of try/catch. Failing regression tests in `S_union_test.res`.
 - **`noValidation` on a literal inside a union silently breaks dispatch.**
   `literalDecoder` short-circuits when `expectedSchema.noValidation` is set
   and emits no check at all, so there's nothing for the union discriminant
