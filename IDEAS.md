@@ -74,10 +74,12 @@ I left on cleaning up validation code and moving everything to their own decoder
 
 ### ReScript operation functions
 
-Only two functions: `parseOrThrow` and `decodeOrThrow` with labeled args `~to`, `~from`, and optional `~between`.
+Only `parseOrThrow` and `decodeOrThrow` (+ async variants) with labeled args `~to`, `~from`, and optional `~between`.
 
-- `parseOrThrow` - validates input type + transforms (current behavior)
-- `decodeOrThrow` - skips input type validation, only transforms (current convert behavior)
+- `parseOrThrow` - validates input type + transforms. Only `~to` arg (no `~from`).
+- `parseAsyncOrThrow` - async version of `parseOrThrow`
+- `decodeOrThrow` - skips input type validation, only transforms. Has `~to`, `~from`, and optional `~between`.
+- `decodeAsyncOrThrow` - async version of `decodeOrThrow`
 
 ```rescript
 let userSchema = S.schema(s => {
@@ -85,51 +87,43 @@ let userSchema = S.schema(s => {
   name: s.matches(S.string),
 })
 
-// --- parseOrThrow (with input validation) ---
+// --- parseOrThrow (with input validation, only ~to) ---
 
 // Parse any -> output (current S.parseOrThrow)
 data->S.parseOrThrow(~to=userSchema)
 
-// Parse JSON -> output (current S.parseJsonOrThrow)
-data->S.parseOrThrow(~from=S.json, ~to=userSchema)
-
-// Parse JSON string -> output (current S.parseJsonStringOrThrow)
-data->S.parseOrThrow(~from=S.jsonString, ~to=userSchema)
-
 // Parse async (current S.parseAsyncOrThrow)
-data->S.parseOrThrow(~to=userSchema, ~async=true)
-
-// Reverse: output -> any (current S.reverseConvertOrThrow)
-user->S.parseOrThrow(~from=userSchema)
-
-// Reverse: output -> JSON (current S.reverseConvertToJsonOrThrow)
-user->S.parseOrThrow(~from=userSchema, ~to=S.json)
-
-// Reverse: output -> JSON string (current S.reverseConvertToJsonStringOrThrow)
-user->S.parseOrThrow(~from=userSchema, ~to=S.jsonString)
-
-// Between two schemas (current S.parseJsonOrThrow with transform)
-data->S.parseOrThrow(~from=S.json, ~between=userSchema, ~to=outputSchema)
+data->S.parseAsyncOrThrow(~to=userSchema)
 
 // Assert only (current S.assertOrThrow) — just ~to, discard result
 data->S.parseOrThrow(~to=userSchema)->ignore
 
-// --- decodeOrThrow (without input type validation) ---
+// --- decodeOrThrow (without input type validation, ~to, ~from, ~between) ---
+
+// Decode JSON -> output (current S.parseJsonOrThrow)
+data->S.decodeOrThrow(~from=S.json, ~to=userSchema)
+
+// Decode JSON string -> output (current S.parseJsonStringOrThrow)
+data->S.decodeOrThrow(~from=S.jsonString, ~to=userSchema)
 
 // Convert any -> output (current S.convertOrThrow)
 data->S.decodeOrThrow(~to=userSchema)
 
-// Convert any -> JSON (current S.convertToJsonOrThrow)
-data->S.decodeOrThrow(~from=userSchema, ~to=S.json)
+// Reverse: output -> any (current S.reverseConvertOrThrow)
+user->S.decodeOrThrow(~from=userSchema)
 
-// Convert any -> JSON string (current S.convertToJsonStringOrThrow)
-data->S.decodeOrThrow(~from=userSchema, ~to=S.jsonString)
+// Reverse: output -> JSON (current S.reverseConvertToJsonOrThrow)
+user->S.decodeOrThrow(~from=userSchema, ~to=S.json)
 
-// Convert async (current S.convertAsyncOrThrow)
-data->S.decodeOrThrow(~to=userSchema, ~async=true)
+// Reverse: output -> JSON string (current S.reverseConvertToJsonStringOrThrow)
+user->S.decodeOrThrow(~from=userSchema, ~to=S.jsonString)
 
-// Reverse convert (current S.reverseConvertAsyncOrThrow)
-user->S.decodeOrThrow(~from=userSchema, ~async=true)
+// Between two schemas
+data->S.decodeOrThrow(~from=S.json, ~between=userSchema, ~to=outputSchema)
+
+// Async variants (current S.convertAsyncOrThrow / S.reverseConvertAsyncOrThrow)
+data->S.decodeAsyncOrThrow(~to=userSchema)
+user->S.decodeAsyncOrThrow(~from=userSchema)
 ```
 
 ### TS operation functions
