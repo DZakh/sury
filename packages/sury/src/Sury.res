@@ -1369,38 +1369,6 @@ module Builder = {
       }
     }
 
-    let merge = (val: val): string => {
-      let current = ref(Some(val))
-      let code = ref("")
-
-      while current.contents !== None {
-        let val = current.contents->X.Option.getUnsafe
-        current := val.prev
-
-        let currentCode = ref("")
-
-        if val.checks->X.Option.unsafeToBool && val.expected.noValidation !== Some(true) {
-          let prev = current.contents->X.Option.getUnsafe
-          currentCode := val->emitChecks(~inputVar=prev.var())
-        }
-
-        if val.varsAllocation !== "" {
-          currentCode := currentCode.contents ++ `let ${val.varsAllocation};`
-        }
-
-        // Delete allocate,
-        // this is used to handle Val.var
-        // linked to allocated scopes
-        let _ = %raw(`delete val$1.a`)
-
-        currentCode := val.codeFromPrev ++ currentCode.contents
-
-        code := currentCode.contents ++ code.contents
-      }
-
-      code.contents
-    }
-
     // AND-joins every check's cond — caller guarantees `checks` is non-empty.
     // Used by union codegen to hoist a val's checks into a dispatch discriminant.
     let andJoinChecks = (checks: array<check>, ~inputVar: string): string => {
@@ -1410,6 +1378,77 @@ module Builder = {
           result.contents ++ "&&" ++ (checks->Js.Array2.unsafe_get(i)).cond(~inputVar)
       }
       result.contents
+    }
+
+    // Walks the prev chain and accumulates generated code. When ~peelChecks
+    // is true, checks satisfying the discriminant heuristic (pure type guards
+    // or literal checks with no intervening transform/code) are AND-joined
+    // into `cond` instead of being emitted as inline guards. This lets the
+    // union codegen use them as dispatch conditions.
+    //
+    // Returns (code, cond) where:
+    //   code — body code (validations emitted as `cond||throw;`, allocations,
+    //          transforms)
+    //   cond — AND-joined discriminant condition string (empty when
+    //          ~peelChecks=false or no checks qualify)
+    let clap = (startVal: val, ~peelChecks: bool=false): (string, string) => {
+      let current = ref(Some(startVal))
+      let code = ref("")
+      let cond = ref("")
+
+      while current.contents !== None {
+        let val = current.contents->X.Option.getUnsafe
+        current := val.prev
+
+        let currentCode = ref("")
+
+        if val.checks->X.Option.unsafeToBool {
+          let shouldPeel =
+            peelChecks &&
+            (
+              val.hasTransform === Some(true)
+                ? (val.prev->X.Option.getUnsafe).hasTransform !== Some(true) &&
+                    val.codeFromPrev === ""
+                : true
+            )
+          if shouldPeel {
+            // Hoist as a dispatch discriminant. `noValidation` is intentionally
+            // bypassed — the cond routes between cases, not rejects.
+            let prev = current.contents->X.Option.getUnsafe
+            let inputVar = prev.var()
+            let condCode =
+              val.checks->X.Option.getUnsafe->andJoinChecks(~inputVar)
+            if cond.contents->X.String.unsafeToBool {
+              cond := `${condCode}&&${cond.contents}`
+            } else {
+              cond := condCode
+            }
+          } else if val.expected.noValidation !== Some(true) {
+            let prev = current.contents->X.Option.getUnsafe
+            currentCode := val->emitChecks(~inputVar=prev.var())
+          }
+        }
+
+        if val.varsAllocation !== "" {
+          currentCode := currentCode.contents ++ `let ${val.varsAllocation};`
+        }
+
+        // Delete allocate,
+        // this is used to handle Val.var
+        // linked to allocated scopes
+        let _ = %raw(`delete val.a`)
+
+        currentCode := val.codeFromPrev ++ currentCode.contents
+
+        code := currentCode.contents ++ code.contents
+      }
+
+      (code.contents, cond.contents)
+    }
+
+    let merge = (startVal: val): string => {
+      let (code, _) = startVal->clap
+      code
     }
 
     let next = (prev: val, initial: string, ~schema, ~expected=prev.expected): val => {
@@ -3621,53 +3660,9 @@ module Union = {
             let itemOutput = input->parse
             outputAnyOf->Js.Array2.push(itemOutput.schema->castToPublic)->ignore
 
-            // This is a copy of the S.merge function
-            let current = ref(Some(itemOutput))
-
-            while current.contents !== None {
-              let val = current.contents->X.Option.getUnsafe
-              current := val.prev
-
-              let currentCode = ref("")
-
-              if val.checks->X.Option.unsafeToBool {
-                if (
-                  val.hasTransform === Some(true)
-                    ? (val.prev->X.Option.getUnsafe).hasTransform !== Some(true) &&
-                        val.codeFromPrev === ""
-                    : true
-                ) {
-                  // Hoist as a dispatch discriminant. `noValidation` is
-                  // intentionally bypassed here — the cond routes between
-                  // cases, it doesn't reject, so suppressing breaks dispatch.
-                  let input = current.contents->X.Option.getUnsafe
-                  let inputVar = input.var()
-                  let condCode =
-                    val.checks->X.Option.getUnsafe->B.andJoinChecks(~inputVar)
-                  if itemCond.contents->X.String.unsafeToBool {
-                    itemCond := `${condCode}&&${itemCond.contents}`
-                  } else {
-                    itemCond := condCode
-                  }
-                } else if val.expected.noValidation !== Some(true) {
-                  let prev = current.contents->X.Option.getUnsafe
-                  currentCode := val->B.emitChecks(~inputVar=prev.var())
-                }
-              }
-
-              if val.varsAllocation !== "" {
-                currentCode := currentCode.contents ++ `let ${val.varsAllocation};`
-              }
-
-              // Delete allocate,
-              // this is used to handle Val.var
-              // linked to allocated scopes
-              let _ = %raw(`delete val.a`)
-
-              currentCode := val.codeFromPrev ++ currentCode.contents
-
-              itemCode := currentCode.contents ++ itemCode.contents
-            }
+            let (clappedCode, clappedCond) = itemOutput->B.clap(~peelChecks=true)
+            itemCode := clappedCode
+            itemCond := clappedCond
 
             if itemOutput.hasTransform->X.Option.getUnsafe {
               output.hasTransform = Some(true)
@@ -3991,57 +3986,10 @@ module Union = {
 
           let itemsCode = getArrItemsCode(arr, ~isDeopt=false)
 
-          let blockCode = ref("")
-          let blockCond = ref("")
+          let (clappedCode, clappedCond) = typeValidationOutput->B.clap(~peelChecks=true)
 
-          // This is a copy of the S.merge function
-          let current = ref(Some(typeValidationOutput))
-
-          while current.contents !== None {
-            let val = current.contents->X.Option.getUnsafe
-            current := val.prev
-
-            let currentCode = ref("")
-
-            if val.checks->X.Option.unsafeToBool {
-              if (
-                val.hasTransform === Some(true)
-                  ? (val.prev->X.Option.getUnsafe).hasTransform !== Some(true) &&
-                      val.codeFromPrev === ""
-                  : true
-              ) {
-                // Same `noValidation` bypass as the other union-merge copy above.
-                let input = current.contents->X.Option.getUnsafe
-                let inputVar = input.var()
-                let condCode =
-                  val.checks->X.Option.getUnsafe->B.andJoinChecks(~inputVar)
-                if blockCond.contents->X.String.unsafeToBool {
-                  blockCond := `${condCode}&&${blockCond.contents}`
-                } else {
-                  blockCond := condCode
-                }
-              } else if val.expected.noValidation !== Some(true) {
-                let prev = current.contents->X.Option.getUnsafe
-                currentCode := val->B.emitChecks(~inputVar=prev.var())
-              }
-            }
-
-            if val.varsAllocation !== "" {
-              currentCode := currentCode.contents ++ `let ${val.varsAllocation};`
-            }
-
-            // Delete allocate,
-            // this is used to handle Val.var
-            // linked to allocated scopes
-            let _ = %raw(`delete val.a`)
-
-            currentCode := val.codeFromPrev ++ currentCode.contents
-
-            blockCode := currentCode.contents ++ blockCode.contents
-          }
-
-          let blockCode = blockCode.contents ++ itemsCode
-          let blockCond = blockCond.contents
+          let blockCode = clappedCode ++ itemsCode
+          let blockCond = clappedCond
 
           if blockCode->X.String.unsafeToBool || isPriority(firstSchema.tag->TagFlag.get, byKey) {
             let if_ = nextElse.contents ? "else if" : "if"
