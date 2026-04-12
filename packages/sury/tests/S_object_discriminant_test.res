@@ -127,7 +127,7 @@ module Positive = {
           {
             "discriminant": testData.discriminantData,
             "field": "bar",
-          }->S.parseOrThrow(schema),
+          }->S.parseOrThrow(~to=schema),
           {"field": "bar"},
         )
       },
@@ -146,7 +146,7 @@ module Positive = {
         )
 
         t->Assert.deepEqual(
-          {"field": "bar"}->S.reverseConvertOrThrow(schema),
+          {"field": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
           {
             "discriminant": testData.discriminantData,
             "field": "bar",
@@ -226,7 +226,7 @@ module Negative = {
           {
             "discriminant": testData.discriminantData,
             "field": "bar",
-          }->S.parseOrThrow(schema),
+          }->S.parseOrThrow(~to=schema),
           {"field": "bar"},
         )
       },
@@ -245,7 +245,7 @@ module Negative = {
         )
 
         t->U.assertThrowsMessage(
-          () => {"field": "bar"}->S.reverseConvertOrThrow(schema),
+          () => {"field": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
           `Missing input for ${testData.missingInputExpression} at ["discriminant"]${testData.path->S.Path.toString}`,
         )
       },
@@ -268,7 +268,7 @@ module NestedNegative = {
         {
           "discriminant": {"field": true},
           "field": "bar",
-        }->S.parseOrThrow(schema),
+        }->S.parseOrThrow(~to=schema),
         {"field": "bar"},
       )
     },
@@ -285,7 +285,7 @@ module NestedNegative = {
       })
 
       t->U.assertThrowsMessage(
-        () => {"field": "bar"}->S.reverseConvertOrThrow(schema),
+        () => {"field": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
         `Missing input for boolean at ["discriminant"]["nestedField"]`,
       )
     },
@@ -304,7 +304,7 @@ test(`Fails to parse object with invalid data passed to discriminant field`, t =
     {
       "discriminant": false,
       "field": "bar",
-    }->S.parseOrThrow(schema)
+    }->S.parseOrThrow(~to=schema)
   , `Failed at ["discriminant"]: Expected string, received false`)
 })
 
@@ -320,7 +320,7 @@ test(`Parses discriminant fields before registered fields`, t => {
     {
       "discriminant": false,
       "field": false,
-    }->S.parseOrThrow(schema)
+    }->S.parseOrThrow(~to=schema)
   , `Failed at ["discriminant"]: Expected string, received false`)
 })
 
@@ -333,7 +333,7 @@ test(`Fails to serialize object with discriminant "Never"`, t => {
   })
 
   t->U.assertThrowsMessage(
-    () => {"field": "bar"}->S.reverseConvertOrThrow(schema),
+    () => {"field": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     `Missing input for never at ["discriminant"]`,
   )
 })
@@ -347,7 +347,7 @@ test(`Reverse parse doesn't validates literal fields before coming to other obje
   })
 
   t->U.assertThrowsMessage(
-    () => {"constant": false, "normal": false}->S.parseOrThrow(schema->S.reverse),
+    () => {"constant": false, "normal": false}->S.parseOrThrow(~to=schema->S.reverse),
     `Failed at ["normal"]: Expected string, received false`,
   )
 })

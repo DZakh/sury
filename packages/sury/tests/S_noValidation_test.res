@@ -4,16 +4,16 @@ test("Successfully parses", t => {
   let schema = S.string
   let schemaWithoutTypeValidation = schema->S.noValidation(true)
 
-  t->U.assertThrowsMessage(() => 1->S.parseOrThrow(schema), `Expected string, received 1`)
-  t->Assert.deepEqual(1->S.parseOrThrow(schemaWithoutTypeValidation), %raw(`1`))
+  t->U.assertThrowsMessage(() => 1->S.parseOrThrow(~to=schema), `Expected string, received 1`)
+  t->Assert.deepEqual(1->S.parseOrThrow(~to=schemaWithoutTypeValidation), %raw(`1`))
 })
 
 test("Works for literals", t => {
   let schema = S.literal("foo")
   let schemaWithoutTypeValidation = schema->S.noValidation(true)
 
-  t->U.assertThrowsMessage(() => 1->S.parseOrThrow(schema), `Expected "foo", received 1`)
-  t->Assert.deepEqual(1->S.parseOrThrow(schemaWithoutTypeValidation), "foo")
+  t->U.assertThrowsMessage(() => 1->S.parseOrThrow(~to=schema), `Expected "foo", received 1`)
+  t->Assert.deepEqual(1->S.parseOrThrow(~to=schemaWithoutTypeValidation), "foo")
   t->U.assertCompiledCode(~schema=schemaWithoutTypeValidation, ~op=#Parse, `i=>{return "foo"}`)
 })
 
@@ -36,11 +36,11 @@ test("Union dispatch still works when a case has noValidation", t => {
     S.literal("b"),
   ])
 
-  t->Assert.deepEqual("a"->S.parseOrThrow(schema), "a")
+  t->Assert.deepEqual("a"->S.parseOrThrow(~to=schema), "a")
   // BUG: returns "a" instead of "b" — first case becomes catch-all.
-  t->Assert.deepEqual("b"->S.parseOrThrow(schema), "b")
+  t->Assert.deepEqual("b"->S.parseOrThrow(~to=schema), "b")
   t->U.assertThrowsMessage(
-    () => "c"->S.parseOrThrow(schema),
+    () => "c"->S.parseOrThrow(~to=schema),
     `Expected "a" | "b", received "c"`,
   )
 })

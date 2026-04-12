@@ -201,10 +201,10 @@ test(
       }
     )
 
-    t->Assert.deepEqual(%raw(`["foo", true]`)->S.parseOrThrow(schema), {"0": "foo", "1": true})
+    t->Assert.deepEqual(%raw(`["foo", true]`)->S.parseOrThrow(~to=schema), {"0": "foo", "1": true})
 
     t->U.assertThrowsMessage(
-      () => %raw(`["foo", true]`)->S.parseOrThrow(schema->S.strict),
+      () => %raw(`["foo", true]`)->S.parseOrThrow(~to=schema->S.strict),
       `Expected { 0: string; 1: boolean; }, received ["foo", true]`,
     )
   },
@@ -215,10 +215,10 @@ test(
   t => {
     let schema = S.schema(s => (s.matches(S.string), s.matches(S.bool)))->S.strict
 
-    t->Assert.deepEqual(%raw(`["foo", true]`)->S.parseOrThrow(schema), ("foo", true))
+    t->Assert.deepEqual(%raw(`["foo", true]`)->S.parseOrThrow(~to=schema), ("foo", true))
 
     t->U.assertThrowsMessage(
-      () => %raw(`["foo", true, 1]`)->S.parseOrThrow(schema),
+      () => %raw(`["foo", true, 1]`)->S.parseOrThrow(~to=schema),
       `Expected [string, boolean], received ["foo", true, 1]`,
     )
 
@@ -239,7 +239,7 @@ test("Object schema with empty object field", t => {
   )
 
   t->U.assertThrowsMessage(
-    () => %raw(`{"foo": "bar"}`)->S.parseOrThrow(schema),
+    () => %raw(`{"foo": "bar"}`)->S.parseOrThrow(~to=schema),
     `Failed at ["foo"]: Expected {}, received "bar"`,
   )
 
@@ -259,7 +259,7 @@ test("Object schema with nested object field containing only literal", t => {
   )
 
   t->U.assertThrowsMessage(
-    () => %raw(`{"foo": {"bar": "bap"}}`)->S.parseOrThrow(schema),
+    () => %raw(`{"foo": {"bar": "bap"}}`)->S.parseOrThrow(~to=schema),
     `Failed at ["foo"]["bar"]: Expected "baz", received "bap"`,
   )
 
@@ -280,7 +280,7 @@ test("https://github.com/DZakh/sury/issues/131", t => {
 
   let json = (%raw(`{"weird": true}`): JSON.t)
   t->U.assertThrowsMessage(
-    () => json->S.parseOrThrow(testSchema),
+    () => json->S.parseOrThrow(~to=testSchema),
     `Failed at ["foobar"]: Expected (string | undefined)[], received undefined`,
   )
 

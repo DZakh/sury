@@ -284,7 +284,14 @@ and errorDetails =
   | @as("custom") Custom({path: Path.t, reason: string})
 and flag
 
+module Flag: {
+  let none: flag
+  let async: flag
+  external with: (flag, flag) => flag = "%orint"
+}
+
 type exn += private Exn(error)
+
 
 type s<'value> = {fail: 'a. (string, ~path: Path.t=?) => 'a}
 
@@ -346,24 +353,19 @@ let shape: (t<'value>, 'value => 'shape) => t<'shape>
 
 let to: (t<'from>, t<'to>) => t<'to>
 
-let makeConvertOrThrow: (t<'from>, t<'to>, ~flag: flag=?) => 'from => 'to
-let makeAsyncConvertOrThrow: (t<'from>, t<'to>, ~flag: flag=?) => 'from => promise<'to>
+let parser: (~to: t<'value>) => 'any => 'value
+let asyncParser: (~to: t<'value>) => 'any => promise<'value>
+let decoder: (~from: t<'from>, ~to: t<'to>) => 'from => 'to
+let asyncDecoder: (~from: t<'from>, ~to: t<'to>) => 'from => promise<'to>
+let decoder1: t<'value> => unknown => 'value
+let asyncDecoder1: t<'value> => unknown => promise<'value>
 
-let parseOrThrow: ('any, t<'value>) => 'value
-let parseJsonOrThrow: (Js.Json.t, t<'value>) => 'value
-let parseJsonStringOrThrow: (string, t<'value>) => 'value
-let parseAsyncOrThrow: ('any, t<'value>) => promise<'value>
-
-let convertOrThrow: ('any, t<'value>) => 'value
-let convertToJsonOrThrow: ('any, t<'value>) => Js.Json.t
-let convertToJsonStringOrThrow: ('any, t<'value>) => string
-let convertAsyncOrThrow: ('any, t<'value>) => promise<'value>
-
-let reverseConvertOrThrow: ('value, t<'value>) => unknown
-let reverseConvertToJsonOrThrow: ('value, t<'value>) => Js.Json.t
-let reverseConvertToJsonStringOrThrow: ('value, t<'value>, ~space: int=?) => string
-
-let assertOrThrow: ('any, t<'value>) => unit
+let parseOrThrow: ('any, ~to: t<'value>) => 'value
+let parseAsyncOrThrow: ('any, ~to: t<'value>) => promise<'value>
+let assertOrThrow: ('any, ~to: t<'value>) => unit
+let assertAsyncOrThrow: ('any, ~to: t<'value>) => promise<unit>
+let decodeOrThrow: ('from, ~from: t<'from>, ~to: t<'to>) => 'to
+let decodeAsyncOrThrow: ('from, ~from: t<'from>, ~to: t<'to>) => promise<'to>
 
 let isAsync: t<'value> => bool
 

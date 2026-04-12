@@ -8,14 +8,14 @@ module Common = {
   test("Successfully parses", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.parseOrThrow(schema), value)
+    t->Assert.deepEqual(value->S.parseOrThrow(~to=schema), value)
   })
 
   test("Fails to parse invalid", t => {
     let schema = factory()
 
     t->U.assertThrowsMessage(
-      () => invalid->S.parseOrThrow(schema),
+      () => invalid->S.parseOrThrow(~to=schema),
       `Expected ["bar", true], received 123`,
     )
   })
@@ -23,20 +23,20 @@ module Common = {
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), value->U.castAnyToUnknown)
+    t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), value->U.castAnyToUnknown)
   })
 
   test("Fails to serialize invalid", t => {
     let schema = factory()
 
     t->Assert.is(
-      invalid->S.reverseConvertOrThrow(schema),
+      invalid->S.decodeOrThrow(~from=schema, ~to=S.unknown),
       invalid,
       ~message="Convert operation doesn't validate anything and assumes a valid input",
     )
 
     t->U.assertThrowsMessage(
-      () => invalid->S.parseOrThrow(schema->S.reverse),
+      () => invalid->S.parseOrThrow(~to=schema->S.reverse),
       `Expected ["bar", true], received 123`,
     )
   })
@@ -45,7 +45,7 @@ module Common = {
     let schema = factory()
 
     t->U.assertThrowsMessage(
-      () => %raw(`{0: "bar",1:true}`)->S.parseOrThrow(schema),
+      () => %raw(`{0: "bar",1:true}`)->S.parseOrThrow(~to=schema),
       `Expected ["bar", true], received { 0: "bar"; 1: true; }`,
     )
   })
@@ -54,7 +54,7 @@ module Common = {
     let schema = factory()
 
     t->U.assertThrowsMessage(
-      () => %raw(`["bar", true, false]`)->S.parseOrThrow(schema->S.strict),
+      () => %raw(`["bar", true, false]`)->S.parseOrThrow(~to=schema->S.strict),
       `Expected ["bar", true], received ["bar", true, false]`,
     )
   })
@@ -95,16 +95,16 @@ module EmptyArray = {
   test("Successfully parses empty array literal schema", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.parseOrThrow(schema), value)
+    t->Assert.deepEqual(value->S.parseOrThrow(~to=schema), value)
   })
 
   test("Ignores extra items in strip mode and prevents in strict (default)", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(invalid->S.parseOrThrow(schema->S.strip), [])
+    t->Assert.deepEqual(invalid->S.parseOrThrow(~to=schema->S.strip), [])
 
     t->U.assertThrowsMessage(
-      () => invalid->S.parseOrThrow(schema->S.strict),
+      () => invalid->S.parseOrThrow(~to=schema->S.strict),
       `Expected [], received ["abc"]`,
     )
   })
@@ -112,13 +112,13 @@ module EmptyArray = {
   test("Successfully serializes empty array literal schema", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), value->U.castAnyToUnknown)
+    t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), value->U.castAnyToUnknown)
   })
 
   test("Serialize array with excess item in strict mode and it passes through", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(invalid->S.reverseConvertOrThrow(schema->S.strict), invalid->Obj.magic)
+    t->Assert.deepEqual(invalid->S.decodeOrThrow(~from=schema->S.strict, ~to=S.unknown), invalid->Obj.magic)
   })
 
   test("Compiled parse code snapshot of empty array literal schema", t => {

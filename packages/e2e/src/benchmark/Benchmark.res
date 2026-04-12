@@ -169,19 +169,19 @@ module CrazyUnion = {
 
   let test = () => {
     Console.time("testData1 serialize")
-    let json = S.reverseConvertOrThrow(testData1, schema)
+    let json = S.decodeOrThrow(testData1, ~from=schema, ~to=S.unknown)
     Console.timeEnd("testData1 serialize")
 
     Console.time("testData1 parse")
-    let _ = S.parseOrThrow(json, schema)
+    let _ = S.parseOrThrow(json, ~to=schema)
     Console.timeEnd("testData1 parse")
 
     Console.time("testData2 serialize")
-    let json = S.reverseConvertOrThrow(testData2, schema)
+    let json = S.decodeOrThrow(testData2, ~from=schema, ~to=S.unknown)
     Console.timeEnd("testData2 serialize")
 
     Console.time("testData2 parse")
-    let _ = S.parseOrThrow(json, schema)
+    let _ = S.parseOrThrow(json, ~to=schema)
     Console.timeEnd("testData2 parse")
   }
 }
@@ -194,23 +194,23 @@ let schema = makeObjectSchema()
 Console.timeEnd("makeObjectSchema")
 
 Console.time("parseOrThrow: 1")
-data->S.parseOrThrow(schema)->ignore
+data->S.parseOrThrow(~to=schema)->ignore
 Console.timeEnd("parseOrThrow: 1")
 Console.time("parseOrThrow: 2")
-data->S.parseOrThrow(schema)->ignore
+data->S.parseOrThrow(~to=schema)->ignore
 Console.timeEnd("parseOrThrow: 2")
 Console.time("parseOrThrow: 3")
-data->S.parseOrThrow(schema)->ignore
+data->S.parseOrThrow(~to=schema)->ignore
 Console.timeEnd("parseOrThrow: 3")
 
 Console.time("serializeWith: 1")
-data->S.reverseConvertOrThrow(schema)->ignore
+data->S.decodeOrThrow(~from=schema, ~to=S.unknown)->ignore
 Console.timeEnd("serializeWith: 1")
 Console.time("serializeWith: 2")
-data->S.reverseConvertOrThrow(schema)->ignore
+data->S.decodeOrThrow(~from=schema, ~to=S.unknown)->ignore
 Console.timeEnd("serializeWith: 2")
 Console.time("serializeWith: 3")
-data->S.reverseConvertOrThrow(schema)->ignore
+data->S.decodeOrThrow(~from=schema, ~to=S.unknown)->ignore
 Console.timeEnd("serializeWith: 3")
 
 Console.time("S.Error.make")
@@ -227,14 +227,14 @@ Suite.make()
   let data = makeTestObject()
   () => {
     let schema = makeObjectSchema()
-    data->S.parseOrThrow(schema)
+    data->S.parseOrThrow(~to=schema)
   }
 })
 ->Suite.addWithPrepare("S.schema - parse", () => {
   let schema = makeObjectSchema()
   let data = makeTestObject()
   () => {
-    data->S.parseOrThrow(schema)
+    data->S.parseOrThrow(~to=schema)
   }
 })
 ->Suite.addWithPrepare("S.schema - parse strict", () => {
@@ -248,7 +248,7 @@ Suite.make()
   })
   let data = makeTestObject()
   () => {
-    data->S.parseOrThrow(schema)
+    data->S.parseOrThrow(~to=schema)
   }
 })
 ->Suite.add("S.schema - make + reverse", () => makeObjectSchema()->S.reverse)
@@ -256,14 +256,14 @@ Suite.make()
   let data = makeTestObject()
   () => {
     let schema = makeObjectSchema()
-    data->S.reverseConvertOrThrow(schema)
+    data->S.decodeOrThrow(~from=schema, ~to=S.unknown)
   }
 })
 ->Suite.addWithPrepare("S.schema - reverse convert", () => {
   let schema = makeObjectSchema()
   let data = makeTestObject()
   () => {
-    data->S.reverseConvertOrThrow(schema)
+    data->S.decodeOrThrow(~from=schema, ~to=S.unknown)
   }
 })
 ->Suite.addWithPrepare("S.schema - reverse convert (compiled)", () => {
@@ -278,7 +278,7 @@ Suite.make()
   let schema = makeObjectSchema()
   let data = makeTestObject()
   () => {
-    data->S.assertOrThrow(schema)
+    data->S.assertOrThrow(~to=schema)
   }
 })
 ->Suite.addWithPrepare("S.schema - assert (compiled)", () => {
@@ -300,7 +300,7 @@ Suite.make()
   })
   let data = makeTestObject()
   () => {
-    data->S.assertOrThrow(schema)
+    data->S.assertOrThrow(~to=schema)
   }
 })
 ->Suite.add("S.object - make", () => makeAdvancedObjectSchema())
@@ -308,14 +308,14 @@ Suite.make()
   let data = makeTestObject()
   () => {
     let schema = makeAdvancedObjectSchema()
-    data->S.parseOrThrow(schema)
+    data->S.parseOrThrow(~to=schema)
   }
 })
 ->Suite.addWithPrepare("S.object - parse", () => {
   let schema = makeAdvancedObjectSchema()
   let data = makeTestObject()
   () => {
-    data->S.parseOrThrow(schema)
+    data->S.parseOrThrow(~to=schema)
   }
 })
 ->Suite.add("S.object - make + reverse", () => makeAdvancedObjectSchema()->S.reverse)
@@ -323,28 +323,28 @@ Suite.make()
   let data = makeTestObject()
   () => {
     let schema = makeAdvancedObjectSchema()
-    data->S.reverseConvertOrThrow(schema)
+    data->S.decodeOrThrow(~from=schema, ~to=S.unknown)
   }
 })
 ->Suite.addWithPrepare("S.object - reverse convert", () => {
   let schema = makeAdvancedObjectSchema()
   let data = makeTestObject()
   () => {
-    data->S.reverseConvertOrThrow(schema)
+    data->S.decodeOrThrow(~from=schema, ~to=S.unknown)
   }
 })
 ->Suite.addWithPrepare("S.string - parse", () => {
   let schema = S.string
   let data = "Hello world!"
   () => {
-    data->S.parseOrThrow(schema)
+    data->S.parseOrThrow(~to=schema)
   }
 })
 ->Suite.addWithPrepare("S.string - reverse convert", () => {
   let schema = S.string
   let data = "Hello world!"
   () => {
-    data->S.reverseConvertOrThrow(schema)
+    data->S.decodeOrThrow(~from=schema, ~to=S.unknown)
   }
 })
 ->Suite.run

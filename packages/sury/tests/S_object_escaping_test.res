@@ -7,7 +7,7 @@ test("Successfully parses object with quotes in a field name", t => {
     }
   )
 
-  t->Assert.deepEqual(%raw(`{"\"\'\`": "bar"}`)->S.parseOrThrow(schema), {"field": "bar"})
+  t->Assert.deepEqual(%raw(`{"\"\'\`": "bar"}`)->S.parseOrThrow(~to=schema), {"field": "bar"})
 })
 
 test("Successfully parses object with new line in a field name", t => {
@@ -17,7 +17,7 @@ test("Successfully parses object with new line in a field name", t => {
     }
   )
 
-  t->Assert.deepEqual(%raw(`{"\n": "bar"}`)->S.parseOrThrow(schema), {"field": "bar"})
+  t->Assert.deepEqual(%raw(`{"\n": "bar"}`)->S.parseOrThrow(~to=schema), {"field": "bar"})
 })
 
 test("Successfully serializing object with quotes in a field name", t => {
@@ -27,7 +27,7 @@ test("Successfully serializing object with quotes in a field name", t => {
     }
   )
 
-  t->Assert.deepEqual({"field": "bar"}->S.reverseConvertOrThrow(schema), %raw(`{"\"\'\`": "bar"}`))
+  t->Assert.deepEqual({"field": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{"\"\'\`": "bar"}`))
 })
 
 test("Successfully parses object transformed to object with quotes in a field name", t => {
@@ -37,7 +37,7 @@ test("Successfully parses object transformed to object with quotes in a field na
     }
   )
 
-  t->Assert.deepEqual(%raw(`{"field": "bar"}`)->S.parseOrThrow(schema), {"\"\'\`": "bar"})
+  t->Assert.deepEqual(%raw(`{"field": "bar"}`)->S.parseOrThrow(~to=schema), {"\"\'\`": "bar"})
 })
 
 test("Successfully serializes object transformed to object with quotes in a field name", t => {
@@ -47,7 +47,7 @@ test("Successfully serializes object transformed to object with quotes in a fiel
     }
   )
 
-  t->Assert.deepEqual({"\"\'\`": "bar"}->S.reverseConvertOrThrow(schema), %raw(`{"field": "bar"}`))
+  t->Assert.deepEqual({"\"\'\`": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{"field": "bar"}`))
 })
 
 test("Successfully parses object with discriminant which has quotes as the field name", t => {
@@ -62,7 +62,7 @@ test("Successfully parses object with discriminant which has quotes as the field
     %raw(`{
       "\"\'\`": null,
       "field": "bar",
-    }`)->S.parseOrThrow(schema),
+    }`)->S.parseOrThrow(~to=schema),
     {"field": "bar"},
   )
 })
@@ -76,7 +76,7 @@ test("Successfully serializes object with discriminant which has quotes as the f
   })
 
   t->Assert.deepEqual(
-    {"field": "bar"}->S.reverseConvertOrThrow(schema),
+    {"field": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{
         "\"\'\`": null,
         "field": "bar",
@@ -96,7 +96,7 @@ test("Successfully parses object with discriminant which has quotes as the liter
     %raw(`{
       "kind": "\"\'\`",
       "field": "bar",
-    }`)->S.parseOrThrow(schema),
+    }`)->S.parseOrThrow(~to=schema),
     {"field": "bar"},
   )
 })
@@ -112,7 +112,7 @@ test(
     })
 
     t->Assert.deepEqual(
-      {"field": "bar"}->S.reverseConvertOrThrow(schema),
+      {"field": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
       %raw(`{
           "kind": "\"\'\`",
           "field": "bar",
@@ -132,7 +132,7 @@ test(
     )
 
     t->Assert.deepEqual(
-      %raw(`{"field": "bar"}`)->S.parseOrThrow(schema),
+      %raw(`{"field": "bar"}`)->S.parseOrThrow(~to=schema),
       {
         "\"\'\`": "hardcoded",
         "field": "bar",
@@ -155,7 +155,7 @@ test(
       {
         "\"\'\`": "hardcoded",
         "field": "bar",
-      }->S.reverseConvertOrThrow(schema),
+      }->S.decodeOrThrow(~from=schema, ~to=S.unknown),
       %raw(`{"field": "bar"}`),
     )
   },
@@ -172,7 +172,7 @@ test(
     )
 
     t->Assert.deepEqual(
-      %raw(`{"field": "bar"}`)->S.parseOrThrow(schema),
+      %raw(`{"field": "bar"}`)->S.parseOrThrow(~to=schema),
       {
         "hardcoded": "\"\'\`",
         "field": "bar",
@@ -195,7 +195,7 @@ test(
       {
         "hardcoded": "\"\'\`",
         "field": "bar",
-      }->S.reverseConvertOrThrow(schema),
+      }->S.decodeOrThrow(~from=schema, ~to=S.unknown),
       %raw(`{"field": "bar"}`),
     )
   },
@@ -209,7 +209,7 @@ test("Has proper error path when fails to parse object with quotes in a field na
   )
 
   t->U.assertThrowsMessage(
-    () => %raw(`{"\"\'": "bar"}`)->S.parseOrThrow(schema),
+    () => %raw(`{"\"\'": "bar"}`)->S.parseOrThrow(~to=schema),
     `Failed at ["\\"\'\`"]: Expected string, received undefined`,
   )
 })
@@ -222,7 +222,7 @@ test("Has proper error path when fails to serialize object with quotes in a fiel
   )
 
   t->U.assertThrowsMessage(
-    () => Dict.fromArray([("\"'", "bar")])->S.reverseConvertOrThrow(schema),
+    () => Dict.fromArray([("\"'", "bar")])->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     `Failed at ["\\"'\`"]: User error`,
   )
 })
@@ -235,7 +235,7 @@ test("Field name in a format of a path is handled properly", t => {
   )
 
   t->U.assertThrowsMessage(
-    () => %raw(`{"bar": "foo"}`)->S.parseOrThrow(schema),
+    () => %raw(`{"bar": "foo"}`)->S.parseOrThrow(~to=schema),
     `Failed at ["[\\"abc\\"][\\"cde\\"]"]: Expected string, received undefined`,
   )
 })

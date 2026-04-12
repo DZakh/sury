@@ -7,13 +7,13 @@ module Common = {
   test("Successfully parses", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(any->S.parseOrThrow(schema), any)
+    t->Assert.deepEqual(any->S.parseOrThrow(~to=schema), any)
   })
 
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(any->S.reverseConvertOrThrow(schema), any)
+    t->Assert.deepEqual(any->S.decodeOrThrow(~from=schema, ~to=S.unknown), any)
   })
 
   test("Compiled parse code snapshot", t => {

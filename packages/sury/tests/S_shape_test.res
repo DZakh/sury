@@ -5,13 +5,13 @@ S.enableJson()
 test("Parses with wrapping the value in variant", t => {
   let schema = S.string->S.shape(s => Ok(s))
 
-  t->Assert.deepEqual("Hello world!"->S.parseOrThrow(schema), Ok("Hello world!"))
+  t->Assert.deepEqual("Hello world!"->S.parseOrThrow(~to=schema), Ok("Hello world!"))
 })
 
 asyncTest("Parses with wrapping async schema in variant", async t => {
   let schema = S.string->S.transform(_ => {asyncParser: async i => i})->S.shape(s => Ok(s))
 
-  t->Assert.deepEqual(await "Hello world!"->S.parseAsyncOrThrow(schema), Ok("Hello world!"))
+  t->Assert.deepEqual(await "Hello world!"->S.parseAsyncOrThrow(~to=schema), Ok("Hello world!"))
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
@@ -22,26 +22,26 @@ asyncTest("Parses with wrapping async schema in variant", async t => {
 test("Fails to parse wrapped schema", t => {
   let schema = S.string->S.shape(s => Ok(s))
 
-  t->U.assertThrowsMessage(() => 123->S.parseOrThrow(schema), `Expected string, received 123`)
+  t->U.assertThrowsMessage(() => 123->S.parseOrThrow(~to=schema), `Expected string, received 123`)
 })
 
 test("Serializes with unwrapping the value from variant", t => {
   let schema = S.string->S.shape(s => Ok(s))
 
-  t->Assert.deepEqual(Ok("Hello world!")->S.reverseConvertOrThrow(schema), %raw(`"Hello world!"`))
+  t->Assert.deepEqual(Ok("Hello world!")->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"Hello world!"`))
 })
 
 test("Fails to serialize when can't unwrap the value from variant", t => {
   let schema = S.string->S.shape(s => Ok(s))
 
   t->Assert.deepEqual(
-    Error("Hello world!")->S.reverseConvertOrThrow(schema),
+    Error("Hello world!")->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`"Hello world!"`),
     ~message=`Convert operation doesn't perform exhaustiveness check`,
   )
 
   t->U.assertThrowsMessage(
-    () => Error("Hello world!")->S.parseOrThrow(schema->S.reverse),
+    () => Error("Hello world!")->S.parseOrThrow(~to=schema->S.reverse),
     `Failed at ["TAG"]: Expected "Ok", received "Error"`,
   )
 })
@@ -49,13 +49,13 @@ test("Fails to serialize when can't unwrap the value from variant", t => {
 test("Successfully parses when the value is not used as the variant payload", t => {
   let schema = S.string->S.shape(_ => #foo)
 
-  t->Assert.deepEqual("Hello world!"->S.parseOrThrow(schema), #foo)
+  t->Assert.deepEqual("Hello world!"->S.parseOrThrow(~to=schema), #foo)
 })
 
 test("Fails to serialize when the value is not used as the variant payload", t => {
   let schema = S.string->S.shape(_ => #foo)
 
-  t->U.assertThrowsMessage(() => #foo->S.reverseConvertOrThrow(schema), `Missing input for string`)
+  t->U.assertThrowsMessage(() => #foo->S.decodeOrThrow(~from=schema, ~to=S.unknown), `Missing input for string`)
 })
 
 test(
@@ -63,14 +63,14 @@ test(
   t => {
     let schema = S.literal((true, 12))->S.shape(_ => #foo)
 
-    t->Assert.deepEqual(#foo->S.reverseConvertOrThrow(schema), %raw(`[true, 12]`))
+    t->Assert.deepEqual(#foo->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`[true, 12]`))
   },
 )
 
 test("Successfully parses when tuple is destructured", t => {
   let schema = S.literal((true, 12))->S.shape(((_, twelve)) => twelve)
 
-  t->Assert.deepEqual(%raw(`[true, 12]`)->S.parseOrThrow(schema), %raw(`12`))
+  t->Assert.deepEqual(%raw(`[true, 12]`)->S.parseOrThrow(~to=schema), %raw(`12`))
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
@@ -90,7 +90,7 @@ test(
     t->Assert.deepEqual(
       {
         "foo": "bar",
-      }->S.parseOrThrow(schema),
+      }->S.parseOrThrow(~to=schema),
       %raw(`"bar"`),
     )
     t->U.assertCompiledCode(
@@ -115,7 +115,7 @@ test(
     t->Assert.deepEqual(
       {
         "foo": {"bar": "jazz"},
-      }->S.parseOrThrow(schema),
+      }->S.parseOrThrow(~to=schema),
       %raw(`"jazz"`),
     )
     t->U.assertCompiledCode(
@@ -182,7 +182,7 @@ test(
     t->Assert.deepEqual(
       {
         "foo": "bar",
-      }->S.parseOrThrow(schema),
+      }->S.parseOrThrow(~to=schema),
       %raw(`"bar"`),
     )
   },
@@ -191,7 +191,7 @@ test(
 test("Reverse convert of tagged tuple with destructured literal", t => {
   let schema = S.tuple2(S.literal(true), S.literal(12))->S.shape(((_, twelve)) => twelve)
 
-  t->Assert.deepEqual(12->S.reverseConvertOrThrow(schema), %raw(`[true, 12]`))
+  t->Assert.deepEqual(12->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`[true, 12]`))
 
   let code = `i=>{i===12||e[0](i);return [true,i,]}`
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, code)
@@ -205,7 +205,7 @@ test("Reverse convert of tagged tuple with destructured bool", t => {
       literal,
     ))
 
-  t->Assert.deepEqual((false, "foo")->S.reverseConvertOrThrow(schema), %raw(`[true, "foo",false]`))
+  t->Assert.deepEqual((false, "foo")->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`[true, "foo",false]`))
 
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return [true,"foo",i["0"],]}`)
   t->U.assertCompiledCode(
@@ -218,7 +218,7 @@ test("Reverse convert of tagged tuple with destructured bool", t => {
 test("Successfully parses when value registered multiple times", t => {
   let schema = S.string->S.shape(s => #Foo(s, s))
 
-  t->Assert.deepEqual(%raw(`"abc"`)->S.parseOrThrow(schema), #Foo("abc", "abc"))
+  t->Assert.deepEqual(%raw(`"abc"`)->S.parseOrThrow(~to=schema), #Foo("abc", "abc"))
 })
 
 test("Reverse convert with value registered multiple times", t => {
@@ -231,9 +231,9 @@ test("Reverse convert with value registered multiple times", t => {
     `i=>{let v0=i["VAL"];return v0["1"]}`,
   )
 
-  t->Assert.deepEqual(#Foo("abc", "abc")->S.reverseConvertOrThrow(schema), %raw(`"abc"`))
+  t->Assert.deepEqual(#Foo("abc", "abc")->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"abc"`))
   // t->U.assertThrows(
-  //   () => #Foo("abc", "abcd")->S.reverseConvertOrThrow(schema),
+  //   () => #Foo("abc", "abcd")->S.decodeOrThrow(~from=schema, ~to=S.unknown),
   //   {
   //     code: InvalidOperation({
   //       description: `Another source has conflicting data`,
@@ -315,7 +315,7 @@ test(
   t => {
     let schema = S.literal((true, 12))->S.shape(_ => #foo)
 
-    t->Assert.deepEqual(#foo->S.reverseConvertOrThrow(schema), %raw(`[true,12]`))
+    t->Assert.deepEqual(#foo->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`[true,12]`))
 
     t->U.assertCompiledCode(
       ~schema,
@@ -355,10 +355,10 @@ test("Works with variant schema used multiple times as a child schema", t => {
     "android": {"current": "1.2", "minimum": "1.0"},
   }
 
-  t->Assert.deepEqual(rawAppVersions->S.parseOrThrow(appVersionsSchema), appVersions)
+  t->Assert.deepEqual(rawAppVersions->S.parseOrThrow(~to=appVersionsSchema), appVersions)
 
   t->Assert.deepEqual(
-    appVersions->S.reverseConvertToJsonOrThrow(appVersionsSchema),
+    appVersions->S.decodeOrThrow(~from=appVersionsSchema, ~to=S.json),
     rawAppVersions->Obj.magic,
   )
 })
@@ -387,7 +387,7 @@ test("Succesfully uses reversed variant schema to self for parsing back to initi
 test("Reverse convert tuple turned to Ok", t => {
   let schema = S.tuple2(S.string, S.bool)->S.shape(t => Ok(t))
 
-  t->Assert.deepEqual(Ok(("foo", true))->S.reverseConvertOrThrow(schema), %raw(`["foo", true]`))
+  t->Assert.deepEqual(Ok(("foo", true))->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`["foo", true]`))
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{let v0=i["_0"];return v0}`)
 })
 
@@ -415,10 +415,10 @@ test("S.json shaped to literal should keep validation", t => {
 JSON: i=>{if(Array.isArray(i)){for(let v0=0;v0<i.length;++v0){try{e[0]["unknown->JSON--0"](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}}else if(typeof i==="object"&&i&&!Array.isArray(i)){for(let v2 in i){try{e[1]["unknown->JSON--0"](i[v2]);}catch(v3){v3.path='["'+v2+'"]'+v3.path;throw v3}}}else if(!(typeof i==="string"||typeof i==="boolean"||typeof i==="number"&&!Number.isNaN(i)||i===null)){e[2](i)}return i}`,
   )
 
-  t->Assert.deepEqual("foo"->S.parseOrThrow(schema), "foo")
+  t->Assert.deepEqual("foo"->S.parseOrThrow(~to=schema), "foo")
   t->U.assertThrowsMessage(
-    () => %raw(`undefined`)->S.parseOrThrow(schema),
+    () => %raw(`undefined`)->S.parseOrThrow(~to=schema),
     "Expected JSON, received undefined",
   )
-  t->Assert.deepEqual("bar"->S.parseOrThrow(schema), "foo")
+  t->Assert.deepEqual("bar"->S.parseOrThrow(~to=schema), "foo")
 })

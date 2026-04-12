@@ -323,7 +323,7 @@ let invalidAsyncRefine = S.transform(_, s => {
 //       "k1": 1,
 //       "k2": 2,
 //     }
-//     ->S.parseAsyncOrThrow(schema)
+//     ->S.parseAsyncOrThrow(~to=schema)
 //     ->ignore
 
 //     t->Assert.deepEqual(actionCounter.contents, 2)
@@ -433,7 +433,7 @@ let invalidAsyncRefine = S.transform(_, s => {
 //       }),
 //     )
 
-//     [1, 2]->S.parseAsyncOrThrow(schema)->ignore
+//     [1, 2]->S.parseAsyncOrThrow(~to=schema)->ignore
 
 //     t->Assert.deepEqual(actionCounter.contents, 2)
 //   })
@@ -481,13 +481,13 @@ module Union = {
     let schema = S.union([S.literal(2)->validAsyncRefine, S.literal(2), S.literal(3)])
 
     t->Assert.deepEqual(
-      2->S.parseOrThrow(schema),
+      2->S.parseOrThrow(~to=schema),
       2,
       ~message="I'm not sure whether this is correct logic, but it's what we have now",
     )
     t->U.assertThrowsMessage(
       () => {
-        4->S.parseOrThrow(schema)
+        4->S.parseOrThrow(~to=schema)
       },
       "Expected 2 | 2 | 3, received 4
 - Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead",
@@ -547,7 +547,7 @@ module Union = {
       }),
     ])
 
-    2->S.parseAsyncOrThrow(schema)->ignore
+    2->S.parseAsyncOrThrow(~to=schema)->ignore
 
     t->Assert.deepEqual(actionCounter.contents, 1)
   })
@@ -593,7 +593,7 @@ module Union = {
 //       }),
 //     )
 
-//     [1, 2]->S.parseAsyncOrThrow(schema)->ignore
+//     [1, 2]->S.parseAsyncOrThrow(~to=schema)->ignore
 
 //     t->Assert.deepEqual(actionCounter.contents, 2)
 //   })
@@ -672,7 +672,7 @@ module Union = {
 //       }),
 //     )
 
-//     {"k1": 1, "k2": 2}->S.parseAsyncOrThrow(schema)->ignore
+//     {"k1": 1, "k2": 2}->S.parseAsyncOrThrow(~to=schema)->ignore
 
 //     t->Assert.deepEqual(actionCounter.contents, 2)
 //   })

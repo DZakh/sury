@@ -5,7 +5,7 @@ import * as Stdlib_Dict from "rescript/lib/es6/Stdlib_Dict.js";
 import * as Primitive_option from "rescript/lib/es6/Primitive_option.js";
 import * as Primitive_exceptions from "rescript/lib/es6/Primitive_exceptions.js";
 
-let noopOpCode = S.makeConvertOrThrow(S.unknown, S.unknown, undefined).toString();
+let noopOpCode = S.decoder(S.unknown, S.unknown).toString();
 
 function throwError(error) {
   throw error;
@@ -87,23 +87,23 @@ async function asyncAssertThrowsMessage(t, cb, errorMessage, message) {
 function getCompiledCodeString(schema, op, embedded) {
   let toFn = schema => {
     if (op === "ParseAsync") {
-      return S.makeAsyncConvertOrThrow(S.unknown, schema, undefined);
+      return S.asyncDecoder(S.unknown, schema);
     } else if (op === "Parse") {
-      return S.makeConvertOrThrow(S.unknown, schema, undefined);
+      return S.decoder(S.unknown, schema);
     } else if (op === "ReverseConvertToJson") {
-      return S.makeConvertOrThrow(schema, S.json, undefined);
+      return S.decoder(schema, S.json);
     } else if (op === "ReverseConvert") {
-      return S.makeConvertOrThrow(schema, S.unknown, undefined);
+      return S.decoder(schema, S.unknown);
     } else if (op === "Convert") {
-      return S.makeConvertOrThrow(S.reverse(schema), S.unknown, undefined);
+      return S.decoder(S.reverse(schema), S.unknown);
     } else if (op === "Assert") {
-      return S.makeConvertOrThrow(S.unknown, S.to(schema, S.noValidation(S.literal(), true)), undefined);
+      return S.decoder(S.unknown, S.to(schema, S.noValidation(S.literal(), true)));
     } else if (op === "ReverseParse") {
-      return S.makeConvertOrThrow(S.unknown, S.reverse(schema), undefined);
+      return S.decoder(S.unknown, S.reverse(schema));
     } else if (op === "ConvertAsync") {
-      return S.makeAsyncConvertOrThrow(S.reverse(schema), S.unknown, undefined);
+      return S.asyncDecoder(S.reverse(schema), S.unknown);
     } else {
-      return S.makeAsyncConvertOrThrow(schema, S.unknown, undefined);
+      return S.asyncDecoder(schema, S.unknown);
     }
   };
   let fn = toFn(schema);
@@ -177,7 +177,7 @@ function assertCompiledCodeIsNoop(t, schema, op, message) {
 }
 
 function assertReverseParsesBack(t, schema, value) {
-  t.deepEqual(S.parseOrThrow(S.reverseConvertOrThrow(value, schema), schema), value);
+  t.deepEqual(S.parseOrThrow(S.decodeOrThrow(value, schema, S.unknown), schema), value);
 }
 
 function assertReverseReversesBack(t, schema) {

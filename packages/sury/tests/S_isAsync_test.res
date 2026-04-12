@@ -19,7 +19,7 @@ test("Returns true for async schema", t => {
 test("Returns true for async schema after running a serializer", t => {
   let schema =
     S.string->S.transform(_ => {asyncParser: i => Promise.resolve(i), serializer: i => i})
-  t->Assert.deepEqual("abc"->S.reverseConvertToJsonOrThrow(schema), %raw(`"abc"`))
+  t->Assert.deepEqual("abc"->S.decodeOrThrow(~from=schema, ~to=S.json), %raw(`"abc"`))
   t->Assert.is(schema->S.isAsync, true)
 })
 

@@ -7,14 +7,14 @@ module Common = {
   test("Fails to parse", t => {
     let schema = factory()
 
-    t->U.assertThrowsMessage(() => any->S.parseOrThrow(schema), `Expected never, received true`)
+    t->U.assertThrowsMessage(() => any->S.parseOrThrow(~to=schema), `Expected never, received true`)
   })
 
   test("Fails to serialize ", t => {
     let schema = factory()
 
     t->U.assertThrowsMessage(
-      () => any->S.reverseConvertOrThrow(schema),
+      () => any->S.decodeOrThrow(~from=schema, ~to=S.unknown),
       `Expected never, received true`,
     )
   })
@@ -48,7 +48,7 @@ module ObjectField = {
     )
 
     t->U.assertThrowsMessage(
-      () => %raw(`{"key":"value"}`)->S.parseOrThrow(schema),
+      () => %raw(`{"key":"value"}`)->S.parseOrThrow(~to=schema),
       `Failed at ["oldKey"]: Expected never, received undefined`,
     )
   })
@@ -67,7 +67,7 @@ module ObjectField = {
     )
 
     t->Assert.deepEqual(
-      %raw(`{"key":"value"}`)->S.parseOrThrow(schema),
+      %raw(`{"key":"value"}`)->S.parseOrThrow(~to=schema),
       {
         "key": "value",
         "oldKey": None,

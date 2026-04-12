@@ -33,13 +33,13 @@ module CknittelBugReport = {
         b: 42,
       },
     }
-    t->Assert.deepEqual(B(x)->S.reverseConvertOrThrow(schema), %raw(`{"payload":{"b":42}}`))
+    t->Assert.deepEqual(B(x)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{"payload":{"b":42}}`))
     let x = {
       A.payload: {
         a: "foo",
       },
     }
-    t->Assert.deepEqual(A(x)->S.reverseConvertOrThrow(schema), %raw(`{"payload":{"a":"foo"}}`))
+    t->Assert.deepEqual(A(x)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{"payload":{"a":"foo"}}`))
   })
 }
 
@@ -73,7 +73,7 @@ module CknittelBugReport2 = {
       `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["test"];if(typeof v0==="object"&&v0){if(v0["type"]==="a"){let v1=v0["x"];if(typeof v1!=="number"||v1>2147483647||v1<-2147483648||v1%1!==0){e[1](v1)}v0={"TAG":"A","_0":{"x":v1,},}}else if(v0["type"]==="b"){let v2=v0["y"];if(typeof v2!=="string"){e[2](v2)}v0={"TAG":"B","_0":{"y":v2,},}}else{e[3](v0)}}else if(!(v0===void 0)){e[4](v0)}return {"test":v0,}}`,
     )
 
-    t->Assert.deepEqual(S.parseJsonStringOrThrow("{}", schema), {test: None})
+    t->Assert.deepEqual(S.decodeOrThrow("{}", ~from=S.jsonString, ~to=schema), {test: None})
   })
 
   type responseError = {serviceCode: string, text: string}
@@ -99,6 +99,6 @@ module CknittelBugReport2 = {
       `i=>{if(typeof i==="object"&&i){if(typeof i["statusCode"]==="object"&&i["statusCode"]&&i["statusCode"]["kind"]==="ok"){i={"TAG":"Ok","_0":void 0,}}else if(typeof i["statusCode"]==="object"&&i["statusCode"]&&i["statusCode"]["kind"]==="serviceError"){let v0=i["statusCode"],v1=v0["serviceCode"],v2=v0["text"];if(typeof v1!=="string"){e[0](v1)}if(typeof v2!=="string"){e[1](v2)}i={"TAG":"Error","_0":{"serviceCode":v1,"text":v2,},}}else{e[2](i)}}else{e[3](i)}return i}`,
     )
 
-    t->Assert.deepEqual(S.parseJsonStringOrThrow(`{"statusCode": {"kind": "ok"}}`, schema), Ok())
+    t->Assert.deepEqual(S.decodeOrThrow(`{"statusCode": {"kind": "ok"}}`, ~from=S.jsonString, ~to=schema), Ok())
   })
 }
