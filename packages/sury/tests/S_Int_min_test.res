@@ -38,6 +38,13 @@ test("Returns custom error message", t => {
   t->U.assertThrowsMessage(() => 0->S.parseOrThrow(~to=schema), `Custom`)
 })
 
+test("Throws when called with a non-number value", t => {
+  t->U.assertThrowsMessage(
+    () => S.int->S.min(%raw(`"abc"`)),
+    `Expected number, received string`,
+  )
+})
+
 test("Returns refinement", t => {
   let schema = S.int->S.min(1)
 
