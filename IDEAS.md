@@ -72,50 +72,67 @@ I left on cleaning up validation code and moving everything to their own decoder
 - parseOrThrow(schema)(data) for ts api
 - deprecate compile
 
-```diff
-const userSchema = S.schema({
-  id: S.string,
-  name: S.string
+### ReScript operation functions
+
+Only two functions: `parseOrThrow` and `decodeOrThrow` with labeled args `~to`, `~from`, and optional `~between`.
+
+- `parseOrThrow` - validates input type + transforms (current behavior)
+- `decodeOrThrow` - skips input type validation, only transforms (current convert behavior)
+
+```rescript
+let userSchema = S.schema(s => {
+  id: s.matches(S.string),
+  name: s.matches(S.string),
 })
 
-S.parseOrThrow(data, userSchema)
-+ ts: S.parseOrThrow(userSchema)(data)
+// --- parseOrThrow (with input validation) ---
 
-- S.parseJsonOrThrow(data, userSchema)
-+ res: S.decodeOrThrow(data, S.json, userSchema)
-+ ts:  S.decodeOrThrow(S.json, userSchema)(data)
+// Parse any -> output (current S.parseOrThrow)
+data->S.parseOrThrow(~to=userSchema)
 
-- S.parseJsonStringOrThrow(data, userSchema)
-+ res: S.decodeOrThrow(data, S.jsonString, userSchema)
-+ ts:  S.decodeOrThrow(S.jsonString, userSchema)(data)
+// Parse JSON -> output (current S.parseJsonOrThrow)
+data->S.parseOrThrow(~from=S.json, ~to=userSchema)
 
-- S.reverseConvertOrThrow(user, userSchema)
-+ res: S.encodeOrThrow(user, userSchema, S.unknown)
-+ ts:  S.encodeOrThrow(userSchema)(user)
+// Parse JSON string -> output (current S.parseJsonStringOrThrow)
+data->S.parseOrThrow(~from=S.jsonString, ~to=userSchema)
 
-- S.reverseConvertToJsonOrThrow(user, userSchema)
-+ res: S.encodeOrThrow(user, userSchema, S.json)
-+ ts:  S.encodeOrThrow(userSchema, S.json)(user)
+// Parse async (current S.parseAsyncOrThrow)
+data->S.parseOrThrow(~to=userSchema, ~async=true)
 
-- S.reverseConvertToJsonStringOrThrow(user, userSchema)
-+ res: S.encodeOrThrow(user, userSchema, S.jsonString)
-+ ts:  S.encodeOrThrow(userSchema, S.jsonString)(user)
+// Reverse: output -> any (current S.reverseConvertOrThrow)
+user->S.parseOrThrow(~from=userSchema)
 
-- S.reverseConvertToJsonStringOrThrow(user, userSchema, 2)
-+ res: S.encodeOrThrow(user, userSchema, S.jsonStringWithSpace(2))
-+ ts:  S.encodeOrThrow(userSchema, S.jsonStringWithSpace(2))(user)
+// Reverse: output -> JSON (current S.reverseConvertToJsonOrThrow)
+user->S.parseOrThrow(~from=userSchema, ~to=S.json)
 
-- S.convertOrThrow(data, userSchema)
-+ ts:  S.decodeOrThrow(userSchema)(data) (when single from Input to Output, when multiple from Output to Output)
-+ res: S.decodeOrThrow(data, S.unknown, userSchema) (from Output to Output)
+// Reverse: output -> JSON string (current S.reverseConvertToJsonStringOrThrow)
+user->S.parseOrThrow(~from=userSchema, ~to=S.jsonString)
 
-- S.convertToJsonOrThrow(data, userSchema)
-+ res: S.decodeOrThrow(data, S.unknown, userSchema) + S.decodeOrThrow(data, userSchema, S.json)
-// Because it was from input before
+// Between two schemas (current S.parseJsonOrThrow with transform)
+data->S.parseOrThrow(~from=S.json, ~between=userSchema, ~to=outputSchema)
 
-- S.convertToJsonStringOrThrow(data, userSchema)
-+ res: S.decodeOrThrow(data, S.unknown, userSchema) + S.decodeFromOrThrow(data, userSchema, S.jsonString)
+// Assert only (current S.assertOrThrow) — just ~to, discard result
+data->S.parseOrThrow(~to=userSchema)->ignore
+
+// --- decodeOrThrow (without input type validation) ---
+
+// Convert any -> output (current S.convertOrThrow)
+data->S.decodeOrThrow(~to=userSchema)
+
+// Convert any -> JSON (current S.convertToJsonOrThrow)
+data->S.decodeOrThrow(~from=userSchema, ~to=S.json)
+
+// Convert any -> JSON string (current S.convertToJsonStringOrThrow)
+data->S.decodeOrThrow(~from=userSchema, ~to=S.jsonString)
+
+// Convert async (current S.convertAsyncOrThrow)
+data->S.decodeOrThrow(~to=userSchema, ~async=true)
+
+// Reverse convert (current S.reverseConvertAsyncOrThrow)
+user->S.decodeOrThrow(~from=userSchema, ~async=true)
 ```
+
+### TS operation functions
 
 - rename `serializer` to reverse parser ?
 - Make `foo->S.to(S.unknown)` stricter ??
