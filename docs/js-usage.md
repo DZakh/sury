@@ -684,10 +684,10 @@ S.min(S.array(S.string), 5); // Array must be 5 or more items long
 S.length(S.array(S.string), 5); // Array must be exactly 5 items long
 ```
 
-### Unnest
+### Compact Columns
 
 ```ts
-const schema = S.unnest(
+const schema = S.compactColumns(
   S.schema({
     id: S.string,
     name: S.nullable(S.string),
@@ -704,7 +704,7 @@ const value = S.encoder(schema)([
 
 The helper function is inspired by the article [Boosting Postgres INSERT Performance by 2x With UNNEST](https://www.timescale.com/blog/boosting-postgres-insert-performance). It allows you to flatten a nested array of objects into arrays of values by field.
 
-The main concern of the approach described in the article is usability. And ReScript Schema completely solves the problem, providing a simple and intuitive API that is even more performant than `S.array`.
+The main concern of the approach described in the article is usability. And **Sury** completely solves the problem, providing a simple and intuitive API that is even more performant than `S.array`.
 
 <details>
 
