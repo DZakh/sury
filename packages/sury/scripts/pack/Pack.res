@@ -138,6 +138,8 @@ let filesMapping = [
   ("uint8Array", "S.uint8Array"),
   ("enableUint8Array", "S.enableUint8Array"),
   ("date", "S.date"),
+  ("isoDateTime", "S.isoDateTime"),
+  ("enableIsoDateTime", "S.enableIsoDateTime"),
   ("union", "S.js_union"),
   ("object", "S.object"),
   ("schema", "S.js_schema"),

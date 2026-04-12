@@ -158,6 +158,14 @@ let filesMapping = [
     "S.date"
   ],
   [
+    "isoDateTime",
+    "S.isoDateTime"
+  ],
+  [
+    "enableIsoDateTime",
+    "S.enableIsoDateTime"
+  ],
+  [
     "union",
     "S.js_union"
   ],
