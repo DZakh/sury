@@ -953,3 +953,16 @@ test("Optional of int32 should keep a format validation", t => {
     `i=>{if(!(typeof i==="number"&&!Number.isNaN(i)&&(i<=2147483647&&i>=-2147483648&&i%1===0)||i===void 0)){e[0](i)}return i}`,
   )
 })
+
+// Tagged tuple union — dispatches on i["0"] === "a" / "b", which is what the
+// `B.hoistChildChecks` helper lifts from each tuple's literal first field
+// into the parent's validation list as union discriminants.
+test("Tagged tuple union dispatches via literal first-field discriminant", t => {
+  let schema = S.union([
+    S.tuple(s => (s.item(0, S.literal("a")), s.item(1, S.string))),
+    S.tuple(s => (s.item(0, S.literal("b")), s.item(1, S.string))),
+  ])
+
+  t->Assert.deepEqual(("a", "hello")->S.parseOrThrow(~to=schema), ("a", "hello"))
+  t->Assert.deepEqual(("b", "world")->S.parseOrThrow(~to=schema), ("b", "world"))
+})
