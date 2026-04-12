@@ -44,8 +44,15 @@ test("Returns custom error message", t => {
 test("Returns refinement", t => {
   let schema = S.array(S.int)->S.length(1)
 
-  t->Assert.deepEqual(
-    schema->S.Array.refinements,
-    [{kind: Length({length: 1}), message: "Array must be exactly 1 items long"}],
-  )
+  switch schema {
+  | Array({minItems: ?Some(minItems), maxItems: ?Some(maxItems), errorMessages: ?Some(errorMessages)}) => {
+      t->Assert.deepEqual(minItems, 1)
+      t->Assert.deepEqual(maxItems, 1)
+      t->Assert.deepEqual(
+        errorMessages->Js.Dict.get("minItems"),
+        Some("Array must be exactly 1 items long"),
+      )
+    }
+  | _ => t->Assert.fail("Expected Array schema with minItems and maxItems")
+  }
 })

@@ -41,8 +41,14 @@ test("Returns custom error message", t => {
 test("Returns refinement", t => {
   let schema = S.string->S.min(1)
 
-  t->Assert.deepEqual(
-    schema->S.String.refinements,
-    [{kind: Min({length: 1}), message: "String must be 1 or more characters long"}],
-  )
+  switch schema {
+  | String({minLength: ?Some(minLength), errorMessages: ?Some(errorMessages)}) => {
+      t->Assert.deepEqual(minLength, 1)
+      t->Assert.deepEqual(
+        errorMessages->Js.Dict.get("minLength"),
+        Some("String must be 1 or more characters long"),
+      )
+    }
+  | _ => t->Assert.fail("Expected String schema with minLength")
+  }
 })

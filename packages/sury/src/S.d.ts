@@ -164,11 +164,18 @@ export type Schema<Output, Input = unknown> = {
       readonly type: "string";
       readonly format?: StringFormat;
       readonly const?: string;
+      readonly minLength?: number;
+      readonly maxLength?: number;
+      readonly pattern?: RegExp;
+      readonly errorMessages?: Record<string, string>;
     }
   | {
       readonly type: "number";
       readonly format?: NumberFormat;
       readonly const?: number;
+      readonly minimum?: number;
+      readonly maximum?: number;
+      readonly errorMessages?: Record<string, string>;
     }
   | {
       readonly type: "bigint";
@@ -208,6 +215,9 @@ export type Schema<Output, Input = unknown> = {
       readonly items: Schema<unknown>;
       readonly additionalItems: "strip" | "strict" | Schema<unknown>;
       readonly format?: ArrayFormat;
+      readonly minItems?: number;
+      readonly maxItems?: number;
+      readonly errorMessages?: Record<string, string>;
     }
   | {
       readonly type: "object";
