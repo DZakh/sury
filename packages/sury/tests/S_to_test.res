@@ -236,12 +236,12 @@ test("Coerce from string to int32", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[1](i);let v0=+i;v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[0](i);return v0}`,
+    `i=>{typeof i==="string"||e[1](i);let v0=+i;v0<2147483648&&v0>-2147483649&&v0%1===0||e[0](i);return v0}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Convert,
-    `i=>{let v0=+i;v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[0](i);return v0}`,
+    `i=>{let v0=+i;v0<2147483648&&v0>-2147483649&&v0%1===0||e[0](i);return v0}`,
   )
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return ""+i}`)
 })

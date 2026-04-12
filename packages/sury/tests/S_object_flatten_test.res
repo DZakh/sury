@@ -253,7 +253,7 @@ test("Can destructure flattened schema", t => {
   t->U.assertCompiledCode(
     ~op=#Parse,
     ~schema=entitySchema,
-    `i=>{typeof i==="object"&&i||e[3](i);let v0=i["name"],v1=i["age"],v2=i["id"];typeof v0==="string"||e[0](v0);typeof v1==="number"&&v1<=2147483647&&v1>=-2147483648&&v1%1===0||e[1](v1);typeof v2==="string"||e[2](v2);return {"id":v2,"name":v0,"age":v1,}}`,
+    `i=>{typeof i==="object"&&i||e[3](i);let v0=i["name"],v1=i["age"],v2=i["id"];typeof v0==="string"||e[0](v0);typeof v1==="number"&&v1<2147483648&&v1>-2147483649&&v1%1===0||e[1](v1);typeof v2==="string"||e[2](v2);return {"id":v2,"name":v0,"age":v1,}}`,
   )
 
   S.enableJson()

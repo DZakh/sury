@@ -980,7 +980,7 @@ function inputToString(input) {
 }
 
 function int32FormatValidation(inputVar) {
-  return inputVar + "<=2147483647&&" + inputVar + ">=-2147483648&&" + inputVar + "%1===0";
+  return inputVar + "<2147483648&&" + inputVar + ">-2147483649&&" + inputVar + "%1===0";
 }
 
 function numberDecoder(input) {
@@ -4196,10 +4196,10 @@ function arrayMinLength(schema, length, maybeMessage) {
       length: length
     },
     message: message
-  }, input => {
-    let embedded = embed(input, length);
+  }, param => {
+    let inlined = length - 1 | 0;
     return [{
-        c: inputVar => inputVar + ".length>=" + embedded,
+        c: inputVar => inputVar + ".length>" + inlined,
         f: failCustom(message)
       }];
   });
@@ -4213,10 +4213,10 @@ function arrayMaxLength(schema, length, maybeMessage) {
       length: length
     },
     message: message
-  }, input => {
-    let embedded = embed(input, length);
+  }, param => {
+    let inlined = length + 1 | 0;
     return [{
-        c: inputVar => inputVar + ".length<=" + embedded,
+        c: inputVar => inputVar + ".length<" + inlined,
         f: failCustom(message)
       }];
   });
@@ -4230,10 +4230,10 @@ function stringMinLength(schema, length, maybeMessage) {
       length: length
     },
     message: message
-  }, input => {
-    let embedded = embed(input, length);
+  }, param => {
+    let inlined = length - 1 | 0;
     return [{
-        c: inputVar => inputVar + ".length>=" + embedded,
+        c: inputVar => inputVar + ".length>" + inlined,
         f: failCustom(message)
       }];
   });
@@ -4247,10 +4247,10 @@ function stringMaxLength(schema, length, maybeMessage) {
       length: length
     },
     message: message
-  }, input => {
-    let embedded = embed(input, length);
+  }, param => {
+    let inlined = length + 1 | 0;
     return [{
-        c: inputVar => inputVar + ".length<=" + embedded,
+        c: inputVar => inputVar + ".length<" + inlined,
         f: failCustom(message)
       }];
   });
@@ -5170,13 +5170,10 @@ function length(schema, length$1, maybeMessage) {
           length: length$1
         },
         message: message
-      }, input => {
-        let embedded = embed(input, length$1);
-        return [{
-            c: inputVar => inputVar + ".length===" + embedded,
-            f: failCustom(message)
-          }];
-      });
+      }, param => [{
+          c: inputVar => inputVar + ".length===" + length$1,
+          f: failCustom(message)
+        }]);
     case "array" :
       let message$1 = maybeMessage !== undefined ? maybeMessage : "Array must be exactly " + length$1 + " items long";
       return addRefinement(schema, metadataId, {
@@ -5185,13 +5182,10 @@ function length(schema, length$1, maybeMessage) {
           length: length$1
         },
         message: message$1
-      }, input => {
-        let embedded = embed(input, length$1);
-        return [{
-            c: inputVar => inputVar + ".length===" + embedded,
-            f: failCustom(message$1)
-          }];
-      });
+      }, param => [{
+          c: inputVar => inputVar + ".length===" + length$1,
+          f: failCustom(message$1)
+        }]);
     default:
       let message$2 = "S.length is not supported for " + toExpression(schema) + " schema. Coerce the schema to string or array using S.to first.";
       throw new Error("[Sury] " + message$2);

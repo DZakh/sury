@@ -1060,7 +1060,7 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{let v0=i["bar"];e[0](v0)||e[1](v0);return {"foo":12,"bar":{"baz":v0["baz"],},}}`,
+      `i=>{let v0=i["bar"];e[0](v0)||e[1](v0);return i}`,
     )
   })
 

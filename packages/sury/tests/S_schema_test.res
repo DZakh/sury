@@ -58,11 +58,11 @@ test("Object with embeded transformed schema", t => {
   )
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#ReverseConvert),
-    `i=>{let v0=i["zoo"];if(v0===void 0){v0=null}else if(!(typeof v0==="number"&&!Number.isNaN(v0)&&(v0<=2147483647&&v0>=-2147483648&&v0%1===0))){e[0](v0)}return {"foo":"bar","zoo":v0,}}`,
+    `i=>{let v0=i["zoo"];if(v0===void 0){v0=null}else if(!(typeof v0==="number"&&!Number.isNaN(v0)&&(v0<2147483648&&v0>-2147483649&&v0%1===0))){e[0](v0)}return {"foo":"bar","zoo":v0,}}`,
   )
   t->Assert.is(
     objectSchema->U.getCompiledCodeString(~op=#ReverseConvert),
-    `i=>{let v0=i["zoo"];if(v0===void 0){v0=null}else if(!(typeof v0==="number"&&!Number.isNaN(v0)&&(v0<=2147483647&&v0>=-2147483648&&v0%1===0))){e[0](v0)}return {"foo":"bar","zoo":v0,}}`,
+    `i=>{let v0=i["zoo"];if(v0===void 0){v0=null}else if(!(typeof v0==="number"&&!Number.isNaN(v0)&&(v0<2147483648&&v0>-2147483649&&v0%1===0))){e[0](v0)}return {"foo":"bar","zoo":v0,}}`,
   )
 })
 
@@ -80,7 +80,7 @@ test("Strict object with embeded returns input without object recreation", t => 
 
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Parse),
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["foo"],v1=i["zoo"],v2;v0==="bar"||e[0](v0);typeof v1==="number"&&v1<=2147483647&&v1>=-2147483648&&v1%1===0||e[1](v1);for(v2 in i){if(v2!=="foo"&&v2!=="zoo"){e[2](v2)}}return i}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["foo"],v1=i["zoo"],v2;v0==="bar"||e[0](v0);typeof v1==="number"&&v1<2147483648&&v1>-2147483649&&v1%1===0||e[1](v1);for(v2 in i){if(v2!=="foo"&&v2!=="zoo"){e[2](v2)}}return i}`,
   )
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
 })

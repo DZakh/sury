@@ -920,13 +920,13 @@ module CknittelBugReport = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["payload"];typeof v0==="object"&&v0||e[1](v0);let v1=v0["a"];if(!(typeof v1==="string"||v1===void 0)){e[0](v1)}i={"TAG":"A","_0":{"payload":{"a":v1,},},}}catch(e0){try{let v2=i["payload"];typeof v2==="object"&&v2||e[3](v2);let v3=v2["b"];if(!(typeof v3==="number"&&!Number.isNaN(v3)&&(v3<=2147483647&&v3>=-2147483648&&v3%1===0)||v3===void 0)){e[2](v3)}i={"TAG":"B","_0":{"payload":{"b":v3,},},}}catch(e1){e[4](i,e0,e1)}}}else{e[5](i)}return i}`,
+      `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["payload"];typeof v0==="object"&&v0||e[1](v0);let v1=v0["a"];if(!(typeof v1==="string"||v1===void 0)){e[0](v1)}i={"TAG":"A","_0":{"payload":{"a":v1,},},}}catch(e0){try{let v2=i["payload"];typeof v2==="object"&&v2||e[3](v2);let v3=v2["b"];if(!(typeof v3==="number"&&!Number.isNaN(v3)&&(v3<2147483648&&v3>-2147483649&&v3%1===0)||v3===void 0)){e[2](v3)}i={"TAG":"B","_0":{"payload":{"b":v3,},},}}catch(e1){e[4](i,e0,e1)}}}else{e[5](i)}return i}`,
     )
 
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["TAG"]==="A"){let v0=i["_0"];typeof v0==="object"&&v0||e[2](v0);let v1=v0["payload"];typeof v1==="object"&&v1||e[1](v1);let v2=v1["a"];if(!(typeof v2==="string"||v2===void 0)){e[0](v2)}i={"payload":{"a":v2,},}}else if(i["TAG"]==="B"){let v3=i["_0"];typeof v3==="object"&&v3||e[5](v3);let v4=v3["payload"];typeof v4==="object"&&v4||e[4](v4);let v5=v4["b"];if(!(typeof v5==="number"&&!Number.isNaN(v5)&&(v5<=2147483647&&v5>=-2147483648&&v5%1===0)||v5===void 0)){e[3](v5)}i={"payload":{"b":v5,},}}else{e[6](i)}}else{e[7](i)}return i}`,
+      `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["TAG"]==="A"){let v0=i["_0"];typeof v0==="object"&&v0||e[2](v0);let v1=v0["payload"];typeof v1==="object"&&v1||e[1](v1);let v2=v1["a"];if(!(typeof v2==="string"||v2===void 0)){e[0](v2)}i={"payload":{"a":v2,},}}else if(i["TAG"]==="B"){let v3=i["_0"];typeof v3==="object"&&v3||e[5](v3);let v4=v3["payload"];typeof v4==="object"&&v4||e[4](v4);let v5=v4["b"];if(!(typeof v5==="number"&&!Number.isNaN(v5)&&(v5<2147483648&&v5>-2147483649&&v5%1===0)||v5===void 0)){e[3](v5)}i={"payload":{"b":v5,},}}else{e[6](i)}}else{e[7](i)}return i}`,
     )
 
     let x = {
@@ -950,7 +950,7 @@ test("Optional of int32 should keep a format validation", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(!(typeof i==="number"&&!Number.isNaN(i)&&(i<=2147483647&&i>=-2147483648&&i%1===0)||i===void 0)){e[0](i)}return i}`,
+    `i=>{if(!(typeof i==="number"&&!Number.isNaN(i)&&(i<2147483648&&i>-2147483649&&i%1===0)||i===void 0)){e[0](i)}return i}`,
   )
 })
 

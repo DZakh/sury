@@ -1804,7 +1804,7 @@ let inputToString = (input: val) => {
 }
 
 let int32FormatValidation = (~inputVar) => {
-  `${inputVar}<=2147483647&&${inputVar}>=-2147483648&&${inputVar}%1===0`
+  `${inputVar}<2147483648&&${inputVar}>-2147483649&&${inputVar}%1===0`
 }
 
 let numberDecoder = Builder.make((~input) => {
@@ -6311,9 +6311,9 @@ let arrayMinLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=Array.Refinement.metadataId,
-    ~refiner=(~input) => {
-      let embedded = input->B.embed(length)
-      [{cond: (~inputVar) => `${inputVar}.length>=${embedded}`, fail: B.failCustom(message)}]
+    ~refiner=(~input as _) => {
+      let inlined = (length - 1)->X.Int.unsafeToString
+      [{cond: (~inputVar) => `${inputVar}.length>${inlined}`, fail: B.failCustom(message)}]
     },
     ~refinement={
       kind: Min({length: length}),
@@ -6329,9 +6329,9 @@ let arrayMaxLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=Array.Refinement.metadataId,
-    ~refiner=(~input) => {
-      let embedded = input->B.embed(length)
-      [{cond: (~inputVar) => `${inputVar}.length<=${embedded}`, fail: B.failCustom(message)}]
+    ~refiner=(~input as _) => {
+      let inlined = (length + 1)->X.Int.unsafeToString
+      [{cond: (~inputVar) => `${inputVar}.length<${inlined}`, fail: B.failCustom(message)}]
     },
     ~refinement={
       kind: Max({length: length}),
@@ -6347,9 +6347,9 @@ let arrayLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=Array.Refinement.metadataId,
-    ~refiner=(~input) => {
-      let embedded = input->B.embed(length)
-      [{cond: (~inputVar) => `${inputVar}.length===${embedded}`, fail: B.failCustom(message)}]
+    ~refiner=(~input as _) => {
+      let inlined = length->X.Int.unsafeToString
+      [{cond: (~inputVar) => `${inputVar}.length===${inlined}`, fail: B.failCustom(message)}]
     },
     ~refinement={
       kind: Length({length: length}),
@@ -6365,9 +6365,9 @@ let stringMinLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input) => {
-      let embedded = input->B.embed(length)
-      [{cond: (~inputVar) => `${inputVar}.length>=${embedded}`, fail: B.failCustom(message)}]
+    ~refiner=(~input as _) => {
+      let inlined = (length - 1)->X.Int.unsafeToString
+      [{cond: (~inputVar) => `${inputVar}.length>${inlined}`, fail: B.failCustom(message)}]
     },
     ~refinement={
       kind: Min({length: length}),
@@ -6383,9 +6383,9 @@ let stringMaxLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input) => {
-      let embedded = input->B.embed(length)
-      [{cond: (~inputVar) => `${inputVar}.length<=${embedded}`, fail: B.failCustom(message)}]
+    ~refiner=(~input as _) => {
+      let inlined = (length + 1)->X.Int.unsafeToString
+      [{cond: (~inputVar) => `${inputVar}.length<${inlined}`, fail: B.failCustom(message)}]
     },
     ~refinement={
       kind: Max({length: length}),
@@ -6401,9 +6401,9 @@ let stringLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input) => {
-      let embedded = input->B.embed(length)
-      [{cond: (~inputVar) => `${inputVar}.length===${embedded}`, fail: B.failCustom(message)}]
+    ~refiner=(~input as _) => {
+      let inlined = length->X.Int.unsafeToString
+      [{cond: (~inputVar) => `${inputVar}.length===${inlined}`, fail: B.failCustom(message)}]
     },
     ~refinement={
       kind: Length({length: length}),
