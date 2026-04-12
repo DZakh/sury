@@ -87,10 +87,10 @@ I left on cleaning up validation code and moving everything to their own decoder
 | `S.reverseConvertToJsonStringOrThrow(data, schema)` | `S.decodeOrThrow(data, ~from=schema, ~to=S.jsonString)` |
 | `S.reverseConvertToJsonStringOrThrow(data, schema, ~space=2)` | `S.decodeOrThrow(data, ~from=schema, ~to=S.jsonStringWithSpace(2))` |
 | `S.convertOrThrow(data, schema)` | `S.decoder1(schema)(data)` |
-| `S.makeConvertOrThrow(from, to)` | `S.decoder(~from, ~to)` |
-| `S.makeAsyncConvertOrThrow(from, to)` | `S.asyncDecoder(~from, ~to)` |
-| `S.makeConvertOrThrow(S.unknown, schema)` | `S.parser(~to=schema)` |
-| `S.makeAsyncConvertOrThrow(S.unknown, schema)` | `S.asyncParser(~to=schema)` |
+| `S.compile(schema, ~input=Any, ~output=Value, ~mode=Sync, ~typeValidation=true)` | `S.parser(~to=schema)` |
+| `S.compile(schema, ~input=Any, ~output=Value, ~mode=Async, ~typeValidation=true)` | `S.asyncParser(~to=schema)` |
+| `S.compile(schema, ~input=Value, ~output=Unknown, ~mode=Sync, ~typeValidation=false)` | `S.decoder(~from=schema, ~to=S.unknown)` |
+| `S.compile(schema, ~input=Value, ~output=Unknown, ~mode=Async, ~typeValidation=false)` | `S.asyncDecoder(~from=schema, ~to=S.unknown)` |
 
 ### TS operation functions
 
