@@ -5749,9 +5749,15 @@ let compactColumnsDecoder = (~input) => {
         let iteratorVar = input.global->B.varWithoutAllocation
         let outputVar = input.global->B.varWithoutAllocation
 
-        // Schema of each raw column value. When input is unknown, items are unknown.
-        // When input is array(array(inputSchema)), derive inputSchema from input.schema.
-        let itemSchema: internal = if isUnknownInput {
+        // Declared source item type from selfSchema (the compactColumns schema).
+        let declaredItemSchema: internal = {
+          let innerArray: internal = selfSchema.additionalItems->Obj.magic
+          innerArray.additionalItems->Obj.magic
+        }
+
+        // Actual runtime item type: unknown for top-level parser, or
+        // the typed source when the caller passed already-typed data.
+        let runtimeItemSchema: internal = if isUnknownInput {
           unknown
         } else {
           let innerArray: internal = input.schema.additionalItems->Obj.magic
@@ -5766,12 +5772,26 @@ let compactColumnsDecoder = (~input) => {
         for idx in 0 to keysLen - 1 {
           let key = keys->Js.Array2.unsafe_get(idx)
           let idxStr = idx->X.Int.unsafeToString
+          let rawValueCode = `${inputVar}[${idxStr}][${iteratorVar}]`
 
-          // Use parse on the field schema to handle transformations (e.g. null->undefined).
+          let fieldSchema = properties->Js.Dict.unsafeGet(key)
+
+          // When the declared source differs from the runtime type
+          // (e.g. runtime=unknown, declared=json), chain through the
+          // declared type first so parse validates the value matches
+          // the source schema before converting to the field type.
+          let itemExpected = if declaredItemSchema !== runtimeItemSchema {
+            let chained = declaredItemSchema->copySchema
+            chained.to = Some(fieldSchema)
+            chained
+          } else {
+            fieldSchema
+          }
+
           let itemInput = input->B.Val.scope
-          itemInput.inline = `${inputVar}[${idxStr}][${iteratorVar}]`
-          itemInput.schema = itemSchema
-          itemInput.expected = properties->Js.Dict.unsafeGet(key)
+          itemInput.inline = rawValueCode
+          itemInput.schema = runtimeItemSchema
+          itemInput.expected = itemExpected
           itemInput.var = B._notVarBeforeValidation
           itemInput.isInput = Some(false)
           itemInput.isOutput = Some(false)
@@ -5835,20 +5855,51 @@ let compactColumnsDecoder = (~input) => {
         }
       } else {
         // Reverse direction: rows → columnar
-        // The field values have already been transformed by the earlier parse pipeline step
-        // (the object schema's reverse parse), so we can just copy them directly.
+        // When the declared source type is unknown, field values have
+        // already been transformed by the object schema's reverse parse
+        // and can be copied directly. When it differs (e.g. json), we
+        // need per-field parse to convert values back to the source type
+        // (e.g. bigint→string for json compatibility).
         let inputVar = input->B.Val.var
         let iteratorVar = input.global->B.varWithoutAllocation
         let outputVar = input.global->B.varWithoutAllocation
 
+        let declaredItemSchema: internal = {
+          let innerArray: internal = selfSchema.additionalItems->Obj.magic
+          innerArray.additionalItems->Obj.magic
+        }
+        let needsPerFieldTransform = declaredItemSchema !== unknown
+
         let initialArraysCode = ref("")
         let settingCode = ref("")
+        let perFieldCode = ref("")
         for idx in 0 to keysLen - 1 {
           let key = keys->Js.Array2.unsafe_get(idx)
           initialArraysCode := initialArraysCode.contents ++ `new Array(${inputVar}.length),`
-          settingCode :=
-            settingCode.contents ++
-            `${outputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]=${inputVar}[${iteratorVar}][${key->X.Inlined.Value.fromString}];`
+
+          if needsPerFieldTransform {
+            let fieldSchema = properties->Js.Dict.unsafeGet(key)
+            let rawValueCode = `${inputVar}[${iteratorVar}][${key->X.Inlined.Value.fromString}]`
+
+            let itemInput = input->B.Val.scope
+            itemInput.inline = rawValueCode
+            itemInput.schema = fieldSchema
+            itemInput.expected = declaredItemSchema
+            itemInput.var = B._notVarBeforeValidation
+            itemInput.isInput = Some(false)
+            itemInput.isOutput = Some(false)
+            itemInput.path = Path.fromInlinedLocation(input.global->B.inlineLocation(key))
+
+            let itemOutput = itemInput->parse
+            perFieldCode := perFieldCode.contents ++ itemOutput->B.merge
+            settingCode :=
+              settingCode.contents ++
+              `${outputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]=${itemOutput.inline};`
+          } else {
+            settingCode :=
+              settingCode.contents ++
+              `${outputVar}[${idx->X.Int.unsafeToString}][${iteratorVar}]=${inputVar}[${iteratorVar}][${key->X.Inlined.Value.fromString}];`
+          }
         }
 
         input.allocate(`${outputVar}=[${initialArraysCode.contents}]`)
@@ -5856,9 +5907,16 @@ let compactColumnsDecoder = (~input) => {
         let output = input->B.next(outputVar, ~schema=outputSchema, ~expected=outputSchema)
         output.var = B._var
         output.isOutput = Some(true)
+        let loopBody = perFieldCode.contents ++ settingCode.contents
+        let wrappedBody = if needsPerFieldTransform && perFieldCode.contents !== "" {
+          let errorVar = input.global->B.varWithoutAllocation
+          `try{${loopBody}}catch(${errorVar}){${errorVar}.path='["'+${iteratorVar}+'"]'+${errorVar}.path;throw ${errorVar}}`
+        } else {
+          loopBody
+        }
         output.codeFromPrev =
           output.codeFromPrev ++
-          `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${settingCode.contents}}`
+          `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${wrappedBody}}`
         output
       }
     }
