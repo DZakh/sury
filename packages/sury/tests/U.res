@@ -87,13 +87,13 @@ let getCompiledCodeString = (
       let fn = S.decoder(~from=S.unknown, ~to=schema)
       fn->magic
     | #ParseAsync =>
-      let fn = S.decoder(~from=S.unknown, ~to=schema, ~flag=S.Flag.async)
+      let fn = S.asyncDecoder(~from=S.unknown, ~to=schema)
       fn->magic
     | #Convert =>
       let fn = S.decoder(~from=schema->S.reverse, ~to=S.unknown)
       fn->magic
     | #ConvertAsync =>
-      let fn = S.decoder(~from=schema->S.reverse, ~to=S.unknown, ~flag=S.Flag.async)
+      let fn = S.asyncDecoder(~from=schema->S.reverse, ~to=S.unknown)
       fn->magic
     | #Assert =>
       let fn = S.decoder(~from=S.unknown, ~to=schema->S.to(S.literal()->S.noValidation(true)))
@@ -107,7 +107,7 @@ let getCompiledCodeString = (
         fn->magic
       }
     | #ReverseConvertAsync => {
-        let fn = S.decoder(~from=schema, ~to=S.unknown, ~flag=S.Flag.async)
+        let fn = S.asyncDecoder(~from=schema, ~to=S.unknown)
         fn->magic
       }
     | #ReverseConvertToJson => {

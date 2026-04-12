@@ -82,9 +82,15 @@ let to = Sury.to;
 
 let parser = Sury.parser;
 
+let asyncParser = Sury.asyncParser;
+
 let decoder = Sury.decoder;
 
+let asyncDecoder = Sury.asyncDecoder;
+
 let decoder1 = Sury.decoder1;
+
+let asyncDecoder1 = Sury.asyncDecoder1;
 
 let parseOrThrow = Sury.parseOrThrow;
 
@@ -223,8 +229,11 @@ export {
   shape,
   to,
   parser,
+  asyncParser,
   decoder,
+  asyncDecoder,
   decoder1,
+  asyncDecoder1,
   parseOrThrow,
   parseAsyncOrThrow,
   assertOrThrow,

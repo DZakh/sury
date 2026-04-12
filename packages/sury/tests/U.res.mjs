@@ -5,7 +5,7 @@ import * as Stdlib_Dict from "rescript/lib/es6/Stdlib_Dict.js";
 import * as Primitive_option from "rescript/lib/es6/Primitive_option.js";
 import * as Primitive_exceptions from "rescript/lib/es6/Primitive_exceptions.js";
 
-let noopOpCode = S.decoder(S.unknown, S.unknown, undefined).toString();
+let noopOpCode = S.decoder(S.unknown, S.unknown).toString();
 
 function throwError(error) {
   throw error;
@@ -87,23 +87,23 @@ async function asyncAssertThrowsMessage(t, cb, errorMessage, message) {
 function getCompiledCodeString(schema, op, embedded) {
   let toFn = schema => {
     if (op === "ParseAsync") {
-      return S.decoder(S.unknown, schema, Primitive_option.some(S.Flag.async));
+      return S.asyncDecoder(S.unknown, schema);
     } else if (op === "Parse") {
-      return S.decoder(S.unknown, schema, undefined);
+      return S.decoder(S.unknown, schema);
     } else if (op === "ReverseConvertToJson") {
-      return S.decoder(schema, S.json, undefined);
+      return S.decoder(schema, S.json);
     } else if (op === "ReverseConvert") {
-      return S.decoder(schema, S.unknown, undefined);
+      return S.decoder(schema, S.unknown);
     } else if (op === "Convert") {
-      return S.decoder(S.reverse(schema), S.unknown, undefined);
+      return S.decoder(S.reverse(schema), S.unknown);
     } else if (op === "Assert") {
-      return S.decoder(S.unknown, S.to(schema, S.noValidation(S.literal(), true)), undefined);
+      return S.decoder(S.unknown, S.to(schema, S.noValidation(S.literal(), true)));
     } else if (op === "ReverseParse") {
-      return S.decoder(S.unknown, S.reverse(schema), undefined);
+      return S.decoder(S.unknown, S.reverse(schema));
     } else if (op === "ConvertAsync") {
-      return S.decoder(S.reverse(schema), S.unknown, Primitive_option.some(S.Flag.async));
+      return S.asyncDecoder(S.reverse(schema), S.unknown);
     } else {
-      return S.decoder(schema, S.unknown, Primitive_option.some(S.Flag.async));
+      return S.asyncDecoder(schema, S.unknown);
     }
   };
   let fn = toFn(schema);

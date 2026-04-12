@@ -349,9 +349,12 @@ let shape: (t<'value>, 'value => 'shape) => t<'shape>
 
 let to: (t<'from>, t<'to>) => t<'to>
 
-let parser: (~to: t<'value>, ~flag: flag=?) => 'any => 'value
-let decoder: (~from: t<'from>, ~to: t<'to>, ~flag: flag=?) => 'from => 'to
+let parser: (~to: t<'value>) => 'any => 'value
+let asyncParser: (~to: t<'value>) => 'any => promise<'value>
+let decoder: (~from: t<'from>, ~to: t<'to>) => 'from => 'to
+let asyncDecoder: (~from: t<'from>, ~to: t<'to>) => 'from => promise<'to>
 let decoder1: t<'value> => unknown => 'value
+let asyncDecoder1: t<'value> => unknown => promise<'value>
 
 let parseOrThrow: ('any, ~to: t<'value>) => 'value
 let parseAsyncOrThrow: ('any, ~to: t<'value>) => promise<'value>

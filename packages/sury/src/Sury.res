@@ -2961,16 +2961,28 @@ X.Object.defineProperty(
 // Builder functions
 // =============
 
-let parser = (~to as schema, ~flag=?) => {
-  getDecoder2(~s1=unknown, ~s2=schema->castToInternal, ~flag?)
+let parser = (~to as schema) => {
+  getDecoder2(~s1=unknown, ~s2=schema->castToInternal)
 }
 
-let decoder = (type from to, ~from: t<from>, ~to: t<to>, ~flag=?): (from => to) => {
-  getDecoder2(~s1=from->castToInternal->reverse, ~s2=to->castToInternal, ~flag?)
+let asyncParser = (~to as schema) => {
+  getDecoder2(~s1=unknown, ~s2=schema->castToInternal, ~flag=Flag.async)
+}
+
+let decoder = (type from to, ~from: t<from>, ~to: t<to>): (from => to) => {
+  getDecoder2(~s1=from->castToInternal->reverse, ~s2=to->castToInternal)
+}
+
+let asyncDecoder = (type from to, ~from: t<from>, ~to: t<to>): (from => promise<to>) => {
+  getDecoder2(~s1=from->castToInternal->reverse, ~s2=to->castToInternal, ~flag=Flag.async)
 }
 
 let decoder1 = (type value, schema: t<value>): (unknown => value) => {
   getDecoder(~s1=schema->castToInternal)
+}
+
+let asyncDecoder1 = (type value, schema: t<value>): (unknown => promise<value>) => {
+  getDecoder(~s1=schema->castToInternal, ~flag=Flag.async)
 }
 
 // =============

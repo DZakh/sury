@@ -1402,27 +1402,36 @@ try true->S.parseOrThrow(~to=schema) catch {
 }
 ```
 
-### **`parser`**
+### **`parser`** / **`asyncParser`**
 
-`(~to: S.t<'value>) => 'any => 'value`
+```
+S.parser: (~through: array<S.t<unknown>>=?, ~to: S.t<'value>) => 'any => 'value
+S.asyncParser: (~through: array<S.t<unknown>>=?, ~to: S.t<'value>) => 'any => promise<'value>
+```
 
-Returns a compiled parse function that validates input and transforms it to the schema's output type. This is the most performant way to parse values repeatedly.
+Returns a compiled parse function that validates input and transforms it to the schema's output type. This is the most performant way to parse values repeatedly. Use `~through` to chain intermediate schemas.
 
 ```rescript
 let parse = S.parser(~to=S.string)
 
 parse("Hello world!")
 // "Hello world!"
+
+// Async version for schemas with async transformations
+let parseAsync = S.asyncParser(~to=schemaWithAsyncTransform)
 ```
 
-### **`decoder`**
+### **`decoder`** / **`asyncDecoder`**
 
-`(~from: S.t<'from>, ~to: S.t<'to>, ~flag: S.Flag.t=?) => 'from => 'to`
+```
+S.decoder: (~from: S.t<'from>, ~through: array<S.t<unknown>>=?, ~to: S.t<'to>) => 'from => 'to
+S.asyncDecoder: (~from: S.t<'from>, ~through: array<S.t<unknown>>=?, ~to: S.t<'to>) => 'from => promise<'to>
+```
 
-Returns a compiled decode function that transforms values from one schema to another without input validation. You can pass `~flag=S.Flag.async` for an async decoder.
+Returns a compiled decode function that transforms values from one schema to another. Use `~through` to chain intermediate schemas.
 
 ```rescript
-// Compile a serializer (replaces makeConvertOrThrow(S.reverse(schema), S.unknown))
+// Compile a serializer
 let serialize = S.decoder(~from=schema, ~to=S.unknown)
 
 // Compile a JSON decoder
@@ -1432,12 +1441,15 @@ let decodeJson = S.decoder(~from=S.json, ~to=schema)
 let toJsonString = S.decoder(~from=schema, ~to=S.jsonString)
 
 // Compile an async decoder
-let decodeAsync = S.decoder(~from=S.unknown, ~to=schema, ~flag=S.Flag.async)
+let decodeAsync = S.asyncDecoder(~from=S.json, ~to=schema)
 ```
 
-### **`decoder1`**
+### **`decoder1`** / **`asyncDecoder1`**
 
-`(S.t<'value>) => unknown => 'value`
+```
+S.decoder1: S.t<'value> => unknown => 'value
+S.asyncDecoder1: S.t<'value> => unknown => promise<'value>
+```
 
 Returns a compiled decode function for a single schema, transforming from the schema's input type to its output type. This is useful for schemas with internal transformations.
 
