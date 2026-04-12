@@ -135,6 +135,36 @@ S.parseOrThrow(data, userSchema)
 - Make `S.record` accept two args
 - Update docs
 
+### Known bugs left over from the validation refactor (`val.validation: array<validationCheck>`)
+
+- **Refiners run before type guards when coerced via `.to`.** `parse` appends
+  refiner code to `val.codeFromPrev`, and `merge` emits `codeFromPrev ++
+  validation_code`, so `S.string->S.refine(...)->S.to(S.literal(false))` runs
+  the refiner on raw unknown input. A numeric input fails with the refinement
+  message instead of "Expected string, received 123". Fix: migrate refinements
+  off `codeFromPrev` onto `val.validation` as a distinct check kind. Failing
+  regression test already in place: `S_to_test.res › S.string->S.refine->S.to(S.literal)
+  reports type error before refinement error`.
+- **`noValidation` on a literal inside a union silently breaks dispatch.**
+  `literalDecoder` short-circuits when `expectedSchema.noValidation` is set
+  and emits no check at all, so there's nothing for the union discriminant
+  hoister to lift — that case becomes a catch-all. Fix: either emit the
+  equality check regardless of `noValidation` when the val ends up inside a
+  union, or reject `S.noValidation` on a literal-in-union at schema
+  construction time. Failing regression test: `S_noValidation_test.res ›
+  Union dispatch still works when a case has noValidation`.
+- **`err.received` is wrong for refine-chain vals on type failures.** Because
+  `B.refine` sets `~schema=prev.expected`, `val.schema` on a refined val
+  equals the target schema, and `failInvalidType` reads `val.schema` for
+  `received`. So `err.received === err.expected` on a primitive type failure.
+  User-visible reason text is unaffected (it uses `input->stringify`) but
+  programmatic consumers reading `err.received` get the target schema instead
+  of the source type. Fix: either have the fail function reach through
+  `val.prev.schema` (with a comment on the invariant that validation-owning
+  vals always have a prev) or stop mutating `val.schema` to the target in
+  `refine` and walk the chain differently for "Expected X" messages.
+  FIXME is tagged at `Sury.res:failInvalidType`.
+
 ## v11 initial
 
 - Add `s.parseChild` to EffectContext ???
