@@ -22,7 +22,7 @@
 - [Nullables](#nullables)
 - [Nullish](#nullish)
 - [Objects](#objects)
-  - [Literal shorthand](#literal-shorthand)
+  - [Literal fields](#literal-fields)
   - [Advanced object schema](#advanced-object-schema)
   - [`strict`](#strict)
   - [`strip`](#strip)
@@ -78,7 +78,7 @@ Let's start with a simple object schema for the purpose of this guide. I use the
 ```ts
 import * as S from "sury"; // 4.3 kB (min + gzip)
 
-const Player = S.schema({
+const playerSchema = S.schema({
   username: S.string,
   xp: S.number,
 });
@@ -91,14 +91,14 @@ const Player = S.schema({
 The most basic use-case for a schema is to parse unknown data. If the data is valid, the function will return a strongly-typed deep clone of the input. (With stripped fields by default)
 
 ```ts
-S.parser(Player)({ username: "billie", xp: 100 });
+S.parser(playerSchema)({ username: "billie", xp: 100 });
 // => returns { username: "billie", xp: 100 }
 ```
 
 If the data is invalid, the function will throw an error.
 
 ```ts
-S.parser(Player)({ username: "billie", xp: "not a number" });
+S.parser(playerSchema)({ username: "billie", xp: "not a number" });
 // => throws S.Error: Failed at ["xp"]: Expected number, got string
 ```
 
@@ -106,18 +106,18 @@ S.parser(Player)({ username: "billie", xp: "not a number" });
 
 ```ts
 const result = S.safe(() =>
-  S.parser(Player)({ username: "billie", xp: "not a number" })
+  S.parser(playerSchema)({ username: "billie", xp: "not a number" })
 );
 // Or for async operations:
 const result = await S.safeAsync(() =>
-  S.parseAsyncOrThrow({ username: "billie", xp: "not a number" }, Player)
+  S.asyncParser(playerSchema)({ username: "billie", xp: "not a number" })
 );
 
 // The result type is a discriminated union, so you can handle both cases conveniently:
 if (!result.success) {
   result.error; // handle error
 } else {
-  result.data; // do stuff
+  result.value; // do stuff
 }
 ```
 
@@ -128,13 +128,13 @@ if (!result.success) {
 **Sury** automatically infers the static type from the schema definition. It has a really nice type on hover, which you can extract by using `S.Infer<typeof schema>`, `S.Output<typeof schema>`, or `S.Input<typeof schema>`.
 
 ```ts
-const Player = S.schema({
+const playerSchema = S.schema({
   username: S.string,
   xp: S.number,
 });
 //? S.Schema<{ username: string; xp: number }, { username: string; xp: number }>
 
-type Player = S.Infer<typeof Player>;
+type Player = S.Infer<typeof playerSchema>;
 
 // Use it in your code
 const player: Player = { username: "billie", xp: 100 };
@@ -145,7 +145,7 @@ const player: Player = { username: "billie", xp: 100 };
 If you wonder why the schema needs an `Input` type, it's because **Sury** supports serializing data back to the initial format.
 
 ```ts
-S.encoder(Player)({ username: "billie", xp: 100 });
+S.encoder(playerSchema)({ username: "billie", xp: 100 });
 // => returns { username: "billie", xp: 100 }
 ```
 
@@ -156,7 +156,7 @@ Doesn't look like a big deal, with the example above. But if you have a more com
 //    S.to - for easy & fast coercion
 //    S.shape - for fields transformation
 //    S.meta - with examples in Output format
-const User = S.schema({
+const userSchema = S.schema({
   USER_ID: S.string.with(S.to, S.bigint),
   USER_NAME: S.string,
 })
@@ -257,7 +257,7 @@ console.log(
 But for better interoperability, you can convert it to the official JSON Schema specification. Let's take the `User` schema from the example above and convert it:
 
 ```ts
-S.toJSONSchema(User);
+S.toJSONSchema(userSchema);
 // {
 //   type: "object",
 //   additionalProperties: true,
@@ -421,7 +421,7 @@ S.email(S.string); // Invalid email address
 S.url(S.string); // Invalid url
 S.uuid(S.string); // Invalid UUID
 S.cuid(S.string); // Invalid CUID
-S.pattern(S.string, %re(`/[0-9]/`)); // Invalid
+S.pattern(S.string, /[0-9]/); // Invalid
 
 S.trim(S.string); // trim whitespaces
 ```
@@ -466,7 +466,7 @@ const schema = S.to(S.string, S.date);
 
 ```ts
 S.max(S.number, 5); // Number must be lower than or equal to 5
-S.min(S.number 5); // Number must be greater than or equal to 5
+S.min(S.number, 5); // Number must be greater than or equal to 5
 ```
 
 Optionally, you can pass in a second argument to provide a custom error message.
@@ -560,7 +560,7 @@ Besides passing schemas for values in `S.schema`, you can also pass **any** Js v
 const meSchema = S.schema({
   id: S.number,
   name: "Dmitry Zakharov",
-  age: 23
+  age: 23,
   kind: "human",
   metadata: {
     description: "What?? Even an object with NaN works! Yes 🔥",
@@ -622,13 +622,10 @@ const personSchema = S.strict(
   })
 );
 
-S.parser(
-  {
-    name: "bob dylan",
-    extraKey: 61,
-  },
-  personSchema
-);
+S.parser(personSchema)({
+  name: "bob dylan",
+  extraKey: 61,
+});
 // => throws S.Error
 ```
 
@@ -683,14 +680,14 @@ const stringArraySchema = S.array(S.string);
 
 ```ts
 S.max(S.array(S.string), 5); // Array must be 5 or fewer items long
-S.min(S.array(S.string) 5); // Array must be 5 or more items long
-S.length(S.array(S.string) 5); // Array must be exactly 5 items long
+S.min(S.array(S.string), 5); // Array must be 5 or more items long
+S.length(S.array(S.string), 5); // Array must be exactly 5 items long
 ```
 
-### Unnest
+### Compact Columns
 
 ```ts
-const schema = S.unnest(
+const schema = S.compactColumns(
   S.schema({
     id: S.string,
     name: S.nullable(S.string),
@@ -707,7 +704,7 @@ const value = S.encoder(schema)([
 
 The helper function is inspired by the article [Boosting Postgres INSERT Performance by 2x With UNNEST](https://www.timescale.com/blog/boosting-postgres-insert-performance). It allows you to flatten a nested array of objects into arrays of values by field.
 
-The main concern of the approach described in the article is usability. And ReScript Schema completely solves the problem, providing a simple and intuitive API that is even more performant than `S.array`.
+The main concern of the approach described in the article is usability. And **Sury** completely solves the problem, providing a simple and intuitive API that is even more performant than `S.array`.
 
 <details>
 
@@ -837,7 +834,7 @@ Creating a schema for a enum-like union was never so easy:
 ```ts
 const schema = S.union(["Win", "Draw", "Loss"]);
 
-typeof S.Infer<schema>; // Win | Draw | Loss
+type Schema = S.Infer<typeof schema>; // "Win" | "Draw" | "Loss"
 ```
 
 ## Records
@@ -900,11 +897,11 @@ class Test {
   name: string;
 }
 
-const TestSchema = S.instance(Test);
+const testSchema = S.instance(Test);
 
 const blob: any = "whatever";
-S.parser(TestSchema)(new Test()); // passes
-S.parser(TestSchema)(blob); // throws S.Error: Expected Test, received "whatever"
+S.parser(testSchema)(new Test()); // passes
+S.parser(testSchema)(blob); // throws S.Error: Expected Test, received "whatever"
 ```
 
 ## Meta
@@ -937,10 +934,10 @@ Use `S.brand` to attach a nominal brand to a schema's output. This is a TypeScri
 
 ```ts
 // Brand a string as a UserId
-const UserId = S.string.with(S.brand, "UserId");
-type UserId = S.Infer<typeof UserId>; // S.Brand<string, "UserId">
+const userIdSchema = S.string.with(S.brand, "UserId");
+type UserId = S.Infer<typeof userIdSchema>; // S.Brand<string, "UserId">
 
-const id: UserId = S.parser(UserId)("u_123"); // OK
+const id: UserId = S.parser(userIdSchema)("u_123"); // OK
 const asString: string = id; // OK: branded value is assignable to string
 // @ts-expect-error - A plain string is not assignable to a branded string
 const notId: UserId = "u_123";
@@ -949,15 +946,15 @@ const notId: UserId = "u_123";
 You can define brands for refined constraints, like even numbers:
 
 ```ts
-const even = S.number
+const evenSchema = S.number
   .with(S.refine, (value) => value % 2 === 0, {
     error: "Expected an even number",
   })
   .with(S.brand, "even");
 
-type Even = S.Infer<typeof even>; // S.Brand<number, "even">
+type Even = S.Infer<typeof evenSchema>; // S.Brand<number, "even">
 
-const good: Even = S.parser(even)(2); // OK
+const good: Even = S.parser(evenSchema)(2); // OK
 // @ts-expect-error - number is not assignable to brand "even"
 const bad: Even = 5;
 ```
@@ -1026,7 +1023,7 @@ const nodeSchema = S.recursive<Node, Node>("Node", (nodeSchema) =>
 **Sury** lets you provide custom validation logic via refinements. Refinements let you define checks that are not expressible in the type system alone — for example, checking that a number is positive or that a string is a valid URL.
 
 ```ts
-const positiveNumber = S.number.with(S.refine, (value) => value > 0);
+const positiveNumberSchema = S.number.with(S.refine, (value) => value > 0);
 ```
 
 Refinement functions should return `true` to indicate success or `false` to signal failure. By default, a failed refinement throws with the message `"Refinement failed"`.
@@ -1046,7 +1043,7 @@ const shortStringSchema = S.string.with(S.refine, (value) => value.length <= 255
 When refining an object schema, you can use the `path` option to attach the error to a specific field:
 
 ```ts
-const passwordForm = S.schema({
+const passwordFormSchema = S.schema({
   password: S.string,
   confirm: S.string,
 }).with(S.refine, (data) => data.password === data.confirm, {
@@ -1060,7 +1057,7 @@ const passwordForm = S.schema({
 Refinements can be chained. Each refinement is applied in order:
 
 ```ts
-const evenPositive = S.number
+const evenPositiveSchema = S.number
   .with(S.refine, (val) => val > 0, { error: "Must be positive" })
   .with(S.refine, (val) => val % 2 === 0, { error: "Must be even" });
 ```
@@ -1082,14 +1079,11 @@ const userSchema = S.schema({
 
 type User = S.Infer<typeof userSchema>; // { id: string, name: string }
 
-// Need to use parseAsync which will return a promise with S.Result
-await S.parseAsyncOrThrow(
-  {
-    id: "1",
-    name: "John",
-  },
-  userSchema
-);
+// Need to use asyncParser for schemas with async transformations
+await S.asyncParser(userSchema)({
+  id: "1",
+  name: "John",
+});
 ```
 
 ### **`shape`**
@@ -1118,20 +1112,17 @@ The library provides a bunch of built-in operations that can be used to parse, c
 
 Parsing means that the input value is validated against the schema and transformed to the expected output type. You can use the following operations to parse values:
 
-| Operation                | Interface                                              | Description                                                   |
-| ------------------------ | ------------------------------------------------------ | ------------------------------------------------------------- |
-| S.parser                 | `(Schema<Output, Input>) => (data: unknown) => Output` | Parses any value with the schema                              |
-| S.parseJsonOrThrow       | `(Json, Schema<Output, Input>) => Output`              | Parses JSON value with the schema                             |
-| S.parseJsonStringOrThrow | `(string, Schema<Output, Input>) => Output`            | Parses JSON string with the schema                            |
-| S.parseAsyncOrThrow      | `(unknown, Schema<Output, Input>) => Promise<Output>`  | Parses any value with the schema having async transformations |
+| Operation      | Interface                                                       | Description                                                   |
+| -------------- | --------------------------------------------------------------- | ------------------------------------------------------------- |
+| S.parser       | `(Schema<Output, Input>) => (data: unknown) => Output`          | Parses any value with the schema                              |
+| S.asyncParser  | `(Schema<Output, Input>) => (data: unknown) => Promise<Output>` | Parses any value with the schema having async transformations |
 
 For advanced users you can only transform to the output type without type validations. But be careful, since the input type is not checked:
 
-| Operation                    | Interface                                      | Description                             |
-| ---------------------------- | ---------------------------------------------- | --------------------------------------- |
-| S.decoder                    | `(Schema<Output, Input>) => (Input) => Output` | Converts input value to the output type |
-| S.convertToJsonOrThrow       | `(Input, Schema<Output, Input>) => Json`       | Converts input value to JSON            |
-| S.convertToJsonStringOrThrow | `(Input, Schema<Output, Input>) => string`     | Converts input value to JSON string     |
+| Operation       | Interface                                                | Description                                                      |
+| --------------- | -------------------------------------------------------- | ---------------------------------------------------------------- |
+| S.decoder       | `(Schema<Output, Input>) => (Input) => Output`           | Converts input value to the output type                          |
+| S.asyncDecoder  | `(Schema<Output, Input>) => (Input) => Promise<Output>`  | Converts input value to the output type with async transforms    |
 
 Note, that in this case only type validations are skipped. If your schema has refinements or transforms, they will be applied.
 
@@ -1139,12 +1130,10 @@ Also, you can use `S.noValidation(schema, true)` helper to turn off type validat
 
 More often than converting input to output, you'll need to perform the reversed operation. It's usually called "serializing" or "decoding". The ReScript Schema has a unique mental model and provides an ability to reverse any schema with `S.reverse` which you can later use with all possible kinds of operations. But for convinence, there's a few helper functions that can be used to convert output values to the initial format:
 
-| Operation                           | Interface                                           | Description                                                           |
-| ----------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------- |
-| S.encoder                           | `(Schema<Output, Input>) => (Output) => Input`      | Converts schema value to the output type                              |
-| S.reverseConvertToJsonOrThrow       | `(Output, Schema<Output, Input>) => Json`           | Converts schema value to JSON                                         |
-| S.reverseConvertToJsonStringOrThrow | `(Output, Schema<Output, Input>) => string`         | Converts schema value to JSON string                                  |
-| S.reverseConvertAsyncOrThrow        | `(Output, Schema<Output, Input>) => promise<Input>` | Converts schema value to the output type having async transformations |
+| Operation       | Interface                                              | Description                                                           |
+| --------------- | ------------------------------------------------------ | --------------------------------------------------------------------- |
+| S.encoder       | `(Schema<Output, Input>) => (Output) => Input`         | Converts schema value to the input type                               |
+| S.asyncEncoder  | `(Schema<Output, Input>) => (Output) => Promise<Input>`| Converts schema value to the input type with async transformations    |
 
 This is literally the same as convert operations applied to the reversed schema.
 
@@ -1262,7 +1251,7 @@ const schema = S.string.with(
 S.parser(schema)("123"); //? 123
 S.parser(schema)("abc"); //? throws: Invalid number
 
-S.encodeOrThrow(schema)(123); //? "123"
+S.encoder(schema)(123); //? "123"
 ```
 
 > 🧠 Prefer to use built-in `S.string.with(S.to, S.number)` instead of custom transformation functions when possible.
@@ -1270,7 +1259,7 @@ S.encodeOrThrow(schema)(123); //? "123"
 ### **`name`**
 
 ```ts
-const schema = S.schema({ abc: 123 }.with(S.meta, { name: "Abc" }));
+const schema = S.schema({ abc: 123 }).with(S.meta, { name: "Abc" });
 
 schema.name; // "Abc"
 ```
@@ -1316,7 +1305,7 @@ Or the async version:
 
 ```ts
 const result = await S.safeAsync(async () => {
-  const passed = await S.parseAsyncOrThrow(data, S.schema(S.boolean));
+  const passed = await S.asyncParser(S.boolean)(data);
   return passed ? 1 : 0;
 });
 ```
