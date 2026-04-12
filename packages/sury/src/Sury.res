@@ -2210,9 +2210,6 @@ let rec parse = (input: val) => {
         // Otherwise, we assume internal transformations are present,
         // and expect the decoder itself to handle refinements and manage isInput/isOutput flags.
         if !(valRef.contents.isOutput->Option.getUnsafe) {
-          valRef.contents.isInput = Some(true)
-          valRef.contents.isOutput = Some(true)
-
           let hasInputRefiner = valRef.contents.expected.inputRefiner->Obj.magic
           let hasRefiner = valRef.contents.expected.refiner->Obj.magic
           if hasInputRefiner || hasRefiner {
@@ -2235,10 +2232,10 @@ let rec parse = (input: val) => {
             }
             if checks->Js.Array2.length > 0 {
               valRef.contents = valRef.contents->B.refine(~checks)
-              valRef.contents.isInput = Some(true)
-              valRef.contents.isOutput = Some(true)
             }
           }
+          valRef.contents.isInput = Some(true)
+          valRef.contents.isOutput = Some(true)
         }
       }
     }

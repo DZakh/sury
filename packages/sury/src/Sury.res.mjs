@@ -1269,8 +1269,6 @@ function parse$1(input) {
       } else {
         valRef = loopInput.e.decoder(loopInput);
         if (!valRef.io) {
-          valRef.ii = true;
-          valRef.io = true;
           let hasInputRefiner = valRef.e.inputRefiner;
           let hasRefiner = valRef.e.refiner;
           if (hasInputRefiner || hasRefiner) {
@@ -1289,12 +1287,11 @@ function parse$1(input) {
             }
             if (checks.length > 0) {
               valRef = refine(valRef, undefined, checks, undefined);
-              valRef.ii = true;
-              valRef.io = true;
             }
             
           }
-          
+          valRef.ii = true;
+          valRef.io = true;
         }
         
       }
