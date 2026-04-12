@@ -10,14 +10,14 @@ module CommonWithNested = {
   test("Successfully parses", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(any->S.parseOrThrow(schema), value)
+    t->Assert.deepEqual(any->S.parseOrThrow(~to=schema), value)
   })
 
   test("Fails to parse", t => {
     let schema = factory()
 
     t->U.assertThrowsMessage(
-      () => invalidAny->S.parseOrThrow(schema),
+      () => invalidAny->S.parseOrThrow(~to=schema),
       `Expected string[], received true`,
     )
   })
@@ -26,7 +26,7 @@ module CommonWithNested = {
     let schema = factory()
 
     t->U.assertThrowsMessage(
-      () => nestedInvalidAny->S.parseOrThrow(schema),
+      () => nestedInvalidAny->S.parseOrThrow(~to=schema),
       `Failed at ["1"]: Expected string, received 1`,
     )
   })
@@ -34,7 +34,7 @@ module CommonWithNested = {
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), any)
+    t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), any)
   })
 
   test("Compiled parse code snapshot", t => {
@@ -99,7 +99,7 @@ test("Successfully parses matrix", t => {
   let schema = S.array(S.array(S.string))
 
   t->Assert.deepEqual(
-    %raw(`[["a", "b"], ["c", "d"]]`)->S.parseOrThrow(schema),
+    %raw(`[["a", "b"], ["c", "d"]]`)->S.parseOrThrow(~to=schema),
     [["a", "b"], ["c", "d"]],
   )
 })
@@ -108,7 +108,7 @@ test("Fails to parse matrix", t => {
   let schema = S.array(S.array(S.string))
 
   t->U.assertThrowsMessage(
-    () => %raw(`[["a", 1], ["c", "d"]]`)->S.parseOrThrow(schema),
+    () => %raw(`[["a", 1], ["c", "d"]]`)->S.parseOrThrow(~to=schema),
     `Failed at ["0"]["1"]: Expected string, received 1`,
   )
 })
@@ -117,7 +117,7 @@ test("Successfully parses array of optional items", t => {
   let schema = S.array(S.option(S.string))
 
   t->Assert.deepEqual(
-    %raw(`["a", undefined, undefined, "b"]`)->S.parseOrThrow(schema),
+    %raw(`["a", undefined, undefined, "b"]`)->S.parseOrThrow(~to=schema),
     [Some("a"), None, None, Some("b")],
   )
 })

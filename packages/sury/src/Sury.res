@@ -3132,79 +3132,64 @@ X.Object.defineProperty(
   },
 )
 
-let makeConvertOrThrow = (type from to, from: t<from>, to: t<to>, ~flag=?): (from => to) => {
-  getDecoder2(~s1=from->castToInternal->reverse, ~s2=to->castToInternal, ~flag?)
+// =============
+// Builder functions
+// =============
+
+let parser = (~to as schema) => {
+  getDecoder2(~s1=unknown, ~s2=schema->castToInternal)
 }
-let makeAsyncConvertOrThrow = (type from to, from: t<from>, to: t<to>, ~flag=Flag.none): (
-  from => promise<to>
-) =>
-  getDecoder2(
-    ~s1=from->castToInternal->reverse,
-    ~s2=to->castToInternal,
-    ~flag=flag->Flag.with(Flag.async),
-  )
+
+let asyncParser = (~to as schema) => {
+  getDecoder2(~s1=unknown, ~s2=schema->castToInternal, ~flag=Flag.async)
+}
+
+let decoder = (type from to, ~from: t<from>, ~to: t<to>): (from => to) => {
+  getDecoder2(~s1=from->castToInternal->reverse, ~s2=to->castToInternal)
+}
+
+let asyncDecoder = (type from to, ~from: t<from>, ~to: t<to>): (from => promise<to>) => {
+  getDecoder2(~s1=from->castToInternal->reverse, ~s2=to->castToInternal, ~flag=Flag.async)
+}
+
+let decoder1 = (type value, schema: t<value>): (unknown => value) => {
+  getDecoder(~s1=schema->castToInternal)
+}
+
+let asyncDecoder1 = (type value, schema: t<value>): (unknown => promise<value>) => {
+  getDecoder(~s1=schema->castToInternal, ~flag=Flag.async)
+}
 
 // =============
 // Operations
 // =============
 
-@inline
-let parseOrThrow = (any, schema) => {
-  getDecoder2(~s1=unknown, ~s2=schema->castToInternal)(any)
-}
-
-let parseJsonOrThrow = (any, schema) => {
-  getDecoder2(~s1=json, ~s2=schema->castToInternal)(any)
-}
-
-let parseJsonStringOrThrow = (any, schema) => {
-  getDecoder2(~s1=jsonString, ~s2=schema->castToInternal)(any)
-}
-
-let parseAsyncOrThrow = (any, schema) => {
-  getDecoder2(~s1=unknown, ~s2=schema->castToInternal, ~flag=Flag.async)(any)
-}
-
-let convertOrThrow = (input, schema) => {
-  getDecoder(~s1=schema->castToInternal)(input)
-}
-
-let convertToJsonOrThrow = (input, schema) => {
-  getDecoder2(~s1=schema->castToInternal, ~s2=json)(input)
-}
-
-let convertToJsonStringOrThrow = (input, schema) => {
-  getDecoder2(~s1=schema->castToInternal, ~s2=jsonString)(input)
-}
-
-let convertAsyncOrThrow = (input, schema) => {
-  getDecoder(~s1=schema->castToInternal, ~flag=Flag.async)(input)
-}
-
-let reverseConvertOrThrow = (value, schema) => {
-  getDecoder(~s1=schema->castToInternal->reverse)(value)
-}
-
-let reverseConvertToJsonOrThrow = (value, schema) => {
-  getDecoder2(~s1=schema->castToInternal->reverse, ~s2=json)(value)
-}
-
-let reverseConvertToJsonStringOrThrow = (value: 'value, schema: t<'value>, ~space=?): string => {
-  getDecoder2(
-    ~s1=schema->castToInternal->reverse,
-    ~s2=switch space {
-    | None
-    | Some(0) => jsonString
-    | Some(v) => jsonStringWithSpace(v)->castToInternal
-    },
-  )(value)
-}
-
 let assertResult = unit->copySchema
 assertResult.noValidation = Some(true)
 
-let assertOrThrow = (any, schema) => {
+@inline
+let parseOrThrow = (any, ~to as schema) => {
+  getDecoder2(~s1=unknown, ~s2=schema->castToInternal)(any)
+}
+
+let parseAsyncOrThrow = (any, ~to as schema) => {
+  getDecoder2(~s1=unknown, ~s2=schema->castToInternal, ~flag=Flag.async)(any)
+}
+
+let assertOrThrow = (any, ~to as schema) => {
   getDecoder3(~s1=unknown, ~s2=schema->castToInternal, ~s3=assertResult)(any)
+}
+
+let assertAsyncOrThrow = (any, ~to as schema) => {
+  getDecoder3(~s1=unknown, ~s2=schema->castToInternal, ~s3=assertResult, ~flag=Flag.async)(any)
+}
+
+let decodeOrThrow = (any, ~from, ~to) => {
+  getDecoder2(~s1=from->castToInternal->reverse, ~s2=to->castToInternal)(any)
+}
+
+let decodeAsyncOrThrow = (any, ~from, ~to) => {
+  getDecoder2(~s1=from->castToInternal->reverse, ~s2=to->castToInternal, ~flag=Flag.async)(any)
 }
 
 let isAsync = schema => {
@@ -6523,15 +6508,15 @@ let nullableAsOption = schema => {
 // JS/TS API
 // =============
 
-let parser = %raw(`(...args) => getDecoder(unknown, ...args)`)
+let js_parser = %raw(`(...args) => getDecoder(unknown, ...args)`)
 
-let asyncParser = %raw(`(...args) => getDecoder(unknown, ...args, 1)`)
+let js_asyncParser = %raw(`(...args) => getDecoder(unknown, ...args, 1)`)
 
-let asyncDecoder = %raw(`(...args) => getDecoder(...args, 1)`)
+let js_asyncDecoder = %raw(`(...args) => getDecoder(...args, 1)`)
 
-let encoder = %raw(`(...args) => getDecoder(...args.map(reverse))`)
+let js_encoder = %raw(`(...args) => getDecoder(...args.map(reverse))`)
 
-let asyncEncoder = %raw(`(...args) => getDecoder(...args.map(reverse), 1)`)
+let js_asyncEncoder = %raw(`(...args) => getDecoder(...args.map(reverse), 1)`)
 
 let js_assert = (schema, data) => {
   getDecoder3(~s1=unknown, ~s2=schema->castToInternal, ~s3=assertResult)(data)
@@ -7207,7 +7192,7 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
     | {allOf: definitions} => anySchema->refine(data => {
         definitions->Js.Array2.every(d => {
           try {
-            data->assertOrThrow(d->definitionToSchema)
+            data->assertOrThrow(~to=d->definitionToSchema)
             true
           } catch {
           | _ => false
@@ -7220,7 +7205,7 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
         let validCount = ref(0)
         definitions->Js.Array2.forEach(d => {
           try {
-            let _ = data->assertOrThrow(d->definitionToSchema)
+            let _ = data->assertOrThrow(~to=d->definitionToSchema)
             validCount := validCount.contents + 1
           } catch {
           | _ => ()
@@ -7230,7 +7215,7 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
       }, ~error="Should pass exactly one schema according to the oneOf property.")
     | {not} => anySchema->refine(data => {
         try {
-          let _ = data->assertOrThrow(not->definitionToSchema)
+          let _ = data->assertOrThrow(~to=not->definitionToSchema)
           false
         } catch {
         | _ => true
@@ -7305,16 +7290,16 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
         let elseSchema = else_->definitionToSchema
         anySchema->refine(data => {
           let passed = try {
-            let _ = data->assertOrThrow(ifSchema)
+            let _ = data->assertOrThrow(~to=ifSchema)
             true
           } catch {
           | _ => false
           }
           try {
             if passed {
-              data->assertOrThrow(thenSchema)
+              data->assertOrThrow(~to=thenSchema)
             } else {
-              data->assertOrThrow(elseSchema)
+              data->assertOrThrow(~to=elseSchema)
             }
             true
           } catch {

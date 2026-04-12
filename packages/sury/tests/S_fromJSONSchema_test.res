@@ -10,7 +10,7 @@ let roundTrip = schema => schema->S.toJSONSchema->S.fromJSONSchema
 let jsonRoundTrip = js => js->S.fromJSONSchema->S.toJSONSchema
 
 // Helper for parsing
-let parse = (schema, value) => value->S.parseOrThrow(schema)->Obj.magic
+let parse = (schema, value) => value->S.parseOrThrow(~to=schema)->Obj.magic
 
 // Helper for deepEqual
 let eq = (a, b) => JSON.stringify(a) == JSON.stringify(b)

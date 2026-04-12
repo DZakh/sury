@@ -10,20 +10,20 @@ module CommonWithNested = {
   test("Successfully parses", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(any->S.parseOrThrow(schema), value)
+    t->Assert.deepEqual(any->S.parseOrThrow(~to=schema), value)
   })
 
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), any)
+    t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), any)
   })
 
   test("Fails to parse", t => {
     let schema = factory()
 
     t->U.assertThrowsMessage(
-      () => invalidAny->S.parseOrThrow(schema),
+      () => invalidAny->S.parseOrThrow(~to=schema),
       `Expected { [key: string]: string; }, received true`,
     )
   })
@@ -32,7 +32,7 @@ module CommonWithNested = {
     let schema = factory()
 
     t->U.assertThrowsMessage(
-      () => nestedInvalidAny->S.parseOrThrow(schema),
+      () => nestedInvalidAny->S.parseOrThrow(~to=schema),
       `Failed at ["key2"]: Expected string, received true`,
     )
   })
@@ -98,7 +98,7 @@ test("Successfully parses dict with int keys", t => {
   let schema = S.dict(S.string)
 
   t->Assert.deepEqual(
-    %raw(`{1:"b",2:"d"}`)->S.parseOrThrow(schema),
+    %raw(`{1:"b",2:"d"}`)->S.parseOrThrow(~to=schema),
     Dict.fromArray([("1", "b"), ("2", "d")]),
   )
 })
@@ -109,7 +109,7 @@ test("Applies operation for each item on serializing", t => {
   let schema = S.dict(S.jsonString->S.to(S.int))
 
   t->Assert.deepEqual(
-    Dict.fromArray([("a", 1), ("b", 2)])->S.reverseConvertOrThrow(schema),
+    Dict.fromArray([("a", 1), ("b", 2)])->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{
         "a": "1",
         "b": "2",
@@ -121,7 +121,7 @@ test("Fails to serialize dict item", t => {
   let schema = S.dict(S.string->S.refine(_ => false, ~error="User error"))
 
   t->U.assertThrowsMessage(
-    () => Dict.fromArray([("a", "aa"), ("b", "bb")])->S.reverseConvertOrThrow(schema),
+    () => Dict.fromArray([("a", "aa"), ("b", "bb")])->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     `Failed at ["a"]: User error`,
   )
 })
@@ -130,7 +130,7 @@ test("Successfully parses dict with optional items", t => {
   let schema = S.dict(S.option(S.string))
 
   t->Assert.deepEqual(
-    %raw(`{"key1":"value1","key2":undefined}`)->S.parseOrThrow(schema),
+    %raw(`{"key1":"value1","key2":undefined}`)->S.parseOrThrow(~to=schema),
     Dict.fromArray([("key1", Some("value1")), ("key2", None)]),
   )
 })

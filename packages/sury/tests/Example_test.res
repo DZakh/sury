@@ -39,7 +39,7 @@ let filmSchema = S.object(s => {
 
 test("Example", t => {
   t->Assert.deepEqual(
-    %raw(`{"Id": 1, "Title": "My first film", "Rating": "R", "Age": 17}`)->S.parseOrThrow(
+    %raw(`{"Id": 1, "Title": "My first film", "Rating": "R", "Age": 17}`)->S.parseOrThrow(~to=
       filmSchema,
     ),
     {
@@ -57,7 +57,7 @@ test("Example", t => {
       title: "Sad & sed",
       rating: ParentalStronglyCautioned,
       deprecatedAgeRestriction: None,
-    }->S.reverseConvertToJsonOrThrow(filmSchema),
+    }->S.decodeOrThrow(~from=filmSchema, ~to=S.json),
     %raw(`{
         "Id": 2,
         "Title": "Sad & sed",
@@ -99,7 +99,7 @@ test("Custom schema", t => {
         ->Obj.magic
         ->Set.forEach(
           item => {
-            output->Set.add(S.parseOrThrow(item, itemSchema))
+            output->Set.add(S.parseOrThrow(item, ~to=itemSchema))
           },
         )
         output
@@ -111,15 +111,15 @@ test("Custom schema", t => {
   let intSetSchema = mySet(S.int)
 
   t->Assert.deepEqual(
-    S.parseOrThrow(%raw(`new Set([1, 2, 3])`), intSetSchema),
+    S.parseOrThrow(%raw(`new Set([1, 2, 3])`), ~to=intSetSchema),
     Set.fromArray([1, 2, 3]),
   )
   t->U.assertThrowsMessage(
-    () => S.parseOrThrow(%raw(`new Set([1, 2, "3"])`), intSetSchema),
+    () => S.parseOrThrow(%raw(`new Set([1, 2, "3"])`), ~to=intSetSchema),
     `Expected int32, received "3"`,
   )
   t->U.assertThrowsMessage(
-    () => S.parseOrThrow(%raw(`[1, 2, 3]`), intSetSchema),
+    () => S.parseOrThrow(%raw(`[1, 2, 3]`), ~to=intSetSchema),
     `Expected Set.t<int32>, received [1, 2, 3]`,
   )
 })

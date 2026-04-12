@@ -6,7 +6,7 @@ open Ava
 //     var $_$c = $_$wf(3);␊ 
 //     return $_$w(3, 444, $_$c), i;␊ 
 // }
-let noopOpCode: string = (S.makeConvertOrThrow(S.unknown, S.unknown)->Obj.magic)["toString"]()
+let noopOpCode: string = (S.decoder(~from=S.unknown, ~to=S.unknown)->Obj.magic)["toString"]()
 
 external magic: 'a => 'b = "%identity"
 external castAnyToUnknown: 'any => unknown = "%identity"
@@ -84,34 +84,34 @@ let getCompiledCodeString = (
   let toFn = schema =>
     switch op {
     | #Parse =>
-      let fn = S.makeConvertOrThrow(S.unknown, schema)
+      let fn = S.decoder(~from=S.unknown, ~to=schema)
       fn->magic
     | #ParseAsync =>
-      let fn = S.makeAsyncConvertOrThrow(S.unknown, schema)
+      let fn = S.asyncDecoder(~from=S.unknown, ~to=schema)
       fn->magic
     | #Convert =>
-      let fn = S.makeConvertOrThrow(schema->S.reverse, S.unknown)
+      let fn = S.decoder(~from=schema->S.reverse, ~to=S.unknown)
       fn->magic
     | #ConvertAsync =>
-      let fn = S.makeAsyncConvertOrThrow(schema->S.reverse, S.unknown)
+      let fn = S.asyncDecoder(~from=schema->S.reverse, ~to=S.unknown)
       fn->magic
     | #Assert =>
-      let fn = S.makeConvertOrThrow(S.unknown, schema->S.to(S.literal()->S.noValidation(true)))
+      let fn = S.decoder(~from=S.unknown, ~to=schema->S.to(S.literal()->S.noValidation(true)))
       fn->magic
     | #ReverseParse => {
-        let fn = S.makeConvertOrThrow(S.unknown, schema->S.reverse)
+        let fn = S.decoder(~from=S.unknown, ~to=schema->S.reverse)
         fn->magic
       }
     | #ReverseConvert => {
-        let fn = S.makeConvertOrThrow(schema, S.unknown)
+        let fn = S.decoder(~from=schema, ~to=S.unknown)
         fn->magic
       }
     | #ReverseConvertAsync => {
-        let fn = S.makeAsyncConvertOrThrow(schema, S.unknown)
+        let fn = S.asyncDecoder(~from=schema, ~to=S.unknown)
         fn->magic
       }
     | #ReverseConvertToJson => {
-        let fn = S.makeConvertOrThrow(schema, S.json)
+        let fn = S.decoder(~from=schema, ~to=S.json)
         fn->magic
       }
     }
@@ -201,8 +201,8 @@ let assertEqualSchemas: (
 let assertReverseParsesBack = (t, schema: S.t<'value>, value: 'value) => {
   t->Assert.unsafeDeepEqual(
     value
-    ->S.reverseConvertOrThrow(schema)
-    ->S.parseOrThrow(schema),
+    ->S.decodeOrThrow(~from=schema, ~to=S.unknown)
+    ->S.parseOrThrow(~to=schema),
     value,
   )
 }

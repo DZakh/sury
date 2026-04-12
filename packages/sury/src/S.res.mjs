@@ -4,6 +4,8 @@ import * as Sury from "./Sury.res.mjs";
 
 let Path = Sury.Path;
 
+let Flag = Sury.Flag;
+
 let Exn = Sury.Exn;
 
 let never = Sury.never;
@@ -82,33 +84,29 @@ let shape = Sury.shape;
 
 let to = Sury.to;
 
-let makeConvertOrThrow = Sury.makeConvertOrThrow;
+let parser = Sury.parser;
 
-let makeAsyncConvertOrThrow = Sury.makeAsyncConvertOrThrow;
+let asyncParser = Sury.asyncParser;
+
+let decoder = Sury.decoder;
+
+let asyncDecoder = Sury.asyncDecoder;
+
+let decoder1 = Sury.decoder1;
+
+let asyncDecoder1 = Sury.asyncDecoder1;
 
 let parseOrThrow = Sury.parseOrThrow;
 
-let parseJsonOrThrow = Sury.parseJsonOrThrow;
-
-let parseJsonStringOrThrow = Sury.parseJsonStringOrThrow;
-
 let parseAsyncOrThrow = Sury.parseAsyncOrThrow;
 
-let convertOrThrow = Sury.convertOrThrow;
-
-let convertToJsonOrThrow = Sury.convertToJsonOrThrow;
-
-let convertToJsonStringOrThrow = Sury.convertToJsonStringOrThrow;
-
-let convertAsyncOrThrow = Sury.convertAsyncOrThrow;
-
-let reverseConvertOrThrow = Sury.reverseConvertOrThrow;
-
-let reverseConvertToJsonOrThrow = Sury.reverseConvertToJsonOrThrow;
-
-let reverseConvertToJsonStringOrThrow = Sury.reverseConvertToJsonStringOrThrow;
-
 let assertOrThrow = Sury.assertOrThrow;
+
+let assertAsyncOrThrow = Sury.assertAsyncOrThrow;
+
+let decodeOrThrow = Sury.decodeOrThrow;
+
+let decodeAsyncOrThrow = Sury.decodeAsyncOrThrow;
 
 let isAsync = Sury.isAsync;
 
@@ -194,6 +192,7 @@ let $$Error = Sury.$$Error;
 
 export {
   Path,
+  Flag,
   Exn,
   never,
   unknown,
@@ -233,20 +232,18 @@ export {
   refine,
   shape,
   to,
-  makeConvertOrThrow,
-  makeAsyncConvertOrThrow,
+  parser,
+  asyncParser,
+  decoder,
+  asyncDecoder,
+  decoder1,
+  asyncDecoder1,
   parseOrThrow,
-  parseJsonOrThrow,
-  parseJsonStringOrThrow,
   parseAsyncOrThrow,
-  convertOrThrow,
-  convertToJsonOrThrow,
-  convertToJsonStringOrThrow,
-  convertAsyncOrThrow,
-  reverseConvertOrThrow,
-  reverseConvertToJsonOrThrow,
-  reverseConvertToJsonStringOrThrow,
   assertOrThrow,
+  assertAsyncOrThrow,
+  decodeOrThrow,
+  decodeAsyncOrThrow,
   isAsync,
   recursive,
   noValidation,

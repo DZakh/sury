@@ -10,10 +10,10 @@ test("Coerce from string to string", t => {
 test("Coerce from string to bool", t => {
   let schema = S.string->S.to(S.bool)
 
-  t->Assert.deepEqual("false"->S.parseOrThrow(schema), false)
-  t->Assert.deepEqual("true"->S.parseOrThrow(schema), true)
-  t->U.assertThrowsMessage(() => "tru"->S.parseOrThrow(schema), `Expected boolean, received "tru"`)
-  t->Assert.deepEqual(false->S.reverseConvertOrThrow(schema), %raw(`"false"`))
+  t->Assert.deepEqual("false"->S.parseOrThrow(~to=schema), false)
+  t->Assert.deepEqual("true"->S.parseOrThrow(~to=schema), true)
+  t->U.assertThrowsMessage(() => "tru"->S.parseOrThrow(~to=schema), `Expected boolean, received "tru"`)
+  t->Assert.deepEqual(false->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"false"`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -31,13 +31,13 @@ test("Coerce from string to bool", t => {
 test("Coerce from bool to string", t => {
   let schema = S.bool->S.to(S.string)
 
-  t->Assert.deepEqual(false->S.parseOrThrow(schema), "false")
-  t->Assert.deepEqual(true->S.parseOrThrow(schema), "true")
+  t->Assert.deepEqual(false->S.parseOrThrow(~to=schema), "false")
+  t->Assert.deepEqual(true->S.parseOrThrow(~to=schema), "true")
   t->U.assertThrowsMessage(
-    () => "tru"->S.reverseConvertOrThrow(schema),
+    () => "tru"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     `Expected boolean, received "tru"`,
   )
-  t->Assert.deepEqual("false"->S.reverseConvertOrThrow(schema), %raw(`false`))
+  t->Assert.deepEqual("false"->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`false`))
 
   t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{typeof i==="boolean"||e[0](i);return ""+i}`)
   t->U.assertCompiledCode(~schema, ~op=#Convert, `i=>{return \"\"+i}`)
@@ -51,13 +51,13 @@ test("Coerce from bool to string", t => {
 test("Coerce from string to bool literal", t => {
   let schema = S.string->S.to(S.literal(false))
 
-  t->Assert.deepEqual("false"->S.parseOrThrow(schema), false)
+  t->Assert.deepEqual("false"->S.parseOrThrow(~to=schema), false)
   t->U.assertThrowsMessage(
-    () => "true"->S.parseOrThrow(schema),
+    () => "true"->S.parseOrThrow(~to=schema),
     `Expected "false", received "true"`,
   )
-  t->U.assertThrowsMessage(() => 123->S.parseOrThrow(schema), `Expected string, received 123`)
-  t->Assert.deepEqual(false->S.reverseConvertOrThrow(schema), %raw(`"false"`))
+  t->U.assertThrowsMessage(() => 123->S.parseOrThrow(~to=schema), `Expected string, received 123`)
+  t->Assert.deepEqual(false->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"false"`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -73,21 +73,21 @@ test("S.string->S.refine->S.to(S.literal) reports type error before refinement e
     ->S.refine(v => v->String.length > 0, ~error="non-empty")
     ->S.to(S.literal(false))
 
-  t->Assert.deepEqual("false"->S.parseOrThrow(schema), false)
-  t->U.assertThrowsMessage(() => ""->S.parseOrThrow(schema), "non-empty")
+  t->Assert.deepEqual("false"->S.parseOrThrow(~to=schema), false)
+  t->U.assertThrowsMessage(() => ""->S.parseOrThrow(~to=schema), "non-empty")
   t->U.assertThrowsMessage(
-    () => "true"->S.parseOrThrow(schema),
+    () => "true"->S.parseOrThrow(~to=schema),
     `Expected "false", received "true"`,
   )
-  t->U.assertThrowsMessage(() => 123->S.parseOrThrow(schema), `Expected string, received 123`)
+  t->U.assertThrowsMessage(() => 123->S.parseOrThrow(~to=schema), `Expected string, received 123`)
 })
 
 test("Coerce from string to null literal", t => {
   let schema = S.string->S.to(S.literal(%raw(`null`)))
 
-  t->Assert.deepEqual("null"->S.parseOrThrow(schema), %raw(`null`))
-  t->U.assertThrowsMessage(() => "true"->S.parseOrThrow(schema), `Expected "null", received "true"`)
-  t->Assert.deepEqual(%raw(`null`)->S.reverseConvertOrThrow(schema), %raw(`"null"`))
+  t->Assert.deepEqual("null"->S.parseOrThrow(~to=schema), %raw(`null`))
+  t->U.assertThrowsMessage(() => "true"->S.parseOrThrow(~to=schema), `Expected "null", received "true"`)
+  t->Assert.deepEqual(%raw(`null`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"null"`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -100,12 +100,12 @@ test("Coerce from string to null literal", t => {
 test("Coerce from string to undefined literal", t => {
   let schema = S.string->S.to(S.literal(%raw(`undefined`)))
 
-  t->Assert.deepEqual("undefined"->S.parseOrThrow(schema), %raw(`undefined`))
+  t->Assert.deepEqual("undefined"->S.parseOrThrow(~to=schema), %raw(`undefined`))
   t->U.assertThrowsMessage(
-    () => "true"->S.parseOrThrow(schema),
+    () => "true"->S.parseOrThrow(~to=schema),
     `Expected "undefined", received "true"`,
   )
-  t->Assert.deepEqual(%raw(`undefined`)->S.reverseConvertOrThrow(schema), %raw(`"undefined"`))
+  t->Assert.deepEqual(%raw(`undefined`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"undefined"`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -122,9 +122,9 @@ test("Coerce from string to undefined literal", t => {
 test("Coerce from string to NaN literal", t => {
   let schema = S.string->S.to(S.literal(%raw(`NaN`)))
 
-  t->Assert.deepEqual("NaN"->S.parseOrThrow(schema), %raw(`NaN`))
-  t->U.assertThrowsMessage(() => "true"->S.parseOrThrow(schema), `Expected "NaN", received "true"`)
-  t->Assert.deepEqual(%raw(`NaN`)->S.reverseConvertOrThrow(schema), %raw(`"NaN"`))
+  t->Assert.deepEqual("NaN"->S.parseOrThrow(~to=schema), %raw(`NaN`))
+  t->U.assertThrowsMessage(() => "true"->S.parseOrThrow(~to=schema), `Expected "NaN", received "true"`)
+  t->Assert.deepEqual(%raw(`NaN`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"NaN"`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -142,14 +142,14 @@ test("Coerce from string to string literal", t => {
   let quotedString = `"'\``
   let schema = S.string->S.to(S.literal(quotedString))
 
-  t->Assert.deepEqual(quotedString->S.parseOrThrow(schema), quotedString)
+  t->Assert.deepEqual(quotedString->S.parseOrThrow(~to=schema), quotedString)
   t->U.assertThrowsMessage(
-    () => "bar"->S.parseOrThrow(schema),
+    () => "bar"->S.parseOrThrow(~to=schema),
     `Expected "${quotedString}", received "bar"`,
   )
-  t->Assert.deepEqual(quotedString->S.reverseConvertOrThrow(schema), %raw(`quotedString`))
+  t->Assert.deepEqual(quotedString->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`quotedString`))
   t->U.assertThrowsMessage(
-    () => "bar"->S.reverseConvertOrThrow(schema),
+    () => "bar"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     `Expected "${quotedString}", received "bar"`,
   )
 
@@ -164,14 +164,14 @@ test("Coerce from string to string literal", t => {
 test("Coerce from object shaped as string to float", t => {
   let schema = S.object(s => s.field("foo", S.string))->S.to(S.float)
 
-  t->Assert.deepEqual({"foo": "123"}->S.parseOrThrow(schema), 123.)
+  t->Assert.deepEqual({"foo": "123"}->S.parseOrThrow(~to=schema), 123.)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
     `i=>{typeof i==="object"&&i||e[2](i);let v0=i["foo"];typeof v0==="string"||e[0](v0);let v1=+v0;!Number.isNaN(v1)||e[1](v0);return v1}`,
   )
 
-  t->Assert.deepEqual(123.->S.reverseConvertOrThrow(schema), %raw(`{"foo": "123"}`))
+  t->Assert.deepEqual(123.->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{"foo": "123"}`))
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return {"foo":""+i,}}`)
 })
 
@@ -180,16 +180,16 @@ test("Coerce to literal can be used as tag and automatically embeded on reverse 
     let _ = s.field("tag", S.string->S.to(S.literal(true)))
   })
 
-  t->Assert.deepEqual(()->S.reverseConvertOrThrow(schema), %raw(`{"tag": "true"}`))
+  t->Assert.deepEqual(()->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{"tag": "true"}`))
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
     `i=>{i===void 0||e[0](i);return {"tag":"true",}}`,
   )
 
-  t->Assert.deepEqual({"tag": "true"}->S.parseOrThrow(schema), ())
+  t->Assert.deepEqual({"tag": "true"}->S.parseOrThrow(~to=schema), ())
   t->U.assertThrowsMessage(
-    () => {"tag": "false"}->S.parseOrThrow(schema),
+    () => {"tag": "false"}->S.parseOrThrow(~to=schema),
     `Failed at ["tag"]: Expected "true", received "false"`,
   )
   t->U.assertCompiledCode(
@@ -203,11 +203,11 @@ test("Coerce to literal can be used as tag and automatically embeded on reverse 
 test("Coerce from string to float", t => {
   let schema = S.string->S.to(S.float)
 
-  t->Assert.deepEqual("10"->S.parseOrThrow(schema), 10.)
-  t->Assert.deepEqual("10.2"->S.parseOrThrow(schema), 10.2)
-  t->U.assertThrowsMessage(() => "tru"->S.parseOrThrow(schema), `Expected number, received "tru"`)
-  t->Assert.deepEqual(10.->S.reverseConvertOrThrow(schema), %raw(`"10"`))
-  t->Assert.deepEqual(10.2->S.reverseConvertOrThrow(schema), %raw(`"10.2"`))
+  t->Assert.deepEqual("10"->S.parseOrThrow(~to=schema), 10.)
+  t->Assert.deepEqual("10.2"->S.parseOrThrow(~to=schema), 10.2)
+  t->U.assertThrowsMessage(() => "tru"->S.parseOrThrow(~to=schema), `Expected number, received "tru"`)
+  t->Assert.deepEqual(10.->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"10"`))
+  t->Assert.deepEqual(10.2->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"10.2"`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -225,13 +225,13 @@ test("Coerce from string to float", t => {
 test("Coerce from string to int32", t => {
   let schema = S.string->S.to(S.int)
 
-  t->Assert.deepEqual("10"->S.parseOrThrow(schema), 10)
+  t->Assert.deepEqual("10"->S.parseOrThrow(~to=schema), 10)
   t->U.assertThrowsMessage(
-    () => "2147483648"->S.parseOrThrow(schema),
+    () => "2147483648"->S.parseOrThrow(~to=schema),
     `Expected int32, received "2147483648"`,
   )
-  t->U.assertThrowsMessage(() => "10.2"->S.parseOrThrow(schema), `Expected int32, received "10.2"`)
-  t->Assert.deepEqual(10->S.reverseConvertOrThrow(schema), %raw(`"10"`))
+  t->U.assertThrowsMessage(() => "10.2"->S.parseOrThrow(~to=schema), `Expected int32, received "10.2"`)
+  t->Assert.deepEqual(10->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"10"`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -249,23 +249,23 @@ test("Coerce from string to int32", t => {
 test("Coerce from string to port", t => {
   let schema = S.string->S.to(S.int->S.port)
 
-  t->Assert.deepEqual("10"->S.parseOrThrow(schema), 10)
+  t->Assert.deepEqual("10"->S.parseOrThrow(~to=schema), 10)
   t->U.assertThrowsMessage(
-    () => "2147483648"->S.parseOrThrow(schema),
+    () => "2147483648"->S.parseOrThrow(~to=schema),
     `Expected port, received 2147483648`,
   )
-  t->U.assertThrowsMessage(() => "10.2"->S.parseOrThrow(schema), `Expected port, received 10.2`)
-  t->Assert.deepEqual(10->S.reverseConvertOrThrow(schema), %raw(`"10"`))
+  t->U.assertThrowsMessage(() => "10.2"->S.parseOrThrow(~to=schema), `Expected port, received 10.2`)
+  t->Assert.deepEqual(10->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"10"`))
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="string"){e[2](i)}let v0=+i;if(Number.isNaN(v0)){e[0](i)}v0>0&&v0<65536&&v0%1===0||e[1](v0);return v0}`,
+    `i=>{typeof i==="string"||e[2](i);let v0=+i;!Number.isNaN(v0)||e[1](i);v0>0&&v0<65536&&v0%1===0||e[0](v0);return v0}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Convert,
-    `i=>{let v0=+i;if(Number.isNaN(v0)){e[0](i)}v0>0&&v0<65536&&v0%1===0||e[1](v0);return v0}`,
+    `i=>{let v0=+i;!Number.isNaN(v0)||e[1](i);v0>0&&v0<65536&&v0%1===0||e[0](v0);return v0}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -284,9 +284,9 @@ test("Coerce from true to bool", t => {
 test("Coerce from string to bigint literal", t => {
   let schema = S.string->S.to(S.literal(10n))
 
-  t->Assert.deepEqual("10"->S.parseOrThrow(schema), 10n)
-  t->U.assertThrowsMessage(() => "11"->S.parseOrThrow(schema), `Expected "10", received "11"`)
-  t->Assert.deepEqual(10n->S.reverseConvertOrThrow(schema), %raw(`"10"`))
+  t->Assert.deepEqual("10"->S.parseOrThrow(~to=schema), 10n)
+  t->U.assertThrowsMessage(() => "11"->S.parseOrThrow(~to=schema), `Expected "10", received "11"`)
+  t->Assert.deepEqual(10n->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"10"`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -300,9 +300,9 @@ test("Coerce from string to bigint literal", t => {
 test("Coerce from string to bigint", t => {
   let schema = S.string->S.to(S.bigint)
 
-  t->Assert.deepEqual("10"->S.parseOrThrow(schema), 10n)
-  t->U.assertThrowsMessage(() => "10.2"->S.parseOrThrow(schema), `Expected bigint, received "10.2"`)
-  t->Assert.deepEqual(10n->S.reverseConvertOrThrow(schema), %raw(`"10"`))
+  t->Assert.deepEqual("10"->S.parseOrThrow(~to=schema), 10n)
+  t->U.assertThrowsMessage(() => "10.2"->S.parseOrThrow(~to=schema), `Expected bigint, received "10.2"`)
+  t->Assert.deepEqual(10n->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"10"`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -321,7 +321,7 @@ test("Coerce string after a transform", t => {
   let schema = S.string->S.transform(_ => {parser: v => v, serializer: v => v})->S.to(S.bool)
 
   t->U.assertThrowsMessage(
-    () => "true"->S.parseOrThrow(schema),
+    () => "true"->S.parseOrThrow(~to=schema),
     `Expected boolean, received "true"`,
   )
   t->U.assertCompiledCode(
@@ -331,7 +331,7 @@ test("Coerce string after a transform", t => {
   )
 
   t->U.assertThrowsMessage(
-    () => true->S.parseOrThrow(S.reverse(schema)),
+    () => true->S.parseOrThrow(~to=S.reverse(schema)),
     `Expected string, received true`,
   )
   t->U.assertCompiledCode(
@@ -355,12 +355,12 @@ test("Coerce string to unboxed union (each item separately)", t => {
       ]),
     )
 
-  t->Assert.deepEqual("10"->S.parseOrThrow(schema), Number(10.))
-  t->Assert.deepEqual("true"->S.parseOrThrow(schema), Boolean(true))
+  t->Assert.deepEqual("10"->S.parseOrThrow(~to=schema), Number(10.))
+  t->Assert.deepEqual("true"->S.parseOrThrow(~to=schema), Boolean(true))
 
   t->Assert.throws(
     () => {
-      "t"->S.parseOrThrow(schema)
+      "t"->S.parseOrThrow(~to=schema)
     },
     ~expectations={
       message: `Expected number | boolean, received "t"
@@ -375,8 +375,8 @@ test("Coerce string to unboxed union (each item separately)", t => {
     `i=>{typeof i==="string"||e[3](i);try{let v0=+i;!Number.isNaN(v0)||e[1](i);i=v0}catch(e1){try{let v1;(v1=i==="true")||i==="false"||e[0](i);i=v1}catch(e2){e[2](i,e1,e2)}}return i}`,
   )
 
-  t->Assert.deepEqual(Number(10.)->S.reverseConvertOrThrow(schema), %raw(`"10"`))
-  t->Assert.deepEqual(Boolean(true)->S.reverseConvertOrThrow(schema), %raw(`"true"`))
+  t->Assert.deepEqual(Number(10.)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"10"`))
+  t->Assert.deepEqual(Boolean(true)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"true"`))
 
   // TODO: Can be improved
   t->U.assertCompiledCode(
@@ -401,7 +401,7 @@ test("Coerce string to custom JSON schema", t => {
   )
 
   t->U.assertThrowsMessage(
-    () => S.reverseConvertOrThrow(JSON.Boolean(true), schema),
+    () => S.decodeOrThrow(JSON.Boolean(true), ~from=schema, ~to=S.unknown),
     `Expected string, received true`,
     ~message="I don't know what we expect here, but currently it works this way",
   )
@@ -429,13 +429,13 @@ test("Keeps description of the schema we are coercing to (not working)", t => {
 test("Coerce from unit to null literal", t => {
   let schema = S.unit->S.to(S.literal(%raw(`null`)))
 
-  t->Assert.deepEqual(()->S.parseOrThrow(schema), %raw(`null`))
+  t->Assert.deepEqual(()->S.parseOrThrow(~to=schema), %raw(`null`))
   t->U.assertThrowsMessage(
-    () => %raw(`null`)->S.parseOrThrow(schema),
+    () => %raw(`null`)->S.parseOrThrow(~to=schema),
     // FIXME: It fails because we overwrite expected name with string version
     `Expected undefined, received null`,
   )
-  t->Assert.deepEqual(%raw(`null`)->S.reverseConvertOrThrow(schema), %raw(`undefined`))
+  t->Assert.deepEqual(%raw(`null`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
 
   t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{i===void 0||e[0](i);return null}`)
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{i===null||e[0](i);return void 0}`)
@@ -444,16 +444,16 @@ test("Coerce from unit to null literal", t => {
 test("Coerce from string to optional bool", t => {
   let schema = S.string->S.to(S.option(S.bool))
 
-  t->Assert.deepEqual("undefined"->S.parseOrThrow(schema), None)
-  t->Assert.deepEqual("true"->S.parseOrThrow(schema), Some(true))
+  t->Assert.deepEqual("undefined"->S.parseOrThrow(~to=schema), None)
+  t->Assert.deepEqual("true"->S.parseOrThrow(~to=schema), Some(true))
 
   t->U.assertThrowsMessage(
-    () => %raw(`null`)->S.parseOrThrow(schema),
+    () => %raw(`null`)->S.parseOrThrow(~to=schema),
     `Expected string, received null`,
   )
 
-  t->Assert.deepEqual(Some(true)->S.reverseConvertOrThrow(schema), %raw(`"true"`))
-  t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`"undefined"`))
+  t->Assert.deepEqual(Some(true)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"true"`))
+  t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"undefined"`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -475,18 +475,18 @@ test("Coerce from object to string", t => {
   )->S.to(S.string)
 
   t->U.assertThrowsMessage(() => {
-    %raw(`{"foo": "bar"}`)->S.parseOrThrow(schema)
+    %raw(`{"foo": "bar"}`)->S.parseOrThrow(~to=schema)
   }, `Unsupported conversion from { foo: string; } to string`)
   t->U.assertThrowsMessage(() => {
-    %raw(`{"foo": "bar"}`)->S.reverseConvertOrThrow(schema)
+    %raw(`{"foo": "bar"}`)->S.decodeOrThrow(~from=schema, ~to=S.unknown)
   }, `Unsupported conversion from string to { foo: string; }`)
 })
 
 test("Coerce from string to JSON and then to bigint", t => {
   let schema = S.string->S.to(S.json)->S.to(S.bigint)
 
-  t->Assert.deepEqual("123"->S.parseOrThrow(schema), %raw(`123n`))
-  t->Assert.deepEqual(123n->S.reverseConvertOrThrow(schema), %raw(`"123"`))
+  t->Assert.deepEqual("123"->S.parseOrThrow(~to=schema), %raw(`123n`))
+  t->Assert.deepEqual(123n->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -504,15 +504,15 @@ test("Coerce from string to JSON and then to bigint", t => {
 test("Coerce from JSON to bigint", t => {
   let schema = S.json->S.to(S.bigint)
 
-  t->Assert.deepEqual("123"->S.parseOrThrow(schema), %raw(`123n`))
+  t->Assert.deepEqual("123"->S.parseOrThrow(~to=schema), %raw(`123n`))
   t->U.assertThrowsMessage(() => {
-    123->S.parseOrThrow(schema)
+    123->S.parseOrThrow(~to=schema)
   }, "Expected string, received 123")
   t->U.assertThrowsMessage(() => {
-    true->S.parseOrThrow(schema)
+    true->S.parseOrThrow(~to=schema)
   }, "Expected string, received true")
 
-  t->Assert.deepEqual(123n->S.reverseConvertOrThrow(schema), %raw(`"123"`))
+  t->Assert.deepEqual(123n->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -532,11 +532,11 @@ test("Coerce from JSON to bigint", t => {
 test("Coerce from JSON to unit", t => {
   let schema = S.json->S.to(S.unit)
 
-  t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(schema), ())
+  t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(~to=schema), ())
   t->U.assertThrowsMessage(() => {
-    %raw(`undefined`)->S.parseOrThrow(schema)
+    %raw(`undefined`)->S.parseOrThrow(~to=schema)
   }, "Expected null, received undefined")
-  t->Assert.deepEqual(()->S.reverseConvertOrThrow(schema), %raw(`null`))
+  t->Assert.deepEqual(()->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -555,11 +555,11 @@ test("Coerce from JSON to unit", t => {
 test("Coerce from JSON to NaN", t => {
   let schema = S.json->S.to(S.literal(%raw(`NaN`)))
 
-  t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(schema), %raw(`NaN`))
+  t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(~to=schema), %raw(`NaN`))
   t->U.assertThrowsMessage(() => {
-    %raw(`undefined`)->S.parseOrThrow(schema)
+    %raw(`undefined`)->S.parseOrThrow(~to=schema)
   }, "Expected null, received undefined")
-  t->Assert.deepEqual(%raw(`NaN`)->S.reverseConvertOrThrow(schema), %raw(`null`))
+  t->Assert.deepEqual(%raw(`NaN`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
 
   t->U.assertCompiledCode(~schema, ~op=#Parse, ~embedded=[], `i=>{i===null||e[0](i);return NaN}`)
   t->U.assertCompiledCode(
@@ -573,13 +573,13 @@ test("Coerce from JSON to NaN", t => {
 test("Coerce from JSON to optional bigint", t => {
   let schema = S.json->S.to(S.option(S.bigint))
 
-  t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(schema), None)
-  t->Assert.deepEqual(%raw(`"123"`)->S.parseOrThrow(schema), Some(123n))
+  t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(~to=schema), None)
+  t->Assert.deepEqual(%raw(`"123"`)->S.parseOrThrow(~to=schema), Some(123n))
   t->U.assertThrowsMessage(() => {
-    %raw(`123`)->S.parseOrThrow(schema)
+    %raw(`123`)->S.parseOrThrow(~to=schema)
   }, `Expected bigint | undefined, received 123`)
-  t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`null`))
-  t->Assert.deepEqual(Some(123n)->S.reverseConvertOrThrow(schema), %raw(`"123"`))
+  t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
+  t->Assert.deepEqual(Some(123n)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -598,11 +598,11 @@ test("Coerce from JSON to optional bigint", t => {
 test("Coerce from JSON to array of bigint", t => {
   let schema = S.json->S.to(S.array(S.bigint))
 
-  t->Assert.deepEqual(%raw(`["123"]`)->S.parseOrThrow(schema), [123n])
+  t->Assert.deepEqual(%raw(`["123"]`)->S.parseOrThrow(~to=schema), [123n])
   t->U.assertThrowsMessage(() => {
-    %raw(`[123]`)->S.parseOrThrow(schema)
+    %raw(`[123]`)->S.parseOrThrow(~to=schema)
   }, `Failed at ["0"]: Expected string, received 123`)
-  t->Assert.deepEqual([123n]->S.reverseConvertOrThrow(schema), %raw(`["123"]`))
+  t->Assert.deepEqual([123n]->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`["123"]`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -621,11 +621,11 @@ test("Coerce from JSON to array of bigint", t => {
 test("Coerce from JSON to tuple with bigint", t => {
   let schema = S.json->S.to(S.schema(s => (s.matches(S.string), s.matches(S.bigint))))
 
-  t->Assert.deepEqual(%raw(`["foo", "123"]`)->S.parseOrThrow(schema), ("foo", 123n))
+  t->Assert.deepEqual(%raw(`["foo", "123"]`)->S.parseOrThrow(~to=schema), ("foo", 123n))
   t->U.assertThrowsMessage(() => {
-    %raw(`["foo"]`)->S.parseOrThrow(schema)
+    %raw(`["foo"]`)->S.parseOrThrow(~to=schema)
   }, `Expected [string, bigint], received ["foo"]`)
-  t->Assert.deepEqual(("foo", 123n)->S.reverseConvertOrThrow(schema), %raw(`["foo", "123"]`))
+  t->Assert.deepEqual(("foo", 123n)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`["foo", "123"]`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -654,20 +654,20 @@ test("Coerce from JSON to tuple with bigint", t => {
 //   // t->Assert.deepEqual(
 //   //   {
 //   //     "id": "123",
-//   //   }->S.parseOrThrow(schema),
+//   //   }->S.parseOrThrow(~to=schema),
 //   //   {
 //   //     "id": 123n,
 //   //     "isDeleted": None,
 //   //   },
 //   // )
 //   // t->U.assertThrowsMessage(() => {
-//   //   123->S.parseOrThrow(schema)
+//   //   123->S.parseOrThrow(~to=schema)
 //   // }, "Expected string, received 123")
 //   // t->U.assertThrowsMessage(() => {
-//   //   true->S.parseOrThrow(schema)
+//   //   true->S.parseOrThrow(~to=schema)
 //   // }, "Expected string, received true")
 
-//   // t->Assert.deepEqual(123n->S.reverseConvertOrThrow(schema), %raw(`"123"`))
+//   // t->Assert.deepEqual(123n->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
 
 //   t->U.assertCompiledCode(
 //     ~schema,
@@ -688,17 +688,17 @@ test("Coerce from union to bigint", t => {
       S.bigint,
     )
 
-  t->Assert.deepEqual("123"->S.parseOrThrow(schema), %raw(`123n`))
-  t->Assert.deepEqual(123->S.parseOrThrow(schema), %raw(`123n`))
+  t->Assert.deepEqual("123"->S.parseOrThrow(~to=schema), %raw(`123n`))
+  t->Assert.deepEqual(123->S.parseOrThrow(~to=schema), %raw(`123n`))
   t->U.assertThrowsMessage(
     () => {
-      true->S.parseOrThrow(schema)
+      true->S.parseOrThrow(~to=schema)
     },
     `Expected string | number | boolean, received true
 - Unsupported conversion from boolean to bigint`,
   )
   t->U.assertThrowsMessage(() => {
-    123n->S.parseOrThrow(schema)
+    123n->S.parseOrThrow(~to=schema)
   }, "Expected string | number | boolean, received 123n")
 
   t->U.assertCompiledCode(
@@ -707,7 +707,7 @@ test("Coerce from union to bigint", t => {
     `i=>{if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0}else if(typeof i==="number"&&!Number.isNaN(i)){i=BigInt(i)}else if(typeof i==="boolean"){e[2](i,e[1])}else{e[3](i)}return i}`,
   )
 
-  t->Assert.deepEqual(123n->S.reverseConvertOrThrow(schema), %raw(`"123"`))
+  t->Assert.deepEqual(123n->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
 
   // TODO: Can be improved
   t->U.assertCompiledCode(
@@ -759,17 +759,17 @@ test("Coerce from union to bigint and then to string", t => {
     ->S.to(S.bigint)
     ->S.to(S.string)
 
-  t->Assert.deepEqual("123"->S.parseOrThrow(schema), %raw(`"123"`))
-  t->Assert.deepEqual(123->S.parseOrThrow(schema), %raw(`"123"`))
+  t->Assert.deepEqual("123"->S.parseOrThrow(~to=schema), %raw(`"123"`))
+  t->Assert.deepEqual(123->S.parseOrThrow(~to=schema), %raw(`"123"`))
   t->U.assertThrowsMessage(
     () => {
-      true->S.parseOrThrow(schema)
+      true->S.parseOrThrow(~to=schema)
     },
     `Expected string | number | boolean, received true
 - Unsupported conversion from boolean to bigint`,
   )
   t->U.assertThrowsMessage(() => {
-    123n->S.parseOrThrow(schema)
+    123n->S.parseOrThrow(~to=schema)
   }, "Expected string | number | boolean, received 123n")
 
   t->U.assertCompiledCode(
@@ -778,9 +778,9 @@ test("Coerce from union to bigint and then to string", t => {
     `i=>{if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=""+v0}else if(typeof i==="number"&&!Number.isNaN(i)){i=""+BigInt(i)}else if(typeof i==="boolean"){e[2](i,e[1])}else{e[3](i)}return i}`,
   )
 
-  t->Assert.deepEqual("123"->S.reverseConvertOrThrow(schema), %raw(`"123"`))
+  t->Assert.deepEqual("123"->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
   t->U.assertThrowsMessage(() => {
-    "abc"->S.reverseConvertOrThrow(schema)
+    "abc"->S.decodeOrThrow(~from=schema, ~to=S.unknown)
   }, `Expected bigint, received "abc"`)
 
   // TODO: Can be improved
@@ -797,10 +797,10 @@ test("Coerce from union to wider union should keep the original value type", t =
       S.union([S.string->S.castToUnknown, S.float->S.castToUnknown, S.bool->S.castToUnknown]),
     )
 
-  t->Assert.deepEqual("123"->S.parseOrThrow(schema), %raw(`"123"`))
-  t->Assert.deepEqual(123->S.parseOrThrow(schema), %raw(`123`))
+  t->Assert.deepEqual("123"->S.parseOrThrow(~to=schema), %raw(`"123"`))
+  t->Assert.deepEqual(123->S.parseOrThrow(~to=schema), %raw(`123`))
   t->U.assertThrowsMessage(() => {
-    true->S.parseOrThrow(schema)
+    true->S.parseOrThrow(~to=schema)
   }, "Expected string | number, received true")
 
   t->U.assertCompiledCode(
@@ -817,7 +817,7 @@ test("Fails to transform union to union to string", t => {
     ->S.to(S.string)
 
   t->U.assertThrowsMessage(() => {
-    true->S.parseOrThrow(schema)
+    true->S.parseOrThrow(~to=schema)
   }, "Expected string | number, received true")
 })
 
@@ -830,7 +830,7 @@ test(
       )
 
     t->U.assertThrowsMessage(() => {
-      true->S.parseOrThrow(schema)
+      true->S.parseOrThrow(~to=schema)
     }, "Expected string | number, received true")
     t->U.assertCompiledCode(
       ~schema,

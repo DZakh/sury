@@ -217,7 +217,7 @@ test("Successfully serializes simple object with flatten", t => {
   )
 
   t->Assert.deepEqual(
-    {"foo": "foo", "bar": "bar"}->S.reverseConvertOrThrow(schema),
+    {"foo": "foo", "bar": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{"foo": "foo", "bar": "bar"}`),
   )
   t->U.assertCompiledCode(
@@ -258,7 +258,7 @@ test("Can destructure flattened schema", t => {
 
   S.enableJson()
   t->Assert.deepEqual(
-    {id: "1", name: "Dmitry", age: 23}->S.reverseConvertToJsonOrThrow(entitySchema),
+    {id: "1", name: "Dmitry", age: 23}->S.decodeOrThrow(~from=entitySchema, ~to=S.json),
     %raw(`{id: "1", name: "Dmitry", age: 23}`),
   )
   t->U.assertCompiledCode(

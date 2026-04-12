@@ -14,7 +14,7 @@ test("Simple object schema", t => {
     ),
   )
   t->Assert.deepEqual(
-    %raw(`{label:"foo",value:1}`)->S.parseOrThrow(simpleObjectSchema),
+    %raw(`{label:"foo",value:1}`)->S.parseOrThrow(~to=simpleObjectSchema),
     {"label": "foo", "value": 1},
   )
 })
@@ -32,7 +32,7 @@ test("Simple object schema", t => {
 //     ),
 //   )
 //   t->Assert.deepEqual(
-//     %raw(`{"label":"foo",value:1}`)->S.parseOrThrow(objectWithAliasSchema),
+//     %raw(`{"label":"foo",value:1}`)->S.parseOrThrow(~to=objectWithAliasSchema),
 //     {"label": "foo", "value": 1},
 //   )
 // })

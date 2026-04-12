@@ -9,14 +9,14 @@ module Common = {
   test("Successfully parses", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(any->S.parseOrThrow(schema), value)
+    t->Assert.deepEqual(any->S.parseOrThrow(~to=schema), value)
   })
 
   test("Fails to parse", t => {
     let schema = factory()
 
     t->U.assertThrowsMessage(
-      () => invalidAny->S.parseOrThrow(schema),
+      () => invalidAny->S.parseOrThrow(~to=schema),
       `Expected int32, received 123.45`,
     )
   })
@@ -24,7 +24,7 @@ module Common = {
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), any)
+    t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), any)
   })
 
   test("Compiled parse code snapshot", t => {
@@ -59,27 +59,27 @@ test("Fails to parse int when JSON is a number bigger than +2^31", t => {
   let schema = S.int
 
   t->U.assertThrowsMessage(
-    () => %raw(`2147483648`)->S.parseOrThrow(schema),
+    () => %raw(`2147483648`)->S.parseOrThrow(~to=schema),
     `Expected int32, received 2147483648`,
   )
-  t->Assert.deepEqual(%raw(`2147483647`)->S.parseOrThrow(schema), 2147483647)
+  t->Assert.deepEqual(%raw(`2147483647`)->S.parseOrThrow(~to=schema), 2147483647)
 })
 
 test("Fails to parse int when JSON is a number lower than -2^31", t => {
   let schema = S.int
 
   t->U.assertThrowsMessage(
-    () => %raw(`-2147483649`)->S.parseOrThrow(schema),
+    () => %raw(`-2147483649`)->S.parseOrThrow(~to=schema),
     `Expected int32, received -2147483649`,
   )
-  t->Assert.deepEqual(%raw(`-2147483648`)->S.parseOrThrow(schema), -2147483648)
+  t->Assert.deepEqual(%raw(`-2147483648`)->S.parseOrThrow(~to=schema), -2147483648)
 })
 
 test("Fails to parse NaN", t => {
   let schema = S.int
 
   t->U.assertThrowsMessage(
-    () => %raw(`NaN`)->S.parseOrThrow(schema),
+    () => %raw(`NaN`)->S.parseOrThrow(~to=schema),
     `Expected int32, received NaN`,
   )
 })

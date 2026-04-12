@@ -73,50 +73,27 @@ I left on cleaning up validation code and moving everything to their own decoder
 - parseOrThrow(schema)(data) for ts api
 - deprecate compile
 
-```diff
-const userSchema = S.schema({
-  id: S.string,
-  name: S.string
-})
+### ReScript operation functions
 
-S.parseOrThrow(data, userSchema)
-+ ts: S.parseOrThrow(userSchema)(data)
+| Before | After |
+|---|---|
+| `S.parseOrThrow(data, schema)` | `S.parseOrThrow(data, ~to=schema)` |
+| `S.parseAsyncOrThrow(data, schema)` | `S.parseAsyncOrThrow(data, ~to=schema)` |
+| `S.parseJsonOrThrow(data, schema)` | `S.decodeOrThrow(data, ~from=S.json, ~to=schema)` |
+| `S.parseJsonStringOrThrow(data, schema)` | `S.decodeOrThrow(data, ~from=S.jsonString, ~to=schema)` |
+| `S.assertOrThrow(data, schema)` | `S.assertOrThrow(data, ~to=schema)` |
+| — | `S.assertAsyncOrThrow(data, ~to=schema)` |
+| `S.reverseConvertOrThrow(data, schema)` | `S.decodeOrThrow(data, ~from=schema, ~to=S.unknown)` |
+| `S.reverseConvertToJsonOrThrow(data, schema)` | `S.decodeOrThrow(data, ~from=schema, ~to=S.json)` |
+| `S.reverseConvertToJsonStringOrThrow(data, schema)` | `S.decodeOrThrow(data, ~from=schema, ~to=S.jsonString)` |
+| `S.reverseConvertToJsonStringOrThrow(data, schema, ~space=2)` | `S.decodeOrThrow(data, ~from=schema, ~to=S.jsonStringWithSpace(2))` |
+| `S.convertOrThrow(data, schema)` | `S.decoder1(schema)(data)` |
+| `S.compile(schema, ~input=Any, ~output=Value, ~mode=Sync, ~typeValidation=true)` | `S.parser(~to=schema)` |
+| `S.compile(schema, ~input=Any, ~output=Value, ~mode=Async, ~typeValidation=true)` | `S.asyncParser(~to=schema)` |
+| `S.compile(schema, ~input=Value, ~output=Unknown, ~mode=Sync, ~typeValidation=false)` | `S.decoder(~from=schema, ~to=S.unknown)` |
+| `S.compile(schema, ~input=Value, ~output=Unknown, ~mode=Async, ~typeValidation=false)` | `S.asyncDecoder(~from=schema, ~to=S.unknown)` |
 
-- S.parseJsonOrThrow(data, userSchema)
-+ res: S.decodeOrThrow(data, S.json, userSchema)
-+ ts:  S.decodeOrThrow(S.json, userSchema)(data)
-
-- S.parseJsonStringOrThrow(data, userSchema)
-+ res: S.decodeOrThrow(data, S.jsonString, userSchema)
-+ ts:  S.decodeOrThrow(S.jsonString, userSchema)(data)
-
-- S.reverseConvertOrThrow(user, userSchema)
-+ res: S.encodeOrThrow(user, userSchema, S.unknown)
-+ ts:  S.encodeOrThrow(userSchema)(user)
-
-- S.reverseConvertToJsonOrThrow(user, userSchema)
-+ res: S.encodeOrThrow(user, userSchema, S.json)
-+ ts:  S.encodeOrThrow(userSchema, S.json)(user)
-
-- S.reverseConvertToJsonStringOrThrow(user, userSchema)
-+ res: S.encodeOrThrow(user, userSchema, S.jsonString)
-+ ts:  S.encodeOrThrow(userSchema, S.jsonString)(user)
-
-- S.reverseConvertToJsonStringOrThrow(user, userSchema, 2)
-+ res: S.encodeOrThrow(user, userSchema, S.jsonStringWithSpace(2))
-+ ts:  S.encodeOrThrow(userSchema, S.jsonStringWithSpace(2))(user)
-
-- S.convertOrThrow(data, userSchema)
-+ ts:  S.decodeOrThrow(userSchema)(data) (when single from Input to Output, when multiple from Output to Output)
-+ res: S.decodeOrThrow(data, S.unknown, userSchema) (from Output to Output)
-
-- S.convertToJsonOrThrow(data, userSchema)
-+ res: S.decodeOrThrow(data, S.unknown, userSchema) + S.decodeOrThrow(data, userSchema, S.json)
-// Because it was from input before
-
-- S.convertToJsonStringOrThrow(data, userSchema)
-+ res: S.decodeOrThrow(data, S.unknown, userSchema) + S.decodeFromOrThrow(data, userSchema, S.jsonString)
-```
+### TS operation functions
 
 - rename `serializer` to reverse parser ?
 - Make `foo->S.to(S.unknown)` stricter ??

@@ -134,7 +134,7 @@ test("Expression of renamed schema", t => {
   t->Assert.deepEqual(renamedSchema->S.toExpression, "Ethers.BigInt")
   // Uses new name when failing
   t->U.assertThrowsMessage(
-    () => "smth"->S.parseOrThrow(renamedSchema),
+    () => "smth"->S.parseOrThrow(~to=renamedSchema),
     `Expected Ethers.BigInt, received "smth"`,
   )
   let schema = S.nullAsOption(S.never)->S.meta({name: "Ethers.BigInt"})
@@ -148,10 +148,10 @@ test("Expression of renamed schema", t => {
     ~op=#ReverseConvert,
     `i=>{try{e[0](i);}catch(e0){if(i===void 0){i=null}else{e[1](i,e0)}}return i}`,
   )
-  t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`null`))
+  t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
   // TODO: Can be improved. No need to duplicate Expected/received error
   t->U.assertThrowsMessage(
-    () => %raw(`"smth"`)->S.parseOrThrow(schema->S.reverse),
+    () => %raw(`"smth"`)->S.parseOrThrow(~to=schema->S.reverse),
     `Expected Ethers.BigInt, received "smth"
   - Expected never, received "smth"`,
   )
@@ -174,15 +174,15 @@ test("Expression of recursive schema", t => {
   t->Assert.deepEqual(renamedRoot->S.toExpression, `NodeRoot`)
 
   t->U.assertThrowsMessage(
-    () => %raw(`null`)->S.parseOrThrow(nodeSchema),
+    () => %raw(`null`)->S.parseOrThrow(~to=nodeSchema),
     `Expected Node, received null`,
   )
   t->U.assertThrowsMessage(
-    () => %raw(`null`)->S.parseOrThrow(S.tuple1(nodeSchema)),
+    () => %raw(`null`)->S.parseOrThrow(~to=S.tuple1(nodeSchema)),
     `Expected [Node], received null`,
   )
   t->U.assertThrowsMessage(
-    () => %raw(`null`)->S.parseOrThrow(S.tuple1(renamedRoot)),
+    () => %raw(`null`)->S.parseOrThrow(~to=S.tuple1(renamedRoot)),
     `Expected [NodeRoot], received null`,
   )
   t->U.assertThrowsMessage(
@@ -191,7 +191,7 @@ test("Expression of recursive schema", t => {
       %raw(`{
       Id: "0",
       Children: [null]
-    }`)->S.parseOrThrow(renamedRoot),
+    }`)->S.parseOrThrow(~to=renamedRoot),
     `Failed at ["Children"]["0"]: Expected Node, received null`,
   )
 })
@@ -209,11 +209,11 @@ test("Expression of deeply renamed recursive schema", t => {
 
   t->Assert.deepEqual(nodeSchema->S.toExpression, `MyNode`)
   t->U.assertThrowsMessage(
-    () => %raw(`null`)->S.parseOrThrow(nodeSchema),
+    () => %raw(`null`)->S.parseOrThrow(~to=nodeSchema),
     `Expected MyNode, received null`,
   )
   t->U.assertThrowsMessage(
-    () => %raw(`{Id: "0"}`)->S.parseOrThrow(nodeSchema),
+    () => %raw(`{Id: "0"}`)->S.parseOrThrow(~to=nodeSchema),
     `Failed at ["Children"]: Expected MyNode[], received undefined`,
   )
 })

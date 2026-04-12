@@ -5,9 +5,9 @@ S.enableJsonString()
 test("Parses JSON string without transformation", t => {
   let schema = S.jsonString
 
-  t->Assert.deepEqual(`"Foo"`->S.parseOrThrow(schema), `"Foo"`)
+  t->Assert.deepEqual(`"Foo"`->S.parseOrThrow(~to=schema), `"Foo"`)
   t->U.assertThrowsMessage(
-    () => `Foo`->S.parseOrThrow(schema),
+    () => `Foo`->S.parseOrThrow(~to=schema),
     `Expected JSON string, received "Foo"`,
   )
 
@@ -23,12 +23,12 @@ test("Parses JSON string without transformation", t => {
 test("Parses JSON string to string", t => {
   let schema = S.jsonString->S.to(S.string)
 
-  t->Assert.deepEqual(`"Foo"`->S.parseOrThrow(schema), "Foo")
+  t->Assert.deepEqual(`"Foo"`->S.parseOrThrow(~to=schema), "Foo")
   t->U.assertThrowsMessage(
-    () => `Foo`->S.parseOrThrow(schema),
+    () => `Foo`->S.parseOrThrow(~to=schema),
     `Expected JSON string, received "Foo"`,
   )
-  t->U.assertThrowsMessage(() => `123`->S.parseOrThrow(schema), `Expected string, received 123`)
+  t->U.assertThrowsMessage(() => `123`->S.parseOrThrow(~to=schema), `Expected string, received 123`)
 
   t->U.assertCompiledCode(
     ~schema,
@@ -41,7 +41,7 @@ test("Parses JSON string to string", t => {
     `i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="string"||e[1](v0);return v0}`,
   )
 
-  t->Assert.deepEqual(`"Foo`->S.reverseConvertOrThrow(schema), %raw(`'"\\"Foo"'`))
+  t->Assert.deepEqual(`"Foo`->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`'"\\"Foo"'`))
 
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return JSON.stringify(i)}`)
 })
@@ -49,9 +49,9 @@ test("Parses JSON string to string", t => {
 test("Parses JSON string to string literal", t => {
   let schema = S.jsonString->S.to(S.literal("Foo"))
 
-  t->Assert.deepEqual(`"Foo"`->S.parseOrThrow(schema), "Foo")
-  t->U.assertThrowsMessage(() => `123`->S.parseOrThrow(schema), `Expected ""Foo"", received "123"`)
-  t->U.assertThrowsMessage(() => 123->S.parseOrThrow(schema), `Expected JSON string, received 123`)
+  t->Assert.deepEqual(`"Foo"`->S.parseOrThrow(~to=schema), "Foo")
+  t->U.assertThrowsMessage(() => `123`->S.parseOrThrow(~to=schema), `Expected ""Foo"", received "123"`)
+  t->U.assertThrowsMessage(() => 123->S.parseOrThrow(~to=schema), `Expected JSON string, received 123`)
 
   t->U.assertCompiledCode(
     ~schema,
@@ -60,7 +60,7 @@ test("Parses JSON string to string literal", t => {
   )
   t->U.assertCompiledCode(~schema, ~op=#Convert, `i=>{i==="\\"Foo\\""||e[0](i);return "Foo"}`)
 
-  t->Assert.deepEqual(`Foo`->S.reverseConvertOrThrow(schema), %raw(`'"Foo"'`))
+  t->Assert.deepEqual(`Foo`->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`'"Foo"'`))
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
@@ -68,7 +68,7 @@ test("Parses JSON string to string literal", t => {
   )
 
   let schema = S.jsonString->S.to(S.literal("\"Foo"))
-  t->Assert.deepEqual(`"Foo`->S.reverseConvertOrThrow(schema), %raw(`'"\\"Foo"'`))
+  t->Assert.deepEqual(`"Foo`->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`'"\\"Foo"'`))
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
@@ -79,8 +79,8 @@ test("Parses JSON string to string literal", t => {
 test("Parses JSON string to float", t => {
   let schema = S.jsonString->S.to(S.float)
 
-  t->Assert.deepEqual(`1.23`->S.parseOrThrow(schema), 1.23)
-  t->U.assertThrowsMessage(() => `null`->S.parseOrThrow(schema), `Expected number, received null`)
+  t->Assert.deepEqual(`1.23`->S.parseOrThrow(~to=schema), 1.23)
+  t->U.assertThrowsMessage(() => `null`->S.parseOrThrow(~to=schema), `Expected number, received null`)
 
   t->U.assertCompiledCode(
     ~schema,
@@ -93,7 +93,7 @@ test("Parses JSON string to float", t => {
     `i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="number"&&!Number.isNaN(v0)||e[1](v0);return v0}`,
   )
 
-  t->Assert.deepEqual(1.23->S.reverseConvertOrThrow(schema), %raw(`"1.23"`))
+  t->Assert.deepEqual(1.23->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"1.23"`))
 
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return ""+i}`)
 })
@@ -101,8 +101,8 @@ test("Parses JSON string to float", t => {
 test("Parses JSON string to float literal", t => {
   let schema = S.jsonString->S.to(S.literal(1.23))
 
-  t->Assert.deepEqual(`1.23`->S.parseOrThrow(schema), 1.23)
-  t->U.assertThrowsMessage(() => `null`->S.parseOrThrow(schema), `Expected "1.23", received "null"`)
+  t->Assert.deepEqual(`1.23`->S.parseOrThrow(~to=schema), 1.23)
+  t->U.assertThrowsMessage(() => `null`->S.parseOrThrow(~to=schema), `Expected "1.23", received "null"`)
 
   t->U.assertCompiledCode(
     ~schema,
@@ -110,7 +110,7 @@ test("Parses JSON string to float literal", t => {
     `i=>{typeof i==="string"||e[1](i);i==="1.23"||e[0](i);return 1.23}`,
   )
 
-  t->Assert.deepEqual(1.23->S.reverseConvertOrThrow(schema), %raw(`"1.23"`))
+  t->Assert.deepEqual(1.23->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"1.23"`))
 
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{i===1.23||e[0](i);return "1.23"}`)
 })
@@ -118,8 +118,8 @@ test("Parses JSON string to float literal", t => {
 test("Parses JSON string to bool", t => {
   let schema = S.jsonString->S.to(S.bool)
 
-  t->Assert.deepEqual(`true`->S.parseOrThrow(schema), true)
-  t->U.assertThrowsMessage(() => `"t"`->S.parseOrThrow(schema), `Expected boolean, received "t"`)
+  t->Assert.deepEqual(`true`->S.parseOrThrow(~to=schema), true)
+  t->U.assertThrowsMessage(() => `"t"`->S.parseOrThrow(~to=schema), `Expected boolean, received "t"`)
 
   t->U.assertCompiledCode(
     ~schema,
@@ -132,7 +132,7 @@ test("Parses JSON string to bool", t => {
     `i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="boolean"||e[1](v0);return v0}`,
   )
 
-  t->Assert.deepEqual(true->S.reverseConvertOrThrow(schema), %raw(`"true"`))
+  t->Assert.deepEqual(true->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"true"`))
 
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return ""+i}`)
 })
@@ -140,8 +140,8 @@ test("Parses JSON string to bool", t => {
 test("Parses JSON string to bool literal", t => {
   let schema = S.jsonString->S.to(S.literal(true))
 
-  t->Assert.deepEqual(`true`->S.parseOrThrow(schema), true)
-  t->U.assertThrowsMessage(() => `null`->S.parseOrThrow(schema), `Expected "true", received "null"`)
+  t->Assert.deepEqual(`true`->S.parseOrThrow(~to=schema), true)
+  t->U.assertThrowsMessage(() => `null`->S.parseOrThrow(~to=schema), `Expected "true", received "null"`)
 
   t->U.assertCompiledCode(
     ~schema,
@@ -149,7 +149,7 @@ test("Parses JSON string to bool literal", t => {
     `i=>{typeof i==="string"||e[1](i);i==="true"||e[0](i);return true}`,
   )
 
-  t->Assert.deepEqual(true->S.reverseConvertOrThrow(schema), %raw(`"true"`))
+  t->Assert.deepEqual(true->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"true"`))
 
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{i===true||e[0](i);return "true"}`)
 })
@@ -157,9 +157,9 @@ test("Parses JSON string to bool literal", t => {
 test("Parses JSON string to bigint", t => {
   let schema = S.jsonString->S.to(S.bigint)
 
-  t->U.assertThrowsMessage(() => `123`->S.parseOrThrow(schema), `Expected string, received 123`)
+  t->U.assertThrowsMessage(() => `123`->S.parseOrThrow(~to=schema), `Expected string, received 123`)
 
-  t->Assert.deepEqual(`"123"`->S.parseOrThrow(schema), 123n)
+  t->Assert.deepEqual(`"123"`->S.parseOrThrow(~to=schema), 123n)
 
   t->U.assertCompiledCode(
     ~schema,
@@ -172,7 +172,7 @@ test("Parses JSON string to bigint", t => {
     `i=>{let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="string"||e[2](v0);let v1;try{v1=BigInt(v0)}catch(_){e[1](v0)}return v1}`,
   )
 
-  t->Assert.deepEqual(123n->S.reverseConvertOrThrow(schema), %raw(`"\"123\""`))
+  t->Assert.deepEqual(123n->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"\"123\""`))
 
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return "\\""+i+"\\""}`)
 })
@@ -180,8 +180,8 @@ test("Parses JSON string to bigint", t => {
 test("Parses JSON string to bigint literal", t => {
   let schema = S.jsonString->S.to(S.literal(123n))
 
-  t->Assert.deepEqual(`"123"`->S.parseOrThrow(schema), 123n)
-  t->U.assertThrowsMessage(() => `123`->S.parseOrThrow(schema), `Expected ""123"", received "123"`)
+  t->Assert.deepEqual(`"123"`->S.parseOrThrow(~to=schema), 123n)
+  t->U.assertThrowsMessage(() => `123`->S.parseOrThrow(~to=schema), `Expected ""123"", received "123"`)
 
   t->U.assertCompiledCode(
     ~schema,
@@ -189,7 +189,7 @@ test("Parses JSON string to bigint literal", t => {
     `i=>{typeof i==="string"||e[1](i);i==="\\"123\\""||e[0](i);return 123n}`,
   )
 
-  t->Assert.deepEqual(123n->S.reverseConvertOrThrow(schema), %raw(`'"123"'`))
+  t->Assert.deepEqual(123n->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`'"123"'`))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -205,12 +205,12 @@ test("Parses JSON string to symbol literal", t => {
   let schema = S.jsonString->S.to(S.literal(symbol))
 
   t->U.assertThrowsMessage(
-    () => `true`->S.parseOrThrow(schema),
+    () => `true`->S.parseOrThrow(~to=schema),
     `Unsupported conversion from JSON string to Symbol(foo)`,
   )
 
   t->U.assertThrowsMessage(
-    () => symbol->S.reverseConvertOrThrow(schema),
+    () => symbol->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     `Unsupported conversion from Symbol(foo) to JSON string`,
   )
 })
@@ -219,7 +219,7 @@ test("Parses JSON string to null literal", t => {
   let nullVal = %raw(`null`)
   let schema = S.jsonString->S.to(S.literal(nullVal))
 
-  t->Assert.deepEqual("null"->S.parseOrThrow(schema), nullVal)
+  t->Assert.deepEqual("null"->S.parseOrThrow(~to=schema), nullVal)
 
   t->U.assertCompiledCode(
     ~schema,
@@ -227,7 +227,7 @@ test("Parses JSON string to null literal", t => {
     `i=>{typeof i==="string"||e[1](i);i==="null"||e[0](i);return null}`,
   )
 
-  t->Assert.deepEqual(nullVal->S.reverseConvertOrThrow(schema), %raw(`"null"`))
+  t->Assert.deepEqual(nullVal->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"null"`))
 
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{i===null||e[0](i);return "null"}`)
 })
@@ -235,7 +235,7 @@ test("Parses JSON string to null literal", t => {
 test("Parses JSON string to nullAsUnit", t => {
   let schema = S.jsonString->S.to(S.nullAsUnit)
 
-  t->Assert.deepEqual(`null`->S.parseOrThrow(schema), ())
+  t->Assert.deepEqual(`null`->S.parseOrThrow(~to=schema), ())
 
   t->U.assertCompiledCode(
     ~schema,
@@ -243,7 +243,7 @@ test("Parses JSON string to nullAsUnit", t => {
     `i=>{typeof i==="string"||e[1](i);i==="null"||e[0](i);return void 0}`,
   )
 
-  t->Assert.deepEqual(()->S.reverseConvertOrThrow(schema), %raw(`"null"`))
+  t->Assert.deepEqual(()->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"null"`))
 
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{i===void 0||e[0](i);return "null"}`)
 })
@@ -251,7 +251,7 @@ test("Parses JSON string to nullAsUnit", t => {
 test("Parses JSON string to unit", t => {
   let schema = S.jsonString->S.to(S.unit)
 
-  t->Assert.deepEqual(`null`->S.parseOrThrow(schema), ())
+  t->Assert.deepEqual(`null`->S.parseOrThrow(~to=schema), ())
 
   t->U.assertCompiledCode(
     ~schema,
@@ -259,7 +259,7 @@ test("Parses JSON string to unit", t => {
     `i=>{typeof i==="string"||e[1](i);i==="null"||e[0](i);return void 0}`,
   )
 
-  t->Assert.deepEqual(()->S.reverseConvertOrThrow(schema), %raw(`"null"`))
+  t->Assert.deepEqual(()->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"null"`))
 
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{i===void 0||e[0](i);return "null"}`)
 })
@@ -268,7 +268,7 @@ test("Parses JSON string to dict", t => {
   let value = Dict.fromArray([("foo", true)])
   let schema = S.jsonString->S.to(S.dict(S.bool))
 
-  t->Assert.deepEqual(`{"foo": true}`->S.parseOrThrow(schema), value)
+  t->Assert.deepEqual(`{"foo": true}`->S.parseOrThrow(~to=schema), value)
 
   t->U.assertCompiledCode(
     ~schema,
@@ -276,7 +276,7 @@ test("Parses JSON string to dict", t => {
     `i=>{typeof i==="string"||e[3](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);for(let v1 in v0){try{let v2=v0[v1];typeof v2==="boolean"||e[1](v2);}catch(v3){v3.path=\'["\'+v1+\'"]\'+v3.path;throw v3}}return v0}`,
   )
 
-  t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), `{"foo":true}`->Obj.magic)
+  t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), `{"foo":true}`->Obj.magic)
 
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return JSON.stringify(i)}`)
 })
@@ -285,7 +285,7 @@ test("Parses JSON string to array", t => {
   let value = [true, false]
   let schema = S.jsonString->S.to(S.array(S.bool))
 
-  t->Assert.deepEqual(`[true, false]`->S.parseOrThrow(schema), value)
+  t->Assert.deepEqual(`[true, false]`->S.parseOrThrow(~to=schema), value)
 
   t->U.assertCompiledCode(
     ~schema,
@@ -293,7 +293,7 @@ test("Parses JSON string to array", t => {
     `i=>{typeof i==="string"||e[3](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}Array.isArray(v0)||e[2](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="boolean"||e[1](v2);}catch(v3){v3.path=\'["\'+v1+\'"]\'+v3.path;throw v3}}return v0}`,
   )
 
-  t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), `[true,false]`->Obj.magic)
+  t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), `[true,false]`->Obj.magic)
 
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return JSON.stringify(i)}`)
 })
@@ -301,7 +301,7 @@ test("Parses JSON string to array", t => {
 test("A chain of JSON string schemas should do nothing", t => {
   let schema = S.jsonString->S.to(S.jsonString)->S.to(S.jsonString)->S.to(S.bool)
 
-  t->Assert.deepEqual(`true`->S.parseOrThrow(schema), true)
+  t->Assert.deepEqual(`true`->S.parseOrThrow(~to=schema), true)
 
   t->U.assertCompiledCode(
     ~schema,
@@ -309,14 +309,14 @@ test("A chain of JSON string schemas should do nothing", t => {
     `i=>{typeof i==="string"||e[2](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}typeof v0==="boolean"||e[1](v0);return v0}`,
   )
 
-  t->Assert.deepEqual(true->S.reverseConvertOrThrow(schema), %raw(`"true"`))
+  t->Assert.deepEqual(true->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"true"`))
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return ""+i}`)
 })
 
 test("A S.unknown in the S.jsonString chain should do nothing", t => {
   let schema = S.jsonString->S.to(S.unknown)->S.to(S.jsonString)->S.to(S.bool)
 
-  t->Assert.deepEqual("true"->S.parseOrThrow(schema), true)
+  t->Assert.deepEqual("true"->S.parseOrThrow(~to=schema), true)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
@@ -324,7 +324,7 @@ test("A S.unknown in the S.jsonString chain should do nothing", t => {
   )
 
   t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return ""+i}`)
-  t->Assert.deepEqual(true->S.reverseConvertOrThrow(schema), %raw(`"true"`))
+  t->Assert.deepEqual(true->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"true"`))
 })
 
 test("Parses JSON string to object with bigint", t => {
@@ -342,7 +342,7 @@ test("Parses JSON string to object with bigint", t => {
     ),
   )
 
-  t->Assert.deepEqual(`{"foo":"bar","bar":["1",true]}`->S.parseOrThrow(schema), value)
+  t->Assert.deepEqual(`{"foo":"bar","bar":["1",true]}`->S.parseOrThrow(~to=schema), value)
 
   t->U.assertCompiledCode(
     ~schema,
@@ -351,7 +351,7 @@ test("Parses JSON string to object with bigint", t => {
   )
 
   t->Assert.deepEqual(
-    value->S.reverseConvertOrThrow(schema),
+    value->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     `{"foo":"bar","bar":["1",true]}`->Obj.magic,
   )
 
@@ -366,12 +366,12 @@ test("Parses JSON string to option", t => {
   let schema = S.jsonString->S.to(S.option(S.bool))
 
   t->U.assertThrowsMessage(
-    () => `"foo"`->S.parseOrThrow(schema),
+    () => `"foo"`->S.parseOrThrow(~to=schema),
     `Expected boolean | undefined, received "foo"`,
   )
 
-  t->Assert.deepEqual(`null`->S.parseOrThrow(schema), None)
-  t->Assert.deepEqual(`true`->S.parseOrThrow(schema), Some(true))
+  t->Assert.deepEqual(`null`->S.parseOrThrow(~to=schema), None)
+  t->Assert.deepEqual(`true`->S.parseOrThrow(~to=schema), Some(true))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -379,8 +379,8 @@ test("Parses JSON string to option", t => {
     `i=>{typeof i==="string"||e[2](i);let v0;try{v0=JSON.parse(i)}catch(t){e[0](i)}if(v0===null){v0=void 0}else if(!(typeof v0==="boolean")){e[1](v0)}return v0}`,
   )
 
-  t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), `null`->Obj.magic)
-  t->Assert.deepEqual(Some(true)->S.reverseConvertOrThrow(schema), `true`->Obj.magic)
+  t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), `null`->Obj.magic)
+  t->Assert.deepEqual(Some(true)->S.decodeOrThrow(~from=schema, ~to=S.unknown), `true`->Obj.magic)
 
   t->U.assertCompiledCode(
     ~schema,
@@ -401,7 +401,7 @@ test("Successfully serializes JSON object with space", t => {
     {
       "foo": "bar",
       "baz": [1, 3],
-    }->S.reverseConvertOrThrow(S.jsonStringWithSpace(2)->S.to(schema)),
+    }->S.decodeOrThrow(~from=S.jsonStringWithSpace(2)->S.to(schema), ~to=S.unknown),
     %raw(`'{\n  "foo": "bar",\n  "baz": [\n    1,\n    3\n  ]\n}'`),
   )
 })
@@ -420,9 +420,9 @@ test("Converts JSON string to object with unknown field", t => {
     `i=>{e[0](i);return JSON.stringify({"foo":i,})}`,
   )
 
-  t->Assert.deepEqual(%raw(`"foo"`)->S.reverseConvertOrThrow(schema), %raw(`'{"foo":"foo"}'`))
+  t->Assert.deepEqual(%raw(`"foo"`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`'{"foo":"foo"}'`))
   t->U.assertThrowsMessage(() => {
-    %raw(`123n`)->S.reverseConvertOrThrow(schema)
+    %raw(`123n`)->S.decodeOrThrow(~from=schema, ~to=S.unknown)
   }, `Expected JSON, received 123n`)
 })
 
@@ -439,7 +439,7 @@ test("Compiled async parse code snapshot", t => {
 test("Can apply refinement to JSON string", t => {
   let schema = S.jsonString->S.refine(v => v === "123", ~error="Expected 123")
 
-  t->U.assertThrowsMessage(() => `124`->S.parseOrThrow(schema), `Expected 123`)
+  t->U.assertThrowsMessage(() => `124`->S.parseOrThrow(~to=schema), `Expected 123`)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
@@ -453,7 +453,7 @@ test("Can apply refinement to JSON string with S.to after", t => {
     ->S.refine(v => v === "123", ~error="Expected 123")
     ->S.to(S.int)
 
-  t->U.assertThrowsMessage(() => `124`->S.parseOrThrow(schema), `Expected 123`)
+  t->U.assertThrowsMessage(() => `124`->S.parseOrThrow(~to=schema), `Expected 123`)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
@@ -465,7 +465,7 @@ test("Can apply refinement to JSON string with S.to after", t => {
 test("Can apply refinement to JSON string with S.to before", t => {
   let schema = S.int->S.to(S.jsonString->S.refine(v => v === "123", ~error="Expected 123"))
 
-  t->U.assertThrowsMessage(() => 124->S.parseOrThrow(schema), `Expected 123`)
+  t->U.assertThrowsMessage(() => 124->S.parseOrThrow(~to=schema), `Expected 123`)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,

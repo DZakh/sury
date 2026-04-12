@@ -3,49 +3,49 @@ open Ava
 test("Successfully parses valid data", t => {
   let schema = S.string->S.pattern(/[0-9]/)
 
-  t->Assert.deepEqual("123"->S.parseOrThrow(schema), "123")
+  t->Assert.deepEqual("123"->S.parseOrThrow(~to=schema), "123")
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="string"){e[0](i)}if(!e[1].test(i)){e[2]()}return i}`,
+    `i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}`,
   )
 })
 
 test("Successfully parses valid data with global flag", t => {
   let schema = S.string->S.pattern(/[0-9]/g)
 
-  t->Assert.deepEqual("123"->S.parseOrThrow(schema), "123")
+  t->Assert.deepEqual("123"->S.parseOrThrow(~to=schema), "123")
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="string"){e[0](i)}e[1].lastIndex=0;if(!e[1].test(i)){e[2]()}return i}`,
+    `i=>{typeof i==="string"||e[2](i);(e[0].lastIndex=0,e[0].test(i))||e[1](i);return i}`,
   )
 })
 
 test("Fails to parse invalid data", t => {
   let schema = S.string->S.pattern(/[0-9]/)
 
-  t->U.assertThrowsMessage(() => "abc"->S.parseOrThrow(schema), `Invalid pattern`)
+  t->U.assertThrowsMessage(() => "abc"->S.parseOrThrow(~to=schema), `Invalid pattern`)
 })
 
 test("Successfully serializes valid value", t => {
   let schema = S.string->S.pattern(/[0-9]/)
 
-  t->Assert.deepEqual("123"->S.reverseConvertOrThrow(schema), %raw(`"123"`))
+  t->Assert.deepEqual("123"->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
 })
 
 test("Fails to serialize invalid value", t => {
   let schema = S.string->S.pattern(/[0-9]/)
 
-  t->U.assertThrowsMessage(() => "abc"->S.reverseConvertOrThrow(schema), `Invalid pattern`)
+  t->U.assertThrowsMessage(() => "abc"->S.decodeOrThrow(~from=schema, ~to=S.unknown), `Invalid pattern`)
 })
 
 test("Returns custom error message", t => {
   let schema = S.string->S.pattern(~message="Custom", /[0-9]/)
 
-  t->U.assertThrowsMessage(() => "abc"->S.parseOrThrow(schema), `Custom`)
+  t->U.assertThrowsMessage(() => "abc"->S.parseOrThrow(~to=schema), `Custom`)
 })
 
 test("Returns refinement", t => {

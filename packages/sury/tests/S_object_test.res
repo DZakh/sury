@@ -12,7 +12,7 @@ test("Successfully parses object with inlinable string field", t => {
     }
   )
 
-  t->Assert.deepEqual(%raw(`{field: "bar"}`)->S.parseOrThrow(schema), {"field": "bar"})
+  t->Assert.deepEqual(%raw(`{field: "bar"}`)->S.parseOrThrow(~to=schema), {"field": "bar"})
 })
 
 test("Fails to parse object with inlinable string field", t => {
@@ -23,7 +23,7 @@ test("Fails to parse object with inlinable string field", t => {
   )
 
   t->U.assertThrowsMessage(
-    () => %raw(`{field: 123}`)->S.parseOrThrow(schema),
+    () => %raw(`{field: 123}`)->S.parseOrThrow(~to=schema),
     `Failed at ["field"]: Expected string, received 123`,
   )
 })
@@ -38,7 +38,7 @@ test(
     )
 
     t->U.assertThrowsMessage(
-      () => %raw(`{field: ["foo"]}`)->S.parseOrThrow(schema),
+      () => %raw(`{field: ["foo"]}`)->S.parseOrThrow(~to=schema),
       `Failed at ["field"]["0"]: User error`,
     )
   },
@@ -51,7 +51,7 @@ test("Successfully parses object with inlinable bool field", t => {
     }
   )
 
-  t->Assert.deepEqual(%raw(`{field: true}`)->S.parseOrThrow(schema), {"field": true})
+  t->Assert.deepEqual(%raw(`{field: true}`)->S.parseOrThrow(~to=schema), {"field": true})
 })
 
 test("Fails to parse object with inlinable bool field", t => {
@@ -62,7 +62,7 @@ test("Fails to parse object with inlinable bool field", t => {
   )
 
   t->U.assertThrowsMessage(
-    () => %raw(`{field: 123}`)->S.parseOrThrow(schema),
+    () => %raw(`{field: 123}`)->S.parseOrThrow(~to=schema),
     `Failed at ["field"]: Expected boolean, received 123`,
   )
 })
@@ -75,7 +75,7 @@ test("Successfully parses object with unknown field (Noop operation)", t => {
   )
 
   t->Assert.deepEqual(
-    %raw(`{field: new Date("2015-12-12")}`)->S.parseOrThrow(schema),
+    %raw(`{field: new Date("2015-12-12")}`)->S.parseOrThrow(~to=schema),
     %raw(`{field: new Date("2015-12-12")}`),
   )
 })
@@ -88,7 +88,7 @@ test("Successfully serializes object with unknown field (Noop operation)", t => 
   )
 
   t->Assert.deepEqual(
-    %raw(`{field: new Date("2015-12-12")}`)->S.reverseConvertOrThrow(schema),
+    %raw(`{field: new Date("2015-12-12")}`)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{field: new Date("2015-12-12")}`),
   )
 })
@@ -101,7 +101,7 @@ test("Fails to parse object with inlinable never field", t => {
   )
 
   t->U.assertThrowsMessage(
-    () => %raw(`{field: true}`)->S.parseOrThrow(schema),
+    () => %raw(`{field: true}`)->S.parseOrThrow(~to=schema),
     `Failed at ["field"]: Expected never, received true`,
   )
 })
@@ -113,7 +113,7 @@ test("Successfully parses object with inlinable float field", t => {
     }
   )
 
-  t->Assert.deepEqual(%raw(`{field: 123}`)->S.parseOrThrow(schema), {"field": 123.})
+  t->Assert.deepEqual(%raw(`{field: 123}`)->S.parseOrThrow(~to=schema), {"field": 123.})
 })
 
 test("Fails to parse object with inlinable float field", t => {
@@ -124,7 +124,7 @@ test("Fails to parse object with inlinable float field", t => {
   )
 
   t->U.assertThrowsMessage(
-    () => %raw(`{field: true}`)->S.parseOrThrow(schema),
+    () => %raw(`{field: true}`)->S.parseOrThrow(~to=schema),
     `Failed at ["field"]: Expected number, received true`,
   )
 })
@@ -136,7 +136,7 @@ test("Successfully parses object with inlinable int field", t => {
     }
   )
 
-  t->Assert.deepEqual(%raw(`{field: 123}`)->S.parseOrThrow(schema), {"field": 123})
+  t->Assert.deepEqual(%raw(`{field: 123}`)->S.parseOrThrow(~to=schema), {"field": 123})
 })
 
 test("Fails to parse object with inlinable int field", t => {
@@ -147,7 +147,7 @@ test("Fails to parse object with inlinable int field", t => {
   )
 
   t->U.assertThrowsMessage(
-    () => %raw(`{field: true}`)->S.parseOrThrow(schema),
+    () => %raw(`{field: true}`)->S.parseOrThrow(~to=schema),
     `Failed at ["field"]: Expected int32, received true`,
   )
 })
@@ -159,7 +159,7 @@ test("Successfully parses object with not inlinable empty object field", t => {
     }
   )
 
-  t->Assert.deepEqual(%raw(`{field: {}}`)->S.parseOrThrow(schema), {"field": ()})
+  t->Assert.deepEqual(%raw(`{field: {}}`)->S.parseOrThrow(~to=schema), {"field": ()})
 })
 
 test("Fails to parse object with not inlinable empty object field", t => {
@@ -171,7 +171,7 @@ test("Fails to parse object with not inlinable empty object field", t => {
   )
 
   t->U.assertThrowsMessage(
-    () => %raw(`{field: true}`)->S.parseOrThrow(schema),
+    () => %raw(`{field: true}`)->S.parseOrThrow(~to=schema),
     `Failed at ["field"]: Expected {}, received true`,
   )
 })
@@ -184,7 +184,7 @@ test("Fails to parse object when provided invalid data", t => {
   )
 
   t->U.assertThrowsMessage(
-    () => %raw(`12`)->S.parseOrThrow(schema),
+    () => %raw(`12`)->S.parseOrThrow(~to=schema),
     `Expected { field: string; }, received 12`,
   )
 })
@@ -196,7 +196,7 @@ test("Successfully serializes object with single field", t => {
     }
   )
 
-  t->Assert.deepEqual({"field": "bar"}->S.reverseConvertOrThrow(schema), %raw(`{field: "bar"}`))
+  t->Assert.deepEqual({"field": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{field: "bar"}`))
 })
 
 test("Successfully parses object with multiple fields", t => {
@@ -208,7 +208,7 @@ test("Successfully parses object with multiple fields", t => {
   )
 
   t->Assert.deepEqual(
-    %raw(`{boo: "bar", zoo: "jee"}`)->S.parseOrThrow(schema),
+    %raw(`{boo: "bar", zoo: "jee"}`)->S.parseOrThrow(~to=schema),
     {"boo": "bar", "zoo": "jee"},
   )
 })
@@ -222,7 +222,7 @@ test("Successfully serializes object with multiple fields", t => {
   )
 
   t->Assert.deepEqual(
-    {"boo": "bar", "zoo": "jee"}->S.reverseConvertOrThrow(schema),
+    {"boo": "bar", "zoo": "jee"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{boo: "bar", zoo: "jee"}`),
   )
 })
@@ -237,7 +237,7 @@ test("Successfully parses object with transformed field", t => {
     }
   )
 
-  t->Assert.deepEqual(%raw(`{string: "bar"}`)->S.parseOrThrow(schema), {"string": "barfield"})
+  t->Assert.deepEqual(%raw(`{string: "bar"}`)->S.parseOrThrow(~to=schema), {"string": "barfield"})
 })
 
 test("Fails to parse object when transformed field has throws error", t => {
@@ -248,7 +248,7 @@ test("Fails to parse object when transformed field has throws error", t => {
   )
 
   t->U.assertThrowsMessage(
-    () => {"field": "bar"}->S.parseOrThrow(schema),
+    () => {"field": "bar"}->S.parseOrThrow(~to=schema),
     `Failed at ["field"]: User error`,
   )
 })
@@ -264,7 +264,7 @@ test("Shows transformed object field name in error path when fails to parse", t 
   )
 
   t->U.assertThrowsMessage(
-    () => {"originalFieldName": "bar"}->S.parseOrThrow(schema),
+    () => {"originalFieldName": "bar"}->S.parseOrThrow(~to=schema),
     `Failed at ["originalFieldName"]: User error`,
   )
 })
@@ -280,7 +280,7 @@ test("Successfully serializes object with transformed field", t => {
   )
 
   t->Assert.deepEqual(
-    {"string": "bar"}->S.reverseConvertOrThrow(schema),
+    {"string": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{"string": "barfield"}`),
   )
 })
@@ -296,7 +296,7 @@ test("Fails to serializes object when transformed field has throws error", t => 
   )
 
   t->U.assertThrowsMessage(
-    () => {"field": "bar"}->S.reverseConvertOrThrow(schema),
+    () => {"field": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     `Failed at ["field"]: User error`,
   )
 })
@@ -312,7 +312,7 @@ test("Shows transformed object field name in error path when fails to serializes
   )
 
   t->U.assertThrowsMessage(
-    () => {"transformedFieldName": "bar"}->S.reverseConvertOrThrow(schema),
+    () => {"transformedFieldName": "bar"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     `Failed at ["transformedFieldName"]: User error`,
   )
 })
@@ -334,7 +334,7 @@ test("Shows transformed to nested object field name in error path when fails to 
       "v1": {
         "transformedFieldName": "bar",
       },
-    }->S.reverseConvertOrThrow(schema)
+    }->S.decodeOrThrow(~from=schema, ~to=S.unknown)
   , `Failed at ["v1"]["transformedFieldName"]: User error`)
 })
 
@@ -347,7 +347,7 @@ test("Successfully parses object with optional fields", t => {
   )
 
   t->Assert.deepEqual(
-    %raw(`{boo: "bar"}`)->S.parseOrThrow(schema),
+    %raw(`{boo: "bar"}`)->S.parseOrThrow(~to=schema),
     {"boo": Some("bar"), "zoo": None},
   )
 })
@@ -361,7 +361,7 @@ test("Successfully serializes object with optional fields", t => {
   )
 
   t->Assert.deepEqual(
-    {"boo": Some("bar"), "zoo": None}->S.reverseConvertOrThrow(schema),
+    {"boo": Some("bar"), "zoo": None}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{boo: "bar", zoo: undefined}`),
   )
 })
@@ -375,7 +375,7 @@ test("Successfully parses object with optional fields with default", t => {
   )
 
   t->Assert.deepEqual(
-    %raw(`{boo: "bar"}`)->S.parseOrThrow(schema),
+    %raw(`{boo: "bar"}`)->S.parseOrThrow(~to=schema),
     {"boo": "bar", "zoo": "default zoo"},
   )
 })
@@ -389,7 +389,7 @@ test("Successfully serializes object with optional fields with default", t => {
   )
 
   t->Assert.deepEqual(
-    {"boo": "bar", "zoo": "baz"}->S.reverseConvertOrThrow(schema),
+    {"boo": "bar", "zoo": "baz"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{boo: "bar", zoo: "baz"}`),
   )
 })
@@ -405,7 +405,7 @@ test(
     })
 
     t->Assert.deepEqual(
-      %raw(`{mode: 1}`)->S.parseOrThrow(optionsSchema),
+      %raw(`{mode: 1}`)->S.parseOrThrow(~to=optionsSchema),
       {
         fast: %raw(`undefined`),
         mode: 1,
@@ -423,7 +423,7 @@ test("Successfully serializes object with optional fields using (?)", t => {
   })
 
   t->Assert.deepEqual(
-    {mode: 1}->S.reverseConvertOrThrow(optionsSchema),
+    {mode: 1}->S.decodeOrThrow(~from=optionsSchema, ~to=S.unknown),
     %raw(`{mode: 1, fast: undefined}`),
   )
 })
@@ -438,7 +438,7 @@ test("Successfully parses object with mapped field names", t => {
   )
 
   t->Assert.deepEqual(
-    %raw(`{"Name":"Dmitry","Email":"dzakh.dev@gmail.com","Age":21}`)->S.parseOrThrow(schema),
+    %raw(`{"Name":"Dmitry","Email":"dzakh.dev@gmail.com","Age":21}`)->S.parseOrThrow(~to=schema),
     {"name": "Dmitry", "email": "dzakh.dev@gmail.com", "age": 21},
   )
 })
@@ -453,7 +453,7 @@ test("Successfully serializes object with mapped field", t => {
   )
 
   t->Assert.deepEqual(
-    {"name": "Dmitry", "email": "dzakh.dev@gmail.com", "age": 21}->S.reverseConvertOrThrow(schema),
+    {"name": "Dmitry", "email": "dzakh.dev@gmail.com", "age": 21}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{"Name":"Dmitry","Email":"dzakh.dev@gmail.com","Age":21}`),
   )
 })
@@ -461,13 +461,13 @@ test("Successfully serializes object with mapped field", t => {
 test("Successfully parses object transformed to tuple", t => {
   let schema = S.object(s => (s.field("boo", S.int), s.field("zoo", S.int)))
 
-  t->Assert.deepEqual(%raw(`{boo: 1, zoo: 2}`)->S.parseOrThrow(schema), (1, 2))
+  t->Assert.deepEqual(%raw(`{boo: 1, zoo: 2}`)->S.parseOrThrow(~to=schema), (1, 2))
 })
 
 test("Successfully serializes object transformed to tuple", t => {
   let schema = S.object(s => (s.field("boo", S.int), s.field("zoo", S.int)))
 
-  t->Assert.deepEqual((1, 2)->S.reverseConvertOrThrow(schema), %raw(`{boo: 1, zoo: 2}`))
+  t->Assert.deepEqual((1, 2)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{boo: 1, zoo: 2}`))
 })
 
 test("Successfully parses object transformed to nested object", t => {
@@ -481,7 +481,7 @@ test("Successfully parses object transformed to nested object", t => {
   )
 
   t->Assert.deepEqual(
-    %raw(`{boo: 1, zoo: 2}`)->S.parseOrThrow(schema),
+    %raw(`{boo: 1, zoo: 2}`)->S.parseOrThrow(~to=schema),
     {"v1": {"boo": 1, "zoo": 2}},
   )
 })
@@ -497,7 +497,7 @@ test("Successfully serializes object transformed to nested object", t => {
   )
 
   t->Assert.deepEqual(
-    {"v1": {"boo": 1, "zoo": 2}}->S.reverseConvertOrThrow(schema),
+    {"v1": {"boo": 1, "zoo": 2}}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{boo: 1, zoo: 2}`),
   )
 })
@@ -509,7 +509,7 @@ test("Successfully parses object transformed to nested tuple", t => {
     }
   )
 
-  t->Assert.deepEqual(%raw(`{boo: 1, zoo: 2}`)->S.parseOrThrow(schema), {"v1": (1, 2)})
+  t->Assert.deepEqual(%raw(`{boo: 1, zoo: 2}`)->S.parseOrThrow(~to=schema), {"v1": (1, 2)})
 })
 
 test("Successfully serializes object transformed to nested tuple", t => {
@@ -519,19 +519,19 @@ test("Successfully serializes object transformed to nested tuple", t => {
     }
   )
 
-  t->Assert.deepEqual({"v1": (1, 2)}->S.reverseConvertOrThrow(schema), %raw(`{boo: 1, zoo: 2}`))
+  t->Assert.deepEqual({"v1": (1, 2)}->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{boo: 1, zoo: 2}`))
 })
 
 test("Successfully parses object with only one field returned from transformer", t => {
   let schema = S.object(s => s.field("field", S.bool))
 
-  t->Assert.deepEqual(%raw(`{"field": true}`)->S.parseOrThrow(schema), true)
+  t->Assert.deepEqual(%raw(`{"field": true}`)->S.parseOrThrow(~to=schema), true)
 })
 
 test("Successfully serializes object with only one field returned from transformer", t => {
   let schema = S.object(s => s.field("field", S.bool))
 
-  t->Assert.deepEqual(true->S.reverseConvertOrThrow(schema), %raw(`{"field": true}`))
+  t->Assert.deepEqual(true->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{"field": true}`))
 })
 
 test("Successfully parses object transformed to the one with hardcoded fields", t => {
@@ -543,7 +543,7 @@ test("Successfully parses object transformed to the one with hardcoded fields", 
   )
 
   t->Assert.deepEqual(
-    %raw(`{"field": true}`)->S.parseOrThrow(schema),
+    %raw(`{"field": true}`)->S.parseOrThrow(~to=schema),
     {
       "hardcoded": false,
       "field": true,
@@ -563,7 +563,7 @@ test("Successfully serializes object transformed to the one with hardcoded field
     {
       "hardcoded": false,
       "field": true,
-    }->S.reverseConvertOrThrow(schema),
+    }->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{"field": true}`),
   )
 })
@@ -571,13 +571,13 @@ test("Successfully serializes object transformed to the one with hardcoded field
 test("Successfully parses object transformed to variant", t => {
   let schema = S.object(s => #VARIANT(s.field("field", S.bool)))
 
-  t->Assert.deepEqual(%raw(`{"field": true}`)->S.parseOrThrow(schema), #VARIANT(true))
+  t->Assert.deepEqual(%raw(`{"field": true}`)->S.parseOrThrow(~to=schema), #VARIANT(true))
 })
 
 test("Successfully serializes object transformed to variant", t => {
   let schema = S.object(s => #VARIANT(s.field("field", S.bool)))
 
-  t->Assert.deepEqual(#VARIANT(true)->S.reverseConvertOrThrow(schema), %raw(`{"field": true}`))
+  t->Assert.deepEqual(#VARIANT(true)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{"field": true}`))
 })
 
 test("Parse reversed schema with nested objects and tuples has type validation", t => {
@@ -646,7 +646,7 @@ module BenchmarkWithSObject = {
     })
     let schema = makeSchema()
 
-    t->Assert.deepEqual(makeTestObject()->S.parseOrThrow(schema), makeTestObject())
+    t->Assert.deepEqual(makeTestObject()->S.parseOrThrow(~to=schema), makeTestObject())
 
     t->U.assertCompiledCode(
       ~schema,
@@ -662,7 +662,7 @@ module BenchmarkWithSObject = {
     })
     let schema = makeSchema()
 
-    t->Assert.deepEqual(makeTestObject()->S.assertOrThrow(schema), ())
+    t->Assert.deepEqual(makeTestObject()->S.assertOrThrow(~to=schema), ())
 
     t->U.assertCompiledCode(
       ~schema,
@@ -679,7 +679,7 @@ module BenchmarkWithSObject = {
     })
     let schema = makeSchema()
 
-    t->Assert.deepEqual(makeTestObject()->S.parseOrThrow(schema), makeTestObject())
+    t->Assert.deepEqual(makeTestObject()->S.parseOrThrow(~to=schema), makeTestObject())
 
     t->U.assertCompiledCode(
       ~schema,
@@ -696,7 +696,7 @@ module BenchmarkWithSObject = {
     })
     let schema = makeSchema()
 
-    t->Assert.deepEqual(makeTestObject()->S.assertOrThrow(schema), ())
+    t->Assert.deepEqual(makeTestObject()->S.assertOrThrow(~to=schema), ())
 
     t->U.assertCompiledCode(
       ~schema,
@@ -712,7 +712,7 @@ module BenchmarkWithSObject = {
     })
     let schema = makeSchema()
 
-    t->Assert.deepEqual(makeTestObject()->S.reverseConvertOrThrow(schema), makeTestObject())
+    t->Assert.deepEqual(makeTestObject()->S.decodeOrThrow(~from=schema, ~to=S.unknown), makeTestObject())
 
     t->U.assertCompiledCode(
       ~schema,
@@ -771,7 +771,7 @@ module Benchmark = {
       `i=>{typeof i==="object"&&i||e[10](i);let v0=i["number"],v1=i["negNumber"],v2=i["maxNumber"],v3=i["string"],v4=i["longString"],v5=i["boolean"],v6=i["deeplyNested"];typeof v0==="number"||e[0](v0);typeof v1==="number"||e[1](v1);typeof v2==="number"||e[2](v2);typeof v3==="string"||e[3](v3);typeof v4==="string"||e[4](v4);typeof v5==="boolean"||e[5](v5);typeof v6==="object"&&v6||e[9](v6);let v7=v6["foo"],v8=v6["num"],v9=v6["bool"];typeof v7==="string"||e[6](v7);typeof v8==="number"||e[7](v8);typeof v9==="boolean"||e[8](v9);return {"number":v0,"negNumber":v1,"maxNumber":v2,"string":v3,"longString":v4,"boolean":v5,"deeplyNested":{"foo":v7,"num":v8,"bool":v9,},}}`,
     )
 
-    t->Assert.deepEqual(makeTestObject()->S.parseOrThrow(schema), makeTestObject())
+    t->Assert.deepEqual(makeTestObject()->S.parseOrThrow(~to=schema), makeTestObject())
 
     S.global({})
   })
@@ -782,7 +782,7 @@ module Benchmark = {
     })
     let schema = makeSchema()
 
-    t->Assert.deepEqual(makeTestObject()->S.assertOrThrow(schema), ())
+    t->Assert.deepEqual(makeTestObject()->S.assertOrThrow(~to=schema), ())
 
     t->U.assertCompiledCode(
       ~schema,
@@ -799,7 +799,7 @@ module Benchmark = {
     })
     let schema = makeSchema()
 
-    t->Assert.deepEqual(makeTestObject()->S.parseOrThrow(schema), makeTestObject())
+    t->Assert.deepEqual(makeTestObject()->S.parseOrThrow(~to=schema), makeTestObject())
 
     t->U.assertCompiledCode(
       ~schema,
@@ -816,7 +816,7 @@ module Benchmark = {
     })
     let schema = makeSchema()
 
-    t->Assert.deepEqual(makeTestObject()->S.assertOrThrow(schema), ())
+    t->Assert.deepEqual(makeTestObject()->S.assertOrThrow(~to=schema), ())
 
     t->U.assertCompiledCode(
       ~schema,
@@ -832,7 +832,7 @@ module Benchmark = {
     })
     let schema = makeSchema()
 
-    t->Assert.deepEqual(makeTestObject()->S.reverseConvertOrThrow(schema), makeTestObject())
+    t->Assert.deepEqual(makeTestObject()->S.decodeOrThrow(~from=schema, ~to=S.unknown), makeTestObject())
 
     t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{let v0=i["deeplyNested"];return i}`)
     S.global({})
@@ -850,7 +850,7 @@ test("Successfully parses object and serializes it back to the initial data", t 
     }
   )
 
-  t->Assert.deepEqual(any->S.parseOrThrow(schema)->S.reverseConvertOrThrow(schema), any)
+  t->Assert.deepEqual(any->S.parseOrThrow(~to=schema)->S.decodeOrThrow(~from=schema, ~to=S.unknown), any)
 })
 
 test("Allows to create object schema with unused fields", t => {
@@ -862,7 +862,7 @@ test("Allows to create object schema with unused fields", t => {
   })
 
   t->Assert.deepEqual(
-    %raw(`{"field": "foo", "unused": "bar"}`)->S.parseOrThrow(schema),
+    %raw(`{"field": "foo", "unused": "bar"}`)->S.parseOrThrow(~to=schema),
     {"field": "foo"},
   )
 })
@@ -893,7 +893,7 @@ test("Successfully parses object schema with single field registered multiple ti
     }
   })
   t->Assert.deepEqual(
-    %raw(`{"field": "foo"}`)->S.parseOrThrow(schema),
+    %raw(`{"field": "foo"}`)->S.parseOrThrow(~to=schema),
     {"field1": "foo", "field2": "foo"},
   )
 })
@@ -916,11 +916,11 @@ test("Reverse convert of object schema with single field registered multiple tim
   )
 
   t->Assert.deepEqual(
-    {"field1": "foo", "field2": "foo", "field3": "foo"}->S.reverseConvertOrThrow(schema),
+    {"field1": "foo", "field2": "foo", "field3": "foo"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{"field": "foo"}`),
   )
   // t->U.assertThrows(
-  //   () => {"field1": "foo", "field2": "foo", "field3": "foz"}->S.reverseConvertOrThrow(schema),
+  //   () => {"field1": "foo", "field2": "foo", "field3": "foz"}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
   //   {
   //     code: InvalidOperation({
   //       description: `Another source has conflicting data for the field ["field"]`,
@@ -949,7 +949,7 @@ test("Can destructure fields of simple nested objects", t => {
     }
   })
   t->Assert.deepEqual(
-    %raw(`{"nested": {"foo": "foo", "bar": "bar"}}`)->S.parseOrThrow(schema),
+    %raw(`{"nested": {"foo": "foo", "bar": "bar"}}`)->S.parseOrThrow(~to=schema),
     {"baz": "bar", "foz": "foo"},
   )
   t->U.assertCompiledCode(
@@ -959,7 +959,7 @@ test("Can destructure fields of simple nested objects", t => {
   )
 
   t->Assert.deepEqual(
-    {"baz": "bar", "foz": "foo"}->S.reverseConvertToJsonOrThrow(schema),
+    {"baz": "bar", "foz": "foo"}->S.decodeOrThrow(~from=schema, ~to=S.json),
     %raw(`{"nested": {"foo": "foo", "bar": "bar"}}`),
   )
   t->U.assertCompiledCode(
@@ -979,13 +979,13 @@ test("Object schema parsing checks order", t => {
 
   // Type check should be the first
   t->U.assertThrowsMessage(
-    () => %raw(`"foo"`)->S.parseOrThrow(schema),
+    () => %raw(`"foo"`)->S.parseOrThrow(~to=schema),
     `Expected { tag: "value"; key: string; }, received "foo"`,
   )
   // Tag check should be the second
   t->U.assertThrowsMessage(
     () =>
-      %raw(`{tag: "wrong", key: 123, unknownKey: "value", unknownKey2: "value"}`)->S.parseOrThrow(
+      %raw(`{tag: "wrong", key: 123, unknownKey: "value", unknownKey2: "value"}`)->S.parseOrThrow(~to=
         schema,
       ),
     `Failed at ["tag"]: Expected "value", received "wrong"`,
@@ -993,7 +993,7 @@ test("Object schema parsing checks order", t => {
   // Field check should be the third
   t->U.assertThrowsMessage(
     () =>
-      %raw(`{tag: "value", key: 123, unknownKey: "value", unknownKey2: "value"}`)->S.parseOrThrow(
+      %raw(`{tag: "value", key: 123, unknownKey: "value", unknownKey2: "value"}`)->S.parseOrThrow(~to=
         schema,
       ),
     `Failed at ["key"]: Expected string, received 123`,
@@ -1001,14 +1001,14 @@ test("Object schema parsing checks order", t => {
   // Unknown keys check should be the last
   t->U.assertThrowsMessage(
     () =>
-      %raw(`{tag: "value", key: "value", unknownKey: "value2", unknownKey2: "value2"}`)->S.parseOrThrow(
+      %raw(`{tag: "value", key: "value", unknownKey: "value2", unknownKey2: "value2"}`)->S.parseOrThrow(~to=
         schema,
       ),
     `Unrecognized key "unknownKey"`,
   )
   // Parses valid
   t->Assert.deepEqual(
-    %raw(`{tag: "value", key: "value"}`)->S.parseOrThrow(schema),
+    %raw(`{tag: "value", key: "value"}`)->S.parseOrThrow(~to=schema),
     {
       "key": "value",
     },
@@ -1055,12 +1055,12 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i){e[4](i)}let v0=i["foo"],v1=i["bar"];if(v0!==12){e[0](v0)}if(typeof v1!=="object"||!v1){e[3](v1)}let v2=v1["baz"],v3={"baz":v2,};if(typeof v2!=="string"){e[1](v2)}if(!e[2](v3)){e[5]()}return {"foo":v0,"bar":v3,}}`,
+      `i=>{typeof i==="object"&&i||e[3](i);let v0=i["foo"],v1=i["bar"];v0===12||e[0](v0);typeof v1==="object"&&v1||e[2](v1);let v2=v1["baz"];typeof v2==="string"||e[1](v2);return {"foo":v0,"bar":{"baz":v2,},}}`,
     )
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{let v0=i["bar"];if(!e[0](v0)){e[1]()}return i}`,
+      `i=>{let v0=i["bar"];e[0](v0)||e[1](v0);return {"foo":12,"bar":{"baz":v0["baz"],},}}`,
     )
   })
 
@@ -1199,10 +1199,10 @@ test(
       "android": {"current": "1.2", "minimum": "1.1"},
     }
 
-    let value = appVersions->S.parseOrThrow(appVersionsSchema)
+    let value = appVersions->S.parseOrThrow(~to=appVersionsSchema)
     t->Assert.deepEqual(value, appVersions)
 
-    let data = appVersions->S.reverseConvertToJsonOrThrow(appVersionsSchema)
+    let data = appVersions->S.decodeOrThrow(~from=appVersionsSchema, ~to=S.json)
     t->Assert.deepEqual(data, appVersions->Obj.magic)
   },
 )

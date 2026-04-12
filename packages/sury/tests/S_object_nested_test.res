@@ -29,7 +29,7 @@ test("Object with a single nested field with S.nullAsOption", t => {
     `i=>{if(i===void 0){i=null}else if(!(typeof i==="string")){e[0](i)}return {"nested":{"foo":i,},}}`,
   )
   t->Assert.deepEqual(
-    Some("bar")->S.reverseConvertOrThrow(schema),
+    Some("bar")->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{"nested":{"foo":"bar"}}`),
   )
 })
@@ -67,7 +67,7 @@ test("Object with a single nested field with S.transform", t => {
     ~op=#ReverseConvert,
     `i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&!Number.isNaN(v0)||e[2](v0);return {"nested":{"foo":v0,},}}`,
   )
-  t->Assert.deepEqual("123.4"->S.reverseConvertOrThrow(schema), %raw(`{"nested":{"foo":123.4}}`))
+  t->Assert.deepEqual("123.4"->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{"nested":{"foo":123.4}}`))
 })
 
 test("Object with a nested tag and optional field", t => {
@@ -223,7 +223,7 @@ test("Nested tags on reverse convert", t => {
     s.nested("nested").tag("tag", "value")
   })
 
-  t->Assert.deepEqual(()->S.reverseConvertOrThrow(schema), %raw(`{"nested":{"tag":"value"}}`))
+  t->Assert.deepEqual(()->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{"nested":{"tag":"value"}}`))
 })
 
 test("Nested preprocessed tags on reverse convert", t => {
@@ -259,20 +259,20 @@ test("Nested preprocessed tags on reverse convert", t => {
   )
 
   t->Assert.deepEqual(
-    ()->S.reverseConvertOrThrow(schema),
+    ()->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{"nested":{"tag":"_value", "intTag":"_1"}}`),
   )
 
   t->Assert.deepEqual(
-    %raw(`{"nested":{"tag":"_value", "intTag":"_1"}}`)->S.parseOrThrow(schema),
+    %raw(`{"nested":{"tag":"_value", "intTag":"_1"}}`)->S.parseOrThrow(~to=schema),
     (),
   )
   t->U.assertThrowsMessage(
-    () => %raw(`{"nested":{"tag":"_foo", "intTag":"_1"}}`)->S.parseOrThrow(schema),
+    () => %raw(`{"nested":{"tag":"_foo", "intTag":"_1"}}`)->S.parseOrThrow(~to=schema),
     `Failed at ["nested"]["tag"]: Expected "value", received "foo"`,
   )
   t->U.assertThrowsMessage(
-    () => %raw(`{"nested":{"tag":"_value", "intTag":"_2"}}`)->S.parseOrThrow(schema),
+    () => %raw(`{"nested":{"tag":"_value", "intTag":"_2"}}`)->S.parseOrThrow(~to=schema),
     `Failed at ["nested"]["intTag"]: Expected "1", received "2"`,
   )
 })
