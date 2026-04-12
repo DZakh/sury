@@ -41,7 +41,7 @@ test("Returns custom error message", t => {
 test("Throws when called with a non-number value", t => {
   t->U.assertThrowsMessage(
     () => S.int->S.min(%raw(`"abc"`)),
-    `Expected number, received string`,
+    `[S.min] Expected number, received "abc"`,
   )
 })
 

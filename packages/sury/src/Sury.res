@@ -6214,20 +6214,20 @@ let union = Union.factory
 // Built-in refinements
 // =============
 
-let assertNumber: 'a => unit = n =>
-  if Js.typeof(n->Obj.magic) !== "number" {
+let assertNumber: (string, 'a) => unit = (fnName, n) =>
+  if Js.typeof(n->Obj.magic) !== "number" || %raw(`Number.isNaN(n)`) {
     X.Exn.throwAny(
       InternalError.make(
         InvalidOperation({
           path: Path.empty,
-          reason: `Expected number, received ${(Stdlib.Type.typeof(n->Obj.magic) :> string)}`,
+          reason: `[S.${fnName}] Expected number, received ${n->Obj.magic->stringify}`,
         }),
       ),
     )
   }
 
 let intMin = (schema, minValue, ~message as maybeMessage=?) => {
-  assertNumber(minValue)
+  assertNumber("min", minValue)
   let message = switch maybeMessage {
   | Some(m) => m
   | None => `Number must be greater than or equal to ${minValue->X.Int.unsafeToString}`
@@ -6245,7 +6245,7 @@ let intMin = (schema, minValue, ~message as maybeMessage=?) => {
 }
 
 let intMax = (schema, maxValue, ~message as maybeMessage=?) => {
-  assertNumber(maxValue)
+  assertNumber("max", maxValue)
   let message = switch maybeMessage {
   | Some(m) => m
   | None => `Number must be lower than or equal to ${maxValue->X.Int.unsafeToString}`
@@ -6280,7 +6280,7 @@ let port = (schema, ~message=?) => {
 }
 
 let floatMin = (schema, minValue, ~message as maybeMessage=?) => {
-  assertNumber(minValue)
+  assertNumber("min", minValue)
   let message = switch maybeMessage {
   | Some(m) => m
   | None => `Number must be greater than or equal to ${minValue->X.Float.unsafeToString}`
@@ -6298,7 +6298,7 @@ let floatMin = (schema, minValue, ~message as maybeMessage=?) => {
 }
 
 let floatMax = (schema, maxValue, ~message as maybeMessage=?) => {
-  assertNumber(maxValue)
+  assertNumber("max", maxValue)
   let message = switch maybeMessage {
   | Some(m) => m
   | None => `Number must be lower than or equal to ${maxValue->X.Float.unsafeToString}`
@@ -6316,7 +6316,7 @@ let floatMax = (schema, maxValue, ~message as maybeMessage=?) => {
 }
 
 let arrayMinLength = (schema, length, ~message as maybeMessage=?) => {
-  assertNumber(length)
+  assertNumber("min", length)
   let message = switch maybeMessage {
   | Some(m) => m
   | None => `Array must be ${length->X.Int.unsafeToString} or more items long`
@@ -6334,7 +6334,7 @@ let arrayMinLength = (schema, length, ~message as maybeMessage=?) => {
 }
 
 let arrayMaxLength = (schema, length, ~message as maybeMessage=?) => {
-  assertNumber(length)
+  assertNumber("max", length)
   let message = switch maybeMessage {
   | Some(m) => m
   | None => `Array must be ${length->X.Int.unsafeToString} or fewer items long`
@@ -6352,7 +6352,7 @@ let arrayMaxLength = (schema, length, ~message as maybeMessage=?) => {
 }
 
 let arrayLength = (schema, length, ~message as maybeMessage=?) => {
-  assertNumber(length)
+  assertNumber("length", length)
   let message = switch maybeMessage {
   | Some(m) => m
   | None => `Array must be exactly ${length->X.Int.unsafeToString} items long`
@@ -6370,7 +6370,7 @@ let arrayLength = (schema, length, ~message as maybeMessage=?) => {
 }
 
 let stringMinLength = (schema, length, ~message as maybeMessage=?) => {
-  assertNumber(length)
+  assertNumber("min", length)
   let message = switch maybeMessage {
   | Some(m) => m
   | None => `String must be ${length->X.Int.unsafeToString} or more characters long`
@@ -6388,7 +6388,7 @@ let stringMinLength = (schema, length, ~message as maybeMessage=?) => {
 }
 
 let stringMaxLength = (schema, length, ~message as maybeMessage=?) => {
-  assertNumber(length)
+  assertNumber("max", length)
   let message = switch maybeMessage {
   | Some(m) => m
   | None => `String must be ${length->X.Int.unsafeToString} or fewer characters long`
@@ -6406,7 +6406,7 @@ let stringMaxLength = (schema, length, ~message as maybeMessage=?) => {
 }
 
 let stringLength = (schema, length, ~message as maybeMessage=?) => {
-  assertNumber(length)
+  assertNumber("length", length)
   let message = switch maybeMessage {
   | Some(m) => m
   | None => `String must be exactly ${length->X.Int.unsafeToString} characters long`

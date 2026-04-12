@@ -4100,19 +4100,19 @@ function tuple3(v0, v1, v2) {
   ]);
 }
 
-function assertNumber(n) {
-  if (typeof n === "number") {
+function assertNumber(fnName, n) {
+  if (!(typeof n !== "number" || (Number.isNaN(n)))) {
     return;
   }
   throw new SuryError({
     code: "invalid_operation",
     path: "",
-    reason: "Expected number, received " + typeof n
+    reason: "[S." + fnName + "] Expected number, received " + stringify(n)
   });
 }
 
 function intMin(schema, minValue, maybeMessage) {
-  assertNumber(minValue);
+  assertNumber("min", minValue);
   let message = maybeMessage !== undefined ? maybeMessage : "Number must be greater than or equal to " + minValue;
   return addRefinement(schema, metadataId$2, {
     kind: {
@@ -4127,7 +4127,7 @@ function intMin(schema, minValue, maybeMessage) {
 }
 
 function intMax(schema, maxValue, maybeMessage) {
-  assertNumber(maxValue);
+  assertNumber("max", maxValue);
   let message = maybeMessage !== undefined ? maybeMessage : "Number must be lower than or equal to " + maxValue;
   return addRefinement(schema, metadataId$2, {
     kind: {
@@ -4159,7 +4159,7 @@ function port(schema, message) {
 }
 
 function floatMin(schema, minValue, maybeMessage) {
-  assertNumber(minValue);
+  assertNumber("min", minValue);
   let message = maybeMessage !== undefined ? maybeMessage : "Number must be greater than or equal to " + minValue;
   return addRefinement(schema, metadataId$3, {
     kind: {
@@ -4174,7 +4174,7 @@ function floatMin(schema, minValue, maybeMessage) {
 }
 
 function floatMax(schema, maxValue, maybeMessage) {
-  assertNumber(maxValue);
+  assertNumber("max", maxValue);
   let message = maybeMessage !== undefined ? maybeMessage : "Number must be lower than or equal to " + maxValue;
   return addRefinement(schema, metadataId$3, {
     kind: {
@@ -4189,7 +4189,7 @@ function floatMax(schema, maxValue, maybeMessage) {
 }
 
 function arrayMinLength(schema, length, maybeMessage) {
-  assertNumber(length);
+  assertNumber("min", length);
   let message = maybeMessage !== undefined ? maybeMessage : "Array must be " + length + " or more items long";
   return addRefinement(schema, metadataId, {
     kind: {
@@ -4204,7 +4204,7 @@ function arrayMinLength(schema, length, maybeMessage) {
 }
 
 function arrayMaxLength(schema, length, maybeMessage) {
-  assertNumber(length);
+  assertNumber("max", length);
   let message = maybeMessage !== undefined ? maybeMessage : "Array must be " + length + " or fewer items long";
   return addRefinement(schema, metadataId, {
     kind: {
@@ -4219,7 +4219,7 @@ function arrayMaxLength(schema, length, maybeMessage) {
 }
 
 function stringMinLength(schema, length, maybeMessage) {
-  assertNumber(length);
+  assertNumber("min", length);
   let message = maybeMessage !== undefined ? maybeMessage : "String must be " + length + " or more characters long";
   return addRefinement(schema, metadataId$1, {
     kind: {
@@ -4234,7 +4234,7 @@ function stringMinLength(schema, length, maybeMessage) {
 }
 
 function stringMaxLength(schema, length, maybeMessage) {
-  assertNumber(length);
+  assertNumber("max", length);
   let message = maybeMessage !== undefined ? maybeMessage : "String must be " + length + " or fewer characters long";
   return addRefinement(schema, metadataId$1, {
     kind: {
@@ -5143,7 +5143,7 @@ function max(schema, maxValue, maybeMessage) {
 function length(schema, length$1, maybeMessage) {
   switch (schema.type) {
     case "string" :
-      assertNumber(length$1);
+      assertNumber("length", length$1);
       let message = maybeMessage !== undefined ? maybeMessage : "String must be exactly " + length$1 + " characters long";
       return addRefinement(schema, metadataId$1, {
         kind: {
@@ -5156,7 +5156,7 @@ function length(schema, length$1, maybeMessage) {
           f: failCustom(message)
         }]);
     case "array" :
-      assertNumber(length$1);
+      assertNumber("length", length$1);
       let message$1 = maybeMessage !== undefined ? maybeMessage : "Array must be exactly " + length$1 + " items long";
       return addRefinement(schema, metadataId, {
         kind: {
