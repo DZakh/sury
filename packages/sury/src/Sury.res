@@ -457,9 +457,9 @@ and internal = {
   // Logic for built-in encoding from the schema type
   mutable encoder?: encoder,
   // Custom validations on input (before decoder)
-  mutable inputRefiner?: (~input: val) => string,
+  mutable inputRefiner?: (~input: val) => array<check>,
   // Custom validations on output (after decoder)
-  mutable refiner?: (~input: val) => string,
+  mutable refiner?: (~input: val) => array<check>,
   // A schema we transform to
   mutable to?: internal,
   // When transforming with changing shape,
@@ -2204,16 +2204,29 @@ let rec parse = (input: val) => {
           valRef.contents.isInput = Some(true)
           valRef.contents.isOutput = Some(true)
 
-          // FIXME: This is not well-thought + we also have custom merge logic in union decoder which should be updated
-          if valRef.contents.expected.inputRefiner->Obj.magic {
-            valRef.contents.codeFromPrev =
-              valRef.contents.codeFromPrev ++
-              (valRef.contents.expected.inputRefiner->X.Option.getUnsafe)(~input=valRef.contents)
-          }
-          if valRef.contents.expected.refiner->Obj.magic {
-            valRef.contents.codeFromPrev =
-              valRef.contents.codeFromPrev ++
-              (valRef.contents.expected.refiner->X.Option.getUnsafe)(~input=valRef.contents)
+          let hasInputRefiner = valRef.contents.expected.inputRefiner->Obj.magic
+          let hasRefiner = valRef.contents.expected.refiner->Obj.magic
+          if hasInputRefiner || hasRefiner {
+            let checks = []
+            if hasInputRefiner {
+              let arr = (valRef.contents.expected.inputRefiner->X.Option.getUnsafe)(
+                ~input=valRef.contents,
+              )
+              for i in 0 to arr->Js.Array2.length - 1 {
+                checks->Js.Array2.push(arr->Js.Array2.unsafe_get(i))->ignore
+              }
+            }
+            if hasRefiner {
+              let arr = (valRef.contents.expected.refiner->X.Option.getUnsafe)(
+                ~input=valRef.contents,
+              )
+              for i in 0 to arr->Js.Array2.length - 1 {
+                checks->Js.Array2.push(arr->Js.Array2.unsafe_get(i))->ignore
+              }
+            }
+            valRef.contents = valRef.contents->B.refine(~checks)
+            valRef.contents.isInput = Some(true)
+            valRef.contents.isOutput = Some(true)
           }
         }
       }
@@ -3313,7 +3326,12 @@ let internalRefine = (schema, makeRefiner) => {
     | Some(existingRefiner) =>
       mut.refiner = Some(
         (~input) => {
-          existingRefiner(~input) ++ refiner(~input)
+          let arr = existingRefiner(~input)
+          let next = refiner(~input)
+          for i in 0 to next->Js.Array2.length - 1 {
+            arr->Js.Array2.push(next->Js.Array2.unsafe_get(i))->ignore
+          }
+          arr
         },
       )
     | None => mut.refiner = Some(refiner)
@@ -3337,14 +3355,20 @@ let refine: (t<'value>, 'value => bool, ~error: string=?, ~path: array<string>=?
   }
   schema->internalRefine(_ =>
     (~input) => {
-      let failCode = if extraPath === Path.empty {
-        input->B.fail(~message)
-      } else {
-        `${input->B.embed(() => {
-            input->B.throw(Custom({reason: message, path: input.path->Path.concat(extraPath)}))
-          })}()`
-      }
-      `if(!${input->B.embed(refineCheck)}(${input.var()})){${failCode}}`
+      let embeddedCheck = input->B.embed(refineCheck)
+      [
+        {
+          cond: (~inputVar) => `${embeddedCheck}(${inputVar})`,
+          fail: (~input) => {
+            let path = if extraPath === Path.empty {
+              input.path
+            } else {
+              input.path->Path.concat(extraPath)
+            }
+            _value => Custom({reason: message, path})
+          },
+        },
+      ]
     }
   )
 }
@@ -6122,7 +6146,8 @@ let intMin = (schema, minValue, ~message as maybeMessage=?) => {
   schema->addRefinement(
     ~metadataId=Int.Refinement.metadataId,
     ~refiner=(~input) => {
-      `if(${input.var()}<${input->B.embed(minValue)}){${input->B.fail(~message)}}`
+      let embedded = input->B.embed(minValue)
+      [{cond: (~inputVar) => `${inputVar}>=${embedded}`, fail: (~input) => {let path = input.path; _value => Custom({reason: message, path})}}]
     },
     ~refinement={
       kind: Min({value: minValue}),
@@ -6139,7 +6164,8 @@ let intMax = (schema, maxValue, ~message as maybeMessage=?) => {
   schema->addRefinement(
     ~metadataId=Int.Refinement.metadataId,
     ~refiner=(~input) => {
-      `if(${input.var()}>${input->B.embed(maxValue)}){${input->B.fail(~message)}}`
+      let embedded = input->B.embed(maxValue)
+      [{cond: (~inputVar) => `${inputVar}<=${embedded}`, fail: (~input) => {let path = input.path; _value => Custom({reason: message, path})}}]
     },
     ~refinement={
       kind: Max({value: maxValue}),
@@ -6152,11 +6178,15 @@ let port = (schema, ~message=?) => {
   schema->internalRefine(mut => {
     mut.format = Some(Port)
     (~input) => {
-      let inputVar = input.var()
-      `${inputVar}>0&&${inputVar}<65536&&${inputVar}%1===0||${switch message {
-        | Some(m) => input->B.fail(~message=m)
-        | None => B.embedInvalidInput(~input)
-        }};`
+      [
+        {
+          cond: (~inputVar) => `${inputVar}>0&&${inputVar}<65536&&${inputVar}%1===0`,
+          fail: switch message {
+          | Some(m) => (~input) => {let path = input.path; _value => Custom({reason: m, path})}
+          | None => B.failInvalidType
+          },
+        },
+      ]
     }
   })
 }
@@ -6169,7 +6199,8 @@ let floatMin = (schema, minValue, ~message as maybeMessage=?) => {
   schema->addRefinement(
     ~metadataId=Float.Refinement.metadataId,
     ~refiner=(~input) => {
-      `if(${input.var()}<${input->B.embed(minValue)}){${input->B.fail(~message)}}`
+      let embedded = input->B.embed(minValue)
+      [{cond: (~inputVar) => `${inputVar}>=${embedded}`, fail: (~input) => {let path = input.path; _value => Custom({reason: message, path})}}]
     },
     ~refinement={
       kind: Min({value: minValue}),
@@ -6186,7 +6217,8 @@ let floatMax = (schema, maxValue, ~message as maybeMessage=?) => {
   schema->addRefinement(
     ~metadataId=Float.Refinement.metadataId,
     ~refiner=(~input) => {
-      `if(${input.var()}>${input->B.embed(maxValue)}){${input->B.fail(~message)}}`
+      let embedded = input->B.embed(maxValue)
+      [{cond: (~inputVar) => `${inputVar}<=${embedded}`, fail: (~input) => {let path = input.path; _value => Custom({reason: message, path})}}]
     },
     ~refinement={
       kind: Max({value: maxValue}),
@@ -6203,7 +6235,8 @@ let arrayMinLength = (schema, length, ~message as maybeMessage=?) => {
   schema->addRefinement(
     ~metadataId=Array.Refinement.metadataId,
     ~refiner=(~input) => {
-      `if(${input.var()}.length<${input->B.embed(length)}){${input->B.fail(~message)}}`
+      let embedded = input->B.embed(length)
+      [{cond: (~inputVar) => `${inputVar}.length>=${embedded}`, fail: (~input) => {let path = input.path; _value => Custom({reason: message, path})}}]
     },
     ~refinement={
       kind: Min({length: length}),
@@ -6220,7 +6253,8 @@ let arrayMaxLength = (schema, length, ~message as maybeMessage=?) => {
   schema->addRefinement(
     ~metadataId=Array.Refinement.metadataId,
     ~refiner=(~input) => {
-      `if(${input.var()}.length>${input->B.embed(length)}){${input->B.fail(~message)}}`
+      let embedded = input->B.embed(length)
+      [{cond: (~inputVar) => `${inputVar}.length<=${embedded}`, fail: (~input) => {let path = input.path; _value => Custom({reason: message, path})}}]
     },
     ~refinement={
       kind: Max({length: length}),
@@ -6237,7 +6271,8 @@ let arrayLength = (schema, length, ~message as maybeMessage=?) => {
   schema->addRefinement(
     ~metadataId=Array.Refinement.metadataId,
     ~refiner=(~input) => {
-      `if(${input.var()}.length!==${input->B.embed(length)}){${input->B.fail(~message)}}`
+      let embedded = input->B.embed(length)
+      [{cond: (~inputVar) => `${inputVar}.length===${embedded}`, fail: (~input) => {let path = input.path; _value => Custom({reason: message, path})}}]
     },
     ~refinement={
       kind: Length({length: length}),
@@ -6254,7 +6289,8 @@ let stringMinLength = (schema, length, ~message as maybeMessage=?) => {
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
     ~refiner=(~input) => {
-      `if(${input.var()}.length<${input->B.embed(length)}){${input->B.fail(~message)}}`
+      let embedded = input->B.embed(length)
+      [{cond: (~inputVar) => `${inputVar}.length>=${embedded}`, fail: (~input) => {let path = input.path; _value => Custom({reason: message, path})}}]
     },
     ~refinement={
       kind: Min({length: length}),
@@ -6271,7 +6307,8 @@ let stringMaxLength = (schema, length, ~message as maybeMessage=?) => {
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
     ~refiner=(~input) => {
-      `if(${input.var()}.length>${input->B.embed(length)}){${input->B.fail(~message)}}`
+      let embedded = input->B.embed(length)
+      [{cond: (~inputVar) => `${inputVar}.length<=${embedded}`, fail: (~input) => {let path = input.path; _value => Custom({reason: message, path})}}]
     },
     ~refinement={
       kind: Max({length: length}),
@@ -6288,7 +6325,8 @@ let stringLength = (schema, length, ~message as maybeMessage=?) => {
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
     ~refiner=(~input) => {
-      `if(${input.var()}.length!==${input->B.embed(length)}){${input->B.fail(~message)}}`
+      let embedded = input->B.embed(length)
+      [{cond: (~inputVar) => `${inputVar}.length===${embedded}`, fail: (~input) => {let path = input.path; _value => Custom({reason: message, path})}}]
     },
     ~refinement={
       kind: Length({length: length}),
@@ -6301,7 +6339,8 @@ let email = (schema, ~message=`Invalid email address`) => {
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
     ~refiner=(~input) => {
-      `if(!${input->B.embed(String.emailRegex)}.test(${input.var()})){${input->B.fail(~message)}}`
+      let embedded = input->B.embed(String.emailRegex)
+      [{cond: (~inputVar) => `${embedded}.test(${inputVar})`, fail: (~input) => {let path = input.path; _value => Custom({reason: message, path})}}]
     },
     ~refinement={
       kind: Email,
@@ -6314,7 +6353,8 @@ let uuid = (schema, ~message=`Invalid UUID`) => {
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
     ~refiner=(~input) => {
-      `if(!${input->B.embed(String.uuidRegex)}.test(${input.var()})){${input->B.fail(~message)}}`
+      let embedded = input->B.embed(String.uuidRegex)
+      [{cond: (~inputVar) => `${embedded}.test(${inputVar})`, fail: (~input) => {let path = input.path; _value => Custom({reason: message, path})}}]
     },
     ~refinement={
       kind: Uuid,
@@ -6327,7 +6367,8 @@ let cuid = (schema, ~message=`Invalid CUID`) => {
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
     ~refiner=(~input) => {
-      `if(!${input->B.embed(String.cuidRegex)}.test(${input.var()})){${input->B.fail(~message)}}`
+      let embedded = input->B.embed(String.cuidRegex)
+      [{cond: (~inputVar) => `${embedded}.test(${inputVar})`, fail: (~input) => {let path = input.path; _value => Custom({reason: message, path})}}]
     },
     ~refinement={
       kind: Cuid,
@@ -6337,10 +6378,12 @@ let cuid = (schema, ~message=`Invalid CUID`) => {
 }
 
 let url = (schema, ~message=`Invalid url`) => {
+  let urlValidator: unknown = %raw(`function(s){try{new URL(s);return true}catch(_){return false}}`)
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
     ~refiner=(~input) => {
-      `try{new URL(${input.var()})}catch(_){${input->B.fail(~message)}}`
+      let embedded = input->B.embed(urlValidator)
+      [{cond: (~inputVar) => `${embedded}(${inputVar})`, fail: (~input) => {let path = input.path; _value => Custom({reason: message, path})}}]
     },
     ~refinement={
       kind: Url,
@@ -6354,13 +6397,15 @@ let pattern = (schema, re, ~message=`Invalid pattern`) => {
     ~metadataId=String.Refinement.metadataId,
     ~refiner=(~input) => {
       let embededRe = input->B.embed(re)
-      if re->Js.Re.global {
-        // TODO Write a regression test when it's needed
-        `${embededRe}.lastIndex=0;`
-      } else {
-        ""
-      } ++
-      `if(!${embededRe}.test(${input.var()})){${input->B.fail(~message)}}`
+      [{
+        cond: (~inputVar) =>
+          if re->Js.Re.global {
+            `(${embededRe}.lastIndex=0,${embededRe}.test(${inputVar}))`
+          } else {
+            `${embededRe}.test(${inputVar})`
+          },
+        fail: (~input) => {let path = input.path; _value => Custom({reason: message, path})},
+      }]
     },
     ~refinement={
       kind: Pattern({re: re}),
@@ -6493,14 +6538,20 @@ let js_refine = (schema, refineCheck, refineOptions) => {
   }
   schema->internalRefine(_ =>
     (~input) => {
-      let failCode = if extraPath === Path.empty {
-        input->B.fail(~message)
-      } else {
-        `${input->B.embed(() => {
-            input->B.throw(Custom({reason: message, path: input.path->Path.concat(extraPath)}))
-          })}()`
-      }
-      `if(!${input->B.embed(refineCheck)}(${input.var()})){${failCode}}`
+      let embeddedCheck = input->B.embed(refineCheck)
+      [
+        {
+          cond: (~inputVar) => `${embeddedCheck}(${inputVar})`,
+          fail: (~input) => {
+            let path = if extraPath === Path.empty {
+              input.path
+            } else {
+              input.path->Path.concat(extraPath)
+            }
+            _value => Custom({reason: message, path})
+          },
+        },
+      ]
     }
   )
 }
@@ -7098,9 +7149,8 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
         ->addRefinement(
           ~metadataId=String.Refinement.metadataId,
           ~refiner=(~input) => {
-            `if(!${input->B.embed(String.datetimeRe)}.test(${input.var()})){${input->B.fail(
-                ~message="Invalid datetime string! Expected UTC",
-              )}}`
+            let embedded = input->B.embed(String.datetimeRe)
+            [{cond: (~inputVar) => `${embedded}.test(${inputVar})`, fail: (~input) => {let path = input.path; _value => Custom({reason: "Invalid datetime string! Expected UTC", path})}}]
           },
           ~refinement={
             kind: Datetime,
