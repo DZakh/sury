@@ -4505,7 +4505,9 @@ let jsonEncoder = Builder.encoder((~input, ~target) => {
     output.isInput = Some(false)
     output.isOutput = Some(false)
     output
-  } else if toTagFlag->Flag.unsafeHas(TagFlag.instance) {
+  } else if toTagFlag->Flag.unsafeHas(TagFlag.union->Flag.with(TagFlag.ref)) {
+    input
+  } else {
     try {
       let jsonExpected = string->copySchema
       jsonExpected.to = Some(target)
@@ -4513,8 +4515,6 @@ let jsonEncoder = Builder.encoder((~input, ~target) => {
     } catch {
     | _ => input
     }
-  } else {
-    input
   }
 })
 

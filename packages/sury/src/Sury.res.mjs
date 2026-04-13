@@ -2922,7 +2922,7 @@ function jsonEncoder(input, target) {
     output$1.io = false;
     return output$1;
   }
-  if (!(toTagFlag & 8192)) {
+  if (toTagFlag & 768) {
     return input;
   }
   try {
