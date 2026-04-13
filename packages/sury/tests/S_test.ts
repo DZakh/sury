@@ -2473,7 +2473,7 @@ test("Recursive with self as transform target", (t) => {
       t.deepEqual(S.parser(nodeSchema)(`["[]","[]"]`), [[], []]);
     },
     {
-      message: "Can't decode Node to Node[]. Use S.to to transform it to a compatible type",
+      message: "Can't decode Node to Node[]. Use S.to to define a custom decoder",
     },
   );
 });

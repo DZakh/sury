@@ -1786,7 +1786,7 @@ module Builder = {
           to: target->castToPublic,
           reason: `Can't decode ${from->castToPublic->toExpression} to ${target
             ->castToPublic
-            ->toExpression}. Use S.to to transform it to a compatible type`,
+            ->toExpression}. Use S.to to define a custom decoder`,
           path: b.path,
         }),
       )

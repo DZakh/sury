@@ -958,7 +958,7 @@ function mergeWithPathPrepend(val, parent, locationVar, appendSafe) {
 
 function unsupportedDecode(b, from, target) {
   let errorDetails_0 = b.path;
-  let errorDetails_1 = "Can't decode " + toExpression(from) + " to " + toExpression(target) + ". Use S.to to transform it to a compatible type";
+  let errorDetails_1 = "Can't decode " + toExpression(from) + " to " + toExpression(target) + ". Use S.to to define a custom decoder";
   let errorDetails = {
     code: "unsupported_decode",
     path: errorDetails_0,

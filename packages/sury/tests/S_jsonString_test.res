@@ -206,12 +206,12 @@ test("Parses JSON string to symbol literal", t => {
 
   t->U.assertThrowsMessage(
     () => `true`->S.parseOrThrow(~to=schema),
-    `Can't decode JSON string to Symbol(foo). Use S.to to transform it to a compatible type`,
+    `Can't decode JSON string to Symbol(foo). Use S.to to define a custom decoder`,
   )
 
   t->U.assertThrowsMessage(
     () => symbol->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    `Can't decode Symbol(foo) to JSON string. Use S.to to transform it to a compatible type`,
+    `Can't decode Symbol(foo) to JSON string. Use S.to to define a custom decoder`,
   )
 })
 
