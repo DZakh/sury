@@ -42,11 +42,11 @@ test("Returns refinement", t => {
   let schema = S.float->S.floatMax(1.)
 
   switch schema {
-  | Number({maximum: ?Some(maximum), errorMessages: ?Some(errorMessages)}) => {
+  | Number({maximum, errorMessages}) => {
       t->Assert.deepEqual(maximum, 1.)
       t->Assert.deepEqual(
-        errorMessages->Js.Dict.get("maximum"),
-        Some("Number must be lower than or equal to 1"),
+        errorMessages,
+        dict{"maximum": "Number must be lower than or equal to 1"},
       )
     }
   | _ => t->Assert.fail("Expected Number schema with maximum")

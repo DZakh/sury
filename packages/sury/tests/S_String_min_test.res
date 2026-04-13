@@ -42,11 +42,11 @@ test("Returns refinement", t => {
   let schema = S.string->S.min(1)
 
   switch schema {
-  | String({minLength: ?Some(minLength), errorMessages: ?Some(errorMessages)}) => {
+  | String({minLength, errorMessages}) => {
       t->Assert.deepEqual(minLength, 1)
       t->Assert.deepEqual(
-        errorMessages->Js.Dict.get("minLength"),
-        Some("String must be 1 or more characters long"),
+        errorMessages,
+        dict{"minLength": "String must be 1 or more characters long"},
       )
     }
   | _ => t->Assert.fail("Expected String schema with minLength")

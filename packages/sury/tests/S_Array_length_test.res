@@ -45,12 +45,15 @@ test("Returns refinement", t => {
   let schema = S.array(S.int)->S.length(1)
 
   switch schema {
-  | Array({minItems: ?Some(minItems), maxItems: ?Some(maxItems), errorMessages: ?Some(errorMessages)}) => {
+  | Array({minItems, maxItems, errorMessages}) => {
       t->Assert.deepEqual(minItems, 1)
       t->Assert.deepEqual(maxItems, 1)
       t->Assert.deepEqual(
-        errorMessages->Js.Dict.get("minItems"),
-        Some("Array must be exactly 1 items long"),
+        errorMessages,
+        dict{
+          "minItems": "Array must be exactly 1 items long",
+          "maxItems": "Array must be exactly 1 items long",
+        },
       )
     }
   | _ => t->Assert.fail("Expected Array schema with minItems and maxItems")

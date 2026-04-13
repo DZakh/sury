@@ -4579,10 +4579,12 @@ function internalToJSONSchema(schema, path, defs, parent) {
         if (format$1 !== undefined) {
           if (format$1 === "int32") {
             jsonSchema.type = "integer";
+            jsonSchema.minimum = -2147483648;
+            jsonSchema.maximum = 2147483647;
           } else {
             jsonSchema.type = "integer";
-            jsonSchema.maximum = 65535;
             jsonSchema.minimum = 0;
+            jsonSchema.maximum = 65535;
           }
         } else {
           jsonSchema.type = "number";

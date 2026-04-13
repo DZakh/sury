@@ -42,11 +42,11 @@ test("Returns refinement", t => {
   let schema = S.string->S.max(1)
 
   switch schema {
-  | String({maxLength: ?Some(maxLength), errorMessages: ?Some(errorMessages)}) => {
+  | String({maxLength, errorMessages}) => {
       t->Assert.deepEqual(maxLength, 1)
       t->Assert.deepEqual(
-        errorMessages->Js.Dict.get("maxLength"),
-        Some("String must be 1 or fewer characters long"),
+        errorMessages,
+        dict{"maxLength": "String must be 1 or fewer characters long"},
       )
     }
   | _ => t->Assert.fail("Expected String schema with maxLength")
