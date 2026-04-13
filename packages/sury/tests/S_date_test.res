@@ -154,6 +154,17 @@ test("Successfully decodes JSON string to Date via jsonString", t => {
   )
 })
 
+test("Successfully decodes JSON array of dates", t => {
+  let schema = S.array(S.date)
+  let decoder = S.decoder(~from=S.json, ~to=schema)
+  let d1 = Date.fromString("2024-01-01T00:00:00.000Z")
+  let d2 = Date.fromString("2024-06-15T12:30:45.123Z")
+  t->Assert.deepEqual(
+    decoder(%raw(`["2024-01-01T00:00:00.000Z", "2024-06-15T12:30:45.123Z"]`)),
+    [d1, d2],
+  )
+})
+
 test("Successfully round-trips date through JSON", t => {
   let dateSchema = S.schema(s =>
     {
