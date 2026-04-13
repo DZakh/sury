@@ -956,11 +956,11 @@ function mergeWithPathPrepend(val, parent, locationVar, appendSafe) {
   }
 }
 
-function unsupportedConversion(b, from, target) {
+function unsupportedDecode(b, from, target) {
   let errorDetails_0 = b.path;
-  let errorDetails_1 = "Unsupported decode from " + toExpression(from) + " to " + toExpression(target);
+  let errorDetails_1 = "Can't decode " + toExpression(from) + " to " + toExpression(target);
   let errorDetails = {
-    code: "unsupported_conversion",
+    code: "unsupported_decode",
     path: errorDetails_0,
     reason: errorDetails_1,
     from: from,
@@ -1022,7 +1022,7 @@ function numberDecoder(input) {
         return input;
       }
     } else {
-      return unsupportedConversion(input, input.s, input.e);
+      return unsupportedDecode(input, input.s, input.e);
     }
   }
   let outputVar = varWithoutAllocation(input.g);
@@ -1065,7 +1065,7 @@ function stringDecoder(input) {
     } else if (inputTagFlag & 2) {
       return input;
     } else {
-      return unsupportedConversion(input, input.s, input.e);
+      return unsupportedDecode(input, input.s, input.e);
     }
   }
   let $$const = (""+input.s.const);
@@ -1088,7 +1088,7 @@ function booleanDecoder(input) {
     if (inputTagFlag & 8) {
       return input;
     } else {
-      return unsupportedConversion(input, input.s, input.e);
+      return unsupportedDecode(input, input.s, input.e);
     }
   }
   let outputVar = varWithoutAllocation(input.g);
@@ -1116,7 +1116,7 @@ function bigintDecoder(input) {
     } else if (inputTagFlag & 1024) {
       return input;
     } else {
-      return unsupportedConversion(input, input.s, input.e);
+      return unsupportedDecode(input, input.s, input.e);
     }
   }
   let outputVar = varWithoutAllocation(input.g);
@@ -1139,7 +1139,7 @@ function symbolDecoder(input) {
   } else if (inputTagFlag & 32768) {
     return input;
   } else {
-    return unsupportedConversion(input, input.s, input.e);
+    return unsupportedDecode(input, input.s, input.e);
   }
 }
 
@@ -1628,7 +1628,7 @@ function arrayDecoder(unknownInput) {
     }
     input = checks.length > 0 ? refine(unknownInput, schema, checks, undefined) : refine(unknownInput, schema, undefined, undefined);
   } else {
-    input = unsupportedConversion(unknownInput, unknownInput.s, expectedSchema);
+    input = unsupportedDecode(unknownInput, unknownInput.s, expectedSchema);
   }
   let itemSchema = expectedSchema.additionalItems;
   if (itemSchema === "strip" || itemSchema === "strict") {
@@ -1725,7 +1725,7 @@ function objectDecoder(unknownInput) {
     }
     input = checks.length > 0 ? refine(unknownInput, schema, checks, undefined) : refine(unknownInput, schema, undefined, undefined);
   } else {
-    input = unsupportedConversion(unknownInput, unknownInput.s, expectedSchema);
+    input = unsupportedDecode(unknownInput, unknownInput.s, expectedSchema);
   }
   let itemSchema = expectedSchema.additionalItems;
   let exit = 0;
@@ -1918,7 +1918,7 @@ function instanceDecoder(input) {
   } else if (inputTagFlag & 8192 && input.s.class === input.e.class) {
     return input;
   } else {
-    return unsupportedConversion(input, input.s, input.e);
+    return unsupportedDecode(input, input.s, input.e);
   }
 }
 
@@ -3036,7 +3036,7 @@ function jsonDecoder(input) {
     let errorDetails_1 = "Can't decode " + toExpression(input.s) + " to JSON";
     let errorDetails_2 = input.s;
     let errorDetails = {
-      code: "unsupported_conversion",
+      code: "unsupported_decode",
       path: errorDetails_0,
       reason: errorDetails_1,
       from: errorDetails_2,
@@ -3096,7 +3096,7 @@ function inlineJsonString(input, schema) {
   } else if (tagFlag & 12) {
     return "\"" + $$const + "\"";
   } else {
-    return unsupportedConversion(input, schema, input.e);
+    return unsupportedDecode(input, schema, input.e);
   }
 }
 
@@ -3112,7 +3112,7 @@ function constSchemaToJsonStringConst(input, target) {
   } else if (tagFlag & 12) {
     return (""+$$const);
   } else {
-    return unsupportedConversion(input, input.s, target);
+    return unsupportedDecode(input, input.s, target);
   }
 }
 
@@ -3175,7 +3175,7 @@ function jsonStringDecoder(input) {
     return next(input, "\"\\\"\"+" + input.i + "+\"\\\"\"", expectedSchema, undefined);
   }
   if (!(inputTagFlag & 192)) {
-    return unsupportedConversion(input, input.s, expectedSchema);
+    return unsupportedDecode(input, input.s, expectedSchema);
   }
   let jsonVal = parse$1(refine(input, undefined, undefined, json));
   let v = expectedSchema.space;
@@ -3277,7 +3277,7 @@ mut.decoder = input => {
   } else if (inputTagFlag & 8192 && input.s.class === mut.class) {
     return input;
   } else {
-    return unsupportedConversion(input, input.s, input.e);
+    return unsupportedDecode(input, input.s, input.e);
   }
 };
 

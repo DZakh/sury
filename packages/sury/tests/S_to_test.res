@@ -476,10 +476,10 @@ test("Coerce from object to string", t => {
 
   t->U.assertThrowsMessage(() => {
     %raw(`{"foo": "bar"}`)->S.parseOrThrow(~to=schema)
-  }, `Unsupported decode from { foo: string; } to string`)
+  }, `Can't decode { foo: string; } to string`)
   t->U.assertThrowsMessage(() => {
     %raw(`{"foo": "bar"}`)->S.decodeOrThrow(~from=schema, ~to=S.unknown)
-  }, `Unsupported decode from string to { foo: string; }`)
+  }, `Can't decode string to { foo: string; }`)
 })
 
 test("Coerce from string to JSON and then to bigint", t => {
@@ -695,7 +695,7 @@ test("Coerce from union to bigint", t => {
       true->S.parseOrThrow(~to=schema)
     },
     `Expected string | number | boolean, received true
-- Unsupported decode from boolean to bigint`,
+- Can't decode boolean to bigint`,
   )
   t->U.assertThrowsMessage(() => {
     123n->S.parseOrThrow(~to=schema)
@@ -766,7 +766,7 @@ test("Coerce from union to bigint and then to string", t => {
       true->S.parseOrThrow(~to=schema)
     },
     `Expected string | number | boolean, received true
-- Unsupported decode from boolean to bigint`,
+- Can't decode boolean to bigint`,
   )
   t->U.assertThrowsMessage(() => {
     123n->S.parseOrThrow(~to=schema)

@@ -868,7 +868,7 @@ test("Fails to parses async schema", async (t) => {
       typeof result.error.code,
       | "invalid_input"
       | "invalid_operation"
-      | "unsupported_conversion"
+      | "unsupported_decode"
       | "invalid_conversion"
       | "unrecognized_keys"
       | "custom"
@@ -2473,7 +2473,7 @@ test("Recursive with self as transform target", (t) => {
       t.deepEqual(S.parser(nodeSchema)(`["[]","[]"]`), [[], []]);
     },
     {
-      message: "Unsupported decode from Node to Node[]",
+      message: "Can't decode Node to Node[]",
     },
   );
 });
