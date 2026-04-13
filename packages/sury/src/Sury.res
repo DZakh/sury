@@ -1285,16 +1285,16 @@ module Builder = {
     // Pass this as `fail` on every check that wants "expected X, received Y"
     // error semantics. Stable reference → adjacent checks fuse.
     let failInvalidType = (~input: val) => {
-      // Snapshot the three fields up front so the returned closure doesn't
-      // retain `input` — otherwise the compiled decoder's embed array would
-      // pin the entire val chain (prev, global, schemas) for its lifetime.
-      //
-      // FIXME: `input.schema` is the target schema for refine-chain vals
-      // (refine sets `~schema=prev.expected`), so `err.received` ends up
-      // equal to `err.expected` on a primitive type failure. Reason text is
-      // unaffected (it uses `input->stringify`) but programmatic consumers
-      // of `err.received` get the wrong schema.
-      let received = input.schema->castToPublic
+      // `received` uses `prev.schema` — the type BEFORE this val's checks
+      // narrowed it. For a refine chain (unknown → string), prev.schema is
+      // `unknown` (what we actually received), not `string` (what we validated
+      // it to be). Falls back to `input.schema` when there's no prev (root).
+      let received = (
+        switch input.prev {
+        | Some(prev) => prev.schema
+        | None => input.schema
+        }
+      )->castToPublic
       let path = input.path
       let expected = input.expected
       value =>
@@ -1441,15 +1441,20 @@ module Builder = {
             if current.contents->Obj.magic {
               lastResolvedVar := (current.contents->X.Option.getUnsafe).var()
             }
-            // Prepend: reuse v's array, push acc's checks onto it
-            if acc.checks->X.Option.unsafeToBool {
+            if acc.checks->X.Option.unsafeToBool && v.expected === acc.expected {
+              // Same expected — safe to merge (same val group, will fuse correctly)
               let vChecks = v.checks->X.Option.getUnsafe
               let accChecks = acc.checks->X.Option.getUnsafe
               for i in 0 to accChecks->Js.Array2.length - 1 {
                 vChecks->Js.Array2.push(accChecks->Js.Array2.unsafe_get(i))->ignore
               }
+            } else if acc.checks->X.Option.unsafeToBool {
+              // Different expected — flush existing checks into code, keep v's
+              acc.codeFromPrev =
+                acc->emitChecks(~inputVar=lastResolvedVar.contents) ++ acc.codeFromPrev
             }
             acc.checks = v.checks
+            acc.expected = v.expected
             let _ = %raw(`delete v.a`)
           } else {
             // Path B — build complete per-val block (old merge order: code + checks + alloc)
