@@ -46,7 +46,7 @@ test("Returns refinement", t => {
       t->Assert.deepEqual(maximum, 1.)
       t->Assert.deepEqual(
         errorMessage,
-        { maximum:: "Number must be lower than or equal to 1"},
+        {maximum: "Number must be lower than or equal to 1"},
       )
     }
   | _ => t->Assert.fail("Expected Number schema with maximum")

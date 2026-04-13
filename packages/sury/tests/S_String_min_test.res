@@ -46,7 +46,7 @@ test("Returns refinement", t => {
       t->Assert.deepEqual(minLength, 1)
       t->Assert.deepEqual(
         errorMessage,
-        { minLength:: "String must be 1 or more characters long"},
+        {minLength: "String must be 1 or more characters long"},
       )
     }
   | _ => t->Assert.fail("Expected String schema with minLength")
@@ -63,7 +63,7 @@ test("Chaining refinements does not mutate the original schema", t => {
       t->Assert.deepEqual(maxLength, None)
       t->Assert.deepEqual(
         errorMessage,
-        { minLength:: "String must be 1 or more characters long"},
+        {minLength: "String must be 1 or more characters long"},
       )
     }
   | _ => t->Assert.fail("Expected String schema with minLength only")

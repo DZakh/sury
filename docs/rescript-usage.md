@@ -315,6 +315,14 @@ S.string->S.min(1, ~message="String can't be empty")
 S.string->S.length(5, ~message="SMS code should be 5 digits long")
 ```
 
+For standalone schemas, override error messages via `S.meta`:
+
+```rescript
+S.email->S.meta({errorMessage: {format: "Must be a valid email"}})
+// Use catchAll as a fallback for any constraint:
+S.email->S.meta({errorMessage: {catchAll: "Invalid input"}})
+```
+
 #### ISO datetimes
 
 `S.isoDateTime` is a **standalone** string schema (`S.t<string>`) that validates ISO 8601 UTC datetime strings: no timezone offsets allowed, with arbitrary sub-second decimal precision. Because the regex used to validate the input lives inside `S.enableIsoDateTime`, it is tree-shaken from your bundle unless you opt in — call `S.enableIsoDateTime()` once at your project root before using the schema.

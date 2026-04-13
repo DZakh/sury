@@ -43,7 +43,7 @@ test("Returns refinement", t => {
       t->Assert.deepEqual(minItems, 1)
       t->Assert.deepEqual(
         errorMessage,
-        { minItems:: "Array must be 1 or more items long"},
+        {minItems: "Array must be 1 or more items long"},
       )
     }
   | _ => t->Assert.fail("Expected Array schema with minItems")

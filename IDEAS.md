@@ -30,10 +30,14 @@
 - JSON decoder now automatically decodes non-JSON types (e.g. `S.date`, `S.bigint`) to string via their encoder, instead of special-casing each type. Schemas with a string encoder (like `S.date` → `toISOString()`) work with `S.json`/`S.jsonString` out of the box.
 - Renamed error code `unsupported_conversion` → `unsupported_decode` and variant `UnsupportedConversion` → `UnsupportedDecode`
 - Error message for unsupported decode now reads: `"Can't decode X to Y. Use S.to to define a custom decoder"`
-- `S.port`, `S.email`, `S.uuid`, `S.cuid`, `S.url` are now standalone tree-shakeable schemas (like `S.isoDateTime`), each requiring an `enable*()` call. They use the `format` field instead of the removed `String.Refinement` metadata. Error messages stored in `errorMessages["format"]`.
-- `S.pattern` now sets `pattern` and `errorMessages["pattern"]` directly on the schema instead of using refinement metadata.
-- Removed `S.String.Refinement` module and `S.String.refinements` accessor. Use schema `pattern`/`format`/`errorMessages` fields directly.
+- `S.port`, `S.email`, `S.uuid`, `S.cuid`, `S.url` are now standalone tree-shakeable schemas (like `S.isoDateTime`), each requiring an `enable*()` call. They use the `format` field instead of the removed `String.Refinement` metadata.
+- `S.pattern` now sets `pattern` directly on the schema instead of using refinement metadata.
+- Removed `S.String.Refinement` module and `S.String.refinements` accessor. Use schema `pattern`/`format`/`errorMessage` fields directly.
 - Added `Email`, `Uuid`, `Cuid`, `Url` to `StringFormat` type.
+- Added `errorMessage` field to `S.meta` for overriding validation messages per-use: `S.email.with(S.meta, { errorMessage: { format: "Custom" } })`. Supports `_` as a catch-all key. Empty `{}` deletes the field. Overwrites (does not merge).
+- Added typed `ErrorMessage` record type with fields for each constraint key (`format`, `type`, `minimum`, `maximum`, `minLength`, `maxLength`, `minItems`, `maxItems`, `pattern`, `_`).
+- Renamed `errorMessages` → `errorMessage` (singular) on schema and internal types.
+- Removed `B.failCustom` — all constraint refiners now use `B.failWithErrorMessage` which reads from `schema.errorMessage` at compile time, making all error messages overridable via `S.meta`.
 
 ### TS
 

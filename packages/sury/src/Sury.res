@@ -3419,7 +3419,7 @@ let refine: (t<'value>, 'value => bool, ~error: string=?, ~path: array<string>=?
 
 let getMutErrorMessage = (~mut: internal): dict<string> => {
   let em: dict<string> = mut.errorMessage->X.Option.unsafeToBool
-    ? (mut.errorMessage->X.Option.getUnsafe->Obj.magic: errorMessage => dict<string>)->X.Dict.copy
+    ? (mut.errorMessage->X.Option.getUnsafe->(Obj.magic: errorMessage => dict<string>))->X.Dict.copy
     : Js.Dict.empty()
   mut.errorMessage = Some(em->Obj.magic)
   em
