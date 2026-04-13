@@ -311,6 +311,10 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<string>,
       default?: string,
+      minLength?: int,
+      maxLength?: int,
+      pattern?: Js.Re.t,
+      errorMessages?: dict<string>,
     })
   | @as("number")
   Number({
@@ -322,6 +326,9 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<float>,
       default?: float,
+      minimum?: float,
+      maximum?: float,
+      errorMessages?: dict<string>,
     })
   | @as("bigint")
   BigInt({
@@ -409,6 +416,9 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<array<unknown>>,
       default?: array<unknown>,
+      minItems?: int,
+      maxItems?: int,
+      errorMessages?: dict<string>,
     })
   | @as("object")
   Object({
@@ -487,6 +497,14 @@ and internal = {
   mutable required?: array<string>,
   mutable properties?: dict<internal>,
   mutable noValidation?: bool,
+  mutable minimum?: float,
+  mutable maximum?: float,
+  mutable minLength?: int,
+  mutable maxLength?: int,
+  mutable minItems?: int,
+  mutable maxItems?: int,
+  mutable pattern?: Js.Re.t,
+  mutable errorMessages?: dict<string>,
   mutable space?: int,
   @as("$ref")
   mutable ref?: string,
@@ -3380,6 +3398,14 @@ let addRefinement = (schema, ~metadataId, ~refinement, ~refiner) => {
   })
 }
 
+let getMutErrorMessages = (~mut: internal) => {
+  let em = mut.errorMessages->X.Option.unsafeToBool
+    ? mut.errorMessages->X.Option.getUnsafe->X.Dict.copy
+    : Js.Dict.empty()
+  mut.errorMessages = Some(em)
+  em
+}
+
 type transformDefinition<'input, 'output> = {
   @as("p")
   parser?: 'input => 'output,
@@ -3460,28 +3486,6 @@ module Dict = {
     mut.additionalItems = Some(Schema(item->castToPublic))
     mut.decoder = objectDecoder
     mut->castToPublic
-  }
-}
-
-module Array = {
-  module Refinement = {
-    type kind =
-      | Min({length: int})
-      | Max({length: int})
-      | Length({length: int})
-    type t = {
-      kind: kind,
-      message: string,
-    }
-
-    let metadataId: Metadata.Id.t<array<t>> = Metadata.Id.internal("Array.refinements")
-  }
-
-  let refinements = schema => {
-    switch schema->Metadata.get(~id=Refinement.metadataId) {
-    | Some(m) => m
-    | None => []
-    }
   }
 }
 
@@ -4436,9 +4440,6 @@ module Tuple = {
 module String = {
   module Refinement = {
     type kind =
-      | Min({length: int})
-      | Max({length: int})
-      | Length({length: int})
       | Email
       | Uuid
       | Cuid
@@ -4919,49 +4920,6 @@ let date = {
     }),
   )
   mut->castToPublic
-}
-
-module Int = {
-  module Refinement = {
-    type kind =
-      | Min({value: int})
-      | Max({value: int})
-
-    type t = {
-      kind: kind,
-      message: string,
-    }
-
-    let metadataId: Metadata.Id.t<array<t>> = Metadata.Id.internal("Int.refinements")
-  }
-
-  let refinements = schema => {
-    switch schema->Metadata.get(~id=Refinement.metadataId) {
-    | Some(m) => m
-    | None => []
-    }
-  }
-}
-
-module Float = {
-  module Refinement = {
-    type kind =
-      | Min({value: float})
-      | Max({value: float})
-    type t = {
-      kind: kind,
-      message: string,
-    }
-
-    let metadataId: Metadata.Id.t<array<t>> = Metadata.Id.internal("Float.refinements")
-  }
-
-  let refinements = schema => {
-    switch schema->Metadata.get(~id=Refinement.metadataId) {
-    | Some(m) => m
-    | None => []
-    }
-  }
 }
 
 let to = (from, target) => {
@@ -6236,16 +6194,13 @@ let intMin = (schema, minValue, ~message as maybeMessage=?) => {
   | Some(m) => m
   | None => `Number must be greater than or equal to ${minValue->X.Int.unsafeToString}`
   }
-  schema->addRefinement(
-    ~metadataId=Int.Refinement.metadataId,
-    ~refiner=(~input as _) => {
+  schema->internalRefine(mut => {
+    mut.minimum = Some(minValue->Js.Int.toFloat)
+    getMutErrorMessages(~mut)->Js.Dict.set("minimum", message)
+    (~input as _) => {
       [{cond: (~inputVar) => `${inputVar}>${(minValue - 1)->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
-    },
-    ~refinement={
-      kind: Min({value: minValue}),
-      message,
-    },
-  )
+    }
+  })
 }
 
 let intMax = (schema, maxValue, ~message as maybeMessage=?) => {
@@ -6254,16 +6209,13 @@ let intMax = (schema, maxValue, ~message as maybeMessage=?) => {
   | Some(m) => m
   | None => `Number must be lower than or equal to ${maxValue->X.Int.unsafeToString}`
   }
-  schema->addRefinement(
-    ~metadataId=Int.Refinement.metadataId,
-    ~refiner=(~input as _) => {
+  schema->internalRefine(mut => {
+    mut.maximum = Some(maxValue->Js.Int.toFloat)
+    getMutErrorMessages(~mut)->Js.Dict.set("maximum", message)
+    (~input as _) => {
       [{cond: (~inputVar) => `${inputVar}<${(maxValue + 1)->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
-    },
-    ~refinement={
-      kind: Max({value: maxValue}),
-      message,
-    },
-  )
+    }
+  })
 }
 
 let port = (schema, ~message=?) => {
@@ -6289,16 +6241,13 @@ let floatMin = (schema, minValue, ~message as maybeMessage=?) => {
   | Some(m) => m
   | None => `Number must be greater than or equal to ${minValue->X.Float.unsafeToString}`
   }
-  schema->addRefinement(
-    ~metadataId=Float.Refinement.metadataId,
-    ~refiner=(~input) => {
+  schema->internalRefine(mut => {
+    mut.minimum = Some(minValue)
+    getMutErrorMessages(~mut)->Js.Dict.set("minimum", message)
+    (~input) => {
       [{cond: (~inputVar) => `${inputVar}>=${input->B.embed(minValue)}`, fail: B.failCustom(message)}]
-    },
-    ~refinement={
-      kind: Min({value: minValue}),
-      message,
-    },
-  )
+    }
+  })
 }
 
 let floatMax = (schema, maxValue, ~message as maybeMessage=?) => {
@@ -6307,16 +6256,13 @@ let floatMax = (schema, maxValue, ~message as maybeMessage=?) => {
   | Some(m) => m
   | None => `Number must be lower than or equal to ${maxValue->X.Float.unsafeToString}`
   }
-  schema->addRefinement(
-    ~metadataId=Float.Refinement.metadataId,
-    ~refiner=(~input) => {
+  schema->internalRefine(mut => {
+    mut.maximum = Some(maxValue)
+    getMutErrorMessages(~mut)->Js.Dict.set("maximum", message)
+    (~input) => {
       [{cond: (~inputVar) => `${inputVar}<=${input->B.embed(maxValue)}`, fail: B.failCustom(message)}]
-    },
-    ~refinement={
-      kind: Max({value: maxValue}),
-      message,
-    },
-  )
+    }
+  })
 }
 
 let arrayMinLength = (schema, length, ~message as maybeMessage=?) => {
@@ -6325,16 +6271,13 @@ let arrayMinLength = (schema, length, ~message as maybeMessage=?) => {
   | Some(m) => m
   | None => `Array must be ${length->X.Int.unsafeToString} or more items long`
   }
-  schema->addRefinement(
-    ~metadataId=Array.Refinement.metadataId,
-    ~refiner=(~input as _) => {
+  schema->internalRefine(mut => {
+    mut.minItems = Some(length)
+    getMutErrorMessages(~mut)->Js.Dict.set("minItems", message)
+    (~input as _) => {
       [{cond: (~inputVar) => `${inputVar}.length>${(length - 1)->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
-    },
-    ~refinement={
-      kind: Min({length: length}),
-      message,
-    },
-  )
+    }
+  })
 }
 
 let arrayMaxLength = (schema, length, ~message as maybeMessage=?) => {
@@ -6343,16 +6286,13 @@ let arrayMaxLength = (schema, length, ~message as maybeMessage=?) => {
   | Some(m) => m
   | None => `Array must be ${length->X.Int.unsafeToString} or fewer items long`
   }
-  schema->addRefinement(
-    ~metadataId=Array.Refinement.metadataId,
-    ~refiner=(~input as _) => {
+  schema->internalRefine(mut => {
+    mut.maxItems = Some(length)
+    getMutErrorMessages(~mut)->Js.Dict.set("maxItems", message)
+    (~input as _) => {
       [{cond: (~inputVar) => `${inputVar}.length<${(length + 1)->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
-    },
-    ~refinement={
-      kind: Max({length: length}),
-      message,
-    },
-  )
+    }
+  })
 }
 
 let arrayLength = (schema, length, ~message as maybeMessage=?) => {
@@ -6361,16 +6301,16 @@ let arrayLength = (schema, length, ~message as maybeMessage=?) => {
   | Some(m) => m
   | None => `Array must be exactly ${length->X.Int.unsafeToString} items long`
   }
-  schema->addRefinement(
-    ~metadataId=Array.Refinement.metadataId,
-    ~refiner=(~input as _) => {
+  schema->internalRefine(mut => {
+    mut.minItems = Some(length)
+    mut.maxItems = Some(length)
+    let em = getMutErrorMessages(~mut)
+    em->Js.Dict.set("minItems", message)
+    em->Js.Dict.set("maxItems", message)
+    (~input as _) => {
       [{cond: (~inputVar) => `${inputVar}.length===${length->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
-    },
-    ~refinement={
-      kind: Length({length: length}),
-      message,
-    },
-  )
+    }
+  })
 }
 
 let stringMinLength = (schema, length, ~message as maybeMessage=?) => {
@@ -6379,16 +6319,13 @@ let stringMinLength = (schema, length, ~message as maybeMessage=?) => {
   | Some(m) => m
   | None => `String must be ${length->X.Int.unsafeToString} or more characters long`
   }
-  schema->addRefinement(
-    ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input as _) => {
+  schema->internalRefine(mut => {
+    mut.minLength = Some(length)
+    getMutErrorMessages(~mut)->Js.Dict.set("minLength", message)
+    (~input as _) => {
       [{cond: (~inputVar) => `${inputVar}.length>${(length - 1)->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
-    },
-    ~refinement={
-      kind: Min({length: length}),
-      message,
-    },
-  )
+    }
+  })
 }
 
 let stringMaxLength = (schema, length, ~message as maybeMessage=?) => {
@@ -6397,16 +6334,13 @@ let stringMaxLength = (schema, length, ~message as maybeMessage=?) => {
   | Some(m) => m
   | None => `String must be ${length->X.Int.unsafeToString} or fewer characters long`
   }
-  schema->addRefinement(
-    ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input as _) => {
+  schema->internalRefine(mut => {
+    mut.maxLength = Some(length)
+    getMutErrorMessages(~mut)->Js.Dict.set("maxLength", message)
+    (~input as _) => {
       [{cond: (~inputVar) => `${inputVar}.length<${(length + 1)->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
-    },
-    ~refinement={
-      kind: Max({length: length}),
-      message,
-    },
-  )
+    }
+  })
 }
 
 let stringLength = (schema, length, ~message as maybeMessage=?) => {
@@ -6415,16 +6349,16 @@ let stringLength = (schema, length, ~message as maybeMessage=?) => {
   | Some(m) => m
   | None => `String must be exactly ${length->X.Int.unsafeToString} characters long`
   }
-  schema->addRefinement(
-    ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input as _) => {
+  schema->internalRefine(mut => {
+    mut.minLength = Some(length)
+    mut.maxLength = Some(length)
+    let em = getMutErrorMessages(~mut)
+    em->Js.Dict.set("minLength", message)
+    em->Js.Dict.set("maxLength", message)
+    (~input as _) => {
       [{cond: (~inputVar) => `${inputVar}.length===${length->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
-    },
-    ~refinement={
-      kind: Length({length: length}),
-      message,
-    },
-  )
+    }
+  })
 }
 
 let email = (schema, ~message=`Invalid email address`) => {
@@ -6805,6 +6739,20 @@ module RescriptJSONSchema = {
         | Some(DateTime) => jsonSchema.format = Some("date-time")
         | Some(JSON) | None => ()
         }
+        let internal = schema->castToInternal
+        switch internal.minLength {
+        | Some(v) => jsonSchema.minLength = Some(v)
+        | None => ()
+        }
+        switch internal.maxLength {
+        | Some(v) => jsonSchema.maxLength = Some(v)
+        | None => ()
+        }
+        switch internal.pattern {
+        | Some(re) =>
+          jsonSchema.pattern = Some((re->(Obj.magic: Js.Re.t => {..}))["source"])
+        | None => ()
+        }
         schema
         ->String.refinements
         ->Js.Array2.forEach(refinement => {
@@ -6813,12 +6761,6 @@ module RescriptJSONSchema = {
           | {kind: Url} => jsonSchema.format = Some("uri")
           | {kind: Uuid} => jsonSchema.format = Some("uuid")
           | {kind: Cuid} => ()
-          | {kind: Length({length})} => {
-              jsonSchema.minLength = Some(length)
-              jsonSchema.maxLength = Some(length)
-            }
-          | {kind: Max({length})} => jsonSchema.maxLength = Some(length)
-          | {kind: Min({length})} => jsonSchema.minLength = Some(length)
           | {kind: Pattern({re})} =>
             jsonSchema.pattern = Some((re->(Obj.magic: Js.Re.t => {..}))["source"])
           }
@@ -6828,37 +6770,34 @@ module RescriptJSONSchema = {
         | None => ()
         }
       }
-    | Number({?format, ?const}) =>
-      switch format {
-      | Some(Int32) =>
-        jsonSchema.type_ = Some(Arrayable.single(#integer))
-        schema
-        ->Int.refinements
-        ->Js.Array2.forEach(refinement => {
-          switch refinement {
-          | {kind: Max({value})} => jsonSchema.maximum = Some(value->Js.Int.toFloat)
-          | {kind: Min({value})} => jsonSchema.minimum = Some(value->Js.Int.toFloat)
+    | Number({?format, ?const}) => {
+        let internal = schema->castToInternal
+        switch format {
+        | Some(Int32) => {
+            jsonSchema.type_ = Some(Arrayable.single(#integer))
+            jsonSchema.minimum = Some(-2147483648.)
+            jsonSchema.maximum = Some(2147483647.)
           }
-        })
-      | Some(Port) => {
-          jsonSchema.type_ = Some(Arrayable.single(#integer))
-          jsonSchema.maximum = Some(65535.)
-          jsonSchema.minimum = Some(0.)
+        | Some(Port) => {
+            jsonSchema.type_ = Some(Arrayable.single(#integer))
+            jsonSchema.minimum = Some(0.)
+            jsonSchema.maximum = Some(65535.)
+          }
+        | None =>
+          jsonSchema.type_ = Some(Arrayable.single(#number))
         }
-      | None =>
-        jsonSchema.type_ = Some(Arrayable.single(#number))
-        schema
-        ->Float.refinements
-        ->Js.Array2.forEach(refinement => {
-          switch refinement {
-          | {kind: Max({value})} => jsonSchema.maximum = Some(value)
-          | {kind: Min({value})} => jsonSchema.minimum = Some(value)
-          }
-        })
-      }
-      switch const {
-      | Some(value) => jsonSchema.const = Some(Js.Json.number(value))
-      | None => ()
+        switch internal.minimum {
+        | Some(v) => jsonSchema.minimum = Some(v)
+        | None => ()
+        }
+        switch internal.maximum {
+        | Some(v) => jsonSchema.maximum = Some(v)
+        | None => ()
+        }
+        switch const {
+        | Some(value) => jsonSchema.const = Some(Js.Json.number(value))
+        | None => ()
+        }
       }
     | Boolean({?const}) => {
         jsonSchema.type_ = Some(Arrayable.single(#boolean))
@@ -6883,18 +6822,15 @@ module RescriptJSONSchema = {
           ),
         )
         jsonSchema.type_ = Some(Arrayable.single(#array))
-        schema
-        ->Array.refinements
-        ->Js.Array2.forEach(refinement => {
-          switch refinement {
-          | {kind: Max({length})} => jsonSchema.maxItems = Some(length)
-          | {kind: Min({length})} => jsonSchema.minItems = Some(length)
-          | {kind: Length({length})} => {
-              jsonSchema.maxItems = Some(length)
-              jsonSchema.minItems = Some(length)
-            }
-          }
-        })
+        let internal = schema->castToInternal
+        switch internal.minItems {
+        | Some(v) => jsonSchema.minItems = Some(v)
+        | None => ()
+        }
+        switch internal.maxItems {
+        | Some(v) => jsonSchema.maxItems = Some(v)
+        | None => ()
+        }
       | _ => {
           let items = items->Js.Array2.mapi((itemSchema, idx) => {
             Schema(

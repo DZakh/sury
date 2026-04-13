@@ -11,7 +11,7 @@ test("JSONSchema of string schema", t => {
 })
 
 test("JSONSchema of int schema", t => {
-  t->Assert.deepEqual(S.int->S.toJSONSchema, %raw(`{"type": "integer"}`))
+  t->Assert.deepEqual(S.int->S.toJSONSchema, %raw(`{"type": "integer", "minimum": -2147483648, "maximum": 2147483647}`))
 })
 
 test("JSONSchema of float schema", t => {
@@ -136,11 +136,11 @@ test("JSONSchema of string with both min and max", t => {
 })
 
 test("JSONSchema of int with min", t => {
-  t->Assert.deepEqual(S.int->S.min(1)->S.toJSONSchema, %raw(`{"type": "integer", "minimum": 1}`))
+  t->Assert.deepEqual(S.int->S.min(1)->S.toJSONSchema, %raw(`{"type": "integer", "minimum": 1, "maximum": 2147483647}`))
 })
 
 test("JSONSchema of int with max", t => {
-  t->Assert.deepEqual(S.int->S.max(1)->S.toJSONSchema, %raw(`{"type": "integer", "maximum": 1}`))
+  t->Assert.deepEqual(S.int->S.max(1)->S.toJSONSchema, %raw(`{"type": "integer", "minimum": -2147483648, "maximum": 1}`))
 })
 
 test("JSONSchema of port", t => {
@@ -831,6 +831,8 @@ module Example = {
           },
           Age: {
             type: "integer",
+            minimum: -2147483648,
+            maximum: 2147483647,
             deprecated: true,
             description: "Use rating instead",
           },

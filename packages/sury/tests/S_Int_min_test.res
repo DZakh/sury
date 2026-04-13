@@ -48,8 +48,14 @@ test("Throws when called with a non-number value", t => {
 test("Returns refinement", t => {
   let schema = S.int->S.min(1)
 
-  t->Assert.deepEqual(
-    schema->S.Int.refinements,
-    [{kind: Min({value: 1}), message: "Number must be greater than or equal to 1"}],
-  )
+  switch schema {
+  | Number({minimum, errorMessages}) => {
+      t->Assert.deepEqual(minimum, 1.)
+      t->Assert.deepEqual(
+        errorMessages,
+        dict{"minimum": "Number must be greater than or equal to 1"},
+      )
+    }
+  | _ => t->Assert.fail("Expected Number schema with minimum")
+  }
 })
