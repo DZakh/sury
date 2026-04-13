@@ -1385,14 +1385,18 @@ module Builder = {
     // For each val in the chain, one of two paths:
     //   Path A (structural): val has checks, no code, no code accumulated yet
     //            → checks kept on returned val's `checks` field
+    //            → only one val's checks kept at a time; if a second structural
+    //              val arrives, the existing checks are emitted using their
+    //              original val (preserving error context)
     //   Path B (emit): everything else
     //            → builds complete per-val block (codeFromPrev + checks + varsAlloc)
     //              and folds into returned val's `codeFromPrev`
     //
     // The returned val has:
-    //   prev          = chain root (root.var() = inputVar for structural checks)
+    //   prev          = checksVal → root chain (checksVal.prev = root)
+    //                   or just root if no structural checks
     //   codeFromPrev  = accumulated code
-    //   checks        = pre-code structural checks (or None)
+    //   checks        = structural checks from one val (or None)
     //   inline        = output expression (from startVal)
     let clap = (startVal: val): val => {
       if !(startVal.prev->Obj.magic) {
@@ -1418,6 +1422,9 @@ module Builder = {
           optional: ?startVal.optional,
         }
 
+        // The original val whose checks are currently kept structural.
+        // Used for emitChecks (which needs the val for fail(~input=val) error context).
+        let checksVal: ref<option<val>> = ref(None)
         let lastResolvedVar = ref(startVal.inline)
         let root = ref(startVal)
         let current = ref(Some(startVal))
@@ -1436,15 +1443,16 @@ module Builder = {
             if current.contents->Obj.magic {
               lastResolvedVar := (current.contents->X.Option.getUnsafe).var()
             }
-            // Prepend: reuse v's array, push acc's checks onto it
+            // If we already have structural checks from a different val,
+            // emit them using their original val (preserves error context)
             if acc.checks->X.Option.unsafeToBool {
-              let vChecks = v.checks->X.Option.getUnsafe
-              let accChecks = acc.checks->X.Option.getUnsafe
-              for i in 0 to accChecks->Js.Array2.length - 1 {
-                vChecks->Js.Array2.push(accChecks->Js.Array2.unsafe_get(i))->ignore
-              }
+              acc.codeFromPrev =
+                (checksVal.contents->X.Option.getUnsafe)->emitChecks(
+                  ~inputVar=lastResolvedVar.contents,
+                ) ++ acc.codeFromPrev
             }
             acc.checks = v.checks
+            checksVal := Some(v)
             let _ = %raw(`delete v.a`)
           } else {
             // Path B — build complete per-val block (old merge order: code + checks + alloc)
@@ -1461,18 +1469,27 @@ module Builder = {
             let _ = %raw(`delete v.a`)
 
             if vBlock.contents !== "" {
-              // Flush structural checks before folding code
+              // Flush structural checks using their original val
               if acc.checks->X.Option.unsafeToBool {
                 acc.codeFromPrev =
-                  acc->emitChecks(~inputVar=lastResolvedVar.contents) ++ acc.codeFromPrev
+                  (checksVal.contents->X.Option.getUnsafe)->emitChecks(
+                    ~inputVar=lastResolvedVar.contents,
+                  ) ++ acc.codeFromPrev
                 acc.checks = None
+                checksVal := None
               }
               acc.codeFromPrev = vBlock.contents ++ acc.codeFromPrev
             }
           }
         }
 
-        acc.prev = Some(root.contents)
+        // Build the prev chain: acc → checksVal → root
+        switch checksVal.contents {
+        | Some(cv) =>
+          cv.prev = Some(root.contents)
+          acc.prev = Some(cv)
+        | None => acc.prev = Some(root.contents)
+        }
         acc
       }
     }
@@ -1480,11 +1497,14 @@ module Builder = {
     let merge = (startVal: val): string => {
       let clapped = startVal->clap
       if clapped.checks->X.Option.unsafeToBool {
-        let inputVar = switch clapped.prev {
+        // clapped.prev = checksVal (original val with correct schema/expected)
+        // clapped.prev.prev = root (for inputVar)
+        let checksVal = clapped.prev->X.Option.getUnsafe
+        let inputVar = switch checksVal.prev {
         | Some(root) => root.var()
-        | None => clapped.inline
+        | None => checksVal.inline
         }
-        clapped->emitChecks(~inputVar) ++ clapped.codeFromPrev
+        checksVal->emitChecks(~inputVar) ++ clapped.codeFromPrev
       } else {
         clapped.codeFromPrev
       }
@@ -1498,11 +1518,6 @@ module Builder = {
         let v = current.contents->X.Option.getUnsafe
         current := v.prev
         if v.codeFromPrev !== "" || v.varsAllocation !== "" {
-          // Code found — everything before this in the walk (closer to output)
-          // is post-code. But we walk backward, so vals closer to root come later.
-          // We can't find structural checks anymore because the walk started at
-          // the output and any checks we saw before this point had code after them.
-          // Stop early.
           current := None
         } else if v.checks->X.Option.unsafeToBool {
           found := true
@@ -3724,9 +3739,11 @@ module Union = {
             itemCode := clapped.codeFromPrev
             itemCond :=
               if clapped.checks->X.Option.unsafeToBool {
-                let inputVar = switch clapped.prev {
+                // clapped.prev = checksVal, checksVal.prev = root
+                let checksVal = clapped.prev->X.Option.getUnsafe
+                let inputVar = switch checksVal.prev {
                 | Some(root) => root.var()
-                | None => clapped.inline
+                | None => checksVal.inline
                 }
                 clapped.checks->X.Option.getUnsafe->B.andJoinChecks(~inputVar)
               } else {
@@ -4044,9 +4061,10 @@ module Union = {
           let blockCode = clapped.codeFromPrev ++ itemsCode
           let blockCond =
             if clapped.checks->X.Option.unsafeToBool {
-              let inputVar = switch clapped.prev {
+              let checksVal = clapped.prev->X.Option.getUnsafe
+              let inputVar = switch checksVal.prev {
               | Some(root) => root.var()
-              | None => clapped.inline
+              | None => checksVal.inline
               }
               clapped.checks->X.Option.getUnsafe->B.andJoinChecks(~inputVar)
             } else {
