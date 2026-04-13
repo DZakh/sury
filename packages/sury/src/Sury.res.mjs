@@ -2859,17 +2859,6 @@ function deepStrict(schema) {
 
 let Tuple = {};
 
-let metadataId = "m:String.refinements";
-
-function refinements(schema) {
-  let m = schema[metadataId];
-  if (m !== undefined) {
-    return m;
-  } else {
-    return [];
-  }
-}
-
 function jsonEncoder(input, target) {
   let toTagFlag = flags[target.type];
   if (toTagFlag & 46) {
@@ -3526,6 +3515,30 @@ function traverseDefinition(definition, onNode) {
   return mut$2;
 }
 
+function shapedSerializer(input) {
+  let acc = {};
+  prepareShapedSerializerAcc(acc, input);
+  let targetSchema = input.e.to;
+  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
+  output.t = true;
+  output.prev = input;
+  return output;
+}
+
+function getValByFrom(_input, from, _idx) {
+  while (true) {
+    let idx = _idx;
+    let input = _input;
+    let key = from[idx];
+    if (key === undefined) {
+      return input;
+    }
+    _idx = idx + 1 | 0;
+    _input = input.d[key];
+    continue;
+  };
+}
+
 function prepareShapedSerializerAcc(acc, input) {
   let match = input.e;
   let from = match.from;
@@ -3580,6 +3593,45 @@ function prepareShapedSerializerAcc(acc, input) {
   for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
     prepareShapedSerializerAcc(acc, vals[keys[idx$1]]);
   }
+}
+
+function getShapedParserOutput(input, targetSchema) {
+  let from = targetSchema.from;
+  let fromFlattened = targetSchema.fromFlattened;
+  let v;
+  if (fromFlattened !== undefined) {
+    v = scope(getValByFrom(input.fv[fromFlattened], targetSchema.from, 0));
+  } else if (from !== undefined) {
+    v = scope(getValByFrom(input, from, 0));
+  } else if (constField in targetSchema) {
+    v = nextConst(input, targetSchema, undefined);
+  } else {
+    let output = makeObjectVal(input, targetSchema);
+    output.io = true;
+    let items = targetSchema.items;
+    if (items !== undefined) {
+      for (let idx = 0, idx_finish = items.length; idx < idx_finish; ++idx) {
+        let location = idx.toString();
+        add(output, location, getShapedParserOutput(input, items[idx]));
+      }
+    } else {
+      let properties = targetSchema.properties;
+      if (properties !== undefined) {
+        let keys = Object.keys(properties);
+        for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
+          let location$1 = keys[idx$1];
+          add(output, location$1, getShapedParserOutput(input, properties[location$1]));
+        }
+      } else {
+        let message = "Don't know where the value is coming from: " + toExpression(targetSchema);
+        throw new Error("[Sury] " + message);
+      }
+    }
+    v = completeObjectVal(output);
+  }
+  v.prev = undefined;
+  v.e = targetSchema;
+  return v;
 }
 
 function getShapedSerializerOutput(input, acc, targetSchema, path) {
@@ -3682,29 +3734,6 @@ function getShapedSerializerOutput(input, acc, targetSchema, path) {
   
 }
 
-function getValByFrom(_input, from, _idx) {
-  while (true) {
-    let idx = _idx;
-    let input = _input;
-    let key = from[idx];
-    if (key === undefined) {
-      return input;
-    }
-    _idx = idx + 1 | 0;
-    _input = input.d[key];
-    continue;
-  };
-}
-
-function definitionToSchema(definition) {
-  return traverseDefinition(definition, node => {
-    if (node["~standard"]) {
-      return node;
-    }
-    
-  });
-}
-
 function nested(fieldName) {
   let parentCtx = this;
   let cacheId = "~" + fieldName;
@@ -3771,53 +3800,13 @@ function nested(fieldName) {
   return ctx$1;
 }
 
-function shapedSerializer(input) {
-  let acc = {};
-  prepareShapedSerializerAcc(acc, input);
-  let targetSchema = input.e.to;
-  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
-  output.t = true;
-  output.prev = input;
-  return output;
-}
-
-function getShapedParserOutput(input, targetSchema) {
-  let from = targetSchema.from;
-  let fromFlattened = targetSchema.fromFlattened;
-  let v;
-  if (fromFlattened !== undefined) {
-    v = scope(getValByFrom(input.fv[fromFlattened], targetSchema.from, 0));
-  } else if (from !== undefined) {
-    v = scope(getValByFrom(input, from, 0));
-  } else if (constField in targetSchema) {
-    v = nextConst(input, targetSchema, undefined);
-  } else {
-    let output = makeObjectVal(input, targetSchema);
-    output.io = true;
-    let items = targetSchema.items;
-    if (items !== undefined) {
-      for (let idx = 0, idx_finish = items.length; idx < idx_finish; ++idx) {
-        let location = idx.toString();
-        add(output, location, getShapedParserOutput(input, items[idx]));
-      }
-    } else {
-      let properties = targetSchema.properties;
-      if (properties !== undefined) {
-        let keys = Object.keys(properties);
-        for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
-          let location$1 = keys[idx$1];
-          add(output, location$1, getShapedParserOutput(input, properties[location$1]));
-        }
-      } else {
-        let message = "Don't know where the value is coming from: " + toExpression(targetSchema);
-        throw new Error("[Sury] " + message);
-      }
+function definitionToSchema(definition) {
+  return traverseDefinition(definition, node => {
+    if (node["~standard"]) {
+      return node;
     }
-    v = completeObjectVal(output);
-  }
-  v.prev = undefined;
-  v.e = targetSchema;
-  return v;
+    
+  });
 }
 
 function shapedParser(input) {
@@ -4312,21 +4301,6 @@ function pattern(schema, re, messageOpt) {
   return internalRefine(schema, mut => {
     mut.pattern = re;
     getMutErrorMessages(mut)["pattern"] = message;
-    let refinements = schema[metadataId];
-    let metadata = refinements !== undefined ? refinements.concat({
-        kind: {
-          TAG: "Pattern",
-          re: re
-        },
-        message: message
-      }) : [{
-          kind: {
-            TAG: "Pattern",
-            re: re
-          },
-          message: message
-        }];
-    mut[metadataId] = metadata;
     return input => {
       let embededRe = embed(input, re);
       return [{
@@ -4627,9 +4601,6 @@ function internalToJSONSchema(schema, path, defs, parent) {
         if (re !== undefined) {
           jsonSchema.pattern = re.source;
         }
-        refinements(schema).forEach(refinement => {
-          jsonSchema.pattern = refinement.kind.re.source;
-        });
         if ($$const !== undefined) {
           jsonSchema.const = $$const;
         }
@@ -5222,13 +5193,6 @@ let Option = {
   getOrWith: getOrWith
 };
 
-let String_Refinement = {};
-
-let $$String = {
-  Refinement: String_Refinement,
-  refinements: refinements
-};
-
 let Metadata = {
   Id: Id,
   get: get$1,
@@ -5317,7 +5281,6 @@ export {
   tuple2,
   tuple3,
   Option,
-  $$String,
   Metadata,
   reverse,
   $$Error$1 as $$Error,
