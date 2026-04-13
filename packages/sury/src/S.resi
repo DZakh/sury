@@ -79,7 +79,7 @@ type rec t<'value> =
       minLength?: int,
       maxLength?: int,
       pattern?: Js.Re.t,
-      errorMessages?: dict<string>,
+      errorMessage?: dict<string>,
     })
   | @as("number")
   Number({
@@ -93,7 +93,7 @@ type rec t<'value> =
       default?: float,
       minimum?: float,
       maximum?: float,
-      errorMessages?: dict<string>,
+      errorMessage?: dict<string>,
     })
   | @as("bigint")
   BigInt({
@@ -183,7 +183,7 @@ type rec t<'value> =
       default?: array<unknown>,
       minItems?: int,
       maxItems?: int,
-      errorMessages?: dict<string>,
+      errorMessage?: dict<string>,
     })
   | @as("object")
   Object({

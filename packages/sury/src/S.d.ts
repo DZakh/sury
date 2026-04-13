@@ -151,7 +151,7 @@ export type Schema<Output, Input = unknown> = {
   readonly noValidation?: boolean;
   readonly default?: Input;
   readonly to?: Schema<unknown>;
-  readonly errorMessages?: Record<string, string>;
+  readonly errorMessage?: Record<string, string>;
 
   readonly ["~standard"]: StandardSchemaV1.Props<Input, Output>;
 } & (

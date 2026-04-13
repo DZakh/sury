@@ -2155,9 +2155,9 @@ function refine$1(schema, refineCheck, error, path) {
   }));
 }
 
-function getMutErrorMessages(mut) {
-  let em = mut.errorMessages ? copy(mut.errorMessages) : ({});
-  mut.errorMessages = em;
+function getMutErrorMessage(mut) {
+  let em = mut.errorMessage ? copy(mut.errorMessage) : ({});
+  mut.errorMessage = em;
   return em;
 }
 
@@ -3245,7 +3245,7 @@ function enableEmail() {
   email.type = stringTag;
   email.decoder = string.decoder;
   email.format = "email";
-  email.errorMessages = {
+  email.errorMessage = {
     format: message
   };
   email.refiner = input => [{
@@ -3266,7 +3266,7 @@ function enableUuid() {
   uuid.type = stringTag;
   uuid.decoder = string.decoder;
   uuid.format = "uuid";
-  uuid.errorMessages = {
+  uuid.errorMessage = {
     format: message
   };
   uuid.refiner = input => [{
@@ -3287,7 +3287,7 @@ function enableCuid() {
   cuid.type = stringTag;
   cuid.decoder = string.decoder;
   cuid.format = "cuid";
-  cuid.errorMessages = {
+  cuid.errorMessage = {
     format: message
   };
   cuid.refiner = input => [{
@@ -3308,7 +3308,7 @@ function enableUrl() {
   url.type = stringTag;
   url.decoder = string.decoder;
   url.format = "url";
-  url.errorMessages = {
+  url.errorMessage = {
     format: message
   };
   url.refiner = input => [{
@@ -4168,7 +4168,7 @@ function intMin(schema, minValue, maybeMessage) {
   let message = maybeMessage !== undefined ? maybeMessage : "Number must be greater than or equal to " + minValue;
   return internalRefine(schema, mut => {
     mut.minimum = minValue;
-    getMutErrorMessages(mut)["minimum"] = message;
+    getMutErrorMessage(mut)["minimum"] = message;
     return param => [{
         c: inputVar => inputVar + ">" + (minValue - 1 | 0),
         f: failCustom(message)
@@ -4181,7 +4181,7 @@ function intMax(schema, maxValue, maybeMessage) {
   let message = maybeMessage !== undefined ? maybeMessage : "Number must be lower than or equal to " + maxValue;
   return internalRefine(schema, mut => {
     mut.maximum = maxValue;
-    getMutErrorMessages(mut)["maximum"] = message;
+    getMutErrorMessage(mut)["maximum"] = message;
     return param => [{
         c: inputVar => inputVar + "<" + (maxValue + 1 | 0),
         f: failCustom(message)
@@ -4194,7 +4194,7 @@ function floatMin(schema, minValue, maybeMessage) {
   let message = maybeMessage !== undefined ? maybeMessage : "Number must be greater than or equal to " + minValue;
   return internalRefine(schema, mut => {
     mut.minimum = minValue;
-    getMutErrorMessages(mut)["minimum"] = message;
+    getMutErrorMessage(mut)["minimum"] = message;
     return input => [{
         c: inputVar => inputVar + ">=" + embed(input, minValue),
         f: failCustom(message)
@@ -4207,7 +4207,7 @@ function floatMax(schema, maxValue, maybeMessage) {
   let message = maybeMessage !== undefined ? maybeMessage : "Number must be lower than or equal to " + maxValue;
   return internalRefine(schema, mut => {
     mut.maximum = maxValue;
-    getMutErrorMessages(mut)["maximum"] = message;
+    getMutErrorMessage(mut)["maximum"] = message;
     return input => [{
         c: inputVar => inputVar + "<=" + embed(input, maxValue),
         f: failCustom(message)
@@ -4220,7 +4220,7 @@ function arrayMinLength(schema, length, maybeMessage) {
   let message = maybeMessage !== undefined ? maybeMessage : "Array must be " + length + " or more items long";
   return internalRefine(schema, mut => {
     mut.minItems = length;
-    getMutErrorMessages(mut)["minItems"] = message;
+    getMutErrorMessage(mut)["minItems"] = message;
     return param => [{
         c: inputVar => inputVar + ".length>" + (length - 1 | 0),
         f: failCustom(message)
@@ -4233,7 +4233,7 @@ function arrayMaxLength(schema, length, maybeMessage) {
   let message = maybeMessage !== undefined ? maybeMessage : "Array must be " + length + " or fewer items long";
   return internalRefine(schema, mut => {
     mut.maxItems = length;
-    getMutErrorMessages(mut)["maxItems"] = message;
+    getMutErrorMessage(mut)["maxItems"] = message;
     return param => [{
         c: inputVar => inputVar + ".length<" + (length + 1 | 0),
         f: failCustom(message)
@@ -4246,7 +4246,7 @@ function stringMinLength(schema, length, maybeMessage) {
   let message = maybeMessage !== undefined ? maybeMessage : "String must be " + length + " or more characters long";
   return internalRefine(schema, mut => {
     mut.minLength = length;
-    getMutErrorMessages(mut)["minLength"] = message;
+    getMutErrorMessage(mut)["minLength"] = message;
     return param => [{
         c: inputVar => inputVar + ".length>" + (length - 1 | 0),
         f: failCustom(message)
@@ -4259,7 +4259,7 @@ function stringMaxLength(schema, length, maybeMessage) {
   let message = maybeMessage !== undefined ? maybeMessage : "String must be " + length + " or fewer characters long";
   return internalRefine(schema, mut => {
     mut.maxLength = length;
-    getMutErrorMessages(mut)["maxLength"] = message;
+    getMutErrorMessage(mut)["maxLength"] = message;
     return param => [{
         c: inputVar => inputVar + ".length<" + (length + 1 | 0),
         f: failCustom(message)
@@ -4271,7 +4271,7 @@ function pattern(schema, re, messageOpt) {
   let message = messageOpt !== undefined ? messageOpt : "Invalid pattern";
   return internalRefine(schema, mut => {
     mut.pattern = re;
-    getMutErrorMessages(mut)["pattern"] = message;
+    getMutErrorMessage(mut)["pattern"] = message;
     return input => {
       let embededRe = embed(input, re);
       return [{
@@ -5103,7 +5103,7 @@ function length(schema, length$1, maybeMessage) {
       return internalRefine(schema, mut => {
         mut.minLength = length$1;
         mut.maxLength = length$1;
-        let em = getMutErrorMessages(mut);
+        let em = getMutErrorMessage(mut);
         em["minLength"] = message;
         em["maxLength"] = message;
         return param => [{
@@ -5117,7 +5117,7 @@ function length(schema, length$1, maybeMessage) {
       return internalRefine(schema, mut => {
         mut.minItems = length$1;
         mut.maxItems = length$1;
-        let em = getMutErrorMessages(mut);
+        let em = getMutErrorMessage(mut);
         em["minItems"] = message$1;
         em["maxItems"] = message$1;
         return param => [{

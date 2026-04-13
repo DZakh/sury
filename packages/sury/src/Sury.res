@@ -320,7 +320,7 @@ type rec t<'value> =
       minLength?: int,
       maxLength?: int,
       pattern?: Js.Re.t,
-      errorMessages?: dict<string>,
+      errorMessage?: dict<string>,
     })
   | @as("number")
   Number({
@@ -334,7 +334,7 @@ type rec t<'value> =
       default?: float,
       minimum?: float,
       maximum?: float,
-      errorMessages?: dict<string>,
+      errorMessage?: dict<string>,
     })
   | @as("bigint")
   BigInt({
@@ -424,7 +424,7 @@ type rec t<'value> =
       default?: array<unknown>,
       minItems?: int,
       maxItems?: int,
-      errorMessages?: dict<string>,
+      errorMessage?: dict<string>,
     })
   | @as("object")
   Object({
@@ -510,7 +510,7 @@ and internal = {
   mutable minItems?: int,
   mutable maxItems?: int,
   mutable pattern?: Js.Re.t,
-  mutable errorMessages?: dict<string>,
+  mutable errorMessage?: dict<string>,
   mutable space?: int,
   @as("$ref")
   mutable ref?: string,
@@ -3390,11 +3390,11 @@ let refine: (t<'value>, 'value => bool, ~error: string=?, ~path: array<string>=?
   )
 }
 
-let getMutErrorMessages = (~mut: internal) => {
-  let em = mut.errorMessages->X.Option.unsafeToBool
-    ? mut.errorMessages->X.Option.getUnsafe->X.Dict.copy
+let getMutErrorMessage = (~mut: internal) => {
+  let em = mut.errorMessage->X.Option.unsafeToBool
+    ? mut.errorMessage->X.Option.getUnsafe->X.Dict.copy
     : Js.Dict.empty()
-  mut.errorMessages = Some(em)
+  mut.errorMessage = Some(em)
   em
 }
 
@@ -4864,7 +4864,7 @@ let enableEmail = () => {
     email.tag = stringTag
     email.decoder = string.decoder
     email.format = Some(Email)
-    email.errorMessages = Some(dict{"format": message})
+    email.errorMessage = Some(dict{"format": message})
     email.refiner = Some(
       (~input) => {
         [{cond: (~inputVar) => `${input->B.embed(emailRegex)}.test(${inputVar})`, fail: B.failCustom(message)}]
@@ -4883,7 +4883,7 @@ let enableUuid = () => {
     uuid.tag = stringTag
     uuid.decoder = string.decoder
     uuid.format = Some(Uuid)
-    uuid.errorMessages = Some(dict{"format": message})
+    uuid.errorMessage = Some(dict{"format": message})
     uuid.refiner = Some(
       (~input) => {
         [{cond: (~inputVar) => `${input->B.embed(uuidRegex)}.test(${inputVar})`, fail: B.failCustom(message)}]
@@ -4902,7 +4902,7 @@ let enableCuid = () => {
     cuid.tag = stringTag
     cuid.decoder = string.decoder
     cuid.format = Some(Cuid)
-    cuid.errorMessages = Some(dict{"format": message})
+    cuid.errorMessage = Some(dict{"format": message})
     cuid.refiner = Some(
       (~input) => {
         [{cond: (~inputVar) => `${input->B.embed(cuidRegex)}.test(${inputVar})`, fail: B.failCustom(message)}]
@@ -4921,7 +4921,7 @@ let enableUrl = () => {
     url.tag = stringTag
     url.decoder = string.decoder
     url.format = Some(Url)
-    url.errorMessages = Some(dict{"format": message})
+    url.errorMessage = Some(dict{"format": message})
     url.refiner = Some(
       (~input) => {
         [{cond: (~inputVar) => `${input->B.embed(urlValidator)}(${inputVar})`, fail: B.failCustom(message)}]
@@ -6255,7 +6255,7 @@ let intMin = (schema, minValue, ~message as maybeMessage=?) => {
   }
   schema->internalRefine(mut => {
     mut.minimum = Some(minValue->Js.Int.toFloat)
-    getMutErrorMessages(~mut)->Js.Dict.set("minimum", message)
+    getMutErrorMessage(~mut)->Js.Dict.set("minimum", message)
     (~input as _) => {
       [{cond: (~inputVar) => `${inputVar}>${(minValue - 1)->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
     }
@@ -6270,7 +6270,7 @@ let intMax = (schema, maxValue, ~message as maybeMessage=?) => {
   }
   schema->internalRefine(mut => {
     mut.maximum = Some(maxValue->Js.Int.toFloat)
-    getMutErrorMessages(~mut)->Js.Dict.set("maximum", message)
+    getMutErrorMessage(~mut)->Js.Dict.set("maximum", message)
     (~input as _) => {
       [{cond: (~inputVar) => `${inputVar}<${(maxValue + 1)->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
     }
@@ -6285,7 +6285,7 @@ let floatMin = (schema, minValue, ~message as maybeMessage=?) => {
   }
   schema->internalRefine(mut => {
     mut.minimum = Some(minValue)
-    getMutErrorMessages(~mut)->Js.Dict.set("minimum", message)
+    getMutErrorMessage(~mut)->Js.Dict.set("minimum", message)
     (~input) => {
       [{cond: (~inputVar) => `${inputVar}>=${input->B.embed(minValue)}`, fail: B.failCustom(message)}]
     }
@@ -6300,7 +6300,7 @@ let floatMax = (schema, maxValue, ~message as maybeMessage=?) => {
   }
   schema->internalRefine(mut => {
     mut.maximum = Some(maxValue)
-    getMutErrorMessages(~mut)->Js.Dict.set("maximum", message)
+    getMutErrorMessage(~mut)->Js.Dict.set("maximum", message)
     (~input) => {
       [{cond: (~inputVar) => `${inputVar}<=${input->B.embed(maxValue)}`, fail: B.failCustom(message)}]
     }
@@ -6315,7 +6315,7 @@ let arrayMinLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->internalRefine(mut => {
     mut.minItems = Some(length)
-    getMutErrorMessages(~mut)->Js.Dict.set("minItems", message)
+    getMutErrorMessage(~mut)->Js.Dict.set("minItems", message)
     (~input as _) => {
       [{cond: (~inputVar) => `${inputVar}.length>${(length - 1)->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
     }
@@ -6330,7 +6330,7 @@ let arrayMaxLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->internalRefine(mut => {
     mut.maxItems = Some(length)
-    getMutErrorMessages(~mut)->Js.Dict.set("maxItems", message)
+    getMutErrorMessage(~mut)->Js.Dict.set("maxItems", message)
     (~input as _) => {
       [{cond: (~inputVar) => `${inputVar}.length<${(length + 1)->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
     }
@@ -6346,7 +6346,7 @@ let arrayLength = (schema, length, ~message as maybeMessage=?) => {
   schema->internalRefine(mut => {
     mut.minItems = Some(length)
     mut.maxItems = Some(length)
-    let em = getMutErrorMessages(~mut)
+    let em = getMutErrorMessage(~mut)
     em->Js.Dict.set("minItems", message)
     em->Js.Dict.set("maxItems", message)
     (~input as _) => {
@@ -6363,7 +6363,7 @@ let stringMinLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->internalRefine(mut => {
     mut.minLength = Some(length)
-    getMutErrorMessages(~mut)->Js.Dict.set("minLength", message)
+    getMutErrorMessage(~mut)->Js.Dict.set("minLength", message)
     (~input as _) => {
       [{cond: (~inputVar) => `${inputVar}.length>${(length - 1)->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
     }
@@ -6378,7 +6378,7 @@ let stringMaxLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->internalRefine(mut => {
     mut.maxLength = Some(length)
-    getMutErrorMessages(~mut)->Js.Dict.set("maxLength", message)
+    getMutErrorMessage(~mut)->Js.Dict.set("maxLength", message)
     (~input as _) => {
       [{cond: (~inputVar) => `${inputVar}.length<${(length + 1)->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
     }
@@ -6394,7 +6394,7 @@ let stringLength = (schema, length, ~message as maybeMessage=?) => {
   schema->internalRefine(mut => {
     mut.minLength = Some(length)
     mut.maxLength = Some(length)
-    let em = getMutErrorMessages(~mut)
+    let em = getMutErrorMessage(~mut)
     em->Js.Dict.set("minLength", message)
     em->Js.Dict.set("maxLength", message)
     (~input as _) => {
@@ -6406,7 +6406,7 @@ let stringLength = (schema, length, ~message as maybeMessage=?) => {
 let pattern = (schema, re, ~message=`Invalid pattern`) => {
   schema->internalRefine(mut => {
     mut.pattern = Some(re)
-    getMutErrorMessages(~mut)->Js.Dict.set("pattern", message)
+    getMutErrorMessage(~mut)->Js.Dict.set("pattern", message)
     (~input) => {
       let embededRe = input->B.embed(re)
       [{

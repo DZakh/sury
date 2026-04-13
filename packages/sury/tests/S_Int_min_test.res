@@ -49,10 +49,10 @@ test("Returns refinement", t => {
   let schema = S.int->S.min(1)
 
   switch schema {
-  | Number({minimum, errorMessages}) => {
+  | Number({minimum, errorMessage}) => {
       t->Assert.deepEqual(minimum, 1.)
       t->Assert.deepEqual(
-        errorMessages,
+        errorMessage,
         dict{"minimum": "Number must be greater than or equal to 1"},
       )
     }

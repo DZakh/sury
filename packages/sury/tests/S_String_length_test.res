@@ -48,11 +48,11 @@ test("Returns refinement", t => {
   let schema = S.string->S.length(4)
 
   switch schema {
-  | String({minLength, maxLength, errorMessages}) => {
+  | String({minLength, maxLength, errorMessage}) => {
       t->Assert.deepEqual(minLength, 4)
       t->Assert.deepEqual(maxLength, 4)
       t->Assert.deepEqual(
-        errorMessages,
+        errorMessage,
         dict{
           "minLength": "String must be exactly 4 characters long",
           "maxLength": "String must be exactly 4 characters long",

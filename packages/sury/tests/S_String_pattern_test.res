@@ -57,12 +57,12 @@ test("Reflects pattern on schema", t => {
   }
 })
 
-test("Reflects errorMessages on schema", t => {
+test("Reflects errorMessage on schema", t => {
   let schema = S.string->S.pattern(~message="Custom", /[0-9]/)
 
   switch schema {
-  | String({errorMessages}) =>
-    t->Assert.deepEqual(errorMessages, dict{"pattern": "Custom"})
+  | String({errorMessage}) =>
+    t->Assert.deepEqual(errorMessage, dict{"pattern": "Custom"})
   | _ => t->Assert.fail("Expected String")
   }
 })
@@ -71,10 +71,10 @@ test("Chaining patterns overwrites pattern but keeps last", t => {
   let schema = S.string->S.pattern(~message="Should have digit", /[0-9]+/)->S.pattern(~message="Should have text", /\w+/)
 
   switch schema {
-  | String({pattern, errorMessages}) => {
+  | String({pattern, errorMessage}) => {
       t->Assert.deepEqual(pattern, /\w+/)
       t->Assert.deepEqual(
-        errorMessages,
+        errorMessage,
         dict{"pattern": "Should have text"},
       )
     }
