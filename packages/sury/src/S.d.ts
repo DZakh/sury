@@ -266,7 +266,7 @@ export type Error =
       readonly reason: string;
     }
   | {
-      readonly code: "unsupported_conversion";
+      readonly code: "unsupported_decode";
       readonly path: Path;
       readonly message: string;
       readonly reason: string;

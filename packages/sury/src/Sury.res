@@ -642,9 +642,9 @@ and errorDetails =
     })
   // When an operation fails, because it's impossible or called incorrectly
   | @as("invalid_operation") InvalidOperation({path: Path.t, reason: string})
-  // When the value conversion between two schemas is not supported
-  | @as("unsupported_conversion")
-  UnsupportedConversion({
+  // When the value decoding between two schemas is not supported
+  | @as("unsupported_decode")
+  UnsupportedDecode({
       path: Path.t,
       reason: string,
       from: schema<unknown>,
@@ -1779,14 +1779,14 @@ module Builder = {
       }
     }
 
-    let unsupportedConversion = (b, ~from: internal, ~target: internal) => {
+    let unsupportedDecode = (b, ~from: internal, ~target: internal) => {
       b->throw(
-        UnsupportedConversion({
+        UnsupportedDecode({
           from: from->castToPublic,
           to: target->castToPublic,
-          reason: `Unsupported conversion from ${from->castToPublic->toExpression} to ${target
+          reason: `Can't decode ${from->castToPublic->toExpression} to ${target
             ->castToPublic
-            ->toExpression}`,
+            ->toExpression}. Use S.to to define a custom decoder`,
           path: b.path,
         }),
       )
@@ -1854,7 +1854,7 @@ let numberDecoder = Builder.make((~input) => {
     ])
     output
   } else if !(inputTagFlag->Flag.unsafeHas(TagFlag.number)) {
-    input->B.unsupportedConversion(~from=input.schema, ~target=input.expected)
+    input->B.unsupportedDecode(~from=input.schema, ~target=input.expected)
   } else if input.schema.format !== input.expected.format && input.expected.format === Some(Int32) {
     input->B.refine(
       ~schema=input.expected,
@@ -1907,7 +1907,7 @@ let stringDecoder = Builder.make((~input) => {
   ) {
     input->inputToString
   } else if !(inputTagFlag->Flag.unsafeHas(TagFlag.string)) {
-    input->B.unsupportedConversion(~from=input.schema, ~target=input.expected)
+    input->B.unsupportedDecode(~from=input.schema, ~target=input.expected)
   } else {
     input
   }
@@ -1940,7 +1940,7 @@ let booleanDecoder = Builder.make((~input) => {
       )};`
     output
   } else if !(inputTagFlag->Flag.unsafeHas(TagFlag.boolean)) {
-    input->B.unsupportedConversion(~from=input.schema, ~target=input.expected)
+    input->B.unsupportedDecode(~from=input.schema, ~target=input.expected)
   } else {
     input
   }
@@ -1974,7 +1974,7 @@ let bigintDecoder = Builder.make((~input) => {
   } else if inputTagFlag->Flag.unsafeHas(TagFlag.number) {
     input->B.next(`BigInt(${input.inline})`, ~schema=input.expected)
   } else if !(inputTagFlag->Flag.unsafeHas(TagFlag.bigint)) {
-    input->B.unsupportedConversion(~from=input.schema, ~target=input.expected)
+    input->B.unsupportedDecode(~from=input.schema, ~target=input.expected)
   } else {
     input
   }
@@ -1995,7 +1995,7 @@ let symbolDecoder = Builder.make((~input) => {
       ],
     )
   } else if !(inputTagFlag->Flag.unsafeHas(TagFlag.symbol)) {
-    input->B.unsupportedConversion(~from=input.schema, ~target=input.expected)
+    input->B.unsupportedDecode(~from=input.schema, ~target=input.expected)
   } else {
     input
   }
@@ -2690,7 +2690,7 @@ and arrayDecoder: builder = (~input as unknownInput) => {
       unknownInput->B.refine(~schema)
     }
   } else {
-    unknownInput->B.unsupportedConversion(~from=unknownInput.schema, ~target=expectedSchema)
+    unknownInput->B.unsupportedDecode(~from=unknownInput.schema, ~target=expectedSchema)
   }
 
   switch expectedSchema.additionalItems->X.Option.getUnsafe {
@@ -2825,7 +2825,7 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
       unknownInput->B.refine(~schema)
     }
   } else {
-    unknownInput->B.unsupportedConversion(~from=unknownInput.schema, ~target=expectedSchema)
+    unknownInput->B.unsupportedDecode(~from=unknownInput.schema, ~target=expectedSchema)
   }
 
   switch expectedSchema.additionalItems->X.Option.getUnsafe {
@@ -3086,7 +3086,7 @@ let instanceDecoder = Builder.make((~input) => {
   ) {
     input
   } else {
-    input->B.unsupportedConversion(~from=input.schema, ~target=input.expected)
+    input->B.unsupportedDecode(~from=input.schema, ~target=input.expected)
   }
 })
 
@@ -4542,9 +4542,6 @@ let jsonDecoder = (~input) => {
     input
   } else if inputTagFlag->Flag.unsafeHas(TagFlag.undefined->Flag.with(TagFlag.nan)) {
     input->B.nextConst(~schema=nullLiteral)
-  } else if inputTagFlag->Flag.unsafeHas(TagFlag.bigint) {
-    // FIXME: Support number here
-    input->inputToString
   } else if inputTagFlag->Flag.unsafeHas(TagFlag.array) {
     let expected = base(arrayTag, ~selfReverse=false)
     expected.items = Some(
@@ -4618,7 +4615,14 @@ let jsonDecoder = (~input) => {
       recursiveDecoder(~input)
     }
   } else {
-    input->B.unsupportedConversion(~from=input.schema, ~target=input.expected)
+    try {
+      let expected = string->copySchema
+      expected.to = Some(input.expected)
+      input.expected = expected
+      input->parse
+    } catch {
+    | _ => input->B.unsupportedDecode(~from=input.schema, ~target=json)
+    }
   }
 }
 
@@ -4677,7 +4681,7 @@ let enableJsonString = {
     } else if tagFlag->Flag.unsafeHas(TagFlag.number->Flag.with(TagFlag.boolean)) {
       `"${const->Obj.magic}"`
     } else {
-      input->B.unsupportedConversion(~from=schema, ~target=input.expected)
+      input->B.unsupportedDecode(~from=schema, ~target=input.expected)
     }
   }
 
@@ -4693,7 +4697,7 @@ let enableJsonString = {
     } else if tagFlag->Flag.unsafeHas(TagFlag.number->Flag.with(TagFlag.boolean)) {
       %raw(`""+$$const`)
     } else {
-      input->B.unsupportedConversion(~from=input.schema, ~target)
+      input->B.unsupportedDecode(~from=input.schema, ~target)
     }
   }
 
@@ -4781,7 +4785,7 @@ let enableJsonString = {
         ~expected=expectedSchema,
       )
     } else {
-      input->B.unsupportedConversion(~from=input.schema, ~target=expectedSchema)
+      input->B.unsupportedDecode(~from=input.schema, ~target=expectedSchema)
     }
   })
 
@@ -4891,7 +4895,7 @@ let date = {
     } else if inputTagFlag->Flag.unsafeHas(TagFlag.instance) && input.schema.class === mut.class {
       input
     } else {
-      input->B.unsupportedConversion(~from=input.schema, ~target=input.expected)
+      input->B.unsupportedDecode(~from=input.schema, ~target=input.expected)
     }
   })
 
