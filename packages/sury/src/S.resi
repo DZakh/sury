@@ -449,18 +449,6 @@ module Option: {
   let getOrWith: (t<option<'value>>, unit => 'value) => t<'value>
 }
 
-module String: {
-  module Refinement: {
-    type kind =
-      | Pattern({re: Js.Re.t})
-    type t = {
-      kind: kind,
-      message: string,
-    }
-  }
-
-  let refinements: t<'value> => array<Refinement.t>
-}
 
 module Metadata: {
   module Id: {

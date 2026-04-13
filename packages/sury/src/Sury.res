@@ -3390,20 +3390,6 @@ let refine: (t<'value>, 'value => bool, ~error: string=?, ~path: array<string>=?
   )
 }
 
-let addRefinement = (schema, ~metadataId, ~refinement, ~refiner) => {
-  schema->internalRefine(mut => {
-    mut->Metadata.setInPlace(
-      ~id=metadataId,
-      switch schema->Metadata.get(~id=metadataId) {
-      | Some(refinements) => refinements->X.Array.append(refinement)
-      | None => [refinement]
-      },
-    )
-
-    refiner
-  })
-}
-
 let getMutErrorMessages = (~mut: internal) => {
   let em = mut.errorMessages->X.Option.unsafeToBool
     ? mut.errorMessages->X.Option.getUnsafe->X.Dict.copy
@@ -4440,26 +4426,6 @@ module Tuple = {
   type s = {
     item: 'value. (int, t<'value>) => 'value,
     tag: 'value. (int, 'value) => unit,
-  }
-}
-
-module String = {
-  module Refinement = {
-    type kind =
-      | Pattern({re: Js.Re.t})
-    type t = {
-      kind: kind,
-      message: string,
-    }
-
-    let metadataId: Metadata.Id.t<array<t>> = Metadata.Id.internal("String.refinements")
-  }
-
-  let refinements = schema => {
-    switch schema->Metadata.get(~id=Refinement.metadataId) {
-    | Some(m) => m
-    | None => []
-    }
   }
 }
 
@@ -6437,13 +6403,6 @@ let pattern = (schema, re, ~message=`Invalid pattern`) => {
   schema->internalRefine(mut => {
     mut.pattern = Some(re)
     getMutErrorMessages(~mut)->Js.Dict.set("pattern", message)
-    mut->Metadata.setInPlace(
-      ~id=String.Refinement.metadataId,
-      switch schema->Metadata.get(~id=String.Refinement.metadataId) {
-      | Some(refinements) => refinements->X.Array.append({kind: Pattern({re: re}), message})
-      | None => [{kind: Pattern({re: re}), message}]
-      },
-    )
     (~input) => {
       let embededRe = input->B.embed(re)
       [{
@@ -6779,14 +6738,6 @@ module RescriptJSONSchema = {
           jsonSchema.pattern = Some((re->(Obj.magic: Js.Re.t => {..}))["source"])
         | None => ()
         }
-        schema
-        ->String.refinements
-        ->Js.Array2.forEach(refinement => {
-          switch refinement {
-          | {kind: Pattern({re})} =>
-            jsonSchema.pattern = Some((re->(Obj.magic: Js.Re.t => {..}))["source"])
-          }
-        })
         switch const {
         | Some(value) => jsonSchema.const = Some(Js.Json.string(value))
         | None => ()

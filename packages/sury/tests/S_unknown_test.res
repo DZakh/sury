@@ -40,7 +40,10 @@ module Common = {
   })
 }
 
-test("Doesn't return refinements", t => {
+test("Is Unknown variant", t => {
   let schema = S.unknown
-  t->Assert.deepEqual(schema->S.String.refinements, [])
+  switch schema {
+  | Unknown(_) => t->Assert.is(true, true)
+  | _ => t->Assert.fail("Expected Unknown")
+  }
 })
