@@ -36,7 +36,7 @@ test("Fails to serialize invalid value", t => {
 })
 
 test("Custom error message via S.meta", t => {
-  let schema = S.cuid->S.meta({errorMessage: dict{"format": "Custom"}})
+  let schema = S.cuid->S.meta({errorMessage: {format: "Custom"}})
 
   t->U.assertThrowsMessage(() => "cifjhdsfhsd-invalid-cuid"->S.parseOrThrow(~to=schema), `Custom`)
 })

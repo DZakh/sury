@@ -521,13 +521,25 @@ and internal = {
   @as("~standard")
   mutable standard?: standard, // This is optional for convenience. The object added on make call
 }
+and errorMessage = {
+  format?: string,
+  @as("type")
+  type_?: string,
+  minimum?: string,
+  maximum?: string,
+  minLength?: string,
+  maxLength?: string,
+  minItems?: string,
+  maxItems?: string,
+  pattern?: string,
+}
 and meta<'value> = {
   name?: string,
   title?: string,
   description?: string,
   deprecated?: bool,
   examples?: array<'value>,
-  errorMessage?: dict<string>,
+  errorMessage?: errorMessage,
 }
 and untagged = private {
   @as("type")
@@ -5063,11 +5075,12 @@ let meta = (schema: t<'value>, data: meta<'value>) => {
   }
   switch data.errorMessage {
   | Some(em) =>
+    let emDict: dict<string> = em->Obj.magic
     let existing = switch mut.errorMessage {
     | Some(d) => d->X.Dict.copy
     | None => Js.Dict.empty()
     }
-    em->Js.Dict.entries->Js.Array2.forEach(((k, v)) => existing->Js.Dict.set(k, v))
+    emDict->Js.Dict.entries->Js.Array2.forEach(((k, v)) => existing->Js.Dict.set(k, v))
     mut.errorMessage = Some(existing)
   | None => ()
   }

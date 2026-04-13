@@ -43,7 +43,7 @@ test("Reflects format on schema", t => {
 })
 
 test("Custom error message via S.meta", t => {
-  let schema = S.email->S.meta({errorMessage: dict{"format": "Custom"}})
+  let schema = S.email->S.meta({errorMessage: {format: "Custom"}})
 
   t->U.assertThrowsMessage(() => "dzakh.dev"->S.parseOrThrow(~to=schema), `Custom`)
   // Original singleton is not mutated

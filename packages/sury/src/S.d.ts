@@ -718,13 +718,25 @@ export function recursive<Output, Input = unknown>(
   definer: (schema: Schema<Output, Input>) => Schema<Output, Input>
 ): Schema<Output, Input>;
 
+export type ErrorMessage = {
+  format?: string;
+  type?: string;
+  minimum?: string;
+  maximum?: string;
+  minLength?: string;
+  maxLength?: string;
+  minItems?: string;
+  maxItems?: string;
+  pattern?: string;
+};
+
 export type Meta<Output> = {
   name?: string;
   title?: string;
   description?: string;
   deprecated?: boolean;
   examples?: Output[];
-  errorMessage?: Record<string, string>;
+  errorMessage?: ErrorMessage;
 };
 
 export function meta<Output, Input>(

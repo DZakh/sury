@@ -210,13 +210,25 @@ type rec t<'value> =
     })
   | @as("ref") Ref({@as("$ref") ref: string})
 and schema<'a> = t<'a>
+and errorMessage = {
+  format?: string,
+  @as("type")
+  type_?: string,
+  minimum?: string,
+  maximum?: string,
+  minLength?: string,
+  maxLength?: string,
+  minItems?: string,
+  maxItems?: string,
+  pattern?: string,
+}
 and meta<'value> = {
   name?: string,
   title?: string,
   description?: string,
   deprecated?: bool,
   examples?: array<'value>,
-  errorMessage?: dict<string>,
+  errorMessage?: errorMessage,
 }
 and untagged = private {
   @as("type")
