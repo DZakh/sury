@@ -4874,7 +4874,7 @@ let enablePort = () => {
         let fail = switch input.expected.errorMessage {
         | Some(em) =>
           let d: dict<string> = em->Obj.magic
-          switch d->X.Dict.getUnsafeOption("type") {
+          switch d->X.Dict.getUnsafeOption("format") {
           | Some(m) => {
               let path = input.path
               (~input as _) => (_value => Custom({reason: m, path}): unknown => errorDetails)

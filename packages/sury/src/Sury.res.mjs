@@ -3234,7 +3234,7 @@ function enablePort() {
       let em = input.e.errorMessage;
       let fail;
       if (em !== undefined) {
-        let m = em["type"];
+        let m = em["format"];
         if (m !== undefined) {
           let path = input.path;
           fail = param => (_value => ({
