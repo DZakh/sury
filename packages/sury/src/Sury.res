@@ -503,8 +503,7 @@ and internal = {
   mutable maxLength?: int,
   mutable minItems?: int,
   mutable maxItems?: int,
-  @as("pattern")
-  mutable patternRe?: Js.Re.t,
+  mutable pattern?: Js.Re.t,
   mutable errorMessages?: dict<string>,
   mutable space?: int,
   @as("$ref")
@@ -3494,8 +3493,6 @@ module Dict = {
   }
 }
 
-module Array = {}
-
 module Union = {
   @unboxed
   type itemCode = Single(string) | Multiple(array<string>)
@@ -4924,10 +4921,6 @@ let date = {
   )
   mut->castToPublic
 }
-
-module Int = {}
-
-module Float = {}
 
 let to = (from, target) => {
   let from = from->castToInternal
@@ -6753,7 +6746,7 @@ module RescriptJSONSchema = {
         | Some(v) => jsonSchema.maxLength = Some(v)
         | None => ()
         }
-        switch internal.patternRe {
+        switch internal.pattern {
         | Some(re) =>
           jsonSchema.pattern = Some((re->(Obj.magic: Js.Re.t => {..}))["source"])
         | None => ()

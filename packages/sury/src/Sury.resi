@@ -444,12 +444,6 @@ module String: {
   let refinements: t<'value> => array<Refinement.t>
 }
 
-module Int: {}
-
-module Float: {}
-
-module Array: {}
-
 module Metadata: {
   module Id: {
     type t<'metadata>

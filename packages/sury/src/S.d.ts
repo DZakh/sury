@@ -151,6 +151,7 @@ export type Schema<Output, Input = unknown> = {
   readonly noValidation?: boolean;
   readonly default?: Input;
   readonly to?: Schema<unknown>;
+  readonly errorMessages?: Record<string, string>;
 
   readonly ["~standard"]: StandardSchemaV1.Props<Input, Output>;
 } & (
@@ -167,7 +168,6 @@ export type Schema<Output, Input = unknown> = {
       readonly minLength?: number;
       readonly maxLength?: number;
       readonly pattern?: RegExp;
-      readonly errorMessages?: Record<string, string>;
     }
   | {
       readonly type: "number";
@@ -175,7 +175,6 @@ export type Schema<Output, Input = unknown> = {
       readonly const?: number;
       readonly minimum?: number;
       readonly maximum?: number;
-      readonly errorMessages?: Record<string, string>;
     }
   | {
       readonly type: "bigint";
@@ -217,7 +216,6 @@ export type Schema<Output, Input = unknown> = {
       readonly format?: ArrayFormat;
       readonly minItems?: number;
       readonly maxItems?: number;
-      readonly errorMessages?: Record<string, string>;
     }
   | {
       readonly type: "object";
