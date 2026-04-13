@@ -1380,75 +1380,126 @@ module Builder = {
       result.contents
     }
 
-    // Walks the prev chain and accumulates generated code. When ~peelChecks
-    // is true, checks satisfying the discriminant heuristic (pure type guards
-    // or literal checks with no intervening transform/code) are AND-joined
-    // into `cond` instead of being emitted as inline guards. This lets the
-    // union codegen use them as dispatch conditions.
+    // Flattens a val's prev chain into a single val. Pre-transform checks
+    // (where no code has accumulated yet) are kept as structured check data
+    // on the returned val's `checks` field. Post-transform checks are emitted
+    // inline into `codeFromPrev`.
     //
-    // Returns (code, cond) where:
-    //   code — body code (validations emitted as `cond||throw;`, allocations,
-    //          transforms)
-    //   cond — AND-joined discriminant condition string (empty when
-    //          ~peelChecks=false or no checks qualify)
-    let clap = (startVal: val, ~peelChecks: bool=false): (string, string) => {
-      let current = ref(Some(startVal))
-      let code = ref("")
-      let cond = ref("")
+    // The returned val has:
+    //   prev          = chain root (for inputVar resolution via root.var())
+    //   codeFromPrev  = all accumulated code (transforms + post-transform checks)
+    //   checks        = pre-transform checks (kept as structured data)
+    //   inline        = output expression (from startVal)
+    //   varsAllocation = "" (folded into codeFromPrev)
+    let clap = (startVal: val): val => {
+      if !(startVal.prev->Obj.magic) {
+        startVal
+      } else {
+        let acc: val = {
+          var: startVal.var,
+          inline: startVal.inline,
+          schema: startVal.schema,
+          expected: startVal.expected,
+          flag: startVal.flag,
+          codeFromPrev: "",
+          varsAllocation: "",
+          allocate: initialAllocate,
+          path: startVal.path,
+          global: startVal.global,
+          hasTransform: ?startVal.hasTransform,
+          isInput: ?startVal.isInput,
+          isOutput: ?startVal.isOutput,
+          isUnion: ?startVal.isUnion,
+          vals: ?startVal.vals,
+          flattenedVals: ?startVal.flattenedVals,
+          optional: ?startVal.optional,
+        }
 
-      while current.contents !== None {
-        let val = current.contents->X.Option.getUnsafe
-        current := val.prev
+        let lastResolvedVar = ref(startVal.inline)
+        let root = ref(startVal)
+        let current = ref(Some(startVal))
 
-        let currentCode = ref("")
+        while current.contents->Obj.magic {
+          let v = current.contents->X.Option.getUnsafe
+          root := v
+          current := v.prev
 
-        if val.checks->X.Option.unsafeToBool {
-          let shouldPeel =
-            peelChecks &&
-            (
-              val.hasTransform === Some(true)
-                ? (val.prev->X.Option.getUnsafe).hasTransform !== Some(true) &&
-                    val.codeFromPrev === ""
-                : true
-            )
-          if shouldPeel {
-            // Hoist as a dispatch discriminant. `noValidation` is intentionally
-            // bypassed — the cond routes between cases, not rejects.
-            let prev = current.contents->X.Option.getUnsafe
-            let inputVar = prev.var()
-            let condCode =
-              val.checks->X.Option.getUnsafe->andJoinChecks(~inputVar)
-            if cond.contents->X.String.unsafeToBool {
-              cond := `${condCode}&&${cond.contents}`
-            } else {
-              cond := condCode
+          // 1. Build v's code block
+          let vCode = ref(v.codeFromPrev)
+          if v.varsAllocation !== "" {
+            vCode := vCode.contents ++ `let ${v.varsAllocation};`
+          }
+          let _ = %raw(`delete v.a`)
+
+          // 2. If there's code to fold, flush acc's checks first
+          if vCode.contents !== "" {
+            if acc.checks->X.Option.unsafeToBool {
+              acc.codeFromPrev =
+                acc->emitChecks(~inputVar=lastResolvedVar.contents) ++ acc.codeFromPrev
+              acc.checks = None
             }
-          } else if val.expected.noValidation !== Some(true) {
-            let prev = current.contents->X.Option.getUnsafe
-            currentCode := val->emitChecks(~inputVar=prev.var())
+            acc.codeFromPrev = vCode.contents ++ acc.codeFromPrev
+          }
+
+          // 3. Handle v's checks — skip if noValidation is set on this val's expected
+          if v.checks->X.Option.unsafeToBool && v.expected.noValidation !== Some(true) {
+            // Resolve v.prev.var() — triggers _notVar allocations and gives
+            // the inputVar for these checks (same call the old merge made)
+            if current.contents->Obj.magic {
+              lastResolvedVar := (current.contents->X.Option.getUnsafe).var()
+            }
+            if acc.codeFromPrev !== "" {
+              // Code boundary — v's checks become new leading checks
+              acc.checks = v.checks
+            } else {
+              // No code yet — prepend (reuse v's array, push acc's onto it)
+              if acc.checks->X.Option.unsafeToBool {
+                let vChecks = v.checks->X.Option.getUnsafe
+                let accChecks = acc.checks->X.Option.getUnsafe
+                for i in 0 to accChecks->Js.Array2.length - 1 {
+                  vChecks->Js.Array2.push(accChecks->Js.Array2.unsafe_get(i))->ignore
+                }
+              }
+              acc.checks = v.checks
+            }
           }
         }
 
-        if val.varsAllocation !== "" {
-          currentCode := currentCode.contents ++ `let ${val.varsAllocation};`
-        }
-
-        // Delete allocate,
-        // this is used to handle Val.var
-        // linked to allocated scopes
-        let _ = %raw(`delete val.a`)
-
-        currentCode := val.codeFromPrev ++ currentCode.contents
-
-        code := currentCode.contents ++ code.contents
+        acc.prev = Some(root.contents)
+        acc
       }
-
-      (code.contents, cond.contents)
     }
 
     let merge = (startVal: val): string => {
-      let (code, _) = startVal->clap
-      code
+      let clapped = startVal->clap
+      if clapped.checks->X.Option.unsafeToBool {
+        let inputVar = switch clapped.prev {
+        | Some(root) => root.var()
+        | None => clapped.inline
+        }
+        clapped->emitChecks(~inputVar) ++ clapped.codeFromPrev
+      } else {
+        clapped.codeFromPrev
+      }
+    }
+
+    // Side-effect-free walk to check if any val in the chain has
+    // pre-transform checks (used by union deopt detection).
+    let hasDiscriminantChecks = (startVal: val): bool => {
+      let current = ref(Some(startVal))
+      let found = ref(false)
+      let seenCode = ref(false)
+      while current.contents->Obj.magic && !found.contents {
+        let v = current.contents->X.Option.getUnsafe
+        current := v.prev
+        if v.codeFromPrev !== "" || v.varsAllocation !== "" {
+          seenCode := true
+        }
+        if v.checks->X.Option.unsafeToBool && !seenCode.contents {
+          found := true
+        }
+      }
+      found.contents
     }
 
     let next = (prev: val, initial: string, ~schema, ~expected=prev.expected): val => {
@@ -3660,9 +3711,18 @@ module Union = {
             let itemOutput = input->parse
             outputAnyOf->Js.Array2.push(itemOutput.schema->castToPublic)->ignore
 
-            let (clappedCode, clappedCond) = itemOutput->B.clap(~peelChecks=true)
-            itemCode := clappedCode
-            itemCond := clappedCond
+            let clapped = itemOutput->B.clap
+            itemCode := clapped.codeFromPrev
+            itemCond :=
+              if clapped.checks->X.Option.unsafeToBool {
+                let inputVar = switch clapped.prev {
+                | Some(root) => root.var()
+                | None => clapped.inline
+                }
+                clapped.checks->X.Option.getUnsafe->B.andJoinChecks(~inputVar)
+              } else {
+                ""
+              }
 
             if itemOutput.hasTransform->X.Option.getUnsafe {
               output.hasTransform = Some(true)
@@ -3928,23 +3988,7 @@ module Union = {
               ],
             )
 
-            let shouldDeopt = ref(true)
-            let valRef = ref(Some(typeValidationOutput))
-            while valRef.contents !== None && shouldDeopt.contents {
-              let v = valRef.contents->X.Option.getUnsafe
-              valRef := v.prev
-              shouldDeopt :=
-                !(
-                  v.checks->X.Option.unsafeToBool && (
-                      v.hasTransform === Some(true)
-                        ? (v.prev->X.Option.getUnsafe).hasTransform !== Some(true) &&
-                            v.codeFromPrev === ""
-                        : true
-                    )
-                )
-            }
-
-            if shouldDeopt.contents {
+            if !(typeValidationOutput->B.hasDiscriminantChecks) {
               for keyIdx in 0 to keys.contents->Stdlib.Array.length - 1 {
                 let key = keys.contents->Stdlib.Array.getUnsafe(keyIdx)
                 if !exit.contents {
@@ -3986,10 +4030,19 @@ module Union = {
 
           let itemsCode = getArrItemsCode(arr, ~isDeopt=false)
 
-          let (clappedCode, clappedCond) = typeValidationOutput->B.clap(~peelChecks=true)
+          let clapped = typeValidationOutput->B.clap
 
-          let blockCode = clappedCode ++ itemsCode
-          let blockCond = clappedCond
+          let blockCode = clapped.codeFromPrev ++ itemsCode
+          let blockCond =
+            if clapped.checks->X.Option.unsafeToBool {
+              let inputVar = switch clapped.prev {
+              | Some(root) => root.var()
+              | None => clapped.inline
+              }
+              clapped.checks->X.Option.getUnsafe->B.andJoinChecks(~inputVar)
+            } else {
+              ""
+            }
 
           if blockCode->X.String.unsafeToBool || isPriority(firstSchema.tag->TagFlag.get, byKey) {
             let if_ = nextElse.contents ? "else if" : "if"
