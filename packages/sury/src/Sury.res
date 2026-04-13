@@ -3400,7 +3400,11 @@ let addRefinement = (schema, ~metadataId, ~refinement, ~refiner) => {
 
 let setErrorMessage = (~mut: internal, ~key: string, ~message: string) => {
   let errorMessages = switch mut.errorMessages {
-  | Some(d) => d
+  | Some(d) => {
+      let copy = d->Js.Dict.entries->Js.Dict.fromArray
+      mut.errorMessages = Some(copy)
+      copy
+    }
   | None => {
       let d = Js.Dict.empty()
       mut.errorMessages = Some(d)

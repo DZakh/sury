@@ -52,3 +52,34 @@ test("Returns refinement", t => {
   | _ => t->Assert.fail("Expected String schema with minLength")
   }
 })
+
+test("Chaining refinements does not mutate the original schema", t => {
+  let schema1 = S.string->S.min(1)
+  let schema2 = schema1->S.max(10)
+
+  switch schema1 {
+  | String({minLength, ?maxLength, errorMessages}) => {
+      t->Assert.deepEqual(minLength, 1)
+      t->Assert.deepEqual(maxLength, None)
+      t->Assert.deepEqual(
+        errorMessages,
+        dict{"minLength": "String must be 1 or more characters long"},
+      )
+    }
+  | _ => t->Assert.fail("Expected String schema with minLength only")
+  }
+  switch schema2 {
+  | String({minLength, maxLength, errorMessages}) => {
+      t->Assert.deepEqual(minLength, 1)
+      t->Assert.deepEqual(maxLength, 10)
+      t->Assert.deepEqual(
+        errorMessages,
+        dict{
+          "minLength": "String must be 1 or more characters long",
+          "maxLength": "String must be 10 or fewer characters long",
+        },
+      )
+    }
+  | _ => t->Assert.fail("Expected String schema with minLength and maxLength")
+  }
+})
