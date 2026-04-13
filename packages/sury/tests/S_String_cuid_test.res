@@ -35,12 +35,10 @@ test("Fails to serialize invalid value", t => {
   )
 })
 
-test("Returns custom error message", t => {
-  // Custom message is no longer supported for standalone schemas
-  // CUID validation always uses the default message
-  let schema = S.cuid
+test("Custom error message via S.meta", t => {
+  let schema = S.cuid->S.meta({errorMessage: dict{"format": "Custom"}})
 
-  t->U.assertThrowsMessage(() => "cifjhdsfhsd-invalid-cuid"->S.parseOrThrow(~to=schema), `Invalid CUID`)
+  t->U.assertThrowsMessage(() => "cifjhdsfhsd-invalid-cuid"->S.parseOrThrow(~to=schema), `Custom`)
 })
 
 test("Reflects format on schema", t => {

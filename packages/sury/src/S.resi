@@ -216,6 +216,7 @@ and meta<'value> = {
   description?: string,
   deprecated?: bool,
   examples?: array<'value>,
+  errorMessage?: dict<string>,
 }
 and untagged = private {
   @as("type")

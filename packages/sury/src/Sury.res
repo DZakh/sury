@@ -527,6 +527,7 @@ and meta<'value> = {
   description?: string,
   deprecated?: bool,
   examples?: array<'value>,
+  errorMessage?: dict<string>,
 }
 and untagged = private {
   @as("type")
@@ -1338,6 +1339,21 @@ module Builder = {
         _value => Custom({reason: message, path})
       }
       fail
+    }
+
+    let failWithErrorMessage = (key, defaultMessage) => {
+      (~input: val) => {
+        let path = input.path
+        let message = switch input.expected.errorMessage {
+        | Some(em) =>
+          switch em->X.Dict.getUnsafeOption(key) {
+          | Some(m) => m
+          | None => defaultMessage
+          }
+        | None => defaultMessage
+        }
+        _value => Custom({reason: message, path})
+      }
     }
 
     // Inline variant: emits the throw expression directly. Used by decoders
@@ -4867,7 +4883,7 @@ let enableEmail = () => {
     email.errorMessage = Some(dict{"format": message})
     email.refiner = Some(
       (~input) => {
-        [{cond: (~inputVar) => `${input->B.embed(emailRegex)}.test(${inputVar})`, fail: B.failCustom(message)}]
+        [{cond: (~inputVar) => `${input->B.embed(emailRegex)}.test(${inputVar})`, fail: B.failWithErrorMessage("format", message)}]
       },
     )
   }
@@ -4886,7 +4902,7 @@ let enableUuid = () => {
     uuid.errorMessage = Some(dict{"format": message})
     uuid.refiner = Some(
       (~input) => {
-        [{cond: (~inputVar) => `${input->B.embed(uuidRegex)}.test(${inputVar})`, fail: B.failCustom(message)}]
+        [{cond: (~inputVar) => `${input->B.embed(uuidRegex)}.test(${inputVar})`, fail: B.failWithErrorMessage("format", message)}]
       },
     )
   }
@@ -4905,7 +4921,7 @@ let enableCuid = () => {
     cuid.errorMessage = Some(dict{"format": message})
     cuid.refiner = Some(
       (~input) => {
-        [{cond: (~inputVar) => `${input->B.embed(cuidRegex)}.test(${inputVar})`, fail: B.failCustom(message)}]
+        [{cond: (~inputVar) => `${input->B.embed(cuidRegex)}.test(${inputVar})`, fail: B.failWithErrorMessage("format", message)}]
       },
     )
   }
@@ -4924,7 +4940,7 @@ let enableUrl = () => {
     url.errorMessage = Some(dict{"format": message})
     url.refiner = Some(
       (~input) => {
-        [{cond: (~inputVar) => `${input->B.embed(urlValidator)}(${inputVar})`, fail: B.failCustom(message)}]
+        [{cond: (~inputVar) => `${input->B.embed(urlValidator)}(${inputVar})`, fail: B.failWithErrorMessage("format", message)}]
       },
     )
   }
@@ -5043,6 +5059,16 @@ let meta = (schema: t<'value>, data: meta<'value>) => {
   switch data.examples {
   | Some([]) => mut.examples = None // FIXME: Delete instead of None
   | Some(examples) => mut.examples = Some(examples->X.Array.map(getDecoder(~s1=schema->reverse)))
+  | None => ()
+  }
+  switch data.errorMessage {
+  | Some(em) =>
+    let existing = switch mut.errorMessage {
+    | Some(d) => d->X.Dict.copy
+    | None => Js.Dict.empty()
+    }
+    em->Js.Dict.entries->Js.Array2.forEach(((k, v)) => existing->Js.Dict.set(k, v))
+    mut.errorMessage = Some(existing)
   | None => ()
   }
   mut->castToPublic
@@ -6416,7 +6442,7 @@ let pattern = (schema, re, ~message=`Invalid pattern`) => {
           } else {
             `${embededRe}.test(${inputVar})`
           },
-        fail: B.failCustom(message),
+        fail: B.failWithErrorMessage("pattern", message),
       }]
     }
   })

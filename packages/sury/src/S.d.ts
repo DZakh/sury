@@ -724,6 +724,7 @@ export type Meta<Output> = {
   description?: string;
   deprecated?: boolean;
   examples?: Output[];
+  errorMessage?: Record<string, string>;
 };
 
 export function meta<Output, Input>(

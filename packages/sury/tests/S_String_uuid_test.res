@@ -41,12 +41,10 @@ test("Fails to serialize invalid value", t => {
   t->U.assertThrowsMessage(() => "123e4567"->S.decodeOrThrow(~from=schema, ~to=S.unknown), `Invalid UUID`)
 })
 
-test("Returns custom error message", t => {
-  // Custom message is no longer supported for standalone schemas
-  // UUID validation always uses the default message
-  let schema = S.uuid
+test("Custom error message via S.meta", t => {
+  let schema = S.uuid->S.meta({errorMessage: dict{"format": "Custom"}})
 
-  t->U.assertThrowsMessage(() => "abc"->S.parseOrThrow(~to=schema), `Invalid UUID`)
+  t->U.assertThrowsMessage(() => "abc"->S.parseOrThrow(~to=schema), `Custom`)
 })
 
 test("Reflects format on schema", t => {

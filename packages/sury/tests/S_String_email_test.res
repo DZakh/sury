@@ -41,3 +41,11 @@ test("Reflects format on schema", t => {
   | _ => t->Assert.fail("Expected String with format Email")
   }
 })
+
+test("Custom error message via S.meta", t => {
+  let schema = S.email->S.meta({errorMessage: dict{"format": "Custom"}})
+
+  t->U.assertThrowsMessage(() => "dzakh.dev"->S.parseOrThrow(~to=schema), `Custom`)
+  // Original singleton is not mutated
+  t->U.assertThrowsMessage(() => "dzakh.dev"->S.parseOrThrow(~to=S.email), `Invalid email address`)
+})

@@ -29,12 +29,10 @@ test("Fails to serialize invalid value", t => {
   t->U.assertThrowsMessage(() => "cifjhdsfhsd"->S.decodeOrThrow(~from=schema, ~to=S.unknown), `Invalid url`)
 })
 
-test("Returns custom error message", t => {
-  // Custom message is no longer supported for standalone schemas
-  // URL validation always uses the default message
-  let schema = S.url
+test("Custom error message via S.meta", t => {
+  let schema = S.url->S.meta({errorMessage: dict{"format": "Custom"}})
 
-  t->U.assertThrowsMessage(() => "abc"->S.parseOrThrow(~to=schema), `Invalid url`)
+  t->U.assertThrowsMessage(() => "abc"->S.parseOrThrow(~to=schema), `Custom`)
 })
 
 test("Reflects format on schema", t => {
