@@ -958,7 +958,7 @@ function mergeWithPathPrepend(val, parent, locationVar, appendSafe) {
 
 function unsupportedDecode(b, from, target) {
   let errorDetails_0 = b.path;
-  let errorDetails_1 = "Can't decode " + toExpression(from) + " to " + toExpression(target);
+  let errorDetails_1 = "Can't decode " + toExpression(from) + " to " + toExpression(target) + ". Use S.to to transform it to a compatible type";
   let errorDetails = {
     code: "unsupported_decode",
     path: errorDetails_0,
@@ -3032,17 +3032,7 @@ function jsonDecoder(input) {
     input.e = expected$2;
     return parse$1(input);
   } catch (exn) {
-    let errorDetails_0 = input.path;
-    let errorDetails_1 = "Can't decode " + toExpression(input.s) + " to JSON";
-    let errorDetails_2 = input.s;
-    let errorDetails = {
-      code: "unsupported_decode",
-      path: errorDetails_0,
-      reason: errorDetails_1,
-      from: errorDetails_2,
-      to: json
-    };
-    throw new SuryError(errorDetails);
+    return unsupportedDecode(input, input.s, json);
   }
 }
 

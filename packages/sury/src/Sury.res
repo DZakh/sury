@@ -1786,7 +1786,7 @@ module Builder = {
           to: target->castToPublic,
           reason: `Can't decode ${from->castToPublic->toExpression} to ${target
             ->castToPublic
-            ->toExpression}`,
+            ->toExpression}. Use S.to to transform it to a compatible type`,
           path: b.path,
         }),
       )
@@ -4621,15 +4621,7 @@ let jsonDecoder = (~input) => {
       input.expected = expected
       input->parse
     } catch {
-    | _ =>
-      input->B.throw(
-        UnsupportedDecode({
-          from: input.schema->castToPublic,
-          to: json->castToPublic,
-          reason: `Can't decode ${input.schema->castToPublic->toExpression} to JSON`,
-          path: input.path,
-        }),
-      )
+    | _ => input->B.unsupportedDecode(~from=input.schema, ~target=json)
     }
   }
 }
