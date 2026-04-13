@@ -614,13 +614,13 @@ and bGlobal = {
   mutable defs?: dict<internal>,
 }
 // Adjacent checks sharing `fail` by reference equality are fused with `&&`
-// in `emitChecks`, so call the fail factory once per val and share the result
-// across checks to enable fusing within a val.
+// in `emitChecks`, so pass the same helper (e.g. `B.failInvalidType`) to
+// every check on a val if you want them to emit as one `||`-throw line.
 and check = {
   @as("c")
   cond: (~inputVar: string) => string,
   @as("f")
-  fail: unknown => errorDetails,
+  fail: (~input: val) => (unknown => errorDetails),
 }
 and flag = int
 and error = private {
@@ -1308,9 +1308,12 @@ module Builder = {
     }
 
     // Build a `fail` for refinement checks that report a custom error message.
-    let failCustom = (message, ~input: val) => {
-      let path = input.path
-      _value => Custom({reason: message, path})
+    let failCustom = message => {
+      let fail: (~input: val) => (unknown => errorDetails) = (~input) => {
+        let path = input.path
+        _value => Custom({reason: message, path})
+      }
+      fail
     }
 
     // Inline variant: emits the throw expression directly. Used by decoders
@@ -1332,16 +1335,15 @@ module Builder = {
       )
     }
 
-    // Emits check guards as `cond||throw;` statements. Adjacent checks sharing
-    // the same `fail` closure are fused with `&&`. The `val` parameter is only
-    // used for embed access (global.embeded), not for error context — each
-    // check's `fail` is already pre-prepared with the right val's schema/path.
+    // Caller must verify `val.checks->unsafeToBool` and
+    // `val.expected.noValidation !== Some(true)` first — the unwrap below
+    // is unchecked. `inputVar` is usually `val.prev.var()`.
     let emitChecks = (val: val, ~inputVar: string): string => {
       let checks = val.checks->X.Option.getUnsafe
       let len = checks->Js.Array2.length
       if len === 1 {
         let check = checks->Js.Array2.unsafe_get(0)
-        `${check.cond(~inputVar)}||${val->failWithArg(check.fail, inputVar)};`
+        `${check.cond(~inputVar)}||${val->failWithArg(check.fail(~input=val), inputVar)};`
       } else {
         let out = ref("")
         let i = ref(0)
@@ -1360,7 +1362,7 @@ module Builder = {
           }
           out :=
             out.contents ++
-            `${cond.contents}||${val->failWithArg(fail, inputVar)};`
+            `${cond.contents}||${val->failWithArg(fail(~input=val), inputVar)};`
         }
         out.contents
       }
@@ -1907,11 +1909,10 @@ let int32FormatValidation = (~inputVar) => {
 let numberDecoder = Builder.make((~input) => {
   let inputTagFlag = input.schema.tag->TagFlag.get
   if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
-    let fail = B.failInvalidType(~input)
     let checks = [
       {
         cond: (~inputVar) => `typeof ${inputVar}==="${(numberTag :> string)}"`,
-        fail,
+        fail: B.failInvalidType,
       },
     ]
     switch input.expected.format {
@@ -1919,7 +1920,7 @@ let numberDecoder = Builder.make((~input) => {
       checks
       ->Js.Array2.push({
         cond: (~inputVar) => int32FormatValidation(~inputVar),
-        fail,
+        fail: B.failInvalidType,
       })
       ->ignore
     | _ =>
@@ -1927,7 +1928,7 @@ let numberDecoder = Builder.make((~input) => {
         checks
         ->Js.Array2.push({
           cond: (~inputVar) => `!Number.isNaN(${inputVar})`,
-          fail,
+          fail: B.failInvalidType,
         })
         ->ignore
       }
@@ -1947,7 +1948,7 @@ let numberDecoder = Builder.make((~input) => {
           | Some(Int32) => int32FormatValidation(~inputVar=outputVar)
           | _ => `!Number.isNaN(${outputVar})`
           },
-        fail: B.failInvalidType(~input),
+        fail: B.failInvalidType,
       },
     ])
     output
@@ -1959,7 +1960,7 @@ let numberDecoder = Builder.make((~input) => {
       ~checks=[
         {
           cond: (~inputVar) => int32FormatValidation(~inputVar),
-          fail: B.failInvalidType(~input),
+          fail: B.failInvalidType,
         },
       ],
     )
@@ -1979,7 +1980,7 @@ let stringDecoder = Builder.make((~input) => {
       ~checks=[
         {
           cond: (~inputVar) => `typeof ${inputVar}==="${(stringTag :> string)}"`,
-          fail: B.failInvalidType(~input),
+          fail: B.failInvalidType,
         },
       ],
     )
@@ -2021,7 +2022,7 @@ let booleanDecoder = Builder.make((~input) => {
       ~checks=[
         {
           cond: (~inputVar) => `typeof ${inputVar}==="${(booleanTag :> string)}"`,
-          fail: B.failInvalidType(~input),
+          fail: B.failInvalidType,
         },
       ],
     )
@@ -2055,7 +2056,7 @@ let bigintDecoder = Builder.make((~input) => {
       ~checks=[
         {
           cond: (~inputVar) => `typeof ${inputVar}==="${(bigintTag :> string)}"`,
-          fail: B.failInvalidType(~input),
+          fail: B.failInvalidType,
         },
       ],
     )
@@ -2088,7 +2089,7 @@ let symbolDecoder = Builder.make((~input) => {
       ~checks=[
         {
           cond: (~inputVar) => `typeof ${inputVar}==="${(symbolTag :> string)}"`,
-          fail: B.failInvalidType(~input),
+          fail: B.failInvalidType,
         },
       ],
     )
@@ -2162,7 +2163,7 @@ module Literal = {
         stringConstVal.checks = Some([
           {
             cond: (~inputVar) => `${inputVar}==="${stringConstSchema.const->Obj.magic}"`,
-            fail: B.failInvalidType(~input),
+            fail: B.failInvalidType,
           },
         ])
 
@@ -2173,7 +2174,7 @@ module Literal = {
           ~checks=[
             {
               cond: (~inputVar) => `Number.isNaN(${inputVar})`,
-              fail: B.failInvalidType(~input),
+              fail: B.failInvalidType,
             },
           ],
         )
@@ -2184,7 +2185,7 @@ module Literal = {
           ~checks=[
             {
               cond: (~inputVar) => `${inputVar}===${input->B.inlineConst(expectedSchema)}`,
-              fail: B.failInvalidType(~input),
+              fail: B.failInvalidType,
             },
           ],
         )
@@ -2742,13 +2743,12 @@ and arrayDecoder: builder = (~input as unknownInput) => {
     } else {
       unknownInput.schema
     }
-    let fail = B.failInvalidType(~input=unknownInput)
     let checks: array<check> = []
     if !isArrayInput {
       checks
       ->Js.Array2.push({
         cond: (~inputVar) => `Array.isArray(${inputVar})`,
-        fail,
+        fail: B.failInvalidType,
       })
       ->ignore
     }
@@ -2765,7 +2765,7 @@ and arrayDecoder: builder = (~input as unknownInput) => {
         ->Js.Array2.push({
           cond: (~inputVar) =>
             `${inputVar}.length===${expectedLength->X.Int.unsafeToString}`,
-          fail,
+          fail: B.failInvalidType,
         })
         ->ignore
       | Strip =>
@@ -2773,13 +2773,16 @@ and arrayDecoder: builder = (~input as unknownInput) => {
         ->Js.Array2.push({
           cond: (~inputVar) =>
             `${inputVar}.length>=${expectedLength->X.Int.unsafeToString}`,
-          fail,
+          fail: B.failInvalidType,
         })
         ->ignore
 
       | _ => ()
       }
     }
+    // Apply refine also when there are no checks,
+    // so literals for union cases don't mutate input
+    // FIXME: This should be removed and validation be attached to output
     if checks->Js.Array2.length > 0 {
       unknownInput->B.refine(~schema, ~checks)
     } else {
@@ -2891,26 +2894,30 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
     } else {
       unknownInput.schema
     }
-    let fail = B.failInvalidType(~input=unknownInput)
     let checks: array<check> = []
     if !isObjectInput {
       checks
       ->Js.Array2.push({
         cond: (~inputVar) =>
           `typeof ${inputVar}==="${(objectTag :> string)}"&&${inputVar}`,
-        fail,
+        fail: B.failInvalidType,
       })
       ->ignore
       if expectedSchema.additionalItems->X.Option.getUnsafe !== Strip {
+        // For strip case we recreate the value
+        // For other cases we might optimize it,
+        // this is why the check is a must have
         checks
         ->Js.Array2.push({
           cond: (~inputVar) => `!Array.isArray(${inputVar})`,
-          fail,
+          fail: B.failInvalidType,
         })
         ->ignore
       }
     }
 
+    // Apply refine also when there are no checks,
+    // so literals for union cases don't mutate input
     if checks->Js.Array2.length > 0 {
       unknownInput->B.refine(~schema, ~checks)
     } else {
@@ -3169,7 +3176,7 @@ let instanceDecoder = Builder.make((~input) => {
         {
           cond: (~inputVar) =>
             `${inputVar} instanceof ${input->B.embed(input.expected.class)}`,
-          fail: B.failInvalidType(~input),
+          fail: B.failInvalidType,
         },
       ],
     )
@@ -3441,15 +3448,17 @@ let refine: (t<'value>, 'value => bool, ~error: string=?, ~path: array<string>=?
   schema->internalRefine(_ =>
     (~input) => {
       let embeddedCheck = input->B.embed(refineCheck)
-      let path = if extraPath === Path.empty {
-        input.path
-      } else {
-        input.path->Path.concat(extraPath)
-      }
       [
         {
           cond: (~inputVar) => `${embeddedCheck}(${inputVar})`,
-          fail: _value => Custom({reason: message, path}),
+          fail: (~input) => {
+            let path = if extraPath === Path.empty {
+              input.path
+            } else {
+              input.path->Path.concat(extraPath)
+            }
+            _value => Custom({reason: message, path})
+          },
         },
       ]
     }
@@ -3848,7 +3857,7 @@ module Union = {
               } else {
                 typeValidationOutput->B.pushCheck({
                   cond: (~inputVar as _) => `(${itemNoop.contents})`,
-                  fail: B.failInvalidType(~input),
+                  fail: B.failInvalidType,
                 })
               }
             } else if withExhaustiveCheck.contents {
@@ -4861,7 +4870,7 @@ let enableIsoDateTime = () => {
     isoDateTime.format = Some(DateTime)
     isoDateTime.refiner = Some(
       (~input) => {
-        [{cond: (~inputVar) => `${input->B.embed(datetimeRe)}.test(${inputVar})`, fail: B.failCustom("Invalid datetime string! Expected UTC", ~input)}]
+        [{cond: (~inputVar) => `${input->B.embed(datetimeRe)}.test(${inputVar})`, fail: B.failCustom("Invalid datetime string! Expected UTC")}]
       },
     )
   }
@@ -4873,7 +4882,7 @@ let invalidDateRefine = (input: val) =>
     ~checks=[
       {
         cond: (~inputVar) => `!Number.isNaN(${inputVar}.getTime())`,
-        fail: B.failInvalidType(~input),
+        fail: B.failInvalidType,
       },
     ],
   )
@@ -5755,7 +5764,7 @@ let compactColumnsDecoder = (~input) => {
               {
                 cond: (~inputVar) =>
                   `Array.isArray(${inputVar})&&${inputVar}.length===0`,
-                fail: B.failInvalidType(~input),
+                fail: B.failInvalidType,
               },
             ],
           )
@@ -5782,7 +5791,7 @@ let compactColumnsDecoder = (~input) => {
                   }
                   check.contents
                 },
-                fail: B.failInvalidType(~input),
+                fail: B.failInvalidType,
               },
             ],
           )
@@ -6235,8 +6244,8 @@ let intMin = (schema, minValue, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=Int.Refinement.metadataId,
-    ~refiner=(~input) => {
-      [{cond: (~inputVar) => `${inputVar}>${(minValue - 1)->X.Int.unsafeToString}`, fail: B.failCustom(message, ~input)}]
+    ~refiner=(~input as _) => {
+      [{cond: (~inputVar) => `${inputVar}>${(minValue - 1)->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
     },
     ~refinement={
       kind: Min({value: minValue}),
@@ -6253,8 +6262,8 @@ let intMax = (schema, maxValue, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=Int.Refinement.metadataId,
-    ~refiner=(~input) => {
-      [{cond: (~inputVar) => `${inputVar}<${(maxValue + 1)->X.Int.unsafeToString}`, fail: B.failCustom(message, ~input)}]
+    ~refiner=(~input as _) => {
+      [{cond: (~inputVar) => `${inputVar}<${(maxValue + 1)->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
     },
     ~refinement={
       kind: Max({value: maxValue}),
@@ -6271,8 +6280,8 @@ let port = (schema, ~message=?) => {
         {
           cond: (~inputVar) => `${inputVar}>0&&${inputVar}<65536&&${inputVar}%1===0`,
           fail: switch message {
-          | Some(m) => {let path = input.path; _value => Custom({reason: m, path})}
-          | None => B.failInvalidType(~input)
+          | Some(m) => (~input) => {let path = input.path; _value => Custom({reason: m, path})}
+          | None => B.failInvalidType
           },
         },
       ]
@@ -6289,7 +6298,7 @@ let floatMin = (schema, minValue, ~message as maybeMessage=?) => {
   schema->addRefinement(
     ~metadataId=Float.Refinement.metadataId,
     ~refiner=(~input) => {
-      [{cond: (~inputVar) => `${inputVar}>=${input->B.embed(minValue)}`, fail: B.failCustom(message, ~input)}]
+      [{cond: (~inputVar) => `${inputVar}>=${input->B.embed(minValue)}`, fail: B.failCustom(message)}]
     },
     ~refinement={
       kind: Min({value: minValue}),
@@ -6307,7 +6316,7 @@ let floatMax = (schema, maxValue, ~message as maybeMessage=?) => {
   schema->addRefinement(
     ~metadataId=Float.Refinement.metadataId,
     ~refiner=(~input) => {
-      [{cond: (~inputVar) => `${inputVar}<=${input->B.embed(maxValue)}`, fail: B.failCustom(message, ~input)}]
+      [{cond: (~inputVar) => `${inputVar}<=${input->B.embed(maxValue)}`, fail: B.failCustom(message)}]
     },
     ~refinement={
       kind: Max({value: maxValue}),
@@ -6324,8 +6333,8 @@ let arrayMinLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=Array.Refinement.metadataId,
-    ~refiner=(~input) => {
-      [{cond: (~inputVar) => `${inputVar}.length>${(length - 1)->X.Int.unsafeToString}`, fail: B.failCustom(message, ~input)}]
+    ~refiner=(~input as _) => {
+      [{cond: (~inputVar) => `${inputVar}.length>${(length - 1)->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
     },
     ~refinement={
       kind: Min({length: length}),
@@ -6342,8 +6351,8 @@ let arrayMaxLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=Array.Refinement.metadataId,
-    ~refiner=(~input) => {
-      [{cond: (~inputVar) => `${inputVar}.length<${(length + 1)->X.Int.unsafeToString}`, fail: B.failCustom(message, ~input)}]
+    ~refiner=(~input as _) => {
+      [{cond: (~inputVar) => `${inputVar}.length<${(length + 1)->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
     },
     ~refinement={
       kind: Max({length: length}),
@@ -6360,8 +6369,8 @@ let arrayLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=Array.Refinement.metadataId,
-    ~refiner=(~input) => {
-      [{cond: (~inputVar) => `${inputVar}.length===${length->X.Int.unsafeToString}`, fail: B.failCustom(message, ~input)}]
+    ~refiner=(~input as _) => {
+      [{cond: (~inputVar) => `${inputVar}.length===${length->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
     },
     ~refinement={
       kind: Length({length: length}),
@@ -6378,8 +6387,8 @@ let stringMinLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input) => {
-      [{cond: (~inputVar) => `${inputVar}.length>${(length - 1)->X.Int.unsafeToString}`, fail: B.failCustom(message, ~input)}]
+    ~refiner=(~input as _) => {
+      [{cond: (~inputVar) => `${inputVar}.length>${(length - 1)->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
     },
     ~refinement={
       kind: Min({length: length}),
@@ -6396,8 +6405,8 @@ let stringMaxLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input) => {
-      [{cond: (~inputVar) => `${inputVar}.length<${(length + 1)->X.Int.unsafeToString}`, fail: B.failCustom(message, ~input)}]
+    ~refiner=(~input as _) => {
+      [{cond: (~inputVar) => `${inputVar}.length<${(length + 1)->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
     },
     ~refinement={
       kind: Max({length: length}),
@@ -6414,8 +6423,8 @@ let stringLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input) => {
-      [{cond: (~inputVar) => `${inputVar}.length===${length->X.Int.unsafeToString}`, fail: B.failCustom(message, ~input)}]
+    ~refiner=(~input as _) => {
+      [{cond: (~inputVar) => `${inputVar}.length===${length->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
     },
     ~refinement={
       kind: Length({length: length}),
@@ -6428,7 +6437,7 @@ let email = (schema, ~message=`Invalid email address`) => {
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
     ~refiner=(~input) => {
-      [{cond: (~inputVar) => `${input->B.embed(String.emailRegex)}.test(${inputVar})`, fail: B.failCustom(message, ~input)}]
+      [{cond: (~inputVar) => `${input->B.embed(String.emailRegex)}.test(${inputVar})`, fail: B.failCustom(message)}]
     },
     ~refinement={
       kind: Email,
@@ -6441,7 +6450,7 @@ let uuid = (schema, ~message=`Invalid UUID`) => {
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
     ~refiner=(~input) => {
-      [{cond: (~inputVar) => `${input->B.embed(String.uuidRegex)}.test(${inputVar})`, fail: B.failCustom(message, ~input)}]
+      [{cond: (~inputVar) => `${input->B.embed(String.uuidRegex)}.test(${inputVar})`, fail: B.failCustom(message)}]
     },
     ~refinement={
       kind: Uuid,
@@ -6454,7 +6463,7 @@ let cuid = (schema, ~message=`Invalid CUID`) => {
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
     ~refiner=(~input) => {
-      [{cond: (~inputVar) => `${input->B.embed(String.cuidRegex)}.test(${inputVar})`, fail: B.failCustom(message, ~input)}]
+      [{cond: (~inputVar) => `${input->B.embed(String.cuidRegex)}.test(${inputVar})`, fail: B.failCustom(message)}]
     },
     ~refinement={
       kind: Cuid,
@@ -6468,7 +6477,7 @@ let url = (schema, ~message=`Invalid url`) => {
   schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
     ~refiner=(~input) => {
-      [{cond: (~inputVar) => `${input->B.embed(urlValidator)}(${inputVar})`, fail: B.failCustom(message, ~input)}]
+      [{cond: (~inputVar) => `${input->B.embed(urlValidator)}(${inputVar})`, fail: B.failCustom(message)}]
     },
     ~refinement={
       kind: Url,
@@ -6489,7 +6498,7 @@ let pattern = (schema, re, ~message=`Invalid pattern`) => {
           } else {
             `${embededRe}.test(${inputVar})`
           },
-        fail: B.failCustom(message, ~input),
+        fail: B.failCustom(message),
       }]
     },
     ~refinement={
@@ -6598,15 +6607,17 @@ let js_refine = (schema, refineCheck, refineOptions) => {
   schema->internalRefine(_ =>
     (~input) => {
       let embeddedCheck = input->B.embed(refineCheck)
-      let path = if extraPath === Path.empty {
-        input.path
-      } else {
-        input.path->Path.concat(extraPath)
-      }
       [
         {
           cond: (~inputVar) => `${embeddedCheck}(${inputVar})`,
-          fail: _value => Custom({reason: message, path}),
+          fail: (~input) => {
+            let path = if extraPath === Path.empty {
+              input.path
+            } else {
+              input.path->Path.concat(extraPath)
+            }
+            _value => Custom({reason: message, path})
+          },
         },
       ]
     }
