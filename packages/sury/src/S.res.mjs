@@ -166,12 +166,6 @@ let Option = Sury.Option;
 
 let $$String = Sury.$$String;
 
-let Int = Sury.Int;
-
-let Float = Sury.Float;
-
-let $$Array = Sury.$$Array;
-
 let Metadata = Sury.Metadata;
 
 let reverse = Sury.reverse;
@@ -283,9 +277,6 @@ export {
   tuple3,
   Option,
   $$String,
-  Int,
-  Float,
-  $$Array,
   Metadata,
   reverse,
   min,

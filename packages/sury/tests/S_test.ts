@@ -868,7 +868,7 @@ test("Fails to parses async schema", async (t) => {
       typeof result.error.code,
       | "invalid_input"
       | "invalid_operation"
-      | "unsupported_conversion"
+      | "unsupported_decode"
       | "invalid_conversion"
       | "unrecognized_keys"
       | "custom"
@@ -2473,7 +2473,7 @@ test("Recursive with self as transform target", (t) => {
       t.deepEqual(S.parser(nodeSchema)(`["[]","[]"]`), [[], []]);
     },
     {
-      message: "Unsupported conversion from Node to Node[]",
+      message: "Can't decode Node to Node[]. Use S.to to define a custom decoder",
     },
   );
 });
@@ -2590,6 +2590,24 @@ test("Decode from json", async (t) => {
 
   t.deepEqual(S.decoder(S.json, schema)("hello"), "hello");
   t.deepEqual(S.decoder(S.json, schema)(null), undefined);
+
+  // Date fields should be encoded to ISO string when decoding to JSON
+  const dateSchema = S.schema({ field: S.date });
+  const dateToJson = S.decoder(dateSchema, S.json);
+  t.deepEqual(dateToJson({ field: new Date("2024-01-01T00:00:00.000Z") }), {
+    field: "2024-01-01T00:00:00.000Z",
+  });
+  t.deepEqual(
+    dateToJson.toString(),
+    `i=>{return {"field":i["field"].toISOString(),}}`,
+  );
+
+  // Date fields should work through the full jsonString pipeline
+  const dateToJsonString = S.decoder(dateSchema, S.jsonString);
+  t.deepEqual(
+    dateToJsonString({ field: new Date("2024-01-01T00:00:00.000Z") }),
+    `{"field":"2024-01-01T00:00:00.000Z"}`,
+  );
 });
 
 test("Decode from json string", async (t) => {

@@ -76,6 +76,10 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<string>,
       default?: string,
+      minLength?: int,
+      maxLength?: int,
+      pattern?: Js.Re.t,
+      errorMessages?: dict<string>,
     })
   | @as("number")
   Number({
@@ -87,6 +91,9 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<float>,
       default?: float,
+      minimum?: float,
+      maximum?: float,
+      errorMessages?: dict<string>,
     })
   | @as("bigint")
   BigInt({
@@ -174,6 +181,9 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<array<unknown>>,
       default?: array<unknown>,
+      minItems?: int,
+      maxItems?: int,
+      errorMessages?: dict<string>,
     })
   | @as("object")
   Object({
@@ -270,9 +280,9 @@ and errorDetails =
     })
   // When an operation fails, because it's impossible or called incorrectly
   | @as("invalid_operation") InvalidOperation({path: Path.t, reason: string})
-  // When the value conversion between two schemas is not supported
-  | @as("unsupported_conversion")
-  UnsupportedConversion({
+  // When the value decoding between two schemas is not supported
+  | @as("unsupported_decode")
+  UnsupportedDecode({
       path: Path.t,
       reason: string,
       from: schema<unknown>,
@@ -441,54 +451,7 @@ module Option: {
 module String: {
   module Refinement: {
     type kind =
-      | Min({length: int})
-      | Max({length: int})
-      | Length({length: int})
       | Pattern({re: Js.Re.t})
-    type t = {
-      kind: kind,
-      message: string,
-    }
-  }
-
-  let refinements: t<'value> => array<Refinement.t>
-}
-
-module Int: {
-  module Refinement: {
-    type kind =
-      | Min({value: int})
-      | Max({value: int})
-
-    type t = {
-      kind: kind,
-      message: string,
-    }
-  }
-
-  let refinements: t<'value> => array<Refinement.t>
-}
-
-module Float: {
-  module Refinement: {
-    type kind =
-      | Min({value: float})
-      | Max({value: float})
-    type t = {
-      kind: kind,
-      message: string,
-    }
-  }
-
-  let refinements: t<'value> => array<Refinement.t>
-}
-
-module Array: {
-  module Refinement: {
-    type kind =
-      | Min({length: int})
-      | Max({length: int})
-      | Length({length: int})
     type t = {
       kind: kind,
       message: string,

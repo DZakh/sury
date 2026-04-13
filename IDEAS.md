@@ -27,6 +27,9 @@
 - ReScript: `S.null` -> `S.nullAsOption`
 - Updated union conversion logic - it now always performs exhaustive validation
 - Encoding to JSON now strips undefined fields
+- JSON decoder now automatically decodes non-JSON types (e.g. `S.date`, `S.bigint`) to string via their encoder, instead of special-casing each type. Schemas with a string encoder (like `S.date` → `toISOString()`) work with `S.json`/`S.jsonString` out of the box.
+- Renamed error code `unsupported_conversion` → `unsupported_decode` and variant `UnsupportedConversion` → `UnsupportedDecode`
+- Error message for unsupported decode now reads: `"Can't decode X to Y. Use S.to to define a custom decoder"`
 
 ### TS
 
