@@ -3399,18 +3399,11 @@ let addRefinement = (schema, ~metadataId, ~refinement, ~refiner) => {
 }
 
 let getMutErrorMessages = (~mut: internal) => {
-  switch mut.errorMessages {
-  | Some(d) => {
-      let copy = d->Js.Dict.entries->Js.Dict.fromArray
-      mut.errorMessages = Some(copy)
-      copy
-    }
-  | None => {
-      let d = Js.Dict.empty()
-      mut.errorMessages = Some(d)
-      d
-    }
-  }
+  let em = mut.errorMessages->X.Option.unsafeToBool
+    ? mut.errorMessages->X.Option.getUnsafe->X.Dict.copy
+    : Js.Dict.empty()
+  mut.errorMessages = Some(em)
+  em
 }
 
 type transformDefinition<'input, 'output> = {
