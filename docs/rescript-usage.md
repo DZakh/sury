@@ -309,23 +309,21 @@ S.cuid // Standalone CUID schema
 
 > ⚠️ Validating email addresses is nearly impossible with just code. Different clients and servers accept different things and many diverge from the various specs defining "valid" emails. The ONLY real way to validate an email address is to send a verification email to it and check that the user got it. With that in mind, Sury picks a relatively simple regex that does not cover all cases.
 
-When using built-in refinements, you can provide a custom error message.
+#### Custom error messages
+
+Built-in refinements accept an optional `~message` argument for a custom error message:
 
 ```rescript
 S.string->S.min(1, ~message="String can't be empty")
 S.string->S.length(5, ~message="SMS code should be 5 digits long")
+S.string->S.pattern(%re(`/^\d+$/`), ~message="Must be numeric")
 ```
 
-#### Custom error messages
-
-You can override error messages on any schema via `S.meta`. The `errorMessage` field accepts a `schemaErrorMessage` record with keys matching constraint names:
+For standalone schemas or more control, use `S.meta` with the `errorMessage` field:
 
 ```rescript
 // Override a specific constraint message
 S.email->S.meta({errorMessage: {format: "Must be a valid email"}})
-
-// Override on built-in refinements
-S.string->S.min(5)->S.meta({errorMessage: {minLength: "Too short"}})
 
 // Use catchAll as a fallback for any constraint
 S.email->S.meta({errorMessage: {catchAll: "Invalid input"}})

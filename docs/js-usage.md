@@ -452,14 +452,18 @@ S.length(S.string, 5, "SMS code should be 5 digits long");
 
 ### Custom error messages
 
-You can override error messages on any schema via `S.meta`. The `errorMessage` field accepts an object with keys matching constraint names:
+Built-in refinements accept an optional last argument for a custom error message:
+
+```ts
+S.min(S.string, 5, "Too short");
+S.pattern(S.string, /^\d+$/, "Must be numeric");
+```
+
+For standalone schemas or more control, use `S.meta` with the `errorMessage` field:
 
 ```ts
 // Override a specific constraint message
 S.email.with(S.meta, { errorMessage: { format: "Must be a valid email" } });
-
-// Override on built-in refinements
-S.min(S.string, 5).with(S.meta, { errorMessage: { minLength: "Too short" } });
 
 // Use "_" as a catch-all for any constraint
 S.email.with(S.meta, { errorMessage: { _: "Invalid input" } });
