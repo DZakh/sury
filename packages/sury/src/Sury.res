@@ -4505,6 +4505,14 @@ let jsonEncoder = Builder.encoder((~input, ~target) => {
     output.isInput = Some(false)
     output.isOutput = Some(false)
     output
+  } else if toTagFlag->Flag.unsafeHas(TagFlag.instance) {
+    try {
+      let jsonExpected = string->copySchema
+      jsonExpected.to = Some(target)
+      input->B.refine(~schema=unknown, ~expected=jsonExpected)->parse
+    } catch {
+    | _ => input
+    }
   } else {
     input
   }

@@ -96,3 +96,75 @@ test("Successfully reverse converts date-to-string schema", t => {
     Date.fromString("2024-01-01T00:00:00.000Z")->Obj.magic,
   )
 })
+
+// JSON → Date conversion tests
+
+S.enableJson()
+S.enableJsonString()
+
+test("Successfully decodes JSON string to Date", t => {
+  let date = Date.fromString("2024-01-01T00:00:00.000Z")
+  let decoder = S.decoder(~from=S.json, ~to=S.date)
+  t->Assert.deepEqual(
+    decoder(JSON.Encode.string("2024-01-01T00:00:00.000Z")),
+    date,
+  )
+})
+
+test("Successfully decodes JSON object with date field", t => {
+  let dateSchema = S.schema(s =>
+    {
+      "field": s.matches(S.date),
+    }
+  )
+  let date = Date.fromString("2024-01-01T00:00:00.000Z")
+  let decoder = S.decoder(~from=S.json, ~to=dateSchema)
+  t->Assert.deepEqual(
+    decoder(%raw(`{"field":"2024-01-01T00:00:00.000Z"}`)),
+    {"field": date},
+  )
+})
+
+test("Fails to decode non-string JSON value to Date", t => {
+  let decoder = S.decoder(~from=S.json, ~to=S.date)
+  t->U.assertThrowsMessage(
+    () => decoder(%raw(`123`)),
+    `Expected string, received 123`,
+  )
+})
+
+test("Fails to decode invalid date string from JSON", t => {
+  let decoder = S.decoder(~from=S.json, ~to=S.date)
+  t->U.assertThrowsMessage(
+    () => decoder(JSON.Encode.string("invalid")),
+    `Expected Date, received [object Date]`,
+  )
+})
+
+test("Successfully decodes JSON string to Date via jsonString", t => {
+  let dateSchema = S.schema(s =>
+    {
+      "field": s.matches(S.date),
+    }
+  )
+  let date = Date.fromString("2024-01-01T00:00:00.000Z")
+  t->Assert.deepEqual(
+    `{"field":"2024-01-01T00:00:00.000Z"}`->S.decodeOrThrow(~from=S.jsonString, ~to=dateSchema),
+    {"field": date},
+  )
+})
+
+test("Successfully round-trips date through JSON", t => {
+  let dateSchema = S.schema(s =>
+    {
+      "field": s.matches(S.date),
+    }
+  )
+  let date = Date.fromString("2024-06-15T12:30:45.123Z")
+  let toJson = S.decoder(~from=dateSchema, ~to=S.json)
+  let fromJson = S.decoder(~from=S.json, ~to=dateSchema)
+  t->Assert.deepEqual(
+    fromJson(toJson({"field": date})),
+    {"field": date},
+  )
+})
