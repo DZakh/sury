@@ -43,7 +43,4 @@ module Common = {
 test("Doesn't return refinements", t => {
   let schema = S.unknown
   t->Assert.deepEqual(schema->S.String.refinements, [])
-  t->Assert.deepEqual(schema->S.Array.refinements, [])
-  t->Assert.deepEqual(schema->S.Int.refinements, [])
-  t->Assert.deepEqual(schema->S.Float.refinements, [])
 })

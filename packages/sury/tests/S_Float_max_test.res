@@ -41,10 +41,16 @@ test("Returns custom error message", t => {
 test("Returns refinement", t => {
   let schema = S.float->S.floatMax(1.)
 
-  t->Assert.deepEqual(
-    schema->S.Float.refinements,
-    [{kind: Max({value: 1.}), message: "Number must be lower than or equal to 1"}],
-  )
+  switch schema {
+  | Number({maximum, errorMessages}) => {
+      t->Assert.deepEqual(maximum, 1.)
+      t->Assert.deepEqual(
+        errorMessages,
+        dict{"maximum": "Number must be lower than or equal to 1"},
+      )
+    }
+  | _ => t->Assert.fail("Expected Number schema with maximum")
+  }
 })
 
 test("Compiled parse code snapshot", t => {
