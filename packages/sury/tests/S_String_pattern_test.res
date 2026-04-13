@@ -62,7 +62,7 @@ test("Reflects errorMessage on schema", t => {
 
   switch schema {
   | String({errorMessage}) =>
-    t->Assert.deepEqual(errorMessage, dict{"pattern": "Custom"})
+    t->Assert.deepEqual(errorMessage, {pattern: "Custom"})
   | _ => t->Assert.fail("Expected String")
   }
 })
@@ -75,7 +75,7 @@ test("Chaining patterns overwrites pattern but keeps last", t => {
       t->Assert.deepEqual(pattern, /\w+/)
       t->Assert.deepEqual(
         errorMessage,
-        dict{"pattern": "Should have text"},
+        {pattern: "Should have text"},
       )
     }
   | _ => t->Assert.fail("Expected String with pattern")

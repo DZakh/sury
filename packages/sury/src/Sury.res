@@ -320,7 +320,7 @@ type rec t<'value> =
       minLength?: int,
       maxLength?: int,
       pattern?: Js.Re.t,
-      errorMessage?: dict<string>,
+      errorMessage?: errorMessage,
     })
   | @as("number")
   Number({
@@ -334,7 +334,7 @@ type rec t<'value> =
       default?: float,
       minimum?: float,
       maximum?: float,
-      errorMessage?: dict<string>,
+      errorMessage?: errorMessage,
     })
   | @as("bigint")
   BigInt({
@@ -424,7 +424,7 @@ type rec t<'value> =
       default?: array<unknown>,
       minItems?: int,
       maxItems?: int,
-      errorMessage?: dict<string>,
+      errorMessage?: errorMessage,
     })
   | @as("object")
   Object({
@@ -510,7 +510,7 @@ and internal = {
   mutable minItems?: int,
   mutable maxItems?: int,
   mutable pattern?: Js.Re.t,
-  mutable errorMessage?: dict<string>,
+  mutable errorMessage?: errorMessage,
   mutable space?: int,
   @as("$ref")
   mutable ref?: string,
@@ -522,6 +522,8 @@ and internal = {
   mutable standard?: standard, // This is optional for convenience. The object added on make call
 }
 and errorMessage = {
+  @as("_")
+  catchAll?: string,
   format?: string,
   @as("type")
   type_?: string,
@@ -1358,9 +1360,14 @@ module Builder = {
         let path = input.path
         let message = switch input.expected.errorMessage {
         | Some(em) =>
-          switch em->X.Dict.getUnsafeOption(key) {
+          let d: dict<string> = em->Obj.magic
+          switch d->X.Dict.getUnsafeOption(key) {
           | Some(m) => m
-          | None => defaultMessage
+          | None =>
+            switch d->X.Dict.getUnsafeOption("_") {
+            | Some(m) => m
+            | None => defaultMessage
+            }
           }
         | None => defaultMessage
         }
@@ -3418,11 +3425,11 @@ let refine: (t<'value>, 'value => bool, ~error: string=?, ~path: array<string>=?
   )
 }
 
-let getMutErrorMessage = (~mut: internal) => {
-  let em = mut.errorMessage->X.Option.unsafeToBool
-    ? mut.errorMessage->X.Option.getUnsafe->X.Dict.copy
+let getMutErrorMessage = (~mut: internal): dict<string> => {
+  let em: dict<string> = mut.errorMessage->X.Option.unsafeToBool
+    ? (mut.errorMessage->X.Option.getUnsafe->Obj.magic: errorMessage => dict<string>)->X.Dict.copy
     : Js.Dict.empty()
-  mut.errorMessage = Some(em)
+  mut.errorMessage = Some(em->Obj.magic)
   em
 }
 
@@ -4892,7 +4899,7 @@ let enableEmail = () => {
     email.tag = stringTag
     email.decoder = string.decoder
     email.format = Some(Email)
-    email.errorMessage = Some(dict{"format": message})
+    email.errorMessage = Some({format: message})
     email.refiner = Some(
       (~input) => {
         [{cond: (~inputVar) => `${input->B.embed(emailRegex)}.test(${inputVar})`, fail: B.failWithErrorMessage("format", message)}]
@@ -4911,7 +4918,7 @@ let enableUuid = () => {
     uuid.tag = stringTag
     uuid.decoder = string.decoder
     uuid.format = Some(Uuid)
-    uuid.errorMessage = Some(dict{"format": message})
+    uuid.errorMessage = Some({format: message})
     uuid.refiner = Some(
       (~input) => {
         [{cond: (~inputVar) => `${input->B.embed(uuidRegex)}.test(${inputVar})`, fail: B.failWithErrorMessage("format", message)}]
@@ -4930,7 +4937,7 @@ let enableCuid = () => {
     cuid.tag = stringTag
     cuid.decoder = string.decoder
     cuid.format = Some(Cuid)
-    cuid.errorMessage = Some(dict{"format": message})
+    cuid.errorMessage = Some({format: message})
     cuid.refiner = Some(
       (~input) => {
         [{cond: (~inputVar) => `${input->B.embed(cuidRegex)}.test(${inputVar})`, fail: B.failWithErrorMessage("format", message)}]
@@ -4949,7 +4956,7 @@ let enableUrl = () => {
     url.tag = stringTag
     url.decoder = string.decoder
     url.format = Some(Url)
-    url.errorMessage = Some(dict{"format": message})
+    url.errorMessage = Some({format: message})
     url.refiner = Some(
       (~input) => {
         [{cond: (~inputVar) => `${input->B.embed(urlValidator)}(${inputVar})`, fail: B.failWithErrorMessage("format", message)}]
@@ -5076,12 +5083,12 @@ let meta = (schema: t<'value>, data: meta<'value>) => {
   switch data.errorMessage {
   | Some(em) =>
     let emDict: dict<string> = em->Obj.magic
-    let existing = switch mut.errorMessage {
-    | Some(d) => d->X.Dict.copy
+    let existing: dict<string> = switch mut.errorMessage {
+    | Some(d) => (d->Obj.magic)->X.Dict.copy
     | None => Js.Dict.empty()
     }
     emDict->Js.Dict.entries->Js.Array2.forEach(((k, v)) => existing->Js.Dict.set(k, v))
-    mut.errorMessage = Some(existing)
+    mut.errorMessage = Some(existing->Obj.magic)
   | None => ()
   }
   mut->castToPublic

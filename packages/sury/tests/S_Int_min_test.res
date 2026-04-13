@@ -53,7 +53,7 @@ test("Returns refinement", t => {
       t->Assert.deepEqual(minimum, 1.)
       t->Assert.deepEqual(
         errorMessage,
-        dict{"minimum": "Number must be greater than or equal to 1"},
+        { minimum:: "Number must be greater than or equal to 1"},
       )
     }
   | _ => t->Assert.fail("Expected Number schema with minimum")

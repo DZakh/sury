@@ -46,7 +46,7 @@ test("Returns refinement", t => {
       t->Assert.deepEqual(maxItems, 1)
       t->Assert.deepEqual(
         errorMessage,
-        dict{"maxItems": "Array must be 1 or fewer items long"},
+        { maxItems:: "Array must be 1 or fewer items long"},
       )
     }
   | _ => t->Assert.fail("Expected Array schema with maxItems")

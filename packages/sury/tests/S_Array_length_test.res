@@ -50,9 +50,9 @@ test("Returns refinement", t => {
       t->Assert.deepEqual(maxItems, 1)
       t->Assert.deepEqual(
         errorMessage,
-        dict{
-          "minItems": "Array must be exactly 1 items long",
-          "maxItems": "Array must be exactly 1 items long",
+        {
+          minItems: "Array must be exactly 1 items long",
+          maxItems: "Array must be exactly 1 items long",
         },
       )
     }

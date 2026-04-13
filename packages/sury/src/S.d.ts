@@ -151,7 +151,7 @@ export type Schema<Output, Input = unknown> = {
   readonly noValidation?: boolean;
   readonly default?: Input;
   readonly to?: Schema<unknown>;
-  readonly errorMessage?: Record<string, string>;
+  readonly errorMessage?: ErrorMessage;
 
   readonly ["~standard"]: StandardSchemaV1.Props<Input, Output>;
 } & (
@@ -719,6 +719,7 @@ export function recursive<Output, Input = unknown>(
 ): Schema<Output, Input>;
 
 export type ErrorMessage = {
+  _?: string;
   format?: string;
   type?: string;
   minimum?: string;

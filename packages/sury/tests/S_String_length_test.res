@@ -53,9 +53,9 @@ test("Returns refinement", t => {
       t->Assert.deepEqual(maxLength, 4)
       t->Assert.deepEqual(
         errorMessage,
-        dict{
-          "minLength": "String must be exactly 4 characters long",
-          "maxLength": "String must be exactly 4 characters long",
+        {
+          minLength: "String must be exactly 4 characters long",
+          maxLength: "String must be exactly 4 characters long",
         },
       )
     }

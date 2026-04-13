@@ -79,7 +79,7 @@ type rec t<'value> =
       minLength?: int,
       maxLength?: int,
       pattern?: Js.Re.t,
-      errorMessage?: dict<string>,
+      errorMessage?: errorMessage,
     })
   | @as("number")
   Number({
@@ -93,7 +93,7 @@ type rec t<'value> =
       default?: float,
       minimum?: float,
       maximum?: float,
-      errorMessage?: dict<string>,
+      errorMessage?: errorMessage,
     })
   | @as("bigint")
   BigInt({
@@ -183,7 +183,7 @@ type rec t<'value> =
       default?: array<unknown>,
       minItems?: int,
       maxItems?: int,
-      errorMessage?: dict<string>,
+      errorMessage?: errorMessage,
     })
   | @as("object")
   Object({
@@ -211,6 +211,8 @@ type rec t<'value> =
   | @as("ref") Ref({@as("$ref") ref: string})
 and schema<'a> = t<'a>
 and errorMessage = {
+  @as("_")
+  catchAll?: string,
   format?: string,
   @as("type")
   type_?: string,
