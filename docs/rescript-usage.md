@@ -283,13 +283,25 @@ The `S.string` schema represents a data that is a string. It can be further cons
 S.string->S.max(5) // String must be 5 or fewer characters long
 S.string->S.min(5) // String must be 5 or more characters long
 S.string->S.length(5) // String must be exactly 5 characters long
-S.string->S.email // Invalid email address
-S.string->S.url // Invalid url
-S.string->S.uuid // Invalid UUID
-S.string->S.cuid // Invalid CUID
-S.string->S.pattern(%re(`/[0-9]/`)) // Invalid
+S.string->S.pattern(%re(`/[0-9]/`)) // Invalid pattern
 
 S.string->S.trim // trim whitespaces
+```
+
+For format-specific string validation, use the standalone schemas:
+
+```rescript
+S.enableEmail()
+S.email // Standalone email schema
+
+S.enableUrl()
+S.url // Standalone URL schema
+
+S.enableUuid()
+S.uuid // Standalone UUID schema
+
+S.enableCuid()
+S.cuid // Standalone CUID schema
 ```
 
 > For ISO 8601 UTC datetime strings use the dedicated standalone `S.isoDateTime` schema — see [ISO datetimes](#iso-datetimes) below.
@@ -343,7 +355,7 @@ The `S.int` schema represents a data that is an integer.
 ```rescript
 S.int->S.max(5) // Number must be lower than or equal to 5
 S.int->S.min(5) // Number must be greater than or equal to 5
-S.int->S.port // Invalid port
+S.port // Standalone port schema (requires S.enablePort())
 ```
 
 ### **`float`**
@@ -1351,8 +1363,7 @@ type user = {
 }
 
 let userSchema =
-  S.string
-  ->S.uuid
+  S.uuid
   ->S.transform(s => {
     asyncParser: userId => loadUser(~userId),
     serializer: user => user.id,

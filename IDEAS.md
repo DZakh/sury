@@ -30,6 +30,10 @@
 - JSON decoder now automatically decodes non-JSON types (e.g. `S.date`, `S.bigint`) to string via their encoder, instead of special-casing each type. Schemas with a string encoder (like `S.date` → `toISOString()`) work with `S.json`/`S.jsonString` out of the box.
 - Renamed error code `unsupported_conversion` → `unsupported_decode` and variant `UnsupportedConversion` → `UnsupportedDecode`
 - Error message for unsupported decode now reads: `"Can't decode X to Y. Use S.to to define a custom decoder"`
+- `S.port`, `S.email`, `S.uuid`, `S.cuid`, `S.url` are now standalone tree-shakeable schemas (like `S.isoDateTime`), each requiring an `enable*()` call. They use the `format` field instead of the removed `String.Refinement` metadata. Error messages stored in `errorMessages["format"]`.
+- `S.pattern` now sets `pattern` and `errorMessages["pattern"]` directly on the schema instead of using refinement metadata.
+- Removed `S.String.Refinement` module and `S.String.refinements` accessor. Use schema `pattern`/`format`/`errorMessages` fields directly.
+- Added `Email`, `Uuid`, `Cuid`, `Url` to `StringFormat` type.
 
 ### TS
 

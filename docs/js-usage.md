@@ -417,13 +417,25 @@ S.string.with(S.to, S.uint8Array);
 S.max(S.string, 5); // String must be 5 or fewer characters long
 S.min(S.string, 5); // String must be 5 or more characters long
 S.length(S.string, 5); // String must be exactly 5 characters long
-S.email(S.string); // Invalid email address
-S.url(S.string); // Invalid url
-S.uuid(S.string); // Invalid UUID
-S.cuid(S.string); // Invalid CUID
-S.pattern(S.string, /[0-9]/); // Invalid
+S.string.with(S.pattern, /[0-9]/); // Invalid pattern
 
 S.trim(S.string); // trim whitespaces
+```
+
+For format-specific string validation, use the standalone schemas:
+
+```ts
+S.enableEmail();
+S.email; // Standalone email schema
+
+S.enableUrl();
+S.url; // Standalone URL schema
+
+S.enableUuid();
+S.uuid; // Standalone UUID schema
+
+S.enableCuid();
+S.cuid; // Standalone CUID schema
 ```
 
 > For ISO 8601 UTC datetime strings use the dedicated standalone `S.isoDateTime` schema — see [ISO datetimes](#iso-datetimes) below.
@@ -1068,7 +1080,7 @@ Also, you can have an asynchronous assertion (for decoder only):
 
 ```ts
 const userSchema = S.schema({
-  id: S.string.with(S.uuid).with(S.asyncDecoderAssert, async (id) => {
+  id: S.uuid.with(S.asyncDecoderAssert, async (id) => {
     const isActiveUser = await checkIsActiveUser(id);
     if (!isActiveUser) {
       throw new Error(`The user ${id} is inactive.`);
