@@ -3232,7 +3232,7 @@ function enablePort() {
     port.format = "port";
     port.refiner = param => [{
         c: inputVar => inputVar + ">0&&" + inputVar + "<65536&&" + inputVar + "%1===0",
-        f: failWithErrorMessage("format", "Invalid port")
+        f: failWithErrorMessage("format", "Expected port")
       }];
     return;
   }

@@ -2496,7 +2496,7 @@ test("Port schema", (t) => {
     },
     {
       name: "SuryError",
-      message: "Invalid port",
+      message: "Expected port",
     },
     "Should prevent non-integer numbers",
   );
@@ -2532,7 +2532,7 @@ test("Port schema", (t) => {
       },
       {
         name: "SuryError",
-        message: "Invalid port",
+        message: "Expected port",
       },
       "Should prevent non-integer numbers",
     );

@@ -4866,7 +4866,7 @@ let port = shaken("port")
 let enablePort = () => {
   if port->Obj.magic->Js.Dict.unsafeGet(shakenRef)->Obj.magic {
     let _ = %raw(`delete port.as`)
-    let message = "Invalid port"
+    let message = "Expected port"
     port.tag = numberTag
     port.decoder = int.decoder
     port.format = Some(Port)
