@@ -464,7 +464,6 @@ module Option: {
   let getOrWith: (t<option<'value>>, unit => 'value) => t<'value>
 }
 
-
 module Metadata: {
   module Id: {
     type t<'metadata>

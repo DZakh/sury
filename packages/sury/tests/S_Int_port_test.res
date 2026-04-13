@@ -29,6 +29,12 @@ test("Fails to serialize invalid value", t => {
   )
 })
 
+test("Custom error message via S.meta", t => {
+  let schema = S.port->S.meta({errorMessage: {type_: "Custom"}})
+
+  t->U.assertThrowsMessage(() => 400000->S.parseOrThrow(~to=schema), `Custom`)
+})
+
 test("Reflects format on schema", t => {
   let schema = S.port
 

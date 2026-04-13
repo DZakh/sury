@@ -4870,10 +4870,29 @@ let enablePort = () => {
     port.decoder = int.decoder
     port.format = Some(Port)
     port.refiner = Some(
-      (~input as _) => {
+      (~input) => {
+        let fail = switch input.expected.errorMessage {
+        | Some(em) =>
+          let d: dict<string> = em->Obj.magic
+          switch d->X.Dict.getUnsafeOption("type") {
+          | Some(m) => {
+              let path = input.path
+              (~input as _) => (_value => Custom({reason: m, path}): unknown => errorDetails)
+            }
+          | None =>
+            switch d->X.Dict.getUnsafeOption("_") {
+            | Some(m) => {
+                let path = input.path
+                (~input as _) => (_value => Custom({reason: m, path}): unknown => errorDetails)
+              }
+            | None => B.failInvalidType
+            }
+          }
+        | None => B.failInvalidType
+        }
         [{
           cond: (~inputVar) => `${inputVar}>0&&${inputVar}<65536&&${inputVar}%1===0`,
-          fail: B.failInvalidType,
+          fail,
         }]
       },
     )

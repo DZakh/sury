@@ -56,6 +56,18 @@ test("Override works on serialization path too", t => {
   )
 })
 
+test("Catch-all _ works on constraint refiners", t => {
+  let schema = S.string->S.min(5)->S.meta({errorMessage: {catchAll: "Bad"}})
+
+  t->U.assertThrowsMessage(() => "abc"->S.parseOrThrow(~to=schema), `Bad`)
+})
+
+test("Override pattern message via S.meta", t => {
+  let schema = S.string->S.pattern(~message="Original", /^\d+$/)->S.meta({errorMessage: {pattern: "Override"}})
+
+  t->U.assertThrowsMessage(() => "abc"->S.parseOrThrow(~to=schema), `Override`)
+})
+
 test("S.meta does not mutate the original schema", t => {
   let original = S.string->S.min(1)
   let _ = original->S.meta({errorMessage: {minLength: "Custom"}})
