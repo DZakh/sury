@@ -2612,6 +2612,23 @@ test("Decode from json", async (t) => {
     dateToJsonString({ field: new Date("2024-01-01T00:00:00.000Z") }),
     `{"field":"2024-01-01T00:00:00.000Z"}`,
   );
+
+  // JSON to Date: decode ISO string from JSON back to Date
+  const jsonToDate = S.decoder(S.json, dateSchema);
+  t.deepEqual(jsonToDate({ field: "2024-01-01T00:00:00.000Z" }), {
+    field: new Date("2024-01-01T00:00:00.000Z"),
+  });
+  t.deepEqual(
+    jsonToDate.toString(),
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v1=i["field"];typeof v1==="string"||e[1](v1);let v0=new Date(i["field"]);!Number.isNaN(v0.getTime())||e[0](v0);return {"field":v0,}}`,
+  );
+
+  // JSON string to Date: full round-trip through jsonString
+  const jsonStringToDate = S.decoder(S.jsonString, dateSchema);
+  t.deepEqual(
+    jsonStringToDate(`{"field":"2024-01-01T00:00:00.000Z"}`),
+    { field: new Date("2024-01-01T00:00:00.000Z") },
+  );
 });
 
 test("Decode from json string", async (t) => {

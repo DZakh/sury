@@ -4478,10 +4478,6 @@ let jsonEncoder = Builder.encoder((~input, ~target) => {
     )
   ) {
     input->B.refine(~schema=unknown, ~expected=target)->parse
-  } else if toTagFlag->Flag.unsafeHas(TagFlag.bigint) {
-    let jsonExpected = string->copySchema
-    jsonExpected.to = Some(target)
-    input->B.refine(~schema=unknown, ~expected=jsonExpected)->parse
   } else if toTagFlag->Flag.unsafeHas(TagFlag.undefined->Flag.with(TagFlag.nan)) {
     let jsonExpected = nullLiteral->copySchema
     jsonExpected.to = Some(target)
@@ -4506,8 +4502,17 @@ let jsonEncoder = Builder.encoder((~input, ~target) => {
     output.isInput = Some(false)
     output.isOutput = Some(false)
     output
-  } else {
+  } else if toTagFlag->Flag.unsafeHas(TagFlag.union->Flag.with(TagFlag.ref)) {
     input
+  } else {
+    // For non-JSON types (bigint, instance, etc.), try decoding through string
+    try {
+      let jsonExpected = string->copySchema
+      jsonExpected.to = Some(target)
+      input->B.refine(~schema=unknown, ~expected=jsonExpected)->parse
+    } catch {
+    | _ => input
+    }
   }
 })
 

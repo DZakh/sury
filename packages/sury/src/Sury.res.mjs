@@ -2889,35 +2889,39 @@ function jsonEncoder(input, target) {
   if (toTagFlag & 46) {
     return parse$1(refine(input, unknown, undefined, target));
   }
-  if (toTagFlag & 1024) {
-    let jsonExpected = copySchema(string);
+  if (toTagFlag & 2064) {
+    let jsonExpected = copySchema(nullLiteral);
     jsonExpected.to = target;
     return parse$1(refine(input, unknown, undefined, jsonExpected));
   }
-  if (toTagFlag & 2064) {
-    let jsonExpected$1 = copySchema(nullLiteral);
-    jsonExpected$1.to = target;
-    return parse$1(refine(input, unknown, undefined, jsonExpected$1));
-  }
   if (toTagFlag & 128) {
-    let jsonExpected$2 = array(unknown);
-    let output = parse$1(refine(input, unknown, undefined, jsonExpected$2));
+    let jsonExpected$1 = array(unknown);
+    let output = parse$1(refine(input, unknown, undefined, jsonExpected$1));
     output.s.additionalItems = json;
     output.e = target;
     output.ii = false;
     output.io = false;
     return output;
   }
-  if (!(toTagFlag & 64)) {
+  if (toTagFlag & 64) {
+    let jsonExpected$2 = factory(unknown);
+    let output$1 = parse$1(refine(input, unknown, undefined, jsonExpected$2));
+    output$1.s.additionalItems = json;
+    output$1.e = target;
+    output$1.ii = false;
+    output$1.io = false;
+    return output$1;
+  }
+  if (toTagFlag & 768) {
     return input;
   }
-  let jsonExpected$3 = factory(unknown);
-  let output$1 = parse$1(refine(input, unknown, undefined, jsonExpected$3));
-  output$1.s.additionalItems = json;
-  output$1.e = target;
-  output$1.ii = false;
-  output$1.io = false;
-  return output$1;
+  try {
+    let jsonExpected$3 = copySchema(string);
+    jsonExpected$3.to = target;
+    return parse$1(refine(input, unknown, undefined, jsonExpected$3));
+  } catch (exn) {
+    return input;
+  }
 }
 
 function isJsonable(schema) {
