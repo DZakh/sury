@@ -2601,6 +2601,17 @@ test("Decode from json", async (t) => {
   t.deepEqual(dateToJson({ field: new Date("2024-01-01T00:00:00.000Z") }), {
     field: "2024-01-01T00:00:00.000Z",
   });
+  t.deepEqual(
+    dateToJson.toString(),
+    `i=>{return {"field":i["field"].toISOString(),}}`,
+  );
+
+  // Date fields should work through the full jsonString pipeline
+  const dateToJsonString = S.decoder(dateSchema, S.jsonString);
+  t.deepEqual(
+    dateToJsonString({ field: new Date("2024-01-01T00:00:00.000Z") }),
+    `{"field":"2024-01-01T00:00:00.000Z"}`,
+  );
 });
 
 test("Decode from json string", async (t) => {

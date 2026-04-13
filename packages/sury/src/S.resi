@@ -263,7 +263,7 @@ and errorDetails =
     })
   // When an operation fails, because it's impossible or called incorrectly
   | @as("invalid_operation") InvalidOperation({path: Path.t, reason: string})
-  // When the value decode between two schemas is not supported
+  // When the value decoding between two schemas is not supported
   | @as("unsupported_decode")
   UnsupportedDecode({
       path: Path.t,
