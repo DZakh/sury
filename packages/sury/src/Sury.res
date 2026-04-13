@@ -1380,17 +1380,20 @@ module Builder = {
       result.contents
     }
 
-    // Flattens a val's prev chain into a single val. Pre-transform checks
-    // (where no code has accumulated yet) are kept as structured check data
-    // on the returned val's `checks` field. Post-transform checks are emitted
-    // inline into `codeFromPrev`.
+    // Flattens a val's prev chain into a single val.
+    //
+    // For each val in the chain, one of two paths:
+    //   Path A (structural): val has checks, no code, no code accumulated yet
+    //            → checks kept on returned val's `checks` field
+    //   Path B (emit): everything else
+    //            → builds complete per-val block (codeFromPrev + checks + varsAlloc)
+    //              and folds into returned val's `codeFromPrev`
     //
     // The returned val has:
-    //   prev          = chain root (for inputVar resolution via root.var())
-    //   codeFromPrev  = all accumulated code (transforms + post-transform checks)
-    //   checks        = pre-transform checks (kept as structured data)
+    //   prev          = chain root (root.var() = inputVar for structural checks)
+    //   codeFromPrev  = accumulated code
+    //   checks        = pre-code structural checks (or None)
     //   inline        = output expression (from startVal)
-    //   varsAllocation = "" (folded into codeFromPrev)
     let clap = (startVal: val): val => {
       if !(startVal.prev->Obj.magic) {
         startVal
@@ -1424,43 +1427,47 @@ module Builder = {
           root := v
           current := v.prev
 
-          // 1. Build v's code block
-          let vCode = ref(v.codeFromPrev)
-          if v.varsAllocation !== "" {
-            vCode := vCode.contents ++ `let ${v.varsAllocation};`
-          }
-          let _ = %raw(`delete v.a`)
+          let hasOwnCode = v.codeFromPrev !== "" || v.varsAllocation !== ""
+          let hasChecks =
+            v.checks->X.Option.unsafeToBool && v.expected.noValidation !== Some(true)
 
-          // 2. If there's code to fold, flush acc's checks first
-          if vCode.contents !== "" {
-            if acc.checks->X.Option.unsafeToBool {
-              acc.codeFromPrev =
-                acc->emitChecks(~inputVar=lastResolvedVar.contents) ++ acc.codeFromPrev
-              acc.checks = None
-            }
-            acc.codeFromPrev = vCode.contents ++ acc.codeFromPrev
-          }
-
-          // 3. Handle v's checks — skip if noValidation is set on this val's expected
-          if v.checks->X.Option.unsafeToBool && v.expected.noValidation !== Some(true) {
-            // Resolve v.prev.var() — triggers _notVar allocations and gives
-            // the inputVar for these checks (same call the old merge made)
+          if hasChecks && !hasOwnCode && acc.codeFromPrev === "" {
+            // Path A — pure structural check: no code on this val, none accumulated
             if current.contents->Obj.magic {
               lastResolvedVar := (current.contents->X.Option.getUnsafe).var()
             }
-            if acc.codeFromPrev !== "" {
-              // Code boundary — v's checks become new leading checks
-              acc.checks = v.checks
-            } else {
-              // No code yet — prepend (reuse v's array, push acc's onto it)
-              if acc.checks->X.Option.unsafeToBool {
-                let vChecks = v.checks->X.Option.getUnsafe
-                let accChecks = acc.checks->X.Option.getUnsafe
-                for i in 0 to accChecks->Js.Array2.length - 1 {
-                  vChecks->Js.Array2.push(accChecks->Js.Array2.unsafe_get(i))->ignore
-                }
+            // Prepend: reuse v's array, push acc's checks onto it
+            if acc.checks->X.Option.unsafeToBool {
+              let vChecks = v.checks->X.Option.getUnsafe
+              let accChecks = acc.checks->X.Option.getUnsafe
+              for i in 0 to accChecks->Js.Array2.length - 1 {
+                vChecks->Js.Array2.push(accChecks->Js.Array2.unsafe_get(i))->ignore
               }
-              acc.checks = v.checks
+            }
+            acc.checks = v.checks
+            let _ = %raw(`delete v.a`)
+          } else {
+            // Path B — build complete per-val block (old merge order: code + checks + alloc)
+            let vBlock = ref(v.codeFromPrev)
+            if hasChecks {
+              if current.contents->Obj.magic {
+                lastResolvedVar := (current.contents->X.Option.getUnsafe).var()
+              }
+              vBlock := vBlock.contents ++ v->emitChecks(~inputVar=lastResolvedVar.contents)
+            }
+            if v.varsAllocation !== "" {
+              vBlock := vBlock.contents ++ `let ${v.varsAllocation};`
+            }
+            let _ = %raw(`delete v.a`)
+
+            if vBlock.contents !== "" {
+              // Flush structural checks before folding code
+              if acc.checks->X.Option.unsafeToBool {
+                acc.codeFromPrev =
+                  acc->emitChecks(~inputVar=lastResolvedVar.contents) ++ acc.codeFromPrev
+                acc.checks = None
+              }
+              acc.codeFromPrev = vBlock.contents ++ acc.codeFromPrev
             }
           }
         }
@@ -1483,19 +1490,21 @@ module Builder = {
       }
     }
 
-    // Side-effect-free walk to check if any val in the chain has
-    // pre-transform checks (used by union deopt detection).
+    // Side-effect-free check for pre-code structural checks (union deopt detection).
     let hasDiscriminantChecks = (startVal: val): bool => {
       let current = ref(Some(startVal))
       let found = ref(false)
-      let seenCode = ref(false)
       while current.contents->Obj.magic && !found.contents {
         let v = current.contents->X.Option.getUnsafe
         current := v.prev
         if v.codeFromPrev !== "" || v.varsAllocation !== "" {
-          seenCode := true
-        }
-        if v.checks->X.Option.unsafeToBool && !seenCode.contents {
+          // Code found — everything before this in the walk (closer to output)
+          // is post-code. But we walk backward, so vals closer to root come later.
+          // We can't find structural checks anymore because the walk started at
+          // the output and any checks we saw before this point had code after them.
+          // Stop early.
+          current := None
+        } else if v.checks->X.Option.unsafeToBool {
           found := true
         }
       }
