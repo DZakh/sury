@@ -79,7 +79,7 @@ type rec t<'value> =
       minLength?: int,
       maxLength?: int,
       pattern?: Js.Re.t,
-      errorMessage?: errorMessage,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("number")
   Number({
@@ -93,7 +93,7 @@ type rec t<'value> =
       default?: float,
       minimum?: float,
       maximum?: float,
-      errorMessage?: errorMessage,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("bigint")
   BigInt({
@@ -183,7 +183,7 @@ type rec t<'value> =
       default?: array<unknown>,
       minItems?: int,
       maxItems?: int,
-      errorMessage?: errorMessage,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("object")
   Object({
@@ -210,7 +210,7 @@ type rec t<'value> =
     })
   | @as("ref") Ref({@as("$ref") ref: string})
 and schema<'a> = t<'a>
-and errorMessage = {
+and schemaErrorMessage = {
   @as("_")
   catchAll?: string,
   format?: string,
@@ -230,7 +230,7 @@ and meta<'value> = {
   description?: string,
   deprecated?: bool,
   examples?: array<'value>,
-  errorMessage?: errorMessage,
+  errorMessage?: schemaErrorMessage,
 }
 and untagged = private {
   @as("type")

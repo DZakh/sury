@@ -845,13 +845,15 @@ test("Union of strings with different refinements", t => {
 
   t->U.assertThrowsMessage(
     () => %raw(`"123"`)->S.parseOrThrow(~to=schema),
-    `Expected email | url, received "123"`,
+    `Expected email | url, received "123"
+- Invalid email address
+- Invalid url`,
   )
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(!(typeof i==="string"&&(e[0].test(i)||e[1](i)))){e[2](i)}return i}`,
+    `i=>{if(typeof i==="string"){try{if(!e[0].test(i)){e[1]()}}catch(e0){try{try{new URL(i)}catch(_){e[2]()}}catch(e1){e[3](i,e0,e1)}}}else{e[4](i)}return i}`,
   )
 })
 

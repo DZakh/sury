@@ -315,13 +315,25 @@ S.string->S.min(1, ~message="String can't be empty")
 S.string->S.length(5, ~message="SMS code should be 5 digits long")
 ```
 
-For standalone schemas, override error messages via `S.meta`:
+#### Custom error messages
+
+You can override error messages on any schema via `S.meta`. The `errorMessage` field accepts a `schemaErrorMessage` record with keys matching constraint names:
 
 ```rescript
+// Override a specific constraint message
 S.email->S.meta({errorMessage: {format: "Must be a valid email"}})
-// Use catchAll as a fallback for any constraint:
+
+// Override on built-in refinements
+S.string->S.min(5)->S.meta({errorMessage: {minLength: "Too short"}})
+
+// Use catchAll as a fallback for any constraint
 S.email->S.meta({errorMessage: {catchAll: "Invalid input"}})
+
+// Reset error messages (removes all overrides)
+schema->S.meta({errorMessage: {}})
 ```
+
+Available fields: `format`, `type_`, `minimum`, `maximum`, `minLength`, `maxLength`, `minItems`, `maxItems`, `pattern`, `catchAll` (serialized as `_`).
 
 #### ISO datetimes
 

@@ -320,7 +320,7 @@ type rec t<'value> =
       minLength?: int,
       maxLength?: int,
       pattern?: Js.Re.t,
-      errorMessage?: errorMessage,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("number")
   Number({
@@ -334,7 +334,7 @@ type rec t<'value> =
       default?: float,
       minimum?: float,
       maximum?: float,
-      errorMessage?: errorMessage,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("bigint")
   BigInt({
@@ -424,7 +424,7 @@ type rec t<'value> =
       default?: array<unknown>,
       minItems?: int,
       maxItems?: int,
-      errorMessage?: errorMessage,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("object")
   Object({
@@ -510,7 +510,7 @@ and internal = {
   mutable minItems?: int,
   mutable maxItems?: int,
   mutable pattern?: Js.Re.t,
-  mutable errorMessage?: errorMessage,
+  mutable errorMessage?: schemaErrorMessage,
   mutable space?: int,
   @as("$ref")
   mutable ref?: string,
@@ -521,7 +521,7 @@ and internal = {
   @as("~standard")
   mutable standard?: standard, // This is optional for convenience. The object added on make call
 }
-and errorMessage = {
+and schemaErrorMessage = {
   @as("_")
   catchAll?: string,
   format?: string,
@@ -541,7 +541,7 @@ and meta<'value> = {
   description?: string,
   deprecated?: bool,
   examples?: array<'value>,
-  errorMessage?: errorMessage,
+  errorMessage?: schemaErrorMessage,
 }
 and untagged = private {
   @as("type")
@@ -3419,7 +3419,7 @@ let refine: (t<'value>, 'value => bool, ~error: string=?, ~path: array<string>=?
 
 let getMutErrorMessage = (~mut: internal): dict<string> => {
   let em: dict<string> = mut.errorMessage->X.Option.unsafeToBool
-    ? (mut.errorMessage->X.Option.getUnsafe->(Obj.magic: errorMessage => dict<string>))->X.Dict.copy
+    ? (mut.errorMessage->X.Option.getUnsafe->(Obj.magic: schemaErrorMessage => dict<string>))->X.Dict.copy
     : Js.Dict.empty()
   mut.errorMessage = Some(em->Obj.magic)
   em
@@ -4866,33 +4866,15 @@ let port = shaken("port")
 let enablePort = () => {
   if port->Obj.magic->Js.Dict.unsafeGet(shakenRef)->Obj.magic {
     let _ = %raw(`delete port.as`)
+    let message = "Invalid port"
     port.tag = numberTag
     port.decoder = int.decoder
     port.format = Some(Port)
     port.refiner = Some(
-      (~input) => {
-        let fail = switch input.expected.errorMessage {
-        | Some(em) =>
-          let d: dict<string> = em->Obj.magic
-          switch d->X.Dict.getUnsafeOption("format") {
-          | Some(m) => {
-              let path = input.path
-              (~input as _) => (_value => Custom({reason: m, path}): unknown => errorDetails)
-            }
-          | None =>
-            switch d->X.Dict.getUnsafeOption("_") {
-            | Some(m) => {
-                let path = input.path
-                (~input as _) => (_value => Custom({reason: m, path}): unknown => errorDetails)
-              }
-            | None => B.failInvalidType
-            }
-          }
-        | None => B.failInvalidType
-        }
+      (~input as _) => {
         [{
           cond: (~inputVar) => `${inputVar}>0&&${inputVar}<65536&&${inputVar}%1===0`,
-          fail,
+          fail: B.failWithErrorMessage("format", message),
         }]
       },
     )

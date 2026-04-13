@@ -151,7 +151,7 @@ export type Schema<Output, Input = unknown> = {
   readonly noValidation?: boolean;
   readonly default?: Input;
   readonly to?: Schema<unknown>;
-  readonly errorMessage?: ErrorMessage;
+  readonly errorMessage?: SchemaErrorMessage;
 
   readonly ["~standard"]: StandardSchemaV1.Props<Input, Output>;
 } & (
@@ -718,7 +718,7 @@ export function recursive<Output, Input = unknown>(
   definer: (schema: Schema<Output, Input>) => Schema<Output, Input>
 ): Schema<Output, Input>;
 
-export type ErrorMessage = {
+export type SchemaErrorMessage = {
   _?: string;
   format?: string;
   type?: string;
@@ -737,7 +737,7 @@ export type Meta<Output> = {
   description?: string;
   deprecated?: boolean;
   examples?: Output[];
-  errorMessage?: ErrorMessage;
+  errorMessage?: SchemaErrorMessage;
 };
 
 export function meta<Output, Input>(
