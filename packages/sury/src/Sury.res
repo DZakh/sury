@@ -6491,8 +6491,8 @@ let stringLength = (schema, length, ~message as maybeMessage=?) => {
   )
 }
 
-let pattern = (re, ~message=`Invalid pattern`) => {
-  (string->castToPublic)->addRefinement(
+let pattern = (schema, re, ~message=`Invalid pattern`) => {
+  schema->addRefinement(
     ~metadataId=String.Refinement.metadataId,
     ~refiner=(~input) => {
       let embededRe = input->B.embed(re)
@@ -7274,17 +7274,7 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
       | _ => string->castToPublic
       }
       let schema = switch jsonSchema {
-      | {pattern: p} =>
-        let re = Js.Re.fromString(p)
-        let refinement: String.Refinement.t = {kind: Pattern({re: re}), message: "Invalid pattern"}
-        schema->addRefinement(
-          ~metadataId=String.Refinement.metadataId,
-          ~refiner=(~input) => {
-            let embededRe = input->B.embed(re)
-            [{cond: (~inputVar) => `${embededRe}.test(${inputVar})`, fail: B.failCustom("Invalid pattern")}]
-          },
-          ~refinement,
-        )
+      | {pattern: p} => schema->pattern(Js.Re.fromString(p))
       | _ => schema
       }
       let schema = switch jsonSchema {

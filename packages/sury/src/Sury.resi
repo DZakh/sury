@@ -533,7 +533,7 @@ let floatMax: (t<float>, float, ~message: string=?) => t<float>
 
 let length: (t<'value>, int, ~message: string=?) => t<'value>
 
-let pattern: (Js.Re.t, ~message: string=?) => t<string>
+let pattern: (t<string>, Js.Re.t, ~message: string=?) => t<string>
 let trim: t<string> => t<string>
 
 let toJSONSchema: t<'value> => JSONSchema.t

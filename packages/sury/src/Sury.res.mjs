@@ -4338,9 +4338,9 @@ function stringMaxLength(schema, length, maybeMessage) {
     }]);
 }
 
-function pattern(re, messageOpt) {
+function pattern(schema, re, messageOpt) {
   let message = messageOpt !== undefined ? messageOpt : "Invalid pattern";
-  return addRefinement(string, metadataId$1, {
+  return addRefinement(schema, metadataId$1, {
     kind: {
       TAG: "Pattern",
       re: re
@@ -5044,34 +5044,7 @@ function fromJSONSchema(jsonSchema) {
                   schema$4 = string;
               }
               let p = jsonSchema.pattern;
-              let schema$5;
-              if (p !== undefined) {
-                let re = new RegExp(p);
-                let refinement_kind = {
-                  TAG: "Pattern",
-                  re: re
-                };
-                let refinement = {
-                  kind: refinement_kind,
-                  message: "Invalid pattern"
-                };
-                schema$5 = addRefinement(schema$4, metadataId$1, refinement, input => {
-                  let embededRe = embed(input, re);
-                  return [{
-                      c: inputVar => embededRe + ".test(" + inputVar + ")",
-                      f: input => {
-                        let path = input.path;
-                        return _value => ({
-                          code: "custom",
-                          path: path,
-                          reason: "Invalid pattern"
-                        });
-                      }
-                    }];
-                });
-              } else {
-                schema$5 = schema$4;
-              }
+              let schema$5 = p !== undefined ? pattern(schema$4, new RegExp(p), undefined) : schema$4;
               let minLength = jsonSchema.minLength;
               let schema$6 = minLength !== undefined ? stringMinLength(schema$5, minLength, undefined) : schema$5;
               let maxLength = jsonSchema.maxLength;
