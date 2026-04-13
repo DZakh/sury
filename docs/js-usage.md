@@ -16,6 +16,7 @@
 - [Defining schemas](#defining-schemas)
   - [Advanced schemas](#advanced-schemas)
 - [Strings](#strings)
+  - [Custom error messages](#custom-error-messages)
   - [ISO datetimes](#iso-datetimes)
 - [Numbers](#numbers)
 - [Optionals](#optionals)

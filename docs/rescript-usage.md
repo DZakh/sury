@@ -10,6 +10,7 @@
 - [Real-world examples](#real-world-examples)
 - [API reference](#api-reference)
   - [`string`](#string)
+    - [Custom error messages](#custom-error-messages)
     - [ISO datetimes](#iso-datetimes)
   - [`bool`](#bool)
   - [`int`](#int)
