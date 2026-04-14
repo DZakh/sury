@@ -297,7 +297,7 @@ type additionalItemsMode = | @as("strip") Strip | @as("strict") Strict
 @tag("type")
 type rec t<'value> =
   private
-  | @as("never") Never({name?: string, title?: string, description?: string, deprecated?: bool})
+  | @as("never") Never({name?: string, title?: string, description?: string, deprecated?: bool, errorMessage?: schemaErrorMessage})
   | @as("unknown")
   Unknown({
       name?: string,
@@ -306,6 +306,7 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<unknown>,
       default?: unknown,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("string")
   String({
@@ -345,6 +346,7 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<bigint>,
       default?: bigint,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("boolean")
   Boolean({
@@ -355,6 +357,7 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<bool>,
       default?: bool,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("symbol")
   Symbol({
@@ -365,6 +368,7 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<Js.Types.symbol>,
       default?: Js.Types.symbol,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("null")
   Null({
@@ -373,6 +377,7 @@ type rec t<'value> =
       title?: string,
       description?: string,
       deprecated?: bool,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("undefined")
   Undefined({
@@ -381,6 +386,7 @@ type rec t<'value> =
       title?: string,
       description?: string,
       deprecated?: bool,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("nan")
   NaN({
@@ -389,6 +395,7 @@ type rec t<'value> =
       title?: string,
       description?: string,
       deprecated?: bool,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("function")
   Function({
@@ -399,6 +406,7 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<Js.Types.function_val>,
       default?: Js.Types.function_val,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("instance")
   Instance({
@@ -410,6 +418,7 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<Js.Types.obj_val>,
       default?: Js.Types.obj_val,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("array")
   Array({
@@ -437,6 +446,7 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<dict<unknown>>,
       default?: dict<unknown>,
+      errorMessage?: schemaErrorMessage,
     }) // TODO: Add const for Object and Tuple
   | @as("union")
   Union({
@@ -448,11 +458,13 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<unknown>,
       default?: unknown,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("ref")
   Ref({
       @as("$ref")
       ref: string,
+      errorMessage?: schemaErrorMessage,
     })
 @unboxed and additionalItems = | ...additionalItemsMode | Schema(t<unknown>)
 and schema<'a> = t<'a>
