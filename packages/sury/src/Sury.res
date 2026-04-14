@@ -4900,13 +4900,12 @@ let enableEmail = () => {
     let _ = %raw(`delete email.as`)
     // Adapted from https://stackoverflow.com/a/46181/1550155
     let emailRegex = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i
-    let message = "Invalid email address"
     email.tag = stringTag
     email.decoder = string.decoder
     email.format = Some(Email)
     email.refiner = Some(
       (~input) => {
-        [{cond: (~inputVar) => `${input->B.embed(emailRegex)}.test(${inputVar})`, fail: B.failWithErrorMessage("format", ~defaultMessage=message)}]
+        [{cond: (~inputVar) => `${input->B.embed(emailRegex)}.test(${inputVar})`, fail: B.failWithErrorMessage("format")}]
       },
     )
   }
@@ -4918,13 +4917,12 @@ let enableUuid = () => {
   if uuid->Obj.magic->Js.Dict.unsafeGet(shakenRef)->Obj.magic {
     let _ = %raw(`delete uuid.as`)
     let uuidRegex = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/i
-    let message = "Invalid UUID"
     uuid.tag = stringTag
     uuid.decoder = string.decoder
     uuid.format = Some(Uuid)
     uuid.refiner = Some(
       (~input) => {
-        [{cond: (~inputVar) => `${input->B.embed(uuidRegex)}.test(${inputVar})`, fail: B.failWithErrorMessage("format", ~defaultMessage=message)}]
+        [{cond: (~inputVar) => `${input->B.embed(uuidRegex)}.test(${inputVar})`, fail: B.failWithErrorMessage("format")}]
       },
     )
   }
@@ -4936,13 +4934,12 @@ let enableCuid = () => {
   if cuid->Obj.magic->Js.Dict.unsafeGet(shakenRef)->Obj.magic {
     let _ = %raw(`delete cuid.as`)
     let cuidRegex = /^c[^\s-]{8,}$/i
-    let message = "Invalid CUID"
     cuid.tag = stringTag
     cuid.decoder = string.decoder
     cuid.format = Some(Cuid)
     cuid.refiner = Some(
       (~input) => {
-        [{cond: (~inputVar) => `${input->B.embed(cuidRegex)}.test(${inputVar})`, fail: B.failWithErrorMessage("format", ~defaultMessage=message)}]
+        [{cond: (~inputVar) => `${input->B.embed(cuidRegex)}.test(${inputVar})`, fail: B.failWithErrorMessage("format")}]
       },
     )
   }
@@ -4954,13 +4951,12 @@ let enableUrl = () => {
   if url->Obj.magic->Js.Dict.unsafeGet(shakenRef)->Obj.magic {
     let _ = %raw(`delete url.as`)
     let urlValidator: unknown = %raw(`s=>{try{new URL(s);return true}catch(_){return false}}`)
-    let message = "Invalid url"
     url.tag = stringTag
     url.decoder = string.decoder
     url.format = Some(Url)
     url.refiner = Some(
       (~input) => {
-        [{cond: (~inputVar) => `${input->B.embed(urlValidator)}(${inputVar})`, fail: B.failWithErrorMessage("format", ~defaultMessage=message)}]
+        [{cond: (~inputVar) => `${input->B.embed(urlValidator)}(${inputVar})`, fail: B.failWithErrorMessage("format")}]
       },
     )
   }

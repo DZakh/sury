@@ -23,7 +23,7 @@ test("Successfully parses uuid V7", t => {
 test("Fails to parse invalid data", t => {
   let schema = S.uuid
 
-  t->U.assertThrowsMessage(() => "123e4567"->S.parseOrThrow(~to=schema), `Invalid UUID`)
+  t->U.assertThrowsMessage(() => "123e4567"->S.parseOrThrow(~to=schema), `Expected uuid, received "123e4567"`)
 })
 
 test("Successfully serializes valid value", t => {
@@ -38,7 +38,7 @@ test("Successfully serializes valid value", t => {
 test("Fails to serialize invalid value", t => {
   let schema = S.uuid
 
-  t->U.assertThrowsMessage(() => "123e4567"->S.decodeOrThrow(~from=schema, ~to=S.unknown), `Invalid UUID`)
+  t->U.assertThrowsMessage(() => "123e4567"->S.decodeOrThrow(~from=schema, ~to=S.unknown), `Expected uuid, received "123e4567"`)
 })
 
 test("Custom error message via S.meta", t => {

@@ -2555,10 +2555,10 @@ test("Example", (t) => {
 
   t.throws(
     () => {
-      // Throws the S.Error(`Failed at ["email"]: Invalid email address`)
+      // Throws the S.Error(`Failed at ["email"]: Expected email, received ""`)
       S.parser(loginSchema)({ email: "", password: "" });
     },
-    { message: `Failed at ["email"]: Invalid email address` },
+    { message: `Failed at ["email"]: Expected email, received ""` },
   );
 
   // Returns data as { email: string; password: string }
@@ -2774,7 +2774,7 @@ test("fromJSONSchema", (t) => {
   expectType<SchemaEqual<typeof emailSchema, string, S.JSON>>(true);
   const result = S.safe(() => S.assert(emailSchema, "example.com"));
 
-  t.is(result.error?.message, "Invalid email address");
+  t.is(result.error?.message, `Expected email, received "example.com"`);
 });
 
 test("Compile types", async (t) => {

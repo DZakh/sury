@@ -11,7 +11,7 @@ test("Successfully parses valid data", t => {
 test("Fails to parse invalid data", t => {
   let schema = S.url
 
-  t->U.assertThrowsMessage(() => "cifjhdsfhsd"->S.parseOrThrow(~to=schema), `Invalid url`)
+  t->U.assertThrowsMessage(() => "cifjhdsfhsd"->S.parseOrThrow(~to=schema), `Expected url, received "cifjhdsfhsd"`)
 })
 
 test("Successfully serializes valid value", t => {
@@ -26,7 +26,7 @@ test("Successfully serializes valid value", t => {
 test("Fails to serialize invalid value", t => {
   let schema = S.url
 
-  t->U.assertThrowsMessage(() => "cifjhdsfhsd"->S.decodeOrThrow(~from=schema, ~to=S.unknown), `Invalid url`)
+  t->U.assertThrowsMessage(() => "cifjhdsfhsd"->S.decodeOrThrow(~from=schema, ~to=S.unknown), `Expected url, received "cifjhdsfhsd"`)
 })
 
 test("Custom error message via S.meta", t => {
