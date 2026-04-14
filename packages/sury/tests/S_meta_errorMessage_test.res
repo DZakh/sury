@@ -68,6 +68,24 @@ test("Override pattern message via S.meta", t => {
   t->U.assertThrowsMessage(() => "abc"->S.parseOrThrow(~to=schema), `Override`)
 })
 
+test("Override type error message via S.meta on S.string", t => {
+  let schema = S.string->S.meta({errorMessage: {type_: "Must be a string"}})
+
+  t->U.assertThrowsMessage(() => 123->S.parseOrThrow(~to=schema), `Must be a string`)
+})
+
+test("Override type error message via S.meta on S.int", t => {
+  let schema = S.int->S.meta({errorMessage: {type_: "Must be an integer"}})
+
+  t->U.assertThrowsMessage(() => "abc"->S.parseOrThrow(~to=schema), `Must be an integer`)
+})
+
+test("Catch-all _ is used for type error when no specific type_ is set", t => {
+  let schema = S.string->S.meta({errorMessage: {catchAll: "Bad value"}})
+
+  t->U.assertThrowsMessage(() => 123->S.parseOrThrow(~to=schema), `Bad value`)
+})
+
 test("S.meta does not mutate the original schema", t => {
   let original = S.string->S.min(1)
   let _ = original->S.meta({errorMessage: {minLength: "Custom"}})
