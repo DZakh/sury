@@ -1379,6 +1379,29 @@ module Builder = {
       }
     }
 
+    // Like failWithErrorMessage but falls back to failInvalidType,
+    // which produces "Expected X, received Y" with the actual received value.
+    let failInvalidTypeWithErrorMessage = key => {
+      (~input: val) => {
+        let override = switch input.expected.errorMessage {
+        | Some(em) =>
+          let d: dict<string> = em->Obj.magic
+          switch d->X.Dict.getUnsafeOption(key) {
+          | Some(m) => Some(m)
+          | None => d->X.Dict.getUnsafeOption("_")
+          }
+        | None => None
+        }
+        switch override {
+        | Some(m) => {
+            let path = input.path
+            _value => Custom({reason: m, path})
+          }
+        | None => failInvalidType(~input)
+        }
+      }
+    }
+
     // Inline variant: emits the throw expression directly. Used by decoders
     // that splice errors into custom JS (e.g. `catch(_){${embedInvalidInput}}`),
     // not via the `check` pipeline.
@@ -4878,7 +4901,6 @@ let port = shaken("port")
 let enablePort = () => {
   if port->Obj.magic->Js.Dict.unsafeGet(shakenRef)->Obj.magic {
     let _ = %raw(`delete port.as`)
-    let message = "Expected port"
     port.tag = numberTag
     port.decoder = int.decoder
     port.format = Some(Port)
@@ -4886,7 +4908,7 @@ let enablePort = () => {
       (~input as _) => {
         [{
           cond: (~inputVar) => `${inputVar}>0&&${inputVar}<65536&&${inputVar}%1===0`,
-          fail: B.failWithErrorMessage("format", message),
+          fail: B.failInvalidTypeWithErrorMessage("format"),
         }]
       },
     )

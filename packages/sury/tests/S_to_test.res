@@ -253,9 +253,9 @@ test("Coerce from string to port", t => {
   t->Assert.deepEqual("10"->S.parseOrThrow(~to=schema), 10)
   t->U.assertThrowsMessage(
     () => "2147483648"->S.parseOrThrow(~to=schema),
-    `Expected port`,
+    `Expected port, received 2147483648`,
   )
-  t->U.assertThrowsMessage(() => "10.2"->S.parseOrThrow(~to=schema), `Expected port`)
+  t->U.assertThrowsMessage(() => "10.2"->S.parseOrThrow(~to=schema), `Expected port, received 10.2`)
   t->Assert.deepEqual(10->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"10"`))
 
   t->U.assertCompiledCode(
