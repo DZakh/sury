@@ -48,30 +48,36 @@ test("Returns custom error message", t => {
   t->U.assertThrowsMessage(() => "abc"->S.parseOrThrow(~to=schema), `Custom`)
 })
 
-test("Returns refinement", t => {
+test("Reflects pattern on schema", t => {
   let schema = S.string->S.pattern(/[0-9]/)
 
-  t->Assert.deepEqual(
-    schema->S.String.refinements,
-    [{kind: Pattern({re: /[0-9]/}), message: "Invalid pattern"}],
-  )
+  switch schema {
+  | String({pattern}) => t->Assert.deepEqual(pattern, /[0-9]/)
+  | _ => t->Assert.fail("Expected String with pattern")
+  }
 })
 
-test("Returns multiple refinement", t => {
-  let schema1 = S.string
-  let schema2 = schema1->S.pattern(~message="Should have digit", /[0-9]+/)
-  let schema3 = schema2->S.pattern(~message="Should have text", /\w+/)
+test("Reflects errorMessage on schema", t => {
+  let schema = S.string->S.pattern(~message="Custom", /[0-9]/)
 
-  t->Assert.deepEqual(schema1->S.String.refinements, [])
-  t->Assert.deepEqual(
-    schema2->S.String.refinements,
-    [{kind: Pattern({re: /[0-9]+/}), message: "Should have digit"}],
-  )
-  t->Assert.deepEqual(
-    schema3->S.String.refinements,
-    [
-      {kind: Pattern({re: /[0-9]+/}), message: "Should have digit"},
-      {kind: Pattern({re: /\w+/}), message: "Should have text"},
-    ],
-  )
+  switch schema {
+  | String({errorMessage}) =>
+    t->Assert.deepEqual(errorMessage, {pattern: "Custom"})
+  | _ => t->Assert.fail("Expected String")
+  }
+})
+
+test("Chaining patterns overwrites pattern but keeps last", t => {
+  let schema = S.string->S.pattern(~message="Should have digit", /[0-9]+/)->S.pattern(~message="Should have text", /\w+/)
+
+  switch schema {
+  | String({pattern, errorMessage}) => {
+      t->Assert.deepEqual(pattern, /\w+/)
+      t->Assert.deepEqual(
+        errorMessage,
+        {pattern: "Should have text"},
+      )
+    }
+  | _ => t->Assert.fail("Expected String with pattern")
+  }
 })

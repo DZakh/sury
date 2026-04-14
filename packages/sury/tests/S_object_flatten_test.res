@@ -149,7 +149,7 @@ test("Flatten schema with duplicated field of different type", t => {
         s =>
           {
             "bar": s.flatten(S.object(s => s.field("foo", S.string))),
-            "foo": s.field("foo", S.string->S.email),
+            "foo": {S.enableEmail(); s.field("foo", S.email)},
           },
       )
     },

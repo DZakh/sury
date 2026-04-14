@@ -839,11 +839,13 @@ test("Regression https://github.com/DZakh/sury/issues/121", t => {
 })
 
 test("Union of strings with different refinements", t => {
-  let schema = S.union([S.string->S.email, S.string->S.url])
+  S.enableEmail()
+  S.enableUrl()
+  let schema = S.union([S.email, S.url])
 
   t->U.assertThrowsMessage(
     () => %raw(`"123"`)->S.parseOrThrow(~to=schema),
-    `Expected string | string, received "123"
+    `Expected email | url, received "123"
 - Invalid email address
 - Invalid url`,
   )

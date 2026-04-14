@@ -247,7 +247,8 @@ test("Coerce from string to int32", t => {
 })
 
 test("Coerce from string to port", t => {
-  let schema = S.string->S.to(S.int->S.port)
+  S.enablePort()
+  let schema = S.string->S.to(S.port)
 
   t->Assert.deepEqual("10"->S.parseOrThrow(~to=schema), 10)
   t->U.assertThrowsMessage(

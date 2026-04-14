@@ -616,13 +616,30 @@ function failInvalidType(input) {
   return value => makeInvalidInputDetails(expected, received, path, value, true, undefined);
 }
 
-function failCustom(message) {
+function failWithErrorMessage(key, defaultMessage) {
   return input => {
+    let em = input.e.errorMessage;
+    let override;
+    if (em !== undefined) {
+      let m = em[key];
+      override = m !== undefined ? m : em["_"];
+    } else {
+      override = undefined;
+    }
+    let m$1;
+    if (override !== undefined) {
+      m$1 = override;
+    } else {
+      if (defaultMessage === undefined) {
+        return failInvalidType(input);
+      }
+      m$1 = defaultMessage;
+    }
     let path = input.path;
     return _value => ({
       code: "custom",
       path: path,
-      reason: message
+      reason: m$1
     });
   };
 }
@@ -1300,18 +1317,6 @@ function parse$1(input) {
   return valRef;
 }
 
-function getOutputSchema(_schema) {
-  while (true) {
-    let schema = _schema;
-    let to = schema.to;
-    if (to === undefined) {
-      return schema;
-    }
-    _schema = to;
-    continue;
-  };
-}
-
 function reverse(schema) {
   if (reversedKey in schema) {
     return schema[reversedKey];
@@ -1415,6 +1420,18 @@ function reverse(schema) {
   valueOptions[valKey] = schema;
   d(r, reversedKey, valueOptions);
   return r;
+}
+
+function getOutputSchema(_schema) {
+  while (true) {
+    let schema = _schema;
+    let to = schema.to;
+    if (to === undefined) {
+      return schema;
+    }
+    _schema = to;
+    continue;
+  };
 }
 
 function parseDynamic(input) {
@@ -2155,18 +2172,9 @@ function refine$1(schema, refineCheck, error, path) {
   }));
 }
 
-function addRefinement(schema, metadataId, refinement, refiner) {
-  return internalRefine(schema, mut => {
-    let refinements = schema[metadataId];
-    let metadata = refinements !== undefined ? refinements.concat(refinement) : [refinement];
-    mut[metadataId] = metadata;
-    return refiner;
-  });
-}
-
-function getMutErrorMessages(mut) {
-  let em = mut.errorMessages ? copy(mut.errorMessages) : ({});
-  mut.errorMessages = em;
+function getMutErrorMessage(mut) {
+  let em = mut.errorMessage ? copy(mut.errorMessage) : ({});
+  mut.errorMessage = em;
   return em;
 }
 
@@ -2867,23 +2875,6 @@ function deepStrict(schema) {
 
 let Tuple = {};
 
-let metadataId = "m:String.refinements";
-
-function refinements(schema) {
-  let m = schema[metadataId];
-  if (m !== undefined) {
-    return m;
-  } else {
-    return [];
-  }
-}
-
-let cuidRegex = /^c[^\s-]{8,}$/i;
-
-let uuidRegex = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/i;
-
-let emailRegex = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i;
-
 function jsonEncoder(input, target) {
   let toTagFlag = flags[target.type];
   if (toTagFlag & 46) {
@@ -3235,14 +3226,92 @@ function enableIsoDateTime() {
   isoDateTime.format = "date-time";
   isoDateTime.refiner = input => [{
       c: inputVar => embed(input, datetimeRe) + ".test(" + inputVar + ")",
-      f: input => {
-        let path = input.path;
-        return _value => ({
-          code: "custom",
-          path: path,
-          reason: "Invalid datetime string! Expected UTC"
-        });
-      }
+      f: failWithErrorMessage("format", "Invalid datetime string! Expected UTC")
+    }];
+}
+
+let port = shaken("port");
+
+function enablePort() {
+  if (port[shakenRef]) {
+    ((delete port.as));
+    port.type = numberTag;
+    port.decoder = int.decoder;
+    port.format = "port";
+    port.refiner = param => [{
+        c: inputVar => inputVar + ">0&&" + inputVar + "<65536&&" + inputVar + "%1===0",
+        f: failWithErrorMessage("format", undefined)
+      }];
+    return;
+  }
+  
+}
+
+let email = shaken("email");
+
+function enableEmail() {
+  if (!email[shakenRef]) {
+    return;
+  }
+  ((delete email.as));
+  let emailRegex = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i;
+  email.type = stringTag;
+  email.decoder = string.decoder;
+  email.format = "email";
+  email.refiner = input => [{
+      c: inputVar => embed(input, emailRegex) + ".test(" + inputVar + ")",
+      f: failWithErrorMessage("format", undefined)
+    }];
+}
+
+let uuid = shaken("uuid");
+
+function enableUuid() {
+  if (!uuid[shakenRef]) {
+    return;
+  }
+  ((delete uuid.as));
+  let uuidRegex = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/i;
+  uuid.type = stringTag;
+  uuid.decoder = string.decoder;
+  uuid.format = "uuid";
+  uuid.refiner = input => [{
+      c: inputVar => embed(input, uuidRegex) + ".test(" + inputVar + ")",
+      f: failWithErrorMessage("format", undefined)
+    }];
+}
+
+let cuid = shaken("cuid");
+
+function enableCuid() {
+  if (!cuid[shakenRef]) {
+    return;
+  }
+  ((delete cuid.as));
+  let cuidRegex = /^c[^\s-]{8,}$/i;
+  cuid.type = stringTag;
+  cuid.decoder = string.decoder;
+  cuid.format = "cuid";
+  cuid.refiner = input => [{
+      c: inputVar => embed(input, cuidRegex) + ".test(" + inputVar + ")",
+      f: failWithErrorMessage("format", undefined)
+    }];
+}
+
+let url = shaken("url");
+
+function enableUrl() {
+  if (!url[shakenRef]) {
+    return;
+  }
+  ((delete url.as));
+  let urlValidator = (s=>{try{new URL(s);return true}catch(_){return false}});
+  url.type = stringTag;
+  url.decoder = string.decoder;
+  url.format = "url";
+  url.refiner = input => [{
+      c: inputVar => embed(input, urlValidator) + "(" + inputVar + ")",
+      f: failWithErrorMessage("format", undefined)
     }];
 }
 
@@ -3335,6 +3404,14 @@ function meta(schema, data) {
       mut.examples = undefined;
     }
   }
+  let em = data.errorMessage;
+  if (em !== undefined) {
+    if (Object.keys(em).length === 0) {
+      mut.errorMessage = undefined;
+    } else {
+      mut.errorMessage = em;
+    }
+  }
   return mut;
 }
 
@@ -3371,59 +3448,6 @@ function proxifyShapedSchema(schema, from, fromFlattened) {
       return proxifyShapedSchema(maybeField, target.from.concat(prop), target.fromFlattened);
     }
   });
-}
-
-function getShapedParserOutput(input, targetSchema) {
-  let from = targetSchema.from;
-  let fromFlattened = targetSchema.fromFlattened;
-  let v;
-  if (fromFlattened !== undefined) {
-    v = scope(getValByFrom(input.fv[fromFlattened], targetSchema.from, 0));
-  } else if (from !== undefined) {
-    v = scope(getValByFrom(input, from, 0));
-  } else if (constField in targetSchema) {
-    v = nextConst(input, targetSchema, undefined);
-  } else {
-    let output = makeObjectVal(input, targetSchema);
-    output.io = true;
-    let items = targetSchema.items;
-    if (items !== undefined) {
-      for (let idx = 0, idx_finish = items.length; idx < idx_finish; ++idx) {
-        let location = idx.toString();
-        add(output, location, getShapedParserOutput(input, items[idx]));
-      }
-    } else {
-      let properties = targetSchema.properties;
-      if (properties !== undefined) {
-        let keys = Object.keys(properties);
-        for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
-          let location$1 = keys[idx$1];
-          add(output, location$1, getShapedParserOutput(input, properties[location$1]));
-        }
-      } else {
-        let message = "Don't know where the value is coming from: " + toExpression(targetSchema);
-        throw new Error("[Sury] " + message);
-      }
-    }
-    v = completeObjectVal(output);
-  }
-  v.prev = undefined;
-  v.e = targetSchema;
-  return v;
-}
-
-function getValByFrom(_input, from, _idx) {
-  while (true) {
-    let idx = _idx;
-    let input = _input;
-    let key = from[idx];
-    if (key === undefined) {
-      return input;
-    }
-    _idx = idx + 1 | 0;
-    _input = input.d[key];
-    continue;
-  };
 }
 
 function prepareShapedSerializerAcc(acc, input) {
@@ -3582,6 +3606,20 @@ function getShapedSerializerOutput(input, acc, targetSchema, path) {
   
 }
 
+function getValByFrom(_input, from, _idx) {
+  while (true) {
+    let idx = _idx;
+    let input = _input;
+    let key = from[idx];
+    if (key === undefined) {
+      return input;
+    }
+    _idx = idx + 1 | 0;
+    _input = input.d[key];
+    continue;
+  };
+}
+
 function traverseDefinition(definition, onNode) {
   if (typeof definition !== "object" || definition === null) {
     return parse(definition);
@@ -3632,15 +3670,6 @@ function shapedSerializer(input) {
   output.t = true;
   output.prev = input;
   return output;
-}
-
-function definitionToSchema(definition) {
-  return traverseDefinition(definition, node => {
-    if (node["~standard"]) {
-      return node;
-    }
-    
-  });
 }
 
 function nested(fieldName) {
@@ -3707,6 +3736,54 @@ function nested(fieldName) {
   };
   parentCtx[cacheId] = ctx$1;
   return ctx$1;
+}
+
+function definitionToSchema(definition) {
+  return traverseDefinition(definition, node => {
+    if (node["~standard"]) {
+      return node;
+    }
+    
+  });
+}
+
+function getShapedParserOutput(input, targetSchema) {
+  let from = targetSchema.from;
+  let fromFlattened = targetSchema.fromFlattened;
+  let v;
+  if (fromFlattened !== undefined) {
+    v = scope(getValByFrom(input.fv[fromFlattened], targetSchema.from, 0));
+  } else if (from !== undefined) {
+    v = scope(getValByFrom(input, from, 0));
+  } else if (constField in targetSchema) {
+    v = nextConst(input, targetSchema, undefined);
+  } else {
+    let output = makeObjectVal(input, targetSchema);
+    output.io = true;
+    let items = targetSchema.items;
+    if (items !== undefined) {
+      for (let idx = 0, idx_finish = items.length; idx < idx_finish; ++idx) {
+        let location = idx.toString();
+        add(output, location, getShapedParserOutput(input, items[idx]));
+      }
+    } else {
+      let properties = targetSchema.properties;
+      if (properties !== undefined) {
+        let keys = Object.keys(properties);
+        for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
+          let location$1 = keys[idx$1];
+          add(output, location$1, getShapedParserOutput(input, properties[location$1]));
+        }
+      } else {
+        let message = "Don't know where the value is coming from: " + toExpression(targetSchema);
+        throw new Error("[Sury] " + message);
+      }
+    }
+    v = completeObjectVal(output);
+  }
+  v.prev = undefined;
+  v.e = targetSchema;
+  return v;
 }
 
 function shapedParser(input) {
@@ -4097,10 +4174,10 @@ function intMin(schema, minValue, maybeMessage) {
   let message = maybeMessage !== undefined ? maybeMessage : "Number must be greater than or equal to " + minValue;
   return internalRefine(schema, mut => {
     mut.minimum = minValue;
-    getMutErrorMessages(mut)["minimum"] = message;
+    getMutErrorMessage(mut)["minimum"] = message;
     return param => [{
         c: inputVar => inputVar + ">" + (minValue - 1 | 0),
-        f: failCustom(message)
+        f: failWithErrorMessage("minimum", message)
       }];
   });
 }
@@ -4110,27 +4187,10 @@ function intMax(schema, maxValue, maybeMessage) {
   let message = maybeMessage !== undefined ? maybeMessage : "Number must be lower than or equal to " + maxValue;
   return internalRefine(schema, mut => {
     mut.maximum = maxValue;
-    getMutErrorMessages(mut)["maximum"] = message;
+    getMutErrorMessage(mut)["maximum"] = message;
     return param => [{
         c: inputVar => inputVar + "<" + (maxValue + 1 | 0),
-        f: failCustom(message)
-      }];
-  });
-}
-
-function port(schema, message) {
-  return internalRefine(schema, mut => {
-    mut.format = "port";
-    return input => [{
-        c: inputVar => inputVar + ">0&&" + inputVar + "<65536&&" + inputVar + "%1===0",
-        f: message !== undefined ? input => {
-            let path = input.path;
-            return _value => ({
-              code: "custom",
-              path: path,
-              reason: message
-            });
-          } : failInvalidType
+        f: failWithErrorMessage("maximum", message)
       }];
   });
 }
@@ -4140,10 +4200,10 @@ function floatMin(schema, minValue, maybeMessage) {
   let message = maybeMessage !== undefined ? maybeMessage : "Number must be greater than or equal to " + minValue;
   return internalRefine(schema, mut => {
     mut.minimum = minValue;
-    getMutErrorMessages(mut)["minimum"] = message;
+    getMutErrorMessage(mut)["minimum"] = message;
     return input => [{
         c: inputVar => inputVar + ">=" + embed(input, minValue),
-        f: failCustom(message)
+        f: failWithErrorMessage("minimum", message)
       }];
   });
 }
@@ -4153,10 +4213,10 @@ function floatMax(schema, maxValue, maybeMessage) {
   let message = maybeMessage !== undefined ? maybeMessage : "Number must be lower than or equal to " + maxValue;
   return internalRefine(schema, mut => {
     mut.maximum = maxValue;
-    getMutErrorMessages(mut)["maximum"] = message;
+    getMutErrorMessage(mut)["maximum"] = message;
     return input => [{
         c: inputVar => inputVar + "<=" + embed(input, maxValue),
-        f: failCustom(message)
+        f: failWithErrorMessage("maximum", message)
       }];
   });
 }
@@ -4166,10 +4226,10 @@ function arrayMinLength(schema, length, maybeMessage) {
   let message = maybeMessage !== undefined ? maybeMessage : "Array must be " + length + " or more items long";
   return internalRefine(schema, mut => {
     mut.minItems = length;
-    getMutErrorMessages(mut)["minItems"] = message;
+    getMutErrorMessage(mut)["minItems"] = message;
     return param => [{
         c: inputVar => inputVar + ".length>" + (length - 1 | 0),
-        f: failCustom(message)
+        f: failWithErrorMessage("minItems", message)
       }];
   });
 }
@@ -4179,10 +4239,10 @@ function arrayMaxLength(schema, length, maybeMessage) {
   let message = maybeMessage !== undefined ? maybeMessage : "Array must be " + length + " or fewer items long";
   return internalRefine(schema, mut => {
     mut.maxItems = length;
-    getMutErrorMessages(mut)["maxItems"] = message;
+    getMutErrorMessage(mut)["maxItems"] = message;
     return param => [{
         c: inputVar => inputVar + ".length<" + (length + 1 | 0),
-        f: failCustom(message)
+        f: failWithErrorMessage("maxItems", message)
       }];
   });
 }
@@ -4192,10 +4252,10 @@ function stringMinLength(schema, length, maybeMessage) {
   let message = maybeMessage !== undefined ? maybeMessage : "String must be " + length + " or more characters long";
   return internalRefine(schema, mut => {
     mut.minLength = length;
-    getMutErrorMessages(mut)["minLength"] = message;
+    getMutErrorMessage(mut)["minLength"] = message;
     return param => [{
         c: inputVar => inputVar + ".length>" + (length - 1 | 0),
-        f: failCustom(message)
+        f: failWithErrorMessage("minLength", message)
       }];
   });
 }
@@ -4205,80 +4265,32 @@ function stringMaxLength(schema, length, maybeMessage) {
   let message = maybeMessage !== undefined ? maybeMessage : "String must be " + length + " or fewer characters long";
   return internalRefine(schema, mut => {
     mut.maxLength = length;
-    getMutErrorMessages(mut)["maxLength"] = message;
+    getMutErrorMessage(mut)["maxLength"] = message;
     return param => [{
         c: inputVar => inputVar + ".length<" + (length + 1 | 0),
-        f: failCustom(message)
+        f: failWithErrorMessage("maxLength", message)
       }];
   });
 }
 
-function email(schema, messageOpt) {
-  let message = messageOpt !== undefined ? messageOpt : "Invalid email address";
-  return addRefinement(schema, metadataId, {
-    kind: "Email",
-    message: message
-  }, input => [{
-      c: inputVar => embed(input, emailRegex) + ".test(" + inputVar + ")",
-      f: failCustom(message)
-    }]);
-}
-
-function uuid(schema, messageOpt) {
-  let message = messageOpt !== undefined ? messageOpt : "Invalid UUID";
-  return addRefinement(schema, metadataId, {
-    kind: "Uuid",
-    message: message
-  }, input => [{
-      c: inputVar => embed(input, uuidRegex) + ".test(" + inputVar + ")",
-      f: failCustom(message)
-    }]);
-}
-
-function cuid(schema, messageOpt) {
-  let message = messageOpt !== undefined ? messageOpt : "Invalid CUID";
-  return addRefinement(schema, metadataId, {
-    kind: "Cuid",
-    message: message
-  }, input => [{
-      c: inputVar => embed(input, cuidRegex) + ".test(" + inputVar + ")",
-      f: failCustom(message)
-    }]);
-}
-
-let urlValidator = (s=>{try{new URL(s);return true}catch(_){return false}});
-
-function url(schema, messageOpt) {
-  let message = messageOpt !== undefined ? messageOpt : "Invalid url";
-  return addRefinement(schema, metadataId, {
-    kind: "Url",
-    message: message
-  }, input => [{
-      c: inputVar => embed(input, urlValidator) + "(" + inputVar + ")",
-      f: failCustom(message)
-    }]);
-}
-
 function pattern(schema, re, messageOpt) {
   let message = messageOpt !== undefined ? messageOpt : "Invalid pattern";
-  return addRefinement(schema, metadataId, {
-    kind: {
-      TAG: "Pattern",
-      re: re
-    },
-    message: message
-  }, input => {
-    let embededRe = embed(input, re);
-    return [{
-        c: inputVar => {
-          if (re.global) {
-            return "(" + embededRe + ".lastIndex=0," + embededRe + ".test(" + inputVar + "))";
-          } else {
-            return embededRe + ".test(" + inputVar + ")";
-          }
-        },
-        f: failCustom(message)
-      }];
+  return internalRefine(schema, mut => {
+    mut.pattern = re;
+    getMutErrorMessage(mut)["pattern"] = message;
+    return input => {
+      let embededRe = embed(input, re);
+      return [{
+          c: inputVar => {
+            if (re.global) {
+              return "(" + embededRe + ".lastIndex=0," + embededRe + ".test(" + inputVar + "))";
+            } else {
+              return embededRe + ".test(" + inputVar + ")";
+            }
+          },
+          f: failWithErrorMessage("pattern", message)
+        }];
+    };
   });
 }
 
@@ -4535,8 +4547,24 @@ function internalToJSONSchema(schema, path, defs, parent) {
         let format = schema.format;
         let $$const = schema.const;
         jsonSchema.type = "string";
-        if (format !== undefined && format !== "json") {
-          jsonSchema.format = "date-time";
+        if (format !== undefined) {
+          switch (format) {
+            case "date-time" :
+              jsonSchema.format = "date-time";
+              break;
+            case "email" :
+              jsonSchema.format = "email";
+              break;
+            case "uuid" :
+              jsonSchema.format = "uuid";
+              break;
+            case "json" :
+            case "cuid" :
+              break;
+            case "url" :
+              jsonSchema.format = "uri";
+              break;
+          }
         }
         let v = schema.minLength;
         if (v !== undefined) {
@@ -4550,26 +4578,6 @@ function internalToJSONSchema(schema, path, defs, parent) {
         if (re !== undefined) {
           jsonSchema.pattern = re.source;
         }
-        refinements(schema).forEach(refinement => {
-          let match = refinement.kind;
-          if (typeof match === "object") {
-            jsonSchema.pattern = match.re.source;
-            return;
-          }
-          switch (match) {
-            case "Email" :
-              jsonSchema.format = "email";
-              return;
-            case "Uuid" :
-              jsonSchema.format = "uuid";
-              return;
-            case "Cuid" :
-              return;
-            case "Url" :
-              jsonSchema.format = "uri";
-              return;
-          }
-        });
         if ($$const !== undefined) {
           jsonSchema.const = $$const;
         }
@@ -4927,29 +4935,33 @@ function fromJSONSchema(jsonSchema) {
                 type: Primitive_option.some(type_)
               }))));
             } else if (type_$2 === "string") {
-              let p = jsonSchema.pattern;
-              let schema$4 = p !== undefined ? pattern(string, new RegExp(p), undefined) : string;
-              let minLength = jsonSchema.minLength;
-              let schema$5 = minLength !== undefined ? stringMinLength(schema$4, minLength, undefined) : schema$4;
-              let maxLength = jsonSchema.maxLength;
-              let schema$6 = maxLength !== undefined ? stringMaxLength(schema$5, maxLength, undefined) : schema$5;
+              let schema$4;
               switch (jsonSchema.format) {
                 case "date-time" :
                   enableIsoDateTime();
-                  schema = isoDateTime;
+                  schema$4 = isoDateTime;
                   break;
                 case "email" :
-                  schema = email(schema$6, undefined);
+                  enableEmail();
+                  schema$4 = email;
                   break;
                 case "uri" :
-                  schema = url(schema$6, undefined);
+                  enableUrl();
+                  schema$4 = url;
                   break;
                 case "uuid" :
-                  schema = uuid(schema$6, undefined);
+                  enableUuid();
+                  schema$4 = uuid;
                   break;
                 default:
-                  schema = schema$6;
+                  schema$4 = string;
               }
+              let p = jsonSchema.pattern;
+              let schema$5 = p !== undefined ? pattern(schema$4, new RegExp(p), undefined) : schema$4;
+              let minLength = jsonSchema.minLength;
+              let schema$6 = minLength !== undefined ? stringMinLength(schema$5, minLength, undefined) : schema$5;
+              let maxLength = jsonSchema.maxLength;
+              schema = maxLength !== undefined ? stringMaxLength(schema$6, maxLength, undefined) : schema$6;
             } else if (type_$2 === "integer" || jsonSchema.format === "int64" && type_$2 === "number") {
               schema = toIntSchema(jsonSchema);
             } else {
@@ -5097,12 +5109,12 @@ function length(schema, length$1, maybeMessage) {
       return internalRefine(schema, mut => {
         mut.minLength = length$1;
         mut.maxLength = length$1;
-        let em = getMutErrorMessages(mut);
+        let em = getMutErrorMessage(mut);
         em["minLength"] = message;
         em["maxLength"] = message;
         return param => [{
             c: inputVar => inputVar + ".length===" + length$1,
-            f: failCustom(message)
+            f: failWithErrorMessage("minLength", message)
           }];
       });
     case "array" :
@@ -5111,12 +5123,12 @@ function length(schema, length$1, maybeMessage) {
       return internalRefine(schema, mut => {
         mut.minItems = length$1;
         mut.maxItems = length$1;
-        let em = getMutErrorMessages(mut);
+        let em = getMutErrorMessage(mut);
         em["minItems"] = message$1;
         em["maxItems"] = message$1;
         return param => [{
             c: inputVar => inputVar + ".length===" + length$1,
-            f: failCustom(message$1)
+            f: failWithErrorMessage("minItems", message$1)
           }];
       });
     default:
@@ -5158,13 +5170,6 @@ let Option = {
   getOrWith: getOrWith
 };
 
-let String_Refinement = {};
-
-let $$String = {
-  Refinement: String_Refinement,
-  refinements: refinements
-};
-
 let Metadata = {
   Id: Id,
   get: get$1,
@@ -5194,6 +5199,16 @@ export {
   enableUint8Array,
   isoDateTime,
   enableIsoDateTime,
+  port,
+  enablePort,
+  email,
+  enableEmail,
+  uuid,
+  enableUuid,
+  cuid,
+  enableCuid,
+  url,
+  enableUrl,
   date,
   literal,
   array,
@@ -5243,7 +5258,6 @@ export {
   tuple2,
   tuple3,
   Option,
-  $$String,
   Metadata,
   reverse,
   $$Error$1 as $$Error,
@@ -5252,11 +5266,6 @@ export {
   max,
   floatMax,
   length,
-  port,
-  email,
-  uuid,
-  cuid,
-  url,
   pattern,
   trim,
   toJSONSchema,

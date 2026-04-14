@@ -46,6 +46,26 @@ let isoDateTime = Sury.isoDateTime;
 
 let enableIsoDateTime = Sury.enableIsoDateTime;
 
+let port = Sury.port;
+
+let enablePort = Sury.enablePort;
+
+let email = Sury.email;
+
+let enableEmail = Sury.enableEmail;
+
+let uuid = Sury.uuid;
+
+let enableUuid = Sury.enableUuid;
+
+let cuid = Sury.cuid;
+
+let enableCuid = Sury.enableCuid;
+
+let url = Sury.url;
+
+let enableUrl = Sury.enableUrl;
+
 let date = Sury.date;
 
 let literal = Sury.literal;
@@ -144,8 +164,6 @@ let tuple3 = Sury.tuple3;
 
 let Option = Sury.Option;
 
-let $$String = Sury.$$String;
-
 let Metadata = Sury.Metadata;
 
 let reverse = Sury.reverse;
@@ -159,16 +177,6 @@ let max = Sury.max;
 let floatMax = Sury.floatMax;
 
 let length = Sury.length;
-
-let port = Sury.port;
-
-let email = Sury.email;
-
-let uuid = Sury.uuid;
-
-let cuid = Sury.cuid;
-
-let url = Sury.url;
 
 let pattern = Sury.pattern;
 
@@ -207,6 +215,16 @@ export {
   enableUint8Array,
   isoDateTime,
   enableIsoDateTime,
+  port,
+  enablePort,
+  email,
+  enableEmail,
+  uuid,
+  enableUuid,
+  cuid,
+  enableCuid,
+  url,
+  enableUrl,
   date,
   literal,
   array,
@@ -256,7 +274,6 @@ export {
   tuple2,
   tuple3,
   Option,
-  $$String,
   Metadata,
   reverse,
   min,
@@ -264,11 +281,6 @@ export {
   max,
   floatMax,
   length,
-  port,
-  email,
-  uuid,
-  cuid,
-  url,
   pattern,
   trim,
   toJSONSchema,

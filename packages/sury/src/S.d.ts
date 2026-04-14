@@ -92,7 +92,7 @@ export type JSON =
   | JSON[];
 
 export type NumberFormat = "int32" | "port";
-export type StringFormat = "json" | "date-time";
+export type StringFormat = "json" | "date-time" | "email" | "uuid" | "cuid" | "url";
 export type ArrayFormat = "compactColumns";
 export type Format = NumberFormat | StringFormat | ArrayFormat;
 
@@ -151,7 +151,7 @@ export type Schema<Output, Input = unknown> = {
   readonly noValidation?: boolean;
   readonly default?: Input;
   readonly to?: Schema<unknown>;
-  readonly errorMessages?: Record<string, string>;
+  readonly errorMessage?: SchemaErrorMessage;
 
   readonly ["~standard"]: StandardSchemaV1.Props<Input, Output>;
 } & (
@@ -505,6 +505,21 @@ export function enableUint8Array(): void;
 export const isoDateTime: Schema<string, string>;
 export function enableIsoDateTime(): void;
 
+export const port: Schema<number, number>;
+export function enablePort(): void;
+
+export const email: Schema<string, string>;
+export function enableEmail(): void;
+
+export const uuid: Schema<string, string>;
+export function enableUuid(): void;
+
+export const cuid: Schema<string, string>;
+export function enableCuid(): void;
+
+export const url: Schema<string, string>;
+export function enableUrl(): void;
+
 export const date: Schema<Date, Date>;
 
 export function safe<Value>(scope: () => Value): Result<Value>;
@@ -703,12 +718,26 @@ export function recursive<Output, Input = unknown>(
   definer: (schema: Schema<Output, Input>) => Schema<Output, Input>
 ): Schema<Output, Input>;
 
+export type SchemaErrorMessage = {
+  _?: string;
+  format?: string;
+  type?: string;
+  minimum?: string;
+  maximum?: string;
+  minLength?: string;
+  maxLength?: string;
+  minItems?: string;
+  maxItems?: string;
+  pattern?: string;
+};
+
 export type Meta<Output> = {
   name?: string;
   title?: string;
   description?: string;
   deprecated?: boolean;
   examples?: Output[];
+  errorMessage?: SchemaErrorMessage;
 };
 
 export function meta<Output, Input>(
@@ -752,27 +781,6 @@ export const length: <Output extends string | unknown[], Input>(
   message?: string
 ) => Schema<Output, Input>;
 
-export const port: <Input>(
-  schema: Schema<number, Input>,
-  message?: string
-) => Schema<number, Input>;
-
-export const email: <Input>(
-  schema: Schema<string, Input>,
-  message?: string
-) => Schema<string, Input>;
-export const uuid: <Input>(
-  schema: Schema<string, Input>,
-  message?: string
-) => Schema<string, Input>;
-export const cuid: <Input>(
-  schema: Schema<string, Input>,
-  message?: string
-) => Schema<string, Input>;
-export const url: <Input>(
-  schema: Schema<string, Input>,
-  message?: string
-) => Schema<string, Input>;
 export const pattern: (re: RegExp, message?: string) => Schema<string, string>;
 export const trim: <Input>(
   schema: Schema<string, Input>

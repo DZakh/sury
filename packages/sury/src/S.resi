@@ -21,7 +21,13 @@ module Path: {
 }
 
 type numberFormat = | @as("int32") Int32 | @as("port") Port
-type stringFormat = | @as("json") JSON | @as("date-time") DateTime
+type stringFormat =
+  | @as("json") JSON
+  | @as("date-time") DateTime
+  | @as("email") Email
+  | @as("uuid") Uuid
+  | @as("cuid") Cuid
+  | @as("url") Url
 type arrayFormat = | @as("compactColumns") CompactColumns
 
 type format = | ...numberFormat | ...stringFormat | ...arrayFormat
@@ -50,7 +56,7 @@ type tag =
 @tag("type")
 type rec t<'value> =
   private
-  | @as("never") Never({name?: string, title?: string, description?: string, deprecated?: bool})
+  | @as("never") Never({name?: string, title?: string, description?: string, deprecated?: bool, errorMessage?: schemaErrorMessage})
   | @as("unknown")
   Unknown({
       name?: string,
@@ -59,6 +65,7 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<unknown>,
       default?: unknown,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("string")
   String({
@@ -73,7 +80,7 @@ type rec t<'value> =
       minLength?: int,
       maxLength?: int,
       pattern?: Js.Re.t,
-      errorMessages?: dict<string>,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("number")
   Number({
@@ -87,7 +94,7 @@ type rec t<'value> =
       default?: float,
       minimum?: float,
       maximum?: float,
-      errorMessages?: dict<string>,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("bigint")
   BigInt({
@@ -98,6 +105,7 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<bigint>,
       default?: bigint,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("boolean")
   Boolean({
@@ -108,6 +116,7 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<bool>,
       default?: bool,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("symbol")
   Symbol({
@@ -118,6 +127,7 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<Js.Types.symbol>,
       default?: Js.Types.symbol,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("null")
   Null({
@@ -126,6 +136,7 @@ type rec t<'value> =
       title?: string,
       description?: string,
       deprecated?: bool,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("undefined")
   Undefined({
@@ -134,6 +145,7 @@ type rec t<'value> =
       title?: string,
       description?: string,
       deprecated?: bool,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("nan")
   NaN({
@@ -142,6 +154,7 @@ type rec t<'value> =
       title?: string,
       description?: string,
       deprecated?: bool,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("function")
   Function({
@@ -152,6 +165,7 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<Js.Types.function_val>,
       default?: Js.Types.function_val,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("instance")
   Instance({
@@ -163,6 +177,7 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<Js.Types.obj_val>,
       default?: Js.Types.obj_val,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("array")
   Array({
@@ -177,7 +192,7 @@ type rec t<'value> =
       default?: array<unknown>,
       minItems?: int,
       maxItems?: int,
-      errorMessages?: dict<string>,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("object")
   Object({
@@ -190,6 +205,7 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<dict<unknown>>,
       default?: dict<unknown>,
+      errorMessage?: schemaErrorMessage,
     }) // TODO: Add const for Object and Tuple
   | @as("union")
   Union({
@@ -201,15 +217,31 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<unknown>,
       default?: unknown,
+      errorMessage?: schemaErrorMessage,
     })
-  | @as("ref") Ref({@as("$ref") ref: string})
+  | @as("ref") Ref({@as("$ref") ref: string, errorMessage?: schemaErrorMessage})
 and schema<'a> = t<'a>
+and schemaErrorMessage = {
+  @as("_")
+  catchAll?: string,
+  format?: string,
+  @as("type")
+  type_?: string,
+  minimum?: string,
+  maximum?: string,
+  minLength?: string,
+  maxLength?: string,
+  minItems?: string,
+  maxItems?: string,
+  pattern?: string,
+}
 and meta<'value> = {
   name?: string,
   title?: string,
   description?: string,
   deprecated?: bool,
   examples?: array<'value>,
+  errorMessage?: schemaErrorMessage,
 }
 and untagged = private {
   @as("type")
@@ -329,6 +361,21 @@ let enableUint8Array: unit => unit
 let isoDateTime: t<string>
 let enableIsoDateTime: unit => unit
 
+let port: t<int>
+let enablePort: unit => unit
+
+let email: t<string>
+let enableEmail: unit => unit
+
+let uuid: t<string>
+let enableUuid: unit => unit
+
+let cuid: t<string>
+let enableCuid: unit => unit
+
+let url: t<string>
+let enableUrl: unit => unit
+
 let date: t<Js.Date.t>
 
 let literal: 'value => t<'value>
@@ -428,23 +475,6 @@ module Option: {
   let getOrWith: (t<option<'value>>, unit => 'value) => t<'value>
 }
 
-module String: {
-  module Refinement: {
-    type kind =
-      | Email
-      | Uuid
-      | Cuid
-      | Url
-      | Pattern({re: Js.Re.t})
-    type t = {
-      kind: kind,
-      message: string,
-    }
-  }
-
-  let refinements: t<'value> => array<Refinement.t>
-}
-
 module Metadata: {
   module Id: {
     type t<'metadata>
@@ -466,11 +496,6 @@ let floatMax: (t<float>, float, ~message: string=?) => t<float>
 
 let length: (t<'value>, int, ~message: string=?) => t<'value>
 
-let port: (t<int>, ~message: string=?) => t<int>
-let email: (t<string>, ~message: string=?) => t<string>
-let uuid: (t<string>, ~message: string=?) => t<string>
-let cuid: (t<string>, ~message: string=?) => t<string>
-let url: (t<string>, ~message: string=?) => t<string>
 let pattern: (t<string>, Js.Re.t, ~message: string=?) => t<string>
 let trim: t<string> => t<string>
 

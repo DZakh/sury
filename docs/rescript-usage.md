@@ -10,6 +10,7 @@
 - [Real-world examples](#real-world-examples)
 - [API reference](#api-reference)
   - [`string`](#string)
+    - [Custom error messages](#custom-error-messages)
     - [ISO datetimes](#iso-datetimes)
   - [`bool`](#bool)
   - [`int`](#int)
@@ -283,25 +284,55 @@ The `S.string` schema represents a data that is a string. It can be further cons
 S.string->S.max(5) // String must be 5 or fewer characters long
 S.string->S.min(5) // String must be 5 or more characters long
 S.string->S.length(5) // String must be exactly 5 characters long
-S.string->S.email // Invalid email address
-S.string->S.url // Invalid url
-S.string->S.uuid // Invalid UUID
-S.string->S.cuid // Invalid CUID
-S.string->S.pattern(%re(`/[0-9]/`)) // Invalid
+S.string->S.pattern(%re(`/[0-9]/`)) // Invalid pattern
 
 S.string->S.trim // trim whitespaces
+```
+
+For format-specific string validation, use the standalone schemas:
+
+```rescript
+S.enableEmail()
+S.email // Standalone email schema
+
+S.enableUrl()
+S.url // Standalone URL schema
+
+S.enableUuid()
+S.uuid // Standalone UUID schema
+
+S.enableCuid()
+S.cuid // Standalone CUID schema
 ```
 
 > For ISO 8601 UTC datetime strings use the dedicated standalone `S.isoDateTime` schema — see [ISO datetimes](#iso-datetimes) below.
 
 > ⚠️ Validating email addresses is nearly impossible with just code. Different clients and servers accept different things and many diverge from the various specs defining "valid" emails. The ONLY real way to validate an email address is to send a verification email to it and check that the user got it. With that in mind, Sury picks a relatively simple regex that does not cover all cases.
 
-When using built-in refinements, you can provide a custom error message.
+#### Custom error messages
+
+Built-in refinements accept an optional `~message` argument for a custom error message:
 
 ```rescript
 S.string->S.min(1, ~message="String can't be empty")
 S.string->S.length(5, ~message="SMS code should be 5 digits long")
+S.string->S.pattern(%re(`/^\d+$/`), ~message="Must be numeric")
 ```
+
+For standalone schemas or more control, use `S.meta` with the `errorMessage` field:
+
+```rescript
+// Override a specific constraint message
+S.email->S.meta({errorMessage: {format: "Must be a valid email"}})
+
+// Use catchAll as a fallback for any constraint
+S.email->S.meta({errorMessage: {catchAll: "Invalid input"}})
+
+// Reset error messages (removes all overrides)
+schema->S.meta({errorMessage: {}})
+```
+
+Available fields: `format`, `type_`, `minimum`, `maximum`, `minLength`, `maxLength`, `minItems`, `maxItems`, `pattern`, `catchAll` (serialized as `_`).
 
 #### ISO datetimes
 
@@ -343,7 +374,7 @@ The `S.int` schema represents a data that is an integer.
 ```rescript
 S.int->S.max(5) // Number must be lower than or equal to 5
 S.int->S.min(5) // Number must be greater than or equal to 5
-S.int->S.port // Invalid port
+S.port // Standalone port schema (requires S.enablePort())
 ```
 
 ### **`float`**
@@ -1351,8 +1382,7 @@ type user = {
 }
 
 let userSchema =
-  S.string
-  ->S.uuid
+  S.uuid
   ->S.transform(s => {
     asyncParser: userId => loadUser(~userId),
     serializer: user => user.id,

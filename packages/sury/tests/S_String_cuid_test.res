@@ -1,7 +1,9 @@
 open Ava
 
+S.enableCuid()
+
 test("Successfully parses valid data", t => {
-  let schema = S.string->S.cuid
+  let schema = S.cuid
 
   t->Assert.deepEqual(
     "ckopqwooh000001la8mbi2im9"->S.parseOrThrow(~to=schema),
@@ -10,13 +12,13 @@ test("Successfully parses valid data", t => {
 })
 
 test("Fails to parse invalid data", t => {
-  let schema = S.string->S.cuid
+  let schema = S.cuid
 
-  t->U.assertThrowsMessage(() => "cifjhdsfhsd-invalid-cuid"->S.parseOrThrow(~to=schema), `Invalid CUID`)
+  t->U.assertThrowsMessage(() => "cifjhdsfhsd-invalid-cuid"->S.parseOrThrow(~to=schema), `Expected cuid, received "cifjhdsfhsd-invalid-cuid"`)
 })
 
 test("Successfully serializes valid value", t => {
-  let schema = S.string->S.cuid
+  let schema = S.cuid
 
   t->Assert.deepEqual(
     "ckopqwooh000001la8mbi2im9"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
@@ -25,22 +27,26 @@ test("Successfully serializes valid value", t => {
 })
 
 test("Fails to serialize invalid value", t => {
-  let schema = S.string->S.cuid
+  let schema = S.cuid
 
   t->U.assertThrowsMessage(
     () => "cifjhdsfhsd-invalid-cuid"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    `Invalid CUID`,
+    `Expected cuid, received "cifjhdsfhsd-invalid-cuid"`,
   )
 })
 
-test("Returns custom error message", t => {
-  let schema = S.string->S.cuid(~message="Custom")
+test("Custom error message via S.meta", t => {
+  let schema = S.cuid->S.meta({errorMessage: {format: "Custom"}})
 
   t->U.assertThrowsMessage(() => "cifjhdsfhsd-invalid-cuid"->S.parseOrThrow(~to=schema), `Custom`)
 })
 
-test("Returns refinement", t => {
-  let schema = S.string->S.cuid
+test("Reflects format on schema", t => {
+  let schema = S.cuid
 
-  t->Assert.deepEqual(schema->S.String.refinements, [{kind: Cuid, message: "Invalid CUID"}])
+  t->Assert.deepEqual((schema->S.untag).format, Some(Cuid))
+  switch schema {
+  | String({format}) => t->Assert.deepEqual(format, Cuid)
+  | _ => t->Assert.fail("Expected String with format Cuid")
+  }
 })

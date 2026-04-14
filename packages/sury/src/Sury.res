@@ -280,7 +280,13 @@ type standard = {
 type internalDefault = {}
 
 type numberFormat = | @as("int32") Int32 | @as("port") Port
-type stringFormat = | @as("json") JSON | @as("date-time") DateTime
+type stringFormat =
+  | @as("json") JSON
+  | @as("date-time") DateTime
+  | @as("email") Email
+  | @as("uuid") Uuid
+  | @as("cuid") Cuid
+  | @as("url") Url
 type arrayFormat = | @as("compactColumns") CompactColumns
 
 type format = | ...numberFormat | ...stringFormat | ...arrayFormat
@@ -291,7 +297,7 @@ type additionalItemsMode = | @as("strip") Strip | @as("strict") Strict
 @tag("type")
 type rec t<'value> =
   private
-  | @as("never") Never({name?: string, title?: string, description?: string, deprecated?: bool})
+  | @as("never") Never({name?: string, title?: string, description?: string, deprecated?: bool, errorMessage?: schemaErrorMessage})
   | @as("unknown")
   Unknown({
       name?: string,
@@ -300,6 +306,7 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<unknown>,
       default?: unknown,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("string")
   String({
@@ -314,7 +321,7 @@ type rec t<'value> =
       minLength?: int,
       maxLength?: int,
       pattern?: Js.Re.t,
-      errorMessages?: dict<string>,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("number")
   Number({
@@ -328,7 +335,7 @@ type rec t<'value> =
       default?: float,
       minimum?: float,
       maximum?: float,
-      errorMessages?: dict<string>,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("bigint")
   BigInt({
@@ -339,6 +346,7 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<bigint>,
       default?: bigint,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("boolean")
   Boolean({
@@ -349,6 +357,7 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<bool>,
       default?: bool,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("symbol")
   Symbol({
@@ -359,6 +368,7 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<Js.Types.symbol>,
       default?: Js.Types.symbol,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("null")
   Null({
@@ -367,6 +377,7 @@ type rec t<'value> =
       title?: string,
       description?: string,
       deprecated?: bool,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("undefined")
   Undefined({
@@ -375,6 +386,7 @@ type rec t<'value> =
       title?: string,
       description?: string,
       deprecated?: bool,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("nan")
   NaN({
@@ -383,6 +395,7 @@ type rec t<'value> =
       title?: string,
       description?: string,
       deprecated?: bool,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("function")
   Function({
@@ -393,6 +406,7 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<Js.Types.function_val>,
       default?: Js.Types.function_val,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("instance")
   Instance({
@@ -404,6 +418,7 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<Js.Types.obj_val>,
       default?: Js.Types.obj_val,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("array")
   Array({
@@ -418,7 +433,7 @@ type rec t<'value> =
       default?: array<unknown>,
       minItems?: int,
       maxItems?: int,
-      errorMessages?: dict<string>,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("object")
   Object({
@@ -431,6 +446,7 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<dict<unknown>>,
       default?: dict<unknown>,
+      errorMessage?: schemaErrorMessage,
     }) // TODO: Add const for Object and Tuple
   | @as("union")
   Union({
@@ -442,11 +458,13 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<unknown>,
       default?: unknown,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("ref")
   Ref({
       @as("$ref")
       ref: string,
+      errorMessage?: schemaErrorMessage,
     })
 @unboxed and additionalItems = | ...additionalItemsMode | Schema(t<unknown>)
 and schema<'a> = t<'a>
@@ -504,7 +522,7 @@ and internal = {
   mutable minItems?: int,
   mutable maxItems?: int,
   mutable pattern?: Js.Re.t,
-  mutable errorMessages?: dict<string>,
+  mutable errorMessage?: schemaErrorMessage,
   mutable space?: int,
   @as("$ref")
   mutable ref?: string,
@@ -515,12 +533,27 @@ and internal = {
   @as("~standard")
   mutable standard?: standard, // This is optional for convenience. The object added on make call
 }
+and schemaErrorMessage = {
+  @as("_")
+  catchAll?: string,
+  format?: string,
+  @as("type")
+  type_?: string,
+  minimum?: string,
+  maximum?: string,
+  minLength?: string,
+  maxLength?: string,
+  minItems?: string,
+  maxItems?: string,
+  pattern?: string,
+}
 and meta<'value> = {
   name?: string,
   title?: string,
   description?: string,
   deprecated?: bool,
   examples?: array<'value>,
+  errorMessage?: schemaErrorMessage,
 }
 and untagged = private {
   @as("type")
@@ -1325,13 +1358,26 @@ module Builder = {
         )
     }
 
-    // Build a `fail` for refinement checks that report a custom error message.
-    let failCustom = message => {
-      let fail: (~input: val) => (unknown => errorDetails) = (~input) => {
-        let path = input.path
-        _value => Custom({reason: message, path})
+
+    let failWithErrorMessage = (key, ~defaultMessage=?) => {
+      (~input: val) => {
+        let override = switch input.expected.errorMessage {
+        | Some(em) =>
+          let d: dict<string> = em->Obj.magic
+          switch d->X.Dict.getUnsafeOption(key) {
+          | Some(m) => Some(m)
+          | None => d->X.Dict.getUnsafeOption("_")
+          }
+        | None => None
+        }
+        switch (override, defaultMessage) {
+        | (Some(m), _) | (None, Some(m)) => {
+            let path = input.path
+            _value => Custom({reason: m, path})
+          }
+        | (None, None) => failInvalidType(~input)
+        }
       }
-      fail
     }
 
     // Inline variant: emits the throw expression directly. Used by decoders
@@ -3384,25 +3430,11 @@ let refine: (t<'value>, 'value => bool, ~error: string=?, ~path: array<string>=?
   )
 }
 
-let addRefinement = (schema, ~metadataId, ~refinement, ~refiner) => {
-  schema->internalRefine(mut => {
-    mut->Metadata.setInPlace(
-      ~id=metadataId,
-      switch schema->Metadata.get(~id=metadataId) {
-      | Some(refinements) => refinements->X.Array.append(refinement)
-      | None => [refinement]
-      },
-    )
-
-    refiner
-  })
-}
-
-let getMutErrorMessages = (~mut: internal) => {
-  let em = mut.errorMessages->X.Option.unsafeToBool
-    ? mut.errorMessages->X.Option.getUnsafe->X.Dict.copy
+let getMutErrorMessage = (~mut: internal): dict<string> => {
+  let em: dict<string> = mut.errorMessage->X.Option.unsafeToBool
+    ? (mut.errorMessage->X.Option.getUnsafe->(Obj.magic: schemaErrorMessage => dict<string>))->X.Dict.copy
     : Js.Dict.empty()
-  mut.errorMessages = Some(em)
+  mut.errorMessage = Some(em->Obj.magic)
   em
 }
 
@@ -4437,35 +4469,6 @@ module Tuple = {
   }
 }
 
-module String = {
-  module Refinement = {
-    type kind =
-      | Email
-      | Uuid
-      | Cuid
-      | Url
-      | Pattern({re: Js.Re.t})
-    type t = {
-      kind: kind,
-      message: string,
-    }
-
-    let metadataId: Metadata.Id.t<array<t>> = Metadata.Id.internal("String.refinements")
-  }
-
-  let refinements = schema => {
-    switch schema->Metadata.get(~id=Refinement.metadataId) {
-    | Some(m) => m
-    | None => []
-    }
-  }
-
-  let cuidRegex = /^c[^\s-]{8,}$/i
-  let uuidRegex = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/i
-  // Adapted from https://stackoverflow.com/a/46181/1550155
-  let emailRegex = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i
-}
-
 let jsonEncoder = Builder.encoder((~input, ~target) => {
   let toTagFlag = target.tag->TagFlag.get
 
@@ -4870,7 +4873,95 @@ let enableIsoDateTime = () => {
     isoDateTime.format = Some(DateTime)
     isoDateTime.refiner = Some(
       (~input) => {
-        [{cond: (~inputVar) => `${input->B.embed(datetimeRe)}.test(${inputVar})`, fail: B.failCustom("Invalid datetime string! Expected UTC")}]
+        [{cond: (~inputVar) => `${input->B.embed(datetimeRe)}.test(${inputVar})`, fail: B.failWithErrorMessage("format", ~defaultMessage="Invalid datetime string! Expected UTC")}]
+      },
+    )
+  }
+}
+
+let port = shaken("port")
+
+let enablePort = () => {
+  if port->Obj.magic->Js.Dict.unsafeGet(shakenRef)->Obj.magic {
+    let _ = %raw(`delete port.as`)
+    port.tag = numberTag
+    port.decoder = int.decoder
+    port.format = Some(Port)
+    port.refiner = Some(
+      (~input as _) => {
+        [{
+          cond: (~inputVar) => `${inputVar}>0&&${inputVar}<65536&&${inputVar}%1===0`,
+          fail: B.failWithErrorMessage("format"),
+        }]
+      },
+    )
+  }
+}
+
+let email = shaken("email")
+
+let enableEmail = () => {
+  if email->Obj.magic->Js.Dict.unsafeGet(shakenRef)->Obj.magic {
+    let _ = %raw(`delete email.as`)
+    // Adapted from https://stackoverflow.com/a/46181/1550155
+    let emailRegex = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i
+    email.tag = stringTag
+    email.decoder = string.decoder
+    email.format = Some(Email)
+    email.refiner = Some(
+      (~input) => {
+        [{cond: (~inputVar) => `${input->B.embed(emailRegex)}.test(${inputVar})`, fail: B.failWithErrorMessage("format")}]
+      },
+    )
+  }
+}
+
+let uuid = shaken("uuid")
+
+let enableUuid = () => {
+  if uuid->Obj.magic->Js.Dict.unsafeGet(shakenRef)->Obj.magic {
+    let _ = %raw(`delete uuid.as`)
+    let uuidRegex = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/i
+    uuid.tag = stringTag
+    uuid.decoder = string.decoder
+    uuid.format = Some(Uuid)
+    uuid.refiner = Some(
+      (~input) => {
+        [{cond: (~inputVar) => `${input->B.embed(uuidRegex)}.test(${inputVar})`, fail: B.failWithErrorMessage("format")}]
+      },
+    )
+  }
+}
+
+let cuid = shaken("cuid")
+
+let enableCuid = () => {
+  if cuid->Obj.magic->Js.Dict.unsafeGet(shakenRef)->Obj.magic {
+    let _ = %raw(`delete cuid.as`)
+    let cuidRegex = /^c[^\s-]{8,}$/i
+    cuid.tag = stringTag
+    cuid.decoder = string.decoder
+    cuid.format = Some(Cuid)
+    cuid.refiner = Some(
+      (~input) => {
+        [{cond: (~inputVar) => `${input->B.embed(cuidRegex)}.test(${inputVar})`, fail: B.failWithErrorMessage("format")}]
+      },
+    )
+  }
+}
+
+let url = shaken("url")
+
+let enableUrl = () => {
+  if url->Obj.magic->Js.Dict.unsafeGet(shakenRef)->Obj.magic {
+    let _ = %raw(`delete url.as`)
+    let urlValidator: unknown = %raw(`s=>{try{new URL(s);return true}catch(_){return false}}`)
+    url.tag = stringTag
+    url.decoder = string.decoder
+    url.format = Some(Url)
+    url.refiner = Some(
+      (~input) => {
+        [{cond: (~inputVar) => `${input->B.embed(urlValidator)}(${inputVar})`, fail: B.failWithErrorMessage("format")}]
       },
     )
   }
@@ -4989,6 +5080,16 @@ let meta = (schema: t<'value>, data: meta<'value>) => {
   switch data.examples {
   | Some([]) => mut.examples = None // FIXME: Delete instead of None
   | Some(examples) => mut.examples = Some(examples->X.Array.map(getDecoder(~s1=schema->reverse)))
+  | None => ()
+  }
+  switch data.errorMessage {
+  | Some(em) =>
+    let emDict: dict<string> = em->Obj.magic
+    if emDict->Js.Dict.keys->Js.Array2.length === 0 {
+      mut.errorMessage = None
+    } else {
+      mut.errorMessage = Some(em)
+    }
   | None => ()
   }
   mut->castToPublic
@@ -6201,9 +6302,9 @@ let intMin = (schema, minValue, ~message as maybeMessage=?) => {
   }
   schema->internalRefine(mut => {
     mut.minimum = Some(minValue->Js.Int.toFloat)
-    getMutErrorMessages(~mut)->Js.Dict.set("minimum", message)
+    getMutErrorMessage(~mut)->Js.Dict.set("minimum", message)
     (~input as _) => {
-      [{cond: (~inputVar) => `${inputVar}>${(minValue - 1)->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
+      [{cond: (~inputVar) => `${inputVar}>${(minValue - 1)->X.Int.unsafeToString}`, fail: B.failWithErrorMessage("minimum", ~defaultMessage=message)}]
     }
   })
 }
@@ -6216,26 +6317,9 @@ let intMax = (schema, maxValue, ~message as maybeMessage=?) => {
   }
   schema->internalRefine(mut => {
     mut.maximum = Some(maxValue->Js.Int.toFloat)
-    getMutErrorMessages(~mut)->Js.Dict.set("maximum", message)
+    getMutErrorMessage(~mut)->Js.Dict.set("maximum", message)
     (~input as _) => {
-      [{cond: (~inputVar) => `${inputVar}<${(maxValue + 1)->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
-    }
-  })
-}
-
-let port = (schema, ~message=?) => {
-  schema->internalRefine(mut => {
-    mut.format = Some(Port)
-    (~input) => {
-      [
-        {
-          cond: (~inputVar) => `${inputVar}>0&&${inputVar}<65536&&${inputVar}%1===0`,
-          fail: switch message {
-          | Some(m) => (~input) => {let path = input.path; _value => Custom({reason: m, path})}
-          | None => B.failInvalidType
-          },
-        },
-      ]
+      [{cond: (~inputVar) => `${inputVar}<${(maxValue + 1)->X.Int.unsafeToString}`, fail: B.failWithErrorMessage("maximum", ~defaultMessage=message)}]
     }
   })
 }
@@ -6248,9 +6332,9 @@ let floatMin = (schema, minValue, ~message as maybeMessage=?) => {
   }
   schema->internalRefine(mut => {
     mut.minimum = Some(minValue)
-    getMutErrorMessages(~mut)->Js.Dict.set("minimum", message)
+    getMutErrorMessage(~mut)->Js.Dict.set("minimum", message)
     (~input) => {
-      [{cond: (~inputVar) => `${inputVar}>=${input->B.embed(minValue)}`, fail: B.failCustom(message)}]
+      [{cond: (~inputVar) => `${inputVar}>=${input->B.embed(minValue)}`, fail: B.failWithErrorMessage("minimum", ~defaultMessage=message)}]
     }
   })
 }
@@ -6263,9 +6347,9 @@ let floatMax = (schema, maxValue, ~message as maybeMessage=?) => {
   }
   schema->internalRefine(mut => {
     mut.maximum = Some(maxValue)
-    getMutErrorMessages(~mut)->Js.Dict.set("maximum", message)
+    getMutErrorMessage(~mut)->Js.Dict.set("maximum", message)
     (~input) => {
-      [{cond: (~inputVar) => `${inputVar}<=${input->B.embed(maxValue)}`, fail: B.failCustom(message)}]
+      [{cond: (~inputVar) => `${inputVar}<=${input->B.embed(maxValue)}`, fail: B.failWithErrorMessage("maximum", ~defaultMessage=message)}]
     }
   })
 }
@@ -6278,9 +6362,9 @@ let arrayMinLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->internalRefine(mut => {
     mut.minItems = Some(length)
-    getMutErrorMessages(~mut)->Js.Dict.set("minItems", message)
+    getMutErrorMessage(~mut)->Js.Dict.set("minItems", message)
     (~input as _) => {
-      [{cond: (~inputVar) => `${inputVar}.length>${(length - 1)->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
+      [{cond: (~inputVar) => `${inputVar}.length>${(length - 1)->X.Int.unsafeToString}`, fail: B.failWithErrorMessage("minItems", ~defaultMessage=message)}]
     }
   })
 }
@@ -6293,9 +6377,9 @@ let arrayMaxLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->internalRefine(mut => {
     mut.maxItems = Some(length)
-    getMutErrorMessages(~mut)->Js.Dict.set("maxItems", message)
+    getMutErrorMessage(~mut)->Js.Dict.set("maxItems", message)
     (~input as _) => {
-      [{cond: (~inputVar) => `${inputVar}.length<${(length + 1)->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
+      [{cond: (~inputVar) => `${inputVar}.length<${(length + 1)->X.Int.unsafeToString}`, fail: B.failWithErrorMessage("maxItems", ~defaultMessage=message)}]
     }
   })
 }
@@ -6309,11 +6393,11 @@ let arrayLength = (schema, length, ~message as maybeMessage=?) => {
   schema->internalRefine(mut => {
     mut.minItems = Some(length)
     mut.maxItems = Some(length)
-    let em = getMutErrorMessages(~mut)
+    let em = getMutErrorMessage(~mut)
     em->Js.Dict.set("minItems", message)
     em->Js.Dict.set("maxItems", message)
     (~input as _) => {
-      [{cond: (~inputVar) => `${inputVar}.length===${length->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
+      [{cond: (~inputVar) => `${inputVar}.length===${length->X.Int.unsafeToString}`, fail: B.failWithErrorMessage("minItems", ~defaultMessage=message)}]
     }
   })
 }
@@ -6326,9 +6410,9 @@ let stringMinLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->internalRefine(mut => {
     mut.minLength = Some(length)
-    getMutErrorMessages(~mut)->Js.Dict.set("minLength", message)
+    getMutErrorMessage(~mut)->Js.Dict.set("minLength", message)
     (~input as _) => {
-      [{cond: (~inputVar) => `${inputVar}.length>${(length - 1)->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
+      [{cond: (~inputVar) => `${inputVar}.length>${(length - 1)->X.Int.unsafeToString}`, fail: B.failWithErrorMessage("minLength", ~defaultMessage=message)}]
     }
   })
 }
@@ -6341,9 +6425,9 @@ let stringMaxLength = (schema, length, ~message as maybeMessage=?) => {
   }
   schema->internalRefine(mut => {
     mut.maxLength = Some(length)
-    getMutErrorMessages(~mut)->Js.Dict.set("maxLength", message)
+    getMutErrorMessage(~mut)->Js.Dict.set("maxLength", message)
     (~input as _) => {
-      [{cond: (~inputVar) => `${inputVar}.length<${(length + 1)->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
+      [{cond: (~inputVar) => `${inputVar}.length<${(length + 1)->X.Int.unsafeToString}`, fail: B.failWithErrorMessage("maxLength", ~defaultMessage=message)}]
     }
   })
 }
@@ -6357,72 +6441,20 @@ let stringLength = (schema, length, ~message as maybeMessage=?) => {
   schema->internalRefine(mut => {
     mut.minLength = Some(length)
     mut.maxLength = Some(length)
-    let em = getMutErrorMessages(~mut)
+    let em = getMutErrorMessage(~mut)
     em->Js.Dict.set("minLength", message)
     em->Js.Dict.set("maxLength", message)
     (~input as _) => {
-      [{cond: (~inputVar) => `${inputVar}.length===${length->X.Int.unsafeToString}`, fail: B.failCustom(message)}]
+      [{cond: (~inputVar) => `${inputVar}.length===${length->X.Int.unsafeToString}`, fail: B.failWithErrorMessage("minLength", ~defaultMessage=message)}]
     }
   })
 }
 
-let email = (schema, ~message=`Invalid email address`) => {
-  schema->addRefinement(
-    ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input) => {
-      [{cond: (~inputVar) => `${input->B.embed(String.emailRegex)}.test(${inputVar})`, fail: B.failCustom(message)}]
-    },
-    ~refinement={
-      kind: Email,
-      message,
-    },
-  )
-}
-
-let uuid = (schema, ~message=`Invalid UUID`) => {
-  schema->addRefinement(
-    ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input) => {
-      [{cond: (~inputVar) => `${input->B.embed(String.uuidRegex)}.test(${inputVar})`, fail: B.failCustom(message)}]
-    },
-    ~refinement={
-      kind: Uuid,
-      message,
-    },
-  )
-}
-
-let cuid = (schema, ~message=`Invalid CUID`) => {
-  schema->addRefinement(
-    ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input) => {
-      [{cond: (~inputVar) => `${input->B.embed(String.cuidRegex)}.test(${inputVar})`, fail: B.failCustom(message)}]
-    },
-    ~refinement={
-      kind: Cuid,
-      message,
-    },
-  )
-}
-
-let urlValidator: unknown = %raw(`s=>{try{new URL(s);return true}catch(_){return false}}`)
-let url = (schema, ~message=`Invalid url`) => {
-  schema->addRefinement(
-    ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input) => {
-      [{cond: (~inputVar) => `${input->B.embed(urlValidator)}(${inputVar})`, fail: B.failCustom(message)}]
-    },
-    ~refinement={
-      kind: Url,
-      message,
-    },
-  )
-}
-
 let pattern = (schema, re, ~message=`Invalid pattern`) => {
-  schema->addRefinement(
-    ~metadataId=String.Refinement.metadataId,
-    ~refiner=(~input) => {
+  schema->internalRefine(mut => {
+    mut.pattern = Some(re)
+    getMutErrorMessage(~mut)->Js.Dict.set("pattern", message)
+    (~input) => {
       let embededRe = input->B.embed(re)
       [{
         cond: (~inputVar) =>
@@ -6431,14 +6463,10 @@ let pattern = (schema, re, ~message=`Invalid pattern`) => {
           } else {
             `${embededRe}.test(${inputVar})`
           },
-        fail: B.failCustom(message),
+        fail: B.failWithErrorMessage("pattern", ~defaultMessage=message),
       }]
-    },
-    ~refinement={
-      kind: Pattern({re: re}),
-      message,
-    },
-  )
+    }
+  })
 }
 
 let trim = schema => {
@@ -6742,7 +6770,10 @@ module RescriptJSONSchema = {
         jsonSchema.type_ = Some(Arrayable.single(#string))
         switch format {
         | Some(DateTime) => jsonSchema.format = Some("date-time")
-        | Some(JSON) | None => ()
+        | Some(Email) => jsonSchema.format = Some("email")
+        | Some(Uuid) => jsonSchema.format = Some("uuid")
+        | Some(Url) => jsonSchema.format = Some("uri")
+        | Some(Cuid) | Some(JSON) | None => ()
         }
         let internal = schema->castToInternal
         switch internal.minLength {
@@ -6758,18 +6789,6 @@ module RescriptJSONSchema = {
           jsonSchema.pattern = Some((re->(Obj.magic: Js.Re.t => {..}))["source"])
         | None => ()
         }
-        schema
-        ->String.refinements
-        ->Js.Array2.forEach(refinement => {
-          switch refinement {
-          | {kind: Email} => jsonSchema.format = Some("email")
-          | {kind: Url} => jsonSchema.format = Some("uri")
-          | {kind: Uuid} => jsonSchema.format = Some("uuid")
-          | {kind: Cuid} => ()
-          | {kind: Pattern({re})} =>
-            jsonSchema.pattern = Some((re->(Obj.magic: Js.Re.t => {..}))["source"])
-          }
-        })
         switch const {
         | Some(value) => jsonSchema.const = Some(Js.Json.string(value))
         | None => ()
@@ -7189,12 +7208,25 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
         }),
       )
     | {type_} if type_ === JSONSchema.Arrayable.single(#string) =>
-      let schema = string->castToPublic
+      let schema = switch jsonSchema {
+      | {format: "email"} =>
+        enableEmail()
+        email->castToPublic
+      | {format: "uri"} =>
+        enableUrl()
+        url->castToPublic
+      | {format: "uuid"} =>
+        enableUuid()
+        uuid->castToPublic
+      | {format: "date-time"} =>
+        enableIsoDateTime()
+        isoDateTime->castToPublic
+      | _ => string->castToPublic
+      }
       let schema = switch jsonSchema {
       | {pattern: p} => schema->pattern(Js.Re.fromString(p))
       | _ => schema
       }
-
       let schema = switch jsonSchema {
       | {minLength} => schema->stringMinLength(minLength)
       | _ => schema
@@ -7203,15 +7235,7 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
       | {maxLength} => schema->stringMaxLength(maxLength)
       | _ => schema
       }
-      switch jsonSchema {
-      | {format: "email"} => schema->email->castAnySchemaToJsonableS
-      | {format: "uri"} => schema->url->castAnySchemaToJsonableS
-      | {format: "uuid"} => schema->uuid->castAnySchemaToJsonableS
-      | {format: "date-time"} =>
-        enableIsoDateTime()
-        isoDateTime->castToPublic->castAnySchemaToJsonableS
-      | _ => schema->castAnySchemaToJsonableS
-      }
+      schema->castAnySchemaToJsonableS
 
     | {type_} if type_ === JSONSchema.Arrayable.single(#integer) => jsonSchema->toIntSchema
     | {type_, format: "int64"} if type_ === JSONSchema.Arrayable.single(#number) =>
@@ -7321,6 +7345,11 @@ let json: t<Js.Json.t> = json->castToPublic
 let jsonString: t<string> = jsonString->castToPublic
 let uint8Array: t<Uint8Array.t> = uint8Array->castToPublic
 let isoDateTime: t<string> = isoDateTime->castToPublic
+let port: t<int> = port->castToPublic
+let email: t<string> = email->castToPublic
+let uuid: t<string> = uuid->castToPublic
+let cuid: t<string> = cuid->castToPublic
+let url: t<string> = url->castToPublic
 let bool: t<bool> = bool->castToPublic
 let symbol: t<Js.Types.symbol> = symbol->castToPublic
 let string: t<string> = string->castToPublic
