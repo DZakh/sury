@@ -1348,14 +1348,27 @@ module Builder = {
       let received = input.schema->castToPublic
       let path = input.path
       let expected = input.expected
-      value =>
-        makeInvalidInputDetails(
-          ~expected,
-          ~received,
-          ~path,
-          ~input=value,
-          ~includeInput=true,
-        )
+      let override = switch expected.errorMessage {
+      | Some(em) =>
+        let d: dict<string> = em->Obj.magic
+        switch d->X.Dict.getUnsafeOption("type") {
+        | Some(m) => Some(m)
+        | None => d->X.Dict.getUnsafeOption("_")
+        }
+      | None => None
+      }
+      switch override {
+      | Some(m) => _value => Custom({reason: m, path})
+      | None =>
+        value =>
+          makeInvalidInputDetails(
+            ~expected,
+            ~received,
+            ~path,
+            ~input=value,
+            ~includeInput=true,
+          )
+      }
     }
 
 
