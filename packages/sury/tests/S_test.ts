@@ -656,6 +656,8 @@ test("Test JSON Schema of int32", (t) => {
 
   t.deepEqual(S.toJSONSchema(schema), {
     type: "integer",
+    minimum: -2147483648,
+    maximum: 2147483647,
   });
 });
 
@@ -672,6 +674,8 @@ test("Test extended JSON Schema", (t) => {
     $ref: "Foo",
     readOnly: true,
     type: "integer",
+    minimum: -2147483648,
+    maximum: 2147483647,
   });
 });
 
