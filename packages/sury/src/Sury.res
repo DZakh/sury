@@ -1446,7 +1446,23 @@ module Builder = {
       }
     }
 
-    let merge = (val: val): string => {
+    // AND-joins every check's cond — caller guarantees `checks` is non-empty.
+    // Used by union codegen to hoist a val's checks into a dispatch discriminant.
+    let andJoinChecks = (checks: array<check>, ~inputVar: string): string => {
+      let result = ref((checks->Js.Array2.unsafe_get(0)).cond(~inputVar))
+      for i in 1 to checks->Js.Array2.length - 1 {
+        result :=
+          result.contents ++ "&&" ++ (checks->Js.Array2.unsafe_get(i)).cond(~inputVar)
+      }
+      result.contents
+    }
+
+    // Walks the val.prev chain and assembles generated code. When
+    // `~hoistCond` is provided (union codegen), checks eligible for lift
+    // are AND-joined into that ref as a dispatch discriminant instead of
+    // being emitted. All other callers pass no `~hoistCond` and get the
+    // plain merge: every non-`noValidation` check is emitted inline.
+    let merge = (val: val, ~hoistCond: option<ref<string>>=?): string => {
       let current = ref(Some(val))
       let code = ref("")
 
@@ -1456,9 +1472,30 @@ module Builder = {
 
         let currentCode = ref("")
 
-        if val.checks->X.Option.unsafeToBool && val.expected.noValidation !== Some(true) {
-          let prev = current.contents->X.Option.getUnsafe
-          currentCode := val->emitChecks(~inputVar=prev.var())
+        if val.checks->X.Option.unsafeToBool {
+          let isHoistable =
+            hoistCond !== None &&
+              (val.hasTransform === Some(true)
+                ? (val.prev->X.Option.getUnsafe).hasTransform !== Some(true) &&
+                    val.codeFromPrev === ""
+                : true)
+          if isHoistable {
+            // `noValidation` is intentionally bypassed here — the cond
+            // routes between union cases, it doesn't reject, so
+            // suppressing would break dispatch.
+            let cond = hoistCond->X.Option.getUnsafe
+            let prev = current.contents->X.Option.getUnsafe
+            let condCode =
+              val.checks->X.Option.getUnsafe->andJoinChecks(~inputVar=prev.var())
+            if cond.contents->X.String.unsafeToBool {
+              cond := `${condCode}&&${cond.contents}`
+            } else {
+              cond := condCode
+            }
+          } else if val.expected.noValidation !== Some(true) {
+            let prev = current.contents->X.Option.getUnsafe
+            currentCode := val->emitChecks(~inputVar=prev.var())
+          }
         }
 
         if val.varsAllocation !== "" {
@@ -1476,17 +1513,6 @@ module Builder = {
       }
 
       code.contents
-    }
-
-    // AND-joins every check's cond — caller guarantees `checks` is non-empty.
-    // Used by union codegen to hoist a val's checks into a dispatch discriminant.
-    let andJoinChecks = (checks: array<check>, ~inputVar: string): string => {
-      let result = ref((checks->Js.Array2.unsafe_get(0)).cond(~inputVar))
-      for i in 1 to checks->Js.Array2.length - 1 {
-        result :=
-          result.contents ++ "&&" ++ (checks->Js.Array2.unsafe_get(i)).cond(~inputVar)
-      }
-      result.contents
     }
 
     let next = (prev: val, initial: string, ~schema, ~expected=prev.expected): val => {
@@ -3670,53 +3696,7 @@ module Union = {
             let itemOutput = input->parse
             outputAnyOf->Js.Array2.push(itemOutput.schema->castToPublic)->ignore
 
-            // This is a copy of the S.merge function
-            let current = ref(Some(itemOutput))
-
-            while current.contents !== None {
-              let val = current.contents->X.Option.getUnsafe
-              current := val.prev
-
-              let currentCode = ref("")
-
-              if val.checks->X.Option.unsafeToBool {
-                if (
-                  val.hasTransform === Some(true)
-                    ? (val.prev->X.Option.getUnsafe).hasTransform !== Some(true) &&
-                        val.codeFromPrev === ""
-                    : true
-                ) {
-                  // Hoist as a dispatch discriminant. `noValidation` is
-                  // intentionally bypassed here — the cond routes between
-                  // cases, it doesn't reject, so suppressing breaks dispatch.
-                  let input = current.contents->X.Option.getUnsafe
-                  let inputVar = input.var()
-                  let condCode =
-                    val.checks->X.Option.getUnsafe->B.andJoinChecks(~inputVar)
-                  if itemCond.contents->X.String.unsafeToBool {
-                    itemCond := `${condCode}&&${itemCond.contents}`
-                  } else {
-                    itemCond := condCode
-                  }
-                } else if val.expected.noValidation !== Some(true) {
-                  let prev = current.contents->X.Option.getUnsafe
-                  currentCode := val->B.emitChecks(~inputVar=prev.var())
-                }
-              }
-
-              if val.varsAllocation !== "" {
-                currentCode := currentCode.contents ++ `let ${val.varsAllocation};`
-              }
-
-              // Delete allocate,
-              // this is used to handle Val.var
-              // linked to allocated scopes
-              let _ = %raw(`delete val.a`)
-
-              currentCode := val.codeFromPrev ++ currentCode.contents
-
-              itemCode := currentCode.contents ++ itemCode.contents
-            }
+            itemCode := itemOutput->B.merge(~hoistCond=itemCond)
 
             if itemOutput.hasTransform->X.Option.getUnsafe {
               output.hasTransform = Some(true)
@@ -4040,56 +4020,8 @@ module Union = {
 
           let itemsCode = getArrItemsCode(arr, ~isDeopt=false)
 
-          let blockCode = ref("")
           let blockCond = ref("")
-
-          // This is a copy of the S.merge function
-          let current = ref(Some(typeValidationOutput))
-
-          while current.contents !== None {
-            let val = current.contents->X.Option.getUnsafe
-            current := val.prev
-
-            let currentCode = ref("")
-
-            if val.checks->X.Option.unsafeToBool {
-              if (
-                val.hasTransform === Some(true)
-                  ? (val.prev->X.Option.getUnsafe).hasTransform !== Some(true) &&
-                      val.codeFromPrev === ""
-                  : true
-              ) {
-                // Same `noValidation` bypass as the other union-merge copy above.
-                let input = current.contents->X.Option.getUnsafe
-                let inputVar = input.var()
-                let condCode =
-                  val.checks->X.Option.getUnsafe->B.andJoinChecks(~inputVar)
-                if blockCond.contents->X.String.unsafeToBool {
-                  blockCond := `${condCode}&&${blockCond.contents}`
-                } else {
-                  blockCond := condCode
-                }
-              } else if val.expected.noValidation !== Some(true) {
-                let prev = current.contents->X.Option.getUnsafe
-                currentCode := val->B.emitChecks(~inputVar=prev.var())
-              }
-            }
-
-            if val.varsAllocation !== "" {
-              currentCode := currentCode.contents ++ `let ${val.varsAllocation};`
-            }
-
-            // Delete allocate,
-            // this is used to handle Val.var
-            // linked to allocated scopes
-            let _ = %raw(`delete val.a`)
-
-            currentCode := val.codeFromPrev ++ currentCode.contents
-
-            blockCode := currentCode.contents ++ blockCode.contents
-          }
-
-          let blockCode = blockCode.contents ++ itemsCode
+          let blockCode = typeValidationOutput->B.merge(~hoistCond=blockCond) ++ itemsCode
           let blockCond = blockCond.contents
 
           if blockCode->X.String.unsafeToBool || isPriority(firstSchema.tag->TagFlag.get, byKey) {
