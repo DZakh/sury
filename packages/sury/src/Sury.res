@@ -5608,7 +5608,7 @@ module Schema = {
           }
           input->B.invalidOperation(
             ~description={
-              `Missing input for ${targetSchema->reverse->castToPublic->toExpression}` ++
+              `Missing input for ${targetSchema->castToPublic->toExpression}` ++
               switch path {
               | "" => ""
               | _ => ` at ${path}`

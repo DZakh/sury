@@ -3531,7 +3531,7 @@ function getShapedSerializerOutput(input, acc, targetSchema, path) {
       let from = targetSchema.from;
       let path$1 = from !== undefined ? path + from.map(item => "[\"" + item + "\"]").join("") : path;
       let tmp$2 = path$1 === "" ? "" : " at " + path$1;
-      invalidOperation(input, "Missing input for " + toExpression(reverse(targetSchema)) + tmp$2);
+      invalidOperation(input, "Missing input for " + toExpression(targetSchema) + tmp$2);
     }
     return completeObjectVal(v$2);
   }
