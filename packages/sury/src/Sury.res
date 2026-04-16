@@ -1340,12 +1340,13 @@ module Builder = {
       // retain `input` — otherwise the compiled decoder's embed array would
       // pin the entire val chain (prev, global, schemas) for its lifetime.
       //
-      // FIXME: `input.schema` is the target schema for refine-chain vals
-      // (refine sets `~schema=prev.expected`), so `err.received` ends up
-      // equal to `err.expected` on a primitive type failure. Reason text is
-      // unaffected (it uses `input->stringify`) but programmatic consumers
-      // of `err.received` get the wrong schema.
-      let received = input.schema->castToPublic
+      // Use prev.schema when available: checks run against prev.var(), so the
+      // value's actual runtime type at check time is prev.schema, not the
+      // post-narrowing schema stored on the current val.
+      let received = switch input.prev {
+      | Some(p) => p.schema->castToPublic
+      | None => input.schema->castToPublic
+      }
       let path = input.path
       let expected = input.expected
       let override = switch expected.errorMessage {
@@ -1397,7 +1398,10 @@ module Builder = {
     // that splice errors into custom JS (e.g. `catch(_){${embedInvalidInput}}`),
     // not via the `check` pipeline.
     let embedInvalidInput = (~input: val, ~expected=input.expected) => {
-      let received = input.schema->castToPublic
+      let received = switch input.prev {
+      | Some(p) => p.schema->castToPublic
+      | None => input.schema->castToPublic
+      }
       let path = input.path
       input->failWithArg(
         value =>
