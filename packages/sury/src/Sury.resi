@@ -206,7 +206,7 @@ type rec t<'value> =
       examples?: array<dict<unknown>>,
       default?: dict<unknown>,
       errorMessage?: schemaErrorMessage,
-    }) // TODO: Add const for Object and Tuple
+    })
   | @as("union")
   Union({
       anyOf: array<t<unknown>>,

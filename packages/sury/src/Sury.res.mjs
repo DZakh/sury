@@ -4625,7 +4625,7 @@ function internalToJSONSchema(schema, path, defs, parent) {
           if (v$5 !== undefined) {
             jsonSchema.maxItems = v$5;
           }
-          
+
         }
         if (exit === 1) {
           let items = schema.items.map((itemSchema, idx) => {
@@ -4671,7 +4671,7 @@ function internalToJSONSchema(schema, path, defs, parent) {
           if (required.length !== 0) {
             jsonSchema.required = required;
           }
-          
+
         }
         break;
       case "union" :
