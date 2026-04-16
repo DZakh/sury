@@ -4611,11 +4611,7 @@ function internalToJSONSchema(schema, path, defs, parent) {
         break;
       case "array" :
         let additionalItems = schema.additionalItems;
-        let $$const$3 = schema.const;
         let exit = 0;
-        if ($$const$3 !== undefined) {
-          jsonSchema.const = $$const$3;
-        }
         if (additionalItems === "strip" || additionalItems === "strict") {
           exit = 1;
         } else {
@@ -4646,11 +4642,7 @@ function internalToJSONSchema(schema, path, defs, parent) {
       case "object" :
         let additionalItems$1 = schema.additionalItems;
         let properties = schema.properties;
-        let $$const$4 = schema.const;
         let exit$1 = 0;
-        if ($$const$4 !== undefined) {
-          jsonSchema.const = $$const$4;
-        }
         if (additionalItems$1 === "strip" || additionalItems$1 === "strict") {
           exit$1 = 1;
         } else {

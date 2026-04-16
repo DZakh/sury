@@ -425,7 +425,6 @@ type rec t<'value> =
       items: array<t<unknown>>,
       additionalItems: additionalItems,
       format?: arrayFormat,
-      const?: array<unknown>,
       name?: string,
       title?: string,
       description?: string,
@@ -441,7 +440,6 @@ type rec t<'value> =
       properties: dict<t<unknown>>,
       additionalItems: additionalItems,
       required?: array<string>,
-      const?: dict<unknown>,
       name?: string,
       title?: string,
       description?: string,
@@ -6784,11 +6782,7 @@ module RescriptJSONSchema = {
         | None => ()
         }
       }
-    | Array({additionalItems, items, ?const}) =>
-      switch const {
-      | Some(value) => jsonSchema.const = Some(value->(Obj.magic: array<unknown> => Js.Json.t))
-      | None => ()
-      }
+    | Array({additionalItems, items}) =>
       switch additionalItems {
       | Schema(childSchema) =>
         jsonSchema.items = Some(
@@ -6876,11 +6870,7 @@ module RescriptJSONSchema = {
           jsonSchema.anyOf = Some(items)
         }
       }
-    | Object({properties, additionalItems, ?const}) =>
-      switch const {
-      | Some(value) => jsonSchema.const = Some(value->(Obj.magic: dict<unknown> => Js.Json.t))
-      | None => ()
-      }
+    | Object({properties, additionalItems}) =>
       switch additionalItems {
       | Schema(childSchema) => {
           jsonSchema.type_ = Some(Arrayable.single(#object))
