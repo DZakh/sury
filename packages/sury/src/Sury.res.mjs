@@ -1953,6 +1953,7 @@ function recursiveDecoder(input) {
   }
   output.prev = undefined;
   output.cp = mergeWithPathPrepend(output, input, undefined, undefined);
+  output.a = initialAllocate;
   output.prev = input;
   return output;
 }

@@ -3170,6 +3170,9 @@ let recursiveDecoder = Builder.make((~input) => {
 
   output.prev = None
   output.codeFromPrev = output->B.mergeWithPathPrepend(~parent=input)
+  // Restore allocate after merge deleted it, since this val may be reused as
+  // input to a subsequent parser (e.g. S.transform on a recursive schema).
+  output.allocate = B.initialAllocate
   output.prev = Some(input)
 
   output
