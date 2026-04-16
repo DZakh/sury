@@ -184,6 +184,7 @@ type rec t<'value> =
       items: array<t<unknown>>,
       additionalItems: additionalItems,
       format?: arrayFormat,
+      const?: array<unknown>,
       name?: string,
       title?: string,
       description?: string,
@@ -199,6 +200,7 @@ type rec t<'value> =
       properties: dict<t<unknown>>,
       additionalItems: additionalItems,
       required?: array<string>,
+      const?: dict<unknown>,
       name?: string,
       title?: string,
       description?: string,
@@ -206,7 +208,7 @@ type rec t<'value> =
       examples?: array<dict<unknown>>,
       default?: dict<unknown>,
       errorMessage?: schemaErrorMessage,
-    }) // TODO: Add const for Object and Tuple
+    })
   | @as("union")
   Union({
       anyOf: array<t<unknown>>,
