@@ -843,6 +843,9 @@ function add(objectVal, location, val) {
     }
     objectVal.s.properties[location] = val.s;
   }
+  if (val.f & 1) {
+    val.v();
+  }
   objectVal.cp = objectVal.cp + merge(val, undefined);
   objectVal.d[location] = val;
 }
@@ -4625,7 +4628,7 @@ function internalToJSONSchema(schema, path, defs, parent) {
           if (v$5 !== undefined) {
             jsonSchema.maxItems = v$5;
           }
-
+          
         }
         if (exit === 1) {
           let items = schema.items.map((itemSchema, idx) => {
@@ -4671,7 +4674,7 @@ function internalToJSONSchema(schema, path, defs, parent) {
           if (required.length !== 0) {
             jsonSchema.required = required;
           }
-
+          
         }
         break;
       case "union" :
