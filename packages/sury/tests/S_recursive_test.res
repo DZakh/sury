@@ -98,11 +98,15 @@ test("Successfully serializes recursive object", t => {
     )
   })
 
+  let reversedDefs = (nodeSchema->S.reverse->S.untag).defs->Option.getUnsafe
+  let nodeSeq = (reversedDefs->Dict.getUnsafe("Node")->S.untag).seq->Float.toString
+  let recKey = `${nodeSeq}-${nodeSeq}--0`
   t->U.assertCompiledCode(
     ~schema=nodeSchema->S.reverse,
     ~op=#Convert,
-    `i=>{let v0=e[0](i);return v0}
-Node: i=>{let v0=i["children"],v5=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v4;try{let v3=e[0][0](v0[v1]);v4=v3}catch(v2){if(v2&&v2.s===s){v2.path="[\\"children\\"]"+'["'+v1+'"]'+v2.path}throw v2}v5[v1]=v4}return {"Id":i["id"],"Children":v5,}}`,
+    ~embedded=[("Node", 0)],
+    `i=>{let v0;v0=e[0](i);return v0}
+Node: i=>{let v0=i["children"];let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2;v2=e[0]["${recKey}"](v0[v1]);v4[v1]=v2}catch(v3){v3.path="[\\"children\\"]"+'["'+v1+'"]'+v3.path;throw v3}}return {"Id":i["id"],"Children":v4,}}`,
   )
 
   t->Assert.deepEqual(
@@ -267,11 +271,7 @@ test("Fails to serialise nested recursive object", t => {
         id: "1",
         children: [{id: "2", children: []}, {id: "3", children: [{id: "4", children: []}]}],
       }->S.decodeOrThrow(~from=nodeSchema, ~to=S.unknown),
-    `{
-      code: OperationFailed("Invalid id"),
-      operation: ReverseConvert,
-      path: S.Path.fromArray(["children", "1", "children", "0", "id"]),
-    }`,
+    `Failed at ["children"]["1"]["children"]["0"]["id"]: Invalid id`,
   )
 })
 
@@ -295,8 +295,8 @@ test(
     t->U.assertCompiledCode(
       ~schema=nodeSchema,
       ~op=#Parse,
-      `i=>{let v0=e[0](i);return v0}
-Node: i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["Id"],v1=i["Children"];if(typeof v0!=="string"){e[1](v0)}if(!Array.isArray(v1)){e[2](v1)}let v6=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v5;try{let v4=e[3][1](v1[v2]);v5=v4}catch(v3){if(v3&&v3.s===s){v3.path="[\\"Children\\"]"+'["'+v2+'"]'+v3.path}throw v3}v6[v2]=v5}return e[4]({"id":v0,"children":v6,})}`,
+      `i=>{let v0;v0=e[0](i);return v0}
+Node: i=>{typeof i==="object"&&i||e[5](i);let v0=i["Id"],v1=i["Children"];typeof v0==="string"||e[0](v0);Array.isArray(v1)||e[2](v1);let v5=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){try{let v3;v3=e[1]["unknown->Node--0"](v1[v2]);v5[v2]=v3}catch(v4){v4.path="[\\"Children\\"]"+'["'+v2+'"]'+v4.path;throw v4}}let v6;try{v6=e[3]({"id":v0,"children":v5,})}catch(x){e[4](x)}return v6}`,
     )
     t->Assert.deepEqual(
       {
@@ -318,8 +318,9 @@ Node: i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["Id"],v1=i["Children"];if
     t->U.assertCompiledCode(
       ~schema=nodeSchema,
       ~op=#ReverseConvert,
-      `i=>{let v0=e[0](i);return v0}
-Node: i=>{let v0=e[0](i);let v1=v0["children"],v6=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){let v5;try{let v4=e[1][0](v1[v2]);v5=v4}catch(v3){if(v3&&v3.s===s){v3.path="[\\"children\\"]"+'["'+v2+'"]'+v3.path}throw v3}v6[v2]=v5}return {"Id":v0["id"],"Children":v6,}}`,
+      ~embedded=[("Node", 0)],
+      `i=>{let v0;v0=e[0](i);return v0}
+Node: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="object"&&v0||e[5](v0);let v1=v0["id"],v2=v0["children"];typeof v1==="string"||e[2](v1);Array.isArray(v2)||e[4](v2);let v6=new Array(v2.length);for(let v3=0;v3<v2.length;++v3){try{let v4;v4=e[3](v2[v3]);v6[v3]=v4}catch(v5){v5.path="[\\"children\\"]"+'["'+v3+'"]'+v5.path;throw v5}}return {"Id":v1,"Children":v6,}}`,
     )
     t->Assert.deepEqual(
       {
