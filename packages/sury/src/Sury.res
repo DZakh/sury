@@ -1640,6 +1640,13 @@ module Builder = {
             objectVal.schema.properties->X.Option.getUnsafe->Stdlib.Dict.set(location, val.schema)
           }
 
+          // Async field values must be reachable as a plain identifier so
+          // the accumulator in completeObjectVal can use val.inline as a
+          // destructuring/reference target. For e.g. array-of-async, the
+          // asyncVal's inline is a Promise.all(...) expression, not a var.
+          if val.flag->Flag.unsafeHas(ValFlag.async) {
+            let _ = val.var()
+          }
           objectVal.codeFromPrev = objectVal.codeFromPrev ++ val->merge
           objectVal.vals->X.Option.getUnsafe->Js.Dict.set(location, val)
         }
