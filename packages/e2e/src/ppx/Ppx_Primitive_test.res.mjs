@@ -89,21 +89,33 @@ Ava("Big tuple schema", t => U.assertEqualSchemas(t, myBigTupleSchema, S.schema(
   s.m(S.bool)
 ]), undefined));
 
-let myCustomStringSchema = S.email(S.string, undefined);
+let myCustomStringSchema = S.meta(S.string, {
+  description: "email"
+});
 
-Ava("Custom string schema", t => U.assertEqualSchemas(t, myCustomStringSchema, S.email(S.string, undefined), undefined));
+Ava("Custom string schema", t => U.assertEqualSchemas(t, myCustomStringSchema, S.meta(S.string, {
+  description: "email"
+}), undefined));
 
-let myCustomLiteralStringSchema = S.email(S.literal("123"), undefined);
+let myCustomLiteralStringSchema = S.meta(S.literal("123"), {
+  description: "email"
+});
 
-Ava("Custom litaral string schema", t => U.assertEqualSchemas(t, myCustomLiteralStringSchema, S.email(S.literal("123"), undefined), undefined));
+Ava("Custom litaral string schema", t => U.assertEqualSchemas(t, myCustomLiteralStringSchema, S.meta(S.literal("123"), {
+  description: "email"
+}), undefined));
 
-let myCustomOptionalStringSchema = S.option(S.email(S.string, undefined));
+let myCustomOptionalStringSchema = S.option(S.meta(S.string, {
+  description: "email"
+}));
 
-Ava("Custom optional string schema", t => U.assertEqualSchemas(t, myCustomOptionalStringSchema, S.option(S.email(S.string, undefined)), undefined));
+Ava("Custom optional string schema", t => U.assertEqualSchemas(t, myCustomOptionalStringSchema, S.option(S.meta(S.string, {
+  description: "email"
+})), undefined));
 
-let myNullOfStringSchema = S.$$null(S.string);
+let myNullOfStringSchema = S.nullAsOption(S.string);
 
-Ava("Null of string schema", t => U.assertEqualSchemas(t, myNullOfStringSchema, S.$$null(S.string), undefined));
+Ava("Null of string schema", t => U.assertEqualSchemas(t, myNullOfStringSchema, S.nullAsOption(S.string), undefined));
 
 let myStringSchema = S.string;
 

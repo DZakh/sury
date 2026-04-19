@@ -130,21 +130,27 @@ test("Big tuple schema", t => {
 })
 
 @schema
-type myCustomString = @s.matches(S.string->S.email) string
+type myCustomString = @s.matches(S.string->S.meta({description: "email"})) string
 test("Custom string schema", t => {
-  t->assertEqualSchemas(myCustomStringSchema, S.string->S.email)
+  t->assertEqualSchemas(myCustomStringSchema, S.string->S.meta({description: "email"}))
 })
 
 @schema
-type myCustomLiteralString = @s.matches(S.literal("123")->S.email) string
+type myCustomLiteralString = @s.matches(S.literal("123")->S.meta({description: "email"})) string
 test("Custom litaral string schema", t => {
-  t->assertEqualSchemas(myCustomLiteralStringSchema, S.literal("123")->S.email)
+  t->assertEqualSchemas(
+    myCustomLiteralStringSchema,
+    S.literal("123")->S.meta({description: "email"}),
+  )
 })
 
 @schema
-type myCustomOptionalString = option<@s.matches(S.string->S.email) string>
+type myCustomOptionalString = option<@s.matches(S.string->S.meta({description: "email"})) string>
 test("Custom optional string schema", t => {
-  t->assertEqualSchemas(myCustomOptionalStringSchema, S.string->S.email->S.option)
+  t->assertEqualSchemas(
+    myCustomOptionalStringSchema,
+    S.string->S.meta({description: "email"})->S.option,
+  )
 })
 
 // @schema

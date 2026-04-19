@@ -26,13 +26,13 @@ let stringWithDefaultSchema = S.Option.getOr(S.option(S.string), "Foo");
 
 Ava("Creates schema with default", t => U.assertEqualSchemas(t, stringWithDefaultSchema, S.Option.getOr(S.option(S.string), "Foo"), undefined));
 
-let stringWithDefaultAndMatchesSchema = S.Option.getOr(S.option(S.url(S.string, undefined)), "Foo");
+let stringWithDefaultAndMatchesSchema = S.Option.getOr(S.option(S.meta(S.string, {
+  description: "url"
+})), "Foo");
 
-Ava("Creates schema with default using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultAndMatchesSchema, S.Option.getOr(S.option(S.url(S.string, undefined)), "Foo"), undefined));
-
-let stringWithDefaultNullAndMatchesSchema = S.Option.getOr(S.$$null(S.url(S.string, undefined)), "Foo");
-
-Ava("Creates schema with default null using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultNullAndMatchesSchema, S.Option.getOr(S.$$null(S.url(S.string, undefined)), "Foo"), undefined));
+Ava("Creates schema with default using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultAndMatchesSchema, S.Option.getOr(S.option(S.meta(S.string, {
+  description: "url"
+})), "Foo"), undefined));
 
 let ignoredNullWithMatchesSchema = S.option(S.string);
 

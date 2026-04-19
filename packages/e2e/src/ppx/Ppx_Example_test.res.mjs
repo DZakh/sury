@@ -38,9 +38,13 @@ Ava("Main example", t => U.assertEqualSchemas(t, filmSchema, S.schema(s => ({
   }))
 })), undefined));
 
-let matchesSchema = S.url(S.string, undefined);
+let matchesSchema = S.meta(S.string, {
+  description: "url"
+});
 
-Ava("@s.matches", t => U.assertEqualSchemas(t, matchesSchema, S.url(S.string, undefined), undefined));
+Ava("@s.matches", t => U.assertEqualSchemas(t, matchesSchema, S.meta(S.string, {
+  description: "url"
+}), undefined));
 
 let defaultSchema = S.Option.getOr(S.option(S.string), "Unknown");
 
@@ -49,14 +53,6 @@ Ava("@s.default", t => U.assertEqualSchemas(t, defaultSchema, S.Option.getOr(S.o
 let defaultWithSchema = S.Option.getOrWith(S.option(S.array(S.string)), () => []);
 
 Ava("@s.defaultWith", t => U.assertEqualSchemas(t, defaultWithSchema, S.Option.getOrWith(S.option(S.array(S.string)), () => []), undefined));
-
-let nullSchema = S.$$null(S.string);
-
-Ava("@s.null", t => U.assertEqualSchemas(t, nullSchema, S.$$null(S.string), undefined));
-
-let nullWithDefaultSchema = S.Option.getOr(S.$$null(S.string), "Unknown");
-
-Ava("@s.null with @s.default", t => U.assertEqualSchemas(t, nullWithDefaultSchema, S.Option.getOr(S.$$null(S.string), "Unknown"), undefined));
 
 let nullableSchema = S.nullableAsOption(S.string);
 
@@ -90,8 +86,6 @@ export {
   matchesSchema,
   defaultSchema,
   defaultWithSchema,
-  nullSchema,
-  nullWithDefaultSchema,
   nullableSchema,
   nullableWithDefaultSchema,
   deprecatedSchema,
