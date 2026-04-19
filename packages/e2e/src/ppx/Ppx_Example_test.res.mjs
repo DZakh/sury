@@ -4,6 +4,8 @@ import * as S from "sury/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
 import Ava from "ava";
 
+S.enableUrl();
+
 let ratingSchema = S.union([
   S.literal("G"),
   S.literal("PG"),
@@ -38,13 +40,7 @@ Ava("Main example", t => U.assertEqualSchemas(t, filmSchema, S.schema(s => ({
   }))
 })), undefined));
 
-let matchesSchema = S.meta(S.string, {
-  description: "url"
-});
-
-Ava("@s.matches", t => U.assertEqualSchemas(t, matchesSchema, S.meta(S.string, {
-  description: "url"
-}), undefined));
+Ava("@s.matches", t => U.assertEqualSchemas(t, S.url, S.url, undefined));
 
 let defaultSchema = S.Option.getOr(S.option(S.string), "Unknown");
 
@@ -80,6 +76,8 @@ Ava("@s.description", t => U.assertEqualSchemas(t, describeSchema, S.meta(S.stri
   description: "A useful bit of text, if you know what to do with it."
 }), undefined));
 
+let matchesSchema = S.url;
+
 export {
   ratingSchema,
   filmSchema,
@@ -91,4 +89,4 @@ export {
   deprecatedSchema,
   describeSchema,
 }
-/* ratingSchema Not a pure module */
+/*  Not a pure module */

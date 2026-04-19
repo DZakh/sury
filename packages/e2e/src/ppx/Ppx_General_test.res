@@ -1,6 +1,8 @@
 open Ava
 open U
 
+S.enableUrl()
+
 @schema
 type t = string
 test("Creates schema with the name schema from t type", t => {
@@ -33,12 +35,11 @@ test("Creates schema with default", t => {
 })
 
 @schema
-type stringWithDefaultAndMatches = @s.default("Foo")
-@s.matches(S.string->S.meta({description: "url"})) string
+type stringWithDefaultAndMatches = @s.default("Foo") @s.matches(S.url) string
 test("Creates schema with default using @s.matches", t => {
   t->assertEqualSchemas(
     stringWithDefaultAndMatchesSchema,
-    S.option(S.string->S.meta({description: "url"}))->S.Option.getOr("Foo"),
+    S.option(S.url)->S.Option.getOr("Foo"),
   )
 })
 
