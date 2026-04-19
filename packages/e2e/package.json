@@ -17,7 +17,7 @@
     ]
   },
   "dependencies": {
-    "rescript": "12.0.0-beta.5",
+    "rescript": "12.2.0",
     "@dzakh/rescript-ava": "3.1.0",
     "ava": "5.2.0",
     "benchmark": "2.1.4",
