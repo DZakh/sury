@@ -3866,16 +3866,47 @@ module Union = {
       let keys = ref([])
       let updatedSchemas = []
       for idx in 0 to lastIdx {
+        let inputCase = schemas->Js.Array2.unsafe_get(idx)
         let schema = switch toPerCase {
+        | Some(target) if target.tag === unionTag && target.to === None =>
+          // Special case: .to is a plain union. Don't propagate the whole
+          // target into each case (that would trigger cross-case coercion
+          // via the target's own decoders). Instead, find a target case
+          // that accepts this input case and only route through that one.
+          let targetAnyOf = target.anyOf->X.Option.getUnsafe
+          let matched = ref(None)
+          let i = ref(0)
+          let len = targetAnyOf->Js.Array2.length
+          while matched.contents === None && i.contents < len {
+            let tc = targetAnyOf->Js.Array2.unsafe_get(i.contents)
+            if tc.tag === inputCase.tag && tc.const === inputCase.const {
+              matched := Some(tc)
+            }
+            i := i.contents + 1
+          }
+          switch matched.contents {
+          | Some(targetCase)
+            if targetCase.to === None &&
+            targetCase.refiner === None &&
+            targetCase.inputRefiner === None &&
+            targetCase.parser === None =>
+            // Trivial passthrough.
+            inputCase
+          | Some(targetCase) =>
+            updateOutput(inputCase, mut => {
+              mut.to = Some(targetCase)
+            })->castToInternal
+          | None => input->B.unsupportedDecode(~from=inputCase, ~target)
+          }
         | Some(target) =>
-          updateOutput(schemas->Js.Array2.unsafe_get(idx), mut => {
+          updateOutput(inputCase, mut => {
             // switch selfSchema.refiner {
             // | Some(refiner) => mut.refiner = Some(appendRefiner(mut.refiner, refiner))
             // | None => ()
             // }
             mut.to = Some(target)
           })->castToInternal
-        | _ => schemas->Js.Array2.unsafe_get(idx)
+        | _ => inputCase
         }
         updatedSchemas->Js.Array2.push(schema)->ignore
         let tag = schema.tag
