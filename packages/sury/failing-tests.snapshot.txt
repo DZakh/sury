@@ -3,7 +3,7 @@
 # To reproduce this list after making changes, run:
 #   cd packages/sury && npx ava 2>&1 | grep "✘ \[fail\]" | sed 's/lib › bs › //' | sed 's/tests › //' | sed 's/ Error thrown in test//' | sort -u
 #
-# Total: 17 failing tests
+# Total: 11 failing tests
 
   ✘ [fail]: S_noValidation_test.res › Union dispatch still works when a case has noValidation
   ✘ [fail]: S_object_discriminant_test.res › Fails to serialize object with discriminant that we don't know how to serialize "true | null"
@@ -16,9 +16,3 @@
   ✘ [fail]: S_to_test.res › Coerce from union to wider union should keep the original value type
   ✘ [fail]: S_to_test.res › Coerce string to custom JSON schema I don't know what we expect here, but currently it works this way
   ✘ [fail]: S_to_test.res › Transform from union to wider union with different items order (applies decoder to both one at a time)
-  ✘ [fail]: S_union_test.res › Compiled serialize code snapshot of crazy union
-  ✘ [fail]: S_union_test.res › Ensures parsing order with unknown schema
-  ✘ [fail]: S_union_test.res › NaN should be checked before number even if it's later item in the union
-  ✘ [fail]: S_union_test.res › Serializes when second struct misses serializer
-  ✘ [fail]: S_union_test.res › Union of strings with different refinements
-  ✘ [fail]: S_union_test.res › json-rpc response
