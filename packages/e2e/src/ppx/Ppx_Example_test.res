@@ -68,9 +68,9 @@ test("@s.defaultWith", t => {
 })
 
 @schema
-type nullType = @s.null option<string>
+type null = @s.null option<string>
 test("@s.null", t => {
-  t->assertEqualSchemas(nullTypeSchema, S.nullAsOption(S.string))
+  t->assertEqualSchemas(nullSchema, S.nullAsOption(S.string))
 })
 
 @schema
