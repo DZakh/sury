@@ -50,6 +50,14 @@ let defaultWithSchema = S.Option.getOrWith(S.option(S.array(S.string)), () => []
 
 Ava("@s.defaultWith", t => U.assertEqualSchemas(t, defaultWithSchema, S.Option.getOrWith(S.option(S.array(S.string)), () => []), undefined));
 
+let nullTypeSchema = S.nullAsOption(S.string);
+
+Ava("@s.null", t => U.assertEqualSchemas(t, nullTypeSchema, S.nullAsOption(S.string), undefined));
+
+let nullWithDefaultSchema = S.Option.getOr(S.nullAsOption(S.string), "Unknown");
+
+Ava("@s.null with @s.default", t => U.assertEqualSchemas(t, nullWithDefaultSchema, S.Option.getOr(S.nullAsOption(S.string), "Unknown"), undefined));
+
 let nullableSchema = S.nullableAsOption(S.string);
 
 Ava("@s.nullable", t => U.assertEqualSchemas(t, nullableSchema, S.nullableAsOption(S.string), undefined));
@@ -84,6 +92,8 @@ export {
   matchesSchema,
   defaultSchema,
   defaultWithSchema,
+  nullTypeSchema,
+  nullWithDefaultSchema,
   nullableSchema,
   nullableWithDefaultSchema,
   deprecatedSchema,

@@ -67,20 +67,17 @@ test("@s.defaultWith", t => {
   )
 })
 
-// TODO: @s.null PPX emits S.null (now S.t<null<'a>>) but these tests were
-// written against the old API where S.null returned S.t<option<'a>>.
-// Re-enable once the sury-ppx output is updated.
-// @schema
-// type null = @s.null option<string>
-// test("@s.null", t => {
-//   t->assertEqualSchemas(nullSchema, S.nullAsOption(S.string))
-// })
-//
-// @schema
-// type nullWithDefault = @s.null @s.default("Unknown") string
-// test("@s.null with @s.default", t => {
-//   t->assertEqualSchemas(nullWithDefaultSchema, S.nullAsOption(S.string)->S.Option.getOr("Unknown"))
-// })
+@schema
+type nullType = @s.null option<string>
+test("@s.null", t => {
+  t->assertEqualSchemas(nullTypeSchema, S.nullAsOption(S.string))
+})
+
+@schema
+type nullWithDefault = @s.null @s.default("Unknown") string
+test("@s.null with @s.default", t => {
+  t->assertEqualSchemas(nullWithDefaultSchema, S.nullAsOption(S.string)->S.Option.getOr("Unknown"))
+})
 
 @schema
 type nullable = @s.nullable option<string>

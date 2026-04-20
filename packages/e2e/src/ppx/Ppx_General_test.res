@@ -43,17 +43,14 @@ test("Creates schema with default using @s.matches", t => {
   )
 })
 
-// TODO: @s.null PPX emits S.null (now S.t<null<'a>>) which no longer unifies
-// with option. Re-enable once the sury-ppx output is updated.
-// @schema
-// type stringWithDefaultNullAndMatches = @s.default("Foo") @s.null
-// @s.matches(S.string->S.meta({description: "url"})) string
-// test("Creates schema with default null using @s.matches", t => {
-//   t->assertEqualSchemas(
-//     stringWithDefaultNullAndMatchesSchema,
-//     S.nullAsOption(S.string->S.meta({description: "url"}))->S.Option.getOr("Foo"),
-//   )
-// })
+@schema
+type stringWithDefaultNullAndMatches = @s.default("Foo") @s.null @s.matches(S.url) string
+test("Creates schema with default null using @s.matches", t => {
+  t->assertEqualSchemas(
+    stringWithDefaultNullAndMatchesSchema,
+    S.nullAsOption(S.url)->S.Option.getOr("Foo"),
+  )
+})
 
 @schema
 type ignoredNullWithMatches = @s.null @s.matches(S.option(S.string)) option<string>

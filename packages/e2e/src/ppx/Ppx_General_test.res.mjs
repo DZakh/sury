@@ -32,6 +32,10 @@ let stringWithDefaultAndMatchesSchema = S.Option.getOr(S.option(S.url), "Foo");
 
 Ava("Creates schema with default using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultAndMatchesSchema, S.Option.getOr(S.option(S.url), "Foo"), undefined));
 
+let stringWithDefaultNullAndMatchesSchema = S.Option.getOr(S.nullAsOption(S.url), "Foo");
+
+Ava("Creates schema with default null using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultNullAndMatchesSchema, S.Option.getOr(S.nullAsOption(S.url), "Foo"), undefined));
+
 let ignoredNullWithMatchesSchema = S.option(S.string);
 
 Ava("@s.null doesn't override @s.matches(S.option(_))", t => U.assertEqualSchemas(t, ignoredNullWithMatchesSchema, S.option(S.string), undefined));
