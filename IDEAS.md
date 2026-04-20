@@ -37,6 +37,37 @@
 - Added typed `SchemaErrorMessage` type with fields for each constraint key (`format`, `type`, `minimum`, `maximum`, `minLength`, `maxLength`, `minItems`, `maxItems`, `pattern`, `_`).
 - Renamed `errorMessages` → `errorMessage` (singular) on schema types.
 
+### Union coercion
+
+When compiling `sourceUnion -> targetUnion` (via `S.to` or reversal), dispatch per source variant uses a three-tier algorithm:
+
+1. **Same-tag group.** Collect target variants sharing the source variant's tag. If non-empty, dispatch only within this group: target variants with a matching `const`/`format` (string literals, `Int32`, etc.) are attempted first in target-union order, then remaining catch-all same-tag variants in target-union order. Variants with a different tag are never tried from here — if all branches in the group fail, the dispatch errors.
+2. **Nullish bridge.** Applied only when tier 1's group is empty. If the source tag is `null` or `undefined`, use the opposite nullish target variant if present, exclusively.
+3. **Fallback.** Applied only when tiers 1 and 2 are both empty. Attempt to build a decoder for every target variant in target-union order (current try/catch fallthrough). This is where cross-type coercions live: `number`/`bigint` → `string` via `""+i`, `string` → `number` via `+i`, `string` → `bigint` via `BigInt(i)`, stringified-const matches like `"null" → null`, etc.
+
+Worked example — `S.union([S.bigint, S.float, S.nullLiteral])->S.to(S.union([S.string, S.unit]))`:
+
+Forward:
+
+- `123n` → `"123"` (tier 3: bigint → string)
+- `123.12` → `"123.12"` (tier 3: float → string)
+- `null` → `undefined` (tier 2: nullish bridge)
+
+Reverse:
+
+- `"null"` → `null` (tier 3: stringified-const literal match)
+- `undefined` → `null` (tier 2: nullish bridge)
+- `"123"` → `123n` (tier 3: bigint attempted first by target order; parse succeeds)
+- `"123.12"` → `123.12` (tier 3: bigint parse throws, falls through to float)
+- `"abc"` → error (tier 3: no variant's decoder succeeds)
+
+Identity is strictly preferred over available coercion. For `S.union([S.string, S.bigint])->S.to(S.union([S.float, S.string]))`:
+
+- `"123"` → `"123"` (tier 1: `string` matches `string`, never coerced to `float` even though a `float` target exists)
+- `123n` → `"123"` (tier 3: no `bigint` target, falls through to the `string` variant via `""+i`)
+
+To opt into `string → float` when a `string` target also exists, the user writes the transform into a variant explicitly: `S.union([S.string->S.to(S.float), S.string])` as the target. The transform variant is const/format-refined relative to the catch-all `string` and dispatches first within tier 1.
+
 ### TS
 
 - `S.parseOrThrow` -> `S.parser(schema)(data)`
