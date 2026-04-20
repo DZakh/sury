@@ -39,9 +39,9 @@
 
 ### Union coercion
 
-When compiling `sourceUnion -> targetUnion` (via `S.to` or reversal), matching per source variant uses a three-tier algorithm:
+When compiling `source -> targetUnion` (via `S.to` or reversal), matching uses a three-tier algorithm based on the source's tag. When the source is itself a union, the algorithm is applied independently for each source variant.
 
-1. **Same-tag group.** Collect target variants sharing the source variant's tag. If non-empty, match only within this group: target variants with a matching `const`/`format` (string literals, `Int32`, etc.) are attempted first in target-union order, then remaining catch-all same-tag variants in target-union order. Variants with a different tag are never tried from here — if all branches in the group fail, the match errors.
+1. **Same-tag group.** Collect target variants sharing the source's tag. If non-empty, match only within this group: target variants with a matching `const`/`format` (string literals, `Int32`, etc.) are attempted first in target-union order, then remaining catch-all same-tag variants in target-union order. Variants with a different tag are never tried from here — if all branches in the group fail, the match errors.
 2. **Nullish bridge.** Applied only when tier 1's group is empty. If the source tag is `null` or `undefined`, use the opposite nullish target variant if present, exclusively.
 3. **Fallback.** Applied only when tiers 1 and 2 are both empty. Attempt to build a decoder for every target variant in target-union order (current try/catch fallthrough). This is where cross-type coercions live: `number`/`bigint` → `string` via `""+i`, `string` → `number` via `+i`, `string` → `bigint` via `BigInt(i)`, stringified-const matches like `"null" → null`, etc.
 
