@@ -136,6 +136,7 @@ packages:
   '@rescript/darwin-arm64@12.0.0-beta.5':
     resolution: {integrity: sha512-hIy6TQKTzy3SdP3nGAzOc1fqb2Va5ejrn5RCZu6Scst9qH4uZ+chMS4Vv+yac1tD9bkTeixeXGj98NlLgukAvw==}
     engines: {node: '>=20.11.0'}
+    cpu: [arm64]
     os: [darwin]
 
   '@rescript/darwin-x64@12.0.0-beta.5':

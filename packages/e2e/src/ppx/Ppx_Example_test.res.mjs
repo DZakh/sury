@@ -4,6 +4,8 @@ import * as S from "sury/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
 import Ava from "ava";
 
+S.enableUrl();
+
 let ratingSchema = S.union([
   S.literal("G"),
   S.literal("PG"),
@@ -38,9 +40,7 @@ Ava("Main example", t => U.assertEqualSchemas(t, filmSchema, S.schema(s => ({
   }))
 })), undefined));
 
-let matchesSchema = S.url(S.string, undefined);
-
-Ava("@s.matches", t => U.assertEqualSchemas(t, matchesSchema, S.url(S.string, undefined), undefined));
+Ava("@s.matches", t => U.assertEqualSchemas(t, S.url, S.url, undefined));
 
 let defaultSchema = S.Option.getOr(S.option(S.string), "Unknown");
 
@@ -50,13 +50,13 @@ let defaultWithSchema = S.Option.getOrWith(S.option(S.array(S.string)), () => []
 
 Ava("@s.defaultWith", t => U.assertEqualSchemas(t, defaultWithSchema, S.Option.getOrWith(S.option(S.array(S.string)), () => []), undefined));
 
-let nullSchema = S.$$null(S.string);
+let nullSchema = S.nullAsOption(S.string);
 
-Ava("@s.null", t => U.assertEqualSchemas(t, nullSchema, S.$$null(S.string), undefined));
+Ava("@s.null", t => U.assertEqualSchemas(t, nullSchema, S.nullAsOption(S.string), undefined));
 
-let nullWithDefaultSchema = S.Option.getOr(S.$$null(S.string), "Unknown");
+let nullWithDefaultSchema = S.Option.getOr(S.nullAsOption(S.string), "Unknown");
 
-Ava("@s.null with @s.default", t => U.assertEqualSchemas(t, nullWithDefaultSchema, S.Option.getOr(S.$$null(S.string), "Unknown"), undefined));
+Ava("@s.null with @s.default", t => U.assertEqualSchemas(t, nullWithDefaultSchema, S.Option.getOr(S.nullAsOption(S.string), "Unknown"), undefined));
 
 let nullableSchema = S.nullableAsOption(S.string);
 
@@ -84,6 +84,8 @@ Ava("@s.description", t => U.assertEqualSchemas(t, describeSchema, S.meta(S.stri
   description: "A useful bit of text, if you know what to do with it."
 }), undefined));
 
+let matchesSchema = S.url;
+
 export {
   ratingSchema,
   filmSchema,
@@ -97,4 +99,4 @@ export {
   deprecatedSchema,
   describeSchema,
 }
-/* ratingSchema Not a pure module */
+/*  Not a pure module */

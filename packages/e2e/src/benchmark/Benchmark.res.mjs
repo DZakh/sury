@@ -132,13 +132,13 @@ let testData2 = {
 
 function test() {
   console.time("testData1 serialize");
-  let json = S.reverseConvertOrThrow(testData1, schema);
+  let json = S.decodeOrThrow(testData1, schema, S.unknown);
   console.timeEnd("testData1 serialize");
   console.time("testData1 parse");
   S.parseOrThrow(json, schema);
   console.timeEnd("testData1 parse");
   console.time("testData2 serialize");
-  let json$1 = S.reverseConvertOrThrow(testData2, schema);
+  let json$1 = S.decodeOrThrow(testData2, schema, S.unknown);
   console.timeEnd("testData2 serialize");
   console.time("testData2 parse");
   S.parseOrThrow(json$1, schema);
@@ -175,28 +175,29 @@ console.timeEnd("parseOrThrow: 3");
 
 console.time("serializeWith: 1");
 
-S.reverseConvertOrThrow(data, schema$1);
+S.decodeOrThrow(data, schema$1, S.unknown);
 
 console.timeEnd("serializeWith: 1");
 
 console.time("serializeWith: 2");
 
-S.reverseConvertOrThrow(data, schema$1);
+S.decodeOrThrow(data, schema$1, S.unknown);
 
 console.timeEnd("serializeWith: 2");
 
 console.time("serializeWith: 3");
 
-S.reverseConvertOrThrow(data, schema$1);
+S.decodeOrThrow(data, schema$1, S.unknown);
 
 console.timeEnd("serializeWith: 3");
 
 console.time("S.Error.make");
 
-S.ErrorClass.constructor({
-  TAG: "OperationFailed",
-  _0: "Should be positive"
-}, S.Flag.typeValidation, S.Path.empty);
+S.$$Error.make({
+  code: "invalid_operation",
+  path: S.Path.empty,
+  reason: "Should be positive"
+});
 
 console.timeEnd("S.Error.make");
 
@@ -225,16 +226,16 @@ run(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(a
   let data = makeTestObject();
   return () => {
     let schema = makeObjectSchema();
-    return S.reverseConvertOrThrow(data, schema);
+    return S.decodeOrThrow(data, schema, S.unknown);
   };
 }), "S.schema - reverse convert", () => {
   let schema = makeObjectSchema();
   let data = makeTestObject();
-  return () => S.reverseConvertOrThrow(data, schema);
+  return () => S.decodeOrThrow(data, schema, S.unknown);
 }), "S.schema - reverse convert (compiled)", () => {
   let schema = makeObjectSchema();
   let data = makeTestObject();
-  let fn = S.compile(schema, "Output", "Input", "Sync", false);
+  let fn = S.decoder(schema, S.unknown);
   return () => fn(data);
 }), "S.schema - assert", () => {
   let schema = makeObjectSchema();
@@ -243,7 +244,7 @@ run(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(a
 }), "S.schema - assert (compiled)", () => {
   let schema = makeObjectSchema();
   let data = makeTestObject();
-  let assertFn = S.compile(schema, "Any", "Assert", "Sync", true);
+  let assertFn = S.decoder(S.unknown, S.to(schema, S.noValidation(S.literal(), true)));
   return () => assertFn(data);
 }), "S.schema - assert strict", () => {
   S.global({
@@ -270,12 +271,12 @@ run(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(a
   let data = makeTestObject();
   return () => {
     let schema = makeAdvancedObjectSchema();
-    return S.reverseConvertOrThrow(data, schema);
+    return S.decodeOrThrow(data, schema, S.unknown);
   };
 }), "S.object - reverse convert", () => {
   let schema = makeAdvancedObjectSchema();
   let data = makeTestObject();
-  return () => S.reverseConvertOrThrow(data, schema);
-}), "S.string - parse", () => (() => S.parseOrThrow("Hello world!", S.string))), "S.string - reverse convert", () => (() => S.reverseConvertOrThrow("Hello world!", S.string))));
+  return () => S.decodeOrThrow(data, schema, S.unknown);
+}), "S.string - parse", () => (() => S.parseOrThrow("Hello world!", S.string))), "S.string - reverse convert", () => (() => S.decodeOrThrow("Hello world!", S.string, S.unknown))));
 
 /*  Not a pure module */

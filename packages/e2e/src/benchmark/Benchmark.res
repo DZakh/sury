@@ -214,10 +214,11 @@ data->S.decodeOrThrow(~from=schema, ~to=S.unknown)->ignore
 Console.timeEnd("serializeWith: 3")
 
 Console.time("S.Error.make")
-let _ = S.ErrorClass.constructor(
-  ~code=OperationFailed("Should be positive"),
-  ~flag=S.Flag.typeValidation,
-  ~path=S.Path.empty,
+let _ = S.Error.make(
+  InvalidOperation({
+    path: S.Path.empty,
+    reason: "Should be positive",
+  }),
 )
 Console.timeEnd("S.Error.make")
 
@@ -269,7 +270,7 @@ Suite.make()
 ->Suite.addWithPrepare("S.schema - reverse convert (compiled)", () => {
   let schema = makeObjectSchema()
   let data = makeTestObject()
-  let fn = schema->S.compile(~input=Value, ~output=Unknown, ~mode=Sync, ~typeValidation=false)
+  let fn = S.decoder(~from=schema, ~to=S.unknown)
   () => {
     fn(data)
   }
@@ -284,7 +285,7 @@ Suite.make()
 ->Suite.addWithPrepare("S.schema - assert (compiled)", () => {
   let schema = makeObjectSchema()
   let data = makeTestObject()
-  let assertFn = schema->S.compile(~input=Any, ~output=Assert, ~mode=Sync, ~typeValidation=true)
+  let assertFn = S.decoder(~from=S.unknown, ~to=schema->S.to(S.literal()->S.noValidation(true)))
   () => {
     assertFn(data)
   }

@@ -58,12 +58,12 @@ Ava("Record schema with optional fields", t => {
 });
 
 let recordWithNullableFieldSchema = S.schema(s => ({
-  subscription: s.m(S.option(S.$$null(S.string)))
+  subscription: s.m(S.option(S.nullAsOption(S.string)))
 }));
 
 Ava("Record schema with nullable field", t => {
   U.assertEqualSchemas(t, recordWithNullableFieldSchema, S.schema(s => ({
-    subscription: s.m(S.option(S.$$null(S.string)))
+    subscription: s.m(S.option(S.nullAsOption(S.string)))
   })), undefined);
   t.deepEqual(S.parseOrThrow({}, recordWithNullableFieldSchema), {
     subscription: undefined

@@ -1,6 +1,8 @@
 open Ava
 open U
 
+S.enableUrl()
+
 @schema
 type rating =
   | @as("G") GeneralAudiences
@@ -45,9 +47,9 @@ test("Main example", t => {
 })
 
 @schema
-type matches = @s.matches(S.string->S.url) string
+type matches = @s.matches(S.url) string
 test("@s.matches", t => {
-  t->assertEqualSchemas(matchesSchema, S.string->S.url)
+  t->assertEqualSchemas(matchesSchema, S.url)
 })
 
 @schema
