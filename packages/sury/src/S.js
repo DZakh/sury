@@ -1,7 +1,6 @@
 /* @ts-self-types="./S.d.ts" */
 import * as S from "./Sury.res.mjs"
-var _void = /*#__PURE__*/ S.unit()
-export { _void as void }
+var _void = /*#__PURE__*/ S.unit(); export { _void as void }
 export var Error = S.$$Error.$$class
 export var string = /*#__PURE__*/ S.string()
 export var boolean = /*#__PURE__*/ S.bool()
