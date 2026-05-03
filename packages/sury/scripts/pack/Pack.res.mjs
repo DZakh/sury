@@ -175,11 +175,11 @@ let filesMapping = [
   ],
   [
     "parser",
-    "S.parser"
+    "S.js_parser"
   ],
   [
     "asyncParser",
-    "S.asyncParser"
+    "S.js_asyncParser"
   ],
   [
     "decoder",
@@ -187,15 +187,15 @@ let filesMapping = [
   ],
   [
     "asyncDecoder",
-    "S.asyncDecoder"
+    "S.js_asyncDecoder"
   ],
   [
     "encoder",
-    "S.encoder"
+    "S.js_encoder"
   ],
   [
     "asyncEncoder",
-    "S.asyncEncoder"
+    "S.js_asyncEncoder"
   ],
   [
     "assert",
