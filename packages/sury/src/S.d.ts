@@ -493,32 +493,23 @@ declare const void_: Schema<void, void>;
 export { void_ as void };
 
 export const json: Schema<JSON, JSON>;
-export function enableJson(): void;
 
 export const jsonString: Schema<string, string>;
 export const jsonStringWithSpace: (space: number) => Schema<string, string>;
-export function enableJsonString(): void;
 
 export const uint8Array: Schema<Uint8Array, Uint8Array>;
-export function enableUint8Array(): void;
 
 export const isoDateTime: Schema<string, string>;
-export function enableIsoDateTime(): void;
 
 export const port: Schema<number, number>;
-export function enablePort(): void;
 
 export const email: Schema<string, string>;
-export function enableEmail(): void;
 
 export const uuid: Schema<string, string>;
-export function enableUuid(): void;
 
 export const cuid: Schema<string, string>;
-export function enableCuid(): void;
 
 export const url: Schema<string, string>;
-export function enableUrl(): void;
 
 export const date: Schema<Date, Date>;
 

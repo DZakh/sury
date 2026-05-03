@@ -336,46 +336,29 @@ type exn += private Exn(error)
 
 type s<'value> = {fail: 'a. (string, ~path: Path.t=?) => 'a}
 
-let never: t<never>
+let nullAsUnit: unit => t<unit>
+let never_: unit => t<never>
 let unknown: t<unknown>
-let unit: t<unit>
-let nullAsUnit: t<unit>
-let string: t<string>
-let bool: t<bool>
-let int: t<int>
-let float: t<float>
-let bigint: t<bigint>
-let symbol: t<Js.Types.symbol>
-
-let json: t<Js.Json.t>
-let enableJson: unit => unit
-
-let jsonString: t<string>
+let unit: unit => t<unit>
+let nullLiteral: unit => t<unit>
+let nan: unit => t<float>
+let string: unit => t<string>
+let bool: unit => t<bool>
+let int: unit => t<int>
+let float: unit => t<float>
+let bigint: unit => t<bigint>
+let symbol: unit => t<Js.Types.symbol>
+let date: unit => t<Js.Date.t>
+let json: unit => t<Js.Json.t>
+let jsonString: unit => t<string>
 let jsonStringWithSpace: int => t<string>
-let enableJsonString: unit => unit
-
-let uint8Array: t<Uint8Array.t>
-let enableUint8Array: unit => unit
-
-let isoDateTime: t<string>
-let enableIsoDateTime: unit => unit
-
-let port: t<int>
-let enablePort: unit => unit
-
-let email: t<string>
-let enableEmail: unit => unit
-
-let uuid: t<string>
-let enableUuid: unit => unit
-
-let cuid: t<string>
-let enableCuid: unit => unit
-
-let url: t<string>
-let enableUrl: unit => unit
-
-let date: t<Js.Date.t>
+let uint8Array: unit => t<Uint8Array.t>
+let isoDateTime: unit => t<string>
+let port: unit => t<int>
+let email: unit => t<string>
+let uuid: unit => t<string>
+let cuid: unit => t<string>
+let url: unit => t<string>
 
 let literal: 'value => t<'value>
 let array: t<'value> => t<array<'value>>

@@ -1,7 +1,5 @@
 open Ava
 
-S.enableEmail()
-
 test("Successfully parses valid data", t => {
   let schema = S.email
 

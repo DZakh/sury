@@ -113,13 +113,13 @@ NodeJs.Fs.mkdirSync(NodeJs.Path.join2(artifactsPath, "scripts"))
 
 let filesMapping = [
   ("Error", "S.$$Error.$$class"),
-  ("string", "S.string"),
-  ("boolean", "S.bool"),
-  ("int32", "S.int"),
-  ("number", "S.float"),
-  ("bigint", "S.bigint"),
-  ("symbol", "S.symbol"),
-  ("never", "S.never"),
+  ("string", "/*#__PURE__*/ S.string()"),
+  ("boolean", "/*#__PURE__*/ S.bool()"),
+  ("int32", "/*#__PURE__*/ S.int()"),
+  ("number", "/*#__PURE__*/ S.float()"),
+  ("bigint", "/*#__PURE__*/ S.bigint()"),
+  ("symbol", "/*#__PURE__*/ S.symbol()"),
+  ("never", "/*#__PURE__*/ S.never_()"),
   ("unknown", "S.unknown"),
   ("any", "S.unknown"),
   ("optional", "S.js_optional"),
@@ -130,16 +130,12 @@ let filesMapping = [
   ("instance", "S.instance"),
   ("unnest", "S.unnest"),
   ("record", "S.dict"),
-  ("json", "S.json"),
-  ("enableJson", "S.enableJson"),
-  ("jsonString", "S.jsonString"),
-  ("enableJsonString", "S.enableJsonString"),
+  ("json", "/*#__PURE__*/ S.json()"),
+  ("jsonString", "/*#__PURE__*/ S.jsonString()"),
   ("jsonStringWithSpace", "S.jsonStringWithSpace"),
-  ("uint8Array", "S.uint8Array"),
-  ("enableUint8Array", "S.enableUint8Array"),
-  ("date", "S.date"),
-  ("isoDateTime", "S.isoDateTime"),
-  ("enableIsoDateTime", "S.enableIsoDateTime"),
+  ("uint8Array", "/*#__PURE__*/ S.uint8Array()"),
+  ("date", "/*#__PURE__*/ S.date()"),
+  ("isoDateTime", "/*#__PURE__*/ S.isoDateTime()"),
   ("union", "S.js_union"),
   ("object", "S.object"),
   ("schema", "S.js_schema"),
@@ -171,14 +167,14 @@ let filesMapping = [
   ("toExpression", "S.toExpression"),
   ("noValidation", "S.noValidation"),
   ("compile", "S.compile"),
-  ("port", "S.port"),
+  ("port", "/*#__PURE__*/ S.port()"),
   ("min", "S.min"),
   ("max", "S.max"),
   ("length", "S.length"),
-  ("email", "S.email"),
-  ("uuid", "S.uuid"),
-  ("cuid", "S.cuid"),
-  ("url", "S.url"),
+  ("email", "/*#__PURE__*/ S.email()"),
+  ("uuid", "/*#__PURE__*/ S.uuid()"),
+  ("cuid", "/*#__PURE__*/ S.cuid()"),
+  ("url", "/*#__PURE__*/ S.url()"),
   ("pattern", "S.pattern"),
   ("trim", "S.trim"),
   ("global", "S.global"),
@@ -199,7 +195,7 @@ let writeSjsEsm = path => {
     [
       `/* @ts-self-types="./S.d.ts" */`,
       `import * as S from "./Sury.res.mjs"`,
-      `export { unit as void } from "./Sury.res.mjs"`,
+      `var _void = /*#__PURE__*/ S.unit(); export { _void as void }`,
     ]
     ->Array.concat(filesMapping->Array.map(((name, value)) => `export var ${name} = ${value}`))
     ->Array.join("\n")
@@ -220,7 +216,7 @@ NodeJs.Fs.writeFileSyncWith(
   NodeJs.Path.join2(artifactsPath, "./src/S.js"),
   [`/* @ts-self-types="./S.d.ts" */`, "var S = require(\"./Sury.res.js\");"]
   ->Array.concat(filesMapping->Array.map(((name, value)) => `exports.${name} = ${value}`))
-  ->Array.concat([`exports.void = S.unit`])
+  ->Array.concat([`exports.void = S.unit()`])
   ->Array.join("\n")
   ->NodeJs.Buffer.fromString,
   {
@@ -269,6 +265,7 @@ let resolveRescriptRuntime = async (~format, ~input, ~output) => {
 await resolveRescriptRuntime(~format=#es, ~input="src/Sury.res.mjs", ~output="src/Sury.res.mjs")
 // Event though the generated code is shitty, let's still have it for the sake of some users
 await resolveRescriptRuntime(~format=#cjs, ~input="src/Sury.res.mjs", ~output="src/Sury.res.js")
+
 // Also build cjs version, in case some ReScript libraries will use sury without running a compiler (rescript-stdlib-vendorer)
 await resolveRescriptRuntime(~format=#cjs, ~input="src/S.res.mjs", ~output="src/S.res.js")
 

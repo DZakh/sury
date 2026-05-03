@@ -1,7 +1,5 @@
 open Ava
 
-S.enableJson()
-
 module Common = {
   let value = 123n
   let any = %raw(`123n`)

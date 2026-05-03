@@ -1,7 +1,5 @@
 open Ava
 
-S.enableJsonString()
-
 let assertCode = (t, fn: 'a => 'b, code) => {
   t->Assert.is((fn->Obj.magic)["toString"](), code)
 }

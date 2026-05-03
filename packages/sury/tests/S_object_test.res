@@ -1,7 +1,5 @@
 open Ava
 
-S.enableJson()
-
 @live
 type options = {fast?: bool, mode?: int}
 

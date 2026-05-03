@@ -2,71 +2,55 @@
 
 import * as Sury from "./Sury.res.mjs";
 
+let never = (/*#__PURE__*/ Sury.never_());
+
+let unknown = Sury.unknown;
+
+let unit = (/*#__PURE__*/ Sury.unit());
+
+let string = (/*#__PURE__*/ Sury.string());
+
+let bool = (/*#__PURE__*/ Sury.bool());
+
+let int = (/*#__PURE__*/ Sury.int());
+
+let float = (/*#__PURE__*/ Sury.float());
+
+let bigint = (/*#__PURE__*/ Sury.bigint());
+
+let symbol = (/*#__PURE__*/ Sury.symbol());
+
+let nan = (/*#__PURE__*/ Sury.nan());
+
+let date = (/*#__PURE__*/ Sury.date());
+
+let json = (/*#__PURE__*/ Sury.json());
+
+let jsonString = (/*#__PURE__*/ Sury.jsonString());
+
+let uint8Array = (/*#__PURE__*/ Sury.uint8Array());
+
+let isoDateTime = (/*#__PURE__*/ Sury.isoDateTime());
+
+let port = (/*#__PURE__*/ Sury.port());
+
+let email = (/*#__PURE__*/ Sury.email());
+
+let uuid = (/*#__PURE__*/ Sury.uuid());
+
+let cuid = (/*#__PURE__*/ Sury.cuid());
+
+let url = (/*#__PURE__*/ Sury.url());
+
+let nullAsUnit = (/*#__PURE__*/ Sury.nullAsUnit());
+
 let Path = Sury.Path;
 
 let Flag = Sury.Flag;
 
 let Exn = Sury.Exn;
 
-let never = Sury.never;
-
-let unknown = Sury.unknown;
-
-let unit = Sury.unit;
-
-let nullAsUnit = Sury.nullAsUnit;
-
-let string = Sury.string;
-
-let bool = Sury.bool;
-
-let int = Sury.int;
-
-let float = Sury.float;
-
-let bigint = Sury.bigint;
-
-let symbol = Sury.symbol;
-
-let json = Sury.json;
-
-let enableJson = Sury.enableJson;
-
-let jsonString = Sury.jsonString;
-
 let jsonStringWithSpace = Sury.jsonStringWithSpace;
-
-let enableJsonString = Sury.enableJsonString;
-
-let uint8Array = Sury.uint8Array;
-
-let enableUint8Array = Sury.enableUint8Array;
-
-let isoDateTime = Sury.isoDateTime;
-
-let enableIsoDateTime = Sury.enableIsoDateTime;
-
-let port = Sury.port;
-
-let enablePort = Sury.enablePort;
-
-let email = Sury.email;
-
-let enableEmail = Sury.enableEmail;
-
-let uuid = Sury.uuid;
-
-let enableUuid = Sury.enableUuid;
-
-let cuid = Sury.cuid;
-
-let enableCuid = Sury.enableCuid;
-
-let url = Sury.url;
-
-let enableUrl = Sury.enableUrl;
-
-let date = Sury.date;
 
 let literal = Sury.literal;
 
@@ -206,26 +190,18 @@ export {
   float,
   bigint,
   symbol,
+  nan,
+  date,
   json,
-  enableJson,
   jsonString,
   jsonStringWithSpace,
-  enableJsonString,
   uint8Array,
-  enableUint8Array,
   isoDateTime,
-  enableIsoDateTime,
   port,
-  enablePort,
   email,
-  enableEmail,
   uuid,
-  enableUuid,
   cuid,
-  enableCuid,
   url,
-  enableUrl,
-  date,
   literal,
   array,
   compactColumns,
@@ -289,4 +265,4 @@ export {
   global,
   $$Error,
 }
-/* Sury Not a pure module */
+/* never Not a pure module */

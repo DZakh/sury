@@ -1,7 +1,5 @@
 open Ava
 
-S.enableCuid()
-
 test("Successfully parses valid data", t => {
   let schema = S.cuid
 

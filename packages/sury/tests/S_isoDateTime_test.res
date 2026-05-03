@@ -1,7 +1,5 @@
 open Ava
 
-S.enableIsoDateTime()
-
 test("Successfully parses valid data", t => {
   let schema = S.isoDateTime
 

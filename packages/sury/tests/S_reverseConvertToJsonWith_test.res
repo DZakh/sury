@@ -1,7 +1,5 @@
 open Ava
 
-S.enableJson()
-
 test("Successfully reverse converts jsonable schemas", t => {
   t->Assert.deepEqual(true->S.decodeOrThrow(~from=S.bool, ~to=S.json), true->JSON.Encode.bool)
   t->Assert.deepEqual(true->S.decodeOrThrow(~from=S.literal(true), ~to=S.json), true->JSON.Encode.bool)

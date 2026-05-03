@@ -1,7 +1,5 @@
 open Ava
 
-S.enableJson()
-
 test("Coerce from string to string", t => {
   let schema = S.string->S.to(S.string)
   t->Assert.is(schema, S.string)
@@ -247,7 +245,6 @@ test("Coerce from string to int32", t => {
 })
 
 test("Coerce from string to port", t => {
-  S.enablePort()
   let schema = S.string->S.to(S.port)
 
   t->Assert.deepEqual("10"->S.parseOrThrow(~to=schema), 10)

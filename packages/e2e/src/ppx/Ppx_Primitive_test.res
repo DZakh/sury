@@ -2,10 +2,6 @@ open Ava
 
 open U
 
-// TODO: Automatically enable it in PPX
-S.enableJson()
-S.enableEmail()
-
 @schema
 type myString = string
 test("String schema", t => {

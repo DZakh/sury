@@ -1,7 +1,5 @@
 open Ava
 
-S.enableJsonString()
-
 test("Parses JSON string without transformation", t => {
   let schema = S.jsonString
 

@@ -104,8 +104,6 @@ test("Successfully parses dict with int keys", t => {
 })
 
 test("Applies operation for each item on serializing", t => {
-  S.enableJsonString()
-
   let schema = S.dict(S.jsonString->S.to(S.int))
 
   t->Assert.deepEqual(

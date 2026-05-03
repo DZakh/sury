@@ -1,7 +1,5 @@
 open Ava
 
-S.enablePort()
-
 test("Successfully parses valid data", t => {
   let schema = S.port
 

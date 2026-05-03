@@ -1,7 +1,5 @@
 open Ava
 
-S.enableJson()
-
 module Tuple0 = {
   let value = ()
   let any = %raw(`[]`)

@@ -361,7 +361,6 @@ test("Field with S.refine", t => {
 })
 
 test("reverseConvertToJsonOrThrow with nullable field", t => {
-  S.enableJson()
   let schema =
     S.compactColumns(S.unknown)->S.to(
       S.array(
@@ -401,7 +400,6 @@ test("Roundtrip: parse -> reverseConvert -> parse", t => {
 })
 
 test("reverseConvertToJsonOrThrow validates non-JSON-able unknown field values", t => {
-  S.enableJson()
   let schema =
     S.compactColumns(S.unknown)->S.to(
       S.array(
@@ -430,7 +428,6 @@ test("reverseConvertToJsonOrThrow validates non-JSON-able unknown field values",
 })
 
 test("Json source with bigint field converts string↔bigint", t => {
-  S.enableJson()
   let schema =
     S.compactColumns(S.json)->S.to(
       S.array(
@@ -457,7 +454,6 @@ test("Json source with bigint field converts string↔bigint", t => {
 })
 
 test("Json source roundtrip with bigint", t => {
-  S.enableJson()
   let schema =
     S.compactColumns(S.json)->S.to(
       S.array(
