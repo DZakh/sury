@@ -1,8 +1,5 @@
 open Ava
 
-S.enableJson()
-S.enableJsonString()
-
 module Common = {
   let value = None
   let any = %raw(`null`)

@@ -1,7 +1,5 @@
 open Ava
 
-S.enableJson()
-
 test("JSONSchema of bool schema", t => {
   t->Assert.deepEqual(S.bool->S.toJSONSchema, %raw(`{"type": "boolean"}`))
 })
@@ -31,7 +29,6 @@ test("JSONSchema of S.json transformed to object with bigint and array of option
 })
 
 test("JSONSchema of email schema", t => {
-  S.enableEmail()
   t->Assert.deepEqual(
     S.email->S.toJSONSchema,
     %raw(`{"type": "string", "format": "email"}`),
@@ -39,7 +36,6 @@ test("JSONSchema of email schema", t => {
 })
 
 test("JSONSchema of url schema", t => {
-  S.enableUrl()
   t->Assert.deepEqual(
     S.url->S.toJSONSchema,
     %raw(`{"type": "string", "format": "uri"}`),
@@ -69,7 +65,6 @@ test("JSONSchema of S.string with description converted to S.date", t => {
 })
 
 test("JSONSchema of S.isoDateTime", t => {
-  S.enableIsoDateTime()
   t->Assert.deepEqual(
     S.isoDateTime->S.toJSONSchema,
     %raw(`{"type": "string", "format": "date-time"}`),
@@ -92,12 +87,10 @@ test("JSONSchema of object with transformed field preserves field metadata", t =
 })
 
 test("JSONSchema of cuid schema", t => {
-  S.enableCuid()
   t->Assert.deepEqual(S.cuid->S.toJSONSchema, %raw(`{"type": "string"}`))
 })
 
 test("JSONSchema of uuid schema", t => {
-  S.enableUuid()
   t->Assert.deepEqual(
     S.uuid->S.toJSONSchema,
     %raw(`{"type": "string", "format": "uuid"}`),
@@ -148,7 +141,6 @@ test("JSONSchema of int with max", t => {
 })
 
 test("JSONSchema of port", t => {
-  S.enablePort()
   t->Assert.deepEqual(
     S.port->S.toJSONSchema,
     %raw(`{

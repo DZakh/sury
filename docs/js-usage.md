@@ -370,18 +370,6 @@ S.never;
 
 ### Advanced schemas
 
-The goal of **Sury** is to provide the best DX. To achieve that, everything is a schema — use it directly without a `()` call. However, some schemas are opt‑in to keep bundle size small, so you must enable them explicitly. This also helps prevent your team from using the wrong API.
-
-Enable the schemas you need at the project root:
-
-```ts
-S.enableJson();
-S.enableJsonString();
-S.enableUint8Array();
-```
-
-And use them as usual:
-
 > 🧠 Don't forget `S.to` which comes with powerful coercion logic.
 
 ```ts
@@ -426,16 +414,9 @@ S.trim(S.string); // trim whitespaces
 For format-specific string validation, use the standalone schemas:
 
 ```ts
-S.enableEmail();
 S.email; // Standalone email schema
-
-S.enableUrl();
 S.url; // Standalone URL schema
-
-S.enableUuid();
 S.uuid; // Standalone UUID schema
-
-S.enableCuid();
 S.cuid; // Standalone CUID schema
 ```
 
@@ -476,11 +457,9 @@ Available keys: `format`, `type`, `minimum`, `maximum`, `minLength`, `maxLength`
 
 ### ISO datetimes
 
-`S.isoDateTime` is a **standalone** string schema (`S.Schema<string, string>`) that validates ISO 8601 UTC datetime strings: no timezone offsets allowed, with arbitrary sub-second decimal precision. Because the regex used to validate the input lives inside `S.enableIsoDateTime`, it is tree-shaken from your bundle unless you opt in — call `S.enableIsoDateTime()` once at your project root before using the schema.
+`S.isoDateTime` is a **standalone** string schema (`S.Schema<string, string>`) that validates ISO 8601 UTC datetime strings: no timezone offsets allowed, with arbitrary sub-second decimal precision.
 
 ```ts
-S.enableIsoDateTime(); // ❕ Call at the project root.
-
 const schema = S.isoDateTime;
 // schema has the type S.Schema<string, string>
 
@@ -915,15 +894,13 @@ S.decoder(S.date, S.string)(new Date("2024-01-01T00:00:00.000Z")); // "2024-01-0
 `S.Schema<string, string>`
 
 ```ts
-S.enableIsoDateTime(); // ❕ Call at the project root.
-
 const schema = S.isoDateTime;
 
 S.parser(schema)("2020-01-01T00:00:00Z"); // "2020-01-01T00:00:00Z"
 S.parser(schema)("not-a-date"); // throws
 ```
 
-Standalone string schema that validates ISO 8601 UTC datetime strings. The regex is tree-shaken from the bundle unless you call `S.enableIsoDateTime()`. See also [ISO datetimes](#iso-datetimes) under Strings for more details and examples.
+Standalone string schema that validates ISO 8601 UTC datetime strings. See also [ISO datetimes](#iso-datetimes) under Strings for more details and examples.
 
 ## Instance
 

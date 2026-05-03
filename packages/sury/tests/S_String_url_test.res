@@ -1,7 +1,5 @@
 open Ava
 
-S.enableUrl()
-
 test("Successfully parses valid data", t => {
   let schema = S.url
 

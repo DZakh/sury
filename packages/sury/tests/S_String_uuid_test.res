@@ -1,7 +1,5 @@
 open Ava
 
-S.enableUuid()
-
 test("Successfully parses valid data", t => {
   let schema = S.uuid
 

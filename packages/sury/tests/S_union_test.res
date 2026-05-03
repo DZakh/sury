@@ -1,7 +1,5 @@
 open Ava
 
-S.enableJson()
-
 test("Throws for a Union schema factory without schemas", t => {
   t->Assert.throws(
     () => {
@@ -839,8 +837,6 @@ test("Regression https://github.com/DZakh/sury/issues/121", t => {
 })
 
 test("Union of strings with different refinements", t => {
-  S.enableEmail()
-  S.enableUrl()
   let schema = S.union([S.email, S.url])
 
   t->U.assertThrowsMessage(

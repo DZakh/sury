@@ -3,7 +3,7 @@
 ## Alpha.5
 
 - Add `S.date` — standalone Date instance schema. Validates `instanceof Date` and rejects Invalid Date. Unlike `S.isoDateTime` (which validates ISO 8601 UTC strings) and `S.string->S.to(S.date)` (which decodes ISO strings into Date objects), `S.date` directly validates existing Date instances.
-- Add `S.isoDateTime` and `S.enableIsoDateTime` — standalone string schema that validates ISO 8601 UTC datetime strings (no timezone offsets, arbitrary sub-second precision). Reuses the built-in string decoder; the regex lives inside `enableIsoDateTime` so it is tree-shaken from the bundle when unused. Replaces the removed `S.datetime` for the "validate an ISO string" use case — for string↔Date conversion use `S.string->S.to(S.date)`.
+- Add `S.isoDateTime` — standalone string schema that validates ISO 8601 UTC datetime strings (no timezone offsets, arbitrary sub-second precision). Replaces the removed `S.datetime` for the "validate an ISO string" use case — for string↔Date conversion use `S.string->S.to(S.date)`.
 - Added `S.compactColumns` - transforms columnar data (`[[a1,a2], [b1,b2]]`) to/from row objects (`[{foo:a1,bar:b1}, {foo:a2,bar:b2}]`)
 - TypeScript: Use `S.encoder(schema)` for encoding (replaces internal `reverseConvertOrThrow`)
 - `S.compactColumns` type is `Schema<Output[][], Input[][]>`
@@ -11,7 +11,7 @@
 - Changed `S.refine` from callback-based to boolean-returning. TS/JS: `(value) => boolean` with optional `{ error?: string, path?: string[] }` options. ReScript: `'value => bool` with optional `~error: string=?` and `~path: array<string>=?` labeled arguments. The check returns `true` when valid, `false` when invalid.
 - TS/JS API: Renamed `S.asyncParserRefine` to `S.asyncDecoderAssert`. Removed `EffectCtx` (`s`) parameter — throw directly to signal failure instead of calling `s.fail()`
 - TS API: Removed `S.transform` in favor of `S.to`
-- Add `S.uint8Array` and `S.enableUint8Array`
+- Add `S.uint8Array`
 - Updated `InvalidType` error code to include the received schema
 - Updated internal representation of object schema - removed `items` fields. Updated internalt representation of tuple schema - `items` field is now an array of schemas instead of array of items. The `item` type is removed.
 - Removed `Failed parsing/converting/asserting` when the error is at root
@@ -30,7 +30,7 @@
 - JSON decoder now automatically decodes non-JSON types (e.g. `S.date`, `S.bigint`) to string via their encoder, instead of special-casing each type. Schemas with a string encoder (like `S.date` → `toISOString()`) work with `S.json`/`S.jsonString` out of the box.
 - Renamed error code `unsupported_conversion` → `unsupported_decode` and variant `UnsupportedConversion` → `UnsupportedDecode`
 - Error message for unsupported decode now reads: `"Can't decode X to Y. Use S.to to define a custom decoder"`
-- `S.port`, `S.email`, `S.uuid`, `S.cuid`, `S.url` are now standalone tree-shakeable schemas (like `S.isoDateTime`), each requiring an `enable*()` call.
+- `S.port`, `S.email`, `S.uuid`, `S.cuid`, `S.url` are now standalone schemas.
 - Added `Email`, `Uuid`, `Cuid`, `Url` to `StringFormat` type.
 - Removed `S.String.Refinement` module and `S.String.refinements` accessor. Use schema `pattern`/`format`/`errorMessage` fields directly.
 - Added `errorMessage` field to `S.meta` for overriding validation messages per-use: `S.email.with(S.meta, { errorMessage: { format: "Custom" } })`. Supports `_` as a catch-all key. Empty `{}` deletes the field.

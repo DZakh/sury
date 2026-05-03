@@ -99,9 +99,6 @@ test("Successfully reverse converts date-to-string schema", t => {
 
 // JSON → Date conversion tests
 
-S.enableJson()
-S.enableJsonString()
-
 test("Successfully decodes JSON string to Date", t => {
   let date = Date.fromString("2024-01-01T00:00:00.000Z")
   let decoder = S.decoder(~from=S.json, ~to=S.date)

@@ -347,36 +347,18 @@ let int: t<int>
 let float: t<float>
 let bigint: t<bigint>
 let symbol: t<Js.Types.symbol>
-
+let nan: t<float>
+let date: t<Js.Date.t>
 let json: t<Js.Json.t>
-let enableJson: unit => unit
-
 let jsonString: t<string>
 let jsonStringWithSpace: int => t<string>
-let enableJsonString: unit => unit
-
 let uint8Array: t<Uint8Array.t>
-let enableUint8Array: unit => unit
-
 let isoDateTime: t<string>
-let enableIsoDateTime: unit => unit
-
 let port: t<int>
-let enablePort: unit => unit
-
 let email: t<string>
-let enableEmail: unit => unit
-
 let uuid: t<string>
-let enableUuid: unit => unit
-
 let cuid: t<string>
-let enableCuid: unit => unit
-
 let url: t<string>
-let enableUrl: unit => unit
-
-let date: t<Js.Date.t>
 
 let literal: 'value => t<'value>
 let array: t<'value> => t<array<'value>>

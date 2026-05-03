@@ -59,31 +59,31 @@ let filesMapping = [
   ],
   [
     "string",
-    "S.string"
+    "/*#__PURE__*/ S.string()"
   ],
   [
     "boolean",
-    "S.bool"
+    "/*#__PURE__*/ S.bool()"
   ],
   [
     "int32",
-    "S.int"
+    "/*#__PURE__*/ S.int()"
   ],
   [
     "number",
-    "S.float"
+    "/*#__PURE__*/ S.float()"
   ],
   [
     "bigint",
-    "S.bigint"
+    "/*#__PURE__*/ S.bigint()"
   ],
   [
     "symbol",
-    "S.symbol"
+    "/*#__PURE__*/ S.symbol()"
   ],
   [
     "never",
-    "S.never"
+    "/*#__PURE__*/ S.never_()"
   ],
   [
     "unknown",
@@ -127,19 +127,11 @@ let filesMapping = [
   ],
   [
     "json",
-    "S.json"
-  ],
-  [
-    "enableJson",
-    "S.enableJson"
+    "/*#__PURE__*/ S.json()"
   ],
   [
     "jsonString",
-    "S.jsonString"
-  ],
-  [
-    "enableJsonString",
-    "S.enableJsonString"
+    "/*#__PURE__*/ S.jsonString()"
   ],
   [
     "jsonStringWithSpace",
@@ -147,23 +139,15 @@ let filesMapping = [
   ],
   [
     "uint8Array",
-    "S.uint8Array"
-  ],
-  [
-    "enableUint8Array",
-    "S.enableUint8Array"
+    "/*#__PURE__*/ S.uint8Array()"
   ],
   [
     "date",
-    "S.date"
+    "/*#__PURE__*/ S.date()"
   ],
   [
     "isoDateTime",
-    "S.isoDateTime"
-  ],
-  [
-    "enableIsoDateTime",
-    "S.enableIsoDateTime"
+    "/*#__PURE__*/ S.isoDateTime()"
   ],
   [
     "union",
@@ -291,7 +275,7 @@ let filesMapping = [
   ],
   [
     "port",
-    "S.port"
+    "/*#__PURE__*/ S.port()"
   ],
   [
     "min",
@@ -307,19 +291,19 @@ let filesMapping = [
   ],
   [
     "email",
-    "S.email"
+    "/*#__PURE__*/ S.email()"
   ],
   [
     "uuid",
-    "S.uuid"
+    "/*#__PURE__*/ S.uuid()"
   ],
   [
     "cuid",
-    "S.cuid"
+    "/*#__PURE__*/ S.cuid()"
   ],
   [
     "url",
-    "S.url"
+    "/*#__PURE__*/ S.url()"
   ],
   [
     "pattern",
@@ -349,7 +333,7 @@ function writeSjsEsm(path) {
   Nodefs.writeFileSync(path, Buffer.from([
     "/* @ts-self-types=\"./S.d.ts\" */",
     "import * as S from \"./Sury.res.mjs\"",
-    "export { unit as void } from \"./Sury.res.mjs\""
+    "var _void = /*#__PURE__*/ S.unit(); export { _void as void }"
   ].concat(filesMapping.map(param => "export var " + param[0] + " = " + param[1])).join("\n")), {
     encoding: "utf8"
   });
@@ -362,7 +346,7 @@ writeSjsEsm(Nodepath.join(artifactsPath, "./src/S.mjs"));
 Nodefs.writeFileSync(Nodepath.join(artifactsPath, "./src/S.js"), Buffer.from([
   "/* @ts-self-types=\"./S.d.ts\" */",
   "var S = require(\"./Sury.res.js\");"
-].concat(filesMapping.map(param => "exports." + param[0] + " = " + param[1])).concat(["exports.void = S.unit"]).join("\n")), {
+].concat(filesMapping.map(param => "exports." + param[0] + " = " + param[1])).concat(["exports.void = S.unit()"]).join("\n")), {
   encoding: "utf8"
 });
 

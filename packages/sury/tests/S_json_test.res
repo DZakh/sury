@@ -1,7 +1,5 @@
 open Ava
 
-S.enableJson()
-
 test("Supports String", t => {
   let schema = S.json
   let data = JSON.Encode.string("Foo")

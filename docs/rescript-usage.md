@@ -292,16 +292,9 @@ S.string->S.trim // trim whitespaces
 For format-specific string validation, use the standalone schemas:
 
 ```rescript
-S.enableEmail()
 S.email // Standalone email schema
-
-S.enableUrl()
 S.url // Standalone URL schema
-
-S.enableUuid()
 S.uuid // Standalone UUID schema
-
-S.enableCuid()
 S.cuid // Standalone CUID schema
 ```
 
@@ -336,11 +329,9 @@ Available fields: `format`, `type_`, `minimum`, `maximum`, `minLength`, `maxLeng
 
 #### ISO datetimes
 
-`S.isoDateTime` is a **standalone** string schema (`S.t<string>`) that validates ISO 8601 UTC datetime strings: no timezone offsets allowed, with arbitrary sub-second decimal precision. Because the regex used to validate the input lives inside `S.enableIsoDateTime`, it is tree-shaken from your bundle unless you opt in — call `S.enableIsoDateTime()` once at your project root before using the schema.
+`S.isoDateTime` is a **standalone** string schema (`S.t<string>`) that validates ISO 8601 UTC datetime strings: no timezone offsets allowed, with arbitrary sub-second decimal precision.
 
 ```rescript
-S.enableIsoDateTime() // ❕ Call at the project root.
-
 let schema = S.isoDateTime
 // schema has the type S.t<string>
 
@@ -374,7 +365,7 @@ The `S.int` schema represents a data that is an integer.
 ```rescript
 S.int->S.max(5) // Number must be lower than or equal to 5
 S.int->S.min(5) // Number must be greater than or equal to 5
-S.port // Standalone port schema (requires S.enablePort())
+S.port // Standalone port schema
 ```
 
 ### **`float`**
@@ -1101,15 +1092,13 @@ Date.fromString("2024-01-01T00:00:00.000Z")->S.decodeOrThrow(~from=schema, ~to=S
 `S.t<string>`
 
 ```rescript
-S.enableIsoDateTime() // ❕ Call at the project root.
-
 let schema = S.isoDateTime
 
 "2020-01-01T00:00:00Z"->S.parseOrThrow(~to=schema) // "2020-01-01T00:00:00Z"
 "not-a-date"->S.parseOrThrow(~to=schema) // throws
 ```
 
-Standalone string schema that validates ISO 8601 UTC datetime strings. The regex is tree-shaken from the bundle unless you call `S.enableIsoDateTime()`. See also [ISO datetimes](#iso-datetimes) under Strings for more details and examples.
+Standalone string schema that validates ISO 8601 UTC datetime strings. See also [ISO datetimes](#iso-datetimes) under Strings for more details and examples.
 
 ### **`instance`**
 
@@ -1152,8 +1141,6 @@ The `never` schema will fail parsing for every value.
 `S.t<JSON.t>`
 
 ```rescript
-S.enableJson() // ❕ Call at the project root.
-
 let schema = S.json
 
 `"abc"`->S.parseOrThrow(~to=schema)
@@ -1167,8 +1154,6 @@ The `S.json` schema represents a data that is compatible with JSON.
 `S.t<string>`
 
 ```rescript
-S.enableJsonString() // ❕ Call at the project root.
-
 let schema = S.jsonString->S.to(S.int)
 
 "123"->S.parseOrThrow(~to=schema)

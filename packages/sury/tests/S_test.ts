@@ -34,12 +34,6 @@ type SchemaEqual<
 // expectType<SchemaEqual<typeof stringSchema, string, unknown>>(true);
 
 test("JSON string demo", (t) => {
-  // t.throws(() => S.parser("123", S.jsonString), {
-  //   name: "Error",
-  //   message:
-  //     "[Sury] Schema S.jsonString is not enabled. To start using it, add S.enableJsonString() at the project root.",
-  // });
-
   t.deepEqual(S.parser(S.jsonString)("123"), "123");
   // i=>{if(typeof i!=="string"){e[1](i)}try{JSON.parse(i)}catch(t){e[0](i)}return i}
 
@@ -51,9 +45,6 @@ test("JSON string demo", (t) => {
   t.deepEqual(S.decoder(schemaWithTo2)(123), "123");
   // i=>{return ""+i}
 });
-
-S.enableJson();
-S.enableJsonString();
 
 test("Successfully parses string", (t) => {
   const schema = S.string;
@@ -418,8 +409,6 @@ test("Parse JSON string, extract a field, and serialize it back to JSON string",
 });
 
 test("Parse JSON string to object with bigint and back", (t) => {
-  S.enableUint8Array();
-
   const messageSchema = S.schema({
     type: "info",
     value: S.bigint,
@@ -2483,8 +2472,6 @@ test("Recursive with self as transform target", (t) => {
 });
 
 test("Port schema", (t) => {
-  S.enablePort();
-
   const portSchema = S.port;
   if (portSchema.type === "number") {
     t.deepEqual(portSchema.format, "port");
@@ -2547,7 +2534,6 @@ test("Port schema", (t) => {
 });
 
 test("Example", (t) => {
-  S.enableEmail();
   // Create login schema with email and password
   const loginSchema = S.schema({
     email: S.email,
@@ -2997,8 +2983,6 @@ test("Overwrite error message", (t) => {
 });
 
 test("Uint8Array", (t) => {
-  S.enableUint8Array();
-
   let data = new Uint8Array([1, 2, 3]);
 
   t.deepEqual(S.parser(S.uint8Array)(data), data);
