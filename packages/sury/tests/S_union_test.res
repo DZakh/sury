@@ -145,7 +145,7 @@ test("Ensures parsing order with unknown schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{typeof i==="string"||e[2](i);if(i.length!==e[0]){e[1]()}}catch(e2){try{typeof i==="boolean"||e[3](i);}catch(e3){try{let v0;try{v0=e[4](i)}catch(x){e[5](x)}i=v0}catch(e4){if(!(typeof i==="number"&&!Number.isNaN(i)||typeof i==="bigint")){e[6](i,e2,e3,e4)}}}}return i}`,
+    `i=>{try{typeof i==="string"&&(i.length===2)||e[0](i);}catch(e2){try{typeof i==="boolean"||e[1](i);}catch(e3){try{let v0;try{v0=e[2](i)}catch(x){e[3](x)}i=v0}catch(e4){if(!(typeof i==="number"&&!Number.isNaN(i)||typeof i==="bigint")){e[4](i,e2,e3,e4)}}}}return i}`,
   )
 })
 
@@ -389,7 +389,7 @@ test("NaN should be checked before number even if it's later item in the union",
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(Number.isNaN(i)){i=void 0}else if(typeof i==="number"){if(i<e[0]){e[1]()}}else{e[2](i)}return i}`,
+    `i=>{if(Number.isNaN(i)){i=void 0}else if(!(typeof i==="number"&&(i>=e[0]))){e[1](i)}return i}`,
   )
 
   S.global({})
@@ -779,13 +779,13 @@ test("json-rpc response", t => {
   t->U.assertCompiledCode(
     ~schema=getLogsResponseSchema,
     ~op=#Parse,
-    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["result"];if(!Array.isArray(v0)){e[1](v0)}for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];if(typeof v2!=="string"){e[0](v2)}}catch(v3){v3.path="[\\"result\\"]"+'["'+v1+'"]'+v3.path;throw v3}}i={"TAG":"Ok","_0":v0,}}catch(e0){try{let v4=i["error"];if(typeof v4==="object"&&v4&&!Array.isArray(v4)){if(v4["message"]==="NotFound"){v4="LogsNotFound"}else if(v4["message"]==="Invalid"){let v5=v4["data"];if(typeof v5!=="string"){e[2](v5)}v4={"NAME":"InvalidData","VAL":v5,}}else{e[3](v4)}}else{e[4](v4)}i={"TAG":"Error","_0":v4,}}catch(e1){e[5](i,e0,e1)}}}else{e[6](i)}return i}`,
+    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["result"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path="[\\"result\\"]"+'["'+v1+'"]'+v3.path;throw v3}}i={"TAG":"Ok","_0":v0,}}catch(e0){try{let v4=i["error"];if(typeof v4==="object"&&v4&&!Array.isArray(v4)){if(v4["message"]==="NotFound"){v4="LogsNotFound"}else if(v4["message"]==="Invalid"){let v5=v4["data"];typeof v5==="string"||e[2](v5);v4={"NAME":"InvalidData","VAL":v5,}}else{e[3](v4)}}else{e[4](v4)}i={"TAG":"Error","_0":v4,}}catch(e1){e[5](i,e0,e1)}}}else{e[6](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema=getLogsResponseSchema,
     ~op=#ReverseConvert,
     // FIXME: Exhaustive check doesn't work
-    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["TAG"]==="Ok"){let v0=i["_0"];if(!Array.isArray(v0)){e[1](v0)}for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];if(typeof v2!=="string"){e[0](v2)}}catch(v3){v3.path="[\\"_0\\"]"+\'["\'+v1+\'"]\'+v3.path;throw v3}}i={"result":v0,}}else if(i["TAG"]==="Error"){let v5=i["_0"];if(typeof v5==="string"){if(v5==="LogsNotFound"){v5={"message":"NotFound",}}}else if(typeof v5==="object"&&v5&&!Array.isArray(v5)){if(v5["NAME"]==="InvalidData"){let v6=v5["VAL"];if(typeof v6!=="string"){e[2](v6)}v5={"message":"Invalid","data":v6,}}}else{e[3](v5)}i={"error":v5,}}else{e[4](i)}}else{e[5](i)}return i}`,
+    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["TAG"]==="Ok"){let v0=i["_0"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path="[\\"_0\\"]"+\'["\'+v1+\'"]\'+v3.path;throw v3}}i={"result":v0,}}else if(i["TAG"]==="Error"){let v4=i["_0"];if(typeof v4==="string"){if(v4==="LogsNotFound"){v4={"message":"NotFound",}}}else if(typeof v4==="object"&&v4&&!Array.isArray(v4)){if(v4["NAME"]==="InvalidData"){let v5=v4["VAL"];typeof v5==="string"||e[2](v5);v4={"message":"Invalid","data":v5,}}}else{e[3](v4)}i={"error":v4,}}else{e[4](i)}}else{e[5](i)}return i}`,
   )
 })
 
