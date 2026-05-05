@@ -41,6 +41,8 @@
 
 When compiling `source -> targetUnion` (via `S.to` or reversal), matching uses a three-tier algorithm based on the source's derived tag. The derived tag is the tag at compile time, which may be narrower than the tag set at schema creation (upstream transformations can narrow it). When the source is itself a union, the algorithm is applied independently for each source variant.
 
+When the source is `unknown` (no derived tag), the matching logic is ignored: the tag-based tiers do not apply, and target variants are attempted directly in target-union order at runtime.
+
 1. **Same-tag group.** Collect target variants sharing the source's tag. If non-empty, match only within this group: target variants with a matching `const`/`format` (string literals, `Int32`, etc.) are attempted first in target-union order, then remaining catch-all same-tag variants in target-union order. Variants with a different tag are never tried from here — if all branches in the group fail, the match errors.
 2. **Nullish bridge.** Applied only when tier 1's group is empty. If the source tag is `null` or `undefined`, use the opposite nullish target variant if present, exclusively.
 3. **Fallback.** Applied only when tiers 1 and 2 are both empty. Attempt to build a decoder for every target variant in target-union order. This is where cross-type coercions live: `number`/`bigint` → `string` via `""+i`, `string` → `number` via `+i`, `string` → `bigint` via `BigInt(i)`, stringified-const matches like `"null" → null`, etc.
