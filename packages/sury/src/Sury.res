@@ -1395,8 +1395,7 @@ module Builder = {
     // Caller must verify `val.checks->unsafeToBool` and
     // `val.expected.noValidation !== Some(true)` first — the unwrap below
     // is unchecked. `inputVar` is usually `val.prev.var()`.
-    let emitChecks = (val: val, ~inputVar: string): string => {
-      let checks = val.checks->X.Option.getUnsafe
+    let emitChecksArr = (val: val, checks: array<check>, ~inputVar: string): string => {
       let len = checks->Js.Array2.length
       if len === 1 {
         let check = checks->Js.Array2.unsafe_get(0)
@@ -1426,6 +1425,9 @@ module Builder = {
       }
     }
 
+    let emitChecks = (val: val, ~inputVar: string): string =>
+      emitChecksArr(val, val.checks->X.Option.getUnsafe, ~inputVar)
+
     // AND-joins every check's cond — caller guarantees `checks` is non-empty.
     // Used by union codegen to hoist a val's checks into a dispatch discriminant.
     let andJoinChecks = (checks: array<check>, ~inputVar: string): string => {
@@ -1453,24 +1455,48 @@ module Builder = {
         let currentCode = ref("")
 
         if val.checks->X.Option.unsafeToBool {
-          let isHoistable =
+          let canHoist =
             hoistCond !== None &&
               (val.hasTransform === Some(true)
                 ? (val.prev->X.Option.getUnsafe).hasTransform !== Some(true) &&
                     val.codeFromPrev === ""
                 : true)
-          if isHoistable {
-            // `noValidation` is intentionally bypassed here — the cond
-            // routes between union cases, it doesn't reject, so
-            // suppressing would break dispatch.
-            let cond = hoistCond->X.Option.getUnsafe
-            let prev = current.contents->X.Option.getUnsafe
-            let condCode =
-              val.checks->X.Option.getUnsafe->andJoinChecks(~inputVar=prev.var())
-            if cond.contents->X.String.unsafeToBool {
-              cond := `${condCode}&&${cond.contents}`
-            } else {
-              cond := condCode
+          if canHoist {
+            // Partition checks: type-narrow checks (fail === failInvalidType)
+            // become routing discriminants and lift into hoistCond. Constraint
+            // refines (any other fail) emit inline so their case-specific
+            // error message survives — otherwise they'd collapse into the
+            // generic union mismatch. `noValidation` is intentionally
+            // bypassed for the hoisted part: the cond routes between union
+            // cases, it doesn't reject, so suppressing would break dispatch.
+            let allChecks = val.checks->X.Option.getUnsafe
+            let hoisted = []
+            let inlineOnly = []
+            for i in 0 to allChecks->Js.Array2.length - 1 {
+              let check = allChecks->Js.Array2.unsafe_get(i)
+              if check.fail === failInvalidType {
+                hoisted->Js.Array2.push(check)->ignore
+              } else {
+                inlineOnly->Js.Array2.push(check)->ignore
+              }
+            }
+            if hoisted->Js.Array2.length > 0 {
+              let cond = hoistCond->X.Option.getUnsafe
+              let prev = current.contents->X.Option.getUnsafe
+              let condCode = hoisted->andJoinChecks(~inputVar=prev.var())
+              if cond.contents->X.String.unsafeToBool {
+                cond := `${condCode}&&${cond.contents}`
+              } else {
+                cond := condCode
+              }
+            }
+            if (
+              inlineOnly->Js.Array2.length > 0 &&
+                val.expected.noValidation !== Some(true)
+            ) {
+              let prev = current.contents->X.Option.getUnsafe
+              currentCode :=
+                emitChecksArr(val, inlineOnly, ~inputVar=prev.var())
             }
           } else if val.expected.noValidation !== Some(true) {
             let prev = current.contents->X.Option.getUnsafe
