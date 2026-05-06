@@ -1426,22 +1426,13 @@ module Builder = {
       }
     }
 
-    // AND-joins every check's cond — caller guarantees `checks` is non-empty.
-    // Used by union codegen to hoist a val's checks into a dispatch discriminant.
-    let andJoinChecks = (checks: array<check>, ~inputVar: string): string => {
-      let result = ref((checks->Js.Array2.unsafe_get(0)).cond(~inputVar))
-      for i in 1 to checks->Js.Array2.length - 1 {
-        result :=
-          result.contents ++ "&&" ++ (checks->Js.Array2.unsafe_get(i)).cond(~inputVar)
-      }
-      result.contents
-    }
-
     // Walks the val.prev chain and assembles generated code. When
-    // `~hoistCond` is provided (union codegen), checks eligible for lift
-    // are AND-joined into that ref as a dispatch discriminant instead of
-    // being emitted. All other callers pass no `~hoistCond` and get the
-    // plain merge: every non-`noValidation` check is emitted inline.
+    // `~hoistCond` is provided (union codegen), type-narrow checks
+    // (fail === failInvalidType) lift into that ref as a dispatch
+    // discriminant instead of being emitted; constraint refines still
+    // emit inline so their case-specific error message survives. All
+    // other callers pass no `~hoistCond` and get the plain merge:
+    // every non-`noValidation` check is emitted inline.
     let merge = (val: val, ~hoistCond: option<ref<string>>=?): string => {
       let current = ref(Some(val))
       let code = ref("")
@@ -1460,17 +1451,36 @@ module Builder = {
                     val.codeFromPrev === ""
                 : true)
           if isHoistable {
-            // `noValidation` is intentionally bypassed here — the cond
-            // routes between union cases, it doesn't reject, so
+            // Partition: route type-narrows to hoistCond, emit refines inline.
+            // `noValidation` is intentionally bypassed for the hoisted part —
+            // the cond routes between union cases, it doesn't reject, so
             // suppressing would break dispatch.
-            let cond = hoistCond->X.Option.getUnsafe
             let prev = current.contents->X.Option.getUnsafe
-            let condCode =
-              val.checks->X.Option.getUnsafe->andJoinChecks(~inputVar=prev.var())
-            if cond.contents->X.String.unsafeToBool {
-              cond := `${condCode}&&${cond.contents}`
-            } else {
-              cond := condCode
+            let inputVar = prev.var()
+            let allChecks = val.checks->X.Option.getUnsafe
+            let localHoist = ref("")
+            for i in 0 to allChecks->Js.Array2.length - 1 {
+              let check = allChecks->Js.Array2.unsafe_get(i)
+              let condCode = check.cond(~inputVar)
+              if check.fail === failInvalidType {
+                if localHoist.contents->X.String.unsafeToBool {
+                  localHoist := `${localHoist.contents}&&${condCode}`
+                } else {
+                  localHoist := condCode
+                }
+              } else if val.expected.noValidation !== Some(true) {
+                currentCode :=
+                  currentCode.contents ++
+                  `${condCode}||${val->failWithArg(check.fail(~input=val), inputVar)};`
+              }
+            }
+            if localHoist.contents->X.String.unsafeToBool {
+              let cond = hoistCond->X.Option.getUnsafe
+              if cond.contents->X.String.unsafeToBool {
+                cond := `${localHoist.contents}&&${cond.contents}`
+              } else {
+                cond := localHoist.contents
+              }
             }
           } else if val.expected.noValidation !== Some(true) {
             let prev = current.contents->X.Option.getUnsafe
