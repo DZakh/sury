@@ -962,3 +962,32 @@ test("Tier 3 instance: source class absent from target — coercion fallback ret
     `i=>{i instanceof e[3]||e[4](i);try{throw e[0]}catch(e0){try{throw e[1]}catch(e1){e[2](i,e0,e1)}}return i}`,
   )
 })
+
+test("Tier 1 instance: S.date -> S.union([S.string, S.date]) keeps Date identity", t => {
+  let schema = S.date->S.to(S.union([S.string->S.castToUnknown, S.date->S.castToUnknown]))
+
+  let d = Date.fromString("2024-01-01T00:00:00Z")
+  t->Assert.deepEqual(d->S.parseOrThrow(~to=schema), d->Obj.magic)
+  t->U.assertThrowsMessage(
+    () => %raw(`"2024-01-01"`)->S.parseOrThrow(~to=schema),
+    `Expected Date, received "2024-01-01"`,
+  )
+  t->U.assertThrowsMessage(
+    () => %raw(`new Date("invalid")`)->S.parseOrThrow(~to=schema),
+    `Expected Date, received [object Date]`,
+  )
+
+  // Forward dispatch only checks the Date branch; the string variant is absent.
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{i instanceof e[1]||e[2](i);!Number.isNaN(i.getTime())||e[0](i);return i}`,
+  )
+  t->U.assertCompiledCodeIsNoop(~schema, ~op=#Convert)
+  // Reverse handles both source variants: parse string as Date, or pass Date through.
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#ReverseConvert,
+    `i=>{if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);i=new Date(i)}else if(!(i instanceof e[1])){e[2](i)}return i}`,
+  )
+})
