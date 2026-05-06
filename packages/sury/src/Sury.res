@@ -3568,6 +3568,11 @@ module Union = {
   @unboxed
   type itemCode = Single(string) | Multiple(array<string>)
 
+  let toKey = (schema: internal): string =>
+    schema.tag->TagFlag.get->Flag.unsafeHas(TagFlag.instance)
+      ? (schema.class->Obj.magic)["name"]
+      : (schema.tag :> string)
+
   let isPriority = (tagFlag, byKey: dict<array<unknown>>) => {
     (tagFlag->Flag.unsafeHas(TagFlag.array->Flag.with(TagFlag.instance)) &&
       byKey->Stdlib.Dict.has((objectTag: tag :> string))) ||
@@ -3624,6 +3629,39 @@ module Union = {
       ) {
         input.schema = unknown
       }
+
+      let activeKey = ref("")
+      if (
+        !(
+          initialInputTagFlag->Flag.unsafeHas(
+            TagFlag.union->Flag.with(TagFlag.ref)->Flag.with(TagFlag.unknown),
+          )
+        )
+      ) {
+        let sourceKey = toKey(input.schema)
+        let bridge = ref("")
+        let needNullBridge = initialInputTagFlag->Flag.unsafeHas(TagFlag.undefined)
+        let needUndefinedBridge = initialInputTagFlag->Flag.unsafeHas(TagFlag.null)
+        let len = schemas->Js.Array2.length
+        let i = ref(0)
+        while activeKey.contents === "" && i.contents < len {
+          let s = schemas->Js.Array2.unsafe_get(i.contents)
+          if toKey(s) === sourceKey {
+            activeKey := sourceKey
+          } else if bridge.contents === "" {
+            if needNullBridge && s.tag === nullTag {
+              bridge := (nullTag :> string)
+            } else if needUndefinedBridge && s.tag === undefinedTag {
+              bridge := (undefinedTag :> string)
+            }
+          }
+          i := i.contents + 1
+        }
+        if activeKey.contents === "" {
+          activeKey := bridge.contents
+        }
+      }
+      let activeKey = activeKey.contents
 
       let initialInline = input.inline
 
@@ -3868,12 +3906,12 @@ module Union = {
         updatedSchemas->Js.Array2.push(schema)->ignore
         let tag = schema.tag
         let tagFlag = TagFlag.get(tag)
-        let key =
-          tagFlag->Flag.unsafeHas(TagFlag.instance)
-            ? (schema.class->Obj.magic)["name"]
-            : (tag :> string)
+        let key = toKey(schema)
 
-        if (
+        if activeKey !== "" && activeKey !== key {
+          // not in active tier — skip
+          ()
+        } else if (
           tagFlag->Flag.unsafeHas(TagFlag.undefined) &&
             selfSchema->Obj.magic->Stdlib.Dict.has("fromDefault")
         ) {
