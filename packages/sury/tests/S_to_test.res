@@ -819,22 +819,18 @@ test("Fails to transform union to union to string", t => {
   }, "Expected string | number, received true")
 })
 
-test(
-  "Transform from union to wider union with different items order (applies decoder to both one at a time)",
-  t => {
-    let schema =
-      S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])->S.to(
-        S.union([S.float->S.castToUnknown, S.string->S.castToUnknown, S.bool->S.castToUnknown]),
-      )
-
-    t->U.assertThrowsMessage(() => {
-      true->S.parseOrThrow(~to=schema)
-    }, "Expected string | number, received true")
-    t->U.assertCompiledCode(
-      ~schema,
-      ~op=#Parse,
-      // TODO: Can be optimized to remove the second check
-      `i=>{if(!(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))){e[0](i)}if(!(typeof i==="number"&&!Number.isNaN(i)||typeof i==="string"||typeof i==="boolean")){e[1](i)}return i}`,
+test("Transform from union to wider union with different items order keeps source type", t => {
+  let schema =
+    S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])->S.to(
+      S.union([S.float->S.castToUnknown, S.string->S.castToUnknown, S.bool->S.castToUnknown]),
     )
-  },
-)
+
+  t->U.assertThrowsMessage(() => {
+    true->S.parseOrThrow(~to=schema)
+  }, "Expected string | number, received true")
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(!(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))){e[0](i)}return i}`,
+  )
+})
