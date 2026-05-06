@@ -3639,26 +3639,27 @@ module Union = {
         )
       ) {
         let sourceKey = toKey(input.schema)
-        let bridge = ref("")
-        let needNullBridge = initialInputTagFlag->Flag.unsafeHas(TagFlag.undefined)
-        let needUndefinedBridge = initialInputTagFlag->Flag.unsafeHas(TagFlag.null)
+        let hasNull = ref(false)
+        let hasUndefined = ref(false)
         let len = schemas->Js.Array2.length
         let i = ref(0)
         while activeKey.contents === "" && i.contents < len {
           let s = schemas->Js.Array2.unsafe_get(i.contents)
           if toKey(s) === sourceKey {
             activeKey := sourceKey
-          } else if bridge.contents === "" {
-            if needNullBridge && s.tag === nullTag {
-              bridge := (nullTag :> string)
-            } else if needUndefinedBridge && s.tag === undefinedTag {
-              bridge := (undefinedTag :> string)
-            }
+          } else if s.tag === nullTag {
+            hasNull := true
+          } else if s.tag === undefinedTag {
+            hasUndefined := true
           }
           i := i.contents + 1
         }
         if activeKey.contents === "" {
-          activeKey := bridge.contents
+          if initialInputTagFlag->Flag.unsafeHas(TagFlag.undefined) && hasNull.contents {
+            activeKey := (nullTag :> string)
+          } else if initialInputTagFlag->Flag.unsafeHas(TagFlag.null) && hasUndefined.contents {
+            activeKey := (undefinedTag :> string)
+          }
         }
       }
       let activeKey = activeKey.contents

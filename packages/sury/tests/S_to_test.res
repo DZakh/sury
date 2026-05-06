@@ -991,3 +991,21 @@ test("Tier 1 instance: S.date -> S.union([S.string, S.date]) keeps Date identity
     `i=>{if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);i=new Date(i)}else if(!(i instanceof e[1])){e[2](i)}return i}`,
   )
 })
+
+test("Tier 1 over tier 2: undefined -> [null, undefined] keeps undefined (tier-1 wins)", t => {
+  let schema =
+    S.unit->S.to(
+      S.union([S.literal(%raw(`null`))->S.castToUnknown, S.unit->S.castToUnknown]),
+    )
+
+  // The undefined target is present, so tier-1 must win — undefined stays undefined.
+  // The null bridge must NOT be applied even though null is also a target.
+  t->Assert.deepEqual(()->S.parseOrThrow(~to=schema), %raw(`undefined`))
+  t->U.assertThrowsMessage(
+    () => %raw(`null`)->S.parseOrThrow(~to=schema),
+    `Expected undefined, received null`,
+  )
+
+  // Generated dispatch only checks `i===void 0` — the null branch is absent.
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{i===void 0||e[0](i);return i}`)
+})
