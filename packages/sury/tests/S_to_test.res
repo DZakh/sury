@@ -819,22 +819,226 @@ test("Fails to transform union to union to string", t => {
   }, "Expected string | number, received true")
 })
 
-test(
-  "Transform from union to wider union with different items order (applies decoder to both one at a time)",
-  t => {
-    let schema =
-      S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])->S.to(
-        S.union([S.float->S.castToUnknown, S.string->S.castToUnknown, S.bool->S.castToUnknown]),
-      )
-
-    t->U.assertThrowsMessage(() => {
-      true->S.parseOrThrow(~to=schema)
-    }, "Expected string | number, received true")
-    t->U.assertCompiledCode(
-      ~schema,
-      ~op=#Parse,
-      // TODO: Can be optimized to remove the second check
-      `i=>{if(!(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))){e[0](i)}if(!(typeof i==="number"&&!Number.isNaN(i)||typeof i==="string"||typeof i==="boolean")){e[1](i)}return i}`,
+test("Transform from union to wider union with different items order keeps source type", t => {
+  let schema =
+    S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])->S.to(
+      S.union([S.float->S.castToUnknown, S.string->S.castToUnknown, S.bool->S.castToUnknown]),
     )
-  },
-)
+
+  t->U.assertThrowsMessage(() => {
+    true->S.parseOrThrow(~to=schema)
+  }, "Expected string | number, received true")
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(!(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))){e[0](i)}return i}`,
+  )
+})
+
+test("Tier 1: source tag matches a target variant — identity wins, no cross-type coercion", t => {
+  let schema = S.string->S.to(S.union([S.bool->S.castToUnknown, S.string->S.castToUnknown]))
+
+  // String input flows through as a string. The bool variant is never tried,
+  // so "true"/"false" are NOT coerced to bool.
+  t->Assert.deepEqual("true"->S.parseOrThrow(~to=schema), %raw(`"true"`))
+  t->Assert.deepEqual("false"->S.parseOrThrow(~to=schema), %raw(`"false"`))
+  t->Assert.deepEqual("anything"->S.parseOrThrow(~to=schema), %raw(`"anything"`))
+  t->U.assertThrowsMessage(
+    () => true->S.parseOrThrow(~to=schema),
+    `Expected string, received true`,
+  )
+
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{typeof i==="string"||e[0](i);return i}`)
+  t->U.assertCompiledCodeIsNoop(~schema, ~op=#Convert)
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#ReverseConvert,
+    `i=>{if(typeof i==="boolean"){i=""+i}else if(!(typeof i==="string")){e[0](i)}return i}`,
+  )
+})
+
+test("Tier 2: nullish bridge — null source uses opposite undefined target when no null target", t => {
+  let schema =
+    S.literal(%raw(`null`))->S.to(S.union([S.string->S.castToUnknown, S.unit->S.castToUnknown]))
+
+  // null bridges to undefined (the opposite-nullish target). The string
+  // variant is never compiled into the dispatch.
+  t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(~to=schema), %raw(`undefined`))
+  t->U.assertThrowsMessage(
+    () => "hello"->S.parseOrThrow(~to=schema),
+    `Expected null, received "hello"`,
+  )
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{i===null||e[1](i);try{i=void 0}catch(e1){e[0](i,e1)}return i}`,
+  )
+})
+
+test("Tier 3: no source-tag match — coercion fallback retained", t => {
+  let schema = S.bool->S.to(S.union([S.string->S.castToUnknown, S.float->S.castToUnknown]))
+
+  // Source tag (boolean) matches no target tag → fall through to today's
+  // trial-coercion behavior. bool→string via `""+i` succeeds.
+  t->Assert.deepEqual(true->S.parseOrThrow(~to=schema), %raw(`"true"`))
+  t->Assert.deepEqual(false->S.parseOrThrow(~to=schema), %raw(`"false"`))
+  t->U.assertThrowsMessage(
+    () => "hello"->S.parseOrThrow(~to=schema),
+    `Expected boolean, received "hello"`,
+  )
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{typeof i==="boolean"||e[2](i);try{i=""+i}catch(e0){try{throw e[0]}catch(e1){e[1](i,e0,e1)}}return i}`,
+  )
+})
+
+test("Tier 2: nullish bridge — undefined source uses opposite null target when no undefined target", t => {
+  let schema =
+    S.unit->S.to(
+      S.union([S.string->S.castToUnknown, S.literal(%raw(`null`))->S.castToUnknown]),
+    )
+
+  // undefined bridges to null. The string variant is never compiled into the dispatch.
+  t->Assert.deepEqual(()->S.parseOrThrow(~to=schema), %raw(`null`))
+  t->U.assertThrowsMessage(
+    () => "hello"->S.parseOrThrow(~to=schema),
+    `Expected undefined, received "hello"`,
+  )
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{i===void 0||e[1](i);try{i=null}catch(e1){e[0](i,e1)}return i}`,
+  )
+})
+
+test("Tier 1 instance: same class wins, other instance branch never compiled", t => {
+  let schema =
+    S.instance(%raw(`Set`))->S.to(
+      S.union([
+        S.instance(%raw(`Map`))->Obj.magic,
+        S.instance(%raw(`Set`))->Obj.magic,
+      ]),
+    )
+
+  t->Assert.deepEqual(
+    %raw(`new Set(["a"])`)->S.parseOrThrow(~to=schema),
+    %raw(`new Set(["a"])`),
+  )
+  t->U.assertThrowsMessage(
+    () => %raw(`new Map()`)->S.parseOrThrow(~to=schema),
+    `Expected Set, received [object Map]`,
+  )
+
+  // Generated dispatch only checks `i instanceof Set` — Map branch absent.
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{i instanceof e[0]||e[1](i);return i}`)
+  t->U.assertCompiledCodeIsNoop(~schema, ~op=#Convert)
+})
+
+test("Tier 3 instance: source class absent from target — coercion fallback retained", t => {
+  let schema =
+    S.instance(%raw(`Set`))->S.to(
+      S.union([S.string->S.castToUnknown, S.instance(%raw(`Map`))->Obj.magic]),
+    )
+
+  // Set source matches neither string nor Map by class name → tier-3 fallback.
+  t->U.assertThrowsMessage(
+    () => %raw(`new Set()`)->S.parseOrThrow(~to=schema),
+    `Expected string | Map, received [object Set]
+- Can't decode Set to string. Use S.to to define a custom decoder
+- Can't decode Set to Map. Use S.to to define a custom decoder`,
+  )
+  t->U.assertThrowsMessage(
+    () => "hello"->S.parseOrThrow(~to=schema),
+    `Expected Set, received "hello"`,
+  )
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{i instanceof e[3]||e[4](i);try{throw e[0]}catch(e0){try{throw e[1]}catch(e1){e[2](i,e0,e1)}}return i}`,
+  )
+})
+
+test("Tier 1 instance: S.date -> S.union([S.string, S.date]) keeps Date identity", t => {
+  let schema = S.date->S.to(S.union([S.string->S.castToUnknown, S.date->S.castToUnknown]))
+
+  let d = Date.fromString("2024-01-01T00:00:00Z")
+  t->Assert.deepEqual(d->S.parseOrThrow(~to=schema), d->Obj.magic)
+  t->U.assertThrowsMessage(
+    () => %raw(`"2024-01-01"`)->S.parseOrThrow(~to=schema),
+    `Expected Date, received "2024-01-01"`,
+  )
+  t->U.assertThrowsMessage(
+    () => %raw(`new Date("invalid")`)->S.parseOrThrow(~to=schema),
+    `Expected Date, received [object Date]`,
+  )
+
+  // Forward dispatch only checks the Date branch; the string variant is absent.
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{i instanceof e[1]||e[2](i);!Number.isNaN(i.getTime())||e[0](i);return i}`,
+  )
+  t->U.assertCompiledCodeIsNoop(~schema, ~op=#Convert)
+  // Reverse handles both source variants: parse string as Date, or pass Date through.
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#ReverseConvert,
+    `i=>{if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);i=new Date(i)}else if(!(i instanceof e[1])){e[2](i)}return i}`,
+  )
+})
+
+test("Tier 1 over tier 2: undefined -> [null, undefined] keeps undefined (tier-1 wins)", t => {
+  let schema =
+    S.unit->S.to(
+      S.union([S.literal(%raw(`null`))->S.castToUnknown, S.unit->S.castToUnknown]),
+    )
+
+  // The undefined target is present, so tier-1 must win — undefined stays undefined.
+  // The null bridge must NOT be applied even though null is also a target.
+  t->Assert.deepEqual(()->S.parseOrThrow(~to=schema), %raw(`undefined`))
+  t->U.assertThrowsMessage(
+    () => %raw(`null`)->S.parseOrThrow(~to=schema),
+    `Expected undefined, received null`,
+  )
+
+  // Generated dispatch only checks `i===void 0` — the null branch is absent.
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{i===void 0||e[0](i);return i}`)
+})
+
+test("Tier 3 fallback for unknown source — transform on unknown variant still runs", t => {
+  // Source is S.unknown. Even though the target has an `unknown` variant
+  // (the second one, with a transform), tier-1 must NOT fire here: an
+  // unknown source has no derived tag, so dispatch falls through to
+  // tier-3 trial and tries `string` first, then the transformed unknown.
+  let schema =
+    S.unknown->S.to(
+      S.union([
+        S.string->S.castToUnknown,
+        S.unknown
+        ->S.transform(_ => {
+          parser: v => Some(v),
+          serializer: v => v->Obj.magic,
+        })
+        ->S.castToUnknown,
+      ]),
+    )
+
+  // String input matches the string variant — passes through as-is.
+  t->Assert.deepEqual("abc"->S.parseOrThrow(~to=schema), %raw(`"abc"`))
+  // Non-string input fails the string check, falls through to the unknown
+  // variant, which applies the transform (wraps in Some).
+  t->Assert.deepEqual(123->S.parseOrThrow(~to=schema), Some(123)->Obj.magic)
+
+  // Generated code is the tier-3 trial chain — string check first, then
+  // the transformed unknown branch in a catch.
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{try{typeof i==="string"||e[0](i);}catch(e1){try{let v0;try{v0=e[1](i)}catch(x){e[2](x)}i=v0}catch(e2){e[3](i,e1,e2)}}return i}`,
+  )
+})
