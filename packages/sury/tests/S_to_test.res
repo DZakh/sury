@@ -834,3 +834,63 @@ test("Transform from union to wider union with different items order keeps sourc
     `i=>{if(!(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))){e[0](i)}return i}`,
   )
 })
+
+test("Tier 1: source tag matches a target variant — identity wins, no cross-type coercion", t => {
+  let schema = S.string->S.to(S.union([S.bool->S.castToUnknown, S.string->S.castToUnknown]))
+
+  // String input flows through as a string. The bool variant is never tried,
+  // so "true"/"false" are NOT coerced to bool.
+  t->Assert.deepEqual("true"->S.parseOrThrow(~to=schema), %raw(`"true"`))
+  t->Assert.deepEqual("false"->S.parseOrThrow(~to=schema), %raw(`"false"`))
+  t->Assert.deepEqual("anything"->S.parseOrThrow(~to=schema), %raw(`"anything"`))
+  t->U.assertThrowsMessage(
+    () => true->S.parseOrThrow(~to=schema),
+    `Expected string, received true`,
+  )
+
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{typeof i==="string"||e[0](i);return i}`)
+  t->U.assertCompiledCodeIsNoop(~schema, ~op=#Convert)
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#ReverseConvert,
+    `i=>{if(typeof i==="boolean"){i=""+i}else if(!(typeof i==="string")){e[0](i)}return i}`,
+  )
+})
+
+test("Tier 2: nullish bridge — null source uses opposite undefined target when no null target", t => {
+  let schema =
+    S.literal(%raw(`null`))->S.to(S.union([S.string->S.castToUnknown, S.unit->S.castToUnknown]))
+
+  // null bridges to undefined (the opposite-nullish target). The string
+  // variant is never compiled into the dispatch.
+  t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(~to=schema), %raw(`undefined`))
+  t->U.assertThrowsMessage(
+    () => "hello"->S.parseOrThrow(~to=schema),
+    `Expected null, received "hello"`,
+  )
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{i===null||e[1](i);try{i=void 0}catch(e1){e[0](i,e1)}return i}`,
+  )
+})
+
+test("Tier 3: no source-tag match — coercion fallback retained", t => {
+  let schema = S.bool->S.to(S.union([S.string->S.castToUnknown, S.float->S.castToUnknown]))
+
+  // Source tag (boolean) matches no target tag → fall through to today's
+  // trial-coercion behavior. bool→string via `""+i` succeeds.
+  t->Assert.deepEqual(true->S.parseOrThrow(~to=schema), %raw(`"true"`))
+  t->Assert.deepEqual(false->S.parseOrThrow(~to=schema), %raw(`"false"`))
+  t->U.assertThrowsMessage(
+    () => "hello"->S.parseOrThrow(~to=schema),
+    `Expected boolean, received "hello"`,
+  )
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{typeof i==="boolean"||e[2](i);try{i=""+i}catch(e0){try{throw e[0]}catch(e1){e[1](i,e0,e1)}}return i}`,
+  )
+})
