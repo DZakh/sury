@@ -386,6 +386,21 @@ test("NaN should be checked before number even if it's later item in the union",
   t->Assert.deepEqual(%raw(`NaN`)->S.parseOrThrow(~to=schema), None)
   t->Assert.deepEqual(1.->S.parseOrThrow(~to=schema), Some(1.))
 
+  // A number that satisfies the type but fails the constraint must surface
+  // the constraint-specific message, not the generic union mismatch. This
+  // is the regression that the type-narrow / refine partition in B.merge
+  // restores — keep this assertion even if the compiled-code snapshot is
+  // refreshed, otherwise a refactor that recollapses checks into the
+  // routing predicate stays green while breaking error specificity.
+  t->U.assertThrowsMessage(
+    () => %raw(`-1`)->S.parseOrThrow(~to=schema),
+    `Number must be greater than or equal to 0`,
+  )
+  t->U.assertThrowsMessage(
+    () => %raw(`"abc"`)->S.parseOrThrow(~to=schema),
+    `Expected number | NaN, received "abc"`,
+  )
+
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
