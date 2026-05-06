@@ -1009,3 +1009,36 @@ test("Tier 1 over tier 2: undefined -> [null, undefined] keeps undefined (tier-1
   // Generated dispatch only checks `i===void 0` — the null branch is absent.
   t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{i===void 0||e[0](i);return i}`)
 })
+
+test("Tier 3 fallback for unknown source — transform on unknown variant still runs", t => {
+  // Source is S.unknown. Even though the target has an `unknown` variant
+  // (the second one, with a transform), tier-1 must NOT fire here: an
+  // unknown source has no derived tag, so dispatch falls through to
+  // tier-3 trial and tries `string` first, then the transformed unknown.
+  let schema =
+    S.unknown->S.to(
+      S.union([
+        S.string->S.castToUnknown,
+        S.unknown
+        ->S.transform(_ => {
+          parser: v => Some(v),
+          serializer: v => v->Obj.magic,
+        })
+        ->S.castToUnknown,
+      ]),
+    )
+
+  // String input matches the string variant — passes through as-is.
+  t->Assert.deepEqual("abc"->S.parseOrThrow(~to=schema), %raw(`"abc"`))
+  // Non-string input fails the string check, falls through to the unknown
+  // variant, which applies the transform (wraps in Some).
+  t->Assert.deepEqual(123->S.parseOrThrow(~to=schema), Some(123)->Obj.magic)
+
+  // Generated code is the tier-3 trial chain — string check first, then
+  // the transformed unknown branch in a catch.
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{try{typeof i==="string"||e[0](i);}catch(e1){try{let v0;try{v0=e[1](i)}catch(x){e[2](x)}i=v0}catch(e2){e[3](i,e1,e2)}}return i}`,
+  )
+})
