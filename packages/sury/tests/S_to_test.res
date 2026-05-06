@@ -894,3 +894,71 @@ test("Tier 3: no source-tag match — coercion fallback retained", t => {
     `i=>{typeof i==="boolean"||e[2](i);try{i=""+i}catch(e0){try{throw e[0]}catch(e1){e[1](i,e0,e1)}}return i}`,
   )
 })
+
+test("Tier 2: nullish bridge — undefined source uses opposite null target when no undefined target", t => {
+  let schema =
+    S.unit->S.to(
+      S.union([S.string->S.castToUnknown, S.literal(%raw(`null`))->S.castToUnknown]),
+    )
+
+  // undefined bridges to null. The string variant is never compiled into the dispatch.
+  t->Assert.deepEqual(()->S.parseOrThrow(~to=schema), %raw(`null`))
+  t->U.assertThrowsMessage(
+    () => "hello"->S.parseOrThrow(~to=schema),
+    `Expected undefined, received "hello"`,
+  )
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{i===void 0||e[1](i);try{i=null}catch(e1){e[0](i,e1)}return i}`,
+  )
+})
+
+test("Tier 1 instance: same class wins, other instance branch never compiled", t => {
+  let schema =
+    S.instance(%raw(`Set`))->S.to(
+      S.union([
+        S.instance(%raw(`Map`))->Obj.magic,
+        S.instance(%raw(`Set`))->Obj.magic,
+      ]),
+    )
+
+  t->Assert.deepEqual(
+    %raw(`new Set(["a"])`)->S.parseOrThrow(~to=schema),
+    %raw(`new Set(["a"])`),
+  )
+  t->U.assertThrowsMessage(
+    () => %raw(`new Map()`)->S.parseOrThrow(~to=schema),
+    `Expected Set, received [object Map]`,
+  )
+
+  // Generated dispatch only checks `i instanceof Set` — Map branch absent.
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{i instanceof e[0]||e[1](i);return i}`)
+  t->U.assertCompiledCodeIsNoop(~schema, ~op=#Convert)
+})
+
+test("Tier 3 instance: source class absent from target — coercion fallback retained", t => {
+  let schema =
+    S.instance(%raw(`Set`))->S.to(
+      S.union([S.string->S.castToUnknown, S.instance(%raw(`Map`))->Obj.magic]),
+    )
+
+  // Set source matches neither string nor Map by class name → tier-3 fallback.
+  t->U.assertThrowsMessage(
+    () => %raw(`new Set()`)->S.parseOrThrow(~to=schema),
+    `Expected string | Map, received [object Set]
+- Can't decode Set to string. Use S.to to define a custom decoder
+- Can't decode Set to Map. Use S.to to define a custom decoder`,
+  )
+  t->U.assertThrowsMessage(
+    () => "hello"->S.parseOrThrow(~to=schema),
+    `Expected Set, received "hello"`,
+  )
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{i instanceof e[3]||e[4](i);try{throw e[0]}catch(e0){try{throw e[1]}catch(e1){e[2](i,e0,e1)}}return i}`,
+  )
+})
