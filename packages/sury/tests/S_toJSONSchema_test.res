@@ -292,15 +292,12 @@ test("JSONSchema of union", t => {
   )
 })
 
-test("REPRO JSONSchema of union([string, bigint])->to(string)", t => {
+test("JSONSchema of union narrowed by .to: union([string, bigint])->to(string)", t => {
+  // The union decoder shrinks to just the string variant when the chained
+  // .to(S.string) is applied (the bigint variant is absorbed by the coercion).
+  // toJSONSchema reads that shrunk schema and emits the string type.
   let schema = S.union([S.string->S.castToUnknown, S.bigint->S.castToUnknown])->S.to(S.string)
-  let json = try {
-    schema->S.toJSONSchema->Obj.magic
-  } catch {
-  | e => e->Obj.magic
-  }
-  Js.log2("REPRO toJSONSchema result:", json)
-  t->Assert.pass(~message="see log")
+  t->Assert.deepEqual(schema->S.toJSONSchema, %raw(`{"type": "string"}`))
 })
 
 test("JSONSchema of string array", t => {

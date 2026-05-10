@@ -4522,7 +4522,8 @@ function encodeToJsonSchema(schema, path, defs, parent) {
 }
 
 function internalToJSONSchema(schema, path, defs, parent) {
-  let hasUserTo = schema.to && !(flags[schema.type] & 448);
+  let tagFlag = flags[schema.type];
+  let hasUserTo = schema.to && !(tagFlag & 192) && !(tagFlag & 256 && schema.parser);
   let encoded = hasUserTo ? encodeToJsonSchema(schema, path, defs, parent) : undefined;
   if (encoded !== undefined) {
     applyMetadataOverlay(encoded, schema, defs);
