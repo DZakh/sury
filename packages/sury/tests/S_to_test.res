@@ -1066,3 +1066,29 @@ test(
     )
   },
 )
+
+test(
+  "Tier 1: S.string -> S.to(union[str,bigint] -> refine -> to(bigint)) — union output schema is S.string, downstream sees only refine + BigInt",
+  t => {
+    // The target is a 2-variant union [string, bigint] with a refine and a
+    // .to(S.bigint) chained on it. Source is S.string, so tier-1 narrows the
+    // union to just [string]; the union decoder's output schema becomes S.string.
+    // Downstream the refine and .to(S.bigint) compile against that single
+    // surviving variant — no bigint case, no fallback.
+    let target =
+      S.union([S.string->S.castToUnknown, S.bigint->S.castToUnknown])
+      ->S.refine(_ => true)
+      ->S.to(S.bigint)
+    let schema = S.string->S.to(target)
+
+    t->Assert.deepEqual("123"->S.parseOrThrow(~to=schema), %raw(`123n`))
+
+    // Desired: source string typecheck, then refine on the (string) value,
+    // then BigInt coercion. No bigint variant, no exhaustive wrapper.
+    t->U.assertCompiledCode(
+      ~schema,
+      ~op=#Parse,
+      `i=>{typeof i==="string"||e[1](i);if(!e[0](i)){e[2]()}let v0;try{v0=BigInt(i)}catch(_){e[3](i)}return v0}`,
+    )
+  },
+)
