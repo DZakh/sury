@@ -43,4 +43,9 @@ test("Union dispatch still works when a case has noValidation", t => {
     () => "c"->S.parseOrThrow(~to=schema),
     `Expected "a" | "b", received "c"`,
   )
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(!(typeof i==="string"&&(i==="a"||i==="b"))){e[0](i)}return i}`,
+  )
 })
