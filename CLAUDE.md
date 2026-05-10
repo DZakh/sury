@@ -1,5 +1,15 @@
 # Sury Architecture
 
+## Primary Goals
+
+Sury optimizes for three goals — in this order, when they conflict:
+
+1. **DX** — public API and error messages must be intuitive. Schema authors and consumers should not need to know how the compiler works.
+2. **High performance** — generated code is the hot path. Avoid redundant work (extra variables, unused allocations, double validation) and prefer inlining over indirection.
+3. **Minimal bundle size** — every byte of `Sury.res.mjs` ships to the browser. Prefer reusable helpers (`B.refine`, `B.applyRefiners`, etc.) over duplicated codegen branches; prefer one well-named primitive over several near-duplicates.
+
+When in doubt: pick the option that produces the shortest *generated* code at runtime AND the shortest *library* code at compile time. If those conflict, runtime wins (it ships per-schema, library code ships once).
+
 ## Schema Input and Output Types
 
 A schema represents two types: Input and Output.
@@ -63,6 +73,17 @@ Schema properties are executed in the following order:
 5. **encoder** - Transformation logic from the current schema's output to the `.to` schema's input.
 
 6. **.to.decoder** - Starts the cycle from the beginning with the `.to` schema.
+
+### Refiner Application — Who Is Responsible
+
+The parse loop (in `parse`, around the `expected.decoder(~input)` call) handles refiner application **only for primitive decoders** — those that return a val with `isOutput !== Some(true)`. For these, the loop checks `expected.inputRefiner` / `expected.refiner` and pushes them as checks via `B.refine`.
+
+**Advanced decoders that mark their output `isOutput = Some(true)` (i.e., decoders that produce an internally-transformed value, such as `objectDecoder`, `arrayDecoder`, tuple, union, recursive) own refiner application themselves.** The generic post-decoder fallback is intentionally skipped because:
+
+- The advanced decoder knows the optimal injection points: `inputRefiner` runs on the *original input* before field/item decoding (so a failure short-circuits before any allocation); `refiner` runs on the *assembled output* (so it observes the transformed shape).
+- Applying refiners generically after the fact would force the decoder to emit a materialized output value even when nothing else needed it, costing bundle size and runtime allocation.
+
+A shared `B.applyRefiners(~val, ~schema, ~which=#Input | #Output)` helper exists so each advanced decoder can call it without duplicating the `hasInputRefiner` / `hasRefiner` boilerplate. If you implement a new advanced decoder, you **must** call this helper at both insertion points; otherwise user-supplied `S.refine` is silently dropped.
 
 ## Reversal with S.reverse
 
