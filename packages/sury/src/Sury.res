@@ -1565,6 +1565,38 @@ module Builder = {
       }
     }
 
+    // Apply a schema's input refiner to a val. Returns the same val if no
+    // refiner / empty checks, otherwise a `refine`-cloned val carrying the
+    // checks. Advanced decoders (object, array, tuple, union, recursive)
+    // MUST call this themselves; the parse-loop fallback only fires for
+    // primitive decoders (`isOutput !== Some(true)`). Pair with
+    // `applyRefiner`; call this one first so input checks emit ahead of
+    // output checks.
+    let applyInputRefiner = (val: val, ~schema: internal) => {
+      switch schema.inputRefiner {
+      | Some(fn) => {
+          let checks = fn(~input=val)
+          checks->Js.Array2.length > 0 ? val->refine(~checks) : val
+        }
+      | None => val
+      }
+    }
+
+    // Apply a schema's output refiner to a val (the assembled output). Same
+    // ownership rule as `applyInputRefiner`. For async decoders, the check
+    // must be injected inside the `.then` callback on the resolved value,
+    // not on the Promise wrapper — current object/array decoders still emit
+    // on the wrapper for async, which is a known follow-up.
+    let applyRefiner = (val: val, ~schema: internal) => {
+      switch schema.refiner {
+      | Some(fn) => {
+          let checks = fn(~input=val)
+          checks->Js.Array2.length > 0 ? val->refine(~checks) : val
+        }
+      | None => val
+      }
+    }
+
     // Used in union codegen: splice a literal child's checks into the parent
     // as dispatch discriminants. Each cond's `inputVar` is rewritten to
     // `parent[key]`; `fail` stays shared so lifted checks fuse with the
@@ -2322,30 +2354,9 @@ let rec parse = (input: val) => {
         // Otherwise, we assume internal transformations are present,
         // and expect the decoder itself to handle refinements and manage isInput/isOutput flags.
         if !(valRef.contents.isOutput->Option.getUnsafe) {
-          let hasInputRefiner = valRef.contents.expected.inputRefiner->Obj.magic
-          let hasRefiner = valRef.contents.expected.refiner->Obj.magic
-          if hasInputRefiner || hasRefiner {
-            let checks = []
-            if hasInputRefiner {
-              let arr = (valRef.contents.expected.inputRefiner->X.Option.getUnsafe)(
-                ~input=valRef.contents,
-              )
-              for i in 0 to arr->Js.Array2.length - 1 {
-                checks->Js.Array2.push(arr->Js.Array2.unsafe_get(i))->ignore
-              }
-            }
-            if hasRefiner {
-              let arr = (valRef.contents.expected.refiner->X.Option.getUnsafe)(
-                ~input=valRef.contents,
-              )
-              for i in 0 to arr->Js.Array2.length - 1 {
-                checks->Js.Array2.push(arr->Js.Array2.unsafe_get(i))->ignore
-              }
-            }
-            if checks->Js.Array2.length > 0 {
-              valRef.contents = valRef.contents->B.refine(~checks)
-            }
-          }
+          let schema = valRef.contents.expected
+          valRef := valRef.contents->B.applyInputRefiner(~schema)
+          valRef := valRef.contents->B.applyRefiner(~schema)
           valRef.contents.isInput = Some(true)
           valRef.contents.isOutput = Some(true)
         }
@@ -2940,7 +2951,7 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
     unknownInput->B.unsupportedDecode(~from=unknownInput.schema, ~target=expectedSchema)
   }
 
-  switch expectedSchema.additionalItems->X.Option.getUnsafe {
+  let result = switch expectedSchema.additionalItems->X.Option.getUnsafe {
   | Schema(itemSchema) => {
       let itemSchema = itemSchema->castToInternal
       if itemSchema === unknown {
@@ -3067,6 +3078,17 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
       }
     }
   }
+  // Apply user-supplied refiners after field decoding: inputRefiner first
+  // (so input checks emit before output checks), then output refiner. Mark
+  // isOutput so the parse-loop primitive fallback skips this val. Async
+  // object refiners still emit on the Promise wrapper — follow-up.
+  let result =
+    result
+    ->B.applyInputRefiner(~schema=expectedSchema)
+    ->B.applyRefiner(~schema=expectedSchema)
+  result.isInput = Some(true)
+  result.isOutput = Some(true)
+  result
 }
 
 let recursiveDecoder = Builder.make((~input) => {
