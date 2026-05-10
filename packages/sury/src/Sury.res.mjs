@@ -1196,7 +1196,7 @@ let jsonName = "JSON";
 
 function literalDecoder(input) {
   let expectedSchema = input.e;
-  if (expectedSchema.noValidation) {
+  if (expectedSchema.noValidation && !input.u) {
     return nextConst(input, expectedSchema, undefined);
   }
   if (constField in input.s) {
