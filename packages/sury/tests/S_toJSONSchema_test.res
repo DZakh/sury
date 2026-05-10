@@ -292,6 +292,14 @@ test("JSONSchema of union", t => {
   )
 })
 
+test("JSONSchema of union narrowed by .to: union([string, bigint])->to(string)", t => {
+  // The union decoder shrinks to just the string variant when the chained
+  // .to(S.string) is applied (the bigint variant is absorbed by the coercion).
+  // toJSONSchema reads that shrunk schema and emits the string type.
+  let schema = S.union([S.string->S.castToUnknown, S.bigint->S.castToUnknown])->S.to(S.string)
+  t->Assert.deepEqual(schema->S.toJSONSchema, %raw(`{"type": "string"}`))
+})
+
 test("JSONSchema of string array", t => {
   t->Assert.deepEqual(
     S.array(S.string)->S.toJSONSchema,

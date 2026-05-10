@@ -6689,17 +6689,18 @@ module RescriptJSONSchema = {
     let schemaInternal = schema->castToInternal
     // When a schema has `.to`, we can try to encode-reverse it to get a more
     // precise JSON schema (e.g. `format: "date-time"` for `S.string->S.to(S.date)`).
-    // But for structural tags (object/array/union) encoding would lose items
-    // metadata, so we only attempt it for leaf tags where it's safe.
+    // For a user-applied `.to` on a union (no `parser`) the encode-reverse output
+    // is the schema produced by the union decoder, already shrunk to the
+    // surviving variants — exactly what a downstream JSON Schema should describe.
+    // Unions with a `parser` come from the option machinery (S.option,
+    // Option.getOrWith, ...) where the union's anyOf is the input format we want
+    // to keep describing. Object/array still need their nested item metadata, so
+    // they keep using the base path.
+    let tagFlag = schemaInternal.tag->TagFlag.get
     let hasUserTo =
       schemaInternal.to->Obj.magic &&
-        !(
-          schemaInternal.tag
-          ->TagFlag.get
-          ->Flag.unsafeHas(
-            TagFlag.object->Flag.with(TagFlag.array)->Flag.with(TagFlag.union),
-          )
-        )
+        !(tagFlag->Flag.unsafeHas(TagFlag.object->Flag.with(TagFlag.array))) &&
+        !(tagFlag->Flag.unsafeHas(TagFlag.union) && schemaInternal.parser->Obj.magic)
     let encoded = if hasUserTo {
       encodeToJsonSchema(schema, ~path, ~defs, ~parent)
     } else {

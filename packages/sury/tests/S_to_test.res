@@ -1042,3 +1042,53 @@ test("Tier 3 fallback for unknown source — transform on unknown variant still 
     `i=>{try{typeof i==="string"||e[0](i);}catch(e1){try{let v0;try{v0=e[1](i)}catch(x){e[2](x)}i=v0}catch(e2){e[3](i,e1,e2)}}return i}`,
   )
 })
+
+test(
+  "Tier 1: union with refine+to as target — downstream refine/to only see narrowed variant",
+  t => {
+    // Source S.string matches the string variant in the target union.
+    // Tier 1 narrows the target union to just [string], so the union's refiner
+    // and the chained .to(bigint) should compile only for the string case.
+    let target =
+      S.union([S.string->S.castToUnknown, S.float->S.castToUnknown, S.bool->S.castToUnknown])
+      ->S.refine(v => typeof(v) !== #bigint, ~error="Unsupported bigint")
+      ->S.to(S.bigint)
+    let schema = S.string->S.to(target)
+
+    t->Assert.deepEqual("123"->S.parseOrThrow(~to=schema), %raw(`123n`))
+
+    // Desired: outer string typecheck, then per-case refine, then string→bigint.
+    // No float/bool branches, no exhaustive try/catch wrapper.
+    t->U.assertCompiledCode(
+      ~schema,
+      ~op=#Parse,
+      `i=>{typeof i==="string"||e[2](i);if(!e[0](i)){e[1]()}let v0;try{v0=BigInt(i)}catch(_){e[3](i)}return v0}`,
+    )
+  },
+)
+
+test(
+  "Tier 1: S.string -> S.to(union[str,bigint] -> refine -> to(bigint)) — union output schema is S.string, downstream sees only refine + BigInt",
+  t => {
+    // The target is a 2-variant union [string, bigint] with a refine and a
+    // .to(S.bigint) chained on it. Source is S.string, so tier-1 narrows the
+    // union to just [string]; the union decoder's output schema becomes S.string.
+    // Downstream the refine and .to(S.bigint) compile against that single
+    // surviving variant — no bigint case, no fallback.
+    let target =
+      S.union([S.string->S.castToUnknown, S.bigint->S.castToUnknown])
+      ->S.refine(_ => true)
+      ->S.to(S.bigint)
+    let schema = S.string->S.to(target)
+
+    t->Assert.deepEqual("123"->S.parseOrThrow(~to=schema), %raw(`123n`))
+
+    // Desired: source string typecheck, then refine on the (string) value,
+    // then BigInt coercion. No bigint variant, no exhaustive wrapper.
+    t->U.assertCompiledCode(
+      ~schema,
+      ~op=#Parse,
+      `i=>{typeof i==="string"||e[1](i);if(!e[0](i)){e[2]()}let v0;try{v0=BigInt(i)}catch(_){e[3](i)}return v0}`,
+    )
+  },
+)
