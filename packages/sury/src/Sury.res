@@ -2133,7 +2133,7 @@ let jsonName = `JSON`
 
 let literalDecoder = Builder.make((~input) => {
   let expectedSchema = input.expected
-  if expectedSchema.noValidation->X.Option.getUnsafe {
+  if expectedSchema.noValidation->X.Option.getUnsafe && !(input.isUnion->X.Option.getUnsafe) {
     input->B.nextConst(~schema=expectedSchema)
   } else if input.schema->isLiteral {
     if input.schema.const === expectedSchema.const {
