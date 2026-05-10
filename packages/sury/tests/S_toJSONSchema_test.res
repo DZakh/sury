@@ -292,6 +292,17 @@ test("JSONSchema of union", t => {
   )
 })
 
+test("REPRO JSONSchema of union([string, bigint])->to(string)", t => {
+  let schema = S.union([S.string->S.castToUnknown, S.bigint->S.castToUnknown])->S.to(S.string)
+  let json = try {
+    schema->S.toJSONSchema->Obj.magic
+  } catch {
+  | e => e->Obj.magic
+  }
+  Js.log2("REPRO toJSONSchema result:", json)
+  t->Assert.pass(~message="see log")
+})
+
 test("JSONSchema of string array", t => {
   t->Assert.deepEqual(
     S.array(S.string)->S.toJSONSchema,
