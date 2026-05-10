@@ -105,3 +105,38 @@ test("Chaining refinements", t => {
   t->U.assertThrowsMessage(() => %raw(`-2`)->S.parseOrThrow(~to=schema), `Must be positive`)
   t->U.assertThrowsMessage(() => %raw(`3`)->S.parseOrThrow(~to=schema), `Must be even`)
 })
+
+test(
+  "Refiner application order: type-narrow first, then inputRefiner, then output refiner",
+  t => {
+    let schema =
+      S.schema({"foo": S.string})
+      ->S.refine(i => i["foo"] !== "rejectByInput", ~error="Input refine failure")
+      ->S.reverse
+      ->S.refine(i => i["foo"] !== "rejectByOutput", ~error="Output refine failure")
+
+    // Type-narrow on `foo` runs before either refiner.
+    t->U.assertThrowsMessage(
+      () => %raw(`{"foo": 123}`)->S.parseOrThrow(~to=schema),
+      `Failed at ["foo"]: Expected string, received 123`,
+    )
+
+    // Type-narrow passes; inputRefiner rejects.
+    t->U.assertThrowsMessage(
+      () => %raw(`{"foo": "rejectByInput"}`)->S.parseOrThrow(~to=schema),
+      `Input refine failure`,
+    )
+
+    // Type-narrow + inputRefiner pass; output refiner rejects.
+    t->U.assertThrowsMessage(
+      () => %raw(`{"foo": "rejectByOutput"}`)->S.parseOrThrow(~to=schema),
+      `Output refine failure`,
+    )
+
+    // All three pass.
+    t->Assert.deepEqual(
+      %raw(`{"foo": "ok"}`)->S.parseOrThrow(~to=schema),
+      {"foo": "ok"},
+    )
+  },
+)

@@ -83,7 +83,9 @@ The parse loop (in `parse`, around the `expected.decoder(~input)` call) handles 
 - The advanced decoder knows the optimal injection points: `inputRefiner` runs on the *original input* before field/item decoding (so a failure short-circuits before any allocation); `refiner` runs on the *assembled output* (so it observes the transformed shape).
 - Applying refiners generically after the fact would force the decoder to emit a materialized output value even when nothing else needed it, costing bundle size and runtime allocation.
 
-A shared `B.applyRefiners(~val, ~schema, ~which=#Input | #Output)` helper exists so each advanced decoder can call it without duplicating the `hasInputRefiner` / `hasRefiner` boilerplate. If you implement a new advanced decoder, you **must** call this helper at both insertion points; otherwise user-supplied `S.refine` is silently dropped.
+Two shared helpers — `B.applyInputRefiner(~val, ~schema)` and `B.applyRefiner(~val, ~schema)` — exist so each advanced decoder can call them without duplicating the `hasInputRefiner` / `hasRefiner` boilerplate. Two separate functions (rather than a single `~which` parameter) let the bundler dead-code-eliminate whichever one a given decoder doesn't use. If you implement a new advanced decoder, you **must** call both at the appropriate insertion points; otherwise user-supplied `S.refine` is silently dropped.
+
+For async paths, the output refiner must be invoked on the *resolved* value inside the Promise's `.then` callback — never on the Promise wrapper itself.
 
 ## Reversal with S.reverse
 
