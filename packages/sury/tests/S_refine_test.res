@@ -265,3 +265,168 @@ test("Refiner runs on S.compactColumns", t => {
     `CompactColumns refine fail`,
   )
 })
+
+// inputRefiner coverage for the custom decoders. inputRefiner is created
+// via S.refine(...)->S.reverse, which swaps refiner ↔ inputRefiner. For
+// schemas with nested-item transforms, the predicate must observe the
+// pre-transform input type — these tests pin that contract.
+
+test("inputRefiner observes pre-transform input on a reversed transforming dict", t => {
+  let schema =
+    S.dict(S.string->S.to(S.bigint))
+    ->S.refine(
+      d =>
+        d
+        ->Js.Dict.values
+        ->Js.Array2.every(v => Js.typeof(v) === "bigint"),
+      ~error="Dict input refine should see bigint values",
+    )
+    ->S.reverse
+
+  t->Assert.deepEqual(
+    %raw(`{"a": 1n, "b": 2n}`)->S.parseOrThrow(~to=schema),
+    Js.Dict.fromArray([("a", "1"), ("b", "2")]),
+  )
+})
+
+test("inputRefiner observes pre-transform input on a reversed transforming tuple", t => {
+  let schema =
+    S.tuple(s => (s.item(0, S.string->S.to(S.bigint)), s.item(1, S.int)))
+    ->S.refine(
+      ((b, _)) => Js.typeof(b) === "bigint",
+      ~error="Tuple input refine should see bigint at index 0",
+    )
+    ->S.reverse
+
+  t->Assert.deepEqual(
+    %raw(`[1n, 5]`)->S.parseOrThrow(~to=schema),
+    ("1", 5),
+  )
+})
+
+// For the leaf-shaped custom decoders (no nested item transform) the
+// always-fails inputRefiner test only confirms the reversed refiner is
+// invoked at all.
+
+test("inputRefiner runs on reversed S.json", t => {
+  let schema =
+    S.json
+    ->S.refine(_ => false, ~error="Json input refine fail")
+    ->S.reverse
+  t->U.assertThrowsMessage(
+    () => %raw(`{"a": 1}`)->S.parseOrThrow(~to=schema),
+    `Json input refine fail`,
+  )
+})
+
+test("inputRefiner runs on reversed S.jsonString", t => {
+  let schema =
+    S.jsonString
+    ->S.refine(_ => false, ~error="JsonString input refine fail")
+    ->S.reverse
+  t->U.assertThrowsMessage(
+    () => `{"a":1}`->S.parseOrThrow(~to=schema),
+    `JsonString input refine fail`,
+  )
+})
+
+test("inputRefiner runs on reversed S.uint8Array", t => {
+  let schema =
+    S.uint8Array
+    ->S.refine(_ => false, ~error="Uint8Array input refine fail")
+    ->S.reverse
+  t->U.assertThrowsMessage(
+    () => %raw(`new Uint8Array([1, 2, 3])`)->S.parseOrThrow(~to=schema),
+    `Uint8Array input refine fail`,
+  )
+})
+
+test("inputRefiner runs on reversed S.compactColumns", t => {
+  let schema =
+    S.compactColumns(S.unknown)
+    ->S.to(
+      S.array(
+        S.schema(s =>
+          {
+            "foo": s.matches(S.string),
+          }
+        ),
+      ),
+    )
+    ->S.refine(_ => false, ~error="CompactColumns input refine fail")
+    ->S.reverse
+  t->U.assertThrowsMessage(
+    () => %raw(`[{"foo": "a"}]`)->S.parseOrThrow(~to=schema),
+    `CompactColumns input refine fail`,
+  )
+})
+
+// shape, recursive, union: gap cases. Output and input refiner tests for
+// each. shape's shapedParser sets isOutput without applying refiners and
+// will silently drop these — added to the failing baseline as regressions
+// to fix in follow-up.
+
+test("Refiner runs on S.shape", t => {
+  let schema =
+    S.string
+    ->S.shape(s => Ok(s))
+    ->S.refine(_ => false, ~error="Shape refine fail")
+  t->U.assertThrowsMessage(
+    () => "hello"->S.parseOrThrow(~to=schema),
+    `Shape refine fail`,
+  )
+})
+
+test("inputRefiner runs on reversed S.shape", t => {
+  let schema =
+    S.string
+    ->S.shape(s => Ok(s))
+    ->S.refine(_ => false, ~error="Shape input refine fail")
+    ->S.reverse
+  t->U.assertThrowsMessage(
+    () => Ok("hello")->S.parseOrThrow(~to=schema),
+    `Shape input refine fail`,
+  )
+})
+
+test("Refiner runs on S.recursive", t => {
+  let schema = S.recursive("R", _ => S.string)->S.refine(_ => false, ~error="Recursive refine fail")
+  t->U.assertThrowsMessage(
+    () => "hello"->S.parseOrThrow(~to=schema),
+    `Recursive refine fail`,
+  )
+})
+
+test("inputRefiner runs on reversed S.recursive", t => {
+  let schema =
+    S.recursive("R", _ => S.string)
+    ->S.refine(_ => false, ~error="Recursive input refine fail")
+    ->S.reverse
+  t->U.assertThrowsMessage(
+    () => "hello"->S.parseOrThrow(~to=schema),
+    `Recursive input refine fail`,
+  )
+})
+
+test("Refiner runs on S.union", t => {
+  let schema =
+    S.union([S.string->S.castToUnknown, S.int->S.castToUnknown])->S.refine(
+      _ => false,
+      ~error="Union refine fail",
+    )
+  t->U.assertThrowsMessage(
+    () => "hello"->S.parseOrThrow(~to=schema),
+    `Union refine fail`,
+  )
+})
+
+test("inputRefiner runs on reversed S.union", t => {
+  let schema =
+    S.union([S.string->S.castToUnknown, S.int->S.castToUnknown])
+    ->S.refine(_ => false, ~error="Union input refine fail")
+    ->S.reverse
+  t->U.assertThrowsMessage(
+    () => "hello"->S.parseOrThrow(~to=schema),
+    `Union input refine fail`,
+  )
+})
