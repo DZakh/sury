@@ -169,3 +169,44 @@ test("inputRefiner observes pre-transform input on a reversed transforming schem
     {"foo": "123"},
   )
 })
+
+// arrayDecoder analog: refiners on an array schema must observe the
+// pre-transform input (for inputRefiner) and the assembled output
+// (for outputRefiner). The array element is string -> bigint, so the
+// reversed schema decodes bigint -> string; the inputRefiner predicate
+// checks bigint and would reject if it ran on the post-decode strings.
+test("inputRefiner observes pre-transform input on a reversed transforming array schema", t => {
+  let schema =
+    S.array(S.string->S.to(S.bigint))
+    ->S.refine(
+      arr => arr->Js.Array2.every(x => Js.typeof(x) === "bigint"),
+      ~error="Array input refine should see bigint elements",
+    )
+    ->S.reverse
+
+  t->Assert.deepEqual(
+    %raw(`[1n, 2n, 3n]`)->S.parseOrThrow(~to=schema),
+    ["1", "2", "3"],
+  )
+})
+
+test("Output refine on an array runs on the assembled output array", t => {
+  let schema = S.array(S.int)->S.refine(arr => arr->Js.Array2.length > 0, ~error="Empty array")
+
+  t->Assert.deepEqual(%raw(`[1, 2, 3]`)->S.parseOrThrow(~to=schema), [1, 2, 3])
+  t->U.assertThrowsMessage(() => %raw(`[]`)->S.parseOrThrow(~to=schema), `Empty array`)
+})
+
+test("Output refine on a tuple runs on the assembled tuple", t => {
+  let schema =
+    S.tuple(s => (s.item(0, S.string), s.item(1, S.int)))->S.refine(
+      ((s, i)) => Js.String2.length(s) === i,
+      ~error="String length must match int",
+    )
+
+  t->Assert.deepEqual(%raw(`["abc", 3]`)->S.parseOrThrow(~to=schema), ("abc", 3))
+  t->U.assertThrowsMessage(
+    () => %raw(`["abc", 5]`)->S.parseOrThrow(~to=schema),
+    `String length must match int`,
+  )
+})

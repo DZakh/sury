@@ -1565,17 +1565,10 @@ module Builder = {
       }
     }
 
-    // Mark a val as a fully-validated Input: pushes the schema's input
-    // refiner checks (if any) onto the val's own checks array, then sets
-    // `isInput = Some(true)`. Mutates `val` in place — call sites typically
-    // pass the *input* val itself so the emitted check references the
-    // pre-transform input variable. For advanced decoders, that means
-    // calling `input->markInput` rather than `result->markInput`; the
-    // input val's slot in `merge` emits the user check right after its
-    // existing type-narrow checks, before field decoding code. Pair with
-    // `markOutput`. Advanced decoders (object, array, tuple, union,
-    // recursive) MUST call this themselves; the parse-loop fallback only
-    // fires for primitive decoders (`isOutput !== Some(true)`).
+    // Mutates `val`: pushes the schema's input refiner checks onto
+    // `val.checks` and sets `isInput = Some(true)`. Call on the *input*
+    // val so the check observes the pre-transform variable. Advanced
+    // decoders must call this themselves; parse-loop covers primitives.
     let markInput = (val: val, ~schema: internal) => {
       switch schema.inputRefiner {
       | Some(fn) => {
@@ -1590,15 +1583,10 @@ module Builder = {
       val
     }
 
-    // Mark a val as a fully-validated Output: wraps via `refine` with the
-    // schema's output refiner checks (if any) so the emitted check
-    // references the post-decode output variable (the wrapper's `prev` is
-    // the assembled output val). Then sets `isOutput = Some(true)` on the
-    // returned val. Same ownership rule as `markInput`. For async decoders,
-    // the check must be injected inside the `.then` callback on the
-    // resolved value, not on the Promise wrapper — current object/array
-    // decoders still emit on the wrapper for async, which is a known
-    // follow-up.
+    // Wraps `val` via `refine` with the schema's output refiner checks so
+    // the check observes the assembled output, and sets `isOutput =
+    // Some(true)` on the wrapper. Async paths must inject the check
+    // inside `.then` on the resolved value — TODO.
     let markOutput = (val: val, ~schema: internal) => {
       let val = switch schema.refiner {
       | Some(fn) => {
@@ -2828,7 +2816,7 @@ and arrayDecoder: builder = (~input as unknownInput) => {
     unknownInput->B.unsupportedDecode(~from=unknownInput.schema, ~target=expectedSchema)
   }
 
-  switch expectedSchema.additionalItems->X.Option.getUnsafe {
+  let result = switch expectedSchema.additionalItems->X.Option.getUnsafe {
   | Schema(itemSchema) => {
       let itemSchema = itemSchema->castToInternal
       if itemSchema === unknown {
@@ -2912,6 +2900,9 @@ and arrayDecoder: builder = (~input as unknownInput) => {
       o
     }
   }
+  // inputRefiner on input val (pre-transform); outputRefiner on result.
+  let _: val = input->B.markInput(~schema=expectedSchema)
+  result->B.markOutput(~schema=expectedSchema)
 }
 and objectDecoder: Builder.t = (~input as unknownInput) => {
   let isUnion = unknownInput.isUnion->X.Option.getUnsafe
@@ -3090,15 +3081,8 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
       }
     }
   }
-  // Apply user-supplied refiners after field decoding. `markInput` is
-  // called on the *input* val so the input refiner check is pushed onto
-  // input.checks (alongside the type-narrow) and the emitted check
-  // references the pre-transform input variable — required for inputRefiner
-  // predicates that observe input-shape fields. `markOutput` wraps the
-  // assembled result so its check references the post-decode output. Both
-  // also set isInput / isOutput so the parse-loop primitive fallback skips
-  // this val. Async object refiners still emit on the Promise wrapper —
-  // follow-up.
+  // inputRefiner on the input val so the check observes pre-transform
+  // input; outputRefiner on the assembled result. Async TODO.
   let _: val = input->B.markInput(~schema=expectedSchema)
   result->B.markOutput(~schema=expectedSchema)
 }
