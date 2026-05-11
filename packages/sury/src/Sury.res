@@ -1565,36 +1565,42 @@ module Builder = {
       }
     }
 
-    // Apply a schema's input refiner to a val. Returns the same val if no
-    // refiner / empty checks, otherwise a `refine`-cloned val carrying the
-    // checks. Advanced decoders (object, array, tuple, union, recursive)
-    // MUST call this themselves; the parse-loop fallback only fires for
-    // primitive decoders (`isOutput !== Some(true)`). Pair with
-    // `applyOutputRefiner`; call this one first so input checks emit ahead of
+    // Mark a val as a fully-validated Input: applies the schema's input
+    // refiner (if any) and sets `isInput = Some(true)`. Returns the same
+    // val if no refiner / empty checks, otherwise a `refine`-cloned val
+    // carrying the checks. Advanced decoders (object, array, tuple, union,
+    // recursive) MUST call this themselves; the parse-loop fallback only
+    // fires for primitive decoders (`isOutput !== Some(true)`). Pair with
+    // `markOutput`; call this one first so input checks emit ahead of
     // output checks.
-    let applyInputRefiner = (val: val, ~schema: internal) => {
-      switch schema.inputRefiner {
+    let markInput = (val: val, ~schema: internal) => {
+      let val = switch schema.inputRefiner {
       | Some(fn) => {
           let checks = fn(~input=val)
           checks->Js.Array2.length > 0 ? val->refine(~checks) : val
         }
       | None => val
       }
+      val.isInput = Some(true)
+      val
     }
 
-    // Apply a schema's output refiner to a val (the assembled output). Same
-    // ownership rule as `applyInputRefiner`. For async decoders, the check
-    // must be injected inside the `.then` callback on the resolved value,
-    // not on the Promise wrapper — current object/array decoders still emit
-    // on the wrapper for async, which is a known follow-up.
-    let applyOutputRefiner = (val: val, ~schema: internal) => {
-      switch schema.refiner {
+    // Mark a val as a fully-validated Output: applies the schema's output
+    // refiner (if any) and sets `isOutput = Some(true)`. Same ownership
+    // rule as `markInput`. For async decoders, the check must be injected
+    // inside the `.then` callback on the resolved value, not on the
+    // Promise wrapper — current object/array decoders still emit on the
+    // wrapper for async, which is a known follow-up.
+    let markOutput = (val: val, ~schema: internal) => {
+      let val = switch schema.refiner {
       | Some(fn) => {
           let checks = fn(~input=val)
           checks->Js.Array2.length > 0 ? val->refine(~checks) : val
         }
       | None => val
       }
+      val.isOutput = Some(true)
+      val
     }
 
     // Used in union codegen: splice a literal child's checks into the parent
@@ -2355,10 +2361,8 @@ let rec parse = (input: val) => {
         // and expect the decoder itself to handle refinements and manage isInput/isOutput flags.
         if !(valRef.contents.isOutput->Option.getUnsafe) {
           let schema = valRef.contents.expected
-          valRef := valRef.contents->B.applyInputRefiner(~schema)
-          valRef := valRef.contents->B.applyOutputRefiner(~schema)
-          valRef.contents.isInput = Some(true)
-          valRef.contents.isOutput = Some(true)
+          valRef := valRef.contents->B.markInput(~schema)
+          valRef := valRef.contents->B.markOutput(~schema)
         }
       }
     }
@@ -3079,16 +3083,13 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
     }
   }
   // Apply user-supplied refiners after field decoding: inputRefiner first
-  // (so input checks emit before output checks), then output refiner. Mark
-  // isOutput so the parse-loop primitive fallback skips this val. Async
-  // object refiners still emit on the Promise wrapper — follow-up.
-  let result =
-    result
-    ->B.applyInputRefiner(~schema=expectedSchema)
-    ->B.applyOutputRefiner(~schema=expectedSchema)
-  result.isInput = Some(true)
-  result.isOutput = Some(true)
+  // (so input checks emit before output checks), then output refiner. The
+  // mark helpers also set isInput / isOutput so the parse-loop primitive
+  // fallback skips this val. Async object refiners still emit on the
+  // Promise wrapper — follow-up.
   result
+  ->B.markInput(~schema=expectedSchema)
+  ->B.markOutput(~schema=expectedSchema)
 }
 
 let recursiveDecoder = Builder.make((~input) => {

@@ -4,7 +4,7 @@
 
 1. **DX** — intuitive public API and error messages.
 2. **Performance** — generated code is the hot path; avoid extra vars, allocations, double validation; inline over indirect.
-3. **Bundle size** — `Sury.res.mjs` ships to browsers. Reuse helpers (`B.refine`, `B.applyInputRefiner`, `B.applyOutputRefiner`) over duplicated codegen.
+3. **Bundle size** — `Sury.res.mjs` ships to browsers. Reuse helpers (`B.refine`, `B.markInput`, `B.markOutput`) over duplicated codegen.
 
 Tiebreaker: shortest *generated* code wins over shortest *library* code (runtime ships per-schema, library ships once).
 
@@ -26,8 +26,8 @@ Decoder takes a single schema, Input → Output. Schemas joined by `.to` form on
 Per-schema execution order:
 
 1. **decoder** — narrow input to schema's Input type (may skip to Output if no `inputRefiner`).
-2. **inputRefiner** — user validations on Input.
-3. **decoder** — Input → Output (e.g. decode nested fields).
+2. **decoder** — Input → Output (e.g. decode nested fields).
+3. **inputRefiner** — user validations on Input.
 4. **refiner** — user validations on Output.
 5. If `.to`: **parser** (custom Output → `.to` Input) OR **encoder** (default Output → `.to` Input) + recurse into `.to.decoder`.
 
@@ -38,10 +38,10 @@ Per-schema execution order:
 The parse loop (around `expected.decoder(~input)`) applies `inputRefiner`/`refiner` **only for primitive decoders** — ones whose result has `isOutput !== Some(true)`. It pushes them as checks via `B.refine`.
 
 **Advanced decoders** (`objectDecoder`, `arrayDecoder`, tuple, union, recursive — anything that sets `isOutput = Some(true)`) own refiner application themselves, because:
-- They know the optimal injection points: `inputRefiner` on the *raw input* before field decoding (short-circuits before allocation); `refiner` on the *assembled output*.
+- They know the optimal injection points: `inputRefiner` after field decoding (so item type-narrows fire first), `refiner` on the assembled output.
 - The generic fallback would force materializing an output val even when nothing else needs it.
 
-Use the two shared helpers — `B.applyInputRefiner(~val, ~schema)` and `B.applyOutputRefiner(~val, ~schema)` — at the right insertion points. Split into two fns (not `~which`) so the bundler DCEs whichever is unused. **A new advanced decoder that skips either silently drops user `S.refine`s.**
+Use the two shared helpers — `B.markInput(~val, ~schema)` and `B.markOutput(~val, ~schema)` — at the right insertion points. Each one applies its side's refiner via `B.refine` and sets the corresponding `isInput` / `isOutput` flag. Split into two fns (not `~which`) so the bundler DCEs whichever is unused. **A new advanced decoder that skips either silently drops user `S.refine`s.**
 
 Async output refiner must run inside `.then()` on the resolved value, never on the Promise wrapper.
 
