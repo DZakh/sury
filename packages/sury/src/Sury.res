@@ -1565,19 +1565,32 @@ module Builder = {
       }
     }
 
-    // Mutates `val`: pushes the schema's input refiner checks onto
-    // `val.checks` and sets `isInput = Some(true)`. Call on the *input*
-    // val so the check observes the pre-transform variable. Advanced
-    // decoders must call this themselves; parse-loop covers primitives.
+    // Pushes the schema's input refiner checks onto `val.checks` (so the
+    // check observes the pre-transform variable via `val.prev.var()`),
+    // then sets `isInput = Some(true)`. When `val.prev` is None (e.g.
+    // primitive decoder returned the operationArg val unchanged), wraps
+    // via `refine` instead so emit has a prev.var() to reference.
+    // Advanced decoders must call this themselves; parse-loop covers
+    // primitives.
     let markInput = (val: val, ~schema: internal) => {
-      switch schema.inputRefiner {
+      let val = switch schema.inputRefiner {
       | Some(fn) => {
           let checks = fn(~input=val)
-          for i in 0 to checks->Js.Array2.length - 1 {
-            val->pushCheck(checks->Js.Array2.unsafe_get(i))
+          if checks->Js.Array2.length > 0 {
+            switch val.prev {
+            | Some(_) => {
+                for i in 0 to checks->Js.Array2.length - 1 {
+                  val->pushCheck(checks->Js.Array2.unsafe_get(i))
+                }
+                val
+              }
+            | None => val->refine(~checks)
+            }
+          } else {
+            val
           }
         }
-      | None => ()
+      | None => val
       }
       val.isInput = Some(true)
       val

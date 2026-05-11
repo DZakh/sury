@@ -110,10 +110,13 @@ test(
   "Refiner application order: type-narrow first, then inputRefiner, then output refiner",
   t => {
     let schema =
-      S.schema({"foo": S.string})
+      S.schema(s => {"foo": s.matches(S.string)})
       ->S.refine(i => i["foo"] !== "rejectByInput", ~error="Input refine failure")
       ->S.reverse
-      ->S.refine(i => i["foo"] !== "rejectByOutput", ~error="Output refine failure")
+      ->S.refine(
+        i => (i->Obj.magic)["foo"] !== "rejectByOutput",
+        ~error="Output refine failure",
+      )
 
     // Type-narrow on `foo` runs before either refiner.
     t->U.assertThrowsMessage(
@@ -136,7 +139,7 @@ test(
     // All three pass.
     t->Assert.deepEqual(
       %raw(`{"foo": "ok"}`)->S.parseOrThrow(~to=schema),
-      {"foo": "ok"},
+      {"foo": "ok"}->Obj.magic,
     )
   },
 )
@@ -151,7 +154,7 @@ test(
 // bigint -> string transform turns foo into a string).
 test("inputRefiner observes pre-transform input on a reversed transforming schema", t => {
   let schema =
-    S.schema({"foo": S.string->S.to(S.bigint)})
+    S.schema(s => {"foo": s.matches(S.string->S.to(S.bigint))})
     ->S.refine(
       i => Js.typeof(i["foo"]) === "bigint",
       ~error="Input refine should get a correct input value",
@@ -161,12 +164,12 @@ test("inputRefiner observes pre-transform input on a reversed transforming schem
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i||e[2](i);e[1](i)||e[3](i);let v0=i["foo"];typeof v0==="bigint"||e[0](v0);return {"foo":""+v0,}}`,
+    `i=>{typeof i==="object"&&i||e[2](i);e[1](i)||e[3](i);let v0=i["foo"];typeof v0==="bigint"||e[0](v0);return {"foo":""+i["foo"],}}`,
   )
 
   t->Assert.deepEqual(
     %raw(`{"foo": 123n}`)->S.parseOrThrow(~to=schema),
-    {"foo": "123"},
+    {"foo": "123"}->Obj.magic,
   )
 })
 
@@ -186,7 +189,7 @@ test("inputRefiner observes pre-transform input on a reversed transforming array
 
   t->Assert.deepEqual(
     %raw(`[1n, 2n, 3n]`)->S.parseOrThrow(~to=schema),
-    ["1", "2", "3"],
+    ["1", "2", "3"]->Obj.magic,
   )
 })
 
@@ -285,7 +288,7 @@ test("inputRefiner observes pre-transform input on a reversed transforming dict"
 
   t->Assert.deepEqual(
     %raw(`{"a": 1n, "b": 2n}`)->S.parseOrThrow(~to=schema),
-    Js.Dict.fromArray([("a", "1"), ("b", "2")]),
+    Js.Dict.fromArray([("a", "1"), ("b", "2")])->Obj.magic,
   )
 })
 
@@ -300,7 +303,7 @@ test("inputRefiner observes pre-transform input on a reversed transforming tuple
 
   t->Assert.deepEqual(
     %raw(`[1n, 5]`)->S.parseOrThrow(~to=schema),
-    ("1", 5),
+    ("1", 5)->Obj.magic,
   )
 })
 
