@@ -140,3 +140,25 @@ test(
     )
   },
 )
+
+// Regression: with a transforming field, the inputRefiner must observe the
+// pre-transform input value, not the post-transform output. Here the schema's
+// foo field is string -> bigint, so after S.reverse the field decodes
+// bigint -> string and the original output refiner becomes the inputRefiner.
+// The predicate checks that foo is bigint — which is true of the Input but
+// false of the post-decode Output. If the inputRefiner runs after field
+// decoding, it sees a string and incorrectly rejects.
+test("inputRefiner observes pre-transform input on a reversed transforming schema", t => {
+  let schema =
+    S.schema({"foo": S.string->S.to(S.bigint)})
+    ->S.refine(
+      i => Js.typeof(i["foo"]) === "bigint",
+      ~error="Input refine should get a correct input value",
+    )
+    ->S.reverse
+
+  t->Assert.deepEqual(
+    %raw(`{"foo": 123n}`)->S.parseOrThrow(~to=schema),
+    {"foo": "123"},
+  )
+})
