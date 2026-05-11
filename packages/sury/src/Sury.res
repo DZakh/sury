@@ -1570,7 +1570,7 @@ module Builder = {
     // checks. Advanced decoders (object, array, tuple, union, recursive)
     // MUST call this themselves; the parse-loop fallback only fires for
     // primitive decoders (`isOutput !== Some(true)`). Pair with
-    // `applyRefiner`; call this one first so input checks emit ahead of
+    // `applyOutputRefiner`; call this one first so input checks emit ahead of
     // output checks.
     let applyInputRefiner = (val: val, ~schema: internal) => {
       switch schema.inputRefiner {
@@ -1587,7 +1587,7 @@ module Builder = {
     // must be injected inside the `.then` callback on the resolved value,
     // not on the Promise wrapper — current object/array decoders still emit
     // on the wrapper for async, which is a known follow-up.
-    let applyRefiner = (val: val, ~schema: internal) => {
+    let applyOutputRefiner = (val: val, ~schema: internal) => {
       switch schema.refiner {
       | Some(fn) => {
           let checks = fn(~input=val)
@@ -2356,7 +2356,7 @@ let rec parse = (input: val) => {
         if !(valRef.contents.isOutput->Option.getUnsafe) {
           let schema = valRef.contents.expected
           valRef := valRef.contents->B.applyInputRefiner(~schema)
-          valRef := valRef.contents->B.applyRefiner(~schema)
+          valRef := valRef.contents->B.applyOutputRefiner(~schema)
           valRef.contents.isInput = Some(true)
           valRef.contents.isOutput = Some(true)
         }
@@ -3085,7 +3085,7 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
   let result =
     result
     ->B.applyInputRefiner(~schema=expectedSchema)
-    ->B.applyRefiner(~schema=expectedSchema)
+    ->B.applyOutputRefiner(~schema=expectedSchema)
   result.isInput = Some(true)
   result.isOutput = Some(true)
   result

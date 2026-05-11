@@ -4,7 +4,7 @@
 
 1. **DX** — intuitive public API and error messages.
 2. **Performance** — generated code is the hot path; avoid extra vars, allocations, double validation; inline over indirect.
-3. **Bundle size** — `Sury.res.mjs` ships to browsers. Reuse helpers (`B.refine`, `B.applyInputRefiner`, `B.applyRefiner`) over duplicated codegen.
+3. **Bundle size** — `Sury.res.mjs` ships to browsers. Reuse helpers (`B.refine`, `B.applyInputRefiner`, `B.applyOutputRefiner`) over duplicated codegen.
 
 Tiebreaker: shortest *generated* code wins over shortest *library* code (runtime ships per-schema, library ships once).
 
@@ -41,7 +41,7 @@ The parse loop (around `expected.decoder(~input)`) applies `inputRefiner`/`refin
 - They know the optimal injection points: `inputRefiner` on the *raw input* before field decoding (short-circuits before allocation); `refiner` on the *assembled output*.
 - The generic fallback would force materializing an output val even when nothing else needs it.
 
-Use the two shared helpers — `B.applyInputRefiner(~val, ~schema)` and `B.applyRefiner(~val, ~schema)` — at the right insertion points. Split into two fns (not `~which`) so the bundler DCEs whichever is unused. **A new advanced decoder that skips either silently drops user `S.refine`s.**
+Use the two shared helpers — `B.applyInputRefiner(~val, ~schema)` and `B.applyOutputRefiner(~val, ~schema)` — at the right insertion points. Split into two fns (not `~which`) so the bundler DCEs whichever is unused. **A new advanced decoder that skips either silently drops user `S.refine`s.**
 
 Async output refiner must run inside `.then()` on the resolved value, never on the Promise wrapper.
 
