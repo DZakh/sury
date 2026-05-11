@@ -210,3 +210,58 @@ test("Output refine on a tuple runs on the assembled tuple", t => {
     `String length must match int`,
   )
 })
+
+// Custom-decoder refiner audit: every advanced decoder must surface
+// user S.refine. Tests below pin the always-fails path so a silent drop
+// surfaces immediately.
+
+test("Refiner runs on S.dict", t => {
+  let schema = S.dict(S.int)->S.refine(_ => false, ~error="Dict refine fail")
+  t->U.assertThrowsMessage(
+    () => %raw(`{"a": 1}`)->S.parseOrThrow(~to=schema),
+    `Dict refine fail`,
+  )
+})
+
+test("Refiner runs on S.json", t => {
+  let schema = S.json->S.refine(_ => false, ~error="Json refine fail")
+  t->U.assertThrowsMessage(
+    () => %raw(`{"a": 1}`)->S.parseOrThrow(~to=schema),
+    `Json refine fail`,
+  )
+})
+
+test("Refiner runs on S.jsonString", t => {
+  let schema = S.jsonString->S.refine(_ => false, ~error="JsonString refine fail")
+  t->U.assertThrowsMessage(
+    () => `{"a":1}`->S.parseOrThrow(~to=schema),
+    `JsonString refine fail`,
+  )
+})
+
+test("Refiner runs on S.uint8Array", t => {
+  let schema = S.uint8Array->S.refine(_ => false, ~error="Uint8Array refine fail")
+  t->U.assertThrowsMessage(
+    () => %raw(`new Uint8Array([1, 2, 3])`)->S.parseOrThrow(~to=schema),
+    `Uint8Array refine fail`,
+  )
+})
+
+test("Refiner runs on S.compactColumns", t => {
+  let schema =
+    S.compactColumns(S.unknown)
+    ->S.to(
+      S.array(
+        S.schema(s =>
+          {
+            "foo": s.matches(S.string),
+          }
+        ),
+      ),
+    )
+    ->S.refine(_ => false, ~error="CompactColumns refine fail")
+  t->U.assertThrowsMessage(
+    () => %raw(`[["a"]]`)->S.parseOrThrow(~to=schema),
+    `CompactColumns refine fail`,
+  )
+})

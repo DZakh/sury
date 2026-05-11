@@ -5802,9 +5802,9 @@ let compactColumnsDecoder = (~input) => {
         } else {
           input
         }
+        let _: val = input->B.markInput(~schema=selfSchema)
         let output = input->B.next("[]", ~schema=outputSchema, ~expected=outputSchema)
-        output.isOutput = Some(true)
-        output
+        output->B.markOutput(~schema=selfSchema)
       } else if isForwardDirection {
         // Forward direction: columnar → rows
         let input = if isUnknownInput {
@@ -5898,9 +5898,9 @@ let compactColumnsDecoder = (~input) => {
 
         input.allocate(`${outputVar}=new Array(Math.max(${lengthCode.contents}))`)
 
+        let _: val = input->B.markInput(~schema=selfSchema)
         let output = input->B.next(outputVar, ~schema=outputSchema, ~expected=outputSchema)
         output.var = B._var
-        output.isOutput = Some(true)
 
         // Wrap the row body in a single try/catch that prepends the row index to
         // any thrown error — giving paths like ["0"]["bar"]. A single wrapper is
@@ -5933,11 +5933,12 @@ let compactColumnsDecoder = (~input) => {
           output.codeFromPrev ++
           `for(let ${iteratorVar}=0;${iteratorVar}<${outputVar}.length;++${iteratorVar}){${wrappedBody}}`
 
-        if hasAsync.contents {
+        let result = if hasAsync.contents {
           output->B.asyncVal(`Promise.all(${outputVar})`)
         } else {
           output
         }
+        result->B.markOutput(~schema=selfSchema)
       } else {
         // Reverse direction: rows → columnar
         // When the declared source type is unknown, field values have
@@ -5989,9 +5990,9 @@ let compactColumnsDecoder = (~input) => {
 
         input.allocate(`${outputVar}=[${initialArraysCode.contents}]`)
 
+        let _: val = input->B.markInput(~schema=selfSchema)
         let output = input->B.next(outputVar, ~schema=outputSchema, ~expected=outputSchema)
         output.var = B._var
-        output.isOutput = Some(true)
         let loopBody = perFieldCode.contents ++ settingCode.contents
         let wrappedBody = if needsPerFieldTransform && perFieldCode.contents !== "" {
           let errorVar = input.global->B.varWithoutAllocation
@@ -6002,7 +6003,7 @@ let compactColumnsDecoder = (~input) => {
         output.codeFromPrev =
           output.codeFromPrev ++
           `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${wrappedBody}}`
-        output
+        output->B.markOutput(~schema=selfSchema)
       }
     }
   }
