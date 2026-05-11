@@ -146,8 +146,9 @@ test(
 // foo field is string -> bigint, so after S.reverse the field decodes
 // bigint -> string and the original output refiner becomes the inputRefiner.
 // The predicate checks that foo is bigint — which is true of the Input but
-// false of the post-decode Output. If the inputRefiner runs after field
-// decoding, it sees a string and incorrectly rejects.
+// false of the post-decode Output. The check must be pushed onto the input
+// val's checks slot so it emits before field decoding code (where the
+// bigint -> string transform turns foo into a string).
 test("inputRefiner observes pre-transform input on a reversed transforming schema", t => {
   let schema =
     S.schema({"foo": S.string->S.to(S.bigint)})
@@ -156,6 +157,12 @@ test("inputRefiner observes pre-transform input on a reversed transforming schem
       ~error="Input refine should get a correct input value",
     )
     ->S.reverse
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{typeof i==="object"&&i||e[2](i);e[1](i)||e[3](i);let v0=i["foo"];typeof v0==="bigint"||e[0](v0);return {"foo":""+v0,}}`,
+  )
 
   t->Assert.deepEqual(
     %raw(`{"foo": 123n}`)->S.parseOrThrow(~to=schema),

@@ -1565,32 +1565,40 @@ module Builder = {
       }
     }
 
-    // Mark a val as a fully-validated Input: applies the schema's input
-    // refiner (if any) and sets `isInput = Some(true)`. Returns the same
-    // val if no refiner / empty checks, otherwise a `refine`-cloned val
-    // carrying the checks. Advanced decoders (object, array, tuple, union,
+    // Mark a val as a fully-validated Input: pushes the schema's input
+    // refiner checks (if any) onto the val's own checks array, then sets
+    // `isInput = Some(true)`. Mutates `val` in place — call sites typically
+    // pass the *input* val itself so the emitted check references the
+    // pre-transform input variable. For advanced decoders, that means
+    // calling `input->markInput` rather than `result->markInput`; the
+    // input val's slot in `merge` emits the user check right after its
+    // existing type-narrow checks, before field decoding code. Pair with
+    // `markOutput`. Advanced decoders (object, array, tuple, union,
     // recursive) MUST call this themselves; the parse-loop fallback only
-    // fires for primitive decoders (`isOutput !== Some(true)`). Pair with
-    // `markOutput`; call this one first so input checks emit ahead of
-    // output checks.
+    // fires for primitive decoders (`isOutput !== Some(true)`).
     let markInput = (val: val, ~schema: internal) => {
-      let val = switch schema.inputRefiner {
+      switch schema.inputRefiner {
       | Some(fn) => {
           let checks = fn(~input=val)
-          checks->Js.Array2.length > 0 ? val->refine(~checks) : val
+          for i in 0 to checks->Js.Array2.length - 1 {
+            val->pushCheck(checks->Js.Array2.unsafe_get(i))
+          }
         }
-      | None => val
+      | None => ()
       }
       val.isInput = Some(true)
       val
     }
 
-    // Mark a val as a fully-validated Output: applies the schema's output
-    // refiner (if any) and sets `isOutput = Some(true)`. Same ownership
-    // rule as `markInput`. For async decoders, the check must be injected
-    // inside the `.then` callback on the resolved value, not on the
-    // Promise wrapper — current object/array decoders still emit on the
-    // wrapper for async, which is a known follow-up.
+    // Mark a val as a fully-validated Output: wraps via `refine` with the
+    // schema's output refiner checks (if any) so the emitted check
+    // references the post-decode output variable (the wrapper's `prev` is
+    // the assembled output val). Then sets `isOutput = Some(true)` on the
+    // returned val. Same ownership rule as `markInput`. For async decoders,
+    // the check must be injected inside the `.then` callback on the
+    // resolved value, not on the Promise wrapper — current object/array
+    // decoders still emit on the wrapper for async, which is a known
+    // follow-up.
     let markOutput = (val: val, ~schema: internal) => {
       let val = switch schema.refiner {
       | Some(fn) => {
@@ -3082,14 +3090,17 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
       }
     }
   }
-  // Apply user-supplied refiners after field decoding: inputRefiner first
-  // (so input checks emit before output checks), then output refiner. The
-  // mark helpers also set isInput / isOutput so the parse-loop primitive
-  // fallback skips this val. Async object refiners still emit on the
-  // Promise wrapper — follow-up.
-  result
-  ->B.markInput(~schema=expectedSchema)
-  ->B.markOutput(~schema=expectedSchema)
+  // Apply user-supplied refiners after field decoding. `markInput` is
+  // called on the *input* val so the input refiner check is pushed onto
+  // input.checks (alongside the type-narrow) and the emitted check
+  // references the pre-transform input variable — required for inputRefiner
+  // predicates that observe input-shape fields. `markOutput` wraps the
+  // assembled result so its check references the post-decode output. Both
+  // also set isInput / isOutput so the parse-loop primitive fallback skips
+  // this val. Async object refiners still emit on the Promise wrapper —
+  // follow-up.
+  let _: val = input->B.markInput(~schema=expectedSchema)
+  result->B.markOutput(~schema=expectedSchema)
 }
 
 let recursiveDecoder = Builder.make((~input) => {

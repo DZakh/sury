@@ -25,10 +25,10 @@ Decoder takes a single schema, Input → Output. Schemas joined by `.to` form on
 
 Per-schema execution order:
 
-1. **decoder** — narrow input to schema's Input type (may skip to Output if no `inputRefiner`).
-2. **decoder** — Input → Output (e.g. decode nested fields).
-3. **inputRefiner** — user validations on Input.
-4. **refiner** — user validations on Output.
+1. **decoder** — narrow input to schema's Input type.
+2. **inputRefiner** — user validations on the typed Input (pre-transform).
+3. **decoder** — Input → Output (e.g. decode nested fields).
+4. **refiner** — user validations on the assembled Output.
 5. If `.to`: **parser** (custom Output → `.to` Input) OR **encoder** (default Output → `.to` Input) + recurse into `.to.decoder`.
 
 `S.reverse` swaps `inputRefiner ↔ refiner`, `parser ↔ serializer`, and reverses the `.to` chain.
@@ -38,10 +38,14 @@ Per-schema execution order:
 The parse loop (around `expected.decoder(~input)`) applies `inputRefiner`/`refiner` **only for primitive decoders** — ones whose result has `isOutput !== Some(true)`. It pushes them as checks via `B.refine`.
 
 **Advanced decoders** (`objectDecoder`, `arrayDecoder`, tuple, union, recursive — anything that sets `isOutput = Some(true)`) own refiner application themselves, because:
-- They know the optimal injection points: `inputRefiner` after field decoding (so item type-narrows fire first), `refiner` on the assembled output.
+- They know the optimal injection points: `inputRefiner` is pushed onto the *input* val's checks so its predicate observes the pre-transform input; `refiner` wraps the assembled output so its predicate observes the final shape.
 - The generic fallback would force materializing an output val even when nothing else needs it.
 
-Use the two shared helpers — `B.markInput(~val, ~schema)` and `B.markOutput(~val, ~schema)` — at the right insertion points. Each one applies its side's refiner via `B.refine` and sets the corresponding `isInput` / `isOutput` flag. Split into two fns (not `~which`) so the bundler DCEs whichever is unused. **A new advanced decoder that skips either silently drops user `S.refine`s.**
+Use the two shared helpers:
+- `B.markInput(~val, ~schema)` — mutates `val.checks` (pushes the input refiner) and sets `isInput = Some(true)`. Call it on the *input* val (e.g. `input->B.markInput`).
+- `B.markOutput(~val, ~schema)` — wraps `val` via `B.refine` with the output refiner and sets `isOutput = Some(true)` on the wrapper. Call it on the *result* val.
+
+Two fns (not `~which`) so the bundler DCEs whichever is unused. **A new advanced decoder that skips either silently drops user `S.refine`s.**
 
 Async output refiner must run inside `.then()` on the resolved value, never on the Promise wrapper.
 
