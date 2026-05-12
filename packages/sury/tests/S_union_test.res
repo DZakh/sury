@@ -730,11 +730,11 @@ Crazy: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["type"]==="A"){let
   test("Compiled serialize code snapshot of crazy union", t => {
     S.global({})
     let reversed = schema->S.reverse
-    let code = `i=>{let v0=e[0](i);return v0}
-Crazy: i=>{if(typeof i==="object"&&i){if(i["TAG"]==="A"&&Array.isArray(i["_0"])){let v0=i["_0"],v5=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){let v4;try{let v3=e[0][0](v0[v1]);v4=v3}catch(v2){if(v2&&v2.s===s){v2.path="[\\"_0\\"]"+'["'+v1+'"]'+v2.path}throw v2}v5[v1]=v4}i={"type":"A","nested":v5,}}else if(i["TAG"]==="Z"&&Array.isArray(i["_0"])){let v6=i["_0"],v11=new Array(v6.length);for(let v7=0;v7<v6.length;++v7){let v10;try{let v9=e[1][0](v6[v7]);v10=v9}catch(v8){if(v8&&v8.s===s){v8.path="[\\"_0\\"]"+'["'+v7+'"]'+v8.path}throw v8}v11[v7]=v10}i={"type":"Z","nested":v11,}}}return i}`
-    t->U.assertCompiledCode(~schema=reversed, ~op=#Convert, code)
+    let code = `i=>{let v0;v0=e[0](i);return v0}
+Crazy: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["TAG"]==="A"){let v0=i["_0"];Array.isArray(v0)||e[1](v0);let v4=new Array(v0.length);for(let v1=0;v1<v0.length;++v1){try{let v2;v2=e[0](v0[v1]);v4[v1]=v2}catch(v3){v3.path="[\\"_0\\"]"+'["'+v1+'"]'+v3.path;throw v3}}i={"type":"A","nested":v4,}}else if(i["TAG"]==="Z"){let v5=i["_0"];Array.isArray(v5)||e[3](v5);let v9=new Array(v5.length);for(let v6=0;v6<v5.length;++v6){try{let v7;v7=e[2](v5[v6]);v9[v6]=v7}catch(v8){v8.path="[\\"_0\\"]"+'["'+v6+'"]'+v8.path;throw v8}}i={"type":"Z","nested":v9,}}else{e[4](i)}}else if(!(typeof i==="string"&&(i==="B"||i==="C"||i==="D"||i==="E"||i==="F"||i==="G"||i==="H"||i==="I"||i==="J"||i==="K"||i==="L"||i==="M"||i==="N"||i==="O"||i==="P"||i==="Q"||i==="R"||i==="S"||i==="T"||i==="U"||i==="V"||i==="W"||i==="X"||i==="Y"))){e[5](i)}return i}`
+    t->U.assertCompiledCode(~schema=reversed, ~op=#Convert, code, ~embedded=[("Crazy", 0)])
     // There was an issue with reverse when it doesn't return the same code on second run
-    t->U.assertCompiledCode(~schema=reversed, ~op=#Convert, code)
+    t->U.assertCompiledCode(~schema=reversed, ~op=#Convert, code, ~embedded=[("Crazy", 0)])
   })
 }
 
