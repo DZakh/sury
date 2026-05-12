@@ -1,104 +1,74 @@
 # Sury Architecture
 
-## Schema Input and Output Types
+## Goals (priority order on conflict)
 
-A schema represents two types: Input and Output.
+1. **DX** — intuitive public API and error messages.
+2. **Performance** — generated code is the hot path; avoid extra vars, allocations, double validation; inline over indirect.
+3. **Bundle size** — `Sury.res.mjs` ships to browsers. Reuse helpers (`B.refine`, `B.markInput`, `B.markOutput`) over duplicated codegen.
 
-### Example 1: Same Input and Output
+Tiebreaker: shortest *generated* code wins over shortest *library* code (runtime ships per-schema, library ships once).
 
-```typescript
-S.string
-// Input: string
-// Output: string
+## Input vs Output
+
+A schema has an Input type and an Output type. They differ when the schema or any nested item has a transformation.
+
+```ts
+S.string                                          // string → string
+S.schema({ foo: S.string.with(S.to, S.number) })  // {foo:string} → {foo:number}
 ```
 
-### Example 2: Different Input and Output
+Schema modifiers (`.with(S.refine, …)`, etc.) apply to the **output** type. `inputRefiner` and `refiner` are stored separately so `S.reverse` can swap them. Every schema must be reversible (Input→Output ↔ Output→Input) unless explicitly opted out. Modifiers like `name` and built-in refinements apply to both sides.
 
-```typescript
-S.schema({
-  foo: S.string.with(S.to, S.number)
-})
-// Input: { foo: string }
-// Output: { foo: number }
-```
+## Decode pipeline
 
-The input and output differ because nested items have transformations, even though the schema itself does not have a `.to` property.
+Decoder takes a single schema, Input → Output. Schemas joined by `.to` form one fused transformation pipeline.
 
-## Modifying a Schema
+Per-schema execution order:
 
-When modifying a schema, the modification applies to the output type.
+1. **decoder** — narrow input to schema's Input type.
+2. **inputRefiner** — user validations on the typed Input (pre-transform).
+3. **decoder** — Input → Output (e.g. decode nested fields).
+4. **refiner** — user validations on the assembled Output.
+5. If `.to`: **parser** (custom Output → `.to` Input) OR **encoder** (default Output → `.to` Input) + recurse into `.to.decoder`.
 
-```typescript
-S.schema({
-  foo: S.string.with(S.to, S.number)
-}).with(S.refine, () => {...})
-```
+`S.reverse` swaps `inputRefiner ↔ refiner`, `parser ↔ serializer`, and reverses the `.to` chain.
 
-Since this schema does not have `.to`, `inputRefiner` and `refiner` must be stored separately to support `S.reverse`. Every schema should be reversible from Input→Output to Output→Input, unless explicitly prevented.
+## Refiner ownership
 
-For modifications like `name` or built-in refinements that do not affect nested items, they apply to both input and output without differentiation.
+The parse loop (around `expected.decoder(~input)`) applies `inputRefiner`/`refiner` **only for primitive decoders** — ones whose result has `isOutput !== Some(true)`. It pushes them as checks via `B.refine`.
 
-## Decode Function
+**Advanced decoders** (`objectDecoder`, `arrayDecoder`, tuple, union, recursive — anything that sets `isOutput = Some(true)`) own refiner application themselves, because:
+- They know the optimal injection points: `inputRefiner` is pushed onto the *input* val's checks so its predicate observes the pre-transform input; `refiner` wraps the assembled output so its predicate observes the final shape.
+- The generic fallback would force materializing an output val even when nothing else needs it.
 
-The decode function is created from a single schema and transforms the schema's Input to Output. When multiple schemas are joined by the `.to` property, they are automatically combined into a single transformation pipeline.
+Use the two shared helpers:
+- `B.markInput(~val, ~schema)` — mutates `val.checks` (pushes the input refiner) and sets `isInput = Some(true)`. Call it on the *input* val (e.g. `input->B.markInput`).
+- `B.markOutput(~val, ~schema)` — wraps `val` via `B.refine` with the output refiner and sets `isOutput = Some(true)` on the wrapper. Call it on the *result* val.
 
-## Schema Properties and Execution Order
+Two fns (not `~which`) so the bundler DCEs whichever is unused. **A new advanced decoder that skips either silently drops user `S.refine`s.**
 
-Schema properties are executed in the following order:
+Async output refiner must run inside `.then()` on the resolved value, never on the Promise wrapper.
 
-1. **decoder** - If input val differs from the schema, decode it to the schema's input type. May skip directly to schema output if there is no inputRefiner.
+## Async
 
-2. **inputRefiner** - Custom validations on the input part of the schema value.
-
-3. **decoder** - Decodes input to output for the current schema. Typically required to decode nested items such as object fields.
-
-4. **refiner** - Custom validations on the output part of the schema value.
-
-### If Schema Has `.to` Property
-
-5. **parser** - Custom transformation logic to the `.to` schema. The serializer is the reverse of parser.
-
-### If There Is No Parser
-
-5. **encoder** - Transformation logic from the current schema's output to the `.to` schema's input.
-
-6. **.to.decoder** - Starts the cycle from the beginning with the `.to` schema.
-
-## Reversal with S.reverse
-
-`S.reverse` swaps:
-
-- `inputRefiner` ↔ `refiner`
-- `parser` ↔ `serializer`
-- Reverses the `.to` chain direction
-
-## Async Support
-
-Every transformation may return an async value. To continue the transformation chain:
-
-1. Append `.then()` and continue the logic in the callback function.
-2. For nested items (e.g., object fields, array items), create a promise that collects all inner items with `Promise.all()`.
+Any transformation may be async. Continue the chain via `.then()`. For nested items (object fields, array items), aggregate with `Promise.all()`.
 
 ## Val
 
-The `val` represents a value at a specific point in time during compilation. Each `val` reflects a specific value type at that moment.
+A `val` is the compile-time view of a runtime value at one point in the generated code.
 
-Key properties:
+Core fields:
+- `schema` — actual type at this point
+- `expected` — schema to build decoder for
+- `var()` — variable name in generated code
+- `inline` — inline expression form
+- `path` — location in input (for errors)
 
-- `schema` - The actual type of the value at this point
-- `expected` - The schema to build decoder for
-- `var` - Returns the variable name in generated code
-- `inline` - The value as an inline code expression
-- `path` - Current location in the data structure (for error messages)
+Transformation chain (relative to `.prev`):
+- `prev` — previous val in the chain
+- `code` — codegen from `.prev` to this val
+- `validation` — type-check condition from `.prev` (distinct from user refiners)
 
-Transformation tracking (relative to `.prev`):
-
-- `prev` - The previous val in the chain, indicating where this value originated from
-- `code` - Generated code describing the transformation from `.prev` to this val
-- `validation` - Type check condition from `.prev` (e.g., `typeof x === "string"`). Different from custom refiners.
-
-This design allows tracing back through the transformation history, where each step records what code was generated and what validations were applied to get from the previous state to the current one.
-
-- `B.refine` allows to modify the value, by cloning, while keeping the var allocation link.
-
-- `skipTo` is used to abort the parse after finishing current decoder. Ideally to get rid of it and use `val.expected` instead.
+Helpers:
+- `B.refine` — clones a val to attach checks, keeping the var-allocation link.
+- `skipTo` — abort parse after current decoder. Prefer `val.expected`; aim to remove `skipTo`.
