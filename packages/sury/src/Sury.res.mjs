@@ -3806,7 +3806,7 @@ function shapedParser(input) {
   let output = getShapedParserOutput(input, targetSchema);
   output.t = true;
   output.prev = input;
-  return markOutput(output);
+  return markOutput(output, input);
 }
 
 function definitionToShapedSchema(definition) {

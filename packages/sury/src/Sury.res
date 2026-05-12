@@ -5451,7 +5451,7 @@ module Schema = {
     let output = getShapedParserOutput(~input, ~targetSchema)
     output.hasTransform = Some(true)
     output.prev = Some(input)
-    output->B.markOutput
+    output->B.markOutput(~valInput=input)
   }
 
   and prepareShapedSerializerAcc = (~acc: shapedSerializerAcc, ~input: val) => {
