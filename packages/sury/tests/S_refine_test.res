@@ -408,10 +408,17 @@ test("inputRefiner runs on reversed S.compactColumns", t => {
 test("Refiner runs on S.shape", t => {
   let schema =
     S.string
-    ->S.shape(s => s)
-    ->S.refine(s => Js.String2.length(s) < 10, ~error="Shape refine fail")
+    ->S.shape(s => Ok(s))
+    ->S.refine(
+      v =>
+        switch v {
+        | Ok(s) => Js.String2.length(s) < 10
+        | _ => false
+        },
+      ~error="Shape refine fail",
+    )
 
-  t->Assert.deepEqual("hello"->S.parseOrThrow(~to=schema), "hello")
+  t->Assert.deepEqual("hello"->S.parseOrThrow(~to=schema), Ok("hello"))
   t->U.assertThrowsMessage(
     () => "hello world"->S.parseOrThrow(~to=schema),
     `Shape refine fail`,
@@ -421,13 +428,20 @@ test("Refiner runs on S.shape", t => {
 test("inputRefiner runs on reversed S.shape", t => {
   let schema =
     S.string
-    ->S.shape(s => s)
-    ->S.refine(s => Js.String2.length(s) < 10, ~error="Shape input refine fail")
+    ->S.shape(s => Ok(s))
+    ->S.refine(
+      v =>
+        switch v {
+        | Ok(s) => Js.String2.length(s) < 10
+        | _ => false
+        },
+      ~error="Shape input refine fail",
+    )
     ->S.reverse
 
-  t->Assert.deepEqual("hello"->S.parseOrThrow(~to=schema), "hello"->Obj.magic)
+  t->Assert.deepEqual(Ok("hello")->S.parseOrThrow(~to=schema), "hello"->Obj.magic)
   t->U.assertThrowsMessage(
-    () => "hello world"->S.parseOrThrow(~to=schema),
+    () => Ok("hello world")->S.parseOrThrow(~to=schema),
     `Shape input refine fail`,
   )
 })

@@ -3,13 +3,14 @@
 # To reproduce this list after making changes, run:
 #   cd packages/sury && npx ava 2>&1 | grep "✘ \[fail\]" | sed 's/lib › bs › //' | sed 's/tests › //' | sed 's/ Error thrown in test//' | sort -u
 #
-# Total: 12 failing tests
+# Total: 13 failing tests
 
   ✘ [fail]: S_object_discriminant_test.res › Fails to serialize object with discriminant that we don't know how to serialize "true | null"
   ✘ [fail]: S_object_test.res › Compiled code snapshot for refined nested object
   ✘ [fail]: S_refine_test.res › Compiled parse code snapshot for simple object with refine
   ✘ [fail]: S_refine_test.res › Output refine on a tuple runs on the assembled tuple
   ✘ [fail]: S_refine_test.res › Refiner runs on S.compactColumns
+  ✘ [fail]: S_refine_test.res › Refiner runs on S.shape
   ✘ [fail]: S_refine_test.res › Successfully parses
   ✘ [fail]: S_toExpression_test.res › Expression of renamed schema
   ✘ [fail]: S_to_test.res › Coerce from union to bigint with refinement on union

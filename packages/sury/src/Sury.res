@@ -1565,15 +1565,13 @@ module Builder = {
       }
     }
 
-    // Pushes the schema's input refiner checks onto `val.checks` (so the
-    // check observes the pre-transform variable via `val.prev.var()`),
-    // then sets `isInput = Some(true)`. When `val.prev` is None (e.g.
-    // primitive decoder returned the operationArg val unchanged), wraps
-    // via `refine` instead so emit has a prev.var() to reference.
-    // Advanced decoders must call this themselves; parse-loop covers
-    // primitives.
-    let markInput = (val: val, ~schema: internal) => {
-      let val = switch schema.inputRefiner {
+    // Pushes the input refiner checks (from `val.expected.inputRefiner`)
+    // onto `val.checks` so emit reads them at val's slot with
+    // inputVar = val.prev.var(); sets `isInput = Some(true)`. When
+    // `val.prev` is None (primitive decoder returned the operationArg
+    // unchanged), wraps via `refine` instead so emit has a prev.var().
+    let markInput = (val: val) => {
+      let val = switch val.expected.inputRefiner {
       | Some(fn) => {
           let checks = fn(~input=val)
           if checks->Js.Array2.length > 0 {
@@ -1596,12 +1594,12 @@ module Builder = {
       val
     }
 
-    // Wraps `val` via `refine` with the schema's output refiner checks so
-    // the check observes the assembled output, and sets `isOutput =
-    // Some(true)` on the wrapper. Async paths must inject the check
-    // inside `.then` on the resolved value — TODO.
-    let markOutput = (val: val, ~schema: internal) => {
-      let val = switch schema.refiner {
+    // Wraps `val` via `refine` with the output refiner checks (from
+    // `val.expected.refiner`) so the check observes the assembled
+    // output; sets `isOutput = Some(true)` on the wrapper. Async paths
+    // must inject the check inside `.then` on the resolved value — TODO.
+    let markOutput = (val: val) => {
+      let val = switch val.expected.refiner {
       | Some(fn) => {
           let checks = fn(~input=val)
           checks->Js.Array2.length > 0 ? val->refine(~checks) : val
@@ -2369,9 +2367,8 @@ let rec parse = (input: val) => {
         // Otherwise, we assume internal transformations are present,
         // and expect the decoder itself to handle refinements and manage isInput/isOutput flags.
         if !(valRef.contents.isOutput->Option.getUnsafe) {
-          let schema = valRef.contents.expected
-          valRef := valRef.contents->B.markInput(~schema)
-          valRef := valRef.contents->B.markOutput(~schema)
+          valRef := valRef.contents->B.markInput
+          valRef := valRef.contents->B.markOutput
         }
       }
     }
@@ -2829,7 +2826,7 @@ and arrayDecoder: builder = (~input as unknownInput) => {
     unknownInput->B.unsupportedDecode(~from=unknownInput.schema, ~target=expectedSchema)
   }
 
-  let result = switch expectedSchema.additionalItems->X.Option.getUnsafe {
+  let output = switch expectedSchema.additionalItems->X.Option.getUnsafe {
   | Schema(itemSchema) => {
       let itemSchema = itemSchema->castToInternal
       if itemSchema === unknown {
@@ -2913,9 +2910,9 @@ and arrayDecoder: builder = (~input as unknownInput) => {
       o
     }
   }
-  // inputRefiner on input val (pre-transform); outputRefiner on result.
-  let _: val = input->B.markInput(~schema=expectedSchema)
-  result->B.markOutput(~schema=expectedSchema)
+  // inputRefiner on input val (pre-transform); outputRefiner on output.
+  let _: val = input->B.markInput
+  output->B.markOutput
 }
 and objectDecoder: Builder.t = (~input as unknownInput) => {
   let isUnion = unknownInput.isUnion->X.Option.getUnsafe
@@ -2967,7 +2964,7 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
     unknownInput->B.unsupportedDecode(~from=unknownInput.schema, ~target=expectedSchema)
   }
 
-  let result = switch expectedSchema.additionalItems->X.Option.getUnsafe {
+  let output = switch expectedSchema.additionalItems->X.Option.getUnsafe {
   | Schema(itemSchema) => {
       let itemSchema = itemSchema->castToInternal
       if itemSchema === unknown {
@@ -3095,9 +3092,9 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
     }
   }
   // inputRefiner on the input val so the check observes pre-transform
-  // input; outputRefiner on the assembled result. Async TODO.
-  let _: val = input->B.markInput(~schema=expectedSchema)
-  result->B.markOutput(~schema=expectedSchema)
+  // input; outputRefiner on the assembled output. Async TODO.
+  let _: val = input->B.markInput
+  output->B.markOutput
 }
 
 let recursiveDecoder = Builder.make((~input) => {
@@ -5815,9 +5812,9 @@ let compactColumnsDecoder = (~input) => {
         } else {
           input
         }
-        let _: val = input->B.markInput(~schema=selfSchema)
+        let _: val = input->B.markInput
         let output = input->B.next("[]", ~schema=outputSchema, ~expected=outputSchema)
-        output->B.markOutput(~schema=selfSchema)
+        output->B.markOutput
       } else if isForwardDirection {
         // Forward direction: columnar → rows
         let input = if isUnknownInput {
@@ -5911,7 +5908,7 @@ let compactColumnsDecoder = (~input) => {
 
         input.allocate(`${outputVar}=new Array(Math.max(${lengthCode.contents}))`)
 
-        let _: val = input->B.markInput(~schema=selfSchema)
+        let _: val = input->B.markInput
         let output = input->B.next(outputVar, ~schema=outputSchema, ~expected=outputSchema)
         output.var = B._var
 
@@ -5946,12 +5943,12 @@ let compactColumnsDecoder = (~input) => {
           output.codeFromPrev ++
           `for(let ${iteratorVar}=0;${iteratorVar}<${outputVar}.length;++${iteratorVar}){${wrappedBody}}`
 
-        let result = if hasAsync.contents {
+        let output = if hasAsync.contents {
           output->B.asyncVal(`Promise.all(${outputVar})`)
         } else {
           output
         }
-        result->B.markOutput(~schema=selfSchema)
+        output->B.markOutput
       } else {
         // Reverse direction: rows → columnar
         // When the declared source type is unknown, field values have
@@ -6003,7 +6000,7 @@ let compactColumnsDecoder = (~input) => {
 
         input.allocate(`${outputVar}=[${initialArraysCode.contents}]`)
 
-        let _: val = input->B.markInput(~schema=selfSchema)
+        let _: val = input->B.markInput
         let output = input->B.next(outputVar, ~schema=outputSchema, ~expected=outputSchema)
         output.var = B._var
         let loopBody = perFieldCode.contents ++ settingCode.contents
@@ -6016,7 +6013,7 @@ let compactColumnsDecoder = (~input) => {
         output.codeFromPrev =
           output.codeFromPrev ++
           `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${wrappedBody}}`
-        output->B.markOutput(~schema=selfSchema)
+        output->B.markOutput
       }
     }
   }
