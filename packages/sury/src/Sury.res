@@ -5787,16 +5787,11 @@ let compactColumnsDecoder = (~input) => {
       let keys = properties->Js.Dict.keys
       let keysLen = keys->Js.Array2.length
 
-      // Common output schema setup shared by all branches below. In the
-      // forward direction the output already matches selfSchema.to's shape,
-      // so use it directly — that way markOutput sees the user-declared
-      // output refiner and the loop terminates on selfSchema.to.to (None).
-      // selfSchema.to is guaranteed Some here: isForwardDirection only
-      // becomes true when the match at the top of this decoder reads
-      // properties through selfSchema.to.additionalItems.
-      // In reverse direction the runtime type is a different shape
-      // (array of arrays of unknown), but we still propagate .to so
-      // subsequent steps (e.g. json validation) continue to run.
+      // Forward: output already matches selfSchema.to, reuse it so
+      // markOutput picks up its refiner. selfSchema.to is Some here —
+      // isForwardDirection reads through it above.
+      // Reverse: runtime shape differs (array of arrays of unknown),
+      // so build fresh and propagate .to for downstream steps.
       let outputSchema = if isForwardDirection {
         selfSchema.to->X.Option.getUnsafe
       } else {
