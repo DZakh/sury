@@ -65,7 +65,7 @@ test("Compiled parse code snapshot for simple object with refine", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[3](i)}let v0=i["foo"],v1=i["bar"],v2={"foo":v0,"bar":v1,};if(typeof v0!=="string"){e[0](v0)}if(typeof v1!=="boolean"){e[1](v1)}if(!e[2](v2)){e[4]()}return v2}`,
+    `i=>{typeof i==="object"&&i||e[4](i);let v0=i["foo"],v1=i["bar"];typeof v0==="string"||e[0](v0);typeof v1==="boolean"||e[1](v1);let v2={"foo":v0,"bar":v1,};e[2](v2)||e[3](v2);return v2}`,
   )
 })
 
@@ -88,9 +88,9 @@ module Issue79 = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["myField"];if(!(typeof v0==="string"||v0===void 0||v0===null)){e[1](v0)}if(!e[2](v0)){e[3]()}return v0}`,
+      `i=>{typeof i==="object"&&i||e[3](i);let v0=i["myField"];if(!(typeof v0==="string"||v0===void 0||v0===null)){e[0](v0)}e[1](v0)||e[2](v0);return v0}`,
     )
-    t->U.assertCompiledCode(~schema, ~op=#Convert, `i=>{let v0=i["myField"];if(!e[0](v0)){e[1]()}return v0}`)
+    t->U.assertCompiledCode(~schema, ~op=#Convert, `i=>{let v0=i["myField"];e[0](v0)||e[1](v0);return i["myField"]}`)
 
     t->Assert.deepEqual(%raw(`{"myField": "test"}`)->S.parseOrThrow(~to=schema), Value("test"))
   })

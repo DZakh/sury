@@ -3806,7 +3806,7 @@ function shapedParser(input) {
   let output = getShapedParserOutput(input, targetSchema);
   output.t = true;
   output.prev = input;
-  return output;
+  return markOutput(output, input);
 }
 
 function definitionToShapedSchema(definition) {
@@ -3969,7 +3969,7 @@ function compactColumnsDecoder(input) {
     let keysLen = keys.length;
     let outputSchema;
     if (forwardProps) {
-      outputSchema = base(arrayTag, false);
+      outputSchema = selfSchema.to;
     } else {
       let s = array(array(unknown));
       s.to = selfSchema.to;

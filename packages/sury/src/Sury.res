@@ -5451,7 +5451,7 @@ module Schema = {
     let output = getShapedParserOutput(~input, ~targetSchema)
     output.hasTransform = Some(true)
     output.prev = Some(input)
-    output
+    output->B.markOutput(~valInput=input)
   }
 
   and prepareShapedSerializerAcc = (~acc: shapedSerializerAcc, ~input: val) => {
@@ -5763,11 +5763,13 @@ let compactColumnsDecoder = (~input) => {
       let keys = properties->Js.Dict.keys
       let keysLen = keys->Js.Array2.length
 
-      // Common output schema setup shared by all branches below.
-      // In reverse direction we propagate the original chain's .to so that
-      // subsequent steps (e.g. json validation) continue to run.
+      // Forward: output already matches selfSchema.to, reuse it so
+      // markOutput picks up its refiner. selfSchema.to is Some here —
+      // isForwardDirection reads through it above.
+      // Reverse: runtime shape differs (array of arrays of unknown),
+      // so build fresh and propagate .to for downstream steps.
       let outputSchema = if isForwardDirection {
-        base(arrayTag, ~selfReverse=false)
+        selfSchema.to->X.Option.getUnsafe
       } else {
         let s = array(array(unknown->castToPublic))->castToInternal
         s.to = selfSchema.to
