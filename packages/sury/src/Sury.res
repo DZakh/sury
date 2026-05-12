@@ -5787,11 +5787,15 @@ let compactColumnsDecoder = (~input) => {
       let keys = properties->Js.Dict.keys
       let keysLen = keys->Js.Array2.length
 
-      // Common output schema setup shared by all branches below.
-      // In reverse direction we propagate the original chain's .to so that
+      // Common output schema setup shared by all branches below. In the
+      // forward direction the output already matches selfSchema.to's shape,
+      // so use it directly — that way markOutput sees the user-declared
+      // output refiner and the loop terminates on selfSchema.to.to (None).
+      // In reverse direction the runtime type is a different shape
+      // (array of arrays of unknown), but we still propagate .to so
       // subsequent steps (e.g. json validation) continue to run.
       let outputSchema = if isForwardDirection {
-        base(arrayTag, ~selfReverse=false)
+        selfSchema.to->Stdlib.Option.getOr(base(arrayTag, ~selfReverse=false))
       } else {
         let s = array(array(unknown->castToPublic))->castToInternal
         s.to = selfSchema.to
@@ -5947,13 +5951,6 @@ let compactColumnsDecoder = (~input) => {
           output->B.asyncVal(`Promise.all(${outputVar})`)
         } else {
           output
-        }
-        // Use selfSchema.to (when set) so markOutput sees the user-declared
-        // output schema's refiner. The freshly built outputSchema has no
-        // refiner, so without this the output refine on .to is dropped.
-        switch selfSchema.to {
-        | Some(to) => output.expected = to
-        | None => ()
         }
         output->B.markOutput
       } else {
