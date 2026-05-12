@@ -156,7 +156,7 @@ test("inputRefiner observes pre-transform input on a reversed transforming schem
   let schema =
     S.schema(s => {"foo": s.matches(S.string->S.to(S.bigint))})
     ->S.refine(
-      i => Js.typeof(i["foo"]) === "bigint",
+      i => Js.typeof(i["foo"]) === "bigint" && i["foo"] >= 0n,
       ~error="Input refine should get a correct input value",
     )
     ->S.reverse
@@ -171,18 +171,19 @@ test("inputRefiner observes pre-transform input on a reversed transforming schem
     %raw(`{"foo": 123n}`)->S.parseOrThrow(~to=schema),
     {"foo": "123"}->Obj.magic,
   )
+  t->U.assertThrowsMessage(
+    () => %raw(`{"foo": -1n}`)->S.parseOrThrow(~to=schema),
+    `Input refine should get a correct input value`,
+  )
 })
 
-// arrayDecoder analog: refiners on an array schema must observe the
-// pre-transform input (for inputRefiner) and the assembled output
-// (for outputRefiner). The array element is string -> bigint, so the
-// reversed schema decodes bigint -> string; the inputRefiner predicate
-// checks bigint and would reject if it ran on the post-decode strings.
 test("inputRefiner observes pre-transform input on a reversed transforming array schema", t => {
   let schema =
     S.array(S.string->S.to(S.bigint))
     ->S.refine(
-      arr => arr->Js.Array2.every(x => Js.typeof(x) === "bigint"),
+      arr =>
+        arr->Js.Array2.every(x => Js.typeof(x) === "bigint") &&
+          arr->Js.Array2.every(x => x >= 0n),
       ~error="Array input refine should see bigint elements",
     )
     ->S.reverse
@@ -190,6 +191,10 @@ test("inputRefiner observes pre-transform input on a reversed transforming array
   t->Assert.deepEqual(
     %raw(`[1n, 2n, 3n]`)->S.parseOrThrow(~to=schema),
     ["1", "2", "3"]->Obj.magic,
+  )
+  t->U.assertThrowsMessage(
+    () => %raw(`[-1n]`)->S.parseOrThrow(~to=schema),
+    `Array input refine should see bigint elements`,
   )
 })
 
@@ -215,37 +220,51 @@ test("Output refine on a tuple runs on the assembled tuple", t => {
 })
 
 // Custom-decoder refiner audit: every advanced decoder must surface
-// user S.refine. Tests below pin the always-fails path so a silent drop
-// surfaces immediately.
+// user S.refine. Each test exercises both the passing and the failing
+// branch of a meaningful predicate.
 
 test("Refiner runs on S.dict", t => {
-  let schema = S.dict(S.int)->S.refine(_ => false, ~error="Dict refine fail")
+  let schema =
+    S.dict(S.int)->S.refine(d => !(d->Js.Dict.keys->Js.Array2.includes("fail")), ~error="Dict refine fail")
+
+  t->Assert.deepEqual(%raw(`{"a": 1}`)->S.parseOrThrow(~to=schema), Js.Dict.fromArray([("a", 1)]))
   t->U.assertThrowsMessage(
-    () => %raw(`{"a": 1}`)->S.parseOrThrow(~to=schema),
+    () => %raw(`{"fail": 1}`)->S.parseOrThrow(~to=schema),
     `Dict refine fail`,
   )
 })
 
 test("Refiner runs on S.json", t => {
-  let schema = S.json->S.refine(_ => false, ~error="Json refine fail")
-  t->U.assertThrowsMessage(
-    () => %raw(`{"a": 1}`)->S.parseOrThrow(~to=schema),
-    `Json refine fail`,
-  )
+  let schema = S.json->S.refine(v => v !== %raw(`null`), ~error="Json refine fail")
+
+  t->Assert.deepEqual(%raw(`{"a": 1}`)->S.parseOrThrow(~to=schema), %raw(`{"a": 1}`))
+  t->U.assertThrowsMessage(() => %raw(`null`)->S.parseOrThrow(~to=schema), `Json refine fail`)
 })
 
 test("Refiner runs on S.jsonString", t => {
-  let schema = S.jsonString->S.refine(_ => false, ~error="JsonString refine fail")
+  let schema =
+    S.jsonString->S.refine(s => Js.String2.length(s) < 10, ~error="JsonString refine fail")
+
+  t->Assert.deepEqual(`1`->S.parseOrThrow(~to=schema), `1`)
   t->U.assertThrowsMessage(
-    () => `{"a":1}`->S.parseOrThrow(~to=schema),
+    () => `{"a":1,"b":2}`->S.parseOrThrow(~to=schema),
     `JsonString refine fail`,
   )
 })
 
 test("Refiner runs on S.uint8Array", t => {
-  let schema = S.uint8Array->S.refine(_ => false, ~error="Uint8Array refine fail")
+  let schema =
+    S.uint8Array->S.refine(
+      arr => (arr->Obj.magic)["byteLength"] < 5,
+      ~error="Uint8Array refine fail",
+    )
+
+  t->Assert.deepEqual(
+    %raw(`new Uint8Array([1, 2, 3])`)->S.parseOrThrow(~to=schema),
+    %raw(`new Uint8Array([1, 2, 3])`),
+  )
   t->U.assertThrowsMessage(
-    () => %raw(`new Uint8Array([1, 2, 3])`)->S.parseOrThrow(~to=schema),
+    () => %raw(`new Uint8Array([1, 2, 3, 4, 5, 6])`)->S.parseOrThrow(~to=schema),
     `Uint8Array refine fail`,
   )
 })
@@ -262,17 +281,22 @@ test("Refiner runs on S.compactColumns", t => {
         ),
       ),
     )
-    ->S.refine(_ => false, ~error="CompactColumns refine fail")
+    ->S.refine(arr => arr->Js.Array2.length > 0, ~error="Empty compactColumns")
+
+  t->Assert.deepEqual(
+    %raw(`[["a"]]`)->S.parseOrThrow(~to=schema),
+    [{"foo": "a"}],
+  )
   t->U.assertThrowsMessage(
-    () => %raw(`[["a"]]`)->S.parseOrThrow(~to=schema),
-    `CompactColumns refine fail`,
+    () => %raw(`[[]]`)->S.parseOrThrow(~to=schema),
+    `Empty compactColumns`,
   )
 })
 
 // inputRefiner coverage for the custom decoders. inputRefiner is created
 // via S.refine(...)->S.reverse, which swaps refiner ↔ inputRefiner. For
 // schemas with nested-item transforms, the predicate must observe the
-// pre-transform input type — these tests pin that contract.
+// pre-transform input type.
 
 test("inputRefiner observes pre-transform input on a reversed transforming dict", t => {
   let schema =
@@ -281,7 +305,7 @@ test("inputRefiner observes pre-transform input on a reversed transforming dict"
       d =>
         d
         ->Js.Dict.values
-        ->Js.Array2.every(v => Js.typeof(v) === "bigint"),
+        ->Js.Array2.every(v => Js.typeof(v) === "bigint" && v >= 0n),
       ~error="Dict input refine should see bigint values",
     )
     ->S.reverse
@@ -290,34 +314,37 @@ test("inputRefiner observes pre-transform input on a reversed transforming dict"
     %raw(`{"a": 1n, "b": 2n}`)->S.parseOrThrow(~to=schema),
     Js.Dict.fromArray([("a", "1"), ("b", "2")])->Obj.magic,
   )
+  t->U.assertThrowsMessage(
+    () => %raw(`{"a": -1n}`)->S.parseOrThrow(~to=schema),
+    `Dict input refine should see bigint values`,
+  )
 })
 
 test("inputRefiner observes pre-transform input on a reversed transforming tuple", t => {
   let schema =
     S.tuple(s => (s.item(0, S.string->S.to(S.bigint)), s.item(1, S.int)))
     ->S.refine(
-      ((b, _)) => Js.typeof(b) === "bigint",
+      ((b, i)) => Js.typeof(b) === "bigint" && i > 0,
       ~error="Tuple input refine should see bigint at index 0",
     )
     ->S.reverse
 
-  t->Assert.deepEqual(
-    %raw(`[1n, 5]`)->S.parseOrThrow(~to=schema),
-    ("1", 5)->Obj.magic,
+  t->Assert.deepEqual(%raw(`[1n, 5]`)->S.parseOrThrow(~to=schema), ("1", 5)->Obj.magic)
+  t->U.assertThrowsMessage(
+    () => %raw(`[1n, 0]`)->S.parseOrThrow(~to=schema),
+    `Tuple input refine should see bigint at index 0`,
   )
 })
-
-// For the leaf-shaped custom decoders (no nested item transform) the
-// always-fails inputRefiner test only confirms the reversed refiner is
-// invoked at all.
 
 test("inputRefiner runs on reversed S.json", t => {
   let schema =
     S.json
-    ->S.refine(_ => false, ~error="Json input refine fail")
+    ->S.refine(v => v !== %raw(`null`), ~error="Json input refine fail")
     ->S.reverse
+
+  t->Assert.deepEqual(%raw(`{"a": 1}`)->S.parseOrThrow(~to=schema), %raw(`{"a": 1}`))
   t->U.assertThrowsMessage(
-    () => %raw(`{"a": 1}`)->S.parseOrThrow(~to=schema),
+    () => %raw(`null`)->S.parseOrThrow(~to=schema),
     `Json input refine fail`,
   )
 })
@@ -325,10 +352,12 @@ test("inputRefiner runs on reversed S.json", t => {
 test("inputRefiner runs on reversed S.jsonString", t => {
   let schema =
     S.jsonString
-    ->S.refine(_ => false, ~error="JsonString input refine fail")
+    ->S.refine(s => Js.String2.length(s) < 10, ~error="JsonString input refine fail")
     ->S.reverse
+
+  t->Assert.deepEqual(`1`->S.parseOrThrow(~to=schema), `1`->Obj.magic)
   t->U.assertThrowsMessage(
-    () => `{"a":1}`->S.parseOrThrow(~to=schema),
+    () => `{"a":1,"b":2}`->S.parseOrThrow(~to=schema),
     `JsonString input refine fail`,
   )
 })
@@ -336,10 +365,15 @@ test("inputRefiner runs on reversed S.jsonString", t => {
 test("inputRefiner runs on reversed S.uint8Array", t => {
   let schema =
     S.uint8Array
-    ->S.refine(_ => false, ~error="Uint8Array input refine fail")
+    ->S.refine(arr => (arr->Obj.magic)["byteLength"] < 5, ~error="Uint8Array input refine fail")
     ->S.reverse
+
+  t->Assert.deepEqual(
+    %raw(`new Uint8Array([1, 2, 3])`)->S.parseOrThrow(~to=schema),
+    %raw(`new Uint8Array([1, 2, 3])`)->Obj.magic,
+  )
   t->U.assertThrowsMessage(
-    () => %raw(`new Uint8Array([1, 2, 3])`)->S.parseOrThrow(~to=schema),
+    () => %raw(`new Uint8Array([1, 2, 3, 4, 5, 6])`)->S.parseOrThrow(~to=schema),
     `Uint8Array input refine fail`,
   )
 })
@@ -356,26 +390,30 @@ test("inputRefiner runs on reversed S.compactColumns", t => {
         ),
       ),
     )
-    ->S.refine(_ => false, ~error="CompactColumns input refine fail")
+    ->S.refine(arr => arr->Js.Array2.length > 0, ~error="Empty compactColumns input")
     ->S.reverse
+
+  t->Assert.deepEqual(
+    %raw(`[{"foo": "a"}]`)->S.parseOrThrow(~to=schema),
+    %raw(`[["a"]]`)->Obj.magic,
+  )
   t->U.assertThrowsMessage(
-    () => %raw(`[{"foo": "a"}]`)->S.parseOrThrow(~to=schema),
-    `CompactColumns input refine fail`,
+    () => %raw(`[]`)->S.parseOrThrow(~to=schema),
+    `Empty compactColumns input`,
   )
 })
 
-// shape, recursive, union: gap cases. Output and input refiner tests for
-// each. shape's shapedParser sets isOutput without applying refiners and
-// will silently drop these — added to the failing baseline as regressions
-// to fix in follow-up.
+// shape, recursive, union: gap cases.
 
 test("Refiner runs on S.shape", t => {
   let schema =
     S.string
-    ->S.shape(s => Ok(s))
-    ->S.refine(_ => false, ~error="Shape refine fail")
+    ->S.shape(s => s)
+    ->S.refine(s => Js.String2.length(s) < 10, ~error="Shape refine fail")
+
+  t->Assert.deepEqual("hello"->S.parseOrThrow(~to=schema), "hello")
   t->U.assertThrowsMessage(
-    () => "hello"->S.parseOrThrow(~to=schema),
+    () => "hello world"->S.parseOrThrow(~to=schema),
     `Shape refine fail`,
   )
 })
@@ -383,19 +421,27 @@ test("Refiner runs on S.shape", t => {
 test("inputRefiner runs on reversed S.shape", t => {
   let schema =
     S.string
-    ->S.shape(s => Ok(s))
-    ->S.refine(_ => false, ~error="Shape input refine fail")
+    ->S.shape(s => s)
+    ->S.refine(s => Js.String2.length(s) < 10, ~error="Shape input refine fail")
     ->S.reverse
+
+  t->Assert.deepEqual("hello"->S.parseOrThrow(~to=schema), "hello"->Obj.magic)
   t->U.assertThrowsMessage(
-    () => Ok("hello")->S.parseOrThrow(~to=schema),
+    () => "hello world"->S.parseOrThrow(~to=schema),
     `Shape input refine fail`,
   )
 })
 
 test("Refiner runs on S.recursive", t => {
-  let schema = S.recursive("R", _ => S.string)->S.refine(_ => false, ~error="Recursive refine fail")
+  let schema =
+    S.recursive("R", _ => S.string)->S.refine(
+      s => Js.String2.length(s) < 10,
+      ~error="Recursive refine fail",
+    )
+
+  t->Assert.deepEqual("hello"->S.parseOrThrow(~to=schema), "hello")
   t->U.assertThrowsMessage(
-    () => "hello"->S.parseOrThrow(~to=schema),
+    () => "hello world"->S.parseOrThrow(~to=schema),
     `Recursive refine fail`,
   )
 })
@@ -403,10 +449,12 @@ test("Refiner runs on S.recursive", t => {
 test("inputRefiner runs on reversed S.recursive", t => {
   let schema =
     S.recursive("R", _ => S.string)
-    ->S.refine(_ => false, ~error="Recursive input refine fail")
+    ->S.refine(s => Js.String2.length(s) < 10, ~error="Recursive input refine fail")
     ->S.reverse
+
+  t->Assert.deepEqual("hello"->S.parseOrThrow(~to=schema), "hello"->Obj.magic)
   t->U.assertThrowsMessage(
-    () => "hello"->S.parseOrThrow(~to=schema),
+    () => "hello world"->S.parseOrThrow(~to=schema),
     `Recursive input refine fail`,
   )
 })
@@ -414,11 +462,13 @@ test("inputRefiner runs on reversed S.recursive", t => {
 test("Refiner runs on S.union", t => {
   let schema =
     S.union([S.string->S.castToUnknown, S.int->S.castToUnknown])->S.refine(
-      _ => false,
+      v => v !== ("fail"->Obj.magic),
       ~error="Union refine fail",
     )
+
+  t->Assert.deepEqual("ok"->Obj.magic->S.parseOrThrow(~to=schema), "ok"->Obj.magic)
   t->U.assertThrowsMessage(
-    () => "hello"->S.parseOrThrow(~to=schema),
+    () => "fail"->Obj.magic->S.parseOrThrow(~to=schema),
     `Union refine fail`,
   )
 })
@@ -426,10 +476,12 @@ test("Refiner runs on S.union", t => {
 test("inputRefiner runs on reversed S.union", t => {
   let schema =
     S.union([S.string->S.castToUnknown, S.int->S.castToUnknown])
-    ->S.refine(_ => false, ~error="Union input refine fail")
+    ->S.refine(v => v !== ("fail"->Obj.magic), ~error="Union input refine fail")
     ->S.reverse
+
+  t->Assert.deepEqual("ok"->Obj.magic->S.parseOrThrow(~to=schema), "ok"->Obj.magic)
   t->U.assertThrowsMessage(
-    () => "hello"->S.parseOrThrow(~to=schema),
+    () => "fail"->Obj.magic->S.parseOrThrow(~to=schema),
     `Union input refine fail`,
   )
 })
