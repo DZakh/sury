@@ -3911,14 +3911,61 @@ module Union = {
       let byKey: ref<dict<array<unknown>>> = ref(Js.Dict.empty())
       let keys = ref([])
       let updatedSchemas = []
+      // FIXME: minimal fix — applies the union's refiner/inputRefiner per
+      // surviving case (previously dropped when the union has `.to`). The
+      // emit shape isn't ideal; fold this into the shared refiner pipeline
+      // post-release.
+      let appendUnionRefiners = {
+        let unionRefiner = selfSchema.refiner
+        let unionInputRefiner = selfSchema.inputRefiner
+        // Call each source refiner at most once so its predicate is embedded
+        // in `input.global.embeded` once and every case references the same
+        // `e[N]`. `B.embed` is append-only, so a per-case call would duplicate.
+        let cachedRefinerChecks = ref(None)
+        let cachedInputRefinerChecks = ref(None)
+        let attach = (current, source, cache) =>
+          switch source {
+          | None => current
+          | Some(fn) =>
+            let getCached = (~input) =>
+              switch cache.contents {
+              | Some(checks) => checks
+              | None =>
+                let checks = fn(~input)
+                cache := Some(checks)
+                checks
+              }
+            switch current {
+            | None => Some(getCached)
+            | Some(existing) =>
+              Some(
+                (~input) => {
+                  let arr = existing(~input)
+                  let next = getCached(~input)
+                  for i in 0 to next->Js.Array2.length - 1 {
+                    arr->Js.Array2.push(next->Js.Array2.unsafe_get(i))->ignore
+                  }
+                  arr
+                },
+              )
+            }
+          }
+        (mut: internal) => {
+          switch attach(mut.refiner, unionRefiner, cachedRefinerChecks) {
+          | Some(r) => mut.refiner = Some(r)
+          | None => ()
+          }
+          switch attach(mut.inputRefiner, unionInputRefiner, cachedInputRefinerChecks) {
+          | Some(r) => mut.inputRefiner = Some(r)
+          | None => ()
+          }
+        }
+      }
       for idx in 0 to lastIdx {
         let schema = switch toPerCase {
         | Some(target) =>
           updateOutput(schemas->Js.Array2.unsafe_get(idx), mut => {
-            // switch selfSchema.refiner {
-            // | Some(refiner) => mut.refiner = Some(appendRefiner(mut.refiner, refiner))
-            // | None => ()
-            // }
+            appendUnionRefiners(mut)
             mut.to = Some(target)
           })->castToInternal
         | _ => schemas->Js.Array2.unsafe_get(idx)
