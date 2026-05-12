@@ -41,6 +41,23 @@ S.encoder(schema, S.jsonString, S.uint8Array);
 
 Each pipeline is fused into a single generated function with no intermediate allocations, so chaining stages doesn't cost you performance — in many cases it's **faster** than the equivalent hand-written code, because Sury can inline the whole path. You go from a fixed menu of operations to an open set: any schema can be an input, any schema can be an output, and the library handles the plumbing.
 
+**The same pipeline idea works inside schemas too — via `S.to`.** A field, an array element, a tuple slot, or any nested schema can be its own multi-stage chain:
+
+```ts
+const apiUser = S.schema({
+  // Field arrives as a string, parsed as JSON, validated as the addresses array.
+  addresses: S.string.with(S.to, S.jsonString).with(S.to, S.array(addressSchema)),
+
+  // Field arrives as bytes, decoded as UTF-8, validated as an ISO datetime, mapped to Date.
+  createdAt: S.uint8Array.with(S.to, S.string).with(S.to, S.isoDateTime).with(S.to, S.date),
+
+  // Element-level transforms work the same way.
+  ids: S.array(S.string.with(S.to, S.number)),
+});
+```
+
+`S.to` is the same compiler as `S.decoder` / `S.encoder`, just used at a single point in a larger schema. The whole tree — top-level operation plus every nested `S.to` — still folds into one generated function, so deep pipelines stay free of runtime overhead.
+
 `S.parser` and `S.assert` aren't even separate primitives — they're just **specializations of `S.decoder`** with `S.unknown` on the input side:
 
 - `S.parser(schema)` ≡ `S.decoder(S.unknown, schema)` — accept anything, validate against the schema, produce its output type.

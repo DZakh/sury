@@ -1190,6 +1190,23 @@ S.decoder(S.uint8Array, S.jsonString, userSchema)(bytes);
 
 You're no longer picking from a fixed menu of operations — you're describing the shape of the data at each stage and letting Sury compile the path.
 
+The **same pipeline idea works inside schemas** via [`S.to`](#to). A field, an array element, a tuple slot — any nested schema can be its own multi-stage chain:
+
+```ts
+const apiUser = S.schema({
+  // Arrives as a string, parsed as JSON, validated as the addresses array.
+  addresses: S.string.with(S.to, S.jsonString).with(S.to, S.array(addressSchema)),
+
+  // Arrives as bytes, decoded as UTF-8, validated as an ISO datetime, mapped to a Date.
+  createdAt: S.uint8Array.with(S.to, S.string).with(S.to, S.isoDateTime).with(S.to, S.date),
+
+  // Element-level transforms work the same way.
+  ids: S.array(S.string.with(S.to, S.number)),
+});
+```
+
+`S.to` is the same compiler as `S.decoder` / `S.encoder`, just used at a single point in a larger schema. The whole tree — top-level operation plus every nested `S.to` — still folds into one generated function, so deep pipelines stay free of runtime overhead.
+
 > 🧠 `S.parser` and `S.assert` aren't separate primitives — they're just specializations of `S.decoder` with `S.unknown` on the input side. `S.parser(schema)` is `S.decoder(S.unknown, schema)`. `S.assert(schema, data)` runs a decoder from `S.unknown` *through* the schema *to* `S.literal(true).with(S.noValidation, true)` — the target is a no-op constant with validation disabled, so the compiler emits the schema's validation but no output-construction code at all. That's why `assert` is 2–3× faster than `parser`.
 
 ### Built-in operations

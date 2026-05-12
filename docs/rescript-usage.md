@@ -1450,6 +1450,25 @@ let parseJsonUser = S.decoder(~from=S.jsonString, ~to=userSchema)
 let stringifyUser = S.decoder(~from=userSchema, ~to=S.jsonString)
 ```
 
+The **same pipeline idea works inside schemas** via [`S.to`](#to). A field, an array element, a tuple slot — any nested schema can be its own multi-stage chain:
+
+```rescript
+let apiUserSchema = S.schema(s =>
+  {
+    // Arrives as a string, parsed as JSON, validated as the addresses array.
+    "addresses": s.field("addresses", S.string->S.to(S.jsonString)->S.to(S.array(addressSchema))),
+
+    // Arrives as bytes, decoded as UTF-8, validated as an ISO datetime, mapped to a Date.
+    "createdAt": s.field("createdAt", S.uint8Array->S.to(S.string)->S.to(S.isoDateTime)->S.to(S.date)),
+
+    // Element-level transforms work the same way.
+    "ids": s.field("ids", S.array(S.string->S.to(S.float))),
+  }
+)
+```
+
+`S.to` is the same compiler as `S.decoder` and `S.decodeOrThrow`, just used at a single point in a larger schema. The whole tree — top-level operation plus every nested `S.to` — still folds into one generated function, so deep pipelines stay free of runtime overhead.
+
 > 🧠 `S.parseOrThrow` and `S.assertOrThrow` aren't separate primitives — they're just specializations of `S.decodeOrThrow` with `S.unknown` on the input side. `data->S.parseOrThrow(~to=schema)` is `data->S.decodeOrThrow(~from=S.unknown, ~to=schema)`. `data->S.assertOrThrow(~to=schema)` runs a decoder from `S.unknown` through the schema to `S.literal(true)->S.noValidation(true)` — the target is a no-op constant with validation disabled, so the compiler emits the schema's validation but no output-construction code at all. That's why `assertOrThrow` is 2–3× faster than `parseOrThrow`.
 
 ### Built-in operations
