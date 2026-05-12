@@ -763,27 +763,21 @@ function pushCheck(val, check) {
 
 function markInput(val) {
   let fn = val.e.inputRefiner;
-  let val$1;
-  if (fn !== undefined) {
-    let checks = fn(val);
-    if (checks.length > 0) {
-      let match = val.prev;
-      if (match !== undefined) {
-        for (let i = 0, i_finish = checks.length; i < i_finish; ++i) {
-          pushCheck(val, checks[i]);
-        }
-        val$1 = val;
-      } else {
-        val$1 = refine(val, undefined, checks, undefined);
-      }
-    } else {
-      val$1 = val;
-    }
-  } else {
-    val$1 = val;
+  if (fn === undefined) {
+    return val;
   }
-  val$1.ii = true;
-  return val$1;
+  let checks = fn(val);
+  if (checks.length <= 0) {
+    return val;
+  }
+  let match = val.prev;
+  if (match === undefined) {
+    return refine(val, undefined, checks, undefined);
+  }
+  for (let i = 0, i_finish = checks.length; i < i_finish; ++i) {
+    pushCheck(val, checks[i]);
+  }
+  return val;
 }
 
 function markOutput(val) {
@@ -865,7 +859,6 @@ function scope(val) {
     v: shouldLink ? _bondVar : _var,
     i: val.i,
     s: val.s,
-    ii: val.ii,
     io: val.io,
     e: val.e,
     f: 0,
@@ -1347,7 +1340,7 @@ function parse$1(input) {
       valRef = parser !== undefined ? parser(loopInput) : refine(valRef, undefined, undefined, to);
     } else {
       let maybeEncoder = loopInput.s.encoder;
-      if (!loopInput.ii && maybeEncoder && maybeEncoder !== appliedEncoder && loopInput.s !== loopInput.e && loopInput.e.type !== unknownTag) {
+      if (maybeEncoder && maybeEncoder !== appliedEncoder && loopInput.s !== loopInput.e && loopInput.e.type !== unknownTag) {
         valRef = maybeEncoder(loopInput, loopInput.e);
       }
       if (loopInput !== valRef) {
@@ -1363,6 +1356,18 @@ function parse$1(input) {
     }
   };
   return valRef;
+}
+
+function getOutputSchema(_schema) {
+  while (true) {
+    let schema = _schema;
+    let to = schema.to;
+    if (to === undefined) {
+      return schema;
+    }
+    _schema = to;
+    continue;
+  };
 }
 
 function reverse(schema) {
@@ -1468,18 +1473,6 @@ function reverse(schema) {
   valueOptions[valKey] = schema;
   d(r, reversedKey, valueOptions);
   return r;
-}
-
-function getOutputSchema(_schema) {
-  while (true) {
-    let schema = _schema;
-    let to = schema.to;
-    if (to === undefined) {
-      return schema;
-    }
-    _schema = to;
-    continue;
-  };
 }
 
 function parseDynamic(input) {
@@ -1734,7 +1727,6 @@ function arrayDecoder(unknownInput) {
       let key = idx.toString();
       let itemInput$1 = get(input, key);
       itemInput$1.e = schema$1;
-      itemInput$1.ii = false;
       itemInput$1.io = false;
       itemInput$1.u = isUnion;
       let itemOutput$1 = parse$1(itemInput$1);
@@ -1854,7 +1846,6 @@ function objectDecoder(unknownInput) {
       let schema$1 = properties[key];
       let itemInput$1 = get(input, key);
       itemInput$1.e = schema$1;
-      itemInput$1.ii = false;
       itemInput$1.io = false;
       itemInput$1.u = isUnion;
       let itemOutput$1 = parse$1(itemInput$1);
@@ -2402,7 +2393,6 @@ function unionDecoder(input) {
       let input = scope(typeValidationOutput);
       input.u = true;
       input.t = typeValidationOutput.t;
-      input.ii = false;
       input.io = false;
       input.e = arr[itemIdx];
       let isLast = itemIdx === lastIdx;
@@ -2941,7 +2931,6 @@ function jsonEncoderFn(input, target) {
     let output = parse$1(refine(input, unknown, undefined, jsonExpected$1));
     output.s.additionalItems = json();
     output.e = target;
-    output.ii = false;
     output.io = false;
     return output;
   }
@@ -2950,7 +2939,6 @@ function jsonEncoderFn(input, target) {
     let output$1 = parse$1(refine(input, unknown, undefined, jsonExpected$2));
     output$1.s.additionalItems = json();
     output$1.e = target;
-    output$1.ii = false;
     output$1.io = false;
     return output$1;
   }
@@ -3034,7 +3022,6 @@ function jsonDecoderFn(input) {
     for (let idx = 0, idx_finish = keys.length; idx < idx_finish; ++idx) {
       let key = keys[idx];
       let itemVal = get(input, key);
-      itemVal.ii = false;
       itemVal.io = false;
       if (itemVal.s.type === unionTag && itemVal.s.has[undefinedTag]) {
         itemVal.e = factory$1([
@@ -3160,7 +3147,6 @@ function jsonStringEncoder(input, target) {
   let nextSchema = copySchema(json());
   nextSchema.to = target;
   let output = next(input, outputVar, nextSchema, nextSchema);
-  output.ii = true;
   output.io = true;
   output.v = _var;
   let inputVar = input.v();
@@ -3462,6 +3448,72 @@ function proxifyShapedSchema(schema, from, fromFlattened) {
   });
 }
 
+function traverseDefinition(definition, onNode) {
+  if (typeof definition !== "object" || definition === null) {
+    return parse(definition);
+  }
+  let s = onNode(definition);
+  if (s !== undefined) {
+    return s;
+  }
+  if (Array.isArray(definition)) {
+    for (let idx = 0, idx_finish = definition.length; idx < idx_finish; ++idx) {
+      let schema = traverseDefinition(definition[idx], onNode);
+      definition[idx] = schema;
+    }
+    let mut = base(arrayTag, false);
+    mut.items = definition;
+    mut.additionalItems = "strict";
+    mut.decoder = arrayDecoder;
+    return mut;
+  }
+  let cnstr = definition.constructor;
+  if (cnstr && cnstr !== Object) {
+    let mut$1 = base(instanceTag, true);
+    mut$1.class = cnstr;
+    mut$1.const = definition;
+    mut$1.decoder = literalDecoder;
+    return mut$1;
+  }
+  let fieldNames = Object.keys(definition);
+  let length = fieldNames.length;
+  for (let idx$1 = 0; idx$1 < length; ++idx$1) {
+    let location = fieldNames[idx$1];
+    let schema$1 = traverseDefinition(definition[location], onNode);
+    definition[location] = schema$1;
+  }
+  let mut$2 = base(objectTag, false);
+  mut$2.required = fieldNames;
+  mut$2.properties = definition;
+  mut$2.additionalItems = globalConfig.a;
+  mut$2.decoder = objectDecoder;
+  return mut$2;
+}
+
+function shapedSerializer(input) {
+  let acc = {};
+  prepareShapedSerializerAcc(acc, input);
+  let targetSchema = input.e.to;
+  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
+  output.t = true;
+  output.prev = input;
+  return output;
+}
+
+function getValByFrom(_input, from, _idx) {
+  while (true) {
+    let idx = _idx;
+    let input = _input;
+    let key = from[idx];
+    if (key === undefined) {
+      return input;
+    }
+    _idx = idx + 1 | 0;
+    _input = input.d[key];
+    continue;
+  };
+}
+
 function getShapedSerializerOutput(input, acc, targetSchema, path) {
   let exit = 0;
   if (acc !== undefined) {
@@ -3657,56 +3709,13 @@ function prepareShapedSerializerAcc(acc, input) {
   }
 }
 
-function traverseDefinition(definition, onNode) {
-  if (typeof definition !== "object" || definition === null) {
-    return parse(definition);
-  }
-  let s = onNode(definition);
-  if (s !== undefined) {
-    return s;
-  }
-  if (Array.isArray(definition)) {
-    for (let idx = 0, idx_finish = definition.length; idx < idx_finish; ++idx) {
-      let schema = traverseDefinition(definition[idx], onNode);
-      definition[idx] = schema;
+function definitionToSchema(definition) {
+  return traverseDefinition(definition, node => {
+    if (node["~standard"]) {
+      return node;
     }
-    let mut = base(arrayTag, false);
-    mut.items = definition;
-    mut.additionalItems = "strict";
-    mut.decoder = arrayDecoder;
-    return mut;
-  }
-  let cnstr = definition.constructor;
-  if (cnstr && cnstr !== Object) {
-    let mut$1 = base(instanceTag, true);
-    mut$1.class = cnstr;
-    mut$1.const = definition;
-    mut$1.decoder = literalDecoder;
-    return mut$1;
-  }
-  let fieldNames = Object.keys(definition);
-  let length = fieldNames.length;
-  for (let idx$1 = 0; idx$1 < length; ++idx$1) {
-    let location = fieldNames[idx$1];
-    let schema$1 = traverseDefinition(definition[location], onNode);
-    definition[location] = schema$1;
-  }
-  let mut$2 = base(objectTag, false);
-  mut$2.required = fieldNames;
-  mut$2.properties = definition;
-  mut$2.additionalItems = globalConfig.a;
-  mut$2.decoder = objectDecoder;
-  return mut$2;
-}
-
-function shapedSerializer(input) {
-  let acc = {};
-  prepareShapedSerializerAcc(acc, input);
-  let targetSchema = input.e.to;
-  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
-  output.t = true;
-  output.prev = input;
-  return output;
+    
+  });
 }
 
 function nested(fieldName) {
@@ -3775,29 +3784,6 @@ function nested(fieldName) {
   return ctx$1;
 }
 
-function definitionToSchema(definition) {
-  return traverseDefinition(definition, node => {
-    if (node["~standard"]) {
-      return node;
-    }
-    
-  });
-}
-
-function getValByFrom(_input, from, _idx) {
-  while (true) {
-    let idx = _idx;
-    let input = _input;
-    let key = from[idx];
-    if (key === undefined) {
-      return input;
-    }
-    _idx = idx + 1 | 0;
-    _input = input.d[key];
-    continue;
-  };
-}
-
 function shapedParser(input) {
   let flattened = input.e.flattened;
   if (flattened !== undefined) {
@@ -3807,7 +3793,6 @@ function shapedParser(input) {
       let flattenedInput = scope(input);
       flattenedInput.e = flattenedSchema;
       flattenedInput.io = false;
-      flattenedInput.ii = false;
       let flattenedVal = parse$1(flattenedInput);
       flattenedVals.push(flattenedVal);
       input.cp = input.cp + merge(flattenedVal, undefined);
@@ -4034,7 +4019,6 @@ function compactColumnsDecoder(input) {
         itemInput.s = runtimeItemSchema;
         itemInput.e = itemExpected;
         itemInput.v = _notVarBeforeValidation;
-        itemInput.ii = false;
         itemInput.io = false;
         let inlinedLocation = inlineLocation(input$2.g, key);
         itemInput.path = "[" + inlinedLocation + "]";
@@ -4094,7 +4078,6 @@ function compactColumnsDecoder(input) {
         itemInput$1.s = fieldSchema$1;
         itemInput$1.e = declaredItemSchema$1;
         itemInput$1.v = _notVarBeforeValidation;
-        itemInput$1.ii = false;
         itemInput$1.io = false;
         let inlinedLocation$1 = inlineLocation(input.g, key$2);
         itemInput$1.path = "[" + inlinedLocation$1 + "]";

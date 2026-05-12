@@ -608,10 +608,6 @@ and val = {
   // The schema of the value that is being parsed
   @as("s")
   mutable schema: internal,
-  // Whether the val is at input part of expected schema
-  // This means that when decoding we need to do it from input to output instead of unknown to output
-  @as("ii")
-  mutable isInput?: bool,
   // Whether the val is at output part of expected schema
   // Needed for schemas like S.array(S.nullAsOption) where child schemas might be transformed
   @as("io")
@@ -1567,11 +1563,11 @@ module Builder = {
 
     // Pushes the input refiner checks (from `val.expected.inputRefiner`)
     // onto `val.checks` so emit reads them at val's slot with
-    // inputVar = val.prev.var(); sets `isInput = Some(true)`. When
-    // `val.prev` is None (primitive decoder returned the operationArg
-    // unchanged), wraps via `refine` instead so emit has a prev.var().
+    // inputVar = val.prev.var(). When `val.prev` is None (primitive
+    // decoder returned the operationArg unchanged), wraps via `refine`
+    // instead so emit has a prev.var().
     let markInput = (val: val) => {
-      let val = switch val.expected.inputRefiner {
+      switch val.expected.inputRefiner {
       | Some(fn) => {
           let checks = fn(~input=val)
           if checks->Js.Array2.length > 0 {
@@ -1590,8 +1586,6 @@ module Builder = {
         }
       | None => val
       }
-      val.isInput = Some(true)
-      val
     }
 
     // Wraps `val` via `refine` with the output refiner checks (from
@@ -1720,7 +1714,6 @@ module Builder = {
           varsAllocation: "",
           hasTransform: false,
           allocate: initialAllocate,
-          isInput: ?val.isInput,
           isOutput: ?val.isOutput,
           vals: ?val.vals, // TODO: Is this correct?
         }
@@ -2346,7 +2339,6 @@ let rec parse = (input: val) => {
     } else {
       let maybeEncoder = loopInput.schema.encoder
       if (
-        !(loopInput.isInput->Option.getUnsafe) &&
         maybeEncoder->Obj.magic &&
         maybeEncoder->Obj.magic !== appliedEncoder &&
         loopInput.schema !== loopInput.expected &&
@@ -2365,7 +2357,7 @@ let rec parse = (input: val) => {
         // If the decoder's return value is not marked as isOutput,
         // we treat it as a primitive decoder with no internal transformations.
         // Otherwise, we assume internal transformations are present,
-        // and expect the decoder itself to handle refinements and manage isInput/isOutput flags.
+        // and expect the decoder itself to handle refinements and manage the isOutput flag.
         if !(valRef.contents.isOutput->Option.getUnsafe) {
           valRef := valRef.contents->B.markInput
           valRef := valRef.contents->B.markOutput
@@ -2884,7 +2876,6 @@ and arrayDecoder: builder = (~input as unknownInput) => {
       let key = idx->Js.Int.toString
       let itemInput = input->B.Val.get(key)
       itemInput.expected = schema
-      itemInput.isInput = Some(false)
       itemInput.isOutput = Some(false)
       itemInput.isUnion = Some(isUnion) // We want to controll validation on the decoder side
       let itemOutput = itemInput->parse
@@ -3034,7 +3025,6 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
 
         let itemInput = input->B.Val.get(key)
         itemInput.expected = schema
-        itemInput.isInput = Some(false)
         itemInput.isOutput = Some(false)
         itemInput.isUnion = Some(isUnion) // We want to controll validation on the decoder side
         let itemOutput = itemInput->parse
@@ -3762,7 +3752,6 @@ module Union = {
           let input = typeValidationOutput->B.Val.scope
           input.isUnion = Some(true)
           input.hasTransform = typeValidationOutput.hasTransform
-          input.isInput = Some(false)
           input.isOutput = Some(false)
           input.expected =
             arr->Stdlib.Array.getUnsafe(itemIdx.contents)->(Obj.magic: unknown => internal)
@@ -4518,7 +4507,6 @@ let rec jsonEncoderFn = (~input, ~target) => {
     let output = input->B.refine(~schema=unknown, ~expected=jsonExpected)->parse
     output.schema.additionalItems = Some(Schema(json()->castToPublic))
     output.expected = target
-    output.isInput = Some(false)
     output.isOutput = Some(false)
     output
   } else if toTagFlag->Flag.unsafeHas(TagFlag.object) {
@@ -4528,7 +4516,6 @@ let rec jsonEncoderFn = (~input, ~target) => {
     let output = input->B.refine(~schema=unknown, ~expected=jsonExpected)->parse
     output.schema.additionalItems = Some(Schema(json()->castToPublic))
     output.expected = target
-    output.isInput = Some(false)
     output.isOutput = Some(false)
     output
   } else if toTagFlag->Flag.unsafeHas(TagFlag.union->Flag.with(TagFlag.ref)) {
@@ -4612,7 +4599,6 @@ and jsonDecoderFn = (~input) => {
         for idx in 0 to keys->Js.Array2.length - 1 {
           let key = keys->Js.Array2.unsafe_get(idx)
           let itemVal = input->B.Val.get(key)
-          itemVal.isInput = Some(false)
           itemVal.isOutput = Some(false)
 
           if (
@@ -4749,7 +4735,6 @@ let jsonString = {
         nextSchema.to = Some(target)
 
         let output = input->B.next(outputVar, ~schema=nextSchema, ~expected=nextSchema)
-        output.isInput = Some(true)
         output.isOutput = Some(true)
         output.var = B._var
 
@@ -5462,7 +5447,6 @@ module Schema = {
         let flattenedInput = input->B.Val.scope
         flattenedInput.expected = flattenedSchema
         flattenedInput.isOutput = Some(false)
-        flattenedInput.isInput = Some(false)
         let flattenedVal = flattenedInput->parse
         flattenedVals->Js.Array2.push(flattenedVal)->ignore
         input.codeFromPrev = input.codeFromPrev ++ flattenedVal->B.merge
@@ -5888,7 +5872,6 @@ let compactColumnsDecoder = (~input) => {
           itemInput.schema = runtimeItemSchema
           itemInput.expected = itemExpected
           itemInput.var = B._notVarBeforeValidation
-          itemInput.isInput = Some(false)
           itemInput.isOutput = Some(false)
           // Path like ["bar"] so validation errors carry the field location.
           itemInput.path = Path.fromInlinedLocation(input.global->B.inlineLocation(key))
@@ -5982,7 +5965,6 @@ let compactColumnsDecoder = (~input) => {
             itemInput.schema = fieldSchema
             itemInput.expected = declaredItemSchema
             itemInput.var = B._notVarBeforeValidation
-            itemInput.isInput = Some(false)
             itemInput.isOutput = Some(false)
             itemInput.path = Path.fromInlinedLocation(input.global->B.inlineLocation(key))
 
