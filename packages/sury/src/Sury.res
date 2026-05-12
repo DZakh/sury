@@ -3765,7 +3765,6 @@ module Union = {
           | _ => {
               let errorVar = input->B.embed(%raw(`exn`)->InternalError.getOrRethrow)
               if isLast {
-                // FIXME:
                 withExhaustiveCheck := false
               }
               itemCode := (
@@ -3826,6 +3825,13 @@ module Union = {
                   Js.String2.repeat("}", arr->Js.Array2.length) ++ "}"
               }
               itemNextElse := true
+            }
+            // A literal discriminant inside a single-item bucket would
+            // otherwise emit `if(cond){body}` with no else, silently
+            // dropping the literal's validation contract when the
+            // discriminant doesn't match. Force exhaustive trailing.
+            if accedDiscriminants->Js.Array2.length > 0 && isFirst && isLast {
+              withExhaustiveCheck := true
             }
             byDiscriminant.contents = Js.Dict.empty()
           }

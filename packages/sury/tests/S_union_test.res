@@ -799,30 +799,24 @@ test("json-rpc response", t => {
   t->U.assertCompiledCode(
     ~schema=getLogsResponseSchema,
     ~op=#ReverseConvert,
-    // FIXME: Exhaustive check doesn't work
-    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["TAG"]==="Ok"){let v0=i["_0"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path="[\\"_0\\"]"+\'["\'+v1+\'"]\'+v3.path;throw v3}}i={"result":v0,}}else if(i["TAG"]==="Error"){let v4=i["_0"];if(typeof v4==="string"){if(v4==="LogsNotFound"){v4={"message":"NotFound",}}}else if(typeof v4==="object"&&v4&&!Array.isArray(v4)){if(v4["NAME"]==="InvalidData"){let v5=v4["VAL"];typeof v5==="string"||e[2](v5);v4={"message":"Invalid","data":v5,}}}else{e[3](v4)}i={"error":v4,}}else{e[4](i)}}else{e[5](i)}return i}`,
+    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["TAG"]==="Ok"){let v0=i["_0"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path="[\\"_0\\"]"+\'["\'+v1+\'"]\'+v3.path;throw v3}}i={"result":v0,}}else if(i["TAG"]==="Error"){let v4=i["_0"];if(typeof v4==="string"){if(v4==="LogsNotFound"){v4={"message":"NotFound",}}else{e[2](v4)}}else if(typeof v4==="object"&&v4&&!Array.isArray(v4)){if(v4["NAME"]==="InvalidData"){let v5=v4["VAL"];typeof v5==="string"||e[3](v5);v4={"message":"Invalid","data":v5,}}else{e[4](v4)}}else{e[5](v4)}i={"error":v4,}}else{e[6](i)}}else{e[7](i)}return i}`,
   )
 
-  // FIXME: pin the current (buggy) ReverseConvert behaviour for the
-  // exhaustive-check gap noted above. The inner per-discriminant arms
-  // (LogsNotFound / InvalidData) lack their own `else { fail }`, so a
-  // value of the right outer type but a bogus inner variant silently
-  // round-trips instead of throwing. When the codegen gap is closed
-  // these decodeOrThrow calls will throw — switch them to
-  // assertThrowsMessage and remove the FIXME on the snapshot above.
-  t->Assert.unsafeDeepEqual(
-    %raw(`{TAG:"Error",_0:"BogusVariant"}`)->S.decodeOrThrow(
-      ~from=getLogsResponseSchema,
-      ~to=S.unknown,
-    ),
-    %raw(`{"error":"BogusVariant"}`),
+  t->U.assertThrowsMessage(
+    () =>
+      %raw(`{TAG:"Error",_0:"BogusVariant"}`)->S.decodeOrThrow(
+        ~from=getLogsResponseSchema,
+        ~to=S.unknown,
+      ),
+    `Failed at ["_0"]: Expected "LogsNotFound" | { NAME: "InvalidData"; VAL: string; }, received "BogusVariant"`,
   )
-  t->Assert.unsafeDeepEqual(
-    %raw(`{TAG:"Error",_0:{NAME:"BogusObj"}}`)->S.decodeOrThrow(
-      ~from=getLogsResponseSchema,
-      ~to=S.unknown,
-    ),
-    %raw(`{"error":{"NAME":"BogusObj"}}`),
+  t->U.assertThrowsMessage(
+    () =>
+      %raw(`{TAG:"Error",_0:{NAME:"BogusObj"}}`)->S.decodeOrThrow(
+        ~from=getLogsResponseSchema,
+        ~to=S.unknown,
+      ),
+    `Failed at ["_0"]: Expected "LogsNotFound" | { NAME: "InvalidData"; VAL: string; }, received { NAME: "BogusObj"; }`,
   )
 })
 

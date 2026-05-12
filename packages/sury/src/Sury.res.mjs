@@ -2458,6 +2458,9 @@ function unionDecoder(input) {
           }
           itemNextElse = true;
         }
+        if (accedDiscriminants.length > 0 && isFirst && isLast) {
+          withExhaustiveCheck = true;
+        }
         byDiscriminant = {};
       }
       if (!itemCond$1) {

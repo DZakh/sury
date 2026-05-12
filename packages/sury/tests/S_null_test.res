@@ -133,7 +133,7 @@ test("Serializes Some(None) to null for null nested in option", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=null}}else if(!(typeof i==="boolean"||i===void 0)){e[0](i)}return i}`,
+    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=null}else{e[0](i)}}else if(!(typeof i==="boolean"||i===void 0)){e[1](i)}return i}`,
   )
 })
 
@@ -153,7 +153,7 @@ test("Serializes Some(None) to null for null nested in null", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseConvert,
-    `i=>{if(i===void 0){i=null}else if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=null}}else if(!(typeof i==="boolean")){e[0](i)}return i}`,
+    `i=>{if(i===void 0){i=null}else if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=null}else{e[0](i)}}else if(!(typeof i==="boolean")){e[1](i)}return i}`,
   )
 })
 
@@ -183,7 +183,7 @@ module OuterRecord = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ReverseConvert,
-      `i=>{let v0=i["record"];if(typeof v0==="object"&&v0&&!Array.isArray(v0)){if(v0["BS_PRIVATE_NESTED_SOME_NONE"]===0){v0=null}else{try{let v1=v0["k"];if(typeof v1==="object"&&v1&&!Array.isArray(v1)){if(v1["BS_PRIVATE_NESTED_SOME_NONE"]===0){v1=null}}else if(!(typeof v1==="number"&&!Number.isNaN(v1)&&(v1<=2147483647&&v1>=-2147483648&&v1%1===0)||v1===void 0)){e[0](v1)}v0={"k":v1,}}catch(e1){e[1](v0,e1)}}}else if(!(v0===void 0)){e[2](v0)}return {"record":v0,}}`,
+      `i=>{let v0=i["record"];if(typeof v0==="object"&&v0&&!Array.isArray(v0)){if(v0["BS_PRIVATE_NESTED_SOME_NONE"]===0){v0=null}else{try{let v1=v0["k"];if(typeof v1==="object"&&v1&&!Array.isArray(v1)){if(v1["BS_PRIVATE_NESTED_SOME_NONE"]===0){v1=null}else{e[0](v1)}}else if(!(typeof v1==="number"&&!Number.isNaN(v1)&&(v1<=2147483647&&v1>=-2147483648&&v1%1===0)||v1===void 0)){e[1](v1)}v0={"k":v1,}}catch(e1){e[2](v0,e1)}}}else if(!(v0===void 0)){e[3](v0)}return {"record":v0,}}`,
     )
   })
 }
