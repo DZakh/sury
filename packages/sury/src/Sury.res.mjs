@@ -3818,7 +3818,7 @@ function shapedParser(input) {
   let output = getShapedParserOutput(input, targetSchema);
   output.t = true;
   output.prev = input;
-  return output;
+  return markOutput(output);
 }
 
 function definitionToShapedSchema(definition) {
@@ -4072,7 +4072,12 @@ function compactColumnsDecoder(input) {
         wrappedBody = "try{" + rowBody + "}catch(" + errorVar + "){" + errorVar + ".path='[\"'+" + iteratorVar + "+'\"]'+" + errorVar + ".path;throw " + errorVar + "}";
       }
       output.cp = output.cp + ("for(let " + iteratorVar + "=0;" + iteratorVar + "<" + outputVar + ".length;++" + iteratorVar + "){" + wrappedBody + "}");
-      return markOutput(hasAsync ? asyncVal(output, "Promise.all(" + outputVar + ")") : output);
+      let output$1 = hasAsync ? asyncVal(output, "Promise.all(" + outputVar + ")") : output;
+      let to = selfSchema.to;
+      if (to !== undefined) {
+        output$1.e = to;
+      }
+      return markOutput(output$1);
     }
     let inputVar$1 = input.v();
     let iteratorVar$1 = varWithoutAllocation(input.g);
@@ -4107,8 +4112,8 @@ function compactColumnsDecoder(input) {
     }
     input.a(outputVar$1 + "=[" + initialArraysCode + "]");
     markInput(input);
-    let output$1 = next(input, outputVar$1, outputSchema, outputSchema);
-    output$1.v = _var;
+    let output$2 = next(input, outputVar$1, outputSchema, outputSchema);
+    output$2.v = _var;
     let loopBody = perFieldCode + settingCode;
     let wrappedBody$1;
     if (needsPerFieldTransform && perFieldCode !== "") {
@@ -4117,8 +4122,8 @@ function compactColumnsDecoder(input) {
     } else {
       wrappedBody$1 = loopBody;
     }
-    output$1.cp = output$1.cp + ("for(let " + iteratorVar$1 + "=0;" + iteratorVar$1 + "<" + inputVar$1 + ".length;++" + iteratorVar$1 + "){" + wrappedBody$1 + "}");
-    return markOutput(output$1);
+    output$2.cp = output$2.cp + ("for(let " + iteratorVar$1 + "=0;" + iteratorVar$1 + "<" + inputVar$1 + ".length;++" + iteratorVar$1 + "){" + wrappedBody$1 + "}");
+    return markOutput(output$2);
   }
   throw new Error("[Sury] S.compactColumns supports only object schemas. Use S.compactColumns(S.unknown)->S.to(S.array(objectSchema)).");
 }

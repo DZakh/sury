@@ -5475,7 +5475,7 @@ module Schema = {
     let output = getShapedParserOutput(~input, ~targetSchema)
     output.hasTransform = Some(true)
     output.prev = Some(input)
-    output
+    output->B.markOutput
   }
 
   and prepareShapedSerializerAcc = (~acc: shapedSerializerAcc, ~input: val) => {
@@ -5947,6 +5947,13 @@ let compactColumnsDecoder = (~input) => {
           output->B.asyncVal(`Promise.all(${outputVar})`)
         } else {
           output
+        }
+        // Use selfSchema.to (when set) so markOutput sees the user-declared
+        // output schema's refiner. The freshly built outputSchema has no
+        // refiner, so without this the output refine on .to is dropped.
+        switch selfSchema.to {
+        | Some(to) => output.expected = to
+        | None => ()
         }
         output->B.markOutput
       } else {
