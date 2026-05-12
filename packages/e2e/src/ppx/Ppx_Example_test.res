@@ -1,8 +1,6 @@
 open Ava
 open U
 
-S.enableUrl()
-
 @schema
 type rating =
   | @as("G") GeneralAudiences

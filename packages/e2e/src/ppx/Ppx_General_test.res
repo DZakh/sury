@@ -1,8 +1,6 @@
 open Ava
 open U
 
-S.enableUrl()
-
 @schema
 type t = string
 test("Creates schema with the name schema from t type", t => {

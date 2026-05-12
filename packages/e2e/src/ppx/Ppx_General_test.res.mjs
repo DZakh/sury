@@ -4,8 +4,6 @@ import * as S from "sury/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
 import Ava from "ava";
 
-S.enableUrl();
-
 Ava("Creates schema with the name schema from t type", t => U.assertEqualSchemas(t, S.string, S.string, undefined));
 
 Ava("Creates schema with the type name and schema at the for non t types", t => U.assertEqualSchemas(t, S.int, S.int, undefined));
