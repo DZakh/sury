@@ -6,6 +6,45 @@ Alpha.5 is the biggest release on the road to v11. It introduces a redesigned op
 
 > **TL;DR** — Parse, decode, encode and assert with one consistent family of functions. Coerce between any two unions with predictable, identity-preserving rules. Validate dates, ISO datetimes, Uint8Arrays, ports, emails, UUIDs, CUIDs and URLs out of the box. And get more readable errors while you're at it.
 
+### 🧠 The mental model shift: schemas all the way down
+
+The biggest idea in Alpha.5 isn't a single new function — it's a **change in how you think about operations**.
+
+In every other validation library — and in earlier Sury — moving between data shapes meant reaching for a different function: `parseOrThrow`, `parseJsonOrThrow`, `parseJsonStringOrThrow`, `convertToJsonOrThrow`, `convertToJsonStringOrThrow`, `reverseConvertToJsonOrThrow`… one operation per supported target.
+
+**Sury Alpha.5 collapses all of that into two ideas:**
+
+1. **`Json`, `JsonString`, `Unknown`, `Date`, `Uint8Array`, … are just schemas.** There is nothing special about JSON. If you can describe it as a schema, it can be a stage in a pipeline.
+2. **`S.decoder` and `S.encoder` accept any sequence of schemas** and compile them into a single, ultra-optimized function via `new Function`. No per-target operations, no special casing — you build the exact pipeline you want.
+
+```ts
+// Old mental model: pick the right function for the job.
+S.parseOrThrow(data, schema);
+S.parseJsonStringOrThrow(rawString, schema);
+S.reverseConvertToJsonOrThrow(value, schema);
+
+// New mental model: name the stages, Sury compiles the path.
+S.parser(schema)(data);
+S.decoder(S.jsonString, schema)(rawString);   // string → JSON.parse → validate → output
+S.encoder(schema, S.json)(value);              // output → input → JSON-shaped value
+S.encoder(schema, S.jsonString)(value);        // …or all the way to a JSON string
+S.decoder(S.jsonString, schema, S.json)(raw);  // parse, then re-emit as plain JSON
+```
+
+The same idea scales beyond JSON:
+
+```ts
+// Decode a Uint8Array of UTF-8 bytes, parse the JSON payload, validate, done.
+S.decoder(S.uint8Array, S.jsonString, schema);
+
+// Take a domain object, encode it to a URL-safe string via a custom pipeline.
+S.encoder(schema, S.string, S.uint8Array);
+```
+
+Each pipeline is fused into a single generated function with no intermediate allocations, so chaining stages doesn't cost you performance — in many cases it's **faster** than the equivalent hand-written code, because Sury can inline the whole path. You go from a fixed menu of operations to an open set: any schema can be an input, any schema can be an output, and the library handles the plumbing.
+
+This is what unlocks most of the other changes in this release — and what makes the [migration cheat sheet](#typescript--javascript) below mostly a story of *deletions*.
+
 ### 🆕 New built-in schemas
 
 A bigger toolbox for everyday data:

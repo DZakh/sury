@@ -1429,6 +1429,27 @@ await "1"->S.parseAsyncOrThrow(~to=userSchema)
 
 ## Functions on schema
 
+### The mental model: pipelines, not operations
+
+If you're coming from earlier Sury releases (or from any other validation library), you're used to a separate function for every input/output pair: `parseJsonOrThrow`, `parseJsonStringOrThrow`, `reverseConvertToJsonOrThrow`, and so on. **Sury treats those targets as schemas instead.** `S.json`, `S.jsonString`, `S.unknown`, `S.date`, `S.uint8Array` — none of them are special, they're just schemas like any other.
+
+So instead of a fixed menu of operations, you describe the shape of the data at each stage with `~from` and `~to`, and Sury compiles the whole pipeline into a single ultra-optimized function via `new Function`. Adding stages costs you nothing at runtime.
+
+```rescript
+// Validate any input value.
+data->S.parseOrThrow(~to=userSchema)
+
+// Parse a JSON string, then validate.
+rawString->S.decodeOrThrow(~from=S.jsonString, ~to=userSchema)
+
+// Encode a domain value all the way out to a JSON string.
+user->S.decodeOrThrow(~from=userSchema, ~to=S.jsonString)
+
+// Pre-compile pipelines once, call them many times.
+let parseJsonUser = S.decoder(~from=S.jsonString, ~to=userSchema)
+let stringifyUser = S.decoder(~from=userSchema, ~to=S.jsonString)
+```
+
 ### Built-in operations
 
 The library provides a bunch of built-in operations that can be used to parse, decode, and assert values.

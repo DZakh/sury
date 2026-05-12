@@ -50,6 +50,7 @@
   - [`transform`](#transforms)
   - [`shape`](#shape)
 - [Functions on schema](#functions-on-schema)
+  - [The mental model: pipelines, not operations](#the-mental-model-pipelines-not-operations)
   - [Built-in operations](#built-in-operations)
   - [Chaining operations](#chaining-operations)
   - [`reverse`](#reverse)
@@ -1161,6 +1162,33 @@ S.encoder(circleSchema)({ kind: "circle", radius: 1 }); //? 1
 ```
 
 ## Functions on schema
+
+### The mental model: pipelines, not operations
+
+If you've used other validation libraries, you're used to a separate function for every input/output pair: `parseJson`, `parseJsonString`, `convertToJson`, `convertToJsonString`, and so on. **Sury treats those targets as schemas instead.** `S.json`, `S.jsonString`, `S.unknown`, `S.date`, `S.uint8Array` — none of them are special, they're just schemas like any other.
+
+The two operation functions you need are:
+
+- **`S.decoder(from, …intermediate, to)`** — compile a forward pipeline from one schema to another.
+- **`S.encoder(from, …intermediate, to)`** — compile the reverse pipeline.
+
+Every call fuses the whole chain into a single ultra-optimized function generated via `new Function`, so adding stages costs you nothing at runtime.
+
+```ts
+// Validate unknown input.
+S.parser(userSchema)(data);
+
+// Parse a JSON string, then validate.
+S.decoder(S.jsonString, userSchema)(rawString);
+
+// Encode a domain value all the way out to a JSON string.
+S.encoder(userSchema, S.jsonString)(user);
+
+// Decode a binary payload of UTF-8 JSON, then validate.
+S.decoder(S.uint8Array, S.jsonString, userSchema)(bytes);
+```
+
+You're no longer picking from a fixed menu of operations — you're describing the shape of the data at each stage and letting Sury compile the path.
 
 ### Built-in operations
 
