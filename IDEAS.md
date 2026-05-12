@@ -2,9 +2,7 @@
 
 ## Alpha.5
 
-Alpha.5 is the biggest release on the road to v11. It introduces a redesigned operation API, a brand-new union dispatch engine, a richer set of built-in schemas, sharper error messages, and a wave of API polish across both the TS/JS and ReScript surfaces.
-
-> **TL;DR** — Parse, decode, encode and assert with one consistent family of functions. Coerce between any two unions with predictable, identity-preserving rules. Validate dates, ISO datetimes, Uint8Arrays, ports, emails, UUIDs, CUIDs and URLs out of the box. And get more readable errors while you're at it.
+Alpha.5 is the biggest release on the road to v11. It introduces a redesigned operation API, a brand-new union match engine, a richer set of built-in schemas, sharper and customizable error messages, and a wave of API polish across both the TS/JS and ReScript surfaces.
 
 ### 🧠 The mental model shift: schemas all the way down
 
@@ -14,8 +12,8 @@ In every other validation library — and in earlier Sury — moving between dat
 
 **Sury Alpha.5 collapses all of that into two ideas:**
 
-1. **`Json`, `JsonString`, `Unknown`, `Date`, `Uint8Array`, … are just schemas.** There is nothing special about JSON. If you can describe it as a schema, it can be a stage in a pipeline.
-2. **`S.decoder` and `S.encoder` accept any sequence of schemas** and compile them into a single, ultra-optimized function via `new Function`. No per-target operations, no special casing — you build the exact pipeline you want.
+1. **`S.json`, `S.jsonString`, `S.unknown`, `S.date`, `S.uint8Array`, … are just schemas.** There is nothing special about JSON. If you can describe it as a schema, it can be a stage in a pipeline.
+2. **`S.parser`, `S.decoder` and `S.encoder` accept any sequence of schemas** and compile them into a single, ultra-optimized function via `new Function`. No per-target operations, no special casing — you build the exact pipeline you want.
 
 ```ts
 // Old mental model: pick the right function for the job.
@@ -37,8 +35,8 @@ The same idea scales beyond JSON:
 // Decode a Uint8Array of UTF-8 bytes, parse the JSON payload, validate, done.
 S.decoder(S.uint8Array, S.jsonString, schema);
 
-// Take a domain object, encode it to a URL-safe string via a custom pipeline.
-S.encoder(schema, S.string, S.uint8Array);
+// Take a domain object, encode it to a JSON string, then to a Uint8Array of UTF-8 bytes.
+S.encoder(schema, S.jsonString, S.uint8Array);
 ```
 
 Each pipeline is fused into a single generated function with no intermediate allocations, so chaining stages doesn't cost you performance — in many cases it's **faster** than the equivalent hand-written code, because Sury can inline the whole path. You go from a fixed menu of operations to an open set: any schema can be an input, any schema can be an output, and the library handles the plumbing.
@@ -48,7 +46,7 @@ Each pipeline is fused into a single generated function with no intermediate all
 - `S.parser(schema)` ≡ `S.decoder(S.unknown, schema)` — accept anything, validate against the schema, produce its output type.
 - `S.assert(schema, data)` ≡ a `S.decoder` from `S.unknown` *through* the schema *to* `S.literal(true).with(S.noValidation, true)` — the target is a no-op constant with validation disabled, so the compiler runs the schema's validation but emits no output-construction code at all. That's why `assert` is 2–3× faster than `parser`.
 
-This is what unlocks most of the other changes in this release — and what makes the [migration cheat sheet](#typescript--javascript) below mostly a story of *deletions*.
+See the [migration cheat sheet](#typescript--javascript) below for the full mapping of the old per-target operations to the new pipeline form.
 
 ### 🆕 New built-in schemas
 
@@ -60,9 +58,11 @@ A bigger toolbox for everyday data:
 - **`S.compactColumns`** — transforms columnar data (`[[a1, a2], [b1, b2]]`) to and from row objects (`[{foo: a1, bar: b1}, {foo: a2, bar: b2}]`). Typed as `Schema<Output[][], Input[][]>`, and `S.toExpression` renders it as the concrete element type (e.g. `"string[][]"`) without needing an explicit `S.to`.
 - **Standalone format schemas** — `S.port`, `S.email`, `S.uuid`, `S.cuid`, `S.url` are now standalone schemas instead of refinement helpers. `Email`, `Uuid`, `Cuid`, `Url` are exposed on the `StringFormat` type for type-level reuse.
 
-### 🪄 Smarter unions: three-tier decoding
+### 🪄 Smarter unions: three-tier matching
 
-When compiling `source -> targetUnion` (via `S.to` or reversal), Sury now uses a three-tier dispatch based on the source's **derived tag** — the tag at compile time, which may be narrower than the original (upstream transformations can refine it). When the source is itself a union, the algorithm runs independently for each source variant.
+When compiling `source -> targetUnion` (via `S.to` or reversal), Sury now uses a three-tier match based on the source's **derived tag** — the tag at compile time, which may be narrower than the original (upstream transformations can refine it).
+
+> 🚧 **Work in progress.** When the source is itself a union, the algorithm runs independently for each source variant. This per-variant fan-out is still being polished and may change before the stable release.
 
 If the source is `unknown` (no derived tag), the tag-based tiers are skipped and target variants are attempted directly in target-union order at runtime.
 
@@ -93,13 +93,42 @@ Reverse:
 
 To opt into `string → float` when a `string` target also exists, write the transform into a variant explicitly: `S.union([S.string->S.to(S.float), S.string])` as the target. The transform variant is const/format-refined relative to the catch-all `string` and matches first within tier 1.
 
-Beyond dispatch, union conversion now always performs **exhaustive validation** — every variant is checked instead of bailing on the first match — so transformed unions stay consistent across encode and decode.
+Beyond matching, union conversion now always performs **exhaustive validation** — every variant is checked instead of bailing on the first match — so transformed unions stay consistent across encode and decode.
 
 ### ⚡ Cleaner refinements
 
-- `S.refine` is now **boolean-returning** instead of callback-based — return `true` for valid, `false` for invalid.
-  - TS/JS: `(value) => boolean` with optional `{ error?: string, path?: string[] }`.
-  - ReScript: `'value => bool` with optional `~error: string=?` and `~path: array<string>=?`.
+`S.refine` is now **boolean-returning** instead of callback-based — return `true` for valid, `false` for invalid:
+
+```ts
+// TS/JS
+const positive = S.number.with(S.refine, (n) => n > 0);
+
+const passwordsMatch = S.schema({
+  password: S.string,
+  confirm: S.string,
+}).with(S.refine, (data) => data.password === data.confirm, {
+  error: "Passwords don't match",
+  path: ["confirm"],
+});
+```
+
+```rescript
+// ReScript
+let positive = S.float->S.refine(n => n > 0.)
+
+let passwordsMatch =
+  S.schema(s =>
+    {
+      "password": s.field("password", S.string),
+      "confirm": s.field("confirm", S.string),
+    }
+  )->S.refine(
+    data => data["password"] == data["confirm"],
+    ~error="Passwords don't match",
+    ~path=["confirm"],
+  )
+```
+
 - Renamed `S.asyncParserRefine` → **`S.asyncDecoderAssert`** (TS/JS). The `EffectCtx` (`s`) parameter is gone — throw directly to signal failure instead of calling `s.fail()`.
 - ReScript: `schema` is no longer passed to the `S.transform` and `S.refine` context — they receive only the value.
 
