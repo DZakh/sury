@@ -4,7 +4,7 @@
 
 1. **DX** — intuitive public API and error messages.
 2. **Performance** — generated code is the hot path; avoid extra vars, allocations, double validation; inline over indirect.
-3. **Bundle size** — `Sury.res.mjs` ships to browsers. Reuse helpers (`B.refine`, `B.markInput`, `B.markOutput`) over duplicated codegen.
+3. **Bundle size** — `Sury.res.mjs` ships to browsers. Reuse helpers (`B.refine`, `B.markOutput`) over duplicated codegen.
 
 Tiebreaker: shortest *generated* code wins over shortest *library* code (runtime ships per-schema, library ships once).
 
@@ -35,17 +35,15 @@ Per-schema execution order:
 
 ## Refiner ownership
 
-The parse loop (around `expected.decoder(~input)`) applies `inputRefiner`/`refiner` **only for primitive decoders** — ones whose result has `isOutput !== Some(true)`. It pushes them as checks via `B.refine`.
+The parse loop applies refiners **only for primitive decoders** (result has `isOutput !== Some(true)`). **Advanced decoders** (object, array, tuple, union, recursive — anything that sets `isOutput = Some(true)`) own refiner application themselves, so input checks land on the pre-transform val and output checks on the assembled output.
 
-**Advanced decoders** (`objectDecoder`, `arrayDecoder`, tuple, union, recursive — anything that sets `isOutput = Some(true)`) own refiner application themselves, because:
-- They know the optimal injection points: `inputRefiner` is pushed onto the *input* val's checks so its predicate observes the pre-transform input; `refiner` wraps the assembled output so its predicate observes the final shape.
-- The generic fallback would force materializing an output val even when nothing else needs it.
+Use `B.markOutput(val, ~valInput)`:
+- Pushes input-refiner checks onto `valInput.checks` (emits at pre-transform slot).
+- Wraps `val` via `B.refine` with output-refiner checks (observes assembled output).
+- Sets `isOutput = Some(true)` on the result.
+- When `valInput.prev` is None, input checks fold into the output wrap so emit has a `prev.var()`.
 
-Use the two shared helpers:
-- `B.markInput(~val, ~schema)` — mutates `val.checks` (pushes the input refiner) and sets `isInput = Some(true)`. Call it on the *input* val (e.g. `input->B.markInput`).
-- `B.markOutput(~val, ~schema)` — wraps `val` via `B.refine` with the output refiner and sets `isOutput = Some(true)` on the wrapper. Call it on the *result* val.
-
-Two fns (not `~which`) so the bundler DCEs whichever is unused. **A new advanced decoder that skips either silently drops user `S.refine`s.**
+For primitives, `val === valInput`. For advanced decoders, `valInput` is the pre-transform input and `val` is the assembled output. **Skipping this call silently drops user `S.refine`s.**
 
 Async output refiner must run inside `.then()` on the resolved value, never on the Promise wrapper.
 

@@ -1561,18 +1561,11 @@ module Builder = {
       }
     }
 
-    // Applies both refiners for one decoder seam. `valInput` is the
-    // pre-transform input val; `val` is the assembled output val (may
-    // equal `valInput` for primitive decoders). Input-refiner checks
-    // (from `valInput.expected.inputRefiner`) are pushed onto
-    // `valInput.checks` so they emit at the input slot, before any
-    // transform code. Output-refiner checks (from `val.expected.refiner`)
-    // wrap `val` via `refine` so they observe the assembled output.
-    // When `valInput.prev` is None (primitive decoder returned the
-    // operationArg unchanged) the input-refiner checks are folded into
-    // the output wrap instead, so emit has a prev.var() to read from.
-    // Sets `isOutput = Some(true)` on the result. Async paths must
-    // inject the output check inside `.then` on the resolved value — TODO.
+    // Applies both refiners. Input checks push onto valInput.checks
+    // (emit at pre-transform slot); output checks wrap val via refine.
+    // When valInput.prev is None, input checks fold into the output
+    // wrap so emit has a prev.var(). Sets isOutput on the result.
+    // TODO: async output refiner must run inside .then(), not on the Promise.
     let markOutput = (val: val, ~valInput: val) => {
       let deferredInputChecks = switch valInput.expected.inputRefiner {
       | Some(fn) => {
@@ -2361,10 +2354,8 @@ let rec parse = (input: val) => {
       } else {
         valRef := loopInput.expected.decoder(~input=loopInput)
 
-        // If the decoder's return value is not marked as isOutput,
-        // we treat it as a primitive decoder with no internal transformations.
-        // Otherwise, we assume internal transformations are present,
-        // and expect the decoder itself to handle refinements and manage the isOutput flag.
+        // Primitive decoder (no internal transforms): apply refiners here.
+        // Advanced decoders set isOutput themselves and own refiner application.
         if !(valRef.contents.isOutput->Option.getUnsafe) {
           valRef := valRef.contents->B.markOutput(~valInput=valRef.contents)
         }
@@ -2907,7 +2898,6 @@ and arrayDecoder: builder = (~input as unknownInput) => {
       o
     }
   }
-  // inputRefiner on input val (pre-transform); outputRefiner on output.
   output->B.markOutput(~valInput=input)
 }
 and objectDecoder: Builder.t = (~input as unknownInput) => {
@@ -3086,8 +3076,6 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
       }
     }
   }
-  // inputRefiner on the input val so the check observes pre-transform
-  // input; outputRefiner on the assembled output. Async TODO.
   output->B.markOutput(~valInput=input)
 }
 
