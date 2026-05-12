@@ -1194,14 +1194,14 @@ The **same pipeline idea works inside schemas** via [`S.to`](#to). A field, an a
 
 ```ts
 const apiUser = S.schema({
-  // Arrives as a string, parsed as JSON, validated as the addresses array.
-  addresses: S.string.with(S.to, S.jsonString).with(S.to, S.array(addressSchema)),
+  // Arrives as a JSON string, which is parsed and validated as an array of addresses.
+  addresses: S.jsonString.with(S.to, S.array(addressSchema)),
 
-  // Arrives as bytes, decoded as UTF-8, validated as an ISO datetime, mapped to a Date.
-  createdAt: S.uint8Array.with(S.to, S.string).with(S.to, S.isoDateTime).with(S.to, S.date),
+  // Arrives as bytes, decoded as UTF-8, mapped to a Date.
+  createdAt: S.uint8Array.with(S.to, S.string).with(S.to, S.date),
 
   // Element-level transforms work the same way.
-  ids: S.array(S.string.with(S.to, S.number)),
+  ids: S.array(S.string.with(S.to, S.bigint)),
 });
 ```
 

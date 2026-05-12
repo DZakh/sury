@@ -1455,14 +1455,14 @@ The **same pipeline idea works inside schemas** via [`S.to`](#to). A field, an a
 ```rescript
 let apiUserSchema = S.schema(s =>
   {
-    // Arrives as a string, parsed as JSON, validated as the addresses array.
-    "addresses": s.field("addresses", S.string->S.to(S.jsonString)->S.to(S.array(addressSchema))),
+    // Arrives as a JSON string, which is parsed and validated as an array of addresses.
+    "addresses": s.field("addresses", S.jsonString->S.to(S.array(addressSchema))),
 
-    // Arrives as bytes, decoded as UTF-8, validated as an ISO datetime, mapped to a Date.
-    "createdAt": s.field("createdAt", S.uint8Array->S.to(S.string)->S.to(S.isoDateTime)->S.to(S.date)),
+    // Arrives as bytes, decoded as UTF-8, mapped to a Date.
+    "createdAt": s.field("createdAt", S.uint8Array->S.to(S.string)->S.to(S.date)),
 
     // Element-level transforms work the same way.
-    "ids": s.field("ids", S.array(S.string->S.to(S.float))),
+    "ids": s.field("ids", S.array(S.string->S.to(S.bigint))),
   }
 )
 ```

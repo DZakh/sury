@@ -45,14 +45,14 @@ Each pipeline is fused into a single generated function with no intermediate all
 
 ```ts
 const apiUser = S.schema({
-  // Field arrives as a string, parsed as JSON, validated as the addresses array.
-  addresses: S.string.with(S.to, S.jsonString).with(S.to, S.array(addressSchema)),
+  // Field arrives as a JSON string, which is parsed and validated as an array of addresses.
+  addresses: S.jsonString.with(S.to, S.array(addressSchema)),
 
-  // Field arrives as bytes, decoded as UTF-8, validated as an ISO datetime, mapped to Date.
-  createdAt: S.uint8Array.with(S.to, S.string).with(S.to, S.isoDateTime).with(S.to, S.date),
+  // Field arrives as bytes, decoded as UTF-8, mapped to Date.
+  createdAt: S.uint8Array.with(S.to, S.string).with(S.to, S.date),
 
   // Element-level transforms work the same way.
-  ids: S.array(S.string.with(S.to, S.number)),
+  ids: S.array(S.string.with(S.to, S.bigint)),
 });
 ```
 
@@ -151,12 +151,44 @@ let passwordsMatch =
 
 ### 🧹 Sharper, friendlier errors
 
-- `InvalidType` errors now include the received schema, so you can pattern-match on the concrete type that came in.
-- Dropped the noisy `Failed parsing/converting/asserting` prefix when the error is at the root.
-- Renamed `Failed parsing/converting/asserting at path` → **`Failed at path`** — short, neutral, and applies uniformly to every operation.
-- Every error thrown from `transform`/`refine` is wrapped in `SuryError`, so you never lose stack context.
+Error **messages** are shorter and operation-agnostic. The `Failed parsing/converting/asserting at path` prefix is gone — root errors have no prefix at all, and nested errors share one neutral `Failed at <path>` form regardless of which operation produced them:
+
+```diff
+- Failed parsing at root: Expected boolean, received "yes"
++ Expected boolean, received "yes"
+
+- Failed parsing at ["user"]["age"]: Expected number, received "twenty"
++ Failed at ["user"]["age"]: Expected number, received "twenty"
+
+- Failed converting at root: Can't convert boolean | undefined to JSON
++ Can't decode boolean | undefined to JSON. Use S.to to define a custom decoder
+```
+
+The error **object** is now a properly discriminated variant — `code` is a literal type, each branch carries the fields relevant to it, and `InvalidInput` (formerly `InvalidType`) gained a `received` schema so you can pattern-match on the concrete type that came in:
+
+```diff
+- // Before — flat shape, untyped `code`, no `received`.
+- {
+-   code: "InvalidType",
+-   flag: 1,
+-   path: ["age"],
+-   message: "Failed parsing at [\"age\"]: Expected number, received \"twenty\"",
+-   reason: "Expected number, received \"twenty\"",
+- }
++ // After — discriminated variant, no `flag`, `received` is a schema.
++ {
++   code: "invalid_input",
++   path: ["age"],
++   message: "Failed at [\"age\"]: Expected number, received \"twenty\"",
++   reason: "Expected number, received \"twenty\"",
++   expected: S.number,
++   received: S.string,
++   input: "twenty",
++ }
+```
+
 - Renamed error code `unsupported_conversion` → **`unsupported_decode`** (variant `UnsupportedConversion` → `UnsupportedDecode`). The new message reads: `Can't decode X to Y. Use S.to to define a custom decoder` — a direct hint at the fix.
-- TS: `S.Error` is now a discriminated variant instead of a `code` string property — full type-safe pattern matching.
+- Every error thrown from `transform`/`refine` is wrapped in `SuryError`, so you never lose stack context.
 - ReScript: `S.ErrorClass.constructor` → **`S.Error.make`** (accepts full error details, no more `flag` parameter); `S.ErrorClass.t` and `S.ErrorClass.value` → **`S.Error.class`**; new **`S.Error.classify`** turns an error into a variant of every possible error code.
 
 ### 🎯 Customizable error messages
@@ -184,7 +216,7 @@ schema.with(S.meta, { errorMessage: {} });
 
 ### 🛠️ Internal refactors (worth knowing about)
 
-- Object schemas no longer carry an `items` field, and tuple schemas store `items` as an array of schemas instead of an array of items. The dedicated `item` type is removed.
+- Object schemas no longer carry an `items` field — they now expose `properties` (a dict of field schemas) plus a new **`required`** array listing the non-optional keys, making schema introspection a straight match to the JSON Schema shape. Tuple schemas store `items` as an array of schemas instead of an array of items, and the dedicated `item` type is removed.
 - ReScript: `S.null` is renamed to **`S.nullAsOption`** to reflect what it actually does (decode `null` into `option`).
 
 ### 🚚 Migration cheat sheet
