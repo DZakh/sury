@@ -3911,18 +3911,16 @@ module Union = {
       let byKey: ref<dict<array<unknown>>> = ref(Js.Dict.empty())
       let keys = ref([])
       let updatedSchemas = []
-      // FIXME: Minimal fix to apply the union's refiner/inputRefiner per
-      // surviving case (previously silently dropped when the union has .to).
-      // The generated code shape — emit style (`cond||fail(input)` vs
-      // `if(!cond){fail()}`), fail-embed sharing, throw-vs-fail for
-      // compile-time-impossible cases, and single-case bypass — is not yet
-      // optimal. Revisit and consolidate with the rest of the refiner
-      // application logic once we have more time post-release.
+      // FIXME: minimal fix — applies the union's refiner/inputRefiner per
+      // surviving case (previously dropped when the union has `.to`). The
+      // emit shape isn't ideal; fold this into the shared refiner pipeline
+      // post-release.
       let appendUnionRefiners = {
         let unionRefiner = selfSchema.refiner
         let unionInputRefiner = selfSchema.inputRefiner
-        // Memoize so the same `e[N]` embed is shared across cases instead of
-        // being duplicated once per surviving case.
+        // Call each source refiner at most once so its predicate is embedded
+        // in `input.global.embeded` once and every case references the same
+        // `e[N]`. `B.embed` is append-only, so a per-case call would duplicate.
         let cachedRefinerChecks = ref(None)
         let cachedInputRefinerChecks = ref(None)
         let attach = (current, source, cache) =>
