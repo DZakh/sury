@@ -1190,6 +1190,8 @@ S.decoder(S.uint8Array, S.jsonString, userSchema)(bytes);
 
 You're no longer picking from a fixed menu of operations — you're describing the shape of the data at each stage and letting Sury compile the path.
 
+> 🧠 `S.parser` and `S.assert` aren't separate primitives — they're just specializations of `S.decoder` with `S.unknown` on the input side. `S.parser(schema)` is `S.decoder(S.unknown, schema)`. `S.assert(schema, data)` runs a decoder from `S.unknown` *through* the schema *to* `S.literal(true).with(S.noValidation, true)` — the target is a no-op constant with validation disabled, so the compiler emits the schema's validation but no output-construction code at all. That's why `assert` is 2–3× faster than `parser`.
+
 ### Built-in operations
 
 The library provides a bunch of built-in operations that can be used to parse, convert, and assert values.

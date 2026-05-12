@@ -43,6 +43,11 @@ S.encoder(schema, S.string, S.uint8Array);
 
 Each pipeline is fused into a single generated function with no intermediate allocations, so chaining stages doesn't cost you performance — in many cases it's **faster** than the equivalent hand-written code, because Sury can inline the whole path. You go from a fixed menu of operations to an open set: any schema can be an input, any schema can be an output, and the library handles the plumbing.
 
+`S.parser` and `S.assert` aren't even separate primitives — they're just **specializations of `S.decoder`** with `S.unknown` on the input side:
+
+- `S.parser(schema)` ≡ `S.decoder(S.unknown, schema)` — accept anything, validate against the schema, produce its output type.
+- `S.assert(schema, data)` ≡ a `S.decoder` from `S.unknown` *through* the schema *to* `S.literal(true).with(S.noValidation, true)` — the target is a no-op constant with validation disabled, so the compiler runs the schema's validation but emits no output-construction code at all. That's why `assert` is 2–3× faster than `parser`.
+
 This is what unlocks most of the other changes in this release — and what makes the [migration cheat sheet](#typescript--javascript) below mostly a story of *deletions*.
 
 ### 🆕 New built-in schemas

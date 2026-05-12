@@ -1450,6 +1450,8 @@ let parseJsonUser = S.decoder(~from=S.jsonString, ~to=userSchema)
 let stringifyUser = S.decoder(~from=userSchema, ~to=S.jsonString)
 ```
 
+> 🧠 `S.parseOrThrow` and `S.assertOrThrow` aren't separate primitives — they're just specializations of `S.decodeOrThrow` with `S.unknown` on the input side. `data->S.parseOrThrow(~to=schema)` is `data->S.decodeOrThrow(~from=S.unknown, ~to=schema)`. `data->S.assertOrThrow(~to=schema)` runs a decoder from `S.unknown` through the schema to `S.literal(true)->S.noValidation(true)` — the target is a no-op constant with validation disabled, so the compiler emits the schema's validation but no output-construction code at all. That's why `assertOrThrow` is 2–3× faster than `parseOrThrow`.
+
 ### Built-in operations
 
 The library provides a bunch of built-in operations that can be used to parse, decode, and assert values.
