@@ -3,14 +3,10 @@
 # To reproduce this list after making changes, run:
 #   cd packages/sury && npx ava 2>&1 | grep "✘ \[fail\]" | sed 's/lib › bs › //' | sed 's/tests › //' | sed 's/ Error thrown in test//' | sort -u
 #
-# Total: 9 failing tests
+# Total: 5 failing tests
 
   ✘ [fail]: S_object_discriminant_test.res › Fails to serialize object with discriminant that we don't know how to serialize "true | null"
   ✘ [fail]: S_toExpression_test.res › Expression of renamed schema
-  ✘ [fail]: S_to_test.res › Coerce from union to bigint with refinement on union
-  ✘ [fail]: S_to_test.res › Coerce from union to bigint with refinement on union (with an item transformed to) Should apply refinement after the item transformation
   ✘ [fail]: S_to_test.res › Coerce string to custom JSON schema I don't know what we expect here, but currently it works this way
-  ✘ [fail]: S_to_test.res › Tier 1: S.string -> S.to(union[str,bigint] -> refine -> to(bigint)) — union output schema is S.string, downstream sees only refine + BigInt
-  ✘ [fail]: S_to_test.res › Tier 1: union with refine+to as target — downstream refine/to only see narrowed variant
   ✘ [fail]: S_union_test.res › Compiled serialize code snapshot of crazy union
   ✘ [fail]: S_union_test.res › Serializes when second struct misses serializer

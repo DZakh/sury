@@ -3911,64 +3911,56 @@ module Union = {
       let byKey: ref<dict<array<unknown>>> = ref(Js.Dict.empty())
       let keys = ref([])
       let updatedSchemas = []
-      // Memoize the union's refiner/inputRefiner so per-case applications share
-      // the same embedded `e[N]` reference instead of duplicating embeds.
-      let unionRefiner = selfSchema.refiner
-      let unionInputRefiner = selfSchema.inputRefiner
-      let cachedRefinerChecks = ref(None)
-      let cachedInputRefinerChecks = ref(None)
-      let getRefinerChecks = (~input) =>
-        switch cachedRefinerChecks.contents {
-        | Some(checks) => checks
-        | None =>
-          let checks = (unionRefiner->X.Option.getUnsafe)(~input)
-          cachedRefinerChecks := Some(checks)
-          checks
-        }
-      let getInputRefinerChecks = (~input) =>
-        switch cachedInputRefinerChecks.contents {
-        | Some(checks) => checks
-        | None =>
-          let checks = (unionInputRefiner->X.Option.getUnsafe)(~input)
-          cachedInputRefinerChecks := Some(checks)
-          checks
-        }
-      let appendUnionRefiners = (mut: internal) => {
-        switch unionRefiner {
-        | Some(_) =>
-          switch mut.refiner {
-          | Some(existing) =>
-            mut.refiner = Some(
-              (~input) => {
-                let arr = existing(~input)
-                let next = getRefinerChecks(~input)
-                for i in 0 to next->Js.Array2.length - 1 {
-                  arr->Js.Array2.push(next->Js.Array2.unsafe_get(i))->ignore
-                }
-                arr
-              },
-            )
-          | None => mut.refiner = Some(getRefinerChecks)
+      // FIXME: Minimal fix to apply the union's refiner/inputRefiner per
+      // surviving case (previously silently dropped when the union has .to).
+      // The generated code shape — emit style (`cond||fail(input)` vs
+      // `if(!cond){fail()}`), fail-embed sharing, throw-vs-fail for
+      // compile-time-impossible cases, and single-case bypass — is not yet
+      // optimal. Revisit and consolidate with the rest of the refiner
+      // application logic once we have more time post-release.
+      let appendUnionRefiners = {
+        let unionRefiner = selfSchema.refiner
+        let unionInputRefiner = selfSchema.inputRefiner
+        // Memoize so the same `e[N]` embed is shared across cases instead of
+        // being duplicated once per surviving case.
+        let cachedRefinerChecks = ref(None)
+        let cachedInputRefinerChecks = ref(None)
+        let attach = (current, source, cache) =>
+          switch source {
+          | None => current
+          | Some(fn) =>
+            let getCached = (~input) =>
+              switch cache.contents {
+              | Some(checks) => checks
+              | None =>
+                let checks = fn(~input)
+                cache := Some(checks)
+                checks
+              }
+            switch current {
+            | None => Some(getCached)
+            | Some(existing) =>
+              Some(
+                (~input) => {
+                  let arr = existing(~input)
+                  let next = getCached(~input)
+                  for i in 0 to next->Js.Array2.length - 1 {
+                    arr->Js.Array2.push(next->Js.Array2.unsafe_get(i))->ignore
+                  }
+                  arr
+                },
+              )
+            }
           }
-        | None => ()
-        }
-        switch unionInputRefiner {
-        | Some(_) =>
-          switch mut.inputRefiner {
-          | Some(existing) =>
-            mut.inputRefiner = Some(
-              (~input) => {
-                let arr = existing(~input)
-                let next = getInputRefinerChecks(~input)
-                for i in 0 to next->Js.Array2.length - 1 {
-                  arr->Js.Array2.push(next->Js.Array2.unsafe_get(i))->ignore
-                }
-                arr
-              },
-            )
-          | None => mut.inputRefiner = Some(getInputRefinerChecks)
+        (mut: internal) => {
+          switch attach(mut.refiner, unionRefiner, cachedRefinerChecks) {
+          | Some(r) => mut.refiner = Some(r)
+          | None => ()
           }
-        | None => ()
+          switch attach(mut.inputRefiner, unionInputRefiner, cachedInputRefinerChecks) {
+          | Some(r) => mut.inputRefiner = Some(r)
+          | None => ()
+          }
         }
       }
       for idx in 0 to lastIdx {
