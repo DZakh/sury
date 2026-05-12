@@ -3981,7 +3981,7 @@ function compactColumnsDecoder(input) {
     let keysLen = keys.length;
     let outputSchema;
     if (forwardProps) {
-      outputSchema = Stdlib_Option.getOr(selfSchema.to, base(arrayTag, false));
+      outputSchema = selfSchema.to;
     } else {
       let s = array(array(unknown));
       s.to = selfSchema.to;

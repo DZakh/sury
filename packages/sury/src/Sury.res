@@ -5791,11 +5791,14 @@ let compactColumnsDecoder = (~input) => {
       // forward direction the output already matches selfSchema.to's shape,
       // so use it directly — that way markOutput sees the user-declared
       // output refiner and the loop terminates on selfSchema.to.to (None).
+      // selfSchema.to is guaranteed Some here: isForwardDirection only
+      // becomes true when the match at the top of this decoder reads
+      // properties through selfSchema.to.additionalItems.
       // In reverse direction the runtime type is a different shape
       // (array of arrays of unknown), but we still propagate .to so
       // subsequent steps (e.g. json validation) continue to run.
       let outputSchema = if isForwardDirection {
-        selfSchema.to->Stdlib.Option.getOr(base(arrayTag, ~selfReverse=false))
+        selfSchema.to->X.Option.getUnsafe
       } else {
         let s = array(array(unknown->castToPublic))->castToInternal
         s.to = selfSchema.to
