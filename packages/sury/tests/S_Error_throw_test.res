@@ -6,9 +6,11 @@ test(
     t->Assert.throws(
       () => {
         S.Error.make(
-          Custom({
+          InvalidInput({
             reason: "Should be positive",
             path: S.Path.empty,
+            expected: S.unknown,
+            received: S.unknown,
           }),
         )->U.throwError
       },
@@ -22,9 +24,11 @@ test(
 
 test("Raised error is also the S.Error exeption and can be caught with catch", t => {
   let error = S.Error.make(
-    Custom({
+    InvalidInput({
       reason: "Should be positive",
       path: S.Path.empty,
+      expected: S.unknown,
+      received: S.unknown,
     }),
   )
   t->ExecutionContext.plan(1)

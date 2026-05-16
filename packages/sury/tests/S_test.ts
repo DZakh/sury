@@ -831,6 +831,21 @@ test("Fails to parse with refine with path option", (t) => {
   );
 });
 
+test("JS refine produces invalid_input error with expected/received populated", (t) => {
+  const schema = S.string.with(S.refine, () => false, { error: "nope" });
+  const result = S.safe(() => S.parser(schema)("123"));
+  if (result.success) {
+    t.fail("Should have thrown");
+    return;
+  }
+  t.is(result.error.code, "invalid_input");
+  t.is(result.error.reason, "nope");
+  if (result.error.code === "invalid_input") {
+    t.is(result.error.expected.type, "string");
+    t.is(result.error.received.type, "string");
+  }
+});
+
 test("Successfully parses async schema", async (t) => {
   const schema = S.string.with(S.asyncDecoderAssert, async (string) => {
     expectType<TypeEqual<typeof string, string>>(true);
@@ -864,7 +879,6 @@ test("Fails to parses async schema", async (t) => {
       | "unsupported_decode"
       | "invalid_conversion"
       | "unrecognized_keys"
-      | "custom"
     >
   >(true);
 

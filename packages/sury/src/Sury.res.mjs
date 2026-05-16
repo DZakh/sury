@@ -129,8 +129,8 @@ let flags = {
     [nanTag]: 2048,
     ["function"]: 4096,
     [instanceTag]: 8192,
-    [neverTag]: 16384,
-    [symbolTag]: 32768,
+    [neverTag]: 32768,
+    [symbolTag]: 16384,
   };
 
 function stringify(unknown) {
@@ -535,10 +535,10 @@ function makeInvalidConversionDetails(input, to, cause) {
   };
 }
 
-function makeInvalidInputDetails(expected, received, path, input, includeInput, unionErrors) {
-  let reasonRef = "Expected " + toExpression(expected) + ", received " + (
-    includeInput ? stringify(input) : toExpression(received)
-  );
+function makeInvalidInputDetails(expected, received, path, input, includeInput, unionErrors, reasonOverride) {
+  let reasonRef = reasonOverride !== undefined ? reasonOverride : "Expected " + toExpression(expected) + ", received " + (
+      includeInput ? stringify(input) : toExpression(received)
+    );
   if (unionErrors !== undefined) {
     let reasonsDict = {};
     for (let idx = 0, idx_finish = unionErrors.length; idx < idx_finish; ++idx) {
@@ -568,12 +568,20 @@ function makeInvalidInputDetails(expected, received, path, input, includeInput, 
   return details;
 }
 
+function invalidInputBuilder(expected, $staropt$star, reasonOverride, $staropt$star$1) {
+  return input => {
+    let extraPath = $staropt$star !== undefined ? $staropt$star : "";
+    let includeInput = $staropt$star$1 !== undefined ? $staropt$star$1 : true;
+    let expected$1 = expected !== undefined ? expected : input.e;
+    let p = input.prev;
+    let received = p !== undefined ? p.s : input.s;
+    let path = extraPath === "" ? input.path : input.path + extraPath;
+    return value => makeInvalidInputDetails(expected$1, received, path, value, includeInput, undefined, reasonOverride);
+  };
+}
+
 function failInvalidType(input) {
-  let p = input.prev;
-  let received = p !== undefined ? p.s : input.s;
-  let path = input.path;
-  let expected = input.e;
-  let em = expected.errorMessage;
+  let em = input.e.errorMessage;
   let override;
   if (em !== undefined) {
     let m = em["type"];
@@ -581,15 +589,7 @@ function failInvalidType(input) {
   } else {
     override = undefined;
   }
-  if (override !== undefined) {
-    return _value => ({
-      code: "custom",
-      path: path,
-      reason: override
-    });
-  } else {
-    return value => makeInvalidInputDetails(expected, received, path, value, true, undefined);
-  }
+  return invalidInputBuilder(undefined, undefined, override, undefined)(input);
 }
 
 function failWithErrorMessage(key, defaultMessage) {
@@ -611,21 +611,13 @@ function failWithErrorMessage(key, defaultMessage) {
       }
       m$1 = defaultMessage;
     }
-    let path = input.path;
-    return _value => ({
-      code: "custom",
-      path: path,
-      reason: m$1
-    });
+    return invalidInputBuilder(undefined, undefined, m$1, undefined)(input);
   };
 }
 
 function embedInvalidInput(input, expectedOpt) {
   let expected = expectedOpt !== undefined ? expectedOpt : input.e;
-  let p = input.prev;
-  let received = p !== undefined ? p.s : input.s;
-  let path = input.path;
-  return failWithArg(input, value => makeInvalidInputDetails(expected, received, path, value, true, undefined), input.v());
+  return failWithArg(input, invalidInputBuilder(expected, undefined, undefined, undefined)(input), input.v());
 }
 
 function emitChecks(val, inputVar) {
@@ -964,11 +956,7 @@ function effectCtx(input) {
   return {
     fail: (message, pathOpt) => {
       let path = pathOpt !== undefined ? pathOpt : "";
-      let error = new SuryError({
-        code: "custom",
-        path: input.path + path,
-        reason: message
-      });
+      let error = new SuryError(invalidInputBuilder(undefined, path, message, false)(input)((void 0)));
       error["p"] = 1;
       throw error;
     }
@@ -2210,14 +2198,7 @@ function refine$1(schema, refineCheck, error, path) {
     let embeddedCheck = embed(input, refineCheck);
     return [{
         c: inputVar => embeddedCheck + "(" + inputVar + ")",
-        f: input => {
-          let path = extraPath === "" ? input.path : input.path + extraPath;
-          return _value => ({
-            code: "custom",
-            path: path,
-            reason: message
-          });
-        }
+        f: invalidInputBuilder(undefined, extraPath, message, undefined)
       }];
   }));
 }
@@ -2389,7 +2370,7 @@ function unionDecoder(input) {
   let initialInline = input.i;
   let fail = caught => embed(input, function () {
     let args = arguments;
-    let errorDetails = makeInvalidInputDetails(selfSchema, unknown, input.path, args[0], true, args.length > 1 ? Array.from(args).slice(1) : undefined);
+    let errorDetails = makeInvalidInputDetails(selfSchema, unknown, input.path, args[0], true, args.length > 1 ? Array.from(args).slice(1) : undefined, undefined);
     throw new SuryError(errorDetails);
   }) + "(" + input.v() + caught + ")";
   let output = refine(input, undefined, undefined, undefined);
@@ -2588,16 +2569,21 @@ function unionDecoder(input) {
       return getCached;
     }
   };
+  let appendUnionRefiners = mut => {
+    let r = attach(mut.refiner, unionRefiner, cachedRefinerChecks);
+    if (r !== undefined) {
+      mut.refiner = r;
+    }
+    let r$1 = attach(mut.inputRefiner, unionInputRefiner, cachedInputRefinerChecks);
+    if (r$1 !== undefined) {
+      mut.inputRefiner = r$1;
+      return;
+    }
+    
+  };
   for (let idx = 0; idx <= lastIdx; ++idx) {
     let schema = toPerCase !== undefined ? updateOutput(schemas[idx], mut => {
-        let r = attach(mut.refiner, unionRefiner, cachedRefinerChecks);
-        if (r !== undefined) {
-          mut.refiner = r;
-        }
-        let r$1 = attach(mut.inputRefiner, unionInputRefiner, cachedInputRefinerChecks);
-        if (r$1 !== undefined) {
-          mut.inputRefiner = r$1;
-        }
+        appendUnionRefiners(mut);
         mut.to = toPerCase;
       }) : schemas[idx];
     updatedSchemas.push(schema);
@@ -3504,81 +3490,6 @@ function proxifyShapedSchema(schema, from, fromFlattened) {
   });
 }
 
-function definitionToSchema(definition) {
-  return traverseDefinition(definition, node => {
-    if (node["~standard"]) {
-      return node;
-    }
-    
-  });
-}
-
-function nested(fieldName) {
-  let parentCtx = this;
-  let cacheId = "~" + fieldName;
-  let ctx = parentCtx[cacheId];
-  if (ctx !== undefined) {
-    return Primitive_option.valFromOption(ctx);
-  }
-  let properties = {};
-  let required = [];
-  let schema = base(objectTag, false);
-  schema.required = required;
-  schema.properties = properties;
-  schema.additionalItems = globalConfig.a;
-  schema.decoder = objectDecoder;
-  let parentSchema = parentCtx.f(fieldName, schema)[itemSymbol];
-  let field = (fieldName, schema) => {
-    let inlinedLocation = fromString(fieldName);
-    if (fieldName in properties) {
-      throw new Error("[Sury] " + ("The field " + inlinedLocation + " defined twice"));
-    }
-    required.push(fieldName);
-    properties[fieldName] = schema;
-    return proxifyShapedSchema(schema, parentSchema.from.concat(fieldName), parentSchema.fromFlattened);
-  };
-  let tag = (tag$1, asValue) => {
-    field(tag$1, definitionToSchema(asValue));
-  };
-  let fieldOr = (fieldName, schema, or) => {
-    let schema$1 = factory$2(schema, undefined);
-    return field(fieldName, getWithDefault(schema$1, {
-      TAG: "Value",
-      _0: or
-    }));
-  };
-  let flatten = schema => {
-    let match = schema.type;
-    if (match === "object") {
-      let to = schema.to;
-      let flattenedProperties = schema.properties;
-      if (to) {
-        let message = "Unsupported nested flatten for transformed object schema " + toExpression(schema);
-        throw new Error("[Sury] " + message);
-      }
-      let flattenedKeys = Object.keys(flattenedProperties);
-      let result = {};
-      for (let idx = 0, idx_finish = flattenedKeys.length; idx < idx_finish; ++idx) {
-        let key = flattenedKeys[idx];
-        result[key] = field(key, flattenedProperties[key]);
-      }
-      return result;
-    }
-    let message$1 = "Can't flatten " + toExpression(schema) + " schema";
-    throw new Error("[Sury] " + message$1);
-  };
-  let ctx$1 = {
-    field: field,
-    f: field,
-    fieldOr: fieldOr,
-    tag: tag,
-    nested: nested,
-    flatten: flatten
-  };
-  parentCtx[cacheId] = ctx$1;
-  return ctx$1;
-}
-
 function prepareShapedSerializerAcc(acc, input) {
   let match = input.e;
   let from = match.from;
@@ -3777,28 +3688,79 @@ function traverseDefinition(definition, onNode) {
   return mut$2;
 }
 
-function getValByFrom(_input, from, _idx) {
-  while (true) {
-    let idx = _idx;
-    let input = _input;
-    let key = from[idx];
-    if (key === undefined) {
-      return input;
+function definitionToSchema(definition) {
+  return traverseDefinition(definition, node => {
+    if (node["~standard"]) {
+      return node;
     }
-    _idx = idx + 1 | 0;
-    _input = input.d[key];
-    continue;
-  };
+    
+  });
 }
 
-function shapedSerializer(input) {
-  let acc = {};
-  prepareShapedSerializerAcc(acc, input);
-  let targetSchema = input.e.to;
-  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
-  output.t = true;
-  output.prev = input;
-  return output;
+function nested(fieldName) {
+  let parentCtx = this;
+  let cacheId = "~" + fieldName;
+  let ctx = parentCtx[cacheId];
+  if (ctx !== undefined) {
+    return Primitive_option.valFromOption(ctx);
+  }
+  let properties = {};
+  let required = [];
+  let schema = base(objectTag, false);
+  schema.required = required;
+  schema.properties = properties;
+  schema.additionalItems = globalConfig.a;
+  schema.decoder = objectDecoder;
+  let parentSchema = parentCtx.f(fieldName, schema)[itemSymbol];
+  let field = (fieldName, schema) => {
+    let inlinedLocation = fromString(fieldName);
+    if (fieldName in properties) {
+      throw new Error("[Sury] " + ("The field " + inlinedLocation + " defined twice"));
+    }
+    required.push(fieldName);
+    properties[fieldName] = schema;
+    return proxifyShapedSchema(schema, parentSchema.from.concat(fieldName), parentSchema.fromFlattened);
+  };
+  let tag = (tag$1, asValue) => {
+    field(tag$1, definitionToSchema(asValue));
+  };
+  let fieldOr = (fieldName, schema, or) => {
+    let schema$1 = factory$2(schema, undefined);
+    return field(fieldName, getWithDefault(schema$1, {
+      TAG: "Value",
+      _0: or
+    }));
+  };
+  let flatten = schema => {
+    let match = schema.type;
+    if (match === "object") {
+      let to = schema.to;
+      let flattenedProperties = schema.properties;
+      if (to) {
+        let message = "Unsupported nested flatten for transformed object schema " + toExpression(schema);
+        throw new Error("[Sury] " + message);
+      }
+      let flattenedKeys = Object.keys(flattenedProperties);
+      let result = {};
+      for (let idx = 0, idx_finish = flattenedKeys.length; idx < idx_finish; ++idx) {
+        let key = flattenedKeys[idx];
+        result[key] = field(key, flattenedProperties[key]);
+      }
+      return result;
+    }
+    let message$1 = "Can't flatten " + toExpression(schema) + " schema";
+    throw new Error("[Sury] " + message$1);
+  };
+  let ctx$1 = {
+    field: field,
+    f: field,
+    fieldOr: fieldOr,
+    tag: tag,
+    nested: nested,
+    flatten: flatten
+  };
+  parentCtx[cacheId] = ctx$1;
+  return ctx$1;
 }
 
 function getShapedParserOutput(input, targetSchema) {
@@ -3840,10 +3802,28 @@ function getShapedParserOutput(input, targetSchema) {
   return v;
 }
 
-function definitionToShapedSchema(definition) {
-  let s = copySchema(traverseDefinition(definition, toEmbededItem));
-  s.serializer = shapedSerializer;
-  return s;
+function getValByFrom(_input, from, _idx) {
+  while (true) {
+    let idx = _idx;
+    let input = _input;
+    let key = from[idx];
+    if (key === undefined) {
+      return input;
+    }
+    _idx = idx + 1 | 0;
+    _input = input.d[key];
+    continue;
+  };
+}
+
+function shapedSerializer(input) {
+  let acc = {};
+  prepareShapedSerializerAcc(acc, input);
+  let targetSchema = input.e.to;
+  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
+  output.t = true;
+  output.prev = input;
+  return output;
 }
 
 function shapedParser(input) {
@@ -3866,6 +3846,12 @@ function shapedParser(input) {
   output.t = true;
   output.prev = input;
   return markOutput(output, input);
+}
+
+function definitionToShapedSchema(definition) {
+  let s = copySchema(traverseDefinition(definition, toEmbededItem));
+  s.serializer = shapedSerializer;
+  return s;
 }
 
 function shape(schema, definer) {
@@ -4429,14 +4415,7 @@ function js_refine(schema, refineCheck, refineOptions) {
     let embeddedCheck = embed(input, refineCheck);
     return [{
         c: inputVar => embeddedCheck + "(" + inputVar + ")",
-        f: input => {
-          let path = extraPath === "" ? input.path : input.path + extraPath;
-          return _value => ({
-            code: "custom",
-            path: path,
-            reason: message
-          });
-        }
+        f: invalidInputBuilder(undefined, extraPath, message, undefined)
       }];
   }));
 }
@@ -4767,7 +4746,7 @@ function internalToJSONSchema(schema, path, defs, parent) {
         }
         break;
       default:
-        throw new SuryError(makeInvalidInputDetails(json(), flags[parent.type] & 256 ? parent : schema, path, 0, false, undefined));
+        throw new SuryError(makeInvalidInputDetails(json(), flags[parent.type] & 256 ? parent : schema, path, 0, false, undefined, undefined));
     }
     applyMetadataOverlay(jsonSchema, schema, defs);
     return jsonSchema;
