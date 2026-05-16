@@ -113,11 +113,11 @@ module X = {
     @get_index
     external getUnsafeOption: (dict<'a>, string) => option<'a> = ""
 
-    @set_index
-    external setByInt: (dict<'a>, int, 'a) => unit = ""
+    // @set_index
+    // external setByInt: (dict<'a>, int, 'a) => unit = ""
 
-    @get_index
-    external getUnsafeOptionByInt: (dict<'a>, int) => option<'a> = ""
+    // @get_index
+    // external getUnsafeOptionByInt: (dict<'a>, int) => option<'a> = ""
 
     @get_index
     external getUnsafeOptionBySymbol: (dict<'a>, Js.Types.symbol) => option<'a> = ""
@@ -292,7 +292,14 @@ type additionalItemsMode = | @as("strip") Strip | @as("strict") Strict
 @tag("type")
 type rec t<'value> =
   private
-  | @as("never") Never({name?: string, title?: string, description?: string, deprecated?: bool, errorMessage?: schemaErrorMessage})
+  | @as("never")
+  Never({
+      name?: string,
+      title?: string,
+      description?: string,
+      deprecated?: bool,
+      errorMessage?: schemaErrorMessage,
+    })
   | @as("unknown")
   Unknown({
       name?: string,
@@ -662,7 +669,7 @@ and check = {
   @as("c")
   cond: (~inputVar: string) => string,
   @as("f")
-  fail: (~input: val) => (unknown => errorDetails),
+  fail: (~input: val) => unknown => errorDetails,
 }
 and flag = int
 and error = private {
@@ -702,7 +709,6 @@ and errorDetails =
       cause?: exn,
     })
   | @as("unrecognized_keys") UnrecognizedKeys({path: Path.t, reason: string, keys: array<string>})
-  | @as("custom") Custom({path: Path.t, reason: string})
 
 @tag("success")
 and jsResult<'value> = | @as(true) Success({value: 'value}) | @as(false) Failure({error: error})
@@ -740,8 +746,8 @@ module Flag = {
   // @inline let flatten = 64
 
   external with: (flag, flag) => flag = "%orint"
-  @inline
-  let without = (flags, flag) => flags->with(flag)->Int.bitwiseXor(flag)
+  // @inline
+  // let without = (flags, flag) => flags->with(flag)->Int.bitwiseXor(flag)
 
   let unsafeHas = (acc: flag, flag) => acc->Int.bitwiseAnd(flag)->(Obj.magic: int => bool)
   let has = (acc: flag, flag) => acc->Int.bitwiseAnd(flag) !== 0
@@ -762,8 +768,8 @@ module TagFlag = {
   @inline let nan = 2048
   @inline let function = 4096
   @inline let instance = 8192
-  @inline let never = 16384
-  @inline let symbol = 32768
+  @inline let symbol = 16384
+  @inline let _never = 32768
 
   let flags = %raw(`{
     [unknownTag]: 1,
@@ -780,8 +786,8 @@ module TagFlag = {
     [nanTag]: 2048,
     ["function"]: 4096,
     [instanceTag]: 8192,
-    [neverTag]: 16384,
-    [symbolTag]: 32768,
+    [neverTag]: 32768,
+    [symbolTag]: 16384,
   }`)
 
   @inline
@@ -1015,7 +1021,6 @@ let base = (tag, ~selfReverse) => {
   s
 }
 
-
 let noopDecoder = (~input) => input
 
 let factoryCache: dict<internal> = Js.Dict.empty()
@@ -1214,13 +1219,13 @@ module Builder = {
       }
     }
 
-    let throw = (b: val, errorDetails) => {
+    let throw = errorDetails => {
       X.Exn.throwAny(InternalError.make(errorDetails))
     }
 
     let failWithArg = (b: val, fn: 'arg => errorDetails, arg) => {
       `${b->embed(arg => {
-          b->throw(fn(arg))
+          throw(fn(arg))
         })}(${arg})`
     }
 
@@ -1255,6 +1260,15 @@ module Builder = {
       }
     }
 
+    // Checks run against `prev.var()`, so the runtime type at check time
+    // is `prev.schema`, not the post-narrowing schema on the current val.
+    @inline
+    let receivedSchema = (val: val) =>
+      switch val.prev {
+      | Some(p) => p.schema->castToPublic
+      | None => val.schema->castToPublic
+      }
+
     let makeInvalidInputDetails = (
       ~expected,
       ~received,
@@ -1262,15 +1276,20 @@ module Builder = {
       ~input,
       ~includeInput,
       ~unionErrors=?,
+      ~reasonOverride=?,
     ) => {
       let reasonRef = ref(
-        `Expected ${expected
-          ->castToPublic
-          ->toExpression}, received ${if includeInput {
-            input->stringify
-          } else {
-            received->toExpression
-          }}`,
+        switch reasonOverride {
+        | Some(r) => r
+        | None =>
+          `Expected ${expected
+            ->castToPublic
+            ->toExpression}, received ${if includeInput {
+              input->stringify
+            } else {
+              received->toExpression
+            }}`
+        },
       )
       switch unionErrors {
       | Some(caseErrors) => {
@@ -1305,23 +1324,41 @@ module Builder = {
       details
     }
 
+    // Drop-in `check.fail` builder for InvalidInput failures. The returned
+    // `(~input) => value => details` closure snapshots expected/received/path
+    // so it does not retain the val (otherwise the embed array would pin the
+    // whole val chain). Pass directly as `check.fail` to skip the wrapper.
+    let invalidInputBuilder = (
+      ~expected=?,
+      ~extraPath=Path.empty,
+      ~reasonOverride=?,
+      ~includeInput=true,
+    ) => (~input: val) => {
+      let expected = switch expected {
+      | Some(e) => e
+      | None => input.expected
+      }
+      let received = input->receivedSchema
+      let path = if extraPath === Path.empty {
+        input.path
+      } else {
+        input.path->Path.concat(extraPath)
+      }
+      value =>
+        makeInvalidInputDetails(
+          ~expected,
+          ~received,
+          ~path,
+          ~input=value,
+          ~includeInput,
+          ~reasonOverride?,
+        )
+    }
+
     // Pass this as `fail` on every check that wants "expected X, received Y"
     // error semantics. Stable reference → adjacent checks fuse.
     let failInvalidType = (~input: val) => {
-      // Snapshot the three fields up front so the returned closure doesn't
-      // retain `input` — otherwise the compiled decoder's embed array would
-      // pin the entire val chain (prev, global, schemas) for its lifetime.
-      //
-      // Use prev.schema when available: checks run against prev.var(), so the
-      // value's actual runtime type at check time is prev.schema, not the
-      // post-narrowing schema stored on the current val.
-      let received = switch input.prev {
-      | Some(p) => p.schema->castToPublic
-      | None => input.schema->castToPublic
-      }
-      let path = input.path
-      let expected = input.expected
-      let override = switch expected.errorMessage {
+      let override = switch input.expected.errorMessage {
       | Some(em) =>
         let d: dict<string> = em->Obj.magic
         switch d->X.Dict.getUnsafeOption("type") {
@@ -1330,20 +1367,8 @@ module Builder = {
         }
       | None => None
       }
-      switch override {
-      | Some(m) => _value => Custom({reason: m, path})
-      | None =>
-        value =>
-          makeInvalidInputDetails(
-            ~expected,
-            ~received,
-            ~path,
-            ~input=value,
-            ~includeInput=true,
-          )
-      }
+      invalidInputBuilder(~reasonOverride=?override)(~input)
     }
-
 
     let failWithErrorMessage = (key, ~defaultMessage=?) => {
       (~input: val) => {
@@ -1357,10 +1382,7 @@ module Builder = {
         | None => None
         }
         switch (override, defaultMessage) {
-        | (Some(m), _) | (None, Some(m)) => {
-            let path = input.path
-            _value => Custom({reason: m, path})
-          }
+        | (Some(m), _) | (None, Some(m)) => invalidInputBuilder(~reasonOverride=m)(~input)
         | (None, None) => failInvalidType(~input)
         }
       }
@@ -1370,22 +1392,7 @@ module Builder = {
     // that splice errors into custom JS (e.g. `catch(_){${embedInvalidInput}}`),
     // not via the `check` pipeline.
     let embedInvalidInput = (~input: val, ~expected=input.expected) => {
-      let received = switch input.prev {
-      | Some(p) => p.schema->castToPublic
-      | None => input.schema->castToPublic
-      }
-      let path = input.path
-      input->failWithArg(
-        value =>
-          makeInvalidInputDetails(
-            ~expected,
-            ~received,
-            ~path,
-            ~input=value,
-            ~includeInput=true,
-          ),
-        input.var(),
-      )
+      input->failWithArg(invalidInputBuilder(~expected)(~input), input.var())
     }
 
     // Caller must verify `val.checks->unsafeToBool` and
@@ -1406,17 +1413,13 @@ module Builder = {
           let cond = ref(head.cond(~inputVar))
           i := i.contents + 1
           // Extend the fused cond while the next check shares this `fail`.
-          while (
-            i.contents < len && (checks->Js.Array2.unsafe_get(i.contents)).fail === fail
-          ) {
+          while i.contents < len && (checks->Js.Array2.unsafe_get(i.contents)).fail === fail {
             cond :=
-              cond.contents ++
-              "&&" ++ (checks->Js.Array2.unsafe_get(i.contents)).cond(~inputVar)
+              cond.contents ++ "&&" ++ (checks->Js.Array2.unsafe_get(i.contents)).cond(~inputVar)
             i := i.contents + 1
           }
           out :=
-            out.contents ++
-            `${cond.contents}||${val->failWithArg(fail(~input=val), inputVar)};`
+            out.contents ++ `${cond.contents}||${val->failWithArg(fail(~input=val), inputVar)};`
         }
         out.contents
       }
@@ -1441,11 +1444,12 @@ module Builder = {
 
         if val.checks->X.Option.unsafeToBool {
           let isHoistable =
-            hoistCond !== None &&
-              (val.hasTransform === Some(true)
-                ? (val.prev->X.Option.getUnsafe).hasTransform !== Some(true) &&
-                    val.codeFromPrev === ""
-                : true)
+            hoistCond !== None && (
+                val.hasTransform === Some(true)
+                  ? (val.prev->X.Option.getUnsafe).hasTransform !== Some(true) &&
+                      val.codeFromPrev === ""
+                  : true
+              )
           if isHoistable {
             // Partition: route type-narrows to hoistCond, emit refines inline.
             // `noValidation` is intentionally bypassed for the hoisted part —
@@ -1534,7 +1538,7 @@ module Builder = {
         codeFromPrev: "",
         varsAllocation: "",
         allocate: initialAllocate,
-        checks: ?checks,
+        ?checks,
         path: val.path,
         global: val.global,
         hasTransform: ?val.hasTransform,
@@ -1793,7 +1797,7 @@ module Builder = {
       output.var = _var
       if isAsync {
         if !(input.global.flag->Flag.unsafeHas(Flag.async)) {
-          input->throw(
+          throw(
             InvalidOperation({
               path: Path.empty,
               reason: "Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead",
@@ -1813,19 +1817,12 @@ module Builder = {
       output
     }
 
-    let fail = (b: val, ~message) => {
-      `${b->embed(() => {
-          b->throw(Custom({reason: message, path: b.path}))
-        })}()`
-    }
-
     let effectCtx = (input: val) => {
       fail: (message, ~path=Path.empty) => {
         let error = InternalError.make(
-          Custom({
-            reason: message,
-            path: input.path->Path.concat(path),
-          }),
+          invalidInputBuilder(~extraPath=path, ~reasonOverride=message, ~includeInput=false)(
+            ~input,
+          )(%raw("void 0")),
         )
         // Read about this in shouldPrependPathKey comment.
         error->Obj.magic->Js.Dict.set(shouldPrependPathKey, 1)
@@ -1834,7 +1831,7 @@ module Builder = {
     }
 
     let invalidOperation = (val: val, ~description) => {
-      val->throw(InvalidOperation({reason: description, path: val.path}))
+      throw(InvalidOperation({reason: description, path: val.path}))
     }
 
     let mergeWithCatch = (val: val, ~catch, ~appendSafe=?) => {
@@ -1880,47 +1877,8 @@ module Builder = {
       }
     }
 
-    let withPathPrepend = (
-      ~input,
-      ~dynamicLocationVar as maybeDynamicLocationVar=?,
-      ~appendSafe=?,
-      fn,
-    ) => {
-      if input.path === Path.empty && maybeDynamicLocationVar === None {
-        fn(~input)
-      } else {
-        fn(~input)
-
-        // try b->mergeWithCatch(
-        //   ~path=Path.empty,
-        //   ~input,
-        //   ~catch=(b, ~errorVar) => {
-        // b.codeAfterValidation = `${errorVar}.path=${b.path->X.Inlined.Value.fromString}+${switch maybeDynamicLocationVar {
-        //   | Some(var) => `'["'+${var}+'"]'+`
-        //   | _ => ""
-        //   }}${errorVar}.path`
-        //     None
-        //   },
-        //   ~appendSafe?,
-        //   b => {
-        //     fn(b, ~input)
-        //   },
-        // ) catch {
-        // | _ =>
-        //   let error = %raw(`exn`)->InternalError.getOrRethrow
-        //   X.Exn.throwAny(
-        //     InternalError.make(
-        //       ~path=b.path->Path.concat(Path.dynamic)->Path.concat(error.path),
-        //       ~code=error.codeAfterValidation,
-        //       ~flag=error.flag,
-        //     ),
-        //   )
-        // }
-      }
-    }
-
     let unsupportedDecode = (b, ~from: internal, ~target: internal) => {
-      b->throw(
+      throw(
         UnsupportedDecode({
           from: from->castToPublic,
           to: target->castToPublic,
@@ -2006,14 +1964,16 @@ let numberDecoder = Builder.make((~input) => {
   }
 })
 
-let float = () => cached((numberTag :> string), numberTag, s => {
-  s.decoder = numberDecoder
-})
+let float = () =>
+  cached((numberTag :> string), numberTag, s => {
+    s.decoder = numberDecoder
+  })
 
-let int = () => cached("i", numberTag, s => {
-  s.format = Some(Int32)
-  s.decoder = numberDecoder
-})
+let int = () =>
+  cached("i", numberTag, s => {
+    s.format = Some(Int32)
+    s.decoder = numberDecoder
+  })
 
 let rec inputToString = (input: val) => {
   input->B.next(`""+${input.inline}`, ~schema=string())
@@ -2057,9 +2017,10 @@ and stringDecoderFn = (~input) => {
     input
   }
 }
-and string = () => cached((stringTag :> string), stringTag, s => {
-  s.decoder = Builder.make(stringDecoderFn)
-})
+and string = () =>
+  cached((stringTag :> string), stringTag, s => {
+    s.decoder = Builder.make(stringDecoderFn)
+  })
 
 let booleanDecoder = Builder.make((~input) => {
   let inputTagFlag = input.schema.tag->TagFlag.get
@@ -2092,9 +2053,10 @@ let booleanDecoder = Builder.make((~input) => {
   }
 })
 
-let bool = () => cached((booleanTag :> string), booleanTag, s => {
-  s.decoder = booleanDecoder
-})
+let bool = () =>
+  cached((booleanTag :> string), booleanTag, s => {
+    s.decoder = booleanDecoder
+  })
 
 let bigintDecoder = Builder.make((~input) => {
   let inputTagFlag = input.schema.tag->TagFlag.get
@@ -2128,9 +2090,10 @@ let bigintDecoder = Builder.make((~input) => {
   }
 })
 
-let bigint = () => cached((bigintTag :> string), bigintTag, s => {
-  s.decoder = bigintDecoder
-})
+let bigint = () =>
+  cached((bigintTag :> string), bigintTag, s => {
+    s.decoder = bigintDecoder
+  })
 
 let symbolDecoder = Builder.make((~input) => {
   let inputTagFlag = input.schema.tag->TagFlag.get
@@ -2151,11 +2114,10 @@ let symbolDecoder = Builder.make((~input) => {
   }
 })
 
-let symbol = () => cached((symbolTag :> string), symbolTag, s => {
-  s.decoder = symbolDecoder
-})
-
-
+let symbol = () =>
+  cached((symbolTag :> string), symbolTag, s => {
+    s.decoder = symbolDecoder
+  })
 
 let setHas = (has, tag: tag) => {
   has->Js.Dict.set(
@@ -2167,7 +2129,6 @@ let setHas = (has, tag: tag) => {
 }
 
 let jsonName = `JSON`
-
 
 let literalDecoder = Builder.make((~input) => {
   let expectedSchema = input.expected
@@ -2232,20 +2193,23 @@ let literalDecoder = Builder.make((~input) => {
   }
 })
 
-let unit = () => cached((undefinedTag :> string), undefinedTag, s => {
-  s.const = %raw(`void 0`)
-  s.decoder = literalDecoder
-})
+let unit = () =>
+  cached((undefinedTag :> string), undefinedTag, s => {
+    s.const = %raw(`void 0`)
+    s.decoder = literalDecoder
+  })
 
-let nullLiteral = () => cached((nullTag :> string), nullTag, s => {
-  s.const = %raw(`null`)
-  s.decoder = literalDecoder
-})
+let nullLiteral = () =>
+  cached((nullTag :> string), nullTag, s => {
+    s.const = %raw(`null`)
+    s.decoder = literalDecoder
+  })
 
-let nan = () => cached((nanTag :> string), nanTag, s => {
-  s.const = %raw(`NaN`)
-  s.decoder = literalDecoder
-})
+let nan = () =>
+  cached((nanTag :> string), nanTag, s => {
+    s.const = %raw(`NaN`)
+    s.decoder = literalDecoder
+  })
 
 module Literal = {
   let parse = (value): internal => {
@@ -2786,16 +2750,14 @@ and arrayDecoder: builder = (~input as unknownInput) => {
       | Strict =>
         checks
         ->Js.Array2.push({
-          cond: (~inputVar) =>
-            `${inputVar}.length===${expectedLength->X.Int.unsafeToString}`,
+          cond: (~inputVar) => `${inputVar}.length===${expectedLength->X.Int.unsafeToString}`,
           fail: B.failInvalidType,
         })
         ->ignore
       | Strip =>
         checks
         ->Js.Array2.push({
-          cond: (~inputVar) =>
-            `${inputVar}.length>=${expectedLength->X.Int.unsafeToString}`,
+          cond: (~inputVar) => `${inputVar}.length>=${expectedLength->X.Int.unsafeToString}`,
           fail: B.failInvalidType,
         })
         ->ignore
@@ -2803,6 +2765,7 @@ and arrayDecoder: builder = (~input as unknownInput) => {
       | _ => ()
       }
     }
+
     // Apply refine also when there are no checks,
     // so literals for union cases don't mutate input
     // FIXME: This should be removed and validation be attached to output
@@ -2921,8 +2884,7 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
     if !isObjectInput {
       checks
       ->Js.Array2.push({
-        cond: (~inputVar) =>
-          `typeof ${inputVar}==="${(objectTag :> string)}"&&${inputVar}`,
+        cond: (~inputVar) => `typeof ${inputVar}==="${(objectTag :> string)}"&&${inputVar}`,
         fail: B.failInvalidType,
       })
       ->ignore
@@ -3185,6 +3147,7 @@ let recursiveDecoder = Builder.make((~input) => {
 
   output.prev = None
   output.codeFromPrev = output->B.mergeWithPathPrepend(~parent=input)
+
   // Restore allocate after merge deleted it, since this val may be reused as
   // input to a subsequent parser (e.g. S.transform on a recursive schema).
   output.allocate = B.initialAllocate
@@ -3200,8 +3163,7 @@ let instanceDecoder = Builder.make((~input) => {
       ~schema=input.expected,
       ~checks=[
         {
-          cond: (~inputVar) =>
-            `${inputVar} instanceof ${input->B.embed(input.expected.class)}`,
+          cond: (~inputVar) => `${inputVar} instanceof ${input->B.embed(input.expected.class)}`,
           fail: B.failInvalidType,
         },
       ],
@@ -3289,11 +3251,12 @@ let asyncDecoder1 = (type value, schema: t<value>): (unknown => promise<value>) 
 // Operations
 // =============
 
-let getAssertResult = () => cached("a", undefinedTag, s => {
-  s.const = %raw(`void 0`)
-  s.decoder = literalDecoder
-  s.noValidation = Some(true)
-})
+let getAssertResult = () =>
+  cached("a", undefinedTag, s => {
+    s.const = %raw(`void 0`)
+    s.decoder = literalDecoder
+    s.noValidation = Some(true)
+  })
 
 @inline
 let parseOrThrow = (any, ~to as schema) => {
@@ -3407,8 +3370,6 @@ let recursive = (name, fn) => {
   let def = fn(refSchema->castToPublic)->castToInternal
   if def.name->Obj.magic {
     refSchema.name = def.name
-  } else {
-    def.name = Some(name)
   }
   globalConfig.defsAccumulator
   ->X.Option.getUnsafe
@@ -3418,7 +3379,7 @@ let recursive = (name, fn) => {
     refSchema->castToPublic
   } else {
     let schema = base(refTag, ~selfReverse=false)
-    schema.name = def.name
+    schema.name = refSchema.name
     schema.ref = Some(ref)
     schema.defs = globalConfig.defsAccumulator
     schema.decoder = recursiveDecoder
@@ -3480,14 +3441,7 @@ let refine: (t<'value>, 'value => bool, ~error: string=?, ~path: array<string>=?
       [
         {
           cond: (~inputVar) => `${embeddedCheck}(${inputVar})`,
-          fail: (~input) => {
-            let path = if extraPath === Path.empty {
-              input.path
-            } else {
-              input.path->Path.concat(extraPath)
-            }
-            _value => Custom({reason: message, path})
-          },
+          fail: B.invalidInputBuilder(~extraPath, ~reasonOverride=message),
         },
       ]
     }
@@ -3495,9 +3449,13 @@ let refine: (t<'value>, 'value => bool, ~error: string=?, ~path: array<string>=?
 }
 
 let getMutErrorMessage = (~mut: internal): dict<string> => {
-  let em: dict<string> = mut.errorMessage->X.Option.unsafeToBool
-    ? (mut.errorMessage->X.Option.getUnsafe->(Obj.magic: schemaErrorMessage => dict<string>))->X.Dict.copy
-    : Js.Dict.empty()
+  let em: dict<string> =
+    mut.errorMessage->X.Option.unsafeToBool
+      ? mut.errorMessage
+        ->X.Option.getUnsafe
+        ->(Obj.magic: schemaErrorMessage => dict<string>)
+        ->X.Dict.copy
+      : Js.Dict.empty()
   mut.errorMessage = Some(em->Obj.magic)
   em
 }
@@ -3564,9 +3522,10 @@ let rec neverBuilderFn = (~input) => {
   output.codeFromPrev = B.embedInvalidInput(~input) ++ ";"
   output
 }
-and never_ = () => cached((neverTag :> string), neverTag, s => {
-  s.decoder = Builder.make(neverBuilderFn)
-})
+and never_ = () =>
+  cached((neverTag :> string), neverTag, s => {
+    s.decoder = Builder.make(neverBuilderFn)
+  })
 
 let nestedLoc = "BS_PRIVATE_NESTED_SOME_NONE"
 
@@ -3691,7 +3650,7 @@ module Union = {
             (
               _ => {
                 let args = %raw(`arguments`)
-                input->B.throw(
+                B.throw(
                   B.makeInvalidInputDetails(
                     ~path=input.path,
                     ~expected=selfSchema,
@@ -3911,6 +3870,7 @@ module Union = {
       let byKey: ref<dict<array<unknown>>> = ref(Js.Dict.empty())
       let keys = ref([])
       let updatedSchemas = []
+
       // FIXME: minimal fix — applies the union's refiner/inputRefiner per
       // surviving case (previously dropped when the union has `.to`). The
       // emit shape isn't ideal; fold this into the shared refiner pipeline
@@ -3961,6 +3921,7 @@ module Union = {
           }
         }
       }
+
       for idx in 0 to lastIdx {
         let schema = switch toPerCase {
         | Some(target) =>
@@ -4682,7 +4643,8 @@ and jsonDecoderFn = (~input) => {
   }
 }
 
-and json = () => cached(jsonName, refTag, s => {
+and json = () =>
+  cached(jsonName, refTag, s => {
     let jsonRef = base(refTag, ~selfReverse=true)
     jsonRef.ref = Some(`${defsPath}${jsonName}`)
     jsonRef.name = Some(jsonName)
@@ -4841,12 +4803,13 @@ let jsonString = {
     }
   })
 
-  () => cached((JSON :> string), stringTag, s => {
-    s.format = Some(JSON)
-    s.name = Some(`${jsonName} string`)
-    s.encoder = Some(jsonStringEncoder)
-    s.decoder = jsonStringDecoder
-  })
+  () =>
+    cached((JSON :> string), stringTag, s => {
+      s.format = Some(JSON)
+      s.name = Some(`${jsonName} string`)
+      s.encoder = Some(jsonStringEncoder)
+      s.decoder = jsonStringDecoder
+    })
 }
 
 let jsonStringWithSpace = (space: int) => {
@@ -4855,42 +4818,43 @@ let jsonStringWithSpace = (space: int) => {
   mut->castToPublic
 }
 
-let uint8Array = () => cached("u", instanceTag, s => {
-  s.class = %raw(`Uint8Array`)
-  s.decoder = Builder.make((~input as inputArg) => {
-    let inputTagFlag = inputArg.schema.tag->TagFlag.get
-    let input = ref(inputArg)
+let uint8Array = () =>
+  cached("u", instanceTag, s => {
+    s.class = %raw(`Uint8Array`)
+    s.decoder = Builder.make((~input as inputArg) => {
+      let inputTagFlag = inputArg.schema.tag->TagFlag.get
+      let input = ref(inputArg)
 
-    if inputTagFlag->Flag.unsafeHas(TagFlag.string) {
-      input :=
-        input.contents->B.next(
-          `${input.contents->B.embed(
-              %raw(`new TextEncoder()`),
-            )}.encode(${input.contents.inline})`,
-          ~schema=s,
-        )
-    } else if inputTagFlag->Flag.unsafeHas(TagFlag.unknown->Flag.with(TagFlag.instance)) {
-      input := instanceDecoder(~input=input.contents)
-    }
-
-    switch inputArg.expected {
-    | {to, parser: ?None} => {
-        let toTagFlag = to.tag->TagFlag.get
-        if toTagFlag->Flag.unsafeHas(TagFlag.string) {
-          input :=
-            input.contents->B.next(
-              `${input.contents->B.embed(
-                  %raw(`new TextDecoder()`),
-                )}.decode(${input.contents.inline})`,
-              ~schema=string(),
-            )
-        }
-        input.contents
+      if inputTagFlag->Flag.unsafeHas(TagFlag.string) {
+        input :=
+          input.contents->B.next(
+            `${input.contents->B.embed(
+                %raw(`new TextEncoder()`),
+              )}.encode(${input.contents.inline})`,
+            ~schema=s,
+          )
+      } else if inputTagFlag->Flag.unsafeHas(TagFlag.unknown->Flag.with(TagFlag.instance)) {
+        input := instanceDecoder(~input=input.contents)
       }
-    | _ => input.contents
-    }
+
+      switch inputArg.expected {
+      | {to, parser: ?None} => {
+          let toTagFlag = to.tag->TagFlag.get
+          if toTagFlag->Flag.unsafeHas(TagFlag.string) {
+            input :=
+              input.contents->B.next(
+                `${input.contents->B.embed(
+                    %raw(`new TextDecoder()`),
+                  )}.decode(${input.contents.inline})`,
+                ~schema=string(),
+              )
+          }
+          input.contents
+        }
+      | _ => input.contents
+      }
+    })
   })
-})
 
 let isoDateTime = () => {
   cached((DateTime :> string), stringTag, s => {
@@ -4899,7 +4863,15 @@ let isoDateTime = () => {
     s.format = Some(DateTime)
     s.refiner = Some(
       (~input) => {
-        [{cond: (~inputVar) => `${input->B.embed(datetimeRe)}.test(${inputVar})`, fail: B.failWithErrorMessage("format", ~defaultMessage="Invalid datetime string! Expected UTC")}]
+        [
+          {
+            cond: (~inputVar) => `${input->B.embed(datetimeRe)}.test(${inputVar})`,
+            fail: B.failWithErrorMessage(
+              "format",
+              ~defaultMessage="Invalid datetime string! Expected UTC",
+            ),
+          },
+        ]
       },
     )
   })
@@ -4911,10 +4883,12 @@ let port = () => {
     s.format = Some(Port)
     s.refiner = Some(
       (~input as _) => {
-        [{
-          cond: (~inputVar) => `${inputVar}>0&&${inputVar}<65536&&${inputVar}%1===0`,
-          fail: B.failWithErrorMessage("format"),
-        }]
+        [
+          {
+            cond: (~inputVar) => `${inputVar}>0&&${inputVar}<65536&&${inputVar}%1===0`,
+            fail: B.failWithErrorMessage("format"),
+          },
+        ]
       },
     )
   })
@@ -4927,7 +4901,12 @@ let email = () => {
     s.format = Some(Email)
     s.refiner = Some(
       (~input) => {
-        [{cond: (~inputVar) => `${input->B.embed(emailRegex)}.test(${inputVar})`, fail: B.failWithErrorMessage("format")}]
+        [
+          {
+            cond: (~inputVar) => `${input->B.embed(emailRegex)}.test(${inputVar})`,
+            fail: B.failWithErrorMessage("format"),
+          },
+        ]
       },
     )
   })
@@ -4940,7 +4919,12 @@ let uuid = () => {
     s.format = Some(Uuid)
     s.refiner = Some(
       (~input) => {
-        [{cond: (~inputVar) => `${input->B.embed(uuidRegex)}.test(${inputVar})`, fail: B.failWithErrorMessage("format")}]
+        [
+          {
+            cond: (~inputVar) => `${input->B.embed(uuidRegex)}.test(${inputVar})`,
+            fail: B.failWithErrorMessage("format"),
+          },
+        ]
       },
     )
   })
@@ -4953,7 +4937,12 @@ let cuid = () => {
     s.format = Some(Cuid)
     s.refiner = Some(
       (~input) => {
-        [{cond: (~inputVar) => `${input->B.embed(cuidRegex)}.test(${inputVar})`, fail: B.failWithErrorMessage("format")}]
+        [
+          {
+            cond: (~inputVar) => `${input->B.embed(cuidRegex)}.test(${inputVar})`,
+            fail: B.failWithErrorMessage("format"),
+          },
+        ]
       },
     )
   })
@@ -4966,7 +4955,12 @@ let url = () => {
     s.format = Some(Url)
     s.refiner = Some(
       (~input) => {
-        [{cond: (~inputVar) => `${input->B.embed(urlValidator)}(${inputVar})`, fail: B.failWithErrorMessage("format")}]
+        [
+          {
+            cond: (~inputVar) => `${input->B.embed(urlValidator)}(${inputVar})`,
+            fail: B.failWithErrorMessage("format"),
+          },
+        ]
       },
     )
   })
@@ -4983,7 +4977,8 @@ let invalidDateRefine = (input: val) =>
     ],
   )
 
-let date = () => cached((instanceTag :> string), instanceTag, s => {
+let date = () =>
+  cached((instanceTag :> string), instanceTag, s => {
     s.class = %raw(`Date`)
     s.decoder = Builder.make((~input) => {
       let inputTagFlag = input.schema.tag->TagFlag.get
@@ -5008,11 +5003,7 @@ let date = () => cached((instanceTag :> string), instanceTag, s => {
           let dateTimeString = base(stringTag, ~selfReverse=false)
           dateTimeString.format = Some(DateTime)
           input
-          ->B.next(
-            `${input.inline}.toISOString()`,
-            ~schema=dateTimeString,
-            ~expected=target,
-          )
+          ->B.next(`${input.inline}.toISOString()`, ~schema=dateTimeString, ~expected=target)
           ->parse
         } else {
           input
@@ -5824,8 +5815,7 @@ let compactColumnsDecoder = (~input) => {
           input->B.refine(
             ~checks=[
               {
-                cond: (~inputVar) =>
-                  `Array.isArray(${inputVar})&&${inputVar}.length===0`,
+                cond: (~inputVar) => `Array.isArray(${inputVar})&&${inputVar}.length===0`,
                 fail: B.failInvalidType,
               },
             ],
@@ -5847,8 +5837,7 @@ let compactColumnsDecoder = (~input) => {
                   )
                   for idx in 0 to keysLen - 1 {
                     check :=
-                      check.contents ++
-                      `&&Array.isArray(${inputVar}[${idx->X.Int.unsafeToString}])`
+                      check.contents ++ `&&Array.isArray(${inputVar}[${idx->X.Int.unsafeToString}])`
                   }
                   check.contents
                 },
@@ -5909,6 +5898,7 @@ let compactColumnsDecoder = (~input) => {
           itemInput.expected = itemExpected
           itemInput.var = B._notVarBeforeValidation
           itemInput.isOutput = Some(false)
+
           // Path like ["bar"] so validation errors carry the field location.
           itemInput.path = Path.fromInlinedLocation(input.global->B.inlineLocation(key))
 
@@ -5921,8 +5911,7 @@ let compactColumnsDecoder = (~input) => {
           lengthCode := lengthCode.contents ++ `${inputVar}[${idxStr}].length,`
           asyncInlines := asyncInlines.contents ++ `${itemOutput.inline},`
           itemBuildCode :=
-            itemBuildCode.contents ++
-            `${key->X.Inlined.Value.fromString}:${itemOutput.inline},`
+            itemBuildCode.contents ++ `${key->X.Inlined.Value.fromString}:${itemOutput.inline},`
         }
 
         input.allocate(`${outputVar}=new Array(Math.max(${lengthCode.contents}))`)
@@ -6304,7 +6293,12 @@ let intMin = (schema, minValue, ~message as maybeMessage=?) => {
     mut.minimum = Some(minValue->Js.Int.toFloat)
     getMutErrorMessage(~mut)->Js.Dict.set("minimum", message)
     (~input as _) => {
-      [{cond: (~inputVar) => `${inputVar}>${(minValue - 1)->X.Int.unsafeToString}`, fail: B.failWithErrorMessage("minimum", ~defaultMessage=message)}]
+      [
+        {
+          cond: (~inputVar) => `${inputVar}>${(minValue - 1)->X.Int.unsafeToString}`,
+          fail: B.failWithErrorMessage("minimum", ~defaultMessage=message),
+        },
+      ]
     }
   })
 }
@@ -6319,7 +6313,12 @@ let intMax = (schema, maxValue, ~message as maybeMessage=?) => {
     mut.maximum = Some(maxValue->Js.Int.toFloat)
     getMutErrorMessage(~mut)->Js.Dict.set("maximum", message)
     (~input as _) => {
-      [{cond: (~inputVar) => `${inputVar}<${(maxValue + 1)->X.Int.unsafeToString}`, fail: B.failWithErrorMessage("maximum", ~defaultMessage=message)}]
+      [
+        {
+          cond: (~inputVar) => `${inputVar}<${(maxValue + 1)->X.Int.unsafeToString}`,
+          fail: B.failWithErrorMessage("maximum", ~defaultMessage=message),
+        },
+      ]
     }
   })
 }
@@ -6334,7 +6333,12 @@ let floatMin = (schema, minValue, ~message as maybeMessage=?) => {
     mut.minimum = Some(minValue)
     getMutErrorMessage(~mut)->Js.Dict.set("minimum", message)
     (~input) => {
-      [{cond: (~inputVar) => `${inputVar}>=${input->B.embed(minValue)}`, fail: B.failWithErrorMessage("minimum", ~defaultMessage=message)}]
+      [
+        {
+          cond: (~inputVar) => `${inputVar}>=${input->B.embed(minValue)}`,
+          fail: B.failWithErrorMessage("minimum", ~defaultMessage=message),
+        },
+      ]
     }
   })
 }
@@ -6349,7 +6353,12 @@ let floatMax = (schema, maxValue, ~message as maybeMessage=?) => {
     mut.maximum = Some(maxValue)
     getMutErrorMessage(~mut)->Js.Dict.set("maximum", message)
     (~input) => {
-      [{cond: (~inputVar) => `${inputVar}<=${input->B.embed(maxValue)}`, fail: B.failWithErrorMessage("maximum", ~defaultMessage=message)}]
+      [
+        {
+          cond: (~inputVar) => `${inputVar}<=${input->B.embed(maxValue)}`,
+          fail: B.failWithErrorMessage("maximum", ~defaultMessage=message),
+        },
+      ]
     }
   })
 }
@@ -6364,7 +6373,12 @@ let arrayMinLength = (schema, length, ~message as maybeMessage=?) => {
     mut.minItems = Some(length)
     getMutErrorMessage(~mut)->Js.Dict.set("minItems", message)
     (~input as _) => {
-      [{cond: (~inputVar) => `${inputVar}.length>${(length - 1)->X.Int.unsafeToString}`, fail: B.failWithErrorMessage("minItems", ~defaultMessage=message)}]
+      [
+        {
+          cond: (~inputVar) => `${inputVar}.length>${(length - 1)->X.Int.unsafeToString}`,
+          fail: B.failWithErrorMessage("minItems", ~defaultMessage=message),
+        },
+      ]
     }
   })
 }
@@ -6379,7 +6393,12 @@ let arrayMaxLength = (schema, length, ~message as maybeMessage=?) => {
     mut.maxItems = Some(length)
     getMutErrorMessage(~mut)->Js.Dict.set("maxItems", message)
     (~input as _) => {
-      [{cond: (~inputVar) => `${inputVar}.length<${(length + 1)->X.Int.unsafeToString}`, fail: B.failWithErrorMessage("maxItems", ~defaultMessage=message)}]
+      [
+        {
+          cond: (~inputVar) => `${inputVar}.length<${(length + 1)->X.Int.unsafeToString}`,
+          fail: B.failWithErrorMessage("maxItems", ~defaultMessage=message),
+        },
+      ]
     }
   })
 }
@@ -6397,7 +6416,12 @@ let arrayLength = (schema, length, ~message as maybeMessage=?) => {
     em->Js.Dict.set("minItems", message)
     em->Js.Dict.set("maxItems", message)
     (~input as _) => {
-      [{cond: (~inputVar) => `${inputVar}.length===${length->X.Int.unsafeToString}`, fail: B.failWithErrorMessage("minItems", ~defaultMessage=message)}]
+      [
+        {
+          cond: (~inputVar) => `${inputVar}.length===${length->X.Int.unsafeToString}`,
+          fail: B.failWithErrorMessage("minItems", ~defaultMessage=message),
+        },
+      ]
     }
   })
 }
@@ -6412,7 +6436,12 @@ let stringMinLength = (schema, length, ~message as maybeMessage=?) => {
     mut.minLength = Some(length)
     getMutErrorMessage(~mut)->Js.Dict.set("minLength", message)
     (~input as _) => {
-      [{cond: (~inputVar) => `${inputVar}.length>${(length - 1)->X.Int.unsafeToString}`, fail: B.failWithErrorMessage("minLength", ~defaultMessage=message)}]
+      [
+        {
+          cond: (~inputVar) => `${inputVar}.length>${(length - 1)->X.Int.unsafeToString}`,
+          fail: B.failWithErrorMessage("minLength", ~defaultMessage=message),
+        },
+      ]
     }
   })
 }
@@ -6427,7 +6456,12 @@ let stringMaxLength = (schema, length, ~message as maybeMessage=?) => {
     mut.maxLength = Some(length)
     getMutErrorMessage(~mut)->Js.Dict.set("maxLength", message)
     (~input as _) => {
-      [{cond: (~inputVar) => `${inputVar}.length<${(length + 1)->X.Int.unsafeToString}`, fail: B.failWithErrorMessage("maxLength", ~defaultMessage=message)}]
+      [
+        {
+          cond: (~inputVar) => `${inputVar}.length<${(length + 1)->X.Int.unsafeToString}`,
+          fail: B.failWithErrorMessage("maxLength", ~defaultMessage=message),
+        },
+      ]
     }
   })
 }
@@ -6445,7 +6479,12 @@ let stringLength = (schema, length, ~message as maybeMessage=?) => {
     em->Js.Dict.set("minLength", message)
     em->Js.Dict.set("maxLength", message)
     (~input as _) => {
-      [{cond: (~inputVar) => `${inputVar}.length===${length->X.Int.unsafeToString}`, fail: B.failWithErrorMessage("minLength", ~defaultMessage=message)}]
+      [
+        {
+          cond: (~inputVar) => `${inputVar}.length===${length->X.Int.unsafeToString}`,
+          fail: B.failWithErrorMessage("minLength", ~defaultMessage=message),
+        },
+      ]
     }
   })
 }
@@ -6456,15 +6495,17 @@ let pattern = (schema, re, ~message=`Invalid pattern`) => {
     getMutErrorMessage(~mut)->Js.Dict.set("pattern", message)
     (~input) => {
       let embededRe = input->B.embed(re)
-      [{
-        cond: (~inputVar) =>
-          if re->Js.Re.global {
-            `(${embededRe}.lastIndex=0,${embededRe}.test(${inputVar}))`
-          } else {
-            `${embededRe}.test(${inputVar})`
-          },
-        fail: B.failWithErrorMessage("pattern", ~defaultMessage=message),
-      }]
+      [
+        {
+          cond: (~inputVar) =>
+            if re->Js.Re.global {
+              `(${embededRe}.lastIndex=0,${embededRe}.test(${inputVar}))`
+            } else {
+              `${embededRe}.test(${inputVar})`
+            },
+          fail: B.failWithErrorMessage("pattern", ~defaultMessage=message),
+        },
+      ]
     }
   })
 }
@@ -6479,7 +6520,11 @@ let nullable = schema => {
 }
 
 let nullableAsOption = schema => {
-  Union.factory([schema->castToUnknown, unit()->castToPublic, nullAsUnit()->castToPublic->castToUnknown])
+  Union.factory([
+    schema->castToUnknown,
+    unit()->castToPublic,
+    nullAsUnit()->castToPublic->castToUnknown,
+  ])
 }
 
 // =============
@@ -6571,14 +6616,7 @@ let js_refine = (schema, refineCheck, refineOptions) => {
       [
         {
           cond: (~inputVar) => `${embeddedCheck}(${inputVar})`,
-          fail: (~input) => {
-            let path = if extraPath === Path.empty {
-              input.path
-            } else {
-              input.path->Path.concat(extraPath)
-            }
-            _value => Custom({reason: message, path})
-          },
+          fail: B.invalidInputBuilder(~extraPath, ~reasonOverride=message),
         },
       ]
     }
@@ -6725,6 +6763,7 @@ module RescriptJSONSchema = {
     } catch {
     | _ => {
         let _ = %raw(`exn`)->InternalError.getOrRethrow
+
         // Parse failed — caller falls through to normal tag-based logic.
         None
       }
@@ -6744,8 +6783,8 @@ module RescriptJSONSchema = {
     let tagFlag = schemaInternal.tag->TagFlag.get
     let hasUserTo =
       schemaInternal.to->Obj.magic &&
-        !(tagFlag->Flag.unsafeHas(TagFlag.object->Flag.with(TagFlag.array))) &&
-        !(tagFlag->Flag.unsafeHas(TagFlag.union) && schemaInternal.parser->Obj.magic)
+      !(tagFlag->Flag.unsafeHas(TagFlag.object->Flag.with(TagFlag.array))) &&
+      !(tagFlag->Flag.unsafeHas(TagFlag.union) && schemaInternal.parser->Obj.magic)
     let encoded = if hasUserTo {
       encodeToJsonSchema(schema, ~path, ~defs, ~parent)
     } else {
@@ -6759,12 +6798,7 @@ module RescriptJSONSchema = {
     | None => internalToJSONSchemaBase(schema, ~path, ~defs, ~parent)
     }
   }
-  and internalToJSONSchemaBase = (
-    schema: schema<unknown>,
-    ~path,
-    ~defs,
-    ~parent,
-  ): JSONSchema.t => {
+  and internalToJSONSchemaBase = (schema: schema<unknown>, ~path, ~defs, ~parent): JSONSchema.t => {
     let jsonSchema: Mutable.t = {}
     switch schema {
     | String({?const, ?format}) => {
@@ -6786,8 +6820,7 @@ module RescriptJSONSchema = {
         | None => ()
         }
         switch internal.pattern {
-        | Some(re) =>
-          jsonSchema.pattern = Some((re->(Obj.magic: Js.Re.t => {..}))["source"])
+        | Some(re) => jsonSchema.pattern = Some((re->(Obj.magic: Js.Re.t => {..}))["source"])
         | None => ()
         }
         switch const {
@@ -6808,8 +6841,7 @@ module RescriptJSONSchema = {
             jsonSchema.minimum = Some(0.)
             jsonSchema.maximum = Some(65535.)
           }
-        | None =>
-          jsonSchema.type_ = Some(Arrayable.single(#number))
+        | None => jsonSchema.type_ = Some(Arrayable.single(#number))
         }
         switch internal.minimum {
         | Some(v) => jsonSchema.minimum = Some(v)
@@ -7164,7 +7196,7 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
     | {allOf: definitions} => anySchema->refine(data => {
         definitions->Js.Array2.every(d => {
           try {
-            data->assertOrThrow(~to=d->definitionToSchema)
+            let _ = data->assertOrThrow(~to=d->definitionToSchema)
             true
           } catch {
           | _ => false
@@ -7266,7 +7298,7 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<Js.Json.t> = {
           }
           try {
             if passed {
-              data->assertOrThrow(~to=thenSchema)
+              let _ = data->assertOrThrow(~to=thenSchema)
             } else {
               data->assertOrThrow(~to=elseSchema)
             }

@@ -175,7 +175,7 @@ test("Expression of recursive schema", t => {
 
   t->U.assertThrowsMessage(
     () => %raw(`null`)->S.parseOrThrow(~to=nodeSchema),
-    `Expected Node, received null`,
+    `Expected { Id: string; Children: Node[]; }, received null`,
   )
   t->U.assertThrowsMessage(
     () => %raw(`null`)->S.parseOrThrow(~to=S.tuple1(nodeSchema)),
@@ -192,7 +192,7 @@ test("Expression of recursive schema", t => {
       Id: "0",
       Children: [null]
     }`)->S.parseOrThrow(~to=renamedRoot),
-    `Failed at ["Children"]["0"]: Expected Node, received null`,
+    `Failed at ["Children"]["0"]: Expected { Id: string; Children: Node[]; }, received null`,
   )
 })
 

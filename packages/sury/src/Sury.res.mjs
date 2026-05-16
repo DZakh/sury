@@ -129,8 +129,8 @@ let flags = {
     [nanTag]: 2048,
     ["function"]: 4096,
     [instanceTag]: 8192,
-    [neverTag]: 16384,
-    [symbolTag]: 32768,
+    [neverTag]: 32768,
+    [symbolTag]: 16384,
   };
 
 function stringify(unknown) {
@@ -396,7 +396,7 @@ function inlineConst(b, schema) {
     return fromString($$const);
   } else if (tagFlag & 1024) {
     return $$const + "n";
-  } else if (tagFlag & 45056) {
+  } else if (tagFlag & 28672) {
     return embed(b, schema.const);
   } else {
     return $$const;
@@ -535,10 +535,10 @@ function makeInvalidConversionDetails(input, to, cause) {
   };
 }
 
-function makeInvalidInputDetails(expected, received, path, input, includeInput, unionErrors) {
-  let reasonRef = "Expected " + toExpression(expected) + ", received " + (
-    includeInput ? stringify(input) : toExpression(received)
-  );
+function makeInvalidInputDetails(expected, received, path, input, includeInput, unionErrors, reasonOverride) {
+  let reasonRef = reasonOverride !== undefined ? reasonOverride : "Expected " + toExpression(expected) + ", received " + (
+      includeInput ? stringify(input) : toExpression(received)
+    );
   if (unionErrors !== undefined) {
     let reasonsDict = {};
     for (let idx = 0, idx_finish = unionErrors.length; idx < idx_finish; ++idx) {
@@ -568,12 +568,20 @@ function makeInvalidInputDetails(expected, received, path, input, includeInput, 
   return details;
 }
 
+function invalidInputBuilder(expected, $staropt$star, reasonOverride, $staropt$star$1) {
+  return input => {
+    let extraPath = $staropt$star !== undefined ? $staropt$star : "";
+    let includeInput = $staropt$star$1 !== undefined ? $staropt$star$1 : true;
+    let expected$1 = expected !== undefined ? expected : input.e;
+    let p = input.prev;
+    let received = p !== undefined ? p.s : input.s;
+    let path = extraPath === "" ? input.path : input.path + extraPath;
+    return value => makeInvalidInputDetails(expected$1, received, path, value, includeInput, undefined, reasonOverride);
+  };
+}
+
 function failInvalidType(input) {
-  let p = input.prev;
-  let received = p !== undefined ? p.s : input.s;
-  let path = input.path;
-  let expected = input.e;
-  let em = expected.errorMessage;
+  let em = input.e.errorMessage;
   let override;
   if (em !== undefined) {
     let m = em["type"];
@@ -581,15 +589,7 @@ function failInvalidType(input) {
   } else {
     override = undefined;
   }
-  if (override !== undefined) {
-    return _value => ({
-      code: "custom",
-      path: path,
-      reason: override
-    });
-  } else {
-    return value => makeInvalidInputDetails(expected, received, path, value, true, undefined);
-  }
+  return invalidInputBuilder(undefined, undefined, override, undefined)(input);
 }
 
 function failWithErrorMessage(key, defaultMessage) {
@@ -611,21 +611,13 @@ function failWithErrorMessage(key, defaultMessage) {
       }
       m$1 = defaultMessage;
     }
-    let path = input.path;
-    return _value => ({
-      code: "custom",
-      path: path,
-      reason: m$1
-    });
+    return invalidInputBuilder(undefined, undefined, m$1, undefined)(input);
   };
 }
 
 function embedInvalidInput(input, expectedOpt) {
   let expected = expectedOpt !== undefined ? expectedOpt : input.e;
-  let p = input.prev;
-  let received = p !== undefined ? p.s : input.s;
-  let path = input.path;
-  return failWithArg(input, value => makeInvalidInputDetails(expected, received, path, value, true, undefined), input.v());
+  return failWithArg(input, invalidInputBuilder(expected, undefined, undefined, undefined)(input), input.v());
 }
 
 function emitChecks(val, inputVar) {
@@ -964,11 +956,7 @@ function effectCtx(input) {
   return {
     fail: (message, pathOpt) => {
       let path = pathOpt !== undefined ? pathOpt : "";
-      let error = new SuryError({
-        code: "custom",
-        path: input.path + path,
-        reason: message
-      });
+      let error = new SuryError(invalidInputBuilder(undefined, path, message, false)(input)((void 0)));
       error["p"] = 1;
       throw error;
     }
@@ -1212,7 +1200,7 @@ function symbolDecoder(input) {
         c: inputVar => "typeof " + inputVar + "===\"" + symbolTag + "\"",
         f: failInvalidType
       }], undefined);
-  } else if (inputTagFlag & 32768) {
+  } else if (inputTagFlag & 16384) {
     return input;
   } else {
     return unsupportedDecode(input, input.s, input.e);
@@ -2164,15 +2152,13 @@ function recursive(name, fn) {
   let def = fn(refSchema);
   if (def.name) {
     refSchema.name = def.name;
-  } else {
-    def.name = name;
   }
   globalConfig.d[name] = def;
   if (isNestedRec) {
     return refSchema;
   }
   let schema = base(refTag, false);
-  schema.name = def.name;
+  schema.name = refSchema.name;
   schema.$ref = ref;
   schema.$defs = globalConfig.d;
   schema.decoder = recursiveDecoder;
@@ -2212,14 +2198,7 @@ function refine$1(schema, refineCheck, error, path) {
     let embeddedCheck = embed(input, refineCheck);
     return [{
         c: inputVar => embeddedCheck + "(" + inputVar + ")",
-        f: input => {
-          let path = extraPath === "" ? input.path : input.path + extraPath;
-          return _value => ({
-            code: "custom",
-            path: path,
-            reason: message
-          });
-        }
+        f: invalidInputBuilder(undefined, extraPath, message, undefined)
       }];
   }));
 }
@@ -2374,7 +2353,7 @@ function unionDecoder(input) {
   let initialInline = input.i;
   let fail = caught => embed(input, function () {
     let args = arguments;
-    let errorDetails = makeInvalidInputDetails(selfSchema, unknown, input.path, args[0], true, args.length > 1 ? Array.from(args).slice(1) : undefined);
+    let errorDetails = makeInvalidInputDetails(selfSchema, unknown, input.path, args[0], true, args.length > 1 ? Array.from(args).slice(1) : undefined, undefined);
     throw new SuryError(errorDetails);
   }) + "(" + input.v() + caught + ")";
   let output = refine(input, undefined, undefined, undefined);
@@ -2615,7 +2594,7 @@ function unionDecoder(input) {
                                     tagFlag & 4 ? float() : (
                                         tagFlag & 8 ? bool() : (
                                             tagFlag & 1024 ? bigint() : (
-                                                tagFlag & 32768 ? symbol() : unknown
+                                                tagFlag & 16384 ? symbol() : unknown
                                               )
                                           )
                                       )
@@ -3494,15 +3473,6 @@ function proxifyShapedSchema(schema, from, fromFlattened) {
   });
 }
 
-function definitionToSchema(definition) {
-  return traverseDefinition(definition, node => {
-    if (node["~standard"]) {
-      return node;
-    }
-    
-  });
-}
-
 function traverseDefinition(definition, onNode) {
   if (typeof definition !== "object" || definition === null) {
     return parse(definition);
@@ -3545,6 +3515,20 @@ function traverseDefinition(definition, onNode) {
   return mut$2;
 }
 
+function getValByFrom(_input, from, _idx) {
+  while (true) {
+    let idx = _idx;
+    let input = _input;
+    let key = from[idx];
+    if (key === undefined) {
+      return input;
+    }
+    _idx = idx + 1 | 0;
+    _input = input.d[key];
+    continue;
+  };
+}
+
 function getShapedParserOutput(input, targetSchema) {
   let from = targetSchema.from;
   let fromFlattened = targetSchema.fromFlattened;
@@ -3582,20 +3566,6 @@ function getShapedParserOutput(input, targetSchema) {
   v.prev = undefined;
   v.e = targetSchema;
   return v;
-}
-
-function getValByFrom(_input, from, _idx) {
-  while (true) {
-    let idx = _idx;
-    let input = _input;
-    let key = from[idx];
-    if (key === undefined) {
-      return input;
-    }
-    _idx = idx + 1 | 0;
-    _input = input.d[key];
-    continue;
-  };
 }
 
 function getShapedSerializerOutput(input, acc, targetSchema, path) {
@@ -3828,6 +3798,15 @@ function nested(fieldName) {
   };
   parentCtx[cacheId] = ctx$1;
   return ctx$1;
+}
+
+function definitionToSchema(definition) {
+  return traverseDefinition(definition, node => {
+    if (node["~standard"]) {
+      return node;
+    }
+    
+  });
 }
 
 function shapedParser(input) {
@@ -4419,14 +4398,7 @@ function js_refine(schema, refineCheck, refineOptions) {
     let embeddedCheck = embed(input, refineCheck);
     return [{
         c: inputVar => embeddedCheck + "(" + inputVar + ")",
-        f: input => {
-          let path = extraPath === "" ? input.path : input.path + extraPath;
-          return _value => ({
-            code: "custom",
-            path: path,
-            reason: message
-          });
-        }
+        f: invalidInputBuilder(undefined, extraPath, message, undefined)
       }];
   }));
 }
@@ -4757,7 +4729,7 @@ function internalToJSONSchema(schema, path, defs, parent) {
         }
         break;
       default:
-        throw new SuryError(makeInvalidInputDetails(json(), flags[parent.type] & 256 ? parent : schema, path, 0, false, undefined));
+        throw new SuryError(makeInvalidInputDetails(json(), flags[parent.type] & 256 ? parent : schema, path, 0, false, undefined, undefined));
     }
     applyMetadataOverlay(jsonSchema, schema, defs);
     return jsonSchema;

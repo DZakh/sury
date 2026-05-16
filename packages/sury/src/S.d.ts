@@ -296,12 +296,6 @@ export type Error =
       readonly message: string;
       readonly reason: string;
       readonly keys: readonly string[];
-    }
-  | {
-      readonly code: "custom";
-      readonly path: Path;
-      readonly message: string;
-      readonly reason: string;
     };
 
 export const Error: {

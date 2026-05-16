@@ -44,9 +44,11 @@ test("Uses the path from S.Error.throw called in the transform parser", t => {
       parser: _ =>
         U.throwError(
           S.Error.make(
-            Custom({
+            InvalidInput({
               reason: "User error",
               path: S.Path.fromArray(["a", "b"]),
+              expected: S.unknown,
+              received: S.unknown,
             }),
           ),
         ),
@@ -65,9 +67,11 @@ test("Uses the path from S.Error.throw called in the transform serializer", t =>
       serializer: _ =>
         U.throwError(
           S.Error.make(
-            Custom({
+            InvalidInput({
               reason: "User error",
               path: S.Path.fromArray(["a", "b"]),
+              expected: S.unknown,
+              received: S.unknown,
             }),
           ),
         ),

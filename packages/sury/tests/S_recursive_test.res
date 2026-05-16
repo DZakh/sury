@@ -48,7 +48,7 @@ test("Fails to parses recursive object when provided invalid type", t => {
     | _ => "Shouldn't pass"
     | exception S.Exn({message}) => message
     },
-    `Failed at ["Children"]["0"]: Expected Node, received "invalid"`,
+    `Failed at ["Children"]["0"]: Expected { Id: string; Children: Node[]; }, received "invalid"`,
   )
 })
 
@@ -548,5 +548,15 @@ test("Compiled parse code snapshot", t => {
     ~op=#Parse,
     `i=>{let v0;v0=e[0](i);return v0}
 Node: i=>{typeof i==="object"&&i||e[3](i);let v0=i["Id"],v1=i["Children"];typeof v0==="string"||e[0](v0);Array.isArray(v1)||e[2](v1);let v5=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){try{let v3;v3=e[1]["unknown->Node--0"](v1[v2]);v5[v2]=v3}catch(v4){v4.path="[\\"Children\\"]"+'["'+v2+'"]'+v4.path;throw v4}}return {"id":v0,"children":v5,}}`,
+  )
+})
+
+test("Doesn't mutate a shared primitive schema passed as the recursive body", t => {
+  let _ = S.recursive("R", _ => S.string)
+
+  t->Assert.deepEqual(S.string->S.toExpression, "string")
+  t->U.assertThrowsMessage(
+    () => true->Obj.magic->S.parseOrThrow(~to=S.dict(S.string)),
+    `Expected { [key: string]: string; }, received true`,
   )
 })
