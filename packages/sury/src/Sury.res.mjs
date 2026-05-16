@@ -2995,13 +2995,9 @@ function jsonEncoderFn(input, target) {
   if (toTagFlag & 768) {
     return input;
   }
-  try {
-    let jsonExpected$3 = copySchema(string());
-    jsonExpected$3.to = target;
-    return parse$1(refine(input, unknown, undefined, jsonExpected$3));
-  } catch (exn) {
-    return input;
-  }
+  let jsonExpected$3 = copySchema(string());
+  jsonExpected$3.to = target;
+  return parse$1(refine(input, unknown, undefined, jsonExpected$3));
 }
 
 function isJsonable(schema) {
