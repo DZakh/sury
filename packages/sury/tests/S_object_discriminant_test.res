@@ -191,7 +191,11 @@ module Negative = {
     TestData.make(~discriminantSchema=S.float, ~discriminantData=123.),
     TestData.make(~discriminantSchema=S.bool, ~discriminantData=true),
     TestData.make(~discriminantSchema=S.option(S.literal(true)), ~discriminantData=None),
-    TestData.make(~discriminantSchema=S.nullAsOption(S.literal(true)), ~discriminantData=%raw(`null`)),
+    TestData.make(
+      ~discriminantSchema=S.nullAsOption(S.literal(true)),
+      ~discriminantData=%raw(`null`),
+      ~missingInputExpression="true | undefined",
+    ),
     TestData.make(~discriminantSchema=S.unknown, ~discriminantData="anything"),
     TestData.make(~discriminantSchema=S.array(S.literal(true)), ~discriminantData=[true, true]),
     TestData.make(
