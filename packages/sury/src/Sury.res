@@ -3357,8 +3357,6 @@ let recursive = (name, fn) => {
   let def = fn(refSchema->castToPublic)->castToInternal
   if def.name->Obj.magic {
     refSchema.name = def.name
-  } else {
-    def.name = Some(name)
   }
   globalConfig.defsAccumulator
   ->X.Option.getUnsafe
@@ -3368,7 +3366,7 @@ let recursive = (name, fn) => {
     refSchema->castToPublic
   } else {
     let schema = base(refTag, ~selfReverse=false)
-    schema.name = def.name
+    schema.name = refSchema.name
     schema.ref = Some(ref)
     schema.defs = globalConfig.defsAccumulator
     schema.decoder = recursiveDecoder

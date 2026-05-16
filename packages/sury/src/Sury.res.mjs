@@ -2164,15 +2164,13 @@ function recursive(name, fn) {
   let def = fn(refSchema);
   if (def.name) {
     refSchema.name = def.name;
-  } else {
-    def.name = name;
   }
   globalConfig.d[name] = def;
   if (isNestedRec) {
     return refSchema;
   }
   let schema = base(refTag, false);
-  schema.name = def.name;
+  schema.name = refSchema.name;
   schema.$ref = ref;
   schema.$defs = globalConfig.d;
   schema.decoder = recursiveDecoder;
