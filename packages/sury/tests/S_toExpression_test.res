@@ -207,13 +207,13 @@ test("Expression of deeply renamed recursive schema", t => {
     )->S.meta({name: "MyNode"})
   })
 
-  t->Assert.deepEqual(nodeSchema->S.toExpression, `MyNode`)
+  t->Assert.deepEqual(nodeSchema->S.toExpression, `Node`)
   t->U.assertThrowsMessage(
     () => %raw(`null`)->S.parseOrThrow(~to=nodeSchema),
     `Expected MyNode, received null`,
   )
   t->U.assertThrowsMessage(
     () => %raw(`{Id: "0"}`)->S.parseOrThrow(~to=nodeSchema),
-    `Failed at ["Children"]: Expected MyNode[], received undefined`,
+    `Failed at ["Children"]: Expected Node[], received undefined`,
   )
 })
