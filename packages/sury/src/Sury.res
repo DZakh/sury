@@ -4561,12 +4561,14 @@ let rec jsonEncoderFn = (~input, ~target) => {
     input
   } else {
     // For non-JSON types (bigint, instance, etc.), try decoding through string
-    try {
-      let jsonExpected = string()->copySchema
-      jsonExpected.to = Some(target)
-      input->B.refine(~schema=unknown, ~expected=jsonExpected)->parse
+    let coerced = try {
+      Some(input->B.refine(~schema=unknown, ~expected=string())->parse)
     } catch {
-    | _ => input
+    | _ => None
+    }
+    switch coerced {
+    | Some(coerced) => coerced->B.refine(~expected=target)->parse
+    | None => input
     }
   }
 }
