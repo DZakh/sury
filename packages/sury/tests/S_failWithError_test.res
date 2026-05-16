@@ -6,9 +6,11 @@ test("Keeps operation of the error passed to S.Error.throw", t => {
       parser: _ =>
         U.throwError(
           S.Error.make(
-            Custom({
+            InvalidInput({
               reason: "User error",
               path: S.Path.fromArray(["a", "b"]),
+              expected: S.unknown,
+              received: S.unknown,
             }),
           ),
         ),

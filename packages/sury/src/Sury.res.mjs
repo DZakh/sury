@@ -535,10 +535,10 @@ function makeInvalidConversionDetails(input, to, cause) {
   };
 }
 
-function makeInvalidInputDetails(expected, received, path, input, includeInput, unionErrors) {
-  let reasonRef = "Expected " + toExpression(expected) + ", received " + (
-    includeInput ? stringify(input) : toExpression(received)
-  );
+function makeInvalidInputDetails(expected, received, path, input, includeInput, unionErrors, reasonOverride) {
+  let reasonRef = reasonOverride !== undefined ? reasonOverride : "Expected " + toExpression(expected) + ", received " + (
+      includeInput ? stringify(input) : toExpression(received)
+    );
   if (unionErrors !== undefined) {
     let reasonsDict = {};
     for (let idx = 0, idx_finish = unionErrors.length; idx < idx_finish; ++idx) {
@@ -581,15 +581,7 @@ function failInvalidType(input) {
   } else {
     override = undefined;
   }
-  if (override !== undefined) {
-    return _value => ({
-      code: "custom",
-      path: path,
-      reason: override
-    });
-  } else {
-    return value => makeInvalidInputDetails(expected, received, path, value, true, undefined);
-  }
+  return value => makeInvalidInputDetails(expected, received, path, value, true, undefined, override);
 }
 
 function failWithErrorMessage(key, defaultMessage) {
@@ -611,12 +603,11 @@ function failWithErrorMessage(key, defaultMessage) {
       }
       m$1 = defaultMessage;
     }
+    let p = input.prev;
+    let received = p !== undefined ? p.s : input.s;
     let path = input.path;
-    return _value => ({
-      code: "custom",
-      path: path,
-      reason: m$1
-    });
+    let expected = input.e;
+    return value => makeInvalidInputDetails(expected, received, path, value, true, undefined, m$1);
   };
 }
 
@@ -625,7 +616,7 @@ function embedInvalidInput(input, expectedOpt) {
   let p = input.prev;
   let received = p !== undefined ? p.s : input.s;
   let path = input.path;
-  return failWithArg(input, value => makeInvalidInputDetails(expected, received, path, value, true, undefined), input.v());
+  return failWithArg(input, value => makeInvalidInputDetails(expected, received, path, value, true, undefined, undefined), input.v());
 }
 
 function emitChecks(val, inputVar) {
@@ -961,14 +952,14 @@ function embedTransformation(input, fn, isAsync) {
 }
 
 function effectCtx(input) {
+  let p = input.prev;
+  let received = p !== undefined ? p.s : input.s;
+  let expected = input.e;
+  let basePath = input.path;
   return {
     fail: (message, pathOpt) => {
       let path = pathOpt !== undefined ? pathOpt : "";
-      let error = new SuryError({
-        code: "custom",
-        path: input.path + path,
-        reason: message
-      });
+      let error = new SuryError(makeInvalidInputDetails(expected, received, basePath + path, (void 0), false, undefined, message));
       error["p"] = 1;
       throw error;
     }
@@ -1363,6 +1354,18 @@ function parse$1(input) {
   return valRef;
 }
 
+function getOutputSchema(_schema) {
+  while (true) {
+    let schema = _schema;
+    let to = schema.to;
+    if (to === undefined) {
+      return schema;
+    }
+    _schema = to;
+    continue;
+  };
+}
+
 function reverse(schema) {
   if (reversedKey in schema) {
     return schema[reversedKey];
@@ -1466,18 +1469,6 @@ function reverse(schema) {
   valueOptions[valKey] = schema;
   d(r, reversedKey, valueOptions);
   return r;
-}
-
-function getOutputSchema(_schema) {
-  while (true) {
-    let schema = _schema;
-    let to = schema.to;
-    if (to === undefined) {
-      return schema;
-    }
-    _schema = to;
-    continue;
-  };
 }
 
 function parseDynamic(input) {
@@ -2213,12 +2204,11 @@ function refine$1(schema, refineCheck, error, path) {
     return [{
         c: inputVar => embeddedCheck + "(" + inputVar + ")",
         f: input => {
+          let p = input.prev;
+          let received = p !== undefined ? p.s : input.s;
+          let expected = input.e;
           let path = extraPath === "" ? input.path : input.path + extraPath;
-          return _value => ({
-            code: "custom",
-            path: path,
-            reason: message
-          });
+          return value => makeInvalidInputDetails(expected, received, path, value, true, undefined, message);
         }
       }];
   }));
@@ -2374,7 +2364,7 @@ function unionDecoder(input) {
   let initialInline = input.i;
   let fail = caught => embed(input, function () {
     let args = arguments;
-    let errorDetails = makeInvalidInputDetails(selfSchema, unknown, input.path, args[0], true, args.length > 1 ? Array.from(args).slice(1) : undefined);
+    let errorDetails = makeInvalidInputDetails(selfSchema, unknown, input.path, args[0], true, args.length > 1 ? Array.from(args).slice(1) : undefined, undefined);
     throw new SuryError(errorDetails);
   }) + "(" + input.v() + caught + ")";
   let output = refine(input, undefined, undefined, undefined);
@@ -3498,15 +3488,6 @@ function proxifyShapedSchema(schema, from, fromFlattened) {
   });
 }
 
-function definitionToSchema(definition) {
-  return traverseDefinition(definition, node => {
-    if (node["~standard"]) {
-      return node;
-    }
-    
-  });
-}
-
 function traverseDefinition(definition, onNode) {
   if (typeof definition !== "object" || definition === null) {
     return parse(definition);
@@ -3547,59 +3528,6 @@ function traverseDefinition(definition, onNode) {
   mut$2.additionalItems = globalConfig.a;
   mut$2.decoder = objectDecoder;
   return mut$2;
-}
-
-function getShapedParserOutput(input, targetSchema) {
-  let from = targetSchema.from;
-  let fromFlattened = targetSchema.fromFlattened;
-  let v;
-  if (fromFlattened !== undefined) {
-    v = scope(getValByFrom(input.fv[fromFlattened], targetSchema.from, 0));
-  } else if (from !== undefined) {
-    v = scope(getValByFrom(input, from, 0));
-  } else if (constField in targetSchema) {
-    v = nextConst(input, targetSchema, undefined);
-  } else {
-    let output = makeObjectVal(input, targetSchema);
-    output.io = true;
-    let items = targetSchema.items;
-    if (items !== undefined) {
-      for (let idx = 0, idx_finish = items.length; idx < idx_finish; ++idx) {
-        let location = idx.toString();
-        add(output, location, getShapedParserOutput(input, items[idx]));
-      }
-    } else {
-      let properties = targetSchema.properties;
-      if (properties !== undefined) {
-        let keys = Object.keys(properties);
-        for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
-          let location$1 = keys[idx$1];
-          add(output, location$1, getShapedParserOutput(input, properties[location$1]));
-        }
-      } else {
-        let message = "Don't know where the value is coming from: " + toExpression(targetSchema);
-        throw new Error("[Sury] " + message);
-      }
-    }
-    v = completeObjectVal(output);
-  }
-  v.prev = undefined;
-  v.e = targetSchema;
-  return v;
-}
-
-function getValByFrom(_input, from, _idx) {
-  while (true) {
-    let idx = _idx;
-    let input = _input;
-    let key = from[idx];
-    if (key === undefined) {
-      return input;
-    }
-    _idx = idx + 1 | 0;
-    _input = input.d[key];
-    continue;
-  };
 }
 
 function getShapedSerializerOutput(input, acc, targetSchema, path) {
@@ -3768,6 +3696,29 @@ function shapedSerializer(input) {
   return output;
 }
 
+function getValByFrom(_input, from, _idx) {
+  while (true) {
+    let idx = _idx;
+    let input = _input;
+    let key = from[idx];
+    if (key === undefined) {
+      return input;
+    }
+    _idx = idx + 1 | 0;
+    _input = input.d[key];
+    continue;
+  };
+}
+
+function definitionToSchema(definition) {
+  return traverseDefinition(definition, node => {
+    if (node["~standard"]) {
+      return node;
+    }
+    
+  });
+}
+
 function nested(fieldName) {
   let parentCtx = this;
   let cacheId = "~" + fieldName;
@@ -3832,6 +3783,45 @@ function nested(fieldName) {
   };
   parentCtx[cacheId] = ctx$1;
   return ctx$1;
+}
+
+function getShapedParserOutput(input, targetSchema) {
+  let from = targetSchema.from;
+  let fromFlattened = targetSchema.fromFlattened;
+  let v;
+  if (fromFlattened !== undefined) {
+    v = scope(getValByFrom(input.fv[fromFlattened], targetSchema.from, 0));
+  } else if (from !== undefined) {
+    v = scope(getValByFrom(input, from, 0));
+  } else if (constField in targetSchema) {
+    v = nextConst(input, targetSchema, undefined);
+  } else {
+    let output = makeObjectVal(input, targetSchema);
+    output.io = true;
+    let items = targetSchema.items;
+    if (items !== undefined) {
+      for (let idx = 0, idx_finish = items.length; idx < idx_finish; ++idx) {
+        let location = idx.toString();
+        add(output, location, getShapedParserOutput(input, items[idx]));
+      }
+    } else {
+      let properties = targetSchema.properties;
+      if (properties !== undefined) {
+        let keys = Object.keys(properties);
+        for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
+          let location$1 = keys[idx$1];
+          add(output, location$1, getShapedParserOutput(input, properties[location$1]));
+        }
+      } else {
+        let message = "Don't know where the value is coming from: " + toExpression(targetSchema);
+        throw new Error("[Sury] " + message);
+      }
+    }
+    v = completeObjectVal(output);
+  }
+  v.prev = undefined;
+  v.e = targetSchema;
+  return v;
 }
 
 function shapedParser(input) {
@@ -4424,12 +4414,11 @@ function js_refine(schema, refineCheck, refineOptions) {
     return [{
         c: inputVar => embeddedCheck + "(" + inputVar + ")",
         f: input => {
+          let p = input.prev;
+          let received = p !== undefined ? p.s : input.s;
+          let expected = input.e;
           let path = extraPath === "" ? input.path : input.path + extraPath;
-          return _value => ({
-            code: "custom",
-            path: path,
-            reason: message
-          });
+          return value => makeInvalidInputDetails(expected, received, path, value, true, undefined, message);
         }
       }];
   }));
@@ -4761,7 +4750,7 @@ function internalToJSONSchema(schema, path, defs, parent) {
         }
         break;
       default:
-        throw new SuryError(makeInvalidInputDetails(json(), flags[parent.type] & 256 ? parent : schema, path, 0, false, undefined));
+        throw new SuryError(makeInvalidInputDetails(json(), flags[parent.type] & 256 ? parent : schema, path, 0, false, undefined, undefined));
     }
     applyMetadataOverlay(jsonSchema, schema, defs);
     return jsonSchema;

@@ -702,7 +702,6 @@ and errorDetails =
       cause?: exn,
     })
   | @as("unrecognized_keys") UnrecognizedKeys({path: Path.t, reason: string, keys: array<string>})
-  | @as("custom") Custom({path: Path.t, reason: string})
 
 @tag("success")
 and jsResult<'value> = | @as(true) Success({value: 'value}) | @as(false) Failure({error: error})
@@ -1262,15 +1261,20 @@ module Builder = {
       ~input,
       ~includeInput,
       ~unionErrors=?,
+      ~reasonOverride=?,
     ) => {
       let reasonRef = ref(
-        `Expected ${expected
-          ->castToPublic
-          ->toExpression}, received ${if includeInput {
-            input->stringify
-          } else {
-            received->toExpression
-          }}`,
+        switch reasonOverride {
+        | Some(r) => r
+        | None =>
+          `Expected ${expected
+            ->castToPublic
+            ->toExpression}, received ${if includeInput {
+              input->stringify
+            } else {
+              received->toExpression
+            }}`
+        },
       )
       switch unionErrors {
       | Some(caseErrors) => {
@@ -1330,18 +1334,15 @@ module Builder = {
         }
       | None => None
       }
-      switch override {
-      | Some(m) => _value => Custom({reason: m, path})
-      | None =>
-        value =>
-          makeInvalidInputDetails(
-            ~expected,
-            ~received,
-            ~path,
-            ~input=value,
-            ~includeInput=true,
-          )
-      }
+      value =>
+        makeInvalidInputDetails(
+          ~expected,
+          ~received,
+          ~path,
+          ~input=value,
+          ~includeInput=true,
+          ~reasonOverride=?override,
+        )
     }
 
 
@@ -1358,8 +1359,21 @@ module Builder = {
         }
         switch (override, defaultMessage) {
         | (Some(m), _) | (None, Some(m)) => {
+            let received = switch input.prev {
+            | Some(p) => p.schema->castToPublic
+            | None => input.schema->castToPublic
+            }
             let path = input.path
-            _value => Custom({reason: m, path})
+            let expected = input.expected
+            value =>
+              makeInvalidInputDetails(
+                ~expected,
+                ~received,
+                ~path,
+                ~input=value,
+                ~includeInput=true,
+                ~reasonOverride=m,
+              )
           }
         | (None, None) => failInvalidType(~input)
         }
@@ -1814,23 +1828,50 @@ module Builder = {
     }
 
     let fail = (b: val, ~message) => {
+      let received = switch b.prev {
+      | Some(p) => p.schema->castToPublic
+      | None => b.schema->castToPublic
+      }
+      let expected = b.expected
+      let path = b.path
       `${b->embed(() => {
-          b->throw(Custom({reason: message, path: b.path}))
+          b->throw(
+            makeInvalidInputDetails(
+              ~expected,
+              ~received,
+              ~path,
+              ~input=%raw("void 0"),
+              ~includeInput=false,
+              ~reasonOverride=message,
+            ),
+          )
         })}()`
     }
 
     let effectCtx = (input: val) => {
-      fail: (message, ~path=Path.empty) => {
-        let error = InternalError.make(
-          Custom({
-            reason: message,
-            path: input.path->Path.concat(path),
-          }),
-        )
-        // Read about this in shouldPrependPathKey comment.
-        error->Obj.magic->Js.Dict.set(shouldPrependPathKey, 1)
-        Stdlib.JsExn.throw(error)
-      },
+      let received = switch input.prev {
+      | Some(p) => p.schema->castToPublic
+      | None => input.schema->castToPublic
+      }
+      let expected = input.expected
+      let basePath = input.path
+      {
+        fail: (message, ~path=Path.empty) => {
+          let error = InternalError.make(
+            makeInvalidInputDetails(
+              ~expected,
+              ~received,
+              ~path=basePath->Path.concat(path),
+              ~input=%raw("void 0"),
+              ~includeInput=false,
+              ~reasonOverride=message,
+            ),
+          )
+          // Read about this in shouldPrependPathKey comment.
+          error->Obj.magic->Js.Dict.set(shouldPrependPathKey, 1)
+          Stdlib.JsExn.throw(error)
+        },
+      }
     }
 
     let invalidOperation = (val: val, ~description) => {
@@ -3481,12 +3522,25 @@ let refine: (t<'value>, 'value => bool, ~error: string=?, ~path: array<string>=?
         {
           cond: (~inputVar) => `${embeddedCheck}(${inputVar})`,
           fail: (~input) => {
+            let received = switch input.prev {
+            | Some(p) => p.schema->castToPublic
+            | None => input.schema->castToPublic
+            }
+            let expected = input.expected
             let path = if extraPath === Path.empty {
               input.path
             } else {
               input.path->Path.concat(extraPath)
             }
-            _value => Custom({reason: message, path})
+            value =>
+              B.makeInvalidInputDetails(
+                ~expected,
+                ~received,
+                ~path,
+                ~input=value,
+                ~includeInput=true,
+                ~reasonOverride=message,
+              )
           },
         },
       ]
@@ -6576,12 +6630,25 @@ let js_refine = (schema, refineCheck, refineOptions) => {
         {
           cond: (~inputVar) => `${embeddedCheck}(${inputVar})`,
           fail: (~input) => {
+            let received = switch input.prev {
+            | Some(p) => p.schema->castToPublic
+            | None => input.schema->castToPublic
+            }
+            let expected = input.expected
             let path = if extraPath === Path.empty {
               input.path
             } else {
               input.path->Path.concat(extraPath)
             }
-            _value => Custom({reason: message, path})
+            value =>
+              B.makeInvalidInputDetails(
+                ~expected,
+                ~received,
+                ~path,
+                ~input=value,
+                ~includeInput=true,
+                ~reasonOverride=message,
+              )
           },
         },
       ]
