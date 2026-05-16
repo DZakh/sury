@@ -59,10 +59,10 @@ module CommonWithNested = {
 
   test("Compiled serialize code snapshot", t => {
     let schema = S.array(S.string)
-    t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
+    t->U.assertCompiledCodeIsNoop(~schema, ~op=#Encode)
 
     let schema = S.array(S.option(S.string))
-    t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
+    t->U.assertCompiledCodeIsNoop(~schema, ~op=#Encode)
   })
 
   test("Compiled serialize code snapshot with transform", t => {
@@ -70,7 +70,7 @@ module CommonWithNested = {
 
     t->U.assertCompiledCode(
       ~schema,
-      ~op=#ReverseConvert,
+      ~op=#Encode,
       `i=>{let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];if(v1===void 0){v1=null}else if(!(typeof v1==="string")){e[0](v1)}v3[v0]=v1}catch(v2){v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2}}return v3}`,
     )
   })

@@ -107,7 +107,7 @@ test("Serializes when both schemas misses serializer", t => {
 
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{try{throw e[0]}catch(e0){try{throw e[1]}catch(e1){e[2](i,e0,e1)}}return i}`,
   )
 })
@@ -193,7 +193,7 @@ test("Serializes when second struct misses serializer", t => {
 
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{try{typeof i==="string"&&(i==="apple")||e[0](i);}catch(e1){try{throw e[1]}catch(e2){e[2](i,e1,e2)}}return i}`,
   )
 })
@@ -370,7 +370,7 @@ module Advanced = {
   test("Compiled serialize code snapshot of shape schema", t => {
     t->U.assertCompiledCode(
       ~schema=shapeSchema,
-      ~op=#ReverseConvert,
+      ~op=#Encode,
       // TODO: Can be optimized
       `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["TAG"]==="Circle"){let v0=i["radius"];typeof v0==="number"&&!Number.isNaN(v0)||e[0](v0);i={"kind":"circle","radius":v0,}}else if(i["TAG"]==="Square"){let v1=i["x"];typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);i={"kind":"square","x":v1,}}else if(i["TAG"]==="Triangle"){let v2=i["x"],v3=i["y"];typeof v2==="number"&&!Number.isNaN(v2)||e[2](v2);typeof v3==="number"&&!Number.isNaN(v3)||e[3](v3);i={"kind":"triangle","x":v2,"y":v3,}}else{e[4](i)}}else{e[5](i)}return i}`,
     )
@@ -485,7 +485,7 @@ test("Successfully serializes unboxed variant", t => {
   )
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{try{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i=v0}catch(e0){if(!(typeof i==="string")){e[3](i,e0)}}return i}`,
   )
 
@@ -501,7 +501,7 @@ test("Successfully serializes unboxed variant", t => {
   t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(!(typeof i==="string")){e[0](i)}return i}`)
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{try{typeof i==="string"||e[0](i);}catch(e1){try{let v0;try{v0=e[1](i)}catch(x){e[2](x)}typeof v0==="string"||e[3](v0);i=v0}catch(e2){e[4](i,e1,e2)}}return i}`,
   )
 })
@@ -526,7 +526,7 @@ test("Compiled parse code snapshot", t => {
   )
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{if(!(typeof i==="number"&&!Number.isNaN(i)&&(i===0||i===1))){e[0](i)}return i}`,
   )
 })
@@ -586,7 +586,7 @@ test("Union with nested variant", t => {
 
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     // TODO: Can optimize it
     `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["foo"];typeof v0==="object"&&v0||e[2](v0);let v1=v0["tag"];typeof v1==="object"&&v1&&v1["NAME"]==="Null"||e[1](v1);let v2=v1["VAL"];if(v2===void 0){v2=null}else if(!(typeof v2==="string")){e[0](v2)}i={"foo":{"tag":{"NAME":v1["NAME"],"VAL":v2,},},}}catch(e0){try{let v3=i["foo"];typeof v3==="object"&&v3||e[5](v3);let v4=v3["tag"];typeof v4==="object"&&v4&&v4["NAME"]==="Option"||e[4](v4);let v5=v4["VAL"];if(!(typeof v5==="string"||v5===void 0)){e[3](v5)}i={"foo":{"tag":{"NAME":v4["NAME"],"VAL":v5,},},}}catch(e1){e[6](i,e0,e1)}}}else{e[7](i)}return i}`,
   )
@@ -622,7 +622,7 @@ test("Compiled serialize code snapshot of objects returning literal fields", t =
 
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{if(typeof i==="number"&&!Number.isNaN(i)){if(i===0){i={"foo":i,}}else if(i===1){i={"bar":i,}}else{e[0](i)}}else{e[1](i)}return i}`,
   )
   t->U.assertCompiledCode(
@@ -803,12 +803,12 @@ test("json-rpc response", t => {
   )
   t->U.assertCompiledCode(
     ~schema=getLogsResponseSchema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     // FIXME: Exhaustive check doesn't work
     `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["TAG"]==="Ok"){let v0=i["_0"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path="[\\"_0\\"]"+\'["\'+v1+\'"]\'+v3.path;throw v3}}i={"result":v0,}}else if(i["TAG"]==="Error"){let v4=i["_0"];if(typeof v4==="string"){if(v4==="LogsNotFound"){v4={"message":"NotFound",}}}else if(typeof v4==="object"&&v4&&!Array.isArray(v4)){if(v4["NAME"]==="InvalidData"){let v5=v4["VAL"];typeof v5==="string"||e[2](v5);v4={"message":"Invalid","data":v5,}}}else{e[3](v4)}i={"error":v4,}}else{e[4](i)}}else{e[5](i)}return i}`,
   )
 
-  // FIXME: pin the current (buggy) ReverseConvert behaviour for the
+  // FIXME: pin the current (buggy) Encode behaviour for the
   // exhaustive-check gap noted above. The inner per-discriminant arms
   // (LogsNotFound / InvalidData) lack their own `else { fail }`, so a
   // value of the right outer type but a bogus inner variant silently
@@ -847,7 +847,7 @@ test("Issue https://github.com/DZakh/rescript-schema/issues/101", t => {
 
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["NAME"]==="request"){let v0=i["VAL"];typeof v0==="object"&&v0||e[1](v0);let v1=v0["collectionName"];typeof v1==="string"||e[0](v1);i={"NAME":i["NAME"],"VAL":{"collectionName":v1,},}}else if(i["NAME"]==="response"){let v2=i["VAL"];typeof v2==="object"&&v2||e[4](v2);let v3=v2["collectionName"],v4=v2["response"];typeof v3==="string"||e[2](v3);if(!(typeof v4==="string"&&(v4==="accepted"||v4==="rejected"))){e[3](v4)}i={"NAME":i["NAME"],"VAL":{"collectionName":v3,"response":v4,},}}else{e[5](i)}}else{e[6](i)}return i}`,
   )
   t->U.assertCompiledCode(
@@ -965,7 +965,7 @@ module CknittelBugReport = {
 
     t->U.assertCompiledCode(
       ~schema,
-      ~op=#ReverseConvert,
+      ~op=#Encode,
       `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["TAG"]==="A"){let v0=i["_0"];typeof v0==="object"&&v0||e[2](v0);let v1=v0["payload"];typeof v1==="object"&&v1||e[1](v1);let v2=v1["a"];if(!(typeof v2==="string"||v2===void 0)){e[0](v2)}i={"payload":{"a":v2,},}}else if(i["TAG"]==="B"){let v3=i["_0"];typeof v3==="object"&&v3||e[5](v3);let v4=v3["payload"];typeof v4==="object"&&v4||e[4](v4);let v5=v4["b"];if(!(typeof v5==="number"&&!Number.isNaN(v5)&&(v5<=2147483647&&v5>=-2147483648&&v5%1===0)||v5===void 0)){e[3](v5)}i={"payload":{"b":v5,},}}else{e[6](i)}}else{e[7](i)}return i}`,
     )
 

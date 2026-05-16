@@ -48,7 +48,7 @@ module Common = {
 
     t->U.assertCompiledCode(
       ~schema,
-      ~op=#ReverseConvert,
+      ~op=#Encode,
       `i=>{Number.isNaN(i)||e[0](i);return i}`,
     )
   })

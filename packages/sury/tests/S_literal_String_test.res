@@ -62,7 +62,7 @@ module Common = {
 
     t->U.assertCompiledCode(
       ~schema,
-      ~op=#ReverseConvert,
+      ~op=#Encode,
       `i=>{i==="ReScript is Great!"||e[0](i);return i}`,
     )
   })

@@ -317,7 +317,7 @@ Node: i=>{typeof i==="object"&&i||e[5](i);let v0=i["Id"],v1=i["Children"];typeof
 
     t->U.assertCompiledCode(
       ~schema=nodeSchema,
-      ~op=#ReverseConvert,
+      ~op=#Encode,
       ~embedded=[("Node", 0)],
       `i=>{let v0;v0=e[0](i);return v0}
 Node: i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="object"&&v0||e[5](v0);let v1=v0["id"],v2=v0["children"];typeof v1==="string"||e[2](v1);Array.isArray(v2)||e[4](v2);let v6=new Array(v2.length);for(let v3=0;v3<v2.length;++v3){try{let v4;v4=e[3](v2[v3]);v6[v3]=v4}catch(v5){v5.path="[\\"children\\"]"+'["'+v3+'"]'+v5.path;throw v5}}return {"Id":v1,"Children":v6,}}`,
@@ -447,7 +447,7 @@ Node: i=>{typeof i==="object"&&i||e[3](i);let v0=i["Id"],v1=i["Children"];typeof
   let recKey = `${(S.unknown->S.untag).seq->Float.toString}-${(reversedDefs->Dict.getUnsafe("Node")->S.untag).seq->Float.toString}--0`
   t->U.assertCompiledCode(
     ~schema=nodeSchema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     ~embedded=[("Node", 2)],
     `i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}let v1;v1=e[2](v0);return v1}
 Node: i=>{typeof i==="object"&&i||e[3](i);let v0=i["id"],v1=i["children"];typeof v0==="string"||e[0](v0);Array.isArray(v1)||e[2](v1);let v5=new Array(v1.length);for(let v2=0;v2<v1.length;++v2){try{let v3;v3=e[1]["${recKey}"](v1[v2]);v5[v2]=v3}catch(v4){v4.path="[\\"children\\"]"+'["'+v2+'"]'+v4.path;throw v4}}return {"Id":v0,"Children":v5,}}`,

@@ -39,7 +39,7 @@ test("Can flatten S.schema", t => {
   )
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{let v0=i["baz"];return {"bar":v0["bar"],"foo":i["foo"],}}`,
   )
 })
@@ -61,7 +61,7 @@ test("Can flatten & destructure S.schema", t => {
   )
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{return {"bar":i["bar"],"foo":i["foo"],}}`,
   )
 })
@@ -139,7 +139,7 @@ test("Flatten schema with duplicated field of the same type (flatten last)", t =
     `i=>{typeof i==="object"&&i||e[1](i);let v0=i["foo"];typeof v0==="string"||e[0](v0);return {"foo":v0,"bar":v0,}}`,
   )
   // FIXME: Should validate that the fields are equal and choose the right one depending on the order
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return {"foo":i["bar"],}}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"foo":i["bar"],}}`)
 })
 
 test("Flatten schema with duplicated field of different type", t => {
@@ -221,7 +221,7 @@ test("Successfully serializes simple object with flatten", t => {
     %raw(`{"foo": "foo", "bar": "bar"}`),
   )
   t->U.assertCompiledCode(
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     ~schema,
     `i=>{return {"bar":i["bar"],"foo":i["foo"],}}`,
   )
@@ -261,12 +261,12 @@ test("Can destructure flattened schema", t => {
     %raw(`{id: "1", name: "Dmitry", age: 23}`),
   )
   t->U.assertCompiledCode(
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     ~schema=entitySchema,
     `i=>{return {"name":i["name"],"age":i["age"],"id":i["id"],}}`,
   )
   t->U.assertCompiledCode(
-    ~op=#ReverseConvertToJson,
+    ~op=#EncodeToJson,
     ~schema=entitySchema,
     `i=>{return {"name":i["name"],"age":i["age"],"id":i["id"],}}`,
   )

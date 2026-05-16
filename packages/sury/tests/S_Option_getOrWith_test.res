@@ -80,5 +80,5 @@ test("Compiled async parse code snapshot", t => {
 test("Compiled serialize code snapshot", t => {
   let schema = S.bool->S.option->S.Option.getOrWith(() => false)
 
-  t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
+  t->U.assertCompiledCodeIsNoop(~schema, ~op=#Encode)
 })

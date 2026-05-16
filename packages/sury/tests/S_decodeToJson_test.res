@@ -68,7 +68,7 @@ test("Encodes option schema to JSON", t => {
   t->Assert.deepEqual(Some(true)->S.decodeOrThrow(~from=schema, ~to=S.json), JSON.Encode.bool(true))
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvertToJson,
+    ~op=#EncodeToJson,
     `i=>{if(i===void 0){i=null}else if(!(typeof i==="boolean")){e[0](i)}return i}`,
   )
 })
@@ -223,7 +223,7 @@ test("Encodes a union to JSON when at least one item is not JSON-able", t => {
 
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvertToJson,
+    ~op=#EncodeToJson,
     `i=>{try{typeof i==="string"||e[0](i);}catch(e1){try{e[1](i);}catch(e2){e[2](i,e1,e2)}}return i}`,
   )
 })
@@ -233,7 +233,7 @@ test("Encodes a union of NaN and unknown to JSON", t => {
 
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvertToJson,
+    ~op=#EncodeToJson,
     `i=>{try{Number.isNaN(i)||e[0](i);i=null}catch(e1){try{e[1](i);}catch(e2){e[2](i,e1,e2)}}return i}`,
   )
 
@@ -351,13 +351,13 @@ module SerializesDeepRecursive = {
   test("Serializes deeply recursive schema", t => {
     t->U.assertCompiledCode(
       ~schema=bodySchema,
-      ~op=#ReverseConvert,
+      ~op=#Encode,
       `i=>{let v0;try{v0=e[0](i["condition"]);}catch(v1){v1.path="[\\"condition\\"]"+v1.path;throw v1}return {"condition":v0,}}`,
     )
     // Note: Can be optimized to not recursively validate JSON values a second time
     t->U.assertCompiledCode(
       ~schema=bodySchema,
-      ~op=#ReverseConvertToJson,
+      ~op=#EncodeToJson,
       `i=>{let v0;try{v0=e[0](i["condition"]);}catch(v1){v1.path="[\\"condition\\"]"+v1.path;throw v1}try{e[1](v0);}catch(v2){v2.path="[\\"condition\\"]"+v2.path;throw v2}return {"condition":v0,}}`,
     )
 
