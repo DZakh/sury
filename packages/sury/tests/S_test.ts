@@ -841,8 +841,8 @@ test("JS refine produces invalid_input error with expected/received populated", 
   t.is(result.error.code, "invalid_input");
   t.is(result.error.reason, "nope");
   if (result.error.code === "invalid_input") {
-    t.truthy(result.error.expected, "expected should be present");
-    t.truthy(result.error.received, "received should be present");
+    t.is(result.error.expected.type, "string");
+    t.is(result.error.received.type, "string");
   }
 });
 
