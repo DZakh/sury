@@ -3552,28 +3552,40 @@ module Union = {
       (tagFlag->Flag.unsafeHas(TagFlag.nan) && byKey->Stdlib.Dict.has((numberTag: tag :> string)))
   }
 
-  let isWiderUnionSchema = (~schemaAnyOf, ~inputAnyOf) => {
-    inputAnyOf->Js.Array2.everyi((inputSchema, idx) => {
-      switch schemaAnyOf->X.Array.getUnsafeOption(idx) {
-      | Some(schema) =>
-        !(
-          inputSchema.tag
-          ->TagFlag.get
-          ->Flag.unsafeHas(
-            TagFlag.array
-            ->Flag.with(TagFlag.instance)
-            ->Flag.with(TagFlag.ref)
-            ->Flag.with(TagFlag.union)
-            ->Flag.with(TagFlag.array)
-            ->Flag.with(TagFlag.object),
+  // Per-case passthrough check: for each input case, try to match it against
+  // some target case (order-independent). A case "passes through" if it has the
+  // same tag/const, no further `.to` transform, and is a primitive — i.e. the
+  // recursive `unionDecoder` for a `caseInput` with that schema would produce
+  // no transformation code. When every input case passes, the surviving cases
+  // form the shrunken output schema. Returns None if any case forces deopt.
+  let shrunkenWiderUnionSchemas = (~schemaAnyOf, ~inputAnyOf) => {
+    let shrunken = []
+    let allMatch = inputAnyOf->Js.Array2.every(inputSchema => {
+      if (
+        inputSchema.tag
+        ->TagFlag.get
+        ->Flag.unsafeHas(
+          TagFlag.array
+          ->Flag.with(TagFlag.instance)
+          ->Flag.with(TagFlag.ref)
+          ->Flag.with(TagFlag.union)
+          ->Flag.with(TagFlag.array)
+          ->Flag.with(TagFlag.object),
+        ) || inputSchema.to->X.Option.unsafeToBool
+      ) {
+        false
+      } else {
+        let matched =
+          schemaAnyOf->Js.Array2.some(targetSchema =>
+            inputSchema.tag === targetSchema.tag && inputSchema.const === targetSchema.const
           )
-        ) &&
-        inputSchema.tag === schema.tag &&
-        inputSchema.const === schema.const &&
-        inputSchema.to === None
-      | None => false
+        if matched {
+          shrunken->Js.Array2.push(inputSchema)->ignore
+        }
+        matched
       }
     })
+    allMatch ? Some(shrunken) : None
   }
 
   let rec unionDecoder: Builder.t = (~input) => {
@@ -3586,14 +3598,30 @@ module Union = {
     | _ => None
     }
 
-    if (
-      (initialInputTagFlag->Flag.unsafeHas(TagFlag.union) &&
-      isWiderUnionSchema(
+    let shrunkenPassthrough = if (
+      initialInputTagFlag->Flag.unsafeHas(TagFlag.union) && toPerCase === None
+    ) {
+      shrunkenWiderUnionSchemas(
         ~schemaAnyOf=schemas,
         ~inputAnyOf=input.schema.anyOf->X.Option.getUnsafe,
-      ) &&
-      toPerCase === None) || (input.isOutput->Option.getUnsafe && input.expected === input.schema)
+      )
+    } else {
+      None
+    }
+
+    if (
+      shrunkenPassthrough->X.Option.unsafeToBool ||
+        (input.isOutput->Option.getUnsafe && input.expected === input.schema)
     ) {
+      switch shrunkenPassthrough {
+      | Some(shrunken) =>
+        // Replace input's union with the intersection of input cases and target
+        // cases — drops any source-only cases that the target wouldn't accept.
+        if shrunken->Js.Array2.length !== (input.schema.anyOf->X.Option.getUnsafe)->Js.Array2.length {
+          input.schema = factory(shrunken->Obj.magic)->castToInternal
+        }
+      | None => ()
+      }
       input
     } else {
       if (
@@ -3865,61 +3893,54 @@ module Union = {
       let keys = ref([])
       let updatedSchemas = []
 
+      // Share the union's refiner/inputRefiner embed across all surviving cases.
+      // `B.embed` is append-only, so calling `fn(~input)` once and reusing the
+      // resulting checks keeps the predicate at a single `e[N]` index referenced
+      // from every case.
+      let unionRefiner = selfSchema.refiner
+      let unionInputRefiner = selfSchema.inputRefiner
+      let cachedRefinerChecks = ref(None)
+      let cachedInputRefinerChecks = ref(None)
+      let attach = (current, source, cache) =>
+        switch source {
+        | None => current
+        | Some(fn) =>
+          let getCached = (~input) =>
+            switch cache.contents {
+            | Some(checks) => checks
+            | None =>
+              let checks = fn(~input)
+              cache := Some(checks)
+              checks
+            }
+          switch current {
+          | None => Some(getCached)
+          | Some(existing) =>
+            Some(
+              (~input) => {
+                let arr = existing(~input)
+                let next = getCached(~input)
+                for i in 0 to next->Js.Array2.length - 1 {
+                  arr->Js.Array2.push(next->Js.Array2.unsafe_get(i))->ignore
+                }
+                arr
+              },
+            )
+          }
+        }
+
       for idx in 0 to lastIdx {
         let schema = switch toPerCase {
         | Some(target) =>
           updateOutput(schemas->Js.Array2.unsafe_get(idx), mut => {
-            {
-              // FIXME: minimal fix — applies the union's refiner/inputRefiner per
-              // surviving case (previously dropped when the union has `.to`). The
-              // emit shape isn't ideal; fold this into the shared refiner pipeline
-              // post-release.
-
-              let unionRefiner = selfSchema.refiner
-              let unionInputRefiner = selfSchema.inputRefiner
-              // Call each source refiner at most once so its predicate is embedded
-              // in `input.global.embeded` once and every case references the same
-              // `e[N]`. `B.embed` is append-only, so a per-case call would duplicate.
-              let cachedRefinerChecks = ref(None)
-              let cachedInputRefinerChecks = ref(None)
-              let attach = (current, source, cache) =>
-                switch source {
-                | None => current
-                | Some(fn) =>
-                  let getCached = (~input) =>
-                    switch cache.contents {
-                    | Some(checks) => checks
-                    | None =>
-                      let checks = fn(~input)
-                      cache := Some(checks)
-                      checks
-                    }
-                  switch current {
-                  | None => Some(getCached)
-                  | Some(existing) =>
-                    Some(
-                      (~input) => {
-                        let arr = existing(~input)
-                        let next = getCached(~input)
-                        for i in 0 to next->Js.Array2.length - 1 {
-                          arr->Js.Array2.push(next->Js.Array2.unsafe_get(i))->ignore
-                        }
-                        arr
-                      },
-                    )
-                  }
-                }
-
-              switch attach(mut.refiner, unionRefiner, cachedRefinerChecks) {
-              | Some(r) => mut.refiner = Some(r)
-              | None => ()
-              }
-              switch attach(mut.inputRefiner, unionInputRefiner, cachedInputRefinerChecks) {
-              | Some(r) => mut.inputRefiner = Some(r)
-              | None => ()
-              }
+            switch attach(mut.refiner, unionRefiner, cachedRefinerChecks) {
+            | Some(r) => mut.refiner = Some(r)
+            | None => ()
             }
-
+            switch attach(mut.inputRefiner, unionInputRefiner, cachedInputRefinerChecks) {
+            | Some(r) => mut.inputRefiner = Some(r)
+            | None => ()
+            }
             mut.to = Some(target)
           })->castToInternal
         | _ => schemas->Js.Array2.unsafe_get(idx)
