@@ -577,11 +577,17 @@ function makeInvalidInputDetails(expected, received, path, input, includeInput, 
   return details;
 }
 
-function failInvalidType(input) {
+function invalidInputBuilder(input, expectedOpt, extraPathOpt, reasonOverride, includeInputOpt) {
+  let expected = expectedOpt !== undefined ? expectedOpt : input.e;
+  let extraPath = extraPathOpt !== undefined ? extraPathOpt : "";
+  let includeInput = includeInputOpt !== undefined ? includeInputOpt : true;
   let received = receivedSchema(input);
-  let path = input.path;
-  let expected = input.e;
-  let em = expected.errorMessage;
+  let path = extraPath === "" ? input.path : input.path + extraPath;
+  return value => makeInvalidInputDetails(expected, received, path, value, includeInput, undefined, reasonOverride);
+}
+
+function failInvalidType(input) {
+  let em = input.e.errorMessage;
   let override;
   if (em !== undefined) {
     let m = em["type"];
@@ -589,7 +595,7 @@ function failInvalidType(input) {
   } else {
     override = undefined;
   }
-  return value => makeInvalidInputDetails(expected, received, path, value, true, undefined, override);
+  return invalidInputBuilder(input, undefined, undefined, override, undefined);
 }
 
 function failWithErrorMessage(key, defaultMessage) {
@@ -611,18 +617,13 @@ function failWithErrorMessage(key, defaultMessage) {
       }
       m$1 = defaultMessage;
     }
-    let received = receivedSchema(input);
-    let path = input.path;
-    let expected = input.e;
-    return value => makeInvalidInputDetails(expected, received, path, value, true, undefined, m$1);
+    return invalidInputBuilder(input, undefined, undefined, m$1, undefined);
   };
 }
 
 function embedInvalidInput(input, expectedOpt) {
   let expected = expectedOpt !== undefined ? expectedOpt : input.e;
-  let received = receivedSchema(input);
-  let path = input.path;
-  return failWithArg(input, value => makeInvalidInputDetails(expected, received, path, value, true, undefined, undefined), input.v());
+  return failWithArg(input, invalidInputBuilder(input, expected, undefined, undefined, undefined), input.v());
 }
 
 function emitChecks(val, inputVar) {
@@ -1359,18 +1360,6 @@ function parse$1(input) {
   return valRef;
 }
 
-function getOutputSchema(_schema) {
-  while (true) {
-    let schema = _schema;
-    let to = schema.to;
-    if (to === undefined) {
-      return schema;
-    }
-    _schema = to;
-    continue;
-  };
-}
-
 function reverse(schema) {
   if (reversedKey in schema) {
     return schema[reversedKey];
@@ -1474,6 +1463,18 @@ function reverse(schema) {
   valueOptions[valKey] = schema;
   d(r, reversedKey, valueOptions);
   return r;
+}
+
+function getOutputSchema(_schema) {
+  while (true) {
+    let schema = _schema;
+    let to = schema.to;
+    if (to === undefined) {
+      return schema;
+    }
+    _schema = to;
+    continue;
+  };
 }
 
 function parseDynamic(input) {
@@ -2208,12 +2209,7 @@ function refine$1(schema, refineCheck, error, path) {
     let embeddedCheck = embed(input, refineCheck);
     return [{
         c: inputVar => embeddedCheck + "(" + inputVar + ")",
-        f: input => {
-          let received = receivedSchema(input);
-          let expected = input.e;
-          let path = extraPath === "" ? input.path : input.path + extraPath;
-          return value => makeInvalidInputDetails(expected, received, path, value, true, undefined, message);
-        }
+        f: input => invalidInputBuilder(input, undefined, extraPath, message, undefined)
       }];
   }));
 }
@@ -3534,6 +3530,30 @@ function traverseDefinition(definition, onNode) {
   return mut$2;
 }
 
+function shapedSerializer(input) {
+  let acc = {};
+  prepareShapedSerializerAcc(acc, input);
+  let targetSchema = input.e.to;
+  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
+  output.t = true;
+  output.prev = input;
+  return output;
+}
+
+function getValByFrom(_input, from, _idx) {
+  while (true) {
+    let idx = _idx;
+    let input = _input;
+    let key = from[idx];
+    if (key === undefined) {
+      return input;
+    }
+    _idx = idx + 1 | 0;
+    _input = input.d[key];
+    continue;
+  };
+}
+
 function getShapedParserOutput(input, targetSchema) {
   let from = targetSchema.from;
   let fromFlattened = targetSchema.fromFlattened;
@@ -3571,20 +3591,6 @@ function getShapedParserOutput(input, targetSchema) {
   v.prev = undefined;
   v.e = targetSchema;
   return v;
-}
-
-function getValByFrom(_input, from, _idx) {
-  while (true) {
-    let idx = _idx;
-    let input = _input;
-    let key = from[idx];
-    if (key === undefined) {
-      return input;
-    }
-    _idx = idx + 1 | 0;
-    _input = input.d[key];
-    continue;
-  };
 }
 
 function nested(fieldName) {
@@ -3660,62 +3666,6 @@ function definitionToSchema(definition) {
     }
     
   });
-}
-
-function prepareShapedSerializerAcc(acc, input) {
-  let match = input.e;
-  let from = match.from;
-  if (from !== undefined) {
-    let fromFlattened = match.fromFlattened;
-    let accAtFrom;
-    if (fromFlattened !== undefined) {
-      if (acc.flattened === undefined) {
-        acc.flattened = [];
-      }
-      let acc$1 = acc.flattened[fromFlattened];
-      if (acc$1 !== undefined) {
-        accAtFrom = acc$1;
-      } else {
-        let newAcc = {};
-        acc.flattened[fromFlattened] = newAcc;
-        accAtFrom = newAcc;
-      }
-    } else {
-      accAtFrom = acc;
-    }
-    for (let idx = 0, idx_finish = from.length; idx < idx_finish; ++idx) {
-      let key = from[idx];
-      let p = accAtFrom.properties;
-      let p$1;
-      if (p !== undefined) {
-        p$1 = p;
-      } else {
-        let p$2 = {};
-        accAtFrom.properties = p$2;
-        p$1 = p$2;
-      }
-      let acc$2 = p$1[key];
-      let tmp;
-      if (acc$2 !== undefined) {
-        tmp = acc$2;
-      } else {
-        let newAcc$1 = {};
-        p$1[key] = newAcc$1;
-        tmp = newAcc$1;
-      }
-      accAtFrom = tmp;
-    }
-    accAtFrom.val = input;
-    return;
-  }
-  let vals = input.d;
-  if (vals === undefined) {
-    return;
-  }
-  let keys = Object.keys(vals);
-  for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
-    prepareShapedSerializerAcc(acc, vals[keys[idx$1]]);
-  }
 }
 
 function getShapedSerializerOutput(input, acc, targetSchema, path) {
@@ -3818,20 +3768,60 @@ function getShapedSerializerOutput(input, acc, targetSchema, path) {
   
 }
 
-function shapedSerializer(input) {
-  let acc = {};
-  prepareShapedSerializerAcc(acc, input);
-  let targetSchema = input.e.to;
-  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
-  output.t = true;
-  output.prev = input;
-  return output;
-}
-
-function definitionToShapedSchema(definition) {
-  let s = copySchema(traverseDefinition(definition, toEmbededItem));
-  s.serializer = shapedSerializer;
-  return s;
+function prepareShapedSerializerAcc(acc, input) {
+  let match = input.e;
+  let from = match.from;
+  if (from !== undefined) {
+    let fromFlattened = match.fromFlattened;
+    let accAtFrom;
+    if (fromFlattened !== undefined) {
+      if (acc.flattened === undefined) {
+        acc.flattened = [];
+      }
+      let acc$1 = acc.flattened[fromFlattened];
+      if (acc$1 !== undefined) {
+        accAtFrom = acc$1;
+      } else {
+        let newAcc = {};
+        acc.flattened[fromFlattened] = newAcc;
+        accAtFrom = newAcc;
+      }
+    } else {
+      accAtFrom = acc;
+    }
+    for (let idx = 0, idx_finish = from.length; idx < idx_finish; ++idx) {
+      let key = from[idx];
+      let p = accAtFrom.properties;
+      let p$1;
+      if (p !== undefined) {
+        p$1 = p;
+      } else {
+        let p$2 = {};
+        accAtFrom.properties = p$2;
+        p$1 = p$2;
+      }
+      let acc$2 = p$1[key];
+      let tmp;
+      if (acc$2 !== undefined) {
+        tmp = acc$2;
+      } else {
+        let newAcc$1 = {};
+        p$1[key] = newAcc$1;
+        tmp = newAcc$1;
+      }
+      accAtFrom = tmp;
+    }
+    accAtFrom.val = input;
+    return;
+  }
+  let vals = input.d;
+  if (vals === undefined) {
+    return;
+  }
+  let keys = Object.keys(vals);
+  for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
+    prepareShapedSerializerAcc(acc, vals[keys[idx$1]]);
+  }
 }
 
 function shapedParser(input) {
@@ -3854,6 +3844,12 @@ function shapedParser(input) {
   output.t = true;
   output.prev = input;
   return markOutput(output, input);
+}
+
+function definitionToShapedSchema(definition) {
+  let s = copySchema(traverseDefinition(definition, toEmbededItem));
+  s.serializer = shapedSerializer;
+  return s;
 }
 
 function shape(schema, definer) {
@@ -4417,12 +4413,7 @@ function js_refine(schema, refineCheck, refineOptions) {
     let embeddedCheck = embed(input, refineCheck);
     return [{
         c: inputVar => embeddedCheck + "(" + inputVar + ")",
-        f: input => {
-          let received = receivedSchema(input);
-          let expected = input.e;
-          let path = extraPath === "" ? input.path : input.path + extraPath;
-          return value => makeInvalidInputDetails(expected, received, path, value, true, undefined, message);
-        }
+        f: input => invalidInputBuilder(input, undefined, extraPath, message, undefined)
       }];
   }));
 }
