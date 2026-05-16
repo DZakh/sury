@@ -1,7 +1,7 @@
 lockfileVersion: '9.0'
 
 settings:
-  autoInstallPeers: true
+  autoInstallPeers: false
   excludeLinksFromLockfile: false
 
 importers:
@@ -84,11 +84,7 @@ importers:
         specifier: 5.8.3
         version: 5.8.3
 
-  packages/sury-ppx:
-    dependencies:
-      sury:
-        specifier: ^11.0.0-alpha.2
-        version: 11.0.0-alpha.2(rescript@12.0.0-beta.5)
+  packages/sury-ppx: {}
 
 packages:
 
@@ -924,14 +920,6 @@ packages:
   supports-preserve-symlinks-flag@1.0.0:
     resolution: {integrity: sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==}
     engines: {node: '>= 0.4'}
-
-  sury@11.0.0-alpha.2:
-    resolution: {integrity: sha512-lWbGQ43NhwcGDFksI0DxyF93u49ljfEOggyTW4xJ/jkEmryiBKgCK3X+x9cSQchXjYFnIw7QbVCSkeDd7wF4Iw==}
-    peerDependencies:
-      rescript: 11.x
-    peerDependenciesMeta:
-      rescript:
-        optional: true
 
   temp-dir@3.0.0:
     resolution: {integrity: sha512-nHc6S/bwIilKHNRgK/3jlhDoIHcp45YgyiwcAk46Tr0LfEqGBVpmiAyuiuxeVE44m3mXnEeVhaipLOEWmH+Njw==}
@@ -1796,10 +1784,6 @@ snapshots:
       has-flag: 4.0.0
 
   supports-preserve-symlinks-flag@1.0.0: {}
-
-  sury@11.0.0-alpha.2(rescript@12.0.0-beta.5):
-    optionalDependencies:
-      rescript: 12.0.0-beta.5
 
   temp-dir@3.0.0: {}
 
