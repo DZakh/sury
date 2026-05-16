@@ -3601,6 +3601,177 @@ module Union = {
       toPerCase === None) || (input.isOutput->Option.getUnsafe && input.expected === input.schema)
     ) {
       input
+    } else if (
+      input.schema.encoder === None &&
+        initialInputTagFlag->Flag.unsafeHas(TagFlag.union) &&
+        input.schema !== selfSchema &&
+        !(schemas->Js.Array2.some(s => s.tag === refTag))
+    ) {
+      // Source is a union: fan out per source variant. For each source
+      // variant, derive a caseInput with schema=variant (not union) and
+      // recursively apply unionDecoder. If no case produces a
+      // transformation, pass through with the schema shrunk to the union
+      // of matched target outputs.
+      let sourceCases = input.schema.anyOf->X.Option.getUnsafe
+      let initialInline = input.inline
+      let _ = input.var()
+
+      let output = input->B.refine
+      let outputAnyOf = []
+      let dispatchCode = ref("")
+      let nextElse = ref(false)
+      let noopChecks = ref("")
+
+      let fail = () => {
+        `${input->B.embed(
+            (
+              _ => {
+                let args = %raw(`arguments`)
+                B.throw(
+                  B.makeInvalidInputDetails(
+                    ~path=input.path,
+                    ~expected=selfSchema,
+                    ~received=unknown->castToPublic,
+                    ~input=args->Js.Array2.unsafe_get(0),
+                    ~includeInput=true,
+                  ),
+                )
+              }
+            )->X.Function.toExpression,
+          )}(${input.var()})`
+      }
+
+      for srcIdx in 0 to sourceCases->Js.Array2.length - 1 {
+        let srcCase = sourceCases->Js.Array2.unsafe_get(srcIdx)
+        let tagFlag = srcCase.tag->TagFlag.get
+
+        // Build a synthetic typecheck val for this source variant.
+        // Pretend the input schema is unknown so each primitive decoder emits
+        // the typeof check we need for the source-side `if` guard.
+        let typeValidationInput = input->B.Val.scope
+        typeValidationInput.schema = unknown
+        typeValidationInput.expected = if tagFlag->Flag.unsafeHas(TagFlag.null) {
+          nullLiteral()
+        } else if tagFlag->Flag.unsafeHas(TagFlag.undefined) {
+          unit()
+        } else if tagFlag->Flag.unsafeHas(TagFlag.object) {
+          Dict.factory(unknown->castToPublic)->castToInternal
+        } else if tagFlag->Flag.unsafeHas(TagFlag.array) {
+          array(unknown->castToPublic)->castToInternal
+        } else if tagFlag->Flag.unsafeHas(TagFlag.instance) {
+          instance(srcCase.class)->castToInternal
+        } else if tagFlag->Flag.unsafeHas(TagFlag.nan) {
+          nan()
+        } else if tagFlag->Flag.unsafeHas(TagFlag.string) {
+          string()
+        } else if tagFlag->Flag.unsafeHas(TagFlag.number) {
+          float()
+        } else if tagFlag->Flag.unsafeHas(TagFlag.boolean) {
+          bool()
+        } else if tagFlag->Flag.unsafeHas(TagFlag.bigint) {
+          bigint()
+        } else if tagFlag->Flag.unsafeHas(TagFlag.symbol) {
+          symbol()
+        } else {
+          unknown
+        }
+        let typeValidationOutput = try {
+          typeValidationInput->parse
+        } catch {
+        | _ => {
+            typeValidationInput.checks = None
+            typeValidationInput
+          }
+        }
+
+        // Derive caseInput with single-variant schema; keep prev linked so
+        // typeValidationOutput's typecheck stays in the chain and is hoistable.
+        let caseInput = typeValidationOutput->B.refine(
+          ~schema=srcCase,
+          ~expected=selfSchema,
+        )
+        caseInput.isOutput = Some(false)
+        caseInput.hasTransform = Some(false)
+
+        let caseOutput = try {
+          unionDecoder(~input=caseInput)
+        } catch {
+        | _ => caseInput
+        }
+
+        outputAnyOf->Js.Array2.push(caseOutput.schema->castToPublic)->ignore
+
+        // Walk caseOutput chain to compute caseCond (hoisted typecheck)
+        // and caseCode (remaining body). The OUTER typeValidationOutput's
+        // check will be hoisted into caseCond.
+        let caseCond = ref("")
+        let caseCode = caseOutput->B.merge(~hoistCond=caseCond)
+        let caseCond = caseCond.contents
+
+        if caseOutput.hasTransform->X.Option.getUnsafe {
+          output.hasTransform = Some(true)
+          if caseOutput.flag->Flag.unsafeHas(ValFlag.async) {
+            output.flag = output.flag->Flag.with(ValFlag.async)
+          }
+        }
+
+        // "Identity" for this source variant: no transform happened, the
+        // value reference didn't change, and the inner code is at most an
+        // exhaustive `if(!cond)fail` whose cond is already in caseCond.
+        let isIdentity =
+          !(caseOutput.hasTransform->X.Option.unsafeToBool) &&
+          caseOutput.inline === initialInline &&
+          caseOutput.flag->Flag.unsafeHas(ValFlag.async)->not
+
+        if isIdentity {
+          if caseCond->X.String.unsafeToBool {
+            noopChecks := (
+                noopChecks.contents->X.String.unsafeToBool
+                  ? `${noopChecks.contents}||${caseCond}`
+                  : caseCond
+              )
+          }
+        } else {
+          let body = if caseOutput.inline !== initialInline {
+            caseCode ++ `${input.var()}=${caseOutput.inline};`
+          } else {
+            caseCode
+          }
+          let if_ = nextElse.contents ? "else if" : "if"
+          let cond = caseCond->X.String.unsafeToBool ? caseCond : "true"
+          dispatchCode := dispatchCode.contents ++ if_ ++ `(${cond}){${body}}`
+          nextElse := true
+        }
+      }
+
+      if noopChecks.contents->X.String.unsafeToBool {
+        let if_ = nextElse.contents ? "else if" : "if"
+        dispatchCode :=
+          dispatchCode.contents ++ if_ ++ `(!(${noopChecks.contents})){${fail()}}`
+      } else if nextElse.contents {
+        dispatchCode := dispatchCode.contents ++ `else{${fail()}}`
+      }
+
+      output.codeFromPrev = output.codeFromPrev ++ dispatchCode.contents
+
+      if input.inline !== output.inline {
+        output.inline = input.inline
+      }
+
+      output.schema = if outputAnyOf->Stdlib.Array.length->X.Int.unsafeToBool {
+        factory(outputAnyOf)->castToInternal
+      } else {
+        never_()
+      }
+      output.expected = switch toPerCase {
+      | Some(to) => {
+          output.isOutput = Some(true)
+          to->getOutputSchema
+        }
+      | _ => selfSchema
+      }
+
+      output
     } else {
       if (
         input.schema.encoder === None &&
