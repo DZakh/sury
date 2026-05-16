@@ -4554,6 +4554,55 @@ let rec jsonEncoderFn = (~input, ~target) => {
     let jsonExpected = Dict.factory(unknown->castToPublic)->castToInternal
     let output = input->B.refine(~schema=unknown, ~expected=jsonExpected)->parse
     output.schema.additionalItems = Some(Schema(json()->castToPublic))
+    // For each option-admitting target field, advertise the source value
+    // as `union(json, undefined)`. The dispatch in `unionDecoder` will then
+    // mutate the source schema to `unknown` (line 3646: union without
+    // encoder), and emit a `v===void 0` branch for the unit case directly
+    // (no `jsonEncoder` substitution), giving missing-field semantics for
+    // `option<X>` keys read off a parsed JSON object.
+    switch target.properties {
+    | Some(targetProps) =>
+      let outputProps = output.schema.properties->X.Option.getUnsafe
+      let keys = targetProps->Js.Dict.keys
+      for idx in 0 to keys->Js.Array2.length - 1 {
+        let key = keys->Js.Array2.unsafe_get(idx)
+        let fieldSchema = targetProps->Js.Dict.unsafeGet(key)
+        if (
+          fieldSchema.tag === unionTag &&
+            fieldSchema.has
+            ->X.Option.getUnsafe
+            ->X.Dict.getUnsafeOption((undefinedTag :> string))
+            ->X.Option.unsafeToBool
+        ) {
+          // Source schema for an option-admitting field reads:
+          //   `unit`       — missing-key reads surface as `undefined`
+          //   `nullLiteral`— explicit `null` JSON encoding
+          //   `json`       — any other JSON value the dispatch picks up
+          // The union is needed because a plain `json` source mutates the
+          // unit case in the dispatch (via `jsonEncoder`'s
+          // `TagFlag.undefined` branch) into a `v===null` check only,
+          // dropping the missing-field path. Splitting `null` and
+          // `undefined` out as explicit source cases lets each get its
+          // own dispatch slot.
+          //
+          // NOTE — this alone isn't sufficient yet: `unionDecoder` at
+          // line 3646 mutates `input.schema = unknown` for any union
+          // source whose `encoder` is `None`, wiping the cases. Adding
+          // an encoder on this union (or relaxing the mutation) is
+          // required to make the per-case dispatch actually emit the
+          // `v===null` branch.
+          outputProps->Js.Dict.set(
+            key,
+            Union.factory([
+              json()->castToPublic,
+              unit()->castToPublic,
+              nullLiteral()->castToPublic,
+            ])->castToInternal,
+          )
+        }
+      }
+    | None => ()
+    }
     output.expected = target
     output.isOutput = Some(false)
     output
