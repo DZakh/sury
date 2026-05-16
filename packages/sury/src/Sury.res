@@ -1317,16 +1317,20 @@ module Builder = {
       details
     }
 
-    // Returns a `value => errorDetails` closure for InvalidInput failures.
-    // Captures expected/received/path up front so the closure does not retain
-    // the val (otherwise the embed array would pin the whole val chain).
+    // Drop-in `check.fail` builder for InvalidInput failures. The returned
+    // `(~input) => value => details` closure snapshots expected/received/path
+    // so it does not retain the val (otherwise the embed array would pin the
+    // whole val chain). Pass directly as `check.fail` to skip the wrapper.
     let invalidInputBuilder = (
-      input: val,
-      ~expected=input.expected,
+      ~expected=?,
       ~extraPath=Path.empty,
       ~reasonOverride=?,
       ~includeInput=true,
-    ) => {
+    ) => (~input: val) => {
+      let expected = switch expected {
+      | Some(e) => e
+      | None => input.expected
+      }
       let received = input->receivedSchema
       let path = if extraPath === Path.empty {
         input.path
@@ -1356,7 +1360,7 @@ module Builder = {
         }
       | None => None
       }
-      input->invalidInputBuilder(~reasonOverride=?override)
+      invalidInputBuilder(~reasonOverride=?override)(~input)
     }
 
 
@@ -1372,7 +1376,7 @@ module Builder = {
         | None => None
         }
         switch (override, defaultMessage) {
-        | (Some(m), _) | (None, Some(m)) => input->invalidInputBuilder(~reasonOverride=m)
+        | (Some(m), _) | (None, Some(m)) => invalidInputBuilder(~reasonOverride=m)(~input)
         | (None, None) => failInvalidType(~input)
         }
       }
@@ -1382,7 +1386,7 @@ module Builder = {
     // that splice errors into custom JS (e.g. `catch(_){${embedInvalidInput}}`),
     // not via the `check` pipeline.
     let embedInvalidInput = (~input: val, ~expected=input.expected) => {
-      input->failWithArg(input->invalidInputBuilder(~expected), input.var())
+      input->failWithArg(invalidInputBuilder(~expected)(~input), input.var())
     }
 
     // Caller must verify `val.checks->unsafeToBool` and
@@ -1811,34 +1815,26 @@ module Builder = {
     }
 
     let fail = (b: val, ~message) => {
-      let mkDetails = b->invalidInputBuilder(~reasonOverride=message, ~includeInput=false)
       `${b->embed(() => {
-          b->throw(mkDetails(%raw("void 0")))
+          b->throw(
+            invalidInputBuilder(~reasonOverride=message, ~includeInput=false)(~input=b)(
+              %raw("void 0"),
+            ),
+          )
         })}()`
     }
 
     let effectCtx = (input: val) => {
-      // Snapshot val fields up front so the runtime closure doesn't retain input.
-      let received = input->receivedSchema
-      let expected = input.expected
-      let basePath = input.path
-      {
-        fail: (message, ~path=Path.empty) => {
-          let error = InternalError.make(
-            makeInvalidInputDetails(
-              ~expected,
-              ~received,
-              ~path=basePath->Path.concat(path),
-              ~input=%raw("void 0"),
-              ~includeInput=false,
-              ~reasonOverride=message,
-            ),
-          )
-          // Read about this in shouldPrependPathKey comment.
-          error->Obj.magic->Js.Dict.set(shouldPrependPathKey, 1)
-          Stdlib.JsExn.throw(error)
-        },
-      }
+      fail: (message, ~path=Path.empty) => {
+        let error = InternalError.make(
+          invalidInputBuilder(~extraPath=path, ~reasonOverride=message, ~includeInput=false)(
+            ~input,
+          )(%raw("void 0")),
+        )
+        // Read about this in shouldPrependPathKey comment.
+        error->Obj.magic->Js.Dict.set(shouldPrependPathKey, 1)
+        Stdlib.JsExn.throw(error)
+      },
     }
 
     let invalidOperation = (val: val, ~description) => {
@@ -3488,7 +3484,7 @@ let refine: (t<'value>, 'value => bool, ~error: string=?, ~path: array<string>=?
       [
         {
           cond: (~inputVar) => `${embeddedCheck}(${inputVar})`,
-          fail: (~input) => input->B.invalidInputBuilder(~extraPath, ~reasonOverride=message),
+          fail: B.invalidInputBuilder(~extraPath, ~reasonOverride=message),
         },
       ]
     }
@@ -6576,7 +6572,7 @@ let js_refine = (schema, refineCheck, refineOptions) => {
       [
         {
           cond: (~inputVar) => `${embeddedCheck}(${inputVar})`,
-          fail: (~input) => input->B.invalidInputBuilder(~extraPath, ~reasonOverride=message),
+          fail: B.invalidInputBuilder(~extraPath, ~reasonOverride=message),
         },
       ]
     }
