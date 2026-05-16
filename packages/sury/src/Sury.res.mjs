@@ -129,8 +129,8 @@ let flags = {
     [nanTag]: 2048,
     ["function"]: 4096,
     [instanceTag]: 8192,
-    [neverTag]: 16384,
-    [symbolTag]: 32768,
+    [neverTag]: 32768,
+    [symbolTag]: 16384,
   };
 
 function stringify(unknown) {
@@ -535,10 +535,10 @@ function makeInvalidConversionDetails(input, to, cause) {
   };
 }
 
-function makeInvalidInputDetails(expected, received, path, input, includeInput, unionErrors) {
-  let reasonRef = "Expected " + toExpression(expected) + ", received " + (
-    includeInput ? stringify(input) : toExpression(received)
-  );
+function makeInvalidInputDetails(expected, received, path, input, includeInput, unionErrors, reasonOverride) {
+  let reasonRef = reasonOverride !== undefined ? reasonOverride : "Expected " + toExpression(expected) + ", received " + (
+      includeInput ? stringify(input) : toExpression(received)
+    );
   if (unionErrors !== undefined) {
     let reasonsDict = {};
     for (let idx = 0, idx_finish = unionErrors.length; idx < idx_finish; ++idx) {
@@ -568,12 +568,20 @@ function makeInvalidInputDetails(expected, received, path, input, includeInput, 
   return details;
 }
 
+function invalidInputBuilder(expected, $staropt$star, reasonOverride, $staropt$star$1) {
+  return input => {
+    let extraPath = $staropt$star !== undefined ? $staropt$star : "";
+    let includeInput = $staropt$star$1 !== undefined ? $staropt$star$1 : true;
+    let expected$1 = expected !== undefined ? expected : input.e;
+    let p = input.prev;
+    let received = p !== undefined ? p.s : input.s;
+    let path = extraPath === "" ? input.path : input.path + extraPath;
+    return value => makeInvalidInputDetails(expected$1, received, path, value, includeInput, undefined, reasonOverride);
+  };
+}
+
 function failInvalidType(input) {
-  let p = input.prev;
-  let received = p !== undefined ? p.s : input.s;
-  let path = input.path;
-  let expected = input.e;
-  let em = expected.errorMessage;
+  let em = input.e.errorMessage;
   let override;
   if (em !== undefined) {
     let m = em["type"];
@@ -581,15 +589,7 @@ function failInvalidType(input) {
   } else {
     override = undefined;
   }
-  if (override !== undefined) {
-    return _value => ({
-      code: "custom",
-      path: path,
-      reason: override
-    });
-  } else {
-    return value => makeInvalidInputDetails(expected, received, path, value, true, undefined);
-  }
+  return invalidInputBuilder(undefined, undefined, override, undefined)(input);
 }
 
 function failWithErrorMessage(key, defaultMessage) {
@@ -611,21 +611,13 @@ function failWithErrorMessage(key, defaultMessage) {
       }
       m$1 = defaultMessage;
     }
-    let path = input.path;
-    return _value => ({
-      code: "custom",
-      path: path,
-      reason: m$1
-    });
+    return invalidInputBuilder(undefined, undefined, m$1, undefined)(input);
   };
 }
 
 function embedInvalidInput(input, expectedOpt) {
   let expected = expectedOpt !== undefined ? expectedOpt : input.e;
-  let p = input.prev;
-  let received = p !== undefined ? p.s : input.s;
-  let path = input.path;
-  return failWithArg(input, value => makeInvalidInputDetails(expected, received, path, value, true, undefined), input.v());
+  return failWithArg(input, invalidInputBuilder(expected, undefined, undefined, undefined)(input), input.v());
 }
 
 function emitChecks(val, inputVar) {
@@ -964,11 +956,7 @@ function effectCtx(input) {
   return {
     fail: (message, pathOpt) => {
       let path = pathOpt !== undefined ? pathOpt : "";
-      let error = new SuryError({
-        code: "custom",
-        path: input.path + path,
-        reason: message
-      });
+      let error = new SuryError(invalidInputBuilder(undefined, path, message, false)(input)((void 0)));
       error["p"] = 1;
       throw error;
     }
@@ -2210,14 +2198,7 @@ function refine$1(schema, refineCheck, error, path) {
     let embeddedCheck = embed(input, refineCheck);
     return [{
         c: inputVar => embeddedCheck + "(" + inputVar + ")",
-        f: input => {
-          let path = extraPath === "" ? input.path : input.path + extraPath;
-          return _value => ({
-            code: "custom",
-            path: path,
-            reason: message
-          });
-        }
+        f: invalidInputBuilder(undefined, extraPath, message, undefined)
       }];
   }));
 }
@@ -2372,7 +2353,7 @@ function unionDecoder(input) {
   let initialInline = input.i;
   let fail = caught => embed(input, function () {
     let args = arguments;
-    let errorDetails = makeInvalidInputDetails(selfSchema, unknown, input.path, args[0], true, args.length > 1 ? Array.from(args).slice(1) : undefined);
+    let errorDetails = makeInvalidInputDetails(selfSchema, unknown, input.path, args[0], true, args.length > 1 ? Array.from(args).slice(1) : undefined, undefined);
     throw new SuryError(errorDetails);
   }) + "(" + input.v() + caught + ")";
   let output = refine(input, undefined, undefined, undefined);
@@ -2537,50 +2518,55 @@ function unionDecoder(input) {
   let byKey = {};
   let keys = [];
   let updatedSchemas = [];
+  let unionRefiner = selfSchema.refiner;
+  let unionInputRefiner = selfSchema.inputRefiner;
+  let cachedRefinerChecks = {
+    contents: undefined
+  };
+  let cachedInputRefinerChecks = {
+    contents: undefined
+  };
+  let attach = (current, source, cache) => {
+    if (source === undefined) {
+      return current;
+    }
+    let getCached = input => {
+      let checks = cache.contents;
+      if (checks !== undefined) {
+        return checks;
+      }
+      let checks$1 = source(input);
+      cache.contents = checks$1;
+      return checks$1;
+    };
+    if (current !== undefined) {
+      return input => {
+        let arr = current(input);
+        let next = getCached(input);
+        for (let i = 0, i_finish = next.length; i < i_finish; ++i) {
+          arr.push(next[i]);
+        }
+        return arr;
+      };
+    } else {
+      return getCached;
+    }
+  };
+  let appendUnionRefiners = mut => {
+    let r = attach(mut.refiner, unionRefiner, cachedRefinerChecks);
+    if (r !== undefined) {
+      mut.refiner = r;
+    }
+    let r$1 = attach(mut.inputRefiner, unionInputRefiner, cachedInputRefinerChecks);
+    if (r$1 !== undefined) {
+      mut.inputRefiner = r$1;
+      return;
+    }
+    
+  };
   for (let idx = 0; idx <= lastIdx; ++idx) {
     let schema = toPerCase !== undefined ? updateOutput(schemas[idx], mut => {
-        let unionRefiner = selfSchema.refiner;
-        let unionInputRefiner = selfSchema.inputRefiner;
-        let cachedRefinerChecks = {
-          contents: undefined
-        };
-        let cachedInputRefinerChecks = {
-          contents: undefined
-        };
-        let attach = (current, source, cache) => {
-          if (source === undefined) {
-            return current;
-          }
-          let getCached = input => {
-            let checks = cache.contents;
-            if (checks !== undefined) {
-              return checks;
-            }
-            let checks$1 = source(input);
-            cache.contents = checks$1;
-            return checks$1;
-          };
-          if (current !== undefined) {
-            return input => {
-              let arr = current(input);
-              let next = getCached(input);
-              for (let i = 0, i_finish = next.length; i < i_finish; ++i) {
-                arr.push(next[i]);
-              }
-              return arr;
-            };
-          } else {
-            return getCached;
-          }
-        };
-        let r = attach(mut.refiner, unionRefiner, cachedRefinerChecks);
-        if (r !== undefined) {
-          mut.refiner = r;
-        }
-        let r$1 = attach(mut.inputRefiner, unionInputRefiner, cachedInputRefinerChecks);
-        if (r$1 !== undefined) {
-          mut.inputRefiner = r$1;
-        }
+        appendUnionRefiners(mut);
         mut.to = toPerCase;
       }) : schemas[idx];
     updatedSchemas.push(schema);
@@ -3487,6 +3473,48 @@ function proxifyShapedSchema(schema, from, fromFlattened) {
   });
 }
 
+function traverseDefinition(definition, onNode) {
+  if (typeof definition !== "object" || definition === null) {
+    return parse(definition);
+  }
+  let s = onNode(definition);
+  if (s !== undefined) {
+    return s;
+  }
+  if (Array.isArray(definition)) {
+    for (let idx = 0, idx_finish = definition.length; idx < idx_finish; ++idx) {
+      let schema = traverseDefinition(definition[idx], onNode);
+      definition[idx] = schema;
+    }
+    let mut = base(arrayTag, false);
+    mut.items = definition;
+    mut.additionalItems = "strict";
+    mut.decoder = arrayDecoder;
+    return mut;
+  }
+  let cnstr = definition.constructor;
+  if (cnstr && cnstr !== Object) {
+    let mut$1 = base(instanceTag, true);
+    mut$1.class = cnstr;
+    mut$1.const = definition;
+    mut$1.decoder = literalDecoder;
+    return mut$1;
+  }
+  let fieldNames = Object.keys(definition);
+  let length = fieldNames.length;
+  for (let idx$1 = 0; idx$1 < length; ++idx$1) {
+    let location = fieldNames[idx$1];
+    let schema$1 = traverseDefinition(definition[location], onNode);
+    definition[location] = schema$1;
+  }
+  let mut$2 = base(objectTag, false);
+  mut$2.required = fieldNames;
+  mut$2.properties = definition;
+  mut$2.additionalItems = globalConfig.a;
+  mut$2.decoder = objectDecoder;
+  return mut$2;
+}
+
 function getValByFrom(_input, from, _idx) {
   while (true) {
     let idx = _idx;
@@ -3538,104 +3566,6 @@ function getShapedParserOutput(input, targetSchema) {
   v.prev = undefined;
   v.e = targetSchema;
   return v;
-}
-
-function traverseDefinition(definition, onNode) {
-  if (typeof definition !== "object" || definition === null) {
-    return parse(definition);
-  }
-  let s = onNode(definition);
-  if (s !== undefined) {
-    return s;
-  }
-  if (Array.isArray(definition)) {
-    for (let idx = 0, idx_finish = definition.length; idx < idx_finish; ++idx) {
-      let schema = traverseDefinition(definition[idx], onNode);
-      definition[idx] = schema;
-    }
-    let mut = base(arrayTag, false);
-    mut.items = definition;
-    mut.additionalItems = "strict";
-    mut.decoder = arrayDecoder;
-    return mut;
-  }
-  let cnstr = definition.constructor;
-  if (cnstr && cnstr !== Object) {
-    let mut$1 = base(instanceTag, true);
-    mut$1.class = cnstr;
-    mut$1.const = definition;
-    mut$1.decoder = literalDecoder;
-    return mut$1;
-  }
-  let fieldNames = Object.keys(definition);
-  let length = fieldNames.length;
-  for (let idx$1 = 0; idx$1 < length; ++idx$1) {
-    let location = fieldNames[idx$1];
-    let schema$1 = traverseDefinition(definition[location], onNode);
-    definition[location] = schema$1;
-  }
-  let mut$2 = base(objectTag, false);
-  mut$2.required = fieldNames;
-  mut$2.properties = definition;
-  mut$2.additionalItems = globalConfig.a;
-  mut$2.decoder = objectDecoder;
-  return mut$2;
-}
-
-function prepareShapedSerializerAcc(acc, input) {
-  let match = input.e;
-  let from = match.from;
-  if (from !== undefined) {
-    let fromFlattened = match.fromFlattened;
-    let accAtFrom;
-    if (fromFlattened !== undefined) {
-      if (acc.flattened === undefined) {
-        acc.flattened = [];
-      }
-      let acc$1 = acc.flattened[fromFlattened];
-      if (acc$1 !== undefined) {
-        accAtFrom = acc$1;
-      } else {
-        let newAcc = {};
-        acc.flattened[fromFlattened] = newAcc;
-        accAtFrom = newAcc;
-      }
-    } else {
-      accAtFrom = acc;
-    }
-    for (let idx = 0, idx_finish = from.length; idx < idx_finish; ++idx) {
-      let key = from[idx];
-      let p = accAtFrom.properties;
-      let p$1;
-      if (p !== undefined) {
-        p$1 = p;
-      } else {
-        let p$2 = {};
-        accAtFrom.properties = p$2;
-        p$1 = p$2;
-      }
-      let acc$2 = p$1[key];
-      let tmp;
-      if (acc$2 !== undefined) {
-        tmp = acc$2;
-      } else {
-        let newAcc$1 = {};
-        p$1[key] = newAcc$1;
-        tmp = newAcc$1;
-      }
-      accAtFrom = tmp;
-    }
-    accAtFrom.val = input;
-    return;
-  }
-  let vals = input.d;
-  if (vals === undefined) {
-    return;
-  }
-  let keys = Object.keys(vals);
-  for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
-    prepareShapedSerializerAcc(acc, vals[keys[idx$1]]);
-  }
 }
 
 function getShapedSerializerOutput(input, acc, targetSchema, path) {
@@ -3738,6 +3668,72 @@ function getShapedSerializerOutput(input, acc, targetSchema, path) {
   
 }
 
+function prepareShapedSerializerAcc(acc, input) {
+  let match = input.e;
+  let from = match.from;
+  if (from !== undefined) {
+    let fromFlattened = match.fromFlattened;
+    let accAtFrom;
+    if (fromFlattened !== undefined) {
+      if (acc.flattened === undefined) {
+        acc.flattened = [];
+      }
+      let acc$1 = acc.flattened[fromFlattened];
+      if (acc$1 !== undefined) {
+        accAtFrom = acc$1;
+      } else {
+        let newAcc = {};
+        acc.flattened[fromFlattened] = newAcc;
+        accAtFrom = newAcc;
+      }
+    } else {
+      accAtFrom = acc;
+    }
+    for (let idx = 0, idx_finish = from.length; idx < idx_finish; ++idx) {
+      let key = from[idx];
+      let p = accAtFrom.properties;
+      let p$1;
+      if (p !== undefined) {
+        p$1 = p;
+      } else {
+        let p$2 = {};
+        accAtFrom.properties = p$2;
+        p$1 = p$2;
+      }
+      let acc$2 = p$1[key];
+      let tmp;
+      if (acc$2 !== undefined) {
+        tmp = acc$2;
+      } else {
+        let newAcc$1 = {};
+        p$1[key] = newAcc$1;
+        tmp = newAcc$1;
+      }
+      accAtFrom = tmp;
+    }
+    accAtFrom.val = input;
+    return;
+  }
+  let vals = input.d;
+  if (vals === undefined) {
+    return;
+  }
+  let keys = Object.keys(vals);
+  for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
+    prepareShapedSerializerAcc(acc, vals[keys[idx$1]]);
+  }
+}
+
+function shapedSerializer(input) {
+  let acc = {};
+  prepareShapedSerializerAcc(acc, input);
+  let targetSchema = input.e.to;
+  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
+  output.t = true;
+  output.prev = input;
+  return output;
+}
+
 function nested(fieldName) {
   let parentCtx = this;
   let cacheId = "~" + fieldName;
@@ -3813,22 +3809,6 @@ function definitionToSchema(definition) {
   });
 }
 
-function shapedSerializer(input) {
-  let acc = {};
-  prepareShapedSerializerAcc(acc, input);
-  let targetSchema = input.e.to;
-  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
-  output.t = true;
-  output.prev = input;
-  return output;
-}
-
-function definitionToShapedSchema(definition) {
-  let s = copySchema(traverseDefinition(definition, toEmbededItem));
-  s.serializer = shapedSerializer;
-  return s;
-}
-
 function shapedParser(input) {
   let flattened = input.e.flattened;
   if (flattened !== undefined) {
@@ -3849,6 +3829,12 @@ function shapedParser(input) {
   output.t = true;
   output.prev = input;
   return markOutput(output, input);
+}
+
+function definitionToShapedSchema(definition) {
+  let s = copySchema(traverseDefinition(definition, toEmbededItem));
+  s.serializer = shapedSerializer;
+  return s;
 }
 
 function shape(schema, definer) {
@@ -4412,14 +4398,7 @@ function js_refine(schema, refineCheck, refineOptions) {
     let embeddedCheck = embed(input, refineCheck);
     return [{
         c: inputVar => embeddedCheck + "(" + inputVar + ")",
-        f: input => {
-          let path = extraPath === "" ? input.path : input.path + extraPath;
-          return _value => ({
-            code: "custom",
-            path: path,
-            reason: message
-          });
-        }
+        f: invalidInputBuilder(undefined, extraPath, message, undefined)
       }];
   }));
 }
@@ -4750,7 +4729,7 @@ function internalToJSONSchema(schema, path, defs, parent) {
         }
         break;
       default:
-        throw new SuryError(makeInvalidInputDetails(json(), flags[parent.type] & 256 ? parent : schema, path, 0, false, undefined));
+        throw new SuryError(makeInvalidInputDetails(json(), flags[parent.type] & 256 ? parent : schema, path, 0, false, undefined, undefined));
     }
     applyMetadataOverlay(jsonSchema, schema, defs);
     return jsonSchema;

@@ -324,7 +324,6 @@ and errorDetails =
       cause?: exn,
     })
   | @as("unrecognized_keys") UnrecognizedKeys({path: Path.t, reason: string, keys: array<string>})
-  | @as("custom") Custom({path: Path.t, reason: string})
 
 module Flag: {
   let none: flag
