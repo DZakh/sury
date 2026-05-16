@@ -4560,16 +4560,10 @@ let rec jsonEncoderFn = (~input, ~target) => {
   } else if toTagFlag->Flag.unsafeHas(TagFlag.union->Flag.with(TagFlag.ref)) {
     input
   } else {
-    // For non-JSON types (bigint, instance, etc.), try decoding through string
-    let coerced = try {
-      Some(input->B.refine(~schema=unknown, ~expected=string())->parse)
-    } catch {
-    | _ => None
-    }
-    switch coerced {
-    | Some(coerced) => coerced->B.refine(~expected=target)->parse
-    | None => input
-    }
+    // For non-JSON types (bigint, instance, etc.), decode through string
+    let jsonExpected = string()->copySchema
+    jsonExpected.to = Some(target)
+    input->B.refine(~schema=unknown, ~expected=jsonExpected)->parse
   }
 }
 
