@@ -294,7 +294,7 @@ test("Compiled serialize code snapshot", t => {
 
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[2](v0);return v0}`,
   )
 })
@@ -315,7 +315,7 @@ test("Compiled serialize code snapshot with two transforms", t => {
 
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[5](v0);let v1;try{v1=e[2](v0)}catch(x){e[3](x)}typeof v1==="string"||e[4](v1);return v1}`,
   )
 })

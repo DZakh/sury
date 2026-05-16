@@ -10,7 +10,7 @@ test("Object with a single nested field", t => {
     ~op=#Parse,
     `i=>{typeof i==="object"&&i||e[2](i);let v0=i["nested"];typeof v0==="object"&&v0||e[1](v0);let v1=v0["foo"];typeof v1==="string"||e[0](v1);return v1}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return {"nested":{"foo":i,},}}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"nested":{"foo":i,},}}`)
 })
 
 test("Object with a single nested field with S.nullAsOption", t => {
@@ -25,7 +25,7 @@ test("Object with a single nested field with S.nullAsOption", t => {
   )
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{if(i===void 0){i=null}else if(!(typeof i==="string")){e[0](i)}return {"nested":{"foo":i,},}}`,
   )
   t->Assert.deepEqual(
@@ -64,7 +64,7 @@ test("Object with a single nested field with S.transform", t => {
   )
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="number"&&!Number.isNaN(v0)||e[2](v0);return {"nested":{"foo":v0,},}}`,
   )
   t->Assert.deepEqual("123.4"->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{"nested":{"foo":123.4}}`))
@@ -88,7 +88,7 @@ test("Object with a nested tag and optional field", t => {
   )
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{return {"nested":{"tag":"value","foo":i["foo"],},"bar":i["bar"],}}`,
   )
 })
@@ -111,7 +111,7 @@ test("Object with a two nested field using the same ctx", t => {
   )
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{return {"nested":{"foo":i["foo"],"bar":i["bar"],},}}`,
   )
 })
@@ -128,7 +128,7 @@ test("Object with a single nested nested field", t => {
   )
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{return {"nested":{"deeply":{"foo":i,},},}}`,
   )
 })
@@ -150,7 +150,7 @@ test("Object with a two nested field calling s.nested twice", t => {
   )
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{return {"nested":{"foo":i["foo"],"bar":i["bar"],},}}`,
   )
 })
@@ -174,7 +174,7 @@ test("Object with a flattened nested field", t => {
     ~op=#Parse,
     `i=>{typeof i==="object"&&i||e[2](i);let v0=i["nested"];typeof v0==="object"&&v0||e[1](v0);let v1=v0["foo"];typeof v1==="string"||e[0](v1);return {"foo":v1,}}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return {"nested":{"foo":i["foo"],},}}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"nested":{"foo":i["foo"],},}}`)
 })
 
 test("Object with a strict flattened nested field", t => {
@@ -196,7 +196,7 @@ test("Object with a strict flattened nested field", t => {
     ~op=#Parse,
     `i=>{typeof i==="object"&&i||e[2](i);let v0=i["nested"];typeof v0==="object"&&v0||e[1](v0);let v1=v0["foo"];typeof v1==="string"||e[0](v1);return {"foo":v1,}}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return {"nested":{"foo":i["foo"],},}}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"nested":{"foo":i["foo"],},}}`)
 })
 
 test("S.schema object with a deep strict applied to the nested field parent", t => {
@@ -215,7 +215,7 @@ test("S.schema object with a deep strict applied to the nested field parent", t 
     ~op=#Parse,
     `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["nested"],v3;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["foo"],v2;typeof v1==="string"||e[0](v1);for(v2 in v0){if(v2!=="foo"){e[1](v2)}}for(v3 in i){if(v3!=="nested"){e[3](v3)}}return i}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{let v0=i["nested"];return i}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{let v0=i["nested"];return i}`)
 })
 
 test("Nested tags on reverse convert", t => {
@@ -247,7 +247,7 @@ test("Nested preprocessed tags on reverse convert", t => {
   })
 
   t->U.assertCompiledCode(
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     ~schema,
     `i=>{i===void 0||e[6](i);let v0;try{v0=e[0]("value")}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);let v1;try{v1=e[3]("1")}catch(x){e[4](x)}typeof v1==="string"||e[5](v1);return {"nested":{"tag":v0,"intTag":v1,},}}`,
   )
@@ -298,7 +298,7 @@ test("S.schema object with a deep strict applied to the nested field parent + re
   )
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{let v0=i["nested"];let v1=v0["foo"];if(v1===null){v1=void 0}else if(!(typeof v1==="string")){e[0](v1)}return {"nested":{"foo":v1,},}}`,
   )
 })
@@ -313,7 +313,7 @@ test("Object with a deep strict applied to the nested field parent", t => {
     ~op=#Parse,
     `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["nested"],v3;typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["foo"],v2;typeof v1==="string"||e[0](v1);for(v2 in v0){if(v2!=="foo"){e[1](v2)}}for(v3 in i){if(v3!=="nested"){e[3](v3)}}return v1}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return {"nested":{"foo":i,},}}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"nested":{"foo":i,},}}`)
 })
 
 test("Object with a deep strict applied to the nested field parent + reverse", t => {
@@ -334,7 +334,7 @@ test("Object with a deep strict applied to the nested field parent + reverse", t
   )
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{let v0=i["nested"];return {"foo":v0["foo"],}}`,
   )
 })
@@ -363,7 +363,7 @@ test("Object with nested field together with flatten", t => {
   )
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{let v0=i["flattened"];return {"nested":{"foo":v0["foo"],"bar":i["field"],},}}`,
   )
 })
@@ -475,7 +475,7 @@ test("s.nested.flattened does work with S.schema->S.shape to self", t => {
     ~op=#Parse,
     `i=>{typeof i==="object"&&i||e[2](i);let v0=i["nested"];typeof v0==="object"&&v0||e[1](v0);let v1=v0["foo"];typeof v1==="string"||e[0](v1);return {"foo":v1,}}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return {"nested":{"foo":i["foo"],},}}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"nested":{"foo":i["foo"],},}}`)
 })
 
 test("s.nested.flatten conflicts with s.nested.field", t => {

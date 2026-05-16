@@ -145,7 +145,7 @@ test("Expression of renamed schema", t => {
   )
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{try{e[0](i);}catch(e0){if(i===void 0){i=null}else{e[1](i,e0)}}return i}`,
   )
   t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))

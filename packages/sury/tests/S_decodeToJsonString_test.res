@@ -51,5 +51,5 @@ test("unknown <-> json string expects unknown to be a json string", t => {
     "Expected JSON string, received 123",
   )
   t->Assert.deepEqual(Obj.magic("123")->S.decodeOrThrow(~from=S.unknown, ~to=S.jsonString), "123")
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvertToJson, `i=>{e[0](i);return i}`)
+  t->U.assertCompiledCode(~schema, ~op=#EncodeToJson, `i=>{e[0](i);return i}`)
 })

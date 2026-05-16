@@ -714,7 +714,7 @@ module BenchmarkWithSObject = {
 
     t->U.assertCompiledCode(
       ~schema,
-      ~op=#ReverseConvert,
+      ~op=#Encode,
       `i=>{let v0=i["deeplyNested"];return {"number":i["number"],"negNumber":i["negNumber"],"maxNumber":i["maxNumber"],"string":i["string"],"longString":i["longString"],"boolean":i["boolean"],"deeplyNested":{"foo":v0["foo"],"num":v0["num"],"bool":v0["bool"],},}}`,
     )
     S.global({})
@@ -832,7 +832,7 @@ module Benchmark = {
 
     t->Assert.deepEqual(makeTestObject()->S.decodeOrThrow(~from=schema, ~to=S.unknown), makeTestObject())
 
-    t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{let v0=i["deeplyNested"];return i}`)
+    t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{let v0=i["deeplyNested"];return i}`)
     S.global({})
   })
 }
@@ -908,7 +908,7 @@ test("Reverse convert of object schema with single field registered multiple tim
 
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     // `i=>{let v0=i["field1"];if(v0!==i["field2"]){e[0]()}if(v0!==i["field3"]){e[1]()}return {"field":v0,}}`,
     `i=>{return {"field":i["field3"],}}`,
   )
@@ -923,7 +923,7 @@ test("Reverse convert of object schema with single field registered multiple tim
   //     code: InvalidOperation({
   //       description: `Another source has conflicting data for the field ["field"]`,
   //     }),
-  //     operation: ReverseConvert,
+  //     operation: Encode,
   //     path: S.Path.fromArray(["field3"]),
   //   },
   // )
@@ -962,7 +962,7 @@ test("Can destructure fields of simple nested objects", t => {
   )
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{return {"nested":{"foo":i["foz"],"bar":i["baz"],},}}`,
   )
 })
@@ -1029,7 +1029,7 @@ module Compiled = {
     )
     t->U.assertCompiledCode(
       ~schema,
-      ~op=#ReverseConvert,
+      ~op=#Encode,
       `i=>{return {"foo":i["foo"],"bar":i["bar"],}}`,
     )
   })
@@ -1057,7 +1057,7 @@ module Compiled = {
     )
     t->U.assertCompiledCode(
       ~schema,
-      ~op=#ReverseConvert,
+      ~op=#Encode,
       `i=>{let v0=i["bar"];e[0](v0)||e[1](v0);return {"foo":12,"bar":{"baz":v0["baz"],},}}`,
     )
   })
@@ -1114,7 +1114,7 @@ module Compiled = {
 
     t->U.assertCompiledCode(
       ~schema,
-      ~op=#ReverseConvert,
+      ~op=#Encode,
       `i=>{return {"foo":i["foo"],"bar":i["bar"],}}`,
     )
   })
@@ -1131,7 +1131,7 @@ module Compiled = {
       ~op=#Parse,
       `i=>{typeof i==="object"&&i||e[2](i);let v1=i["nested"];typeof v1==="object"&&v1&&!Array.isArray(v1)||e[1](v1);let v0;for(v0 in v1){if(true){e[0](v0)}}return {"nested":void 0,}}`,
     )
-    t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return {"nested":{},}}`)
+    t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"nested":{},}}`)
   })
 
   test(
@@ -1168,7 +1168,7 @@ module Compiled = {
 
       t->U.assertCompiledCode(
         ~schema,
-        ~op=#ReverseConvert,
+        ~op=#Encode,
         `i=>{return {"tag":0,"FOO":i["foo"],"BAR":i["bar"],}}`,
       )
     },
@@ -1216,7 +1216,7 @@ test("Compiles to async serialize operation with the sync object schema", t => {
   let schema = S.object(_ => ())
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvertAsync,
+    ~op=#EncodeAsync,
     `i=>{i===void 0||e[0](i);return Promise.resolve({})}`,
   )
 })
@@ -1273,7 +1273,7 @@ test("Reverse object with discriminant which is an object transformed to literal
 
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{return {"kind":{"nestedKind":"test",},"field":i,}}`,
   )
 

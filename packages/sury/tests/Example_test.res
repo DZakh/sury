@@ -66,7 +66,7 @@ test("Example", t => {
   // FIXME: This can be improved, currently we run unknown->json decoder for optional deprecatedAgeRestriction
   t->U.assertCompiledCode(
     ~schema=filmSchema,
-    ~op=#ReverseConvertToJson,
+    ~op=#EncodeToJson,
     `i=>{let v0=i["tags"],v3=i["deprecatedAgeRestriction"];let v5;try{v3===void 0||e[0](v3);}catch(e1){try{try{e[1](v3);}catch(v4){v4.path="[\\"deprecatedAgeRestriction\\"]"+v4.path;throw v4}}catch(e2){e[2](v3,e1,e2)}}v5={"Id":i["id"],"Title":i["title"],"Tags":v0,"Rating":i["rating"],};if(v3!==void 0){v5["Age"]=v3}return v5}`,
   )
 })
@@ -82,7 +82,7 @@ test("Compiled parse code snapshot", t => {
 test("Compiled serialize code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema=filmSchema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{let v0=i["tags"];return {"Id":i["id"],"Title":i["title"],"Tags":v0,"Rating":i["rating"],"Age":i["deprecatedAgeRestriction"],}}`,
   )
 })

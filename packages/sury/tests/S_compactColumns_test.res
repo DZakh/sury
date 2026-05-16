@@ -20,7 +20,7 @@ test("Successfully parses and reverse converts a simple object with compactColum
   )
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}let v4=[new Array(i.length),new Array(i.length),];for(let v3=0;v3<i.length;++v3){v4[0][v3]=i[v3]["foo"];v4[1][v3]=i[v3]["bar"];}return v4}`,
   )
 
@@ -55,7 +55,7 @@ test("Transforms nullable fields", t => {
   )
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{let v4=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];let v2=v1["bar"];if(v2===void 0){v2=null}else if(!(typeof v2==="number"&&!Number.isNaN(v2)&&(v2<=2147483647&&v2>=-2147483648&&v2%1===0))){e[0](v2)}v4[v0]={"foo":v1["foo"],"bar":v2,}}catch(v3){v3.path='["'+v0+'"]'+v3.path;throw v3}}let v6=[new Array(v4.length),new Array(v4.length),];for(let v5=0;v5<v4.length;++v5){v6[0][v5]=v4[v5]["foo"];v6[1][v5]=v4[v5]["bar"];}return v6}`,
   )
 
@@ -90,7 +90,7 @@ test("Case with missing item at the end", t => {
   )
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}let v4=[new Array(i.length),new Array(i.length),];for(let v3=0;v3<i.length;++v3){v4[0][v3]=i[v3]["foo"];v4[1][v3]=i[v3]["bar"];}return v4}`,
   )
 
@@ -360,7 +360,7 @@ test("Field with S.refine", t => {
   )
 })
 
-test("reverseConvertToJsonOrThrow with nullable field", t => {
+test("decodeToJson with nullable field", t => {
   let schema =
     S.compactColumns(S.unknown)->S.to(
       S.array(
@@ -380,7 +380,7 @@ test("reverseConvertToJsonOrThrow with nullable field", t => {
   )
 })
 
-test("Roundtrip: parse -> reverseConvert -> parse", t => {
+test("Roundtrip: parse -> encode -> parse", t => {
   let schema =
     S.compactColumns(S.unknown)->S.to(
       S.array(
@@ -399,7 +399,7 @@ test("Roundtrip: parse -> reverseConvert -> parse", t => {
   t->Assert.deepEqual(rows, roundtripped)
 })
 
-test("reverseConvertToJsonOrThrow validates non-JSON-able unknown field values", t => {
+test("decodeToJson validates non-JSON-able unknown field values", t => {
   let schema =
     S.compactColumns(S.unknown)->S.to(
       S.array(

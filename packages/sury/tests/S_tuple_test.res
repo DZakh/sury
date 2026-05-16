@@ -69,7 +69,7 @@ test("Fails to parse tuple with holes", t => {
 test("Successfully serializes tuple with holes", t => {
   let schema = S.tuple(s => (s.item(0, S.string), s.item(2, S.int)))
 
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return [i["0"],void 0,i["1"],]}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return [i["0"],void 0,i["1"],]}`)
   t->Assert.deepEqual(("value", 123)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`["value",, 123]`))
 })
 
@@ -84,7 +84,7 @@ test("Reverse convert of tuple schema with single item registered multiple times
 
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     // `i=>{let v0=i["item1"];if(v0!==i["item2"]){e[0]()}return [v0,]}`,
     `i=>{return [i["item2"],]}`,
   )
@@ -99,7 +99,7 @@ test("Reverse convert of tuple schema with single item registered multiple times
   //     code: InvalidOperation({
   //       description: `Another source has conflicting data for the field ["0"]`,
   //     }),
-  //     operation: ReverseConvert,
+  //     operation: Encode,
   //     path: S.Path.fromArray(["item2"]),
   //   },
   // )
@@ -258,14 +258,14 @@ module Compiled = {
   test("Compiled serialize code snapshot for simple tuple", t => {
     let schema = S.tuple(s => (s.item(0, S.string), s.item(1, S.bool)))
 
-    t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return [i["0"],i["1"],]}`)
+    t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return [i["0"],i["1"],]}`)
   })
 
   test("Compiled serialize code snapshot for empty tuple", t => {
     let schema = S.tuple(_ => ())
 
     // TODO: No need to do unit check ?
-    t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{i===void 0||e[0](i);return []}`)
+    t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{i===void 0||e[0](i);return []}`)
   })
 
   test(
@@ -300,7 +300,7 @@ module Compiled = {
         }
       })
 
-      t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return [0,i["foo"],i["bar"],]}`)
+      t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return [0,i["foo"],i["bar"],]}`)
     },
   )
 }

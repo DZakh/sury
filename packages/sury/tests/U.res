@@ -73,11 +73,11 @@ let getCompiledCodeString = (
     | #ParseAsync
     | #Convert
     | #ConvertAsync
-    | #ReverseConvertAsync
-    | #ReverseConvert
+    | #EncodeAsync
+    | #Encode
     | #ReverseParse
     | #Assert
-    | #ReverseConvertToJson
+    | #EncodeToJson
   ],
   ~embedded=?,
 ) => {
@@ -102,15 +102,15 @@ let getCompiledCodeString = (
         let fn = S.decoder(~from=S.unknown, ~to=schema->S.reverse)
         fn->magic
       }
-    | #ReverseConvert => {
+    | #Encode => {
         let fn = S.decoder(~from=schema, ~to=S.unknown)
         fn->magic
       }
-    | #ReverseConvertAsync => {
+    | #EncodeAsync => {
         let fn = S.asyncDecoder(~from=schema, ~to=S.unknown)
         fn->magic
       }
-    | #ReverseConvertToJson => {
+    | #EncodeToJson => {
         let fn = S.decoder(~from=schema, ~to=S.json)
         fn->magic
       }

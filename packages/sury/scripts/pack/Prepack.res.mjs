@@ -75,12 +75,6 @@ var filesMapping = [
   ["convertOrThrow", "S.convertOrThrow"],
   ["convertToJsonOrThrow", "S.convertToJsonOrThrow"],
   ["convertToJsonStringOrThrow", "S.convertToJsonStringOrThrow"],
-  ["reverseConvertOrThrow", "S.reverseConvertOrThrow"],
-  ["reverseConvertToJsonOrThrow", "S.reverseConvertToJsonOrThrow"],
-  [
-    "reverseConvertToJsonStringOrThrow",
-    "  S.reverseConvertToJsonStringOrThrow",
-  ],
   ["parseOrThrow", "S.parseOrThrow"],
   ["parseJsonOrThrow", "S.parseJsonOrThrow"],
   ["parseJsonStringOrThrow", "S.parseJsonStringOrThrow"],

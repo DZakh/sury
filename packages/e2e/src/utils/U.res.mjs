@@ -90,9 +90,9 @@ function getCompiledCodeString(schema, op) {
       return S.asyncDecoder(S.unknown, schema);
     } else if (op === "Parse") {
       return S.decoder(S.unknown, schema);
-    } else if (op === "ReverseConvertToJson") {
+    } else if (op === "EncodeToJson") {
       return S.decoder(schema, S.json);
-    } else if (op === "ReverseConvert") {
+    } else if (op === "Encode") {
       return S.decoder(schema, S.unknown);
     } else if (op === "Convert") {
       return S.decoder(S.reverse(schema), S.unknown);
