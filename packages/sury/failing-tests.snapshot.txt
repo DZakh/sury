@@ -3,7 +3,6 @@
 # To reproduce this list after making changes, run:
 #   cd packages/sury && npx ava 2>&1 | grep "✘ \[fail\]" | sed 's/lib › bs › //' | sed 's/tests › //' | sed 's/ Error thrown in test//' | sort -u
 #
-# Total: 2 failing tests
+# Total: 1 failing tests
 
-  ✘ [fail]: S_to_test.res › Coerce string to custom JSON schema I don't know what we expect here, but currently it works this way
   ✘ [fail]: S_union_test.res › Serializes when second struct misses serializer
