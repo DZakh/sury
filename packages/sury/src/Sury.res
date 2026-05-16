@@ -1256,6 +1256,7 @@ module Builder = {
 
     // Checks run against `prev.var()`, so the runtime type at check time
     // is `prev.schema`, not the post-narrowing schema on the current val.
+    @inline
     let receivedSchema = (val: val) =>
       switch val.prev {
       | Some(p) => p.schema->castToPublic

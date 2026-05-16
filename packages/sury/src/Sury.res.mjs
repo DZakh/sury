@@ -535,15 +535,6 @@ function makeInvalidConversionDetails(input, to, cause) {
   };
 }
 
-function receivedSchema(val) {
-  let p = val.prev;
-  if (p !== undefined) {
-    return p.s;
-  } else {
-    return val.s;
-  }
-}
-
 function makeInvalidInputDetails(expected, received, path, input, includeInput, unionErrors, reasonOverride) {
   let reasonRef = reasonOverride !== undefined ? reasonOverride : "Expected " + toExpression(expected) + ", received " + (
       includeInput ? stringify(input) : toExpression(received)
@@ -582,7 +573,8 @@ function invalidInputBuilder(expected, $staropt$star, reasonOverride, $staropt$s
     let extraPath = $staropt$star !== undefined ? $staropt$star : "";
     let includeInput = $staropt$star$1 !== undefined ? $staropt$star$1 : true;
     let expected$1 = expected !== undefined ? expected : input.e;
-    let received = receivedSchema(input);
+    let p = input.prev;
+    let received = p !== undefined ? p.s : input.s;
     let path = extraPath === "" ? input.path : input.path + extraPath;
     return value => makeInvalidInputDetails(expected$1, received, path, value, includeInput, undefined, reasonOverride);
   };
