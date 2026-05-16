@@ -3405,10 +3405,14 @@ let recursive = (name, fn) => {
     globalConfig.defsAccumulator = Some(Js.Dict.empty())
   }
   let def = fn(refSchema->castToPublic)->castToInternal
-  if def.name->Obj.magic {
+  let def = if def.name->Obj.magic {
     refSchema.name = def.name
+    def
   } else {
+    // Avoid mutating shared schema instances (e.g. cached primitives like S.string).
+    let def = def->copySchema
     def.name = Some(name)
+    def
   }
   globalConfig.defsAccumulator
   ->X.Option.getUnsafe

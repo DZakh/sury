@@ -2161,10 +2161,13 @@ function recursive(name, fn) {
   if (!isNestedRec) {
     globalConfig.d = {};
   }
-  let def = fn(refSchema);
-  if (def.name) {
-    refSchema.name = def.name;
+  let def$0 = fn(refSchema);
+  let def;
+  if (def$0.name) {
+    refSchema.name = def$0.name;
+    def = def$0;
   } else {
+    def = copySchema(def$0);
     def.name = name;
   }
   globalConfig.d[name] = def;
