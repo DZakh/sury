@@ -1,6 +1,6 @@
 {
   "name": "sury",
-  "version": "11.0.0-alpha.3",
+  "version": "11.0.0-alpha.5",
   "private": true,
   "description": "🧬 The fastest schema with next-gen DX",
   "keywords": [
@@ -33,6 +33,18 @@
   "main": "./src/S.js",
   "module": "./src/S.mjs",
   "types": "./src/S.d.ts",
+  "exports": {
+    ".": {
+      "import": "./src/S.mjs",
+      "require": "./src/S.js",
+      "types": "./src/S.d.ts"
+    },
+    "./src/*": "./src/*",
+    "./S.gen.js": {
+      "types": "./src/S.gen.d.ts"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "src",
     "rescript.json"

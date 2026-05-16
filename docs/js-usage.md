@@ -35,6 +35,7 @@
 - [Unions](#unions)
   - [Discriminated unions](#discriminated-unions)
   - [Enums](#enums)
+  - [Decoding into / out of a union](#decoding-into--out-of-a-union)
 - [Records](#records)
 - [JSON](#json)
 - [JSON string](#json-string)
@@ -49,8 +50,9 @@
   - [`transform`](#transforms)
   - [`shape`](#shape)
 - [Functions on schema](#functions-on-schema)
+  - [The mental model: pipelines, not operations](#the-mental-model-pipelines-not-operations)
   - [Built-in operations](#built-in-operations)
-  - [`compile`](#compile)
+  - [Chaining operations](#chaining-operations)
   - [`reverse`](#reverse)
   - [`to`](#to)
   - [`standard`](#standard)
@@ -122,7 +124,7 @@ if (!result.success) {
 }
 ```
 
-> 🧠 Besides `parser` there are also built-in operations to transform the data without validation, assert without allocating output, serialize back to the initial format and more. If somebody is missing in built-in operations, you can use `S.compile` to create a custom one.
+> 🧠 Besides `parser` there are also built-in operations to transform the data without validation, assert without allocating output, serialize back to the initial format and more. For more advanced pipelines, chain schemas with `S.decoder(input, …intermediate, output)` or `S.encoder(output, …intermediate, input)`.
 
 ### Inferred types
 
@@ -853,6 +855,47 @@ const schema = S.union(["Win", "Draw", "Loss"]);
 type Schema = S.Infer<typeof schema>; // "Win" | "Draw" | "Loss"
 ```
 
+### Decoding into / out of a union
+
+When you compile `source -> targetUnion` (via `S.to`, or implicitly by reversing the schema), Sury picks the target variant using a three-tier algorithm based on the source's **derived tag** — the tag known at compile time, which may be narrower than the original type (an upstream transformation can refine it). If the source is itself a union, the algorithm runs independently for each source variant.
+
+If the source is `unknown` (no derived tag), the tag-based tiers are skipped and target variants are simply attempted in target-union order at runtime.
+
+1. **Same-tag group.** Collect target variants sharing the source's tag. If non-empty, match only within this group: variants with a matching `const`/`format` (string literals, `Int32`, etc.) are tried first in target-union order, then any remaining catch-all same-tag variants. Variants with a different tag are never tried from here — if every branch in the group fails, the match errors.
+2. **Nullish bridge.** Used only when tier 1 is empty. If the source tag is `null` or `undefined`, use the opposite nullish target variant (if present), exclusively.
+3. **Fallback.** Used only when tiers 1 and 2 are both empty. Build a decoder for every target variant in target-union order. Cross-type coercions live here: `number`/`bigint` → `string` via `"" + i`, `string` → `number` via `+i`, `string` → `bigint` via `BigInt(i)`, stringified-const matches like `"null" → null`, and more.
+
+**Worked example** — `S.union([S.bigint, S.number, null]).with(S.to, S.union([S.string, undefined]))`:
+
+Forward:
+
+- `123n` → `"123"` (tier 3: bigint → string)
+- `123.12` → `"123.12"` (tier 3: number → string)
+- `null` → `undefined` (tier 2: nullish bridge)
+
+Reverse (via `S.encoder`):
+
+- `"null"` → `null` (tier 3: stringified-const literal match)
+- `undefined` → `null` (tier 2: nullish bridge)
+- `"123"` → `123n` (tier 3: bigint attempted first by target order; parse succeeds)
+- `"123.12"` → `123.12` (tier 3: bigint parse throws, falls through to number)
+- `"abc"` → error (tier 3: no variant's decoder succeeds)
+
+**Identity wins over coercion.** For `S.union([S.string, S.bigint]).with(S.to, S.union([S.number, S.string]))`:
+
+- `"123"` → `"123"` (tier 1: `string` matches `string`, never coerced to `number` even though a `number` target exists)
+- `123n` → `"123"` (tier 3: no `bigint` target, falls through to `string` via `"" + i`)
+
+To opt into `string → number` when a `string` target also exists, write the transform into a variant explicitly:
+
+```ts
+S.union([S.string.with(S.to, S.number), S.string]);
+```
+
+The transformed variant is const/format-refined relative to the catch-all `string` and matches first within tier 1.
+
+> 🧠 Union conversion always performs exhaustive validation now — every variant is checked, so transformed unions stay consistent across decode and encode.
+
 ## Records
 
 Record schema is used to validate types such as `{ [k: string]: number }`.
@@ -1120,6 +1163,52 @@ S.encoder(circleSchema)({ kind: "circle", radius: 1 }); //? 1
 
 ## Functions on schema
 
+### The mental model: pipelines, not operations
+
+If you've used other validation libraries, you're used to a separate function for every input/output pair: `parseJson`, `parseJsonString`, `convertToJson`, `convertToJsonString`, and so on. **Sury treats those targets as schemas instead.** `S.json`, `S.jsonString`, `S.unknown`, `S.date`, `S.uint8Array` — none of them are special, they're just schemas like any other.
+
+The two operation functions you need are:
+
+- **`S.decoder(from, …intermediate, to)`** — compile a forward pipeline from one schema to another.
+- **`S.encoder(from, …intermediate, to)`** — compile the reverse pipeline.
+
+Every call fuses the whole chain into a single ultra-optimized function generated via `new Function`, so adding stages costs you nothing at runtime.
+
+```ts
+// Validate unknown input.
+S.parser(userSchema)(data);
+
+// Parse a JSON string, then validate.
+S.decoder(S.jsonString, userSchema)(rawString);
+
+// Encode a domain value all the way out to a JSON string.
+S.encoder(userSchema, S.jsonString)(user);
+
+// Decode a binary payload of UTF-8 JSON, then validate.
+S.decoder(S.uint8Array, S.jsonString, userSchema)(bytes);
+```
+
+You're no longer picking from a fixed menu of operations — you're describing the shape of the data at each stage and letting Sury compile the path.
+
+The **same pipeline idea works inside schemas** via [`S.to`](#to). A field, an array element, a tuple slot — any nested schema can be its own multi-stage chain:
+
+```ts
+const apiUser = S.schema({
+  // Arrives as a JSON string, which is parsed and validated as an array of addresses.
+  addresses: S.jsonString.with(S.to, S.array(addressSchema)),
+
+  // Arrives as bytes, decoded as UTF-8, mapped to a Date.
+  createdAt: S.uint8Array.with(S.to, S.string).with(S.to, S.date),
+
+  // Element-level transforms work the same way.
+  ids: S.array(S.string.with(S.to, S.bigint)),
+});
+```
+
+`S.to` is the same compiler as `S.decoder` / `S.encoder`, just used at a single point in a larger schema. The whole tree — top-level operation plus every nested `S.to` — still folds into one generated function, so deep pipelines stay free of runtime overhead.
+
+> 🧠 `S.parser` and `S.assert` aren't separate primitives — they're just specializations of `S.decoder` with `S.unknown` on the input side. `S.parser(schema)` is `S.decoder(S.unknown, schema)`. `S.assert(schema, data)` runs a decoder from `S.unknown` *through* the schema *to* `S.literal(true).with(S.noValidation, true)` — the target is a no-op constant with validation disabled, so the compiler emits the schema's validation but no output-construction code at all. That's why `assert` is 2–3× faster than `parser`.
+
 ### Built-in operations
 
 The library provides a bunch of built-in operations that can be used to parse, convert, and assert values.
@@ -1163,44 +1252,21 @@ All operations either return the output value or throw an error. For convinient 
 const result = S.safe(() => S.parser(S.string)(123));
 ```
 
-### **`compile`**
+### Chaining operations
 
-If you want to have the most possible performance, or the built-in operations doesn't cover your specific use case, you can use `compile` to create fine-tuned operation functions.
+`S.decoder` and `S.encoder` accept multiple schemas to build a single fused pipeline. The first schema is the input side and the last is the output side; intermediate schemas act as stages.
 
 ```ts
-const operation = S.compile(S.string, "Any", "Assert", "Async");
-typeof operation; // => (input: unknown) => Promise<void>
-await operation("Hello world!");
-// ()
+// Decode a JSON string into your domain type in one pass
+const parseJsonString = S.decoder(S.jsonString, userSchema);
+parseJsonString('{"id":"1","name":"John"}');
+
+// Encode your domain type to a JSON string in one pass
+const stringifyUser = S.encoder(userSchema, S.jsonString);
+stringifyUser({ id: "1", name: "John" });
 ```
 
-For example, in the example above we've created an async assert operation, which is not available by default.
-
-You can configure compiled function `input` with the following options:
-
-- `Output` - accepts `Output` of `Schema<Output, Input>` and reverses the operation
-- `Input` - accepts `Input` of `Schema<Output, Input>` which only affects the operation function argument type
-- `Any` - accepts `unknown`
-- `Json` - accepts `Json`
-- `JsonString` - accepts `string` and applies `JSON.parse` before parsing
-
-You can configure compiled function `output` with the following options:
-
-- `Output` - returns `Output` of `Schema<Output, Input>`
-- `Input` - returns `Input` of `Schema<Output, Input>`
-- `Assert` - returns `void` with `asserts data is T` guard
-- `Json` - validates that the schema is JSON compatible and returns `Js.Json.t`
-- `JsonString` - validates that the schema is JSON compatible and converts output to JSON string
-
-You can configure compiled function `mode` with the following options:
-
-- `Sync` - for sync operations
-- `Async` - for async operations - will wrap return value in a promise
-
-And you can configure compiled function `typeValidation` with the following options:
-
-- `true (default)` - performs type validation
-- `false` - doesn't perform type validation and only converts data to the output format. Note that refines are still applied.
+This covers the use cases that previously needed `S.compile` — see the [migration cheat sheet](/IDEAS.md#typescript--javascript) for the full mapping.
 
 ### **`reverse`**
 

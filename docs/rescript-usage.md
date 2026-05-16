@@ -920,6 +920,47 @@ Also, you can use `S.enum` as a shorthand for the use case above.
 let schema = S.enum([Win, Draw, Loss])
 ```
 
+#### Decoding into / out of a union
+
+When you compile `source -> targetUnion` (via `S.to`, or implicitly by reversing the schema), Sury picks the target variant using a three-tier algorithm based on the source's **derived tag** — the tag known at compile time, which may be narrower than the original type (an upstream transformation can refine it). If the source is itself a union, the algorithm runs independently for each source variant.
+
+If the source is `unknown` (no derived tag), the tag-based tiers are skipped and target variants are simply attempted in target-union order at runtime.
+
+1. **Same-tag group.** Collect target variants sharing the source's tag. If non-empty, match only within this group: variants with a matching `const`/`format` (string literals, `Int32`, etc.) are tried first in target-union order, then any remaining catch-all same-tag variants. Variants with a different tag are never tried from here — if every branch in the group fails, the match errors.
+2. **Nullish bridge.** Used only when tier 1 is empty. If the source tag is `null` or `undefined`, use the opposite nullish target variant (if present), exclusively.
+3. **Fallback.** Used only when tiers 1 and 2 are both empty. Build a decoder for every target variant in target-union order. Cross-type coercions live here: `int`/`bigint` → `string` via `"" ++ i`, `string` → `float` via `Float.fromString`, `string` → `bigint` via `BigInt.fromString`, stringified-const matches like `"null" → null`, and more.
+
+**Worked example** — `S.union([S.bigint, S.float, S.nullLiteral])->S.to(S.union([S.string, S.unit]))`:
+
+Forward:
+
+- `123n` → `"123"` (tier 3: bigint → string)
+- `123.12` → `"123.12"` (tier 3: float → string)
+- `null` → `undefined` (tier 2: nullish bridge)
+
+Reverse (via `S.decodeOrThrow(~from=schema, ~to=S.unknown)`):
+
+- `"null"` → `null` (tier 3: stringified-const literal match)
+- `undefined` → `null` (tier 2: nullish bridge)
+- `"123"` → `123n` (tier 3: bigint attempted first by target order; parse succeeds)
+- `"123.12"` → `123.12` (tier 3: bigint parse throws, falls through to float)
+- `"abc"` → error (tier 3: no variant's decoder succeeds)
+
+**Identity wins over coercion.** For `S.union([S.string, S.bigint])->S.to(S.union([S.float, S.string]))`:
+
+- `"123"` → `"123"` (tier 1: `string` matches `string`, never coerced to `float` even though a `float` target exists)
+- `123n` → `"123"` (tier 3: no `bigint` target, falls through to `string` via `"" ++ i`)
+
+To opt into `string → float` when a `string` target also exists, write the transform into a variant explicitly:
+
+```rescript
+S.union([S.string->S.to(S.float), S.string])
+```
+
+The transformed variant is const/format-refined relative to the catch-all `string` and matches first within tier 1.
+
+> 🧠 Union conversion always performs exhaustive validation now — every variant is checked, so transformed unions stay consistent across decode and encode.
+
 ### **`array`**
 
 `S.t<'value> => S.t<array<'value>>`
@@ -1387,6 +1428,48 @@ await "1"->S.parseAsyncOrThrow(~to=userSchema)
 ```
 
 ## Functions on schema
+
+### The mental model: pipelines, not operations
+
+If you're coming from earlier Sury releases (or from any other validation library), you're used to a separate function for every input/output pair: `parseJsonOrThrow`, `parseJsonStringOrThrow`, `reverseConvertToJsonOrThrow`, and so on. **Sury treats those targets as schemas instead.** `S.json`, `S.jsonString`, `S.unknown`, `S.date`, `S.uint8Array` — none of them are special, they're just schemas like any other.
+
+So instead of a fixed menu of operations, you describe the shape of the data at each stage with `~from` and `~to`, and Sury compiles the whole pipeline into a single ultra-optimized function via `new Function`. Adding stages costs you nothing at runtime.
+
+```rescript
+// Validate any input value.
+data->S.parseOrThrow(~to=userSchema)
+
+// Parse a JSON string, then validate.
+rawString->S.decodeOrThrow(~from=S.jsonString, ~to=userSchema)
+
+// Encode a domain value all the way out to a JSON string.
+user->S.decodeOrThrow(~from=userSchema, ~to=S.jsonString)
+
+// Pre-compile pipelines once, call them many times.
+let parseJsonUser = S.decoder(~from=S.jsonString, ~to=userSchema)
+let stringifyUser = S.decoder(~from=userSchema, ~to=S.jsonString)
+```
+
+The **same pipeline idea works inside schemas** via [`S.to`](#to). A field, an array element, a tuple slot — any nested schema can be its own multi-stage chain:
+
+```rescript
+let apiUserSchema = S.schema(s =>
+  {
+    // Arrives as a JSON string, which is parsed and validated as an array of addresses.
+    "addresses": s.field("addresses", S.jsonString->S.to(S.array(addressSchema))),
+
+    // Arrives as bytes, decoded as UTF-8, mapped to a Date.
+    "createdAt": s.field("createdAt", S.uint8Array->S.to(S.string)->S.to(S.date)),
+
+    // Element-level transforms work the same way.
+    "ids": s.field("ids", S.array(S.string->S.to(S.bigint))),
+  }
+)
+```
+
+`S.to` is the same compiler as `S.decoder` and `S.decodeOrThrow`, just used at a single point in a larger schema. The whole tree — top-level operation plus every nested `S.to` — still folds into one generated function, so deep pipelines stay free of runtime overhead.
+
+> 🧠 `S.parseOrThrow` and `S.assertOrThrow` aren't separate primitives — they're just specializations of `S.decodeOrThrow` with `S.unknown` on the input side. `data->S.parseOrThrow(~to=schema)` is `data->S.decodeOrThrow(~from=S.unknown, ~to=schema)`. `data->S.assertOrThrow(~to=schema)` runs a decoder from `S.unknown` through the schema to `S.literal(true)->S.noValidation(true)` — the target is a no-op constant with validation disabled, so the compiler emits the schema's validation but no output-construction code at all. That's why `assertOrThrow` is 2–3× faster than `parseOrThrow`.
 
 ### Built-in operations
 
