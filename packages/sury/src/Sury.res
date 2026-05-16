@@ -1254,6 +1254,14 @@ module Builder = {
       }
     }
 
+    // Checks run against `prev.var()`, so the runtime type at check time
+    // is `prev.schema`, not the post-narrowing schema on the current val.
+    let receivedSchema = (val: val) =>
+      switch val.prev {
+      | Some(p) => p.schema->castToPublic
+      | None => val.schema->castToPublic
+      }
+
     let makeInvalidInputDetails = (
       ~expected,
       ~received,
@@ -1315,14 +1323,7 @@ module Builder = {
       // Snapshot the three fields up front so the returned closure doesn't
       // retain `input` — otherwise the compiled decoder's embed array would
       // pin the entire val chain (prev, global, schemas) for its lifetime.
-      //
-      // Use prev.schema when available: checks run against prev.var(), so the
-      // value's actual runtime type at check time is prev.schema, not the
-      // post-narrowing schema stored on the current val.
-      let received = switch input.prev {
-      | Some(p) => p.schema->castToPublic
-      | None => input.schema->castToPublic
-      }
+      let received = input->receivedSchema
       let path = input.path
       let expected = input.expected
       let override = switch expected.errorMessage {
@@ -1359,10 +1360,7 @@ module Builder = {
         }
         switch (override, defaultMessage) {
         | (Some(m), _) | (None, Some(m)) => {
-            let received = switch input.prev {
-            | Some(p) => p.schema->castToPublic
-            | None => input.schema->castToPublic
-            }
+            let received = input->receivedSchema
             let path = input.path
             let expected = input.expected
             value =>
@@ -1384,10 +1382,7 @@ module Builder = {
     // that splice errors into custom JS (e.g. `catch(_){${embedInvalidInput}}`),
     // not via the `check` pipeline.
     let embedInvalidInput = (~input: val, ~expected=input.expected) => {
-      let received = switch input.prev {
-      | Some(p) => p.schema->castToPublic
-      | None => input.schema->castToPublic
-      }
+      let received = input->receivedSchema
       let path = input.path
       input->failWithArg(
         value =>
@@ -1828,10 +1823,7 @@ module Builder = {
     }
 
     let fail = (b: val, ~message) => {
-      let received = switch b.prev {
-      | Some(p) => p.schema->castToPublic
-      | None => b.schema->castToPublic
-      }
+      let received = b->receivedSchema
       let expected = b.expected
       let path = b.path
       `${b->embed(() => {
@@ -1849,10 +1841,7 @@ module Builder = {
     }
 
     let effectCtx = (input: val) => {
-      let received = switch input.prev {
-      | Some(p) => p.schema->castToPublic
-      | None => input.schema->castToPublic
-      }
+      let received = input->receivedSchema
       let expected = input.expected
       let basePath = input.path
       {
@@ -3522,10 +3511,7 @@ let refine: (t<'value>, 'value => bool, ~error: string=?, ~path: array<string>=?
         {
           cond: (~inputVar) => `${embeddedCheck}(${inputVar})`,
           fail: (~input) => {
-            let received = switch input.prev {
-            | Some(p) => p.schema->castToPublic
-            | None => input.schema->castToPublic
-            }
+            let received = input->B.receivedSchema
             let expected = input.expected
             let path = if extraPath === Path.empty {
               input.path
@@ -6630,10 +6616,7 @@ let js_refine = (schema, refineCheck, refineOptions) => {
         {
           cond: (~inputVar) => `${embeddedCheck}(${inputVar})`,
           fail: (~input) => {
-            let received = switch input.prev {
-            | Some(p) => p.schema->castToPublic
-            | None => input.schema->castToPublic
-            }
+            let received = input->B.receivedSchema
             let expected = input.expected
             let path = if extraPath === Path.empty {
               input.path
