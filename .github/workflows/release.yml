@@ -5,126 +5,40 @@ on:
     types: [published]
 
 jobs:
-  build-sury:
-    name: Build sury
+  find-ci-run:
+    name: Find CI run for release commit
     runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+    outputs:
+      run-id: ${{ steps.find.outputs.run-id }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
-      - uses: actions/setup-node@v3
-        with:
-          node-version: 22.6.0
-          cache: "pnpm"
-      - run: pnpm install
-      - run: pnpm build
-        working-directory: packages/sury
-      - uses: actions/upload-artifact@v4
-        with:
-          name: sury
-          path: packages/sury/artifacts
-
-  ppx-build-linux:
-    name: ppx-build-linux
-    runs-on: ubuntu-24.04
-    defaults:
-      run:
-        working-directory: packages/sury-ppx/src
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ocaml/setup-ocaml@v3
-        with:
-          ocaml-compiler: 5.3.0
-      - run: opam install . --deps-only --with-test
-      - run: opam exec -- dune build --profile static
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ppx-build-linux
-          path: packages/sury-ppx/src/_build/default/bin/bin.exe
-          if-no-files-found: error
-
-  ppx-build-linux-arm:
-    name: ppx-build-linux-arm
-    runs-on: ubuntu-24.04-arm
-    defaults:
-      run:
-        working-directory: packages/sury-ppx/src
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ocaml/setup-ocaml@v3
-        with:
-          ocaml-compiler: 5.3.0
-      - run: opam install . --deps-only --with-test
-      - run: opam exec -- dune build --profile static
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ppx-build-linux-arm
-          path: packages/sury-ppx/src/_build/default/bin/bin.exe
-          if-no-files-found: error
-
-  ppx-build-macos:
-    name: ppx-build-macos
-    runs-on: macOS-latest
-    defaults:
-      run:
-        working-directory: packages/sury-ppx/src
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ocaml/setup-ocaml@v3
-        with:
-          ocaml-compiler: 5.3.0
-      - run: opam install . --deps-only --with-test
-      - run: opam exec -- dune build
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ppx-build-macos
-          path: packages/sury-ppx/src/_build/default/bin/bin.exe
-          if-no-files-found: error
-
-  ppx-build-macos-x64:
-    name: ppx-build-macos-x64
-    runs-on: macOS-13
-    defaults:
-      run:
-        working-directory: packages/sury-ppx/src
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ocaml/setup-ocaml@v3
-        with:
-          ocaml-compiler: 5.3.0
-      - run: opam install . --deps-only --with-test
-      - run: opam exec -- dune build
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ppx-build-macos-x64
-          path: packages/sury-ppx/src/_build/default/bin/bin.exe
-          if-no-files-found: error
-
-  ppx-build-windows:
-    name: ppx-build-windows
-    runs-on: windows-2025
-    defaults:
-      run:
-        working-directory: packages/sury-ppx/src
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ocaml/setup-ocaml@v3
-        with:
-          ocaml-compiler: 5.3.0
-      - run: opam install . --deps-only --with-test
-      - run: opam exec -- dune build
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ppx-build-windows
-          path: packages/sury-ppx/src/_build/default/bin/bin.exe
-          if-no-files-found: error
+      - id: find
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          RUN_ID=$(gh run list \
+            --commit ${{ github.sha }} \
+            --workflow CI \
+            --status success \
+            --limit 1 \
+            --json databaseId \
+            --jq '.[0].databaseId')
+          if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
+            echo "No successful CI run found for commit ${{ github.sha }}" >&2
+            exit 1
+          fi
+          echo "run-id=$RUN_ID" >> "$GITHUB_OUTPUT"
 
   publish-sury:
     name: Publish sury
-    needs: [build-sury]
+    needs: [find-ci-run]
     runs-on: ubuntu-24.04
     permissions:
       contents: read
       id-token: write
+      actions: read
     steps:
       - uses: actions/setup-node@v4
         with:
@@ -135,21 +49,19 @@ jobs:
         with:
           name: sury
           path: artifacts
+          run-id: ${{ needs.find-ci-run.outputs.run-id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - run: npm publish --provenance --access public
         working-directory: artifacts
 
   publish-sury-ppx:
     name: Publish sury-ppx
-    needs:
-      - ppx-build-linux
-      - ppx-build-linux-arm
-      - ppx-build-macos
-      - ppx-build-macos-x64
-      - ppx-build-windows
+    needs: [find-ci-run]
     runs-on: ubuntu-24.04
     permissions:
       contents: read
       id-token: write
+      actions: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -162,22 +74,32 @@ jobs:
         with:
           name: ppx-build-linux
           path: binaries/linux
+          run-id: ${{ needs.find-ci-run.outputs.run-id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/download-artifact@v4
         with:
           name: ppx-build-linux-arm
           path: binaries/linux-arm
+          run-id: ${{ needs.find-ci-run.outputs.run-id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/download-artifact@v4
         with:
           name: ppx-build-macos
           path: binaries/macos
+          run-id: ${{ needs.find-ci-run.outputs.run-id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/download-artifact@v4
         with:
           name: ppx-build-macos-x64
           path: binaries/macos-x64
+          run-id: ${{ needs.find-ci-run.outputs.run-id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/download-artifact@v4
         with:
           name: ppx-build-windows
           path: binaries/windows
+          run-id: ${{ needs.find-ci-run.outputs.run-id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Move ppx artifacts
         run: |
