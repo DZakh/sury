@@ -2976,10 +2976,18 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
         },
       )
 
-      // jsonEncoderFn flags JSON-sourced objects via additionalItems=json.
-      // In JSON, an option arm checks `v===null`, but a missing key reads
-      // as `undefined`. Coalesce `i[key] ?? null` so absent and explicit-null
-      // fields both decode to `None`.
+      // FIXME: hack — detect "JSON-sourced object" via additionalItems=json
+      // (set by jsonEncoderFn) and patch the field read inline to coalesce
+      // `??null`. The proper fix is for the JSON pipeline to treat missing
+      // object keys as the option's empty sentinel, instead of leaving
+      // objectDecoder to sniff the source and rewrite codegen by hand:
+      //   - jsonEncoderFn rewrites the option arm from `v===void 0` to
+      //     `v===null` because JSON has no undefined,
+      //   - but `i[key]` for a missing key returns undefined, so the
+      //     rewritten arm rejects `{}` for `{foo: option<...>}`.
+      // Detection is fragile (string-compares the schema name) and only
+      // covers the union-with-undefined shape; fold this into a shared
+      // JSON option representation post-release.
       let isJsonParent = switch input.schema.additionalItems->X.Option.getUnsafe {
       | Schema(s) => (s->castToInternal).name === Some(jsonName)
       | _ => false
