@@ -6,8 +6,6 @@ on:
       - main
       - "v\\d+.\\d+.\\d+-patch"
   pull_request:
-    branches:
-      - main
 
 jobs:
   sury:
