@@ -2976,6 +2976,23 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
         },
       )
 
+      // FIXME: hack — detect "JSON-sourced object" via additionalItems=json
+      // (set by jsonEncoderFn) and patch the field read inline to coalesce
+      // `??null`. The proper fix is for the JSON pipeline to treat missing
+      // object keys as the option's empty sentinel, instead of leaving
+      // objectDecoder to sniff the source and rewrite codegen by hand:
+      //   - jsonEncoderFn rewrites the option arm from `v===void 0` to
+      //     `v===null` because JSON has no undefined,
+      //   - but `i[key]` for a missing key returns undefined, so the
+      //     rewritten arm rejects `{}` for `{foo: option<...>}`.
+      // Detection is fragile (string-compares the schema name) and only
+      // covers the union-with-undefined shape; fold this into a shared
+      // JSON option representation post-release.
+      let isJsonParent = switch input.schema.additionalItems->X.Option.getUnsafe {
+      | Schema(s) => (s->castToInternal).name === Some(jsonName)
+      | _ => false
+      }
+
       for idx in 0 to keysCount - 1 {
         let key = keys->Js.Array2.unsafe_get(idx)
         let schema = properties->Js.Dict.unsafeGet(key)
@@ -2984,6 +3001,13 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
         itemInput.expected = schema
         itemInput.isOutput = Some(false)
         itemInput.isUnion = Some(isUnion) // We want to controll validation on the decoder side
+        if (
+          isJsonParent &&
+          schema.tag === unionTag &&
+            schema.has->X.Option.getUnsafe->Js.Dict.unsafeGet((undefinedTag :> string))
+        ) {
+          itemInput.inline = `(${itemInput.inline}??null)`
+        }
         let itemOutput = itemInput->parse
 
         if isUnion && schema->isLiteral {
