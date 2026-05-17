@@ -2976,6 +2976,15 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
         },
       )
 
+      // jsonEncoderFn flags JSON-sourced objects via additionalItems=json.
+      // In JSON, an option arm checks `v===null`, but a missing key reads
+      // as `undefined`. Coalesce `i[key] ?? null` so absent and explicit-null
+      // fields both decode to `None`.
+      let isJsonParent = switch input.schema.additionalItems->X.Option.getUnsafe {
+      | Schema(s) => (s->castToInternal).name === Some(jsonName)
+      | _ => false
+      }
+
       for idx in 0 to keysCount - 1 {
         let key = keys->Js.Array2.unsafe_get(idx)
         let schema = properties->Js.Dict.unsafeGet(key)
@@ -2984,6 +2993,13 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
         itemInput.expected = schema
         itemInput.isOutput = Some(false)
         itemInput.isUnion = Some(isUnion) // We want to controll validation on the decoder side
+        if (
+          isJsonParent &&
+          schema.tag === unionTag &&
+            schema.has->X.Option.getUnsafe->Js.Dict.unsafeGet((undefinedTag :> string))
+        ) {
+          itemInput.inline = `(${itemInput.inline}??null)`
+        }
         let itemOutput = itemInput->parse
 
         if isUnion && schema->isLiteral {
