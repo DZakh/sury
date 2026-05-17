@@ -6,28 +6,28 @@ test("Uses default value when parsing optional unknown primitive", t => {
 
   let schema = S.float->S.option->S.Option.getOr(value)
 
-  t->Assert.deepEqual(any->S.parseOrThrow(schema), value)
+  t->Assert.deepEqual(any->S.parseOrThrow(~to=schema), value)
 })
 
 test("Uses default value when nullable optional unknown primitive", t => {
   let value = 123.
   let any = %raw(`null`)
 
-  let schema = S.float->S.null->S.Option.getOr(value)
+  let schema = S.float->S.nullAsOption->S.Option.getOr(value)
 
-  t->Assert.deepEqual(any->S.parseOrThrow(schema), value)
+  t->Assert.deepEqual(any->S.parseOrThrow(~to=schema), value)
 })
 
 test("Successfully parses with default when provided JS undefined", t => {
   let schema = S.bool->S.option->S.Option.getOr(false)
 
-  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), false)
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), false)
 })
 
 test("Successfully parses with default when provided primitive", t => {
   let schema = S.bool->S.option->S.Option.getOr(false)
 
-  t->Assert.deepEqual(%raw(`true`)->S.parseOrThrow(schema), true)
+  t->Assert.deepEqual(%raw(`true`)->S.parseOrThrow(~to=schema), true)
 })
 
 test("Successfully serializes nested option with default value", t => {
@@ -38,12 +38,12 @@ test("Successfully serializes nested option with default value", t => {
       )
 
       t->Assert.deepEqual(
-        Some(Some(Some(Some(None))))->S.reverseConvertOrThrow(schema),
+        Some(Some(Some(Some(None))))->S.decodeOrThrow(~from=schema, ~to=S.unknown),
         Some(Some(Some(Some(None))))->Obj.magic,
       )
       // FIXME: I'm not sure this is correct
-      t->Assert.deepEqual(Some(None)->S.reverseConvertOrThrow(schema), %raw(`undefined`))
-      t->Assert.deepEqual(None->S.reverseConvertOrThrow(schema), %raw(`undefined`))
+      t->Assert.deepEqual(Some(None)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
+      t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
     },
     ~expectations={
       message: `[Sury] Can\'t set default for boolean | undefined | undefined | undefined`,
@@ -54,13 +54,9 @@ test("Successfully serializes nested option with default value", t => {
 test("Fails to parse data with default", t => {
   let schema = S.bool->S.option->S.Option.getOr(false)
 
-  t->U.assertThrows(
-    () => %raw(`"string"`)->S.parseOrThrow(schema),
-    {
-      code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`"string"`)}),
-      operation: Parse,
-      path: S.Path.empty,
-    },
+  t->U.assertThrowsMessage(
+    () => %raw(`"string"`)->S.parseOrThrow(~to=schema),
+    `Expected boolean | undefined, received "string"`,
   )
 })
 
@@ -79,18 +75,18 @@ test("Successfully parses schema with transformation", t => {
     ->S.to(S.option(S.string))
     ->S.Option.getOr("not positive")
 
-  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), "not positive")
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), "not positive")
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(!(typeof i==="number"&&!Number.isNaN(i)||i===void 0)){e[0](i)}let v0=e[1](i===void 0?-123:i);if(!(typeof v0==="string"||v0===void 0)){e[2](v0)}return v0===void 0?"not positive":v0}`,
+    `i=>{if(!(typeof i==="number"&&!Number.isNaN(i)||i===void 0)){e[0](i)}let v0;try{v0=e[1](i===void 0?-123:i)}catch(x){e[2](x)}if(!(typeof v0==="string"||v0===void 0)){e[3](v0)}return v0===void 0?"not positive":v0}`,
   )
 })
 
 test("Successfully serializes schema with transformation", t => {
   let schema = S.string->S.trim->S.option->S.Option.getOr("default")
 
-  t->Assert.deepEqual(" abc"->S.reverseConvertOrThrow(schema), %raw(`"abc"`))
+  t->Assert.deepEqual(" abc"->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"abc"`))
 })
 
 test("Compiled parse code snapshot", t => {
@@ -110,11 +106,11 @@ asyncTest("Compiled async parse code snapshot", async t => {
     )
 
   t->Assert.deepEqual(schema->S.isAsync, true)
-  t->Assert.deepEqual(await None->S.parseAsyncOrThrow(schema), false)
+  t->Assert.deepEqual(await None->S.parseAsyncOrThrow(~to=schema), false)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{if(typeof i==="boolean"){i=e[0](i)}else if(!(i===void 0)){e[1](i)}return Promise.resolve(i).then(v0=>{return v0===void 0?false:v0})}`,
+    `i=>{let v1;if(typeof i==="boolean"){let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}i=v0}else if(!(i===void 0)){e[2](i)}v1=Promise.resolve(i);return v1.then(v1=>{return v1===void 0?false:v1})}`,
   )
 
   let schema =
@@ -122,16 +118,16 @@ asyncTest("Compiled async parse code snapshot", async t => {
     ->S.Option.getOr(false)
     ->S.transform(_ => {asyncParser: i => Promise.resolve(i)})
 
-  t->Assert.deepEqual(await None->S.parseAsyncOrThrow(schema), false)
+  t->Assert.deepEqual(await None->S.parseAsyncOrThrow(~to=schema), false)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{if(!(typeof i==="boolean"||i===void 0)){e[0](i)}return e[1](i===void 0?false:i)}`,
+    `i=>{if(!(typeof i==="boolean"||i===void 0)){e[0](i)}let v0;try{v0=e[1](i===void 0?false:i).catch(x=>e[2](x))}catch(x){e[2](x)}return v0}`,
   )
 })
 
 test("Compiled serialize code snapshot", t => {
   let schema = S.bool->S.option->S.Option.getOr(false)
 
-  t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
+  t->U.assertCompiledCodeIsNoop(~schema, ~op=#Encode)
 })

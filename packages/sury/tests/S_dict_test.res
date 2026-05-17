@@ -10,38 +10,30 @@ module CommonWithNested = {
   test("Successfully parses", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(any->S.parseOrThrow(schema), value)
+    t->Assert.deepEqual(any->S.parseOrThrow(~to=schema), value)
   })
 
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), any)
+    t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), any)
   })
 
   test("Fails to parse", t => {
     let schema = factory()
 
-    t->U.assertThrows(
-      () => invalidAny->S.parseOrThrow(schema),
-      {
-        code: InvalidType({expected: schema->S.castToUnknown, received: invalidAny}),
-        operation: Parse,
-        path: S.Path.empty,
-      },
+    t->U.assertThrowsMessage(
+      () => invalidAny->S.parseOrThrow(~to=schema),
+      `Expected { [key: string]: string; }, received true`,
     )
   })
 
   test("Fails to parse nested", t => {
     let schema = factory()
 
-    t->U.assertThrows(
-      () => nestedInvalidAny->S.parseOrThrow(schema),
-      {
-        code: InvalidType({expected: S.string->S.castToUnknown, received: %raw(`true`)}),
-        operation: Parse,
-        path: S.Path.fromArray(["key2"]),
-      },
+    t->U.assertThrowsMessage(
+      () => nestedInvalidAny->S.parseOrThrow(~to=schema),
+      `Failed at ["key2"]: Expected string, received true`,
     )
   })
 
@@ -51,7 +43,7 @@ module CommonWithNested = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i||Array.isArray(i)){e[0](i)}for(let v0 in i){try{let v2=i[v0];if(typeof v2!=="string"){e[1](v2)}}catch(v1){if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1}}return i}`,
+      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);for(let v0 in i){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2}}return i}`,
     )
   })
 
@@ -61,25 +53,25 @@ module CommonWithNested = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ParseAsync,
-      `i=>{if(typeof i!=="object"||!i||Array.isArray(i)){e[0](i)}let v3={};for(let v0 in i){let v2;try{v2=e[1](i[v0]).catch(v1=>{if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1})}catch(v1){if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1}v3[v0]=v2}return new Promise((v4,v5)=>{let v7=Object.keys(v3).length;for(let v0 in v3){v3[v0].then(v6=>{v3[v0]=v6;if(v7--===1){v4(v3)}},v5)}})}`,
+      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v3={};for(let v0 in i){try{let v1;try{v1=e[0](i[v0]).catch(x=>e[1](x))}catch(x){e[1](x)}v3[v0]=v1.catch(v2=>{v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2})}catch(v2){v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2}}return new Promise((v4,v5)=>{let v7=Object.keys(v3).length;for(let v0 in v3){v3[v0].then(v6=>{v3[v0]=v6;if(v7--===1){v4(v3)}},v5)}})}`,
     )
   })
 
   test("Compiled serialize code snapshot", t => {
     let schema = S.dict(S.string)
-    t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
+    t->U.assertCompiledCodeIsNoop(~schema, ~op=#Encode)
 
     let schema = S.dict(S.option(S.string))
-    t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
+    t->U.assertCompiledCodeIsNoop(~schema, ~op=#Encode)
   })
 
   test("Compiled serialize code snapshot with transform", t => {
-    let schema = S.dict(S.null(S.string))
+    let schema = S.dict(S.nullAsOption(S.string))
 
     t->U.assertCompiledCode(
       ~schema,
-      ~op=#ReverseConvert,
-      `i=>{let v4={};for(let v0 in i){let v3;try{let v2=i[v0];if(v2===void 0){v2=null}v3=v2}catch(v1){if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1}v4[v0]=v3}return v4}`,
+      ~op=#Encode,
+      `i=>{let v3={};for(let v0 in i){try{let v1=i[v0];if(v1===void 0){v1=null}else if(!(typeof v1==="string")){e[0](v1)}v3[v0]=v1}catch(v2){v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2}}return v3}`,
     )
   })
 
@@ -95,7 +87,7 @@ module CommonWithNested = {
 }
 
 test("Reverse child schema", t => {
-  let schema = S.dict(S.null(S.string))
+  let schema = S.dict(S.nullAsOption(S.string))
   t->U.assertEqualSchemas(
     schema->S.reverse,
     S.dict(S.union([S.string->S.castToUnknown, S.nullAsUnit->S.reverse]))->S.castToUnknown,
@@ -106,18 +98,16 @@ test("Successfully parses dict with int keys", t => {
   let schema = S.dict(S.string)
 
   t->Assert.deepEqual(
-    %raw(`{1:"b",2:"d"}`)->S.parseOrThrow(schema),
+    %raw(`{1:"b",2:"d"}`)->S.parseOrThrow(~to=schema),
     Dict.fromArray([("1", "b"), ("2", "d")]),
   )
 })
 
 test("Applies operation for each item on serializing", t => {
-  S.enableJsonString()
-
   let schema = S.dict(S.jsonString->S.to(S.int))
 
   t->Assert.deepEqual(
-    Dict.fromArray([("a", 1), ("b", 2)])->S.reverseConvertOrThrow(schema),
+    Dict.fromArray([("a", 1), ("b", 2)])->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`{
         "a": "1",
         "b": "2",
@@ -126,15 +116,11 @@ test("Applies operation for each item on serializing", t => {
 })
 
 test("Fails to serialize dict item", t => {
-  let schema = S.dict(S.string->S.refine(s => _ => s.fail("User error")))
+  let schema = S.dict(S.string->S.refine(_ => false, ~error="User error"))
 
-  t->U.assertThrows(
-    () => Dict.fromArray([("a", "aa"), ("b", "bb")])->S.reverseConvertOrThrow(schema),
-    {
-      code: OperationFailed("User error"),
-      operation: ReverseConvert,
-      path: S.Path.fromLocation("a"),
-    },
+  t->U.assertThrowsMessage(
+    () => Dict.fromArray([("a", "aa"), ("b", "bb")])->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    `Failed at ["a"]: User error`,
   )
 })
 
@@ -142,7 +128,7 @@ test("Successfully parses dict with optional items", t => {
   let schema = S.dict(S.option(S.string))
 
   t->Assert.deepEqual(
-    %raw(`{"key1":"value1","key2":undefined}`)->S.parseOrThrow(schema),
+    %raw(`{"key1":"value1","key2":undefined}`)->S.parseOrThrow(~to=schema),
     Dict.fromArray([("key1", Some("value1")), ("key2", None)]),
   )
 })

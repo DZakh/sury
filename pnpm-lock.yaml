@@ -1,7 +1,7 @@
 lockfileVersion: '9.0'
 
 settings:
-  autoInstallPeers: true
+  autoInstallPeers: false
   excludeLinksFromLockfile: false
 
 importers:
@@ -84,11 +84,7 @@ importers:
         specifier: 5.8.3
         version: 5.8.3
 
-  packages/sury-ppx:
-    dependencies:
-      sury:
-        specifier: ^11.0.0-alpha.2
-        version: 11.0.0-alpha.2(rescript@11.1.4)
+  packages/sury-ppx: {}
 
 packages:
 
@@ -136,6 +132,7 @@ packages:
   '@rescript/darwin-arm64@12.0.0-beta.5':
     resolution: {integrity: sha512-hIy6TQKTzy3SdP3nGAzOc1fqb2Va5ejrn5RCZu6Scst9qH4uZ+chMS4Vv+yac1tD9bkTeixeXGj98NlLgukAvw==}
     engines: {node: '>=20.11.0'}
+    cpu: [arm64]
     os: [darwin]
 
   '@rescript/darwin-x64@12.0.0-beta.5':
@@ -810,11 +807,6 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
-  rescript@11.1.4:
-    resolution: {integrity: sha512-0bGU0bocihjSC6MsE3TMjHjY0EUpchyrREquLS8VsZ3ohSMD+VHUEwimEfB3kpBI1vYkw3UFZ3WD8R28guz/Vw==}
-    engines: {node: '>=10'}
-    hasBin: true
-
   rescript@12.0.0-beta.5:
     resolution: {integrity: sha512-khIb1ABW7DEG1/HkTdP4r26IypKBfh8mrmOBWFtcSLkhQWCC5Vwl6uH+yjQ9jdpbBXXDh+xaELCmgfa2ZhdMHg==}
     engines: {node: '>=20.11.0'}
@@ -928,14 +920,6 @@ packages:
   supports-preserve-symlinks-flag@1.0.0:
     resolution: {integrity: sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==}
     engines: {node: '>= 0.4'}
-
-  sury@11.0.0-alpha.2:
-    resolution: {integrity: sha512-lWbGQ43NhwcGDFksI0DxyF93u49ljfEOggyTW4xJ/jkEmryiBKgCK3X+x9cSQchXjYFnIw7QbVCSkeDd7wF4Iw==}
-    peerDependencies:
-      rescript: 11.x
-    peerDependenciesMeta:
-      rescript:
-        optional: true
 
   temp-dir@3.0.0:
     resolution: {integrity: sha512-nHc6S/bwIilKHNRgK/3jlhDoIHcp45YgyiwcAk46Tr0LfEqGBVpmiAyuiuxeVE44m3mXnEeVhaipLOEWmH+Njw==}
@@ -1697,9 +1681,6 @@ snapshots:
 
   rescript@11.0.1: {}
 
-  rescript@11.1.4:
-    optional: true
-
   rescript@12.0.0-beta.5:
     optionalDependencies:
       '@rescript/darwin-arm64': 12.0.0-beta.5
@@ -1803,10 +1784,6 @@ snapshots:
       has-flag: 4.0.0
 
   supports-preserve-symlinks-flag@1.0.0: {}
-
-  sury@11.0.0-alpha.2(rescript@11.1.4):
-    optionalDependencies:
-      rescript: 11.1.4
 
   temp-dir@3.0.0: {}
 

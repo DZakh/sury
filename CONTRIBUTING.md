@@ -17,6 +17,127 @@ The following steps will get you setup to contribute changes to this repo:
 5. Run `pnpm res` to run ReScript compiler
 6. Run `pnpm test` for tests or use Wallaby.js
 
+## Architecture
+
+This section describes the internal architecture of Sury to help with understanding and contributing to the codebase.
+
+### Core Concepts
+
+#### Schema (internal type)
+
+The internal representation of a type schema, containing:
+
+- `tag`: Type identifier (e.g., `stringTag`, `objectTag`, `arrayTag`)
+- `decoder`: Builder function for input validation (type checking)
+- `encoder`: Builder function for converting from different schema types
+- `parser`: Builder function for transformations after decoding (used by `S.shape`, `S.to`)
+- `serializer`: Builder function for reverse transformations
+- `to`: Target schema for transformations (set by `S.shape`, `S.to`)
+- `from`: Path array indicating where this value comes from in shaped schemas
+- `properties`: For object schemas, a dict of field name to schema
+- `items`: For array/tuple schemas, an array of item schemas
+
+#### Builder
+
+A builder is a function with signature `(~input: val, ~selfSchema: internal) => val`. Builders generate JavaScript code at compile time by manipulating `val` objects. They are created using `Builder.make`:
+
+```rescript
+let myBuilder = Builder.make((~input, ~selfSchema) => {
+  // Generate code and return output val
+  let output = input->B.val(`someTransform(${input.var()})`, ~schema=selfSchema)
+  output
+})
+```
+
+#### Val (Value)
+
+A compilation-time representation of a value being processed. Key fields:
+
+- `inline`: The generated code expression (e.g., `i["foo"]`, `v0`)
+- `var()`: Function to allocate/retrieve a variable name (use when value is referenced multiple times)
+- `schema`: The schema of the current value
+- `expected`: The schema we're trying to parse/convert into
+- `from`: Link to the input val (for code merging)
+- `code`: Generated code statements
+- `validation`: Optional validation function to generate type checks
+- `skipTo`: When `Some(true)`, prevents `parse` from following the `.to` chain
+- `global`: Shared compilation context containing:
+  - `embeded`: Array of embedded values (functions, constants) accessible as `e[n]`
+  - `varCounter`: Counter for generating unique variable names
+
+### Compilation Flow
+
+When a schema operation is compiled (e.g., `parseOrThrow`), the following happens:
+
+```
+Input Schema
+     │
+     ▼
+┌─────────────────────────────────────────────────────────┐
+│  parse(val) function                                    │
+│                                                         │
+│  1. Encoder (if input.schema !== expected)              │
+│     - Converts between different schema types           │
+│                                                         │
+│  2. Decoder (always runs)                               │
+│     - Validates input type (e.g., typeof === "string")  │
+│     - Generates validation code                         │
+│                                                         │
+│  3. Parser (if expected.parser exists)                  │
+│     - Applies transformations (S.transform, S.shape)    │
+│                                                         │
+│  4. Recursive parse (if expected.to exists)             │
+│     - Follows transformation chain                      │
+│     - Skipped if val.skipTo === Some(true)              │
+└─────────────────────────────────────────────────────────┘
+     │
+     ▼
+Output Val with merged code
+     │
+     ▼
+B.merge() → JavaScript function string
+```
+
+### Code Generation Example
+
+For `S.object(s => s.field("foo", S.string))`:
+
+```javascript
+// Generated parse function:
+(i) => {
+  if (typeof i !== "object" || !i) {
+    e[0](i);
+  } // Object validation
+  let v0 = i["foo"]; // Field access
+  if (typeof v0 !== "string") {
+    e[1](v0);
+  } // String validation
+  return v0; // Return parsed value
+};
+```
+
+Where:
+
+- `i` is the input argument
+- `e` is the embedded values array (error throwers, transformers)
+- `v0`, `v1`, etc. are allocated variables
+
+### Key Functions
+
+- `parse(val)`: Main compilation function that walks through encoder → decoder → parser → to chain
+- `B.merge(val)`: Collects all generated code from the val chain into a single string
+- `B.Val.cleanValFrom(val)`: Creates a clean copy of val for new code generation while preserving variable binding
+- `B.embed(val, value)`: Embeds a runtime value (function, object) and returns reference like `e[0]`
+
+### Shaped Schemas (S.shape, S.object with definer)
+
+Shaped schemas use a proxy-based approach to track how values are used:
+
+1. During schema definition, field accesses are tracked via `proxifyShapedSchema`
+2. Each accessed field gets `from` set to its path (e.g., `["foo"]` for `s.field("foo", ...)`)
+3. During parsing, `shapedParser` traverses the target structure and maps values from input
+4. During serialization, `shapedSerializer` builds an accumulator (`acc`) that maps output paths to input vals, then `getShapedSerializerOutput` reconstructs the original structure
+
 ## PPX
 
 ### With Dune

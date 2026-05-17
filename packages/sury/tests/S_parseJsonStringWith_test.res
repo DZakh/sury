@@ -3,45 +3,40 @@ open Ava
 test("Successfully parses", t => {
   let schema = S.bool
 
-  t->Assert.deepEqual("true"->S.parseJsonStringOrThrow(schema), true)
+  t->Assert.deepEqual("true"->S.decodeOrThrow(~from=S.jsonString, ~to=schema), true)
 })
 
 test("Successfully parses unknown", t => {
   let schema = S.unknown
 
-  t->Assert.deepEqual("true"->S.parseJsonStringOrThrow(schema), true->Obj.magic)
+  t->Assert.deepEqual(
+    "true"->S.decodeOrThrow(~from=S.jsonString, ~to=schema),
+    "true"->Obj.magic,
+    ~message="S.unknown should keep json schema as a value",
+  )
+
+  t->Assert.deepEqual(
+    "tru"->S.decodeOrThrow(~from=S.jsonString, ~to=schema),
+    "tru"->Obj.magic,
+    ~message="It also doesn't validate the value being a json string, because it expects input to already be a valid json string",
+  )
 })
 
 test("Fails to parse JSON", t => {
   let schema = S.bool
 
-  switch "123,"->S.parseJsonStringOrThrow(schema) {
-  | _ => t->Assert.fail("Must return Error")
-  | exception S.Error({code, flag, path}) => {
-      t->Assert.deepEqual(flag, S.Flag.typeValidation)
-      t->Assert.deepEqual(path, S.Path.empty)
-      switch code {
-      // Different errors for different Node.js versions
-      | OperationFailed("Unexpected token , in JSON at position 3")
-      | OperationFailed("Unexpected non-whitespace character after JSON at position 3")
-      | OperationFailed(
-        "Unexpected non-whitespace character after JSON at position 3 (line 1 column 4)",
-      ) => ()
-      | _ => t->Assert.fail("Code must be OperationFailed")
-      }
-    }
-  }
+  U.assertThrowsMessage(
+    t,
+    () => "123,"->S.decodeOrThrow(~from=S.jsonString, ~to=schema),
+    `Expected JSON string, received "123,"`,
+  )
 })
 
 test("Fails to parse", t => {
   let schema = S.bool
 
-  t->U.assertThrows(
-    () => "123"->S.parseJsonStringOrThrow(schema),
-    {
-      code: InvalidType({expected: schema->S.castToUnknown, received: Obj.magic(123)}),
-      operation: Parse,
-      path: S.Path.empty,
-    },
+  t->U.assertThrowsMessage(
+    () => "123"->S.decodeOrThrow(~from=S.jsonString, ~to=schema),
+    `Expected boolean, received 123`,
   )
 })

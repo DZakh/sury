@@ -21,9 +21,16 @@ module Path: {
 }
 
 type numberFormat = | @as("int32") Int32 | @as("port") Port
-type stringFormat = | @as("json") JSON
+type stringFormat =
+  | @as("json") JSON
+  | @as("date-time") DateTime
+  | @as("email") Email
+  | @as("uuid") Uuid
+  | @as("cuid") Cuid
+  | @as("url") Url
+type arrayFormat = | @as("compactColumns") CompactColumns
 
-type format = | ...numberFormat | ...stringFormat
+type format = | ...numberFormat | ...stringFormat | ...arrayFormat
 
 @unboxed
 type additionalItemsMode = | @as("strip") Strip | @as("strict") Strict
@@ -49,7 +56,7 @@ type tag =
 @tag("type")
 type rec t<'value> =
   private
-  | @as("never") Never({name?: string, title?: string, description?: string, deprecated?: bool})
+  | @as("never") Never({name?: string, title?: string, description?: string, deprecated?: bool, errorMessage?: schemaErrorMessage})
   | @as("unknown")
   Unknown({
       name?: string,
@@ -58,6 +65,7 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<unknown>,
       default?: unknown,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("string")
   String({
@@ -69,6 +77,10 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<string>,
       default?: string,
+      minLength?: int,
+      maxLength?: int,
+      pattern?: Js.Re.t,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("number")
   Number({
@@ -80,6 +92,9 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<float>,
       default?: float,
+      minimum?: float,
+      maximum?: float,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("bigint")
   BigInt({
@@ -90,6 +105,7 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<bigint>,
       default?: bigint,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("boolean")
   Boolean({
@@ -100,6 +116,7 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<bool>,
       default?: bool,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("symbol")
   Symbol({
@@ -110,6 +127,7 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<Js.Types.symbol>,
       default?: Js.Types.symbol,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("null")
   Null({
@@ -118,6 +136,7 @@ type rec t<'value> =
       title?: string,
       description?: string,
       deprecated?: bool,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("undefined")
   Undefined({
@@ -126,6 +145,7 @@ type rec t<'value> =
       title?: string,
       description?: string,
       deprecated?: bool,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("nan")
   NaN({
@@ -134,6 +154,7 @@ type rec t<'value> =
       title?: string,
       description?: string,
       deprecated?: bool,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("function")
   Function({
@@ -144,6 +165,7 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<Js.Types.function_val>,
       default?: Js.Types.function_val,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("instance")
   Instance({
@@ -155,31 +177,36 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<Js.Types.obj_val>,
       default?: Js.Types.obj_val,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("array")
   Array({
-      items: array<item>,
+      items: array<t<unknown>>,
       additionalItems: additionalItems,
-      unnest?: bool,
+      format?: arrayFormat,
       name?: string,
       title?: string,
       description?: string,
       deprecated?: bool,
       examples?: array<array<unknown>>,
       default?: array<unknown>,
+      minItems?: int,
+      maxItems?: int,
+      errorMessage?: schemaErrorMessage,
     })
   | @as("object")
   Object({
-      items: array<item>,
       properties: dict<t<unknown>>,
       additionalItems: additionalItems,
+      required?: array<string>,
       name?: string,
       title?: string,
       description?: string,
       deprecated?: bool,
       examples?: array<dict<unknown>>,
       default?: dict<unknown>,
-    }) // TODO: Add const for Object and Tuple
+      errorMessage?: schemaErrorMessage,
+    })
   | @as("union")
   Union({
       anyOf: array<t<unknown>>,
@@ -190,19 +217,36 @@ type rec t<'value> =
       deprecated?: bool,
       examples?: array<unknown>,
       default?: unknown,
+      errorMessage?: schemaErrorMessage,
     })
-  | @as("ref") Ref({@as("$ref") ref: string})
+  | @as("ref") Ref({@as("$ref") ref: string, errorMessage?: schemaErrorMessage})
 and schema<'a> = t<'a>
+and schemaErrorMessage = {
+  @as("_")
+  catchAll?: string,
+  format?: string,
+  @as("type")
+  type_?: string,
+  minimum?: string,
+  maximum?: string,
+  minLength?: string,
+  maxLength?: string,
+  minItems?: string,
+  maxItems?: string,
+  pattern?: string,
+}
 and meta<'value> = {
   name?: string,
   title?: string,
   description?: string,
   deprecated?: bool,
   examples?: array<'value>,
+  errorMessage?: schemaErrorMessage,
 }
 and untagged = private {
   @as("type")
   tag: tag,
+  seq: float,
   @as("$ref")
   ref?: string,
   @as("$defs")
@@ -216,9 +260,9 @@ and untagged = private {
   deprecated?: bool,
   examples?: array<unknown>,
   default?: unknown,
-  unnest?: bool,
   noValidation?: bool,
-  items?: array<item>,
+  items?: array<t<unknown>>,
+  required?: array<string>,
   properties?: dict<t<unknown>>,
   additionalItems?: additionalItems,
   anyOf?: array<t<unknown>>,
@@ -226,10 +270,6 @@ and untagged = private {
   to?: t<unknown>,
 }
 @unboxed and additionalItems = | ...additionalItemsMode | Schema(t<unknown>)
-and item = {
-  schema: t<unknown>,
-  location: string,
-}
 and has = {
   string?: bool,
   number?: bool,
@@ -251,65 +291,84 @@ and error = private {
   message: string,
   reason: string,
   path: Path.t,
-  code: errorCode,
-  flag: flag,
 }
-and errorCode =
-  | OperationFailed(string)
-  | InvalidOperation({description: string})
-  | InvalidType({expected: schema<unknown>, received: unknown, unionErrors?: array<error>})
-  | UnsupportedTransformation({from: schema<unknown>, to: schema<unknown>})
-  | ExcessField(string)
-  | UnexpectedAsync
-  | InvalidJsonSchema(schema<unknown>)
-
-type exn += private Error(error)
-
-type s<'value> = {
-  schema: t<'value>,
-  fail: 'a. (string, ~path: Path.t=?) => 'a,
-}
+@tag("code")
+and errorDetails =
+  // When received input doesn't match the expected schema
+  | @as("invalid_input")
+  InvalidInput({
+      path: Path.t,
+      reason: string,
+      expected: schema<unknown>,
+      received: schema<unknown>,
+      input?: unknown,
+      unionErrors?: array<error>,
+    })
+  // When an operation fails, because it's impossible or called incorrectly
+  | @as("invalid_operation") InvalidOperation({path: Path.t, reason: string})
+  // When the value decoding between two schemas is not supported
+  | @as("unsupported_decode")
+  UnsupportedDecode({
+      path: Path.t,
+      reason: string,
+      from: schema<unknown>,
+      to: schema<unknown>,
+    })
+  // When a decoder/encoder fails
+  | @as("invalid_conversion")
+  InvalidConversion({
+      path: Path.t,
+      reason: string,
+      from: schema<unknown>,
+      to: schema<unknown>,
+      cause?: exn,
+    })
+  | @as("unrecognized_keys") UnrecognizedKeys({path: Path.t, reason: string, keys: array<string>})
 
 module Flag: {
-  @inline let none: flag
-  @inline let typeValidation: flag
-  @inline let async: flag
-  @inline let assertOutput: flag
-  @inline let jsonableOutput: flag
-  @inline let jsonStringOutput: flag
-  @inline let reverse: flag
-
+  let none: flag
+  let async: flag
   external with: (flag, flag) => flag = "%orint"
-  let has: (flag, flag) => bool
 }
 
-let never: t<never>
+type exn += private Exn(error)
+
+type s<'value> = {fail: 'a. (string, ~path: Path.t=?) => 'a}
+
+let nullAsUnit: unit => t<unit>
+let never_: unit => t<never>
 let unknown: t<unknown>
-let unit: t<unit>
-let nullAsUnit: t<unit>
-let string: t<string>
-let bool: t<bool>
-let int: t<int>
-let float: t<float>
-let bigint: t<bigint>
-let symbol: t<Js.Types.symbol>
-
-let json: t<Js.Json.t>
-let enableJson: unit => unit
-
-let jsonString: t<string>
+let unit: unit => t<unit>
+let nullLiteral: unit => t<unit>
+let nan: unit => t<float>
+let string: unit => t<string>
+let bool: unit => t<bool>
+let int: unit => t<int>
+let float: unit => t<float>
+let bigint: unit => t<bigint>
+let symbol: unit => t<Js.Types.symbol>
+let date: unit => t<Js.Date.t>
+let json: unit => t<Js.Json.t>
+let jsonString: unit => t<string>
 let jsonStringWithSpace: int => t<string>
-let enableJsonString: unit => unit
+let uint8Array: unit => t<Uint8Array.t>
+let isoDateTime: unit => t<string>
+let port: unit => t<int>
+let email: unit => t<string>
+let uuid: unit => t<string>
+let cuid: unit => t<string>
+let url: unit => t<string>
 
 let literal: 'value => t<'value>
 let array: t<'value> => t<array<'value>>
-let unnest: t<'value> => t<array<'value>>
+let compactColumns: t<'value> => t<array<array<'value>>>
 let list: t<'value> => t<list<'value>>
 let instance: unknown => t<unknown>
 let dict: t<'value> => t<dict<'value>>
 let option: t<'value> => t<option<'value>>
-let null: t<'value> => t<option<'value>>
-let nullable: t<'value> => t<Js.nullable<'value>>
+let null: t<'value> => t<null<'value>>
+let nullAsOption: t<'value> => t<option<'value>>
+let nullable: t<'value> => t<nullable<'value>>
 let nullableAsOption: t<'value> => t<option<'value>>
 let union: array<t<'value>> => t<'value>
 let enum: array<'value> => t<'value>
@@ -326,51 +385,25 @@ type transformDefinition<'input, 'output> = {
 }
 let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) => t<'output>
 
-let refine: (t<'value>, s<'value> => 'value => unit) => t<'value>
+let refine: (t<'value>, 'value => bool, ~error: string=?, ~path: array<string>=?) => t<'value>
 
 let shape: (t<'value>, 'value => 'shape) => t<'shape>
 
 let to: (t<'from>, t<'to>) => t<'to>
 
-type rec input<'value, 'computed> =
-  | @as("Output") Value: input<'value, 'value>
-  | @as("Input") Unknown: input<'value, unknown>
-  | Any: input<'value, 'any>
-  | Json: input<'value, Js.Json.t>
-  | JsonString: input<'value, string>
-type rec output<'value, 'computed> =
-  | @as("Output") Value: output<'value, 'value>
-  | @as("Input") Unknown: output<'value, unknown>
-  | Assert: output<'value, unit>
-  | Json: output<'value, Js.Json.t>
-  | JsonString: output<'value, string>
-type rec mode<'output, 'computed> =
-  | Sync: mode<'output, 'output>
-  | Async: mode<'output, promise<'output>>
+let parser: (~to: t<'value>) => 'any => 'value
+let asyncParser: (~to: t<'value>) => 'any => promise<'value>
+let decoder: (~from: t<'from>, ~to: t<'to>) => 'from => 'to
+let asyncDecoder: (~from: t<'from>, ~to: t<'to>) => 'from => promise<'to>
+let decoder1: t<'value> => unknown => 'value
+let asyncDecoder1: t<'value> => unknown => promise<'value>
 
-let compile: (
-  t<'value>,
-  ~input: input<'value, 'input>,
-  ~output: output<'value, 'transformedOutput>,
-  ~mode: mode<'transformedOutput, 'output>,
-  ~typeValidation: bool=?,
-) => 'input => 'output
-
-let parseOrThrow: ('any, t<'value>) => 'value
-let parseJsonOrThrow: (Js.Json.t, t<'value>) => 'value
-let parseJsonStringOrThrow: (string, t<'value>) => 'value
-let parseAsyncOrThrow: ('any, t<'value>) => promise<'value>
-
-let convertOrThrow: ('any, t<'value>) => 'value
-let convertToJsonOrThrow: ('any, t<'value>) => Js.Json.t
-let convertToJsonStringOrThrow: ('any, t<'value>) => string
-let convertAsyncOrThrow: ('any, t<'value>) => promise<'value>
-
-let reverseConvertOrThrow: ('value, t<'value>) => unknown
-let reverseConvertToJsonOrThrow: ('value, t<'value>) => Js.Json.t
-let reverseConvertToJsonStringOrThrow: ('value, t<'value>, ~space: int=?) => string
-
-let assertOrThrow: ('any, t<'value>) => unit
+let parseOrThrow: ('any, ~to: t<'value>) => 'value
+let parseAsyncOrThrow: ('any, ~to: t<'value>) => promise<'value>
+let assertOrThrow: ('any, ~to: t<'value>) => unit
+let assertAsyncOrThrow: ('any, ~to: t<'value>) => promise<unit>
+let decodeOrThrow: ('from, ~from: t<'from>, ~to: t<'to>) => 'to
+let decodeAsyncOrThrow: ('from, ~from: t<'from>, ~to: t<'to>) => promise<'to>
 
 let isAsync: t<'value> => bool
 
@@ -423,71 +456,6 @@ module Option: {
   let getOrWith: (t<option<'value>>, unit => 'value) => t<'value>
 }
 
-module String: {
-  module Refinement: {
-    type kind =
-      | Min({length: int})
-      | Max({length: int})
-      | Length({length: int})
-      | Email
-      | Uuid
-      | Cuid
-      | Url
-      | Pattern({re: Js.Re.t})
-      | Datetime
-    type t = {
-      kind: kind,
-      message: string,
-    }
-  }
-
-  let refinements: t<'value> => array<Refinement.t>
-}
-
-module Int: {
-  module Refinement: {
-    type kind =
-      | Min({value: int})
-      | Max({value: int})
-
-    type t = {
-      kind: kind,
-      message: string,
-    }
-  }
-
-  let refinements: t<'value> => array<Refinement.t>
-}
-
-module Float: {
-  module Refinement: {
-    type kind =
-      | Min({value: float})
-      | Max({value: float})
-    type t = {
-      kind: kind,
-      message: string,
-    }
-  }
-
-  let refinements: t<'value> => array<Refinement.t>
-}
-
-module Array: {
-  module Refinement: {
-    type kind =
-      | Min({length: int})
-      | Max({length: int})
-      | Length({length: int})
-    type t = {
-      kind: kind,
-      message: string,
-    }
-  }
-
-  let refinements: t<'value> => array<Refinement.t>
-}
-
 module Metadata: {
   module Id: {
     type t<'metadata>
@@ -501,12 +469,14 @@ module Metadata: {
 
 let reverse: t<'value> => t<unknown>
 
-module ErrorClass: {
-  type t
+module Error: {
+  type class
 
-  let value: t
+  let class: class
 
-  let constructor: (~code: errorCode, ~flag: flag, ~path: Path.t) => error
+  let make: errorDetails => error
+
+  external classify: error => errorDetails = "%identity"
 }
 
 // =============
@@ -521,13 +491,7 @@ let floatMax: (t<float>, float, ~message: string=?) => t<float>
 
 let length: (t<'value>, int, ~message: string=?) => t<'value>
 
-let port: (t<int>, ~message: string=?) => t<int>
-let email: (t<string>, ~message: string=?) => t<string>
-let uuid: (t<string>, ~message: string=?) => t<string>
-let cuid: (t<string>, ~message: string=?) => t<string>
-let url: (t<string>, ~message: string=?) => t<string>
 let pattern: (t<string>, Js.Re.t, ~message: string=?) => t<string>
-let datetime: (t<string>, ~message: string=?) => t<Js.Date.t>
 let trim: t<string> => t<string>
 
 let toJSONSchema: t<'value> => JSONSchema.t
@@ -550,6 +514,14 @@ type jsResult<'value>
 
 let brand: (t<'value>, string) => t<'value>
 
+let js_parser: t<unknown> => unknown => unknown
+let js_asyncParser: t<unknown> => unknown => unknown
+let getDecoder: (~s1: t<unknown>, ~flag: flag=?) => 'from => 'to
+let js_asyncDecoder: t<unknown> => unknown => unknown
+let js_encoder: t<unknown> => unknown => unknown
+let js_asyncEncoder: t<unknown> => unknown => unknown
+let js_assert: (t<unknown>, unknown) => unit
+
 let js_safe: (unit => 'v) => jsResult<'v>
 let js_safeAsync: (unit => promise<'v>) => promise<jsResult<'v>>
 
@@ -558,14 +530,15 @@ let js_union: array<unknown> => t<'value>
 let js_optional: (t<'v>, option<unknown>) => t<option<'v>>
 let js_nullable: (t<'v>, option<unknown>) => t<option<'v>>
 
-let js_asyncParserRefine: (t<'output>, ('output, s<'output>) => promise<unit>) => t<'output>
-let js_refine: (t<'output>, ('output, s<'output>) => unit) => t<'output>
+let js_asyncDecoderAssert: (t<'output>, 'output => promise<unit>) => t<'output>
+let js_refine: (t<'output>, 'output => bool, option<{..}>) => t<'output>
 
-let js_transform: (
-  t<'output>,
-  ~parser: ('output, s<'transformed>) => 'transformed=?,
-  ~serializer: ('transformed, s<'transformed>) => 'output=?,
-) => t<'transformed>
+let js_to: (
+  t<'value>,
+  t<'target>,
+  ~decoder: 'value => 'target=?,
+  ~encoder: 'target => 'value=?,
+) => t<'target>
 
 let js_schema: unknown => t<unknown>
 

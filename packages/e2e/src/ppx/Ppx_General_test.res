@@ -33,20 +33,20 @@ test("Creates schema with default", t => {
 })
 
 @schema
-type stringWithDefaultAndMatches = @s.default("Foo") @s.matches(S.string->S.url) string
+type stringWithDefaultAndMatches = @s.default("Foo") @s.matches(S.url) string
 test("Creates schema with default using @s.matches", t => {
   t->assertEqualSchemas(
     stringWithDefaultAndMatchesSchema,
-    S.option(S.string->S.url)->S.Option.getOr("Foo"),
+    S.option(S.url)->S.Option.getOr("Foo"),
   )
 })
 
 @schema
-type stringWithDefaultNullAndMatches = @s.default("Foo") @s.null @s.matches(S.string->S.url) string
+type stringWithDefaultNullAndMatches = @s.default("Foo") @s.null @s.matches(S.url) string
 test("Creates schema with default null using @s.matches", t => {
   t->assertEqualSchemas(
     stringWithDefaultNullAndMatchesSchema,
-    S.null(S.string->S.url)->S.Option.getOr("Foo"),
+    S.nullAsOption(S.url)->S.Option.getOr("Foo"),
   )
 })
 

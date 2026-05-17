@@ -148,7 +148,7 @@ and generateCoreTypeSchemaExpression core_type =
         getAttributeByName ptyp_attributes "s.nullable" )
     with
     | Ok None, Ok None -> [%expr S.option]
-    | Ok (Some _), Ok None -> [%expr S.null]
+    | Ok (Some _), Ok None -> [%expr S.nullAsOption]
     | Ok None, Ok (Some _) -> [%expr S.nullableAsOption]
     | Ok (Some _), Ok (Some _) ->
       fail ptyp_loc

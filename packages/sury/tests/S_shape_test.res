@@ -1,77 +1,59 @@
 open Ava
 
-S.enableJson()
-
 test("Parses with wrapping the value in variant", t => {
   let schema = S.string->S.shape(s => Ok(s))
 
-  t->Assert.deepEqual("Hello world!"->S.parseOrThrow(schema), Ok("Hello world!"))
+  t->Assert.deepEqual("Hello world!"->S.parseOrThrow(~to=schema), Ok("Hello world!"))
 })
 
 asyncTest("Parses with wrapping async schema in variant", async t => {
   let schema = S.string->S.transform(_ => {asyncParser: async i => i})->S.shape(s => Ok(s))
 
-  t->Assert.deepEqual(await "Hello world!"->S.parseAsyncOrThrow(schema), Ok("Hello world!"))
+  t->Assert.deepEqual(await "Hello world!"->S.parseAsyncOrThrow(~to=schema), Ok("Hello world!"))
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{if(typeof i!=="string"){e[0](i)}return Promise.all([e[1](i),]).then(a=>({"TAG":"Ok","_0":a[0],}))}`,
+    `i=>{typeof i==="string"||e[2](i);let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0.then(v0=>{return {"TAG":"Ok","_0":v0,}})}`,
   )
 })
 
 test("Fails to parse wrapped schema", t => {
   let schema = S.string->S.shape(s => Ok(s))
 
-  t->U.assertThrows(
-    () => 123->S.parseOrThrow(schema),
-    {
-      code: InvalidType({received: 123->Obj.magic, expected: schema->S.castToUnknown}),
-      operation: Parse,
-      path: S.Path.empty,
-    },
-  )
+  t->U.assertThrowsMessage(() => 123->S.parseOrThrow(~to=schema), `Expected string, received 123`)
 })
 
 test("Serializes with unwrapping the value from variant", t => {
   let schema = S.string->S.shape(s => Ok(s))
 
-  t->Assert.deepEqual(Ok("Hello world!")->S.reverseConvertOrThrow(schema), %raw(`"Hello world!"`))
+  t->Assert.deepEqual(Ok("Hello world!")->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"Hello world!"`))
 })
 
 test("Fails to serialize when can't unwrap the value from variant", t => {
   let schema = S.string->S.shape(s => Ok(s))
 
   t->Assert.deepEqual(
-    Error("Hello world!")->S.reverseConvertOrThrow(schema),
+    Error("Hello world!")->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`"Hello world!"`),
     ~message=`Convert operation doesn't perform exhaustiveness check`,
   )
 
   t->U.assertThrowsMessage(
-    () => Error("Hello world!")->S.parseOrThrow(schema->S.reverse),
-    `Failed parsing: Expected { TAG: "Ok"; _0: string; }, received { TAG: "Error"; _0: "Hello world!"; }`,
+    () => Error("Hello world!")->S.parseOrThrow(~to=schema->S.reverse),
+    `Failed at ["TAG"]: Expected "Ok", received "Error"`,
   )
 })
 
 test("Successfully parses when the value is not used as the variant payload", t => {
   let schema = S.string->S.shape(_ => #foo)
 
-  t->Assert.deepEqual("Hello world!"->S.parseOrThrow(schema), #foo)
+  t->Assert.deepEqual("Hello world!"->S.parseOrThrow(~to=schema), #foo)
 })
 
 test("Fails to serialize when the value is not used as the variant payload", t => {
   let schema = S.string->S.shape(_ => #foo)
 
-  t->U.assertThrows(
-    () => #foo->S.reverseConvertOrThrow(schema),
-    {
-      code: InvalidOperation({
-        description: `Schema isn\'t registered`,
-      }),
-      operation: ReverseConvert,
-      path: S.Path.empty,
-    },
-  )
+  t->U.assertThrowsMessage(() => #foo->S.decodeOrThrow(~from=schema, ~to=S.unknown), `Missing input for string`)
 })
 
 test(
@@ -79,18 +61,18 @@ test(
   t => {
     let schema = S.literal((true, 12))->S.shape(_ => #foo)
 
-    t->Assert.deepEqual(#foo->S.reverseConvertOrThrow(schema), %raw(`[true, 12]`))
+    t->Assert.deepEqual(#foo->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`[true, 12]`))
   },
 )
 
 test("Successfully parses when tuple is destructured", t => {
   let schema = S.literal((true, 12))->S.shape(((_, twelve)) => twelve)
 
-  t->Assert.deepEqual(%raw(`[true, 12]`)->S.parseOrThrow(schema), %raw(`12`))
+  t->Assert.deepEqual(%raw(`[true, 12]`)->S.parseOrThrow(~to=schema), %raw(`12`))
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(!Array.isArray(i)||i.length!==2||i["0"]!==true||i["1"]!==12){e[0](i)}return 12}`,
+    `i=>{Array.isArray(i)&&i.length===2||e[2](i);let v0=i["0"],v1=i["1"];v0===true||e[0](v0);v1===12||e[1](v1);return v1}`,
   )
 })
 
@@ -106,13 +88,13 @@ test(
     t->Assert.deepEqual(
       {
         "foo": "bar",
-      }->S.parseOrThrow(schema),
+      }->S.parseOrThrow(~to=schema),
       %raw(`"bar"`),
     )
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["foo"];if(typeof v0!=="string"){e[1](v0)}return v0}`,
+      `i=>{typeof i==="object"&&i||e[1](i);let v0=i["foo"];typeof v0==="string"||e[0](v0);return v0}`,
     )
   },
 )
@@ -131,13 +113,13 @@ test(
     t->Assert.deepEqual(
       {
         "foo": {"bar": "jazz"},
-      }->S.parseOrThrow(schema),
+      }->S.parseOrThrow(~to=schema),
       %raw(`"jazz"`),
     )
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i||typeof i["foo"]!=="object"||!i["foo"]){e[0](i)}let v0=i["foo"],v1=v0["bar"];if(typeof v1!=="string"){e[1](v1)}return v1}`,
+      `i=>{typeof i==="object"&&i||e[2](i);let v0=i["foo"];typeof v0==="object"&&v0||e[1](v0);let v1=v0["bar"];typeof v1==="string"||e[0](v1);return v1}`,
     )
   },
 )
@@ -193,12 +175,12 @@ test(
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["foo"];if(typeof v0!=="string"){e[1](v0)}let v1=e[2]({"foo":v0,});if(typeof v1!=="object"||!v1){e[3](v1)}let v2=v1["faz"];if(typeof v2!=="string"){e[4](v2)}return v2}`,
+      `i=>{typeof i==="object"&&i||e[5](i);let v0=i["foo"];typeof v0==="string"||e[0](v0);let v1;try{v1=e[1]({"foo":v0,})}catch(x){e[2](x)}typeof v1==="object"&&v1||e[4](v1);let v2=v1["faz"];typeof v2==="string"||e[3](v2);return v2}`,
     )
     t->Assert.deepEqual(
       {
         "foo": "bar",
-      }->S.parseOrThrow(schema),
+      }->S.parseOrThrow(~to=schema),
       %raw(`"bar"`),
     )
   },
@@ -207,15 +189,10 @@ test(
 test("Reverse convert of tagged tuple with destructured literal", t => {
   let schema = S.tuple2(S.literal(true), S.literal(12))->S.shape(((_, twelve)) => twelve)
 
-  t->U.assertEqualSchemas(
-    schema->S.reverse,
-    S.literal(12)->S.shape(i1 => (true, i1))->S.castToUnknown,
-  )
+  t->Assert.deepEqual(12->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`[true, 12]`))
 
-  t->Assert.deepEqual(12->S.reverseConvertOrThrow(schema), %raw(`[true, 12]`))
-
-  let code = `i=>{if(i!==12){e[0](i)}return [true,i,]}`
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, code)
+  let code = `i=>{i===12||e[0](i);return [true,i,]}`
+  t->U.assertCompiledCode(~schema, ~op=#Encode, code)
   t->U.assertCompiledCode(~schema, ~op=#ReverseParse, code)
 })
 
@@ -226,27 +203,20 @@ test("Reverse convert of tagged tuple with destructured bool", t => {
       literal,
     ))
 
-  t->U.assertEqualSchemas(
-    schema->S.reverse,
-    S.tuple2(S.bool, S.literal("foo"))
-    ->S.shape(((item, literal)) => (true, literal, item))
-    ->S.castToUnknown,
-  )
+  t->Assert.deepEqual((false, "foo")->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`[true, "foo",false]`))
 
-  t->Assert.deepEqual((false, "foo")->S.reverseConvertOrThrow(schema), %raw(`[true, "foo",false]`))
-
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return [true,"foo",i["0"],]}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return [true,"foo",i["0"],]}`)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseParse,
-    `i=>{if(!Array.isArray(i)||i.length!==2||i["1"]!=="foo"){e[0](i)}let v0=i["0"];if(typeof v0!=="boolean"){e[1](v0)}return [true,"foo",v0,]}`,
+    `i=>{Array.isArray(i)&&i.length===2||e[2](i);let v0=i["0"],v1=i["1"];typeof v0==="boolean"||e[0](v0);v1==="foo"||e[1](v1);return [true,v1,v0,]}`,
   )
 })
 
 test("Successfully parses when value registered multiple times", t => {
   let schema = S.string->S.shape(s => #Foo(s, s))
 
-  t->Assert.deepEqual(%raw(`"abc"`)->S.parseOrThrow(schema), #Foo("abc", "abc"))
+  t->Assert.deepEqual(%raw(`"abc"`)->S.parseOrThrow(~to=schema), #Foo("abc", "abc"))
 })
 
 test("Reverse convert with value registered multiple times", t => {
@@ -254,19 +224,19 @@ test("Reverse convert with value registered multiple times", t => {
 
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     // `i=>{let v0=i["NAME"],v1=i["VAL"]["0"];if(v0!=="Foo"){e[0](v0)}if(v1!==i["VAL"]["1"]){e[1]()}return v1}`,
     `i=>{let v0=i["VAL"];return v0["1"]}`,
   )
 
-  t->Assert.deepEqual(#Foo("abc", "abc")->S.reverseConvertOrThrow(schema), %raw(`"abc"`))
+  t->Assert.deepEqual(#Foo("abc", "abc")->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"abc"`))
   // t->U.assertThrows(
-  //   () => #Foo("abc", "abcd")->S.reverseConvertOrThrow(schema),
+  //   () => #Foo("abc", "abcd")->S.decodeOrThrow(~from=schema, ~to=S.unknown),
   //   {
   //     code: InvalidOperation({
   //       description: `Another source has conflicting data`,
   //     }),
-  //     operation: ReverseConvert,
+  //     operation: Encode,
   //     path: S.Path.fromArray(["VAL", "1"]),
   //   },
   // )
@@ -281,11 +251,11 @@ test("Can destructure object value passed to S.shape", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["foo"],v1=i["bar"];if(typeof v0!=="string"){e[1](v0)}if(typeof v1!=="string"){e[2](v1)}return {"foo":v0,"bar":v1,}}`,
+    `i=>{typeof i==="object"&&i||e[2](i);let v0=i["foo"],v1=i["bar"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);return {"foo":v0,"bar":v1,}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
+    ~op=#Encode,
     `i=>{return {"foo":i["foo"],"bar":i["bar"],}}`,
   )
 })
@@ -296,18 +266,18 @@ test("Compiled code snapshot of variant applied to object", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["foo"];if(typeof v0!=="string"){e[1](v0)}return {"TAG":"Ok","_0":v0,}}`,
+    `i=>{typeof i==="object"&&i||e[1](i);let v0=i["foo"];typeof v0==="string"||e[0](v0);return {"TAG":"Ok","_0":v0,}}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return {"foo":i["_0"],}}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"foo":i["_0"],}}`)
 
   let schema = S.object(s => s.field("foo", S.string->S.to(S.bool)))->S.shape(s => Ok(s))
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["foo"];if(typeof v0!=="string"){e[1](v0)}let v1;(v1=v0==="true")||v0==="false"||e[2](v0);return {"TAG":"Ok","_0":v1,}}`,
+    `i=>{typeof i==="object"&&i||e[2](i);let v1=i["foo"];typeof v1==="string"||e[1](v1);let v0;(v0=v1==="true")||v1==="false"||e[0](v1);return {"TAG":"Ok","_0":v0,}}`,
   )
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return {"foo":""+i["_0"],}}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"foo":""+i["_0"],}}`)
 })
 
 test("Compiled parse code snapshot", t => {
@@ -316,26 +286,26 @@ test("Compiled parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="string"){e[0](i)}return {"TAG":"Ok","_0":i,}}`,
+    `i=>{typeof i==="string"||e[0](i);return {"TAG":"Ok","_0":i,}}`,
   )
 })
 
 test("Compiled parse code snapshot without transform", t => {
   let schema = S.string->S.shape(s => s)
 
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(typeof i!=="string"){e[0](i)}return i}`)
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{typeof i==="string"||e[0](i);return i}`)
 })
 
 test("Compiled serialize code snapshot", t => {
   let schema = S.string->S.shape(s => Ok(s))
 
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{return i["_0"]}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return i["_0"]}`)
 })
 
 test("Compiled serialize code snapshot without transform", t => {
   let schema = S.string->S.shape(s => s)
 
-  t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
+  t->U.assertCompiledCodeIsNoop(~schema, ~op=#Encode)
 })
 
 test(
@@ -343,12 +313,12 @@ test(
   t => {
     let schema = S.literal((true, 12))->S.shape(_ => #foo)
 
-    t->Assert.deepEqual(#foo->S.reverseConvertOrThrow(schema), %raw(`[true,12]`))
+    t->Assert.deepEqual(#foo->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`[true,12]`))
 
     t->U.assertCompiledCode(
       ~schema,
-      ~op=#ReverseConvert,
-      `i=>{if(i!=="foo"){e[0](i)}return [true,12,]}`,
+      ~op=#Encode,
+      `i=>{i==="foo"||e[0](i);return [true,12,]}`,
     )
   },
 )
@@ -366,12 +336,12 @@ test("Works with variant schema used multiple times as a child schema", t => {
   t->U.assertCompiledCode(
     ~schema=appVersionsSchema,
     ~op=#Parse,
-    `i=>{if(typeof i!=="object"||!i){e[0](i)}let v0=i["ios"],v1=i["android"];if(typeof v0!=="string"){e[1](v0)}if(typeof v1!=="string"){e[2](v1)}return {"ios":{"current":v0,"minimum":"1.0",},"android":{"current":v1,"minimum":"1.0",},}}`,
+    `i=>{typeof i==="object"&&i||e[2](i);let v0=i["ios"],v1=i["android"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);return {"ios":{"current":i["ios"],"minimum":"1.0",},"android":{"current":i["android"],"minimum":"1.0",},}}`,
   )
   t->U.assertCompiledCode(
     ~schema=appVersionsSchema,
-    ~op=#ReverseConvert,
-    `i=>{let v0=i["ios"];let v1=i["android"];return {"ios":v0["current"],"android":v1["current"],}}`,
+    ~op=#Encode,
+    `i=>{let v0=i["ios"],v1=i["android"];return {"ios":v0["current"],"android":v1["current"],}}`,
   )
 
   let rawAppVersions = {
@@ -383,10 +353,10 @@ test("Works with variant schema used multiple times as a child schema", t => {
     "android": {"current": "1.2", "minimum": "1.0"},
   }
 
-  t->Assert.deepEqual(rawAppVersions->S.parseOrThrow(appVersionsSchema), appVersions)
+  t->Assert.deepEqual(rawAppVersions->S.parseOrThrow(~to=appVersionsSchema), appVersions)
 
   t->Assert.deepEqual(
-    appVersions->S.reverseConvertToJsonOrThrow(appVersionsSchema),
+    appVersions->S.decodeOrThrow(~from=appVersionsSchema, ~to=S.json),
     rawAppVersions->Obj.magic,
   )
 })
@@ -415,33 +385,8 @@ test("Succesfully uses reversed variant schema to self for parsing back to initi
 test("Reverse convert tuple turned to Ok", t => {
   let schema = S.tuple2(S.string, S.bool)->S.shape(t => Ok(t))
 
-  t->Assert.deepEqual(Ok(("foo", true))->S.reverseConvertOrThrow(schema), %raw(`["foo", true]`))
-  t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{let v0=i["_0"];return v0}`)
-})
-
-test("Reverse with output of nested object/tuple schema", t => {
-  let schema = S.bool->S.shape(v => {
-    {
-      "nested": {
-        "field": (v, true),
-      },
-    }
-  })
-  t->U.assertEqualSchemas(
-    schema->S.reverse,
-    S.schema(s => {
-      {
-        "nested": {
-          "field": (s.matches(S.bool), true),
-        },
-      }
-    })
-    ->S.shape(v => {
-      let (b, _) = v["nested"]["field"]
-      b
-    })
-    ->S.castToUnknown,
-  )
+  t->Assert.deepEqual(Ok(("foo", true))->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`["foo", true]`))
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{let v0=i["_0"];return v0}`)
 })
 
 test(
@@ -464,14 +409,14 @@ test("S.json shaped to literal should keep validation", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{let v0=e[0](i);return "foo"}
-JSON: i=>{if(Array.isArray(i)){let v4=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v3;try{let v2=e[0][1](i[v0]);v3=v2}catch(v1){if(v1&&v1.s===s){v1.path=""+'["'+v0+'"]'+v1.path}throw v1}v4[v0]=v3}i=v4}else if(typeof i==="object"&&i&&!Array.isArray(i)){let v9={};for(let v5 in i){let v8;try{let v7=e[1][1](i[v5]);v8=v7}catch(v6){if(v6&&v6.s===s){v6.path=""+'["'+v5+'"]'+v6.path}throw v6}v9[v5]=v8}i=v9}else if(!(typeof i==="string"||typeof i==="boolean"||typeof i==="number"&&!Number.isNaN(i)||i===null)){e[2](i)}return i}`,
+    `i=>{e[0](i);return "foo"}
+JSON: i=>{if(Array.isArray(i)){for(let v0=0;v0<i.length;++v0){try{e[0]["unknown->JSON--0"](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}}else if(typeof i==="object"&&i&&!Array.isArray(i)){for(let v2 in i){try{e[1]["unknown->JSON--0"](i[v2]);}catch(v3){v3.path='["'+v2+'"]'+v3.path;throw v3}}}else if(!(typeof i==="string"||typeof i==="boolean"||typeof i==="number"&&!Number.isNaN(i)||i===null)){e[2](i)}return i}`,
   )
 
-  t->Assert.deepEqual("foo"->S.parseOrThrow(schema), "foo")
+  t->Assert.deepEqual("foo"->S.parseOrThrow(~to=schema), "foo")
   t->U.assertThrowsMessage(
-    () => %raw(`undefined`)->S.parseOrThrow(schema),
-    "Failed parsing: Expected JSON, received undefined",
+    () => %raw(`undefined`)->S.parseOrThrow(~to=schema),
+    "Expected JSON, received undefined",
   )
-  t->Assert.deepEqual("bar"->S.parseOrThrow(schema), "foo")
+  t->Assert.deepEqual("bar"->S.parseOrThrow(~to=schema), "foo")
 })

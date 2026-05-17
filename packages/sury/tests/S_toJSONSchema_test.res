@@ -1,7 +1,5 @@
 open Ava
 
-S.enableJson()
-
 test("JSONSchema of bool schema", t => {
   t->Assert.deepEqual(S.bool->S.toJSONSchema, %raw(`{"type": "boolean"}`))
 })
@@ -11,42 +9,90 @@ test("JSONSchema of string schema", t => {
 })
 
 test("JSONSchema of int schema", t => {
-  t->Assert.deepEqual(S.int->S.toJSONSchema, %raw(`{"type": "integer"}`))
+  t->Assert.deepEqual(S.int->S.toJSONSchema, %raw(`{"type": "integer", "minimum": -2147483648, "maximum": 2147483647}`))
 })
 
 test("JSONSchema of float schema", t => {
   t->Assert.deepEqual(S.float->S.toJSONSchema, %raw(`{"type": "number"}`))
 })
 
+test("JSONSchema of S.json transformed to object with bigint and array of optional items", t => {
+  let nonJsonableSchema = S.schema(s =>
+    {
+      "id": s.matches(S.bigint),
+      "data": s.matches(S.unknown),
+      "items": s.matches(S.array(S.option(S.float->S.floatMax(1.)))),
+    }
+  )
+  // TODO: Should coerce nonJsonableSchema to jsonable JSON Schema
+  t->Assert.deepEqual(S.json->S.to(nonJsonableSchema)->S.toJSONSchema, %raw(`{}`))
+})
+
 test("JSONSchema of email schema", t => {
   t->Assert.deepEqual(
-    S.string->S.email->S.toJSONSchema,
+    S.email->S.toJSONSchema,
     %raw(`{"type": "string", "format": "email"}`),
   )
 })
 
 test("JSONSchema of url schema", t => {
   t->Assert.deepEqual(
-    S.string->S.url->S.toJSONSchema,
+    S.url->S.toJSONSchema,
     %raw(`{"type": "string", "format": "uri"}`),
     ~message="The format should be uri for url schema",
   )
 })
 
-test("JSONSchema of datetime schema", t => {
+test("JSONSchema of S.string->S.to(S.date)", t => {
   t->Assert.deepEqual(
-    S.string->S.datetime->S.toJSONSchema,
+    S.string->S.to(S.date)->S.toJSONSchema,
     %raw(`{"type": "string", "format": "date-time"}`),
   )
 })
 
+test("JSONSchema of S.string->S.to(S.date) with description", t => {
+  t->Assert.deepEqual(
+    S.string->S.to(S.date)->S.meta({description: "A date"})->S.toJSONSchema,
+    %raw(`{"type": "string", "format": "date-time", "description": "A date"}`),
+  )
+})
+
+test("JSONSchema of S.string with description converted to S.date", t => {
+  t->Assert.deepEqual(
+    S.string->S.meta({description: "A date"})->S.to(S.date)->S.toJSONSchema,
+    %raw(`{"type": "string", "format": "date-time", "description": "A date"}`),
+  )
+})
+
+test("JSONSchema of S.isoDateTime", t => {
+  t->Assert.deepEqual(
+    S.isoDateTime->S.toJSONSchema,
+    %raw(`{"type": "string", "format": "date-time"}`),
+  )
+})
+
+test("JSONSchema of object with transformed field preserves field metadata", t => {
+  t->Assert.deepEqual(
+    S.object(s =>
+      s.field("birthDate", S.string->S.meta({description: "Birth date"})->S.to(S.date))
+    )->S.toJSONSchema,
+    %raw(`{
+      "type": "object",
+      "properties": {
+        "birthDate": {"type": "string", "format": "date-time", "description": "Birth date"}
+      },
+      "required": ["birthDate"]
+    }`),
+  )
+})
+
 test("JSONSchema of cuid schema", t => {
-  t->Assert.deepEqual(S.string->S.cuid->S.toJSONSchema, %raw(`{"type": "string"}`))
+  t->Assert.deepEqual(S.cuid->S.toJSONSchema, %raw(`{"type": "string"}`))
 })
 
 test("JSONSchema of uuid schema", t => {
   t->Assert.deepEqual(
-    S.string->S.uuid->S.toJSONSchema,
+    S.uuid->S.toJSONSchema,
     %raw(`{"type": "string", "format": "uuid"}`),
   )
 })
@@ -54,14 +100,7 @@ test("JSONSchema of uuid schema", t => {
 test("JSONSchema of pattern schema", t => {
   t->Assert.deepEqual(
     S.string->S.pattern(/abc/g)->S.toJSONSchema,
-    %raw(`{"type": "string","pattern": "/abc/g"}`),
-  )
-})
-
-test("JSONSchema of string schema uses the last refinement for format", t => {
-  t->Assert.deepEqual(
-    S.string->S.email->S.datetime->S.toJSONSchema,
-    %raw(`{"type": "string", "format": "date-time"}`),
+    %raw(`{"type": "string","pattern": "abc"}`),
   )
 })
 
@@ -94,16 +133,16 @@ test("JSONSchema of string with both min and max", t => {
 })
 
 test("JSONSchema of int with min", t => {
-  t->Assert.deepEqual(S.int->S.min(1)->S.toJSONSchema, %raw(`{"type": "integer", "minimum": 1}`))
+  t->Assert.deepEqual(S.int->S.min(1)->S.toJSONSchema, %raw(`{"type": "integer", "minimum": 1, "maximum": 2147483647}`))
 })
 
 test("JSONSchema of int with max", t => {
-  t->Assert.deepEqual(S.int->S.max(1)->S.toJSONSchema, %raw(`{"type": "integer", "maximum": 1}`))
+  t->Assert.deepEqual(S.int->S.max(1)->S.toJSONSchema, %raw(`{"type": "integer", "minimum": -2147483648, "maximum": 1}`))
 })
 
 test("JSONSchema of port", t => {
   t->Assert.deepEqual(
-    S.int->S.port->S.toJSONSchema,
+    S.port->S.toJSONSchema,
     %raw(`{
       "type": "integer",
       "minimum": 0,
@@ -128,7 +167,7 @@ test("JSONSchema of float with max", t => {
 
 test("JSONSchema of nullable float", t => {
   t->Assert.deepEqual(
-    S.null(S.float)->S.toJSONSchema,
+    S.nullAsOption(S.float)->S.toJSONSchema,
     %raw(`{"anyOf": [{"type": "number"}, {"type": "null"}]}`),
   )
 })
@@ -157,7 +196,6 @@ test("JSONSchema of object literal", t => {
     S.literal({"received": true})->S.toJSONSchema,
     %raw(`{
         "type": "object",
-        "additionalProperties": true,
         "properties": {
           "received": {
             "type": "boolean",
@@ -180,14 +218,14 @@ test("JSONSchema of null", t => {
 test("JSONSchema of undefined", t => {
   t->U.assertThrowsMessage(
     () => S.literal(%raw(`undefined`))->S.toJSONSchema,
-    `Failed converting to JSON: undefined is not valid JSON`,
+    `Expected JSON, received undefined`,
   )
 })
 
 test("JSONSchema of NaN", t => {
   t->U.assertThrowsMessage(
     () => S.literal(%raw(`NaN`))->S.toJSONSchema,
-    `Failed converting to JSON: NaN is not valid JSON`,
+    `Expected JSON, received NaN`,
   )
 })
 
@@ -213,7 +251,6 @@ test("JSONSchema of object of literals schema", t => {
     )->S.toJSONSchema,
     %raw(`{
       "type": "object",
-      "additionalProperties": true,
       "properties": {
         "foo": {
           "type": "string",
@@ -253,6 +290,14 @@ test("JSONSchema of union", t => {
       ]
     }`),
   )
+})
+
+test("JSONSchema of union narrowed by .to: union([string, bigint])->to(string)", t => {
+  // The union decoder shrinks to just the string variant when the chained
+  // .to(S.string) is applied (the bigint variant is absorbed by the coercion).
+  // toJSONSchema reads that shrunk schema and emits the string type.
+  let schema = S.union([S.string->S.castToUnknown, S.bigint->S.castToUnknown])->S.to(S.string)
+  t->Assert.deepEqual(schema->S.toJSONSchema, %raw(`{"type": "string"}`))
 })
 
 test("JSONSchema of string array", t => {
@@ -322,7 +367,7 @@ test("JSONSchema of dict with optional fields", t => {
 test("JSONSchema of dict with optional invalid field", t => {
   t->U.assertThrowsMessage(
     () => S.dict(S.option(S.bigint))->S.toJSONSchema,
-    `Failed converting to JSON: { [key: string]: bigint | undefined; } is not valid JSON`,
+    `Failed at []: Expected JSON, received bigint | undefined`,
   )
 })
 
@@ -333,7 +378,6 @@ test("JSONSchema of object with single string field", t => {
       "type": "object",
       "properties": {"field": {"type": "string"}},
       "required": ["field"],
-      "additionalProperties": true,
     }`),
   )
 })
@@ -356,7 +400,6 @@ test("JSONSchema of object with optional field", t => {
     %raw(`{
       "type": "object",
       "properties": {"field": {"type": "string"}},
-      "additionalProperties": true,
     }`),
   )
 })
@@ -374,7 +417,6 @@ test("JSONSchema of object with deprecated field", t => {
         "description": "Use another field"
       }},
       "required": ["field"],
-      "additionalProperties": true,
     }`),
   )
 })
@@ -412,11 +454,9 @@ test("JSONSchema of nested object", t => {
           "type": "object",
           "properties": {"Field": {"type": "string"}},
           "required": ["Field"],
-          "additionalProperties": true,
         },
       },
       "required": ["objectWithOneStringField"],
-      "additionalProperties": true,
     }`),
   )
 })
@@ -436,7 +476,6 @@ test("JSONSchema of object with one optional and one normal field", t => {
         "optionalField": {"type": "string"},
       },
       "required": ["field"],
-      "additionalProperties": true,
     }`),
   )
 })
@@ -444,7 +483,7 @@ test("JSONSchema of object with one optional and one normal field", t => {
 test("JSONSchema of optional root schema", t => {
   t->U.assertThrowsMessage(
     () => S.option(S.string)->S.toJSONSchema,
-    "Failed converting to JSON: string | undefined is not valid JSON",
+    "Expected JSON, received string | undefined",
   )
 })
 
@@ -458,7 +497,6 @@ test("JSONSchema of object with S.option(S.option(_)) field", t => {
           "type": "string",
         },
       },
-      "additionalProperties": true,
     }`),
   )
 })
@@ -466,18 +504,7 @@ test("JSONSchema of object with S.option(S.option(_)) field", t => {
 test("JSONSchema of reversed object with S.option(S.option(_)) field", t => {
   t->U.assertThrowsMessage(
     () => S.object(s => s.field("field", S.option(S.option(S.string))))->S.reverse->S.toJSONSchema,
-    // FIXME: Should work. Investigate why this test fails
-    // %raw(`{
-    //   "type": "object",
-    //   "properties": {
-    //     "field": {
-    //       "type": "string",
-    //     },
-    //   },
-    //   "additionalProperties": true,
-    // }`),
-    // (),
-    `Failed converting to JSON: string | undefined | { BS_PRIVATE_NESTED_SOME_NONE: 0; } is not valid JSON`,
+    `Expected JSON, received string | undefined | { BS_PRIVATE_NESTED_SOME_NONE: 0; }`,
   )
 })
 
@@ -507,7 +534,6 @@ test(
       %raw(`{
         "type": "object",
         "properties": {"field": {"type": "boolean"}}, // No 'default: true' here, but that's fine
-        "additionalProperties": true,
       }`),
     )
   },
@@ -543,13 +569,12 @@ test("Transformed schema schema uses default with correct type", t => {
     %raw(`{
       "type": "object",
       "properties": {"field": {"default": true, "type": "boolean"}},
-      "additionalProperties": true,
     }`),
   )
 })
 
 test("Currently Option.getOrWith is not reflected on JSON schema", t => {
-  let schema = S.null(S.bool)->S.Option.getOrWith(() => true)
+  let schema = S.nullAsOption(S.bool)->S.Option.getOrWith(() => true)
 
   t->Assert.deepEqual(
     schema->S.toJSONSchema,
@@ -587,7 +612,7 @@ test("Primitive schema with an example", t => {
 })
 
 test("Transformed schema with an example", t => {
-  let schema = S.null(S.bool)->S.meta({examples: [%raw(`null`)]})
+  let schema = S.nullAsOption(S.bool)->S.meta({examples: [None]})
 
   t->Assert.deepEqual(
     schema->S.toJSONSchema,
@@ -638,16 +663,12 @@ test("Additional raw schema works with optional fields", t => {
       "properties": {
         "optionalField": {"nullable": true, "type": "string"},
       },
-      "additionalProperties": true,
     }`),
   )
 })
 
 test("JSONSchema of unknown schema", t => {
-  t->U.assertThrowsMessage(
-    () => S.unknown->S.toJSONSchema,
-    `Failed converting to JSON: unknown is not valid JSON`,
-  )
+  t->U.assertThrowsMessage(() => S.unknown->S.toJSONSchema, `Expected JSON, received unknown`)
 })
 
 test("JSON schema doesn't affect final schema", t => {
@@ -671,7 +692,6 @@ test("JSONSchema of recursive schema", t => {
     %raw(`{
       $defs: {
         Node: {
-          additionalProperties: true,
           properties: {
             Children: { items: { $ref: "#/$defs/Node" }, type: "array" },
             Id: { type: "string" },
@@ -710,7 +730,6 @@ test("JSONSchema of nested recursive schema", t => {
     %raw(`{
       type: 'object',
       properties: { node: { '$ref': '#/$defs/Node' } },
-      additionalProperties: true,
       required: [ 'node' ],
       '$defs': {
         Node: {
@@ -719,7 +738,6 @@ test("JSONSchema of nested recursive schema", t => {
             Children: { items: { $ref: "#/$defs/Node" }, type: "array" },
             Id: { type: "string" },
           },
-          additionalProperties: true,
           required: [ 'Id', 'Children' ]
         }
       }
@@ -728,53 +746,46 @@ test("JSONSchema of nested recursive schema", t => {
 })
 
 test("JSONSchema of recursive schema with non-jsonable field", t => {
-  t->Assert.throws(
-    () => {
-      let schema = S.recursive(
-        "Node",
-        nodeSchema => {
-          S.object(
-            s =>
-              {
-                "id": s.field("Id", S.bigint),
-                "children": s.field("Children", S.array(nodeSchema)),
-              },
-          )
-        },
-      )
-      schema->S.toJSONSchema
-    },
-    // FIXME: This doesn't have the most readable message
-    // Because isJsonable check doesn't work properly with recursive schemas
-    ~expectations={
-      message: "[Sury] Unexpected schema type",
-    },
-  )
+  t->U.assertThrowsMessage(() => {
+    let schema = S.recursive(
+      "Node",
+      nodeSchema => {
+        S.object(
+          s =>
+            {
+              "id": s.field("Id", S.bigint),
+              "children": s.field("Children", S.array(nodeSchema)),
+            },
+        )
+      },
+    )
+    schema->S.toJSONSchema
+  }, `Failed at ["Id"]: Expected JSON, received bigint`)
 })
 
 test("Fails to create schema for schemas with optional items", t => {
   t->U.assertThrowsMessage(
     () => S.array(S.option(S.string))->S.toJSONSchema,
-    "Failed converting to JSON: (string | undefined)[] is not valid JSON",
+    "Failed at []: Expected JSON, received string | undefined",
   )
   t->U.assertThrowsMessage(
-    () => S.union([S.option(S.string), S.null(S.string)])->S.toJSONSchema,
-    "Failed converting to JSON: string | undefined | null is not valid JSON",
+    () => S.union([S.option(S.string), S.nullAsOption(S.string)])->S.toJSONSchema,
+    "Expected JSON, received string | undefined | null",
   )
   t->U.assertThrowsMessage(
     () => S.tuple1(S.option(S.string))->S.toJSONSchema,
-    `Failed converting to JSON at ["0"]: [string | undefined] is not valid JSON`,
+    `Failed at ["0"]: Expected JSON, received string | undefined`,
   )
   t->U.assertThrowsMessage(
     () => S.tuple1(S.array(S.option(S.string)))->S.toJSONSchema,
-    `Failed converting to JSON at ["0"]: [(string | undefined)[]] is not valid JSON`,
+    `Failed at ["0"][]: Expected JSON, received string | undefined`,
   )
 })
 
 test("JSONSchema error of nested object has path", t => {
   t->U.assertThrowsMessage(
     () => S.object(s => s.nested("nested").field("field", S.bigint))->S.toJSONSchema,
-    `Failed converting to JSON: { nested: { field: bigint; }; } is not valid JSON`,
+    `Failed at ["nested"]["field"]: Expected JSON, received bigint`,
   )
 })
 
@@ -825,11 +836,12 @@ module Example = {
           },
           Age: {
             type: "integer",
+            minimum: -2147483648,
+            maximum: 2147483647,
             deprecated: true,
             description: "Use rating instead",
           },
         },
-        additionalProperties: true,
         required: ["Id", "Title", "Rating"],
       }`),
     )

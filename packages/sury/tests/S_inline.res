@@ -312,8 +312,8 @@
 // })
 
 // test("Supports Null", t => {
-//   let schema = S.null(S.string)
-//   t->Assert.deepEqual(schema->S.inline, `S.null(S.string)`)
+//   let schema = S.nullAsOption(S.string)
+//   t->Assert.deepEqual(schema->S.inline, `S.nullAsOption(S.string)`)
 // })
 
 // test("Supports Array", t => {
@@ -566,10 +566,10 @@
 // // })
 
 // // test("Supports Null schemas in union", t => {
-// //   let schema = S.union([S.null(S.literalVariant(String("123"), 123.)), S.null(S.float)])
+// //   let schema = S.union([S.nullAsOption(S.literalVariant(String("123"), 123.)), S.nullAsOption(S.float)])
 // //   let schemaInlineResult = S.union([
-// //     S.null(S.literal(String("123")))->S.shape(v => #NullOf123(v)),
-// //     S.null(S.float)->S.shape(v => #NullOfFloat(v)),
+// //     S.nullAsOption(S.literal(String("123")))->S.shape(v => #NullOf123(v)),
+// //     S.nullAsOption(S.float)->S.shape(v => #NullOfFloat(v)),
 // //   ])
 
 // //   schemaInlineResult->(
@@ -583,7 +583,7 @@
 
 // //   t->Assert.deepEqual(
 // //     schema->S.inline,
-// //     `S.union([S.null(S.literal(String("123")))->S.shape(v => #"NullOf123"(v)), S.null(S.float)->S.shape(v => #"NullOfFloat"(v))])`,
+// //     `S.union([S.nullAsOption(S.literal(String("123")))->S.shape(v => #"NullOf123"(v)), S.nullAsOption(S.float)->S.shape(v => #"NullOfFloat"(v))])`,
 // //     (),
 // //   )
 // // })

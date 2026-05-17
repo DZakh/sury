@@ -9,26 +9,22 @@ module Common = {
   test("Successfully parses", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(any->S.parseOrThrow(schema), value)
+    t->Assert.deepEqual(any->S.parseOrThrow(~to=schema), value)
   })
 
   test("Fails to parse", t => {
     let schema = factory()
 
-    t->U.assertThrows(
-      () => invalidAny->S.parseOrThrow(schema),
-      {
-        code: InvalidType({expected: schema->S.castToUnknown, received: invalidAny}),
-        operation: Parse,
-        path: S.Path.empty,
-      },
+    t->U.assertThrowsMessage(
+      () => invalidAny->S.parseOrThrow(~to=schema),
+      `Expected number, received "Hello world!"`,
     )
   })
 
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), any)
+    t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), any)
   })
 
   test("Compiled parse code snapshot", t => {
@@ -37,14 +33,14 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="number"||Number.isNaN(i)){e[0](i)}return i}`,
+      `i=>{typeof i==="number"&&!Number.isNaN(i)||e[0](i);return i}`,
     )
   })
 
   test("Compiled serialize code snapshot", t => {
     let schema = factory()
 
-    t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
+    t->U.assertCompiledCodeIsNoop(~schema, ~op=#Encode)
   })
 
   test("Reverse schema to S.float", t => {
@@ -62,18 +58,14 @@ module Common = {
 test("Successfully parses number with a fractional part", t => {
   let schema = S.float
 
-  t->Assert.deepEqual(%raw(`123.123`)->S.parseOrThrow(schema), 123.123)
+  t->Assert.deepEqual(%raw(`123.123`)->S.parseOrThrow(~to=schema), 123.123)
 })
 
 test("Fails to parse NaN", t => {
   let schema = S.float
 
-  t->U.assertThrows(
-    () => %raw(`NaN`)->S.parseOrThrow(schema),
-    {
-      code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`NaN`)}),
-      operation: Parse,
-      path: S.Path.empty,
-    },
+  t->U.assertThrowsMessage(
+    () => %raw(`NaN`)->S.parseOrThrow(~to=schema),
+    `Expected number, received NaN`,
   )
 })

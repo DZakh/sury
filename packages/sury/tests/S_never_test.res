@@ -4,29 +4,18 @@ module Common = {
   let any = %raw(`true`)
   let factory = () => S.never
 
-  test("Fails to ", t => {
+  test("Fails to parse", t => {
     let schema = factory()
 
-    t->U.assertThrows(
-      () => any->S.parseOrThrow(schema),
-      {
-        code: InvalidType({expected: S.never->S.castToUnknown, received: any}),
-        operation: Parse,
-        path: S.Path.empty,
-      },
-    )
+    t->U.assertThrowsMessage(() => any->S.parseOrThrow(~to=schema), `Expected never, received true`)
   })
 
   test("Fails to serialize ", t => {
     let schema = factory()
 
-    t->U.assertThrows(
-      () => any->S.reverseConvertOrThrow(schema),
-      {
-        code: InvalidType({expected: schema->S.castToUnknown, received: any}),
-        operation: ReverseConvert,
-        path: S.Path.empty,
-      },
+    t->U.assertThrowsMessage(
+      () => any->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      `Expected never, received true`,
     )
   })
 
@@ -39,7 +28,7 @@ module Common = {
   test("Compiled serialize code snapshot", t => {
     let schema = factory()
 
-    t->U.assertCompiledCode(~schema, ~op=#ReverseConvert, `i=>{e[0](i);return i}`)
+    t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{e[0](i);return i}`)
   })
 
   test("Reverse schema to self", t => {
@@ -58,13 +47,9 @@ module ObjectField = {
       }
     )
 
-    t->U.assertThrows(
-      () => %raw(`{"key":"value"}`)->S.parseOrThrow(schema),
-      {
-        code: InvalidType({expected: S.never->S.castToUnknown, received: %raw(`undefined`)}),
-        operation: Parse,
-        path: S.Path.fromArray(["oldKey"]),
-      },
+    t->U.assertThrowsMessage(
+      () => %raw(`{"key":"value"}`)->S.parseOrThrow(~to=schema),
+      `Failed at ["oldKey"]: Expected never, received undefined`,
     )
   })
 
@@ -82,7 +67,7 @@ module ObjectField = {
     )
 
     t->Assert.deepEqual(
-      %raw(`{"key":"value"}`)->S.parseOrThrow(schema),
+      %raw(`{"key":"value"}`)->S.parseOrThrow(~to=schema),
       {
         "key": "value",
         "oldKey": None,

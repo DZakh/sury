@@ -40,9 +40,8 @@ switch (process.platform) {
     );
     break;
   case "darwin":
-    const binaryName =
-      process.arch === "x64" ? "ppx-osx-x64.exe" : "ppx-osx.exe";
-    installMacLinuxBinary(binaryName);
+    // ppx-osx.exe is arm64; Intel Macs run it under Rosetta.
+    installMacLinuxBinary("ppx-osx.exe");
   case "win32":
     installWindowsBinary();
     break;

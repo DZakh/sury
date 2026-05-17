@@ -69,10 +69,6 @@ export declare namespace StandardSchemaV1 {
   >["output"];
 }
 
-export type EffectCtx<Output, Input> = {
-  readonly schema: Schema<Output, Input>;
-  readonly fail: (message: string) => never;
-};
 
 export type SuccessResult<Value> = {
   readonly success: true;
@@ -95,27 +91,40 @@ export type JSON =
   | { [key: string]: JSON }
   | JSON[];
 
+export type NumberFormat = "int32" | "port";
+export type StringFormat = "json" | "date-time" | "email" | "uuid" | "cuid" | "url";
+export type ArrayFormat = "compactColumns";
+export type Format = NumberFormat | StringFormat | ArrayFormat;
+
 export type Schema<Output, Input = unknown> = {
-  with<Transformed>(
-    transform: (
+  with<TargetOutput = unknown, TargetInput = unknown>(
+    to: (
       schema: Schema<unknown, unknown>,
-      parser:
-        | ((value: unknown, s: EffectCtx<unknown, unknown>) => unknown)
-        | undefined,
-      serializer?: (value: unknown, s: EffectCtx<unknown, unknown>) => Input
+      target: Schema<unknown, unknown>,
+      decode?: ((value: unknown) => unknown) | undefined,
+      encode?: (value: unknown) => Output
     ) => Schema<unknown, unknown>,
-    parser:
-      | ((value: Output, s: EffectCtx<unknown, unknown>) => Transformed)
-      | undefined,
-    serializer?: (value: Transformed, s: EffectCtx<unknown, unknown>) => Input
-  ): Schema<Transformed, Input>;
+    target: Schema<TargetOutput, TargetInput>,
+    decode?: ((value: Output) => TargetInput) | undefined,
+    encode?: (value: TargetInput) => Output
+  ): Schema<TargetOutput, Input>;
   with(
     refine: (
       schema: Schema<unknown, unknown>,
-      refiner: (value: unknown, s: EffectCtx<unknown, unknown>) => Promise<void>
+      refineCheck: (value: unknown) => boolean,
+      refineOptions?: { error?: string; path?: string[] }
     ) => Schema<unknown, unknown>,
-    refiner: (value: Output, s: EffectCtx<Output, Input>) => Promise<void>
+    refineCheck: (value: Output) => boolean,
+    refineOptions?: { error?: string; path?: string[] }
   ): Schema<Output, Input>;
+  // I don't know how, but it makes both S.refine and S.shape work
+  with<Shape>(
+    fn: (
+      schema: Schema<unknown, unknown>,
+      callback: ((value: unknown) => unknown) | undefined
+    ) => Schema<unknown, unknown>,
+    callback: ((value: Output) => Shape) | undefined
+  ): Schema<Shape, Input>;
   // with(message: string): t<Output, Input>; TODO: implement
   with<O, I>(fn: (schema: Schema<Output, Input>) => Schema<O, I>): Schema<O, I>;
   with<O, I, A1 extends string>(
@@ -142,6 +151,7 @@ export type Schema<Output, Input = unknown> = {
   readonly noValidation?: boolean;
   readonly default?: Input;
   readonly to?: Schema<unknown>;
+  readonly errorMessage?: SchemaErrorMessage;
 
   readonly ["~standard"]: StandardSchemaV1.Props<Input, Output>;
 } & (
@@ -153,13 +163,18 @@ export type Schema<Output, Input = unknown> = {
     }
   | {
       readonly type: "string";
-      readonly format?: "json";
+      readonly format?: StringFormat;
       readonly const?: string;
+      readonly minLength?: number;
+      readonly maxLength?: number;
+      readonly pattern?: RegExp;
     }
   | {
       readonly type: "number";
-      readonly format?: "int32" | "port";
+      readonly format?: NumberFormat;
       readonly const?: number;
+      readonly minimum?: number;
+      readonly maximum?: number;
     }
   | {
       readonly type: "bigint";
@@ -196,17 +211,19 @@ export type Schema<Output, Input = unknown> = {
     }
   | {
       readonly type: "array";
-      readonly items: Item[];
+      readonly items: Schema<unknown>;
       readonly additionalItems: "strip" | "strict" | Schema<unknown>;
-      readonly unnest?: true;
+      readonly format?: ArrayFormat;
+      readonly minItems?: number;
+      readonly maxItems?: number;
     }
   | {
       readonly type: "object";
-      readonly items: Item[];
       readonly properties: {
         [key: string]: Schema<unknown>;
       };
       readonly additionalItems: "strip" | "strict" | Schema<unknown>;
+      readonly required?: string[];
     }
   | {
       readonly type: "union";
@@ -235,32 +252,88 @@ export type Schema<Output, Input = unknown> = {
     }
 );
 
-export type Item = {
-  readonly schema: Schema<unknown>;
-  readonly location: string;
-};
-
 export abstract class Path {
   protected opaque: any;
 } /* simulate opaque types */
 
-export class Error {
-  readonly flag: number;
-  readonly code: ErrorCode;
-  readonly path: Path;
-  readonly message: string;
-  readonly reason: string;
-}
+export type Error =
+  | {
+      readonly code: "invalid_input";
+      readonly path: Path;
+      readonly message: string;
+      readonly reason: string;
+      readonly expected: Schema<unknown>;
+      readonly received: Schema<unknown>;
+      readonly input?: unknown;
+      readonly unionErrors?: readonly Error[];
+    }
+  | {
+      readonly code: "invalid_operation";
+      readonly path: Path;
+      readonly message: string;
+      readonly reason: string;
+    }
+  | {
+      readonly code: "unsupported_decode";
+      readonly path: Path;
+      readonly message: string;
+      readonly reason: string;
+      readonly from: Schema<unknown>;
+      readonly to: Schema<unknown>;
+    }
+  | {
+      readonly code: "invalid_conversion";
+      readonly path: Path;
+      readonly message: string;
+      readonly reason: string;
+      readonly from: Schema<unknown>;
+      readonly to: Schema<unknown>;
+      readonly cause?: Error;
+    }
+  | {
+      readonly code: "unrecognized_keys";
+      readonly path: Path;
+      readonly message: string;
+      readonly reason: string;
+      readonly keys: readonly string[];
+    };
 
-export abstract class ErrorCode {
-  protected opaque: any;
-} /* simulate opaque types */
+export const Error: {
+  new (): Error;
+  prototype: Error;
+};
 
 export type Output<T> = T extends Schema<infer Output, unknown>
   ? Output
   : never;
 export type Infer<T> = Output<T>;
 export type Input<T> = T extends Schema<unknown, infer Input> ? Input : never;
+
+// Utility types for decoder function with multiple schemas
+type ExtractFirstInput<T extends readonly Schema<any, any>[]> =
+  T extends readonly [Schema<any, infer FirstInput>, ...any[]]
+    ? FirstInput
+    : never;
+
+// Utility types for encoder function with multiple schemas
+type ExtractFirstOutput<T extends readonly Schema<any, any>[]> =
+  T extends readonly [Schema<infer FirstOutput, any>, ...any[]]
+    ? FirstOutput
+    : never;
+
+type ExtractLastOutput<T extends readonly Schema<any, any>[]> =
+  T extends readonly [...any[], Schema<infer LastOutput, any>]
+    ? LastOutput
+    : T extends readonly [Schema<infer SingleOutput, any>]
+    ? SingleOutput
+    : never;
+
+type ExtractLastInput<T extends readonly Schema<any, any>[]> =
+  T extends readonly [...any[], Schema<any, infer LastInput>]
+    ? LastInput
+    : T extends readonly [Schema<any, infer SingleInput>]
+    ? SingleInput
+    : never;
 
 export type UnknownToOutput<T> = T extends Schema<infer Output, unknown>
   ? Output
@@ -414,11 +487,25 @@ declare const void_: Schema<void, void>;
 export { void_ as void };
 
 export const json: Schema<JSON, JSON>;
-export function enableJson(): void;
 
 export const jsonString: Schema<string, string>;
 export const jsonStringWithSpace: (space: number) => Schema<string, string>;
-export function enableJsonString(): void;
+
+export const uint8Array: Schema<Uint8Array, Uint8Array>;
+
+export const isoDateTime: Schema<string, string>;
+
+export const port: Schema<number, number>;
+
+export const email: Schema<string, string>;
+
+export const uuid: Schema<string, string>;
+
+export const cuid: Schema<string, string>;
+
+export const url: Schema<string, string>;
+
+export const date: Schema<Date, Date>;
 
 export function safe<Value>(scope: () => Value): Result<Value>;
 export function safeAsync<Value>(
@@ -429,52 +516,83 @@ export function reverse<Output, Input>(
   schema: Schema<Output, Input>
 ): Schema<Input, Output>;
 
-export function parseOrThrow<Output, Input>(
-  data: unknown,
-  schema: Schema<Output, Input>
-): Output;
-export function parseJsonOrThrow<Output, Input>(
-  json: JSON,
-  schema: Schema<Output, Input>
-): Output;
-export function parseJsonStringOrThrow<Output, Input>(
-  jsonString: string,
-  schema: Schema<Output, Input>
-): Output;
-export function parseAsyncOrThrow<Output, Input>(
-  data: unknown,
-  schema: Schema<Output, Input>
-): Promise<Output>;
+export function parser<Output>(
+  schema: Schema<Output, unknown>
+): (data: unknown) => Output;
+export function parser<Output>(
+  from: Schema<unknown>,
+  target: Schema<Output, unknown>
+): (data: unknown) => Output;
+export function parser<
+  Schemas extends readonly [Schema<any, any>, ...Schema<any, any>[]]
+>(...schemas: Schemas): (data: unknown) => ExtractLastOutput<Schemas>;
 
-export function convertOrThrow<Output, Input>(
-  data: Input,
-  schema: Schema<Output, Input>
-): Output;
-export function convertToJsonOrThrow<Output, Input>(
-  data: Input,
-  schema: Schema<Output, Input>
-): JSON;
-export function convertToJsonStringOrThrow<Output, Input>(
-  data: Input,
-  schema: Schema<Output, Input>
-): string;
+export function asyncParser<Output>(
+  schema: Schema<Output, unknown>
+): (data: unknown) => Promise<Output>;
+export function asyncParser<Output>(
+  from: Schema<unknown>,
+  target: Schema<Output, unknown>
+): (data: unknown) => Promise<Output>;
+export function asyncParser<
+  Schemas extends readonly [Schema<any, any>, ...Schema<any, any>[]]
+>(...schemas: Schemas): (data: unknown) => Promise<ExtractLastOutput<Schemas>>;
 
-export function reverseConvertOrThrow<Output, Input>(
-  value: Output,
+export function decoder<Output, Input>(
   schema: Schema<Output, Input>
-): Input;
-export function reverseConvertToJsonOrThrow<Output, Input>(
-  value: Output,
-  schema: Schema<Output, Input>
-): JSON;
-export function reverseConvertToJsonStringOrThrow<Output, Input>(
-  value: Output,
-  schema: Schema<Output, Input>
-): string;
+): (data: Input) => Output;
+export function decoder<Output, Input>(
+  from: Schema<unknown, Input>,
+  target: Schema<Output, unknown>
+): (data: Input) => Output;
+export function decoder<
+  Schemas extends readonly [Schema<any, any>, ...Schema<any, any>[]]
+>(
+  ...schemas: Schemas
+): (data: ExtractFirstInput<Schemas>) => ExtractLastOutput<Schemas>;
 
-export function assertOrThrow<Output, Input>(
-  data: unknown,
+export function asyncDecoder<Output, Input>(
   schema: Schema<Output, Input>
+): (data: Input) => Promise<Output>;
+export function asyncDecoder<Output, Input>(
+  from: Schema<unknown, Input>,
+  target: Schema<Output, unknown>
+): (data: Input) => Promise<Output>;
+export function decoder<
+  Schemas extends readonly [Schema<any, any>, ...Schema<any, any>[]]
+>(
+  ...schemas: Schemas
+): (data: ExtractFirstInput<Schemas>) => Promise<ExtractLastOutput<Schemas>>;
+
+export function encoder<Output, Input>(
+  schema: Schema<Output, Input>
+): (data: Output) => Input;
+export function encoder<Output, Input>(
+  from: Schema<Output, unknown>,
+  target: Schema<unknown, Input>
+): (data: Output) => Input;
+export function encoder<
+  Schemas extends readonly [Schema<any, any>, ...Schema<any, any>[]]
+>(
+  ...schemas: Schemas
+): (data: ExtractFirstOutput<Schemas>) => ExtractLastInput<Schemas>;
+
+export function asyncEncoder<Output, Input>(
+  schema: Schema<Output, Input>
+): (data: Output) => Promise<Input>;
+export function asyncEncoder<Output, Input>(
+  from: Schema<Output, unknown>,
+  target: Schema<unknown, Input>
+): (data: Output) => Promise<Input>;
+export function asyncEncoder<
+  Schemas extends readonly [Schema<any, any>, ...Schema<any, any>[]]
+>(
+  ...schemas: Schemas
+): (data: ExtractFirstOutput<Schemas>) => Promise<ExtractLastInput<Schemas>>;
+
+export function assert<Output, Input>(
+  schema: Schema<Output, Input>,
+  data: unknown
 ): asserts data is Input;
 
 export function tuple<Output, Input extends unknown[]>(
@@ -523,14 +641,9 @@ export const array: <Output, Input>(
   schema: Schema<Output, Input>
 ) => Schema<Output[], Input[]>;
 
-export const unnest: <Output, Input extends Record<string, unknown>>(
+export const compactColumns: <Output, Input>(
   schema: Schema<Output, Input>
-) => Schema<
-  Output[],
-  {
-    [K in keyof Input]: Input[K][];
-  }[keyof Input][]
->;
+) => Schema<Output[][], Input[][]>;
 
 export const record: <Output, Input>(
   schema: Schema<Output, Input>
@@ -590,12 +703,26 @@ export function recursive<Output, Input = unknown>(
   definer: (schema: Schema<Output, Input>) => Schema<Output, Input>
 ): Schema<Output, Input>;
 
+export type SchemaErrorMessage = {
+  _?: string;
+  format?: string;
+  type?: string;
+  minimum?: string;
+  maximum?: string;
+  minLength?: string;
+  maxLength?: string;
+  minItems?: string;
+  maxItems?: string;
+  pattern?: string;
+};
+
 export type Meta<Output> = {
   name?: string;
   title?: string;
   description?: string;
   deprecated?: boolean;
   examples?: Output[];
+  errorMessage?: SchemaErrorMessage;
 };
 
 export function meta<Output, Input>(
@@ -609,23 +736,19 @@ export function noValidation<Output, Input>(
   value: boolean
 ): Schema<Output, Input>;
 
-export function asyncParserRefine<Output, Input>(
+export function asyncDecoderAssert<Output, Input>(
   schema: Schema<Output, Input>,
-  refiner: (value: Output, s: EffectCtx<Output, Input>) => Promise<void>
+  assertFn: (value: Output) => Promise<void>
 ): Schema<Output, Input>;
 
 export function refine<Output, Input>(
   schema: Schema<Output, Input>,
-  refiner: (value: Output, s: EffectCtx<Output, Input>) => void
+  refineCheck: (value: Output) => boolean,
+  refineOptions?: {
+    error?: string;
+    path?: string[];
+  }
 ): Schema<Output, Input>;
-
-export function transform<Transformed, Output = unknown, Input = unknown>(
-  schema: Schema<Output, Input>,
-  parser:
-    | ((value: Output, s: EffectCtx<unknown, unknown>) => Transformed)
-    | undefined,
-  serializer?: (value: Transformed, s: EffectCtx<unknown, unknown>) => Output
-): Schema<Transformed, Input>;
 
 export const min: <Output extends string | number | unknown[], Input>(
   schema: Schema<Output, Input>,
@@ -643,36 +766,7 @@ export const length: <Output extends string | unknown[], Input>(
   message?: string
 ) => Schema<Output, Input>;
 
-export const port: <Input>(
-  schema: Schema<number, Input>,
-  message?: string
-) => Schema<number, Input>;
-
-export const email: <Input>(
-  schema: Schema<string, Input>,
-  message?: string
-) => Schema<string, Input>;
-export const uuid: <Input>(
-  schema: Schema<string, Input>,
-  message?: string
-) => Schema<string, Input>;
-export const cuid: <Input>(
-  schema: Schema<string, Input>,
-  message?: string
-) => Schema<string, Input>;
-export const url: <Input>(
-  schema: Schema<string, Input>,
-  message?: string
-) => Schema<string, Input>;
-export const pattern: <Input>(
-  schema: Schema<string, Input>,
-  re: RegExp,
-  message?: string
-) => Schema<string, Input>;
-export const datetime: <Input>(
-  schema: Schema<string, Input>,
-  message?: string
-) => Schema<Date, Input>;
+export const pattern: (re: RegExp, message?: string) => Schema<string, string>;
 export const trim: <Input>(
   schema: Schema<string, Input>
 ) => Schema<string, Input>;
@@ -686,60 +780,22 @@ export type GlobalConfigOverride = {
 
 export function global(globalConfigOverride: GlobalConfigOverride): void;
 
-type CompileInputMappings<Input, Output> = {
-  Input: Input;
-  Output: Output;
-  Any: unknown;
-  Json: JSON;
-  JsonString: string;
-};
-
-type CompileOutputMappings<Input, Output> = {
-  Output: Output;
-  Input: Input;
-  Assert: void;
-  Json: JSON;
-  JsonString: string;
-};
-
-export type CompileInputOption = keyof CompileInputMappings<unknown, unknown>;
-export type CompileOutputOption = keyof CompileOutputMappings<unknown, unknown>;
-export type CompileModeOption = "Sync" | "Async";
-
-export function compile<
-  Output,
-  Input,
-  InputOption extends CompileInputOption,
-  OutputOption extends CompileOutputOption,
-  ModeOption extends CompileModeOption
->(
-  schema: Schema<Output, Input>,
-  input: InputOption,
-  output: OutputOption,
-  mode: ModeOption,
-  typeValidation?: boolean
-): (
-  input: CompileInputMappings<Input, Output>[InputOption]
-) => ModeOption extends "Sync"
-  ? CompileOutputMappings<Input, Output>[OutputOption]
-  : ModeOption extends "Async"
-  ? Promise<CompileOutputMappings<Input, Output>[OutputOption]>
-  : never;
-
-export function shape<Output, Input, Shape>(
+export function shape<Shape = unknown, Output = unknown, Input = unknown>(
   schema: Schema<Output, Input>,
   shaper: (value: Output) => Shape
 ): Schema<Shape, Input>;
 
 export function to<
-  FromInput,
-  ToOutput,
-  FromOutput = FromInput,
-  ToInput = ToOutput
+  Output = unknown,
+  Input = unknown,
+  TargetInput = unknown,
+  TargetOutput = unknown
 >(
-  from: Schema<FromOutput, FromInput>,
-  to: Schema<ToOutput, ToInput>
-): Schema<ToOutput, FromInput>;
+  schema: Schema<Output, Input>,
+  target: Schema<TargetOutput, TargetInput>,
+  decode?: ((value: Output) => TargetInput) | undefined,
+  encode?: (value: TargetOutput) => Output
+): Schema<TargetOutput, Input>;
 
 export function toJSONSchema<Output, Input>(
   schema: Schema<Output, Input>

@@ -2,9 +2,6 @@ open Ava
 
 open U
 
-// TODO: Automatically enable it in PPX
-S.enableJson()
-
 @schema
 type myString = string
 test("String schema", t => {
@@ -130,21 +127,21 @@ test("Big tuple schema", t => {
 })
 
 @schema
-type myCustomString = @s.matches(S.string->S.email) string
+type myCustomString = @s.matches(S.email) string
 test("Custom string schema", t => {
-  t->assertEqualSchemas(myCustomStringSchema, S.string->S.email)
+  t->assertEqualSchemas(myCustomStringSchema, S.email)
 })
 
 @schema
-type myCustomLiteralString = @s.matches(S.literal("123")->S.email) string
+type myCustomLiteralString = @s.matches(S.literal("123")) string
 test("Custom litaral string schema", t => {
-  t->assertEqualSchemas(myCustomLiteralStringSchema, S.literal("123")->S.email)
+  t->assertEqualSchemas(myCustomLiteralStringSchema, S.literal("123"))
 })
 
 @schema
-type myCustomOptionalString = option<@s.matches(S.string->S.email) string>
+type myCustomOptionalString = option<@s.matches(S.email) string>
 test("Custom optional string schema", t => {
-  t->assertEqualSchemas(myCustomOptionalStringSchema, S.string->S.email->S.option)
+  t->assertEqualSchemas(myCustomOptionalStringSchema, S.email->S.option)
 })
 
 // @schema
@@ -153,7 +150,7 @@ test("Custom optional string schema", t => {
 // The incompatible parts: option<string> vs myNullOfString (defined as null<string>)
 // So use the code below instead
 @schema
-type myNullOfString = @s.matches(S.null(S.string)) option<string>
+type myNullOfString = @s.matches(S.nullAsOption(S.string)) option<string>
 test("Null of string schema", t => {
-  t->assertEqualSchemas(myNullOfStringSchema, S.null(S.string))
+  t->assertEqualSchemas(myNullOfStringSchema, S.nullAsOption(S.string))
 })

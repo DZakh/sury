@@ -41,23 +41,23 @@ Ava("Union serializing of objects with optional fields", t => {
       _0: m
     }))
   ]);
-  U.assertCompiledCode(t, schema$2, "ReverseConvert", "i=>{if(typeof i===\"object\"&&i){if(i[\"TAG\"]===\"A\"&&typeof i[\"_0\"]===\"object\"&&i[\"_0\"]&&typeof i[\"_0\"][\"payload\"]===\"object\"&&i[\"_0\"][\"payload\"]){let v0=i[\"_0\"];let v1=v0[\"payload\"];i=v0}else if(i[\"TAG\"]===\"B\"&&typeof i[\"_0\"]===\"object\"&&i[\"_0\"]&&typeof i[\"_0\"][\"payload\"]===\"object\"&&i[\"_0\"][\"payload\"]){let v2=i[\"_0\"];let v3=v2[\"payload\"];i=v2}}return i}", undefined);
-  t.deepEqual(S.reverseConvertOrThrow({
+  U.assertCompiledCode(t, schema$2, "Encode", "i=>{if(typeof i===\"object\"&&i){if(i[\"TAG\"]===\"A\"&&typeof i[\"_0\"]===\"object\"&&i[\"_0\"]&&typeof i[\"_0\"][\"payload\"]===\"object\"&&i[\"_0\"][\"payload\"]){let v0=i[\"_0\"];let v1=v0[\"payload\"];i=v0}else if(i[\"TAG\"]===\"B\"&&typeof i[\"_0\"]===\"object\"&&i[\"_0\"]&&typeof i[\"_0\"][\"payload\"]===\"object\"&&i[\"_0\"][\"payload\"]){let v2=i[\"_0\"];let v3=v2[\"payload\"];i=v2}}return i}", undefined);
+  t.deepEqual(S.decodeOrThrow({
     TAG: "B",
     _0: {
       payload: {
         b: 42
       }
     }
-  }, schema$2), {"payload":{"b":42}});
-  t.deepEqual(S.reverseConvertOrThrow({
+  }, schema$2, S.unknown), {"payload":{"b":42}});
+  t.deepEqual(S.decodeOrThrow({
     TAG: "A",
     _0: {
       payload: {
         a: "foo"
       }
     }
-  }, schema$2), {"payload":{"a":"foo"}});
+  }, schema$2, S.unknown), {"payload":{"a":"foo"}});
 });
 
 let CknittelBugReport = {
@@ -96,7 +96,7 @@ let schema$2 = S.schema(s => ({
 
 Ava("Successfully parses nested optional union", t => {
   U.assertCompiledCode(t, schema$2, "Parse", "i=>{if(typeof i!==\"object\"||!i){e[0](i)}let v0=i[\"test\"];if(typeof v0===\"object\"&&v0){if(v0[\"type\"]===\"a\"){let v1=v0[\"x\"];if(typeof v1!==\"number\"||v1>2147483647||v1<-2147483648||v1%1!==0){e[1](v1)}v0={\"TAG\":\"A\",\"_0\":{\"x\":v1,},}}else if(v0[\"type\"]===\"b\"){let v2=v0[\"y\"];if(typeof v2!==\"string\"){e[2](v2)}v0={\"TAG\":\"B\",\"_0\":{\"y\":v2,},}}else{e[3](v0)}}else if(!(v0===void 0)){e[4](v0)}return {\"test\":v0,}}", undefined);
-  t.deepEqual(S.parseJsonStringOrThrow("{}", schema$2), {
+  t.deepEqual(S.decodeOrThrow("{}", S.jsonString, schema$2), {
     test: undefined
   });
 });
@@ -122,7 +122,7 @@ Ava("Nested literal field with catch", t => {
     })
   ]);
   U.assertCompiledCode(t, schema, "Parse", "i=>{if(typeof i===\"object\"&&i){if(typeof i[\"statusCode\"]===\"object\"&&i[\"statusCode\"]&&i[\"statusCode\"][\"kind\"]===\"ok\"){i={\"TAG\":\"Ok\",\"_0\":void 0,}}else if(typeof i[\"statusCode\"]===\"object\"&&i[\"statusCode\"]&&i[\"statusCode\"][\"kind\"]===\"serviceError\"){let v0=i[\"statusCode\"],v1=v0[\"serviceCode\"],v2=v0[\"text\"];if(typeof v1!==\"string\"){e[0](v1)}if(typeof v2!==\"string\"){e[1](v2)}i={\"TAG\":\"Error\",\"_0\":{\"serviceCode\":v1,\"text\":v2,},}}else{e[2](i)}}else{e[3](i)}return i}", undefined);
-  t.deepEqual(S.parseJsonStringOrThrow("{\"statusCode\": {\"kind\": \"ok\"}}", schema), {
+  t.deepEqual(S.decodeOrThrow("{\"statusCode\": {\"kind\": \"ok\"}}", S.jsonString, schema), {
     TAG: "Ok",
     _0: undefined
   });

@@ -6,9 +6,7 @@ open Ava
 //     var $_$c = $_$wf(3);␊ 
 //     return $_$w(3, 444, $_$c), i;␊ 
 // }
-let noopOpCode = (
-  S.unknown->S.compile(~input=Any, ~output=Unknown, ~mode=Sync, ~typeValidation=false)->Obj.magic
-)["toString"]()
+let noopOpCode: string = (S.decoder(~from=S.unknown, ~to=S.unknown)->Obj.magic)["toString"]()
 
 external magic: 'a => 'b = "%identity"
 external castAnyToUnknown: 'any => unknown = "%identity"
@@ -26,32 +24,6 @@ let unsafeGetVariantPayload = variant => (variant->Obj.magic)["_0"]
 exception Test
 let throwTestException = () => throw(Test)
 
-type taggedFlag =
-  | Parse
-  | ParseAsync
-  | ReverseConvertToJson
-  | ReverseParse
-  | ReverseConvert
-  | Assert
-
-type errorPayload = {operation: taggedFlag, code: S.errorCode, path: S.Path.t}
-
-// TODO: Get rid of the helper
-let error = ({operation, code, path}: errorPayload): S.error => {
-  S.ErrorClass.constructor(
-    ~code,
-    ~flag=switch operation {
-    | Parse => S.Flag.typeValidation
-    | ReverseParse => S.Flag.reverse->S.Flag.with(S.Flag.typeValidation)
-    | ReverseConvertToJson => S.Flag.reverse->S.Flag.with(S.Flag.jsonableOutput)
-    | ReverseConvert => S.Flag.reverse
-    | ParseAsync => S.Flag.typeValidation->S.Flag.with(S.Flag.async)
-    | Assert => S.Flag.typeValidation->S.Flag.with(S.Flag.assertOutput)
-    },
-    ~path,
-  )
-}
-
 let assertThrowsTestException = {
   (t, fn, ~message=?) => {
     try {
@@ -67,7 +39,7 @@ let assertThrowsTestException = {
 let assertThrows = (t, cb, errorPayload) => {
   switch cb() {
   | any => t->Assert.fail("Asserted result is not Error. Recieved: " ++ any->unsafeStringify)
-  | exception S.Error({message}) => t->Assert.is(message, error(errorPayload).message)
+  | exception S.Exn({message}) => t->Assert.is(message, S.Error.make(errorPayload).message)
   }
 }
 
@@ -75,17 +47,21 @@ let assertThrowsMessage = (t, cb, errorMessage, ~message=?) => {
   switch cb() {
   | any =>
     t->Assert.fail(
-      `Asserted result is not S.Error "${errorMessage}". Instead got: ${any->unsafeStringify}`,
+      `Asserted result is not S.Exn "${errorMessage}". Instead got: ${any->unsafeStringify}`,
     )
-  | exception S.Error({message: actualErrorMessage}) =>
+  | exception S.Exn({message: actualErrorMessage}) =>
     t->Assert.is(actualErrorMessage, errorMessage, ~message?)
   }
 }
 
-let assertThrowsAsync = async (t, cb, errorPayload) => {
+let asyncAssertThrowsMessage = async (t, cb, errorMessage, ~message=?) => {
   switch await cb() {
-  | any => t->Assert.fail("Asserted result is not Error. Recieved: " ++ any->unsafeStringify)
-  | exception S.Error({message}) => t->Assert.is(message, error(errorPayload).message)
+  | any =>
+    t->Assert.fail(
+      `Asserted result is not S.Exn "${errorMessage}". Instead got: ${any->unsafeStringify}`,
+    )
+  | exception S.Exn({message: actualErrorMessage}) =>
+    t->Assert.is(actualErrorMessage, errorMessage, ~message?)
   }
 }
 
@@ -97,65 +73,78 @@ let getCompiledCodeString = (
     | #ParseAsync
     | #Convert
     | #ConvertAsync
-    | #ReverseConvertAsync
-    | #ReverseConvert
+    | #EncodeAsync
+    | #Encode
     | #ReverseParse
     | #Assert
-    | #ReverseConvertToJson
+    | #EncodeToJson
   ],
+  ~embedded=?,
 ) => {
-  let toCode = schema =>
-    (
-      switch op {
-      | #Parse =>
-        let fn = schema->S.compile(~input=Any, ~output=Value, ~mode=Sync, ~typeValidation=true)
+  let toFn = schema =>
+    switch op {
+    | #Parse =>
+      let fn = S.decoder(~from=S.unknown, ~to=schema)
+      fn->magic
+    | #ParseAsync =>
+      let fn = S.asyncDecoder(~from=S.unknown, ~to=schema)
+      fn->magic
+    | #Convert =>
+      let fn = S.decoder(~from=schema->S.reverse, ~to=S.unknown)
+      fn->magic
+    | #ConvertAsync =>
+      let fn = S.asyncDecoder(~from=schema->S.reverse, ~to=S.unknown)
+      fn->magic
+    | #Assert =>
+      let fn = S.decoder(~from=S.unknown, ~to=schema->S.to(S.literal()->S.noValidation(true)))
+      fn->magic
+    | #ReverseParse => {
+        let fn = S.decoder(~from=S.unknown, ~to=schema->S.reverse)
         fn->magic
-      | #ParseAsync =>
-        let fn = schema->S.compile(~input=Any, ~output=Value, ~mode=Async, ~typeValidation=true)
-        fn->magic
-      | #Convert =>
-        let fn = schema->S.compile(~input=Any, ~output=Value, ~mode=Sync, ~typeValidation=false)
-        fn->magic
-      | #ConvertAsync =>
-        let fn = schema->S.compile(~input=Any, ~output=Value, ~mode=Async, ~typeValidation=false)
-        fn->magic
-      | #Assert =>
-        let fn = schema->S.compile(~input=Any, ~output=Assert, ~mode=Sync, ~typeValidation=true)
-        fn->magic
-      | #ReverseParse => {
-          let fn =
-            schema->S.compile(~input=Value, ~output=Unknown, ~mode=Sync, ~typeValidation=true)
-          fn->magic
-        }
-      | #ReverseConvert => {
-          let fn =
-            schema->S.compile(~input=Value, ~output=Unknown, ~mode=Sync, ~typeValidation=false)
-          fn->magic
-        }
-      | #ReverseConvertAsync => {
-          let fn =
-            schema->S.compile(~input=Value, ~output=Unknown, ~mode=Async, ~typeValidation=false)
-          fn->magic
-        }
-      | #ReverseConvertToJson => {
-          let fn = schema->S.compile(~input=Value, ~output=Json, ~mode=Sync, ~typeValidation=false)
-          fn->magic
-        }
       }
-    )["toString"]()
-
-  let code = ref(schema->toCode)
-
-  switch (schema->S.untag).defs {
-  | Some(defs) =>
-    defs->Dict.forEachWithKey((schema, key) =>
-      try {
-        code := code.contents ++ "\n" ++ `${key}: ${schema->toCode}`
-      } catch {
-      | exn => Console.error(exn)
+    | #Encode => {
+        let fn = S.decoder(~from=schema, ~to=S.unknown)
+        fn->magic
       }
-    )
-  | None => ()
+    | #EncodeAsync => {
+        let fn = S.asyncDecoder(~from=schema, ~to=S.unknown)
+        fn->magic
+      }
+    | #EncodeToJson => {
+        let fn = S.decoder(~from=schema, ~to=S.json)
+        fn->magic
+      }
+    }
+
+  let fn = schema->toFn
+  let code = ref(fn["toString"]())
+
+  switch embedded {
+  | Some(embedded) =>
+    embedded->Array.forEach(((name, index)) => {
+      code := code.contents ++ "\n" ++ `${name}: ${fn["embedded"]->Array.getUnsafe(index)}`
+    })
+  | None =>
+    switch (schema->S.untag).defs {
+    | Some(defs) if code.contents !== noopOpCode =>
+      defs->Dict.forEachWithKey((schema, key) =>
+        try {
+          let defFn = schema->toFn
+          let defCode =
+            defFn["toString"]()->String.replaceAll(
+              `${(S.unknown->S.untag).seq->Float.toString}-${(
+                  schema->S.untag
+                ).seq->Float.toString}`,
+              `unknown->${key}`,
+            )
+
+          code := code.contents ++ "\n" ++ `${key}: ${defCode}`
+        } catch {
+        | _exn => ()
+        }
+      )
+    | _ => ()
+    }
   }
 
   code.contents
@@ -169,7 +158,9 @@ let rec cleanUpSchema = schema => {
   ->Array.forEach(((key, value)) => {
     switch key {
     | "output"
-    | "isAsync" => ()
+    | "isAsync"
+    | "hasTransform"
+    | "seq" => ()
     // ditemToItem leftovers FIXME:
     | "k" | "p" | "of" | "r" => ()
     | _ =>
@@ -192,8 +183,8 @@ let unsafeAssertEqualSchemas = (t, s1: S.t<'v1>, s2: S.t<'v2>, ~message=?) => {
   t->Assert.unsafeDeepEqual(s1->cleanUpSchema, s2->cleanUpSchema, ~message?)
 }
 
-let assertCompiledCode = (t, ~schema, ~op, code, ~message=?) => {
-  t->Assert.is(schema->getCompiledCodeString(~op), code, ~message?)
+let assertCompiledCode = (t, ~schema, ~op, code, ~embedded=?, ~message=?) => {
+  t->Assert.is(schema->getCompiledCodeString(~op, ~embedded?), code, ~message?)
 }
 
 let assertCompiledCodeIsNoop = (t, ~schema, ~op, ~message=?) => {
@@ -210,8 +201,8 @@ let assertEqualSchemas: (
 let assertReverseParsesBack = (t, schema: S.t<'value>, value: 'value) => {
   t->Assert.unsafeDeepEqual(
     value
-    ->S.reverseConvertOrThrow(schema)
-    ->S.parseOrThrow(schema),
+    ->S.decodeOrThrow(~from=schema, ~to=S.unknown)
+    ->S.parseOrThrow(~to=schema),
     value,
   )
 }

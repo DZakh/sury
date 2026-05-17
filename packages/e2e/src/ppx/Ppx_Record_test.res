@@ -15,7 +15,7 @@ test("Simple record schema", t => {
     }),
   )
   t->Assert.deepEqual(
-    %raw(`{label:"foo",value:1}`)->S.parseOrThrow(simpleRecordSchema),
+    %raw(`{label:"foo",value:1}`)->S.parseOrThrow(~to=simpleRecordSchema),
     {label: "foo", value: 1},
   )
 })
@@ -34,7 +34,7 @@ test("Record schema with alias for field name", t => {
     }),
   )
   t->Assert.deepEqual(
-    %raw(`{"aliased-label":"foo",value:1}`)->S.parseOrThrow(recordWithAliasSchema),
+    %raw(`{"aliased-label":"foo",value:1}`)->S.parseOrThrow(~to=recordWithAliasSchema),
     {label: "foo", value: 1},
   )
 })
@@ -53,32 +53,32 @@ test("Record schema with optional fields", t => {
     }),
   )
   t->Assert.deepEqual(
-    %raw(`{"label":"foo",value:1}`)->S.parseOrThrow(recordWithOptionalSchema),
+    %raw(`{"label":"foo",value:1}`)->S.parseOrThrow(~to=recordWithOptionalSchema),
     {label: Some("foo"), value: 1},
   )
   t->Assert.deepEqual(
-    %raw(`{}`)->S.parseOrThrow(recordWithOptionalSchema),
+    %raw(`{}`)->S.parseOrThrow(~to=recordWithOptionalSchema),
     {label: %raw(`undefined`), value: %raw(`undefined`)},
   )
 })
 
 @schema
 type recordWithNullableField = {
-  subscription: @s.matches(S.option(S.null(S.string))) option<option<string>>,
+  subscription: @s.matches(S.option(S.nullAsOption(S.string))) option<option<string>>,
 }
 test("Record schema with nullable field", t => {
   t->assertEqualSchemas(
     recordWithNullableFieldSchema,
     S.schema(s => {
-      subscription: s.matches(S.option(S.null(S.string))),
+      subscription: s.matches(S.option(S.nullAsOption(S.string))),
     }),
   )
   t->Assert.deepEqual(
-    %raw(`{}`)->S.parseOrThrow(recordWithNullableFieldSchema),
+    %raw(`{}`)->S.parseOrThrow(~to=recordWithNullableFieldSchema),
     {subscription: None},
   )
   t->Assert.deepEqual(
-    %raw(`{"subscription":null}`)->S.parseOrThrow(recordWithNullableFieldSchema),
+    %raw(`{"subscription":null}`)->S.parseOrThrow(~to=recordWithNullableFieldSchema),
     {subscription: Some(None)},
   )
 })

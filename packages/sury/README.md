@@ -18,7 +18,6 @@ The fastest schema with next-gen DX.
 - Declarative transformations with automatic serialization
 - Immutable API with 100+ different operations
 - Flexible global config
-- Opt-in ReScript codegen from type definitions (ppx)
 
 Also, you can use **Sury** as a building block for your own tools or use existing ones:
 

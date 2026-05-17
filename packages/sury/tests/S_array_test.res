@@ -10,39 +10,31 @@ module CommonWithNested = {
   test("Successfully parses", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(any->S.parseOrThrow(schema), value)
+    t->Assert.deepEqual(any->S.parseOrThrow(~to=schema), value)
   })
 
   test("Fails to parse", t => {
     let schema = factory()
 
-    t->U.assertThrows(
-      () => invalidAny->S.parseOrThrow(schema),
-      {
-        code: InvalidType({expected: schema->S.castToUnknown, received: invalidAny}),
-        operation: Parse,
-        path: S.Path.empty,
-      },
+    t->U.assertThrowsMessage(
+      () => invalidAny->S.parseOrThrow(~to=schema),
+      `Expected string[], received true`,
     )
   })
 
   test("Fails to parse nested", t => {
     let schema = factory()
 
-    t->U.assertThrows(
-      () => nestedInvalidAny->S.parseOrThrow(schema),
-      {
-        code: InvalidType({expected: S.string->S.castToUnknown, received: 1->Obj.magic}),
-        operation: Parse,
-        path: S.Path.fromArray(["1"]),
-      },
+    t->U.assertThrowsMessage(
+      () => nestedInvalidAny->S.parseOrThrow(~to=schema),
+      `Failed at ["1"]: Expected string, received 1`,
     )
   })
 
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), any)
+    t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), any)
   })
 
   test("Compiled parse code snapshot", t => {
@@ -51,7 +43,7 @@ module CommonWithNested = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(!Array.isArray(i)){e[0](i)}for(let v0=0;v0<i.length;++v0){try{let v2=i[v0];if(typeof v2!=="string"){e[1](v2)}}catch(v1){if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1}}return i}`,
+      `i=>{Array.isArray(i)||e[1](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2}}return i}`,
     )
   })
 
@@ -61,25 +53,25 @@ module CommonWithNested = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ParseAsync,
-      `i=>{if(!Array.isArray(i)){e[0](i)}let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v2;try{v2=e[1](i[v0]).catch(v1=>{if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1})}catch(v1){if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1}v3[v0]=v2}return Promise.all(v3)}`,
+      `i=>{Array.isArray(i)||e[2](i);let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v1;try{v1=e[0](i[v0]).catch(x=>e[1](x))}catch(x){e[1](x)}v3[v0]=v1.catch(v2=>{v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2})}catch(v2){v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2}}return Promise.all(v3)}`,
     )
   })
 
   test("Compiled serialize code snapshot", t => {
     let schema = S.array(S.string)
-    t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
+    t->U.assertCompiledCodeIsNoop(~schema, ~op=#Encode)
 
     let schema = S.array(S.option(S.string))
-    t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
+    t->U.assertCompiledCodeIsNoop(~schema, ~op=#Encode)
   })
 
   test("Compiled serialize code snapshot with transform", t => {
-    let schema = S.array(S.null(S.string))
+    let schema = S.array(S.nullAsOption(S.string))
 
     t->U.assertCompiledCode(
       ~schema,
-      ~op=#ReverseConvert,
-      `i=>{let v4=new Array(i.length);for(let v0=0;v0<i.length;++v0){let v3;try{let v2=i[v0];if(v2===void 0){v2=null}v3=v2}catch(v1){if(v1&&v1.s===s){v1.path=""+\'["\'+v0+\'"]\'+v1.path}throw v1}v4[v0]=v3}return v4}`,
+      ~op=#Encode,
+      `i=>{let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];if(v1===void 0){v1=null}else if(!(typeof v1==="string")){e[0](v1)}v3[v0]=v1}catch(v2){v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2}}return v3}`,
     )
   })
 
@@ -95,7 +87,7 @@ module CommonWithNested = {
 }
 
 test("Reverse child schema", t => {
-  let schema = S.array(S.null(S.string))
+  let schema = S.array(S.nullAsOption(S.string))
 
   t->U.assertEqualSchemas(
     schema->S.reverse,
@@ -107,7 +99,7 @@ test("Successfully parses matrix", t => {
   let schema = S.array(S.array(S.string))
 
   t->Assert.deepEqual(
-    %raw(`[["a", "b"], ["c", "d"]]`)->S.parseOrThrow(schema),
+    %raw(`[["a", "b"], ["c", "d"]]`)->S.parseOrThrow(~to=schema),
     [["a", "b"], ["c", "d"]],
   )
 })
@@ -115,13 +107,9 @@ test("Successfully parses matrix", t => {
 test("Fails to parse matrix", t => {
   let schema = S.array(S.array(S.string))
 
-  t->U.assertThrows(
-    () => %raw(`[["a", 1], ["c", "d"]]`)->S.parseOrThrow(schema),
-    {
-      code: InvalidType({expected: S.string->S.castToUnknown, received: %raw(`1`)}),
-      operation: Parse,
-      path: S.Path.fromArray(["0", "1"]),
-    },
+  t->U.assertThrowsMessage(
+    () => %raw(`[["a", 1], ["c", "d"]]`)->S.parseOrThrow(~to=schema),
+    `Failed at ["0"]["1"]: Expected string, received 1`,
   )
 })
 
@@ -129,7 +117,7 @@ test("Successfully parses array of optional items", t => {
   let schema = S.array(S.option(S.string))
 
   t->Assert.deepEqual(
-    %raw(`["a", undefined, undefined, "b"]`)->S.parseOrThrow(schema),
+    %raw(`["a", undefined, undefined, "b"]`)->S.parseOrThrow(~to=schema),
     [Some("a"), None, None, Some("b")],
   )
 })

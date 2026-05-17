@@ -6,38 +6,21 @@ asyncTest("Resets S.float cache after disableNanNumberValidation=true removed", 
   S.global({
     disableNanNumberValidation: true,
   })
-  t->Assert.deepEqual(nan->S.parseOrThrow(S.float), nan)
-  t->Assert.deepEqual(await nan->S.parseAsyncOrThrow(S.float), nan)
+  t->Assert.deepEqual(nan->S.parseOrThrow(~to=S.float), nan)
+  t->Assert.deepEqual(await nan->S.parseAsyncOrThrow(~to=S.float), nan)
 
   S.global({})
-  t->U.assertThrows(
-    () => nan->S.parseOrThrow(S.float),
-    {
-      code: S.InvalidType({
-        expected: S.float->S.castToUnknown,
-        received: nan,
-      }),
-      operation: Parse,
-      path: S.Path.empty,
-    },
-  )
-  await t->U.assertThrowsAsync(
-    () => nan->S.parseAsyncOrThrow(S.float),
-    {
-      code: S.InvalidType({
-        expected: S.float->S.castToUnknown,
-        received: nan,
-      }),
-      operation: ParseAsync,
-      path: S.Path.empty,
-    },
+  t->U.assertThrowsMessage(() => nan->S.parseOrThrow(~to=S.float), `Expected number, received NaN`)
+  await t->U.asyncAssertThrowsMessage(
+    () => nan->S.parseAsyncOrThrow(~to=S.float),
+    `Expected number, received NaN`,
   )
   t->Assert.throws(
     () => {
-      nan->S.assertOrThrow(S.float)
+      nan->S.assertOrThrow(~to=S.float)
     },
     ~expectations={
-      message: "Failed asserting: Expected number, received NaN",
+      message: "Expected number, received NaN",
     },
   )
 })

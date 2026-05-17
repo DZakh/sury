@@ -9,38 +9,34 @@ module Common = {
   test("Successfully parses", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(any->S.parseOrThrow(schema), value)
+    t->Assert.deepEqual(any->S.parseOrThrow(~to=schema), value)
   })
 
   test("Fails to parse ", t => {
     let schema = factory()
 
-    t->U.assertThrows(
-      () => invalidAny->S.parseOrThrow(schema),
-      {
-        code: InvalidType({expected: schema->S.castToUnknown, received: invalidAny}),
-        operation: Parse,
-        path: S.Path.empty,
-      },
+    t->U.assertThrowsMessage(
+      () => invalidAny->S.parseOrThrow(~to=schema),
+      `Expected boolean, received "Hello world!"`,
     )
   })
 
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), any)
+    t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), any)
   })
 
   test("Compiled parse code snapshot", t => {
     let schema = factory()
 
-    t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(typeof i!=="boolean"){e[0](i)}return i}`)
+    t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{typeof i==="boolean"||e[0](i);return i}`)
   })
 
   test("Compiled serialize code snapshot", t => {
     let schema = factory()
 
-    t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
+    t->U.assertCompiledCodeIsNoop(~schema, ~op=#Encode)
   })
 
   test("Reverse schema to self", t => {
@@ -58,11 +54,11 @@ module Common = {
 test("Parses bool when JSON is true", t => {
   let schema = S.bool
 
-  t->Assert.deepEqual(JSON.Encode.bool(true)->S.parseOrThrow(schema), true)
+  t->Assert.deepEqual(JSON.Encode.bool(true)->S.parseOrThrow(~to=schema), true)
 })
 
 test("Parses bool when JSON is false", t => {
   let schema = S.bool
 
-  t->Assert.deepEqual(JSON.Encode.bool(false)->S.parseOrThrow(schema), false)
+  t->Assert.deepEqual(JSON.Encode.bool(false)->S.parseOrThrow(~to=schema), false)
 })

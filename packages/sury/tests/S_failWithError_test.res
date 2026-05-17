@@ -5,22 +5,21 @@ test("Keeps operation of the error passed to S.Error.throw", t => {
     S.string->S.transform(_ => {
       parser: _ =>
         U.throwError(
-          U.error({
-            code: OperationFailed("User error"),
-            operation: ReverseConvert,
-            path: S.Path.fromArray(["a", "b"]),
-          }),
+          S.Error.make(
+            InvalidInput({
+              reason: "User error",
+              path: S.Path.fromArray(["a", "b"]),
+              expected: S.unknown,
+              received: S.unknown,
+            }),
+          ),
         ),
     }),
   )
 
-  t->U.assertThrows(
-    () => ["Hello world!"]->S.parseOrThrow(schema),
-    {
-      code: OperationFailed("User error"),
-      operation: ReverseConvert,
-      path: S.Path.fromArray(["0", "a", "b"]),
-    },
+  t->U.assertThrowsMessage(
+    () => ["Hello world!"]->S.parseOrThrow(~to=schema),
+    `Failed at ["0"]["a"]["b"]: User error`,
   )
 })
 
@@ -28,17 +27,17 @@ test("Works with failing outside of the parser", t => {
   let schema = S.object(s =>
     s.field(
       "field",
-      S.string->S.transform(s => s.fail("User error", ~path=S.Path.fromArray(["a", "b"]))),
+      S.string->S.transform(
+        s => {
+          s.fail("User error", ~path=S.Path.fromArray(["a", "b"]))
+        },
+      ),
     )
   )
 
-  t->U.assertThrows(
-    () => ["Hello world!"]->S.parseOrThrow(schema),
-    {
-      code: OperationFailed("User error"),
-      operation: Parse,
-      path: S.Path.fromLocation("field")->S.Path.concat(S.Path.fromArray(["a", "b"])),
-    },
+  t->U.assertThrowsMessage(
+    () => ["Hello world!"]->S.parseOrThrow(~to=schema),
+    `Failed at ["field"]["a"]["b"]: User error`,
   )
 })
 
@@ -46,18 +45,18 @@ test("Works with failing outside of the parser inside of array", t => {
   let schema = S.object(s =>
     s.field(
       "field",
-      S.array(S.string->S.transform(s => s.fail("User error", ~path=S.Path.fromArray(["a", "b"])))),
+      S.array(
+        S.string->S.transform(
+          s => {
+            s.fail("User error", ~path=S.Path.fromArray(["a", "b"]))
+          },
+        ),
+      ),
     )
   )
 
-  t->U.assertThrows(
-    () => ["Hello world!"]->S.parseOrThrow(schema),
-    {
-      code: OperationFailed("User error"),
-      operation: Parse,
-      path: S.Path.fromLocation("field")
-      ->S.Path.concat(S.Path.dynamic)
-      ->S.Path.concat(S.Path.fromArray(["a", "b"])),
-    },
+  t->U.assertThrowsMessage(
+    () => ["Hello world!"]->S.parseOrThrow(~to=schema),
+    `Failed at ["field"][]["a"]["b"]: User error`,
   )
 })

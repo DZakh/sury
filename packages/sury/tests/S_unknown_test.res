@@ -7,13 +7,13 @@ module Common = {
   test("Successfully parses", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(any->S.parseOrThrow(schema), any)
+    t->Assert.deepEqual(any->S.parseOrThrow(~to=schema), any)
   })
 
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(any->S.reverseConvertOrThrow(schema), any)
+    t->Assert.deepEqual(any->S.decodeOrThrow(~from=schema, ~to=S.unknown), any)
   })
 
   test("Compiled parse code snapshot", t => {
@@ -25,7 +25,7 @@ module Common = {
   test("Compiled serialize code snapshot", t => {
     let schema = factory()
 
-    t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
+    t->U.assertCompiledCodeIsNoop(~schema, ~op=#Encode)
   })
 
   test("Reverse schema to self", t => {
@@ -40,10 +40,10 @@ module Common = {
   })
 }
 
-test("Doesn't return refinements", t => {
+test("Is Unknown variant", t => {
   let schema = S.unknown
-  t->Assert.deepEqual(schema->S.String.refinements, [])
-  t->Assert.deepEqual(schema->S.Array.refinements, [])
-  t->Assert.deepEqual(schema->S.Int.refinements, [])
-  t->Assert.deepEqual(schema->S.Float.refinements, [])
+  switch schema {
+  | Unknown(_) => t->Assert.is(true, true)
+  | _ => t->Assert.fail("Expected Unknown")
+  }
 })

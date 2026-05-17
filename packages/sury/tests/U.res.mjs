@@ -5,7 +5,7 @@ import * as Stdlib_Dict from "rescript/lib/es6/Stdlib_Dict.js";
 import * as Primitive_option from "rescript/lib/es6/Primitive_option.js";
 import * as Primitive_exceptions from "rescript/lib/es6/Primitive_exceptions.js";
 
-let noopOpCode = S.compile(S.unknown, "Any", "Input", "Sync", false).toString();
+let noopOpCode = S.decoder(S.unknown, S.unknown).toString();
 
 function throwError(error) {
   throw error;
@@ -22,31 +22,6 @@ function throwTestException() {
     RE_EXN_ID: Test,
     Error: new Error()
   };
-}
-
-function error(param) {
-  let tmp;
-  switch (param.operation) {
-    case "Parse" :
-      tmp = S.Flag.typeValidation;
-      break;
-    case "ParseAsync" :
-      tmp = S.Flag.typeValidation | S.Flag.async;
-      break;
-    case "ReverseConvertToJson" :
-      tmp = S.Flag.reverse | S.Flag.jsonableOutput;
-      break;
-    case "ReverseParse" :
-      tmp = S.Flag.reverse | S.Flag.typeValidation;
-      break;
-    case "ReverseConvert" :
-      tmp = S.Flag.reverse;
-      break;
-    case "Assert" :
-      tmp = S.Flag.typeValidation | S.Flag.assertOutput;
-      break;
-  }
-  return S.ErrorClass.constructor(param.code, tmp, param.path);
 }
 
 function assertThrowsTestException(t, fn, message) {
@@ -70,8 +45,8 @@ function assertThrows(t, cb, errorPayload) {
     any = cb();
   } catch (raw_exn) {
     let exn = Primitive_exceptions.internalToException(raw_exn);
-    if (exn.RE_EXN_ID === S.$$Error) {
-      t.is(exn._1.message, error(errorPayload).message);
+    if (exn.RE_EXN_ID === S.Exn) {
+      t.is(exn._1.message, S.$$Error.make(errorPayload).message);
       return;
     }
     throw exn;
@@ -85,63 +60,75 @@ function assertThrowsMessage(t, cb, errorMessage, message) {
     any = cb();
   } catch (raw_exn) {
     let exn = Primitive_exceptions.internalToException(raw_exn);
-    if (exn.RE_EXN_ID === S.$$Error) {
+    if (exn.RE_EXN_ID === S.Exn) {
       t.is(exn._1.message, errorMessage, message !== undefined ? Primitive_option.valFromOption(message) : undefined);
       return;
     }
     throw exn;
   }
-  t.fail("Asserted result is not S.Error \"" + errorMessage + "\". Instead got: " + JSON.stringify(any));
+  t.fail("Asserted result is not S.Exn \"" + errorMessage + "\". Instead got: " + JSON.stringify(any));
 }
 
-async function assertThrowsAsync(t, cb, errorPayload) {
+async function asyncAssertThrowsMessage(t, cb, errorMessage, message) {
   let any;
   try {
     any = await cb();
   } catch (raw_exn) {
     let exn = Primitive_exceptions.internalToException(raw_exn);
-    if (exn.RE_EXN_ID === S.$$Error) {
-      t.is(exn._1.message, error(errorPayload).message);
+    if (exn.RE_EXN_ID === S.Exn) {
+      t.is(exn._1.message, errorMessage, message !== undefined ? Primitive_option.valFromOption(message) : undefined);
       return;
     }
     throw exn;
   }
-  return t.fail("Asserted result is not Error. Recieved: " + JSON.stringify(any));
+  return t.fail("Asserted result is not S.Exn \"" + errorMessage + "\". Instead got: " + JSON.stringify(any));
 }
 
-function getCompiledCodeString(schema, op) {
-  let toCode = schema => (
-    op === "ParseAsync" ? S.compile(schema, "Any", "Output", "Async", true) : (
-        op === "Parse" ? S.compile(schema, "Any", "Output", "Sync", true) : (
-            op === "ReverseConvertToJson" ? S.compile(schema, "Output", "Json", "Sync", false) : (
-                op === "ReverseConvert" ? S.compile(schema, "Output", "Input", "Sync", false) : (
-                    op === "Convert" ? S.compile(schema, "Any", "Output", "Sync", false) : (
-                        op === "Assert" ? S.compile(schema, "Any", "Assert", "Sync", true) : (
-                            op === "ReverseParse" ? S.compile(schema, "Output", "Input", "Sync", true) : (
-                                op === "ConvertAsync" ? S.compile(schema, "Any", "Output", "Async", false) : S.compile(schema, "Output", "Input", "Async", false)
-                              )
-                          )
-                      )
-                  )
-              )
-          )
-      )
-  ).toString();
-  let code = {
-    contents: toCode(schema)
+function getCompiledCodeString(schema, op, embedded) {
+  let toFn = schema => {
+    if (op === "Parse") {
+      return S.decoder(S.unknown, schema);
+    } else if (op === "EncodeToJson") {
+      return S.decoder(schema, S.json);
+    } else if (op === "Convert") {
+      return S.decoder(S.reverse(schema), S.unknown);
+    } else if (op === "Assert") {
+      return S.decoder(S.unknown, S.to(schema, S.noValidation(S.literal(), true)));
+    } else if (op === "EncodeAsync") {
+      return S.asyncDecoder(schema, S.unknown);
+    } else if (op === "ReverseParse") {
+      return S.decoder(S.unknown, S.reverse(schema));
+    } else if (op === "ConvertAsync") {
+      return S.asyncDecoder(S.reverse(schema), S.unknown);
+    } else if (op === "Encode") {
+      return S.decoder(schema, S.unknown);
+    } else {
+      return S.asyncDecoder(S.unknown, schema);
+    }
   };
-  let defs = schema.$defs;
-  if (defs !== undefined) {
-    Stdlib_Dict.forEachWithKey(defs, (schema, key) => {
-      try {
-        code.contents = code.contents + "\n" + (key + ": " + toCode(schema));
-        return;
-      } catch (raw_exn) {
-        let exn = Primitive_exceptions.internalToException(raw_exn);
-        console.error(exn);
-        return;
-      }
+  let fn = toFn(schema);
+  let code = {
+    contents: fn.toString()
+  };
+  if (embedded !== undefined) {
+    embedded.forEach(param => {
+      code.contents = code.contents + "\n" + (param[0] + ": " + fn.embedded[param[1]]);
     });
+  } else {
+    let defs = schema.$defs;
+    if (defs !== undefined && code.contents !== noopOpCode) {
+      Stdlib_Dict.forEachWithKey(defs, (schema, key) => {
+        try {
+          let defFn = toFn(schema);
+          let defCode = defFn.toString().replaceAll(S.unknown.seq.toString() + "-" + schema.seq.toString(), "unknown->" + key);
+          code.contents = code.contents + "\n" + (key + ": " + defCode);
+          return;
+        } catch (_exn) {
+          return;
+        }
+      });
+    }
+    
   }
   return code.contents;
 }
@@ -152,12 +139,14 @@ function cleanUpSchema(schema) {
     let value = param[1];
     let key = param[0];
     switch (key) {
+      case "hasTransform" :
       case "isAsync" :
       case "k" :
       case "of" :
       case "output" :
       case "p" :
       case "r" :
+      case "seq" :
         return;
       default:
         if (typeof value === "function") {
@@ -179,16 +168,16 @@ function unsafeAssertEqualSchemas(t, s1, s2, message) {
   t.deepEqual(cleanUpSchema(s1), cleanUpSchema(s2), message !== undefined ? Primitive_option.valFromOption(message) : undefined);
 }
 
-function assertCompiledCode(t, schema, op, code, message) {
-  t.is(getCompiledCodeString(schema, op), code, message !== undefined ? Primitive_option.valFromOption(message) : undefined);
+function assertCompiledCode(t, schema, op, code, embedded, message) {
+  t.is(getCompiledCodeString(schema, op, embedded), code, message !== undefined ? Primitive_option.valFromOption(message) : undefined);
 }
 
 function assertCompiledCodeIsNoop(t, schema, op, message) {
-  assertCompiledCode(t, schema, op, noopOpCode, message);
+  assertCompiledCode(t, schema, op, noopOpCode, undefined, message);
 }
 
 function assertReverseParsesBack(t, schema, value) {
-  t.deepEqual(S.parseOrThrow(S.reverseConvertOrThrow(value, schema), schema), value);
+  t.deepEqual(S.parseOrThrow(S.decodeOrThrow(value, schema, S.unknown), schema), value);
 }
 
 function assertReverseReversesBack(t, schema) {
@@ -203,11 +192,10 @@ export {
   unsafeGetVariantPayload,
   Test,
   throwTestException,
-  error,
   assertThrowsTestException,
   assertThrows,
   assertThrowsMessage,
-  assertThrowsAsync,
+  asyncAssertThrowsMessage,
   getCompiledCodeString,
   cleanUpSchema,
   unsafeAssertEqualSchemas,

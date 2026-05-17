@@ -20,57 +20,43 @@ module Common = {
   test("Successfully parses", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.parseOrThrow(schema), value)
+    t->Assert.deepEqual(value->S.parseOrThrow(~to=schema), value)
   })
 
   test("Successfully serializes", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), value->U.castAnyToUnknown)
+    t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), value->U.castAnyToUnknown)
   })
 
   test("Fails to serialize invalid", t => {
     let schema = factory()
 
     t->Assert.is(
-      invalid->S.reverseConvertOrThrow(schema),
+      invalid->S.decodeOrThrow(~from=schema, ~to=S.unknown),
       invalid,
       ~message=`Convert operation doesn't validate anything and assumes a valid input`,
     )
 
-    t->U.assertThrows(
-      () => invalid->S.parseOrThrow(schema->S.reverse),
-      {
-        code: InvalidType({
-          expected: schema->S.castToUnknown,
-          received: %raw(`123`),
-        }),
-        operation: Parse,
-        path: S.Path.empty,
-      },
+    t->U.assertThrowsMessage(
+      () => invalid->S.parseOrThrow(~to=schema->S.reverse),
+      `Expected { foo: "bar"; }, received 123`,
     )
   })
 
   test("Fails to parse null", t => {
     let schema = factory()
 
-    t->U.assertThrows(
-      () => %raw(`null`)->S.parseOrThrow(schema),
-      {
-        code: InvalidType({
-          expected: S.literal(Dict.fromArray([("foo", "bar")]))->S.castToUnknown,
-          received: %raw(`null`),
-        }),
-        operation: Parse,
-        path: S.Path.empty,
-      },
+    t->U.assertThrowsMessage(
+      () => %raw(`null`)->S.parseOrThrow(~to=schema),
+      `Expected { foo: "bar"; }, received null`,
     )
   })
 
   test("Can parse object instances, reduces it to normal object by default", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(makeNotPlainValue()->S.parseOrThrow(schema), {"foo": "bar"})
+    t->Assert.deepEqual(makeNotPlainValue()->S.parseOrThrow(~to=schema), {"foo": "bar"})
   })
 
   test("Compiled parse code snapshot", t => {
@@ -79,14 +65,14 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i||i["foo"]!=="bar"){e[0](i)}return {"foo":"bar",}}`,
+      `i=>{typeof i==="object"&&i||e[1](i);let v0=i["foo"];v0==="bar"||e[0](v0);return {"foo":v0,}}`,
     )
   })
 
   test("Compiled serialize code snapshot", t => {
     let schema = factory()
 
-    t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
+    t->U.assertCompiledCodeIsNoop(~schema, ~op=#Encode)
   })
 
   test("Reverse schema to self", t => {
@@ -109,25 +95,25 @@ module EmptyDict = {
   test("Successfully parses empty dict literal schema", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.parseOrThrow(schema), value)
+    t->Assert.deepEqual(value->S.parseOrThrow(~to=schema), value)
   })
 
   test("Strips extra fields passed to empty dict literal schema", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(invalid->S.parseOrThrow(schema), Dict.make())
+    t->Assert.deepEqual(invalid->S.parseOrThrow(~to=schema), Dict.make())
   })
 
   test("Successfully serializes empty dict literal schema", t => {
     let schema = factory()
 
-    t->Assert.deepEqual(value->S.reverseConvertOrThrow(schema), value->U.castAnyToUnknown)
+    t->Assert.deepEqual(value->S.decodeOrThrow(~from=schema, ~to=S.unknown), value->U.castAnyToUnknown)
   })
 
   test("Ignores extra fields during conversion of empty object literal", t => {
     let schema = factory()
 
-    t->Assert.is(invalid->S.reverseConvertOrThrow(schema), invalid->Obj.magic)
+    t->Assert.is(invalid->S.decodeOrThrow(~from=schema, ~to=S.unknown), invalid->Obj.magic)
   })
 
   test("Compiled parse code snapshot of empty dict literal schema", t => {
@@ -136,19 +122,19 @@ module EmptyDict = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i){e[0](i)}return {}}`,
+      `i=>{typeof i==="object"&&i||e[0](i);return {}}`,
     )
     t->U.assertCompiledCode(
       ~schema=schema->S.strict,
       ~op=#Parse,
-      `i=>{if(typeof i!=="object"||!i||Array.isArray(i)){e[0](i)}let v0;for(v0 in i){if(true){e[1](v0)}}return i}`,
+      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0;for(v0 in i){if(true){e[0](v0)}}return i}`,
     )
   })
 
   test("Compiled serialize code snapshot of empty dict literal schema", t => {
     let schema = factory()
 
-    t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
+    t->U.assertCompiledCodeIsNoop(~schema, ~op=#Encode)
   })
 
   test("Reverse empty dict literal schema to self", t => {

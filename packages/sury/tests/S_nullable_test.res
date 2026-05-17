@@ -3,16 +3,12 @@ open Ava
 test("Correctly parses", t => {
   let schema = S.nullable(S.bool)
 
-  t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(schema), Null)
-  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), Undefined)
-  t->Assert.deepEqual(%raw(`true`)->S.parseOrThrow(schema), Value(true))
-  t->U.assertThrows(
-    () => %raw(`"foo"`)->S.parseOrThrow(schema),
-    {
-      code: InvalidType({expected: schema->S.castToUnknown, received: %raw(`"foo"`)}),
-      operation: Parse,
-      path: S.Path.empty,
-    },
+  t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(~to=schema), Null)
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), Undefined)
+  t->Assert.deepEqual(%raw(`true`)->S.parseOrThrow(~to=schema), Value(true))
+  t->U.assertThrowsMessage(
+    () => %raw(`"foo"`)->S.parseOrThrow(~to=schema),
+    `Expected boolean | undefined | null, received "foo"`,
   )
 
   t->U.assertCompiledCode(
@@ -25,9 +21,9 @@ test("Correctly parses", t => {
 test("Correctly parses transformed", t => {
   let schema = S.nullable(S.bool->S.to(S.string))
 
-  t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(schema), Null)
-  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(schema), Undefined)
-  t->Assert.deepEqual(%raw(`true`)->S.parseOrThrow(schema), Value("true"))
+  t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(~to=schema), Null)
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), Undefined)
+  t->Assert.deepEqual(%raw(`true`)->S.parseOrThrow(~to=schema), Value("true"))
 
   t->U.assertCompiledCode(
     ~schema,
@@ -39,23 +35,27 @@ test("Correctly parses transformed", t => {
 test("Correctly reverse convert", t => {
   let schema = S.nullable(S.bool)
 
-  t->Assert.deepEqual(Nullable.Null->S.reverseConvertOrThrow(schema), %raw(`null`))
-  t->Assert.deepEqual(Nullable.Undefined->S.reverseConvertOrThrow(schema), %raw(`undefined`))
-  t->Assert.deepEqual(Nullable.Value(true)->S.reverseConvertOrThrow(schema), %raw(`true`))
+  t->Assert.deepEqual(Nullable.Null->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
+  t->Assert.deepEqual(Nullable.Undefined->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
+  t->Assert.deepEqual(Nullable.Value(true)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`true`))
 
-  t->U.assertCompiledCodeIsNoop(~schema, ~op=#ReverseConvert)
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Encode,
+    `i=>{if(!(typeof i==="boolean"||i===void 0||i===null)){e[0](i)}return i}`,
+  )
 })
 
 test("Correctly reverse convert transformed", t => {
   let schema = S.nullable(S.bool->S.to(S.string))
 
-  t->Assert.deepEqual(Nullable.Null->S.reverseConvertOrThrow(schema), %raw(`null`))
-  t->Assert.deepEqual(Nullable.Undefined->S.reverseConvertOrThrow(schema), %raw(`undefined`))
-  t->Assert.deepEqual(Nullable.Value("true")->S.reverseConvertOrThrow(schema), %raw(`true`))
+  t->Assert.deepEqual(Nullable.Null->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
+  t->Assert.deepEqual(Nullable.Undefined->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
+  t->Assert.deepEqual(Nullable.Value("true")->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`true`))
 
   t->U.assertCompiledCode(
     ~schema,
-    ~op=#ReverseConvert,
-    `i=>{if(typeof i==="string"){let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}return i}`,
+    ~op=#Encode,
+    `i=>{if(typeof i==="string"){let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}else if(!(i===void 0||i===null)){e[1](i)}return i}`,
   )
 })
