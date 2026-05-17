@@ -1,0 +1,191 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-sury:
+    name: Build sury
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 22.6.0
+          cache: "pnpm"
+      - run: pnpm install
+      - run: pnpm build
+        working-directory: packages/sury
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sury
+          path: packages/sury/artifacts
+
+  ppx-build-linux:
+    name: ppx-build-linux
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: packages/sury-ppx/src
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: 5.3.0
+      - run: opam install . --deps-only --with-test
+      - run: opam exec -- dune build --profile static
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ppx-build-linux
+          path: packages/sury-ppx/src/_build/default/bin/bin.exe
+          if-no-files-found: error
+
+  ppx-build-linux-arm:
+    name: ppx-build-linux-arm
+    runs-on: ubuntu-24.04-arm
+    defaults:
+      run:
+        working-directory: packages/sury-ppx/src
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: 5.3.0
+      - run: opam install . --deps-only --with-test
+      - run: opam exec -- dune build --profile static
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ppx-build-linux-arm
+          path: packages/sury-ppx/src/_build/default/bin/bin.exe
+          if-no-files-found: error
+
+  ppx-build-macos:
+    name: ppx-build-macos
+    runs-on: macOS-latest
+    defaults:
+      run:
+        working-directory: packages/sury-ppx/src
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: 5.3.0
+      - run: opam install . --deps-only --with-test
+      - run: opam exec -- dune build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ppx-build-macos
+          path: packages/sury-ppx/src/_build/default/bin/bin.exe
+          if-no-files-found: error
+
+  ppx-build-macos-x64:
+    name: ppx-build-macos-x64
+    runs-on: macOS-13
+    defaults:
+      run:
+        working-directory: packages/sury-ppx/src
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: 5.3.0
+      - run: opam install . --deps-only --with-test
+      - run: opam exec -- dune build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ppx-build-macos-x64
+          path: packages/sury-ppx/src/_build/default/bin/bin.exe
+          if-no-files-found: error
+
+  ppx-build-windows:
+    name: ppx-build-windows
+    runs-on: windows-2025
+    defaults:
+      run:
+        working-directory: packages/sury-ppx/src
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: 5.3.0
+      - run: opam install . --deps-only --with-test
+      - run: opam exec -- dune build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ppx-build-windows
+          path: packages/sury-ppx/src/_build/default/bin/bin.exe
+          if-no-files-found: error
+
+  publish-sury:
+    name: Publish sury
+    needs: [build-sury]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.6.0
+          registry-url: "https://registry.npmjs.org"
+      - run: npm install -g npm@latest
+      - uses: actions/download-artifact@v4
+        with:
+          name: sury
+          path: artifacts
+      - run: npm publish --provenance --access public
+        working-directory: artifacts
+
+  publish-sury-ppx:
+    name: Publish sury-ppx
+    needs:
+      - ppx-build-linux
+      - ppx-build-linux-arm
+      - ppx-build-macos
+      - ppx-build-macos-x64
+      - ppx-build-windows
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.6.0
+          registry-url: "https://registry.npmjs.org"
+      - run: npm install -g npm@latest
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ppx-build-linux
+          path: binaries/linux
+      - uses: actions/download-artifact@v4
+        with:
+          name: ppx-build-linux-arm
+          path: binaries/linux-arm
+      - uses: actions/download-artifact@v4
+        with:
+          name: ppx-build-macos
+          path: binaries/macos
+      - uses: actions/download-artifact@v4
+        with:
+          name: ppx-build-macos-x64
+          path: binaries/macos-x64
+      - uses: actions/download-artifact@v4
+        with:
+          name: ppx-build-windows
+          path: binaries/windows
+
+      - name: Move ppx artifacts
+        run: |
+          mv binaries/linux/bin.exe packages/sury-ppx/ppx-linux.exe
+          mv binaries/linux-arm/bin.exe packages/sury-ppx/ppx-linux-arm.exe
+          mv binaries/macos/bin.exe packages/sury-ppx/ppx-osx.exe
+          mv binaries/macos-x64/bin.exe packages/sury-ppx/ppx-osx-x64.exe
+          mv binaries/windows/bin.exe packages/sury-ppx/ppx-windows.exe
+
+      - run: npm publish --provenance --access public
+        working-directory: packages/sury-ppx
