@@ -175,6 +175,27 @@ test("Parses with string catch all", t => {
   t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(!(typeof i==="string")){e[0](i)}return i}`)
 })
 
+// https://github.com/DZakh/sury/issues/115
+test("Reports the named union schema when a string-shape fallback rejects a non-string input", t => {
+  let schema =
+    S.union([
+      S.literal(#hyper),
+      S.literal(#development),
+      S.literal(#small),
+      S.literal(#medium),
+      S.literal(#large),
+      S.literal(#dedicated),
+      S.string->S.shape(_ => #unknown),
+    ])->S.meta({name: "indexer plan"})
+
+  t->Assert.deepEqual(%raw(`"hyper"`)->S.parseOrThrow(~to=schema), #hyper)
+  t->Assert.deepEqual(%raw(`"anything-else"`)->S.parseOrThrow(~to=schema), #unknown)
+  t->U.assertThrowsMessage(
+    () => %raw(`42`)->S.parseOrThrow(~to=schema),
+    `Expected indexer plan, received 42`,
+  )
+})
+
 test("Serializes when second struct misses serializer", t => {
   let schema = S.union([S.literal(#apple), S.string->S.transform(_ => {parser: _ => #apple})])
 
