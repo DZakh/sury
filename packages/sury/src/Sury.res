@@ -1162,11 +1162,11 @@ module Builder = {
 
     let _notVarAtParent = () => {
       let val = %raw(`this`)
-      // The parent's allocate is removed during merge. When this val is
+      // FIXME: The parent's allocate is removed during merge. When this val is
       // accessed via a cached bond after the parent has been finalized,
       // fall back to inlining instead of allocating a new variable on the
       // (now finalized) parent. See https://github.com/DZakh/sury/issues/240
-      if %raw(`typeof val.p.a !== "function"`) {
+      if !((val.parent->X.Option.getUnsafe).allocate->Obj.magic) {
         val.var = _var
         val.inline
       } else {
