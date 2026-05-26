@@ -60,6 +60,9 @@ module X = {
     @send
     external append: (array<'a>, 'a) => array<'a> = "concat"
 
+    @send
+    external pushWithLength: (array<'a>, 'a) => int = "push"
+
     @get_index
     external getUnsafeOptionByString: (array<'a>, string) => option<'a> = ""
 
@@ -102,6 +105,9 @@ module X = {
 
   module String = {
     external unsafeToBool: string => bool = "%identity"
+
+    @get_index
+    external getUnsafe: (string, int) => string = ""
   }
 
   module Dict = {
@@ -165,10 +171,10 @@ module X = {
     module Value = {
       let fromString = (string: string): string => {
         let rec loop = idx => {
-          switch string->Stdlib.String.charAt(idx) {
-          | "" => `"${string}"`
-          | "\"" | "\n" => string->JSON.stringifyAny->Obj.magic
-          | _ => loop(idx + 1)
+          switch string->String.getUnsafe(idx)->(Obj.magic: string => option<string>) {
+          | None => `"${string}"`
+          | Some("\"") | Some("\n") => string->JSON.stringifyAny->Obj.magic
+          | Some(_) => loop(idx + 1)
           }
         }
         loop(0)
@@ -5333,10 +5339,7 @@ module Schema = {
             let f = %raw(`flattened || (flattened = [])`)
             schema->proxifyShapedSchema(
               ~from=inputFrom,
-              ~fromFlattened={
-                f->Array.push(schema)
-                f->Array.length - 1
-              },
+              ~fromFlattened=f->X.Array.pushWithLength(schema) - 1,
             )
           }
         | _ =>
