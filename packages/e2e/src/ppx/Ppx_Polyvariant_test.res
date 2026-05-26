@@ -50,7 +50,7 @@ test("Supported as an object field", t => {
 })
 
 @schema
-type polyWithPayloads = [#one | #two(int) | #three(string, float)]
+type polyWithPayloads = [#one | #two(int) | #three(string, float) | #four({"foo": string})]
 test("Polymorphic variant with payloads (issue #160)", t => {
   t->assertEqualSchemas(
     polyWithPayloadsSchema,
@@ -58,6 +58,7 @@ test("Polymorphic variant with payloads (issue #160)", t => {
       S.literal(#one),
       S.schema(s => #two(s.matches(S.int))),
       S.schema(s => #three(s.matches(S.string), s.matches(S.float))),
+      S.schema(s => #four(s.matches(S.schema(s => {"foo": s.matches(S.string)})))),
     ]),
   )
 })
