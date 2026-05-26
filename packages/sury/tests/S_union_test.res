@@ -194,6 +194,13 @@ test("Reports the named union schema when a string-shape fallback rejects a non-
     () => %raw(`42`)->S.parseOrThrow(~to=schema),
     `Expected indexer plan, received 42`,
   )
+
+  t->Assert.deepEqual(#hyper->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"hyper"`))
+  t->U.assertThrowsMessage(
+    () => #unknown->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    `Expected indexer plan, received "unknown"
+- Missing input for string`,
+  )
 })
 
 test("Serializes when second struct misses serializer", t => {
