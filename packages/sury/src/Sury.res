@@ -2467,7 +2467,7 @@ and reverse = (schema: internal) => {
       }
       switch mut.items {
       | Some(items) =>
-        mut.items = Some(Array.fromInitializer(~length=items->Array.length, idx => items->Array.getUnsafe(idx)->reverse))
+        mut.items = Some(items->Array.map(reverse))
 
       | None => ()
       }
