@@ -2538,161 +2538,158 @@ and reverse = (schema: internal) => {
   }
 }
 
+let compileAndCache = (cacheTarget: internal, key, args, idx: int, f) => {
+  let schema = ref(args->Js.Array2.unsafe_get(idx - 1))
+  for i in idx - 2 downto 0 {
+    let to = schema.contents
+    schema :=
+      args
+      ->Js.Array2.unsafe_get(i)
+      ->updateOutput(mut => {
+        mut.to = Some(to)
+      })
+      ->castToInternal
+  }
+  let fn = compileDecoder(
+    ~schema=schema.contents,
+    ~expected=schema.contents,
+    ~flag=f,
+    ~defs=%raw(`0`),
+  )
+  valueOptions->Js.Dict.set(valKey, fn)
+  let _ = X.Object.defineProperty(cacheTarget, key, valueOptions->Obj.magic)
+  fn->(Obj.magic: (unknown => unknown) => 'from => 'to)
+}
+
 let getDecoder = (~s1 as _, ~flag as _=?) => {
   let args = %raw(`arguments`)
-  let idx = ref(0)
-  let flag = ref(None)
-  let keyRef = ref("")
-  let maxSeq = ref(0.)
-  let cacheTarget = ref(None)
+  let s1: internal = args->Js.Array2.unsafe_get(0)
+  let seq1: float = s1.seq->Obj.magic
+  let arg1 = args->Js.Array2.unsafe_get(1)
 
-  while flag.contents === None {
-    let arg = args->Js.Array2.unsafe_get(idx.contents)
-    if !(arg->Obj.magic) {
-      let f = globalConfig.defaultFlag
-      flag := Some(f)
-      keyRef := keyRef.contents ++ "-" ++ f->X.Int.unsafeToString
-    } else if Js.typeof(arg->Obj.magic) === "number" {
-      let f = arg->Obj.magic->Flag.with(globalConfig.defaultFlag)
-      flag := Some(f)
-      keyRef := keyRef.contents ++ "-" ++ f->X.Int.unsafeToString
+  if !(arg1->Obj.magic) || Js.typeof(arg1->Obj.magic) === "number" {
+    // 1 schema (± flag)
+    let f = if arg1->Obj.magic {
+      (arg1->Obj.magic: flag)->Flag.with(globalConfig.defaultFlag)
     } else {
-      let schema: internal = arg->Obj.magic
-      let seq: float = schema.seq->Obj.magic
-      if seq > maxSeq.contents {
-        maxSeq := seq
-        cacheTarget := Some(schema)
-      }
-      keyRef := keyRef.contents ++ seq->Obj.magic ++ "-"
-      idx := idx.contents + 1
+      globalConfig.defaultFlag
     }
-  }
+    let key = (seq1->Obj.magic: string) ++ "--" ++ f->X.Int.unsafeToString
+    if s1->Obj.magic->Stdlib.Dict.has(key) {
+      s1->Obj.magic->Stdlib.Dict.getUnsafe(key)->Obj.magic
+    } else {
+      compileAndCache(s1, key, args, 1, f)
+    }
+  } else {
+    let seq2: float = (arg1->Obj.magic: internal).seq->Obj.magic
+    let arg2 = args->Js.Array2.unsafe_get(2)
 
-  switch cacheTarget.contents {
-  | None => InternalError.panic("No schema provided for decoder.")
-  | Some(cacheTarget) => {
-      let key = keyRef.contents
+    if !(arg2->Obj.magic) || Js.typeof(arg2->Obj.magic) === "number" {
+      // 2 schemas (± flag)
+      let f = if arg2->Obj.magic {
+        (arg2->Obj.magic: flag)->Flag.with(globalConfig.defaultFlag)
+      } else {
+        globalConfig.defaultFlag
+      }
+      let key =
+        (seq1->Obj.magic: string) ++
+        "-" ++
+        (seq2->Obj.magic: string) ++
+        "--" ++
+        f->X.Int.unsafeToString
+      let cacheTarget = if seq1 > seq2 {
+        s1
+      } else {
+        arg1->Obj.magic
+      }
       if cacheTarget->Obj.magic->Stdlib.Dict.has(key) {
         cacheTarget->Obj.magic->Stdlib.Dict.getUnsafe(key)->Obj.magic
       } else {
-        let schema = ref(args->Js.Array2.unsafe_get(idx.contents - 1))
-        for i in idx.contents - 2 downto 0 {
-          let to = schema.contents
-          schema :=
-            args
-            ->Js.Array2.unsafe_get(i)
-            ->updateOutput(mut => {
-              mut.to = Some(to)
-            })
-            ->castToInternal
+        compileAndCache(cacheTarget, key, args, 2, f)
+      }
+    } else {
+      let seq3: float = (arg2->Obj.magic: internal).seq->Obj.magic
+      let arg3 = args->Js.Array2.unsafe_get(3)
+
+      if !(arg3->Obj.magic) || Js.typeof(arg3->Obj.magic) === "number" {
+        // 3 schemas (± flag)
+        let f = if arg3->Obj.magic {
+          (arg3->Obj.magic: flag)->Flag.with(globalConfig.defaultFlag)
+        } else {
+          globalConfig.defaultFlag
         }
-        let f = compileDecoder(
-          ~schema=schema.contents,
-          ~expected=schema.contents,
-          ~flag=flag.contents->X.Option.getUnsafe,
-          ~defs=%raw(`0`),
-        )
-        // Reusing the same object makes it a little bit faster
-        valueOptions->Js.Dict.set(valKey, f)
-        // Use defineProperty, so the cache keys are not enumerable
-        let _ = X.Object.defineProperty(cacheTarget, key, valueOptions->Obj.magic)
-        f->(Obj.magic: (unknown => unknown) => 'from => 'to)
+        let key =
+          (seq1->Obj.magic: string) ++
+          "-" ++
+          (seq2->Obj.magic: string) ++
+          "-" ++
+          (seq3->Obj.magic: string) ++
+          "--" ++
+          f->X.Int.unsafeToString
+        let cacheTarget = if seq1 > seq2 && seq1 > seq3 {
+          s1
+        } else if seq2 > seq3 {
+          arg1->Obj.magic
+        } else {
+          arg2->Obj.magic
+        }
+        if cacheTarget->Obj.magic->Stdlib.Dict.has(key) {
+          cacheTarget->Obj.magic->Stdlib.Dict.getUnsafe(key)->Obj.magic
+        } else {
+          compileAndCache(cacheTarget, key, args, 3, f)
+        }
+      } else {
+        // 4+ schemas: generic while loop
+        let idx = ref(0)
+        let flag = ref(None)
+        let keyRef = ref("")
+        let maxSeq = ref(0.)
+        let cacheTarget = ref(None)
+
+        while flag.contents === None {
+          let arg = args->Js.Array2.unsafe_get(idx.contents)
+          if !(arg->Obj.magic) {
+            let f = globalConfig.defaultFlag
+            flag := Some(f)
+            keyRef := keyRef.contents ++ "-" ++ f->X.Int.unsafeToString
+          } else if Js.typeof(arg->Obj.magic) === "number" {
+            let f = arg->Obj.magic->Flag.with(globalConfig.defaultFlag)
+            flag := Some(f)
+            keyRef := keyRef.contents ++ "-" ++ f->X.Int.unsafeToString
+          } else {
+            let schema: internal = arg->Obj.magic
+            let seq: float = schema.seq->Obj.magic
+            if seq > maxSeq.contents {
+              maxSeq := seq
+              cacheTarget := Some(schema)
+            }
+            keyRef := keyRef.contents ++ seq->Obj.magic ++ "-"
+            idx := idx.contents + 1
+          }
+        }
+
+        switch cacheTarget.contents {
+        | None => InternalError.panic("No schema provided for decoder.")
+        | Some(ct) => {
+            let key = keyRef.contents
+            if ct->Obj.magic->Stdlib.Dict.has(key) {
+              ct->Obj.magic->Stdlib.Dict.getUnsafe(key)->Obj.magic
+            } else {
+              compileAndCache(ct, key, args, idx.contents, flag.contents->X.Option.getUnsafe)
+            }
+          }
+        }
       }
     }
   }
 }
 
-let getDecoder1Fn = (s1: internal, ~flag=?) => {
-  let seq1: float = s1.seq->Obj.magic
-  let f = switch flag {
-  | Some(flag) => flag->Flag.with(globalConfig.defaultFlag)
-  | None => globalConfig.defaultFlag
-  }
-  let key = (seq1->Obj.magic: string) ++ "--" ++ f->X.Int.unsafeToString
-  if s1->Obj.magic->Stdlib.Dict.has(key) {
-    s1->Obj.magic->Stdlib.Dict.getUnsafe(key)->Obj.magic
-  } else {
-    let fn = compileDecoder(~schema=s1, ~expected=s1, ~flag=f, ~defs=%raw(`0`))
-    valueOptions->Js.Dict.set(valKey, fn)
-    let _ = X.Object.defineProperty(s1, key, valueOptions->Obj.magic)
-    fn->(Obj.magic: (unknown => unknown) => 'from => 'to)
-  }
-}
+@val
+external getDecoder2: (~s1: internal, ~s2: internal, ~flag: flag=?) => 'a => 'b = "getDecoder"
 
-let getDecoder2Fn = (s1: internal, s2: internal, ~flag=?) => {
-  let seq1: float = s1.seq->Obj.magic
-  let seq2: float = s2.seq->Obj.magic
-  let f = switch flag {
-  | Some(flag) => flag->Flag.with(globalConfig.defaultFlag)
-  | None => globalConfig.defaultFlag
-  }
-  let key =
-    (seq1->Obj.magic: string) ++ "-" ++ (seq2->Obj.magic: string) ++ "--" ++ f->X.Int.unsafeToString
-  let cacheTarget = if seq1 > seq2 {
-    s1
-  } else {
-    s2
-  }
-  if cacheTarget->Obj.magic->Stdlib.Dict.has(key) {
-    cacheTarget->Obj.magic->Stdlib.Dict.getUnsafe(key)->Obj.magic
-  } else {
-    let schema =
-      s1
-      ->updateOutput(mut => {
-        mut.to = Some(s2)
-      })
-      ->castToInternal
-    let fn = compileDecoder(~schema, ~expected=schema, ~flag=f, ~defs=%raw(`0`))
-    valueOptions->Js.Dict.set(valKey, fn)
-    let _ = X.Object.defineProperty(cacheTarget, key, valueOptions->Obj.magic)
-    fn->(Obj.magic: (unknown => unknown) => 'from => 'to)
-  }
-}
-
-let getDecoder3Fn = (s1: internal, s2: internal, s3: internal, ~flag=?) => {
-  let seq1: float = s1.seq->Obj.magic
-  let seq2: float = s2.seq->Obj.magic
-  let seq3: float = s3.seq->Obj.magic
-  let f = switch flag {
-  | Some(flag) => flag->Flag.with(globalConfig.defaultFlag)
-  | None => globalConfig.defaultFlag
-  }
-  let key =
-    (seq1->Obj.magic: string) ++
-    "-" ++
-    (seq2->Obj.magic: string) ++
-    "-" ++
-    (seq3->Obj.magic: string) ++
-    "--" ++
-    f->X.Int.unsafeToString
-  let cacheTarget = if seq1 > seq2 && seq1 > seq3 {
-    s1
-  } else if seq2 > seq3 {
-    s2
-  } else {
-    s3
-  }
-  if cacheTarget->Obj.magic->Stdlib.Dict.has(key) {
-    cacheTarget->Obj.magic->Stdlib.Dict.getUnsafe(key)->Obj.magic
-  } else {
-    let schema =
-      s1
-      ->updateOutput(mut => {
-        mut.to = Some(
-          s2
-          ->updateOutput(mut => {
-            mut.to = Some(s3)
-          })
-          ->castToInternal,
-        )
-      })
-      ->castToInternal
-    let fn = compileDecoder(~schema, ~expected=schema, ~flag=f, ~defs=%raw(`0`))
-    valueOptions->Js.Dict.set(valKey, fn)
-    let _ = X.Object.defineProperty(cacheTarget, key, valueOptions->Obj.magic)
-    fn->(Obj.magic: (unknown => unknown) => 'from => 'to)
-  }
-}
+@val
+external getDecoder3: (~s1: internal, ~s2: internal, ~s3: internal, ~flag: flag=?) => 'a => 'b =
+  "getDecoder"
 
 let rec makeObjectVal = (prev: val, ~schema): B.Val.Object.t => {
   {
@@ -3315,7 +3312,7 @@ X.Object.defineProperty(
           validate: input => {
             try {
               {
-                "value": getDecoder2Fn(unknown, schema)(input->Obj.magic)->Obj.magic,
+                "value": getDecoder2(~s1=unknown, ~s2=schema)(input->Obj.magic)->Obj.magic,
               }
             } catch {
             | _ => {
@@ -3342,27 +3339,27 @@ X.Object.defineProperty(
 // =============
 
 let parser = (~to as schema) => {
-  getDecoder2Fn(unknown, schema->castToInternal)
+  getDecoder2(~s1=unknown, ~s2=schema->castToInternal)
 }
 
 let asyncParser = (~to as schema) => {
-  getDecoder2Fn(unknown, schema->castToInternal, ~flag=Flag.async)
+  getDecoder2(~s1=unknown, ~s2=schema->castToInternal, ~flag=Flag.async)
 }
 
 let decoder = (type from to, ~from: t<from>, ~to: t<to>): (from => to) => {
-  getDecoder2Fn(from->castToInternal->reverse, to->castToInternal)
+  getDecoder2(~s1=from->castToInternal->reverse, ~s2=to->castToInternal)
 }
 
 let asyncDecoder = (type from to, ~from: t<from>, ~to: t<to>): (from => promise<to>) => {
-  getDecoder2Fn(from->castToInternal->reverse, to->castToInternal, ~flag=Flag.async)
+  getDecoder2(~s1=from->castToInternal->reverse, ~s2=to->castToInternal, ~flag=Flag.async)
 }
 
 let decoder1 = (type value, schema: t<value>): (unknown => value) => {
-  getDecoder1Fn(schema->castToInternal)
+  getDecoder(~s1=schema->castToInternal)
 }
 
 let asyncDecoder1 = (type value, schema: t<value>): (unknown => promise<value>) => {
-  getDecoder1Fn(schema->castToInternal, ~flag=Flag.async)
+  getDecoder(~s1=schema->castToInternal, ~flag=Flag.async)
 }
 
 // =============
@@ -3378,27 +3375,27 @@ let getAssertResult = () =>
 
 @inline
 let parseOrThrow = (any, ~to as schema) => {
-  getDecoder2Fn(unknown, schema->castToInternal)(any)
+  getDecoder2(~s1=unknown, ~s2=schema->castToInternal)(any)
 }
 
 let parseAsyncOrThrow = (any, ~to as schema) => {
-  getDecoder2Fn(unknown, schema->castToInternal, ~flag=Flag.async)(any)
+  getDecoder2(~s1=unknown, ~s2=schema->castToInternal, ~flag=Flag.async)(any)
 }
 
 let assertOrThrow = (any, ~to as schema) => {
-  getDecoder3Fn(unknown, schema->castToInternal, getAssertResult())(any)
+  getDecoder3(~s1=unknown, ~s2=schema->castToInternal, ~s3=getAssertResult())(any)
 }
 
 let assertAsyncOrThrow = (any, ~to as schema) => {
-  getDecoder3Fn(unknown, schema->castToInternal, getAssertResult(), ~flag=Flag.async)(any)
+  getDecoder3(~s1=unknown, ~s2=schema->castToInternal, ~s3=getAssertResult(), ~flag=Flag.async)(any)
 }
 
 let decodeOrThrow = (any, ~from, ~to) => {
-  getDecoder2Fn(from->castToInternal->reverse, to->castToInternal)(any)
+  getDecoder2(~s1=from->castToInternal->reverse, ~s2=to->castToInternal)(any)
 }
 
 let decodeAsyncOrThrow = (any, ~from, ~to) => {
-  getDecoder2Fn(from->castToInternal->reverse, to->castToInternal, ~flag=Flag.async)(any)
+  getDecoder2(~s1=from->castToInternal->reverse, ~s2=to->castToInternal, ~flag=Flag.async)(any)
 }
 
 let isAsync = schema => {
@@ -4499,7 +4496,7 @@ module Option = {
           switch default {
           | Value(v) =>
             try mut.default =
-              getDecoder1Fn(item->reverse)(v)->(
+              getDecoder(~s1=item->reverse)(v)->(
                 Obj.magic: unknown => option<internalDefault>
               ) catch {
             | _ => ()
@@ -5191,7 +5188,7 @@ let meta = (schema: t<'value>, data: meta<'value>) => {
   }
   switch data.examples {
   | Some([]) => mut.examples = None // FIXME: Delete instead of None
-  | Some(examples) => mut.examples = Some(examples->X.Array.map(getDecoder1Fn(schema->reverse)))
+  | Some(examples) => mut.examples = Some(examples->X.Array.map(getDecoder(~s1=schema->reverse)))
   | None => ()
   }
   switch data.errorMessage {
@@ -6660,7 +6657,7 @@ let js_encoder = %raw(`(...args) => getDecoder(...args.map(reverse))`)
 let js_asyncEncoder = %raw(`(...args) => getDecoder(...args.map(reverse), 1)`)
 
 let js_assert = (schema, data) => {
-  getDecoder3Fn(unknown, schema->castToInternal, getAssertResult())(data)
+  getDecoder3(~s1=unknown, ~s2=schema->castToInternal, ~s3=getAssertResult())(data)
 }
 
 let js_union = values =>
