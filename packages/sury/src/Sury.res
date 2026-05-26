@@ -3373,21 +3373,52 @@ let getAssertResult = () =>
     s.noValidation = Some(true)
   })
 
-@inline
 let parseOrThrow = (any, ~to as schema) => {
-  getDecoder2(~s1=unknown, ~s2=schema->castToInternal)(any)
+  let fn = %raw(`schema[unknown.seq + "-" + schema.seq + "--" + globalConfig.f]`)
+  if fn->Obj.magic {
+    (fn->Obj.magic)(any)
+  } else {
+    getDecoder2(~s1=unknown, ~s2=schema->castToInternal)(any)
+  }
 }
 
 let parseAsyncOrThrow = (any, ~to as schema) => {
-  getDecoder2(~s1=unknown, ~s2=schema->castToInternal, ~flag=Flag.async)(any)
+  let fn = %raw(`schema[unknown.seq + "-" + schema.seq + "--" + (1 | globalConfig.f)]`)
+  if fn->Obj.magic {
+    (fn->Obj.magic)(any)
+  } else {
+    getDecoder2(~s1=unknown, ~s2=schema->castToInternal, ~flag=Flag.async)(any)
+  }
 }
 
 let assertOrThrow = (any, ~to as schema) => {
-  getDecoder3(~s1=unknown, ~s2=schema->castToInternal, ~s3=getAssertResult())(any)
+  let ar = getAssertResult()
+  let fn = %raw(`schema[unknown.seq + "-" + schema.seq + "-" + ar.seq + "--" + globalConfig.f]`)
+  if fn->Obj.magic {
+    (fn->Obj.magic)(any)
+  } else {
+    let s = schema->castToInternal
+    let decoder = getDecoder3(~s1=unknown, ~s2=s, ~s3=ar)
+    let key: string = %raw(`unknown.seq + "-" + schema.seq + "-" + ar.seq + "--" + globalConfig.f`)
+    valueOptions->Js.Dict.set(valKey, decoder->Obj.magic)
+    let _ = X.Object.defineProperty(s, key, valueOptions->Obj.magic)
+    (decoder->Obj.magic)(any)
+  }
 }
 
 let assertAsyncOrThrow = (any, ~to as schema) => {
-  getDecoder3(~s1=unknown, ~s2=schema->castToInternal, ~s3=getAssertResult(), ~flag=Flag.async)(any)
+  let ar = getAssertResult()
+  let fn = %raw(`schema[unknown.seq + "-" + schema.seq + "-" + ar.seq + "--" + (1 | globalConfig.f)]`)
+  if fn->Obj.magic {
+    (fn->Obj.magic)(any)
+  } else {
+    let s = schema->castToInternal
+    let decoder = getDecoder3(~s1=unknown, ~s2=s, ~s3=ar, ~flag=Flag.async)
+    let key: string = %raw(`unknown.seq + "-" + schema.seq + "-" + ar.seq + "--" + (1 | globalConfig.f)`)
+    valueOptions->Js.Dict.set(valKey, decoder->Obj.magic)
+    let _ = X.Object.defineProperty(s, key, valueOptions->Obj.magic)
+    (decoder->Obj.magic)(any)
+  }
 }
 
 let decodeOrThrow = (any, ~from, ~to) => {
