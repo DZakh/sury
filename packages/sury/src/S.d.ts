@@ -622,13 +622,13 @@ export function optional<
 export function nullable<
   Output,
   Input,
-  Or extends Output | undefined = undefined
+  Or extends Output | null = null
 >(
   schema: Schema<Output, Input>,
   or?: (() => Or) | Or,
   // To make .with work
   _?: never
-): Schema<Or extends undefined ? Output | undefined : Output, Input | null>;
+): Schema<Or extends null ? Output | null : Output, Input | null>;
 
 export const nullish: <Output, Input>(
   schema: Schema<Output, Input>
