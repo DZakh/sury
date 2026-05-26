@@ -224,23 +224,6 @@ NodeJs.Fs.writeFileSyncWith(
   },
 )
 
-let deleteKey: (dict<'a>, string) => unit = %raw(`function(d, k) { delete d[k] }`)
-
-let removeJsonFields = (~src, ~keys) => {
-  let data = NodeJs.Fs.readFileSyncWith(src, {encoding: "utf8"})
-  let json = data->NodeJs.Buffer.toString->JSON.parseOrThrow
-  switch json->JSON.Decode.object {
-  | Some(dict) =>
-    keys->Array.forEach(key => dict->deleteKey(key))
-    NodeJs.Fs.writeFileSyncWith(
-      src,
-      json->JSON.stringify(~space=2)->NodeJs.Buffer.fromString,
-      {encoding: "utf8"},
-    )
-  | None => ()
-  }
-}
-
 let updateJsonFile = (~src, ~path, ~value) => {
   let packageJsonData = NodeJs.Fs.readFileSyncWith(
     src,
@@ -296,12 +279,6 @@ updateJsonFile(
   ~src=NodeJs.Path.join2(artifactsPath, "package.json"),
   ~path=["private"],
   ~value=JSON.Encode.bool(false),
-)
-
-// Rescript runtime is inlined via Rollup, so remove rescript from published dependencies
-removeJsonFields(
-  ~src=NodeJs.Path.join2(artifactsPath, "package.json"),
-  ~keys=["devDependencies", "peerDependencies", "peerDependenciesMeta"],
 )
 
 // Clean up before uploading artifacts
