@@ -497,14 +497,36 @@ test("Optional enum", (t) => {
     >
   >(true);
 
-  const inlineInfer = S.optional(S.union(["Win", "Draw", "Loss"]));
+  const inlineOptional = S.optional(S.union(["Win", "Draw", "Loss"]));
   expectType<
     TypeEqual<
       S.Schema<
         "Win" | "Draw" | "Loss" | undefined,
         "Win" | "Draw" | "Loss" | undefined
       >,
-      typeof inlineInfer
+      typeof inlineOptional
+    >
+  >(true);
+
+  const inlineNullable = S.nullable(S.union(["Win", "Draw", "Loss"]));
+  expectType<
+    TypeEqual<
+      S.Schema<
+        "Win" | "Draw" | "Loss" | undefined,
+        "Win" | "Draw" | "Loss" | null
+      >,
+      typeof inlineNullable
+    >
+  >(true);
+
+  const inlineNullish = S.nullish(S.union(["Win", "Draw", "Loss"]));
+  expectType<
+    TypeEqual<
+      S.Schema<
+        "Win" | "Draw" | "Loss" | null | undefined,
+        "Win" | "Draw" | "Loss" | null | undefined
+      >,
+      typeof inlineNullish
     >
   >(true);
 
@@ -519,14 +541,51 @@ test("Optional enum", (t) => {
     >
   >(true);
 
-  const inlineNullish = S.nullish(S.union(["Win", "Draw", "Loss"]));
+  const inlineRecord = S.record(S.union(["Win", "Draw", "Loss"]));
   expectType<
     TypeEqual<
       S.Schema<
-        "Win" | "Draw" | "Loss" | null | undefined,
-        "Win" | "Draw" | "Loss" | null | undefined
+        Record<string, "Win" | "Draw" | "Loss">,
+        Record<string, "Win" | "Draw" | "Loss">
       >,
-      typeof inlineNullish
+      typeof inlineRecord
+    >
+  >(true);
+
+  const inlineObject = S.schema({
+    status: S.union(["Win", "Draw", "Loss"]),
+  });
+  expectType<
+    TypeEqual<
+      S.Schema<
+        { status: "Win" | "Draw" | "Loss" },
+        { status: "Win" | "Draw" | "Loss" }
+      >,
+      typeof inlineObject
+    >
+  >(true);
+
+  const inlineTuple = S.schema([S.union(["Win", "Draw", "Loss"]), S.number]);
+  expectType<
+    TypeEqual<
+      S.Schema<
+        ["Win" | "Draw" | "Loss", number],
+        ["Win" | "Draw" | "Loss", number]
+      >,
+      typeof inlineTuple
+    >
+  >(true);
+
+  const nestedDeep = S.optional(
+    S.array(S.nullable(S.union(["Win", "Draw", "Loss"]))),
+  );
+  expectType<
+    TypeEqual<
+      S.Schema<
+        ("Win" | "Draw" | "Loss" | undefined)[] | undefined,
+        ("Win" | "Draw" | "Loss" | null)[] | undefined
+      >,
+      typeof nestedDeep
     >
   >(true);
 });
