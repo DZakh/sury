@@ -36,9 +36,18 @@ let rec generateConstrSchemaExpression {Location.txt = identifier; loc}
   | Ldot (Ldot (Lident "Js", "Dict"), "t"), [item_type]
   | Ldot (Lident "Dict", "t"), [item_type] ->
     [%expr S.dict [%e generateCoreTypeSchemaExpression item_type]]
-  | Lident s, _ -> makeIdentExpr (generateSchemaName s)
-  | Ldot (left, right), _ ->
+  | Lident s, [] -> makeIdentExpr (generateSchemaName s)
+  | Lident s, [arg] ->
+    Exp.apply (makeIdentExpr (generateSchemaName s))
+      [(Nolabel, generateCoreTypeSchemaExpression arg)]
+  | Lident _, _ -> fail loc "Parametrized types with more than one type parameter are not supported yet"
+  | Ldot (left, right), [] ->
     Exp.ident (mknoloc (Ldot (left, generateSchemaName right)))
+  | Ldot (left, right), [arg] ->
+    Exp.apply
+      (Exp.ident (mknoloc (Ldot (left, generateSchemaName right))))
+      [(Nolabel, generateCoreTypeSchemaExpression arg)]
+  | Ldot _, _ -> fail loc "Parametrized types with more than one type parameter are not supported yet"
   | Lapply (_, _), _ -> fail loc "Unsupported lapply syntax"
 
 and generatePolyvariantSchemaExpression row_fields =
@@ -230,13 +239,35 @@ let generateTypeDeclarationSchemaExpression type_declaration =
     label_declarations |> List.map parseLabelDeclaration |> generateRecordSchema
   | {ptype_loc; _} -> fail ptype_loc "Unsupported type declaration"
 
-let generateSchemaValueBinding type_name schema_expr =
+let generateSchemaValueBinding type_name ptype_params schema_expr =
   let schema_name_pat = Pat.var (mknoloc (generateSchemaName type_name)) in
-  Vb.mk schema_name_pat
-    (Exp.constraint_ schema_expr [%type: [%t Typ.constr (lid type_name) []] S.t])
+  match ptype_params with
+  | [] ->
+    Vb.mk schema_name_pat
+      (Exp.constraint_ schema_expr
+         [%type: [%t Typ.constr (lid type_name) []] S.t])
+  | [(ct, _)] -> (
+    match ct.ptyp_desc with
+    | Ptyp_var s ->
+      let param_pat =
+        Pat.constraint_
+          (Pat.var (mknoloc (generateSchemaName s)))
+          [%type: [%t Typ.var s] S.t]
+      in
+      let constrained =
+        Exp.constraint_ schema_expr
+          [%type: [%t Typ.constr (lid type_name) [Typ.var s]] S.t]
+      in
+      Vb.mk schema_name_pat [%expr fun [%p param_pat] -> [%e constrained]]
+    | _ ->
+      fail ct.ptyp_loc "Expected a type variable as type parameter")
+  | _ ->
+    fail (fst (List.hd ptype_params)).ptyp_loc
+      "Parametrized types with more than one type parameter are not supported yet"
 
 let mapTypeDeclaration type_declaration =
-  let {ptype_attributes; ptype_name = {txt = type_name}; ptype_loc} =
+  let {ptype_attributes; ptype_name = {txt = type_name}; ptype_loc; ptype_params}
+      =
     type_declaration
   in
   match getAttributeByName ptype_attributes "schema" with
@@ -244,7 +275,7 @@ let mapTypeDeclaration type_declaration =
   | Error err -> fail ptype_loc err
   | Ok _ ->
     [
-      generateSchemaValueBinding type_name
+      generateSchemaValueBinding type_name ptype_params
         (generateTypeDeclarationSchemaExpression type_declaration);
     ]
 
