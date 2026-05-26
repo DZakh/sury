@@ -12,6 +12,10 @@
     "in-source": true
   },
   "suffix": ".res.mjs",
+  "warnings": {
+    "number": "+a-4-9-20-41-50-102",
+    "error": "+a"
+  },
   "dependencies": ["sury"],
   "dev-dependencies": ["@dzakh/rescript-ava"],
   "ppx-flags": ["sury-ppx/bin"],

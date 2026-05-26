@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "res": "rescript watch --dev",
-    "test": "rescript --dev && ava",
+    "res": "rescript watch",
+    "test": "rescript && ava",
     "ppx:install": "node ../sury-ppx/install.cjs",
     "ppx:build": "cd ../sury-ppx/src && dune build",
     "benchmark": "node ./src/benchmark/Benchmark.res.mjs",
@@ -17,7 +17,7 @@
     ]
   },
   "dependencies": {
-    "rescript": "12.0.0-beta.5",
+    "rescript": "12.2.0",
     "@dzakh/rescript-ava": "3.1.0",
     "ava": "5.2.0",
     "benchmark": "2.1.4",

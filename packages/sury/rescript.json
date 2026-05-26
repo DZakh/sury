@@ -21,5 +21,9 @@
       "subdirs": true
     }
   ],
+  "warnings": {
+    "number": "+a-4-9-20-41-50-102",
+    "error": "+a"
+  },
   "dev-dependencies": ["@dzakh/rescript-ava", "rescript-nodejs"]
 }
