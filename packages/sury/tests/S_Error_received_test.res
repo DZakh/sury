@@ -48,7 +48,7 @@ test("InvalidInput error has correct received schema for unknown-to-object type 
   | _ => t->Assert.fail("Should have thrown")
   | exception S.Exn(error) =>
     switch error->S.Error.classify {
-    | InvalidInput({expected, received}) =>
+    | InvalidInput({expected: _, received}) =>
       t->Assert.is(received->S.toExpression, "unknown", ~message="received schema")
     | _ => t->Assert.fail("Expected InvalidInput error")
     }
