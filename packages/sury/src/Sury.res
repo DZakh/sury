@@ -3373,53 +3373,25 @@ let getAssertResult = () =>
     s.noValidation = Some(true)
   })
 
-let parseOrThrow = (any, ~to as schema) => {
-  let fn = %raw(`schema[unknown.seq + "-" + schema.seq + "--" + globalConfig.f]`)
-  if fn->Obj.magic {
-    (fn->Obj.magic)(any)
-  } else {
-    getDecoder2(~s1=unknown, ~s2=schema->castToInternal)(any)
-  }
-}
+let parseOrThrow: ('a, ~to: t<'b>) => 'b = %raw(`function(any, schema) {
+  var k = "p" + globalConfig.f
+  return (schema[k] || (valueOptions[valKey] = getDecoder(unknown, schema), d(schema, k, valueOptions), schema[k]))(any)
+}`)
 
-let parseAsyncOrThrow = (any, ~to as schema) => {
-  let fn = %raw(`schema[unknown.seq + "-" + schema.seq + "--" + (1 | globalConfig.f)]`)
-  if fn->Obj.magic {
-    (fn->Obj.magic)(any)
-  } else {
-    getDecoder2(~s1=unknown, ~s2=schema->castToInternal, ~flag=Flag.async)(any)
-  }
-}
+let parseAsyncOrThrow: ('a, ~to: t<'b>) => promise<'b> = %raw(`function(any, schema) {
+  var k = "P" + globalConfig.f
+  return (schema[k] || (valueOptions[valKey] = getDecoder(unknown, schema, 1), d(schema, k, valueOptions), schema[k]))(any)
+}`)
 
-let assertOrThrow = (any, ~to as schema) => {
-  let ar = getAssertResult()
-  let fn = %raw(`schema[unknown.seq + "-" + schema.seq + "-" + ar.seq + "--" + globalConfig.f]`)
-  if fn->Obj.magic {
-    (fn->Obj.magic)(any)
-  } else {
-    let s = schema->castToInternal
-    let decoder = getDecoder3(~s1=unknown, ~s2=s, ~s3=ar)
-    let key: string = %raw(`unknown.seq + "-" + schema.seq + "-" + ar.seq + "--" + globalConfig.f`)
-    valueOptions->Js.Dict.set(valKey, decoder->Obj.magic)
-    let _ = X.Object.defineProperty(s, key, valueOptions->Obj.magic)
-    (decoder->Obj.magic)(any)
-  }
-}
+let assertOrThrow: ('a, ~to: t<'b>) => unit = %raw(`function(any, schema) {
+  var k = "a" + globalConfig.f
+  return (schema[k] || (valueOptions[valKey] = getDecoder(unknown, schema, getAssertResult()), d(schema, k, valueOptions), schema[k]))(any)
+}`)
 
-let assertAsyncOrThrow = (any, ~to as schema) => {
-  let ar = getAssertResult()
-  let fn = %raw(`schema[unknown.seq + "-" + schema.seq + "-" + ar.seq + "--" + (1 | globalConfig.f)]`)
-  if fn->Obj.magic {
-    (fn->Obj.magic)(any)
-  } else {
-    let s = schema->castToInternal
-    let decoder = getDecoder3(~s1=unknown, ~s2=s, ~s3=ar, ~flag=Flag.async)
-    let key: string = %raw(`unknown.seq + "-" + schema.seq + "-" + ar.seq + "--" + (1 | globalConfig.f)`)
-    valueOptions->Js.Dict.set(valKey, decoder->Obj.magic)
-    let _ = X.Object.defineProperty(s, key, valueOptions->Obj.magic)
-    (decoder->Obj.magic)(any)
-  }
-}
+let assertAsyncOrThrow: ('a, ~to: t<'b>) => promise<unit> = %raw(`function(any, schema) {
+  var k = "A" + globalConfig.f
+  return (schema[k] || (valueOptions[valKey] = getDecoder(unknown, schema, getAssertResult(), 1), d(schema, k, valueOptions), schema[k]))(any)
+}`)
 
 let decodeOrThrow = (any, ~from, ~to) => {
   getDecoder2(~s1=from->castToInternal->reverse, ~s2=to->castToInternal)(any)
