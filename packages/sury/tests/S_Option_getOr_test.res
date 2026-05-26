@@ -126,6 +126,35 @@ asyncTest("Compiled async parse code snapshot", async t => {
   )
 })
 
+// https://github.com/DZakh/sury/issues/178
+test("Uses default value when parsing optional union of literals", t => {
+  let schema =
+    S.union([S.literal("a"), S.literal("b"), S.literal("c")])->S.option->S.Option.getOr("a")
+
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), "a")
+  t->Assert.deepEqual(%raw(`"b"`)->S.parseOrThrow(~to=schema), "b")
+  t->Assert.deepEqual(%raw(`"c"`)->S.parseOrThrow(~to=schema), "c")
+})
+
+// https://github.com/DZakh/sury/issues/178
+test("Fails to parse invalid value for optional union of literals with default", t => {
+  let schema =
+    S.union([S.literal("a"), S.literal("b"), S.literal("c")])->S.option->S.Option.getOr("a")
+
+  t->U.assertThrowsMessage(
+    () => %raw(`"d"`)->S.parseOrThrow(~to=schema),
+    `Expected "a" | "b" | "c" | undefined, received "d"`,
+  )
+})
+
+// https://github.com/DZakh/sury/issues/178
+test("Successfully serializes optional union of literals with default", t => {
+  let schema =
+    S.union([S.literal("a"), S.literal("b"), S.literal("c")])->S.option->S.Option.getOr("a")
+
+  t->Assert.deepEqual("b"->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"b"`))
+})
+
 test("Compiled serialize code snapshot", t => {
   let schema = S.bool->S.option->S.Option.getOr(false)
 
