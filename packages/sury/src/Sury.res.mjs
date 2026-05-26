@@ -458,11 +458,15 @@ function _notVarBeforeValidation() {
 
 function _notVarAtParent() {
   let val = this;
-  let v = varWithoutAllocation(val.g);
-  val.p.a(v + "=" + val.i);
+  if (val.p.a) {
+    let v = varWithoutAllocation(val.g);
+    val.p.a(v + "=" + val.i);
+    val.v = _var;
+    val.i = v;
+    return v;
+  }
   val.v = _var;
-  val.i = v;
-  return v;
+  return val.i;
 }
 
 function _notVar() {
