@@ -63,6 +63,15 @@ test("Record schema with optional fields", t => {
 })
 
 @schema
+type emptyRecord = {}
+test("Empty record schema", t => {
+  t->Assert.deepEqual(
+    %raw(`{}`)->S.parseOrThrow(~to=emptyRecordSchema),
+    ({}: emptyRecord),
+  )
+})
+
+@schema
 type recordWithNullableField = {
   subscription: @s.matches(S.option(S.nullAsOption(S.string))) option<option<string>>,
 }
