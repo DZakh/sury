@@ -1512,6 +1512,62 @@ test("Name of merge schema", (t) => {
   t.is(S.toExpression(schema), `{ foo: string; bar: boolean; baz: string; }`);
 });
 
+// https://github.com/DZakh/sury/issues/157
+test("Merge preserves optional properties", (t) => {
+  const docMetaSchema = S.schema({
+    _id: S.optional(S.string),
+    _rev: S.optional(S.string),
+    _deleted: S.optional(S.boolean),
+  });
+
+  const productSchema = S.merge(
+    docMetaSchema,
+    S.schema({
+      code: S.min(S.string, 1, "Product Code is required"),
+      name: S.min(S.string, 1, "Product Name is required"),
+    }),
+  );
+
+  expectType<
+    SchemaEqual<
+      typeof productSchema,
+      {
+        _id?: string | undefined;
+        _rev?: string | undefined;
+        _deleted?: boolean | undefined;
+        code: string;
+        name: string;
+      },
+      Record<string, unknown>
+    >
+  >(true);
+
+  const value = S.parser(productSchema)({
+    code: "P001",
+    name: "Widget",
+  });
+  t.deepEqual(value, {
+    _id: undefined,
+    _rev: undefined,
+    _deleted: undefined,
+    code: "P001",
+    name: "Widget",
+  });
+
+  const valueWithOptionals = S.parser(productSchema)({
+    _id: "123",
+    code: "P001",
+    name: "Widget",
+  });
+  t.deepEqual(valueWithOptionals, {
+    _id: "123",
+    _rev: undefined,
+    _deleted: undefined,
+    code: "P001",
+    name: "Widget",
+  });
+});
+
 test("Successfully parses object using S.schema", (t) => {
   const schema = S.schema({
     foo: S.string,
