@@ -31,6 +31,18 @@ type noValidationRecord = {
   noValName: string,
 }
 
+@schema @s.meta({description: "A user record"})
+type metaRecord = {
+  metaEmail: string,
+  metaName: string,
+}
+
+@schema @s.strict @s.meta({description: "Combined attributes"})
+type combinedRecord = {
+  combinedEmail: string,
+  combinedName: string,
+}
+
 @schema
 type simpleRecord = {
   label: string,
@@ -179,6 +191,34 @@ test("@s.noValidation on root record type", t => {
         noValName: s.matches(S.string),
       }),
       true,
+    ),
+  )
+})
+
+test("@s.meta on root record type", t => {
+  t->assertEqualSchemas(
+    metaRecordSchema,
+    S.meta(
+      S.schema(s => {
+        metaEmail: s.matches(S.string),
+        metaName: s.matches(S.string),
+      }),
+      {description: "A user record"},
+    ),
+  )
+})
+
+test("Multiple @s.* attributes on root record type", t => {
+  t->assertEqualSchemas(
+    combinedRecordSchema,
+    S.meta(
+      S.strict(
+        S.schema(s => {
+          combinedEmail: s.matches(S.string),
+          combinedName: s.matches(S.string),
+        }),
+      ),
+      {description: "Combined attributes"},
     ),
   )
 })

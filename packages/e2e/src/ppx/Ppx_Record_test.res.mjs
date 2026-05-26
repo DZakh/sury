@@ -30,6 +30,20 @@ let noValidationRecordSchema = S.noValidation(S.schema(s => ({
   noValName: s.m(S.string)
 })), true);
 
+let metaRecordSchema = S.meta(S.schema(s => ({
+  metaEmail: s.m(S.string),
+  metaName: s.m(S.string)
+})), {
+  description: "A user record"
+});
+
+let combinedRecordSchema = S.meta(S.strict(S.schema(s => ({
+  combinedEmail: s.m(S.string),
+  combinedName: s.m(S.string)
+}))), {
+  description: "Combined attributes"
+});
+
 let simpleRecordSchema = S.schema(s => ({
   label: s.m(S.string),
   value: s.m(S.int)
@@ -123,12 +137,28 @@ Ava("@s.noValidation on root record type", t => U.assertEqualSchemas(t, noValida
   noValName: s.m(S.string)
 })), true), undefined));
 
+Ava("@s.meta on root record type", t => U.assertEqualSchemas(t, metaRecordSchema, S.meta(S.schema(s => ({
+  metaEmail: s.m(S.string),
+  metaName: s.m(S.string)
+})), {
+  description: "A user record"
+}), undefined));
+
+Ava("Multiple @s.* attributes on root record type", t => U.assertEqualSchemas(t, combinedRecordSchema, S.meta(S.strict(S.schema(s => ({
+  combinedEmail: s.m(S.string),
+  combinedName: s.m(S.string)
+}))), {
+  description: "Combined attributes"
+}), undefined));
+
 export {
   strictRecordSchema,
   stripRecordSchema,
   deepStrictRecordSchema,
   deepStripRecordSchema,
   noValidationRecordSchema,
+  metaRecordSchema,
+  combinedRecordSchema,
   simpleRecordSchema,
   recordWithAliasSchema,
   recordWithOptionalSchema,
