@@ -49,8 +49,44 @@ test("Supported as an object field", t => {
   )
 })
 
-// TODO: Support
-// type polyWithPayloads = [#one | #two(int) | #three({"foo": string})]
+// Issue #160: Polymorphic variants with payloads don't compile with @schema.
+// The PPX drops payload types and emits S.literal instead of S.schema.
+// Uncomment @schema lines once the PPX is fixed:
+
+// @schema
+// type polyWithPayloads = [#one | #two(int) | #three(string, float)]
+type polyWithPayloads = [#one | #two(int) | #three(string, float)]
+let polyWithPayloadsSchema: S.t<polyWithPayloads> = S.union([
+  S.literal(#one),
+  S.schema(s => #two(s.matches(S.int))),
+  S.schema(s => #three(s.matches(S.string), s.matches(S.float))),
+])
+test("Polymorphic variant with payloads (issue #160)", t => {
+  t->Assert.notThrows(() => {
+    polyWithPayloadsSchema->S.parseOrThrow(%raw(`{"TAG":"two","_0":123}`))
+  })
+  t->Assert.deepEqual(
+    polyWithPayloadsSchema->S.parseOrThrow(%raw(`{"TAG":"two","_0":123}`)),
+    #two(123),
+  )
+})
+
+// @schema
+// type polyWithSinglePayload = [#value(string)]
+type polyWithSinglePayload = [#value(string)]
+let polyWithSinglePayloadSchema: S.t<polyWithSinglePayload> = S.schema(
+  s => #value(s.matches(S.string)),
+)
+test("Polymorphic variant with single payload (issue #160)", t => {
+  t->Assert.notThrows(() => {
+    polyWithSinglePayloadSchema->S.parseOrThrow(%raw(`{"TAG":"value","_0":"hello"}`))
+  })
+  t->Assert.deepEqual(
+    polyWithSinglePayloadSchema->S.parseOrThrow(%raw(`{"TAG":"value","_0":"hello"}`)),
+    #value("hello"),
+  )
+})
+
 // TODO: Support
 // type basicBlueTone<'a> = [> #Blue | #DeepBlue | #LightBlue] as 'a
 // TODO: Support
