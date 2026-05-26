@@ -42,15 +42,32 @@ let rec generateConstrSchemaExpression {Location.txt = identifier; loc}
   | Lapply (_, _), _ -> fail loc "Unsupported lapply syntax"
 
 and generatePolyvariantSchemaExpression row_fields =
+  let payloadCoreTypeToMatchesExpression core_type =
+    [%expr s.matches [%e generateCoreTypeSchemaExpression core_type]]
+  in
   let union_items =
     row_fields
     |> List.map (fun {prf_desc} ->
-           let name =
-             match prf_desc with
-             | Rtag ({txt}, _, _) -> txt
-             | _ -> failwith "Unsupported polymorphic variant constructor"
-           in
-           [%expr S.literal [%e Exp.variant name None]])
+           match prf_desc with
+           | Rtag ({txt = name}, _, []) ->
+             [%expr S.literal [%e Exp.variant name None]]
+           | Rtag ({txt = name}, _, payload_core_types) ->
+             [%expr
+               S.schema
+                 (Obj.magic (fun (s : S.Schema.s) ->
+                      [%e
+                        Exp.variant name
+                          (Some
+                             (match payload_core_types with
+                             | [payload_core_type] ->
+                               payloadCoreTypeToMatchesExpression
+                                 payload_core_type
+                             | _ ->
+                               Exp.tuple
+                                 (payload_core_types
+                                 |> List.map
+                                      payloadCoreTypeToMatchesExpression)))]))]
+           | _ -> failwith "Unsupported polymorphic variant constructor")
   in
   match union_items with
   | [item] -> item
