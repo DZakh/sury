@@ -126,18 +126,25 @@ and generateObjectSchema fields =
                ( mkloc "obj" Location.none,
                  PStr [Str.eval (Exp.record field_expressions None)] )]))]
 
-and generateRecordSchema fields =
+and generateRecordSchema type_name fields =
   let field_expressions =
     fields
     |> List.map (fun field ->
            ( lid field.name,
              [%expr s.matches [%e generateFieldSchemaExpression field]] ))
   in
+  let record_expr = Exp.record field_expressions None in
+  let body =
+    match field_expressions with
+    | [] ->
+      Exp.constraint_ record_expr (Typ.constr (lid type_name) [])
+    | _ -> record_expr
+  in
   (* Use Obj.magic to cast to uncurried function in case of uncurried mode *)
   [%expr
     S.schema
       (Obj.magic (fun (s : S.Schema.s) ->
-           [%e Exp.record field_expressions None]))]
+           [%e body]))]
 
 and generateCoreTypeSchemaExpression core_type =
   let {ptyp_desc; ptyp_loc; ptyp_attributes} = core_type in
@@ -226,8 +233,9 @@ let generateTypeDeclarationSchemaExpression type_declaration =
     manifest |> generateCoreTypeSchemaExpression
   | {ptype_kind = Ptype_variant decls; _} ->
     generateVariantSchemaExpression decls
-  | {ptype_kind = Ptype_record label_declarations; _} ->
-    label_declarations |> List.map parseLabelDeclaration |> generateRecordSchema
+  | {ptype_name = {txt = type_name}; ptype_kind = Ptype_record label_declarations; _} ->
+    generateRecordSchema type_name
+      (label_declarations |> List.map parseLabelDeclaration)
   | {ptype_loc; _} -> fail ptype_loc "Unsupported type declaration"
 
 let generateSchemaValueBinding type_name schema_expr =
