@@ -497,11 +497,36 @@ test("Optional enum", (t) => {
     >
   >(true);
 
-  const brokenInfer = S.optional(S.union(["Win", "Draw", "Loss"]));
+  const inlineInfer = S.optional(S.union(["Win", "Draw", "Loss"]));
   expectType<
     TypeEqual<
-      S.Schema<string | undefined, string | undefined>,
-      typeof brokenInfer
+      S.Schema<
+        "Win" | "Draw" | "Loss" | undefined,
+        "Win" | "Draw" | "Loss" | undefined
+      >,
+      typeof inlineInfer
+    >
+  >(true);
+
+  const inlineArray = S.array(S.union(["Win", "Draw", "Loss"]));
+  expectType<
+    TypeEqual<
+      S.Schema<
+        ("Win" | "Draw" | "Loss")[],
+        ("Win" | "Draw" | "Loss")[]
+      >,
+      typeof inlineArray
+    >
+  >(true);
+
+  const inlineNullish = S.nullish(S.union(["Win", "Draw", "Loss"]));
+  expectType<
+    TypeEqual<
+      S.Schema<
+        "Win" | "Draw" | "Loss" | null | undefined,
+        "Win" | "Draw" | "Loss" | null | undefined
+      >,
+      typeof inlineNullish
     >
   >(true);
 });

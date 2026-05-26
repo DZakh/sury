@@ -458,7 +458,7 @@ export function schema<T>(
   value: T
 ): Schema<UnknownToOutput<T>, UnknownToInput<T>>;
 
-export function union<A extends Literal, B extends Literal[]>(
+export function union<const A extends Literal, const B extends Literal[]>(
   schemas: [A, ...B]
 ): Schema<
   UnknownToOutput<A> | UnknownArrayToOutput<B>[number],
