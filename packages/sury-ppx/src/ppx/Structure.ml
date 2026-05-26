@@ -65,50 +65,86 @@ and generateVariantSchemaExpression constr_decls =
   let payloadCoreTypeToMatchesExpression core_type =
     [%expr s.matches [%e generateCoreTypeSchemaExpression core_type]]
   in
+  let spread_schemas = ref [] in
   let union_items =
     constr_decls
-    |> List.map (fun {pcd_name = {txt = name; loc}; pcd_args} ->
-           match pcd_args with
-           | Pcstr_tuple [] ->
-             [%expr S.literal [%e Exp.construct (lid name) None]]
-           | Pcstr_tuple payload_core_types ->
-             [%expr
-               S.schema
-                 (Obj.magic (fun (s : S.Schema.s) ->
-                      [%e
-                        Exp.construct (lid name)
-                          (Some
-                             (match payload_core_types with
-                             | [payload_core_type] ->
-                               payloadCoreTypeToMatchesExpression
-                                 payload_core_type
-                             | payload_core_types ->
-                               Exp.tuple
-                                 (payload_core_types
-                                 |> List.map payloadCoreTypeToMatchesExpression
-                                 )))]))]
-           | Pcstr_record label_declarations ->
-             let fields =
-               label_declarations |> List.map parseLabelDeclaration
-             in
-             let field_expressions =
-               fields
-               |> List.map (fun field ->
-                      let schema_expression =
-                        generateFieldSchemaExpression field
-                      in
-                      (lid field.name, [%expr s.matches [%e schema_expression]]))
-             in
-             [%expr
-               S.schema
-                 (Obj.magic (fun (s : S.Schema.s) ->
-                      [%e
-                        Exp.construct (lid name)
-                          (Some (Exp.record field_expressions None))]))])
+    |> List.filter_map
+         (fun {pcd_name = {txt = name; loc}; pcd_args} ->
+           if name = "..." then (
+             match pcd_args with
+             | Pcstr_tuple [spread_type] ->
+               let spread_schema =
+                 generateCoreTypeSchemaExpression spread_type
+               in
+               spread_schemas := spread_schema :: !spread_schemas;
+               None
+             | _ -> fail loc "Unsupported variant spread syntax"
+           ) else
+             Some
+               (match pcd_args with
+               | Pcstr_tuple [] ->
+                 [%expr S.literal [%e Exp.construct (lid name) None]]
+               | Pcstr_tuple payload_core_types ->
+                 [%expr
+                   S.schema
+                     (Obj.magic (fun (s : S.Schema.s) ->
+                          [%e
+                            Exp.construct (lid name)
+                              (Some
+                                 (match payload_core_types with
+                                 | [payload_core_type] ->
+                                   payloadCoreTypeToMatchesExpression
+                                     payload_core_type
+                                 | payload_core_types ->
+                                   Exp.tuple
+                                     (payload_core_types
+                                     |> List.map
+                                          payloadCoreTypeToMatchesExpression
+                                     )))]))]
+               | Pcstr_record label_declarations ->
+                 let fields =
+                   label_declarations |> List.map parseLabelDeclaration
+                 in
+                 let field_expressions =
+                   fields
+                   |> List.map (fun field ->
+                          let schema_expression =
+                            generateFieldSchemaExpression field
+                          in
+                          ( lid field.name,
+                            [%expr s.matches [%e schema_expression]] ))
+                 in
+                 [%expr
+                   S.schema
+                     (Obj.magic (fun (s : S.Schema.s) ->
+                          [%e
+                            Exp.construct (lid name)
+                              (Some (Exp.record field_expressions None))]))]))
   in
-  match union_items with
-  | [item] -> item
-  | _ -> [%expr S.union [%e Exp.array union_items]]
+  let spread_schemas = List.rev !spread_schemas in
+  if spread_schemas = [] then
+    match union_items with
+    | [item] -> item
+    | _ -> [%expr S.union [%e Exp.array union_items]]
+  else
+    (* For variant spreads, extract anyOf items from spread schemas and
+       concatenate with the local items *)
+    let spread_items_exprs =
+      spread_schemas
+      |> List.map (fun spread_schema ->
+             [%expr
+               match S.tagged (Obj.magic [%e spread_schema]) with
+               | Union {anyOf} -> anyOf
+               | _ -> [| Obj.magic [%e spread_schema] |]])
+    in
+    let local_items = Exp.array union_items in
+    let all_items =
+      List.fold_left
+        (fun acc spread_expr ->
+          [%expr Js.Array2.concat [%e acc] [%e spread_expr]])
+        local_items spread_items_exprs
+    in
+    [%expr S.union (Obj.magic [%e all_items])]
 
 and generateObjectSchema fields =
   let field_expressions =
@@ -138,6 +174,55 @@ and generateRecordSchema fields =
     S.schema
       (Obj.magic (fun (s : S.Schema.s) ->
            [%e Exp.record field_expressions None]))]
+
+and generateRecordSchemaWithSpreads spread_types regular_fields =
+  let field_obj_expressions =
+    regular_fields
+    |> List.map (fun field ->
+           ( lid field.runtime_name,
+             [%expr
+               s.field
+                 [%e
+                   Exp.constant
+                     (Pconst_string (field.runtime_name, Location.none, None))]
+                 [%e generateFieldSchemaExpression field]] ))
+  in
+  let fields_obj =
+    Exp.extension
+      ( mkloc "obj" Location.none,
+        PStr [Str.eval (Exp.record field_obj_expressions None)] )
+  in
+  let spread_schema_exprs =
+    spread_types |> List.map generateCoreTypeSchemaExpression
+  in
+  (* Build Object.assign chain: Object.assign(Object.assign({}, sp1), sp2, ..., fields) *)
+  let base = [%expr Obj.magic (Js.Obj.empty ())] in
+  let with_spreads =
+    List.fold_left
+      (fun acc spread_schema ->
+        [%expr Js.Obj.assign [%e acc] (Obj.magic (s.flatten [%e spread_schema]))])
+      base spread_schema_exprs
+  in
+  let merged =
+    [%expr Js.Obj.assign [%e with_spreads] (Obj.magic [%e fields_obj])]
+  in
+  let s_object =
+    Exp.ident (mknoloc (Longident.Ldot (Longident.Lident "S", "object")))
+  in
+  let s_object_s =
+    Typ.constr
+      (mknoloc
+         (Longident.Ldot
+            (Longident.Ldot (Longident.Lident "S", "Object"), "s")))
+      []
+  in
+  Exp.apply s_object
+    [
+      ( Nolabel,
+        [%expr
+          Obj.magic
+            (fun (s : [%t s_object_s]) -> Obj.magic [%e merged])] );
+    ]
 
 and generateCoreTypeSchemaExpression core_type =
   let {ptyp_desc; ptyp_loc; ptyp_attributes} = core_type in
@@ -227,7 +312,21 @@ let generateTypeDeclarationSchemaExpression type_declaration =
   | {ptype_kind = Ptype_variant decls; _} ->
     generateVariantSchemaExpression decls
   | {ptype_kind = Ptype_record label_declarations; _} ->
-    label_declarations |> List.map parseLabelDeclaration |> generateRecordSchema
+    let spread_types, regular_lds =
+      List.partition
+        (fun {pld_name = {txt}} -> txt = "...")
+        label_declarations
+    in
+    if spread_types = [] then
+      regular_lds |> List.map parseLabelDeclaration |> generateRecordSchema
+    else
+      let spread_core_types =
+        spread_types |> List.map (fun {pld_type} -> pld_type)
+      in
+      let regular_fields =
+        regular_lds |> List.map parseLabelDeclaration
+      in
+      generateRecordSchemaWithSpreads spread_core_types regular_fields
   | {ptype_loc; _} -> fail ptype_loc "Unsupported type declaration"
 
 let generateSchemaValueBinding type_name schema_expr =

@@ -73,10 +73,61 @@ Ava("Record schema with nullable field", t => {
   });
 });
 
+let schema = S.schema(s => ({
+  id: s.m(S.string),
+  summary: s.m(S.option(S.string))
+}));
+
+let Meta = {
+  schema: schema
+};
+
+let recordWithSpreadSchema = S.object(s => Object.assign(Object.assign({}, s.flatten(schema)), {
+  messages: s.f("messages", S.array(S.string))
+}));
+
+Ava("Record schema with type spread", t => {
+  t.deepEqual(S.parseOrThrow({id:"abc",summary:"hello",messages:["a","b"]}, recordWithSpreadSchema), {
+    id: "abc",
+    summary: "hello",
+    messages: [
+      "a",
+      "b"
+    ]
+  });
+  U.assertReverseReversesBack(t, recordWithSpreadSchema);
+});
+
+let schema$1 = S.schema(s => ({
+  score: s.m(S.float)
+}));
+
+let Extra = {
+  schema: schema$1
+};
+
+let recordWithMultipleSpreadsSchema = S.object(s => Object.assign(Object.assign(Object.assign({}, s.flatten(schema)), s.flatten(schema$1)), {
+  active: s.f("active", S.bool)
+}));
+
+Ava("Record schema with multiple type spreads", t => {
+  t.deepEqual(S.parseOrThrow({id:"abc",summary:"hello",score:9.5,active:true}, recordWithMultipleSpreadsSchema), {
+    id: "abc",
+    summary: "hello",
+    score: 9.5,
+    active: true
+  });
+  U.assertReverseReversesBack(t, recordWithMultipleSpreadsSchema);
+});
+
 export {
   simpleRecordSchema,
   recordWithAliasSchema,
   recordWithOptionalSchema,
   recordWithNullableFieldSchema,
+  Meta,
+  recordWithSpreadSchema,
+  Extra,
+  recordWithMultipleSpreadsSchema,
 }
 /* simpleRecordSchema Not a pure module */

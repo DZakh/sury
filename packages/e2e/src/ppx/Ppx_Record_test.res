@@ -82,3 +82,49 @@ test("Record schema with nullable field", t => {
     {subscription: Some(None)},
   )
 })
+
+module Meta = {
+  @schema
+  type t = {
+    id: string,
+    summary: option<string>,
+  }
+}
+
+@schema
+type recordWithSpread = {
+  ...Meta.t,
+  messages: array<string>,
+}
+test("Record schema with type spread", t => {
+  t->Assert.deepEqual(
+    %raw(`{id:"abc",summary:"hello",messages:["a","b"]}`)->S.parseOrThrow(
+      ~to=recordWithSpreadSchema,
+    ),
+    {id: "abc", summary: Some("hello"), messages: ["a", "b"]},
+  )
+  t->assertReverseReversesBack(recordWithSpreadSchema)
+})
+
+module Extra = {
+  @schema
+  type t = {
+    score: float,
+  }
+}
+
+@schema
+type recordWithMultipleSpreads = {
+  ...Meta.t,
+  ...Extra.t,
+  active: bool,
+}
+test("Record schema with multiple type spreads", t => {
+  t->Assert.deepEqual(
+    %raw(`{id:"abc",summary:"hello",score:9.5,active:true}`)->S.parseOrThrow(
+      ~to=recordWithMultipleSpreadsSchema,
+    ),
+    {id: "abc", summary: Some("hello"), score: 9.5, active: true},
+  )
+  t->assertReverseReversesBack(recordWithMultipleSpreadsSchema)
+})
