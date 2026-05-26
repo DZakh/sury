@@ -257,7 +257,7 @@ let symbolTag: tag = %raw(`"symbol"`)
 let nullTag: tag = %raw(`"null"`)
 let undefinedTag: tag = %raw(`"undefined"`)
 let nanTag: tag = %raw(`"nan"`)
-// let functionTag: tag = %raw(`"function"`)
+let functionTag: tag = %raw(`"function"`)
 let instanceTag: tag = %raw(`"instance"`)
 let arrayTag: tag = %raw(`"array"`)
 let objectTag: tag = %raw(`"object"`)
@@ -265,6 +265,7 @@ let unionTag: tag = %raw(`"union"`)
 let neverTag: tag = %raw(`"never"`)
 let unknownTag: tag = %raw(`"unknown"`)
 let refTag: tag = %raw(`"ref"`)
+external typeof: 'a => tag = "%typeof"
 
 type standard = {
   version: int,
@@ -795,7 +796,7 @@ module TagFlag = {
 }
 
 let rec stringify = unknown => {
-  let tagFlag = unknown->Type.typeof->(Obj.magic: Type.t => tag)->TagFlag.get
+  let tagFlag = unknown->typeof->TagFlag.get
 
   if tagFlag->Flag.unsafeHas(TagFlag.undefined) {
     (undefinedTag :> string)
@@ -879,7 +880,7 @@ let rec toExpression = schema => {
     let properties = properties->X.Option.getUnsafe
     let locations = properties->Dict.keysToArray
     if locations->Array.length === 0 {
-      if additionalItems->Type.typeof === #object {
+      if additionalItems->typeof === objectTag {
         let additionalItems: internal = additionalItems->Obj.magic
         `{ [key: string]: ${additionalItems->castToPublic->toExpression}; }`
       } else {
@@ -898,7 +899,7 @@ let rec toExpression = schema => {
   | {tag} if %raw(`schema.b`) => (tag :> string)
   | {tag: Array, ?items, ?additionalItems} =>
     let items = items->X.Option.getUnsafe
-    if additionalItems->Type.typeof === #object {
+    if additionalItems->typeof === objectTag {
       let additionalItems: internal = additionalItems->Obj.magic
       let itemName = additionalItems->castToPublic->toExpression
       if (additionalItems.tag :> string) === (unionTag :> string) {
@@ -2226,18 +2227,18 @@ module Literal = {
     if value === %raw(`null`) {
       nullLiteral()
     } else {
-      switch value->Type.typeof {
-      | #undefined => unit()
-      | #number if value->(Obj.magic: unknown => float)->Float.isNaN => nan()
-      | #object => {
+      switch value->typeof {
+      | tag if tag === undefinedTag => unit()
+      | tag if tag === numberTag && value->(Obj.magic: unknown => float)->Float.isNaN => nan()
+      | tag if tag === objectTag => {
           let s = base(instanceTag, ~selfReverse=true)
           s.class = (value->Obj.magic)["constructor"]
           s.const = value->Obj.magic
           s.decoder = literalDecoder
           s
         }
-      | typeof => {
-          let s = base(typeof->(Obj.magic: Type.t => tag), ~selfReverse=true)
+      | tag => {
+          let s = base(tag, ~selfReverse=true)
           s.const = value->Obj.magic
           s.decoder = literalDecoder
           s
@@ -2483,7 +2484,7 @@ and reverse = (schema: internal) => {
       // Skip tuple
       | None => ()
       }
-      if mut.additionalItems->Type.typeof === #object {
+      if mut.additionalItems->typeof === objectTag {
         mut.additionalItems = Some(
           Schema(
             mut.additionalItems
@@ -2548,7 +2549,7 @@ let getDecoder = (~s1 as _, ~flag as _=?) => {
       let f = globalConfig.defaultFlag
       flag := Some(f)
       keyRef := keyRef.contents ++ "-" ++ f->X.Int.unsafeToString
-    } else if Type.typeof(arg->Obj.magic) === #number {
+    } else if typeof(arg->Obj.magic) === numberTag {
       let f = arg->Obj.magic->Flag.with(globalConfig.defaultFlag)
       flag := Some(f)
       keyRef := keyRef.contents ++ "-" ++ f->X.Int.unsafeToString
@@ -4443,7 +4444,7 @@ module Object = {
     switch schema {
     | {additionalItems: currentAdditionalItems}
       if currentAdditionalItems !== additionalItems &&
-        currentAdditionalItems->Type.typeof !== #object => {
+        currentAdditionalItems->typeof !== objectTag => {
         let mut = schema->copySchema
         mut.additionalItems = Some(additionalItems)
         if deep {
@@ -5151,7 +5152,7 @@ module Schema = {
 
     @inline
     let isNode = (definition: 'any) =>
-      definition->Type.typeof === #object && definition !== %raw(`null`)
+      definition->typeof === objectTag && definition !== %raw(`null`)
 
     @inline
     let toEmbededItem = (definition: t<'embeded>): option<'embeded> =>
@@ -5616,7 +5617,7 @@ module Schema = {
         | {items}
           if !(
             acc === None &&
-              resolvedTargetSchema.additionalItems->Type.typeof === #object
+              resolvedTargetSchema.additionalItems->typeof === objectTag
           ) =>
           for idx in 0 to items->Array.length - 1 {
             let location = idx->Int.toString
@@ -5638,7 +5639,7 @@ module Schema = {
         | {properties, ?flattened}
           if !(
             acc === None &&
-              resolvedTargetSchema.additionalItems->Type.typeof === #object
+              resolvedTargetSchema.additionalItems->typeof === objectTag
           ) => {
             switch (flattened, acc) {
             | (Some(flattenedSchemas), Some({flattened: flattenedAcc})) =>
@@ -6304,7 +6305,7 @@ let union = Union.factory
 // =============
 
 let assertNumber: (string, 'a) => unit = (fnName, n) =>
-  if Type.typeof(n->Obj.magic) !== #number || %raw(`Number.isNaN(n)`) {
+  if typeof(n->Obj.magic) !== numberTag || %raw(`Number.isNaN(n)`) {
     X.Exn.throwAny(
       InternalError.make(
         InvalidOperation({
@@ -6669,7 +6670,7 @@ let js_optional = (schema, maybeOr) => {
   // TODO: maybeOr should be part of the unit schema
   let schema = Union.factory([schema->castToUnknown, unit()->castToPublic])
   switch maybeOr {
-  | Some(or) if Type.typeof(or) === #function => schema->Option.getOrWith(or->Obj.magic)->Obj.magic
+  | Some(or) if typeof(or) === functionTag => schema->Option.getOrWith(or->Obj.magic)->Obj.magic
   | Some(or) => schema->Option.getOr(or->Obj.magic)->Obj.magic
   | None => schema
   }
@@ -6679,7 +6680,7 @@ let js_nullable = (schema, maybeOr) => {
   // TODO: maybeOr should be part of the unit schema
   let schema = Union.factory([schema->castToUnknown, nullAsUnit()->castToPublic->castToUnknown])
   switch maybeOr {
-  | Some(or) if Type.typeof(or) === #function => schema->Option.getOrWith(or->Obj.magic)->Obj.magic
+  | Some(or) if typeof(or) === functionTag => schema->Option.getOrWith(or->Obj.magic)->Obj.magic
   | Some(or) => schema->Option.getOr(or->Obj.magic)->Obj.magic
   | None => schema
   }
@@ -6692,8 +6693,8 @@ let js_merge = (s1, s2) => {
       Object({properties: properties2, additionalItems: additionalItems2}),
     )
     // Filter out S.record schemas
-    if additionalItems1->Type.typeof === #string &&
-    additionalItems2->Type.typeof === #string &&
+    if additionalItems1->typeof === stringTag &&
+    additionalItems2->typeof === stringTag &&
     !((s1->castToInternal).to->Obj.magic) &&
     !((s2->castToInternal).to->Obj.magic) =>
     let properties = properties1->X.Dict.copy

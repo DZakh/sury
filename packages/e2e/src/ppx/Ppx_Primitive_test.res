@@ -1,3 +1,4 @@
+@@warning("-3")
 open Ava
 
 open U
@@ -75,7 +76,7 @@ test("Dict of string schema", t => {
 })
 
 @schema
-type myDictOfStringFromJs = dict<string>
+type myDictOfStringFromJs = Js.Dict.t<string>
 test("Dict of string schema from Js", t => {
   t->assertEqualSchemas(myDictOfStringSchema, S.dict(S.string))
 })
@@ -87,7 +88,7 @@ test("Dict of string schema from Core", t => {
 })
 
 @schema
-type myJson = JSON.t
+type myJson = Js.Json.t
 test("Json schema", t => {
   t->assertEqualSchemas(myJsonSchema, S.json)
 })
