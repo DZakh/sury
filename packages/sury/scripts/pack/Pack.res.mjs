@@ -350,6 +350,23 @@ Nodefs.writeFileSync(Nodepath.join(artifactsPath, "./src/S.js"), Buffer.from([
   encoding: "utf8"
 });
 
+let deleteKey = (function(d, k) { delete d[k] });
+
+function removeJsonFields(src, keys) {
+  let data = Nodefs.readFileSync(src, {
+    encoding: "utf8"
+  });
+  let json = JSON.parse(data.toString());
+  let dict = Stdlib_JSON.Decode.object(json);
+  if (dict !== undefined) {
+    keys.forEach(key => deleteKey(dict, key));
+    Nodefs.writeFileSync(src, Buffer.from(JSON.stringify(json, undefined, 2)), {
+      encoding: "utf8"
+    });
+    return;
+  }
+}
+
 function updateJsonFile(src, path, value) {
   let packageJsonData = Nodefs.readFileSync(src, {
     encoding: "utf8"
@@ -387,6 +404,12 @@ await resolveRescriptRuntime("cjs", "src/S.res.mjs", "src/S.res.js");
 updateJsonFile(Nodepath.join(artifactsPath, "package.json"), ["type"], "commonjs");
 
 updateJsonFile(Nodepath.join(artifactsPath, "package.json"), ["private"], false);
+
+removeJsonFields(Nodepath.join(artifactsPath, "package.json"), [
+  "devDependencies",
+  "peerDependencies",
+  "peerDependenciesMeta"
+]);
 
 Fs.rmSync(Nodepath.join(artifactsPath, "lib"), {
   recursive: true,
