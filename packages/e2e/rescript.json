@@ -13,8 +13,8 @@
   },
   "suffix": ".res.mjs",
   "warnings": {
-    "number": "+a-3-4-9-20-41-50-102",
-    "error": "+a-3"
+    "number": "+a-4-9-20-41-50-102",
+    "error": "+a"
   },
   "dependencies": ["sury"],
   "dev-dependencies": ["@dzakh/rescript-ava"],
