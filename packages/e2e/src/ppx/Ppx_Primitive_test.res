@@ -75,7 +75,7 @@ test("Dict of string schema", t => {
 })
 
 @schema
-type myDictOfStringFromJs = Js.Dict.t<string>
+type myDictOfStringFromJs = dict<string>
 test("Dict of string schema from Js", t => {
   t->assertEqualSchemas(myDictOfStringSchema, S.dict(S.string))
 })
@@ -87,7 +87,7 @@ test("Dict of string schema from Core", t => {
 })
 
 @schema
-type myJson = Js.Json.t
+type myJson = JSON.t
 test("Json schema", t => {
   t->assertEqualSchemas(myJsonSchema, S.json)
 })
