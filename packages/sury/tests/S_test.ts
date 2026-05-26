@@ -498,6 +498,8 @@ test("Optional enum", (t) => {
   >(true);
 
   const inlineOptional = S.optional(S.union(["Win", "Draw", "Loss"]));
+  t.deepEqual(S.parser(inlineOptional)("Win"), "Win");
+  t.deepEqual(S.encoder(inlineOptional)("Win"), "Win");
   expectType<
     TypeEqual<
       S.Schema<
@@ -509,6 +511,8 @@ test("Optional enum", (t) => {
   >(true);
 
   const inlineNullable = S.nullable(S.union(["Win", "Draw", "Loss"]));
+  t.deepEqual(S.parser(inlineNullable)("Win"), "Win");
+  t.deepEqual(S.encoder(inlineNullable)("Win"), "Win");
   expectType<
     TypeEqual<
       S.Schema<
@@ -520,6 +524,8 @@ test("Optional enum", (t) => {
   >(true);
 
   const inlineNullish = S.nullish(S.union(["Win", "Draw", "Loss"]));
+  t.deepEqual(S.parser(inlineNullish)("Win"), "Win");
+  t.deepEqual(S.encoder(inlineNullish)("Win"), "Win");
   expectType<
     TypeEqual<
       S.Schema<
@@ -531,6 +537,8 @@ test("Optional enum", (t) => {
   >(true);
 
   const inlineArray = S.array(S.union(["Win", "Draw", "Loss"]));
+  t.deepEqual(S.parser(inlineArray)(["Win", "Loss"]), ["Win", "Loss"]);
+  t.deepEqual(S.encoder(inlineArray)(["Win", "Loss"]), ["Win", "Loss"]);
   expectType<
     TypeEqual<
       S.Schema<
@@ -542,6 +550,8 @@ test("Optional enum", (t) => {
   >(true);
 
   const inlineRecord = S.record(S.union(["Win", "Draw", "Loss"]));
+  t.deepEqual(S.parser(inlineRecord)({ a: "Win" }), { a: "Win" });
+  t.deepEqual(S.encoder(inlineRecord)({ a: "Win" }), { a: "Win" });
   expectType<
     TypeEqual<
       S.Schema<
@@ -555,6 +565,8 @@ test("Optional enum", (t) => {
   const inlineObject = S.schema({
     status: S.union(["Win", "Draw", "Loss"]),
   });
+  t.deepEqual(S.parser(inlineObject)({ status: "Win" }), { status: "Win" });
+  t.deepEqual(S.encoder(inlineObject)({ status: "Win" }), { status: "Win" });
   expectType<
     TypeEqual<
       S.Schema<
@@ -566,6 +578,8 @@ test("Optional enum", (t) => {
   >(true);
 
   const inlineTuple = S.schema([S.union(["Win", "Draw", "Loss"]), S.number]);
+  t.deepEqual(S.parser(inlineTuple)(["Win", 1]), ["Win", 1]);
+  t.deepEqual(S.encoder(inlineTuple)(["Win", 1]), ["Win", 1]);
   expectType<
     TypeEqual<
       S.Schema<
@@ -579,6 +593,8 @@ test("Optional enum", (t) => {
   const nestedDeep = S.optional(
     S.array(S.nullable(S.union(["Win", "Draw", "Loss"]))),
   );
+  t.deepEqual(S.parser(nestedDeep)(["Win", null]), ["Win", undefined]);
+  t.deepEqual(S.encoder(nestedDeep)(["Win", undefined]), ["Win", null]);
   expectType<
     TypeEqual<
       S.Schema<
