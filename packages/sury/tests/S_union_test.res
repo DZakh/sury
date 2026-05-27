@@ -1034,3 +1034,43 @@ test("Tagged tuple union dispatches via literal first-field discriminant", t => 
   t->Assert.deepEqual(("a", "hello")->S.parseOrThrow(~to=schema), ("a", "hello"))
   t->Assert.deepEqual(("b", "world")->S.parseOrThrow(~to=schema), ("b", "world"))
 })
+
+// Regression: #252 — union field inside object fails to encode to JSON string
+module Issue252 = {
+  type a = {s: option<string>}
+  type b = {v: int}
+  type x = A(a) | B(b)
+
+  let aSchema = S.schema(s => {s: s.matches(S.nullableAsOption(S.string))})
+  let bSchema = S.schema(s => {v: s.matches(S.int)})
+
+  let xSchema = S.union([
+    S.object(s => {
+      s.tag("type", "a")
+      A(s.flatten(aSchema))
+    }),
+    S.object(s => {
+      s.tag("type", "b")
+      B(s.flatten(bSchema))
+    }),
+  ])
+
+  type testRecord = {x: x}
+  let testRecordSchema = S.schema(s => {x: s.matches(xSchema)})
+
+  test("Encodes union directly to JSON string (issue #252 - Ok case)", t => {
+    let x = A({s: None})
+    t->Assert.deepEqual(
+      x->S.decodeOrThrow(~from=xSchema, ~to=S.jsonString),
+      `{"type":"a"}`,
+    )
+  })
+
+  test("Encodes record with union field to JSON string (issue #252 - Nok case)", t => {
+    let testVal: testRecord = {x: A({s: None})}
+    t->Assert.deepEqual(
+      testVal->S.decodeOrThrow(~from=testRecordSchema, ~to=S.jsonString),
+      `{"x":{"type":"a"}}`,
+    )
+  })
+}
