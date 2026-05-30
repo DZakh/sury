@@ -4352,7 +4352,7 @@ module Option = {
             let outputSchema = schema->getOutputSchema
             switch outputSchema.tag {
             | Undefined => ()
-            | _ => items->Js.Array2.push(schema)->ignore
+            | _ => items->Js.Array2.push(outputSchema)->ignore
             }
           }
 
@@ -4361,7 +4361,6 @@ module Option = {
           | [single] => single
           | multiple => Union.factory(multiple->Obj.magic)->castToInternal
           }
-          let itemOutputSchema = item->getOutputSchema
 
           // Validate that the default value conforms to the item's output type.
           // For Callback defaults the value isn't known at construction time, so we skip.
@@ -4370,7 +4369,7 @@ module Option = {
           switch default {
           | Value(v) =>
             try {
-              let _ = getDecoder2(~s1=unknown, ~s2=itemOutputSchema)(v)
+              let _ = getDecoder2(~s1=unknown, ~s2=item)(v)
             } catch {
             | _ =>
               let error = %raw(`exn`)->InternalError.getOrRethrow
@@ -4403,7 +4402,7 @@ module Option = {
               )
             }),
           )
-          let to = itemOutputSchema->copySchema
+          let to = item->copySchema
 
           let originalDecoder = to.decoder
           to.serializer = Some(
