@@ -62,27 +62,43 @@ and generatePolyvariantSchemaExpression row_fields =
   in
   let union_items =
     row_fields
-    |> List.map (fun {prf_desc} ->
+    |> List.map (fun {prf_desc; prf_loc} ->
+           (* The bool field of Rtag is the ampersand-conjunction flag,
+              which ReScript polymorphic variants don't expose. *)
            match prf_desc with
            | Rtag ({txt = name}, _, []) ->
              [%expr S.literal [%e Exp.variant name None]]
-           | Rtag ({txt = name}, _, payload_core_types) ->
+           | Rtag ({txt = name}, _, [{ptyp_desc = Ptyp_tuple tuple_types}]) ->
+             (* ReScript represents `#tag(t1, t2)` as a single tuple payload at
+                the type level. Unfold it so the construction site uses flat
+                args, mirroring how generateVariantSchemaExpression handles
+                Pcstr_tuple multi-arg variants. *)
              [%expr
                S.schema
                  (Obj.magic (fun (s : S.Schema.s) ->
                       [%e
                         Exp.variant name
                           (Some
-                             (match payload_core_types with
-                             | [payload_core_type] ->
-                               payloadCoreTypeToMatchesExpression
-                                 payload_core_type
-                             | _ ->
-                               Exp.tuple
-                                 (payload_core_types
-                                 |> List.map
-                                      payloadCoreTypeToMatchesExpression)))]))]
-           | _ -> failwith "Unsupported polymorphic variant constructor")
+                             (Exp.tuple
+                                (tuple_types
+                                |> List.map payloadCoreTypeToMatchesExpression)))]))]
+           | Rtag ({txt = name}, _, [payload_core_type]) ->
+             [%expr
+               S.schema
+                 (Obj.magic (fun (s : S.Schema.s) ->
+                      [%e
+                        Exp.variant name
+                          (Some
+                             (payloadCoreTypeToMatchesExpression
+                                payload_core_type))]))]
+           | Rtag _ ->
+             fail prf_loc
+               "Polymorphic variant ampersand types (`Tag of t1 & t2) are not \
+                supported"
+           | Rinherit _ ->
+             fail prf_loc
+               "Polymorphic variant inheritance (`[poly | #tag]`) is not \
+                supported")
   in
   match union_items with
   | [item] -> item

@@ -61,6 +61,19 @@ test("Polymorphic variant with payloads (issue #160)", t => {
       S.schema(s => #four(s.matches(S.schema(s => {"foo": s.matches(S.string)})))),
     ]),
   )
+  t->Assert.deepEqual(%raw(`"one"`)->S.parseOrThrow(~to=polyWithPayloadsSchema), #one)
+  t->Assert.deepEqual(
+    %raw(`{NAME:"two",VAL:123}`)->S.parseOrThrow(~to=polyWithPayloadsSchema),
+    #two(123),
+  )
+  t->Assert.deepEqual(
+    %raw(`{NAME:"three",VAL:["hello",1.5]}`)->S.parseOrThrow(~to=polyWithPayloadsSchema),
+    #three("hello", 1.5),
+  )
+  t->Assert.deepEqual(
+    %raw(`{NAME:"four",VAL:{foo:"bar"}}`)->S.parseOrThrow(~to=polyWithPayloadsSchema),
+    #four({"foo": "bar"}),
+  )
 })
 
 @schema
@@ -69,6 +82,10 @@ test("Polymorphic variant with single payload (issue #160)", t => {
   t->assertEqualSchemas(
     polyWithSinglePayloadSchema,
     S.schema(s => #value(s.matches(S.string))),
+  )
+  t->Assert.deepEqual(
+    %raw(`{NAME:"value",VAL:"hello"}`)->S.parseOrThrow(~to=polyWithSinglePayloadSchema),
+    #value("hello"),
   )
 })
 
