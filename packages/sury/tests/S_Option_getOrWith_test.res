@@ -80,3 +80,13 @@ test("Compiled serialize code snapshot", t => {
 
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#Encode)
 })
+
+// FIXME: Dynamic defaults are not validated — the callback's return value is
+// only known at parse time, and the parser substitutes it without checking the
+// item's output type. As a result, an invalid dynamic default silently produces
+// a type-mismatched value.
+test("Invalid dynamic default is not validated (known limitation)", t => {
+  let schema = S.bool->S.option->S.Option.getOrWith(() => %raw(`"not a bool"`))
+
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), %raw(`"not a bool"`))
+})

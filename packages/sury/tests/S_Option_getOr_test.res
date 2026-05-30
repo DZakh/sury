@@ -155,6 +155,31 @@ test("Successfully serializes optional union of literals with default", t => {
   t->Assert.deepEqual("b"->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"b"`))
 })
 
+test("Rejects invalid static default at schema construction", t => {
+  t->Assert.throws(
+    () => {
+      let _ = S.bool->S.option->S.Option.getOr(%raw(`"not a bool"`))
+    },
+    ~expectations={
+      message: `[Sury] Invalid default for boolean | undefined: Expected boolean, received "not a bool"`,
+    },
+  )
+})
+
+test("Rejects invalid static default that doesn't match a union member", t => {
+  t->Assert.throws(
+    () => {
+      let _ =
+        S.union([S.literal("a"), S.literal("b"), S.literal("c")])
+        ->S.option
+        ->S.Option.getOr(%raw(`"d"`))
+    },
+    ~expectations={
+      message: `[Sury] Invalid default for "a" | "b" | "c" | undefined: Expected "a" | "b" | "c", received "d"`,
+    },
+  )
+})
+
 test("Compiled serialize code snapshot", t => {
   let schema = S.bool->S.option->S.Option.getOr(false)
 
