@@ -185,6 +185,21 @@ test("Default on a primary item with S.to runs the transformation on parse and r
   let otherDate = Date.fromString("2024-06-15T12:30:45.123Z")
   let schema = S.string->S.to(S.date)->S.option->S.Option.getOr(defaultDate)
 
+  // Shape: the result is a union with two members — the primary item
+  // (string -> Date via S.to) and the unit (undefined) literal. The schema
+  // also carries:
+  //  - `default`: the input form of the user-provided Date (ISO string),
+  //    obtained by running the Date through item->reverse.
+  //  - `to`: a copy of the primary item's output schema (Date) with its
+  //    decoder swapped for noopDecoder — getWithDefault's substitution
+  //    happens via the schema's `parser`, so the `.to` chain just passes
+  //    the value through and applies the serializer in reverse.
+  let untagged = schema->S.untag
+  t->Assert.is(untagged.tag, S.Union)
+  t->Assert.is(untagged.anyOf->Option.getOrThrow->Array.length, 2)
+  t->Assert.deepEqual(untagged.default, %raw(`"2024-01-01T00:00:00.000Z"`))
+  t->Assert.is((untagged.to->Option.getOrThrow->S.untag).tag, S.Instance)
+
   // Parse: undefined falls through to the default Date; a valid ISO string is
   // transformed string -> Date via the primary item's S.to chain.
   t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), defaultDate)
@@ -209,6 +224,41 @@ test("Default on a primary item with S.to runs the transformation on parse and r
   // both the undefined branch and the Date type check — it trusts the output
   // contract and goes straight to toISOString().
   t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return i.toISOString()}`)
+})
+
+test("Appending S.to(S.jsonString) after getOr extends the output chain", t => {
+  let defaultDate = Date.fromString("2024-01-01T00:00:00.000Z")
+  let schema = S.string->S.to(S.date)->S.option->S.Option.getOr(defaultDate)->S.to(S.jsonString)
+
+  // Shape: appending `.to(S.jsonString)` doesn't replace anything in
+  // getWithDefault's wiring — it extends the `to` chain. The top-level union
+  // (string | undefined) and its `default`/`parser` are unchanged; the
+  // existing noopDecoder-wrapped Date schema now has its own `.to` pointing
+  // at the JSON-string format.
+  let untagged = schema->S.untag
+  t->Assert.is(untagged.tag, S.Union)
+  t->Assert.deepEqual(untagged.default, %raw(`"2024-01-01T00:00:00.000Z"`))
+  let toLevel1 = untagged.to->Option.getOrThrow->S.untag
+  t->Assert.is(toLevel1.tag, S.Instance) // copied Date schema
+  let toLevel2 = toLevel1.to->Option.getOrThrow->S.untag
+  t->Assert.is(toLevel2.tag, S.String) // jsonString is a String with json format
+
+  // Behavior: parse undefined -> default Date -> serialised to JSON string;
+  // parse a valid ISO string -> Date -> serialised to JSON string.
+  t->Assert.deepEqual(
+    %raw(`undefined`)->S.parseOrThrow(~to=schema),
+    `"2024-01-01T00:00:00.000Z"`,
+  )
+  t->Assert.deepEqual(
+    "2024-06-15T12:30:45.123Z"->S.parseOrThrow(~to=schema),
+    `"2024-06-15T12:30:45.123Z"`,
+  )
+
+  // Encode the JSON-string output back to the raw ISO string input.
+  t->Assert.deepEqual(
+    `"2024-01-01T00:00:00.000Z"`->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`"2024-01-01T00:00:00.000Z"`),
+  )
 })
 
 test("Compiled serialize code snapshot", t => {
