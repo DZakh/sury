@@ -2564,60 +2564,52 @@ let compileAndCache = (cacheTarget: internal, key, args, idx: int, f) => {
 let getDecoder = (~s1 as _, ~flag as _=?) => {
   let args = %raw(`arguments`)
   let s1: internal = args->Js.Array2.unsafe_get(0)
-  let seq1: float = s1.seq->Obj.magic
   let arg1 = args->Js.Array2.unsafe_get(1)
 
-  if !(arg1->Obj.magic) || Js.typeof(arg1->Obj.magic) === "number" {
-    // 1 schema (± flag)
-    let f = if arg1->Obj.magic {
-      (arg1->Obj.magic: flag)->Flag.with(globalConfig.defaultFlag)
-    } else {
-      globalConfig.defaultFlag
-    }
-    let key = (seq1->Obj.magic: string) ++ "--" ++ f->X.Int.unsafeToString
-    if s1->Obj.magic->Stdlib.Dict.has(key) {
-      s1->Obj.magic->Stdlib.Dict.getUnsafe(key)->Obj.magic
+  if Js.typeof(arg1->Obj.magic) !== "object" {
+    // 1 schema (± flag) — arg1 is undefined or a number
+    let f = (arg1->Obj.magic: flag)->Flag.with(globalConfig.defaultFlag)
+    let key = (s1.seq->Obj.magic: string) ++ "--" ++ f->X.Int.unsafeToString
+    let cached = s1->Obj.magic->Stdlib.Dict.getUnsafe(key)
+    if cached->Obj.magic {
+      cached
     } else {
       compileAndCache(s1, key, args, 1, f)
     }
   } else {
-    let seq2: float = (arg1->Obj.magic: internal).seq->Obj.magic
+    let s2: internal = arg1->Obj.magic
+    let seq1: float = s1.seq->Obj.magic
+    let seq2: float = s2.seq->Obj.magic
     let arg2 = args->Js.Array2.unsafe_get(2)
 
-    if !(arg2->Obj.magic) || Js.typeof(arg2->Obj.magic) === "number" {
+    if Js.typeof(arg2->Obj.magic) !== "object" {
       // 2 schemas (± flag)
-      let f = if arg2->Obj.magic {
-        (arg2->Obj.magic: flag)->Flag.with(globalConfig.defaultFlag)
-      } else {
-        globalConfig.defaultFlag
-      }
+      let f = (arg2->Obj.magic: flag)->Flag.with(globalConfig.defaultFlag)
       let key =
         (seq1->Obj.magic: string) ++
         "-" ++
         (seq2->Obj.magic: string) ++
         "--" ++
         f->X.Int.unsafeToString
-      let cacheTarget = if seq1 > seq2 {
+      let ct = if seq1 > seq2 {
         s1
       } else {
-        arg1->Obj.magic
+        s2
       }
-      if cacheTarget->Obj.magic->Stdlib.Dict.has(key) {
-        cacheTarget->Obj.magic->Stdlib.Dict.getUnsafe(key)->Obj.magic
+      let cached = ct->Obj.magic->Stdlib.Dict.getUnsafe(key)
+      if cached->Obj.magic {
+        cached
       } else {
-        compileAndCache(cacheTarget, key, args, 2, f)
+        compileAndCache(ct, key, args, 2, f)
       }
     } else {
-      let seq3: float = (arg2->Obj.magic: internal).seq->Obj.magic
+      let s3: internal = arg2->Obj.magic
+      let seq3: float = s3.seq->Obj.magic
       let arg3 = args->Js.Array2.unsafe_get(3)
 
-      if !(arg3->Obj.magic) || Js.typeof(arg3->Obj.magic) === "number" {
+      if Js.typeof(arg3->Obj.magic) !== "object" {
         // 3 schemas (± flag)
-        let f = if arg3->Obj.magic {
-          (arg3->Obj.magic: flag)->Flag.with(globalConfig.defaultFlag)
-        } else {
-          globalConfig.defaultFlag
-        }
+        let f = (arg3->Obj.magic: flag)->Flag.with(globalConfig.defaultFlag)
         let key =
           (seq1->Obj.magic: string) ++
           "-" ++
@@ -2626,17 +2618,18 @@ let getDecoder = (~s1 as _, ~flag as _=?) => {
           (seq3->Obj.magic: string) ++
           "--" ++
           f->X.Int.unsafeToString
-        let cacheTarget = if seq1 > seq2 && seq1 > seq3 {
+        let ct = if seq1 > seq2 && seq1 > seq3 {
           s1
         } else if seq2 > seq3 {
-          arg1->Obj.magic
+          s2
         } else {
-          arg2->Obj.magic
+          s3
         }
-        if cacheTarget->Obj.magic->Stdlib.Dict.has(key) {
-          cacheTarget->Obj.magic->Stdlib.Dict.getUnsafe(key)->Obj.magic
+        let cached = ct->Obj.magic->Stdlib.Dict.getUnsafe(key)
+        if cached->Obj.magic {
+          cached
         } else {
-          compileAndCache(cacheTarget, key, args, 3, f)
+          compileAndCache(ct, key, args, 3, f)
         }
       } else {
         // 4+ schemas: generic while loop
@@ -2648,12 +2641,8 @@ let getDecoder = (~s1 as _, ~flag as _=?) => {
 
         while flag.contents === None {
           let arg = args->Js.Array2.unsafe_get(idx.contents)
-          if !(arg->Obj.magic) {
-            let f = globalConfig.defaultFlag
-            flag := Some(f)
-            keyRef := keyRef.contents ++ "-" ++ f->X.Int.unsafeToString
-          } else if Js.typeof(arg->Obj.magic) === "number" {
-            let f = arg->Obj.magic->Flag.with(globalConfig.defaultFlag)
+          if Js.typeof(arg->Obj.magic) !== "object" {
+            let f = (arg->Obj.magic: flag)->Flag.with(globalConfig.defaultFlag)
             flag := Some(f)
             keyRef := keyRef.contents ++ "-" ++ f->X.Int.unsafeToString
           } else {
@@ -2672,8 +2661,9 @@ let getDecoder = (~s1 as _, ~flag as _=?) => {
         | None => InternalError.panic("No schema provided for decoder.")
         | Some(ct) => {
             let key = keyRef.contents
-            if ct->Obj.magic->Stdlib.Dict.has(key) {
-              ct->Obj.magic->Stdlib.Dict.getUnsafe(key)->Obj.magic
+            let cached = ct->Obj.magic->Stdlib.Dict.getUnsafe(key)
+            if cached->Obj.magic {
+              cached
             } else {
               compileAndCache(ct, key, args, idx.contents, flag.contents->X.Option.getUnsafe)
             }
