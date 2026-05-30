@@ -3373,25 +3373,22 @@ let getAssertResult = () =>
     s.noValidation = Some(true)
   })
 
-let parseOrThrow: ('a, ~to: t<'b>) => 'b = %raw(`function(any, schema) {
-  var k = "p" + globalConfig.f
-  return (schema[k] || (valueOptions[valKey] = getDecoder(unknown, schema), d(schema, k, valueOptions), schema[k]))(any)
-}`)
+@inline
+let parseOrThrow = (any, ~to as schema) => {
+  getDecoder2(~s1=unknown, ~s2=schema->castToInternal)(any)
+}
 
-let parseAsyncOrThrow: ('a, ~to: t<'b>) => promise<'b> = %raw(`function(any, schema) {
-  var k = "P" + globalConfig.f
-  return (schema[k] || (valueOptions[valKey] = getDecoder(unknown, schema, 1), d(schema, k, valueOptions), schema[k]))(any)
-}`)
+let parseAsyncOrThrow = (any, ~to as schema) => {
+  getDecoder2(~s1=unknown, ~s2=schema->castToInternal, ~flag=Flag.async)(any)
+}
 
-let assertOrThrow: ('a, ~to: t<'b>) => unit = %raw(`function(any, schema) {
-  var k = "a" + globalConfig.f
-  return (schema[k] || (valueOptions[valKey] = getDecoder(unknown, schema, getAssertResult()), d(schema, k, valueOptions), schema[k]))(any)
-}`)
+let assertOrThrow = (any, ~to as schema) => {
+  getDecoder3(~s1=unknown, ~s2=schema->castToInternal, ~s3=getAssertResult())(any)
+}
 
-let assertAsyncOrThrow: ('a, ~to: t<'b>) => promise<unit> = %raw(`function(any, schema) {
-  var k = "A" + globalConfig.f
-  return (schema[k] || (valueOptions[valKey] = getDecoder(unknown, schema, getAssertResult(), 1), d(schema, k, valueOptions), schema[k]))(any)
-}`)
+let assertAsyncOrThrow = (any, ~to as schema) => {
+  getDecoder3(~s1=unknown, ~s2=schema->castToInternal, ~s3=getAssertResult(), ~flag=Flag.async)(any)
+}
 
 let decodeOrThrow = (any, ~from, ~to) => {
   getDecoder2(~s1=from->castToInternal->reverse, ~s2=to->castToInternal)(any)

@@ -2084,25 +2084,21 @@ function getAssertResult() {
   });
 }
 
-let parseOrThrow = (function(any, schema) {
-  var k = "p" + globalConfig.f
-  return (schema[k] || (valueOptions[valKey] = getDecoder(unknown, schema), d(schema, k, valueOptions), schema[k]))(any)
-});
+function parseOrThrow(any, schema) {
+  return getDecoder(unknown, schema)(any);
+}
 
-let parseAsyncOrThrow = (function(any, schema) {
-  var k = "P" + globalConfig.f
-  return (schema[k] || (valueOptions[valKey] = getDecoder(unknown, schema, 1), d(schema, k, valueOptions), schema[k]))(any)
-});
+function parseAsyncOrThrow(any, schema) {
+  return getDecoder(unknown, schema, 1)(any);
+}
 
-let assertOrThrow = (function(any, schema) {
-  var k = "a" + globalConfig.f
-  return (schema[k] || (valueOptions[valKey] = getDecoder(unknown, schema, getAssertResult()), d(schema, k, valueOptions), schema[k]))(any)
-});
+function assertOrThrow(any, schema) {
+  return getDecoder(unknown, schema, getAssertResult())(any);
+}
 
-let assertAsyncOrThrow = (function(any, schema) {
-  var k = "A" + globalConfig.f
-  return (schema[k] || (valueOptions[valKey] = getDecoder(unknown, schema, getAssertResult(), 1), d(schema, k, valueOptions), schema[k]))(any)
-});
+function assertAsyncOrThrow(any, schema) {
+  return getDecoder(unknown, schema, getAssertResult(), 1)(any);
+}
 
 function decodeOrThrow(any, from, to) {
   return getDecoder(reverse(from), to)(any);
