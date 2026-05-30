@@ -3,6 +3,21 @@ open Parsetree
 open Ast_helper
 open Util
 
+let applySchemaAttribute ~loc schema_expr
+    ({attr_name = {Location.txt}} as attribute) =
+  match txt with
+  | "s.strict" -> [%expr S.strict [%e schema_expr]]
+  | "s.strip" -> [%expr S.strip [%e schema_expr]]
+  | "s.deepStrict" -> [%expr S.deepStrict [%e schema_expr]]
+  | "s.deepStrip" -> [%expr S.deepStrip [%e schema_expr]]
+  | "s.noValidation" -> [%expr S.noValidation [%e schema_expr] true]
+  | "s.meta" ->
+    let meta_value = getExpressionFromPayload attribute in
+    [%expr S.meta [%e schema_expr] [%e meta_value]]
+  | txt when txt <> "" && String.length txt >= 2 && String.sub txt 0 2 = "s." ->
+    fail loc ("Unsupported schema attribute: \"@" ^ txt ^ "\"")
+  | _ -> schema_expr
+
 let rec generateConstrSchemaExpression {Location.txt = identifier; loc}
     type_args option_factory_expression =
   let open Longident in
@@ -143,18 +158,25 @@ and generateObjectSchema fields =
                ( mkloc "obj" Location.none,
                  PStr [Str.eval (Exp.record field_expressions None)] )]))]
 
-and generateRecordSchema fields =
+and generateRecordSchema type_name fields =
   let field_expressions =
     fields
     |> List.map (fun field ->
            ( lid field.name,
              [%expr s.matches [%e generateFieldSchemaExpression field]] ))
   in
+  let record_expr = Exp.record field_expressions None in
+  let body =
+    match field_expressions with
+    | [] ->
+      Exp.constraint_ record_expr (Typ.constr (lid type_name) [])
+    | _ -> record_expr
+  in
   (* Use Obj.magic to cast to uncurried function in case of uncurried mode *)
   [%expr
     S.schema
       (Obj.magic (fun (s : S.Schema.s) ->
-           [%e Exp.record field_expressions None]))]
+           [%e body]))]
 
 and generateCoreTypeSchemaExpression core_type =
   let {ptyp_desc; ptyp_loc; ptyp_attributes} = core_type in
@@ -219,18 +241,7 @@ and generateCoreTypeSchemaExpression core_type =
         S.Option.getOrWith
           ([%e option_factory_expression] [%e schema_expr])
           [%e default_fn]]
-    | "s.strict" -> [%expr S.strict [%e schema_expr]]
-    | "s.strip" -> [%expr S.strip [%e schema_expr]]
-    | "s.deepStrict" -> [%expr S.deepStrict [%e schema_expr]]
-    | "s.deepStrip" -> [%expr S.deepStrip [%e schema_expr]]
-    | "s.noValidation" -> [%expr S.noValidation [%e schema_expr]]
-    | "s.meta" ->
-      let meta_value = getExpressionFromPayload attribute in
-      [%expr S.meta [%e schema_expr] [%e meta_value]]
-    | txt when txt <> "" && String.length txt >= 2 && String.sub txt 0 2 = "s."
-      ->
-      fail ptyp_loc ("Unsupported schema attribute: \"@" ^ txt ^ "\"")
-    | _ -> schema_expr
+    | _ -> applySchemaAttribute ~loc:ptyp_loc schema_expr attribute
   in
   List.fold_left handle_attribute schema_expression ptyp_attributes
 
@@ -243,8 +254,9 @@ let generateTypeDeclarationSchemaExpression type_declaration =
     manifest |> generateCoreTypeSchemaExpression
   | {ptype_kind = Ptype_variant decls; _} ->
     generateVariantSchemaExpression decls
-  | {ptype_kind = Ptype_record label_declarations; _} ->
-    label_declarations |> List.map parseLabelDeclaration |> generateRecordSchema
+  | {ptype_name = {txt = type_name}; ptype_kind = Ptype_record label_declarations; _} ->
+    generateRecordSchema type_name
+      (label_declarations |> List.map parseLabelDeclaration)
   | {ptype_loc; _} -> fail ptype_loc "Unsupported type declaration"
 
 let generateSchemaValueBinding type_name schema_expr =
@@ -260,10 +272,15 @@ let mapTypeDeclaration type_declaration =
   | Ok None -> []
   | Error err -> fail ptype_loc err
   | Ok _ ->
-    [
-      generateSchemaValueBinding type_name
-        (generateTypeDeclarationSchemaExpression type_declaration);
-    ]
+    let schema_expr =
+      generateTypeDeclarationSchemaExpression type_declaration
+    in
+    let schema_expr =
+      List.fold_left
+        (applySchemaAttribute ~loc:ptype_loc)
+        schema_expr ptype_attributes
+    in
+    [generateSchemaValueBinding type_name schema_expr]
 
 let mapStructureItem mapper ({pstr_desc} as structure_item) =
   match pstr_desc with

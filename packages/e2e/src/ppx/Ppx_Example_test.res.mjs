@@ -97,4 +97,4 @@ export {
   deprecatedSchema,
   describeSchema,
 }
-/*  Not a pure module */
+/* ratingSchema Not a pure module */
