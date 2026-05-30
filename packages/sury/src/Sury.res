@@ -4345,21 +4345,32 @@ module Option = {
     ->updateOutput(mut => {
       switch mut.anyOf {
       | Some(anyOf) => {
-          let items = []
+          let outputItems = []
+          let originalItems = []
 
           for idx in 0 to anyOf->Stdlib.Array.length - 1 {
             let schema = anyOf->Stdlib.Array.getUnsafe(idx)
             let outputSchema = schema->getOutputSchema
             switch outputSchema.tag {
             | Undefined => ()
-            | _ => items->Js.Array2.push(outputSchema)->ignore
+            | _ =>
+              outputItems->Js.Array2.push(outputSchema)->ignore
+              originalItems->Js.Array2.push(schema)->ignore
             }
           }
 
-          let item = switch items {
+          let item = switch outputItems {
           | [] => InternalError.panic(`Can't set default for ${mut->castToPublic->toExpression}`)
           | [single] => single
           | multiple => Union.factory(multiple->Obj.magic)->castToInternal
+          }
+          // The original (pre-`.to`) schemas drive the serializer's reverse,
+          // so transforming items (string->number, trim, Date->ISO) round-trip
+          // correctly. `item` (output side) is used for `mut.to` and for
+          // default validation.
+          let originalItem = switch originalItems {
+          | [single] => single
+          | _ => Union.factory(originalItems->Obj.magic)->castToInternal
           }
 
           // Validate that the default value conforms to the item's output type.
@@ -4379,8 +4390,9 @@ module Option = {
               )
             }
             // Best-effort: store the input form of the default for JSON Schema metadata.
+            // Use originalItem so the wrapper's .to chain runs the back-conversion.
             try mut.default =
-              getDecoder(~s1=item->reverse)(v)->(
+              getDecoder(~s1=originalItem->reverse)(v)->(
                 Obj.magic: unknown => option<internalDefault>
               ) catch {
             | _ => ()
@@ -4403,6 +4415,18 @@ module Option = {
             }),
           )
           let to = item->copySchema
+
+          let originalDecoder = to.decoder
+          to.serializer = Some(
+            Builder.make((~input) => {
+              let nextSchema = originalItem->reverse
+              originalDecoder(~input)->B.refine(~schema=nextSchema, ~expected=nextSchema)
+            }),
+          )
+
+          // FIXME: This looks wrong, but this is how it was with prev architecture
+          to.decoder = noopDecoder
+
           mut.to = Some(to)
         }
       | None => InternalError.panic(`Can't set default for ${mut->castToPublic->toExpression}`)
