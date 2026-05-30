@@ -126,11 +126,11 @@ test("Parametrized type round-trip", t => {
 // short-circuits before the 2+ params check, so multi-param types work as
 // long as the user supplies the schema.
 
-type result2<'a, 'b> = Ok('a) | Err('b)
+type result2<'a, 'b> = R2A('a) | R2B('b)
 let result2Schema = (aSchema, bSchema) =>
   S.union([
-    S.schema(s => Ok(s.matches(aSchema))),
-    S.schema(s => Err(s.matches(bSchema))),
+    S.schema(s => R2A(s.matches(aSchema))),
+    S.schema(s => R2B(s.matches(bSchema))),
   ])
 
 @schema
@@ -146,12 +146,12 @@ test("Record field with @s.matches override for a 2-param type", t => {
     }),
   )
   t->Assert.deepEqual(
-    %raw(`{"res": {"TAG": "Ok", "_0": 1}}`)->S.parseOrThrow(~to=holderSchema),
-    {res: Ok(1)},
+    %raw(`{"res": {"TAG": "R2A", "_0": 1}}`)->S.parseOrThrow(~to=holderSchema),
+    {res: R2A(1)},
   )
   t->Assert.deepEqual(
-    %raw(`{"res": {"TAG": "Err", "_0": "boom"}}`)->S.parseOrThrow(~to=holderSchema),
-    {res: Err("boom")},
+    %raw(`{"res": {"TAG": "R2B", "_0": "boom"}}`)->S.parseOrThrow(~to=holderSchema),
+    {res: R2B("boom")},
   )
 })
 
