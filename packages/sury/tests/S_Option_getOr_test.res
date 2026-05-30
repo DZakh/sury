@@ -180,6 +180,37 @@ test("Rejects invalid static default that doesn't match a union member", t => {
   )
 })
 
+test("Default on a primary item with S.to runs the transformation on parse and reverse", t => {
+  let defaultDate = Date.fromString("2024-01-01T00:00:00.000Z")
+  let otherDate = Date.fromString("2024-06-15T12:30:45.123Z")
+  let schema = S.string->S.to(S.date)->S.option->S.Option.getOr(defaultDate)
+
+  // Parse: undefined falls through to the default Date; a valid ISO string is
+  // transformed string -> Date via the primary item's S.to chain.
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), defaultDate)
+  t->Assert.deepEqual("2024-06-15T12:30:45.123Z"->S.parseOrThrow(~to=schema), otherDate)
+
+  // Encode: Date output gets reversed back to the ISO string input form.
+  t->Assert.deepEqual(
+    defaultDate->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`"2024-01-01T00:00:00.000Z"`),
+  )
+  t->Assert.deepEqual(
+    otherDate->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`"2024-06-15T12:30:45.123Z"`),
+  )
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);i=v0}else if(!(i===void 0)){e[1](i)}return i===void 0?e[2]:i}`,
+  )
+  // The output of getOr is `Date` (no longer optional), so the encoder skips
+  // both the undefined branch and the Date type check — it trusts the output
+  // contract and goes straight to toISOString().
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return i.toISOString()}`)
+})
+
 test("Compiled serialize code snapshot", t => {
   let schema = S.bool->S.option->S.Option.getOr(false)
 
