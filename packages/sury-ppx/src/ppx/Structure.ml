@@ -3,6 +3,21 @@ open Parsetree
 open Ast_helper
 open Util
 
+let applySchemaAttribute ~loc schema_expr
+    ({attr_name = {Location.txt}} as attribute) =
+  match txt with
+  | "s.strict" -> [%expr S.strict [%e schema_expr]]
+  | "s.strip" -> [%expr S.strip [%e schema_expr]]
+  | "s.deepStrict" -> [%expr S.deepStrict [%e schema_expr]]
+  | "s.deepStrip" -> [%expr S.deepStrip [%e schema_expr]]
+  | "s.noValidation" -> [%expr S.noValidation [%e schema_expr] true]
+  | "s.meta" ->
+    let meta_value = getExpressionFromPayload attribute in
+    [%expr S.meta [%e schema_expr] [%e meta_value]]
+  | txt when txt <> "" && String.length txt >= 2 && String.sub txt 0 2 = "s." ->
+    fail loc ("Unsupported schema attribute: \"@" ^ txt ^ "\"")
+  | _ -> schema_expr
+
 let rec generateConstrSchemaExpression {Location.txt = identifier; loc}
     type_args option_factory_expression =
   let open Longident in
@@ -209,18 +224,7 @@ and generateCoreTypeSchemaExpression core_type =
         S.Option.getOrWith
           ([%e option_factory_expression] [%e schema_expr])
           [%e default_fn]]
-    | "s.strict" -> [%expr S.strict [%e schema_expr]]
-    | "s.strip" -> [%expr S.strip [%e schema_expr]]
-    | "s.deepStrict" -> [%expr S.deepStrict [%e schema_expr]]
-    | "s.deepStrip" -> [%expr S.deepStrip [%e schema_expr]]
-    | "s.noValidation" -> [%expr S.noValidation [%e schema_expr]]
-    | "s.meta" ->
-      let meta_value = getExpressionFromPayload attribute in
-      [%expr S.meta [%e schema_expr] [%e meta_value]]
-    | txt when txt <> "" && String.length txt >= 2 && String.sub txt 0 2 = "s."
-      ->
-      fail ptyp_loc ("Unsupported schema attribute: \"@" ^ txt ^ "\"")
-    | _ -> schema_expr
+    | _ -> applySchemaAttribute ~loc:ptyp_loc schema_expr attribute
   in
   List.fold_left handle_attribute schema_expression ptyp_attributes
 
@@ -251,10 +255,15 @@ let mapTypeDeclaration type_declaration =
   | Ok None -> []
   | Error err -> fail ptype_loc err
   | Ok _ ->
-    [
-      generateSchemaValueBinding type_name
-        (generateTypeDeclarationSchemaExpression type_declaration);
-    ]
+    let schema_expr =
+      generateTypeDeclarationSchemaExpression type_declaration
+    in
+    let schema_expr =
+      List.fold_left
+        (applySchemaAttribute ~loc:ptype_loc)
+        schema_expr ptype_attributes
+    in
+    [generateSchemaValueBinding type_name schema_expr]
 
 let mapStructureItem mapper ({pstr_desc} as structure_item) =
   match pstr_desc with

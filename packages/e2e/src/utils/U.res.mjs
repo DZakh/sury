@@ -86,24 +86,24 @@ async function assertThrowsAsync(t, cb, errorPayload) {
 
 function getCompiledCodeString(schema, op) {
   let toFn = schema => {
-    if (op === "ParseAsync") {
-      return S.asyncDecoder(S.unknown, schema);
-    } else if (op === "Parse") {
+    if (op === "Parse") {
       return S.decoder(S.unknown, schema);
     } else if (op === "EncodeToJson") {
       return S.decoder(schema, S.json);
-    } else if (op === "Encode") {
-      return S.decoder(schema, S.unknown);
     } else if (op === "Convert") {
       return S.decoder(S.reverse(schema), S.unknown);
     } else if (op === "Assert") {
       return S.decoder(S.unknown, S.to(schema, S.noValidation(S.literal(), true)));
+    } else if (op === "EncodeAsync") {
+      return S.asyncDecoder(schema, S.unknown);
     } else if (op === "ReverseParse") {
       return S.decoder(S.unknown, S.reverse(schema));
     } else if (op === "ConvertAsync") {
       return S.asyncDecoder(S.reverse(schema), S.unknown);
+    } else if (op === "Encode") {
+      return S.decoder(schema, S.unknown);
     } else {
-      return S.asyncDecoder(schema, S.unknown);
+      return S.asyncDecoder(S.unknown, schema);
     }
   };
   let fn = toFn(schema);
