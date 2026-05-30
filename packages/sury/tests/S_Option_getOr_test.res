@@ -261,6 +261,52 @@ test("Appending S.to(S.jsonString) after getOr extends the output chain", t => {
   )
 })
 
+// FIXME: getWithDefault's `itemOutputSchema = item->getOutputSchema`
+// (Sury.res:4364) does not correctly model the output of a multi-member union
+// whose members have differing `.to` chains. When the reconstituted union is
+// fed back through the noopDecoder-wrapped `.to`, the per-branch transform
+// codegen places its built-in input refiner (Number.isNaN, BigInt-throw, ...)
+// BEFORE the corresponding `let v0 = +i` / `let v1 = BigInt(i)` declaration,
+// producing a ReferenceError at parse time:
+//
+//   i=>{if(typeof i==="string"){
+//     if(!Number.isNaN(v0)){let v0=+i; i=v0}     ← v0 used before declaration
+//     ...
+//   }}
+test("Multi-member union with transformed members + getOr produces broken parse code", t => {
+  let schema =
+    S.union([
+      S.string->S.to(S.float)->S.castToUnknown,
+      S.string->S.to(S.bigint)->S.castToUnknown,
+      S.bool->S.castToUnknown,
+    ])
+    ->S.option
+    ->S.Option.getOr(%raw(`true`))
+
+  // Construction succeeds and the default substitution still works because
+  // the broken branch is only reached for string inputs.
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), %raw(`true`))
+  t->Assert.deepEqual(%raw(`false`)->S.parseOrThrow(~to=schema), %raw(`false`))
+
+  // The generated parse code references v0/v1 before they are declared.
+  // Once fixed, the `let v0=+i` and `Number.isNaN` check should be reordered
+  // so the validation reads the freshly-declared variable.
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(typeof i==="string"){if(!Number.isNaN(v0)){let v0=+i;i=v0}else{try{let v1;try{v1=BigInt(i)}catch(_){e[0](i)}i=v1}catch(e1){e[1](i,e1)}}}else if(!(typeof i==="boolean"||i===void 0)){e[2](i)}return i===void 0?true:i}`,
+  )
+
+  // Parsing a string input — the path that exercises the malformed code —
+  // throws a JS ReferenceError instead of a Sury validation error.
+  t->Assert.throws(
+    () => {
+      let _ = "42"->S.parseOrThrow(~to=schema)
+    },
+    ~expectations={message: "v0 is not defined"},
+  )
+})
+
 test("Compiled serialize code snapshot", t => {
   let schema = S.bool->S.option->S.Option.getOr(false)
 
