@@ -349,7 +349,9 @@ const outputJsonSchema = schema["~standard"].jsonSchema.output({
 });
 ```
 
-> 🧠 `jsonSchema.input(options)` returns the same value as `S.toJSONSchema(schema)`. The `target` option is accepted for spec compatibility; Sury currently emits a broadly compatible JSON Schema regardless of the requested target.
+The `target` option selects the JSON Schema dialect and the stamped `$schema` URI. Supported targets are `"draft-07"`, `"draft-2020-12"` and `"openapi-3.0"`; any other target throws an `Unsupported target` error.
+
+> 🧠 `jsonSchema.input(options)` returns the same value as `S.toJSONSchema(schema)` with the `$schema` URI for the requested target. Sury emits a single broadly compatible JSON Schema body across the supported drafts; only the stamped `$schema` differs (`"openapi-3.0"` omits it).
 
 ## Defining schemas
 

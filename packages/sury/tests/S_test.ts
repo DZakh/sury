@@ -2098,20 +2098,34 @@ test("Standard JSON Schema interface support", (t) => {
   // The `~standard` property now also exposes the Standard JSON Schema
   // `jsonSchema` converter. https://standardschema.dev/json-schema
   const jsonSchema: S.StandardJSONSchemaV1.Converter = standard.jsonSchema;
-  const target: S.StandardJSONSchemaV1.Target = "draft-2020-12";
 
-  const inputJsonSchema: Record<string, unknown> = jsonSchema.input({ target });
+  const inputJsonSchema: Record<string, unknown> = jsonSchema.input({
+    target: "draft-07",
+  });
   const outputJsonSchema: Record<string, unknown> = jsonSchema.output({
-    target,
+    target: "draft-07",
   });
 
-  // `input` returns the JSON Schema of the input type (same as toJSONSchema).
-  t.deepEqual(
-    inputJsonSchema,
-    S.toJSONSchema(schema) as Record<string, unknown>
-  );
+  // `input` returns the JSON Schema of the input type, with the `$schema` URI
+  // for the requested target stamped on top of `S.toJSONSchema(schema)`.
+  t.deepEqual(inputJsonSchema, {
+    $schema: "http://json-schema.org/draft-07/schema#",
+    ...(S.toJSONSchema(schema) as Record<string, unknown>),
+  });
   // `output` returns the JSON Schema of the output type, which differs.
   t.notDeepEqual(inputJsonSchema, outputJsonSchema);
+
+  // The `draft-2020-12` target stamps a different `$schema` URI.
+  t.is(
+    jsonSchema.input({ target: "draft-2020-12" }).$schema,
+    "https://json-schema.org/draft/2020-12/schema"
+  );
+  // The `openapi-3.0` target omits `$schema`.
+  t.is(jsonSchema.input({ target: "openapi-3.0" }).$schema, undefined);
+  // An unsupported target throws.
+  t.throws(() => jsonSchema.input({ target: "unsupported-target" }), {
+    message: "[Sury] Unsupported target: unsupported-target",
+  });
 });
 
 test("Env schema: Reggression version", (t) => {

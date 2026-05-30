@@ -3230,12 +3230,15 @@ let instance = class_ => {
   mut->castToPublic
 }
 
-// Forward references for `toJSONSchema` and `reverse`, which are defined later
-// in the file but needed by the lazy `~standard` getter below. They are
-// assigned right after those functions are defined. The getter runs lazily
-// (only on property access), so the ref deref is never on the hot path.
-let toJSONSchemaRef: ref<t<unknown> => JSONSchema.t> = ref(_ => %raw(`undefined`))
-let reverseRef: ref<t<unknown> => t<unknown>> = ref(schema => schema)
+// Forward reference for the Standard JSON Schema converter, whose body depends
+// on `toJSONSchema` and `reverse` (defined later in the file). It is assigned
+// right after those functions are defined. The getter below runs lazily (only
+// on property access), so the ref deref is never on the hot path.
+let standardJSONSchemaRef: ref<(t<unknown>, standardJSONSchemaOptions, bool) => JSONSchema.t> = ref((
+  _,
+  _,
+  _,
+) => %raw(`undefined`))
 
 X.Object.defineProperty(
   %raw(`sp`),
@@ -3268,12 +3271,11 @@ X.Object.defineProperty(
           },
           // Standard JSON Schema spec: https://standardschema.dev/json-schema
           // `input` returns the JSON Schema of the schema's input type,
-          // `output` the JSON Schema of its output type. The `options` (incl.
-          // `target`) are accepted for spec compatibility; Sury currently emits
-          // a broadly-compatible (draft-07-style) JSON Schema regardless.
+          // `output` the JSON Schema of its output type. The `$schema` URI is
+          // stamped according to `options.target`; an unsupported target throws.
           jsonSchema: {
-            input: _options => toJSONSchemaRef.contents(schema),
-            output: _options => toJSONSchemaRef.contents(reverseRef.contents(schema)),
+            input: options => standardJSONSchemaRef.contents(schema, options, false),
+            output: options => standardJSONSchemaRef.contents(schema, options, true),
           },
         }
       }
@@ -7126,10 +7128,35 @@ let toJSONSchema = schema => {
   jsonSchema
 }
 
-// Wire up the forward references used by the lazy `~standard` getter, now that
+// Wire up the forward reference used by the lazy `~standard` getter, now that
 // `toJSONSchema` and `reverse` are defined.
-toJSONSchemaRef := toJSONSchema->Obj.magic
-reverseRef := reverse->Obj.magic
+//
+// Mirrors @valibot/to-json-schema's `toStandardJsonSchema`: the `target` option
+// selects the JSON Schema dialect (and the stamped `$schema` URI), and an
+// unsupported target throws. `output` converts the reversed schema, since
+// `S.reverse` swaps Input <-> Output and `toJSONSchema` returns the input-type
+// schema of whatever it receives.
+standardJSONSchemaRef :=
+  (
+    (schema, options, isOutput) => {
+      let schemaUri = switch options.target {
+      | "draft-07" => Some("http://json-schema.org/draft-07/schema#")
+      | "draft-2020-12" => Some("https://json-schema.org/draft/2020-12/schema")
+      // OpenAPI 3.0 has no `$schema` property.
+      | "openapi-3.0" => None
+      | unsupported => InternalError.panic(`Unsupported target: ${unsupported}`)
+      }
+      let jsonSchema = toJSONSchema(isOutput ? schema->reverse : schema)
+      switch schemaUri {
+      | Some(schemaUri) =>
+        // Reuse the result object to avoid an extra allocation; `toJSONSchema`
+        // returns a fresh object that is safe to mutate.
+        (jsonSchema->JSONSchema.Mutable.fromReadOnly).schema = Some(schemaUri)
+      | None => ()
+      }
+      jsonSchema
+    }
+  )->Obj.magic
 
 let extendJSONSchema = (schema, jsonSchema) => {
   schema->Metadata.set(

@@ -1982,12 +1982,8 @@ function instance(class_) {
   return mut;
 }
 
-let toJSONSchemaRef = {
-  contents: param => (undefined)
-};
-
-let reverseRef = {
-  contents: schema => schema
+let standardJSONSchemaRef = {
+  contents: (param, param$1, param$2) => (undefined)
 };
 
 d(sp, "~standard", {
@@ -2012,8 +2008,8 @@ d(sp, "~standard", {
         }
       },
       jsonSchema: {
-        input: _options => toJSONSchemaRef.contents(schema),
-        output: _options => toJSONSchemaRef.contents(reverseRef.contents(schema))
+        input: options => standardJSONSchemaRef.contents(schema, options, false),
+        output: options => standardJSONSchemaRef.contents(schema, options, true)
       }
     };
   }
@@ -4741,9 +4737,28 @@ function toJSONSchema(schema) {
   return jsonSchema;
 }
 
-toJSONSchemaRef.contents = toJSONSchema;
-
-reverseRef.contents = reverse;
+standardJSONSchemaRef.contents = (schema, options, isOutput) => {
+  let unsupported = options.target;
+  let schemaUri;
+  switch (unsupported) {
+    case "draft-07" :
+      schemaUri = "http://json-schema.org/draft-07/schema#";
+      break;
+    case "draft-2020-12" :
+      schemaUri = "https://json-schema.org/draft/2020-12/schema";
+      break;
+    case "openapi-3.0" :
+      schemaUri = undefined;
+      break;
+    default:
+      throw new Error(`[Sury] Unsupported target: ` + unsupported);
+  }
+  let jsonSchema = toJSONSchema(isOutput ? reverse(schema) : schema);
+  if (schemaUri !== undefined) {
+    jsonSchema.$schema = schemaUri;
+  }
+  return jsonSchema;
+};
 
 function extendJSONSchema(schema, jsonSchema) {
   let existingSchemaExtend = schema[jsonSchemaMetadataId];
