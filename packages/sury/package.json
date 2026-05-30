@@ -60,9 +60,9 @@
     "lint:stdlib": "rescript-stdlib-vendorer lint --ignore-path=src"
   },
   "devDependencies": {
-    "vitest": "2.1.9",
-    "@vitest/coverage-v8": "2.1.9",
-    "@types/node": "20.12.7",
+    "vitest": "4.1.7",
+    "@vitest/coverage-v8": "4.1.7",
+    "@types/node": "20.19.41",
     "rescript": "12.2.0",
     "@rescript/darwin-arm64": "12.2.0",
     "rescript-stdlib-vendorer": "1.1.0",
