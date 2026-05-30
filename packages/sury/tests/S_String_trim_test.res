@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Successfully parses", t => {
   let schema = S.string->S.trim

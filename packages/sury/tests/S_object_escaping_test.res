@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Successfully parses object with quotes in a field name", t => {
   let schema = S.object(s =>

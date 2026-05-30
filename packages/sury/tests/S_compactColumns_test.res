@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Successfully parses and reverse converts a simple object with compactColumns", t => {
   let schema =

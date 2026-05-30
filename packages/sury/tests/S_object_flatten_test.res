@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Has correct tagged type", t => {
   let schema = S.object(s =>

@@ -52,23 +52,17 @@
   "scripts": {
     "benchmark": "node ./packages/tests/src/benchmark/Benchmark.res.mjs",
     "benchmark:comparison": "node ./packages/tests/src/benchmark/comparison.js",
-    "coverage": "c8 --reporter=lcov npm test",
+    "coverage": "vitest run --coverage",
     "build": "pnpm rescript && node ./scripts/pack/Pack.res.mjs",
     "res": "rescript watch",
     "test:res": "cd ./packages/tests && rescript clean && rescript watch",
-    "test": "rescript build && pnpm tsc && ava",
+    "test": "rescript build && pnpm tsc && vitest run",
     "lint:stdlib": "rescript-stdlib-vendorer lint --ignore-path=src"
   },
-  "ava": {
-    "files": [
-      "tests/**/*_test.res.mjs",
-      "tests/**/*_test.js"
-    ]
-  },
   "devDependencies": {
-    "@dzakh/rescript-ava": "3.1.0",
-    "ava": "5.2.0",
-    "c8": "7.12.0",
+    "vitest": "2.1.9",
+    "@vitest/coverage-v8": "2.1.9",
+    "@types/node": "20.12.7",
     "rescript": "12.2.0",
     "@rescript/darwin-arm64": "12.2.0",
     "rescript-stdlib-vendorer": "1.1.0",

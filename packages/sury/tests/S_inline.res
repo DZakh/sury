@@ -1,4 +1,4 @@
-// open Ava
+// open Vitest
 
 // test("Supports String", t => {
 //   let schema = S.string

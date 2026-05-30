@@ -1,7 +1,53 @@
-import test from "ava";
+import { test as vitestTest, expect } from "vitest";
 import { expectType, TypeEqual } from "ts-expect";
 
 import * as S from "../src/S.js";
+
+type T = {
+  deepEqual: <A = unknown, B = A>(actual: A, expected: B, message?: string) => void;
+  is: <A = unknown, B = A>(actual: A, expected: B, message?: string) => void;
+  true: (value: unknown, message?: string) => void;
+  fail: (message?: string) => void;
+  pass: (message?: string) => void;
+  notDeepEqual: <A = unknown, B = A>(actual: A, expected: B, message?: string) => void;
+  throws: (
+    fn: () => unknown,
+    expectations?: { name?: string; message?: string },
+    message?: string
+  ) => void;
+};
+
+function makeT(): T {
+  return {
+    deepEqual: (actual, expected) => expect(actual).toEqual(expected),
+    is: (actual, expected) => expect(actual).toBe(expected as never),
+    true: (value) => expect(Boolean(value)).toBe(true),
+    fail: (message) => expect.fail(message ?? "test failed"),
+    pass: () => {},
+    notDeepEqual: (actual, expected) => expect(actual).not.toEqual(expected),
+    throws: (fn, expectations) => {
+      let err: any;
+      try {
+        fn();
+      } catch (e) {
+        err = e;
+      }
+      expect(err, "expected function to throw").toBeDefined();
+      if (expectations?.name !== undefined) {
+        expect(err.name).toBe(expectations.name);
+      }
+      if (expectations?.message !== undefined) {
+        expect(err.message).toBe(expectations.message);
+      }
+    },
+  };
+}
+
+function test(name: string, cb: (t: T) => void | Promise<void>): void {
+  vitestTest(name, async () => {
+    await cb(makeT());
+  });
+}
 
 // FIXME: S.max should be applied to output
 // From https://x.com/dzakh_dev/status/1963982551208309222

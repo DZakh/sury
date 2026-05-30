@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 // Reproduction for https://github.com/DZakh/sury/issues/240
 //

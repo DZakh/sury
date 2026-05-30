@@ -18,10 +18,6 @@ export default () => ({
   ],
   env: {
     type: "node",
-    params: {
-      runner: "--experimental-vm-modules", // Improtant for Ava ESM
-    },
   },
-  workers: { restart: true }, // Improtant for Ava ESM
-  testFramework: "ava",
+  testFramework: "vitest",
 });
