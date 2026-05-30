@@ -1,5 +1,4 @@
 open Ava
-open U
 
 // ============================================================================
 // Issue #162: PPX support for parametrized types (single type parameter)
