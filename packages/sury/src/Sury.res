@@ -4345,33 +4345,49 @@ module Option = {
     ->updateOutput(mut => {
       switch mut.anyOf {
       | Some(anyOf) => {
-          let item = ref(None)
-          let itemOutputSchema = ref(None)
+          let items = []
 
           for idx in 0 to anyOf->Stdlib.Array.length - 1 {
             let schema = anyOf->Stdlib.Array.getUnsafe(idx)
             let outputSchema = schema->getOutputSchema
             switch outputSchema.tag {
             | Undefined => ()
-            | _ =>
-              switch item.contents {
-              | None => {
-                  item := Some(schema)
-                  itemOutputSchema := Some(outputSchema)
-                }
-              | Some(_) =>
-                InternalError.panic(`Can't set default for ${mut->castToPublic->toExpression}`)
-              }
+            | _ => items->Js.Array2.push(schema)->ignore
             }
           }
 
-          let item = switch item.contents {
-          | None => InternalError.panic(`Can't set default for ${mut->castToPublic->toExpression}`)
-          | Some(s) => s
+          let item = switch items {
+          | [] => InternalError.panic(`Can't set default for ${mut->castToPublic->toExpression}`)
+          | [single] => single
+          | multiple => Union.factory(multiple->Obj.magic)->castToInternal
           }
+          let itemOutputSchema = item->getOutputSchema
 
-          // FIXME: Ensure that default has the same type as the item
-          // Or maybe not, but need to make it properly with JSON Schema
+          // Validate that the default value conforms to the item's output type.
+          // For Callback defaults the value isn't known at construction time, so we skip.
+          // Decoding from unknown forces a full type check; using just `item->reverse`
+          // would skip the input validation since `getDecoder(~s1=primitive)` is a no-op.
+          switch default {
+          | Value(v) =>
+            try {
+              let _ = getDecoder2(~s1=unknown, ~s2=itemOutputSchema)(v)
+            } catch {
+            | _ =>
+              let error = %raw(`exn`)->InternalError.getOrRethrow
+              InternalError.panic(
+                `Invalid default for ${mut->castToPublic
+                  ->toExpression}: ${(error->Obj.magic)["message"]}`,
+              )
+            }
+            // Best-effort: store the input form of the default for JSON Schema metadata.
+            try mut.default =
+              getDecoder(~s1=item->reverse)(v)->(
+                Obj.magic: unknown => option<internalDefault>
+              ) catch {
+            | _ => ()
+            }
+          | Callback(_) => ()
+          }
 
           mut.parser = Some(
             Builder.make((~input) => {
@@ -4387,7 +4403,7 @@ module Option = {
               )
             }),
           )
-          let to = itemOutputSchema.contents->X.Option.getUnsafe->copySchema
+          let to = itemOutputSchema->copySchema
 
           let originalDecoder = to.decoder
           to.serializer = Some(
@@ -4401,17 +4417,6 @@ module Option = {
           to.decoder = noopDecoder
 
           mut.to = Some(to)
-
-          switch default {
-          | Value(v) =>
-            try mut.default =
-              getDecoder(~s1=item->reverse)(v)->(
-                Obj.magic: unknown => option<internalDefault>
-              ) catch {
-            | _ => ()
-            }
-          | Callback(_) => ()
-          }
         }
       | None => InternalError.panic(`Can't set default for ${mut->castToPublic->toExpression}`)
       }

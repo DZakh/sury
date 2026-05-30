@@ -46,7 +46,7 @@ test("Successfully serializes nested option with default value", t => {
       t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
     },
     ~expectations={
-      message: `[Sury] Can\'t set default for boolean | undefined | undefined | undefined`,
+      message: `Expected boolean | { BS_PRIVATE_NESTED_SOME_NONE: 0; } | { BS_PRIVATE_NESTED_SOME_NONE: 1; }, received { BS_PRIVATE_NESTED_SOME_NONE: 3; }`,
     },
   )
 })
