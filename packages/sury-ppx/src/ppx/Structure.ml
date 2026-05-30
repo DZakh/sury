@@ -303,7 +303,10 @@ let generateSchemaValueBinding type_name ptype_params schema_expr =
         Exp.constraint_ schema_expr
           [%type: [%t Typ.constr (lid type_name) [Typ.var s]] S.t]
       in
-      Vb.mk schema_name_pat [%expr fun [%p param_pat] -> [%e constrained]]
+      (* Obj.magic casts the curried OCaml-AST function to the uncurried
+         form ReScript v11+ expects at call sites. *)
+      Vb.mk schema_name_pat
+        [%expr Obj.magic (fun [%p param_pat] -> [%e constrained])]
     | _ ->
       fail ct.ptyp_loc "Expected a type variable as type parameter")
   | _ ->
