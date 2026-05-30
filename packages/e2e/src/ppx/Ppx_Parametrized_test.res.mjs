@@ -5,8 +5,8 @@ import * as S from "sury/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
 import Ava from "ava";
 
-let wrapperSchema = (aSchema) => S.schema(s => ({
-  value: s.m(aSchema)
+let wrapperSchema = (_aSchema) => S.schema(s => ({
+  value: s.m(_aSchema)
 }));
 
 Ava("Parametrized record with single type param — int", t => {
@@ -42,8 +42,8 @@ Ava("Record using parametrized type as field", t => {
   });
 });
 
-let nestedSchema = (aSchema) => S.schema(s => ({
-  inner: s.m(wrapperSchema(aSchema))
+let nestedSchema = (_aSchema) => S.schema(s => ({
+  inner: s.m(wrapperSchema(_aSchema))
 }));
 
 Ava("Nested parametrized types", t => {
@@ -55,8 +55,8 @@ Ava("Nested parametrized types", t => {
   });
 });
 
-let withOptionSchema = (aSchema) => S.schema(s => ({
-  data: s.m(S.option(aSchema))
+let withOptionSchema = (_aSchema) => S.schema(s => ({
+  data: s.m(S.option(_aSchema))
 }));
 
 Ava("Parametrized type with option field", t => {
@@ -69,8 +69,8 @@ Ava("Parametrized type with option field", t => {
   });
 });
 
-let withArraySchema = (aSchema) => S.schema(s => ({
-  items: s.m(S.array(aSchema))
+let withArraySchema = (_aSchema) => S.schema(s => ({
+  items: s.m(S.array(_aSchema))
 }));
 
 Ava("Parametrized type with array field", t => {
@@ -80,7 +80,7 @@ Ava("Parametrized type with array field", t => {
   });
 });
 
-let aliasSchema = (aSchema) => aSchema;
+let aliasSchema = (_aSchema) => _aSchema;
 
 Ava("Parametrized type alias", t => {
   let schema = aliasSchema(S.int);

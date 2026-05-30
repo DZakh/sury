@@ -184,7 +184,7 @@ and generateCoreTypeSchemaExpression core_type =
                               s.matches
                                 [%e generateCoreTypeSchemaExpression tuple_type]])
                      )]))]
-      | Ptyp_var s -> makeIdentExpr (generateSchemaName s)
+      | Ptyp_var s -> makeIdentExpr (generateTypeVarSchemaName s)
       | Ptyp_constr (constr, type_args) ->
         generateConstrSchemaExpression constr type_args
           option_factory_expression
@@ -251,7 +251,7 @@ let generateSchemaValueBinding type_name ptype_params schema_expr =
     | Ptyp_var s ->
       let param_pat =
         Pat.constraint_
-          (Pat.var (mknoloc (generateSchemaName s)))
+          (Pat.var (mknoloc (generateTypeVarSchemaName s)))
           [%type: [%t Typ.var s] S.t]
       in
       let constrained =
