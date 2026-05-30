@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Arrayable", t => {
   t->Assert.deepEqual(

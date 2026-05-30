@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test(
   "Raised error is instance of S.Error and displayed with a nice error message when not caught",

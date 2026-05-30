@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Catch-all _ overrides any constraint message", t => {
   let schema = S.email->S.meta({errorMessage: {catchAll: "Bad input"}})

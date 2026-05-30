@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Keeps operation of the error passed to S.Error.throw", t => {
   let schema = S.array(

@@ -5,7 +5,8 @@
     "module": "ES2020",
     "strict": true,
     "esModuleInterop": true,
-    "noUncheckedIndexedAccess": true
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true
   },
   "exclude": ["node_modules", "lib"]
 }

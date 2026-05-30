@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 open U
 
 @schema @s.strict

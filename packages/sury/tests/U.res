@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 // The hack to bypass wallaby adding tags
 // and turning the function into:
@@ -192,7 +192,7 @@ let assertCompiledCodeIsNoop = (t, ~schema, ~op, ~message=?) => {
 }
 
 let assertEqualSchemas: (
-  Ava.ExecutionContext.t<'a>,
+  Vitest.ExecutionContext.t<'a>,
   S.t<'value>,
   S.t<'value>,
   ~message: string=?,

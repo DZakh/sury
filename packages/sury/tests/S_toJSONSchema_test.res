@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("JSONSchema of bool schema", t => {
   t->Assert.deepEqual(S.bool->S.toJSONSchema, %raw(`{"type": "boolean"}`))

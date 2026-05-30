@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Successfully parses empty object", t => {
   let schema = S.object(_ => ())
