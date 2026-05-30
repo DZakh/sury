@@ -30,6 +30,11 @@ let generateSchemaName type_name =
   | "t" -> "schema"
   | _ -> type_name ^ "Schema"
 
+(* Underscore prefix so the compiler doesn't warn when the type parameter is
+   unused (e.g. `type id<'a> = string`). The body references the same name so
+   used cases work too. *)
+let generateTypeVarSchemaName type_var_name = "_" ^ type_var_name ^ "Schema"
+
 type field = {
   name: string;
   runtime_name: string;
