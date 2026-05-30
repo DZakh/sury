@@ -98,6 +98,36 @@ Ava("Parametrized type round-trip", t => {
   );
 });
 
+let result2Schema = (aSchema, bSchema) => S.union([
+  S.schema(s => ({TAG: "Ok", _0: s.m(aSchema)})),
+  S.schema(s => ({TAG: "Err", _0: s.m(bSchema)})),
+]);
+
+let holderSchema = S.schema(s => ({
+  res: s.m(result2Schema(S.int, S.string))
+}));
+
+Ava("Record field with @s.matches override for a 2-param type", t => {
+  U.assertEqualSchemas(t, holderSchema, S.schema(s => ({
+    res: s.m(result2Schema(S.int, S.string))
+  })), undefined);
+  t.deepEqual(
+    S.parseOrThrow({"res": {"TAG": "Ok", "_0": 1}}, holderSchema),
+    {res: {TAG: "Ok", _0: 1}}
+  );
+  t.deepEqual(
+    S.parseOrThrow({"res": {"TAG": "Err", "_0": "boom"}}, holderSchema),
+    {res: {TAG: "Err", _0: "boom"}}
+  );
+});
+
+let idSchema = (_aSchema) => S.string;
+
+Ava("Parametrized type alias whose param is unused (phantom)", t => {
+  U.assertEqualSchemas(t, idSchema(S.int), S.string, undefined);
+  t.deepEqual(S.parseOrThrow("hello", idSchema(S.int)), "hello");
+});
+
 export {
   wrapperSchema,
   parentSchema,
@@ -105,5 +135,8 @@ export {
   withOptionSchema,
   withArraySchema,
   aliasSchema,
+  result2Schema,
+  holderSchema,
+  idSchema,
 }
 /* wrapperSchema Not a pure module */

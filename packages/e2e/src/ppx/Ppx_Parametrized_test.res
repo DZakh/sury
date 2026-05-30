@@ -114,9 +114,56 @@ test("Parametrized type round-trip", t => {
   )
 })
 
-// --- Multiple type parameters: not yet supported ---
-// The PPX should emit a clear error for types with 2+ parameters:
+// --- Multiple type parameters: not supported by default ---
+// The PPX errors on 2+ type parameters:
 //   [sury-ppx] Parametrized types with more than one type parameter are not supported yet
 //
 // @schema
 // type pair<'a, 'b> = {first: 'a, second: 'b}
+
+// --- Multiple type parameters: supported via @s.matches override ---
+// When the user provides the schema explicitly with @s.matches, the PPX
+// short-circuits before the 2+ params check, so multi-param types work as
+// long as the user supplies the schema.
+
+type result2<'a, 'b> = Ok('a) | Err('b)
+let result2Schema = (aSchema, bSchema) =>
+  S.union([
+    S.schema(s => Ok(s.matches(aSchema))),
+    S.schema(s => Err(s.matches(bSchema))),
+  ])
+
+@schema
+type holder = {
+  res: @s.matches(result2Schema(S.int, S.string)) result2<int, string>,
+}
+
+test("Record field with @s.matches override for a 2-param type", t => {
+  t->assertEqualSchemas(
+    holderSchema,
+    S.schema(s => {
+      res: s.matches(result2Schema(S.int, S.string)),
+    }),
+  )
+  t->Assert.deepEqual(
+    %raw(`{"res": {"TAG": "Ok", "_0": 1}}`)->S.parseOrThrow(~to=holderSchema),
+    {res: Ok(1)},
+  )
+  t->Assert.deepEqual(
+    %raw(`{"res": {"TAG": "Err", "_0": "boom"}}`)->S.parseOrThrow(~to=holderSchema),
+    {res: Err("boom")},
+  )
+})
+
+// --- Phantom type parameter (unused) ---
+@schema
+type id<'a> = string
+
+test("Parametrized type alias whose param is unused (phantom)", t => {
+  let schema = idSchema(S.int)
+  t->assertEqualSchemas(schema, S.string)
+  t->Assert.deepEqual(
+    %raw(`"hello"`)->S.parseOrThrow(~to=schema),
+    "hello",
+  )
+})
