@@ -2571,11 +2571,7 @@ let getDecoder = (~s1 as _, ~flag as _=?) => {
     let f = (arg1->Obj.magic: flag)->Flag.with(globalConfig.defaultFlag)
     let key = (s1.seq->Obj.magic: string) ++ "--" ++ f->X.Int.unsafeToString
     let cached = s1->Obj.magic->Stdlib.Dict.getUnsafe(key)
-    if cached->Obj.magic {
-      cached
-    } else {
-      compileAndCache(s1, key, args, 1, f)
-    }
+    cached->Obj.magic ? cached : compileAndCache(s1, key, args, 1, f)
   } else {
     let s2: internal = arg1->Obj.magic
     let seq1: float = s1.seq->Obj.magic
@@ -2591,83 +2587,43 @@ let getDecoder = (~s1 as _, ~flag as _=?) => {
         (seq2->Obj.magic: string) ++
         "--" ++
         f->X.Int.unsafeToString
-      let ct = if seq1 > seq2 {
-        s1
-      } else {
-        s2
-      }
+      let ct = seq1 > seq2 ? s1 : s2
       let cached = ct->Obj.magic->Stdlib.Dict.getUnsafe(key)
-      if cached->Obj.magic {
-        cached
-      } else {
-        compileAndCache(ct, key, args, 2, f)
-      }
+      cached->Obj.magic ? cached : compileAndCache(ct, key, args, 2, f)
     } else {
-      let s3: internal = arg2->Obj.magic
-      let seq3: float = s3.seq->Obj.magic
-      let arg3 = args->Js.Array2.unsafe_get(3)
+      // 3+ schemas: generic while loop
+      let idx = ref(0)
+      let flag = ref(None)
+      let keyRef = ref("")
+      let maxSeq = ref(0.)
+      let cacheTarget = ref(None)
 
-      if Js.typeof(arg3->Obj.magic) !== "object" {
-        // 3 schemas (± flag)
-        let f = (arg3->Obj.magic: flag)->Flag.with(globalConfig.defaultFlag)
-        let key =
-          (seq1->Obj.magic: string) ++
-          "-" ++
-          (seq2->Obj.magic: string) ++
-          "-" ++
-          (seq3->Obj.magic: string) ++
-          "--" ++
-          f->X.Int.unsafeToString
-        let ct = if seq1 > seq2 && seq1 > seq3 {
-          s1
-        } else if seq2 > seq3 {
-          s2
+      while flag.contents === None {
+        let arg = args->Js.Array2.unsafe_get(idx.contents)
+        if Js.typeof(arg->Obj.magic) !== "object" {
+          let f = (arg->Obj.magic: flag)->Flag.with(globalConfig.defaultFlag)
+          flag := Some(f)
+          keyRef := keyRef.contents ++ "-" ++ f->X.Int.unsafeToString
         } else {
-          s3
-        }
-        let cached = ct->Obj.magic->Stdlib.Dict.getUnsafe(key)
-        if cached->Obj.magic {
-          cached
-        } else {
-          compileAndCache(ct, key, args, 3, f)
-        }
-      } else {
-        // 4+ schemas: generic while loop
-        let idx = ref(0)
-        let flag = ref(None)
-        let keyRef = ref("")
-        let maxSeq = ref(0.)
-        let cacheTarget = ref(None)
-
-        while flag.contents === None {
-          let arg = args->Js.Array2.unsafe_get(idx.contents)
-          if Js.typeof(arg->Obj.magic) !== "object" {
-            let f = (arg->Obj.magic: flag)->Flag.with(globalConfig.defaultFlag)
-            flag := Some(f)
-            keyRef := keyRef.contents ++ "-" ++ f->X.Int.unsafeToString
-          } else {
-            let schema: internal = arg->Obj.magic
-            let seq: float = schema.seq->Obj.magic
-            if seq > maxSeq.contents {
-              maxSeq := seq
-              cacheTarget := Some(schema)
-            }
-            keyRef := keyRef.contents ++ seq->Obj.magic ++ "-"
-            idx := idx.contents + 1
+          let schema: internal = arg->Obj.magic
+          let seq: float = schema.seq->Obj.magic
+          if seq > maxSeq.contents {
+            maxSeq := seq
+            cacheTarget := Some(schema)
           }
+          keyRef := keyRef.contents ++ seq->Obj.magic ++ "-"
+          idx := idx.contents + 1
         }
+      }
 
-        switch cacheTarget.contents {
-        | None => InternalError.panic("No schema provided for decoder.")
-        | Some(ct) => {
-            let key = keyRef.contents
-            let cached = ct->Obj.magic->Stdlib.Dict.getUnsafe(key)
-            if cached->Obj.magic {
-              cached
-            } else {
-              compileAndCache(ct, key, args, idx.contents, flag.contents->X.Option.getUnsafe)
-            }
-          }
+      switch cacheTarget.contents {
+      | None => InternalError.panic("No schema provided for decoder.")
+      | Some(ct) => {
+          let key = keyRef.contents
+          let cached = ct->Obj.magic->Stdlib.Dict.getUnsafe(key)
+          cached->Obj.magic
+            ? cached
+            : compileAndCache(ct, key, args, idx.contents, flag.contents->X.Option.getUnsafe)
         }
       }
     }
