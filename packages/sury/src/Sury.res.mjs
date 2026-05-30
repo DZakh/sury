@@ -4421,7 +4421,7 @@ function js_optional(schema, maybeOr) {
 function js_nullable(schema, maybeOr) {
   let schema$1 = factory$1([
     schema,
-    nullAsUnit()
+    nullLiteral()
   ]);
   if (maybeOr === undefined) {
     return schema$1;
