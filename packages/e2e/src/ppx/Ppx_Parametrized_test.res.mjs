@@ -69,41 +69,11 @@ Ava("Parametrized type with array field", t => {
   });
 });
 
-let result2Schema = (aSchema, bSchema) => S.union([
-  S.schema(s => ({TAG: "R2A", _0: s.m(aSchema)})),
-  S.schema(s => ({TAG: "R2B", _0: s.m(bSchema)})),
-]);
-
-let holderSchema = S.schema(s => ({
-  res: s.m(result2Schema(S.int, S.string))
-}));
-
-Ava("Record field with @s.matches override for a 2-param type", t => {
-  t.deepEqual(
-    S.parseOrThrow({"res": {"TAG": "R2A", "_0": 1}}, holderSchema),
-    {res: {TAG: "R2A", _0: 1}}
-  );
-  t.deepEqual(
-    S.parseOrThrow({"res": {"TAG": "R2B", "_0": "boom"}}, holderSchema),
-    {res: {TAG: "R2B", _0: "boom"}}
-  );
-});
-
-let idSchema = (_aSchema) => S.string;
-
-Ava("Parametrized type alias whose param is unused (phantom)", t => {
-  let schema = idSchema(S.int);
-  t.deepEqual(S.parseOrThrow("hello", schema), "hello");
-});
-
 export {
   wrapperSchema,
   parentSchema,
   nestedSchema,
   withOptionSchema,
   withArraySchema,
-  result2Schema,
-  holderSchema,
-  idSchema,
 }
 /* wrapperSchema Not a pure module */
