@@ -2091,6 +2091,29 @@ test("Standard schema", (t) => {
   >(true);
 });
 
+test("Standard JSON Schema interface support", (t) => {
+  const schema = S.schema({ foo: S.to(S.string, S.number) });
+  const standard = schema["~standard"];
+
+  // The `~standard` property now also exposes the Standard JSON Schema
+  // `jsonSchema` converter. https://standardschema.dev/json-schema
+  const jsonSchema: S.StandardJSONSchemaV1.Converter = standard.jsonSchema;
+  const target: S.StandardJSONSchemaV1.Target = "draft-2020-12";
+
+  const inputJsonSchema: Record<string, unknown> = jsonSchema.input({ target });
+  const outputJsonSchema: Record<string, unknown> = jsonSchema.output({
+    target,
+  });
+
+  // `input` returns the JSON Schema of the input type (same as toJSONSchema).
+  t.deepEqual(
+    inputJsonSchema,
+    S.toJSONSchema(schema) as Record<string, unknown>
+  );
+  // `output` returns the JSON Schema of the output type, which differs.
+  t.notDeepEqual(inputJsonSchema, outputJsonSchema);
+});
+
 test("Env schema: Reggression version", (t) => {
   const env = <T>(schema: S.Schema<T>): S.Schema<T, string> => {
     if (schema.type === "boolean") {

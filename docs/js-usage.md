@@ -331,6 +331,26 @@ const { object } = await generateObject({
 });
 ```
 
+The `~standard` property also implements the [Standard JSON Schema](https://standardschema.dev/json-schema) spec. It exposes a `jsonSchema` converter with `input` and `output` functions returning the JSON Schema of the schema's input and output types respectively:
+
+```ts
+import * as S from "sury";
+
+const schema = S.schema({ createdAt: S.to(S.string, S.instance(Date)) });
+
+// JSON Schema of the input type ({ createdAt: string })
+const inputJsonSchema = schema["~standard"].jsonSchema.input({
+  target: "draft-2020-12",
+});
+
+// JSON Schema of the output type ({ createdAt: Date })
+const outputJsonSchema = schema["~standard"].jsonSchema.output({
+  target: "draft-2020-12",
+});
+```
+
+> 🧠 `jsonSchema.input(options)` returns the same value as `S.toJSONSchema(schema)`. The `target` option is accepted for spec compatibility; Sury currently emits a broadly compatible JSON Schema regardless of the requested target.
+
 ## Defining schemas
 
 ```ts

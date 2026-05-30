@@ -273,10 +273,20 @@ let unknownTag: tag = %raw(`"unknown"`)
 let refTag: tag = %raw(`"ref"`)
 external typeof: 'a => tag = "%typeof"
 
+// Standard JSON Schema spec: https://standardschema.dev/json-schema
+type standardJSONSchemaOptions = {
+  target: string,
+  libraryOptions?: dict<unknown>,
+}
+type standardJSONSchemaConverter = {
+  input: standardJSONSchemaOptions => JSONSchema.t,
+  output: standardJSONSchemaOptions => JSONSchema.t,
+}
 type standard = {
   version: int,
   vendor: string,
   validate: 'any 'value. 'any => {"value": 'value},
+  jsonSchema: standardJSONSchemaConverter,
 }
 
 type internalDefault = {}
@@ -3220,6 +3230,13 @@ let instance = class_ => {
   mut->castToPublic
 }
 
+// Forward references for `toJSONSchema` and `reverse`, which are defined later
+// in the file but needed by the lazy `~standard` getter below. They are
+// assigned right after those functions are defined. The getter runs lazily
+// (only on property access), so the ref deref is never on the hot path.
+let toJSONSchemaRef: ref<t<unknown> => JSONSchema.t> = ref(_ => %raw(`undefined`))
+let reverseRef: ref<t<unknown> => t<unknown>> = ref(schema => schema)
+
 X.Object.defineProperty(
   %raw(`sp`),
   "~standard",
@@ -3248,6 +3265,15 @@ X.Object.defineProperty(
                 }->Obj.magic
               }
             }
+          },
+          // Standard JSON Schema spec: https://standardschema.dev/json-schema
+          // `input` returns the JSON Schema of the schema's input type,
+          // `output` the JSON Schema of its output type. The `options` (incl.
+          // `target`) are accepted for spec compatibility; Sury currently emits
+          // a broadly-compatible (draft-07-style) JSON Schema regardless.
+          jsonSchema: {
+            input: _options => toJSONSchemaRef.contents(schema),
+            output: _options => toJSONSchemaRef.contents(reverseRef.contents(schema)),
           },
         }
       }
@@ -7099,6 +7125,11 @@ let toJSONSchema = schema => {
   }
   jsonSchema
 }
+
+// Wire up the forward references used by the lazy `~standard` getter, now that
+// `toJSONSchema` and `reverse` are defined.
+toJSONSchemaRef := toJSONSchema->Obj.magic
+reverseRef := reverse->Obj.magic
 
 let extendJSONSchema = (schema, jsonSchema) => {
   schema->Metadata.set(
