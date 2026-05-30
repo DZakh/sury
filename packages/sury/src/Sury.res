@@ -4403,18 +4403,6 @@ module Option = {
             }),
           )
           let to = item->copySchema
-
-          let originalDecoder = to.decoder
-          to.serializer = Some(
-            Builder.make((~input) => {
-              let nextSchema = item->reverse
-              originalDecoder(~input)->B.refine(~schema=nextSchema, ~expected=nextSchema)
-            }),
-          )
-
-          // FIXME: This looks wrong, but this is how it was with prev architecture
-          to.decoder = noopDecoder
-
           mut.to = Some(to)
         }
       | None => InternalError.panic(`Can't set default for ${mut->castToPublic->toExpression}`)

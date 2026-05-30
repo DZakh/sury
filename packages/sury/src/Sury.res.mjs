@@ -2873,12 +2873,6 @@ function getWithDefault(schema, $$default) {
         return next(input, inputVar + "===void 0?" + tmp + ":" + inputVar, nextSchema, nextSchema);
       };
       let to = copySchema(item);
-      let originalDecoder = to.decoder;
-      to.serializer = input => {
-        let nextSchema = reverse(item);
-        return refine(originalDecoder(input), nextSchema, undefined, nextSchema);
-      };
-      to.decoder = noopDecoder;
       mut.to = to;
       return;
     }
@@ -3524,6 +3518,16 @@ function traverseDefinition(definition, onNode) {
   return mut$2;
 }
 
+function shapedSerializer(input) {
+  let acc = {};
+  prepareShapedSerializerAcc(acc, input);
+  let targetSchema = input.e.to;
+  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
+  output.t = true;
+  output.prev = input;
+  return output;
+}
+
 function prepareShapedSerializerAcc(acc, input) {
   let match = input.e;
   let from = match.from;
@@ -3680,6 +3684,20 @@ function getShapedSerializerOutput(input, acc, targetSchema, path) {
   
 }
 
+function getValByFrom(_input, from, _idx) {
+  while (true) {
+    let idx = _idx;
+    let input = _input;
+    let key = from[idx];
+    if (key === undefined) {
+      return input;
+    }
+    _idx = idx + 1 | 0;
+    _input = input.d[key];
+    continue;
+  };
+}
+
 function getShapedParserOutput(input, targetSchema) {
   let from = targetSchema.from;
   let fromFlattened = targetSchema.fromFlattened;
@@ -3717,20 +3735,6 @@ function getShapedParserOutput(input, targetSchema) {
   v.prev = undefined;
   v.e = targetSchema;
   return v;
-}
-
-function getValByFrom(_input, from, _idx) {
-  while (true) {
-    let idx = _idx;
-    let input = _input;
-    let key = from[idx];
-    if (key === undefined) {
-      return input;
-    }
-    _idx = idx + 1 | 0;
-    _input = input.d[key];
-    continue;
-  };
 }
 
 function definitionToSchema(definition) {
@@ -3806,16 +3810,6 @@ function nested(fieldName) {
   };
   parentCtx[cacheId] = ctx$1;
   return ctx$1;
-}
-
-function shapedSerializer(input) {
-  let acc = {};
-  prepareShapedSerializerAcc(acc, input);
-  let targetSchema = input.e.to;
-  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
-  output.t = true;
-  output.prev = input;
-  return output;
 }
 
 function definitionToShapedSchema(definition) {
