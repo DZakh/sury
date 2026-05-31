@@ -175,7 +175,7 @@ type rec baseParameter = {
   // Examples of the parameter's potential value. Each example SHOULD contain a value in the correct format as specified in the parameter encoding. The examples field is mutually exclusive of the example field. Furthermore, if referencing a schema that contains an example, the examples value SHALL override the example provided by the schema.
   examples?: dict<WithReference.t<example>>,
   // Example of the parameter's potential value. The example SHOULD match the specified schema and encoding properties if present. The example field is mutually exclusive of the examples field. Furthermore, if referencing a schema that contains an example, the example value SHALL override the example provided by the schema. To represent examples of media types that cannot naturally be represented in JSON or YAML, a string value can contain the example with escaping where necessary.
-  example?: option<Js.Json.t>,
+  example?: option<JSON.t>,
   content?: dict<WithReference.t<mediaType>>,
 }
 
@@ -557,7 +557,7 @@ module Mutable = {
     mutable allowReserved?: bool,
     mutable schema?: schema,
     mutable examples?: dict<WithReference.t<example>>,
-    mutable example?: option<Js.Json.t>,
+    mutable example?: option<JSON.t>,
     mutable content?: dict<WithReference.t<mediaType>>,
   }
 

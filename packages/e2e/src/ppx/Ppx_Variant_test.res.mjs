@@ -106,6 +106,14 @@ Ava("Tagged variant", t => U.assertEqualSchemas(t, taggedVariantSchema, S.union(
   }))
 ]), undefined));
 
+let strictVariantSchema = S.strict(S.union([
+  S.literal("StrictA"),
+  S.schema(s => ({
+    TAG: "StrictB",
+    _0: s.m(S.int)
+  }))
+]));
+
 let taggedInlinedAliasSchema = S.union([
   S.schema(s => ({
     type: "Foo",
@@ -116,6 +124,14 @@ let taggedInlinedAliasSchema = S.union([
     Bar: s.m(S.string)
   }))
 ]);
+
+Ava("@s.strict on root variant type", t => U.assertEqualSchemas(t, strictVariantSchema, S.strict(S.union([
+  S.literal("StrictA"),
+  S.schema(s => ({
+    TAG: "StrictB",
+    _0: s.m(S.int)
+  }))
+])), undefined));
 
 Ava("Tagged variant with inlined alias", t => U.assertEqualSchemas(t, taggedInlinedAliasSchema, S.union([
   S.schema(s => ({
@@ -135,6 +151,7 @@ export {
   variantWithPayloadsSchema,
   unboxedVariantSchema,
   taggedVariantSchema,
+  strictVariantSchema,
   taggedInlinedAliasSchema,
 }
 /* variantSchema Not a pure module */
