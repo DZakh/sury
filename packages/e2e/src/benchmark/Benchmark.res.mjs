@@ -2,7 +2,7 @@
 
 import * as S from "sury/src/S.res.mjs";
 import * as Benchmark from "benchmark";
-import * as Stdlib_Array from "rescript/lib/es6/Stdlib_Array.js";
+import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
 
 function addWithPrepare(suite, name, fn) {
   return suite.add(name, fn());
