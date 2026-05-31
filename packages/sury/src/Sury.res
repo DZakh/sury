@@ -2538,28 +2538,20 @@ and reverse = (schema: internal) => {
   }
 }
 
-let compileAndCache = (cacheTarget: internal, key, args, idx: int, f) => {
-  let schema = ref(args->Js.Array2.unsafe_get(idx - 1))
-  for i in idx - 2 downto 0 {
-    let to = schema.contents
-    schema :=
-      args
-      ->Js.Array2.unsafe_get(i)
-      ->updateOutput(mut => {
-        mut.to = Some(to)
-      })
-      ->castToInternal
+%%raw(`function compileAndCache(cacheTarget, key, args, idx, f) {
+  var schema = args[idx - 1];
+  for (var i = idx - 2; i >= 0; i--) {
+    var to = schema;
+    schema = updateOutput(args[i], function(mut) { mut.to = to; });
   }
-  let fn = compileDecoder(
-    ~schema=schema.contents,
-    ~expected=schema.contents,
-    ~flag=f,
-    ~defs=%raw(`0`),
-  )
-  valueOptions->Js.Dict.set(valKey, fn)
-  let _ = X.Object.defineProperty(cacheTarget, key, valueOptions->Obj.magic)
-  fn->(Obj.magic: (unknown => unknown) => 'from => 'to)
-}
+  var fn = compileDecoder(schema, schema, f, 0);
+  valueOptions[valKey] = fn;
+  d(cacheTarget, key, valueOptions);
+  return fn;
+}`)
+
+@val
+external compileAndCache: (internal, string, 'args, int, flag) => 'a = "compileAndCache"
 
 let getDecoder = (~s1 as _, ~flag as _=?) => {
   let args = %raw(`arguments`)
@@ -2568,35 +2560,21 @@ let getDecoder = (~s1 as _, ~flag as _=?) => {
 
   if Js.typeof(arg1->Obj.magic) !== "object" {
     // 1 schema (± flag) — arg1 is undefined or a number
-    let f = (arg1->Obj.magic: flag)->Flag.with(globalConfig.defaultFlag)
-    let key = (s1.seq->Obj.magic: string) ++ "--" ++ f->X.Int.unsafeToString
-    let cached = s1->Obj.magic->Stdlib.Dict.getUnsafe(key)
-    cached->Obj.magic ? cached : compileAndCache(s1, key, args, 1, f)
+    %raw(`s1[s1.seq + "--" + (arg1 | globalConfig.f)] || compileAndCache(s1, s1.seq + "--" + (arg1 | globalConfig.f), args, 1, arg1 | globalConfig.f)`)
   } else {
-    let s2: internal = arg1->Obj.magic
-    let seq1: float = s1.seq->Obj.magic
-    let seq2: float = s2.seq->Obj.magic
     let arg2 = args->Js.Array2.unsafe_get(2)
 
     if Js.typeof(arg2->Obj.magic) !== "object" {
-      // 2 schemas (± flag)
-      let f = (arg2->Obj.magic: flag)->Flag.with(globalConfig.defaultFlag)
-      let key =
-        (seq1->Obj.magic: string) ++
-        "-" ++
-        (seq2->Obj.magic: string) ++
-        "--" ++
-        f->X.Int.unsafeToString
-      let ct = seq1 > seq2 ? s1 : s2
-      let cached = ct->Obj.magic->Stdlib.Dict.getUnsafe(key)
-      cached->Obj.magic ? cached : compileAndCache(ct, key, args, 2, f)
+      // 2 schemas (± flag) — everything inlined into the expression
+      %raw(`(s1.seq > arg1.seq ? s1 : arg1)[s1.seq + "-" + arg1.seq + "--" + (arg2 | globalConfig.f)] || compileAndCache((s1.seq > arg1.seq ? s1 : arg1), s1.seq + "-" + arg1.seq + "--" + (arg2 | globalConfig.f), args, 2, arg2 | globalConfig.f)`)
     } else {
-      // 3+ schemas: generic while loop
-      let idx = ref(0)
+      // 3+ schemas: generic while loop, seeded with s1
+      let s1Seq: float = s1.seq->Obj.magic
+      let idx = ref(1)
       let flag = ref(None)
-      let keyRef = ref("")
-      let maxSeq = ref(0.)
-      let cacheTarget = ref(None)
+      let keyRef = ref((s1Seq->Obj.magic: string) ++ "-")
+      let maxSeq = ref(s1Seq)
+      let cacheTarget = ref(s1)
 
       while flag.contents === None {
         let arg = args->Js.Array2.unsafe_get(idx.contents)
@@ -2609,23 +2587,19 @@ let getDecoder = (~s1 as _, ~flag as _=?) => {
           let seq: float = schema.seq->Obj.magic
           if seq > maxSeq.contents {
             maxSeq := seq
-            cacheTarget := Some(schema)
+            cacheTarget := schema
           }
           keyRef := keyRef.contents ++ seq->Obj.magic ++ "-"
           idx := idx.contents + 1
         }
       }
 
-      switch cacheTarget.contents {
-      | None => InternalError.panic("No schema provided for decoder.")
-      | Some(ct) => {
-          let key = keyRef.contents
-          let cached = ct->Obj.magic->Stdlib.Dict.getUnsafe(key)
-          cached->Obj.magic
-            ? cached
-            : compileAndCache(ct, key, args, idx.contents, flag.contents->X.Option.getUnsafe)
-        }
-      }
+      let ct = cacheTarget.contents
+      let key = keyRef.contents
+      let cached = ct->Obj.magic->Stdlib.Dict.getUnsafe(key)
+      cached->Obj.magic
+        ? cached
+        : compileAndCache(ct, key, args, idx.contents, flag.contents->X.Option.getUnsafe)
     }
   }
 }
