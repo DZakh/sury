@@ -3254,41 +3254,57 @@ X.Object.defineProperty(
 // Builder functions
 // =============
 
-// Compile and cache a decoder under a short key (e.g., "p2", "d2", "a2") on the user's schema.
-// Short keys are letter-prefixed; full keys (used by getDecoder/recursiveDecoder) are
-// digit-prefixed, so the two namespaces never collide on the same schema object.
-let compileAndStoreShort = (cacheTarget: internal, key: string, chain: internal, flag) => {
-  let fn = compileDecoder(~schema=chain, ~expected=chain, ~flag, ~defs=%raw(`0`))
+let getAssertResult = () =>
+  cached("a", undefinedTag, s => {
+    s.const = %raw(`void 0`)
+    s.decoder = literalDecoder
+    s.noValidation = Some(true)
+  })
+
+// Short-key cache for single-schema operations: parser ("p"), decoder1 ("d"),
+// assertOrThrow ("a"). The compiled decoder is stored on the user schema under
+// a letter-prefixed key like "p2"/"d2"/"a2". Short keys (letter-prefixed) never
+// collide with full keys (digit-prefixed) used by getDecoder/recursiveDecoder.
+//
+// Cold path: build the chain for the operation, compile, cache. Separate
+// function so getShort stays small enough for V8 to inline at call sites.
+let compileShort = (schema: internal, prefix: string, key: string, f: flag) => {
+  let chain = if prefix === "d" {
+    schema
+  } else if prefix === "p" {
+    unknown->updateOutput(mut => { mut.to = Some(schema) })->castToInternal
+  } else {
+    // "a" — assertOrThrow: unknown → schema → assertResult
+    unknown
+    ->updateOutput(mut => {
+      mut.to = Some(
+        schema->updateOutput(mut => { mut.to = Some(getAssertResult()) })->castToInternal,
+      )
+    })
+    ->castToInternal
+  }
+  let fn = compileDecoder(~schema=chain, ~expected=chain, ~flag=f, ~defs=%raw(`0`))
   valueOptions->Js.Dict.set(valKey, fn)
-  let _ = X.Object.defineProperty(cacheTarget, key, valueOptions->Obj.magic)
+  let _ = X.Object.defineProperty(schema, key, valueOptions->Obj.magic)
   fn
 }
 
-let parser = (~to as schema) => {
-  let s = schema->castToInternal
-  let f = globalConfig.defaultFlag
-  let key = "p" ++ f->X.Int.unsafeToString
+@inline
+let getShort = (schema: internal, prefix: string, f: flag): 'a => {
+  let key = prefix ++ f->X.Int.unsafeToString
   let cached = %raw(`schema[key]`)
   if cached->Obj.magic {
     cached
   } else {
-    let chain = unknown->updateOutput(mut => { mut.to = Some(s) })->castToInternal
-    compileAndStoreShort(s, key, chain, f)
+    compileShort(schema, prefix, key, f)
   }->Obj.magic
 }
 
-let asyncParser = (~to as schema) => {
-  let s = schema->castToInternal
-  let f = Flag.async->Flag.with(globalConfig.defaultFlag)
-  let key = "p" ++ f->X.Int.unsafeToString
-  let cached = %raw(`schema[key]`)
-  if cached->Obj.magic {
-    cached
-  } else {
-    let chain = unknown->updateOutput(mut => { mut.to = Some(s) })->castToInternal
-    compileAndStoreShort(s, key, chain, f)
-  }->Obj.magic
-}
+let parser = (~to as schema) =>
+  getShort(schema->castToInternal, "p", globalConfig.defaultFlag)
+
+let asyncParser = (~to as schema) =>
+  getShort(schema->castToInternal, "p", Flag.async->Flag.with(globalConfig.defaultFlag))
 
 let decoder = (type from to, ~from: t<from>, ~to: t<to>): (from => to) => {
   getDecoder2(~s1=from->castToInternal->reverse, ~s2=to->castToInternal)
@@ -3298,86 +3314,27 @@ let asyncDecoder = (type from to, ~from: t<from>, ~to: t<to>): (from => promise<
   getDecoder2(~s1=from->castToInternal->reverse, ~s2=to->castToInternal, ~flag=Flag.async)
 }
 
-let decoder1 = (type value, schema: t<value>): (unknown => value) => {
-  let s = schema->castToInternal
-  let f = globalConfig.defaultFlag
-  let key = "d" ++ f->X.Int.unsafeToString
-  let cached = %raw(`schema[key]`)
-  if cached->Obj.magic {
-    cached
-  } else {
-    compileAndStoreShort(s, key, s, f)
-  }->Obj.magic
-}
+let decoder1 = (type value, schema: t<value>): (unknown => value) =>
+  getShort(schema->castToInternal, "d", globalConfig.defaultFlag)
 
-let asyncDecoder1 = (type value, schema: t<value>): (unknown => promise<value>) => {
-  let s = schema->castToInternal
-  let f = Flag.async->Flag.with(globalConfig.defaultFlag)
-  let key = "d" ++ f->X.Int.unsafeToString
-  let cached = %raw(`schema[key]`)
-  if cached->Obj.magic {
-    cached
-  } else {
-    compileAndStoreShort(s, key, s, f)
-  }->Obj.magic
-}
+let asyncDecoder1 = (type value, schema: t<value>): (unknown => promise<value>) =>
+  getShort(schema->castToInternal, "d", Flag.async->Flag.with(globalConfig.defaultFlag))
 
 // =============
 // Operations
 // =============
 
-let getAssertResult = () =>
-  cached("a", undefinedTag, s => {
-    s.const = %raw(`void 0`)
-    s.decoder = literalDecoder
-    s.noValidation = Some(true)
-  })
+let parseOrThrow = (any, ~to as schema) =>
+  getShort(schema->castToInternal, "p", globalConfig.defaultFlag)(any)
 
-@inline
-let parseOrThrow = (any, ~to as schema) => parser(~to=schema)(any)
+let parseAsyncOrThrow = (any, ~to as schema) =>
+  getShort(schema->castToInternal, "p", Flag.async->Flag.with(globalConfig.defaultFlag))(any)
 
-@inline
-let parseAsyncOrThrow = (any, ~to as schema) => asyncParser(~to=schema)(any)
+let assertOrThrow = (any, ~to as schema) =>
+  getShort(schema->castToInternal, "a", globalConfig.defaultFlag)(any)
 
-let assertOrThrow = (any, ~to as schema) => {
-  let s = schema->castToInternal
-  let f = globalConfig.defaultFlag
-  let key = "a" ++ f->X.Int.unsafeToString
-  let cached = %raw(`schema[key]`)
-  let fn = if cached->Obj.magic {
-    cached
-  } else {
-    let ar = getAssertResult()
-    let chain =
-      unknown
-      ->updateOutput(mut => {
-        mut.to = Some(s->updateOutput(mut => { mut.to = Some(ar) })->castToInternal)
-      })
-      ->castToInternal
-    compileAndStoreShort(s, key, chain, f)
-  }
-  (fn->Obj.magic)(any)
-}
-
-let assertAsyncOrThrow = (any, ~to as schema) => {
-  let s = schema->castToInternal
-  let f = Flag.async->Flag.with(globalConfig.defaultFlag)
-  let key = "a" ++ f->X.Int.unsafeToString
-  let cached = %raw(`schema[key]`)
-  let fn = if cached->Obj.magic {
-    cached
-  } else {
-    let ar = getAssertResult()
-    let chain =
-      unknown
-      ->updateOutput(mut => {
-        mut.to = Some(s->updateOutput(mut => { mut.to = Some(ar) })->castToInternal)
-      })
-      ->castToInternal
-    compileAndStoreShort(s, key, chain, f)
-  }
-  (fn->Obj.magic)(any)
-}
+let assertAsyncOrThrow = (any, ~to as schema) =>
+  getShort(schema->castToInternal, "a", Flag.async->Flag.with(globalConfig.defaultFlag))(any)
 
 let decodeOrThrow = (any, ~from, ~to) => {
   getDecoder2(~s1=from->castToInternal->reverse, ~s2=to->castToInternal)(any)

@@ -2015,10 +2015,27 @@ d(sp, "~standard", {
   }
 });
 
-function compileAndStoreShort(cacheTarget, key, chain, flag) {
-  let fn = compileDecoder(chain, chain, flag, 0);
+function getAssertResult() {
+  return cached("a", undefinedTag, s => {
+    s.const = (void 0);
+    s.decoder = literalDecoder;
+    s.noValidation = true;
+  });
+}
+
+function compileShort(schema, prefix, key, f) {
+  let chain = prefix === "d" ? schema : (
+      prefix === "p" ? updateOutput(unknown, mut => {
+          mut.to = schema;
+        }) : updateOutput(unknown, mut => {
+          mut.to = updateOutput(schema, mut => {
+            mut.to = getAssertResult();
+          });
+        })
+    );
+  let fn = compileDecoder(chain, chain, f, 0);
   valueOptions[valKey] = fn;
-  d(cacheTarget, key, valueOptions);
+  d(schema, key, valueOptions);
   return fn;
 }
 
@@ -2028,11 +2045,9 @@ function parser(schema) {
   let cached = (schema[key]);
   if (cached) {
     return cached;
+  } else {
+    return compileShort(schema, "p", key, f);
   }
-  let chain = updateOutput(unknown, mut => {
-    mut.to = schema;
-  });
-  return compileAndStoreShort(schema, key, chain, f);
 }
 
 function asyncParser(schema) {
@@ -2041,11 +2056,9 @@ function asyncParser(schema) {
   let cached = (schema[key]);
   if (cached) {
     return cached;
+  } else {
+    return compileShort(schema, "p", key, f);
   }
-  let chain = updateOutput(unknown, mut => {
-    mut.to = schema;
-  });
-  return compileAndStoreShort(schema, key, chain, f);
 }
 
 function decoder(from, to) {
@@ -2063,7 +2076,7 @@ function decoder1(schema) {
   if (cached) {
     return cached;
   } else {
-    return compileAndStoreShort(schema, key, schema, f);
+    return compileShort(schema, "d", key, f);
   }
 }
 
@@ -2074,62 +2087,44 @@ function asyncDecoder1(schema) {
   if (cached) {
     return cached;
   } else {
-    return compileAndStoreShort(schema, key, schema, f);
+    return compileShort(schema, "d", key, f);
   }
 }
 
-function getAssertResult() {
-  return cached("a", undefinedTag, s => {
-    s.const = (void 0);
-    s.decoder = literalDecoder;
-    s.noValidation = true;
-  });
-}
-
 function parseOrThrow(any, schema) {
-  return parser(schema)(any);
+  let f = globalConfig.f;
+  let key = "p" + f;
+  let cached = (schema[key]);
+  return (
+    cached ? cached : compileShort(schema, "p", key, f)
+  )(any);
 }
 
 function parseAsyncOrThrow(any, schema) {
-  return asyncParser(schema)(any);
+  let f = 1 | globalConfig.f;
+  let key = "p" + f;
+  let cached = (schema[key]);
+  return (
+    cached ? cached : compileShort(schema, "p", key, f)
+  )(any);
 }
 
 function assertOrThrow(any, schema) {
   let f = globalConfig.f;
   let key = "a" + f;
   let cached = (schema[key]);
-  let fn;
-  if (cached) {
-    fn = cached;
-  } else {
-    let ar = getAssertResult();
-    let chain = updateOutput(unknown, mut => {
-      mut.to = updateOutput(schema, mut => {
-        mut.to = ar;
-      });
-    });
-    fn = compileAndStoreShort(schema, key, chain, f);
-  }
-  return fn(any);
+  return (
+    cached ? cached : compileShort(schema, "a", key, f)
+  )(any);
 }
 
 function assertAsyncOrThrow(any, schema) {
   let f = 1 | globalConfig.f;
   let key = "a" + f;
   let cached = (schema[key]);
-  let fn;
-  if (cached) {
-    fn = cached;
-  } else {
-    let ar = getAssertResult();
-    let chain = updateOutput(unknown, mut => {
-      mut.to = updateOutput(schema, mut => {
-        mut.to = ar;
-      });
-    });
-    fn = compileAndStoreShort(schema, key, chain, f);
-  }
-  return fn(any);
+  return (
+    cached ? cached : compileShort(schema, "a", key, f)
+  )(any);
 }
 
 function decodeOrThrow(any, from, to) {
@@ -3581,59 +3576,6 @@ function traverseDefinition(definition, onNode) {
   return mut$2;
 }
 
-function getValByFrom(_input, from, _idx) {
-  while (true) {
-    let idx = _idx;
-    let input = _input;
-    let key = from[idx];
-    if (key === undefined) {
-      return input;
-    }
-    _idx = idx + 1 | 0;
-    _input = input.d[key];
-    continue;
-  };
-}
-
-function getShapedParserOutput(input, targetSchema) {
-  let from = targetSchema.from;
-  let fromFlattened = targetSchema.fromFlattened;
-  let v;
-  if (fromFlattened !== undefined) {
-    v = scope(getValByFrom(input.fv[fromFlattened], targetSchema.from, 0));
-  } else if (from !== undefined) {
-    v = scope(getValByFrom(input, from, 0));
-  } else if (constField in targetSchema) {
-    v = nextConst(input, targetSchema, undefined);
-  } else {
-    let output = makeObjectVal(input, targetSchema);
-    output.io = true;
-    let items = targetSchema.items;
-    if (items !== undefined) {
-      for (let idx = 0, idx_finish = items.length; idx < idx_finish; ++idx) {
-        let location = idx.toString();
-        add(output, location, getShapedParserOutput(input, items[idx]));
-      }
-    } else {
-      let properties = targetSchema.properties;
-      if (properties !== undefined) {
-        let keys = Object.keys(properties);
-        for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
-          let location$1 = keys[idx$1];
-          add(output, location$1, getShapedParserOutput(input, properties[location$1]));
-        }
-      } else {
-        let message = `Don't know where the value is coming from: ` + toExpression(targetSchema);
-        throw new Error(`[Sury] ` + message);
-      }
-    }
-    v = completeObjectVal(output);
-  }
-  v.prev = undefined;
-  v.e = targetSchema;
-  return v;
-}
-
 function getShapedSerializerOutput(input, acc, targetSchema, path) {
   let exit = 0;
   if (acc !== undefined) {
@@ -3787,14 +3729,57 @@ function prepareShapedSerializerAcc(acc, input) {
   }
 }
 
-function shapedSerializer(input) {
-  let acc = {};
-  prepareShapedSerializerAcc(acc, input);
-  let targetSchema = input.e.to;
-  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
-  output.t = true;
-  output.prev = input;
-  return output;
+function getValByFrom(_input, from, _idx) {
+  while (true) {
+    let idx = _idx;
+    let input = _input;
+    let key = from[idx];
+    if (key === undefined) {
+      return input;
+    }
+    _idx = idx + 1 | 0;
+    _input = input.d[key];
+    continue;
+  };
+}
+
+function getShapedParserOutput(input, targetSchema) {
+  let from = targetSchema.from;
+  let fromFlattened = targetSchema.fromFlattened;
+  let v;
+  if (fromFlattened !== undefined) {
+    v = scope(getValByFrom(input.fv[fromFlattened], targetSchema.from, 0));
+  } else if (from !== undefined) {
+    v = scope(getValByFrom(input, from, 0));
+  } else if (constField in targetSchema) {
+    v = nextConst(input, targetSchema, undefined);
+  } else {
+    let output = makeObjectVal(input, targetSchema);
+    output.io = true;
+    let items = targetSchema.items;
+    if (items !== undefined) {
+      for (let idx = 0, idx_finish = items.length; idx < idx_finish; ++idx) {
+        let location = idx.toString();
+        add(output, location, getShapedParserOutput(input, items[idx]));
+      }
+    } else {
+      let properties = targetSchema.properties;
+      if (properties !== undefined) {
+        let keys = Object.keys(properties);
+        for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
+          let location$1 = keys[idx$1];
+          add(output, location$1, getShapedParserOutput(input, properties[location$1]));
+        }
+      } else {
+        let message = `Don't know where the value is coming from: ` + toExpression(targetSchema);
+        throw new Error(`[Sury] ` + message);
+      }
+    }
+    v = completeObjectVal(output);
+  }
+  v.prev = undefined;
+  v.e = targetSchema;
+  return v;
 }
 
 function nested(fieldName) {
@@ -3869,6 +3854,16 @@ function definitionToSchema(definition) {
       return node;
     }
   });
+}
+
+function shapedSerializer(input) {
+  let acc = {};
+  prepareShapedSerializerAcc(acc, input);
+  let targetSchema = input.e.to;
+  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
+  output.t = true;
+  output.prev = input;
+  return output;
 }
 
 function definitionToShapedSchema(definition) {
