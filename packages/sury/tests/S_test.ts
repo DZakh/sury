@@ -1532,7 +1532,7 @@ test("Merge preserves optional properties", (t) => {
     code: "P001",
     name: "Widget",
   });
-  t.deepEqual(value, {
+  t.expect(value).toEqual({
     _id: undefined,
     _rev: undefined,
     _deleted: undefined,
@@ -1545,7 +1545,7 @@ test("Merge preserves optional properties", (t) => {
     code: "P001",
     name: "Widget",
   });
-  t.deepEqual(valueWithOptionals, {
+  t.expect(valueWithOptionals).toEqual({
     _id: "123",
     _rev: undefined,
     _deleted: undefined,
