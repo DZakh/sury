@@ -684,17 +684,14 @@ export function deepStrict<Output, Input extends Record<string, unknown>>(
   schema: Schema<Output, Input>
 ): Schema<Output, Input>;
 
-export function merge<O1, O2>(
+export function merge<
+  O1 extends Record<string, unknown>,
+  O2 extends Record<string, unknown>
+>(
   schema1: Schema<O1, Record<string, unknown>>,
   schema2: Schema<O2, Record<string, unknown>>
 ): Schema<
-  {
-    [K in keyof O1 | keyof O2]: K extends keyof O2
-      ? O2[K]
-      : K extends keyof O1
-      ? O1[K]
-      : never;
-  },
+  { [K in keyof (Omit<O1, keyof O2> & O2)]: (Omit<O1, keyof O2> & O2)[K] },
   Record<string, unknown>
 >;
 

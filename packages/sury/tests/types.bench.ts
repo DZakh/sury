@@ -181,3 +181,44 @@ bench("S.schema + S.Output — 10-field object", () => {
   });
   return {} as S.Output<typeof s>;
 }).types([9446, "instantiations"]);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// S.merge — exercises the Omit<O1, keyof O2> & O2 intersection in the return
+// type (S.d.ts:687). Issue #157: previous mapped-type form stripped optional
+// modifiers; the fix uses an intersection. Bench captures the cost of the new
+// shape.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const mergeLeftRequired = S.schema({
+  a: S.string,
+  b: S.number,
+  c: S.boolean,
+});
+const mergeRightRequired = S.schema({
+  d: S.bigint,
+  e: S.symbol,
+});
+
+bench("S.merge — 3+2 all required", () => {
+  return S.merge(mergeLeftRequired, mergeRightRequired);
+}).types([6474, "instantiations"]);
+
+const mergeLeftOptional = S.schema({
+  _id: S.optional(S.string),
+  _rev: S.optional(S.string),
+  _deleted: S.optional(S.boolean),
+});
+const mergeRightForOptional = S.schema({
+  code: S.string,
+  name: S.string,
+});
+
+bench("S.merge — 3 optional + 2 required (issue #157 case)", () => {
+  return S.merge(mergeLeftOptional, mergeRightForOptional);
+}).types([6480, "instantiations"]);
+
+bench("S.merge — output extraction with optional preservation", () => {
+  const m = S.merge(mergeLeftOptional, mergeRightForOptional);
+  return {} as S.Output<typeof m>;
+}).types([13651, "instantiations"]);
+
