@@ -2580,10 +2580,27 @@ let getDecoder = (~s1 as _, ~flag as _=?) => {
       // 2 schemas (± flag)
       let f = (arg2->Obj.magic: flag)->Flag.with(globalConfig.defaultFlag)
       if s1 === unknown {
-        // Parser shortcut (unknown -> schema): cache on s2 under flag-only key "{flag}"
+        // Parser shortcut (unknown -> schema): cache on s2 under flag-only key "{flag}".
+        // On miss, also check the full-key cache slot — the recursive decoder
+        // populates it under "1-{def.seq}--{flag}" during compilation of an outer
+        // schema, and we want to reuse it when compiling a def standalone.
         let key = f->X.Int.unsafeToString
         let cached = s2->Obj.magic->Stdlib.Dict.getUnsafe(key)
-        cached->Obj.magic ? cached : compileAndCache(s2, key, args, 2, f)
+        if cached->Obj.magic {
+          cached
+        } else {
+          let fullKey =
+            "1-" ++ (s2.seq->Obj.magic: string) ++ "--" ++ f->X.Int.unsafeToString
+          let cachedFull = s2->Obj.magic->Stdlib.Dict.getUnsafe(fullKey)
+          if cachedFull->Obj.magic {
+            // Mirror under short key so the next hot-path call hits directly.
+            valueOptions->Js.Dict.set(valKey, cachedFull->Obj.magic)
+            let _ = X.Object.defineProperty(s2, key, valueOptions->Obj.magic)
+            cachedFull
+          } else {
+            compileAndCache(s2, key, args, 2, f)
+          }
+        }->Obj.magic
       } else {
         // Generic 2-schema: full key on max-seq schema
         let seq1: float = s1.seq->Obj.magic
@@ -3327,6 +3344,24 @@ let getAssertResult = () =>
     s.noValidation = Some(true)
   })
 
+// Short-key cache for assertOrThrow / assertAsyncOrThrow / js_assert. The chain
+// (unknown, schema, assertResult) is always the same shape — we control these
+// call sites — so we can cache the compiled decoder on the user's schema under
+// a short letter-prefixed key "a{flag}" instead of going through getDecoder's
+// full-key dynamic path each time.
+let getAssertDecoder = (s: internal, f: flag) => {
+  let key = "a" ++ f->X.Int.unsafeToString
+  let cached = %raw(`s[key]`)
+  if cached->Obj.magic {
+    cached
+  } else {
+    let fn = getDecoder3(~s1=unknown, ~s2=s, ~s3=getAssertResult(), ~flag=f)
+    valueOptions->Js.Dict.set(valKey, fn->Obj.magic)
+    let _ = X.Object.defineProperty(s, key, valueOptions->Obj.magic)
+    fn
+  }->Obj.magic
+}
+
 @inline
 let parseOrThrow = (any, ~to as schema) => {
   getDecoder2(~s1=unknown, ~s2=schema->castToInternal)(any)
@@ -3336,13 +3371,11 @@ let parseAsyncOrThrow = (any, ~to as schema) => {
   getDecoder2(~s1=unknown, ~s2=schema->castToInternal, ~flag=Flag.async)(any)
 }
 
-let assertOrThrow = (any, ~to as schema) => {
-  getDecoder3(~s1=unknown, ~s2=schema->castToInternal, ~s3=getAssertResult())(any)
-}
+let assertOrThrow = (any, ~to as schema) =>
+  getAssertDecoder(schema->castToInternal, globalConfig.defaultFlag)(any)
 
-let assertAsyncOrThrow = (any, ~to as schema) => {
-  getDecoder3(~s1=unknown, ~s2=schema->castToInternal, ~s3=getAssertResult(), ~flag=Flag.async)(any)
-}
+let assertAsyncOrThrow = (any, ~to as schema) =>
+  getAssertDecoder(schema->castToInternal, Flag.async->Flag.with(globalConfig.defaultFlag))(any)
 
 let decodeOrThrow = (any, ~from, ~to) => {
   getDecoder2(~s1=from->castToInternal->reverse, ~s2=to->castToInternal)(any)
@@ -6610,9 +6643,8 @@ let js_encoder = %raw(`(...args) => getDecoder(...args.map(reverse))`)
 
 let js_asyncEncoder = %raw(`(...args) => getDecoder(...args.map(reverse), 1)`)
 
-let js_assert = (schema, data) => {
-  getDecoder3(~s1=unknown, ~s2=schema->castToInternal, ~s3=getAssertResult())(data)
-}
+let js_assert = (schema, data) =>
+  getAssertDecoder(schema->castToInternal, globalConfig.defaultFlag)(data)
 
 let js_union = values =>
   Union.factory(
