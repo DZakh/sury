@@ -46,7 +46,7 @@ test("Successfully serializes nested option with default value", t => {
       t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
     },
     ~expectations={
-      message: `[Sury] Can\'t set default for boolean | undefined | undefined | undefined`,
+      message: `Expected boolean | { BS_PRIVATE_NESTED_SOME_NONE: 0; } | { BS_PRIVATE_NESTED_SOME_NONE: 1; }, received { BS_PRIVATE_NESTED_SOME_NONE: 3; }`,
     },
   )
 })
@@ -123,6 +123,238 @@ asyncTest("Compiled async parse code snapshot", async t => {
     ~schema,
     ~op=#ParseAsync,
     `i=>{if(!(typeof i==="boolean"||i===void 0)){e[0](i)}let v0;try{v0=e[1](i===void 0?false:i).catch(x=>e[2](x))}catch(x){e[2](x)}return v0}`,
+  )
+})
+
+// https://github.com/DZakh/sury/issues/178
+test("Uses default value when parsing optional union of literals", t => {
+  let schema =
+    S.union([S.literal("a"), S.literal("b"), S.literal("c")])->S.option->S.Option.getOr("a")
+
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), "a")
+  t->Assert.deepEqual(%raw(`"b"`)->S.parseOrThrow(~to=schema), "b")
+  t->Assert.deepEqual(%raw(`"c"`)->S.parseOrThrow(~to=schema), "c")
+})
+
+// https://github.com/DZakh/sury/issues/178
+test("Fails to parse invalid value for optional union of literals with default", t => {
+  let schema =
+    S.union([S.literal("a"), S.literal("b"), S.literal("c")])->S.option->S.Option.getOr("a")
+
+  t->U.assertThrowsMessage(
+    () => %raw(`"d"`)->S.parseOrThrow(~to=schema),
+    `Expected "a" | "b" | "c" | undefined, received "d"`,
+  )
+})
+
+// https://github.com/DZakh/sury/issues/178
+test("Successfully serializes optional union of literals with default", t => {
+  let schema =
+    S.union([S.literal("a"), S.literal("b"), S.literal("c")])->S.option->S.Option.getOr("a")
+
+  t->Assert.deepEqual("b"->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"b"`))
+})
+
+test("Rejects invalid static default at schema construction", t => {
+  t->Assert.throws(
+    () => {
+      let _ = S.bool->S.option->S.Option.getOr(%raw(`"not a bool"`))
+    },
+    ~expectations={
+      message: `[Sury] Invalid default for boolean | undefined: Expected boolean, received "not a bool"`,
+    },
+  )
+})
+
+test("Uses empty array as default", t => {
+  let schema = S.array(S.string)->S.option->S.Option.getOr([])
+
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), [])
+  t->Assert.deepEqual(%raw(`["a","b"]`)->S.parseOrThrow(~to=schema), ["a", "b"])
+})
+
+test("Uses non-empty array as default", t => {
+  let schema = S.array(S.string)->S.option->S.Option.getOr(["x", "y"])
+
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), ["x", "y"])
+  t->Assert.deepEqual(%raw(`["a"]`)->S.parseOrThrow(~to=schema), ["a"])
+})
+
+test("Rejects array default whose element type doesn't match", t => {
+  t->Assert.throws(
+    () => {
+      let _ = S.array(S.string)->S.option->S.Option.getOr(%raw(`[42]`))
+    },
+    ~expectations={
+      message: `[Sury] Invalid default for string[] | undefined: Failed at ["0"]: Expected string, received 42`,
+    },
+  )
+})
+
+test("Uses object default with all required fields", t => {
+  let schema =
+    S.schema(s => {"a": s.matches(S.string), "b": s.matches(S.float)})
+    ->S.option
+    ->S.Option.getOr({"a": "hi", "b": 1.})
+
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), {"a": "hi", "b": 1.})
+  t->Assert.deepEqual(
+    %raw(`{"a":"x","b":2}`)->S.parseOrThrow(~to=schema),
+    {"a": "x", "b": 2.},
+  )
+})
+
+test("Rejects object default with field of wrong type", t => {
+  t->Assert.throws(
+    () => {
+      let _ =
+        S.schema(s => {"a": s.matches(S.string)})
+        ->S.option
+        ->S.Option.getOr(%raw(`{"a":42}`))
+    },
+    ~expectations={
+      message: `[Sury] Invalid default for { a: string; } | undefined: Failed at ["a"]: Expected string, received 42`,
+    },
+  )
+})
+
+test("Rejects object default with missing required field", t => {
+  t->Assert.throws(
+    () => {
+      let _ =
+        S.schema(s => {"a": s.matches(S.string)})->S.option->S.Option.getOr(%raw(`{}`))
+    },
+    ~expectations={
+      message: `[Sury] Invalid default for { a: string; } | undefined: Failed at ["a"]: Expected string, received undefined`,
+    },
+  )
+})
+
+test("Uses dict default", t => {
+  let schema = S.dict(S.float)->S.option->S.Option.getOr(Dict.fromArray([("x", 1.), ("y", 2.)]))
+
+  t->Assert.deepEqual(
+    %raw(`undefined`)->S.parseOrThrow(~to=schema),
+    Dict.fromArray([("x", 1.), ("y", 2.)]),
+  )
+})
+
+test("Rejects invalid static default that doesn't match a union member", t => {
+  t->Assert.throws(
+    () => {
+      let _ =
+        S.union([S.literal("a"), S.literal("b"), S.literal("c")])
+        ->S.option
+        ->S.Option.getOr(%raw(`"d"`))
+    },
+    ~expectations={
+      message: `[Sury] Invalid default for "a" | "b" | "c" | undefined: Expected "a" | "b" | "c", received "d"`,
+    },
+  )
+})
+
+test("Default on a primary item with S.to runs the transformation on parse and reverse", t => {
+  let defaultDate = Date.fromString("2024-01-01T00:00:00.000Z")
+  let otherDate = Date.fromString("2024-06-15T12:30:45.123Z")
+  let schema = S.string->S.to(S.date)->S.option->S.Option.getOr(defaultDate)
+
+  // schema.default is the input form (ISO string), not the Date — JSON Schema metadata.
+  let untagged = schema->S.untag
+  t->Assert.is(untagged.tag, S.Union)
+  t->Assert.is(untagged.anyOf->Option.getOrThrow->Array.length, 2)
+  t->Assert.deepEqual(untagged.default, %raw(`"2024-01-01T00:00:00.000Z"`))
+  t->Assert.is((untagged.to->Option.getOrThrow->S.untag).tag, S.Instance)
+
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), defaultDate)
+  t->Assert.deepEqual("2024-06-15T12:30:45.123Z"->S.parseOrThrow(~to=schema), otherDate)
+
+  t->Assert.deepEqual(
+    defaultDate->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`"2024-01-01T00:00:00.000Z"`),
+  )
+  t->Assert.deepEqual(
+    otherDate->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`"2024-06-15T12:30:45.123Z"`),
+  )
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);i=v0}else if(!(i===void 0)){e[1](i)}return i===void 0?e[2]:i}`,
+  )
+  // Output is non-optional Date, so encoder skips both undefined and Date checks.
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return i.toISOString()}`)
+})
+
+// .to(jsonString) extends the .to chain rather than replacing getWithDefault's wiring.
+test("Appending S.to(S.jsonString) after getOr extends the output chain", t => {
+  let defaultDate = Date.fromString("2024-01-01T00:00:00.000Z")
+  let schema = S.string->S.to(S.date)->S.option->S.Option.getOr(defaultDate)->S.to(S.jsonString)
+
+  let untagged = schema->S.untag
+  t->Assert.is(untagged.tag, S.Union)
+  t->Assert.deepEqual(untagged.default, %raw(`"2024-01-01T00:00:00.000Z"`))
+  let toLevel1 = untagged.to->Option.getOrThrow->S.untag
+  t->Assert.is(toLevel1.tag, S.Instance)
+  let toLevel2 = toLevel1.to->Option.getOrThrow->S.untag
+  t->Assert.is(toLevel2.tag, S.String)
+
+  t->Assert.deepEqual(
+    %raw(`undefined`)->S.parseOrThrow(~to=schema),
+    `"2024-01-01T00:00:00.000Z"`,
+  )
+  t->Assert.deepEqual(
+    "2024-06-15T12:30:45.123Z"->S.parseOrThrow(~to=schema),
+    `"2024-06-15T12:30:45.123Z"`,
+  )
+
+  t->Assert.deepEqual(
+    `"2024-01-01T00:00:00.000Z"`->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`"2024-01-01T00:00:00.000Z"`),
+  )
+})
+
+// FIXME: parse codegen for a multi-member transforming union + getOr puts
+// each branch's input refiner BEFORE its `let v0 = +i` / `let v1 = BigInt(i)`
+// declaration, so parsing a string throws ReferenceError. Encoder side and
+// non-string parse paths are fine — the bug lives in the outer union's
+// per-branch decoder emission, not in getWithDefault.
+test("Multi-member union with transformed members + getOr — current (broken) behavior", t => {
+  let schema =
+    S.union([
+      S.string->S.to(S.float)->S.castToUnknown,
+      S.string->S.to(S.bigint)->S.castToUnknown,
+      S.bool->S.castToUnknown,
+    ])
+    ->S.option
+    ->S.Option.getOr(%raw(`true`))
+
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), %raw(`true`))
+  t->Assert.deepEqual(%raw(`true`)->S.parseOrThrow(~to=schema), %raw(`true`))
+  t->Assert.deepEqual(%raw(`false`)->S.parseOrThrow(~to=schema), %raw(`false`))
+
+  t->Assert.deepEqual(%raw(`42`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"42"`))
+  t->Assert.deepEqual(%raw(`1n`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"1"`))
+  t->Assert.deepEqual(%raw(`true`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`true`))
+
+  // FIXME: `if(!Number.isNaN(v0))` reads v0 before `let v0 = +i`.
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(typeof i==="string"){if(!Number.isNaN(v0)){let v0=+i;i=v0}else{try{let v1;try{v1=BigInt(i)}catch(_){e[0](i)}i=v1}catch(e1){e[1](i,e1)}}}else if(!(typeof i==="boolean"||i===void 0)){e[2](i)}return i===void 0?true:i}`,
+  )
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Encode,
+    `i=>{if(typeof i==="number"&&!Number.isNaN(i)){i=""+i}else if(typeof i==="bigint"){i=""+i}else if(!(typeof i==="boolean")){e[0](i)}return i}`,
+  )
+
+  t->Assert.throws(
+    () => {
+      let _ = "42"->S.parseOrThrow(~to=schema)
+    },
+    ~expectations={message: "v0 is not defined"},
   )
 })
 
