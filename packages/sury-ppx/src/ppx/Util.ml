@@ -35,6 +35,29 @@ let generateSchemaName type_name =
    used cases work too. *)
 let generateTypeVarSchemaName type_var_name = "_" ^ type_var_name ^ "Schema"
 
+(* Wrap a curried OCaml-AST `fun` in the encoding the ReScript parser emits for
+   uncurried functions: `Function$(@res.arity(N) <fun>)`. Without this, ReScript
+   v11+ treats PPX-emitted `Pexp_fun` as curried and rejects uncurried call
+   syntax `foo(arg)`. See
+   https://forum.rescript-lang.org/t/quick-migration-guide-to-uncurried-mode-for-ppx-maintainers/5067 *)
+let uncurriedFun ~loc ~arity fun_expr =
+  let arity_attr =
+    {
+      attr_name = mknoloc "res.arity";
+      attr_payload =
+        PStr
+          [
+            Str.eval
+              (Exp.constant
+                 (Pconst_integer (string_of_int arity, None)));
+          ];
+      attr_loc = loc;
+    }
+  in
+  Exp.construct ~loc ~attrs:[arity_attr]
+    (mknoloc (Longident.Lident "Function$"))
+    (Some fun_expr)
+
 type field = {
   name: string;
   runtime_name: string;

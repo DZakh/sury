@@ -82,24 +82,29 @@ and generatePolyvariantSchemaExpression row_fields =
                 the type level. Unfold it so the construction site uses flat
                 args, mirroring how generateVariantSchemaExpression handles
                 Pcstr_tuple multi-arg variants. *)
+             let body =
+               Exp.variant name
+                 (Some
+                    (Exp.tuple
+                       (tuple_types
+                       |> List.map payloadCoreTypeToMatchesExpression)))
+             in
              [%expr
                S.schema
-                 (Obj.magic (fun (s : S.Schema.s) ->
-                      [%e
-                        Exp.variant name
-                          (Some
-                             (Exp.tuple
-                                (tuple_types
-                                |> List.map payloadCoreTypeToMatchesExpression)))]))]
+                 [%e
+                   uncurriedFun ~loc:prf_loc ~arity:1
+                     [%expr fun (s : S.Schema.s) -> [%e body]]]]
            | Rtag ({txt = name}, _, [payload_core_type]) ->
+             let body =
+               Exp.variant name
+                 (Some
+                    (payloadCoreTypeToMatchesExpression payload_core_type))
+             in
              [%expr
                S.schema
-                 (Obj.magic (fun (s : S.Schema.s) ->
-                      [%e
-                        Exp.variant name
-                          (Some
-                             (payloadCoreTypeToMatchesExpression
-                                payload_core_type))]))]
+                 [%e
+                   uncurriedFun ~loc:prf_loc ~arity:1
+                     [%expr fun (s : S.Schema.s) -> [%e body]]]]
            | Rtag _ ->
              fail prf_loc
                "Polymorphic variant ampersand types (`Tag of t1 & t2) are not \
@@ -129,21 +134,22 @@ and generateVariantSchemaExpression constr_decls =
            | Pcstr_tuple [] ->
              [%expr S.literal [%e Exp.construct (lid name) None]]
            | Pcstr_tuple payload_core_types ->
+             let body =
+               Exp.construct (lid name)
+                 (Some
+                    (match payload_core_types with
+                    | [payload_core_type] ->
+                      payloadCoreTypeToMatchesExpression payload_core_type
+                    | payload_core_types ->
+                      Exp.tuple
+                        (payload_core_types
+                        |> List.map payloadCoreTypeToMatchesExpression)))
+             in
              [%expr
                S.schema
-                 (Obj.magic (fun (s : S.Schema.s) ->
-                      [%e
-                        Exp.construct (lid name)
-                          (Some
-                             (match payload_core_types with
-                             | [payload_core_type] ->
-                               payloadCoreTypeToMatchesExpression
-                                 payload_core_type
-                             | payload_core_types ->
-                               Exp.tuple
-                                 (payload_core_types
-                                 |> List.map payloadCoreTypeToMatchesExpression
-                                 )))]))]
+                 [%e
+                   uncurriedFun ~loc ~arity:1
+                     [%expr fun (s : S.Schema.s) -> [%e body]]]]
            | Pcstr_record label_declarations ->
              let fields =
                label_declarations |> List.map parseLabelDeclaration
@@ -156,12 +162,15 @@ and generateVariantSchemaExpression constr_decls =
                       in
                       (lid field.name, [%expr s.matches [%e schema_expression]]))
              in
+             let body =
+               Exp.construct (lid name)
+                 (Some (Exp.record field_expressions None))
+             in
              [%expr
                S.schema
-                 (Obj.magic (fun (s : S.Schema.s) ->
-                      [%e
-                        Exp.construct (lid name)
-                          (Some (Exp.record field_expressions None))]))])
+                 [%e
+                   uncurriedFun ~loc ~arity:1
+                     [%expr fun (s : S.Schema.s) -> [%e body]]]])
   in
   match union_items with
   | [item] -> item
@@ -174,14 +183,16 @@ and generateObjectSchema fields =
            ( lid field.name,
              [%expr s.matches [%e generateFieldSchemaExpression field]] ))
   in
-  (* Use Obj.magic to cast to uncurried function in case of uncurried mode *)
+  let body =
+    Exp.extension
+      ( mkloc "obj" Location.none,
+        PStr [Str.eval (Exp.record field_expressions None)] )
+  in
   [%expr
     S.schema
-      (Obj.magic (fun (s : S.Schema.s) ->
-           [%e
-             Exp.extension
-               ( mkloc "obj" Location.none,
-                 PStr [Str.eval (Exp.record field_expressions None)] )]))]
+      [%e
+        uncurriedFun ~loc:Location.none ~arity:1
+          [%expr fun (s : S.Schema.s) -> [%e body]]]]
 
 and generateRecordSchema type_name fields =
   let field_expressions =
@@ -197,11 +208,11 @@ and generateRecordSchema type_name fields =
       Exp.constraint_ record_expr (Typ.constr (lid type_name) [])
     | _ -> record_expr
   in
-  (* Use Obj.magic to cast to uncurried function in case of uncurried mode *)
   [%expr
     S.schema
-      (Obj.magic (fun (s : S.Schema.s) ->
-           [%e body]))]
+      [%e
+        uncurriedFun ~loc:Location.none ~arity:1
+          [%expr fun (s : S.Schema.s) -> [%e body]]]]
 
 and generateCoreTypeSchemaExpression core_type =
   let {ptyp_desc; ptyp_loc; ptyp_attributes} = core_type in
@@ -228,17 +239,19 @@ and generateCoreTypeSchemaExpression core_type =
         fail ptyp_loc "Can't generate schema for function type"
       | Ptyp_package _ -> fail ptyp_loc "Can't generate schema for module type"
       | Ptyp_tuple tuple_types ->
+        let body =
+          Exp.tuple
+            (tuple_types
+            |> List.map (fun tuple_type ->
+                   [%expr
+                     s.matches [%e generateCoreTypeSchemaExpression tuple_type]]))
+        in
         [%expr
           S.schema
-            (Obj.magic (fun (s : S.Schema.s) : [%t core_type] ->
-                 [%e
-                   Exp.tuple
-                     (tuple_types
-                     |> List.map (fun tuple_type ->
-                            [%expr
-                              s.matches
-                                [%e generateCoreTypeSchemaExpression tuple_type]])
-                     )]))]
+            [%e
+              uncurriedFun ~loc:ptyp_loc ~arity:1
+                [%expr
+                  fun (s : S.Schema.s) : [%t core_type] -> [%e body]]]]
       | Ptyp_var s -> makeIdentExpr (generateTypeVarSchemaName s)
       | Ptyp_constr (constr, type_args) ->
         generateConstrSchemaExpression constr type_args
@@ -303,10 +316,10 @@ let generateSchemaValueBinding type_name ptype_params schema_expr =
         Exp.constraint_ schema_expr
           [%type: [%t Typ.constr (lid type_name) [Typ.var s]] S.t]
       in
-      (* Obj.magic casts the curried OCaml-AST function to the uncurried
-         form ReScript v11+ expects at call sites. *)
+      let loc = ct.ptyp_loc in
       Vb.mk schema_name_pat
-        [%expr Obj.magic (fun [%p param_pat] -> [%e constrained])]
+        (uncurriedFun ~loc ~arity:1
+           [%expr fun [%p param_pat] -> [%e constrained]])
     | _ ->
       fail ct.ptyp_loc "Expected a type variable as type parameter")
   | _ ->
