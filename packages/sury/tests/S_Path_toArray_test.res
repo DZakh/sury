@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Works with empty", t => {
   t->Assert.deepEqual(S.Path.empty->S.Path.toArray, [])

@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Expression of primitive schema", t => {
   t->Assert.deepEqual(S.string->S.toExpression, "string")

@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Throws for a Union schema factory without schemas", t => {
   t->Assert.throws(

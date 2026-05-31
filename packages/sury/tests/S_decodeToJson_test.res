@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Successfully reverse converts jsonable schemas", t => {
   t->Assert.deepEqual(true->S.decodeOrThrow(~from=S.bool, ~to=S.json), true->JSON.Encode.bool)

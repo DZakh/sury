@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Initially there's no description", t => {
   let schema = S.string

@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Literal schema", t => {
   t->U.assertEqualSchemas(S.schema(_ => 1), S.literal(1))
