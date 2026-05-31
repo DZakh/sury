@@ -6696,11 +6696,15 @@ let js_optional = (schema, maybeOr) => {
 
 let js_nullable = (schema, maybeOr) => {
   // TODO: maybeOr should be part of the unit schema
-  let schema = Union.factory([schema->castToUnknown, nullLiteral()->castToPublic->castToUnknown])
   switch maybeOr {
-  | Some(or) if typeof(or) === functionTag => schema->Option.getOrWith(or->Obj.magic)->Obj.magic
-  | Some(or) => schema->Option.getOr(or->Obj.magic)->Obj.magic
-  | None => schema
+  | Some(or) =>
+    let schema = Union.factory([schema->castToUnknown, nullAsUnit()->castToPublic->castToUnknown])
+    if typeof(or) === functionTag {
+      schema->Option.getOrWith(or->Obj.magic)->Obj.magic
+    } else {
+      schema->Option.getOr(or->Obj.magic)->Obj.magic
+    }
+  | None => Union.factory([schema->castToUnknown, nullLiteral()->castToPublic->castToUnknown])
   }
 }
 
