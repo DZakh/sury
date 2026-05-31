@@ -493,11 +493,111 @@ test("Optional enum", (t) => {
     >
   >(true);
 
-  const brokenInfer = S.optional(S.union(["Win", "Draw", "Loss"]));
+  const inlineOptional = S.optional(S.union(["Win", "Draw", "Loss"]));
+  t.expect(S.parser(inlineOptional)("Win")).toEqual("Win");
+  t.expect(S.encoder(inlineOptional)("Win")).toEqual("Win");
   expectType<
     TypeEqual<
-      S.Schema<string | undefined, string | undefined>,
-      typeof brokenInfer
+      S.Schema<
+        "Win" | "Draw" | "Loss" | undefined,
+        "Win" | "Draw" | "Loss" | undefined
+      >,
+      typeof inlineOptional
+    >
+  >(true);
+
+  const inlineNullable = S.nullable(S.union(["Win", "Draw", "Loss"]));
+  t.expect(S.parser(inlineNullable)("Win")).toEqual("Win");
+  t.expect(S.encoder(inlineNullable)("Win")).toEqual("Win");
+  expectType<
+    TypeEqual<
+      S.Schema<
+        "Win" | "Draw" | "Loss" | null,
+        "Win" | "Draw" | "Loss" | null
+      >,
+      typeof inlineNullable
+    >
+  >(true);
+
+  const inlineNullish = S.nullish(S.union(["Win", "Draw", "Loss"]));
+  t.expect(S.parser(inlineNullish)("Win")).toEqual("Win");
+  t.expect(S.encoder(inlineNullish)("Win")).toEqual("Win");
+  expectType<
+    TypeEqual<
+      S.Schema<
+        "Win" | "Draw" | "Loss" | null | undefined,
+        "Win" | "Draw" | "Loss" | null | undefined
+      >,
+      typeof inlineNullish
+    >
+  >(true);
+
+  const inlineArray = S.array(S.union(["Win", "Draw", "Loss"]));
+  t.expect(S.parser(inlineArray)(["Win", "Loss"])).toEqual(["Win", "Loss"]);
+  t.expect(S.encoder(inlineArray)(["Win", "Loss"])).toEqual(["Win", "Loss"]);
+  expectType<
+    TypeEqual<
+      S.Schema<
+        ("Win" | "Draw" | "Loss")[],
+        ("Win" | "Draw" | "Loss")[]
+      >,
+      typeof inlineArray
+    >
+  >(true);
+
+  const inlineRecord = S.record(S.union(["Win", "Draw", "Loss"]));
+  t.expect(S.parser(inlineRecord)({ a: "Win" })).toEqual({ a: "Win" });
+  t.expect(S.encoder(inlineRecord)({ a: "Win" })).toEqual({ a: "Win" });
+  expectType<
+    TypeEqual<
+      S.Schema<
+        Record<string, "Win" | "Draw" | "Loss">,
+        Record<string, "Win" | "Draw" | "Loss">
+      >,
+      typeof inlineRecord
+    >
+  >(true);
+
+  const inlineObject = S.schema({
+    status: S.union(["Win", "Draw", "Loss"]),
+  });
+  t.expect(S.parser(inlineObject)({ status: "Win" })).toEqual({ status: "Win" });
+  t.expect(S.encoder(inlineObject)({ status: "Win" })).toEqual({ status: "Win" });
+  expectType<
+    TypeEqual<
+      S.Schema<
+        { status: "Win" | "Draw" | "Loss" },
+        { status: "Win" | "Draw" | "Loss" }
+      >,
+      typeof inlineObject
+    >
+  >(true);
+
+  const inlineTuple = S.schema([S.union(["Win", "Draw", "Loss"]), S.number]);
+  t.expect(S.parser(inlineTuple)(["Win", 1])).toEqual(["Win", 1]);
+  t.expect(S.encoder(inlineTuple)(["Win", 1])).toEqual(["Win", 1]);
+  expectType<
+    TypeEqual<
+      S.Schema<
+        ["Win" | "Draw" | "Loss", number],
+        ["Win" | "Draw" | "Loss", number]
+      >,
+      typeof inlineTuple
+    >
+  >(true);
+
+  const nestedDeep = S.optional(
+    S.array(S.nullable(S.union(["Win", "Draw", "Loss"]))),
+  );
+  t.expect(S.parser(nestedDeep)(["Win", null])).toEqual(["Win", null]);
+  t.expect(S.encoder(nestedDeep)(["Win", null])).toEqual(["Win", null]);
+  expectType<
+    TypeEqual<
+      S.Schema<
+        ("Win" | "Draw" | "Loss" | null)[] | undefined,
+        ("Win" | "Draw" | "Loss" | null)[] | undefined
+      >,
+      typeof nestedDeep
     >
   >(true);
 });
@@ -523,12 +623,12 @@ test("Successfully parses nullable string", (t) => {
   const value2 = S.parser(schema)(null);
 
   t.expect(value1).toEqual("foo");
-  t.expect(value2).toEqual(undefined);
+  t.expect(value2).toEqual(null);
 
   expectType<
-    TypeEqual<S.Schema<string | undefined, string | null>, typeof schema>
+    TypeEqual<S.Schema<string | null, string | null>, typeof schema>
   >(true);
-  expectType<TypeEqual<typeof value1, string | undefined>>(true);
+  expectType<TypeEqual<typeof value1, string | null>>(true);
 });
 
 test("Successfully parses nullable of array with default", (t) => {
@@ -605,13 +705,13 @@ test("Successfully parses schema wrapped in nullable multiple times", (t) => {
   // TODO: Test that it should flatten nested nullable schemas
 
   t.expect(value1).toEqual("foo");
-  t.expect(value2).toEqual(undefined);
+  t.expect(value2).toEqual(null);
 
   expectType<
-    TypeEqual<S.Schema<string | undefined, string | null>, typeof schema>
+    TypeEqual<S.Schema<string | null, string | null>, typeof schema>
   >(true);
-  expectType<TypeEqual<typeof value1, string | undefined>>(true);
-  expectType<TypeEqual<typeof value2, string | undefined>>(true);
+  expectType<TypeEqual<typeof value1, string | null>>(true);
+  expectType<TypeEqual<typeof value2, string | null>>(true);
 });
 
 test("Fails to parse with invalid data", (t) => {
@@ -2059,14 +2159,14 @@ test("Standard schema", (t) => {
     value: "foo",
   });
   t.expect(schema["~standard"]["validate"](null)).toEqual({
-    value: undefined,
+    value: null,
   });
 
   expectType<
     TypeEqual<S.StandardSchemaV1.InferInput<typeof schema>, string | null>
   >(true);
   expectType<
-    TypeEqual<S.StandardSchemaV1.InferOutput<typeof schema>, string | undefined>
+    TypeEqual<S.StandardSchemaV1.InferOutput<typeof schema>, string | null>
   >(true);
 });
 
@@ -2112,7 +2212,6 @@ test("CompactColumns schema", (t) => {
   );
 
   // Test parsing columnar data to row objects
-  // S.nullable converts null to undefined on parsing
   const parse = S.parser(schema);
   const parsed = parse([
     ["0", "1"],
@@ -2121,16 +2220,15 @@ test("CompactColumns schema", (t) => {
   ] as unknown[][]);
   t.expect(parsed).toEqual([
     { id: "0", name: "Hello", deleted: false },
-    { id: "1", name: undefined, deleted: true },
+    { id: "1", name: null, deleted: true },
   ]);
 
   // Test encoding row objects back to columnar data
-  // S.nullable converts undefined back to null on encoding
   const encode = S.encoder(schema);
   const encoded = encode([
     { id: "0", name: "Hello", deleted: false },
-    { id: "1", name: undefined, deleted: true },
-  ] as any);
+    { id: "1", name: null, deleted: true },
+  ]);
   t.expect(encoded).toEqual([
     ["0", "1"],
     ["Hello", null],
@@ -2559,7 +2657,7 @@ test("Decode from json", async (t) => {
   const schema = S.string.with(S.nullable);
 
   t.expect(S.decoder(S.json, schema)("hello")).toEqual("hello");
-  t.expect(S.decoder(S.json, schema)(null)).toEqual(undefined);
+  t.expect(S.decoder(S.json, schema)(null)).toEqual(null);
 
   // Date fields should be encoded to ISO string when decoding to JSON
   const dateSchema = S.schema({ field: S.date });
@@ -2599,7 +2697,7 @@ test("Decode from json string", async (t) => {
   const schema = S.nullable(S.string);
 
   t.expect(S.decoder(S.jsonString, schema)(`"hello"`)).toEqual("hello");
-  t.expect(S.decoder(S.jsonString, schema)("null")).toEqual(undefined);
+  t.expect(S.decoder(S.jsonString, schema)("null")).toEqual(null);
 });
 
 test("Decode from json string, convert to number", async (t) => {

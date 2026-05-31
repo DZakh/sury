@@ -4425,13 +4425,16 @@ function js_optional(schema, maybeOr) {
 }
 
 function js_nullable(schema, maybeOr) {
+  if (maybeOr === undefined) {
+    return factory$1([
+      schema,
+      nullLiteral()
+    ]);
+  }
   let schema$1 = factory$1([
     schema,
     nullAsUnit()
   ]);
-  if (maybeOr === undefined) {
-    return schema$1;
-  }
   let or = Primitive_option.valFromOption(maybeOr);
   if (typeof or === functionTag) {
     return getWithDefault(schema$1, {

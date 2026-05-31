@@ -458,7 +458,7 @@ export function schema<T>(
   value: T
 ): Schema<UnknownToOutput<T>, UnknownToInput<T>>;
 
-export function union<A extends Literal, B extends Literal[]>(
+export function union<const A extends Literal, const B extends Literal[]>(
   schemas: [A, ...B]
 ): Schema<
   UnknownToOutput<A> | UnknownArrayToOutput<B>[number],
@@ -622,13 +622,13 @@ export function optional<
 export function nullable<
   Output,
   Input,
-  Or extends Output | undefined = undefined
+  Or extends Output | null = null
 >(
   schema: Schema<Output, Input>,
   or?: (() => Or) | Or,
   // To make .with work
   _?: never
-): Schema<Or extends undefined ? Output | undefined : Output, Input | null>;
+): Schema<Or extends null ? Output | null : Output, Input | null>;
 
 export const nullish: <Output, Input>(
   schema: Schema<Output, Input>
