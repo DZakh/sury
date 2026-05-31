@@ -24,8 +24,19 @@ test("JSONSchema of S.json transformed to object with bigint and array of option
       "items": s.matches(S.array(S.option(S.float->S.floatMax(1.)))),
     }
   )
-  // TODO: Should coerce nonJsonableSchema to jsonable JSON Schema
-  t->Assert.deepEqual(S.json->S.to(nonJsonableSchema)->S.toJSONSchema, %raw(`{}`))
+  t->Assert.deepEqual(
+    S.json->S.to(nonJsonableSchema)->S.toJSONSchema,
+    %raw(`{
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        data: {},
+        items: { type: "array", items: {} },
+      },
+      required: ["id", "data", "items"],
+      additionalProperties: false,
+    }`),
+  )
 })
 
 test("JSONSchema of email schema", t => {

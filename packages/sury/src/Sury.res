@@ -4651,6 +4651,10 @@ and jsonDecoderFn = (~input) => {
         jsonVal->completeObjectVal
       }
     }
+  } else if inputTagFlag->Flag.unsafeHas(TagFlag.union) {
+    let expected = input.schema->copySchema
+    expected.to = input.expected.to
+    input->B.refine(~expected)->parse
   } else if inputTagFlag->Flag.unsafeHas(TagFlag.ref) {
     // FIXME: Should be a unified solution for ref inputs
     recursiveDecoder(~input)
