@@ -42,6 +42,84 @@ Ava("Supported as an object field", t => U.assertEqualSchemas(t, objectFieldSche
   poly: s.m(S.literal("one"))
 })), undefined));
 
+let polyWithPayloadsSchema = S.union([
+  S.literal("one"),
+  S.schema(s => ({
+    NAME: "two",
+    VAL: s.m(S.int)
+  })),
+  S.schema(s => ({
+    NAME: "three",
+    VAL: [
+      s.m(S.string),
+      s.m(S.float)
+    ]
+  })),
+  S.schema(s => ({
+    NAME: "four",
+    VAL: s.m(S.schema(s => ({
+      foo: s.m(S.string)
+    })))
+  }))
+]);
+
+Ava("Polymorphic variant with payloads (issue #160)", t => {
+  U.assertEqualSchemas(t, polyWithPayloadsSchema, S.union([
+    S.literal("one"),
+    S.schema(s => ({
+      NAME: "two",
+      VAL: s.m(S.int)
+    })),
+    S.schema(s => ({
+      NAME: "three",
+      VAL: [
+        s.m(S.string),
+        s.m(S.float)
+      ]
+    })),
+    S.schema(s => ({
+      NAME: "four",
+      VAL: s.m(S.schema(s => ({
+        foo: s.m(S.string)
+      })))
+    }))
+  ]), undefined);
+  t.deepEqual(S.parseOrThrow("one", polyWithPayloadsSchema), "one");
+  t.deepEqual(S.parseOrThrow({NAME:"two",VAL:123}, polyWithPayloadsSchema), {
+    NAME: "two",
+    VAL: 123
+  });
+  t.deepEqual(S.parseOrThrow({NAME:"three",VAL:["hello",1.5]}, polyWithPayloadsSchema), {
+    NAME: "three",
+    VAL: [
+      "hello",
+      1.5
+    ]
+  });
+  t.deepEqual(S.parseOrThrow({NAME:"four",VAL:{foo:"bar"}}, polyWithPayloadsSchema), {
+    NAME: "four",
+    VAL: {
+      foo: "bar"
+    }
+  });
+});
+
+let polyWithSinglePayloadSchema = S.schema(s => ({
+  NAME: "value",
+  VAL: s.m(S.string)
+}));
+
+Ava("Polymorphic variant with single payload (issue #160)", t => {
+  U.assertEqualSchemas(t, polyWithSinglePayloadSchema, S.schema(s => ({
+    NAME: "value",
+    VAL: s.m(S.string)
+  })), undefined);
+  t.deepEqual(S.parseOrThrow({NAME:"value",VAL:"hello"}, polyWithSinglePayloadSchema), {
+    NAME: "value",
+    VAL: "hello"
+  });
+});
+
 export {
   polySchema,
   polyWithSingleItemSchema,
@@ -49,5 +127,7 @@ export {
   dictFieldSchema,
   recordFieldSchema,
   objectFieldSchema,
+  polyWithPayloadsSchema,
+  polyWithSinglePayloadSchema,
 }
 /* polySchema Not a pure module */
