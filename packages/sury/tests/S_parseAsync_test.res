@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 let validAsyncRefine = S.transform(_, _ => {
   asyncParser: value => value->Promise.resolve,

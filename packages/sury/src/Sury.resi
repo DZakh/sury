@@ -79,7 +79,7 @@ type rec t<'value> =
       default?: string,
       minLength?: int,
       maxLength?: int,
-      pattern?: Js.Re.t,
+      pattern?: RegExp.t,
       errorMessage?: schemaErrorMessage,
     })
   | @as("number")
@@ -120,18 +120,18 @@ type rec t<'value> =
     })
   | @as("symbol")
   Symbol({
-      const?: Js.Types.symbol,
+      const?: Symbol.t,
       name?: string,
       title?: string,
       description?: string,
       deprecated?: bool,
-      examples?: array<Js.Types.symbol>,
-      default?: Js.Types.symbol,
+      examples?: array<Symbol.t>,
+      default?: Symbol.t,
       errorMessage?: schemaErrorMessage,
     })
   | @as("null")
   Null({
-      const: Js.Types.null_val,
+      const: null<unit>,
       name?: string,
       title?: string,
       description?: string,
@@ -158,25 +158,25 @@ type rec t<'value> =
     })
   | @as("function")
   Function({
-      const?: Js.Types.function_val,
+      const?: Type.Classify.function,
       name?: string,
       title?: string,
       description?: string,
       deprecated?: bool,
-      examples?: array<Js.Types.function_val>,
-      default?: Js.Types.function_val,
+      examples?: array<Type.Classify.function>,
+      default?: Type.Classify.function,
       errorMessage?: schemaErrorMessage,
     })
   | @as("instance")
   Instance({
       class: unknown,
-      const?: Js.Types.obj_val,
+      const?: Type.Classify.object,
       name?: string,
       title?: string,
       description?: string,
       deprecated?: bool,
-      examples?: array<Js.Types.obj_val>,
-      default?: Js.Types.obj_val,
+      examples?: array<Type.Classify.object>,
+      default?: Type.Classify.object,
       errorMessage?: schemaErrorMessage,
     })
   | @as("array")
@@ -346,9 +346,9 @@ let bool: unit => t<bool>
 let int: unit => t<int>
 let float: unit => t<float>
 let bigint: unit => t<bigint>
-let symbol: unit => t<Js.Types.symbol>
-let date: unit => t<Js.Date.t>
-let json: unit => t<Js.Json.t>
+let symbol: unit => t<Symbol.t>
+let date: unit => t<Date.t>
+let json: unit => t<JSON.t>
 let jsonString: unit => t<string>
 let jsonStringWithSpace: int => t<string>
 let uint8Array: unit => t<Uint8Array.t>
@@ -491,11 +491,11 @@ let floatMax: (t<float>, float, ~message: string=?) => t<float>
 
 let length: (t<'value>, int, ~message: string=?) => t<'value>
 
-let pattern: (t<string>, Js.Re.t, ~message: string=?) => t<string>
+let pattern: (t<string>, RegExp.t, ~message: string=?) => t<string>
 let trim: t<string> => t<string>
 
 let toJSONSchema: t<'value> => JSONSchema.t
-let fromJSONSchema: JSONSchema.t => t<Js.Json.t>
+let fromJSONSchema: JSONSchema.t => t<JSON.t>
 let extendJSONSchema: (t<'value>, JSONSchema.t) => t<'value>
 
 type globalConfigOverride = {

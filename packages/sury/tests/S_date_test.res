@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Successfully parses valid Date", t => {
   let date = Date.fromString("2024-01-01T00:00:00Z")

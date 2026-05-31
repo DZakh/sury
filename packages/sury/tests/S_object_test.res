@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 @live
 type options = {fast?: bool, mode?: int}
@@ -184,6 +184,31 @@ test("Fails to parse object when provided invalid data", t => {
   t->U.assertThrowsMessage(
     () => %raw(`12`)->S.parseOrThrow(~to=schema),
     `Expected { field: string; }, received 12`,
+  )
+})
+
+// Regression: deeply nested missing field should show path, not dump full schema (#124)
+test("Error for deeply nested missing field uses path instead of full schema dump", t => {
+  let bSchema = S.object(s => {"a": s.field("a", S.int)})
+  let cSchema = S.object(s => {"b": s.field("b", bSchema)})
+  let dSchema = S.object(s => {"c": s.field("c", cSchema)})
+  let eSchema = S.object(s => {"d": s.field("d", dSchema)})
+  let fSchema = S.object(s => {"e": s.field("e", eSchema)})
+  let gSchema = S.object(s => {"f": s.field("f", fSchema)})
+  let hSchema = S.object(s => {"g": s.field("g", gSchema)})
+
+  // Missing field at innermost level
+  t->U.assertThrowsMessage(
+    () =>
+      %raw(`{"g":{"f":{"e":{"d":{"c":{"b":{"wrong":42}}}}}}}`)->S.parseOrThrow(~to=hSchema),
+    `Failed at ["g"]["f"]["e"]["d"]["c"]["b"]["a"]: Expected int32, received undefined`,
+  )
+
+  // Missing field one level above innermost
+  t->U.assertThrowsMessage(
+    () =>
+      %raw(`{"g":{"f":{"e":{"d":{"c":{"wrong":{"a":42}}}}}}}`)->S.parseOrThrow(~to=hSchema),
+    `Failed at ["g"]["f"]["e"]["d"]["c"]["b"]: Expected { a: int32; }, received undefined`,
   )
 })
 

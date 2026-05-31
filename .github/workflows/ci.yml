@@ -16,7 +16,7 @@ jobs:
       - uses: pnpm/action-setup@v2
       - uses: actions/setup-node@v3
         with:
-          node-version: 22.6.0
+          node-version: 24.16.0
           cache: "pnpm"
       - run: pnpm install
 
@@ -172,7 +172,7 @@ jobs:
       - uses: pnpm/action-setup@v2
       - uses: actions/setup-node@v3
         with:
-          node-version: 22.6.0
+          node-version: 24.16.0
           cache: "pnpm"
       - run: pnpm install
 
@@ -215,7 +215,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: sury-ppx
-          path: packages/sury-ppx/sury-ppx-11.0.0-alpha.2.tgz
+          path: packages/sury-ppx/sury-ppx-*.tgz
 
   e2e:
     name: E2E Test
@@ -229,7 +229,7 @@ jobs:
       - uses: pnpm/action-setup@v2
       - uses: actions/setup-node@v3
         with:
-          node-version: 22.6.0
+          node-version: 24.16.0
           cache: "pnpm"
       - run: pnpm install
 

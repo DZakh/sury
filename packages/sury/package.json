@@ -1,6 +1,6 @@
 {
   "name": "sury",
-  "version": "11.0.0-alpha.5",
+  "version": "11.0.0-alpha.6",
   "private": true,
   "description": "🧬 The fastest schema with next-gen DX",
   "keywords": [
@@ -52,25 +52,19 @@
   "scripts": {
     "benchmark": "node ./packages/tests/src/benchmark/Benchmark.res.mjs",
     "benchmark:comparison": "node ./packages/tests/src/benchmark/comparison.js",
-    "coverage": "c8 --reporter=lcov npm test",
-    "build": "pnpm rescript --dev && node ./scripts/pack/Pack.res.mjs",
-    "res": "rescript watch --dev",
-    "test:res": "cd ./packages/tests && rescript clean && rescript watch --dev",
-    "test": "rescript build --dev && pnpm tsc && ava",
+    "coverage": "vitest run --coverage",
+    "build": "pnpm rescript && node ./scripts/pack/Pack.res.mjs",
+    "res": "rescript watch",
+    "test:res": "cd ./packages/tests && rescript clean && rescript watch",
+    "test": "rescript build && pnpm tsc && vitest run",
     "lint:stdlib": "rescript-stdlib-vendorer lint --ignore-path=src"
   },
-  "ava": {
-    "files": [
-      "tests/**/*_test.res.mjs",
-      "tests/**/*_test.js"
-    ]
-  },
   "devDependencies": {
-    "@dzakh/rescript-ava": "3.1.0",
-    "ava": "5.2.0",
-    "c8": "7.12.0",
-    "rescript": "12.0.0-beta.5",
-    "@rescript/darwin-arm64": "12.0.0-beta.5",
+    "vitest": "4.1.7",
+    "@vitest/coverage-v8": "4.1.7",
+    "@types/node": "20.19.41",
+    "rescript": "12.2.0",
+    "@rescript/darwin-arm64": "12.2.0",
     "rescript-stdlib-vendorer": "1.1.0",
     "ts-expect": "1.3.0",
     "typescript": "5.8.3",

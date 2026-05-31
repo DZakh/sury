@@ -10,8 +10,5 @@
     "benchmark:comparison": "pnpm --filter=e2e benchmark:comparison",
     "lint": "pnpm --filter=sury lint:stdlib"
   },
-  "packageManager": "pnpm@9.0.5",
-  "dependencies": {
-    "ava": "5.2.0"
-  }
+  "packageManager": "pnpm@9.0.5"
 }

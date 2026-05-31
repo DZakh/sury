@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Successfully parses valid data", t => {
   let schema = S.string->S.min(1)

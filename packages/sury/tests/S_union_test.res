@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Throws for a Union schema factory without schemas", t => {
   t->Assert.throws(
@@ -173,6 +173,34 @@ test("Parses with string catch all", t => {
   t->Assert.deepEqual("foo"->S.parseOrThrow(~to=schema), "foo")
 
   t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(!(typeof i==="string")){e[0](i)}return i}`)
+})
+
+// https://github.com/DZakh/sury/issues/115
+test("Reports the named union schema when a string-shape fallback rejects a non-string input", t => {
+  let schema =
+    S.union([
+      S.literal(#hyper),
+      S.literal(#development),
+      S.literal(#small),
+      S.literal(#medium),
+      S.literal(#large),
+      S.literal(#dedicated),
+      S.string->S.shape(_ => #unknown),
+    ])->S.meta({name: "indexer plan"})
+
+  t->Assert.deepEqual(%raw(`"hyper"`)->S.parseOrThrow(~to=schema), #hyper)
+  t->Assert.deepEqual(%raw(`"anything-else"`)->S.parseOrThrow(~to=schema), #unknown)
+  t->U.assertThrowsMessage(
+    () => %raw(`42`)->S.parseOrThrow(~to=schema),
+    `Expected indexer plan, received 42`,
+  )
+
+  t->Assert.deepEqual(#hyper->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"hyper"`))
+  t->U.assertThrowsMessage(
+    () => #unknown->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    `Expected indexer plan, received "unknown"
+- Missing input for string`,
+  )
 })
 
 test("Serializes when second struct misses serializer", t => {

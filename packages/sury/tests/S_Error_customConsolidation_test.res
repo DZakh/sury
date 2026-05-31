@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 // Custom is gone — paths that used to produce Custom now produce
 // InvalidInput with the user-provided reason and a populated

@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Successfully refines on parsing", t => {
   let schema = S.int->S.refine(value => value >= 0, ~error="Should be positive")
@@ -156,7 +156,7 @@ test("inputRefiner observes pre-transform input on a reversed transforming schem
   let schema =
     S.schema(s => {"foo": s.matches(S.string->S.to(S.bigint))})
     ->S.refine(
-      i => Js.typeof(i["foo"]) === "bigint" && i["foo"] >= 0n,
+      i => Type.typeof(i["foo"]) === #bigint && i["foo"] >= 0n,
       ~error="Input refine should get a correct input value",
     )
     ->S.reverse
@@ -182,8 +182,8 @@ test("inputRefiner observes pre-transform input on a reversed transforming array
     S.array(S.string->S.to(S.bigint))
     ->S.refine(
       arr =>
-        arr->Js.Array2.every(x => Js.typeof(x) === "bigint") &&
-          arr->Js.Array2.every(x => x >= 0n),
+        arr->Array.every(x => Type.typeof(x) === #bigint) &&
+          arr->Array.every(x => x >= 0n),
       ~error="Array input refine should see bigint elements",
     )
     ->S.reverse
@@ -199,7 +199,7 @@ test("inputRefiner observes pre-transform input on a reversed transforming array
 })
 
 test("Output refine on an array runs on the assembled output array", t => {
-  let schema = S.array(S.int)->S.refine(arr => arr->Js.Array2.length > 0, ~error="Empty array")
+  let schema = S.array(S.int)->S.refine(arr => arr->Array.length > 0, ~error="Empty array")
 
   t->Assert.deepEqual(%raw(`[1, 2, 3]`)->S.parseOrThrow(~to=schema), [1, 2, 3])
   t->U.assertThrowsMessage(() => %raw(`[]`)->S.parseOrThrow(~to=schema), `Empty array`)
@@ -208,7 +208,7 @@ test("Output refine on an array runs on the assembled output array", t => {
 test("Output refine on a tuple runs on the assembled tuple", t => {
   let schema =
     S.tuple(s => (s.item(0, S.string), s.item(1, S.int)))->S.refine(
-      ((s, i)) => Js.String2.length(s) === i,
+      ((s, i)) => String.length(s) === i,
       ~error="String length must match int",
     )
 
@@ -225,9 +225,9 @@ test("Output refine on a tuple runs on the assembled tuple", t => {
 
 test("Refiner runs on S.dict", t => {
   let schema =
-    S.dict(S.int)->S.refine(d => !(d->Js.Dict.keys->Js.Array2.includes("fail")), ~error="Dict refine fail")
+    S.dict(S.int)->S.refine(d => !(d->Dict.keysToArray->Array.includes("fail")), ~error="Dict refine fail")
 
-  t->Assert.deepEqual(%raw(`{"a": 1}`)->S.parseOrThrow(~to=schema), Js.Dict.fromArray([("a", 1)]))
+  t->Assert.deepEqual(%raw(`{"a": 1}`)->S.parseOrThrow(~to=schema), Dict.fromArray([("a", 1)]))
   t->U.assertThrowsMessage(
     () => %raw(`{"fail": 1}`)->S.parseOrThrow(~to=schema),
     `Dict refine fail`,
@@ -243,7 +243,7 @@ test("Refiner runs on S.json", t => {
 
 test("Refiner runs on S.jsonString", t => {
   let schema =
-    S.jsonString->S.refine(s => Js.String2.length(s) < 10, ~error="JsonString refine fail")
+    S.jsonString->S.refine(s => String.length(s) < 10, ~error="JsonString refine fail")
 
   t->Assert.deepEqual(`1`->S.parseOrThrow(~to=schema), `1`)
   t->U.assertThrowsMessage(
@@ -281,7 +281,7 @@ test("Refiner runs on S.compactColumns", t => {
         ),
       ),
     )
-    ->S.refine(arr => arr->Js.Array2.length > 0, ~error="Empty compactColumns")
+    ->S.refine(arr => arr->Array.length > 0, ~error="Empty compactColumns")
 
   t->Assert.deepEqual(
     %raw(`[["a"]]`)->S.parseOrThrow(~to=schema),
@@ -304,15 +304,15 @@ test("inputRefiner observes pre-transform input on a reversed transforming dict"
     ->S.refine(
       d =>
         d
-        ->Js.Dict.values
-        ->Js.Array2.every(v => Js.typeof(v) === "bigint" && v >= 0n),
+        ->Dict.valuesToArray
+        ->Array.every(v => Type.typeof(v) === #bigint && v >= 0n),
       ~error="Dict input refine should see bigint values",
     )
     ->S.reverse
 
   t->Assert.deepEqual(
     %raw(`{"a": 1n, "b": 2n}`)->S.parseOrThrow(~to=schema),
-    Js.Dict.fromArray([("a", "1"), ("b", "2")])->Obj.magic,
+    Dict.fromArray([("a", "1"), ("b", "2")])->Obj.magic,
   )
   t->U.assertThrowsMessage(
     () => %raw(`{"a": -1n}`)->S.parseOrThrow(~to=schema),
@@ -324,7 +324,7 @@ test("inputRefiner observes pre-transform input on a reversed transforming tuple
   let schema =
     S.tuple(s => (s.item(0, S.string->S.to(S.bigint)), s.item(1, S.int)))
     ->S.refine(
-      ((b, i)) => Js.typeof(b) === "bigint" && i > 0,
+      ((b, i)) => Type.typeof(b) === #bigint && i > 0,
       ~error="Tuple input refine should see bigint at index 0",
     )
     ->S.reverse
@@ -352,7 +352,7 @@ test("inputRefiner runs on reversed S.json", t => {
 test("inputRefiner runs on reversed S.jsonString", t => {
   let schema =
     S.jsonString
-    ->S.refine(s => Js.String2.length(s) < 10, ~error="JsonString input refine fail")
+    ->S.refine(s => String.length(s) < 10, ~error="JsonString input refine fail")
     ->S.reverse
 
   t->Assert.deepEqual(`1`->S.parseOrThrow(~to=schema), `1`->Obj.magic)
@@ -390,7 +390,7 @@ test("inputRefiner runs on reversed S.compactColumns", t => {
         ),
       ),
     )
-    ->S.refine(arr => arr->Js.Array2.length > 0, ~error="Empty compactColumns input")
+    ->S.refine(arr => arr->Array.length > 0, ~error="Empty compactColumns input")
     ->S.reverse
 
   t->Assert.deepEqual(
@@ -412,7 +412,7 @@ test("Refiner runs on S.shape", t => {
     ->S.refine(
       v =>
         switch v {
-        | Ok(s) => Js.String2.length(s) < 10
+        | Ok(s) => String.length(s) < 10
         | _ => false
         },
       ~error="Shape refine fail",
@@ -432,7 +432,7 @@ test("inputRefiner runs on reversed S.shape", t => {
     ->S.refine(
       v =>
         switch v {
-        | Ok(s) => Js.String2.length(s) < 10
+        | Ok(s) => String.length(s) < 10
         | _ => false
         },
       ~error="Shape input refine fail",
@@ -449,7 +449,7 @@ test("inputRefiner runs on reversed S.shape", t => {
 test("Refiner runs on S.recursive", t => {
   let schema =
     S.recursive("R", _ => S.string)->S.refine(
-      s => Js.String2.length(s) < 10,
+      s => String.length(s) < 10,
       ~error="Recursive refine fail",
     )
 
@@ -463,7 +463,7 @@ test("Refiner runs on S.recursive", t => {
 test("inputRefiner runs on reversed S.recursive", t => {
   let schema =
     S.recursive("R", _ => S.string)
-    ->S.refine(s => Js.String2.length(s) < 10, ~error="Recursive input refine fail")
+    ->S.refine(s => String.length(s) < 10, ~error="Recursive input refine fail")
     ->S.reverse
 
   t->Assert.deepEqual("hello"->S.parseOrThrow(~to=schema), "hello"->Obj.magic)

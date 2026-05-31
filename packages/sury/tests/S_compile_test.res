@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 let assertCode = (t, fn: 'a => 'b, code) => {
   t->Assert.is((fn->Obj.magic)["toString"](), code)
