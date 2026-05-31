@@ -261,19 +261,29 @@ test("Appending S.to(S.jsonString) after getOr extends the output chain", t => {
   )
 })
 
-// FIXME: getWithDefault's `itemOutputSchema = item->getOutputSchema`
-// (Sury.res:4364) does not correctly model the output of a multi-member union
-// whose members have differing `.to` chains. When the reconstituted union is
-// fed back through the noopDecoder-wrapped `.to`, the per-branch transform
-// codegen places its built-in input refiner (Number.isNaN, BigInt-throw, ...)
-// BEFORE the corresponding `let v0 = +i` / `let v1 = BigInt(i)` declaration,
-// producing a ReferenceError at parse time:
+// FIXME: Multi-member transforming union + getOr produces broken parse code.
+// The encoder side is already correct (each wrapper's reverse runs through
+// `originalItem->reverse` in getWithDefault's serializer), but the PARSE
+// codegen emits each branch's built-in input refiner BEFORE the
+// corresponding `let v0 = +i` / `let v1 = BigInt(i)` declaration:
 //
 //   i=>{if(typeof i==="string"){
-//     if(!Number.isNaN(v0)){let v0=+i; i=v0}     ← v0 used before declaration
-//     ...
-//   }}
-test("Multi-member union with transformed members + getOr produces broken parse code", t => {
+//     if(!Number.isNaN(v0)){let v0=+i;i=v0}              ← v0 used before declaration
+//     else{try{let v1;try{v1=BigInt(i)}...}catch(e1)...} ← v1 used before declaration
+//     ...}}
+//
+// The malformed branch lives in the OUTER union's per-branch decoder
+// emission, not in getWithDefault — removing the noopDecoder + custom
+// serializer didn't fix it (verified in WIP step-2 experiment, which also
+// broke literal-union encoding). Likely the union codegen is mis-ordering
+// the input refiner and the transform expression when the union schema
+// also carries a `.parser` (added by getWithDefault for the default
+// substitution).
+//
+// Construction, default substitution (input=undefined), and parsing
+// non-string inputs all work — only the string branch is broken.
+// Encoding works correctly in all directions thanks to originalItem.
+test("Multi-member union with transformed members + getOr — current (broken) behavior", t => {
   let schema =
     S.union([
       S.string->S.to(S.float)->S.castToUnknown,
@@ -283,10 +293,18 @@ test("Multi-member union with transformed members + getOr produces broken parse 
     ->S.option
     ->S.Option.getOr(%raw(`true`))
 
-  // Construction succeeds and the default substitution still works because
-  // the broken branch is only reached for string inputs.
+  // What works today —
+  // Construction succeeds, default substitution works, non-string inputs parse.
   t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), %raw(`true`))
+  t->Assert.deepEqual(%raw(`true`)->S.parseOrThrow(~to=schema), %raw(`true`))
   t->Assert.deepEqual(%raw(`false`)->S.parseOrThrow(~to=schema), %raw(`false`))
+
+  // Encoder is fully functional — `originalItem->reverse` drives the per-branch
+  // serialization, so numbers and bigints round-trip back to strings and the
+  // boolean branch passes through.
+  t->Assert.deepEqual(%raw(`42`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"42"`))
+  t->Assert.deepEqual(%raw(`1n`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"1"`))
+  t->Assert.deepEqual(%raw(`true`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`true`))
 
   // The generated parse code references v0/v1 before they are declared.
   // Once fixed, the `let v0=+i` and `Number.isNaN` check should be reordered
@@ -297,8 +315,16 @@ test("Multi-member union with transformed members + getOr produces broken parse 
     `i=>{if(typeof i==="string"){if(!Number.isNaN(v0)){let v0=+i;i=v0}else{try{let v1;try{v1=BigInt(i)}catch(_){e[0](i)}i=v1}catch(e1){e[1](i,e1)}}}else if(!(typeof i==="boolean"||i===void 0)){e[2](i)}return i===void 0?true:i}`,
   )
 
+  // The encode side is correctly assembled — for reference / regression cover.
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Encode,
+    `i=>{if(typeof i==="number"&&!Number.isNaN(i)){i=""+i}else if(typeof i==="bigint"){i=""+i}else if(!(typeof i==="boolean")){e[0](i)}return i}`,
+  )
+
   // Parsing a string input — the path that exercises the malformed code —
-  // throws a JS ReferenceError instead of a Sury validation error.
+  // throws a JS ReferenceError instead of a Sury validation error or a
+  // properly-transformed number.
   t->Assert.throws(
     () => {
       let _ = "42"->S.parseOrThrow(~to=schema)

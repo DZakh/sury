@@ -4346,6 +4346,17 @@ module Option = {
       switch mut.anyOf {
       | Some(anyOf) => {
           let outputItems = []
+          // FIXME: `originalItems` should not exist. The serializer's
+          // `originalItem->reverse` and the `mut.default` storage both want
+          // to invoke each member's reverse `.to` chain. The cleaner form is
+          // to decode the default through `schema->reverse` (the original
+          // option-wrapped union) instead — but Sury's union reverse does
+          // not currently compose member `.to` chains during decoding
+          // (`Can't decode Date to string. Use S.to to define a custom decoder`
+          //  fires from unionDecoder). Once that core limitation is fixed,
+          // drop this accumulation and the `originalItem` value below; the
+          // serializer can use `schema->reverse` directly and `mut.default`
+          // can be computed via `getDecoder2(unknown, schema->reverse)(v)`.
           let originalItems = []
 
           for idx in 0 to anyOf->Stdlib.Array.length - 1 {
