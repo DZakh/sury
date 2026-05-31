@@ -4377,8 +4377,8 @@ module Option = {
             switch outputSchema.tag {
             | Undefined => ()
             | _ =>
-              outputItems->Js.Array2.push(outputSchema)->ignore
-              originalItems->Js.Array2.push(schema)->ignore
+              outputItems->Array.push(outputSchema)
+              originalItems->Array.push(schema)
             }
           }
 
