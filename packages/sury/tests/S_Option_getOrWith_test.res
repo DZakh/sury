@@ -31,11 +31,9 @@ test("Successfully parses with default when provided primitive", t => {
 })
 
 test("Successfully parses nested option with default value", t => {
-  t->Assert.throws(() => {
-    let schema = S.option(S.bool)->S.option->S.Option.getOrWith(() => Some(true))
+  let schema = S.option(S.bool)->S.option->S.Option.getOrWith(() => Some(true))
 
-    t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), Some(true))
-  }, ~expectations={message: "[Sury] Can\'t set default for boolean | undefined | undefined"})
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), Some(true))
 })
 
 test("Fails to parse data with default", t => {
@@ -81,4 +79,12 @@ test("Compiled serialize code snapshot", t => {
   let schema = S.bool->S.option->S.Option.getOrWith(() => false)
 
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#Encode)
+})
+
+// FIXME: callback return values aren't validated, so a bad default silently
+// produces a type-mismatched value.
+test("Invalid dynamic default is not validated (known limitation)", t => {
+  let schema = S.bool->S.option->S.Option.getOrWith(() => %raw(`"not a bool"`))
+
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), %raw(`"not a bool"`))
 })
