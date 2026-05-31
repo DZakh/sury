@@ -8,54 +8,54 @@ function asyncTest(prim0, prim1) {
   Vitest.test(prim0, prim1);
 }
 
-function plan(_t, n) {
-  Vitest.expect.assertions(n);
+function plan(t, n) {
+  t.expect.assertions(n);
 }
 
 let ExecutionContext = {
   plan: plan
 };
 
-function deepEqual(_t, actual, expected, param) {
-  Vitest.expect(actual).toEqual(expected);
+function deepEqual(t, actual, expected, param) {
+  t.expect(actual).toEqual(expected);
 }
 
-function unsafeDeepEqual(_t, actual, expected, param) {
-  Vitest.expect(actual).toEqual(expected);
+function unsafeDeepEqual(t, actual, expected, param) {
+  t.expect(actual).toEqual(expected);
 }
 
-function notDeepEqual(_t, actual, expected, param) {
-  Vitest.expect(actual).not.toEqual(expected);
+function notDeepEqual(t, actual, expected, param) {
+  t.expect(actual).not.toEqual(expected);
 }
 
-function is(_t, actual, expected, param) {
-  Vitest.expect(actual).toBe(expected);
+function is(t, actual, expected, param) {
+  t.expect(actual).toBe(expected);
 }
 
-function not(_t, actual, expected, param) {
-  Vitest.expect(actual).not.toBe(expected);
+function not(t, actual, expected, param) {
+  t.expect(actual).not.toBe(expected);
 }
 
 function pass(_t, param) {
   
 }
 
-function fail(_t, message) {
-  Vitest.expect.fail(message);
+function fail(t, message) {
+  t.expect.fail(message);
 }
 
-function throws(_t, fn, expectationsOpt, param) {
+function throws(t, fn, expectationsOpt, param) {
   let expectations = expectationsOpt !== undefined ? expectationsOpt : ({});
   let msg = expectations.message;
   if (msg !== undefined) {
-    return Vitest.expect(fn).toThrowError(msg);
+    return t.expect(fn).toThrowError(msg);
   } else {
-    return Vitest.expect(fn).toThrow();
+    return t.expect(fn).toThrow();
   }
 }
 
-function notThrows(_t, fn, param) {
-  Vitest.expect(fn).not.toThrow();
+function notThrows(t, fn, param) {
+  t.expect(fn).not.toThrow();
 }
 
 let Assert = {

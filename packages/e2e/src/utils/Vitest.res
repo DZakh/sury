@@ -135,17 +135,14 @@ module Async = {
 }
 
 // ============================================================================
-// Expect
+// Expect (testContext-scoped — use `t.expect(...)` from inside a test)
 // ============================================================================
 
-@module("vitest")
-external expect: 'a => expectation<'a> = "expect"
+@send @scope("expect")
+external expectAssertions: (testContext, int) => unit = "assertions"
 
-@module("vitest") @scope("expect")
-external expectAssertions: int => unit = "assertions"
-
-@module("vitest") @scope("expect")
-external expectFail: string => unit = "fail"
+@send @scope("expect")
+external expectFail: (testContext, string) => unit = "fail"
 
 // ============================================================================
 // AVA-compatibility shim
@@ -157,7 +154,7 @@ let asyncTest = Async.test
 
 module ExecutionContext = {
   type t<'a> = testContext
-  let plan = (_t: t<'a>, n: int) => expectAssertions(n)
+  let plan = (t: t<'a>, n: int) => t->expectAssertions(n)
 }
 
 type throwsExpectations<'instanceOf> = {
@@ -166,37 +163,37 @@ type throwsExpectations<'instanceOf> = {
 }
 
 module Assert = {
-  let deepEqual = (_t: testContext, actual: 'a, expected: 'a, ~message as _=?) =>
-    expect(actual).toEqual(expected)
+  let deepEqual = (t: testContext, actual: 'a, expected: 'a, ~message as _=?) =>
+    t.expect(actual).toEqual(expected)
 
-  let unsafeDeepEqual = (_t: testContext, actual: 'a, expected: 'b, ~message as _=?) =>
-    expect(actual).toEqual(expected->Obj.magic)
+  let unsafeDeepEqual = (t: testContext, actual: 'a, expected: 'b, ~message as _=?) =>
+    t.expect(actual).toEqual(expected->Obj.magic)
 
-  let notDeepEqual = (_t: testContext, actual: 'a, expected: 'a, ~message as _=?) =>
-    expect(actual).not_.toEqual(expected)
+  let notDeepEqual = (t: testContext, actual: 'a, expected: 'a, ~message as _=?) =>
+    t.expect(actual).not_.toEqual(expected)
 
-  let is = (_t: testContext, actual: 'a, expected: 'a, ~message as _=?) =>
-    expect(actual).toBe(expected)
+  let is = (t: testContext, actual: 'a, expected: 'a, ~message as _=?) =>
+    t.expect(actual).toBe(expected)
 
-  let not = (_t: testContext, actual: 'a, expected: 'a, ~message as _=?) =>
-    expect(actual).not_.toBe(expected)
+  let not = (t: testContext, actual: 'a, expected: 'a, ~message as _=?) =>
+    t.expect(actual).not_.toBe(expected)
 
   let pass = (_t: testContext, ~message as _=?) => ()
 
-  let fail = (_t: testContext, message: string) => expectFail(message)
+  let fail = (t: testContext, message: string) => t->expectFail(message)
 
   let throws = (
-    _t: testContext,
+    t: testContext,
     fn: unit => 'a,
     ~expectations: throwsExpectations<'instanceOf>={},
     ~message as _=?,
   ) => {
     switch expectations.message {
-    | Some(msg) => expect(fn).toThrowError(msg)
-    | None => expect(fn).toThrow()
+    | Some(msg) => t.expect(fn).toThrowError(msg)
+    | None => t.expect(fn).toThrow()
     }
   }
 
-  let notThrows = (_t: testContext, fn: unit => 'a, ~message as _=?) =>
-    expect(fn).not_.toThrow()
+  let notThrows = (t: testContext, fn: unit => 'a, ~message as _=?) =>
+    t.expect(fn).not_.toThrow()
 }
