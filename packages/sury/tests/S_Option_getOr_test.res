@@ -185,27 +185,16 @@ test("Default on a primary item with S.to runs the transformation on parse and r
   let otherDate = Date.fromString("2024-06-15T12:30:45.123Z")
   let schema = S.string->S.to(S.date)->S.option->S.Option.getOr(defaultDate)
 
-  // Shape: the result is a union with two members — the primary item
-  // (string -> Date via S.to) and the unit (undefined) literal. The schema
-  // also carries:
-  //  - `default`: the input form of the user-provided Date (ISO string),
-  //    obtained by running the Date through item->reverse.
-  //  - `to`: a copy of the primary item's output schema (Date) with its
-  //    decoder swapped for noopDecoder — getWithDefault's substitution
-  //    happens via the schema's `parser`, so the `.to` chain just passes
-  //    the value through and applies the serializer in reverse.
+  // schema.default is the input form (ISO string), not the Date — JSON Schema metadata.
   let untagged = schema->S.untag
   t->Assert.is(untagged.tag, S.Union)
   t->Assert.is(untagged.anyOf->Option.getOrThrow->Array.length, 2)
   t->Assert.deepEqual(untagged.default, %raw(`"2024-01-01T00:00:00.000Z"`))
   t->Assert.is((untagged.to->Option.getOrThrow->S.untag).tag, S.Instance)
 
-  // Parse: undefined falls through to the default Date; a valid ISO string is
-  // transformed string -> Date via the primary item's S.to chain.
   t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), defaultDate)
   t->Assert.deepEqual("2024-06-15T12:30:45.123Z"->S.parseOrThrow(~to=schema), otherDate)
 
-  // Encode: Date output gets reversed back to the ISO string input form.
   t->Assert.deepEqual(
     defaultDate->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`"2024-01-01T00:00:00.000Z"`),
@@ -220,31 +209,23 @@ test("Default on a primary item with S.to runs the transformation on parse and r
     ~op=#Parse,
     `i=>{if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);i=v0}else if(!(i===void 0)){e[1](i)}return i===void 0?e[2]:i}`,
   )
-  // The output of getOr is `Date` (no longer optional), so the encoder skips
-  // both the undefined branch and the Date type check — it trusts the output
-  // contract and goes straight to toISOString().
+  // Output is non-optional Date, so encoder skips both undefined and Date checks.
   t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return i.toISOString()}`)
 })
 
+// .to(jsonString) extends the .to chain rather than replacing getWithDefault's wiring.
 test("Appending S.to(S.jsonString) after getOr extends the output chain", t => {
   let defaultDate = Date.fromString("2024-01-01T00:00:00.000Z")
   let schema = S.string->S.to(S.date)->S.option->S.Option.getOr(defaultDate)->S.to(S.jsonString)
 
-  // Shape: appending `.to(S.jsonString)` doesn't replace anything in
-  // getWithDefault's wiring — it extends the `to` chain. The top-level union
-  // (string | undefined) and its `default`/`parser` are unchanged; the
-  // existing noopDecoder-wrapped Date schema now has its own `.to` pointing
-  // at the JSON-string format.
   let untagged = schema->S.untag
   t->Assert.is(untagged.tag, S.Union)
   t->Assert.deepEqual(untagged.default, %raw(`"2024-01-01T00:00:00.000Z"`))
   let toLevel1 = untagged.to->Option.getOrThrow->S.untag
-  t->Assert.is(toLevel1.tag, S.Instance) // copied Date schema
+  t->Assert.is(toLevel1.tag, S.Instance)
   let toLevel2 = toLevel1.to->Option.getOrThrow->S.untag
-  t->Assert.is(toLevel2.tag, S.String) // jsonString is a String with json format
+  t->Assert.is(toLevel2.tag, S.String)
 
-  // Behavior: parse undefined -> default Date -> serialised to JSON string;
-  // parse a valid ISO string -> Date -> serialised to JSON string.
   t->Assert.deepEqual(
     %raw(`undefined`)->S.parseOrThrow(~to=schema),
     `"2024-01-01T00:00:00.000Z"`,
@@ -254,35 +235,17 @@ test("Appending S.to(S.jsonString) after getOr extends the output chain", t => {
     `"2024-06-15T12:30:45.123Z"`,
   )
 
-  // Encode the JSON-string output back to the raw ISO string input.
   t->Assert.deepEqual(
     `"2024-01-01T00:00:00.000Z"`->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`"2024-01-01T00:00:00.000Z"`),
   )
 })
 
-// FIXME: Multi-member transforming union + getOr produces broken parse code.
-// The encoder side is already correct (each wrapper's reverse runs through
-// `originalItem->reverse` in getWithDefault's serializer), but the PARSE
-// codegen emits each branch's built-in input refiner BEFORE the
-// corresponding `let v0 = +i` / `let v1 = BigInt(i)` declaration:
-//
-//   i=>{if(typeof i==="string"){
-//     if(!Number.isNaN(v0)){let v0=+i;i=v0}              ← v0 used before declaration
-//     else{try{let v1;try{v1=BigInt(i)}...}catch(e1)...} ← v1 used before declaration
-//     ...}}
-//
-// The malformed branch lives in the OUTER union's per-branch decoder
-// emission, not in getWithDefault — removing the noopDecoder + custom
-// serializer didn't fix it (verified in WIP step-2 experiment, which also
-// broke literal-union encoding). Likely the union codegen is mis-ordering
-// the input refiner and the transform expression when the union schema
-// also carries a `.parser` (added by getWithDefault for the default
-// substitution).
-//
-// Construction, default substitution (input=undefined), and parsing
-// non-string inputs all work — only the string branch is broken.
-// Encoding works correctly in all directions thanks to originalItem.
+// FIXME: parse codegen for a multi-member transforming union + getOr puts
+// each branch's input refiner BEFORE its `let v0 = +i` / `let v1 = BigInt(i)`
+// declaration, so parsing a string throws ReferenceError. Encoder side and
+// non-string parse paths are fine — the bug lives in the outer union's
+// per-branch decoder emission, not in getWithDefault.
 test("Multi-member union with transformed members + getOr — current (broken) behavior", t => {
   let schema =
     S.union([
@@ -293,38 +256,27 @@ test("Multi-member union with transformed members + getOr — current (broken) b
     ->S.option
     ->S.Option.getOr(%raw(`true`))
 
-  // What works today —
-  // Construction succeeds, default substitution works, non-string inputs parse.
   t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), %raw(`true`))
   t->Assert.deepEqual(%raw(`true`)->S.parseOrThrow(~to=schema), %raw(`true`))
   t->Assert.deepEqual(%raw(`false`)->S.parseOrThrow(~to=schema), %raw(`false`))
 
-  // Encoder is fully functional — `originalItem->reverse` drives the per-branch
-  // serialization, so numbers and bigints round-trip back to strings and the
-  // boolean branch passes through.
   t->Assert.deepEqual(%raw(`42`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"42"`))
   t->Assert.deepEqual(%raw(`1n`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"1"`))
   t->Assert.deepEqual(%raw(`true`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`true`))
 
-  // The generated parse code references v0/v1 before they are declared.
-  // Once fixed, the `let v0=+i` and `Number.isNaN` check should be reordered
-  // so the validation reads the freshly-declared variable.
+  // FIXME: `if(!Number.isNaN(v0))` reads v0 before `let v0 = +i`.
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
     `i=>{if(typeof i==="string"){if(!Number.isNaN(v0)){let v0=+i;i=v0}else{try{let v1;try{v1=BigInt(i)}catch(_){e[0](i)}i=v1}catch(e1){e[1](i,e1)}}}else if(!(typeof i==="boolean"||i===void 0)){e[2](i)}return i===void 0?true:i}`,
   )
 
-  // The encode side is correctly assembled — for reference / regression cover.
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
     `i=>{if(typeof i==="number"&&!Number.isNaN(i)){i=""+i}else if(typeof i==="bigint"){i=""+i}else if(!(typeof i==="boolean")){e[0](i)}return i}`,
   )
 
-  // Parsing a string input — the path that exercises the malformed code —
-  // throws a JS ReferenceError instead of a Sury validation error or a
-  // properly-transformed number.
   t->Assert.throws(
     () => {
       let _ = "42"->S.parseOrThrow(~to=schema)

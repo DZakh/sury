@@ -4358,17 +4358,9 @@ module Option = {
       switch mut.anyOf {
       | Some(anyOf) => {
           let outputItems = []
-          // FIXME: `originalItems` should not exist. The serializer's
-          // `originalItem->reverse` and the `mut.default` storage both want
-          // to invoke each member's reverse `.to` chain. The cleaner form is
-          // to decode the default through `schema->reverse` (the original
-          // option-wrapped union) instead — but Sury's union reverse does
-          // not currently compose member `.to` chains during decoding
-          // (`Can't decode Date to string. Use S.to to define a custom decoder`
-          //  fires from unionDecoder). Once that core limitation is fixed,
-          // drop this accumulation and the `originalItem` value below; the
-          // serializer can use `schema->reverse` directly and `mut.default`
-          // can be computed via `getDecoder2(unknown, schema->reverse)(v)`.
+          // FIXME: drop `originalItems` once unionDecoder can reverse member
+          // `.to` chains — then mut.default + the serializer can both run
+          // through `schema->reverse` directly.
           let originalItems = []
 
           for idx in 0 to anyOf->Stdlib.Array.length - 1 {
@@ -4387,21 +4379,14 @@ module Option = {
           | [single] => single
           | multiple => Union.factory(multiple->Obj.magic)->castToInternal
           }
-          // The original (pre-`.to`) schemas drive the serializer's reverse,
-          // so transforming items (string->number, trim, Date->ISO) round-trip
-          // correctly. `item` (output side) is used for `mut.to` and for
-          // default validation.
           let originalItem = switch originalItems {
           | [single] => single
           | _ => Union.factory(originalItems->Obj.magic)->castToInternal
           }
 
-          // Validate that the default value conforms to the item's output type.
-          // For Callback defaults the value isn't known at construction time, so we skip.
-          // Decoding from unknown forces a full type check; using just `item->reverse`
-          // would skip the input validation since `getDecoder(~s1=primitive)` is a no-op.
           switch default {
           | Value(v) =>
+            // Full unknown -> item decode so primitive item types still get type-checked.
             try {
               let _ = getDecoder2(~s1=unknown, ~s2=item)(v)
             } catch {
@@ -4412,8 +4397,7 @@ module Option = {
                   ->toExpression}: ${(error->Obj.magic)["message"]}`,
               )
             }
-            // Best-effort: store the input form of the default for JSON Schema metadata.
-            // Use originalItem so the wrapper's .to chain runs the back-conversion.
+            // Best-effort input form for JSON Schema metadata.
             try mut.default =
               getDecoder(~s1=originalItem->reverse)(v)->(
                 Obj.magic: unknown => option<internalDefault>
