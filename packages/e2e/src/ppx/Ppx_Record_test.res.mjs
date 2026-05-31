@@ -3,7 +3,7 @@
 import * as S from "sury/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
 import Ava from "ava";
-import * as Primitive_option from "rescript/lib/es6/Primitive_option.js";
+import * as Primitive_option from "@rescript/runtime/lib/es6/Primitive_option.js";
 
 let strictRecordSchema = S.strict(S.schema(s => ({
   strictEmail: s.m(S.string),
@@ -96,6 +96,12 @@ Ava("Record schema with optional fields", t => {
   });
 });
 
+let emptyRecordSchema = S.schema(s => ({}));
+
+Ava("Empty record schema", t => {
+  t.deepEqual(S.parseOrThrow({}, emptyRecordSchema), {});
+});
+
 let recordWithNullableFieldSchema = S.schema(s => ({
   subscription: s.m(S.option(S.nullAsOption(S.string)))
 }));
@@ -162,6 +168,7 @@ export {
   simpleRecordSchema,
   recordWithAliasSchema,
   recordWithOptionalSchema,
+  emptyRecordSchema,
   recordWithNullableFieldSchema,
 }
 /* strictRecordSchema Not a pure module */
