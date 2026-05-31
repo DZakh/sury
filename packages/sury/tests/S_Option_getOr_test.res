@@ -166,6 +166,79 @@ test("Rejects invalid static default at schema construction", t => {
   )
 })
 
+test("Uses empty array as default", t => {
+  let schema = S.array(S.string)->S.option->S.Option.getOr([])
+
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), [])
+  t->Assert.deepEqual(%raw(`["a","b"]`)->S.parseOrThrow(~to=schema), ["a", "b"])
+})
+
+test("Uses non-empty array as default", t => {
+  let schema = S.array(S.string)->S.option->S.Option.getOr(["x", "y"])
+
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), ["x", "y"])
+  t->Assert.deepEqual(%raw(`["a"]`)->S.parseOrThrow(~to=schema), ["a"])
+})
+
+test("Rejects array default whose element type doesn't match", t => {
+  t->Assert.throws(
+    () => {
+      let _ = S.array(S.string)->S.option->S.Option.getOr(%raw(`[42]`))
+    },
+    ~expectations={
+      message: `[Sury] Invalid default for string[] | undefined: Failed at ["0"]: Expected string, received 42`,
+    },
+  )
+})
+
+test("Uses object default with all required fields", t => {
+  let schema =
+    S.schema(s => {"a": s.matches(S.string), "b": s.matches(S.float)})
+    ->S.option
+    ->S.Option.getOr({"a": "hi", "b": 1.})
+
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), {"a": "hi", "b": 1.})
+  t->Assert.deepEqual(
+    %raw(`{"a":"x","b":2}`)->S.parseOrThrow(~to=schema),
+    {"a": "x", "b": 2.},
+  )
+})
+
+test("Rejects object default with field of wrong type", t => {
+  t->Assert.throws(
+    () => {
+      let _ =
+        S.schema(s => {"a": s.matches(S.string)})
+        ->S.option
+        ->S.Option.getOr(%raw(`{"a":42}`))
+    },
+    ~expectations={
+      message: `[Sury] Invalid default for { a: string; } | undefined: Failed at ["a"]: Expected string, received 42`,
+    },
+  )
+})
+
+test("Rejects object default with missing required field", t => {
+  t->Assert.throws(
+    () => {
+      let _ =
+        S.schema(s => {"a": s.matches(S.string)})->S.option->S.Option.getOr(%raw(`{}`))
+    },
+    ~expectations={
+      message: `[Sury] Invalid default for { a: string; } | undefined: Failed at ["a"]: Expected string, received undefined`,
+    },
+  )
+})
+
+test("Uses dict default", t => {
+  let schema = S.dict(S.float)->S.option->S.Option.getOr(Dict.fromArray([("x", 1.), ("y", 2.)]))
+
+  t->Assert.deepEqual(
+    %raw(`undefined`)->S.parseOrThrow(~to=schema),
+    Dict.fromArray([("x", 1.), ("y", 2.)]),
+  )
+})
+
 test("Rejects invalid static default that doesn't match a union member", t => {
   t->Assert.throws(
     () => {

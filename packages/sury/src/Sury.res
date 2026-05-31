@@ -4398,6 +4398,10 @@ module Option = {
               )
             }
             // Best-effort input form for JSON Schema metadata.
+            // FIXME: running a decoder at schema-creation time isn't a goal —
+            // it compiles + executes a fresh decode pipeline per default. Replace
+            // with something cheaper (or move to lazy/JSON-Schema-export time)
+            // before the official v11 release.
             try mut.default =
               getDecoder(~s1=originalItem->reverse)(v)->(
                 Obj.magic: unknown => option<internalDefault>
