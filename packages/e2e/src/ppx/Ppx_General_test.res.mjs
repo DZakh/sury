@@ -26,13 +26,13 @@ let stringWithDefaultSchema = S.Option.getOr(S.option(S.string), "Foo");
 
 Ava("Creates schema with default", t => U.assertEqualSchemas(t, stringWithDefaultSchema, S.Option.getOr(S.option(S.string), "Foo"), undefined));
 
-let stringWithDefaultAndMatchesSchema = S.Option.getOr(S.option(S.url), "Foo");
+let stringWithDefaultAndMatchesSchema = S.Option.getOr(S.option(S.url), "https://example.com");
 
-Ava("Creates schema with default using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultAndMatchesSchema, S.Option.getOr(S.option(S.url), "Foo"), undefined));
+Ava("Creates schema with default using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultAndMatchesSchema, S.Option.getOr(S.option(S.url), "https://example.com"), undefined));
 
-let stringWithDefaultNullAndMatchesSchema = S.Option.getOr(S.nullAsOption(S.url), "Foo");
+let stringWithDefaultNullAndMatchesSchema = S.Option.getOr(S.nullAsOption(S.url), "https://example.com");
 
-Ava("Creates schema with default null using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultNullAndMatchesSchema, S.Option.getOr(S.nullAsOption(S.url), "Foo"), undefined));
+Ava("Creates schema with default null using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultNullAndMatchesSchema, S.Option.getOr(S.nullAsOption(S.url), "https://example.com"), undefined));
 
 let ignoredNullWithMatchesSchema = S.option(S.string);
 
