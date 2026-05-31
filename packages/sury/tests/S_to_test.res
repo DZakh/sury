@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Coerce from string to string", t => {
   let schema = S.string->S.to(S.string)

@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 module Common = {
   let value = ()

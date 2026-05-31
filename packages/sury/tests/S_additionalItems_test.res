@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 type objectWithOneField = {key: string}
 

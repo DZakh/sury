@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 // ============================================================================
 // Issue #162: PPX support for parametrized types (single type parameter)

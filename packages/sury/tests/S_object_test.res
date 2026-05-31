@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 @live
 type options = {fast?: bool, mode?: int}

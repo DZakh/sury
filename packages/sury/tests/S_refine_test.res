@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Successfully refines on parsing", t => {
   let schema = S.int->S.refine(value => value >= 0, ~error="Should be positive")

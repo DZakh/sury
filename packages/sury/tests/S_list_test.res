@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 module CommonWithNested = {
   let value = list{"Hello world!", ""}

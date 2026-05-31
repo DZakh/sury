@@ -17,7 +17,7 @@
     "error": "+a"
   },
   "dependencies": ["sury"],
-  "dev-dependencies": ["@dzakh/rescript-ava"],
+  "dev-dependencies": [],
   "ppx-flags": ["sury-ppx/bin"],
   "gentypeconfig": {
     "generatedFileExtension": ".gen.ts"

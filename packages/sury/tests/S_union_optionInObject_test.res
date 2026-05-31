@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Union of tagged objects wrapped in S.option as a matches field", t => {
   let itemSchema = S.union([
