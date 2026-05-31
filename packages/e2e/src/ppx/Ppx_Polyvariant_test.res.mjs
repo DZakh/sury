@@ -42,6 +42,144 @@ Ava("Supported as an object field", t => U.assertEqualSchemas(t, objectFieldSche
   poly: s.m(S.literal("one"))
 })), undefined));
 
+let polyWithPayloadsSchema = S.union([
+  S.literal("one"),
+  S.schema(s => ({
+    NAME: "two",
+    VAL: s.m(S.int)
+  })),
+  S.schema(s => ({
+    NAME: "three",
+    VAL: [
+      s.m(S.string),
+      s.m(S.float)
+    ]
+  })),
+  S.schema(s => ({
+    NAME: "four",
+    VAL: s.m(S.schema(s => ({
+      foo: s.m(S.string)
+    })))
+  }))
+]);
+
+Ava("Polymorphic variant with payloads (issue #160)", t => {
+  U.assertEqualSchemas(t, polyWithPayloadsSchema, S.union([
+    S.literal("one"),
+    S.schema(s => ({
+      NAME: "two",
+      VAL: s.m(S.int)
+    })),
+    S.schema(s => ({
+      NAME: "three",
+      VAL: [
+        s.m(S.string),
+        s.m(S.float)
+      ]
+    })),
+    S.schema(s => ({
+      NAME: "four",
+      VAL: s.m(S.schema(s => ({
+        foo: s.m(S.string)
+      })))
+    }))
+  ]), undefined);
+  t.deepEqual(S.parseOrThrow("one", polyWithPayloadsSchema), "one");
+  t.deepEqual(S.parseOrThrow({NAME:"two",VAL:123}, polyWithPayloadsSchema), {
+    NAME: "two",
+    VAL: 123
+  });
+  t.deepEqual(S.parseOrThrow({NAME:"three",VAL:["hello",1.5]}, polyWithPayloadsSchema), {
+    NAME: "three",
+    VAL: [
+      "hello",
+      1.5
+    ]
+  });
+  t.deepEqual(S.parseOrThrow({NAME:"four",VAL:{foo:"bar"}}, polyWithPayloadsSchema), {
+    NAME: "four",
+    VAL: {
+      foo: "bar"
+    }
+  });
+});
+
+let polyWithSinglePayloadSchema = S.schema(s => ({
+  NAME: "value",
+  VAL: s.m(S.string)
+}));
+
+Ava("Polymorphic variant with single payload (issue #160)", t => {
+  U.assertEqualSchemas(t, polyWithSinglePayloadSchema, S.schema(s => ({
+    NAME: "value",
+    VAL: s.m(S.string)
+  })), undefined);
+  t.deepEqual(S.parseOrThrow({NAME:"value",VAL:"hello"}, polyWithSinglePayloadSchema), {
+    NAME: "value",
+    VAL: "hello"
+  });
+});
+
+let polyWithInheritanceSchema = S.union([
+  polySchema,
+  S.literal("three")
+]);
+
+Ava("Polymorphic variant with inheritance/spread of a named type", t => {
+  U.assertEqualSchemas(t, polyWithInheritanceSchema, S.union([
+    polySchema,
+    S.literal("three")
+  ]), undefined);
+  t.deepEqual(S.parseOrThrow("one", polyWithInheritanceSchema), "one");
+  t.deepEqual(S.parseOrThrow("three", polyWithInheritanceSchema), "three");
+});
+
+let polyWithPayloadInheritanceSchema = S.union([
+  polyWithPayloadsSchema,
+  S.schema(s => ({
+    NAME: "five",
+    VAL: s.m(S.bool)
+  }))
+]);
+
+Ava("Polymorphic variant inheriting a type that has payloads", t => {
+  U.assertEqualSchemas(t, polyWithPayloadInheritanceSchema, S.union([
+    polyWithPayloadsSchema,
+    S.schema(s => ({
+      NAME: "five",
+      VAL: s.m(S.bool)
+    }))
+  ]), undefined);
+  t.deepEqual(S.parseOrThrow("one", polyWithPayloadInheritanceSchema), "one");
+  t.deepEqual(S.parseOrThrow({NAME:"two",VAL:123}, polyWithPayloadInheritanceSchema), {
+    NAME: "two",
+    VAL: 123
+  });
+  t.deepEqual(S.parseOrThrow({NAME:"five",VAL:true}, polyWithPayloadInheritanceSchema), {
+    NAME: "five",
+    VAL: true
+  });
+});
+
+let polyInheritanceFieldSchema = S.schema(s => ({
+  variants: s.m(S.union([
+    polySchema,
+    S.literal("three")
+  ]))
+}));
+
+Ava("Polymorphic variant inheritance nested as a record field", t => {
+  U.assertEqualSchemas(t, polyInheritanceFieldSchema, S.schema(s => ({
+    variants: s.m(S.union([
+      polySchema,
+      S.literal("three")
+    ]))
+  })), undefined);
+  t.deepEqual(S.parseOrThrow({variants: "one"}, polyInheritanceFieldSchema), {
+    variants: "one"
+  });
+});
+
 export {
   polySchema,
   polyWithSingleItemSchema,
@@ -49,5 +187,10 @@ export {
   dictFieldSchema,
   recordFieldSchema,
   objectFieldSchema,
+  polyWithPayloadsSchema,
+  polyWithSinglePayloadSchema,
+  polyWithInheritanceSchema,
+  polyWithPayloadInheritanceSchema,
+  polyInheritanceFieldSchema,
 }
 /* polySchema Not a pure module */
