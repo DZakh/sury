@@ -8,3 +8,4 @@ lib
 coverage
 .tsimp
 tsconfig.tsbuildinfo
+.attest
