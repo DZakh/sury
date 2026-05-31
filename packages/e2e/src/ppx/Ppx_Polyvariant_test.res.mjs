@@ -132,6 +132,8 @@ Ava("Polymorphic variant with inheritance/spread of a named type", t => {
   ]), undefined);
   t.deepEqual(S.parseOrThrow("one", polyWithInheritanceSchema), "one");
   t.deepEqual(S.parseOrThrow("three", polyWithInheritanceSchema), "three");
+  U.assertReverseParsesBack(t, polyWithInheritanceSchema, "one");
+  U.assertReverseParsesBack(t, polyWithInheritanceSchema, "three");
 });
 
 let polyWithPayloadInheritanceSchema = S.union([
@@ -159,6 +161,14 @@ Ava("Polymorphic variant inheriting a type that has payloads", t => {
     NAME: "five",
     VAL: true
   });
+  U.assertReverseParsesBack(t, polyWithPayloadInheritanceSchema, {
+    NAME: "two",
+    VAL: 123
+  });
+  U.assertReverseParsesBack(t, polyWithPayloadInheritanceSchema, {
+    NAME: "five",
+    VAL: true
+  });
 });
 
 let polyInheritanceFieldSchema = S.schema(s => ({
@@ -177,6 +187,12 @@ Ava("Polymorphic variant inheritance nested as a record field", t => {
   })), undefined);
   t.deepEqual(S.parseOrThrow({variants: "one"}, polyInheritanceFieldSchema), {
     variants: "one"
+  });
+  U.assertReverseParsesBack(t, polyInheritanceFieldSchema, {
+    variants: "one"
+  });
+  U.assertReverseParsesBack(t, polyInheritanceFieldSchema, {
+    variants: "three"
   });
 });
 

@@ -101,6 +101,9 @@ test("Polymorphic variant with inheritance/spread of a named type", t => {
   )
   t->Assert.deepEqual(%raw(`"one"`)->S.parseOrThrow(~to=polyWithInheritanceSchema), #one)
   t->Assert.deepEqual(%raw(`"three"`)->S.parseOrThrow(~to=polyWithInheritanceSchema), #three)
+  // Reverse: an inherited tag must serialize back through the nested schema.
+  t->assertReverseParsesBack(polyWithInheritanceSchema, #one)
+  t->assertReverseParsesBack(polyWithInheritanceSchema, #three)
 })
 
 @schema
@@ -119,6 +122,9 @@ test("Polymorphic variant inheriting a type that has payloads", t => {
     %raw(`{NAME:"five",VAL:true}`)->S.parseOrThrow(~to=polyWithPayloadInheritanceSchema),
     #five(true),
   )
+  // Reverse: both an inherited payload tag and the own tag must round-trip.
+  t->assertReverseParsesBack(polyWithPayloadInheritanceSchema, #two(123))
+  t->assertReverseParsesBack(polyWithPayloadInheritanceSchema, #five(true))
 })
 
 @schema
@@ -134,6 +140,9 @@ test("Polymorphic variant inheritance nested as a record field", t => {
     %raw(`{variants: "one"}`)->S.parseOrThrow(~to=polyInheritanceFieldSchema),
     {variants: #one},
   )
+  // Reverse: the nested union inside a record field must round-trip too.
+  t->assertReverseParsesBack(polyInheritanceFieldSchema, {variants: #one})
+  t->assertReverseParsesBack(polyInheritanceFieldSchema, {variants: #three})
 })
 
 // TODO: Support
