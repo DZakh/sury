@@ -366,7 +366,6 @@ test("Coerce string after a transform", t => {
 @unboxed
 type numberOrBoolean = Number(float) | Boolean(bool)
 
-// FIXME: Test nested union
 // FIXME: Test transformed union
 test("Coerce string to unboxed union (each item separately)", t => {
   let schema =
@@ -733,12 +732,12 @@ test("Coerce from union to bigint", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{i=""+i}catch(e0){try{throw e[0]}catch(e1){try{throw e[1]}catch(e2){e[2](i,e0,e1,e2)}}}return i}`,
+    `i=>{try{i=""+i}catch(e0){e[2](i,e0,e[0],e[1])}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseParse,
-    `i=>{typeof i==="bigint"||e[3](i);try{i=""+i}catch(e0){try{throw e[0]}catch(e1){try{throw e[1]}catch(e2){e[2](i,e0,e1,e2)}}}return i}`,
+    `i=>{typeof i==="bigint"||e[3](i);try{i=""+i}catch(e0){e[2](i,e0,e[0],e[1])}return i}`,
   )
 })
 
@@ -807,7 +806,7 @@ test("Coerce from union to bigint and then to string", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{let v0;try{v0=BigInt(i)}catch(_){e[0](i)}try{v0=""+v0}catch(e0){try{throw e[1]}catch(e1){try{throw e[2]}catch(e2){e[3](v0,e0,e1,e2)}}}return v0}`,
+    `i=>{let v0;try{v0=BigInt(i)}catch(_){e[0](i)}try{v0=""+v0}catch(e0){e[3](v0,e0,e[1],e[2])}return v0}`,
   )
 })
 
@@ -913,7 +912,7 @@ test("Tier 3: no source-tag match — coercion fallback retained", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="boolean"||e[2](i);try{i=""+i}catch(e0){try{throw e[0]}catch(e1){e[1](i,e0,e1)}}return i}`,
+    `i=>{typeof i==="boolean"||e[2](i);try{i=""+i}catch(e0){e[1](i,e0,e[0])}return i}`,
   )
 })
 
@@ -976,7 +975,7 @@ test("Tier 3 instance: source class absent from target — coercion fallback ret
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{i instanceof e[3]||e[4](i);try{throw e[0]}catch(e0){try{throw e[1]}catch(e1){e[2](i,e0,e1)}}return i}`,
+    `i=>{i instanceof e[3]||e[4](i);e[2](i,e[0],e[1]);return i}`,
   )
 })
 
@@ -1110,3 +1109,112 @@ test(
     )
   },
 )
+
+// Union schema as decoder input: the conversion runs for each source variant
+// separately (see "Decoding into / out of a union" in the docs)
+
+test("Converts union nested in object into another union (each source variant separately)", t => {
+  let schema =
+    S.schema(s =>
+      {
+        "f": s.matches(
+          S.union([S.bigint->S.castToUnknown, S.literal(%raw(`null`))->S.castToUnknown]),
+        ),
+      }
+    )->S.to(
+      S.schema(s =>
+        {
+          "f": s.matches(S.union([S.string->S.castToUnknown, S.unit->S.castToUnknown])),
+        }
+      ),
+    )
+
+  t->Assert.deepEqual({"f": %raw(`123n`)}->S.parseOrThrow(~to=schema), {"f": %raw(`"123"`)})
+  t->Assert.deepEqual({"f": %raw(`null`)}->S.parseOrThrow(~to=schema), {"f": %raw(`undefined`)})
+
+  // Reverse direction
+  t->Assert.deepEqual(
+    {"f": %raw(`"123"`)}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`{f: 123n}`),
+  )
+  t->Assert.deepEqual(
+    {"f": %raw(`undefined`)}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`{f: null}`),
+  )
+})
+
+test("Converts union nested in object into a single schema (each source variant separately)", t => {
+  let schema =
+    S.schema(s =>
+      {
+        "f": s.matches(S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])),
+      }
+    )->S.to(S.schema(s => {"f": s.matches(S.string)}))
+
+  t->Assert.deepEqual({"f": %raw(`123`)}->S.parseOrThrow(~to=schema), {"f": %raw(`"123"`)})
+  t->Assert.deepEqual({"f": %raw(`"abc"`)}->S.parseOrThrow(~to=schema), {"f": %raw(`"abc"`)})
+})
+
+test("Union variant failing to decode to the target reports an aggregated error", t => {
+  let schema =
+    S.schema(s =>
+      {
+        "f": s.matches(S.union([S.string->S.castToUnknown, S.bool->S.castToUnknown])),
+      }
+    )->S.to(S.schema(s => {"f": s.matches(S.bigint)}))
+
+  t->Assert.deepEqual({"f": %raw(`"12"`)}->S.parseOrThrow(~to=schema), {"f": %raw(`12n`)})
+  t->U.assertThrowsMessage(
+    () => {"f": %raw(`true`)}->S.parseOrThrow(~to=schema),
+    `Failed at ["f"]: Expected string | boolean, received true
+- At ["f"]: Can't decode boolean to bigint. Use S.to to define a custom decoder`,
+  )
+})
+
+test("Tier 1: matching const variant wins over an earlier mapped literal", t => {
+  let schema =
+    S.union([S.literal("a"), S.literal("b")])->S.to(
+      S.union([S.literal("b"), S.literal("a"), S.literal("c")]),
+    )
+
+  t->Assert.deepEqual("a"->S.parseOrThrow(~to=schema), "a")
+  t->Assert.deepEqual("b"->S.parseOrThrow(~to=schema), "b")
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(!(typeof i==="string"&&(i==="a"||i==="b"))){e[0](i)}return i}`,
+  )
+})
+
+test("Tier 1: object source picks the matching object variant in target union", t => {
+  let objA = S.schema(s => {"k": s.matches(S.literal("a")), "x": s.matches(S.float)})
+  let objB = S.schema(s => {"k": s.matches(S.literal("b")), "y": s.matches(S.string)})
+  let schema = objA->S.to(S.union([objB->Obj.magic, objA->Obj.magic]))
+
+  t->Assert.deepEqual(
+    {"k": "a", "x": 1.}->S.parseOrThrow(~to=schema),
+    {"k": "a", "x": 1.}->Obj.magic,
+  )
+})
+
+test("Converts union of objects into reordered union of objects", t => {
+  let objA = S.schema(s => {"k": s.matches(S.literal("a")), "x": s.matches(S.float)})
+  let objB = S.schema(s => {"k": s.matches(S.literal("b")), "y": s.matches(S.string)})
+  let schema =
+    S.union([objA->Obj.magic, objB->Obj.magic])->S.to(
+      S.union([objB->Obj.magic, objA->Obj.magic]),
+    )
+
+  t->Assert.deepEqual(
+    %raw(`{k: "a", x: 1}`)->S.parseOrThrow(~to=schema),
+    %raw(`{k: "a", x: 1}`),
+  )
+  t->Assert.deepEqual(
+    %raw(`{k: "b", y: "hi"}`)->S.parseOrThrow(~to=schema),
+    %raw(`{k: "b", y: "hi"}`),
+  )
+  t->U.assertThrowsMessage(
+    () => %raw(`{k: "c"}`)->S.parseOrThrow(~to=schema),
+    `Expected { k: "a"; x: number; } | { k: "b"; y: string; }, received { k: "c"; }`,
+  )
+})

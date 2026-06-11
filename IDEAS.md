@@ -86,18 +86,23 @@ encoder, so the encoder never fires there.
 ### Phases
 
 0. Fix bug 6 (hoisting of checks on transformed vals) and add the missing
-   nested/transformed-union tests (S_to_test.res:369-370 FIXMEs) — every
-   per-variant parse emits through that path.
-1. Union encoder (fixes bugs 1 and 2). Tests: object/array/tuple-nested ×
-   {union→union subset/reorder/coercion/nullish-bridge, union→scalar,
-   transformed variants, async variant, refined union, option-machinery
-   unions}, both directions, error-path snapshots (path concat + unionErrors).
-2. Typed-object case parsing (fixes bug 3): B.Val.get on a missing property of
-   a typed object without additionalItems throws UnsupportedDecode (catchable)
-   instead of panicking → becomes a per-case runtime failure like other
-   unsupported decodes. Optional 2b: compile-time tier-1 discriminant matching
-   for object groups (compare const properties of source vs variant) to prune
-   impossible variants and make `objA -> (objB|objA)` a noop.
+   nested/transformed-union tests (S_to_test.res FIXMEs) — every
+   per-variant parse emits through that path. **(pending — transformed-union
+   variants are declined by the union encoder until this is fixed)**
+1. **(done)** Union encoder (fixes bugs 1 and 2): `Union.encoder` re-drives
+   the source union with `.to(target)` appended. Declines for ref-reaching
+   targets (S.json/recursive keep dedicated handling) and for source variants
+   with `.to`/`parser`/ref. Also implements tier-1 const priority (matching
+   const variants tried first — fixes the pre-existing `enum(a,b) ->
+   enum(b,a,c)` 'a'→"b" remap), and drops guaranteed-to-fail cases from
+   generated code (their embedded errors join the exhaustive failure args
+   instead of runtime `try{throw}` chains). Regression tests in S_to_test.res.
+2. **(done, 2b pending)** Typed-object case parsing (fixes bug 3): B.Val.get
+   on a missing property of a typed object without additionalItems throws
+   UnsupportedDecode (catchable) instead of panicking → becomes a per-case
+   failure. Combined with case dropping, `objA -> (objB|objA)` compiles to a
+   noop. Optional 2b: compile-time tier-1 discriminant matching for object
+   groups to prune impossible variants without relying on codegen failures.
 3. Trusted-input perf (fixes bug 4):
    - Replace isWiderUnionSchema with order-independent subset matching;
      reference-equal items always match (covers object/array/instance/
@@ -106,13 +111,14 @@ encoder, so the encoder never fires there.
    - Optional 3b: keep the typed source in the encoder (skip widening):
      per-case body parses from the trusted case schema, routing conds
      synthesized from the hoisted type/discriminant checks, last case as plain
-     `else`. Also covers the single-surviving-case try/catch FIXMEs
+     `else`. Avoids re-running union refiners per case on already-validated
+     input. Also covers the single-surviving-case try/catch FIXMEs
      (S_to_test.res:1077, 1104). Gate on benchmarks + generated-code size.
-4. Unlocked cleanups: drop `originalItems` (Sury.res:4361); recheck the
-   CustomJSON encode error FIXME (S_to_test.res:428) — the full fix needs
-   unified ref-input handling (Sury.res:4670), separate follow-up; docs
-   already promise per-source-variant behavior, add a nested example once
-   true; cross off the related known bugs below.
+4. Unlocked cleanups: drop `originalItems` (Option.getWithDefault FIXME);
+   recheck the CustomJSON encode error FIXME (S_to_test.res:428) — the full
+   fix needs unified ref-input handling (jsonDecoderFn ref FIXME), separate
+   follow-up; docs already promise per-source-variant behavior, add a nested
+   example; cross off the related known bugs below.
 
 ### Risks
 
