@@ -3598,6 +3598,31 @@ module Union = {
       (tagFlag->Flag.unsafeHas(TagFlag.nan) && byKey->Stdlib.Dict.has((numberTag: tag :> string)))
   }
 
+  // Whether decoding a value already known to be of the schema type
+  // is a noop — no transformation anywhere in the schema tree.
+  // Recursive refs are conservatively treated as transforming
+  let rec isSelfDecodeNoop = (schema: internal) => {
+    schema.to === None &&
+    schema.parser === None &&
+    !(schema.tag->TagFlag.get->Flag.unsafeHas(TagFlag.ref)) &&
+    switch schema.anyOf {
+    | Some(anyOf) => anyOf->Array.every(isSelfDecodeNoop)
+    | None => true
+    } &&
+    switch schema.items {
+    | Some(items) => items->Array.every(isSelfDecodeNoop)
+    | None => true
+    } &&
+    switch schema.properties {
+    | Some(properties) => properties->Stdlib.Dict.valuesToArray->Array.every(isSelfDecodeNoop)
+    | None => true
+    } &&
+    switch schema.additionalItems {
+    | Some(Schema(s)) => s->castToInternal->isSelfDecodeNoop
+    | _ => true
+    }
+  }
+
   let isWiderUnionSchema = (~schemaAnyOf, ~inputAnyOf) => {
     inputAnyOf->Array.everyWithIndex((inputSchema, idx) => {
       switch schemaAnyOf->X.Array.getUnsafeOption(idx) {
@@ -3672,6 +3697,9 @@ module Union = {
     }
 
     if (
+      // The input val is already of the union type (trusted self-decode).
+      // Only allowed when no variant transforms the value
+      (input.schema === selfSchema && toPerCase === None && schemas->Array.every(isSelfDecodeNoop)) ||
       (initialInputTagFlag->Flag.unsafeHas(TagFlag.union) &&
       isWiderUnionSchema(
         ~schemaAnyOf=schemas,
@@ -4763,6 +4791,19 @@ and jsonDecoderFn = (~input) => {
   } else if inputTagFlag->Flag.unsafeHas(TagFlag.ref) {
     // FIXME: Should be a unified solution for ref inputs
     recursiveDecoder(~input)
+  } else if (
+    inputTagFlag->Flag.unsafeHas(TagFlag.union) &&
+      !(input.schema.has->X.Option.getUnsafe->Stdlib.Dict.has((undefinedTag :> string)))
+  ) {
+    // Decode each union variant to JSON separately.
+    // Unions with an undefined variant are not supported,
+    // since undefined is not representable in JSON
+    input
+    ->B.refine(
+      ~schema=unknown,
+      ~expected=input.schema->updateOutput(mut => mut.to = Some(input.expected))->castToInternal,
+    )
+    ->parse
   } else if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
     let to = input.expected.to->X.Option.getUnsafe
     // Whether we can optimize encoding during decoding
