@@ -1218,3 +1218,78 @@ test("Converts union of objects into reordered union of objects", t => {
     `Expected { k: "a"; x: number; } | { k: "b"; y: string; }, received { k: "c"; }`,
   )
 })
+
+test("Converts union nested in array into another union (each source variant separately)", t => {
+  let schema =
+    S.array(S.union([S.bigint->S.castToUnknown, S.literal(%raw(`null`))->S.castToUnknown]))->S.to(
+      S.array(S.union([S.string->S.castToUnknown, S.unit->S.castToUnknown])),
+    )
+
+  t->Assert.deepEqual(
+    %raw(`[123n, null]`)->S.parseOrThrow(~to=schema),
+    %raw(`["123", undefined]`),
+  )
+  t->U.assertThrowsMessage(
+    () => %raw(`[true]`)->S.parseOrThrow(~to=schema),
+    `Failed at ["0"]: Expected bigint | null, received true`,
+  )
+})
+
+test("Converts union nested in tuple into a single schema (each source variant separately)", t => {
+  let schema =
+    S.schema(s => (
+      s.matches(S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])),
+      s.matches(S.bool),
+    ))->S.to(S.schema(s => (s.matches(S.string), s.matches(S.bool))))
+
+  t->Assert.deepEqual(%raw(`[123, true]`)->S.parseOrThrow(~to=schema), %raw(`["123", true]`))
+  t->Assert.deepEqual(%raw(`["abc", false]`)->S.parseOrThrow(~to=schema), %raw(`["abc", false]`))
+})
+
+asyncTest("Converts union nested in object into an async target (each source variant separately)", async t => {
+  let schema =
+    S.schema(s =>
+      {
+        "f": s.matches(S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])),
+      }
+    )->S.to(
+      S.schema(s =>
+        {
+          "f": s.matches(S.string->S.transform(_ => {asyncParser: v => Promise.resolve(v)})),
+        }
+      ),
+    )
+
+  t->Assert.deepEqual(
+    await %raw(`{f: 123}`)->S.parseAsyncOrThrow(~to=schema),
+    {"f": "123"},
+  )
+  t->Assert.deepEqual(
+    await %raw(`{f: "abc"}`)->S.parseAsyncOrThrow(~to=schema),
+    {"f": "abc"},
+  )
+})
+
+test("Union variant with a transformed field — parse and encode roundtrip", t => {
+  let variantA = S.schema(s =>
+    {
+      "k": s.matches(S.literal("a")),
+      "n": s.matches(S.string->S.to(S.float)),
+    }
+  )
+  let variantB = S.schema(s => {"k": s.matches(S.literal("b"))})
+  let schema = S.schema(s =>
+    {
+      "u": s.matches(S.union([variantA->Obj.magic, variantB->Obj.magic])),
+    }
+  )
+
+  t->Assert.deepEqual(
+    %raw(`{u: {k: "a", n: "12"}}`)->S.parseOrThrow(~to=schema),
+    %raw(`{u: {k: "a", n: 12}}`),
+  )
+  t->Assert.deepEqual(
+    %raw(`{u: {k: "a", n: 12}}`)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`{u: {k: "a", n: "12"}}`),
+  )
+})

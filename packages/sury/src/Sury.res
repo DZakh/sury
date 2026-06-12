@@ -3635,7 +3635,6 @@ module Union = {
             ->Flag.with(TagFlag.instance)
             ->Flag.with(TagFlag.ref)
             ->Flag.with(TagFlag.union)
-            ->Flag.with(TagFlag.array)
             ->Flag.with(TagFlag.object),
           )
         ) &&
@@ -3647,42 +3646,57 @@ module Union = {
     })
   }
 
-  // Applied by the parse loop when a union-typed val meets a different
-  // expected schema. Re-drives the source union with `.to(target)` appended,
-  // so its decoder dispatches per variant and each variant converts to the
-  // target independently (the documented per-source-variant algorithm).
-  let encoder = Builder.encoder((~input, ~target) => {
-    let toPerCase = switch target {
+  // The union's own `.to` chain which is applied per case during decoding.
+  // None when the union has a custom parser owning the `.to` conversion
+  let getToPerCase = (schema: internal) =>
+    switch schema {
     | {parser: ?None, to} => Some(to)
     | _ => None
     }
+
+  // Whether a union-typed input can be decoded by dispatching
+  // over its variants with `.to(target)` appended to each
+  let canDispatchPerVariant = (~inputAnyOf, ~target: internal) =>
+    // S.json and recursive targets keep their dedicated union-input handling
+    !((target->getOutputSchema).tag->TagFlag.get->Flag.unsafeHas(TagFlag.ref)) &&
+    !(
+      target.tag === unionTag &&
+      target.anyOf
+      ->X.Option.getUnsafe
+      ->Array.some(v => v.tag->TagFlag.get->Flag.unsafeHas(TagFlag.ref))
+    ) &&
+    // Variants with transformations or recursive refs (option machinery,
+    // transformed unions) aren't supported per-variant yet
+    !(
+      inputAnyOf->Array.some(v =>
+        v.to !== None || v.parser !== None || v.tag->TagFlag.get->Flag.unsafeHas(TagFlag.ref)
+      )
+    )
+
+  // Re-drives the source union with `.to(target)` appended, so its decoder
+  // dispatches per variant and each variant converts to the target
+  // independently (the documented per-source-variant algorithm)
+  let perVariantVal = (~input: val, ~target) =>
+    input->B.refine(
+      ~schema=unknown,
+      ~expected=input.schema->updateOutput(mut => mut.to = Some(target))->castToInternal,
+    )
+
+  // Applied by the parse loop when a union-typed val
+  // meets a different expected schema
+  let encoder = Builder.encoder((~input, ~target) => {
     let inputAnyOf = input.schema.anyOf->X.Option.getUnsafe
     if (
       target.tag === unionTag &&
-      toPerCase === None &&
+      getToPerCase(target) === None &&
       isWiderUnionSchema(~schemaAnyOf=target.anyOf->X.Option.getUnsafe, ~inputAnyOf)
     ) {
       // The target union decoder passes a narrower union input through as-is
       input
-    } else if (
-      (target->getOutputSchema).tag->TagFlag.get->Flag.unsafeHas(TagFlag.ref) ||
-      (target.tag === unionTag &&
-        target.anyOf
-        ->X.Option.getUnsafe
-        ->Array.some(v => v.tag->TagFlag.get->Flag.unsafeHas(TagFlag.ref))) ||
-        inputAnyOf->Array.some(v =>
-          v.to !== None || v.parser !== None || v.tag->TagFlag.get->Flag.unsafeHas(TagFlag.ref)
-        )
-    ) {
-      // S.json and recursive targets keep their dedicated union-input
-      // handling. Variants with transformations or recursive refs (option
-      // machinery, transformed unions) aren't supported per-variant yet.
-      input
+    } else if canDispatchPerVariant(~inputAnyOf, ~target) {
+      perVariantVal(~input, ~target)
     } else {
-      input->B.refine(
-        ~schema=unknown,
-        ~expected=input.schema->updateOutput(mut => mut.to = Some(target))->castToInternal,
-      )
+      input
     }
   })
 
@@ -3691,10 +3705,7 @@ module Union = {
     let schemas = selfSchema.anyOf->X.Option.getUnsafe
     let initialInputTagFlag = input.schema.tag->TagFlag.get
 
-    let toPerCase = switch selfSchema {
-    | {parser: ?None, to} => Some(to)
-    | _ => None
-    }
+    let toPerCase = getToPerCase(selfSchema)
 
     if (
       // The input val is already of the union type (trusted self-decode).
@@ -3821,7 +3832,8 @@ module Union = {
 
           let isLast = itemIdx.contents === lastIdx
           let isFirst = itemIdx.contents === preItems
-          let withExhaustiveCheck = ref(!(isFirst && isLast))
+          let isOnlyCase = isFirst && isLast
+          let withExhaustiveCheck = ref(!isOnlyCase)
 
           let itemSkipped = ref(false)
           let itemCode = ref("")
@@ -3849,7 +3861,7 @@ module Union = {
           | _ => {
               let errorVar = input->B.embed(%raw(`exn`)->InternalError.getOrRethrow)
               caught := `${caught.contents},${errorVar}`
-              if isLast && isDeopt && isFirst {
+              if isDeopt && isOnlyCase {
                 staticBlockFailure := errorVar
                 itemSkipped := true
               } else if isLast {
@@ -3990,7 +4002,6 @@ module Union = {
       let lastIdx = schemas->Array.length - 1
       let byKey: ref<dict<array<unknown>>> = ref(dict{})
       let keys = ref([])
-      let updatedSchemas = []
 
       // FIXME: minimal fix — applies the union's refiner/inputRefiner per
       // surviving case (previously dropped when the union has `.to`). The
@@ -4070,7 +4081,6 @@ module Union = {
           })->castToInternal
         | _ => schemas->Array.getUnsafe(idx)
         }
-        updatedSchemas->Array.push(schema)->ignore
         let tag = schema.tag
         let tagFlag = TagFlag.get(tag)
         let key = toKey(schema)
@@ -4793,17 +4803,14 @@ and jsonDecoderFn = (~input) => {
     recursiveDecoder(~input)
   } else if (
     inputTagFlag->Flag.unsafeHas(TagFlag.union) &&
+      // Union-tagged schemas always carry `anyOf` and `has`
+      // (set by Union.factory, reverse and the S.json def).
+      // Unions with an undefined variant are not supported,
+      // since undefined is not representable in JSON
       !(input.schema.has->X.Option.getUnsafe->Stdlib.Dict.has((undefinedTag :> string)))
   ) {
-    // Decode each union variant to JSON separately.
-    // Unions with an undefined variant are not supported,
-    // since undefined is not representable in JSON
-    input
-    ->B.refine(
-      ~schema=unknown,
-      ~expected=input.schema->updateOutput(mut => mut.to = Some(input.expected))->castToInternal,
-    )
-    ->parse
+    // Decode each union variant to JSON separately
+    Union.perVariantVal(~input, ~target=input.expected)->parse
   } else if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
     let to = input.expected.to->X.Option.getUnsafe
     // Whether we can optimize encoding during decoding
