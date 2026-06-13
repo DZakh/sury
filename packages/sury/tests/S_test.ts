@@ -2305,6 +2305,62 @@ test("Assert passes with valid data", (t) => {
   expectType<TypeEqual<typeof data, string>>(true);
 });
 
+test("Assert supports both (schema, data) and (data, schema) arg orders", (t) => {
+  const schema = S.string;
+
+  // (schema, data)
+  const a: unknown = "abc";
+  S.assert(schema, a);
+  expectType<TypeEqual<typeof a, string>>(true);
+
+  // (data, schema)
+  const b: unknown = "abc";
+  S.assert(b, schema);
+  expectType<TypeEqual<typeof b, string>>(true);
+
+  // Both orders throw on invalid data
+  t.expect(() => S.assert(schema, 123)).toThrow();
+  t.expect(() => S.assert(123, schema)).toThrow();
+});
+
+test("Is returns a boolean and narrows the type", (t) => {
+  const schema = S.string;
+
+  const data: unknown = "abc";
+  t.expect(S.is(schema, data)).toBe(true);
+  t.expect(S.is(schema, 123)).toBe(false);
+
+  if (S.is(schema, data)) {
+    expectType<TypeEqual<typeof data, string>>(true);
+  }
+});
+
+test("Is supports both (schema, data) and (data, schema) arg orders", (t) => {
+  const schema = S.string;
+
+  // (schema, data)
+  t.expect(S.is(schema, "abc")).toBe(true);
+  t.expect(S.is(schema, 123)).toBe(false);
+
+  // (data, schema)
+  t.expect(S.is("abc", schema)).toBe(true);
+  t.expect(S.is(123, schema)).toBe(false);
+
+  // Narrowing works in (data, schema) order too
+  const data: unknown = "abc";
+  if (S.is(data, schema)) {
+    expectType<TypeEqual<typeof data, string>>(true);
+  }
+});
+
+test("Is works with advanced schemas", (t) => {
+  const schema = S.schema({ foo: S.string });
+
+  t.expect(S.is(schema, { foo: "bar" })).toBe(true);
+  t.expect(S.is(schema, { foo: 123 })).toBe(false);
+  t.expect(S.is(schema, null)).toBe(false);
+});
+
 test("Schema of object with empty prototype", (t) => {
   const obj = Object.create(null) as { foo: S.Schema<string, string> };
   obj.foo = S.string;
