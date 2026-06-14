@@ -19,6 +19,7 @@ type Equals<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B
   ? true
   : false;
 type Expect<T extends true> = T;
+type ExpectFalse<T extends false> = T;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Baseline (pre-optimization) copies of the resolvers, reproduced verbatim so
@@ -260,4 +261,39 @@ type _transform_out = Expect<
 >;
 type _transform_in = Expect<
   Equals<S.UnknownToInput<C_Transform>, { x: string; a: string }>
+>;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Case 14 — `Schema<never>` field: the ONE intentional divergence from the
+// baseline, so it is asserted directly rather than via OutMatchesBaseline.
+//
+// A field whose resolved type is exactly `never` is the only input on which the
+// optionality predicates disagree:
+//   • Baseline `HasUndefined<X>` starts with `[X] extends [undefined]`, which is
+//     true whenever X is assignable to `undefined` — and `never` is assignable
+//     to everything, so a `never` field was treated as optional. The optional
+//     `a?: never` then survives `Flatten` as `a?: undefined` (optional widens
+//     `never` to `undefined`).
+//   • The optimized `undefined extends R[K]` is `false` for `never`, so the
+//     field is required (`a: never`) and `Flatten` — which drops keys whose
+//     value `extends never` — removes it entirely.
+//
+// For every non-`never` field the two predicates agree exactly, so this is the
+// sole behavioral difference. No Sury combinator yields a `Schema<never>` field
+// in normal use; you must hand-write `S.Schema<never, never>`. The new result
+// (drop the impossible field) is arguably the cleaner of the two.
+// ─────────────────────────────────────────────────────────────────────────────
+type C_NeverField = { a: S.Schema<never, never>; b: Num };
+// New: the impossible field is dropped on both Output and Input.
+type _never_out = Expect<
+  Equals<S.UnknownToOutput<C_NeverField>, { b: number }>
+>;
+type _never_in = Expect<Equals<S.UnknownToInput<C_NeverField>, { b: number }>>;
+// Baseline kept it as an optional-`undefined` slot.
+type _never_oldOut = Expect<
+  Equals<OldUnknownToOutput<C_NeverField>, { a?: undefined; b: number }>
+>;
+// And therefore new ≠ old for this (only this) shape.
+type _never_diverges = ExpectFalse<
+  Equals<S.UnknownToOutput<C_NeverField>, OldUnknownToOutput<C_NeverField>>
 >;
