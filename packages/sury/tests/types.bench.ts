@@ -64,7 +64,7 @@ bench("S.schema object — nested 3 levels", () => {
       }),
     }),
   });
-}).types([20971, "instantiations"]);
+}).types([20419, "instantiations"]);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // S.schema on tuples — exercises UnknownArrayToOutput / _RestToOutput
@@ -141,11 +141,11 @@ const flatSchema = S.schema({
 
 bench("S.Output on 5-field object", () => {
   return {} as S.Output<typeof flatSchema>;
-}).types([6981, "instantiations"]);
+}).types([6951, "instantiations"]);
 
 bench("S.Input on 5-field object", () => {
   return {} as S.Input<typeof flatSchema>;
-}).types([5846, "instantiations"]);
+}).types([5816, "instantiations"]);
 
 const deepSchema = S.schema({
   a: S.string,
@@ -160,7 +160,7 @@ const deepSchema = S.schema({
 
 bench("S.Output on 3-level nested object", () => {
   return {} as S.Output<typeof deepSchema>;
-}).types([6970, "instantiations"]);
+}).types([6951, "instantiations"]);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Compound: define + extract (the realistic per-schema cost).
@@ -180,7 +180,7 @@ bench("S.schema + S.Output — 10-field object", () => {
     j: S.symbol,
   });
   return {} as S.Output<typeof s>;
-}).types([7354, "instantiations"]);
+}).types([7294, "instantiations"]);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // S.merge — exercises the Omit<O1, keyof O2> & O2 intersection in the return
@@ -201,7 +201,7 @@ const mergeRightRequired = S.schema({
 
 bench("S.merge — 3+2 all required", () => {
   return S.merge(mergeLeftRequired, mergeRightRequired);
-}).types([5631, "instantiations"]);
+}).types([5461, "instantiations"]);
 
 const mergeLeftOptional = S.schema({
   _id: S.optional(S.string),
@@ -215,10 +215,10 @@ const mergeRightForOptional = S.schema({
 
 bench("S.merge — 3 optional + 2 required (issue #157 case)", () => {
   return S.merge(mergeLeftOptional, mergeRightForOptional);
-}).types([6199, "instantiations"]);
+}).types([5956, "instantiations"]);
 
 bench("S.merge — output extraction with optional preservation", () => {
   const m = S.merge(mergeLeftOptional, mergeRightForOptional);
   return {} as S.Output<typeof m>;
-}).types([12883, "instantiations"]);
+}).types([12426, "instantiations"]);
 

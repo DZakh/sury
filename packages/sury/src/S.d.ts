@@ -371,7 +371,9 @@ export function brand<ID extends string, Output = unknown, Input = unknown>(
 // `R` already holds each field's resolved type, so values are never recomputed
 // per key. When no field is optional (the common case), the resolved map is
 // already the answer, so the optional/required split and its intersection are
-// skipped.
+// skipped. A field is optional iff its type admits `undefined`; `never` does not,
+// so an `S.never` field stays a required `never` property — the resulting object
+// is correctly uninhabited, mirroring a hand-written type definition.
 type ResolveObject<R> = undefined extends R[keyof R]
   ? Flatten<
       {
@@ -382,10 +384,10 @@ type ResolveObject<R> = undefined extends R[keyof R]
     >
   : Flatten<R>;
 
-// Utility to flatten the type into a single object
-type Flatten<T> = T extends object
-  ? { [K in keyof T as T[K] extends never ? never : K]: T[K] }
-  : T;
+// Utility to flatten an intersection into a single object. Field values are kept
+// verbatim (including `never`) so the inferred type matches what you would write
+// by hand.
+type Flatten<T> = T extends object ? { [K in keyof T]: T[K] } : T;
 
 type UnknownArrayToOutput<
   T extends unknown[],
