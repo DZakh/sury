@@ -638,11 +638,6 @@ and val = {
   mutable flattenedVals?: array<val>,
   @as("cp")
   mutable codeFromPrev: string,
-  // The nearest enclosing block that outlives this val (operation root or a
-  // `for`-loop dynamic scope). Used as the hoist target when a val has no prev
-  // to anchor a lazily-materialized declaration to. Inherited by descendants.
-  @as("so")
-  mutable scopeOwner?: val,
   // Comma-joined `let` declarations hoisted onto this val by descendants whose
   // own segment was already emitted. Emitted after this val's checks in
   // `merge` — the slot the old varsAllocation side-channel used.
@@ -1220,10 +1215,12 @@ module Builder = {
           }
         }
       | None =>
-        // No prev to anchor the declaration to; hoist it to the scope owner.
+        // No prev to anchor the declaration to; hoist it onto the val itself
+        // (its own segment outlives the materialization). Matches the old
+        // `target = val` self-allocation.
         switch val.inline {
-        | "" => hoistDecl(val.scopeOwner->X.Option.getUnsafe, v)
-        | i => hoistDecl(val.scopeOwner->X.Option.getUnsafe, `${v}=${i}`)
+        | "" => hoistDecl(val, v)
+        | i => hoistDecl(val, `${v}=${i}`)
         }
       }
       val.var = _var
@@ -1235,7 +1232,7 @@ module Builder = {
     let operationArgVar = "i"
 
     let operationArg = (~schema, ~expected, ~flag, ~defs): val => {
-      let root = {
+      {
         codeFromPrev: "",
         var: _var,
         inline: operationArgVar,
@@ -1250,10 +1247,6 @@ module Builder = {
           varCounter: -1,
         },
       }
-      // The operation root is its own scope owner: decls hoisted here land at
-      // the top of the compiled function body, dominating everything.
-      root.scopeOwner = Some(root)
-      root
     }
 
     let throw = errorDetails => {
@@ -1568,7 +1561,6 @@ module Builder = {
         schema,
         expected,
         codeFromPrev: "",
-        scopeOwner: ?prev.scopeOwner,
         path: prev.path,
         global: prev.global,
         hasTransform: true,
@@ -1588,7 +1580,6 @@ module Builder = {
         schema,
         expected,
         codeFromPrev: "",
-        scopeOwner: ?val.scopeOwner,
         ?checks,
         path: val.path,
         global: val.global,
@@ -1679,7 +1670,7 @@ module Builder = {
     }
 
     let dynamicScope = (from: val, ~locationVar): val => {
-      let scope = {
+      {
         var: _notVarBeforeValidation,
         inline: `${from.var()}[${locationVar}]`,
         flag: from.flag,
@@ -1690,11 +1681,6 @@ module Builder = {
         path: Path.empty,
         global: from.global,
       }
-      // A dynamic scope is the body of a `for` loop: it's a new lexical block.
-      // Decls that depend on the loop variable must stay inside it, so the
-      // scope owns itself rather than inheriting the enclosing scope.
-      scope.scopeOwner = Some(scope)
-      scope
     }
 
     let nextConst = (from: val, ~schema, ~expected=?): val => {
@@ -1770,7 +1756,6 @@ module Builder = {
           codeFromPrev: "",
           isUnion: false,
           hasTransform: false,
-          scopeOwner: ?val.scopeOwner,
           isOutput: ?val.isOutput,
           vals: ?val.vals, // TODO: Is this correct?
         }
@@ -1832,7 +1817,6 @@ module Builder = {
               schema,
               expected: schema,
               codeFromPrev: "",
-              scopeOwner: ?parent.scopeOwner,
               path: parent.path->Path.concat(pathAppend),
               global: parent.global,
               parent,
@@ -2668,7 +2652,6 @@ let rec makeObjectVal = (prev: val, ~schema): B.Val.Object.t => {
     vals: dict{},
     hasTransform: true,
     codeFromPrev: "",
-    scopeOwner: ?prev.scopeOwner,
     path: prev.path,
     global: prev.global,
   }
