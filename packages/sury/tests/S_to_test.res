@@ -29,6 +29,36 @@ test("Coerce from string to bool", t => {
   t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return ""+i}`)
 })
 
+test("Coerce from string to option of int (union dispatch over a converted value)", t => {
+  let schema = S.string->S.to(S.option(S.int))
+
+  t->Assert.deepEqual("123"->S.parseOrThrow(~to=schema), Some(123))
+  t->Assert.deepEqual("undefined"->S.parseOrThrow(~to=schema), None)
+  t->U.assertThrowsMessage(
+    () => "1.5"->S.parseOrThrow(~to=schema),
+    `Expected int32 | undefined, received "1.5"
+- Expected int32, received 1.5`,
+  )
+
+  // Regression (v0 is not defined): the union discriminant must not be hoisted
+  // above the `let v0 = +i` conversion it reads. The string->number coercion is
+  // a self-contained codeFromPrev unit, so the int branch dispatches via
+  // try/catch with its declaration intact.
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{typeof i==="string"||e[3](i);try{let v0=+i;!Number.isNaN(v0)||e[1](i);v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[0](v0);i=v0}catch(e0){if(i==="undefined"){i=void 0}else{e[2](i,e0)}}return i}`,
+  )
+
+  t->Assert.deepEqual(Some(123)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
+  t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"undefined"`))
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Encode,
+    `i=>{if(typeof i==="number"&&!Number.isNaN(i)){if(i<=2147483647&&i>=-2147483648&&i%1===0){i=""+i}}else if(i===void 0){i="undefined"}else{e[0](i)}return i}`,
+  )
+})
+
 test("Coerce from bool to string", t => {
   let schema = S.bool->S.to(S.string)
 
@@ -393,7 +423,7 @@ test("Coerce string to unboxed union (each item separately)", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[3](i);try{let v0=+i;!Number.isNaN(v0)||e[1](i);i=v0}catch(e1){try{let v1;(v1=i==="true")||i==="false"||e[0](i);i=v1}catch(e2){e[2](i,e1,e2)}}return i}`,
+    `i=>{typeof i==="string"||e[3](i);try{let v0=+i;!Number.isNaN(v0)||e[0](i);i=v0}catch(e0){try{let v1;(v1=i==="true")||i==="false"||e[1](i);i=v1}catch(e1){e[2](i,e0,e1)}}return i}`,
   )
 
   t->Assert.deepEqual(Number(10.)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"10"`))

@@ -1951,10 +1951,17 @@ let numberDecoder = Builder.make((~input) => {
     input->B.refine(~schema=input.expected, ~checks)
   } else if inputTagFlag->Flag.unsafeHas(TagFlag.string) {
     let outputVar = input.global->B.varWithoutAllocation
-    input.allocate(`${outputVar}=+${input.var()}`)
 
     let output = input->B.next(outputVar, ~schema=input.expected)
     output.var = B._var
+    // Emit the `+input` coercion as codeFromPrev (a self-contained unit that
+    // declares its own var) instead of parking it in varsAllocation via the
+    // `allocate` side-channel. This keeps the conversion glued to the val that
+    // owns the type-narrow check below: a non-empty codeFromPrev makes the val
+    // non-hoistable in `merge`, so when this decoder feeds a union dispatch
+    // (e.g. `str->to(option(int))`) the discriminant is not lifted above its
+    // `let v0=+i` declaration. Mirrors how the string->bool decoder works.
+    output.codeFromPrev = `let ${outputVar}=+${input.var()};`
 
     output.checks = Some([
       {
