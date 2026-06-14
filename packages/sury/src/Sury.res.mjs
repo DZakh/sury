@@ -4429,14 +4429,9 @@ let js_encoder = ((...args) => getDecoder(...args.map(reverse)));
 let js_asyncEncoder = ((...args) => getDecoder(...args.map(reverse), 1));
 
 function js_assert(a, b) {
-  let match = a["~standard"] ? [
-      a,
-      b
-    ] : [
-      b,
-      a
-    ];
-  return getDecoder(unknown, match[0], getAssertResult())(match[1]);
+  let aIsSchema = a["~standard"];
+  let schema = aIsSchema ? a : b;
+  return getDecoder(unknown, schema, getAssertResult())(aIsSchema ? b : a);
 }
 
 function js_is(a, b) {
