@@ -38,6 +38,7 @@ export var asyncDecoder = S.js_asyncDecoder
 export var encoder = S.js_encoder
 export var asyncEncoder = S.js_asyncEncoder
 export var assert = S.js_assert
+export var is = S.js_is
 export var recursive = S.recursive
 export var merge = S.js_merge
 export var strict = S.strict

@@ -6734,8 +6734,28 @@ let js_encoder = %raw(`(...args) => getDecoder(...args.map(reverse))`)
 
 let js_asyncEncoder = %raw(`(...args) => getDecoder(...args.map(reverse), 1)`)
 
-let js_assert = (schema, data) => {
-  getDecoder3(~s1=unknown, ~s2=schema->castToInternal, ~s3=getAssertResult())(data)
+// Accepts both `(schema, data)` and `(data, schema)` arg orders. We tell them
+// apart by the Standard Schema marker on a schema object. The truthiness guard
+// keeps `null`/`undefined` data from throwing on the marker access, routing it
+// to the data slot so validation fails with a proper Sury error.
+let js_assert = (a, b) => {
+  let aIsSchema = a->Obj.magic && a->isSchemaObject
+  let schema = (aIsSchema ? a : b)->Obj.magic
+  let data = (aIsSchema ? b : a)->Obj.magic
+  getDecoder3(~s1=unknown, ~s2=schema, ~s3=getAssertResult())(data)
+}
+
+let js_is = (a, b) => {
+  try {
+    let _ = js_assert(a, b)
+    true
+  } catch {
+  | _ => {
+      // Rethrow anything that isn't a Sury validation failure.
+      let _ = %raw(`exn`)->InternalError.getOrRethrow
+      false
+    }
+  }
 }
 
 let js_union = values =>
