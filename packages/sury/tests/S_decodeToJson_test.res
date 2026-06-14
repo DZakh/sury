@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Successfully reverse converts jsonable schemas", t => {
   t->Assert.deepEqual(true->S.decodeOrThrow(~from=S.bool, ~to=S.json), true->JSON.Encode.bool)
@@ -369,3 +369,22 @@ module SerializesDeepRecursive = {
     )
   })
 }
+
+test("Allows to convert union with NaN variant to JSON (NaN becomes null)", t => {
+  // Consistent with the scalar NaN -> JSON conversion.
+  // Note that unions with an undefined variant are rejected instead
+  let schema = S.schema(s =>
+    {
+      "n": s.matches(S.union([S.string->S.castToUnknown, S.literal(%raw(`NaN`))->S.castToUnknown])),
+    }
+  )
+
+  t->Assert.deepEqual(
+    %raw(`{n: NaN}`)->S.decodeOrThrow(~from=schema, ~to=S.json),
+    %raw(`{n: null}`),
+  )
+  t->Assert.deepEqual(
+    %raw(`{n: "hi"}`)->S.decodeOrThrow(~from=schema, ~to=S.json),
+    %raw(`{n: "hi"}`),
+  )
+})

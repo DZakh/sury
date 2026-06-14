@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 // Bindings to the Standard JSON Schema interface exposed on `~standard`.
 // See https://standardschema.dev/json-schema

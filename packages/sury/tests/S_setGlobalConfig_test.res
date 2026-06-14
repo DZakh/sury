@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 asyncTest("Resets S.float cache after disableNanNumberValidation=true removed", async t => {
   let nan = %raw(`NaN`)

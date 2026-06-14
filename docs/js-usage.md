@@ -557,10 +557,8 @@ Similarly, you can create nullable types with `S.nullable`.
 ```ts
 const nullableStringSchema = S.nullable(S.string);
 S.parser(nullableStringSchema)("asdf"); // => "asdf"
-S.parser(nullableStringSchema)(null); // => undefined
+S.parser(nullableStringSchema)(null); // => null
 ```
-
-Notice how the `null` input transformed to `undefined`.
 
 ## Nullish
 

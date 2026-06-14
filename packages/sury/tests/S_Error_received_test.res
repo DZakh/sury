@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 // Tests that InvalidInput.received reports the pre-narrowing schema,
 // not the post-narrowing target. Without the fix, received === expected

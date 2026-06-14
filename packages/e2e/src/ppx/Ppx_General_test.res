@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 open U
 
 @schema
@@ -33,20 +33,20 @@ test("Creates schema with default", t => {
 })
 
 @schema
-type stringWithDefaultAndMatches = @s.default("Foo") @s.matches(S.url) string
+type stringWithDefaultAndMatches = @s.default("https://example.com") @s.matches(S.url) string
 test("Creates schema with default using @s.matches", t => {
   t->assertEqualSchemas(
     stringWithDefaultAndMatchesSchema,
-    S.option(S.url)->S.Option.getOr("Foo"),
+    S.option(S.url)->S.Option.getOr("https://example.com"),
   )
 })
 
 @schema
-type stringWithDefaultNullAndMatches = @s.default("Foo") @s.null @s.matches(S.url) string
+type stringWithDefaultNullAndMatches = @s.default("https://example.com") @s.null @s.matches(S.url) string
 test("Creates schema with default null using @s.matches", t => {
   t->assertEqualSchemas(
     stringWithDefaultNullAndMatchesSchema,
-    S.nullAsOption(S.url)->S.Option.getOr("Foo"),
+    S.nullAsOption(S.url)->S.Option.getOr("https://example.com"),
   )
 })
 

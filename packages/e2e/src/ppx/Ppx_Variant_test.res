@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 open U
 
 @schema
@@ -63,8 +63,23 @@ test("Tagged variant", t => {
   )
 })
 
+@schema @s.strict
+type strictVariant = StrictA | StrictB(int)
+
 @schema @tag("type")
 type taggedInlinedAlias = Foo({@as("Foo") foo: string}) | Bar({@as("Bar") bar: string})
+
+test("@s.strict on root variant type", t => {
+  t->assertEqualSchemas(
+    strictVariantSchema,
+    S.strict(
+      S.union([
+        S.literal(StrictA),
+        S.schema(s => StrictB(s.matches(S.int))),
+      ]),
+    ),
+  )
+})
 
 test("Tagged variant with inlined alias", t => {
   t->assertEqualSchemas(

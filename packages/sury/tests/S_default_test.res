@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Gets default value when Option.getOr is used", t => {
   let schema = S.option(S.float)->S.Option.getOr(123.)

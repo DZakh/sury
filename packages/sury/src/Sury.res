@@ -1249,6 +1249,19 @@ module Builder = {
       X.Exn.throwAny(InternalError.make(errorDetails))
     }
 
+    let unsupportedDecode = (b: val, ~from: internal, ~target: internal) => {
+      throw(
+        UnsupportedDecode({
+          from: from->castToPublic,
+          to: target->castToPublic,
+          reason: `Can't decode ${from->castToPublic->toExpression} to ${target
+            ->castToPublic
+            ->toExpression}. Use S.to to define a custom decoder`,
+          path: b.path,
+        }),
+      )
+    }
+
     let failWithArg = (b: val, fn: 'arg => errorDetails, arg) => {
       `${b->embed(arg => {
           throw(fn(arg))
@@ -1784,7 +1797,10 @@ module Builder = {
             | None =>
               switch parent.schema.additionalItems->X.Option.getUnsafe {
               | Schema(s) => s->castToInternal
-              | _ => InternalError.panic("The schema doesn't have additional items")
+              | _ =>
+                // The input type has no such field. Throw a catchable error,
+                // so a union case decoder treats it as a failed case
+                parent->unsupportedDecode(~from=parent.schema, ~target=parent.expected)
               }
             }
 
@@ -1903,18 +1919,6 @@ module Builder = {
       }
     }
 
-    let unsupportedDecode = (b, ~from: internal, ~target: internal) => {
-      throw(
-        UnsupportedDecode({
-          from: from->castToPublic,
-          to: target->castToPublic,
-          reason: `Can't decode ${from->castToPublic->toExpression} to ${target
-            ->castToPublic
-            ->toExpression}. Use S.to to define a custom decoder`,
-          path: b.path,
-        }),
-      )
-    }
   }
 
   let noopOperation = i => i->Obj.magic
@@ -3622,6 +3626,31 @@ module Union = {
       (tagFlag->Flag.unsafeHas(TagFlag.nan) && byKey->Stdlib.Dict.has((numberTag: tag :> string)))
   }
 
+  // Whether decoding a value already known to be of the schema type
+  // is a noop — no transformation anywhere in the schema tree.
+  // Recursive refs are conservatively treated as transforming
+  let rec isSelfDecodeNoop = (schema: internal) => {
+    schema.to === None &&
+    schema.parser === None &&
+    !(schema.tag->TagFlag.get->Flag.unsafeHas(TagFlag.ref)) &&
+    switch schema.anyOf {
+    | Some(anyOf) => anyOf->Array.every(isSelfDecodeNoop)
+    | None => true
+    } &&
+    switch schema.items {
+    | Some(items) => items->Array.every(isSelfDecodeNoop)
+    | None => true
+    } &&
+    switch schema.properties {
+    | Some(properties) => properties->Stdlib.Dict.valuesToArray->Array.every(isSelfDecodeNoop)
+    | None => true
+    } &&
+    switch schema.additionalItems {
+    | Some(Schema(s)) => s->castToInternal->isSelfDecodeNoop
+    | _ => true
+    }
+  }
+
   let isWiderUnionSchema = (~schemaAnyOf, ~inputAnyOf) => {
     inputAnyOf->Array.everyWithIndex((inputSchema, idx) => {
       switch schemaAnyOf->X.Array.getUnsafeOption(idx) {
@@ -3634,7 +3663,6 @@ module Union = {
             ->Flag.with(TagFlag.instance)
             ->Flag.with(TagFlag.ref)
             ->Flag.with(TagFlag.union)
-            ->Flag.with(TagFlag.array)
             ->Flag.with(TagFlag.object),
           )
         ) &&
@@ -3646,17 +3674,71 @@ module Union = {
     })
   }
 
+  // The union's own `.to` chain which is applied per case during decoding.
+  // None when the union has a custom parser owning the `.to` conversion
+  let getToPerCase = (schema: internal) =>
+    switch schema {
+    | {parser: ?None, to} => Some(to)
+    | _ => None
+    }
+
+  // Whether a union-typed input can be decoded by dispatching
+  // over its variants with `.to(target)` appended to each
+  let canDispatchPerVariant = (~inputAnyOf, ~target: internal) =>
+    // S.json and recursive targets keep their dedicated union-input handling
+    !((target->getOutputSchema).tag->TagFlag.get->Flag.unsafeHas(TagFlag.ref)) &&
+    !(
+      target.tag === unionTag &&
+      target.anyOf
+      ->X.Option.getUnsafe
+      ->Array.some(v => v.tag->TagFlag.get->Flag.unsafeHas(TagFlag.ref))
+    ) &&
+    // Variants with transformations or recursive refs (option machinery,
+    // transformed unions) aren't supported per-variant yet
+    !(
+      inputAnyOf->Array.some(v =>
+        v.to !== None || v.parser !== None || v.tag->TagFlag.get->Flag.unsafeHas(TagFlag.ref)
+      )
+    )
+
+  // Re-drives the source union with `.to(target)` appended, so its decoder
+  // dispatches per variant and each variant converts to the target
+  // independently (the documented per-source-variant algorithm)
+  let perVariantVal = (~input: val, ~target) =>
+    input->B.refine(
+      ~schema=unknown,
+      ~expected=input.schema->updateOutput(mut => mut.to = Some(target))->castToInternal,
+    )
+
+  // Applied by the parse loop when a union-typed val
+  // meets a different expected schema
+  let encoder = Builder.encoder((~input, ~target) => {
+    let inputAnyOf = input.schema.anyOf->X.Option.getUnsafe
+    if (
+      target.tag === unionTag &&
+      getToPerCase(target) === None &&
+      isWiderUnionSchema(~schemaAnyOf=target.anyOf->X.Option.getUnsafe, ~inputAnyOf)
+    ) {
+      // The target union decoder passes a narrower union input through as-is
+      input
+    } else if canDispatchPerVariant(~inputAnyOf, ~target) {
+      perVariantVal(~input, ~target)
+    } else {
+      input
+    }
+  })
+
   let rec unionDecoder: Builder.t = (~input) => {
     let selfSchema = input.expected
     let schemas = selfSchema.anyOf->X.Option.getUnsafe
     let initialInputTagFlag = input.schema.tag->TagFlag.get
 
-    let toPerCase = switch selfSchema {
-    | {parser: ?None, to} => Some(to)
-    | _ => None
-    }
+    let toPerCase = getToPerCase(selfSchema)
 
     if (
+      // The input val is already of the union type (trusted self-decode).
+      // Only allowed when no variant transforms the value
+      (input.schema === selfSchema && toPerCase === None && schemas->Array.every(isSelfDecodeNoop)) ||
       (initialInputTagFlag->Flag.unsafeHas(TagFlag.union) &&
       isWiderUnionSchema(
         ~schemaAnyOf=schemas,
@@ -3667,8 +3749,8 @@ module Union = {
       input
     } else {
       if (
-        input.schema.encoder === None &&
-          initialInputTagFlag->Flag.unsafeHas(TagFlag.union->Flag.with(TagFlag.ref))
+        initialInputTagFlag->Flag.unsafeHas(TagFlag.union) ||
+          (input.schema.encoder === None && initialInputTagFlag->Flag.unsafeHas(TagFlag.ref))
       ) {
         input.schema = unknown
       }
@@ -3736,6 +3818,11 @@ module Union = {
       let output = input->B.refine
       let outputAnyOf = []
 
+      // Set when a single-case block fails at codegen time, so the caller
+      // can drop the block and pass the embedded error along instead of
+      // emitting a guaranteed runtime throw
+      let staticBlockFailure = ref("")
+
       let getArrItemsCode = (arr: array<unknown>, ~isDeopt) => {
         let typeValidationInput = arr->Array.getUnsafe(0)->(Obj.magic: unknown => val)
         let typeValidationOutput = arr->Array.getUnsafe(1)->(Obj.magic: unknown => val)
@@ -3773,8 +3860,10 @@ module Union = {
 
           let isLast = itemIdx.contents === lastIdx
           let isFirst = itemIdx.contents === preItems
-          let withExhaustiveCheck = ref(!(isFirst && isLast))
+          let isOnlyCase = isFirst && isLast
+          let withExhaustiveCheck = ref(!isOnlyCase)
 
+          let itemSkipped = ref(false)
           let itemCode = ref("")
           let itemCond = ref("")
           try {
@@ -3788,33 +3877,36 @@ module Union = {
               if itemOutput.flag->Flag.unsafeHas(ValFlag.async) {
                 output.flag = output.flag->Flag.with(ValFlag.async)
               }
-              itemCode :=
-                itemCode.contents ++
-                // Need to allocate a var here, so we don't mutate the input object field
-                `${typeValidationInput.var()}=${itemOutput.inline}`
+              let itemVar = typeValidationInput.var()
+              if itemOutput.inline !== itemVar {
+                itemCode :=
+                  itemCode.contents ++
+                  // Need to allocate a var here, so we don't mutate the input object field
+                  `${itemVar}=${itemOutput.inline}`
+              }
             }
           } catch {
           | _ => {
               let errorVar = input->B.embed(%raw(`exn`)->InternalError.getOrRethrow)
-              if isLast {
-                // FIXME:
+              caught := `${caught.contents},${errorVar}`
+              if isDeopt && isOnlyCase {
+                staticBlockFailure := errorVar
+                itemSkipped := true
+              } else if isLast {
                 withExhaustiveCheck := false
+                itemCode := (isDeopt ? "throw " ++ errorVar : fail(caught.contents))
+              } else {
+                // The case is guaranteed to fail at runtime, so skip its code
+                // and keep the embedded error for the exhaustive failure args
+                itemSkipped := true
               }
-              itemCode := (
-                  isLast && !isDeopt
-                    ? {
-                        withExhaustiveCheck := false
-                        fail(`,${errorVar}`)
-                      }
-                    : "throw " ++ errorVar
-                )
             }
           }
           let itemCond = itemCond.contents
           let itemCode = itemCode.contents
 
           // Accumulate item parser when it has a discriminant
-          if itemCond->X.String.unsafeToBool {
+          if !itemSkipped.contents && itemCond->X.String.unsafeToBool {
             if itemCode->X.String.unsafeToBool {
               switch byDiscriminant.contents->X.Dict.getUnsafeOption(itemCond) {
               | Some(Multiple(arr)) => arr->Array.push(itemCode)->ignore
@@ -3836,7 +3928,7 @@ module Union = {
           // Allocate all accumulated discriminants
           // If we have an item without a discriminant
           // and need to deopt. Or we are at the last item
-          if itemCond->X.String.unsafeToBool->not || isLast {
+          if !itemSkipped.contents && (itemCond->X.String.unsafeToBool->not || isLast) {
             let accedDiscriminants = byDiscriminant.contents->Dict.keysToArray
             for idx in 0 to accedDiscriminants->Array.length - 1 {
               let discrim = accedDiscriminants->Array.getUnsafe(idx)
@@ -3862,7 +3954,7 @@ module Union = {
             byDiscriminant.contents = dict{}
           }
 
-          if itemCond->X.String.unsafeToBool->not {
+          if !itemSkipped.contents && itemCond->X.String.unsafeToBool->not {
             if itemCode->X.String.unsafeToBool->not {
               // If we don't have a condition (discriminant)
               // and additional parsing logic,
@@ -3900,7 +3992,12 @@ module Union = {
           }
           if isLast {
             if itemNoop.contents->X.String.unsafeToBool {
-              if itemStart.contents->X.String.unsafeToBool {
+              if (
+                itemStart.contents->X.String.unsafeToBool ||
+                // Skipped cases have their errors embedded,
+                // which the hoisted check below can't reference
+                caught.contents->X.String.unsafeToBool
+              ) {
                 let if_ = itemNextElse.contents ? "else if" : "if"
                 itemStart :=
                   itemStart.contents ++ if_ ++ `(!(${itemNoop.contents})){${fail(caught.contents)}}`
@@ -3933,7 +4030,6 @@ module Union = {
       let lastIdx = schemas->Array.length - 1
       let byKey: ref<dict<array<unknown>>> = ref(dict{})
       let keys = ref([])
-      let updatedSchemas = []
 
       // FIXME: minimal fix — applies the union's refiner/inputRefiner per
       // surviving case (previously dropped when the union has `.to`). The
@@ -3986,6 +4082,24 @@ module Union = {
         }
       }
 
+      // Tier 1: for a typed const input, variants with a matching const are
+      // tried before catch-all and differently-const'ed variants
+      let schemas = if input.schema->isLiteral {
+        let matching = []
+        let rest = []
+        for idx in 0 to lastIdx {
+          let schema = schemas->Array.getUnsafe(idx)
+          if schema->isLiteral && schema.const === input.schema.const {
+            matching->Array.push(schema)->ignore
+          } else {
+            rest->Array.push(schema)->ignore
+          }
+        }
+        matching->Array.concat(rest)
+      } else {
+        schemas
+      }
+
       for idx in 0 to lastIdx {
         let schema = switch toPerCase {
         | Some(target) =>
@@ -3995,7 +4109,6 @@ module Union = {
           })->castToInternal
         | _ => schemas->Array.getUnsafe(idx)
         }
-        updatedSchemas->Array.push(schema)->ignore
         let tag = schema.tag
         let tagFlag = TagFlag.get(tag)
         let key = toKey(schema)
@@ -4122,7 +4235,22 @@ module Union = {
                   let itemsCode = getArrItemsCode(arr, ~isDeopt=true)
                   let blockCode = typeValidationOutput->B.merge ++ itemsCode
 
-                  if blockCode->X.String.unsafeToBool {
+                  let embeddedError = staticBlockFailure.contents
+                  if embeddedError->X.String.unsafeToBool {
+                    staticBlockFailure := ""
+                    if blockCode->X.String.unsafeToBool {
+                      // Type validation code is still relevant — restore the throw
+                      let errorVar = `e` ++ (idx + keyIdx)->X.Int.unsafeToString
+                      start :=
+                        start.contents ++ `try{${blockCode}throw ${embeddedError}}catch(${errorVar}){`
+                      end := "}" ++ end.contents
+                      caught := `${caught.contents},${errorVar}`
+                    } else {
+                      // The block always fails — drop it
+                      // and pass the embedded error along
+                      caught := `${caught.contents},${embeddedError}`
+                    }
+                  } else if blockCode->X.String.unsafeToBool {
                     let errorVar = `e` ++ (idx + keyIdx)->X.Int.unsafeToString
                     start := start.contents ++ `try{${blockCode}}catch(${errorVar}){`
                     end := "}" ++ end.contents
@@ -4176,6 +4304,9 @@ module Union = {
             if_ ++ `(!(${noop.contents})){${errorCode}}`
           } else if nextElse.contents {
             `else{${errorCode}}`
+          } else if end.contents === "" {
+            // The bare fail call might be followed by more code, eg `return`
+            errorCode ++ ";"
           } else {
             errorCode
           }
@@ -4268,6 +4399,7 @@ module Union = {
       let mut = base(unionTag, ~selfReverse=false)
       mut.anyOf = Some(anyOf->X.Set.toArray)
       mut.decoder = unionDecoder
+      mut.encoder = Some(encoder)
       mut.has = Some(has)
       mut->castToPublic
     }
@@ -4385,8 +4517,11 @@ module Option = {
     ->updateOutput(mut => {
       switch mut.anyOf {
       | Some(anyOf) => {
-          let item = ref(None)
-          let itemOutputSchema = ref(None)
+          let outputItems = []
+          // FIXME: drop `originalItems` once unionDecoder can reverse member
+          // `.to` chains — then mut.default + the serializer can both run
+          // through `schema->reverse` directly.
+          let originalItems = []
 
           for idx in 0 to anyOf->Stdlib.Array.length - 1 {
             let schema = anyOf->Stdlib.Array.getUnsafe(idx)
@@ -4394,24 +4529,47 @@ module Option = {
             switch outputSchema.tag {
             | Undefined => ()
             | _ =>
-              switch item.contents {
-              | None => {
-                  item := Some(schema)
-                  itemOutputSchema := Some(outputSchema)
-                }
-              | Some(_) =>
-                InternalError.panic(`Can't set default for ${mut->castToPublic->toExpression}`)
-              }
+              outputItems->Array.push(outputSchema)
+              originalItems->Array.push(schema)
             }
           }
 
-          let item = switch item.contents {
-          | None => InternalError.panic(`Can't set default for ${mut->castToPublic->toExpression}`)
-          | Some(s) => s
+          let item = switch outputItems {
+          | [] => InternalError.panic(`Can't set default for ${mut->castToPublic->toExpression}`)
+          | [single] => single
+          | multiple => Union.factory(multiple->Obj.magic)->castToInternal
+          }
+          let originalItem = switch originalItems {
+          | [single] => single
+          | _ => Union.factory(originalItems->Obj.magic)->castToInternal
           }
 
-          // FIXME: Ensure that default has the same type as the item
-          // Or maybe not, but need to make it properly with JSON Schema
+          switch default {
+          | Value(v) =>
+            // Full unknown -> item decode so primitive item types still get type-checked.
+            try {
+              let _ = getDecoder2(~s1=unknown, ~s2=item)(v)
+            } catch {
+            | _ =>
+              let error = %raw(`exn`)->InternalError.getOrRethrow
+              InternalError.panic(
+                `Invalid default for ${mut->castToPublic
+                  ->toExpression}: ${(error->Obj.magic)["message"]}`,
+              )
+            }
+            // Best-effort input form for JSON Schema metadata.
+            // FIXME: running a decoder at schema-creation time isn't a goal —
+            // it compiles + executes a fresh decode pipeline per default. Replace
+            // with something cheaper (or move to lazy/JSON-Schema-export time)
+            // before the official v11 release.
+            try mut.default =
+              getDecoder(~s1=originalItem->reverse)(v)->(
+                Obj.magic: unknown => option<internalDefault>
+              ) catch {
+            | _ => ()
+            }
+          | Callback(_) => ()
+          }
 
           mut.parser = Some(
             Builder.make((~input) => {
@@ -4427,12 +4585,12 @@ module Option = {
               )
             }),
           )
-          let to = itemOutputSchema.contents->X.Option.getUnsafe->copySchema
+          let to = item->copySchema
 
           let originalDecoder = to.decoder
           to.serializer = Some(
             Builder.make((~input) => {
-              let nextSchema = item->reverse
+              let nextSchema = originalItem->reverse
               originalDecoder(~input)->B.refine(~schema=nextSchema, ~expected=nextSchema)
             }),
           )
@@ -4441,17 +4599,6 @@ module Option = {
           to.decoder = noopDecoder
 
           mut.to = Some(to)
-
-          switch default {
-          | Value(v) =>
-            try mut.default =
-              getDecoder(~s1=item->reverse)(v)->(
-                Obj.magic: unknown => option<internalDefault>
-              ) catch {
-            | _ => ()
-            }
-          | Callback(_) => ()
-          }
         }
       | None => InternalError.panic(`Can't set default for ${mut->castToPublic->toExpression}`)
       }
@@ -4682,6 +4829,16 @@ and jsonDecoderFn = (~input) => {
   } else if inputTagFlag->Flag.unsafeHas(TagFlag.ref) {
     // FIXME: Should be a unified solution for ref inputs
     recursiveDecoder(~input)
+  } else if (
+    inputTagFlag->Flag.unsafeHas(TagFlag.union) &&
+      // Union-tagged schemas always carry `anyOf` and `has`
+      // (set by Union.factory, reverse and the S.json def).
+      // Unions with an undefined variant are not supported,
+      // since undefined is not representable in JSON
+      !(input.schema.has->X.Option.getUnsafe->Stdlib.Dict.has((undefinedTag :> string)))
+  ) {
+    // Decode each union variant to JSON separately
+    Union.perVariantVal(~input, ~target=input.expected)->parse
   } else if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
     let to = input.expected.to->X.Option.getUnsafe
     // Whether we can optimize encoding during decoding
@@ -6709,11 +6866,15 @@ let js_optional = (schema, maybeOr) => {
 
 let js_nullable = (schema, maybeOr) => {
   // TODO: maybeOr should be part of the unit schema
-  let schema = Union.factory([schema->castToUnknown, nullAsUnit()->castToPublic->castToUnknown])
   switch maybeOr {
-  | Some(or) if typeof(or) === functionTag => schema->Option.getOrWith(or->Obj.magic)->Obj.magic
-  | Some(or) => schema->Option.getOr(or->Obj.magic)->Obj.magic
-  | None => schema
+  | Some(or) =>
+    let schema = Union.factory([schema->castToUnknown, nullAsUnit()->castToPublic->castToUnknown])
+    if typeof(or) === functionTag {
+      schema->Option.getOrWith(or->Obj.magic)->Obj.magic
+    } else {
+      schema->Option.getOr(or->Obj.magic)->Obj.magic
+    }
+  | None => Union.factory([schema->castToUnknown, nullLiteral()->castToPublic->castToUnknown])
   }
 }
 

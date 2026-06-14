@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Parses with wrapping the value in variant", t => {
   let schema = S.string->S.shape(s => Ok(s))
