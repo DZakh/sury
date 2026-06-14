@@ -285,6 +285,39 @@ S.toJSONSchema(userSchema);
 
 See how all the properties and examples are in the Input format. It's just asking to put itself to Fastify or any other server with OpenAPI integration 😁
 
+By default `S.toJSONSchema` targets `draft-07` and does **not** stamp a `$schema` URI. Pass an `options` object with a `target` to select the JSON Schema dialect — Sury then emits a dialect-correct body and stamps the matching `$schema`:
+
+```ts
+S.toJSONSchema(S.string, { target: "draft-07" });
+// { $schema: "http://json-schema.org/draft-07/schema#", type: "string" }
+
+S.toJSONSchema(S.string, { target: "draft-2020-12" });
+// { $schema: "https://json-schema.org/draft/2020-12/schema", type: "string" }
+
+S.toJSONSchema(S.string, { target: "openapi-3.0" });
+// { type: "string" } — OpenAPI 3.0 has no $schema
+```
+
+Supported targets are `"draft-07"` (default), `"draft-2020-12"` and `"openapi-3.0"`; any other target throws an `Unsupported target` error. The body differs per dialect to match each spec:
+
+```ts
+// Tuples: draft-07 uses an `items` array, draft-2020-12 uses `prefixItems`,
+// openapi-3.0 uses `items: { anyOf: [...] }`.
+S.toJSONSchema(S.schema([S.string, S.boolean]), { target: "draft-2020-12" });
+// { ..., type: "array", prefixItems: [{ type: "string" }, { type: "boolean" }], minItems: 2, maxItems: 2 }
+
+S.toJSONSchema(S.schema([S.string, S.boolean]), { target: "openapi-3.0" });
+// { type: "array", items: { anyOf: [{ type: "string" }, { type: "boolean" }] }, minItems: 2, maxItems: 2 }
+
+// OpenAPI 3.0 has no `null` type and no `const`, so literals/null use `enum`,
+// and `X | null` collapses to `{ ...X, nullable: true }`.
+S.toJSONSchema(S.schema("Hello"), { target: "openapi-3.0" });
+// { type: "string", enum: ["Hello"] }
+
+S.toJSONSchema(S.nullable(S.number), { target: "openapi-3.0" });
+// { type: "number", nullable: true }
+```
+
 If that's not cool enough for you, you can also turn a JSON Schema into a **Sury** schema:
 
 ```ts
@@ -351,7 +384,7 @@ const outputJsonSchema = schema["~standard"].jsonSchema.output({
 
 The `target` option selects the JSON Schema dialect and the stamped `$schema` URI. Supported targets are `"draft-07"`, `"draft-2020-12"` and `"openapi-3.0"`; any other target throws an `Unsupported target` error.
 
-> 🧠 `jsonSchema.input(options)` returns the same value as `S.toJSONSchema(schema)` with the `$schema` URI for the requested target. Sury emits a single broadly compatible JSON Schema body across the supported drafts; only the stamped `$schema` differs (`"openapi-3.0"` omits it).
+> 🧠 `jsonSchema.input(options)` returns the same value as `S.toJSONSchema(schema, options)` (and `.output(options)` the same as `S.toJSONSchema(S.reverse(schema), options)`). The converter emits a dialect-correct body for the requested `target` — e.g. `prefixItems` for `"draft-2020-12"`, `nullable`/`enum` workarounds for `"openapi-3.0"` — and stamps the matching `$schema` (`"openapi-3.0"` omits it).
 
 ## Defining schemas
 

@@ -853,7 +853,10 @@ export function to<
 ): Schema<TargetOutput, Input>;
 
 export function toJSONSchema<Output, Input>(
-  schema: Schema<Output, Input>
+  schema: Schema<Output, Input>,
+  options?: {
+    target?: "draft-07" | "draft-2020-12" | "openapi-3.0" | (string & {});
+  }
 ): JSONSchema7;
 export function fromJSONSchema<Output extends JSON>(
   jsonSchema: JSONSchema7
@@ -964,6 +967,7 @@ export interface JSONSchema7 {
    * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.4
    */
   items?: JSONSchema7Definition | JSONSchema7Definition[] | undefined;
+  prefixItems?: JSONSchema7Definition[] | undefined;
   additionalItems?: JSONSchema7Definition | undefined;
   maxItems?: number | undefined;
   minItems?: number | undefined;
