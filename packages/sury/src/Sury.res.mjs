@@ -4331,29 +4331,20 @@ let js_encoder = ((...args) => getDecoder(...args.map(reverse)));
 
 let js_asyncEncoder = ((...args) => getDecoder(...args.map(reverse), 1));
 
-function normalizeAssertArgs(a, b) {
-  if (a["~standard"]) {
-    return [
+function js_assert(a, b) {
+  let match = a["~standard"] ? [
       a,
       b
-    ];
-  } else {
-    return [
+    ] : [
       b,
       a
     ];
-  }
-}
-
-function js_assert(a, b) {
-  let match = normalizeAssertArgs(a, b);
   return getDecoder(unknown, match[0], getAssertResult())(match[1]);
 }
 
 function js_is(a, b) {
-  let match = normalizeAssertArgs(a, b);
   try {
-    getDecoder(unknown, match[0], getAssertResult())(match[1]);
+    js_assert(a, b);
     return true;
   } catch (exn) {
     getOrRethrow(exn);

@@ -1244,8 +1244,8 @@ For some cases you might want to simply check whether the input value is valid, 
 
 | Operation | Interface                                                      | Description                                                                                                                                    |
 | --------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| S.assert  | `(Schema<Output, Input>, data: unknown) asserts data is Input` | Asserts that the input value is valid. Since the operation doesn't return a value, it's 2-3 times faster than `parser` depending on the schema |
-| S.is      | `(Schema<Output, Input>, data: unknown) => data is Input`      | Returns `true`/`false` whether the input value is valid. Acts as a TypeScript type guard and shares the fast validate-only path with `assert`  |
+| S.assert  | `(Schema<Output, Input>, data: unknown) asserts data is Input` or `(data: unknown, Schema<Output, Input>) asserts data is Input` | Asserts that the input value is valid. Since the operation doesn't return a value, it's 2-3 times faster than `parser` depending on the schema |
+| S.is      | `(Schema<Output, Input>, data: unknown) => data is Input` or `(data: unknown, Schema<Output, Input>) => data is Input`      | Returns `true`/`false` whether the input value is valid. Acts as a TypeScript type guard and shares the fast validate-only path with `assert`  |
 
 Both `S.assert` and `S.is` accept their arguments in either order, so `(schema, data)` and `(data, schema)` are equivalent and both narrow the type:
 

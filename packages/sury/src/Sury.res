@@ -6593,23 +6593,20 @@ let js_encoder = %raw(`(...args) => getDecoder(...args.map(reverse))`)
 let js_asyncEncoder = %raw(`(...args) => getDecoder(...args.map(reverse), 1)`)
 
 // Accepts both `(schema, data)` and `(data, schema)` arg orders.
-// We tell them apart by the Standard Schema marker on a schema object.
-let normalizeAssertArgs = (a, b): (internal, unknown) =>
-  if a->isSchemaObject {
+// Accept the schema and data in either order. We tell them apart by the
+// Standard Schema marker on a schema object.
+let js_assert = (a, b) => {
+  let (schema, data) = if a->isSchemaObject {
     (a->Obj.magic, b->Obj.magic)
   } else {
     (b->Obj.magic, a->Obj.magic)
   }
-
-let js_assert = (a, b) => {
-  let (schema, data) = normalizeAssertArgs(a, b)
   getDecoder3(~s1=unknown, ~s2=schema, ~s3=getAssertResult())(data)
 }
 
 let js_is = (a, b) => {
-  let (schema, data) = normalizeAssertArgs(a, b)
   try {
-    let _ = getDecoder3(~s1=unknown, ~s2=schema, ~s3=getAssertResult())(data)
+    let _ = js_assert(a, b)
     true
   } catch {
   | _ => {
