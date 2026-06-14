@@ -196,8 +196,6 @@ and generateRecordSchemaWithSpreads spread_types regular_fields =
         PStr
           [Str.eval (Exp.constant (Pconst_string (s, Location.none, None)))] )
   in
-  (* Chain Object.assign 2-arg calls:
-     Object.assign(Object.assign({}, sp1.properties), sp2.properties, ..., fields_obj). *)
   let spread_property_args =
     spread_schema_exprs
     |> List.map (fun spread_schema ->
@@ -206,19 +204,37 @@ and generateRecordSchemaWithSpreads spread_types regular_fields =
   let regular_args_list =
     if regular_fields = [] then [] else [[%expr Obj.magic [%e fields_obj]]]
   in
-  let sources = spread_property_args @ regular_args_list in
-  let base = [%expr Obj.magic [%e raw_str "{}"]] in
-  (* Build nested 2-arg Object.assign calls: assign(assign(assign({}, sp1), sp2), fields). *)
-  let merged =
-    List.fold_left
-      (fun acc src ->
-        Exp.apply
-          [%expr (Obj.magic [%e raw_str "Object.assign"])]
-          [(Nolabel, acc); (Nolabel, src)])
-      base sources
+  let all_args =
+    [[%expr Obj.magic [%e raw_str "{}"]]]
+    @ spread_property_args @ regular_args_list
   in
-  [%expr
-    S.schema (Obj.magic (fun (s : S.Schema.s) -> Obj.magic [%e merged]))]
+  (* Generate `let module M = { @variadic external assign: array<'a> => 'b = "Object.assign" } in
+     M.assign([{}, sp1.properties, ..., fields])` so the runtime emits
+     `Object.assign({}, sp1.properties, ..., fields)`. *)
+  let variadic_attr =
+    Attr.mk (mknoloc "variadic") (PStr [])
+  in
+  let assign_primitive =
+    {
+      (Val.mk (mknoloc "assign") [%type: 'a array -> 'b]
+         ~prim:["Object.assign"])
+      with
+      pval_attributes = [variadic_attr];
+    }
+  in
+  let helper_module =
+    Mod.structure [Str.primitive assign_primitive]
+  in
+  let assign_call =
+    Exp.apply
+      (Exp.ident
+         (mknoloc (Longident.Ldot (Longident.Lident "M", "assign"))))
+      [(Nolabel, Exp.array all_args)]
+  in
+  let body =
+    [%expr S.schema (Obj.magic (fun (s : S.Schema.s) -> Obj.magic [%e assign_call]))]
+  in
+  Exp.letmodule (mknoloc (Some "M")) helper_module body
 
 and generateCoreTypeSchemaExpression core_type =
   let {ptyp_desc; ptyp_loc; ptyp_attributes} = core_type in
