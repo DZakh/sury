@@ -4642,6 +4642,13 @@ function internalToJSONSchema(schema, path, defs, parent, target) {
     return encoded;
   } else {
     let jsonSchema = {};
+    let setConstOrEnum = value => {
+      if (target === "openapi-3.0") {
+        jsonSchema.enum = [value];
+      } else {
+        jsonSchema.const = value;
+      }
+    };
     switch (schema.type) {
       case "never" :
         jsonSchema.not = {};
@@ -4682,11 +4689,7 @@ function internalToJSONSchema(schema, path, defs, parent, target) {
           jsonSchema.pattern = re.source;
         }
         if ($$const !== undefined) {
-          if (target === "openapi-3.0") {
-            jsonSchema.enum = [$$const];
-          } else {
-            jsonSchema.const = $$const;
-          }
+          setConstOrEnum($$const);
         }
         break;
       case "number" :
@@ -4714,22 +4717,14 @@ function internalToJSONSchema(schema, path, defs, parent, target) {
           jsonSchema.maximum = v$3;
         }
         if ($$const$1 !== undefined) {
-          if (target === "openapi-3.0") {
-            jsonSchema.enum = [$$const$1];
-          } else {
-            jsonSchema.const = $$const$1;
-          }
+          setConstOrEnum($$const$1);
         }
         break;
       case "boolean" :
         let $$const$2 = schema.const;
         jsonSchema.type = "boolean";
         if ($$const$2 !== undefined) {
-          if (target === "openapi-3.0") {
-            jsonSchema.enum = [$$const$2];
-          } else {
-            jsonSchema.const = $$const$2;
-          }
+          setConstOrEnum($$const$2);
         }
         break;
       case "null" :
@@ -4879,36 +4874,54 @@ function internalToJSONSchema(schema, path, defs, parent, target) {
   }
 }
 
-function resolveSchemaUri(target) {
+function targetSchemaUri(target) {
+  if (target === "openapi-3.0") {
+    return;
+  } else if (target === "draft-07") {
+    return "http://json-schema.org/draft-07/schema#";
+  } else {
+    return "https://json-schema.org/draft/2020-12/schema";
+  }
+}
+
+function parseTarget(target) {
   switch (target) {
     case "draft-07" :
-      return "http://json-schema.org/draft-07/schema#";
+      return "draft-07";
     case "draft-2020-12" :
-      return "https://json-schema.org/draft/2020-12/schema";
+      return "draft-2020-12";
     case "openapi-3.0" :
-      return;
+      return "openapi-3.0";
     default:
       throw new Error(`[Sury] Unsupported target: ` + target);
   }
 }
 
 function toJSONSchema(schema, options) {
-  let target;
+  let match;
   if (options !== undefined) {
-    let target$1 = options.target;
-    target = target$1 !== undefined ? target$1 : "draft-07";
+    let target = options.target;
+    let target$1 = target !== undefined ? parseTarget(target) : "draft-07";
+    match = [
+      target$1,
+      targetSchemaUri(target$1)
+    ];
   } else {
-    target = "draft-07";
+    match = [
+      "draft-07",
+      undefined
+    ];
   }
-  let schemaUri = options !== undefined ? resolveSchemaUri(target) : undefined;
+  let schemaUri = match[1];
+  let target$2 = match[0];
   let defs = {};
-  let jsonSchema = internalToJSONSchema(schema, "", defs, schema, target);
+  let jsonSchema = internalToJSONSchema(schema, "", defs, schema, target$2);
   ((delete defs.JSON));
   let defsKeys = Object.keys(defs);
   if (defsKeys.length) {
     defsKeys.forEach(key => {
       let schema = defs[key];
-      defs[key] = internalToJSONSchema(schema, "", 0, schema, target);
+      defs[key] = internalToJSONSchema(schema, "", 0, schema, target$2);
     });
     jsonSchema.$defs = defs;
   }
@@ -5022,18 +5035,23 @@ function fromJSONSchema(jsonSchema) {
           ) : definitionToSchema();
       }
     } else if (type_$1 === "array") {
-      let items = jsonSchema.items;
+      let prefixItems = jsonSchema.prefixItems;
       let schema$2;
-      if (items !== undefined) {
-        let single = JSONSchema.Arrayable.classify(Primitive_option.valFromOption(items));
-        if (single.TAG === "Single") {
-          schema$2 = array(definitionToSchema$1(single._0));
-        } else {
-          let array$1 = single._0;
-          schema$2 = tuple(s => array$1.map((d, idx) => s.item(idx, definitionToSchema$1(d))));
-        }
+      if (prefixItems !== undefined) {
+        schema$2 = tuple(s => prefixItems.map((d, idx) => s.item(idx, definitionToSchema$1(d))));
       } else {
-        schema$2 = array(anySchema);
+        let items = jsonSchema.items;
+        if (items !== undefined) {
+          let single = JSONSchema.Arrayable.classify(Primitive_option.valFromOption(items));
+          if (single.TAG === "Single") {
+            schema$2 = array(definitionToSchema$1(single._0));
+          } else {
+            let array$1 = single._0;
+            schema$2 = tuple(s => array$1.map((d, idx) => s.item(idx, definitionToSchema$1(d))));
+          }
+        } else {
+          schema$2 = array(anySchema);
+        }
       }
       let min = jsonSchema.minItems;
       let schema$3 = min !== undefined ? arrayMinLength(schema$2, min, undefined) : schema$2;

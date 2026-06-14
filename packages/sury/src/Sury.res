@@ -7025,6 +7025,13 @@ module RescriptJSONSchema = {
   }
   and internalToJSONSchemaBase = (schema: schema<unknown>, ~path, ~defs, ~parent, ~target): JSONSchema.t => {
     let jsonSchema: Mutable.t = {}
+    // OpenAPI 3.0 has no `const`; describe a single allowed value with `enum`.
+    let setConstOrEnum = value =>
+      if target === #"openapi-3.0" {
+        jsonSchema.enum = Some([value])
+      } else {
+        jsonSchema.const = Some(value)
+      }
     switch schema {
     | String({?const, ?format}) => {
         jsonSchema.type_ = Some(Arrayable.single(#string))
@@ -7049,14 +7056,7 @@ module RescriptJSONSchema = {
         | None => ()
         }
         switch const {
-        | Some(value) =>
-          let value = JSON.Encode.string(value)
-          if target === "openapi-3.0" {
-            // OpenAPI 3.0 does not support `const`. Use a single-value `enum`.
-            jsonSchema.enum = Some([value])
-          } else {
-            jsonSchema.const = Some(value)
-          }
+        | Some(value) => setConstOrEnum(JSON.Encode.string(value))
         | None => ()
         }
       }
@@ -7084,26 +7084,14 @@ module RescriptJSONSchema = {
         | None => ()
         }
         switch const {
-        | Some(value) =>
-          let value = JSON.Encode.float(value)
-          if target === "openapi-3.0" {
-            jsonSchema.enum = Some([value])
-          } else {
-            jsonSchema.const = Some(value)
-          }
+        | Some(value) => setConstOrEnum(JSON.Encode.float(value))
         | None => ()
         }
       }
     | Boolean({?const}) => {
         jsonSchema.type_ = Some(Arrayable.single(#boolean))
         switch const {
-        | Some(value) =>
-          let value = JSON.Encode.bool(value)
-          if target === "openapi-3.0" {
-            jsonSchema.enum = Some([value])
-          } else {
-            jsonSchema.const = Some(value)
-          }
+        | Some(value) => setConstOrEnum(JSON.Encode.bool(value))
         | None => ()
         }
       }
@@ -7150,11 +7138,11 @@ module RescriptJSONSchema = {
           jsonSchema.type_ = Some(Arrayable.single(#array))
           jsonSchema.minItems = Some(itemsNumber)
           jsonSchema.maxItems = Some(itemsNumber)
-          if target === "openapi-3.0" {
+          if target === #"openapi-3.0" {
             // OpenAPI 3.0 has no tuple support. Describe a fixed-length array
             // whose every item matches any of the positional item schemas.
             jsonSchema.items = Some(Arrayable.single(Schema({anyOf: items}->Mutable.toReadOnly)))
-          } else if target === "draft-2020-12" {
+          } else if target === #"draft-2020-12" {
             // draft-2020-12 uses `prefixItems` for positional schemas.
             jsonSchema.prefixItems = Some(items)
           } else {
@@ -7221,7 +7209,7 @@ module RescriptJSONSchema = {
           jsonSchema.enum = Some(literals)
         } else if (
           // OpenAPI 3.0 collapse of `X | null` into `{...X, nullable: true}`.
-          target === "openapi-3.0" &&
+          target === #"openapi-3.0" &&
           itemsNumber === 2 &&
           (isNullDefinition(items->Array.getUnsafe(0)) ||
             isNullDefinition(items->Array.getUnsafe(1)))
@@ -7296,7 +7284,7 @@ module RescriptJSONSchema = {
     | Ref({ref}) if ref === `${defsPath}${jsonName}` => () // S.json → empty {}
     | Ref({ref}) => jsonSchema.ref = Some(ref)
     | Null(_) =>
-      if target === "openapi-3.0" {
+      if target === #"openapi-3.0" {
         // OpenAPI 3.0 has no `null` type. Use an enum as a workaround.
         jsonSchema.enum = Some([JSON.Null])
       } else {
@@ -7328,37 +7316,47 @@ module RescriptJSONSchema = {
   }
 }
 
-type toJSONSchemaOptions = {target?: string}
+// The supported JSON Schema dialects. Compiles to the spec target strings
+// ("draft-07", "draft-2020-12", "openapi-3.0"), so it interops directly with the
+// raw `target` string coming from the Standard JSON Schema `Options`.
+type jsonSchemaTarget = [#"draft-07" | #"draft-2020-12" | #"openapi-3.0"]
+type toJSONSchemaOptions = {target?: jsonSchemaTarget}
 
 // Single source of truth for the `target` -> `$schema` URI mapping (mirrors
 // @valibot/to-json-schema). Returns the URI to stamp, or `None` when the target
-// has no `$schema` (openapi-3.0). Throws `[Sury] Unsupported target: X` for an
-// unknown target.
-let resolveSchemaUri = target =>
+// has no `$schema` (openapi-3.0).
+let targetSchemaUri = (target: jsonSchemaTarget) =>
   switch target {
-  | "draft-07" => Some("http://json-schema.org/draft-07/schema#")
-  | "draft-2020-12" => Some("https://json-schema.org/draft/2020-12/schema")
+  | #"draft-07" => Some("http://json-schema.org/draft-07/schema#")
+  | #"draft-2020-12" => Some("https://json-schema.org/draft/2020-12/schema")
   // OpenAPI 3.0 has no `$schema` property.
-  | "openapi-3.0" => None
+  | #"openapi-3.0" => None
+  }
+
+// Narrow the raw target (which may arrive as an arbitrary string from JS via the
+// Standard JSON Schema `Options`) to a supported dialect, throwing
+// `[Sury] Unsupported target: X` for anything else.
+let parseTarget = (target): jsonSchemaTarget =>
+  switch (target->Obj.magic: string) {
+  | "draft-07" => #"draft-07"
+  | "draft-2020-12" => #"draft-2020-12"
+  | "openapi-3.0" => #"openapi-3.0"
   | unsupported => InternalError.panic(`Unsupported target: ${unsupported}`)
   }
 
 let toJSONSchema = (schema, ~options: option<toJSONSchemaOptions>=?) => {
-  // Resolve the target. When no options object is provided we keep the
-  // historical behavior: default to "draft-07" and do NOT stamp `$schema`.
-  let target = switch options {
+  // Resolve the target and the `$schema` URI to stamp. When no options object is
+  // provided we keep the historical behavior: default to "draft-07" and do NOT
+  // stamp `$schema`. With options, an unsupported target throws up front (even
+  // for openapi-3.0, which stamps no `$schema`).
+  let (target, schemaUri) = switch options {
   | Some({?target}) =>
-    switch target {
-    | Some(target) => target
-    | None => "draft-07"
+    let target = switch target {
+    | Some(target) => target->parseTarget
+    | None => #"draft-07"
     }
-  | None => "draft-07"
-  }
-  // Validate the target up front so an unsupported target throws even when no
-  // `$schema` would be stamped (e.g. openapi-3.0 reached via an explicit option).
-  let schemaUri = switch options {
-  | Some(_) => resolveSchemaUri(target)
-  | None => None
+    (target, targetSchemaUri(target))
+  | None => (#"draft-07", None)
   }
   let rootSchema = schema->castToInternal
   let defs = dict{}
@@ -7417,9 +7415,12 @@ standardJSONSchemaRef :=
       // source of truth for the `$schema` URI mapping and the unsupported-target
       // throw. Passing an options object (vs none) is what makes `toJSONSchema`
       // stamp `$schema`, which the Standard JSON Schema spec requires.
+      // `options.target` is a raw string from the Standard JSON Schema spec; it
+      // shares its runtime representation with `jsonSchemaTarget`, and
+      // `toJSONSchema` validates it (throwing on an unsupported target).
       toJSONSchema(
         isOutput ? schema->reverse : schema,
-        ~options={target: ?options.target},
+        ~options={target: ?(options.target->Obj.magic: option<jsonSchemaTarget>)},
       )
     }
   )->Obj.magic
@@ -7529,14 +7530,21 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<JSON.t> = {
       // TODO: jsonSchema.anyOf and jsonSchema.oneOf support
       schema
     | {type_} if type_ === JSONSchema.Arrayable.single(#array) => {
-        let schema = switch jsonSchema.items {
-        | Some(items) =>
-          switch items->JSONSchema.Arrayable.classify {
-          | Single(single) => array(single->definitionToSchema)
-          | Array(array) =>
-            tuple(s => array->Array.mapWithIndex((d, idx) => s.item(idx, d->definitionToSchema)))
+        let schema = switch jsonSchema.prefixItems {
+        // draft-2020-12 describes tuples with `prefixItems` instead of an
+        // `items` array.
+        | Some(prefixItems) =>
+          tuple(s => prefixItems->Array.mapWithIndex((d, idx) => s.item(idx, d->definitionToSchema)))
+        | None =>
+          switch jsonSchema.items {
+          | Some(items) =>
+            switch items->JSONSchema.Arrayable.classify {
+            | Single(single) => array(single->definitionToSchema)
+            | Array(array) =>
+              tuple(s => array->Array.mapWithIndex((d, idx) => s.item(idx, d->definitionToSchema)))
+            }
+          | None => array(anySchema)
           }
-        | None => array(anySchema)
         }
         let schema = switch jsonSchema.minItems {
         | Some(min) => schema->arrayMinLength(min)

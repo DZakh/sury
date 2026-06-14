@@ -6,21 +6,21 @@ open Vitest
 
 test("toJSONSchema with target draft-07 stamps the draft-07 $schema", t => {
   t->Assert.deepEqual(
-    S.string->S.toJSONSchema(~options={target: "draft-07"}),
+    S.string->S.toJSONSchema(~options={target: #"draft-07"}),
     %raw(`{"$schema": "http://json-schema.org/draft-07/schema#", "type": "string"}`),
   )
 })
 
 test("toJSONSchema with target draft-2020-12 stamps the draft-2020-12 $schema", t => {
   t->Assert.deepEqual(
-    S.string->S.toJSONSchema(~options={target: "draft-2020-12"}),
+    S.string->S.toJSONSchema(~options={target: #"draft-2020-12"}),
     %raw(`{"$schema": "https://json-schema.org/draft/2020-12/schema", "type": "string"}`),
   )
 })
 
 test("toJSONSchema with target openapi-3.0 omits $schema", t => {
   t->Assert.deepEqual(
-    S.string->S.toJSONSchema(~options={target: "openapi-3.0"}),
+    S.string->S.toJSONSchema(~options={target: #"openapi-3.0"}),
     %raw(`{"type": "string"}`),
   )
 })
@@ -37,8 +37,14 @@ test("toJSONSchema without options stays unchanged (no $schema)", t => {
 })
 
 test("toJSONSchema with an unsupported target throws", t => {
+  // ReScript callers are constrained to `jsonSchemaTarget` by the type system,
+  // but an untyped JS caller (e.g. via `~standard`) can pass an arbitrary string;
+  // `toJSONSchema` validates it at runtime. Simulate that here with a cast.
   t->Assert.throws(
-    () => S.string->S.toJSONSchema(~options={target: "unsupported-target"}),
+    () =>
+      S.string->S.toJSONSchema(
+        ~options={target: "unsupported-target"->(U.magic: string => S.jsonSchemaTarget)},
+      ),
     ~expectations={message: "[Sury] Unsupported target: unsupported-target"},
   )
 })
@@ -47,7 +53,7 @@ test("toJSONSchema with an unsupported target throws", t => {
 
 test("toJSONSchema tuple draft-07 uses an items array", t => {
   t->Assert.deepEqual(
-    S.tuple2(S.string, S.bool)->S.toJSONSchema(~options={target: "draft-07"}),
+    S.tuple2(S.string, S.bool)->S.toJSONSchema(~options={target: #"draft-07"}),
     %raw(`{
       "$schema": "http://json-schema.org/draft-07/schema#",
       "type": "array",
@@ -60,7 +66,7 @@ test("toJSONSchema tuple draft-07 uses an items array", t => {
 
 test("toJSONSchema tuple draft-2020-12 uses prefixItems", t => {
   t->Assert.deepEqual(
-    S.tuple2(S.string, S.bool)->S.toJSONSchema(~options={target: "draft-2020-12"}),
+    S.tuple2(S.string, S.bool)->S.toJSONSchema(~options={target: #"draft-2020-12"}),
     %raw(`{
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "type": "array",
@@ -73,7 +79,7 @@ test("toJSONSchema tuple draft-2020-12 uses prefixItems", t => {
 
 test("toJSONSchema tuple openapi-3.0 uses items anyOf", t => {
   t->Assert.deepEqual(
-    S.tuple2(S.string, S.bool)->S.toJSONSchema(~options={target: "openapi-3.0"}),
+    S.tuple2(S.string, S.bool)->S.toJSONSchema(~options={target: #"openapi-3.0"}),
     %raw(`{
       "type": "array",
       "minItems": 2,
@@ -87,14 +93,14 @@ test("toJSONSchema tuple openapi-3.0 uses items anyOf", t => {
 
 test("toJSONSchema null draft-07 uses type null", t => {
   t->Assert.deepEqual(
-    S.literal(%raw(`null`))->S.toJSONSchema(~options={target: "draft-07"}),
+    S.literal(%raw(`null`))->S.toJSONSchema(~options={target: #"draft-07"}),
     %raw(`{"$schema": "http://json-schema.org/draft-07/schema#", "type": "null"}`),
   )
 })
 
 test("toJSONSchema null openapi-3.0 uses enum", t => {
   t->Assert.deepEqual(
-    S.literal(%raw(`null`))->S.toJSONSchema(~options={target: "openapi-3.0"}),
+    S.literal(%raw(`null`))->S.toJSONSchema(~options={target: #"openapi-3.0"}),
     %raw(`{"enum": [null]}`),
   )
 })
@@ -103,28 +109,28 @@ test("toJSONSchema null openapi-3.0 uses enum", t => {
 
 test("toJSONSchema string literal draft-07 uses const", t => {
   t->Assert.deepEqual(
-    S.literal("Hello")->S.toJSONSchema(~options={target: "draft-07"}),
+    S.literal("Hello")->S.toJSONSchema(~options={target: #"draft-07"}),
     %raw(`{"$schema": "http://json-schema.org/draft-07/schema#", "type": "string", "const": "Hello"}`),
   )
 })
 
 test("toJSONSchema string literal openapi-3.0 uses enum", t => {
   t->Assert.deepEqual(
-    S.literal("Hello")->S.toJSONSchema(~options={target: "openapi-3.0"}),
+    S.literal("Hello")->S.toJSONSchema(~options={target: #"openapi-3.0"}),
     %raw(`{"type": "string", "enum": ["Hello"]}`),
   )
 })
 
 test("toJSONSchema number literal openapi-3.0 uses enum", t => {
   t->Assert.deepEqual(
-    S.literal(123)->S.toJSONSchema(~options={target: "openapi-3.0"}),
+    S.literal(123)->S.toJSONSchema(~options={target: #"openapi-3.0"}),
     %raw(`{"type": "number", "enum": [123]}`),
   )
 })
 
 test("toJSONSchema boolean literal openapi-3.0 uses enum", t => {
   t->Assert.deepEqual(
-    S.literal(true)->S.toJSONSchema(~options={target: "openapi-3.0"}),
+    S.literal(true)->S.toJSONSchema(~options={target: #"openapi-3.0"}),
     %raw(`{"type": "boolean", "enum": [true]}`),
   )
 })
@@ -133,7 +139,7 @@ test("toJSONSchema boolean literal openapi-3.0 uses enum", t => {
 
 test("toJSONSchema nullable float draft-07 keeps anyOf with type null", t => {
   t->Assert.deepEqual(
-    S.nullAsOption(S.float)->S.toJSONSchema(~options={target: "draft-07"}),
+    S.nullAsOption(S.float)->S.toJSONSchema(~options={target: #"draft-07"}),
     %raw(`{
       "$schema": "http://json-schema.org/draft-07/schema#",
       "anyOf": [{"type": "number"}, {"type": "null"}]
@@ -143,7 +149,7 @@ test("toJSONSchema nullable float draft-07 keeps anyOf with type null", t => {
 
 test("toJSONSchema nullable float openapi-3.0 collapses to nullable", t => {
   t->Assert.deepEqual(
-    S.nullAsOption(S.float)->S.toJSONSchema(~options={target: "openapi-3.0"}),
+    S.nullAsOption(S.float)->S.toJSONSchema(~options={target: #"openapi-3.0"}),
     %raw(`{"type": "number", "nullable": true}`),
   )
 })

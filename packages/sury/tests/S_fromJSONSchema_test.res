@@ -120,6 +120,19 @@ test("fromJSONSchema: tuple", t => {
   t->Assert.deepEqual(jsonRoundTrip(js), js)
 })
 
+test("fromJSONSchema: tuple via draft-2020-12 prefixItems", t => {
+  let js = {
+    type_: Arrayable.single(#array),
+    prefixItems: [
+      Schema({type_: Arrayable.single(#string)}),
+      Schema({type_: Arrayable.single(#number)}),
+    ],
+  }
+  let schema = S.fromJSONSchema(js)
+  t->Assert.deepEqual(parse(schema, ("a", 1)), ("a", 1))
+  t->Assert.throws(() => parse(schema, (1, "a")))
+})
+
 // 4. Objects
 
 test("fromJSONSchema: object with properties", t => {
