@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Correctly parses", t => {
   let schema = S.nullableAsOption(S.bool)

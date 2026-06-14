@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Successfully parses and reverse converts a simple object with compactColumns", t => {
   let schema =
@@ -226,7 +226,7 @@ test("Field schema with S.transform", t => {
       S.array(
         S.schema(s =>
           {
-            "foo": s.matches(S.string->S.transform(_ => {parser: v => v->Js.String2.toUpperCase})),
+            "foo": s.matches(S.string->S.transform(_ => {parser: v => v->String.toUpperCase})),
             "bar": s.matches(S.int),
           }
         ),

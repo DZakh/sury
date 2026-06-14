@@ -5,9 +5,9 @@ import * as Execa from "execa";
 import * as Rollup from "rollup";
 import * as Nodefs from "node:fs";
 import * as Nodepath from "node:path";
-import * as Stdlib_JSON from "rescript/lib/es6/Stdlib_JSON.js";
-import * as Stdlib_List from "rescript/lib/es6/Stdlib_List.js";
-import * as Stdlib_Option from "rescript/lib/es6/Stdlib_Option.js";
+import * as Stdlib_JSON from "@rescript/runtime/lib/es6/Stdlib_JSON.js";
+import * as Stdlib_List from "@rescript/runtime/lib/es6/Stdlib_List.js";
+import * as Stdlib_Option from "@rescript/runtime/lib/es6/Stdlib_Option.js";
 import * as PluginNodeResolve from "@rollup/plugin-node-resolve";
 
 let projectPath = "./";
@@ -202,6 +202,10 @@ let filesMapping = [
     "S.js_assert"
   ],
   [
+    "is",
+    "S.js_is"
+  ],
+  [
     "recursive",
     "S.recursive"
   ],
@@ -331,10 +335,10 @@ sourePaths.forEach(path => {
 
 function writeSjsEsm(path) {
   Nodefs.writeFileSync(path, Buffer.from([
-    "/* @ts-self-types=\"./S.d.ts\" */",
-    "import * as S from \"./Sury.res.mjs\"",
-    "var _void = /*#__PURE__*/ S.unit(); export { _void as void }"
-  ].concat(filesMapping.map(param => "export var " + param[0] + " = " + param[1])).join("\n")), {
+    `/* @ts-self-types="./S.d.ts" */`,
+    `import * as S from "./Sury.res.mjs"`,
+    `var _void = /*#__PURE__*/ S.unit(); export { _void as void }`
+  ].concat(filesMapping.map(param => `export var ` + param[0] + ` = ` + param[1])).join("\n")), {
     encoding: "utf8"
   });
 }
@@ -344,9 +348,9 @@ writeSjsEsm(Nodepath.join(projectPath, "./src/S.js"));
 writeSjsEsm(Nodepath.join(artifactsPath, "./src/S.mjs"));
 
 Nodefs.writeFileSync(Nodepath.join(artifactsPath, "./src/S.js"), Buffer.from([
-  "/* @ts-self-types=\"./S.d.ts\" */",
+  `/* @ts-self-types="./S.d.ts" */`,
   "var S = require(\"./Sury.res.js\");"
-].concat(filesMapping.map(param => "exports." + param[0] + " = " + param[1])).concat(["exports.void = S.unit()"]).join("\n")), {
+].concat(filesMapping.map(param => `exports.` + param[0] + ` = ` + param[1])).concat([`exports.void = S.unit()`]).join("\n")), {
   encoding: "utf8"
 });
 

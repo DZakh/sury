@@ -2,28 +2,28 @@
 
 import * as S from "sury/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
-import Ava from "ava";
+import * as Vitest from "vitest";
 
 let variantSchema = S.union([
   S.literal("One"),
   S.literal("Two")
 ]);
 
-Ava("Variant", t => U.assertEqualSchemas(t, variantSchema, S.union([
+Vitest.test("Variant", t => U.assertEqualSchemas(t, variantSchema, S.union([
   S.literal("One"),
   S.literal("Two")
 ]), undefined));
 
 let variantWithSingleItemSchema = S.literal("Single");
 
-Ava("Variant with single item becomes a literal schema of the item", t => U.assertEqualSchemas(t, variantWithSingleItemSchema, S.literal("Single"), undefined));
+Vitest.test("Variant with single item becomes a literal schema of the item", t => U.assertEqualSchemas(t, variantWithSingleItemSchema, S.literal("Single"), undefined));
 
 let variantWithAliasSchema = S.union([
   S.literal("하나"),
   S.literal("Two")
 ]);
 
-Ava("Variant with partial @as usage", t => U.assertEqualSchemas(t, variantWithAliasSchema, S.union([
+Vitest.test("Variant with partial @as usage", t => U.assertEqualSchemas(t, variantWithAliasSchema, S.union([
   S.literal("하나"),
   S.literal("Two")
 ]), undefined));
@@ -45,7 +45,7 @@ let variantWithPayloadsSchema = S.union([
   }))
 ]);
 
-Ava("Variant with payloads", t => U.assertEqualSchemas(t, variantWithPayloadsSchema, S.union([
+Vitest.test("Variant with payloads", t => U.assertEqualSchemas(t, variantWithPayloadsSchema, S.union([
   S.literal("Constant"),
   S.schema(s => ({
     TAG: "SinglePayload",
@@ -68,7 +68,7 @@ let unboxedVariantSchema = S.union([
   S.schema(s => (s.m(S.string)))
 ]);
 
-Ava("Unboxed variant", t => U.assertEqualSchemas(t, unboxedVariantSchema, S.union([
+Vitest.test("Unboxed variant", t => U.assertEqualSchemas(t, unboxedVariantSchema, S.union([
   S.literal("Constant"),
   S.schema(s => (s.m(S.int))),
   S.schema(s => (s.m(S.string)))
@@ -90,7 +90,7 @@ let taggedVariantSchema = S.union([
   }))
 ]);
 
-Ava("Tagged variant", t => U.assertEqualSchemas(t, taggedVariantSchema, S.union([
+Vitest.test("Tagged variant", t => U.assertEqualSchemas(t, taggedVariantSchema, S.union([
   S.schema(s => ({
     kind: "circle",
     radius: s.m(S.float)
@@ -106,6 +106,14 @@ Ava("Tagged variant", t => U.assertEqualSchemas(t, taggedVariantSchema, S.union(
   }))
 ]), undefined));
 
+let strictVariantSchema = S.strict(S.union([
+  S.literal("StrictA"),
+  S.schema(s => ({
+    TAG: "StrictB",
+    _0: s.m(S.int)
+  }))
+]));
+
 let taggedInlinedAliasSchema = S.union([
   S.schema(s => ({
     type: "Foo",
@@ -117,7 +125,15 @@ let taggedInlinedAliasSchema = S.union([
   }))
 ]);
 
-Ava("Tagged variant with inlined alias", t => U.assertEqualSchemas(t, taggedInlinedAliasSchema, S.union([
+Vitest.test("@s.strict on root variant type", t => U.assertEqualSchemas(t, strictVariantSchema, S.strict(S.union([
+  S.literal("StrictA"),
+  S.schema(s => ({
+    TAG: "StrictB",
+    _0: s.m(S.int)
+  }))
+])), undefined));
+
+Vitest.test("Tagged variant with inlined alias", t => U.assertEqualSchemas(t, taggedInlinedAliasSchema, S.union([
   S.schema(s => ({
     type: "Foo",
     Foo: s.m(S.string)
@@ -135,6 +151,7 @@ export {
   variantWithPayloadsSchema,
   unboxedVariantSchema,
   taggedVariantSchema,
+  strictVariantSchema,
   taggedInlinedAliasSchema,
 }
 /* variantSchema Not a pure module */

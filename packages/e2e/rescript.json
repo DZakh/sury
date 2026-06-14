@@ -12,8 +12,12 @@
     "in-source": true
   },
   "suffix": ".res.mjs",
+  "warnings": {
+    "number": "+a-4-9-20-41",
+    "error": "+a"
+  },
   "dependencies": ["sury"],
-  "dev-dependencies": ["@dzakh/rescript-ava"],
+  "dev-dependencies": [],
   "ppx-flags": ["sury-ppx/bin"],
   "gentypeconfig": {
     "generatedFileExtension": ".gen.ts"

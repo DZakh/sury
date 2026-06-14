@@ -458,7 +458,7 @@ export function schema<T>(
   value: T
 ): Schema<UnknownToOutput<T>, UnknownToInput<T>>;
 
-export function union<A extends Literal, B extends Literal[]>(
+export function union<const A extends Literal, const B extends Literal[]>(
   schemas: [A, ...B]
 ): Schema<
   UnknownToOutput<A> | UnknownArrayToOutput<B>[number],
@@ -594,6 +594,19 @@ export function assert<Output, Input>(
   schema: Schema<Output, Input>,
   data: unknown
 ): asserts data is Input;
+export function assert<Output, Input>(
+  data: unknown,
+  schema: Schema<Output, Input>
+): asserts data is Input;
+
+export function is<Output, Input>(
+  schema: Schema<Output, Input>,
+  data: unknown
+): data is Input;
+export function is<Output, Input>(
+  data: unknown,
+  schema: Schema<Output, Input>
+): data is Input;
 
 export function tuple<Output, Input extends unknown[]>(
   definer: (s: {
@@ -622,13 +635,13 @@ export function optional<
 export function nullable<
   Output,
   Input,
-  Or extends Output | undefined = undefined
+  Or extends Output | null = null
 >(
   schema: Schema<Output, Input>,
   or?: (() => Or) | Or,
   // To make .with work
   _?: never
-): Schema<Or extends undefined ? Output | undefined : Output, Input | null>;
+): Schema<Or extends null ? Output | null : Output, Input | null>;
 
 export const nullish: <Output, Input>(
   schema: Schema<Output, Input>
@@ -684,17 +697,14 @@ export function deepStrict<Output, Input extends Record<string, unknown>>(
   schema: Schema<Output, Input>
 ): Schema<Output, Input>;
 
-export function merge<O1, O2>(
+export function merge<
+  O1 extends Record<string, unknown>,
+  O2 extends Record<string, unknown>
+>(
   schema1: Schema<O1, Record<string, unknown>>,
   schema2: Schema<O2, Record<string, unknown>>
 ): Schema<
-  {
-    [K in keyof O1 | keyof O2]: K extends keyof O2
-      ? O2[K]
-      : K extends keyof O1
-      ? O1[K]
-      : never;
-  },
+  { [K in keyof (Omit<O1, keyof O2> & O2)]: (Omit<O1, keyof O2> & O2)[K] },
   Record<string, unknown>
 >;
 

@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test(
   "String fallback in JSON encoder propagates errors from downstream conversions",

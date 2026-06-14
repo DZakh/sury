@@ -58,15 +58,20 @@ A `val` is the compile-time view of a runtime value at one point in the generate
 Core fields:
 - `schema` — actual type at this point
 - `expected` — schema to build decoder for
-- `var()` — variable name in generated code
+- `var()` — variable name in generated code (allocates lazily; reuse when the value is referenced more than once)
 - `inline` — inline expression form
 - `path` — location in input (for errors)
+- `isOutput` — `Some(true)` once refiners have been applied (see Refiner ownership)
 
 Transformation chain (relative to `.prev`):
 - `prev` — previous val in the chain
-- `code` — codegen from `.prev` to this val
-- `validation` — type-check condition from `.prev` (distinct from user refiners)
+- `codeFromPrev` — statements that produce this val from `.prev`
+- `varsAllocation` — `let` declarations for vars introduced by codegen, populated via the `allocate` side-channel (which mutates whichever val it's called on — frequently `.prev`, not this val). `merge` emits them in the owning val's slot.
+- `checks` — `array<check>`; both type-narrows and user refiners live here. A check whose `fail === B.failInvalidType` is a type-narrow and **doubles as a union dispatch discriminant**.
 
 Helpers:
-- `B.refine` — clones a val to attach checks, keeping the var-allocation link.
-- `skipTo` — abort parse after current decoder. Prefer `val.expected`; aim to remove `skipTo`.
+- `B.next` — new val one step down the transform chain (sets `hasTransform`).
+- `B.refine` — clones a val to attach `checks`, keeping the var-allocation link.
+- `B.markOutput` — applies `inputRefiner`/`refiner` and sets `isOutput` (see Refiner ownership).
+- `B.merge` — walks the `.prev` chain into a code string. With `~hoistCond` (union codegen) it lifts type-narrow checks into a dispatch condition.
+
