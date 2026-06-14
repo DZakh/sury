@@ -264,7 +264,7 @@ type _transform_in = Expect<
 >;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Case 14 — `Schema<never>` field: the ONE intentional divergence from the
+// Case 14 — `S.never` field. This is the ONE intentional divergence from the
 // baseline, so it is asserted directly rather than via OutMatchesBaseline.
 //
 // A field whose resolved type is exactly `never` is the only input on which the
@@ -272,28 +272,50 @@ type _transform_in = Expect<
 //   • Baseline `HasUndefined<X>` starts with `[X] extends [undefined]`, which is
 //     true whenever X is assignable to `undefined` — and `never` is assignable
 //     to everything, so a `never` field was treated as optional. The optional
-//     `a?: never` then survives `Flatten` as `a?: undefined` (optional widens
-//     `never` to `undefined`).
+//     `oldKey?: never` then survives `Flatten` as `oldKey?: undefined` (optional
+//     widens `never` to `undefined`).
 //   • The optimized `undefined extends R[K]` is `false` for `never`, so the
-//     field is required (`a: never`) and `Flatten` — which drops keys whose
+//     field is required (`oldKey: never`) and `Flatten` — which drops keys whose
 //     value `extends never` — removes it entirely.
 //
 // For every non-`never` field the two predicates agree exactly, so this is the
-// sole behavioral difference. No Sury combinator yields a `Schema<never>` field
-// in normal use; you must hand-write `S.Schema<never, never>`. The new result
-// (drop the impossible field) is arguably the cleaner of the two.
+// sole behavioral difference. `S.never` is a real exported combinator
+// (`Schema<never, never>`), so this IS reachable — but only as a *bare* field,
+// which makes an object that can never be parsed (see S_never_test.res "Fails to
+// parse a object with Never field"). The realistic deprecated-field pattern
+// wraps it in `S.optional`, which resolves to `undefined` (not `never`) and is
+// unaffected — verified in Case 15. The new result (drop the impossible field)
+// is arguably the cleaner of the two.
 // ─────────────────────────────────────────────────────────────────────────────
-type C_NeverField = { a: S.Schema<never, never>; b: Num };
+type C_NeverField = { oldKey: typeof S.never; key: Str };
 // New: the impossible field is dropped on both Output and Input.
 type _never_out = Expect<
-  Equals<S.UnknownToOutput<C_NeverField>, { b: number }>
+  Equals<S.UnknownToOutput<C_NeverField>, { key: string }>
 >;
-type _never_in = Expect<Equals<S.UnknownToInput<C_NeverField>, { b: number }>>;
+type _never_in = Expect<
+  Equals<S.UnknownToInput<C_NeverField>, { key: string }>
+>;
 // Baseline kept it as an optional-`undefined` slot.
 type _never_oldOut = Expect<
-  Equals<OldUnknownToOutput<C_NeverField>, { a?: undefined; b: number }>
+  Equals<OldUnknownToOutput<C_NeverField>, { oldKey?: undefined; key: string }>
 >;
 // And therefore new ≠ old for this (only this) shape.
 type _never_diverges = ExpectFalse<
   Equals<S.UnknownToOutput<C_NeverField>, OldUnknownToOutput<C_NeverField>>
+>;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Case 15 — `S.optional(S.never)` field: the realistic deprecated-field pattern.
+// It resolves to `Schema<undefined, undefined>` (the `never | undefined`
+// collapses to `undefined`), so the field stays optional in BOTH the baseline
+// and the optimized resolver — no divergence.
+// ─────────────────────────────────────────────────────────────────────────────
+type C_OptNeverField = { oldKey: S.Schema<undefined, undefined>; key: Str };
+type _optNever_outBaseline = Expect<OutMatchesBaseline<C_OptNeverField>>;
+type _optNever_inBaseline = Expect<InMatchesBaseline<C_OptNeverField>>;
+type _optNever_out = Expect<
+  Equals<
+    S.UnknownToOutput<C_OptNeverField>,
+    { oldKey?: undefined; key: string }
+  >
 >;
