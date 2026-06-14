@@ -449,6 +449,15 @@ function varWithoutAllocation(global) {
   return `v` + newCounter;
 }
 
+function hoistDecl(owner, decl) {
+  let existing = owner.hd;
+  if (existing !== undefined) {
+    owner.hd = existing + "," + decl;
+  } else {
+    owner.hd = decl;
+  }
+}
+
 function _notVarBeforeValidation() {
   let val = this;
   let v = varWithoutAllocation(val.g);
@@ -460,9 +469,10 @@ function _notVarBeforeValidation() {
 
 function _notVarAtParent() {
   let val = this;
-  if (val.p.a) {
+  let parent = val.p;
+  if (parent.a) {
     let v = varWithoutAllocation(val.g);
-    val.p.a(v + `=` + val.i);
+    hoistDecl(parent, v + `=` + val.i);
     val.v = _var;
     val.i = v;
     return v;
@@ -474,16 +484,23 @@ function _notVarAtParent() {
 function _notVar() {
   let val = this;
   let v = varWithoutAllocation(val.g);
-  let from = val.prev;
-  let target = from !== undefined ? from : val;
-  let i = val.i;
-  if (i === "") {
-    target.a(v);
-  } else if (val.cp !== "") {
-    target.a(v);
-    val.cp = val.cp + v + `=` + i + `;`;
+  let match = val.prev;
+  if (match !== undefined) {
+    let i = val.i;
+    if (i === "") {
+      val.cp = `let ` + v + `;` + val.cp;
+    } else if (val.cp !== "") {
+      val.cp = `let ` + v + `;` + val.cp + (v + `=` + i + `;`);
+    } else {
+      val.cp = `let ` + v + `=` + i + `;`;
+    }
   } else {
-    target.a(v + `=` + i);
+    let i$1 = val.i;
+    if (i$1 === "") {
+      hoistDecl(val.so, v);
+    } else {
+      hoistDecl(val.so, v + `=` + i$1);
+    }
   }
   val.v = _var;
   val.i = v;
@@ -491,7 +508,7 @@ function _notVar() {
 }
 
 function operationArg(schema, expected, flag, defs) {
-  return {
+  let root = {
     v: _var,
     i: "i",
     s: schema,
@@ -508,6 +525,8 @@ function operationArg(schema, expected, flag, defs) {
       d: defs
     }
   };
+  root.so = root;
+  return root;
 }
 
 function unsupportedDecode(b, from, target) {
@@ -701,6 +720,10 @@ function merge(val, hoistCond) {
     if (val$1.l !== "") {
       currentCode = currentCode + (`let ` + val$1.l + `;`);
     }
+    let decls = val$1.hd;
+    if (decls !== undefined) {
+      currentCode = currentCode + (`let ` + decls + `;`);
+    }
     ((delete val$1.a));
     currentCode = val$1.cp + currentCode;
     code = currentCode + code;
@@ -721,6 +744,7 @@ function next(prev, initial, schema, expectedOpt) {
     cp: "",
     l: "",
     a: initialAllocate,
+    so: prev.so,
     t: true,
     path: prev.path,
     g: prev.g
@@ -742,6 +766,7 @@ function refine(val, schemaOpt, checks, expectedOpt) {
     cp: "",
     l: "",
     a: initialAllocate,
+    so: val.so,
     vc: checks,
     t: val.t,
     path: val.path,
@@ -820,7 +845,7 @@ function hoistChildChecks(parent, child, key) {
 }
 
 function dynamicScope(from, locationVar) {
-  return {
+  let scope = {
     p: from,
     v: _notVarBeforeValidation,
     i: from.v() + `[` + locationVar + `]`,
@@ -833,6 +858,8 @@ function dynamicScope(from, locationVar) {
     path: "",
     g: from.g
   };
+  scope.so = scope;
+  return scope;
 }
 
 function nextConst(from, schema, expected) {
@@ -879,6 +906,7 @@ function scope(val) {
     cp: "",
     l: "",
     a: initialAllocate,
+    so: val.so,
     u: false,
     t: false,
     path: val.path,
@@ -930,6 +958,7 @@ function get(parent, location) {
     cp: "",
     l: "",
     a: initialAllocate,
+    so: parent.so,
     path: parent.path + pathAppend,
     g: parent.g
   };
@@ -1565,6 +1594,7 @@ function makeObjectVal(prev, schema) {
     cp: "",
     l: "",
     a: initialAllocate,
+    so: prev.so,
     t: true,
     path: prev.path,
     g: prev.g
@@ -1853,7 +1883,7 @@ function objectDecoder(unknownInput) {
     }
     if (tmp) {
       let keyVar$1 = varWithoutAllocation(objectVal.g);
-      input.a(keyVar$1);
+      hoistDecl(input, keyVar$1);
       objectVal.cp = objectVal.cp + (`for(` + keyVar$1 + ` in ` + input.v() + `){if(`);
       if (keys.length !== 0) {
         for (let idx$1 = 0, idx_finish = keys.length; idx$1 < idx_finish; ++idx$1) {
@@ -3565,20 +3595,6 @@ function proxifyShapedSchema(schema, from, fromFlattened) {
   });
 }
 
-function getValByFrom(_input, from, _idx) {
-  while (true) {
-    let idx = _idx;
-    let input = _input;
-    let key = from[idx];
-    if (key === undefined) {
-      return input;
-    }
-    _idx = idx + 1 | 0;
-    _input = input.d[key];
-    continue;
-  };
-}
-
 function getShapedSerializerOutput(input, acc, targetSchema, path) {
   let exit = 0;
   if (acc !== undefined) {
@@ -3732,16 +3748,6 @@ function prepareShapedSerializerAcc(acc, input) {
   }
 }
 
-function shapedSerializer(input) {
-  let acc = {};
-  prepareShapedSerializerAcc(acc, input);
-  let targetSchema = input.e.to;
-  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
-  output.t = true;
-  output.prev = input;
-  return output;
-}
-
 function traverseDefinition(definition, onNode) {
   if (typeof definition !== objectTag || definition === null) {
     return parse(definition);
@@ -3784,6 +3790,16 @@ function traverseDefinition(definition, onNode) {
   return mut$2;
 }
 
+function shapedSerializer(input) {
+  let acc = {};
+  prepareShapedSerializerAcc(acc, input);
+  let targetSchema = input.e.to;
+  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
+  output.t = true;
+  output.prev = input;
+  return output;
+}
+
 function getShapedParserOutput(input, targetSchema) {
   let from = targetSchema.from;
   let fromFlattened = targetSchema.fromFlattened;
@@ -3821,6 +3837,20 @@ function getShapedParserOutput(input, targetSchema) {
   v.prev = undefined;
   v.e = targetSchema;
   return v;
+}
+
+function getValByFrom(_input, from, _idx) {
+  while (true) {
+    let idx = _idx;
+    let input = _input;
+    let key = from[idx];
+    if (key === undefined) {
+      return input;
+    }
+    _idx = idx + 1 | 0;
+    _input = input.d[key];
+    continue;
+  };
 }
 
 function definitionToSchema(definition) {

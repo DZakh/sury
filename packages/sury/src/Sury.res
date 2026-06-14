@@ -642,6 +642,16 @@ and val = {
   mutable varsAllocation: string,
   @as("a")
   mutable allocate: string => unit,
+  // The nearest enclosing block that outlives this val (operation root or a
+  // `for`-loop dynamic scope). Used as the hoist target when a val has no prev
+  // to anchor a lazily-materialized declaration to. Inherited by descendants.
+  @as("so")
+  mutable scopeOwner?: val,
+  // Comma-joined `let` declarations hoisted onto this val by descendants whose
+  // own segment was already emitted. Emitted after this val's checks in
+  // `merge` — the slot the old varsAllocation side-channel used.
+  @as("hd")
+  mutable hoistedDecls?: string,
   // Invariant: absent iff no checks. Never stored as `Some([])` so callers
   // can test presence with `->unsafeToBool` instead of length.
   @as("vc")
@@ -1158,6 +1168,18 @@ module Builder = {
       `v${newCounter->X.Int.unsafeToString}`
     }
 
+    // Attach a `let` declaration to a still-open owner val (the prev/parent
+    // whose segment dominates and outlives the materialized value). The decl
+    // emits after the owner's checks in `merge` — the slot the old
+    // varsAllocation side-channel used — without the owner mutating itself via
+    // a bound `allocate` callback.
+    let hoistDecl = (owner: val, decl: string) => {
+      switch owner.hoistedDecls {
+      | Some(existing) => owner.hoistedDecls = Some(existing ++ "," ++ decl)
+      | None => owner.hoistedDecls = Some(decl)
+      }
+    }
+
     let _notVarBeforeValidation = () => {
       let val = %raw(`this`)
       let v = val.global->varWithoutAllocation
@@ -1169,16 +1191,20 @@ module Builder = {
 
     let _notVarAtParent = () => {
       let val = %raw(`this`)
-      // FIXME: The parent's allocate is removed during merge. When this val is
-      // accessed via a cached bond after the parent has been finalized,
-      // fall back to inlining instead of allocating a new variable on the
-      // (now finalized) parent. See https://github.com/DZakh/sury/issues/240
-      if !((val.parent->X.Option.getUnsafe).allocate->Obj.magic) {
+      let parent = val.parent->X.Option.getUnsafe
+      // The value is a re-readable field access (`parent[key]`). Its declaration
+      // is hoisted onto the parent, which outlives this field's own segment —
+      // field vals are frequently materialized late (e.g. completeObjectVal's
+      // optional-field check) after their merge code was already emitted, so
+      // owning it here would drop the decl. When the parent itself has been
+      // finalized by `merge` (reached via a cached bond), re-read the field
+      // expression inline. See https://github.com/DZakh/sury/issues/240
+      if !(parent.allocate->Obj.magic) {
         val.var = _var
         val.inline
       } else {
         let v = val.global->varWithoutAllocation
-        (val.parent->X.Option.getUnsafe).allocate(`${v}=${val.inline}`)
+        hoistDecl(parent, `${v}=${val.inline}`)
         val.var = _var
         val.inline = v
         v
@@ -1188,18 +1214,26 @@ module Builder = {
     let _notVar = () => {
       let val: val = %raw(`this`)
       let v = val.global->varWithoutAllocation
-      let target = switch val.prev {
-      | Some(from) => from
-      | None => val // FIXME: Validate that this never happens
-      }
-      switch val.inline {
-      | "" => target.allocate(v)
-      | i =>
-        if val.codeFromPrev !== "" {
-          target.allocate(v)
-          val.codeFromPrev = `${val.codeFromPrev}${v}=${i};`
-        } else {
-          target.allocate(`${v}=${i}`)
+      switch val.prev {
+      | Some(_) =>
+        // Own the declaration in codeFromPrev so it travels with the val. A
+        // non-empty codeFromPrev makes the val non-hoistable in `merge`, so a
+        // union discriminant reading this var can never be lifted above its
+        // `let` declaration (the str->to(option(int)) bug class).
+        switch val.inline {
+        | "" => val.codeFromPrev = `let ${v};` ++ val.codeFromPrev
+        | i =>
+          if val.codeFromPrev !== "" {
+            val.codeFromPrev = `let ${v};` ++ val.codeFromPrev ++ `${v}=${i};`
+          } else {
+            val.codeFromPrev = `let ${v}=${i};`
+          }
+        }
+      | None =>
+        // No prev to anchor the declaration to; hoist it to the scope owner.
+        switch val.inline {
+        | "" => hoistDecl(val.scopeOwner->X.Option.getUnsafe, v)
+        | i => hoistDecl(val.scopeOwner->X.Option.getUnsafe, `${v}=${i}`)
         }
       }
       val.var = _var
@@ -1211,7 +1245,7 @@ module Builder = {
     let operationArgVar = "i"
 
     let operationArg = (~schema, ~expected, ~flag, ~defs): val => {
-      {
+      let root = {
         codeFromPrev: "",
         var: _var,
         inline: operationArgVar,
@@ -1233,6 +1267,10 @@ module Builder = {
           varCounter: -1,
         },
       }
+      // The operation root is its own scope owner: decls hoisted here land at
+      // the top of the compiled function body, dominating everything.
+      root.scopeOwner = Some(root)
+      root
     }
 
     let throw = errorDetails => {
@@ -1521,6 +1559,14 @@ module Builder = {
           currentCode := currentCode.contents ++ `let ${val.varsAllocation};`
         }
 
+        // Decls hoisted onto this val (by a descendant whose own segment was
+        // already emitted) land after its checks — the same slot the old
+        // varsAllocation side-channel used.
+        switch val.hoistedDecls {
+        | Some(decls) => currentCode := currentCode.contents ++ `let ${decls};`
+        | None => ()
+        }
+
         // Delete allocate,
         // this is used to handle Val.var
         // linked to allocated scopes
@@ -1546,6 +1592,7 @@ module Builder = {
         codeFromPrev: "",
         varsAllocation: "",
         allocate: initialAllocate,
+        scopeOwner: ?prev.scopeOwner,
         path: prev.path,
         global: prev.global,
         hasTransform: true,
@@ -1567,6 +1614,7 @@ module Builder = {
         codeFromPrev: "",
         varsAllocation: "",
         allocate: initialAllocate,
+        scopeOwner: ?val.scopeOwner,
         ?checks,
         path: val.path,
         global: val.global,
@@ -1657,7 +1705,7 @@ module Builder = {
     }
 
     let dynamicScope = (from: val, ~locationVar): val => {
-      {
+      let scope = {
         var: _notVarBeforeValidation,
         inline: `${from.var()}[${locationVar}]`,
         flag: from.flag,
@@ -1670,6 +1718,11 @@ module Builder = {
         path: Path.empty,
         global: from.global,
       }
+      // A dynamic scope is the body of a `for` loop: it's a new lexical block.
+      // Decls that depend on the loop variable must stay inside it, so the
+      // scope owns itself rather than inheriting the enclosing scope.
+      scope.scopeOwner = Some(scope)
+      scope
     }
 
     let nextConst = (from: val, ~schema, ~expected=?): val => {
@@ -1747,6 +1800,7 @@ module Builder = {
           varsAllocation: "",
           hasTransform: false,
           allocate: initialAllocate,
+          scopeOwner: ?val.scopeOwner,
           isOutput: ?val.isOutput,
           vals: ?val.vals, // TODO: Is this correct?
         }
@@ -1810,6 +1864,7 @@ module Builder = {
               codeFromPrev: "",
               varsAllocation: "",
               allocate: initialAllocate,
+              scopeOwner: ?parent.scopeOwner,
               path: parent.path->Path.concat(pathAppend),
               global: parent.global,
               parent,
@@ -2651,6 +2706,7 @@ let rec makeObjectVal = (prev: val, ~schema): B.Val.Object.t => {
     codeFromPrev: "",
     varsAllocation: "",
     allocate: B.initialAllocate,
+    scopeOwner: ?prev.scopeOwner,
     path: prev.path,
     global: prev.global,
   }
@@ -3051,7 +3107,7 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
           }
       ) {
         let keyVar = objectVal.global->B.varWithoutAllocation
-        input.allocate(keyVar)
+        B.hoistDecl(input, keyVar)
         objectVal.codeFromPrev = objectVal.codeFromPrev ++ `for(${keyVar} in ${input.var()}){if(`
         switch keys {
         | [] => objectVal.codeFromPrev = objectVal.codeFromPrev ++ "true"
