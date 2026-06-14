@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Throws for a Union schema factory without schemas", t => {
   t->Assert.throws(
@@ -51,7 +51,7 @@ test("Parses when both schemas misses parser and have the same type", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){try{throw e[0]}catch(e0){e[2](i,e[1])}}else{e[3](i)}return i}`,
+    `i=>{if(typeof i==="string"){e[2](i,e[0],e[1])}else{e[3](i)}return i}`,
   )
 })
 
@@ -83,7 +83,7 @@ test("Parses when both schemas misses parser and have different types", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){try{throw e[0]}catch(e0){e[2](i,e[1])}}else{e[3](i)}return i}`,
+    `i=>{if(typeof i==="string"){e[2](i,e[0],e[1])}else{e[3](i)}return i}`,
   )
 })
 
@@ -108,7 +108,7 @@ test("Serializes when both schemas misses serializer", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{throw e[0]}catch(e0){try{throw e[1]}catch(e1){e[2](i,e0,e1)}}return i}`,
+    `i=>{e[2](i,e[0],e[1]);return i}`,
   )
 })
 
@@ -222,7 +222,7 @@ test("Serializes when second struct misses serializer", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{typeof i==="string"&&(i==="apple")||e[0](i);}catch(e1){try{throw e[1]}catch(e2){e[2](i,e1,e2)}}return i}`,
+    `i=>{try{typeof i==="string"&&(i==="apple")||e[0](i);}catch(e1){e[2](i,e1,e[1])}return i}`,
   )
 })
 

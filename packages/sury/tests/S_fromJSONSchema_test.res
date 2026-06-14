@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 open JSONSchema
 
 // Helper for round-trip: S -> toJSONSchema -> fromJSONSchema -> S

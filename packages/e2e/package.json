@@ -5,21 +5,15 @@
   "type": "module",
   "scripts": {
     "res": "rescript watch",
-    "test": "rescript && ava",
+    "test": "rescript && vitest run",
     "ppx:install": "node ../sury-ppx/install.cjs",
     "ppx:build": "cd ../sury-ppx/src && dune build",
     "benchmark": "node ./src/benchmark/Benchmark.res.mjs",
     "benchmark:comparison": "node ./src/benchmark/comparison.js"
   },
-  "ava": {
-    "files": [
-      "src/**/*_test.res.mjs"
-    ]
-  },
   "dependencies": {
     "rescript": "12.2.0",
-    "@dzakh/rescript-ava": "3.1.0",
-    "ava": "5.2.0",
+    "vitest": "4.1.7",
     "benchmark": "2.1.4",
     "sury": "file:../sury",
     "sury-ppx": "workspace:sury-ppx",

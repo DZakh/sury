@@ -1,4 +1,4 @@
-open Ava
+open Vitest
 
 test("Returns false for schema with NoOperation", t => {
   t->Assert.is(S.unknown->S.isAsync, false)
