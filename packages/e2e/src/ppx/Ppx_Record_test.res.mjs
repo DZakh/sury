@@ -82,9 +82,9 @@ let Meta = {
   schema: schema
 };
 
-let recordWithSpreadSchema = S.object(s => Object.assign(Object.assign({}, s.flatten(schema)), {
-  messages: s.f("messages", S.array(S.string))
-}));
+let recordWithSpreadSchema = S.merge(schema, S.schema(s => ({
+  messages: s.m(S.array(S.string))
+})));
 
 Ava("Record schema with type spread", t => {
   t.deepEqual(S.parseOrThrow({id:"abc",summary:"hello",messages:["a","b"]}, recordWithSpreadSchema), {
@@ -94,6 +94,11 @@ Ava("Record schema with type spread", t => {
       "a",
       "b"
     ]
+  });
+  t.deepEqual(S.parseOrThrow({id:"abc",messages:[]}, recordWithSpreadSchema), {
+    id: "abc",
+    summary: undefined,
+    messages: []
   });
   U.assertReverseReversesBack(t, recordWithSpreadSchema);
 });
@@ -106,9 +111,9 @@ let Extra = {
   schema: schema$1
 };
 
-let recordWithMultipleSpreadsSchema = S.object(s => Object.assign(Object.assign(Object.assign({}, s.flatten(schema)), s.flatten(schema$1)), {
-  active: s.f("active", S.bool)
-}));
+let recordWithMultipleSpreadsSchema = S.merge(S.merge(schema, schema$1), S.schema(s => ({
+  active: s.m(S.bool)
+})));
 
 Ava("Record schema with multiple type spreads", t => {
   t.deepEqual(S.parseOrThrow({id:"abc",summary:"hello",score:9.5,active:true}, recordWithMultipleSpreadsSchema), {

@@ -103,6 +103,10 @@ test("Record schema with type spread", t => {
     ),
     {id: "abc", summary: Some("hello"), messages: ["a", "b"]},
   )
+  t->Assert.deepEqual(
+    %raw(`{id:"abc",messages:[]}`)->S.parseOrThrow(~to=recordWithSpreadSchema),
+    {id: "abc", summary: None, messages: []},
+  )
   t->assertReverseReversesBack(recordWithSpreadSchema)
 })
 

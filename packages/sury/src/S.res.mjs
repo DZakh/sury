@@ -44,6 +44,8 @@ let url = (/*#__PURE__*/ Sury.url());
 
 let nullAsUnit = (/*#__PURE__*/ Sury.nullAsUnit());
 
+let merge = Sury.js_merge;
+
 let Path = Sury.Path;
 
 let Flag = Sury.Flag;
@@ -244,6 +246,7 @@ export {
   deepStrip,
   strict,
   deepStrict,
+  merge,
   Tuple,
   tuple,
   tuple1,

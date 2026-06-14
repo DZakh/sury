@@ -21,3 +21,5 @@ let uuid: t<string> = %raw(`/*#__PURE__*/ Sury.uuid()`)
 let cuid: t<string> = %raw(`/*#__PURE__*/ Sury.cuid()`)
 let url: t<string> = %raw(`/*#__PURE__*/ Sury.url()`)
 let nullAsUnit: t<unit> = %raw(`/*#__PURE__*/ Sury.nullAsUnit()`)
+
+let merge = (s1, s2) => Sury.js_merge(s1->Obj.magic, s2->Obj.magic)->Obj.magic
