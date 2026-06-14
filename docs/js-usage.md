@@ -1250,11 +1250,20 @@ Both `S.assert` and `S.is` accept their arguments in either order, so `(schema, 
 ```ts
 const data: unknown = "abc";
 
+// (data, schema) order
 if (S.is(data, S.string)) {
   // data is now typed as string
 }
 
 S.assert(data, S.string);
+// data is now typed as string
+
+// (schema, data) order — equivalent
+if (S.is(S.string, data)) {
+  // data is now typed as string
+}
+
+S.assert(S.string, data);
 // data is now typed as string
 ```
 
