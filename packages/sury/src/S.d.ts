@@ -342,17 +342,7 @@ export type UnknownToOutput<T> = T extends Schema<infer Output, unknown>
   : T extends unknown[]
   ? { [K in keyof T]: UnknownToOutput<T[K]> }
   : T extends { [k in keyof T]: unknown }
-  ? Flatten<
-      {
-        [k in keyof T as HasUndefined<UnknownToOutput<T[k]>> extends true
-          ? k
-          : never]?: UnknownToOutput<T[k]>;
-      } & {
-        [k in keyof T as HasUndefined<UnknownToOutput<T[k]>> extends true
-          ? never
-          : k]: UnknownToOutput<T[k]>;
-      }
-    >
+  ? ResolveObject<{ [K in keyof T]: UnknownToOutput<T[K]> }>
   : T;
 
 export type UnknownToInput<T> = T extends Schema<unknown, infer Input>
@@ -362,17 +352,7 @@ export type UnknownToInput<T> = T extends Schema<unknown, infer Input>
   : T extends unknown[]
   ? { [K in keyof T]: UnknownToInput<T[K]> }
   : T extends { [k in keyof T]: unknown }
-  ? Flatten<
-      {
-        [k in keyof T as HasUndefined<UnknownToInput<T[k]>> extends true
-          ? k
-          : never]?: UnknownToInput<T[k]>;
-      } & {
-        [k in keyof T as HasUndefined<UnknownToInput<T[k]>> extends true
-          ? never
-          : k]: UnknownToInput<T[k]>;
-      }
-    >
+  ? ResolveObject<{ [K in keyof T]: UnknownToInput<T[K]> }>
   : T;
 
 export type Brand<T, ID extends string> = T & {
@@ -388,13 +368,19 @@ export function brand<ID extends string, Output = unknown, Input = unknown>(
   brandId: ID
 ): Schema<Brand<Output, ID>, Input>;
 
-// Grok told that it makes things faster
-// TODO: Verify it with ArkType test framework
-type HasUndefined<T> = [T] extends [undefined]
-  ? true
-  : undefined extends T
-  ? true
-  : false;
+// `R` already holds each field's resolved type, so values are never recomputed
+// per key. When no field is optional (the common case), the resolved map is
+// already the answer, so the optional/required split and its intersection are
+// skipped.
+type ResolveObject<R> = undefined extends R[keyof R]
+  ? Flatten<
+      {
+        [K in keyof R as undefined extends R[K] ? K : never]?: R[K];
+      } & {
+        [K in keyof R as undefined extends R[K] ? never : K]: R[K];
+      }
+    >
+  : Flatten<R>;
 
 // Utility to flatten the type into a single object
 type Flatten<T> = T extends object

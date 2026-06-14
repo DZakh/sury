@@ -4,6 +4,7 @@ node_modules
 packages/sury/**/*_test.res.mjs
 packages/sury/**/*_test.js
 packages/sury/**/*.bench.js
+packages/sury/**/*.test-d.js
 packages/sury/artifacts
 lib
 coverage
