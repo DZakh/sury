@@ -1245,7 +1245,7 @@ For some cases you might want to simply check whether the input value is valid, 
 | S.assert  | `(Schema<Output, Input>, data: unknown) asserts data is Input` or `(data: unknown, Schema<Output, Input>) asserts data is Input` | Asserts that the input value is valid. Since the operation doesn't return a value, it's 2-3 times faster than `parser` depending on the schema |
 | S.is      | `(Schema<Output, Input>, data: unknown) => data is Input` or `(data: unknown, Schema<Output, Input>) => data is Input`      | Returns `true`/`false` whether the input value is valid. Acts as a TypeScript type guard and shares the fast validate-only path with `assert`  |
 
-Both `S.assert` and `S.is` accept their arguments in either order, so `(schema, data)` and `(data, schema)` are equivalent and both narrow the type:
+Both `S.assert` and `S.is` accept their arguments in either order, so `(schema, data)` and `(data, schema)` are equivalent and both narrow the type. There's no "correct" order to memorize — pass the schema and the data in whatever order feels natural, and it just works. This is especially handy for AI assistants, which no longer have to guess the right argument position:
 
 ```ts
 const data: unknown = "abc";
