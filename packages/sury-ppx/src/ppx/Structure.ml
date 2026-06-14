@@ -180,12 +180,7 @@ and generateRecordSchemaWithSpreads spread_types regular_fields =
     regular_fields
     |> List.map (fun field ->
            ( lid field.runtime_name,
-             [%expr
-               s.field
-                 [%e
-                   Exp.constant
-                     (Pconst_string (field.runtime_name, Location.none, None))]
-                 [%e generateFieldSchemaExpression field]] ))
+             [%expr s.matches [%e generateFieldSchemaExpression field]] ))
   in
   let fields_obj =
     Exp.extension
@@ -201,36 +196,29 @@ and generateRecordSchemaWithSpreads spread_types regular_fields =
         PStr
           [Str.eval (Exp.constant (Pconst_string (s, Location.none, None)))] )
   in
-  let object_assign = [%expr (Obj.magic [%e raw_str "Object.assign"])] in
-  let empty_obj = raw_str "{}" in
-  (* Build Object.assign chain: Object.assign(Object.assign({}, sp1), sp2, ..., fields) *)
-  let with_spreads =
-    List.fold_left
-      (fun acc spread_schema ->
-        [%expr
-          [%e object_assign] [%e acc] (Obj.magic (s.flatten [%e spread_schema]))])
-      empty_obj spread_schema_exprs
+  (* Chain Object.assign 2-arg calls:
+     Object.assign(Object.assign({}, sp1.properties), sp2.properties, ..., fields_obj). *)
+  let spread_property_args =
+    spread_schema_exprs
+    |> List.map (fun spread_schema ->
+           [%expr Obj.magic ((S.untag [%e spread_schema]).properties)])
   in
+  let regular_args_list =
+    if regular_fields = [] then [] else [[%expr Obj.magic [%e fields_obj]]]
+  in
+  let sources = spread_property_args @ regular_args_list in
+  let base = [%expr Obj.magic [%e raw_str "{}"]] in
+  (* Build nested 2-arg Object.assign calls: assign(assign(assign({}, sp1), sp2), fields). *)
   let merged =
-    [%expr [%e object_assign] [%e with_spreads] (Obj.magic [%e fields_obj])]
+    List.fold_left
+      (fun acc src ->
+        Exp.apply
+          [%expr (Obj.magic [%e raw_str "Object.assign"])]
+          [(Nolabel, acc); (Nolabel, src)])
+      base sources
   in
-  let s_object =
-    Exp.ident (mknoloc (Longident.Ldot (Longident.Lident "S", "object")))
-  in
-  let s_object_s =
-    Typ.constr
-      (mknoloc
-         (Longident.Ldot
-            (Longident.Ldot (Longident.Lident "S", "Object"), "s")))
-      []
-  in
-  Exp.apply s_object
-    [
-      ( Nolabel,
-        [%expr
-          Obj.magic
-            (fun (s : [%t s_object_s]) -> Obj.magic [%e merged])] );
-    ]
+  [%expr
+    S.schema (Obj.magic (fun (s : S.Schema.s) -> Obj.magic [%e merged]))]
 
 and generateCoreTypeSchemaExpression core_type =
   let {ptyp_desc; ptyp_loc; ptyp_attributes} = core_type in
