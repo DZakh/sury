@@ -65,58 +65,74 @@ let rec generateConstrSchemaExpression {Location.txt = identifier; loc}
   | Ldot _, _ -> fail loc "Parametrized types with more than one type parameter are not supported yet"
   | Lapply (_, _), _ -> fail loc "Unsupported lapply syntax"
 
-and generatePolyvariantSchemaExpression row_fields =
+and polyvariantUnionItems row_fields =
+  (* Returns the flattened list of S.union members for a set of poly-variant
+     rows. An inherited row (`Rinherit`) may itself expand into several members
+     (when it is an inline polyvariant), so we concat-map rather than map. *)
   let payloadCoreTypeToMatchesExpression core_type =
     [%expr s.matches [%e generateCoreTypeSchemaExpression core_type]]
   in
-  let union_items =
-    row_fields
-    |> List.map (fun {prf_desc; prf_loc} ->
-           (* The bool field of Rtag is the ampersand-conjunction flag,
-              which ReScript polymorphic variants don't expose. *)
-           match prf_desc with
-           | Rtag ({txt = name}, _, []) ->
-             [%expr S.literal [%e Exp.variant name None]]
-           | Rtag ({txt = name}, _, [{ptyp_desc = Ptyp_tuple tuple_types}]) ->
-             (* ReScript represents `#tag(t1, t2)` as a single tuple payload at
-                the type level. Unfold it so the construction site uses flat
-                args, mirroring how generateVariantSchemaExpression handles
-                Pcstr_tuple multi-arg variants. *)
-             let body =
-               Exp.variant name
-                 (Some
-                    (Exp.tuple
-                       (tuple_types
-                       |> List.map payloadCoreTypeToMatchesExpression)))
-             in
-             [%expr
+  row_fields
+  |> List.map (fun {prf_desc; prf_loc} ->
+         (* The bool field of Rtag is the ampersand-conjunction flag,
+            which ReScript polymorphic variants don't expose. *)
+         match prf_desc with
+         | Rtag ({txt = name}, _, []) ->
+           [[%expr S.literal [%e Exp.variant name None]]]
+         | Rtag ({txt = name}, _, [{ptyp_desc = Ptyp_tuple tuple_types}]) ->
+           (* ReScript represents `#tag(t1, t2)` as a single tuple payload at
+              the type level. Unfold it so the construction site uses flat
+              args, mirroring how generateVariantSchemaExpression handles
+              Pcstr_tuple multi-arg variants. *)
+           let body =
+             Exp.variant name
+               (Some
+                  (Exp.tuple
+                     (tuple_types
+                     |> List.map payloadCoreTypeToMatchesExpression)))
+           in
+           [ [%expr
                S.schema
                  [%e
                    uncurriedFun ~loc:prf_loc ~arity:1
                      [%expr fun (s : S.Schema.s) -> [%e body]]]]
-           | Rtag ({txt = name}, _, [payload_core_type]) ->
-             let body =
-               Exp.variant name
-                 (Some
-                    (payloadCoreTypeToMatchesExpression payload_core_type))
-             in
-             [%expr
+           ]
+         | Rtag ({txt = name}, _, [payload_core_type]) ->
+           let body =
+             Exp.variant name
+               (Some (payloadCoreTypeToMatchesExpression payload_core_type))
+           in
+           [ [%expr
                S.schema
                  [%e
                    uncurriedFun ~loc:prf_loc ~arity:1
                      [%expr fun (s : S.Schema.s) -> [%e body]]]]
-           | Rtag _ ->
-             fail prf_loc
-               "Polymorphic variant ampersand types (`Tag of t1 & t2) are not \
-                supported"
-           | Rinherit _ ->
-             fail prf_loc
-               "Polymorphic variant inheritance (`[poly | #tag]`) is not \
-                supported")
-  in
-  match union_items with
+           ]
+         | Rtag _ ->
+           fail prf_loc
+             "Polymorphic variant ampersand types (`Tag of t1 & t2) are not \
+              supported"
+         | Rinherit {ptyp_desc = Ptyp_variant (inherited_rows, _, _)} ->
+           (* Inline inherited polyvariant: `[ [#a | #b] | #c ]`. Splice its
+              rows directly into this union so we keep a single flat union. *)
+           polyvariantUnionItems inherited_rows
+         | Rinherit inherited_core_type ->
+           (* Named inherited polyvariant: `[ base | #c ]`. Reuse the inherited
+              type's schema (e.g. `baseSchema`) as a nested union member. The
+              inherited schema's value type is narrower than the enclosing
+              variant and `S.t` is invariant, so cast it to unify within the
+              union. `S.castToAny` is a typed `%identity` (runtime no-op); the
+              nested schema handles its own tags for both parsing and
+              reversing. *)
+           [ [%expr
+               S.castToAny [%e generateCoreTypeSchemaExpression inherited_core_type]]
+           ])
+  |> List.concat
+
+and generatePolyvariantSchemaExpression row_fields =
+  match polyvariantUnionItems row_fields with
   | [item] -> item
-  | _ -> [%expr S.union [%e Exp.array union_items]]
+  | union_items -> [%expr S.union [%e Exp.array union_items]]
 
 and generateFieldSchemaExpression field =
   let schema_expression = generateCoreTypeSchemaExpression field.core_type in
