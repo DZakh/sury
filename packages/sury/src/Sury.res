@@ -2567,11 +2567,13 @@ let getDecoder = (~s1 as _, ~flag as _=?) => {
   let arg1 = args->Js.Array2.unsafe_get(1)
 
   if Js.typeof(arg1->Obj.magic) !== "object" {
-    // 1 schema (± flag) — short key "d{flag}" on the schema (decoder1)
+    // 1 schema (± flag) — short integer key (flag | 32) on the schema.
+    // Integers keep the property in V8's elements backing store, much
+    // faster than string-key property-map lookups.
     let f = (arg1->Obj.magic: flag)->Flag.with(globalConfig.defaultFlag)
-    let key = "d" ++ f->X.Int.unsafeToString
-    let cached = s1->Obj.magic->Stdlib.Dict.getUnsafe(key)
-    cached->Obj.magic ? cached : compileAndCache(s1, key, args, 1, f)
+    let key = f->Flag.with(32)
+    let cached = %raw(`s1[key]`)
+    cached->Obj.magic ? cached : compileAndCache(s1, key->Obj.magic, args, 1, f)
   } else {
     let s2: internal = arg1->Obj.magic
     let arg2 = args->Js.Array2.unsafe_get(2)
@@ -3349,15 +3351,19 @@ let getAssertResult = () =>
 // call sites — so we can cache the compiled decoder on the user's schema under
 // a short letter-prefixed key "a{flag}" instead of going through getDecoder's
 // full-key dynamic path each time.
+// All single-schema short-cut cache keys are integers (parser = flag,
+// decoder1 = flag | 32, assert = flag | 16). V8 keeps them in the
+// elements backing store on the schema object — no string-key
+// property-map lookups on the hot path.
 let getAssertDecoder = (s: internal, f: flag) => {
-  let key = "a" ++ f->X.Int.unsafeToString
+  let key = f->Flag.with(16)
   let cached = %raw(`s[key]`)
   if cached->Obj.magic {
     cached
   } else {
     let fn = getDecoder3(~s1=unknown, ~s2=s, ~s3=getAssertResult(), ~flag=f)
     valueOptions->Js.Dict.set(valKey, fn->Obj.magic)
-    let _ = X.Object.defineProperty(s, key, valueOptions->Obj.magic)
+    let _ = X.Object.defineProperty(s, key->Obj.magic, valueOptions->Obj.magic)
     fn
   }->Obj.magic
 }
