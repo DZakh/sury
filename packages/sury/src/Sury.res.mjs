@@ -4428,8 +4428,20 @@ let js_encoder = ((...args) => getDecoder(...args.map(reverse)));
 
 let js_asyncEncoder = ((...args) => getDecoder(...args.map(reverse), 1));
 
-function js_assert(schema, data) {
-  return getDecoder(unknown, schema, getAssertResult())(data);
+function js_assert(a, b) {
+  let aIsSchema = a && a["~standard"];
+  let schema = aIsSchema ? a : b;
+  return getDecoder(unknown, schema, getAssertResult())(aIsSchema ? b : a);
+}
+
+function js_is(a, b) {
+  try {
+    js_assert(a, b);
+    return true;
+  } catch (exn) {
+    getOrRethrow(exn);
+    return false;
+  }
 }
 
 function js_union(values) {
@@ -5360,6 +5372,7 @@ export {
   js_encoder,
   js_asyncEncoder,
   js_assert,
+  js_is,
   js_safe,
   js_safeAsync,
   js_union,

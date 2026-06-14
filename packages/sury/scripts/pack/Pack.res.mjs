@@ -202,6 +202,10 @@ let filesMapping = [
     "S.js_assert"
   ],
   [
+    "is",
+    "S.js_is"
+  ],
+  [
     "recursive",
     "S.recursive"
   ],
