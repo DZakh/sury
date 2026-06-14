@@ -176,39 +176,53 @@ and generateRecordSchema fields =
            [%e Exp.record field_expressions None]))]
 
 and generateRecordSchemaWithSpreads spread_types regular_fields =
+  let field_obj_expressions =
+    regular_fields
+    |> List.map (fun field ->
+           ( lid field.runtime_name,
+             [%expr
+               s.field
+                 [%e
+                   Exp.constant
+                     (Pconst_string (field.runtime_name, Location.none, None))]
+                 [%e generateFieldSchemaExpression field]] ))
+  in
+  let fields_obj =
+    Exp.extension
+      ( mkloc "obj" Location.none,
+        PStr [Str.eval (Exp.record field_obj_expressions None)] )
+  in
   let spread_schema_exprs =
     spread_types |> List.map generateCoreTypeSchemaExpression
   in
-  let regular_schema_exprs =
-    if regular_fields = [] then []
-    else
-      (* Build as an %obj literal with runtime-name keys so the inner record
-         isn't pinned to the surrounding record type. *)
-      let field_expressions =
-        regular_fields
-        |> List.map (fun field ->
-               ( lid field.runtime_name,
-                 [%expr s.matches [%e generateFieldSchemaExpression field]]
-               ))
-      in
-      [
-        [%expr
-          S.schema
-            (Obj.magic (fun (s : S.Schema.s) ->
-                 [%e
-                   Exp.extension
-                     ( mkloc "obj" Location.none,
-                       PStr [Str.eval (Exp.record field_expressions None)] )]))];
-      ]
-  in
-  let schemas_to_merge = spread_schema_exprs @ regular_schema_exprs in
-  match schemas_to_merge with
-  | [single] -> [%expr Obj.magic [%e single]]
-  | first :: rest ->
+  (* Build Object.assign chain: Object.assign(Object.assign({}, sp1), sp2, ..., fields) *)
+  let base = [%expr Obj.magic (Js.Obj.empty ())] in
+  let with_spreads =
     List.fold_left
-      (fun acc next -> [%expr S.merge [%e acc] [%e next]])
-      first rest
-  | [] -> fail Location.none "Empty record"
+      (fun acc spread_schema ->
+        [%expr Js.Obj.assign [%e acc] (Obj.magic (s.flatten [%e spread_schema]))])
+      base spread_schema_exprs
+  in
+  let merged =
+    [%expr Js.Obj.assign [%e with_spreads] (Obj.magic [%e fields_obj])]
+  in
+  let s_object =
+    Exp.ident (mknoloc (Longident.Ldot (Longident.Lident "S", "object")))
+  in
+  let s_object_s =
+    Typ.constr
+      (mknoloc
+         (Longident.Ldot
+            (Longident.Ldot (Longident.Lident "S", "Object"), "s")))
+      []
+  in
+  Exp.apply s_object
+    [
+      ( Nolabel,
+        [%expr
+          Obj.magic
+            (fun (s : [%t s_object_s]) -> Obj.magic [%e merged])] );
+    ]
 
 and generateCoreTypeSchemaExpression core_type =
   let {ptyp_desc; ptyp_loc; ptyp_attributes} = core_type in

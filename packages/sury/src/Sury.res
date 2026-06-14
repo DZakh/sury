@@ -11,7 +11,11 @@ module Obj = {
 
 module X = {
   module Proxy = {
-    type traps<'a> = {get?: (~target: 'a, ~prop: unknown) => unknown}
+    type traps<'a> = {
+      get?: (~target: 'a, ~prop: unknown) => unknown,
+      ownKeys?: (~target: 'a) => array<unknown>,
+      getOwnPropertyDescriptor?: (~target: 'a, ~prop: unknown) => unknown,
+    }
 
     @new
     external make: ('a, traps<'a>) => 'a = "Proxy"
@@ -5190,6 +5194,19 @@ module Schema = {
           )
           ->Obj.magic
         }
+      },
+      ownKeys: (~target) => {
+        switch target {
+        | {properties} => properties->Js.Dict.keys->(Obj.magic: array<string> => array<unknown>)
+        | {items} =>
+          items
+          ->Js.Array2.mapi((_, idx) => idx->Js.Int.toString)
+          ->(Obj.magic: array<string> => array<unknown>)
+        | _ => []
+        }
+      },
+      getOwnPropertyDescriptor: (~target as _, ~prop as _) => {
+        %raw(`{configurable: true, enumerable: true}`)
       },
     })
     ->Obj.magic

@@ -439,8 +439,6 @@ let deepStrip: t<'value> => t<'value>
 let strict: t<'value> => t<'value>
 let deepStrict: t<'value> => t<'value>
 
-let merge: (t<'a>, t<'b>) => t<'c>
-
 module Tuple: {
   type s = {
     item: 'value. (int, t<'value>) => 'value,
