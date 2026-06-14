@@ -96,8 +96,8 @@ test("Polymorphic variant with inheritance/spread of a named type", t => {
     polyWithInheritanceSchema,
     // The inherited `polySchema` is narrower than the enclosing variant and
     // `S.t` is invariant, so it is cast to unify within the union, mirroring
-    // what the ppx generates (a runtime no-op).
-    S.union([Obj.magic(polySchema), S.literal(#three)]),
+    // what the ppx generates (a typed `%identity`, runtime no-op).
+    S.union([polySchema->S.castToAny, S.literal(#three)]),
   )
   t->Assert.deepEqual(%raw(`"one"`)->S.parseOrThrow(~to=polyWithInheritanceSchema), #one)
   t->Assert.deepEqual(%raw(`"three"`)->S.parseOrThrow(~to=polyWithInheritanceSchema), #three)
@@ -111,7 +111,7 @@ type polyWithPayloadInheritance = [polyWithPayloads | #five(bool)]
 test("Polymorphic variant inheriting a type that has payloads", t => {
   t->assertEqualSchemas(
     polyWithPayloadInheritanceSchema,
-    S.union([Obj.magic(polyWithPayloadsSchema), S.schema(s => #five(s.matches(S.bool)))]),
+    S.union([polyWithPayloadsSchema->S.castToAny, S.schema(s => #five(s.matches(S.bool)))]),
   )
   t->Assert.deepEqual(%raw(`"one"`)->S.parseOrThrow(~to=polyWithPayloadInheritanceSchema), #one)
   t->Assert.deepEqual(
@@ -133,7 +133,7 @@ test("Polymorphic variant inheritance nested as a record field", t => {
   t->assertEqualSchemas(
     polyInheritanceFieldSchema,
     S.schema(s => {
-      variants: s.matches(S.union([Obj.magic(polySchema), S.literal(#three)])),
+      variants: s.matches(S.union([polySchema->S.castToAny, S.literal(#three)])),
     }),
   )
   t->Assert.deepEqual(
@@ -143,6 +143,27 @@ test("Polymorphic variant inheritance nested as a record field", t => {
   // Reverse: the nested union inside a record field must round-trip too.
   t->assertReverseParsesBack(polyInheritanceFieldSchema, {variants: #one})
   t->assertReverseParsesBack(polyInheritanceFieldSchema, {variants: #three})
+})
+
+@schema
+type polyInlineInheritance = [[#a | #b(int)] | #c]
+test("Polymorphic variant with an inline spread is flattened into one union", t => {
+  // An inline spread expands its rows directly into the parent union, so no
+  // nested union (and no cast) is generated.
+  t->assertEqualSchemas(
+    polyInlineInheritanceSchema,
+    S.union([S.literal(#a), S.schema(s => #b(s.matches(S.int))), S.literal(#c)]),
+  )
+  t->Assert.deepEqual(%raw(`"a"`)->S.parseOrThrow(~to=polyInlineInheritanceSchema), #a)
+  t->Assert.deepEqual(
+    %raw(`{NAME:"b",VAL:7}`)->S.parseOrThrow(~to=polyInlineInheritanceSchema),
+    #b(7),
+  )
+  t->Assert.deepEqual(%raw(`"c"`)->S.parseOrThrow(~to=polyInlineInheritanceSchema), #c)
+  // Reverse: an inline-spliced tag (incl. a payload one) must round-trip.
+  t->assertReverseParsesBack(polyInlineInheritanceSchema, #a)
+  t->assertReverseParsesBack(polyInlineInheritanceSchema, #b(7))
+  t->assertReverseParsesBack(polyInlineInheritanceSchema, #c)
 })
 
 // TODO: Support

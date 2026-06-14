@@ -121,9 +121,12 @@ and polyvariantUnionItems row_fields =
               type's schema (e.g. `baseSchema`) as a nested union member. The
               inherited schema's value type is narrower than the enclosing
               variant and `S.t` is invariant, so cast it to unify within the
-              union. At runtime the cast is a no-op and the nested schema
-              handles its own tags for both parsing and reversing. *)
-           [[%expr Obj.magic [%e generateCoreTypeSchemaExpression inherited_core_type]]])
+              union. `S.castToAny` is a typed `%identity` (runtime no-op); the
+              nested schema handles its own tags for both parsing and
+              reversing. *)
+           [ [%expr
+               S.castToAny [%e generateCoreTypeSchemaExpression inherited_core_type]]
+           ])
   |> List.concat
 
 and generatePolyvariantSchemaExpression row_fields =
