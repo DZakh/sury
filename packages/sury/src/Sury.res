@@ -638,10 +638,6 @@ and val = {
   mutable flattenedVals?: array<val>,
   @as("cp")
   mutable codeFromPrev: string,
-  @as("l")
-  mutable varsAllocation: string,
-  @as("a")
-  mutable allocate: string => unit,
   // The nearest enclosing block that outlives this val (operation root or a
   // `for`-loop dynamic scope). Used as the hoist target when a val has no prev
   // to anchor a lazily-materialized declaration to. Inherited by descendants.
@@ -652,6 +648,11 @@ and val = {
   // `merge` — the slot the old varsAllocation side-channel used.
   @as("hd")
   mutable hoistedDecls?: string,
+  // Set by `merge` once this val's code has been emitted. A descendant that
+  // materializes a value afterwards (via a cached bond) can no longer hoist a
+  // declaration onto it and must re-read the value inline instead.
+  @as("fz")
+  mutable finalized?: bool,
   // Invariant: absent iff no checks. Never stored as `Some([])` so callers
   // can test presence with `->unsafeToBool` instead of length.
   @as("vc")
@@ -1137,17 +1138,6 @@ module Builder = {
       }
     }
 
-    let secondAllocate = v => {
-      let b = %raw(`this`)
-      b.varsAllocation = b.varsAllocation ++ "," ++ v
-    }
-
-    let initialAllocate = v => {
-      let b = %raw(`this`)
-      b.varsAllocation = v
-      b.allocate = secondAllocate
-    }
-
     let _var = () => (%raw(`this`)).inline
 
     let _bondVar = () => {
@@ -1199,7 +1189,7 @@ module Builder = {
       // owning it here would drop the decl. When the parent itself has been
       // finalized by `merge` (reached via a cached bond), re-read the field
       // expression inline. See https://github.com/DZakh/sury/issues/240
-      if !(parent.allocate->Obj.magic) {
+      if parent.finalized->X.Option.unsafeToBool {
         val.var = _var
         val.inline
       } else {
@@ -1249,16 +1239,9 @@ module Builder = {
         codeFromPrev: "",
         var: _var,
         inline: operationArgVar,
-        allocate: initialAllocate,
         flag: ValFlag.none,
         schema,
         expected,
-        varsAllocation: "",
-        // TODO: Add global varsAllocation here
-        // Set all the vars to the varsAllocation
-        // Measure performance
-        // TODO: Also try setting values to embed without allocation
-        // (Is it memory leak?)
         path: Path.empty,
         global: {
           ?defs,
@@ -1555,22 +1538,17 @@ module Builder = {
           }
         }
 
-        if val.varsAllocation !== "" {
-          currentCode := currentCode.contents ++ `let ${val.varsAllocation};`
-        }
-
         // Decls hoisted onto this val (by a descendant whose own segment was
-        // already emitted) land after its checks — the same slot the old
+        // already emitted) land after its checks — the slot the old
         // varsAllocation side-channel used.
         switch val.hoistedDecls {
         | Some(decls) => currentCode := currentCode.contents ++ `let ${decls};`
         | None => ()
         }
 
-        // Delete allocate,
-        // this is used to handle Val.var
-        // linked to allocated scopes
-        let _ = %raw(`delete val$1.a`)
+        // Mark finalized so a later cached-bond materialization knows this
+        // val's code is already emitted and can't accept more hoisted decls.
+        val.finalized = Some(true)
 
         currentCode := val.codeFromPrev ++ currentCode.contents
 
@@ -1590,8 +1568,6 @@ module Builder = {
         schema,
         expected,
         codeFromPrev: "",
-        varsAllocation: "",
-        allocate: initialAllocate,
         scopeOwner: ?prev.scopeOwner,
         path: prev.path,
         global: prev.global,
@@ -1612,8 +1588,6 @@ module Builder = {
         schema,
         expected,
         codeFromPrev: "",
-        varsAllocation: "",
-        allocate: initialAllocate,
         scopeOwner: ?val.scopeOwner,
         ?checks,
         path: val.path,
@@ -1712,9 +1686,7 @@ module Builder = {
         schema: from.schema.additionalItems->(Obj.magic: option<additionalItems> => internal),
         expected: from.expected.additionalItems->(Obj.magic: option<additionalItems> => internal),
         codeFromPrev: "",
-        varsAllocation: "",
         parent: from,
-        allocate: initialAllocate,
         path: Path.empty,
         global: from.global,
       }
@@ -1755,8 +1727,8 @@ module Builder = {
           // the accumulator in completeObjectVal can use val.inline as a
           // destructuring/reference target. For e.g. array-of-async, the
           // asyncVal's inline is a Promise.all(...) expression, not a var.
-          // This has to happen before val->merge, which deletes .allocate
-          // from the prev chain and locks the emitted code.
+          // This has to happen before val->merge, which finalizes the prev
+          // chain and locks the emitted code.
           if val.flag->Flag.unsafeHas(ValFlag.async) {
             let _ = val.var()
           }
@@ -1797,9 +1769,7 @@ module Builder = {
           bond: val,
           codeFromPrev: "",
           isUnion: false,
-          varsAllocation: "",
           hasTransform: false,
-          allocate: initialAllocate,
           scopeOwner: ?val.scopeOwner,
           isOutput: ?val.isOutput,
           vals: ?val.vals, // TODO: Is this correct?
@@ -1862,8 +1832,6 @@ module Builder = {
               schema,
               expected: schema,
               codeFromPrev: "",
-              varsAllocation: "",
-              allocate: initialAllocate,
               scopeOwner: ?parent.scopeOwner,
               path: parent.path->Path.concat(pathAppend),
               global: parent.global,
@@ -1878,7 +1846,6 @@ module Builder = {
 
     let embedTransformation = (~input: val, ~fn: 'input => 'output, ~isAsync) => {
       let outputVar = input.global->varWithoutAllocation
-      input.allocate(outputVar)
       let output =
         input->next(outputVar, ~schema=unknown, ~expected=input.expected.to->Option.getUnsafe)
       output.var = _var
@@ -1898,7 +1865,7 @@ module Builder = {
           e => makeInvalidConversionDetails(~input, ~to=unknown, ~cause=e),
           `x`,
         )}`
-      output.codeFromPrev = `try{${outputVar}=${embededFn}(${input.inline})${isAsync
+      output.codeFromPrev = `let ${outputVar};try{${outputVar}=${embededFn}(${input.inline})${isAsync
           ? `.catch(x=>${failure})`
           : ""}}catch(x){${failure}}`
       output
@@ -2010,8 +1977,7 @@ let numberDecoder = Builder.make((~input) => {
     let output = input->B.next(outputVar, ~schema=input.expected)
     output.var = B._var
     // Emit the `+input` coercion as codeFromPrev (a self-contained unit that
-    // declares its own var) instead of parking it in varsAllocation via the
-    // `allocate` side-channel. This keeps the conversion glued to the val that
+    // declares its own var). This keeps the conversion glued to the val that
     // owns the type-narrow check below: a non-empty codeFromPrev makes the val
     // non-hoistable in `merge`, so when this decoder feeds a union dispatch
     // (e.g. `str->to(option(int))`) the discriminant is not lifted above its
@@ -2118,13 +2084,12 @@ let booleanDecoder = Builder.make((~input) => {
     )
   } else if inputTagFlag->Flag.unsafeHas(TagFlag.string) {
     let outputVar = input.global->B.varWithoutAllocation
-    input.allocate(outputVar)
 
     let output = input->B.next(outputVar, ~schema=input.expected)
     output.var = B._var
 
     let inputVar = input.var()
-    output.codeFromPrev = `(${output.inline}=${inputVar}==="true")||${inputVar}==="false"||${B.embedInvalidInput(
+    output.codeFromPrev = `let ${outputVar};(${output.inline}=${inputVar}==="true")||${inputVar}==="false"||${B.embedInvalidInput(
         ~input,
       )};`
     output
@@ -2156,10 +2121,9 @@ let bigintDecoder = Builder.make((~input) => {
   } // TODO: Skip formats which 100% don't match
   else if inputTagFlag->Flag.unsafeHas(TagFlag.string) {
     let outputVar = input.global->B.varWithoutAllocation
-    input.allocate(outputVar)
     let output = input->B.next(outputVar, ~schema=input.expected)
     output.var = B._var
-    output.codeFromPrev = `try{${outputVar}=BigInt(${input.var()})}catch(_){${B.embedInvalidInput(
+    output.codeFromPrev = `let ${outputVar};try{${outputVar}=BigInt(${input.var()})}catch(_){${B.embedInvalidInput(
         ~input,
       )}}`
     output
@@ -2704,8 +2668,6 @@ let rec makeObjectVal = (prev: val, ~schema): B.Val.Object.t => {
     vals: dict{},
     hasTransform: true,
     codeFromPrev: "",
-    varsAllocation: "",
-    allocate: B.initialAllocate,
     scopeOwner: ?prev.scopeOwner,
     path: prev.path,
     global: prev.global,
@@ -3228,9 +3190,13 @@ let recursiveDecoder = Builder.make((~input) => {
   let hasTransform = def.hasTransform === Some(true)
   let isAsync = def.isAsync->X.Option.getUnsafe
 
+  // The result var (when captured) is declared outside the try/catch that
+  // mergeWithPathPrepend may wrap the assignment in, so it stays in scope for
+  // the caller. Held here and prepended after that re-merge.
+  let outputDecl = ref("")
   let output = if hasTransform || isAsync {
     let outputVar = input.global->B.varWithoutAllocation
-    input.allocate(outputVar)
+    outputDecl := `let ${outputVar};`
 
     let output = input->B.next(outputVar, ~schema=expectedSchema, ~expected=expectedSchema)
     output.var = B._var
@@ -3249,11 +3215,12 @@ let recursiveDecoder = Builder.make((~input) => {
   }
 
   output.prev = None
-  output.codeFromPrev = output->B.mergeWithPathPrepend(~parent=input)
+  output.codeFromPrev = outputDecl.contents ++ output->B.mergeWithPathPrepend(~parent=input)
 
-  // Restore allocate after merge deleted it, since this val may be reused as
-  // input to a subsequent parser (e.g. S.transform on a recursive schema).
-  output.allocate = B.initialAllocate
+  // Clear the finalized mark set by the merge above, since this val may be
+  // reused as input to a subsequent parser (e.g. S.transform on a recursive
+  // schema) and must be able to accept hoisted declarations again.
+  output.finalized = None
   output.prev = Some(input)
 
   output
@@ -4369,11 +4336,10 @@ module Union = {
         if (
           input.codeFromPrev === "" &&
           output.codeFromPrev === "" &&
-          (output.varsAllocation === `${output.inline}=${initialInline}` || initialInline === "i")
+          initialInline === "i"
         ) {
           // FIXME: Might not be not needed
-          input.varsAllocation = ""
-          input.allocate = B.initialAllocate
+          input.hoistedDecls = None
           input.var = B._notVar
           input.inline = initialInline
           input
@@ -4982,7 +4948,6 @@ let jsonString = {
         input->B.refine(~expected=jsonStringConstSchema)
       } else {
         let outputVar = input.global->B.varWithoutAllocation
-        input.allocate(outputVar)
 
         let nextSchema = json()->copySchema
         nextSchema.to = Some(target)
@@ -4992,7 +4957,7 @@ let jsonString = {
         output.var = B._var
 
         let inputVar = input.var()
-        output.codeFromPrev = `try{${outputVar}=JSON.parse(${inputVar})}catch(t){${B.embedInvalidInput(
+        output.codeFromPrev = `let ${outputVar};try{${outputVar}=JSON.parse(${inputVar})}catch(t){${B.embedInvalidInput(
             ~input,
             ~expected=input.schema,
           )}}`
@@ -6170,10 +6135,11 @@ let compactColumnsDecoder = (~input) => {
             itemBuildCode.contents ++ `${key->X.Inlined.Value.fromString}:${itemOutput.inline},`
         }
 
-        input.allocate(`${outputVar}=new Array(Math.max(${lengthCode.contents}))`)
-
         let output = input->B.next(outputVar, ~schema=outputSchema, ~expected=outputSchema)
         output.var = B._var
+        // The row accumulator is filled across loop iterations, so it owns its
+        // declaration at the head of its own segment, before the `for` below.
+        output.codeFromPrev = `let ${outputVar}=new Array(Math.max(${lengthCode.contents}));`
 
         // Wrap the row body in a single try/catch that prepends the row index to
         // any thrown error — giving paths like ["0"]["bar"]. A single wrapper is
@@ -6260,10 +6226,11 @@ let compactColumnsDecoder = (~input) => {
           }
         }
 
-        input.allocate(`${outputVar}=[${initialArraysCode.contents}]`)
-
         let output = input->B.next(outputVar, ~schema=outputSchema, ~expected=outputSchema)
         output.var = B._var
+        // The columnar accumulator is filled across loop iterations, so it owns
+        // its declaration at the head of its own segment, before the `for`.
+        output.codeFromPrev = `let ${outputVar}=[${initialArraysCode.contents}];`
         let loopBody = perFieldCode.contents ++ settingCode.contents
         let wrappedBody = if needsPerFieldTransform && perFieldCode.contents !== "" {
           let errorVar = input.global->B.varWithoutAllocation
@@ -6833,10 +6800,9 @@ let js_to = {
     Builder.make((~input) => {
       let target = input.expected.to->X.Option.getUnsafe
       let outputVar = input.global->B.varWithoutAllocation
-      input.allocate(outputVar)
       let output = input->B.next(outputVar, ~schema=target, ~expected=target)
       output.var = B._var
-      output.codeFromPrev = `try{${output.inline}=${input->B.embed(
+      output.codeFromPrev = `let ${outputVar};try{${output.inline}=${input->B.embed(
           fn,
         )}(${input.inline})}catch(x){${output->B.failWithArg(
           e => B.makeInvalidConversionDetails(~input, ~to=target, ~cause=e),
