@@ -65,8 +65,9 @@ A compilation-time representation of a value being processed. Key fields:
 - `schema`: The schema of the current value
 - `expected`: The schema we're trying to parse/convert into
 - `prev`: Link to the previous val in the transform chain (walked by `merge`)
-- `codeFromPrev`: Generated statements that produce this val from `prev`
-- `varsAllocation`: `let` declarations, populated via the `allocate` side-channel and emitted by `merge`
+- `codeFromPrev`: Generated statements that produce this val from `prev`, including the `let` declaration of its own value. A non-empty `codeFromPrev` makes the val non-hoistable in `merge`, so a union discriminant can't be lifted above a `let` it reads.
+- `hoistedDecls`: `let` declarations hoisted *onto this val* by a descendant whose own segment was already emitted (a field read on its parent, a loop accumulator before its `for`). Populated with `B.hoistDecl(owner, decl)` and emitted by `merge` right after this val's checks — no callback mutating an unrelated val.
+- `finalized`: set by `merge` once a val's code is emitted; a late cached-bond materialization re-reads inline instead of hoisting onto it (#240)
 - `checks`: `array<check>` of type-narrows and user refiners. A check whose `fail === B.failInvalidType` is a type-narrow that doubles as a union dispatch discriminant. (Invariant: absent iff no checks — never stored as `Some([])`.)
 - `isOutput`: `Some(true)` once refiners have run; advanced decoders (object/array/tuple/union/recursive) set it themselves
 - `global`: Shared compilation context containing:
@@ -133,9 +134,10 @@ Checks emit as `cond || e[n](x);` (throw when the condition is false), not as
 ### Key Functions
 
 - `parse(val)`: Main compilation loop — encoder → decoder → markOutput → follow `.to`, until the val is fully decoded
-- `B.merge(val, ~hoistCond=?)`: Walks the `.prev` chain into a code string. With `~hoistCond` (union codegen) it lifts type-narrow checks into a dispatch condition
+- `B.merge(val, ~hoistCond=?)`: Walks the `.prev` chain into a code string. With `~hoistCond` (union codegen) it lifts type-narrow checks into a dispatch condition; a val with non-empty `codeFromPrev` stays non-hoistable so its `let` travels with the check
 - `B.next(prev, code, ~schema, ~expected=?)`: Creates the next val one step down the transform chain
 - `B.refine(val, ~checks=?, ~schema=?, ~expected=?)`: Clones a val to attach `checks` while preserving the var-allocation link
+- `B.hoistDecl(owner, decl)`: Attaches a `let` declaration to a still-open owner val (prev/parent/self) that dominates and outlives the materialized value, replacing the old `allocate` side-channel
 - `B.markOutput(val, ~valInput)`: Applies `inputRefiner`/`refiner` and marks the val as output
 - `B.embed(val, value)`: Embeds a runtime value (function, object) and returns a reference like `e[0]`
 
