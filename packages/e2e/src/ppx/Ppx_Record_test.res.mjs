@@ -82,9 +82,9 @@ let Meta = {
   schema: schema
 };
 
-let recordWithSpreadSchema = S.object(s => Object.assign(Object.assign({}, s.flatten(schema)), {
+let recordWithSpreadSchema = S.object(s => (Object.assign(Object.assign({}, s.flatten(schema)), {
   messages: s.f("messages", S.array(S.string))
-}));
+})));
 
 Ava("Record schema with type spread", t => {
   t.deepEqual(S.parseOrThrow({id:"abc",summary:"hello",messages:["a","b"]}, recordWithSpreadSchema), {
@@ -111,9 +111,9 @@ let Extra = {
   schema: schema$1
 };
 
-let recordWithMultipleSpreadsSchema = S.object(s => Object.assign(Object.assign(Object.assign({}, s.flatten(schema)), s.flatten(schema$1)), {
+let recordWithMultipleSpreadsSchema = S.object(s => (Object.assign(Object.assign(Object.assign({}, s.flatten(schema)), s.flatten(schema$1)), {
   active: s.f("active", S.bool)
-}));
+})));
 
 Ava("Record schema with multiple type spreads", t => {
   t.deepEqual(S.parseOrThrow({id:"abc",summary:"hello",score:9.5,active:true}, recordWithMultipleSpreadsSchema), {

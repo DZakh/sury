@@ -195,16 +195,24 @@ and generateRecordSchemaWithSpreads spread_types regular_fields =
   let spread_schema_exprs =
     spread_types |> List.map generateCoreTypeSchemaExpression
   in
+  let raw_str s =
+    Exp.extension
+      ( mkloc "raw" Location.none,
+        PStr
+          [Str.eval (Exp.constant (Pconst_string (s, Location.none, None)))] )
+  in
+  let object_assign = [%expr (Obj.magic [%e raw_str "Object.assign"])] in
+  let empty_obj = raw_str "{}" in
   (* Build Object.assign chain: Object.assign(Object.assign({}, sp1), sp2, ..., fields) *)
-  let base = [%expr Obj.magic (Js.Obj.empty ())] in
   let with_spreads =
     List.fold_left
       (fun acc spread_schema ->
-        [%expr Js.Obj.assign [%e acc] (Obj.magic (s.flatten [%e spread_schema]))])
-      base spread_schema_exprs
+        [%expr
+          [%e object_assign] [%e acc] (Obj.magic (s.flatten [%e spread_schema]))])
+      empty_obj spread_schema_exprs
   in
   let merged =
-    [%expr Js.Obj.assign [%e with_spreads] (Obj.magic [%e fields_obj])]
+    [%expr [%e object_assign] [%e with_spreads] (Obj.magic [%e fields_obj])]
   in
   let s_object =
     Exp.ident (mknoloc (Longident.Ldot (Longident.Lident "S", "object")))
