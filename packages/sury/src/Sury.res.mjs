@@ -1059,9 +1059,9 @@ function numberDecoder(input) {
     }
   }
   let outputVar = varWithoutAllocation(input.g);
-  input.a(outputVar + `=+` + input.v());
   let output = next(input, outputVar, input.e, undefined);
   output.v = _var;
+  output.cp = `let ` + outputVar + `=+` + input.v() + `;`;
   output.vc = [{
       c: param => {
         let match = input.e.format;

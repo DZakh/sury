@@ -75,4 +75,3 @@ Helpers:
 - `B.markOutput` — applies `inputRefiner`/`refiner` and sets `isOutput` (see Refiner ownership).
 - `B.merge` — walks the `.prev` chain into a code string. With `~hoistCond` (union codegen) it lifts type-narrow checks into a dispatch condition.
 
-> **Hoisting invariant (currently fragile):** a hoisted `check.cond(~inputVar)` must depend only on `inputVar` (= `prev.var()`), which is in scope at the dispatch site. A decoder that allocates an intermediate var (e.g. `v0 = +i`) and references it in a type-narrow check breaks this — `merge(~hoistCond)` lifts the discriminant above the var's `varsAllocation` declaration, producing `v0 is not defined`. Trips on `str->to(option(int))` and similar conversion-into-union cases.
