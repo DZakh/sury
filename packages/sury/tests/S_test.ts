@@ -1505,6 +1505,39 @@ test("Successfully parses nested object using S.schema", (t) => {
   expectTypeOf(value).toEqualTypeOf<{ foo: { bar: number } }>();
 });
 
+test("Object with an S.never field is inferred as a required never property", (t) => {
+  const schema = S.schema({
+    key: S.string,
+    oldKey: S.never,
+  });
+
+  // The field can never hold a value, so it stays a required `never` property:
+  // the object is uninhabited, which is what you would write by hand.
+  expectSchemaType(schema).toBe<{ key: string; oldKey: never }>();
+
+  // ...and parsing always fails on the never field (see S_never_test.res).
+  t.expect(() => S.parser(schema)({ key: "value" })).toThrow(
+    t.expect.objectContaining({
+      name: "SuryError",
+      message: `Failed at ["oldKey"]: Expected never, received undefined`,
+    }),
+  );
+});
+
+test("Object with an S.optional(S.never) field is inferred as optional undefined", (t) => {
+  const schema = S.schema({
+    key: S.string,
+    oldKey: S.optional(S.never),
+  });
+
+  // The realistic deprecated-field pattern: optional collapses to `undefined`,
+  // so the field is optional and the object stays inhabited.
+  expectSchemaType(schema).toBe<{ key: string; oldKey?: undefined }>();
+
+  const value = S.parser(schema)({ key: "value" });
+  t.expect(value).toEqual({ key: "value", oldKey: undefined });
+});
+
 test("S.schema example", (t) => {
   type Shape =
     | { kind: "circle"; radius: number }

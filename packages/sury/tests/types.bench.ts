@@ -6,13 +6,13 @@ import * as S from "../src/S.js";
 S.boolean;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// S.schema on objects — exercises UnknownToOutput / UnknownToInput / Flatten
-// and the HasUndefined-gated optional/required mapped-type split (S.d.ts:338).
+// S.schema on objects — exercises UnknownToOutput / UnknownToInput, which
+// resolve each field once and delegate to ResolveObject / Flatten (S.d.ts:338).
 // ─────────────────────────────────────────────────────────────────────────────
 
 bench("S.schema object — 1 field", () => {
   return S.schema({ a: S.string });
-}).types([695, "instantiations"]);
+}).types([217, "instantiations"]);
 
 bench("S.schema object — 5 fields all required", () => {
   return S.schema({
@@ -22,7 +22,7 @@ bench("S.schema object — 5 fields all required", () => {
     d: S.bigint,
     e: S.symbol,
   });
-}).types([1029, "instantiations"]);
+}).types([273, "instantiations"]);
 
 bench("S.schema object — 10 fields all required", () => {
   return S.schema({
@@ -37,11 +37,11 @@ bench("S.schema object — 10 fields all required", () => {
     i: S.bigint,
     j: S.symbol,
   });
-}).types([1409, "instantiations"]);
+}).types([343, "instantiations"]);
 
-// Mixed required/optional triggers the HasUndefined-gated dual mapped-type
-// split in UnknownToOutput (S.d.ts:344-355). Far costlier than all-required —
-// this is the hot spot from issue #166.
+// Mixed required/optional makes ResolveObject take its optional/required split
+// branch (S.d.ts:375) instead of the all-required fast path. Costlier than
+// all-required — this is the hot spot from issue #166.
 bench("S.schema object — 5 fields mixed required/optional", () => {
   return S.schema({
     a: S.string,
@@ -50,7 +50,7 @@ bench("S.schema object — 5 fields mixed required/optional", () => {
     d: S.optional(S.bigint),
     e: S.symbol,
   });
-}).types([17916, "instantiations"]);
+}).types([10557, "instantiations"]);
 
 // Recursion through UnknownToOutput compounds badly with nesting depth.
 bench("S.schema object — nested 3 levels", () => {
@@ -64,7 +64,7 @@ bench("S.schema object — nested 3 levels", () => {
       }),
     }),
   });
-}).types([31013, "instantiations"]);
+}).types([20419, "instantiations"]);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // S.schema on tuples — exercises UnknownArrayToOutput / _RestToOutput
@@ -123,7 +123,7 @@ bench("S.union — 5 object members", () => {
     S.schema({ kind: "d" as const, d: S.bigint }),
     S.schema({ kind: "e" as const, e: S.symbol }),
   ]);
-}).types([67580, "instantiations"]);
+}).types([53173, "instantiations"]);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // S.Output<T> / S.Input<T> extraction — measures the cost users actually pay
@@ -141,11 +141,11 @@ const flatSchema = S.schema({
 
 bench("S.Output on 5-field object", () => {
   return {} as S.Output<typeof flatSchema>;
-}).types([7842, "instantiations"]);
+}).types([6951, "instantiations"]);
 
 bench("S.Input on 5-field object", () => {
   return {} as S.Input<typeof flatSchema>;
-}).types([6767, "instantiations"]);
+}).types([5816, "instantiations"]);
 
 const deepSchema = S.schema({
   a: S.string,
@@ -160,7 +160,7 @@ const deepSchema = S.schema({
 
 bench("S.Output on 3-level nested object", () => {
   return {} as S.Output<typeof deepSchema>;
-}).types([7732, "instantiations"]);
+}).types([6951, "instantiations"]);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Compound: define + extract (the realistic per-schema cost).
@@ -180,7 +180,7 @@ bench("S.schema + S.Output — 10-field object", () => {
     j: S.symbol,
   });
   return {} as S.Output<typeof s>;
-}).types([9446, "instantiations"]);
+}).types([7294, "instantiations"]);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // S.merge — exercises the Omit<O1, keyof O2> & O2 intersection in the return
@@ -201,7 +201,7 @@ const mergeRightRequired = S.schema({
 
 bench("S.merge — 3+2 all required", () => {
   return S.merge(mergeLeftRequired, mergeRightRequired);
-}).types([6474, "instantiations"]);
+}).types([5461, "instantiations"]);
 
 const mergeLeftOptional = S.schema({
   _id: S.optional(S.string),
@@ -215,10 +215,10 @@ const mergeRightForOptional = S.schema({
 
 bench("S.merge — 3 optional + 2 required (issue #157 case)", () => {
   return S.merge(mergeLeftOptional, mergeRightForOptional);
-}).types([6480, "instantiations"]);
+}).types([5956, "instantiations"]);
 
 bench("S.merge — output extraction with optional preservation", () => {
   const m = S.merge(mergeLeftOptional, mergeRightForOptional);
   return {} as S.Output<typeof m>;
-}).types([13651, "instantiations"]);
+}).types([12426, "instantiations"]);
 
