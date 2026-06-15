@@ -10,4 +10,5 @@ lib
 coverage
 .tsimp
 tsconfig.tsbuildinfo
+_opam/
 .attest

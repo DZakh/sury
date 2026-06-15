@@ -2,11 +2,11 @@
 
 import * as S from "sury/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
-import Ava from "ava";
+import * as Vitest from "vitest";
 
-Ava("Creates schema with the name schema from t type", t => U.assertEqualSchemas(t, S.string, S.string, undefined));
+Vitest.test("Creates schema with the name schema from t type", t => U.assertEqualSchemas(t, S.string, S.string, undefined));
 
-Ava("Creates schema with the type name and schema at the for non t types", t => U.assertEqualSchemas(t, S.int, S.int, undefined));
+Vitest.test("Creates schema with the type name and schema at the for non t types", t => U.assertEqualSchemas(t, S.int, S.int, undefined));
 
 let reusedTypesSchema = S.schema(s => [
   s.m(S.string),
@@ -15,7 +15,7 @@ let reusedTypesSchema = S.schema(s => [
   s.m(S.float)
 ]);
 
-Ava("Can reuse schemas from other types", t => U.assertEqualSchemas(t, reusedTypesSchema, S.schema(s => [
+Vitest.test("Can reuse schemas from other types", t => U.assertEqualSchemas(t, reusedTypesSchema, S.schema(s => [
   s.m(S.string),
   s.m(S.int),
   s.m(S.bool),
@@ -24,19 +24,19 @@ Ava("Can reuse schemas from other types", t => U.assertEqualSchemas(t, reusedTyp
 
 let stringWithDefaultSchema = S.Option.getOr(S.option(S.string), "Foo");
 
-Ava("Creates schema with default", t => U.assertEqualSchemas(t, stringWithDefaultSchema, S.Option.getOr(S.option(S.string), "Foo"), undefined));
+Vitest.test("Creates schema with default", t => U.assertEqualSchemas(t, stringWithDefaultSchema, S.Option.getOr(S.option(S.string), "Foo"), undefined));
 
 let stringWithDefaultAndMatchesSchema = S.Option.getOr(S.option(S.url), "https://example.com");
 
-Ava("Creates schema with default using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultAndMatchesSchema, S.Option.getOr(S.option(S.url), "https://example.com"), undefined));
+Vitest.test("Creates schema with default using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultAndMatchesSchema, S.Option.getOr(S.option(S.url), "https://example.com"), undefined));
 
 let stringWithDefaultNullAndMatchesSchema = S.Option.getOr(S.nullAsOption(S.url), "https://example.com");
 
-Ava("Creates schema with default null using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultNullAndMatchesSchema, S.Option.getOr(S.nullAsOption(S.url), "https://example.com"), undefined));
+Vitest.test("Creates schema with default null using @s.matches", t => U.assertEqualSchemas(t, stringWithDefaultNullAndMatchesSchema, S.Option.getOr(S.nullAsOption(S.url), "https://example.com"), undefined));
 
 let ignoredNullWithMatchesSchema = S.option(S.string);
 
-Ava("@s.null doesn't override @s.matches(S.option(_))", t => U.assertEqualSchemas(t, ignoredNullWithMatchesSchema, S.option(S.string), undefined));
+Vitest.test("@s.null doesn't override @s.matches(S.option(_))", t => U.assertEqualSchemas(t, ignoredNullWithMatchesSchema, S.option(S.string), undefined));
 
 let schema = S.string;
 

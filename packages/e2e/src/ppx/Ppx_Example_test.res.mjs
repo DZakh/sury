@@ -2,7 +2,7 @@
 
 import * as S from "sury/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
-import Ava from "ava";
+import * as Vitest from "vitest";
 
 let ratingSchema = S.union([
   S.literal("G"),
@@ -22,7 +22,7 @@ let filmSchema = S.schema(s => ({
   }))
 }));
 
-Ava("Main example", t => U.assertEqualSchemas(t, filmSchema, S.schema(s => ({
+Vitest.test("Main example", t => U.assertEqualSchemas(t, filmSchema, S.schema(s => ({
   Id: s.m(S.float),
   Title: s.m(S.string),
   Tags: s.m(S.Option.getOr(S.option(S.array(S.string)), [])),
@@ -38,38 +38,38 @@ Ava("Main example", t => U.assertEqualSchemas(t, filmSchema, S.schema(s => ({
   }))
 })), undefined));
 
-Ava("@s.matches", t => U.assertEqualSchemas(t, S.url, S.url, undefined));
+Vitest.test("@s.matches", t => U.assertEqualSchemas(t, S.url, S.url, undefined));
 
 let defaultSchema = S.Option.getOr(S.option(S.string), "Unknown");
 
-Ava("@s.default", t => U.assertEqualSchemas(t, defaultSchema, S.Option.getOr(S.option(S.string), "Unknown"), undefined));
+Vitest.test("@s.default", t => U.assertEqualSchemas(t, defaultSchema, S.Option.getOr(S.option(S.string), "Unknown"), undefined));
 
 let defaultWithSchema = S.Option.getOrWith(S.option(S.array(S.string)), () => []);
 
-Ava("@s.defaultWith", t => U.assertEqualSchemas(t, defaultWithSchema, S.Option.getOrWith(S.option(S.array(S.string)), () => []), undefined));
+Vitest.test("@s.defaultWith", t => U.assertEqualSchemas(t, defaultWithSchema, S.Option.getOrWith(S.option(S.array(S.string)), () => []), undefined));
 
 let nullSchema = S.nullAsOption(S.string);
 
-Ava("@s.null", t => U.assertEqualSchemas(t, nullSchema, S.nullAsOption(S.string), undefined));
+Vitest.test("@s.null", t => U.assertEqualSchemas(t, nullSchema, S.nullAsOption(S.string), undefined));
 
 let nullWithDefaultSchema = S.Option.getOr(S.nullAsOption(S.string), "Unknown");
 
-Ava("@s.null with @s.default", t => U.assertEqualSchemas(t, nullWithDefaultSchema, S.Option.getOr(S.nullAsOption(S.string), "Unknown"), undefined));
+Vitest.test("@s.null with @s.default", t => U.assertEqualSchemas(t, nullWithDefaultSchema, S.Option.getOr(S.nullAsOption(S.string), "Unknown"), undefined));
 
 let nullableSchema = S.nullableAsOption(S.string);
 
-Ava("@s.nullable", t => U.assertEqualSchemas(t, nullableSchema, S.nullableAsOption(S.string), undefined));
+Vitest.test("@s.nullable", t => U.assertEqualSchemas(t, nullableSchema, S.nullableAsOption(S.string), undefined));
 
 let nullableWithDefaultSchema = S.Option.getOr(S.nullableAsOption(S.string), "Unknown");
 
-Ava("@s.nullable with @s.default", t => U.assertEqualSchemas(t, nullableWithDefaultSchema, S.Option.getOr(S.nullableAsOption(S.string), "Unknown"), undefined));
+Vitest.test("@s.nullable with @s.default", t => U.assertEqualSchemas(t, nullableWithDefaultSchema, S.Option.getOr(S.nullableAsOption(S.string), "Unknown"), undefined));
 
 let deprecatedSchema = S.meta(S.string, {
   description: "Will be removed in APIv2",
   deprecated: true
 });
 
-Ava("@s.deprecated", t => U.assertEqualSchemas(t, deprecatedSchema, S.meta(S.string, {
+Vitest.test("@s.deprecated", t => U.assertEqualSchemas(t, deprecatedSchema, S.meta(S.string, {
   description: "Will be removed in APIv2",
   deprecated: true
 }), undefined));
@@ -78,7 +78,7 @@ let describeSchema = S.meta(S.string, {
   description: "A useful bit of text, if you know what to do with it."
 });
 
-Ava("@s.description", t => U.assertEqualSchemas(t, describeSchema, S.meta(S.string, {
+Vitest.test("@s.description", t => U.assertEqualSchemas(t, describeSchema, S.meta(S.string, {
   description: "A useful bit of text, if you know what to do with it."
 }), undefined));
 
