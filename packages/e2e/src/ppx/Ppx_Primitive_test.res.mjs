@@ -2,60 +2,60 @@
 
 import * as S from "sury/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
-import Ava from "ava";
+import * as Vitest from "vitest";
 
-Ava("String schema", t => U.assertEqualSchemas(t, S.string, S.string, undefined));
+Vitest.test("String schema", t => U.assertEqualSchemas(t, S.string, S.string, undefined));
 
-Ava("Int schema", t => U.assertEqualSchemas(t, S.int, S.int, undefined));
+Vitest.test("Int schema", t => U.assertEqualSchemas(t, S.int, S.int, undefined));
 
-Ava("Float schema", t => U.assertEqualSchemas(t, S.float, S.float, undefined));
+Vitest.test("Float schema", t => U.assertEqualSchemas(t, S.float, S.float, undefined));
 
-Ava("Bool schema", t => U.assertEqualSchemas(t, S.bool, S.bool, undefined));
+Vitest.test("Bool schema", t => U.assertEqualSchemas(t, S.bool, S.bool, undefined));
 
-Ava("Unit schema", t => U.assertEqualSchemas(t, S.unit, S.unit, undefined));
+Vitest.test("Unit schema", t => U.assertEqualSchemas(t, S.unit, S.unit, undefined));
 
-Ava("Unknown schema", t => U.assertEqualSchemas(t, S.unknown, S.unknown, undefined));
+Vitest.test("Unknown schema", t => U.assertEqualSchemas(t, S.unknown, S.unknown, undefined));
 
-Ava("Never schema", t => U.assertEqualSchemas(t, S.never, S.never, undefined));
+Vitest.test("Never schema", t => U.assertEqualSchemas(t, S.never, S.never, undefined));
 
 let myOptionOfStringSchema = S.option(S.string);
 
-Ava("Option of string schema", t => U.assertEqualSchemas(t, myOptionOfStringSchema, S.option(S.string), undefined));
+Vitest.test("Option of string schema", t => U.assertEqualSchemas(t, myOptionOfStringSchema, S.option(S.string), undefined));
 
 let myNullableOfStringSchema = S.nullable(S.string);
 
-Ava("Nullable of string schema", t => U.assertEqualSchemas(t, myNullableOfStringSchema, S.nullable(S.string), undefined));
+Vitest.test("Nullable of string schema", t => U.assertEqualSchemas(t, myNullableOfStringSchema, S.nullable(S.string), undefined));
 
 let myArrayOfStringSchema = S.array(S.string);
 
-Ava("Array of string schema", t => U.assertEqualSchemas(t, myArrayOfStringSchema, S.array(S.string), undefined));
+Vitest.test("Array of string schema", t => U.assertEqualSchemas(t, myArrayOfStringSchema, S.array(S.string), undefined));
 
 let myListOfStringSchema = S.list(S.string);
 
-Ava("List of string schema", t => U.assertEqualSchemas(t, myListOfStringSchema, S.list(S.string), undefined));
+Vitest.test("List of string schema", t => U.assertEqualSchemas(t, myListOfStringSchema, S.list(S.string), undefined));
 
 let myDictOfStringSchema = S.dict(S.string);
 
-Ava("Dict of string schema", t => U.assertEqualSchemas(t, myDictOfStringSchema, S.dict(S.string), undefined));
+Vitest.test("Dict of string schema", t => U.assertEqualSchemas(t, myDictOfStringSchema, S.dict(S.string), undefined));
 
 let myDictOfStringFromJsSchema = S.dict(S.string);
 
-Ava("Dict of string schema from Js", t => U.assertEqualSchemas(t, myDictOfStringSchema, S.dict(S.string), undefined));
+Vitest.test("Dict of string schema from Js", t => U.assertEqualSchemas(t, myDictOfStringSchema, S.dict(S.string), undefined));
 
 let myDictOfStringFromCoreSchema = S.dict(S.string);
 
-Ava("Dict of string schema from Core", t => U.assertEqualSchemas(t, myDictOfStringFromCoreSchema, S.dict(S.string), undefined));
+Vitest.test("Dict of string schema from Core", t => U.assertEqualSchemas(t, myDictOfStringFromCoreSchema, S.dict(S.string), undefined));
 
-Ava("Json schema", t => U.assertEqualSchemas(t, S.json, S.json, undefined));
+Vitest.test("Json schema", t => U.assertEqualSchemas(t, S.json, S.json, undefined));
 
-Ava("Json schema from Core", t => U.assertEqualSchemas(t, S.json, S.json, undefined));
+Vitest.test("Json schema from Core", t => U.assertEqualSchemas(t, S.json, S.json, undefined));
 
 let myTupleSchema = S.schema(s => [
   s.m(S.string),
   s.m(S.int)
 ]);
 
-Ava("Tuple schema", t => U.assertEqualSchemas(t, myTupleSchema, S.tuple2(S.string, S.int), undefined));
+Vitest.test("Tuple schema", t => U.assertEqualSchemas(t, myTupleSchema, S.tuple2(S.string, S.int), undefined));
 
 let myBigTupleSchema = S.schema(s => [
   s.m(S.string),
@@ -72,7 +72,7 @@ let myBigTupleSchema = S.schema(s => [
   s.m(S.bool)
 ]);
 
-Ava("Big tuple schema", t => U.assertEqualSchemas(t, myBigTupleSchema, S.schema(s => [
+Vitest.test("Big tuple schema", t => U.assertEqualSchemas(t, myBigTupleSchema, S.schema(s => [
   s.m(S.string),
   s.m(S.string),
   s.m(S.string),
@@ -87,19 +87,19 @@ Ava("Big tuple schema", t => U.assertEqualSchemas(t, myBigTupleSchema, S.schema(
   s.m(S.bool)
 ]), undefined));
 
-Ava("Custom string schema", t => U.assertEqualSchemas(t, S.email, S.email, undefined));
+Vitest.test("Custom string schema", t => U.assertEqualSchemas(t, S.email, S.email, undefined));
 
 let myCustomLiteralStringSchema = S.literal("123");
 
-Ava("Custom litaral string schema", t => U.assertEqualSchemas(t, myCustomLiteralStringSchema, S.literal("123"), undefined));
+Vitest.test("Custom litaral string schema", t => U.assertEqualSchemas(t, myCustomLiteralStringSchema, S.literal("123"), undefined));
 
 let myCustomOptionalStringSchema = S.option(S.email);
 
-Ava("Custom optional string schema", t => U.assertEqualSchemas(t, myCustomOptionalStringSchema, S.option(S.email), undefined));
+Vitest.test("Custom optional string schema", t => U.assertEqualSchemas(t, myCustomOptionalStringSchema, S.option(S.email), undefined));
 
 let myNullOfStringSchema = S.nullAsOption(S.string);
 
-Ava("Null of string schema", t => U.assertEqualSchemas(t, myNullOfStringSchema, S.nullAsOption(S.string), undefined));
+Vitest.test("Null of string schema", t => U.assertEqualSchemas(t, myNullOfStringSchema, S.nullAsOption(S.string), undefined));
 
 let myStringSchema = S.string;
 
