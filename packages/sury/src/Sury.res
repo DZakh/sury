@@ -1153,11 +1153,19 @@ module Builder = {
       `v${newCounter->X.Int.unsafeToString}`
     }
 
-    // Attach a `let` declaration to a still-open owner val (the prev/parent
-    // whose segment dominates and outlives the materialized value). The decl
-    // emits after the owner's checks in `merge` — the slot the old
-    // varsAllocation side-channel used — without the owner mutating itself via
-    // a bound `allocate` callback.
+    // Attach a `let` declaration to a still-open owner val, emitted after the
+    // owner's checks in `merge` (the slot the old varsAllocation side-channel
+    // used) — without the owner mutating itself via a bound `allocate` callback.
+    //
+    // The owner is always the materialized val's immediate context — its `prev`
+    // (chain producer / loop accumulator point), its `parent` (the object a
+    // field is read from), or itself — chosen at the call site. We don't carry
+    // a separate `scopeOwner` link/scope tree: because the decl emits at the
+    // owner's segment end (after the owner's own type guard, before its
+    // dependent code), the immediate prev/parent already dominates every use
+    // and outlives it, so a wider scope owner would be both redundant and, for
+    // field reads, wrong (its segment top precedes the parent's guard). Callers
+    // must pass an unfinalized owner; `_notVarAtParent` guards this explicitly.
     let hoistDecl = (owner: val, decl: string) => {
       switch owner.hoistedDecls {
       | Some(existing) => owner.hoistedDecls = Some(existing ++ "," ++ decl)
@@ -1181,9 +1189,16 @@ module Builder = {
       // is hoisted onto the parent, which outlives this field's own segment —
       // field vals are frequently materialized late (e.g. completeObjectVal's
       // optional-field check) after their merge code was already emitted, so
-      // owning it here would drop the decl. When the parent itself has been
-      // finalized by `merge` (reached via a cached bond), re-read the field
-      // expression inline. See https://github.com/DZakh/sury/issues/240
+      // owning it in codeFromPrev here would drop the decl.
+      //
+      // When the parent itself has been finalized by `merge` (reached via a
+      // cached bond after the parent's block closed — the #240 shape), re-read
+      // the field expression inline instead. This is deliberate, not a
+      // degradation: the only still-open vals at this point are ancestors of
+      // the parent, whose segments precede the parent's own type guard, so
+      // hoisting `parent[key]` onto them could read it before that guard runs.
+      // Inlining defers the read to each use site, which is always dominated by
+      // whatever guards precede it. See https://github.com/DZakh/sury/issues/240
       if parent.finalized->X.Option.unsafeToBool {
         val.var = _var
         val.inline
@@ -1468,6 +1483,25 @@ module Builder = {
       }
     }
 
+    // A val's type-narrow checks can be lifted into a union dispatch condition
+    // only when doing so won't strand a declaration the lifted check reads:
+    //  - a non-transforming val's checks read the (upstream, dominating) input
+    //    var, so lifting is always safe;
+    //  - a transforming val is safe only when its prev is also non-transforming
+    //    (the input var is a stable read, not a produced value) AND it has no
+    //    `codeFromPrev` of its own to leave behind in the case body — otherwise
+    //    the lifted discriminant would run before that producer (the
+    //    `str->to(option(int))` "v0 is not defined" bug class).
+    // This is the structural rule behind `merge(~hoistCond)`'s check partition
+    // and the union deopt scan; keeping it in one place stops the two from
+    // drifting. Phase 2 (first-class {pre, cond, body} dispatch) will lift a
+    // val's producer into the dispatch `pre`, collapsing this to "the check is
+    // a type-narrow" (fail === failInvalidType).
+    let isHoistable = (val: val) =>
+      val.hasTransform === Some(true)
+        ? (val.prev->X.Option.getUnsafe).hasTransform !== Some(true) && val.codeFromPrev === ""
+        : true
+
     // Walks the val.prev chain and assembles generated code. When
     // `~hoistCond` is provided (union codegen), type-narrow checks
     // (fail === failInvalidType) lift into that ref as a dispatch
@@ -1486,14 +1520,7 @@ module Builder = {
         let currentCode = ref("")
 
         if val.checks->X.Option.unsafeToBool {
-          let isHoistable =
-            hoistCond !== None && (
-                val.hasTransform === Some(true)
-                  ? (val.prev->X.Option.getUnsafe).hasTransform !== Some(true) &&
-                      val.codeFromPrev === ""
-                  : true
-              )
-          if isHoistable {
+          if hoistCond !== None && val->isHoistable {
             // Partition: route type-narrows to hoistCond, emit refines inline.
             // `noValidation` is intentionally bypassed for the hoisted part —
             // the cond routes between union cases, it doesn't reject, so
@@ -4199,15 +4226,9 @@ module Union = {
             while valRef.contents !== None && shouldDeopt.contents {
               let v = valRef.contents->X.Option.getUnsafe
               valRef := v.prev
-              shouldDeopt :=
-                !(
-                  v.checks->X.Option.unsafeToBool && (
-                      v.hasTransform === Some(true)
-                        ? (v.prev->X.Option.getUnsafe).hasTransform !== Some(true) &&
-                            v.codeFromPrev === ""
-                        : true
-                    )
-                )
+              // Deopt to a try/catch block unless every level's checks are
+              // hoistable into the dispatch condition (same rule as merge).
+              shouldDeopt := !(v.checks->X.Option.unsafeToBool && v->B.isHoistable)
             }
 
             if shouldDeopt.contents {
