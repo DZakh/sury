@@ -7336,8 +7336,8 @@ let targetSchemaUri = (target: jsonSchemaTarget) =>
 // Narrow the raw target (which may arrive as an arbitrary string from JS via the
 // Standard JSON Schema `Options`) to a supported dialect, throwing
 // `[Sury] Unsupported target: X` for anything else.
-let parseTarget = (target): jsonSchemaTarget =>
-  switch (target->Obj.magic: string) {
+let parseTarget = (target: string): jsonSchemaTarget =>
+  switch target {
   | "draft-07" => #"draft-07"
   | "draft-2020-12" => #"draft-2020-12"
   | "openapi-3.0" => #"openapi-3.0"
@@ -7352,7 +7352,9 @@ let toJSONSchema = (schema, ~options: option<toJSONSchemaOptions>=?) => {
   let (target, schemaUri) = switch options {
   | Some({?target}) =>
     let target = switch target {
-    | Some(target) => target->parseTarget
+    // The value is typed `jsonSchemaTarget`, but an untyped JS caller (via
+    // `~standard`) can pass an arbitrary string; narrow/validate it here.
+    | Some(target) => (target->Obj.magic: string)->parseTarget
     | None => #"draft-07"
     }
     (target, targetSchemaUri(target))
@@ -7415,12 +7417,13 @@ standardJSONSchemaRef :=
       // source of truth for the `$schema` URI mapping and the unsupported-target
       // throw. Passing an options object (vs none) is what makes `toJSONSchema`
       // stamp `$schema`, which the Standard JSON Schema spec requires.
-      // `options.target` is a raw string from the Standard JSON Schema spec; it
-      // shares its runtime representation with `jsonSchemaTarget`, and
-      // `toJSONSchema` validates it (throwing on an unsupported target).
+      // `options.target` is a raw string from the Standard JSON Schema spec;
+      // `toJSONSchema` validates it (throwing on an unsupported target). The cast
+      // is safe because `jsonSchemaTarget` shares its runtime representation with
+      // the string.
       toJSONSchema(
         isOutput ? schema->reverse : schema,
-        ~options={target: ?(options.target->Obj.magic: option<jsonSchemaTarget>)},
+        ~options={target: (options.target->Obj.magic: jsonSchemaTarget)},
       )
     }
   )->Obj.magic
