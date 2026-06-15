@@ -56,7 +56,7 @@
     "build": "pnpm rescript && node ./scripts/pack/Pack.res.mjs",
     "res": "rescript watch",
     "test:res": "cd ./packages/tests && rescript clean && rescript watch",
-    "test": "rescript build && vitest run --typecheck",
+    "test": "rescript build && vitest run",
     "typecheck": "vitest run --typecheck.only",
     "bench:types": "tsx tests/types.bench.ts",
     "lint:stdlib": "rescript-stdlib-vendorer lint --ignore-path=src"
