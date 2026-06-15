@@ -151,16 +151,22 @@ let baseColorsSchema = S.union([
   S.literal("Green")
 ]);
 
-let tmp;
-
-tmp = baseColorsSchema.type === "union" ? baseColorsSchema.anyOf : [baseColorsSchema];
-
-let extendedColorsSchema = S.union([S.literal("Yellow")].concat(tmp));
+let extendedColorsSchema = S.union([S.literal("Yellow")].concat(baseColorsSchema.type === "union" ? baseColorsSchema.anyOf : [baseColorsSchema]));
 
 Vitest$1.test("Variant with type spread", t => {
   Vitest.Assert.deepEqual(t, S.parseOrThrow("Red", extendedColorsSchema), "Red", undefined);
   Vitest.Assert.deepEqual(t, S.parseOrThrow("Yellow", extendedColorsSchema), "Yellow", undefined);
   U.assertReverseReversesBack(t, extendedColorsSchema);
+});
+
+let singleCaseSchema = S.literal("Only");
+
+let extendedFromSingleCaseSchema = S.union([S.literal("Another")].concat(singleCaseSchema.type === "union" ? singleCaseSchema.anyOf : [singleCaseSchema]));
+
+Vitest$1.test("Variant spread of a single-case (literal) schema", t => {
+  Vitest.Assert.deepEqual(t, S.parseOrThrow("Only", extendedFromSingleCaseSchema), "Only", undefined);
+  Vitest.Assert.deepEqual(t, S.parseOrThrow("Another", extendedFromSingleCaseSchema), "Another", undefined);
+  U.assertReverseReversesBack(t, extendedFromSingleCaseSchema);
 });
 
 export {
@@ -174,5 +180,7 @@ export {
   taggedInlinedAliasSchema,
   baseColorsSchema,
   extendedColorsSchema,
+  singleCaseSchema,
+  extendedFromSingleCaseSchema,
 }
 /* variantSchema Not a pure module */

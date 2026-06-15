@@ -107,3 +107,20 @@ test("Variant with type spread", t => {
   )
   t->assertReverseReversesBack(extendedColorsSchema)
 })
+
+@schema
+type singleCase = Only
+
+@schema
+type extendedFromSingleCase = | ...singleCase | Another
+test("Variant spread of a single-case (literal) schema", t => {
+  t->Assert.deepEqual(
+    %raw(`"Only"`)->S.parseOrThrow(~to=extendedFromSingleCaseSchema),
+    Only,
+  )
+  t->Assert.deepEqual(
+    %raw(`"Another"`)->S.parseOrThrow(~to=extendedFromSingleCaseSchema),
+    Another,
+  )
+  t->assertReverseReversesBack(extendedFromSingleCaseSchema)
+})

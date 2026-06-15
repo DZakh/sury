@@ -216,9 +216,10 @@ and generateVariantSchemaExpression constr_decls =
       |> List.map (fun spread_schema ->
              [%expr
                Obj.magic (
-                 match [%e spread_schema] with
-                 | S.Union {anyOf} -> anyOf
-                 | _ -> [| Obj.magic [%e spread_schema] |]
+                 if (S.untag [%e spread_schema]).tag == S.Union then
+                   Obj.magic ((S.untag [%e spread_schema]).anyOf)
+                 else
+                   [| Obj.magic [%e spread_schema] |]
                )])
     in
     let local_items = Exp.array union_items in
