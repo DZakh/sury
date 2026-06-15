@@ -855,7 +855,7 @@ export function to<
 export function toJSONSchema<Output, Input>(
   schema: Schema<Output, Input>,
   options?: {
-    target?: "draft-07" | "draft-2020-12" | "openapi-3.0" | (string & {});
+    target?: "draft-07" | "draft-2020-12" | "openapi-3.0";
   }
 ): JSONSchema7;
 export function fromJSONSchema<Output extends JSON>(
