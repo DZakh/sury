@@ -368,12 +368,9 @@ export function brand<ID extends string, Output = unknown, Input = unknown>(
   brandId: ID
 ): Schema<Brand<Output, ID>, Input>;
 
-// `R` already holds each field's resolved type, so values are never recomputed
-// per key. When no field is optional (the common case), the resolved map is
-// already the answer, so the optional/required split and its intersection are
-// skipped. A field is optional iff its type admits `undefined`; `never` does not,
-// so an `S.never` field stays a required `never` property — the resulting object
-// is correctly uninhabited, mirroring a hand-written type definition.
+// `R` already holds each field's resolved type. A field is optional iff its type
+// admits `undefined`, so an `S.never` field stays required. The split is skipped
+// when no field is optional.
 type ResolveObject<R> = undefined extends R[keyof R]
   ? Flatten<
       {
@@ -384,9 +381,7 @@ type ResolveObject<R> = undefined extends R[keyof R]
     >
   : Flatten<R>;
 
-// Utility to flatten an intersection into a single object. Field values are kept
-// verbatim (including `never`) so the inferred type matches what you would write
-// by hand.
+// Flatten an intersection into one object, keeping values verbatim (incl. `never`).
 type Flatten<T> = T extends object ? { [K in keyof T]: T[K] } : T;
 
 type UnknownArrayToOutput<
