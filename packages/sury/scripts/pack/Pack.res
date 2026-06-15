@@ -149,6 +149,7 @@ let filesMapping = [
   ("encoder", "S.js_encoder"),
   ("asyncEncoder", "S.js_asyncEncoder"),
   ("assert", "S.js_assert"),
+  ("is", "S.js_is"),
   ("recursive", "S.recursive"),
   ("merge", "S.js_merge"),
   ("strict", "S.strict"),

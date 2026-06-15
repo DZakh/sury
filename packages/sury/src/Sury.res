@@ -1951,10 +1951,17 @@ let numberDecoder = Builder.make((~input) => {
     input->B.refine(~schema=input.expected, ~checks)
   } else if inputTagFlag->Flag.unsafeHas(TagFlag.string) {
     let outputVar = input.global->B.varWithoutAllocation
-    input.allocate(`${outputVar}=+${input.var()}`)
 
     let output = input->B.next(outputVar, ~schema=input.expected)
     output.var = B._var
+    // Emit the `+input` coercion as codeFromPrev (a self-contained unit that
+    // declares its own var) instead of parking it in varsAllocation via the
+    // `allocate` side-channel. This keeps the conversion glued to the val that
+    // owns the type-narrow check below: a non-empty codeFromPrev makes the val
+    // non-hoistable in `merge`, so when this decoder feeds a union dispatch
+    // (e.g. `str->to(option(int))`) the discriminant is not lifted above its
+    // `let v0=+i` declaration. Mirrors how the string->bool decoder works.
+    output.codeFromPrev = `let ${outputVar}=+${input.var()};`
 
     output.checks = Some([
       {
@@ -6734,8 +6741,28 @@ let js_encoder = %raw(`(...args) => getDecoder(...args.map(reverse))`)
 
 let js_asyncEncoder = %raw(`(...args) => getDecoder(...args.map(reverse), 1)`)
 
-let js_assert = (schema, data) => {
-  getDecoder3(~s1=unknown, ~s2=schema->castToInternal, ~s3=getAssertResult())(data)
+// Accepts both `(schema, data)` and `(data, schema)` arg orders. We tell them
+// apart by the Standard Schema marker on a schema object. The truthiness guard
+// keeps `null`/`undefined` data from throwing on the marker access, routing it
+// to the data slot so validation fails with a proper Sury error.
+let js_assert = (a, b) => {
+  let aIsSchema = a->Obj.magic && a->isSchemaObject
+  let schema = (aIsSchema ? a : b)->Obj.magic
+  let data = (aIsSchema ? b : a)->Obj.magic
+  getDecoder3(~s1=unknown, ~s2=schema, ~s3=getAssertResult())(data)
+}
+
+let js_is = (a, b) => {
+  try {
+    let _ = js_assert(a, b)
+    true
+  } catch {
+  | _ => {
+      // Rethrow anything that isn't a Sury validation failure.
+      let _ = %raw(`exn`)->InternalError.getOrRethrow
+      false
+    }
+  }
 }
 
 let js_union = values =>

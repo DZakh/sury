@@ -577,6 +577,19 @@ export function assert<Output, Input>(
   schema: Schema<Output, Input>,
   data: unknown
 ): asserts data is Input;
+export function assert<Output, Input>(
+  data: unknown,
+  schema: Schema<Output, Input>
+): asserts data is Input;
+
+export function is<Output, Input>(
+  schema: Schema<Output, Input>,
+  data: unknown
+): data is Input;
+export function is<Output, Input>(
+  data: unknown,
+  schema: Schema<Output, Input>
+): data is Input;
 
 export function tuple<Output, Input extends unknown[]>(
   definer: (s: {
