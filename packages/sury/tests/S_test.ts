@@ -1513,7 +1513,7 @@ test("Object with an S.never field is inferred as a required never property", (t
 
   // The field can never hold a value, so it stays a required `never` property:
   // the object is uninhabited, which is what you would write by hand.
-  expectType<SchemaEqual<typeof schema, { key: string; oldKey: never }>>(true);
+  expectSchemaType(schema).toBe<{ key: string; oldKey: never }>();
 
   // ...and parsing always fails on the never field (see S_never_test.res).
   t.expect(() => S.parser(schema)({ key: "value" })).toThrow(
@@ -1532,9 +1532,7 @@ test("Object with an S.optional(S.never) field is inferred as optional undefined
 
   // The realistic deprecated-field pattern: optional collapses to `undefined`,
   // so the field is optional and the object stays inhabited.
-  expectType<SchemaEqual<typeof schema, { key: string; oldKey?: undefined }>>(
-    true,
-  );
+  expectSchemaType(schema).toBe<{ key: string; oldKey?: undefined }>();
 
   const value = S.parser(schema)({ key: "value" });
   t.expect(value).toEqual({ key: "value", oldKey: undefined });
