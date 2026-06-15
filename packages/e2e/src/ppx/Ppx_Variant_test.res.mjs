@@ -2,28 +2,29 @@
 
 import * as S from "sury/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
-import * as Vitest from "vitest";
+import * as Vitest from "../utils/Vitest.res.mjs";
+import * as Vitest$1 from "vitest";
 
 let variantSchema = S.union([
   S.literal("One"),
   S.literal("Two")
 ]);
 
-Vitest.test("Variant", t => U.assertEqualSchemas(t, variantSchema, S.union([
+Vitest$1.test("Variant", t => U.assertEqualSchemas(t, variantSchema, S.union([
   S.literal("One"),
   S.literal("Two")
 ]), undefined));
 
 let variantWithSingleItemSchema = S.literal("Single");
 
-Vitest.test("Variant with single item becomes a literal schema of the item", t => U.assertEqualSchemas(t, variantWithSingleItemSchema, S.literal("Single"), undefined));
+Vitest$1.test("Variant with single item becomes a literal schema of the item", t => U.assertEqualSchemas(t, variantWithSingleItemSchema, S.literal("Single"), undefined));
 
 let variantWithAliasSchema = S.union([
   S.literal("하나"),
   S.literal("Two")
 ]);
 
-Vitest.test("Variant with partial @as usage", t => U.assertEqualSchemas(t, variantWithAliasSchema, S.union([
+Vitest$1.test("Variant with partial @as usage", t => U.assertEqualSchemas(t, variantWithAliasSchema, S.union([
   S.literal("하나"),
   S.literal("Two")
 ]), undefined));
@@ -45,7 +46,7 @@ let variantWithPayloadsSchema = S.union([
   }))
 ]);
 
-Vitest.test("Variant with payloads", t => U.assertEqualSchemas(t, variantWithPayloadsSchema, S.union([
+Vitest$1.test("Variant with payloads", t => U.assertEqualSchemas(t, variantWithPayloadsSchema, S.union([
   S.literal("Constant"),
   S.schema(s => ({
     TAG: "SinglePayload",
@@ -68,7 +69,7 @@ let unboxedVariantSchema = S.union([
   S.schema(s => (s.m(S.string)))
 ]);
 
-Vitest.test("Unboxed variant", t => U.assertEqualSchemas(t, unboxedVariantSchema, S.union([
+Vitest$1.test("Unboxed variant", t => U.assertEqualSchemas(t, unboxedVariantSchema, S.union([
   S.literal("Constant"),
   S.schema(s => (s.m(S.int))),
   S.schema(s => (s.m(S.string)))
@@ -90,7 +91,7 @@ let taggedVariantSchema = S.union([
   }))
 ]);
 
-Vitest.test("Tagged variant", t => U.assertEqualSchemas(t, taggedVariantSchema, S.union([
+Vitest$1.test("Tagged variant", t => U.assertEqualSchemas(t, taggedVariantSchema, S.union([
   S.schema(s => ({
     kind: "circle",
     radius: s.m(S.float)
@@ -125,7 +126,7 @@ let taggedInlinedAliasSchema = S.union([
   }))
 ]);
 
-Vitest.test("@s.strict on root variant type", t => U.assertEqualSchemas(t, strictVariantSchema, S.strict(S.union([
+Vitest$1.test("@s.strict on root variant type", t => U.assertEqualSchemas(t, strictVariantSchema, S.strict(S.union([
   S.literal("StrictA"),
   S.schema(s => ({
     TAG: "StrictB",
@@ -133,7 +134,7 @@ Vitest.test("@s.strict on root variant type", t => U.assertEqualSchemas(t, stric
   }))
 ])), undefined));
 
-Vitest.test("Tagged variant with inlined alias", t => U.assertEqualSchemas(t, taggedInlinedAliasSchema, S.union([
+Vitest$1.test("Tagged variant with inlined alias", t => U.assertEqualSchemas(t, taggedInlinedAliasSchema, S.union([
   S.schema(s => ({
     type: "Foo",
     Foo: s.m(S.string)
@@ -144,6 +145,24 @@ Vitest.test("Tagged variant with inlined alias", t => U.assertEqualSchemas(t, ta
   }))
 ]), undefined));
 
+let baseColorsSchema = S.union([
+  S.literal("Red"),
+  S.literal("Blue"),
+  S.literal("Green")
+]);
+
+let tmp;
+
+tmp = baseColorsSchema.type === "union" ? baseColorsSchema.anyOf : [baseColorsSchema];
+
+let extendedColorsSchema = S.union([S.literal("Yellow")].concat(tmp));
+
+Vitest$1.test("Variant with type spread", t => {
+  Vitest.Assert.deepEqual(t, S.parseOrThrow("Red", extendedColorsSchema), "Red", undefined);
+  Vitest.Assert.deepEqual(t, S.parseOrThrow("Yellow", extendedColorsSchema), "Yellow", undefined);
+  U.assertReverseReversesBack(t, extendedColorsSchema);
+});
+
 export {
   variantSchema,
   variantWithSingleItemSchema,
@@ -153,5 +172,7 @@ export {
   taggedVariantSchema,
   strictVariantSchema,
   taggedInlinedAliasSchema,
+  baseColorsSchema,
+  extendedColorsSchema,
 }
 /* variantSchema Not a pure module */

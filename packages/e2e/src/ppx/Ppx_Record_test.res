@@ -303,3 +303,37 @@ test("Record schema with multiple spreads and no own fields", t => {
   )
   t->assertReverseReversesBack(recordWithMultipleSpreadsNoFieldsSchema)
 })
+
+@schema
+type recordWithSpreadAndAliasedField = {
+  ...Meta.t,
+  @as("ms") messages: array<string>,
+}
+test("Record schema with spread and @as-aliased own field", t => {
+  t->Assert.deepEqual(
+    %raw(`{id:"abc",summary:"hi",ms:["a"]}`)->S.parseOrThrow(
+      ~to=recordWithSpreadAndAliasedFieldSchema,
+    ),
+    {id: "abc", summary: Some("hi"), messages: ["a"]},
+  )
+  t->assertReverseReversesBack(recordWithSpreadAndAliasedFieldSchema)
+})
+
+@schema
+type recordWithSpreadAndOptionalField = {
+  ...Meta.t,
+  extra: option<int>,
+}
+test("Record schema with spread and optional own field", t => {
+  t->Assert.deepEqual(
+    %raw(`{id:"abc",summary:"hi",extra:5}`)->S.parseOrThrow(
+      ~to=recordWithSpreadAndOptionalFieldSchema,
+    ),
+    {id: "abc", summary: Some("hi"), extra: Some(5)},
+  )
+  t->Assert.deepEqual(
+    %raw(`{id:"abc"}`)->S.parseOrThrow(~to=recordWithSpreadAndOptionalFieldSchema),
+    {id: "abc", summary: None, extra: None},
+  )
+  t->assertReverseReversesBack(recordWithSpreadAndOptionalFieldSchema)
+})

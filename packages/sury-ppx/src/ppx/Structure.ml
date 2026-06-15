@@ -207,15 +207,19 @@ and generateVariantSchemaExpression constr_decls =
     | [item] -> item
     | _ -> [%expr S.union [%e Exp.array union_items]]
   else
-    (* For variant spreads, extract anyOf items from spread schemas and
-       concatenate with the local items *)
+    (* For variant spreads, extract anyOf items from each spread schema's
+       Union tag and concatenate with the local items. S.t<'value> is a
+       tagged variant (see S.resi), so we can pattern-match the schema
+       directly without S.tagged. *)
     let spread_items_exprs =
       spread_schemas
       |> List.map (fun spread_schema ->
              [%expr
-               match S.tagged (Obj.magic [%e spread_schema]) with
-               | Union {anyOf} -> anyOf
-               | _ -> [| Obj.magic [%e spread_schema] |]])
+               Obj.magic (
+                 match [%e spread_schema] with
+                 | S.Union {anyOf} -> anyOf
+                 | _ -> [| Obj.magic [%e spread_schema] |]
+               )])
     in
     let local_items = Exp.array union_items in
     let all_items =
@@ -290,14 +294,16 @@ and generateRecordSchemaWithSpreads spread_types regular_fields =
     |> List.map (fun spread_schema ->
            [%expr Obj.magic ((S.untag [%e spread_schema]).properties)])
   in
-  (* Use the regular-fields object as the assign target so its keys are
-     overwritten by the spread properties (matching the type-spread semantics
-     where spread types contribute the canonical schema for each field). When
-     there are no regular fields, fall back to a fresh empty object as the
-     target to avoid mutating one of the spread schemas' properties dicts. *)
-  let target_arg =
-    if regular_fields = [] then [%expr Obj.magic [%e raw_str "{}"]]
-    else [%expr Obj.magic [%e fields_obj]]
+  (* Use the regular-fields object as the assign target so spread-property
+     keys get folded into it without mutating the spread schemas' own
+     properties dicts. ReScript's type system already forbids overlapping
+     keys between spread types and explicit fields, so the Object.assign
+     overwrite direction (sources overwrite target) is unobservable here. *)
+  let target_arg, s_pat =
+    if regular_fields = [] then
+      ( [%expr Obj.magic [%e raw_str "{}"]],
+        [%pat? (_s : S.Schema.s)] )
+    else ([%expr Obj.magic [%e fields_obj]], [%pat? (s : S.Schema.s)])
   in
   let all_args = target_arg :: spread_property_args in
   (* Generate `let module M = { @variadic external assign: array<'a> => 'b = "Object.assign" } in
@@ -328,7 +334,7 @@ and generateRecordSchemaWithSpreads spread_types regular_fields =
       S.schema
         [%e
           uncurriedFun ~loc:Location.none ~arity:1
-            [%expr fun (s : S.Schema.s) -> Obj.magic [%e assign_call]]]]
+            (Exp.fun_ Nolabel None s_pat [%expr Obj.magic [%e assign_call]])]]
   in
   Exp.letmodule (mknoloc (Some "M")) helper_module body
 

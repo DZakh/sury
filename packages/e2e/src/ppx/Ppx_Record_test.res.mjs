@@ -208,7 +208,7 @@ Vitest$1.test("Record schema with multiple type spreads", t => {
   U.assertReverseReversesBack(t, recordWithMultipleSpreadsSchema);
 });
 
-let recordWithOnlySpreadSchema = S.schema(s => Object.assign({}, schema.properties));
+let recordWithOnlySpreadSchema = S.schema(_s => Object.assign({}, schema.properties));
 
 Vitest$1.test("Record schema with only a spread (no own fields)", t => {
   Vitest.Assert.deepEqual(t, S.parseOrThrow({id:"abc",summary:"hi"}, recordWithOnlySpreadSchema), {
@@ -222,7 +222,7 @@ Vitest$1.test("Record schema with only a spread (no own fields)", t => {
   U.assertReverseReversesBack(t, recordWithOnlySpreadSchema);
 });
 
-let recordWithMultipleSpreadsNoFieldsSchema = S.schema(s => Object.assign({}, schema.properties, schema$1.properties));
+let recordWithMultipleSpreadsNoFieldsSchema = S.schema(_s => Object.assign({}, schema.properties, schema$1.properties));
 
 Vitest$1.test("Record schema with multiple spreads and no own fields", t => {
   Vitest.Assert.deepEqual(t, S.parseOrThrow({id:"abc",summary:"hi",score:5.0}, recordWithMultipleSpreadsNoFieldsSchema), {
@@ -231,6 +231,37 @@ Vitest$1.test("Record schema with multiple spreads and no own fields", t => {
     score: 5.0
   }, undefined);
   U.assertReverseReversesBack(t, recordWithMultipleSpreadsNoFieldsSchema);
+});
+
+let recordWithSpreadAndAliasedFieldSchema = S.schema(s => Object.assign({
+  ms: s.m(S.array(S.string))
+}, schema.properties));
+
+Vitest$1.test("Record schema with spread and @as-aliased own field", t => {
+  Vitest.Assert.deepEqual(t, S.parseOrThrow({id:"abc",summary:"hi",ms:["a"]}, recordWithSpreadAndAliasedFieldSchema), {
+    id: "abc",
+    summary: "hi",
+    ms: ["a"]
+  }, undefined);
+  U.assertReverseReversesBack(t, recordWithSpreadAndAliasedFieldSchema);
+});
+
+let recordWithSpreadAndOptionalFieldSchema = S.schema(s => Object.assign({
+  extra: s.m(S.option(S.int))
+}, schema.properties));
+
+Vitest$1.test("Record schema with spread and optional own field", t => {
+  Vitest.Assert.deepEqual(t, S.parseOrThrow({id:"abc",summary:"hi",extra:5}, recordWithSpreadAndOptionalFieldSchema), {
+    id: "abc",
+    summary: "hi",
+    extra: 5
+  }, undefined);
+  Vitest.Assert.deepEqual(t, S.parseOrThrow({id:"abc"}, recordWithSpreadAndOptionalFieldSchema), {
+    id: "abc",
+    summary: undefined,
+    extra: undefined
+  }, undefined);
+  U.assertReverseReversesBack(t, recordWithSpreadAndOptionalFieldSchema);
 });
 
 export {
@@ -252,5 +283,7 @@ export {
   recordWithMultipleSpreadsSchema,
   recordWithOnlySpreadSchema,
   recordWithMultipleSpreadsNoFieldsSchema,
+  recordWithSpreadAndAliasedFieldSchema,
+  recordWithSpreadAndOptionalFieldSchema,
 }
 /* strictRecordSchema Not a pure module */

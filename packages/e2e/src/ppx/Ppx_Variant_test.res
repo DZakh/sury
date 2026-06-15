@@ -90,3 +90,20 @@ test("Tagged variant with inlined alias", t => {
     ]),
   )
 })
+
+@schema
+type baseColors = Red | Blue | Green
+
+@schema
+type extendedColors = | ...baseColors | Yellow
+test("Variant with type spread", t => {
+  t->Assert.deepEqual(
+    %raw(`"Red"`)->S.parseOrThrow(~to=extendedColorsSchema),
+    Red,
+  )
+  t->Assert.deepEqual(
+    %raw(`"Yellow"`)->S.parseOrThrow(~to=extendedColorsSchema),
+    Yellow,
+  )
+  t->assertReverseReversesBack(extendedColorsSchema)
+})
