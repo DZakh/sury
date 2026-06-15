@@ -225,7 +225,7 @@ and generateVariantSchemaExpression constr_decls =
     let all_items =
       List.fold_left
         (fun acc spread_expr ->
-          [%expr Array.concat [%e acc] [%e spread_expr]])
+          [%expr Stdlib.Array.concat [%e acc] [%e spread_expr]])
         local_items spread_items_exprs
     in
     [%expr S.union (Obj.magic [%e all_items])]
@@ -305,38 +305,17 @@ and generateRecordSchemaWithSpreads spread_types regular_fields =
         [%pat? (_s : S.Schema.s)] )
     else ([%expr Obj.magic [%e fields_obj]], [%pat? (s : S.Schema.s)])
   in
-  let all_args = target_arg :: spread_property_args in
-  (* Generate `let module M = { @variadic external assign: array<'a> => 'b = "Object.assign" } in
-     M.assign([target, sp1.properties, ...])` so the runtime emits
-     `Object.assign(target, sp1.properties, ...)`. *)
-  let variadic_attr =
-    Attr.mk (mknoloc "variadic") (PStr [])
-  in
-  let assign_primitive =
-    {
-      (Val.mk (mknoloc "assign") [%type: 'a array -> 'b]
-         ~prim:["Object.assign"])
-      with
-      pval_attributes = [variadic_attr];
-    }
-  in
-  let helper_module =
-    Mod.structure [Str.primitive assign_primitive]
-  in
   let assign_call =
-    Exp.apply
-      (Exp.ident
-         (mknoloc (Longident.Ldot (Longident.Lident "M", "assign"))))
-      [(Nolabel, Exp.array all_args)]
-  in
-  let body =
     [%expr
-      S.schema
-        [%e
-          uncurriedFun ~loc:Location.none ~arity:1
-            (Exp.fun_ Nolabel None s_pat [%expr Obj.magic [%e assign_call]])]]
+      Stdlib.Object.assignMany
+        [%e target_arg]
+        [%e Exp.array spread_property_args]]
   in
-  Exp.letmodule (mknoloc (Some "M")) helper_module body
+  [%expr
+    S.schema
+      [%e
+        uncurriedFun ~loc:Location.none ~arity:1
+          (Exp.fun_ Nolabel None s_pat [%expr Obj.magic [%e assign_call]])]]
 
 and generateCoreTypeSchemaExpression core_type =
   let {ptyp_desc; ptyp_loc; ptyp_attributes} = core_type in
