@@ -70,9 +70,6 @@ importers:
       rollup:
         specifier: 3.21.0
         version: 3.21.0
-      ts-expect:
-        specifier: 1.3.0
-        version: 1.3.0
       tsx:
         specifier: 4.22.4
         version: 4.22.4
@@ -1019,9 +1016,6 @@ packages:
     resolution: {integrity: sha512-1m4RA7xVAJrSGrrXGs0L3YTwyvBs2S8PbRHaLZAkFw7JR8oIFwYtysxlBZhYIa7xSyiYJKZ3iGrrk55cGA3i9A==}
     engines: {node: '>=0.6'}
 
-  ts-expect@1.3.0:
-    resolution: {integrity: sha512-e4g0EJtAjk64xgnFPD6kTBUtpnMVzDrMb12N1YZV0VvSlhnVT3SGxiYTLdGy8Q5cYHOIC/FAHmZ10eGrAguicQ==}
-
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
 
@@ -1952,8 +1946,6 @@ snapshots:
   tinyrainbow@3.1.0: {}
 
   treeify@1.1.0: {}
-
-  ts-expect@1.3.0: {}
 
   tslib@2.8.1:
     optional: true
