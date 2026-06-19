@@ -191,6 +191,39 @@ test("Can flatten transformed object schema", t => {
   )
 })
 
+module Timestamp = {
+  type t = Date.t
+
+  let schema = S.string->S.transform(_ => {
+    parser: Date.fromString,
+    serializer: Date.toISOString,
+  })
+}
+
+type itemProperties = {
+  createdAt: Timestamp.t,
+}
+type item = {
+  properties: itemProperties,
+}
+
+test("Can flatten schema with transformed field", t => {
+  let itemPropertiesSchema = S.object(s => {
+    createdAt: s.field("createdAt", Timestamp.schema),
+  })
+  let schema = S.object(s => {
+    properties: s.flatten(itemPropertiesSchema),
+  })
+
+  let result: item = S.decodeOrThrow(
+    ~from=S.jsonString,
+    ~to=schema,
+    `{"createdAt":"2024-07-17T08:42:58.563Z"}`,
+  )
+
+  t->Assert.is(result.properties.createdAt->Date.toISOString, "2024-07-17T08:42:58.563Z")
+})
+
 test("Fails to flatten non-object schema", t => {
   t->Assert.throws(
     () => {

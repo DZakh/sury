@@ -5672,7 +5672,7 @@ module Schema = {
         let flattenedSchema = flattened->Array.getUnsafe(idx)
         let flattenedInput = input->B.Val.scope
         flattenedInput.expected = flattenedSchema
-        flattenedInput.isOutput = Some(false)
+        flattenedInput.isOutput = Some(flattenedSchema.parser !== None)
         let flattenedVal = flattenedInput->parse
         flattenedVals->Array.push(flattenedVal)->ignore
         input.codeFromPrev = input.codeFromPrev ++ flattenedVal->B.merge
