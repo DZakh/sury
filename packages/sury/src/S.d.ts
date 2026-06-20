@@ -303,11 +303,20 @@ export const Error: {
   prototype: Error;
 };
 
-export type Output<T> = T extends Schema<infer Output, unknown>
+// Extract Output/Input by matching only the `~standard` marker instead of the
+// full `Schema<…>` shape (whose 14-member union + `with` overloads are costly to
+// instantiate per match). `types` is optional, so the pattern keeps it optional.
+export type Output<T> = T extends {
+  readonly ["~standard"]: { readonly types?: { readonly output: infer Output } };
+}
   ? Output
   : never;
 export type Infer<T> = Output<T>;
-export type Input<T> = T extends Schema<unknown, infer Input> ? Input : never;
+export type Input<T> = T extends {
+  readonly ["~standard"]: { readonly types?: { readonly input: infer Input } };
+}
+  ? Input
+  : never;
 
 // Utility types for decoder function with multiple schemas
 type ExtractFirstInput<T extends readonly Schema<any, any>[]> =
@@ -342,17 +351,7 @@ export type UnknownToOutput<T> = T extends Schema<infer Output, unknown>
   : T extends unknown[]
   ? { [K in keyof T]: UnknownToOutput<T[K]> }
   : T extends { [k in keyof T]: unknown }
-  ? Flatten<
-      {
-        [k in keyof T as HasUndefined<UnknownToOutput<T[k]>> extends true
-          ? k
-          : never]?: UnknownToOutput<T[k]>;
-      } & {
-        [k in keyof T as HasUndefined<UnknownToOutput<T[k]>> extends true
-          ? never
-          : k]: UnknownToOutput<T[k]>;
-      }
-    >
+  ? ResolveObject<{ [K in keyof T]: UnknownToOutput<T[K]> }>
   : T;
 
 export type UnknownToInput<T> = T extends Schema<unknown, infer Input>
@@ -362,17 +361,7 @@ export type UnknownToInput<T> = T extends Schema<unknown, infer Input>
   : T extends unknown[]
   ? { [K in keyof T]: UnknownToInput<T[K]> }
   : T extends { [k in keyof T]: unknown }
-  ? Flatten<
-      {
-        [k in keyof T as HasUndefined<UnknownToInput<T[k]>> extends true
-          ? k
-          : never]?: UnknownToInput<T[k]>;
-      } & {
-        [k in keyof T as HasUndefined<UnknownToInput<T[k]>> extends true
-          ? never
-          : k]: UnknownToInput<T[k]>;
-      }
-    >
+  ? ResolveObject<{ [K in keyof T]: UnknownToInput<T[K]> }>
   : T;
 
 export type Brand<T, ID extends string> = T & {
@@ -388,18 +377,21 @@ export function brand<ID extends string, Output = unknown, Input = unknown>(
   brandId: ID
 ): Schema<Brand<Output, ID>, Input>;
 
-// Grok told that it makes things faster
-// TODO: Verify it with ArkType test framework
-type HasUndefined<T> = [T] extends [undefined]
-  ? true
-  : undefined extends T
-  ? true
-  : false;
+// `R` already holds each field's resolved type. A field is optional iff its type
+// admits `undefined`, so an `S.never` field stays required. The split is skipped
+// when no field is optional.
+type ResolveObject<R> = undefined extends R[keyof R]
+  ? Flatten<
+      {
+        [K in keyof R as undefined extends R[K] ? K : never]?: R[K];
+      } & {
+        [K in keyof R as undefined extends R[K] ? never : K]: R[K];
+      }
+    >
+  : Flatten<R>;
 
-// Utility to flatten the type into a single object
-type Flatten<T> = T extends object
-  ? { [K in keyof T as T[K] extends never ? never : K]: T[K] }
-  : T;
+// Flatten an intersection into one object, keeping values verbatim (incl. `never`).
+type Flatten<T> = T extends object ? { [K in keyof T]: T[K] } : T;
 
 type UnknownArrayToOutput<
   T extends unknown[],

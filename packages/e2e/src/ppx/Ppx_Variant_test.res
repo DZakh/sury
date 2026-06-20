@@ -90,3 +90,37 @@ test("Tagged variant with inlined alias", t => {
     ]),
   )
 })
+
+@schema
+type baseColors = Red | Blue | Green
+
+@schema
+type extendedColors = | ...baseColors | Yellow
+test("Variant with type spread", t => {
+  t->Assert.deepEqual(
+    %raw(`"Red"`)->S.parseOrThrow(~to=extendedColorsSchema),
+    Red,
+  )
+  t->Assert.deepEqual(
+    %raw(`"Yellow"`)->S.parseOrThrow(~to=extendedColorsSchema),
+    Yellow,
+  )
+  t->assertReverseReversesBack(extendedColorsSchema)
+})
+
+@schema
+type singleCase = Only
+
+@schema
+type extendedFromSingleCase = | ...singleCase | Another
+test("Variant spread of a single-case (literal) schema", t => {
+  t->Assert.deepEqual(
+    %raw(`"Only"`)->S.parseOrThrow(~to=extendedFromSingleCaseSchema),
+    Only,
+  )
+  t->Assert.deepEqual(
+    %raw(`"Another"`)->S.parseOrThrow(~to=extendedFromSingleCaseSchema),
+    Another,
+  )
+  t->assertReverseReversesBack(extendedFromSingleCaseSchema)
+})
