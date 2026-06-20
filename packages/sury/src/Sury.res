@@ -4232,6 +4232,11 @@ module Union = {
                 // value through instead of re-emitting the check.
                 narrow.const = schema.const
               }
+              // The branch must be per-invocation, not hoisted to construction:
+              // this same narrow is re-decoded during `.to` per-variant
+              // conversion, sometimes with the union's `unknown` input (emit the
+              // discriminant) and sometimes with a concrete coerced value
+              // (delegate to the member's own decoder).
               narrow.decoder = (~input) =>
                 if input.schema.tag->TagFlag.get->Flag.unsafeHas(TagFlag.unknown) {
                   input->B.refine(
