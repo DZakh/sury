@@ -855,7 +855,7 @@ type Schema = S.Infer<typeof schema>; // "Win" | "Draw" | "Loss"
 
 ### Decoding into / out of a union
 
-When you compile `source -> targetUnion` (via `S.to`, or implicitly by reversing the schema), Sury picks the target variant using a three-tier algorithm based on the source's **derived tag** — the tag known at compile time, which may be narrower than the original type (an upstream transformation can refine it). If the source is itself a union, each variant is resolved on its own (two variants can even land on the same target). The target doesn't have to be a union either — a single schema works the same way.
+Converting between unions (via `S.to`, or implicitly by reversing the schema) maps each **source** case to one **target** case. Same-type matches win and are exclusive — e.g. for a `string` source and a `string | number` target, `string` binds `string`, never coerced to `number`, and that `string` target is now spoken for. Source cases left without a same-type match are resolved against the targets that are still free: a `null` or `undefined` source bridges to the opposite nullish target (`null` ↔ `undefined`) when one is present, otherwise Sury falls back to coercing across types. If no target is left for a source case, the conversion errors.
 
 If the source is `unknown` (no derived tag), the tag-based tiers are skipped and target variants are simply attempted in target-union order at runtime.
 
