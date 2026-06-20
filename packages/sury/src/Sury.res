@@ -1921,12 +1921,25 @@ let int32FormatValidation = (~inputVar) => {
   `${inputVar}<=2147483647&&${inputVar}>=-2147483648&&${inputVar}%1===0`
 }
 
+// Atomic type-narrow conditions — the single source of truth for the type-check
+// strings, shared by the type decoders below and the union dispatch
+// (`typeCheckCond`) so the two can't drift. Each call site composes these
+// (adding its own validation, e.g. int32 or the object `!isArray` guard) instead
+// of re-spelling the strings.
+let typeofCond = (tag: tag, ~inputVar) => `typeof ${inputVar}==="${(tag :> string)}"`
+let nonNaNCond = (~inputVar) => `!Number.isNaN(${inputVar})`
+let nanCond = (~inputVar) => `Number.isNaN(${inputVar})`
+let isArrayCond = (~inputVar) => `Array.isArray(${inputVar})`
+let nonArrayCond = (~inputVar) => `!Array.isArray(${inputVar})`
+let objectTagCond = (~inputVar) => `${typeofCond(objectTag, ~inputVar)}&&${inputVar}`
+let instanceofCond = (b: val, class, ~inputVar) => `${inputVar} instanceof ${b->B.embed(class)}`
+
 let numberDecoder = Builder.make((~input) => {
   let inputTagFlag = input.schema.tag->TagFlag.get
   if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
     let checks = [
       {
-        cond: (~inputVar) => `typeof ${inputVar}==="${(numberTag :> string)}"`,
+        cond: (~inputVar) => typeofCond(numberTag, ~inputVar),
         fail: B.failInvalidType,
       },
     ]
@@ -1942,7 +1955,7 @@ let numberDecoder = Builder.make((~input) => {
       if !(input.global.flag->Flag.unsafeHas(Flag.disableNanNumberValidation)) {
         checks
         ->Array.push({
-          cond: (~inputVar) => `!Number.isNaN(${inputVar})`,
+          cond: (~inputVar) => nonNaNCond(~inputVar),
           fail: B.failInvalidType,
         })
         ->ignore
@@ -1968,7 +1981,7 @@ let numberDecoder = Builder.make((~input) => {
         cond: (~inputVar as _) =>
           switch input.expected.format {
           | Some(Int32) => int32FormatValidation(~inputVar=outputVar)
-          | _ => `!Number.isNaN(${outputVar})`
+          | _ => nonNaNCond(~inputVar=outputVar)
           },
         fail: B.failInvalidType,
       },
@@ -2012,7 +2025,7 @@ and stringDecoderFn = (~input) => {
       ~schema=input.expected,
       ~checks=[
         {
-          cond: (~inputVar) => `typeof ${inputVar}==="${(stringTag :> string)}"`,
+          cond: (~inputVar) => typeofCond(stringTag, ~inputVar),
           fail: B.failInvalidType,
         },
       ],
@@ -2056,7 +2069,7 @@ let booleanDecoder = Builder.make((~input) => {
       ~schema=input.expected,
       ~checks=[
         {
-          cond: (~inputVar) => `typeof ${inputVar}==="${(booleanTag :> string)}"`,
+          cond: (~inputVar) => typeofCond(booleanTag, ~inputVar),
           fail: B.failInvalidType,
         },
       ],
@@ -2093,7 +2106,7 @@ let bigintDecoder = Builder.make((~input) => {
       ~schema=input.expected,
       ~checks=[
         {
-          cond: (~inputVar) => `typeof ${inputVar}==="${(bigintTag :> string)}"`,
+          cond: (~inputVar) => typeofCond(bigintTag, ~inputVar),
           fail: B.failInvalidType,
         },
       ],
@@ -2129,7 +2142,7 @@ let symbolDecoder = Builder.make((~input) => {
       ~schema=input.expected,
       ~checks=[
         {
-          cond: (~inputVar) => `typeof ${inputVar}==="${(symbolTag :> string)}"`,
+          cond: (~inputVar) => typeofCond(symbolTag, ~inputVar),
           fail: B.failInvalidType,
         },
       ],
@@ -2201,7 +2214,7 @@ let literalDecoder = Builder.make((~input) => {
         ~schema=expectedSchema,
         ~checks=[
           {
-            cond: (~inputVar) => `Number.isNaN(${inputVar})`,
+            cond: (~inputVar) => nanCond(~inputVar),
             fail: B.failInvalidType,
           },
         ],
@@ -2757,7 +2770,7 @@ and arrayDecoder: builder = (~input as unknownInput) => {
     if !isArrayInput {
       checks
       ->Array.push({
-        cond: (~inputVar) => `Array.isArray(${inputVar})`,
+        cond: (~inputVar) => isArrayCond(~inputVar),
         fail: B.failInvalidType,
       })
       ->ignore
@@ -2907,7 +2920,7 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
     if !isObjectInput {
       checks
       ->Array.push({
-        cond: (~inputVar) => `typeof ${inputVar}==="${(objectTag :> string)}"&&${inputVar}`,
+        cond: (~inputVar) => objectTagCond(~inputVar),
         fail: B.failInvalidType,
       })
       ->ignore
@@ -2917,7 +2930,7 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
         // this is why the check is a must have
         checks
         ->Array.push({
-          cond: (~inputVar) => `!Array.isArray(${inputVar})`,
+          cond: (~inputVar) => nonArrayCond(~inputVar),
           fail: B.failInvalidType,
         })
         ->ignore
@@ -3210,7 +3223,7 @@ let instanceDecoder = Builder.make((~input) => {
       ~schema=input.expected,
       ~checks=[
         {
-          cond: (~inputVar) => `${inputVar} instanceof ${input->B.embed(input.expected.class)}`,
+          cond: (~inputVar) => instanceofCond(input, input.expected.class, ~inputVar),
           fail: B.failInvalidType,
         },
       ],
@@ -3707,36 +3720,31 @@ module Union = {
     }
   })
 
-  // The type-narrow condition for a union variant, emitted directly from the tag
-  // instead of by referencing a per-type factory — that's what lets unused type
-  // decoders tree-shake (see the narrow construction below).
-  //
-  // INVARIANT: each branch must stay identical to what the matching type decoder
-  // emits (numberDecoder, stringDecoderFn, instanceDecoder, objectDecoder, …), or
-  // the union dispatch silently diverges from the per-variant decode. The
-  // "Union type-narrow stays in sync with each schema's own decoder" test in
-  // S_union_test.res guards this.
+  // The type-narrow condition for a union variant, composed from the same atomic
+  // checks the type decoders use (`typeofCond`/`instanceofCond`/`isArrayCond`/…).
+  // That shared source keeps the union dispatch and the per-variant decode from
+  // drifting, while still avoiding any reference to a per-type factory — so
+  // unused type decoders tree-shake (see the narrow construction below).
   let typeCheckCond = (input: val, schema: internal, ~inputVar): string => {
     let tagFlag = schema.tag->TagFlag.get
     if tagFlag->Flag.unsafeHas(TagFlag.object) {
-      `typeof ${inputVar}==="${(objectTag :> string)}"&&${inputVar}&&!Array.isArray(${inputVar})`
+      `${objectTagCond(~inputVar)}&&${nonArrayCond(~inputVar)}`
     } else if tagFlag->Flag.unsafeHas(TagFlag.array) {
-      `Array.isArray(${inputVar})`
+      isArrayCond(~inputVar)
     } else if tagFlag->Flag.unsafeHas(TagFlag.instance) {
-      `${inputVar} instanceof ${input->B.embed(schema.class)}`
+      instanceofCond(input, schema.class, ~inputVar)
     } else if tagFlag->Flag.unsafeHas(TagFlag.number) {
-      let typeofCheck = `typeof ${inputVar}==="${(numberTag :> string)}"`
+      let typeofCheck = typeofCond(numberTag, ~inputVar)
       if input.global.flag->Flag.unsafeHas(Flag.disableNanNumberValidation) {
         typeofCheck
       } else {
-        `${typeofCheck}&&!Number.isNaN(${inputVar})`
+        `${typeofCheck}&&${nonNaNCond(~inputVar)}`
       }
     } else if tagFlag->Flag.unsafeHas(TagFlag.nan) {
-      `Number.isNaN(${inputVar})`
-    } else if tagFlag->Flag.unsafeHas(TagFlag.undefined) {
-      `${inputVar}===void 0`
-    } else if tagFlag->Flag.unsafeHas(TagFlag.null) {
-      `${inputVar}===${(schema.tag :> string)}`
+      nanCond(~inputVar)
+    } else if tagFlag->Flag.unsafeHas(TagFlag.undefined->Flag.with(TagFlag.null)) {
+      // null/undefined reuse literalDecoder's inline-const form (=== null / void 0)
+      `${inputVar}===${input->B.inlineConst(schema)}`
     } else if (
       tagFlag->Flag.unsafeHas(
         TagFlag.string
@@ -3747,7 +3755,7 @@ module Union = {
     ) {
       // string / boolean / bigint / symbol (and their literals — the per-const
       // check stays in the case body)
-      `typeof ${inputVar}==="${(schema.tag :> string)}"`
+      typeofCond(schema.tag, ~inputVar)
     } else {
       // Unreachable: catch-all tags (unknown/union/ref/function/never) use the
       // `unknown` narrow and never reach `typeCheckCond`.

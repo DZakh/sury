@@ -1017,11 +1017,39 @@ function int32FormatValidation(inputVar) {
   return inputVar + `<=2147483647&&` + inputVar + `>=-2147483648&&` + inputVar + `%1===0`;
 }
 
+function typeofCond(tag, inputVar) {
+  return `typeof ` + inputVar + `==="` + tag + `"`;
+}
+
+function nonNaNCond(inputVar) {
+  return `!Number.isNaN(` + inputVar + `)`;
+}
+
+function nanCond(inputVar) {
+  return `Number.isNaN(` + inputVar + `)`;
+}
+
+function isArrayCond(inputVar) {
+  return `Array.isArray(` + inputVar + `)`;
+}
+
+function nonArrayCond(inputVar) {
+  return `!Array.isArray(` + inputVar + `)`;
+}
+
+function objectTagCond(inputVar) {
+  return typeofCond(objectTag, inputVar) + `&&` + inputVar;
+}
+
+function instanceofCond(b, $$class, inputVar) {
+  return inputVar + ` instanceof ` + embed(b, $$class);
+}
+
 function numberDecoder(input) {
   let inputTagFlag = flags[input.s.type];
   if (inputTagFlag & 1) {
     let checks = [{
-        c: inputVar => `typeof ` + inputVar + `==="` + numberTag + `"`,
+        c: inputVar => typeofCond(numberTag, inputVar),
         f: failInvalidType
       }];
     let match = input.e.format;
@@ -1037,7 +1065,7 @@ function numberDecoder(input) {
     if (exit === 1) {
       if (!(input.g.o & 2)) {
         checks.push({
-          c: inputVar => `!Number.isNaN(` + inputVar + `)`,
+          c: nonNaNCond,
           f: failInvalidType
         });
       }
@@ -1065,14 +1093,10 @@ function numberDecoder(input) {
   output.vc = [{
       c: param => {
         let match = input.e.format;
-        if (match !== undefined) {
-          if (match === "int32") {
-            return int32FormatValidation(outputVar);
-          } else {
-            return `!Number.isNaN(` + outputVar + `)`;
-          }
+        if (match === "int32") {
+          return int32FormatValidation(outputVar);
         } else {
-          return `!Number.isNaN(` + outputVar + `)`;
+          return nonNaNCond(outputVar);
         }
       },
       f: failInvalidType
@@ -1101,7 +1125,7 @@ function stringDecoderFn(input) {
   let inputTagFlag = flags[input.s.type];
   if (inputTagFlag & 1) {
     return refine(input, input.e, [{
-        c: inputVar => `typeof ` + inputVar + `==="` + stringTag + `"`,
+        c: inputVar => typeofCond(stringTag, inputVar),
         f: failInvalidType
       }], undefined);
   }
@@ -1130,7 +1154,7 @@ function booleanDecoder(input) {
   let inputTagFlag = flags[input.s.type];
   if (inputTagFlag & 1) {
     return refine(input, input.e, [{
-        c: inputVar => `typeof ` + inputVar + `==="` + booleanTag + `"`,
+        c: inputVar => typeofCond(booleanTag, inputVar),
         f: failInvalidType
       }], undefined);
   }
@@ -1160,7 +1184,7 @@ function bigintDecoder(input) {
   let inputTagFlag = flags[input.s.type];
   if (inputTagFlag & 1) {
     return refine(input, input.e, [{
-        c: inputVar => `typeof ` + inputVar + `==="` + bigintTag + `"`,
+        c: inputVar => typeofCond(bigintTag, inputVar),
         f: failInvalidType
       }], undefined);
   }
@@ -1191,7 +1215,7 @@ function symbolDecoder(input) {
   let inputTagFlag = flags[input.s.type];
   if (inputTagFlag & 1) {
     return refine(input, input.e, [{
-        c: inputVar => `typeof ` + inputVar + `==="` + symbolTag + `"`,
+        c: inputVar => typeofCond(symbolTag, inputVar),
         f: failInvalidType
       }], undefined);
   } else if (inputTagFlag & 16384) {
@@ -1229,7 +1253,7 @@ function literalDecoder(input) {
   if (!(flags[input.s.type] & 2 && schemaTagFlag & 3132)) {
     if (schemaTagFlag & 2048) {
       return refine(input, expectedSchema, [{
-          c: inputVar => `Number.isNaN(` + inputVar + `)`,
+          c: nanCond,
           f: failInvalidType
         }], undefined);
     } else {
@@ -1642,7 +1666,7 @@ function arrayDecoder(unknownInput) {
     let checks = [];
     if (!isArrayInput) {
       checks.push({
-        c: inputVar => `Array.isArray(` + inputVar + `)`,
+        c: isArrayCond,
         f: failInvalidType
       });
     }
@@ -1754,12 +1778,12 @@ function objectDecoder(unknownInput) {
     let checks = [];
     if (!isObjectInput) {
       checks.push({
-        c: inputVar => `typeof ` + inputVar + `==="` + objectTag + `"&&` + inputVar,
+        c: objectTagCond,
         f: failInvalidType
       });
       if (expectedSchema.additionalItems !== "strip") {
         checks.push({
-          c: inputVar => `!Array.isArray(` + inputVar + `)`,
+          c: nonArrayCond,
           f: failInvalidType
         });
       }
@@ -1958,7 +1982,7 @@ function instanceDecoder(input) {
   let inputTagFlag = flags[input.s.type];
   if (inputTagFlag & 1) {
     return refine(input, input.e, [{
-        c: inputVar => inputVar + ` instanceof ` + embed(input, input.e.class),
+        c: inputVar => instanceofCond(input, input.e.class, inputVar),
         f: failInvalidType
       }], undefined);
   } else if (inputTagFlag & 8192 && input.s.class === input.e.class) {
@@ -2681,33 +2705,30 @@ function unionDecoder(input) {
                   c: inputVar => {
                     let tagFlag = flags[schema$1.type];
                     if (tagFlag & 64) {
-                      return `typeof ` + inputVar + `==="` + objectTag + `"&&` + inputVar + `&&!Array.isArray(` + inputVar + `)`;
+                      return objectTagCond(inputVar) + `&&` + nonArrayCond(inputVar);
                     }
                     if (tagFlag & 128) {
-                      return `Array.isArray(` + inputVar + `)`;
+                      return isArrayCond(inputVar);
                     }
                     if (tagFlag & 8192) {
-                      return inputVar + ` instanceof ` + embed(input, schema$1.class);
+                      return instanceofCond(input, schema$1.class, inputVar);
                     }
                     if (tagFlag & 4) {
-                      let typeofCheck = `typeof ` + inputVar + `==="` + numberTag + `"`;
+                      let typeofCheck = typeofCond(numberTag, inputVar);
                       if (input.g.o & 2) {
                         return typeofCheck;
                       } else {
-                        return typeofCheck + `&&!Number.isNaN(` + inputVar + `)`;
+                        return typeofCheck + `&&` + nonNaNCond(inputVar);
                       }
                     }
                     if (tagFlag & 2048) {
-                      return `Number.isNaN(` + inputVar + `)`;
+                      return nanCond(inputVar);
                     }
-                    if (tagFlag & 16) {
-                      return inputVar + `===void 0`;
-                    }
-                    if (tagFlag & 32) {
-                      return inputVar + `===` + schema$1.type;
+                    if (tagFlag & 48) {
+                      return inputVar + `===` + inlineConst(input, schema$1);
                     }
                     if (tagFlag & 17418) {
-                      return `typeof ` + inputVar + `==="` + schema$1.type + `"`;
+                      return typeofCond(schema$1.type, inputVar);
                     }
                     throw new Error(`[Sury] Unexpected union variant tag: ` + schema$1.type);
                   },
@@ -3627,43 +3648,46 @@ function proxifyShapedSchema(schema, from, fromFlattened) {
   });
 }
 
-function getShapedParserOutput(input, targetSchema) {
-  let from = targetSchema.from;
-  let fromFlattened = targetSchema.fromFlattened;
-  let v;
-  if (fromFlattened !== undefined) {
-    v = scope(getValByFrom(input.fv[fromFlattened], targetSchema.from, 0));
-  } else if (from !== undefined) {
-    v = scope(getValByFrom(input, from, 0));
-  } else if (constField in targetSchema) {
-    v = nextConst(input, targetSchema, undefined);
-  } else {
-    let output = makeObjectVal(input, targetSchema);
-    output.io = true;
-    let items = targetSchema.items;
-    if (items !== undefined) {
-      for (let idx = 0, idx_finish = items.length; idx < idx_finish; ++idx) {
-        let location = idx.toString();
-        add(output, location, getShapedParserOutput(input, items[idx]));
-      }
-    } else {
-      let properties = targetSchema.properties;
-      if (properties !== undefined) {
-        let keys = Object.keys(properties);
-        for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
-          let location$1 = keys[idx$1];
-          add(output, location$1, getShapedParserOutput(input, properties[location$1]));
-        }
-      } else {
-        let message = `Don't know where the value is coming from: ` + toExpression(targetSchema);
-        throw new Error(`[Sury] ` + message);
-      }
-    }
-    v = completeObjectVal(output);
+function traverseDefinition(definition, onNode) {
+  if (typeof definition !== objectTag || definition === null) {
+    return parse(definition);
   }
-  v.prev = undefined;
-  v.e = targetSchema;
-  return v;
+  let s = onNode(definition);
+  if (s !== undefined) {
+    return s;
+  }
+  if (Array.isArray(definition)) {
+    for (let idx = 0, idx_finish = definition.length; idx < idx_finish; ++idx) {
+      let schema = traverseDefinition(definition[idx], onNode);
+      definition[idx] = schema;
+    }
+    let mut = base(arrayTag, false);
+    mut.items = definition;
+    mut.additionalItems = "strict";
+    mut.decoder = arrayDecoder;
+    return mut;
+  }
+  let cnstr = definition.constructor;
+  if (cnstr && cnstr !== Object) {
+    let mut$1 = base(instanceTag, true);
+    mut$1.class = cnstr;
+    mut$1.const = definition;
+    mut$1.decoder = literalDecoder;
+    return mut$1;
+  }
+  let fieldNames = Object.keys(definition);
+  let length = fieldNames.length;
+  for (let idx$1 = 0; idx$1 < length; ++idx$1) {
+    let location = fieldNames[idx$1];
+    let schema$1 = traverseDefinition(definition[location], onNode);
+    definition[location] = schema$1;
+  }
+  let mut$2 = base(objectTag, false);
+  mut$2.required = fieldNames;
+  mut$2.properties = definition;
+  mut$2.additionalItems = globalConfig.a;
+  mut$2.decoder = objectDecoder;
+  return mut$2;
 }
 
 function prepareShapedSerializerAcc(acc, input) {
@@ -3819,6 +3843,45 @@ function getShapedSerializerOutput(input, acc, targetSchema, path) {
   }
 }
 
+function getShapedParserOutput(input, targetSchema) {
+  let from = targetSchema.from;
+  let fromFlattened = targetSchema.fromFlattened;
+  let v;
+  if (fromFlattened !== undefined) {
+    v = scope(getValByFrom(input.fv[fromFlattened], targetSchema.from, 0));
+  } else if (from !== undefined) {
+    v = scope(getValByFrom(input, from, 0));
+  } else if (constField in targetSchema) {
+    v = nextConst(input, targetSchema, undefined);
+  } else {
+    let output = makeObjectVal(input, targetSchema);
+    output.io = true;
+    let items = targetSchema.items;
+    if (items !== undefined) {
+      for (let idx = 0, idx_finish = items.length; idx < idx_finish; ++idx) {
+        let location = idx.toString();
+        add(output, location, getShapedParserOutput(input, items[idx]));
+      }
+    } else {
+      let properties = targetSchema.properties;
+      if (properties !== undefined) {
+        let keys = Object.keys(properties);
+        for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
+          let location$1 = keys[idx$1];
+          add(output, location$1, getShapedParserOutput(input, properties[location$1]));
+        }
+      } else {
+        let message = `Don't know where the value is coming from: ` + toExpression(targetSchema);
+        throw new Error(`[Sury] ` + message);
+      }
+    }
+    v = completeObjectVal(output);
+  }
+  v.prev = undefined;
+  v.e = targetSchema;
+  return v;
+}
+
 function getValByFrom(_input, from, _idx) {
   while (true) {
     let idx = _idx;
@@ -3833,56 +3896,12 @@ function getValByFrom(_input, from, _idx) {
   };
 }
 
-function traverseDefinition(definition, onNode) {
-  if (typeof definition !== objectTag || definition === null) {
-    return parse(definition);
-  }
-  let s = onNode(definition);
-  if (s !== undefined) {
-    return s;
-  }
-  if (Array.isArray(definition)) {
-    for (let idx = 0, idx_finish = definition.length; idx < idx_finish; ++idx) {
-      let schema = traverseDefinition(definition[idx], onNode);
-      definition[idx] = schema;
+function definitionToSchema(definition) {
+  return traverseDefinition(definition, node => {
+    if (node["~standard"]) {
+      return node;
     }
-    let mut = base(arrayTag, false);
-    mut.items = definition;
-    mut.additionalItems = "strict";
-    mut.decoder = arrayDecoder;
-    return mut;
-  }
-  let cnstr = definition.constructor;
-  if (cnstr && cnstr !== Object) {
-    let mut$1 = base(instanceTag, true);
-    mut$1.class = cnstr;
-    mut$1.const = definition;
-    mut$1.decoder = literalDecoder;
-    return mut$1;
-  }
-  let fieldNames = Object.keys(definition);
-  let length = fieldNames.length;
-  for (let idx$1 = 0; idx$1 < length; ++idx$1) {
-    let location = fieldNames[idx$1];
-    let schema$1 = traverseDefinition(definition[location], onNode);
-    definition[location] = schema$1;
-  }
-  let mut$2 = base(objectTag, false);
-  mut$2.required = fieldNames;
-  mut$2.properties = definition;
-  mut$2.additionalItems = globalConfig.a;
-  mut$2.decoder = objectDecoder;
-  return mut$2;
-}
-
-function shapedSerializer(input) {
-  let acc = {};
-  prepareShapedSerializerAcc(acc, input);
-  let targetSchema = input.e.to;
-  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
-  output.t = true;
-  output.prev = input;
-  return output;
+  });
 }
 
 function nested(fieldName) {
@@ -3951,18 +3970,14 @@ function nested(fieldName) {
   return ctx$1;
 }
 
-function definitionToSchema(definition) {
-  return traverseDefinition(definition, node => {
-    if (node["~standard"]) {
-      return node;
-    }
-  });
-}
-
-function definitionToShapedSchema(definition) {
-  let s = copySchema(traverseDefinition(definition, toEmbededItem));
-  s.serializer = shapedSerializer;
-  return s;
+function shapedSerializer(input) {
+  let acc = {};
+  prepareShapedSerializerAcc(acc, input);
+  let targetSchema = input.e.to;
+  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
+  output.t = true;
+  output.prev = input;
+  return output;
 }
 
 function shapedParser(input) {
@@ -3985,6 +4000,12 @@ function shapedParser(input) {
   output.t = true;
   output.prev = input;
   return markOutput(output, input);
+}
+
+function definitionToShapedSchema(definition) {
+  let s = copySchema(traverseDefinition(definition, toEmbededItem));
+  s.serializer = shapedSerializer;
+  return s;
 }
 
 function shape(schema, definer) {
