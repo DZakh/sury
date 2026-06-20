@@ -923,7 +923,9 @@ function get(parent, location) {
     schema = locationSchema;
   } else {
     let s = parent.s.additionalItems;
-    schema = s === "strip" || s === "strict" ? unsupportedDecode(parent, parent.s, parent.e) : s;
+    schema = s === "strip" || s === "strict" ? unsupportedDecode(parent, parent.s, parent.e) : (
+        parent.s.type === objectTag && s.type !== unknownTag && !(flags[s.type] & 512) && !isOptional(s) ? optionForwardRef.contents(s) : s
+      );
   }
   let inlinedLocation = inlineLocation(parent.g, location);
   let pathAppend = `[` + inlinedLocation + `]`;
@@ -1347,6 +1349,18 @@ function parse$1(input) {
   return valRef;
 }
 
+function getOutputSchema(_schema) {
+  while (true) {
+    let schema = _schema;
+    let to = schema.to;
+    if (to === undefined) {
+      return schema;
+    }
+    _schema = to;
+    continue;
+  };
+}
+
 function reverse(schema) {
   if (reversedKey in schema) {
     return schema[reversedKey];
@@ -1446,18 +1460,6 @@ function reverse(schema) {
   valueOptions[valKey] = schema;
   d(r, reversedKey, valueOptions);
   return r;
-}
-
-function getOutputSchema(_schema) {
-  while (true) {
-    let schema = _schema;
-    let to = schema.to;
-    if (to === undefined) {
-      return schema;
-    }
-    _schema = to;
-    continue;
-  };
 }
 
 function parseDynamic(input) {
@@ -1836,14 +1838,6 @@ function objectDecoder(unknownInput) {
       itemInput$1.u = isUnion;
       if (isJsonParent && schema$1.type === unionTag && schema$1.has[undefinedTag]) {
         itemInput$1.i = `(` + itemInput$1.i + `??null)`;
-      }
-      if (!isJsonParent) {
-        let vs = input.s.additionalItems;
-        if (vs === "strip" || vs === "strict") {
-          vs === "strip";
-        } else if (vs === itemInput$1.s && itemInput$1.s.type !== unknownTag && !isOptional(itemInput$1.s)) {
-          itemInput$1.s = optionForwardRef.contents(itemInput$1.s);
-        }
       }
       let itemOutput$1 = parse$1(itemInput$1);
       if (isUnion && constField in schema$1) {

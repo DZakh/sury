@@ -12,10 +12,9 @@ open Vitest
 //
 // Milestone 1 is implemented via "Option A": a `dict<V>` is
 // `additionalProperties: V` with no required keys, so a value read by key may be
-// absent. `B.Val.get` reads each additionalProperties value, and objectDecoder
-// now models that read as optional (`option<V>`) when `V` is a concrete type
-// that can't itself be undefined. The existing union coercion then handles a
-// missing key uniformly:
+// absent. `B.Val.get` reads each additionalProperties value and models that read
+// as optional (`option<V>`) when `V` is a concrete type that can't itself be
+// undefined. The existing union coercion then handles a missing key uniformly:
 //   - optional target field  -> absence decodes to None
 //   - required `string` field -> absence stringifies to "undefined" (the
 //     reversibility-locked None <-> "undefined" sentinel; tightening this is a
