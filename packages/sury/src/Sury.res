@@ -1084,6 +1084,12 @@ module Error = {
   external classify: error => errorDetails = "%identity"
 }
 
+// Forward reference to `option` (defined far below, after the Union/Option
+// modules). `objectDecoder` uses it to model dict additionalProperties reads as
+// optional. Assigned once, right after `option` is defined; the placeholder is
+// never invoked because decoders are only built lazily after module load.
+let optionForwardRef: ref<internal => internal> = ref(s => s)
+
 module Builder = {
   type t = builder
 
@@ -3036,6 +3042,28 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
         ) {
           itemInput.inline = `(${itemInput.inline}??null)`
         }
+
+        // Option A: a `dict<V>` is `additionalProperties: V` with no required
+        // keys, so a value read from a dict source may be absent. When this
+        // field was read from the dict's additionalItems (its schema IS the
+        // additionalItems value type — not a declared property, nor a
+        // flattened/cached val whose schema differs) and `V` is a concrete type
+        // that can't itself be undefined, model the read as optional. The
+        // existing union coercion then handles a missing key uniformly: an
+        // optional target field decodes absence to None. `unknown` additionalItems
+        // (open objects / flatten rest) are excluded — they already admit
+        // undefined and aren't a `dict<V>` coercion. (`option` via `optionForwardRef`.)
+        if !isJsonParent {
+          switch input.schema.additionalItems->X.Option.getUnsafe {
+          | Schema(vs)
+            if vs->castToInternal === itemInput.schema &&
+            itemInput.schema.tag !== unknownTag &&
+            !(itemInput.schema->isOptional) =>
+            itemInput.schema = optionForwardRef.contents(itemInput.schema)
+          | _ => ()
+          }
+        }
+
         let itemOutput = itemInput->parse
 
         if isUnion && schema->isLiteral {
@@ -6455,6 +6483,8 @@ let object = Schema.object
 let nullAsOption = item => Option.factory(item, ~unit=nullAsUnit()->castToPublic)
 let null = item => Union.factory([item->castToUnknown, nullLiteral()->castToPublic])
 let option = item => item->Option.factory(~unit=unit()->castToPublic)
+// Wire up the forward reference used by `objectDecoder` (see `optionForwardRef`).
+optionForwardRef := (s => s->castToPublic->option->castToInternal)
 let array = array
 let dict = DictSchema.factory
 let shape = Schema.shape
