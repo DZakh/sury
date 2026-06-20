@@ -647,7 +647,7 @@ and val = {
   // materializes a value afterwards (via a cached bond) can no longer hoist a
   // declaration onto it and must re-read the value inline instead.
   @as("fz")
-  mutable finalized: bool,
+  mutable finalized?: bool,
   // Invariant: absent iff no checks. Never stored as `Some([])` so callers
   // can test presence with `->unsafeToBool` instead of length.
   @as("vc")
@@ -1196,7 +1196,7 @@ module Builder = {
       // hoisting `parent[key]` onto them could read it before that guard runs.
       // Inlining defers the read to each use site, which is always dominated by
       // whatever guards precede it. See https://github.com/DZakh/sury/issues/240
-      if parent.finalized {
+      if parent.finalized->X.Option.unsafeToBool {
         val.var = _var
         val.inline
       } else {
@@ -1247,7 +1247,6 @@ module Builder = {
       {
         codeFromPrev: "",
         hoistedDecls: "",
-        finalized: false,
         var: _var,
         inline: operationArgVar,
         flag: ValFlag.none,
@@ -1566,7 +1565,7 @@ module Builder = {
 
         // Mark finalized so a later cached-bond materialization knows this
         // val's code is already emitted and can't accept more hoisted decls.
-        val.finalized = true
+        val.finalized = Some(true)
 
         currentCode := val.codeFromPrev ++ currentCode.contents
 
@@ -1587,7 +1586,6 @@ module Builder = {
         expected,
         codeFromPrev: "",
         hoistedDecls: "",
-        finalized: false,
         path: prev.path,
         global: prev.global,
         hasTransform: true,
@@ -1608,7 +1606,6 @@ module Builder = {
         expected,
         codeFromPrev: "",
         hoistedDecls: "",
-        finalized: false,
         ?checks,
         path: val.path,
         global: val.global,
@@ -1707,7 +1704,6 @@ module Builder = {
         expected: from.expected.additionalItems->(Obj.magic: option<additionalItems> => internal),
         codeFromPrev: "",
         hoistedDecls: "",
-        finalized: false,
         parent: from,
         path: Path.empty,
         global: from.global,
@@ -1786,7 +1782,6 @@ module Builder = {
           bond: val,
           codeFromPrev: "",
           hoistedDecls: "",
-          finalized: false,
           isUnion: false,
           hasTransform: false,
           isOutput: ?val.isOutput,
@@ -1851,7 +1846,6 @@ module Builder = {
               expected: schema,
               codeFromPrev: "",
               hoistedDecls: "",
-              finalized: false,
               path: parent.path->Path.concat(pathAppend),
               global: parent.global,
               parent,
@@ -2688,7 +2682,6 @@ let rec makeObjectVal = (prev: val, ~schema): B.Val.Object.t => {
     hasTransform: true,
     codeFromPrev: "",
     hoistedDecls: "",
-    finalized: false,
     path: prev.path,
     global: prev.global,
   }
@@ -3240,7 +3233,7 @@ let recursiveDecoder = Builder.make((~input) => {
   // Clear the finalized mark set by the merge above, since this val may be
   // reused as input to a subsequent parser (e.g. S.transform on a recursive
   // schema) and must be able to accept hoisted declarations again.
-  output.finalized = false
+  output.finalized = None
   output.prev = Some(input)
 
   output

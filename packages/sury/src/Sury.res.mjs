@@ -500,7 +500,6 @@ function operationArg(schema, expected, flag, defs) {
     f: 0,
     cp: "",
     hd: "",
-    fz: false,
     path: "",
     g: {
       v: -1,
@@ -730,7 +729,6 @@ function next(prev, initial, schema, expectedOpt) {
     d: prev.d,
     cp: "",
     hd: "",
-    fz: false,
     t: true,
     path: prev.path,
     g: prev.g
@@ -751,7 +749,6 @@ function refine(val, schemaOpt, checks, expectedOpt) {
     d: val.d,
     cp: "",
     hd: "",
-    fz: false,
     vc: checks,
     t: val.t,
     path: val.path,
@@ -839,7 +836,6 @@ function dynamicScope(from, locationVar) {
     f: from.f,
     cp: "",
     hd: "",
-    fz: false,
     path: "",
     g: from.g
   };
@@ -888,7 +884,6 @@ function scope(val) {
     d: val.d,
     cp: "",
     hd: "",
-    fz: false,
     u: false,
     t: false,
     path: val.path,
@@ -939,7 +934,6 @@ function get(parent, location) {
     f: 0,
     cp: "",
     hd: "",
-    fz: false,
     path: parent.path + pathAppend,
     g: parent.g
   };
@@ -1571,7 +1565,6 @@ function makeObjectVal(prev, schema) {
     d: {},
     cp: "",
     hd: "",
-    fz: false,
     t: true,
     path: prev.path,
     g: prev.g
@@ -1957,7 +1950,7 @@ function recursiveDecoder(input) {
   }
   output.prev = undefined;
   output.cp = outputDecl + mergeWithPathPrepend(output, input, undefined, undefined);
-  output.fz = false;
+  output.fz = undefined;
   output.prev = input;
   return output;
 }
