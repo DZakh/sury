@@ -1218,13 +1218,13 @@ module Builder = {
         // union discriminant reading this var can never be lifted above its
         // `let` declaration (the str->to(option(int)) bug class).
         switch val.inline {
+        // No inline value yet (assigned by code that already references this
+        // val): declare ahead of the existing producing code.
         | "" => val.codeFromPrev = `let ${v};` ++ val.codeFromPrev
-        | i =>
-          if val.codeFromPrev !== "" {
-            val.codeFromPrev = `let ${v};` ++ val.codeFromPrev ++ `${v}=${i};`
-          } else {
-            val.codeFromPrev = `let ${v}=${i};`
-          }
+        // Declare-and-assign after the existing producing code. `v` is freshly
+        // allocated, so nothing already emitted reads it — no need to split the
+        // declaration from the assignment.
+        | i => val.codeFromPrev = val.codeFromPrev ++ `let ${v}=${i};`
         }
       | None =>
         // No prev to anchor the declaration to; hoist it onto the val itself

@@ -473,10 +473,8 @@ function _notVar() {
     let i = val.i;
     if (i === "") {
       val.cp = `let ` + v + `;` + val.cp;
-    } else if (val.cp !== "") {
-      val.cp = `let ` + v + `;` + val.cp + (v + `=` + i + `;`);
     } else {
-      val.cp = `let ` + v + `=` + i + `;`;
+      val.cp = val.cp + (`let ` + v + `=` + i + `;`);
     }
   } else {
     let i$1 = val.i;
