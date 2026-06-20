@@ -518,6 +518,36 @@ test("Coerce from string to optional bool", t => {
   )
 })
 
+test("Coerce from string to optional string (FIXME: asymmetric None handling)", t => {
+  let schema = S.string->S.to(S.option(S.string))
+
+  // Parse: the source `string` matches the target union's `string` member via
+  // tier 1, so the `unit`/None member is unreachable — even the literal
+  // "undefined" round-trips to Some, never None.
+  t->Assert.deepEqual("abc"->S.parseOrThrow(~to=schema), Some("abc"))
+  // FIXME: surprising — "undefined" parses to Some("undefined"), never None.
+  t->Assert.deepEqual("undefined"->S.parseOrThrow(~to=schema), Some("undefined"))
+
+  // Encode reverses to source union [string, unit] -> target string. Each source
+  // variant resolves its tier ladder independently (targets are not consumed):
+  // `string` -> `string` is tier 1 identity; `unit`/None falls through to tier 3.
+  t->Assert.deepEqual(Some("abc")->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"abc"`))
+  // FIXME: invalid — None should fail with invalid type, because the `string`
+  // target is already taken by the tier-1 `string` match. Instead tier 3 coerces
+  // the `undefined` literal to the string "undefined". This also breaks
+  // round-tripping: encode(None) -> "undefined" -> parse -> Some("undefined").
+  t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"undefined"`))
+
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{typeof i==="string"||e[0](i);return i}`)
+  // FIXME: invalid — the `i===void 0` branch should fail with invalid type
+  // (`e[..](i)`), not coerce to the string "undefined".
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Encode,
+    `i=>{if(i===void 0){i="undefined"}else if(!(typeof i==="string")){e[0](i)}return i}`,
+  )
+})
+
 test("Coerce from object to string", t => {
   let schema = S.schema(s =>
     {
