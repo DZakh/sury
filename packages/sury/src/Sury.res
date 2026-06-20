@@ -642,12 +642,12 @@ and val = {
   // own segment was already emitted. Emitted after this val's checks in
   // `merge` — the slot the old varsAllocation side-channel used.
   @as("hd")
-  mutable hoistedDecls?: string,
+  mutable hoistedDecls: string,
   // Set by `merge` once this val's code has been emitted. A descendant that
   // materializes a value afterwards (via a cached bond) can no longer hoist a
   // declaration onto it and must re-read the value inline instead.
   @as("fz")
-  mutable finalized?: bool,
+  mutable finalized: bool,
   // Invariant: absent iff no checks. Never stored as `Some([])` so callers
   // can test presence with `->unsafeToBool` instead of length.
   @as("vc")
@@ -1167,10 +1167,7 @@ module Builder = {
     // field reads, wrong (its segment top precedes the parent's guard). Callers
     // must pass an unfinalized owner; `_notVarAtParent` guards this explicitly.
     let hoistDecl = (owner: val, decl: string) => {
-      switch owner.hoistedDecls {
-      | Some(existing) => owner.hoistedDecls = Some(existing ++ "," ++ decl)
-      | None => owner.hoistedDecls = Some(decl)
-      }
+      owner.hoistedDecls = owner.hoistedDecls === "" ? decl : owner.hoistedDecls ++ "," ++ decl
     }
 
     let _notVarBeforeValidation = () => {
@@ -1199,7 +1196,7 @@ module Builder = {
       // hoisting `parent[key]` onto them could read it before that guard runs.
       // Inlining defers the read to each use site, which is always dominated by
       // whatever guards precede it. See https://github.com/DZakh/sury/issues/240
-      if parent.finalized->X.Option.unsafeToBool {
+      if parent.finalized {
         val.var = _var
         val.inline
       } else {
@@ -1249,6 +1246,8 @@ module Builder = {
     let operationArg = (~schema, ~expected, ~flag, ~defs): val => {
       {
         codeFromPrev: "",
+        hoistedDecls: "",
+        finalized: false,
         var: _var,
         inline: operationArgVar,
         flag: ValFlag.none,
@@ -1561,14 +1560,13 @@ module Builder = {
         // Decls hoisted onto this val (by a descendant whose own segment was
         // already emitted) land after its checks — the slot the old
         // varsAllocation side-channel used.
-        switch val.hoistedDecls {
-        | Some(decls) => currentCode := currentCode.contents ++ `let ${decls};`
-        | None => ()
+        if val.hoistedDecls !== "" {
+          currentCode := currentCode.contents ++ `let ${val.hoistedDecls};`
         }
 
         // Mark finalized so a later cached-bond materialization knows this
         // val's code is already emitted and can't accept more hoisted decls.
-        val.finalized = Some(true)
+        val.finalized = true
 
         currentCode := val.codeFromPrev ++ currentCode.contents
 
@@ -1588,6 +1586,8 @@ module Builder = {
         schema,
         expected,
         codeFromPrev: "",
+        hoistedDecls: "",
+        finalized: false,
         path: prev.path,
         global: prev.global,
         hasTransform: true,
@@ -1607,6 +1607,8 @@ module Builder = {
         schema,
         expected,
         codeFromPrev: "",
+        hoistedDecls: "",
+        finalized: false,
         ?checks,
         path: val.path,
         global: val.global,
@@ -1704,6 +1706,8 @@ module Builder = {
         schema: from.schema.additionalItems->(Obj.magic: option<additionalItems> => internal),
         expected: from.expected.additionalItems->(Obj.magic: option<additionalItems> => internal),
         codeFromPrev: "",
+        hoistedDecls: "",
+        finalized: false,
         parent: from,
         path: Path.empty,
         global: from.global,
@@ -1781,6 +1785,8 @@ module Builder = {
           var: shouldLink ? _bondVar : _var,
           bond: val,
           codeFromPrev: "",
+          hoistedDecls: "",
+          finalized: false,
           isUnion: false,
           hasTransform: false,
           isOutput: ?val.isOutput,
@@ -1844,6 +1850,8 @@ module Builder = {
               schema,
               expected: schema,
               codeFromPrev: "",
+              hoistedDecls: "",
+              finalized: false,
               path: parent.path->Path.concat(pathAppend),
               global: parent.global,
               parent,
@@ -2679,6 +2687,8 @@ let rec makeObjectVal = (prev: val, ~schema): B.Val.Object.t => {
     vals: dict{},
     hasTransform: true,
     codeFromPrev: "",
+    hoistedDecls: "",
+    finalized: false,
     path: prev.path,
     global: prev.global,
   }
@@ -3230,7 +3240,7 @@ let recursiveDecoder = Builder.make((~input) => {
   // Clear the finalized mark set by the merge above, since this val may be
   // reused as input to a subsequent parser (e.g. S.transform on a recursive
   // schema) and must be able to accept hoisted declarations again.
-  output.finalized = None
+  output.finalized = false
   output.prev = Some(input)
 
   output
@@ -4343,7 +4353,7 @@ module Union = {
           initialInline === "i"
         ) {
           // FIXME: Might not be not needed
-          input.hoistedDecls = None
+          input.hoistedDecls = ""
           input.var = B._notVar
           input.inline = initialInline
           input
