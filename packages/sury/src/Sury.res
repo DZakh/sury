@@ -3218,9 +3218,7 @@ let instanceDecoder = Builder.make((~input) => {
   } else if (
     inputTagFlag->Flag.unsafeHas(TagFlag.instance) && input.schema.class === input.expected.class
   ) {
-    // Same as the date decoder: relabel the already-validated value to the
-    // case's own schema so a pending `.to` conversion sees its encoder.
-    input->B.refine(~schema=input.expected)
+    input
   } else {
     input->B.unsupportedDecode(~from=input.schema, ~target=input.expected)
   }
@@ -4145,7 +4143,13 @@ module Union = {
             } else if tagFlag->Flag.unsafeHas(TagFlag.array) {
               array(unknown->castToPublic)->castToInternal
             } else if tagFlag->Flag.unsafeHas(TagFlag.instance) {
-              instance(schema.class)->castToInternal
+              // The narrow is a bare type-check schema that becomes the variant's
+              // runtime schema. Carry the member's encoder so a pending `.to`
+              // conversion (e.g. `Date.toISOString()`) can still be reached —
+              // without relabeling the schema's type.
+              let narrow = instance(schema.class)->castToInternal
+              narrow.encoder = schema.encoder
+              narrow
             } else if tagFlag->Flag.unsafeHas(TagFlag.nan) {
               nan()
             } else if tagFlag->Flag.unsafeHas(TagFlag.string) {
@@ -5191,11 +5195,7 @@ let date = () =>
       } else if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
         instanceDecoder(~input)->invalidDateRefine
       } else if inputTagFlag->Flag.unsafeHas(TagFlag.instance) && input.schema.class === s.class {
-        // The value is already a Date instance (routed here by the union's
-        // type-check). Promote its schema to the case's own schema so a pending
-        // `.to` conversion can reach this date's encoder — the bare instance
-        // narrow used for routing doesn't carry it.
-        input->B.refine(~schema=input.expected)
+        input
       } else {
         input->B.unsupportedDecode(~from=input.schema, ~target=input.expected)
       }

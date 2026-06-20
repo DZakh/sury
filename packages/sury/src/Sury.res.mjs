@@ -1962,7 +1962,7 @@ function instanceDecoder(input) {
         f: failInvalidType
       }], undefined);
   } else if (inputTagFlag & 8192 && input.s.class === input.e.class) {
-    return refine(input, input.e, undefined, undefined);
+    return input;
   } else {
     return unsupportedDecode(input, input.s, input.e);
   }
@@ -2658,27 +2658,33 @@ function unionDecoder(input) {
         }
       } else {
         let typeValidationInput = scope(input);
-        typeValidationInput.e = tagFlag & 32 ? nullLiteral() : (
-            tagFlag & 16 ? unit() : (
-                tagFlag & 64 ? factory(unknown) : (
-                    tagFlag & 128 ? array(unknown) : (
-                        tagFlag & 8192 ? instance(schema$1.class) : (
-                            tagFlag & 2048 ? nan() : (
-                                tagFlag & 2 ? string() : (
-                                    tagFlag & 4 ? float() : (
-                                        tagFlag & 8 ? bool() : (
-                                            tagFlag & 1024 ? bigint() : (
-                                                tagFlag & 16384 ? symbol() : unknown
-                                              )
-                                          )
-                                      )
-                                  )
-                              )
-                          )
-                      )
-                  )
-              )
-          );
+        let tmp;
+        if (tagFlag & 32) {
+          tmp = nullLiteral();
+        } else if (tagFlag & 16) {
+          tmp = unit();
+        } else if (tagFlag & 64) {
+          tmp = factory(unknown);
+        } else if (tagFlag & 128) {
+          tmp = array(unknown);
+        } else if (tagFlag & 8192) {
+          let narrow = instance(schema$1.class);
+          narrow.encoder = schema$1.encoder;
+          tmp = narrow;
+        } else {
+          tmp = tagFlag & 2048 ? nan() : (
+              tagFlag & 2 ? string() : (
+                  tagFlag & 4 ? float() : (
+                      tagFlag & 8 ? bool() : (
+                          tagFlag & 1024 ? bigint() : (
+                              tagFlag & 16384 ? symbol() : unknown
+                            )
+                        )
+                    )
+                )
+            );
+        }
+        typeValidationInput.e = tmp;
         let typeValidationOutput;
         try {
           typeValidationOutput = parse$1(typeValidationInput);
@@ -2764,16 +2770,16 @@ function unionDecoder(input) {
       }
     }
     let errorCode = fail(caught);
-    let tmp;
+    let tmp$1;
     if (noop) {
       let if_$1 = nextElse ? "else if" : "if";
-      tmp = if_$1 + (`(!(` + noop + `)){` + errorCode + `}`);
+      tmp$1 = if_$1 + (`(!(` + noop + `)){` + errorCode + `}`);
     } else {
-      tmp = nextElse ? `else{` + errorCode + `}` : (
+      tmp$1 = nextElse ? `else{` + errorCode + `}` : (
           end === "" ? errorCode + ";" : errorCode
         );
     }
-    start = start + tmp;
+    start = start + tmp$1;
   }
   output.cp = output.cp + start + end;
   if (input.i !== output.i) {
@@ -3447,7 +3453,7 @@ function date() {
       } else if (inputTagFlag & 1) {
         return invalidDateRefine(instanceDecoder(input));
       } else if (inputTagFlag & 8192 && input.s.class === s.class) {
-        return refine(input, input.e, undefined, undefined);
+        return input;
       } else {
         return unsupportedDecode(input, input.s, input.e);
       }
@@ -3563,20 +3569,6 @@ function proxifyShapedSchema(schema, from, fromFlattened) {
       return proxifyShapedSchema(maybeField, target.from.concat(prop), target.fromFlattened);
     }
   });
-}
-
-function getValByFrom(_input, from, _idx) {
-  while (true) {
-    let idx = _idx;
-    let input = _input;
-    let key = from[idx];
-    if (key === undefined) {
-      return input;
-    }
-    _idx = idx + 1 | 0;
-    _input = input.d[key];
-    continue;
-  };
 }
 
 function getShapedSerializerOutput(input, acc, targetSchema, path) {
@@ -3732,14 +3724,57 @@ function prepareShapedSerializerAcc(acc, input) {
   }
 }
 
-function shapedSerializer(input) {
-  let acc = {};
-  prepareShapedSerializerAcc(acc, input);
-  let targetSchema = input.e.to;
-  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
-  output.t = true;
-  output.prev = input;
-  return output;
+function getShapedParserOutput(input, targetSchema) {
+  let from = targetSchema.from;
+  let fromFlattened = targetSchema.fromFlattened;
+  let v;
+  if (fromFlattened !== undefined) {
+    v = scope(getValByFrom(input.fv[fromFlattened], targetSchema.from, 0));
+  } else if (from !== undefined) {
+    v = scope(getValByFrom(input, from, 0));
+  } else if (constField in targetSchema) {
+    v = nextConst(input, targetSchema, undefined);
+  } else {
+    let output = makeObjectVal(input, targetSchema);
+    output.io = true;
+    let items = targetSchema.items;
+    if (items !== undefined) {
+      for (let idx = 0, idx_finish = items.length; idx < idx_finish; ++idx) {
+        let location = idx.toString();
+        add(output, location, getShapedParserOutput(input, items[idx]));
+      }
+    } else {
+      let properties = targetSchema.properties;
+      if (properties !== undefined) {
+        let keys = Object.keys(properties);
+        for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
+          let location$1 = keys[idx$1];
+          add(output, location$1, getShapedParserOutput(input, properties[location$1]));
+        }
+      } else {
+        let message = `Don't know where the value is coming from: ` + toExpression(targetSchema);
+        throw new Error(`[Sury] ` + message);
+      }
+    }
+    v = completeObjectVal(output);
+  }
+  v.prev = undefined;
+  v.e = targetSchema;
+  return v;
+}
+
+function getValByFrom(_input, from, _idx) {
+  while (true) {
+    let idx = _idx;
+    let input = _input;
+    let key = from[idx];
+    if (key === undefined) {
+      return input;
+    }
+    _idx = idx + 1 | 0;
+    _input = input.d[key];
+    continue;
+  };
 }
 
 function traverseDefinition(definition, onNode) {
@@ -3782,53 +3817,6 @@ function traverseDefinition(definition, onNode) {
   mut$2.additionalItems = globalConfig.a;
   mut$2.decoder = objectDecoder;
   return mut$2;
-}
-
-function getShapedParserOutput(input, targetSchema) {
-  let from = targetSchema.from;
-  let fromFlattened = targetSchema.fromFlattened;
-  let v;
-  if (fromFlattened !== undefined) {
-    v = scope(getValByFrom(input.fv[fromFlattened], targetSchema.from, 0));
-  } else if (from !== undefined) {
-    v = scope(getValByFrom(input, from, 0));
-  } else if (constField in targetSchema) {
-    v = nextConst(input, targetSchema, undefined);
-  } else {
-    let output = makeObjectVal(input, targetSchema);
-    output.io = true;
-    let items = targetSchema.items;
-    if (items !== undefined) {
-      for (let idx = 0, idx_finish = items.length; idx < idx_finish; ++idx) {
-        let location = idx.toString();
-        add(output, location, getShapedParserOutput(input, items[idx]));
-      }
-    } else {
-      let properties = targetSchema.properties;
-      if (properties !== undefined) {
-        let keys = Object.keys(properties);
-        for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
-          let location$1 = keys[idx$1];
-          add(output, location$1, getShapedParserOutput(input, properties[location$1]));
-        }
-      } else {
-        let message = `Don't know where the value is coming from: ` + toExpression(targetSchema);
-        throw new Error(`[Sury] ` + message);
-      }
-    }
-    v = completeObjectVal(output);
-  }
-  v.prev = undefined;
-  v.e = targetSchema;
-  return v;
-}
-
-function definitionToSchema(definition) {
-  return traverseDefinition(definition, node => {
-    if (node["~standard"]) {
-      return node;
-    }
-  });
 }
 
 function nested(fieldName) {
@@ -3895,6 +3883,24 @@ function nested(fieldName) {
   };
   parentCtx[cacheId] = ctx$1;
   return ctx$1;
+}
+
+function definitionToSchema(definition) {
+  return traverseDefinition(definition, node => {
+    if (node["~standard"]) {
+      return node;
+    }
+  });
+}
+
+function shapedSerializer(input) {
+  let acc = {};
+  prepareShapedSerializerAcc(acc, input);
+  let targetSchema = input.e.to;
+  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
+  output.t = true;
+  output.prev = input;
+  return output;
 }
 
 function definitionToShapedSchema(definition) {
