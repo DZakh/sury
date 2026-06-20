@@ -1034,3 +1034,41 @@ test("Tagged tuple union dispatches via literal first-field discriminant", t => 
   t->Assert.deepEqual(("a", "hello")->S.parseOrThrow(~to=schema), ("a", "hello"))
   t->Assert.deepEqual(("b", "world")->S.parseOrThrow(~to=schema), ("b", "world"))
 })
+
+test("Union type-narrow stays in sync with each schema's own decoder", t => {
+  // Guards the `typeCheckCond` invariant: the union dispatch re-emits each type's
+  // narrow check, so it must contain the same atoms the schema's own decoder
+  // emits. If `typeCheckCond` or a decoder drifts, this fails.
+  let assertSync = (schema, ~other, atoms) => {
+    let standalone = schema->U.getCompiledCodeString(~op=#Parse)
+    let dispatch =
+      S.union([schema->S.castToUnknown, other])->U.getCompiledCodeString(~op=#Parse)
+    atoms->Array.forEach(atom => {
+      t->Assert.is(standalone->String.includes(atom), true, ~message=`decoder emits ${atom}`)
+      t->Assert.is(dispatch->String.includes(atom), true, ~message=`union dispatch emits ${atom}`)
+    })
+  }
+  assertSync(S.string, ~other=S.bool->S.castToUnknown, [`typeof i==="string"`])
+  assertSync(S.float, ~other=S.bool->S.castToUnknown, [`typeof i==="number"&&!Number.isNaN(i)`])
+  assertSync(S.bool, ~other=S.string->S.castToUnknown, [`typeof i==="boolean"`])
+  assertSync(S.bigint, ~other=S.bool->S.castToUnknown, [`typeof i==="bigint"`])
+  assertSync(S.symbol, ~other=S.bool->S.castToUnknown, [`typeof i==="symbol"`])
+  assertSync(S.date, ~other=S.bool->S.castToUnknown, [` instanceof `])
+  assertSync(
+    S.dict(S.string),
+    ~other=S.bool->S.castToUnknown,
+    [`typeof i==="object"&&i&&!Array.isArray(i)`],
+  )
+  assertSync(S.array(S.string), ~other=S.bool->S.castToUnknown, [`Array.isArray(i)`])
+})
+
+test("Coerces a concrete input into a union's instance member via the member's decoder", t => {
+  // The dispatch narrow delegates a concrete (non-`unknown`) input to the member's
+  // own decoder, so coercion into an instance variant works (string -> new Date)
+  // instead of being rejected as it was with the old generic `instance(class)` narrow.
+  let schema = S.string->S.to(S.union([S.date->S.castToUnknown, S.float->S.castToUnknown]))
+  t->Assert.deepEqual(
+    "2024-01-01T00:00:00.000Z"->S.parseOrThrow(~to=schema),
+    Date.fromString("2024-01-01T00:00:00.000Z")->Obj.magic,
+  )
+})

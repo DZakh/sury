@@ -2658,20 +2658,24 @@ function unionDecoder(input) {
         }
       } else {
         let typeValidationInput = scope(input);
-        let narrow = base(schema$1.type, false);
-        narrow.encoder = schema$1.encoder;
-        if (tagFlag & 8192) {
-          narrow.class = schema$1.class;
-        } else if (tagFlag & 64) {
-          narrow.properties = immutableEmpty;
-          narrow.additionalItems = unknown;
-        } else if (tagFlag & 128) {
-          narrow.additionalItems = unknown;
-          narrow.items = immutableEmpty$1;
-        } else if (tagFlag & 2096) {
-          narrow.const = schema$1.const;
-        }
-        narrow.decoder = tagFlag & 33537 ? noopDecoder : input => {
+        let tmp;
+        if (tagFlag & 37633) {
+          tmp = unknown;
+        } else {
+          let narrow = base(schema$1.type, false);
+          narrow.encoder = schema$1.encoder;
+          if (tagFlag & 8192) {
+            narrow.class = schema$1.class;
+          } else if (tagFlag & 64) {
+            narrow.properties = immutableEmpty;
+            narrow.additionalItems = unknown;
+          } else if (tagFlag & 128) {
+            narrow.additionalItems = unknown;
+            narrow.items = immutableEmpty$1;
+          } else if (tagFlag & 2096) {
+            narrow.const = schema$1.const;
+          }
+          narrow.decoder = input => {
             if (flags[input.s.type] & 1) {
               return refine(input, input.e, [{
                   c: inputVar => {
@@ -2685,23 +2689,27 @@ function unionDecoder(input) {
                     if (tagFlag & 8192) {
                       return inputVar + ` instanceof ` + embed(input, schema$1.class);
                     }
-                    if (!(tagFlag & 4)) {
-                      if (tagFlag & 2048) {
-                        return `Number.isNaN(` + inputVar + `)`;
-                      } else if (tagFlag & 16) {
-                        return inputVar + `===void 0`;
-                      } else if (tagFlag & 32) {
-                        return inputVar + `===` + schema$1.type;
+                    if (tagFlag & 4) {
+                      let typeofCheck = `typeof ` + inputVar + `==="` + numberTag + `"`;
+                      if (input.g.o & 2) {
+                        return typeofCheck;
                       } else {
-                        return `typeof ` + inputVar + `==="` + schema$1.type + `"`;
+                        return typeofCheck + `&&!Number.isNaN(` + inputVar + `)`;
                       }
                     }
-                    let typeofCheck = `typeof ` + inputVar + `==="` + numberTag + `"`;
-                    if (input.g.o & 2) {
-                      return typeofCheck;
-                    } else {
-                      return typeofCheck + `&&!Number.isNaN(` + inputVar + `)`;
+                    if (tagFlag & 2048) {
+                      return `Number.isNaN(` + inputVar + `)`;
                     }
+                    if (tagFlag & 16) {
+                      return inputVar + `===void 0`;
+                    }
+                    if (tagFlag & 32) {
+                      return inputVar + `===` + schema$1.type;
+                    }
+                    if (tagFlag & 17418) {
+                      return `typeof ` + inputVar + `==="` + schema$1.type + `"`;
+                    }
+                    throw new Error(`[Sury] Unexpected union variant tag: ` + schema$1.type);
                   },
                   f: failInvalidType
                 }], undefined);
@@ -2709,7 +2717,9 @@ function unionDecoder(input) {
               return schema$1.decoder(input);
             }
           };
-        typeValidationInput.e = narrow;
+          tmp = narrow;
+        }
+        typeValidationInput.e = tmp;
         let typeValidationOutput;
         try {
           typeValidationOutput = parse$1(typeValidationInput);
@@ -2795,16 +2805,16 @@ function unionDecoder(input) {
       }
     }
     let errorCode = fail(caught);
-    let tmp;
+    let tmp$1;
     if (noop) {
       let if_$1 = nextElse ? "else if" : "if";
-      tmp = if_$1 + (`(!(` + noop + `)){` + errorCode + `}`);
+      tmp$1 = if_$1 + (`(!(` + noop + `)){` + errorCode + `}`);
     } else {
-      tmp = nextElse ? `else{` + errorCode + `}` : (
+      tmp$1 = nextElse ? `else{` + errorCode + `}` : (
           end === "" ? errorCode + ";" : errorCode
         );
     }
-    start = start + tmp;
+    start = start + tmp$1;
   }
   output.cp = output.cp + start + end;
   if (input.i !== output.i) {
@@ -2813,12 +2823,12 @@ function unionDecoder(input) {
   let o = output.f & 1 ? (output.i = `Promise.resolve(` + output.i + `)`, output.v = _notVar, output) : (
       output.v === _var && input.cp === "" && output.cp === "" && (output.l === output.i + `=` + initialInline || initialInline === "i") ? (input.l = "", input.a = initialAllocate, input.v = _notVar, input.i = initialInline, input) : output
     );
-  let tmp$1;
+  let tmp$2;
   if (outputAnyOf.length) {
-    let tmp$2;
+    let tmp$3;
     if (toPerCase !== undefined) {
       let seen = {};
-      tmp$2 = outputAnyOf.filter(s => {
+      tmp$3 = outputAnyOf.filter(s => {
         let key = toExpression(s);
         if (key in seen) {
           return false;
@@ -2828,13 +2838,13 @@ function unionDecoder(input) {
         }
       });
     } else {
-      tmp$2 = outputAnyOf;
+      tmp$3 = outputAnyOf;
     }
-    tmp$1 = factory$1(tmp$2);
+    tmp$2 = factory$1(tmp$3);
   } else {
-    tmp$1 = never_();
+    tmp$2 = never_();
   }
-  o.s = tmp$1;
+  o.s = tmp$2;
   o.e = toPerCase !== undefined ? (o.io = true, getOutputSchema(toPerCase)) : selfSchema;
   return o;
 }
