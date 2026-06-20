@@ -58,6 +58,7 @@
     "test:res": "cd ./packages/tests && rescript clean && rescript watch",
     "test": "rescript build && vitest run",
     "typecheck": "vitest run --typecheck.only",
+    "bench": "vitest bench --run",
     "bench:types": "tsx tests/types.bench.ts",
     "lint:stdlib": "rescript-stdlib-vendorer lint --ignore-path=src"
   },
