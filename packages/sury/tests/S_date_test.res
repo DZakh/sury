@@ -177,26 +177,16 @@ test("Successfully round-trips date through JSON", t => {
   )
 })
 
-// Reverse (encode) of a nullable/optional `string->S.to(S.date)` field.
+// Reverse (encode) of nullable/optional date fields.
 //
-// Reproduces a user report: given a `@s.nullable option<Timestamp.t>` field
-// (which the ppx expands to `S.nullableAsOption(Timestamp.schema)`), encoding
-// the value back throws `received [object Date]` instead of serializing the Date
-// to its ISO string. Parsing works — only the reverse direction is broken, and
-// only because the transformed value is an `S.date` (an Instance schema) wrapped
-// in the union: reverse swaps each variant's parser/serializer but the `.to`
-// conversion to the Date is driven by the date's encoder, which isn't re-applied
-// per variant, so the reversed variant is left as a bare `Date` with no way back
-// to a string.
-//
-// The bare `S.string->S.to(S.date)` reverses correctly (see "Successfully
-// reverse converts string-to-date schema" above), and the same union wrapper
-// reverses correctly for primitive transforms such as `S.bool->S.to(S.string)`
-// (see S_nullable_test.res), so the defect is specific to a transformed Instance
-// schema inside a nullable/optional union.
-//
-// The asserts below pin the current (buggy) output; the `FIXME`s describe what
-// they should become once the reverse is fixed.
+// Regression guard for a reported bug: a `@s.nullable option<Timestamp.t>` field
+// (which the ppx expands to `S.nullableAsOption(Timestamp.schema)`) used to throw
+// `received [object Date]` when encoding, instead of serializing the Date back to
+// a string. Parsing always worked; only the reverse direction was broken, because
+// the union routes each variant through a bare type-check schema (`instance(Date)`)
+// that doesn't carry the date's encoder. The instance decoders now promote the
+// routed value to the variant's own schema, so a pending `.to` conversion (here
+// `Date.toISOString()`) is applied per variant.
 
 module Timestamp = {
   type t = Date.t
@@ -218,22 +208,16 @@ test("Reverse converts nullableAsOption string-to-date schema", t => {
     `i=>{if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);i=v0}else if(i===null){i=void 0}else if(!(i===void 0)){e[1](i)}return i}`,
   )
 
-  // Encoding `None` happens to round-trip, since that variant needs no transform.
+  // Encoding serializes the Date back to its ISO string; None round-trips.
+  t->Assert.deepEqual(
+    Some(date)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    "2024-01-01T00:00:00.000Z"->Obj.magic,
+  )
   t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
-
-  // FIXME: Encoding the Date should serialize it back to its ISO string
-  // ("2024-01-01T00:00:00.000Z"), like the bare `S.string->S.to(S.date)` does.
-  // Instead the reversed schema dispatches on `instanceof Date` and then has no
-  // conversion to apply, so it throws.
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(i instanceof e[2]){e[1](i,e[0])}else if(!(i===void 0)){e[3](i)}return i}`,
-  )
-  t->U.assertThrowsMessage(
-    () => Some(date)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    `Expected Date | undefined | undefined, received [object Date]
-- Can't decode Date to string. Use S.to to define a custom decoder`,
+    `i=>{if(i instanceof e[0]){i=i.toISOString()}else if(!(i===void 0)){e[1](i)}return i}`,
   )
 })
 
@@ -242,17 +226,14 @@ test("Reverse converts nullable string-to-date schema", t => {
   let date = Date.fromString("2024-01-01T00:00:00.000Z")
 
   t->Assert.deepEqual(Nullable.Null->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
-
-  // FIXME: Should serialize the Date back to "2024-01-01T00:00:00.000Z".
+  t->Assert.deepEqual(
+    Nullable.Value(date)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    "2024-01-01T00:00:00.000Z"->Obj.magic,
+  )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(i instanceof e[2]){e[1](i,e[0])}else if(!(i===void 0||i===null)){e[3](i)}return i}`,
-  )
-  t->U.assertThrowsMessage(
-    () => Nullable.Value(date)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    `Expected Date | undefined | null, received [object Date]
-- Can't decode Date to string. Use S.to to define a custom decoder`,
+    `i=>{if(i instanceof e[0]){i=i.toISOString()}else if(!(i===void 0||i===null)){e[1](i)}return i}`,
   )
 })
 
@@ -285,15 +266,37 @@ test("Reverse converts deeply nested records/array sharing a nullable Timestamp 
     },
   )
 
-  // FIXME: Encoding back should produce the original JSON with ISO strings, e.g.
-  // `{createdAt: "2024-01-01T00:00:00.000Z", items: [{createdAt: "...Z"}]}`.
+  // Encoding back produces the original JSON with ISO strings.
   let value = {
     "createdAt": Some(date),
     "items": [{"createdAt": Some(date)}],
   }
-  t->U.assertThrowsMessage(
-    () => value->S.decodeOrThrow(~from=parentSchema, ~to=S.unknown),
-    `Failed at ["createdAt"]: Expected Date | undefined | undefined, received [object Date]
-- At ["createdAt"]: Can't decode Date to string. Use S.to to define a custom decoder`,
+  t->Assert.deepEqual(
+    value->S.decodeOrThrow(~from=parentSchema, ~to=S.unknown),
+    %raw(`{createdAt: "2024-01-01T00:00:00.000Z", items: [{createdAt: "2024-01-01T00:00:00.000Z"}]}`),
+  )
+})
+
+test("Encodes a nullable optional Timestamp whose input is string | number (issue repro)", t => {
+  // The reported Timestamp accepts a string or a numeric timestamp:
+  //   S.union([S.string, S.float])->S.to(S.date)
+  // so `@s.nullable option<Timestamp.t>` reverses to a Date variant whose `.to`
+  // target is `string | number`. Encoding used to throw exactly
+  // `Expected string | number, received [object Date]`.
+  let timestamp = S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])->S.to(S.date)
+  let schema = S.nullableAsOption(timestamp)
+  let date = Date.fromString("2024-01-01T00:00:00.000Z")
+
+  t->Assert.deepEqual("2024-01-01T00:00:00.000Z"->S.parseOrThrow(~to=schema), Some(date))
+  t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(~to=schema), None)
+
+  t->Assert.deepEqual(
+    Some(date)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    "2024-01-01T00:00:00.000Z"->Obj.magic,
+  )
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Encode,
+    `i=>{if(i instanceof e[2]){try{i=i.toISOString()}catch(e0){e[1](i,e0,e[0])}}else if(!(i===void 0)){e[3](i)}return i}`,
   )
 })

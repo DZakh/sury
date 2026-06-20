@@ -1962,7 +1962,7 @@ function instanceDecoder(input) {
         f: failInvalidType
       }], undefined);
   } else if (inputTagFlag & 8192 && input.s.class === input.e.class) {
-    return input;
+    return refine(input, input.e, undefined, undefined);
   } else {
     return unsupportedDecode(input, input.s, input.e);
   }
@@ -3447,7 +3447,7 @@ function date() {
       } else if (inputTagFlag & 1) {
         return invalidDateRefine(instanceDecoder(input));
       } else if (inputTagFlag & 8192 && input.s.class === s.class) {
-        return input;
+        return refine(input, input.e, undefined, undefined);
       } else {
         return unsupportedDecode(input, input.s, input.e);
       }

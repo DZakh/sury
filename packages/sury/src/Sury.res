@@ -3218,7 +3218,9 @@ let instanceDecoder = Builder.make((~input) => {
   } else if (
     inputTagFlag->Flag.unsafeHas(TagFlag.instance) && input.schema.class === input.expected.class
   ) {
-    input
+    // Same as the date decoder: relabel the already-validated value to the
+    // case's own schema so a pending `.to` conversion sees its encoder.
+    input->B.refine(~schema=input.expected)
   } else {
     input->B.unsupportedDecode(~from=input.schema, ~target=input.expected)
   }
@@ -5189,7 +5191,11 @@ let date = () =>
       } else if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
         instanceDecoder(~input)->invalidDateRefine
       } else if inputTagFlag->Flag.unsafeHas(TagFlag.instance) && input.schema.class === s.class {
-        input
+        // The value is already a Date instance (routed here by the union's
+        // type-check). Promote its schema to the case's own schema so a pending
+        // `.to` conversion can reach this date's encoder — the bare instance
+        // narrow used for routing doesn't carry it.
+        input->B.refine(~schema=input.expected)
       } else {
         input->B.unsupportedDecode(~from=input.schema, ~target=input.expected)
       }
