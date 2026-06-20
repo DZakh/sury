@@ -1927,10 +1927,8 @@ let int32FormatValidation = (~inputVar) => {
 // (adding its own validation, e.g. int32 or the object `!isArray` guard) instead
 // of re-spelling the strings.
 let typeofCond = (tag: tag, ~inputVar) => `typeof ${inputVar}==="${(tag :> string)}"`
-let nonNaNCond = (~inputVar) => `!Number.isNaN(${inputVar})`
 let nanCond = (~inputVar) => `Number.isNaN(${inputVar})`
 let isArrayCond = (~inputVar) => `Array.isArray(${inputVar})`
-let nonArrayCond = (~inputVar) => `!Array.isArray(${inputVar})`
 let objectTagCond = (~inputVar) => `${typeofCond(objectTag, ~inputVar)}&&${inputVar}`
 let instanceofCond = (b: val, class, ~inputVar) => `${inputVar} instanceof ${b->B.embed(class)}`
 
@@ -1955,7 +1953,7 @@ let numberDecoder = Builder.make((~input) => {
       if !(input.global.flag->Flag.unsafeHas(Flag.disableNanNumberValidation)) {
         checks
         ->Array.push({
-          cond: (~inputVar) => nonNaNCond(~inputVar),
+          cond: (~inputVar) => `!${nanCond(~inputVar)}`,
           fail: B.failInvalidType,
         })
         ->ignore
@@ -1981,7 +1979,7 @@ let numberDecoder = Builder.make((~input) => {
         cond: (~inputVar as _) =>
           switch input.expected.format {
           | Some(Int32) => int32FormatValidation(~inputVar=outputVar)
-          | _ => nonNaNCond(~inputVar=outputVar)
+          | _ => `!${nanCond(~inputVar=outputVar)}`
           },
         fail: B.failInvalidType,
       },
@@ -2930,7 +2928,7 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
         // this is why the check is a must have
         checks
         ->Array.push({
-          cond: (~inputVar) => nonArrayCond(~inputVar),
+          cond: (~inputVar) => `!${isArrayCond(~inputVar)}`,
           fail: B.failInvalidType,
         })
         ->ignore
@@ -3728,7 +3726,7 @@ module Union = {
   let typeCheckCond = (input: val, schema: internal, ~inputVar): string => {
     let tagFlag = schema.tag->TagFlag.get
     if tagFlag->Flag.unsafeHas(TagFlag.object) {
-      `${objectTagCond(~inputVar)}&&${nonArrayCond(~inputVar)}`
+      `${objectTagCond(~inputVar)}&&!${isArrayCond(~inputVar)}`
     } else if tagFlag->Flag.unsafeHas(TagFlag.array) {
       isArrayCond(~inputVar)
     } else if tagFlag->Flag.unsafeHas(TagFlag.instance) {
@@ -3738,7 +3736,7 @@ module Union = {
       if input.global.flag->Flag.unsafeHas(Flag.disableNanNumberValidation) {
         typeofCheck
       } else {
-        `${typeofCheck}&&${nonNaNCond(~inputVar)}`
+        `${typeofCheck}&&!${nanCond(~inputVar)}`
       }
     } else if tagFlag->Flag.unsafeHas(TagFlag.nan) {
       nanCond(~inputVar)
