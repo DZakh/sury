@@ -3707,6 +3707,39 @@ module Union = {
     }
   })
 
+  // Emits the type-narrow condition for a union variant directly, without
+  // building a per-type schema and running it through `parse`. This keeps the
+  // dispatch free of references to the per-type factories (string/float/instance/
+  // …) so their full decoders tree-shake when a bundle doesn't use them.
+  // The strings mirror what each type decoder emits, so codegen is unchanged.
+  let typeCheckCond = (input: val, schema: internal, ~inputVar): string => {
+    let tagFlag = schema.tag->TagFlag.get
+    if tagFlag->Flag.unsafeHas(TagFlag.object) {
+      `typeof ${inputVar}==="${(objectTag :> string)}"&&${inputVar}&&!Array.isArray(${inputVar})`
+    } else if tagFlag->Flag.unsafeHas(TagFlag.array) {
+      `Array.isArray(${inputVar})`
+    } else if tagFlag->Flag.unsafeHas(TagFlag.instance) {
+      `${inputVar} instanceof ${input->B.embed(schema.class)}`
+    } else if tagFlag->Flag.unsafeHas(TagFlag.number) {
+      let typeofCheck = `typeof ${inputVar}==="${(numberTag :> string)}"`
+      if input.global.flag->Flag.unsafeHas(Flag.disableNanNumberValidation) {
+        typeofCheck
+      } else {
+        `${typeofCheck}&&!Number.isNaN(${inputVar})`
+      }
+    } else if tagFlag->Flag.unsafeHas(TagFlag.nan) {
+      `Number.isNaN(${inputVar})`
+    } else if tagFlag->Flag.unsafeHas(TagFlag.undefined) {
+      `${inputVar}===void 0`
+    } else if tagFlag->Flag.unsafeHas(TagFlag.null) {
+      `${inputVar}===${(schema.tag :> string)}`
+    } else {
+      // string / boolean / bigint / symbol (and their literals — the per-const
+      // check stays in the case body)
+      `typeof ${inputVar}==="${(schema.tag :> string)}"`
+    }
+  }
+
   let rec unionDecoder: Builder.t = (~input) => {
     let selfSchema = input.expected
     let schemas = selfSchema.anyOf->X.Option.getUnsafe
@@ -4134,44 +4167,66 @@ module Union = {
             // Recreate input val for every schema
             // since we will mutate it
             let typeValidationInput = input->B.Val.scope
-            typeValidationInput.expected = if tagFlag->Flag.unsafeHas(TagFlag.null) {
-              nullLiteral()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.undefined) {
-              unit()
+            // Build a minimal narrow (no per-type factory) that becomes the
+            // variant's runtime schema — carrying the member's encoder so a
+            // pending `.to` conversion can reach it. Its decoder emits the type
+            // check via `typeCheckCond` when narrowing an `unknown` input, and
+            // delegates to the member's own decoder when coercing a concrete
+            // input (S.to). Referencing only `typeCheckCond` + the member decoder
+            // (already pulled in by the member itself) is what lets unused type
+            // decoders tree-shake.
+            let narrow = base(schema.tag, ~selfReverse=false)
+            narrow.encoder = schema.encoder
+            if tagFlag->Flag.unsafeHas(TagFlag.instance) {
+              narrow.class = schema.class
             } else if tagFlag->Flag.unsafeHas(TagFlag.object) {
-              DictSchema.factory(unknown->castToPublic)->castToInternal
+              narrow.properties = Some(X.Object.immutableEmpty)
+              narrow.additionalItems = Some(Schema(unknown->castToPublic))
             } else if tagFlag->Flag.unsafeHas(TagFlag.array) {
-              array(unknown->castToPublic)->castToInternal
-            } else if tagFlag->Flag.unsafeHas(TagFlag.instance) {
-              // The narrow is a bare type-check schema that becomes the variant's
-              // runtime schema. Carry the member's encoder so a pending `.to`
-              // conversion (e.g. `Date.toISOString()`) can still be reached —
-              // without relabeling the schema's type.
-              let narrow = instance(schema.class)->castToInternal
-              narrow.encoder = schema.encoder
-              narrow
-            } else if tagFlag->Flag.unsafeHas(TagFlag.nan) {
-              nan()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.string) {
-              string()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.number) {
-              float()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.boolean) {
-              bool()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.bigint) {
-              bigint()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.symbol) {
-              symbol()
-            } else {
-              unknown
+              narrow.additionalItems = Some(Schema(unknown->castToPublic))
+              narrow.items = Some(X.Array.immutableEmpty)
+            } else if (
+              tagFlag->Flag.unsafeHas(
+                TagFlag.null->Flag.with(TagFlag.undefined)->Flag.with(TagFlag.nan),
+              )
+            ) {
+              // null/undefined/nan stay literals so the case body passes the
+              // value through instead of re-emitting the check.
+              narrow.const = schema.const
             }
+            narrow.decoder = if (
+              tagFlag->Flag.unsafeHas(
+                TagFlag.unknown
+                ->Flag.with(TagFlag.union)
+                ->Flag.with(TagFlag.ref)
+                ->Flag.with(TagFlag._never),
+              )
+            ) {
+              // unknown / union / ref / json / never have no `typeof` discriminant —
+              // they're catch-alls handled via the deopt (try-each) path.
+              noopDecoder
+            } else {
+              (~input) =>
+                if input.schema.tag->TagFlag.get->Flag.unsafeHas(TagFlag.unknown) {
+                  input->B.refine(
+                    ~schema=input.expected,
+                    ~checks=[
+                      {
+                        cond: (~inputVar) => typeCheckCond(input, schema, ~inputVar),
+                        fail: B.failInvalidType,
+                      },
+                    ],
+                  )
+                } else {
+                  schema.decoder(~input)
+                }
+            }
+            typeValidationInput.expected = narrow
 
             let typeValidationOutput = try {
               typeValidationInput->parse
             } catch {
             | _ => {
-                // Discard any checks parse managed to push before throwing,
-                // so the deopt path doesn't see leftover partial state.
                 typeValidationInput.checks = None
                 typeValidationInput
               }
@@ -4336,6 +4391,26 @@ module Union = {
 
       // Build the output schema from collected case output schemas
       o.schema = if outputAnyOf->Stdlib.Array.length->X.Int.unsafeToBool {
+        // When the union is narrowed by `.to`, every variant coerces to the same
+        // target type, so their output schemas render identically. They no longer
+        // share one object identity (each variant's narrow is built from a fresh
+        // `base`), so collapse outputs that render the same to keep the output
+        // union from carrying duplicates.
+        let outputAnyOf = switch toPerCase {
+        | Some(_) => {
+            let seen = Stdlib.Dict.make()
+            outputAnyOf->Array.filter(s => {
+              let key = s->toExpression
+              if seen->Stdlib.Dict.has(key) {
+                false
+              } else {
+                seen->Dict.set(key, true)
+                true
+              }
+            })
+          }
+        | None => outputAnyOf
+        }
         factory(outputAnyOf)->castToInternal
       } else {
         never_()
