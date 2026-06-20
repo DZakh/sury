@@ -855,7 +855,7 @@ type Schema = S.Infer<typeof schema>; // "Win" | "Draw" | "Loss"
 
 ### Decoding into / out of a union
 
-When you compile `source -> targetUnion` (via `S.to`, or implicitly by reversing the schema), Sury picks the target variant using a three-tier algorithm based on the source's **derived tag** — the tag known at compile time, which may be narrower than the original type (an upstream transformation can refine it). If the source is itself a union, the algorithm runs independently for each source variant — **targets are not consumed**, so several source variants may resolve to the same target, and a variant with no tier-1/tier-2 match still falls through to tier 3 (it does not error just because another variant already matched that target). The target does not have to be a union: a single schema behaves like a one-variant target union.
+When you compile `source -> targetUnion` (via `S.to`, or implicitly by reversing the schema), Sury picks the target variant using a three-tier algorithm based on the source's **derived tag** — the tag known at compile time, which may be narrower than the original type (an upstream transformation can refine it). If the source is itself a union, each variant is resolved on its own (two variants can even land on the same target). The target doesn't have to be a union either — a single schema works the same way.
 
 If the source is `unknown` (no derived tag), the tag-based tiers are skipped and target variants are simply attempted in target-union order at runtime.
 
@@ -892,14 +892,14 @@ S.union([S.string.with(S.to, S.number), S.string]);
 
 The transformed variant is const/format-refined relative to the catch-all `string` and matches first within tier 1.
 
-**Source unions resolve each variant independently.** `S.optional(schema)` (and ReScript's `S.option`) is sugar for a union with `undefined`, so `S.string.with(S.to, S.optional(S.string))` reverses to a source union `[string, undefined]` over a single `string` target on encode:
+**Optionals follow the same rules.** `S.optional` is a union with the "missing" case, so `S.string.with(S.to, S.optional(S.string))` converts each case on its own:
 
-- `"abc"` → `"abc"` (tier 1: `string` matches the `string` target, identity)
-- `undefined` → `"undefined"` (tier 3: no `undefined`/`null` target, so the `undefined` literal is stringified)
+- `"abc"` → `"abc"` (a present value stays as-is)
+- `undefined` → `"undefined"` (no `undefined` target, so it falls back to a string)
 
-Note that the `undefined` variant does **not** error even though the `string` target was already matched by the `string` variant — there is no target consumption. On parse the asymmetry shows up the other way: every input string matches the `string` member via tier 1, so the `undefined` member is unreachable and `"undefined"` parses to `"undefined"`, never `undefined`.
+If the target offers a `null` (or `undefined`) case, the missing value maps to that instead of a string.
 
-<!-- FIXME: encoding `undefined` to the string "undefined" here is surprising — arguably the `undefined` source variant should fail with an invalid-type error once the `string` target is taken. Documented as-is to match current behavior; revisit before stabilizing union encoding. -->
+<!-- FIXME: encoding `undefined` to the string "undefined" is surprising — arguably it should error once `string` is already matched. Documented as-is to match current behavior; see the regression test in S_to_test.res. -->
 
 > 🧠 Union conversion always performs exhaustive validation now — every variant is checked, so transformed unions stay consistent across decode and encode.
 

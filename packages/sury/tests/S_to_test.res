@@ -548,6 +548,38 @@ test("Coerce from string to optional string (FIXME: asymmetric None handling)", 
   )
 })
 
+test("Coerce from optional string to null (tier 2: nullish bridge, None <-> null)", t => {
+  let schema = S.option(S.string)->S.to(S.null(S.string))
+
+  // Parse: source union [string, unit] -> target [string, null]. The `string`
+  // variant matches via tier 1; the `unit`/None variant has no `undefined`
+  // target, so tier 2 bridges it to the opposite nullish target `null` — it does
+  // not fall through to a tier-3 "undefined" stringification.
+  t->Assert.deepEqual("x"->S.parseOrThrow(~to=schema), %raw(`"x"`))
+  t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), %raw(`null`))
+  // `null` is not a valid input here (the input type is string | undefined).
+  t->U.assertThrowsMessage(
+    () => %raw(`null`)->S.parseOrThrow(~to=schema),
+    `Expected string | undefined, received null`,
+  )
+
+  // Encode reverses symmetrically: source [string, null] -> target [string, unit].
+  // The `null` variant bridges to the opposite nullish target `undefined`/None.
+  t->Assert.deepEqual(%raw(`"x"`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"x"`))
+  t->Assert.deepEqual(%raw(`null`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{if(i===void 0){try{i=null}catch(e1){e[0](i,e1)}}else if(!(typeof i==="string")){e[1](i)}return i}`,
+  )
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Encode,
+    `i=>{if(i===null){try{i=void 0}catch(e1){e[0](i,e1)}}else if(!(typeof i==="string")){e[1](i)}return i}`,
+  )
+})
+
 test("Coerce from object to string", t => {
   let schema = S.schema(s =>
     {
