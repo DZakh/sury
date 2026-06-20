@@ -959,14 +959,7 @@ S.union([S.string->S.to(S.float), S.string])
 
 The transformed variant is const/format-refined relative to the catch-all `string` and matches first within tier 1.
 
-**Optionals follow the same rules.** `S.option` is a union with the "missing" case, so `S.string->S.to(S.option(S.string))` converts each case on its own:
-
-- `Some("abc")` → `"abc"` (a present value stays as-is)
-- `None` → `"undefined"` (no `undefined` target, so it falls back to a string)
-
-If the target offers a `null` (or `undefined`) case, the missing value maps to that instead of a string — `S.option(S.string)->S.to(S.null(S.string))` maps `None` ↔ `null`.
-
-<!-- FIXME: encoding `None` to the string "undefined" is surprising — arguably it should error once `string` is already matched. Documented as-is to match current behavior; see the regression test in S_to_test.res. -->
+**Optionals are unions too.** `S.option` adds the missing (`undefined`) case, so when you convert an optional into a type that has a `null` or `undefined` case, the missing value bridges to it — `S.option(S.string)->S.to(S.null(S.string))` maps `None` ↔ `null`.
 
 > 🧠 Union conversion always performs exhaustive validation now — every variant is checked, so transformed unions stay consistent across decode and encode.
 

@@ -892,14 +892,7 @@ S.union([S.string.with(S.to, S.number), S.string]);
 
 The transformed variant is const/format-refined relative to the catch-all `string` and matches first within tier 1.
 
-**Optionals follow the same rules.** `S.optional` is a union with the "missing" case, so `S.string.with(S.to, S.optional(S.string))` converts each case on its own:
-
-- `"abc"` → `"abc"` (a present value stays as-is)
-- `undefined` → `"undefined"` (no `undefined` target, so it falls back to a string)
-
-If the target offers a `null` (or `undefined`) case, the missing value maps to that instead of a string.
-
-<!-- FIXME: encoding `undefined` to the string "undefined" is surprising — arguably it should error once `string` is already matched. Documented as-is to match current behavior; see the regression test in S_to_test.res. -->
+**Optionals are unions too.** `S.optional` adds the missing (`undefined`) case, so when you convert an optional into a type that has a `null` or `undefined` case, the missing value bridges to it instead of being coerced.
 
 > 🧠 Union conversion always performs exhaustive validation now — every variant is checked, so transformed unions stay consistent across decode and encode.
 
