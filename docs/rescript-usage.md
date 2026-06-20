@@ -959,8 +959,6 @@ S.union([S.string->S.to(S.float), S.string])
 
 The transformed variant is const/format-refined relative to the catch-all `string` and matches first within tier 1.
 
-**Optionals are unions too.** `S.option` adds the missing (`undefined`) case, so when you convert an optional into a type that has a `null` or `undefined` case, the missing value bridges to it — `S.option(S.string)->S.to(S.null(S.string))` maps `None` ↔ `null`.
-
 > 🧠 Union conversion always performs exhaustive validation now — every variant is checked, so transformed unions stay consistent across decode and encode.
 
 ### **`array`**

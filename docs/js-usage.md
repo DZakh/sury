@@ -892,8 +892,6 @@ S.union([S.string.with(S.to, S.number), S.string]);
 
 The transformed variant is const/format-refined relative to the catch-all `string` and matches first within tier 1.
 
-**Optionals are unions too.** `S.optional` adds the missing (`undefined`) case, so when you convert an optional into a type that has a `null` or `undefined` case, the missing value bridges to it instead of being coerced.
-
 > 🧠 Union conversion always performs exhaustive validation now — every variant is checked, so transformed unions stay consistent across decode and encode.
 
 ## Records
