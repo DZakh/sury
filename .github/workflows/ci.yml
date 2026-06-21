@@ -46,6 +46,9 @@ jobs:
   benchmarks:
     name: Benchmarks
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read # required for actions/checkout
+      id-token: write # required for OIDC authentication with CodSpeed
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
@@ -58,11 +61,11 @@ jobs:
       # Runs the Vitest runtime benchmarks under CodSpeed instrumentation
       # (deterministic instruction counts). Posts a per-benchmark delta comment
       # on PRs; regression gating is configured in the CodSpeed dashboard.
+      # Auth is tokenless via OIDC (see the permissions block above).
       - name: Run benchmarks
-        uses: CodSpeedHQ/action@v3
+        uses: CodSpeedHQ/action@v4
         with:
           run: pnpm --filter=sury bench
-          token: ${{ secrets.CODSPEED_TOKEN }}
 
   ppx-build-linux:
     name: ppx-build-linux
