@@ -6,6 +6,8 @@ on:
       - main
       - "v\\d+.\\d+.\\d+-patch"
   pull_request:
+  # Lets CodSpeed trigger backtest runs to seed initial baseline data.
+  workflow_dispatch:
 
 jobs:
   sury:
@@ -65,6 +67,7 @@ jobs:
       - name: Run benchmarks
         uses: CodSpeedHQ/action@v4
         with:
+          mode: simulation
           run: pnpm --filter=sury bench
 
   ppx-build-linux:
