@@ -3347,6 +3347,64 @@ and unionAssignTargets = (~sources: array<internal>, ~target: internal): array<i
     )
   }
 
+  // Tier 1: for a typed const input, variants with a matching const are tried
+  // before catch-all and differently-const'ed variants.
+and unionPrioritizeConst = (~inputSchema: internal, ~schemas: array<internal>): array<internal> =>
+    if inputSchema->isLiteral {
+      let matching = []
+      let rest = []
+      for idx in 0 to schemas->Array.length - 1 {
+        let schema = schemas->Array.getUnsafe(idx)
+        if schema->isLiteral && schema.const === inputSchema.const {
+          matching->Array.push(schema)->ignore
+        } else {
+          rest->Array.push(schema)->ignore
+        }
+      }
+      matching->Array.concat(rest)
+    } else {
+      schemas
+    }
+
+  // Tier narrowing: when the input is a known single type, returns the union
+  // key the dispatch can jump straight to — the matching same-type variant, or
+  // the opposite nullish variant for a null/undefined bridge. "" means no
+  // narrowing (input is a union/ref/unknown, or no variant matches).
+and unionActiveKey = (~inputSchema: internal, ~inputTagFlag: flag, ~schemas: array<internal>): string =>
+    if (
+      inputTagFlag->Flag.unsafeHas(
+        TagFlag.union->Flag.with(TagFlag.ref)->Flag.with(TagFlag.unknown),
+      )
+    ) {
+      ""
+    } else {
+      let sourceKey = unionToKey(inputSchema)
+      let activeKey = ref("")
+      let hasNull = ref(false)
+      let hasUndefined = ref(false)
+      let len = schemas->Array.length
+      let i = ref(0)
+      while activeKey.contents === "" && i.contents < len {
+        let s = schemas->Array.getUnsafe(i.contents)
+        if unionToKey(s) === sourceKey {
+          activeKey := sourceKey
+        } else if s.tag === nullTag {
+          hasNull := true
+        } else if s.tag === undefinedTag {
+          hasUndefined := true
+        }
+        i := i.contents + 1
+      }
+      if activeKey.contents === "" {
+        if inputTagFlag->Flag.unsafeHas(TagFlag.undefined) && hasNull.contents {
+          activeKey := (nullTag :> string)
+        } else if inputTagFlag->Flag.unsafeHas(TagFlag.null) && hasUndefined.contents {
+          activeKey := (undefinedTag :> string)
+        }
+      }
+      activeKey.contents
+    }
+
   // Applied by the parse loop when a union-typed val
   // meets a different expected schema
 and unionEncoder: encoder = (~input: val, ~target: internal) => {
@@ -3392,39 +3450,11 @@ and unionDecoder: Builder.t = (~input) => {
         input.schema = unknown
       }
 
-      let activeKey = ref("")
-      if (
-        !(
-          initialInputTagFlag->Flag.unsafeHas(
-            TagFlag.union->Flag.with(TagFlag.ref)->Flag.with(TagFlag.unknown),
-          )
-        )
-      ) {
-        let sourceKey = unionToKey(input.schema)
-        let hasNull = ref(false)
-        let hasUndefined = ref(false)
-        let len = schemas->Array.length
-        let i = ref(0)
-        while activeKey.contents === "" && i.contents < len {
-          let s = schemas->Array.getUnsafe(i.contents)
-          if unionToKey(s) === sourceKey {
-            activeKey := sourceKey
-          } else if s.tag === nullTag {
-            hasNull := true
-          } else if s.tag === undefinedTag {
-            hasUndefined := true
-          }
-          i := i.contents + 1
-        }
-        if activeKey.contents === "" {
-          if initialInputTagFlag->Flag.unsafeHas(TagFlag.undefined) && hasNull.contents {
-            activeKey := (nullTag :> string)
-          } else if initialInputTagFlag->Flag.unsafeHas(TagFlag.null) && hasUndefined.contents {
-            activeKey := (undefinedTag :> string)
-          }
-        }
-      }
-      let activeKey = activeKey.contents
+      let activeKey = unionActiveKey(
+        ~inputSchema=input.schema,
+        ~inputTagFlag=initialInputTagFlag,
+        ~schemas,
+      )
 
       let initialInline = input.inline
 
@@ -3719,23 +3749,7 @@ and unionDecoder: Builder.t = (~input) => {
         }
       }
 
-      // Tier 1: for a typed const input, variants with a matching const are
-      // tried before catch-all and differently-const'ed variants
-      let schemas = if input.schema->isLiteral {
-        let matching = []
-        let rest = []
-        for idx in 0 to lastIdx {
-          let schema = schemas->Array.getUnsafe(idx)
-          if schema->isLiteral && schema.const === input.schema.const {
-            matching->Array.push(schema)->ignore
-          } else {
-            rest->Array.push(schema)->ignore
-          }
-        }
-        matching->Array.concat(rest)
-      } else {
-        schemas
-      }
+      let schemas = unionPrioritizeConst(~inputSchema=input.schema, ~schemas)
 
       // Reservation only applies when the variants are genuine alternative
       // sources (input type not statically narrowed to one). When `activeKey`
