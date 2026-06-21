@@ -68,7 +68,7 @@ jobs:
         uses: CodSpeedHQ/action@v4
         with:
           mode: simulation
-          run: pnpm --filter=sury bench
+          run: pnpm --filter=sury bench && pnpm --filter=e2e benchmark:comparison
 
   ppx-build-linux:
     name: ppx-build-linux
