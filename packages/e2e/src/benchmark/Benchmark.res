@@ -10,7 +10,13 @@ module Suite = {
   type event = {target: BenchmarkResult.t}
 
   @module("benchmark") @scope("default") @new
-  external make: unit => t = "Suite"
+  external makeSuite: unit => t = "Suite"
+
+  @module("@codspeed/benchmark.js-plugin")
+  external withCodSpeed: t => t = "withCodSpeed"
+
+  // Wrap the benchmark.js suite so CodSpeed instruments the benchmarks in CI.
+  let make = () => makeSuite()->withCodSpeed
 
   @send
   external add: (t, string, unit => 'a) => t = "add"

@@ -12,14 +12,17 @@
     "benchmark:comparison": "node ./src/benchmark/comparison.js"
   },
   "dependencies": {
-    "rescript": "12.2.0",
-    "vitest": "4.1.7",
+    "@sinclair/typebox": "0.34.33",
+    "arktype": "2.1.20",
     "benchmark": "2.1.4",
+    "rescript": "12.2.0",
     "sury": "file:../sury",
     "sury-ppx": "workspace:sury-ppx",
-    "arktype": "2.1.20",
     "valibot": "1.0.0",
-    "zod": "4.0.0-beta.20250420T053007",
-    "@sinclair/typebox": "0.34.33"
+    "vitest": "4.1.7",
+    "zod": "4.0.0-beta.20250420T053007"
+  },
+  "devDependencies": {
+    "@codspeed/benchmark.js-plugin": "5.6.0"
   }
 }
