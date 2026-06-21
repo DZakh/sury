@@ -2940,51 +2940,71 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
     unknownInput->B.unsupportedDecode(~from=unknownInput.schema, ~target=expectedSchema)
   }
 
-  let output = switch expectedSchema.additionalItems->X.Option.getUnsafe {
-  | Schema(itemSchema) => {
-      let itemSchema = itemSchema->castToInternal
-      if itemSchema === unknown {
-        input
+  // The target's value schema when it's a dict (additionalProperties), else None
+  // for a fixed-property object target.
+  let dictItem = switch expectedSchema.additionalItems->X.Option.getUnsafe {
+  | Schema(s) => Some(s->castToInternal)
+  | _ => None
+  }
+  // Only a dict source can be iterated dynamically (`for..in`). A fixed-property
+  // object source coerced into a dict target reuses the static object-literal
+  // construction below, driven by the source's known keys.
+  let sourceIsDict = switch input.schema.additionalItems->X.Option.getUnsafe {
+  | Schema(_) => true
+  | _ => false
+  }
+
+  let output = switch dictItem {
+  // dict<unknown> target: any object/dict is already a valid value, pass through.
+  | Some(itemSchema) if itemSchema === unknown => input
+  | Some(_) if sourceIsDict => {
+      let inputVar = input.var()
+      let keyVar = input.global->B.varWithoutAllocation
+      let itemInput = input->B.dynamicScope(~locationVar=keyVar)
+      let itemOutput = itemInput->parseDynamic
+
+      let hasTransform = itemOutput.hasTransform->X.Option.getUnsafe
+      let output = hasTransform
+      // FIXME: schema should be expectedSchema output
+        ? input->B.next("{}", ~schema=expectedSchema)
+        : input->B.refine(~schema=expectedSchema)
+
+      let itemCode =
+        itemOutput->B.mergeWithPathPrepend(
+          ~parent=input,
+          ~locationVar=keyVar,
+          ~appendSafe=?hasTransform ? Some(() => output->B.Val.addKey(keyVar, itemOutput)) : None,
+        )
+
+      if hasTransform || itemCode !== "" {
+        output.codeFromPrev =
+          output.codeFromPrev ++ `for(let ${keyVar} in ${inputVar}){${itemCode}}`
+      }
+
+      if itemOutput.flag->Flag.unsafeHas(ValFlag.async) {
+        let resolveVar = output.global->B.varWithoutAllocation
+        let rejectVar = output.global->B.varWithoutAllocation
+        let asyncParseResultVar = output.global->B.varWithoutAllocation
+        let counterVar = output.global->B.varWithoutAllocation
+        let outputVar = B.Val.var(output)
+        output->B.asyncVal(
+          `new Promise((${resolveVar},${rejectVar})=>{let ${counterVar}=Object.keys(${outputVar}).length;for(let ${keyVar} in ${outputVar}){${outputVar}[${keyVar}].then(${asyncParseResultVar}=>{${outputVar}[${keyVar}]=${asyncParseResultVar};if(${counterVar}--===1){${resolveVar}(${outputVar})}},${rejectVar})}})`,
+        )
       } else {
-        let inputVar = input.var()
-        let keyVar = input.global->B.varWithoutAllocation
-        let itemInput = input->B.dynamicScope(~locationVar=keyVar)
-        let itemOutput = itemInput->parseDynamic
-
-        let hasTransform = itemOutput.hasTransform->X.Option.getUnsafe
-        let output = hasTransform
-        // FIXME: schema should be expectedSchema output
-          ? input->B.next("{}", ~schema=expectedSchema)
-          : input->B.refine(~schema=expectedSchema)
-
-        let itemCode =
-          itemOutput->B.mergeWithPathPrepend(
-            ~parent=input,
-            ~locationVar=keyVar,
-            ~appendSafe=?hasTransform ? Some(() => output->B.Val.addKey(keyVar, itemOutput)) : None,
-          )
-
-        if hasTransform || itemCode !== "" {
-          output.codeFromPrev =
-            output.codeFromPrev ++ `for(let ${keyVar} in ${inputVar}){${itemCode}}`
-        }
-
-        if itemOutput.flag->Flag.unsafeHas(ValFlag.async) {
-          let resolveVar = output.global->B.varWithoutAllocation
-          let rejectVar = output.global->B.varWithoutAllocation
-          let asyncParseResultVar = output.global->B.varWithoutAllocation
-          let counterVar = output.global->B.varWithoutAllocation
-          let outputVar = B.Val.var(output)
-          output->B.asyncVal(
-            `new Promise((${resolveVar},${rejectVar})=>{let ${counterVar}=Object.keys(${outputVar}).length;for(let ${keyVar} in ${outputVar}){${outputVar}[${keyVar}].then(${asyncParseResultVar}=>{${outputVar}[${keyVar}]=${asyncParseResultVar};if(${counterVar}--===1){${resolveVar}(${outputVar})}},${rejectVar})}})`,
-          )
-        } else {
-          output
-        }
+        output
       }
     }
   | _ => {
-      let properties = expectedSchema.properties->X.Option.getUnsafe
+      // Static construction. Two shapes funnel here:
+      //  - fixed-property object target: keys/expected come from the target.
+      //  - dict target fed by a fixed-property object source (encode): keys come
+      //    from the source object and every field coerces to the dict's value
+      //    schema. `completeObjectVal` already drops absent optional fields, so a
+      //    `None` source field becomes an absent dict key for free.
+      let properties = switch dictItem {
+      | Some(_) => input.schema.properties->X.Option.getUnsafe
+      | None => expectedSchema.properties->X.Option.getUnsafe
+      }
       let keys = Dict.keysToArray(properties)
       let keysCount = keys->Array.length
 
@@ -3023,7 +3043,13 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
 
       for idx in 0 to keysCount - 1 {
         let key = keys->Array.getUnsafe(idx)
-        let schema = properties->Dict.getUnsafe(key)
+        // For a dict target every field is expected to be the dict's value
+        // schema; for an object target each field has its own schema. `valGet`
+        // already gives the source field's schema as the input type.
+        let schema = switch dictItem {
+        | Some(itemSchema) => itemSchema
+        | None => properties->Dict.getUnsafe(key)
+        }
 
         let itemInput = input->valGet(key)
         itemInput.expected = schema
