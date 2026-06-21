@@ -3347,6 +3347,36 @@ and unionAssignTargets = (~sources: array<internal>, ~target: internal): array<i
     )
   }
 
+  // The canonical type-only schema a variant's dispatch discriminant validates
+  // against (its tag, ignoring const/structure), used to narrow the input val
+  // before the variant's own decoder runs.
+and unionTypeValidationSchema = (~tagFlag: flag, ~schema: internal): internal =>
+    if tagFlag->Flag.unsafeHas(TagFlag.null) {
+      nullLiteral()
+    } else if tagFlag->Flag.unsafeHas(TagFlag.undefined) {
+      unit()
+    } else if tagFlag->Flag.unsafeHas(TagFlag.object) {
+      dictFactory(unknown->castToPublic)->castToInternal
+    } else if tagFlag->Flag.unsafeHas(TagFlag.array) {
+      array(unknown->castToPublic)->castToInternal
+    } else if tagFlag->Flag.unsafeHas(TagFlag.instance) {
+      instance(schema.class)->castToInternal
+    } else if tagFlag->Flag.unsafeHas(TagFlag.nan) {
+      nan()
+    } else if tagFlag->Flag.unsafeHas(TagFlag.string) {
+      string()
+    } else if tagFlag->Flag.unsafeHas(TagFlag.number) {
+      float()
+    } else if tagFlag->Flag.unsafeHas(TagFlag.boolean) {
+      bool()
+    } else if tagFlag->Flag.unsafeHas(TagFlag.bigint) {
+      bigint()
+    } else if tagFlag->Flag.unsafeHas(TagFlag.symbol) {
+      symbol()
+    } else {
+      unknown
+    }
+
   // Tier 1: for a typed const input, variants with a matching const are tried
   // before catch-all and differently-const'ed variants.
 and unionPrioritizeConst = (~inputSchema: internal, ~schemas: array<internal>): array<internal> =>
@@ -3820,31 +3850,7 @@ and unionDecoder: Builder.t = (~input) => {
             // Recreate input val for every schema
             // since we will mutate it
             let typeValidationInput = input->B.Val.scope
-            typeValidationInput.expected = if tagFlag->Flag.unsafeHas(TagFlag.null) {
-              nullLiteral()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.undefined) {
-              unit()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.object) {
-              dictFactory(unknown->castToPublic)->castToInternal
-            } else if tagFlag->Flag.unsafeHas(TagFlag.array) {
-              array(unknown->castToPublic)->castToInternal
-            } else if tagFlag->Flag.unsafeHas(TagFlag.instance) {
-              instance(schema.class)->castToInternal
-            } else if tagFlag->Flag.unsafeHas(TagFlag.nan) {
-              nan()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.string) {
-              string()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.number) {
-              float()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.boolean) {
-              bool()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.bigint) {
-              bigint()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.symbol) {
-              symbol()
-            } else {
-              unknown
-            }
+            typeValidationInput.expected = unionTypeValidationSchema(~tagFlag, ~schema)
 
             let typeValidationOutput = try {
               typeValidationInput->parse
