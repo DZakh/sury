@@ -177,16 +177,10 @@ test("Successfully round-trips date through JSON", t => {
   )
 })
 
-// Reverse (encode) of nullable/optional date fields.
-//
-// Regression guard for a reported bug: a `@s.nullable option<Timestamp.t>` field
-// (which the ppx expands to `S.nullableAsOption(Timestamp.schema)`) used to throw
-// `received [object Date]` when encoding, instead of serializing the Date back to
-// a string. Parsing always worked; only the reverse direction was broken, because
-// the union routes each variant through a bare type-check schema (`instance(Date)`)
-// that doesn't carry the date's encoder. The instance decoders now promote the
-// routed value to the variant's own schema, so a pending `.to` conversion (here
-// `Date.toISOString()`) is applied per variant.
+// Regression guard: encoding a `@s.nullable option<Timestamp.t>` field (ppx-expanded
+// to `S.nullableAsOption(Timestamp.schema)`) used to throw `received [object Date]`
+// instead of serializing the Date back to a string. Parsing was never affected — only
+// the reverse, where the union variant's type-check narrow dropped the member's encoder.
 
 module Timestamp = {
   type t = Date.t
@@ -198,7 +192,6 @@ test("Reverse converts nullableAsOption string-to-date schema", t => {
   let schema = S.nullableAsOption(Timestamp.schema)
   let date = Date.fromString("2024-01-01T00:00:00.000Z")
 
-  // Parsing the string into an optional Date works as expected.
   t->Assert.deepEqual("2024-01-01T00:00:00.000Z"->S.parseOrThrow(~to=schema), Some(date))
   t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(~to=schema), None)
   t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), None)
@@ -208,7 +201,6 @@ test("Reverse converts nullableAsOption string-to-date schema", t => {
     `i=>{if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);i=v0}else if(i===null){i=void 0}else if(!(i===void 0)){e[1](i)}return i}`,
   )
 
-  // Encoding serializes the Date back to its ISO string; None round-trips.
   t->Assert.deepEqual(
     Some(date)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     "2024-01-01T00:00:00.000Z"->Obj.magic,
@@ -256,7 +248,6 @@ test("Reverse converts deeply nested records/array sharing a nullable Timestamp 
 
   let date = Date.fromString("2024-01-01T00:00:00.000Z")
 
-  // Parsing the nested structure works.
   t->Assert.deepEqual(
     %raw(`{createdAt: "2024-01-01T00:00:00.000Z", items: [{createdAt: "2024-01-01T00:00:00.000Z"}]}`)
     ->S.parseOrThrow(~to=parentSchema),
@@ -266,7 +257,6 @@ test("Reverse converts deeply nested records/array sharing a nullable Timestamp 
     },
   )
 
-  // Encoding back produces the original JSON with ISO strings.
   let value = {
     "createdAt": Some(date),
     "items": [{"createdAt": Some(date)}],

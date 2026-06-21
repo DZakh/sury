@@ -1876,11 +1876,8 @@ let int32FormatValidation = (~inputVar) => {
   `${inputVar}<=2147483647&&${inputVar}>=-2147483648&&${inputVar}%1===0`
 }
 
-// Atomic type-narrow conditions — the single source of truth for the type-check
-// strings, shared by the type decoders below and the union dispatch
-// (`typeCheckCond`) so the two can't drift. Each call site composes these
-// (adding its own validation, e.g. int32 or the object `!isArray` guard) instead
-// of re-spelling the strings.
+// Atomic type-narrow conditions, shared by the type decoders and the union
+// dispatch (`typeCheckCond`) so the two can't drift.
 let typeofCond = (tag: tag, ~inputVar) => `typeof ${inputVar}==="${(tag :> string)}"`
 let nanCond = (~inputVar) => `Number.isNaN(${inputVar})`
 let isArrayCond = (~inputVar) => `Array.isArray(${inputVar})`
@@ -2640,11 +2637,8 @@ let instance = class_ => {
   mut->castToPublic
 }
 
-// The type-narrow condition for a union variant, composed from the same atomic
-// checks the type decoders use (`typeofCond`/`instanceofCond`/`isArrayCond`/…).
-// That shared source keeps the union dispatch and the per-variant decode from
-// drifting, while still avoiding any reference to a per-type factory — so
-// unused type decoders tree-shake (see the narrow construction in unionDecoder).
+// Type-narrow condition for a union variant, built from the shared atoms with no
+// per-type factory reference — so unused type decoders tree-shake.
 let typeCheckCond = (input: val, schema: internal, ~inputVar): string => {
   let tagFlag = schema.tag->TagFlag.get
   if tagFlag->Flag.unsafeHas(TagFlag.object) {
@@ -2673,12 +2667,10 @@ let typeCheckCond = (input: val, schema: internal, ~inputVar): string => {
       ->Flag.with(TagFlag.symbol),
     )
   ) {
-    // string / boolean / bigint / symbol (and their literals — the per-const
-    // check stays in the case body)
+    // literals reuse this typeof check; their per-const check stays in the case body
     typeofCond(schema.tag, ~inputVar)
   } else {
-    // Unreachable: catch-all tags (unknown/union/ref/function/never) use the
-    // `unknown` narrow and never reach `typeCheckCond`.
+    // Unreachable: catch-all tags use the `unknown` narrow, never this path.
     InternalError.panic(`Unexpected union variant tag: ${(schema.tag :> string)}`)
   }
 }
@@ -3700,12 +3692,9 @@ and unionDecoder: Builder.t = (~input) => {
             // Recreate input val for every schema
             // since we will mutate it
             let typeValidationInput = input->B.Val.scope
-            // IMPORTANT for tree-shaking: build the variant's type-check narrow
-            // without any per-type factory. Referencing `string()`/`float()`/
-            // `instance()`/… here would pin their full decoders into every bundle
-            // that uses a union (and `S.optional`/`S.nullable` are unions). The
-            // discriminant is emitted by `typeCheckCond`; coercion delegates to
-            // the member's own decoder.
+            // Tree-shaking: build the narrow without a per-type factory. A
+            // `string()`/`instance()`/… reference would pin every type decoder into
+            // any union-using bundle — and `S.optional`/`S.nullable` are unions.
             typeValidationInput.expected = if (
               tagFlag->Flag.unsafeHas(
                 TagFlag.unknown
@@ -3720,11 +3709,8 @@ and unionDecoder: Builder.t = (~input) => {
               // narrow is needed.
               unknown
             } else {
-              // A minimal narrow that becomes the variant's runtime schema —
-              // carrying the member's encoder so a pending `.to` conversion can
-              // reach it. Its decoder emits the type check via `typeCheckCond`
-              // when narrowing an `unknown` input, and delegates to the member's
-              // own decoder when coercing a concrete input (S.to).
+              // A minimal narrow standing in as the variant's runtime schema,
+              // carrying the member's encoder so a pending `.to` reverse reaches it.
               let narrow = base(schema.tag, ~selfReverse=false)
               narrow.encoder = schema.encoder
               if tagFlag->Flag.unsafeHas(TagFlag.instance) {
@@ -3740,15 +3726,12 @@ and unionDecoder: Builder.t = (~input) => {
                   TagFlag.null->Flag.with(TagFlag.undefined)->Flag.with(TagFlag.nan),
                 )
               ) {
-                // null/undefined/nan stay literals so the case body passes the
-                // value through instead of re-emitting the check.
+                // null/undefined/nan stay literals so the case body passes through.
                 narrow.const = schema.const
               }
-              // The branch must be per-invocation, not hoisted to construction:
-              // this same narrow is re-decoded during `.to` per-variant
-              // conversion, sometimes with the union's `unknown` input (emit the
-              // discriminant) and sometimes with a concrete coerced value
-              // (delegate to the member's own decoder).
+              // Per-invocation, not hoisted: this narrow is re-decoded during `.to`
+              // per-variant conversion — with the union's `unknown` input (emit the
+              // discriminant) or a concrete coerced value (delegate to schema.decoder).
               narrow.decoder = (~input) =>
                 if input.schema.tag->TagFlag.get->Flag.unsafeHas(TagFlag.unknown) {
                   input->B.refine(
@@ -3770,6 +3753,8 @@ and unionDecoder: Builder.t = (~input) => {
               typeValidationInput->parse
             } catch {
             | _ => {
+                // Discard any checks parse managed to push before throwing,
+                // so the deopt path doesn't see leftover partial state.
                 typeValidationInput.checks = None
                 typeValidationInput
               }
@@ -3926,10 +3911,8 @@ and unionDecoder: Builder.t = (~input) => {
       }
 
       // Build the output schema from collected case output schemas. Variants
-      // that coerce to the same `.to` target produce structurally-identical
-      // outputs but no longer share one object identity (each narrow is a fresh
-      // `base`), so the union keeps both; `toJSONSchema` collapses the duplicate
-      // when rendering — the only place the distinction is observable.
+      // coercing to the same `.to` target now produce structurally-identical (but
+      // not identity-equal) outputs; `toJSONSchema` collapses the duplicate.
       o.schema = if outputAnyOf->Stdlib.Array.length->X.Int.unsafeToBool {
         unionFactory(outputAnyOf)->castToInternal
       } else {
@@ -7251,9 +7234,8 @@ module RescriptJSONSchema = {
           | Undefined(_) if (parent->castToInternal).tag === objectTag => ()
           | _ => {
               let childJsonSchema = internalToJSONSchema(childSchema, ~parent=schema, ~path, ~defs)
-              // Collapse structurally-identical members (e.g. variants that all
-              // coerce to the same `.to` target) so the union renders canonically
-              // instead of `anyOf:[T, T]`.
+              // Collapse structurally-identical members (e.g. variants coercing to
+              // the same `.to` target) so the union renders as `T`, not `anyOf:[T,T]`.
               let key = childJsonSchema->JSON.stringifyAny->Obj.magic
               if !(seen->Stdlib.Dict.has(key)) {
                 seen->Dict.set(key, true)
