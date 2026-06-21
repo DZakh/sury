@@ -3201,6 +3201,152 @@ and unionPerVariantVal = (~input: val, ~target) =>
       ~expected=input.schema->updateOutput(mut => mut.to = Some(target))->castToInternal,
     )
 
+  // A variant participates in reservation only when its tag + const fully
+  // discriminate it (primitives, literals, null/undefined/NaN) AND it passes
+  // its value through unchanged. Structural variants — objects, instances,
+  // arrays, refs, nested unions — can't be matched statically, and transforming
+  // variants (their own `.to`/parser/serializer) aren't identity matches; both
+  // keep the full target and dispatch at runtime.
+and unionReservable = (schema: internal) =>
+    schema.to === None &&
+    schema.parser === None &&
+    schema.serializer === None &&
+    !(
+      schema.tag
+      ->TagFlag.get
+      ->Flag.unsafeHas(
+        TagFlag.object
+        ->Flag.with(TagFlag.instance)
+        ->Flag.with(TagFlag.array)
+        ->Flag.with(TagFlag.ref)
+        ->Flag.with(TagFlag.union),
+      )
+    )
+
+  // Resolves which target each source variant converts to, with reservation.
+  // Walks reservable variants tier 1 (same-type) then tier 2 (nullish bridge) —
+  // both claim their target so no other variant can reuse it — then tier 3
+  // (coercion) shares whatever targets remain free. A reservable variant with no
+  // target left is mapped to `never` and fails. Non-reservable variants keep the
+  // full target. Returned array is aligned with `sources`.
+and unionAssignTargets = (~sources: array<internal>, ~target: internal): array<internal> => {
+    let targetCases = switch target.anyOf {
+    | Some(anyOf) if target.tag === unionTag => anyOf
+    | _ => [target]
+    }
+    let sourceLen = sources->Array.length
+    let targetLen = targetCases->Array.length
+
+    let reserved = []
+    let assigned: array<option<internal>> = []
+    for _ in 0 to targetLen - 1 {
+      reserved->Array.push(false)->ignore
+    }
+    for _ in 0 to sourceLen - 1 {
+      assigned->Array.push(None)->ignore
+    }
+
+    let claim = (si, ti) => {
+      reserved->Array.setUnsafe(ti, true)
+      assigned->Array.setUnsafe(si, Some(targetCases->Array.getUnsafe(ti)))
+    }
+
+    // Pass 1: tier 1 — same-type match (exact const preferred), reserves it.
+    for si in 0 to sourceLen - 1 {
+      let s = sources->Array.getUnsafe(si)
+      if unionReservable(s) {
+        let sKey = unionToKey(s)
+        let chosen = ref(-1)
+        for ti in 0 to targetLen - 1 {
+          if chosen.contents === -1 && !(reserved->Array.getUnsafe(ti)) {
+            let t = targetCases->Array.getUnsafe(ti)
+            if unionToKey(t) === sKey && t.const === s.const {
+              chosen := ti
+            }
+          }
+        }
+        if chosen.contents === -1 {
+          for ti in 0 to targetLen - 1 {
+            if chosen.contents === -1 && !(reserved->Array.getUnsafe(ti)) {
+              if unionToKey(targetCases->Array.getUnsafe(ti)) === sKey {
+                chosen := ti
+              }
+            }
+          }
+        }
+        if chosen.contents !== -1 {
+          claim(si, chosen.contents)
+        }
+      }
+    }
+
+    // Pass 2: tier 2 — nullish bridge to the opposite nullish target, reserves it.
+    for si in 0 to sourceLen - 1 {
+      switch assigned->Array.getUnsafe(si) {
+      | Some(_) => ()
+      | None =>
+        let sTag = (sources->Array.getUnsafe(si)).tag
+        let oppositeTag = if sTag === nullTag {
+          undefinedTag
+        } else if sTag === undefinedTag {
+          nullTag
+        } else {
+          sTag
+        }
+        if oppositeTag !== sTag {
+          let chosen = ref(-1)
+          for ti in 0 to targetLen - 1 {
+            if (
+              chosen.contents === -1 &&
+              !(reserved->Array.getUnsafe(ti)) &&
+              (targetCases->Array.getUnsafe(ti)).tag === oppositeTag
+            ) {
+              chosen := ti
+            }
+          }
+          if chosen.contents !== -1 {
+            claim(si, chosen.contents)
+          }
+        }
+      }
+    }
+
+    // Pass 3: tier 3 — reservable variants coerce over the remaining free
+    // targets (no reservation); non-reservable variants keep the full target.
+    let free = []
+    for ti in 0 to targetLen - 1 {
+      if !(reserved->Array.getUnsafe(ti)) {
+        free->Array.push(targetCases->Array.getUnsafe(ti))->ignore
+      }
+    }
+    let freeSchema = if free->Array.length === targetLen {
+      target
+    } else {
+      switch free {
+      | [single] => single
+      | [] => never_()
+      | cases => unionFactory(cases->Obj.magic)->castToInternal
+      }
+    }
+    for si in 0 to sourceLen - 1 {
+      switch assigned->Array.getUnsafe(si) {
+      | Some(_) => ()
+      | None =>
+        assigned->Array.setUnsafe(
+          si,
+          Some(unionReservable(sources->Array.getUnsafe(si)) ? freeSchema : target),
+        )
+      }
+    }
+
+    assigned->Array.map(opt =>
+      switch opt {
+      | Some(t) => t
+      | None => never_()
+      }
+    )
+  }
+
   // Applied by the parse loop when a union-typed val
   // meets a different expected schema
 and unionEncoder: encoder = (~input: val, ~target: internal) => {
@@ -3591,14 +3737,28 @@ and unionDecoder: Builder.t = (~input) => {
         schemas
       }
 
+      // Reservation only applies when the variants are genuine alternative
+      // sources (input type not statically narrowed to one). When `activeKey`
+      // is set the input is a known single type decoded into the union, so the
+      // active variant converts to the full target as before.
+      let assignedTargets = switch toPerCase {
+      | Some(target) if activeKey === "" => Some(unionAssignTargets(~sources=schemas, ~target))
+      | _ => None
+      }
+
       for idx in 0 to lastIdx {
-        let schema = switch toPerCase {
-        | Some(target) =>
+        let schema = switch (toPerCase, assignedTargets) {
+        | (Some(target), assignedTargets) =>
           updateOutput(schemas->Array.getUnsafe(idx), mut => {
             appendUnionRefiners(mut)
-            mut.to = Some(target)
+            mut.to = Some(
+              switch assignedTargets {
+              | Some(targets) => targets->Array.getUnsafe(idx)
+              | None => target
+              },
+            )
           })->castToInternal
-        | _ => schemas->Array.getUnsafe(idx)
+        | (None, _) => schemas->Array.getUnsafe(idx)
         }
         let tag = schema.tag
         let tagFlag = TagFlag.get(tag)

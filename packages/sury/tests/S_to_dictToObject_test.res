@@ -16,9 +16,9 @@ open Vitest
 // as optional (`option<V>`) when `V` is a concrete type that can't itself be
 // undefined. The existing union coercion then handles a missing key uniformly:
 //   - optional target field  -> absence decodes to None
-//   - required `string` field -> absence stringifies to "undefined" (the
-//     reversibility-locked None <-> "undefined" sentinel; tightening this is a
-//     deferred "tier fix")
+//   - required `string` field -> absence errors: the `string` source variant
+//     claims the `string` target (tier 1, exclusive), so the reserved `unit` arm
+//     has no target and can't stringify to "undefined" (the "tier fix")
 //   - required `bigint` field -> absence errors (no undefined coercion)
 //
 // The remaining gap (encoding back to dict<string>) is still pinned against its
@@ -66,27 +66,29 @@ test("[milestone 1] absent required bigint field errors", t => {
   )
 })
 
-test("[milestone 1] absent required string field stringifies to \"undefined\" (deferred tier fix)", t => {
+test("[milestone 1] absent required string field errors (tier fix)", t => {
   let schema = makeSchema()
 
-  // A missing `foo` (required string) flows through the option's undefined arm,
-  // which the string coercion turns into the literal "undefined" — the mirror of
-  // the `string -> option` `"undefined" <-> None` sentinel, locked in by
-  // reversibility. Tightening this to an error is a deferred "tier fix".
-  t->Assert.deepEqual(
-    %raw(`{"bar":"7","zoo":"1.5"}`)->S.parseOrThrow(~to=schema),
-    {"foo": "undefined", "bar": 7n, "zoo": Some(1.5)},
+  // A missing `foo` (required string) reads as `option<string>`. The `string`
+  // source variant claims the `string` target (tier 1, exclusive), so the absent
+  // `unit` arm has no target left and errors instead of stringifying to
+  // "undefined" — the tier fix that tightens the old None <-> "undefined" sentinel.
+  t->U.assertThrowsMessage(
+    () => %raw(`{"bar":"7","zoo":"1.5"}`)->S.parseOrThrow(~to=schema),
+    `Failed at ["foo"]: Expected never, received undefined`,
   )
 })
 
-test("the literal string \"undefined\" decodes to None (string sentinel)", t => {
+test("the literal string \"undefined\" no longer decodes to None (sentinel removed)", t => {
   let schema = makeSchema()
 
-  // Present-value coercion routes through the option's string arm, so the literal
-  // string "undefined" maps to None as well — the same sentinel as above.
-  t->Assert.deepEqual(
-    %raw(`{"foo":"a","bar":"123","zoo":"undefined"}`)->S.parseOrThrow(~to=schema),
-    {"foo": "a", "bar": 123n, "zoo": None},
+  // `zoo` is `option<float>`; its `unit`/None arm is reserved by the absent
+  // `undefined` read, so the present string "undefined" can't reach it via tier-3
+  // stringified-const coercion. It is parsed as a number (`+"undefined"` = NaN)
+  // and errors — the surprising string sentinel is gone.
+  t->U.assertThrowsMessage(
+    () => %raw(`{"foo":"a","bar":"123","zoo":"undefined"}`)->S.parseOrThrow(~to=schema),
+    `Failed at ["zoo"]: Expected number, received "undefined"`,
   )
 })
 
@@ -96,7 +98,7 @@ test("[milestone 1] compiled parse code models each dict read as optional", t =>
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);for(let v0 in i){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}let v3=i["foo"],v5=i["bar"],v7=i["zoo"];if(v3===void 0){v3="undefined"}else if(!(typeof v3==="string")){e[1](v3)}if(typeof v5==="string"){let v4;try{v4=BigInt(v5)}catch(_){e[2](v5)}v5=v4}else if(v5===void 0){e[4](v5,e[3])}else{e[5](v5)}if(typeof v7==="string"){try{let v6=+v7;!Number.isNaN(v6)||e[6](v7);v7=v6}catch(e0){if(v7==="undefined"){v7=void 0}else{e[7](v7,e0)}}}else if(!(v7===void 0)){e[8](v7)}return {"foo":v3,"bar":v5,"zoo":v7,}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);for(let v0 in i){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}let v3=i["foo"],v5=i["bar"],v7=i["zoo"];if(v3===void 0){e[1](v3);}else if(!(typeof v3==="string")){e[2](v3)}if(typeof v5==="string"){let v4;try{v4=BigInt(v5)}catch(_){e[3](v5)}v5=v4}else if(v5===void 0){e[5](v5,e[4])}else{e[6](v5)}if(typeof v7==="string"){let v6=+v7;!Number.isNaN(v6)||e[7](v7);v7=v6}else if(!(v7===void 0)){e[8](v7)}return {"foo":v3,"bar":v5,"zoo":v7,}}`,
   )
 })
 

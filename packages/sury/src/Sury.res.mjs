@@ -1984,6 +1984,110 @@ function unionPerVariantVal(input, target) {
   }));
 }
 
+function unionReservable(schema) {
+  if (schema.to === undefined && schema.parser === undefined && schema.serializer === undefined) {
+    return !(flags[schema.type] & 9152);
+  } else {
+    return false;
+  }
+}
+
+function unionAssignTargets(sources, target) {
+  let anyOf = target.anyOf;
+  let targetCases = anyOf !== undefined ? (
+      target.type === unionTag ? anyOf : [target]
+    ) : [target];
+  let sourceLen = sources.length;
+  let targetLen = targetCases.length;
+  let reserved = [];
+  let assigned = [];
+  for (let _for = 0; _for < targetLen; ++_for) {
+    reserved.push(false);
+  }
+  for (let _for$1 = 0; _for$1 < sourceLen; ++_for$1) {
+    assigned.push(undefined);
+  }
+  let claim = (si, ti) => {
+    reserved[ti] = true;
+    assigned[si] = targetCases[ti];
+  };
+  for (let si = 0; si < sourceLen; ++si) {
+    let s = sources[si];
+    if (unionReservable(s)) {
+      let sKey = unionToKey(s);
+      let chosen = -1;
+      for (let ti = 0; ti < targetLen; ++ti) {
+        if (chosen === -1 && !reserved[ti]) {
+          let t = targetCases[ti];
+          if (unionToKey(t) === sKey && t.const === s.const) {
+            chosen = ti;
+          }
+        }
+      }
+      if (chosen === -1) {
+        for (let ti$1 = 0; ti$1 < targetLen; ++ti$1) {
+          if (chosen === -1 && !reserved[ti$1] && unionToKey(targetCases[ti$1]) === sKey) {
+            chosen = ti$1;
+          }
+        }
+      }
+      if (chosen !== -1) {
+        claim(si, chosen);
+      }
+    }
+  }
+  for (let si$1 = 0; si$1 < sourceLen; ++si$1) {
+    let match = assigned[si$1];
+    if (match === undefined) {
+      let sTag = sources[si$1].type;
+      let oppositeTag = sTag === nullTag ? undefinedTag : (
+          sTag === undefinedTag ? nullTag : sTag
+        );
+      if (oppositeTag !== sTag) {
+        let chosen$1 = -1;
+        for (let ti$2 = 0; ti$2 < targetLen; ++ti$2) {
+          if (chosen$1 === -1 && !reserved[ti$2] && targetCases[ti$2].type === oppositeTag) {
+            chosen$1 = ti$2;
+          }
+        }
+        if (chosen$1 !== -1) {
+          claim(si$1, chosen$1);
+        }
+      }
+    }
+  }
+  let free = [];
+  for (let ti$3 = 0; ti$3 < targetLen; ++ti$3) {
+    if (!reserved[ti$3]) {
+      free.push(targetCases[ti$3]);
+    }
+  }
+  let freeSchema;
+  if (free.length === targetLen) {
+    freeSchema = target;
+  } else {
+    let len = free.length;
+    freeSchema = len !== 1 ? (
+        len !== 0 ? unionFactory(free) : never_()
+      ) : free[0];
+  }
+  for (let si$2 = 0; si$2 < sourceLen; ++si$2) {
+    let match$1 = assigned[si$2];
+    if (match$1 !== undefined) {
+      
+    } else {
+      assigned[si$2] = unionReservable(sources[si$2]) ? freeSchema : target;
+    }
+  }
+  return assigned.map(opt => {
+    if (opt !== undefined) {
+      return opt;
+    } else {
+      return never_();
+    }
+  });
+}
+
 function unionEncoder(input, target) {
   let inputAnyOf = input.s.anyOf;
   if (target.type === unionTag && unionGetToPerCase(target) === undefined && unionIsWiderSchema(target.anyOf, inputAnyOf) || !unionCanDispatchPerVariant(inputAnyOf, target)) {
@@ -2264,10 +2368,11 @@ function unionDecoder(input) {
   } else {
     schemas$1 = schemas;
   }
+  let assignedTargets = toPerCase !== undefined && activeKey$1 === "" ? unionAssignTargets(schemas$1, toPerCase) : undefined;
   for (let idx$1 = 0; idx$1 <= lastIdx; ++idx$1) {
     let schema$1 = toPerCase !== undefined ? updateOutput(schemas$1[idx$1], mut => {
         appendUnionRefiners(mut);
-        mut.to = toPerCase;
+        mut.to = assignedTargets !== undefined ? assignedTargets[idx$1] : toPerCase;
       }) : schemas$1[idx$1];
     let tag = schema$1.type;
     let tagFlag = flags[tag];
@@ -3567,6 +3672,118 @@ function proxifyShapedSchema(schema, from, fromFlattened) {
   });
 }
 
+function traverseDefinition(definition, onNode) {
+  if (typeof definition !== objectTag || definition === null) {
+    return parse(definition);
+  }
+  let s = onNode(definition);
+  if (s !== undefined) {
+    return s;
+  }
+  if (Array.isArray(definition)) {
+    for (let idx = 0, idx_finish = definition.length; idx < idx_finish; ++idx) {
+      let schema = traverseDefinition(definition[idx], onNode);
+      definition[idx] = schema;
+    }
+    let mut = base(arrayTag, false);
+    mut.items = definition;
+    mut.additionalItems = "strict";
+    mut.decoder = arrayDecoder;
+    return mut;
+  }
+  let cnstr = definition.constructor;
+  if (cnstr && cnstr !== Object) {
+    let mut$1 = base(instanceTag, true);
+    mut$1.class = cnstr;
+    mut$1.const = definition;
+    mut$1.decoder = literalDecoder;
+    return mut$1;
+  }
+  let fieldNames = Object.keys(definition);
+  let length = fieldNames.length;
+  for (let idx$1 = 0; idx$1 < length; ++idx$1) {
+    let location = fieldNames[idx$1];
+    let schema$1 = traverseDefinition(definition[location], onNode);
+    definition[location] = schema$1;
+  }
+  let mut$2 = base(objectTag, false);
+  mut$2.required = fieldNames;
+  mut$2.properties = definition;
+  mut$2.additionalItems = globalConfig.a;
+  mut$2.decoder = objectDecoder;
+  return mut$2;
+}
+
+function getValByFrom(_input, from, _idx) {
+  while (true) {
+    let idx = _idx;
+    let input = _input;
+    let key = from[idx];
+    if (key === undefined) {
+      return input;
+    }
+    _idx = idx + 1 | 0;
+    _input = input.d[key];
+    continue;
+  };
+}
+
+function prepareShapedSerializerAcc(acc, input) {
+  let match = input.e;
+  let from = match.from;
+  if (from !== undefined) {
+    let fromFlattened = match.fromFlattened;
+    let accAtFrom;
+    if (fromFlattened !== undefined) {
+      if (acc.flattened === undefined) {
+        acc.flattened = [];
+      }
+      let acc$1 = acc.flattened[fromFlattened];
+      if (acc$1 !== undefined) {
+        accAtFrom = acc$1;
+      } else {
+        let newAcc = {};
+        acc.flattened[fromFlattened] = newAcc;
+        accAtFrom = newAcc;
+      }
+    } else {
+      accAtFrom = acc;
+    }
+    for (let idx = 0, idx_finish = from.length; idx < idx_finish; ++idx) {
+      let key = from[idx];
+      let p = accAtFrom.properties;
+      let p$1;
+      if (p !== undefined) {
+        p$1 = p;
+      } else {
+        let p$2 = {};
+        accAtFrom.properties = p$2;
+        p$1 = p$2;
+      }
+      let acc$2 = p$1[key];
+      let tmp;
+      if (acc$2 !== undefined) {
+        tmp = acc$2;
+      } else {
+        let newAcc$1 = {};
+        p$1[key] = newAcc$1;
+        tmp = newAcc$1;
+      }
+      accAtFrom = tmp;
+    }
+    accAtFrom.val = input;
+    return;
+  }
+  let vals = input.d;
+  if (vals === undefined) {
+    return;
+  }
+  let keys = Object.keys(vals);
+  for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
+    prepareShapedSerializerAcc(acc, vals[keys[idx$1]]);
+  }
+}
+
 function getShapedSerializerOutput(input, acc, targetSchema, path) {
   let exit = 0;
   if (acc !== undefined) {
@@ -3664,62 +3881,6 @@ function getShapedSerializerOutput(input, acc, targetSchema, path) {
   }
 }
 
-function prepareShapedSerializerAcc(acc, input) {
-  let match = input.e;
-  let from = match.from;
-  if (from !== undefined) {
-    let fromFlattened = match.fromFlattened;
-    let accAtFrom;
-    if (fromFlattened !== undefined) {
-      if (acc.flattened === undefined) {
-        acc.flattened = [];
-      }
-      let acc$1 = acc.flattened[fromFlattened];
-      if (acc$1 !== undefined) {
-        accAtFrom = acc$1;
-      } else {
-        let newAcc = {};
-        acc.flattened[fromFlattened] = newAcc;
-        accAtFrom = newAcc;
-      }
-    } else {
-      accAtFrom = acc;
-    }
-    for (let idx = 0, idx_finish = from.length; idx < idx_finish; ++idx) {
-      let key = from[idx];
-      let p = accAtFrom.properties;
-      let p$1;
-      if (p !== undefined) {
-        p$1 = p;
-      } else {
-        let p$2 = {};
-        accAtFrom.properties = p$2;
-        p$1 = p$2;
-      }
-      let acc$2 = p$1[key];
-      let tmp;
-      if (acc$2 !== undefined) {
-        tmp = acc$2;
-      } else {
-        let newAcc$1 = {};
-        p$1[key] = newAcc$1;
-        tmp = newAcc$1;
-      }
-      accAtFrom = tmp;
-    }
-    accAtFrom.val = input;
-    return;
-  }
-  let vals = input.d;
-  if (vals === undefined) {
-    return;
-  }
-  let keys = Object.keys(vals);
-  for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
-    prepareShapedSerializerAcc(acc, vals[keys[idx$1]]);
-  }
-}
-
 function nested(fieldName) {
   let parentCtx = this;
   let cacheId = `~` + fieldName;
@@ -3794,58 +3955,6 @@ function definitionToSchema(definition) {
   });
 }
 
-function shapedSerializer(input) {
-  let acc = {};
-  prepareShapedSerializerAcc(acc, input);
-  let targetSchema = input.e.to;
-  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
-  output.t = true;
-  output.prev = input;
-  return output;
-}
-
-function traverseDefinition(definition, onNode) {
-  if (typeof definition !== objectTag || definition === null) {
-    return parse(definition);
-  }
-  let s = onNode(definition);
-  if (s !== undefined) {
-    return s;
-  }
-  if (Array.isArray(definition)) {
-    for (let idx = 0, idx_finish = definition.length; idx < idx_finish; ++idx) {
-      let schema = traverseDefinition(definition[idx], onNode);
-      definition[idx] = schema;
-    }
-    let mut = base(arrayTag, false);
-    mut.items = definition;
-    mut.additionalItems = "strict";
-    mut.decoder = arrayDecoder;
-    return mut;
-  }
-  let cnstr = definition.constructor;
-  if (cnstr && cnstr !== Object) {
-    let mut$1 = base(instanceTag, true);
-    mut$1.class = cnstr;
-    mut$1.const = definition;
-    mut$1.decoder = literalDecoder;
-    return mut$1;
-  }
-  let fieldNames = Object.keys(definition);
-  let length = fieldNames.length;
-  for (let idx$1 = 0; idx$1 < length; ++idx$1) {
-    let location = fieldNames[idx$1];
-    let schema$1 = traverseDefinition(definition[location], onNode);
-    definition[location] = schema$1;
-  }
-  let mut$2 = base(objectTag, false);
-  mut$2.required = fieldNames;
-  mut$2.properties = definition;
-  mut$2.additionalItems = globalConfig.a;
-  mut$2.decoder = objectDecoder;
-  return mut$2;
-}
-
 function getShapedParserOutput(input, targetSchema) {
   let from = targetSchema.from;
   let fromFlattened = targetSchema.fromFlattened;
@@ -3885,18 +3994,14 @@ function getShapedParserOutput(input, targetSchema) {
   return v;
 }
 
-function getValByFrom(_input, from, _idx) {
-  while (true) {
-    let idx = _idx;
-    let input = _input;
-    let key = from[idx];
-    if (key === undefined) {
-      return input;
-    }
-    _idx = idx + 1 | 0;
-    _input = input.d[key];
-    continue;
-  };
+function shapedSerializer(input) {
+  let acc = {};
+  prepareShapedSerializerAcc(acc, input);
+  let targetSchema = input.e.to;
+  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
+  output.t = true;
+  output.prev = input;
+  return output;
 }
 
 function definitionToShapedSchema(definition) {

@@ -518,33 +518,29 @@ test("Coerce from string to optional bool", t => {
   )
 })
 
-test("Coerce from string to optional string (FIXME: asymmetric None handling)", t => {
+test("Coerce from string to optional string — reserved None has no target and errors", t => {
   let schema = S.string->S.to(S.option(S.string))
 
   // Parse: the source `string` matches the target union's `string` member via
   // tier 1, so the `unit`/None member is unreachable — even the literal
-  // "undefined" round-trips to Some, never None.
+  // "undefined" stays Some, never None.
   t->Assert.deepEqual("abc"->S.parseOrThrow(~to=schema), Some("abc"))
-  // FIXME: surprising — "undefined" parses to Some("undefined"), never None.
   t->Assert.deepEqual("undefined"->S.parseOrThrow(~to=schema), Some("undefined"))
 
-  // Encode reverses to source union [string, unit] -> target string. Each source
-  // variant resolves its tier ladder independently (targets are not consumed):
-  // `string` -> `string` is tier 1 identity; `unit`/None falls through to tier 3.
+  // Encode reverses to source union [string, unit] -> target string. The `string`
+  // variant claims the `string` target (tier 1, exclusive), so the `unit`/None
+  // variant has no target left: it errors instead of stringifying to "undefined".
   t->Assert.deepEqual(Some("abc")->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"abc"`))
-  // FIXME: invalid — None should fail with invalid type, because the `string`
-  // target is already taken by the tier-1 `string` match. Instead tier 3 coerces
-  // the `undefined` literal to the string "undefined". This also breaks
-  // round-tripping: encode(None) -> "undefined" -> parse -> Some("undefined").
-  t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"undefined"`))
+  t->U.assertThrowsMessage(
+    () => None->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    `Expected never, received undefined`,
+  )
 
   t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{typeof i==="string"||e[0](i);return i}`)
-  // FIXME: invalid — the `i===void 0` branch should fail with invalid type
-  // (`e[..](i)`), not coerce to the string "undefined".
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(i===void 0){i="undefined"}else if(!(typeof i==="string")){e[0](i)}return i}`,
+    `i=>{if(i===void 0){e[0](i);}else if(!(typeof i==="string")){e[1](i)}return i}`,
   )
 })
 
@@ -568,15 +564,17 @@ test("Coerce from optional string to null (tier 2: nullish bridge, None <-> null
   t->Assert.deepEqual(%raw(`"x"`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"x"`))
   t->Assert.deepEqual(%raw(`null`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
 
+  // Reservation gives each nullish variant its single bridged target, so the
+  // codegen is a direct assignment — no try/catch dispatch wrapper.
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(i===void 0){try{i=null}catch(e1){e[0](i,e1)}}else if(!(typeof i==="string")){e[1](i)}return i}`,
+    `i=>{if(i===void 0){i=null}else if(!(typeof i==="string")){e[0](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(i===null){try{i=void 0}catch(e1){e[0](i,e1)}}else if(!(typeof i==="string")){e[1](i)}return i}`,
+    `i=>{if(i===null){i=void 0}else if(!(typeof i==="string")){e[0](i)}return i}`,
   )
 })
 
@@ -960,10 +958,17 @@ test("Tier 1: source tag matches a target variant — identity wins, no cross-ty
 
   t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{typeof i==="string"||e[0](i);return i}`)
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#Convert)
+  // Encode reverses to source union [bool, string] -> target string. The `string`
+  // variant claims the `string` target (tier 1, exclusive), so the `bool` variant
+  // can no longer coerce into it — it has no target left and errors.
+  t->U.assertThrowsMessage(
+    () => %raw(`true`)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    `Expected never, received true`,
+  )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(typeof i==="boolean"){i=""+i}else if(!(typeof i==="string")){e[0](i)}return i}`,
+    `i=>{if(typeof i==="boolean"){e[0](i);}else if(!(typeof i==="string")){e[1](i)}return i}`,
   )
 })
 
@@ -1243,8 +1248,13 @@ test("Converts union nested in object into a single schema (each source variant 
       }
     )->S.to(S.schema(s => {"f": s.matches(S.string)}))
 
-  t->Assert.deepEqual({"f": %raw(`123`)}->S.parseOrThrow(~to=schema), {"f": %raw(`"123"`)})
+  // The `string` variant claims the `string` target (tier 1, exclusive), so the
+  // `float` variant has no target left and errors — it is not coerced to a string.
   t->Assert.deepEqual({"f": %raw(`"abc"`)}->S.parseOrThrow(~to=schema), {"f": %raw(`"abc"`)})
+  t->U.assertThrowsMessage(
+    () => {"f": %raw(`123`)}->S.parseOrThrow(~to=schema),
+    `Failed at ["f"]: Expected never, received 123`,
+  )
 })
 
 test("Union variant failing to decode to the target reports an aggregated error", t => {
@@ -1334,8 +1344,13 @@ test("Converts union nested in tuple into a single schema (each source variant s
       s.matches(S.bool),
     ))->S.to(S.schema(s => (s.matches(S.string), s.matches(S.bool))))
 
-  t->Assert.deepEqual(%raw(`[123, true]`)->S.parseOrThrow(~to=schema), %raw(`["123", true]`))
+  // `string` claims the `string` target (tier 1, exclusive); the `float` variant
+  // has no target left and errors rather than coercing to a string.
   t->Assert.deepEqual(%raw(`["abc", false]`)->S.parseOrThrow(~to=schema), %raw(`["abc", false]`))
+  t->U.assertThrowsMessage(
+    () => %raw(`[123, true]`)->S.parseOrThrow(~to=schema),
+    `Failed at ["0"]: Expected never, received 123`,
+  )
 })
 
 asyncTest("Converts union nested in object into an async target (each source variant separately)", async t => {
@@ -1352,13 +1367,16 @@ asyncTest("Converts union nested in object into an async target (each source var
       ),
     )
 
-  t->Assert.deepEqual(
-    await %raw(`{f: 123}`)->S.parseAsyncOrThrow(~to=schema),
-    {"f": "123"},
-  )
+  // `string` claims the `string` target (tier 1, exclusive); the `float` variant
+  // has no target left and errors rather than coercing to a string. The error is
+  // synchronous (it fires while narrowing, before the async string arm runs).
   t->Assert.deepEqual(
     await %raw(`{f: "abc"}`)->S.parseAsyncOrThrow(~to=schema),
     {"f": "abc"},
+  )
+  t->U.assertThrowsMessage(
+    () => %raw(`{f: 123}`)->S.parseOrThrow(~to=schema),
+    `Failed at ["f"]: Expected never, received 123`,
   )
 })
 
