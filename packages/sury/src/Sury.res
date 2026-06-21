@@ -3487,6 +3487,56 @@ and unionDecoder: Builder.t = (~input) => {
   }
 }
 
+// Builds a mutator that folds the union's own refiner/inputRefiner onto each
+// surviving case's schema (so they run per case when the union has a `.to`).
+// Each source refiner is embedded at most once and shared by every case.
+and unionRefinerAttacher = (~selfSchema: internal): (internal => unit) => {
+  let unionRefiner = selfSchema.refiner
+  let unionInputRefiner = selfSchema.inputRefiner
+  // Call each source refiner at most once so its predicate is embedded
+  // in `input.global.embeded` once and every case references the same
+  // `e[N]`. `B.embed` is append-only, so a per-case call would duplicate.
+  let cachedRefinerChecks = ref(None)
+  let cachedInputRefinerChecks = ref(None)
+  let attach = (current, source, cache) =>
+    switch source {
+    | None => current
+    | Some(fn) =>
+      let getCached = (~input) =>
+        switch cache.contents {
+        | Some(checks) => checks
+        | None =>
+          let checks = fn(~input)
+          cache := Some(checks)
+          checks
+        }
+      switch current {
+      | None => Some(getCached)
+      | Some(existing) =>
+        Some(
+          (~input) => {
+            let arr = existing(~input)
+            let next = getCached(~input)
+            for i in 0 to next->Array.length - 1 {
+              arr->Array.push(next->Array.getUnsafe(i))->ignore
+            }
+            arr
+          },
+        )
+      }
+    }
+  (mut: internal) => {
+    switch attach(mut.refiner, unionRefiner, cachedRefinerChecks) {
+    | Some(r) => mut.refiner = Some(r)
+    | None => ()
+    }
+    switch attach(mut.inputRefiner, unionInputRefiner, cachedInputRefinerChecks) {
+    | Some(r) => mut.inputRefiner = Some(r)
+    | None => ()
+    }
+  }
+}
+
 // Generates the exhaustive union invalid-type error: throws with `selfSchema`
 // as the expected type and any accumulated per-case errors (`caught`).
 and unionFail = (~input: val, ~selfSchema: internal, ~caught: string): string =>
@@ -3760,52 +3810,7 @@ and unionEmit = (
   // surviving case (previously dropped when the union has `.to`). The
   // emit shape isn't ideal; fold this into the shared refiner pipeline
   // post-release.
-  let appendUnionRefiners = {
-    let unionRefiner = selfSchema.refiner
-    let unionInputRefiner = selfSchema.inputRefiner
-    // Call each source refiner at most once so its predicate is embedded
-    // in `input.global.embeded` once and every case references the same
-    // `e[N]`. `B.embed` is append-only, so a per-case call would duplicate.
-    let cachedRefinerChecks = ref(None)
-    let cachedInputRefinerChecks = ref(None)
-    let attach = (current, source, cache) =>
-      switch source {
-      | None => current
-      | Some(fn) =>
-        let getCached = (~input) =>
-          switch cache.contents {
-          | Some(checks) => checks
-          | None =>
-            let checks = fn(~input)
-            cache := Some(checks)
-            checks
-          }
-        switch current {
-        | None => Some(getCached)
-        | Some(existing) =>
-          Some(
-            (~input) => {
-              let arr = existing(~input)
-              let next = getCached(~input)
-              for i in 0 to next->Array.length - 1 {
-                arr->Array.push(next->Array.getUnsafe(i))->ignore
-              }
-              arr
-            },
-          )
-        }
-      }
-    (mut: internal) => {
-      switch attach(mut.refiner, unionRefiner, cachedRefinerChecks) {
-      | Some(r) => mut.refiner = Some(r)
-      | None => ()
-      }
-      switch attach(mut.inputRefiner, unionInputRefiner, cachedInputRefinerChecks) {
-      | Some(r) => mut.inputRefiner = Some(r)
-      | None => ()
-      }
-    }
-  }
+  let appendUnionRefiners = unionRefinerAttacher(~selfSchema)
 
   let schemas = unionPrioritizeConst(~inputSchema=input.schema, ~schemas)
 
