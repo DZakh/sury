@@ -64,7 +64,7 @@
   },
   "devDependencies": {
     "@ark/attest": "0.56.0",
-    "@codspeed/vitest-plugin": "^5.6.0",
+    "@codspeed/vitest-plugin": "5.6.0",
     "@rescript/darwin-arm64": "12.2.0",
     "@rollup/plugin-node-resolve": "16.0.0",
     "@types/node": "20.19.41",
