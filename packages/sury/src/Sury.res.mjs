@@ -1891,7 +1891,7 @@ function dictFactory(item) {
   return mut;
 }
 
-function toKey(schema) {
+function unionToKey(schema) {
   if (flags[schema.type] & 8192) {
     return schema.class.name;
   } else {
@@ -1899,7 +1899,7 @@ function toKey(schema) {
   }
 }
 
-function isPriority(tagFlag, byKey) {
+function unionIsPriority(tagFlag, byKey) {
   if (tagFlag & 8320 && objectTag in byKey) {
     return true;
   } else if (tagFlag & 2048) {
@@ -1909,7 +1909,7 @@ function isPriority(tagFlag, byKey) {
   }
 }
 
-function isSelfDecodeNoop(_schema) {
+function unionIsSelfDecodeNoop(_schema) {
   while (true) {
     let schema = _schema;
     let tmp = false;
@@ -1917,15 +1917,15 @@ function isSelfDecodeNoop(_schema) {
     let tmp$2 = false;
     if (schema.to === undefined && schema.parser === undefined && !(flags[schema.type] & 512)) {
       let anyOf = schema.anyOf;
-      tmp$2 = anyOf !== undefined ? anyOf.every(isSelfDecodeNoop) : true;
+      tmp$2 = anyOf !== undefined ? anyOf.every(unionIsSelfDecodeNoop) : true;
     }
     if (tmp$2) {
       let items = schema.items;
-      tmp$1 = items !== undefined ? items.every(isSelfDecodeNoop) : true;
+      tmp$1 = items !== undefined ? items.every(unionIsSelfDecodeNoop) : true;
     }
     if (tmp$1) {
       let properties = schema.properties;
-      tmp = properties !== undefined ? Object.values(properties).every(isSelfDecodeNoop) : true;
+      tmp = properties !== undefined ? Object.values(properties).every(unionIsSelfDecodeNoop) : true;
     }
     if (!tmp) {
       return false;
@@ -1942,7 +1942,7 @@ function isSelfDecodeNoop(_schema) {
   };
 }
 
-function isWiderUnionSchema(schemaAnyOf, inputAnyOf) {
+function unionIsWiderSchema(schemaAnyOf, inputAnyOf) {
   return inputAnyOf.every((inputSchema, idx) => {
     let schema = schemaAnyOf[idx];
     if (schema !== undefined && !(flags[inputSchema.type] & 9152) && inputSchema.type === schema.type && inputSchema.const === schema.const) {
@@ -1953,7 +1953,7 @@ function isWiderUnionSchema(schemaAnyOf, inputAnyOf) {
   });
 }
 
-function getToPerCase(schema) {
+function unionGetToPerCase(schema) {
   let match = schema.parser;
   if (match !== undefined) {
     return;
@@ -1964,7 +1964,7 @@ function getToPerCase(schema) {
   }
 }
 
-function canDispatchPerVariant(inputAnyOf, target) {
+function unionCanDispatchPerVariant(inputAnyOf, target) {
   if (!(flags[getOutputSchema(target).type] & 512) && !(target.type === unionTag && target.anyOf.some(v => flags[v.type] & 512))) {
     return !inputAnyOf.some(v => {
       if (v.to !== undefined || v.parser !== undefined) {
@@ -1978,18 +1978,18 @@ function canDispatchPerVariant(inputAnyOf, target) {
   }
 }
 
-function perVariantVal(input, target) {
+function unionPerVariantVal(input, target) {
   return refine(input, unknown, undefined, updateOutput(input.s, mut => {
     mut.to = target;
   }));
 }
 
-function encoder(input, target) {
+function unionEncoder(input, target) {
   let inputAnyOf = input.s.anyOf;
-  if (target.type === unionTag && getToPerCase(target) === undefined && isWiderUnionSchema(target.anyOf, inputAnyOf) || !canDispatchPerVariant(inputAnyOf, target)) {
+  if (target.type === unionTag && unionGetToPerCase(target) === undefined && unionIsWiderSchema(target.anyOf, inputAnyOf) || !unionCanDispatchPerVariant(inputAnyOf, target)) {
     return input;
   } else {
-    return perVariantVal(input, target);
+    return unionPerVariantVal(input, target);
   }
 }
 
@@ -1997,8 +1997,8 @@ function unionDecoder(input) {
   let selfSchema = input.e;
   let schemas = selfSchema.anyOf;
   let initialInputTagFlag = flags[input.s.type];
-  let toPerCase = getToPerCase(selfSchema);
-  if (input.s === selfSchema && toPerCase === undefined && schemas.every(isSelfDecodeNoop) || initialInputTagFlag & 256 && isWiderUnionSchema(schemas, input.s.anyOf) && toPerCase === undefined || input.io && input.e === input.s) {
+  let toPerCase = unionGetToPerCase(selfSchema);
+  if (input.s === selfSchema && toPerCase === undefined && schemas.every(unionIsSelfDecodeNoop) || initialInputTagFlag & 256 && unionIsWiderSchema(schemas, input.s.anyOf) && toPerCase === undefined || input.io && input.e === input.s) {
     return input;
   }
   if (initialInputTagFlag & 256 || input.s.encoder === undefined && initialInputTagFlag & 512) {
@@ -2006,14 +2006,14 @@ function unionDecoder(input) {
   }
   let activeKey = "";
   if (!(initialInputTagFlag & 769)) {
-    let sourceKey = toKey(input.s);
+    let sourceKey = unionToKey(input.s);
     let hasNull = false;
     let hasUndefined = false;
     let len = schemas.length;
     let i = 0;
     while (activeKey === "" && i < len) {
       let s = schemas[i];
-      if (toKey(s) === sourceKey) {
+      if (unionToKey(s) === sourceKey) {
         activeKey = sourceKey;
       } else if (s.type === nullTag) {
         hasNull = true;
@@ -2271,7 +2271,7 @@ function unionDecoder(input) {
       }) : schemas$1[idx$1];
     let tag = schema$1.type;
     let tagFlag = flags[tag];
-    let key = toKey(schema$1);
+    let key = unionToKey(schema$1);
     if ((activeKey$1 === "" || activeKey$1 === key) && !(tagFlag & 16 && "fromDefault" in selfSchema)) {
       let initialArr = byKey[key];
       if (initialArr !== undefined) {
@@ -2310,7 +2310,7 @@ function unionDecoder(input) {
           typeValidationInput.vc = undefined;
           typeValidationOutput = typeValidationInput;
         }
-        if (isPriority(tagFlag, byKey)) {
+        if (unionIsPriority(tagFlag, byKey)) {
           keys.unshift(key);
         } else {
           keys.push(key);
@@ -2377,7 +2377,7 @@ function unionDecoder(input) {
       };
       let blockCode$1 = merge(typeValidationOutput$2, blockCond) + itemsCode$1;
       let blockCond$1 = blockCond.contents;
-      if (blockCode$1 || isPriority(flags[firstSchema.type], byKey$1)) {
+      if (blockCode$1 || unionIsPriority(flags[firstSchema.type], byKey$1)) {
         let if_ = nextElse ? "else if" : "if";
         start = start + if_ + (`(` + blockCond$1 + `){` + blockCode$1 + `}`);
         nextElse = true;
@@ -2432,7 +2432,7 @@ function unionFactory(schemas) {
     let mut = base(unionTag, false);
     mut.anyOf = Array.from(anyOf);
     mut.decoder = unionDecoder;
-    mut.encoder = encoder;
+    mut.encoder = unionEncoder;
     mut.has = has;
     return mut;
   }
@@ -3159,7 +3159,7 @@ function jsonDecoderFn(input) {
     return recursiveDecoder(input);
   }
   if (inputTagFlag & 256 && !(undefinedTag in input.s.has)) {
-    return parse$1(perVariantVal(input, input.e));
+    return parse$1(unionPerVariantVal(input, input.e));
   }
   if (inputTagFlag & 1) {
     let to = input.e.to;

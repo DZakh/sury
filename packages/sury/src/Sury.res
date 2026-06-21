@@ -3106,12 +3106,12 @@ and dictFactory = item => {
     mut->castToPublic
   }
 
-and toKey = (schema: internal): string =>
+and unionToKey = (schema: internal): string =>
     schema.tag->TagFlag.get->Flag.unsafeHas(TagFlag.instance)
       ? (schema.class->Obj.magic)["name"]
       : (schema.tag :> string)
 
-and isPriority = (tagFlag, byKey: dict<array<unknown>>) => {
+and unionIsPriority = (tagFlag, byKey: dict<array<unknown>>) => {
     (tagFlag->Flag.unsafeHas(TagFlag.array->Flag.with(TagFlag.instance)) &&
       byKey->Stdlib.Dict.has((objectTag: tag :> string))) ||
       (tagFlag->Flag.unsafeHas(TagFlag.nan) && byKey->Stdlib.Dict.has((numberTag: tag :> string)))
@@ -3120,29 +3120,29 @@ and isPriority = (tagFlag, byKey: dict<array<unknown>>) => {
   // Whether decoding a value already known to be of the schema type
   // is a noop — no transformation anywhere in the schema tree.
   // Recursive refs are conservatively treated as transforming
-and isSelfDecodeNoop = (schema: internal) => {
+and unionIsSelfDecodeNoop = (schema: internal) => {
     schema.to === None &&
     schema.parser === None &&
     !(schema.tag->TagFlag.get->Flag.unsafeHas(TagFlag.ref)) &&
     switch schema.anyOf {
-    | Some(anyOf) => anyOf->Array.every(isSelfDecodeNoop)
+    | Some(anyOf) => anyOf->Array.every(unionIsSelfDecodeNoop)
     | None => true
     } &&
     switch schema.items {
-    | Some(items) => items->Array.every(isSelfDecodeNoop)
+    | Some(items) => items->Array.every(unionIsSelfDecodeNoop)
     | None => true
     } &&
     switch schema.properties {
-    | Some(properties) => properties->Stdlib.Dict.valuesToArray->Array.every(isSelfDecodeNoop)
+    | Some(properties) => properties->Stdlib.Dict.valuesToArray->Array.every(unionIsSelfDecodeNoop)
     | None => true
     } &&
     switch schema.additionalItems {
-    | Some(Schema(s)) => s->castToInternal->isSelfDecodeNoop
+    | Some(Schema(s)) => s->castToInternal->unionIsSelfDecodeNoop
     | _ => true
     }
   }
 
-and isWiderUnionSchema = (~schemaAnyOf, ~inputAnyOf) => {
+and unionIsWiderSchema = (~schemaAnyOf, ~inputAnyOf) => {
     inputAnyOf->Array.everyWithIndex((inputSchema, idx) => {
       switch schemaAnyOf->X.Array.getUnsafeOption(idx) {
       | Some(schema) =>
@@ -3167,7 +3167,7 @@ and isWiderUnionSchema = (~schemaAnyOf, ~inputAnyOf) => {
 
   // The union's own `.to` chain which is applied per case during decoding.
   // None when the union has a custom parser owning the `.to` conversion
-and getToPerCase = (schema: internal) =>
+and unionGetToPerCase = (schema: internal) =>
     switch schema {
     | {parser: ?None, to} => Some(to)
     | _ => None
@@ -3175,7 +3175,7 @@ and getToPerCase = (schema: internal) =>
 
   // Whether a union-typed input can be decoded by dispatching
   // over its variants with `.to(target)` appended to each
-and canDispatchPerVariant = (~inputAnyOf, ~target: internal) =>
+and unionCanDispatchPerVariant = (~inputAnyOf, ~target: internal) =>
     // S.json and recursive targets keep their dedicated union-input handling
     !((target->getOutputSchema).tag->TagFlag.get->Flag.unsafeHas(TagFlag.ref)) &&
     !(
@@ -3195,7 +3195,7 @@ and canDispatchPerVariant = (~inputAnyOf, ~target: internal) =>
   // Re-drives the source union with `.to(target)` appended, so its decoder
   // dispatches per variant and each variant converts to the target
   // independently (the documented per-source-variant algorithm)
-and perVariantVal = (~input: val, ~target) =>
+and unionPerVariantVal = (~input: val, ~target) =>
     input->B.refine(
       ~schema=unknown,
       ~expected=input.schema->updateOutput(mut => mut.to = Some(target))->castToInternal,
@@ -3203,17 +3203,17 @@ and perVariantVal = (~input: val, ~target) =>
 
   // Applied by the parse loop when a union-typed val
   // meets a different expected schema
-and encoder: encoder = (~input: val, ~target: internal) => {
+and unionEncoder: encoder = (~input: val, ~target: internal) => {
     let inputAnyOf = input.schema.anyOf->X.Option.getUnsafe
     if (
       target.tag === unionTag &&
-      getToPerCase(target) === None &&
-      isWiderUnionSchema(~schemaAnyOf=target.anyOf->X.Option.getUnsafe, ~inputAnyOf)
+      unionGetToPerCase(target) === None &&
+      unionIsWiderSchema(~schemaAnyOf=target.anyOf->X.Option.getUnsafe, ~inputAnyOf)
     ) {
       // The target union decoder passes a narrower union input through as-is
       input
-    } else if canDispatchPerVariant(~inputAnyOf, ~target) {
-      perVariantVal(~input, ~target)
+    } else if unionCanDispatchPerVariant(~inputAnyOf, ~target) {
+      unionPerVariantVal(~input, ~target)
     } else {
       input
     }
@@ -3224,14 +3224,14 @@ and unionDecoder: Builder.t = (~input) => {
     let schemas = selfSchema.anyOf->X.Option.getUnsafe
     let initialInputTagFlag = input.schema.tag->TagFlag.get
 
-    let toPerCase = getToPerCase(selfSchema)
+    let toPerCase = unionGetToPerCase(selfSchema)
 
     if (
       // The input val is already of the union type (trusted self-decode).
       // Only allowed when no variant transforms the value
-      (input.schema === selfSchema && toPerCase === None && schemas->Array.every(isSelfDecodeNoop)) ||
+      (input.schema === selfSchema && toPerCase === None && schemas->Array.every(unionIsSelfDecodeNoop)) ||
       (initialInputTagFlag->Flag.unsafeHas(TagFlag.union) &&
-      isWiderUnionSchema(
+      unionIsWiderSchema(
         ~schemaAnyOf=schemas,
         ~inputAnyOf=input.schema.anyOf->X.Option.getUnsafe,
       ) &&
@@ -3254,14 +3254,14 @@ and unionDecoder: Builder.t = (~input) => {
           )
         )
       ) {
-        let sourceKey = toKey(input.schema)
+        let sourceKey = unionToKey(input.schema)
         let hasNull = ref(false)
         let hasUndefined = ref(false)
         let len = schemas->Array.length
         let i = ref(0)
         while activeKey.contents === "" && i.contents < len {
           let s = schemas->Array.getUnsafe(i.contents)
-          if toKey(s) === sourceKey {
+          if unionToKey(s) === sourceKey {
             activeKey := sourceKey
           } else if s.tag === nullTag {
             hasNull := true
@@ -3602,7 +3602,7 @@ and unionDecoder: Builder.t = (~input) => {
         }
         let tag = schema.tag
         let tagFlag = TagFlag.get(tag)
-        let key = toKey(schema)
+        let key = unionToKey(schema)
 
         if activeKey !== "" && activeKey !== key {
           // not in active tier — skip
@@ -3683,7 +3683,7 @@ and unionDecoder: Builder.t = (~input) => {
               }
             }
 
-            if isPriority(tagFlag, byKey.contents) {
+            if unionIsPriority(tagFlag, byKey.contents) {
               // Not the fastest way, but it's the simplest way
               // to make sure NaN is checked before number
               // And instance and array checked before object
@@ -3771,7 +3771,7 @@ and unionDecoder: Builder.t = (~input) => {
           let blockCode = typeValidationOutput->B.merge(~hoistCond=blockCond) ++ itemsCode
           let blockCond = blockCond.contents
 
-          if blockCode->X.String.unsafeToBool || isPriority(firstSchema.tag->TagFlag.get, byKey) {
+          if blockCode->X.String.unsafeToBool || unionIsPriority(firstSchema.tag->TagFlag.get, byKey) {
             let if_ = nextElse.contents ? "else if" : "if"
             start := start.contents ++ if_ ++ `(${blockCond}){${blockCode}}`
             nextElse := true
@@ -3883,7 +3883,7 @@ and unionFactory: 'a 'b. array<t<'a>> => t<'b> = schemas => {
       let mut = base(unionTag, ~selfReverse=false)
       mut.anyOf = Some(anyOf->X.Set.toArray)
       mut.decoder = unionDecoder
-      mut.encoder = Some(encoder)
+      mut.encoder = Some(unionEncoder)
       mut.has = Some(has)
       mut->castToPublic
     }
@@ -4306,7 +4306,7 @@ module Metadata = {
     type t<'metadata>
     let make: (~namespace: string, ~name: string) => t<'metadata>
     let internal: string => t<'metadata>
-    external toKey: t<'metadata> => string = "%identity"
+    external unionToKey: t<'metadata> => string = "%identity"
   } = {
     type t<'metadata> = string
 
@@ -4318,16 +4318,16 @@ module Metadata = {
       `m:${name}`
     }
 
-    external toKey: t<'metadata> => string = "%identity"
+    external unionToKey: t<'metadata> => string = "%identity"
   }
 
   let get = (schema, ~id: Id.t<'metadata>) => {
-    schema->(Obj.magic: t<'a> => dict<option<'metadata>>)->Dict.getUnsafe(id->Id.toKey)
+    schema->(Obj.magic: t<'a> => dict<option<'metadata>>)->Dict.getUnsafe(id->Id.unionToKey)
   }
 
   @inline
   let setInPlace = (schema, ~id: Id.t<'metadata>, metadata: 'metadata) => {
-    schema->(Obj.magic: internal => dict<'metadata>)->Dict.set(id->Id.toKey, metadata)
+    schema->(Obj.magic: internal => dict<'metadata>)->Dict.set(id->Id.unionToKey, metadata)
   }
 
   let set = (schema, ~id: Id.t<'metadata>, metadata: 'metadata) => {
@@ -4831,7 +4831,7 @@ and jsonDecoderFn = (~input) => {
       !(input.schema.has->X.Option.getUnsafe->Stdlib.Dict.has((undefinedTag :> string)))
   ) {
     // Decode each union variant to JSON separately
-    perVariantVal(~input, ~target=input.expected)->parse
+    unionPerVariantVal(~input, ~target=input.expected)->parse
   } else if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
     let to = input.expected.to->X.Option.getUnsafe
     // Whether we can optimize encoding during decoding
@@ -6310,7 +6310,7 @@ let compactColumns = inputSchema => {
 
 //     let inlinedSchema = switch schema->Option.default {
 //     | Some(default) => {
-//         metadataMap->X.Dict.deleteInPlace(Option.defaultMetadataId->Metadata.Id.toKey)
+//         metadataMap->X.Dict.deleteInPlace(Option.defaultMetadataId->Metadata.Id.unionToKey)
 //         switch default {
 //         | Value(defaultValue) =>
 //           inlinedSchema ++
@@ -6326,7 +6326,7 @@ let compactColumns = inputSchema => {
 
 //     let inlinedSchema = switch schema->deprecation {
 //     | Some(message) => {
-//         metadataMap->X.Dict.deleteInPlace(deprecationMetadataId->Metadata.Id.toKey)
+//         metadataMap->X.Dict.deleteInPlace(deprecationMetadataId->Metadata.Id.unionToKey)
 //         inlinedSchema ++ `->S.deprecate(${message->X.Inlined.Value.fromString})`
 //       }
 
@@ -6335,7 +6335,7 @@ let compactColumns = inputSchema => {
 
 //     let inlinedSchema = switch schema->description {
 //     | Some(message) => {
-//         metadataMap->X.Dict.deleteInPlace(descriptionMetadataId->Metadata.Id.toKey)
+//         metadataMap->X.Dict.deleteInPlace(descriptionMetadataId->Metadata.Id.unionToKey)
 //         inlinedSchema ++ `->S.describe(${message->X.Inlined.Value.stringify})`
 //       }
 
@@ -6353,7 +6353,7 @@ let compactColumns = inputSchema => {
 //       switch schema->String.refinements {
 //       | [] => inlinedSchema
 //       | refinements =>
-//         metadataMap->X.Dict.deleteInPlace(String.Refinement.metadataId->Metadata.Id.toKey)
+//         metadataMap->X.Dict.deleteInPlace(String.Refinement.metadataId->Metadata.Id.unionToKey)
 //         inlinedSchema ++
 //         refinements
 //         ->Array.map(refinement => {
@@ -6384,7 +6384,7 @@ let compactColumns = inputSchema => {
 //       switch schema->Int.refinements {
 //       | [] => inlinedSchema
 //       | refinements =>
-//         metadataMap->X.Dict.deleteInPlace(Int.Refinement.metadataId->Metadata.Id.toKey)
+//         metadataMap->X.Dict.deleteInPlace(Int.Refinement.metadataId->Metadata.Id.unionToKey)
 //         inlinedSchema ++
 //         refinements
 //         ->Array.map(refinement => {
@@ -6404,7 +6404,7 @@ let compactColumns = inputSchema => {
 //       switch schema->Float.refinements {
 //       | [] => inlinedSchema
 //       | refinements =>
-//         metadataMap->X.Dict.deleteInPlace(Float.Refinement.metadataId->Metadata.Id.toKey)
+//         metadataMap->X.Dict.deleteInPlace(Float.Refinement.metadataId->Metadata.Id.unionToKey)
 //         inlinedSchema ++
 //         refinements
 //         ->Array.map(refinement => {
@@ -6422,7 +6422,7 @@ let compactColumns = inputSchema => {
 //       switch schema->Array.refinements {
 //       | [] => inlinedSchema
 //       | refinements =>
-//         metadataMap->X.Dict.deleteInPlace(Array.Refinement.metadataId->Metadata.Id.toKey)
+//         metadataMap->X.Dict.deleteInPlace(Array.Refinement.metadataId->Metadata.Id.unionToKey)
 //         inlinedSchema ++
 //         refinements
 //         ->Array.map(refinement => {
