@@ -43,6 +43,27 @@ jobs:
           name: sury
           path: packages/sury/artifacts
 
+  benchmarks:
+    name: Benchmarks
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 24.16.0
+          cache: "pnpm"
+      - run: pnpm install
+
+      # Runs the Vitest runtime benchmarks under CodSpeed instrumentation
+      # (deterministic instruction counts). Posts a per-benchmark delta comment
+      # on PRs; regression gating is configured in the CodSpeed dashboard.
+      - name: Run benchmarks
+        uses: CodSpeedHQ/action@v3
+        with:
+          run: pnpm --filter=sury bench
+          token: ${{ secrets.CODSPEED_TOKEN }}
+
   ppx-build-linux:
     name: ppx-build-linux
     runs-on: ubuntu-24.04
