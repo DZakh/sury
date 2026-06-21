@@ -3487,6 +3487,29 @@ and unionDecoder: Builder.t = (~input) => {
   }
 }
 
+// Generates the exhaustive union invalid-type error: throws with `selfSchema`
+// as the expected type and any accumulated per-case errors (`caught`).
+and unionFail = (~input: val, ~selfSchema: internal, ~caught: string): string =>
+  `${input->B.embed(
+      (
+        _ => {
+          let args = %raw(`arguments`)
+          B.throw(
+            B.makeInvalidInputDetails(
+              ~path=input.path,
+              ~expected=selfSchema,
+              ~received=unknown->castToPublic,
+              ~input=args->Array.getUnsafe(0),
+              ~includeInput=true,
+              ~unionErrors=?args->Array.length > 1
+                ? Some(args->X.Array.fromArguments->Array.slice(~start=1))
+                : None,
+            ),
+          )
+        }
+      )->X.Function.toExpression,
+    )}(${input.var()}${caught})`
+
 // The emitter: consumes the resolved plan (input narrowed by unionActiveKey,
 // target reservation applied) and generates the dispatch codegen — the
 // per-schema optimizer (discriminant grouping, deopt detection, hoistable
@@ -3514,27 +3537,7 @@ and unionEmit = (
 
   let initialInline = input.inline
 
-  let fail = caught => {
-    `${input->B.embed(
-        (
-          _ => {
-            let args = %raw(`arguments`)
-            B.throw(
-              B.makeInvalidInputDetails(
-                ~path=input.path,
-                ~expected=selfSchema,
-                ~received=unknown->castToPublic,
-                ~input=args->Array.getUnsafe(0),
-                ~includeInput=true,
-                ~unionErrors=?args->Array.length > 1
-                  ? Some(args->X.Array.fromArguments->Array.slice(~start=1))
-                  : None,
-              ),
-            )
-          }
-        )->X.Function.toExpression,
-      )}(${input.var()}${caught})`
-  }
+  let fail = caught => unionFail(~input, ~selfSchema, ~caught)
 
   // Create a copy of the input val, so we can mutate it
   // It's still the same value though, until mutated

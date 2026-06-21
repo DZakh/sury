@@ -2196,11 +2196,6 @@ function unionDecoder(input) {
     }
     let activeKey = unionActiveKey(input.s, initialInputTagFlag, schemas);
     let initialInline = input.i;
-    let fail = caught => embed(input, function () {
-      let args = arguments;
-      let errorDetails = makeInvalidInputDetails(selfSchema, unknown, input.path, args[0], true, args.length > 1 ? Array.from(args).slice(1) : undefined, undefined);
-      throw new SuryError(errorDetails);
-    }) + `(` + input.v() + caught + `)`;
     let output = refine(input, undefined, undefined, undefined);
     let outputAnyOf = [];
     let staticBlockFailure = {
@@ -2220,11 +2215,11 @@ function unionDecoder(input) {
       let itemIdx = 2;
       let lastIdx = arr.length - 1 | 0;
       while (itemIdx <= lastIdx) {
-        let input = scope(typeValidationOutput);
-        input.u = true;
-        input.t = typeValidationOutput.t;
-        input.io = false;
-        input.e = arr[itemIdx];
+        let input$1 = scope(typeValidationOutput);
+        input$1.u = true;
+        input$1.t = typeValidationOutput.t;
+        input$1.io = false;
+        input$1.e = arr[itemIdx];
         let isLast = itemIdx === lastIdx;
         let isFirst = itemIdx === 2;
         let isOnlyCase = isFirst && isLast;
@@ -2235,7 +2230,7 @@ function unionDecoder(input) {
           contents: ""
         };
         try {
-          let itemOutput = parse$1(input);
+          let itemOutput = parse$1(input$1);
           outputAnyOf.push(itemOutput.s);
           itemCode = merge(itemOutput, itemCond);
           if (itemOutput.t) {
@@ -2249,14 +2244,14 @@ function unionDecoder(input) {
             }
           }
         } catch (exn) {
-          let errorVar = embed(input, getOrRethrow(exn));
+          let errorVar = embed(input$1, getOrRethrow(exn));
           caught = caught + `,` + errorVar;
           if (isDeopt && isOnlyCase) {
             staticBlockFailure.contents = errorVar;
             itemSkipped = true;
           } else if (isLast) {
             withExhaustiveCheck = false;
-            itemCode = isDeopt ? "throw " + errorVar : fail(caught);
+            itemCode = isDeopt ? "throw " + errorVar : unionFail(input, selfSchema, caught);
           } else {
             itemSkipped = true;
           }
@@ -2299,7 +2294,7 @@ function unionDecoder(input) {
                 itemStart = itemStart + (`try{` + code$1 + `}catch(` + errorVar$1 + `){`);
                 caught$1 = caught$1 + `,` + errorVar$1;
               }
-              itemStart = itemStart + fail(caught$1) + "}".repeat(code.length) + "}";
+              itemStart = itemStart + unionFail(input, selfSchema, caught$1) + "}".repeat(code.length) + "}";
             }
             itemNextElse = true;
           }
@@ -2342,7 +2337,7 @@ function unionDecoder(input) {
           if (itemNoop.contents) {
             if (itemStart || caught) {
               let if_$2 = itemNextElse ? "else if" : "if";
-              itemStart = itemStart + if_$2 + (`(!(` + itemNoop.contents + `)){` + fail(caught) + `}`);
+              itemStart = itemStart + if_$2 + (`(!(` + itemNoop.contents + `)){` + unionFail(input, selfSchema, caught) + `}`);
             } else {
               pushCheck(typeValidationOutput, {
                 c: param => `(` + itemNoop.contents + `)`,
@@ -2350,7 +2345,7 @@ function unionDecoder(input) {
               });
             }
           } else if (withExhaustiveCheck) {
-            let errorCode = fail(caught);
+            let errorCode = unionFail(input, selfSchema, caught);
             itemStart = itemStart + (
               itemNextElse ? `else{` + errorCode + `}` : errorCode
             );
@@ -2515,7 +2510,7 @@ function unionDecoder(input) {
           noop = noop ? noop + `||` + blockCond$1 : blockCond$1;
         }
       }
-      let errorCode = fail(caught);
+      let errorCode = unionFail(input, selfSchema, caught);
       let tmp;
       if (noop) {
         let if_$1 = nextElse ? "else if" : "if";
@@ -2538,6 +2533,14 @@ function unionDecoder(input) {
     o.e = toPerCase !== undefined ? (o.io = true, getOutputSchema(toPerCase)) : selfSchema;
     return o;
   }
+}
+
+function unionFail(input, selfSchema, caught) {
+  return embed(input, function () {
+    let args = arguments;
+    let errorDetails = makeInvalidInputDetails(selfSchema, unknown, input.path, args[0], true, args.length > 1 ? Array.from(args).slice(1) : undefined, undefined);
+    throw new SuryError(errorDetails);
+  }) + `(` + input.v() + caught + `)`;
 }
 
 function unionFactory(schemas) {
@@ -3698,18 +3701,78 @@ function proxifyShapedSchema(schema, from, fromFlattened) {
   });
 }
 
-function getValByFrom(_input, from, _idx) {
-  while (true) {
-    let idx = _idx;
-    let input = _input;
-    let key = from[idx];
-    if (key === undefined) {
-      return input;
+function definitionToSchema(definition) {
+  return traverseDefinition(definition, node => {
+    if (node["~standard"]) {
+      return node;
     }
-    _idx = idx + 1 | 0;
-    _input = input.d[key];
-    continue;
+  });
+}
+
+function nested(fieldName) {
+  let parentCtx = this;
+  let cacheId = `~` + fieldName;
+  let ctx = parentCtx[cacheId];
+  if (ctx !== undefined) {
+    return Primitive_option.valFromOption(ctx);
+  }
+  let properties = {};
+  let required = [];
+  let schema = base(objectTag, false);
+  schema.required = required;
+  schema.properties = properties;
+  schema.additionalItems = globalConfig.a;
+  schema.decoder = objectDecoder;
+  let parentSchema = parentCtx.f(fieldName, schema)[itemSymbol];
+  let field = (fieldName, schema) => {
+    let inlinedLocation = fromString(fieldName);
+    if (fieldName in properties) {
+      throw new Error(`[Sury] ` + (`The field ` + inlinedLocation + ` defined twice`));
+    }
+    required.push(fieldName);
+    properties[fieldName] = schema;
+    return proxifyShapedSchema(schema, parentSchema.from.concat(fieldName), parentSchema.fromFlattened);
   };
+  let tag = (tag$1, asValue) => {
+    field(tag$1, definitionToSchema(asValue));
+  };
+  let fieldOr = (fieldName, schema, or) => {
+    let schema$1 = optionFactory(schema, undefined);
+    return field(fieldName, getWithDefault(schema$1, {
+      TAG: "Value",
+      _0: or
+    }));
+  };
+  let flatten = schema => {
+    let match = schema.type;
+    if (match === "object") {
+      let to = schema.to;
+      let flattenedProperties = schema.properties;
+      if (to) {
+        let message = `Unsupported nested flatten for transformed object schema ` + toExpression(schema);
+        throw new Error(`[Sury] ` + message);
+      }
+      let flattenedKeys = Object.keys(flattenedProperties);
+      let result = {};
+      for (let idx = 0, idx_finish = flattenedKeys.length; idx < idx_finish; ++idx) {
+        let key = flattenedKeys[idx];
+        result[key] = field(key, flattenedProperties[key]);
+      }
+      return result;
+    }
+    let message$1 = `Can't flatten ` + toExpression(schema) + ` schema`;
+    throw new Error(`[Sury] ` + message$1);
+  };
+  let ctx$1 = {
+    field: field,
+    f: field,
+    fieldOr: fieldOr,
+    tag: tag,
+    nested: nested,
+    flatten: flatten
+  };
+  parentCtx[cacheId] = ctx$1;
+  return ctx$1;
 }
 
 function getShapedParserOutput(input, targetSchema) {
@@ -3751,14 +3814,18 @@ function getShapedParserOutput(input, targetSchema) {
   return v;
 }
 
-function shapedSerializer(input) {
-  let acc = {};
-  prepareShapedSerializerAcc(acc, input);
-  let targetSchema = input.e.to;
-  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
-  output.t = true;
-  output.prev = input;
-  return output;
+function getValByFrom(_input, from, _idx) {
+  while (true) {
+    let idx = _idx;
+    let input = _input;
+    let key = from[idx];
+    if (key === undefined) {
+      return input;
+    }
+    _idx = idx + 1 | 0;
+    _input = input.d[key];
+    continue;
+  };
 }
 
 function traverseDefinition(definition, onNode) {
@@ -3956,84 +4023,14 @@ function prepareShapedSerializerAcc(acc, input) {
   }
 }
 
-function nested(fieldName) {
-  let parentCtx = this;
-  let cacheId = `~` + fieldName;
-  let ctx = parentCtx[cacheId];
-  if (ctx !== undefined) {
-    return Primitive_option.valFromOption(ctx);
-  }
-  let properties = {};
-  let required = [];
-  let schema = base(objectTag, false);
-  schema.required = required;
-  schema.properties = properties;
-  schema.additionalItems = globalConfig.a;
-  schema.decoder = objectDecoder;
-  let parentSchema = parentCtx.f(fieldName, schema)[itemSymbol];
-  let field = (fieldName, schema) => {
-    let inlinedLocation = fromString(fieldName);
-    if (fieldName in properties) {
-      throw new Error(`[Sury] ` + (`The field ` + inlinedLocation + ` defined twice`));
-    }
-    required.push(fieldName);
-    properties[fieldName] = schema;
-    return proxifyShapedSchema(schema, parentSchema.from.concat(fieldName), parentSchema.fromFlattened);
-  };
-  let tag = (tag$1, asValue) => {
-    field(tag$1, definitionToSchema(asValue));
-  };
-  let fieldOr = (fieldName, schema, or) => {
-    let schema$1 = optionFactory(schema, undefined);
-    return field(fieldName, getWithDefault(schema$1, {
-      TAG: "Value",
-      _0: or
-    }));
-  };
-  let flatten = schema => {
-    let match = schema.type;
-    if (match === "object") {
-      let to = schema.to;
-      let flattenedProperties = schema.properties;
-      if (to) {
-        let message = `Unsupported nested flatten for transformed object schema ` + toExpression(schema);
-        throw new Error(`[Sury] ` + message);
-      }
-      let flattenedKeys = Object.keys(flattenedProperties);
-      let result = {};
-      for (let idx = 0, idx_finish = flattenedKeys.length; idx < idx_finish; ++idx) {
-        let key = flattenedKeys[idx];
-        result[key] = field(key, flattenedProperties[key]);
-      }
-      return result;
-    }
-    let message$1 = `Can't flatten ` + toExpression(schema) + ` schema`;
-    throw new Error(`[Sury] ` + message$1);
-  };
-  let ctx$1 = {
-    field: field,
-    f: field,
-    fieldOr: fieldOr,
-    tag: tag,
-    nested: nested,
-    flatten: flatten
-  };
-  parentCtx[cacheId] = ctx$1;
-  return ctx$1;
-}
-
-function definitionToSchema(definition) {
-  return traverseDefinition(definition, node => {
-    if (node["~standard"]) {
-      return node;
-    }
-  });
-}
-
-function definitionToShapedSchema(definition) {
-  let s = copySchema(traverseDefinition(definition, toEmbededItem));
-  s.serializer = shapedSerializer;
-  return s;
+function shapedSerializer(input) {
+  let acc = {};
+  prepareShapedSerializerAcc(acc, input);
+  let targetSchema = input.e.to;
+  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
+  output.t = true;
+  output.prev = input;
+  return output;
 }
 
 function shapedParser(input) {
@@ -4056,6 +4053,12 @@ function shapedParser(input) {
   output.t = true;
   output.prev = input;
   return markOutput(output, input);
+}
+
+function definitionToShapedSchema(definition) {
+  let s = copySchema(traverseDefinition(definition, toEmbededItem));
+  s.serializer = shapedSerializer;
+  return s;
 }
 
 function shape(schema, definer) {
