@@ -303,11 +303,20 @@ export const Error: {
   prototype: Error;
 };
 
-export type Output<T> = T extends Schema<infer Output, unknown>
+// Extract Output/Input by matching only the `~standard` marker instead of the
+// full `Schema<…>` shape (whose 14-member union + `with` overloads are costly to
+// instantiate per match). `types` is optional, so the pattern keeps it optional.
+export type Output<T> = T extends {
+  readonly ["~standard"]: { readonly types?: { readonly output: infer Output } };
+}
   ? Output
   : never;
 export type Infer<T> = Output<T>;
-export type Input<T> = T extends Schema<unknown, infer Input> ? Input : never;
+export type Input<T> = T extends {
+  readonly ["~standard"]: { readonly types?: { readonly input: infer Input } };
+}
+  ? Input
+  : never;
 
 // Utility types for decoder function with multiple schemas
 type ExtractFirstInput<T extends readonly Schema<any, any>[]> =

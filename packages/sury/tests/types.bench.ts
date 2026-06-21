@@ -128,7 +128,9 @@ bench("S.union — 5 object members", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // S.Output<T> / S.Input<T> extraction — measures the cost users actually pay
 // at every `type Foo = S.Output<typeof fooSchema>` site (138 usages mentioned
-// in issue #166).
+// in issue #166). Extraction matches only the `~standard` marker (S.d.ts:306)
+// rather than instantiating the full `Schema<…>` shape, so the cost no longer
+// scales with how complex the extracted Output/Input is.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const flatSchema = S.schema({
@@ -141,11 +143,11 @@ const flatSchema = S.schema({
 
 bench("S.Output on 5-field object", () => {
   return {} as S.Output<typeof flatSchema>;
-}).types([6951, "instantiations"]);
+}).types([501, "instantiations"]);
 
 bench("S.Input on 5-field object", () => {
   return {} as S.Input<typeof flatSchema>;
-}).types([5816, "instantiations"]);
+}).types([501, "instantiations"]);
 
 const deepSchema = S.schema({
   a: S.string,
@@ -160,7 +162,7 @@ const deepSchema = S.schema({
 
 bench("S.Output on 3-level nested object", () => {
   return {} as S.Output<typeof deepSchema>;
-}).types([6951, "instantiations"]);
+}).types([501, "instantiations"]);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Compound: define + extract (the realistic per-schema cost).
@@ -180,7 +182,7 @@ bench("S.schema + S.Output — 10-field object", () => {
     j: S.symbol,
   });
   return {} as S.Output<typeof s>;
-}).types([7294, "instantiations"]);
+}).types([844, "instantiations"]);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // S.merge — exercises the Omit<O1, keyof O2> & O2 intersection in the return
@@ -220,5 +222,5 @@ bench("S.merge — 3 optional + 2 required (issue #157 case)", () => {
 bench("S.merge — output extraction with optional preservation", () => {
   const m = S.merge(mergeLeftOptional, mergeRightForOptional);
   return {} as S.Output<typeof m>;
-}).types([12426, "instantiations"]);
+}).types([7039, "instantiations"]);
 
