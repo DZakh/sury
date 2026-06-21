@@ -4420,28 +4420,12 @@ module Union = {
         output
       }
 
-      // Build the output schema from collected case output schemas
+      // Build the output schema from collected case output schemas. Variants
+      // that coerce to the same `.to` target produce structurally-identical
+      // outputs but no longer share one object identity (each narrow is a fresh
+      // `base`), so the union keeps both; `toJSONSchema` collapses the duplicate
+      // when rendering — the only place the distinction is observable.
       o.schema = if outputAnyOf->Stdlib.Array.length->X.Int.unsafeToBool {
-        // When the union is narrowed by `.to`, every variant coerces to the same
-        // target type, so their output schemas render identically. They no longer
-        // share one object identity (each variant's narrow is built from a fresh
-        // `base`), so collapse outputs that render the same to keep the output
-        // union from carrying duplicates.
-        let outputAnyOf = switch toPerCase {
-        | Some(_) => {
-            let seen = Stdlib.Dict.make()
-            outputAnyOf->Array.filter(s => {
-              let key = s->toExpression
-              if seen->Stdlib.Dict.has(key) {
-                false
-              } else {
-                seen->Dict.set(key, true)
-                true
-              }
-            })
-          }
-        | None => outputAnyOf
-        }
         factory(outputAnyOf)->castToInternal
       } else {
         never_()
@@ -7247,25 +7231,30 @@ module RescriptJSONSchema = {
     | Union({anyOf}) => {
         let literals = []
         let items = []
+        let seen = Stdlib.Dict.make()
 
         anyOf->Array.forEach(childSchema => {
           switch childSchema {
           // Filter out undefined to support optional fields
           | Undefined(_) if (parent->castToInternal).tag === objectTag => ()
           | _ => {
-              items
-              ->Array.push(
-                Schema(internalToJSONSchema(childSchema, ~parent=schema, ~path, ~defs)),
-              )
-              ->ignore
-              switch childSchema->castToInternal->isLiteral {
-              | true =>
-                literals
-                ->Array.push(
-                  (childSchema->castToInternal).const->(Obj.magic: option<char> => JSON.t),
-                )
-                ->ignore
-              | false => ()
+              let childJsonSchema = internalToJSONSchema(childSchema, ~parent=schema, ~path, ~defs)
+              // Collapse structurally-identical members (e.g. variants that all
+              // coerce to the same `.to` target) so the union renders canonically
+              // instead of `anyOf:[T, T]`.
+              let key = childJsonSchema->JSON.stringifyAny->Obj.magic
+              if !(seen->Stdlib.Dict.has(key)) {
+                seen->Dict.set(key, true)
+                items->Array.push(Schema(childJsonSchema))->ignore
+                switch childSchema->castToInternal->isLiteral {
+                | true =>
+                  literals
+                  ->Array.push(
+                    (childSchema->castToInternal).const->(Obj.magic: option<char> => JSON.t),
+                  )
+                  ->ignore
+                | false => ()
+                }
               }
             }
           }
