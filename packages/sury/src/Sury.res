@@ -3435,6 +3435,25 @@ and unionActiveKey = (~inputSchema: internal, ~inputTagFlag: flag, ~schemas: arr
       activeKey.contents
     }
 
+  // Whether the input val can be returned untouched instead of building a
+  // dispatch: it is already the union type (trusted self-decode with no
+  // transforming variant), or a narrower union the wider target accepts as-is,
+  // or an already-produced output. Preserving this keeps generated code minimal.
+and unionIsPassthrough = (
+    ~input: val,
+    ~selfSchema: internal,
+    ~schemas: array<internal>,
+    ~initialInputTagFlag: flag,
+    ~toPerCase: option<internal>,
+  ): bool =>
+    (input.schema === selfSchema &&
+    toPerCase === None &&
+    schemas->Array.every(unionIsSelfDecodeNoop)) ||
+    (initialInputTagFlag->Flag.unsafeHas(TagFlag.union) &&
+      unionIsWiderSchema(~schemaAnyOf=schemas, ~inputAnyOf=input.schema.anyOf->X.Option.getUnsafe) &&
+      toPerCase === None) ||
+    (input.isOutput->Option.getUnsafe && input.expected === input.schema)
+
   // Applied by the parse loop when a union-typed val
   // meets a different expected schema
 and unionEncoder: encoder = (~input: val, ~target: internal) => {
@@ -3460,17 +3479,7 @@ and unionDecoder: Builder.t = (~input) => {
 
     let toPerCase = unionGetToPerCase(selfSchema)
 
-    if (
-      // The input val is already of the union type (trusted self-decode).
-      // Only allowed when no variant transforms the value
-      (input.schema === selfSchema && toPerCase === None && schemas->Array.every(unionIsSelfDecodeNoop)) ||
-      (initialInputTagFlag->Flag.unsafeHas(TagFlag.union) &&
-      unionIsWiderSchema(
-        ~schemaAnyOf=schemas,
-        ~inputAnyOf=input.schema.anyOf->X.Option.getUnsafe,
-      ) &&
-      toPerCase === None) || (input.isOutput->Option.getUnsafe && input.expected === input.schema)
-    ) {
+    if unionIsPassthrough(~input, ~selfSchema, ~schemas, ~initialInputTagFlag, ~toPerCase) {
       input
     } else {
       if (
