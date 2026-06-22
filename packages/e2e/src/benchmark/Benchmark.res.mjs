@@ -2,6 +2,7 @@
 
 import * as S from "sury/src/S.res.mjs";
 import * as Benchmark from "benchmark";
+import * as CodspeedBenchmarkJsPlugin from "@codspeed/benchmark.js-plugin";
 import * as Stdlib_Array from "@rescript/runtime/lib/es6/Stdlib_Array.js";
 
 function addWithPrepare(suite, name, fn) {
@@ -201,7 +202,7 @@ S.$$Error.make({
 
 console.timeEnd("S.Error.make");
 
-run(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(new (Benchmark.default.Suite)().add("S.schema - make", () => makeObjectSchema()), "S.schema - make + parse", () => {
+run(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(addWithPrepare(CodspeedBenchmarkJsPlugin.withCodSpeed(new (Benchmark.default.Suite)()).add("S.schema - make", () => makeObjectSchema()), "S.schema - make + parse", () => {
   let data = makeTestObject();
   return () => {
     let schema = makeObjectSchema();
