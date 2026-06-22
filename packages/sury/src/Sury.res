@@ -1876,12 +1876,21 @@ let int32FormatValidation = (~inputVar) => {
   `${inputVar}<=2147483647&&${inputVar}>=-2147483648&&${inputVar}%1===0`
 }
 
+// Atomic type-narrow conditions, shared by the type decoders and the union
+// dispatch (`typeCheckCond`) so the two can't drift.
+let typeofCond = (~tag: tag) => (~inputVar): string => `typeof ${inputVar}==="${(tag :> string)}"`
+let nanCond = (~inputVar): string => `Number.isNaN(${inputVar})`
+let isArrayCond = (~inputVar): string => `Array.isArray(${inputVar})`
+let objectTagCond = (~inputVar): string => `${typeofCond(~tag=objectTag)(~inputVar)}&&${inputVar}`
+let instanceofCond = (~b: val, ~class) =>
+  (~inputVar): string => `${inputVar} instanceof ${b->B.embed(class)}`
+
 let numberDecoder = Builder.make((~input) => {
   let inputTagFlag = input.schema.tag->TagFlag.get
   if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
     let checks = [
       {
-        cond: (~inputVar) => `typeof ${inputVar}==="${(numberTag :> string)}"`,
+        cond: typeofCond(~tag=numberTag),
         fail: B.failInvalidType,
       },
     ]
@@ -1897,7 +1906,7 @@ let numberDecoder = Builder.make((~input) => {
       if !(input.global.flag->Flag.unsafeHas(Flag.disableNanNumberValidation)) {
         checks
         ->Array.push({
-          cond: (~inputVar) => `!Number.isNaN(${inputVar})`,
+          cond: (~inputVar) => `!${nanCond(~inputVar)}`,
           fail: B.failInvalidType,
         })
         ->ignore
@@ -1919,7 +1928,7 @@ let numberDecoder = Builder.make((~input) => {
         cond: (~inputVar as _) =>
           switch input.expected.format {
           | Some(Int32) => int32FormatValidation(~inputVar=outputVar)
-          | _ => `!Number.isNaN(${outputVar})`
+          | _ => `!${nanCond(~inputVar=outputVar)}`
           },
         fail: B.failInvalidType,
       },
@@ -1963,7 +1972,7 @@ and stringDecoderFn = (~input) => {
       ~schema=input.expected,
       ~checks=[
         {
-          cond: (~inputVar) => `typeof ${inputVar}==="${(stringTag :> string)}"`,
+          cond: typeofCond(~tag=stringTag),
           fail: B.failInvalidType,
         },
       ],
@@ -2007,7 +2016,7 @@ let booleanDecoder = Builder.make((~input) => {
       ~schema=input.expected,
       ~checks=[
         {
-          cond: (~inputVar) => `typeof ${inputVar}==="${(booleanTag :> string)}"`,
+          cond: typeofCond(~tag=booleanTag),
           fail: B.failInvalidType,
         },
       ],
@@ -2043,7 +2052,7 @@ let bigintDecoder = Builder.make((~input) => {
       ~schema=input.expected,
       ~checks=[
         {
-          cond: (~inputVar) => `typeof ${inputVar}==="${(bigintTag :> string)}"`,
+          cond: typeofCond(~tag=bigintTag),
           fail: B.failInvalidType,
         },
       ],
@@ -2078,7 +2087,7 @@ let symbolDecoder = Builder.make((~input) => {
       ~schema=input.expected,
       ~checks=[
         {
-          cond: (~inputVar) => `typeof ${inputVar}==="${(symbolTag :> string)}"`,
+          cond: typeofCond(~tag=symbolTag),
           fail: B.failInvalidType,
         },
       ],
@@ -2150,7 +2159,7 @@ let literalDecoder = Builder.make((~input) => {
         ~schema=expectedSchema,
         ~checks=[
           {
-            cond: (~inputVar) => `Number.isNaN(${inputVar})`,
+            cond: nanCond,
             fail: B.failInvalidType,
           },
         ],
@@ -2608,7 +2617,7 @@ let instanceDecoder = Builder.make((~input) => {
       ~schema=input.expected,
       ~checks=[
         {
-          cond: (~inputVar) => `${inputVar} instanceof ${input->B.embed(input.expected.class)}`,
+          cond: instanceofCond(~b=input, ~class=input.expected.class),
           fail: B.failInvalidType,
         },
       ],
@@ -2627,6 +2636,44 @@ let instance = class_ => {
   mut.class = class_->Obj.magic
   mut.decoder = instanceDecoder
   mut->castToPublic
+}
+
+// Type-narrow condition for a union variant, built from the shared atoms with no
+// per-type factory reference — so unused type decoders tree-shake.
+let typeCheckCond = (input: val, schema: internal, ~inputVar): string => {
+  let tagFlag = schema.tag->TagFlag.get
+  if tagFlag->Flag.unsafeHas(TagFlag.object) {
+    `${objectTagCond(~inputVar)}&&!${isArrayCond(~inputVar)}`
+  } else if tagFlag->Flag.unsafeHas(TagFlag.array) {
+    isArrayCond(~inputVar)
+  } else if tagFlag->Flag.unsafeHas(TagFlag.instance) {
+    instanceofCond(~b=input, ~class=schema.class)(~inputVar)
+  } else if tagFlag->Flag.unsafeHas(TagFlag.number) {
+    let typeofCheck = typeofCond(~tag=numberTag)(~inputVar)
+    if input.global.flag->Flag.unsafeHas(Flag.disableNanNumberValidation) {
+      typeofCheck
+    } else {
+      `${typeofCheck}&&!${nanCond(~inputVar)}`
+    }
+  } else if tagFlag->Flag.unsafeHas(TagFlag.nan) {
+    nanCond(~inputVar)
+  } else if tagFlag->Flag.unsafeHas(TagFlag.undefined->Flag.with(TagFlag.null)) {
+    // null/undefined reuse literalDecoder's inline-const form (=== null / void 0)
+    `${inputVar}===${input->B.inlineConst(schema)}`
+  } else if (
+    tagFlag->Flag.unsafeHas(
+      TagFlag.string
+      ->Flag.with(TagFlag.boolean)
+      ->Flag.with(TagFlag.bigint)
+      ->Flag.with(TagFlag.symbol),
+    )
+  ) {
+    // literals reuse this typeof check; their per-const check stays in the case body
+    typeofCond(~tag=schema.tag)(~inputVar)
+  } else {
+    // Unreachable: catch-all tags use the `unknown` narrow, never this path.
+    ""
+  }
 }
 
 let rec makeObjectVal = (prev: val, ~schema): B.Val.Object.t => {
@@ -2762,7 +2809,7 @@ and arrayDecoder: builder = (~input as unknownInput) => {
     if !isArrayInput {
       checks
       ->Array.push({
-        cond: (~inputVar) => `Array.isArray(${inputVar})`,
+        cond: isArrayCond,
         fail: B.failInvalidType,
       })
       ->ignore
@@ -2912,7 +2959,7 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
     if !isObjectInput {
       checks
       ->Array.push({
-        cond: (~inputVar) => `typeof ${inputVar}==="${(objectTag :> string)}"&&${inputVar}`,
+        cond: objectTagCond,
         fail: B.failInvalidType,
       })
       ->ignore
@@ -2922,7 +2969,7 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
         // this is why the check is a must have
         checks
         ->Array.push({
-          cond: (~inputVar) => `!Array.isArray(${inputVar})`,
+          cond: (~inputVar) => `!${isArrayCond(~inputVar)}`,
           fail: B.failInvalidType,
         })
         ->ignore
@@ -3646,30 +3693,61 @@ and unionDecoder: Builder.t = (~input) => {
             // Recreate input val for every schema
             // since we will mutate it
             let typeValidationInput = input->B.Val.scope
-            typeValidationInput.expected = if tagFlag->Flag.unsafeHas(TagFlag.null) {
-              nullLiteral()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.undefined) {
-              unit()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.object) {
-              dictFactory(unknown->castToPublic)->castToInternal
-            } else if tagFlag->Flag.unsafeHas(TagFlag.array) {
-              array(unknown->castToPublic)->castToInternal
-            } else if tagFlag->Flag.unsafeHas(TagFlag.instance) {
-              instance(schema.class)->castToInternal
-            } else if tagFlag->Flag.unsafeHas(TagFlag.nan) {
-              nan()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.string) {
-              string()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.number) {
-              float()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.boolean) {
-              bool()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.bigint) {
-              bigint()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.symbol) {
-              symbol()
-            } else {
+            // Tree-shaking: build the narrow without a per-type factory. A
+            // `string()`/`instance()`/… reference would pin every type decoder into
+            // any union-using bundle — and `S.optional`/`S.nullable` are unions.
+            typeValidationInput.expected = if (
+              tagFlag->Flag.unsafeHas(
+                TagFlag.unknown
+                ->Flag.with(TagFlag.union)
+                ->Flag.with(TagFlag.ref)
+                ->Flag.with(TagFlag.function)
+                ->Flag.with(TagFlag._never),
+              )
+            ) {
+              // unknown / union / ref / json / function / never have no `typeof`
+              // discriminant — the deopt (try-each) path handles them, so no
+              // narrow is needed.
               unknown
+            } else {
+              // A minimal narrow standing in as the variant's runtime schema,
+              // carrying the member's encoder so a pending `.to` reverse reaches it.
+              let narrow = base(schema.tag, ~selfReverse=false)
+              narrow.encoder = schema.encoder
+              if tagFlag->Flag.unsafeHas(TagFlag.instance) {
+                narrow.class = schema.class
+              } else if tagFlag->Flag.unsafeHas(TagFlag.object) {
+                narrow.properties = Some(X.Object.immutableEmpty)
+                narrow.additionalItems = Some(Schema(unknown->castToPublic))
+              } else if tagFlag->Flag.unsafeHas(TagFlag.array) {
+                narrow.additionalItems = Some(Schema(unknown->castToPublic))
+                narrow.items = Some(X.Array.immutableEmpty)
+              } else if (
+                tagFlag->Flag.unsafeHas(
+                  TagFlag.null->Flag.with(TagFlag.undefined)->Flag.with(TagFlag.nan),
+                )
+              ) {
+                // null/undefined/nan stay literals so the case body passes through.
+                narrow.const = schema.const
+              }
+              // Per-invocation, not hoisted: this narrow is re-decoded during `.to`
+              // per-variant conversion — with the union's `unknown` input (emit the
+              // discriminant) or a concrete coerced value (delegate to schema.decoder).
+              narrow.decoder = (~input) =>
+                if input.schema.tag->TagFlag.get->Flag.unsafeHas(TagFlag.unknown) {
+                  input->B.refine(
+                    ~schema=input.expected,
+                    ~checks=[
+                      {
+                        cond: (~inputVar) => typeCheckCond(input, schema, ~inputVar),
+                        fail: B.failInvalidType,
+                      },
+                    ],
+                  )
+                } else {
+                  schema.decoder(~input)
+                }
+              narrow
             }
 
             let typeValidationOutput = try {
@@ -3833,7 +3911,9 @@ and unionDecoder: Builder.t = (~input) => {
         output
       }
 
-      // Build the output schema from collected case output schemas
+      // Build the output schema from collected case output schemas. Variants
+      // coercing to the same `.to` target now produce structurally-identical (but
+      // not identity-equal) outputs; `toJSONSchema` collapses the duplicate.
       o.schema = if outputAnyOf->Stdlib.Array.length->X.Int.unsafeToBool {
         unionFactory(outputAnyOf)->castToInternal
       } else {
@@ -7147,25 +7227,29 @@ module RescriptJSONSchema = {
     | Union({anyOf}) => {
         let literals = []
         let items = []
+        let seen = Stdlib.Dict.make()
 
         anyOf->Array.forEach(childSchema => {
           switch childSchema {
           // Filter out undefined to support optional fields
           | Undefined(_) if (parent->castToInternal).tag === objectTag => ()
           | _ => {
-              items
-              ->Array.push(
-                Schema(internalToJSONSchema(childSchema, ~parent=schema, ~path, ~defs)),
-              )
-              ->ignore
-              switch childSchema->castToInternal->isLiteral {
-              | true =>
-                literals
-                ->Array.push(
-                  (childSchema->castToInternal).const->(Obj.magic: option<char> => JSON.t),
-                )
-                ->ignore
-              | false => ()
+              let childJsonSchema = internalToJSONSchema(childSchema, ~parent=schema, ~path, ~defs)
+              // Collapse structurally-identical members (e.g. variants coercing to
+              // the same `.to` target) so the union renders as `T`, not `anyOf:[T,T]`.
+              let key = childJsonSchema->JSON.stringifyAny->Obj.magic
+              if !(seen->Stdlib.Dict.has(key)) {
+                seen->Dict.set(key, true)
+                items->Array.push(Schema(childJsonSchema))->ignore
+                switch childSchema->castToInternal->isLiteral {
+                | true =>
+                  literals
+                  ->Array.push(
+                    (childSchema->castToInternal).const->(Obj.magic: option<char> => JSON.t),
+                  )
+                  ->ignore
+                | false => ()
+                }
               }
             }
           }
