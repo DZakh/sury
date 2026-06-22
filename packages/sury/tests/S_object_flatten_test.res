@@ -191,6 +191,30 @@ test("Can flatten transformed object schema", t => {
   )
 })
 
+// https://github.com/DZakh/sury/issues/271
+test("Flattened object with a transformed field decodes the field once", t => {
+  let fieldSchema = S.string->S.transform(_ => {
+    parser: s => s ++ "!",
+    serializer: s => s->String.replaceAll("!", ""),
+  })
+  let inner = S.object(s => {"createdAt": s.field("createdAt", fieldSchema)})
+  let schema = S.object(s => {"properties": s.flatten(inner)})
+
+  // Before the fix the flattened field's transform ran twice ("x!!"), and a
+  // string|Date transform like S.date would throw "Expected string, received
+  // [object Date]" on the second run.
+  t->Assert.deepEqual(
+    %raw(`{"createdAt": "x"}`)->S.parseOrThrow(~to=schema),
+    %raw(`{"properties": {"createdAt": "x!"}}`),
+  )
+  t->U.assertReverseReversesBack(schema)
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{typeof i==="object"&&i||e[3](i);let v1=i["createdAt"];typeof v1==="string"||e[2](v1);let v0;try{v0=e[0](i["createdAt"])}catch(x){e[1](x)}return {"properties":{"createdAt":v0,},}}`,
+  )
+})
+
 test("Fails to flatten non-object schema", t => {
   t->Assert.throws(
     () => {

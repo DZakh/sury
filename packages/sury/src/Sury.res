@@ -5765,7 +5765,21 @@ module Schema = {
         let flattenedSchema = flattened->Array.getUnsafe(idx)
         let flattenedInput = input->B.Val.scope
         flattenedInput.expected = flattenedSchema
-        flattenedInput.isOutput = Some(false)
+        // When the flattened schema has its own `.to` (a reshape/transform), its
+        // keys were already decoded by the parent objectDecoder (they are merged
+        // into the parent's properties), and `input` holds those decoded vals.
+        // Mark the val as output so the parse loop skips the decoder and runs only
+        // the flattened schema's `.to`, reusing the decoded fields. Re-decoding
+        // would re-apply field-level transforms on the already-transformed value
+        // (issue #271). A flattened schema without `.to` carries no reshape, so
+        // the plain re-decode below is idempotent and also performs field
+        // selection — keep it.
+        flattenedInput.isOutput = Some(
+          switch flattenedSchema.to {
+          | Some(_) => true
+          | None => false
+          },
+        )
         let flattenedVal = flattenedInput->parse
         flattenedVals->Array.push(flattenedVal)->ignore
         input.codeFromPrev = input.codeFromPrev ++ flattenedVal->B.merge

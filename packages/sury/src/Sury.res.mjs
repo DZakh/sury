@@ -3964,7 +3964,7 @@ function shapedParser(input) {
       let flattenedSchema = flattened[idx];
       let flattenedInput = scope(input);
       flattenedInput.e = flattenedSchema;
-      flattenedInput.io = false;
+      flattenedInput.io = flattenedSchema.to !== undefined;
       let flattenedVal = parse$1(flattenedInput);
       flattenedVals.push(flattenedVal);
       input.cp = input.cp + merge(flattenedVal, undefined);
