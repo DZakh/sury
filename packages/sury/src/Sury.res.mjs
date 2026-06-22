@@ -3962,10 +3962,25 @@ function shapedParser(input) {
     let flattenedVals = [];
     for (let idx = 0, idx_finish = flattened.length; idx < idx_finish; ++idx) {
       let flattenedSchema = flattened[idx];
-      let flattenedInput = scope(input);
-      flattenedInput.e = flattenedSchema;
-      flattenedInput.io = flattenedSchema.to !== undefined;
-      let flattenedVal = parse$1(flattenedInput);
+      let match = flattenedSchema.to;
+      let flattenedVal;
+      if (match !== undefined) {
+        let flattenedInput = scope(input);
+        flattenedInput.e = flattenedSchema;
+        flattenedInput.io = true;
+        flattenedVal = parse$1(flattenedInput);
+      } else {
+        let projection = makeObjectVal(input, flattenedSchema);
+        let flattenedKeys = Object.keys(flattenedSchema.properties);
+        for (let kIdx = 0, kIdx_finish = flattenedKeys.length; kIdx < kIdx_finish; ++kIdx) {
+          let key = flattenedKeys[kIdx];
+          add(projection, key, valGet(input, key));
+        }
+        let assembled = completeObjectVal(projection);
+        assembled.e = flattenedSchema;
+        assembled.prev = undefined;
+        flattenedVal = markOutput(assembled, assembled);
+      }
       flattenedVals.push(flattenedVal);
       input.cp = input.cp + merge(flattenedVal, undefined);
     }

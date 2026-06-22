@@ -5763,24 +5763,41 @@ module Schema = {
       let flattenedVals = []
       for idx in 0 to flattened->Array.length - 1 {
         let flattenedSchema = flattened->Array.getUnsafe(idx)
-        let flattenedInput = input->B.Val.scope
-        flattenedInput.expected = flattenedSchema
-        // When the flattened schema has its own `.to` (a reshape/transform), its
-        // keys were already decoded by the parent objectDecoder (they are merged
-        // into the parent's properties), and `input` holds those decoded vals.
-        // Mark the val as output so the parse loop skips the decoder and runs only
-        // the flattened schema's `.to`, reusing the decoded fields. Re-decoding
+        // The flattened object's keys are merged into the parent's properties and
+        // already decoded by the parent objectDecoder, so `input` holds their
+        // decoded vals. Reuse them here instead of decoding again — re-decoding
         // would re-apply field-level transforms on the already-transformed value
-        // (issue #271). A flattened schema without `.to` carries no reshape, so
-        // the plain re-decode below is idempotent and also performs field
-        // selection — keep it.
-        flattenedInput.isOutput = Some(
-          switch flattenedSchema.to {
-          | Some(_) => true
-          | None => false
-          },
-        )
-        let flattenedVal = flattenedInput->parse
+        // (issue #271).
+        let flattenedVal = switch flattenedSchema.to {
+        | Some(_) =>
+          // The flattened schema has its own reshape/transform. Mark the input as
+          // output so the parse loop skips the decoder and runs only that `.to`,
+          // reading the decoded fields back through the shared `vals`.
+          let flattenedInput = input->B.Val.scope
+          flattenedInput.expected = flattenedSchema
+          flattenedInput.isOutput = Some(true)
+          flattenedInput->parse
+        | None =>
+          // No reshape: project the flattened schema's own keys out of the
+          // parent's decoded fields (selection without decoding), then apply the
+          // flattened schema's own refiners. Materializing the projection gives it
+          // an inline restricted to its keys, so a whole-object read of the
+          // flattened result can't leak sibling fields of the parent.
+          let projection = input->makeObjectVal(~schema=flattenedSchema)
+          let flattenedKeys = flattenedSchema.properties->X.Option.getUnsafe->Dict.keysToArray
+          for kIdx in 0 to flattenedKeys->Array.length - 1 {
+            let key = flattenedKeys->Array.getUnsafe(kIdx)
+            projection->B.Val.Object.add(~location=key, input->valGet(key))
+          }
+          let assembled = projection->completeObjectVal
+          assembled.expected = flattenedSchema
+          // The reused field vals are declared by the parent's own code; detach
+          // from `prev` (as getShapedParserOutput does) so `merge` doesn't
+          // re-emit the parent's declarations. Done before markOutput so any
+          // refiner wrap it adds still points at the assembled object.
+          assembled.prev = None
+          assembled->B.markOutput(~valInput=assembled)
+        }
         flattenedVals->Array.push(flattenedVal)->ignore
         input.codeFromPrev = input.codeFromPrev ++ flattenedVal->B.merge
       }
