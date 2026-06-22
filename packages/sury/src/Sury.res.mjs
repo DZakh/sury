@@ -3333,8 +3333,8 @@ function jsonStringEncoder(input, target) {
 function jsonStringDecoder(input) {
   let inputTagFlag = flags[input.s.type];
   let expectedSchema = input.e;
-  let isUnionNarrow = inputTagFlag & 2 && input.s.format !== "json" && input.s.encoder === jsonStringEncoder;
-  if (inputTagFlag & 1 || isUnionNarrow) {
+  let isOwnInputNarrow = inputTagFlag & 2 && input.s.format !== "json" && input.s.encoder === jsonStringEncoder;
+  if (inputTagFlag & 1 || isOwnInputNarrow) {
     let to = expectedSchema.to;
     let preEncode = to && to.type !== unknownTag && !expectedSchema.parser && !expectedSchema.refiner;
     let stringVal = stringDecoderFn(input);

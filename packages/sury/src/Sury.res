@@ -5045,19 +5045,28 @@ let jsonString = {
     let inputTagFlag = input.schema.tag->TagFlag.get
     let expectedSchema = input.expected
 
-    // A union dispatch narrows `unknown` to a bare `string` for the jsonString
-    // member, carrying the member's `jsonStringEncoder` (see unionDecoder's
-    // narrow). That narrow is the jsonString *input* (a JSON string to
-    // validate), not a foreign value being encoded into JSON via `.to`, so it
-    // must take the validation path below instead of the `JSON.stringify`
-    // encode branch. A real chained jsonString keeps `format === Some(JSON)`
-    // and stays a no-op, and a plain `S.string` source has no encoder.
-    let isUnionNarrow =
+    // A union checks the type first, then each case runs its own refinement —
+    // for jsonString that refinement is the `JSON.parse` validation below. The
+    // dispatch narrows `unknown` to a bare `string` for the jsonString member
+    // (the typeof discriminant) and re-decodes it here as the per-case body,
+    // exactly like numberDecoder emits the int32 format refinement after its
+    // typeof narrow.
+    //
+    // numberDecoder spots that narrow via a format mismatch, but it can rely on
+    // tag too: coercing a foreign value into a number changes the tag
+    // (string→number). jsonString can't — its input *is* a string, the same tag
+    // its coercion source (`S.string->S.to(S.jsonString)`) carries. So the
+    // disambiguator is the encoder: the narrow copies the member's
+    // `jsonStringEncoder` (see unionDecoder), a plain `S.string` source has
+    // none. With it set we validate our own JSON-string input; without it we
+    // fall through to the `JSON.stringify` coercion branch. A real chained
+    // jsonString keeps `format === Some(JSON)` and stays the no-op below.
+    let isOwnInputNarrow =
       inputTagFlag->Flag.unsafeHas(TagFlag.string) &&
       input.schema.format !== Some(JSON) &&
       input.schema.encoder->Obj.magic === jsonStringEncoder
 
-    if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) || isUnionNarrow {
+    if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) || isOwnInputNarrow {
       let to = expectedSchema.to->X.Option.getUnsafe
       // Whether we can optimize encoding during decoding
       let preEncode: bool =
