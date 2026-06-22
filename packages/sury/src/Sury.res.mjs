@@ -2418,24 +2418,23 @@ function unionDecoder(input) {
                     if (tagFlag & 8192) {
                       return instanceofCond(input, schema$1.class)(inputVar);
                     }
-                    if (tagFlag & 4) {
-                      let typeofCheck = typeofCond(numberTag)(inputVar);
-                      if (input.g.o & 2) {
-                        return typeofCheck;
+                    if (!(tagFlag & 4)) {
+                      if (tagFlag & 2048) {
+                        return nanCond(inputVar);
+                      } else if (tagFlag & 48) {
+                        return inputVar + `===` + inlineConst(input, schema$1);
+                      } else if (tagFlag & 17418) {
+                        return typeofCond(schema$1.type)(inputVar);
                       } else {
-                        return typeofCheck + `&&!` + nanCond(inputVar);
+                        return "";
                       }
                     }
-                    if (tagFlag & 2048) {
-                      return nanCond(inputVar);
+                    let typeofCheck = typeofCond(numberTag)(inputVar);
+                    if (input.g.o & 2) {
+                      return typeofCheck;
+                    } else {
+                      return typeofCheck + `&&!` + nanCond(inputVar);
                     }
-                    if (tagFlag & 48) {
-                      return inputVar + `===` + inlineConst(input, schema$1);
-                    }
-                    if (tagFlag & 17418) {
-                      return typeofCond(schema$1.type)(inputVar);
-                    }
-                    throw new Error(`[Sury] Unexpected union variant tag: ` + schema$1.type);
                   },
                   f: failInvalidType
                 }], undefined);

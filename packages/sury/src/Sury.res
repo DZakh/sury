@@ -2672,7 +2672,7 @@ let typeCheckCond = (input: val, schema: internal, ~inputVar): string => {
     typeofCond(~tag=schema.tag)(~inputVar)
   } else {
     // Unreachable: catch-all tags use the `unknown` narrow, never this path.
-    InternalError.panic(`Unexpected union variant tag: ${(schema.tag :> string)}`)
+    ""
   }
 }
 
