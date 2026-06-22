@@ -1878,18 +1878,19 @@ let int32FormatValidation = (~inputVar) => {
 
 // Atomic type-narrow conditions, shared by the type decoders and the union
 // dispatch (`typeCheckCond`) so the two can't drift.
-let typeofCond = (tag: tag, ~inputVar) => `typeof ${inputVar}==="${(tag :> string)}"`
-let nanCond = (~inputVar) => `Number.isNaN(${inputVar})`
-let isArrayCond = (~inputVar) => `Array.isArray(${inputVar})`
-let objectTagCond = (~inputVar) => `${typeofCond(objectTag, ~inputVar)}&&${inputVar}`
-let instanceofCond = (b: val, class, ~inputVar) => `${inputVar} instanceof ${b->B.embed(class)}`
+let typeofCond = (~tag: tag) => (~inputVar): string => `typeof ${inputVar}==="${(tag :> string)}"`
+let nanCond = (~inputVar): string => `Number.isNaN(${inputVar})`
+let isArrayCond = (~inputVar): string => `Array.isArray(${inputVar})`
+let objectTagCond = (~inputVar): string => `${typeofCond(~tag=objectTag)(~inputVar)}&&${inputVar}`
+let instanceofCond = (~b: val, ~class) =>
+  (~inputVar): string => `${inputVar} instanceof ${b->B.embed(class)}`
 
 let numberDecoder = Builder.make((~input) => {
   let inputTagFlag = input.schema.tag->TagFlag.get
   if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
     let checks = [
       {
-        cond: (~inputVar) => typeofCond(numberTag, ~inputVar),
+        cond: typeofCond(~tag=numberTag),
         fail: B.failInvalidType,
       },
     ]
@@ -1971,7 +1972,7 @@ and stringDecoderFn = (~input) => {
       ~schema=input.expected,
       ~checks=[
         {
-          cond: (~inputVar) => typeofCond(stringTag, ~inputVar),
+          cond: typeofCond(~tag=stringTag),
           fail: B.failInvalidType,
         },
       ],
@@ -2015,7 +2016,7 @@ let booleanDecoder = Builder.make((~input) => {
       ~schema=input.expected,
       ~checks=[
         {
-          cond: (~inputVar) => typeofCond(booleanTag, ~inputVar),
+          cond: typeofCond(~tag=booleanTag),
           fail: B.failInvalidType,
         },
       ],
@@ -2051,7 +2052,7 @@ let bigintDecoder = Builder.make((~input) => {
       ~schema=input.expected,
       ~checks=[
         {
-          cond: (~inputVar) => typeofCond(bigintTag, ~inputVar),
+          cond: typeofCond(~tag=bigintTag),
           fail: B.failInvalidType,
         },
       ],
@@ -2086,7 +2087,7 @@ let symbolDecoder = Builder.make((~input) => {
       ~schema=input.expected,
       ~checks=[
         {
-          cond: (~inputVar) => typeofCond(symbolTag, ~inputVar),
+          cond: typeofCond(~tag=symbolTag),
           fail: B.failInvalidType,
         },
       ],
@@ -2158,7 +2159,7 @@ let literalDecoder = Builder.make((~input) => {
         ~schema=expectedSchema,
         ~checks=[
           {
-            cond: (~inputVar) => nanCond(~inputVar),
+            cond: nanCond,
             fail: B.failInvalidType,
           },
         ],
@@ -2616,7 +2617,7 @@ let instanceDecoder = Builder.make((~input) => {
       ~schema=input.expected,
       ~checks=[
         {
-          cond: (~inputVar) => instanceofCond(input, input.expected.class, ~inputVar),
+          cond: instanceofCond(~b=input, ~class=input.expected.class),
           fail: B.failInvalidType,
         },
       ],
@@ -2646,9 +2647,9 @@ let typeCheckCond = (input: val, schema: internal, ~inputVar): string => {
   } else if tagFlag->Flag.unsafeHas(TagFlag.array) {
     isArrayCond(~inputVar)
   } else if tagFlag->Flag.unsafeHas(TagFlag.instance) {
-    instanceofCond(input, schema.class, ~inputVar)
+    instanceofCond(~b=input, ~class=schema.class)(~inputVar)
   } else if tagFlag->Flag.unsafeHas(TagFlag.number) {
-    let typeofCheck = typeofCond(numberTag, ~inputVar)
+    let typeofCheck = typeofCond(~tag=numberTag)(~inputVar)
     if input.global.flag->Flag.unsafeHas(Flag.disableNanNumberValidation) {
       typeofCheck
     } else {
@@ -2668,7 +2669,7 @@ let typeCheckCond = (input: val, schema: internal, ~inputVar): string => {
     )
   ) {
     // literals reuse this typeof check; their per-const check stays in the case body
-    typeofCond(schema.tag, ~inputVar)
+    typeofCond(~tag=schema.tag)(~inputVar)
   } else {
     // Unreachable: catch-all tags use the `unknown` narrow, never this path.
     InternalError.panic(`Unexpected union variant tag: ${(schema.tag :> string)}`)
@@ -2808,7 +2809,7 @@ and arrayDecoder: builder = (~input as unknownInput) => {
     if !isArrayInput {
       checks
       ->Array.push({
-        cond: (~inputVar) => isArrayCond(~inputVar),
+        cond: isArrayCond,
         fail: B.failInvalidType,
       })
       ->ignore
@@ -2958,7 +2959,7 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
     if !isObjectInput {
       checks
       ->Array.push({
-        cond: (~inputVar) => objectTagCond(~inputVar),
+        cond: objectTagCond,
         fail: B.failInvalidType,
       })
       ->ignore
