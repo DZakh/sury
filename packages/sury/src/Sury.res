@@ -5045,7 +5045,19 @@ let jsonString = {
     let inputTagFlag = input.schema.tag->TagFlag.get
     let expectedSchema = input.expected
 
-    if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
+    // A union dispatch narrows `unknown` to a bare `string` for the jsonString
+    // member, carrying the member's `jsonStringEncoder` (see unionDecoder's
+    // narrow). That narrow is the jsonString *input* (a JSON string to
+    // validate), not a foreign value being encoded into JSON via `.to`, so it
+    // must take the validation path below instead of the `JSON.stringify`
+    // encode branch. A real chained jsonString keeps `format === Some(JSON)`
+    // and stays a no-op, and a plain `S.string` source has no encoder.
+    let isUnionNarrow =
+      inputTagFlag->Flag.unsafeHas(TagFlag.string) &&
+      input.schema.format !== Some(JSON) &&
+      input.schema.encoder->Obj.magic === jsonStringEncoder
+
+    if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) || isUnionNarrow {
       let to = expectedSchema.to->X.Option.getUnsafe
       // Whether we can optimize encoding during decoding
       let preEncode: bool =
