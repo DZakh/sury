@@ -1,5 +1,3 @@
-// @ts-check
-//
 // Cross-library comparison benchmarks (Sury vs Zod / Valibot / ArkType /
 // TypeBox). Run with `pnpm --filter=e2e benchmark:comparison`; instrumented by
 // CodSpeed in CI. Each `describe` is a head-to-head group, so Vitest prints the
@@ -111,24 +109,43 @@ const typeBoxSchema = TypeCompiler.Compile(
   })
 );
 
+// Historical Benchmark.js ops/sec for the union parse, kept for reference
+// across library versions (newer CodSpeed runs track this going forward):
 const SuryUnion = S.union([{ box: S.string }, S.string.with(S.to, S.number)]);
+// S.parseOrThrow("123", SuryUnion)
+// Sury@10.0.0 x 81,797,072 ops/sec ±2.19% (89 runs sampled)
+
 const ValibotUnion = v.union([
   v.object({
     box: v.string(),
   }),
   v.pipe(v.string(), v.decimal(), v.transform(Number)),
 ]);
+// v.parse(ValibotUnion, "123")
+// Valibot@1.0.0 x 5,055,079 ops/sec ±1.52% (98 runs sampled)
+
 const ArkTypeUnion = type({ box: "string" }).or("string.numeric.parse");
+// ArkTypeUnion("123")
+// ArkType@2.0.4 x 4,300,118 ops/sec ±0.33% (97 runs sampled)
+// ArkType@2.1.20 x 28,353,756 ops/sec ±0.75% (98 runs sampled)
+
 const ZodUnion = z.union([
   z.object({ box: z.string() }),
   z.string().pipe(z.coerce.number()),
 ]);
+// ZodUnion.parse("123")
+// Zod@3.24.2 x 3,278,494 ops/sec ±0.55% (94 runs sampled)
+// Zod@4.0.0-beta x 13,112,988 ops/sec ±0.45% (95 runs sampled)
+
 const TypeBoxUnion = Type.Union([
   Type.Object({ box: Type.String() }),
   Type.Transform(Type.String())
     .Decode(Number)
-    .Encode((v) => v.toString()),
+    .Encode((value) => value.toString()),
 ]);
+// Value.Decode(TypeBoxUnion, "123")
+// TypeBox@0.34.33 x 2,205,614 ops/sec ±26.92% (68 runs sampled)
+
 const suryUnionParse = S.parser(SuryUnion);
 
 describe("create", () => {

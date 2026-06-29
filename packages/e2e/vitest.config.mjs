@@ -8,7 +8,7 @@ export default defineConfig({
   test: {
     include: ["src/**/*_test.res.mjs"],
     benchmark: {
-      include: ["src/**/*.bench.js"],
+      include: ["src/**/*.bench.ts"],
     },
   },
 });
