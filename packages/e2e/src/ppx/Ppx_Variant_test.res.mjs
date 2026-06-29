@@ -2,28 +2,29 @@
 
 import * as S from "sury/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
-import Ava from "ava";
+import * as Vitest from "../utils/Vitest.res.mjs";
+import * as Vitest$1 from "vitest";
 
 let variantSchema = S.union([
   S.literal("One"),
   S.literal("Two")
 ]);
 
-Ava("Variant", t => U.assertEqualSchemas(t, variantSchema, S.union([
+Vitest$1.test("Variant", t => U.assertEqualSchemas(t, variantSchema, S.union([
   S.literal("One"),
   S.literal("Two")
 ]), undefined));
 
 let variantWithSingleItemSchema = S.literal("Single");
 
-Ava("Variant with single item becomes a literal schema of the item", t => U.assertEqualSchemas(t, variantWithSingleItemSchema, S.literal("Single"), undefined));
+Vitest$1.test("Variant with single item becomes a literal schema of the item", t => U.assertEqualSchemas(t, variantWithSingleItemSchema, S.literal("Single"), undefined));
 
 let variantWithAliasSchema = S.union([
   S.literal("하나"),
   S.literal("Two")
 ]);
 
-Ava("Variant with partial @as usage", t => U.assertEqualSchemas(t, variantWithAliasSchema, S.union([
+Vitest$1.test("Variant with partial @as usage", t => U.assertEqualSchemas(t, variantWithAliasSchema, S.union([
   S.literal("하나"),
   S.literal("Two")
 ]), undefined));
@@ -45,7 +46,7 @@ let variantWithPayloadsSchema = S.union([
   }))
 ]);
 
-Ava("Variant with payloads", t => U.assertEqualSchemas(t, variantWithPayloadsSchema, S.union([
+Vitest$1.test("Variant with payloads", t => U.assertEqualSchemas(t, variantWithPayloadsSchema, S.union([
   S.literal("Constant"),
   S.schema(s => ({
     TAG: "SinglePayload",
@@ -68,7 +69,7 @@ let unboxedVariantSchema = S.union([
   S.schema(s => (s.m(S.string)))
 ]);
 
-Ava("Unboxed variant", t => U.assertEqualSchemas(t, unboxedVariantSchema, S.union([
+Vitest$1.test("Unboxed variant", t => U.assertEqualSchemas(t, unboxedVariantSchema, S.union([
   S.literal("Constant"),
   S.schema(s => (s.m(S.int))),
   S.schema(s => (s.m(S.string)))
@@ -90,7 +91,7 @@ let taggedVariantSchema = S.union([
   }))
 ]);
 
-Ava("Tagged variant", t => U.assertEqualSchemas(t, taggedVariantSchema, S.union([
+Vitest$1.test("Tagged variant", t => U.assertEqualSchemas(t, taggedVariantSchema, S.union([
   S.schema(s => ({
     kind: "circle",
     radius: s.m(S.float)
@@ -125,7 +126,7 @@ let taggedInlinedAliasSchema = S.union([
   }))
 ]);
 
-Ava("@s.strict on root variant type", t => U.assertEqualSchemas(t, strictVariantSchema, S.strict(S.union([
+Vitest$1.test("@s.strict on root variant type", t => U.assertEqualSchemas(t, strictVariantSchema, S.strict(S.union([
   S.literal("StrictA"),
   S.schema(s => ({
     TAG: "StrictB",
@@ -133,7 +134,7 @@ Ava("@s.strict on root variant type", t => U.assertEqualSchemas(t, strictVariant
   }))
 ])), undefined));
 
-Ava("Tagged variant with inlined alias", t => U.assertEqualSchemas(t, taggedInlinedAliasSchema, S.union([
+Vitest$1.test("Tagged variant with inlined alias", t => U.assertEqualSchemas(t, taggedInlinedAliasSchema, S.union([
   S.schema(s => ({
     type: "Foo",
     Foo: s.m(S.string)
@@ -144,6 +145,30 @@ Ava("Tagged variant with inlined alias", t => U.assertEqualSchemas(t, taggedInli
   }))
 ]), undefined));
 
+let baseColorsSchema = S.union([
+  S.literal("Red"),
+  S.literal("Blue"),
+  S.literal("Green")
+]);
+
+let extendedColorsSchema = S.union([S.literal("Yellow")].concat(baseColorsSchema.type === "union" ? baseColorsSchema.anyOf : [baseColorsSchema]));
+
+Vitest$1.test("Variant with type spread", t => {
+  Vitest.Assert.deepEqual(t, S.parseOrThrow("Red", extendedColorsSchema), "Red", undefined);
+  Vitest.Assert.deepEqual(t, S.parseOrThrow("Yellow", extendedColorsSchema), "Yellow", undefined);
+  U.assertReverseReversesBack(t, extendedColorsSchema);
+});
+
+let singleCaseSchema = S.literal("Only");
+
+let extendedFromSingleCaseSchema = S.union([S.literal("Another")].concat(singleCaseSchema.type === "union" ? singleCaseSchema.anyOf : [singleCaseSchema]));
+
+Vitest$1.test("Variant spread of a single-case (literal) schema", t => {
+  Vitest.Assert.deepEqual(t, S.parseOrThrow("Only", extendedFromSingleCaseSchema), "Only", undefined);
+  Vitest.Assert.deepEqual(t, S.parseOrThrow("Another", extendedFromSingleCaseSchema), "Another", undefined);
+  U.assertReverseReversesBack(t, extendedFromSingleCaseSchema);
+});
+
 export {
   variantSchema,
   variantWithSingleItemSchema,
@@ -153,5 +178,9 @@ export {
   taggedVariantSchema,
   strictVariantSchema,
   taggedInlinedAliasSchema,
+  baseColorsSchema,
+  extendedColorsSchema,
+  singleCaseSchema,
+  extendedFromSingleCaseSchema,
 }
 /* variantSchema Not a pure module */

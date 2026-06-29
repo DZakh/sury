@@ -32,6 +32,8 @@ The internal representation of a type schema, containing:
 - `encoder`: Builder function for converting from different schema types
 - `parser`: Builder function for transformations after decoding (used by `S.shape`, `S.to`)
 - `serializer`: Builder function for reverse transformations
+- `inputRefiner`: User validations run on the typed input, before the decoder
+- `refiner`: User validations run on the assembled output, after the decoder (`S.reverse` swaps `inputRefiner` ↔ `refiner`)
 - `to`: Target schema for transformations (set by `S.shape`, `S.to`)
 - `from`: Path array indicating where this value comes from in shaped schemas
 - `properties`: For object schemas, a dict of field name to schema
@@ -39,14 +41,19 @@ The internal representation of a type schema, containing:
 
 #### Builder
 
-A builder is a function with signature `(~input: val, ~selfSchema: internal) => val`. Builders generate JavaScript code at compile time by manipulating `val` objects. They are created using `Builder.make`:
+A builder is a function with signature `(~input: val) => val`. The schema being built is available as `input.expected` (there is no `~selfSchema` parameter). Builders generate JavaScript code at compile time by manipulating `val` objects. They are created using `Builder.make`:
 
 ```rescript
-let myBuilder = Builder.make((~input, ~selfSchema) => {
-  // Generate code and return output val
-  let output = input->B.val(`someTransform(${input.var()})`, ~schema=selfSchema)
-  output
+let myBuilder = Builder.make((~input) => {
+  // `input.expected` is this schema; return the output val
+  input->B.next(`someTransform(${input.var()})`, ~schema=input.expected)
 })
+```
+
+Encoders take an extra `~target` (the schema being coerced into) and are created with `Builder.encoder`:
+
+```rescript
+let myEncoder = Builder.encoder((~input, ~target) => { ... })
 ```
 
 #### Val (Value)
@@ -57,77 +64,82 @@ A compilation-time representation of a value being processed. Key fields:
 - `var()`: Function to allocate/retrieve a variable name (use when value is referenced multiple times)
 - `schema`: The schema of the current value
 - `expected`: The schema we're trying to parse/convert into
-- `from`: Link to the input val (for code merging)
-- `code`: Generated code statements
-- `validation`: Optional validation function to generate type checks
-- `skipTo`: When `Some(true)`, prevents `parse` from following the `.to` chain
+- `prev`: Link to the previous val in the transform chain (walked by `merge`)
+- `codeFromPrev`: Generated statements that produce this val from `prev`, including the `let` declaration of its own value. A non-empty `codeFromPrev` makes the val non-hoistable in `merge`, so a union discriminant can't be lifted above a `let` it reads.
+- `hoistedDecls`: `let` declarations hoisted *onto this val* by a descendant whose own segment was already emitted (a field read on its parent, a loop accumulator before its `for`). Populated with `B.hoistDecl(owner, decl)` and emitted by `merge` right after this val's checks — no callback mutating an unrelated val.
+- `finalized`: set by `merge` once a val's code is emitted; a late cached-bond materialization re-reads inline instead of hoisting onto it (#240)
+- `checks`: `array<check>` of type-narrows and user refiners. A check whose `fail === B.failInvalidType` is a type-narrow that doubles as a union dispatch discriminant. (Invariant: absent iff no checks — never stored as `Some([])`.)
+- `isOutput`: `Some(true)` once refiners have run; advanced decoders (object/array/tuple/union/recursive) set it themselves
 - `global`: Shared compilation context containing:
   - `embeded`: Array of embedded values (functions, constants) accessible as `e[n]`
   - `varCounter`: Counter for generating unique variable names
 
 ### Compilation Flow
 
-When a schema operation is compiled (e.g., `parseOrThrow`), the following happens:
+When a schema operation is compiled (e.g., `parseOrThrow`), `parse(val)` runs a
+loop until the val is fully decoded (`isOutput` is `Some(true)` and there is no
+further `.to`). Each iteration:
 
 ```
 Input Schema
      │
      ▼
-┌─────────────────────────────────────────────────────────┐
-│  parse(val) function                                    │
-│                                                         │
-│  1. Encoder (if input.schema !== expected)              │
-│     - Converts between different schema types           │
-│                                                         │
-│  2. Decoder (always runs)                               │
-│     - Validates input type (e.g., typeof === "string")  │
-│     - Generates validation code                         │
-│                                                         │
-│  3. Parser (if expected.parser exists)                  │
-│     - Applies transformations (S.transform, S.shape)    │
-│                                                         │
-│  4. Recursive parse (if expected.to exists)             │
-│     - Follows transformation chain                      │
-│     - Skipped if val.skipTo === Some(true)              │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  parse(val) loop — one iteration                             │
+│                                                              │
+│  if async flag:                                              │
+│     - continue the chain inside `.then(...)`                 │
+│                                                              │
+│  else if val.isOutput (decoded, may still have `.to`):       │
+│     - follow `.to`: run `expected.parser` (custom decoder)   │
+│       or `refine` onto `.to` (default encoder coercion)      │
+│                                                              │
+│  else (not yet decoded):                                     │
+│     1. Encoder — if `schema !== expected` and an encoder     │
+│        exists, coerce between schema types                   │
+│     2. Decoder — otherwise narrow to the schema type         │
+│        (e.g. `typeof === "string"`) and push `checks`        │
+│     3. markOutput — for primitive decoders, apply            │
+│        `inputRefiner`/`refiner` and set `isOutput`           │
+│        (advanced decoders own this themselves)               │
+└──────────────────────────────────────────────────────────────┘
      │
      ▼
-Output Val with merged code
+Output Val (chain of `.prev` links)
      │
      ▼
-B.merge() → JavaScript function string
+B.merge(output) → JavaScript code string → wrapped into the operation function
 ```
 
 ### Code Generation Example
 
-For `S.object(s => s.field("foo", S.string))`:
+For `S.object(s => s.field("foo", S.string))` the generated parse function is:
 
 ```javascript
-// Generated parse function:
-(i) => {
-  if (typeof i !== "object" || !i) {
-    e[0](i);
-  } // Object validation
-  let v0 = i["foo"]; // Field access
-  if (typeof v0 !== "string") {
-    e[1](v0);
-  } // String validation
-  return v0; // Return parsed value
+i => {
+  typeof i === "object" && i || e[1](i); // object validation
+  let v0 = i["foo"];                     // field access
+  typeof v0 === "string" || e[0](v0);    // string validation
+  return v0;                             // return parsed value
 };
 ```
 
-Where:
+Checks emit as `cond || e[n](x);` (throw when the condition is false), not as
+`if (!cond) {...}`. Where:
 
 - `i` is the input argument
-- `e` is the embedded values array (error throwers, transformers)
+- `e` is the embedded values array (error throwers, transformers), accessed as `e[n]`
 - `v0`, `v1`, etc. are allocated variables
 
 ### Key Functions
 
-- `parse(val)`: Main compilation function that walks through encoder → decoder → parser → to chain
-- `B.merge(val)`: Collects all generated code from the val chain into a single string
-- `B.Val.cleanValFrom(val)`: Creates a clean copy of val for new code generation while preserving variable binding
-- `B.embed(val, value)`: Embeds a runtime value (function, object) and returns reference like `e[0]`
+- `parse(val)`: Main compilation loop — encoder → decoder → markOutput → follow `.to`, until the val is fully decoded
+- `B.merge(val, ~hoistCond=?)`: Walks the `.prev` chain into a code string. With `~hoistCond` (union codegen) it lifts type-narrow checks into a dispatch condition; a val with non-empty `codeFromPrev` stays non-hoistable so its `let` travels with the check
+- `B.next(prev, code, ~schema, ~expected=?)`: Creates the next val one step down the transform chain
+- `B.refine(val, ~checks=?, ~schema=?, ~expected=?)`: Clones a val to attach `checks` while preserving the var-allocation link
+- `B.hoistDecl(owner, decl)`: Attaches a `let` declaration to a still-open owner val (prev/parent/self) that dominates and outlives the materialized value, replacing the old `allocate` side-channel
+- `B.markOutput(val, ~valInput)`: Applies `inputRefiner`/`refiner` and marks the val as output
+- `B.embed(val, value)`: Embeds a runtime value (function, object) and returns a reference like `e[0]`
 
 ### Shaped Schemas (S.shape, S.object with definer)
 

@@ -119,6 +119,10 @@ s.fn(s.arg(0, S.string))
 - S.mutator
 - Check only number of fields for strict object schema when fields are not optional (bad idea since it's not possible to create a good error message, so we still need to have the loop)
 
+## Articles
+
+- Write an article about creating an AI-friendly JS library (how the API design, type overloads like `S.is`/`S.assert` accepting both arg orders, and error messages make Sury easy for both humans and LLMs to use)
+
 ```
 
 ```

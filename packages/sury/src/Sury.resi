@@ -522,7 +522,8 @@ let getDecoder: (~s1: t<unknown>, ~flag: flag=?) => 'from => 'to
 let js_asyncDecoder: t<unknown> => unknown => unknown
 let js_encoder: t<unknown> => unknown => unknown
 let js_asyncEncoder: t<unknown> => unknown => unknown
-let js_assert: (t<unknown>, unknown) => unit
+let js_assert: (unknown, unknown) => unit
+let js_is: (unknown, unknown) => bool
 
 let js_safe: (unit => 'v) => jsResult<'v>
 let js_safeAsync: (unit => promise<'v>) => promise<jsResult<'v>>

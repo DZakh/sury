@@ -2,35 +2,36 @@
 
 import * as S from "sury/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
-import Ava from "ava";
+import * as Vitest from "../utils/Vitest.res.mjs";
+import * as Vitest$1 from "vitest";
 
 let polySchema = S.union([
   S.literal("one"),
   S.literal("two")
 ]);
 
-Ava("Polymorphic variant", t => U.assertEqualSchemas(t, polySchema, S.union([
+Vitest$1.test("Polymorphic variant", t => U.assertEqualSchemas(t, polySchema, S.union([
   S.literal("one"),
   S.literal("two")
 ]), undefined));
 
 let polyWithSingleItemSchema = S.literal("single");
 
-Ava("Polymorphic variant with single item becomes a literal schema of the item", t => U.assertEqualSchemas(t, polyWithSingleItemSchema, S.literal("single"), undefined));
+Vitest$1.test("Polymorphic variant with single item becomes a literal schema of the item", t => U.assertEqualSchemas(t, polyWithSingleItemSchema, S.literal("single"), undefined));
 
 let polyEmbededSchema = S.shape(S.string, param => "one");
 
-Ava("Embed custom schema for polymorphic variants", t => U.assertEqualSchemas(t, polyEmbededSchema, S.shape(S.string, param => "one"), undefined));
+Vitest$1.test("Embed custom schema for polymorphic variants", t => U.assertEqualSchemas(t, polyEmbededSchema, S.shape(S.string, param => "one"), undefined));
 
 let dictFieldSchema = S.dict(S.literal("one"));
 
-Ava("Supported as a dict field", t => U.assertEqualSchemas(t, dictFieldSchema, S.dict(S.literal("one")), undefined));
+Vitest$1.test("Supported as a dict field", t => U.assertEqualSchemas(t, dictFieldSchema, S.dict(S.literal("one")), undefined));
 
 let recordFieldSchema = S.schema(s => ({
   poly: s.m(S.literal("one"))
 }));
 
-Ava("Supported as a record field", t => U.assertEqualSchemas(t, recordFieldSchema, S.schema(s => ({
+Vitest$1.test("Supported as a record field", t => U.assertEqualSchemas(t, recordFieldSchema, S.schema(s => ({
   poly: s.m(S.literal("one"))
 })), undefined));
 
@@ -38,7 +39,7 @@ let objectFieldSchema = S.schema(s => ({
   poly: s.m(S.literal("one"))
 }));
 
-Ava("Supported as an object field", t => U.assertEqualSchemas(t, objectFieldSchema, S.schema(s => ({
+Vitest$1.test("Supported as an object field", t => U.assertEqualSchemas(t, objectFieldSchema, S.schema(s => ({
   poly: s.m(S.literal("one"))
 })), undefined));
 
@@ -63,7 +64,7 @@ let polyWithPayloadsSchema = S.union([
   }))
 ]);
 
-Ava("Polymorphic variant with payloads (issue #160)", t => {
+Vitest$1.test("Polymorphic variant with payloads (issue #160)", t => {
   U.assertEqualSchemas(t, polyWithPayloadsSchema, S.union([
     S.literal("one"),
     S.schema(s => ({
@@ -84,24 +85,24 @@ Ava("Polymorphic variant with payloads (issue #160)", t => {
       })))
     }))
   ]), undefined);
-  t.deepEqual(S.parseOrThrow("one", polyWithPayloadsSchema), "one");
-  t.deepEqual(S.parseOrThrow({NAME:"two",VAL:123}, polyWithPayloadsSchema), {
+  Vitest.Assert.deepEqual(t, S.parseOrThrow("one", polyWithPayloadsSchema), "one", undefined);
+  Vitest.Assert.deepEqual(t, S.parseOrThrow({NAME:"two",VAL:123}, polyWithPayloadsSchema), {
     NAME: "two",
     VAL: 123
-  });
-  t.deepEqual(S.parseOrThrow({NAME:"three",VAL:["hello",1.5]}, polyWithPayloadsSchema), {
+  }, undefined);
+  Vitest.Assert.deepEqual(t, S.parseOrThrow({NAME:"three",VAL:["hello",1.5]}, polyWithPayloadsSchema), {
     NAME: "three",
     VAL: [
       "hello",
       1.5
     ]
-  });
-  t.deepEqual(S.parseOrThrow({NAME:"four",VAL:{foo:"bar"}}, polyWithPayloadsSchema), {
+  }, undefined);
+  Vitest.Assert.deepEqual(t, S.parseOrThrow({NAME:"four",VAL:{foo:"bar"}}, polyWithPayloadsSchema), {
     NAME: "four",
     VAL: {
       foo: "bar"
     }
-  });
+  }, undefined);
 });
 
 let polyWithSinglePayloadSchema = S.schema(s => ({
@@ -109,15 +110,123 @@ let polyWithSinglePayloadSchema = S.schema(s => ({
   VAL: s.m(S.string)
 }));
 
-Ava("Polymorphic variant with single payload (issue #160)", t => {
+Vitest$1.test("Polymorphic variant with single payload (issue #160)", t => {
   U.assertEqualSchemas(t, polyWithSinglePayloadSchema, S.schema(s => ({
     NAME: "value",
     VAL: s.m(S.string)
   })), undefined);
-  t.deepEqual(S.parseOrThrow({NAME:"value",VAL:"hello"}, polyWithSinglePayloadSchema), {
+  Vitest.Assert.deepEqual(t, S.parseOrThrow({NAME:"value",VAL:"hello"}, polyWithSinglePayloadSchema), {
     NAME: "value",
     VAL: "hello"
+  }, undefined);
+});
+
+let polyWithInheritanceSchema = S.union([
+  polySchema,
+  S.literal("three")
+]);
+
+Vitest$1.test("Polymorphic variant with inheritance/spread of a named type", t => {
+  U.assertEqualSchemas(t, polyWithInheritanceSchema, S.union([
+    polySchema,
+    S.literal("three")
+  ]), undefined);
+  Vitest.Assert.deepEqual(t, S.parseOrThrow("one", polyWithInheritanceSchema), "one", undefined);
+  Vitest.Assert.deepEqual(t, S.parseOrThrow("three", polyWithInheritanceSchema), "three", undefined);
+  U.assertReverseParsesBack(t, polyWithInheritanceSchema, "one");
+  U.assertReverseParsesBack(t, polyWithInheritanceSchema, "three");
+});
+
+let polyWithPayloadInheritanceSchema = S.union([
+  polyWithPayloadsSchema,
+  S.schema(s => ({
+    NAME: "five",
+    VAL: s.m(S.bool)
+  }))
+]);
+
+Vitest$1.test("Polymorphic variant inheriting a type that has payloads", t => {
+  U.assertEqualSchemas(t, polyWithPayloadInheritanceSchema, S.union([
+    polyWithPayloadsSchema,
+    S.schema(s => ({
+      NAME: "five",
+      VAL: s.m(S.bool)
+    }))
+  ]), undefined);
+  Vitest.Assert.deepEqual(t, S.parseOrThrow("one", polyWithPayloadInheritanceSchema), "one", undefined);
+  Vitest.Assert.deepEqual(t, S.parseOrThrow({NAME:"two",VAL:123}, polyWithPayloadInheritanceSchema), {
+    NAME: "two",
+    VAL: 123
+  }, undefined);
+  Vitest.Assert.deepEqual(t, S.parseOrThrow({NAME:"five",VAL:true}, polyWithPayloadInheritanceSchema), {
+    NAME: "five",
+    VAL: true
+  }, undefined);
+  U.assertReverseParsesBack(t, polyWithPayloadInheritanceSchema, {
+    NAME: "two",
+    VAL: 123
   });
+  U.assertReverseParsesBack(t, polyWithPayloadInheritanceSchema, {
+    NAME: "five",
+    VAL: true
+  });
+});
+
+let polyInheritanceFieldSchema = S.schema(s => ({
+  variants: s.m(S.union([
+    polySchema,
+    S.literal("three")
+  ]))
+}));
+
+Vitest$1.test("Polymorphic variant inheritance nested as a record field", t => {
+  U.assertEqualSchemas(t, polyInheritanceFieldSchema, S.schema(s => ({
+    variants: s.m(S.union([
+      polySchema,
+      S.literal("three")
+    ]))
+  })), undefined);
+  Vitest.Assert.deepEqual(t, S.parseOrThrow({variants: "one"}, polyInheritanceFieldSchema), {
+    variants: "one"
+  }, undefined);
+  U.assertReverseParsesBack(t, polyInheritanceFieldSchema, {
+    variants: "one"
+  });
+  U.assertReverseParsesBack(t, polyInheritanceFieldSchema, {
+    variants: "three"
+  });
+});
+
+let polyInlineInheritanceSchema = S.union([
+  S.literal("a"),
+  S.schema(s => ({
+    NAME: "b",
+    VAL: s.m(S.int)
+  })),
+  S.literal("c")
+]);
+
+Vitest$1.test("Polymorphic variant with an inline spread is flattened into one union", t => {
+  U.assertEqualSchemas(t, polyInlineInheritanceSchema, S.union([
+    S.literal("a"),
+    S.schema(s => ({
+      NAME: "b",
+      VAL: s.m(S.int)
+    })),
+    S.literal("c")
+  ]), undefined);
+  Vitest.Assert.deepEqual(t, S.parseOrThrow("a", polyInlineInheritanceSchema), "a", undefined);
+  Vitest.Assert.deepEqual(t, S.parseOrThrow({NAME:"b",VAL:7}, polyInlineInheritanceSchema), {
+    NAME: "b",
+    VAL: 7
+  }, undefined);
+  Vitest.Assert.deepEqual(t, S.parseOrThrow("c", polyInlineInheritanceSchema), "c", undefined);
+  U.assertReverseParsesBack(t, polyInlineInheritanceSchema, "a");
+  U.assertReverseParsesBack(t, polyInlineInheritanceSchema, {
+    NAME: "b",
+    VAL: 7
+  });
+  U.assertReverseParsesBack(t, polyInlineInheritanceSchema, "c");
 });
 
 export {
@@ -129,5 +238,9 @@ export {
   objectFieldSchema,
   polyWithPayloadsSchema,
   polyWithSinglePayloadSchema,
+  polyWithInheritanceSchema,
+  polyWithPayloadInheritanceSchema,
+  polyInheritanceFieldSchema,
+  polyInlineInheritanceSchema,
 }
 /* polySchema Not a pure module */

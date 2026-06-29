@@ -110,7 +110,7 @@ asyncTest("Compiled async parse code snapshot", async t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{let v1;if(typeof i==="boolean"){let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}i=v0}else if(!(i===void 0)){e[2](i)}v1=Promise.resolve(i);return v1.then(v1=>{return v1===void 0?false:v1})}`,
+    `i=>{if(typeof i==="boolean"){let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}i=v0}else if(!(i===void 0)){e[2](i)}let v1=Promise.resolve(i);return v1.then(v1=>{return v1===void 0?false:v1})}`,
   )
 
   let schema =
@@ -314,12 +314,12 @@ test("Appending S.to(S.jsonString) after getOr extends the output chain", t => {
   )
 })
 
-// FIXME: parse codegen for a multi-member transforming union + getOr puts
-// each branch's input refiner BEFORE its `let v0 = +i` / `let v1 = BigInt(i)`
-// declaration, so parsing a string throws ReferenceError. Encoder side and
-// non-string parse paths are fine — the bug lives in the outer union's
-// per-branch decoder emission, not in getWithDefault.
-test("Multi-member union with transformed members + getOr — current (broken) behavior", t => {
+// A multi-member transforming union + getOr. Each string-coercing branch
+// declares its conversion var (`let v0 = +i` / `let v1 = BigInt(i)`) inside the
+// try block that owns the branch's type check, so a string input dispatches
+// per-branch without ever reading a var before its declaration (the previous
+// codegen emitted `if(!Number.isNaN(v0))` above `let v0 = +i`).
+test("Multi-member union with transformed members + getOr", t => {
   let schema =
     S.union([
       S.string->S.to(S.float)->S.castToUnknown,
@@ -332,29 +332,23 @@ test("Multi-member union with transformed members + getOr — current (broken) b
   t->Assert.deepEqual(%raw(`undefined`)->S.parseOrThrow(~to=schema), %raw(`true`))
   t->Assert.deepEqual(%raw(`true`)->S.parseOrThrow(~to=schema), %raw(`true`))
   t->Assert.deepEqual(%raw(`false`)->S.parseOrThrow(~to=schema), %raw(`false`))
+  // Parsing a string used to throw ReferenceError (v0 read before declaration).
+  t->Assert.deepEqual("42"->S.parseOrThrow(~to=schema), %raw(`42`))
 
   t->Assert.deepEqual(%raw(`42`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"42"`))
   t->Assert.deepEqual(%raw(`1n`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"1"`))
   t->Assert.deepEqual(%raw(`true`)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`true`))
 
-  // FIXME: `if(!Number.isNaN(v0))` reads v0 before `let v0 = +i`.
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){if(!Number.isNaN(v0)){let v0=+i;i=v0}else{try{let v1;try{v1=BigInt(i)}catch(_){e[0](i)}i=v1}catch(e1){e[1](i,e1)}}}else if(!(typeof i==="boolean"||i===void 0)){e[2](i)}return i===void 0?true:i}`,
+    `i=>{if(typeof i==="string"){try{let v0=+i;!Number.isNaN(v0)||e[0](i);i=v0}catch(e0){try{let v1;try{v1=BigInt(i)}catch(_){e[1](i)}i=v1}catch(e1){e[2](i,e0,e1)}}}else if(!(typeof i==="boolean"||i===void 0)){e[3](i)}return i===void 0?true:i}`,
   )
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
     `i=>{if(typeof i==="number"&&!Number.isNaN(i)){i=""+i}else if(typeof i==="bigint"){i=""+i}else if(!(typeof i==="boolean")){e[0](i)}return i}`,
-  )
-
-  t->Assert.throws(
-    () => {
-      let _ = "42"->S.parseOrThrow(~to=schema)
-    },
-    ~expectations={message: "v0 is not defined"},
   )
 })
 

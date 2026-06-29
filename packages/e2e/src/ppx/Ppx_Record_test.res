@@ -222,3 +222,118 @@ test("Multiple @s.* attributes on root record type", t => {
     ),
   )
 })
+
+module Meta = {
+  @schema
+  type t = {
+    id: string,
+    summary: option<string>,
+  }
+}
+
+@schema
+type recordWithSpread = {
+  ...Meta.t,
+  messages: array<string>,
+}
+test("Record schema with type spread", t => {
+  t->Assert.deepEqual(
+    %raw(`{id:"abc",summary:"hello",messages:["a","b"]}`)->S.parseOrThrow(
+      ~to=recordWithSpreadSchema,
+    ),
+    {id: "abc", summary: Some("hello"), messages: ["a", "b"]},
+  )
+  t->Assert.deepEqual(
+    %raw(`{id:"abc",messages:[]}`)->S.parseOrThrow(~to=recordWithSpreadSchema),
+    {id: "abc", summary: None, messages: []},
+  )
+  t->assertReverseReversesBack(recordWithSpreadSchema)
+})
+
+module Extra = {
+  @schema
+  type t = {
+    score: float,
+  }
+}
+
+@schema
+type recordWithMultipleSpreads = {
+  ...Meta.t,
+  ...Extra.t,
+  active: bool,
+}
+test("Record schema with multiple type spreads", t => {
+  t->Assert.deepEqual(
+    %raw(`{id:"abc",summary:"hello",score:9.5,active:true}`)->S.parseOrThrow(
+      ~to=recordWithMultipleSpreadsSchema,
+    ),
+    {id: "abc", summary: Some("hello"), score: 9.5, active: true},
+  )
+  t->assertReverseReversesBack(recordWithMultipleSpreadsSchema)
+})
+
+@schema
+type recordWithOnlySpread = {
+  ...Meta.t,
+}
+test("Record schema with only a spread (no own fields)", t => {
+  t->Assert.deepEqual(
+    %raw(`{id:"abc",summary:"hi"}`)->S.parseOrThrow(~to=recordWithOnlySpreadSchema),
+    {id: "abc", summary: Some("hi")},
+  )
+  t->Assert.deepEqual(
+    %raw(`{id:"abc"}`)->S.parseOrThrow(~to=recordWithOnlySpreadSchema),
+    {id: "abc", summary: None},
+  )
+  t->assertReverseReversesBack(recordWithOnlySpreadSchema)
+})
+
+@schema
+type recordWithMultipleSpreadsNoFields = {
+  ...Meta.t,
+  ...Extra.t,
+}
+test("Record schema with multiple spreads and no own fields", t => {
+  t->Assert.deepEqual(
+    %raw(`{id:"abc",summary:"hi",score:5.0}`)->S.parseOrThrow(
+      ~to=recordWithMultipleSpreadsNoFieldsSchema,
+    ),
+    {id: "abc", summary: Some("hi"), score: 5.0},
+  )
+  t->assertReverseReversesBack(recordWithMultipleSpreadsNoFieldsSchema)
+})
+
+@schema
+type recordWithSpreadAndAliasedField = {
+  ...Meta.t,
+  @as("ms") messages: array<string>,
+}
+test("Record schema with spread and @as-aliased own field", t => {
+  t->Assert.deepEqual(
+    %raw(`{id:"abc",summary:"hi",ms:["a"]}`)->S.parseOrThrow(
+      ~to=recordWithSpreadAndAliasedFieldSchema,
+    ),
+    {id: "abc", summary: Some("hi"), messages: ["a"]},
+  )
+  t->assertReverseReversesBack(recordWithSpreadAndAliasedFieldSchema)
+})
+
+@schema
+type recordWithSpreadAndOptionalField = {
+  ...Meta.t,
+  extra: option<int>,
+}
+test("Record schema with spread and optional own field", t => {
+  t->Assert.deepEqual(
+    %raw(`{id:"abc",summary:"hi",extra:5}`)->S.parseOrThrow(
+      ~to=recordWithSpreadAndOptionalFieldSchema,
+    ),
+    {id: "abc", summary: Some("hi"), extra: Some(5)},
+  )
+  t->Assert.deepEqual(
+    %raw(`{id:"abc"}`)->S.parseOrThrow(~to=recordWithSpreadAndOptionalFieldSchema),
+    {id: "abc", summary: None, extra: None},
+  )
+  t->assertReverseReversesBack(recordWithSpreadAndOptionalFieldSchema)
+})

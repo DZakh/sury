@@ -65,58 +65,74 @@ let rec generateConstrSchemaExpression {Location.txt = identifier; loc}
   | Ldot _, _ -> fail loc "Parametrized types with more than one type parameter are not supported yet"
   | Lapply (_, _), _ -> fail loc "Unsupported lapply syntax"
 
-and generatePolyvariantSchemaExpression row_fields =
+and polyvariantUnionItems row_fields =
+  (* Returns the flattened list of S.union members for a set of poly-variant
+     rows. An inherited row (`Rinherit`) may itself expand into several members
+     (when it is an inline polyvariant), so we concat-map rather than map. *)
   let payloadCoreTypeToMatchesExpression core_type =
     [%expr s.matches [%e generateCoreTypeSchemaExpression core_type]]
   in
-  let union_items =
-    row_fields
-    |> List.map (fun {prf_desc; prf_loc} ->
-           (* The bool field of Rtag is the ampersand-conjunction flag,
-              which ReScript polymorphic variants don't expose. *)
-           match prf_desc with
-           | Rtag ({txt = name}, _, []) ->
-             [%expr S.literal [%e Exp.variant name None]]
-           | Rtag ({txt = name}, _, [{ptyp_desc = Ptyp_tuple tuple_types}]) ->
-             (* ReScript represents `#tag(t1, t2)` as a single tuple payload at
-                the type level. Unfold it so the construction site uses flat
-                args, mirroring how generateVariantSchemaExpression handles
-                Pcstr_tuple multi-arg variants. *)
-             let body =
-               Exp.variant name
-                 (Some
-                    (Exp.tuple
-                       (tuple_types
-                       |> List.map payloadCoreTypeToMatchesExpression)))
-             in
-             [%expr
+  row_fields
+  |> List.map (fun {prf_desc; prf_loc} ->
+         (* The bool field of Rtag is the ampersand-conjunction flag,
+            which ReScript polymorphic variants don't expose. *)
+         match prf_desc with
+         | Rtag ({txt = name}, _, []) ->
+           [[%expr S.literal [%e Exp.variant name None]]]
+         | Rtag ({txt = name}, _, [{ptyp_desc = Ptyp_tuple tuple_types}]) ->
+           (* ReScript represents `#tag(t1, t2)` as a single tuple payload at
+              the type level. Unfold it so the construction site uses flat
+              args, mirroring how generateVariantSchemaExpression handles
+              Pcstr_tuple multi-arg variants. *)
+           let body =
+             Exp.variant name
+               (Some
+                  (Exp.tuple
+                     (tuple_types
+                     |> List.map payloadCoreTypeToMatchesExpression)))
+           in
+           [ [%expr
                S.schema
                  [%e
                    uncurriedFun ~loc:prf_loc ~arity:1
                      [%expr fun (s : S.Schema.s) -> [%e body]]]]
-           | Rtag ({txt = name}, _, [payload_core_type]) ->
-             let body =
-               Exp.variant name
-                 (Some
-                    (payloadCoreTypeToMatchesExpression payload_core_type))
-             in
-             [%expr
+           ]
+         | Rtag ({txt = name}, _, [payload_core_type]) ->
+           let body =
+             Exp.variant name
+               (Some (payloadCoreTypeToMatchesExpression payload_core_type))
+           in
+           [ [%expr
                S.schema
                  [%e
                    uncurriedFun ~loc:prf_loc ~arity:1
                      [%expr fun (s : S.Schema.s) -> [%e body]]]]
-           | Rtag _ ->
-             fail prf_loc
-               "Polymorphic variant ampersand types (`Tag of t1 & t2) are not \
-                supported"
-           | Rinherit _ ->
-             fail prf_loc
-               "Polymorphic variant inheritance (`[poly | #tag]`) is not \
-                supported")
-  in
-  match union_items with
+           ]
+         | Rtag _ ->
+           fail prf_loc
+             "Polymorphic variant ampersand types (`Tag of t1 & t2) are not \
+              supported"
+         | Rinherit {ptyp_desc = Ptyp_variant (inherited_rows, _, _)} ->
+           (* Inline inherited polyvariant: `[ [#a | #b] | #c ]`. Splice its
+              rows directly into this union so we keep a single flat union. *)
+           polyvariantUnionItems inherited_rows
+         | Rinherit inherited_core_type ->
+           (* Named inherited polyvariant: `[ base | #c ]`. Reuse the inherited
+              type's schema (e.g. `baseSchema`) as a nested union member. The
+              inherited schema's value type is narrower than the enclosing
+              variant and `S.t` is invariant, so cast it to unify within the
+              union. `S.castToAny` is a typed `%identity` (runtime no-op); the
+              nested schema handles its own tags for both parsing and
+              reversing. *)
+           [ [%expr
+               S.castToAny [%e generateCoreTypeSchemaExpression inherited_core_type]]
+           ])
+  |> List.concat
+
+and generatePolyvariantSchemaExpression row_fields =
+  match polyvariantUnionItems row_fields with
   | [item] -> item
-  | _ -> [%expr S.union [%e Exp.array union_items]]
+  | union_items -> [%expr S.union [%e Exp.array union_items]]
 
 and generateFieldSchemaExpression field =
   let schema_expression = generateCoreTypeSchemaExpression field.core_type in
@@ -127,54 +143,93 @@ and generateVariantSchemaExpression constr_decls =
   let payloadCoreTypeToMatchesExpression core_type =
     [%expr s.matches [%e generateCoreTypeSchemaExpression core_type]]
   in
+  let spread_schemas = ref [] in
   let union_items =
     constr_decls
-    |> List.map (fun {pcd_name = {txt = name; loc}; pcd_args} ->
-           match pcd_args with
-           | Pcstr_tuple [] ->
-             [%expr S.literal [%e Exp.construct (lid name) None]]
-           | Pcstr_tuple payload_core_types ->
-             let body =
-               Exp.construct (lid name)
-                 (Some
-                    (match payload_core_types with
-                    | [payload_core_type] ->
-                      payloadCoreTypeToMatchesExpression payload_core_type
-                    | payload_core_types ->
-                      Exp.tuple
-                        (payload_core_types
-                        |> List.map payloadCoreTypeToMatchesExpression)))
-             in
-             [%expr
-               S.schema
-                 [%e
-                   uncurriedFun ~loc ~arity:1
-                     [%expr fun (s : S.Schema.s) -> [%e body]]]]
-           | Pcstr_record label_declarations ->
-             let fields =
-               label_declarations |> List.map parseLabelDeclaration
-             in
-             let field_expressions =
-               fields
-               |> List.map (fun field ->
-                      let schema_expression =
-                        generateFieldSchemaExpression field
-                      in
-                      (lid field.name, [%expr s.matches [%e schema_expression]]))
-             in
-             let body =
-               Exp.construct (lid name)
-                 (Some (Exp.record field_expressions None))
-             in
-             [%expr
-               S.schema
-                 [%e
-                   uncurriedFun ~loc ~arity:1
-                     [%expr fun (s : S.Schema.s) -> [%e body]]]])
+    |> List.filter_map (fun {pcd_name = {txt = name; loc}; pcd_args} ->
+           if name = "..." then (
+             match pcd_args with
+             | Pcstr_tuple [spread_type] ->
+               let spread_schema =
+                 generateCoreTypeSchemaExpression spread_type
+               in
+               spread_schemas := spread_schema :: !spread_schemas;
+               None
+             | _ -> fail loc "Unsupported variant spread syntax")
+           else
+             Some
+               (match pcd_args with
+               | Pcstr_tuple [] ->
+                 [%expr S.literal [%e Exp.construct (lid name) None]]
+               | Pcstr_tuple payload_core_types ->
+                 let body =
+                   Exp.construct (lid name)
+                     (Some
+                        (match payload_core_types with
+                        | [payload_core_type] ->
+                          payloadCoreTypeToMatchesExpression payload_core_type
+                        | payload_core_types ->
+                          Exp.tuple
+                            (payload_core_types
+                            |> List.map payloadCoreTypeToMatchesExpression)))
+                 in
+                 [%expr
+                   S.schema
+                     [%e
+                       uncurriedFun ~loc ~arity:1
+                         [%expr fun (s : S.Schema.s) -> [%e body]]]]
+               | Pcstr_record label_declarations ->
+                 let fields =
+                   label_declarations |> List.map parseLabelDeclaration
+                 in
+                 let field_expressions =
+                   fields
+                   |> List.map (fun field ->
+                          let schema_expression =
+                            generateFieldSchemaExpression field
+                          in
+                          ( lid field.name,
+                            [%expr s.matches [%e schema_expression]] ))
+                 in
+                 let body =
+                   Exp.construct (lid name)
+                     (Some (Exp.record field_expressions None))
+                 in
+                 [%expr
+                   S.schema
+                     [%e
+                       uncurriedFun ~loc ~arity:1
+                         [%expr fun (s : S.Schema.s) -> [%e body]]]]))
   in
-  match union_items with
-  | [item] -> item
-  | _ -> [%expr S.union [%e Exp.array union_items]]
+  let spread_schemas = List.rev !spread_schemas in
+  if spread_schemas = [] then
+    match union_items with
+    | [item] -> item
+    | _ -> [%expr S.union [%e Exp.array union_items]]
+  else
+    (* For variant spreads, extract anyOf items from each spread schema's
+       Union tag and concatenate with the local items. S.t<'value> is a
+       tagged variant (see S.resi), so we can pattern-match the schema
+       directly without S.tagged. *)
+    let spread_items_exprs =
+      spread_schemas
+      |> List.map (fun spread_schema ->
+             [%expr
+               Obj.magic (
+                 if (S.untag [%e spread_schema]).tag == S.Union then
+                   Obj.magic ((S.untag [%e spread_schema]).anyOf)
+                 else
+                   [| Obj.magic [%e spread_schema] |]
+               )])
+    in
+    let local_items = Exp.array union_items in
+    let all_items =
+      List.fold_left
+        (fun acc spread_expr ->
+          [%expr Stdlib.Array.concat [%e acc] [%e spread_expr]])
+        local_items spread_items_exprs
+    in
+    [%expr S.union (Obj.magic [%e all_items])]
 
 and generateObjectSchema fields =
   let field_expressions =
@@ -213,6 +268,55 @@ and generateRecordSchema type_name fields =
       [%e
         uncurriedFun ~loc:Location.none ~arity:1
           [%expr fun (s : S.Schema.s) -> [%e body]]]]
+
+and generateRecordSchemaWithSpreads spread_types regular_fields =
+  let field_obj_expressions =
+    regular_fields
+    |> List.map (fun field ->
+           ( lid field.runtime_name,
+             [%expr s.matches [%e generateFieldSchemaExpression field]] ))
+  in
+  let fields_obj =
+    Exp.extension
+      ( mkloc "obj" Location.none,
+        PStr [Str.eval (Exp.record field_obj_expressions None)] )
+  in
+  let spread_schema_exprs =
+    spread_types |> List.map generateCoreTypeSchemaExpression
+  in
+  let raw_str s =
+    Exp.extension
+      ( mkloc "raw" Location.none,
+        PStr
+          [Str.eval (Exp.constant (Pconst_string (s, Location.none, None)))] )
+  in
+  let spread_property_args =
+    spread_schema_exprs
+    |> List.map (fun spread_schema ->
+           [%expr Obj.magic ((S.untag [%e spread_schema]).properties)])
+  in
+  (* Use the regular-fields object as the assign target so spread-property
+     keys get folded into it without mutating the spread schemas' own
+     properties dicts. ReScript's type system already forbids overlapping
+     keys between spread types and explicit fields, so the Object.assign
+     overwrite direction (sources overwrite target) is unobservable here. *)
+  let target_arg, s_pat =
+    if regular_fields = [] then
+      ( [%expr Obj.magic [%e raw_str "{}"]],
+        [%pat? (_s : S.Schema.s)] )
+    else ([%expr Obj.magic [%e fields_obj]], [%pat? (s : S.Schema.s)])
+  in
+  let assign_call =
+    [%expr
+      Stdlib.Object.assignMany
+        [%e target_arg]
+        [%e Exp.array spread_property_args]]
+  in
+  [%expr
+    S.schema
+      [%e
+        uncurriedFun ~loc:Location.none ~arity:1
+          (Exp.fun_ Nolabel None s_pat [%expr Obj.magic [%e assign_call]])]]
 
 and generateCoreTypeSchemaExpression core_type =
   let {ptyp_desc; ptyp_loc; ptyp_attributes} = core_type in
@@ -293,8 +397,20 @@ let generateTypeDeclarationSchemaExpression type_declaration =
   | {ptype_kind = Ptype_variant decls; _} ->
     generateVariantSchemaExpression decls
   | {ptype_name = {txt = type_name}; ptype_kind = Ptype_record label_declarations; _} ->
-    generateRecordSchema type_name
-      (label_declarations |> List.map parseLabelDeclaration)
+    let spread_types, regular_lds =
+      List.partition
+        (fun {pld_name = {txt}} -> txt = "...")
+        label_declarations
+    in
+    if spread_types = [] then
+      generateRecordSchema type_name
+        (regular_lds |> List.map parseLabelDeclaration)
+    else
+      let spread_core_types =
+        spread_types |> List.map (fun {pld_type} -> pld_type)
+      in
+      let regular_fields = regular_lds |> List.map parseLabelDeclaration in
+      generateRecordSchemaWithSpreads spread_core_types regular_fields
   | {ptype_loc; _} -> fail ptype_loc "Unsupported type declaration"
 
 let generateSchemaValueBinding type_name ptype_params schema_expr =
