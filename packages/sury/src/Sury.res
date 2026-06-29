@@ -1775,63 +1775,6 @@ module Builder = {
         }
         nextVal
       }
-
-      let get = (parent: val, location) => {
-        let vals = switch parent.vals {
-        | Some(d) => d
-        | None => {
-            let d = dict{}
-            parent.vals = Some(d)
-            d
-          }
-        }
-
-        switch vals->X.Dict.getUnsafeOption(location) {
-        | Some(v) => v->scope
-        | None => {
-            let locationSchema = if parent.schema.tag === objectTag {
-              parent.schema.properties->X.Option.getUnsafe->X.Dict.getUnsafeOption(location)
-            } else {
-              parent.schema.items
-              ->X.Option.getUnsafe
-              ->X.Array.getUnsafeOptionByString(location)
-            }
-            let schema = switch locationSchema {
-            | Some(s) => s
-            | None =>
-              switch parent.schema.additionalItems->X.Option.getUnsafe {
-              | Schema(s) => s->castToInternal
-              | _ =>
-                // The input type has no such field. Throw a catchable error,
-                // so a union case decoder treats it as a failed case
-                parent->unsupportedDecode(~from=parent.schema, ~target=parent.expected)
-              }
-            }
-
-            let pathAppend = Path.fromInlinedLocation(parent.global->inlineLocation(location))
-
-            let item = {
-              // FIXME: vals and other object.val fields should be copied
-              var: _notVarAtParent,
-              inline: if schema->isLiteral {
-                parent->inlineConst(schema)
-              } else {
-                `${parent->var}${pathAppend}`
-              },
-              flag: ValFlag.none,
-              schema,
-              expected: schema,
-              codeFromPrev: "",
-              hoistedDecls: "",
-              path: parent.path->Path.concat(pathAppend),
-              global: parent.global,
-              parent,
-            }
-            vals->Dict.set(location, item)
-            item
-          }
-        }
-      }
     }
 
     let embedTransformation = (~input: val, ~fn: 'input => 'output, ~isAsync) => {
@@ -1933,12 +1876,21 @@ let int32FormatValidation = (~inputVar) => {
   `${inputVar}<=2147483647&&${inputVar}>=-2147483648&&${inputVar}%1===0`
 }
 
+// Atomic type-narrow conditions, shared by the type decoders and the union
+// dispatch (`typeCheckCond`) so the two can't drift.
+let typeofCond = (~tag: tag) => (~inputVar): string => `typeof ${inputVar}==="${(tag :> string)}"`
+let nanCond = (~inputVar): string => `Number.isNaN(${inputVar})`
+let isArrayCond = (~inputVar): string => `Array.isArray(${inputVar})`
+let objectTagCond = (~inputVar): string => `${typeofCond(~tag=objectTag)(~inputVar)}&&${inputVar}`
+let instanceofCond = (~b: val, ~class) =>
+  (~inputVar): string => `${inputVar} instanceof ${b->B.embed(class)}`
+
 let numberDecoder = Builder.make((~input) => {
   let inputTagFlag = input.schema.tag->TagFlag.get
   if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
     let checks = [
       {
-        cond: (~inputVar) => `typeof ${inputVar}==="${(numberTag :> string)}"`,
+        cond: typeofCond(~tag=numberTag),
         fail: B.failInvalidType,
       },
     ]
@@ -1954,7 +1906,7 @@ let numberDecoder = Builder.make((~input) => {
       if !(input.global.flag->Flag.unsafeHas(Flag.disableNanNumberValidation)) {
         checks
         ->Array.push({
-          cond: (~inputVar) => `!Number.isNaN(${inputVar})`,
+          cond: (~inputVar) => `!${nanCond(~inputVar)}`,
           fail: B.failInvalidType,
         })
         ->ignore
@@ -1976,7 +1928,7 @@ let numberDecoder = Builder.make((~input) => {
         cond: (~inputVar as _) =>
           switch input.expected.format {
           | Some(Int32) => int32FormatValidation(~inputVar=outputVar)
-          | _ => `!Number.isNaN(${outputVar})`
+          | _ => `!${nanCond(~inputVar=outputVar)}`
           },
         fail: B.failInvalidType,
       },
@@ -2020,7 +1972,7 @@ and stringDecoderFn = (~input) => {
       ~schema=input.expected,
       ~checks=[
         {
-          cond: (~inputVar) => `typeof ${inputVar}==="${(stringTag :> string)}"`,
+          cond: typeofCond(~tag=stringTag),
           fail: B.failInvalidType,
         },
       ],
@@ -2064,7 +2016,7 @@ let booleanDecoder = Builder.make((~input) => {
       ~schema=input.expected,
       ~checks=[
         {
-          cond: (~inputVar) => `typeof ${inputVar}==="${(booleanTag :> string)}"`,
+          cond: typeofCond(~tag=booleanTag),
           fail: B.failInvalidType,
         },
       ],
@@ -2100,7 +2052,7 @@ let bigintDecoder = Builder.make((~input) => {
       ~schema=input.expected,
       ~checks=[
         {
-          cond: (~inputVar) => `typeof ${inputVar}==="${(bigintTag :> string)}"`,
+          cond: typeofCond(~tag=bigintTag),
           fail: B.failInvalidType,
         },
       ],
@@ -2135,7 +2087,7 @@ let symbolDecoder = Builder.make((~input) => {
       ~schema=input.expected,
       ~checks=[
         {
-          cond: (~inputVar) => `typeof ${inputVar}==="${(symbolTag :> string)}"`,
+          cond: typeofCond(~tag=symbolTag),
           fail: B.failInvalidType,
         },
       ],
@@ -2207,7 +2159,7 @@ let literalDecoder = Builder.make((~input) => {
         ~schema=expectedSchema,
         ~checks=[
           {
-            cond: (~inputVar) => `Number.isNaN(${inputVar})`,
+            cond: nanCond,
             fail: B.failInvalidType,
           },
         ],
@@ -2629,6 +2581,101 @@ external getDecoder2: (~s1: internal, ~s2: internal, ~flag: flag=?) => 'a => 'b 
 external getDecoder3: (~s1: internal, ~s2: internal, ~s3: internal, ~flag: flag=?) => 'a => 'b =
   "getDecoder"
 
+
+let nestedLoc = "BS_PRIVATE_NESTED_SOME_NONE"
+
+  @unboxed
+  type itemCode = Single(string) | Multiple(array<string>)
+
+let rec neverBuilderFn = (~input) => {
+  let output = input->B.refine(~expected=never_())
+  output.codeFromPrev = B.embedInvalidInput(~input) ++ ";"
+  output
+}
+and never_ = () =>
+  cached((neverTag :> string), neverTag, s => {
+    s.decoder = Builder.make(neverBuilderFn)
+  })
+
+let nestedOptionParser = Builder.make((~input) => {
+      let nextSchema = input.expected.to->X.Option.getUnsafe
+      input->B.next(
+        `{${nestedLoc}:${(
+            (input.expected->getOutputSchema).properties
+            ->X.Option.getUnsafe
+            ->Dict.getUnsafe(nestedLoc)
+          ).const->Obj.magic}}`,
+        ~schema=nextSchema,
+        ~expected=nextSchema,
+      )
+    })
+
+let instanceDecoder = Builder.make((~input) => {
+  let inputTagFlag = input.schema.tag->TagFlag.get
+  if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
+    input->B.refine(
+      ~schema=input.expected,
+      ~checks=[
+        {
+          cond: instanceofCond(~b=input, ~class=input.expected.class),
+          fail: B.failInvalidType,
+        },
+      ],
+    )
+  } else if (
+    inputTagFlag->Flag.unsafeHas(TagFlag.instance) && input.schema.class === input.expected.class
+  ) {
+    input
+  } else {
+    input->B.unsupportedDecode(~from=input.schema, ~target=input.expected)
+  }
+})
+
+let instance = class_ => {
+  let mut = base(instanceTag, ~selfReverse=true)
+  mut.class = class_->Obj.magic
+  mut.decoder = instanceDecoder
+  mut->castToPublic
+}
+
+// Type-narrow condition for a union variant, built from the shared atoms with no
+// per-type factory reference — so unused type decoders tree-shake.
+let typeCheckCond = (input: val, schema: internal, ~inputVar): string => {
+  let tagFlag = schema.tag->TagFlag.get
+  if tagFlag->Flag.unsafeHas(TagFlag.object) {
+    `${objectTagCond(~inputVar)}&&!${isArrayCond(~inputVar)}`
+  } else if tagFlag->Flag.unsafeHas(TagFlag.array) {
+    isArrayCond(~inputVar)
+  } else if tagFlag->Flag.unsafeHas(TagFlag.instance) {
+    instanceofCond(~b=input, ~class=schema.class)(~inputVar)
+  } else if tagFlag->Flag.unsafeHas(TagFlag.number) {
+    let typeofCheck = typeofCond(~tag=numberTag)(~inputVar)
+    if input.global.flag->Flag.unsafeHas(Flag.disableNanNumberValidation) {
+      typeofCheck
+    } else {
+      `${typeofCheck}&&!${nanCond(~inputVar)}`
+    }
+  } else if tagFlag->Flag.unsafeHas(TagFlag.nan) {
+    nanCond(~inputVar)
+  } else if tagFlag->Flag.unsafeHas(TagFlag.undefined->Flag.with(TagFlag.null)) {
+    // null/undefined reuse literalDecoder's inline-const form (=== null / void 0)
+    `${inputVar}===${input->B.inlineConst(schema)}`
+  } else if (
+    tagFlag->Flag.unsafeHas(
+      TagFlag.string
+      ->Flag.with(TagFlag.boolean)
+      ->Flag.with(TagFlag.bigint)
+      ->Flag.with(TagFlag.symbol),
+    )
+  ) {
+    // literals reuse this typeof check; their per-const check stays in the case body
+    typeofCond(~tag=schema.tag)(~inputVar)
+  } else {
+    // Unreachable: catch-all tags use the `unknown` narrow, never this path.
+    ""
+  }
+}
+
 let rec makeObjectVal = (prev: val, ~schema): B.Val.Object.t => {
   {
     prev,
@@ -2762,7 +2809,7 @@ and arrayDecoder: builder = (~input as unknownInput) => {
     if !isArrayInput {
       checks
       ->Array.push({
-        cond: (~inputVar) => `Array.isArray(${inputVar})`,
+        cond: isArrayCond,
         fail: B.failInvalidType,
       })
       ->ignore
@@ -2862,7 +2909,7 @@ and arrayDecoder: builder = (~input as unknownInput) => {
     for idx in 0 to expectedLength - 1 {
       let schema = expectedItems->Array.getUnsafe(idx)
       let key = idx->Int.toString
-      let itemInput = input->B.Val.get(key)
+      let itemInput = input->valGet(key)
       itemInput.expected = schema
       itemInput.isOutput = Some(false)
       itemInput.isUnion = Some(isUnion) // We want to controll validation on the decoder side
@@ -2912,7 +2959,7 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
     if !isObjectInput {
       checks
       ->Array.push({
-        cond: (~inputVar) => `typeof ${inputVar}==="${(objectTag :> string)}"&&${inputVar}`,
+        cond: objectTagCond,
         fail: B.failInvalidType,
       })
       ->ignore
@@ -2922,7 +2969,7 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
         // this is why the check is a must have
         checks
         ->Array.push({
-          cond: (~inputVar) => `!Array.isArray(${inputVar})`,
+          cond: (~inputVar) => `!${isArrayCond(~inputVar)}`,
           fail: B.failInvalidType,
         })
         ->ignore
@@ -3025,7 +3072,7 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
         let key = keys->Array.getUnsafe(idx)
         let schema = properties->Dict.getUnsafe(key)
 
-        let itemInput = input->B.Val.get(key)
+        let itemInput = input->valGet(key)
         itemInput.expected = schema
         itemInput.isOutput = Some(false)
         itemInput.isUnion = Some(isUnion) // We want to controll validation on the decoder side
@@ -3036,6 +3083,7 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
         ) {
           itemInput.inline = `(${itemInput.inline}??null)`
         }
+
         let itemOutput = itemInput->parse
 
         if isUnion && schema->isLiteral {
@@ -3093,499 +3141,7 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
   output->B.markOutput(~valInput=input)
 }
 
-let recursiveDecoder = Builder.make((~input) => {
-  let expectedSchema = input.expected
-
-  let schemaRef = expectedSchema.ref->X.Option.getUnsafe
-  let defs = input.global.defs->X.Option.getUnsafe
-  // Ignore #/$defs/
-  let identifier = schemaRef->String.slice(~start=8)
-  let def = defs->Dict.getUnsafe(identifier)
-  let flag = input.global.flag
-
-  let inputSchema = if input.schema.seq === expectedSchema.seq {
-    def
-  } else {
-    input.schema
-  }
-
-  let key = `${inputSchema.seq->Obj.magic}-${def.seq->Obj.magic}--${flag->Obj.magic}`
-  let recOperation = ref("")
-
-  switch def->Obj.magic->X.Dict.getUnsafeOption(key) {
-  | Some(fn) =>
-    // Circular reference (fn === 0) or already compiled
-    recOperation := if fn === %raw(`0`) {
-        input->B.embed(def) ++ `["${key}"]`
-      } else {
-        input->B.embed(fn)
-      }
-  | None => {
-      // Optimistic compilation with recompile if assumptions were wrong
-      let assumedHasTransform = ref(def.hasTransform->Option.getOr(false))
-      let assumedIsAsync = ref(def.isAsync->Option.getOr(false))
-      let compileNeeded = ref(true)
-      let finalFn = ref(Obj.magic(0))
-
-      while compileNeeded.contents {
-        compileNeeded := false
-
-        // Set optimistic values on def before compiling (if not already set)
-        // Inner circular references will read these values
-        if def.hasTransform === None {
-          def.hasTransform = Some(assumedHasTransform.contents)
-        }
-        if def.isAsync === None {
-          def.isAsync = Some(assumedIsAsync.contents)
-        }
-
-        // Mark as in-progress
-        configurableValueOptions->Dict.set(valKey, 0->Obj.magic)
-        let _ = X.Object.defineProperty(def, key, configurableValueOptions->Obj.magic)
-
-        // Compile
-        let fn = compileDecoder(~schema=inputSchema, ~expected=def, ~flag, ~defs=Some(defs))
-
-        // Cache result
-        valueOptions->Dict.set(valKey, fn)
-        let _ = X.Object.defineProperty(def, key, valueOptions->Obj.magic)
-
-        finalFn := fn
-
-        // Check if actual values differ from assumed
-        let actualHasTransform = def.hasTransform->X.Option.getUnsafe
-        let actualIsAsync = def.isAsync->X.Option.getUnsafe
-
-        if (
-          actualHasTransform !== assumedHasTransform.contents ||
-            actualIsAsync !== assumedIsAsync.contents
-        ) {
-          // Wrong assumption - update and recompile
-          assumedHasTransform := actualHasTransform
-          assumedIsAsync := actualIsAsync
-          // Delete cached function to force recompilation
-          let _ = %raw(`delete def[key]`)
-          compileNeeded := true
-        }
-      }
-
-      // Embed only the final compiled function to avoid wasting embed slots on recompiles
-      recOperation := input->B.embed(finalFn.contents)
-    }
-  }
-
-  let hasTransform = def.hasTransform === Some(true)
-  let isAsync = def.isAsync->X.Option.getUnsafe
-
-  // Result var decl, prepended after the re-merge below so it sits outside the
-  // try/catch mergeWithPathPrepend may wrap the assignment in (stays in scope).
-  let outputDecl = ref("")
-  let output = if hasTransform || isAsync {
-    let outputVar = input.global->B.varWithoutAllocation
-    outputDecl := `let ${outputVar};`
-
-    let output = input->B.next(outputVar, ~schema=expectedSchema, ~expected=expectedSchema)
-    output.var = B._var
-
-    output.codeFromPrev = `${outputVar}=${recOperation.contents}(${input.inline});`
-
-    if isAsync {
-      output.flag = output.flag->Flag.with(ValFlag.async)
-    }
-    output
-  } else {
-    // No transform: call for validation but don't capture result
-    let output = input->B.refine(~schema=expectedSchema, ~expected=expectedSchema)
-    output.codeFromPrev = `${recOperation.contents}(${input.inline});`
-    output
-  }
-
-  output.prev = None
-  output.codeFromPrev = outputDecl.contents ++ output->B.mergeWithPathPrepend(~parent=input)
-
-  // Un-finalize: this val may be reused as input to a subsequent parser (e.g.
-  // S.transform on a recursive schema) and must accept hoisted decls again.
-  output.finalized = None
-  output.prev = Some(input)
-
-  output
-})
-
-let instanceDecoder = Builder.make((~input) => {
-  let inputTagFlag = input.schema.tag->TagFlag.get
-  if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
-    input->B.refine(
-      ~schema=input.expected,
-      ~checks=[
-        {
-          cond: (~inputVar) => `${inputVar} instanceof ${input->B.embed(input.expected.class)}`,
-          fail: B.failInvalidType,
-        },
-      ],
-    )
-  } else if (
-    inputTagFlag->Flag.unsafeHas(TagFlag.instance) && input.schema.class === input.expected.class
-  ) {
-    input
-  } else {
-    input->B.unsupportedDecode(~from=input.schema, ~target=input.expected)
-  }
-})
-
-let instance = class_ => {
-  let mut = base(instanceTag, ~selfReverse=true)
-  mut.class = class_->Obj.magic
-  mut.decoder = instanceDecoder
-  mut->castToPublic
-}
-
-X.Object.defineProperty(
-  %raw(`sp`),
-  "~standard",
-  {
-    get: (
-      () => {
-        let schema = %raw(`this`)
-        {
-          version: 1,
-          vendor,
-          validate: input => {
-            try {
-              {
-                "value": getDecoder2(~s1=unknown, ~s2=schema)(input->Obj.magic)->Obj.magic,
-              }
-            } catch {
-            | _ => {
-                let error = %raw(`exn`)->InternalError.getOrRethrow
-                {
-                  "issues": [
-                    {
-                      "message": error.reason,
-                      "path": error.path === Path.empty ? None : Some(error.path->Path.toArray),
-                    },
-                  ],
-                }->Obj.magic
-              }
-            }
-          },
-        }
-      }
-    )->X.Function.toExpression,
-  },
-)
-
-// =============
-// Builder functions
-// =============
-
-let parser = (~to as schema) => {
-  getDecoder2(~s1=unknown, ~s2=schema->castToInternal)
-}
-
-let asyncParser = (~to as schema) => {
-  getDecoder2(~s1=unknown, ~s2=schema->castToInternal, ~flag=Flag.async)
-}
-
-let decoder = (type from to, ~from: t<from>, ~to: t<to>): (from => to) => {
-  getDecoder2(~s1=from->castToInternal->reverse, ~s2=to->castToInternal)
-}
-
-let asyncDecoder = (type from to, ~from: t<from>, ~to: t<to>): (from => promise<to>) => {
-  getDecoder2(~s1=from->castToInternal->reverse, ~s2=to->castToInternal, ~flag=Flag.async)
-}
-
-let decoder1 = (type value, schema: t<value>): (unknown => value) => {
-  getDecoder(~s1=schema->castToInternal)
-}
-
-let asyncDecoder1 = (type value, schema: t<value>): (unknown => promise<value>) => {
-  getDecoder(~s1=schema->castToInternal, ~flag=Flag.async)
-}
-
-// =============
-// Operations
-// =============
-
-let getAssertResult = () =>
-  cached("a", undefinedTag, s => {
-    s.const = %raw(`void 0`)
-    s.decoder = literalDecoder
-    s.noValidation = Some(true)
-  })
-
-@inline
-let parseOrThrow = (any, ~to as schema) => {
-  getDecoder2(~s1=unknown, ~s2=schema->castToInternal)(any)
-}
-
-let parseAsyncOrThrow = (any, ~to as schema) => {
-  getDecoder2(~s1=unknown, ~s2=schema->castToInternal, ~flag=Flag.async)(any)
-}
-
-let assertOrThrow = (any, ~to as schema) => {
-  getDecoder3(~s1=unknown, ~s2=schema->castToInternal, ~s3=getAssertResult())(any)
-}
-
-let assertAsyncOrThrow = (any, ~to as schema) => {
-  getDecoder3(~s1=unknown, ~s2=schema->castToInternal, ~s3=getAssertResult(), ~flag=Flag.async)(any)
-}
-
-let decodeOrThrow = (any, ~from, ~to) => {
-  getDecoder2(~s1=from->castToInternal->reverse, ~s2=to->castToInternal)(any)
-}
-
-let decodeAsyncOrThrow = (any, ~from, ~to) => {
-  getDecoder2(~s1=from->castToInternal->reverse, ~s2=to->castToInternal, ~flag=Flag.async)(any)
-}
-
-let isAsync = schema => {
-  let schema = schema->castToInternal
-  switch schema.isAsync {
-  | None => schema->isAsyncInternal(~defs=%raw(`0`))
-  | Some(v) => v
-  }
-}
-
-let wrapExnToFailure = exn => {
-  if %raw("exn&&exn.s===s") {
-    Failure({error: exn->(Obj.magic: exn => error)})
-  } else {
-    throw(exn)
-  }
-}
-
-let js_safe = fn => {
-  try {
-    Success({
-      value: fn(),
-    })
-  } catch {
-  | _ => wrapExnToFailure(%raw(`exn`))
-  }
-}
-
-let js_safeAsync = fn => {
-  try {
-    fn()->X.Promise.thenResolveWithCatch(value => Success({value: value}), wrapExnToFailure)
-  } catch {
-  | _ => X.Promise.resolve(wrapExnToFailure(%raw(`exn`)))
-  }
-}
-
-module Metadata = {
-  module Id: {
-    type t<'metadata>
-    let make: (~namespace: string, ~name: string) => t<'metadata>
-    let internal: string => t<'metadata>
-    external toKey: t<'metadata> => string = "%identity"
-  } = {
-    type t<'metadata> = string
-
-    let make = (~namespace, ~name) => {
-      `m:${namespace}:${name}`
-    }
-
-    let internal = name => {
-      `m:${name}`
-    }
-
-    external toKey: t<'metadata> => string = "%identity"
-  }
-
-  let get = (schema, ~id: Id.t<'metadata>) => {
-    schema->(Obj.magic: t<'a> => dict<option<'metadata>>)->Dict.getUnsafe(id->Id.toKey)
-  }
-
-  @inline
-  let setInPlace = (schema, ~id: Id.t<'metadata>, metadata: 'metadata) => {
-    schema->(Obj.magic: internal => dict<'metadata>)->Dict.set(id->Id.toKey, metadata)
-  }
-
-  let set = (schema, ~id: Id.t<'metadata>, metadata: 'metadata) => {
-    let schema = schema->castToInternal
-    let mut = schema->copySchema
-    mut->setInPlace(~id, metadata)
-    mut->castToPublic
-  }
-}
-
-let defsPath = `#/$defs/`
-let recursive = (name, fn) => {
-  let ref = `${defsPath}${name}`
-  let refSchema = base(refTag, ~selfReverse=false)
-  refSchema.ref = Some(ref)
-  refSchema.name = Some(name)
-  refSchema.decoder = recursiveDecoder
-
-  // This is for mutual recursion
-  let isNestedRec = globalConfig.defsAccumulator->Obj.magic
-  if !isNestedRec {
-    globalConfig.defsAccumulator = Some(dict{})
-  }
-  let def = fn(refSchema->castToPublic)->castToInternal
-  if def.name->Obj.magic {
-    refSchema.name = def.name
-  }
-  globalConfig.defsAccumulator
-  ->X.Option.getUnsafe
-  ->Dict.set(name, def)
-
-  if isNestedRec {
-    refSchema->castToPublic
-  } else {
-    let schema = base(refTag, ~selfReverse=false)
-    schema.name = refSchema.name
-    schema.ref = Some(ref)
-    schema.defs = globalConfig.defsAccumulator
-    schema.decoder = recursiveDecoder
-
-    globalConfig.defsAccumulator = None
-
-    schema->castToPublic
-  }
-}
-
-let noValidation = (schema, value) => {
-  let schema = schema->castToInternal
-  let mut = schema->copySchema
-
-  // TODO: Test for discriminant literal
-  // TODO: Better test reverse
-  mut.noValidation = Some(value)
-  mut->castToPublic
-}
-
-let internalRefine = (schema, makeRefiner) => {
-  let schema = schema->castToInternal
-  updateOutput(schema, mut => {
-    let refiner = makeRefiner(mut)
-    switch mut.refiner {
-    | Some(existingRefiner) =>
-      mut.refiner = Some(
-        (~input) => {
-          let arr = existingRefiner(~input)
-          let next = refiner(~input)
-          for i in 0 to next->Array.length - 1 {
-            arr->Array.push(next->Array.getUnsafe(i))->ignore
-          }
-          arr
-        },
-      )
-    | None => mut.refiner = Some(refiner)
-    }
-  })
-}
-
-let refine: (t<'value>, 'value => bool, ~error: string=?, ~path: array<string>=?) => t<'value> = (
-  schema,
-  refineCheck,
-  ~error=?,
-  ~path=?,
-) => {
-  let message = switch error {
-  | Some(e) => e
-  | None => "Refinement failed"
-  }
-  let extraPath = switch path {
-  | Some(p) => Path.fromArray(p)
-  | None => Path.empty
-  }
-  schema->internalRefine(_ =>
-    (~input) => {
-      let embeddedCheck = input->B.embed(refineCheck)
-      [
-        {
-          cond: (~inputVar) => `${embeddedCheck}(${inputVar})`,
-          fail: B.invalidInputBuilder(~extraPath, ~reasonOverride=message),
-        },
-      ]
-    }
-  )
-}
-
-let getMutErrorMessage = (~mut: internal): dict<string> => {
-  let em: dict<string> =
-    mut.errorMessage->X.Option.unsafeToBool
-      ? mut.errorMessage
-        ->X.Option.getUnsafe
-        ->(Obj.magic: schemaErrorMessage => dict<string>)
-        ->X.Dict.copy
-      : dict{}
-  mut.errorMessage = Some(em->Obj.magic)
-  em
-}
-
-type transformDefinition<'input, 'output> = {
-  @as("p")
-  parser?: 'input => 'output,
-  @as("a")
-  asyncParser?: 'input => promise<'output>,
-  @as("s")
-  serializer?: 'output => 'input,
-}
-let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) => t<'output> = (
-  schema,
-  transformer,
-) => {
-  let schema = schema->castToInternal
-  updateOutput(schema, mut => {
-    mut.parser = Some(
-      Builder.make((~input) => {
-        switch transformer(input->B.effectCtx) {
-        | {parser, asyncParser: ?None} => B.embedTransformation(~input, ~fn=parser, ~isAsync=false)
-        | {parser: ?None, asyncParser} =>
-          B.embedTransformation(~input, ~fn=asyncParser, ~isAsync=true)
-        | {parser: ?None, asyncParser: ?None, serializer: ?None} =>
-          input->B.refine(~expected=input.expected.to->Option.getUnsafe)
-        | {parser: ?None, asyncParser: ?None, serializer: _} =>
-          input->B.invalidOperation(~description=`The S.transform parser is missing`)
-        | {parser: _, asyncParser: _} =>
-          input->B.invalidOperation(
-            ~description=`The S.transform doesn't allow parser and asyncParser at the same time. Remove parser in favor of asyncParser`,
-          )
-        }
-      }),
-    )
-    mut.to = Some({
-      let to = unknown->copySchema
-      to.serializer = Some(
-        (~input) => {
-          switch transformer(input->B.effectCtx) {
-          | {serializer} => B.embedTransformation(~input, ~fn=serializer, ~isAsync=false)
-          | {parser: ?None, asyncParser: ?None, serializer: ?None} =>
-            input->B.refine(~expected=input.expected.to->Option.getUnsafe)
-          | {serializer: ?None, asyncParser: ?Some(_)}
-          | {serializer: ?None, parser: ?Some(_)} =>
-            input->B.invalidOperation(~description=`The S.transform serializer is missing`)
-          }
-        },
-      )
-      to
-    })
-    let _ = %raw(`delete mut.isAsync`)
-  })
-}
-
-let nullAsUnit = () => {
-  let s = nullLiteral()->copySchema
-  s.to = Some(unit())
-  s
-}
-
-let rec neverBuilderFn = (~input) => {
-  let output = input->B.refine(~expected=never_())
-  output.codeFromPrev = B.embedInvalidInput(~input) ++ ";"
-  output
-}
-and never_ = () =>
-  cached((neverTag :> string), neverTag, s => {
-    s.decoder = Builder.make(neverBuilderFn)
-  })
-
-let nestedLoc = "BS_PRIVATE_NESTED_SOME_NONE"
-
-module DictSchema = {
-  let factory = item => {
+and dictFactory = item => {
     let item = item->castToInternal
     let mut = base(
       objectTag,
@@ -3596,18 +3152,13 @@ module DictSchema = {
     mut.decoder = objectDecoder
     mut->castToPublic
   }
-}
 
-module Union = {
-  @unboxed
-  type itemCode = Single(string) | Multiple(array<string>)
-
-  let toKey = (schema: internal): string =>
+and unionToKey = (schema: internal): string =>
     schema.tag->TagFlag.get->Flag.unsafeHas(TagFlag.instance)
       ? (schema.class->Obj.magic)["name"]
       : (schema.tag :> string)
 
-  let isPriority = (tagFlag, byKey: dict<array<unknown>>) => {
+and unionIsPriority = (tagFlag, byKey: dict<array<unknown>>) => {
     (tagFlag->Flag.unsafeHas(TagFlag.array->Flag.with(TagFlag.instance)) &&
       byKey->Stdlib.Dict.has((objectTag: tag :> string))) ||
       (tagFlag->Flag.unsafeHas(TagFlag.nan) && byKey->Stdlib.Dict.has((numberTag: tag :> string)))
@@ -3616,29 +3167,29 @@ module Union = {
   // Whether decoding a value already known to be of the schema type
   // is a noop — no transformation anywhere in the schema tree.
   // Recursive refs are conservatively treated as transforming
-  let rec isSelfDecodeNoop = (schema: internal) => {
+and unionIsSelfDecodeNoop = (schema: internal) => {
     schema.to === None &&
     schema.parser === None &&
     !(schema.tag->TagFlag.get->Flag.unsafeHas(TagFlag.ref)) &&
     switch schema.anyOf {
-    | Some(anyOf) => anyOf->Array.every(isSelfDecodeNoop)
+    | Some(anyOf) => anyOf->Array.every(unionIsSelfDecodeNoop)
     | None => true
     } &&
     switch schema.items {
-    | Some(items) => items->Array.every(isSelfDecodeNoop)
+    | Some(items) => items->Array.every(unionIsSelfDecodeNoop)
     | None => true
     } &&
     switch schema.properties {
-    | Some(properties) => properties->Stdlib.Dict.valuesToArray->Array.every(isSelfDecodeNoop)
+    | Some(properties) => properties->Stdlib.Dict.valuesToArray->Array.every(unionIsSelfDecodeNoop)
     | None => true
     } &&
     switch schema.additionalItems {
-    | Some(Schema(s)) => s->castToInternal->isSelfDecodeNoop
+    | Some(Schema(s)) => s->castToInternal->unionIsSelfDecodeNoop
     | _ => true
     }
   }
 
-  let isWiderUnionSchema = (~schemaAnyOf, ~inputAnyOf) => {
+and unionIsWiderSchema = (~schemaAnyOf, ~inputAnyOf) => {
     inputAnyOf->Array.everyWithIndex((inputSchema, idx) => {
       switch schemaAnyOf->X.Array.getUnsafeOption(idx) {
       | Some(schema) =>
@@ -3663,7 +3214,7 @@ module Union = {
 
   // The union's own `.to` chain which is applied per case during decoding.
   // None when the union has a custom parser owning the `.to` conversion
-  let getToPerCase = (schema: internal) =>
+and unionGetToPerCase = (schema: internal) =>
     switch schema {
     | {parser: ?None, to} => Some(to)
     | _ => None
@@ -3671,7 +3222,7 @@ module Union = {
 
   // Whether a union-typed input can be decoded by dispatching
   // over its variants with `.to(target)` appended to each
-  let canDispatchPerVariant = (~inputAnyOf, ~target: internal) =>
+and unionCanDispatchPerVariant = (~inputAnyOf, ~target: internal) =>
     // S.json and recursive targets keep their dedicated union-input handling
     !((target->getOutputSchema).tag->TagFlag.get->Flag.unsafeHas(TagFlag.ref)) &&
     !(
@@ -3691,7 +3242,7 @@ module Union = {
   // Re-drives the source union with `.to(target)` appended, so its decoder
   // dispatches per variant and each variant converts to the target
   // independently (the documented per-source-variant algorithm)
-  let perVariantVal = (~input: val, ~target) =>
+and unionPerVariantVal = (~input: val, ~target) =>
     input->B.refine(
       ~schema=unknown,
       ~expected=input.schema->updateOutput(mut => mut.to = Some(target))->castToInternal,
@@ -3699,35 +3250,35 @@ module Union = {
 
   // Applied by the parse loop when a union-typed val
   // meets a different expected schema
-  let encoder = Builder.encoder((~input, ~target) => {
+and unionEncoder: encoder = (~input: val, ~target: internal) => {
     let inputAnyOf = input.schema.anyOf->X.Option.getUnsafe
     if (
       target.tag === unionTag &&
-      getToPerCase(target) === None &&
-      isWiderUnionSchema(~schemaAnyOf=target.anyOf->X.Option.getUnsafe, ~inputAnyOf)
+      unionGetToPerCase(target) === None &&
+      unionIsWiderSchema(~schemaAnyOf=target.anyOf->X.Option.getUnsafe, ~inputAnyOf)
     ) {
       // The target union decoder passes a narrower union input through as-is
       input
-    } else if canDispatchPerVariant(~inputAnyOf, ~target) {
-      perVariantVal(~input, ~target)
+    } else if unionCanDispatchPerVariant(~inputAnyOf, ~target) {
+      unionPerVariantVal(~input, ~target)
     } else {
       input
     }
-  })
+  }
 
-  let rec unionDecoder: Builder.t = (~input) => {
+and unionDecoder: Builder.t = (~input) => {
     let selfSchema = input.expected
     let schemas = selfSchema.anyOf->X.Option.getUnsafe
     let initialInputTagFlag = input.schema.tag->TagFlag.get
 
-    let toPerCase = getToPerCase(selfSchema)
+    let toPerCase = unionGetToPerCase(selfSchema)
 
     if (
       // The input val is already of the union type (trusted self-decode).
       // Only allowed when no variant transforms the value
-      (input.schema === selfSchema && toPerCase === None && schemas->Array.every(isSelfDecodeNoop)) ||
+      (input.schema === selfSchema && toPerCase === None && schemas->Array.every(unionIsSelfDecodeNoop)) ||
       (initialInputTagFlag->Flag.unsafeHas(TagFlag.union) &&
-      isWiderUnionSchema(
+      unionIsWiderSchema(
         ~schemaAnyOf=schemas,
         ~inputAnyOf=input.schema.anyOf->X.Option.getUnsafe,
       ) &&
@@ -3750,14 +3301,14 @@ module Union = {
           )
         )
       ) {
-        let sourceKey = toKey(input.schema)
+        let sourceKey = unionToKey(input.schema)
         let hasNull = ref(false)
         let hasUndefined = ref(false)
         let len = schemas->Array.length
         let i = ref(0)
         while activeKey.contents === "" && i.contents < len {
           let s = schemas->Array.getUnsafe(i.contents)
-          if toKey(s) === sourceKey {
+          if unionToKey(s) === sourceKey {
             activeKey := sourceKey
           } else if s.tag === nullTag {
             hasNull := true
@@ -4098,7 +3649,7 @@ module Union = {
         }
         let tag = schema.tag
         let tagFlag = TagFlag.get(tag)
-        let key = toKey(schema)
+        let key = unionToKey(schema)
 
         if activeKey !== "" && activeKey !== key {
           // not in active tier — skip
@@ -4142,30 +3693,61 @@ module Union = {
             // Recreate input val for every schema
             // since we will mutate it
             let typeValidationInput = input->B.Val.scope
-            typeValidationInput.expected = if tagFlag->Flag.unsafeHas(TagFlag.null) {
-              nullLiteral()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.undefined) {
-              unit()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.object) {
-              DictSchema.factory(unknown->castToPublic)->castToInternal
-            } else if tagFlag->Flag.unsafeHas(TagFlag.array) {
-              array(unknown->castToPublic)->castToInternal
-            } else if tagFlag->Flag.unsafeHas(TagFlag.instance) {
-              instance(schema.class)->castToInternal
-            } else if tagFlag->Flag.unsafeHas(TagFlag.nan) {
-              nan()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.string) {
-              string()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.number) {
-              float()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.boolean) {
-              bool()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.bigint) {
-              bigint()
-            } else if tagFlag->Flag.unsafeHas(TagFlag.symbol) {
-              symbol()
-            } else {
+            // Tree-shaking: build the narrow without a per-type factory. A
+            // `string()`/`instance()`/… reference would pin every type decoder into
+            // any union-using bundle — and `S.optional`/`S.nullable` are unions.
+            typeValidationInput.expected = if (
+              tagFlag->Flag.unsafeHas(
+                TagFlag.unknown
+                ->Flag.with(TagFlag.union)
+                ->Flag.with(TagFlag.ref)
+                ->Flag.with(TagFlag.function)
+                ->Flag.with(TagFlag._never),
+              )
+            ) {
+              // unknown / union / ref / json / function / never have no `typeof`
+              // discriminant — the deopt (try-each) path handles them, so no
+              // narrow is needed.
               unknown
+            } else {
+              // A minimal narrow standing in as the variant's runtime schema,
+              // carrying the member's encoder so a pending `.to` reverse reaches it.
+              let narrow = base(schema.tag, ~selfReverse=false)
+              narrow.encoder = schema.encoder
+              if tagFlag->Flag.unsafeHas(TagFlag.instance) {
+                narrow.class = schema.class
+              } else if tagFlag->Flag.unsafeHas(TagFlag.object) {
+                narrow.properties = Some(X.Object.immutableEmpty)
+                narrow.additionalItems = Some(Schema(unknown->castToPublic))
+              } else if tagFlag->Flag.unsafeHas(TagFlag.array) {
+                narrow.additionalItems = Some(Schema(unknown->castToPublic))
+                narrow.items = Some(X.Array.immutableEmpty)
+              } else if (
+                tagFlag->Flag.unsafeHas(
+                  TagFlag.null->Flag.with(TagFlag.undefined)->Flag.with(TagFlag.nan),
+                )
+              ) {
+                // null/undefined/nan stay literals so the case body passes through.
+                narrow.const = schema.const
+              }
+              // Per-invocation, not hoisted: this narrow is re-decoded during `.to`
+              // per-variant conversion — with the union's `unknown` input (emit the
+              // discriminant) or a concrete coerced value (delegate to schema.decoder).
+              narrow.decoder = (~input) =>
+                if input.schema.tag->TagFlag.get->Flag.unsafeHas(TagFlag.unknown) {
+                  input->B.refine(
+                    ~schema=input.expected,
+                    ~checks=[
+                      {
+                        cond: (~inputVar) => typeCheckCond(input, schema, ~inputVar),
+                        fail: B.failInvalidType,
+                      },
+                    ],
+                  )
+                } else {
+                  schema.decoder(~input)
+                }
+              narrow
             }
 
             let typeValidationOutput = try {
@@ -4179,7 +3761,7 @@ module Union = {
               }
             }
 
-            if isPriority(tagFlag, byKey.contents) {
+            if unionIsPriority(tagFlag, byKey.contents) {
               // Not the fastest way, but it's the simplest way
               // to make sure NaN is checked before number
               // And instance and array checked before object
@@ -4267,7 +3849,7 @@ module Union = {
           let blockCode = typeValidationOutput->B.merge(~hoistCond=blockCond) ++ itemsCode
           let blockCond = blockCond.contents
 
-          if blockCode->X.String.unsafeToBool || isPriority(firstSchema.tag->TagFlag.get, byKey) {
+          if blockCode->X.String.unsafeToBool || unionIsPriority(firstSchema.tag->TagFlag.get, byKey) {
             let if_ = nextElse.contents ? "else if" : "if"
             start := start.contents ++ if_ ++ `(${blockCond}){${blockCode}}`
             nextElse := true
@@ -4329,9 +3911,11 @@ module Union = {
         output
       }
 
-      // Build the output schema from collected case output schemas
+      // Build the output schema from collected case output schemas. Variants
+      // coercing to the same `.to` target now produce structurally-identical (but
+      // not identity-equal) outputs; `toJSONSchema` collapses the duplicate.
       o.schema = if outputAnyOf->Stdlib.Array.length->X.Int.unsafeToBool {
-        factory(outputAnyOf)->castToInternal
+        unionFactory(outputAnyOf)->castToInternal
       } else {
         never_()
       }
@@ -4346,7 +3930,7 @@ module Union = {
       o
     }
   }
-  and factory = schemas => {
+and unionFactory: 'a 'b. array<t<'a>> => t<'b> = schemas => {
     let schemas: array<internal> = schemas->Obj.magic
     // TODO:
     // 1. Fitler out items without parser
@@ -4379,18 +3963,13 @@ module Union = {
       let mut = base(unionTag, ~selfReverse=false)
       mut.anyOf = Some(anyOf->X.Set.toArray)
       mut.decoder = unionDecoder
-      mut.encoder = Some(encoder)
+      mut.encoder = Some(unionEncoder)
       mut.has = Some(has)
       mut->castToPublic
     }
   }
-}
 
-module Option = {
-  type default = Value(unknown) | Callback(unit => unknown)
-
-  let nestedOption = {
-    let nestedNone = () => {
+and nestedNone = () => {
       let itemSchema = Literal.parse(0)
       // FIXME: dict{}
       let properties = dict{}
@@ -4410,34 +3989,20 @@ module Option = {
       }
     }
 
-    let parser = Builder.make((~input) => {
-      let nextSchema = input.expected.to->X.Option.getUnsafe
-      input->B.next(
-        `{${nestedLoc}:${(
-            (input.expected->getOutputSchema).properties
-            ->X.Option.getUnsafe
-            ->Dict.getUnsafe(nestedLoc)
-          ).const->Obj.magic}}`,
-        ~schema=nextSchema,
-        ~expected=nextSchema,
-      )
-    })
-
-    item => {
+and nestedOption = item => {
       item
       ->updateOutput(mut => {
         mut.to = Some(nestedNone())
-        mut.parser = Some(parser)
+        mut.parser = Some(nestedOptionParser)
       })
       ->castToInternal
     }
-  }
 
-  let factory = (item, ~unit=unit()->castToPublic) => {
+and optionFactory = (item, ~unit=unit()->castToPublic) => {
     let item = item->castToInternal
 
     switch item->getOutputSchema {
-    | {tag: Undefined} => Union.factory([unit->castToUnknown, item->nestedOption->castToPublic])
+    | {tag: Undefined} => unionFactory([unit->castToUnknown, item->nestedOption->castToPublic])
     | {tag: Union, ?anyOf, ?has} =>
       item->updateOutput(mut => {
         let schemas = anyOf->X.Option.getUnsafe
@@ -4487,10 +4052,537 @@ module Option = {
         mut.anyOf = Some(newAnyOf)
         mut.has = Some(mutHas)
       })
-    | _ => Union.factory([item->castToPublic, unit->castToUnknown])
+    | _ => unionFactory([item->castToPublic, unit->castToUnknown])
     }
   }
 
+and option = item => item->optionFactory(~unit=unit()->castToPublic)
+
+and valGet = (parent: val, location) => {
+  let vals = switch parent.vals {
+  | Some(d) => d
+  | None => {
+      let d = dict{}
+      parent.vals = Some(d)
+      d
+    }
+  }
+
+  switch vals->X.Dict.getUnsafeOption(location) {
+  | Some(v) => v->B.Val.scope
+  | None => {
+      let locationSchema = if parent.schema.tag === objectTag {
+        parent.schema.properties->X.Option.getUnsafe->X.Dict.getUnsafeOption(location)
+      } else {
+        parent.schema.items
+        ->X.Option.getUnsafe
+        ->X.Array.getUnsafeOptionByString(location)
+      }
+      let schema = switch locationSchema {
+      | Some(s) => s
+      | None =>
+        switch parent.schema.additionalItems->X.Option.getUnsafe {
+        | Schema(s) =>
+          let s = s->castToInternal
+          // A `dict<V>` read by a fixed key may be absent (dicts have no required
+          // keys), so model it as `option<V>` and let the union coercion handle a
+          // missing key uniformly. Scoped to dict parents (objectTag) with a
+          // concrete value type — array->tuple rest reads (arrayTag) and
+          // json/unknown values read as-is. `option` is reachable directly because
+          // B.Val.get now lives in the decoder `let rec` group (no forward ref).
+          if (
+            parent.schema.tag === objectTag &&
+            s.tag !== unknownTag &&
+            !(s.tag->TagFlag.get->Flag.unsafeHas(TagFlag.ref)) &&
+            !(s->isOptional)
+          ) {
+            option(s->castToPublic)->castToInternal
+          } else {
+            s
+          }
+        | _ => parent->B.unsupportedDecode(~from=parent.schema, ~target=parent.expected)
+        }
+      }
+
+      let pathAppend = Path.fromInlinedLocation(parent.global->B.inlineLocation(location))
+
+      let item = {
+        var: B._notVarAtParent,
+        inline: if schema->isLiteral {
+          parent->B.inlineConst(schema)
+        } else {
+          `${parent->B.Val.var}${pathAppend}`
+        },
+        flag: ValFlag.none,
+        schema,
+        expected: schema,
+        codeFromPrev: "",
+        hoistedDecls: "",
+        path: parent.path->Path.concat(pathAppend),
+        global: parent.global,
+        parent,
+      }
+      vals->Dict.set(location, item)
+      item
+    }
+  }
+}
+
+let recursiveDecoder = Builder.make((~input) => {
+  let expectedSchema = input.expected
+
+  let schemaRef = expectedSchema.ref->X.Option.getUnsafe
+  let defs = input.global.defs->X.Option.getUnsafe
+  // Ignore #/$defs/
+  let identifier = schemaRef->String.slice(~start=8)
+  let def = defs->Dict.getUnsafe(identifier)
+  let flag = input.global.flag
+
+  let inputSchema = if input.schema.seq === expectedSchema.seq {
+    def
+  } else {
+    input.schema
+  }
+
+  let key = `${inputSchema.seq->Obj.magic}-${def.seq->Obj.magic}--${flag->Obj.magic}`
+  let recOperation = ref("")
+
+  switch def->Obj.magic->X.Dict.getUnsafeOption(key) {
+  | Some(fn) =>
+    // Circular reference (fn === 0) or already compiled
+    recOperation := if fn === %raw(`0`) {
+        input->B.embed(def) ++ `["${key}"]`
+      } else {
+        input->B.embed(fn)
+      }
+  | None => {
+      // Optimistic compilation with recompile if assumptions were wrong
+      let assumedHasTransform = ref(def.hasTransform->Option.getOr(false))
+      let assumedIsAsync = ref(def.isAsync->Option.getOr(false))
+      let compileNeeded = ref(true)
+      let finalFn = ref(Obj.magic(0))
+
+      while compileNeeded.contents {
+        compileNeeded := false
+
+        // Set optimistic values on def before compiling (if not already set)
+        // Inner circular references will read these values
+        if def.hasTransform === None {
+          def.hasTransform = Some(assumedHasTransform.contents)
+        }
+        if def.isAsync === None {
+          def.isAsync = Some(assumedIsAsync.contents)
+        }
+
+        // Mark as in-progress
+        configurableValueOptions->Dict.set(valKey, 0->Obj.magic)
+        let _ = X.Object.defineProperty(def, key, configurableValueOptions->Obj.magic)
+
+        // Compile
+        let fn = compileDecoder(~schema=inputSchema, ~expected=def, ~flag, ~defs=Some(defs))
+
+        // Cache result
+        valueOptions->Dict.set(valKey, fn)
+        let _ = X.Object.defineProperty(def, key, valueOptions->Obj.magic)
+
+        finalFn := fn
+
+        // Check if actual values differ from assumed
+        let actualHasTransform = def.hasTransform->X.Option.getUnsafe
+        let actualIsAsync = def.isAsync->X.Option.getUnsafe
+
+        if (
+          actualHasTransform !== assumedHasTransform.contents ||
+            actualIsAsync !== assumedIsAsync.contents
+        ) {
+          // Wrong assumption - update and recompile
+          assumedHasTransform := actualHasTransform
+          assumedIsAsync := actualIsAsync
+          // Delete cached function to force recompilation
+          let _ = %raw(`delete def[key]`)
+          compileNeeded := true
+        }
+      }
+
+      // Embed only the final compiled function to avoid wasting embed slots on recompiles
+      recOperation := input->B.embed(finalFn.contents)
+    }
+  }
+
+  let hasTransform = def.hasTransform === Some(true)
+  let isAsync = def.isAsync->X.Option.getUnsafe
+
+  // Result var decl, prepended after the re-merge below so it sits outside the
+  // try/catch mergeWithPathPrepend may wrap the assignment in (stays in scope).
+  let outputDecl = ref("")
+  let output = if hasTransform || isAsync {
+    let outputVar = input.global->B.varWithoutAllocation
+    outputDecl := `let ${outputVar};`
+
+    let output = input->B.next(outputVar, ~schema=expectedSchema, ~expected=expectedSchema)
+    output.var = B._var
+
+    output.codeFromPrev = `${outputVar}=${recOperation.contents}(${input.inline});`
+
+    if isAsync {
+      output.flag = output.flag->Flag.with(ValFlag.async)
+    }
+    output
+  } else {
+    // No transform: call for validation but don't capture result
+    let output = input->B.refine(~schema=expectedSchema, ~expected=expectedSchema)
+    output.codeFromPrev = `${recOperation.contents}(${input.inline});`
+    output
+  }
+
+  output.prev = None
+  output.codeFromPrev = outputDecl.contents ++ output->B.mergeWithPathPrepend(~parent=input)
+
+  // Un-finalize: this val may be reused as input to a subsequent parser (e.g.
+  // S.transform on a recursive schema) and must accept hoisted decls again.
+  output.finalized = None
+  output.prev = Some(input)
+
+  output
+})
+
+
+
+X.Object.defineProperty(
+  %raw(`sp`),
+  "~standard",
+  {
+    get: (
+      () => {
+        let schema = %raw(`this`)
+        {
+          version: 1,
+          vendor,
+          validate: input => {
+            try {
+              {
+                "value": getDecoder2(~s1=unknown, ~s2=schema)(input->Obj.magic)->Obj.magic,
+              }
+            } catch {
+            | _ => {
+                let error = %raw(`exn`)->InternalError.getOrRethrow
+                {
+                  "issues": [
+                    {
+                      "message": error.reason,
+                      "path": error.path === Path.empty ? None : Some(error.path->Path.toArray),
+                    },
+                  ],
+                }->Obj.magic
+              }
+            }
+          },
+        }
+      }
+    )->X.Function.toExpression,
+  },
+)
+
+// =============
+// Builder functions
+// =============
+
+let parser = (~to as schema) => {
+  getDecoder2(~s1=unknown, ~s2=schema->castToInternal)
+}
+
+let asyncParser = (~to as schema) => {
+  getDecoder2(~s1=unknown, ~s2=schema->castToInternal, ~flag=Flag.async)
+}
+
+let decoder = (type from to, ~from: t<from>, ~to: t<to>): (from => to) => {
+  getDecoder2(~s1=from->castToInternal->reverse, ~s2=to->castToInternal)
+}
+
+let asyncDecoder = (type from to, ~from: t<from>, ~to: t<to>): (from => promise<to>) => {
+  getDecoder2(~s1=from->castToInternal->reverse, ~s2=to->castToInternal, ~flag=Flag.async)
+}
+
+let decoder1 = (type value, schema: t<value>): (unknown => value) => {
+  getDecoder(~s1=schema->castToInternal)
+}
+
+let asyncDecoder1 = (type value, schema: t<value>): (unknown => promise<value>) => {
+  getDecoder(~s1=schema->castToInternal, ~flag=Flag.async)
+}
+
+// =============
+// Operations
+// =============
+
+let getAssertResult = () =>
+  cached("a", undefinedTag, s => {
+    s.const = %raw(`void 0`)
+    s.decoder = literalDecoder
+    s.noValidation = Some(true)
+  })
+
+@inline
+let parseOrThrow = (any, ~to as schema) => {
+  getDecoder2(~s1=unknown, ~s2=schema->castToInternal)(any)
+}
+
+let parseAsyncOrThrow = (any, ~to as schema) => {
+  getDecoder2(~s1=unknown, ~s2=schema->castToInternal, ~flag=Flag.async)(any)
+}
+
+let assertOrThrow = (any, ~to as schema) => {
+  getDecoder3(~s1=unknown, ~s2=schema->castToInternal, ~s3=getAssertResult())(any)
+}
+
+let assertAsyncOrThrow = (any, ~to as schema) => {
+  getDecoder3(~s1=unknown, ~s2=schema->castToInternal, ~s3=getAssertResult(), ~flag=Flag.async)(any)
+}
+
+let decodeOrThrow = (any, ~from, ~to) => {
+  getDecoder2(~s1=from->castToInternal->reverse, ~s2=to->castToInternal)(any)
+}
+
+let decodeAsyncOrThrow = (any, ~from, ~to) => {
+  getDecoder2(~s1=from->castToInternal->reverse, ~s2=to->castToInternal, ~flag=Flag.async)(any)
+}
+
+let isAsync = schema => {
+  let schema = schema->castToInternal
+  switch schema.isAsync {
+  | None => schema->isAsyncInternal(~defs=%raw(`0`))
+  | Some(v) => v
+  }
+}
+
+let wrapExnToFailure = exn => {
+  if %raw("exn&&exn.s===s") {
+    Failure({error: exn->(Obj.magic: exn => error)})
+  } else {
+    throw(exn)
+  }
+}
+
+let js_safe = fn => {
+  try {
+    Success({
+      value: fn(),
+    })
+  } catch {
+  | _ => wrapExnToFailure(%raw(`exn`))
+  }
+}
+
+let js_safeAsync = fn => {
+  try {
+    fn()->X.Promise.thenResolveWithCatch(value => Success({value: value}), wrapExnToFailure)
+  } catch {
+  | _ => X.Promise.resolve(wrapExnToFailure(%raw(`exn`)))
+  }
+}
+
+module Metadata = {
+  module Id: {
+    type t<'metadata>
+    let make: (~namespace: string, ~name: string) => t<'metadata>
+    let internal: string => t<'metadata>
+    external unionToKey: t<'metadata> => string = "%identity"
+  } = {
+    type t<'metadata> = string
+
+    let make = (~namespace, ~name) => {
+      `m:${namespace}:${name}`
+    }
+
+    let internal = name => {
+      `m:${name}`
+    }
+
+    external unionToKey: t<'metadata> => string = "%identity"
+  }
+
+  let get = (schema, ~id: Id.t<'metadata>) => {
+    schema->(Obj.magic: t<'a> => dict<option<'metadata>>)->Dict.getUnsafe(id->Id.unionToKey)
+  }
+
+  @inline
+  let setInPlace = (schema, ~id: Id.t<'metadata>, metadata: 'metadata) => {
+    schema->(Obj.magic: internal => dict<'metadata>)->Dict.set(id->Id.unionToKey, metadata)
+  }
+
+  let set = (schema, ~id: Id.t<'metadata>, metadata: 'metadata) => {
+    let schema = schema->castToInternal
+    let mut = schema->copySchema
+    mut->setInPlace(~id, metadata)
+    mut->castToPublic
+  }
+}
+
+let defsPath = `#/$defs/`
+let recursive = (name, fn) => {
+  let ref = `${defsPath}${name}`
+  let refSchema = base(refTag, ~selfReverse=false)
+  refSchema.ref = Some(ref)
+  refSchema.name = Some(name)
+  refSchema.decoder = recursiveDecoder
+
+  // This is for mutual recursion
+  let isNestedRec = globalConfig.defsAccumulator->Obj.magic
+  if !isNestedRec {
+    globalConfig.defsAccumulator = Some(dict{})
+  }
+  let def = fn(refSchema->castToPublic)->castToInternal
+  if def.name->Obj.magic {
+    refSchema.name = def.name
+  }
+  globalConfig.defsAccumulator
+  ->X.Option.getUnsafe
+  ->Dict.set(name, def)
+
+  if isNestedRec {
+    refSchema->castToPublic
+  } else {
+    let schema = base(refTag, ~selfReverse=false)
+    schema.name = refSchema.name
+    schema.ref = Some(ref)
+    schema.defs = globalConfig.defsAccumulator
+    schema.decoder = recursiveDecoder
+
+    globalConfig.defsAccumulator = None
+
+    schema->castToPublic
+  }
+}
+
+let noValidation = (schema, value) => {
+  let schema = schema->castToInternal
+  let mut = schema->copySchema
+
+  // TODO: Test for discriminant literal
+  // TODO: Better test reverse
+  mut.noValidation = Some(value)
+  mut->castToPublic
+}
+
+let internalRefine = (schema, makeRefiner) => {
+  let schema = schema->castToInternal
+  updateOutput(schema, mut => {
+    let refiner = makeRefiner(mut)
+    switch mut.refiner {
+    | Some(existingRefiner) =>
+      mut.refiner = Some(
+        (~input) => {
+          let arr = existingRefiner(~input)
+          let next = refiner(~input)
+          for i in 0 to next->Array.length - 1 {
+            arr->Array.push(next->Array.getUnsafe(i))->ignore
+          }
+          arr
+        },
+      )
+    | None => mut.refiner = Some(refiner)
+    }
+  })
+}
+
+let refine: (t<'value>, 'value => bool, ~error: string=?, ~path: array<string>=?) => t<'value> = (
+  schema,
+  refineCheck,
+  ~error=?,
+  ~path=?,
+) => {
+  let message = switch error {
+  | Some(e) => e
+  | None => "Refinement failed"
+  }
+  let extraPath = switch path {
+  | Some(p) => Path.fromArray(p)
+  | None => Path.empty
+  }
+  schema->internalRefine(_ =>
+    (~input) => {
+      let embeddedCheck = input->B.embed(refineCheck)
+      [
+        {
+          cond: (~inputVar) => `${embeddedCheck}(${inputVar})`,
+          fail: B.invalidInputBuilder(~extraPath, ~reasonOverride=message),
+        },
+      ]
+    }
+  )
+}
+
+let getMutErrorMessage = (~mut: internal): dict<string> => {
+  let em: dict<string> =
+    mut.errorMessage->X.Option.unsafeToBool
+      ? mut.errorMessage
+        ->X.Option.getUnsafe
+        ->(Obj.magic: schemaErrorMessage => dict<string>)
+        ->X.Dict.copy
+      : dict{}
+  mut.errorMessage = Some(em->Obj.magic)
+  em
+}
+
+type transformDefinition<'input, 'output> = {
+  @as("p")
+  parser?: 'input => 'output,
+  @as("a")
+  asyncParser?: 'input => promise<'output>,
+  @as("s")
+  serializer?: 'output => 'input,
+}
+let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) => t<'output> = (
+  schema,
+  transformer,
+) => {
+  let schema = schema->castToInternal
+  updateOutput(schema, mut => {
+    mut.parser = Some(
+      Builder.make((~input) => {
+        switch transformer(input->B.effectCtx) {
+        | {parser, asyncParser: ?None} => B.embedTransformation(~input, ~fn=parser, ~isAsync=false)
+        | {parser: ?None, asyncParser} =>
+          B.embedTransformation(~input, ~fn=asyncParser, ~isAsync=true)
+        | {parser: ?None, asyncParser: ?None, serializer: ?None} =>
+          input->B.refine(~expected=input.expected.to->Option.getUnsafe)
+        | {parser: ?None, asyncParser: ?None, serializer: _} =>
+          input->B.invalidOperation(~description=`The S.transform parser is missing`)
+        | {parser: _, asyncParser: _} =>
+          input->B.invalidOperation(
+            ~description=`The S.transform doesn't allow parser and asyncParser at the same time. Remove parser in favor of asyncParser`,
+          )
+        }
+      }),
+    )
+    mut.to = Some({
+      let to = unknown->copySchema
+      to.serializer = Some(
+        (~input) => {
+          switch transformer(input->B.effectCtx) {
+          | {serializer} => B.embedTransformation(~input, ~fn=serializer, ~isAsync=false)
+          | {parser: ?None, asyncParser: ?None, serializer: ?None} =>
+            input->B.refine(~expected=input.expected.to->Option.getUnsafe)
+          | {serializer: ?None, asyncParser: ?Some(_)}
+          | {serializer: ?None, parser: ?Some(_)} =>
+            input->B.invalidOperation(~description=`The S.transform serializer is missing`)
+          }
+        },
+      )
+      to
+    })
+    let _ = %raw(`delete mut.isAsync`)
+  })
+}
+
+let nullAsUnit = () => {
+  let s = nullLiteral()->copySchema
+  s.to = Some(unit())
+  s
+}
+
+module Option = {
+  type default = Value(unknown) | Callback(unit => unknown)
   let getWithDefault = (schema: t<option<'value>>, default) => {
     schema
     ->castToInternal
@@ -4517,11 +4609,11 @@ module Option = {
           let item = switch outputItems {
           | [] => InternalError.panic(`Can't set default for ${mut->castToPublic->toExpression}`)
           | [single] => single
-          | multiple => Union.factory(multiple->Obj.magic)->castToInternal
+          | multiple => unionFactory(multiple->Obj.magic)->castToInternal
           }
           let originalItem = switch originalItems {
           | [single] => single
-          | _ => Union.factory(originalItems->Obj.magic)->castToInternal
+          | _ => unionFactory(originalItems->Obj.magic)->castToInternal
           }
 
           switch default {
@@ -4590,6 +4682,7 @@ module Option = {
   let getOrWith = (schema, defalutCb) =>
     schema->getWithDefault(Callback(defalutCb->(Obj.magic: (unit => 'a) => unit => unknown)))
 }
+
 
 module Object = {
   type rec s = {
@@ -4703,7 +4796,7 @@ let rec jsonEncoderFn = (~input, ~target) => {
   } else if toTagFlag->Flag.unsafeHas(TagFlag.object) {
     // Validate that the input is an object
     // and then update the schema to be an object of json instead of object of unknown
-    let jsonExpected = DictSchema.factory(unknown->castToPublic)->castToInternal
+    let jsonExpected = dictFactory(unknown->castToPublic)->castToInternal
     let output = input->B.refine(~schema=unknown, ~expected=jsonExpected)->parse
     output.schema.additionalItems = Some(Schema(json()->castToPublic))
     output.expected = target
@@ -4770,7 +4863,7 @@ and jsonDecoderFn = (~input) => {
   } else if inputTagFlag->Flag.unsafeHas(TagFlag.object) {
     switch input.schema.additionalItems->X.Option.getUnsafe {
     | Schema(_) => {
-        let expected = DictSchema.factory(json()->castToPublic)->castToInternal
+        let expected = dictFactory(json()->castToPublic)->castToInternal
         expected.to = input.expected.to
         input->B.refine(~expected)->parse
       }
@@ -4785,7 +4878,7 @@ and jsonDecoderFn = (~input) => {
         let keys = input.schema.properties->X.Option.getUnsafe->Dict.keysToArray
         for idx in 0 to keys->Array.length - 1 {
           let key = keys->Array.getUnsafe(idx)
-          let itemVal = input->B.Val.get(key)
+          let itemVal = input->valGet(key)
           itemVal.isOutput = Some(false)
 
           if (
@@ -4793,7 +4886,7 @@ and jsonDecoderFn = (~input) => {
               itemVal.schema.has->X.Option.getUnsafe->Dict.getUnsafe((undefinedTag :> string))
           ) {
             itemVal.expected =
-              Union.factory([unit()->castToPublic, json()->castToPublic])->castToInternal
+              unionFactory([unit()->castToPublic, json()->castToPublic])->castToInternal
             let itemOutput = itemVal->parse
             itemOutput.optional = Some(true)
             jsonVal->B.Val.Object.add(~location=key, itemOutput)
@@ -4812,13 +4905,13 @@ and jsonDecoderFn = (~input) => {
   } else if (
     inputTagFlag->Flag.unsafeHas(TagFlag.union) &&
       // Union-tagged schemas always carry `anyOf` and `has`
-      // (set by Union.factory, reverse and the S.json def).
+      // (set by unionFactory, reverse and the S.json def).
       // Unions with an undefined variant are not supported,
       // since undefined is not representable in JSON
       !(input.schema.has->X.Option.getUnsafe->Stdlib.Dict.has((undefinedTag :> string)))
   ) {
     // Decode each union variant to JSON separately
-    Union.perVariantVal(~input, ~target=input.expected)->parse
+    unionPerVariantVal(~input, ~target=input.expected)->parse
   } else if inputTagFlag->Flag.unsafeHas(TagFlag.unknown) {
     let to = input.expected.to->X.Option.getUnsafe
     // Whether we can optimize encoding during decoding
@@ -4864,7 +4957,7 @@ and json = () =>
       bool(),
       float(),
       nullLiteral(),
-      DictSchema.factory(jsonRef->castToPublic)->castToInternal,
+      dictFactory(jsonRef->castToPublic)->castToInternal,
       array(jsonRef->castToPublic)->castToInternal,
     ]
     let has = dict{}
@@ -4875,7 +4968,7 @@ and json = () =>
     let jsonDef = base(unionTag, ~selfReverse=true)
     jsonDef.anyOf = Some(anyOf)
     jsonDef.has = Some(has)
-    jsonDef.decoder = Union.unionDecoder
+    jsonDef.decoder = unionDecoder
     jsonDef.name = Some(jsonName)
     jsonDef.tag = unionTag
 
@@ -5431,7 +5524,7 @@ module Schema = {
         }
 
         let fieldOr = (fieldName, schema, or) => {
-          field(fieldName, Option.factory(schema)->Option.getOr(or))
+          field(fieldName, optionFactory(schema)->Option.getOr(or))
         }
 
         let flatten = schema => {
@@ -5530,7 +5623,7 @@ module Schema = {
       }
 
       let fieldOr = (fieldName, schema, or) => {
-        field(fieldName, Option.factory(schema)->Option.getOr(or))
+        field(fieldName, optionFactory(schema)->Option.getOr(or))
       }
 
       let ctx = {
@@ -5964,7 +6057,7 @@ let schema = Schema.factory
 let js_schema = definition => definition->Obj.magic->Schema.definitionToSchema->castToPublic
 let literal = js_schema
 
-let enum = values => Union.factory(values->Array.map(literal))
+let enum = values => unionFactory(values->Array.map(literal))
 
 let compactColumnsDecoder = (~input) => {
   let selfSchema = input.expected
@@ -6297,7 +6390,7 @@ let compactColumns = inputSchema => {
 
 //     let inlinedSchema = switch schema->Option.default {
 //     | Some(default) => {
-//         metadataMap->X.Dict.deleteInPlace(Option.defaultMetadataId->Metadata.Id.toKey)
+//         metadataMap->X.Dict.deleteInPlace(Option.defaultMetadataId->Metadata.Id.unionToKey)
 //         switch default {
 //         | Value(defaultValue) =>
 //           inlinedSchema ++
@@ -6313,7 +6406,7 @@ let compactColumns = inputSchema => {
 
 //     let inlinedSchema = switch schema->deprecation {
 //     | Some(message) => {
-//         metadataMap->X.Dict.deleteInPlace(deprecationMetadataId->Metadata.Id.toKey)
+//         metadataMap->X.Dict.deleteInPlace(deprecationMetadataId->Metadata.Id.unionToKey)
 //         inlinedSchema ++ `->S.deprecate(${message->X.Inlined.Value.fromString})`
 //       }
 
@@ -6322,7 +6415,7 @@ let compactColumns = inputSchema => {
 
 //     let inlinedSchema = switch schema->description {
 //     | Some(message) => {
-//         metadataMap->X.Dict.deleteInPlace(descriptionMetadataId->Metadata.Id.toKey)
+//         metadataMap->X.Dict.deleteInPlace(descriptionMetadataId->Metadata.Id.unionToKey)
 //         inlinedSchema ++ `->S.describe(${message->X.Inlined.Value.stringify})`
 //       }
 
@@ -6340,7 +6433,7 @@ let compactColumns = inputSchema => {
 //       switch schema->String.refinements {
 //       | [] => inlinedSchema
 //       | refinements =>
-//         metadataMap->X.Dict.deleteInPlace(String.Refinement.metadataId->Metadata.Id.toKey)
+//         metadataMap->X.Dict.deleteInPlace(String.Refinement.metadataId->Metadata.Id.unionToKey)
 //         inlinedSchema ++
 //         refinements
 //         ->Array.map(refinement => {
@@ -6371,7 +6464,7 @@ let compactColumns = inputSchema => {
 //       switch schema->Int.refinements {
 //       | [] => inlinedSchema
 //       | refinements =>
-//         metadataMap->X.Dict.deleteInPlace(Int.Refinement.metadataId->Metadata.Id.toKey)
+//         metadataMap->X.Dict.deleteInPlace(Int.Refinement.metadataId->Metadata.Id.unionToKey)
 //         inlinedSchema ++
 //         refinements
 //         ->Array.map(refinement => {
@@ -6391,7 +6484,7 @@ let compactColumns = inputSchema => {
 //       switch schema->Float.refinements {
 //       | [] => inlinedSchema
 //       | refinements =>
-//         metadataMap->X.Dict.deleteInPlace(Float.Refinement.metadataId->Metadata.Id.toKey)
+//         metadataMap->X.Dict.deleteInPlace(Float.Refinement.metadataId->Metadata.Id.unionToKey)
 //         inlinedSchema ++
 //         refinements
 //         ->Array.map(refinement => {
@@ -6409,7 +6502,7 @@ let compactColumns = inputSchema => {
 //       switch schema->Array.refinements {
 //       | [] => inlinedSchema
 //       | refinements =>
-//         metadataMap->X.Dict.deleteInPlace(Array.Refinement.metadataId->Metadata.Id.toKey)
+//         metadataMap->X.Dict.deleteInPlace(Array.Refinement.metadataId->Metadata.Id.unionToKey)
 //         inlinedSchema ++
 //         refinements
 //         ->Array.map(refinement => {
@@ -6452,11 +6545,10 @@ let compactColumns = inputSchema => {
 // }
 
 let object = Schema.object
-let nullAsOption = item => Option.factory(item, ~unit=nullAsUnit()->castToPublic)
-let null = item => Union.factory([item->castToUnknown, nullLiteral()->castToPublic])
-let option = item => item->Option.factory(~unit=unit()->castToPublic)
+let nullAsOption = item => optionFactory(item, ~unit=nullAsUnit()->castToPublic)
+let null = item => unionFactory([item->castToUnknown, nullLiteral()->castToPublic])
 let array = array
-let dict = DictSchema.factory
+let dict = dictFactory
 let shape = Schema.shape
 let tuple = Schema.tuple
 let tuple1 = v0 => tuple(s => s.item(0, v0))
@@ -6466,7 +6558,7 @@ let tuple3 = (v0, v1, v2) =>
   Schema.definitionToSchema(
     [v0->castToUnknown, v1->castToUnknown, v2->castToUnknown]->Obj.magic,
   )->castToPublic
-let union = Union.factory
+let union = unionFactory
 
 // =============
 // Built-in refinements
@@ -6717,11 +6809,11 @@ let trim = schema => {
 }
 
 let nullable = schema => {
-  Union.factory([schema->castToUnknown, unit()->castToPublic, nullLiteral()->castToPublic])
+  unionFactory([schema->castToUnknown, unit()->castToPublic, nullLiteral()->castToPublic])
 }
 
 let nullableAsOption = schema => {
-  Union.factory([
+  unionFactory([
     schema->castToUnknown,
     unit()->castToPublic,
     nullAsUnit()->castToPublic->castToUnknown,
@@ -6767,7 +6859,7 @@ let js_is = (a, b) => {
 }
 
 let js_union = values =>
-  Union.factory(
+  unionFactory(
     values->Array.map(Schema.definitionToSchema)->(Obj.magic: array<internal> => array<'a>),
   )
 
@@ -6855,7 +6947,7 @@ let js_asyncDecoderAssert = (schema, assertFn) => {
 
 let js_optional = (schema, maybeOr) => {
   // TODO: maybeOr should be part of the unit schema
-  let schema = Union.factory([schema->castToUnknown, unit()->castToPublic])
+  let schema = unionFactory([schema->castToUnknown, unit()->castToPublic])
   switch maybeOr {
   | Some(or) if typeof(or) === functionTag => schema->Option.getOrWith(or->Obj.magic)->Obj.magic
   | Some(or) => schema->Option.getOr(or->Obj.magic)->Obj.magic
@@ -6867,13 +6959,13 @@ let js_nullable = (schema, maybeOr) => {
   // TODO: maybeOr should be part of the unit schema
   switch maybeOr {
   | Some(or) =>
-    let schema = Union.factory([schema->castToUnknown, nullAsUnit()->castToPublic->castToUnknown])
+    let schema = unionFactory([schema->castToUnknown, nullAsUnit()->castToPublic->castToUnknown])
     if typeof(or) === functionTag {
       schema->Option.getOrWith(or->Obj.magic)->Obj.magic
     } else {
       schema->Option.getOr(or->Obj.magic)->Obj.magic
     }
-  | None => Union.factory([schema->castToUnknown, nullLiteral()->castToPublic->castToUnknown])
+  | None => unionFactory([schema->castToUnknown, nullLiteral()->castToPublic->castToUnknown])
   }
 }
 
@@ -7135,25 +7227,29 @@ module RescriptJSONSchema = {
     | Union({anyOf}) => {
         let literals = []
         let items = []
+        let seen = Stdlib.Dict.make()
 
         anyOf->Array.forEach(childSchema => {
           switch childSchema {
           // Filter out undefined to support optional fields
           | Undefined(_) if (parent->castToInternal).tag === objectTag => ()
           | _ => {
-              items
-              ->Array.push(
-                Schema(internalToJSONSchema(childSchema, ~parent=schema, ~path, ~defs)),
-              )
-              ->ignore
-              switch childSchema->castToInternal->isLiteral {
-              | true =>
-                literals
-                ->Array.push(
-                  (childSchema->castToInternal).const->(Obj.magic: option<char> => JSON.t),
-                )
-                ->ignore
-              | false => ()
+              let childJsonSchema = internalToJSONSchema(childSchema, ~parent=schema, ~path, ~defs)
+              // Collapse structurally-identical members (e.g. variants coercing to
+              // the same `.to` target) so the union renders as `T`, not `anyOf:[T,T]`.
+              let key = childJsonSchema->JSON.stringifyAny->Obj.magic
+              if !(seen->Stdlib.Dict.has(key)) {
+                seen->Dict.set(key, true)
+                items->Array.push(Schema(childJsonSchema))->ignore
+                switch childSchema->castToInternal->isLiteral {
+                | true =>
+                  literals
+                  ->Array.push(
+                    (childSchema->castToInternal).const->(Obj.magic: option<char> => JSON.t),
+                  )
+                  ->ignore
+                | false => ()
+                }
               }
             }
           }
