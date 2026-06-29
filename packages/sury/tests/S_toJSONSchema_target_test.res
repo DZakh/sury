@@ -45,7 +45,7 @@ test("toJSONSchema with an unsupported target throws", t => {
       S.string->S.toJSONSchema(
         ~options={target: "unsupported-target"->(U.magic: string => S.jsonSchemaTarget)},
       ),
-    ~expectations={message: "[Sury] Unsupported target: unsupported-target"},
+    ~expectations={message: "Unsupported target: unsupported-target"},
   )
 })
 

@@ -4893,7 +4893,11 @@ function parseTarget(target) {
     case "openapi-3.0" :
       return "openapi-3.0";
     default:
-      throw new Error(`[Sury] Unsupported target: ` + target);
+      throw new SuryError({
+        code: "invalid_operation",
+        path: "",
+        reason: `Unsupported target: ` + target
+      });
   }
 }
 

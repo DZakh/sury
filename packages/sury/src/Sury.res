@@ -7334,14 +7334,22 @@ let targetSchemaUri = (target: jsonSchemaTarget) =>
   }
 
 // Narrow the raw target (which may arrive as an arbitrary string from JS via the
-// Standard JSON Schema `Options`) to a supported dialect, throwing
-// `[Sury] Unsupported target: X` for anything else.
+// Standard JSON Schema `Options`) to a supported dialect, raising a Sury error
+// with an `invalid_operation` code for anything else.
 let parseTarget = (target: string): jsonSchemaTarget =>
   switch target {
   | "draft-07" => #"draft-07"
   | "draft-2020-12" => #"draft-2020-12"
   | "openapi-3.0" => #"openapi-3.0"
-  | unsupported => InternalError.panic(`Unsupported target: ${unsupported}`)
+  | unsupported =>
+    X.Exn.throwAny(
+      InternalError.make(
+        InvalidOperation({
+          path: Path.empty,
+          reason: `Unsupported target: ${unsupported}`,
+        }),
+      ),
+    )
   }
 
 let toJSONSchema = (schema, ~options: option<toJSONSchemaOptions>=?) => {
