@@ -5708,6 +5708,32 @@ module Schema = {
     | None => input
     }
   }
+  // Assemble an object/tuple val from a per-location field producer. Shared by
+  // the shaped-parser reshape (reads each child via `from` paths) and the
+  // flatten reuse path (reads each key from the parent's decoded `vals`).
+  and assembleShapedObject = (~input, ~schema, ~field) => {
+    let output = makeObjectVal(input, ~schema)
+    output.isOutput = Some(true)
+    switch schema {
+    | {items} =>
+      for idx in 0 to items->Array.length - 1 {
+        let location = idx->Int.toString
+        output->B.Val.Object.add(~location, field(~location, ~childSchema=items->Array.getUnsafe(idx)))
+      }
+    | {properties} =>
+      let keys = properties->Dict.keysToArray
+      for idx in 0 to keys->Array.length - 1 {
+        let location = keys->Array.getUnsafe(idx)
+        output->B.Val.Object.add(~location, field(~location, ~childSchema=properties->Dict.getUnsafe(location)))
+      }
+    | _ =>
+      // FIXME: Use a path
+      InternalError.panic(
+        `Don't know where the value is coming from: ${schema->castToPublic->toExpression}`,
+      )
+    }
+    output->completeObjectVal
+  }
   and getShapedParserOutput = (~input, ~targetSchema) => {
     let v = switch targetSchema {
     | {fromFlattened} =>
@@ -5721,39 +5747,9 @@ module Schema = {
       if targetSchema->isLiteral {
         input->B.nextConst(~schema=targetSchema)
       } else {
-        let output = makeObjectVal(input, ~schema=targetSchema)
-        output.isOutput = Some(true)
-        switch targetSchema {
-        | {items} =>
-          for idx in 0 to items->Array.length - 1 {
-            let location = idx->Int.toString
-            output->B.Val.Object.add(
-              ~location,
-              getShapedParserOutput(~input, ~targetSchema=items->Array.getUnsafe(idx)),
-            )
-          }
-        | {properties} => {
-            let keys = properties->Dict.keysToArray
-            for idx in 0 to keys->Array.length - 1 {
-              let location = keys->Array.getUnsafe(idx)
-              output->B.Val.Object.add(
-                ~location,
-                getShapedParserOutput(
-                  ~input,
-                  ~targetSchema=properties->Dict.getUnsafe(location),
-                ),
-              )
-            }
-          }
-        | _ =>
-          // FIXME: Use a path
-          InternalError.panic(
-            `Don't know where the value is coming from: ${targetSchema
-              ->castToPublic
-              ->toExpression}`,
-          )
-        }
-        output->completeObjectVal
+        assembleShapedObject(~input, ~schema=targetSchema, ~field=(~location as _, ~childSchema) =>
+          getShapedParserOutput(~input, ~targetSchema=childSchema)
+        )
       }
     }
     v.prev = None
@@ -5786,13 +5782,10 @@ module Schema = {
           // flattened schema's own refiners. Materializing the projection gives it
           // an inline restricted to its keys, so a whole-object read of the
           // flattened result can't leak sibling fields of the parent.
-          let projection = input->makeObjectVal(~schema=flattenedSchema)
-          let flattenedKeys = flattenedSchema.properties->X.Option.getUnsafe->Dict.keysToArray
-          for kIdx in 0 to flattenedKeys->Array.length - 1 {
-            let key = flattenedKeys->Array.getUnsafe(kIdx)
-            projection->B.Val.Object.add(~location=key, input->valGet(key))
-          }
-          let assembled = projection->completeObjectVal
+          let assembled =
+            assembleShapedObject(~input, ~schema=flattenedSchema, ~field=(~location, ~childSchema as _) =>
+              input->valGet(location)
+            )
           assembled.expected = flattenedSchema
           // The reused field vals are declared by the parent's own code; detach
           // from `prev` (as getShapedParserOutput does) so `merge` doesn't
