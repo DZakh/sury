@@ -4896,7 +4896,7 @@ function parseTarget(target) {
       throw new SuryError({
         code: "invalid_operation",
         path: "",
-        reason: `Unsupported target: ` + target
+        reason: `Unsupported JSON Schema target: ` + target
       });
   }
 }
@@ -5247,7 +5247,11 @@ function fromJSONSchema(jsonSchema) {
     }
     if (exit$4 === 2) {
       if (jsonSchema.type !== undefined) {
-        throw new Error(`[Sury] Unknown JSON Schema type: ` + jsonSchema.type);
+        throw new SuryError({
+          code: "invalid_operation",
+          path: "",
+          reason: `Unsupported JSON Schema type: ` + jsonSchema.type
+        });
       }
       schema = anySchema;
     }

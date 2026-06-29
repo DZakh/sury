@@ -7346,7 +7346,7 @@ let parseTarget = (target: string): jsonSchemaTarget =>
       InternalError.make(
         InvalidOperation({
           path: Path.empty,
-          reason: `Unsupported target: ${unsupported}`,
+          reason: `Unsupported JSON Schema target: ${unsupported}`,
         }),
       ),
     )
@@ -7688,7 +7688,14 @@ let rec fromJSONSchema: RescriptJSONSchema.t => t<JSON.t> = {
         }, ~error="Should pass the if/then/else schema validation.")
       }
     | _ if jsonSchema.type_ !== None =>
-      InternalError.panic(`Unknown JSON Schema type: ${(jsonSchema.type_->Obj.magic: string)}`)
+      X.Exn.throwAny(
+        InternalError.make(
+          InvalidOperation({
+            path: Path.empty,
+            reason: `Unsupported JSON Schema type: ${(jsonSchema.type_->Obj.magic: string)}`,
+          }),
+        ),
+      )
     | _ => anySchema
     }
 

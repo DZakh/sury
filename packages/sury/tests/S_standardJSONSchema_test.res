@@ -34,11 +34,11 @@ test("Standard ~standard.jsonSchema throws for an unsupported target", t => {
   let converter = S.string->jsonSchemaConverter
   t->Assert.throws(
     () => converter.input({target: "unsupported-target"}),
-    ~expectations={message: "Unsupported target: unsupported-target"},
+    ~expectations={message: "Unsupported JSON Schema target: unsupported-target"},
   )
   t->Assert.throws(
     () => converter.output({target: "unsupported-target"}),
-    ~expectations={message: "Unsupported target: unsupported-target"},
+    ~expectations={message: "Unsupported JSON Schema target: unsupported-target"},
   )
 })
 

@@ -2259,7 +2259,7 @@ test("Standard JSON Schema interface support", (t) => {
   // An unsupported target throws.
   t.expect(() =>
     jsonSchema.input({ target: "unsupported-target" })
-  ).toThrow("Unsupported target: unsupported-target");
+  ).toThrow("Unsupported JSON Schema target: unsupported-target");
 });
 
 test("Env schema: Reggression version", (t) => {
