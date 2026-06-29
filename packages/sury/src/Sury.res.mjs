@@ -915,7 +915,9 @@ function embedTransformation(input, fn, isAsync) {
   }
   let embededFn = embed(input, fn);
   let failure = failWithArg(output, e => makeInvalidConversionDetails(input, unknown, e), `x`);
-  output.cp = `let ` + outputVar + `;try{` + outputVar + `=` + embededFn + `(` + input.i + `)` + (
+  output.cp = `let ` + outputVar + `;try{` + outputVar + `=` + embededFn + `(` + (
+    input.vc ? input.v() : input.i
+  ) + `)` + (
     isAsync ? `.catch(x=>` + failure + `)` : ""
   ) + `}catch(x){` + failure + `}`;
   return output;

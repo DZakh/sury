@@ -211,7 +211,7 @@ test("Flattened object with a transformed field decodes the field once", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i||e[3](i);let v1=i["createdAt"];typeof v1==="string"||e[2](v1);let v0;try{v0=e[0](i["createdAt"])}catch(x){e[1](x)}return {"properties":{"createdAt":v0,},}}`,
+    `i=>{typeof i==="object"&&i||e[3](i);let v1=i["createdAt"];typeof v1==="string"||e[2](v1);let v0;try{v0=e[0](v1)}catch(x){e[1](x)}return {"properties":{"createdAt":v0,},}}`,
   )
 })
 
@@ -233,7 +233,7 @@ test("Flattened schema without a reshape decodes a transformed field once", t =>
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i||e[3](i);let v1=i["name"];typeof v1==="string"||e[2](v1);let v0;try{v0=e[0](i["name"])}catch(x){e[1](x)}return {"wrap":{"name":v0,},}}`,
+    `i=>{typeof i==="object"&&i||e[3](i);let v1=i["name"];typeof v1==="string"||e[2](v1);let v0;try{v0=e[0](v1)}catch(x){e[1](x)}return {"wrap":{"name":v0,},}}`,
   )
 })
 

@@ -1798,9 +1798,12 @@ module Builder = {
           e => makeInvalidConversionDetails(~input, ~to=unknown, ~cause=e),
           `x`,
         )}`
-      output.codeFromPrev = `let ${outputVar};try{${outputVar}=${embededFn}(${input.inline})${isAsync
-          ? `.catch(x=>${failure})`
-          : ""}}catch(x){${failure}}`
+      // Feed the transform the input's var when it already carries checks — it's
+      // materialized into a var anyway (the check references it), so reuse it
+      // instead of re-inlining the source expression (e.g. `i["x"]`) twice.
+      output.codeFromPrev = `let ${outputVar};try{${outputVar}=${embededFn}(${input.checks->X.Option.unsafeToBool
+          ? input.var()
+          : input.inline})${isAsync ? `.catch(x=>${failure})` : ""}}catch(x){${failure}}`
       output
     }
 
