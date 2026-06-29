@@ -6,7 +6,9 @@
     "res": "cd packages/sury && pnpm res",
     "test": "pnpm --filter=sury test && pnpm --filter=e2e test",
     "build": "pnpm --filter=sury build",
+    "benchmark": "pnpm --filter=sury bench",
     "benchmark:comparison": "pnpm --filter=e2e benchmark:comparison",
+    "benchmark:types": "pnpm --filter=sury bench:types",
     "lint": "pnpm --filter=sury lint:stdlib"
   },
   "packageManager": "pnpm@9.0.5"

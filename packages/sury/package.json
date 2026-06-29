@@ -50,8 +50,6 @@
     "rescript.json"
   ],
   "scripts": {
-    "benchmark": "node ./packages/tests/src/benchmark/Benchmark.res.mjs",
-    "benchmark:comparison": "node ./packages/tests/src/benchmark/comparison.js",
     "coverage": "vitest run --coverage",
     "build": "pnpm rescript && node ./scripts/pack/Pack.res.mjs",
     "res": "rescript watch",
