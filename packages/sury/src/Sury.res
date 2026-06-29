@@ -1197,30 +1197,41 @@ module Builder = {
 
     let _notVar = () => {
       let val: val = %raw(`this`)
-      let v = val.global->varWithoutAllocation
-      switch val.prev {
-      | Some(_) =>
-        // Own the decl in codeFromPrev: a non-empty codeFromPrev is
-        // non-hoistable in `merge`, so a union discriminant reading this var
-        // can't be lifted above its `let` (the str->to(option(int)) bug class).
-        switch val.inline {
-        // No inline value yet (assigned by code that already reads this val):
-        // declare ahead of the existing producing code.
-        | "" => val.codeFromPrev = `let ${v};` ++ val.codeFromPrev
-        // Declare-and-assign after it; `v` is fresh, so nothing emitted reads it.
-        | i => val.codeFromPrev = val.codeFromPrev ++ `let ${v}=${i};`
+      // Already emitted (a late materialization after this val's segment was
+      // merged — e.g. a fused `.to` stage reading a previous stage's transformed
+      // output): owning a fresh decl here would drop it (the phantom-var fusion
+      // bug). Re-read inline instead; the expression's vars live in an enclosing
+      // segment that still dominates this use. Mirrors `_notVarAtParent`.
+      if val.finalized->X.Option.unsafeToBool {
+        val.var = _var
+        val.inline = `(${val.inline})`
+        val.inline
+      } else {
+        let v = val.global->varWithoutAllocation
+        switch val.prev {
+        | Some(_) =>
+          // Own the decl in codeFromPrev: a non-empty codeFromPrev is
+          // non-hoistable in `merge`, so a union discriminant reading this var
+          // can't be lifted above its `let` (the str->to(option(int)) bug class).
+          switch val.inline {
+          // No inline value yet (assigned by code that already reads this val):
+          // declare ahead of the existing producing code.
+          | "" => val.codeFromPrev = `let ${v};` ++ val.codeFromPrev
+          // Declare-and-assign after it; `v` is fresh, so nothing emitted reads it.
+          | i => val.codeFromPrev = val.codeFromPrev ++ `let ${v}=${i};`
+          }
+        | None =>
+          // No prev to anchor to; hoist onto the val itself (its own segment
+          // outlives the materialization).
+          switch val.inline {
+          | "" => hoistDecl(val, v)
+          | i => hoistDecl(val, `${v}=${i}`)
+          }
         }
-      | None =>
-        // No prev to anchor to; hoist onto the val itself (its own segment
-        // outlives the materialization).
-        switch val.inline {
-        | "" => hoistDecl(val, v)
-        | i => hoistDecl(val, `${v}=${i}`)
-        }
+        val.var = _var
+        val.inline = v
+        v
       }
-      val.var = _var
-      val.inline = v
-      v
     }
 
     @inline
@@ -1673,12 +1684,23 @@ module Builder = {
     }
 
     let dynamicScope = (from: val, ~locationVar): val => {
+      // `additionalItems` doubles as the value schema for a dict-shaped val.
+      // Extract it via a real pattern match: a non-`Schema` mode (`Strip`/`Strict`
+      // on a fixed-property object) must never be cast to a schema — that string
+      // reaching `isLiteral` is the `'const' in "strip"` crash. Callers only pass
+      // dict sources; the `unknown` fallback keeps a misuse safe instead of crashing.
       {
         var: _notVarBeforeValidation,
         inline: `${from.var()}[${locationVar}]`,
         flag: from.flag,
-        schema: from.schema.additionalItems->(Obj.magic: option<additionalItems> => internal),
-        expected: from.expected.additionalItems->(Obj.magic: option<additionalItems> => internal),
+        schema: switch from.schema.additionalItems {
+        | Some(Schema(s)) => s->castToInternal
+        | _ => unknown
+        },
+        expected: switch from.expected.additionalItems {
+        | Some(Schema(s)) => s->castToInternal
+        | _ => unknown
+        },
         codeFromPrev: "",
         hoistedDecls: "",
         parent: from,
@@ -2999,8 +3021,9 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
       //  - fixed-property object target: keys/expected come from the target.
       //  - dict target fed by a fixed-property object source (encode): keys come
       //    from the source object and every field coerces to the dict's value
-      //    schema. `completeObjectVal` already drops absent optional fields, so a
-      //    `None` source field becomes an absent dict key for free.
+      //    schema. A field that stays optional after coercion is dropped when
+      //    absent by `completeObjectVal`; one coerced to a required value keeps
+      //    its key.
       let properties = switch dictItem {
       | Some(_) => input.schema.properties->X.Option.getUnsafe
       | None => expectedSchema.properties->X.Option.getUnsafe
@@ -3014,12 +3037,9 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
         // Since we have a check validating the exact properties existence
         | Strict => false
         | Strip =>
-          switch input.schema.additionalItems->X.Option.getUnsafe {
-          | Schema(_) => true
-          | _ =>
+          sourceIsDict ||
             input.schema.properties->X.Option.getUnsafe->Dict.keysToArray->Array.length !==
               keysCount
-          }
         | _ => true
         },
       )

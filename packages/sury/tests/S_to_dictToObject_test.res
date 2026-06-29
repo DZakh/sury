@@ -24,10 +24,11 @@ open Vitest
 // Milestone 2 adds the encode direction (object -> dict<string>): objectDecoder
 // now recognises a fixed-property object source feeding a dict target and reuses
 // the static object-literal construction, driven by the source's known keys with
-// every field coerced to the dict's value schema. `completeObjectVal` drops
-// absent optional fields, so a `None` source field is handled for free.
-// (Encoding `None` to an absent key rather than the "undefined" sentinel is a
-// deferred tier fix.)
+// every field coerced to the dict's value schema. A field that is still optional
+// after coercion is dropped when absent by `completeObjectVal`; an optional
+// source field coerced to a *required* value (e.g. `option<float>` -> `string`)
+// keeps its key, with `None` encoded to the "undefined" sentinel (the mirror of
+// the decode side). Tightening that to an absent key is a deferred tier fix.
 
 let makeSchema = () =>
   S.dict(S.string)->S.to(
@@ -131,5 +132,22 @@ test("[milestone 2] compiled encode iterates the source object's fixed keys", t 
     ~schema,
     ~op=#Encode,
     `i=>{let v0=i["zoo"];if(typeof v0==="number"&&!Number.isNaN(v0)){v0=""+i["zoo"]}else if(v0===void 0){v0="undefined"}else{e[0](v0)}return {"foo":i["foo"],"bar":""+i["bar"],"zoo":v0,}}`,
+  )
+})
+
+test("[milestone 2] coerces into a dict whose value is itself a transforming object", t => {
+  // The dict value (`inner`) is a composite with its own transform, so the field
+  // flows through two fused `.to` stages. This previously crashed with a phantom
+  // `ReferenceError: v3 is not defined` (the shared `.to`-fusion bug, now fixed
+  // by the `finalized` re-read in `_notVar`).
+  let inner = () => S.schema(s => {"a": s.matches(S.int->S.to(S.string))})
+  // Decoding this schema fuses object{foo:inner} -> dict(inner): the object's
+  // field value flows through inner's transform and then into the dict value's
+  // own decode. That second stage re-reads the first's already-emitted output.
+  let schema = S.schema(s => {"foo": s.matches(inner())})->S.to(S.dict(inner()))
+
+  t->Assert.deepEqual(
+    %raw(`{"foo":{"a":5}}`)->S.parseOrThrow(~to=schema),
+    %raw(`{"foo":{"a":"5"}}`),
   )
 })

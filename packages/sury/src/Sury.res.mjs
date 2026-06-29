@@ -467,6 +467,11 @@ function _notVarAtParent() {
 
 function _notVar() {
   let val = this;
+  if (val.fz) {
+    val.v = _var;
+    val.i = `(` + val.i + `)`;
+    return val.i;
+  }
   let v = varWithoutAllocation(val.g);
   let match = val.prev;
   if (match !== undefined) {
@@ -825,12 +830,18 @@ function hoistChildChecks(parent, child, key) {
 }
 
 function dynamicScope(from, locationVar) {
+  let match = from.s.additionalItems;
+  let tmp;
+  tmp = match !== undefined && match !== "strip" && match !== "strict" ? match : unknown;
+  let match$1 = from.e.additionalItems;
+  let tmp$1;
+  tmp$1 = match$1 !== undefined && match$1 !== "strip" && match$1 !== "strict" ? match$1 : unknown;
   return {
     p: from,
     v: _notVarBeforeValidation,
     i: from.v() + `[` + locationVar + `]`,
-    s: from.s.additionalItems,
-    e: from.e.additionalItems,
+    s: tmp,
+    e: tmp$1,
     f: from.f,
     cp: "",
     hd: "",
@@ -1303,18 +1314,6 @@ function parse$1(input) {
   return valRef;
 }
 
-function getOutputSchema(_schema) {
-  while (true) {
-    let schema = _schema;
-    let to = schema.to;
-    if (to === undefined) {
-      return schema;
-    }
-    _schema = to;
-    continue;
-  };
-}
-
 function reverse(schema) {
   if (reversedKey in schema) {
     return schema[reversedKey];
@@ -1414,6 +1413,18 @@ function reverse(schema) {
   valueOptions[valKey] = schema;
   d(r, reversedKey, valueOptions);
   return r;
+}
+
+function getOutputSchema(_schema) {
+  while (true) {
+    let schema = _schema;
+    let to = schema.to;
+    if (to === undefined) {
+      return schema;
+    }
+    _schema = to;
+    continue;
+  };
 }
 
 function parseDynamic(input) {
@@ -1811,24 +1822,9 @@ function objectDecoder(unknownInput) {
     let objectVal = makeObjectVal(input, expectedSchema);
     let match$1 = expectedSchema.additionalItems;
     let shouldRecreateInput;
-    if (match$1 === "strip" || match$1 === "strict") {
-      if (match$1 === "strip") {
-        let match$2 = input.s.additionalItems;
-        let exit$1 = 0;
-        if (match$2 === "strip" || match$2 === "strict") {
-          exit$1 = 2;
-        } else {
-          shouldRecreateInput = true;
-        }
-        if (exit$1 === 2) {
-          shouldRecreateInput = Object.keys(input.s.properties).length !== keysCount;
-        }
-      } else {
-        shouldRecreateInput = false;
-      }
-    } else {
-      shouldRecreateInput = true;
-    }
+    shouldRecreateInput = match$1 === "strip" || match$1 === "strict" ? (
+        match$1 === "strip" ? sourceIsDict || Object.keys(input.s.properties).length !== keysCount : false
+      ) : true;
     let s$1 = input.s.additionalItems;
     let isJsonParent;
     isJsonParent = s$1 === "strip" || s$1 === "strict" ? false : s$1.name === jsonName;
@@ -1853,9 +1849,9 @@ function objectDecoder(unknownInput) {
     }
     let tmp = false;
     if (expectedSchema.additionalItems === "strict") {
-      let match$3 = input.s.additionalItems;
+      let match$2 = input.s.additionalItems;
       let tmp$1;
-      tmp$1 = match$3 !== "strip" && match$3 !== "strict";
+      tmp$1 = match$2 !== "strip" && match$2 !== "strict";
       tmp = tmp$1;
     }
     if (tmp) {
@@ -3576,6 +3572,16 @@ function proxifyShapedSchema(schema, from, fromFlattened) {
   });
 }
 
+function shapedSerializer(input) {
+  let acc = {};
+  prepareShapedSerializerAcc(acc, input);
+  let targetSchema = input.e.to;
+  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
+  output.t = true;
+  output.prev = input;
+  return output;
+}
+
 function traverseDefinition(definition, onNode) {
   if (typeof definition !== objectTag || definition === null) {
     return parse(definition);
@@ -3618,6 +3624,20 @@ function traverseDefinition(definition, onNode) {
   return mut$2;
 }
 
+function getValByFrom(_input, from, _idx) {
+  while (true) {
+    let idx = _idx;
+    let input = _input;
+    let key = from[idx];
+    if (key === undefined) {
+      return input;
+    }
+    _idx = idx + 1 | 0;
+    _input = input.d[key];
+    continue;
+  };
+}
+
 function getShapedParserOutput(input, targetSchema) {
   let from = targetSchema.from;
   let fromFlattened = targetSchema.fromFlattened;
@@ -3655,76 +3675,6 @@ function getShapedParserOutput(input, targetSchema) {
   v.prev = undefined;
   v.e = targetSchema;
   return v;
-}
-
-function getValByFrom(_input, from, _idx) {
-  while (true) {
-    let idx = _idx;
-    let input = _input;
-    let key = from[idx];
-    if (key === undefined) {
-      return input;
-    }
-    _idx = idx + 1 | 0;
-    _input = input.d[key];
-    continue;
-  };
-}
-
-function prepareShapedSerializerAcc(acc, input) {
-  let match = input.e;
-  let from = match.from;
-  if (from !== undefined) {
-    let fromFlattened = match.fromFlattened;
-    let accAtFrom;
-    if (fromFlattened !== undefined) {
-      if (acc.flattened === undefined) {
-        acc.flattened = [];
-      }
-      let acc$1 = acc.flattened[fromFlattened];
-      if (acc$1 !== undefined) {
-        accAtFrom = acc$1;
-      } else {
-        let newAcc = {};
-        acc.flattened[fromFlattened] = newAcc;
-        accAtFrom = newAcc;
-      }
-    } else {
-      accAtFrom = acc;
-    }
-    for (let idx = 0, idx_finish = from.length; idx < idx_finish; ++idx) {
-      let key = from[idx];
-      let p = accAtFrom.properties;
-      let p$1;
-      if (p !== undefined) {
-        p$1 = p;
-      } else {
-        let p$2 = {};
-        accAtFrom.properties = p$2;
-        p$1 = p$2;
-      }
-      let acc$2 = p$1[key];
-      let tmp;
-      if (acc$2 !== undefined) {
-        tmp = acc$2;
-      } else {
-        let newAcc$1 = {};
-        p$1[key] = newAcc$1;
-        tmp = newAcc$1;
-      }
-      accAtFrom = tmp;
-    }
-    accAtFrom.val = input;
-    return;
-  }
-  let vals = input.d;
-  if (vals === undefined) {
-    return;
-  }
-  let keys = Object.keys(vals);
-  for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
-    prepareShapedSerializerAcc(acc, vals[keys[idx$1]]);
-  }
 }
 
 function getShapedSerializerOutput(input, acc, targetSchema, path) {
@@ -3824,14 +3774,68 @@ function getShapedSerializerOutput(input, acc, targetSchema, path) {
   }
 }
 
-function shapedSerializer(input) {
-  let acc = {};
-  prepareShapedSerializerAcc(acc, input);
-  let targetSchema = input.e.to;
-  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
-  output.t = true;
-  output.prev = input;
-  return output;
+function prepareShapedSerializerAcc(acc, input) {
+  let match = input.e;
+  let from = match.from;
+  if (from !== undefined) {
+    let fromFlattened = match.fromFlattened;
+    let accAtFrom;
+    if (fromFlattened !== undefined) {
+      if (acc.flattened === undefined) {
+        acc.flattened = [];
+      }
+      let acc$1 = acc.flattened[fromFlattened];
+      if (acc$1 !== undefined) {
+        accAtFrom = acc$1;
+      } else {
+        let newAcc = {};
+        acc.flattened[fromFlattened] = newAcc;
+        accAtFrom = newAcc;
+      }
+    } else {
+      accAtFrom = acc;
+    }
+    for (let idx = 0, idx_finish = from.length; idx < idx_finish; ++idx) {
+      let key = from[idx];
+      let p = accAtFrom.properties;
+      let p$1;
+      if (p !== undefined) {
+        p$1 = p;
+      } else {
+        let p$2 = {};
+        accAtFrom.properties = p$2;
+        p$1 = p$2;
+      }
+      let acc$2 = p$1[key];
+      let tmp;
+      if (acc$2 !== undefined) {
+        tmp = acc$2;
+      } else {
+        let newAcc$1 = {};
+        p$1[key] = newAcc$1;
+        tmp = newAcc$1;
+      }
+      accAtFrom = tmp;
+    }
+    accAtFrom.val = input;
+    return;
+  }
+  let vals = input.d;
+  if (vals === undefined) {
+    return;
+  }
+  let keys = Object.keys(vals);
+  for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
+    prepareShapedSerializerAcc(acc, vals[keys[idx$1]]);
+  }
+}
+
+function definitionToSchema(definition) {
+  return traverseDefinition(definition, node => {
+    if (node["~standard"]) {
+      return node;
+    }
+  });
 }
 
 function nested(fieldName) {
@@ -3898,14 +3902,6 @@ function nested(fieldName) {
   };
   parentCtx[cacheId] = ctx$1;
   return ctx$1;
-}
-
-function definitionToSchema(definition) {
-  return traverseDefinition(definition, node => {
-    if (node["~standard"]) {
-      return node;
-    }
-  });
 }
 
 function shapedParser(input) {
