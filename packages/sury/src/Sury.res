@@ -3025,18 +3025,26 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
         output
       }
     }
-  | _ => {
-      // Static construction. Two shapes funnel here:
-      //  - fixed-property object target: keys/expected come from the target.
-      //  - dict target fed by a fixed-property object source (encode): keys come
-      //    from the source object and every field coerces to the dict's value
-      //    schema. A field that stays optional after coercion is dropped when
-      //    absent by `completeObjectVal`; one coerced to a required value keeps
-      //    its key.
-      let properties = switch dictItem {
-      | Some(_) => input.schema.properties->X.Option.getUnsafe
-      | None => expectedSchema.properties->X.Option.getUnsafe
+  | Some(itemSchema) => {
+      // Encode a fixed-property object into a dict: build an object literal from
+      // the SOURCE's keys, coercing every value to the dict's value schema.
+      // `completeObjectVal` drops a field that is still optional after coercion.
+      // (A dict source took the dynamic branch above, so the source is an object.)
+      let objectVal = input->makeObjectVal(~schema=expectedSchema)
+      let keys = input.schema.properties->X.Option.getUnsafe->Dict.keysToArray
+      for idx in 0 to keys->Array.length - 1 {
+        let key = keys->Array.getUnsafe(idx)
+        let itemInput = input->valGet(key)
+        itemInput.expected = itemSchema
+        itemInput.isOutput = Some(false)
+        itemInput.isUnion = Some(isUnion)
+        objectVal->B.Val.Object.add(~location=key, itemInput->parse)
       }
+      objectVal->completeObjectVal
+    }
+  | None => {
+      // Build a fixed-property object target (from a dict or object source).
+      let properties = expectedSchema.properties->X.Option.getUnsafe
       let keys = Dict.keysToArray(properties)
       let keysCount = keys->Array.length
 
@@ -3072,13 +3080,7 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
 
       for idx in 0 to keysCount - 1 {
         let key = keys->Array.getUnsafe(idx)
-        // For a dict target every field is expected to be the dict's value
-        // schema; for an object target each field has its own schema. `valGet`
-        // already gives the source field's schema as the input type.
-        let schema = switch dictItem {
-        | Some(itemSchema) => itemSchema
-        | None => properties->Dict.getUnsafe(key)
-        }
+        let schema = properties->Dict.getUnsafe(key)
 
         let itemInput = input->valGet(key)
         itemInput.expected = schema
