@@ -191,6 +191,69 @@ test("Can flatten transformed object schema", t => {
   )
 })
 
+// https://github.com/DZakh/sury/issues/271
+test("Flattened object with a transformed field decodes the field once", t => {
+  let fieldSchema = S.string->S.transform(_ => {
+    parser: s => s ++ "!",
+    serializer: s => s->String.replaceAll("!", ""),
+  })
+  let inner = S.object(s => {"createdAt": s.field("createdAt", fieldSchema)})
+  let schema = S.object(s => {"properties": s.flatten(inner)})
+
+  // Before the fix the flattened field's transform ran twice ("x!!"), and a
+  // string|Date transform like S.date would throw "Expected string, received
+  // [object Date]" on the second run.
+  t->Assert.deepEqual(
+    %raw(`{"createdAt": "x"}`)->S.parseOrThrow(~to=schema),
+    %raw(`{"properties": {"createdAt": "x!"}}`),
+  )
+  t->U.assertReverseReversesBack(schema)
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{typeof i==="object"&&i||e[3](i);let v1=i["createdAt"];typeof v1==="string"||e[2](v1);let v0;try{v0=e[0](v1)}catch(x){e[1](x)}return {"properties":{"createdAt":v0,},}}`,
+  )
+})
+
+// https://github.com/DZakh/sury/issues/271
+// A flattened S.schema with an identity definition has no `.to`, but a
+// transformed field still must not be decoded twice.
+test("Flattened schema without a reshape decodes a transformed field once", t => {
+  let fieldSchema = S.string->S.transform(_ => {
+    parser: s => s ++ "!",
+    serializer: s => s->String.replaceAll("!", ""),
+  })
+  let schema = S.object(s => {"wrap": s.flatten(S.schema(s => {"name": s.matches(fieldSchema)}))})
+
+  t->Assert.deepEqual(
+    %raw(`{"name": "x"}`)->S.parseOrThrow(~to=schema),
+    %raw(`{"wrap": {"name": "x!"}}`),
+  )
+  t->U.assertReverseReversesBack(schema)
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{typeof i==="object"&&i||e[3](i);let v1=i["name"];typeof v1==="string"||e[2](v1);let v0;try{v0=e[0](v1)}catch(x){e[1](x)}return {"wrap":{"name":v0,},}}`,
+  )
+})
+
+// A flattened schema without a reshape can still carry refiners; reusing the
+// decoded fields must not drop them.
+test("Flattened schema without a reshape keeps its refiners", t => {
+  let inner =
+    S.schema(s => {"n": s.matches(S.int)})->S.refine(value => value["n"] >= 0, ~error="must be non-negative")
+  let schema = S.object(s => {"wrap": s.flatten(inner)})
+
+  t->Assert.deepEqual(%raw(`{"n": 1}`)->S.parseOrThrow(~to=schema), %raw(`{"wrap": {"n": 1}}`))
+  // The flattened object's fields live at the input root (there is no "wrap"
+  // nesting in the input — that only exists in the output shape), so the
+  // refiner reports at the root path with no prefix.
+  t->U.assertThrowsMessage(
+    () => %raw(`{"n": -1}`)->S.parseOrThrow(~to=schema),
+    "must be non-negative",
+  )
+})
+
 test("Fails to flatten non-object schema", t => {
   t->Assert.throws(
     () => {
