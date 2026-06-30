@@ -59,6 +59,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: 4.1.7
         version: 4.1.7(vitest@4.1.7)
+      esbuild:
+        specifier: 0.28.0
+        version: 0.28.0
       execa:
         specifier: 7.1.1
         version: 7.1.1

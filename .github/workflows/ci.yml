@@ -29,6 +29,13 @@ jobs:
         run: pnpm bench:types
         working-directory: packages/sury
 
+      # Bundle size & tree-shaking guard. Fails if any scenario's gzip size
+      # drifts beyond ±1% of tests/bundle-size.snapshot.json. Runs after build
+      # so it measures the freshly compiled Sury.res.mjs.
+      - name: Bundle size benchmarks
+        run: pnpm bench:bundle
+        working-directory: packages/sury
+
       - run: pnpm coverage
         working-directory: packages/sury
 
