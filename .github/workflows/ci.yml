@@ -6,6 +6,8 @@ on:
       - main
       - "v\\d+.\\d+.\\d+-patch"
   pull_request:
+  # Lets CodSpeed trigger backtest runs to seed initial baseline data.
+  workflow_dispatch:
 
 jobs:
   sury:
@@ -42,6 +44,31 @@ jobs:
         with:
           name: sury
           path: packages/sury/artifacts
+
+  benchmarks:
+    name: Benchmarks
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read # required for actions/checkout
+      id-token: write # required for OIDC authentication with CodSpeed
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 24.16.0
+          cache: "pnpm"
+      - run: pnpm install
+
+      # Runs the Vitest runtime benchmarks under CodSpeed instrumentation
+      # (deterministic instruction counts). Posts a per-benchmark delta comment
+      # on PRs; regression gating is configured in the CodSpeed dashboard.
+      # Auth is tokenless via OIDC (see the permissions block above).
+      - name: Run benchmarks
+        uses: CodSpeedHQ/action@v4
+        with:
+          mode: simulation
+          run: pnpm --filter=sury bench && pnpm --filter=e2e benchmark:comparison
 
   ppx-build-linux:
     name: ppx-build-linux
@@ -223,9 +250,6 @@ jobs:
 
   e2e:
     name: E2E Test
-    permissions:
-      contents: write
-      pull-requests: write
     needs: [ppx-build-linux]
     runs-on: ubuntu-24.04
     steps:
@@ -253,24 +277,3 @@ jobs:
 
       - run: pnpm rescript && pnpm test
         working-directory: packages/e2e
-
-      - name: Run benchmark
-        working-directory: packages/e2e
-        run: pnpm benchmark | tee output.txt
-
-      - name: Download previous benchmark data
-        uses: actions/cache@v3
-        with:
-          path: ./cache
-          key: ${{ runner.os }}-benchmark
-
-      - name: Store benchmark result
-        uses: benchmark-action/github-action-benchmark@v1
-        with:
-          tool: "benchmarkjs"
-          output-file-path: packages/e2e/output.txt
-          external-data-json-path: ./cache/benchmark-data.json
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          alert-threshold: "150%"
-          comment-always: true
-          comment-on-alert: true
