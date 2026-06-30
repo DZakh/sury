@@ -1200,8 +1200,17 @@ module Builder = {
       // Already emitted (a late materialization after this val's segment was
       // merged — e.g. a fused `.to` stage reading a previous stage's transformed
       // output): owning a fresh decl here would drop it (the phantom-var fusion
-      // bug). Re-read inline instead; the expression's vars live in an enclosing
-      // segment that still dominates this use. Mirrors `_notVarAtParent`.
+      // bug). Re-read the inline expression instead. Like `_notVarAtParent`'s
+      // finalized guard, but that sibling's inline is always an atomic
+      // `parent[key]`, whereas a transform val's inline can be compound (e.g.
+      // `""+x`), so parenthesize it to stay correct under any operator a consumer
+      // wraps it in (`+(""+x)`, not `+""+x`). Mutating `inline` (not just
+      // returning the wrap) keeps a second `.var()` — now routed through `_var` —
+      // consistent. Re-reading is sound only because the inlines that reach here
+      // are idempotent (`""+x`, `+x`): side-effecting/allocating coercions
+      // (`BigInt(...)`, `new Date(...)`, `new Array(...)`) are var-materialized by
+      // an eager check before they can finalize, and their referenced vars live
+      // in an enclosing segment (not a closed loop/`.then` scope).
       if val.finalized->X.Option.unsafeToBool {
         val.var = _var
         val.inline = `(${val.inline})`
