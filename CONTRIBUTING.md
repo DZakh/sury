@@ -206,7 +206,8 @@ pnpm benchmark:bundle --update # re-baseline after an intentional size change
 It bundles tiny per-feature entry points with esbuild, gzips them, and compares
 against `packages/sury/tests/bundle-size.snapshot.json`. Because each entry
 imports only part of the API, the output size measures how well the unused code
-tree-shakes away. See `packages/sury/tests/bundle.bench.mjs`.
+tree-shakes away. See `packages/sury/tests/bundle.bench.mjs`. On pull requests CI
+posts the result table as a sticky comment and the job summary.
 
 ## Make comparison
 
