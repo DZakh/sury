@@ -1,7 +1,12 @@
 import { bench, describe } from "vitest";
 import * as S from "../src/S.js";
 
-// Match the benchmark fixture's runtime config (NaN check skewed float parsing).
+// Sury's own runtime hot-path benchmarks across object, union, and recursive
+// schemas. Instrumented by CodSpeed in CI; run locally with
+// `pnpm --filter=sury bench`.
+
+// Skip NaN number validation so float parsing isn't penalized — matches the
+// config used by the cross-library comparison benchmark.
 S.global({ disableNanNumberValidation: true });
 
 const data = Object.freeze({
@@ -39,48 +44,52 @@ const parse = S.parser(schema);
 const serialize = S.encoder(schema);
 
 describe("object", () => {
+  // Schema construction only — no parsing.
   bench("object: create", () => {
     makeSchema();
   });
 
-  // S.parser returns the compiled parse fn; this is the hot path users pay.
+  // Hot path: parse with an already-compiled parser (what users pay per call).
   bench("object: parse", () => {
     parse(data);
   });
 
-  // Cold path: build the schema and parse once (compile cost included).
+  // Cold path: build the schema and compile its parser, then parse once.
   bench("object: create + parse", () => {
     S.parser(makeSchema())(data);
   });
 
-  // Output -> Input (serialize). No transforms here, so it exercises the
-  // reverse pipeline assembly without per-field conversion.
+  // Output -> Input. No transforms here, so this measures reverse-pipeline
+  // assembly without any per-field conversion.
   bench("object: serialize", () => {
     serialize(data);
   });
 
+  // Validate in place: narrows the input and throws on mismatch, no output.
   bench("object: assert", () => {
     S.assert(data, schema);
   });
 });
 
-// Discriminated union of an object member and a string->number transform —
-// exercises union dispatch + a transforming branch.
+// Union of an object member and a string->number transform — exercises union
+// dispatch, with one branch that transforms and one that doesn't.
 const union = S.union([{ box: S.string }, S.string.with(S.to, S.number)]);
 const parseUnion = S.parser(union);
 
 describe("union", () => {
+  // Dispatch to the object branch (no transform).
   bench("union: parse object branch", () => {
     parseUnion({ box: "abc" });
   });
 
+  // Dispatch to the string->number branch (runs the transform).
   bench("union: parse transform branch", () => {
     parseUnion("123");
   });
 });
 
-// Recursive schema: a tagged tree whose nodes hold an array of children.
-// Exercises S.recursive + union dispatch + array recursion together.
+// Recursive tagged tree: each node holds an array of child nodes. Exercises
+// S.recursive together with union dispatch and array recursion.
 type Tree = { type: "node"; children: Tree[] } | string;
 const tree = S.recursive<Tree>("Tree", (self) =>
   S.union([S.schema({ type: "node" as const, children: S.array(self) }), S.string])
