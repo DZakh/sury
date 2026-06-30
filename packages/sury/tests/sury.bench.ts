@@ -39,27 +39,27 @@ const parse = S.parser(schema);
 const serialize = S.encoder(schema);
 
 describe("object", () => {
-  bench("create", () => {
+  bench("object: create", () => {
     makeSchema();
   });
 
   // S.parser returns the compiled parse fn; this is the hot path users pay.
-  bench("parse", () => {
+  bench("object: parse", () => {
     parse(data);
   });
 
   // Cold path: build the schema and parse once (compile cost included).
-  bench("create + parse", () => {
+  bench("object: create + parse", () => {
     S.parser(makeSchema())(data);
   });
 
   // Output -> Input (serialize). No transforms here, so it exercises the
   // reverse pipeline assembly without per-field conversion.
-  bench("serialize", () => {
+  bench("object: serialize", () => {
     serialize(data);
   });
 
-  bench("assert", () => {
+  bench("object: assert", () => {
     S.assert(data, schema);
   });
 });
@@ -70,11 +70,11 @@ const union = S.union([{ box: S.string }, S.string.with(S.to, S.number)]);
 const parseUnion = S.parser(union);
 
 describe("union", () => {
-  bench("parse object branch", () => {
+  bench("union: parse object branch", () => {
     parseUnion({ box: "abc" });
   });
 
-  bench("parse transform branch", () => {
+  bench("union: parse transform branch", () => {
     parseUnion("123");
   });
 });
@@ -95,7 +95,7 @@ const makeTree = (depth: number, breadth: number): Tree =>
 const treeData = makeTree(3, 10);
 
 describe("recursive", () => {
-  bench("parse nested tree", () => {
+  bench("recursive: parse nested tree", () => {
     parseTree(treeData);
   });
 });

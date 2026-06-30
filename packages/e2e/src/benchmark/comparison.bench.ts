@@ -149,7 +149,7 @@ const TypeBoxUnion = Type.Union([
 const suryUnionParse = S.parser(SuryUnion);
 
 describe("create", () => {
-  bench("Sury", () => {
+  bench("create: Sury", () => {
     S.schema({
       number: S.number,
       negNumber: S.number,
@@ -164,7 +164,7 @@ describe("create", () => {
       },
     });
   });
-  bench("Zod", () => {
+  bench("create: Zod", () => {
     z.object({
       number: z.number(),
       negNumber: z.number(),
@@ -179,7 +179,7 @@ describe("create", () => {
       }),
     });
   });
-  bench("Valibot", () => {
+  bench("create: Valibot", () => {
     v.object({
       number: v.number(),
       negNumber: v.number(),
@@ -194,7 +194,7 @@ describe("create", () => {
       }),
     });
   });
-  bench("ArkType", () => {
+  bench("create: ArkType", () => {
     type({
       number: "number",
       negNumber: "number",
@@ -209,7 +209,7 @@ describe("create", () => {
       },
     });
   });
-  bench("TypeBox", () => {
+  bench("create: TypeBox", () => {
     TypeCompiler.Compile(
       Type.Object({
         number: Type.Number(),
@@ -229,19 +229,19 @@ describe("create", () => {
 });
 
 describe("parse", () => {
-  bench("Sury", () => {
+  bench("parse: Sury", () => {
     suryParse(data);
   });
-  bench("Zod", () => {
+  bench("parse: Zod", () => {
     zodSchema.parse(data);
   });
-  bench("Valibot", () => {
+  bench("parse: Valibot", () => {
     v.parse(valibotSchema, data);
   });
-  bench("ArkType", () => {
+  bench("parse: ArkType", () => {
     arkTypeSchema(data);
   });
-  bench("TypeBox", () => {
+  bench("parse: TypeBox", () => {
     if (!typeBoxSchema.Check(data)) {
       throw new Error(typeBoxSchema.Errors(data).First()?.message);
     }
@@ -249,7 +249,7 @@ describe("parse", () => {
 });
 
 describe("create + parse", () => {
-  bench("Sury", () => {
+  bench("create + parse: Sury", () => {
     const schema = S.schema({
       number: S.number,
       negNumber: S.number,
@@ -265,7 +265,7 @@ describe("create + parse", () => {
     });
     S.parser(schema)(data);
   });
-  bench("Zod", () => {
+  bench("create + parse: Zod", () => {
     const schema = z.object({
       number: z.number(),
       negNumber: z.number(),
@@ -281,7 +281,7 @@ describe("create + parse", () => {
     });
     schema.parse(data);
   });
-  bench("Valibot", () => {
+  bench("create + parse: Valibot", () => {
     const schema = v.object({
       number: v.number(),
       negNumber: v.number(),
@@ -297,7 +297,7 @@ describe("create + parse", () => {
     });
     v.parse(schema, data);
   });
-  bench("ArkType", () => {
+  bench("create + parse: ArkType", () => {
     const schema = type({
       number: "number",
       negNumber: "number",
@@ -313,7 +313,7 @@ describe("create + parse", () => {
     });
     schema(data);
   });
-  bench("TypeBox", () => {
+  bench("create + parse: TypeBox", () => {
     const schema = TypeCompiler.Compile(
       Type.Object({
         number: Type.Number(),
@@ -336,19 +336,19 @@ describe("create + parse", () => {
 });
 
 describe("union", () => {
-  bench("Sury", () => {
+  bench("union: Sury", () => {
     suryUnionParse("123");
   });
-  bench("Zod", () => {
+  bench("union: Zod", () => {
     ZodUnion.parse("123");
   });
-  bench("Valibot", () => {
+  bench("union: Valibot", () => {
     v.parse(ValibotUnion, "123");
   });
-  bench("ArkType", () => {
+  bench("union: ArkType", () => {
     ArkTypeUnion("123");
   });
-  bench("TypeBox", () => {
+  bench("union: TypeBox", () => {
     Value.Decode(TypeBoxUnion, "123");
   });
 });
