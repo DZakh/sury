@@ -5,19 +5,8 @@ open Vitest
 // These tests mirror @valibot/to-json-schema's `toStandardJsonSchema` test
 // suite to ensure Sury behaves the same way (shape, target validation and
 // `$schema` stamping for both `input` and `output`).
-type standardJSONSchemaOptions = {target: string}
-type standardJSONSchemaConverter = {
-  input: standardJSONSchemaOptions => JSONSchema.t,
-  output: standardJSONSchemaOptions => JSONSchema.t,
-}
-type standard = {
-  version: int,
-  vendor: string,
-  validate: unknown,
-  jsonSchema: standardJSONSchemaConverter,
-}
 @get_index
-external standardOf: (S.t<'a>, string) => standard = ""
+external standardOf: (S.t<'a>, string) => StandardSchema.t<unknown, unknown> = ""
 let standardOf = schema => schema->standardOf("~standard")
 let jsonSchemaConverter = schema => (schema->standardOf).jsonSchema
 

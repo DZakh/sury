@@ -494,8 +494,7 @@ let length: (t<'value>, int, ~message: string=?) => t<'value>
 let pattern: (t<string>, RegExp.t, ~message: string=?) => t<string>
 let trim: t<string> => t<string>
 
-type jsonSchemaTarget = [#"draft-07" | #"draft-2020-12" | #"openapi-3.0"]
-type toJSONSchemaOptions = {target?: jsonSchemaTarget}
+type toJSONSchemaOptions = {target?: StandardSchema.target}
 let toJSONSchema: (t<'value>, ~options: toJSONSchemaOptions=?) => JSONSchema.t
 let fromJSONSchema: JSONSchema.t => t<JSON.t>
 let extendJSONSchema: (t<'value>, JSONSchema.t) => t<'value>

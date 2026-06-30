@@ -37,13 +37,13 @@ test("toJSONSchema without options stays unchanged (no $schema)", t => {
 })
 
 test("toJSONSchema with an unsupported target throws", t => {
-  // ReScript callers are constrained to `jsonSchemaTarget` by the type system,
-  // but an untyped JS caller (e.g. via `~standard`) can pass an arbitrary string;
-  // `toJSONSchema` validates it at runtime. Simulate that here with a cast.
+  // ReScript callers are constrained to `StandardSchema.target` by the type
+  // system, but an untyped JS caller (e.g. via `~standard`) can pass an arbitrary
+  // string; `toJSONSchema` validates it at runtime. Simulate that with a cast.
   t->Assert.throws(
     () =>
       S.string->S.toJSONSchema(
-        ~options={target: "unsupported-target"->(U.magic: string => S.jsonSchemaTarget)},
+        ~options={target: "unsupported-target"->(U.magic: string => StandardSchema.target)},
       ),
     ~expectations={message: "Unsupported JSON Schema target: unsupported-target"},
   )
