@@ -468,7 +468,7 @@ asyncTest("Successfully parses recursive object with async parse function", t =>
     ~schema=nodeSchema,
     ~op=#ParseAsync,
     `i=>{let v0;v0=e[0](i);return v0}
-Node: i=>{typeof i==="object"&&i||e[5](i);let v1=i["Id"],v2=i["Children"];typeof v1==="string"||e[2](v1);let v0;try{v0=e[0](i["Id"]).catch(x=>e[1](x))}catch(x){e[1](x)}Array.isArray(v2)||e[4](v2);let v6=new Array(v2.length);for(let v3=0;v3<v2.length;++v3){try{let v4;v4=e[3]["unknown->Node--1"](v2[v3]);v6[v3]=v4.catch(v5=>{v5.path="[\\"Children\\"]"+'["'+v3+'"]'+v5.path;throw v5})}catch(v5){v5.path="[\\"Children\\"]"+'["'+v3+'"]'+v5.path;throw v5}}let v7=Promise.all(v6);return Promise.all([v0,v7,]).then(([v0,v7,])=>{return {"id":v0,"children":v7,}})}`,
+Node: i=>{typeof i==="object"&&i||e[5](i);let v1=i["Id"],v2=i["Children"];typeof v1==="string"||e[2](v1);let v0;try{v0=e[0](v1).catch(x=>e[1](x))}catch(x){e[1](x)}Array.isArray(v2)||e[4](v2);let v6=new Array(v2.length);for(let v3=0;v3<v2.length;++v3){try{let v4;v4=e[3]["unknown->Node--1"](v2[v3]);v6[v3]=v4.catch(v5=>{v5.path="[\\"Children\\"]"+'["'+v3+'"]'+v5.path;throw v5})}catch(v5){v5.path="[\\"Children\\"]"+'["'+v3+'"]'+v5.path;throw v5}}let v7=Promise.all(v6);return Promise.all([v0,v7,]).then(([v0,v7,])=>{return {"id":v0,"children":v7,}})}`,
   )
 
   %raw(`{
@@ -529,7 +529,7 @@ test("Parses recursive object with async fields in parallel", t => {
     ~schema=nodeSchema,
     ~op=#ParseAsync,
     `i=>{let v0;v0=e[0](i);return v0}
-Node: i=>{typeof i==="object"&&i||e[5](i);let v1=i["Id"],v2=i["Children"];typeof v1==="string"||e[2](v1);let v0;try{v0=e[0](i["Id"]).catch(x=>e[1](x))}catch(x){e[1](x)}Array.isArray(v2)||e[4](v2);let v6=new Array(v2.length);for(let v3=0;v3<v2.length;++v3){try{let v4;v4=e[3]["unknown->Node--1"](v2[v3]);v6[v3]=v4.catch(v5=>{v5.path="[\\"Children\\"]"+'["'+v3+'"]'+v5.path;throw v5})}catch(v5){v5.path="[\\"Children\\"]"+'["'+v3+'"]'+v5.path;throw v5}}let v7=Promise.all(v6);return Promise.all([v0,v7,]).then(([v0,v7,])=>{return {"id":v0,"children":v7,}})}`,
+Node: i=>{typeof i==="object"&&i||e[5](i);let v1=i["Id"],v2=i["Children"];typeof v1==="string"||e[2](v1);let v0;try{v0=e[0](v1).catch(x=>e[1](x))}catch(x){e[1](x)}Array.isArray(v2)||e[4](v2);let v6=new Array(v2.length);for(let v3=0;v3<v2.length;++v3){try{let v4;v4=e[3]["unknown->Node--1"](v2[v3]);v6[v3]=v4.catch(v5=>{v5.path="[\\"Children\\"]"+'["'+v3+'"]'+v5.path;throw v5})}catch(v5){v5.path="[\\"Children\\"]"+'["'+v3+'"]'+v5.path;throw v5}}let v7=Promise.all(v6);return Promise.all([v0,v7,]).then(([v0,v7,])=>{return {"id":v0,"children":v7,}})}`,
   )
 })
 
