@@ -119,8 +119,8 @@ async function measure(scenario) {
     // Resolve the bare `sury` specifier to the local dev entry so scenario code
     // reads like real consumer code.
     alias: { sury: SURY_ENTRY },
-    // src/S.js intentionally re-exports a couple of names that don't yet exist
-    // on Sury.res.mjs; those warnings are unrelated to size. `build` still
+    // Silence esbuild's warning that package.json orders the "types" export
+    // condition after "import"/"require" — unrelated to size. `build` still
     // rejects on real errors regardless of logLevel.
     logLevel: "silent",
   });

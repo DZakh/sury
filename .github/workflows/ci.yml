@@ -51,10 +51,14 @@ jobs:
           header: bundle-size
           path: packages/sury/bundle-size.md
 
+      # Run regardless of the bundle-size gate above: a size regression should
+      # fail the job without also hiding coverage or blocking the artifact.
       - run: pnpm coverage
+        if: ${{ !cancelled() }}
         working-directory: packages/sury
 
       - uses: codecov/codecov-action@v3
+        if: ${{ !cancelled() }}
         with:
           files: packages/sury/coverage/lcov.info
 
@@ -63,6 +67,7 @@ jobs:
       #   working-directory: packages/sury
 
       - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
         with:
           name: sury
           path: packages/sury/artifacts
