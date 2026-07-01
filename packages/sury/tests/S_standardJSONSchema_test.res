@@ -6,7 +6,7 @@ open Vitest
 // suite to ensure Sury behaves the same way (shape, target validation and
 // `$schema` stamping for both `input` and `output`).
 @get_index
-external standardOf: (S.t<'a>, string) => StandardSchema.t<unknown, unknown> = ""
+external standardOf: (S.t<'a>, string) => StandardSchema.props<unknown, unknown> = ""
 let standardOf = schema => schema->standardOf("~standard")
 let jsonSchemaConverter = schema => (schema->standardOf).jsonSchema
 

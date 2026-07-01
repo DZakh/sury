@@ -534,7 +534,7 @@ and internal = {
   mutable isAsync?: bool, // Optional value means that it's not lazily computed yet.
   mutable hasTransform?: bool, // Optional value means that it's not lazily computed yet.
   @as("~standard")
-  mutable standard?: StandardSchema.t<unknown, unknown>, // This is optional for convenience. The object added on make call
+  mutable standard?: StandardSchema.props<unknown, unknown>, // This is optional for convenience. The object added on make call
 }
 and schemaErrorMessage = {
   @as("_")
@@ -4317,7 +4317,7 @@ X.Object.defineProperty(
     get: (
       () => {
         let schema = %raw(`this`)
-        let standard: StandardSchema.t<unknown, unknown> = {
+        let standard: StandardSchema.props<unknown, unknown> = {
           version: 1,
           vendor,
           // Built as raw objects (then cast to `StandardSchema.Result.t`) so the

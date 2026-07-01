@@ -57,13 +57,17 @@ module JsonSchema = {
   }
 }
 
-// The `~standard` value carried by every schema: `StandardSchemaV1.Props`
-// intersected with `StandardJSONSchemaV1.Props`. Parametrized by the schema's
-// inferred input/output types.
-type t<'input, 'output> = {
+// The `~standard` property object: `StandardSchemaV1.Props` intersected with
+// `StandardJSONSchemaV1.Props`. Parametrized by the schema's inferred
+// input/output types.
+type props<'input, 'output> = {
   version: int,
   vendor: string,
   validate: unknown => Result.t<'output>,
   jsonSchema: JsonSchema.converter,
   types?: types<'input, 'output>,
 }
+
+// The Standard Schema interface (`StandardSchemaV1`): an object carrying the
+// `~standard` property.
+type t<'input, 'output> = {@as("~standard") standard: props<'input, 'output>}
