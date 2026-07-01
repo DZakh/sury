@@ -1,6 +1,6 @@
 {
   "_comment": "Baseline sizes for the bundle-size & tree-shaking benchmark. Regenerate with `pnpm bench:bundle --update` after an intentional size change. Assertions are on `gzip`.",
-  "esbuildVersion": "0.28.0",
+  "esbuildVersion": "0.28.1",
   "scenarios": {
     "total (export *)": {
       "min": 57467,

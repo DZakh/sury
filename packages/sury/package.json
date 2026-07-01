@@ -68,7 +68,7 @@
     "@rollup/plugin-node-resolve": "16.0.0",
     "@types/node": "20.19.41",
     "@vitest/coverage-v8": "4.1.7",
-    "esbuild": "0.28.0",
+    "esbuild": "0.28.1",
     "execa": "7.1.1",
     "rescript": "12.2.0",
     "rescript-nodejs": "16.1.0",
