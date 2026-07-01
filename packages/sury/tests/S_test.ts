@@ -1950,6 +1950,42 @@ test("Standard schema", (t) => {
   >();
 });
 
+test("Standard JSON Schema interface support", (t) => {
+  const schema = S.schema({ foo: S.to(S.string, S.number) });
+  const standard = schema["~standard"];
+
+  // The `~standard` property now also exposes the Standard JSON Schema
+  // `jsonSchema` converter. https://standardschema.dev/json-schema
+  const jsonSchema: S.StandardJSONSchemaV1.Converter = standard.jsonSchema;
+
+  const inputJsonSchema: Record<string, unknown> = jsonSchema.input({
+    target: "draft-07",
+  });
+  const outputJsonSchema: Record<string, unknown> = jsonSchema.output({
+    target: "draft-07",
+  });
+
+  // `input` returns the JSON Schema of the input type, with the `$schema` URI
+  // for the requested target stamped on top of `S.toJSONSchema(schema)`.
+  t.expect(inputJsonSchema).toEqual({
+    $schema: "http://json-schema.org/draft-07/schema#",
+    ...(S.toJSONSchema(schema) as Record<string, unknown>),
+  });
+  // `output` returns the JSON Schema of the output type, which differs.
+  t.expect(inputJsonSchema).not.toEqual(outputJsonSchema);
+
+  // The `draft-2020-12` target stamps a different `$schema` URI.
+  t.expect(jsonSchema.input({ target: "draft-2020-12" }).$schema).toBe(
+    "https://json-schema.org/draft/2020-12/schema"
+  );
+  // The `openapi-3.0` target omits `$schema`.
+  t.expect(jsonSchema.input({ target: "openapi-3.0" }).$schema).toBe(undefined);
+  // An unsupported target throws.
+  t.expect(() =>
+    jsonSchema.input({ target: "unsupported-target" })
+  ).toThrow("Unsupported JSON Schema target: unsupported-target");
+});
+
 test("Env schema: Reggression version", (t) => {
   const env = <T>(schema: S.Schema<T>): S.Schema<T, string> => {
     if (schema.type === "boolean") {

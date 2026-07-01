@@ -1336,18 +1336,6 @@ function parse$1(input) {
   return valRef;
 }
 
-function getOutputSchema(_schema) {
-  while (true) {
-    let schema = _schema;
-    let to = schema.to;
-    if (to === undefined) {
-      return schema;
-    }
-    _schema = to;
-    continue;
-  };
-}
-
 function reverse(schema) {
   if (reversedKey in schema) {
     return schema[reversedKey];
@@ -1447,6 +1435,18 @@ function reverse(schema) {
   valueOptions[valKey] = schema;
   d(r, reversedKey, valueOptions);
   return r;
+}
+
+function getOutputSchema(_schema) {
+  while (true) {
+    let schema = _schema;
+    let to = schema.to;
+    if (to === undefined) {
+      return schema;
+    }
+    _schema = to;
+    continue;
+  };
 }
 
 function parseDynamic(input) {
@@ -1756,6 +1756,48 @@ function objectDecoder(unknownInput) {
   return markOutput(output, input);
 }
 
+function unionPerVariantVal(input, target) {
+  return refine(input, unknown, undefined, updateOutput(input.s, mut => {
+    mut.to = target;
+  }));
+}
+
+function unionIsWiderSchema(schemaAnyOf, inputAnyOf) {
+  return inputAnyOf.every((inputSchema, idx) => {
+    let schema = schemaAnyOf[idx];
+    if (schema !== undefined && !(flags[inputSchema.type] & 9152) && inputSchema.type === schema.type && inputSchema.const === schema.const) {
+      return inputSchema.to === undefined;
+    } else {
+      return false;
+    }
+  });
+}
+
+function unionCanDispatchPerVariant(inputAnyOf, target) {
+  if (!(flags[getOutputSchema(target).type] & 512) && !(target.type === unionTag && target.anyOf.some(v => flags[v.type] & 512))) {
+    return !inputAnyOf.some(v => {
+      if (v.to !== undefined || v.parser !== undefined) {
+        return true;
+      } else {
+        return flags[v.type] & 512;
+      }
+    });
+  } else {
+    return false;
+  }
+}
+
+function unionGetToPerCase(schema) {
+  let match = schema.parser;
+  if (match !== undefined) {
+    return;
+  }
+  let to = schema.to;
+  if (to !== undefined) {
+    return to;
+  }
+}
+
 function nestedNone() {
   let itemSchema = parse(0);
   let properties = {};
@@ -1877,6 +1919,143 @@ function arrayDecoder(unknownInput) {
     }
   }
   return markOutput(output, input);
+}
+
+function unionFactory(schemas) {
+  let len = schemas.length;
+  if (len === 1) {
+    return schemas[0];
+  }
+  if (len !== 0) {
+    let has = {};
+    let anyOf = new Set();
+    for (let idx = 0, idx_finish = schemas.length; idx < idx_finish; ++idx) {
+      let schema = schemas[idx];
+      if (schema.type === unionTag && schema.to === undefined) {
+        schema.anyOf.forEach(item => {
+          anyOf.add(item);
+        });
+        Object.assign(has, schema.has);
+      } else {
+        anyOf.add(schema);
+        setHas(has, schema.type);
+      }
+    }
+    let mut = base(unionTag, false);
+    mut.anyOf = Array.from(anyOf);
+    mut.decoder = unionDecoder;
+    mut.encoder = unionEncoder;
+    mut.has = has;
+    return mut;
+  }
+  throw new Error(`[Sury] ` + "S.union requires at least one item");
+}
+
+function nestedOption(item) {
+  return updateOutput(item, mut => {
+    mut.to = nestedNone();
+    mut.parser = nestedOptionParser;
+  });
+}
+
+function valGet(parent, location) {
+  let d = parent.d;
+  let vals;
+  if (d !== undefined) {
+    vals = d;
+  } else {
+    let d$1 = {};
+    parent.d = d$1;
+    vals = d$1;
+  }
+  let v = vals[location];
+  if (v !== undefined) {
+    return scope(v);
+  }
+  let locationSchema = parent.s.type === objectTag ? parent.s.properties[location] : parent.s.items[location];
+  let schema;
+  if (locationSchema !== undefined) {
+    schema = locationSchema;
+  } else {
+    let s = parent.s.additionalItems;
+    schema = s === "strip" || s === "strict" ? unsupportedDecode(parent, parent.s, parent.e) : (
+        parent.s.type === objectTag && s.type !== unknownTag && !(flags[s.type] & 512) && !isOptional(s) ? option(s) : s
+      );
+  }
+  let inlinedLocation = inlineLocation(parent.g, location);
+  let pathAppend = `[` + inlinedLocation + `]`;
+  let item = {
+    p: parent,
+    v: _notVarAtParent,
+    i: constField in schema ? inlineConst(parent, schema) : parent.v() + pathAppend,
+    s: schema,
+    e: schema,
+    f: 0,
+    cp: "",
+    hd: "",
+    path: parent.path + pathAppend,
+    g: parent.g
+  };
+  vals[location] = item;
+  return item;
+}
+
+function array(item) {
+  let mut = base(arrayTag, item[reversedKey] === item);
+  mut.additionalItems = item;
+  mut.items = immutableEmpty$1;
+  mut.decoder = arrayDecoder;
+  return mut;
+}
+
+function completeObjectVal(objectVal) {
+  let isArray = objectVal.s.type === arrayTag;
+  let inline = "";
+  let promiseAllContent = "";
+  let optionalSettingCode;
+  let keys = Object.keys(objectVal.d);
+  for (let idx = 0, idx_finish = keys.length; idx < idx_finish; ++idx) {
+    let key = keys[idx];
+    let val = objectVal.d[key];
+    if (val.f & 1) {
+      promiseAllContent = promiseAllContent + val.i + ",";
+    }
+    if (val.o) {
+      let existingFn = optionalSettingCode;
+      optionalSettingCode = objectVar => (
+        existingFn !== undefined ? existingFn(objectVar) : ""
+      ) + (`if(` + val.v() + `!==void 0){` + objectVar + `[` + inlineLocation(objectVal.g, key) + `]=` + val.i + `}`);
+    } else {
+      inline = inline + (
+        isArray ? val.i : inlineLocation(objectVal.g, key) + `:` + val.i
+      ) + ",";
+    }
+  }
+  objectVal.i = isArray ? "[" + inline + "]" : "{" + inline + "}";
+  if (promiseAllContent) {
+    let operationInput = scope(objectVal);
+    operationInput.io = true;
+    let operationOutput = parse$1(operationInput);
+    let operationCode = merge(operationOutput, undefined);
+    if (operationCode === "" && promiseAllContent === operationOutput.i + `,`) {
+      objectVal.i = operationOutput.i;
+    } else {
+      objectVal.i = `Promise.all([` + promiseAllContent + `]).then(([` + promiseAllContent + `])=>{` + operationCode + `return ` + operationOutput.i + `})`;
+    }
+    objectVal.f = objectVal.f | 1;
+    objectVal.s = operationOutput.s;
+    objectVal.e = operationOutput.e;
+    objectVal.io = true;
+    return objectVal;
+  }
+  let fn = optionalSettingCode;
+  if (fn === undefined) {
+    return objectVal;
+  }
+  let code = fn(objectVal.v());
+  let output = refine(objectVal, undefined, undefined, undefined);
+  output.cp = output.cp + code;
+  return output;
 }
 
 function unionEncoder(input, target) {
@@ -2341,229 +2520,6 @@ function unionDecoder(input) {
   return o;
 }
 
-function unionIsWiderSchema(schemaAnyOf, inputAnyOf) {
-  return inputAnyOf.every((inputSchema, idx) => {
-    let schema = schemaAnyOf[idx];
-    if (schema !== undefined && !(flags[inputSchema.type] & 9152) && inputSchema.type === schema.type && inputSchema.const === schema.const) {
-      return inputSchema.to === undefined;
-    } else {
-      return false;
-    }
-  });
-}
-
-function unionPerVariantVal(input, target) {
-  return refine(input, unknown, undefined, updateOutput(input.s, mut => {
-    mut.to = target;
-  }));
-}
-
-function unionCanDispatchPerVariant(inputAnyOf, target) {
-  if (!(flags[getOutputSchema(target).type] & 512) && !(target.type === unionTag && target.anyOf.some(v => flags[v.type] & 512))) {
-    return !inputAnyOf.some(v => {
-      if (v.to !== undefined || v.parser !== undefined) {
-        return true;
-      } else {
-        return flags[v.type] & 512;
-      }
-    });
-  } else {
-    return false;
-  }
-}
-
-function unionGetToPerCase(schema) {
-  let match = schema.parser;
-  if (match !== undefined) {
-    return;
-  }
-  let to = schema.to;
-  if (to !== undefined) {
-    return to;
-  }
-}
-
-function valGet(parent, location) {
-  let d = parent.d;
-  let vals;
-  if (d !== undefined) {
-    vals = d;
-  } else {
-    let d$1 = {};
-    parent.d = d$1;
-    vals = d$1;
-  }
-  let v = vals[location];
-  if (v !== undefined) {
-    return scope(v);
-  }
-  let locationSchema = parent.s.type === objectTag ? parent.s.properties[location] : parent.s.items[location];
-  let schema;
-  if (locationSchema !== undefined) {
-    schema = locationSchema;
-  } else {
-    let s = parent.s.additionalItems;
-    schema = s === "strip" || s === "strict" ? unsupportedDecode(parent, parent.s, parent.e) : (
-        parent.s.type === objectTag && s.type !== unknownTag && !(flags[s.type] & 512) && !isOptional(s) ? option(s) : s
-      );
-  }
-  let inlinedLocation = inlineLocation(parent.g, location);
-  let pathAppend = `[` + inlinedLocation + `]`;
-  let item = {
-    p: parent,
-    v: _notVarAtParent,
-    i: constField in schema ? inlineConst(parent, schema) : parent.v() + pathAppend,
-    s: schema,
-    e: schema,
-    f: 0,
-    cp: "",
-    hd: "",
-    path: parent.path + pathAppend,
-    g: parent.g
-  };
-  vals[location] = item;
-  return item;
-}
-
-function completeObjectVal(objectVal) {
-  let isArray = objectVal.s.type === arrayTag;
-  let inline = "";
-  let promiseAllContent = "";
-  let optionalSettingCode;
-  let keys = Object.keys(objectVal.d);
-  for (let idx = 0, idx_finish = keys.length; idx < idx_finish; ++idx) {
-    let key = keys[idx];
-    let val = objectVal.d[key];
-    if (val.f & 1) {
-      promiseAllContent = promiseAllContent + val.i + ",";
-    }
-    if (val.o) {
-      let existingFn = optionalSettingCode;
-      optionalSettingCode = objectVar => (
-        existingFn !== undefined ? existingFn(objectVar) : ""
-      ) + (`if(` + val.v() + `!==void 0){` + objectVar + `[` + inlineLocation(objectVal.g, key) + `]=` + val.i + `}`);
-    } else {
-      inline = inline + (
-        isArray ? val.i : inlineLocation(objectVal.g, key) + `:` + val.i
-      ) + ",";
-    }
-  }
-  objectVal.i = isArray ? "[" + inline + "]" : "{" + inline + "}";
-  if (promiseAllContent) {
-    let operationInput = scope(objectVal);
-    operationInput.io = true;
-    let operationOutput = parse$1(operationInput);
-    let operationCode = merge(operationOutput, undefined);
-    if (operationCode === "" && promiseAllContent === operationOutput.i + `,`) {
-      objectVal.i = operationOutput.i;
-    } else {
-      objectVal.i = `Promise.all([` + promiseAllContent + `]).then(([` + promiseAllContent + `])=>{` + operationCode + `return ` + operationOutput.i + `})`;
-    }
-    objectVal.f = objectVal.f | 1;
-    objectVal.s = operationOutput.s;
-    objectVal.e = operationOutput.e;
-    objectVal.io = true;
-    return objectVal;
-  }
-  let fn = optionalSettingCode;
-  if (fn === undefined) {
-    return objectVal;
-  }
-  let code = fn(objectVal.v());
-  let output = refine(objectVal, undefined, undefined, undefined);
-  output.cp = output.cp + code;
-  return output;
-}
-
-function unionFactory(schemas) {
-  let len = schemas.length;
-  if (len === 1) {
-    return schemas[0];
-  }
-  if (len !== 0) {
-    let has = {};
-    let anyOf = new Set();
-    for (let idx = 0, idx_finish = schemas.length; idx < idx_finish; ++idx) {
-      let schema = schemas[idx];
-      if (schema.type === unionTag && schema.to === undefined) {
-        schema.anyOf.forEach(item => {
-          anyOf.add(item);
-        });
-        Object.assign(has, schema.has);
-      } else {
-        anyOf.add(schema);
-        setHas(has, schema.type);
-      }
-    }
-    let mut = base(unionTag, false);
-    mut.anyOf = Array.from(anyOf);
-    mut.decoder = unionDecoder;
-    mut.encoder = unionEncoder;
-    mut.has = has;
-    return mut;
-  }
-  throw new Error(`[Sury] ` + "S.union requires at least one item");
-}
-
-function unionIsPriority(tagFlag, byKey) {
-  if (tagFlag & 8320 && objectTag in byKey) {
-    return true;
-  } else if (tagFlag & 2048) {
-    return numberTag in byKey;
-  } else {
-    return false;
-  }
-}
-
-function unionToKey(schema) {
-  if (flags[schema.type] & 8192) {
-    return schema.class.name;
-  } else {
-    return schema.type;
-  }
-}
-
-function unionIsSelfDecodeNoop(_schema) {
-  while (true) {
-    let schema = _schema;
-    let tmp = false;
-    let tmp$1 = false;
-    let tmp$2 = false;
-    if (schema.to === undefined && schema.parser === undefined && !(flags[schema.type] & 512)) {
-      let anyOf = schema.anyOf;
-      tmp$2 = anyOf !== undefined ? anyOf.every(unionIsSelfDecodeNoop) : true;
-    }
-    if (tmp$2) {
-      let items = schema.items;
-      tmp$1 = items !== undefined ? items.every(unionIsSelfDecodeNoop) : true;
-    }
-    if (tmp$1) {
-      let properties = schema.properties;
-      tmp = properties !== undefined ? Object.values(properties).every(unionIsSelfDecodeNoop) : true;
-    }
-    if (!tmp) {
-      return false;
-    }
-    let match = schema.additionalItems;
-    if (match === undefined) {
-      return true;
-    }
-    if (match === "strip" || match === "strict") {
-      return true;
-    }
-    _schema = match;
-    continue;
-  };
-}
-
-function array(item) {
-  let mut = base(arrayTag, item[reversedKey] === item);
-  mut.additionalItems = item;
-  mut.items = immutableEmpty$1;
-  mut.decoder = arrayDecoder;
-  return mut;
-}
-
 function optionFactory(item, unitOpt) {
   let unit$1 = unitOpt !== undefined ? unitOpt : unit();
   let match = getOutputSchema(item);
@@ -2621,11 +2577,55 @@ function optionFactory(item, unitOpt) {
   }
 }
 
-function nestedOption(item) {
-  return updateOutput(item, mut => {
-    mut.to = nestedNone();
-    mut.parser = nestedOptionParser;
-  });
+function unionIsSelfDecodeNoop(_schema) {
+  while (true) {
+    let schema = _schema;
+    let tmp = false;
+    let tmp$1 = false;
+    let tmp$2 = false;
+    if (schema.to === undefined && schema.parser === undefined && !(flags[schema.type] & 512)) {
+      let anyOf = schema.anyOf;
+      tmp$2 = anyOf !== undefined ? anyOf.every(unionIsSelfDecodeNoop) : true;
+    }
+    if (tmp$2) {
+      let items = schema.items;
+      tmp$1 = items !== undefined ? items.every(unionIsSelfDecodeNoop) : true;
+    }
+    if (tmp$1) {
+      let properties = schema.properties;
+      tmp = properties !== undefined ? Object.values(properties).every(unionIsSelfDecodeNoop) : true;
+    }
+    if (!tmp) {
+      return false;
+    }
+    let match = schema.additionalItems;
+    if (match === undefined) {
+      return true;
+    }
+    if (match === "strip" || match === "strict") {
+      return true;
+    }
+    _schema = match;
+    continue;
+  };
+}
+
+function unionIsPriority(tagFlag, byKey) {
+  if (tagFlag & 8320 && objectTag in byKey) {
+    return true;
+  } else if (tagFlag & 2048) {
+    return numberTag in byKey;
+  } else {
+    return false;
+  }
+}
+
+function unionToKey(schema) {
+  if (flags[schema.type] & 8192) {
+    return schema.class.name;
+  } else {
+    return schema.type;
+  }
 }
 
 function dictFactory(item) {
@@ -2706,6 +2706,10 @@ function recursiveDecoder(input) {
   return output;
 }
 
+let standardJSONSchemaRef = {
+  contents: (param, param$1, param$2) => (undefined)
+};
+
 d(sp, "~standard", {
   get: function () {
     let schema = this;
@@ -2726,6 +2730,10 @@ d(sp, "~standard", {
               }]
           };
         }
+      },
+      jsonSchema: {
+        input: options => standardJSONSchemaRef.contents(schema, options, false),
+        output: options => standardJSONSchemaRef.contents(schema, options, true)
       }
     };
   }
@@ -3637,98 +3645,18 @@ function proxifyShapedSchema(schema, from, fromFlattened) {
   });
 }
 
-function assembleShapedObject(input, schema, field) {
-  let output = makeObjectVal(input, schema);
-  output.io = true;
-  let items = schema.items;
-  if (items !== undefined) {
-    for (let idx = 0, idx_finish = items.length; idx < idx_finish; ++idx) {
-      let location = idx.toString();
-      add(output, location, field(location, items[idx]));
+function getValByFrom(_input, from, _idx) {
+  while (true) {
+    let idx = _idx;
+    let input = _input;
+    let key = from[idx];
+    if (key === undefined) {
+      return input;
     }
-  } else {
-    let properties = schema.properties;
-    if (properties !== undefined) {
-      let keys = Object.keys(properties);
-      for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
-        let location$1 = keys[idx$1];
-        add(output, location$1, field(location$1, properties[location$1]));
-      }
-    } else {
-      let message = `Don't know where the value is coming from: ` + toExpression(schema);
-      throw new Error(`[Sury] ` + message);
-    }
-  }
-  return completeObjectVal(output);
-}
-
-function getShapedParserOutput(input, targetSchema) {
-  let from = targetSchema.from;
-  let fromFlattened = targetSchema.fromFlattened;
-  let v = fromFlattened !== undefined ? scope(getValByFrom(input.fv[fromFlattened], targetSchema.from, 0)) : (
-      from !== undefined ? scope(getValByFrom(input, from, 0)) : (
-          constField in targetSchema ? nextConst(input, targetSchema, undefined) : assembleShapedObject(input, targetSchema, (param, childSchema) => getShapedParserOutput(input, childSchema))
-        )
-    );
-  v.prev = undefined;
-  v.e = targetSchema;
-  return v;
-}
-
-function prepareShapedSerializerAcc(acc, input) {
-  let match = input.e;
-  let from = match.from;
-  if (from !== undefined) {
-    let fromFlattened = match.fromFlattened;
-    let accAtFrom;
-    if (fromFlattened !== undefined) {
-      if (acc.flattened === undefined) {
-        acc.flattened = [];
-      }
-      let acc$1 = acc.flattened[fromFlattened];
-      if (acc$1 !== undefined) {
-        accAtFrom = acc$1;
-      } else {
-        let newAcc = {};
-        acc.flattened[fromFlattened] = newAcc;
-        accAtFrom = newAcc;
-      }
-    } else {
-      accAtFrom = acc;
-    }
-    for (let idx = 0, idx_finish = from.length; idx < idx_finish; ++idx) {
-      let key = from[idx];
-      let p = accAtFrom.properties;
-      let p$1;
-      if (p !== undefined) {
-        p$1 = p;
-      } else {
-        let p$2 = {};
-        accAtFrom.properties = p$2;
-        p$1 = p$2;
-      }
-      let acc$2 = p$1[key];
-      let tmp;
-      if (acc$2 !== undefined) {
-        tmp = acc$2;
-      } else {
-        let newAcc$1 = {};
-        p$1[key] = newAcc$1;
-        tmp = newAcc$1;
-      }
-      accAtFrom = tmp;
-    }
-    accAtFrom.val = input;
-    return;
-  }
-  let vals = input.d;
-  if (vals === undefined) {
-    return;
-  }
-  let keys = Object.keys(vals);
-  for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
-    prepareShapedSerializerAcc(acc, vals[keys[idx$1]]);
-  }
+    _idx = idx + 1 | 0;
+    _input = input.d[key];
+    continue;
+  };
 }
 
 function getShapedSerializerOutput(input, acc, targetSchema, path) {
@@ -3828,70 +3756,42 @@ function getShapedSerializerOutput(input, acc, targetSchema, path) {
   }
 }
 
-function getValByFrom(_input, from, _idx) {
-  while (true) {
-    let idx = _idx;
-    let input = _input;
-    let key = from[idx];
-    if (key === undefined) {
-      return input;
-    }
-    _idx = idx + 1 | 0;
-    _input = input.d[key];
-    continue;
-  };
+function getShapedParserOutput(input, targetSchema) {
+  let from = targetSchema.from;
+  let fromFlattened = targetSchema.fromFlattened;
+  let v = fromFlattened !== undefined ? scope(getValByFrom(input.fv[fromFlattened], targetSchema.from, 0)) : (
+      from !== undefined ? scope(getValByFrom(input, from, 0)) : (
+          constField in targetSchema ? nextConst(input, targetSchema, undefined) : assembleShapedObject(input, targetSchema, (param, childSchema) => getShapedParserOutput(input, childSchema))
+        )
+    );
+  v.prev = undefined;
+  v.e = targetSchema;
+  return v;
 }
 
-function traverseDefinition(definition, onNode) {
-  if (typeof definition !== objectTag || definition === null) {
-    return parse(definition);
-  }
-  let s = onNode(definition);
-  if (s !== undefined) {
-    return s;
-  }
-  if (Array.isArray(definition)) {
-    for (let idx = 0, idx_finish = definition.length; idx < idx_finish; ++idx) {
-      let schema = traverseDefinition(definition[idx], onNode);
-      definition[idx] = schema;
+function assembleShapedObject(input, schema, field) {
+  let output = makeObjectVal(input, schema);
+  output.io = true;
+  let items = schema.items;
+  if (items !== undefined) {
+    for (let idx = 0, idx_finish = items.length; idx < idx_finish; ++idx) {
+      let location = idx.toString();
+      add(output, location, field(location, items[idx]));
     }
-    let mut = base(arrayTag, false);
-    mut.items = definition;
-    mut.additionalItems = "strict";
-    mut.decoder = arrayDecoder;
-    return mut;
+  } else {
+    let properties = schema.properties;
+    if (properties !== undefined) {
+      let keys = Object.keys(properties);
+      for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
+        let location$1 = keys[idx$1];
+        add(output, location$1, field(location$1, properties[location$1]));
+      }
+    } else {
+      let message = `Don't know where the value is coming from: ` + toExpression(schema);
+      throw new Error(`[Sury] ` + message);
+    }
   }
-  let cnstr = definition.constructor;
-  if (cnstr && cnstr !== Object) {
-    let mut$1 = base(instanceTag, true);
-    mut$1.class = cnstr;
-    mut$1.const = definition;
-    mut$1.decoder = literalDecoder;
-    return mut$1;
-  }
-  let fieldNames = Object.keys(definition);
-  let length = fieldNames.length;
-  for (let idx$1 = 0; idx$1 < length; ++idx$1) {
-    let location = fieldNames[idx$1];
-    let schema$1 = traverseDefinition(definition[location], onNode);
-    definition[location] = schema$1;
-  }
-  let mut$2 = base(objectTag, false);
-  mut$2.required = fieldNames;
-  mut$2.properties = definition;
-  mut$2.additionalItems = globalConfig.a;
-  mut$2.decoder = objectDecoder;
-  return mut$2;
-}
-
-function shapedSerializer(input) {
-  let acc = {};
-  prepareShapedSerializerAcc(acc, input);
-  let targetSchema = input.e.to;
-  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
-  output.t = true;
-  output.prev = input;
-  return output;
+  return completeObjectVal(output);
 }
 
 function definitionToSchema(definition) {
@@ -3966,6 +3866,114 @@ function nested(fieldName) {
   };
   parentCtx[cacheId] = ctx$1;
   return ctx$1;
+}
+
+function prepareShapedSerializerAcc(acc, input) {
+  let match = input.e;
+  let from = match.from;
+  if (from !== undefined) {
+    let fromFlattened = match.fromFlattened;
+    let accAtFrom;
+    if (fromFlattened !== undefined) {
+      if (acc.flattened === undefined) {
+        acc.flattened = [];
+      }
+      let acc$1 = acc.flattened[fromFlattened];
+      if (acc$1 !== undefined) {
+        accAtFrom = acc$1;
+      } else {
+        let newAcc = {};
+        acc.flattened[fromFlattened] = newAcc;
+        accAtFrom = newAcc;
+      }
+    } else {
+      accAtFrom = acc;
+    }
+    for (let idx = 0, idx_finish = from.length; idx < idx_finish; ++idx) {
+      let key = from[idx];
+      let p = accAtFrom.properties;
+      let p$1;
+      if (p !== undefined) {
+        p$1 = p;
+      } else {
+        let p$2 = {};
+        accAtFrom.properties = p$2;
+        p$1 = p$2;
+      }
+      let acc$2 = p$1[key];
+      let tmp;
+      if (acc$2 !== undefined) {
+        tmp = acc$2;
+      } else {
+        let newAcc$1 = {};
+        p$1[key] = newAcc$1;
+        tmp = newAcc$1;
+      }
+      accAtFrom = tmp;
+    }
+    accAtFrom.val = input;
+    return;
+  }
+  let vals = input.d;
+  if (vals === undefined) {
+    return;
+  }
+  let keys = Object.keys(vals);
+  for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
+    prepareShapedSerializerAcc(acc, vals[keys[idx$1]]);
+  }
+}
+
+function traverseDefinition(definition, onNode) {
+  if (typeof definition !== objectTag || definition === null) {
+    return parse(definition);
+  }
+  let s = onNode(definition);
+  if (s !== undefined) {
+    return s;
+  }
+  if (Array.isArray(definition)) {
+    for (let idx = 0, idx_finish = definition.length; idx < idx_finish; ++idx) {
+      let schema = traverseDefinition(definition[idx], onNode);
+      definition[idx] = schema;
+    }
+    let mut = base(arrayTag, false);
+    mut.items = definition;
+    mut.additionalItems = "strict";
+    mut.decoder = arrayDecoder;
+    return mut;
+  }
+  let cnstr = definition.constructor;
+  if (cnstr && cnstr !== Object) {
+    let mut$1 = base(instanceTag, true);
+    mut$1.class = cnstr;
+    mut$1.const = definition;
+    mut$1.decoder = literalDecoder;
+    return mut$1;
+  }
+  let fieldNames = Object.keys(definition);
+  let length = fieldNames.length;
+  for (let idx$1 = 0; idx$1 < length; ++idx$1) {
+    let location = fieldNames[idx$1];
+    let schema$1 = traverseDefinition(definition[location], onNode);
+    definition[location] = schema$1;
+  }
+  let mut$2 = base(objectTag, false);
+  mut$2.required = fieldNames;
+  mut$2.properties = definition;
+  mut$2.additionalItems = globalConfig.a;
+  mut$2.decoder = objectDecoder;
+  return mut$2;
+}
+
+function shapedSerializer(input) {
+  let acc = {};
+  prepareShapedSerializerAcc(acc, input);
+  let targetSchema = input.e.to;
+  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
+  output.t = true;
+  output.prev = input;
+  return output;
 }
 
 function definitionToShapedSchema(definition) {
@@ -4700,27 +4708,34 @@ function applyMetadataOverlay(jsonSchema, schema, defs) {
   }
 }
 
-function encodeToJsonSchema(schema, path, defs, parent) {
+function encodeToJsonSchema(schema, path, defs, parent, target) {
   let reversed = reverse(schema);
   let input = operationArg(unknown, reversed, 0, 0);
   try {
     let output = parse$1(input);
-    return internalToJSONSchema(output.s, path, defs, parent);
+    return internalToJSONSchema(output.s, path, defs, parent, target);
   } catch (exn) {
     getOrRethrow(exn);
     return;
   }
 }
 
-function internalToJSONSchema(schema, path, defs, parent) {
+function internalToJSONSchema(schema, path, defs, parent, target) {
   let tagFlag = flags[schema.type];
   let hasUserTo = schema.to && !(tagFlag & 192) && !(tagFlag & 256 && schema.parser);
-  let encoded = hasUserTo ? encodeToJsonSchema(schema, path, defs, parent) : undefined;
+  let encoded = hasUserTo ? encodeToJsonSchema(schema, path, defs, parent, target) : undefined;
   if (encoded !== undefined) {
     applyMetadataOverlay(encoded, schema, defs);
     return encoded;
   } else {
     let jsonSchema = {};
+    let setConstOrEnum = value => {
+      if (target === "openapi-3.0") {
+        jsonSchema.enum = [value];
+      } else {
+        jsonSchema.const = value;
+      }
+    };
     switch (schema.type) {
       case "never" :
         jsonSchema.not = {};
@@ -4761,7 +4776,7 @@ function internalToJSONSchema(schema, path, defs, parent) {
           jsonSchema.pattern = re.source;
         }
         if ($$const !== undefined) {
-          jsonSchema.const = $$const;
+          setConstOrEnum($$const);
         }
         break;
       case "number" :
@@ -4789,18 +4804,22 @@ function internalToJSONSchema(schema, path, defs, parent) {
           jsonSchema.maximum = v$3;
         }
         if ($$const$1 !== undefined) {
-          jsonSchema.const = $$const$1;
+          setConstOrEnum($$const$1);
         }
         break;
       case "boolean" :
         let $$const$2 = schema.const;
         jsonSchema.type = "boolean";
         if ($$const$2 !== undefined) {
-          jsonSchema.const = $$const$2;
+          setConstOrEnum($$const$2);
         }
         break;
       case "null" :
-        jsonSchema.type = "null";
+        if (target === "openapi-3.0") {
+          jsonSchema.enum = [null];
+        } else {
+          jsonSchema.type = "null";
+        }
         break;
       case "array" :
         let additionalItems = schema.additionalItems;
@@ -4808,7 +4827,7 @@ function internalToJSONSchema(schema, path, defs, parent) {
         if (additionalItems === "strip" || additionalItems === "strict") {
           exit = 1;
         } else {
-          jsonSchema.items = internalToJSONSchema(additionalItems, path + "[]", defs, schema);
+          jsonSchema.items = internalToJSONSchema(additionalItems, path + "[]", defs, schema, target);
           jsonSchema.type = "array";
           let v$4 = schema.minItems;
           if (v$4 !== undefined) {
@@ -4822,13 +4841,21 @@ function internalToJSONSchema(schema, path, defs, parent) {
         if (exit === 1) {
           let items = schema.items.map((itemSchema, idx) => {
             let location = idx.toString();
-            return internalToJSONSchema(itemSchema, path + (`[` + fromString(location) + `]`), defs, schema);
+            return internalToJSONSchema(itemSchema, path + (`[` + fromString(location) + `]`), defs, schema, target);
           });
           let itemsNumber = items.length;
-          jsonSchema.items = Primitive_option.some(items);
           jsonSchema.type = "array";
           jsonSchema.minItems = itemsNumber;
           jsonSchema.maxItems = itemsNumber;
+          if (target === "openapi-3.0") {
+            jsonSchema.items = {
+              anyOf: items
+            };
+          } else if (target === "draft-2020-12") {
+            jsonSchema.prefixItems = items;
+          } else {
+            jsonSchema.items = Primitive_option.some(items);
+          }
         }
         break;
       case "object" :
@@ -4839,7 +4866,7 @@ function internalToJSONSchema(schema, path, defs, parent) {
           exit$1 = 1;
         } else {
           jsonSchema.type = "object";
-          let childJsonSchema = internalToJSONSchema(additionalItems$1, path + "[]", defs, schema);
+          let childJsonSchema = internalToJSONSchema(additionalItems$1, path + "[]", defs, schema, target);
           jsonSchema.additionalProperties = Object.keys(childJsonSchema).length === 0 ? true : childJsonSchema;
         }
         if (exit$1 === 1) {
@@ -4849,7 +4876,7 @@ function internalToJSONSchema(schema, path, defs, parent) {
           for (let idx = 0, idx_finish = keys.length; idx < idx_finish; ++idx) {
             let key = keys[idx];
             let itemSchema = properties[key];
-            let fieldSchema = internalToJSONSchema(itemSchema, path + (`[` + fromString(key) + `]`), defs, schema);
+            let fieldSchema = internalToJSONSchema(itemSchema, path + (`[` + fromString(key) + `]`), defs, schema, target);
             if (!isOptional(itemSchema)) {
               required.push(key);
             }
@@ -4873,7 +4900,7 @@ function internalToJSONSchema(schema, path, defs, parent) {
           if (childSchema.type === "undefined" && parent.type === objectTag) {
             return;
           }
-          let childJsonSchema = internalToJSONSchema(childSchema, path, defs, schema);
+          let childJsonSchema = internalToJSONSchema(childSchema, path, defs, schema, target);
           let key = JSON.stringify(childJsonSchema);
           if (!(key in seen)) {
             seen[key] = true;
@@ -4891,10 +4918,37 @@ function internalToJSONSchema(schema, path, defs, parent) {
         if ($$default !== undefined) {
           jsonSchema.default = Primitive_option.valFromOption($$default);
         }
+        let isNullDefinition = definition => {
+          if (typeof definition !== "object") {
+            return false;
+          }
+          let match = definition.type;
+          let match$1 = definition.enum;
+          if (match !== undefined && Primitive_option.valFromOption(match) === "null") {
+            return true;
+          }
+          if (match$1 === undefined) {
+            return false;
+          }
+          if (match$1.length !== 1) {
+            return false;
+          }
+          let match$2 = match$1[0];
+          return match$2 === null;
+        };
         if (itemsNumber$1 === 1) {
           Object.assign(jsonSchema, items$1[0]);
         } else if (literals.length === itemsNumber$1) {
           jsonSchema.enum = literals;
+        } else if (target === "openapi-3.0" && itemsNumber$1 === 2 && (isNullDefinition(items$1[0]) || isNullDefinition(items$1[1]))) {
+          let nullIsFirst = isNullDefinition(items$1[0]);
+          let nonNull = items$1[nullIsFirst ? 1 : 0];
+          if (typeof nonNull !== "object") {
+            jsonSchema.anyOf = items$1;
+          } else {
+            Object.assign(jsonSchema, nonNull);
+            jsonSchema.nullable = true;
+          }
         } else {
           jsonSchema.anyOf = items$1;
         }
@@ -4915,20 +4969,70 @@ function internalToJSONSchema(schema, path, defs, parent) {
   }
 }
 
-function toJSONSchema(schema) {
+function targetSchemaUri(target) {
+  if (target === "openapi-3.0") {
+    return;
+  } else if (target === "draft-07") {
+    return "http://json-schema.org/draft-07/schema#";
+  } else {
+    return "https://json-schema.org/draft/2020-12/schema";
+  }
+}
+
+function parseTarget(target) {
+  switch (target) {
+    case "draft-07" :
+      return "draft-07";
+    case "draft-2020-12" :
+      return "draft-2020-12";
+    case "openapi-3.0" :
+      return "openapi-3.0";
+    default:
+      throw new SuryError({
+        code: "invalid_operation",
+        path: "",
+        reason: `Unsupported JSON Schema target: ` + target
+      });
+  }
+}
+
+function toJSONSchema(schema, options) {
+  let match;
+  if (options !== undefined) {
+    let target = options.target;
+    let target$1 = target !== undefined ? parseTarget(target) : "draft-07";
+    match = [
+      target$1,
+      targetSchemaUri(target$1)
+    ];
+  } else {
+    match = [
+      "draft-07",
+      undefined
+    ];
+  }
+  let schemaUri = match[1];
+  let target$2 = match[0];
   let defs = {};
-  let jsonSchema = internalToJSONSchema(schema, "", defs, schema);
+  let jsonSchema = internalToJSONSchema(schema, "", defs, schema, target$2);
   ((delete defs.JSON));
   let defsKeys = Object.keys(defs);
   if (defsKeys.length) {
     defsKeys.forEach(key => {
       let schema = defs[key];
-      defs[key] = internalToJSONSchema(schema, "", 0, schema);
+      defs[key] = internalToJSONSchema(schema, "", 0, schema, target$2);
     });
     jsonSchema.$defs = defs;
   }
+  if (schemaUri !== undefined) {
+    jsonSchema.$schema = schemaUri;
+  }
   return jsonSchema;
 }
+
+standardJSONSchemaRef.contents = (schema, options, isOutput) => toJSONSchema(isOutput ? reverse(schema) : schema, {
+  target: options.target
+});
 
 function extendJSONSchema(schema, jsonSchema) {
   let existingSchemaExtend = schema[jsonSchemaMetadataId];
@@ -5030,18 +5134,23 @@ function fromJSONSchema(jsonSchema) {
           ) : definitionToSchema();
       }
     } else if (type_$1 === "array") {
-      let items = jsonSchema.items;
+      let prefixItems = jsonSchema.prefixItems;
       let schema$2;
-      if (items !== undefined) {
-        let single = JSONSchema.Arrayable.classify(Primitive_option.valFromOption(items));
-        if (single.TAG === "Single") {
-          schema$2 = array(definitionToSchema$1(single._0));
-        } else {
-          let array$1 = single._0;
-          schema$2 = tuple(s => array$1.map((d, idx) => s.item(idx, definitionToSchema$1(d))));
-        }
+      if (prefixItems !== undefined) {
+        schema$2 = tuple(s => prefixItems.map((d, idx) => s.item(idx, definitionToSchema$1(d))));
       } else {
-        schema$2 = array(anySchema);
+        let items = jsonSchema.items;
+        if (items !== undefined) {
+          let single = JSONSchema.Arrayable.classify(Primitive_option.valFromOption(items));
+          if (single.TAG === "Single") {
+            schema$2 = array(definitionToSchema$1(single._0));
+          } else {
+            let array$1 = single._0;
+            schema$2 = tuple(s => array$1.map((d, idx) => s.item(idx, definitionToSchema$1(d))));
+          }
+        } else {
+          schema$2 = array(anySchema);
+        }
       }
       let min = jsonSchema.minItems;
       let schema$3 = min !== undefined ? arrayMinLength(schema$2, min, undefined) : schema$2;
@@ -5233,7 +5342,11 @@ function fromJSONSchema(jsonSchema) {
     }
     if (exit$4 === 2) {
       if (jsonSchema.type !== undefined) {
-        throw new Error(`[Sury] Unknown JSON Schema type: ` + jsonSchema.type);
+        throw new SuryError({
+          code: "invalid_operation",
+          path: "",
+          reason: `Unsupported JSON Schema type: ` + jsonSchema.type
+        });
       }
       schema = anySchema;
     }

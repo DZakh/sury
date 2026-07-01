@@ -89,6 +89,7 @@ type rec t = {
    * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.4
    */
   items?: Arrayable.t<definition>,
+  prefixItems?: array<definition>,
   additionalItems?: definition,
   maxItems?: int,
   minItems?: int,
@@ -188,6 +189,7 @@ module Mutable = {
    * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01#section-6.4
    */
     mutable items?: Arrayable.t<definition>,
+    mutable prefixItems?: array<definition>,
     mutable additionalItems?: definition,
     mutable maxItems?: int,
     mutable minItems?: int,

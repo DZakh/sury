@@ -480,7 +480,8 @@ let length: (t<'value>, int, ~message: string=?) => t<'value>
 let pattern: (t<string>, RegExp.t, ~message: string=?) => t<string>
 let trim: t<string> => t<string>
 
-let toJSONSchema: t<'value> => JSONSchema.t
+type toJSONSchemaOptions = {target?: StandardSchema.JsonSchema.target}
+let toJSONSchema: (t<'value>, ~options: toJSONSchemaOptions=?) => JSONSchema.t
 let fromJSONSchema: JSONSchema.t => t<JSON.t>
 let extendJSONSchema: (t<'value>, JSONSchema.t) => t<'value>
 
