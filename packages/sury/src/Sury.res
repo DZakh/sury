@@ -4247,7 +4247,7 @@ let recursiveDecoder = Builder.make((~input) => {
 // on `toJSONSchema` and `reverse` (defined later in the file). It is assigned
 // right after those functions are defined. The getter below runs lazily (only
 // on property access), so the ref deref is never on the hot path.
-let standardJSONSchemaRef: ref<(t<unknown>, StandardSchema.jsonSchemaOptions, bool) => JSONSchema.t> = ref((
+let standardJSONSchemaRef: ref<(t<unknown>, StandardSchema.JsonSchema.options, bool) => JSONSchema.t> = ref((
   _,
   _,
   _,
@@ -4263,11 +4263,14 @@ X.Object.defineProperty(
         let standard: StandardSchema.t<unknown, unknown> = {
           version: 1,
           vendor,
+          // Built as raw objects (then cast to `StandardSchema.Result.t`) so the
+          // success value isn't wrapped in an option; the runtime shape is a
+          // bare `{value}` or `{issues}` as the spec requires.
           validate: input => {
             try {
               {
                 "value": getDecoder2(~s1=unknown, ~s2=schema)(input->Obj.magic)->Obj.magic,
-              }
+              }->Obj.magic
             } catch {
             | _ => {
                 let error = %raw(`exn`)->InternalError.getOrRethrow
@@ -7449,12 +7452,12 @@ module RescriptJSONSchema = {
   }
 }
 
-type toJSONSchemaOptions = {target?: StandardSchema.target}
+type toJSONSchemaOptions = {target?: StandardSchema.JsonSchema.target}
 
 // Single source of truth for the `target` -> `$schema` URI mapping (mirrors
 // @valibot/to-json-schema). Returns the URI to stamp, or `None` when the target
 // has no `$schema` (openapi-3.0).
-let targetSchemaUri = (target: StandardSchema.target) =>
+let targetSchemaUri = (target: StandardSchema.JsonSchema.target) =>
   switch target {
   | #"draft-07" => Some("http://json-schema.org/draft-07/schema#")
   | #"draft-2020-12" => Some("https://json-schema.org/draft/2020-12/schema")
@@ -7465,7 +7468,7 @@ let targetSchemaUri = (target: StandardSchema.target) =>
 // Narrow the raw target (which may arrive as an arbitrary string from JS via the
 // Standard JSON Schema `Options`) to a supported dialect, raising a Sury error
 // with an `invalid_operation` code for anything else.
-let parseTarget = (target: string): StandardSchema.target =>
+let parseTarget = (target: string): StandardSchema.JsonSchema.target =>
   switch target {
   | "draft-07" => #"draft-07"
   | "draft-2020-12" => #"draft-2020-12"
@@ -7489,7 +7492,7 @@ let toJSONSchema = (schema, ~options: option<toJSONSchemaOptions>=?) => {
   let (target, schemaUri) = switch options {
   | Some({?target}) =>
     let target = switch target {
-    // The value is typed `StandardSchema.target`, but an untyped JS caller (via
+    // The value is typed `StandardSchema.JsonSchema.target`, but an untyped JS caller (via
     // `~standard`) can pass an arbitrary string; narrow/validate it here.
     | Some(target) => (target->Obj.magic: string)->parseTarget
     | None => #"draft-07"
@@ -7556,11 +7559,11 @@ standardJSONSchemaRef :=
       // stamp `$schema`, which the Standard JSON Schema spec requires.
       // `options.target` is a raw string from the Standard JSON Schema spec;
       // `toJSONSchema` validates it (throwing on an unsupported target). The cast
-      // is safe because `StandardSchema.target` shares its runtime representation
+      // is safe because `StandardSchema.JsonSchema.target` shares its runtime representation
       // with the string.
       toJSONSchema(
         isOutput ? schema->reverse : schema,
-        ~options={target: (options.target->Obj.magic: StandardSchema.target)},
+        ~options={target: (options.target->Obj.magic: StandardSchema.JsonSchema.target)},
       )
     }
   )->Obj.magic
