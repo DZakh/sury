@@ -57,7 +57,7 @@ jobs:
         if: ${{ !cancelled() }}
         working-directory: packages/sury
 
-      - uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v7
         if: ${{ !cancelled() }}
         with:
           files: packages/sury/coverage/lcov.info
