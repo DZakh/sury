@@ -21,8 +21,14 @@ open Vitest
 //     deferred "tier fix")
 //   - required `bigint` field -> absence errors (no undefined coercion)
 //
-// The remaining gap (encoding back to dict<string>) is still pinned against its
-// current crash with a FIXME for milestone 2-3.
+// Milestone 2 adds the encode direction (object -> dict<string>): objectDecoder
+// now recognises a fixed-property object source feeding a dict target and reuses
+// the static object-literal construction, driven by the source's known keys with
+// every field coerced to the dict's value schema. A field that is still optional
+// after coercion is dropped when absent by `completeObjectVal`; an optional
+// source field coerced to a *required* value (e.g. `option<float>` -> `string`)
+// keeps its key, with `None` encoded to the "undefined" sentinel (the mirror of
+// the decode side). Tightening that to an absent key is a deferred tier fix.
 
 let makeSchema = () =>
   S.dict(S.string)->S.to(
@@ -100,22 +106,48 @@ test("[milestone 1] compiled parse code models each dict read as optional", t =>
   )
 })
 
-test("FIXME [milestone 2-3] encoding back to dict<string> should round-trip", t => {
+test("[milestone 2] encodes the object back into a dict of strings", t => {
   let schema = makeSchema()
 
-  // SHOULD: encode the object back into a dict of strings (None -> absent key)
-  //   t->Assert.deepEqual(
-  //     {"foo": "a", "bar": 123n, "zoo": Some(1.5)}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-  //     %raw(`{"foo":"a","bar":"123","zoo":"1.5"}`),
-  //   )
-  //   t->U.assertReverseParsesBack(schema, {"foo": "a", "bar": 7n, "zoo": None})
-  // ACTUAL (broken): building the object->dict reverse crashes at *build* time.
-  // A fixed-property object's `additionalItems` mode (Strip/Strict) is cast to a
-  // schema in `B.dynamicScope`, then reaches `isLiteral` (`"const" in "strip"`).
-  t->Assert.throws(
-    () => {
-      let _ = S.decoder(~from=schema, ~to=S.unknown)
-    },
-    ~expectations={message: "Cannot use 'in' operator to search for 'const' in"},
+  t->Assert.deepEqual(
+    {"foo": "a", "bar": 123n, "zoo": Some(1.5)}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    %raw(`{"foo":"a","bar":"123","zoo":"1.5"}`),
+  )
+})
+
+test("[milestone 2] encode round-trips back through the schema", t => {
+  let schema = makeSchema()
+
+  t->U.assertReverseParsesBack(schema, {"foo": "a", "bar": 123n, "zoo": Some(1.5)})
+  // `None` encodes to the "undefined" string sentinel (mirror of the decode
+  // side), which the forward decoder maps back to `None`, so it still
+  // round-trips. Encoding `None` to an absent key is a deferred tier fix.
+  t->U.assertReverseParsesBack(schema, {"foo": "a", "bar": 7n, "zoo": None})
+})
+
+test("[milestone 2] compiled encode iterates the source object's fixed keys", t => {
+  let schema = makeSchema()
+
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Encode,
+    `i=>{let v0=i["zoo"];if(typeof v0==="number"&&!Number.isNaN(v0)){v0=""+i["zoo"]}else if(v0===void 0){v0="undefined"}else{e[0](v0)}return {"foo":i["foo"],"bar":""+i["bar"],"zoo":v0,}}`,
+  )
+})
+
+test("[milestone 2] coerces into a dict whose value is itself a transforming object", t => {
+  // The dict value (`inner`) is a composite with its own transform, so the field
+  // flows through two fused `.to` stages. This previously crashed with a phantom
+  // `ReferenceError: v3 is not defined` (the shared `.to`-fusion bug, now fixed
+  // by the `finalized` re-read in `_notVar`).
+  let inner = () => S.schema(s => {"a": s.matches(S.int->S.to(S.string))})
+  // Decoding this schema fuses object{foo:inner} -> dict(inner): the object's
+  // field value flows through inner's transform and then into the dict value's
+  // own decode. That second stage re-reads the first's already-emitted output.
+  let schema = S.schema(s => {"foo": s.matches(inner())})->S.to(S.dict(inner()))
+
+  t->Assert.deepEqual(
+    %raw(`{"foo":{"a":5}}`)->S.parseOrThrow(~to=schema),
+    %raw(`{"foo":{"a":"5"}}`),
   )
 })
