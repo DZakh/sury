@@ -1,6 +1,6 @@
 {
   "name": "sury",
-  "version": "11.0.0-alpha.6",
+  "version": "11.0.0-alpha.9",
   "private": true,
   "description": "🧬 The fastest schema with next-gen DX",
   "keywords": [
@@ -50,19 +50,19 @@
     "rescript.json"
   ],
   "scripts": {
-    "benchmark": "node ./packages/tests/src/benchmark/Benchmark.res.mjs",
-    "benchmark:comparison": "node ./packages/tests/src/benchmark/comparison.js",
     "coverage": "vitest run --coverage",
     "build": "pnpm rescript && node ./scripts/pack/Pack.res.mjs",
     "res": "rescript watch",
     "test:res": "cd ./packages/tests && rescript clean && rescript watch",
     "test": "rescript build && vitest run",
     "typecheck": "vitest run --typecheck.only",
+    "bench": "vitest bench --run",
     "bench:types": "tsx tests/types.bench.ts",
     "lint:stdlib": "rescript-stdlib-vendorer lint --ignore-path=src"
   },
   "devDependencies": {
     "@ark/attest": "0.56.0",
+    "@codspeed/vitest-plugin": "5.6.0",
     "@rescript/darwin-arm64": "12.2.0",
     "@rollup/plugin-node-resolve": "16.0.0",
     "@types/node": "20.19.41",

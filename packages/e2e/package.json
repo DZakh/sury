@@ -8,13 +8,14 @@
     "test": "rescript && vitest run",
     "ppx:install": "node ../sury-ppx/install.cjs",
     "ppx:build": "cd ../sury-ppx/src && dune build",
-    "benchmark": "node ./src/benchmark/Benchmark.res.mjs",
-    "benchmark:comparison": "node ./src/benchmark/comparison.js"
+    "benchmark:comparison": "vitest bench --run"
+  },
+  "devDependencies": {
+    "@codspeed/vitest-plugin": "5.6.0"
   },
   "dependencies": {
     "rescript": "12.2.0",
     "vitest": "4.1.7",
-    "benchmark": "2.1.4",
     "sury": "file:../sury",
     "sury-ppx": "workspace:sury-ppx",
     "arktype": "2.1.20",
