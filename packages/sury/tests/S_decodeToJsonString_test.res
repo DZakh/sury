@@ -91,3 +91,60 @@ test("Encodes object with a union of objects field to JSON string", t => {
     `{"x":{"type":"b","v":1}}`,
   )
 })
+
+// https://github.com/DZakh/sury/issues/252#issuecomment-4867670534
+// The fix above covers a union built from plain object schemas, but the
+// original report builds each variant with `s.tag` + `s.flatten` (the
+// pattern sury-ppx generates for `A(s.flatten(aSchema))`). That construction
+// still fails to encode to JSON once nested inside another object, now with
+// a different error: `Failed at ["x"]["s"]: Expected JSON, received undefined`.
+//
+// Root cause: the compiled encoder runs the union-to-JSON conversion twice.
+// The 1st pass turns the {TAG,_0} variant into a plain dict
+// ({"type":"a","s":undefined}) without omitting the undefined "s" key. The
+// 2nd pass re-dispatches on that dict's "type" field and, for the matched
+// case, generically iterates every own key of the dict asserting each value
+// is JSON-encodable — "s" is still present (with value undefined) since pass
+// 1 didn't omit it, so that generic check fails on it.
+type flattenedA = {s: option<string>}
+type flattenedB = {v: int}
+type flattenedX = FlattenedA(flattenedA) | FlattenedB(flattenedB)
+type flattenedContainer = {x: flattenedX}
+
+// aSchema/bSchema/testSchema are `@schema`-derived in the original report.
+// sury-ppx compiles plain records via `S.schema` + `s.matches` (see
+// generateRecordSchema in packages/sury-ppx/src/ppx/Structure.ml), not
+// `S.object` + `s.field` — only the hand-written union below uses `S.object`.
+let flattenedASchema: S.t<flattenedA> = S.schema(s => {
+  s: s.matches(S.nullableAsOption(S.string)),
+})
+let flattenedBSchema: S.t<flattenedB> = S.schema(s => {
+  v: s.matches(S.int),
+})
+let flattenedXSchema: S.t<flattenedX> = S.union([
+  S.object(s => {
+    s.tag("type", "a")
+    FlattenedA(s.flatten(flattenedASchema))
+  }),
+  S.object(s => {
+    s.tag("type", "b")
+    FlattenedB(s.flatten(flattenedBSchema))
+  }),
+])
+let flattenedContainerSchema: S.t<flattenedContainer> = S.schema(s => {
+  x: s.matches(flattenedXSchema),
+})
+
+test("Encodes object with a union of flattened tagged objects field to JSON string", t => {
+  // Works at the top level
+  t->Assert.deepEqual(
+    FlattenedA({s: None})->S.decodeOrThrow(~from=flattenedXSchema, ~to=S.jsonString),
+    `{"type":"a"}`,
+  )
+
+  // Still fails once nested inside another object
+  t->Assert.deepEqual(
+    {x: FlattenedA({s: None})}->S.decodeOrThrow(~from=flattenedContainerSchema, ~to=S.jsonString),
+    `{"x":{"type":"a"}}`,
+  )
+})
