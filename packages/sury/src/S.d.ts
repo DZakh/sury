@@ -768,7 +768,11 @@ export const length: <Output extends string | unknown[], Input>(
   message?: string
 ) => Schema<Output, Input>;
 
-export const pattern: (re: RegExp, message?: string) => Schema<string, string>;
+export const pattern: <Input>(
+  schema: Schema<string, Input>,
+  re: RegExp,
+  message?: string,
+) => Schema<string, Input>;
 export const trim: <Input>(
   schema: Schema<string, Input>
 ) => Schema<string, Input>;
