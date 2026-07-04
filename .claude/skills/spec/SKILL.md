@@ -81,3 +81,10 @@ For `encode`, input is an Output value and output an Input value (the type flips
 - `packages/spec/` — the spec CLI (its own workspace package). **Don't touch these files when working on Sury itself** — it's the test harness, not part of the library.
 - `packages/sury/tests/generated/*.gen_test.ts` — gitignored; regenerated before `pnpm test`
 - `packages/sury/tests/spec_test.ts` + `__snapshots__/` — harness tests + generated-output snapshot
+
+## Improving the harness
+
+The harness should be strict and guide the author. If, while writing a spec, you
+hit something it *should* have caught or guided better — a missing check, a weak
+error, a strictness gap that let a bad spec through — **don't just work around it.**
+Add a bullet under **Spec Harness Suggestions** in `CONTRIBUTING.md`.

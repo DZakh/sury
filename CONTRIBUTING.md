@@ -330,6 +330,17 @@ const schema = type({
 schema(data);
 ```
 
+## Spec Harness Suggestions
+
+A running list of strictness or author-guidance features the spec harness
+(`packages/spec`, see the `spec` skill) could add. When working on Sury you hit a
+case the harness *should* have caught or guided better — a missing check, a weak
+error message, a strictness gap that let a bad spec through — add a bullet here
+instead of silently working around it.
+
+- Identity detection keys on `fn.name === "noopOperation"`; also comparing the
+  compiled `.toString()` body would stay robust if that internal is ever renamed.
+
 ## License
 
 By contributing your code to the rescript-schema GitHub repository, you agree to license your contribution under the MIT license.
