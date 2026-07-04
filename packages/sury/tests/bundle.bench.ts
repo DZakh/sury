@@ -166,24 +166,22 @@ const deltaStr = (r: Row): string =>
 // summary. `rows` is the per-scenario comparison computed in check mode.
 function renderMarkdown(rows: Row[], versionNote: string | null): string {
   const mark = (r: Row): string => (!r.fail ? "✅" : r.diff > 0 ? "⚠️" : "🔵");
+  // The "total (export *)" scenario is the un-tree-shaken ceiling; every other
+  // row's % is how much smaller it is than that, i.e. tree-shaking effectiveness.
+  const total = rows.find((r) => r.name.startsWith("total"));
+  const treeShakePct = (r: Row): string => {
+    if (!total || r === total) return "—";
+    return `${(((total.gzip - r.gzip) / total.gzip) * 100).toFixed(0)}% smaller`;
+  };
   const out = ["### 📦 Bundle size & tree-shaking", ""];
-  out.push("| Scenario | min | min+gzip | brotli | Δ gzip vs baseline |");
-  out.push("| --- | --: | --: | --: | --- |");
+  out.push("| Scenario | min | min+gzip | brotli | Tree-shaking | Δ gzip vs baseline |");
+  out.push("| --- | --: | --: | --: | --: | --- |");
   for (const r of rows) {
     out.push(
-      `| \`${r.name}\` | ${kB(r.min)} | ${kB(r.gzip)} | ${kB(r.brotli)} | ${mark(r)} ${deltaStr(r)} |`
+      `| \`${r.name}\` | ${kB(r.min)} | ${kB(r.gzip)} | ${kB(r.brotli)} | ${treeShakePct(r)} | ${mark(r)} ${deltaStr(r)} |`
     );
   }
   out.push("");
-  const total = rows.find((r) => r.name.startsWith("total"));
-  const probe = rows.find((r) => r.name.startsWith("string"));
-  if (total && probe) {
-    const ratio = ((probe.gzip / total.gzip) * 100).toFixed(0);
-    out.push(
-      `<sub>🌳 Tree-shaking: \`${probe.name}\` ships **${kB(probe.gzip)}** gzip — ${ratio}% of ` +
-        `the full \`${total.name}\` surface (${kB(total.gzip)}).</sub>`
-    );
-  }
   out.push(
     `<sub>Baseline: esbuild ${esbuildVersion}, ±${TOLERANCE_PCT}% gzip tolerance. ` +
       "Re-baseline with `pnpm bench:bundle --update`.</sub>"
