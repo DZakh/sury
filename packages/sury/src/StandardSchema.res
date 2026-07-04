@@ -55,29 +55,25 @@ module Result = {
 }
 
 module JsonSchema = {
-  // `StandardJSONSchemaV1.Target`, restricted to the dialects Sury actually
-  // supports. A standalone open polymorphic variant (`[> ...]`) can't be used
-  // here: ReScript requires an explicit row type variable on any named alias,
-  // which would need threading through `options`/`converter`/`props`/`t`
-  // (and turning the `~standard` getter's plain forward-reference `ref` into a
-  // record with a polymorphic field, since a `ref` can't hold a rank-2
-  // polymorphic function). `options.target` below is the actual open surface,
-  // matching the TS `Target = ... | ({} & string)` escape hatch: it accepts
-  // any string and is validated at runtime by `parseTarget`.
-  type target = [#"draft-07" | #"draft-2020-12" | #"openapi-3.0"]
+  // `StandardJSONSchemaV1.Target`. An open polymorphic variant: the three
+  // known dialects are tagged for autocomplete and exhaustiveness, but
+  // (mirroring the TS `Target = ... | ({} & string)`) it structurally accepts
+  // any other tag too; `toJSONSchema` validates it at runtime and throws for
+  // an unsupported one.
+  type target<'a> = [> #"draft-07" | #"draft-2020-12" | #"openapi-3.0"] as 'a
 
-  // `StandardJSONSchemaV1.Options`. `target` is a raw `string` to mirror the TS
-  // `Target = ... | ({} & string)`: any string is accepted and validated at
-  // runtime (an unsupported target throws).
-  type options = {
-    target: string,
+  // `StandardJSONSchemaV1.Options`.
+  type options<'a> = {
+    target: target<'a>,
     libraryOptions?: dict<unknown>,
   }
 
-  // `StandardJSONSchemaV1.Converter`.
+  // `StandardJSONSchemaV1.Converter`. `input`/`output` are rank-2 polymorphic
+  // (quantified per call), so a single `converter` value works for any target
+  // row, without needing `props`/`t` to carry an extra type parameter.
   type converter = {
-    input: options => JSONSchema.t,
-    output: options => JSONSchema.t,
+    input: 'a. options<'a> => JSONSchema.t,
+    output: 'a. options<'a> => JSONSchema.t,
   }
 }
 

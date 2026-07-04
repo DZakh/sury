@@ -4304,11 +4304,17 @@ let recursiveDecoder = Builder.make((~input) => {
 // on `toJSONSchema` and `reverse` (defined later in the file). It is assigned
 // right after those functions are defined. The getter below runs lazily (only
 // on property access), so the ref deref is never on the hot path.
-let standardJSONSchemaRef: ref<(t<unknown>, StandardSchema.JsonSchema.options, bool) => JSONSchema.t> = ref((
-  _,
-  _,
-  _,
-) => %raw(`undefined`))
+// A plain `ref` can't hold this: `input`/`output` (and so this wiring) are
+// rank-2 polymorphic over the target row, and `ref<'a>` can't express a
+// universally-quantified function type, only a record field can (`'a. ...`).
+// This is otherwise exactly a `ref` (the field is even named `contents` so
+// `.contents(...)` call sites read the same).
+type standardJSONSchemaRefHolder = {
+  mutable contents: 'a. (t<unknown>, StandardSchema.JsonSchema.options<'a>, bool) => JSONSchema.t,
+}
+let standardJSONSchemaRef: standardJSONSchemaRefHolder = {
+  contents: (_, _, _) => %raw(`undefined`),
+}
 
 X.Object.defineProperty(
   %raw(`sp`),
@@ -7514,23 +7520,26 @@ module RescriptJSONSchema = {
   }
 }
 
-type toJSONSchemaOptions = {target?: StandardSchema.JsonSchema.target}
+type toJSONSchemaOptions<'a> = {target?: StandardSchema.JsonSchema.target<'a>}
 
 // Single source of truth for the `target` -> `$schema` URI mapping (mirrors
 // @valibot/to-json-schema). Returns the URI to stamp, or `None` when the target
-// has no `$schema` (openapi-3.0).
-let targetSchemaUri = (target: StandardSchema.JsonSchema.target) =>
+// has no `$schema` (openapi-3.0). `target` is an open variant; only
+// `parseTarget`'s three known outcomes ever reach here, but the type doesn't
+// guarantee it, hence the wildcard fallback.
+let targetSchemaUri = (target: StandardSchema.JsonSchema.target<'a>) =>
   switch target {
   | #"draft-07" => Some("http://json-schema.org/draft-07/schema#")
   | #"draft-2020-12" => Some("https://json-schema.org/draft/2020-12/schema")
   // OpenAPI 3.0 has no `$schema` property.
   | #"openapi-3.0" => None
+  | _ => None
   }
 
 // Narrow the raw target (which may arrive as an arbitrary string from JS via the
 // Standard JSON Schema `Options`) to a supported dialect, raising a Sury error
 // with an `invalid_operation` code for anything else.
-let parseTarget = (target: string): StandardSchema.JsonSchema.target =>
+let parseTarget = (target: string): StandardSchema.JsonSchema.target<'a> =>
   switch target {
   | "draft-07" => #"draft-07"
   | "draft-2020-12" => #"draft-2020-12"
@@ -7546,7 +7555,7 @@ let parseTarget = (target: string): StandardSchema.JsonSchema.target =>
     )
   }
 
-let toJSONSchema = (schema, ~options: option<toJSONSchemaOptions>=?) => {
+let toJSONSchema = (schema, ~options: option<toJSONSchemaOptions<'a>>=?) => {
   // Resolve the target and the `$schema` URI to stamp. When no options object is
   // provided we keep the historical behavior: default to "draft-07" and do NOT
   // stamp `$schema`. With options, an unsupported target throws up front (even
@@ -7554,8 +7563,9 @@ let toJSONSchema = (schema, ~options: option<toJSONSchemaOptions>=?) => {
   let (target, schemaUri) = switch options {
   | Some({?target}) =>
     let target = switch target {
-    // The value is typed `StandardSchema.JsonSchema.target`, but an untyped JS caller (via
-    // `~standard`) can pass an arbitrary string; narrow/validate it here.
+    // `target` is an open variant, so a ReScript caller can pass any tag; an
+    // untyped JS caller (via `~standard`) can pass an arbitrary string too.
+    // Narrow/validate it here either way.
     | Some(target) => (target->Obj.magic: string)->parseTarget
     | None => #"draft-07"
     }
@@ -7612,23 +7622,13 @@ let toJSONSchema = (schema, ~options: option<toJSONSchemaOptions>=?) => {
 // unsupported target throws. `output` converts the reversed schema, since
 // `S.reverse` swaps Input <-> Output and `toJSONSchema` returns the input-type
 // schema of whatever it receives.
-standardJSONSchemaRef :=
-  (
-    (schema, options, isOutput) => {
-      // The converter just forwards the target; `toJSONSchema` is the single
-      // source of truth for the `$schema` URI mapping and the unsupported-target
-      // throw. Passing an options object (vs none) is what makes `toJSONSchema`
-      // stamp `$schema`, which the Standard JSON Schema spec requires.
-      // `options.target` is a raw string from the Standard JSON Schema spec;
-      // `toJSONSchema` validates it (throwing on an unsupported target). The
-      // cast is safe because `StandardSchema.JsonSchema.target` shares its
-      // runtime representation with the string.
-      toJSONSchema(
-        isOutput ? schema->reverse : schema,
-        ~options={target: (options.target->Obj.magic: StandardSchema.JsonSchema.target)},
-      )
-    }
-  )->Obj.magic
+standardJSONSchemaRef.contents = (schema, options, isOutput) => {
+  // The converter just forwards the target; `toJSONSchema` is the single
+  // source of truth for the `$schema` URI mapping and the unsupported-target
+  // throw. Passing an options object (vs none) is what makes `toJSONSchema`
+  // stamp `$schema`, which the Standard JSON Schema spec requires.
+  toJSONSchema(isOutput ? schema->reverse : schema, ~options={target: options.target})
+}
 
 let extendJSONSchema = (schema, jsonSchema) => {
   schema->Metadata.set(
