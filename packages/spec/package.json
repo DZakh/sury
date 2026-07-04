@@ -12,6 +12,7 @@
   },
   "devDependencies": {
     "@types/node": "20.19.41",
+    "@typescript/vfs": "1.6.1",
     "tsx": "4.22.4",
     "typescript": "5.8.3",
     "yaml": "2.9.0"

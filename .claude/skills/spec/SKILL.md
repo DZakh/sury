@@ -12,25 +12,27 @@ Run commands from the repo root (`pnpm spec …`).
 ## Workflow
 
 ```
-pnpm spec new --id <id> --ts <schema>   # scaffold — jsonSchema + operations auto-derived from --ts
-# edit specs/<id>.yaml: fill `ts.input`/`ts.output`, add example inputs under each op's `examples`
-pnpm spec update [id]                    # execute schema → fill expression/jsonSchema/example results
+pnpm spec new --id <id> --ts <schema>   # scaffold — everything but bundleBytes is auto-derived from --ts
+# edit specs/<id>.yaml: add example inputs under each op's `examples`
+pnpm spec update [id]                    # re-derive everything from the live schema (one unified step)
 pnpm spec check  [id]                    # gate: format-valid, canonical, skips well-formed, goldens fresh
 ```
 
-`new` requires both `--id` and `--ts` (e.g. `pnpm spec new --id string.min --ts "S.string.with(S.min, 3)"`);
-it immediately derives `jsonSchema` and `operations` from the given schema — identity ops collapse to
-the bare literal `identity` automatically. Only `ts.input`/`ts.output` (still need the TS type strings
-spelled out by hand) and example inputs are left to fill in. `[id]` is optional for
-`update`/`check`/`fmt`/`gen` — omit it to process every spec.
+`new` requires both `--id` and `--ts` (e.g. `pnpm spec new --id string.min --ts "S.string.with(S.min, 3)"`).
+A single `pnpm spec new`/`pnpm spec update` derives **everything** the harness knows how to derive:
+`jsonSchema`, `operations` (identity ops collapse to the bare literal `identity` automatically),
+`ts.input`/`ts.output` (type strings) and `ts.instantiations` — via a vendored TypeScript
+introspection (`packages/spec/introspect.ts`; see "How types/instantiations are derived" below). Only
+`ts.bundleBytes` (a genuinely separate, not-yet-built dimension) and example inputs are left to fill
+in by hand. `[id]` is optional for `update`/`check`/`fmt`/`gen` — omit it to process every spec.
 `pnpm test` regenerates the hidden test files and runs them (behavior + types).
 To add a case: add a named entry under an op's `examples` with just `input`, then `pnpm spec update`.
 
 ## Rules (these are enforced)
 
-- **Never type a golden by hand.** `expression`, `jsonSchema`, and each example's
-  `output`/`error` are written by `pnpm spec update` from the live schema. You only
-  own `ts.schema`, `ts.input`/`ts.output`, and example `input`s.
+- **Never type a golden by hand.** Every field except `ts.schema`, `ts.bundleBytes`, and example
+  `input`s is written by `pnpm spec update`/`spec new` from the live schema — including `ts.input`/
+  `ts.output`/`ts.instantiations`, not just `expression`/`jsonSchema`/example results.
 - **Exhaustive.** Every dimension and every operation (`parse`/`decode`/`encode`)
   must be present. Not asserting one? Set `_skip: <reason>` — reason is an enum
   (`parser-only`, `serializer-only`, `lossy`, `not-applicable`) or `todo(#…)`.
@@ -51,10 +53,10 @@ To add a case: add a named entry under an op's `examples` with just `input`, the
 # yaml-language-server: $schema=./spec.schema.json
 ts:                              # the JS `.with`-chain surface (executed)
   schema: S.string
-  input: string                  # S.Input<schema>, as a type string — you write this
-  output: string                 # S.Output<schema>, as a type string — you write this
-  instantiations: { _skip: todo(#instantiations-dimension) }
-  bundleBytes:    { _skip: todo(#bundle-dimension) }
+  input: string                  # S.Input<schema>, as a type string — filled by update
+  output: string                 # S.Output<schema>, as a type string — filled by update
+  instantiations: 226            # type-instantiation count — filled by update
+  bundleBytes:    { _skip: todo(#bundle-dimension) }   # not yet built — this one you still skip
 jsonSchema: { input: {...}, output: {...} }   # filled by update
 operations:
   parse:                        # parse=unknown→out, decode=in→out, encode=out→in
@@ -76,8 +78,24 @@ For `encode`, input is an Output value and output an Input value (the type flips
 | `operations.<op>.expression` | `.toString()` of `S.parser`/`S.decoder`/`S.encoder` |
 | `operations.<op>.examples` | running the op on each input |
 | `jsonSchema.input` / `.output` | `S.toJSONSchema(schema)` / `…(S.reverse(schema))` |
-| `ts.output` / `ts.input` | `expectTypeOf<S.Output<schema>>`/`<S.Input<schema>>` under Vitest typecheck — you author the expected type string, `spec new`/`update` don't derive it |
-| `ts.instantiations`, `ts.bundleBytes` | planned — leave as `_skip: todo` |
+| `ts.output` / `ts.input` | vendored TS introspection (`checker.typeToString`); asserted via `expectTypeOf<S.Output<schema>>`/`<S.Input<schema>>` under Vitest typecheck |
+| `ts.instantiations` | vendored TS introspection (`program.getInstantiationCount()`, diffed against a baseline) |
+| `ts.bundleBytes` | planned — leave as `_skip: todo` |
+
+## How types/instantiations are derived
+
+`ts.input`/`ts.output`/`ts.instantiations` are computed by `packages/spec/introspect.ts`, a small
+vendored TypeScript introspection — **not** `@ark/attest`. It uses `@typescript/vfs` (the tech behind
+the TS Playground) to spin up one isolated virtual environment, memoized for the process, then for
+each schema: declares it plus `type __Output = S.Output<typeof __schema>`/`__Input` in a virtual file,
+runs `program.getSemanticDiagnostics()` to force checking, reads `checker.typeToString()` for the type
+strings, and reads the real `program.getInstantiationCount()` (diffed against a bare-import baseline)
+for the instantiation count. `@ark/attest` uses this exact same mechanism internally for its own
+`instantiations` benchmarks (`tests/types.bench.ts`) — what makes attest itself slow (~15s) is a
+separate, unrelated whole-project scan (`setup()`'s `analyzeProjectAssertions()`) for pre-written,
+hardcoded-expected-value assertions, which this harness has no use for. Vendoring just the isolated-
+environment logic measures ~1s cold, ~50-200ms warm per additional schema in the same process — fast
+enough to run on every `spec update`/`spec new`, no separate command needed.
 
 ## Layout
 

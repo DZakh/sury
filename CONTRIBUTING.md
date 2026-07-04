@@ -338,11 +338,6 @@ case the harness *should* have caught or guided better — a missing check, a we
 error message, a strictness gap that let a bad spec through — add a bullet here
 instead of silently working around it.
 
-- `ts.input`/`ts.output` still require manual fill (`spec new` can't derive
-  them) — unlike `jsonSchema`/`operations`, which `spec new --ts <schema>`
-  derives immediately by executing the schema. Auto-deriving the type strings
-  (e.g. via the TypeScript Compiler API, `@ark/attest`, or `ts-morph`) would
-  remove the last two dimensions `new` can't fill in.
 - <placeholder>
 
 ## License

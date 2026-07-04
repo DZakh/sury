@@ -3,8 +3,7 @@ ts:
   schema: S.string
   input: string
   output: string
-  instantiations:
-    _skip: todo(#instantiations-dimension)
+  instantiations: 226
   bundleBytes:
     _skip: todo(#bundle-dimension)
 jsonSchema:

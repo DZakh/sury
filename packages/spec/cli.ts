@@ -5,10 +5,10 @@
 //   spec fmt     [id…]               rewrite specs to canonical byte-deterministic form
 //   spec gen     [id…]               (re)generate tests/generated/<id>.gen_test.ts (gitignored)
 //   spec update  [id…]               recompute goldens (expression, jsonSchema, examples), then fmt
-//   spec new --id <id> --ts <schema> scaffold a spec; jsonSchema + operations are
-//                                     auto-derived from --ts (only `ts.input`/
-//                                     `ts.output` and example inputs need manual
-//                                     authoring after)
+//   spec new --id <id> --ts <schema> scaffold a spec; jsonSchema, operations,
+//                                     and ts.input/output/instantiations are
+//                                     all auto-derived from --ts (only example
+//                                     inputs need manual authoring after)
 //   spec schema                     (re)emit specs/spec.schema.json from the Sury format schema
 //
 // Infra (format validity, spec.schema.json) runs on published sury; golden
@@ -29,6 +29,7 @@ import {
   identityViolations,
   scaffoldJsonSchema,
   scaffoldOperations,
+  deriveTypeInfo,
   generateTest,
   genPath,
   isValidSkipReason,
@@ -129,21 +130,20 @@ const cmdNew = (): void => {
   } catch (e) {
     fail(`--ts did not evaluate: ${(e as Error).message}`);
   }
+  const typeInfo = deriveTypeInfo(ts);
   const spec: Spec = {
     ts: {
       schema: ts,
-      input: { _skip: "todo(#fill)" },
-      output: { _skip: "todo(#fill)" },
-      instantiations: { _skip: "todo(#instantiations-dimension)" },
+      input: typeInfo.input,
+      output: typeInfo.output,
+      instantiations: typeInfo.instantiations,
       bundleBytes: { _skip: "todo(#bundle-dimension)" },
     },
     jsonSchema: scaffoldJsonSchema(schema),
     operations: scaffoldOperations(schema),
   };
   writeFileSync(join(SPECS_DIR, `${id}.yaml`), serialize(spec));
-  console.log(
-    `new ${id} -> specs/${id}.yaml (fill \`ts.input\`/\`ts.output\`, add example inputs, then \`pnpm spec update ${id}\`)`,
-  );
+  console.log(`new ${id} -> specs/${id}.yaml (add example inputs, then \`pnpm spec update ${id}\`)`);
 };
 
 // `check` is the CI gate: emitted JSON Schema is current, and every spec is
