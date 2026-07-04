@@ -1323,3 +1323,21 @@ test("Union variant with a transformed field — parse and encode roundtrip", t 
     %raw(`{u: {k: "a", n: "12"}}`),
   )
 })
+
+test("Two fused .to stages over a composite field round-trip (no phantom var)", t => {
+  // A nested object whose own field transforms, fed through a second `.to` whose
+  // input re-reads that transformed value. The second stage materialises the
+  // first stage's already-emitted output late; before the `_notVar` `finalized`
+  // re-read this dropped the declaration and emitted an undeclared var, throwing
+  // `ReferenceError` at runtime.
+  let inner = () => S.schema(s => {"a": s.matches(S.int->S.to(S.string))})
+  let schema = S.schema(s => {"foo": s.matches(inner())})->S.to(
+    S.schema(s => {"foo": s.matches(inner())}),
+  )
+
+  t->Assert.deepEqual(
+    %raw(`{"foo":{"a":5}}`)->S.parseOrThrow(~to=schema),
+    %raw(`{"foo":{"a":"5"}}`),
+  )
+  t->U.assertReverseParsesBack(schema, %raw(`{"foo":{"a":"5"}}`))
+})

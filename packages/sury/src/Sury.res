@@ -1197,30 +1197,50 @@ module Builder = {
 
     let _notVar = () => {
       let val: val = %raw(`this`)
-      let v = val.global->varWithoutAllocation
-      switch val.prev {
-      | Some(_) =>
-        // Own the decl in codeFromPrev: a non-empty codeFromPrev is
-        // non-hoistable in `merge`, so a union discriminant reading this var
-        // can't be lifted above its `let` (the str->to(option(int)) bug class).
-        switch val.inline {
-        // No inline value yet (assigned by code that already reads this val):
-        // declare ahead of the existing producing code.
-        | "" => val.codeFromPrev = `let ${v};` ++ val.codeFromPrev
-        // Declare-and-assign after it; `v` is fresh, so nothing emitted reads it.
-        | i => val.codeFromPrev = val.codeFromPrev ++ `let ${v}=${i};`
+      // Already emitted (a late materialization after this val's segment was
+      // merged — e.g. a fused `.to` stage reading a previous stage's transformed
+      // output): owning a fresh decl here would drop it (the phantom-var fusion
+      // bug). Re-read the inline expression instead. Like `_notVarAtParent`'s
+      // finalized guard, but that sibling's inline is always an atomic
+      // `parent[key]`, whereas a transform val's inline can be compound (e.g.
+      // `""+x`), so parenthesize it to stay correct under any operator a consumer
+      // wraps it in (`+(""+x)`, not `+""+x`). Mutating `inline` (not just
+      // returning the wrap) keeps a second `.var()` — now routed through `_var` —
+      // consistent. Re-reading is sound only because the inlines that reach here
+      // are idempotent (`""+x`, `+x`): side-effecting/allocating coercions
+      // (`BigInt(...)`, `new Date(...)`, `new Array(...)`) are var-materialized by
+      // an eager check before they can finalize, and their referenced vars live
+      // in an enclosing segment (not a closed loop/`.then` scope).
+      if val.finalized->X.Option.unsafeToBool {
+        val.var = _var
+        val.inline = `(${val.inline})`
+        val.inline
+      } else {
+        let v = val.global->varWithoutAllocation
+        switch val.prev {
+        | Some(_) =>
+          // Own the decl in codeFromPrev: a non-empty codeFromPrev is
+          // non-hoistable in `merge`, so a union discriminant reading this var
+          // can't be lifted above its `let` (the str->to(option(int)) bug class).
+          switch val.inline {
+          // No inline value yet (assigned by code that already reads this val):
+          // declare ahead of the existing producing code.
+          | "" => val.codeFromPrev = `let ${v};` ++ val.codeFromPrev
+          // Declare-and-assign after it; `v` is fresh, so nothing emitted reads it.
+          | i => val.codeFromPrev = val.codeFromPrev ++ `let ${v}=${i};`
+          }
+        | None =>
+          // No prev to anchor to; hoist onto the val itself (its own segment
+          // outlives the materialization).
+          switch val.inline {
+          | "" => hoistDecl(val, v)
+          | i => hoistDecl(val, `${v}=${i}`)
+          }
         }
-      | None =>
-        // No prev to anchor to; hoist onto the val itself (its own segment
-        // outlives the materialization).
-        switch val.inline {
-        | "" => hoistDecl(val, v)
-        | i => hoistDecl(val, `${v}=${i}`)
-        }
+        val.var = _var
+        val.inline = v
+        v
       }
-      val.var = _var
-      val.inline = v
-      v
     }
 
     @inline
@@ -1673,12 +1693,23 @@ module Builder = {
     }
 
     let dynamicScope = (from: val, ~locationVar): val => {
+      // `additionalItems` doubles as the value schema for a dict-shaped val.
+      // Extract it via a real pattern match: a non-`Schema` mode (`Strip`/`Strict`
+      // on a fixed-property object) must never be cast to a schema — that string
+      // reaching `isLiteral` is the `'const' in "strip"` crash. Callers only pass
+      // dict sources; the `unknown` fallback keeps a misuse safe instead of crashing.
       {
         var: _notVarBeforeValidation,
         inline: `${from.var()}[${locationVar}]`,
         flag: from.flag,
-        schema: from.schema.additionalItems->(Obj.magic: option<additionalItems> => internal),
-        expected: from.expected.additionalItems->(Obj.magic: option<additionalItems> => internal),
+        schema: switch from.schema.additionalItems {
+        | Some(Schema(s)) => s->castToInternal
+        | _ => unknown
+        },
+        expected: switch from.expected.additionalItems {
+        | Some(Schema(s)) => s->castToInternal
+        | _ => unknown
+        },
         codeFromPrev: "",
         hoistedDecls: "",
         parent: from,
@@ -2990,50 +3021,79 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
     unknownInput->B.unsupportedDecode(~from=unknownInput.schema, ~target=expectedSchema)
   }
 
-  let output = switch expectedSchema.additionalItems->X.Option.getUnsafe {
-  | Schema(itemSchema) => {
-      let itemSchema = itemSchema->castToInternal
-      if itemSchema === unknown {
-        input
+  // The target's value schema when it's a dict (additionalProperties), else None
+  // for a fixed-property object target.
+  let dictItem = switch expectedSchema.additionalItems->X.Option.getUnsafe {
+  | Schema(s) => Some(s->castToInternal)
+  | _ => None
+  }
+  // Only a dict source can be iterated dynamically (`for..in`). A fixed-property
+  // object source coerced into a dict target reuses the static object-literal
+  // construction below, driven by the source's known keys.
+  let sourceIsDict = switch input.schema.additionalItems->X.Option.getUnsafe {
+  | Schema(_) => true
+  | _ => false
+  }
+
+  let output = switch dictItem {
+  // dict<unknown> target: any object/dict is already a valid value, pass through.
+  | Some(itemSchema) if itemSchema === unknown => input
+  | Some(_) if sourceIsDict => {
+      let inputVar = input.var()
+      let keyVar = input.global->B.varWithoutAllocation
+      let itemInput = input->B.dynamicScope(~locationVar=keyVar)
+      let itemOutput = itemInput->parseDynamic
+
+      let hasTransform = itemOutput.hasTransform->X.Option.getUnsafe
+      let output = hasTransform
+      // FIXME: schema should be expectedSchema output
+        ? input->B.next("{}", ~schema=expectedSchema)
+        : input->B.refine(~schema=expectedSchema)
+
+      let itemCode =
+        itemOutput->B.mergeWithPathPrepend(
+          ~parent=input,
+          ~locationVar=keyVar,
+          ~appendSafe=?hasTransform ? Some(() => output->B.Val.addKey(keyVar, itemOutput)) : None,
+        )
+
+      if hasTransform || itemCode !== "" {
+        output.codeFromPrev =
+          output.codeFromPrev ++ `for(let ${keyVar} in ${inputVar}){${itemCode}}`
+      }
+
+      if itemOutput.flag->Flag.unsafeHas(ValFlag.async) {
+        let resolveVar = output.global->B.varWithoutAllocation
+        let rejectVar = output.global->B.varWithoutAllocation
+        let asyncParseResultVar = output.global->B.varWithoutAllocation
+        let counterVar = output.global->B.varWithoutAllocation
+        let outputVar = B.Val.var(output)
+        output->B.asyncVal(
+          `new Promise((${resolveVar},${rejectVar})=>{let ${counterVar}=Object.keys(${outputVar}).length;for(let ${keyVar} in ${outputVar}){${outputVar}[${keyVar}].then(${asyncParseResultVar}=>{${outputVar}[${keyVar}]=${asyncParseResultVar};if(${counterVar}--===1){${resolveVar}(${outputVar})}},${rejectVar})}})`,
+        )
       } else {
-        let inputVar = input.var()
-        let keyVar = input.global->B.varWithoutAllocation
-        let itemInput = input->B.dynamicScope(~locationVar=keyVar)
-        let itemOutput = itemInput->parseDynamic
-
-        let hasTransform = itemOutput.hasTransform->X.Option.getUnsafe
-        let output = hasTransform
-        // FIXME: schema should be expectedSchema output
-          ? input->B.next("{}", ~schema=expectedSchema)
-          : input->B.refine(~schema=expectedSchema)
-
-        let itemCode =
-          itemOutput->B.mergeWithPathPrepend(
-            ~parent=input,
-            ~locationVar=keyVar,
-            ~appendSafe=?hasTransform ? Some(() => output->B.Val.addKey(keyVar, itemOutput)) : None,
-          )
-
-        if hasTransform || itemCode !== "" {
-          output.codeFromPrev =
-            output.codeFromPrev ++ `for(let ${keyVar} in ${inputVar}){${itemCode}}`
-        }
-
-        if itemOutput.flag->Flag.unsafeHas(ValFlag.async) {
-          let resolveVar = output.global->B.varWithoutAllocation
-          let rejectVar = output.global->B.varWithoutAllocation
-          let asyncParseResultVar = output.global->B.varWithoutAllocation
-          let counterVar = output.global->B.varWithoutAllocation
-          let outputVar = B.Val.var(output)
-          output->B.asyncVal(
-            `new Promise((${resolveVar},${rejectVar})=>{let ${counterVar}=Object.keys(${outputVar}).length;for(let ${keyVar} in ${outputVar}){${outputVar}[${keyVar}].then(${asyncParseResultVar}=>{${outputVar}[${keyVar}]=${asyncParseResultVar};if(${counterVar}--===1){${resolveVar}(${outputVar})}},${rejectVar})}})`,
-          )
-        } else {
-          output
-        }
+        output
       }
     }
-  | _ => {
+  | Some(itemSchema) => {
+      // Encode a fixed-property object into a dict: build an object literal from
+      // the SOURCE's keys, coercing every value to the dict's value schema.
+      // `completeObjectVal` drops a field that is still optional after coercion.
+      // (A dict source took the dynamic branch above, so the source is an object.)
+      let objectVal = input->makeObjectVal(~schema=expectedSchema)
+      let keys = input.schema.properties->X.Option.getUnsafe->Dict.keysToArray
+      for idx in 0 to keys->Array.length - 1 {
+        let key = keys->Array.getUnsafe(idx)
+        let itemInput = input->valGet(key)
+        itemInput.expected = itemSchema
+        itemInput.isOutput = Some(false)
+        itemInput.isUnion = Some(isUnion)
+        objectVal->B.Val.Object.add(~location=key, itemInput->parse)
+      }
+      objectVal->completeObjectVal
+    }
+  | None => {
+      // Build a fixed-property object target (from a dict or object source).
       let properties = expectedSchema.properties->X.Option.getUnsafe
       let keys = Dict.keysToArray(properties)
       let keysCount = keys->Array.length
@@ -3044,12 +3104,9 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
         // Since we have a check validating the exact properties existence
         | Strict => false
         | Strip =>
-          switch input.schema.additionalItems->X.Option.getUnsafe {
-          | Schema(_) => true
-          | _ =>
+          sourceIsDict ||
             input.schema.properties->X.Option.getUnsafe->Dict.keysToArray->Array.length !==
               keysCount
-          }
         | _ => true
         },
       )
