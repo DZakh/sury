@@ -4,7 +4,7 @@
 let Issue = {};
 
 function classify(t) {
-  if ((t.issues !== undefined)) {
+  if (t.issues) {
     return {
       TAG: "Error",
       _0: t

@@ -10,8 +10,11 @@ module Issue = {
   // A single element of `StandardSchemaV1.Issue.path`: `PropertyKey |
   // PathSegment`. `PropertyKey` is `string | number | symbol`, but ReScript's
   // unboxed variants can't disambiguate a `symbol` case, so it's omitted here
-  // (Sury never emits symbol path keys). Each variant is unboxed, so at
-  // runtime this is just the underlying string/float/`{key}` value.
+  // (Sury never emits symbol path keys).
+  // FIXME: Add a `Symbol(Symbol.t)` case when ReScript supports symbols in
+  // `@unboxed` variants.
+  // Each variant is unboxed, so at runtime this is just the underlying
+  // string/float/`{key}` value.
   @unboxed
   type pathElement =
     | String(string)
@@ -32,17 +35,19 @@ module Result = {
   // `StandardSchemaV1.FailureResult`.
   type failure = {issues: array<Issue.t>}
 
-  // `StandardSchemaV1.Result` = `SuccessResult | FailureResult`. Opaque: at
-  // runtime it is a bare `{value}` or `{issues}`, so it can't be a plain
-  // ReScript record (an optional `value` would be option-boxed). Use
+  // `StandardSchemaV1.Result` = `SuccessResult | FailureResult`. Untagged at
+  // runtime: a success carries `value`, a failure carries `issues`. Use
   // `classify` to convert it into the standard `result<'a, 'b>` (`Ok`/`Error`).
-  type t<'output>
+  type t<'output> = {
+    value?: 'output,
+    issues?: array<Issue.t>,
+  }
 
   external success: success<'output> => t<'output> = "%identity"
   external failure: failure => t<'output> = "%identity"
 
   let classify = (t: t<'output>): result<success<'output>, failure> =>
-    if %raw(`t.issues !== undefined`) {
+    if %raw(`t.issues`) {
       Error(t->Obj.magic)
     } else {
       Ok(t->Obj.magic)
@@ -84,7 +89,6 @@ type props<'input, 'output> = {
   vendor: string,
   validate: 'any. 'any => Result.t<'output>,
   jsonSchema: JsonSchema.converter,
-  types?: {"input": 'input, "output": 'output},
 }
 
 // The Standard Schema interface (`StandardSchemaV1`): an object carrying the
