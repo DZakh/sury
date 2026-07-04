@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "res": "cd packages/sury && pnpm res",
+    "res": "pnpm --filter=sury exec rescript watch",
     "test": "pnpm --filter=sury test && pnpm --filter=e2e test",
     "build": "pnpm --filter=sury build",
     "benchmark": "pnpm --filter=sury bench",
