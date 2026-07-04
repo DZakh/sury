@@ -53,7 +53,7 @@ const TOLERANCE_PCT = Number(
 // CI PR comment; the report is always also appended to $GITHUB_STEP_SUMMARY.
 const mdArg = args.find((a) => a === "--markdown" || a.startsWith("--markdown="));
 const MARKDOWN_PATH: string | null = mdArg
-  ? path.resolve(mdArg.includes("=") ? mdArg.split("=")[1] : "bundle-size.md")
+  ? path.resolve(mdArg.split("=")[1] ?? "bundle-size.md")
   : null;
 
 // Each entry imports only what it names; the bundler drops the rest. Keep these
@@ -139,7 +139,7 @@ async function measure(scenario: Scenario): Promise<Sizes> {
     // rejects on real errors regardless of logLevel.
     logLevel: "silent",
   });
-  const out = result.outputFiles![0].contents;
+  const out = result.outputFiles![0]!.contents;
   return {
     min: out.byteLength,
     gzip: gzipSync(out, { level: 9 }).byteLength,
@@ -192,99 +192,108 @@ function renderMarkdown(rows: Row[], versionNote: string | null): string {
   return out.join("\n") + "\n";
 }
 
-const measured: Record<string, Sizes> = {};
-for (const s of SCENARIOS) {
-  measured[s.name] = await measure(s);
-}
-
-// ── Update mode ────────────────────────────────────────────────────────────
-if (UPDATE || !existsSync(SNAPSHOT_PATH)) {
-  const snapshot = {
-    _comment:
-      "Baseline sizes for the bundle-size & tree-shaking benchmark. Regenerate with `pnpm bench:bundle --update` after an intentional size change. Assertions are on `gzip`.",
-    esbuildVersion,
-    scenarios: measured,
-  };
-  writeFileSync(SNAPSHOT_PATH, JSON.stringify(snapshot, null, 2) + "\n");
-  console.log(`\nWrote baseline for ${SCENARIOS.length} scenarios to`);
-  console.log(`  ${path.relative(process.cwd(), SNAPSHOT_PATH)} (esbuild ${esbuildVersion})\n`);
+// Wrapped in an async function (instead of top-level await) so the script
+// type-checks under this project's shared tsconfig.json, which targets
+// module: ES2020 — too old for top-level await.
+async function main() {
+  const measured: Record<string, Sizes> = {};
   for (const s of SCENARIOS) {
-    const m = measured[s.name];
-    console.log(`  ${padR(s.name, 24)} ${padL(kB(m.gzip), 10)} gzip`);
+    measured[s.name] = await measure(s);
+  }
+
+  // ── Update mode ──────────────────────────────────────────────────────────
+  if (UPDATE || !existsSync(SNAPSHOT_PATH)) {
+    const snapshot = {
+      _comment:
+        "Baseline sizes for the bundle-size & tree-shaking benchmark. Regenerate with `pnpm bench:bundle --update` after an intentional size change. Assertions are on `gzip`.",
+      esbuildVersion,
+      scenarios: measured,
+    };
+    writeFileSync(SNAPSHOT_PATH, JSON.stringify(snapshot, null, 2) + "\n");
+    console.log(`\nWrote baseline for ${SCENARIOS.length} scenarios to`);
+    console.log(`  ${path.relative(process.cwd(), SNAPSHOT_PATH)} (esbuild ${esbuildVersion})\n`);
+    for (const s of SCENARIOS) {
+      // Guaranteed populated by the loop above.
+      const m = measured[s.name]!;
+      console.log(`  ${padR(s.name, 24)} ${padL(kB(m.gzip), 10)} gzip`);
+    }
+    console.log("");
+    process.exit(0);
+  }
+
+  // ── Check mode ─────────────────────────────────────────────────────────────
+  const snapshot: Snapshot = JSON.parse(readFileSync(SNAPSHOT_PATH, "utf8"));
+  const versionNote: string | null =
+    snapshot.esbuildVersion !== esbuildVersion
+      ? `esbuild ${esbuildVersion} differs from snapshot ${snapshot.esbuildVersion}; ` +
+        "size drift may be the bundler, not Sury."
+      : null;
+  if (versionNote) console.log(`\n⚠  ${versionNote} Re-baseline with --update if so.`);
+
+  // Compare each scenario's gzip against the pinned baseline. base === null
+  // means the scenario is new (no baseline yet) — treated as a failure to
+  // force a re-baseline.
+  const rows: Row[] = SCENARIOS.map((s): Row => {
+    // Guaranteed populated by the loop above.
+    const cur = measured[s.name]!;
+    const base = snapshot.scenarios[s.name];
+    if (!base) {
+      return { name: s.name, ...cur, base: null, diff: cur.gzip, pct: Infinity, status: "new", fail: true };
+    }
+    const diff = cur.gzip - base.gzip;
+    const pct = (diff / base.gzip) * 100;
+    const within = Math.abs(pct) <= TOLERANCE_PCT;
+    return {
+      name: s.name,
+      ...cur,
+      base: base.gzip,
+      diff,
+      pct,
+      status: within ? "ok" : diff > 0 ? "REGRESSION" : "improved",
+      fail: !within,
+    };
+  });
+
+  const NAME_W = Math.max(...rows.map((r) => r.name.length), "scenario".length);
+  console.log("\nSury bundle size & tree-shaking (esbuild, minified)\n");
+  console.log(
+    `${padR("scenario", NAME_W)}  ${padL("min", 9)}  ${padL("min+gzip", 9)}  ` +
+      `${padL("brotli", 9)}  ${padL("Δ gzip", 16)}  status`
+  );
+  console.log("-".repeat(NAME_W + 56));
+  for (const r of rows) {
+    console.log(
+      `${padR(r.name, NAME_W)}  ${padL(kB(r.min), 9)}  ${padL(kB(r.gzip), 9)}  ` +
+        `${padL(kB(r.brotli), 9)}  ${padL(deltaStr(r), 16)}  ${r.status}`
+    );
   }
   console.log("");
-  process.exit(0);
-}
 
-// ── Check mode ───────────────────────────────────────────────────────────────
-const snapshot: Snapshot = JSON.parse(readFileSync(SNAPSHOT_PATH, "utf8"));
-const versionNote: string | null =
-  snapshot.esbuildVersion !== esbuildVersion
-    ? `esbuild ${esbuildVersion} differs from snapshot ${snapshot.esbuildVersion}; ` +
-      "size drift may be the bundler, not Sury."
-    : null;
-if (versionNote) console.log(`\n⚠  ${versionNote} Re-baseline with --update if so.`);
-
-// Compare each scenario's gzip against the pinned baseline. base === null means
-// the scenario is new (no baseline yet) — treated as a failure to force a
-// re-baseline.
-const rows: Row[] = SCENARIOS.map((s): Row => {
-  const cur = measured[s.name];
-  const base = snapshot.scenarios[s.name];
-  if (!base) {
-    return { name: s.name, ...cur, base: null, diff: cur.gzip, pct: Infinity, status: "new", fail: true };
+  // Emit the markdown report for CI: a file for the PR comment (when --markdown
+  // is passed) and always to the job summary when running under Actions.
+  // Written before the gate below so the comment posts even on a regression.
+  const markdown = renderMarkdown(rows, versionNote);
+  if (MARKDOWN_PATH) {
+    writeFileSync(MARKDOWN_PATH, markdown);
+    console.log(`Wrote markdown report to ${path.relative(process.cwd(), MARKDOWN_PATH)}\n`);
   }
-  const diff = cur.gzip - base.gzip;
-  const pct = (diff / base.gzip) * 100;
-  const within = Math.abs(pct) <= TOLERANCE_PCT;
-  return {
-    name: s.name,
-    ...cur,
-    base: base.gzip,
-    diff,
-    pct,
-    status: within ? "ok" : diff > 0 ? "REGRESSION" : "improved",
-    fail: !within,
-  };
-});
-
-const NAME_W = Math.max(...rows.map((r) => r.name.length), "scenario".length);
-console.log("\nSury bundle size & tree-shaking (esbuild, minified)\n");
-console.log(
-  `${padR("scenario", NAME_W)}  ${padL("min", 9)}  ${padL("min+gzip", 9)}  ` +
-    `${padL("brotli", 9)}  ${padL("Δ gzip", 16)}  status`
-);
-console.log("-".repeat(NAME_W + 56));
-for (const r of rows) {
-  console.log(
-    `${padR(r.name, NAME_W)}  ${padL(kB(r.min), 9)}  ${padL(kB(r.gzip), 9)}  ` +
-      `${padL(kB(r.brotli), 9)}  ${padL(deltaStr(r), 16)}  ${r.status}`
-  );
-}
-console.log("");
-
-// Emit the markdown report for CI: a file for the PR comment (when --markdown is
-// passed) and always to the job summary when running under Actions. Written
-// before the gate below so the comment posts even on a regression.
-const markdown = renderMarkdown(rows, versionNote);
-if (MARKDOWN_PATH) {
-  writeFileSync(MARKDOWN_PATH, markdown);
-  console.log(`Wrote markdown report to ${path.relative(process.cwd(), MARKDOWN_PATH)}\n`);
-}
-if (process.env.GITHUB_STEP_SUMMARY) {
-  appendFileSync(process.env.GITHUB_STEP_SUMMARY, markdown + "\n");
-}
-
-const failures = rows.filter((r) => r.fail);
-if (failures.length) {
-  console.error(`✗ ${failures.length} scenario(s) drifted beyond ±${TOLERANCE_PCT}% gzip:\n`);
-  for (const f of failures) {
-    const kind = f.base === null ? "no baseline" : f.diff > 0 ? "regression" : "improvement";
-    const pct = Number.isFinite(f.pct) ? `${f.pct >= 0 ? "+" : ""}${f.pct.toFixed(2)}%` : "new";
-    console.error(`   ${f.name}: ${f.base ?? 0} → ${f.gzip} B (${pct}, ${kind})`);
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    appendFileSync(process.env.GITHUB_STEP_SUMMARY, markdown + "\n");
   }
-  console.error(`\n  If intentional, re-baseline:  pnpm bench:bundle --update\n`);
-  process.exit(1);
+
+  const failures = rows.filter((r) => r.fail);
+  if (failures.length) {
+    console.error(`✗ ${failures.length} scenario(s) drifted beyond ±${TOLERANCE_PCT}% gzip:\n`);
+    for (const f of failures) {
+      const kind = f.base === null ? "no baseline" : f.diff > 0 ? "regression" : "improvement";
+      const pct = Number.isFinite(f.pct) ? `${f.pct >= 0 ? "+" : ""}${f.pct.toFixed(2)}%` : "new";
+      console.error(`   ${f.name}: ${f.base ?? 0} → ${f.gzip} B (${pct}, ${kind})`);
+    }
+    console.error(`\n  If intentional, re-baseline:  pnpm bench:bundle --update\n`);
+    process.exit(1);
+  }
+
+  console.log(`✓ all ${SCENARIOS.length} scenarios within ±${TOLERANCE_PCT}% of baseline\n`);
 }
 
-console.log(`✓ all ${SCENARIOS.length} scenarios within ±${TOLERANCE_PCT}% of baseline\n`);
+main();
