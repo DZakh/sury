@@ -4304,11 +4304,9 @@ let recursiveDecoder = Builder.make((~input) => {
 // on `toJSONSchema` and `reverse` (defined later in the file). It is assigned
 // right after those functions are defined. The getter below runs lazily (only
 // on property access), so the ref deref is never on the hot path.
-let standardJSONSchemaRef: ref<(t<unknown>, StandardSchema.JsonSchema.options, bool) => JSONSchema.t> = ref((
-  _,
-  _,
-  _,
-) => %raw(`undefined`))
+let standardJSONSchemaRef: ref<(t<unknown>, StandardSchema.JsonSchema.options, bool) => JSONSchema.t> = ref(
+  %raw(`0`),
+)
 
 X.Object.defineProperty(
   %raw(`sp`),
