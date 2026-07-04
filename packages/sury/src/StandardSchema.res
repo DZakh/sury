@@ -34,21 +34,18 @@ module Result = {
 
   // `StandardSchemaV1.Result` = `SuccessResult | FailureResult`. Opaque: at
   // runtime it is a bare `{value}` or `{issues}`, so it can't be a plain
-  // ReScript record (an optional `value` would be option-boxed). Call
-  // `result` to pattern match on it.
+  // ReScript record (an optional `value` would be option-boxed). Use
+  // `classify` to convert it into the standard `result<'a, 'b>` (`Ok`/`Error`).
   type t<'output>
-
-  // The pattern-matchable form of `t`, obtained via `result`.
-  type result<'output> = Success(success<'output>) | Failure(failure)
 
   external success: success<'output> => t<'output> = "%identity"
   external failure: failure => t<'output> = "%identity"
 
-  let result = (t: t<'output>): result<'output> =>
+  let classify = (t: t<'output>): result<success<'output>, failure> =>
     if %raw(`t.issues !== undefined`) {
-      Failure(t->Obj.magic)
+      Error(t->Obj.magic)
     } else {
-      Success(t->Obj.magic)
+      Ok(t->Obj.magic)
     }
 }
 
