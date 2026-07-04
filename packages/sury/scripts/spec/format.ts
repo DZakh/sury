@@ -13,11 +13,35 @@
 //   - `_` prefix is the reserved harness namespace (currently just `_skip`).
 import * as S from "../../src/S.js";
 
+// ---- authored spec shape (mirrors the Sury schema below) ------------------
+
+export type Skip = { _skip: string };
+export type Example = { input: string; bench?: boolean } & (
+  | { output: string }
+  | { error: string }
+);
+export type Operation =
+  | Skip
+  | { expression: string | Skip; examples: Record<string, Example | Skip> };
+export type Spec = {
+  schema: { res: string; ts: string };
+  types: Skip | { ts: string };
+  jsonSchema: Skip | { input: unknown; output: unknown };
+  instantiations: Skip | number;
+  bundleBytes: Skip | number;
+  properties: Skip | unknown;
+  operations: { parse: Operation; decode: Operation; encode: Operation };
+};
+
+export type OpName = "parse" | "decode" | "encode";
+
+// ---- Sury schema for the format -------------------------------------------
+
 // A dimension that isn't asserted must say so explicitly, with a reason.
 // Reasons are conventionally an enum (`parser-only`, `lossy`, `not-applicable`)
 // or `todo(#…)` for a not-yet-built dimension; the CLI lints the reason string.
 export const skip = S.schema({ _skip: S.string }).with(S.strict);
-const orSkip = (schema) => S.union([schema, skip]);
+const orSkip = (schema: S.Schema<unknown, unknown>) => S.union([schema, skip]);
 
 // A single runnable example: an input plus either an expected `output` or an
 // expected `error` message. `bench` is reserved for the (not-yet-wired) perf
@@ -57,9 +81,7 @@ export const specSchema = S.schema({
   schema: S.schema({ res: S.string, ts: S.string }).with(S.strict),
   // Static, value-independent dimensions.
   types: orSkip(S.schema({ ts: S.string }).with(S.strict)),
-  jsonSchema: orSkip(
-    S.schema({ input: S.json, output: S.json }).with(S.strict),
-  ),
+  jsonSchema: orSkip(S.schema({ input: S.json, output: S.json }).with(S.strict)),
   instantiations: orSkip(S.number),
   bundleBytes: orSkip(S.number),
   // Property-based testing dimension — scoped out for now (see CONTRIBUTING).
@@ -69,7 +91,7 @@ export const specSchema = S.schema({
 }).with(S.strict);
 
 // Ordered dimension keys — the canonical key order for `spec fmt`.
-export const KEY_ORDER = [
+export const KEY_ORDER: (keyof Spec)[] = [
   "schema",
   "types",
   "jsonSchema",
@@ -78,15 +100,15 @@ export const KEY_ORDER = [
   "properties",
   "operations",
 ];
-export const OP_ORDER = ["parse", "decode", "encode"];
+export const OP_ORDER: OpName[] = ["parse", "decode", "encode"];
 
 // Maps an operation name to the Sury builder that compiles that direction.
 // Used by the harness to (re)compute expression goldens.
-export const OP_BUILDER = {
+export const OP_BUILDER: Record<OpName, (schema: any) => (input: any) => any> = {
   parse: S.parser,
   decode: S.decoder,
   encode: S.encoder,
 };
 
-export const isSkip = (v) =>
-  v !== null && typeof v === "object" && "_skip" in v;
+export const isSkip = (v: unknown): v is Skip =>
+  v !== null && typeof v === "object" && "_skip" in (v as object);

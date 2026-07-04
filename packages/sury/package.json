@@ -47,15 +47,17 @@
   },
   "files": [
     "src",
-    "rescript.json"
+    "rescript.json",
+    "specs/*.yaml"
   ],
   "scripts": {
     "coverage": "vitest run --coverage",
-    "spec": "node ./scripts/spec/cli.mjs",
-    "spec:check": "node ./scripts/spec/cli.mjs check",
+    "spec": "tsx ./scripts/spec/cli.ts",
+    "spec:check": "tsx ./scripts/spec/cli.ts check",
     "build": "pnpm rescript && node ./scripts/pack/Pack.res.mjs",
     "res": "rescript watch",
     "test:res": "cd ./packages/tests && rescript clean && rescript watch",
+    "pretest": "tsx ./scripts/spec/cli.ts gen",
     "test": "rescript build && vitest run",
     "typecheck": "vitest run --typecheck.only",
     "bench": "vitest bench --run",

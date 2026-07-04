@@ -1,20 +1,21 @@
-#!/usr/bin/env node
+#!/usr/bin/env tsx
 // `spec` — the AI-first test-spec harness.
 //
-//   spec check   [id…]   validate + lint + assert fmt-clean + generated files current
+//   spec check   [id…]   validate + lint + assert fmt-clean + goldens match live
 //   spec fmt     [id…]    rewrite specs to canonical byte-deterministic form
-//   spec gen     [id…]    (re)generate committed tests/generated/<id>.gen_test.ts
+//   spec gen     [id…]    (re)generate tests/generated/<id>.gen_test.ts (gitignored)
 //   spec update  [id…]    recompute goldens (expression, jsonSchema, examples), then fmt
 //   spec new     <id>     scaffold a spec with every dimension present as _skip: todo
 //   spec schema          (re)emit specs/spec.schema.json from the Sury format schema
 //
 // One spec file = one schema's full contract. See CONTRIBUTING "Specs".
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import * as S from "../../src/S.js";
-import { specSchema, OP_ORDER, isSkip } from "./format.mjs";
+import { specSchema, isSkip, type Spec } from "./format";
 import {
   SPECS_DIR,
+  GEN_DIR,
   SCHEMA_PATH,
   listSpecFiles,
   specId,
@@ -24,25 +25,31 @@ import {
   recomputeGoldens,
   generateTest,
   genPath,
-  sha256,
   isValidSkipReason,
-} from "./harness.mjs";
+} from "./harness";
 
 const args = process.argv.slice(2);
 const cmd = args[0];
 const rest = args.slice(1);
 
-// Resolve requested ids (or all specs) to file paths.
-const targets = () =>
+const targets = (): string[] =>
   rest.length
     ? rest.map((id) => join(SPECS_DIR, `${id.replace(/\.yaml$/, "")}.yaml`))
     : listSpecFiles();
 
-const red = (s) => `\x1b[31m${s}\x1b[0m`;
-const green = (s) => `\x1b[32m${s}\x1b[0m`;
+const red = (s: string) => `\x1b[31m${s}\x1b[0m`;
+const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
+
+function fail(msg: string): never {
+  console.error(red(msg));
+  process.exit(1);
+}
+
+// The canonical JSON Schema text emitted from the Sury format schema.
+const schemaJson = (): string => JSON.stringify(S.toJSONSchema(specSchema), null, 2) + "\n";
 
 // Walk every `_skip` in a spec and collect malformed reasons.
-const lintSkips = (obj, path, out) => {
+const lintSkips = (obj: unknown, path: string, out: string[]): void => {
   if (isSkip(obj)) {
     if (!isValidSkipReason(obj._skip))
       out.push(`${path}: invalid _skip reason ${JSON.stringify(obj._skip)}`);
@@ -52,43 +59,39 @@ const lintSkips = (obj, path, out) => {
     for (const [k, v] of Object.entries(obj)) lintSkips(v, `${path}.${k}`, out);
 };
 
-const emitSchema = () => {
-  const js = S.toJSONSchema(specSchema);
-  writeFileSync(SCHEMA_PATH, JSON.stringify(js, null, 2) + "\n");
+const cmdSchema = (): void => {
+  writeFileSync(SCHEMA_PATH, schemaJson());
   console.log(`wrote ${SCHEMA_PATH}`);
 };
 
-const cmdFmt = () => {
+const cmdFmt = (): void => {
   for (const file of targets()) {
-    const obj = readSpec(file);
-    writeFileSync(file, serialize(obj));
+    writeFileSync(file, serialize(readSpec(file)));
     console.log(`fmt ${specId(file)}`);
   }
 };
 
-const cmdGen = () => {
+const cmdGen = (): void => {
+  mkdirSync(GEN_DIR, { recursive: true });
   for (const file of targets()) {
     const id = specId(file);
-    const specText = readFileSync(file, "utf8");
-    const obj = readSpec(file);
-    writeFileSync(genPath(id), generateTest(id, obj, specText));
+    writeFileSync(genPath(id), generateTest(id, readSpec(file)));
     console.log(`gen ${id} -> tests/generated/${id}.gen_test.ts`);
   }
 };
 
-const cmdUpdate = () => {
+const cmdUpdate = (): void => {
   for (const file of targets()) {
-    const obj = recomputeGoldens(readSpec(file));
-    writeFileSync(file, serialize(obj));
+    writeFileSync(file, serialize(recomputeGoldens(readSpec(file))));
     console.log(`update ${specId(file)}`);
   }
   cmdGen();
 };
 
-const cmdNew = () => {
+const cmdNew = (): void => {
   const id = rest[0];
-  if (!id) return fail("usage: spec new <id>");
-  const skeleton = {
+  if (!id) fail("usage: spec new <id>");
+  const skeleton: Spec = {
     schema: { res: "S.unknown", ts: "S.unknown" },
     types: { _skip: "todo(#fill)" },
     jsonSchema: { _skip: "todo(#fill)" },
@@ -101,18 +104,25 @@ const cmdNew = () => {
       encode: { _skip: "todo(#fill)" },
     },
   };
-  const file = join(SPECS_DIR, `${id}.yaml`);
-  writeFileSync(file, serialize(skeleton));
+  writeFileSync(join(SPECS_DIR, `${id}.yaml`), serialize(skeleton));
   console.log(`new ${id} -> specs/${id}.yaml (fill the _skip: todo dimensions)`);
 };
 
-// `check` is the CI gate: format schema validity, skip-reason lint, canonical
-// (fmt-clean) form, and generated files matching the current spec byte-for-byte.
-const cmdCheck = () => {
+// `check` is the CI gate (no ReScript build needed): the emitted JSON Schema is
+// current, and every spec is format-valid, skip-lint-clean, canonical, and has
+// goldens matching what the live schema produces.
+const cmdCheck = (): void => {
   let failed = 0;
+
+  if (existsSync(SCHEMA_PATH) && readFileSync(SCHEMA_PATH, "utf8") !== schemaJson()) {
+    failed++;
+    console.log(red("✗ spec.schema.json"));
+    console.log("    stale — run `pnpm spec schema`");
+  }
+
   for (const file of targets()) {
     const id = specId(file);
-    const errs = [];
+    const errs: string[] = [];
     const raw = readFileSync(file, "utf8");
     const obj = readSpec(file);
 
@@ -129,19 +139,7 @@ const cmdCheck = () => {
       if (serialize(recomputeGoldens(obj)) !== canon)
         errs.push(`goldens stale — run \`pnpm spec update ${id}\``);
     } catch (e) {
-      errs.push(`schema.ts did not evaluate: ${e.message}`);
-    }
-
-    try {
-      const gen = generateTest(id, obj, raw);
-      const existing = readFileSync(genPath(id), "utf8");
-      if (existing !== gen)
-        errs.push(`generated test stale — run \`pnpm spec gen ${id}\``);
-      const stamp = existing.match(/source-sha256: (\w+)/)?.[1];
-      if (stamp && stamp !== sha256(raw))
-        errs.push(`generated test sha mismatch — run \`pnpm spec gen ${id}\``);
-    } catch {
-      errs.push(`no generated test — run \`pnpm spec gen ${id}\``);
+      errs.push(`schema.ts did not evaluate: ${(e as Error).message}`);
     }
 
     if (errs.length) {
@@ -152,13 +150,8 @@ const cmdCheck = () => {
       console.log(green(`✓ ${id}`));
     }
   }
-  if (failed) fail(`${failed} spec(s) failed check`);
+  if (failed) fail(`${failed} check(s) failed`);
 };
-
-function fail(msg) {
-  console.error(red(msg));
-  process.exit(1);
-}
 
 switch (cmd) {
   case "check":
@@ -177,10 +170,8 @@ switch (cmd) {
     cmdNew();
     break;
   case "schema":
-    emitSchema();
+    cmdSchema();
     break;
   default:
-    fail(
-      "usage: spec <check|fmt|gen|update|new|schema> [id…]",
-    );
+    fail("usage: spec <check|fmt|gen|update|new|schema> [id…]");
 }

@@ -209,11 +209,16 @@ by tooling.
 - **One file = one schema's full contract.** `specs/string.yaml` describes
   `S.string`: its type, its input/output JSON Schema, and — per operation
   (`parse` / `decode` / `encode`) — the generated code (`expression`) plus named
-  input→output|error examples.
-- **The spec is the source; tests are generated.** `pnpm spec gen` expands each
-  spec into a committed, real Vitest file under `tests/generated/*.gen_test.ts`.
-  So plain `pnpm test` and Wallaby run them with zero custom infrastructure, and
-  a breaking API change fails the generated files at **compile time**.
+  input→output|error examples. The `specs/*.yaml` files are published with the
+  `sury` package so downstream tooling can consume them as data.
+- **The spec is the source; tests are generated, not committed.** `pnpm spec gen`
+  expands each spec into a real Vitest file under `tests/generated/*.gen_test.ts`.
+  Those files are **gitignored** and regenerated automatically before `pnpm test`
+  (via `pretest`), so plain `pnpm test` and Wallaby run them with zero custom
+  infrastructure and a breaking API change fails them at **compile time** — but
+  the generated code never lands in git. The committed, reviewable record of what
+  generation produces is a file snapshot in `tests/spec_test.ts`
+  (`tests/__snapshots__/`), which is the suite that tests the harness itself.
 - **Golden-master, never hand-written goldens.** You author the schema and
   example *inputs*; `pnpm spec update` runs the real schema and fills in every
   derivable answer — `expression`, `jsonSchema`, and each example's
@@ -240,12 +245,16 @@ pnpm test                     # generated test runs like any other (behavior + t
 pnpm spec:check               # CI gate — see below
 ```
 
+The CLI lives in `scripts/spec/` (TypeScript, run via `tsx`); the format is a
+Sury schema in `scripts/spec/format.ts`.
+
 `pnpm spec:check` is the fast pre-commit / CI gate (no ReScript build needed). It
-verifies, for every spec: it validates against the format schema, every `_skip`
-reason is well-formed, the file is in canonical form, the stored goldens match
-what the live schema produces, and the generated test file is current (byte- and
-sha-matched). Behavior itself is still asserted by `pnpm test` running the
-generated files.
+verifies that `specs/spec.schema.json` is up to date and, for every spec: it
+validates against the format schema, every `_skip` reason is well-formed, the
+file is in canonical form, and the stored goldens match what the live schema
+produces. Behavior and types are additionally asserted by `pnpm test` running the
+(regenerated) generated files, and the harness itself is covered by
+`tests/spec_test.ts`.
 
 ### Dimensions
 

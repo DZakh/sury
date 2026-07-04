@@ -1,6 +1,4 @@
-// @generated from specs/string.yaml — DO NOT EDIT.
-// source-sha256: f8425fb289ec2f5d6f3a3f1238d70502cdf527b816baadc802a036139d91fc89
-// Regenerate with: pnpm spec gen
+// @generated from specs/string.yaml — DO NOT EDIT. Regenerate: pnpm spec gen
 import { test, expect, expectTypeOf } from "vitest";
 import * as S from "../../src/S.js";
 
