@@ -5,7 +5,8 @@
       "type": "object",
       "properties": {
         "schema": {
-          "type": "string"
+          "type": "string",
+          "description": "The schema under test, as JS `.with`-chain source, e.g. `S.string.with(S.min, 3)`. Authored by hand; this is the one thing \"spec new\"/\"spec update\" never overwrite."
         },
         "input": {
           "anyOf": [
@@ -16,15 +17,18 @@
               "type": "object",
               "properties": {
                 "_skip": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Why this dimension is not asserted. An enum reason (parser-only, serializer-only, lossy, not-applicable) or todo(#…) for a not-yet-built dimension — never a bare/unexplained skip."
                 }
               },
               "additionalProperties": false,
               "required": [
                 "_skip"
-              ]
+              ],
+              "description": "Explicit opt-out for a dimension that isn't asserted for this spec."
             }
-          ]
+          ],
+          "description": "S.Input<schema>, printed as a TS type string (e.g. `string`). Filled by `pnpm spec update` via vendored TS introspection."
         },
         "output": {
           "anyOf": [
@@ -35,15 +39,18 @@
               "type": "object",
               "properties": {
                 "_skip": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Why this dimension is not asserted. An enum reason (parser-only, serializer-only, lossy, not-applicable) or todo(#…) for a not-yet-built dimension — never a bare/unexplained skip."
                 }
               },
               "additionalProperties": false,
               "required": [
                 "_skip"
-              ]
+              ],
+              "description": "Explicit opt-out for a dimension that isn't asserted for this spec."
             }
-          ]
+          ],
+          "description": "S.Output<schema>, printed as a TS type string. Filled by `pnpm spec update` via vendored TS introspection."
         },
         "instantiations": {
           "anyOf": [
@@ -54,15 +61,18 @@
               "type": "object",
               "properties": {
                 "_skip": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Why this dimension is not asserted. An enum reason (parser-only, serializer-only, lossy, not-applicable) or todo(#…) for a not-yet-built dimension — never a bare/unexplained skip."
                 }
               },
               "additionalProperties": false,
               "required": [
                 "_skip"
-              ]
+              ],
+              "description": "Explicit opt-out for a dimension that isn't asserted for this spec."
             }
-          ]
+          ],
+          "description": "Type-instantiation count contributed by declaring the schema and extracting its Output/Input types. Filled by `pnpm spec update`."
         },
         "bundleBytes": {
           "anyOf": [
@@ -73,15 +83,18 @@
               "type": "object",
               "properties": {
                 "_skip": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Why this dimension is not asserted. An enum reason (parser-only, serializer-only, lossy, not-applicable) or todo(#…) for a not-yet-built dimension — never a bare/unexplained skip."
                 }
               },
               "additionalProperties": false,
               "required": [
                 "_skip"
-              ]
+              ],
+              "description": "Explicit opt-out for a dimension that isn't asserted for this spec."
             }
-          ]
+          ],
+          "description": "Tree-shaken, minified+gzipped byte size of `S.parser(schema)` bundled against the dev source. Filled by `pnpm spec update`."
         }
       },
       "additionalProperties": false,
@@ -91,7 +104,8 @@
         "output",
         "instantiations",
         "bundleBytes"
-      ]
+      ],
+      "description": "The JS `.with`-chain surface: source plus every surface-specific dimension."
     },
     "jsonSchema": {
       "anyOf": [
@@ -111,15 +125,18 @@
           "type": "object",
           "properties": {
             "_skip": {
-              "type": "string"
+              "type": "string",
+              "description": "Why this dimension is not asserted. An enum reason (parser-only, serializer-only, lossy, not-applicable) or todo(#…) for a not-yet-built dimension — never a bare/unexplained skip."
             }
           },
           "additionalProperties": false,
           "required": [
             "_skip"
-          ]
+          ],
+          "description": "Explicit opt-out for a dimension that isn't asserted for this spec."
         }
-      ]
+      ],
+      "description": "S.toJSONSchema(schema) for both directions. Filled by `pnpm spec update`."
     },
     "operations": {
       "type": "object",
@@ -142,15 +159,18 @@
                       "type": "object",
                       "properties": {
                         "_skip": {
-                          "type": "string"
+                          "type": "string",
+                          "description": "Why this dimension is not asserted. An enum reason (parser-only, serializer-only, lossy, not-applicable) or todo(#…) for a not-yet-built dimension — never a bare/unexplained skip."
                         }
                       },
                       "additionalProperties": false,
                       "required": [
                         "_skip"
-                      ]
+                      ],
+                      "description": "Explicit opt-out for a dimension that isn't asserted for this spec."
                     }
-                  ]
+                  ],
+                  "description": "Codegen golden: `.toString()` of the compiled parser/decoder/encoder function. Filled by `pnpm spec update`."
                 },
                 "examples": {
                   "type": "object",
@@ -160,13 +180,16 @@
                         "type": "object",
                         "properties": {
                           "input": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Source text for the input value, e.g. '\"hello\"' or \"42\". Written by hand; `pnpm spec update` derives output/error from it."
                           },
                           "output": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Source text for the expected output value. Filled by `pnpm spec update`."
                           },
                           "bench": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "description": "Reserved for the not-yet-wired performance dimension."
                           }
                         },
                         "additionalProperties": false,
@@ -179,13 +202,16 @@
                         "type": "object",
                         "properties": {
                           "input": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Source text for the input value, e.g. '\"hello\"' or \"42\". Written by hand; `pnpm spec update` derives output/error from it."
                           },
                           "error": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Expected error message. Filled by `pnpm spec update`."
                           },
                           "bench": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "description": "Reserved for the not-yet-wired performance dimension."
                           }
                         },
                         "additionalProperties": false,
@@ -194,17 +220,21 @@
                           "error"
                         ]
                       }
-                    ]
-                  }
+                    ],
+                    "description": "One named, runnable case: an input plus its expected output or error."
+                  },
+                  "description": "Named example cases for this operation, keyed by a short descriptive name (e.g. `valid`, `invalid-type`)."
                 }
               },
               "additionalProperties": false,
               "required": [
                 "expression",
                 "examples"
-              ]
+              ],
+              "description": "A full operation block: the compiled codegen plus its runnable examples."
             }
-          ]
+          ],
+          "description": "unknown → Output, with validation (the untrusted-input direction)."
         },
         "decode": {
           "anyOf": [
@@ -224,15 +254,18 @@
                       "type": "object",
                       "properties": {
                         "_skip": {
-                          "type": "string"
+                          "type": "string",
+                          "description": "Why this dimension is not asserted. An enum reason (parser-only, serializer-only, lossy, not-applicable) or todo(#…) for a not-yet-built dimension — never a bare/unexplained skip."
                         }
                       },
                       "additionalProperties": false,
                       "required": [
                         "_skip"
-                      ]
+                      ],
+                      "description": "Explicit opt-out for a dimension that isn't asserted for this spec."
                     }
-                  ]
+                  ],
+                  "description": "Codegen golden: `.toString()` of the compiled parser/decoder/encoder function. Filled by `pnpm spec update`."
                 },
                 "examples": {
                   "type": "object",
@@ -242,13 +275,16 @@
                         "type": "object",
                         "properties": {
                           "input": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Source text for the input value, e.g. '\"hello\"' or \"42\". Written by hand; `pnpm spec update` derives output/error from it."
                           },
                           "output": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Source text for the expected output value. Filled by `pnpm spec update`."
                           },
                           "bench": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "description": "Reserved for the not-yet-wired performance dimension."
                           }
                         },
                         "additionalProperties": false,
@@ -261,13 +297,16 @@
                         "type": "object",
                         "properties": {
                           "input": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Source text for the input value, e.g. '\"hello\"' or \"42\". Written by hand; `pnpm spec update` derives output/error from it."
                           },
                           "error": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Expected error message. Filled by `pnpm spec update`."
                           },
                           "bench": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "description": "Reserved for the not-yet-wired performance dimension."
                           }
                         },
                         "additionalProperties": false,
@@ -276,17 +315,21 @@
                           "error"
                         ]
                       }
-                    ]
-                  }
+                    ],
+                    "description": "One named, runnable case: an input plus its expected output or error."
+                  },
+                  "description": "Named example cases for this operation, keyed by a short descriptive name (e.g. `valid`, `invalid-type`)."
                 }
               },
               "additionalProperties": false,
               "required": [
                 "expression",
                 "examples"
-              ]
+              ],
+              "description": "A full operation block: the compiled codegen plus its runnable examples."
             }
-          ]
+          ],
+          "description": "Input → Output, no top-level type narrowing (input is already typed)."
         },
         "encode": {
           "anyOf": [
@@ -306,15 +349,18 @@
                       "type": "object",
                       "properties": {
                         "_skip": {
-                          "type": "string"
+                          "type": "string",
+                          "description": "Why this dimension is not asserted. An enum reason (parser-only, serializer-only, lossy, not-applicable) or todo(#…) for a not-yet-built dimension — never a bare/unexplained skip."
                         }
                       },
                       "additionalProperties": false,
                       "required": [
                         "_skip"
-                      ]
+                      ],
+                      "description": "Explicit opt-out for a dimension that isn't asserted for this spec."
                     }
-                  ]
+                  ],
+                  "description": "Codegen golden: `.toString()` of the compiled parser/decoder/encoder function. Filled by `pnpm spec update`."
                 },
                 "examples": {
                   "type": "object",
@@ -324,13 +370,16 @@
                         "type": "object",
                         "properties": {
                           "input": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Source text for the input value, e.g. '\"hello\"' or \"42\". Written by hand; `pnpm spec update` derives output/error from it."
                           },
                           "output": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Source text for the expected output value. Filled by `pnpm spec update`."
                           },
                           "bench": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "description": "Reserved for the not-yet-wired performance dimension."
                           }
                         },
                         "additionalProperties": false,
@@ -343,13 +392,16 @@
                         "type": "object",
                         "properties": {
                           "input": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Source text for the input value, e.g. '\"hello\"' or \"42\". Written by hand; `pnpm spec update` derives output/error from it."
                           },
                           "error": {
-                            "type": "string"
+                            "type": "string",
+                            "description": "Expected error message. Filled by `pnpm spec update`."
                           },
                           "bench": {
-                            "type": "boolean"
+                            "type": "boolean",
+                            "description": "Reserved for the not-yet-wired performance dimension."
                           }
                         },
                         "additionalProperties": false,
@@ -358,17 +410,21 @@
                           "error"
                         ]
                       }
-                    ]
-                  }
+                    ],
+                    "description": "One named, runnable case: an input plus its expected output or error."
+                  },
+                  "description": "Named example cases for this operation, keyed by a short descriptive name (e.g. `valid`, `invalid-type`)."
                 }
               },
               "additionalProperties": false,
               "required": [
                 "expression",
                 "examples"
-              ]
+              ],
+              "description": "A full operation block: the compiled codegen plus its runnable examples."
             }
-          ]
+          ],
+          "description": "Output → Input (the reverse direction)."
         }
       },
       "additionalProperties": false,
@@ -376,7 +432,8 @@
         "parse",
         "decode",
         "encode"
-      ]
+      ],
+      "description": "The three compiled directions through the schema: parse, decode, encode."
     }
   },
   "additionalProperties": false,
@@ -384,5 +441,6 @@
     "ts",
     "jsonSchema",
     "operations"
-  ]
+  ],
+  "description": "A Sury spec: one schema's complete, machine-checked contract — type, JSON Schema, and per-operation codegen + examples. See the `spec` skill."
 }

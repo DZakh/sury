@@ -1,24 +1,13 @@
 #!/usr/bin/env tsx
 // `spec` — the AI-first test-spec harness (see the `spec` skill).
 //
-//   spec check   [id…]              validate + lint + assert fmt-clean + goldens match live
-//   spec fmt     [id…]               rewrite specs to canonical byte-deterministic form
-//   spec gen     [id…]               (re)generate tests/generated/<id>.gen_test.ts (gitignored)
-//   spec update  [id…]               recompute goldens (expression, jsonSchema, examples), then fmt
-//   spec new --id <id> --ts <schema> scaffold a spec; jsonSchema, operations,
-//                                     and ts.input/output/instantiations are
-//                                     all auto-derived from --ts (only example
-//                                     inputs need manual authoring after)
-//   spec schema                     (re)emit specs/spec.schema.json from the Sury format schema
-//
 // Infra (format validity, spec.schema.json) runs on published sury; golden
-// execution runs on the dev source. See format.ts / harness.ts.
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+// execution runs on the dev source. See format.ts / harness.ts. Full usage: HELP below.
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { validate, schemaJson, isSkip, type Spec } from "./format";
+import { schemaJson, type Spec } from "./format";
 import {
   SPECS_DIR,
-  GEN_DIR,
   SCHEMA_PATH,
   listSpecFiles,
   specId,
@@ -31,9 +20,7 @@ import {
   scaffoldOperations,
   deriveTypeInfo,
   deriveBundleBytes,
-  generateTest,
-  genPath,
-  isValidSkipReason,
+  checkSpec,
 } from "./harness";
 
 const args = process.argv.slice(2);
@@ -53,15 +40,52 @@ function fail(msg: string): never {
   process.exit(1);
 }
 
-// Walk every `_skip` in a spec and collect malformed reasons.
-const lintSkips = (obj: unknown, path: string, out: string[]): void => {
-  if (isSkip(obj)) {
-    if (!isValidSkipReason(obj._skip))
-      out.push(`${path}: invalid _skip reason ${JSON.stringify(obj._skip)}`);
-    return;
-  }
-  if (obj && typeof obj === "object")
-    for (const [k, v] of Object.entries(obj)) lintSkips(v, `${path}.${k}`, out);
+const HELP = `spec — the AI-first Sury test-spec harness (see the \`spec\` skill)
+
+Usage: spec <command> [args]
+
+Commands:
+  new --id <id> --ts <schema>
+      Scaffold a new spec at specs/<id>.yaml. Both flags are required — there's
+      nothing sensible to scaffold without a schema. Immediately derives
+      jsonSchema, operations (identity ops collapse to the bare literal
+      \`identity\`), and ts.input/ts.output/ts.instantiations/ts.bundleBytes by
+      executing --ts. Only example inputs need manual authoring after.
+      e.g. spec new --id string.min --ts "S.string.with(S.min, 3)"
+
+  update [id…]
+      Re-derive every dimension from the live (dev) schema, for the given
+      spec(s), or every spec under specs/ if none are named. Never overwrites
+      ts.schema, example inputs, or an existing _skip — only fills/refreshes
+      what those authorize. Exits non-zero (without writing anything) if an
+      identity-op mismatch is found; run for each affected spec to see why.
+
+  check [id…]
+      The CI gate. For the given spec(s) (or all): validates against the
+      format schema, lints every _skip reason, asserts canonical form, and
+      verifies goldens are fresh (i.e. what update would produce, matching
+      what's on disk). Never mutates files. Prints a specific, actionable
+      message per problem — e.g. "goldens stale — run \`pnpm spec update
+      <id>\`" — never just pass/fail.
+
+  fmt [id…]
+      Rewrite the given spec(s) (or all) to canonical, byte-deterministic
+      form — key order, formatting — without recomputing any golden. Run
+      \`update\` if goldens themselves need refreshing.
+
+  schema
+      Re-emit specs/spec.schema.json from the format schema in format.ts.
+      Run this after changing the format itself; \`check\` fails if it's stale.
+
+  help, --help, -h
+      Show this message.
+
+[id…] accepts a bare id or a filename (e.g. "string" or "string.yaml"); omit
+it to target every *.yaml file under packages/sury/specs/.
+`;
+
+const cmdHelp = (): void => {
+  console.log(HELP);
 };
 
 const cmdSchema = (): void => {
@@ -73,15 +97,6 @@ const cmdFmt = (): void => {
   for (const file of targets()) {
     writeFileSync(file, serialize(readSpec(file)));
     console.log(`fmt ${specId(file)}`);
-  }
-};
-
-const cmdGen = (): void => {
-  mkdirSync(GEN_DIR, { recursive: true });
-  for (const file of targets()) {
-    const id = specId(file);
-    writeFileSync(genPath(id), generateTest(id, readSpec(file)));
-    console.log(`gen ${id} -> tests/generated/${id}.gen_test.ts`);
   }
 };
 
@@ -116,7 +131,6 @@ const cmdUpdate = async (): Promise<void> => {
     }
   }
   if (failed) process.exit(1);
-  cmdGen();
 };
 
 // Parse `--id <id> --ts <schema>`. Both required — there's nothing sensible to
@@ -168,9 +182,11 @@ const cmdNew = async (): Promise<void> => {
 
 // `check` is the CI gate: emitted JSON Schema is current, and every spec is
 // format-valid, skip-lint-clean, canonical, with goldens matching live
-// behavior. Every file's (re)computation runs concurrently; results are
-// collected and printed in original order once all resolve, so parallel
-// esbuild/TS work doesn't interleave the per-file report output.
+// behavior — all via harness.checkSpec, so the CLI and the guiding-error
+// snapshot tests (tests/spec_errors_test.ts) exercise the exact same code.
+// Every file's (re)computation runs concurrently; results are collected and
+// printed in original order once all resolve, so parallel esbuild/TS work
+// doesn't interleave the per-file report output.
 const cmdCheck = async (): Promise<void> => {
   let failed = 0;
 
@@ -183,40 +199,9 @@ const cmdCheck = async (): Promise<void> => {
   const results = await Promise.all(
     targets().map(async (file) => {
       const id = specId(file);
-      const errs: string[] = [];
       const raw = readFileSync(file, "utf8");
       const obj = readSpec(file);
-
-      const v = validate(obj);
-      if (!v.ok) errs.push(`schema: ${v.error}`);
-
-      lintSkips(obj, id, errs);
-
-      const canon = serialize(obj);
-      if (raw !== canon) errs.push(`not canonical — run \`pnpm spec fmt ${id}\``);
-
-      let schema: any;
-      try {
-        schema = evalSchema(obj.ts.schema);
-      } catch (e) {
-        errs.push(`ts.schema did not evaluate: ${(e as Error).message}`);
-      }
-      if (schema) {
-        // A spec that failed format validation above may not have the shape
-        // identityViolations/recomputeGoldens assume (e.g. a missing
-        // `examples` map) — catch so one malformed file doesn't abort the
-        // whole batch; the validation error already reported above is the
-        // actionable one.
-        try {
-          // identity invariant: noop op <-> the literal `identity`
-          for (const v of identityViolations(schema, obj)) errs.push(v);
-          // goldens must equal what the live schema produces (no hand-edits)
-          if (serialize(await recomputeGoldens(obj)) !== canon)
-            errs.push(`goldens stale — run \`pnpm spec update ${id}\``);
-        } catch (e) {
-          errs.push(`goldens could not be computed: ${(e as Error).message}`);
-        }
-      }
+      const errs = await checkSpec(id, obj, raw);
       return { id, errs };
     }),
   );
@@ -245,9 +230,6 @@ async function main() {
     case "fmt":
       cmdFmt();
       break;
-    case "gen":
-      cmdGen();
-      break;
     case "update":
       await cmdUpdate();
       break;
@@ -257,10 +239,18 @@ async function main() {
     case "schema":
       cmdSchema();
       break;
+    case "help":
+    case "--help":
+    case "-h":
+      cmdHelp();
+      break;
     default:
-      fail(
-        "usage: spec <check|fmt|gen|update|schema> [id…] | spec new --id <id> --ts <schema>",
-      );
+      // A bare `spec` (no command at all) just needs guidance, not a scolding;
+      // an actually-unrecognized command gets a clear header before the same
+      // help text. Either way exits non-zero — nothing useful happened.
+      if (cmd) console.error(red(`Unknown command: ${cmd}\n`));
+      console.error(HELP);
+      process.exit(1);
   }
 }
 

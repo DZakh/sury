@@ -1,6 +1,8 @@
-// Tests for the spec harness (packages/spec). Generated test files are not
-// committed; this suite is the committed record of the harness's behavior —
-// including a file snapshot of exactly what a generated test looks like.
+// Tests for the spec harness (packages/spec). There is no code-generation
+// step — this file IS the test: it dynamically loops over every spec at
+// run time and calls straight into the harness, so example execution and
+// jsonSchema/instantiations/bundleBytes drift are exercised (and covered) by
+// this real Vitest run, same as any hand-written test.
 import { readFileSync } from "node:fs";
 import { test, expect, describe } from "vitest";
 import {
@@ -9,7 +11,6 @@ import {
   readSpec,
   serialize,
   recomputeGoldens,
-  generateTest,
 } from "../../spec/harness";
 import { validate } from "../../spec/format";
 
@@ -34,13 +35,6 @@ describe.each(specs)("spec: $id", ({ id, file }) => {
   test("goldens match live behavior (run `pnpm spec update`)", async () => {
     expect(serialize(await recomputeGoldens(spec))).toBe(serialize(spec));
   });
-});
-
-test("generateTest output matches snapshot (how a generated file looks)", async () => {
-  const spec = readSpec(listSpecFiles().find((f) => specId(f) === "string")!);
-  await expect(generateTest("string", spec)).toMatchFileSnapshot(
-    "./__snapshots__/string.gen_test.ts.snap",
-  );
 });
 
 test("the format is defined as a Sury schema (closed world)", () => {

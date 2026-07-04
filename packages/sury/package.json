@@ -55,7 +55,6 @@
     "spec": "tsx ../spec/cli.ts",
     "build": "pnpm rescript && node ./scripts/pack/Pack.res.mjs",
     "test:res": "cd ./packages/tests && rescript clean && rescript watch",
-    "pretest": "tsx ../spec/cli.ts gen",
     "test": "rescript build && vitest run",
     "typecheck": "vitest run --typecheck.only",
     "bench": "vitest bench --run",

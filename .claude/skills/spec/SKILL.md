@@ -24,9 +24,12 @@ A single `pnpm spec new`/`pnpm spec update` derives **everything** the harness k
 `ts.input`/`ts.output`/`ts.instantiations` (vendored TypeScript introspection,
 `packages/spec/introspect.ts`) and `ts.bundleBytes` (vendored esbuild measurement,
 `packages/spec/bundleSize.ts`) — see "How types/instantiations/bundle size are derived" below. Only
-example inputs are left to fill in by hand. `[id]` is optional for `update`/`check`/`fmt`/`gen` — omit
-it to process every spec.
-`pnpm test` regenerates the hidden test files and runs them (behavior + types).
+example inputs are left to fill in by hand. `[id]` is optional for `update`/`check`/`fmt` — omit it to
+process every spec.
+There is no code-generation step. `pnpm test` runs `packages/sury/tests/spec_test.ts`, a single
+committed, hand-written Vitest file that dynamically loops over every spec at run time and calls
+straight into the harness — so example execution and every dimension's freshness are exercised, and
+covered, by a real Vitest run without ever materializing a per-spec test file.
 To add a case: add a named entry under an op's `examples` with just `input`, then `pnpm spec update`.
 
 ## Rules (these are enforced)
@@ -46,7 +49,7 @@ To add a case: add a named entry under an op's `examples` with just `input`, the
   `S.string.with(S.min, 3)`), executed directly. A future `res` (ReScript)
   surface sits alongside `ts` with its own shape.
 - **Closed world.** Unknown keys are rejected; `_`-prefixed keys are the reserved
-  harness namespace (`_skip`). Never edit `tests/generated/` or `spec.schema.json` by hand.
+  harness namespace (`_skip`). Never edit `spec.schema.json` by hand (`pnpm spec schema` emits it).
 
 ## Format
 
@@ -79,7 +82,7 @@ For `encode`, input is an Output value and output an Input value (the type flips
 | `operations.<op>.expression` | `.toString()` of `S.parser`/`S.decoder`/`S.encoder` |
 | `operations.<op>.examples` | running the op on each input |
 | `jsonSchema.input` / `.output` | `S.toJSONSchema(schema)` / `…(S.reverse(schema))` |
-| `ts.output` / `ts.input` | vendored TS introspection (`checker.typeToString`); asserted via `expectTypeOf<S.Output<schema>>`/`<S.Input<schema>>` under Vitest typecheck |
+| `ts.output` / `ts.input` | vendored TS introspection (`checker.typeToString`); freshness verified by re-deriving and diffing in `spec check`/`spec_test.ts` — no generated `expectTypeOf` code needed |
 | `ts.instantiations` | vendored TS introspection (`program.getInstantiationCount()`, diffed against a baseline) |
 | `ts.bundleBytes` | vendored esbuild measurement: bundle+minify+gzip `S.parser(schema)`, tree-shaken against the dev source |
 
@@ -114,8 +117,10 @@ update`/`spec new`, no separate command needed.
 - `packages/sury/specs/<id>.yaml` — authored spec (published with the `sury` package)
 - `packages/sury/specs/spec.schema.json` — emitted from the format schema (`pnpm spec schema`)
 - `packages/spec/` — the spec CLI (its own workspace package). **Don't touch these files when working on Sury itself** — it's the test harness, not part of the library.
-- `packages/sury/tests/generated/*.gen_test.ts` — gitignored; regenerated before `pnpm test`
-- `packages/sury/tests/spec_test.ts` + `__snapshots__/` — harness tests + generated-output snapshot
+- `packages/sury/tests/spec_test.ts` — the single, committed, hand-written test that dynamically
+  exercises every spec at run time (no per-spec generated files)
+- `packages/sury/tests/spec_errors_test.ts` — snapshots `checkSpec`'s guiding error messages
+  (the same function `spec check` calls) against deliberately-broken mutations of a real spec
 
 ## Improving the harness
 
