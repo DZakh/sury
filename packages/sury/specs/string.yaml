@@ -1,17 +1,17 @@
 # yaml-language-server: $schema=./spec.schema.json
-schema:
-  ts: S.string
-types:
-  ts: S.Schema<string, string>
+ts:
+  schema: S.string
+  input: string
+  output: string
+  instantiations:
+    _skip: todo(#instantiations-dimension)
+  bundleBytes:
+    _skip: todo(#bundle-dimension)
 jsonSchema:
   input:
     type: string
   output:
     type: string
-instantiations:
-  _skip: todo(#instantiations-dimension)
-bundleBytes:
-  _skip: todo(#bundle-dimension)
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[0](i);return i}
@@ -28,7 +28,5 @@ operations:
       invalid-null:
         input: "null"
         error: Expected string, received null
-  decode:
-    _skip: identity
-  encode:
-    _skip: identity
+  decode: identity
+  encode: identity

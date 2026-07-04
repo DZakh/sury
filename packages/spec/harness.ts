@@ -15,6 +15,7 @@ import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import * as S from "../sury/src/S.js";
 import {
   KEY_ORDER,
+  TS_KEY_ORDER,
   OP_ORDER,
   isSkip,
   type Spec,
@@ -39,8 +40,8 @@ const OP_BUILDER: Record<OpName, (schema: any) => (input: any) => any> = {
 };
 
 // The reason string on a `_skip` must be a known enum value or `todo(#…)`.
+// (`identity` isn't here — it's no longer a `_skip` reason, see Operation.)
 const SKIP_REASONS = new Set([
-  "identity",
   "parser-only",
   "serializer-only",
   "lossy",
@@ -64,26 +65,30 @@ export const readSpec = (file: string): Spec =>
 export const evalSchema = (tsSource: string): any =>
   new Function("S", `return (${tsSource});`)(S);
 
-// Sury compiles a pass-through operation to a shared function literally named
-// `noopOperation`. An op is identity iff it compiles to that.
-const isNoop = (fn: Function): boolean => fn.name === "noopOperation";
+// Sury compiles a pass-through operation to this shared function — the ONLY
+// signal identity detection has. If this name is ever changed in Sury's
+// source, every `identity`-marked operation starts failing loudly (across
+// every spec, in `identityViolations` below) rather than silently going stale.
+const NOOP_OPERATION_WHICH_WILL_NEVER_CHANGE = "noopOperation";
+const isNoop = (fn: Function): boolean =>
+  fn.name === NOOP_OPERATION_WHICH_WILL_NEVER_CHANGE;
 
-// Enforce the identity invariant both ways: an operation compiles to identity
-// *iff* it is declared `_skip: identity`. Returns violation messages ([] if ok).
-// Requires the live (dev) schema.
+// Enforce the identity invariant both ways: an operation compiles to Sury's
+// pass-through *iff* it is declared the literal `identity`. Returns violation
+// messages ([] if ok). Requires the live (dev) schema.
 export const identityViolations = (schema: any, spec: Spec): string[] => {
   const out: string[] = [];
   for (const opName of OP_ORDER) {
     const op = spec.operations[opName];
     const noop = isNoop(OP_BUILDER[opName](schema));
-    if (isSkip(op)) {
-      if (op._skip === "identity" && !noop)
+    if (op === "identity") {
+      if (!noop)
         out.push(
-          `operations.${opName}: marked \`_skip: identity\` but does not compile to identity — use a full op block with examples`,
+          `operations.${opName}: marked \`identity\` but does not compile to identity — use a full op block with examples`,
         );
     } else if (noop) {
       out.push(
-        `operations.${opName}: compiles to identity — use \`_skip: identity\` instead of an expression + examples`,
+        `operations.${opName}: compiles to identity — use \`identity\` instead of an expression + examples`,
       );
     }
   }
@@ -98,14 +103,14 @@ export const scaffoldJsonSchema = (schema: any) => ({
 });
 
 // Fully derive the operations dimension from a live schema: an identity op
-// collapses to `_skip: identity`; others get their expression golden with no
-// examples yet (the author still adds example inputs by hand).
+// collapses to the literal `identity`; others get their expression golden with
+// no examples yet (the author still adds example inputs by hand).
 export const scaffoldOperations = (schema: any): Spec["operations"] =>
   Object.fromEntries(
     OP_ORDER.map((opName) => {
       const fn = OP_BUILDER[opName](schema);
       const op: Operation = isNoop(fn)
-        ? { _skip: "identity" }
+        ? "identity"
         : { expression: fn.toString(), examples: {} };
       return [opName, op];
     }),
@@ -127,7 +132,7 @@ const canonExample = (ex: Example): Example =>
   order(ex, ["input", "output", "error", "bench"]) as Example;
 
 const canonOp = (op: Operation): Operation => {
-  if (isSkip(op)) return op;
+  if (op === "identity") return op;
   const o = order(op, ["expression", "examples"]);
   if (o.examples && typeof o.examples === "object") {
     const ex: Record<string, Example> = {};
@@ -139,6 +144,7 @@ const canonOp = (op: Operation): Operation => {
 
 export const canonicalize = (obj: Spec): Spec => {
   const o = order(obj, KEY_ORDER as string[]);
+  if (o.ts) o.ts = order(o.ts, TS_KEY_ORDER as string[]);
   if (o.jsonSchema && !isSkip(o.jsonSchema))
     o.jsonSchema = order(o.jsonSchema as Record<string, unknown>, [
       "input",
@@ -180,10 +186,12 @@ const clean = <T extends Record<string, unknown>>(o: T): T => {
 // Recompute everything derivable from the live (dev) schema: per-op codegen
 // goldens, input/output JSON Schemas, and each example's result by running the
 // operation. The author owns inputs and skips; the harness owns the answers.
+// (`ts.input`/`ts.output`/`ts.instantiations`/`ts.bundleBytes` are NOT
+// recomputed here — manually authored or awaiting a harness feature that
+// doesn't exist yet; see Spec Harness Suggestions.)
 export const recomputeGoldens = (obj: Spec): Spec => {
   const next: Spec = structuredClone(obj);
-  if (isSkip(next.schema)) return next;
-  const schema = evalSchema(next.schema.ts);
+  const schema = evalSchema(next.ts.schema);
 
   if (!isSkip(next.jsonSchema)) {
     next.jsonSchema = {
@@ -194,7 +202,7 @@ export const recomputeGoldens = (obj: Spec): Spec => {
 
   for (const opName of OP_ORDER) {
     const op = next.operations[opName];
-    if (isSkip(op)) continue;
+    if (op === "identity") continue;
     const fn = OP_BUILDER[opName](schema);
     if (!isSkip(op.expression)) op.expression = fn.toString();
     for (const [name, ex] of Object.entries(op.examples)) {
@@ -223,12 +231,21 @@ export const generateTest = (id: string, obj: Spec): string => {
   L.push(`import { test, expect, expectTypeOf } from "vitest";`);
   L.push(`import * as S from "../../src/S.js";`);
   L.push(``);
-  L.push(`const schema = ${obj.schema.ts};`);
+  L.push(`const schema = ${obj.ts.schema};`);
   L.push(``);
 
-  if (!isSkip(obj.types)) {
-    L.push(`test(${lit(`${id} › types`)}, () => {`);
-    L.push(`  expectTypeOf(schema).toEqualTypeOf<${obj.types.ts}>();`);
+  if (!isSkip(obj.ts.output)) {
+    L.push(`test(${lit(`${id} › ts › output`)}, () => {`);
+    L.push(
+      `  expectTypeOf<S.Output<typeof schema>>().toEqualTypeOf<${obj.ts.output}>();`,
+    );
+    L.push(`});`);
+  }
+  if (!isSkip(obj.ts.input)) {
+    L.push(`test(${lit(`${id} › ts › input`)}, () => {`);
+    L.push(
+      `  expectTypeOf<S.Input<typeof schema>>().toEqualTypeOf<${obj.ts.input}>();`,
+    );
     L.push(`});`);
   }
 
@@ -244,7 +261,7 @@ export const generateTest = (id: string, obj: Spec): string => {
 
   for (const opName of OP_ORDER) {
     const op = obj.operations[opName];
-    if (isSkip(op)) continue;
+    if (op === "identity") continue;
     const run = runner(opName);
     if (!isSkip(op.expression)) {
       L.push(`test(${lit(`${id} › ${opName} › expression`)}, () => {`);

@@ -13,16 +13,16 @@ Run commands from the repo root (`pnpm spec …`).
 
 ```
 pnpm spec new --id <id> --ts <schema>   # scaffold — jsonSchema + operations auto-derived from --ts
-# edit specs/<id>.yaml: fill `types`, add example inputs under each op's `examples`
+# edit specs/<id>.yaml: fill `ts.input`/`ts.output`, add example inputs under each op's `examples`
 pnpm spec update [id]                    # execute schema → fill expression/jsonSchema/example results
 pnpm spec check  [id]                    # gate: format-valid, canonical, skips well-formed, goldens fresh
 ```
 
 `new` requires both `--id` and `--ts` (e.g. `pnpm spec new --id string.min --ts "S.string.with(S.min, 3)"`);
 it immediately derives `jsonSchema` and `operations` from the given schema — identity ops collapse to
-`_skip: identity` automatically. Only `types` (still needs the TS type spelled out by hand) and
-example inputs are left to fill in. `[id]` is optional for `update`/`check`/`fmt`/`gen` — omit it to
-process every spec.
+the bare literal `identity` automatically. Only `ts.input`/`ts.output` (still need the TS type strings
+spelled out by hand) and example inputs are left to fill in. `[id]` is optional for
+`update`/`check`/`fmt`/`gen` — omit it to process every spec.
 `pnpm test` regenerates the hidden test files and runs them (behavior + types).
 To add a case: add a named entry under an op's `examples` with just `input`, then `pnpm spec update`.
 
@@ -30,18 +30,18 @@ To add a case: add a named entry under an op's `examples` with just `input`, the
 
 - **Never type a golden by hand.** `expression`, `jsonSchema`, and each example's
   `output`/`error` are written by `pnpm spec update` from the live schema. You only
-  own `schema.*` and example `input`s.
+  own `ts.schema`, `ts.input`/`ts.output`, and example `input`s.
 - **Exhaustive.** Every dimension and every operation (`parse`/`decode`/`encode`)
   must be present. Not asserting one? Set `_skip: <reason>` — reason is an enum
-  (`identity`, `parser-only`, `serializer-only`, `lossy`, `not-applicable`) or
-  `todo(#…)`. A bare/unexplained skip is rejected.
+  (`parser-only`, `serializer-only`, `lossy`, `not-applicable`) or `todo(#…)`.
+  A bare/unexplained skip is rejected.
 - **Identity ops.** An operation that compiles to Sury's pass-through must be
-  `_skip: identity` (not a full op block), and `_skip: identity` is verified to
-  actually be identity. `update`/`check` error either way.
-- **Single surface (for now).** `schema.ts` is JS `.with`-chain source (e.g.
-  `S.string.with(S.min, 3)`), executed directly. The ReScript surface
-  (`schema.res`) is dropped until the harness can compile+run `.res` source —
-  see Spec Harness Suggestions in `CONTRIBUTING.md`.
+  the bare literal `identity` (not a full op block, not `_skip: identity`), and
+  `identity` is verified to actually compile to a pass-through. `update`/`check`
+  error either way.
+- **Single surface (for now).** `ts.schema` is JS `.with`-chain source (e.g.
+  `S.string.with(S.min, 3)`), executed directly. A future `res` (ReScript)
+  surface sits alongside `ts` with its own shape.
 - **Closed world.** Unknown keys are rejected; `_`-prefixed keys are the reserved
   harness namespace (`_skip`). Never edit `tests/generated/` or `spec.schema.json` by hand.
 
@@ -49,20 +49,21 @@ To add a case: add a named entry under an op's `examples` with just `input`, the
 
 ```yaml
 # yaml-language-server: $schema=./spec.schema.json
-schema:
-  ts: S.string                  # JS surface (executed)
-types: { ts: S.Schema<string, string> }
+ts:                              # the JS `.with`-chain surface (executed)
+  schema: S.string
+  input: string                  # S.Input<schema>, as a type string — you write this
+  output: string                 # S.Output<schema>, as a type string — you write this
+  instantiations: { _skip: todo(#instantiations-dimension) }
+  bundleBytes:    { _skip: todo(#bundle-dimension) }
 jsonSchema: { input: {...}, output: {...} }   # filled by update
-instantiations: { _skip: todo(#instantiations-dimension) }
-bundleBytes:    { _skip: todo(#bundle-dimension) }
 operations:
   parse:                        # parse=unknown→out, decode=in→out, encode=out→in
     expression: ""              # filled by update
     examples:
       valid:   { input: '"hi"' }          # you write input; update adds output/error
       bad:     { input: "42" }
-  decode: { _skip: identity }   # identity op → skip (not a full block)
-  encode: { _skip: identity }
+  decode: identity               # bare literal — this op compiles to Sury's pass-through
+  encode: identity
 ```
 
 Every code field is source text (`'"hi"'` is the string `"hi"`, `42` is a number).
@@ -75,8 +76,8 @@ For `encode`, input is an Output value and output an Input value (the type flips
 | `operations.<op>.expression` | `.toString()` of `S.parser`/`S.decoder`/`S.encoder` |
 | `operations.<op>.examples` | running the op on each input |
 | `jsonSchema.input` / `.output` | `S.toJSONSchema(schema)` / `…(S.reverse(schema))` |
-| `types.ts` | `expectTypeOf` under Vitest typecheck |
-| `instantiations`, `bundleBytes` | planned — leave as `_skip: todo` |
+| `ts.output` / `ts.input` | `expectTypeOf<S.Output<schema>>`/`<S.Input<schema>>` under Vitest typecheck — you author the expected type string, `spec new`/`update` don't derive it |
+| `ts.instantiations`, `ts.bundleBytes` | planned — leave as `_skip: todo` |
 
 ## Layout
 

@@ -6,8 +6,9 @@
 //   spec gen     [id…]               (re)generate tests/generated/<id>.gen_test.ts (gitignored)
 //   spec update  [id…]               recompute goldens (expression, jsonSchema, examples), then fmt
 //   spec new --id <id> --ts <schema> scaffold a spec; jsonSchema + operations are
-//                                     auto-derived from --ts (only `types` and
-//                                     example inputs need manual authoring after)
+//                                     auto-derived from --ts (only `ts.input`/
+//                                     `ts.output` and example inputs need manual
+//                                     authoring after)
 //   spec schema                     (re)emit specs/spec.schema.json from the Sury format schema
 //
 // Infra (format validity, spec.schema.json) runs on published sury; golden
@@ -86,16 +87,14 @@ const cmdUpdate = (): void => {
   for (const file of targets()) {
     const id = specId(file);
     const obj = readSpec(file);
-    if (!isSkip(obj.schema)) {
-      let schema: any;
-      try {
-        schema = evalSchema(obj.schema.ts);
-      } catch (e) {
-        fail(`${id}: schema.ts did not evaluate: ${(e as Error).message}`);
-      }
-      const violations = identityViolations(schema, obj);
-      if (violations.length) fail(`${id}:\n    ${violations.join("\n    ")}`);
+    let schema: any;
+    try {
+      schema = evalSchema(obj.ts.schema);
+    } catch (e) {
+      fail(`${id}: ts.schema did not evaluate: ${(e as Error).message}`);
     }
+    const violations = identityViolations(schema, obj);
+    if (violations.length) fail(`${id}:\n    ${violations.join("\n    ")}`);
     writeFileSync(file, serialize(recomputeGoldens(obj)));
     console.log(`update ${id}`);
   }
@@ -131,15 +130,20 @@ const cmdNew = (): void => {
     fail(`--ts did not evaluate: ${(e as Error).message}`);
   }
   const spec: Spec = {
-    schema: { ts },
-    types: { _skip: "todo(#fill)" },
+    ts: {
+      schema: ts,
+      input: { _skip: "todo(#fill)" },
+      output: { _skip: "todo(#fill)" },
+      instantiations: { _skip: "todo(#instantiations-dimension)" },
+      bundleBytes: { _skip: "todo(#bundle-dimension)" },
+    },
     jsonSchema: scaffoldJsonSchema(schema),
-    instantiations: { _skip: "todo(#instantiations-dimension)" },
-    bundleBytes: { _skip: "todo(#bundle-dimension)" },
     operations: scaffoldOperations(schema),
   };
   writeFileSync(join(SPECS_DIR, `${id}.yaml`), serialize(spec));
-  console.log(`new ${id} -> specs/${id}.yaml (fill \`types\`, add example inputs, then \`pnpm spec update ${id}\`)`);
+  console.log(
+    `new ${id} -> specs/${id}.yaml (fill \`ts.input\`/\`ts.output\`, add example inputs, then \`pnpm spec update ${id}\`)`,
+  );
 };
 
 // `check` is the CI gate: emitted JSON Schema is current, and every spec is
@@ -167,28 +171,26 @@ const cmdCheck = (): void => {
     const canon = serialize(obj);
     if (raw !== canon) errs.push(`not canonical — run \`pnpm spec fmt ${id}\``);
 
-    if (!isSkip(obj.schema)) {
-      let schema: any;
+    let schema: any;
+    try {
+      schema = evalSchema(obj.ts.schema);
+    } catch (e) {
+      errs.push(`ts.schema did not evaluate: ${(e as Error).message}`);
+    }
+    if (schema) {
+      // A spec that failed format validation above may not have the shape
+      // identityViolations/recomputeGoldens assume (e.g. a missing
+      // `examples` map) — catch so one malformed file doesn't abort the
+      // whole batch; the validation error already reported above is the
+      // actionable one.
       try {
-        schema = evalSchema(obj.schema.ts);
+        // identity invariant: noop op <-> the literal `identity`
+        for (const v of identityViolations(schema, obj)) errs.push(v);
+        // goldens must equal what the live schema produces (no hand-edits)
+        if (serialize(recomputeGoldens(obj)) !== canon)
+          errs.push(`goldens stale — run \`pnpm spec update ${id}\``);
       } catch (e) {
-        errs.push(`schema.ts did not evaluate: ${(e as Error).message}`);
-      }
-      if (schema) {
-        // A spec that failed format validation above may not have the shape
-        // identityViolations/recomputeGoldens assume (e.g. a missing
-        // `examples` map) — catch so one malformed file doesn't abort the
-        // whole batch; the validation error already reported above is the
-        // actionable one.
-        try {
-          // identity invariant: noop op <-> `_skip: identity`
-          for (const v of identityViolations(schema, obj)) errs.push(v);
-          // goldens must equal what the live schema produces (no hand-edits)
-          if (serialize(recomputeGoldens(obj)) !== canon)
-            errs.push(`goldens stale — run \`pnpm spec update ${id}\``);
-        } catch (e) {
-          errs.push(`goldens could not be computed: ${(e as Error).message}`);
-        }
+        errs.push(`goldens could not be computed: ${(e as Error).message}`);
       }
     }
 

@@ -4,8 +4,11 @@ import * as S from "../../src/S.js";
 
 const schema = S.string;
 
-test("string › types", () => {
-  expectTypeOf(schema).toEqualTypeOf<S.Schema<string, string>>();
+test("string › ts › output", () => {
+  expectTypeOf<S.Output<typeof schema>>().toEqualTypeOf<string>();
+});
+test("string › ts › input", () => {
+  expectTypeOf<S.Input<typeof schema>>().toEqualTypeOf<string>();
 });
 test("string › jsonSchema", () => {
   expect(S.toJSONSchema(schema)).toStrictEqual({"type":"string"});

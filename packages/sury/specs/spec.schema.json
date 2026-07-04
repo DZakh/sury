@@ -1,44 +1,96 @@
 {
   "type": "object",
   "properties": {
-    "schema": {
+    "ts": {
       "type": "object",
       "properties": {
-        "ts": {
+        "schema": {
           "type": "string"
+        },
+        "input": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "_skip": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "_skip"
+              ]
+            }
+          ]
+        },
+        "output": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "_skip": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "_skip"
+              ]
+            }
+          ]
+        },
+        "instantiations": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "_skip": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "_skip"
+              ]
+            }
+          ]
+        },
+        "bundleBytes": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "_skip": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "_skip"
+              ]
+            }
+          ]
         }
       },
       "additionalProperties": false,
       "required": [
-        "ts"
-      ]
-    },
-    "types": {
-      "anyOf": [
-        {
-          "type": "object",
-          "properties": {
-            "ts": {
-              "type": "string"
-            }
-          },
-          "additionalProperties": false,
-          "required": [
-            "ts"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "_skip": {
-              "type": "string"
-            }
-          },
-          "additionalProperties": false,
-          "required": [
-            "_skip"
-          ]
-        }
+        "schema",
+        "input",
+        "output",
+        "instantiations",
+        "bundleBytes"
       ]
     },
     "jsonSchema": {
@@ -69,49 +121,15 @@
         }
       ]
     },
-    "instantiations": {
-      "anyOf": [
-        {
-          "type": "number"
-        },
-        {
-          "type": "object",
-          "properties": {
-            "_skip": {
-              "type": "string"
-            }
-          },
-          "additionalProperties": false,
-          "required": [
-            "_skip"
-          ]
-        }
-      ]
-    },
-    "bundleBytes": {
-      "anyOf": [
-        {
-          "type": "number"
-        },
-        {
-          "type": "object",
-          "properties": {
-            "_skip": {
-              "type": "string"
-            }
-          },
-          "additionalProperties": false,
-          "required": [
-            "_skip"
-          ]
-        }
-      ]
-    },
     "operations": {
       "type": "object",
       "properties": {
         "parse": {
           "anyOf": [
+            {
+              "type": "string",
+              "const": "identity"
+            },
             {
               "type": "object",
               "properties": {
@@ -184,18 +202,6 @@
               "required": [
                 "expression",
                 "examples"
-              ]
-            },
-            {
-              "type": "object",
-              "properties": {
-                "_skip": {
-                  "type": "string"
-                }
-              },
-              "additionalProperties": false,
-              "required": [
-                "_skip"
               ]
             }
           ]
@@ -203,6 +209,10 @@
         "decode": {
           "anyOf": [
             {
+              "type": "string",
+              "const": "identity"
+            },
+            {
               "type": "object",
               "properties": {
                 "expression": {
@@ -274,18 +284,6 @@
               "required": [
                 "expression",
                 "examples"
-              ]
-            },
-            {
-              "type": "object",
-              "properties": {
-                "_skip": {
-                  "type": "string"
-                }
-              },
-              "additionalProperties": false,
-              "required": [
-                "_skip"
               ]
             }
           ]
@@ -293,6 +291,10 @@
         "encode": {
           "anyOf": [
             {
+              "type": "string",
+              "const": "identity"
+            },
+            {
               "type": "object",
               "properties": {
                 "expression": {
@@ -364,18 +366,6 @@
               "required": [
                 "expression",
                 "examples"
-              ]
-            },
-            {
-              "type": "object",
-              "properties": {
-                "_skip": {
-                  "type": "string"
-                }
-              },
-              "additionalProperties": false,
-              "required": [
-                "_skip"
               ]
             }
           ]
@@ -391,11 +381,8 @@
   },
   "additionalProperties": false,
   "required": [
-    "schema",
-    "types",
+    "ts",
     "jsonSchema",
-    "instantiations",
-    "bundleBytes",
     "operations"
   ]
 }

@@ -51,29 +51,36 @@ const operation = S.schema({
   examples: S.record(example),
 }).with(S.strict);
 
-// The three directions through a schema share this shape: required, but a
-// schema that does not support one (e.g. a one-way transform has no `encode`)
-// says `{_skip}`.
-const operationOrSkip = orSkip(operation);
-export type Operation = S.Output<typeof operationOrSkip>;
+// An operation is either a full block, or the literal `identity` shorthand for
+// Sury's pass-through compile. harness.identityViolations enforces this both
+// ways: an op that compiles to the pass-through must say `identity`, and
+// `identity` must actually compile to it.
+const operationOrIdentity = S.union(["identity", operation]);
+export type Operation = S.Output<typeof operationOrIdentity>;
 
 const operations = S.schema({
-  parse: operationOrSkip,
-  decode: operationOrSkip,
-  encode: operationOrSkip,
+  parse: operationOrIdentity,
+  decode: operationOrIdentity,
+  encode: operationOrIdentity,
+}).with(S.strict);
+
+// The `ts` (JS `.with`-chain) surface: source plus every surface-specific
+// dimension — type strings, TS-instantiation count, per-surface bundle cost.
+// A future `res` (ReScript) surface sits alongside this with its own, smaller
+// shape (no `input`, since ReScript's `S.t<'value>` has no separate Input type
+// parameter; no `instantiations`, a TS/attest-only concept).
+const ts = S.schema({
+  schema: S.string,
+  input: orSkip(S.string),
+  output: orSkip(S.string),
+  instantiations: orSkip(S.number),
+  bundleBytes: orSkip(S.number),
 }).with(S.strict);
 
 // The full spec. One file = one schema's complete contract.
 export const specSchema = S.schema({
-  // The schema under test, as JS `.with`-chain source (executed by the harness).
-  // The ReScript surface is dropped for now — see Spec Harness Suggestions.
-  schema: S.schema({ ts: S.string }).with(S.strict),
-  // Static, value-independent dimensions.
-  types: orSkip(S.schema({ ts: S.string }).with(S.strict)),
+  ts,
   jsonSchema: orSkip(S.schema({ input: S.json, output: S.json }).with(S.strict)),
-  instantiations: orSkip(S.number),
-  bundleBytes: orSkip(S.number),
-  // Value-driven dimension: codegen goldens + runnable examples per direction.
   operations,
 }).with(S.strict);
 export type Spec = S.Output<typeof specSchema>;
@@ -81,13 +88,13 @@ export type Spec = S.Output<typeof specSchema>;
 export type OpName = keyof Spec["operations"];
 
 // Ordered dimension keys — the canonical key order for `spec fmt`.
-export const KEY_ORDER: (keyof Spec)[] = [
+export const KEY_ORDER: (keyof Spec)[] = ["ts", "jsonSchema", "operations"];
+export const TS_KEY_ORDER: (keyof Spec["ts"])[] = [
   "schema",
-  "types",
-  "jsonSchema",
+  "input",
+  "output",
   "instantiations",
   "bundleBytes",
-  "operations",
 ];
 export const OP_ORDER: OpName[] = ["parse", "decode", "encode"];
 
