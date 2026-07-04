@@ -58,11 +58,9 @@
     "test": "rescript build && vitest run",
     "typecheck": "vitest run --typecheck.only",
     "bench": "vitest bench --run",
-    "bench:types": "tsx tests/types.bench.ts",
     "lint:stdlib": "rescript-stdlib-vendorer lint --ignore-path=src"
   },
   "devDependencies": {
-    "@ark/attest": "0.56.0",
     "@codspeed/vitest-plugin": "5.6.0",
     "@rescript/darwin-arm64": "12.2.0",
     "@rollup/plugin-node-resolve": "16.0.0",

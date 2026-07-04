@@ -25,10 +25,6 @@ jobs:
       - run: pnpm build
         working-directory: packages/sury
 
-      - name: Type performance benchmarks
-        run: pnpm bench:types
-        working-directory: packages/sury
-
       - run: pnpm coverage
         working-directory: packages/sury
 

@@ -93,13 +93,18 @@ vendored TypeScript introspection — **not** `@ark/attest`. It uses `@typescrip
 the TS Playground) to spin up one isolated virtual environment, memoized for the process, then for
 each schema: declares it plus `type __Output = S.Output<typeof __schema>`/`__Input` in a virtual file,
 runs `program.getSemanticDiagnostics()` to force checking, reads `checker.typeToString()` for the type
-strings, and reads the real `program.getInstantiationCount()` (diffed against a bare-import baseline)
-for the instantiation count. `@ark/attest` uses this exact same mechanism internally for its own
-`instantiations` benchmarks (`tests/types.bench.ts`, still a separate project-health benchmark unrelated
-to specs) — what makes attest itself slow (~15s) is a separate, unrelated whole-project scan (`setup()`'s
+strings (with `TypeFormatFlags.InTypeAlias`, or a union/index-signature type prints as its own alias
+name — e.g. the literal text "__Output" — instead of expanding), and reads the real
+`program.getInstantiationCount()` (diffed against a bare-import baseline) for the instantiation count.
+`@ark/attest` uses this exact same mechanism internally for its own `instantiations` benchmarks — what
+makes attest itself slow (~15s) is a separate, unrelated whole-project scan (`setup()`'s
 `analyzeProjectAssertions()`) for pre-written, hardcoded-expected-value assertions, which this harness has
 no use for. Vendoring just the isolated-environment logic measures ~1s cold, ~50-200ms warm per additional
-schema in the same process.
+schema in the same process. `tests/types.bench.ts`, a former `@ark/attest`-based project-health benchmark
+with its own hardcoded per-scenario instantiation counts, is removed in favor of per-spec `ts.instantiations`
+— every scenario it covered (object/tuple/union/merge shapes of varying width and nesting) now lives as a
+spec instead, so the same regression coverage runs as part of the normal spec suite rather than a separate
+command.
 
 `ts.bundleBytes` is computed by `packages/spec/bundleSize.ts`, which bundles a tiny `S.parser(schema)`
 entry with esbuild (aliasing the bare `sury` specifier to the dev source), minifies, and gzips — the
