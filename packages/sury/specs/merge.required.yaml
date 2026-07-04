@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.merge(S.schema({a: S.string, b: S.number, c: S.boolean}), S.schema({d: S.bigint, e: S.symbol}))"
+  input: "{ [x: string]: unknown; }"
+  output: "{ a: string; b: number; c: boolean; d: bigint; e: symbol; }"
+  instantiations: 42545
+  bundleBytes: 10198
+jsonSchema:
+  _skip: not-applicable
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i||e[5](i);let v0=i["a"],v1=i["b"],v2=i["c"],v3=i["d"],v4=i["e"];typeof v0==="string"||e[0](v0);typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);typeof v2==="boolean"||e[2](v2);typeof v3==="bigint"||e[3](v3);typeof v4==="symbol"||e[4](v4);return {"a":v0,"b":v1,"c":v2,"d":v3,"e":v4,}}
+    examples:
+      valid:
+        input: '{a: "x", b: 1, c: true, d: 5n, e: Symbol.for("e")}'
+        output: '{"a":"x","b":1,"c":true,"d":5n,"e":Symbol.for("e")}'
+      invalid-merged-field:
+        input: '{a: "x", b: 1, c: true, d: "not bigint", e: Symbol.for("e")}'
+        error: 'Failed at ["d"]: Expected bigint, received "not bigint"'
+  decode: identity
+  encode: identity

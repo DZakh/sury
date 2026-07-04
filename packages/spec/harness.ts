@@ -113,11 +113,21 @@ export const identityViolations = (schema: any, spec: Spec): string[] => {
 };
 
 // Fully derive the jsonSchema dimension from a live schema — no example inputs
-// needed, so `spec new` can fill this in immediately from `--ts`.
-export const scaffoldJsonSchema = (schema: any) => ({
-  input: asJson(S.toJSONSchema(schema)),
-  output: asJson(S.toJSONSchema(S.reverse(schema))),
-});
+// needed, so `spec new` can fill this in immediately from `--ts`. JSON Schema
+// has no representation for bigint or symbol, so `S.toJSONSchema` throws for
+// any schema containing one (at any nesting depth) — not a bug to work
+// around, a real "this concept doesn't apply" case, same as an author
+// choosing `_skip: not-applicable` by hand.
+export const scaffoldJsonSchema = (schema: any): Spec["jsonSchema"] => {
+  try {
+    return {
+      input: asJson(S.toJSONSchema(schema)),
+      output: asJson(S.toJSONSchema(S.reverse(schema))),
+    };
+  } catch {
+    return { _skip: "not-applicable" };
+  }
+};
 
 // Fully derive the operations dimension from a live schema: an identity op
 // collapses to the literal `identity`; others get their expression golden with

@@ -5,7 +5,7 @@
 // execution runs on the dev source. See format.ts / harness.ts. Full usage: HELP below.
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { schemaJson, validate, type Spec } from "./format";
+import { schemaJson, type Spec } from "./format";
 import {
   SPECS_DIR,
   SCHEMA_PATH,
@@ -147,12 +147,17 @@ const WRITE_FLAG = "--write";
 // snapshot tests (tests/spec_errors_test.ts) exercise the exact same code.
 // --write additionally persists whatever's safely fixable *before* checking —
 // canonical form and stale goldens, via the same recomputeGoldens a bare
-// `check` already calls internally to detect staleness — but only when the
-// spec is format-valid and free of identity violations, neither of which a
-// rewrite can resolve on its own (they need a human decision: fix the spec's
-// shape, or accept the schema change). Every file's (re)computation runs
-// concurrently; results are collected and printed in original order once all
-// resolve, so parallel esbuild/TS work doesn't interleave the report output.
+// `check` already calls internally to detect staleness. This deliberately
+// does NOT require the spec to already be format-valid: a freshly-added
+// example (just `input`, per the documented workflow) fails format
+// validation until --write fills in output/error, so gating on validity
+// would make --write unable to do the one thing it exists for. Safe because
+// identityViolations/recomputeGoldens throwing (a genuinely malformed
+// ts.schema, an identity mismatch) is caught below and falls through to
+// checkSpec's own reporting rather than writing anything. Every file's
+// (re)computation runs concurrently; results are collected and printed in
+// original order once all resolve, so parallel esbuild/TS work doesn't
+// interleave the report output.
 const cmdCheck = async (): Promise<void> => {
   const write = rest.includes(WRITE_FLAG);
   let failed = 0;
@@ -176,13 +181,21 @@ const cmdCheck = async (): Promise<void> => {
         } catch {
           schema = null;
         }
-        if (validate(obj).ok && schema && identityViolations(schema, obj).length === 0) {
-          const fresh = serialize(await recomputeGoldens(obj));
-          if (fresh !== raw) {
-            writeFileSync(file, fresh);
-            raw = fresh;
-            obj = readSpec(file);
-            console.log(`wrote ${id}`);
+        if (schema) {
+          try {
+            if (identityViolations(schema, obj).length === 0) {
+              const fresh = serialize(await recomputeGoldens(obj));
+              if (fresh !== raw) {
+                writeFileSync(file, fresh);
+                raw = fresh;
+                obj = readSpec(file);
+                console.log(`wrote ${id}`);
+              }
+            }
+          } catch {
+            // Recompute failed for a reason format validation would also
+            // catch (e.g. ts.schema evaluates but isn't really a schema) —
+            // skip the write; checkSpec below reports the real problem.
           }
         }
       }

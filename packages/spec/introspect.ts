@@ -89,7 +89,17 @@ export const deriveTypeInfo = async (schemaTs: string): Promise<TypeInfo> => {
   let input = "";
   ts.forEachChild(file, function visit(node) {
     if (ts.isTypeAliasDeclaration(node)) {
-      const str = checker.typeToString(checker.getTypeAtLocation(node.name));
+      // Without InTypeAlias, typeToString prints a type's OWN alias name
+      // instead of expanding it whenever the resolved type still carries an
+      // alias symbol back to `__Output`/`__Input` themselves — e.g. a union
+      // return type prints as the useless literal string "__Output" rather
+      // than "string | number". InTypeAlias tells the printer this call IS
+      // the alias's own definition, so it always expands fully.
+      const str = checker.typeToString(
+        checker.getTypeAtLocation(node.name),
+        undefined,
+        ts.TypeFormatFlags.InTypeAlias,
+      );
       if (node.name.text === "__Output") output = str;
       if (node.name.text === "__Input") input = str;
     }
