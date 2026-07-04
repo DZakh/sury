@@ -4320,25 +4320,30 @@ X.Object.defineProperty(
         let standard: StandardSchema.props<unknown, unknown> = {
           version: 1,
           vendor,
-          // Built as raw objects (then cast to `StandardSchema.Result.t`) so the
-          // success value isn't wrapped in an option; the runtime shape is a
-          // bare `{value}` or `{issues}` as the spec requires.
           validate: input => {
             try {
-              {
-                "value": getDecoder2(~s1=unknown, ~s2=schema)(input->Obj.magic)->Obj.magic,
-              }->Obj.magic
+              StandardSchema.Result.success({
+                value: getDecoder2(~s1=unknown, ~s2=schema)(input->Obj.magic)->Obj.magic,
+              })
             } catch {
             | _ => {
                 let error = %raw(`exn`)->InternalError.getOrRethrow
-                {
-                  "issues": [
+                StandardSchema.Result.failure({
+                  issues: [
                     {
-                      "message": error.reason,
-                      "path": error.path === Path.empty ? None : Some(error.path->Path.toArray),
+                      message: error.reason,
+                      path: ?(
+                        error.path === Path.empty
+                          ? None
+                          : Some(
+                              error.path
+                              ->Path.toArray
+                              ->Array.map(key => StandardSchema.Issue.String(key)),
+                            )
+                      ),
                     },
                   ],
-                }->Obj.magic
+                })
               }
             }
           },
@@ -7615,9 +7620,9 @@ standardJSONSchemaRef :=
       // throw. Passing an options object (vs none) is what makes `toJSONSchema`
       // stamp `$schema`, which the Standard JSON Schema spec requires.
       // `options.target` is a raw string from the Standard JSON Schema spec;
-      // `toJSONSchema` validates it (throwing on an unsupported target). The cast
-      // is safe because `StandardSchema.JsonSchema.target` shares its runtime representation
-      // with the string.
+      // `toJSONSchema` validates it (throwing on an unsupported target). The
+      // cast is safe because `StandardSchema.JsonSchema.target` shares its
+      // runtime representation with the string.
       toJSONSchema(
         isOutput ? schema->reverse : schema,
         ~options={target: (options.target->Obj.magic: StandardSchema.JsonSchema.target)},

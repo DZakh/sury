@@ -3,7 +3,23 @@
 
 let Issue = {};
 
-let Result = {};
+function classify(result) {
+  if ((result.issues !== undefined)) {
+    return {
+      TAG: "Failure",
+      _0: result
+    };
+  } else {
+    return {
+      TAG: "Success",
+      _0: result
+    };
+  }
+}
+
+let Result = {
+  classify: classify
+};
 
 let JsonSchema = {};
 

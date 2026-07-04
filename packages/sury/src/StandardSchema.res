@@ -3,21 +3,25 @@
 // structure mirrors the `StandardSchemaV1` / `StandardTypedV1` /
 // `StandardJSONSchemaV1` TypeScript namespaces in `S.d.ts`.
 
-// `StandardSchemaV1.Types` — the schema's inferred input/output types.
-type types<'input, 'output> = {
-  input: 'input,
-  output: 'output,
-}
-
 module Issue = {
   // `StandardSchemaV1.PathSegment`.
   type pathSegment = {key: string}
 
-  // `StandardSchemaV1.Issue`. The spec allows each path element to be a
-  // `PropertyKey` or a `PathSegment`; Sury always emits plain string keys.
+  // A single element of `StandardSchemaV1.Issue.path`: `PropertyKey |
+  // PathSegment`. `PropertyKey` is `string | number | symbol`, but ReScript's
+  // unboxed variants can't disambiguate a `symbol` case, so it's omitted here
+  // (Sury never emits symbol path keys). Each variant is unboxed, so at
+  // runtime this is just the underlying string/float/`{key}` value.
+  @unboxed
+  type pathElement =
+    | String(string)
+    | Number(float)
+    | Segment(pathSegment)
+
+  // `StandardSchemaV1.Issue`. `path` is absent for top-level issues.
   type t = {
     message: string,
-    path?: array<string>,
+    path?: array<pathElement>,
   }
 }
 
@@ -28,18 +32,35 @@ module Result = {
   // `StandardSchemaV1.FailureResult`.
   type failure = {issues: array<Issue.t>}
 
-  // `StandardSchemaV1.Result` = `SuccessResult | FailureResult`. Untagged at
-  // runtime: a success carries `value`, a failure carries `issues`.
-  type t<'output> = {
-    value?: 'output,
-    issues?: array<Issue.t>,
-  }
+  // `StandardSchemaV1.Result` = `SuccessResult | FailureResult`. Opaque: at
+  // runtime it is a bare `{value}` or `{issues}`, so it can't be a plain
+  // ReScript record (an optional `value` would be option-boxed). Use
+  // `classify` to pattern match on it.
+  type t<'output>
+
+  type tagged<'output> = Success(success<'output>) | Failure(failure)
+
+  external success: success<'output> => t<'output> = "%identity"
+  external failure: failure => t<'output> = "%identity"
+
+  let classify = (result: t<'output>): tagged<'output> =>
+    if %raw(`result.issues !== undefined`) {
+      Failure(result->Obj.magic)
+    } else {
+      Success(result->Obj.magic)
+    }
 }
 
 module JsonSchema = {
-  // `StandardJSONSchemaV1.Target` — the named JSON Schema dialects. Compiles to
-  // the spec target strings, so it interops with the raw `target` string from
-  // JS. (The TS `Target` additionally accepts any `string`.)
+  // `StandardJSONSchemaV1.Target`, restricted to the dialects Sury actually
+  // supports. A standalone open polymorphic variant (`[> ...]`) can't be used
+  // here: ReScript requires an explicit row type variable on any named alias,
+  // which would need threading through `options`/`converter`/`props`/`t`
+  // (and turning the `~standard` getter's plain forward-reference `ref` into a
+  // record with a polymorphic field, since a `ref` can't hold a rank-2
+  // polymorphic function). `options.target` below is the actual open surface,
+  // matching the TS `Target = ... | ({} & string)` escape hatch: it accepts
+  // any string and is validated at runtime by `parseTarget`.
   type target = [#"draft-07" | #"draft-2020-12" | #"openapi-3.0"]
 
   // `StandardJSONSchemaV1.Options`. `target` is a raw `string` to mirror the TS
@@ -63,9 +84,9 @@ module JsonSchema = {
 type props<'input, 'output> = {
   version: int,
   vendor: string,
-  validate: unknown => Result.t<'output>,
+  validate: 'any. 'any => Result.t<'output>,
   jsonSchema: JsonSchema.converter,
-  types?: types<'input, 'output>,
+  types?: {"input": 'input, "output": 'output},
 }
 
 // The Standard Schema interface (`StandardSchemaV1`): an object carrying the
