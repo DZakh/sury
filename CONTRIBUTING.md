@@ -340,6 +340,15 @@ instead of silently working around it.
 
 - Identity detection keys on `fn.name === "noopOperation"`; also comparing the
   compiled `.toString()` body would stay robust if that internal is ever renamed.
+- `schema.res` (the ReScript surface) is dropped for now — only `schema.ts` is
+  authored/executed. Re-add it once the harness can compile and run `.res`
+  source (not just evaluate JS), to get cross-surface codegen conformance
+  checking (both surfaces must produce the same `expression` golden).
+- `types.ts` still requires manual fill (`spec new` can't derive it) — unlike
+  `jsonSchema`/`operations`, which `spec new --ts <schema>` derives immediately
+  by executing the schema. Auto-deriving the type string (e.g. via the
+  TypeScript Compiler API / ts-morph, printing the checker's type for the given
+  `schema.ts` expression) would remove the last dimension `new` can't fill in.
 
 ## License
 

@@ -1,6 +1,5 @@
 # yaml-language-server: $schema=./spec.schema.json
 schema:
-  res: S.string
   ts: S.string
 types:
   ts: S.Schema<string, string>

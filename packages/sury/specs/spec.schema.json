@@ -4,16 +4,12 @@
     "schema": {
       "type": "object",
       "properties": {
-        "res": {
-          "type": "string"
-        },
         "ts": {
           "type": "string"
         }
       },
       "additionalProperties": false,
       "required": [
-        "res",
         "ts"
       ]
     },

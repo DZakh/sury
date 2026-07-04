@@ -18,7 +18,6 @@ import {
   OP_ORDER,
   isSkip,
   type Spec,
-  type Skip,
   type Operation,
   type Example,
   type OpName,
@@ -67,7 +66,7 @@ export const evalSchema = (tsSource: string): any =>
 
 // Sury compiles a pass-through operation to a shared function literally named
 // `noopOperation`. An op is identity iff it compiles to that.
-const isNoop = (fn: { name?: string }): boolean => fn.name === "noopOperation";
+const isNoop = (fn: Function): boolean => fn.name === "noopOperation";
 
 // Enforce the identity invariant both ways: an operation compiles to identity
 // *iff* it is declared `_skip: identity`. Returns violation messages ([] if ok).
@@ -91,6 +90,27 @@ export const identityViolations = (schema: any, spec: Spec): string[] => {
   return out;
 };
 
+// Fully derive the jsonSchema dimension from a live schema — no example inputs
+// needed, so `spec new` can fill this in immediately from `--ts`.
+export const scaffoldJsonSchema = (schema: any) => ({
+  input: asJson(S.toJSONSchema(schema)),
+  output: asJson(S.toJSONSchema(S.reverse(schema))),
+});
+
+// Fully derive the operations dimension from a live schema: an identity op
+// collapses to `_skip: identity`; others get their expression golden with no
+// examples yet (the author still adds example inputs by hand).
+export const scaffoldOperations = (schema: any): Spec["operations"] =>
+  Object.fromEntries(
+    OP_ORDER.map((opName) => {
+      const fn = OP_BUILDER[opName](schema);
+      const op: Operation = isNoop(fn)
+        ? { _skip: "identity" }
+        : { expression: fn.toString(), examples: {} };
+      return [opName, op];
+    }),
+  ) as Spec["operations"];
+
 // ---- canonical form -------------------------------------------------------
 
 const order = <T extends Record<string, unknown>>(obj: T, keys: string[]): T => {
@@ -101,14 +121,16 @@ const order = <T extends Record<string, unknown>>(obj: T, keys: string[]): T => 
   return out as T;
 };
 
-const canonExample = (ex: Example | Skip): Example | Skip =>
-  isSkip(ex) ? ex : (order(ex, ["input", "output", "error", "bench"]) as Example);
+// Individual named examples are never `_skip` — only the enclosing operation
+// block is (the format schema has no `orSkip` on the examples map's values).
+const canonExample = (ex: Example): Example =>
+  order(ex, ["input", "output", "error", "bench"]) as Example;
 
 const canonOp = (op: Operation): Operation => {
   if (isSkip(op)) return op;
   const o = order(op, ["expression", "examples"]);
   if (o.examples && typeof o.examples === "object") {
-    const ex: Record<string, Example | Skip> = {};
+    const ex: Record<string, Example> = {};
     for (const [name, v] of Object.entries(o.examples)) ex[name] = canonExample(v);
     o.examples = ex;
   }
@@ -117,7 +139,6 @@ const canonOp = (op: Operation): Operation => {
 
 export const canonicalize = (obj: Spec): Spec => {
   const o = order(obj, KEY_ORDER as string[]);
-  if (o.schema && !isSkip(o.schema)) o.schema = order(o.schema, ["res", "ts"]);
   if (o.jsonSchema && !isSkip(o.jsonSchema))
     o.jsonSchema = order(o.jsonSchema as Record<string, unknown>, [
       "input",
@@ -138,6 +159,12 @@ export const serialize = (obj: Spec): string =>
 
 const inlineToValue = (codeStr: string): unknown =>
   new Function("S", `return (${codeStr});`)(S);
+
+// `S.toJSONSchema` returns the concrete `JSONSchema7` interface, which has no
+// index signature and so doesn't structurally satisfy Sury's generic `JSON`
+// type — even though every JSONSchema7 value is valid JSON data. Bridge the
+// two Sury-internal type declarations at this one boundary.
+const asJson = (v: unknown): S.Output<typeof S.json> => v as S.Output<typeof S.json>;
 
 const valueToCode = (v: unknown): string =>
   typeof v === "string" || (typeof v === "object" && v !== null)
@@ -160,8 +187,8 @@ export const recomputeGoldens = (obj: Spec): Spec => {
 
   if (!isSkip(next.jsonSchema)) {
     next.jsonSchema = {
-      input: S.toJSONSchema(schema),
-      output: S.toJSONSchema(S.reverse(schema)),
+      input: asJson(S.toJSONSchema(schema)),
+      output: asJson(S.toJSONSchema(S.reverse(schema))),
     };
   }
 
@@ -170,8 +197,7 @@ export const recomputeGoldens = (obj: Spec): Spec => {
     if (isSkip(op)) continue;
     const fn = OP_BUILDER[opName](schema);
     if (!isSkip(op.expression)) op.expression = fn.toString();
-    for (const [name, ex] of Object.entries(op.examples || {})) {
-      if (isSkip(ex)) continue;
+    for (const [name, ex] of Object.entries(op.examples)) {
       const bench = ex.bench;
       try {
         const out = fn(inlineToValue(ex.input));
@@ -197,7 +223,7 @@ export const generateTest = (id: string, obj: Spec): string => {
   L.push(`import { test, expect, expectTypeOf } from "vitest";`);
   L.push(`import * as S from "../../src/S.js";`);
   L.push(``);
-  L.push(`const schema = ${(obj.schema as { ts: string }).ts};`);
+  L.push(`const schema = ${obj.schema.ts};`);
   L.push(``);
 
   if (!isSkip(obj.types)) {
@@ -225,8 +251,7 @@ export const generateTest = (id: string, obj: Spec): string => {
       L.push(`  expect(${run}.toString()).toBe(${lit(op.expression)});`);
       L.push(`});`);
     }
-    for (const [name, ex] of Object.entries(op.examples || {})) {
-      if (isSkip(ex)) continue;
+    for (const [name, ex] of Object.entries(op.examples)) {
       L.push(`test(${lit(`${id} › ${opName} › ${name}`)}, () => {`);
       if ("error" in ex) {
         L.push(`  expect(() => ${run}(${ex.input})).toThrow(${lit(ex.error)});`);

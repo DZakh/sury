@@ -1,12 +1,14 @@
 #!/usr/bin/env tsx
 // `spec` — the AI-first test-spec harness (see the `spec` skill).
 //
-//   spec check   [id…]   validate + lint + assert fmt-clean + goldens match live
-//   spec fmt     [id…]    rewrite specs to canonical byte-deterministic form
-//   spec gen     [id…]    (re)generate tests/generated/<id>.gen_test.ts (gitignored)
-//   spec update  [id…]    recompute goldens (expression, jsonSchema, examples), then fmt
-//   spec new     <id>     scaffold a spec with every dimension present as _skip: todo
-//   spec schema          (re)emit specs/spec.schema.json from the Sury format schema
+//   spec check   [id…]              validate + lint + assert fmt-clean + goldens match live
+//   spec fmt     [id…]               rewrite specs to canonical byte-deterministic form
+//   spec gen     [id…]               (re)generate tests/generated/<id>.gen_test.ts (gitignored)
+//   spec update  [id…]               recompute goldens (expression, jsonSchema, examples), then fmt
+//   spec new --id <id> --ts <schema> scaffold a spec; jsonSchema + operations are
+//                                     auto-derived from --ts (only `types` and
+//                                     example inputs need manual authoring after)
+//   spec schema                     (re)emit specs/spec.schema.json from the Sury format schema
 //
 // Infra (format validity, spec.schema.json) runs on published sury; golden
 // execution runs on the dev source. See format.ts / harness.ts.
@@ -24,6 +26,8 @@ import {
   recomputeGoldens,
   evalSchema,
   identityViolations,
+  scaffoldJsonSchema,
+  scaffoldOperations,
   generateTest,
   genPath,
   isValidSkipReason,
@@ -98,23 +102,44 @@ const cmdUpdate = (): void => {
   cmdGen();
 };
 
+// Parse `--id <id> --ts <schema>`. Both required — there's nothing sensible to
+// scaffold without a schema, and deriving jsonSchema/operations from it up
+// front is the whole point of `new` (see harness.scaffold*).
+const parseNewArgs = (argv: string[]): { id: string; ts: string } => {
+  const flags: Record<string, string> = {};
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === "--id" || a === "--ts") {
+      const val = argv[i + 1];
+      if (val === undefined) fail(`${a} requires a value`);
+      flags[a.slice(2)] = val;
+      i++;
+    }
+  }
+  const id = flags.id;
+  const ts = flags.ts;
+  if (!id || !ts) fail("usage: spec new --id <id> --ts <schema-ts-source>");
+  return { id, ts };
+};
+
 const cmdNew = (): void => {
-  const id = rest[0];
-  if (!id) fail("usage: spec new <id>");
-  const skeleton: Spec = {
-    schema: { res: "S.unknown", ts: "S.unknown" },
+  const { id, ts } = parseNewArgs(rest);
+  let schema: any;
+  try {
+    schema = evalSchema(ts);
+  } catch (e) {
+    fail(`--ts did not evaluate: ${(e as Error).message}`);
+  }
+  const spec: Spec = {
+    schema: { ts },
     types: { _skip: "todo(#fill)" },
-    jsonSchema: { _skip: "todo(#fill)" },
+    jsonSchema: scaffoldJsonSchema(schema),
     instantiations: { _skip: "todo(#instantiations-dimension)" },
     bundleBytes: { _skip: "todo(#bundle-dimension)" },
-    operations: {
-      parse: { _skip: "todo(#fill)" },
-      decode: { _skip: "todo(#fill)" },
-      encode: { _skip: "todo(#fill)" },
-    },
+    operations: scaffoldOperations(schema),
   };
-  writeFileSync(join(SPECS_DIR, `${id}.yaml`), serialize(skeleton));
-  console.log(`new ${id} -> specs/${id}.yaml (fill the _skip: todo dimensions)`);
+  writeFileSync(join(SPECS_DIR, `${id}.yaml`), serialize(spec));
+  console.log(`new ${id} -> specs/${id}.yaml (fill \`types\`, add example inputs, then \`pnpm spec update ${id}\`)`);
 };
 
 // `check` is the CI gate: emitted JSON Schema is current, and every spec is
@@ -150,11 +175,20 @@ const cmdCheck = (): void => {
         errs.push(`schema.ts did not evaluate: ${(e as Error).message}`);
       }
       if (schema) {
-        // identity invariant: noop op <-> `_skip: identity`
-        for (const v of identityViolations(schema, obj)) errs.push(v);
-        // goldens must equal what the live schema produces (no hand-edits)
-        if (serialize(recomputeGoldens(obj)) !== canon)
-          errs.push(`goldens stale — run \`pnpm spec update ${id}\``);
+        // A spec that failed format validation above may not have the shape
+        // identityViolations/recomputeGoldens assume (e.g. a missing
+        // `examples` map) — catch so one malformed file doesn't abort the
+        // whole batch; the validation error already reported above is the
+        // actionable one.
+        try {
+          // identity invariant: noop op <-> `_skip: identity`
+          for (const v of identityViolations(schema, obj)) errs.push(v);
+          // goldens must equal what the live schema produces (no hand-edits)
+          if (serialize(recomputeGoldens(obj)) !== canon)
+            errs.push(`goldens stale — run \`pnpm spec update ${id}\``);
+        } catch (e) {
+          errs.push(`goldens could not be computed: ${(e as Error).message}`);
+        }
       }
     }
 
@@ -189,5 +223,7 @@ switch (cmd) {
     cmdSchema();
     break;
   default:
-    fail("usage: spec <check|fmt|gen|update|new|schema> [id…]");
+    fail(
+      "usage: spec <check|fmt|gen|update|schema> [id…] | spec new --id <id> --ts <schema>",
+    );
 }

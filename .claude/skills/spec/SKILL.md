@@ -12,13 +12,17 @@ Run commands from the repo root (`pnpm spec …`).
 ## Workflow
 
 ```
-pnpm spec new <id>       # scaffold — every dimension starts as _skip: todo
-# edit specs/<id>.yaml: fill schema.res/ts and example inputs
-pnpm spec update [id]    # execute schema → fill expression, jsonSchema, example results
-pnpm spec check  [id]    # gate: format-valid, canonical, skips well-formed, goldens fresh
+pnpm spec new --id <id> --ts <schema>   # scaffold — jsonSchema + operations auto-derived from --ts
+# edit specs/<id>.yaml: fill `types`, add example inputs under each op's `examples`
+pnpm spec update [id]                    # execute schema → fill expression/jsonSchema/example results
+pnpm spec check  [id]                    # gate: format-valid, canonical, skips well-formed, goldens fresh
 ```
 
-`[id]` is optional for `update`/`check`/`fmt`/`gen` — omit it to process every spec; `new` requires one.
+`new` requires both `--id` and `--ts` (e.g. `pnpm spec new --id string.min --ts "S.string.with(S.min, 3)"`);
+it immediately derives `jsonSchema` and `operations` from the given schema — identity ops collapse to
+`_skip: identity` automatically. Only `types` (still needs the TS type spelled out by hand) and
+example inputs are left to fill in. `[id]` is optional for `update`/`check`/`fmt`/`gen` — omit it to
+process every spec.
 `pnpm test` regenerates the hidden test files and runs them (behavior + types).
 To add a case: add a named entry under an op's `examples` with just `input`, then `pnpm spec update`.
 
@@ -34,9 +38,10 @@ To add a case: add a named entry under an op's `examples` with just `input`, the
 - **Identity ops.** An operation that compiles to Sury's pass-through must be
   `_skip: identity` (not a full op block), and `_skip: identity` is verified to
   actually be identity. `update`/`check` error either way.
-- **Two surfaces.** `schema.res` (ReScript, e.g. `S.string->S.min(3)`) and
-  `schema.ts` (JS `.with`, e.g. `S.string.with(S.min, 3)`). Identical is fine
-  (`S.string`). Only `ts` is executed today.
+- **Single surface (for now).** `schema.ts` is JS `.with`-chain source (e.g.
+  `S.string.with(S.min, 3)`), executed directly. The ReScript surface
+  (`schema.res`) is dropped until the harness can compile+run `.res` source —
+  see Spec Harness Suggestions in `CONTRIBUTING.md`.
 - **Closed world.** Unknown keys are rejected; `_`-prefixed keys are the reserved
   harness namespace (`_skip`). Never edit `tests/generated/` or `spec.schema.json` by hand.
 
@@ -45,7 +50,6 @@ To add a case: add a named entry under an op's `examples` with just `input`, the
 ```yaml
 # yaml-language-server: $schema=./spec.schema.json
 schema:
-  res: S.string                 # ReScript surface
   ts: S.string                  # JS surface (executed)
 types: { ts: S.Schema<string, string> }
 jsonSchema: { input: {...}, output: {...} }   # filled by update
