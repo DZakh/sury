@@ -190,16 +190,24 @@ const inlineToValue = (codeStr: string): unknown =>
 const asJson = (v: unknown): S.Output<typeof S.json> => v as S.Output<typeof S.json>;
 
 // Turn an arbitrary decoded value back into re-executable source text for an
-// example's `output` field. Recursive so bigint/Date/Map/Set/RegExp are
+// example's `output` field. Recursive so bigint/Date/Map/Set/RegExp/Symbol are
 // handled at any nesting depth, not just the top level: `JSON.stringify`
 // throws outright on a bare (or nested) bigint, and silently mangles Date
 // (→ a plain string, not a Date)/Map/Set (→ "{}", dropping every entry).
-// `Object.is` catches -0, which `String(-0)` prints as "0".
+// `Object.is` catches -0, which `String(-0)` prints as "0". Only a *registry*
+// symbol (`Symbol.for(key)`) round-trips through source text — a bare
+// `Symbol()` is unique per call, so no source expression can reproduce it.
 const valueToCode = (v: unknown): string => {
   if (v === undefined) return "undefined";
   if (typeof v === "bigint") return `${v}n`;
   if (typeof v === "number") return Object.is(v, -0) ? "-0" : String(v);
   if (v === null || typeof v === "boolean" || typeof v === "string") return JSON.stringify(v);
+  if (typeof v === "symbol") {
+    const key = Symbol.keyFor(v);
+    if (key === undefined)
+      throw new Error("cannot represent a non-registry symbol (use Symbol.for(key)) as spec source code");
+    return `Symbol.for(${JSON.stringify(key)})`;
+  }
   if (v instanceof Date) return `new Date(${JSON.stringify(v.toISOString())})`;
   if (v instanceof RegExp) return v.toString();
   if (v instanceof Map) return `new Map(${valueToCode([...v])})`;
@@ -319,10 +327,18 @@ export const checkSpec = async (id: string, obj: Spec, raw: string): Promise<str
     // throwing; the validation error already pushed above is the actionable one.
     try {
       // identity invariant: noop op <-> the literal `identity`
-      for (const violation of identityViolations(schema, obj)) errs.push(violation);
-      // goldens must equal what the live schema produces (no hand-edits)
+      const violations = identityViolations(schema, obj);
+      for (const violation of violations) errs.push(violation);
+      // goldens must equal what the live schema produces (no hand-edits).
+      // --write can't fix this on its own while an identity violation stands
+      // (that needs a human decision, not a rewrite — see cmdCheck) — say so,
+      // rather than pointing at the flag the author may have just tried.
       if (serialize(await recomputeGoldens(obj)) !== canon)
-        errs.push(`goldens stale — run \`pnpm spec check ${id} --write\``);
+        errs.push(
+          violations.length
+            ? `goldens stale — resolve the identity mismatch above first, then \`pnpm spec check ${id} --write\` can fix it`
+            : `goldens stale — run \`pnpm spec check ${id} --write\``,
+        );
     } catch (e) {
       errs.push(`goldens could not be computed: ${(e as Error).message}`);
     }

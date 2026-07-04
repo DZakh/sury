@@ -348,14 +348,6 @@ instead of silently working around it.
   skip the second attempt once format validation has already failed for
   `ts.schema` specifically. See tests/spec_errors_test.ts's "wrong type for a
   required field" snapshot.
-- `spec check --write` still prints "goldens stale — run `pnpm spec check <id>
-  --write`" when `--write` was already passed but couldn't fix anything because
-  of a live identity violation (which needs a human decision, not a rewrite —
-  see `cmdCheck`'s gating in `packages/spec/cli.ts`). Technically correct (the
-  goldens genuinely are stale) but circular advice to someone who just ran
-  `--write`; the message should distinguish "stale, and --write would fix it"
-  from "stale, but --write can't touch this until the identity mismatch above
-  is resolved."
 - <placeholder>
 
 ## License
