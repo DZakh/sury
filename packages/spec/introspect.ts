@@ -70,7 +70,14 @@ export type TypeInfo = { input: string; output: string; instantiations: number }
 // from it — the realistic combined per-schema cost (matching the "define +
 // extract" measurements in tests/types.bench.ts), not the isolated cost of
 // either half alone.
-export const deriveTypeInfo = (schemaTs: string): TypeInfo => {
+//
+// Returns a Promise for a uniform async API alongside bundleSize.ts's
+// genuinely-async esbuild call, so a caller can `Promise.all`/pipeline the
+// two — but the TS Program/checker calls inside are inherently synchronous
+// (there's no async variant of the compiler API), so this doesn't itself
+// parallelize across concurrent calls the way the esbuild-based derivation
+// does; it just composes cleanly with what does.
+export const deriveTypeInfo = async (schemaTs: string): Promise<TypeInfo> => {
   const withExpr =
     IMPORT_LINE +
     `const __schema = ${schemaTs};\n` +

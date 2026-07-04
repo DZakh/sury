@@ -31,8 +31,8 @@ describe.each(specs)("spec: $id", ({ id, file }) => {
     expect(readFileSync(file, "utf8")).toBe(serialize(spec));
   });
 
-  test("goldens match live behavior (run `pnpm spec update`)", () => {
-    expect(serialize(recomputeGoldens(spec))).toBe(serialize(spec));
+  test("goldens match live behavior (run `pnpm spec update`)", async () => {
+    expect(serialize(await recomputeGoldens(spec))).toBe(serialize(spec));
   });
 });
 

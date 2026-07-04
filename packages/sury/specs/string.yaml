@@ -4,8 +4,7 @@ ts:
   input: string
   output: string
   instantiations: 226
-  bundleBytes:
-    _skip: todo(#bundle-dimension)
+  bundleBytes: 3765
 jsonSchema:
   input:
     type: string

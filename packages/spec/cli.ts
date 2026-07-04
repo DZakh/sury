@@ -30,6 +30,7 @@ import {
   scaffoldJsonSchema,
   scaffoldOperations,
   deriveTypeInfo,
+  deriveBundleBytes,
   generateTest,
   genPath,
   isValidSkipReason,
@@ -84,21 +85,37 @@ const cmdGen = (): void => {
   }
 };
 
-const cmdUpdate = (): void => {
-  for (const file of targets()) {
-    const id = specId(file);
-    const obj = readSpec(file);
-    let schema: any;
-    try {
-      schema = evalSchema(obj.ts.schema);
-    } catch (e) {
-      fail(`${id}: ts.schema did not evaluate: ${(e as Error).message}`);
+// Every file's read/recompute/write runs concurrently (recomputeGoldens's
+// esbuild call is the part actually worth parallelizing across specs); errors
+// are collected rather than exiting mid-batch, so one bad spec doesn't cut off
+// the others' progress or leave the process racing an in-flight child build.
+const cmdUpdate = async (): Promise<void> => {
+  const results = await Promise.all(
+    targets().map(async (file) => {
+      const id = specId(file);
+      const obj = readSpec(file);
+      let schema: any;
+      try {
+        schema = evalSchema(obj.ts.schema);
+      } catch (e) {
+        return { id, error: `ts.schema did not evaluate: ${(e as Error).message}` };
+      }
+      const violations = identityViolations(schema, obj);
+      if (violations.length) return { id, error: violations.join("\n    ") };
+      writeFileSync(file, serialize(await recomputeGoldens(obj)));
+      return { id, error: null };
+    }),
+  );
+  let failed = false;
+  for (const r of results) {
+    if (r.error) {
+      failed = true;
+      console.error(red(`${r.id}:\n    ${r.error}`));
+    } else {
+      console.log(`update ${r.id}`);
     }
-    const violations = identityViolations(schema, obj);
-    if (violations.length) fail(`${id}:\n    ${violations.join("\n    ")}`);
-    writeFileSync(file, serialize(recomputeGoldens(obj)));
-    console.log(`update ${id}`);
   }
+  if (failed) process.exit(1);
   cmdGen();
 };
 
@@ -122,7 +139,7 @@ const parseNewArgs = (argv: string[]): { id: string; ts: string } => {
   return { id, ts };
 };
 
-const cmdNew = (): void => {
+const cmdNew = async (): Promise<void> => {
   const { id, ts } = parseNewArgs(rest);
   let schema: any;
   try {
@@ -130,14 +147,17 @@ const cmdNew = (): void => {
   } catch (e) {
     fail(`--ts did not evaluate: ${(e as Error).message}`);
   }
-  const typeInfo = deriveTypeInfo(ts);
+  // deriveBundleBytes (genuinely async, esbuild child process) goes first so
+  // it's kicked off before deriveTypeInfo's synchronous compiler work runs —
+  // see the ordering note on recomputeGoldens in harness.ts.
+  const [bundleBytes, typeInfo] = await Promise.all([deriveBundleBytes(ts), deriveTypeInfo(ts)]);
   const spec: Spec = {
     ts: {
       schema: ts,
       input: typeInfo.input,
       output: typeInfo.output,
       instantiations: typeInfo.instantiations,
-      bundleBytes: { _skip: "todo(#bundle-dimension)" },
+      bundleBytes,
     },
     jsonSchema: scaffoldJsonSchema(schema),
     operations: scaffoldOperations(schema),
@@ -147,8 +167,11 @@ const cmdNew = (): void => {
 };
 
 // `check` is the CI gate: emitted JSON Schema is current, and every spec is
-// format-valid, skip-lint-clean, canonical, with goldens matching live behavior.
-const cmdCheck = (): void => {
+// format-valid, skip-lint-clean, canonical, with goldens matching live
+// behavior. Every file's (re)computation runs concurrently; results are
+// collected and printed in original order once all resolve, so parallel
+// esbuild/TS work doesn't interleave the per-file report output.
+const cmdCheck = async (): Promise<void> => {
   let failed = 0;
 
   if (existsSync(SCHEMA_PATH) && readFileSync(SCHEMA_PATH, "utf8") !== schemaJson()) {
@@ -157,43 +180,48 @@ const cmdCheck = (): void => {
     console.log("    stale — run `pnpm spec schema`");
   }
 
-  for (const file of targets()) {
-    const id = specId(file);
-    const errs: string[] = [];
-    const raw = readFileSync(file, "utf8");
-    const obj = readSpec(file);
+  const results = await Promise.all(
+    targets().map(async (file) => {
+      const id = specId(file);
+      const errs: string[] = [];
+      const raw = readFileSync(file, "utf8");
+      const obj = readSpec(file);
 
-    const v = validate(obj);
-    if (!v.ok) errs.push(`schema: ${v.error}`);
+      const v = validate(obj);
+      if (!v.ok) errs.push(`schema: ${v.error}`);
 
-    lintSkips(obj, id, errs);
+      lintSkips(obj, id, errs);
 
-    const canon = serialize(obj);
-    if (raw !== canon) errs.push(`not canonical — run \`pnpm spec fmt ${id}\``);
+      const canon = serialize(obj);
+      if (raw !== canon) errs.push(`not canonical — run \`pnpm spec fmt ${id}\``);
 
-    let schema: any;
-    try {
-      schema = evalSchema(obj.ts.schema);
-    } catch (e) {
-      errs.push(`ts.schema did not evaluate: ${(e as Error).message}`);
-    }
-    if (schema) {
-      // A spec that failed format validation above may not have the shape
-      // identityViolations/recomputeGoldens assume (e.g. a missing
-      // `examples` map) — catch so one malformed file doesn't abort the
-      // whole batch; the validation error already reported above is the
-      // actionable one.
+      let schema: any;
       try {
-        // identity invariant: noop op <-> the literal `identity`
-        for (const v of identityViolations(schema, obj)) errs.push(v);
-        // goldens must equal what the live schema produces (no hand-edits)
-        if (serialize(recomputeGoldens(obj)) !== canon)
-          errs.push(`goldens stale — run \`pnpm spec update ${id}\``);
+        schema = evalSchema(obj.ts.schema);
       } catch (e) {
-        errs.push(`goldens could not be computed: ${(e as Error).message}`);
+        errs.push(`ts.schema did not evaluate: ${(e as Error).message}`);
       }
-    }
+      if (schema) {
+        // A spec that failed format validation above may not have the shape
+        // identityViolations/recomputeGoldens assume (e.g. a missing
+        // `examples` map) — catch so one malformed file doesn't abort the
+        // whole batch; the validation error already reported above is the
+        // actionable one.
+        try {
+          // identity invariant: noop op <-> the literal `identity`
+          for (const v of identityViolations(schema, obj)) errs.push(v);
+          // goldens must equal what the live schema produces (no hand-edits)
+          if (serialize(await recomputeGoldens(obj)) !== canon)
+            errs.push(`goldens stale — run \`pnpm spec update ${id}\``);
+        } catch (e) {
+          errs.push(`goldens could not be computed: ${(e as Error).message}`);
+        }
+      }
+      return { id, errs };
+    }),
+  );
 
+  for (const { id, errs } of results) {
     if (errs.length) {
       failed++;
       console.log(red(`✗ ${id}`));
@@ -205,27 +233,35 @@ const cmdCheck = (): void => {
   if (failed) fail(`${failed} check(s) failed`);
 };
 
-switch (cmd) {
-  case "check":
-    cmdCheck();
-    break;
-  case "fmt":
-    cmdFmt();
-    break;
-  case "gen":
-    cmdGen();
-    break;
-  case "update":
-    cmdUpdate();
-    break;
-  case "new":
-    cmdNew();
-    break;
-  case "schema":
-    cmdSchema();
-    break;
-  default:
-    fail(
-      "usage: spec <check|fmt|gen|update|schema> [id…] | spec new --id <id> --ts <schema>",
-    );
+// Wrapped in an async function (instead of top-level await) so the script
+// type-checks under this project's shared tsconfig.json, which targets
+// module: ES2020 — too old for top-level await (matches the convention
+// established in tests/bundle.bench.ts).
+async function main() {
+  switch (cmd) {
+    case "check":
+      await cmdCheck();
+      break;
+    case "fmt":
+      cmdFmt();
+      break;
+    case "gen":
+      cmdGen();
+      break;
+    case "update":
+      await cmdUpdate();
+      break;
+    case "new":
+      await cmdNew();
+      break;
+    case "schema":
+      cmdSchema();
+      break;
+    default:
+      fail(
+        "usage: spec <check|fmt|gen|update|schema> [id…] | spec new --id <id> --ts <schema>",
+      );
+  }
 }
+
+main();

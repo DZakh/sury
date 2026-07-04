@@ -24,6 +24,7 @@ import {
   type OpName,
 } from "./format";
 import { deriveTypeInfo } from "./introspect";
+import { deriveBundleBytes } from "./bundleSize";
 
 const here = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
 // The spec suite lives in the sury package (specs ship with it).
@@ -186,17 +187,27 @@ const clean = <T extends Record<string, unknown>>(o: T): T => {
 
 // Recompute everything derivable from the live (dev) schema: per-op codegen
 // goldens, input/output JSON Schemas, ts.input/ts.output/ts.instantiations (via
-// introspect.ts), and each example's result by running the operation. The
-// author owns inputs and skips (and can still `_skip` any of these — e.g.
-// `ts.instantiations: { _skip: not-applicable }`); the harness owns the
-// answers. (`ts.bundleBytes` is NOT recomputed here — awaiting a harness
-// feature that doesn't exist yet; see Spec Harness Suggestions.)
-export const recomputeGoldens = (obj: Spec): Spec => {
+// introspect.ts), ts.bundleBytes (via bundleSize.ts), and each example's
+// result by running the operation. The author owns inputs and skips (and can
+// still `_skip` any of these — e.g. `ts.instantiations: { _skip:
+// not-applicable }`); the harness owns the answers.
+//
+// The esbuild-based bundle measurement is kicked off FIRST, before any of the
+// synchronous work below, so its child-process build genuinely overlaps with
+// the (CPU-bound, single-threaded) TS introspection and operation execution —
+// awaiting a promise you call *after* doing unrelated sync work just means you
+// awaited something that was already progressing; calling it first is what
+// lets the two actually run concurrently.
+export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
   const next: Spec = structuredClone(obj);
   const schema = evalSchema(next.ts.schema);
 
+  const bundleBytesPromise = isSkip(next.ts.bundleBytes)
+    ? null
+    : deriveBundleBytes(next.ts.schema);
+
   if (!isSkip(next.ts.input) || !isSkip(next.ts.output) || !isSkip(next.ts.instantiations)) {
-    const info = deriveTypeInfo(next.ts.schema);
+    const info = await deriveTypeInfo(next.ts.schema);
     if (!isSkip(next.ts.input)) next.ts.input = info.input;
     if (!isSkip(next.ts.output)) next.ts.output = info.output;
     if (!isSkip(next.ts.instantiations)) next.ts.instantiations = info.instantiations;
@@ -224,6 +235,8 @@ export const recomputeGoldens = (obj: Spec): Spec => {
       }
     }
   }
+
+  if (bundleBytesPromise) next.ts.bundleBytes = await bundleBytesPromise;
   return next;
 };
 
@@ -292,7 +305,8 @@ export const generateTest = (id: string, obj: Spec): string => {
 
 export const genPath = (id: string): string => join(GEN_DIR, `${id}.gen_test.ts`);
 
-// Re-exported so `spec new` can populate ts.input/ts.output/ts.instantiations
-// up front too (cli.ts only imports from harness.ts/format.ts, never touches
-// introspect.ts directly).
+// Re-exported so `spec new` can populate ts.input/ts.output/ts.instantiations/
+// ts.bundleBytes up front too (cli.ts only imports from harness.ts/format.ts,
+// never touches introspect.ts/bundleSize.ts directly).
 export { deriveTypeInfo, type TypeInfo } from "./introspect";
+export { deriveBundleBytes } from "./bundleSize";
