@@ -14,28 +14,28 @@ Run commands from the repo root (`pnpm spec …`).
 ```
 pnpm spec new --id <id> --ts <schema>   # scaffold — everything is auto-derived from --ts
 # edit specs/<id>.yaml: add example inputs under each op's `examples`
-pnpm spec update [id]                    # re-derive everything from the live schema (one unified step)
-pnpm spec check  [id]                    # gate: format-valid, canonical, skips well-formed, goldens fresh
+pnpm spec check --write [id]             # (re)derive everything from the live schema and persist it
+pnpm spec check         [id]             # gate: format-valid, canonical, skips well-formed, goldens fresh
 ```
 
 `new` requires both `--id` and `--ts` (e.g. `pnpm spec new --id string.min --ts "S.string.with(S.min, 3)"`).
-A single `pnpm spec new`/`pnpm spec update` derives **everything** the harness knows how to derive:
+A single `pnpm spec new`/`spec check --write` derives **everything** the harness knows how to derive:
 `jsonSchema`, `operations` (identity ops collapse to the bare literal `identity` automatically),
 `ts.input`/`ts.output`/`ts.instantiations` (vendored TypeScript introspection,
 `packages/spec/introspect.ts`) and `ts.bundleBytes` (vendored esbuild measurement,
 `packages/spec/bundleSize.ts`) — see "How types/instantiations/bundle size are derived" below. Only
-example inputs are left to fill in by hand. `[id]` is optional for `update`/`check`/`fmt` — omit it to
+example inputs are left to fill in by hand. `[id]` is optional for `check`/`fmt` — omit it to
 process every spec.
 There is no code-generation step. `pnpm test` runs `packages/sury/tests/spec_test.ts`, a single
 committed, hand-written Vitest file that dynamically loops over every spec at run time and calls
 straight into the harness — so example execution and every dimension's freshness are exercised, and
 covered, by a real Vitest run without ever materializing a per-spec test file.
-To add a case: add a named entry under an op's `examples` with just `input`, then `pnpm spec update`.
+To add a case: add a named entry under an op's `examples` with just `input`, then `pnpm spec check --write`.
 
 ## Rules (these are enforced)
 
 - **Never type a golden by hand.** Every field except `ts.schema` and example `input`s is written by
-  `pnpm spec update`/`spec new` from the live schema — including `ts.input`/`ts.output`/
+  `spec new`/`spec check --write` from the live schema — including `ts.input`/`ts.output`/
   `ts.instantiations`/`ts.bundleBytes`, not just `expression`/`jsonSchema`/example results.
 - **Exhaustive.** Every dimension and every operation (`parse`/`decode`/`encode`)
   must be present. Not asserting one? Set `_skip: <reason>` — reason is an enum
@@ -43,8 +43,8 @@ To add a case: add a named entry under an op's `examples` with just `input`, the
   A bare/unexplained skip is rejected.
 - **Identity ops.** An operation that compiles to Sury's pass-through must be
   the bare literal `identity` (not a full op block, not `_skip: identity`), and
-  `identity` is verified to actually compile to a pass-through. `update`/`check`
-  error either way.
+  `identity` is verified to actually compile to a pass-through. `check` errors
+  either way (and `--write` refuses to touch the file until it's resolved).
 - **Single surface (for now).** `ts.schema` is JS `.with`-chain source (e.g.
   `S.string.with(S.min, 3)`), executed directly. A future `res` (ReScript)
   surface sits alongside `ts` with its own shape.
@@ -57,16 +57,16 @@ To add a case: add a named entry under an op's `examples` with just `input`, the
 # yaml-language-server: $schema=./spec.schema.json
 ts:                              # the JS `.with`-chain surface (executed)
   schema: S.string
-  input: string                  # S.Input<schema>, as a type string — filled by update
-  output: string                 # S.Output<schema>, as a type string — filled by update
-  instantiations: 226            # type-instantiation count — filled by update
-  bundleBytes: 3765               # tree-shaken, minified+gzipped bytes for S.parser(schema) — filled by update
-jsonSchema: { input: {...}, output: {...} }   # filled by update
+  input: string                  # S.Input<schema>, as a type string — filled by check --write
+  output: string                 # S.Output<schema>, as a type string — filled by check --write
+  instantiations: 226            # type-instantiation count — filled by check --write
+  bundleBytes: 3765               # tree-shaken, minified+gzipped bytes for S.parser(schema) — filled by check --write
+jsonSchema: { input: {...}, output: {...} }   # filled by check --write
 operations:
   parse:                        # parse=unknown→out, decode=in→out, encode=out→in
-    expression: ""              # filled by update
+    expression: ""              # filled by check --write
     examples:
-      valid:   { input: '"hi"' }          # you write input; update adds output/error
+      valid:   { input: '"hi"' }          # you write input; check --write adds output/error
       bad:     { input: "42" }
   decode: identity               # bare literal — this op compiles to Sury's pass-through
   encode: identity
@@ -109,8 +109,8 @@ per-spec derivation). Unlike the TS-introspection environment,
 each `deriveBundleBytes` call is an independent esbuild child-process build with no shared state, so
 concurrent specs' bundle measurements run genuinely in parallel via `Promise.all`. `recomputeGoldens`
 kicks off the bundle-size build *before* the synchronous TS work so the two overlap within a single
-spec too — both are fast enough (low single-digit seconds even cold) to run on every `spec
-update`/`spec new`, no separate command needed.
+spec too — both are fast enough (low single-digit seconds even cold) to run on every `spec new`/`spec
+check --write`, no separate command needed.
 
 ## Layout
 

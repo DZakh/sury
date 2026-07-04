@@ -5,7 +5,7 @@
 // execution runs on the dev source. See format.ts / harness.ts. Full usage: HELP below.
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { schemaJson, type Spec } from "./format";
+import { schemaJson, validate, type Spec } from "./format";
 import {
   SPECS_DIR,
   SCHEMA_PATH,
@@ -27,9 +27,9 @@ const args = process.argv.slice(2);
 const cmd = args[0];
 const rest = args.slice(1);
 
-const targets = (): string[] =>
-  rest.length
-    ? rest.map((id) => join(SPECS_DIR, `${id.replace(/\.yaml$/, "")}.yaml`))
+const targets = (ids: string[] = rest): string[] =>
+  ids.length
+    ? ids.map((id) => join(SPECS_DIR, `${id.replace(/\.yaml$/, "")}.yaml`))
     : listSpecFiles();
 
 const red = (s: string) => `\x1b[31m${s}\x1b[0m`;
@@ -47,28 +47,23 @@ Usage: spec <command> [args]
 Commands:
   new --id <id> --ts <schema>
       Scaffold specs/<id>.yaml: derives jsonSchema, operations, and every
-      ts.* dimension from --ts. Add example inputs by hand, then run \`update\`.
+      ts.* dimension from --ts. Add example inputs by hand, then run
+      \`check --write\`.
       e.g. spec new --id string.min --ts "S.string.with(S.min, 3)"
 
-  update [id…]
-      Re-derive every dimension from the live (dev) schema, for the given
-      spec(s), or every spec under specs/ if none are named. Never overwrites
-      ts.schema, example inputs, or an existing _skip — only fills/refreshes
-      what those authorize. Exits non-zero (without writing anything) if an
-      identity-op mismatch is found; run for each affected spec to see why.
-
-  check [id…]
+  check [id…] [--write]
       The CI gate. For the given spec(s) (or all): validates against the
       format schema, lints every _skip reason, asserts canonical form, and
-      verifies goldens are fresh (i.e. what update would produce, matching
-      what's on disk). Never mutates files. Prints a specific, actionable
-      message per problem — e.g. "goldens stale — run \`pnpm spec update
-      <id>\`" — never just pass/fail.
+      verifies goldens are fresh. Never mutates files by default. Pass
+      --write to persist whatever's safely fixable (canonical form, stale
+      goldens) — skipped for a format-invalid spec or a live identity
+      mismatch, which need a human decision instead. Prints a specific,
+      actionable message per remaining problem, never just pass/fail.
 
   fmt [id…]
       Rewrite the given spec(s) (or all) to canonical, byte-deterministic
       form — key order, formatting — without recomputing any golden. Run
-      \`update\` if goldens themselves need refreshing.
+      \`check --write\` if goldens themselves need refreshing.
 
   schema
       Re-emit specs/spec.schema.json from the format schema in format.ts.
@@ -95,39 +90,6 @@ const cmdFmt = (): void => {
     writeFileSync(file, serialize(readSpec(file)));
     console.log(`fmt ${specId(file)}`);
   }
-};
-
-// Every file's read/recompute/write runs concurrently (recomputeGoldens's
-// esbuild call is the part actually worth parallelizing across specs); errors
-// are collected rather than exiting mid-batch, so one bad spec doesn't cut off
-// the others' progress or leave the process racing an in-flight child build.
-const cmdUpdate = async (): Promise<void> => {
-  const results = await Promise.all(
-    targets().map(async (file) => {
-      const id = specId(file);
-      const obj = readSpec(file);
-      let schema: any;
-      try {
-        schema = evalSchema(obj.ts.schema);
-      } catch (e) {
-        return { id, error: `ts.schema did not evaluate: ${(e as Error).message}` };
-      }
-      const violations = identityViolations(schema, obj);
-      if (violations.length) return { id, error: violations.join("\n    ") };
-      writeFileSync(file, serialize(await recomputeGoldens(obj)));
-      return { id, error: null };
-    }),
-  );
-  let failed = false;
-  for (const r of results) {
-    if (r.error) {
-      failed = true;
-      console.error(red(`${r.id}:\n    ${r.error}`));
-    } else {
-      console.log(`update ${r.id}`);
-    }
-  }
-  if (failed) process.exit(1);
 };
 
 // Parse `--id <id> --ts <schema>`. Both required — there's nothing sensible to
@@ -174,17 +136,25 @@ const cmdNew = async (): Promise<void> => {
     operations: scaffoldOperations(schema),
   };
   writeFileSync(join(SPECS_DIR, `${id}.yaml`), serialize(spec));
-  console.log(`new ${id} -> specs/${id}.yaml (add example inputs, then \`pnpm spec update ${id}\`)`);
+  console.log(`new ${id} -> specs/${id}.yaml (add example inputs, then \`pnpm spec check ${id} --write\`)`);
 };
+
+const WRITE_FLAG = "--write";
 
 // `check` is the CI gate: emitted JSON Schema is current, and every spec is
 // format-valid, skip-lint-clean, canonical, with goldens matching live
 // behavior — all via harness.checkSpec, so the CLI and the guiding-error
 // snapshot tests (tests/spec_errors_test.ts) exercise the exact same code.
-// Every file's (re)computation runs concurrently; results are collected and
-// printed in original order once all resolve, so parallel esbuild/TS work
-// doesn't interleave the per-file report output.
+// --write additionally persists whatever's safely fixable *before* checking —
+// canonical form and stale goldens, via the same recomputeGoldens a bare
+// `check` already calls internally to detect staleness — but only when the
+// spec is format-valid and free of identity violations, neither of which a
+// rewrite can resolve on its own (they need a human decision: fix the spec's
+// shape, or accept the schema change). Every file's (re)computation runs
+// concurrently; results are collected and printed in original order once all
+// resolve, so parallel esbuild/TS work doesn't interleave the report output.
 const cmdCheck = async (): Promise<void> => {
+  const write = rest.includes(WRITE_FLAG);
   let failed = 0;
 
   if (existsSync(SCHEMA_PATH) && readFileSync(SCHEMA_PATH, "utf8") !== schemaJson()) {
@@ -194,10 +164,29 @@ const cmdCheck = async (): Promise<void> => {
   }
 
   const results = await Promise.all(
-    targets().map(async (file) => {
+    targets(rest.filter((a) => a !== WRITE_FLAG)).map(async (file) => {
       const id = specId(file);
-      const raw = readFileSync(file, "utf8");
-      const obj = readSpec(file);
+      let raw = readFileSync(file, "utf8");
+      let obj = readSpec(file);
+
+      if (write) {
+        let schema: any;
+        try {
+          schema = evalSchema(obj.ts.schema);
+        } catch {
+          schema = null;
+        }
+        if (validate(obj).ok && schema && identityViolations(schema, obj).length === 0) {
+          const fresh = serialize(await recomputeGoldens(obj));
+          if (fresh !== raw) {
+            writeFileSync(file, fresh);
+            raw = fresh;
+            obj = readSpec(file);
+            console.log(`wrote ${id}`);
+          }
+        }
+      }
+
       const errs = await checkSpec(id, obj, raw);
       return { id, errs };
     }),
@@ -226,9 +215,6 @@ async function main() {
       break;
     case "fmt":
       cmdFmt();
-      break;
-    case "update":
-      await cmdUpdate();
       break;
     case "new":
       await cmdNew();

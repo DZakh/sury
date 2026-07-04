@@ -49,18 +49,18 @@ const orSkip = <T extends S.Schema<unknown, unknown>>(schema: T) =>
 // expected `error` message. `bench` is reserved for the (not-yet-wired) perf
 // dimension. Every code field holds source text, valid in both languages.
 const inputDescription =
-  'Source text for the input, e.g. \'"hello"\'. Hand-written; `spec update` fills output/error.';
+  'Source text for the input, e.g. \'"hello"\'. Hand-written; `spec check --write` fills output/error.';
 const benchDescription = "Reserved for the not-yet-wired performance dimension.";
 const exampleOutput = S.schema({
   input: S.string.with(S.meta, { description: inputDescription }),
   output: S.string.with(S.meta, {
-    description: "Expected output source text. Filled by `spec update`.",
+    description: "Expected output source text. Filled by `spec check --write`.",
   }),
   bench: S.optional(S.boolean).with(S.meta, { description: benchDescription }),
 }).with(S.strict);
 const exampleError = S.schema({
   input: S.string.with(S.meta, { description: inputDescription }),
-  error: S.string.with(S.meta, { description: "Expected error message. Filled by `spec update`." }),
+  error: S.string.with(S.meta, { description: "Expected error message. Filled by `spec check --write`." }),
   bench: S.optional(S.boolean).with(S.meta, { description: benchDescription }),
 }).with(S.strict);
 const example = S.union([exampleOutput, exampleError]).with(S.meta, {
@@ -73,7 +73,7 @@ export type Example = S.Output<typeof example>;
 // their identity survives insertion/removal (unlike array indices).
 const operation = S.schema({
   expression: orSkip(S.string).with(S.meta, {
-    description: "Compiled function source (`.toString()`). Filled by `spec update`.",
+    description: "Compiled function source (`.toString()`). Filled by `spec check --write`.",
   }),
   examples: S.record(example).with(S.meta, {
     description: "Named example cases, keyed by a short name (e.g. `valid`, `invalid-type`).",
@@ -112,19 +112,19 @@ const ts = S.schema({
   schema: S.string.with(S.meta, {
     description:
       'JS `.with`-chain source under test, e.g. `S.string.with(S.min, 3)`. Hand-authored; ' +
-      "never overwritten by `spec update`.",
+      "never overwritten by `spec check --write`.",
   }),
   input: orSkip(S.string).with(S.meta, {
-    description: "S.Input<schema> as a TS type string. Filled by `spec update`.",
+    description: "S.Input<schema> as a TS type string. Filled by `spec check --write`.",
   }),
   output: orSkip(S.string).with(S.meta, {
-    description: "S.Output<schema> as a TS type string. Filled by `spec update`.",
+    description: "S.Output<schema> as a TS type string. Filled by `spec check --write`.",
   }),
   instantiations: orSkip(S.number).with(S.meta, {
-    description: "TS type-instantiation cost of this schema. Filled by `spec update`.",
+    description: "TS type-instantiation cost of this schema. Filled by `spec check --write`.",
   }),
   bundleBytes: orSkip(S.number).with(S.meta, {
-    description: "Minified+gzipped bundle size of `S.parser(schema)`. Filled by `spec update`.",
+    description: "Minified+gzipped bundle size of `S.parser(schema)`. Filled by `spec check --write`.",
   }),
 })
   .with(S.strict)
@@ -134,7 +134,7 @@ const ts = S.schema({
 export const specSchema = S.schema({
   ts,
   jsonSchema: orSkip(S.schema({ input: S.json, output: S.json }).with(S.strict)).with(S.meta, {
-    description: "S.toJSONSchema(schema) for both directions. Filled by `spec update`.",
+    description: "S.toJSONSchema(schema) for both directions. Filled by `spec check --write`.",
   }),
   operations,
 })

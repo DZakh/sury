@@ -16,7 +16,7 @@ exports[`format validation failure (wrong type for a required field) 1`] = `
 exports[`full op block claimed but the operation actually compiles to identity 1`] = `
 [
   "operations.decode: compiles to identity — use \`identity\` instead of an expression + examples",
-  "goldens stale — run \`pnpm spec update string\`",
+  "goldens stale — run \`pnpm spec check string --write\`",
 ]
 `;
 
@@ -24,7 +24,7 @@ exports[`identity claimed but the operation doesn't actually compile to identity
 [
   "operations.decode: marked \`identity\` but does not compile to identity — use a full op block with examples",
   "operations.encode: marked \`identity\` but does not compile to identity — use a full op block with examples",
-  "goldens stale — run \`pnpm spec update string\`",
+  "goldens stale — run \`pnpm spec check string --write\`",
 ]
 `;
 
@@ -37,7 +37,7 @@ exports[`invalid _skip reason (not an enum value or todo(#...)) 1`] = `
 exports[`multiple simultaneous problems all get their own guiding message 1`] = `
 [
   "string.ts.bundleBytes: invalid _skip reason "nonsense-reason"",
-  "goldens stale — run \`pnpm spec update string\`",
+  "goldens stale — run \`pnpm spec check string --write\`",
 ]
 `;
 
@@ -55,12 +55,12 @@ exports[`schema source doesn't evaluate (syntax error) 1`] = `
 
 exports[`stale golden (expression drifted from what the schema actually compiles to) 1`] = `
 [
-  "goldens stale — run \`pnpm spec update string\`",
+  "goldens stale — run \`pnpm spec check string --write\`",
 ]
 `;
 
 exports[`stale golden (recorded example output no longer matches live behavior) 1`] = `
 [
-  "goldens stale — run \`pnpm spec update string\`",
+  "goldens stale — run \`pnpm spec check string --write\`",
 ]
 `;

@@ -3,7 +3,7 @@
 //
 // Unlike format.ts (which runs on published sury), this half imports the
 // in-development sury SOURCE (`../sury/src/S.js`), because goldens must reflect
-// the code under test — that's how `spec check`/`update` catch codegen changes.
+// the code under test — that's how `spec check` catches codegen changes.
 //
 // There is no code-generation step: packages/sury/tests/spec_test.ts is a
 // single, committed, hand-written Vitest file that dynamically loops over
@@ -15,6 +15,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
+import { equals, iterableEquality, typeEquality, sparseArrayEquality } from "@vitest/expect";
 import * as S from "../sury/src/S.js";
 import {
   KEY_ORDER,
@@ -177,7 +178,7 @@ export const canonicalize = (obj: Spec): Spec => {
 export const serialize = (obj: Spec): string =>
   HEADER + "\n" + stringifyYaml(canonicalize(obj), { lineWidth: 0 });
 
-// ---- golden recomputation (golden-master `update`) ------------------------
+// ---- golden recomputation --------------------------------------------------
 
 const inlineToValue = (codeStr: string): unknown =>
   new Function("S", `return (${codeStr});`)(S);
@@ -188,17 +189,33 @@ const inlineToValue = (codeStr: string): unknown =>
 // two Sury-internal type declarations at this one boundary.
 const asJson = (v: unknown): S.Output<typeof S.json> => v as S.Output<typeof S.json>;
 
-// `String(5n)` prints "5" — a plain number literal when re-embedded as source,
-// silently losing BigInt-ness on the next `inlineToValue` round-trip. JSON.stringify
-// throws outright on a bare (or nested) bigint. Neither NaN/-0/Date/Map/Set is
-// handled correctly either (see Spec Harness Suggestions); bigint is the one
-// fixed here since S.bigint makes it a real, not merely theoretical, output type.
-const valueToCode = (v: unknown): string =>
-  typeof v === "bigint"
-    ? `${v}n`
-    : typeof v === "string" || (typeof v === "object" && v !== null)
-      ? JSON.stringify(v)
-      : String(v);
+// Turn an arbitrary decoded value back into re-executable source text for an
+// example's `output` field. Recursive so bigint/Date/Map/Set/RegExp are
+// handled at any nesting depth, not just the top level: `JSON.stringify`
+// throws outright on a bare (or nested) bigint, and silently mangles Date
+// (→ a plain string, not a Date)/Map/Set (→ "{}", dropping every entry).
+// `Object.is` catches -0, which `String(-0)` prints as "0".
+const valueToCode = (v: unknown): string => {
+  if (v === undefined) return "undefined";
+  if (typeof v === "bigint") return `${v}n`;
+  if (typeof v === "number") return Object.is(v, -0) ? "-0" : String(v);
+  if (v === null || typeof v === "boolean" || typeof v === "string") return JSON.stringify(v);
+  if (v instanceof Date) return `new Date(${JSON.stringify(v.toISOString())})`;
+  if (v instanceof RegExp) return v.toString();
+  if (v instanceof Map) return `new Map(${valueToCode([...v])})`;
+  if (v instanceof Set) return `new Set(${valueToCode([...v])})`;
+  if (Array.isArray(v)) return `[${v.map(valueToCode).join(",")}]`;
+  if (typeof v === "object")
+    return `{${Object.entries(v)
+      .map(([k, val]) => `${JSON.stringify(k)}:${valueToCode(val)}`)
+      .join(",")}}`;
+  throw new Error(`cannot represent a ${typeof v} as spec source code`);
+};
+
+// Matches `toStrictEqual`'s semantics exactly (NaN, -0, undefined-key
+// sensitivity, Map/Set/iterable equality) — `equals` is the same function
+// `toStrictEqual` calls internally, importable standalone from @vitest/expect.
+const EQUALITY_TESTERS = [iterableEquality, typeEquality, sparseArrayEquality];
 
 const clean = <T extends Record<string, unknown>>(o: T): T => {
   const r: Record<string, unknown> = {};
@@ -250,7 +267,18 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
       const bench = ex.bench;
       try {
         const out = fn(inlineToValue(ex.input));
-        op.examples[name] = clean({ input: ex.input, output: valueToCode(out), bench });
+        // Keep the recorded text as-is when it still evaluates to an equal
+        // value, instead of always overwriting with a fresh (differently
+        // formatted but equally valid) rendering of the same value.
+        let output = valueToCode(out);
+        if ("output" in ex) {
+          try {
+            if (equals(inlineToValue(ex.output), out, EQUALITY_TESTERS, true)) output = ex.output;
+          } catch {
+            // recorded output no longer evaluates — fall through to the fresh value
+          }
+        }
+        op.examples[name] = clean({ input: ex.input, output, bench });
       } catch (e) {
         op.examples[name] = clean({ input: ex.input, error: (e as Error).message, bench });
       }
@@ -294,7 +322,7 @@ export const checkSpec = async (id: string, obj: Spec, raw: string): Promise<str
       for (const violation of identityViolations(schema, obj)) errs.push(violation);
       // goldens must equal what the live schema produces (no hand-edits)
       if (serialize(await recomputeGoldens(obj)) !== canon)
-        errs.push(`goldens stale — run \`pnpm spec update ${id}\``);
+        errs.push(`goldens stale — run \`pnpm spec check ${id} --write\``);
     } catch (e) {
       errs.push(`goldens could not be computed: ${(e as Error).message}`);
     }

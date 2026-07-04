@@ -6,7 +6,7 @@
       "properties": {
         "schema": {
           "type": "string",
-          "description": "JS `.with`-chain source under test, e.g. `S.string.with(S.min, 3)`. Hand-authored; never overwritten by `spec update`."
+          "description": "JS `.with`-chain source under test, e.g. `S.string.with(S.min, 3)`. Hand-authored; never overwritten by `spec check --write`."
         },
         "input": {
           "anyOf": [
@@ -28,7 +28,7 @@
               "description": "Explicit opt-out for an unasserted dimension."
             }
           ],
-          "description": "S.Input<schema> as a TS type string. Filled by `spec update`."
+          "description": "S.Input<schema> as a TS type string. Filled by `spec check --write`."
         },
         "output": {
           "anyOf": [
@@ -50,7 +50,7 @@
               "description": "Explicit opt-out for an unasserted dimension."
             }
           ],
-          "description": "S.Output<schema> as a TS type string. Filled by `spec update`."
+          "description": "S.Output<schema> as a TS type string. Filled by `spec check --write`."
         },
         "instantiations": {
           "anyOf": [
@@ -72,7 +72,7 @@
               "description": "Explicit opt-out for an unasserted dimension."
             }
           ],
-          "description": "TS type-instantiation cost of this schema. Filled by `spec update`."
+          "description": "TS type-instantiation cost of this schema. Filled by `spec check --write`."
         },
         "bundleBytes": {
           "anyOf": [
@@ -94,7 +94,7 @@
               "description": "Explicit opt-out for an unasserted dimension."
             }
           ],
-          "description": "Minified+gzipped bundle size of `S.parser(schema)`. Filled by `spec update`."
+          "description": "Minified+gzipped bundle size of `S.parser(schema)`. Filled by `spec check --write`."
         }
       },
       "additionalProperties": false,
@@ -136,7 +136,7 @@
           "description": "Explicit opt-out for an unasserted dimension."
         }
       ],
-      "description": "S.toJSONSchema(schema) for both directions. Filled by `spec update`."
+      "description": "S.toJSONSchema(schema) for both directions. Filled by `spec check --write`."
     },
     "operations": {
       "type": "object",
@@ -170,7 +170,7 @@
                       "description": "Explicit opt-out for an unasserted dimension."
                     }
                   ],
-                  "description": "Compiled function source (`.toString()`). Filled by `spec update`."
+                  "description": "Compiled function source (`.toString()`). Filled by `spec check --write`."
                 },
                 "examples": {
                   "type": "object",
@@ -181,11 +181,11 @@
                         "properties": {
                           "input": {
                             "type": "string",
-                            "description": "Source text for the input, e.g. '\"hello\"'. Hand-written; `spec update` fills output/error."
+                            "description": "Source text for the input, e.g. '\"hello\"'. Hand-written; `spec check --write` fills output/error."
                           },
                           "output": {
                             "type": "string",
-                            "description": "Expected output source text. Filled by `spec update`."
+                            "description": "Expected output source text. Filled by `spec check --write`."
                           },
                           "bench": {
                             "type": "boolean",
@@ -203,11 +203,11 @@
                         "properties": {
                           "input": {
                             "type": "string",
-                            "description": "Source text for the input, e.g. '\"hello\"'. Hand-written; `spec update` fills output/error."
+                            "description": "Source text for the input, e.g. '\"hello\"'. Hand-written; `spec check --write` fills output/error."
                           },
                           "error": {
                             "type": "string",
-                            "description": "Expected error message. Filled by `spec update`."
+                            "description": "Expected error message. Filled by `spec check --write`."
                           },
                           "bench": {
                             "type": "boolean",
@@ -265,7 +265,7 @@
                       "description": "Explicit opt-out for an unasserted dimension."
                     }
                   ],
-                  "description": "Compiled function source (`.toString()`). Filled by `spec update`."
+                  "description": "Compiled function source (`.toString()`). Filled by `spec check --write`."
                 },
                 "examples": {
                   "type": "object",
@@ -276,11 +276,11 @@
                         "properties": {
                           "input": {
                             "type": "string",
-                            "description": "Source text for the input, e.g. '\"hello\"'. Hand-written; `spec update` fills output/error."
+                            "description": "Source text for the input, e.g. '\"hello\"'. Hand-written; `spec check --write` fills output/error."
                           },
                           "output": {
                             "type": "string",
-                            "description": "Expected output source text. Filled by `spec update`."
+                            "description": "Expected output source text. Filled by `spec check --write`."
                           },
                           "bench": {
                             "type": "boolean",
@@ -298,11 +298,11 @@
                         "properties": {
                           "input": {
                             "type": "string",
-                            "description": "Source text for the input, e.g. '\"hello\"'. Hand-written; `spec update` fills output/error."
+                            "description": "Source text for the input, e.g. '\"hello\"'. Hand-written; `spec check --write` fills output/error."
                           },
                           "error": {
                             "type": "string",
-                            "description": "Expected error message. Filled by `spec update`."
+                            "description": "Expected error message. Filled by `spec check --write`."
                           },
                           "bench": {
                             "type": "boolean",
@@ -360,7 +360,7 @@
                       "description": "Explicit opt-out for an unasserted dimension."
                     }
                   ],
-                  "description": "Compiled function source (`.toString()`). Filled by `spec update`."
+                  "description": "Compiled function source (`.toString()`). Filled by `spec check --write`."
                 },
                 "examples": {
                   "type": "object",
@@ -371,11 +371,11 @@
                         "properties": {
                           "input": {
                             "type": "string",
-                            "description": "Source text for the input, e.g. '\"hello\"'. Hand-written; `spec update` fills output/error."
+                            "description": "Source text for the input, e.g. '\"hello\"'. Hand-written; `spec check --write` fills output/error."
                           },
                           "output": {
                             "type": "string",
-                            "description": "Expected output source text. Filled by `spec update`."
+                            "description": "Expected output source text. Filled by `spec check --write`."
                           },
                           "bench": {
                             "type": "boolean",
@@ -393,11 +393,11 @@
                         "properties": {
                           "input": {
                             "type": "string",
-                            "description": "Source text for the input, e.g. '\"hello\"'. Hand-written; `spec update` fills output/error."
+                            "description": "Source text for the input, e.g. '\"hello\"'. Hand-written; `spec check --write` fills output/error."
                           },
                           "error": {
                             "type": "string",
-                            "description": "Expected error message. Filled by `spec update`."
+                            "description": "Expected error message. Filled by `spec check --write`."
                           },
                           "bench": {
                             "type": "boolean",
