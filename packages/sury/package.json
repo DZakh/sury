@@ -58,7 +58,7 @@
     "typecheck": "vitest run --typecheck.only",
     "bench": "vitest bench --run",
     "bench:types": "tsx tests/types.bench.ts",
-    "bench:bundle": "node tests/bundle.bench.mjs",
+    "bench:bundle": "tsx tests/bundle.bench.ts",
     "lint:stdlib": "rescript-stdlib-vendorer lint --ignore-path=src"
   },
   "devDependencies": {

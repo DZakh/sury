@@ -13,6 +13,9 @@
 //        pnpm bench:bundle --update   (re-baseline after an intentional change)
 //        pnpm bench:bundle --tolerance=2
 //
+// Run via tsx (see bench:bundle), not Vitest — it's a standalone script, so it's
+// excluded from the Vitest benchmark glob in vitest.config.mjs.
+//
 // Measures the dev source (src/S.js -> src/Sury.res.mjs), so run after the
 // ReScript compiler has produced a current Sury.res.mjs (CI runs `pnpm build`
 // first; locally `pnpm res` keeps it fresh). The published artifact inlines the
@@ -23,6 +26,18 @@ import { gzipSync, brotliCompressSync, constants } from "node:zlib";
 import { readFileSync, writeFileSync, appendFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+
+type Sizes = { min: number; gzip: number; brotli: number };
+type Scenario = { name: string; code: string };
+type Snapshot = { esbuildVersion: string; scenarios: Record<string, Sizes> };
+type Row = Sizes & {
+  name: string;
+  base: number | null;
+  diff: number;
+  pct: number;
+  status: string;
+  fail: boolean;
+};
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SURY_ROOT = path.join(__dirname, "..");
@@ -37,13 +52,13 @@ const TOLERANCE_PCT = Number(
 // `--markdown` (or `--markdown=path`) writes a GitHub-flavoured report for the
 // CI PR comment; the report is always also appended to $GITHUB_STEP_SUMMARY.
 const mdArg = args.find((a) => a === "--markdown" || a.startsWith("--markdown="));
-const MARKDOWN_PATH = mdArg
+const MARKDOWN_PATH: string | null = mdArg
   ? path.resolve(mdArg.includes("=") ? mdArg.split("=")[1] : "bundle-size.md")
   : null;
 
 // Each entry imports only what it names; the bundler drops the rest. Keep these
 // aligned with the bundlejs recipes in CONTRIBUTING.md and the README table.
-const SCENARIOS = [
+const SCENARIOS: Scenario[] = [
   {
     // Whole public surface — the library ceiling (README "Total size").
     name: "total (export *)",
@@ -101,7 +116,7 @@ const SCENARIOS = [
   },
 ];
 
-async function measure(scenario) {
+async function measure(scenario: Scenario): Promise<Sizes> {
   const result = await build({
     stdin: {
       contents: scenario.code,
@@ -124,7 +139,7 @@ async function measure(scenario) {
     // rejects on real errors regardless of logLevel.
     logLevel: "silent",
   });
-  const out = result.outputFiles[0].contents;
+  const out = result.outputFiles![0].contents;
   return {
     min: out.byteLength,
     gzip: gzipSync(out, { level: 9 }).byteLength,
@@ -134,23 +149,23 @@ async function measure(scenario) {
   };
 }
 
-const esbuildVersion = JSON.parse(
+const esbuildVersion: string = JSON.parse(
   readFileSync(path.join(SURY_ROOT, "node_modules/esbuild/package.json"), "utf8")
 ).version;
 
-const kB = (n) => (n / 1024).toFixed(2) + " kB";
-const padR = (s, w) => String(s).padEnd(w);
-const padL = (s, w) => String(s).padStart(w);
+const kB = (n: number): string => (n / 1024).toFixed(2) + " kB";
+const padR = (s: string | number, w: number): string => String(s).padEnd(w);
+const padL = (s: string | number, w: number): string => String(s).padStart(w);
 
-const deltaStr = (r) =>
+const deltaStr = (r: Row): string =>
   r.base === null
     ? "new"
     : `${r.diff >= 0 ? "+" : ""}${r.diff} B (${r.pct >= 0 ? "+" : ""}${r.pct.toFixed(2)}%)`;
 
 // GitHub-flavoured report posted as a sticky PR comment and written to the job
 // summary. `rows` is the per-scenario comparison computed in check mode.
-function renderMarkdown(rows, versionNote) {
-  const mark = (r) => (!r.fail ? "✅" : r.diff > 0 ? "⚠️" : "🔵");
+function renderMarkdown(rows: Row[], versionNote: string | null): string {
+  const mark = (r: Row): string => (!r.fail ? "✅" : r.diff > 0 ? "⚠️" : "🔵");
   const out = ["### 📦 Bundle size & tree-shaking", ""];
   out.push("| Scenario | min | min+gzip | brotli | Δ gzip vs baseline |");
   out.push("| --- | --: | --: | --: | --- |");
@@ -177,7 +192,7 @@ function renderMarkdown(rows, versionNote) {
   return out.join("\n") + "\n";
 }
 
-const measured = {};
+const measured: Record<string, Sizes> = {};
 for (const s of SCENARIOS) {
   measured[s.name] = await measure(s);
 }
@@ -202,8 +217,8 @@ if (UPDATE || !existsSync(SNAPSHOT_PATH)) {
 }
 
 // ── Check mode ───────────────────────────────────────────────────────────────
-const snapshot = JSON.parse(readFileSync(SNAPSHOT_PATH, "utf8"));
-const versionNote =
+const snapshot: Snapshot = JSON.parse(readFileSync(SNAPSHOT_PATH, "utf8"));
+const versionNote: string | null =
   snapshot.esbuildVersion !== esbuildVersion
     ? `esbuild ${esbuildVersion} differs from snapshot ${snapshot.esbuildVersion}; ` +
       "size drift may be the bundler, not Sury."
@@ -213,7 +228,7 @@ if (versionNote) console.log(`\n⚠  ${versionNote} Re-baseline with --update if
 // Compare each scenario's gzip against the pinned baseline. base === null means
 // the scenario is new (no baseline yet) — treated as a failure to force a
 // re-baseline.
-const rows = SCENARIOS.map((s) => {
+const rows: Row[] = SCENARIOS.map((s): Row => {
   const cur = measured[s.name];
   const base = snapshot.scenarios[s.name];
   if (!base) {
