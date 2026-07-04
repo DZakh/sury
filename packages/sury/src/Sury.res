@@ -7221,7 +7221,7 @@ module RescriptJSONSchema = {
     let jsonSchema: Mutable.t = {}
     // OpenAPI 3.0 has no `const`; describe a single allowed value with `enum`.
     let setConstOrEnum = value =>
-      if target === #"openapi-3.0" {
+      if target === StandardSchema.JsonSchema.OpenApi30 {
         jsonSchema.enum = Some([value])
       } else {
         jsonSchema.const = Some(value)
@@ -7332,11 +7332,11 @@ module RescriptJSONSchema = {
           jsonSchema.type_ = Some(Arrayable.single(#array))
           jsonSchema.minItems = Some(itemsNumber)
           jsonSchema.maxItems = Some(itemsNumber)
-          if target === #"openapi-3.0" {
+          if target === StandardSchema.JsonSchema.OpenApi30 {
             // OpenAPI 3.0 has no tuple support. Describe a fixed-length array
             // whose every item matches any of the positional item schemas.
             jsonSchema.items = Some(Arrayable.single(Schema({anyOf: items}->Mutable.toReadOnly)))
-          } else if target === #"draft-2020-12" {
+          } else if target === StandardSchema.JsonSchema.Draft202012 {
             // draft-2020-12 uses `prefixItems` for positional schemas.
             jsonSchema.prefixItems = Some(items)
           } else {
@@ -7407,7 +7407,7 @@ module RescriptJSONSchema = {
           jsonSchema.enum = Some(literals)
         } else if (
           // OpenAPI 3.0 collapse of `X | null` into `{...X, nullable: true}`.
-          target === #"openapi-3.0" &&
+          target === StandardSchema.JsonSchema.OpenApi30 &&
           itemsNumber === 2 &&
           (isNullDefinition(items->Array.getUnsafe(0)) ||
             isNullDefinition(items->Array.getUnsafe(1)))
@@ -7482,7 +7482,7 @@ module RescriptJSONSchema = {
     | Ref({ref}) if ref === `${defsPath}${jsonName}` => () // S.json → empty {}
     | Ref({ref}) => jsonSchema.ref = Some(ref)
     | Null(_) =>
-      if target === #"openapi-3.0" {
+      if target === StandardSchema.JsonSchema.OpenApi30 {
         // OpenAPI 3.0 has no `null` type. Use an enum as a workaround.
         jsonSchema.enum = Some([JSON.Null])
       } else {
@@ -7518,24 +7518,16 @@ type toJSONSchemaOptions = {target?: StandardSchema.JsonSchema.target}
 
 // Single source of truth for the `target` -> `$schema` URI mapping (mirrors
 // @valibot/to-json-schema). Returns the URI to stamp, or `None` when the target
-// has no `$schema` (openapi-3.0).
+// has no `$schema` (openapi-3.0). Raises an `invalid_operation` error for
+// `Unknown` (an unsupported target, e.g. one that arrived as an arbitrary
+// string from JS via the Standard JSON Schema `Options`).
 let targetSchemaUri = (target: StandardSchema.JsonSchema.target) =>
   switch target {
-  | #"draft-07" => Some("http://json-schema.org/draft-07/schema#")
-  | #"draft-2020-12" => Some("https://json-schema.org/draft/2020-12/schema")
+  | Draft07 => Some("http://json-schema.org/draft-07/schema#")
+  | Draft202012 => Some("https://json-schema.org/draft/2020-12/schema")
   // OpenAPI 3.0 has no `$schema` property.
-  | #"openapi-3.0" => None
-  }
-
-// Narrow the raw target (which may arrive as an arbitrary string from JS via the
-// Standard JSON Schema `Options`) to a supported dialect, raising a Sury error
-// with an `invalid_operation` code for anything else.
-let parseTarget = (target: string): StandardSchema.JsonSchema.target =>
-  switch target {
-  | "draft-07" => #"draft-07"
-  | "draft-2020-12" => #"draft-2020-12"
-  | "openapi-3.0" => #"openapi-3.0"
-  | unsupported =>
+  | OpenApi30 => None
+  | Unknown(unsupported) =>
     X.Exn.throwAny(
       InternalError.make(
         InvalidOperation({
@@ -7554,14 +7546,11 @@ let toJSONSchema = (schema, ~options: option<toJSONSchemaOptions>=?) => {
   let (target, schemaUri) = switch options {
   | Some({?target}) =>
     let target = switch target {
-    // The value is typed `StandardSchema.JsonSchema.target`, but an untyped JS
-    // caller (via `~standard`) can pass an arbitrary string; narrow/validate
-    // it here.
-    | Some(target) => (target->Obj.magic: string)->parseTarget
-    | None => #"draft-07"
+    | Some(target) => target
+    | None => Draft07
     }
     (target, targetSchemaUri(target))
-  | None => (#"draft-07", None)
+  | None => (Draft07, None)
   }
   let rootSchema = schema->castToInternal
   let defs = dict{}
@@ -7614,22 +7603,13 @@ let toJSONSchema = (schema, ~options: option<toJSONSchemaOptions>=?) => {
 // `S.reverse` swaps Input <-> Output and `toJSONSchema` returns the input-type
 // schema of whatever it receives.
 standardJSONSchemaRef :=
-  (
-    (schema, options, isOutput) => {
-      // The converter just forwards the target; `toJSONSchema` is the single
-      // source of truth for the `$schema` URI mapping and the unsupported-target
-      // throw. Passing an options object (vs none) is what makes `toJSONSchema`
-      // stamp `$schema`, which the Standard JSON Schema spec requires.
-      // `options.target` is a raw string from the Standard JSON Schema spec;
-      // `toJSONSchema` validates it (throwing on an unsupported target). The
-      // cast is safe because `StandardSchema.JsonSchema.target` shares its
-      // runtime representation with the string.
-      toJSONSchema(
-        isOutput ? schema->reverse : schema,
-        ~options={target: (options.target->Obj.magic: StandardSchema.JsonSchema.target)},
-      )
-    }
-  )->Obj.magic
+  (schema, options, isOutput) => {
+    // The converter just forwards the target; `toJSONSchema` is the single
+    // source of truth for the `$schema` URI mapping and the unsupported-target
+    // throw. Passing an options object (vs none) is what makes `toJSONSchema`
+    // stamp `$schema`, which the Standard JSON Schema spec requires.
+    toJSONSchema(isOutput ? schema->reverse : schema, ~options={target: options.target})
+  }
 
 let extendJSONSchema = (schema, jsonSchema) => {
   schema->Metadata.set(

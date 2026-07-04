@@ -55,21 +55,24 @@ module Result = {
 }
 
 module JsonSchema = {
-  // `StandardJSONSchemaV1.Target`, restricted to the dialects Sury actually
-  // supports. Making this a genuinely open polymorphic variant (`[> ...]`)
-  // would need an explicit row type variable on the alias, which ReScript
-  // only allows to stay unwritten when the type is inlined at a single use
-  // site and never named - not reusable as `options`/`converter` below, or
-  // referenced from a `.resi`. `options.target` is the actual open surface,
-  // matching the TS `Target = ... | ({} & string)` escape hatch: it accepts
-  // any string and is validated at runtime by `parseTarget`.
-  type target = [#"draft-07" | #"draft-2020-12" | #"openapi-3.0"]
+  // `StandardJSONSchemaV1.Target`. The known dialects are unboxed string
+  // constants (via `@as`); `Unknown` carries anything else, so this mirrors
+  // the TS `Target = "draft-07" | "draft-2020-12" | "openapi-3.0" |
+  // ({} & string)` in a single, ordinary (monomorphic) variant - no row type
+  // variable needed, so unlike an open polymorphic variant (`[> ...]`) it's
+  // freely reusable from `options` below, `Sury.toJSONSchemaOptions`, and
+  // `.resi` files. `toJSONSchema` throws for `Unknown` (an unsupported
+  // target).
+  @unboxed
+  type target =
+    | @as("draft-07") Draft07
+    | @as("draft-2020-12") Draft202012
+    | @as("openapi-3.0") OpenApi30
+    | Unknown(string)
 
-  // `StandardJSONSchemaV1.Options`. `target` is a raw `string` to mirror the TS
-  // `Target = ... | ({} & string)`: any string is accepted and validated at
-  // runtime (an unsupported target throws).
+  // `StandardJSONSchemaV1.Options`.
   type options = {
-    target: string,
+    target: target,
     libraryOptions?: dict<unknown>,
   }
 

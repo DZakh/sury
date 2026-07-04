@@ -4970,29 +4970,21 @@ function internalToJSONSchema(schema, path, defs, parent, target) {
 }
 
 function targetSchemaUri(target) {
-  if (target === "openapi-3.0") {
-    return;
-  } else if (target === "draft-07") {
-    return "http://json-schema.org/draft-07/schema#";
+  if (target === "draft-07" || target === "openapi-3.0" || target === "draft-2020-12") {
+    switch (target) {
+      case "draft-07" :
+        return "http://json-schema.org/draft-07/schema#";
+      case "draft-2020-12" :
+        return "https://json-schema.org/draft/2020-12/schema";
+      case "openapi-3.0" :
+        return;
+    }
   } else {
-    return "https://json-schema.org/draft/2020-12/schema";
-  }
-}
-
-function parseTarget(target) {
-  switch (target) {
-    case "draft-07" :
-      return "draft-07";
-    case "draft-2020-12" :
-      return "draft-2020-12";
-    case "openapi-3.0" :
-      return "openapi-3.0";
-    default:
-      throw new SuryError({
-        code: "invalid_operation",
-        path: "",
-        reason: `Unsupported JSON Schema target: ` + target
-      });
+    throw new SuryError({
+      code: "invalid_operation",
+      path: "",
+      reason: `Unsupported JSON Schema target: ` + target
+    });
   }
 }
 
@@ -5000,7 +4992,7 @@ function toJSONSchema(schema, options) {
   let match;
   if (options !== undefined) {
     let target = options.target;
-    let target$1 = target !== undefined ? parseTarget(target) : "draft-07";
+    let target$1 = target !== undefined ? target : "draft-07";
     match = [
       target$1,
       targetSchemaUri(target$1)

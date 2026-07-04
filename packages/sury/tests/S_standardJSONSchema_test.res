@@ -10,6 +10,12 @@ external standardOf: (S.t<'a>, string) => StandardSchema.props<unknown, unknown>
 let standardOf = schema => schema->standardOf("~standard")
 let jsonSchemaConverter = schema => (schema->standardOf).jsonSchema
 
+// Simulates a target string as it actually arrives from an untyped JS caller
+// (`~standard.jsonSchema.input({target: "..."})`): `target` is `@unboxed`, so
+// this cast is runtime-safe regardless of whether the string is one of the
+// known dialects.
+let target = (s: string): StandardSchema.JsonSchema.target => s->U.magic
+
 test("Standard ~standard exposes version, vendor, validate and a jsonSchema converter", t => {
   let standard = S.string->standardOf
   t->Assert.deepEqual(standard.version, 1)
@@ -22,11 +28,11 @@ test("Standard ~standard exposes version, vendor, validate and a jsonSchema conv
 test("Standard ~standard.jsonSchema throws for an unsupported target", t => {
   let converter = S.string->jsonSchemaConverter
   t->Assert.throws(
-    () => converter.input({target: "unsupported-target"}),
+    () => converter.input({target: target("unsupported-target")}),
     ~expectations={message: "Unsupported JSON Schema target: unsupported-target"},
   )
   t->Assert.throws(
-    () => converter.output({target: "unsupported-target"}),
+    () => converter.output({target: target("unsupported-target")}),
     ~expectations={message: "Unsupported JSON Schema target: unsupported-target"},
   )
 })
@@ -35,7 +41,7 @@ test("Standard ~standard.jsonSchema.input returns the input-type JSON Schema wit
   let schema = S.string->S.to(S.int)
   let converter = schema->jsonSchemaConverter
   t->Assert.deepEqual(
-    converter.input({target: "draft-07"}),
+    converter.input({target: target("draft-07")}),
     %raw(`{"$schema": "http://json-schema.org/draft-07/schema#", "type": "string"}`),
   )
 })
@@ -45,7 +51,7 @@ test("Standard ~standard.jsonSchema.output returns the output-type JSON Schema w
   let converter = schema->jsonSchemaConverter
   // The output-type schema is the JSON Schema of the reversed (output) type.
   t->Assert.deepEqual(
-    converter.output({target: "draft-07"}),
+    converter.output({target: target("draft-07")}),
     %raw(`{
       "$schema": "http://json-schema.org/draft-07/schema#",
       "type": "integer",
@@ -58,21 +64,21 @@ test("Standard ~standard.jsonSchema.output returns the output-type JSON Schema w
 test("Standard ~standard.jsonSchema stamps the draft-2020-12 $schema URI", t => {
   let converter = S.string->jsonSchemaConverter
   t->Assert.deepEqual(
-    converter.input({target: "draft-2020-12"}),
+    converter.input({target: target("draft-2020-12")}),
     %raw(`{"$schema": "https://json-schema.org/draft/2020-12/schema", "type": "string"}`),
   )
 })
 
 test("Standard ~standard.jsonSchema omits $schema for the openapi-3.0 target", t => {
   let converter = S.string->jsonSchemaConverter
-  t->Assert.deepEqual(converter.input({target: "openapi-3.0"}), %raw(`{"type": "string"}`))
+  t->Assert.deepEqual(converter.input({target: target("openapi-3.0")}), %raw(`{"type": "string"}`))
 })
 
 test("Standard ~standard.jsonSchema input and output differ for a transforming schema", t => {
   let schema = S.string->S.to(S.int)
   let converter = schema->jsonSchemaConverter
   t->Assert.notDeepEqual(
-    converter.input({target: "draft-07"}),
-    converter.output({target: "draft-07"}),
+    converter.input({target: target("draft-07")}),
+    converter.output({target: target("draft-07")}),
   )
 })
