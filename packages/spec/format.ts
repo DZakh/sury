@@ -33,14 +33,11 @@ import * as S from "sury-published";
 // or `todo(#…)` for a not-yet-built dimension; the CLI lints the reason string.
 export const skip = S.schema({
   _skip: S.string.with(S.meta, {
-    description:
-      "Why this dimension is not asserted. An enum reason (parser-only, " +
-      "serializer-only, lossy, not-applicable) or todo(#…) for a not-yet-built " +
-      "dimension — never a bare/unexplained skip.",
+    description: "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…).",
   }),
 })
   .with(S.strict)
-  .with(S.meta, { description: "Explicit opt-out for a dimension that isn't asserted for this spec." });
+  .with(S.meta, { description: "Explicit opt-out for an unasserted dimension." });
 export type Skip = S.Output<typeof skip>;
 
 // Generic over the input schema so the inferred Output type isn't widened away
@@ -52,23 +49,22 @@ const orSkip = <T extends S.Schema<unknown, unknown>>(schema: T) =>
 // expected `error` message. `bench` is reserved for the (not-yet-wired) perf
 // dimension. Every code field holds source text, valid in both languages.
 const inputDescription =
-  'Source text for the input value, e.g. \'"hello"\' or "42". Written by hand; ' +
-  "`pnpm spec update` derives output/error from it.";
+  'Source text for the input, e.g. \'"hello"\'. Hand-written; `spec update` fills output/error.';
 const benchDescription = "Reserved for the not-yet-wired performance dimension.";
 const exampleOutput = S.schema({
   input: S.string.with(S.meta, { description: inputDescription }),
   output: S.string.with(S.meta, {
-    description: "Source text for the expected output value. Filled by `pnpm spec update`.",
+    description: "Expected output source text. Filled by `spec update`.",
   }),
   bench: S.optional(S.boolean).with(S.meta, { description: benchDescription }),
 }).with(S.strict);
 const exampleError = S.schema({
   input: S.string.with(S.meta, { description: inputDescription }),
-  error: S.string.with(S.meta, { description: "Expected error message. Filled by `pnpm spec update`." }),
+  error: S.string.with(S.meta, { description: "Expected error message. Filled by `spec update`." }),
   bench: S.optional(S.boolean).with(S.meta, { description: benchDescription }),
 }).with(S.strict);
 const example = S.union([exampleOutput, exampleError]).with(S.meta, {
-  description: "One named, runnable case: an input plus its expected output or error.",
+  description: "A named example: input plus expected output or error.",
 });
 export type Example = S.Output<typeof example>;
 
@@ -77,24 +73,21 @@ export type Example = S.Output<typeof example>;
 // their identity survives insertion/removal (unlike array indices).
 const operation = S.schema({
   expression: orSkip(S.string).with(S.meta, {
-    description:
-      "Codegen golden: `.toString()` of the compiled parser/decoder/encoder function. Filled by `pnpm spec update`.",
+    description: "Compiled function source (`.toString()`). Filled by `spec update`.",
   }),
   examples: S.record(example).with(S.meta, {
-    description: "Named example cases for this operation, keyed by a short descriptive name (e.g. `valid`, `invalid-type`).",
+    description: "Named example cases, keyed by a short name (e.g. `valid`, `invalid-type`).",
   }),
 })
   .with(S.strict)
-  .with(S.meta, { description: "A full operation block: the compiled codegen plus its runnable examples." });
+  .with(S.meta, { description: "Compiled codegen plus its runnable examples." });
 
 // An operation is either a full block, or the literal `identity` shorthand for
 // Sury's pass-through compile. harness.identityViolations enforces this both
 // ways: an op that compiles to the pass-through must say `identity`, and
 // `identity` must actually compile to it.
 const operationOrIdentity = S.union(["identity", operation]).with(S.meta, {
-  description:
-    "Either the bare literal `identity` (this operation compiles to Sury's " +
-    "pass-through — never `_skip: identity`) or a full operation block.",
+  description: "`identity` if this compiles to Sury's pass-through, else a full operation block.",
 });
 export type Operation = S.Output<typeof operationOrIdentity>;
 
@@ -118,21 +111,20 @@ const operations = S.schema({
 const ts = S.schema({
   schema: S.string.with(S.meta, {
     description:
-      'The schema under test, as JS `.with`-chain source, e.g. `S.string.with(S.min, 3)`. ' +
-      'Authored by hand; this is the one thing "spec new"/"spec update" never overwrite.',
+      'JS `.with`-chain source under test, e.g. `S.string.with(S.min, 3)`. Hand-authored; ' +
+      "never overwritten by `spec update`.",
   }),
   input: orSkip(S.string).with(S.meta, {
-    description: "S.Input<schema>, printed as a TS type string (e.g. `string`). Filled by `pnpm spec update` via vendored TS introspection.",
+    description: "S.Input<schema> as a TS type string. Filled by `spec update`.",
   }),
   output: orSkip(S.string).with(S.meta, {
-    description: "S.Output<schema>, printed as a TS type string. Filled by `pnpm spec update` via vendored TS introspection.",
+    description: "S.Output<schema> as a TS type string. Filled by `spec update`.",
   }),
   instantiations: orSkip(S.number).with(S.meta, {
-    description:
-      "Type-instantiation count contributed by declaring the schema and extracting its Output/Input types. Filled by `pnpm spec update`.",
+    description: "TS type-instantiation cost of this schema. Filled by `spec update`.",
   }),
   bundleBytes: orSkip(S.number).with(S.meta, {
-    description: "Tree-shaken, minified+gzipped byte size of `S.parser(schema)` bundled against the dev source. Filled by `pnpm spec update`.",
+    description: "Minified+gzipped bundle size of `S.parser(schema)`. Filled by `spec update`.",
   }),
 })
   .with(S.strict)
@@ -142,14 +134,13 @@ const ts = S.schema({
 export const specSchema = S.schema({
   ts,
   jsonSchema: orSkip(S.schema({ input: S.json, output: S.json }).with(S.strict)).with(S.meta, {
-    description: "S.toJSONSchema(schema) for both directions. Filled by `pnpm spec update`.",
+    description: "S.toJSONSchema(schema) for both directions. Filled by `spec update`.",
   }),
   operations,
 })
   .with(S.strict)
   .with(S.meta, {
-    description:
-      "A Sury spec: one schema's complete, machine-checked contract — type, JSON Schema, and per-operation codegen + examples. See the `spec` skill.",
+    description: "One schema's complete, machine-checked contract. See the `spec` skill.",
   });
 export type Spec = S.Output<typeof specSchema>;
 

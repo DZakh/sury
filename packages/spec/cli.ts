@@ -46,11 +46,8 @@ Usage: spec <command> [args]
 
 Commands:
   new --id <id> --ts <schema>
-      Scaffold a new spec at specs/<id>.yaml. Both flags are required — there's
-      nothing sensible to scaffold without a schema. Immediately derives
-      jsonSchema, operations (identity ops collapse to the bare literal
-      \`identity\`), and ts.input/ts.output/ts.instantiations/ts.bundleBytes by
-      executing --ts. Only example inputs need manual authoring after.
+      Scaffold specs/<id>.yaml: derives jsonSchema, operations, and every
+      ts.* dimension from --ts. Add example inputs by hand, then run \`update\`.
       e.g. spec new --id string.min --ts "S.string.with(S.min, 3)"
 
   update [id…]

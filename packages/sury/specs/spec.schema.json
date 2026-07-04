@@ -6,7 +6,7 @@
       "properties": {
         "schema": {
           "type": "string",
-          "description": "The schema under test, as JS `.with`-chain source, e.g. `S.string.with(S.min, 3)`. Authored by hand; this is the one thing \"spec new\"/\"spec update\" never overwrite."
+          "description": "JS `.with`-chain source under test, e.g. `S.string.with(S.min, 3)`. Hand-authored; never overwritten by `spec update`."
         },
         "input": {
           "anyOf": [
@@ -18,17 +18,17 @@
               "properties": {
                 "_skip": {
                   "type": "string",
-                  "description": "Why this dimension is not asserted. An enum reason (parser-only, serializer-only, lossy, not-applicable) or todo(#…) for a not-yet-built dimension — never a bare/unexplained skip."
+                  "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…)."
                 }
               },
               "additionalProperties": false,
               "required": [
                 "_skip"
               ],
-              "description": "Explicit opt-out for a dimension that isn't asserted for this spec."
+              "description": "Explicit opt-out for an unasserted dimension."
             }
           ],
-          "description": "S.Input<schema>, printed as a TS type string (e.g. `string`). Filled by `pnpm spec update` via vendored TS introspection."
+          "description": "S.Input<schema> as a TS type string. Filled by `spec update`."
         },
         "output": {
           "anyOf": [
@@ -40,17 +40,17 @@
               "properties": {
                 "_skip": {
                   "type": "string",
-                  "description": "Why this dimension is not asserted. An enum reason (parser-only, serializer-only, lossy, not-applicable) or todo(#…) for a not-yet-built dimension — never a bare/unexplained skip."
+                  "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…)."
                 }
               },
               "additionalProperties": false,
               "required": [
                 "_skip"
               ],
-              "description": "Explicit opt-out for a dimension that isn't asserted for this spec."
+              "description": "Explicit opt-out for an unasserted dimension."
             }
           ],
-          "description": "S.Output<schema>, printed as a TS type string. Filled by `pnpm spec update` via vendored TS introspection."
+          "description": "S.Output<schema> as a TS type string. Filled by `spec update`."
         },
         "instantiations": {
           "anyOf": [
@@ -62,17 +62,17 @@
               "properties": {
                 "_skip": {
                   "type": "string",
-                  "description": "Why this dimension is not asserted. An enum reason (parser-only, serializer-only, lossy, not-applicable) or todo(#…) for a not-yet-built dimension — never a bare/unexplained skip."
+                  "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…)."
                 }
               },
               "additionalProperties": false,
               "required": [
                 "_skip"
               ],
-              "description": "Explicit opt-out for a dimension that isn't asserted for this spec."
+              "description": "Explicit opt-out for an unasserted dimension."
             }
           ],
-          "description": "Type-instantiation count contributed by declaring the schema and extracting its Output/Input types. Filled by `pnpm spec update`."
+          "description": "TS type-instantiation cost of this schema. Filled by `spec update`."
         },
         "bundleBytes": {
           "anyOf": [
@@ -84,17 +84,17 @@
               "properties": {
                 "_skip": {
                   "type": "string",
-                  "description": "Why this dimension is not asserted. An enum reason (parser-only, serializer-only, lossy, not-applicable) or todo(#…) for a not-yet-built dimension — never a bare/unexplained skip."
+                  "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…)."
                 }
               },
               "additionalProperties": false,
               "required": [
                 "_skip"
               ],
-              "description": "Explicit opt-out for a dimension that isn't asserted for this spec."
+              "description": "Explicit opt-out for an unasserted dimension."
             }
           ],
-          "description": "Tree-shaken, minified+gzipped byte size of `S.parser(schema)` bundled against the dev source. Filled by `pnpm spec update`."
+          "description": "Minified+gzipped bundle size of `S.parser(schema)`. Filled by `spec update`."
         }
       },
       "additionalProperties": false,
@@ -126,17 +126,17 @@
           "properties": {
             "_skip": {
               "type": "string",
-              "description": "Why this dimension is not asserted. An enum reason (parser-only, serializer-only, lossy, not-applicable) or todo(#…) for a not-yet-built dimension — never a bare/unexplained skip."
+              "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…)."
             }
           },
           "additionalProperties": false,
           "required": [
             "_skip"
           ],
-          "description": "Explicit opt-out for a dimension that isn't asserted for this spec."
+          "description": "Explicit opt-out for an unasserted dimension."
         }
       ],
-      "description": "S.toJSONSchema(schema) for both directions. Filled by `pnpm spec update`."
+      "description": "S.toJSONSchema(schema) for both directions. Filled by `spec update`."
     },
     "operations": {
       "type": "object",
@@ -160,17 +160,17 @@
                       "properties": {
                         "_skip": {
                           "type": "string",
-                          "description": "Why this dimension is not asserted. An enum reason (parser-only, serializer-only, lossy, not-applicable) or todo(#…) for a not-yet-built dimension — never a bare/unexplained skip."
+                          "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…)."
                         }
                       },
                       "additionalProperties": false,
                       "required": [
                         "_skip"
                       ],
-                      "description": "Explicit opt-out for a dimension that isn't asserted for this spec."
+                      "description": "Explicit opt-out for an unasserted dimension."
                     }
                   ],
-                  "description": "Codegen golden: `.toString()` of the compiled parser/decoder/encoder function. Filled by `pnpm spec update`."
+                  "description": "Compiled function source (`.toString()`). Filled by `spec update`."
                 },
                 "examples": {
                   "type": "object",
@@ -181,11 +181,11 @@
                         "properties": {
                           "input": {
                             "type": "string",
-                            "description": "Source text for the input value, e.g. '\"hello\"' or \"42\". Written by hand; `pnpm spec update` derives output/error from it."
+                            "description": "Source text for the input, e.g. '\"hello\"'. Hand-written; `spec update` fills output/error."
                           },
                           "output": {
                             "type": "string",
-                            "description": "Source text for the expected output value. Filled by `pnpm spec update`."
+                            "description": "Expected output source text. Filled by `spec update`."
                           },
                           "bench": {
                             "type": "boolean",
@@ -203,11 +203,11 @@
                         "properties": {
                           "input": {
                             "type": "string",
-                            "description": "Source text for the input value, e.g. '\"hello\"' or \"42\". Written by hand; `pnpm spec update` derives output/error from it."
+                            "description": "Source text for the input, e.g. '\"hello\"'. Hand-written; `spec update` fills output/error."
                           },
                           "error": {
                             "type": "string",
-                            "description": "Expected error message. Filled by `pnpm spec update`."
+                            "description": "Expected error message. Filled by `spec update`."
                           },
                           "bench": {
                             "type": "boolean",
@@ -221,9 +221,9 @@
                         ]
                       }
                     ],
-                    "description": "One named, runnable case: an input plus its expected output or error."
+                    "description": "A named example: input plus expected output or error."
                   },
-                  "description": "Named example cases for this operation, keyed by a short descriptive name (e.g. `valid`, `invalid-type`)."
+                  "description": "Named example cases, keyed by a short name (e.g. `valid`, `invalid-type`)."
                 }
               },
               "additionalProperties": false,
@@ -231,7 +231,7 @@
                 "expression",
                 "examples"
               ],
-              "description": "A full operation block: the compiled codegen plus its runnable examples."
+              "description": "Compiled codegen plus its runnable examples."
             }
           ],
           "description": "unknown → Output, with validation (the untrusted-input direction)."
@@ -255,17 +255,17 @@
                       "properties": {
                         "_skip": {
                           "type": "string",
-                          "description": "Why this dimension is not asserted. An enum reason (parser-only, serializer-only, lossy, not-applicable) or todo(#…) for a not-yet-built dimension — never a bare/unexplained skip."
+                          "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…)."
                         }
                       },
                       "additionalProperties": false,
                       "required": [
                         "_skip"
                       ],
-                      "description": "Explicit opt-out for a dimension that isn't asserted for this spec."
+                      "description": "Explicit opt-out for an unasserted dimension."
                     }
                   ],
-                  "description": "Codegen golden: `.toString()` of the compiled parser/decoder/encoder function. Filled by `pnpm spec update`."
+                  "description": "Compiled function source (`.toString()`). Filled by `spec update`."
                 },
                 "examples": {
                   "type": "object",
@@ -276,11 +276,11 @@
                         "properties": {
                           "input": {
                             "type": "string",
-                            "description": "Source text for the input value, e.g. '\"hello\"' or \"42\". Written by hand; `pnpm spec update` derives output/error from it."
+                            "description": "Source text for the input, e.g. '\"hello\"'. Hand-written; `spec update` fills output/error."
                           },
                           "output": {
                             "type": "string",
-                            "description": "Source text for the expected output value. Filled by `pnpm spec update`."
+                            "description": "Expected output source text. Filled by `spec update`."
                           },
                           "bench": {
                             "type": "boolean",
@@ -298,11 +298,11 @@
                         "properties": {
                           "input": {
                             "type": "string",
-                            "description": "Source text for the input value, e.g. '\"hello\"' or \"42\". Written by hand; `pnpm spec update` derives output/error from it."
+                            "description": "Source text for the input, e.g. '\"hello\"'. Hand-written; `spec update` fills output/error."
                           },
                           "error": {
                             "type": "string",
-                            "description": "Expected error message. Filled by `pnpm spec update`."
+                            "description": "Expected error message. Filled by `spec update`."
                           },
                           "bench": {
                             "type": "boolean",
@@ -316,9 +316,9 @@
                         ]
                       }
                     ],
-                    "description": "One named, runnable case: an input plus its expected output or error."
+                    "description": "A named example: input plus expected output or error."
                   },
-                  "description": "Named example cases for this operation, keyed by a short descriptive name (e.g. `valid`, `invalid-type`)."
+                  "description": "Named example cases, keyed by a short name (e.g. `valid`, `invalid-type`)."
                 }
               },
               "additionalProperties": false,
@@ -326,7 +326,7 @@
                 "expression",
                 "examples"
               ],
-              "description": "A full operation block: the compiled codegen plus its runnable examples."
+              "description": "Compiled codegen plus its runnable examples."
             }
           ],
           "description": "Input → Output, no top-level type narrowing (input is already typed)."
@@ -350,17 +350,17 @@
                       "properties": {
                         "_skip": {
                           "type": "string",
-                          "description": "Why this dimension is not asserted. An enum reason (parser-only, serializer-only, lossy, not-applicable) or todo(#…) for a not-yet-built dimension — never a bare/unexplained skip."
+                          "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…)."
                         }
                       },
                       "additionalProperties": false,
                       "required": [
                         "_skip"
                       ],
-                      "description": "Explicit opt-out for a dimension that isn't asserted for this spec."
+                      "description": "Explicit opt-out for an unasserted dimension."
                     }
                   ],
-                  "description": "Codegen golden: `.toString()` of the compiled parser/decoder/encoder function. Filled by `pnpm spec update`."
+                  "description": "Compiled function source (`.toString()`). Filled by `spec update`."
                 },
                 "examples": {
                   "type": "object",
@@ -371,11 +371,11 @@
                         "properties": {
                           "input": {
                             "type": "string",
-                            "description": "Source text for the input value, e.g. '\"hello\"' or \"42\". Written by hand; `pnpm spec update` derives output/error from it."
+                            "description": "Source text for the input, e.g. '\"hello\"'. Hand-written; `spec update` fills output/error."
                           },
                           "output": {
                             "type": "string",
-                            "description": "Source text for the expected output value. Filled by `pnpm spec update`."
+                            "description": "Expected output source text. Filled by `spec update`."
                           },
                           "bench": {
                             "type": "boolean",
@@ -393,11 +393,11 @@
                         "properties": {
                           "input": {
                             "type": "string",
-                            "description": "Source text for the input value, e.g. '\"hello\"' or \"42\". Written by hand; `pnpm spec update` derives output/error from it."
+                            "description": "Source text for the input, e.g. '\"hello\"'. Hand-written; `spec update` fills output/error."
                           },
                           "error": {
                             "type": "string",
-                            "description": "Expected error message. Filled by `pnpm spec update`."
+                            "description": "Expected error message. Filled by `spec update`."
                           },
                           "bench": {
                             "type": "boolean",
@@ -411,9 +411,9 @@
                         ]
                       }
                     ],
-                    "description": "One named, runnable case: an input plus its expected output or error."
+                    "description": "A named example: input plus expected output or error."
                   },
-                  "description": "Named example cases for this operation, keyed by a short descriptive name (e.g. `valid`, `invalid-type`)."
+                  "description": "Named example cases, keyed by a short name (e.g. `valid`, `invalid-type`)."
                 }
               },
               "additionalProperties": false,
@@ -421,7 +421,7 @@
                 "expression",
                 "examples"
               ],
-              "description": "A full operation block: the compiled codegen plus its runnable examples."
+              "description": "Compiled codegen plus its runnable examples."
             }
           ],
           "description": "Output → Input (the reverse direction)."
@@ -442,5 +442,5 @@
     "jsonSchema",
     "operations"
   ],
-  "description": "A Sury spec: one schema's complete, machine-checked contract — type, JSON Schema, and per-operation codegen + examples. See the `spec` skill."
+  "description": "One schema's complete, machine-checked contract. See the `spec` skill."
 }
