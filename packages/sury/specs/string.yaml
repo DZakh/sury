@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=./spec.schema.json
+schema:
+  res: S.string
+  ts: S.string
+types:
+  ts: S.Schema<string, string>
+jsonSchema:
+  input:
+    type: string
+  output:
+    type: string
+instantiations:
+  _skip: todo(#instantiations-dimension)
+bundleBytes:
+  _skip: todo(#bundle-dimension)
+properties:
+  _skip: todo(#pbt-dimension)
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[0](i);return i}
+    examples:
+      valid:
+        input: '"hello"'
+        output: '"hello"'
+      empty:
+        input: '""'
+        output: '""'
+      invalid-number:
+        input: "42"
+        error: Expected string, received 42
+      invalid-null:
+        input: "null"
+        error: Expected string, received null
+  decode:
+    expression: |-
+      function noopOperation(i) {
+        return i;
+      }
+    examples:
+      identity:
+        input: '"hello"'
+        output: '"hello"'
+  encode:
+    expression: |-
+      function noopOperation(i) {
+        return i;
+      }
+    examples:
+      identity:
+        input: '"hello"'
+        output: '"hello"'

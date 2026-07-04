@@ -1,0 +1,423 @@
+{
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "object",
+      "properties": {
+        "res": {
+          "type": "string"
+        },
+        "ts": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "res",
+        "ts"
+      ]
+    },
+    "types": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "ts": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "ts"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "_skip": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "_skip"
+          ]
+        }
+      ]
+    },
+    "jsonSchema": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "input": {},
+            "output": {}
+          },
+          "additionalProperties": false,
+          "required": [
+            "input",
+            "output"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "_skip": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "_skip"
+          ]
+        }
+      ]
+    },
+    "instantiations": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "_skip": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "_skip"
+          ]
+        }
+      ]
+    },
+    "bundleBytes": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "_skip": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "_skip"
+          ]
+        }
+      ]
+    },
+    "properties": {
+      "anyOf": [
+        {},
+        {
+          "type": "object",
+          "properties": {
+            "_skip": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "_skip"
+          ]
+        }
+      ]
+    },
+    "operations": {
+      "type": "object",
+      "properties": {
+        "parse": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "expression": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "_skip": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false,
+                      "required": [
+                        "_skip"
+                      ]
+                    }
+                  ]
+                },
+                "examples": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "input": {
+                            "type": "string"
+                          },
+                          "output": {
+                            "type": "string"
+                          },
+                          "bench": {
+                            "type": "boolean"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "required": [
+                          "input",
+                          "output"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "input": {
+                            "type": "string"
+                          },
+                          "error": {
+                            "type": "string"
+                          },
+                          "bench": {
+                            "type": "boolean"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "required": [
+                          "input",
+                          "error"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "expression",
+                "examples"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "_skip": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "_skip"
+              ]
+            }
+          ]
+        },
+        "decode": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "expression": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "_skip": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false,
+                      "required": [
+                        "_skip"
+                      ]
+                    }
+                  ]
+                },
+                "examples": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "input": {
+                            "type": "string"
+                          },
+                          "output": {
+                            "type": "string"
+                          },
+                          "bench": {
+                            "type": "boolean"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "required": [
+                          "input",
+                          "output"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "input": {
+                            "type": "string"
+                          },
+                          "error": {
+                            "type": "string"
+                          },
+                          "bench": {
+                            "type": "boolean"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "required": [
+                          "input",
+                          "error"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "expression",
+                "examples"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "_skip": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "_skip"
+              ]
+            }
+          ]
+        },
+        "encode": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "expression": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "_skip": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false,
+                      "required": [
+                        "_skip"
+                      ]
+                    }
+                  ]
+                },
+                "examples": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "input": {
+                            "type": "string"
+                          },
+                          "output": {
+                            "type": "string"
+                          },
+                          "bench": {
+                            "type": "boolean"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "required": [
+                          "input",
+                          "output"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "input": {
+                            "type": "string"
+                          },
+                          "error": {
+                            "type": "string"
+                          },
+                          "bench": {
+                            "type": "boolean"
+                          }
+                        },
+                        "additionalProperties": false,
+                        "required": [
+                          "input",
+                          "error"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "expression",
+                "examples"
+              ]
+            },
+            {
+              "type": "object",
+              "properties": {
+                "_skip": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "_skip"
+              ]
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "parse",
+        "decode",
+        "encode"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "types",
+    "jsonSchema",
+    "instantiations",
+    "bundleBytes",
+    "properties",
+    "operations"
+  ]
+}

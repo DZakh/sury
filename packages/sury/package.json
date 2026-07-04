@@ -51,6 +51,8 @@
   ],
   "scripts": {
     "coverage": "vitest run --coverage",
+    "spec": "node ./scripts/spec/cli.mjs",
+    "spec:check": "node ./scripts/spec/cli.mjs check",
     "build": "pnpm rescript && node ./scripts/pack/Pack.res.mjs",
     "res": "rescript watch",
     "test:res": "cd ./packages/tests && rescript clean && rescript watch",
@@ -74,7 +76,8 @@
     "rollup": "3.21.0",
     "tsx": "4.22.4",
     "typescript": "5.8.3",
-    "vitest": "4.1.7"
+    "vitest": "4.1.7",
+    "yaml": "^2.9.0"
   },
   "peerDependencies": {
     "rescript": "12.x"

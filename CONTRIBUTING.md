@@ -193,6 +193,88 @@ npm run test:res
 npm run test -- --watch
 ```
 
+## Specs (AI-first test suite)
+
+Alongside the hand-written `tests/*_test.res` / `tests/*_test.ts` files, Sury has a
+declarative spec suite under `packages/sury/specs/`. It exists because Sury is
+effectively a compiler: one schema is compiled into generated code, exported to
+JSON Schema, and given a TypeScript type — and each of those outputs can regress
+independently. The specs capture a schema's **whole contract** in one file so
+those dimensions stay in sync, and the format is optimized to be **written and
+maintained by machines** (an LLM or a script), reviewed by humans, and executed
+by tooling.
+
+### The idea
+
+- **One file = one schema's full contract.** `specs/string.yaml` describes
+  `S.string`: its type, its input/output JSON Schema, and — per operation
+  (`parse` / `decode` / `encode`) — the generated code (`expression`) plus named
+  input→output|error examples.
+- **The spec is the source; tests are generated.** `pnpm spec gen` expands each
+  spec into a committed, real Vitest file under `tests/generated/*.gen_test.ts`.
+  So plain `pnpm test` and Wallaby run them with zero custom infrastructure, and
+  a breaking API change fails the generated files at **compile time**.
+- **Golden-master, never hand-written goldens.** You author the schema and
+  example *inputs*; `pnpm spec update` runs the real schema and fills in every
+  derivable answer — `expression`, `jsonSchema`, and each example's
+  `output`/`error`. You never type a golden by hand.
+- **Exhaustive by construction.** Every dimension and every operation is
+  *required*. A dimension you don't assert must say so explicitly with
+  `_skip: <reason>` (an enum like `parser-only`, `lossy`, `identity`, or
+  `todo(#…)`). An omission is a bug; an unexplained skip is rejected. This is the
+  key AI-safety property: a machine author cannot silently drop coverage —
+  `grep -r 'todo' specs/` is the coverage backlog.
+- **Closed world & canonical form.** The format is defined *as a Sury schema*
+  (`scripts/spec/format.mjs`) which emits `specs/spec.schema.json` (the
+  `$schema` editors and AI authors validate against). Unknown keys are rejected;
+  `_`-prefixed keys are the reserved harness namespace. `pnpm spec fmt` rewrites
+  specs to a byte-deterministic canonical form so diffs show only semantic change.
+
+### Workflow
+
+```
+pnpm spec new <id>            # scaffold specs/<id>.yaml (every dimension = _skip: todo)
+# …fill in schema.ts and example inputs…
+pnpm spec update <id>         # run the schema, fill goldens, regenerate the test
+pnpm test                     # generated test runs like any other (behavior + types)
+pnpm spec:check               # CI gate — see below
+```
+
+`pnpm spec:check` is the fast pre-commit / CI gate (no ReScript build needed). It
+verifies, for every spec: it validates against the format schema, every `_skip`
+reason is well-formed, the file is in canonical form, the stored goldens match
+what the live schema produces, and the generated test file is current (byte- and
+sha-matched). Behavior itself is still asserted by `pnpm test` running the
+generated files.
+
+### Dimensions
+
+| Dimension | Status | Source of truth |
+| --- | --- | --- |
+| `operations.<op>.expression` (codegen) | live | `.toString()` of `S.parser`/`S.decoder`/`S.encoder` |
+| `operations.<op>.examples` (input→output\|error) | live | executing the operation |
+| `jsonSchema.input` / `.output` | live | `S.toJSONSchema(schema)` / `…(S.reverse(schema))` |
+| `types.ts` | live | `expectTypeOf` under Vitest typecheck |
+| `instantiations` | planned (`_skip: todo`) | `@ark/attest` type-instantiation count |
+| `bundleBytes` | planned (`_skip: todo`) | treeshaken per-import-surface size |
+| `properties` (property-based testing) | planned (`_skip: todo`) | see below |
+
+### Property-based testing (planned)
+
+PBT is scoped out of the initial harness but is the format's most valuable future
+dimension. The `properties` field will name reusable properties — checked against
+inputs generated from the schema itself — such as:
+
+- **round-trip**: `encode(decode(x)) == x` for reversible schemas (Sury's core
+  reversibility guarantee), skipped as `lossy` for non-injective transforms.
+- **reverse-involution**: `reverse(reverse(schema))` behaves like `schema`.
+- **no-crash-on-garbage**: random `unknown` inputs either parse or throw a
+  well-formed `S.Error` with a correct path — never an internal crash.
+
+Building it requires a `schema → arbitrary` derivation (a generator that produces
+values valid by construction) plus per-case opt-out for properties that don't
+hold. Until then, every spec must carry `properties: { _skip: todo(#pbt-dimension) }`.
+
 ## Make comparison
 
 https://bundlejs.com/
