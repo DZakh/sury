@@ -55,25 +55,28 @@ module Result = {
 }
 
 module JsonSchema = {
-  // `StandardJSONSchemaV1.Target`. An open polymorphic variant: the three
-  // known dialects are tagged for autocomplete and exhaustiveness, but
-  // (mirroring the TS `Target = ... | ({} & string)`) it structurally accepts
-  // any other tag too; `toJSONSchema` validates it at runtime and throws for
-  // an unsupported one.
-  type target<'a> = [> #"draft-07" | #"draft-2020-12" | #"openapi-3.0"] as 'a
+  // `StandardJSONSchemaV1.Target`, restricted to the dialects Sury actually
+  // supports. Making this a genuinely open polymorphic variant (`[> ...]`)
+  // would need an explicit row type variable on the alias, which ReScript
+  // only allows to stay unwritten when the type is inlined at a single use
+  // site and never named - not reusable as `options`/`converter` below, or
+  // referenced from a `.resi`. `options.target` is the actual open surface,
+  // matching the TS `Target = ... | ({} & string)` escape hatch: it accepts
+  // any string and is validated at runtime by `parseTarget`.
+  type target = [#"draft-07" | #"draft-2020-12" | #"openapi-3.0"]
 
-  // `StandardJSONSchemaV1.Options`.
-  type options<'a> = {
-    target: target<'a>,
+  // `StandardJSONSchemaV1.Options`. `target` is a raw `string` to mirror the TS
+  // `Target = ... | ({} & string)`: any string is accepted and validated at
+  // runtime (an unsupported target throws).
+  type options = {
+    target: string,
     libraryOptions?: dict<unknown>,
   }
 
-  // `StandardJSONSchemaV1.Converter`. `input`/`output` are rank-2 polymorphic
-  // (quantified per call), so a single `converter` value works for any target
-  // row, without needing `props`/`t` to carry an extra type parameter.
+  // `StandardJSONSchemaV1.Converter`.
   type converter = {
-    input: 'a. options<'a> => JSONSchema.t,
-    output: 'a. options<'a> => JSONSchema.t,
+    input: options => JSONSchema.t,
+    output: options => JSONSchema.t,
   }
 }
 
