@@ -1,5 +1,5 @@
 #!/usr/bin/env tsx
-// `spec` — the AI-first test-spec harness.
+// `spec` — the AI-first test-spec harness (see the `spec` skill).
 //
 //   spec check   [id…]   validate + lint + assert fmt-clean + goldens match live
 //   spec fmt     [id…]    rewrite specs to canonical byte-deterministic form
@@ -8,11 +8,11 @@
 //   spec new     <id>     scaffold a spec with every dimension present as _skip: todo
 //   spec schema          (re)emit specs/spec.schema.json from the Sury format schema
 //
-// One spec file = one schema's full contract. See CONTRIBUTING "Specs".
+// Infra (format validity, spec.schema.json) runs on published sury; golden
+// execution runs on the dev source. See format.ts / harness.ts.
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import * as S from "../../src/S.js";
-import { specSchema, isSkip, type Spec } from "./format";
+import { validate, schemaJson, isSkip, type Spec } from "./format";
 import {
   SPECS_DIR,
   GEN_DIR,
@@ -20,7 +20,6 @@ import {
   listSpecFiles,
   specId,
   readSpec,
-  validate,
   serialize,
   recomputeGoldens,
   generateTest,
@@ -44,9 +43,6 @@ function fail(msg: string): never {
   console.error(red(msg));
   process.exit(1);
 }
-
-// The canonical JSON Schema text emitted from the Sury format schema.
-const schemaJson = (): string => JSON.stringify(S.toJSONSchema(specSchema), null, 2) + "\n";
 
 // Walk every `_skip` in a spec and collect malformed reasons.
 const lintSkips = (obj: unknown, path: string, out: string[]): void => {
@@ -108,9 +104,8 @@ const cmdNew = (): void => {
   console.log(`new ${id} -> specs/${id}.yaml (fill the _skip: todo dimensions)`);
 };
 
-// `check` is the CI gate (no ReScript build needed): the emitted JSON Schema is
-// current, and every spec is format-valid, skip-lint-clean, canonical, and has
-// goldens matching what the live schema produces.
+// `check` is the CI gate: emitted JSON Schema is current, and every spec is
+// format-valid, skip-lint-clean, canonical, with goldens matching live behavior.
 const cmdCheck = (): void => {
   let failed = 0;
 
@@ -134,7 +129,6 @@ const cmdCheck = (): void => {
     const canon = serialize(obj);
     if (raw !== canon) errs.push(`not canonical — run \`pnpm spec fmt ${id}\``);
 
-    // Goldens must equal what the live schema produces — no hand-edited goldens.
     try {
       if (serialize(recomputeGoldens(obj)) !== canon)
         errs.push(`goldens stale — run \`pnpm spec update ${id}\``);

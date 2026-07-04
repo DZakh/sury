@@ -1,4 +1,4 @@
-// Tests for the spec harness (scripts/spec). Generated test files are not
+// Tests for the spec harness (packages/spec). Generated test files are not
 // committed; this suite is the committed record of the harness's behavior —
 // including a file snapshot of exactly what a generated test looks like.
 import { readFileSync } from "node:fs";
@@ -7,13 +7,11 @@ import {
   listSpecFiles,
   specId,
   readSpec,
-  validate,
   serialize,
   recomputeGoldens,
   generateTest,
-} from "../scripts/spec/harness";
-import { specSchema } from "../scripts/spec/format";
-import * as S from "../src/S.js";
+} from "../../spec/harness";
+import { validate } from "../../spec/format";
 
 const specs = listSpecFiles().map((file) => ({ id: specId(file), file }));
 
@@ -46,10 +44,10 @@ test("generateTest output matches snapshot (how a generated file looks)", async 
 });
 
 test("the format is defined as a Sury schema (closed world)", () => {
-  // Unknown keys are rejected — the closed-world guarantee.
-  expect(() => S.parser(specSchema)({})).toThrow();
+  // Unknown keys are rejected — the closed-world guarantee (via published sury).
+  expect(validate({}).ok).toBe(false);
   const ok = readSpec(listSpecFiles()[0]!);
-  expect(() => S.parser(specSchema)({ ...ok, bogus: 1 })).toThrow(
-    /Unrecognized key/,
-  );
+  const bad = validate({ ...ok, bogus: 1 });
+  expect(bad.ok).toBe(false);
+  if (!bad.ok) expect(bad.error).toMatch(/Unrecognized key/);
 });

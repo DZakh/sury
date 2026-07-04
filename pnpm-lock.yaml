@@ -39,6 +39,25 @@ importers:
         specifier: 5.6.0
         version: 5.6.0(tinybench@2.9.0)(vite@8.0.14(@types/node@20.19.41)(esbuild@0.28.0)(tsx@4.22.4)(yaml@2.9.0))(vitest@4.1.7(@types/node@20.19.41)(@vitest/coverage-v8@4.1.7)(esbuild@0.28.0)(tsx@4.22.4)(yaml@2.9.0))
 
+  packages/spec:
+    dependencies:
+      sury-published:
+        specifier: npm:sury@11.0.0-alpha.9
+        version: sury@11.0.0-alpha.9(rescript@12.2.0)
+    devDependencies:
+      '@types/node':
+        specifier: 20.19.41
+        version: 20.19.41
+      tsx:
+        specifier: 4.22.4
+        version: 4.22.4
+      typescript:
+        specifier: 5.8.3
+        version: 5.8.3
+      yaml:
+        specifier: 2.9.0
+        version: 2.9.0
+
   packages/sury:
     devDependencies:
       '@ark/attest':
@@ -83,9 +102,6 @@ importers:
       vitest:
         specifier: 4.1.7
         version: 4.1.7(@types/node@20.19.41)(@vitest/coverage-v8@4.1.7)(esbuild@0.28.0)(tsx@4.22.4)(yaml@2.9.0)
-      yaml:
-        specifier: 2.9.0
-        version: 2.9.0
 
   packages/sury-ppx: {}
 
@@ -1128,6 +1144,14 @@ packages:
   supports-preserve-symlinks-flag@1.0.0:
     resolution: {integrity: sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==}
     engines: {node: '>= 0.4'}
+
+  sury@11.0.0-alpha.9:
+    resolution: {integrity: sha512-hyJuZsILflnsUC/PMQya+VJYHMlfrIOtpQyYrKdVHxF+4iNxgwynQkUQyVMuIXL4SnHDrYmPRnH5ZqEkwKj4bA==}
+    peerDependencies:
+      rescript: 12.x
+    peerDependenciesMeta:
+      rescript:
+        optional: true
 
   through2@4.0.2:
     resolution: {integrity: sha512-iOqSav00cVxEEICeD7TjLB1sueEL+81Wpzp2bY17uZjZN0pWZPuo4suZ/61VujxmqSGFfgOcNuTZ85QJwNZQpw==}
@@ -2215,6 +2239,10 @@ snapshots:
       has-flag: 4.0.0
 
   supports-preserve-symlinks-flag@1.0.0: {}
+
+  sury@11.0.0-alpha.9(rescript@12.2.0):
+    optionalDependencies:
+      rescript: 12.2.0
 
   through2@4.0.2:
     dependencies:

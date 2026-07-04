@@ -1,17 +1,18 @@
-// The spec format, defined *as a Sury schema*.
+// The spec format, defined *as a Sury schema* — the harness INFRASTRUCTURE.
 //
-// This is deliberate dogfooding: Sury's own test format is described with Sury,
-// so `spec check` validates specs using Sury's parser and error messages, and
-// `spec.schema.json` (consumed by editors and AI authors) is emitted from this
-// schema via `S.toJSONSchema`. If the format is wrong, Sury's own test-suite
-// setup breaks first.
+// This half of the harness runs on a PUBLISHED sury (`sury-published` =
+// npm:sury@<pinned>), not the in-development source. That keeps the CLI stable
+// while Sury's internals are refactored: defining the spec format, validating
+// specs, and emitting spec.schema.json never break just because the working
+// tree's core is mid-change. Golden *execution* (harness.ts) uses the dev source
+// instead, so goldens still track your changes.
 //
-// Design rules encoded here (see CONTRIBUTING "Specs"):
+// Design rules encoded here (see the `spec` skill):
 //   - Closed world: every object is `.with(S.strict)` -> `additionalProperties:false`.
 //   - Exhaustive dimensions: every dimension and every operation is *required*;
 //     absence is not allowed. A dimension is either its real value or `{_skip}`.
 //   - `_` prefix is the reserved harness namespace (currently just `_skip`).
-import * as S from "../../src/S.js";
+import * as S from "sury-published";
 
 // ---- authored spec shape (mirrors the Sury schema below) ------------------
 
@@ -37,15 +38,9 @@ export type OpName = "parse" | "decode" | "encode";
 
 // ---- Sury schema for the format -------------------------------------------
 
-// A dimension that isn't asserted must say so explicitly, with a reason.
-// Reasons are conventionally an enum (`parser-only`, `lossy`, `not-applicable`)
-// or `todo(#…)` for a not-yet-built dimension; the CLI lints the reason string.
 export const skip = S.schema({ _skip: S.string }).with(S.strict);
 const orSkip = (schema: S.Schema<unknown, unknown>) => S.union([schema, skip]);
 
-// A single runnable example: an input plus either an expected `output` or an
-// expected `error` message. `bench` is reserved for the (not-yet-wired) perf
-// dimension. Every code field holds source text, valid in both languages.
 const exampleOutput = S.schema({
   input: S.string,
   output: S.string,
@@ -58,16 +53,11 @@ const exampleError = S.schema({
 }).with(S.strict);
 const example = S.union([exampleOutput, exampleError]);
 
-// One compiled operation over the schema. `expression` is the codegen golden
-// (`.toString()` of the compiled function); examples are addressed by name so
-// their identity survives insertion/removal (unlike array indices).
 const operation = S.schema({
   expression: orSkip(S.string),
   examples: S.record(example),
 }).with(S.strict);
 
-// The three directions through a schema. Each is required; a schema that does
-// not support one (e.g. a one-way transform has no `encode`) says `{_skip}`.
 const operations = S.schema({
   parse: orSkip(operation),
   decode: orSkip(operation),
@@ -76,17 +66,12 @@ const operations = S.schema({
 
 // The full spec. One file = one schema's complete contract.
 export const specSchema = S.schema({
-  // The schema under test, as source text in both surfaces. Identical strings
-  // are allowed (e.g. `S.string`); only `ts` is evaluated by the harness today.
   schema: S.schema({ res: S.string, ts: S.string }).with(S.strict),
-  // Static, value-independent dimensions.
   types: orSkip(S.schema({ ts: S.string }).with(S.strict)),
   jsonSchema: orSkip(S.schema({ input: S.json, output: S.json }).with(S.strict)),
   instantiations: orSkip(S.number),
   bundleBytes: orSkip(S.number),
-  // Property-based testing dimension — scoped out for now (see CONTRIBUTING).
   properties: orSkip(S.json),
-  // Value-driven dimension: codegen goldens + runnable examples per direction.
   operations,
 }).with(S.strict);
 
@@ -102,13 +87,21 @@ export const KEY_ORDER: (keyof Spec)[] = [
 ];
 export const OP_ORDER: OpName[] = ["parse", "decode", "encode"];
 
-// Maps an operation name to the Sury builder that compiles that direction.
-// Used by the harness to (re)compute expression goldens.
-export const OP_BUILDER: Record<OpName, (schema: any) => (input: any) => any> = {
-  parse: S.parser,
-  decode: S.decoder,
-  encode: S.encoder,
-};
-
 export const isSkip = (v: unknown): v is Skip =>
   v !== null && typeof v === "object" && "_skip" in (v as object);
+
+// Run a spec object through Sury's own parser (published S).
+export const validate = (
+  obj: unknown,
+): { ok: true } | { ok: false; error: string } => {
+  try {
+    S.parser(specSchema)(obj);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+};
+
+// The canonical spec.schema.json text emitted from the format schema.
+export const schemaJson = (): string =>
+  JSON.stringify(S.toJSONSchema(specSchema), null, 2) + "\n";

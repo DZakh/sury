@@ -52,10 +52,10 @@
   ],
   "scripts": {
     "coverage": "vitest run --coverage",
-    "spec": "tsx ./scripts/spec/cli.ts",
+    "spec": "tsx ../spec/cli.ts",
     "build": "pnpm rescript && node ./scripts/pack/Pack.res.mjs",
     "test:res": "cd ./packages/tests && rescript clean && rescript watch",
-    "pretest": "tsx ./scripts/spec/cli.ts gen",
+    "pretest": "tsx ../spec/cli.ts gen",
     "test": "rescript build && vitest run",
     "typecheck": "vitest run --typecheck.only",
     "bench": "vitest bench --run",
@@ -76,8 +76,7 @@
     "rollup": "3.21.0",
     "tsx": "4.22.4",
     "typescript": "5.8.3",
-    "vitest": "4.1.7",
-    "yaml": "2.9.0"
+    "vitest": "4.1.7"
   },
   "peerDependencies": {
     "rescript": "12.x"

@@ -1,0 +1,19 @@
+{
+  "name": "spec",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Sury declarative spec test harness (see .claude/skills/spec)",
+  "scripts": {
+    "spec": "tsx ./cli.ts"
+  },
+  "dependencies": {
+    "sury-published": "npm:sury@11.0.0-alpha.9"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.41",
+    "tsx": "4.22.4",
+    "typescript": "5.8.3",
+    "yaml": "2.9.0"
+  }
+}

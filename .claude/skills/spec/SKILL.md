@@ -1,6 +1,6 @@
 ---
 name: spec
-description: Add or edit a Sury test spec — packages/sury/specs/*.yaml, one declarative file capturing a schema's full contract (type, JSON Schema, and per-operation codegen + input→output|error examples). Use when writing/updating a spec, adding an example, or touching the spec harness in packages/sury/scripts/spec.
+description: Add or edit a Sury test spec — packages/sury/specs/*.yaml, one declarative file capturing a schema's full contract (type, JSON Schema, and per-operation codegen + input→output|error examples). Use when writing/updating a spec, adding an example, or touching the spec harness in packages/spec.
 ---
 
 # Sury specs
@@ -73,9 +73,11 @@ For `encode`, input is an Output value and output an Input value (the type flips
 
 ## Layout
 
-- `specs/<id>.yaml` — authored spec (published with the `sury` package)
-- `specs/spec.schema.json` — emitted from the format schema (`pnpm spec schema`)
-- `scripts/spec/format.ts` — the spec format defined **as a Sury schema** (dogfooded)
-- `scripts/spec/{harness,cli}.ts` — CLI internals + `check|fmt|gen|update|new|schema`
-- `tests/generated/*.gen_test.ts` — gitignored; regenerated before `pnpm test`
-- `tests/spec_test.ts` + `tests/__snapshots__/` — harness tests + generated-output snapshot
+- `packages/sury/specs/<id>.yaml` — authored spec (published with the `sury` package)
+- `packages/sury/specs/spec.schema.json` — emitted from the format schema (`pnpm spec schema`)
+- `packages/spec/` — the CLI, its own workspace package (run via `tsx`). It uses sury **twice**:
+  - `format.ts` — spec format defined **as a Sury schema**, on **published** sury (`sury-published`). Stable infra: validation + `spec.schema.json`, so the CLI doesn't break while core is refactored.
+  - `harness.ts` — golden execution on the **dev source** (`../sury/src/S.js`), so goldens track your changes. Canonicalize + generate.
+  - `cli.ts` — `check|fmt|gen|update|new|schema`.
+- `packages/sury/tests/generated/*.gen_test.ts` — gitignored; regenerated before `pnpm test`
+- `packages/sury/tests/spec_test.ts` + `__snapshots__/` — harness tests + generated-output snapshot
