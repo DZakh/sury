@@ -1,6 +1,6 @@
 {
   "name": "sury-ppx",
-  "version": "11.0.0-alpha.6",
+  "version": "11.0.0-alpha.9",
   "description": "⚙️ ReScript PPX to generate Sury schema from types",
   "keywords": [
     "Sury",
@@ -33,6 +33,6 @@
     "postinstall": "node ./install.cjs"
   },
   "peerDependencies": {
-    "sury": "^11.0.0-alpha.6"
+    "sury": "^11.0.0-alpha.9"
   }
 }
