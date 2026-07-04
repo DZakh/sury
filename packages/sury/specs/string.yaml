@@ -13,8 +13,6 @@ instantiations:
   _skip: todo(#instantiations-dimension)
 bundleBytes:
   _skip: todo(#bundle-dimension)
-properties:
-  _skip: todo(#pbt-dimension)
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[0](i);return i}
@@ -32,20 +30,6 @@ operations:
         input: "null"
         error: Expected string, received null
   decode:
-    expression: |-
-      function noopOperation(i) {
-        return i;
-      }
-    examples:
-      identity:
-        input: '"hello"'
-        output: '"hello"'
+    _skip: identity
   encode:
-    expression: |-
-      function noopOperation(i) {
-        return i;
-      }
-    examples:
-      identity:
-        input: '"hello"'
-        output: '"hello"'
+    _skip: identity

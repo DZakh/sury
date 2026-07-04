@@ -111,23 +111,6 @@
         }
       ]
     },
-    "properties": {
-      "anyOf": [
-        {},
-        {
-          "type": "object",
-          "properties": {
-            "_skip": {
-              "type": "string"
-            }
-          },
-          "additionalProperties": false,
-          "required": [
-            "_skip"
-          ]
-        }
-      ]
-    },
     "operations": {
       "type": "object",
       "properties": {
@@ -417,7 +400,6 @@
     "jsonSchema",
     "instantiations",
     "bundleBytes",
-    "properties",
     "operations"
   ]
 }

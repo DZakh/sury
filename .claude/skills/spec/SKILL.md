@@ -7,17 +7,18 @@ description: Add or edit a Sury test spec — packages/sury/specs/*.yaml, one de
 
 One `specs/<id>.yaml` = one schema's full contract. **You author the schema and example _inputs_; the harness computes every golden.** Never hand-write a golden.
 
-Run all commands from `packages/sury`.
+Run commands from the repo root (`pnpm spec …`).
 
 ## Workflow
 
 ```
 pnpm spec new <id>       # scaffold — every dimension starts as _skip: todo
 # edit specs/<id>.yaml: fill schema.res/ts and example inputs
-pnpm spec update <id>    # execute schema → fill expression, jsonSchema, example results
-pnpm spec check          # gate: format-valid, canonical, skips well-formed, goldens fresh
+pnpm spec update [id]    # execute schema → fill expression, jsonSchema, example results
+pnpm spec check  [id]    # gate: format-valid, canonical, skips well-formed, goldens fresh
 ```
 
+`[id]` is optional for `update`/`check`/`fmt`/`gen` — omit it to process every spec; `new` requires one.
 `pnpm test` regenerates the hidden test files and runs them (behavior + types).
 To add a case: add a named entry under an op's `examples` with just `input`, then `pnpm spec update`.
 
@@ -30,6 +31,9 @@ To add a case: add a named entry under an op's `examples` with just `input`, the
   must be present. Not asserting one? Set `_skip: <reason>` — reason is an enum
   (`identity`, `parser-only`, `serializer-only`, `lossy`, `not-applicable`) or
   `todo(#…)`. A bare/unexplained skip is rejected.
+- **Identity ops.** An operation that compiles to Sury's pass-through must be
+  `_skip: identity` (not a full op block), and `_skip: identity` is verified to
+  actually be identity. `update`/`check` error either way.
 - **Two surfaces.** `schema.res` (ReScript, e.g. `S.string->S.min(3)`) and
   `schema.ts` (JS `.with`, e.g. `S.string.with(S.min, 3)`). Identical is fine
   (`S.string`). Only `ts` is executed today.
@@ -47,14 +51,13 @@ types: { ts: S.Schema<string, string> }
 jsonSchema: { input: {...}, output: {...} }   # filled by update
 instantiations: { _skip: todo(#instantiations-dimension) }
 bundleBytes:    { _skip: todo(#bundle-dimension) }
-properties:     { _skip: todo(#pbt-dimension) }        # PBT not built yet
 operations:
   parse:                        # parse=unknown→out, decode=in→out, encode=out→in
     expression: ""              # filled by update
     examples:
       valid:   { input: '"hi"' }          # you write input; update adds output/error
       bad:     { input: "42" }
-  decode: { _skip: identity }   # or a full op block
+  decode: { _skip: identity }   # identity op → skip (not a full block)
   encode: { _skip: identity }
 ```
 
@@ -69,15 +72,12 @@ For `encode`, input is an Output value and output an Input value (the type flips
 | `operations.<op>.examples` | running the op on each input |
 | `jsonSchema.input` / `.output` | `S.toJSONSchema(schema)` / `…(S.reverse(schema))` |
 | `types.ts` | `expectTypeOf` under Vitest typecheck |
-| `instantiations`, `bundleBytes`, `properties` | planned — leave as `_skip: todo` |
+| `instantiations`, `bundleBytes` | planned — leave as `_skip: todo` |
 
 ## Layout
 
 - `packages/sury/specs/<id>.yaml` — authored spec (published with the `sury` package)
 - `packages/sury/specs/spec.schema.json` — emitted from the format schema (`pnpm spec schema`)
-- `packages/spec/` — the CLI, its own workspace package (run via `tsx`). It uses sury **twice**:
-  - `format.ts` — spec format defined **as a Sury schema**, on **published** sury (`sury-published`). Stable infra: validation + `spec.schema.json`, so the CLI doesn't break while core is refactored.
-  - `harness.ts` — golden execution on the **dev source** (`../sury/src/S.js`), so goldens track your changes. Canonicalize + generate.
-  - `cli.ts` — `check|fmt|gen|update|new|schema`.
+- `packages/spec/` — the spec CLI (its own workspace package). **Don't touch these files when working on Sury itself** — it's the test harness, not part of the library.
 - `packages/sury/tests/generated/*.gen_test.ts` — gitignored; regenerated before `pnpm test`
 - `packages/sury/tests/spec_test.ts` + `__snapshots__/` — harness tests + generated-output snapshot

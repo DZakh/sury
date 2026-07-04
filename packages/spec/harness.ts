@@ -65,6 +65,32 @@ export const readSpec = (file: string): Spec =>
 export const evalSchema = (tsSource: string): any =>
   new Function("S", `return (${tsSource});`)(S);
 
+// Sury compiles a pass-through operation to a shared function literally named
+// `noopOperation`. An op is identity iff it compiles to that.
+const isNoop = (fn: { name?: string }): boolean => fn.name === "noopOperation";
+
+// Enforce the identity invariant both ways: an operation compiles to identity
+// *iff* it is declared `_skip: identity`. Returns violation messages ([] if ok).
+// Requires the live (dev) schema.
+export const identityViolations = (schema: any, spec: Spec): string[] => {
+  const out: string[] = [];
+  for (const opName of OP_ORDER) {
+    const op = spec.operations[opName];
+    const noop = isNoop(OP_BUILDER[opName](schema));
+    if (isSkip(op)) {
+      if (op._skip === "identity" && !noop)
+        out.push(
+          `operations.${opName}: marked \`_skip: identity\` but does not compile to identity — use a full op block with examples`,
+        );
+    } else if (noop) {
+      out.push(
+        `operations.${opName}: compiles to identity — use \`_skip: identity\` instead of an expression + examples`,
+      );
+    }
+  }
+  return out;
+};
+
 // ---- canonical form -------------------------------------------------------
 
 const order = <T extends Record<string, unknown>>(obj: T, keys: string[]): T => {

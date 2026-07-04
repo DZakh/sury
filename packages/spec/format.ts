@@ -30,7 +30,6 @@ export type Spec = {
   jsonSchema: Skip | { input: unknown; output: unknown };
   instantiations: Skip | number;
   bundleBytes: Skip | number;
-  properties: Skip | unknown;
   operations: { parse: Operation; decode: Operation; encode: Operation };
 };
 
@@ -71,7 +70,6 @@ export const specSchema = S.schema({
   jsonSchema: orSkip(S.schema({ input: S.json, output: S.json }).with(S.strict)),
   instantiations: orSkip(S.number),
   bundleBytes: orSkip(S.number),
-  properties: orSkip(S.json),
   operations,
 }).with(S.strict);
 
@@ -82,7 +80,6 @@ export const KEY_ORDER: (keyof Spec)[] = [
   "jsonSchema",
   "instantiations",
   "bundleBytes",
-  "properties",
   "operations",
 ];
 export const OP_ORDER: OpName[] = ["parse", "decode", "encode"];

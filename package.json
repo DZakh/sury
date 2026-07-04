@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "res": "pnpm --filter=sury exec rescript watch",
+    "spec": "tsx packages/spec/cli.ts",
     "test": "pnpm --filter=sury test && pnpm --filter=e2e test",
     "build": "pnpm --filter=sury build",
     "benchmark": "pnpm --filter=sury bench",

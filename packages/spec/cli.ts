@@ -22,6 +22,8 @@ import {
   readSpec,
   serialize,
   recomputeGoldens,
+  evalSchema,
+  identityViolations,
   generateTest,
   genPath,
   isValidSkipReason,
@@ -78,8 +80,20 @@ const cmdGen = (): void => {
 
 const cmdUpdate = (): void => {
   for (const file of targets()) {
-    writeFileSync(file, serialize(recomputeGoldens(readSpec(file))));
-    console.log(`update ${specId(file)}`);
+    const id = specId(file);
+    const obj = readSpec(file);
+    if (!isSkip(obj.schema)) {
+      let schema: any;
+      try {
+        schema = evalSchema(obj.schema.ts);
+      } catch (e) {
+        fail(`${id}: schema.ts did not evaluate: ${(e as Error).message}`);
+      }
+      const violations = identityViolations(schema, obj);
+      if (violations.length) fail(`${id}:\n    ${violations.join("\n    ")}`);
+    }
+    writeFileSync(file, serialize(recomputeGoldens(obj)));
+    console.log(`update ${id}`);
   }
   cmdGen();
 };
@@ -93,7 +107,6 @@ const cmdNew = (): void => {
     jsonSchema: { _skip: "todo(#fill)" },
     instantiations: { _skip: "todo(#instantiations-dimension)" },
     bundleBytes: { _skip: "todo(#bundle-dimension)" },
-    properties: { _skip: "todo(#pbt-dimension)" },
     operations: {
       parse: { _skip: "todo(#fill)" },
       decode: { _skip: "todo(#fill)" },
@@ -129,11 +142,20 @@ const cmdCheck = (): void => {
     const canon = serialize(obj);
     if (raw !== canon) errs.push(`not canonical — run \`pnpm spec fmt ${id}\``);
 
-    try {
-      if (serialize(recomputeGoldens(obj)) !== canon)
-        errs.push(`goldens stale — run \`pnpm spec update ${id}\``);
-    } catch (e) {
-      errs.push(`schema.ts did not evaluate: ${(e as Error).message}`);
+    if (!isSkip(obj.schema)) {
+      let schema: any;
+      try {
+        schema = evalSchema(obj.schema.ts);
+      } catch (e) {
+        errs.push(`schema.ts did not evaluate: ${(e as Error).message}`);
+      }
+      if (schema) {
+        // identity invariant: noop op <-> `_skip: identity`
+        for (const v of identityViolations(schema, obj)) errs.push(v);
+        // goldens must equal what the live schema produces (no hand-edits)
+        if (serialize(recomputeGoldens(obj)) !== canon)
+          errs.push(`goldens stale — run \`pnpm spec update ${id}\``);
+      }
     }
 
     if (errs.length) {

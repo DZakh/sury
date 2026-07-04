@@ -26,15 +26,3 @@ test("string › parse › invalid-number", () => {
 test("string › parse › invalid-null", () => {
   expect(() => S.parser(schema)(null)).toThrow("Expected string, received null");
 });
-test("string › decode › expression", () => {
-  expect(S.decoder(schema).toString()).toBe("function noopOperation(i) {\n  return i;\n}");
-});
-test("string › decode › identity", () => {
-  expect(S.decoder(schema)("hello")).toStrictEqual("hello");
-});
-test("string › encode › expression", () => {
-  expect(S.encoder(schema).toString()).toBe("function noopOperation(i) {\n  return i;\n}");
-});
-test("string › encode › identity", () => {
-  expect(S.encoder(schema)("hello")).toStrictEqual("hello");
-});
