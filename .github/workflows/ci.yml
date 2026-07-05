@@ -13,6 +13,9 @@ jobs:
   sury:
     name: Sury - Build & Test & Pack
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read # required for actions/checkout
+      pull-requests: write # required to post the bundle-size comment on PRs
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
@@ -29,10 +32,33 @@ jobs:
         run: pnpm bench:types
         working-directory: packages/sury
 
-      - run: pnpm coverage
+      # Bundle size & tree-shaking guard. Fails if any scenario's gzip size
+      # drifts beyond ±1% of tests/bundle-size.snapshot.json. Runs after build
+      # so it measures the freshly compiled Sury.res.mjs. --markdown writes the
+      # report for the PR comment below (it's also added to the job summary).
+      - name: Bundle size benchmarks
+        run: pnpm bench:bundle -- --markdown=bundle-size.md
         working-directory: packages/sury
 
-      - uses: codecov/codecov-action@v3
+      # Post (and keep updated) the bundle-size report as a sticky PR comment.
+      # Runs even when the guard above fails, so a regression is visible inline.
+      # Best-effort: PRs from forks get a read-only token and can't comment.
+      - name: Comment bundle size on PR
+        if: always() && github.event_name == 'pull_request'
+        continue-on-error: true
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: bundle-size
+          path: packages/sury/bundle-size.md
+
+      # Run regardless of the bundle-size gate above: a size regression should
+      # fail the job without also hiding coverage or blocking the artifact.
+      - run: pnpm coverage
+        if: ${{ !cancelled() }}
+        working-directory: packages/sury
+
+      - uses: codecov/codecov-action@v7
+        if: ${{ !cancelled() }}
         with:
           files: packages/sury/coverage/lcov.info
 
@@ -41,6 +67,7 @@ jobs:
       #   working-directory: packages/sury
 
       - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
         with:
           name: sury
           path: packages/sury/artifacts
