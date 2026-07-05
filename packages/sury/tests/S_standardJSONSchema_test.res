@@ -8,7 +8,10 @@ open Vitest
 @get_index
 external standardOf: (S.t<'a>, string) => StandardSchema.props<unknown, unknown> = ""
 let standardOf = schema => schema->standardOf("~standard")
-let jsonSchemaConverter = schema => (schema->standardOf).jsonSchema
+// Sury always implements the JSON Schema extension, so `jsonSchema` is always
+// present on its own `~standard` (it's optional on `StandardSchema.props` only
+// because not every Standard Schema library implements it).
+let jsonSchemaConverter = schema => (schema->standardOf).jsonSchema->Option.getUnsafe
 
 // Simulates a target string as it actually arrives from an untyped JS caller
 // (`~standard.jsonSchema.input({target: "..."})`): `target` is `@unboxed`, so
@@ -21,8 +24,9 @@ test("Standard ~standard exposes version, vendor, validate and a jsonSchema conv
   t->Assert.deepEqual(standard.version, 1)
   t->Assert.deepEqual(standard.vendor, "sury")
   t->Assert.deepEqual(standard.validate->Type.typeof, #function)
-  t->Assert.deepEqual(standard.jsonSchema.input->Type.typeof, #function)
-  t->Assert.deepEqual(standard.jsonSchema.output->Type.typeof, #function)
+  let jsonSchema = standard.jsonSchema->Option.getUnsafe
+  t->Assert.deepEqual(jsonSchema.input->Type.typeof, #function)
+  t->Assert.deepEqual(jsonSchema.output->Type.typeof, #function)
 })
 
 test("Standard ~standard.jsonSchema throws for an unsupported target", t => {

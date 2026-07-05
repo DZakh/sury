@@ -268,6 +268,8 @@ and untagged = private {
   anyOf?: array<t<unknown>>,
   has?: dict<bool>,
   to?: t<unknown>,
+  @as("~standard")
+  standard?: StandardSchema.props<unknown, unknown>,
 }
 @unboxed and additionalItems = | ...additionalItemsMode | Schema(t<unknown>)
 and has = {
