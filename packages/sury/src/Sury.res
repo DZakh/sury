@@ -4314,12 +4314,20 @@ let standardJSONSchemaRef: ref<(t<unknown>, StandardSchema.JsonSchema.options, b
 // referencing `toJSONSchema`/`reverse` directly - that indirection is what
 // keeps them tree-shakeable for consumers who never call
 // `enableStandardJsonSchema`. Before that's called, `standardJSONSchemaRef`
-// is still the falsy placeholder above, so this panics with a message
-// pointing at the fix instead of a cryptic "not a function" error.
+// is still the falsy placeholder above, so this raises the same kind of
+// `invalid_operation` error as an unsupported JSON Schema target, pointing
+// at the fix instead of a cryptic "not a function" error.
 let getStandardJsonSchema = (schema, options, isOutput) =>
   standardJSONSchemaRef.contents->Obj.magic
     ? standardJSONSchemaRef.contents(schema, options, isOutput)
-    : InternalError.panic("~standard.jsonSchema requires S.enableStandardJsonSchema() to be called first")
+    : X.Exn.throwAny(
+        InternalError.make(
+          InvalidOperation({
+            path: Path.empty,
+            reason: "~standard.jsonSchema requires S.enableStandardJsonSchema() to be called first",
+          }),
+        ),
+      )
 
 X.Object.defineProperty(
   %raw(`sp`),
@@ -4362,8 +4370,8 @@ X.Object.defineProperty(
           // `input` returns the JSON Schema of the schema's input type,
           // `output` the JSON Schema of its output type. The `$schema` URI is
           // stamped according to `options.target`; an unsupported target throws.
-          // Calling either before `enableStandardJsonSchema` panics with a
-          // guiding message - see `getStandardJsonSchema` above.
+          // Calling either before `enableStandardJsonSchema` throws a
+          // guiding error - see `getStandardJsonSchema` above.
           jsonSchema: {
             input: options => getStandardJsonSchema(schema, options, false),
             output: options => getStandardJsonSchema(schema, options, true),

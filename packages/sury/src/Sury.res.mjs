@@ -2714,7 +2714,11 @@ function getStandardJsonSchema(schema, options, isOutput) {
   if (standardJSONSchemaRef.contents) {
     return standardJSONSchemaRef.contents(schema, options, isOutput);
   }
-  throw new Error(`[Sury] ` + "~standard.jsonSchema requires S.enableStandardJsonSchema() to be called first");
+  throw new SuryError({
+    code: "invalid_operation",
+    path: "",
+    reason: "~standard.jsonSchema requires S.enableStandardJsonSchema() to be called first"
+  });
 }
 
 d(sp, "~standard", {
