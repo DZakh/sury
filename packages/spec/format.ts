@@ -144,7 +144,7 @@ export type Spec = S.Output<typeof specSchema>;
 
 export type OpName = keyof Spec["operations"];
 
-// Ordered dimension keys — the canonical key order for `spec fmt`. Built via
+// Ordered dimension keys — the canonical key order for `spec format`. Built via
 // `Record<keyof T, true>` (not a plain array literal) so adding a field to
 // `ts`/`operations`/`specSchema` without updating the matching order here is a
 // compile error, not a silently-out-of-order key at serialize time.

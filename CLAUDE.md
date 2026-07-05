@@ -10,7 +10,11 @@ Tiebreaker: shortest *generated* code wins over shortest *library* code (runtime
 
 ## Comments
 
-Default to no comments — well-named identifiers and clear structure carry the "what". Add one only for a non-obvious "why": a hidden constraint, a subtle invariant, a workaround for a specific bug, behavior that would surprise a reader. If deleting the comment wouldn't leave a future reader confused, delete it. Applies repo-wide, not just `packages/spec`.
+- Default: no comment.
+- Write one only for a non-obvious *why* — a hidden constraint, a subtle invariant, a bug workaround, or behavior that would surprise a reader.
+- Never write one that just restates the code.
+- Delete any existing comment that fails this test, even in code you're only editing, not authoring.
+- Repo-wide, not just `packages/spec`.
 
 ## Input vs Output
 

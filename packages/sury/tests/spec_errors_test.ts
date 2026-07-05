@@ -28,7 +28,16 @@ test("stale golden (expression drifted from what the schema actually compiles to
   });
   await expect(checkSpec("string", spec, serialize(spec))).resolves.toMatchInlineSnapshot(`
     [
-      "goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec fmt\` for a formatting-only fix)",
+      "goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
+    @@ -12,7 +12,7 @@
+          type: string
+      operations:
+        parse:
+    -     expression: i=>i /* stale */
+    +     expression: i=>{typeof i==="string"||e[0](i);return i}
+          examples:
+            valid:
+              input: '"hello"'",
     ]
   `);
 });
@@ -42,7 +51,16 @@ test("stale golden (recorded example output no longer matches live behavior)", a
   });
   await expect(checkSpec("string", spec, serialize(spec))).resolves.toMatchInlineSnapshot(`
     [
-      "goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec fmt\` for a formatting-only fix)",
+      "goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
+    @@ -16,7 +16,7 @@
+          examples:
+            valid:
+              input: '"hello"'
+    -         output: '"WRONG"'
+    +         output: '"hello"'
+            empty:
+              input: '""'
+              output: '""'",
     ]
   `);
 });
@@ -63,7 +81,14 @@ test("not canonical (on-disk text doesn't match the canonical form)", async () =
   const scrambled = serialize(spec).replace("ts:\n", "ts:\n  # a stray comment\n");
   await expect(checkSpec("string", spec, scrambled)).resolves.toMatchInlineSnapshot(`
     [
-      "not canonical — run \`pnpm spec fmt string\` (or \`pnpm spec check string --write\`, which also refreshes goldens)",
+      "not canonical — run \`pnpm spec format string\` (or \`pnpm spec check string --write\`, which also refreshes goldens):
+    @@ -1,6 +1,5 @@
+      # yaml-language-server: $schema=./spec.schema.json
+      ts:
+    -   # a stray comment
+        schema: S.string
+        input: string
+        output: string",
     ]
   `);
 });
@@ -76,7 +101,37 @@ test("identity claimed but the operation doesn't actually compile to identity", 
     [
       "operations.decode: marked \`identity\` but does not compile to identity — use a full op block with examples",
       "operations.encode: marked \`identity\` but does not compile to identity — use a full op block with examples",
-      "goldens stale — resolve the identity mismatch above first, then \`pnpm spec check string --write\` can fix it (also formats canonically; use \`pnpm spec fmt\` for a formatting-only fix)",
+      "goldens stale — resolve the identity mismatch above first, then \`pnpm spec check string --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
+    @@ -3,23 +3,25 @@
+        schema: S.string.with(S.min, 3)
+        input: string
+        output: string
+    -   instantiations: 226
+    -   bundleBytes: 3765
+    +   instantiations: 5659
+    +   bundleBytes: 4291
+      jsonSchema:
+        input:
+          type: string
+    +     minLength: 3
+        output:
+          type: string
+    +     minLength: 3
+      operations:
+        parse:
+    -     expression: i=>{typeof i==="string"||e[0](i);return i}
+    +     expression: i=>{typeof i==="string"||e[1](i);i.length>2||e[0](i);return i}
+          examples:
+            valid:
+              input: '"hello"'
+              output: '"hello"'
+            empty:
+              input: '""'
+    -         output: '""'
+    +         error: String must be 3 or more characters long
+            invalid-number:
+              input: "42"
+              error: Expected string, received 42",
     ]
   `);
 });
@@ -88,7 +143,19 @@ test("full op block claimed but the operation actually compiles to identity", as
   await expect(checkSpec("string", spec, serialize(spec))).resolves.toMatchInlineSnapshot(`
     [
       "operations.decode: compiles to identity — use \`identity\` instead of an expression + examples",
-      "goldens stale — resolve the identity mismatch above first, then \`pnpm spec check string --write\` can fix it (also formats canonically; use \`pnpm spec fmt\` for a formatting-only fix)",
+      "goldens stale — resolve the identity mismatch above first, then \`pnpm spec check string --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
+    @@ -27,7 +27,10 @@
+              input: "null"
+              error: Expected string, received null
+        decode:
+    -     expression: ""
+    +     expression: |-
+    +       function noopOperation(i) {
+    +         return i;
+    +       }
+          examples: {}
+        encode: identity
+    ",
     ]
   `);
 });
@@ -135,7 +202,16 @@ test("multiple simultaneous problems all get their own guiding message", async (
   await expect(checkSpec("string", spec, serialize(spec))).resolves.toMatchInlineSnapshot(`
     [
       "string.ts.bundleBytes: invalid _skip reason "nonsense-reason"",
-      "goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec fmt\` for a formatting-only fix)",
+      "goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
+    @@ -13,7 +13,7 @@
+          type: string
+      operations:
+        parse:
+    -     expression: i=>i /* stale */
+    +     expression: i=>{typeof i==="string"||e[0](i);return i}
+          examples:
+            valid:
+              input: '"hello"'",
     ]
   `);
 });

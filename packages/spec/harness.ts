@@ -13,6 +13,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
+import { diffLinesUnified } from "@vitest/utils/diff";
 import * as S from "../sury/src/S.js";
 import {
   KEY_ORDER,
@@ -174,22 +175,25 @@ const order = <T extends Record<string, unknown>>(obj: T, keys: string[]): T => 
   return out as T;
 };
 
-// Individual named examples are never `_skip` — only the enclosing operation
-// block is (the format schema has no `orSkip` on the examples map's values).
-// Reformats `output` to canonical source-text form (see valueToCode) by
-// round-tripping it through eval — independent of recomputeGoldens, so `spec
-// fmt` can normalize formatting without executing the schema at all. Left
-// as-is if it no longer evaluates; that's a deeper problem the freshness
-// check surfaces, not a formatting one.
+// Reformats `input`/`output` to canonical source-text form (see valueToCode)
+// by round-tripping each through eval — independent of recomputeGoldens, so
+// `spec format` can normalize formatting without executing the schema at all.
+// Left as-is if it no longer evaluates; that's a deeper problem the freshness
+// check surfaces, not a formatting one. Individual named examples are never
+// `_skip` — only the enclosing operation block is (the format schema has no
+// `orSkip` on the examples map's values).
+const reformatIfEvaluable = (text: string): string => {
+  try {
+    return valueToCode(evalSchema(text));
+  } catch {
+    return text;
+  }
+};
+
 const canonExample = (ex: Example): Example => {
   const o = order(ex, ["input", "output", "error", "bench"]) as Example;
-  if ("output" in o) {
-    try {
-      o.output = valueToCode(evalSchema(o.output));
-    } catch {
-      // leave as-is
-    }
-  }
+  o.input = reformatIfEvaluable(o.input);
+  if ("output" in o) o.output = reformatIfEvaluable(o.output);
   return o;
 };
 
@@ -325,6 +329,28 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
 const isUsableSchema = (schema: unknown): boolean =>
   (schema as { ["~standard"]?: { vendor?: string } } | null | undefined)?.["~standard"]?.vendor === "sury";
 
+const identity = (s: string): string => s;
+
+// A plain (no ANSI color, since this also renders inside inline test
+// snapshots and CI logs) git-style unified diff between two spec texts, so
+// "not canonical"/"goldens stale" show exactly what differs instead of just
+// asserting that something does. `a` is the current text, `b` the target —
+// `-`/`+` read as the edit needed to fix `a`.
+const diffText = (a: string, b: string): string =>
+  diffLinesUnified(a.split("\n"), b.split("\n"), {
+    aColor: identity,
+    bColor: identity,
+    changeColor: identity,
+    commonColor: identity,
+    patchColor: identity,
+    aIndicator: "-",
+    bIndicator: "+",
+    commonIndicator: " ",
+    omitAnnotationLines: true,
+    expand: false,
+    contextLines: 3,
+  });
+
 // Never mutates a file or exits the process, so it's directly testable —
 // cli.ts's cmdCheck and tests/spec_errors_test.ts both call this same
 // function, so there's exactly one implementation of "what's wrong with this
@@ -351,7 +377,7 @@ export const checkSpec = async (
   const canon = serialize(spec);
   if (raw !== canon)
     errs.push(
-      `not canonical — run \`pnpm spec fmt ${id}\` (or \`pnpm spec check ${id} --write\`, which also refreshes goldens)`,
+      `not canonical — run \`pnpm spec format ${id}\` (or \`pnpm spec check ${id} --write\`, which also refreshes goldens):\n${diffText(raw, canon)}`,
     );
 
   let schema: any;
@@ -371,9 +397,10 @@ export const checkSpec = async (
       const fresh = knownFresh ?? serialize(await recomputeGoldens(spec));
       if (fresh !== canon)
         errs.push(
-          violations.length
-            ? `goldens stale — resolve the identity mismatch above first, then \`pnpm spec check ${id} --write\` can fix it (also formats canonically; use \`pnpm spec fmt\` for a formatting-only fix)`
-            : `goldens stale — run \`pnpm spec check ${id} --write\` (also formats canonically; use \`pnpm spec fmt\` for a formatting-only fix)`,
+          (violations.length
+            ? `goldens stale — resolve the identity mismatch above first, then \`pnpm spec check ${id} --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix)`
+            : `goldens stale — run \`pnpm spec check ${id} --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix)`) +
+            `:\n${diffText(canon, fresh)}`,
         );
     } catch (e) {
       errs.push(`goldens could not be computed: ${(e as Error).message}`);

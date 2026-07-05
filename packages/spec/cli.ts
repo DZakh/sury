@@ -65,7 +65,7 @@ Commands:
       mismatch, which need a human decision instead. Prints a specific,
       actionable message per remaining problem, never just pass/fail.
 
-  fmt [id…]
+  format [id…]
       Rewrite the given spec(s) (or all) to canonical, byte-deterministic
       form — key order, formatting — without recomputing any golden. Run
       \`check --write\` if goldens themselves need refreshing.
@@ -90,10 +90,10 @@ const cmdSchema = (): void => {
   console.log(`wrote ${SCHEMA_PATH}`);
 };
 
-const cmdFmt = (): void => {
+const cmdFormat = (): void => {
   for (const file of targets()) {
     writeFileSync(file, serialize(readSpec(file)));
-    console.log(`fmt ${specId(file)}`);
+    console.log(`format ${specId(file)}`);
   }
 };
 
@@ -251,8 +251,8 @@ async function main() {
     case "check":
       await cmdCheck();
       break;
-    case "fmt":
-      cmdFmt();
+    case "format":
+      cmdFormat();
       break;
     case "new":
       await cmdNew();

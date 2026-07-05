@@ -19,17 +19,10 @@ pnpm spec check         [id]             # gate: format-valid, canonical, skips 
 ```
 
 `new` requires both `--id` and `--ts` (e.g. `pnpm spec new --id string-min --ts "S.string.with(S.min, 3)"`).
-A single `pnpm spec new`/`spec check --write` derives **everything** the harness knows how to derive:
-`jsonSchema`, `operations` (identity ops collapse to the bare literal `identity` automatically),
-`ts.input`/`ts.output`/`ts.instantiations` (vendored TypeScript introspection,
-`packages/spec/introspect.ts`) and `ts.bundleBytes` (vendored esbuild measurement,
-`packages/spec/bundleSize.ts`) — see "How types/instantiations/bundle size are derived" below. Only
-example inputs are left to fill in by hand. `[id]` is optional for `check`/`fmt` — omit it to
-process every spec.
-There is no code-generation step. `pnpm test` runs `packages/sury/tests/spec_test.ts`, a single
-committed, hand-written Vitest file that dynamically loops over every spec at run time and calls
-straight into the harness — so example execution and every dimension's freshness are exercised, and
-covered, by a real Vitest run without ever materializing a per-spec test file.
+`new`/`check --write` derive every dimension except example `input`s, which you write by hand — see
+"How types/instantiations/bundle size are derived" below for `ts.*`. `[id]` is optional for
+`check`/`format`; omit it to process every spec.
+
 To add a case: add a named entry under an op's `examples` with just `input`, then `pnpm spec check --write`.
 
 ## Rules (these are enforced)
@@ -88,34 +81,14 @@ For `encode`, input is an Output value and output an Input value (the type flips
 
 ## How types/instantiations/bundle size are derived
 
-`ts.input`/`ts.output`/`ts.instantiations` are computed by `packages/spec/introspect.ts`, a small
-vendored TypeScript introspection — **not** `@ark/attest`. It uses `@typescript/vfs` (the tech behind
-the TS Playground) to spin up one isolated virtual environment, memoized for the process, then for
-each schema: declares it plus `type __Output = S.Output<typeof __schema>`/`__Input` in a virtual file,
-runs `program.getSemanticDiagnostics()` to force checking, reads `checker.typeToString()` for the type
-strings (with `TypeFormatFlags.InTypeAlias`, or a union/index-signature type prints as its own alias
-name — e.g. the literal text "__Output" — instead of expanding), and reads the real
-`program.getInstantiationCount()` (diffed against a bare-import baseline) for the instantiation count.
-`@ark/attest` uses this exact same mechanism internally for its own `instantiations` benchmarks — what
-makes attest itself slow (~15s) is a separate, unrelated whole-project scan (`setup()`'s
-`analyzeProjectAssertions()`) for pre-written, hardcoded-expected-value assertions, which this harness has
-no use for. Vendoring just the isolated-environment logic measures ~1s cold, ~50-200ms warm per additional
-schema in the same process. `tests/types.bench.ts`, a former `@ark/attest`-based project-health benchmark
-with its own hardcoded per-scenario instantiation counts, is removed in favor of per-spec `ts.instantiations`
-— every scenario it covered (object/tuple/union/merge shapes of varying width and nesting) now lives as a
-spec instead, so the same regression coverage runs as part of the normal spec suite rather than a separate
-command.
+- `ts.input`/`ts.output`/`ts.instantiations` — `packages/spec/introspect.ts`: a vendored
+  `@typescript/vfs` environment (not `@ark/attest` — same underlying mechanism, without attest's slow
+  whole-project assertion scan). Declares the schema, extracts `S.Output<>`/`S.Input<>`, reads
+  `checker.typeToString()` and `program.getInstantiationCount()` diffed against a bare-import baseline.
+- `ts.bundleBytes` — `packages/spec/bundleSize.ts`: bundles `S.parser(schema)` with esbuild against the
+  dev source, minifies, gzips.
 
-`ts.bundleBytes` is computed by `packages/spec/bundleSize.ts`, which bundles a tiny `S.parser(schema)`
-entry with esbuild (aliasing the bare `sury` specifier to the dev source), minifies, and gzips — the
-same technique the project's own former `tests/bundle.bench.ts` project-health benchmark used (a
-handful of fixed scenarios against a committed snapshot with its own CI gate; removed in favor of this
-per-spec derivation). Unlike the TS-introspection environment,
-each `deriveBundleBytes` call is an independent esbuild child-process build with no shared state, so
-concurrent specs' bundle measurements run genuinely in parallel via `Promise.all`. `recomputeGoldens`
-kicks off the bundle-size build *before* the synchronous TS work so the two overlap within a single
-spec too — both are fast enough (low single-digit seconds even cold) to run on every `spec new`/`spec
-check --write`, no separate command needed.
+Both run on every `spec new`/`spec check --write` — no separate benchmark command.
 
 ## Layout
 

@@ -13,10 +13,10 @@ operations:
     expression: i=>{typeof i==="object"&&i||e[5](i);let v0=i["a"],v1=i["b"],v2=i["c"],v3=i["d"],v4=i["e"];typeof v0==="string"||e[0](v0);typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);typeof v2==="boolean"||e[2](v2);typeof v3==="bigint"||e[3](v3);typeof v4==="symbol"||e[4](v4);return {"a":v0,"b":v1,"c":v2,"d":v3,"e":v4,}}
     examples:
       valid:
-        input: '{a: "x", b: 1, c: true, d: 5n, e: Symbol.for("e")}'
+        input: '{ a: "x", b: 1, c: true, d: 5n, e: Symbol.for("e") }'
         output: '{ a: "x", b: 1, c: true, d: 5n, e: Symbol.for("e") }'
       invalid-bigint:
-        input: '{a: "x", b: 1, c: true, d: 5, e: Symbol.for("e")}'
+        input: '{ a: "x", b: 1, c: true, d: 5, e: Symbol.for("e") }'
         error: 'Failed at ["d"]: Expected bigint, received 5'
   decode: identity
   encode: identity

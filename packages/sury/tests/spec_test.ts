@@ -53,7 +53,7 @@ describe.each(specs)("spec: $id", ({ id, file }) => {
     expect(v.ok, v.ok ? "" : v.error).toBe(true);
   });
 
-  test("is in canonical form (run `pnpm spec fmt`)", () => {
+  test("is in canonical form (run `pnpm spec format`)", () => {
     expect(readFileSync(file, "utf8")).toBe(serialize(spec));
   });
 
