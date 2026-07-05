@@ -1,0 +1,36 @@
+{
+  "_comment": "Baseline sizes for the bundle-size & tree-shaking benchmark. Regenerate with `pnpm bench:bundle --update` after an intentional size change. Assertions are on `gzip`.",
+  "esbuildVersion": "0.28.1",
+  "scenarios": {
+    "total (export *)": {
+      "min": 57467,
+      "gzip": 21114,
+      "brotli": 18828
+    },
+    "string + parser": {
+      "min": 8177,
+      "gzip": 3749,
+      "brotli": 3414
+    },
+    "object schema + parser": {
+      "min": 23889,
+      "gzip": 9909,
+      "brotli": 8985
+    },
+    "union + transform": {
+      "min": 24069,
+      "gzip": 10022,
+      "brotli": 9088
+    },
+    "recursive + array": {
+      "min": 24242,
+      "gzip": 10121,
+      "brotli": 9172
+    },
+    "toJSONSchema": {
+      "min": 30938,
+      "gzip": 12342,
+      "brotli": 11145
+    }
+  }
+}

@@ -118,10 +118,6 @@ let filesMapping = [
     "S.instance"
   ],
   [
-    "unnest",
-    "S.unnest"
-  ],
-  [
     "record",
     "S.dict"
   ],
@@ -276,10 +272,6 @@ let filesMapping = [
   [
     "noValidation",
     "S.noValidation"
-  ],
-  [
-    "compile",
-    "S.compile"
   ],
   [
     "port",
