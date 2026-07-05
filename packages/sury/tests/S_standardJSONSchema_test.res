@@ -8,11 +8,8 @@ open Vitest
 @get_index
 external standardOf: (S.t<'a>, string) => StandardSchema.props<unknown, unknown> = ""
 let standardOf = schema => schema->standardOf("~standard")
-// Sury's `jsonSchema` converter is always present on `~standard`, but calling
-// `.input`/`.output` throws a guiding error until `S.enableStandardJsonSchema`
-// has been called (see the test below) - this keeps `toJSONSchema`/`reverse`
-// tree-shakeable for consumers who never touch JSON Schema conversion. See
-// `enableStandardJsonSchema`'s doc comment.
+// `jsonSchema` is always present on `~standard`; `.input`/`.output` just
+// throw until `S.enableStandardJsonSchema` has been called (see below).
 let jsonSchemaConverter = schema => (schema->standardOf).jsonSchema->Option.getUnsafe
 
 // Simulates a target string as it actually arrives from an untyped JS caller
@@ -23,18 +20,26 @@ let target = (s: string): StandardSchema.JsonSchema.target => s->U.magic
 
 test("Standard ~standard.jsonSchema throws a guiding error before enableStandardJsonSchema is called", t => {
   let converter = S.string->jsonSchemaConverter
-  t->Assert.throws(
-    () => converter.input({target: target("draft-07")}),
-    ~expectations={
-      message: "~standard.jsonSchema requires S.enableStandardJsonSchema() to be called first",
-    },
-  )
-  t->Assert.throws(
-    () => converter.output({target: target("draft-07")}),
-    ~expectations={
-      message: "~standard.jsonSchema requires S.enableStandardJsonSchema() to be called first",
-    },
-  )
+  try {
+    converter.input({target: target("draft-07")})->ignore
+    t->Assert.fail("Expected to throw")
+  } catch {
+  | S.Exn(error) =>
+    t->Assert.is(
+      error.message,
+      `~standard.jsonSchema requires S.enableStandardJsonSchema() to be called first`,
+    )
+  }
+  try {
+    converter.output({target: target("draft-07")})->ignore
+    t->Assert.fail("Expected to throw")
+  } catch {
+  | S.Exn(error) =>
+    t->Assert.is(
+      error.message,
+      `~standard.jsonSchema requires S.enableStandardJsonSchema() to be called first`,
+    )
+  }
 })
 
 test("Standard ~standard exposes version, vendor, validate and a jsonSchema converter", t => {

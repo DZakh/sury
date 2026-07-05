@@ -1954,11 +1954,10 @@ test("Standard JSON Schema interface support", (t) => {
   const schema = S.schema({ foo: S.to(S.string, S.number) });
   const standard = schema["~standard"];
 
-  // `jsonSchema.input`/`.output` throw a guiding error until
-  // `enableStandardJsonSchema` is called - this keeps `toJSONSchema`
-  // tree-shakeable for consumers who never use JSON Schema conversion.
+  // `jsonSchema.input`/`.output` throw until `enableStandardJsonSchema` is
+  // called (see its doc comment).
   t.expect(() => standard.jsonSchema.input({ target: "draft-07" })).toThrow(
-    "S.enableStandardJsonSchema()"
+    "~standard.jsonSchema requires S.enableStandardJsonSchema() to be called first"
   );
 
   S.enableStandardJsonSchema();
