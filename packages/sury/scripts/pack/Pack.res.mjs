@@ -246,6 +246,10 @@ let filesMapping = [
     "S.extendJSONSchema"
   ],
   [
+    "enableStandardJsonSchema",
+    "S.enableStandardJsonSchema"
+  ],
+  [
     "shape",
     "S.shape"
   ],

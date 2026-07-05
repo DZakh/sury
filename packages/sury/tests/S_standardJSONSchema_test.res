@@ -8,9 +8,11 @@ open Vitest
 @get_index
 external standardOf: (S.t<'a>, string) => StandardSchema.props<unknown, unknown> = ""
 let standardOf = schema => schema->standardOf("~standard")
-// Sury always implements the JSON Schema extension, so `jsonSchema` is always
-// present on its own `~standard` (it's optional on `StandardSchema.props` only
-// because not every Standard Schema library implements it).
+// Sury implements the JSON Schema extension once `S.enableStandardJsonSchema`
+// has been called (see the test below); until then `jsonSchema` is absent,
+// same as any Standard Schema library that doesn't implement it at all. This
+// keeps `toJSONSchema`/`reverse` tree-shakeable for consumers who never touch
+// JSON Schema conversion - see `enableStandardJsonSchema`'s doc comment.
 let jsonSchemaConverter = schema => (schema->standardOf).jsonSchema->Option.getUnsafe
 
 // Simulates a target string as it actually arrives from an untyped JS caller
@@ -19,7 +21,12 @@ let jsonSchemaConverter = schema => (schema->standardOf).jsonSchema->Option.getU
 // known dialects.
 let target = (s: string): StandardSchema.JsonSchema.target => s->U.magic
 
+test("Standard ~standard.jsonSchema is absent until enableStandardJsonSchema is called", t => {
+  t->Assert.deepEqual((S.string->standardOf).jsonSchema, None)
+})
+
 test("Standard ~standard exposes version, vendor, validate and a jsonSchema converter", t => {
+  S.enableStandardJsonSchema()
   let standard = S.string->standardOf
   t->Assert.deepEqual(standard.version, 1)
   t->Assert.deepEqual(standard.vendor, "sury")

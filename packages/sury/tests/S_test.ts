@@ -1952,11 +1952,20 @@ test("Standard schema", (t) => {
 
 test("Standard JSON Schema interface support", (t) => {
   const schema = S.schema({ foo: S.to(S.string, S.number) });
+
+  // `jsonSchema` is absent until `enableStandardJsonSchema` is called - it's
+  // optional per https://standardschema.dev/json-schema, and Sury keeps it
+  // that way by default so `toJSONSchema` stays tree-shakeable for consumers
+  // who never use JSON Schema conversion.
+  t.expect(schema["~standard"].jsonSchema).toBeUndefined();
+
+  S.enableStandardJsonSchema();
   const standard = schema["~standard"];
 
   // The `~standard` property now also exposes the Standard JSON Schema
   // `jsonSchema` converter. https://standardschema.dev/json-schema
-  const jsonSchema: S.StandardJSONSchemaV1.Converter = standard.jsonSchema;
+  t.expect(standard.jsonSchema).toBeDefined();
+  const jsonSchema: S.StandardJSONSchemaV1.Converter = standard.jsonSchema!;
 
   const inputJsonSchema: Record<string, unknown> = jsonSchema.input({
     target: "draft-07",

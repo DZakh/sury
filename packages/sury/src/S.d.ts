@@ -210,8 +210,13 @@ export type Schema<Output, Input = unknown> = {
   readonly to?: Schema<unknown>;
   readonly errorMessage?: SchemaErrorMessage;
 
-  readonly ["~standard"]: StandardSchemaV1.Props<Input, Output> &
-    StandardJSONSchemaV1.Props<Input, Output>;
+  // `jsonSchema` is only present once `enableStandardJsonSchema()` has been
+  // called (see its doc comment below) - it's spec-optional, so a plain
+  // intersection with `StandardJSONSchemaV1.Props` (which requires it) would
+  // overclaim it's always there.
+  readonly ["~standard"]: StandardSchemaV1.Props<Input, Output> & {
+    readonly jsonSchema?: StandardJSONSchemaV1.Converter;
+  };
 } & (
   | {
       readonly type: "never";
@@ -870,6 +875,13 @@ export function extendJSONSchema<Output, Input>(
   schema: Schema<Output, Input>,
   jsonSchema: JSONSchema7
 ): Schema<Output, Input>;
+/**
+ * Activates `~standard.jsonSchema` (the Standard JSON Schema extension) on
+ * every schema, past and future. Until this is called, `~standard.jsonSchema`
+ * is absent (it's optional per the spec), which keeps `toJSONSchema` tree-shakeable
+ * for consumers who never use JSON Schema conversion.
+ */
+export function enableStandardJsonSchema(): void;
 
 // ==================================================================================================
 // JSON Schema Draft 07

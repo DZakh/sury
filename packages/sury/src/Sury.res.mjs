@@ -2731,10 +2731,10 @@ d(sp, "~standard", {
           };
         }
       },
-      jsonSchema: {
-        input: options => standardJSONSchemaRef.contents(schema, options, false),
-        output: options => standardJSONSchemaRef.contents(schema, options, true)
-      }
+      jsonSchema: standardJSONSchemaRef.contents ? ({
+          input: options => standardJSONSchemaRef.contents(schema, options, false),
+          output: options => standardJSONSchemaRef.contents(schema, options, true)
+        }) : undefined
     };
   }
 });
@@ -4962,7 +4962,8 @@ function internalToJSONSchema(schema, path, defs, parent, target) {
         }
         break;
       default:
-        throw new SuryError(makeInvalidInputDetails(json(), flags[parent.type] & 256 ? parent : schema, path, 0, false, undefined, undefined));
+        let s = base(unknownTag, false);
+        throw new SuryError(makeInvalidInputDetails((s.name = jsonName, s), flags[parent.type] & 256 ? parent : schema, path, 0, false, undefined, undefined));
     }
     applyMetadataOverlay(jsonSchema, schema, defs);
     return jsonSchema;
@@ -5022,9 +5023,11 @@ function toJSONSchema(schema, options) {
   return jsonSchema;
 }
 
-standardJSONSchemaRef.contents = (schema, options, isOutput) => toJSONSchema(isOutput ? reverse(schema) : schema, {
-  target: options.target
-});
+function enableStandardJsonSchema() {
+  standardJSONSchemaRef.contents = (schema, options, isOutput) => toJSONSchema(isOutput ? reverse(schema) : schema, {
+    target: options.target
+  });
+}
 
 function extendJSONSchema(schema, jsonSchema) {
   let existingSchemaExtend = schema[jsonSchemaMetadataId];
@@ -5551,6 +5554,7 @@ export {
   toJSONSchema,
   fromJSONSchema,
   extendJSONSchema,
+  enableStandardJsonSchema,
   global,
   brand,
   js_parser,

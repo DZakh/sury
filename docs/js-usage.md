@@ -345,9 +345,11 @@ const { object } = await generateObject({
 });
 ```
 
-The `~standard` property also implements the [Standard JSON Schema](https://standardschema.dev/json-schema) spec, exposing a `jsonSchema` converter for the schema's input and output types:
+The `~standard` property can also implement the [Standard JSON Schema](https://standardschema.dev/json-schema) spec, exposing a `jsonSchema` converter for the schema's input and output types. Since `jsonSchema` is optional in that spec, it stays off by default so bundlers can tree-shake `S.toJSONSchema` away for consumers who never use it - call `S.enableStandardJsonSchema()` once (e.g. at your app's entry point) to turn it on for every schema:
 
 ```ts
+S.enableStandardJsonSchema();
+
 const schema = S.schema({ createdAt: S.to(S.string, S.instance(Date)) });
 
 schema["~standard"].jsonSchema.input({ target: "draft-2020-12" }); // { createdAt: string }

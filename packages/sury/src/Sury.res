@@ -4351,10 +4351,21 @@ X.Object.defineProperty(
           // `input` returns the JSON Schema of the schema's input type,
           // `output` the JSON Schema of its output type. The `$schema` URI is
           // stamped according to `options.target`; an unsupported target throws.
-          jsonSchema: {
-            input: options => standardJSONSchemaRef.contents(schema, options, false),
-            output: options => standardJSONSchemaRef.contents(schema, options, true),
-          },
+          // Only present once `enableStandardJsonSchema` has been called - until
+          // then `standardJSONSchemaRef.contents` is still the falsy placeholder
+          // below, so this stays absent (jsonSchema is spec-optional) instead of
+          // wiring in a converter that would immediately throw. This indirection
+          // (rather than referencing `toJSONSchema`/`reverse` here directly) is
+          // what keeps them tree-shakeable for consumers who never call
+          // `enableStandardJsonSchema`.
+          jsonSchema: ?(
+            standardJSONSchemaRef.contents->Obj.magic
+              ? Some({
+                  input: options => standardJSONSchemaRef.contents(schema, options, false),
+                  output: options => standardJSONSchemaRef.contents(schema, options, true),
+                })
+              : None
+          ),
         }
         standard
       }
@@ -7499,7 +7510,16 @@ module RescriptJSONSchema = {
             } else {
               schema
             },
-            ~expected=json(),
+            // Only `.name` (rendered as "JSON" by `toExpression`) matters here -
+            // this is never decoded, just displayed. Using the real `json()`
+            // would drag its whole recursive-union definition (and the
+            // union-dispatch machinery it needs) into every bundle that
+            // reaches this rare fallback, e.g. via `enableStandardJsonSchema`.
+            ~expected={
+              let s = base(unknownTag, ~selfReverse=false)
+              s.name = Some(jsonName)
+              s
+            },
             ~path,
             ~input=%raw(`0`),
             ~includeInput=false,
@@ -7594,22 +7614,30 @@ let toJSONSchema = (schema, ~options: option<toJSONSchemaOptions>=?) => {
   jsonSchema
 }
 
-// Wire up the forward reference used by the lazy `~standard` getter, now that
-// `toJSONSchema` and `reverse` are defined.
+// Activates the Standard JSON Schema extension (`~standard.jsonSchema`) on
+// every schema, past and future - it's read from the shared
+// `standardJSONSchemaRef` cell on each `~standard` access, not baked in
+// per-instance. `toJSONSchema` and `reverse` are only referenced from inside
+// this function body, so consumers who never call `enableStandardJsonSchema`
+// never pull them (or the type-dispatch machinery they walk) into their
+// bundle: a plain `S.string` + `S.parser` build tree-shakes the whole JSON
+// Schema conversion path away, instead of paying for it unconditionally.
 //
 // Mirrors @valibot/to-json-schema's `toStandardJsonSchema`: the `target` option
 // selects the JSON Schema dialect (and the stamped `$schema` URI), and an
 // unsupported target throws. `output` converts the reversed schema, since
 // `S.reverse` swaps Input <-> Output and `toJSONSchema` returns the input-type
 // schema of whatever it receives.
-standardJSONSchemaRef :=
-  (schema, options, isOutput) => {
-    // The converter just forwards the target; `toJSONSchema` is the single
-    // source of truth for the `$schema` URI mapping and the unsupported-target
-    // throw. Passing an options object (vs none) is what makes `toJSONSchema`
-    // stamp `$schema`, which the Standard JSON Schema spec requires.
-    toJSONSchema(isOutput ? schema->reverse : schema, ~options={target: options.target})
-  }
+let enableStandardJsonSchema = () => {
+  standardJSONSchemaRef :=
+    (schema, options, isOutput) => {
+      // The converter just forwards the target; `toJSONSchema` is the single
+      // source of truth for the `$schema` URI mapping and the unsupported-target
+      // throw. Passing an options object (vs none) is what makes `toJSONSchema`
+      // stamp `$schema`, which the Standard JSON Schema spec requires.
+      toJSONSchema(isOutput ? schema->reverse : schema, ~options={target: options.target})
+    }
+}
 
 let extendJSONSchema = (schema, jsonSchema) => {
   schema->Metadata.set(

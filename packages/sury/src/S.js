@@ -49,6 +49,7 @@ export var to = S.js_to
 export var toJSONSchema = S.toJSONSchema
 export var fromJSONSchema = S.fromJSONSchema
 export var extendJSONSchema = S.extendJSONSchema
+export var enableStandardJsonSchema = S.enableStandardJsonSchema
 export var shape = S.shape
 export var tuple = S.tuple
 export var asyncDecoderAssert = S.js_asyncDecoderAssert
