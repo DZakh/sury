@@ -11,7 +11,7 @@ Run commands from the repo root (`pnpm spec …`).
 
 ## Workflow
 
-```
+```bash
 pnpm spec new --id <id> --ts <schema>   # scaffold — everything is auto-derived from --ts
 # edit specs/<id>.yaml: add example inputs under each op's `examples`
 pnpm spec check --write [id]             # (re)derive everything from the live schema and persist it

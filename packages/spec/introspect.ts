@@ -27,6 +27,13 @@ const SURY_DIR = fileURLToPath(new URL("../sury/", import.meta.url));
 const PROBE_FILE = SURY_DIR + ".type-probe.ts";
 const IMPORT_LINE = `import * as S from "./src/S.js";\n`;
 
+// `env`/`baselineCount`/PROBE_FILE are process-wide mutable state shared
+// across concurrent deriveTypeInfo calls (cli.ts runs specs through
+// Promise.all). Safe only because `check()` below has no `await` — each call
+// mutates PROBE_FILE and reads the result back synchronously before another
+// can interleave. If `check()` ever gains an await (e.g. an async
+// LanguageService API), concurrent calls could cross-contaminate each
+// other's PROBE_FILE content — would need a mutex/queue at that point.
 let env: tsvfs.VirtualTypeScriptEnvironment | undefined;
 let baselineCount: number | undefined;
 
@@ -50,9 +57,10 @@ const check = (text: string) => {
   const file = program.getSourceFile(PROBE_FILE)!;
   // Force type checking — merely constructing the program doesn't instantiate
   // the generics; getInstantiationCount() only reflects work actually done.
-  program.getSemanticDiagnostics(file);
-  program.getDeclarationDiagnostics(file);
-  return { program, file, count: program.getInstantiationCount() };
+  // Diagnostics are collected (not just triggered) so deriveTypeInfo can
+  // surface *why* if the probe below ever fails to resolve a type.
+  const diagnostics = [...program.getSemanticDiagnostics(file), ...program.getDeclarationDiagnostics(file)];
+  return { program, file, diagnostics, count: program.getInstantiationCount() };
 };
 
 // The bare import's own instantiation cost, memoized once per process and
@@ -83,7 +91,7 @@ export const deriveTypeInfo = async (schemaTs: string): Promise<TypeInfo> => {
     `const __schema = ${schemaTs};\n` +
     `type __Output = S.Output<typeof __schema>;\n` +
     `type __Input = S.Input<typeof __schema>;\n`;
-  const { program, file, count } = check(withExpr);
+  const { program, file, diagnostics, count } = check(withExpr);
   const checker = program.getTypeChecker();
   let output = "";
   let input = "";
@@ -105,5 +113,15 @@ export const deriveTypeInfo = async (schemaTs: string): Promise<TypeInfo> => {
     }
     ts.forEachChild(node, visit);
   });
+  // A schema that genuinely fails to typecheck should fail loudly here, not
+  // silently produce an empty ts.output/ts.input golden that then happily
+  // passes `spec check` forever (byte-identical "" recomputed each time).
+  if (!output || !input) {
+    const msg = diagnostics.map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n")).join("\n");
+    throw new Error(
+      `deriveTypeInfo: could not resolve __Output/__Input for \`${schemaTs}\`` +
+        (msg ? `:\n${msg}` : " (no compiler diagnostics — schema didn't produce the expected type alias)"),
+    );
+  }
   return { input, output, instantiations: count - getBaselineCount() };
 };
