@@ -4310,6 +4310,17 @@ let standardJSONSchemaRef: ref<(t<unknown>, StandardSchema.JsonSchema.options, b
   %raw(`0`),
 )
 
+// `~standard.jsonSchema.input`/`.output` (below) call this instead of
+// referencing `toJSONSchema`/`reverse` directly - that indirection is what
+// keeps them tree-shakeable for consumers who never call
+// `enableStandardJsonSchema`. Before that's called, `standardJSONSchemaRef`
+// is still the falsy placeholder above, so this panics with a message
+// pointing at the fix instead of a cryptic "not a function" error.
+let getStandardJsonSchema = (schema, options, isOutput) =>
+  standardJSONSchemaRef.contents->Obj.magic
+    ? standardJSONSchemaRef.contents(schema, options, isOutput)
+    : InternalError.panic("~standard.jsonSchema requires S.enableStandardJsonSchema() to be called first")
+
 X.Object.defineProperty(
   %raw(`sp`),
   "~standard",
@@ -4351,21 +4362,12 @@ X.Object.defineProperty(
           // `input` returns the JSON Schema of the schema's input type,
           // `output` the JSON Schema of its output type. The `$schema` URI is
           // stamped according to `options.target`; an unsupported target throws.
-          // Only present once `enableStandardJsonSchema` has been called - until
-          // then `standardJSONSchemaRef.contents` is still the falsy placeholder
-          // below, so this stays absent (jsonSchema is spec-optional) instead of
-          // wiring in a converter that would immediately throw. This indirection
-          // (rather than referencing `toJSONSchema`/`reverse` here directly) is
-          // what keeps them tree-shakeable for consumers who never call
-          // `enableStandardJsonSchema`.
-          jsonSchema: ?(
-            standardJSONSchemaRef.contents->Obj.magic
-              ? Some({
-                  input: options => standardJSONSchemaRef.contents(schema, options, false),
-                  output: options => standardJSONSchemaRef.contents(schema, options, true),
-                })
-              : None
-          ),
+          // Calling either before `enableStandardJsonSchema` panics with a
+          // guiding message - see `getStandardJsonSchema` above.
+          jsonSchema: {
+            input: options => getStandardJsonSchema(schema, options, false),
+            output: options => getStandardJsonSchema(schema, options, true),
+          },
         }
         standard
       }

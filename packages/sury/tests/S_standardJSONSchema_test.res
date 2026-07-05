@@ -8,11 +8,11 @@ open Vitest
 @get_index
 external standardOf: (S.t<'a>, string) => StandardSchema.props<unknown, unknown> = ""
 let standardOf = schema => schema->standardOf("~standard")
-// Sury implements the JSON Schema extension once `S.enableStandardJsonSchema`
-// has been called (see the test below); until then `jsonSchema` is absent,
-// same as any Standard Schema library that doesn't implement it at all. This
-// keeps `toJSONSchema`/`reverse` tree-shakeable for consumers who never touch
-// JSON Schema conversion - see `enableStandardJsonSchema`'s doc comment.
+// Sury's `jsonSchema` converter is always present on `~standard`, but calling
+// `.input`/`.output` throws a guiding error until `S.enableStandardJsonSchema`
+// has been called (see the test below) - this keeps `toJSONSchema`/`reverse`
+// tree-shakeable for consumers who never touch JSON Schema conversion. See
+// `enableStandardJsonSchema`'s doc comment.
 let jsonSchemaConverter = schema => (schema->standardOf).jsonSchema->Option.getUnsafe
 
 // Simulates a target string as it actually arrives from an untyped JS caller
@@ -21,8 +21,20 @@ let jsonSchemaConverter = schema => (schema->standardOf).jsonSchema->Option.getU
 // known dialects.
 let target = (s: string): StandardSchema.JsonSchema.target => s->U.magic
 
-test("Standard ~standard.jsonSchema is absent until enableStandardJsonSchema is called", t => {
-  t->Assert.deepEqual((S.string->standardOf).jsonSchema, None)
+test("Standard ~standard.jsonSchema throws a guiding error before enableStandardJsonSchema is called", t => {
+  let converter = S.string->jsonSchemaConverter
+  t->Assert.throws(
+    () => converter.input({target: target("draft-07")}),
+    ~expectations={
+      message: "~standard.jsonSchema requires S.enableStandardJsonSchema() to be called first",
+    },
+  )
+  t->Assert.throws(
+    () => converter.output({target: target("draft-07")}),
+    ~expectations={
+      message: "~standard.jsonSchema requires S.enableStandardJsonSchema() to be called first",
+    },
+  )
 })
 
 test("Standard ~standard exposes version, vendor, validate and a jsonSchema converter", t => {
