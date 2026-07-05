@@ -3,9 +3,14 @@
 // produces and confirm they name the problem AND say what to run about it.
 // Uses the same checkSpec that `pnpm spec check` calls (see cli.ts's cmdCheck)
 // — these are the real messages an author or CI would see, not a re-implementation.
-import { test, expect } from "vitest";
+import { test, expect, vi } from "vitest";
 import { checkSpec, listSpecFiles, readSpec, serialize, specId } from "../../spec/harness";
 import type { Spec } from "../../spec/format";
+
+// Every test here calls checkSpec, which (for a schema that still evaluates)
+// runs a full recomputeGoldens — the same cold-start cost documented in
+// spec_test.ts's identical vi.setConfig call.
+vi.setConfig({ testTimeout: 20_000 });
 
 // A real, valid baseline to mutate per scenario — proves each snapshot is
 // triggered by exactly one introduced problem, not an unrelated existing one.

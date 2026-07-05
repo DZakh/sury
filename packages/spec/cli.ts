@@ -29,7 +29,11 @@ const rest = args.slice(1);
 
 const targets = (ids: string[] = rest): string[] =>
   ids.length
-    ? ids.map((id) => join(SPECS_DIR, `${id.replace(/\.yaml$/, "")}.yaml`))
+    ? ids.map((id) => {
+        const file = join(SPECS_DIR, `${id.replace(/\.yaml$/, "")}.yaml`);
+        if (!existsSync(file)) fail(`no such spec: ${id} (expected ${file})`);
+        return file;
+      })
     : listSpecFiles();
 
 const red = (s: string) => `\x1b[31m${s}\x1b[0m`;
@@ -124,6 +128,17 @@ const cmdNew = async (): Promise<void> => {
   // it's kicked off before deriveTypeInfo's synchronous compiler work runs —
   // see the ordering note on recomputeGoldens in harness.ts.
   const [bundleBytes, typeInfo] = await Promise.all([deriveBundleBytes(ts), deriveTypeInfo(ts)]);
+  // scaffoldJsonSchema tolerates a schema it can't represent (falls back to
+  // _skip), but scaffoldOperations has no such fallback — a --ts that
+  // evaluates without throwing to something that isn't a usable schema
+  // (e.g. a typo like "S.strng" evaluating to undefined) throws a raw
+  // internal Sury error here instead of this tool's own guiding message.
+  let operations: Spec["operations"];
+  try {
+    operations = scaffoldOperations(schema);
+  } catch (e) {
+    fail(`--ts evaluated but isn't a usable schema: ${(e as Error).message}`);
+  }
   const spec: Spec = {
     ts: {
       schema: ts,
@@ -133,7 +148,7 @@ const cmdNew = async (): Promise<void> => {
       bundleBytes,
     },
     jsonSchema: scaffoldJsonSchema(schema),
-    operations: scaffoldOperations(schema),
+    operations,
   };
   writeFileSync(join(SPECS_DIR, `${id}.yaml`), serialize(spec));
   console.log(`new ${id} -> specs/${id}.yaml (add example inputs, then \`pnpm spec check ${id} --write\`)`);
@@ -162,10 +177,14 @@ const cmdCheck = async (): Promise<void> => {
   const write = rest.includes(WRITE_FLAG);
   let failed = 0;
 
-  if (existsSync(SCHEMA_PATH) && readFileSync(SCHEMA_PATH, "utf8") !== schemaJson()) {
+  // existsSync(...) && ... short-circuits to false (no failure at all) if the
+  // file is simply missing, rather than stale — check freshness and existence
+  // as two separate facts so a deleted spec.schema.json is caught too.
+  const schemaExists = existsSync(SCHEMA_PATH);
+  if (!schemaExists || readFileSync(SCHEMA_PATH, "utf8") !== schemaJson()) {
     failed++;
     console.log(red("✗ spec.schema.json"));
-    console.log("    stale — run `pnpm spec schema`");
+    console.log(schemaExists ? "    stale — run `pnpm spec schema`" : "    missing — run `pnpm spec schema`");
   }
 
   const results = await Promise.all(
@@ -173,26 +192,35 @@ const cmdCheck = async (): Promise<void> => {
       const id = specId(file);
       let raw = readFileSync(file, "utf8");
       let obj = readSpec(file);
+      // Set when --write's own recompute succeeds, so the checkSpec call
+      // below can reuse it instead of redoing the same esbuild+TS-
+      // introspection work purely to re-derive what's already known.
+      let knownFresh: string | undefined;
 
       if (write) {
         let schema: any;
+        let evaluated = false;
         try {
           schema = evalSchema(obj.ts.schema);
+          evaluated = true;
         } catch {
-          schema = null;
+          // fall through — checkSpec below reports the real problem
         }
-        if (schema) {
+        // `evaluated`, not `schema` truthiness — see the same note in
+        // harness.ts's checkSpec.
+        if (evaluated) {
           try {
             if (identityViolations(schema, obj).length === 0) {
-              const fresh = serialize(await recomputeGoldens(obj));
-              if (fresh !== raw) {
-                writeFileSync(file, fresh);
-                raw = fresh;
+              knownFresh = serialize(await recomputeGoldens(obj));
+              if (knownFresh !== raw) {
+                writeFileSync(file, knownFresh);
+                raw = knownFresh;
                 obj = readSpec(file);
                 console.log(`wrote ${id}`);
               }
             }
           } catch {
+            knownFresh = undefined;
             // Recompute failed for a reason format validation would also
             // catch (e.g. ts.schema evaluates but isn't really a schema) —
             // skip the write; checkSpec below reports the real problem.
@@ -200,7 +228,7 @@ const cmdCheck = async (): Promise<void> => {
         }
       }
 
-      const errs = await checkSpec(id, obj, raw);
+      const errs = await checkSpec(id, obj, raw, knownFresh);
       return { id, errs };
     }),
   );

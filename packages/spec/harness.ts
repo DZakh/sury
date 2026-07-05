@@ -112,13 +112,13 @@ export const identityViolations = (schema: any, spec: Spec): string[] => {
   return out;
 };
 
-// Fully derive the jsonSchema dimension from a live schema — no example inputs
-// needed, so `spec new` can fill this in immediately from `--ts`. JSON Schema
-// has no representation for bigint or symbol, so `S.toJSONSchema` throws for
-// any schema containing one (at any nesting depth) — not a bug to work
-// around, a real "this concept doesn't apply" case, same as an author
-// choosing `_skip: not-applicable` by hand.
-export const scaffoldJsonSchema = (schema: any): Spec["jsonSchema"] => {
+// Derive the jsonSchema dimension from a live schema. JSON Schema has no
+// representation for bigint or symbol, so `S.toJSONSchema` throws for any
+// schema containing one (at any nesting depth) — not a bug to work around, a
+// real "this concept doesn't apply" case, same as an author choosing
+// `_skip: not-applicable` by hand. Shared by `scaffoldJsonSchema` (spec new)
+// and `recomputeGoldens` (spec check/--write) so both degrade the same way.
+const deriveJsonSchema = (schema: any): Spec["jsonSchema"] => {
   try {
     return {
       input: asJson(S.toJSONSchema(schema)),
@@ -129,9 +129,14 @@ export const scaffoldJsonSchema = (schema: any): Spec["jsonSchema"] => {
   }
 };
 
+// No example inputs needed, so `spec new` can fill this in immediately from `--ts`.
+export const scaffoldJsonSchema = (schema: any): Spec["jsonSchema"] => deriveJsonSchema(schema);
+
 // Fully derive the operations dimension from a live schema: an identity op
 // collapses to the literal `identity`; others get their expression golden with
-// no examples yet (the author still adds example inputs by hand).
+// no examples yet (the author still adds example inputs by hand). Can throw
+// if `schema` isn't actually a usable schema (e.g. `--ts` evaluated to
+// `undefined` from a typo like `S.strng`) — callers decide how to report that.
 export const scaffoldOperations = (schema: any): Spec["operations"] =>
   Object.fromEntries(
     OP_ORDER.map((opName) => {
@@ -189,9 +194,6 @@ export const serialize = (obj: Spec): string =>
   HEADER + "\n" + stringifyYaml(canonicalize(obj), { lineWidth: 0 });
 
 // ---- golden recomputation --------------------------------------------------
-
-const inlineToValue = (codeStr: string): unknown =>
-  new Function("S", `return (${codeStr});`)(S);
 
 // `S.toJSONSchema` returns the concrete `JSONSchema7` interface, which has no
 // index signature and so doesn't structurally satisfy Sury's generic `JSON`
@@ -269,12 +271,7 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
     if (!isSkip(next.ts.instantiations)) next.ts.instantiations = info.instantiations;
   }
 
-  if (!isSkip(next.jsonSchema)) {
-    next.jsonSchema = {
-      input: asJson(S.toJSONSchema(schema)),
-      output: asJson(S.toJSONSchema(S.reverse(schema))),
-    };
-  }
+  if (!isSkip(next.jsonSchema)) next.jsonSchema = deriveJsonSchema(schema);
 
   for (const opName of OP_ORDER) {
     const op = next.operations[opName];
@@ -284,14 +281,14 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
     for (const [name, ex] of Object.entries(op.examples)) {
       const bench = ex.bench;
       try {
-        const out = fn(inlineToValue(ex.input));
+        const out = fn(evalSchema(ex.input));
         // Keep the recorded text as-is when it still evaluates to an equal
         // value, instead of always overwriting with a fresh (differently
         // formatted but equally valid) rendering of the same value.
         let output = valueToCode(out);
         if ("output" in ex) {
           try {
-            if (equals(inlineToValue(ex.output), out, EQUALITY_TESTERS, true)) output = ex.output;
+            if (equals(evalSchema(ex.output), out, EQUALITY_TESTERS, true)) output = ex.output;
           } catch {
             // recorded output no longer evaluates — fall through to the fresh value
           }
@@ -313,7 +310,17 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
 // cli.ts's cmdCheck and tests/spec_errors_test.ts's snapshot tests both call
 // this same function; there's exactly one implementation of "what's wrong
 // with this spec, and what should the author do about it."
-export const checkSpec = async (id: string, obj: Spec, raw: string): Promise<string[]> => {
+//
+// `knownFresh`, when passed, is the already-serialized result of a
+// recomputeGoldens call the caller just performed (cli.ts's `--write` path,
+// right after writing) — skips redoing that same esbuild+TS-introspection
+// work a second time purely to re-derive what the caller already has.
+export const checkSpec = async (
+  id: string,
+  obj: Spec,
+  raw: string,
+  knownFresh?: string,
+): Promise<string[]> => {
   const errs: string[] = [];
 
   const v = validate(obj);
@@ -325,12 +332,18 @@ export const checkSpec = async (id: string, obj: Spec, raw: string): Promise<str
   if (raw !== canon) errs.push(`not canonical — run \`pnpm spec fmt ${id}\``);
 
   let schema: any;
+  let evaluated = false;
   try {
     schema = evalSchema(obj.ts.schema);
+    evaluated = true;
   } catch (e) {
     errs.push(`ts.schema did not evaluate: ${(e as Error).message}`);
   }
-  if (schema) {
+  // `evaluated`, not `schema` truthiness — a `ts.schema` that evaluates
+  // without throwing to a falsy-but-not-a-schema value (`"0"`, `""`, `NaN`)
+  // must still go through the checks below (and fail them), not be silently
+  // skipped as if evaluation itself had failed.
+  if (evaluated) {
     // A spec that failed format validation above may not have the shape
     // identityViolations/recomputeGoldens assume (e.g. a missing `examples`
     // map) — catch so one malformed spec reports gracefully instead of
@@ -343,7 +356,8 @@ export const checkSpec = async (id: string, obj: Spec, raw: string): Promise<str
       // --write can't fix this on its own while an identity violation stands
       // (that needs a human decision, not a rewrite — see cmdCheck) — say so,
       // rather than pointing at the flag the author may have just tried.
-      if (serialize(await recomputeGoldens(obj)) !== canon)
+      const fresh = knownFresh ?? serialize(await recomputeGoldens(obj));
+      if (fresh !== canon)
         errs.push(
           violations.length
             ? `goldens stale — resolve the identity mismatch above first, then \`pnpm spec check ${id} --write\` can fix it`

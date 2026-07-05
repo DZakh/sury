@@ -29,8 +29,9 @@
 import * as S from "sury-published";
 
 // A dimension that isn't asserted must say so explicitly, with a reason.
-// Reasons are conventionally an enum (`parser-only`, `lossy`, `not-applicable`)
-// or `todo(#…)` for a not-yet-built dimension; the CLI lints the reason string.
+// Reasons are conventionally an enum (`parser-only`, `serializer-only`, `lossy`,
+// `not-applicable`) or `todo(#…)` for a not-yet-built dimension; the CLI lints
+// the reason string (harness.ts's SKIP_REASONS — keep the two in sync).
 export const skip = S.schema({
   _skip: S.string.with(S.meta, {
     description: "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…).",
@@ -146,16 +147,20 @@ export type Spec = S.Output<typeof specSchema>;
 
 export type OpName = keyof Spec["operations"];
 
-// Ordered dimension keys — the canonical key order for `spec fmt`.
-export const KEY_ORDER: (keyof Spec)[] = ["ts", "jsonSchema", "operations"];
-export const TS_KEY_ORDER: (keyof Spec["ts"])[] = [
-  "schema",
-  "input",
-  "output",
-  "instantiations",
-  "bundleBytes",
-];
-export const OP_ORDER: OpName[] = ["parse", "decode", "encode"];
+// Ordered dimension keys — the canonical key order for `spec fmt`. Built via
+// `Record<keyof T, true>` (not a plain array literal) so adding a field to
+// `ts`/`operations`/`specSchema` without updating the matching order here is a
+// compile error, not a silently-out-of-order key at serialize time.
+const keyOrder = <T,>(order: Record<keyof T, true>) => Object.keys(order) as (keyof T)[];
+export const KEY_ORDER = keyOrder<Spec>({ ts: true, jsonSchema: true, operations: true });
+export const TS_KEY_ORDER = keyOrder<Spec["ts"]>({
+  schema: true,
+  input: true,
+  output: true,
+  instantiations: true,
+  bundleBytes: true,
+});
+export const OP_ORDER = keyOrder<Spec["operations"]>({ parse: true, decode: true, encode: true });
 
 export const isSkip = (v: unknown): v is Skip =>
   v !== null && typeof v === "object" && "_skip" in (v as object);
