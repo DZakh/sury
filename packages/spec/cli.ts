@@ -5,6 +5,7 @@
 // execution runs on the dev source. See format.ts / harness.ts. Full usage: HELP below.
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { schemaJson, type Spec } from "./format";
 import {
   SPECS_DIR,
@@ -13,6 +14,7 @@ import {
   lintSpecsDir,
   specId,
   readSpec,
+  parseSpec,
   serialize,
   recomputeGoldens,
   evalSchema,
@@ -37,13 +39,33 @@ const targets = (ids: string[] = rest): string[] =>
       })
     : listSpecFiles();
 
-const red = (s: string) => `\x1b[31m${s}\x1b[0m`;
-const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
+// Colors only for a real terminal — piped/CI output (and captured test
+// output, which is how spec_errors_test.ts asserts on this exact text) would
+// otherwise carry raw, unreadable escape codes.
+const red = (s: string) => (process.stderr.isTTY ? `\x1b[31m${s}\x1b[0m` : s);
+const green = (s: string) => (process.stdout.isTTY ? `\x1b[32m${s}\x1b[0m` : s);
 
 function fail(msg: string): never {
   console.error(red(msg));
   process.exit(1);
 }
+
+// The "✗ name\n    detail..." block a failing check prints to stderr —
+// shared by every failure path below (spec.schema.json, the specs dir lint,
+// each spec) and exported so tests assert on this exact text/formatting
+// instead of a bare message array.
+export const formatFailure = (name: string, details: string[]): string =>
+  [red(`✗ ${name}`), ...details.map((d) => `    ${d}`)].join("\n");
+
+// Runs the same read-only check flow cmdCheck performs per file (no --write
+// side effects) directly against spec source text, returning exactly the
+// stdout/stderr a real `spec check <id>` run would produce for that one
+// file — so tests exercise the real formatting and stream routing, not a
+// re-implementation, without spawning a subprocess per scenario.
+export const runCheck = async (id: string, raw: string): Promise<{ stdout: string; stderr: string }> => {
+  const errs = await checkSpec(id, parseSpec(raw), raw);
+  return errs.length ? { stdout: "", stderr: formatFailure(id, errs) } : { stdout: green(`✓ ${id}`), stderr: "" };
+};
 
 const HELP = `spec — the AI-first Sury test-spec harness (see the \`spec\` skill)
 
@@ -175,15 +197,17 @@ const cmdCheck = async (): Promise<void> => {
   const schemaExists = existsSync(SCHEMA_PATH);
   if (!schemaExists || readFileSync(SCHEMA_PATH, "utf8") !== schemaJson()) {
     failed++;
-    console.log(red("✗ spec.schema.json"));
-    console.log(schemaExists ? "    stale — run `pnpm spec schema`" : "    missing — run `pnpm spec schema`");
+    console.error(
+      formatFailure("spec.schema.json", [
+        schemaExists ? "stale — run `pnpm spec schema`" : "missing — run `pnpm spec schema`",
+      ]),
+    );
   }
 
   const dirErrs = lintSpecsDir();
   if (dirErrs.length) {
     failed++;
-    console.log(red("✗ specs dir"));
-    for (const e of dirErrs) console.log(`    ${e}`);
+    console.error(formatFailure("specs dir", dirErrs));
   }
 
   const results = await Promise.all(
@@ -234,8 +258,7 @@ const cmdCheck = async (): Promise<void> => {
   for (const { id, errs } of results) {
     if (errs.length) {
       failed++;
-      console.log(red(`✗ ${id}`));
-      for (const e of errs) console.log(`    ${e}`);
+      console.error(formatFailure(id, errs));
     } else {
       console.log(green(`✓ ${id}`));
     }
@@ -274,4 +297,7 @@ async function main() {
   }
 }
 
-main();
+// Only runs when executed directly (`tsx cli.ts ...`), not when imported —
+// spec_errors_test.ts imports runCheck/formatFailure to exercise the real
+// output this module produces without triggering a real CLI invocation.
+if (fileURLToPath(import.meta.url) === process.argv[1]) main();

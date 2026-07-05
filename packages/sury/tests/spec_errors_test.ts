@@ -1,13 +1,14 @@
 // Proves the spec harness's error messages are guiding, not just pass/fail:
-// for each way a spec can be wrong, snapshot the exact message(s) checkSpec
-// produces and confirm they name the problem AND say what to run about it.
-// Uses the same checkSpec that `pnpm spec check` calls (see cli.ts's cmdCheck)
-// — these are the real messages an author or CI would see, not a re-implementation.
+// for each way a spec can be wrong, snapshot the exact stdout/stderr `spec
+// check` prints for it. Goes through cli.ts's runCheck — the same formatting,
+// color, and stream routing a real invocation uses, not a re-implementation —
+// so these are the literal bytes an author or CI would see.
 import { test, expect, vi } from "vitest";
-import { checkSpec, listSpecFiles, readSpec, serialize, specId } from "../../spec/harness";
+import { listSpecFiles, readSpec, serialize, specId } from "../../spec/harness";
+import { runCheck } from "../../spec/cli";
 import type { Spec } from "../../spec/format";
 
-// Every test here calls checkSpec, which (for a schema that still evaluates)
+// Every test here calls runCheck, which (for a schema that still evaluates)
 // runs a full recomputeGoldens — the same cold-start cost documented in
 // spec_test.ts's identical vi.setConfig call.
 vi.setConfig({ testTimeout: 20_000 });
@@ -26,9 +27,10 @@ test("stale golden (expression drifted from what the schema actually compiles to
   const spec = mutate((s) => {
     if (s.operations.parse !== "identity") s.operations.parse.expression = "i=>i /* stale */";
   });
-  await expect(checkSpec("string", spec, serialize(spec))).resolves.toMatchInlineSnapshot(`
-    [
-      "goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
+  await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ string
+        goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
     @@ -12,7 +12,7 @@
           type: string
       operations:
@@ -38,7 +40,8 @@ test("stale golden (expression drifted from what the schema actually compiles to
           examples:
             valid:
               input: '"hello"'",
-    ]
+      "stdout": "",
+    }
   `);
 });
 
@@ -49,9 +52,10 @@ test("stale golden (recorded example output no longer matches live behavior)", a
       if (ex && "output" in ex) ex.output = '"WRONG"';
     }
   });
-  await expect(checkSpec("string", spec, serialize(spec))).resolves.toMatchInlineSnapshot(`
-    [
-      "goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
+  await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ string
+        goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
     @@ -16,7 +16,7 @@
           examples:
             valid:
@@ -61,7 +65,8 @@ test("stale golden (recorded example output no longer matches live behavior)", a
             empty:
               input: '""'
               output: '""'",
-    ]
+      "stdout": "",
+    }
   `);
 });
 
@@ -69,19 +74,22 @@ test("invalid _skip reason (not an enum value or todo(#...))", async () => {
   const spec = mutate((s) => {
     s.ts.bundleBytes = { _skip: "because-i-said-so" };
   });
-  await expect(checkSpec("string", spec, serialize(spec))).resolves.toMatchInlineSnapshot(`
-    [
-      "string.ts.bundleBytes: invalid _skip reason "because-i-said-so"",
-    ]
+  await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ string
+        string.ts.bundleBytes: invalid _skip reason "because-i-said-so"",
+      "stdout": "",
+    }
   `);
 });
 
 test("not canonical (on-disk text doesn't match the canonical form)", async () => {
   const spec = mutate(() => {});
   const scrambled = serialize(spec).replace("ts:\n", "ts:\n  # a stray comment\n");
-  await expect(checkSpec("string", spec, scrambled)).resolves.toMatchInlineSnapshot(`
-    [
-      "not canonical — run \`pnpm spec format string\` (or \`pnpm spec check string --write\`, which also refreshes goldens):
+  await expect(runCheck("string", scrambled)).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ string
+        not canonical — run \`pnpm spec format string\` (or \`pnpm spec check string --write\`, which also refreshes goldens):
     @@ -1,6 +1,5 @@
       # yaml-language-server: $schema=./spec.schema.json
       ts:
@@ -89,7 +97,8 @@ test("not canonical (on-disk text doesn't match the canonical form)", async () =
         schema: S.string
         input: string
         output: string",
-    ]
+      "stdout": "",
+    }
   `);
 });
 
@@ -97,11 +106,12 @@ test("identity claimed but the operation doesn't actually compile to identity", 
   const spec = mutate((s) => {
     s.ts.schema = "S.string.with(S.min, 3)"; // decode/encode are real checks now, not passthroughs
   });
-  await expect(checkSpec("string", spec, serialize(spec))).resolves.toMatchInlineSnapshot(`
-    [
-      "operations.decode: marked \`identity\` but does not compile to identity — use a full op block with examples",
-      "operations.encode: marked \`identity\` but does not compile to identity — use a full op block with examples",
-      "goldens stale — resolve the identity mismatch above first, then \`pnpm spec check string --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
+  await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ string
+        operations.decode: marked \`identity\` but does not compile to identity — use a full op block with examples
+        operations.encode: marked \`identity\` but does not compile to identity — use a full op block with examples
+        goldens stale — resolve the identity mismatch above first, then \`pnpm spec check string --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
     @@ -3,23 +3,25 @@
         schema: S.string.with(S.min, 3)
         input: string
@@ -132,7 +142,8 @@ test("identity claimed but the operation doesn't actually compile to identity", 
             invalid-number:
               input: "42"
               error: Expected string, received 42",
-    ]
+      "stdout": "",
+    }
   `);
 });
 
@@ -140,10 +151,11 @@ test("full op block claimed but the operation actually compiles to identity", as
   const spec = mutate((s) => {
     s.operations.decode = { expression: "", examples: {} }; // string's decode really is identity
   });
-  await expect(checkSpec("string", spec, serialize(spec))).resolves.toMatchInlineSnapshot(`
-    [
-      "operations.decode: compiles to identity — use \`identity\` instead of an expression + examples",
-      "goldens stale — resolve the identity mismatch above first, then \`pnpm spec check string --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
+  await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ string
+        operations.decode: compiles to identity — use \`identity\` instead of an expression + examples
+        goldens stale — resolve the identity mismatch above first, then \`pnpm spec check string --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
     @@ -27,7 +27,10 @@
               input: "null"
               error: Expected string, received null
@@ -156,7 +168,8 @@ test("full op block claimed but the operation actually compiles to identity", as
           examples: {}
         encode: identity
     ",
-    ]
+      "stdout": "",
+    }
   `);
 });
 
@@ -164,10 +177,12 @@ test("format validation failure (unrecognized key)", async () => {
   const spec = mutate((s) => {
     (s as unknown as Record<string, unknown>).notAField = true;
   });
-  await expect(checkSpec("string", spec, serialize(spec))).resolves.toMatchInlineSnapshot(`
-    [
-      "schema: Unrecognized key "notAField"",
-    ]
+  await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ string
+        schema: Unrecognized key "notAField"",
+      "stdout": "",
+    }
   `);
 });
 
@@ -175,11 +190,13 @@ test("format validation failure (wrong type for a required field)", async () => 
   const spec = mutate((s) => {
     (s.ts as unknown as Record<string, unknown>).schema = 42;
   });
-  await expect(checkSpec("string", spec, serialize(spec))).resolves.toMatchInlineSnapshot(`
-    [
-      "schema: Failed at ["ts"]["schema"]: Expected string, received 42",
-      "ts.schema evaluated but isn't a Sury schema",
-    ]
+  await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ string
+        schema: Failed at ["ts"]["schema"]: Expected string, received 42
+        ts.schema evaluated but isn't a Sury schema",
+      "stdout": "",
+    }
   `);
 });
 
@@ -187,10 +204,12 @@ test("schema source doesn't evaluate (syntax error)", async () => {
   const spec = mutate((s) => {
     s.ts.schema = "S.string->>>not valid js";
   });
-  await expect(checkSpec("string", spec, serialize(spec))).resolves.toMatchInlineSnapshot(`
-    [
-      "ts.schema did not evaluate: Unexpected token '>>>'",
-    ]
+  await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ string
+        ts.schema did not evaluate: Unexpected token '>>>'",
+      "stdout": "",
+    }
   `);
 });
 
@@ -199,10 +218,11 @@ test("multiple simultaneous problems all get their own guiding message", async (
     s.ts.bundleBytes = { _skip: "nonsense-reason" };
     if (s.operations.parse !== "identity") s.operations.parse.expression = "i=>i /* stale */";
   });
-  await expect(checkSpec("string", spec, serialize(spec))).resolves.toMatchInlineSnapshot(`
-    [
-      "string.ts.bundleBytes: invalid _skip reason "nonsense-reason"",
-      "goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
+  await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ string
+        string.ts.bundleBytes: invalid _skip reason "nonsense-reason"
+        goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
     @@ -13,7 +13,7 @@
           type: string
       operations:
@@ -212,6 +232,7 @@ test("multiple simultaneous problems all get their own guiding message", async (
           examples:
             valid:
               input: '"hello"'",
-    ]
+      "stdout": "",
+    }
   `);
 });

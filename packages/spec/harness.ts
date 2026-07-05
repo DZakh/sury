@@ -95,8 +95,9 @@ export const listSpecFiles = (): string[] =>
     .map((f) => join(SPECS_DIR, f))
     .sort();
 
-export const readSpec = (file: string): Spec =>
-  parseYaml(readFileSync(file, "utf8")) as Spec;
+export const parseSpec = (raw: string): Spec => parseYaml(raw) as Spec;
+
+export const readSpec = (file: string): Spec => parseSpec(readFileSync(file, "utf8"));
 
 export const evalSchema = (tsSource: string): any =>
   new Function("S", `return (${tsSource});`)(S);
