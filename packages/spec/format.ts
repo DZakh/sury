@@ -46,9 +46,7 @@ export type Skip = S.Output<typeof skip>;
 const orSkip = <T extends S.Schema<unknown, unknown>>(schema: T) =>
   S.union([schema, skip]);
 
-// A single runnable example: an input plus either an expected `output` or an
-// expected `error` message. `bench` is reserved for the (not-yet-wired) perf
-// dimension. Every code field holds source text, valid in both languages.
+// `bench` is reserved for the not-yet-wired performance dimension.
 const inputDescription =
   'Source text for the input, e.g. \'"hello"\'. Hand-written; `spec check --write` fills output/error.';
 const benchDescription = "Reserved for the not-yet-wired performance dimension.";
@@ -69,9 +67,8 @@ const example = S.union([exampleOutput, exampleError]).with(S.meta, {
 });
 export type Example = S.Output<typeof example>;
 
-// One compiled operation over the schema. `expression` is the codegen golden
-// (`.toString()` of the compiled function); examples are addressed by name so
-// their identity survives insertion/removal (unlike array indices).
+// Examples are addressed by name, not array index, so identity survives
+// insertion/removal.
 const operation = S.schema({
   expression: orSkip(S.string).with(S.meta, {
     description: "Compiled function source (`.toString()`). Filled by `spec check --write`.",
@@ -104,11 +101,9 @@ const operations = S.schema({
   .with(S.strict)
   .with(S.meta, { description: "The three compiled directions through the schema: parse, decode, encode." });
 
-// The `ts` (JS `.with`-chain) surface: source plus every surface-specific
-// dimension — type strings, TS-instantiation count, per-surface bundle cost.
-// A future `res` (ReScript) surface sits alongside this with its own, smaller
-// shape (no `input`, since ReScript's `S.t<'value>` has no separate Input type
-// parameter; no `instantiations`, a TS/attest-only concept).
+// A future `res` (ReScript) surface would sit alongside this with its own,
+// smaller shape (no `input`, since ReScript's `S.t<'value>` has no separate
+// Input type parameter; no `instantiations`, a TS/attest-only concept).
 const ts = S.schema({
   schema: S.string.with(S.meta, {
     description:
@@ -131,11 +126,13 @@ const ts = S.schema({
   .with(S.strict)
   .with(S.meta, { description: "The JS `.with`-chain surface: source plus every surface-specific dimension." });
 
-// The full spec. One file = one schema's complete contract.
 export const specSchema = S.schema({
   ts,
-  jsonSchema: orSkip(S.schema({ input: S.json, output: S.json }).with(S.strict)).with(S.meta, {
-    description: "S.toJSONSchema(schema) for both directions. Filled by `spec check --write`.",
+  jsonSchema: S.schema({ input: S.json, output: S.json }).with(S.strict).with(S.meta, {
+    description:
+      "S.toJSONSchema(schema) for both directions, or (per direction) the message " +
+      "S.toJSONSchema threw if that direction can't be represented (e.g. a bigint/symbol " +
+      "field). Filled by `spec check --write`.",
   }),
   operations,
 })
@@ -165,18 +162,18 @@ export const OP_ORDER = keyOrder<Spec["operations"]>({ parse: true, decode: true
 export const isSkip = (v: unknown): v is Skip =>
   v !== null && typeof v === "object" && "_skip" in (v as object);
 
-// Run a spec object through Sury's own parser (published S).
+// Parse, don't validate: return the parsed Spec itself, not just a pass/fail
+// flag, so callers work from the value Sury actually confirmed matches the
+// schema instead of re-trusting the raw input.
 export const validate = (
   obj: unknown,
-): { ok: true } | { ok: false; error: string } => {
+): { ok: true; value: Spec } | { ok: false; error: string } => {
   try {
-    S.parser(specSchema)(obj);
-    return { ok: true };
+    return { ok: true, value: S.parser(specSchema)(obj) };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }
 };
 
-// The canonical spec.schema.json text emitted from the format schema.
 export const schemaJson = (): string =>
   JSON.stringify(S.toJSONSchema(specSchema), null, 2) + "\n";

@@ -339,15 +339,6 @@ case the harness *should* have caught or guided better — a missing check, a we
 error message, a strictness gap that let a bad spec through — add a bullet here
 instead of silently working around it.
 
-- When `ts.schema`'s source evaluates without throwing but to something that
-  isn't actually a schema (e.g. a spec with `ts.schema: 42` — a format-validation
-  failure the checker already reports clearly), `checkSpec` still attempts
-  `identityViolations`/`recomputeGoldens` against the bogus value and appends a
-  second, confusing message (e.g. "goldens could not be computed: [Sury] No
-  schema provided for decoder."). Harmless (caught, doesn't crash) but noisy —
-  skip the second attempt once format validation has already failed for
-  `ts.schema` specifically. See tests/spec_errors_test.ts's "wrong type for a
-  required field" snapshot.
 - <placeholder>
 
 ## License

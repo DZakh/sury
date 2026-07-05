@@ -5,17 +5,14 @@
 // in-development sury SOURCE (`../sury/src/S.js`), because goldens must reflect
 // the code under test — that's how `spec check` catches codegen changes.
 //
-// There is no code-generation step: packages/sury/tests/spec_test.ts is a
-// single, committed, hand-written Vitest file that dynamically loops over
-// listSpecFiles()/readSpec() at test-run time and calls straight into this
-// module (recomputeGoldens, in particular) — so example execution and
-// jsonSchema/instantiations/bundleBytes drift are all exercised, and covered,
-// by a real Vitest run without ever materializing a generated .ts file per spec.
+// There is no code-generation step: packages/sury/tests/spec_test.ts loops
+// over listSpecFiles()/readSpec() at run time and calls straight into this
+// module, so drift in any dimension is exercised by a real Vitest run without
+// ever materializing a generated .ts file per spec.
 import { readFileSync, readdirSync } from "node:fs";
 import { join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
-import { equals, iterableEquality, typeEquality, sparseArrayEquality } from "@vitest/expect";
 import * as S from "../sury/src/S.js";
 import {
   KEY_ORDER,
@@ -38,15 +35,13 @@ export const SCHEMA_PATH = join(SPECS_DIR, "spec.schema.json");
 
 const HEADER = "# yaml-language-server: $schema=./spec.schema.json";
 
-// Maps an operation to the dev-sury builder that compiles that direction.
 const OP_BUILDER: Record<OpName, (schema: any) => (input: any) => any> = {
   parse: S.parser,
   decode: S.decoder,
   encode: S.encoder,
 };
 
-// The reason string on a `_skip` must be a known enum value or `todo(#…)`.
-// (`identity` isn't here — it's no longer a `_skip` reason, see Operation.)
+// `identity` isn't here — it's no longer a `_skip` reason, see Operation.
 const SKIP_REASONS = new Set([
   "parser-only",
   "serializer-only",
@@ -56,7 +51,6 @@ const SKIP_REASONS = new Set([
 export const isValidSkipReason = (r: unknown): boolean =>
   typeof r === "string" && (SKIP_REASONS.has(r) || /^todo\(#.+\)$/.test(r));
 
-// Walk every `_skip` in a spec and collect malformed reasons.
 export const lintSkips = (obj: unknown, path: string, out: string[]): void => {
   if (isSkip(obj)) {
     if (!isValidSkipReason(obj._skip))
@@ -69,6 +63,30 @@ export const lintSkips = (obj: unknown, path: string, out: string[]): void => {
 
 export const specId = (file: string): string =>
   basename(file).replace(/\.yaml$/, "");
+
+const VALID_ID_RE = /^[a-zA-Z0-9-]+$/;
+
+// listSpecFiles below silently ignores anything that isn't *.yaml — this
+// walks the same directory to surface exactly what that filter would
+// otherwise hide: a stray non-spec file, or a spec whose id doesn't match the
+// letters/digits/-only convention (see the `spec` skill). `names` is
+// injectable (defaulting to the real directory listing) so tests can exercise
+// the id/filename rules directly, without touching the filesystem.
+export const lintSpecsDir = (names: string[] = readdirSync(SPECS_DIR)): string[] => {
+  const errs: string[] = [];
+  const schemaFile = basename(SCHEMA_PATH);
+  for (const name of names) {
+    if (name === schemaFile) continue;
+    if (!name.endsWith(".yaml")) {
+      errs.push(`specs dir: unexpected file ${JSON.stringify(name)} (only *.yaml and ${schemaFile} allowed)`);
+      continue;
+    }
+    const id = name.replace(/\.yaml$/, "");
+    if (!VALID_ID_RE.test(id))
+      errs.push(`specs dir: invalid spec id ${JSON.stringify(id)} (only letters, digits, and - allowed)`);
+  }
+  return errs;
+};
 
 export const listSpecFiles = (): string[] =>
   readdirSync(SPECS_DIR)
@@ -90,9 +108,8 @@ const NOOP_OPERATION_WHICH_WILL_NEVER_CHANGE = "noopOperation";
 const isNoop = (fn: Function): boolean =>
   fn.name === NOOP_OPERATION_WHICH_WILL_NEVER_CHANGE;
 
-// Enforce the identity invariant both ways: an operation compiles to Sury's
-// pass-through *iff* it is declared the literal `identity`. Returns violation
-// messages ([] if ok). Requires the live (dev) schema.
+// Checks the identity invariant both ways: declared `identity` but doesn't
+// compile to a pass-through, or vice versa.
 export const identityViolations = (schema: any, spec: Spec): string[] => {
   const out: string[] = [];
   for (const opName of OP_ORDER) {
@@ -112,31 +129,30 @@ export const identityViolations = (schema: any, spec: Spec): string[] => {
   return out;
 };
 
-// Derive the jsonSchema dimension from a live schema. JSON Schema has no
-// representation for bigint or symbol, so `S.toJSONSchema` throws for any
-// schema containing one (at any nesting depth) — not a bug to work around, a
-// real "this concept doesn't apply" case, same as an author choosing
-// `_skip: not-applicable` by hand. Shared by `scaffoldJsonSchema` (spec new)
-// and `recomputeGoldens` (spec check/--write) so both degrade the same way.
-const deriveJsonSchema = (schema: any): Spec["jsonSchema"] => {
+// JSON Schema has no representation for bigint or symbol, so `S.toJSONSchema`
+// throws for any schema containing one (at any nesting depth) — a real "this
+// concept doesn't apply" case, not a bug to work around. Recorded per
+// direction (rather than skipping the whole dimension) since the two
+// directions can differ — e.g. a `.to` transform might make only one side
+// representable. Shared by `scaffoldJsonSchema` (spec new) and
+// `recomputeGoldens` (spec check/--write) so both degrade the same way.
+const toJsonSchemaOrError = (fn: () => unknown): S.Output<typeof S.json> => {
   try {
-    return {
-      input: asJson(S.toJSONSchema(schema)),
-      output: asJson(S.toJSONSchema(S.reverse(schema))),
-    };
-  } catch {
-    return { _skip: "not-applicable" };
+    return asJson(fn());
+  } catch (e) {
+    return asJson((e as Error).message);
   }
 };
+const deriveJsonSchema = (schema: any): Spec["jsonSchema"] => ({
+  input: toJsonSchemaOrError(() => S.toJSONSchema(schema)),
+  output: toJsonSchemaOrError(() => S.toJSONSchema(S.reverse(schema))),
+});
 
 // No example inputs needed, so `spec new` can fill this in immediately from `--ts`.
 export const scaffoldJsonSchema = (schema: any): Spec["jsonSchema"] => deriveJsonSchema(schema);
 
-// Fully derive the operations dimension from a live schema: an identity op
-// collapses to the literal `identity`; others get their expression golden with
-// no examples yet (the author still adds example inputs by hand). Can throw
-// if `schema` isn't actually a usable schema (e.g. `--ts` evaluated to
-// `undefined` from a typo like `S.strng`) — callers decide how to report that.
+// Can throw if `schema` isn't actually a usable schema (e.g. `--ts` evaluated
+// to `undefined` from a typo like `S.strng`) — callers decide how to report that.
 export const scaffoldOperations = (schema: any): Spec["operations"] =>
   Object.fromEntries(
     OP_ORDER.map((opName) => {
@@ -160,8 +176,22 @@ const order = <T extends Record<string, unknown>>(obj: T, keys: string[]): T => 
 
 // Individual named examples are never `_skip` — only the enclosing operation
 // block is (the format schema has no `orSkip` on the examples map's values).
-const canonExample = (ex: Example): Example =>
-  order(ex, ["input", "output", "error", "bench"]) as Example;
+// Reformats `output` to canonical source-text form (see valueToCode) by
+// round-tripping it through eval — independent of recomputeGoldens, so `spec
+// fmt` can normalize formatting without executing the schema at all. Left
+// as-is if it no longer evaluates; that's a deeper problem the freshness
+// check surfaces, not a formatting one.
+const canonExample = (ex: Example): Example => {
+  const o = order(ex, ["input", "output", "error", "bench"]) as Example;
+  if ("output" in o) {
+    try {
+      o.output = valueToCode(evalSchema(o.output));
+    } catch {
+      // leave as-is
+    }
+  }
+  return o;
+};
 
 const canonOp = (op: Operation): Operation => {
   if (op === "identity") return op;
@@ -177,7 +207,7 @@ const canonOp = (op: Operation): Operation => {
 export const canonicalize = (obj: Spec): Spec => {
   const o = order(obj, KEY_ORDER as string[]);
   if (o.ts) o.ts = order(o.ts, TS_KEY_ORDER as string[]);
-  if (o.jsonSchema && !isSkip(o.jsonSchema))
+  if (o.jsonSchema)
     o.jsonSchema = order(o.jsonSchema as Record<string, unknown>, [
       "input",
       "output",
@@ -201,14 +231,17 @@ export const serialize = (obj: Spec): string =>
 // two Sury-internal type declarations at this one boundary.
 const asJson = (v: unknown): S.Output<typeof S.json> => v as S.Output<typeof S.json>;
 
-// Turn an arbitrary decoded value back into re-executable source text for an
-// example's `output` field. Recursive so bigint/Date/Map/Set/RegExp/Symbol are
-// handled at any nesting depth, not just the top level: `JSON.stringify`
-// throws outright on a bare (or nested) bigint, and silently mangles Date
-// (→ a plain string, not a Date)/Map/Set (→ "{}", dropping every entry).
-// `Object.is` catches -0, which `String(-0)` prints as "0". Only a *registry*
-// symbol (`Symbol.for(key)`) round-trips through source text — a bare
-// `Symbol()` is unique per call, so no source expression can reproduce it.
+// An object key needs quotes only when it isn't a valid identifier — matches
+// how a human would hand-write the same literal.
+const IDENT_RE = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+const keyToCode = (k: string): string => (IDENT_RE.test(k) ? k : JSON.stringify(k));
+
+// Recursive (not JSON.stringify) because JSON.stringify throws outright on a
+// bare (or nested) bigint, and silently mangles Date (→ a plain string, not a
+// Date)/Map/Set (→ "{}", dropping every entry). `Object.is` catches -0, which
+// `String(-0)` prints as "0". Only a *registry* symbol (`Symbol.for(key)`)
+// round-trips through source text — a bare `Symbol()` is unique per call, so
+// no source expression can reproduce it.
 const valueToCode = (v: unknown): string => {
   if (v === undefined) return "undefined";
   if (typeof v === "bigint") return `${v}n`;
@@ -224,18 +257,14 @@ const valueToCode = (v: unknown): string => {
   if (v instanceof RegExp) return v.toString();
   if (v instanceof Map) return `new Map(${valueToCode([...v])})`;
   if (v instanceof Set) return `new Set(${valueToCode([...v])})`;
-  if (Array.isArray(v)) return `[${v.map(valueToCode).join(",")}]`;
-  if (typeof v === "object")
-    return `{${Object.entries(v)
-      .map(([k, val]) => `${JSON.stringify(k)}:${valueToCode(val)}`)
-      .join(",")}}`;
+  if (Array.isArray(v)) return `[${v.map(valueToCode).join(", ")}]`;
+  if (typeof v === "object") {
+    const entries = Object.entries(v);
+    if (entries.length === 0) return "{}";
+    return `{ ${entries.map(([k, val]) => `${keyToCode(k)}: ${valueToCode(val)}`).join(", ")} }`;
+  }
   throw new Error(`cannot represent a ${typeof v} as spec source code`);
 };
-
-// Matches `toStrictEqual`'s semantics exactly (NaN, -0, undefined-key
-// sensitivity, Map/Set/iterable equality) — `equals` is the same function
-// `toStrictEqual` calls internally, importable standalone from @vitest/expect.
-const EQUALITY_TESTERS = [iterableEquality, typeEquality, sparseArrayEquality];
 
 const clean = <T extends Record<string, unknown>>(o: T): T => {
   const r: Record<string, unknown> = {};
@@ -243,12 +272,7 @@ const clean = <T extends Record<string, unknown>>(o: T): T => {
   return r as T;
 };
 
-// Recompute everything derivable from the live (dev) schema: per-op codegen
-// goldens, input/output JSON Schemas, ts.input/ts.output/ts.instantiations (via
-// introspect.ts), ts.bundleBytes (via bundleSize.ts), and each example's
-// result by running the operation. The author owns inputs and skips (and can
-// still `_skip` any of these — e.g. `ts.instantiations: { _skip:
-// not-applicable }`); the harness owns the answers.
+// The author owns inputs and skips; the harness owns every derived answer.
 //
 // The esbuild-based bundle measurement is kicked off FIRST, before any of the
 // synchronous work below, so its child-process build genuinely overlaps with
@@ -271,7 +295,7 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
     if (!isSkip(next.ts.instantiations)) next.ts.instantiations = info.instantiations;
   }
 
-  if (!isSkip(next.jsonSchema)) next.jsonSchema = deriveJsonSchema(schema);
+  next.jsonSchema = deriveJsonSchema(schema);
 
   for (const opName of OP_ORDER) {
     const op = next.operations[opName];
@@ -282,18 +306,7 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
       const bench = ex.bench;
       try {
         const out = fn(evalSchema(ex.input));
-        // Keep the recorded text as-is when it still evaluates to an equal
-        // value, instead of always overwriting with a fresh (differently
-        // formatted but equally valid) rendering of the same value.
-        let output = valueToCode(out);
-        if ("output" in ex) {
-          try {
-            if (equals(evalSchema(ex.output), out, EQUALITY_TESTERS, true)) output = ex.output;
-          } catch {
-            // recorded output no longer evaluates — fall through to the fresh value
-          }
-        }
-        op.examples[name] = clean({ input: ex.input, output, bench });
+        op.examples[name] = clean({ input: ex.input, output: valueToCode(out), bench });
       } catch (e) {
         op.examples[name] = clean({ input: ex.input, error: (e as Error).message, bench });
       }
@@ -304,12 +317,18 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
   return next;
 };
 
-// Every check `spec check` performs against a single already-parsed spec,
-// returning guiding error messages ([] if the spec is fully valid and fresh).
+// `ts.schema` can evaluate without throwing to a value that still isn't a
+// usable Sury schema (e.g. `ts.schema: "42"` evaluates to the number 42).
+// Every Sury schema carries a Standard Schema `~standard` prop whose `vendor`
+// is `"sury"` (Sury's own internals use this exact check — see `js_assert` in
+// Sury.res.mjs) — a reliable, non-throwing alternative to probing with a builder.
+const isUsableSchema = (schema: unknown): boolean =>
+  (schema as { ["~standard"]?: { vendor?: string } } | null | undefined)?.["~standard"]?.vendor === "sury";
+
 // Never mutates a file or exits the process, so it's directly testable —
-// cli.ts's cmdCheck and tests/spec_errors_test.ts's snapshot tests both call
-// this same function; there's exactly one implementation of "what's wrong
-// with this spec, and what should the author do about it."
+// cli.ts's cmdCheck and tests/spec_errors_test.ts both call this same
+// function, so there's exactly one implementation of "what's wrong with this
+// spec, and what should the author do about it."
 //
 // `knownFresh`, when passed, is the already-serialized result of a
 // recomputeGoldens call the caller just performed (cli.ts's `--write` path,
@@ -325,43 +344,36 @@ export const checkSpec = async (
 
   const v = validate(obj);
   if (!v.ok) errs.push(`schema: ${v.error}`);
+  const spec = v.ok ? v.value : obj;
 
-  lintSkips(obj, id, errs);
+  lintSkips(spec, id, errs);
 
-  const canon = serialize(obj);
-  if (raw !== canon) errs.push(`not canonical — run \`pnpm spec fmt ${id}\``);
+  const canon = serialize(spec);
+  if (raw !== canon)
+    errs.push(
+      `not canonical — run \`pnpm spec fmt ${id}\` (or \`pnpm spec check ${id} --write\`, which also refreshes goldens)`,
+    );
 
   let schema: any;
   let evaluated = false;
   try {
-    schema = evalSchema(obj.ts.schema);
+    schema = evalSchema(spec.ts.schema);
     evaluated = true;
   } catch (e) {
     errs.push(`ts.schema did not evaluate: ${(e as Error).message}`);
   }
-  // `evaluated`, not `schema` truthiness — a `ts.schema` that evaluates
-  // without throwing to a falsy-but-not-a-schema value (`"0"`, `""`, `NaN`)
-  // must still go through the checks below (and fail them), not be silently
-  // skipped as if evaluation itself had failed.
-  if (evaluated) {
-    // A spec that failed format validation above may not have the shape
-    // identityViolations/recomputeGoldens assume (e.g. a missing `examples`
-    // map) — catch so one malformed spec reports gracefully instead of
-    // throwing; the validation error already pushed above is the actionable one.
+  if (evaluated && !isUsableSchema(schema)) {
+    errs.push(`ts.schema evaluated but isn't a Sury schema`);
+  } else if (evaluated) {
     try {
-      // identity invariant: noop op <-> the literal `identity`
-      const violations = identityViolations(schema, obj);
+      const violations = identityViolations(schema, spec);
       for (const violation of violations) errs.push(violation);
-      // goldens must equal what the live schema produces (no hand-edits).
-      // --write can't fix this on its own while an identity violation stands
-      // (that needs a human decision, not a rewrite — see cmdCheck) — say so,
-      // rather than pointing at the flag the author may have just tried.
-      const fresh = knownFresh ?? serialize(await recomputeGoldens(obj));
+      const fresh = knownFresh ?? serialize(await recomputeGoldens(spec));
       if (fresh !== canon)
         errs.push(
           violations.length
-            ? `goldens stale — resolve the identity mismatch above first, then \`pnpm spec check ${id} --write\` can fix it`
-            : `goldens stale — run \`pnpm spec check ${id} --write\``,
+            ? `goldens stale — resolve the identity mismatch above first, then \`pnpm spec check ${id} --write\` can fix it (also formats canonically; use \`pnpm spec fmt\` for a formatting-only fix)`
+            : `goldens stale — run \`pnpm spec check ${id} --write\` (also formats canonically; use \`pnpm spec fmt\` for a formatting-only fix)`,
         );
     } catch (e) {
       errs.push(`goldens could not be computed: ${(e as Error).message}`);

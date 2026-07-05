@@ -26,7 +26,7 @@ operations:
     examples:
       valid:
         input: '["hello", 42]'
-        output: '["hello",42]'
+        output: '["hello", 42]'
       wrong-length:
         input: '["hello"]'
         error: Expected [string, number], received ["hello"]

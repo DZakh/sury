@@ -14,6 +14,7 @@ import {
   evalSchema,
   identityViolations,
   lintSkips,
+  lintSpecsDir,
 } from "../../spec/harness";
 import { validate } from "../../spec/format";
 
@@ -29,6 +30,19 @@ const specs = listSpecFiles().map((file) => ({ id: specId(file), file }));
 
 test("there is at least one spec", () => {
   expect(specs.length).toBeGreaterThan(0);
+});
+
+test("specs dir contains only valid spec files (run `pnpm spec check`)", () => {
+  const errs = lintSpecsDir();
+  expect(errs, errs.join("\n")).toEqual([]);
+});
+
+test("lintSpecsDir rejects a non-yaml file and a dotted/invalid id", () => {
+  const errs = lintSpecsDir(["good-id.yaml", "notes.txt", "bad.dotted.yaml", "spec.schema.json"]);
+  expect(errs).toEqual([
+    `specs dir: unexpected file "notes.txt" (only *.yaml and spec.schema.json allowed)`,
+    `specs dir: invalid spec id "bad.dotted" (only letters, digits, and - allowed)`,
+  ]);
 });
 
 describe.each(specs)("spec: $id", ({ id, file }) => {

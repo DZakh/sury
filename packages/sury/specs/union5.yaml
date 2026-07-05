@@ -6,7 +6,8 @@ ts:
   instantiations: 33296
   bundleBytes: 10026
 jsonSchema:
-  _skip: not-applicable
+  input: Expected JSON, received string | number | boolean | bigint | symbol
+  output: Expected JSON, received string | number | boolean | bigint | symbol
 operations:
   parse:
     expression: i=>{if(!(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i)||typeof i==="boolean"||typeof i==="bigint"||typeof i==="symbol")){e[0](i)}return i}

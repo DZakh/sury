@@ -6,14 +6,15 @@ ts:
   instantiations: 33305
   bundleBytes: 10015
 jsonSchema:
-  _skip: not-applicable
+  input: 'Failed at ["3"]: Expected JSON, received bigint'
+  output: 'Failed at ["3"]: Expected JSON, received bigint'
 operations:
   parse:
     expression: i=>{Array.isArray(i)&&i.length===5||e[5](i);let v0=i["0"],v1=i["1"],v2=i["2"],v3=i["3"],v4=i["4"];typeof v0==="string"||e[0](v0);typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);typeof v2==="boolean"||e[2](v2);typeof v3==="bigint"||e[3](v3);typeof v4==="symbol"||e[4](v4);return i}
     examples:
       valid:
         input: '["x", 1, true, 5n, Symbol.for("e")]'
-        output: '["x",1,true,5n,Symbol.for("e")]'
+        output: '["x", 1, true, 5n, Symbol.for("e")]'
       invalid-item:
         input: '["x", 1, true, "not bigint", Symbol.for("e")]'
         error: 'Failed at ["3"]: Expected bigint, received "not bigint"'

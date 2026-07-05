@@ -8,6 +8,10 @@
 
 Tiebreaker: shortest *generated* code wins over shortest *library* code (runtime ships per-schema, library ships once).
 
+## Comments
+
+Default to no comments — well-named identifiers and clear structure carry the "what". Add one only for a non-obvious "why": a hidden constraint, a subtle invariant, a workaround for a specific bug, behavior that would surprise a reader. If deleting the comment wouldn't leave a future reader confused, delete it. Applies repo-wide, not just `packages/spec`.
+
 ## Input vs Output
 
 A schema has an Input type and an Output type. They differ when the schema or any nested item has a transformation.

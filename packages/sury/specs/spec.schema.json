@@ -108,35 +108,17 @@
       "description": "The JS `.with`-chain surface: source plus every surface-specific dimension."
     },
     "jsonSchema": {
-      "anyOf": [
-        {
-          "type": "object",
-          "properties": {
-            "input": {},
-            "output": {}
-          },
-          "additionalProperties": false,
-          "required": [
-            "input",
-            "output"
-          ]
-        },
-        {
-          "type": "object",
-          "properties": {
-            "_skip": {
-              "type": "string",
-              "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…)."
-            }
-          },
-          "additionalProperties": false,
-          "required": [
-            "_skip"
-          ],
-          "description": "Explicit opt-out for an unasserted dimension."
-        }
+      "type": "object",
+      "properties": {
+        "input": {},
+        "output": {}
+      },
+      "additionalProperties": false,
+      "required": [
+        "input",
+        "output"
       ],
-      "description": "S.toJSONSchema(schema) for both directions. Filled by `spec check --write`."
+      "description": "S.toJSONSchema(schema) for both directions, or (per direction) the message S.toJSONSchema threw if that direction can't be represented (e.g. a bigint/symbol field). Filled by `spec check --write`."
     },
     "operations": {
       "type": "object",

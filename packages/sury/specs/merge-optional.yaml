@@ -44,10 +44,10 @@ operations:
     examples:
       valid-all-present:
         input: '{_id: "1", _rev: "2", _deleted: false, code: "x", name: "y"}'
-        output: '{"_id":"1","_rev":"2","_deleted":false,"code":"x","name":"y"}'
+        output: '{ _id: "1", _rev: "2", _deleted: false, code: "x", name: "y" }'
       valid-optional-omitted:
         input: '{code: "x", name: "y"}'
-        output: '{"_id":undefined,"_rev":undefined,"_deleted":undefined,"code":"x","name":"y"}'
+        output: '{ _id: undefined, _rev: undefined, _deleted: undefined, code: "x", name: "y" }'
       invalid-required:
         input: '{code: "x"}'
         error: 'Failed at ["name"]: Expected string, received undefined'

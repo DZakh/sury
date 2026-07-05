@@ -26,7 +26,7 @@ operations:
     examples:
       valid:
         input: '{a: "hello"}'
-        output: '{"a":"hello"}'
+        output: '{ a: "hello" }'
       missing-field:
         input: "{}"
         error: 'Failed at ["a"]: Expected string, received undefined'

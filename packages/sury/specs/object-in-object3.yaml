@@ -62,10 +62,10 @@ operations:
     examples:
       valid:
         input: '{a: "x", nested: {b: 1, inner: {c: true, d: "y"}}}'
-        output: '{"a":"x","nested":{"b":1,"inner":{"c":true,"d":"y"}}}'
+        output: '{ a: "x", nested: { b: 1, inner: { c: true, d: "y" } } }'
       valid-optional-omitted:
         input: '{a: "x", nested: {b: 1, inner: {c: true}}}'
-        output: '{"a":"x","nested":{"b":1,"inner":{"c":true,"d":undefined}}}'
+        output: '{ a: "x", nested: { b: 1, inner: { c: true, d: undefined } } }'
       invalid-nested:
         input: '{a: "x", nested: {b: "not a number", inner: {c: true}}}'
         error: 'Failed at ["nested"]["b"]: Expected number, received "not a number"'
@@ -74,10 +74,10 @@ operations:
     examples:
       valid:
         input: '{a: "x", nested: {b: 1, inner: {c: true, d: "y"}}}'
-        output: '{"a":"x","nested":{"b":1,"inner":{"c":true,"d":"y"}}}'
+        output: '{ a: "x", nested: { b: 1, inner: { c: true, d: "y" } } }'
   encode:
     expression: i=>{let v0=i["nested"];let v1=v0["inner"];return i}
     examples:
       valid:
         input: '{a: "x", nested: {b: 1, inner: {c: true, d: "y"}}}'
-        output: '{"a":"x","nested":{"b":1,"inner":{"c":true,"d":"y"}}}'
+        output: '{ a: "x", nested: { b: 1, inner: { c: true, d: "y" } } }'

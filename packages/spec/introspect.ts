@@ -63,9 +63,8 @@ const check = (text: string) => {
   return { program, file, diagnostics, count: program.getInstantiationCount() };
 };
 
-// The bare import's own instantiation cost, memoized once per process and
-// subtracted from every schema's count so each spec's `ts.instantiations` is
-// isolated to what *that* schema contributes.
+// Subtracted from every schema's count so each spec's `ts.instantiations` is
+// isolated to what *that* schema contributes, not the cost of the bare import.
 const getBaselineCount = (): number => {
   if (baselineCount === undefined) baselineCount = check(IMPORT_LINE).count;
   return baselineCount;
@@ -75,16 +74,14 @@ export type TypeInfo = { input: string; output: string; instantiations: number }
 
 // Derives {input, output} type strings and the instantiation count
 // contributed by declaring `schemaTs` and extracting S.Output<>/S.Input<>
-// from it — the realistic combined per-schema cost (matching the "define +
-// extract" measurements in tests/types.bench.ts), not the isolated cost of
+// from it — the realistic combined per-schema cost, not the isolated cost of
 // either half alone.
 //
 // Returns a Promise for a uniform async API alongside bundleSize.ts's
-// genuinely-async esbuild call, so a caller can `Promise.all`/pipeline the
-// two — but the TS Program/checker calls inside are inherently synchronous
-// (there's no async variant of the compiler API), so this doesn't itself
-// parallelize across concurrent calls the way the esbuild-based derivation
-// does; it just composes cleanly with what does.
+// genuinely-async esbuild call, so a caller can `Promise.all` the two — but
+// the TS Program/checker calls inside are inherently synchronous (no async
+// variant of the compiler API exists), so this doesn't itself parallelize
+// across concurrent calls; it just composes cleanly with what does.
 export const deriveTypeInfo = async (schemaTs: string): Promise<TypeInfo> => {
   const withExpr =
     IMPORT_LINE +

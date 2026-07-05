@@ -18,7 +18,7 @@ pnpm spec check --write [id]             # (re)derive everything from the live s
 pnpm spec check         [id]             # gate: format-valid, canonical, skips well-formed, goldens fresh
 ```
 
-`new` requires both `--id` and `--ts` (e.g. `pnpm spec new --id string.min --ts "S.string.with(S.min, 3)"`).
+`new` requires both `--id` and `--ts` (e.g. `pnpm spec new --id string-min --ts "S.string.with(S.min, 3)"`).
 A single `pnpm spec new`/`spec check --write` derives **everything** the harness knows how to derive:
 `jsonSchema`, `operations` (identity ops collapse to the bare literal `identity` automatically),
 `ts.input`/`ts.output`/`ts.instantiations` (vendored TypeScript introspection,

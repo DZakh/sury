@@ -10,6 +10,7 @@ import {
   SPECS_DIR,
   SCHEMA_PATH,
   listSpecFiles,
+  lintSpecsDir,
   specId,
   readSpec,
   serialize,
@@ -53,7 +54,7 @@ Commands:
       Scaffold specs/<id>.yaml: derives jsonSchema, operations, and every
       ts.* dimension from --ts. Add example inputs by hand, then run
       \`check --write\`.
-      e.g. spec new --id string.min --ts "S.string.with(S.min, 3)"
+      e.g. spec new --id string-min --ts "S.string.with(S.min, 3)"
 
   check [id…] [--write]
       The CI gate. For the given spec(s) (or all): validates against the
@@ -96,9 +97,9 @@ const cmdFmt = (): void => {
   }
 };
 
-// Parse `--id <id> --ts <schema>`. Both required — there's nothing sensible to
-// scaffold without a schema, and deriving jsonSchema/operations from it up
-// front is the whole point of `new` (see harness.scaffold*).
+// Both --id/--ts required — there's nothing sensible to scaffold without a
+// schema, and deriving jsonSchema/operations from it up front is the whole
+// point of `new`.
 const parseNewArgs = (argv: string[]): { id: string; ts: string } => {
   const flags: Record<string, string> = {};
   for (let i = 0; i < argv.length; i++) {
@@ -128,10 +129,10 @@ const cmdNew = async (): Promise<void> => {
   // it's kicked off before deriveTypeInfo's synchronous compiler work runs —
   // see the ordering note on recomputeGoldens in harness.ts.
   const [bundleBytes, typeInfo] = await Promise.all([deriveBundleBytes(ts), deriveTypeInfo(ts)]);
-  // scaffoldJsonSchema tolerates a schema it can't represent (falls back to
-  // _skip), but scaffoldOperations has no such fallback — a --ts that
-  // evaluates without throwing to something that isn't a usable schema
-  // (e.g. a typo like "S.strng" evaluating to undefined) throws a raw
+  // scaffoldJsonSchema tolerates a schema it can't represent (records the
+  // thrown message instead), but scaffoldOperations has no such fallback — a
+  // --ts that evaluates without throwing to something that isn't a usable
+  // schema (e.g. a typo like "S.strng" evaluating to undefined) throws a raw
   // internal Sury error here instead of this tool's own guiding message.
   let operations: Spec["operations"];
   try {
@@ -156,35 +157,33 @@ const cmdNew = async (): Promise<void> => {
 
 const WRITE_FLAG = "--write";
 
-// `check` is the CI gate: emitted JSON Schema is current, and every spec is
-// format-valid, skip-lint-clean, canonical, with goldens matching live
-// behavior — all via harness.checkSpec, so the CLI and the guiding-error
-// snapshot tests (tests/spec_errors_test.ts) exercise the exact same code.
-// --write additionally persists whatever's safely fixable *before* checking —
-// canonical form and stale goldens, via the same recomputeGoldens a bare
-// `check` already calls internally to detect staleness. This deliberately
-// does NOT require the spec to already be format-valid: a freshly-added
-// example (just `input`, per the documented workflow) fails format
-// validation until --write fills in output/error, so gating on validity
-// would make --write unable to do the one thing it exists for. Safe because
-// identityViolations/recomputeGoldens throwing (a genuinely malformed
-// ts.schema, an identity mismatch) is caught below and falls through to
-// checkSpec's own reporting rather than writing anything. Every file's
-// (re)computation runs concurrently; results are collected and printed in
-// original order once all resolve, so parallel esbuild/TS work doesn't
-// interleave the report output.
+// --write persists whatever's safely fixable (canonical form, stale goldens)
+// before checking, but deliberately doesn't require the spec to already be
+// format-valid: a freshly-added example (just `input`) fails validation until
+// --write fills in output/error, so gating on validity up front would make
+// --write unable to do the one thing it exists for. Results are collected
+// before printing (not logged as each resolves) so concurrent per-file work
+// doesn't interleave the report output.
 const cmdCheck = async (): Promise<void> => {
   const write = rest.includes(WRITE_FLAG);
   let failed = 0;
 
-  // existsSync(...) && ... short-circuits to false (no failure at all) if the
-  // file is simply missing, rather than stale — check freshness and existence
-  // as two separate facts so a deleted spec.schema.json is caught too.
+  // Existence and freshness are checked as two separate facts, not one
+  // `existsSync && readFileSync(...) !== schemaJson()` expression — that
+  // would short-circuit to "no failure" for a deleted spec.schema.json
+  // instead of reporting it missing.
   const schemaExists = existsSync(SCHEMA_PATH);
   if (!schemaExists || readFileSync(SCHEMA_PATH, "utf8") !== schemaJson()) {
     failed++;
     console.log(red("✗ spec.schema.json"));
     console.log(schemaExists ? "    stale — run `pnpm spec schema`" : "    missing — run `pnpm spec schema`");
+  }
+
+  const dirErrs = lintSpecsDir();
+  if (dirErrs.length) {
+    failed++;
+    console.log(red("✗ specs dir"));
+    for (const e of dirErrs) console.log(`    ${e}`);
   }
 
   const results = await Promise.all(
@@ -206,8 +205,8 @@ const cmdCheck = async (): Promise<void> => {
         } catch {
           // fall through — checkSpec below reports the real problem
         }
-        // `evaluated`, not `schema` truthiness — see the same note in
-        // harness.ts's checkSpec.
+        // `evaluated`, not `schema` truthiness — ts.schema could evaluate to
+        // a legitimately falsy value (e.g. `0`).
         if (evaluated) {
           try {
             if (identityViolations(schema, obj).length === 0) {
@@ -221,9 +220,8 @@ const cmdCheck = async (): Promise<void> => {
             }
           } catch {
             knownFresh = undefined;
-            // Recompute failed for a reason format validation would also
-            // catch (e.g. ts.schema evaluates but isn't really a schema) —
-            // skip the write; checkSpec below reports the real problem.
+            // Not a usable schema, or some other execution failure — skip
+            // the write either way; checkSpec below reports the real problem.
           }
         }
       }
@@ -245,10 +243,9 @@ const cmdCheck = async (): Promise<void> => {
   if (failed) fail(`${failed} check(s) failed`);
 };
 
-// Wrapped in an async function (instead of top-level await) so the script
-// type-checks under this project's shared tsconfig.json, which targets
-// module: ES2020 — too old for top-level await (matches the convention
-// established in tests/bundle.bench.ts).
+// Wrapped in an async function (instead of top-level await) since this
+// project's shared tsconfig.json targets module: ES2020 — too old for
+// top-level await.
 async function main() {
   switch (cmd) {
     case "check":
@@ -269,9 +266,8 @@ async function main() {
       cmdHelp();
       break;
     default:
-      // A bare `spec` (no command at all) just needs guidance, not a scolding;
-      // an actually-unrecognized command gets a clear header before the same
-      // help text. Either way exits non-zero — nothing useful happened.
+      // A bare `spec` gets just the help text; an actually-unrecognized
+      // command gets a header first.
       if (cmd) console.error(red(`Unknown command: ${cmd}\n`));
       console.error(HELP);
       process.exit(1);
