@@ -103,6 +103,17 @@ test("Successfully parses string with built-in refinement and custom message", (
   expectSchemaType(schema).toBe<string, string>();
 });
 
+test("S.pattern preserves the Input type through a transform (#282)", (t) => {
+  // Regression test for https://github.com/DZakh/sury/pull/282 — pattern's
+  // .d.ts declaration was missing the `schema` param, which hard-coded
+  // Input to `string` and broke any schema whose Input differs from Output.
+  const schema = S.number.with(S.to, S.jsonString).with(S.pattern, /^\d+$/);
+
+  t.expect(S.decoder(schema)(123)).toEqual("123");
+
+  expectSchemaType(schema).toBe<string, number>();
+});
+
 test("Successfully parses string with built-in transform", (t) => {
   const schema = S.trim(S.string);
   const value = S.parser(schema)("  123");
@@ -1953,6 +1964,13 @@ test("Standard schema", (t) => {
 test("Standard JSON Schema interface support", (t) => {
   const schema = S.schema({ foo: S.to(S.string, S.number) });
   const standard = schema["~standard"];
+
+  // Throws until enableStandardJSONSchema is called.
+  t.expect(() => standard.jsonSchema.input({ target: "draft-07" })).toThrow(
+    "~standard.jsonSchema requires S.enableStandardJSONSchema() to be called first"
+  );
+
+  S.enableStandardJSONSchema();
 
   // The `~standard` property now also exposes the Standard JSON Schema
   // `jsonSchema` converter. https://standardschema.dev/json-schema

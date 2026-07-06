@@ -333,13 +333,17 @@ const { object } = await generateObject({
 });
 ```
 
-The `~standard` property also implements the [Standard JSON Schema](https://standardschema.dev/json-schema) spec, exposing a `jsonSchema` converter for the schema's input and output types:
+The `~standard` property also implements the [Standard JSON Schema](https://standardschema.dev/json-schema) spec, exposing a `jsonSchema` converter for the schema's input and output types. Call `S.enableStandardJSONSchema()` once to enable it:
 
 ```ts
-const schema = S.schema({ createdAt: S.to(S.string, S.instance(Date)) });
+S.enableStandardJSONSchema();
 
-schema["~standard"].jsonSchema.input({ target: "draft-2020-12" }); // { createdAt: string }
-schema["~standard"].jsonSchema.output({ target: "draft-2020-12" }); // { createdAt: Date }
+const schema = S.string.with(S.to, S.number);
+
+schema["~standard"].jsonSchema.input({ target: "draft-2020-12" });
+// { $schema: "https://json-schema.org/draft/2020-12/schema", type: "string" }
+schema["~standard"].jsonSchema.output({ target: "draft-2020-12" });
+// { $schema: "https://json-schema.org/draft/2020-12/schema", type: "number" }
 ```
 
 > 🧠 `jsonSchema.input(options)` equals `S.toJSONSchema(schema, options)` and `.output(options)` equals `S.toJSONSchema(S.reverse(schema), options)`, so the `target` option behaves the same as above.

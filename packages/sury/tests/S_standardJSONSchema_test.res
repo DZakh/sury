@@ -8,9 +8,7 @@ open Vitest
 @get_index
 external standardOf: (S.t<'a>, string) => StandardSchema.props<unknown, unknown> = ""
 let standardOf = schema => schema->standardOf("~standard")
-// Sury always implements the JSON Schema extension, so `jsonSchema` is always
-// present on its own `~standard` (it's optional on `StandardSchema.props` only
-// because not every Standard Schema library implements it).
+// jsonSchema.input/.output throw until S.enableStandardJSONSchema is called (see below).
 let jsonSchemaConverter = schema => (schema->standardOf).jsonSchema->Option.getUnsafe
 
 // Simulates a target string as it actually arrives from an untyped JS caller
@@ -19,7 +17,32 @@ let jsonSchemaConverter = schema => (schema->standardOf).jsonSchema->Option.getU
 // known dialects.
 let target = (s: string): StandardSchema.JsonSchema.target => s->U.magic
 
+test("Standard ~standard.jsonSchema throws a guiding error before enableStandardJSONSchema is called", t => {
+  let converter = S.string->jsonSchemaConverter
+  try {
+    converter.input({target: target("draft-07")})->ignore
+    t->Assert.fail("Expected to throw")
+  } catch {
+  | S.Exn(error) =>
+    t->Assert.is(
+      error.message,
+      `~standard.jsonSchema requires S.enableStandardJSONSchema() to be called first`,
+    )
+  }
+  try {
+    converter.output({target: target("draft-07")})->ignore
+    t->Assert.fail("Expected to throw")
+  } catch {
+  | S.Exn(error) =>
+    t->Assert.is(
+      error.message,
+      `~standard.jsonSchema requires S.enableStandardJSONSchema() to be called first`,
+    )
+  }
+})
+
 test("Standard ~standard exposes version, vendor, validate and a jsonSchema converter", t => {
+  S.enableStandardJSONSchema()
   let standard = S.string->standardOf
   t->Assert.deepEqual(standard.version, 1)
   t->Assert.deepEqual(standard.vendor, "sury")

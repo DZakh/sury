@@ -210,6 +210,7 @@ export type Schema<Output, Input = unknown> = {
   readonly to?: Schema<unknown>;
   readonly errorMessage?: SchemaErrorMessage;
 
+  // jsonSchema.input/.output throw until enableStandardJSONSchema() is called.
   readonly ["~standard"]: StandardSchemaV1.Props<Input, Output> &
     StandardJSONSchemaV1.Props<Input, Output>;
 } & (
@@ -826,7 +827,11 @@ export const length: <Output extends string | unknown[], Input>(
   message?: string
 ) => Schema<Output, Input>;
 
-export const pattern: (re: RegExp, message?: string) => Schema<string, string>;
+export const pattern: <Input>(
+  schema: Schema<string, Input>,
+  re: RegExp,
+  message?: string
+) => Schema<string, Input>;
 export const trim: <Input>(
   schema: Schema<string, Input>
 ) => Schema<string, Input>;
@@ -870,6 +875,8 @@ export function extendJSONSchema<Output, Input>(
   schema: Schema<Output, Input>,
   jsonSchema: JSONSchema7
 ): Schema<Output, Input>;
+/** Enables `~standard.jsonSchema`; its input/output throw before this is called. */
+export function enableStandardJSONSchema(): void;
 
 // ==================================================================================================
 // JSON Schema Draft 07

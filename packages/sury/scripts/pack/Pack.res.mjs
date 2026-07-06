@@ -118,10 +118,6 @@ let filesMapping = [
     "S.instance"
   ],
   [
-    "unnest",
-    "S.unnest"
-  ],
-  [
     "record",
     "S.dict"
   ],
@@ -246,6 +242,10 @@ let filesMapping = [
     "S.extendJSONSchema"
   ],
   [
+    "enableStandardJSONSchema",
+    "S.enableStandardJSONSchema"
+  ],
+  [
     "shape",
     "S.shape"
   ],
@@ -272,10 +272,6 @@ let filesMapping = [
   [
     "noValidation",
     "S.noValidation"
-  ],
-  [
-    "compile",
-    "S.compile"
   ],
   [
     "port",
