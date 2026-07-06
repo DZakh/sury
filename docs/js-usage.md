@@ -345,15 +345,17 @@ const { object } = await generateObject({
 });
 ```
 
-The `~standard` property can also implement the [Standard JSON Schema](https://standardschema.dev/json-schema) spec, exposing a `jsonSchema` converter for the schema's input and output types. This is off by default, so bundlers can tree-shake `S.toJSONSchema` away for consumers who never use it - calling `jsonSchema.input`/`.output` throws a guiding error until you call `S.enableStandardJSONSchema()` once (e.g. at your app's entry point) to turn it on for every schema:
+The `~standard` property also implements the [Standard JSON Schema](https://standardschema.dev/json-schema) spec, exposing a `jsonSchema` converter for the schema's input and output types. Call `S.enableStandardJSONSchema()` once to enable it:
 
 ```ts
 S.enableStandardJSONSchema();
 
-const schema = S.schema({ createdAt: S.to(S.string, S.instance(Date)) });
+const schema = S.string.with(S.to, S.number);
 
-schema["~standard"].jsonSchema.input({ target: "draft-2020-12" }); // { createdAt: string }
-schema["~standard"].jsonSchema.output({ target: "draft-2020-12" }); // { createdAt: Date }
+schema["~standard"].jsonSchema.input({ target: "draft-2020-12" });
+// { $schema: "https://json-schema.org/draft/2020-12/schema", type: "string" }
+schema["~standard"].jsonSchema.output({ target: "draft-2020-12" });
+// { $schema: "https://json-schema.org/draft/2020-12/schema", type: "number" }
 ```
 
 > 🧠 `jsonSchema.input(options)` equals `S.toJSONSchema(schema, options)` and `.output(options)` equals `S.toJSONSchema(S.reverse(schema), options)`, so the `target` option behaves the same as above.
