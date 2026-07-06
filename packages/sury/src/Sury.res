@@ -4310,6 +4310,19 @@ let standardJSONSchemaRef: ref<(t<unknown>, StandardSchema.JsonSchema.options, b
   %raw(`0`),
 )
 
+// Indirection keeps toJSONSchema/reverse tree-shakeable; see enableStandardJSONSchema below.
+let getStandardJSONSchema = (schema, options, isOutput) =>
+  standardJSONSchemaRef.contents->Obj.magic
+    ? standardJSONSchemaRef.contents(schema, options, isOutput)
+    : X.Exn.throwAny(
+        InternalError.make(
+          InvalidOperation({
+            path: Path.empty,
+            reason: "~standard.jsonSchema requires S.enableStandardJSONSchema() to be called first",
+          }),
+        ),
+      )
+
 X.Object.defineProperty(
   %raw(`sp`),
   "~standard",
@@ -4351,9 +4364,10 @@ X.Object.defineProperty(
           // `input` returns the JSON Schema of the schema's input type,
           // `output` the JSON Schema of its output type. The `$schema` URI is
           // stamped according to `options.target`; an unsupported target throws.
+          // Throws before enableStandardJSONSchema is called.
           jsonSchema: {
-            input: options => standardJSONSchemaRef.contents(schema, options, false),
-            output: options => standardJSONSchemaRef.contents(schema, options, true),
+            input: options => getStandardJSONSchema(schema, options, false),
+            output: options => getStandardJSONSchema(schema, options, true),
           },
         }
         standard
@@ -7499,7 +7513,12 @@ module RescriptJSONSchema = {
             } else {
               schema
             },
-            ~expected=json(),
+            // Just needs `.name` for the message - avoid json()'s recursive union.
+            ~expected={
+              let s = base(unknownTag, ~selfReverse=false)
+              s.name = Some(jsonName)
+              s
+            },
             ~path,
             ~input=%raw(`0`),
             ~includeInput=false,
@@ -7594,22 +7613,23 @@ let toJSONSchema = (schema, ~options: option<toJSONSchemaOptions>=?) => {
   jsonSchema
 }
 
-// Wire up the forward reference used by the lazy `~standard` getter, now that
-// `toJSONSchema` and `reverse` are defined.
+// Wiring this inside a function (vs top level) is what makes toJSONSchema/reverse tree-shakeable.
 //
 // Mirrors @valibot/to-json-schema's `toStandardJsonSchema`: the `target` option
 // selects the JSON Schema dialect (and the stamped `$schema` URI), and an
 // unsupported target throws. `output` converts the reversed schema, since
 // `S.reverse` swaps Input <-> Output and `toJSONSchema` returns the input-type
 // schema of whatever it receives.
-standardJSONSchemaRef :=
-  (schema, options, isOutput) => {
-    // The converter just forwards the target; `toJSONSchema` is the single
-    // source of truth for the `$schema` URI mapping and the unsupported-target
-    // throw. Passing an options object (vs none) is what makes `toJSONSchema`
-    // stamp `$schema`, which the Standard JSON Schema spec requires.
-    toJSONSchema(isOutput ? schema->reverse : schema, ~options={target: options.target})
-  }
+let enableStandardJSONSchema = () => {
+  standardJSONSchemaRef :=
+    (schema, options, isOutput) => {
+      // The converter just forwards the target; `toJSONSchema` is the single
+      // source of truth for the `$schema` URI mapping and the unsupported-target
+      // throw. Passing an options object (vs none) is what makes `toJSONSchema`
+      // stamp `$schema`, which the Standard JSON Schema spec requires.
+      toJSONSchema(isOutput ? schema->reverse : schema, ~options={target: options.target})
+    }
+}
 
 let extendJSONSchema = (schema, jsonSchema) => {
   schema->Metadata.set(

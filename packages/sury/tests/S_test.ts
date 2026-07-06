@@ -1965,6 +1965,13 @@ test("Standard JSON Schema interface support", (t) => {
   const schema = S.schema({ foo: S.to(S.string, S.number) });
   const standard = schema["~standard"];
 
+  // Throws until enableStandardJSONSchema is called.
+  t.expect(() => standard.jsonSchema.input({ target: "draft-07" })).toThrow(
+    "~standard.jsonSchema requires S.enableStandardJSONSchema() to be called first"
+  );
+
+  S.enableStandardJSONSchema();
+
   // The `~standard` property now also exposes the Standard JSON Schema
   // `jsonSchema` converter. https://standardschema.dev/json-schema
   const jsonSchema: S.StandardJSONSchemaV1.Converter = standard.jsonSchema;

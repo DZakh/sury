@@ -500,6 +500,8 @@ type toJSONSchemaOptions = {target?: StandardSchema.JsonSchema.target}
 let toJSONSchema: (t<'value>, ~options: toJSONSchemaOptions=?) => JSONSchema.t
 let fromJSONSchema: JSONSchema.t => t<JSON.t>
 let extendJSONSchema: (t<'value>, JSONSchema.t) => t<'value>
+// Enables `~standard.jsonSchema`; its input/output throw before this is called.
+let enableStandardJSONSchema: unit => unit
 
 type globalConfigOverride = {
   defaultAdditionalItems?: additionalItemsMode,

@@ -210,6 +210,7 @@ export type Schema<Output, Input = unknown> = {
   readonly to?: Schema<unknown>;
   readonly errorMessage?: SchemaErrorMessage;
 
+  // jsonSchema.input/.output throw until enableStandardJSONSchema() is called.
   readonly ["~standard"]: StandardSchemaV1.Props<Input, Output> &
     StandardJSONSchemaV1.Props<Input, Output>;
 } & (
@@ -874,6 +875,8 @@ export function extendJSONSchema<Output, Input>(
   schema: Schema<Output, Input>,
   jsonSchema: JSONSchema7
 ): Schema<Output, Input>;
+/** Enables `~standard.jsonSchema`; its input/output throw before this is called. */
+export function enableStandardJSONSchema(): void;
 
 // ==================================================================================================
 // JSON Schema Draft 07
