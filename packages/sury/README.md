@@ -12,7 +12,7 @@ The fastest schema with next-gen DX.
 - Works with plain JavaScript, TypeScript, and ReScript. You don't need to use any compiler.
 - The **fastest** parsing and validation library in the entire JavaScript ecosystem ([benchmark](https://moltar.github.io/typescript-runtime-type-benchmarks/))
 - Small JS footprint & tree-shakable API ([Comparison with Zod and Valibot](#comparison))
-- Implements the [Standard Schema](https://standardschema.dev/) spec
+- Implements the [Standard Schema](https://standardschema.dev/) spec, including the [Standard JSON Schema](https://standardschema.dev/json-schema) extension
 - Built-in JSON Schema support
 - Detailed and easy to understand error messages
 - Declarative transformations with automatic serialization

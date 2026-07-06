@@ -172,6 +172,8 @@ let fromJSONSchema = Sury.fromJSONSchema;
 
 let extendJSONSchema = Sury.extendJSONSchema;
 
+let enableStandardJSONSchema = Sury.enableStandardJSONSchema;
+
 let global = Sury.global;
 
 let $$Error = Sury.$$Error;
@@ -262,6 +264,7 @@ export {
   toJSONSchema,
   fromJSONSchema,
   extendJSONSchema,
+  enableStandardJSONSchema,
   global,
   $$Error,
 }
