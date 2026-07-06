@@ -172,7 +172,7 @@ let fromJSONSchema = Sury.fromJSONSchema;
 
 let extendJSONSchema = Sury.extendJSONSchema;
 
-let enableStandardJsonSchema = Sury.enableStandardJsonSchema;
+let enableStandardJSONSchema = Sury.enableStandardJSONSchema;
 
 let global = Sury.global;
 
@@ -264,7 +264,7 @@ export {
   toJSONSchema,
   fromJSONSchema,
   extendJSONSchema,
-  enableStandardJsonSchema,
+  enableStandardJSONSchema,
   global,
   $$Error,
 }

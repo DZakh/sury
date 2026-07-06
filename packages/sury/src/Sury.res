@@ -4311,16 +4311,16 @@ let standardJSONSchemaRef: ref<(t<unknown>, StandardSchema.JsonSchema.options, b
 )
 
 // Indirects through `standardJSONSchemaRef` rather than calling
-// `toJSONSchema`/`reverse` directly - see `enableStandardJsonSchema` below
+// `toJSONSchema`/`reverse` directly - see `enableStandardJSONSchema` below
 // for why. Raises a guiding error if that hasn't been called yet.
-let getStandardJsonSchema = (schema, options, isOutput) =>
+let getStandardJSONSchema = (schema, options, isOutput) =>
   standardJSONSchemaRef.contents->Obj.magic
     ? standardJSONSchemaRef.contents(schema, options, isOutput)
     : X.Exn.throwAny(
         InternalError.make(
           InvalidOperation({
             path: Path.empty,
-            reason: "~standard.jsonSchema requires S.enableStandardJsonSchema() to be called first",
+            reason: "~standard.jsonSchema requires S.enableStandardJSONSchema() to be called first",
           }),
         ),
       )
@@ -4366,11 +4366,11 @@ X.Object.defineProperty(
           // `input` returns the JSON Schema of the schema's input type,
           // `output` the JSON Schema of its output type. The `$schema` URI is
           // stamped according to `options.target`; an unsupported target throws.
-          // Calling either before `enableStandardJsonSchema` throws a
-          // guiding error - see `getStandardJsonSchema` above.
+          // Calling either before `enableStandardJSONSchema` throws a
+          // guiding error - see `getStandardJSONSchema` above.
           jsonSchema: {
-            input: options => getStandardJsonSchema(schema, options, false),
-            output: options => getStandardJsonSchema(schema, options, true),
+            input: options => getStandardJSONSchema(schema, options, false),
+            output: options => getStandardJSONSchema(schema, options, true),
           },
         }
         standard
@@ -7620,7 +7620,7 @@ let toJSONSchema = (schema, ~options: option<toJSONSchemaOptions>=?) => {
 }
 
 // Activates `~standard.jsonSchema` on every schema by populating the shared
-// `standardJSONSchemaRef` cell that `getStandardJsonSchema` reads. Wiring it
+// `standardJSONSchemaRef` cell that `getStandardJSONSchema` reads. Wiring it
 // up inside a function rather than at module top level is what lets
 // bundlers tree-shake `toJSONSchema`/`reverse` away for consumers who never
 // call this.
@@ -7630,7 +7630,7 @@ let toJSONSchema = (schema, ~options: option<toJSONSchemaOptions>=?) => {
 // unsupported target throws. `output` converts the reversed schema, since
 // `S.reverse` swaps Input <-> Output and `toJSONSchema` returns the input-type
 // schema of whatever it receives.
-let enableStandardJsonSchema = () => {
+let enableStandardJSONSchema = () => {
   standardJSONSchemaRef :=
     (schema, options, isOutput) => {
       // The converter just forwards the target; `toJSONSchema` is the single

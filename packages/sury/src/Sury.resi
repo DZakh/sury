@@ -504,7 +504,7 @@ let extendJSONSchema: (t<'value>, JSONSchema.t) => t<'value>
 // every schema. Until this is called, calling `~standard.jsonSchema.input`/
 // `.output` throws - this keeps `toJSONSchema`/`reverse` tree-shakeable for
 // consumers who never use JSON Schema conversion.
-let enableStandardJsonSchema: unit => unit
+let enableStandardJSONSchema: unit => unit
 
 type globalConfigOverride = {
   defaultAdditionalItems?: additionalItemsMode,

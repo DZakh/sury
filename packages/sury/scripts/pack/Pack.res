@@ -159,7 +159,7 @@ let filesMapping = [
   ("toJSONSchema", "S.toJSONSchema"),
   ("fromJSONSchema", "S.fromJSONSchema"),
   ("extendJSONSchema", "S.extendJSONSchema"),
-  ("enableStandardJsonSchema", "S.enableStandardJsonSchema"),
+  ("enableStandardJSONSchema", "S.enableStandardJSONSchema"),
   ("shape", "S.shape"),
   ("tuple", "S.tuple"),
   ("asyncDecoderAssert", "S.js_asyncDecoderAssert"),

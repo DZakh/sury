@@ -9,7 +9,7 @@ open Vitest
 external standardOf: (S.t<'a>, string) => StandardSchema.props<unknown, unknown> = ""
 let standardOf = schema => schema->standardOf("~standard")
 // `jsonSchema` is always present on `~standard`; `.input`/`.output` just
-// throw until `S.enableStandardJsonSchema` has been called (see below).
+// throw until `S.enableStandardJSONSchema` has been called (see below).
 let jsonSchemaConverter = schema => (schema->standardOf).jsonSchema->Option.getUnsafe
 
 // Simulates a target string as it actually arrives from an untyped JS caller
@@ -18,7 +18,7 @@ let jsonSchemaConverter = schema => (schema->standardOf).jsonSchema->Option.getU
 // known dialects.
 let target = (s: string): StandardSchema.JsonSchema.target => s->U.magic
 
-test("Standard ~standard.jsonSchema throws a guiding error before enableStandardJsonSchema is called", t => {
+test("Standard ~standard.jsonSchema throws a guiding error before enableStandardJSONSchema is called", t => {
   let converter = S.string->jsonSchemaConverter
   try {
     converter.input({target: target("draft-07")})->ignore
@@ -27,7 +27,7 @@ test("Standard ~standard.jsonSchema throws a guiding error before enableStandard
   | S.Exn(error) =>
     t->Assert.is(
       error.message,
-      `~standard.jsonSchema requires S.enableStandardJsonSchema() to be called first`,
+      `~standard.jsonSchema requires S.enableStandardJSONSchema() to be called first`,
     )
   }
   try {
@@ -37,13 +37,13 @@ test("Standard ~standard.jsonSchema throws a guiding error before enableStandard
   | S.Exn(error) =>
     t->Assert.is(
       error.message,
-      `~standard.jsonSchema requires S.enableStandardJsonSchema() to be called first`,
+      `~standard.jsonSchema requires S.enableStandardJSONSchema() to be called first`,
     )
   }
 })
 
 test("Standard ~standard exposes version, vendor, validate and a jsonSchema converter", t => {
-  S.enableStandardJsonSchema()
+  S.enableStandardJSONSchema()
   let standard = S.string->standardOf
   t->Assert.deepEqual(standard.version, 1)
   t->Assert.deepEqual(standard.vendor, "sury")

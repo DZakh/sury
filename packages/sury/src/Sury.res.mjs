@@ -2710,14 +2710,14 @@ let standardJSONSchemaRef = {
   contents: 0
 };
 
-function getStandardJsonSchema(schema, options, isOutput) {
+function getStandardJSONSchema(schema, options, isOutput) {
   if (standardJSONSchemaRef.contents) {
     return standardJSONSchemaRef.contents(schema, options, isOutput);
   }
   throw new SuryError({
     code: "invalid_operation",
     path: "",
-    reason: "~standard.jsonSchema requires S.enableStandardJsonSchema() to be called first"
+    reason: "~standard.jsonSchema requires S.enableStandardJSONSchema() to be called first"
   });
 }
 
@@ -2743,8 +2743,8 @@ d(sp, "~standard", {
         }
       },
       jsonSchema: {
-        input: options => getStandardJsonSchema(schema, options, false),
-        output: options => getStandardJsonSchema(schema, options, true)
+        input: options => getStandardJSONSchema(schema, options, false),
+        output: options => getStandardJSONSchema(schema, options, true)
       }
     };
   }
@@ -5034,7 +5034,7 @@ function toJSONSchema(schema, options) {
   return jsonSchema;
 }
 
-function enableStandardJsonSchema() {
+function enableStandardJSONSchema() {
   standardJSONSchemaRef.contents = (schema, options, isOutput) => toJSONSchema(isOutput ? reverse(schema) : schema, {
     target: options.target
   });
@@ -5565,7 +5565,7 @@ export {
   toJSONSchema,
   fromJSONSchema,
   extendJSONSchema,
-  enableStandardJsonSchema,
+  enableStandardJSONSchema,
   global,
   brand,
   js_parser,
