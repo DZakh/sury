@@ -1693,6 +1693,8 @@ This can be useful to optimise `S.object` parsing when you construct the input d
 Every schema implements the [Standard Schema](https://standardschema.dev/) spec (and its [JSON Schema](https://standardschema.dev/json-schema) extension) via `~standard`, typed by the `StandardSchema` module and readable through `S.untag`:
 
 ```rescript
+S.enableStandardJSONSchema() // Once, to opt into jsonSchema (keeps toJSONSchema tree-shakeable otherwise)
+
 let standard = (S.string->S.untag).standard->Option.getUnsafe
 
 standard.validate("abc") // {value: "abc"}
@@ -1701,8 +1703,6 @@ let jsonSchema = standard.jsonSchema->Option.getUnsafe
 jsonSchema.input({target: StandardSchema.JsonSchema.Draft07})
 // {type: "string", $schema: "http://json-schema.org/draft-07/schema#"}
 ```
-
-`jsonSchema` is `option` since not every Standard Schema library implements the JSON Schema extension; Sury always does.
 
 ## Error handling
 
