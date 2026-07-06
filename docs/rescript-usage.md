@@ -1695,7 +1695,7 @@ Every schema implements the [Standard Schema](https://standardschema.dev/) spec 
 ```rescript
 S.enableStandardJSONSchema() // Once, to opt into jsonSchema (keeps toJSONSchema tree-shakeable otherwise)
 
-let standard = (S.string->S.untag).standard->Option.getUnsafe
+let standard = (S.string->S.untag).standard
 
 standard.validate("abc") // {value: "abc"}
 

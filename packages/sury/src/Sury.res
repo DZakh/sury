@@ -584,7 +584,7 @@ and untagged = private {
   has?: dict<bool>,
   to?: t<unknown>,
   @as("~standard")
-  standard?: StandardSchema.props<unknown, unknown>,
+  standard: StandardSchema.props<unknown, unknown>,
 }
 and has = {
   string?: bool,
