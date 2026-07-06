@@ -4310,9 +4310,7 @@ let standardJSONSchemaRef: ref<(t<unknown>, StandardSchema.JsonSchema.options, b
   %raw(`0`),
 )
 
-// Indirects through `standardJSONSchemaRef` rather than calling
-// `toJSONSchema`/`reverse` directly - see `enableStandardJSONSchema` below
-// for why. Raises a guiding error if that hasn't been called yet.
+// Indirection keeps toJSONSchema/reverse tree-shakeable; see enableStandardJSONSchema below.
 let getStandardJSONSchema = (schema, options, isOutput) =>
   standardJSONSchemaRef.contents->Obj.magic
     ? standardJSONSchemaRef.contents(schema, options, isOutput)
@@ -4366,8 +4364,7 @@ X.Object.defineProperty(
           // `input` returns the JSON Schema of the schema's input type,
           // `output` the JSON Schema of its output type. The `$schema` URI is
           // stamped according to `options.target`; an unsupported target throws.
-          // Calling either before `enableStandardJSONSchema` throws a
-          // guiding error - see `getStandardJSONSchema` above.
+          // Throws before enableStandardJSONSchema is called.
           jsonSchema: {
             input: options => getStandardJSONSchema(schema, options, false),
             output: options => getStandardJSONSchema(schema, options, true),
@@ -7516,10 +7513,7 @@ module RescriptJSONSchema = {
             } else {
               schema
             },
-            // Only `.name` (rendered as "JSON" by `toExpression`) matters here -
-            // this is never decoded, just displayed. The real `json()` would
-            // drag its recursive union (and the dispatch machinery it needs)
-            // into any bundle that reaches this rare fallback.
+            // Just needs `.name` for the message - avoid json()'s recursive union.
             ~expected={
               let s = base(unknownTag, ~selfReverse=false)
               s.name = Some(jsonName)
@@ -7619,11 +7613,7 @@ let toJSONSchema = (schema, ~options: option<toJSONSchemaOptions>=?) => {
   jsonSchema
 }
 
-// Activates `~standard.jsonSchema` on every schema by populating the shared
-// `standardJSONSchemaRef` cell that `getStandardJSONSchema` reads. Wiring it
-// up inside a function rather than at module top level is what lets
-// bundlers tree-shake `toJSONSchema`/`reverse` away for consumers who never
-// call this.
+// Wiring this inside a function (vs top level) is what makes toJSONSchema/reverse tree-shakeable.
 //
 // Mirrors @valibot/to-json-schema's `toStandardJsonSchema`: the `target` option
 // selects the JSON Schema dialect (and the stamped `$schema` URI), and an

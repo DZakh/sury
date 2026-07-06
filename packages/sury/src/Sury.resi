@@ -500,10 +500,7 @@ type toJSONSchemaOptions = {target?: StandardSchema.JsonSchema.target}
 let toJSONSchema: (t<'value>, ~options: toJSONSchemaOptions=?) => JSONSchema.t
 let fromJSONSchema: JSONSchema.t => t<JSON.t>
 let extendJSONSchema: (t<'value>, JSONSchema.t) => t<'value>
-// Activates `~standard.jsonSchema` (the Standard JSON Schema extension) on
-// every schema. Until this is called, calling `~standard.jsonSchema.input`/
-// `.output` throws - this keeps `toJSONSchema`/`reverse` tree-shakeable for
-// consumers who never use JSON Schema conversion.
+// Enables `~standard.jsonSchema`; its input/output throw before this is called.
 let enableStandardJSONSchema: unit => unit
 
 type globalConfigOverride = {

@@ -8,8 +8,7 @@ open Vitest
 @get_index
 external standardOf: (S.t<'a>, string) => StandardSchema.props<unknown, unknown> = ""
 let standardOf = schema => schema->standardOf("~standard")
-// `jsonSchema` is always present on `~standard`; `.input`/`.output` just
-// throw until `S.enableStandardJSONSchema` has been called (see below).
+// jsonSchema.input/.output throw until S.enableStandardJSONSchema is called (see below).
 let jsonSchemaConverter = schema => (schema->standardOf).jsonSchema->Option.getUnsafe
 
 // Simulates a target string as it actually arrives from an untyped JS caller

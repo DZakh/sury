@@ -1965,8 +1965,7 @@ test("Standard JSON Schema interface support", (t) => {
   const schema = S.schema({ foo: S.to(S.string, S.number) });
   const standard = schema["~standard"];
 
-  // `jsonSchema.input`/`.output` throw until `enableStandardJSONSchema` is
-  // called (see its doc comment).
+  // Throws until enableStandardJSONSchema is called.
   t.expect(() => standard.jsonSchema.input({ target: "draft-07" })).toThrow(
     "~standard.jsonSchema requires S.enableStandardJSONSchema() to be called first"
   );

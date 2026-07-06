@@ -210,9 +210,7 @@ export type Schema<Output, Input = unknown> = {
   readonly to?: Schema<unknown>;
   readonly errorMessage?: SchemaErrorMessage;
 
-  // `jsonSchema.input`/`.output` throw until `enableStandardJSONSchema()` is
-  // called (see its doc comment below) - the converter itself is always
-  // present, so it doesn't need to be optional here.
+  // jsonSchema.input/.output throw until enableStandardJSONSchema() is called.
   readonly ["~standard"]: StandardSchemaV1.Props<Input, Output> &
     StandardJSONSchemaV1.Props<Input, Output>;
 } & (
@@ -877,12 +875,7 @@ export function extendJSONSchema<Output, Input>(
   schema: Schema<Output, Input>,
   jsonSchema: JSONSchema7
 ): Schema<Output, Input>;
-/**
- * Activates `~standard.jsonSchema` (the Standard JSON Schema extension) on
- * every schema, past and future. Until this is called, calling
- * `~standard.jsonSchema.input`/`.output` throws - this keeps `toJSONSchema`
- * tree-shakeable for consumers who never use JSON Schema conversion.
- */
+/** Enables `~standard.jsonSchema`; its input/output throw before this is called. */
 export function enableStandardJSONSchema(): void;
 
 // ==================================================================================================
