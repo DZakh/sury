@@ -285,19 +285,7 @@ S.toJSONSchema(userSchema);
 
 See how all the properties and examples are in the Input format. It's just asking to put itself to Fastify or any other server with OpenAPI integration 😁
 
-Pass a `target` to pick the dialect: `"draft-07"` (default), `"draft-2020-12"` or `"openapi-3.0"` (any other throws). Sury emits a dialect-correct body and stamps the matching `$schema`. Without options it defaults to `draft-07` and omits `$schema`.
-
-```ts
-S.toJSONSchema(S.string, { target: "draft-2020-12" });
-// { $schema: "https://json-schema.org/draft/2020-12/schema", type: "string" }
-
-// Dialect differences, e.g. tuples and nullables:
-S.toJSONSchema(S.schema([S.string, S.boolean]), { target: "draft-2020-12" });
-// { ..., prefixItems: [...] }   // draft-07 uses `items: [...]`, openapi-3.0 `items: { anyOf: [...] }`
-
-S.toJSONSchema(S.nullable(S.number), { target: "openapi-3.0" });
-// { type: "number", nullable: true }   // openapi-3.0 also uses `enum` for literals/null
-```
+`S.toJSONSchema(schema, { target })` also supports emitting `"draft-07"` (default), `"draft-2020-12"`, or `"openapi-3.0"` dialects.
 
 If that's not cool enough for you, you can also turn a JSON Schema into a **Sury** schema:
 
