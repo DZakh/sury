@@ -39,6 +39,10 @@
       "require": "./src/S.js",
       "types": "./src/S.d.ts"
     },
+    "./core": {
+      "import": "./src/core.mjs",
+      "require": "./src/core.cjs"
+    },
     "./src/*": "./src/*",
     "./S.gen.js": {
       "types": "./src/S.gen.d.ts"
@@ -51,10 +55,11 @@
   ],
   "scripts": {
     "coverage": "vitest run --coverage",
-    "build": "pnpm rescript && node ./scripts/pack/Pack.res.mjs",
-    "res": "rescript watch",
+    "build:core": "node ./scripts/build-core.mjs",
+    "build": "pnpm build:core && pnpm rescript && node ./scripts/pack/Pack.res.mjs",
+    "res": "pnpm build:core && rescript watch",
     "test:res": "cd ./packages/tests && rescript clean && rescript watch",
-    "test": "rescript build && vitest run",
+    "test": "pnpm build:core && rescript build && vitest run",
     "typecheck": "vitest run --typecheck.only",
     "bench": "vitest bench --run",
     "bench:types": "tsx tests/types.bench.ts",
