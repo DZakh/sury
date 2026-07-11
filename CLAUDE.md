@@ -64,7 +64,7 @@ Any transformation may be async. Continue the chain via `.then()`. For nested it
 A `val` is the compile-time view of a runtime value at one point in the generated code.
 
 Core fields:
-- `schema` — actual type at this point. **Invariant: an output val carries the schema of the value it actually holds.** Containers build it from item-output schemas (`B.Val.Object.add`, `unionFactory(outputAnyOf)`, `array(itemOutput.schema)`) — never reuse the pre-transform `expected`, never overwrite the schema of an `isOutput` val: vals own their schemas, assembly only places them. The next `.to` segment decodes from this field, so a stale schema causes double decoding or skips needed decoding (#284).
+- `schema` — actual type at this point. **Invariant: an output val's `schema` describes the value it actually holds** — build it from item-output schemas, never from the pre-transform `expected`, and never overwrite it on an `isOutput` val. The next `.to` segment decodes from it, so a stale schema double-decodes or skips decoding (#284).
 - `expected` — schema to build decoder for
 - `var()` — variable name in generated code (allocates lazily; reuse when the value is referenced more than once)
 - `inline` — inline expression form

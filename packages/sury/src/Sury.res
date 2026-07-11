@@ -2896,9 +2896,7 @@ and arrayDecoder: builder = (~input as unknownInput) => {
         let itemOutput = itemInput->parseDynamic
         let hasTransform = itemOutput.hasTransform->X.Option.getUnsafe
         let output = hasTransform
-          ? // The output val's schema must describe the *transformed* items
-            // (itemOutput.schema), not the pre-transform expected — it's the
-            // type context the next `.to` segment decodes from (#284)
+          ? // The next `.to` segment decodes from this schema — item-output, not expectedSchema (#284)
             input->B.next(
               `new Array(${inputVar}.length)`,
               ~schema=array(itemOutput.schema->castToPublic)->castToInternal,
@@ -3048,8 +3046,7 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
 
       let hasTransform = itemOutput.hasTransform->X.Option.getUnsafe
       let output = hasTransform
-        ? // Same as arrayDecoder: describe transformed values, not the
-          // pre-transform expected (#284)
+        ? // The next `.to` segment decodes from this schema — item-output, not expectedSchema (#284)
           input->B.next("{}", ~schema=dictFactory(itemOutput.schema->castToPublic)->castToInternal)
         : input->B.refine(~schema=expectedSchema)
 
@@ -5805,14 +5802,10 @@ module Schema = {
     | None => input
     }
   }
-  // Assemble an object/tuple val from a per-location field producer — the
-  // single owner of the shaped structure walk. Used by the shaped-parser
-  // reshape (reads each child via `from` paths), the flatten reuse path
-  // (reads each key from the parent's decoded `vals`), and the shaped
-  // serializer (reads each child from its acc tree). `init` runs before the
-  // walk to wire the fresh objectVal and may pre-populate `vals` (flattened
-  // merge) — pre-populated locations are skipped. `onMissing` handles a
-  // target that is neither object nor tuple.
+  // Owns the shaped structure walk: assembles an object/tuple val from a
+  // per-location field producer. `init` wires the fresh objectVal before the
+  // walk and may pre-populate `vals` (flattened merge) — pre-populated
+  // locations are skipped. `onMissing` handles a non-object/tuple target.
   and assembleShapedObject = (~input, ~schema, ~field, ~init=?, ~onMissing=?) => {
     let output = makeObjectVal(input, ~schema)
     output.isOutput = Some(true)
@@ -5984,11 +5977,8 @@ module Schema = {
   ) => {
     switch acc {
     | Some({val}) => {
-        // Placement, not decoding: the leaf moves an already-decoded field val
-        // into its slot in the target object. The val keeps its own output
-        // schema (same discipline as getShapedParserOutput, #271/#284); parse
-        // re-advances `expected` along the target chain and emits nothing for
-        // an output val.
+        // Placement of an already-decoded val — don't overwrite its schema (#284);
+        // parse only re-advances `expected` and emits nothing for an output val
         let v = val->B.Val.scope
         v.hasTransform = Some(true)
         v.expected = targetSchema
@@ -6026,8 +6016,7 @@ module Schema = {
           )
         }
 
-        // A dict-like target (object-typed additionalItems) has no fixed
-        // locations to walk without an input acc
+        // A dict-like target has no fixed locations to walk without an input acc
         if acc === None && resolvedTargetSchema.additionalItems->typeof === objectTag {
           missingInput()
         } else {
