@@ -5772,12 +5772,21 @@ module Schema = {
     | None => input
     }
   }
-  // Assemble an object/tuple val from a per-location field producer. Shared by
-  // the shaped-parser reshape (reads each child via `from` paths) and the
-  // flatten reuse path (reads each key from the parent's decoded `vals`).
-  and assembleShapedObject = (~input, ~schema, ~field) => {
+  // Assemble an object/tuple val from a per-location field producer — the
+  // single owner of the shaped structure walk. Used by the shaped-parser
+  // reshape (reads each child via `from` paths), the flatten reuse path
+  // (reads each key from the parent's decoded `vals`), and the shaped
+  // serializer (reads each child from its acc tree). `init` runs before the
+  // walk to wire the fresh objectVal and may pre-populate `vals` (flattened
+  // merge) — pre-populated locations are skipped. `onMissing` handles a
+  // target that is neither object nor tuple.
+  and assembleShapedObject = (~input, ~schema, ~field, ~init=?, ~onMissing=?) => {
     let output = makeObjectVal(input, ~schema)
     output.isOutput = Some(true)
+    switch init {
+    | Some(fn) => fn(output)
+    | None => ()
+    }
     switch schema {
     | {items} =>
       for idx in 0 to items->Array.length - 1 {
@@ -5788,13 +5797,20 @@ module Schema = {
       let keys = properties->Dict.keysToArray
       for idx in 0 to keys->Array.length - 1 {
         let location = keys->Array.getUnsafe(idx)
-        output->B.Val.Object.add(~location, field(~location, ~childSchema=properties->Dict.getUnsafe(location)))
+        // Skip locations pre-populated by init (flattened fields)
+        if !(output.vals->X.Option.getUnsafe->Stdlib.Dict.has(location)) {
+          output->B.Val.Object.add(~location, field(~location, ~childSchema=properties->Dict.getUnsafe(location)))
+        }
       }
     | _ =>
-      // FIXME: Use a path
-      InternalError.panic(
-        `Don't know where the value is coming from: ${schema->castToPublic->toExpression}`,
-      )
+      switch onMissing {
+      | Some(fn) => fn()
+      | None =>
+        // FIXME: Use a path
+        InternalError.panic(
+          `Don't know where the value is coming from: ${schema->castToPublic->toExpression}`,
+        )
+      }
     }
     output->completeObjectVal
   }
@@ -5961,79 +5977,7 @@ module Schema = {
         } else {
           targetSchema
         }
-        let v = makeObjectVal(input, ~schema=resolvedTargetSchema)
-        v.expected = resolvedTargetSchema
-        v.isOutput = Some(true)
-        v.prev = None
-        v.parent = Some(input)
-        v.var = B._notVarAtParent
-
-        switch resolvedTargetSchema {
-        | {items}
-          if !(
-            acc === None &&
-              resolvedTargetSchema.additionalItems->typeof === objectTag
-          ) =>
-          for idx in 0 to items->Array.length - 1 {
-            let location = idx->Int.toString
-            v->B.Val.Object.add(
-              ~location,
-              getShapedSerializerOutput(
-                ~input,
-                ~acc=switch acc {
-                | Some({properties}) => properties->X.Dict.getUnsafeOption(location)
-                | _ => None
-                },
-                ~targetSchema=items->Array.getUnsafe(idx),
-                ~path=path->Path.concat(
-                  Path.fromInlinedLocation(input.global->B.inlineLocation(location)),
-                ),
-              ),
-            )
-          }
-        | {properties, ?flattened}
-          if !(
-            acc === None &&
-              resolvedTargetSchema.additionalItems->typeof === objectTag
-          ) => {
-            switch (flattened, acc) {
-            | (Some(flattenedSchemas), Some({flattened: flattenedAcc})) =>
-              flattenedAcc->Array.forEachWithIndex((acc, idx) => {
-                let flattenedOutput = getShapedSerializerOutput(
-                  ~input,
-                  ~acc=Some(acc),
-                  ~targetSchema=flattenedSchemas->Array.getUnsafe(idx)->reverse,
-                  ~path,
-                )
-                v->B.Val.Object.merge(flattenedOutput.vals->X.Option.getUnsafe)
-              })
-            | _ => ()
-            }
-
-            let keys = properties->Dict.keysToArray
-            for idx in 0 to keys->Array.length - 1 {
-              let location = keys->Array.getUnsafe(idx)
-
-              // Skip fields added by flattened
-              if !(v.vals->X.Option.getUnsafe->Stdlib.Dict.has(location)) {
-                v->B.Val.Object.add(
-                  ~location,
-                  getShapedSerializerOutput(
-                    ~input,
-                    ~acc=switch acc {
-                    | Some({properties}) => properties->X.Dict.getUnsafeOption(location)
-                    | _ => None
-                    },
-                    ~targetSchema=properties->Dict.getUnsafe(location),
-                    ~path=path->Path.concat(
-                      Path.fromInlinedLocation(input.global->B.inlineLocation(location)),
-                    ),
-                  ),
-                )
-              }
-            }
-          }
-        | _ =>
+        let missingInput = () => {
           let path = switch targetSchema.from {
           | Some(from) => path ++ from->Array.map(item => `["${item}"]`)->Array.join("")
           | None => path
@@ -6049,7 +5993,48 @@ module Schema = {
           )
         }
 
-        v->completeObjectVal
+        // A dict-like target (object-typed additionalItems) has no fixed
+        // locations to walk without an input acc
+        if acc === None && resolvedTargetSchema.additionalItems->typeof === objectTag {
+          missingInput()
+        } else {
+          assembleShapedObject(
+            ~input,
+            ~schema=resolvedTargetSchema,
+            ~init=v => {
+              v.expected = resolvedTargetSchema
+              v.prev = None
+              v.parent = Some(input)
+              v.var = B._notVarAtParent
+              switch (resolvedTargetSchema.flattened, acc) {
+              | (Some(flattenedSchemas), Some({flattened: flattenedAcc})) =>
+                flattenedAcc->Array.forEachWithIndex((acc, idx) => {
+                  let flattenedOutput = getShapedSerializerOutput(
+                    ~input,
+                    ~acc=Some(acc),
+                    ~targetSchema=flattenedSchemas->Array.getUnsafe(idx)->reverse,
+                    ~path,
+                  )
+                  v->B.Val.Object.merge(flattenedOutput.vals->X.Option.getUnsafe)
+                })
+              | _ => ()
+              }
+            },
+            ~field=(~location, ~childSchema) =>
+              getShapedSerializerOutput(
+                ~input,
+                ~acc=switch acc {
+                | Some({properties}) => properties->X.Dict.getUnsafeOption(location)
+                | _ => None
+                },
+                ~targetSchema=childSchema,
+                ~path=path->Path.concat(
+                  Path.fromInlinedLocation(input.global->B.inlineLocation(location)),
+                ),
+              ),
+            ~onMissing=missingInput,
+          )
+        }
       }
     }
   }

@@ -3637,9 +3637,12 @@ function proxifyShapedSchema(schema, from, fromFlattened) {
   });
 }
 
-function assembleShapedObject(input, schema, field) {
+function assembleShapedObject(input, schema, field, init, onMissing) {
   let output = makeObjectVal(input, schema);
   output.io = true;
+  if (init !== undefined) {
+    init(output);
+  }
   let items = schema.items;
   if (items !== undefined) {
     for (let idx = 0, idx_finish = items.length; idx < idx_finish; ++idx) {
@@ -3652,8 +3655,12 @@ function assembleShapedObject(input, schema, field) {
       let keys = Object.keys(properties);
       for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
         let location$1 = keys[idx$1];
-        add(output, location$1, field(location$1, properties[location$1]));
+        if (!(location$1 in output.d)) {
+          add(output, location$1, field(location$1, properties[location$1]));
+        }
       }
+    } else if (onMissing !== undefined) {
+      onMissing();
     } else {
       let message = `Don't know where the value is coming from: ` + toExpression(schema);
       throw new Error(`[Sury] ` + message);
@@ -3667,7 +3674,7 @@ function getShapedParserOutput(input, targetSchema) {
   let fromFlattened = targetSchema.fromFlattened;
   let v = fromFlattened !== undefined ? scope(getValByFrom(input.fv[fromFlattened], targetSchema.from, 0)) : (
       from !== undefined ? scope(getValByFrom(input, from, 0)) : (
-          constField in targetSchema ? nextConst(input, targetSchema, undefined) : assembleShapedObject(input, targetSchema, (param, childSchema) => getShapedParserOutput(input, childSchema))
+          constField in targetSchema ? nextConst(input, targetSchema, undefined) : assembleShapedObject(input, targetSchema, (param, childSchema) => getShapedParserOutput(input, childSchema), undefined, undefined)
         )
     );
   v.prev = undefined;
@@ -3732,7 +3739,6 @@ function prepareShapedSerializerAcc(acc, input) {
 }
 
 function getShapedSerializerOutput(input, acc, targetSchema, path) {
-  let exit = 0;
   if (acc !== undefined) {
     let val = acc.val;
     if (val !== undefined) {
@@ -3741,89 +3747,61 @@ function getShapedSerializerOutput(input, acc, targetSchema, path) {
       v.e = targetSchema;
       return parse$1(v);
     }
-    exit = 1;
-  } else {
-    exit = 1;
   }
-  if (exit === 1) {
-    if (constField in targetSchema) {
-      let v$1 = nextConst(input, targetSchema, targetSchema);
-      v$1.prev = undefined;
-      v$1.p = input;
-      v$1.v = _notVarAtParent;
-      v$1.io = true;
-      return parse$1(v$1);
-    }
-    let resolvedTargetSchema = acc === undefined ? getOutputSchema(targetSchema) : targetSchema;
-    let v$2 = makeObjectVal(input, resolvedTargetSchema);
-    v$2.e = resolvedTargetSchema;
-    v$2.io = true;
-    v$2.prev = undefined;
-    v$2.p = input;
-    v$2.v = _notVarAtParent;
-    let flattened = resolvedTargetSchema.flattened;
-    let items = resolvedTargetSchema.items;
-    let exit$1 = 0;
-    let exit$2 = 0;
-    if (items !== undefined && (acc !== undefined || typeof resolvedTargetSchema.additionalItems !== objectTag)) {
-      for (let idx = 0, idx_finish = items.length; idx < idx_finish; ++idx) {
-        let location = idx.toString();
-        let tmp;
-        if (acc !== undefined) {
-          let properties = acc.properties;
-          tmp = properties !== undefined ? properties[location] : undefined;
-        } else {
-          tmp = undefined;
-        }
-        let inlinedLocation = inlineLocation(input.g, location);
-        add(v$2, location, getShapedSerializerOutput(input, tmp, items[idx], path + (`[` + inlinedLocation + `]`)));
-      }
-    } else {
-      exit$2 = 3;
-    }
-    if (exit$2 === 3) {
-      let properties$1 = resolvedTargetSchema.properties;
-      if (properties$1 !== undefined && (acc !== undefined || typeof resolvedTargetSchema.additionalItems !== objectTag)) {
-        if (flattened !== undefined && acc !== undefined) {
-          let flattenedAcc = acc.flattened;
-          if (flattenedAcc !== undefined) {
-            flattenedAcc.forEach((acc, idx) => {
-              let flattenedOutput = getShapedSerializerOutput(input, acc, reverse(flattened[idx]), path);
-              let vals = flattenedOutput.d;
-              let locations = Object.keys(vals);
-              for (let idx$1 = 0, idx_finish = locations.length; idx$1 < idx_finish; ++idx$1) {
-                let location = locations[idx$1];
-                add(v$2, location, vals[location]);
-              }
-            });
-          }
-        }
-        let keys = Object.keys(properties$1);
-        for (let idx$1 = 0, idx_finish$1 = keys.length; idx$1 < idx_finish$1; ++idx$1) {
-          let location$1 = keys[idx$1];
-          if (!(location$1 in v$2.d)) {
-            let tmp$1;
-            if (acc !== undefined) {
-              let properties$2 = acc.properties;
-              tmp$1 = properties$2 !== undefined ? properties$2[location$1] : undefined;
-            } else {
-              tmp$1 = undefined;
-            }
-            let inlinedLocation$1 = inlineLocation(input.g, location$1);
-            add(v$2, location$1, getShapedSerializerOutput(input, tmp$1, properties$1[location$1], path + (`[` + inlinedLocation$1 + `]`)));
-          }
-        }
+  if (constField in targetSchema) {
+    let v$1 = nextConst(input, targetSchema, targetSchema);
+    v$1.prev = undefined;
+    v$1.p = input;
+    v$1.v = _notVarAtParent;
+    v$1.io = true;
+    return parse$1(v$1);
+  }
+  let resolvedTargetSchema = acc === undefined ? getOutputSchema(targetSchema) : targetSchema;
+  let missingInput = () => {
+    let from = targetSchema.from;
+    let path$1 = from !== undefined ? path + from.map(item => `["` + item + `"]`).join("") : path;
+    let tmp = path$1 === "" ? "" : ` at ` + path$1;
+    return invalidOperation(input, `Missing input for ` + toExpression(targetSchema) + tmp);
+  };
+  if (acc === undefined && typeof resolvedTargetSchema.additionalItems === objectTag) {
+    return missingInput();
+  } else {
+    return assembleShapedObject(input, resolvedTargetSchema, (location, childSchema) => {
+      let tmp;
+      if (acc !== undefined) {
+        let properties = acc.properties;
+        tmp = properties !== undefined ? properties[location] : undefined;
       } else {
-        exit$1 = 2;
+        tmp = undefined;
       }
-    }
-    if (exit$1 === 2) {
-      let from = targetSchema.from;
-      let path$1 = from !== undefined ? path + from.map(item => `["` + item + `"]`).join("") : path;
-      let tmp$2 = path$1 === "" ? "" : ` at ` + path$1;
-      invalidOperation(input, `Missing input for ` + toExpression(targetSchema) + tmp$2);
-    }
-    return completeObjectVal(v$2);
+      let inlinedLocation = inlineLocation(input.g, location);
+      return getShapedSerializerOutput(input, tmp, childSchema, path + (`[` + inlinedLocation + `]`));
+    }, v => {
+      v.e = resolvedTargetSchema;
+      v.prev = undefined;
+      v.p = input;
+      v.v = _notVarAtParent;
+      let match = resolvedTargetSchema.flattened;
+      if (match === undefined) {
+        return;
+      }
+      if (acc === undefined) {
+        return;
+      }
+      let flattenedAcc = acc.flattened;
+      if (flattenedAcc !== undefined) {
+        flattenedAcc.forEach((acc, idx) => {
+          let flattenedOutput = getShapedSerializerOutput(input, acc, reverse(match[idx]), path);
+          let vals = flattenedOutput.d;
+          let locations = Object.keys(vals);
+          for (let idx$1 = 0, idx_finish = locations.length; idx$1 < idx_finish; ++idx$1) {
+            let location = locations[idx$1];
+            add(v, location, vals[location]);
+          }
+        });
+        return;
+      }
+    }, missingInput);
   }
 }
 
@@ -3987,7 +3965,7 @@ function shapedParser(input) {
         flattenedInput.io = true;
         flattenedVal = parse$1(flattenedInput);
       } else {
-        let assembled = assembleShapedObject(input, flattenedSchema, (location, param) => valGet(input, location));
+        let assembled = assembleShapedObject(input, flattenedSchema, (location, param) => valGet(input, location), undefined, undefined);
         assembled.e = flattenedSchema;
         assembled.prev = undefined;
         flattenedVal = markOutput(assembled, assembled);
