@@ -186,7 +186,8 @@ export const arrayDecoder = (unknownInput: Val): Val => {
       const itemOutput = parseDynamic(itemInput);
       const hasTransform = itemOutput.t!;
       const output2 = hasTransform
-        ? B_next(input, `new Array(${inputVar}.length)`, expectedSchema) // FIXME: schema here should be input.expected output
+        ? // The next `.to` segment decodes from this schema — item-output, not expectedSchema (#284)
+          B_next(input, `new Array(${inputVar}.length)`, array(itemOutput.s))
         : B_refine(input, expectedSchema);
 
       const itemCode = B_mergeWithPathPrepend(
@@ -332,8 +333,8 @@ export const objectDecoder = (unknownInput: Val): Val => {
 
     const hasTransform = itemOutput.t!;
     const output2 = hasTransform
-      ? // FIXME: schema should be expectedSchema output
-        B_next(input, "{}", expectedSchema)
+      ? // The next `.to` segment decodes from this schema — item-output, not expectedSchema (#284)
+        B_next(input, "{}", dictFactory(itemOutput.s))
       : B_refine(input, expectedSchema);
 
     const itemCode = B_mergeWithPathPrepend(
