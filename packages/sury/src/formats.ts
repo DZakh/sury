@@ -4,29 +4,11 @@ import { bool, float, inputToString, jsonName, literalDecoder, nullLiteral, numb
 import { baseSchema, cached, copySchema, unknown, updateOutput } from "./schema";
 import { B_Val_Object_add, B_embed, B_embedInvalidInput, B_failWithErrorMessage, B_next, B_nextConst, B_refine, B_unsupportedDecode, B_varWithoutAllocation, _var, failInvalidType } from "./builder";
 import { getDecoder, instanceDecoder, parse, reverse } from "./parse";
-import { Builder, Encoder, Internal, SchemaErrorMessage, Val, arrayTag, flagUnsafeHas, inlinedValueFromString, instanceTag, isLiteral, numberTag, refTag, stringTag, tagFlagArray, tagFlagBigint, tagFlagBoolean, tagFlagInstance, tagFlagNaN, tagFlagNull, tagFlagNumber, tagFlagObject, tagFlagRef, tagFlagString, tagFlagUndefined, tagFlagUnion, tagFlagUnknown, tagFlags, undefinedTag, unionTag, unknownTag } from "./types";
-// Section 07: json / formats — Sury.res lines 4864-5484
-// (jsonEncoderFn / isJsonable / jsonDecoderFn / json, jsonString,
-//  jsonStringWithSpace, uint8Array, isoDateTime, port, email, uuid, cuid,
-//  url, invalidDateRefine, date, to, list, meta, brand)
-//
-// TODO(integration): expects from other sections:
-//   - B (B_refine, B_next, B_nextConst, B_embed, B_embedInvalidInput,
-//     B_unsupportedDecode, B_failWithErrorMessage, failInvalidType,
-//     _var, B_varWithoutAllocation, B_Val_Object_add)
-//   - parse (the parse loop, Sury.res ~2256)
-//   - stringDecoderFn, numberDecoder, arrayDecoder, literalDecoder,
-//     unionDecoder, instanceDecoder, recursiveDecoder
-//   - string, bool, float, unit, nullLiteral (primitive factories)
-//   - array, dictFactory, unionFactory
-//   - makeObjectVal, completeObjectVal, valGet, unionPerVariantVal,
-//     inputToString
-//   - transform, updateOutput, reverse, getDecoder
-//   - jsonName (= `JSON`, Sury.res 2146), defsPath (= `#/$defs/`, 4514)
-//   - baseSchema, cached, copySchema, unknown, isLiteral, TagFlag, Flag,
-//     inlinedValueFromString (prelude — baseSchema needs to be exported)
-//   - ValObject type (B_Val_Object_t) — makeObjectVal's return type
-// =============================================================================
+import { Internal, SchemaErrorMessage, Val, isLiteral } from "./types";
+import { Builder, Encoder } from "./builder";
+import { flagUnsafeHas } from "./flags";
+import { inlinedValueFromString } from "./path";
+import { arrayTag, instanceTag, numberTag, refTag, stringTag, tagFlagArray, tagFlagBigint, tagFlagBoolean, tagFlagInstance, tagFlagNaN, tagFlagNull, tagFlagNumber, tagFlagObject, tagFlagRef, tagFlagString, tagFlagUndefined, tagFlagUnion, tagFlagUnknown, tagFlags, undefinedTag, unionTag, unknownTag } from "./tags";
 
 export const jsonEncoderFn = (input: Val, target: Internal): Val => {
   const toTagFlag = tagFlags[target.type]!;
@@ -546,7 +528,6 @@ export const date = (): Internal => {
     };
   });
 }
-
 
 // PORT-NOTE: ReScript list runtime (v12): empty list = `0`, cons cell =
 // `{hd, tl}`. These two helpers replicate Stdlib List.fromArray / List.toArray

@@ -4,34 +4,12 @@ import { B_embed, B_failWithArg, B_invalidInputBuilder, B_makeInvalidConversionD
 import { definitionToSchema } from "./factory";
 import { objectDecoder, unionFactory } from "./composites";
 import { Option_getOr, Option_getOrWith, getAssertResult, internalRefine, nullAsUnit, transform } from "./operations";
-import { AdditionalItems, Builder, Check, Internal, Tag, Val, flagDisableNanNumberValidation, functionTag, isSchemaObject, objectTag, pathEmpty, pathFromArray, stringTag } from "./types";
+import { AdditionalItems, Check, Internal, Val, isSchemaObject } from "./types";
+import { Builder } from "./builder";
+import { flagDisableNanNumberValidation } from "./flags";
+import { Tag, functionTag, objectTag, stringTag } from "./tags";
+import { pathEmpty, pathFromArray } from "./path";
 import { getDecoder, reverse } from "./parse";
-// Section: Sury.res lines 6944-7136 — JS public API wrappers
-// (js_parser, js_asyncParser, js_asyncDecoder, js_encoder, js_asyncEncoder,
-//  js_assert, js_is, js_union, js_to, js_refine, noop, js_asyncDecoderAssert,
-//  js_optional, js_nullable, js_merge, global, reverse re-export)
-//
-// TODO(integration): expects from other sections:
-//   - getDecoder (raw variadic; reads extra args / flag) — earlier section
-//   - reverse (internal schema reverse) — earlier section; also see PORT-NOTE
-//     at the bottom: Sury.res line 7135 re-types it for the public API
-//   - getAssertResult — earlier section (~4411)
-//   - unionFactory — earlier section (~3989)
-//   - definitionToSchema — Schema factory section (~5485+)
-//   - B (Builder.B helpers: varWithoutAllocation, next, _var, embed,
-//     failWithArg, makeInvalidConversionDetails, invalidInputBuilder) —
-//     builder section (~1083+)
-//   - internalRefine — earlier section (~4560)
-//   - transform — earlier section (~4628)
-//   - Option_getOr / Option_getOrWith — Option module (~4773)
-//   - unit, nullAsUnit, nullLiteral — literal factories section (~2211+)
-//   - objectDecoder — object section
-// Prelude (core.ts) provides: unknown, isSchemaObject, InternalError,
-//   updateOutput, copySchema, baseSchema, typeOf, functionTag, stringTag,
-//   objectTag, pathFromArray, pathEmpty, globalConfig, Flag,
-//   initialOnAdditionalItems, initialDefaultFlag, GlobalConfigOverride,
-//   Internal, Val, Check.
-// ============================================================================
 
 export const js_parser = (...args: any[]) => (getDecoder as any)(unknown, ...args);
 
@@ -239,6 +217,3 @@ export const global = (override: GlobalConfigOverride): void => {
 
 // PORT-NOTE: Sury.res line 7135 `let reverse = reverse->Obj.magic` merely
 // re-types the internal `reverse` for the public API — no runtime change.
-// TODO(integration): `reverse` must already be defined/exported by its
-// earlier section; do NOT redefine it here.
-// =============================================================================

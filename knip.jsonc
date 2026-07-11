@@ -1,0 +1,55 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  // builder.ts (and friends) export reference-identity singletons (`_var`,
+  // `failInvalidType`, `noopOperation`, …) compared by `===` across modules.
+  // As long as they're imported somewhere they're "used"; this only stops
+  // same-file-only exports from being reported, never cross-module ones.
+  "ignoreExportsUsedInFile": true,
+  // Intentional two-name exports (e.g. `schema`/`schemaFactory`,
+  // `SuryError`/`errorClass`): the codebase deliberately re-exports one value
+  // under a public and an internal name, so don't flag them as duplicates.
+  "rules": {
+    "duplicates": "off"
+  },
+  // Wallaby's config is loaded by the Wallaby runner, not imported anywhere.
+  "ignore": ["wallaby.conf.js"],
+  // tsx runs the spec CLI; dune builds the OCaml ppx. Both are invoked from
+  // scripts/CI, not declared as npm bin deps.
+  "ignoreBinaries": ["tsx", "dune"],
+  "workspaces": {
+    "packages/sury": {
+      "entry": [
+        // Public JS/TS API + `$res_*` exports consumed by S.res (ReScript) at
+        // runtime, not via TS imports — anchor them so they aren't flagged.
+        "src/entry.ts",
+        // Invoked through package.json scripts (build:entry / build).
+        "scripts/pack.ts",
+        "tests/**/*_test.ts",
+        "tests/**/*.bench.ts"
+      ],
+      "project": ["src/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts"],
+      "vitest": {
+        "config": ["vitest.config.mjs"],
+        "entry": ["tests/**/*_test.ts", "tests/**/*.bench.ts"]
+      },
+      // @rescript/darwin-arm64 is a platform binary pulled in per-OS; the
+      // rescript runtime is imported by the checked-in compiled S.res.mjs.
+      "ignoreDependencies": ["@rescript/darwin-arm64", "@rescript/runtime"]
+    },
+    "packages/spec": {
+      "entry": ["cli.ts"],
+      "project": ["**/*.ts"]
+    },
+    "packages/e2e": {
+      "entry": ["src/**/*.bench.ts", "vitest.config.mjs"],
+      "project": ["src/**/*.ts"],
+      "vitest": {
+        "config": ["vitest.config.mjs"]
+      },
+      // genType-emitted artifacts; sury-ppx is a ReScript ppx binary wired via
+      // rescript.json, not a TS import; rescript runtime as above.
+      "ignore": ["src/genType/**"],
+      "ignoreDependencies": ["sury-ppx", "@rescript/runtime"]
+    }
+  }
+}

@@ -1,19 +1,9 @@
 import { baseSchema, cached } from "./schema";
 import { B_embed, B_embedInvalidInput, B_inlineConst, B_next, B_nextConst, B_refine, B_unsupportedDecode, B_varWithoutAllocation, _var, failInvalidType } from "./builder";
-import { Builder, Check, Internal, Tag, Val, bigintTag, booleanTag, flagDisableNanNumberValidation, flagUnsafeHas, instanceTag, isLiteral, nanTag, nullTag, numberTag, objectTag, stringTag, symbolTag, tagFlagBigint, tagFlagBoolean, tagFlagNaN, tagFlagNull, tagFlagNumber, tagFlagRef, tagFlagString, tagFlagSymbol, tagFlagUndefined, tagFlagUnion, tagFlagUnknown, tagFlags, undefinedTag, unknownTag } from "./types";
-// =============================================================================
-// Fragment 03 — primitives (Sury.res lines 1905-2255)
-// int32FormatValidation, typeofCond, nanCond, isArrayCond, objectTagCond,
-// instanceofCond, numberDecoder, float, int, inputToString, stringDecoderFn,
-// string, booleanDecoder, bool, bigintDecoder, bigint, symbolDecoder, symbol,
-// setHas, jsonName, literalDecoder, unit, nullLiteral, nan, Literal.
-//
-// TODO(integration): expects from the Builder/B section (earlier section):
-//   B_embed, B_refine, B_next, B_nextConst, B_varWithoutAllocation, _var,
-//   B_unsupportedDecode, failInvalidType, B_embedInvalidInput, B_inlineConst
-// TODO(integration): expects from the prelude: TagFlag, Flag, cached,
-//   baseSchema, isLiteral, typeOf, tag consts, Internal, Val, Check, Builder.
-// =============================================================================
+import { Check, Internal, Val, isLiteral } from "./types";
+import { Builder } from "./builder";
+import { flagDisableNanNumberValidation, flagUnsafeHas } from "./flags";
+import { Tag, bigintTag, booleanTag, instanceTag, nanTag, nullTag, numberTag, objectTag, stringTag, symbolTag, tagFlagBigint, tagFlagBoolean, tagFlagNaN, tagFlagNull, tagFlagNumber, tagFlagRef, tagFlagString, tagFlagSymbol, tagFlagUndefined, tagFlagUnion, tagFlagUnknown, tagFlags, undefinedTag, unknownTag } from "./tags";
 
 export const int32FormatValidation = (inputVar: string) => {
   return `${inputVar}<=2147483647&&${inputVar}>=-2147483648&&${inputVar}%1===0`;
@@ -340,4 +330,3 @@ export const Literal_parse = (value: unknown): Internal => {
     }
   }
 }
-// =============================================================================

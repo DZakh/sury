@@ -1,21 +1,12 @@
 import { SuryError, unknown } from "./schema";
-import { BGlobal, Check, ErrorDetails, Flag, Internal, Path, SuryErrorRecord, Val, arrayTag, flagAsync, flagNone, flagUnsafeHas, immutableEmptyArray, inlinedValueFromString, pathConcat, pathEmpty, pathFromInlinedLocation, s, shouldPrependPathKey, stringify, tagFlagBigint, tagFlagFunction, tagFlagInstance, tagFlagString, tagFlagSymbol, tagFlagUndefined, tagFlags, toExpression, valFlagAsync, valFlagNone } from "./types";
-// =============================================================================
-// Fragment 02 — module Builder (Sury.res lines 1083-1903)
-// =============================================================================
-//
-// TODO(integration):
-//  - `Builder.make(fn)` / `Builder.encoder(fn)` in ReScript are typed identity
-//    casts (`Obj.magic`). They export NOTHING here — call sites in later
-//    sections translate `Builder.make((~input) => …)` / `Builder.encoder(…)`
-//    to just the plain function expression.
-//  - expects from prelude: `Val`, `Check`, `Builder`, `Encoder`, `BGlobal`,
-//    `Internal`, `ErrorDetails`, `SuryErrorRecord`, `Flag`, `ValFlag`,
-//    `TagFlag`, `InternalError`, `stringify`, `toExpression`, `pathEmpty`,
-//    `pathConcat`, `pathFromInlinedLocation`, `inlinedValueFromString`,
-//    `unknown`, `arrayTag`, `s` (symbol), `shouldPrependPathKey`,
-//    `immutableEmptyArray`.
-//
+import { BGlobal, Check, ErrorDetails, Internal, SuryErrorRecord, Val, immutableEmptyArray, s, shouldPrependPathKey, stringify, toExpression } from "./types";
+import { Flag, flagAsync, flagNone, flagUnsafeHas, valFlagAsync, valFlagNone } from "./flags";
+import { Path, inlinedValueFromString, pathConcat, pathEmpty, pathFromInlinedLocation } from "./path";
+import { arrayTag, tagFlagBigint, tagFlagFunction, tagFlagInstance, tagFlagString, tagFlagSymbol, tagFlagUndefined, tagFlags } from "./tags";
+
+export type Builder = (input: Val) => Val;
+export type Encoder = (input: Val, target: Internal) => Val;
+
 // PORT-NOTE: `type s<'value>` (the effect ctx record, Sury.res line 1050) is
 // prelude territory but core.ts has no runtime/type for it yet — `EffectCtx`
 // is declared here for `effectCtx`'s return type.
@@ -143,9 +134,6 @@ export const failInvalidType = (input: Val): (value: unknown) => ErrorDetails =>
   return B_invalidInputBuilder(undefined, undefined, override)(input);
 }
 
-// The B "module" is flattened to individual `B_`-prefixed functions (instead
-// of one object literal) so bundlers can tree-shake each helper separately —
-// exactly the shape the ReScript compiler used to emit for `module B`.
 export const B_embed = (b: Val, value: unknown): string => {
   const e = b.g.e;
   const l = e.length;
@@ -569,7 +557,6 @@ export const B_pushCheck = (val: Val, check: Check): void => {
 // (emit at pre-transform slot); output checks wrap val via refine.
 // When valInput.prev is None, input checks fold into the output
 // wrap so emit has a prev.var(). Sets isOutput on the result.
-// TODO: async output refiner must run inside .then(), not on the Promise.
 export const B_markOutput = (val: Val, valInput: Val): Val => {
   let deferredInputChecks: Check[] | undefined;
   const inputRefiner = valInput.e.inputRefiner;
@@ -829,9 +816,6 @@ export const B_mergeWithPathPrepend = (
   }
 }
 
-// Kept a named `function` (the one deliberate exception to this file's
-// arrow-function style) so `fn.toString()` reads `function noopOperation(i)`
-// — tests (and the U.res wallaby workaround) match on that exact text.
 export function noopOperation(i: unknown): unknown {
   return i;
 }

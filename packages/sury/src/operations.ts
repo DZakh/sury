@@ -4,30 +4,12 @@ import { SuryError, baseSchema, cached, configurableValueOptions, copySchema, ge
 import type { JSONSchemaT, StandardJsonSchemaOptions } from "./jsonschema";
 import { compileDecoder, getDecoder, getOutputSchema, isAsyncInternal, reverse } from "./parse";
 import { B_effectCtx, B_embed, B_embedTransformation, B_inlineConst, B_invalidInputBuilder, B_invalidOperation, B_mergeWithPathPrepend, B_next, B_refine, B_varWithoutAllocation, EffectCtx, _var } from "./builder";
-import { AdditionalItems, Builder, Check, Internal, SchemaErrorMessage, SuryErrorRecord, Tag, Val, flagAsync, objectTag, pathEmpty, pathFromArray, pathToArray, refTag, s, toExpression, undefinedTag, valFlagAsync, vendor } from "./types";
-// =============================================================================
-// Fragment 06 — operations (Sury.res lines 4187–4863)
-// =============================================================================
-//
-// TODO(integration): expects from other sections:
-//   - B (Builder.B const object: embed, next, refine, varWithoutAllocation,
-//     _var, mergeWithPathPrepend, inlineConst, embedTransformation, effectCtx,
-//     invalidOperation, invalidInputBuilder)
-//   - compileDecoder(schema, expected, flag, defs)
-//   - getDecoder(...args) — variadic (schemas..., flag?) decoder cache/compiler
-//   - reverse(schema)
-//   - getOutputSchema(schema)
-//   - isAsyncInternal(schema, defs)
-//   - unionFactory(items)
-//   - Literal (Literal_parse)
-//   - literalDecoder
-//   - nullLiteral(), unit() — literal factories
-// From the prelude (already in core.ts): Internal, Val, Check, Builder, Flag,
-// ValFlag, Path helpers, InternalError, globalConfig, baseSchema, cached,
-// copySchema, updateOutput, unknown, noopDecoder, schemaPrototype, vendor, s,
-// valueOptions, configurableValueOptions, valKey, typeOf, objectTag,
-// undefinedTag, refTag, toExpression.
-//
+import { AdditionalItems, Check, Internal, SchemaErrorMessage, SuryErrorRecord, Val, s, toExpression, vendor } from "./types";
+import { Builder } from "./builder";
+import { flagAsync, valFlagAsync } from "./flags";
+import { pathEmpty, pathFromArray, pathToArray } from "./path";
+import { Tag, objectTag, refTag, undefinedTag } from "./tags";
+
 // PORT-NOTE: `JsResult` is defined here (first fragment to need it); if
 // another fragment also defines it, dedupe at integration time.
 
@@ -237,16 +219,6 @@ Object.defineProperty(schemaPrototype, "~standard", {
 });
 
 // =============
-// Builder functions
-// =============
-
-
-
-
-
-
-
-// =============
 // Operations
 // =============
 
@@ -257,8 +229,6 @@ export const getAssertResult = (): Internal => {
     s.noValidation = true;
   });
 }
-
-
 
 export const assertOrThrow = (any: unknown, schema: Internal): void => {
   (getDecoder(unknown, schema, getAssertResult()) as (input: unknown) => unknown)(any);
@@ -271,8 +241,6 @@ export const assertAsyncOrThrow = (any: unknown, schema: Internal): Promise<void
     ) => Promise<void>
   )(any);
 }
-
-
 
 export const isAsync = (schema: Internal): boolean => {
   if (schema.isAsync === undefined) {
@@ -322,9 +290,6 @@ export const js_safeAsync = <V>(fn: () => Promise<V>): Promise<JsResult<V>> => {
 // runtime; `unionToKey` was `%identity` and is dropped.
 export type MetadataId = string;
 
-// Flat functions (former ReScript `module Metadata` — no namespace object,
-// so unused metadata helpers tree-shake away). `Id.t<'metadata>` is a string
-// at runtime.
 export const Metadata_Id_make = (namespace: string, name: string): MetadataId => {
   return `m:${namespace}:${name}`;
 };
@@ -679,4 +644,3 @@ export type TupleCtx = {
   item: (idx: number, schema: Internal) => unknown;
   tag: (idx: number, value: unknown) => void;
 };
-// =============================================================================
