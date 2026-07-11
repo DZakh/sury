@@ -68,9 +68,6 @@ importers:
       rescript:
         specifier: 12.2.0
         version: 12.2.0
-      rescript-nodejs:
-        specifier: 16.1.0
-        version: 16.1.0
       rescript-stdlib-vendorer:
         specifier: 1.1.0
         version: 1.1.0
@@ -1028,9 +1025,6 @@ packages:
   require-directory@2.1.1:
     resolution: {integrity: sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q==}
     engines: {node: '>=0.10.0'}
-
-  rescript-nodejs@16.1.0:
-    resolution: {integrity: sha512-RyXGIEsb8UhuShf5PwKcTkYNPz+cPQ0CZq74lbYCbCa5YFidbmiIWpQhCMtpsgP1PkLClhKGDkfZfmwwNOil4Q==}
 
   rescript-stdlib-vendorer@1.1.0:
     resolution: {integrity: sha512-1r8jOLO1e24N//PjwfucZeZGQSvCFzt3oMRs7VJaVnX9Ns5dhetVGhlWBmXPTiASm0GipARvEYHFNkDidCWNBw==}
@@ -2104,8 +2098,6 @@ snapshots:
       util-deprecate: 1.0.2
 
   require-directory@2.1.1: {}
-
-  rescript-nodejs@16.1.0: {}
 
   rescript-stdlib-vendorer@1.1.0:
     dependencies:
