@@ -1248,6 +1248,14 @@ function unit() {
   });
 }
 
+function void_() {
+  return cached("void", undefinedTag, s => {
+    s.const = (void 0);
+    s.name = "void";
+    s.decoder = literalDecoder;
+  });
+}
+
 function nullLiteral() {
   return cached(nullTag, nullTag, s => {
     s.const = null;
@@ -1602,39 +1610,6 @@ function makeObjectVal(prev, schema) {
   };
 }
 
-function unionIsSelfDecodeNoop(_schema) {
-  while (true) {
-    let schema = _schema;
-    let tmp = false;
-    let tmp$1 = false;
-    let tmp$2 = false;
-    if (schema.to === undefined && schema.parser === undefined && !(flags[schema.type] & 512)) {
-      let anyOf = schema.anyOf;
-      tmp$2 = anyOf !== undefined ? anyOf.every(unionIsSelfDecodeNoop) : true;
-    }
-    if (tmp$2) {
-      let items = schema.items;
-      tmp$1 = items !== undefined ? items.every(unionIsSelfDecodeNoop) : true;
-    }
-    if (tmp$1) {
-      let properties = schema.properties;
-      tmp = properties !== undefined ? Object.values(properties).every(unionIsSelfDecodeNoop) : true;
-    }
-    if (!tmp) {
-      return false;
-    }
-    let match = schema.additionalItems;
-    if (match === undefined) {
-      return true;
-    }
-    if (match === "strip" || match === "strict") {
-      return true;
-    }
-    _schema = match;
-    continue;
-  };
-}
-
 function objectDecoder(unknownInput) {
   let isUnion = unknownInput.u;
   let expectedSchema = unknownInput.e;
@@ -1891,6 +1866,34 @@ function arrayDecoder(unknownInput) {
   return markOutput(output, input);
 }
 
+function unionGetToPerCase(schema) {
+  let match = schema.parser;
+  if (match !== undefined) {
+    return;
+  }
+  let to = schema.to;
+  if (to !== undefined) {
+    return to;
+  }
+}
+
+function unionIsWiderSchema(schemaAnyOf, inputAnyOf) {
+  return inputAnyOf.every((inputSchema, idx) => {
+    let schema = schemaAnyOf[idx];
+    if (schema !== undefined && !(flags[inputSchema.type] & 9152) && inputSchema.type === schema.type && inputSchema.const === schema.const) {
+      return inputSchema.to === undefined;
+    } else {
+      return false;
+    }
+  });
+}
+
+function unionPerVariantVal(input, target) {
+  return refine(input, unknown, undefined, updateOutput(input.s, mut => {
+    mut.to = target;
+  }));
+}
+
 function unionCanDispatchPerVariant(inputAnyOf, target) {
   if (!(flags[getOutputSchema(target).type] & 512) && !(target.type === unionTag && target.anyOf.some(v => flags[v.type] & 512))) {
     return !inputAnyOf.some(v => {
@@ -1905,82 +1908,65 @@ function unionCanDispatchPerVariant(inputAnyOf, target) {
   }
 }
 
-function unionPerVariantVal(input, target) {
-  return refine(input, unknown, undefined, updateOutput(input.s, mut => {
-    mut.to = target;
-  }));
+function option(item) {
+  return optionFactory(item, unit());
 }
 
-function unionIsWiderSchema(schemaAnyOf, inputAnyOf) {
-  return inputAnyOf.every((inputSchema, idx) => {
-    let schema = schemaAnyOf[idx];
-    if (schema !== undefined && !(flags[inputSchema.type] & 9152) && inputSchema.type === schema.type && inputSchema.const === schema.const) {
-      return inputSchema.to === undefined;
-    } else {
-      return false;
-    }
-  });
-}
-
-function unionGetToPerCase(schema) {
-  let match = schema.parser;
-  if (match !== undefined) {
-    return;
+function optionFactory(item, unitOpt) {
+  let unit$1 = unitOpt !== undefined ? unitOpt : unit();
+  let match = getOutputSchema(item);
+  let match$1 = match.type;
+  switch (match$1) {
+    case "undefined" :
+      return unionFactory([
+        unit$1,
+        nestedOption(item)
+      ]);
+    case "union" :
+      let has = match.has;
+      let anyOf = match.anyOf;
+      return updateOutput(item, mut => {
+        let mutHas = copy(has);
+        let newAnyOf = [];
+        for (let idx = 0, idx_finish = anyOf.length; idx < idx_finish; ++idx) {
+          let schema = anyOf[idx];
+          let match = getOutputSchema(schema);
+          let match$1 = match.type;
+          let tmp;
+          if (match$1 === "undefined") {
+            mutHas[unit$1.type] = true;
+            newAnyOf.push(unit$1);
+            tmp = nestedOption(schema);
+          } else {
+            let properties = match.properties;
+            if (properties !== undefined) {
+              let nestedSchema = properties[nestedLoc];
+              tmp = nestedSchema !== undefined ? updateOutput(schema, mut => {
+                  let properties = {};
+                  let newrecord = {...nestedSchema};
+                  newrecord.const = nestedSchema.const + 1;
+                  properties[nestedLoc] = newrecord;
+                  mut.properties = properties;
+                }) : schema;
+            } else {
+              tmp = schema;
+            }
+          }
+          newAnyOf.push(tmp);
+        }
+        if (newAnyOf.length === anyOf.length) {
+          mutHas[unit$1.type] = true;
+          newAnyOf.push(unit$1);
+        }
+        mut.anyOf = newAnyOf;
+        mut.has = mutHas;
+      });
+    default:
+      return unionFactory([
+        item,
+        unit$1
+      ]);
   }
-  let to = schema.to;
-  if (to !== undefined) {
-    return to;
-  }
-}
-
-function valGet(parent, location) {
-  let d = parent.d;
-  let vals;
-  if (d !== undefined) {
-    vals = d;
-  } else {
-    let d$1 = {};
-    parent.d = d$1;
-    vals = d$1;
-  }
-  let v = vals[location];
-  if (v !== undefined) {
-    return scope(v);
-  }
-  let locationSchema = parent.s.type === objectTag ? parent.s.properties[location] : parent.s.items[location];
-  let schema;
-  if (locationSchema !== undefined) {
-    schema = locationSchema;
-  } else {
-    let s = parent.s.additionalItems;
-    schema = s === "strip" || s === "strict" ? unsupportedDecode(parent, parent.s, parent.e) : (
-        parent.s.type === objectTag && s.type !== unknownTag && !(flags[s.type] & 512) && !isOptional(s) ? option(s) : s
-      );
-  }
-  let inlinedLocation = inlineLocation(parent.g, location);
-  let pathAppend = `[` + inlinedLocation + `]`;
-  let item = {
-    p: parent,
-    v: _notVarAtParent,
-    i: constField in schema ? inlineConst(parent, schema) : parent.v() + pathAppend,
-    s: schema,
-    e: schema,
-    f: 0,
-    cp: "",
-    hd: "",
-    path: parent.path + pathAppend,
-    g: parent.g
-  };
-  vals[location] = item;
-  return item;
-}
-
-function array(item) {
-  let mut = base(arrayTag, item[reversedKey] === item);
-  mut.additionalItems = item;
-  mut.items = immutableEmpty$1;
-  mut.decoder = arrayDecoder;
-  return mut;
 }
 
 function completeObjectVal(objectVal) {
@@ -2033,43 +2019,53 @@ function completeObjectVal(objectVal) {
   return output;
 }
 
-function nestedNone() {
-  let itemSchema = parse(0);
-  let properties = {};
-  properties[nestedLoc] = itemSchema;
-  return {
-    type: objectTag,
-    serializer: input => {
-      let nextSchema = input.e.to;
-      return nextConst(input, nextSchema, nextSchema);
-    },
-    decoder: objectDecoder,
-    additionalItems: "strip",
-    required: [nestedLoc],
-    properties: properties
+function valGet(parent, location) {
+  let d = parent.d;
+  let vals;
+  if (d !== undefined) {
+    vals = d;
+  } else {
+    let d$1 = {};
+    parent.d = d$1;
+    vals = d$1;
+  }
+  let v = vals[location];
+  if (v !== undefined) {
+    return scope(v);
+  }
+  let locationSchema = parent.s.type === objectTag ? parent.s.properties[location] : parent.s.items[location];
+  let schema;
+  if (locationSchema !== undefined) {
+    schema = locationSchema;
+  } else {
+    let s = parent.s.additionalItems;
+    schema = s === "strip" || s === "strict" ? unsupportedDecode(parent, parent.s, parent.e) : (
+        parent.s.type === objectTag && s.type !== unknownTag && !(flags[s.type] & 512) && !isOptional(s) ? option(s) : s
+      );
+  }
+  let inlinedLocation = inlineLocation(parent.g, location);
+  let pathAppend = `[` + inlinedLocation + `]`;
+  let item = {
+    p: parent,
+    v: _notVarAtParent,
+    i: constField in schema ? inlineConst(parent, schema) : parent.v() + pathAppend,
+    s: schema,
+    e: schema,
+    f: 0,
+    cp: "",
+    hd: "",
+    path: parent.path + pathAppend,
+    g: parent.g
   };
+  vals[location] = item;
+  return item;
 }
 
-function option(item) {
-  return optionFactory(item, unit());
-}
-
-function unionIsPriority(tagFlag, byKey) {
-  if (tagFlag & 8320 && objectTag in byKey) {
-    return true;
-  } else if (tagFlag & 2048) {
-    return numberTag in byKey;
-  } else {
-    return false;
-  }
-}
-
-function unionToKey(schema) {
-  if (flags[schema.type] & 8192) {
-    return schema.class.name;
-  } else {
-    return schema.type;
-  }
+function nestedOption(item) {
+  return updateOutput(item, mut => {
+    mut.to = nestedNone();
+    mut.parser = nestedOptionParser;
+  });
 }
 
 function unionFactory(schemas) {
@@ -2100,6 +2096,74 @@ function unionFactory(schemas) {
     return mut;
   }
   throw new Error(`[Sury] ` + "S.union requires at least one item");
+}
+
+function unionIsSelfDecodeNoop(_schema) {
+  while (true) {
+    let schema = _schema;
+    let tmp = false;
+    let tmp$1 = false;
+    let tmp$2 = false;
+    if (schema.to === undefined && schema.parser === undefined && !(flags[schema.type] & 512)) {
+      let anyOf = schema.anyOf;
+      tmp$2 = anyOf !== undefined ? anyOf.every(unionIsSelfDecodeNoop) : true;
+    }
+    if (tmp$2) {
+      let items = schema.items;
+      tmp$1 = items !== undefined ? items.every(unionIsSelfDecodeNoop) : true;
+    }
+    if (tmp$1) {
+      let properties = schema.properties;
+      tmp = properties !== undefined ? Object.values(properties).every(unionIsSelfDecodeNoop) : true;
+    }
+    if (!tmp) {
+      return false;
+    }
+    let match = schema.additionalItems;
+    if (match === undefined) {
+      return true;
+    }
+    if (match === "strip" || match === "strict") {
+      return true;
+    }
+    _schema = match;
+    continue;
+  };
+}
+
+function unionIsPriority(tagFlag, byKey) {
+  if (tagFlag & 8320 && objectTag in byKey) {
+    return true;
+  } else if (tagFlag & 2048) {
+    return numberTag in byKey;
+  } else {
+    return false;
+  }
+}
+
+function unionToKey(schema) {
+  if (flags[schema.type] & 8192) {
+    return schema.class.name;
+  } else {
+    return schema.type;
+  }
+}
+
+function nestedNone() {
+  let itemSchema = parse(0);
+  let properties = {};
+  properties[nestedLoc] = itemSchema;
+  return {
+    type: objectTag,
+    serializer: input => {
+      let nextSchema = input.e.to;
+      return nextConst(input, nextSchema, nextSchema);
+    },
+    decoder: objectDecoder,
+    additionalItems: "strip",
+    required: [nestedLoc],
+    properties: properties
+  };
 }
 
 function unionDecoder(input) {
@@ -2564,68 +2628,12 @@ function unionEncoder(input, target) {
   }
 }
 
-function nestedOption(item) {
-  return updateOutput(item, mut => {
-    mut.to = nestedNone();
-    mut.parser = nestedOptionParser;
-  });
-}
-
-function optionFactory(item, unitOpt) {
-  let unit$1 = unitOpt !== undefined ? unitOpt : unit();
-  let match = getOutputSchema(item);
-  let match$1 = match.type;
-  switch (match$1) {
-    case "undefined" :
-      return unionFactory([
-        unit$1,
-        nestedOption(item)
-      ]);
-    case "union" :
-      let has = match.has;
-      let anyOf = match.anyOf;
-      return updateOutput(item, mut => {
-        let mutHas = copy(has);
-        let newAnyOf = [];
-        for (let idx = 0, idx_finish = anyOf.length; idx < idx_finish; ++idx) {
-          let schema = anyOf[idx];
-          let match = getOutputSchema(schema);
-          let match$1 = match.type;
-          let tmp;
-          if (match$1 === "undefined") {
-            mutHas[unit$1.type] = true;
-            newAnyOf.push(unit$1);
-            tmp = nestedOption(schema);
-          } else {
-            let properties = match.properties;
-            if (properties !== undefined) {
-              let nestedSchema = properties[nestedLoc];
-              tmp = nestedSchema !== undefined ? updateOutput(schema, mut => {
-                  let properties = {};
-                  let newrecord = {...nestedSchema};
-                  newrecord.const = nestedSchema.const + 1;
-                  properties[nestedLoc] = newrecord;
-                  mut.properties = properties;
-                }) : schema;
-            } else {
-              tmp = schema;
-            }
-          }
-          newAnyOf.push(tmp);
-        }
-        if (newAnyOf.length === anyOf.length) {
-          mutHas[unit$1.type] = true;
-          newAnyOf.push(unit$1);
-        }
-        mut.anyOf = newAnyOf;
-        mut.has = mutHas;
-      });
-    default:
-      return unionFactory([
-        item,
-        unit$1
-      ]);
-  }
+function array(item) {
+  let mut = base(arrayTag, item[reversedKey] === item);
+  mut.additionalItems = item;
+  mut.items = immutableEmpty$1;
+  mut.decoder = arrayDecoder;
+  return mut;
 }
 
 function dictFactory(item) {
@@ -3712,14 +3720,6 @@ function prepareShapedSerializerAcc(acc, input) {
   }
 }
 
-function definitionToSchema(definition) {
-  return traverseDefinition(definition, node => {
-    if (node["~standard"]) {
-      return node;
-    }
-  });
-}
-
 function nested(fieldName) {
   let parentCtx = this;
   let cacheId = `~` + fieldName;
@@ -3786,56 +3786,12 @@ function nested(fieldName) {
   return ctx$1;
 }
 
-function traverseDefinition(definition, onNode) {
-  if (typeof definition !== objectTag || definition === null) {
-    return parse(definition);
-  }
-  let s = onNode(definition);
-  if (s !== undefined) {
-    return s;
-  }
-  if (Array.isArray(definition)) {
-    for (let idx = 0, idx_finish = definition.length; idx < idx_finish; ++idx) {
-      let schema = traverseDefinition(definition[idx], onNode);
-      definition[idx] = schema;
+function definitionToSchema(definition) {
+  return traverseDefinition(definition, node => {
+    if (node["~standard"]) {
+      return node;
     }
-    let mut = base(arrayTag, false);
-    mut.items = definition;
-    mut.additionalItems = "strict";
-    mut.decoder = arrayDecoder;
-    return mut;
-  }
-  let cnstr = definition.constructor;
-  if (cnstr && cnstr !== Object) {
-    let mut$1 = base(instanceTag, true);
-    mut$1.class = cnstr;
-    mut$1.const = definition;
-    mut$1.decoder = literalDecoder;
-    return mut$1;
-  }
-  let fieldNames = Object.keys(definition);
-  let length = fieldNames.length;
-  for (let idx$1 = 0; idx$1 < length; ++idx$1) {
-    let location = fieldNames[idx$1];
-    let schema$1 = traverseDefinition(definition[location], onNode);
-    definition[location] = schema$1;
-  }
-  let mut$2 = base(objectTag, false);
-  mut$2.required = fieldNames;
-  mut$2.properties = definition;
-  mut$2.additionalItems = globalConfig.a;
-  mut$2.decoder = objectDecoder;
-  return mut$2;
-}
-
-function shapedSerializer(input) {
-  let acc = {};
-  prepareShapedSerializerAcc(acc, input);
-  let targetSchema = input.e.to;
-  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
-  output.t = true;
-  output.prev = input;
-  return output;
+  });
 }
 
 function getShapedSerializerOutput(input, acc, targetSchema, path) {
@@ -3935,6 +3891,62 @@ function getShapedSerializerOutput(input, acc, targetSchema, path) {
   }
 }
 
+function traverseDefinition(definition, onNode) {
+  if (typeof definition !== objectTag || definition === null) {
+    return parse(definition);
+  }
+  let s = onNode(definition);
+  if (s !== undefined) {
+    return s;
+  }
+  if (Array.isArray(definition)) {
+    for (let idx = 0, idx_finish = definition.length; idx < idx_finish; ++idx) {
+      let schema = traverseDefinition(definition[idx], onNode);
+      definition[idx] = schema;
+    }
+    let mut = base(arrayTag, false);
+    mut.items = definition;
+    mut.additionalItems = "strict";
+    mut.decoder = arrayDecoder;
+    return mut;
+  }
+  let cnstr = definition.constructor;
+  if (cnstr && cnstr !== Object) {
+    let mut$1 = base(instanceTag, true);
+    mut$1.class = cnstr;
+    mut$1.const = definition;
+    mut$1.decoder = literalDecoder;
+    return mut$1;
+  }
+  let fieldNames = Object.keys(definition);
+  let length = fieldNames.length;
+  for (let idx$1 = 0; idx$1 < length; ++idx$1) {
+    let location = fieldNames[idx$1];
+    let schema$1 = traverseDefinition(definition[location], onNode);
+    definition[location] = schema$1;
+  }
+  let mut$2 = base(objectTag, false);
+  mut$2.required = fieldNames;
+  mut$2.properties = definition;
+  mut$2.additionalItems = globalConfig.a;
+  mut$2.decoder = objectDecoder;
+  return mut$2;
+}
+
+function getValByFrom(_input, from, _idx) {
+  while (true) {
+    let idx = _idx;
+    let input = _input;
+    let key = from[idx];
+    if (key === undefined) {
+      return input;
+    }
+    _idx = idx + 1 | 0;
+    _input = input.d[key];
+    continue;
+  };
+}
+
 function assembleShapedObject(input, schema, field) {
   let output = makeObjectVal(input, schema);
   output.io = true;
@@ -3973,24 +3985,14 @@ function getShapedParserOutput(input, targetSchema) {
   return v;
 }
 
-function getValByFrom(_input, from, _idx) {
-  while (true) {
-    let idx = _idx;
-    let input = _input;
-    let key = from[idx];
-    if (key === undefined) {
-      return input;
-    }
-    _idx = idx + 1 | 0;
-    _input = input.d[key];
-    continue;
-  };
-}
-
-function definitionToShapedSchema(definition) {
-  let s = copySchema(traverseDefinition(definition, toEmbededItem));
-  s.serializer = shapedSerializer;
-  return s;
+function shapedSerializer(input) {
+  let acc = {};
+  prepareShapedSerializerAcc(acc, input);
+  let targetSchema = input.e.to;
+  let output = getShapedSerializerOutput(input, acc, targetSchema, "");
+  output.t = true;
+  output.prev = input;
+  return output;
 }
 
 function shapedParser(input) {
@@ -4022,6 +4024,12 @@ function shapedParser(input) {
   output.t = true;
   output.prev = input;
   return markOutput(output, input);
+}
+
+function definitionToShapedSchema(definition) {
+  let s = copySchema(traverseDefinition(definition, toEmbededItem));
+  s.serializer = shapedSerializer;
+  return s;
 }
 
 function shape(schema, definer) {
@@ -5485,6 +5493,7 @@ export {
   never_,
   unknown,
   unit,
+  void_,
   nullLiteral,
   nan,
   string,

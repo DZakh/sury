@@ -195,7 +195,7 @@ let writeSjsEsm = path => {
     [
       `/* @ts-self-types="./S.d.ts" */`,
       `import * as S from "./Sury.res.mjs"`,
-      `var _void = /*#__PURE__*/ S.unit(); export { _void as void }`,
+      `var _void = /*#__PURE__*/ S.void_(); export { _void as void }`,
     ]
     ->Array.concat(filesMapping->Array.map(((name, value)) => `export var ${name} = ${value}`))
     ->Array.join("\n")
@@ -216,7 +216,7 @@ NodeJs.Fs.writeFileSyncWith(
   NodeJs.Path.join2(artifactsPath, "./src/S.js"),
   [`/* @ts-self-types="./S.d.ts" */`, "var S = require(\"./Sury.res.js\");"]
   ->Array.concat(filesMapping->Array.map(((name, value)) => `exports.${name} = ${value}`))
-  ->Array.concat([`exports.void = S.unit()`])
+  ->Array.concat([`exports.void = S.void_()`])
   ->Array.join("\n")
   ->NodeJs.Buffer.fromString,
   {

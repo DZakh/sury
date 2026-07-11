@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.never
+  input: never
+  output: never
+  instantiations: 254
+  bundleBytes: 3697
+jsonSchema:
+  input: "{ not: {} }"
+  output: "{ not: {} }"
+operations:
+  parse:
+    expression: i=>{e[0](i);return i}
+    examples:
+      invalid-string:
+        input: '"anything"'
+        error: Expected never, received "anything"
+      invalid-undefined:
+        input: undefined
+        error: Expected never, received undefined
+  decode:
+    expression: i=>{e[0](i);return i}
+    examples:
+      invalid:
+        input: "42"
+        error: Expected never, received 42
+  encode:
+    expression: i=>{e[0](i);return i}
+    examples:
+      invalid:
+        input: "42"
+        error: Expected never, received 42

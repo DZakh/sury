@@ -333,7 +333,7 @@ function writeSjsEsm(path) {
   Nodefs.writeFileSync(path, Buffer.from([
     `/* @ts-self-types="./S.d.ts" */`,
     `import * as S from "./Sury.res.mjs"`,
-    `var _void = /*#__PURE__*/ S.unit(); export { _void as void }`
+    `var _void = /*#__PURE__*/ S.void_(); export { _void as void }`
   ].concat(filesMapping.map(param => `export var ` + param[0] + ` = ` + param[1])).join("\n")), {
     encoding: "utf8"
   });
@@ -346,7 +346,7 @@ writeSjsEsm(Nodepath.join(artifactsPath, "./src/S.mjs"));
 Nodefs.writeFileSync(Nodepath.join(artifactsPath, "./src/S.js"), Buffer.from([
   `/* @ts-self-types="./S.d.ts" */`,
   "var S = require(\"./Sury.res.js\");"
-].concat(filesMapping.map(param => `exports.` + param[0] + ` = ` + param[1])).concat([`exports.void = S.unit()`]).join("\n")), {
+].concat(filesMapping.map(param => `exports.` + param[0] + ` = ` + param[1])).concat([`exports.void = S.void_()`]).join("\n")), {
   encoding: "utf8"
 });
 

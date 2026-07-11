@@ -341,6 +341,7 @@ let nullAsUnit: unit => t<unit>
 let never_: unit => t<never>
 let unknown: t<unknown>
 let unit: unit => t<unit>
+let void_: unit => t<unit>
 let nullLiteral: unit => t<unit>
 let nan: unit => t<float>
 let string: unit => t<string>
