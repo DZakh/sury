@@ -12,6 +12,14 @@ Tiebreaker: shortest *generated* code wins over shortest *library* code (runtime
 
 The implementation lives in `packages/sury/src/core.ts` (plain TypeScript, no runtime imports). `Sury.res` is a bindings-only module: the public ReScript types plus `@module("sury/core") external` declarations — "sury/core" resolves via the package's conditional export to the esbuild-generated `core.mjs`/`core.cjs` (kept fresh by `pnpm build:core`, see scripts/pack.ts). The repository `src/S.js` and generated `S.mjs` (the JS/TS entry) import `core.mjs`; the publish-generated CJS `S.js` requires `core.cjs`. The former `module B` is flattened to `B_`-prefixed top-level functions (and `Literal.parse` → `Literal_parse`, etc.) so bundlers tree-shake each helper individually; keep new helpers flat for the same reason, and PURE-annotate any top-level call initializer. Prefer `const name = () => {}` arrows over `function` declarations (measurably smaller minified; `noopOperation` and the `this`-based `_var` family are the deliberate exceptions), and inline former ReScript intrinsics (`a | b`, `typeof x`) rather than wrapping them in helpers. `val`/`check`/`bGlobal` runtime field names stay short (`cp`, `hd`, `vc`, …) — property names survive minification, so every character ships.
 
+## Comments
+
+- Default: no comment.
+- Write one only for a non-obvious *why* — a hidden constraint, a subtle invariant, a bug workaround, or behavior that would surprise a reader.
+- Never write one that just restates the code.
+- Delete any existing comment that fails this test, even in code you're only editing, not authoring.
+- Repo-wide, not just `packages/spec`.
+
 ## Input vs Output
 
 A schema has an Input type and an Output type. They differ when the schema or any nested item has a transformation.

@@ -51,10 +51,12 @@
   },
   "files": [
     "src",
-    "rescript.json"
+    "rescript.json",
+    "specs/*.yaml"
   ],
   "scripts": {
     "coverage": "pnpm build:core && vitest run --coverage",
+    "spec": "pnpm build:core && tsx ../spec/cli.ts",
     "build:core": "tsx ./scripts/pack.ts core-only",
     "build": "pnpm rescript && tsx ./scripts/pack.ts for-publish",
     "res": "pnpm build:core && rescript watch",
@@ -62,12 +64,9 @@
     "test": "pnpm build:core && rescript build && vitest run",
     "typecheck": "vitest run --typecheck.only",
     "bench": "pnpm build:core && vitest bench --run",
-    "bench:types": "tsx tests/types.bench.ts",
-    "bench:bundle": "pnpm build:core && tsx tests/bundle.bench.ts",
     "lint:stdlib": "rescript-stdlib-vendorer lint --ignore-path=src"
   },
   "devDependencies": {
-    "@ark/attest": "0.56.0",
     "@codspeed/vitest-plugin": "5.6.0",
     "@rescript/darwin-arm64": "12.2.0",
     "@rollup/plugin-node-resolve": "16.0.0",

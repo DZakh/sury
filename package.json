@@ -3,13 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "res": "cd packages/sury && pnpm res",
+    "res": "pnpm --filter=sury exec rescript watch",
+    "spec": "tsx packages/spec/cli.ts",
     "test": "pnpm --filter=sury test && pnpm --filter=e2e test",
     "build": "pnpm --filter=sury build",
     "benchmark": "pnpm --filter=sury bench",
     "benchmark:comparison": "pnpm --filter=e2e benchmark:comparison",
-    "benchmark:types": "pnpm --filter=sury bench:types",
-    "benchmark:bundle": "pnpm --filter=sury bench:bundle",
     "lint": "pnpm --filter=sury lint:stdlib"
   },
   "packageManager": "pnpm@9.0.5"

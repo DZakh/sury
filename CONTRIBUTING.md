@@ -193,22 +193,6 @@ npm run test:res
 npm run test -- --watch
 ```
 
-## Bundle size & tree-shaking
-
-To track Sury's own bundle size and tree-shaking over time (a CI regression
-guard, analogous to the type and runtime benchmarks), run:
-
-```
-pnpm benchmark:bundle          # check against the committed baseline
-pnpm benchmark:bundle --update # re-baseline after an intentional size change
-```
-
-It bundles tiny per-feature entry points with esbuild, gzips them, and compares
-against `packages/sury/tests/bundle-size.snapshot.json`. Because each entry
-imports only part of the API, the output size measures how well the unused code
-tree-shakes away. See `packages/sury/tests/bundle.bench.ts`. On pull requests CI
-posts the result table as a sticky comment and the job summary.
-
 ## Make comparison
 
 For the cross-library comparison table in the README, bundle each library on
@@ -346,6 +330,34 @@ const schema = type({
 });
 schema(data);
 ```
+
+## Spec Harness
+
+Implementation notes for `packages/spec` (see the `spec` skill for the authoring workflow):
+
+- **`ts.input`/`ts.output`/`ts.instantiations`** (`packages/spec/introspect.ts`) — a small vendored
+  `@typescript/vfs` environment, not `@ark/attest` (same underlying mechanism; attest is slow because of
+  an unrelated whole-project assertion scan this harness has no use for). Declares the schema, extracts
+  `S.Output<>`/`S.Input<>`, and reads `checker.typeToString()`/`program.getInstantiationCount()` (diffed
+  against a bare-import baseline) from an isolated virtual TS environment memoized per process.
+- **`ts.bundleBytes`** (`packages/spec/bundleSize.ts`) — bundles `schema` itself with esbuild (aliasing
+  the bare `sury` specifier to the dev source), minifies, and gzips. Carries a ±1% tolerance: within the
+  band `recomputeGoldens` keeps the committed number, so a toolchain bump (esbuild, zlib) doesn't go
+  stale across every spec at once; a real size change beyond it re-records exactly.
+
+`ts.instantiations` includes real, fixed per-builder-kind dispatch cost on top of per-field cost — e.g.
+a plain value like `S.string` measures far lower than any `S.schema({...})` call regardless of field
+count. A jump for one kind of schema and not another can be a genuine regression signal, not noise.
+
+## Spec Harness Suggestions
+
+A running list of strictness or author-guidance features the spec harness
+(`packages/spec`, see the `spec` skill) could add. When working on Sury you hit a
+case the harness *should* have caught or guided better — a missing check, a weak
+error message, a strictness gap that let a bad spec through — add a bullet here
+instead of silently working around it.
+
+- <placeholder>
 
 ## License
 

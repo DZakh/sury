@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.schema({a: S.string, nested: S.schema({b: S.number, inner: S.schema({c: S.boolean, d: S.optional(S.string)})})})"
+  input: "{ a: string; nested: { b: number; inner: { d?: string | undefined; c: boolean; }; }; }"
+  output: "{ a: string; nested: { b: number; inner: { d?: string | undefined; c: boolean; }; }; }"
+  instantiations: 50125
+  bundleBytes: 10550
+jsonSchema:
+  input: '{ type: "object", properties: { a: { type: "string" }, nested: { type: "object", properties: { b: { type: "number" }, inner: { type: "object", properties: { c: { type: "boolean" }, d: { type: "string" } }, required: ["c"] } }, required: ["b", "inner"] } }, required: ["a", "nested"] }'
+  output: '{ type: "object", properties: { a: { type: "string" }, nested: { type: "object", properties: { b: { type: "number" }, inner: { type: "object", properties: { c: { type: "boolean" }, d: { type: "string" } }, required: ["c"] } }, required: ["b", "inner"] } }, required: ["a", "nested"] }'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i||e[6](i);let v0=i["a"],v1=i["nested"];typeof v0==="string"||e[0](v0);typeof v1==="object"&&v1||e[5](v1);let v2=v1["b"],v3=v1["inner"];typeof v2==="number"&&!Number.isNaN(v2)||e[1](v2);typeof v3==="object"&&v3||e[4](v3);let v4=v3["c"],v5=v3["d"];typeof v4==="boolean"||e[2](v4);if(!(typeof v5==="string"||v5===void 0)){e[3](v5)}return {"a":v0,"nested":{"b":v2,"inner":{"c":v4,"d":v5,},},}}
+    examples:
+      valid:
+        input: '{ a: "x", nested: { b: 1, inner: { c: true, d: "y" } } }'
+        output: '{ a: "x", nested: { b: 1, inner: { c: true, d: "y" } } }'
+      valid-optional-omitted:
+        input: '{ a: "x", nested: { b: 1, inner: { c: true } } }'
+        output: '{ a: "x", nested: { b: 1, inner: { c: true, d: undefined } } }'
+      invalid-nested:
+        input: '{ a: "x", nested: { b: "not a number", inner: { c: true } } }'
+        error: 'Failed at ["nested"]["b"]: Expected number, received "not a number"'
+  decode:
+    expression: i=>{let v0=i["nested"];let v1=v0["inner"];return i}
+    examples:
+      valid:
+        input: '{ a: "x", nested: { b: 1, inner: { c: true, d: "y" } } }'
+        output: '{ a: "x", nested: { b: 1, inner: { c: true, d: "y" } } }'
+  encode:
+    expression: i=>{let v0=i["nested"];let v1=v0["inner"];return i}
+    examples:
+      valid:
+        input: '{ a: "x", nested: { b: 1, inner: { c: true, d: "y" } } }'
+        output: '{ a: "x", nested: { b: 1, inner: { c: true, d: "y" } } }'
