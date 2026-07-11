@@ -748,13 +748,17 @@ export function deepStrict<Output, Input extends Record<string, unknown>>(
   schema: Schema<Output, Input>
 ): Schema<Output, Input>;
 
-type Merge<A, B> = Flatten<Omit<A, keyof B> & B>;
+// Key-remapping instead of `Omit` (saves its `Pick`+`Exclude` instantiations)
+// while staying homomorphic, so optional modifiers survive the merge.
+type Merge<A, B> = Flatten<
+  { [K in keyof A as K extends keyof B ? never : K]: A[K] } & B
+>;
 
 export function merge<
   O1 extends Record<string, unknown>,
-  I1 extends Record<string, unknown>,
+  I1,
   O2 extends Record<string, unknown>,
-  I2 extends Record<string, unknown>
+  I2
 >(schema1: Schema<O1, I1>, schema2: Schema<O2, I2>): Schema<
   Merge<O1, O2>,
   Merge<I1, I2>
