@@ -54,16 +54,16 @@
     "rescript.json"
   ],
   "scripts": {
-    "coverage": "vitest run --coverage",
+    "coverage": "pnpm build:core && vitest run --coverage",
     "build:core": "tsx ./scripts/pack.ts core-only",
     "build": "pnpm rescript && tsx ./scripts/pack.ts for-publish",
     "res": "pnpm build:core && rescript watch",
     "test:res": "cd ./packages/tests && rescript clean && rescript watch",
     "test": "pnpm build:core && rescript build && vitest run",
     "typecheck": "vitest run --typecheck.only",
-    "bench": "vitest bench --run",
+    "bench": "pnpm build:core && vitest bench --run",
     "bench:types": "tsx tests/types.bench.ts",
-    "bench:bundle": "tsx tests/bundle.bench.ts",
+    "bench:bundle": "pnpm build:core && tsx tests/bundle.bench.ts",
     "lint:stdlib": "rescript-stdlib-vendorer lint --ignore-path=src"
   },
   "devDependencies": {
