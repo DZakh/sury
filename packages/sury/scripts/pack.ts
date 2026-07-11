@@ -110,7 +110,7 @@ async function pack(): Promise<void> {
     fs.cpSync(path.join(projectPath, p), path.join(artifactsPath, p), { recursive: true });
   }
 
-  execaSync("pnpm", ["rescript"], { cwd: artifactsPath });
+  execaSync("pnpm", ["rescript"], { cwd: artifactsPath, stdio: "inherit" });
 
   // The artifact package is commonjs (see below), so its S.js must be the CJS
   // build — the "." require condition points at it.

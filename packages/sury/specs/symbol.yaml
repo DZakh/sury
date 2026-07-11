@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.symbol
+  input: symbol
+  output: symbol
+  instantiations: 254
+  bundleBytes: 3752
+jsonSchema:
+  input: Expected JSON, received symbol
+  output: Expected JSON, received symbol
+operations:
+  parse:
+    expression: i=>{typeof i==="symbol"||e[0](i);return i}
+    examples:
+      valid:
+        input: Symbol.for("test")
+        output: Symbol.for("test")
+      invalid-string:
+        input: '"symbol"'
+        error: Expected symbol, received "symbol"
+  decode: identity
+  encode: identity

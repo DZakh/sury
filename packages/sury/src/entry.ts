@@ -21,6 +21,7 @@ import {
   symbol as symbolFactory,
   nan as nanFactory,
   unit as unitFactory,
+  void_ as voidFactory,
 } from "./core/primitives";
 import { never_ } from "./core/parse";
 import { nullAsUnit as nullAsUnitFactory } from "./core/operations";
@@ -51,8 +52,10 @@ export const symbol = /* @__PURE__ */ symbolFactory();
 const _never = /* @__PURE__ */ never_();
 export { _never as never };
 export const nan = /* @__PURE__ */ nanFactory();
-const _void = /* @__PURE__ */ unitFactory();
-export { _void as void, _void as unit };
+const _void = /* @__PURE__ */ voidFactory();
+export { _void as void };
+const _unit = /* @__PURE__ */ unitFactory();
+export { _unit as unit };
 export const nullAsUnit = /* @__PURE__ */ nullAsUnitFactory();
 export const json = /* @__PURE__ */ jsonFactory();
 export const jsonString = /* @__PURE__ */ jsonStringFactory();

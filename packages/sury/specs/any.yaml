@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.any
+  input: any
+  output: any
+  instantiations: 254
+  bundleBytes: 3555
+jsonSchema:
+  input: Expected JSON, received unknown
+  output: Expected JSON, received unknown
+operations:
+  parse: identity
+  decode: identity
+  encode: identity

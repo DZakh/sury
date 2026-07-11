@@ -347,12 +347,13 @@ type exn += private Exn(error)
 // Bindings to the TypeScript core
 // =============================================================================
 //
-// Sury's implementation lives in src/core.ts (see its header for the port
-// story). This module is the ReScript face of it: the public types above,
-// plus `@module("sury") external` bindings below. "sury/core" is a
-// conditional package export (import -> core.mjs, require -> core.cjs), so
-// these bindings work for consumers compiling to either module format —
-// a plain relative `@module("./core.mjs")` would break under a "commonjs"
+// Sury's implementation lives in src/core/*.ts, bundled into the package
+// entry by scripts/pack.ts (see src/entry.ts). This module is the ReScript
+// face of it: the public types above, plus `@module("sury") external`
+// bindings below, resolved through the package root "." conditional export
+// (import -> the ESM S.mjs, require -> the published CJS S.js). That's what
+// makes the bindings work for consumers compiling to either module format —
+// a plain relative `@module("./S.mjs")` would break under a "commonjs"
 // package-spec (require()-ing an ESM file throws).
 
 external castToUnknown: t<'any> => t<unknown> = "%identity"

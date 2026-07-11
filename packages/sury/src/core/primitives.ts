@@ -298,6 +298,13 @@ export const unit = () =>
     s.decoder = literalDecoder;
   });
 
+export const void_ = () =>
+  cached("void", undefinedTag, (s) => {
+    s.const = void 0;
+    s.name = "void";
+    s.decoder = literalDecoder;
+  });
+
 export const nullLiteral = () =>
   cached(nullTag, nullTag, (s) => {
     s.const = null;
