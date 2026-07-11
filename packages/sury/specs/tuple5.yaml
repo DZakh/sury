@@ -3,8 +3,8 @@ ts:
   schema: S.schema([S.string, S.number, S.boolean, S.bigint, S.symbol])
   input: "[string, number, boolean, bigint, symbol]"
   output: "[string, number, boolean, bigint, symbol]"
-  instantiations: 33305
-  bundleBytes: 10015
+  instantiations: 34485
+  bundleBytes: 10108
 jsonSchema:
   input: 'Failed at ["3"]: Expected JSON, received bigint'
   output: 'Failed at ["3"]: Expected JSON, received bigint'

@@ -3,8 +3,8 @@ ts:
   schema: "S.merge(S.schema({a: S.string, b: S.number, c: S.boolean}), S.schema({d: S.bigint, e: S.symbol}))"
   input: "{ [x: string]: unknown; }"
   output: "{ a: string; b: number; c: boolean; d: bigint; e: symbol; }"
-  instantiations: 42545
-  bundleBytes: 10198
+  instantiations: 43966
+  bundleBytes: 10298
 jsonSchema:
   input: 'Failed at ["d"]: Expected JSON, received bigint'
   output: 'Failed at ["d"]: Expected JSON, received bigint'

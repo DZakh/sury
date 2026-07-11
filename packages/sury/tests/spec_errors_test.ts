@@ -116,10 +116,10 @@ test("identity claimed but the operation doesn't actually compile to identity", 
         schema: S.string.with(S.min, 3)
         input: string
         output: string
-    -   instantiations: 226
-    -   bundleBytes: 3765
-    +   instantiations: 5659
-    +   bundleBytes: 4291
+    -   instantiations: 254
+    -   bundleBytes: 3876
+    +   instantiations: 5949
+    +   bundleBytes: 4389
       jsonSchema:
         input:
           type: string

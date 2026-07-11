@@ -3,8 +3,8 @@ ts:
   schema: "S.merge(S.schema({_id: S.optional(S.string), _rev: S.optional(S.string), _deleted: S.optional(S.boolean)}), S.schema({code: S.string, name: S.string}))"
   input: "{ [x: string]: unknown; }"
   output: "{ _id?: string | undefined; _rev?: string | undefined; _deleted?: boolean | undefined; code: string; name: string; }"
-  instantiations: 34214
-  bundleBytes: 10666
+  instantiations: 35335
+  bundleBytes: 10769
 jsonSchema:
   input:
     type: object
