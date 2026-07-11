@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.string, S.number])
+  input: string | number
+  output: string | number
+  instantiations: 19217
+  bundleBytes: 9899
+jsonSchema:
+  input: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
+  output: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
+operations:
+  parse:
+    expression: i=>{if(!(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))){e[0](i)}return i}
+    examples:
+      valid-string:
+        input: '"hello"'
+        output: '"hello"'
+      valid-number:
+        input: "42"
+        output: "42"
+      invalid:
+        input: "true"
+        error: Expected string | number, received true
+  decode: identity
+  encode: identity

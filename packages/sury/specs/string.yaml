@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string
+  input: string
+  output: string
+  instantiations: 254
+  bundleBytes: 3856
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "string" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[0](i);return i}
+    examples:
+      valid:
+        input: '"hello"'
+        output: '"hello"'
+      empty:
+        input: '""'
+        output: '""'
+      invalid-number:
+        input: "42"
+        error: Expected string, received 42
+      invalid-null:
+        input: "null"
+        error: Expected string, received null
+  decode: identity
+  encode: identity

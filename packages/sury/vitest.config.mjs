@@ -7,12 +7,8 @@ export default defineConfig({
   plugins: [codspeedPlugin()],
   test: {
     include: ["tests/**/*_test.res.mjs", "tests/**/*_test.ts"],
-    // Runtime benchmarks. types.bench.ts (@ark/attest) and bundle.bench.ts
-    // (esbuild size measurement) are standalone scripts run via tsx
-    // (pnpm bench:types / bench:bundle), not Vitest benchmarks — exclude them.
     benchmark: {
       include: ["tests/**/*.bench.ts"],
-      exclude: ["tests/types.bench.ts", "tests/bundle.bench.ts"],
     },
     typecheck: {
       enabled: true,
