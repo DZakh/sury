@@ -766,8 +766,11 @@ export const baseSchema = (tag: Tag, selfReverse: boolean): Internal => {
   schema.type = tag;
   schema.seq = seq++;
   if (selfReverse) {
+    // Reuse the module-level `valueOptions` descriptor object (no per-schema
+    // allocation), exactly like the source — and unlike the reverse cache,
+    // this descriptor is deliberately non-configurable.
     valueOptions[valKey] = schema;
-    Object.defineProperty(schema, reversedKey, { ...configurableValueOptions, value: schema });
+    Object.defineProperty(schema, reversedKey, valueOptions as PropertyDescriptor);
   }
   return schema;
 }
