@@ -180,9 +180,7 @@ const order = <T extends Record<string, unknown>>(obj: T, keys: string[]): T => 
 // by round-tripping each through eval — independent of recomputeGoldens, so
 // `spec format` can normalize formatting without executing the schema at all.
 // Left as-is if it no longer evaluates; that's a deeper problem the freshness
-// check surfaces, not a formatting one. Individual named examples are never
-// `_skip` — only the enclosing operation block is (the format schema has no
-// `orSkip` on the examples map's values).
+// check surfaces, not a formatting one.
 const reformatIfEvaluable = (text: string): string => {
   try {
     return valueToCode(evalSchema(text));
@@ -191,6 +189,8 @@ const reformatIfEvaluable = (text: string): string => {
   }
 };
 
+// Individual named examples are never `_skip` — only the enclosing operation
+// block is (the format schema has no `orSkip` on the examples map's values).
 const canonExample = (ex: Example): Example => {
   const o = order(ex, ["input", "output", "error", "bench"]) as Example;
   o.input = reformatIfEvaluable(o.input);

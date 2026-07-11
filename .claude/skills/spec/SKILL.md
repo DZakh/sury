@@ -20,8 +20,8 @@ pnpm spec check         [id]             # gate: format-valid, canonical, skips 
 
 `new` requires both `--id` and `--ts` (e.g. `pnpm spec new --id string-min --ts "S.string.with(S.min, 3)"`).
 `new`/`check --write` derive every dimension except example `input`s, which you write by hand — see
-"How types/instantiations/bundle size are derived" below for `ts.*`. `[id]` is optional for
-`check`/`format`; omit it to process every spec.
+Dimensions below for where each one comes from. `[id]` is optional for `check`/`format`; omit it to
+process every spec.
 
 To add a case: add a named entry under an op's `examples` with just `input`, then `pnpm spec check --write`.
 
@@ -75,20 +75,12 @@ For `encode`, input is an Output value and output an Input value (the type flips
 | `operations.<op>.expression` | `.toString()` of `S.parser`/`S.decoder`/`S.encoder` |
 | `operations.<op>.examples` | running the op on each input |
 | `jsonSchema.input` / `.output` | `S.toJSONSchema(schema)` / `…(S.reverse(schema))` |
-| `ts.output` / `ts.input` | vendored TS introspection (`checker.typeToString`); freshness verified by re-deriving and diffing in `spec check`/`spec_test.ts` — no generated `expectTypeOf` code needed |
+| `ts.output` / `ts.input` | vendored TS introspection (`checker.typeToString`) |
 | `ts.instantiations` | vendored TS introspection (`program.getInstantiationCount()`, diffed against a baseline) |
 | `ts.bundleBytes` | vendored esbuild measurement: bundle+minify+gzip `S.parser(schema)`, tree-shaken against the dev source |
 
-## How types/instantiations/bundle size are derived
-
-- `ts.input`/`ts.output`/`ts.instantiations` — `packages/spec/introspect.ts`: a vendored
-  `@typescript/vfs` environment (not `@ark/attest` — same underlying mechanism, without attest's slow
-  whole-project assertion scan). Declares the schema, extracts `S.Output<>`/`S.Input<>`, reads
-  `checker.typeToString()` and `program.getInstantiationCount()` diffed against a bare-import baseline.
-- `ts.bundleBytes` — `packages/spec/bundleSize.ts`: bundles `S.parser(schema)` with esbuild against the
-  dev source, minifies, gzips.
-
-Both run on every `spec new`/`spec check --write` — no separate benchmark command.
+All four run on every `spec new`/`spec check --write` — no separate benchmark command. See
+**Spec Harness** in `CONTRIBUTING.md` for how they're implemented.
 
 ## Layout
 
