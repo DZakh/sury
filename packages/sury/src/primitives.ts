@@ -17,10 +17,28 @@ export const nanCond = (inputVar: string): string => `Number.isNaN(${inputVar})`
 export const isArrayCond = (inputVar: string): string => `Array.isArray(${inputVar})`;
 export const objectTagCond = (inputVar: string): string =>
   `${typeofCond(objectTag)(inputVar)}&&${inputVar}`;
-// PORT-NOTE: `class` is a reserved word in TS — the labeled arg `~class` is
-// ported as the parameter name `class_`.
+// `class` is a reserved word in TS, so the parameter is named `class_`.
 export const instanceofCond = (b: Val, class_: unknown) => (inputVar: string): string =>
   `${inputVar} instanceof ${B_embed(b, class_)}`;
+
+// Reject anything but `tag` when the input is still `unknown` — shared by
+// every primitive decoder's unknown-input branch.
+const B_refineTypeofUnknown = (input: Val, tag: Tag): Val => {
+  return B_refine(input, input.e, [
+    {
+      c: typeofCond(tag),
+      f: failInvalidType,
+    },
+  ]);
+}
+
+// Allocate a fresh var and start a new Val from it — shared by every
+// primitive decoder that coerces its input into a differently-typed output.
+const B_nextVar = (input: Val, expected: Internal): Val => {
+  const output = B_next(input, B_varWithoutAllocation(input.g), expected);
+  output.v = _var;
+  return output;
+}
 
 export const numberDecoder: Builder = (input: Val) => {
   const inputTagFlag = tagFlags[input.s.type]!;
@@ -33,7 +51,7 @@ export const numberDecoder: Builder = (input: Val) => {
     ];
     if (input.e.format === "int32") {
       checks.push({
-        c: (inputVar) => int32FormatValidation(inputVar),
+        c: int32FormatValidation,
         f: failInvalidType,
       });
     } else {
@@ -46,21 +64,18 @@ export const numberDecoder: Builder = (input: Val) => {
     }
     return B_refine(input, input.e, checks);
   } else if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
-    const outputVar = B_varWithoutAllocation(input.g);
-
-    const output = B_next(input, outputVar, input.e);
-    output.v = _var;
+    const output = B_nextVar(input, input.e);
     // Own the `+input` coercion (decl included) in codeFromPrev so it's
     // non-hoistable: feeding a union dispatch (e.g. str->to(option(int))) can't
     // lift the type-narrow check below above its `let v0=+i`.
-    output.cp = `let ${outputVar}=+${input.v()};`;
+    output.cp = `let ${output.i}=+${input.v()};`;
 
     output.vc = [
       {
         c: (_inputVar) =>
           input.e.format === "int32"
-            ? int32FormatValidation(outputVar)
-            : `!${nanCond(outputVar)}`,
+            ? int32FormatValidation(output.i)
+            : `!${nanCond(output.i)}`,
         f: failInvalidType,
       },
     ];
@@ -70,7 +85,7 @@ export const numberDecoder: Builder = (input: Val) => {
   } else if (input.s.format !== input.e.format && input.e.format === "int32") {
     return B_refine(input, input.e, [
       {
-        c: (inputVar) => int32FormatValidation(inputVar),
+        c: int32FormatValidation,
         f: failInvalidType,
       },
     ]);
@@ -90,38 +105,27 @@ export const int = () =>
     s.decoder = numberDecoder;
   });
 
-// PORT-NOTE: the source's `let rec inputToString = ... and stringDecoderFn =
-// ... and string = ...` mutual-recursion group falls inside this section's
-// line range, so all three are ported here (the name list in the task omitted
-// stringDecoderFn/string, but they are inseparable from inputToString).
+// inputToString/stringDecoderFn/string are mutually recursive (stringDecoderFn
+// falls back to inputToString, which builds its output schema via string())
+// and so are kept together.
 export const inputToString = (input: Val): Val => {
   return B_next(input, `""+${input.i}`, string());
 }
 export const stringDecoderFn = (input: Val): Val => {
   const inputTagFlag = tagFlags[input.s.type]!;
   if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
-    return B_refine(input, input.e, [
-      {
-        c: typeofCond(stringTag),
-        f: failInvalidType,
-      },
-    ]);
+    return B_refineTypeofUnknown(input, stringTag);
   } else if (
     flagUnsafeHas(
       inputTagFlag,
       tagFlagBoolean | tagFlagNumber | tagFlagBigint | tagFlagUndefined | tagFlagNull | tagFlagNaN,
     ) && isLiteral(input.s)
   ) {
-    const const_ = "" + (input.s.const as unknown as string);
+    const const_ = "" + (input.s.const as string);
     const schema = baseSchema(stringTag, false);
-    schema.const = const_ as unknown;
+    schema.const = const_;
     return B_next(input, `"${const_}"`, schema);
-  } else if (
-    flagUnsafeHas(
-      inputTagFlag,
-      (tagFlagBoolean | (tagFlagNumber | tagFlagBigint)),
-    )
-  ) {
+  } else if (flagUnsafeHas(inputTagFlag, tagFlagBoolean | tagFlagNumber | tagFlagBigint)) {
     return inputToString(input);
   } else if (!flagUnsafeHas(inputTagFlag, tagFlagString)) {
     return B_unsupportedDecode(input, input.s, input.e);
@@ -138,20 +142,11 @@ export const string = (): Internal => {
 export const booleanDecoder: Builder = (input: Val) => {
   const inputTagFlag = tagFlags[input.s.type]!;
   if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
-    return B_refine(input, input.e, [
-      {
-        c: typeofCond(booleanTag),
-        f: failInvalidType,
-      },
-    ]);
+    return B_refineTypeofUnknown(input, booleanTag);
   } else if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
-    const outputVar = B_varWithoutAllocation(input.g);
-
-    const output = B_next(input, outputVar, input.e);
-    output.v = _var;
-
+    const output = B_nextVar(input, input.e);
     const inputVar = input.v();
-    output.cp = `let ${outputVar};(${output.i}=${inputVar}==="true")||${inputVar}==="false"||${B_embedInvalidInput(
+    output.cp = `let ${output.i};(${output.i}=${inputVar}==="true")||${inputVar}==="false"||${B_embedInvalidInput(
       input,
     )};`;
     return output;
@@ -171,18 +166,11 @@ export const bigintDecoder: Builder = (input: Val) => {
   const inputTagFlag = tagFlags[input.s.type]!;
 
   if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
-    return B_refine(input, input.e, [
-      {
-        c: typeofCond(bigintTag),
-        f: failInvalidType,
-      },
-    ]);
+    return B_refineTypeofUnknown(input, bigintTag);
   } // TODO: Skip formats which 100% don't match
   else if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
-    const outputVar = B_varWithoutAllocation(input.g);
-    const output = B_next(input, outputVar, input.e);
-    output.v = _var;
-    output.cp = `let ${outputVar};try{${outputVar}=BigInt(${input.v()})}catch(_){${B_embedInvalidInput(
+    const output = B_nextVar(input, input.e);
+    output.cp = `let ${output.i};try{${output.i}=BigInt(${input.v()})}catch(_){${B_embedInvalidInput(
       input,
     )}}`;
     return output;
@@ -203,12 +191,7 @@ export const bigint = () =>
 export const symbolDecoder: Builder = (input: Val) => {
   const inputTagFlag = tagFlags[input.s.type]!;
   if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
-    return B_refine(input, input.e, [
-      {
-        c: typeofCond(symbolTag),
-        f: failInvalidType,
-      },
-    ]);
+    return B_refineTypeofUnknown(input, symbolTag);
   } else if (!flagUnsafeHas(inputTagFlag, tagFlagSymbol)) {
     return B_unsupportedDecode(input, input.s, input.e);
   } else {
@@ -221,19 +204,15 @@ export const symbol = () =>
     s.decoder = symbolDecoder;
   });
 
-export const setHas = (has: Record<string, boolean>, tag: Tag): void => {
-  has[
-    flagUnsafeHas(tagFlags[tag]!, (tagFlagUnion | tagFlagRef))
-      ? unknownTag
-      : tag
-  ] = true;
+export const setHas = (has: Partial<Record<Tag, boolean>>, tag: Tag): void => {
+  has[flagUnsafeHas(tagFlags[tag]!, tagFlagUnion | tagFlagRef) ? unknownTag : tag] = true;
 }
 
 export const jsonName = `JSON`;
 
 export const literalDecoder: Builder = (input: Val) => {
   const expectedSchema = input.e;
-  if (expectedSchema.noValidation! && !input.u!) {
+  if (expectedSchema.noValidation && !input.u) {
     return B_nextConst(input, expectedSchema);
   } else if (isLiteral(input.s)) {
     if (input.s.const === expectedSchema.const) {
@@ -252,13 +231,13 @@ export const literalDecoder: Builder = (input: Val) => {
       )
     ) {
       const stringConstSchema = baseSchema(stringTag, false);
-      stringConstSchema.const = "" + (expectedSchema.const as unknown as string);
+      stringConstSchema.const = "" + (expectedSchema.const as string);
 
       const stringConstVal = B_nextConst(input, stringConstSchema, stringConstSchema);
 
       stringConstVal.vc = [
         {
-          c: (inputVar) => `${inputVar}==="${stringConstSchema.const as unknown as string}"`,
+          c: (inputVar) => `${inputVar}==="${stringConstSchema.const as string}"`,
           f: failInvalidType,
         },
       ];
@@ -311,7 +290,7 @@ export const Literal_parse = (value: unknown): Internal => {
   if (value === null) {
     return nullLiteral();
   } else {
-    const tag = (typeof value as Tag);
+    const tag = typeof value;
     if (tag === undefinedTag) {
       return unit();
     } else if (tag === numberTag && Number.isNaN(value as number)) {

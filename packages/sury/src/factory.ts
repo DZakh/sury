@@ -1,4 +1,4 @@
-import { B_Val_Object_add, B_Val_Object_merge, B_Val_scope, B_inlineLocation, B_invalidOperation, B_markOutput, B_merge, B_nextConst, Builder, _notVarAtParent } from "./builder";
+import { B_addObjectField, B_mergeObjectFields, B_scope, B_inlineLocation, B_invalidOperation, B_markOutput, B_merge, B_nextConst, Builder, _notVarAtParent } from "./builder";
 import { Literal_parse, literalDecoder, unit } from "./primitives";
 import { Option_getOr, TupleCtx } from "./operations";
 import { arrayDecoder, completeObjectVal, makeObjectVal, objectDecoder, optionFactory, unionFactory, valGet } from "./composites";
@@ -6,17 +6,13 @@ import { getOutputSchema, parse, reverse } from "./parse";
 import { baseSchema, copySchema, globalConfig, panic, updateOutput } from "./schema";
 import { Internal, Val, immutableEmptyArray, isLiteral, isSchemaObject, itemSymbol, toExpression } from "./types";
 import { Path, inlinedValueFromString, pathConcat, pathEmpty, pathFromInlinedLocation } from "./path";
-import { Tag, arrayTag, instanceTag, objectTag } from "./tags";
+import { arrayTag, instanceTag, objectTag } from "./tags";
 
-// PORT-NOTE: `module Schema` is exported as `SchemaModule` (the name `Schema`
-// is taken by the schema constructor in the prelude). Its members are defined
-// as standalone functions (mutual recursion between shape/nested/object/
-// definitionToSchema/... is awkward inside an object literal) with
-// `schema`-prefixed names where the bare name would collide with other
-// sections (`schemaShape`, `schemaNested`, `schemaObject`, `schemaTuple`,
-// `schemaFactory`), then attached to `SchemaModule` so call sites read
-// `schemaFactory`, `schemaObject`, etc.
-// =============================================================================
+// The factory functions below (`schemaShape`, `schemaNested`, `schemaObject`,
+// `schemaTuple`, `schemaFactory`) are standalone top-level functions rather
+// than object methods — several are mutually recursive, which is awkward to
+// express inside an object literal — with `schema`-prefixed names to avoid
+// colliding with other sections.
 
 type ShapedSerializerAcc = {
   val?: Val;
@@ -30,14 +26,9 @@ export type SchemaCtx = {
 
 const inputFrom = immutableEmptyArray as string[];
 
-// advancedObjectCtx:
-//   Public API for JS/TS users.
-//   It shouldn't be used from ReScript and
-//   needed only because we use @as for field to reduce bundle-size
-//   of ReScript compiled code
-// PORT-NOTE: lifted to top level as `AdvancedObjectCtx`. Runtime keys:
-// `field` (@as("field") _jsField) plus the spread `...Object.s` keys
-// (`f` for field via @as("f"), fieldOr, tag, nested, flatten).
+// The public JS/TS-facing object-builder ctx: `field` is the long-form JS/TS
+// name, `f` the short runtime alias (`ObjectCtx.f` in operations.ts) that
+// both ship — `field` for DX, `f` because it's what codegen already looks up.
 export type AdvancedObjectCtx = {
   field: (fieldName: string, schema: Internal) => unknown;
   f: (fieldName: string, schema: Internal) => unknown;
@@ -47,18 +38,28 @@ export type AdvancedObjectCtx = {
   flatten: (schema: Internal) => unknown;
 };
 
+const makeTag = (field: (location: string, schema: Internal) => unknown) =>
+  (tag: string, asValue: unknown): void => {
+    field(tag, definitionToSchema(asValue));
+  };
+
+const makeFieldOr = (field: (location: string, schema: Internal) => unknown) =>
+  (fieldName: string, schema: Internal, or: unknown): unknown => {
+    return field(fieldName, Option_getOr(optionFactory(schema), or));
+  };
+
 const proxifyShapedSchema = (schema: Internal, from: string[], fromFlattened?: number): unknown => {
   const mut = copySchema(getOutputSchema(schema));
   mut.from = from;
   if (fromFlattened !== undefined) {
     mut.fromFlattened = fromFlattened;
   }
-  return new Proxy(mut as unknown as object, {
+  return new Proxy(mut, {
     get(target: Internal, prop) {
-      if (prop === (itemSymbol as unknown)) {
+      if (prop === itemSymbol) {
         return target;
       } else {
-        const location = prop as unknown as string;
+        const location = prop as string;
 
         let maybeField: Internal | undefined;
         if (target.properties !== undefined) {
@@ -88,7 +89,7 @@ export const schemaShape = <Value>(schema: Internal, definer: (value: unknown) =
     const fromProxy = proxifyShapedSchema(mut, inputFrom);
     const definition: unknown = definer(fromProxy);
     if (definition === fromProxy) {
-      // ()
+      // Definer returned the proxy unchanged: no reshape, keep the identity parser.
     } else {
       mut.parser = shapedParser;
       mut.to = definitionToShapedSchema(definition);
@@ -96,8 +97,9 @@ export const schemaShape = <Value>(schema: Internal, definer: (value: unknown) =
   });
 }
 
-export function schemaNested(this: Record<string, unknown>, fieldName: string): AdvancedObjectCtx {
-  const parentCtx = this as unknown as AdvancedObjectCtx & Record<string, unknown>; // TODO: Add a check that it's binded?
+function schemaNested(this: AdvancedObjectCtx & Record<string, unknown>, fieldName: string): AdvancedObjectCtx {
+  // TODO: Add a check that `this` is actually bound to a parent ctx?
+  const parentCtx = this;
   const cacheId = `~${fieldName}`;
 
   const cachedCtx = parentCtx[cacheId] as AdvancedObjectCtx | undefined;
@@ -134,19 +136,14 @@ export function schemaNested(this: Record<string, unknown>, fieldName: string): 
       );
     };
 
-    const tag = (tag: string, asValue: unknown): void => {
-      field(tag, definitionToSchema(asValue));
-    };
-
-    const fieldOr = (fieldName: string, schema: Internal, or: unknown): unknown => {
-      return field(fieldName, Option_getOr(optionFactory(schema), or));
-    };
+    const tag = makeTag(field);
+    const fieldOr = makeFieldOr(field);
 
     const flatten = (schema: Internal): unknown => {
       if (schema.type === objectTag) {
         const flattenedProperties = schema.properties;
         const to = schema.to;
-        if (to as unknown as boolean) {
+        if (to) {
           panic(
             `Unsupported nested flatten for transformed object schema ${toExpression(schema)}`
           );
@@ -193,7 +190,7 @@ export const schemaObject = (definer: (ctx: AdvancedObjectCtx) => unknown): Inte
         const flattenedSchema = flattenedProperties[key]!;
         const existing = properties[key];
         if (existing !== undefined && existing === flattenedSchema) {
-          // ()
+          // Same field flattened in from two places — already registered, skip.
         } else if (existing !== undefined) {
           panic(`The field "${key}" defined twice with incompatible schemas`);
         } else {
@@ -215,13 +212,8 @@ export const schemaObject = (definer: (ctx: AdvancedObjectCtx) => unknown): Inte
     return proxifyShapedSchema(schema, [fieldName]);
   };
 
-  const tag = (tag: string, asValue: unknown): void => {
-    field(tag, definitionToSchema(asValue));
-  };
-
-  const fieldOr = (fieldName: string, schema: Internal, or: unknown): unknown => {
-    return field(fieldName, Option_getOr(optionFactory(schema), or));
-  };
+  const tag = makeTag(field);
+  const fieldOr = makeFieldOr(field);
 
   const ctx: AdvancedObjectCtx = {
     // js/ts methods
@@ -254,11 +246,11 @@ export const schemaTuple = (definer: (ctx: TupleCtx) => unknown): Internal => {
 
   const item = (idx: number, schema: Internal): unknown => {
     const location = String(idx);
-    if (items[idx] as unknown as boolean) {
+    if (items[idx]) {
       return panic(`The item [${location}] is defined multiple times`);
     } else {
       items[idx] = schema;
-      return proxifyShapedSchema(schema, [String(idx)]);
+      return proxifyShapedSchema(schema, [location]);
     }
   };
 
@@ -289,7 +281,9 @@ export const schemaTuple = (definer: (ctx: TupleCtx) => unknown): Internal => {
 }
 
 const getValByFrom = (input: Val, from: string[], idx: number): Val => {
-  // FIXME: TODO: something with flattened
+  // Flattened schemas are resolved by the caller (getShapedParserOutput picks
+  // the right `input.fv[fromFlattened]` before calling this) — this walk only
+  // needs to handle a plain nested `from` path.
   const key = from[idx];
   if (key !== undefined) {
     return getValByFrom(input.d![key]!, from, idx + 1);
@@ -312,18 +306,20 @@ const assembleShapedObject = (
     const items = schema.items;
     for (let idx = 0; idx < items.length; idx++) {
       const location = String(idx);
-      B_Val_Object_add(output, location, field(location, items[idx]!));
+      B_addObjectField(output, location, field(location, items[idx]!));
     }
   } else if (schema.properties !== undefined) {
     const properties = schema.properties;
     const keys = Object.keys(properties);
     for (let idx = 0; idx < keys.length; idx++) {
       const location = keys[idx]!;
-      B_Val_Object_add(output, location, field(location, properties[location]!));
+      B_addObjectField(output, location, field(location, properties[location]!));
     }
   } else {
-    // FIXME: Use a path
-    panic(`Don't know where the value is coming from: ${toExpression(schema)}`);
+    panic(
+      `Don't know where the value is coming from: ${toExpression(schema)}` +
+        (input.path === "" ? "" : ` at ${input.path}`)
+    );
   }
   return completeObjectVal(output);
 }
@@ -331,11 +327,11 @@ const assembleShapedObject = (
 const getShapedParserOutput = (input: Val, targetSchema: Internal): Val => {
   let v: Val;
   if (targetSchema.fromFlattened !== undefined) {
-    v = B_Val_scope(
+    v = B_scope(
       getValByFrom(input.fv![targetSchema.fromFlattened]!, targetSchema.from!, 0)
     );
   } else if (targetSchema.from !== undefined) {
-    v = B_Val_scope(getValByFrom(input, targetSchema.from, 0));
+    v = B_scope(getValByFrom(input, targetSchema.from, 0));
   } else if (isLiteral(targetSchema)) {
     v = B_nextConst(input, targetSchema);
   } else {
@@ -348,7 +344,7 @@ const getShapedParserOutput = (input: Val, targetSchema: Internal): Val => {
   return v;
 }
 
-export const shapedParser: Builder = (input: Val) => {
+const shapedParser: Builder = (input: Val) => {
   const flattened = input.e.flattened;
   if (flattened !== undefined) {
     const flattenedVals: Val[] = [];
@@ -364,7 +360,7 @@ export const shapedParser: Builder = (input: Val) => {
         // The flattened schema has its own reshape/transform. Mark the input as
         // output so the parse loop skips the decoder and runs only that `.to`,
         // reading the decoded fields back through the shared `vals`.
-        const flattenedInput = B_Val_scope(input);
+        const flattenedInput = B_scope(input);
         flattenedInput.e = flattenedSchema;
         flattenedInput.io = true;
         flattenedVal = parse(flattenedInput);
@@ -454,7 +450,7 @@ const getShapedSerializerOutput = (
   path: Path
 ): Val => {
   if (acc !== undefined && acc.val !== undefined) {
-    const v = B_Val_scope(acc.val);
+    const v = B_scope(acc.val);
     v.t = true;
     v.s = targetSchema;
     v.e = targetSchema;
@@ -480,12 +476,12 @@ const getShapedSerializerOutput = (
 
       if (
         resolvedTargetSchema.items !== undefined &&
-        !(acc === undefined && (typeof resolvedTargetSchema.additionalItems as Tag) === objectTag)
+        !(acc === undefined && typeof resolvedTargetSchema.additionalItems === objectTag)
       ) {
         const items = resolvedTargetSchema.items;
         for (let idx = 0; idx < items.length; idx++) {
           const location = String(idx);
-          B_Val_Object_add(
+          B_addObjectField(
             v,
             location,
             getShapedSerializerOutput(
@@ -500,7 +496,7 @@ const getShapedSerializerOutput = (
         }
       } else if (
         resolvedTargetSchema.properties !== undefined &&
-        !(acc === undefined && (typeof resolvedTargetSchema.additionalItems as Tag) === objectTag)
+        !(acc === undefined && typeof resolvedTargetSchema.additionalItems === objectTag)
       ) {
         const properties = resolvedTargetSchema.properties;
         const flattened = resolvedTargetSchema.flattened;
@@ -514,7 +510,7 @@ const getShapedSerializerOutput = (
               reverse(flattenedSchemas[idx]!),
               path
             );
-            B_Val_Object_merge(v, flattenedOutput.d!);
+            B_mergeObjectFields(v, flattenedOutput.d!);
           });
         }
 
@@ -524,7 +520,7 @@ const getShapedSerializerOutput = (
 
           // Skip fields added by flattened
           if (!(location in v.d!)) {
-            B_Val_Object_add(
+            B_addObjectField(
               v,
               location,
               getShapedSerializerOutput(
@@ -557,7 +553,7 @@ const getShapedSerializerOutput = (
   }
 }
 
-export const shapedSerializer: Builder = (input: Val) => {
+const shapedSerializer: Builder = (input: Val) => {
   const acc: ShapedSerializerAcc = {};
   prepareShapedSerializerAcc(acc, input);
 
@@ -583,7 +579,7 @@ const definitionToShapedSchema = (definition: unknown): Internal => {
 export const definitionToSchema = (definition: unknown): Internal => {
   return traverseDefinition(definition, (node) => {
     if (isSchemaObject(node)) {
-      return node as unknown as Internal;
+      return node as Internal;
     } else {
       return undefined;
     }
@@ -594,7 +590,7 @@ const traverseDefinition = (
   definition: unknown,
   onNode: (node: unknown) => Internal | undefined
 ): Internal => {
-  if ((typeof definition as Tag) === objectTag && definition !== null) {
+  if (typeof definition === objectTag && definition !== null) {
     const s = onNode(definition);
     if (s !== undefined) {
       return s;
@@ -602,10 +598,9 @@ const traverseDefinition = (
       if (Array.isArray(definition)) {
         const node = definition as unknown[];
         for (let idx = 0; idx < node.length; idx++) {
-          const schema = traverseDefinition(node[idx], onNode);
-          node[idx] = schema as unknown;
+          node[idx] = traverseDefinition(node[idx], onNode);
         }
-        const items = node as unknown as Internal[];
+        const items = node as Internal[];
 
         const mut = baseSchema(arrayTag, false);
         mut.items = items;
@@ -614,7 +609,7 @@ const traverseDefinition = (
         return mut;
       } else {
         const cnstr = (definition as Record<string, unknown>)["constructor"];
-        if ((cnstr as unknown as boolean) && cnstr !== Object) {
+        if (cnstr && cnstr !== Object) {
           const mut = baseSchema(instanceTag, true);
           mut.class = cnstr;
           mut.const = definition;
@@ -626,12 +621,11 @@ const traverseDefinition = (
           const length = fieldNames.length;
           for (let idx = 0; idx < length; idx++) {
             const location = fieldNames[idx]!;
-            const schema = traverseDefinition(node[location], onNode);
-            node[location] = schema as unknown;
+            node[location] = traverseDefinition(node[location], onNode);
           }
           const mut = baseSchema(objectTag, false);
           mut.required = fieldNames;
-          mut.properties = node as unknown as Record<string, Internal>;
+          mut.properties = node as Record<string, Internal>;
           mut.additionalItems = globalConfig.a;
           mut.decoder = objectDecoder;
           return mut;
@@ -643,25 +637,16 @@ const traverseDefinition = (
   }
 }
 
-const schemaMatches = (schema: Internal): unknown => {
-  return schema as unknown;
-}
 const schemaCtx: SchemaCtx = {
-  m: schemaMatches,
+  m: (schema) => schema,
 };
 export const schemaFactory = (definer: (ctx: unknown) => unknown): Internal => {
-  return definitionToSchema(definer(schemaCtx as unknown));
+  return definitionToSchema(definer(schemaCtx));
 }
 
-// PORT-NOTE: `module Schema` exported as SchemaModule (name `Schema` is taken
-// by the schema constructor in the prelude). Members defined as standalone
-// functions above and attached here so call sites can use SchemaModule.*.
-
-// Identifier aliases (not `schemaFactory` property reads) so esbuild
-// can tree-shake: a property-read initializer is treated as possibly
+// Identifier alias (not a `schemaFactory` property read) so esbuild can
+// tree-shake: a property-read initializer is treated as possibly
 // side-effectful and would retain the whole schema machinery in every bundle.
-export const schema = schemaFactory;
-
 export const js_schema = (definition: unknown): Internal => {
   return definitionToSchema(definition);
 }

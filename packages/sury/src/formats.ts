@@ -1,14 +1,14 @@
 import { defsPath, recursiveDecoder, transform } from "./operations";
 import { array, arrayDecoder, completeObjectVal, dictFactory, makeObjectVal, unionDecoder, unionFactory, unionPerVariantVal, valGet } from "./composites";
 import { bool, float, inputToString, jsonName, literalDecoder, nullLiteral, numberDecoder, string, stringDecoderFn, unit } from "./primitives";
-import { baseSchema, cached, copySchema, unknown, updateOutput } from "./schema";
-import { B_Val_Object_add, B_embed, B_embedInvalidInput, B_failWithErrorMessage, B_next, B_nextConst, B_refine, B_unsupportedDecode, B_varWithoutAllocation, _var, failInvalidType } from "./builder";
+import { baseSchema, cached, copySchema, unknown } from "./schema";
+import { B_addObjectField, B_embed, B_embedInvalidInput, B_failWithErrorMessage, B_next, B_nextConst, B_refine, B_unsupportedDecode, B_varWithoutAllocation, _var, failInvalidType } from "./builder";
 import { getDecoder, instanceDecoder, parse, reverse } from "./parse";
 import { Internal, SchemaErrorMessage, Val, isLiteral } from "./types";
 import { Builder, Encoder } from "./builder";
 import { flagUnsafeHas } from "./flags";
 import { inlinedValueFromString } from "./path";
-import { arrayTag, instanceTag, numberTag, refTag, stringTag, tagFlagArray, tagFlagBigint, tagFlagBoolean, tagFlagInstance, tagFlagNaN, tagFlagNull, tagFlagNumber, tagFlagObject, tagFlagRef, tagFlagString, tagFlagUndefined, tagFlagUnion, tagFlagUnknown, tagFlags, undefinedTag, unionTag, unknownTag } from "./tags";
+import { Tag, arrayTag, instanceTag, numberTag, refTag, stringTag, tagFlagArray, tagFlagBigint, tagFlagBoolean, tagFlagInstance, tagFlagNaN, tagFlagNull, tagFlagNumber, tagFlagObject, tagFlagRef, tagFlagString, tagFlagUndefined, tagFlagUnion, tagFlagUnknown, tagFlags, undefinedTag, unionTag, unknownTag } from "./tags";
 
 export const jsonEncoderFn = (input: Val, target: Internal): Val => {
   const toTagFlag = tagFlags[target.type]!;
@@ -62,14 +62,10 @@ export const isJsonable = (schema: Internal): boolean => {
     schema["$ref"] === json()["$ref"] ||
     (flagUnsafeHas(tagFlag, tagFlagUnion) && schema.anyOf!.every(isJsonable)) ||
     (flagUnsafeHas(tagFlag, tagFlagArray) &&
-      (typeof schema.additionalItems === "object"
-        ? isJsonable(schema.additionalItems as Internal)
-        : true) &&
+      (typeof schema.additionalItems === "object" ? isJsonable(schema.additionalItems) : true) &&
       schema.items!.every(isJsonable)) ||
     (flagUnsafeHas(tagFlag, tagFlagObject) &&
-      (typeof schema.additionalItems === "object"
-        ? isJsonable(schema.additionalItems as Internal)
-        : true) &&
+      (typeof schema.additionalItems === "object" ? isJsonable(schema.additionalItems) : true) &&
       Object.values(schema.properties!).every(isJsonable))
   );
 }
@@ -99,7 +95,7 @@ export const jsonDecoderFn = (input: Val): Val => {
     } else {
       const jsonVal = makeObjectVal(input, input.s);
       jsonVal.e = json();
-      if (input.e.to as unknown as boolean) {
+      if (input.e.to) {
         jsonVal.e = copySchema(jsonVal.e);
         jsonVal.e.to = input.e.to;
       }
@@ -110,17 +106,14 @@ export const jsonDecoderFn = (input: Val): Val => {
         const itemVal = valGet(input, key);
         itemVal.io = false;
 
-        if (
-          itemVal.s.type === unionTag &&
-          (itemVal.s.has![undefinedTag as string] as unknown as boolean)
-        ) {
+        if (itemVal.s.type === unionTag && itemVal.s.has![undefinedTag]) {
           itemVal.e = unionFactory([unit(), json()]);
           const itemOutput = parse(itemVal);
           itemOutput.o = true;
-          B_Val_Object_add(jsonVal, key, itemOutput);
+          B_addObjectField(jsonVal, key, itemOutput);
         } else {
           itemVal.e = json();
-          B_Val_Object_add(jsonVal, key, parse(itemVal));
+          B_addObjectField(jsonVal, key, parse(itemVal));
         }
       }
 
@@ -135,15 +128,15 @@ export const jsonDecoderFn = (input: Val): Val => {
     // (set by unionFactory, reverse and the S.json def).
     // Unions with an undefined variant are not supported,
     // since undefined is not representable in JSON
-    !((undefinedTag as string) in input.s.has!)
+    !(undefinedTag in input.s.has!)
   ) {
     // Decode each union variant to JSON separately
     return parse(unionPerVariantVal(input, input.e));
   } else if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
     const to = input.e.to!;
     // Whether we can optimize encoding during decoding
-    const preEncode: boolean =
-      (to as unknown as boolean) && !(input.e.parser as unknown as boolean); // && !(selfSchema.refiner->Obj.magic) FIXME:
+    // FIXME: should this also check !input.e.refiner, like jsonStringDecoder's preEncode does?
+    const preEncode: boolean = !!to && !input.e.parser;
     if (preEncode) {
       input.s = json();
       return jsonEncoderFn(input, input.e);
@@ -159,7 +152,7 @@ export const jsonDecoderFn = (input: Val): Val => {
       expected.to = input.e;
       input.e = expected;
       return parse(input);
-    } catch (_) {
+    } catch {
       return B_unsupportedDecode(input, input.s, json());
     }
   }
@@ -188,9 +181,9 @@ export const json = (): Internal => {
       dictFactory(jsonRef),
       array(jsonRef),
     ];
-    const has: Record<string, boolean> = {};
+    const has: Partial<Record<Tag, boolean>> = {};
     anyOf.forEach((schema) => {
-      has[schema.type as string] = true;
+      has[schema.type] = true;
     });
 
     const jsonDef = baseSchema(unionTag, true);
@@ -213,9 +206,7 @@ export const jsonString = /* @__PURE__ */ (() => {
     if (flagUnsafeHas(tagFlag, (tagFlagUndefined | tagFlagNull))) {
       return `"null"`;
     } else if (flagUnsafeHas(tagFlag, tagFlagString)) {
-      return JSON.stringify(
-        inlinedValueFromString(const_ as unknown as string),
-      ) as unknown as string;
+      return JSON.stringify(inlinedValueFromString(const_ as string));
     } else if (flagUnsafeHas(tagFlag, tagFlagBigint)) {
       return `"\\"${const_}\\""`;
     } else if (flagUnsafeHas(tagFlag, (tagFlagNumber | tagFlagBoolean))) {
@@ -231,13 +222,11 @@ export const jsonString = /* @__PURE__ */ (() => {
     if (flagUnsafeHas(tagFlag, (tagFlagUndefined | tagFlagNull))) {
       return `null`;
     } else if (flagUnsafeHas(tagFlag, tagFlagString)) {
-      return inlinedValueFromString(
-        const_ as unknown as string,
-      ) as unknown as string;
+      return inlinedValueFromString(const_ as string);
     } else if (flagUnsafeHas(tagFlag, tagFlagBigint)) {
       return `"${const_}"`;
     } else if (flagUnsafeHas(tagFlag, (tagFlagNumber | tagFlagBoolean))) {
-      return ("" + (const_ as unknown as string)) as string;
+      return "" + const_;
     } else {
       return B_unsupportedDecode(input, input.s, target);
     }
@@ -247,10 +236,7 @@ export const jsonString = /* @__PURE__ */ (() => {
     if (target.format !== "json") {
       if (isLiteral(target)) {
         const jsonStringConstSchema = baseSchema(stringTag, true);
-        jsonStringConstSchema.const = constSchemaToJsonStringConst(
-          input,
-          target,
-        ) as unknown;
+        jsonStringConstSchema.const = constSchemaToJsonStringConst(input, target);
         jsonStringConstSchema.to = target;
         jsonStringConstSchema.decoder = literalDecoder;
         return B_refine(input, undefined, undefined, jsonStringConstSchema);
@@ -285,10 +271,7 @@ export const jsonString = /* @__PURE__ */ (() => {
       const to = expectedSchema.to!;
       // Whether we can optimize encoding during decoding
       const preEncode: boolean =
-        (to as unknown as boolean) &&
-        to.type !== unknownTag &&
-        !(expectedSchema.parser as unknown as boolean) &&
-        !(expectedSchema.refiner as unknown as boolean);
+        !!to && to.type !== unknownTag && !expectedSchema.parser && !expectedSchema.refiner;
 
       const stringVal = stringDecoderFn(input);
       stringVal.s = expectedSchema;
@@ -358,7 +341,7 @@ export const uint8Array = (): Internal => {
       if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
         input = B_next(
           input,
-          `${B_embed(input, new TextEncoder() as unknown)}.encode(${input.i})`,
+          `${B_embed(input, new TextEncoder())}.encode(${input.i})`,
           s,
         );
       } else if (flagUnsafeHas(inputTagFlag, (tagFlagUnknown | tagFlagInstance))) {
@@ -371,7 +354,7 @@ export const uint8Array = (): Internal => {
         if (flagUnsafeHas(toTagFlag, tagFlagString)) {
           input = B_next(
             input,
-            `${B_embed(input, new TextDecoder() as unknown)}.decode(${input.i})`,
+            `${B_embed(input, new TextDecoder())}.decode(${input.i})`,
             string(),
           );
         }
@@ -467,11 +450,11 @@ export const cuid = (): Internal => {
 
 export const url = (): Internal => {
   return cached("url", stringTag, (s) => {
-    const urlValidator: unknown = (s: string) => {
+    const urlValidator = (s: string) => {
       try {
         new URL(s);
         return true;
-      } catch (_) {
+      } catch {
         return false;
       }
     };
@@ -498,7 +481,7 @@ export const invalidDateRefine = (input: Val): Val => {
 }
 
 export const date = (): Internal => {
-  return cached(instanceTag as string, instanceTag, (s) => {
+  return cached(instanceTag, instanceTag, (s) => {
     s.class = Date;
     s.decoder = (input: Val): Val => {
       const inputTagFlag = tagFlags[input.s.type]!;
@@ -556,7 +539,7 @@ export const list = (schema: Internal): Internal => {
   return transform(array(schema), (_: unknown) => ({
     p: (array: unknown) => listFromArray(array as unknown[]),
     s: (list: unknown) => listToArray(list as RescriptList),
-  })) as unknown as Internal;
+  }));
 }
 
 export type Meta<Value> = {
@@ -597,17 +580,14 @@ export const meta = <Value>(schema: Internal, data: Meta<Value>): Internal => {
   }
   if (data.examples !== undefined) {
     if (data.examples.length === 0) {
-      mut.examples = undefined; // FIXME: Delete instead of None
+      delete mut.examples;
     } else {
-      mut.examples = data.examples.map(
-        getDecoder(reverse(schema)) as unknown as (example: Value) => unknown,
-      );
+      mut.examples = data.examples.map(getDecoder(reverse(schema)));
     }
   }
   if (data.errorMessage !== undefined) {
     const em = data.errorMessage;
-    const emDict = em as unknown as Record<string, string>;
-    if (Object.keys(emDict).length === 0) {
+    if (Object.keys(em).length === 0) {
       mut.errorMessage = undefined;
     } else {
       mut.errorMessage = em;

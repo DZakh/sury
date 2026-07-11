@@ -163,7 +163,7 @@ export type Schema<Output, Input = unknown> = {
     ) => Schema<unknown, unknown>,
     target: SchemaLike<TargetOutput, TargetInput>,
     decode?: ((value: Output) => TargetInput) | undefined,
-    encode?: (value: TargetInput) => Output
+    encode?: (value: TargetOutput) => Output
   ): Schema<TargetOutput, Input>;
   with(
     refine: (
@@ -174,7 +174,11 @@ export type Schema<Output, Input = unknown> = {
     refineCheck: (value: Output) => boolean,
     refineOptions?: { error?: string; path?: string[] }
   ): Schema<Output, Input>;
-  // I don't know how, but it makes both S.refine and S.shape work
+  // This overload is what both S.refine and S.shape resolve to under
+  // overload matching — the exact mechanism that routes S.refine calls here
+  // instead of the more specific `refine` overload above hasn't been pinned
+  // down. Treat it as load-bearing for both call sites and verify against
+  // S_refine_test.res / S_shape_test.res before changing its shape.
   with<Shape>(
     fn: (
       schema: Schema<unknown, unknown>,
@@ -182,8 +186,11 @@ export type Schema<Output, Input = unknown> = {
     ) => Schema<unknown, unknown>,
     callback: ((value: Output) => Shape) | undefined
   ): Schema<Shape, Input>;
-  // with(message: string): t<Output, Input>; TODO: implement
   with<O, I>(fn: (schema: Schema<Output, Input>) => SchemaLike<O, I>): Schema<O, I>;
+  // Constraining A1 to string makes a string-literal arg1 (e.g.
+  // `.with(S.brand, "myId")`) infer its literal type instead of widening to
+  // `string` — needed for brand-based nominal typing. The next overload
+  // covers the general (non-string) arg1 case.
   with<O, I, A1 extends string>(
     fn: (schema: Schema<Output, Input>, arg1: A1) => SchemaLike<O, I>,
     arg1: A1
@@ -271,7 +278,7 @@ export type Schema<Output, Input = unknown> = {
   | {
       readonly type: "array";
       readonly items: Schema<unknown>;
-      readonly additionalItems: "strip" | "strict" | Schema<unknown>;
+      readonly additionalItems: UnknownKeys | Schema<unknown>;
       readonly format?: ArrayFormat;
       readonly minItems?: number;
       readonly maxItems?: number;
@@ -281,7 +288,7 @@ export type Schema<Output, Input = unknown> = {
       readonly properties: {
         [key: string]: Schema<unknown>;
       };
-      readonly additionalItems: "strip" | "strict" | Schema<unknown>;
+      readonly additionalItems: UnknownKeys | Schema<unknown>;
       readonly required?: string[];
     }
   | {
@@ -312,50 +319,41 @@ export type Schema<Output, Input = unknown> = {
 );
 
 export abstract class Path {
-  protected opaque: any;
+  protected opaque: unknown;
 } /* simulate opaque types */
 
+type BaseError = {
+  readonly path: Path;
+  readonly message: string;
+  readonly reason: string;
+};
+
 export type Error =
-  | {
+  | (BaseError & {
       readonly code: "invalid_input";
-      readonly path: Path;
-      readonly message: string;
-      readonly reason: string;
       readonly expected: Schema<unknown>;
       readonly received: Schema<unknown>;
       readonly input?: unknown;
       readonly unionErrors?: readonly Error[];
-    }
-  | {
+    })
+  | (BaseError & {
       readonly code: "invalid_operation";
-      readonly path: Path;
-      readonly message: string;
-      readonly reason: string;
-    }
-  | {
+    })
+  | (BaseError & {
       readonly code: "unsupported_decode";
-      readonly path: Path;
-      readonly message: string;
-      readonly reason: string;
       readonly from: Schema<unknown>;
       readonly to: Schema<unknown>;
-    }
-  | {
+    })
+  | (BaseError & {
       readonly code: "invalid_conversion";
-      readonly path: Path;
-      readonly message: string;
-      readonly reason: string;
       readonly from: Schema<unknown>;
       readonly to: Schema<unknown>;
       readonly cause?: Error;
-    }
-  | {
+    })
+  | (BaseError & {
       readonly code: "unrecognized_keys";
-      readonly path: Path;
-      readonly message: string;
-      readonly reason: string;
       readonly keys: readonly string[];
-    };
+    });
 
 export const Error: {
   new (): Error;
@@ -467,38 +465,15 @@ type ResolveObject<R> = undefined extends R[keyof R]
 // Flatten an intersection into one object, keeping values verbatim (incl. `never`).
 type Flatten<T> = T extends object ? { [K in keyof T]: T[K] } : T;
 
-type UnknownArrayToOutput<
-  T extends unknown[],
-  Length extends number = T["length"]
-> = Length extends Length
-  ? number extends Length
-    ? T
-    : _RestToOutput<T, Length, []>
-  : never;
-type _RestToOutput<
-  T extends unknown[],
-  Length extends number,
-  Accumulated extends unknown[],
-  Index extends number = Accumulated["length"]
-> = Index extends Length
-  ? Accumulated
-  : _RestToOutput<T, Length, [...Accumulated, UnknownToOutput<T[Index]>]>;
-type UnknownArrayToInput<
-  T extends unknown[],
-  Length extends number = T["length"]
-> = Length extends Length
-  ? number extends Length
-    ? T
-    : _RestToInput<T, Length, []>
-  : never;
-type _RestToInput<
-  T extends unknown[],
-  Length extends number,
-  Accumulated extends unknown[],
-  Index extends number = Accumulated["length"]
-> = Index extends Length
-  ? Accumulated
-  : _RestToInput<T, Length, [...Accumulated, UnknownToInput<T[Index]>]>;
+// Homomorphic mapped type over a tuple `T` preserves its arity — a plain
+// (non-tuple) array `T` has `T["length"]` widened to `number`, in which case
+// there's nothing positional to map and `T` is returned as-is.
+type UnknownArrayToOutput<T extends unknown[]> = number extends T["length"]
+  ? T
+  : { [K in keyof T]: UnknownToOutput<T[K]> };
+type UnknownArrayToInput<T extends unknown[]> = number extends T["length"]
+  ? T
+  : { [K in keyof T]: UnknownToInput<T[K]> };
 
 type Literal =
   | string
@@ -624,7 +599,7 @@ export function asyncDecoder<Output, Input>(
   from: SchemaLike<unknown, Input>,
   target: SchemaLike<Output, unknown>
 ): (data: Input) => Promise<Output>;
-export function decoder<
+export function asyncDecoder<
   Schemas extends readonly [SchemaLike<any, any>, ...SchemaLike<any, any>[]]
 >(
   ...schemas: Schemas
@@ -783,6 +758,7 @@ export function recursive<Output, Input = unknown>(
 ): Schema<Output, Input>;
 
 export type SchemaErrorMessage = {
+  /** Catch-all override, used when no more specific key below matches the failing check. */
   _?: string;
   format?: string;
   type?: string;

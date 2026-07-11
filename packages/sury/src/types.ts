@@ -86,29 +86,11 @@ export type SuryErrorRecord = Record<string, unknown> & {
 
 export type AdditionalItems = AdditionalItemsMode | Internal;
 
-export type Has = {
-  string?: boolean;
-  number?: boolean;
-  never?: boolean;
-  unknown?: boolean;
-  bigint?: boolean;
-  boolean?: boolean;
-  symbol?: boolean;
-  null?: boolean;
-  undefined?: boolean;
-  nan?: boolean;
-  function?: boolean;
-  instance?: boolean;
-  array?: boolean;
-  object?: boolean;
-}
-
 export type SchemaErrorMessage = {
-  // @as("_")
-  catchAll?: string;
+  // Catch-all override, used when no more specific key matches.
+  _?: string;
   format?: string;
-  // @as("type")
-  type_?: string;
+  type?: string;
   minimum?: string;
   maximum?: string;
   minLength?: string;
@@ -153,7 +135,7 @@ export type Internal = {
   default?: unknown;
   fromDefault?: unknown;
   format?: Format;
-  has?: Record<string, boolean>;
+  has?: Partial<Record<Tag, boolean>>;
   anyOf?: Internal[];
   additionalItems?: AdditionalItems;
   items?: Internal[];
@@ -174,6 +156,9 @@ export type Internal = {
   isAsync?: boolean; // Optional value means that it's not lazily computed yet.
   hasTransform?: boolean; // Optional value means that it's not lazily computed yet.
   "~standard"?: unknown;
+  // The reversed (Input ↔ Output swapped) schema, cached lazily as a hidden
+  // non-enumerable property via Object.defineProperty (see schema.ts/parse.ts).
+  r?: Internal;
 }
 
 export type BGlobal = {
@@ -254,7 +239,7 @@ export const immutableEmptyObject: Record<string, unknown> = {};
 
 // This is dirty
 export const isSchemaObject = (obj: unknown): boolean => {
-  return (obj as { "~standard"?: unknown })["~standard"] as unknown as boolean;
+  return !!(obj as { "~standard"?: unknown })["~standard"];
 }
 
 export const constField = "const";
@@ -270,7 +255,7 @@ export const isOptional = (schema: Internal): boolean => {
 }
 
 export const stringify = (unknown: unknown): string => {
-  const tagFlag = tagFlags[(typeof unknown as Tag)]!;
+  const tagFlag = tagFlags[typeof unknown as Tag]!;
 
   if (flagUnsafeHas(tagFlag, tagFlagUndefined)) {
     return undefinedTag;
@@ -278,25 +263,12 @@ export const stringify = (unknown: unknown): string => {
     if (unknown === null) {
       return nullTag;
     } else if (Array.isArray(unknown)) {
-      const array = unknown as unknown[];
-      let string = "[";
-      for (let i = 0; i < array.length; i++) {
-        if (i !== 0) {
-          string = string + ", ";
-        }
-        string = string + stringify(array[i]);
-      }
-      return string + "]";
+      return `[${unknown.map(stringify).join(", ")}]`;
     } else if ((unknown as { constructor: unknown }).constructor === Object) {
       const dict = unknown as Record<string, unknown>;
-      const keys = Object.keys(dict);
-      let string = "{ ";
-      for (let i = 0; i < keys.length; i++) {
-        const key = keys[i]!;
-        const value = dict[key];
-        string = `${string}${key}: ${stringify(value)}; `;
-      }
-      return string + "}";
+      return `{ ${Object.keys(dict)
+        .map((key) => `${key}: ${stringify(dict[key])}; `)
+        .join("")}}`;
     } else {
       return Object.prototype.toString.call(unknown);
     }
@@ -350,7 +322,7 @@ export const toExpression = (schema: Internal): string => {
     const properties = schema.properties!;
     const locations = Object.keys(properties);
     if (locations.length === 0) {
-      if ((typeof schema.additionalItems as Tag) === objectTag) {
+      if (typeof schema.additionalItems === objectTag) {
         const additionalItems = schema.additionalItems as Internal;
         return `{ [key: string]: ${toExpression(additionalItems)}; }`;
       } else {
@@ -365,12 +337,9 @@ export const toExpression = (schema: Internal): string => {
     }
   } else if (schema.type === nanTag) {
     return "NaN";
-  } else if ((schema as unknown as Val).b) {
-    // Case for val
-    return schema.type;
   } else if (schema.type === arrayTag) {
     const items = schema.items!;
-    if ((typeof schema.additionalItems as Tag) === objectTag) {
+    if (typeof schema.additionalItems === objectTag) {
       const additionalItems = schema.additionalItems as Internal;
       const itemName = toExpression(additionalItems);
       return (additionalItems.type === unionTag ? `(${itemName})` : itemName) + "[]";

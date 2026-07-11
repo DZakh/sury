@@ -1,37 +1,36 @@
 import { nullLiteral, unit } from "./primitives";
 import { GlobalConfigOverride, baseSchema, copySchema, getOrRethrow, globalConfig, initialDefaultFlag, initialOnAdditionalItems, panic, unknown, updateOutput } from "./schema";
-import { B_embed, B_failWithArg, B_invalidInputBuilder, B_makeInvalidConversionDetails, B_next, B_varWithoutAllocation, _var } from "./builder";
+import { B_embed, B_failWithArg, B_invalidInputBuilder, B_makeInvalidConversionDetails, B_next, B_varWithoutAllocation, EffectCtx, _var } from "./builder";
 import { definitionToSchema } from "./factory";
 import { objectDecoder, unionFactory } from "./composites";
 import { Option_getOr, Option_getOrWith, getAssertResult, internalRefine, nullAsUnit, transform } from "./operations";
-import { AdditionalItems, Check, Internal, Val, isSchemaObject } from "./types";
+import { Check, Internal, Val, isSchemaObject } from "./types";
 import { Builder } from "./builder";
 import { flagDisableNanNumberValidation } from "./flags";
-import { Tag, functionTag, objectTag, stringTag } from "./tags";
+import { functionTag, objectTag, stringTag } from "./tags";
 import { pathEmpty, pathFromArray } from "./path";
 import { getDecoder, reverse } from "./parse";
 
-export const js_parser = (...args: any[]) => (getDecoder as any)(unknown, ...args);
+export const js_parser = (...args: unknown[]) => getDecoder(unknown, ...args);
 
-export const js_asyncParser = (...args: any[]) => (getDecoder as any)(unknown, ...args, 1);
+export const js_asyncParser = (...args: unknown[]) => getDecoder(unknown, ...args, 1);
 
-export const js_asyncDecoder = (...args: any[]) => (getDecoder as any)(...args, 1);
+export const js_asyncDecoder = (...args: unknown[]) => getDecoder(...args, 1);
 
-export const js_encoder = (...args: any[]) => (getDecoder as any)(...args.map(reverse));
+export const js_encoder = (...args: unknown[]) => getDecoder(...args.map((s) => reverse(s as Internal)));
 
-export const js_asyncEncoder = (...args: any[]) => (getDecoder as any)(...args.map(reverse), 1);
+export const js_asyncEncoder = (...args: unknown[]) =>
+  getDecoder(...args.map((s) => reverse(s as Internal)), 1);
 
 // Accepts both `(schema, data)` and `(data, schema)` arg orders. We tell them
 // apart by the Standard Schema marker on a schema object. The truthiness guard
 // keeps `null`/`undefined` data from throwing on the marker access, routing it
 // to the data slot so validation fails with a proper Sury error.
 export const js_assert = (a: unknown, b: unknown): unknown => {
-  const aIsSchema = (a as unknown as boolean) && isSchemaObject(a);
+  const aIsSchema = !!a && isSchemaObject(a);
   const schema = (aIsSchema ? a : b) as Internal;
   const data = aIsSchema ? b : a;
-  // PORT-NOTE: getDecoder3 is a @val external self-call of the variadic
-  // getDecoder — ported as a plain 3-arg call per conventions.
-  return (getDecoder as any)(unknown, schema, getAssertResult())(data);
+  return getDecoder(unknown, schema, getAssertResult())(data);
 };
 
 export const js_is = (a: unknown, b: unknown): boolean => {
@@ -45,15 +44,12 @@ export const js_is = (a: unknown, b: unknown): boolean => {
   }
 };
 
-export const js_union = (values: unknown[]) =>
-  unionFactory(values.map(definitionToSchema) as unknown as Internal[]);
+export const js_union = (values: unknown[]) => unionFactory(values.map(definitionToSchema));
 
 export const js_to = /* @__PURE__ */ (() => {
   // FIXME: Test how it'll work if we have async var as input
   // FIXME: Might not work well with object targets
   const customBuilder = (fn: (value: unknown) => unknown): Builder => {
-    // PORT-NOTE: Builder.make is an Obj.magic identity in the source — the
-    // builder function is used directly.
     return (input: Val): Val => {
       const target = input.e.to!;
       const outputVar = B_varWithoutAllocation(input.g);
@@ -97,18 +93,9 @@ export const js_refine = (
   refineCheck: (value: unknown) => boolean,
   refineOptions?: { error?: string; path?: string[] },
 ) => {
-  const message =
-    refineOptions !== undefined
-      ? refineOptions["error"] !== undefined
-        ? refineOptions["error"]
-        : "Refinement failed"
-      : "Refinement failed";
+  const message = refineOptions?.error ?? "Refinement failed";
   const extraPath =
-    refineOptions !== undefined
-      ? refineOptions["path"] !== undefined
-        ? pathFromArray(refineOptions["path"])
-        : pathEmpty
-      : pathEmpty;
+    refineOptions?.path !== undefined ? pathFromArray(refineOptions.path) : pathEmpty;
   return internalRefine(schema, (_: Internal) => (input: Val): Check[] => {
     const embeddedCheck = B_embed(input, refineCheck);
     return [
@@ -120,12 +107,12 @@ export const js_refine = (
   });
 };
 
-export const noop = <A>(a: A): A => a;
+const noop = <A>(a: A): A => a;
 export const js_asyncDecoderAssert = (
   schema: Internal,
   assertFn: (value: unknown) => Promise<unknown>,
 ) => {
-  return transform(schema, (_: unknown) => {
+  return transform(schema, (_: EffectCtx) => {
     return {
       a: (v: unknown) => assertFn(v).then(() => v),
       s: noop,
@@ -135,11 +122,11 @@ export const js_asyncDecoderAssert = (
 
 export const js_optional = (schema: Internal, maybeOr: unknown): Internal => {
   // TODO: maybeOr should be part of the unit schema
-  schema = unionFactory([schema, unit()]) as unknown as Internal;
-  if (maybeOr !== undefined && (typeof maybeOr as Tag) === functionTag) {
-    return Option_getOrWith(schema, maybeOr as () => unknown) as unknown as Internal;
+  schema = unionFactory([schema, unit()]);
+  if (maybeOr !== undefined && typeof maybeOr === functionTag) {
+    return Option_getOrWith(schema, maybeOr as () => unknown);
   } else if (maybeOr !== undefined) {
-    return Option_getOr(schema, maybeOr) as unknown as Internal;
+    return Option_getOr(schema, maybeOr);
   } else {
     return schema;
   }
@@ -148,14 +135,14 @@ export const js_optional = (schema: Internal, maybeOr: unknown): Internal => {
 export const js_nullable = (schema: Internal, maybeOr: unknown): Internal => {
   // TODO: maybeOr should be part of the unit schema
   if (maybeOr !== undefined) {
-    const schema2 = unionFactory([schema, nullAsUnit()]) as unknown as Internal;
-    if ((typeof maybeOr as Tag) === functionTag) {
-      return Option_getOrWith(schema2, maybeOr as () => unknown) as unknown as Internal;
+    const schema2 = unionFactory([schema, nullAsUnit()]);
+    if (typeof maybeOr === functionTag) {
+      return Option_getOrWith(schema2, maybeOr as () => unknown);
     } else {
-      return Option_getOr(schema2, maybeOr) as unknown as Internal;
+      return Option_getOr(schema2, maybeOr);
     }
   } else {
-    return unionFactory([schema, nullLiteral()]) as unknown as Internal;
+    return unionFactory([schema, nullLiteral()]);
   }
 };
 
@@ -168,20 +155,12 @@ export const js_merge = (s1: Internal, s2: Internal): Internal => {
     s1.type === objectTag &&
     s2.type === objectTag &&
     // Filter out S.record schemas
-    (typeof s1.additionalItems as Tag) === stringTag &&
-    (typeof s2.additionalItems as Tag) === stringTag &&
-    !(s1.to as unknown as boolean) &&
-    !(s2.to as unknown as boolean)
+    typeof s1.additionalItems === stringTag &&
+    typeof s2.additionalItems === stringTag &&
+    !s1.to &&
+    !s2.to
   ) {
-    const properties1 = s1.properties!;
-    const properties2 = s2.properties!;
-    const properties = { ...properties1 };
-    const keys2 = Object.keys(properties2);
-
-    for (let idx = 0; idx <= keys2.length - 1; idx++) {
-      const key = keys2[idx]!;
-      properties[key] = properties2[key]!;
-    }
+    const properties = { ...s1.properties!, ...s2.properties! };
 
     const mut = baseSchema(objectTag, false);
 
@@ -204,16 +183,12 @@ export const js_merge = (s1: Internal, s2: Internal): Internal => {
 // PORT-NOTE: kept the source's `global` name — legal as a module-scoped
 // export even though Node types declare a `global` var.
 export const global = (override: GlobalConfigOverride): void => {
-  globalConfig.a = (
+  globalConfig.a =
     override.defaultAdditionalItems !== undefined
       ? override.defaultAdditionalItems
-      : initialOnAdditionalItems
-  ) as unknown as AdditionalItems;
+      : initialOnAdditionalItems;
   globalConfig.f =
     override.disableNanNumberValidation === true
       ? flagDisableNanNumberValidation
       : initialDefaultFlag;
 };
-
-// PORT-NOTE: Sury.res line 7135 `let reverse = reverse->Obj.magic` merely
-// re-types the internal `reverse` for the public API — no runtime change.

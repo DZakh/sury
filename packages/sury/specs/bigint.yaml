@@ -4,7 +4,7 @@ ts:
   input: bigint
   output: bigint
   instantiations: 254
-  bundleBytes: 3823
+  bundleBytes: 3744
 jsonSchema:
   input: Expected JSON, received bigint
   output: Expected JSON, received bigint
