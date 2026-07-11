@@ -1,10 +1,10 @@
-import { B_Val_Object_add, B_Val_Object_merge, B_Val_scope, B_inlineLocation, B_invalidOperation, B_markOutput, B_merge, B_nextConst, _notVarAtParent } from "./builder.ts";
-import { Literal_parse, literalDecoder, unit } from "./primitives.ts";
-import { Option_getOr, TupleCtx } from "./operations.ts";
-import { arrayDecoder, completeObjectVal, makeObjectVal, objectDecoder, optionFactory, unionFactory, valGet } from "./composites.ts";
-import { getOutputSchema, parse, reverse } from "./parse.ts";
-import { baseSchema, copySchema, globalConfig, panic, updateOutput } from "./schema.ts";
-import { Internal, Path, Tag, Val, arrayTag, immutableEmptyArray, inlinedValueFromString, instanceTag, isLiteral, isSchemaObject, itemSymbol, objectTag, pathConcat, pathEmpty, pathFromInlinedLocation, toExpression } from "./types.ts";
+import { B_Val_Object_add, B_Val_Object_merge, B_Val_scope, B_inlineLocation, B_invalidOperation, B_markOutput, B_merge, B_nextConst, _notVarAtParent } from "./builder";
+import { Literal_parse, literalDecoder, unit } from "./primitives";
+import { Option_getOr, TupleCtx } from "./operations";
+import { arrayDecoder, completeObjectVal, makeObjectVal, objectDecoder, optionFactory, unionFactory, valGet } from "./composites";
+import { getOutputSchema, parse, reverse } from "./parse";
+import { baseSchema, copySchema, globalConfig, panic, updateOutput } from "./schema";
+import { Internal, Path, Tag, Val, arrayTag, immutableEmptyArray, inlinedValueFromString, instanceTag, isLiteral, isSchemaObject, itemSymbol, objectTag, pathConcat, pathEmpty, pathFromInlinedLocation, toExpression } from "./types";
 // =============================================================================
 // Fragment 08 — module Schema (Sury.res lines 5485-6177)
 // `module Schema` (definition-to-schema factory) + `schema`, `js_schema`,

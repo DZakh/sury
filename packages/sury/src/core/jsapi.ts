@@ -1,11 +1,11 @@
-import { nullLiteral, unit } from "./primitives.ts";
-import { GlobalConfigOverride, baseSchema, copySchema, getOrRethrow, globalConfig, initialDefaultFlag, initialOnAdditionalItems, panic, unknown, updateOutput } from "./schema.ts";
-import { B_embed, B_failWithArg, B_invalidInputBuilder, B_makeInvalidConversionDetails, B_next, B_varWithoutAllocation, _var } from "./builder.ts";
-import { definitionToSchema } from "./factory.ts";
-import { objectDecoder, unionFactory } from "./composites.ts";
-import { Option_getOr, Option_getOrWith, getAssertResult, internalRefine, nullAsUnit, transform } from "./operations.ts";
-import { AdditionalItems, Builder, Check, Internal, Tag, Val, flagDisableNanNumberValidation, functionTag, isSchemaObject, objectTag, pathEmpty, pathFromArray, stringTag } from "./types.ts";
-import { getDecoder, reverse } from "./parse.ts";
+import { nullLiteral, unit } from "./primitives";
+import { GlobalConfigOverride, baseSchema, copySchema, getOrRethrow, globalConfig, initialDefaultFlag, initialOnAdditionalItems, panic, unknown, updateOutput } from "./schema";
+import { B_embed, B_failWithArg, B_invalidInputBuilder, B_makeInvalidConversionDetails, B_next, B_varWithoutAllocation, _var } from "./builder";
+import { definitionToSchema } from "./factory";
+import { objectDecoder, unionFactory } from "./composites";
+import { Option_getOr, Option_getOrWith, getAssertResult, internalRefine, nullAsUnit, transform } from "./operations";
+import { AdditionalItems, Builder, Check, Internal, Tag, Val, flagDisableNanNumberValidation, functionTag, isSchemaObject, objectTag, pathEmpty, pathFromArray, stringTag } from "./types";
+import { getDecoder, reverse } from "./parse";
 // Section: Sury.res lines 6944-7136 — JS public API wrappers
 // (js_parser, js_asyncParser, js_asyncDecoder, js_encoder, js_asyncEncoder,
 //  js_assert, js_is, js_union, js_to, js_refine, noop, js_asyncDecoderAssert,

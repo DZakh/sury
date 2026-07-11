@@ -1,6 +1,6 @@
-import { baseSchema, cached } from "./schema.ts";
-import { B_embed, B_embedInvalidInput, B_inlineConst, B_next, B_nextConst, B_refine, B_unsupportedDecode, B_varWithoutAllocation, _var, failInvalidType } from "./builder.ts";
-import { Builder, Check, Internal, Tag, Val, bigintTag, booleanTag, flagDisableNanNumberValidation, flagUnsafeHas, instanceTag, isLiteral, nanTag, nullTag, numberTag, objectTag, stringTag, symbolTag, tagFlagBigint, tagFlagBoolean, tagFlagNaN, tagFlagNull, tagFlagNumber, tagFlagRef, tagFlagString, tagFlagSymbol, tagFlagUndefined, tagFlagUnion, tagFlagUnknown, tagFlags, undefinedTag, unknownTag } from "./types.ts";
+import { baseSchema, cached } from "./schema";
+import { B_embed, B_embedInvalidInput, B_inlineConst, B_next, B_nextConst, B_refine, B_unsupportedDecode, B_varWithoutAllocation, _var, failInvalidType } from "./builder";
+import { Builder, Check, Internal, Tag, Val, bigintTag, booleanTag, flagDisableNanNumberValidation, flagUnsafeHas, instanceTag, isLiteral, nanTag, nullTag, numberTag, objectTag, stringTag, symbolTag, tagFlagBigint, tagFlagBoolean, tagFlagNaN, tagFlagNull, tagFlagNumber, tagFlagRef, tagFlagString, tagFlagSymbol, tagFlagUndefined, tagFlagUnion, tagFlagUnknown, tagFlags, undefinedTag, unknownTag } from "./types";
 // =============================================================================
 // Fragment 03 — primitives (Sury.res lines 1905-2255)
 // int32FormatValidation, typeofCond, nanCond, isArrayCond, objectTagCond,

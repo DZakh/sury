@@ -1,10 +1,10 @@
-import { unionFactory } from "./composites.ts";
-import { Literal_parse, literalDecoder, nullLiteral, unit } from "./primitives.ts";
-import { SuryError, baseSchema, cached, configurableValueOptions, copySchema, getOrRethrow, globalConfig, noopDecoder, panic, schemaPrototype, unknown, updateOutput, valKey, valueOptions } from "./schema.ts";
-import type { JSONSchemaT, StandardJsonSchemaOptions } from "./jsonschema.ts";
-import { compileDecoder, getDecoder, getOutputSchema, isAsyncInternal, reverse } from "./parse.ts";
-import { B_effectCtx, B_embed, B_embedTransformation, B_inlineConst, B_invalidInputBuilder, B_invalidOperation, B_mergeWithPathPrepend, B_next, B_refine, B_varWithoutAllocation, EffectCtx, _var } from "./builder.ts";
-import { AdditionalItems, Builder, Check, Internal, SchemaErrorMessage, SuryErrorRecord, Tag, Val, flagAsync, objectTag, pathEmpty, pathFromArray, pathToArray, refTag, s, toExpression, undefinedTag, valFlagAsync, vendor } from "./types.ts";
+import { unionFactory } from "./composites";
+import { Literal_parse, literalDecoder, nullLiteral, unit } from "./primitives";
+import { SuryError, baseSchema, cached, configurableValueOptions, copySchema, getOrRethrow, globalConfig, noopDecoder, panic, schemaPrototype, unknown, updateOutput, valKey, valueOptions } from "./schema";
+import type { JSONSchemaT, StandardJsonSchemaOptions } from "./jsonschema";
+import { compileDecoder, getDecoder, getOutputSchema, isAsyncInternal, reverse } from "./parse";
+import { B_effectCtx, B_embed, B_embedTransformation, B_inlineConst, B_invalidInputBuilder, B_invalidOperation, B_mergeWithPathPrepend, B_next, B_refine, B_varWithoutAllocation, EffectCtx, _var } from "./builder";
+import { AdditionalItems, Builder, Check, Internal, SchemaErrorMessage, SuryErrorRecord, Tag, Val, flagAsync, objectTag, pathEmpty, pathFromArray, pathToArray, refTag, s, toExpression, undefinedTag, valFlagAsync, vendor } from "./types";
 // =============================================================================
 // Fragment 06 — operations (Sury.res lines 4187–4863)
 // =============================================================================

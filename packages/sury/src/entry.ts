@@ -21,9 +21,9 @@ import {
   symbol as symbolFactory,
   nan as nanFactory,
   unit as unitFactory,
-} from "./core/primitives.ts";
-import { never_ } from "./core/parse.ts";
-import { nullAsUnit as nullAsUnitFactory } from "./core/operations.ts";
+} from "./core/primitives";
+import { never_ } from "./core/parse";
+import { nullAsUnit as nullAsUnitFactory } from "./core/operations";
 import {
   json as jsonFactory,
   jsonString as jsonStringFactory,
@@ -35,7 +35,7 @@ import {
   uuid as uuidFactory,
   cuid as cuidFactory,
   url as urlFactory,
-} from "./core/formats.ts";
+} from "./core/formats";
 
 // ── Eager schema constants (shared by both surfaces) ─────────────────────────
 
@@ -64,7 +64,7 @@ export const email = /* @__PURE__ */ emailFactory();
 export const uuid = /* @__PURE__ */ uuidFactory();
 export const cuid = /* @__PURE__ */ cuidFactory();
 export const url = /* @__PURE__ */ urlFactory();
-export { unknown, unknown as any, errorClass as Error, errorClass, __setExnId } from "./core/schema.ts";
+export { unknown, unknown as any, errorClass as Error, errorClass, __setExnId } from "./core/schema";
 
 // ── Public JS/TS API (names match S.d.ts) ────────────────────────────────────
 
@@ -84,8 +84,8 @@ export {
   js_asyncDecoderAssert as asyncDecoderAssert,
   js_refine as refine,
   global,
-} from "./core/jsapi.ts";
-export { getDecoder as decoder, reverse, instance } from "./core/parse.ts";
+} from "./core/jsapi";
+export { getDecoder as decoder, reverse, instance } from "./core/parse";
 export {
   js_schema as schema,
   // The ReScript-flavored schema factory (definer-callback ctx); the public
@@ -93,7 +93,7 @@ export {
   schemaFactory as res_schema,
   literal,
   enum,
-} from "./core/factory.ts";
+} from "./core/factory";
 export {
   recursive,
   strict,
@@ -104,14 +104,14 @@ export {
   isAsync,
   js_safe as safe,
   js_safeAsync as safeAsync,
-} from "./core/operations.ts";
-export { array } from "./core/composites.ts";
+} from "./core/operations";
+export { array } from "./core/composites";
 // `nullish` accepts null | undefined (the 3-member union) — distinct from
 // `nullable` (js_nullable) above, which handles null only.
-export { nullable as nullish } from "./core/refinements.ts";
+export { nullable as nullish } from "./core/refinements";
 // The ReScript-flavored plain `to` (no custom coders); the public JS `to`
 // above is the options variant.
-export { to as res_to } from "./core/formats.ts";
+export { to as res_to } from "./core/formats";
 export {
   compactColumns,
   dict,
@@ -121,8 +121,8 @@ export {
   tuple,
   pattern,
   trim,
-} from "./core/refinements.ts";
-export { meta, brand, jsonStringWithSpace, list } from "./core/formats.ts";
+} from "./core/refinements";
+export { meta, brand, jsonStringWithSpace, list } from "./core/formats";
 export {
   toJSONSchema,
   fromJSONSchema,
@@ -131,8 +131,8 @@ export {
   min,
   max,
   length,
-} from "./core/jsonschema.ts";
-export { toExpression } from "./core/types.ts";
+} from "./core/jsonschema";
+export { toExpression } from "./core/types";
 
 // ── ReScript binding surface (extra names, not part of S.d.ts) ───────────────
 
@@ -141,7 +141,7 @@ export {
   pathFromArray,
   pathFromLocation,
   pathConcat,
-} from "./core/types.ts";
+} from "./core/types";
 export {
   parseOrThrow,
   parseAsyncOrThrow,
@@ -165,8 +165,8 @@ export {
   Metadata_Id_make,
   Metadata_get,
   Metadata_set,
-} from "./core/operations.ts";
-export { option } from "./core/composites.ts";
+} from "./core/operations";
+export { option } from "./core/composites";
 export {
   null_,
   nullAsOption,
@@ -176,4 +176,4 @@ export {
   tuple3,
   floatMin,
   floatMax,
-} from "./core/refinements.ts";
+} from "./core/refinements";

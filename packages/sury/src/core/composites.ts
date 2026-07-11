@@ -1,8 +1,8 @@
-import { Literal_parse, isArrayCond, jsonName, objectTagCond, setHas, unit } from "./primitives.ts";
-import { baseSchema, getOrRethrow, panic, reversedKey, unknown, updateOutput } from "./schema.ts";
-import { getOutputSchema, nestedLoc, nestedOptionParser, never_, parse, parseDynamic, typeCheckCond } from "./parse.ts";
-import { B_Val_Object_add, B_Val_addKey, B_Val_scope, B_asyncVal, B_dynamicScope, B_embed, B_failWithArg, B_hoistChildChecks, B_hoistDecl, B_inlineConst, B_inlineLocation, B_isHoistable, B_makeInvalidInputDetails, B_markOutput, B_merge, B_mergeWithPathPrepend, B_next, B_nextConst, B_pushCheck, B_refine, B_throw, B_unsupportedDecode, B_varWithoutAllocation, _notVar, _notVarAtParent, _var, failInvalidType } from "./builder.ts";
-import { Check, ErrorDetails, Internal, SuryErrorRecord, Val, arrayTag, flagUnsafeHas, immutableEmptyArray, immutableEmptyObject, isLiteral, isOptional, nullTag, numberTag, objectTag, pathConcat, pathFromInlinedLocation, tagFlagArray, tagFlagFunction, tagFlagInstance, tagFlagNaN, tagFlagNever, tagFlagNull, tagFlagObject, tagFlagRef, tagFlagUndefined, tagFlagUnion, tagFlagUnknown, tagFlags, undefinedTag, unionTag, unknownTag, valFlagAsync, valFlagNone } from "./types.ts";
+import { Literal_parse, isArrayCond, jsonName, objectTagCond, setHas, unit } from "./primitives";
+import { baseSchema, getOrRethrow, panic, reversedKey, unknown, updateOutput } from "./schema";
+import { getOutputSchema, nestedLoc, nestedOptionParser, never_, parse, parseDynamic, typeCheckCond } from "./parse";
+import { B_Val_Object_add, B_Val_addKey, B_Val_scope, B_asyncVal, B_dynamicScope, B_embed, B_failWithArg, B_hoistChildChecks, B_hoistDecl, B_inlineConst, B_inlineLocation, B_isHoistable, B_makeInvalidInputDetails, B_markOutput, B_merge, B_mergeWithPathPrepend, B_next, B_nextConst, B_pushCheck, B_refine, B_throw, B_unsupportedDecode, B_varWithoutAllocation, _notVar, _notVarAtParent, _var, failInvalidType } from "./builder";
+import { Check, ErrorDetails, Internal, SuryErrorRecord, Val, arrayTag, flagUnsafeHas, immutableEmptyArray, immutableEmptyObject, isLiteral, isOptional, nullTag, numberTag, objectTag, pathConcat, pathFromInlinedLocation, tagFlagArray, tagFlagFunction, tagFlagInstance, tagFlagNaN, tagFlagNever, tagFlagNull, tagFlagObject, tagFlagRef, tagFlagUndefined, tagFlagUnion, tagFlagUnknown, tagFlags, undefinedTag, unionTag, unknownTag, valFlagAsync, valFlagNone } from "./types";
 // Ported from Sury.res lines 2709-4186 (`let rec makeObjectVal` … `valGet`,
 // everything before `recursiveDecoder`).
 //

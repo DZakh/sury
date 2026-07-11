@@ -1,4 +1,4 @@
-import { AdditionalItems, AdditionalItemsMode, ErrorDetails, Flag, Internal, SuryErrorRecord, Tag, Val, s, unknownTag, valFlagNone } from "./types.ts";
+import { AdditionalItems, AdditionalItemsMode, ErrorDetails, Flag, Internal, SuryErrorRecord, Tag, Val, s, unknownTag, valFlagNone } from "./types";
 // =============================================================================
 // Schema / SuryError raw-JS runtime (ported verbatim from Sury.res's
 // `%%raw` block inside `module InternalError`)

@@ -1,13 +1,13 @@
-import { definitionToSchema, literal, schemaFactory } from "./factory.ts";
-import { array, option } from "./composites.ts";
-import { email, isoDateTime, json, meta, url, uuid } from "./formats.ts";
-import { arrayLength, arrayMaxLength, arrayMinLength, dict, floatMax, floatMin, intMax, intMin, null_, object, pattern, stringLength, stringMaxLength, stringMinLength, tuple, union } from "./refinements.ts";
-import { SuryError, baseSchema, getOrRethrow, panic, unknown } from "./schema.ts";
-import { Literal_parse, bool, float, int, jsonName, string } from "./primitives.ts";
-import { B_makeInvalidInputDetails, B_operationArg } from "./builder.ts";
-import { never_, parse, reverse } from "./parse.ts";
-import { Internal, Path, arrayTag, booleanTag, flagNone, flagUnsafeHas, isLiteral, isOptional, neverTag, nullTag, numberTag, objectTag, pathConcat, pathDynamic, pathEmpty, pathFromLocation, refTag, stringTag, tagFlagArray, tagFlagObject, tagFlagUnion, tagFlags, toExpression, undefinedTag, unionTag, unknownTag } from "./types.ts";
-import { Metadata_Id_internal, Metadata_get, Metadata_set, Option_getOr, assertOrThrow, defsPath, refine, __setStandardJSONSchemaConverter, strict } from "./operations.ts";
+import { definitionToSchema, literal, schemaFactory } from "./factory";
+import { array, option } from "./composites";
+import { email, isoDateTime, json, meta, url, uuid } from "./formats";
+import { arrayLength, arrayMaxLength, arrayMinLength, dict, floatMax, floatMin, intMax, intMin, null_, object, pattern, stringLength, stringMaxLength, stringMinLength, tuple, union } from "./refinements";
+import { SuryError, baseSchema, getOrRethrow, panic, unknown } from "./schema";
+import { Literal_parse, bool, float, int, jsonName, string } from "./primitives";
+import { B_makeInvalidInputDetails, B_operationArg } from "./builder";
+import { never_, parse, reverse } from "./parse";
+import { Internal, Path, arrayTag, booleanTag, flagNone, flagUnsafeHas, isLiteral, isOptional, neverTag, nullTag, numberTag, objectTag, pathConcat, pathDynamic, pathEmpty, pathFromLocation, refTag, stringTag, tagFlagArray, tagFlagObject, tagFlagUnion, tagFlags, toExpression, undefinedTag, unionTag, unknownTag } from "./types";
+import { Metadata_Id_internal, Metadata_get, Metadata_set, Option_getOr, assertOrThrow, defsPath, refine, __setStandardJSONSchemaConverter, strict } from "./operations";
 // Fragment 11 — JSON Schema (Sury.res lines 7137-7971, end of file)
 // module RescriptJSONSchema, toJSONSchemaOptions, targetSchemaUri,
 // toJSONSchema, enableStandardJSONSchema, extendJSONSchema,
