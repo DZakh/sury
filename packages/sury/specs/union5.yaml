@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.string, S.number, S.boolean, S.bigint, S.symbol])
+  input: string | number | bigint | boolean | symbol
+  output: string | number | bigint | boolean | symbol
+  instantiations: 34476
+  bundleBytes: 10098
+jsonSchema:
+  input: Expected JSON, received string | number | boolean | bigint | symbol
+  output: Expected JSON, received string | number | boolean | bigint | symbol
+operations:
+  parse:
+    expression: i=>{if(!(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i)||typeof i==="boolean"||typeof i==="bigint"||typeof i==="symbol")){e[0](i)}return i}
+    examples:
+      valid-bigint:
+        input: 5n
+        output: 5n
+      valid-symbol:
+        input: Symbol.for("e")
+        output: Symbol.for("e")
+      invalid:
+        input: "null"
+        error: Expected string | number | boolean | bigint | symbol, received null
+  decode: identity
+  encode: identity
