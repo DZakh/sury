@@ -131,6 +131,8 @@ const parseNewArgs = (argv: string[]): { id: string; ts: string } => {
       if (val === undefined) fail(`${a} requires a value`);
       flags[a.slice(2)] = val;
       i++;
+    } else {
+      fail(`unknown argument ${JSON.stringify(a)} — usage: spec new --id <id> --ts <schema-ts-source>`);
     }
   }
   const id = flags.id;
@@ -141,6 +143,11 @@ const parseNewArgs = (argv: string[]): { id: string; ts: string } => {
 
 const cmdNew = async (): Promise<void> => {
   const { id, ts } = parseNewArgs(rest);
+  const file = join(SPECS_DIR, `${id}.yaml`);
+  // Overwriting would clobber the one thing the harness can't regenerate:
+  // hand-authored example inputs.
+  if (existsSync(file))
+    fail(`spec ${id} already exists (${file}) — edit it directly, or delete it first to re-scaffold`);
   let schema: any;
   try {
     schema = evalSchema(ts);
@@ -173,7 +180,7 @@ const cmdNew = async (): Promise<void> => {
     jsonSchema: scaffoldJsonSchema(schema),
     operations,
   };
-  writeFileSync(join(SPECS_DIR, `${id}.yaml`), serialize(spec));
+  writeFileSync(file, serialize(spec));
   console.log(`new ${id} -> specs/${id}.yaml (add example inputs, then \`pnpm spec check ${id} --write\`)`);
 };
 

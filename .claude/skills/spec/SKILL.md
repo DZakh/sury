@@ -84,7 +84,9 @@ All four run on every `spec new`/`spec check --write` — no separate benchmark 
 
 ## Layout
 
-- `packages/sury/specs/<id>.yaml` — authored spec (published with the `sury` package)
+- `packages/sury/specs/<id>.yaml` — authored spec. Deliberately published with the `sury` package:
+  specs double as machine-checked documentation of each schema's exact contract (codegen, JSON
+  Schema, type cost, bundle cost), readable by users and tooling straight out of `node_modules`.
 - `packages/sury/specs/spec.schema.json` — emitted from the format schema (`pnpm spec schema`)
 - `packages/spec/` — the spec CLI (its own workspace package). **Don't touch these files when working on Sury itself** — it's the test harness, not part of the library.
 - `packages/sury/tests/spec_test.ts` — the single, committed, hand-written test that dynamically

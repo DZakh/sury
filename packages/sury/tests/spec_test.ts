@@ -6,6 +6,7 @@
 import { readFileSync } from "node:fs";
 import { test, expect, describe, vi } from "vitest";
 import {
+  SCHEMA_PATH,
   listSpecFiles,
   specId,
   readSpec,
@@ -16,7 +17,7 @@ import {
   lintSkips,
   lintSpecsDir,
 } from "../../spec/harness";
-import { validate } from "../../spec/format";
+import { validate, schemaJson } from "../../spec/format";
 
 // recomputeGoldens does a TS-program introspection pass plus an esbuild
 // child-process build per spec; the first spec processed pays the ~1s
@@ -32,6 +33,12 @@ test("there is at least one spec", () => {
   expect(specs.length).toBeGreaterThan(0);
 });
 
+// Otherwise only `pnpm spec check` (which CI doesn't run) would notice a
+// format change whose spec.schema.json wasn't re-emitted.
+test("spec.schema.json is fresh (run `pnpm spec schema`)", () => {
+  expect(readFileSync(SCHEMA_PATH, "utf8")).toBe(schemaJson());
+});
+
 test("specs dir contains only valid spec files (run `pnpm spec check`)", () => {
   const errs = lintSpecsDir();
   expect(errs, errs.join("\n")).toEqual([]);
@@ -45,7 +52,7 @@ test("lintSpecsDir rejects a non-yaml file and a dotted/invalid id", () => {
   ]);
 });
 
-describe.each(specs)("spec: $id", ({ id, file }) => {
+describe.each(specs)("spec: $id", ({ file }) => {
   const spec = readSpec(file);
 
   test("is valid against the format schema", () => {
@@ -69,7 +76,7 @@ describe.each(specs)("spec: $id", ({ id, file }) => {
 
   test("every _skip reason is valid (run `pnpm spec check`)", () => {
     const errs: string[] = [];
-    lintSkips(spec, id, errs);
+    lintSkips(spec, "", errs);
     expect(errs, errs.join("\n")).toEqual([]);
   });
 
