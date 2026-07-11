@@ -1,6 +1,6 @@
 import { instanceofCond, isArrayCond, nanCond, objectTagCond, setHas, typeofCond } from "./primitives";
 import { baseSchema, cached, copySchema, getOrRethrow, globalConfig, panic, reversedKey, unknown, updateOutput, valKey, valueOptions } from "./schema";
-import { B_asyncThen, B_embedInvalidInput, B_inlineConst, B_markOutput, B_merge, B_next, B_operationArg, B_refine, B_unsupportedDecode, failInvalidType, noopOperation, operationArgVar } from "./builder";
+import { B_Val_scope, B_embedInvalidInput, B_inlineConst, B_markOutput, B_merge, B_next, B_operationArg, B_refine, B_unsupportedDecode, failInvalidType, noopOperation, operationArgVar } from "./builder";
 import { Builder, Encoder, Flag, Internal, Tag, Val, flagAsync, flagDisableNanNumberValidation, flagUnsafeHas, instanceTag, isLiteral, neverTag, numberTag, objectTag, pathConcat, pathDynamic, pathEmpty, s, tagFlagArray, tagFlagBigint, tagFlagBoolean, tagFlagInstance, tagFlagNaN, tagFlagNull, tagFlagNumber, tagFlagObject, tagFlagString, tagFlagSymbol, tagFlagUndefined, tagFlagUnknown, tagFlags, unknownTag, valFlagAsync } from "./types";
 export const parse = (input: Val): Val => {
   let valRef: Val = input;
@@ -33,7 +33,23 @@ export const parse = (input: Val): Val => {
         valFlagAsync,
       ) /* FIXME: why was it needed? && step.contents !== #convert */
     ) {
-      valRef = B_asyncThen(loopInput, parse);
+      const operationInputVar = loopInput.v();
+
+      const operationInput = B_Val_scope(loopInput);
+      const operationOutput = parse(operationInput);
+      const operationCode = B_merge(operationOutput);
+      if (operationInput.i !== operationOutput.i || operationCode !== "") {
+        valRef = B_next(
+          loopInput,
+          `${operationInputVar}.then(${operationInputVar}=>{${operationCode}return ${operationOutput.i}})`,
+          operationOutput.s,
+          operationOutput.e,
+        );
+      } else {
+        valRef = B_refine(loopInput, operationOutput.s, undefined, operationOutput.e);
+      }
+      valRef.f = (valRef.f | valFlagAsync);
+      valRef.io = true;
     } else if (loopInput.io) {
       // It's guaranteed that to is not None, because it's checked in the while condition
       const to = loopInput.e.to!;

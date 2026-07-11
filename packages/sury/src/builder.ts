@@ -570,48 +570,16 @@ export const B_markOutput = (val: Val, valInput: Val): Val => {
     outputChecks = undefined;
   }
 
-  const allChecks =
-    deferredInputChecks !== undefined
-      ? outputChecks !== undefined
-        ? deferredInputChecks.concat(outputChecks)
-        : deferredInputChecks
-      : outputChecks;
-
   let result: Val;
-  if (allChecks === undefined) {
+  if (deferredInputChecks !== undefined && outputChecks !== undefined) {
+    result = B_refine(val, undefined, deferredInputChecks.concat(outputChecks));
+  } else if (deferredInputChecks !== undefined) {
+    result = B_refine(val, undefined, deferredInputChecks);
+  } else if (outputChecks !== undefined) {
+    result = B_refine(val, undefined, outputChecks);
+  } else {
     result = val;
-  } else if (flagUnsafeHas(val.f, valFlagAsync)) {
-    // An async val's var holds a Promise (e.g. a union case resolved to an
-    // async member), so the checks must observe the resolved value inside
-    // .then().
-    result = B_asyncThen(val, (scoped) => B_refine(scoped, undefined, allChecks));
-  } else {
-    result = B_refine(val, undefined, allChecks);
   }
-  result.io = true;
-  return result;
-}
-
-// Continue an async val: run `transform` on a scope of the resolved value
-// and emit it inside .then(). Falls back to a flag-only refine when the
-// continuation produced no code (nothing to await for).
-export const B_asyncThen = (val: Val, transform: (scoped: Val) => Val): Val => {
-  const inputVar = val.v();
-  const scoped = B_Val_scope(val);
-  const output = transform(scoped);
-  const code = B_merge(output);
-  let result: Val;
-  if (scoped.i !== output.i || code !== "") {
-    result = B_next(
-      val,
-      `${inputVar}.then(${inputVar}=>{${code}return ${output.i}})`,
-      output.s,
-      output.e,
-    );
-  } else {
-    result = B_refine(val, output.s, undefined, output.e);
-  }
-  result.f = (result.f | valFlagAsync) as Flag;
   result.io = true;
   return result;
 }

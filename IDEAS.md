@@ -5,6 +5,12 @@
 ### ideas
 
 - Add `promise` type and `S.promise` (instead of async flag internally)
+- Async output refiner runs on the Promise wrapper, not the resolved value.
+  When a decoder result is async (e.g. a union with an async member) and the
+  schema has a user output refiner, `B_markOutput` emits the checks against the
+  Promise var instead of inside `.then()` on the resolved value. Fix must run
+  the output checks inside the async continuation without adding the ~40 bytes
+  per-schema the naive fix cost (B_markOutput is on every schema's hot path).
 
 TODO:
 
