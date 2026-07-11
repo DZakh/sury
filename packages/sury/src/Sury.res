@@ -385,7 +385,7 @@ module Error = {
 
   @module("sury/core") external class: class = "errorClass"
 
-  @module("sury/core") @scope("InternalError") external make: errorDetails => error = "make"
+  @module("sury/core") @new external make: errorDetails => error = "errorClass"
 
   external classify: error => errorDetails = "%identity"
 }
@@ -524,15 +524,15 @@ module Option = {
 module Metadata = {
   module Id = {
     type t<'metadata>
-    @module("sury/core") @scope(("MetadataModule", "Id"))
-    external make: (~namespace: string, ~name: string) => t<'metadata> = "make"
+    @module("sury/core")
+    external make: (~namespace: string, ~name: string) => t<'metadata> = "Metadata_Id_make"
   }
 
-  @module("sury/core") @scope("MetadataModule")
-  external get: (t<'value>, ~id: Id.t<'metadata>) => option<'metadata> = "get"
+  @module("sury/core")
+  external get: (t<'value>, ~id: Id.t<'metadata>) => option<'metadata> = "Metadata_get"
 
-  @module("sury/core") @scope("MetadataModule")
-  external set: (t<'value>, ~id: Id.t<'metadata>, 'metadata) => t<'value> = "set"
+  @module("sury/core")
+  external set: (t<'value>, ~id: Id.t<'metadata>, 'metadata) => t<'value> = "Metadata_set"
 }
 
 @module("sury/core") external reverse: t<'value> => t<unknown> = "reverse"

@@ -3,34 +3,34 @@
   "esbuildVersion": "0.28.1",
   "scenarios": {
     "total (export *)": {
-      "min": 60737,
-      "gzip": 21404,
-      "brotli": 19172
+      "min": 55664,
+      "gzip": 20785,
+      "brotli": 18622
     },
     "string + parser": {
-      "min": 9302,
-      "gzip": 4096,
-      "brotli": 3763
+      "min": 8316,
+      "gzip": 3874,
+      "brotli": 3546
     },
     "object schema + parser": {
-      "min": 26175,
-      "gzip": 10333,
-      "brotli": 9455
+      "min": 23246,
+      "gzip": 9966,
+      "brotli": 9048
     },
     "union + transform": {
-      "min": 26298,
-      "gzip": 10450,
-      "brotli": 9515
+      "min": 23430,
+      "gzip": 10086,
+      "brotli": 9156
     },
     "recursive + array": {
-      "min": 26294,
-      "gzip": 10518,
-      "brotli": 9607
+      "min": 23489,
+      "gzip": 10154,
+      "brotli": 9245
     },
     "toJSONSchema": {
-      "min": 30871,
-      "gzip": 11918,
-      "brotli": 10837
+      "min": 27720,
+      "gzip": 11464,
+      "brotli": 10421
     }
   }
 }

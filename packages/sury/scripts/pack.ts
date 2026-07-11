@@ -1,8 +1,8 @@
 // Build & packaging script (TypeScript port of the former scripts/pack/Pack.res,
 // merged with the former scripts/build-core.mjs). Run via tsx:
 //
-//   pnpm build:core   -> tsx scripts/pack.ts --core-only
-//   pnpm build        -> tsx scripts/pack.ts
+//   pnpm build:core   -> tsx scripts/pack.ts core-only
+//   pnpm build        -> tsx scripts/pack.ts for-publish
 //
 // Stage 1 (always): build src/core.ts into the two runtime artifacts consumed
 // via the "sury/core" package export (see package.json "exports"."./core"):
@@ -228,8 +228,13 @@ async function pack(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  const mode = process.argv[2];
+  if (mode !== "core-only" && mode !== "for-publish") {
+    console.error(`Usage: tsx scripts/pack.ts <core-only|for-publish>`);
+    process.exit(1);
+  }
   await buildCore();
-  if (!process.argv.includes("--core-only")) {
+  if (mode === "for-publish") {
     await pack();
   }
 }

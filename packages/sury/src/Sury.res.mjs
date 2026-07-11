@@ -324,15 +324,15 @@ let Option = {
 };
 
 let Metadata_Id = {
-  make: (prim0, prim1) => Core.MetadataModule.Id.make(prim0, prim1)
+  make: (prim0, prim1) => Core.Metadata_Id_make(prim0, prim1)
 };
 
 function Metadata_get(prim0, prim1) {
-  return Core.MetadataModule.get(prim0, prim1);
+  return Core.Metadata_get(prim0, prim1);
 }
 
 function Metadata_set(prim0, prim1, prim2) {
-  return Core.MetadataModule.set(prim0, prim1, prim2);
+  return Core.Metadata_set(prim0, prim1, prim2);
 }
 
 let Metadata = {
@@ -346,7 +346,7 @@ function reverse(prim) {
 }
 
 function Error_make(prim) {
-  return Core.InternalError.make(prim);
+  return new Core.errorClass(prim);
 }
 
 let $$Error = {

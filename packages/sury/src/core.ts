@@ -57,7 +57,7 @@ export const pathDynamic: Path = "[]";
 // Scans for the first `"` or `\n`; if none is found, the string needs no
 // escaping beyond wrapping in quotes (the common case for field names), so
 // we skip the JSON.stringify call. Ported from X.Inlined.Value.fromString.
-export function inlinedValueFromString(str: string): string {
+export const inlinedValueFromString = (str: string): string => {
   for (let idx = 0; idx < str.length; idx++) {
     const ch = str[idx];
     if (ch === '"' || ch === "\n") return JSON.stringify(str);
@@ -65,15 +65,15 @@ export function inlinedValueFromString(str: string): string {
   return `"${str}"`;
 }
 
-export function pathFromInlinedLocation(inlinedLocation: string): Path {
+export const pathFromInlinedLocation = (inlinedLocation: string): Path => {
   return `[${inlinedLocation}]`;
 }
 
-export function pathFromLocation(location: string): Path {
+export const pathFromLocation = (location: string): Path => {
   return `[${inlinedValueFromString(location)}]`;
 }
 
-export function pathToArray(path: Path): string[] {
+export const pathToArray = (path: Path): string[] => {
   switch (path) {
     case "":
       return [];
@@ -82,7 +82,7 @@ export function pathToArray(path: Path): string[] {
   }
 }
 
-export function pathFromArray(array: string[]): Path {
+export const pathFromArray = (array: string[]): Path => {
   switch (array.length) {
     case 0:
       return "";
@@ -93,7 +93,7 @@ export function pathFromArray(array: string[]): Path {
   }
 }
 
-export function pathConcat(path: Path, concatedPath: Path): Path {
+export const pathConcat = (path: Path, concatedPath: Path): Path => {
   return path + concatedPath;
 }
 
@@ -157,13 +157,6 @@ export const neverTag: Tag = "never";
 export const unknownTag: Tag = "unknown";
 export const refTag: Tag = "ref";
 
-// `typeof` as ReScript's `%typeof` sees it: same as JS `typeof`, except it
-// additionally distinguishes `"nan"` from `"number"` is NOT done here (that's
-// a separate, explicit NaN check elsewhere) — this is a straight `typeof`.
-export function typeOf(value: unknown): Tag {
-  return typeof value as Tag;
-}
-
 export type NumberFormat = "int32" | "port";
 export type StringFormat = "json" | "date-time" | "email" | "uuid" | "cuid" | "url";
 export type ArrayFormat = "compactColumns";
@@ -179,67 +172,65 @@ export type AdditionalItemsMode = "strip" | "strict";
 
 export type Flag = number;
 
-export const Flag = {
-  none: 0 as Flag,
-  async: 1 as Flag,
-  disableNanNumberValidation: 2 as Flag,
-  // flatten: 64
-  with: (a: Flag, b: Flag): Flag => a | b,
-  // let without = (flags, flag) => flags->with(flag)->Int.bitwiseXor(flag)
+// Flat consts (former ReScript `module Flag` with @inline members): the
+// public bits threaded through operations. `Flag.with` was the `%orint`
+// intrinsic — call sites use `|` directly.
+export const flagNone: Flag = 0;
+export const flagAsync: Flag = 1;
+export const flagDisableNanNumberValidation: Flag = 2;
+// flatten: 64
+// let without = (flags, flag) => flags->with(flag)->Int.bitwiseXor(flag)
 
-  // Truthiness of the bitwise-and (any-overlap), matching the source's
-  // `Int.bitwiseAnd->Obj.magic` — NOT an all-bits-set test. inlineConst
-  // relies on this to test one tag against a union of tag bits.
-  unsafeHas: (acc: Flag, flag: Flag): boolean => (acc & flag) !== 0,
-  has: (acc: Flag, flag: Flag): boolean => (acc & flag) !== 0,
-};
+// Truthiness of the bitwise-and (any-overlap), matching the source's
+// `Int.bitwiseAnd->Obj.magic` — NOT an all-bits-set test. inlineConst
+// relies on this to test one tag against a union of tag bits.
+export const flagUnsafeHas = (acc: Flag, flag: Flag): boolean => {
+  return (acc & flag) !== 0;
+}
 
 // Internal-only flag bits threaded through `val.f` during codegen (distinct
-// bit space from the public `Flag` module above).
-export const ValFlag = {
-  none: 0,
-  async: 1,
-};
+// bit space from the public flag consts above).
+export const valFlagNone = 0;
+export const valFlagAsync = 1;
 
 // One bit per tag, so a set of tags can be tested with a single bitwise-and
-// (see typeCheckCond / inlineConst). `get` maps a runtime tag string to its
-// bit via the `flags` lookup table.
-export const TagFlag = {
-  unknown: 1,
-  string: 2,
-  number: 4,
-  boolean: 8,
-  undefined: 16,
-  null: 32,
-  object: 64,
-  array: 128,
-  union: 256,
-  ref: 512,
-  bigint: 1024,
-  nan: 2048,
-  function: 4096,
-  instance: 8192,
-  symbol: 16384,
-  _never: 32768,
-  flags: {
-    [unknownTag]: 1,
-    [stringTag]: 2,
-    [numberTag]: 4,
-    [booleanTag]: 8,
-    [undefinedTag]: 16,
-    [nullTag]: 32,
-    [objectTag]: 64,
-    [arrayTag]: 128,
-    [unionTag]: 256,
-    [refTag]: 512,
-    [bigintTag]: 1024,
-    [nanTag]: 2048,
-    ["function"]: 4096,
-    [instanceTag]: 8192,
-    [neverTag]: 32768,
-    [symbolTag]: 16384,
-  } as Record<string, number>,
-  get: (tag: Tag): number => TagFlag.flags[tag]!,
+// (see typeCheckCond / inlineConst). `tagFlags` maps a runtime tag string to
+// its bit. These were a ReScript module with @inline members — kept as flat
+// consts (no namespace object) so the minifier can inline the numbers and no
+// property lookup happens on the hot path.
+export const tagFlagUnknown = 1;
+export const tagFlagString = 2;
+export const tagFlagNumber = 4;
+export const tagFlagBoolean = 8;
+export const tagFlagUndefined = 16;
+export const tagFlagNull = 32;
+export const tagFlagObject = 64;
+export const tagFlagArray = 128;
+export const tagFlagUnion = 256;
+export const tagFlagRef = 512;
+export const tagFlagBigint = 1024;
+export const tagFlagNaN = 2048;
+export const tagFlagFunction = 4096;
+export const tagFlagInstance = 8192;
+export const tagFlagSymbol = 16384;
+export const tagFlagNever = 32768;
+export const tagFlags: Record<string, number> = {
+  [unknownTag]: 1,
+  [stringTag]: 2,
+  [numberTag]: 4,
+  [booleanTag]: 8,
+  [undefinedTag]: 16,
+  [nullTag]: 32,
+  [objectTag]: 64,
+  [arrayTag]: 128,
+  [unionTag]: 256,
+  [refTag]: 512,
+  [bigintTag]: 1024,
+  [nanTag]: 2048,
+  ["function"]: 4096,
+  [instanceTag]: 8192,
+  [neverTag]: 32768,
+  [symbolTag]: 16384,
 };
 
 // =============================================================================
@@ -505,18 +496,18 @@ export const immutableEmptyArray: unknown[] = [];
 export const immutableEmptyObject: Record<string, unknown> = {};
 
 // This is dirty
-export function isSchemaObject(obj: unknown): boolean {
+export const isSchemaObject = (obj: unknown): boolean => {
   return (obj as { "~standard"?: unknown })["~standard"] as unknown as boolean;
 }
 
 export const constField = "const";
 // The `in` operator (not a `!== undefined` check) is load-bearing: the
 // Undefined literal schema stores `const` present with value `undefined`.
-export function isLiteral(schema: Internal): boolean {
+export const isLiteral = (schema: Internal): boolean => {
   return constField in schema;
 }
 
-export function isOptional(schema: Internal): boolean {
+export const isOptional = (schema: Internal): boolean => {
   return (
     schema.type === undefinedTag ||
     (schema.type === unionTag && undefinedTag in schema.has!)
@@ -527,12 +518,12 @@ export function isOptional(schema: Internal): boolean {
 // stringify / toExpression
 // =============================================================================
 
-export function stringify(unknown: unknown): string {
-  const tagFlag = TagFlag.get(typeOf(unknown));
+export const stringify = (unknown: unknown): string => {
+  const tagFlag = tagFlags[(typeof unknown as Tag)]!;
 
-  if (Flag.unsafeHas(tagFlag, TagFlag.undefined)) {
+  if (flagUnsafeHas(tagFlag, tagFlagUndefined)) {
     return undefinedTag;
-  } else if (Flag.unsafeHas(tagFlag, TagFlag.object)) {
+  } else if (flagUnsafeHas(tagFlag, tagFlagObject)) {
     if (unknown === null) {
       return nullTag;
     } else if (Array.isArray(unknown)) {
@@ -558,18 +549,18 @@ export function stringify(unknown: unknown): string {
     } else {
       return Object.prototype.toString.call(unknown);
     }
-  } else if (Flag.unsafeHas(tagFlag, TagFlag.string)) {
+  } else if (flagUnsafeHas(tagFlag, tagFlagString)) {
     return `"${unknown as string}"`;
-  } else if (Flag.unsafeHas(tagFlag, TagFlag.bigint)) {
+  } else if (flagUnsafeHas(tagFlag, tagFlagBigint)) {
     return `${unknown as bigint}n`;
-  } else if (Flag.unsafeHas(tagFlag, TagFlag.function)) {
+  } else if (flagUnsafeHas(tagFlag, tagFlagFunction)) {
     return `Function`;
   } else {
     return (unknown as { toString: () => string }).toString();
   }
 }
 
-export function toExpression(schema: Internal): string {
+export const toExpression = (schema: Internal): string => {
   if (schema.name !== undefined) {
     return schema.name;
   } else if (schema.const !== undefined) {
@@ -608,7 +599,7 @@ export function toExpression(schema: Internal): string {
     const properties = schema.properties!;
     const locations = Object.keys(properties);
     if (locations.length === 0) {
-      if (typeOf(schema.additionalItems) === objectTag) {
+      if ((typeof schema.additionalItems as Tag) === objectTag) {
         const additionalItems = schema.additionalItems as Internal;
         return `{ [key: string]: ${toExpression(additionalItems)}; }`;
       } else {
@@ -628,7 +619,7 @@ export function toExpression(schema: Internal): string {
     return schema.type;
   } else if (schema.type === arrayTag) {
     const items = schema.items!;
-    if (typeOf(schema.additionalItems) === objectTag) {
+    if ((typeof schema.additionalItems as Tag) === objectTag) {
       const additionalItems = schema.additionalItems as Internal;
       const itemName = toExpression(additionalItems);
       return (additionalItems.type === unionTag ? `(${itemName})` : itemName) + "[]";
@@ -691,10 +682,10 @@ export function __setExnId(id: unknown): void {
 // getter isn't invoked until some caller actually reads `.message`, by
 // which point the whole module has finished initializing.
 class SuryError extends Error {
-  constructor(params: Record<string, unknown>) {
+  constructor(params: ErrorDetails | Record<string, unknown>) {
     super();
     for (const key in params) {
-      (this as Record<string, unknown>)[key] = params[key];
+      (this as unknown as Record<string, unknown>)[key] = (params as Record<string, unknown>)[key];
     }
   }
   get message(): string {
@@ -711,7 +702,7 @@ class SuryError extends Error {
 Object.defineProperty(SuryError.prototype, "name", { value: "SuryError" });
 Object.defineProperty(SuryError.prototype, "s", { value: s });
 
-function getOrRethrow(exn: unknown): SuryErrorRecord {
+const getOrRethrow = (exn: unknown): SuryErrorRecord => {
   if (exn && (exn as { s?: symbol }).s === s) {
     return exn as unknown as SuryErrorRecord;
   } else {
@@ -720,24 +711,17 @@ function getOrRethrow(exn: unknown): SuryErrorRecord {
 }
 
 // TODO: Throw S.Error
-function panic(message: string): never {
+const panic = (message: string): never => {
   throw new Error(`[Sury] ${message}`);
 }
 
-function formatErrorMessage(error: SuryErrorRecord): string {
+const formatErrorMessage = (error: SuryErrorRecord): string => {
   return `${error.path === "" ? "" : `Failed at ${error.path}: `}${error.reason}`;
 }
 
 // The public `S.Error` class (Error.class in Sury.res's `module Error`).
 export const errorClass: unknown = SuryError;
 
-export const InternalError = {
-  make: (errorDetails: ErrorDetails): SuryErrorRecord =>
-    new SuryError(errorDetails as unknown as Record<string, unknown>) as unknown as SuryErrorRecord,
-  getOrRethrow,
-  panic,
-  message: formatErrorMessage,
-};
 
 // =============================================================================
 // globalConfig
@@ -760,9 +744,9 @@ export type GlobalConfigOverride = {
 }
 
 const initialOnAdditionalItems: AdditionalItemsMode = "strip";
-const initialDefaultFlag: Flag = ValFlag.none as unknown as Flag;
+const initialDefaultFlag: Flag = valFlagNone as unknown as Flag;
 export const globalConfig: GlobalConfig = {
-  m: InternalError.message,
+  m: formatErrorMessage,
   d: undefined,
   a: initialOnAdditionalItems as unknown as AdditionalItems,
   f: initialDefaultFlag,
@@ -777,7 +761,7 @@ const configurableValueOptions = { configurable: true };
 const valKey = "value";
 const reversedKey = "r";
 
-export function baseSchema(tag: Tag, selfReverse: boolean): Internal {
+export const baseSchema = (tag: Tag, selfReverse: boolean): Internal => {
   const schema = new (Schema as unknown as { new (): Internal })();
   schema.type = tag;
   schema.seq = seq++;
@@ -788,13 +772,13 @@ export function baseSchema(tag: Tag, selfReverse: boolean): Internal {
   return schema;
 }
 
-export function noopDecoder(input: Val): Val {
+export const noopDecoder = (input: Val): Val => {
   return input;
 }
 
 const factoryCache: Record<string, Internal> = {};
 
-export function cached(key: string, tag: Tag, init: (schema: Internal) => void): Internal {
+export const cached = (key: string, tag: Tag, init: (schema: Internal) => void): Internal => {
   const existing = factoryCache[key];
   if (existing !== undefined) {
     return existing;
@@ -809,7 +793,7 @@ export function cached(key: string, tag: Tag, init: (schema: Internal) => void):
 export const unknown: Internal = baseSchema(unknownTag, true);
 unknown.decoder = noopDecoder;
 
-export function copySchema(schema: Internal): Internal {
+export const copySchema = (schema: Internal): Internal => {
   const c = new (Schema as unknown as { new (): Internal })();
   for (const k in schema) {
     (c as unknown as Record<string, unknown>)[k] = (schema as unknown as Record<string, unknown>)[k];
@@ -818,7 +802,7 @@ export function copySchema(schema: Internal): Internal {
   return c;
 }
 
-export function updateOutput<Value>(schema: Internal, fn: (schema: Internal) => void): Value {
+export const updateOutput = <Value>(schema: Internal, fn: (schema: Internal) => void): Value => {
   const root = copySchema(schema);
   let mut = root;
   while (mut.to !== undefined) {
@@ -961,7 +945,7 @@ const operationArgVar = "i";
 
 // Pass this as `fail` on every check that wants "expected X, received Y"
 // error semantics. Stable reference → adjacent checks fuse.
-function failInvalidType(input: Val): (value: unknown) => ErrorDetails {
+const failInvalidType = (input: Val): (value: unknown) => ErrorDetails => {
   let override: string | undefined;
   const em = input.e.errorMessage;
   if (em !== undefined) {
@@ -976,26 +960,26 @@ function failInvalidType(input: Val): (value: unknown) => ErrorDetails {
 // The B "module" is flattened to individual `B_`-prefixed functions (instead
 // of one object literal) so bundlers can tree-shake each helper separately —
 // exactly the shape the ReScript compiler used to emit for `module B`.
-export function B_embed(b: Val, value: unknown): string {
+export const B_embed = (b: Val, value: unknown): string => {
   const e = b.g.e;
   const l = e.length;
   e[l] = value;
   return `e[${l}]`;
 }
 
-export function B_inlineConst(b: Val, schema: Internal): string {
-  const tagFlag = TagFlag.get(schema.type);
+export const B_inlineConst = (b: Val, schema: Internal): string => {
+  const tagFlag = tagFlags[schema.type]!;
   const const_ = schema.const;
-  if (Flag.unsafeHas(tagFlag, TagFlag.undefined)) {
+  if (flagUnsafeHas(tagFlag, tagFlagUndefined)) {
     return "void 0";
-  } else if (Flag.unsafeHas(tagFlag, TagFlag.string)) {
+  } else if (flagUnsafeHas(tagFlag, tagFlagString)) {
     return inlinedValueFromString(const_ as string);
-  } else if (Flag.unsafeHas(tagFlag, TagFlag.bigint)) {
+  } else if (flagUnsafeHas(tagFlag, tagFlagBigint)) {
     return (const_ as unknown as string) + "n";
   } else if (
-    Flag.unsafeHas(
+    flagUnsafeHas(
       tagFlag,
-      Flag.with(Flag.with(TagFlag.symbol, TagFlag.function), TagFlag.instance)
+      ((tagFlagSymbol | tagFlagFunction) | tagFlagInstance)
     )
   ) {
     return B_embed(b, schema.const);
@@ -1006,7 +990,7 @@ export function B_inlineConst(b: Val, schema: Internal): string {
 
 // Escape it once per compiled operation.
 // Use bGlobal as cache, so we don't allocate another object + it's garbage collected.
-export function B_inlineLocation(global: BGlobal, location: string): string {
+export const B_inlineLocation = (global: BGlobal, location: string): string => {
   const key = `"${location}"`;
   const cached = (global as unknown as Record<string, string | undefined>)[key];
   if (cached !== undefined) {
@@ -1019,7 +1003,7 @@ export function B_inlineLocation(global: BGlobal, location: string): string {
 }
 
 
-export function B_varWithoutAllocation(global: BGlobal): string {
+export const B_varWithoutAllocation = (global: BGlobal): string => {
   const newCounter = global.v + 1;
   global.v = newCounter;
   return `v${newCounter}`;
@@ -1032,23 +1016,23 @@ export function B_varWithoutAllocation(global: BGlobal): string {
 // its dependent code — that immediate owner already dominates and outlives
 // every use, so no separate scope-tree is needed. The owner must be
 // unfinalized; `_notVarAtParent` guards this explicitly.
-export function B_hoistDecl(owner: Val, decl: string): void {
+export const B_hoistDecl = (owner: Val, decl: string): void => {
   owner.hd = owner.hd === "" ? decl : owner.hd + "," + decl;
 }
 
 
-export function B_operationArg(
+export const B_operationArg = (
   schema: Internal,
   expected: Internal,
   flag: Flag,
   defs: Record<string, Internal> | undefined
-): Val {
+): Val => {
   return {
     cp: "",
     hd: "",
     v: _var,
     i: operationArgVar,
-    f: ValFlag.none,
+    f: valFlagNone,
     s: schema,
     e: expected,
     path: pathEmpty,
@@ -1061,11 +1045,11 @@ export function B_operationArg(
   };
 }
 
-export function B_throw(errorDetails: ErrorDetails): never {
-  throw InternalError.make(errorDetails);
+export const B_throw = (errorDetails: ErrorDetails): never => {
+  throw new SuryError(errorDetails);
 }
 
-export function B_unsupportedDecode(b: Val, from: Internal, target: Internal): never {
+export const B_unsupportedDecode = (b: Val, from: Internal, target: Internal): never => {
   return B_throw({
     code: "unsupported_decode",
     from: from,
@@ -1077,13 +1061,13 @@ export function B_unsupportedDecode(b: Val, from: Internal, target: Internal): n
   });
 }
 
-export function B_failWithArg<Arg>(b: Val, fn: (arg: Arg) => ErrorDetails, arg: string): string {
+export const B_failWithArg = <Arg>(b: Val, fn: (arg: Arg) => ErrorDetails, arg: string): string => {
   return `${B_embed(b, (arg: Arg) => {
     B_throw(fn(arg));
   })}(${arg})`;
 }
 
-export function B_makeInvalidConversionDetails(input: Val, to: Internal, cause: unknown): ErrorDetails {
+export const B_makeInvalidConversionDetails = (input: Val, to: Internal, cause: unknown): ErrorDetails => {
   if (cause && (cause as { s?: symbol }).s === s) {
     const error = cause as unknown as SuryErrorRecord;
 
@@ -1117,11 +1101,11 @@ export function B_makeInvalidConversionDetails(input: Val, to: Internal, cause: 
 
 // Checks run against `prev.var()`, so the runtime type at check time
 // is `prev.schema`, not the post-narrowing schema on the current val.
-export function B_receivedSchema(val: Val): Internal {
+export const B_receivedSchema = (val: Val): Internal => {
   return val.prev !== undefined ? val.prev.s : val.s;
 }
 
-export function B_makeInvalidInputDetails(
+export const B_makeInvalidInputDetails = (
   expected: Internal,
   received: Internal,
   path: Path,
@@ -1129,7 +1113,7 @@ export function B_makeInvalidInputDetails(
   includeInput: boolean,
   unionErrors?: SuryErrorRecord[],
   reasonOverride?: string
-): ErrorDetails {
+): ErrorDetails => {
   let reasonRef =
     reasonOverride !== undefined
       ? reasonOverride
@@ -1169,12 +1153,12 @@ export function B_makeInvalidInputDetails(
 // `(~input) => value => details` closure snapshots expected/received/path
 // so it does not retain the val (otherwise the embed array would pin the
 // whole val chain). Pass directly as `check.fail` to skip the wrapper.
-export function B_invalidInputBuilder(
+export const B_invalidInputBuilder = (
   expected?: Internal,
   extraPath: Path = pathEmpty,
   reasonOverride?: string,
   includeInput: boolean = true
-): (input: Val) => (value: unknown) => ErrorDetails {
+): (input: Val) => (value: unknown) => ErrorDetails => {
   return (input: Val) => {
     const expected_ = expected !== undefined ? expected : input.e;
     const received = B_receivedSchema(input);
@@ -1193,10 +1177,10 @@ export function B_invalidInputBuilder(
 }
 
 
-export function B_failWithErrorMessage(
+export const B_failWithErrorMessage = (
   key: string,
   defaultMessage?: string
-): (input: Val) => (value: unknown) => ErrorDetails {
+): (input: Val) => (value: unknown) => ErrorDetails => {
   return (input: Val) => {
     let override: string | undefined;
     const em = input.e.errorMessage;
@@ -1218,14 +1202,14 @@ export function B_failWithErrorMessage(
 // Inline variant: emits the throw expression directly. Used by decoders
 // that splice errors into custom JS (e.g. `catch(_){${embedInvalidInput}}`),
 // not via the `check` pipeline.
-export function B_embedInvalidInput(input: Val, expected: Internal = input.e): string {
+export const B_embedInvalidInput = (input: Val, expected: Internal = input.e): string => {
   return B_failWithArg(input, B_invalidInputBuilder(expected)(input), input.v());
 }
 
 // Caller must verify `val.checks->unsafeToBool` and
 // `val.expected.noValidation !== Some(true)` first — the unwrap below
 // is unchecked. `inputVar` is usually `val.prev.var()`.
-export function B_emitChecks(val: Val, inputVar: string): string {
+export const B_emitChecks = (val: Val, inputVar: string): string => {
   const checks = val.vc!;
   const len = checks.length;
   if (len === 1) {
@@ -1260,7 +1244,7 @@ export function B_emitChecks(val: Val, inputVar: string): string {
 // union deopt scan so they can't drift. Phase 2's {pre, cond, body}
 // dispatch will lift the producer into `pre`, collapsing this to "the
 // check is a type-narrow."
-export function B_isHoistable(val: Val): boolean {
+export const B_isHoistable = (val: Val): boolean => {
   return val.t === true ? val.prev!.t !== true && val.cp === "" : true;
 }
 
@@ -1271,7 +1255,7 @@ export function B_isHoistable(val: Val): boolean {
 // emit inline so their case-specific error message survives. All
 // other callers pass no `~hoistCond` and get the plain merge:
 // every non-`noValidation` check is emitted inline.
-export function B_merge(val: Val, hoistCond?: { contents: string }): string {
+export const B_merge = (val: Val, hoistCond?: { contents: string }): string => {
   let current: Val | undefined = val;
   let code = "";
 
@@ -1336,13 +1320,13 @@ export function B_merge(val: Val, hoistCond?: { contents: string }): string {
   return code;
 }
 
-export function B_next(prev: Val, initial: string, schema: Internal, expected: Internal = prev.e): Val {
+export const B_next = (prev: Val, initial: string, schema: Internal, expected: Internal = prev.e): Val => {
   return {
     // FIXME: vals and other object.val fields should be copied
     prev,
     v: _notVar,
     i: initial,
-    f: ValFlag.none,
+    f: valFlagNone,
     s: schema,
     e: expected,
     cp: "",
@@ -1356,7 +1340,7 @@ export function B_next(prev: Val, initial: string, schema: Internal, expected: I
 
 // Pass a non-empty `~checks` or omit it. Never pass `~checks=[]` —
 // that would break the val.checks "absent iff no checks" invariant.
-export function B_refine(val: Val, schema: Internal = val.s, checks?: Check[], expected: Internal = val.e): Val {
+export const B_refine = (val: Val, schema: Internal = val.s, checks?: Check[], expected: Internal = val.e): Val => {
   const shouldLink = val.v !== _var;
   const nextVal: Val = {
     prev: val,
@@ -1387,7 +1371,7 @@ export function B_refine(val: Val, schema: Internal = val.s, checks?: Check[], e
 
 // Lazy-allocate helper for mutating an existing val (as opposed to
 // building a local array and passing it through `refine`).
-export function B_pushCheck(val: Val, check: Check): void {
+export const B_pushCheck = (val: Val, check: Check): void => {
   if (val.vc !== undefined) {
     val.vc.push(check);
   } else {
@@ -1400,7 +1384,7 @@ export function B_pushCheck(val: Val, check: Check): void {
 // When valInput.prev is None, input checks fold into the output
 // wrap so emit has a prev.var(). Sets isOutput on the result.
 // TODO: async output refiner must run inside .then(), not on the Promise.
-export function B_markOutput(val: Val, valInput: Val): Val {
+export const B_markOutput = (val: Val, valInput: Val): Val => {
   let deferredInputChecks: Check[] | undefined;
   const inputRefiner = valInput.e.inputRefiner;
   if (inputRefiner !== undefined) {
@@ -1448,7 +1432,7 @@ export function B_markOutput(val: Val, valInput: Val): Val {
 // as dispatch discriminants. Each cond's `inputVar` is rewritten to
 // `parent[key]`; `fail` stays shared so lifted checks fuse with the
 // parent's own type guard. No-op if the child has no checks.
-export function B_hoistChildChecks(parent: Val, child: Val, key: string): void {
+export const B_hoistChildChecks = (parent: Val, child: Val, key: string): void => {
   if (child.vc) {
     const pathAppend = pathFromInlinedLocation(B_inlineLocation(parent.g, key));
     child.vc!.forEach((check) => {
@@ -1461,7 +1445,7 @@ export function B_hoistChildChecks(parent: Val, child: Val, key: string): void {
   }
 }
 
-export function B_dynamicScope(from: Val, locationVar: string): Val {
+export const B_dynamicScope = (from: Val, locationVar: string): Val => {
   // `additionalItems` doubles as the value schema for a dict-shaped val.
   // Extract it via a real pattern match: a non-`Schema` mode (`Strip`/`Strict`
   // on a fixed-property object) must never be cast to a schema — that string
@@ -1489,17 +1473,17 @@ export function B_dynamicScope(from: Val, locationVar: string): Val {
   };
 }
 
-export function B_nextConst(from: Val, schema: Internal, expected?: Internal): Val {
+export const B_nextConst = (from: Val, schema: Internal, expected?: Internal): Val => {
   return B_next(from, B_inlineConst(from, schema), schema, expected);
 }
 
-export function B_asyncVal(from: Val, initial: string): Val {
+export const B_asyncVal = (from: Val, initial: string): Val => {
   const v = B_next(from, initial, from.s);
-  v.f = ValFlag.async;
+  v.f = valFlagAsync;
   return v;
 }
 
-export function B_Val_Object_add(objectVal: Val, location: string, val: Val): void {
+export const B_Val_Object_add = (objectVal: Val, location: string, val: Val): void => {
   if (objectVal.s.type === arrayTag) {
     objectVal.s.items!.push(val.s);
   } else {
@@ -1515,14 +1499,14 @@ export function B_Val_Object_add(objectVal: Val, location: string, val: Val): vo
   // asyncVal's inline is a Promise.all(...) expression, not a var.
   // This has to happen before val->merge, which finalizes the prev
   // chain and locks the emitted code.
-  if (Flag.unsafeHas(val.f, ValFlag.async)) {
+  if (flagUnsafeHas(val.f, valFlagAsync)) {
     val.v();
   }
   objectVal.cp = objectVal.cp + B_merge(val);
   objectVal.d![location] = val;
 }
 
-export function B_Val_Object_merge(target: Val, vals: Record<string, Val>): void {
+export const B_Val_Object_merge = (target: Val, vals: Record<string, Val>): void => {
   const locations = Object.keys(vals);
   for (let idx = 0; idx < locations.length; idx++) {
     const location = locations[idx]!;
@@ -1530,15 +1514,11 @@ export function B_Val_Object_merge(target: Val, vals: Record<string, Val>): void
   }
 }
 
-export function B_Val_var(val: Val): string {
-  return val.v();
-}
-
-export function B_Val_addKey(objVal: Val, key: string, value: Val): string {
+export const B_Val_addKey = (objVal: Val, key: string, value: Val): string => {
   return `${objVal.v()}[${key}]=${value.i}`;
 }
 
-export function B_Val_scope(val: Val): Val {
+export const B_Val_scope = (val: Val): Val => {
   const shouldLink = val.v !== _var;
 
   // TODO: Simplify bond
@@ -1546,7 +1526,7 @@ export function B_Val_scope(val: Val): Val {
     i: val.i,
     s: val.s,
     e: val.e,
-    f: Flag.none,
+    f: flagNone,
     path: val.path,
     g: val.g,
     v: shouldLink ? _bondVar : _var,
@@ -1570,12 +1550,12 @@ export function B_Val_scope(val: Val): Val {
   return nextVal;
 }
 
-export function B_embedTransformation(input: Val, fn: (input: unknown) => unknown, isAsync: boolean): Val {
+export const B_embedTransformation = (input: Val, fn: (input: unknown) => unknown, isAsync: boolean): Val => {
   const outputVar = B_varWithoutAllocation(input.g);
   const output = B_next(input, outputVar, unknown, input.e.to!);
   output.v = _var;
   if (isAsync) {
-    if (!Flag.unsafeHas(input.g.o, Flag.async)) {
+    if (!flagUnsafeHas(input.g.o, flagAsync)) {
       B_throw({
         code: "invalid_operation",
         path: pathEmpty,
@@ -1583,7 +1563,7 @@ export function B_embedTransformation(input: Val, fn: (input: unknown) => unknow
           "Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead",
       });
     }
-    output.f = Flag.with(output.f, ValFlag.async);
+    output.f = (output.f | valFlagAsync);
   }
   const embededFn = B_embed(input, fn);
   const failure = `${B_failWithArg(
@@ -1600,33 +1580,33 @@ export function B_embedTransformation(input: Val, fn: (input: unknown) => unknow
   return output;
 }
 
-export function B_effectCtx(input: Val): EffectCtx {
+export const B_effectCtx = (input: Val): EffectCtx => {
   return {
     fail: (message: string, path: Path = pathEmpty): never => {
-      const error = InternalError.make(
+      const error = new SuryError(
         B_invalidInputBuilder(undefined, path, message, false)(input)(void 0)
       );
       // Read about this in shouldPrependPathKey comment.
-      (error as Record<string, unknown>)[shouldPrependPathKey] = 1;
+      (error as unknown as Record<string, unknown>)[shouldPrependPathKey] = 1;
       throw error;
     },
   };
 }
 
-export function B_invalidOperation(val: Val, description: string): never {
+export const B_invalidOperation = (val: Val, description: string): never => {
   return B_throw({ code: "invalid_operation", reason: description, path: val.path });
 }
 
-export function B_mergeWithCatch(
+export const B_mergeWithCatch = (
   val: Val,
   catchFn: (errorVar: string) => string,
   appendSafe?: () => string
-): string {
+): string => {
   const valCode = B_merge(val);
   if (
     valCode === "" &&
     // FIXME: Instead of this wrap all S.transform in a try/catch
-    !Flag.unsafeHas(val.f, ValFlag.async)
+    !flagUnsafeHas(val.f, valFlagAsync)
   ) {
     return valCode + (appendSafe !== undefined ? appendSafe() : "");
   } else {
@@ -1634,7 +1614,7 @@ export function B_mergeWithCatch(
 
     const catchCode = `${catchFn(errorVar)};throw ${errorVar}`;
 
-    if (Flag.unsafeHas(val.f, ValFlag.async)) {
+    if (flagUnsafeHas(val.f, valFlagAsync)) {
       val.i = `${val.i}.catch(${errorVar}=>{${catchCode}})`;
     }
     return `try{${valCode}${
@@ -1643,12 +1623,12 @@ export function B_mergeWithCatch(
   }
 }
 
-export function B_mergeWithPathPrepend(
+export const B_mergeWithPathPrepend = (
   val: Val,
   parent: Val,
   locationVar?: string,
   appendSafe?: () => string
-): string {
+): string => {
   if (val.path === pathEmpty && locationVar === undefined) {
     return B_merge(val);
   } else {
@@ -1663,7 +1643,8 @@ export function B_mergeWithPathPrepend(
   }
 }
 
-// Kept a named `function` so `fn.toString()` reads `function noopOperation(i)`
+// Kept a named `function` (the one deliberate exception to this file's
+// arrow-function style) so `fn.toString()` reads `function noopOperation(i)`
 // — tests (and the U.res wallaby workaround) match on that exact text.
 export function noopOperation(i: unknown): unknown {
   return i;
@@ -1702,8 +1683,8 @@ export const instanceofCond = (b: Val, class_: unknown) => (inputVar: string): s
   `${inputVar} instanceof ${B_embed(b, class_)}`;
 
 export const numberDecoder: Builder = (input: Val) => {
-  const inputTagFlag = TagFlag.get(input.s.type);
-  if (Flag.unsafeHas(inputTagFlag, TagFlag.unknown)) {
+  const inputTagFlag = tagFlags[input.s.type]!;
+  if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
     const checks: Check[] = [
       {
         c: typeofCond(numberTag),
@@ -1716,7 +1697,7 @@ export const numberDecoder: Builder = (input: Val) => {
         f: failInvalidType,
       });
     } else {
-      if (!Flag.unsafeHas(input.g.o, Flag.disableNanNumberValidation)) {
+      if (!flagUnsafeHas(input.g.o, flagDisableNanNumberValidation)) {
         checks.push({
           c: (inputVar) => `!${nanCond(inputVar)}`,
           f: failInvalidType,
@@ -1724,7 +1705,7 @@ export const numberDecoder: Builder = (input: Val) => {
       }
     }
     return B_refine(input, input.e, checks);
-  } else if (Flag.unsafeHas(inputTagFlag, TagFlag.string)) {
+  } else if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
     const outputVar = B_varWithoutAllocation(input.g);
 
     const output = B_next(input, outputVar, input.e);
@@ -1744,7 +1725,7 @@ export const numberDecoder: Builder = (input: Val) => {
       },
     ];
     return output;
-  } else if (!Flag.unsafeHas(inputTagFlag, TagFlag.number)) {
+  } else if (!flagUnsafeHas(inputTagFlag, tagFlagNumber)) {
     return B_unsupportedDecode(input, input.s, input.e);
   } else if (input.s.format !== input.e.format && input.e.format === "int32") {
     return B_refine(input, input.e, [
@@ -1773,12 +1754,12 @@ export const int = () =>
 // ... and string = ...` mutual-recursion group falls inside this section's
 // line range, so all three are ported here (the name list in the task omitted
 // stringDecoderFn/string, but they are inseparable from inputToString).
-export function inputToString(input: Val): Val {
+export const inputToString = (input: Val): Val => {
   return B_next(input, `""+${input.i}`, string());
 }
-export function stringDecoderFn(input: Val): Val {
-  const inputTagFlag = TagFlag.get(input.s.type);
-  if (Flag.unsafeHas(inputTagFlag, TagFlag.unknown)) {
+export const stringDecoderFn = (input: Val): Val => {
+  const inputTagFlag = tagFlags[input.s.type]!;
+  if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
     return B_refine(input, input.e, [
       {
         c: typeofCond(stringTag),
@@ -1786,18 +1767,9 @@ export function stringDecoderFn(input: Val): Val {
       },
     ]);
   } else if (
-    Flag.unsafeHas(
+    flagUnsafeHas(
       inputTagFlag,
-      Flag.with(
-        TagFlag.boolean,
-        Flag.with(
-          TagFlag.number,
-          Flag.with(
-            TagFlag.bigint,
-            Flag.with(TagFlag.undefined, Flag.with(TagFlag.null, TagFlag.nan)),
-          ),
-        ),
-      ),
+      tagFlagBoolean | tagFlagNumber | tagFlagBigint | tagFlagUndefined | tagFlagNull | tagFlagNaN,
     ) && isLiteral(input.s)
   ) {
     const const_ = "" + (input.s.const as unknown as string);
@@ -1805,34 +1777,34 @@ export function stringDecoderFn(input: Val): Val {
     schema.const = const_ as unknown;
     return B_next(input, `"${const_}"`, schema);
   } else if (
-    Flag.unsafeHas(
+    flagUnsafeHas(
       inputTagFlag,
-      Flag.with(TagFlag.boolean, Flag.with(TagFlag.number, TagFlag.bigint)),
+      (tagFlagBoolean | (tagFlagNumber | tagFlagBigint)),
     )
   ) {
     return inputToString(input);
-  } else if (!Flag.unsafeHas(inputTagFlag, TagFlag.string)) {
+  } else if (!flagUnsafeHas(inputTagFlag, tagFlagString)) {
     return B_unsupportedDecode(input, input.s, input.e);
   } else {
     return input;
   }
 }
-export function string(): Internal {
+export const string = (): Internal => {
   return cached(stringTag, stringTag, (s) => {
     s.decoder = stringDecoderFn;
   });
 }
 
 export const booleanDecoder: Builder = (input: Val) => {
-  const inputTagFlag = TagFlag.get(input.s.type);
-  if (Flag.unsafeHas(inputTagFlag, TagFlag.unknown)) {
+  const inputTagFlag = tagFlags[input.s.type]!;
+  if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
     return B_refine(input, input.e, [
       {
         c: typeofCond(booleanTag),
         f: failInvalidType,
       },
     ]);
-  } else if (Flag.unsafeHas(inputTagFlag, TagFlag.string)) {
+  } else if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
     const outputVar = B_varWithoutAllocation(input.g);
 
     const output = B_next(input, outputVar, input.e);
@@ -1843,7 +1815,7 @@ export const booleanDecoder: Builder = (input: Val) => {
       input,
     )};`;
     return output;
-  } else if (!Flag.unsafeHas(inputTagFlag, TagFlag.boolean)) {
+  } else if (!flagUnsafeHas(inputTagFlag, tagFlagBoolean)) {
     return B_unsupportedDecode(input, input.s, input.e);
   } else {
     return input;
@@ -1856,9 +1828,9 @@ export const bool = () =>
   });
 
 export const bigintDecoder: Builder = (input: Val) => {
-  const inputTagFlag = TagFlag.get(input.s.type);
+  const inputTagFlag = tagFlags[input.s.type]!;
 
-  if (Flag.unsafeHas(inputTagFlag, TagFlag.unknown)) {
+  if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
     return B_refine(input, input.e, [
       {
         c: typeofCond(bigintTag),
@@ -1866,7 +1838,7 @@ export const bigintDecoder: Builder = (input: Val) => {
       },
     ]);
   } // TODO: Skip formats which 100% don't match
-  else if (Flag.unsafeHas(inputTagFlag, TagFlag.string)) {
+  else if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
     const outputVar = B_varWithoutAllocation(input.g);
     const output = B_next(input, outputVar, input.e);
     output.v = _var;
@@ -1874,9 +1846,9 @@ export const bigintDecoder: Builder = (input: Val) => {
       input,
     )}}`;
     return output;
-  } else if (Flag.unsafeHas(inputTagFlag, TagFlag.number)) {
+  } else if (flagUnsafeHas(inputTagFlag, tagFlagNumber)) {
     return B_next(input, `BigInt(${input.i})`, input.e);
-  } else if (!Flag.unsafeHas(inputTagFlag, TagFlag.bigint)) {
+  } else if (!flagUnsafeHas(inputTagFlag, tagFlagBigint)) {
     return B_unsupportedDecode(input, input.s, input.e);
   } else {
     return input;
@@ -1889,15 +1861,15 @@ export const bigint = () =>
   });
 
 export const symbolDecoder: Builder = (input: Val) => {
-  const inputTagFlag = TagFlag.get(input.s.type);
-  if (Flag.unsafeHas(inputTagFlag, TagFlag.unknown)) {
+  const inputTagFlag = tagFlags[input.s.type]!;
+  if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
     return B_refine(input, input.e, [
       {
         c: typeofCond(symbolTag),
         f: failInvalidType,
       },
     ]);
-  } else if (!Flag.unsafeHas(inputTagFlag, TagFlag.symbol)) {
+  } else if (!flagUnsafeHas(inputTagFlag, tagFlagSymbol)) {
     return B_unsupportedDecode(input, input.s, input.e);
   } else {
     return input;
@@ -1909,9 +1881,9 @@ export const symbol = () =>
     s.decoder = symbolDecoder;
   });
 
-export function setHas(has: Record<string, boolean>, tag: Tag): void {
+export const setHas = (has: Record<string, boolean>, tag: Tag): void => {
   has[
-    Flag.unsafeHas(TagFlag.get(tag), Flag.with(TagFlag.union, TagFlag.ref))
+    flagUnsafeHas(tagFlags[tag]!, (tagFlagUnion | tagFlagRef))
       ? unknownTag
       : tag
   ] = true;
@@ -1930,22 +1902,13 @@ export const literalDecoder: Builder = (input: Val) => {
       return B_nextConst(input, expectedSchema);
     }
   } else {
-    const schemaTagFlag = TagFlag.get(expectedSchema.type);
+    const schemaTagFlag = tagFlags[expectedSchema.type]!;
 
     if (
-      Flag.unsafeHas(TagFlag.get(input.s.type), TagFlag.string) &&
-      Flag.unsafeHas(
+      flagUnsafeHas(tagFlags[input.s.type]!, tagFlagString) &&
+      flagUnsafeHas(
         schemaTagFlag,
-        Flag.with(
-          TagFlag.boolean,
-          Flag.with(
-            TagFlag.number,
-            Flag.with(
-              TagFlag.bigint,
-              Flag.with(TagFlag.undefined, Flag.with(TagFlag.null, TagFlag.nan)),
-            ),
-          ),
-        ),
+        tagFlagBoolean | tagFlagNumber | tagFlagBigint | tagFlagUndefined | tagFlagNull | tagFlagNaN,
       )
     ) {
       const stringConstSchema = baseSchema(stringTag, false);
@@ -1961,7 +1924,7 @@ export const literalDecoder: Builder = (input: Val) => {
       ];
 
       return B_nextConst(stringConstVal, expectedSchema, expectedSchema);
-    } else if (Flag.unsafeHas(schemaTagFlag, TagFlag.nan)) {
+    } else if (flagUnsafeHas(schemaTagFlag, tagFlagNaN)) {
       return B_refine(input, expectedSchema, [
         {
           c: nanCond,
@@ -1997,11 +1960,11 @@ export const nan = () =>
     s.decoder = literalDecoder;
   });
 
-export function Literal_parse(value: unknown): Internal {
+export const Literal_parse = (value: unknown): Internal => {
   if (value === null) {
     return nullLiteral();
   } else {
-    const tag = typeOf(value);
+    const tag = (typeof value as Tag);
     if (tag === undefinedTag) {
       return unit();
     } else if (tag === numberTag && Number.isNaN(value as number)) {
@@ -2040,7 +2003,7 @@ export function Literal_parse(value: unknown): Internal {
 // separate bindings are emitted here.
 // =============================================================================
 
-export function parse(input: Val): Val {
+export const parse = (input: Val): Val => {
   let valRef: Val = input;
   let appliedEncoderRef: Encoder | undefined = undefined;
   let loopCount = 0;
@@ -2066,9 +2029,9 @@ export function parse(input: Val): Val {
     }
 
     if (
-      Flag.unsafeHas(
+      flagUnsafeHas(
         loopInput.f,
-        ValFlag.async,
+        valFlagAsync,
       ) /* FIXME: why was it needed? && step.contents !== #convert */
     ) {
       const operationInputVar = loopInput.v();
@@ -2086,7 +2049,7 @@ export function parse(input: Val): Val {
       } else {
         valRef = B_refine(loopInput, operationOutput.s, undefined, operationOutput.e);
       }
-      valRef.f = Flag.with(valRef.f, ValFlag.async);
+      valRef.f = (valRef.f | valFlagAsync);
       valRef.io = true;
     } else if (loopInput.io) {
       // It's guaranteed that to is not None, because it's checked in the while condition
@@ -2125,11 +2088,11 @@ export function parse(input: Val): Val {
 
   return valRef;
 }
-export function parseDynamic(input: Val): Val {
+export const parseDynamic = (input: Val): Val => {
   try {
     return parse(input);
   } catch (exn) {
-    const error = InternalError.getOrRethrow(exn);
+    const error = getOrRethrow(exn);
     (error as unknown as Record<string, unknown>)["path"] =
       // For the case parent must always be present
       pathConcat(
@@ -2141,33 +2104,33 @@ export function parseDynamic(input: Val): Val {
   }
 }
 
-export function isAsyncInternal(
+export const isAsyncInternal = (
   schema: Internal,
   defs: Record<string, Internal> | undefined
-): boolean {
+): boolean => {
   try {
-    const input = B_operationArg(unknown, schema, Flag.async, defs);
+    const input = B_operationArg(unknown, schema, flagAsync, defs);
     const output = parse(input);
-    const isAsync = Flag.has(output.f, ValFlag.async);
+    const isAsync = flagUnsafeHas(output.f, valFlagAsync);
     schema.isAsync = isAsync;
     return isAsync;
   } catch (exn) {
-    InternalError.getOrRethrow(exn);
+    getOrRethrow(exn);
     return false;
   }
 }
-export function compileDecoder(
+export const compileDecoder = (
   schema: Internal,
   expected: Internal,
   flag: Flag,
   defs: Record<string, Internal> | undefined
-): (input: unknown) => unknown {
+): (input: unknown) => unknown => {
   const input = B_operationArg(isLiteral(schema) ? unknown : schema, expected, flag, defs);
 
   const output = parse(input);
   const code = B_merge(output);
 
-  const isAsync = Flag.has(output.f, ValFlag.async);
+  const isAsync = flagUnsafeHas(output.f, valFlagAsync);
   expected.isAsync = isAsync;
   const hasTransform = output.t === true;
   expected.hasTransform = hasTransform;
@@ -2175,12 +2138,12 @@ export function compileDecoder(
   if (
     code === "" &&
     (output === input || output.i === input.i) &&
-    !Flag.unsafeHas(flag, Flag.async)
+    !flagUnsafeHas(flag, flagAsync)
   ) {
     return noopOperation;
   } else {
     let inlinedOutput = output.i;
-    if (Flag.unsafeHas(flag, Flag.async) && !isAsync && !(defs as unknown as boolean)) {
+    if (flagUnsafeHas(flag, flagAsync) && !isAsync && !(defs as unknown as boolean)) {
       inlinedOutput = `Promise.resolve(${inlinedOutput})`;
     }
 
@@ -2193,7 +2156,7 @@ export function compileDecoder(
     return fn;
   }
 }
-export function getOutputSchema(schema: Internal): Internal {
+export const getOutputSchema = (schema: Internal): Internal => {
   if (schema.to !== undefined) {
     return getOutputSchema(schema.to);
   } else {
@@ -2201,7 +2164,7 @@ export function getOutputSchema(schema: Internal): Internal {
   }
 }
 // FIXME: Define it as a schema property
-export function reverse(schema: Internal): Internal {
+export const reverse = (schema: Internal): Internal => {
   if (reversedKey in (schema as unknown as Record<string, unknown>)) {
     return (schema as unknown as Record<string, unknown>)[reversedKey] as Internal;
   } else {
@@ -2264,7 +2227,7 @@ export function reverse(schema: Internal): Internal {
         mut.properties = newProperties;
       }
       // Skip tuple
-      if (typeOf(mut.additionalItems) === objectTag) {
+      if ((typeof mut.additionalItems as Tag) === objectTag) {
         mut.additionalItems = reverse(mut.additionalItems as unknown as Internal);
       }
       if (mut.anyOf !== undefined) {
@@ -2328,8 +2291,8 @@ export function getDecoder(
       const f = globalConfig.f;
       flag = f;
       keyRef = keyRef + "-" + f;
-    } else if (typeOf(arg) === numberTag) {
-      const f = Flag.with(arg as unknown as Flag, globalConfig.f);
+    } else if ((typeof arg as Tag) === numberTag) {
+      const f = (arg as unknown as Flag) | globalConfig.f;
       flag = f;
       keyRef = keyRef + "-" + f;
     } else {
@@ -2345,7 +2308,7 @@ export function getDecoder(
   }
 
   if (cacheTarget === undefined) {
-    return InternalError.panic("No schema provided for decoder.");
+    return panic("No schema provided for decoder.");
   } else {
     const key = keyRef;
     if (key in (cacheTarget as unknown as Record<string, unknown>)) {
@@ -2380,12 +2343,12 @@ export const nestedLoc = "BS_PRIVATE_NESTED_SOME_NONE";
 // @unboxed — runtime value is the string or the array itself.
 export type ItemCode = string | string[];
 
-export function neverBuilderFn(input: Val): Val {
+export const neverBuilderFn = (input: Val): Val => {
   const output = B_refine(input, undefined, undefined, never_());
   output.cp = B_embedInvalidInput(input) + ";";
   return output;
 }
-export function never_(): Internal {
+export const never_ = (): Internal => {
   return cached(neverTag as string, neverTag, (s) => {
     s.decoder = neverBuilderFn;
   });
@@ -2402,22 +2365,22 @@ export const nestedOptionParser: Builder = ((input: Val) => {
 });
 
 export const instanceDecoder: Builder = ((input: Val) => {
-  const inputTagFlag = TagFlag.get(input.s.type);
-  if (Flag.unsafeHas(inputTagFlag, TagFlag.unknown)) {
+  const inputTagFlag = tagFlags[input.s.type]!;
+  if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
     return B_refine(input, input.e, [
       {
         c: instanceofCond(input, input.e.class),
         f: failInvalidType,
       },
     ]);
-  } else if (Flag.unsafeHas(inputTagFlag, TagFlag.instance) && input.s.class === input.e.class) {
+  } else if (flagUnsafeHas(inputTagFlag, tagFlagInstance) && input.s.class === input.e.class) {
     return input;
   } else {
     return B_unsupportedDecode(input, input.s, input.e);
   }
 });
 
-export function instance(class_: unknown): Internal {
+export const instance = (class_: unknown): Internal => {
   const mut = baseSchema(instanceTag, true);
   mut.class = class_;
   mut.decoder = instanceDecoder;
@@ -2426,30 +2389,30 @@ export function instance(class_: unknown): Internal {
 
 // Type-narrow condition for a union variant, built from the shared atoms with no
 // per-type factory reference — so unused type decoders tree-shake.
-export function typeCheckCond(input: Val, schema: Internal, inputVar: string): string {
-  const tagFlag = TagFlag.get(schema.type);
-  if (Flag.unsafeHas(tagFlag, TagFlag.object)) {
+export const typeCheckCond = (input: Val, schema: Internal, inputVar: string): string => {
+  const tagFlag = tagFlags[schema.type]!;
+  if (flagUnsafeHas(tagFlag, tagFlagObject)) {
     return `${objectTagCond(inputVar)}&&!${isArrayCond(inputVar)}`;
-  } else if (Flag.unsafeHas(tagFlag, TagFlag.array)) {
+  } else if (flagUnsafeHas(tagFlag, tagFlagArray)) {
     return isArrayCond(inputVar);
-  } else if (Flag.unsafeHas(tagFlag, TagFlag.instance)) {
+  } else if (flagUnsafeHas(tagFlag, tagFlagInstance)) {
     return instanceofCond(input, schema.class)(inputVar);
-  } else if (Flag.unsafeHas(tagFlag, TagFlag.number)) {
+  } else if (flagUnsafeHas(tagFlag, tagFlagNumber)) {
     const typeofCheck = typeofCond(numberTag)(inputVar);
-    if (Flag.unsafeHas(input.g.o, Flag.disableNanNumberValidation)) {
+    if (flagUnsafeHas(input.g.o, flagDisableNanNumberValidation)) {
       return typeofCheck;
     } else {
       return `${typeofCheck}&&!${nanCond(inputVar)}`;
     }
-  } else if (Flag.unsafeHas(tagFlag, TagFlag.nan)) {
+  } else if (flagUnsafeHas(tagFlag, tagFlagNaN)) {
     return nanCond(inputVar);
-  } else if (Flag.unsafeHas(tagFlag, Flag.with(TagFlag.undefined, TagFlag.null))) {
+  } else if (flagUnsafeHas(tagFlag, (tagFlagUndefined | tagFlagNull))) {
     // null/undefined reuse literalDecoder's inline-const form (=== null / void 0)
     return `${inputVar}===${B_inlineConst(input, schema)}`;
   } else if (
-    Flag.unsafeHas(
+    flagUnsafeHas(
       tagFlag,
-      Flag.with(Flag.with(Flag.with(TagFlag.string, TagFlag.boolean), TagFlag.bigint), TagFlag.symbol)
+      tagFlagString | tagFlagBoolean | tagFlagBigint | tagFlagSymbol
     )
   ) {
     // literals reuse this typeof check; their per-const check stays in the case body
@@ -2487,12 +2450,12 @@ export function typeCheckCond(input: Val, schema: Internal, inputVar: string): s
 // PORT-NOTE: `B_Val_Object_t` is `{...val}` — the same runtime shape as `val`,
 // so this port uses the prelude's `Val` type for object vals.
 
-export function makeObjectVal(prev: Val, schema: Internal): Val {
+export const makeObjectVal = (prev: Val, schema: Internal): Val => {
   return {
     prev,
     v: _notVar,
     i: "",
-    f: ValFlag.none,
+    f: valFlagNone,
     s: (schema.type === arrayTag
       ? {
           type: arrayTag,
@@ -2516,7 +2479,7 @@ export function makeObjectVal(prev: Val, schema: Internal): Val {
     g: prev.g,
   };
 }
-export function completeObjectVal(objectVal: Val): Val {
+export const completeObjectVal = (objectVal: Val): Val => {
   const isArray = objectVal.s.type === arrayTag;
   let inline = "";
   let promiseAllContent = "";
@@ -2527,7 +2490,7 @@ export function completeObjectVal(objectVal: Val): Val {
   for (let idx = 0; idx < keys.length; idx++) {
     const key = keys[idx]!;
     const val = objectVal.d![key]!;
-    if (Flag.unsafeHas(val.f, ValFlag.async)) {
+    if (flagUnsafeHas(val.f, valFlagAsync)) {
       promiseAllContent = promiseAllContent + val.i + ",";
     }
     if (val.o) {
@@ -2564,7 +2527,7 @@ export function completeObjectVal(objectVal: Val): Val {
     } else {
       valWithRequired.i = `Promise.all([${promiseAllContent}]).then(([${promiseAllContent}])=>{${operationCode}return ${operationOutput.i}})`;
     }
-    valWithRequired.f = Flag.with(valWithRequired.f, ValFlag.async);
+    valWithRequired.f = (valWithRequired.f | valFlagAsync);
     valWithRequired.s = operationOutput.s;
     valWithRequired.e = operationOutput.e;
     valWithRequired.io = true;
@@ -2580,7 +2543,7 @@ export function completeObjectVal(objectVal: Val): Val {
     }
   }
 }
-export function array(item: Internal): Internal {
+export const array = (item: Internal): Internal => {
   const itemInternal = item;
   const mut = baseSchema(
     arrayTag,
@@ -2592,16 +2555,16 @@ export function array(item: Internal): Internal {
   mut.decoder = arrayDecoder;
   return mut;
 }
-export function arrayDecoder(unknownInput: Val): Val {
+export const arrayDecoder = (unknownInput: Val): Val => {
   const isUnion = unknownInput.u!;
   const expectedSchema = unknownInput.e;
-  const unknownInputTagFlag = TagFlag.get(unknownInput.s.type);
+  const unknownInputTagFlag = tagFlags[unknownInput.s.type]!;
   const expectedItems = expectedSchema.items!;
   const expectedLength = expectedItems.length;
 
   let input: Val;
-  if (Flag.unsafeHas(unknownInputTagFlag, Flag.with(TagFlag.unknown, TagFlag.array))) {
-    const isArrayInput = Flag.unsafeHas(unknownInputTagFlag, TagFlag.array);
+  if (flagUnsafeHas(unknownInputTagFlag, (tagFlagUnknown | tagFlagArray))) {
+    const isArrayInput = flagUnsafeHas(unknownInputTagFlag, tagFlagArray);
     let schema: Internal;
     if (!isArrayInput) {
       schema = array(unknown);
@@ -2656,7 +2619,7 @@ export function arrayDecoder(unknownInput: Val): Val {
     if (itemSchema === unknown) {
       output = input;
     } else {
-      const inputVar = B_Val_var(input);
+      const inputVar = input.v();
       const iteratorVar = B_varWithoutAllocation(input.g);
 
       const itemInput = B_dynamicScope(input, iteratorVar);
@@ -2679,7 +2642,7 @@ export function arrayDecoder(unknownInput: Val): Val {
           `for(let ${iteratorVar}=${expectedLength};${iteratorVar}<${inputVar}.length;++${iteratorVar}){${itemCode}}`;
       }
 
-      if (Flag.unsafeHas(itemOutput.f, ValFlag.async)) {
+      if (flagUnsafeHas(itemOutput.f, valFlagAsync)) {
         output = B_asyncVal(output2, `Promise.all(${output2.i})`);
       } else {
         output = output2;
@@ -2736,15 +2699,15 @@ export function arrayDecoder(unknownInput: Val): Val {
   }
   return B_markOutput(output, input);
 }
-export function objectDecoder(unknownInput: Val): Val {
+export const objectDecoder = (unknownInput: Val): Val => {
   const isUnion = unknownInput.u!;
   const expectedSchema = unknownInput.e;
 
-  const unknownInputTagFlag = TagFlag.get(unknownInput.s.type);
+  const unknownInputTagFlag = tagFlags[unknownInput.s.type]!;
 
   let input: Val;
-  if (Flag.unsafeHas(unknownInputTagFlag, Flag.with(TagFlag.unknown, TagFlag.object))) {
-    const isObjectInput = Flag.unsafeHas(unknownInputTagFlag, TagFlag.object);
+  if (flagUnsafeHas(unknownInputTagFlag, (tagFlagUnknown | tagFlagObject))) {
+    const isObjectInput = flagUnsafeHas(unknownInputTagFlag, tagFlagObject);
     let schema: Internal;
     if (!isObjectInput) {
       // TODO: Use dictFactory here
@@ -2824,12 +2787,12 @@ export function objectDecoder(unknownInput: Val): Val {
       output2.cp = output2.cp + `for(let ${keyVar} in ${inputVar}){${itemCode}}`;
     }
 
-    if (Flag.unsafeHas(itemOutput.f, ValFlag.async)) {
+    if (flagUnsafeHas(itemOutput.f, valFlagAsync)) {
       const resolveVar = B_varWithoutAllocation(output2.g);
       const rejectVar = B_varWithoutAllocation(output2.g);
       const asyncParseResultVar = B_varWithoutAllocation(output2.g);
       const counterVar = B_varWithoutAllocation(output2.g);
-      const outputVar = B_Val_var(output2);
+      const outputVar = output2.v();
       output = B_asyncVal(
         output2,
         `new Promise((${resolveVar},${rejectVar})=>{let ${counterVar}=Object.keys(${outputVar}).length;for(let ${keyVar} in ${outputVar}){${outputVar}[${keyVar}].then(${asyncParseResultVar}=>{${outputVar}[${keyVar}]=${asyncParseResultVar};if(${counterVar}--===1){${resolveVar}(${outputVar})}},${rejectVar})}})`,
@@ -2964,7 +2927,7 @@ export function objectDecoder(unknownInput: Val): Val {
   return B_markOutput(output, input);
 }
 
-export function dictFactory(item: Internal): Internal {
+export const dictFactory = (item: Internal): Internal => {
   const mut = baseSchema(
     objectTag,
     (item as unknown as Record<string, unknown>)[reversedKey] === (item as unknown),
@@ -2975,29 +2938,29 @@ export function dictFactory(item: Internal): Internal {
   return mut;
 }
 
-export function unionToKey(schema: Internal): string {
-  return Flag.unsafeHas(TagFlag.get(schema.type), TagFlag.instance)
+export const unionToKey = (schema: Internal): string => {
+  return flagUnsafeHas(tagFlags[schema.type]!, tagFlagInstance)
     ? (schema.class as { name: string })["name"]
     : schema.type;
 }
 
-export function unionIsPriority(tagFlag: number, byKey: Record<string, unknown[]>): boolean {
+export const unionIsPriority = (tagFlag: number, byKey: Record<string, unknown[]>): boolean => {
   return (
-    (Flag.unsafeHas(tagFlag, Flag.with(TagFlag.array, TagFlag.instance)) &&
+    (flagUnsafeHas(tagFlag, (tagFlagArray | tagFlagInstance)) &&
       objectTag in byKey) ||
-    (Flag.unsafeHas(tagFlag, TagFlag.nan) && numberTag in byKey)
+    (flagUnsafeHas(tagFlag, tagFlagNaN) && numberTag in byKey)
   );
 }
 
 // Whether decoding a value already known to be of the schema type
 // is a noop — no transformation anywhere in the schema tree.
 // Recursive refs are conservatively treated as transforming
-export function unionIsSelfDecodeNoop(schema: Internal): boolean {
+export const unionIsSelfDecodeNoop = (schema: Internal): boolean => {
   const additionalItems = schema.additionalItems;
   return (
     schema.to === undefined &&
     schema.parser === undefined &&
-    !Flag.unsafeHas(TagFlag.get(schema.type), TagFlag.ref) &&
+    !flagUnsafeHas(tagFlags[schema.type]!, tagFlagRef) &&
     (schema.anyOf !== undefined ? schema.anyOf.every(unionIsSelfDecodeNoop) : true) &&
     (schema.items !== undefined ? schema.items.every(unionIsSelfDecodeNoop) : true) &&
     (schema.properties !== undefined
@@ -3009,20 +2972,14 @@ export function unionIsSelfDecodeNoop(schema: Internal): boolean {
   );
 }
 
-export function unionIsWiderSchema(schemaAnyOf: Internal[], inputAnyOf: Internal[]): boolean {
+export const unionIsWiderSchema = (schemaAnyOf: Internal[], inputAnyOf: Internal[]): boolean => {
   return inputAnyOf.every((inputSchema, idx) => {
     const schema = schemaAnyOf[idx];
     if (schema !== undefined) {
       return (
-        !Flag.unsafeHas(
-          TagFlag.get(inputSchema.type),
-          Flag.with(
-            Flag.with(
-              Flag.with(Flag.with(TagFlag.array, TagFlag.instance), TagFlag.ref),
-              TagFlag.union,
-            ),
-            TagFlag.object,
-          ),
+        !flagUnsafeHas(
+          tagFlags[inputSchema.type]!,
+          tagFlagArray | tagFlagInstance | tagFlagRef | tagFlagUnion | tagFlagObject,
         ) &&
         inputSchema.type === schema.type &&
         inputSchema.const === schema.const &&
@@ -3036,19 +2993,19 @@ export function unionIsWiderSchema(schemaAnyOf: Internal[], inputAnyOf: Internal
 
 // The union's own `.to` chain which is applied per case during decoding.
 // None when the union has a custom parser owning the `.to` conversion
-export function unionGetToPerCase(schema: Internal): Internal | undefined {
+export const unionGetToPerCase = (schema: Internal): Internal | undefined => {
   return schema.parser === undefined && schema.to !== undefined ? schema.to : undefined;
 }
 
 // Whether a union-typed input can be decoded by dispatching
 // over its variants with `.to(target)` appended to each
-export function unionCanDispatchPerVariant(inputAnyOf: Internal[], target: Internal): boolean {
+export const unionCanDispatchPerVariant = (inputAnyOf: Internal[], target: Internal): boolean => {
   return (
     // S.json and recursive targets keep their dedicated union-input handling
-    !Flag.unsafeHas(TagFlag.get(getOutputSchema(target).type), TagFlag.ref) &&
+    !flagUnsafeHas(tagFlags[getOutputSchema(target).type]!, tagFlagRef) &&
     !(
       target.type === unionTag &&
-      target.anyOf!.some((v) => Flag.unsafeHas(TagFlag.get(v.type), TagFlag.ref))
+      target.anyOf!.some((v) => flagUnsafeHas(tagFlags[v.type]!, tagFlagRef))
     ) &&
     // Variants with transformations or recursive refs (option machinery,
     // transformed unions) aren't supported per-variant yet
@@ -3056,7 +3013,7 @@ export function unionCanDispatchPerVariant(inputAnyOf: Internal[], target: Inter
       (v) =>
         v.to !== undefined ||
         v.parser !== undefined ||
-        Flag.unsafeHas(TagFlag.get(v.type), TagFlag.ref),
+        flagUnsafeHas(tagFlags[v.type]!, tagFlagRef),
     )
   );
 }
@@ -3064,7 +3021,7 @@ export function unionCanDispatchPerVariant(inputAnyOf: Internal[], target: Inter
 // Re-drives the source union with `.to(target)` appended, so its decoder
 // dispatches per variant and each variant converts to the target
 // independently (the documented per-source-variant algorithm)
-export function unionPerVariantVal(input: Val, target: Internal): Val {
+export const unionPerVariantVal = (input: Val, target: Internal): Val => {
   return B_refine(
     input,
     unknown,
@@ -3077,7 +3034,7 @@ export function unionPerVariantVal(input: Val, target: Internal): Val {
 
 // Applied by the parse loop when a union-typed val
 // meets a different expected schema
-export function unionEncoder(input: Val, target: Internal): Val {
+export const unionEncoder = (input: Val, target: Internal): Val => {
   const inputAnyOf = input.s.anyOf!;
   if (
     target.type === unionTag &&
@@ -3093,10 +3050,10 @@ export function unionEncoder(input: Val, target: Internal): Val {
   }
 }
 
-export function unionDecoder(input: Val): Val {
+export const unionDecoder = (input: Val): Val => {
   const selfSchema = input.e;
   let schemas = selfSchema.anyOf!;
-  const initialInputTagFlag = TagFlag.get(input.s.type);
+  const initialInputTagFlag = tagFlags[input.s.type]!;
 
   const toPerCase = unionGetToPerCase(selfSchema);
 
@@ -3106,7 +3063,7 @@ export function unionDecoder(input: Val): Val {
     (input.s === selfSchema &&
       toPerCase === undefined &&
       schemas.every(unionIsSelfDecodeNoop)) ||
-    (Flag.unsafeHas(initialInputTagFlag, TagFlag.union) &&
+    (flagUnsafeHas(initialInputTagFlag, tagFlagUnion) &&
       unionIsWiderSchema(schemas, input.s.anyOf!) &&
       toPerCase === undefined) ||
     (input.io! && input.e === input.s)
@@ -3114,17 +3071,17 @@ export function unionDecoder(input: Val): Val {
     return input;
   } else {
     if (
-      Flag.unsafeHas(initialInputTagFlag, TagFlag.union) ||
-      (input.s.encoder === undefined && Flag.unsafeHas(initialInputTagFlag, TagFlag.ref))
+      flagUnsafeHas(initialInputTagFlag, tagFlagUnion) ||
+      (input.s.encoder === undefined && flagUnsafeHas(initialInputTagFlag, tagFlagRef))
     ) {
       input.s = unknown;
     }
 
     let activeKeyRef = "";
     if (
-      !Flag.unsafeHas(
+      !flagUnsafeHas(
         initialInputTagFlag,
-        Flag.with(Flag.with(TagFlag.union, TagFlag.ref), TagFlag.unknown),
+        ((tagFlagUnion | tagFlagRef) | tagFlagUnknown),
       )
     ) {
       const sourceKey = unionToKey(input.s);
@@ -3144,9 +3101,9 @@ export function unionDecoder(input: Val): Val {
         i = i + 1;
       }
       if (activeKeyRef === "") {
-        if (Flag.unsafeHas(initialInputTagFlag, TagFlag.undefined) && hasNull) {
+        if (flagUnsafeHas(initialInputTagFlag, tagFlagUndefined) && hasNull) {
           activeKeyRef = nullTag;
-        } else if (Flag.unsafeHas(initialInputTagFlag, TagFlag.null) && hasUndefined) {
+        } else if (flagUnsafeHas(initialInputTagFlag, tagFlagNull) && hasUndefined) {
           activeKeyRef = undefinedTag;
         }
       }
@@ -3243,8 +3200,8 @@ export function unionDecoder(input: Val): Val {
 
           if (itemOutput.t!) {
             output.t = true;
-            if (Flag.unsafeHas(itemOutput.f, ValFlag.async)) {
-              output.f = Flag.with(output.f, ValFlag.async);
+            if (flagUnsafeHas(itemOutput.f, valFlagAsync)) {
+              output.f = (output.f | valFlagAsync);
             }
             const itemVar = typeValidationInput.v();
             if (itemOutput.i !== itemVar) {
@@ -3255,7 +3212,7 @@ export function unionDecoder(input: Val): Val {
             }
           }
         } catch (exn) {
-          const errorVar = B_embed(input, InternalError.getOrRethrow(exn));
+          const errorVar = B_embed(input, getOrRethrow(exn));
           caught = `${caught},${errorVar}`;
           if (isDeopt && isOnlyCase) {
             staticBlockFailure = errorVar;
@@ -3476,13 +3433,13 @@ export function unionDecoder(input: Val): Val {
             })
           : schemas[idx]!;
       const tag = schema.type;
-      const tagFlag = TagFlag.get(tag);
+      const tagFlag = tagFlags[tag]!;
       const key = unionToKey(schema);
 
       if (activeKey !== "" && activeKey !== key) {
         // not in active tier — skip
       } else if (
-        Flag.unsafeHas(tagFlag, TagFlag.undefined) &&
+        flagUnsafeHas(tagFlag, tagFlagUndefined) &&
         "fromDefault" in (selfSchema as unknown as Record<string, unknown>)
       ) {
         // skip it
@@ -3491,7 +3448,7 @@ export function unionDecoder(input: Val): Val {
         if (initialArr !== undefined) {
           const arr = initialArr;
           if (
-            Flag.unsafeHas(tagFlag, TagFlag.object) &&
+            flagUnsafeHas(tagFlag, tagFlagObject) &&
             nestedLoc in schema.properties!
           ) {
             // This is a special case for https://github.com/DZakh/sury/issues/150
@@ -3501,9 +3458,9 @@ export function unionDecoder(input: Val): Val {
           } else if (
             // TODO: Is this check needed?
             // There can only be one valid. Dedupe
-            !Flag.unsafeHas(
+            !flagUnsafeHas(
               tagFlag,
-              Flag.with(Flag.with(TagFlag.undefined, TagFlag.null), TagFlag.nan),
+              ((tagFlagUndefined | tagFlagNull) | tagFlagNaN),
             )
           ) {
             arr.push(schema as unknown);
@@ -3516,15 +3473,9 @@ export function unionDecoder(input: Val): Val {
           // `string()`/`instance()`/… reference would pin every type decoder into
           // any union-using bundle — and `S.optional`/`S.nullable` are unions.
           if (
-            Flag.unsafeHas(
+            flagUnsafeHas(
               tagFlag,
-              Flag.with(
-                Flag.with(
-                  Flag.with(Flag.with(TagFlag.unknown, TagFlag.union), TagFlag.ref),
-                  TagFlag.function,
-                ),
-                TagFlag._never,
-              ),
+              tagFlagUnknown | tagFlagUnion | tagFlagRef | tagFlagFunction | tagFlagNever,
             )
           ) {
             // unknown / union / ref / json / function / never have no `typeof`
@@ -3536,18 +3487,18 @@ export function unionDecoder(input: Val): Val {
             // carrying the member's encoder so a pending `.to` reverse reaches it.
             const narrow = baseSchema(schema.type, false);
             narrow.encoder = schema.encoder;
-            if (Flag.unsafeHas(tagFlag, TagFlag.instance)) {
+            if (flagUnsafeHas(tagFlag, tagFlagInstance)) {
               narrow.class = schema.class;
-            } else if (Flag.unsafeHas(tagFlag, TagFlag.object)) {
+            } else if (flagUnsafeHas(tagFlag, tagFlagObject)) {
               narrow.properties = immutableEmptyObject as Record<string, Internal>;
               narrow.additionalItems = unknown;
-            } else if (Flag.unsafeHas(tagFlag, TagFlag.array)) {
+            } else if (flagUnsafeHas(tagFlag, tagFlagArray)) {
               narrow.additionalItems = unknown;
               narrow.items = immutableEmptyArray as Internal[];
             } else if (
-              Flag.unsafeHas(
+              flagUnsafeHas(
                 tagFlag,
-                Flag.with(Flag.with(TagFlag.null, TagFlag.undefined), TagFlag.nan),
+                ((tagFlagNull | tagFlagUndefined) | tagFlagNaN),
               )
             ) {
               // null/undefined/nan stay literals so the case body passes through.
@@ -3557,7 +3508,7 @@ export function unionDecoder(input: Val): Val {
             // per-variant conversion — with the union's `unknown` input (emit the
             // discriminant) or a concrete coerced value (delegate to schema.decoder).
             narrow.decoder = (input: Val) => {
-              if (Flag.unsafeHas(TagFlag.get(input.s.type), TagFlag.unknown)) {
+              if (flagUnsafeHas(tagFlags[input.s.type]!, tagFlagUnknown)) {
                 return B_refine(input, input.e, [
                   {
                     c: (inputVar) => typeCheckCond(input, schema, inputVar),
@@ -3662,7 +3613,7 @@ export function unionDecoder(input: Val): Val {
         const blockCode = B_merge(typeValidationOutput, blockCondRef) + itemsCode;
         const blockCond = blockCondRef.contents;
 
-        if (blockCode || unionIsPriority(TagFlag.get(firstSchema.type), byKey)) {
+        if (blockCode || unionIsPriority(tagFlags[firstSchema.type]!, byKey)) {
           const if_ = nextElse ? "else if" : "if";
           start = start + if_ + `(${blockCond}){${blockCode}}`;
           nextElse = true;
@@ -3692,7 +3643,7 @@ export function unionDecoder(input: Val): Val {
     }
 
     let o: Val;
-    if (Flag.unsafeHas(output.f, ValFlag.async)) {
+    if (flagUnsafeHas(output.f, valFlagAsync)) {
       output.i = `Promise.resolve(${output.i})`;
       output.v = _notVar;
       o = output;
@@ -3731,14 +3682,14 @@ export function unionDecoder(input: Val): Val {
     return o;
   }
 }
-export function unionFactory(schemas: Internal[]): Internal {
+export const unionFactory = (schemas: Internal[]): Internal => {
   // TODO:
   // 1. Fitler out items without parser
   // 2. Remove duplicate schemas
   // 3. Spread Union and JSON if they are not transformed
   // 4. Provide correct `has` value for Union and JSON
   if (schemas.length === 0) {
-    return InternalError.panic("S.union requires at least one item");
+    return panic("S.union requires at least one item");
   } else if (schemas.length === 1) {
     return schemas[0]!;
   } else {
@@ -3768,7 +3719,7 @@ export function unionFactory(schemas: Internal[]): Internal {
   }
 }
 
-export function nestedNone(): Internal {
+export const nestedNone = (): Internal => {
   const itemSchema = Literal_parse(0);
   // FIXME: dict{}
   const properties: Record<string, Internal> = {};
@@ -3788,7 +3739,7 @@ export function nestedNone(): Internal {
   } as Internal;
 }
 
-export function nestedOption(item: Internal): Internal {
+export const nestedOption = (item: Internal): Internal => {
   return updateOutput<Internal>(item, (mut) => {
     mut.to = nestedNone();
     mut.parser = nestedOptionParser;
@@ -3797,7 +3748,7 @@ export function nestedOption(item: Internal): Internal {
 
 // PORT-NOTE: the `~unit` labeled arg is renamed to `unitSchema` so the
 // default expression can still reference the module-level `unit` factory.
-export function optionFactory(item: Internal, unitSchema: Internal = unit()): Internal {
+export const optionFactory = (item: Internal, unitSchema: Internal = unit()): Internal => {
   const out = getOutputSchema(item);
   if (out.type === undefinedTag) {
     return unionFactory([unitSchema, nestedOption(item)]);
@@ -3852,11 +3803,11 @@ export function optionFactory(item: Internal, unitSchema: Internal = unit()): In
   }
 }
 
-export function option(item: Internal): Internal {
+export const option = (item: Internal): Internal => {
   return optionFactory(item, unit());
 }
 
-export function valGet(parent: Val, location: string): Val {
+export const valGet = (parent: Val, location: string): Val => {
   let vals: Record<string, Val>;
   if (parent.d !== undefined) {
     vals = parent.d;
@@ -3892,7 +3843,7 @@ export function valGet(parent: Val, location: string): Val {
         if (
           parent.s.type === objectTag &&
           s.type !== unknownTag &&
-          !Flag.unsafeHas(TagFlag.get(s.type), TagFlag.ref) &&
+          !flagUnsafeHas(tagFlags[s.type]!, tagFlagRef) &&
           !isOptional(s)
         ) {
           schema = option(s);
@@ -3908,8 +3859,8 @@ export function valGet(parent: Val, location: string): Val {
 
     const item: Val = {
       v: _notVarAtParent,
-      i: isLiteral(schema) ? B_inlineConst(parent, schema) : `${B_Val_var(parent)}${pathAppend}`,
-      f: ValFlag.none,
+      i: isLiteral(schema) ? B_inlineConst(parent, schema) : `${parent.v()}${pathAppend}`,
+      f: valFlagNone,
       s: schema,
       e: schema,
       cp: "",
@@ -4040,7 +3991,7 @@ export const recursiveDecoder: Builder = (input) => {
     output.cp = `${outputVar}=${recOperation}(${input.i});`;
 
     if (isAsync) {
-      output.f = Flag.with(output.f, ValFlag.async);
+      output.f = (output.f | valFlagAsync);
     }
   } else {
     // No transform: call for validation but don't capture result
@@ -4099,15 +4050,15 @@ export const standardJSONSchemaRef: {
 };
 
 // Indirection keeps toJSONSchema/reverse tree-shakeable; see enableStandardJSONSchema below.
-export function getStandardJSONSchema(
+export const getStandardJSONSchema = (
   schema: Internal,
   options: StandardJsonSchemaOptions,
   isOutput: boolean
-): JSONSchemaT {
+): JSONSchemaT => {
   if (standardJSONSchemaRef.contents as unknown as boolean) {
     return standardJSONSchemaRef.contents(schema, options, isOutput);
   } else {
-    throw InternalError.make({
+    throw new SuryError({
       code: "invalid_operation",
       path: pathEmpty,
       reason:
@@ -4128,7 +4079,7 @@ Object.defineProperty(schemaPrototype, "~standard", {
             value: (getDecoder(unknown, schema) as (input: unknown) => unknown)(input),
           };
         } catch (exn) {
-          const error = InternalError.getOrRethrow(exn);
+          const error = getOrRethrow(exn);
           return {
             issues: [
               {
@@ -4161,35 +4112,35 @@ Object.defineProperty(schemaPrototype, "~standard", {
 // Builder functions
 // =============
 
-export function parser(schema: Internal): (input: unknown) => unknown {
+export const parser = (schema: Internal): (input: unknown) => unknown => {
   return getDecoder(unknown, schema) as (input: unknown) => unknown;
 }
 
-export function asyncParser(schema: Internal): (input: unknown) => Promise<unknown> {
-  return getDecoder(unknown, schema, Flag.async) as (input: unknown) => Promise<unknown>;
+export const asyncParser = (schema: Internal): (input: unknown) => Promise<unknown> => {
+  return getDecoder(unknown, schema, flagAsync) as (input: unknown) => Promise<unknown>;
 }
 
-export function decoder(from: Internal, to: Internal): (input: unknown) => unknown {
+export const decoder = (from: Internal, to: Internal): (input: unknown) => unknown => {
   return getDecoder(reverse(from), to) as (input: unknown) => unknown;
 }
 
-export function asyncDecoder(from: Internal, to: Internal): (input: unknown) => Promise<unknown> {
-  return getDecoder(reverse(from), to, Flag.async) as (input: unknown) => Promise<unknown>;
+export const asyncDecoder = (from: Internal, to: Internal): (input: unknown) => Promise<unknown> => {
+  return getDecoder(reverse(from), to, flagAsync) as (input: unknown) => Promise<unknown>;
 }
 
-export function decoder1(schema: Internal): (input: unknown) => unknown {
+export const decoder1 = (schema: Internal): (input: unknown) => unknown => {
   return getDecoder(schema) as (input: unknown) => unknown;
 }
 
-export function asyncDecoder1(schema: Internal): (input: unknown) => Promise<unknown> {
-  return getDecoder(schema, Flag.async) as (input: unknown) => Promise<unknown>;
+export const asyncDecoder1 = (schema: Internal): (input: unknown) => Promise<unknown> => {
+  return getDecoder(schema, flagAsync) as (input: unknown) => Promise<unknown>;
 }
 
 // =============
 // Operations
 // =============
 
-export function getAssertResult(): Internal {
+export const getAssertResult = (): Internal => {
   return cached("a", undefinedTag, (s) => {
     s.const = void 0;
     s.decoder = literalDecoder;
@@ -4197,35 +4148,35 @@ export function getAssertResult(): Internal {
   });
 }
 
-export function parseOrThrow(any: unknown, schema: Internal): unknown {
+export const parseOrThrow = (any: unknown, schema: Internal): unknown => {
   return (getDecoder(unknown, schema) as (input: unknown) => unknown)(any);
 }
 
-export function parseAsyncOrThrow(any: unknown, schema: Internal): Promise<unknown> {
-  return (getDecoder(unknown, schema, Flag.async) as (input: unknown) => Promise<unknown>)(any);
+export const parseAsyncOrThrow = (any: unknown, schema: Internal): Promise<unknown> => {
+  return (getDecoder(unknown, schema, flagAsync) as (input: unknown) => Promise<unknown>)(any);
 }
 
-export function assertOrThrow(any: unknown, schema: Internal): void {
+export const assertOrThrow = (any: unknown, schema: Internal): void => {
   (getDecoder(unknown, schema, getAssertResult()) as (input: unknown) => unknown)(any);
 }
 
-export function assertAsyncOrThrow(any: unknown, schema: Internal): Promise<void> {
+export const assertAsyncOrThrow = (any: unknown, schema: Internal): Promise<void> => {
   return (
-    getDecoder(unknown, schema, getAssertResult(), Flag.async) as (
+    getDecoder(unknown, schema, getAssertResult(), flagAsync) as (
       input: unknown
     ) => Promise<void>
   )(any);
 }
 
-export function decodeOrThrow(any: unknown, from: Internal, to: Internal): unknown {
+export const decodeOrThrow = (any: unknown, from: Internal, to: Internal): unknown => {
   return (getDecoder(reverse(from), to) as (input: unknown) => unknown)(any);
 }
 
-export function decodeAsyncOrThrow(any: unknown, from: Internal, to: Internal): Promise<unknown> {
-  return (getDecoder(reverse(from), to, Flag.async) as (input: unknown) => Promise<unknown>)(any);
+export const decodeAsyncOrThrow = (any: unknown, from: Internal, to: Internal): Promise<unknown> => {
+  return (getDecoder(reverse(from), to, flagAsync) as (input: unknown) => Promise<unknown>)(any);
 }
 
-export function isAsync(schema: Internal): boolean {
+export const isAsync = (schema: Internal): boolean => {
   if (schema.isAsync === undefined) {
     return isAsyncInternal(schema, 0 as unknown as Record<string, Internal>);
   } else {
@@ -4239,7 +4190,7 @@ export type JsResult<V> =
   | { success: true; value: V }
   | { success: false; error: SuryErrorRecord };
 
-export function wrapExnToFailure(exn: unknown): JsResult<never> {
+export const wrapExnToFailure = (exn: unknown): JsResult<never> => {
   if (exn && (exn as { s?: symbol }).s === s) {
     return { success: false, error: exn as unknown as SuryErrorRecord };
   } else {
@@ -4247,7 +4198,7 @@ export function wrapExnToFailure(exn: unknown): JsResult<never> {
   }
 }
 
-export function js_safe<V>(fn: () => V): JsResult<V> {
+export const js_safe = <V>(fn: () => V): JsResult<V> => {
   try {
     return {
       success: true,
@@ -4258,7 +4209,7 @@ export function js_safe<V>(fn: () => V): JsResult<V> {
   }
 }
 
-export function js_safeAsync<V>(fn: () => Promise<V>): Promise<JsResult<V>> {
+export const js_safeAsync = <V>(fn: () => Promise<V>): Promise<JsResult<V>> => {
   try {
     return fn().then(
       (value): JsResult<V> => ({ success: true, value }),
@@ -4269,35 +4220,33 @@ export function js_safeAsync<V>(fn: () => Promise<V>): Promise<JsResult<V>> {
   }
 }
 
-// PORT-NOTE: `module Metadata` → `MetadataModule`, with `Id` nested so call
-// sites read `MetadataModule.Id.make(...)`. `Id.t<'metadata>` is a string at
+// PORT-NOTE: `module Metadata` → flat `Metadata_*` functions. `Id.t<'metadata>` is a string at
 // runtime; `unionToKey` was `%identity` and is dropped.
 export type MetadataId = string;
 
-export const MetadataModule = {
-  Id: {
-    make: (namespace: string, name: string): MetadataId => {
-      return `m:${namespace}:${name}`;
-    },
-    internal: (name: string): MetadataId => {
-      return `m:${name}`;
-    },
-  },
-  get: (schema: Internal, id: MetadataId): unknown => {
-    return (schema as unknown as Record<string, unknown>)[id];
-  },
-  setInPlace: (schema: Internal, id: MetadataId, metadata: unknown): void => {
-    (schema as unknown as Record<string, unknown>)[id] = metadata;
-  },
-  set: (schema: Internal, id: MetadataId, metadata: unknown): Internal => {
-    const mut = copySchema(schema);
-    MetadataModule.setInPlace(mut, id, metadata);
-    return mut;
-  },
+// Flat functions (former ReScript `module Metadata` — no namespace object,
+// so unused metadata helpers tree-shake away). `Id.t<'metadata>` is a string
+// at runtime.
+export const Metadata_Id_make = (namespace: string, name: string): MetadataId => {
+  return `m:${namespace}:${name}`;
+};
+export const Metadata_Id_internal = (name: string): MetadataId => {
+  return `m:${name}`;
+};
+export const Metadata_get = (schema: Internal, id: MetadataId): unknown => {
+  return (schema as unknown as Record<string, unknown>)[id];
+};
+export const Metadata_setInPlace = (schema: Internal, id: MetadataId, metadata: unknown): void => {
+  (schema as unknown as Record<string, unknown>)[id] = metadata;
+};
+export const Metadata_set = (schema: Internal, id: MetadataId, metadata: unknown): Internal => {
+  const mut = copySchema(schema);
+  Metadata_setInPlace(mut, id, metadata);
+  return mut;
 };
 
 export const defsPath = `#/$defs/`;
-export function recursive(name: string, fn: (schema: Internal) => Internal): Internal {
+export const recursive = (name: string, fn: (schema: Internal) => Internal): Internal => {
   const ref = `${defsPath}${name}`;
   const refSchema = baseSchema(refTag, false);
   refSchema["$ref"] = ref;
@@ -4330,7 +4279,7 @@ export function recursive(name: string, fn: (schema: Internal) => Internal): Int
   }
 }
 
-export function noValidation(schema: Internal, value: boolean): Internal {
+export const noValidation = (schema: Internal, value: boolean): Internal => {
   const mut = copySchema(schema);
 
   // TODO: Test for discriminant literal
@@ -4339,10 +4288,10 @@ export function noValidation(schema: Internal, value: boolean): Internal {
   return mut;
 }
 
-export function internalRefine(
+export const internalRefine = (
   schema: Internal,
   makeRefiner: (mut: Internal) => (input: Val) => Check[]
-): Internal {
+): Internal => {
   return updateOutput(schema, (mut) => {
     const refiner = makeRefiner(mut);
     const existingRefiner = mut.refiner;
@@ -4361,12 +4310,12 @@ export function internalRefine(
   });
 }
 
-export function refine(
+export const refine = (
   schema: Internal,
   refineCheck: (value: unknown) => boolean,
   error?: string,
   path?: string[]
-): Internal {
+): Internal => {
   const message = error !== undefined ? error : "Refinement failed";
   const extraPath = path !== undefined ? pathFromArray(path) : pathEmpty;
   return internalRefine(schema, (_) => (input) => {
@@ -4380,7 +4329,7 @@ export function refine(
   });
 }
 
-export function getMutErrorMessage(mut: Internal): Record<string, string> {
+export const getMutErrorMessage = (mut: Internal): Record<string, string> => {
   const em: Record<string, string> = mut.errorMessage
     ? { ...(mut.errorMessage as unknown as Record<string, string>) }
     : {};
@@ -4400,10 +4349,10 @@ export type TransformDefinition<Input = unknown, Output = unknown> = {
 // PORT-NOTE: `s<'output>` (the effect ctx passed to the transformer) is what
 // `B_effectCtx` returns: `{ fail(message, path?): never }`.
 
-export function transform(
+export const transform = (
   schema: Internal,
   transformer: (ctx: EffectCtx) => TransformDefinition
-): Internal {
+): Internal => {
   return updateOutput(schema, (mut) => {
     mut.parser = (input) => {
       const definition = transformer(B_effectCtx(input));
@@ -4446,7 +4395,7 @@ export function transform(
   });
 }
 
-export function nullAsUnit(): Internal {
+export const nullAsUnit = (): Internal => {
   // PORT-NOTE: local `s` renamed to `schema` — `s` is the module-level error
   // identity symbol in this file.
   const schema = copySchema(nullLiteral());
@@ -4485,7 +4434,7 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
 
       const item: Internal =
         outputItems.length === 0
-          ? InternalError.panic(`Can't set default for ${toExpression(mut)}`)
+          ? panic(`Can't set default for ${toExpression(mut)}`)
           : outputItems.length === 1
             ? outputItems[0]!
             : unionFactory(outputItems);
@@ -4498,8 +4447,8 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
         try {
           (getDecoder(unknown, item) as (input: unknown) => unknown)(v);
         } catch (exn) {
-          const error = InternalError.getOrRethrow(exn);
-          InternalError.panic(
+          const error = getOrRethrow(exn);
+          panic(
             `Invalid default for ${toExpression(mut)}: ${
               (error as unknown as { message: string })["message"]
             }`
@@ -4542,7 +4491,7 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
 
       mut.to = to;
     } else {
-      InternalError.panic(`Can't set default for ${toExpression(mut)}`);
+      panic(`Can't set default for ${toExpression(mut)}`);
     }
   });
 };
@@ -4573,7 +4522,7 @@ export const ObjectModule = {
     if (
       currentAdditionalItems !== undefined &&
       currentAdditionalItems !== additionalItems &&
-      typeOf(currentAdditionalItems) !== objectTag
+      (typeof currentAdditionalItems as Tag) !== objectTag
     ) {
       const mut = copySchema(schema);
       mut.additionalItems = additionalItems;
@@ -4610,19 +4559,19 @@ export const ObjectModule = {
   },
 };
 
-export function strip(schema: Internal): Internal {
+export const strip = (schema: Internal): Internal => {
   return ObjectModule.setAdditionalItems(schema, "strip", false);
 }
 
-export function deepStrip(schema: Internal): Internal {
+export const deepStrip = (schema: Internal): Internal => {
   return ObjectModule.setAdditionalItems(schema, "strip", true);
 }
 
-export function strict(schema: Internal): Internal {
+export const strict = (schema: Internal): Internal => {
   return ObjectModule.setAdditionalItems(schema, "strict", false);
 }
 
-export function deepStrict(schema: Internal): Internal {
+export const deepStrict = (schema: Internal): Internal => {
   return ObjectModule.setAdditionalItems(schema, "strict", true);
 }
 
@@ -4656,24 +4605,21 @@ export type TupleCtx = {
 //   - ValObject type (B_Val_Object_t) — makeObjectVal's return type
 // =============================================================================
 
-export function jsonEncoderFn(input: Val, target: Internal): Val {
-  const toTagFlag = TagFlag.get(target.type);
+export const jsonEncoderFn = (input: Val, target: Internal): Val => {
+  const toTagFlag = tagFlags[target.type]!;
 
   if (
-    Flag.unsafeHas(
+    flagUnsafeHas(
       toTagFlag,
-      Flag.with(
-        Flag.with(Flag.with(TagFlag.string, TagFlag.boolean), TagFlag.number),
-        TagFlag.null,
-      ),
+      tagFlagString | tagFlagBoolean | tagFlagNumber | tagFlagNull,
     )
   ) {
     return parse(B_refine(input, unknown, undefined, target));
-  } else if (Flag.unsafeHas(toTagFlag, Flag.with(TagFlag.undefined, TagFlag.nan))) {
+  } else if (flagUnsafeHas(toTagFlag, (tagFlagUndefined | tagFlagNaN))) {
     const jsonExpected = copySchema(nullLiteral());
     jsonExpected.to = target;
     return parse(B_refine(input, unknown, undefined, jsonExpected));
-  } else if (Flag.unsafeHas(toTagFlag, TagFlag.array)) {
+  } else if (flagUnsafeHas(toTagFlag, tagFlagArray)) {
     // Validate that the input is an array
     // and then update the schema to be an array of json instead of array of unknown
     const jsonExpected = array(unknown);
@@ -4682,7 +4628,7 @@ export function jsonEncoderFn(input: Val, target: Internal): Val {
     output.e = target;
     output.io = false;
     return output;
-  } else if (Flag.unsafeHas(toTagFlag, TagFlag.object)) {
+  } else if (flagUnsafeHas(toTagFlag, tagFlagObject)) {
     // Validate that the input is an object
     // and then update the schema to be an object of json instead of object of unknown
     const jsonExpected = dictFactory(unknown);
@@ -4691,7 +4637,7 @@ export function jsonEncoderFn(input: Val, target: Internal): Val {
     output.e = target;
     output.io = false;
     return output;
-  } else if (Flag.unsafeHas(toTagFlag, Flag.with(TagFlag.union, TagFlag.ref))) {
+  } else if (flagUnsafeHas(toTagFlag, (tagFlagUnion | tagFlagRef))) {
     return input;
   } else {
     // For non-JSON types (bigint, instance, etc.), decode through string
@@ -4701,24 +4647,21 @@ export function jsonEncoderFn(input: Val, target: Internal): Val {
   }
 }
 
-export function isJsonable(schema: Internal): boolean {
-  const tagFlag = TagFlag.get(schema.type);
+export const isJsonable = (schema: Internal): boolean => {
+  const tagFlag = tagFlags[schema.type]!;
   return (
-    Flag.unsafeHas(
+    flagUnsafeHas(
       tagFlag,
-      Flag.with(
-        Flag.with(Flag.with(TagFlag.string, TagFlag.number), TagFlag.boolean),
-        TagFlag.null,
-      ),
+      tagFlagString | tagFlagNumber | tagFlagBoolean | tagFlagNull,
     ) ||
     schema["$ref"] === json()["$ref"] ||
-    (Flag.unsafeHas(tagFlag, TagFlag.union) && schema.anyOf!.every(isJsonable)) ||
-    (Flag.unsafeHas(tagFlag, TagFlag.array) &&
+    (flagUnsafeHas(tagFlag, tagFlagUnion) && schema.anyOf!.every(isJsonable)) ||
+    (flagUnsafeHas(tagFlag, tagFlagArray) &&
       (typeof schema.additionalItems === "object"
         ? isJsonable(schema.additionalItems as Internal)
         : true) &&
       schema.items!.every(isJsonable)) ||
-    (Flag.unsafeHas(tagFlag, TagFlag.object) &&
+    (flagUnsafeHas(tagFlag, tagFlagObject) &&
       (typeof schema.additionalItems === "object"
         ? isJsonable(schema.additionalItems as Internal)
         : true) &&
@@ -4726,14 +4669,14 @@ export function isJsonable(schema: Internal): boolean {
   );
 }
 
-export function jsonDecoderFn(input: Val): Val {
-  const inputTagFlag = TagFlag.get(input.s.type);
+export const jsonDecoderFn = (input: Val): Val => {
+  const inputTagFlag = tagFlags[input.s.type]!;
 
   if (isJsonable(input.s)) {
     return input;
-  } else if (Flag.unsafeHas(inputTagFlag, Flag.with(TagFlag.undefined, TagFlag.nan))) {
+  } else if (flagUnsafeHas(inputTagFlag, (tagFlagUndefined | tagFlagNaN))) {
     return B_nextConst(input, nullLiteral());
-  } else if (Flag.unsafeHas(inputTagFlag, TagFlag.array)) {
+  } else if (flagUnsafeHas(inputTagFlag, tagFlagArray)) {
     const expected = baseSchema(arrayTag, false);
     expected.items = input.s.items!.map((_) => json());
     expected.decoder = arrayDecoder;
@@ -4743,7 +4686,7 @@ export function jsonDecoderFn(input: Val): Val {
         : input.s.additionalItems;
     expected.to = input.e.to;
     return parse(B_refine(input, undefined, undefined, expected));
-  } else if (Flag.unsafeHas(inputTagFlag, TagFlag.object)) {
+  } else if (flagUnsafeHas(inputTagFlag, tagFlagObject)) {
     if (typeof input.s.additionalItems === "object") {
       const expected = dictFactory(json());
       expected.to = input.e.to;
@@ -4778,11 +4721,11 @@ export function jsonDecoderFn(input: Val): Val {
 
       return completeObjectVal(jsonVal);
     }
-  } else if (Flag.unsafeHas(inputTagFlag, TagFlag.ref)) {
+  } else if (flagUnsafeHas(inputTagFlag, tagFlagRef)) {
     // FIXME: Should be a unified solution for ref inputs
     return recursiveDecoder(input);
   } else if (
-    Flag.unsafeHas(inputTagFlag, TagFlag.union) &&
+    flagUnsafeHas(inputTagFlag, tagFlagUnion) &&
     // Union-tagged schemas always carry `anyOf` and `has`
     // (set by unionFactory, reverse and the S.json def).
     // Unions with an undefined variant are not supported,
@@ -4791,7 +4734,7 @@ export function jsonDecoderFn(input: Val): Val {
   ) {
     // Decode each union variant to JSON separately
     return parse(unionPerVariantVal(input, input.e));
-  } else if (Flag.unsafeHas(inputTagFlag, TagFlag.unknown)) {
+  } else if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
     const to = input.e.to!;
     // Whether we can optimize encoding during decoding
     const preEncode: boolean =
@@ -4817,7 +4760,7 @@ export function jsonDecoderFn(input: Val): Val {
   }
 }
 
-export function json(): Internal {
+export const json = (): Internal => {
   return cached(jsonName, refTag, (s) => {
     const jsonRef = baseSchema(refTag, true);
     jsonRef["$ref"] = `${defsPath}${jsonName}`;
@@ -4860,17 +4803,17 @@ export function json(): Internal {
 
 export const jsonString = /* @__PURE__ */ (() => {
   const inlineJsonString = (input: Val, schema: Internal): string => {
-    const tagFlag = TagFlag.get(schema.type);
+    const tagFlag = tagFlags[schema.type]!;
     const const_ = schema.const;
-    if (Flag.unsafeHas(tagFlag, Flag.with(TagFlag.undefined, TagFlag.null))) {
+    if (flagUnsafeHas(tagFlag, (tagFlagUndefined | tagFlagNull))) {
       return `"null"`;
-    } else if (Flag.unsafeHas(tagFlag, TagFlag.string)) {
+    } else if (flagUnsafeHas(tagFlag, tagFlagString)) {
       return JSON.stringify(
         inlinedValueFromString(const_ as unknown as string),
       ) as unknown as string;
-    } else if (Flag.unsafeHas(tagFlag, TagFlag.bigint)) {
+    } else if (flagUnsafeHas(tagFlag, tagFlagBigint)) {
       return `"\\"${const_}\\""`;
-    } else if (Flag.unsafeHas(tagFlag, Flag.with(TagFlag.number, TagFlag.boolean))) {
+    } else if (flagUnsafeHas(tagFlag, (tagFlagNumber | tagFlagBoolean))) {
       return `"${const_}"`;
     } else {
       return B_unsupportedDecode(input, schema, input.e);
@@ -4878,17 +4821,17 @@ export const jsonString = /* @__PURE__ */ (() => {
   };
 
   const constSchemaToJsonStringConst = (input: Val, target: Internal): string => {
-    const tagFlag = TagFlag.get(target.type);
+    const tagFlag = tagFlags[target.type]!;
     const const_ = target.const;
-    if (Flag.unsafeHas(tagFlag, Flag.with(TagFlag.undefined, TagFlag.null))) {
+    if (flagUnsafeHas(tagFlag, (tagFlagUndefined | tagFlagNull))) {
       return `null`;
-    } else if (Flag.unsafeHas(tagFlag, TagFlag.string)) {
+    } else if (flagUnsafeHas(tagFlag, tagFlagString)) {
       return inlinedValueFromString(
         const_ as unknown as string,
       ) as unknown as string;
-    } else if (Flag.unsafeHas(tagFlag, TagFlag.bigint)) {
+    } else if (flagUnsafeHas(tagFlag, tagFlagBigint)) {
       return `"${const_}"`;
-    } else if (Flag.unsafeHas(tagFlag, Flag.with(TagFlag.number, TagFlag.boolean))) {
+    } else if (flagUnsafeHas(tagFlag, (tagFlagNumber | tagFlagBoolean))) {
       return ("" + (const_ as unknown as string)) as string;
     } else {
       return B_unsupportedDecode(input, input.s, target);
@@ -4930,10 +4873,10 @@ export const jsonString = /* @__PURE__ */ (() => {
   };
 
   const jsonStringDecoder: Builder = (input) => {
-    const inputTagFlag = TagFlag.get(input.s.type);
+    const inputTagFlag = tagFlags[input.s.type]!;
     const expectedSchema = input.e;
 
-    if (Flag.unsafeHas(inputTagFlag, TagFlag.unknown)) {
+    if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
       const to = expectedSchema.to!;
       // Whether we can optimize encoding during decoding
       const preEncode: boolean =
@@ -4960,15 +4903,15 @@ export const jsonString = /* @__PURE__ */ (() => {
       return input;
     } else if (isLiteral(input.s)) {
       return B_next(input, inlineJsonString(input, input.s), expectedSchema);
-    } else if (Flag.unsafeHas(inputTagFlag, TagFlag.string)) {
+    } else if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
       return B_next(input, `JSON.stringify(${input.i})`, expectedSchema);
-    } else if (Flag.unsafeHas(inputTagFlag, Flag.with(TagFlag.number, TagFlag.boolean))) {
+    } else if (flagUnsafeHas(inputTagFlag, (tagFlagNumber | tagFlagBoolean))) {
       const output = inputToString(input);
       output.s = expectedSchema;
       return output;
-    } else if (Flag.unsafeHas(inputTagFlag, TagFlag.bigint)) {
+    } else if (flagUnsafeHas(inputTagFlag, tagFlagBigint)) {
       return B_next(input, `"\\""+${input.i}+"\\""`, expectedSchema);
-    } else if (Flag.unsafeHas(inputTagFlag, Flag.with(TagFlag.object, TagFlag.array))) {
+    } else if (flagUnsafeHas(inputTagFlag, (tagFlagObject | tagFlagArray))) {
       const jsonVal = parse(B_refine(input, undefined, undefined, json()));
       return B_next(
         jsonVal,
@@ -4994,33 +4937,33 @@ export const jsonString = /* @__PURE__ */ (() => {
     });
 })();
 
-export function jsonStringWithSpace(space: number): Internal {
+export const jsonStringWithSpace = (space: number): Internal => {
   const mut = copySchema(jsonString());
   mut.space = space;
   return mut;
 }
 
-export function uint8Array(): Internal {
+export const uint8Array = (): Internal => {
   return cached("u", instanceTag, (s) => {
     s.class = Uint8Array;
     s.decoder = (inputArg: Val): Val => {
-      const inputTagFlag = TagFlag.get(inputArg.s.type);
+      const inputTagFlag = tagFlags[inputArg.s.type]!;
       let input = inputArg;
 
-      if (Flag.unsafeHas(inputTagFlag, TagFlag.string)) {
+      if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
         input = B_next(
           input,
           `${B_embed(input, new TextEncoder() as unknown)}.encode(${input.i})`,
           s,
         );
-      } else if (Flag.unsafeHas(inputTagFlag, Flag.with(TagFlag.unknown, TagFlag.instance))) {
+      } else if (flagUnsafeHas(inputTagFlag, (tagFlagUnknown | tagFlagInstance))) {
         input = instanceDecoder(input);
       }
 
       if (inputArg.e.to !== undefined && inputArg.e.parser === undefined) {
         const to = inputArg.e.to;
-        const toTagFlag = TagFlag.get(to.type);
-        if (Flag.unsafeHas(toTagFlag, TagFlag.string)) {
+        const toTagFlag = tagFlags[to.type]!;
+        if (flagUnsafeHas(toTagFlag, tagFlagString)) {
           input = B_next(
             input,
             `${B_embed(input, new TextDecoder() as unknown)}.decode(${input.i})`,
@@ -5035,7 +4978,7 @@ export function uint8Array(): Internal {
   });
 }
 
-export function isoDateTime(): Internal {
+export const isoDateTime = (): Internal => {
   return cached("date-time", stringTag, (s) => {
     const datetimeRe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
     s.decoder = stringDecoderFn;
@@ -5054,7 +4997,7 @@ export function isoDateTime(): Internal {
   });
 }
 
-export function port(): Internal {
+export const port = (): Internal => {
   return cached("port", numberTag, (s) => {
     s.decoder = numberDecoder;
     s.format = "port";
@@ -5069,7 +5012,7 @@ export function port(): Internal {
   });
 }
 
-export function email(): Internal {
+export const email = (): Internal => {
   return cached("email", stringTag, (s) => {
     const emailRegex = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i;
     s.decoder = stringDecoderFn;
@@ -5085,7 +5028,7 @@ export function email(): Internal {
   });
 }
 
-export function uuid(): Internal {
+export const uuid = (): Internal => {
   return cached("uuid", stringTag, (s) => {
     const uuidRegex = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/i;
     s.decoder = stringDecoderFn;
@@ -5101,7 +5044,7 @@ export function uuid(): Internal {
   });
 }
 
-export function cuid(): Internal {
+export const cuid = (): Internal => {
   return cached("cuid", stringTag, (s) => {
     const cuidRegex = /^c[^\s-]{8,}$/i;
     s.decoder = stringDecoderFn;
@@ -5117,7 +5060,7 @@ export function cuid(): Internal {
   });
 }
 
-export function url(): Internal {
+export const url = (): Internal => {
   return cached("url", stringTag, (s) => {
     const urlValidator: unknown = (s: string) => {
       try {
@@ -5140,7 +5083,7 @@ export function url(): Internal {
   });
 }
 
-export function invalidDateRefine(input: Val): Val {
+export const invalidDateRefine = (input: Val): Val => {
   return B_refine(input, input.e, [
     {
       c: (inputVar) => `!Number.isNaN(${inputVar}.getTime())`,
@@ -5149,16 +5092,16 @@ export function invalidDateRefine(input: Val): Val {
   ]);
 }
 
-export function date(): Internal {
+export const date = (): Internal => {
   return cached(instanceTag as string, instanceTag, (s) => {
     s.class = Date;
     s.decoder = (input: Val): Val => {
-      const inputTagFlag = TagFlag.get(input.s.type);
-      if (Flag.unsafeHas(inputTagFlag, TagFlag.string)) {
+      const inputTagFlag = tagFlags[input.s.type]!;
+      if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
         return invalidDateRefine(B_next(input, `new Date(${input.i})`, s));
-      } else if (Flag.unsafeHas(inputTagFlag, TagFlag.unknown)) {
+      } else if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
         return invalidDateRefine(instanceDecoder(input));
-      } else if (Flag.unsafeHas(inputTagFlag, TagFlag.instance) && input.s.class === s.class) {
+      } else if (flagUnsafeHas(inputTagFlag, tagFlagInstance) && input.s.class === s.class) {
         return input;
       } else {
         return B_unsupportedDecode(input, input.s, input.e);
@@ -5167,8 +5110,8 @@ export function date(): Internal {
 
     // Encoder: Date → string (via toISOString) when target is string
     s.encoder = (input, target) => {
-      const toTagFlag = TagFlag.get(target.type);
-      if (Flag.unsafeHas(toTagFlag, TagFlag.string)) {
+      const toTagFlag = tagFlags[target.type]!;
+      if (flagUnsafeHas(toTagFlag, tagFlagString)) {
         const dateTimeString = baseSchema(stringTag, false);
         dateTimeString.format = "date-time";
         return parse(
@@ -5181,7 +5124,7 @@ export function date(): Internal {
   });
 }
 
-export function to(from: Internal, target: Internal): Internal {
+export const to = (from: Internal, target: Internal): Internal => {
   // It makes sense, since S.to quite often will be used
   // inside of a framework where we don't control what's the to argument
   if (from === target) {
@@ -5210,7 +5153,7 @@ export function to(from: Internal, target: Internal): Internal {
 // exactly for that representation.
 type RescriptList = 0 | { hd: unknown; tl: RescriptList };
 
-function listFromArray(array: unknown[]): RescriptList {
+const listFromArray = (array: unknown[]): RescriptList => {
   let list: RescriptList = 0;
   for (let i = array.length - 1; i >= 0; i--) {
     list = { hd: array[i], tl: list };
@@ -5218,7 +5161,7 @@ function listFromArray(array: unknown[]): RescriptList {
   return list;
 }
 
-function listToArray(list: RescriptList): unknown[] {
+const listToArray = (list: RescriptList): unknown[] => {
   const array: unknown[] = [];
   let current = list;
   while (current !== 0) {
@@ -5228,7 +5171,7 @@ function listToArray(list: RescriptList): unknown[] {
   return array;
 }
 
-export function list(schema: Internal): Internal {
+export const list = (schema: Internal): Internal => {
   return transform(array(schema), (_: unknown) => ({
     p: (array: unknown) => listFromArray(array as unknown[]),
     s: (list: unknown) => listToArray(list as RescriptList),
@@ -5245,7 +5188,7 @@ export type Meta<Value> = {
 };
 
 // TODO: Better test reverse
-export function meta<Value>(schema: Internal, data: Meta<Value>): Internal {
+export const meta = <Value>(schema: Internal, data: Meta<Value>): Internal => {
   const mut = copySchema(schema);
   if (data.name !== undefined) {
     if (data.name === "") {
@@ -5292,7 +5235,7 @@ export function meta<Value>(schema: Internal, data: Meta<Value>): Internal {
   return mut;
 }
 
-export function brand(schema: Internal, id: string): Internal {
+export const brand = (schema: Internal, id: string): Internal => {
   const mut = copySchema(schema);
   mut.name = id;
   return mut;
@@ -5374,7 +5317,7 @@ export type AdvancedObjectCtx = {
 //   isNode(definition) = definition->typeof === objectTag && definition !== null
 //   toEmbededItem(definition) = definition[itemSymbol]
 
-function proxifyShapedSchema(schema: Internal, from: string[], fromFlattened?: number): unknown {
+const proxifyShapedSchema = (schema: Internal, from: string[], fromFlattened?: number): unknown => {
   const mut = copySchema(getOutputSchema(schema));
   mut.from = from;
   if (fromFlattened !== undefined) {
@@ -5397,7 +5340,7 @@ function proxifyShapedSchema(schema: Internal, from: string[], fromFlattened?: n
           maybeField = undefined;
         }
         if (maybeField === undefined) {
-          InternalError.panic(`Cannot read property "${location}" of ${toExpression(target)}`);
+          panic(`Cannot read property "${location}" of ${toExpression(target)}`);
         }
 
         return proxifyShapedSchema(
@@ -5410,7 +5353,7 @@ function proxifyShapedSchema(schema: Internal, from: string[], fromFlattened?: n
   } as ProxyHandler<object>);
 }
 
-export function schemaShape<Value>(schema: Internal, definer: (value: unknown) => unknown): Value {
+export const schemaShape = <Value>(schema: Internal, definer: (value: unknown) => unknown): Value => {
   return updateOutput<Value>(schema, (mut) => {
     const fromProxy = proxifyShapedSchema(mut, inputFrom);
     const definition: unknown = definer(fromProxy);
@@ -5450,7 +5393,7 @@ export function schemaNested(this: Record<string, unknown>, fieldName: string): 
     const field = (fieldName: string, schema: Internal): unknown => {
       const inlinedLocation = inlinedValueFromString(fieldName);
       if (fieldName in properties) {
-        InternalError.panic(`The field ${inlinedLocation} defined twice`);
+        panic(`The field ${inlinedLocation} defined twice`);
       }
       required.push(fieldName);
       properties[fieldName] = schema;
@@ -5474,7 +5417,7 @@ export function schemaNested(this: Record<string, unknown>, fieldName: string): 
         const flattenedProperties = schema.properties;
         const to = schema.to;
         if (to as unknown as boolean) {
-          InternalError.panic(
+          panic(
             `Unsupported nested flatten for transformed object schema ${toExpression(schema)}`
           );
         }
@@ -5486,7 +5429,7 @@ export function schemaNested(this: Record<string, unknown>, fieldName: string): 
         }
         return result;
       } else {
-        return InternalError.panic(`Can't flatten ${toExpression(schema)} schema`);
+        return panic(`Can't flatten ${toExpression(schema)} schema`);
       }
     };
 
@@ -5507,7 +5450,7 @@ export function schemaNested(this: Record<string, unknown>, fieldName: string): 
   }
 }
 
-export function schemaObject(definer: (ctx: AdvancedObjectCtx) => unknown): Internal {
+export const schemaObject = (definer: (ctx: AdvancedObjectCtx) => unknown): Internal => {
   let flattened: Internal[] | undefined = void 0;
   const properties: Record<string, Internal> = {};
 
@@ -5522,7 +5465,7 @@ export function schemaObject(definer: (ctx: AdvancedObjectCtx) => unknown): Inte
         if (existing !== undefined && existing === flattenedSchema) {
           // ()
         } else if (existing !== undefined) {
-          InternalError.panic(`The field "${key}" defined twice with incompatible schemas`);
+          panic(`The field "${key}" defined twice with incompatible schemas`);
         } else {
           properties[key] = flattenedSchema;
         }
@@ -5530,13 +5473,13 @@ export function schemaObject(definer: (ctx: AdvancedObjectCtx) => unknown): Inte
       const f = flattened || (flattened = []);
       return proxifyShapedSchema(schema, inputFrom, f.push(schema) - 1);
     } else {
-      return InternalError.panic(`The '${toExpression(schema)}' schema can't be flattened`);
+      return panic(`The '${toExpression(schema)}' schema can't be flattened`);
     }
   };
 
   const field = (fieldName: string, schema: Internal): unknown => {
     if (fieldName in properties) {
-      InternalError.panic(`The field "${fieldName}" defined twice with incompatible schemas`);
+      panic(`The field "${fieldName}" defined twice with incompatible schemas`);
     }
     properties[fieldName] = schema;
     return proxifyShapedSchema(schema, [fieldName]);
@@ -5576,13 +5519,13 @@ export function schemaObject(definer: (ctx: AdvancedObjectCtx) => unknown): Inte
   return mut;
 }
 
-export function schemaTuple(definer: (ctx: TupleCtx) => unknown): Internal {
+export const schemaTuple = (definer: (ctx: TupleCtx) => unknown): Internal => {
   const items: Internal[] = [];
 
   const item = (idx: number, schema: Internal): unknown => {
     const location = String(idx);
     if (items[idx] as unknown as boolean) {
-      return InternalError.panic(`The item [${location}] is defined multiple times`);
+      return panic(`The item [${location}] is defined multiple times`);
     } else {
       items[idx] = schema;
       return proxifyShapedSchema(schema, [String(idx)]);
@@ -5615,7 +5558,7 @@ export function schemaTuple(definer: (ctx: TupleCtx) => unknown): Internal {
   return mut;
 }
 
-function getValByFrom(input: Val, from: string[], idx: number): Val {
+const getValByFrom = (input: Val, from: string[], idx: number): Val => {
   // FIXME: TODO: something with flattened
   const key = from[idx];
   if (key !== undefined) {
@@ -5628,11 +5571,11 @@ function getValByFrom(input: Val, from: string[], idx: number): Val {
 // Assemble an object/tuple val from a per-location field producer. Shared by
 // the shaped-parser reshape (reads each child via `from` paths) and the
 // flatten reuse path (reads each key from the parent's decoded `vals`).
-function assembleShapedObject(
+const assembleShapedObject = (
   input: Val,
   schema: Internal,
   field: (location: string, childSchema: Internal) => Val
-): Val {
+): Val => {
   const output = makeObjectVal(input, schema);
   output.io = true;
   if (schema.items !== undefined) {
@@ -5650,12 +5593,12 @@ function assembleShapedObject(
     }
   } else {
     // FIXME: Use a path
-    InternalError.panic(`Don't know where the value is coming from: ${toExpression(schema)}`);
+    panic(`Don't know where the value is coming from: ${toExpression(schema)}`);
   }
   return completeObjectVal(output);
 }
 
-function getShapedParserOutput(input: Val, targetSchema: Internal): Val {
+const getShapedParserOutput = (input: Val, targetSchema: Internal): Val => {
   let v: Val;
   if (targetSchema.fromFlattened !== undefined) {
     v = B_Val_scope(
@@ -5675,7 +5618,7 @@ function getShapedParserOutput(input: Val, targetSchema: Internal): Val {
   return v;
 }
 
-export function shapedParser(input: Val): Val {
+export const shapedParser = (input: Val): Val => {
   const flattened = input.e.flattened;
   if (flattened !== undefined) {
     const flattenedVals: Val[] = [];
@@ -5725,7 +5668,7 @@ export function shapedParser(input: Val): Val {
   return B_markOutput(output, input);
 }
 
-function prepareShapedSerializerAcc(acc: ShapedSerializerAcc, input: Val): void {
+const prepareShapedSerializerAcc = (acc: ShapedSerializerAcc, input: Val): void => {
   if (input.e.from !== undefined) {
     const from = input.e.from;
     const fromFlattened = input.e.fromFlattened;
@@ -5774,12 +5717,12 @@ function prepareShapedSerializerAcc(acc: ShapedSerializerAcc, input: Val): void 
   }
 }
 
-function getShapedSerializerOutput(
+const getShapedSerializerOutput = (
   input: Val,
   acc: ShapedSerializerAcc | undefined,
   targetSchema: Internal,
   path: Path
-): Val {
+): Val => {
   if (acc !== undefined && acc.val !== undefined) {
     const v = B_Val_scope(acc.val);
     v.t = true;
@@ -5807,7 +5750,7 @@ function getShapedSerializerOutput(
 
       if (
         resolvedTargetSchema.items !== undefined &&
-        !(acc === undefined && typeOf(resolvedTargetSchema.additionalItems) === objectTag)
+        !(acc === undefined && (typeof resolvedTargetSchema.additionalItems as Tag) === objectTag)
       ) {
         const items = resolvedTargetSchema.items;
         for (let idx = 0; idx < items.length; idx++) {
@@ -5827,7 +5770,7 @@ function getShapedSerializerOutput(
         }
       } else if (
         resolvedTargetSchema.properties !== undefined &&
-        !(acc === undefined && typeOf(resolvedTargetSchema.additionalItems) === objectTag)
+        !(acc === undefined && (typeof resolvedTargetSchema.additionalItems as Tag) === objectTag)
       ) {
         const properties = resolvedTargetSchema.properties;
         const flattened = resolvedTargetSchema.flattened;
@@ -5884,7 +5827,7 @@ function getShapedSerializerOutput(
   }
 }
 
-export function shapedSerializer(input: Val): Val {
+export const shapedSerializer = (input: Val): Val => {
   const acc: ShapedSerializerAcc = {};
   prepareShapedSerializerAcc(acc, input);
 
@@ -5895,7 +5838,7 @@ export function shapedSerializer(input: Val): Val {
   return output;
 }
 
-function definitionToShapedSchema(definition: unknown): Internal {
+const definitionToShapedSchema = (definition: unknown): Internal => {
   const s = copySchema(
     traverseDefinition(
       definition,
@@ -5908,7 +5851,7 @@ function definitionToShapedSchema(definition: unknown): Internal {
   return s;
 }
 
-export function definitionToSchema(definition: unknown): Internal {
+export const definitionToSchema = (definition: unknown): Internal => {
   return traverseDefinition(definition, (node) => {
     if (isSchemaObject(node)) {
       return node as unknown as Internal;
@@ -5918,12 +5861,12 @@ export function definitionToSchema(definition: unknown): Internal {
   });
 }
 
-function traverseDefinition(
+const traverseDefinition = (
   definition: unknown,
   onNode: (node: unknown) => Internal | undefined
-): Internal {
+): Internal => {
   // Definition.isNode
-  if (typeOf(definition) === objectTag && definition !== null) {
+  if ((typeof definition as Tag) === objectTag && definition !== null) {
     const s = onNode(definition);
     if (s !== undefined) {
       return s;
@@ -5972,13 +5915,13 @@ function traverseDefinition(
   }
 }
 
-function schemaMatches(schema: Internal): unknown {
+const schemaMatches = (schema: Internal): unknown => {
   return schema as unknown;
 }
 const schemaCtx: SchemaCtx = {
   m: schemaMatches,
 };
-export function schemaFactory(definer: (ctx: unknown) => unknown): Internal {
+export const schemaFactory = (definer: (ctx: unknown) => unknown): Internal => {
   return definitionToSchema(definer(schemaCtx as unknown));
 }
 
@@ -5993,14 +5936,14 @@ export function schemaFactory(definer: (ctx: unknown) => unknown): Internal {
 // side-effectful and would retain the whole schema machinery in every bundle.
 export const schema = schemaFactory;
 
-export function js_schema(definition: unknown): Internal {
+export const js_schema = (definition: unknown): Internal => {
   return definitionToSchema(definition);
 }
 export const literal = js_schema;
 
 // PORT-NOTE: `enum` is a reserved word in TS — defined as `enum_` and
 // re-exported under the name `enum` (legal as an export alias).
-function enum_(values: unknown[]): Internal {
+const enum_ = (values: unknown[]): Internal => {
   return unionFactory(values.map(literal));
 }
 export { enum_ as enum };
@@ -6026,11 +5969,11 @@ export { enum_ as enum };
 // TODO(integration): expects `transform` from the transform section.
 // =============================================================================
 
-export function compactColumnsDecoder(input: Val): Val {
+export const compactColumnsDecoder = (input: Val): Val => {
   const selfSchema = input.e;
-  const isUnknownInput = Flag.unsafeHas(
-    TagFlag.get(input.s.type) as unknown as Flag,
-    TagFlag.unknown as unknown as Flag,
+  const isUnknownInput = flagUnsafeHas(
+    tagFlags[input.s.type]! as unknown as Flag,
+    tagFlagUnknown as unknown as Flag,
   );
 
   // Find the object schema whose properties define the columns.
@@ -6062,7 +6005,7 @@ export function compactColumnsDecoder(input: Val): Val {
   }
 
   if (maybeProperties === undefined) {
-    return InternalError.panic(
+    return panic(
       "S.compactColumns supports only object schemas. Use S.compactColumns(S.unknown)->S.to(S.array(objectSchema)).",
     );
   } else {
@@ -6172,9 +6115,9 @@ export function compactColumnsDecoder(input: Val): Val {
 
         const itemOutput = parse(itemInput);
         if (
-          Flag.unsafeHas(
+          flagUnsafeHas(
             itemOutput.f as unknown as Flag,
-            ValFlag.async as unknown as Flag,
+            valFlagAsync as unknown as Flag,
           )
         ) {
           hasAsync = true;
@@ -6238,7 +6181,7 @@ export function compactColumnsDecoder(input: Val): Val {
       // and can be copied directly. When it differs (e.g. json), we
       // need per-field parse to convert values back to the source type
       // (e.g. bigint→string for json compatibility).
-      const inputVar = B_Val_var(input);
+      const inputVar = input.v();
       const iteratorVar = B_varWithoutAllocation(input.g);
       const outputVar = B_varWithoutAllocation(input.g);
 
@@ -6299,7 +6242,7 @@ export function compactColumnsDecoder(input: Val): Val {
   }
 }
 
-export function compactColumns(inputSchema: Internal): Internal {
+export const compactColumns = (inputSchema: Internal): Internal => {
   const innerArray = array(inputSchema);
   const mut = array(innerArray) as unknown as Internal;
   mut.format = "compactColumns";
@@ -6554,7 +6497,7 @@ export const union = unionFactory;
 
 export const assertNumber: (fnName: string, n: unknown) => void = (fnName, n) => {
   if ((typeof n as Tag) !== numberTag || Number.isNaN(n)) {
-    throw InternalError.make({
+    throw new SuryError({
       code: "invalid_operation",
       path: pathEmpty,
       reason: `[S.${fnName}] Expected number, received ${stringify(n)}`,
@@ -6562,7 +6505,7 @@ export const assertNumber: (fnName: string, n: unknown) => void = (fnName, n) =>
   }
 };
 
-export function intMin(schema: Internal, minValue: number, maybeMessage?: string): Internal {
+export const intMin = (schema: Internal, minValue: number, maybeMessage?: string): Internal => {
   assertNumber("min", minValue);
   const message =
     maybeMessage !== undefined
@@ -6582,7 +6525,7 @@ export function intMin(schema: Internal, minValue: number, maybeMessage?: string
   });
 }
 
-export function intMax(schema: Internal, maxValue: number, maybeMessage?: string): Internal {
+export const intMax = (schema: Internal, maxValue: number, maybeMessage?: string): Internal => {
   assertNumber("max", maxValue);
   const message =
     maybeMessage !== undefined
@@ -6602,7 +6545,7 @@ export function intMax(schema: Internal, maxValue: number, maybeMessage?: string
   });
 }
 
-export function floatMin(schema: Internal, minValue: number, maybeMessage?: string): Internal {
+export const floatMin = (schema: Internal, minValue: number, maybeMessage?: string): Internal => {
   assertNumber("min", minValue);
   const message =
     maybeMessage !== undefined
@@ -6622,7 +6565,7 @@ export function floatMin(schema: Internal, minValue: number, maybeMessage?: stri
   });
 }
 
-export function floatMax(schema: Internal, maxValue: number, maybeMessage?: string): Internal {
+export const floatMax = (schema: Internal, maxValue: number, maybeMessage?: string): Internal => {
   assertNumber("max", maxValue);
   const message =
     maybeMessage !== undefined
@@ -6642,7 +6585,7 @@ export function floatMax(schema: Internal, maxValue: number, maybeMessage?: stri
   });
 }
 
-export function arrayMinLength(schema: Internal, length: number, maybeMessage?: string): Internal {
+export const arrayMinLength = (schema: Internal, length: number, maybeMessage?: string): Internal => {
   assertNumber("min", length);
   const message =
     maybeMessage !== undefined
@@ -6662,7 +6605,7 @@ export function arrayMinLength(schema: Internal, length: number, maybeMessage?: 
   });
 }
 
-export function arrayMaxLength(schema: Internal, length: number, maybeMessage?: string): Internal {
+export const arrayMaxLength = (schema: Internal, length: number, maybeMessage?: string): Internal => {
   assertNumber("max", length);
   const message =
     maybeMessage !== undefined
@@ -6682,7 +6625,7 @@ export function arrayMaxLength(schema: Internal, length: number, maybeMessage?: 
   });
 }
 
-export function arrayLength(schema: Internal, length: number, maybeMessage?: string): Internal {
+export const arrayLength = (schema: Internal, length: number, maybeMessage?: string): Internal => {
   assertNumber("length", length);
   const message =
     maybeMessage !== undefined
@@ -6705,7 +6648,7 @@ export function arrayLength(schema: Internal, length: number, maybeMessage?: str
   });
 }
 
-export function stringMinLength(schema: Internal, length: number, maybeMessage?: string): Internal {
+export const stringMinLength = (schema: Internal, length: number, maybeMessage?: string): Internal => {
   assertNumber("min", length);
   const message =
     maybeMessage !== undefined
@@ -6725,7 +6668,7 @@ export function stringMinLength(schema: Internal, length: number, maybeMessage?:
   });
 }
 
-export function stringMaxLength(schema: Internal, length: number, maybeMessage?: string): Internal {
+export const stringMaxLength = (schema: Internal, length: number, maybeMessage?: string): Internal => {
   assertNumber("max", length);
   const message =
     maybeMessage !== undefined
@@ -6745,7 +6688,7 @@ export function stringMaxLength(schema: Internal, length: number, maybeMessage?:
   });
 }
 
-export function stringLength(schema: Internal, length: number, maybeMessage?: string): Internal {
+export const stringLength = (schema: Internal, length: number, maybeMessage?: string): Internal => {
   assertNumber("length", length);
   const message =
     maybeMessage !== undefined
@@ -6768,7 +6711,7 @@ export function stringLength(schema: Internal, length: number, maybeMessage?: st
   });
 }
 
-export function pattern(schema: Internal, re: RegExp, message: string = `Invalid pattern`): Internal {
+export const pattern = (schema: Internal, re: RegExp, message: string = `Invalid pattern`): Internal => {
   return internalRefine(schema, (mut: Internal) => {
     mut.pattern = re;
     getMutErrorMessage(mut)["pattern"] = message;
@@ -6787,7 +6730,7 @@ export function pattern(schema: Internal, re: RegExp, message: string = `Invalid
   });
 }
 
-export function trim(schema: Internal): Internal {
+export const trim = (schema: Internal): Internal => {
   const transformer = (string: unknown) => (string as string).trim();
   return transform(schema, (_: unknown) => ({
     p: transformer,
@@ -6795,11 +6738,11 @@ export function trim(schema: Internal): Internal {
   }));
 }
 
-export function nullable(schema: Internal): Internal {
+export const nullable = (schema: Internal): Internal => {
   return unionFactory([schema, unit(), nullLiteral()]);
 }
 
-export function nullableAsOption(schema: Internal): Internal {
+export const nullableAsOption = (schema: Internal): Internal => {
   return unionFactory([schema, unit(), nullAsUnit()]);
 }
 
@@ -6863,7 +6806,7 @@ export const js_is = (a: unknown, b: unknown): boolean => {
     return true;
   } catch (exn) {
     // Rethrow anything that isn't a Sury validation failure.
-    InternalError.getOrRethrow(exn);
+    getOrRethrow(exn);
     return false;
   }
 };
@@ -6959,7 +6902,7 @@ export const js_asyncDecoderAssert = (
 export const js_optional = (schema: Internal, maybeOr: unknown): Internal => {
   // TODO: maybeOr should be part of the unit schema
   schema = unionFactory([schema, unit()]) as unknown as Internal;
-  if (maybeOr !== undefined && typeOf(maybeOr) === functionTag) {
+  if (maybeOr !== undefined && (typeof maybeOr as Tag) === functionTag) {
     return Option_getOrWith(schema, maybeOr as () => unknown) as unknown as Internal;
   } else if (maybeOr !== undefined) {
     return Option_getOr(schema, maybeOr) as unknown as Internal;
@@ -6972,7 +6915,7 @@ export const js_nullable = (schema: Internal, maybeOr: unknown): Internal => {
   // TODO: maybeOr should be part of the unit schema
   if (maybeOr !== undefined) {
     const schema2 = unionFactory([schema, nullAsUnit()]) as unknown as Internal;
-    if (typeOf(maybeOr) === functionTag) {
+    if ((typeof maybeOr as Tag) === functionTag) {
       return Option_getOrWith(schema2, maybeOr as () => unknown) as unknown as Internal;
     } else {
       return Option_getOr(schema2, maybeOr) as unknown as Internal;
@@ -6991,8 +6934,8 @@ export const js_merge = (s1: Internal, s2: Internal): Internal => {
     s1.type === objectTag &&
     s2.type === objectTag &&
     // Filter out S.record schemas
-    typeOf(s1.additionalItems) === stringTag &&
-    typeOf(s2.additionalItems) === stringTag &&
+    (typeof s1.additionalItems as Tag) === stringTag &&
+    (typeof s2.additionalItems as Tag) === stringTag &&
     !(s1.to as unknown as boolean) &&
     !(s2.to as unknown as boolean)
   ) {
@@ -7018,7 +6961,7 @@ export const js_merge = (s1: Internal, s2: Internal): Internal => {
   if (result !== undefined) {
     return result;
   } else {
-    return InternalError.panic(
+    return panic(
       "The merge supports only structured object schemas without transformations",
     );
   }
@@ -7034,7 +6977,7 @@ export const global = (override: GlobalConfigOverride): void => {
   ) as unknown as AdditionalItems;
   globalConfig.f =
     override.disableNanNumberValidation === true
-      ? Flag.disableNanNumberValidation
+      ? flagDisableNanNumberValidation
       : initialDefaultFlag;
 };
 
@@ -7057,8 +7000,8 @@ export const global = (override: GlobalConfigOverride): void => {
 //     toExpression, stringify, unknown, globalConfig
 //   - Builder section: B_operationArg, B_makeInvalidInputDetails, parse
 //   - reverse (schema reversing), Literal (Literal_parse)
-//   - MetadataModule (module Metadata): MetadataModule.Id.internal,
-//     MetadataModule.get, MetadataModule.set
+//   - MetadataModule (module Metadata): Metadata_Id_internal,
+//     Metadata_get, Metadata_set
 //   - defsPath, jsonName
 //   - section 06: standardJSONSchemaRef ({ contents } ref cell) and the
 //     Standard JSON Schema options type (see PORT-NOTE on JsonSchemaTarget /
@@ -7239,18 +7182,18 @@ export type StandardJsonSchemaOptions = {
 // `.jsonSchemaMetadataId`) keep reading like the source. The `include
 // JSONSchema` is covered by the type aliases above.
 
-export const jsonSchemaMetadataId: string = /* @__PURE__ */ MetadataModule.Id.internal("JSONSchema");
+export const jsonSchemaMetadataId: string = /* @__PURE__ */ Metadata_Id_internal("JSONSchema");
 
 // @val external merge: (@as(json`{}`) _, t, t) => t = "Object.assign"
-export function jsonSchemaMerge(a: JSONSchemaT, b: JSONSchemaT): JSONSchemaT {
+export const jsonSchemaMerge = (a: JSONSchemaT, b: JSONSchemaT): JSONSchemaT => {
   return Object.assign({}, a, b);
 }
 
-export function applyMetadataOverlay(
+export const applyMetadataOverlay = (
   jsonSchema: JSONSchemaT,
   schema: Internal,
   defs: Record<string, Internal>
-): void {
+): void => {
   if (schema.description !== undefined) {
     jsonSchema.description = schema.description;
   }
@@ -7268,7 +7211,7 @@ export function applyMetadataOverlay(
   if (schema["$defs"] !== undefined) {
     Object.assign(defs, schema["$defs"]);
   }
-  const metadataRawSchema = MetadataModule.get(schema, jsonSchemaMetadataId) as
+  const metadataRawSchema = Metadata_get(schema, jsonSchemaMetadataId) as
     | JSONSchemaT
     | undefined;
   if (metadataRawSchema !== undefined) {
@@ -7276,19 +7219,19 @@ export function applyMetadataOverlay(
   }
 }
 
-export function encodeToJsonSchema(
+export const encodeToJsonSchema = (
   schema: Internal,
   path: Path,
   defs: Record<string, Internal>,
   parent: Internal,
   target: JsonSchemaTarget
-): JSONSchemaT | undefined {
+): JSONSchemaT | undefined => {
   const schemaInternal = schema;
   const reversed = reverse(schemaInternal);
   const input = B_operationArg(
     unknown,
     reversed,
-    Flag.none,
+    flagNone,
     0 as unknown as Record<string, Internal>
   );
   try {
@@ -7297,20 +7240,20 @@ export function encodeToJsonSchema(
     // JSON-compatible transformed structure.
     return internalToJSONSchema(output.s, path, defs, parent, target);
   } catch (exn) {
-    InternalError.getOrRethrow(exn);
+    getOrRethrow(exn);
 
     // Parse failed — caller falls through to normal tag-based logic.
     return undefined;
   }
 }
 
-export function internalToJSONSchema(
+export const internalToJSONSchema = (
   schema: Internal,
   path: Path,
   defs: Record<string, Internal>,
   parent: Internal,
   target: JsonSchemaTarget
-): JSONSchemaT {
+): JSONSchemaT => {
   const schemaInternal = schema;
   // When a schema has `.to`, we can try to encode-reverse it to get a more
   // precise JSON schema (e.g. `format: "date-time"` for `S.string->S.to(S.date)`).
@@ -7321,11 +7264,11 @@ export function internalToJSONSchema(
   // Option.getOrWith, ...) where the union's anyOf is the input format we want
   // to keep describing. Object/array still need their nested item metadata, so
   // they keep using the base path.
-  const tagFlag = TagFlag.get(schemaInternal.type);
+  const tagFlag = tagFlags[schemaInternal.type]!;
   const hasUserTo =
     (schemaInternal.to as unknown as boolean) &&
-    !Flag.unsafeHas(tagFlag, Flag.with(TagFlag.object, TagFlag.array)) &&
-    !(Flag.unsafeHas(tagFlag, TagFlag.union) && (schemaInternal.parser as unknown as boolean));
+    !flagUnsafeHas(tagFlag, (tagFlagObject | tagFlagArray)) &&
+    !(flagUnsafeHas(tagFlag, tagFlagUnion) && (schemaInternal.parser as unknown as boolean));
   const encoded = hasUserTo
     ? encodeToJsonSchema(schema, path, defs, parent, target)
     : undefined;
@@ -7338,13 +7281,13 @@ export function internalToJSONSchema(
   }
 }
 
-export function internalToJSONSchemaBase(
+export const internalToJSONSchemaBase = (
   schema: Internal,
   path: Path,
   defs: Record<string, Internal>,
   parent: Internal,
   target: JsonSchemaTarget
-): JSONSchemaT {
+): JSONSchemaT => {
   const jsonSchema: JSONSchemaT = {};
   // OpenAPI 3.0 has no `const`; describe a single allowed value with `enum`.
   const setConstOrEnum = (value: unknown) => {
@@ -7605,7 +7548,7 @@ export function internalToJSONSchemaBase(
   } else if (tag === neverTag) {
     jsonSchema.not = {}; // Schema({})
   } else {
-    throw InternalError.make(
+    throw new SuryError(
       B_makeInvalidInputDetails(
         // Just needs `.name` for the message - avoid json()'s recursive union.
         (() => {
@@ -7613,7 +7556,7 @@ export function internalToJSONSchemaBase(
           s.name = jsonName;
           return s;
         })(),
-        Flag.unsafeHas(TagFlag.get(parent.type), TagFlag.union) ? parent : schema,
+        flagUnsafeHas(tagFlags[parent.type]!, tagFlagUnion) ? parent : schema,
         path,
         0 as unknown as undefined,
         false
@@ -7638,7 +7581,7 @@ export type toJSONSchemaOptions = { target?: JsonSchemaTarget };
 // has no `$schema` (openapi-3.0). Raises an `invalid_operation` error for
 // `Unknown` (an unsupported target, e.g. one that arrived as an arbitrary
 // string from JS via the Standard JSON Schema `Options`).
-export function targetSchemaUri(target: JsonSchemaTarget): string | undefined {
+export const targetSchemaUri = (target: JsonSchemaTarget): string | undefined => {
   switch (target) {
     case "draft-07":
       return "http://json-schema.org/draft-07/schema#";
@@ -7649,7 +7592,7 @@ export function targetSchemaUri(target: JsonSchemaTarget): string | undefined {
       return undefined;
     default: {
       const unsupported = target;
-      throw InternalError.make({
+      throw new SuryError({
         code: "invalid_operation",
         path: pathEmpty,
         reason: `Unsupported JSON Schema target: ${unsupported}`,
@@ -7658,7 +7601,7 @@ export function targetSchemaUri(target: JsonSchemaTarget): string | undefined {
   }
 }
 
-export function toJSONSchema(schema: Internal, options?: toJSONSchemaOptions): JSONSchemaT {
+export const toJSONSchema = (schema: Internal, options?: toJSONSchemaOptions): JSONSchemaT => {
   // Resolve the target and the `$schema` URI to stamp. When no options object is
   // provided we keep the historical behavior: default to "draft-07" and do NOT
   // stamp `$schema`. With options, an unsupported target throws up front (even
@@ -7714,7 +7657,7 @@ export function toJSONSchema(schema: Internal, options?: toJSONSchemaOptions): J
 // unsupported target throws. `output` converts the reversed schema, since
 // `S.reverse` swaps Input <-> Output and `toJSONSchema` returns the input-type
 // schema of whatever it receives.
-export function enableStandardJSONSchema(): void {
+export const enableStandardJSONSchema = (): void => {
   standardJSONSchemaRef.contents = (
     schema: Internal,
     options: StandardJsonSchemaOptions,
@@ -7728,11 +7671,11 @@ export function enableStandardJSONSchema(): void {
   };
 }
 
-export function extendJSONSchema(schema: Internal, jsonSchema: JSONSchemaT): Internal {
-  const existingSchemaExtend = MetadataModule.get(schema, jsonSchemaMetadataId) as
+export const extendJSONSchema = (schema: Internal, jsonSchema: JSONSchemaT): Internal => {
+  const existingSchemaExtend = Metadata_get(schema, jsonSchemaMetadataId) as
     | JSONSchemaT
     | undefined;
-  return MetadataModule.set(
+  return Metadata_set(
     schema,
     jsonSchemaMetadataId,
     existingSchemaExtend !== undefined
@@ -7756,11 +7699,11 @@ export function extendJSONSchema(schema: Internal, jsonSchema: JSONSchemaT): Int
 // definitionToDefaultValue) are hoisted to module-scope functions —
 // same behavior, they close over nothing but module-level bindings.
 
-function primitiveToSchema(primitive: unknown): Internal {
+const primitiveToSchema = (primitive: unknown): Internal => {
   return Literal_parse(primitive);
 }
 
-function toIntSchema(jsonSchema: JSONSchemaT): Internal {
+const toIntSchema = (jsonSchema: JSONSchemaT): Internal => {
   let schema = int();
   // TODO: Support jsonSchema.multipleOf when it's in rescript-schema
   // if (typeof jsonSchema.multipleOf === "number" && jsonSchema.multipleOf !== 1) {
@@ -7779,7 +7722,7 @@ function toIntSchema(jsonSchema: JSONSchemaT): Internal {
   return schema;
 }
 
-function definitionToDefaultValue(definition: JSONSchemaDefinition): unknown {
+const definitionToDefaultValue = (definition: JSONSchemaDefinition): unknown => {
   if (typeof definition !== "boolean") {
     return definition.default;
   } else {
@@ -7787,7 +7730,7 @@ function definitionToDefaultValue(definition: JSONSchemaDefinition): unknown {
   }
 }
 
-export function fromJSONSchema(jsonSchema: JSONSchemaT): Internal {
+export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
   const anySchema = json();
 
   const jsonDefinitionToSchema = (definition: JSONSchemaDefinition): Internal => {
@@ -8039,7 +7982,7 @@ export function fromJSONSchema(jsonSchema: JSONSchemaT): Internal {
       "Should pass the if/then/else schema validation."
     );
   } else if (jsonSchema.type !== undefined) {
-    throw InternalError.make({
+    throw new SuryError({
       code: "invalid_operation",
       path: pathEmpty,
       reason: `Unsupported JSON Schema type: ${jsonSchema.type as unknown as string}`,
@@ -8072,7 +8015,7 @@ export function fromJSONSchema(jsonSchema: JSONSchemaT): Internal {
 // min / max / length
 // -----------------------------------------------------------------------------
 
-export function min(schema: Internal, minValue: number, maybeMessage?: string): Internal {
+export const min = (schema: Internal, minValue: number, maybeMessage?: string): Internal => {
   switch (schema.type) {
     case stringTag:
       return stringMinLength(schema, minValue, maybeMessage);
@@ -8084,13 +8027,13 @@ export function min(schema: Internal, minValue: number, maybeMessage?: string): 
         ? intMin(schema, minValue, maybeMessage)
         : floatMin(schema, minValue as unknown as number, maybeMessage);
     default:
-      return InternalError.panic(
+      return panic(
         `S.min is not supported for ${toExpression(schema)} schema. Coerce the schema to string, number or array using S.to first.`
       );
   }
 }
 
-export function max(schema: Internal, maxValue: number, maybeMessage?: string): Internal {
+export const max = (schema: Internal, maxValue: number, maybeMessage?: string): Internal => {
   switch (schema.type) {
     case stringTag:
       return stringMaxLength(schema, maxValue, maybeMessage);
@@ -8102,20 +8045,20 @@ export function max(schema: Internal, maxValue: number, maybeMessage?: string): 
         ? intMax(schema, maxValue, maybeMessage)
         : floatMax(schema, maxValue as unknown as number, maybeMessage);
     default:
-      return InternalError.panic(
+      return panic(
         `S.max is not supported for ${toExpression(schema)} schema. Coerce the schema to string, number or array using S.to first.`
       );
   }
 }
 
-export function length(schema: Internal, length: number, maybeMessage?: string): Internal {
+export const length = (schema: Internal, length: number, maybeMessage?: string): Internal => {
   switch (schema.type) {
     case stringTag:
       return stringLength(schema, length, maybeMessage);
     case arrayTag:
       return arrayLength(schema, length, maybeMessage);
     default:
-      return InternalError.panic(
+      return panic(
         `S.length is not supported for ${toExpression(schema)} schema. Coerce the schema to string or array using S.to first.`
       );
   }
