@@ -5935,17 +5935,13 @@ module Schema = {
   ) => {
     switch acc {
     | Some({val}) => {
+        // Placement, not decoding: the leaf moves an already-decoded field val
+        // into its slot in the target object. The val keeps its own output
+        // schema (same discipline as getShapedParserOutput, #271/#284); parse
+        // re-advances `expected` along the target chain and emits nothing for
+        // an output val.
         let v = val->B.Val.scope
         v.hasTransform = Some(true)
-        // An already-decoded field val carries its truthful output schema —
-        // overwriting it with the declared targetSchema would resurrect
-        // pending `.to` chains that already ran, making downstream `.to`
-        // segments re-decode the converted value (#284). Claim the declared
-        // schema only for not-yet-decoded vals (trusted input), mirroring
-        // getShapedParserOutput which never overwrites it.
-        if !(v.isOutput->X.Option.getUnsafe) {
-          v.schema = targetSchema
-        }
         v.expected = targetSchema
         v->parse
       }
