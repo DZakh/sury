@@ -1,5 +1,5 @@
 import { SuryError, unknown } from "./schema";
-import { BGlobal, Check, ErrorDetails, Internal, SuryErrorRecord, Val, immutableEmptyArray, s, shouldPrependPathKey, stringify, toExpression } from "./types";
+import { BGlobal, Check, Code, ErrorDetails, Internal, SuryErrorRecord, Val, immutableEmptyArray, s, shouldPrependPathKey, stringify, toExpression } from "./types";
 import { Flag, flagAsync, flagNone, flagUnsafeHas, valFlagAsync, valFlagNone } from "./flags";
 import { Path, inlinedValueFromString, pathConcat, pathEmpty, pathFromInlinedLocation } from "./path";
 import { arrayTag, tagFlagBigint, tagFlagFunction, tagFlagInstance, tagFlagString, tagFlagSymbol, tagFlagUndefined, tagFlags } from "./tags";
@@ -40,7 +40,7 @@ function _prevVar(this: Val): string {
 export function _notVarBeforeValidation(this: Val): string {
   const val = this;
   const v = B_varWithoutAllocation(val.g);
-  val.cp = `let ${v}=${val.i};`;
+  val.cp.unshift(`let ${v}=${val.i};`);
   val.i = v;
   val.v = _var;
   return v;
@@ -52,11 +52,10 @@ export function _notVarAtParent(this: Val): string {
   // A re-readable field access (`parent[key]`). Its decl hoists onto the
   // parent, which outlives this field's own segment — field vals are often
   // materialized late (e.g. completeObjectVal's optional-field check), after
-  // their merge code was emitted, so owning it here would drop the decl.
-  // If the parent is itself finalized (cached bond after its block closed —
-  // #240), re-read inline: the only still-open vals are ancestors whose
-  // segments precede the parent's guard, so hoisting there could read
-  // `parent[key]` before that guard; inlining defers it to a guarded use.
+  // their merge code was emitted. With deferred emission the parent's decl
+  // hole stays fillable after merge; only a genuinely frozen parent (tree
+  // stringified into a closure, or discarded) falls back to an inline
+  // re-read, which defers the `parent[key]` access to a guarded use.
   if (parent.fz) {
     val.v = _var;
     return val.i;
@@ -71,20 +70,13 @@ export function _notVarAtParent(this: Val): string {
 
 export function _notVar(this: Val): string {
   const val: Val = this;
-  // Already emitted (a late materialization after this val's segment was
-  // merged — e.g. a fused `.to` stage reading a previous stage's transformed
-  // output): owning a fresh decl here would drop it (the phantom-var fusion
-  // bug). Re-read the inline expression instead. Like `_notVarAtParent`'s
-  // finalized guard, but that sibling's inline is always an atomic
-  // `parent[key]`, whereas a transform val's inline can be compound (e.g.
-  // `""+x`), so parenthesize it to stay correct under any operator a consumer
-  // wraps it in (`+(""+x)`, not `+""+x`). Mutating `inline` (not just
-  // returning the wrap) keeps a second `.var()` — now routed through `_var` —
-  // consistent. Re-reading is sound only because the inlines that reach here
-  // are idempotent (`""+x`, `+x`): side-effecting/allocating coercions
-  // (`BigInt(...)`, `new Date(...)`, `new Array(...)`) are var-materialized by
-  // an eager check before they can finalize, and their referenced vars live
-  // in an enclosing segment (not a closed loop/`.then` scope).
+  // Genuinely frozen (tree stringified into a closure body, or discarded):
+  // owning a fresh decl here would drop it (the phantom-var fusion bug).
+  // Re-read the inline expression instead. Like `_notVarAtParent`'s frozen
+  // guard, but a transform val's inline can be compound (e.g. `""+x`), so
+  // parenthesize it to stay correct under any operator a consumer wraps it
+  // in. Re-reading is sound only because the inlines that reach here are
+  // idempotent (`""+x`, `+x`).
   if (val.fz) {
     val.v = _var;
     val.i = `(${val.i})`;
@@ -98,10 +90,10 @@ export function _notVar(this: Val): string {
       if (val.i === "") {
         // No inline value yet (assigned by code that already reads this val):
         // declare ahead of the existing producing code.
-        val.cp = `let ${v};` + val.cp;
+        val.cp.unshift(`let ${v};`);
       } else {
         // Declare-and-assign after it; `v` is fresh, so nothing emitted reads it.
-        val.cp = val.cp + `let ${v}=${val.i};`;
+        val.cp.push(`let ${v}=${val.i};`);
       }
     } else {
       // No prev to anchor to; hoist onto the val itself (its own segment
@@ -183,15 +175,65 @@ export const B_varWithoutAllocation = (global: BGlobal): string => {
   return `v${newCounter}`;
 }
 
-// Append a `let` declaration to a still-open owner val, emitted after the
-// owner's checks in `merge`. The owner is the materialized val's immediate
-// context (its `prev`, its `parent` for a field read, or itself); since the
-// decl lands at the owner's segment end — after the owner's guard, before
-// its dependent code — that immediate owner already dominates and outlives
-// every use, so no separate scope-tree is needed. The owner must be
-// unfinalized; `_notVarAtParent` guards this explicitly.
+// Append a `let` declaration to an owner val, emitted after the owner's
+// checks via the `{h: owner}` hole `merge` leaves in the tree. The owner is
+// the materialized val's immediate context (its `prev`, its `parent` for a
+// field read, or itself); since the decl lands at the owner's segment end —
+// after the owner's guard, before its dependent code — that immediate owner
+// already dominates and outlives every use. Legal any time before the final
+// join, even after the owner's segment was merged; only a frozen owner
+// (`fz`, tree stringified or discarded) can no longer accept decls —
+// `_notVarAtParent` guards this explicitly.
 export const B_hoistDecl = (owner: Val, decl: string): void => {
   owner.hd = owner.hd === "" ? decl : owner.hd + "," + decl;
+}
+
+// The single stringification point: flattens the chunk tree and resolves
+// each val's hoisted-decls hole. Nothing is frozen until a tree passes
+// through here (or is spliced into a closure-body template) — callers that
+// stringify or discard a live tree must `B_seal` its chain.
+export const B_joinCode = (code: Code): string => {
+  if (typeof code === "string") {
+    return code;
+  } else if (Array.isArray(code)) {
+    let out = "";
+    for (let i = 0; i < code.length; i++) {
+      out = out + B_joinCode(code[i]!);
+    }
+    return out;
+  } else {
+    const hd = code.h.hd;
+    return hd === "" ? "" : `let ${hd};`;
+  }
+}
+
+// Emptiness at decision time. A hole counts by its current `hd` — callers
+// that branch on emptiness and then discard the tree must `B_seal` so a
+// later fill falls back to an inline re-read instead of being dropped.
+export const B_isEmptyCode = (code: Code): boolean => {
+  if (typeof code === "string") {
+    return code === "";
+  } else if (Array.isArray(code)) {
+    for (let i = 0; i < code.length; i++) {
+      if (!B_isEmptyCode(code[i]!)) {
+        return false;
+      }
+    }
+    return true;
+  } else {
+    return code.h.hd === "";
+  }
+}
+
+// Freeze a chain whose merged tree was stringified into a closure body or
+// discarded: late materializations must stop filling slots that can no
+// longer emit (or whose decls would be scoped inside the closure).
+export const B_seal = (val: Val): void => {
+  let current: Val | undefined = val;
+  while (current !== undefined) {
+    current.fz = true;
+    current = current.prev;
+  }
 }
 
 
@@ -202,7 +244,7 @@ export const B_operationArg = (
   defs: Record<string, Internal> | undefined
 ): Val => {
   return {
-    cp: "",
+    cp: [],
     hd: "",
     v: _var,
     i: operationArgVar,
@@ -419,7 +461,7 @@ export const B_emitChecks = (val: Val, inputVar: string): string => {
 // dispatch will lift the producer into `pre`, collapsing this to "the
 // check is a type-narrow."
 export const B_isHoistable = (val: Val): boolean => {
-  return val.t === true ? val.prev!.t !== true && val.cp === "" : true;
+  return val.t === true ? val.prev!.t !== true && val.cp.length === 0 : true;
 }
 
 // Walks the val.prev chain and assembles generated code. When
@@ -429,9 +471,9 @@ export const B_isHoistable = (val: Val): boolean => {
 // emit inline so their case-specific error message survives. All
 // other callers pass no `~hoistCond` and get the plain merge:
 // every non-`noValidation` check is emitted inline.
-export const B_merge = (val: Val, hoistCond?: { contents: string }): string => {
+export const B_merge = (val: Val, hoistCond?: { contents: string }): Code => {
   let current: Val | undefined = val;
-  let code = "";
+  let code: Code = "";
 
   while (current !== undefined) {
     const val: Val = current;
@@ -477,18 +519,11 @@ export const B_merge = (val: Val, hoistCond?: { contents: string }): string => {
       }
     }
 
-    // Hoisted decls land after this val's checks (the old varsAllocation
-    // slot).
-    if (val.hd !== "") {
-      currentCode = currentCode + `let ${val.hd};`;
-    }
-
-    // Now emitted: a later cached-bond materialization can't hoist onto it.
-    val.fz = true;
-
-    currentCode = val.cp + currentCode;
-
-    code = currentCode + code;
+    // The val's chunk tree goes in by reference (late fills propagate) and a
+    // hole reserves the hoisted-decls slot after its checks (the old
+    // varsAllocation slot) — resolved at the final join. Cons-list shape
+    // (O(1) per val) instead of unshift (O(n²) over the chain).
+    code = [val.cp, currentCode, { h: val }, code];
   }
 
   return code;
@@ -503,7 +538,7 @@ export const B_next = (prev: Val, initial: string, schema: Internal, expected: I
     f: valFlagNone,
     s: schema,
     e: expected,
-    cp: "",
+    cp: [],
     hd: "",
     path: prev.path,
     g: prev.g,
@@ -523,7 +558,7 @@ export const B_refine = (val: Val, schema: Internal = val.s, checks?: Check[], e
     f: val.f,
     s: schema,
     e: expected,
-    cp: "",
+    cp: [],
     hd: "",
     vc: checks,
     path: val.path,
@@ -638,7 +673,7 @@ export const B_dynamicScope = (from: Val, locationVar: string): Val => {
       expectedAdditionalItems !== undefined && typeof expectedAdditionalItems !== "string"
         ? expectedAdditionalItems
         : unknown,
-    cp: "",
+    cp: [],
     hd: "",
     p: from,
     path: pathEmpty,
@@ -675,7 +710,7 @@ export const B_Val_Object_add = (objectVal: Val, location: string, val: Val): vo
   if (flagUnsafeHas(val.f, valFlagAsync)) {
     val.v();
   }
-  objectVal.cp = objectVal.cp + B_merge(val);
+  objectVal.cp.push(B_merge(val));
   objectVal.d![location] = val;
 }
 
@@ -704,7 +739,7 @@ export const B_Val_scope = (val: Val): Val => {
     g: val.g,
     v: shouldLink ? _bondVar : _var,
     b: val,
-    cp: "",
+    cp: [],
     hd: "",
     u: false,
     t: false,
@@ -747,9 +782,9 @@ export const B_embedTransformation = (input: Val, fn: (input: unknown) => unknow
   // Feed the transform the input's var when it already carries checks — it's
   // materialized into a var anyway (the check references it), so reuse it
   // instead of re-inlining the source expression (e.g. `i["x"]`) twice.
-  output.cp = `let ${outputVar};try{${outputVar}=${embededFn}(${
+  output.cp.push(`let ${outputVar};try{${outputVar}=${embededFn}(${
     input.vc ? input.v() : input.i
-  })${isAsync ? `.catch(x=>${failure})` : ""}}catch(x){${failure}}`;
+  })${isAsync ? `.catch(x=>${failure})` : ""}}catch(x){${failure}}`);
   return output;
 }
 
@@ -774,14 +809,16 @@ export const B_mergeWithCatch = (
   val: Val,
   catchFn: (errorVar: string) => string,
   appendSafe?: () => string
-): string => {
+): Code => {
   const valCode = B_merge(val);
   if (
-    valCode === "" &&
+    B_isEmptyCode(valCode) &&
     // FIXME: Instead of this wrap all S.transform in a try/catch
     !flagUnsafeHas(val.f, valFlagAsync)
   ) {
-    return valCode + (appendSafe !== undefined ? appendSafe() : "");
+    // Keep the tree by reference: a late fill still emits (unwrapped —
+    // hoisted decls don't throw, so skipping the catch wrapper is safe).
+    return [valCode, appendSafe !== undefined ? appendSafe() : ""];
   } else {
     const errorVar = B_varWithoutAllocation(val.g);
 
@@ -790,9 +827,12 @@ export const B_mergeWithCatch = (
     if (flagUnsafeHas(val.f, valFlagAsync)) {
       val.i = `${val.i}.catch(${errorVar}=>{${catchCode}})`;
     }
-    return `try{${valCode}${
-      appendSafe !== undefined ? appendSafe() : ""
-    }}catch(${errorVar}){${catchCode}}`;
+    return [
+      "try{",
+      valCode,
+      appendSafe !== undefined ? appendSafe() : "",
+      `}catch(${errorVar}){${catchCode}}`,
+    ];
   }
 }
 
@@ -801,7 +841,7 @@ export const B_mergeWithPathPrepend = (
   parent: Val,
   locationVar?: string,
   appendSafe?: () => string
-): string => {
+): Code => {
   if (val.path === pathEmpty && locationVar === undefined) {
     return B_merge(val);
   } else {

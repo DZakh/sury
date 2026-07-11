@@ -4,7 +4,7 @@ ts:
   input: unknown
   output: unknown
   instantiations: 254
-  bundleBytes: 3555
+  bundleBytes: 3623
 jsonSchema:
   input: Expected JSON, received unknown
   output: Expected JSON, received unknown

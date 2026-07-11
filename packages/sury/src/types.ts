@@ -197,6 +197,11 @@ export type Check = {
   f: (input: Val) => (value: unknown) => ErrorDetails;
 }
 
+// Generated-code rope: a string chunk, a nested tree (kept by reference so
+// late fills propagate), or a hole resolving to a val's hoisted decls at the
+// single final join.
+export type Code = string | Code[] | { h: Val };
+
 export type Val = {
   // We might have the same value, but different instances of the val
   // object. Use the bond field, to connect the var call. @as("b") — bond
@@ -222,14 +227,18 @@ export type Val = {
   d?: Record<string, Val>;
   // @as("fv") — flattenedVals
   fv?: Val[];
-  // @as("cp") — codeFromPrev
-  cp: string;
+  // Code chunk tree produced from `.prev`. Mutable in place: `merge` embeds
+  // the array by reference, so a late materialization may still push into it
+  // any time before the final join in compileDecoder. @as("cp") — codeFromPrev
+  cp: Code[];
   // Comma-joined `let` declarations hoisted onto this val by descendants
-  // that couldn't own them. Emitted after this val's checks in `merge` (the
-  // old varsAllocation slot). @as("hd") — hoistedDecls
+  // that couldn't own them. `merge` embeds a hole (`{h: val}`) after this
+  // val's checks; the join reads `hd` at the end, so hoists stay legal after
+  // the val's segment was merged. @as("hd") — hoistedDecls
   hd: string;
-  // Set by `merge` once this val's code is emitted, so a later cached-bond
-  // materialization re-reads inline instead of hoisting onto it (#240).
+  // Set when this val's code was stringified into a closure body (`.then`,
+  // `Promise.all`) or its tree was discarded — a real freeze: later
+  // materializations must re-read inline instead of filling their slot.
   // @as("fz") — finalized
   fz?: boolean;
   // Invariant: absent iff no checks. Never stored as `[]` so callers can

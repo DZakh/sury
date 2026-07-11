@@ -1,6 +1,6 @@
 import { instanceofCond, isArrayCond, nanCond, objectTagCond, setHas, typeofCond } from "./primitives";
 import { baseSchema, cached, copySchema, getOrRethrow, globalConfig, panic, reversedKey, unknown, updateOutput, valKey, valueOptions } from "./schema";
-import { B_Val_scope, B_embedInvalidInput, B_inlineConst, B_markOutput, B_merge, B_next, B_operationArg, B_refine, B_unsupportedDecode, Builder, Encoder, failInvalidType, noopOperation, operationArgVar } from "./builder";
+import { B_Val_scope, B_embedInvalidInput, B_joinCode, B_seal, B_inlineConst, B_markOutput, B_merge, B_next, B_operationArg, B_refine, B_unsupportedDecode, Builder, Encoder, failInvalidType, noopOperation, operationArgVar } from "./builder";
 import { Internal, Val, isLiteral, s } from "./types";
 import { Flag, flagAsync, flagDisableNanNumberValidation, flagUnsafeHas, valFlagAsync } from "./flags";
 import { pathConcat, pathDynamic, pathEmpty } from "./path";
@@ -40,7 +40,10 @@ export const parse = (input: Val): Val => {
 
       const operationInput = B_Val_scope(loopInput);
       const operationOutput = parse(operationInput);
-      const operationCode = B_merge(operationOutput);
+      // Stringified into the `.then` closure body — a real scope boundary,
+      // so freeze the chain against late fills.
+      const operationCode = B_joinCode(B_merge(operationOutput));
+      B_seal(operationOutput);
       if (operationInput.i !== operationOutput.i || operationCode !== "") {
         valRef = B_next(
           loopInput,
@@ -130,7 +133,9 @@ export const compileDecoder = (
   const input = B_operationArg(isLiteral(schema) ? unknown : schema, expected, flag, defs);
 
   const output = parse(input);
-  const code = B_merge(output);
+  // The single join: everything upstream builds a chunk tree; nothing is
+  // frozen until here.
+  const code = B_joinCode(B_merge(output));
 
   const isAsync = flagUnsafeHas(output.f, valFlagAsync);
   expected.isAsync = isAsync;
@@ -347,7 +352,7 @@ export type ItemCode = string | string[];
 
 export const neverBuilderFn = (input: Val): Val => {
   const output = B_refine(input, undefined, undefined, never_());
-  output.cp = B_embedInvalidInput(input) + ";";
+  output.cp.push(B_embedInvalidInput(input) + ";");
   return output;
 }
 export const never_ = (): Internal => {

@@ -1,8 +1,8 @@
 import { Literal_parse, isArrayCond, jsonName, objectTagCond, setHas, unit } from "./primitives";
 import { baseSchema, getOrRethrow, panic, reversedKey, unknown, updateOutput } from "./schema";
 import { getOutputSchema, nestedLoc, nestedOptionParser, never_, parse, parseDynamic, typeCheckCond } from "./parse";
-import { B_Val_Object_add, B_Val_addKey, B_Val_scope, B_asyncVal, B_dynamicScope, B_embed, B_failWithArg, B_hoistChildChecks, B_hoistDecl, B_inlineConst, B_inlineLocation, B_isHoistable, B_makeInvalidInputDetails, B_markOutput, B_merge, B_mergeWithPathPrepend, B_next, B_nextConst, B_pushCheck, B_refine, B_throw, B_unsupportedDecode, B_varWithoutAllocation, Builder, _notVar, _notVarAtParent, _var, failInvalidType } from "./builder";
-import { Check, ErrorDetails, Internal, SuryErrorRecord, Val, immutableEmptyArray, immutableEmptyObject, isLiteral, isOptional } from "./types";
+import { B_Val_Object_add, B_Val_addKey, B_Val_scope, B_isEmptyCode, B_joinCode, B_seal, B_asyncVal, B_dynamicScope, B_embed, B_failWithArg, B_hoistChildChecks, B_hoistDecl, B_inlineConst, B_inlineLocation, B_isHoistable, B_makeInvalidInputDetails, B_markOutput, B_merge, B_mergeWithPathPrepend, B_next, B_nextConst, B_pushCheck, B_refine, B_throw, B_unsupportedDecode, B_varWithoutAllocation, Builder, _notVar, _notVarAtParent, _var, failInvalidType } from "./builder";
+import { Check, Code, ErrorDetails, Internal, SuryErrorRecord, Val, immutableEmptyArray, immutableEmptyObject, isLiteral, isOptional } from "./types";
 import { flagUnsafeHas, valFlagAsync, valFlagNone } from "./flags";
 import { pathConcat, pathFromInlinedLocation } from "./path";
 import { arrayTag, nullTag, numberTag, objectTag, tagFlagArray, tagFlagFunction, tagFlagInstance, tagFlagNaN, tagFlagNever, tagFlagNull, tagFlagObject, tagFlagRef, tagFlagUndefined, tagFlagUnion, tagFlagUnknown, tagFlags, undefinedTag, unionTag, unknownTag } from "./tags";
@@ -33,7 +33,7 @@ export const makeObjectVal = (prev: Val, schema: Internal): Val => {
     e: prev.e,
     d: {},
     t: true,
-    cp: "",
+    cp: [],
     hd: "",
     path: prev.path,
     g: prev.g,
@@ -80,7 +80,9 @@ export const completeObjectVal = (objectVal: Val): Val => {
     const operationInput = B_Val_scope(valWithRequired);
     operationInput.io = true;
     const operationOutput = parse(operationInput);
-    const operationCode = B_merge(operationOutput);
+    // Stringified into the Promise.all closure body — a real scope boundary.
+    const operationCode = B_joinCode(B_merge(operationOutput));
+    B_seal(operationOutput);
 
     if (operationCode === "" && promiseAllContent === `${operationOutput.i},`) {
       valWithRequired.i = operationOutput.i;
@@ -98,7 +100,7 @@ export const completeObjectVal = (objectVal: Val): Val => {
     } else {
       const code = optionalSettingCode(valWithRequired.v());
       const output = B_refine(valWithRequired);
-      output.cp = output.cp + code;
+      output.cp.push(code);
       return output;
     }
   }
@@ -197,10 +199,15 @@ export const arrayDecoder = (unknownInput: Val): Val => {
         hasTransform ? () => B_Val_addKey(output2, iteratorVar, itemOutput) : undefined,
       );
 
-      if (hasTransform || itemCode !== "") {
-        output2.cp =
-          output2.cp +
-          `for(let ${iteratorVar}=${expectedLength};${iteratorVar}<${inputVar}.length;++${iteratorVar}){${itemCode}}`;
+      // The loop body is a block scope: freeze the item chain against late
+      // fills (matches the pre-tree behavior where merge froze it).
+      B_seal(itemOutput);
+      if (hasTransform || !B_isEmptyCode(itemCode)) {
+        output2.cp.push(
+          `for(let ${iteratorVar}=${expectedLength};${iteratorVar}<${inputVar}.length;++${iteratorVar}){`,
+          itemCode,
+          "}",
+        );
       }
 
       if (flagUnsafeHas(itemOutput.f, valFlagAsync)) {
@@ -344,8 +351,9 @@ export const objectDecoder = (unknownInput: Val): Val => {
       hasTransform ? () => B_Val_addKey(output2, keyVar, itemOutput) : undefined,
     );
 
-    if (hasTransform || itemCode !== "") {
-      output2.cp = output2.cp + `for(let ${keyVar} in ${inputVar}){${itemCode}}`;
+    B_seal(itemOutput);
+    if (hasTransform || !B_isEmptyCode(itemCode)) {
+      output2.cp.push(`for(let ${keyVar} in ${inputVar}){`, itemCode, "}");
     }
 
     if (flagUnsafeHas(itemOutput.f, valFlagAsync)) {
@@ -447,20 +455,20 @@ export const objectDecoder = (unknownInput: Val): Val => {
     ) {
       const keyVar = B_varWithoutAllocation(objectVal.g);
       B_hoistDecl(input, keyVar);
-      objectVal.cp = objectVal.cp + `for(${keyVar} in ${input.v()}){if(`;
+      let excessCode = `for(${keyVar} in ${input.v()}){if(`;
       if (keys.length === 0) {
-        objectVal.cp = objectVal.cp + "true";
+        excessCode = excessCode + "true";
       } else {
         for (let idx = 0; idx < keys.length; idx++) {
           const key = keys[idx]!;
           if (idx !== 0) {
-            objectVal.cp = objectVal.cp + "&&";
+            excessCode = excessCode + "&&";
           }
-          objectVal.cp = objectVal.cp + `${keyVar}!==${B_inlineLocation(input.g, key)}`;
+          excessCode = excessCode + `${keyVar}!==${B_inlineLocation(input.g, key)}`;
         }
       }
-      objectVal.cp =
-        objectVal.cp +
+      objectVal.cp.push(
+        excessCode +
         `){${B_failWithArg(
           input,
           (exccessFieldName: string) =>
@@ -471,7 +479,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
               keys: [exccessFieldName],
             }) as ErrorDetails,
           keyVar,
-        )}}}`;
+        )}}}`);
     }
 
     // After input.schema was used, set it to selfSchema
@@ -708,11 +716,11 @@ export const unionDecoder: Builder = (input: Val) => {
     // emitting a guaranteed runtime throw
     let staticBlockFailure = "";
 
-    const getArrItemsCode = (arr: unknown[], isDeopt: boolean): string => {
+    const getArrItemsCode = (arr: unknown[], isDeopt: boolean): Code => {
       const typeValidationInput = arr[0] as Val;
       const typeValidationOutput = arr[1] as Val;
 
-      let itemStart = "";
+      const itemStart: Code[] = [];
       let itemEnd = "";
       let itemNextElse = false;
       let itemNoop = "";
@@ -728,10 +736,9 @@ export const unionDecoder: Builder = (input: Val) => {
       // If we come across an item without a discriminant
       // and without any code, it means that this item is always valid
       // and we should exit early
-      // PORT-NOTE: `itemCode = Single(string) | Multiple(array<string>)` is
-      // @unboxed — runtime value is the string itself or the array itself, so
-      // the cases are discriminated with Array.isArray.
-      let byDiscriminant: Record<string, string | string[]> = {};
+      // Item codes are chunk trees now, so single-vs-multiple can't be
+      // discriminated with Array.isArray — always store a list of codes.
+      let byDiscriminant: Record<string, Code[]> = {};
 
       const preItems = 2;
       let itemIdx = preItems;
@@ -751,7 +758,7 @@ export const unionDecoder: Builder = (input: Val) => {
         let withExhaustiveCheck = !isOnlyCase;
 
         let itemSkipped = false;
-        let itemCodeRef = "";
+        let itemCodeRef: Code = "";
         const itemCondRef = { contents: "" };
         try {
           const itemOutput = parse(input);
@@ -766,10 +773,11 @@ export const unionDecoder: Builder = (input: Val) => {
             }
             const itemVar = typeValidationInput.v();
             if (itemOutput.i !== itemVar) {
-              itemCodeRef =
-                itemCodeRef +
+              itemCodeRef = [
+                itemCodeRef,
                 // Need to allocate a var here, so we don't mutate the input object field
-                `${itemVar}=${itemOutput.i}`;
+                `${itemVar}=${itemOutput.i}`,
+              ];
             }
           }
         } catch (exn) {
@@ -789,19 +797,16 @@ export const unionDecoder: Builder = (input: Val) => {
         }
         const itemCond = itemCondRef.contents;
         const itemCode = itemCodeRef;
+        const itemCodeIsEmpty = B_isEmptyCode(itemCode);
 
         // Accumulate item parser when it has a discriminant
         if (!itemSkipped && itemCond) {
-          if (itemCode) {
+          if (!itemCodeIsEmpty) {
             const existing = byDiscriminant[itemCond];
             if (existing !== undefined) {
-              if (Array.isArray(existing)) {
-                existing.push(itemCode);
-              } else {
-                byDiscriminant[itemCond] = [existing, itemCode];
-              }
+              existing.push(itemCode);
             } else {
-              byDiscriminant[itemCond] = itemCode;
+              byDiscriminant[itemCond] = [itemCode];
             }
           } else {
             // We have a condition but without additional parsing logic
@@ -818,19 +823,19 @@ export const unionDecoder: Builder = (input: Val) => {
           for (let idx = 0; idx < accedDiscriminants.length; idx++) {
             const discrim = accedDiscriminants[idx]!;
             const if_ = itemNextElse ? "else if" : "if";
-            itemStart = itemStart + if_ + `(${discrim}){`;
+            itemStart.push(if_ + `(${discrim}){`);
             const entry = byDiscriminant[discrim]!;
-            if (!Array.isArray(entry)) {
-              itemStart = itemStart + entry + "}";
+            if (entry.length === 1) {
+              itemStart.push(entry[0]!, "}");
             } else {
               let caught = "";
               for (let idx = 0; idx < entry.length; idx++) {
                 const code = entry[idx]!;
                 const errorVar = `e` + idx;
-                itemStart = itemStart + `try{${code}}catch(${errorVar}){`;
+                itemStart.push(`try{`, code, `}catch(${errorVar}){`);
                 caught = `${caught},${errorVar}`;
               }
-              itemStart = itemStart + fail(caught) + "}".repeat(entry.length) + "}";
+              itemStart.push(fail(caught) + "}".repeat(entry.length) + "}");
             }
             itemNextElse = true;
           }
@@ -838,7 +843,7 @@ export const unionDecoder: Builder = (input: Val) => {
         }
 
         if (!itemSkipped && !itemCond) {
-          if (!itemCode) {
+          if (itemCodeIsEmpty) {
             // If we don't have a condition (discriminant)
             // and additional parsing logic,
             // it means that this item is always passes
@@ -852,19 +857,18 @@ export const unionDecoder: Builder = (input: Val) => {
             // Since there might be validation in the body
             if (itemNoop) {
               const if_ = itemNextElse ? "else if" : "if";
-              itemStart = itemStart + if_ + `(!(${itemNoop})){`;
+              itemStart.push(if_ + `(!(${itemNoop})){`);
               itemEnd = "}" + itemEnd;
               itemNoop = "";
               itemNextElse = false;
             }
             if (isLast && (isDeopt || !withExhaustiveCheck || isFirst)) {
               // For the last item don't add try/catch
-              itemStart = itemStart + `${itemNextElse ? "else{" : ""}${itemCode}`;
+              itemStart.push(itemNextElse ? "else{" : "", itemCode);
               itemEnd = (itemNextElse ? "}" : "") + itemEnd;
             } else {
               const errorVar = `e` + (itemIdx - preItems);
-              itemStart =
-                itemStart + `${itemNextElse ? "else{" : ""}try{${itemCode}}catch(${errorVar}){`;
+              itemStart.push(`${itemNextElse ? "else{" : ""}try{`, itemCode, `}catch(${errorVar}){`);
               itemEnd = (itemNextElse ? "}" : "") + "}" + itemEnd;
               caught = `${caught},${errorVar}`;
               itemNextElse = false;
@@ -874,13 +878,13 @@ export const unionDecoder: Builder = (input: Val) => {
         if (isLast) {
           if (itemNoop) {
             if (
-              itemStart ||
+              itemStart.length !== 0 ||
               // Skipped cases have their errors embedded,
               // which the hoisted check below can't reference
               caught
             ) {
               const if_ = itemNextElse ? "else if" : "if";
-              itemStart = itemStart + if_ + `(!(${itemNoop})){${fail(caught)}}`;
+              itemStart.push(if_ + `(!(${itemNoop})){${fail(caught)}}`);
             } else {
               B_pushCheck(typeValidationOutput, {
                 c: (_inputVar) => `(${itemNoop})`,
@@ -889,17 +893,17 @@ export const unionDecoder: Builder = (input: Val) => {
             }
           } else if (withExhaustiveCheck) {
             const errorCode = fail(caught);
-            itemStart = itemStart + (itemNextElse ? `else{${errorCode}}` : errorCode);
+            itemStart.push(itemNextElse ? `else{${errorCode}}` : errorCode);
           }
         }
 
         itemIdx = itemIdx + 1;
       }
 
-      return itemStart + itemEnd;
+      return [itemStart, itemEnd];
     };
 
-    let start = "";
+    const start: Code[] = [];
     let end = "";
     let caught = "";
     // If we got a case which always passes,
@@ -1124,29 +1128,32 @@ export const unionDecoder: Builder = (input: Val) => {
                 const arr = byKey[key]!;
                 const typeValidationOutput = arr[1] as Val;
                 const itemsCode = getArrItemsCode(arr, true);
-                const blockCode = B_merge(typeValidationOutput) + itemsCode;
+                const blockCode: Code = [B_merge(typeValidationOutput), itemsCode];
+                const blockCodeIsEmpty = B_isEmptyCode(blockCode);
 
                 const embeddedError = staticBlockFailure;
                 if (embeddedError) {
                   staticBlockFailure = "";
-                  if (blockCode) {
+                  if (!blockCodeIsEmpty) {
                     // Type validation code is still relevant — restore the throw
                     const errorVar = `e` + (idx + keyIdx);
-                    start =
-                      start + `try{${blockCode}throw ${embeddedError}}catch(${errorVar}){`;
+                    start.push(`try{`, blockCode, `throw ${embeddedError}}catch(${errorVar}){`);
                     end = "}" + end;
                     caught = `${caught},${errorVar}`;
                   } else {
                     // The block always fails — drop it
                     // and pass the embedded error along
+                    B_seal(typeValidationOutput);
                     caught = `${caught},${embeddedError}`;
                   }
-                } else if (blockCode) {
+                } else if (!blockCodeIsEmpty) {
                   const errorVar = `e` + (idx + keyIdx);
-                  start = start + `try{${blockCode}}catch(${errorVar}){`;
+                  start.push(`try{`, blockCode, `}catch(${errorVar}){`);
                   end = "}" + end;
                   caught = `${caught},${errorVar}`;
                 } else {
+                  // Empty tree discarded — freeze so a late fill can't be dropped.
+                  B_seal(typeValidationOutput);
                   exit = true;
                 }
               }
@@ -1171,22 +1178,22 @@ export const unionDecoder: Builder = (input: Val) => {
         const itemsCode = getArrItemsCode(arr, false);
 
         const blockCondRef = { contents: "" };
-        const blockCode = B_merge(typeValidationOutput, blockCondRef) + itemsCode;
+        const blockCode: Code = [B_merge(typeValidationOutput, blockCondRef), itemsCode];
         const blockCond = blockCondRef.contents;
 
-        if (blockCode || unionIsPriority(tagFlags[firstSchema.type]!, byKey)) {
+        if (!B_isEmptyCode(blockCode) || unionIsPriority(tagFlags[firstSchema.type]!, byKey)) {
           const if_ = nextElse ? "else if" : "if";
-          start = start + if_ + `(${blockCond}){${blockCode}}`;
+          start.push(if_ + `(${blockCond}){`, blockCode, "}");
           nextElse = true;
         } else {
+          B_seal(typeValidationOutput);
           noop = noop ? `${noop}||${blockCond}` : blockCond;
         }
       }
 
       const errorCode = fail(caught);
-      start =
-        start +
-        (noop
+      start.push(
+        noop
           ? (nextElse ? "else if" : "if") + `(!(${noop})){${errorCode}}`
           : nextElse
             ? `else{${errorCode}}`
@@ -1196,7 +1203,7 @@ export const unionDecoder: Builder = (input: Val) => {
               : errorCode);
     }
 
-    output.cp = output.cp + start + end;
+    output.cp.push(start, end);
 
     // In case if input.var was called, but output.var wasn't
     if (input.i !== output.i) {
@@ -1216,7 +1223,7 @@ export const unionDecoder: Builder = (input: Val) => {
       // Use output.b instead of b because of mergeWithCatch
       // Should refactor mergeWithCatch to make it simpler
       // All of this is a hack to make mergeWithCatch think that there are no changes. eg S.array(S.option(item))
-      if (input.cp === "" && output.cp === "" && initialInline === "i") {
+      if (B_isEmptyCode(input.cp) && B_isEmptyCode(output.cp) && initialInline === "i") {
         // FIXME: Might not be not needed
         input.hd = "";
         input.v = _notVar;
@@ -1424,7 +1431,7 @@ export const valGet = (parent: Val, location: string): Val => {
       f: valFlagNone,
       s: schema,
       e: schema,
-      cp: "",
+      cp: [],
       hd: "",
       path: pathConcat(parent.path, pathAppend),
       g: parent.g,

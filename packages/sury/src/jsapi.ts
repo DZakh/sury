@@ -59,14 +59,14 @@ export const js_to = /* @__PURE__ */ (() => {
       const outputVar = B_varWithoutAllocation(input.g);
       const output = B_next(input, outputVar, target, target);
       output.v = _var;
-      output.cp = `let ${outputVar};try{${output.i}=${B_embed(
+      output.cp.push(`let ${outputVar};try{${output.i}=${B_embed(
         input,
         fn,
       )}(${input.i})}catch(x){${B_failWithArg(
         output,
         (e: unknown) => B_makeInvalidConversionDetails(input, target, e),
         `x`,
-      )}}`;
+      )}}`);
       return output;
     };
   };

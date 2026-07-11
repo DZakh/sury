@@ -53,7 +53,7 @@ export const numberDecoder: Builder = (input: Val) => {
     // Own the `+input` coercion (decl included) in codeFromPrev so it's
     // non-hoistable: feeding a union dispatch (e.g. str->to(option(int))) can't
     // lift the type-narrow check below above its `let v0=+i`.
-    output.cp = `let ${outputVar}=+${input.v()};`;
+    output.cp.push(`let ${outputVar}=+${input.v()};`);
 
     output.vc = [
       {
@@ -151,9 +151,9 @@ export const booleanDecoder: Builder = (input: Val) => {
     output.v = _var;
 
     const inputVar = input.v();
-    output.cp = `let ${outputVar};(${output.i}=${inputVar}==="true")||${inputVar}==="false"||${B_embedInvalidInput(
+    output.cp.push(`let ${outputVar};(${output.i}=${inputVar}==="true")||${inputVar}==="false"||${B_embedInvalidInput(
       input,
-    )};`;
+    )};`);
     return output;
   } else if (!flagUnsafeHas(inputTagFlag, tagFlagBoolean)) {
     return B_unsupportedDecode(input, input.s, input.e);
@@ -182,9 +182,9 @@ export const bigintDecoder: Builder = (input: Val) => {
     const outputVar = B_varWithoutAllocation(input.g);
     const output = B_next(input, outputVar, input.e);
     output.v = _var;
-    output.cp = `let ${outputVar};try{${outputVar}=BigInt(${input.v()})}catch(_){${B_embedInvalidInput(
+    output.cp.push(`let ${outputVar};try{${outputVar}=BigInt(${input.v()})}catch(_){${B_embedInvalidInput(
       input,
-    )}}`;
+    )}}`);
     return output;
   } else if (flagUnsafeHas(inputTagFlag, tagFlagNumber)) {
     return B_next(input, `BigInt(${input.i})`, input.e);

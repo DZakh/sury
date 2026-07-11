@@ -102,7 +102,7 @@ export const recursiveDecoder: Builder = (input) => {
     output = B_next(input, outputVar, expectedSchema, expectedSchema);
     output.v = _var;
 
-    output.cp = `${outputVar}=${recOperation}(${input.i});`;
+    output.cp.push(`${outputVar}=${recOperation}(${input.i});`);
 
     if (isAsync) {
       output.f = (output.f | valFlagAsync);
@@ -110,15 +110,14 @@ export const recursiveDecoder: Builder = (input) => {
   } else {
     // No transform: call for validation but don't capture result
     output = B_refine(input, expectedSchema, undefined, expectedSchema);
-    output.cp = `${recOperation}(${input.i});`;
+    output.cp.push(`${recOperation}(${input.i});`);
   }
 
   output.prev = undefined;
-  output.cp = outputDecl + B_mergeWithPathPrepend(output, input);
-
-  // Un-finalize: this val may be reused as input to a subsequent parser (e.g.
-  // S.transform on a recursive schema) and must accept hoisted decls again.
-  output.fz = undefined;
+  // A fresh array: the merged tree still references the old `cp` array by
+  // reference (no cycle), and this val stays open for later fills — the old
+  // "un-finalize" hack is gone since merge no longer freezes.
+  output.cp = [outputDecl, B_mergeWithPathPrepend(output, input)];
   output.prev = input;
 
   return output;

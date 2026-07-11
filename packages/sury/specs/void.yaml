@@ -4,7 +4,7 @@ ts:
   input: void
   output: void
   instantiations: 254
-  bundleBytes: 3944
+  bundleBytes: 4007
 jsonSchema:
   input: Expected JSON, received void
   output: Expected JSON, received void

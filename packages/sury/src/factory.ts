@@ -397,7 +397,7 @@ export const shapedParser: Builder = (input: Val) => {
         flattenedVal = B_markOutput(assembled, assembled);
       }
       flattenedVals.push(flattenedVal);
-      input.cp = input.cp + B_merge(flattenedVal);
+      input.cp.push(B_merge(flattenedVal));
     }
     input.fv = flattenedVals;
   }
