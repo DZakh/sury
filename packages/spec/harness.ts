@@ -136,11 +136,14 @@ export const identityViolations = (schema: any, spec: Spec): string[] => {
 // directions can differ — e.g. a `.to` transform might make only one side
 // representable. Shared by `scaffoldJsonSchema` (spec new) and
 // `recomputeGoldens` (spec check/--write) so both degrade the same way.
-const toJsonSchemaOrError = (fn: () => unknown): S.Output<typeof S.json> => {
+// Always a string (source text, same formatting as example values) so the
+// success case (the schema itself) and the failure case (the thrown message)
+// are one uniform, one-line field — not a structural union at the YAML level.
+const toJsonSchemaOrError = (fn: () => unknown): string => {
   try {
-    return asJson(fn());
+    return valueToCode(fn());
   } catch (e) {
-    return asJson((e as Error).message);
+    return (e as Error).message;
   }
 };
 const deriveJsonSchema = (schema: any): Spec["jsonSchema"] => ({
@@ -227,12 +230,6 @@ export const serialize = (obj: Spec): string =>
   HEADER + "\n" + stringifyYaml(canonicalize(obj), { lineWidth: 0 });
 
 // ---- golden recomputation --------------------------------------------------
-
-// `S.toJSONSchema` returns the concrete `JSONSchema7` interface, which has no
-// index signature and so doesn't structurally satisfy Sury's generic `JSON`
-// type — even though every JSONSchema7 value is valid JSON data. Bridge the
-// two Sury-internal type declarations at this one boundary.
-const asJson = (v: unknown): S.Output<typeof S.json> => v as S.Output<typeof S.json>;
 
 // An object key needs quotes only when it isn't a valid identifier — matches
 // how a human would hand-write the same literal.

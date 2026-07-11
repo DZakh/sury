@@ -132,11 +132,12 @@ const ts = S.schema({
 
 export const specSchema = S.schema({
   ts,
-  jsonSchema: S.schema({ input: S.json, output: S.json }).with(S.strict).with(S.meta, {
+  jsonSchema: S.schema({ input: S.string, output: S.string }).with(S.strict).with(S.meta, {
     description:
-      "S.toJSONSchema(schema) for both directions, or (per direction) the message " +
-      "S.toJSONSchema threw if that direction can't be represented (e.g. a bigint/symbol " +
-      "field). Filled by `spec check --write`.",
+      "S.toJSONSchema(schema) for both directions, as a one-line source-text string (same " +
+      "formatting as example values) — or (per direction) the message S.toJSONSchema threw " +
+      "if that direction can't be represented (e.g. a bigint/symbol field). Filled by " +
+      "`spec check --write`.",
   }),
   operations,
 })

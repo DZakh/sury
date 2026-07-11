@@ -6,10 +6,8 @@ ts:
   instantiations: 254
   bundleBytes: 3856
 jsonSchema:
-  input:
-    type: string
-  output:
-    type: string
+  input: '{ type: "string" }'
+  output: '{ type: "string" }'
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[0](i);return i}

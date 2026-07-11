@@ -6,14 +6,8 @@ ts:
   instantiations: 19217
   bundleBytes: 9899
 jsonSchema:
-  input:
-    anyOf:
-      - type: string
-      - type: number
-  output:
-    anyOf:
-      - type: string
-      - type: number
+  input: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
+  output: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
 operations:
   parse:
     expression: i=>{if(!(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))){e[0](i)}return i}

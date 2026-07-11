@@ -6,38 +6,8 @@ ts:
   instantiations: 35335
   bundleBytes: 10741
 jsonSchema:
-  input:
-    type: object
-    properties:
-      _id:
-        type: string
-      _rev:
-        type: string
-      _deleted:
-        type: boolean
-      code:
-        type: string
-      name:
-        type: string
-    required:
-      - code
-      - name
-  output:
-    type: object
-    properties:
-      _id:
-        type: string
-      _rev:
-        type: string
-      _deleted:
-        type: boolean
-      code:
-        type: string
-      name:
-        type: string
-    required:
-      - code
-      - name
+  input: '{ type: "object", properties: { _id: { type: "string" }, _rev: { type: "string" }, _deleted: { type: "boolean" }, code: { type: "string" }, name: { type: "string" } }, required: ["code", "name"] }'
+  output: '{ type: "object", properties: { _id: { type: "string" }, _rev: { type: "string" }, _deleted: { type: "boolean" }, code: { type: "string" }, name: { type: "string" } }, required: ["code", "name"] }'
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i||e[5](i);let v0=i["_id"],v1=i["_rev"],v2=i["_deleted"],v3=i["code"],v4=i["name"];if(!(typeof v0==="string"||v0===void 0)){e[0](v0)}if(!(typeof v1==="string"||v1===void 0)){e[1](v1)}if(!(typeof v2==="boolean"||v2===void 0)){e[2](v2)}typeof v3==="string"||e[3](v3);typeof v4==="string"||e[4](v4);return {"_id":v0,"_rev":v1,"_deleted":v2,"code":v3,"name":v4,}}

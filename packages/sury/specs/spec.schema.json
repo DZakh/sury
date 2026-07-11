@@ -110,15 +110,19 @@
     "jsonSchema": {
       "type": "object",
       "properties": {
-        "input": {},
-        "output": {}
+        "input": {
+          "type": "string"
+        },
+        "output": {
+          "type": "string"
+        }
       },
       "additionalProperties": false,
       "required": [
         "input",
         "output"
       ],
-      "description": "S.toJSONSchema(schema) for both directions, or (per direction) the message S.toJSONSchema threw if that direction can't be represented (e.g. a bigint/symbol field). Filled by `spec check --write`."
+      "description": "S.toJSONSchema(schema) for both directions, as a one-line source-text string (same formatting as example values) — or (per direction) the message S.toJSONSchema threw if that direction can't be represented (e.g. a bigint/symbol field). Filled by `spec check --write`."
     },
     "operations": {
       "type": "object",

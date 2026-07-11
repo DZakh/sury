@@ -32,8 +32,8 @@ test("stale golden (expression drifted from what the schema actually compiles to
     {
       "stderr": "✗ string
         goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -12,7 +12,7 @@
-          type: string
+    @@ -10,7 +10,7 @@
+        output: '{ type: "string" }'
       operations:
         parse:
     -     expression: i=>i /* stale */
@@ -57,7 +57,7 @@ test("stale golden (recorded example output no longer matches live behavior)", a
     {
       "stderr": "✗ string
         goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -16,7 +16,7 @@
+    @@ -14,7 +14,7 @@
           examples:
             valid:
               input: '"hello"'
@@ -113,7 +113,7 @@ test("identity claimed but the operation doesn't actually compile to identity", 
         operations.decode: marked \`identity\` but does not compile to identity — use a full op block with examples
         operations.encode: marked \`identity\` but does not compile to identity — use a full op block with examples
         goldens stale — resolve the identity mismatch above first, then \`pnpm spec check string --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -3,23 +3,25 @@
+    @@ -3,21 +3,21 @@
         schema: S.string.with(S.min, 3)
         input: string
         output: string
@@ -122,12 +122,10 @@ test("identity claimed but the operation doesn't actually compile to identity", 
     +   instantiations: 5949
     +   bundleBytes: 4366
       jsonSchema:
-        input:
-          type: string
-    +     minLength: 3
-        output:
-          type: string
-    +     minLength: 3
+    -   input: '{ type: "string" }'
+    -   output: '{ type: "string" }'
+    +   input: '{ type: "string", minLength: 3 }'
+    +   output: '{ type: "string", minLength: 3 }'
       operations:
         parse:
     -     expression: i=>{typeof i==="string"||e[0](i);return i}
@@ -157,7 +155,7 @@ test("full op block claimed but the operation actually compiles to identity", as
       "stderr": "✗ string
         operations.decode: compiles to identity — use \`identity\` instead of an expression + examples
         goldens stale — resolve the identity mismatch above first, then \`pnpm spec check string --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -27,7 +27,10 @@
+    @@ -25,7 +25,10 @@
               input: "null"
               error: Expected string, received null
         decode:
@@ -224,8 +222,8 @@ test("multiple simultaneous problems all get their own guiding message", async (
       "stderr": "✗ string
         ts.bundleBytes: invalid _skip reason "nonsense-reason"
         goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -13,7 +13,7 @@
-          type: string
+    @@ -11,7 +11,7 @@
+        output: '{ type: "string" }'
       operations:
         parse:
     -     expression: i=>i /* stale */
