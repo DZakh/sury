@@ -5937,7 +5937,15 @@ module Schema = {
     | Some({val}) => {
         let v = val->B.Val.scope
         v.hasTransform = Some(true)
-        v.schema = targetSchema
+        // An already-decoded field val carries its truthful output schema —
+        // overwriting it with the declared targetSchema would resurrect
+        // pending `.to` chains that already ran, making downstream `.to`
+        // segments re-decode the converted value (#284). Claim the declared
+        // schema only for not-yet-decoded vals (trusted input), mirroring
+        // getShapedParserOutput which never overwrites it.
+        if !(v.isOutput->X.Option.getUnsafe) {
+          v.schema = targetSchema
+        }
         v.expected = targetSchema
         v->parse
       }

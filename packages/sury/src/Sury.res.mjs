@@ -3738,7 +3738,9 @@ function getShapedSerializerOutput(input, acc, targetSchema, path) {
     if (val !== undefined) {
       let v = scope(val);
       v.t = true;
-      v.s = targetSchema;
+      if (!v.io) {
+        v.s = targetSchema;
+      }
       v.e = targetSchema;
       return parse$1(v);
     }
