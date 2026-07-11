@@ -1,26 +1,7 @@
 import { instanceofCond, isArrayCond, nanCond, objectTagCond, setHas, typeofCond } from "./primitives";
 import { baseSchema, cached, copySchema, getOrRethrow, globalConfig, panic, reversedKey, unknown, updateOutput, valKey, valueOptions } from "./schema";
-import { B_Val_scope, B_embedInvalidInput, B_inlineConst, B_markOutput, B_merge, B_next, B_operationArg, B_refine, B_unsupportedDecode, failInvalidType, noopOperation, operationArgVar } from "./builder";
+import { B_asyncThen, B_embedInvalidInput, B_inlineConst, B_markOutput, B_merge, B_next, B_operationArg, B_refine, B_unsupportedDecode, failInvalidType, noopOperation, operationArgVar } from "./builder";
 import { Builder, Encoder, Flag, Internal, Tag, Val, flagAsync, flagDisableNanNumberValidation, flagUnsafeHas, instanceTag, isLiteral, neverTag, numberTag, objectTag, pathConcat, pathDynamic, pathEmpty, s, tagFlagArray, tagFlagBigint, tagFlagBoolean, tagFlagInstance, tagFlagNaN, tagFlagNull, tagFlagNumber, tagFlagObject, tagFlagString, tagFlagSymbol, tagFlagUndefined, tagFlagUnknown, tagFlags, unknownTag, valFlagAsync } from "./types";
-// Section: Sury.res lines 2256-2708
-// parse / parseDynamic / isAsyncInternal / compileDecoder / getOutputSchema /
-// reverse / getDecoder / nestedLoc / itemCode / neverBuilderFn / never_ /
-// nestedOptionParser / instanceDecoder / instance / typeCheckCond
-//
-// TODO(integration): expects from earlier sections:
-//   - `B` (Builder.B): B_Val_scope, B_next, B_refine, B_merge, B_markOutput,
-//     B_operationArg, B_operationArgVar, B_unsupportedDecode,
-//     B_embedInvalidInput, B_inlineConst, failInvalidType
-//   - `Builder` const: Builder.make (identity cast), Builder.noopOperation
-//   - `setHas` (Sury.res ~2137)
-//   - cond atoms: `typeofCond`, `nanCond`, `isArrayCond`, `objectTagCond`,
-//     `instanceofCond` (Sury.res ~1911-1915)
-// Note on getDecoder2/getDecoder3: they are `@val external` self-references to
-// `getDecoder` (it reads `arguments`). Call sites elsewhere become plain
-// `getDecoder(s1, s2, flag?)` / `getDecoder(s1, s2, s3, flag?)` calls — no
-// separate bindings are emitted here.
-// =============================================================================
-
 export const parse = (input: Val): Val => {
   let valRef: Val = input;
   let appliedEncoderRef: Encoder | undefined = undefined;
@@ -52,23 +33,7 @@ export const parse = (input: Val): Val => {
         valFlagAsync,
       ) /* FIXME: why was it needed? && step.contents !== #convert */
     ) {
-      const operationInputVar = loopInput.v();
-
-      const operationInput = B_Val_scope(loopInput);
-      const operationOutput = parse(operationInput);
-      const operationCode = B_merge(operationOutput);
-      if (operationInput.i !== operationOutput.i || operationCode !== "") {
-        valRef = B_next(
-          loopInput,
-          `${operationInputVar}.then(${operationInputVar}=>{${operationCode}return ${operationOutput.i}})`,
-          operationOutput.s,
-          operationOutput.e,
-        );
-      } else {
-        valRef = B_refine(loopInput, operationOutput.s, undefined, operationOutput.e);
-      }
-      valRef.f = (valRef.f | valFlagAsync);
-      valRef.io = true;
+      valRef = B_asyncThen(loopInput, parse);
     } else if (loopInput.io) {
       // It's guaranteed that to is not None, because it's checked in the while condition
       const to = loopInput.e.to!;
@@ -286,10 +251,6 @@ export const reverse = (schema: Internal): Internal => {
   }
 }
 
-// PORT-NOTE: The ReScript signature `(~s1 as _, ~flag as _=?)` discards its
-// labeled args and the body reads `arguments` directly — so this is a plain
-// (non-arrow, to keep `arguments`) function with dummy params for arity.
-// getDecoder2/getDecoder3 call sites become getDecoder(s1, s2[, s3][, flag]).
 export function getDecoder(
   _s1?: unknown,
   _s2?: unknown,
@@ -440,5 +401,3 @@ export const typeCheckCond = (input: Val, schema: Internal, inputVar: string): s
     return "";
   }
 }
-// =============================================================================
-// Section 05: object/tuple/array/dict/union decoders & encoders

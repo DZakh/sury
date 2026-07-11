@@ -1,34 +1,8 @@
 import { SuryError, unknown } from "./schema";
 import { BGlobal, Check, ErrorDetails, Flag, Internal, Path, SuryErrorRecord, Val, arrayTag, flagAsync, flagNone, flagUnsafeHas, immutableEmptyArray, inlinedValueFromString, pathConcat, pathEmpty, pathFromInlinedLocation, s, shouldPrependPathKey, stringify, tagFlagBigint, tagFlagFunction, tagFlagInstance, tagFlagString, tagFlagSymbol, tagFlagUndefined, tagFlags, toExpression, valFlagAsync, valFlagNone } from "./types";
-// =============================================================================
-// Fragment 02 — module Builder (Sury.res lines 1083-1903)
-// =============================================================================
-//
-// TODO(integration):
-//  - `Builder.make(fn)` / `Builder.encoder(fn)` in ReScript are typed identity
-//    casts (`Obj.magic`). They export NOTHING here — call sites in later
-//    sections translate `Builder.make((~input) => …)` / `Builder.encoder(…)`
-//    to just the plain function expression.
-//  - expects from prelude: `Val`, `Check`, `Builder`, `Encoder`, `BGlobal`,
-//    `Internal`, `ErrorDetails`, `SuryErrorRecord`, `Flag`, `ValFlag`,
-//    `TagFlag`, `InternalError`, `stringify`, `toExpression`, `pathEmpty`,
-//    `pathConcat`, `pathFromInlinedLocation`, `inlinedValueFromString`,
-//    `unknown`, `arrayTag`, `s` (symbol), `shouldPrependPathKey`,
-//    `immutableEmptyArray`.
-//
-// PORT-NOTE: `type s<'value>` (the effect ctx record, Sury.res line 1050) is
-// prelude territory but core.ts has no runtime/type for it yet — `EffectCtx`
-// is declared here for `effectCtx`'s return type.
 export type EffectCtx = {
   fail: (message: string, path?: Path) => never;
 };
-
-// PORT-NOTE: `%raw("this")`-based functions (`_var`, `_bondVar`, `_prevVar`,
-// `_notVarBeforeValidation`, `_notVarAtParent`, `_notVar`) and
-// `failInvalidType` are standalone consts (not only `B.` members) because
-// they're compared/stored by reference (`val.v = _var`, `val.v !== _var`,
-// `check.f === failInvalidType`). `B` re-exports them so external call sites
-// can keep saying `_var` / `failInvalidType`.
 
 export function _var(this: Val): string {
   return this.i;
@@ -143,9 +117,6 @@ export const failInvalidType = (input: Val): (value: unknown) => ErrorDetails =>
   return B_invalidInputBuilder(undefined, undefined, override)(input);
 }
 
-// The B "module" is flattened to individual `B_`-prefixed functions (instead
-// of one object literal) so bundlers can tree-shake each helper separately —
-// exactly the shape the ReScript compiler used to emit for `module B`.
 export const B_embed = (b: Val, value: unknown): string => {
   const e = b.g.e;
   const l = e.length;
@@ -569,7 +540,6 @@ export const B_pushCheck = (val: Val, check: Check): void => {
 // (emit at pre-transform slot); output checks wrap val via refine.
 // When valInput.prev is None, input checks fold into the output
 // wrap so emit has a prev.var(). Sets isOutput on the result.
-// TODO: async output refiner must run inside .then(), not on the Promise.
 export const B_markOutput = (val: Val, valInput: Val): Val => {
   let deferredInputChecks: Check[] | undefined;
   const inputRefiner = valInput.e.inputRefiner;
@@ -600,16 +570,48 @@ export const B_markOutput = (val: Val, valInput: Val): Val => {
     outputChecks = undefined;
   }
 
+  const allChecks =
+    deferredInputChecks !== undefined
+      ? outputChecks !== undefined
+        ? deferredInputChecks.concat(outputChecks)
+        : deferredInputChecks
+      : outputChecks;
+
   let result: Val;
-  if (deferredInputChecks !== undefined && outputChecks !== undefined) {
-    result = B_refine(val, undefined, deferredInputChecks.concat(outputChecks));
-  } else if (deferredInputChecks !== undefined) {
-    result = B_refine(val, undefined, deferredInputChecks);
-  } else if (outputChecks !== undefined) {
-    result = B_refine(val, undefined, outputChecks);
-  } else {
+  if (allChecks === undefined) {
     result = val;
+  } else if (flagUnsafeHas(val.f, valFlagAsync)) {
+    // An async val's var holds a Promise (e.g. a union case resolved to an
+    // async member), so the checks must observe the resolved value inside
+    // .then().
+    result = B_asyncThen(val, (scoped) => B_refine(scoped, undefined, allChecks));
+  } else {
+    result = B_refine(val, undefined, allChecks);
   }
+  result.io = true;
+  return result;
+}
+
+// Continue an async val: run `transform` on a scope of the resolved value
+// and emit it inside .then(). Falls back to a flag-only refine when the
+// continuation produced no code (nothing to await for).
+export const B_asyncThen = (val: Val, transform: (scoped: Val) => Val): Val => {
+  const inputVar = val.v();
+  const scoped = B_Val_scope(val);
+  const output = transform(scoped);
+  const code = B_merge(output);
+  let result: Val;
+  if (scoped.i !== output.i || code !== "") {
+    result = B_next(
+      val,
+      `${inputVar}.then(${inputVar}=>{${code}return ${output.i}})`,
+      output.s,
+      output.e,
+    );
+  } else {
+    result = B_refine(val, output.s, undefined, output.e);
+  }
+  result.f = (result.f | valFlagAsync) as Flag;
   result.io = true;
   return result;
 }
@@ -829,9 +831,6 @@ export const B_mergeWithPathPrepend = (
   }
 }
 
-// Kept a named `function` (the one deliberate exception to this file's
-// arrow-function style) so `fn.toString()` reads `function noopOperation(i)`
-// — tests (and the U.res wallaby workaround) match on that exact text.
 export function noopOperation(i: unknown): unknown {
   return i;
 }

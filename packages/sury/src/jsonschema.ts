@@ -8,49 +8,6 @@ import { B_makeInvalidInputDetails, B_operationArg } from "./builder";
 import { never_, parse, reverse } from "./parse";
 import { Internal, Path, arrayTag, booleanTag, flagNone, flagUnsafeHas, isLiteral, isOptional, neverTag, nullTag, numberTag, objectTag, pathConcat, pathDynamic, pathEmpty, pathFromLocation, refTag, stringTag, tagFlagArray, tagFlagObject, tagFlagUnion, tagFlags, toExpression, undefinedTag, unionTag, unknownTag } from "./types";
 import { Metadata_Id_internal, Metadata_get, Metadata_set, Option_getOr, assertOrThrow, defsPath, refine, __setStandardJSONSchemaConverter, strict } from "./operations";
-// Fragment 11 — JSON Schema (Sury.res lines 7137-7971, end of file)
-// module RescriptJSONSchema, toJSONSchemaOptions, targetSchemaUri,
-// toJSONSchema, enableStandardJSONSchema, extendJSONSchema,
-// castAnySchemaToJsonableS, fromJSONSchema, min, max, length, trailing
-// public re-typings.
-//
-// TODO(integration): expects from earlier sections:
-//   - prelude: Internal, Val, Flag, TagFlag, Path helpers (pathEmpty,
-//     pathDynamic, pathConcat, pathFromLocation), InternalError, tag consts
-//     (objectTag, unknownTag, refTag, stringTag, arrayTag, numberTag,
-//     undefinedTag, unionTag), baseSchema, isLiteral, isOptional,
-//     toExpression, stringify, unknown, globalConfig
-//   - Builder section: B_operationArg, B_makeInvalidInputDetails, parse
-//   - reverse (schema reversing), Literal (Literal_parse)
-//   - MetadataModule (module Metadata): Metadata_Id_internal,
-//     Metadata_get, Metadata_set
-//   - defsPath, jsonName
-//   - section 06: standardJSONSchemaRef ({ contents } ref cell) and the
-//     Standard JSON Schema options type (see PORT-NOTE on JsonSchemaTarget /
-//     StandardJsonSchemaOptions below — drop the local aliases here if
-//     section 06 already declares them)
-//   - factories/public fns: int, json, never_, null_ (rename of `null` — a
-//     reserved word in TS; whatever name section 10 picked for
-//     `let null = item => ...` must be used here), option, Option_getOr,
-//     definitionToSchema, schemaFactory, object, dict,
-//     tuple, array, union, literal, strict, refine, meta, assertOrThrow,
-//     string, bool, float, email, url, uuid, isoDateTime, pattern
-//   - section 09 refinements: intMin, intMax, floatMin, floatMax,
-//     stringMinLength, stringMaxLength, stringLength, arrayMinLength,
-//     arrayMaxLength, arrayLength
-//
-// PORT-NOTE: no runtime values had to be imported from JSONSchema.res or
-// StandardSchema.res — everything runtime-relevant there is `%identity`
-// externals (Arrayable.single/array, Mutable.fromReadOnly/toReadOnly,
-// Result casts) or `Object.assign` (Mutable.mixin), all inlined below.
-// Their types are ported as loose TS aliases with the RUNTIME field names
-// (`$ref`, `$schema`, `$defs`, `type`, `if`, `else` — the `@as(...)` names,
-// not the ReScript field names `ref`/`schema`/`defs`/`type_`/`if_`/`else_`).
-// =============================================================================
-
-// -----------------------------------------------------------------------------
-// JSONSchema.res types (loose port; runtime field names)
-// -----------------------------------------------------------------------------
 
 /**
  * Primitive type
@@ -65,27 +22,14 @@ export type JSONSchemaTypeName =
   | "array"
   | "null";
 
-// PORT-NOTE: JSONSchema.Arrayable.t<'item> is an untagged `item | item[]`;
-// `Arrayable.single`/`Arrayable.array` are %identity and are dropped at call
-// sites, `Arrayable.isArray` is Array.isArray, and `Arrayable.classify` is an
-// inline Array.isArray test.
 export type JSONSchemaArrayable<Item> = Item | Item[];
 
-// PORT-NOTE: JSONSchema's `definition` is `@unboxed
-// Schema(t) | @as(false) Never | @as(true) Any` — at runtime a definition is
-// the schema object itself, `false`, or `true`. The `Schema(...)` wrapping
-// at construction sites is a no-op and is dropped; `Never` -> `false`,
-// `Any` -> `true`; the `Schema(t)` pattern -> `typeof d !== "boolean"`.
 export type JSONSchemaDefinition = JSONSchemaT | boolean;
 
 /**
  * JSON Schema v7
  * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01
  */
-// PORT-NOTE: JSONSchema.t and JSONSchema.Mutable.t are the same runtime
-// object (Mutable.fromReadOnly/toReadOnly are %identity); TS has no
-// readonly/mutable split worth keeping here, so a single mutable type serves
-// both, and Mutable.fromReadOnly/toReadOnly calls are dropped.
 export type JSONSchemaT = {
   $id?: string;
   $ref?: string;
@@ -175,38 +119,15 @@ export type JSONSchemaT = {
   examples?: unknown[];
 };
 
-// -----------------------------------------------------------------------------
-// StandardSchema.res JsonSchema types (loose port)
-// -----------------------------------------------------------------------------
-
-// PORT-NOTE: StandardSchema.JsonSchema.target is `@unboxed | @as("draft-07")
-// Draft07 | @as("draft-2020-12") Draft202012 | @as("openapi-3.0") OpenApi30 |
-// Unknown(string)` — at runtime it's just a string; the known dialects are
-// compared as string literals, everything else is the `Unknown` case.
-// TODO(integration): if section 06 already declares these two aliases for
-// standardJSONSchemaRef's signature, keep a single declaration.
 export type JsonSchemaTarget = "draft-07" | "draft-2020-12" | "openapi-3.0" | (string & {});
 
-// `StandardJSONSchemaV1.Options`.
 export type StandardJsonSchemaOptions = {
   target: JsonSchemaTarget;
   libraryOptions?: Record<string, unknown>;
 };
 
-// -----------------------------------------------------------------------------
-// module RescriptJSONSchema
-// -----------------------------------------------------------------------------
-//
-// PORT-NOTE: ported as standalone functions (the mutually recursive
-// encodeToJsonSchema / internalToJSONSchema / internalToJSONSchemaBase group
-// needs plain function declarations) plus a `RescriptJSONSchema` const
-// object so qualified call sites (`jsonSchemaMerge`, `.internalToJSONSchema`,
-// `.jsonSchemaMetadataId`) keep reading like the source. The `include
-// JSONSchema` is covered by the type aliases above.
-
 export const jsonSchemaMetadataId: string = /* @__PURE__ */ Metadata_Id_internal("JSONSchema");
 
-// @val external merge: (@as(json`{}`) _, t, t) => t = "Object.assign"
 export const jsonSchemaMerge = (a: JSONSchemaT, b: JSONSchemaT): JSONSchemaT => {
   return Object.assign({}, a, b);
 }
@@ -337,7 +258,6 @@ export const internalToJSONSchemaBase = (
       case "url":
         jsonSchema.format = "uri";
         break;
-      // Some(Cuid) | Some(JSON) | None => ()
       default:
         break;
     }
@@ -523,7 +443,7 @@ export const internalToJSONSchemaBase = (
       );
       jsonSchema.additionalProperties =
         Object.keys(childJsonSchema as unknown as Record<string, unknown>).length === 0
-          ? true // JSONSchema.Any
+          ? true
           : childJsonSchema;
     } else {
       const required: string[] = [];
@@ -549,9 +469,8 @@ export const internalToJSONSchemaBase = (
       jsonSchema.type = "object";
       jsonSchema.properties = jsonProperties;
       if (additionalItems === "strict") {
-        jsonSchema.additionalProperties = false; // JSONSchema.Never
+        jsonSchema.additionalProperties = false;
       }
-      // Strip | Schema(_) => ()
       if (required.length !== 0) {
         jsonSchema.required = required;
       }
@@ -568,7 +487,7 @@ export const internalToJSONSchemaBase = (
       jsonSchema.type = "null";
     }
   } else if (tag === neverTag) {
-    jsonSchema.not = {}; // Schema({})
+    jsonSchema.not = {};
   } else {
     throw new SuryError(
       B_makeInvalidInputDetails(
@@ -590,11 +509,6 @@ export const internalToJSONSchemaBase = (
 
   return jsonSchema;
 }
-
-
-// -----------------------------------------------------------------------------
-// toJSONSchema / enableStandardJSONSchema / extendJSONSchema
-// -----------------------------------------------------------------------------
 
 export type toJSONSchemaOptions = { target?: JsonSchemaTarget };
 
@@ -646,7 +560,7 @@ export const toJSONSchema = (schema: Internal, options?: toJSONSchemaOptions): J
     rootSchema,
     target
   );
-  delete (defs as Record<string, unknown>).JSON; // %raw(`delete defs.JSON`)
+  delete (defs as Record<string, unknown>).JSON;
   const defsKeys = Object.keys(defs);
   if (defsKeys.length) {
     // Reuse the same object to prevent allocations
@@ -702,21 +616,6 @@ export const extendJSONSchema = (schema: Internal, jsonSchema: JSONSchemaT): Int
   );
 }
 
-// -----------------------------------------------------------------------------
-// fromJSONSchema
-// -----------------------------------------------------------------------------
-
-// PORT-NOTE: `castAnySchemaToJsonableS` is a bare `Obj.magic` (a pure no-op
-// type re-cast, `schema<'any> => schema<JSON.t>`). It has no runtime body, so
-// no value is emitted here and every `->castAnySchemaToJsonableS` call below
-// is simply dropped. If the public bindings layer needs the name, it's a TS
-// `as` cast there.
-
-// PORT-NOTE: the `let rec fromJSONSchema = { let helper = ...; jsonSchema => ... }`
-// block-scoped helpers (primitiveToSchema, toIntSchema,
-// definitionToDefaultValue) are hoisted to module-scope functions —
-// same behavior, they close over nothing but module-level bindings.
-
 const primitiveToSchema = (primitive: unknown): Internal => {
   return Literal_parse(primitive);
 }
@@ -755,10 +654,8 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
     if (typeof definition !== "boolean") {
       return fromJSONSchema(definition);
     } else if (definition === true) {
-      // Any
       return anySchema;
     } else {
-      // Never
       return never_();
     }
   };
@@ -795,10 +692,8 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
       const additionalProperties = jsonSchema.additionalProperties;
       if (additionalProperties !== undefined) {
         if (additionalProperties === true) {
-          // Any
           schema = dict(anySchema);
         } else if (additionalProperties === false) {
-          // Never
           schema = strict(object(() => {}));
         } else {
           schema = dict(fromJSONSchema(additionalProperties));
@@ -1015,9 +910,6 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
     jsonSchema.examples !== undefined ||
     jsonSchema.title !== undefined
   ) {
-    // PORT-NOTE: ReScript's `title: ?jsonSchema.title` optional-field punning
-    // assigns the option value directly (present-with-undefined when None) —
-    // a plain object literal with possibly-undefined fields matches that.
     schema = meta(schema, {
       title: jsonSchema.title,
       description: jsonSchema.description,
@@ -1029,10 +921,6 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
   return schema;
 }
 
-// -----------------------------------------------------------------------------
-// min / max / length
-// -----------------------------------------------------------------------------
-
 export const min = (schema: Internal, minValue: number, maybeMessage?: string): Internal => {
   switch (schema.type) {
     case stringTag:
@@ -1040,7 +928,6 @@ export const min = (schema: Internal, minValue: number, maybeMessage?: string): 
     case arrayTag:
       return arrayMinLength(schema, minValue, maybeMessage);
     case numberTag:
-      // Number({format: Int32 | Port}) vs Number(_)
       return schema.format === "int32" || schema.format === "port"
         ? intMin(schema, minValue, maybeMessage)
         : floatMin(schema, minValue as unknown as number, maybeMessage);
@@ -1058,7 +945,6 @@ export const max = (schema: Internal, maxValue: number, maybeMessage?: string): 
     case arrayTag:
       return arrayMaxLength(schema, maxValue, maybeMessage);
     case numberTag:
-      // Number({format: Int32 | Port}) vs Number(_)
       return schema.format === "int32" || schema.format === "port"
         ? intMax(schema, maxValue, maybeMessage)
         : floatMax(schema, maxValue as unknown as number, maybeMessage);
@@ -1081,22 +967,3 @@ export const length = (schema: Internal, length: number, maybeMessage?: string):
       );
   }
 }
-
-// -----------------------------------------------------------------------------
-// Trailing public re-typings (Sury.res lines 7949-7971)
-// -----------------------------------------------------------------------------
-//
-// PORT-NOTE: every one of these is a PURE NO-OP — a bare `Obj.magic` (or
-// `castToPublic` for `unknown`) that re-types an existing function/value from
-// its `internal`-returning form to the public `t<'x>`-returning form without
-// touching the runtime value. In this TS port the runtime object is `Internal`
-// everywhere and the public typing lives in the bindings layer, so NO runtime
-// code is emitted for any of them. Listed for completeness (all no-ops):
-//
-//   nullAsUnit, never_, unknown (castToPublic of the `unknown` schema const),
-//   unit, nullLiteral, nan, string, bool, int, float, bigint, symbol, date,
-//   json, jsonString, jsonStringWithSpace, uint8Array, isoDateTime, port,
-//   email, uuid, cuid, url
-//
-// The bindings layer (Sury.res / S.d.ts) should re-export the already-defined
-// functions of the same names under their public types.

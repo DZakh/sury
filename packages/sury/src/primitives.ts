@@ -1,19 +1,6 @@
 import { baseSchema, cached } from "./schema";
 import { B_embed, B_embedInvalidInput, B_inlineConst, B_next, B_nextConst, B_refine, B_unsupportedDecode, B_varWithoutAllocation, _var, failInvalidType } from "./builder";
 import { Builder, Check, Internal, Tag, Val, bigintTag, booleanTag, flagDisableNanNumberValidation, flagUnsafeHas, instanceTag, isLiteral, nanTag, nullTag, numberTag, objectTag, stringTag, symbolTag, tagFlagBigint, tagFlagBoolean, tagFlagNaN, tagFlagNull, tagFlagNumber, tagFlagRef, tagFlagString, tagFlagSymbol, tagFlagUndefined, tagFlagUnion, tagFlagUnknown, tagFlags, undefinedTag, unknownTag } from "./types";
-// =============================================================================
-// Fragment 03 — primitives (Sury.res lines 1905-2255)
-// int32FormatValidation, typeofCond, nanCond, isArrayCond, objectTagCond,
-// instanceofCond, numberDecoder, float, int, inputToString, stringDecoderFn,
-// string, booleanDecoder, bool, bigintDecoder, bigint, symbolDecoder, symbol,
-// setHas, jsonName, literalDecoder, unit, nullLiteral, nan, Literal.
-//
-// TODO(integration): expects from the Builder/B section (earlier section):
-//   B_embed, B_refine, B_next, B_nextConst, B_varWithoutAllocation, _var,
-//   B_unsupportedDecode, failInvalidType, B_embedInvalidInput, B_inlineConst
-// TODO(integration): expects from the prelude: TagFlag, Flag, cached,
-//   baseSchema, isLiteral, typeOf, tag consts, Internal, Val, Check, Builder.
-// =============================================================================
 
 export const int32FormatValidation = (inputVar: string) => {
   return `${inputVar}<=2147483647&&${inputVar}>=-2147483648&&${inputVar}%1===0`;
@@ -27,8 +14,6 @@ export const nanCond = (inputVar: string): string => `Number.isNaN(${inputVar})`
 export const isArrayCond = (inputVar: string): string => `Array.isArray(${inputVar})`;
 export const objectTagCond = (inputVar: string): string =>
   `${typeofCond(objectTag)(inputVar)}&&${inputVar}`;
-// PORT-NOTE: `class` is a reserved word in TS — the labeled arg `~class` is
-// ported as the parameter name `class_`.
 export const instanceofCond = (b: Val, class_: unknown) => (inputVar: string): string =>
   `${inputVar} instanceof ${B_embed(b, class_)}`;
 
@@ -100,10 +85,6 @@ export const int = () =>
     s.decoder = numberDecoder;
   });
 
-// PORT-NOTE: the source's `let rec inputToString = ... and stringDecoderFn =
-// ... and string = ...` mutual-recursion group falls inside this section's
-// line range, so all three are ported here (the name list in the task omitted
-// stringDecoderFn/string, but they are inseparable from inputToString).
 export const inputToString = (input: Val): Val => {
   return B_next(input, `""+${input.i}`, string());
 }
@@ -340,4 +321,3 @@ export const Literal_parse = (value: unknown): Internal => {
     }
   }
 }
-// =============================================================================

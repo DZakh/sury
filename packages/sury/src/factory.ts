@@ -5,55 +5,13 @@ import { arrayDecoder, completeObjectVal, makeObjectVal, objectDecoder, optionFa
 import { getOutputSchema, parse, reverse } from "./parse";
 import { baseSchema, copySchema, globalConfig, panic, updateOutput } from "./schema";
 import { Internal, Path, Tag, Val, arrayTag, immutableEmptyArray, inlinedValueFromString, instanceTag, isLiteral, isSchemaObject, itemSymbol, objectTag, pathConcat, pathEmpty, pathFromInlinedLocation, toExpression } from "./types";
-// =============================================================================
-// Fragment 08 — module Schema (Sury.res lines 5485-6177)
-// `module Schema` (definition-to-schema factory) + `schema`, `js_schema`,
-// `literal`, `enum`.
-//
-// TODO(integration): expects from other sections:
-//   - getOutputSchema
-//   - objectDecoder, arrayDecoder, literalDecoder
-//   - optionFactory, OptionModule (Option_getOr)
-//   - unit (the unit schema factory, `unit()`)
-//   - makeObjectVal, completeObjectVal
-//   - valGet
-//   - parse, reverse
-//   - Literal (Literal_parse)
-//   - unionFactory
-//   - B (B_Val_scope, B_Val_Object_add, B_Val_Object_merge, B_nextConst,
-//     _notVarAtParent, B_markOutput, B_merge, B_inlineLocation,
-//     B_invalidOperation)
-//   - ObjectCtx type (module Object's `Object.s` ctx record — runtime keys:
-//     f/fieldOr/tag/nested/flatten) from the Object section
-//   - TupleCtx type (module Tuple's `Tuple.s` — runtime keys: item/tag)
-//
-// From the prelude: Internal, Val, baseSchema, copySchema, updateOutput,
-// globalConfig, InternalError, itemSymbol, isLiteral, isSchemaObject,
-// toExpression, typeOf, objectTag, arrayTag, instanceTag,
-// inlinedValueFromString, immutableEmptyArray, pathEmpty, pathConcat,
-// pathFromInlinedLocation, Path.
-//
-// PORT-NOTE: `module Schema` is exported as `SchemaModule` (the name `Schema`
-// is taken by the schema constructor in the prelude). Its members are defined
-// as standalone functions (mutual recursion between shape/nested/object/
-// definitionToSchema/... is awkward inside an object literal) with
-// `schema`-prefixed names where the bare name would collide with other
-// sections (`schemaShape`, `schemaNested`, `schemaObject`, `schemaTuple`,
-// `schemaFactory`), then attached to `SchemaModule` so call sites read
-// `schemaFactory`, `schemaObject`, etc.
-// =============================================================================
 
-// module Schema = {
-
-// type rec shapedSerializerAcc — internal accumulator for shapedSerializer.
-// Field names are the runtime names (no @as on this record).
 type ShapedSerializerAcc = {
   val?: Val;
   properties?: Record<string, ShapedSerializerAcc>;
   flattened?: ShapedSerializerAcc[];
 };
 
-// Schema.s — the ctx passed to S.schema's definer. @as("m") matches.
 export type SchemaCtx = {
   m: (schema: Internal) => unknown;
 };
@@ -65,9 +23,6 @@ const inputFrom = immutableEmptyArray as string[];
 //   It shouldn't be used from ReScript and
 //   needed only because we use @as for field to reduce bundle-size
 //   of ReScript compiled code
-// PORT-NOTE: lifted to top level as `AdvancedObjectCtx`. Runtime keys:
-// `field` (@as("field") _jsField) plus the spread `...Object.s` keys
-// (`f` for field via @as("f"), fieldOr, tag, nested, flatten).
 export type AdvancedObjectCtx = {
   field: (fieldName: string, schema: Internal) => unknown;
   f: (fieldName: string, schema: Internal) => unknown;
@@ -76,11 +31,6 @@ export type AdvancedObjectCtx = {
   nested: (fieldName: string) => AdvancedObjectCtx;
   flatten: (schema: Internal) => unknown;
 };
-
-// module Definition = { ... } — both members are @inline one-liners, inlined
-// at use sites below per conventions:
-//   isNode(definition) = definition->typeof === objectTag && definition !== null
-//   toEmbededItem(definition) = definition[itemSymbol]
 
 const proxifyShapedSchema = (schema: Internal, from: string[], fromFlattened?: number): unknown => {
   const mut = copySchema(getOutputSchema(schema));
@@ -574,8 +524,6 @@ const getShapedSerializerOutput = (
           }
         }
       } else {
-        // PORT-NOTE: the source shadows `path` here; renamed to `path2` (TS
-        // can't redeclare a parameter in the same scope).
         const path2 =
           targetSchema.from !== undefined
             ? path + targetSchema.from.map((item) => `["${item}"]`).join("")
@@ -607,7 +555,6 @@ const definitionToShapedSchema = (definition: unknown): Internal => {
   const s = copySchema(
     traverseDefinition(
       definition,
-      // Definition.toEmbededItem
       (definition: unknown) =>
         (definition as Record<symbol, Internal | undefined>)[itemSymbol]
     )
@@ -630,7 +577,6 @@ const traverseDefinition = (
   definition: unknown,
   onNode: (node: unknown) => Internal | undefined
 ): Internal => {
-  // Definition.isNode
   if ((typeof definition as Tag) === objectTag && definition !== null) {
     const s = onNode(definition);
     if (s !== undefined) {
@@ -690,12 +636,6 @@ export const schemaFactory = (definer: (ctx: unknown) => unknown): Internal => {
   return definitionToSchema(definer(schemaCtx as unknown));
 }
 
-// PORT-NOTE: `module Schema` exported as SchemaModule (name `Schema` is taken
-// by the schema constructor in the prelude). Members defined as standalone
-// functions above and attached here so call sites can use SchemaModule.*.
-
-// } — end module Schema
-
 // Identifier aliases (not `schemaFactory` property reads) so esbuild
 // can tree-shake: a property-read initializer is treated as possibly
 // side-effectful and would retain the whole schema machinery in every bundle.
@@ -706,10 +646,7 @@ export const js_schema = (definition: unknown): Internal => {
 }
 export const literal = js_schema;
 
-// PORT-NOTE: `enum` is a reserved word in TS — defined as `enum_` and
-// re-exported under the name `enum` (legal as an export alias).
 const enum_ = (values: unknown[]): Internal => {
   return unionFactory(values.map(literal));
 }
 export { enum_ as enum };
-// =============================================================================

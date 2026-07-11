@@ -5,31 +5,6 @@ import type { JSONSchemaT, StandardJsonSchemaOptions } from "./jsonschema";
 import { compileDecoder, getDecoder, getOutputSchema, isAsyncInternal, reverse } from "./parse";
 import { B_effectCtx, B_embed, B_embedTransformation, B_inlineConst, B_invalidInputBuilder, B_invalidOperation, B_mergeWithPathPrepend, B_next, B_refine, B_varWithoutAllocation, EffectCtx, _var } from "./builder";
 import { AdditionalItems, Builder, Check, Internal, SchemaErrorMessage, SuryErrorRecord, Tag, Val, flagAsync, objectTag, pathEmpty, pathFromArray, pathToArray, refTag, s, toExpression, undefinedTag, valFlagAsync, vendor } from "./types";
-// =============================================================================
-// Fragment 06 — operations (Sury.res lines 4187–4863)
-// =============================================================================
-//
-// TODO(integration): expects from other sections:
-//   - B (Builder.B const object: embed, next, refine, varWithoutAllocation,
-//     _var, mergeWithPathPrepend, inlineConst, embedTransformation, effectCtx,
-//     invalidOperation, invalidInputBuilder)
-//   - compileDecoder(schema, expected, flag, defs)
-//   - getDecoder(...args) — variadic (schemas..., flag?) decoder cache/compiler
-//   - reverse(schema)
-//   - getOutputSchema(schema)
-//   - isAsyncInternal(schema, defs)
-//   - unionFactory(items)
-//   - Literal (Literal_parse)
-//   - literalDecoder
-//   - nullLiteral(), unit() — literal factories
-// From the prelude (already in core.ts): Internal, Val, Check, Builder, Flag,
-// ValFlag, Path helpers, InternalError, globalConfig, baseSchema, cached,
-// copySchema, updateOutput, unknown, noopDecoder, schemaPrototype, vendor, s,
-// valueOptions, configurableValueOptions, valKey, typeOf, objectTag,
-// undefinedTag, refTag, toExpression.
-//
-// PORT-NOTE: `JsResult` is defined here (first fragment to need it); if
-// another fragment also defines it, dedupe at integration time.
 
 export const recursiveDecoder: Builder = (input) => {
   const expectedSchema = input.e;
@@ -142,9 +117,6 @@ export const recursiveDecoder: Builder = (input) => {
   return output;
 };
 
-// PORT-NOTE: StandardSchema/JSONSchema types are ported as loose, type-only
-// aliases (no runtime import allowed here). `JSONSchemaT` stands in for
-// JSONSchema.t.
 export type StandardIssue = {
   message: string;
   path?: unknown[];
@@ -212,9 +184,6 @@ Object.defineProperty(schemaPrototype, "~standard", {
             issues: [
               {
                 message: error.reason,
-                // PORT-NOTE: the source maps each key through the unboxed
-                // `StandardSchema.Issue.String` constructor, which is an
-                // identity at runtime — the map is dropped here.
                 path:
                   error.path === pathEmpty ? undefined : pathToArray(error.path),
               },
@@ -237,16 +206,6 @@ Object.defineProperty(schemaPrototype, "~standard", {
 });
 
 // =============
-// Builder functions
-// =============
-
-
-
-
-
-
-
-// =============
 // Operations
 // =============
 
@@ -257,8 +216,6 @@ export const getAssertResult = (): Internal => {
     s.noValidation = true;
   });
 }
-
-
 
 export const assertOrThrow = (any: unknown, schema: Internal): void => {
   (getDecoder(unknown, schema, getAssertResult()) as (input: unknown) => unknown)(any);
@@ -272,8 +229,6 @@ export const assertAsyncOrThrow = (any: unknown, schema: Internal): Promise<void
   )(any);
 }
 
-
-
 export const isAsync = (schema: Internal): boolean => {
   if (schema.isAsync === undefined) {
     return isAsyncInternal(schema, 0 as unknown as Record<string, Internal>);
@@ -282,8 +237,6 @@ export const isAsync = (schema: Internal): boolean => {
   }
 }
 
-// PORT-NOTE: jsResult<'v> ported as a `success`-discriminated union per
-// conventions.
 export type JsResult<V> =
   | { success: true; value: V }
   | { success: false; error: SuryErrorRecord };
@@ -318,13 +271,8 @@ export const js_safeAsync = <V>(fn: () => Promise<V>): Promise<JsResult<V>> => {
   }
 }
 
-// PORT-NOTE: `module Metadata` → flat `Metadata_*` functions. `Id.t<'metadata>` is a string at
-// runtime; `unionToKey` was `%identity` and is dropped.
 export type MetadataId = string;
 
-// Flat functions (former ReScript `module Metadata` — no namespace object,
-// so unused metadata helpers tree-shake away). `Id.t<'metadata>` is a string
-// at runtime.
 export const Metadata_Id_make = (namespace: string, name: string): MetadataId => {
   return `m:${namespace}:${name}`;
 };
@@ -444,9 +392,6 @@ export type TransformDefinition<Input = unknown, Output = unknown> = {
   s?: (output: Output) => Input;
 };
 
-// PORT-NOTE: `s<'output>` (the effect ctx passed to the transformer) is what
-// `B_effectCtx` returns: `{ fail(message, path?): never }`.
-
 export const transform = (
   schema: Internal,
   transformer: (ctx: EffectCtx) => TransformDefinition
@@ -494,16 +439,11 @@ export const transform = (
 }
 
 export const nullAsUnit = (): Internal => {
-  // PORT-NOTE: local `s` renamed to `schema` — `s` is the module-level error
-  // identity symbol in this file.
   const schema = copySchema(nullLiteral());
   schema.to = unit();
   return schema;
 }
 
-// PORT-NOTE: `Option.default = Value(unknown) | Callback(unit => unknown)` is
-// a regular (boxed) variant used only within this module; ported with a
-// string `TAG` discriminant — the representation never escapes.
 export type OptionDefault =
   | { TAG: "Value"; _0: unknown }
   | { TAG: "Callback"; _0: () => unknown };
@@ -599,8 +539,6 @@ export const Option_getOr = (schema: Internal, defalutValue: unknown): Internal 
 export const Option_getOrWith = (schema: Internal, defalutCb: () => unknown): Internal =>
   Option_getWithDefault(schema, { TAG: "Callback", _0: defalutCb });
 
-// PORT-NOTE: `Object.s` (the object ctx record) → `ObjectCtx`; field names are
-// the runtime names from `@as` (`f` for `field`, others unchanged).
 export type ObjectCtx = {
   // @as("f") — field
   f: (location: string, schema: Internal) => unknown;
@@ -673,10 +611,7 @@ export const deepStrict = (schema: Internal): Internal => {
   return ObjectModule.setAdditionalItems(schema, "strict", true);
 }
 
-// PORT-NOTE: `module Tuple` contains only the ctx record type — no runtime
-// const is emitted; `Tuple.s` → `TupleCtx`.
 export type TupleCtx = {
   item: (idx: number, schema: Internal) => unknown;
   tag: (idx: number, value: unknown) => void;
 };
-// =============================================================================

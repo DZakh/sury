@@ -785,6 +785,19 @@ test("Successfully parses async schema", async (t) => {
   expectTypeOf(value).toEqualTypeOf<S.Result<string>>();
 });
 
+test("Union refiner observes the resolved value when a member is async", async (t) => {
+  const asyncString = S.string.with(S.asyncDecoderAssert, async () => {});
+  const seen: unknown[] = [];
+  const schema = S.union([asyncString, S.number]).with(S.refine, (value) => {
+    seen.push(value);
+    return !((value as unknown) instanceof Promise);
+  });
+
+  t.expect(await S.asyncParser(schema)("hi")).toBe("hi");
+  t.expect(await S.asyncParser(schema)(42)).toBe(42);
+  t.expect(seen).toEqual(["hi", 42]);
+});
+
 test("Fails to parses async schema", async (t) => {
   const schema = S.string.with(S.asyncDecoderAssert, async () => {
     throw new Error("User error");

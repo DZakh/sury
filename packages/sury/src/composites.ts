@@ -3,31 +3,6 @@ import { baseSchema, getOrRethrow, panic, reversedKey, unknown, updateOutput } f
 import { getOutputSchema, nestedLoc, nestedOptionParser, never_, parse, parseDynamic, typeCheckCond } from "./parse";
 import { B_Val_Object_add, B_Val_addKey, B_Val_scope, B_asyncVal, B_dynamicScope, B_embed, B_failWithArg, B_hoistChildChecks, B_hoistDecl, B_inlineConst, B_inlineLocation, B_isHoistable, B_makeInvalidInputDetails, B_markOutput, B_merge, B_mergeWithPathPrepend, B_next, B_nextConst, B_pushCheck, B_refine, B_throw, B_unsupportedDecode, B_varWithoutAllocation, _notVar, _notVarAtParent, _var, failInvalidType } from "./builder";
 import { Check, ErrorDetails, Internal, SuryErrorRecord, Val, arrayTag, flagUnsafeHas, immutableEmptyArray, immutableEmptyObject, isLiteral, isOptional, nullTag, numberTag, objectTag, pathConcat, pathFromInlinedLocation, tagFlagArray, tagFlagFunction, tagFlagInstance, tagFlagNaN, tagFlagNever, tagFlagNull, tagFlagObject, tagFlagRef, tagFlagUndefined, tagFlagUnion, tagFlagUnknown, tagFlags, undefinedTag, unionTag, unknownTag, valFlagAsync, valFlagNone } from "./types";
-// Ported from Sury.res lines 2709-4186 (`let rec makeObjectVal` … `valGet`,
-// everything before `recursiveDecoder`).
-//
-// TODO(integration): expects the following externals from other sections:
-//  - `B` (the Builder const object: _notVar, _var, _notVarAtParent,
-//    B_refine, B_next, B_nextConst, B_merge, B_mergeWithPathPrepend,
-//    B_dynamicScope, B_varWithoutAllocation, B_inlineLocation, B_inlineConst,
-//    B_hoistChildChecks, B_hoistDecl, B_failWithArg, B_pushCheck,
-//    B_isHoistable, B_embed, B_asyncVal, B_unsupportedDecode,
-//    B_makeInvalidInputDetails, B_throw, failInvalidType, B_markOutput,
-//    B_Val_scope, B_Val_var, B_Val_addKey, B_Val_Object_add) — Builder section
-//  - `parse`, `parseDynamic`, `getOutputSchema` — parse-loop section (~2256)
-//  - `typeCheckCond`, `isArrayCond`, `objectTagCond` — primitives section
-//  - `never_`, `nestedOptionParser`, `nestedLoc` — section just before this one (~2615)
-//  - `jsonName`, `setHas`, `unit` — primitives/config section (~2137-2211)
-//  - `Literal` (Literal_parse) — literal section (~2229)
-//  - from the prelude (core.ts): Val, Check, Internal, Builder, Encoder,
-//    Flag, ValFlag, TagFlag, baseSchema, cached, unknown, updateOutput,
-//    copySchema, isLiteral, isOptional, InternalError, reversedKey,
-//    immutableEmptyArray, immutableEmptyObject, pathFromInlinedLocation,
-//    pathConcat, arrayTag/objectTag/… tag consts
-// =============================================================================
-
-// PORT-NOTE: `B_Val_Object_t` is `{...val}` — the same runtime shape as `val`,
-// so this port uses the prelude's `Val` type for object vals.
 
 export const makeObjectVal = (prev: Val, schema: Internal): Val => {
   return {
@@ -694,9 +669,7 @@ export const unionDecoder = (input: Val): Val => {
     const fail = (caught: string) => {
       return `${B_embed(
         input,
-        // PORT-NOTE: the source lambda reads `arguments`, so this must stay a
-        // `function` expression (X.Function.toExpression made it a plain
-        // uncurried function in ReScript; a TS function expression already is).
+        // Reads `arguments`, so this must stay a `function` expression.
         function () {
           const args = arguments;
           B_throw(
@@ -745,10 +718,6 @@ export const unionDecoder = (input: Val): Val => {
       // If we come across an item without a discriminant
       // and without any code, it means that this item is always valid
       // and we should exit early
-      //
-      // PORT-NOTE: `itemCode = Single(string) | Multiple(array<string>)` is
-      // @unboxed — runtime value is the string itself or the array itself, so
-      // the cases are discriminated with Array.isArray.
       let byDiscriminant: Record<string, string | string[]> = {};
 
       const preItems = 2;
@@ -1325,8 +1294,6 @@ export const nestedOption = (item: Internal): Internal => {
   });
 }
 
-// PORT-NOTE: the `~unit` labeled arg is renamed to `unitSchema` so the
-// default expression can still reference the module-level `unit` factory.
 export const optionFactory = (item: Internal, unitSchema: Internal = unit()): Internal => {
   const out = getOutputSchema(item);
   if (out.type === undefinedTag) {

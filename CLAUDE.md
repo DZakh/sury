@@ -4,7 +4,7 @@
 
 1. **DX** — intuitive public API and error messages.
 2. **Performance** — generated code is the hot path; avoid extra vars, allocations, double validation; inline over indirect.
-3. **Bundle size** — `core.mjs` (built from `core.ts`) ships to browsers. Reuse helpers (`B_refine`, `B_markOutput`) over duplicated codegen.
+3. **Bundle size** — `S.mjs` (bundled from `src/entry.ts`) ships to browsers. Reuse helpers (`B_refine`, `B_markOutput`) over duplicated codegen.
 
 Tiebreaker: shortest *generated* code wins over shortest *library* code (runtime ships per-schema, library ships once).
 
