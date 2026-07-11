@@ -1747,7 +1747,7 @@ function objectDecoder(unknownInput) {
     if (shouldRecreateInput) {
       output = completeObjectVal(objectVal$1);
     } else {
-      let o = refine(input, undefined, undefined, undefined);
+      let o = refine(input, expectedSchema, undefined, undefined);
       o.cp = objectVal$1.cp;
       o.d = objectVal$1.d;
       output = o;

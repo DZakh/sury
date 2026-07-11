@@ -3191,7 +3191,12 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
       if shouldRecreateInput.contents {
         objectVal->completeObjectVal
       } else {
-        let o = input->B.refine
+        // The value was just validated against expectedSchema — carry it as
+        // the val's schema instead of input.schema, which may be a minimal
+        // union dispatch narrow ({properties:{}, additionalItems: unknown}).
+        // Keeping the narrow mis-routed a pending `.to(json)` conversion
+        // into the dict path, which rejects undefined optional fields (#252)
+        let o = input->B.refine(~schema=expectedSchema)
         o.codeFromPrev = objectVal.codeFromPrev
         o.vals = objectVal.vals
         o

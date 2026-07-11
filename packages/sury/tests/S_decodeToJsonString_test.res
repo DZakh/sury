@@ -93,19 +93,20 @@ test("Encodes object with a union of objects field to JSON string", t => {
 })
 
 // https://github.com/DZakh/sury/issues/252#issuecomment-4867670534
-// The fix above covers a union built from plain object schemas, but the
+// The test above covers a union built from plain object schemas, but the
 // original report builds each variant with `s.tag` + `s.flatten` (the
 // pattern sury-ppx generates for `A(s.flatten(aSchema))`). That construction
-// still fails to encode to JSON once nested inside another object, now with
-// a different error: `Failed at ["x"]["s"]: Expected JSON, received undefined`.
+// used to fail to encode to JSON once nested inside another object with:
+// `Failed at ["x"]["s"]: Expected JSON, received undefined`.
 //
-// Root cause: the compiled encoder runs the union-to-JSON conversion twice.
-// The 1st pass turns the {TAG,_0} variant into a plain dict
-// ({"type":"a","s":undefined}) without omitting the undefined "s" key. The
-// 2nd pass re-dispatches on that dict's "type" field and, for the matched
-// case, generically iterates every own key of the dict asserting each value
-// is JSON-encodable — "s" is still present (with value undefined) since pass
-// 1 didn't omit it, so that generic check fails on it.
+// Root cause: nested, the field converts in two steps — a JSON-unaware plain
+// encode of the union (which keeps the undefined "s" key), then a per-variant
+// `.to(json)` re-dispatch. Inside that re-dispatch, objectDecoder's
+// no-transform pass-through kept the union dispatch narrow
+// ({properties:{}, additionalItems: unknown}) as the case output's schema
+// instead of the validated variant schema, so jsonDecoderFn misrouted the
+// conversion into the dict path — which rejects undefined values instead of
+// omitting optional fields the way the fixed-properties path does.
 type flattenedA = {s: option<string>}
 type flattenedB = {v: int}
 type flattenedX = FlattenedA(flattenedA) | FlattenedB(flattenedB)
