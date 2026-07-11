@@ -4,14 +4,13 @@
 //   pnpm build        -> tsx scripts/pack.ts for-publish
 //
 // Stage 1 (always): bundle src/entry.ts (the single public entry re-exporting
-// src/core/*.ts) into src/S.mjs, plus an identical ESM src/S.js twin (kept so
-// relative imports and the S.d.ts adjacency lookup keep working in the dev
-// repo, where package.json has "type": "module"). Both are gitignored; this
-// stage keeps them fresh (it runs before rescript/vitest via pnpm scripts).
-// The ReScript bindings (S.res) reference the same entry as
-// `@module("sury")`, resolved through the package's "." conditional export —
-// which is why the entry must exist in both formats in the published package
-// (see stage 2) for consumers compiling ReScript to commonjs.
+// src/*.ts) into the gitignored src/S.mjs; this stage keeps it fresh (it runs
+// before rescript/vitest via pnpm scripts). Types for S.mjs importers resolve
+// through the checked-in src/S.d.mts -> S.d.ts. The ReScript bindings (S.res)
+// reference the same entry as `@module("sury")`, resolved through the
+// package's "." conditional export — which is why the published package (see
+// stage 2) also ships a CJS src/S.js for the require condition and for
+// consumers compiling ReScript to commonjs.
 //
 // Stage 2 (full pack only): assemble the publishable package in ./artifacts —
 // copy sources, compile ReScript there, overwrite the artifact's S.js with a
@@ -32,7 +31,7 @@ const projectPath = path.join(__dirname, "..");
 const artifactsPath = path.join(projectPath, "artifacts");
 const sourcePaths = ["package.json", "src", "rescript.json", "README.md", "jsr.json"];
 
-// ── Stage 1: S.ts -> S.mjs + S.js (ESM) ──────────────────────────────────────
+// ── Stage 1: entry.ts -> S.mjs (ESM) ─────────────────────────────────────────
 
 async function buildEntry(format: "esm" | "cjs", outfile: string): Promise<void> {
   await build({
@@ -46,19 +45,15 @@ async function buildEntry(format: "esm" | "cjs", outfile: string): Promise<void>
     banner: {
       js: [
         `/* @ts-self-types="./S.d.ts" */`,
-        "// Generated from S.ts by scripts/pack.ts, PLEASE EDIT WITH CARE",
+        "// Generated from entry.ts by scripts/pack.ts, PLEASE EDIT WITH CARE",
       ].join("\n"),
     },
     logLevel: "silent",
   });
 }
 
-async function buildDevEntries(): Promise<void> {
-  await buildEntry("esm", path.join(projectPath, "src/S.mjs"));
-  // ESM twin under the .js name: package.json has "type": "module" in the dev
-  // repo, and S.js is what tests/tools import relatively (S.d.ts adjacency).
-  fs.copyFileSync(path.join(projectPath, "src/S.mjs"), path.join(projectPath, "src/S.js"));
-}
+const buildDevEntries = (): Promise<void> =>
+  buildEntry("esm", path.join(projectPath, "src/S.mjs"));
 
 // ── Stage 2: the publishable artifact ────────────────────────────────────────
 
@@ -123,7 +118,12 @@ async function pack(): Promise<void> {
 
   // ReScript applications don't work with type: module set on packages
   updateJsonFile(path.join(artifactsPath, "package.json"), ["type"], "commonjs");
+  // The dev repo has no S.js (ESM-only); the artifact's main is the CJS build
+  updateJsonFile(path.join(artifactsPath, "package.json"), ["main"], "./src/S.js");
   updateJsonFile(path.join(artifactsPath, "package.json"), ["private"], false);
+  // Publishing is only valid from this assembled artifact (see prepublishOnly
+  // in the dev package.json)
+  updateJsonFile(path.join(artifactsPath, "package.json"), ["scripts", "prepublishOnly"], undefined);
 
   // Clean up before uploading artifacts
   fs.rmSync(path.join(artifactsPath, "lib"), { force: true, recursive: true });

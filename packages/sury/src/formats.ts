@@ -547,29 +547,6 @@ export const date = (): Internal => {
   });
 }
 
-export const to = (from: Internal, target: Internal): Internal => {
-  // It makes sense, since S.to quite often will be used
-  // inside of a framework where we don't control what's the to argument
-  if (from === target) {
-    return from;
-  } else {
-    return updateOutput(from, (mut) => {
-      mut.to = target;
-      // A tricky part about parser is that we don't know the input type in ReScript
-      // so we need to directly parse to output instead of input
-      // switch parser {
-      // | Some(p) =>
-      //   mut.parser = Some(
-      //     Builder.make((b, ~input, , ~path as _) => {
-      //       // TODO: Support async, reverse, nested parsing
-      //       b->B_embedSyncOperation(~input, ~fn=p)
-      //     }),
-      //   )
-      // | None => ()
-      // }
-    });
-  }
-}
 
 // PORT-NOTE: ReScript list runtime (v12): empty list = `0`, cons cell =
 // `{hd, tl}`. These two helpers replicate Stdlib List.fromArray / List.toArray

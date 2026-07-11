@@ -13,4 +13,3 @@ tsconfig.tsbuildinfo
 _opam/
 .attest
 packages/sury/src/S.mjs
-packages/sury/src/S.js

@@ -240,29 +240,11 @@ Object.defineProperty(schemaPrototype, "~standard", {
 // Builder functions
 // =============
 
-export const parser = (schema: Internal): (input: unknown) => unknown => {
-  return getDecoder(unknown, schema) as (input: unknown) => unknown;
-}
 
-export const asyncParser = (schema: Internal): (input: unknown) => Promise<unknown> => {
-  return getDecoder(unknown, schema, flagAsync) as (input: unknown) => Promise<unknown>;
-}
 
-export const decoder = (from: Internal, to: Internal): (input: unknown) => unknown => {
-  return getDecoder(reverse(from), to) as (input: unknown) => unknown;
-}
 
-export const asyncDecoder = (from: Internal, to: Internal): (input: unknown) => Promise<unknown> => {
-  return getDecoder(reverse(from), to, flagAsync) as (input: unknown) => Promise<unknown>;
-}
 
-export const decoder1 = (schema: Internal): (input: unknown) => unknown => {
-  return getDecoder(schema) as (input: unknown) => unknown;
-}
 
-export const asyncDecoder1 = (schema: Internal): (input: unknown) => Promise<unknown> => {
-  return getDecoder(schema, flagAsync) as (input: unknown) => Promise<unknown>;
-}
 
 // =============
 // Operations
@@ -276,13 +258,7 @@ export const getAssertResult = (): Internal => {
   });
 }
 
-export const parseOrThrow = (any: unknown, schema: Internal): unknown => {
-  return (getDecoder(unknown, schema) as (input: unknown) => unknown)(any);
-}
 
-export const parseAsyncOrThrow = (any: unknown, schema: Internal): Promise<unknown> => {
-  return (getDecoder(unknown, schema, flagAsync) as (input: unknown) => Promise<unknown>)(any);
-}
 
 export const assertOrThrow = (any: unknown, schema: Internal): void => {
   (getDecoder(unknown, schema, getAssertResult()) as (input: unknown) => unknown)(any);
@@ -296,13 +272,7 @@ export const assertAsyncOrThrow = (any: unknown, schema: Internal): Promise<void
   )(any);
 }
 
-export const decodeOrThrow = (any: unknown, from: Internal, to: Internal): unknown => {
-  return (getDecoder(reverse(from), to) as (input: unknown) => unknown)(any);
-}
 
-export const decodeAsyncOrThrow = (any: unknown, from: Internal, to: Internal): Promise<unknown> => {
-  return (getDecoder(reverse(from), to, flagAsync) as (input: unknown) => Promise<unknown>)(any);
-}
 
 export const isAsync = (schema: Internal): boolean => {
   if (schema.isAsync === undefined) {

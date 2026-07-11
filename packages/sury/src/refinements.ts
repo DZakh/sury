@@ -1,6 +1,6 @@
 import { nullLiteral, unit } from "./primitives";
 import { getMutErrorMessage, internalRefine, nullAsUnit, transform } from "./operations";
-import { definitionToSchema, schemaObject, schemaShape, schemaTuple } from "./factory";
+import { schemaObject, schemaShape, schemaTuple } from "./factory";
 import { parse } from "./parse";
 import { SuryError, copySchema, panic, unknown } from "./schema";
 import { B_Val_scope, B_asyncVal, B_embed, B_failWithErrorMessage, B_inlineLocation, B_markOutput, B_merge, B_next, B_refine, B_varWithoutAllocation, _notVarBeforeValidation, _var, failInvalidType } from "./builder";
@@ -541,12 +541,6 @@ export const null_ = (item: Internal): Internal =>
 export const dict = dictFactory;
 export const shape = schemaShape;
 export const tuple = schemaTuple;
-export const tuple1 = (v0: Internal): Internal =>
-  tuple((s: any) => s.item(0, v0));
-export const tuple2 = (v0: Internal, v1: Internal): Internal =>
-  definitionToSchema([v0, v1] as unknown as Internal);
-export const tuple3 = (v0: Internal, v1: Internal, v2: Internal): Internal =>
-  definitionToSchema([v0, v1, v2] as unknown as Internal);
 export const union = unionFactory;
 
 // =============

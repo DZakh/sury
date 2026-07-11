@@ -1,6 +1,6 @@
 import { test, expectTypeOf, assertType } from "vitest";
 
-import * as S from "../src/S.js";
+import * as S from "../src/S.mjs";
 
 // FIXME: S.max should be applied to output
 // From https://x.com/dzakh_dev/status/1963982551208309222

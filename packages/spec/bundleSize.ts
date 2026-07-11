@@ -1,7 +1,7 @@
 // Bundle+minify+gzip `schema` itself (not a compiled operation — schema
 // construction is separate from, and cheaper than, compiling parse/decode/
 // encode) for `ts.bundleBytes`, aliasing the bare `sury` specifier to the dev
-// source (src/S.js) so tree-shaking and size reflect exactly what's under
+// source (src/S.mjs) so tree-shaking and size reflect exactly what's under
 // test, not a stale published snapshot.
 //
 // Uses esbuild's async `build()` (not `buildSync`) so multiple specs' bundle
@@ -15,7 +15,7 @@ import { gzipSync } from "node:zlib";
 import { build } from "esbuild";
 
 const SURY_ROOT = fileURLToPath(new URL("../sury/", import.meta.url));
-const SURY_ENTRY = path.join(SURY_ROOT, "src/S.js");
+const SURY_ENTRY = path.join(SURY_ROOT, "src/S.mjs");
 
 export const deriveBundleBytes = async (schemaTs: string): Promise<number> => {
   const code = `

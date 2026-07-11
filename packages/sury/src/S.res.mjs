@@ -6,12 +6,51 @@ import * as Primitive_exceptions from "@rescript/runtime/lib/es6/Primitive_excep
 
 let Exn = /* @__PURE__ */Primitive_exceptions.create("S.Exn");
 
-Sury.__setExnId(Exn);
+Sury.$res_setExnId(Exn);
 
 let Flag = {
   none: 0,
   async: 1
 };
+
+function refine(schema, refiner, error, path) {
+  return Sury.refine(schema, refiner, {
+    error: error,
+    path: path
+  });
+}
+
+function to(from, target) {
+  if (from === target) {
+    return from;
+  } else {
+    return Sury.to(from, target);
+  }
+}
+
+function decoder(from, to) {
+  return Sury.decoder(Sury.reverse(from), to);
+}
+
+function asyncDecoder(from, to) {
+  return Sury.asyncDecoder(Sury.reverse(from), to);
+}
+
+function parseOrThrow(any, to) {
+  return Sury.parser(to)(any);
+}
+
+function parseAsyncOrThrow(any, to) {
+  return Sury.asyncParser(to)(any);
+}
+
+function decodeOrThrow(any, from, to) {
+  return Sury.decoder(Sury.reverse(from), to)(any);
+}
+
+function decodeAsyncOrThrow(any, from, to) {
+  return Sury.asyncDecoder(Sury.reverse(from), to)(any);
+}
 
 let Schema = {};
 
@@ -19,20 +58,39 @@ let $$Object = {};
 
 let Tuple = {};
 
+function tuple1(v0) {
+  return Sury.tuple(s => s.item(0, v0));
+}
+
+function tuple2(v1, v2) {
+  return Sury.schema([
+    v1,
+    v2
+  ]);
+}
+
+function tuple3(v1, v2, v3) {
+  return Sury.schema([
+    v1,
+    v2,
+    v3
+  ]);
+}
+
 function Path_toArray(prim) {
-  return Sury.pathToArray(prim);
+  return Sury.$res_pathToArray(prim);
 }
 
 function Path_fromArray(prim) {
-  return Sury.pathFromArray(prim);
+  return Sury.$res_pathFromArray(prim);
 }
 
 function Path_fromLocation(prim) {
-  return Sury.pathFromLocation(prim);
+  return Sury.$res_pathFromLocation(prim);
 }
 
 function Path_concat(prim0, prim1) {
-  return Sury.pathConcat(prim0, prim1);
+  return Sury.$res_pathConcat(prim0, prim1);
 }
 
 let Path = {
@@ -48,9 +106,9 @@ let never = Sury.never;
 
 let unknown = Sury.unknown;
 
-let unit = Sury.unit;
+let unit = Sury.$res_unit;
 
-let nullAsUnit = Sury.nullAsUnit;
+let nullAsUnit = Sury.$res_nullAsUnit;
 
 let string = Sury.string;
 
@@ -115,15 +173,15 @@ function dict(prim) {
 }
 
 function option(prim) {
-  return Sury.option(prim);
+  return Sury.$res_option(prim);
 }
 
 function $$null(prim) {
-  return Sury.null_(prim);
+  return Sury.nullable(prim);
 }
 
 function nullAsOption(prim) {
-  return Sury.nullAsOption(prim);
+  return Sury.$res_nullAsOption(prim);
 }
 
 function nullable(prim) {
@@ -131,7 +189,7 @@ function nullable(prim) {
 }
 
 function nullableAsOption(prim) {
-  return Sury.nullableAsOption(prim);
+  return Sury.$res_nullableAsOption(prim);
 }
 
 function union(prim) {
@@ -147,19 +205,11 @@ function meta(prim0, prim1) {
 }
 
 function transform(prim0, prim1) {
-  return Sury.transform(prim0, prim1);
-}
-
-function refine(prim0, prim1, prim2, prim3) {
-  return Sury.res_refine(prim0, prim1, prim2 !== undefined ? Primitive_option.valFromOption(prim2) : undefined, prim3 !== undefined ? Primitive_option.valFromOption(prim3) : undefined);
+  return Sury.$res_transform(prim0, prim1);
 }
 
 function shape(prim0, prim1) {
   return Sury.shape(prim0, prim1);
-}
-
-function to(prim0, prim1) {
-  return Sury.res_to(prim0, prim1);
 }
 
 function parser(prim) {
@@ -170,44 +220,20 @@ function asyncParser(prim) {
   return Sury.asyncParser(prim);
 }
 
-function decoder(prim0, prim1) {
-  return Sury.res_decoder(prim0, prim1);
-}
-
-function asyncDecoder(prim0, prim1) {
-  return Sury.res_asyncDecoder(prim0, prim1);
-}
-
 function decoder1(prim) {
-  return Sury.decoder1(prim);
+  return Sury.decoder(prim);
 }
 
 function asyncDecoder1(prim) {
-  return Sury.asyncDecoder1(prim);
-}
-
-function parseOrThrow(prim0, prim1) {
-  return Sury.parseOrThrow(prim0, prim1);
-}
-
-function parseAsyncOrThrow(prim0, prim1) {
-  return Sury.parseAsyncOrThrow(prim0, prim1);
+  return Sury.asyncDecoder(prim);
 }
 
 function assertOrThrow(prim0, prim1) {
-  Sury.assertOrThrow(prim0, prim1);
+  Sury.assert(prim0, prim1);
 }
 
 function assertAsyncOrThrow(prim0, prim1) {
-  return Sury.assertAsyncOrThrow(prim0, prim1);
-}
-
-function decodeOrThrow(prim0, prim1, prim2) {
-  return Sury.decodeOrThrow(prim0, prim1, prim2);
-}
-
-function decodeAsyncOrThrow(prim0, prim1, prim2) {
-  return Sury.decodeAsyncOrThrow(prim0, prim1, prim2);
+  return Sury.$res_assertAsyncOrThrow(prim0, prim1);
 }
 
 function isAsync(prim) {
@@ -227,7 +253,7 @@ function toExpression(prim) {
 }
 
 function schema(prim) {
-  return Sury.res_schema(prim);
+  return Sury.$res_schema(prim);
 }
 
 function object(prim) {
@@ -254,24 +280,12 @@ function tuple(prim) {
   return Sury.tuple(prim);
 }
 
-function tuple1(prim) {
-  return Sury.tuple1(prim);
-}
-
-function tuple2(prim0, prim1) {
-  return Sury.tuple2(prim0, prim1);
-}
-
-function tuple3(prim0, prim1, prim2) {
-  return Sury.tuple3(prim0, prim1, prim2);
-}
-
 function Option_getOr(prim0, prim1) {
-  return Sury.Option_getOr(prim0, prim1);
+  return Sury.$res_Option_getOr(prim0, prim1);
 }
 
 function Option_getOrWith(prim0, prim1) {
-  return Sury.Option_getOrWith(prim0, prim1);
+  return Sury.$res_Option_getOrWith(prim0, prim1);
 }
 
 let Option = {
@@ -280,15 +294,15 @@ let Option = {
 };
 
 let Metadata_Id = {
-  make: (prim0, prim1) => Sury.Metadata_Id_make(prim0, prim1)
+  make: (prim0, prim1) => Sury.$res_Metadata_Id_make(prim0, prim1)
 };
 
 function Metadata_get(prim0, prim1) {
-  return Sury.Metadata_get(prim0, prim1);
+  return Sury.$res_Metadata_get(prim0, prim1);
 }
 
 function Metadata_set(prim0, prim1, prim2) {
-  return Sury.Metadata_set(prim0, prim1, prim2);
+  return Sury.$res_Metadata_set(prim0, prim1, prim2);
 }
 
 let Metadata = {
@@ -306,7 +320,7 @@ function min(prim0, prim1, prim2) {
 }
 
 function floatMin(prim0, prim1, prim2) {
-  return Sury.floatMin(prim0, prim1, prim2 !== undefined ? Primitive_option.valFromOption(prim2) : undefined);
+  return Sury.min(prim0, prim1, prim2 !== undefined ? Primitive_option.valFromOption(prim2) : undefined);
 }
 
 function max(prim0, prim1, prim2) {
@@ -314,7 +328,7 @@ function max(prim0, prim1, prim2) {
 }
 
 function floatMax(prim0, prim1, prim2) {
-  return Sury.floatMax(prim0, prim1, prim2 !== undefined ? Primitive_option.valFromOption(prim2) : undefined);
+  return Sury.max(prim0, prim1, prim2 !== undefined ? Primitive_option.valFromOption(prim2) : undefined);
 }
 
 function length(prim0, prim1, prim2) {
@@ -350,11 +364,11 @@ function global(prim) {
 }
 
 function Error_make(prim) {
-  return new Sury.errorClass(prim);
+  return new Sury.Error(prim);
 }
 
 let $$Error = {
-  $$class: Sury.errorClass,
+  $$class: Sury.Error,
   make: Error_make
 };
 

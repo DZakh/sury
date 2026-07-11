@@ -5,12 +5,12 @@
 //    `@module("sury") external` declarations, so both languages share one
 //    runtime instance (one Exn identity, one schema cache, one seq counter).
 //
-// Built by scripts/pack.ts into src/S.mjs (+ the ESM dev src/S.js twin; the
-// publish step overwrites the artifact's S.js with a CJS build). Every eager
+// Built by scripts/pack.ts into src/S.mjs (the publish step additionally
+// emits a CJS S.js into the artifact for the require condition). Every eager
 // schema constant is PURE-annotated so unused ones tree-shake out of consumer
-// bundles; the extra ReScript-binding exports (res_*, Metadata_*, path*, …)
-// are invisible to TS users (S.d.ts is the curated surface) and tree-shake
-// when unused like any other export.
+// bundles; the extra ReScript-binding exports ($res_*-named) are invisible
+// to TS users (S.d.ts is the curated surface) and tree-shake when unused like
+// any other export.
 
 import {
   string as stringFactory,
@@ -22,9 +22,9 @@ import {
   nan as nanFactory,
   unit as unitFactory,
   void_ as voidFactory,
-} from "./core/primitives";
-import { never_ } from "./core/parse";
-import { nullAsUnit as nullAsUnitFactory } from "./core/operations";
+} from "./primitives";
+import { never_ } from "./parse";
+import { nullAsUnit as nullAsUnitFactory } from "./operations";
 import {
   json as jsonFactory,
   jsonString as jsonStringFactory,
@@ -36,7 +36,7 @@ import {
   uuid as uuidFactory,
   cuid as cuidFactory,
   url as urlFactory,
-} from "./core/formats";
+} from "./formats";
 
 // ── Eager schema constants (shared by both surfaces) ─────────────────────────
 
@@ -55,8 +55,9 @@ export const nan = /* @__PURE__ */ nanFactory();
 const _void = /* @__PURE__ */ voidFactory();
 export { _void as void };
 const _unit = /* @__PURE__ */ unitFactory();
-export { _unit as unit };
-export const nullAsUnit = /* @__PURE__ */ nullAsUnitFactory();
+export { _unit as $res_unit };
+const _nullAsUnit = /* @__PURE__ */ nullAsUnitFactory();
+export { _nullAsUnit as $res_nullAsUnit };
 export const json = /* @__PURE__ */ jsonFactory();
 export const jsonString = /* @__PURE__ */ jsonStringFactory();
 export const uint8Array = /* @__PURE__ */ uint8ArrayFactory();
@@ -67,7 +68,12 @@ export const email = /* @__PURE__ */ emailFactory();
 export const uuid = /* @__PURE__ */ uuidFactory();
 export const cuid = /* @__PURE__ */ cuidFactory();
 export const url = /* @__PURE__ */ urlFactory();
-export { unknown, unknown as any, errorClass as Error, errorClass, __setExnId } from "./core/schema";
+export {
+  unknown,
+  unknown as any,
+  errorClass as Error,
+  __setExnId as $res_setExnId,
+} from "./schema";
 
 // ── Public JS/TS API (names match S.d.ts) ────────────────────────────────────
 
@@ -87,16 +93,9 @@ export {
   js_asyncDecoderAssert as asyncDecoderAssert,
   js_refine as refine,
   global,
-} from "./core/jsapi";
-export { getDecoder as decoder, reverse, instance } from "./core/parse";
-export {
-  js_schema as schema,
-  // The ReScript-flavored schema factory (definer-callback ctx); the public
-  // JS `schema` above takes a raw definition instead.
-  schemaFactory as res_schema,
-  literal,
-  enum,
-} from "./core/factory";
+} from "./jsapi";
+export { getDecoder as decoder, reverse, instance } from "./parse";
+export { js_schema as schema, literal, enum } from "./factory";
 export {
   recursive,
   strict,
@@ -107,14 +106,11 @@ export {
   isAsync,
   js_safe as safe,
   js_safeAsync as safeAsync,
-} from "./core/operations";
-export { array } from "./core/composites";
+} from "./operations";
+export { array } from "./composites";
 // `nullish` accepts null | undefined (the 3-member union) — distinct from
 // `nullable` (js_nullable) above, which handles null only.
-export { nullable as nullish } from "./core/refinements";
-// The ReScript-flavored plain `to` (no custom coders); the public JS `to`
-// above is the options variant.
-export { to as res_to } from "./core/formats";
+export { nullable as nullish } from "./refinements";
 export {
   compactColumns,
   dict,
@@ -124,8 +120,8 @@ export {
   tuple,
   pattern,
   trim,
-} from "./core/refinements";
-export { meta, brand, jsonStringWithSpace, list } from "./core/formats";
+} from "./refinements";
+export { meta, brand, jsonStringWithSpace, list } from "./formats";
 export {
   toJSONSchema,
   fromJSONSchema,
@@ -134,49 +130,38 @@ export {
   min,
   max,
   length,
-} from "./core/jsonschema";
-export { toExpression } from "./core/types";
+} from "./jsonschema";
+export { toExpression } from "./types";
 
 // ── ReScript binding surface (extra names, not part of S.d.ts) ───────────────
+//
+// Only APIs with no public-JS equivalent live here; everything else in S.res
+// binds the public names directly (or wraps them in ReScript). `$res_` marks
+// the exports as ReScript-binding internals — `~res_` would be clearer, but
+// ReScript externals only accept valid JS identifiers as names.
 
 export {
-  pathToArray,
-  pathFromArray,
-  pathFromLocation,
-  pathConcat,
-} from "./core/types";
+  pathToArray as $res_pathToArray,
+  pathFromArray as $res_pathFromArray,
+  pathFromLocation as $res_pathFromLocation,
+  pathConcat as $res_pathConcat,
+} from "./types";
 export {
-  parseOrThrow,
-  parseAsyncOrThrow,
-  assertOrThrow,
-  assertAsyncOrThrow,
-  decodeOrThrow,
-  decodeAsyncOrThrow,
-  decoder1,
-  asyncDecoder1,
-  // The ReScript-flavored decoder/asyncDecoder reverse `from` before
-  // compiling (decode FROM a schema's output space); the public JS `decoder`
-  // is the raw variadic getDecoder.
-  decoder as res_decoder,
-  asyncDecoder as res_asyncDecoder,
-  transform,
-  // The ReScript-flavored refine (labeled error/path args); the public JS
-  // `refine` above is the options-object variant.
-  refine as res_refine,
-  Option_getOr,
-  Option_getOrWith,
-  Metadata_Id_make,
-  Metadata_get,
-  Metadata_set,
-} from "./core/operations";
-export { option } from "./core/composites";
+  // Async flavor of the public `assert` — no public JS equivalent
+  // (`asyncDecoderAssert` is a different, callback-taking API).
+  assertAsyncOrThrow as $res_assertAsyncOrThrow,
+  transform as $res_transform,
+  Option_getOr as $res_Option_getOr,
+  Option_getOrWith as $res_Option_getOrWith,
+  Metadata_Id_make as $res_Metadata_Id_make,
+  Metadata_get as $res_Metadata_get,
+  Metadata_set as $res_Metadata_set,
+} from "./operations";
+export { option as $res_option } from "./composites";
 export {
-  null_,
-  nullAsOption,
-  nullableAsOption,
-  tuple1,
-  tuple2,
-  tuple3,
-  floatMin,
-  floatMax,
-} from "./core/refinements";
+  nullAsOption as $res_nullAsOption,
+  nullableAsOption as $res_nullableAsOption,
+} from "./refinements";
+// The ReScript-flavored schema factory (definer-callback ctx); the public JS
+// `schema` takes a raw definition instead.
+export { schemaFactory as $res_schema } from "./factory";

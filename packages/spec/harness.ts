@@ -2,7 +2,7 @@
 // executing the real schema.
 //
 // Unlike format.ts (which runs on published sury), this half imports the
-// in-development sury SOURCE (`../sury/src/S.js`), because goldens must reflect
+// in-development sury SOURCE (`../sury/src/S.mjs`), because goldens must reflect
 // the code under test — that's how `spec check` catches codegen changes.
 //
 // There is no code-generation step: packages/sury/tests/spec_test.ts loops
@@ -14,7 +14,7 @@ import { join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { diffLinesUnified } from "@vitest/utils/diff";
-import * as S from "../sury/src/S.js";
+import * as S from "../sury/src/S.mjs";
 import {
   KEY_ORDER,
   TS_KEY_ORDER,

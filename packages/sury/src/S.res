@@ -14,10 +14,10 @@ module Path = {
   @inline
   let dynamic = "[]"
 
-  @module("sury") external toArray: t => array<string> = "pathToArray"
-  @module("sury") external fromArray: array<string> => t = "pathFromArray"
-  @module("sury") external fromLocation: string => t = "pathFromLocation"
-  @module("sury") external concat: (t, t) => t = "pathConcat"
+  @module("sury") external toArray: t => array<string> = "$res_pathToArray"
+  @module("sury") external fromArray: array<string> => t = "$res_pathFromArray"
+  @module("sury") external fromLocation: string => t = "$res_pathFromLocation"
+  @module("sury") external concat: (t, t) => t = "$res_pathConcat"
 }
 
 
@@ -347,7 +347,7 @@ type exn += private Exn(error)
 // Bindings to the TypeScript core
 // =============================================================================
 //
-// Sury's implementation lives in src/core/*.ts, bundled into the package
+// Sury's implementation lives in src/*.ts, bundled into the package
 // entry by scripts/pack.ts (see src/entry.ts). This module is the ReScript
 // face of it: the public types above, plus `@module("sury") external`
 // bindings below, resolved through the package root "." conditional export
@@ -366,7 +366,7 @@ external untag: t<'any> => untagged = "%identity"
 // hand it that identity once at module load — SuryError's RE_EXN_ID getter
 // returns it. `%raw` because a private exn constructor can't be referenced
 // as a value from ReScript code, only from spliced JS.
-@module("sury") external __setExnId: unknown => unit = "__setExnId"
+@module("sury") external __setExnId: unknown => unit = "$res_setExnId"
 let () = __setExnId(%raw(`Exn`))
 
 module Flag = {
@@ -381,20 +381,20 @@ type s<'value> = {fail: 'a. (string, ~path: Path.t=?) => 'a}
 module Error = {
   type class
 
-  @module("sury") external class: class = "errorClass"
+  @module("sury") external class: class = "Error"
 
-  @module("sury") @new external make: errorDetails => error = "errorClass"
+  @module("sury") @new external make: errorDetails => error = "Error"
 
   external classify: error => errorDetails = "%identity"
 }
 
 // Primitive schema values — the same eager, PURE-annotated instances the JS
-// entry exports (see src/S.ts), so both surfaces share one object per
+// entry exports (see src/entry.ts), so both surfaces share one object per
 // primitive. Some (string, bool, ...) shadow stdlib names on purpose.
 @module("sury") external never: t<never> = "never"
 @module("sury") external unknown: t<unknown> = "unknown"
-@module("sury") external unit: t<unit> = "unit"
-@module("sury") external nullAsUnit: t<unit> = "nullAsUnit"
+@module("sury") external unit: t<unit> = "$res_unit"
+@module("sury") external nullAsUnit: t<unit> = "$res_nullAsUnit"
 @module("sury") external string: t<string> = "string"
 @module("sury") external bool: t<bool> = "bool"
 @module("sury") external int: t<int> = "int"
@@ -420,11 +420,13 @@ module Error = {
 @module("sury") external list: t<'value> => t<list<'value>> = "list"
 @module("sury") external instance: unknown => t<unknown> = "instance"
 @module("sury") external dict: t<'value> => t<dict<'value>> = "dict"
-@module("sury") external option: t<'value> => t<option<'value>> = "option"
-@module("sury") external null: t<'value> => t<null<'value>> = "null_"
-@module("sury") external nullAsOption: t<'value> => t<option<'value>> = "nullAsOption"
+@module("sury") external option: t<'value> => t<option<'value>> = "$res_option"
+// The public JS `nullable` called without a default is exactly
+// `union([item, literal(null)])` — what ReScript calls `S.null`.
+@module("sury") external null: t<'value> => t<null<'value>> = "nullable"
+@module("sury") external nullAsOption: t<'value> => t<option<'value>> = "$res_nullAsOption"
 @module("sury") external nullable: t<'value> => t<nullable<'value>> = "nullish"
-@module("sury") external nullableAsOption: t<'value> => t<option<'value>> = "nullableAsOption"
+@module("sury") external nullableAsOption: t<'value> => t<option<'value>> = "$res_nullableAsOption"
 @module("sury") external union: array<t<'value>> => t<'value> = "union"
 @module("sury") external enum: array<'value> => t<'value> = "enum"
 
@@ -440,35 +442,46 @@ type transformDefinition<'input, 'output> = {
 }
 @module("sury")
 external transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) => t<'output> =
-  "transform"
+  "$res_transform"
 
+// The public JS `refine` takes an options object; build it here from the
+// ReScript labeled args.
+type refineOptions = {error?: string, path?: array<string>}
 @module("sury")
-external refine: (t<'value>, 'value => bool, ~error: string=?, ~path: array<string>=?) => t<'value> =
-  "res_refine"
+external jsRefine: (t<'value>, 'value => bool, refineOptions) => t<'value> = "refine"
+let refine = (schema, refiner, ~error=?, ~path=?) => jsRefine(schema, refiner, {?error, ?path})
 
 @module("sury") external shape: (t<'value>, 'value => 'shape) => t<'shape> = "shape"
 
-@module("sury") external to: (t<'from>, t<'to>) => t<'to> = "res_to"
+// The public JS `to` (called without custom coders) only lacks the
+// same-schema shortcut, which lives here instead.
+@module("sury") external jsTo: (t<'from>, t<'to>) => t<'to> = "to"
+let to = (from, target) =>
+  castToUnknown(from) === castToUnknown(target) ? castToAny(from) : jsTo(from, target)
+
+@module("sury") external reverse: t<'value> => t<unknown> = "reverse"
 
 @module("sury") external parser: (~to: t<'value>) => 'any => 'value = "parser"
 @module("sury") external asyncParser: (~to: t<'value>) => 'any => promise<'value> = "asyncParser"
-@module("sury") external decoder: (~from: t<'from>, ~to: t<'to>) => 'from => 'to = "res_decoder"
+// The public JS `decoder` compiles from a schema's Input space; the ReScript
+// flavor decodes FROM a schema's Output space, so reverse `from` first.
+@module("sury") external jsDecoder: (t<unknown>, t<'to>) => 'from => 'to = "decoder"
 @module("sury")
-external asyncDecoder: (~from: t<'from>, ~to: t<'to>) => 'from => promise<'to> = "res_asyncDecoder"
-@module("sury") external decoder1: t<'value> => unknown => 'value = "decoder1"
-@module("sury") external asyncDecoder1: t<'value> => unknown => promise<'value> = "asyncDecoder1"
+external jsAsyncDecoder: (t<unknown>, t<'to>) => 'from => promise<'to> = "asyncDecoder"
+let decoder = (~from: t<'from>, ~to) => jsDecoder(reverse(from), to)
+let asyncDecoder = (~from: t<'from>, ~to) => jsAsyncDecoder(reverse(from), to)
+// Single-schema (Input -> Output) flavors — the public JS `decoder` /
+// `asyncDecoder` called with one argument.
+@module("sury") external decoder1: t<'value> => unknown => 'value = "decoder"
+@module("sury") external asyncDecoder1: t<'value> => unknown => promise<'value> = "asyncDecoder"
 
-@module("sury") external parseOrThrow: ('any, ~to: t<'value>) => 'value = "parseOrThrow"
+let parseOrThrow = (any, ~to) => parser(~to)(any)
+let parseAsyncOrThrow = (any, ~to) => asyncParser(~to)(any)
+@module("sury") external assertOrThrow: ('any, ~to: t<'value>) => unit = "assert"
 @module("sury")
-external parseAsyncOrThrow: ('any, ~to: t<'value>) => promise<'value> = "parseAsyncOrThrow"
-@module("sury") external assertOrThrow: ('any, ~to: t<'value>) => unit = "assertOrThrow"
-@module("sury")
-external assertAsyncOrThrow: ('any, ~to: t<'value>) => promise<unit> = "assertAsyncOrThrow"
-@module("sury")
-external decodeOrThrow: ('from, ~from: t<'from>, ~to: t<'to>) => 'to = "decodeOrThrow"
-@module("sury")
-external decodeAsyncOrThrow: ('from, ~from: t<'from>, ~to: t<'to>) => promise<'to> =
-  "decodeAsyncOrThrow"
+external assertAsyncOrThrow: ('any, ~to: t<'value>) => promise<unit> = "$res_assertAsyncOrThrow"
+let decodeOrThrow = (any, ~from, ~to) => decoder(~from, ~to)(any)
+let decodeAsyncOrThrow = (any, ~from, ~to) => asyncDecoder(~from, ~to)(any)
 
 @module("sury") external isAsync: t<'value> => bool = "isAsync"
 
@@ -481,7 +494,7 @@ external decodeAsyncOrThrow: ('from, ~from: t<'from>, ~to: t<'to>) => promise<'t
 module Schema = {
   type s = {@as("m") matches: 'value. t<'value> => 'value}
 }
-@module("sury") external schema: (Schema.s => 'value) => t<'value> = "res_schema"
+@module("sury") external schema: (Schema.s => 'value) => t<'value> = "$res_schema"
 
 module Object = {
   type rec s = {
@@ -508,42 +521,44 @@ module Tuple = {
 }
 
 @module("sury") external tuple: (Tuple.s => 'value) => t<'value> = "tuple"
-@module("sury") external tuple1: t<'value> => t<'value> = "tuple1"
-@module("sury") external tuple2: (t<'v1>, t<'v2>) => t<('v1, 'v2)> = "tuple2"
-@module("sury") external tuple3: (t<'v1>, t<'v2>, t<'v3>) => t<('v1, 'v2, 'v3)> = "tuple3"
+let tuple1 = v0 => tuple(s => s.item(0, v0))
+// An array definition passed to the public JS `schema` is a tuple schema.
+@module("sury") external tupleN: array<t<unknown>> => t<'value> = "schema"
+let tuple2 = (v1, v2) => tupleN([castToUnknown(v1), castToUnknown(v2)])
+let tuple3 = (v1, v2, v3) => tupleN([castToUnknown(v1), castToUnknown(v2), castToUnknown(v3)])
 
 module Option = {
   @module("sury")
-  external getOr: (t<option<'value>>, 'value) => t<'value> = "Option_getOr"
+  external getOr: (t<option<'value>>, 'value) => t<'value> = "$res_Option_getOr"
   @module("sury")
-  external getOrWith: (t<option<'value>>, unit => 'value) => t<'value> = "Option_getOrWith"
+  external getOrWith: (t<option<'value>>, unit => 'value) => t<'value> = "$res_Option_getOrWith"
 }
 
 module Metadata = {
   module Id = {
     type t<'metadata>
     @module("sury")
-    external make: (~namespace: string, ~name: string) => t<'metadata> = "Metadata_Id_make"
+    external make: (~namespace: string, ~name: string) => t<'metadata> = "$res_Metadata_Id_make"
   }
 
   @module("sury")
-  external get: (t<'value>, ~id: Id.t<'metadata>) => option<'metadata> = "Metadata_get"
+  external get: (t<'value>, ~id: Id.t<'metadata>) => option<'metadata> = "$res_Metadata_get"
 
   @module("sury")
-  external set: (t<'value>, ~id: Id.t<'metadata>, 'metadata) => t<'value> = "Metadata_set"
+  external set: (t<'value>, ~id: Id.t<'metadata>, 'metadata) => t<'value> = "$res_Metadata_set"
 }
-
-@module("sury") external reverse: t<'value> => t<unknown> = "reverse"
 
 // =============
 // Built-in refinements
 // =============
 
 @module("sury") external min: (t<'value>, int, ~message: string=?) => t<'value> = "min"
-@module("sury") external floatMin: (t<float>, float, ~message: string=?) => t<float> = "floatMin"
+// The public JS `min`/`max` dispatch on the schema type — for a plain float
+// schema they land on the float refinement directly.
+@module("sury") external floatMin: (t<float>, float, ~message: string=?) => t<float> = "min"
 
 @module("sury") external max: (t<'value>, int, ~message: string=?) => t<'value> = "max"
-@module("sury") external floatMax: (t<float>, float, ~message: string=?) => t<float> = "floatMax"
+@module("sury") external floatMax: (t<float>, float, ~message: string=?) => t<float> = "max"
 
 @module("sury") external length: (t<'value>, int, ~message: string=?) => t<'value> = "length"
 

@@ -70,6 +70,33 @@ S.reverse(S.schema({
   `refine` and walk the chain differently for "Expected X" messages.
   FIXME is tagged at `Sury.res:failInvalidType`.
 
+### Pre-existing bugs surfaced by the TS-migration review (ported faithfully, fix separately)
+
+- **`exclusiveMaximum` read as `exclusiveMinimum` in the max branches.** Both
+  `toJSONSchema` and `fromJSONSchema` max handling read
+  `jsonSchema.exclusiveMinimum` where they mean `exclusiveMaximum`
+  (`packages/sury/src/jsonschema.ts`, the two max dispatch sites), so
+  exclusive upper bounds round-trip incorrectly.
+- **`S.merge` forces all keys of both objects into `required`.**
+  `js_merge` (`packages/sury/src/jsapi.ts`) rebuilds the merged object with
+  every property required, dropping optionality that either side declared.
+- **`inlinedValueFromString` escapes only `"` and `\n`.**
+  (`packages/sury/src/types.ts`) — other control characters (`\r`, `\t`,
+  backslash itself) survive unescaped into generated code and error text.
+- **ReDoS risk in `fromJSONSchema` patterns.** `new RegExp(jsonSchema.pattern)`
+  compiles untrusted patterns directly; a hostile JSON Schema can supply a
+  catastrophic-backtracking pattern.
+- **Async output refiners run on the Promise wrapper.** Marked with a TODO in
+  the source: an async transform followed by an output refiner can observe the
+  pending Promise instead of the resolved value in some advanced-decoder
+  paths.
+- **Empty async dict returns a forever-pending Promise.**
+  `S.record` with an async item schema and `{}` input never resolves
+  (`Promise.all` aggregation is skipped for zero keys).
+- **Loop guard message says 100 but triggers at 50.** The recursion guard in
+  `packages/sury/src/parse.ts` throws "Loop count exceeded 100" behind a
+  `> 50` check — align the number (and consider making the limit configurable).
+
 ## v11 initial
 
 - Add `s.parseChild` to EffectContext ???
