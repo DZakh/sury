@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.void
+  input: void
+  output: void
+  instantiations: 254
+  bundleBytes: 3944
+jsonSchema:
+  input: Expected JSON, received void
+  output: Expected JSON, received void
+operations:
+  parse:
+    expression: i=>{i===void 0||e[0](i);return i}
+    examples:
+      valid:
+        input: undefined
+        output: undefined
+      invalid-null:
+        input: "null"
+        error: Expected void, received null
+  decode:
+    expression: i=>{i===void 0||e[0](i);return i}
+    examples:
+      valid:
+        input: undefined
+        output: undefined
+  encode:
+    expression: i=>{i===void 0||e[0](i);return i}
+    examples:
+      valid:
+        input: undefined
+        output: undefined

@@ -22,17 +22,15 @@ jobs:
           cache: "pnpm"
       - run: pnpm install
 
-      - run: pnpm build
-        working-directory: packages/sury
+      - run: pnpm lint:deadcode
 
-      - name: Type performance benchmarks
-        run: pnpm bench:types
+      - run: pnpm build
         working-directory: packages/sury
 
       - run: pnpm coverage
         working-directory: packages/sury
 
-      - uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v7
         with:
           files: packages/sury/coverage/lcov.info
 

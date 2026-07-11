@@ -9,21 +9,15 @@
   "sources": [
     {
       "dir": "src",
-      "public": ["S", "JSONSchema"]
+      "public": ["S", "JSONSchema", "StandardSchema"]
     },
     {
       "dir": "tests",
       "type": "dev"
-    },
-    {
-      "dir": "scripts",
-      "type": "dev",
-      "subdirs": true
     }
   ],
   "warnings": {
     "number": "+a-4-9-20-41",
     "error": "+a"
-  },
-  "dev-dependencies": ["rescript-nodejs"]
+  }
 }

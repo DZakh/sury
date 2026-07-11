@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "res": "rescript watch",
-    "test": "rescript && vitest run",
+    "test": "pnpm --filter=sury build:entry && rescript && vitest run",
     "ppx:install": "node ../sury-ppx/install.cjs",
     "ppx:build": "cd ../sury-ppx/src && dune build",
-    "benchmark:comparison": "vitest bench --run"
+    "benchmark:comparison": "pnpm --filter=sury build:entry && vitest bench --run"
   },
   "devDependencies": {
     "@codspeed/vitest-plugin": "5.6.0"

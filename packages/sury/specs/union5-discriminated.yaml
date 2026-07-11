@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.schema({kind: "a", a: S.string}), S.schema({kind: "b", b: S.number}), S.schema({kind: "c", c: S.boolean}), S.schema({kind: "d", d: S.bigint}), S.schema({kind: "e", e: S.symbol})])'
+  input: "{ kind: string; a: string; } | { kind: string; b: number; } | { kind: string; c: boolean; } | { kind: string; d: bigint; } | { kind: string; e: symbol; }"
+  output: "{ kind: string; a: string; } | { kind: string; b: number; } | { kind: string; c: boolean; } | { kind: string; d: bigint; } | { kind: string; e: symbol; }"
+  instantiations: 10300
+  bundleBytes: 10021
+jsonSchema:
+  input: 'Failed at ["d"]: Expected JSON, received bigint'
+  output: 'Failed at ["d"]: Expected JSON, received bigint'
+operations:
+  parse:
+    expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["kind"]==="a"){let v0=i["a"];typeof v0==="string"||e[0](v0);i={"kind":i["kind"],"a":v0,}}else if(i["kind"]==="b"){let v1=i["b"];typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);i={"kind":i["kind"],"b":v1,}}else if(i["kind"]==="c"){let v2=i["c"];typeof v2==="boolean"||e[2](v2);i={"kind":i["kind"],"c":v2,}}else if(i["kind"]==="d"){let v3=i["d"];typeof v3==="bigint"||e[3](v3);i={"kind":i["kind"],"d":v3,}}else if(i["kind"]==="e"){let v4=i["e"];typeof v4==="symbol"||e[4](v4);i={"kind":i["kind"],"e":v4,}}else{e[5](i)}}else{e[6](i)}return i}
+    examples:
+      valid-a:
+        input: '{ kind: "a", a: "hello" }'
+        output: '{ kind: "a", a: "hello" }'
+      valid-d:
+        input: '{ kind: "d", d: 7n }'
+        output: '{ kind: "d", d: 7n }'
+      unrecognized-kind:
+        input: '{ kind: "z", a: "hello" }'
+        error: 'Expected { kind: "a"; a: string; } | { kind: "b"; b: number; } | { kind: "c"; c: boolean; } | { kind: "d"; d: bigint; } | { kind: "e"; e: symbol; }, received { kind: "z"; a: "hello"; }'
+      invalid-member-shape:
+        input: '{ kind: "a", a: 42 }'
+        error: 'Failed at ["a"]: Expected string, received 42'
+  decode: identity
+  encode: identity

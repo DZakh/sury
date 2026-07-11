@@ -1,0 +1,432 @@
+{
+  "type": "object",
+  "properties": {
+    "ts": {
+      "type": "object",
+      "properties": {
+        "schema": {
+          "type": "string",
+          "description": "The schema under test, as JS `.with`-chain source (e.g. `S.string.with(S.min, 3)`). You write this by hand; `spec check --write` never touches it."
+        },
+        "input": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "_skip": {
+                  "type": "string",
+                  "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…)."
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "_skip"
+              ],
+              "description": "Explicit opt-out for an unasserted dimension."
+            }
+          ],
+          "description": "`S.Input<typeof schema>` as a TS type string. Filled by `spec check --write`."
+        },
+        "output": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "_skip": {
+                  "type": "string",
+                  "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…)."
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "_skip"
+              ],
+              "description": "Explicit opt-out for an unasserted dimension."
+            }
+          ],
+          "description": "`S.Output<typeof schema>` as a TS type string. Filled by `spec check --write`."
+        },
+        "instantiations": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "_skip": {
+                  "type": "string",
+                  "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…)."
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "_skip"
+              ],
+              "description": "Explicit opt-out for an unasserted dimension."
+            }
+          ],
+          "description": "TS type-instantiation cost of this schema. Filled by `spec check --write`."
+        },
+        "bundleBytes": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "_skip": {
+                  "type": "string",
+                  "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…)."
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "_skip"
+              ],
+              "description": "Explicit opt-out for an unasserted dimension."
+            }
+          ],
+          "description": "Minified+gzipped bundle size of `schema` itself. Filled by `spec check --write`."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "input",
+        "output",
+        "instantiations",
+        "bundleBytes"
+      ],
+      "description": "The JS `.with`-chain surface: the schema itself, plus its inferred types, instantiation cost, and bundle size."
+    },
+    "jsonSchema": {
+      "type": "object",
+      "properties": {
+        "input": {
+          "type": "string"
+        },
+        "output": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "input",
+        "output"
+      ],
+      "description": "S.toJSONSchema(schema) for both directions, as a one-line source-text string (same formatting as example values) — or (per direction) the message S.toJSONSchema threw if that direction can't be represented (e.g. a bigint/symbol field). Filled by `spec check --write`."
+    },
+    "operations": {
+      "type": "object",
+      "properties": {
+        "parse": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "identity"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "expression": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "_skip": {
+                          "type": "string",
+                          "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…)."
+                        }
+                      },
+                      "additionalProperties": false,
+                      "required": [
+                        "_skip"
+                      ],
+                      "description": "Explicit opt-out for an unasserted dimension."
+                    }
+                  ],
+                  "description": "Compiled function source (`.toString()`). Filled by `spec check --write`."
+                },
+                "examples": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "input": {
+                            "type": "string",
+                            "description": "Source text for the input, e.g. '\"hello\"'. Hand-written; `spec check --write` fills output/error."
+                          },
+                          "output": {
+                            "type": "string",
+                            "description": "Expected output source text. Filled by `spec check --write`."
+                          },
+                          "bench": {
+                            "type": "boolean",
+                            "description": "Reserved for the not-yet-wired performance dimension."
+                          }
+                        },
+                        "additionalProperties": false,
+                        "required": [
+                          "input",
+                          "output"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "input": {
+                            "type": "string",
+                            "description": "Source text for the input, e.g. '\"hello\"'. Hand-written; `spec check --write` fills output/error."
+                          },
+                          "error": {
+                            "type": "string",
+                            "description": "Expected error message. Filled by `spec check --write`."
+                          },
+                          "bench": {
+                            "type": "boolean",
+                            "description": "Reserved for the not-yet-wired performance dimension."
+                          }
+                        },
+                        "additionalProperties": false,
+                        "required": [
+                          "input",
+                          "error"
+                        ]
+                      }
+                    ],
+                    "description": "A named example: input plus expected output or error."
+                  },
+                  "description": "Named example cases, keyed by a short name (e.g. `valid`, `invalid-type`)."
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "expression",
+                "examples"
+              ],
+              "description": "Compiled codegen plus its runnable examples."
+            }
+          ],
+          "description": "unknown → Output, with validation (the untrusted-input direction)."
+        },
+        "decode": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "identity"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "expression": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "_skip": {
+                          "type": "string",
+                          "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…)."
+                        }
+                      },
+                      "additionalProperties": false,
+                      "required": [
+                        "_skip"
+                      ],
+                      "description": "Explicit opt-out for an unasserted dimension."
+                    }
+                  ],
+                  "description": "Compiled function source (`.toString()`). Filled by `spec check --write`."
+                },
+                "examples": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "input": {
+                            "type": "string",
+                            "description": "Source text for the input, e.g. '\"hello\"'. Hand-written; `spec check --write` fills output/error."
+                          },
+                          "output": {
+                            "type": "string",
+                            "description": "Expected output source text. Filled by `spec check --write`."
+                          },
+                          "bench": {
+                            "type": "boolean",
+                            "description": "Reserved for the not-yet-wired performance dimension."
+                          }
+                        },
+                        "additionalProperties": false,
+                        "required": [
+                          "input",
+                          "output"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "input": {
+                            "type": "string",
+                            "description": "Source text for the input, e.g. '\"hello\"'. Hand-written; `spec check --write` fills output/error."
+                          },
+                          "error": {
+                            "type": "string",
+                            "description": "Expected error message. Filled by `spec check --write`."
+                          },
+                          "bench": {
+                            "type": "boolean",
+                            "description": "Reserved for the not-yet-wired performance dimension."
+                          }
+                        },
+                        "additionalProperties": false,
+                        "required": [
+                          "input",
+                          "error"
+                        ]
+                      }
+                    ],
+                    "description": "A named example: input plus expected output or error."
+                  },
+                  "description": "Named example cases, keyed by a short name (e.g. `valid`, `invalid-type`)."
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "expression",
+                "examples"
+              ],
+              "description": "Compiled codegen plus its runnable examples."
+            }
+          ],
+          "description": "Input → Output, no top-level type narrowing (input is already typed)."
+        },
+        "encode": {
+          "anyOf": [
+            {
+              "type": "string",
+              "const": "identity"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "expression": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "_skip": {
+                          "type": "string",
+                          "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…)."
+                        }
+                      },
+                      "additionalProperties": false,
+                      "required": [
+                        "_skip"
+                      ],
+                      "description": "Explicit opt-out for an unasserted dimension."
+                    }
+                  ],
+                  "description": "Compiled function source (`.toString()`). Filled by `spec check --write`."
+                },
+                "examples": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "input": {
+                            "type": "string",
+                            "description": "Source text for the input, e.g. '\"hello\"'. Hand-written; `spec check --write` fills output/error."
+                          },
+                          "output": {
+                            "type": "string",
+                            "description": "Expected output source text. Filled by `spec check --write`."
+                          },
+                          "bench": {
+                            "type": "boolean",
+                            "description": "Reserved for the not-yet-wired performance dimension."
+                          }
+                        },
+                        "additionalProperties": false,
+                        "required": [
+                          "input",
+                          "output"
+                        ]
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "input": {
+                            "type": "string",
+                            "description": "Source text for the input, e.g. '\"hello\"'. Hand-written; `spec check --write` fills output/error."
+                          },
+                          "error": {
+                            "type": "string",
+                            "description": "Expected error message. Filled by `spec check --write`."
+                          },
+                          "bench": {
+                            "type": "boolean",
+                            "description": "Reserved for the not-yet-wired performance dimension."
+                          }
+                        },
+                        "additionalProperties": false,
+                        "required": [
+                          "input",
+                          "error"
+                        ]
+                      }
+                    ],
+                    "description": "A named example: input plus expected output or error."
+                  },
+                  "description": "Named example cases, keyed by a short name (e.g. `valid`, `invalid-type`)."
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "expression",
+                "examples"
+              ],
+              "description": "Compiled codegen plus its runnable examples."
+            }
+          ],
+          "description": "Output → Input (the reverse direction)."
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "parse",
+        "decode",
+        "encode"
+      ],
+      "description": "The three compiled directions through the schema: parse, decode, encode."
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "ts",
+    "jsonSchema",
+    "operations"
+  ],
+  "description": "One schema's complete, machine-checked contract. See the `spec` skill."
+}

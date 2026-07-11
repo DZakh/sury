@@ -1,5 +1,5 @@
 import { bench, describe } from "vitest";
-import * as S from "../src/S.js";
+import * as S from "../src/S.mjs";
 
 // Sury's own runtime hot-path benchmarks across object, union, and recursive
 // schemas. Instrumented by CodSpeed in CI; run locally with

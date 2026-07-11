@@ -14,8 +14,9 @@ The following steps will get you setup to contribute changes to this repo:
 2. Clone your forked repo: `git clone git@github.com:{your_username}/sury.git`
 3. Install [pnpm](https://pnpm.io/) if not available `npm i -g pnpm@9.0.5`
 4. Run `pnpm i` to install dependencies.
-5. Run `pnpm res` to run ReScript compiler
-6. Run `pnpm test` for tests or use Wallaby.js
+5. Run `pnpm test` in `packages/sury` for tests (it builds the entry bundle and compiles the ReScript bindings first) or use Wallaby.js. Use `pnpm res` if you want the ReScript compiler in watch mode while editing `S.res`.
+
+The implementation lives in `packages/sury/src/*.ts` (see `CLAUDE.md` for the module layout); `src/S.res` is a thin ReScript bindings module on top of the same runtime.
 
 ## Architecture
 
@@ -41,20 +42,15 @@ The internal representation of a type schema, containing:
 
 #### Builder
 
-A builder is a function with signature `(~input: val) => val`. The schema being built is available as `input.expected` (there is no `~selfSchema` parameter). Builders generate JavaScript code at compile time by manipulating `val` objects. They are created using `Builder.make`:
+A builder is a plain function with signature `(input: Val) => Val`. The schema being built is available as `input.e` (`expected` — there is no separate self-schema parameter). Builders generate JavaScript code at compile time by manipulating `val` objects:
 
-```rescript
-let myBuilder = Builder.make((~input) => {
-  // `input.expected` is this schema; return the output val
-  input->B.next(`someTransform(${input.var()})`, ~schema=input.expected)
-})
+```ts
+const myBuilder = (input: Val): Val =>
+  // `input.e` is this schema; return the output val
+  B_next(input, `someTransform(${input.v()})`, input.e, input.e);
 ```
 
-Encoders take an extra `~target` (the schema being coerced into) and are created with `Builder.encoder`:
-
-```rescript
-let myEncoder = Builder.encoder((~input, ~target) => { ... })
-```
+Encoders take an extra `target` argument (the schema being coerced into): `(input: Val, target: Internal) => Val`.
 
 #### Val (Value)
 
@@ -134,12 +130,12 @@ Checks emit as `cond || e[n](x);` (throw when the condition is false), not as
 ### Key Functions
 
 - `parse(val)`: Main compilation loop — encoder → decoder → markOutput → follow `.to`, until the val is fully decoded
-- `B.merge(val, ~hoistCond=?)`: Walks the `.prev` chain into a code string. With `~hoistCond` (union codegen) it lifts type-narrow checks into a dispatch condition; a val with non-empty `codeFromPrev` stays non-hoistable so its `let` travels with the check
-- `B.next(prev, code, ~schema, ~expected=?)`: Creates the next val one step down the transform chain
-- `B.refine(val, ~checks=?, ~schema=?, ~expected=?)`: Clones a val to attach `checks` while preserving the var-allocation link
-- `B.hoistDecl(owner, decl)`: Attaches a `let` declaration to a still-open owner val (prev/parent/self) that dominates and outlives the materialized value, replacing the old `allocate` side-channel
-- `B.markOutput(val, ~valInput)`: Applies `inputRefiner`/`refiner` and marks the val as output
-- `B.embed(val, value)`: Embeds a runtime value (function, object) and returns a reference like `e[0]`
+- `B_merge(val, hoistCond?)`: Walks the `.prev` chain into a code string. With `hoistCond` (union codegen) it lifts type-narrow checks into a dispatch condition; a val with non-empty `codeFromPrev` stays non-hoistable so its `let` travels with the check
+- `B_next(prev, code, schema, expected)`: Creates the next val one step down the transform chain
+- `B_refine(val, schema?, checks?)`: Clones a val to attach `checks` while preserving the var-allocation link
+- `B_hoistDecl(owner, decl)`: Attaches a `let` declaration to a still-open owner val (prev/parent/self) that dominates and outlives the materialized value, replacing the old `allocate` side-channel
+- `B_markOutput(val, valInput)`: Applies `inputRefiner`/`refiner` and marks the val as output
+- `B_embed(val, value)`: Embeds a runtime value (function, object) and returns a reference like `e[0]`
 
 ### Shaped Schemas (S.shape, S.object with definer)
 
@@ -195,7 +191,8 @@ npm run test -- --watch
 
 ## Make comparison
 
-https://bundlejs.com/
+For the cross-library comparison table in the README, bundle each library on
+https://bundlejs.com/ with the recipes below.
 
 `sury`
 
@@ -329,6 +326,34 @@ const schema = type({
 });
 schema(data);
 ```
+
+## Spec Harness
+
+Implementation notes for `packages/spec` (see the `spec` skill for the authoring workflow):
+
+- **`ts.input`/`ts.output`/`ts.instantiations`** (`packages/spec/introspect.ts`) — a small vendored
+  `@typescript/vfs` environment, not `@ark/attest` (same underlying mechanism; attest is slow because of
+  an unrelated whole-project assertion scan this harness has no use for). Declares the schema, extracts
+  `S.Output<>`/`S.Input<>`, and reads `checker.typeToString()`/`program.getInstantiationCount()` (diffed
+  against a bare-import baseline) from an isolated virtual TS environment memoized per process.
+- **`ts.bundleBytes`** (`packages/spec/bundleSize.ts`) — bundles `schema` itself with esbuild (aliasing
+  the bare `sury` specifier to the dev source), minifies, and gzips. Carries a ±1% tolerance: within the
+  band `recomputeGoldens` keeps the committed number, so a toolchain bump (esbuild, zlib) doesn't go
+  stale across every spec at once; a real size change beyond it re-records exactly.
+
+`ts.instantiations` includes real, fixed per-builder-kind dispatch cost on top of per-field cost — e.g.
+a plain value like `S.string` measures far lower than any `S.schema({...})` call regardless of field
+count. A jump for one kind of schema and not another can be a genuine regression signal, not noise.
+
+## Spec Harness Suggestions
+
+A running list of strictness or author-guidance features the spec harness
+(`packages/spec`, see the `spec` skill) could add. When working on Sury you hit a
+case the harness *should* have caught or guided better — a missing check, a weak
+error message, a strictness gap that let a bad spec through — add a bullet here
+instead of silently working around it.
+
+- <placeholder>
 
 ## License
 
