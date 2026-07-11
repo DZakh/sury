@@ -1,0 +1,37 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  // builder.ts (and friends) export reference-identity singletons (`_var`,
+  // `failInvalidType`, `noopOperation`, …) compared by `===` across modules.
+  // As long as they're imported somewhere they're "used"; this only stops
+  // same-file-only exports from being reported, never cross-module ones.
+  "ignoreExportsUsedInFile": true,
+  "workspaces": {
+    "packages/sury": {
+      "entry": [
+        // Public JS/TS API + `$res_*` exports consumed by S.res (ReScript) at
+        // runtime, not via TS imports — anchor them so they aren't flagged.
+        "src/entry.ts",
+        // Invoked through package.json scripts (build:entry / build).
+        "scripts/pack.ts",
+        "tests/**/*_test.ts",
+        "tests/**/*.bench.ts"
+      ],
+      "project": ["src/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts"],
+      "vitest": {
+        "config": ["vitest.config.mjs"],
+        "entry": ["tests/**/*_test.ts", "tests/**/*.bench.ts"]
+      }
+    },
+    "packages/spec": {
+      "entry": ["cli.ts"],
+      "project": ["**/*.ts"]
+    },
+    "packages/e2e": {
+      "entry": ["src/**/*.bench.ts", "vitest.config.mjs"],
+      "project": ["src/**/*.ts"],
+      "vitest": {
+        "config": ["vitest.config.mjs"]
+      }
+    }
+  }
+}
