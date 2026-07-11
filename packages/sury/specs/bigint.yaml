@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.bigint
+  input: bigint
+  output: bigint
+  instantiations: 254
+  bundleBytes: 3882
+jsonSchema:
+  input: Expected JSON, received bigint
+  output: Expected JSON, received bigint
+operations:
+  parse:
+    expression: i=>{typeof i==="bigint"||e[0](i);return i}
+    examples:
+      valid:
+        input: 42n
+        output: 42n
+      invalid-number:
+        input: "42"
+        error: Expected bigint, received 42
+  decode: identity
+  encode: identity

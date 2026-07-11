@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.int32
+  input: number
+  output: number
+  instantiations: 254
+  bundleBytes: 3996
+jsonSchema:
+  input: '{ type: "integer", minimum: -2147483648, maximum: 2147483647 }'
+  output: '{ type: "integer", minimum: -2147483648, maximum: 2147483647 }'
+operations:
+  parse:
+    expression: i=>{typeof i==="number"&&i<=2147483647&&i>=-2147483648&&i%1===0||e[0](i);return i}
+    examples:
+      valid:
+        input: "42"
+        output: "42"
+      valid-negative:
+        input: "-2147483648"
+        output: "-2147483648"
+      valid-max:
+        input: "2147483647"
+        output: "2147483647"
+      valid-negative-zero:
+        input: "-0"
+        output: "-0"
+      invalid-nan:
+        input: NaN
+        error: Expected int32, received NaN
+      invalid-infinity:
+        input: Infinity
+        error: Expected int32, received Infinity
+      invalid-float:
+        input: "42.5"
+        error: Expected int32, received 42.5
+      invalid-too-big:
+        input: "2147483648"
+        error: Expected int32, received 2147483648
+      invalid-string:
+        input: '"42"'
+        error: Expected int32, received "42"
+  decode: identity
+  encode: identity

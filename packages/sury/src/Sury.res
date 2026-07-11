@@ -2214,6 +2214,13 @@ let unit = () =>
     s.decoder = literalDecoder
   })
 
+let void_ = () =>
+  cached("void", undefinedTag, s => {
+    s.const = %raw(`void 0`)
+    s.name = Some("void")
+    s.decoder = literalDecoder
+  })
+
 let nullLiteral = () =>
   cached((nullTag :> string), nullTag, s => {
     s.const = %raw(`null`)
@@ -7950,6 +7957,7 @@ let nullAsUnit = nullAsUnit->(Obj.magic: (unit => internal) => unit => t<unit>)
 let never_ = never_->(Obj.magic: (unit => internal) => unit => t<never>)
 let unknown: t<unknown> = unknown->castToPublic
 let unit = unit->(Obj.magic: (unit => internal) => unit => t<unit>)
+let void_ = void_->(Obj.magic: (unit => internal) => unit => t<unit>)
 let nullLiteral = nullLiteral->(Obj.magic: (unit => internal) => unit => t<unit>)
 let nan = nan->(Obj.magic: (unit => internal) => unit => t<float>)
 let string = string->(Obj.magic: (unit => internal) => unit => t<string>)
