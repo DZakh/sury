@@ -14,7 +14,6 @@ import {
   lintSpecsDir,
   specId,
   readSpec,
-  parseSpec,
   serialize,
   recomputeGoldens,
   evalSchema,
@@ -25,6 +24,13 @@ import {
   deriveBundleBytes,
   checkSpec,
 } from "./harness";
+import { red, green, formatFailure } from "./report";
+
+// A script, not a library — nothing here is exported. Importing it (instead
+// of report.ts/harness.ts, which hold the testable logic) would silently run
+// no CLI command, so fail loudly instead of doing nothing.
+if (fileURLToPath(import.meta.url) !== process.argv[1])
+  throw new Error("cli.ts is a script, not a library — import from report.ts or harness.ts instead");
 
 const args = process.argv.slice(2);
 const cmd = args[0];
@@ -39,33 +45,10 @@ const targets = (ids: string[] = rest): string[] =>
       })
     : listSpecFiles();
 
-// Colors only for a real terminal — piped/CI output (and captured test
-// output, which is how spec_errors_test.ts asserts on this exact text) would
-// otherwise carry raw, unreadable escape codes.
-const red = (s: string) => (process.stderr.isTTY ? `\x1b[31m${s}\x1b[0m` : s);
-const green = (s: string) => (process.stdout.isTTY ? `\x1b[32m${s}\x1b[0m` : s);
-
 function fail(msg: string): never {
   console.error(red(msg));
   process.exit(1);
 }
-
-// The "✗ name\n    detail..." block a failing check prints to stderr —
-// shared by every failure path below (spec.schema.json, the specs dir lint,
-// each spec) and exported so tests assert on this exact text/formatting
-// instead of a bare message array.
-export const formatFailure = (name: string, details: string[]): string =>
-  [red(`✗ ${name}`), ...details.map((d) => `    ${d}`)].join("\n");
-
-// Runs the same read-only check flow cmdCheck performs per file (no --write
-// side effects) directly against spec source text, returning exactly the
-// stdout/stderr a real `spec check <id>` run would produce for that one
-// file — so tests exercise the real formatting and stream routing, not a
-// re-implementation, without spawning a subprocess per scenario.
-export const runCheck = async (id: string, raw: string): Promise<{ stdout: string; stderr: string }> => {
-  const errs = await checkSpec(id, parseSpec(raw), raw);
-  return errs.length ? { stdout: "", stderr: formatFailure(id, errs) } : { stdout: green(`✓ ${id}`), stderr: "" };
-};
 
 const HELP = `spec — the AI-first Sury test-spec harness (see the \`spec\` skill)
 
@@ -73,34 +56,27 @@ Usage: spec <command> [args]
 
 Commands:
   new --id <id> --ts <schema>
-      Scaffold specs/<id>.yaml: derives jsonSchema, operations, and every
-      ts.* dimension from --ts. Add example inputs by hand, then run
-      \`check --write\`.
+      Scaffold specs/<id>.yaml from --ts (derives every dimension). Add
+      example inputs, then run \`check --write\`.
       e.g. spec new --id string-min --ts "S.string.with(S.min, 3)"
 
   check [id…] [--write]
-      The CI gate. For the given spec(s) (or all): validates against the
-      format schema, lints every _skip reason, asserts canonical form, and
-      verifies goldens are fresh. Never mutates files by default. Pass
-      --write to persist whatever's safely fixable (canonical form, stale
-      goldens) — skipped for a format-invalid spec or a live identity
-      mismatch, which need a human decision instead. Prints a specific,
-      actionable message per remaining problem, never just pass/fail.
+      Gate: format-valid, canonical, skips valid, goldens fresh. Read-only
+      by default. --write persists whatever's safely fixable; a
+      format-invalid spec or a live identity mismatch needs a fix first —
+      resolve it, then re-run.
 
   format [id…]
-      Rewrite the given spec(s) (or all) to canonical, byte-deterministic
-      form — key order, formatting — without recomputing any golden. Run
-      \`check --write\` if goldens themselves need refreshing.
+      Rewrite to canonical form only — no golden recompute.
 
   schema
-      Re-emit specs/spec.schema.json from the format schema in format.ts.
-      Run this after changing the format itself; \`check\` fails if it's stale.
+      Re-emit spec.schema.json from format.ts. Run after changing the
+      format itself; \`check\` fails while it's stale.
 
   help, --help, -h
       Show this message.
 
-[id…] accepts a bare id or a filename (e.g. "string" or "string.yaml"); omit
-it to target every *.yaml file under packages/sury/specs/.
+[id…] is a bare id or filename (e.g. "string" or "string.yaml"); omit for every spec.
 `;
 
 const cmdHelp = (): void => {
@@ -304,7 +280,4 @@ async function main() {
   }
 }
 
-// Only runs when executed directly (`tsx cli.ts ...`), not when imported —
-// spec_errors_test.ts imports runCheck/formatFailure to exercise the real
-// output this module produces without triggering a real CLI invocation.
-if (fileURLToPath(import.meta.url) === process.argv[1]) main();
+main();

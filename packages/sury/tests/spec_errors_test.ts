@@ -1,11 +1,12 @@
 // Proves the spec harness's error messages are guiding, not just pass/fail:
 // for each way a spec can be wrong, snapshot the exact stdout/stderr `spec
-// check` prints for it. Goes through cli.ts's runCheck — the same formatting,
-// color, and stream routing a real invocation uses, not a re-implementation —
-// so these are the literal bytes an author or CI would see.
+// check` prints for it. Goes through report.ts's runCheck — the same
+// formatting, color, and stream routing cli.ts uses for a real invocation,
+// not a re-implementation — so these are the literal bytes an author or CI
+// would see.
 import { test, expect, vi } from "vitest";
 import { listSpecFiles, readSpec, serialize, specId } from "../../spec/harness";
-import { runCheck } from "../../spec/cli";
+import { runCheck } from "../../spec/report";
 import type { Spec } from "../../spec/format";
 
 // Every test here calls runCheck, which (for a schema that still evaluates)
@@ -117,9 +118,9 @@ test("identity claimed but the operation doesn't actually compile to identity", 
         input: string
         output: string
     -   instantiations: 254
-    -   bundleBytes: 3876
+    -   bundleBytes: 3856
     +   instantiations: 5949
-    +   bundleBytes: 4389
+    +   bundleBytes: 4366
       jsonSchema:
         input:
           type: string

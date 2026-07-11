@@ -4,7 +4,7 @@ ts:
   input: "{ [x: string]: unknown; }"
   output: "{ _id?: string | undefined; _rev?: string | undefined; _deleted?: boolean | undefined; code: string; name: string; }"
   instantiations: 35335
-  bundleBytes: 10769
+  bundleBytes: 10741
 jsonSchema:
   input:
     type: object

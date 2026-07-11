@@ -4,7 +4,7 @@ ts:
   input: string | number | bigint | boolean | symbol
   output: string | number | bigint | boolean | symbol
   instantiations: 34476
-  bundleBytes: 10119
+  bundleBytes: 10098
 jsonSchema:
   input: Expected JSON, received string | number | boolean | bigint | symbol
   output: Expected JSON, received string | number | boolean | bigint | symbol

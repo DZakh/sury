@@ -1,6 +1,8 @@
-// Bundle+minify+gzip `S.parser(schema)` for `ts.bundleBytes`, aliasing the
-// bare `sury` specifier to the dev source (src/S.js) so tree-shaking and size
-// reflect exactly what's under test, not a stale published snapshot.
+// Bundle+minify+gzip `schema` itself (not a compiled operation — schema
+// construction is separate from, and cheaper than, compiling parse/decode/
+// encode) for `ts.bundleBytes`, aliasing the bare `sury` specifier to the dev
+// source (src/S.js) so tree-shaking and size reflect exactly what's under
+// test, not a stale published snapshot.
 //
 // Uses esbuild's async `build()` (not `buildSync`) so multiple specs' bundle
 // measurements can run concurrently via Promise.all — each is an independent
@@ -18,7 +20,7 @@ const SURY_ENTRY = path.join(SURY_ROOT, "src/S.js");
 export const deriveBundleBytes = async (schemaTs: string): Promise<number> => {
   const code = `
     import * as S from "sury";
-    export default S.parser(${schemaTs});
+    export default ${schemaTs};
   `;
   const result = await build({
     stdin: { contents: code, resolveDir: SURY_ROOT, sourcefile: "entry.js", loader: "js" },

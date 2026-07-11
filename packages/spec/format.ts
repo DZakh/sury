@@ -109,24 +109,26 @@ const operations = S.schema({
 const ts = S.schema({
   schema: S.string.with(S.meta, {
     description:
-      'JS `.with`-chain source under test, e.g. `S.string.with(S.min, 3)`. Hand-authored; ' +
-      "never overwritten by `spec check --write`.",
+      "The schema under test, as JS `.with`-chain source (e.g. `S.string.with(S.min, 3)`). " +
+      "You write this by hand; `spec check --write` never touches it.",
   }),
   input: orSkip(S.string).with(S.meta, {
-    description: "S.Input<schema> as a TS type string. Filled by `spec check --write`.",
+    description: "`S.Input<typeof schema>` as a TS type string. Filled by `spec check --write`.",
   }),
   output: orSkip(S.string).with(S.meta, {
-    description: "S.Output<schema> as a TS type string. Filled by `spec check --write`.",
+    description: "`S.Output<typeof schema>` as a TS type string. Filled by `spec check --write`.",
   }),
   instantiations: orSkip(S.number).with(S.meta, {
     description: "TS type-instantiation cost of this schema. Filled by `spec check --write`.",
   }),
   bundleBytes: orSkip(S.number).with(S.meta, {
-    description: "Minified+gzipped bundle size of `S.parser(schema)`. Filled by `spec check --write`.",
+    description: "Minified+gzipped bundle size of `schema` itself. Filled by `spec check --write`.",
   }),
 })
   .with(S.strict)
-  .with(S.meta, { description: "The JS `.with`-chain surface: source plus every surface-specific dimension." });
+  .with(S.meta, {
+    description: "The JS `.with`-chain surface: the schema itself, plus its inferred types, instantiation cost, and bundle size.",
+  });
 
 export const specSchema = S.schema({
   ts,

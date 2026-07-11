@@ -336,45 +336,18 @@ schema(data);
 Implementation notes for `packages/spec` (see the `spec` skill for the authoring workflow):
 
 - **`ts.input`/`ts.output`/`ts.instantiations`** (`packages/spec/introspect.ts`) — a small vendored
-  `@typescript/vfs` environment, not `@ark/attest`. It spins up one isolated virtual TS environment
-  (memoized per process), then for each schema: declares it plus `type __Output = S.Output<typeof
-  __schema>`/`__Input` in a virtual file, runs `program.getSemanticDiagnostics()` to force type
-  checking, reads `checker.typeToString()` (with `TypeFormatFlags.InTypeAlias`, or a union/index-
-  signature type prints as its own alias name instead of expanding) for the type strings, and reads
-  `program.getInstantiationCount()` diffed against a bare-import baseline for the instantiation count.
-  `@ark/attest` uses this exact mechanism internally for its own instantiation benchmarks — what makes
-  attest itself slow (~15s) is a separate, unrelated whole-project scan (`setup()`'s
-  `analyzeProjectAssertions()`) for pre-written, hardcoded-expected-value assertions, which this harness
-  has no use for. Vendoring just the isolated-environment logic measures ~1s cold, ~50-200ms warm per
-  additional schema in the same process.
-- **`ts.bundleBytes`** (`packages/spec/bundleSize.ts`) — bundles a tiny `S.parser(schema)` entry with
-  esbuild (aliasing the bare `sury` specifier to the dev source), minifies, and gzips. Each call is an
-  independent esbuild child-process build with no shared state, so concurrent specs' measurements run
-  genuinely in parallel via `Promise.all`; `recomputeGoldens` kicks off the bundle-size build *before*
-  the synchronous TS-introspection work so the two overlap within a single spec too. The recorded
-  golden carries a ±1% tolerance: within the band `recomputeGoldens` keeps the committed number (so a
-  toolchain bump — esbuild, zlib — doesn't go stale across every spec at once); a real size change
-  beyond it re-records exactly.
+  `@typescript/vfs` environment, not `@ark/attest` (same underlying mechanism; attest is slow because of
+  an unrelated whole-project assertion scan this harness has no use for). Declares the schema, extracts
+  `S.Output<>`/`S.Input<>`, and reads `checker.typeToString()`/`program.getInstantiationCount()` (diffed
+  against a bare-import baseline) from an isolated virtual TS environment memoized per process.
+- **`ts.bundleBytes`** (`packages/spec/bundleSize.ts`) — bundles `schema` itself with esbuild (aliasing
+  the bare `sury` specifier to the dev source), minifies, and gzips. Carries a ±1% tolerance: within the
+  band `recomputeGoldens` keeps the committed number, so a toolchain bump (esbuild, zlib) doesn't go
+  stale across every spec at once; a real size change beyond it re-records exactly.
 
-Both replace the project's former standalone `tests/types.bench.ts` (`@ark/attest`-based, hardcoded
-per-scenario instantiation counts) and `tests/bundle.bench.ts` (a handful of fixed scenarios against a
-committed snapshot with its own CI gate) — every scenario either covered now lives as a spec instead, so
-the same regression coverage runs as part of the normal spec suite rather than a separate command.
-
-### `ts.instantiations` methodology
-
-`ts.instantiations` diffs against a bare `import * as S from "./src/S.js"` baseline, extracting both
-`S.Output<>` and `S.Input<>`. This means the count includes real, fixed per-builder-kind dispatch cost —
-e.g. `S.string` (a plain value, no generic call) measures ~226, while `S.schema({a: S.string})` (going
-through `S.schema`'s generic overload) measures ~13390, even though both are trivial. That fixed cost
-dominates over field-count scaling within one builder kind (`object5`≈`object10`), but it's not
-incidental noise: it's a real, trackable cost of using a given Sury API, and a regression in it (e.g. a
-future `S.schema` signature change making dispatch pricier) would show up clearly. Considered and
-rejected: dropping the `S.Output`/`S.Input` extraction step (only ~5% of the total, and the fixed cost
-lives in declaring the schema, not extracting from it), and diffing against a per-builder-kind minimal
-baseline instead of a bare import (would isolate marginal/shape cost, but hides the builder-kind signal
-above and needs a way to determine "the minimal baseline" per schema shape, which is ambiguous for e.g.
-`S.merge`/discriminated unions).
+`ts.instantiations` includes real, fixed per-builder-kind dispatch cost on top of per-field cost — e.g.
+a plain value like `S.string` measures far lower than any `S.schema({...})` call regardless of field
+count. A jump for one kind of schema and not another can be a genuine regression signal, not noise.
 
 ## Spec Harness Suggestions
 

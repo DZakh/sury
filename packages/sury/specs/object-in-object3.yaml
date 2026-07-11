@@ -4,7 +4,7 @@ ts:
   input: "{ a: string; nested: { b: number; inner: { d?: string | undefined; c: boolean; }; }; }"
   output: "{ a: string; nested: { b: number; inner: { d?: string | undefined; c: boolean; }; }; }"
   instantiations: 50125
-  bundleBytes: 10787
+  bundleBytes: 10766
 jsonSchema:
   input:
     type: object

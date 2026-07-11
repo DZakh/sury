@@ -4,7 +4,7 @@ ts:
   input: "{ a: string; }"
   output: "{ a: string; }"
   instantiations: 13963
-  bundleBytes: 9708
+  bundleBytes: 9683
 jsonSchema:
   input:
     type: object
