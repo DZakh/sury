@@ -56,7 +56,7 @@ Any transformation may be async. Continue the chain via `.then()`. For nested it
 A `val` is the compile-time view of a runtime value at one point in the generated code.
 
 Core fields:
-- `schema` — actual type at this point
+- `schema` — actual type at this point. **Invariant: after a transforming decode, the output val's `schema` must describe the transformed value** — a container decoder builds it from its item-output schemas (object via `B.Val.Object.add`, union via `unionFactory(outputAnyOf)`, array/dict via `array(itemOutput.schema)`/`dictFactory(itemOutput.schema)`), never from the pre-transform `expected`. The parse loop hands `schema` unchanged into the next `.to` segment, so a stale schema makes the next decoder re-decode already-transformed values (#284).
 - `expected` — schema to build decoder for
 - `var()` — variable name in generated code (allocates lazily; reuse when the value is referenced more than once)
 - `inline` — inline expression form

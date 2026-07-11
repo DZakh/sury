@@ -2900,7 +2900,13 @@ and arrayDecoder: builder = (~input as unknownInput) => {
         let itemOutput = itemInput->parseDynamic
         let hasTransform = itemOutput.hasTransform->X.Option.getUnsafe
         let output = hasTransform
-          ? input->B.next(`new Array(${inputVar}.length)`, ~schema=expectedSchema) // FIXME: schema here should be input.expected output
+          ? // The output val's schema must describe the *transformed* items
+            // (itemOutput.schema), not the pre-transform expected — it's the
+            // type context the next `.to` segment decodes from (#284)
+            input->B.next(
+              `new Array(${inputVar}.length)`,
+              ~schema=array(itemOutput.schema->castToPublic)->castToInternal,
+            )
           : input->B.refine(~schema=expectedSchema)
 
         let itemCode =
@@ -3046,8 +3052,9 @@ and objectDecoder: Builder.t = (~input as unknownInput) => {
 
       let hasTransform = itemOutput.hasTransform->X.Option.getUnsafe
       let output = hasTransform
-      // FIXME: schema should be expectedSchema output
-        ? input->B.next("{}", ~schema=expectedSchema)
+        ? // Same as arrayDecoder: describe transformed values, not the
+          // pre-transform expected (#284)
+          input->B.next("{}", ~schema=dictFactory(itemOutput.schema->castToPublic)->castToInternal)
         : input->B.refine(~schema=expectedSchema)
 
       let itemCode =
