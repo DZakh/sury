@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.number
+  input: number
+  output: number
+  instantiations: 254
+  bundleBytes: 3991
+jsonSchema:
+  input: '{ type: "number" }'
+  output: '{ type: "number" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="number"&&!Number.isNaN(i)||e[0](i);return i}
+    examples:
+      valid:
+        input: "42.5"
+        output: "42.5"
+      valid-negative:
+        input: "-1"
+        output: "-1"
+      invalid-nan:
+        input: NaN
+        error: Expected number, received NaN
+      invalid-string:
+        input: '"42"'
+        error: Expected number, received "42"
+  decode: identity
+  encode: identity
