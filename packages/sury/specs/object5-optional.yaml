@@ -3,8 +3,8 @@ ts:
   schema: "S.schema({a: S.string, b: S.optional(S.number), c: S.boolean, d: S.optional(S.bigint), e: S.symbol})"
   input: "{ b?: number | undefined; d?: bigint | undefined; a: string; c: boolean; e: symbol; }"
   output: "{ b?: number | undefined; d?: bigint | undefined; a: string; c: boolean; e: symbol; }"
-  instantiations: 35397
-  bundleBytes: 10643
+  instantiations: 3630
+  bundleBytes: 10646
 jsonSchema:
   input: 'Failed at ["d"]: Expected JSON, received bigint | undefined'
   output: 'Failed at ["d"]: Expected JSON, received bigint | undefined'
