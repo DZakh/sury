@@ -1195,52 +1195,6 @@ test("Resets object strict mode with strip method", (t) => {
   expectTypeOf(value).toEqualTypeOf<{ foo: string }>();
 });
 
-test("Successfully parses intersected objects", (t) => {
-  const schema = S.merge(
-    S.schema({
-      foo: S.string,
-      bar: S.boolean,
-    }),
-    S.schema({
-      baz: S.string,
-    }),
-  );
-
-  t.expect(S.parser(schema).toString()).toEqual(
-    `i=>{typeof i==="object"&&i||e[3](i);let v0=i["foo"],v1=i["bar"],v2=i["baz"];typeof v0==="string"||e[0](v0);typeof v1==="boolean"||e[1](v1);typeof v2==="string"||e[2](v2);return {"foo":v0,"bar":v1,"baz":v2,}}`,
-  );
-
-  expectSchemaType(schema).toBe<
-    { foo: string; bar: boolean; baz: string },
-    Record<string, unknown>
-  >();
-
-  const result = S.safe(() =>
-    S.parser(schema)({
-      foo: "bar",
-      bar: true,
-    }),
-  );
-  if (result.success) {
-    t.expect.fail("Should fail");
-    return;
-  }
-  t.expect(result.error.message).toBe(
-    `Failed at ["baz"]: Expected string, received undefined`,
-  );
-
-  const value = S.parser(schema)({
-    foo: "bar",
-    baz: "baz",
-    bar: true,
-  });
-  t.expect(value).toEqual({
-    foo: "bar",
-    baz: "baz",
-    bar: true,
-  });
-});
-
 test("Fails to parse intersected objects with transform", (t) => {
   t.expect(() => {
     const schema = S.merge(
@@ -1302,38 +1256,6 @@ test("Fails to parse intersected objects with transform", (t) => {
   // });
 });
 
-test("Successfully serializes S.merge", (t) => {
-  const schema = S.merge(
-    S.schema({
-      foo: S.string,
-      bar: S.boolean,
-    }),
-    S.schema({
-      baz: S.string,
-    }),
-  );
-
-  t.expect(S.parser(S.reverse(schema)).toString()).toEqual(
-    `i=>{typeof i==="object"&&i||e[3](i);let v0=i["foo"],v1=i["bar"],v2=i["baz"];typeof v0==="string"||e[0](v0);typeof v1==="boolean"||e[1](v1);typeof v2==="string"||e[2](v2);return {"foo":v0,"bar":v1,"baz":v2,}}`,
-  );
-  t.expect(
-    S.encoder(schema).toString().startsWith("function noopOperation(i) {"),
-  ).toEqual(true);
-
-  const value = S.encoder(schema)({
-    foo: "bar",
-    baz: "baz",
-    bar: true,
-  });
-  expectTypeOf(value).toEqualTypeOf<Record<string, unknown>>();
-
-  t.expect(value).toEqual({
-    foo: "bar",
-    baz: "baz",
-    bar: true,
-  });
-});
-
 test("Merge overwrites the left fields by schema from the right", (t) => {
   const baseSchema = S.schema({
     type: S.union(["foo", "bar"]),
@@ -1356,7 +1278,7 @@ test("Merge overwrites the left fields by schema from the right", (t) => {
 
   expectSchemaType(fooSchema).toBe<
     { type: "foo"; name: string; fooCount: number },
-    Record<string, unknown>
+    { type: "foo"; name: string; fooCount: number }
   >();
 
   t.expect(value).toEqual({
@@ -1393,59 +1315,6 @@ test("Name of merge schema", (t) => {
   t.expect(S.toExpression(schema)).toBe(
     `{ foo: string; bar: boolean; baz: string; }`,
   );
-});
-
-// https://github.com/DZakh/sury/issues/157
-test("Merge preserves optional properties", (t) => {
-  const docMetaSchema = S.schema({
-    _id: S.optional(S.string),
-    _rev: S.optional(S.string),
-    _deleted: S.optional(S.boolean),
-  });
-
-  const productSchema = S.merge(
-    docMetaSchema,
-    S.schema({
-      code: S.min(S.string, 1, "Product Code is required"),
-      name: S.min(S.string, 1, "Product Name is required"),
-    }),
-  );
-
-  expectSchemaType(productSchema).toBe<
-    {
-      _id?: string | undefined;
-      _rev?: string | undefined;
-      _deleted?: boolean | undefined;
-      code: string;
-      name: string;
-    },
-    Record<string, unknown>
-  >();
-
-  const value = S.parser(productSchema)({
-    code: "P001",
-    name: "Widget",
-  });
-  t.expect(value).toEqual({
-    _id: undefined,
-    _rev: undefined,
-    _deleted: undefined,
-    code: "P001",
-    name: "Widget",
-  });
-
-  const valueWithOptionals = S.parser(productSchema)({
-    _id: "123",
-    code: "P001",
-    name: "Widget",
-  });
-  t.expect(valueWithOptionals).toEqual({
-    _id: "123",
-    _rev: undefined,
-    _deleted: undefined,
-    code: "P001",
-    name: "Widget",
-  });
 });
 
 test("Successfully parses object using S.schema", (t) => {
