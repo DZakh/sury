@@ -1212,7 +1212,7 @@ test("Successfully parses intersected objects", (t) => {
 
   expectSchemaType(schema).toBe<
     { foo: string; bar: boolean; baz: string },
-    Record<string, unknown>
+    { foo: string; bar: boolean; baz: string }
   >();
 
   const result = S.safe(() =>
@@ -1325,7 +1325,11 @@ test("Successfully serializes S.merge", (t) => {
     baz: "baz",
     bar: true,
   });
-  expectTypeOf(value).toEqualTypeOf<Record<string, unknown>>();
+  expectTypeOf(value).toEqualTypeOf<{
+    foo: string;
+    bar: boolean;
+    baz: string;
+  }>();
 
   t.expect(value).toEqual({
     foo: "bar",
@@ -1356,7 +1360,7 @@ test("Merge overwrites the left fields by schema from the right", (t) => {
 
   expectSchemaType(fooSchema).toBe<
     { type: "foo"; name: string; fooCount: number },
-    Record<string, unknown>
+    { type: "foo"; name: string; fooCount: number }
   >();
 
   t.expect(value).toEqual({
@@ -1419,7 +1423,13 @@ test("Merge preserves optional properties", (t) => {
       code: string;
       name: string;
     },
-    Record<string, unknown>
+    {
+      _id?: string | undefined;
+      _rev?: string | undefined;
+      _deleted?: boolean | undefined;
+      code: string;
+      name: string;
+    }
   >();
 
   const value = S.parser(productSchema)({

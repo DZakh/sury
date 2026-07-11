@@ -748,15 +748,16 @@ export function deepStrict<Output, Input extends Record<string, unknown>>(
   schema: Schema<Output, Input>
 ): Schema<Output, Input>;
 
+type Merge<A, B> = Flatten<Omit<A, keyof B> & B>;
+
 export function merge<
   O1 extends Record<string, unknown>,
-  O2 extends Record<string, unknown>
->(
-  schema1: Schema<O1, Record<string, unknown>>,
-  schema2: Schema<O2, Record<string, unknown>>
-): Schema<
-  { [K in keyof (Omit<O1, keyof O2> & O2)]: (Omit<O1, keyof O2> & O2)[K] },
-  Record<string, unknown>
+  I1 extends Record<string, unknown>,
+  O2 extends Record<string, unknown>,
+  I2 extends Record<string, unknown>
+>(schema1: Schema<O1, I1>, schema2: Schema<O2, I2>): Schema<
+  Merge<O1, O2>,
+  Merge<I1, I2>
 >;
 
 export function recursive<Output, Input = unknown>(

@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: "S.merge(S.schema({_id: S.optional(S.string), _rev: S.optional(S.string), _deleted: S.optional(S.boolean)}), S.schema({code: S.string, name: S.string}))"
-  input: "{ [x: string]: unknown; }"
+  input: "{ _id?: string | undefined; _rev?: string | undefined; _deleted?: boolean | undefined; code: string; name: string; }"
   output: "{ _id?: string | undefined; _rev?: string | undefined; _deleted?: boolean | undefined; code: string; name: string; }"
-  instantiations: 35335
+  instantiations: 32425
   bundleBytes: 10741
 jsonSchema:
   input: '{ type: "object", properties: { _id: { type: "string" }, _rev: { type: "string" }, _deleted: { type: "boolean" }, code: { type: "string" }, name: { type: "string" } }, required: ["code", "name"] }'
