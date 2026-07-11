@@ -5,6 +5,17 @@
   // As long as they're imported somewhere they're "used"; this only stops
   // same-file-only exports from being reported, never cross-module ones.
   "ignoreExportsUsedInFile": true,
+  // Intentional two-name exports (e.g. `schema`/`schemaFactory`,
+  // `SuryError`/`errorClass`): the codebase deliberately re-exports one value
+  // under a public and an internal name, so don't flag them as duplicates.
+  "rules": {
+    "duplicates": "off"
+  },
+  // Wallaby's config is loaded by the Wallaby runner, not imported anywhere.
+  "ignore": ["wallaby.conf.js"],
+  // tsx runs the spec CLI; dune builds the OCaml ppx. Both are invoked from
+  // scripts/CI, not declared as npm bin deps.
+  "ignoreBinaries": ["tsx", "dune"],
   "workspaces": {
     "packages/sury": {
       "entry": [
@@ -20,7 +31,10 @@
       "vitest": {
         "config": ["vitest.config.mjs"],
         "entry": ["tests/**/*_test.ts", "tests/**/*.bench.ts"]
-      }
+      },
+      // @rescript/darwin-arm64 is a platform binary pulled in per-OS; the
+      // rescript runtime is imported by the checked-in compiled S.res.mjs.
+      "ignoreDependencies": ["@rescript/darwin-arm64", "@rescript/runtime"]
     },
     "packages/spec": {
       "entry": ["cli.ts"],
@@ -31,7 +45,11 @@
       "project": ["src/**/*.ts"],
       "vitest": {
         "config": ["vitest.config.mjs"]
-      }
+      },
+      // genType-emitted artifacts; sury-ppx is a ReScript ppx binary wired via
+      // rescript.json, not a TS import; rescript runtime as above.
+      "ignore": ["src/genType/**"],
+      "ignoreDependencies": ["sury-ppx", "@rescript/runtime"]
     }
   }
 }
