@@ -55,8 +55,8 @@
   ],
   "scripts": {
     "coverage": "vitest run --coverage",
-    "build:core": "node ./scripts/build-core.mjs",
-    "build": "pnpm build:core && pnpm rescript && node ./scripts/pack/Pack.res.mjs",
+    "build:core": "tsx ./scripts/pack.ts --core-only",
+    "build": "pnpm build:core && pnpm rescript && tsx ./scripts/pack.ts",
     "res": "pnpm build:core && rescript watch",
     "test:res": "cd ./packages/tests && rescript clean && rescript watch",
     "test": "pnpm build:core && rescript build && vitest run",
@@ -76,7 +76,6 @@
     "esbuild": "0.28.1",
     "execa": "7.1.1",
     "rescript": "12.2.0",
-    "rescript-nodejs": "16.1.0",
     "rescript-stdlib-vendorer": "1.1.0",
     "rollup": "3.21.0",
     "tsx": "4.22.4",

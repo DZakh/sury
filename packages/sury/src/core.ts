@@ -202,7 +202,7 @@ export const ValFlag = {
 // plain object with a string `code` field, exactly what ReScript's
 // tagged-variant compilation already produces (verified via probe).
 
-export interface InvalidInputDetails {
+export type InvalidInputDetails = {
   code: "invalid_input";
   path: Path;
   reason: string;
@@ -211,19 +211,19 @@ export interface InvalidInputDetails {
   input?: unknown;
   unionErrors?: SuryErrorRecord[];
 }
-export interface InvalidOperationDetails {
+export type InvalidOperationDetails = {
   code: "invalid_operation";
   path: Path;
   reason: string;
 }
-export interface UnsupportedDecodeDetails {
+export type UnsupportedDecodeDetails = {
   code: "unsupported_decode";
   path: Path;
   reason: string;
   from: Internal;
   to: Internal;
 }
-export interface InvalidConversionDetails {
+export type InvalidConversionDetails = {
   code: "invalid_conversion";
   path: Path;
   reason: string;
@@ -231,7 +231,7 @@ export interface InvalidConversionDetails {
   to: Internal;
   cause?: unknown;
 }
-export interface UnrecognizedKeysDetails {
+export type UnrecognizedKeysDetails = {
   code: "unrecognized_keys";
   path: Path;
   reason: string;
@@ -247,7 +247,7 @@ export type ErrorDetails =
 // The public-facing error shape (`error` in Sury.res): `{message, reason,
 // path}`, always also carrying whatever fields the originating errorDetails
 // variant had (SuryError's constructor copies every param key onto `this`).
-export interface SuryErrorRecord extends Record<string, unknown> {
+export type SuryErrorRecord = Record<string, unknown> & {
   message: string;
   reason: string;
   path: Path;
@@ -269,7 +269,7 @@ export interface SuryErrorRecord extends Record<string, unknown> {
 // distinguish the schema case with `typeof v !== "string"`.
 export type AdditionalItems = AdditionalItemsMode | Internal;
 
-export interface Has {
+export type Has = {
   string?: boolean;
   number?: boolean;
   never?: boolean;
@@ -286,7 +286,7 @@ export interface Has {
   object?: boolean;
 }
 
-export interface SchemaErrorMessage {
+export type SchemaErrorMessage = {
   // @as("_")
   catchAll?: string;
   format?: string;
@@ -307,7 +307,7 @@ export type Encoder = (input: Val, target: Internal) => Val;
 // The mutable mutable schema representation. `.type` is the public tagged
 // union's discriminant field (`@as("type")` on `internal.tag`) — this same
 // object, viewed through `SuryType<Value>`, is what the public API returns.
-export interface Internal {
+export type Internal = {
   type: Tag;
   // A serial number for the schema, used for caching operations.
   seq?: number;
@@ -377,7 +377,7 @@ export interface Internal {
 // `@as(...)` runtime names) for bundle size — see the file header. Full name
 // is given in each comment.
 
-export interface BGlobal {
+export type BGlobal = {
   // @as("v") — varCounter
   v: number;
   // @as("o") — flag
@@ -391,14 +391,14 @@ export interface BGlobal {
 // Adjacent checks sharing `fail` by reference equality are fused with `&&`
 // in `emitChecks`, so pass the same helper (e.g. failInvalidType) to every
 // check on a val if you want them to emit as one `||`-throw line.
-export interface Check {
+export type Check = {
   // @as("c") — cond
   c: (inputVar: string) => string;
   // @as("f") — fail
   f: (input: Val) => (value: unknown) => ErrorDetails;
 }
 
-export interface Val {
+export type Val = {
   // We might have the same value, but different instances of the val
   // object. Use the bond field, to connect the var call. @as("b") — bond
   b?: Val;
@@ -548,7 +548,7 @@ const InternalError = {
 // globalConfig
 // =============================================================================
 
-export interface GlobalConfig {
+export type GlobalConfig = {
   // @as("m")
   m: (error: SuryErrorRecord) => string;
   // @as("d") — defsAccumulator
@@ -559,7 +559,7 @@ export interface GlobalConfig {
   f: Flag;
 }
 
-export interface GlobalConfigOverride {
+export type GlobalConfigOverride = {
   defaultAdditionalItems?: AdditionalItemsMode;
   disableNanNumberValidation?: boolean;
 }

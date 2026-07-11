@@ -13,3 +13,5 @@ coverage
 tsconfig.tsbuildinfo
 _opam/
 .attest
+packages/sury/src/core.mjs
+packages/sury/src/core.cjs
