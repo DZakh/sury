@@ -60,7 +60,7 @@ async function buildCore(): Promise<void> {
 // identifier of Sury.res.mjs, so renames there break this silently; keep in
 // sync with Sury.resi.
 const filesMapping: Array<[name: string, value: string]> = [
-  ["Error", "S.$$Error.$$class"],
+  ["Error", "S.errorClass"],
   ["string", "/*#__PURE__*/ S.string()"],
   ["boolean", "/*#__PURE__*/ S.bool()"],
   ["int32", "/*#__PURE__*/ S.int()"],
@@ -134,7 +134,10 @@ function writeSjsEsm(filePath: string): void {
     filePath,
     [
       `/* @ts-self-types="./S.d.ts" */`,
-      `import * as S from "./Sury.res.mjs"`,
+      // The JS/TS entry goes straight to the TypeScript core — the compiled
+      // Sury.res.mjs is only for ReScript consumers (its exports are
+      // fixed-arity wrappers, which would break the variadic js_* API).
+      `import * as S from "./core.mjs"`,
       `var _void = /*#__PURE__*/ S.unit(); export { _void as void }`,
       ...filesMapping.map(([name, value]) => `export var ${name} = ${value}`),
     ].join("\n"),
@@ -199,7 +202,7 @@ async function pack(): Promise<void> {
     path.join(artifactsPath, "./src/S.js"),
     [
       `/* @ts-self-types="./S.d.ts" */`,
-      `var S = require("./Sury.res.js");`,
+      `var S = require("./core.cjs");`,
       ...filesMapping.map(([name, value]) => `exports.${name} = ${value}`),
       `exports.void = S.unit()`,
     ].join("\n"),
