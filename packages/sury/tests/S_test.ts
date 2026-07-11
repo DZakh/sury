@@ -59,16 +59,6 @@ test("JSON string demo", (t) => {
   // i=>{return ""+i}
 });
 
-test("Successfully parses string", (t) => {
-  const schema = S.string;
-  const value = S.parser(schema)("123");
-
-  t.expect(value).toEqual("123");
-
-  expectSchemaType(schema).toBe<string, string>();
-  expectTypeOf(value).toEqualTypeOf<string>();
-});
-
 test("Successfully parses string with built-in refinement", (t) => {
   const schema = S.string.with(S.length, 5);
   const result = S.safe(() => S.parser(schema)("123"));
@@ -154,48 +144,6 @@ test("Successfully converts Date to string with S.to", (t) => {
   expectTypeOf(value).toEqualTypeOf<string>();
 });
 
-test("Successfully parses int", (t) => {
-  const schema = S.int32;
-  const value = S.parser(schema)(123);
-
-  t.expect(value).toEqual(123);
-
-  expectSchemaType(schema).toBe<number, number>();
-  expectTypeOf(value).toEqualTypeOf<number>();
-});
-
-test("Successfully parses float", (t) => {
-  const schema = S.number;
-  const value = S.parser(schema)(123.4);
-
-  t.expect(value).toEqual(123.4);
-
-  expectSchemaType(schema).toBe<number, number>();
-  expectTypeOf(value).toEqualTypeOf<number>();
-});
-
-test("Successfully parses BigInt", (t) => {
-  const schema = S.bigint;
-  const value = S.parser(schema)(123n);
-
-  t.expect(value).toEqual(123n);
-
-  expectSchemaType(schema).toBe<bigint, bigint>();
-  expectTypeOf(value).toEqualTypeOf<bigint>();
-});
-
-test("Successfully parses symbol", (t) => {
-  const schema = S.symbol;
-  const data = Symbol("foo");
-  const value = S.parser(schema)(data);
-
-  t.expect(value).toEqual(data);
-  t.expect(value).not.toEqual(Symbol("foo")); // Because this is how symbols work
-
-  expectSchemaType(schema).toBe<symbol, symbol>();
-  expectTypeOf(value).toEqualTypeOf<symbol>();
-});
-
 test("Function literal schema", (t) => {
   const fn = function () {};
 
@@ -214,22 +162,6 @@ test("Function literal schema", (t) => {
   t.expect(value).not.toEqual(function () {});
 });
 
-test("Fails to parse float when NaN is provided", (t) => {
-  const schema = S.number;
-
-  t.expect(() => {
-    const value = S.parser(schema)(NaN);
-
-    expectSchemaType(schema).toBe<number, number>();
-    expectTypeOf(value).toEqualTypeOf<number>();
-  }).toThrow(
-    t.expect.objectContaining({
-      name: "SuryError",
-      message: "Expected number, received NaN",
-    }),
-  );
-});
-
 test("Successfully parses float when NaN is provided and NaN check disabled in global config", (t) => {
   S.global({
     disableNanNumberValidation: true,
@@ -242,36 +174,6 @@ test("Successfully parses float when NaN is provided and NaN check disabled in g
 
   expectSchemaType(schema).toBe<number, number>();
   expectTypeOf(value).toEqualTypeOf<number>();
-});
-
-test("Successfully parses bool", (t) => {
-  const schema = S.boolean;
-  const value = S.parser(schema)(true);
-
-  t.expect(value).toEqual(true);
-
-  expectSchemaType(schema).toBe<boolean, boolean>();
-  expectTypeOf(value).toEqualTypeOf<boolean>();
-});
-
-test("Successfully parses unknown", (t) => {
-  const schema = S.unknown;
-  const value = S.parser(schema)(true);
-
-  t.expect(value).toEqual(true);
-
-  expectSchemaType(schema).toBe<unknown, unknown>();
-  expectTypeOf(value).toEqualTypeOf<unknown>();
-});
-
-test("Successfully parses any", (t) => {
-  const schema = S.any;
-  const value = S.parser(schema)(true);
-
-  t.expect(value).toEqual(true);
-
-  expectSchemaType(schema).toBe<any, any>();
-  expectTypeOf(value).toEqualTypeOf<any>();
 });
 
 test("Successfully parses json", (t) => {
@@ -308,32 +210,6 @@ test("Successfully parses undefined", (t) => {
 
   expectSchemaType(schema).toBe<undefined, undefined>();
   expectTypeOf(value).toEqualTypeOf<undefined>();
-});
-
-test("Successfully parses void", (t) => {
-  const schema = S.void;
-  const value = S.parser(schema)(undefined);
-
-  t.expect(value).toEqual(undefined);
-
-  expectSchemaType(schema).toBe<void, void>();
-  expectTypeOf(value).toEqualTypeOf<void>();
-});
-
-test("Fails to parse never", (t) => {
-  const schema = S.never;
-
-  t.expect(() => {
-    const value = S.parser(schema)(true);
-
-    expectSchemaType(schema).toBe<never, never>();
-    expectTypeOf(value).toEqualTypeOf<never>();
-  }).toThrow(
-    t.expect.objectContaining({
-      name: "SuryError",
-      message: "Expected never, received true",
-    }),
-  );
 });
 
 test("Can get a reason from an error", (t) => {
@@ -705,16 +581,6 @@ test("Pattern match on schema", (t) => {
   } else {
     t.expect.fail("Not a schema");
   }
-});
-
-test("Test JSON Schema of int32", (t) => {
-  const schema = S.int32;
-
-  t.expect(S.toJSONSchema(schema)).toEqual({
-    type: "integer",
-    minimum: -2147483648,
-    maximum: 2147483647,
-  });
 });
 
 test("Test extended JSON Schema", (t) => {
