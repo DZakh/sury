@@ -19,6 +19,7 @@ import {
   KEY_ORDER,
   TS_KEY_ORDER,
   OP_ORDER,
+  SKIP_REASONS,
   isSkip,
   validate,
   type Spec,
@@ -42,16 +43,13 @@ const OP_BUILDER: Record<OpName, (schema: any) => (input: any) => any> = {
   encode: S.encoder,
 };
 
-// `identity` isn't here — it's no longer a `_skip` reason, see Operation.
-const SKIP_REASONS = new Set([
-  "parser-only",
-  "serializer-only",
-  "lossy",
-  "not-applicable",
-]);
+const SKIP_REASON_SET = new Set<string>(SKIP_REASONS);
 export const isValidSkipReason = (r: unknown): boolean =>
-  typeof r === "string" && (SKIP_REASONS.has(r) || /^todo\(#.+\)$/.test(r));
+  typeof r === "string" && (SKIP_REASON_SET.has(r) || /^todo\(#.+\)$/.test(r));
 
+// `path` is relative to the spec root (e.g. `ts.bundleBytes`) — the reported
+// error already sits under a `✗ <id>` header, so prefixing the id here would
+// print it twice.
 export const lintSkips = (obj: unknown, path: string, out: string[]): void => {
   if (isSkip(obj)) {
     if (!isValidSkipReason(obj._skip))
@@ -59,7 +57,7 @@ export const lintSkips = (obj: unknown, path: string, out: string[]): void => {
     return;
   }
   if (obj && typeof obj === "object")
-    for (const [k, v] of Object.entries(obj)) lintSkips(v, `${path}.${k}`, out);
+    for (const [k, v] of Object.entries(obj)) lintSkips(v, path ? `${path}.${k}` : k, out);
 };
 
 export const specId = (file: string): string =>
@@ -247,7 +245,13 @@ const keyToCode = (k: string): string => (IDENT_RE.test(k) ? k : JSON.stringify(
 // `String(-0)` prints as "0". Only a *registry* symbol (`Symbol.for(key)`)
 // round-trips through source text — a bare `Symbol()` is unique per call, so
 // no source expression can reproduce it.
-const valueToCode = (v: unknown): string => {
+//
+// Anything the emitted source would NOT evaluate back to (structurally) must
+// throw rather than emit: a cyclic value would recurse forever, a class
+// instance would silently flatten to a plain-object literal, and symbol keys
+// would be dropped by Object.entries — each of those would record a golden
+// that looks fine but doesn't equal the real output.
+const valueToCode = (v: unknown, seen: WeakSet<object> = new WeakSet()): string => {
   if (v === undefined) return "undefined";
   if (typeof v === "bigint") return `${v}n`;
   if (typeof v === "number") return Object.is(v, -0) ? "-0" : String(v);
@@ -258,15 +262,26 @@ const valueToCode = (v: unknown): string => {
       throw new Error("cannot represent a non-registry symbol (use Symbol.for(key)) as spec source code");
     return `Symbol.for(${JSON.stringify(key)})`;
   }
+  if (typeof v === "object") {
+    if (seen.has(v)) throw new Error("cannot represent a cyclic value as spec source code");
+    seen.add(v);
+  }
   if (v instanceof Date) return `new Date(${JSON.stringify(v.toISOString())})`;
   if (v instanceof RegExp) return v.toString();
-  if (v instanceof Map) return `new Map(${valueToCode([...v])})`;
-  if (v instanceof Set) return `new Set(${valueToCode([...v])})`;
-  if (Array.isArray(v)) return `[${v.map(valueToCode).join(", ")}]`;
+  if (v instanceof Map) return `new Map(${valueToCode([...v], seen)})`;
+  if (v instanceof Set) return `new Set(${valueToCode([...v], seen)})`;
+  if (Array.isArray(v)) return `[${v.map((x) => valueToCode(x, seen)).join(", ")}]`;
   if (typeof v === "object") {
+    const proto = Object.getPrototypeOf(v);
+    if (proto !== Object.prototype && proto !== null)
+      throw new Error(
+        `cannot represent a ${(v as object).constructor?.name ?? "unknown-class"} instance as spec source code`,
+      );
+    if (Object.getOwnPropertySymbols(v).length)
+      throw new Error("cannot represent an object with symbol keys as spec source code");
     const entries = Object.entries(v);
     if (entries.length === 0) return "{}";
-    return `{ ${entries.map(([k, val]) => `${keyToCode(k)}: ${valueToCode(val)}`).join(", ")} }`;
+    return `{ ${entries.map(([k, val]) => `${keyToCode(k)}: ${valueToCode(val, seen)}`).join(", ")} }`;
   }
   throw new Error(`cannot represent a ${typeof v} as spec source code`);
 };
@@ -318,7 +333,17 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
     }
   }
 
-  if (bundleBytesPromise) next.ts.bundleBytes = await bundleBytesPromise;
+  if (bundleBytesPromise) {
+    const measured = await bundleBytesPromise;
+    // ±1% tolerance: gzip byte counts wobble with toolchain bumps (esbuild,
+    // zlib) even when nothing about the schema changed. Within the band the
+    // recorded golden is kept, so an unrelated dependency bump doesn't go
+    // stale across every spec at once; a real size change (>1%) re-records
+    // exactly.
+    const prior = next.ts.bundleBytes;
+    next.ts.bundleBytes =
+      typeof prior === "number" && Math.abs(measured - prior) <= prior * 0.01 ? prior : measured;
+  }
   return next;
 };
 
@@ -373,7 +398,7 @@ export const checkSpec = async (
   if (!v.ok) errs.push(`schema: ${v.error}`);
   const spec = v.ok ? v.value : obj;
 
-  lintSkips(spec, id, errs);
+  lintSkips(spec, "", errs);
 
   const canon = serialize(spec);
   if (raw !== canon)

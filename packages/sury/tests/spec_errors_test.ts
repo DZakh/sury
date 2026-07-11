@@ -77,7 +77,7 @@ test("invalid _skip reason (not an enum value or todo(#...))", async () => {
   await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
     {
       "stderr": "✗ string
-        string.ts.bundleBytes: invalid _skip reason "because-i-said-so"",
+        ts.bundleBytes: invalid _skip reason "because-i-said-so"",
       "stdout": "",
     }
   `);
@@ -221,7 +221,7 @@ test("multiple simultaneous problems all get their own guiding message", async (
   await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
     {
       "stderr": "✗ string
-        string.ts.bundleBytes: invalid _skip reason "nonsense-reason"
+        ts.bundleBytes: invalid _skip reason "nonsense-reason"
         goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
     @@ -13,7 +13,7 @@
           type: string

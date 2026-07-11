@@ -351,7 +351,10 @@ Implementation notes for `packages/spec` (see the `spec` skill for the authoring
   esbuild (aliasing the bare `sury` specifier to the dev source), minifies, and gzips. Each call is an
   independent esbuild child-process build with no shared state, so concurrent specs' measurements run
   genuinely in parallel via `Promise.all`; `recomputeGoldens` kicks off the bundle-size build *before*
-  the synchronous TS-introspection work so the two overlap within a single spec too.
+  the synchronous TS-introspection work so the two overlap within a single spec too. The recorded
+  golden carries a ±1% tolerance: within the band `recomputeGoldens` keeps the committed number (so a
+  toolchain bump — esbuild, zlib — doesn't go stale across every spec at once); a real size change
+  beyond it re-records exactly.
 
 Both replace the project's former standalone `tests/types.bench.ts` (`@ark/attest`-based, hardcoded
 per-scenario instantiation counts) and `tests/bundle.bench.ts` (a handful of fixed scenarios against a

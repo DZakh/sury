@@ -28,13 +28,15 @@
 //     without re-verifying against the full, real specSchema, not a toy schema.
 import * as S from "sury-published";
 
-// A dimension that isn't asserted must say so explicitly, with a reason.
-// Reasons are conventionally an enum (`parser-only`, `serializer-only`, `lossy`,
-// `not-applicable`) or `todo(#…)` for a not-yet-built dimension; the CLI lints
-// the reason string (harness.ts's SKIP_REASONS — keep the two in sync).
+// A dimension that isn't asserted must say so explicitly, with a reason:
+// one of SKIP_REASONS, or `todo(#…)` for a not-yet-built dimension. The CLI
+// lints the reason string (harness.ts's isValidSkipReason) and the schema
+// description below is derived from the same array, so there's exactly one
+// list to update.
+export const SKIP_REASONS = ["parser-only", "serializer-only", "lossy", "not-applicable"] as const;
 export const skip = S.schema({
   _skip: S.string.with(S.meta, {
-    description: "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…).",
+    description: `Why unasserted: ${SKIP_REASONS.join(" | ")} | todo(#…).`,
   }),
 })
   .with(S.strict)
