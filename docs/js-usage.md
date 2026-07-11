@@ -872,13 +872,13 @@ type Schema = S.Infer<typeof schema>; // "Win" | "Draw" | "Loss"
 
 ### Decoding into / out of a union
 
-When you compile `source -> targetUnion` (via `S.to`, or implicitly by reversing the schema), Sury picks the target variant using a three-tier algorithm based on the source's **derived tag** — the tag known at compile time, which may be narrower than the original type (an upstream transformation can refine it). If the source is itself a union, the algorithm runs independently for each source variant.
+Converting between unions (via `S.to`, or implicitly by reversing the schema) maps each **source** case to exactly one **target** case. Sury applies three rules across all source cases — tier 1 first, then tier 2, then tier 3 — and **reserves** a target as soon as a case binds to it, so no other case can reuse it (tiers 1 and 2 reserve; tier 3 does not):
 
-If the source is `unknown` (no derived tag), the tag-based tiers are skipped and target variants are simply attempted in target-union order at runtime.
+1. **Same-type match (tier 1).** A source case that has a target of the same type binds to it directly and is never coerced. With several same-type targets, an exact value/format match (a specific string literal, `Int32`, …) wins over a catch-all, in target order. The matched target is reserved. If same-type targets exist but none accept the value, the conversion errors — it never falls through to coercion.
+2. **Nullish bridge (tier 2).** A remaining `null` or `undefined` source case maps to the opposite nullish target (`null` ↔ `undefined`) when one is still free, and reserves it.
+3. **Coercion (tier 3).** Each still-unmatched source case is tried against the remaining free targets in target order, converting across types: `number`/`bigint` → `string` via `"" + i`, `string` → `number` via `+i`, `string` → `bigint` via `BigInt(i)`, stringified-literal matches like `"null" → null`, and more. Coercion does not reserve, so several source cases may coerce into the same target.
 
-1. **Same-tag group.** Collect target variants sharing the source's tag. If non-empty, match only within this group: variants with a matching `const`/`format` (string literals, `Int32`, etc.) are tried first in target-union order, then any remaining catch-all same-tag variants. Variants with a different tag are never tried from here — if every branch in the group fails, the match errors.
-2. **Nullish bridge.** Used only when tier 1 is empty. If the source tag is `null` or `undefined`, use the opposite nullish target variant (if present), exclusively.
-3. **Fallback.** Used only when tiers 1 and 2 are both empty. Build a decoder for every target variant in target-union order. Cross-type coercions live here: `number`/`bigint` → `string` via `"" + i`, `string` → `number` via `+i`, `string` → `bigint` via `BigInt(i)`, stringified-const matches like `"null" → null`, and more.
+If no target is left for a source case, the conversion errors. If the source type isn't known ahead of time (e.g. `S.unknown`), the type-based rules are skipped and each target is simply tried in order until one accepts the value.
 
 **Worked example** — `S.union([S.bigint, S.number, null]).with(S.to, S.union([S.string, undefined]))`:
 
@@ -890,16 +890,16 @@ Forward:
 
 Reverse (via `S.encoder`):
 
-- `"null"` → `null` (tier 3: stringified-const literal match)
-- `undefined` → `null` (tier 2: nullish bridge)
+- `undefined` → `null` (tier 2: nullish bridge — reserves the `null` target)
 - `"123"` → `123n` (tier 3: bigint attempted first by target order; parse succeeds)
 - `"123.12"` → `123.12` (tier 3: bigint parse throws, falls through to number)
-- `"abc"` → error (tier 3: no variant's decoder succeeds)
+- `"abc"` → error (tier 3: no remaining target accepts it)
+- `"null"` → error (tier 3: the `null` target is reserved by the `undefined` → `null` bridge; on its own `"null"` would coerce to `null`)
 
-**Identity wins over coercion.** For `S.union([S.string, S.bigint]).with(S.to, S.union([S.number, S.string]))`:
+**Direct matches are exclusive.** For `S.union([S.string, S.bigint]).with(S.to, S.union([S.number, S.string]))`:
 
-- `"123"` → `"123"` (tier 1: `string` matches `string`, never coerced to `number` even though a `number` target exists)
-- `123n` → `"123"` (tier 3: no `bigint` target, falls through to `string` via `"" + i`)
+- `"123"` → `"123"` (tier 1: `string` binds the `string` target directly, never coerced to `number`)
+- `123n` → error (tier 1 reserves `string` for the `string` case; with no `bigint → number` coercion, `bigint` has no target left)
 
 To opt into `string → number` when a `string` target also exists, write the transform into a variant explicitly:
 
@@ -907,7 +907,7 @@ To opt into `string → number` when a `string` target also exists, write the tr
 S.union([S.string.with(S.to, S.number), S.string]);
 ```
 
-The transformed variant is const/format-refined relative to the catch-all `string` and matches first within tier 1.
+The transformed variant is value/format-refined relative to the catch-all `string`, so it matches first within tier 1.
 
 > 🧠 Union conversion always performs exhaustive validation now — every variant is checked, so transformed unions stay consistent across decode and encode.
 

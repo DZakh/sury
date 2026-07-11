@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.string, S.bigint]).with(S.to, S.union([S.number, S.string]))
+  input: string | bigint
+  output: string | number
+  instantiations: 7268
+  bundleBytes: 10406
+jsonSchema:
+  input: Expected JSON, received string | bigint
+  output: '{ anyOf: [{ type: "string" }, { not: {} }] }'
+operations:
+  parse:
+    expression: i=>{if(typeof i==="bigint"){e[1](i,e[0]);}else if(!(typeof i==="string")){e[2](i)}return i}
+    examples:
+      string-binds-string-never-number:
+        input: '"123"'
+        output: '"123"'
+      bigint-has-no-free-target:
+        input: 123n
+        error: |-
+          Expected number, received 123n
+          - Can't decode bigint to number. Use S.to to define a custom decoder
+  decode:
+    expression: i=>{if(typeof i==="bigint"){e[1](i,e[0]);}else if(!(typeof i==="string")){e[2](i)}return i}
+    examples: {}
+  encode:
+    expression: i=>{if(typeof i==="number"&&!Number.isNaN(i)){try{i=BigInt(i)}catch(e0){e[0](i,e0)}}else if(!(typeof i==="string")){e[1](i)}return i}
+    examples: {}

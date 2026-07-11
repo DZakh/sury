@@ -922,7 +922,7 @@ test(
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{i===null||e[1](i);try{i=void 0}catch(e1){e[0](i,e1)}return i}`,
+      `i=>{i===null||e[1](i);try{i=void 0}catch(e0){e[0](i,e0)}return i}`,
     )
   },
 )
@@ -962,7 +962,7 @@ test(
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{i===void 0||e[1](i);try{i=null}catch(e1){e[0](i,e1)}return i}`,
+      `i=>{i===void 0||e[1](i);try{i=null}catch(e0){e[0](i,e0)}return i}`,
     )
   },
 )

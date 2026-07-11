@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.literal("b").with(S.to, S.union([S.literal("a"), S.string]))
+  input: any
+  output: any
+  instantiations: 580
+  bundleBytes: 10162
+jsonSchema:
+  input: '{ type: "string", const: "b" }'
+  output: '{ type: "string", const: "b" }'
+operations:
+  parse:
+    expression: i=>{i==="b"||e[0](i);return i}
+    examples:
+      b-lands-on-catch-all:
+        input: '"b"'
+        output: '"b"'
+      a-is-not-the-source-literal:
+        input: '"a"'
+        error: Expected "b", received "a"
+  decode:
+    expression: i=>{i==="b"||e[0](i);return i}
+    examples: {}
+  encode:
+    expression: i=>{if(typeof i==="string"){if(i==="a"){i="b"}else if(!(i==="b")){e[0](i)}}else{e[1](i)}return i}
+    examples: {}

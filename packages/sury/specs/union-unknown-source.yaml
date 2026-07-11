@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.unknown.with(S.to, S.union([S.bigint, S.string]))
+  input: unknown
+  output: string | bigint
+  instantiations: 6808
+  bundleBytes: 10234
+jsonSchema:
+  input: Expected JSON, received unknown
+  output: Expected JSON, received bigint | string
+operations:
+  parse:
+    expression: i=>{if(!(typeof i==="bigint"||typeof i==="string")){e[0](i)}return i}
+    examples:
+      bigint-accepted-in-order:
+        input: 42n
+        output: 42n
+      string-accepted-second:
+        input: '"hello"'
+        output: '"hello"'
+      number-is-not-coerced:
+        input: "42"
+        error: Expected bigint | string, received 42
+  decode:
+    expression: i=>{if(!(typeof i==="bigint"||typeof i==="string")){e[0](i)}return i}
+    examples: {}
+  encode:
+    expression: i=>{if(!(typeof i==="bigint"||typeof i==="string")){e[0](i)}return i}
+    examples: {}

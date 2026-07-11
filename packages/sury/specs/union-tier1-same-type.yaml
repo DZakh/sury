@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.to, S.union([S.boolean, S.string]))
+  input: string
+  output: string | boolean
+  instantiations: 6808
+  bundleBytes: 10229
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "string" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[0](i);return i}
+    examples:
+      string-binds-string:
+        input: '"true"'
+        output: '"true"'
+      never-coerced-to-boolean:
+        input: '"anything"'
+        output: '"anything"'
+      boolean-input-rejected:
+        input: "true"
+        error: Expected string, received true
+  decode: identity
+  encode:
+    expression: i=>{if(typeof i==="boolean"){i=""+i}else if(!(typeof i==="string")){e[0](i)}return i}
+    examples:
+      string-stays:
+        input: '"hello"'
+        output: '"hello"'
+      boolean-coerces-to-string:
+        input: "true"
+        output: '"true"'

@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.literal("a"), S.literal("b")]).with(S.to, S.union([S.literal("b"), S.literal("a"), S.literal("c")]))
+  input: any
+  output: any
+  instantiations: 6371
+  bundleBytes: 10066
+jsonSchema:
+  input: Maximum call stack size exceeded
+  output: Maximum call stack size exceeded
+operations:
+  parse:
+    expression: i=>{if(!(typeof i==="string"&&(i==="a"||i==="b"))){e[0](i)}return i}
+    examples:
+      a-matches-a:
+        input: '"a"'
+        output: '"a"'
+      b-matches-b:
+        input: '"b"'
+        output: '"b"'
+      c-is-not-a-source-case:
+        input: '"c"'
+        error: Expected "a" | "b", received "c"
+  decode:
+    expression: i=>{if(!(typeof i==="string"&&(i==="a"||i==="b"))){e[0](i)}return i}
+    examples: {}
+  encode:
+    expression: i=>{if(typeof i==="string"){if(!(i==="b"||i==="a")){e[1](i,e[0])}}else{e[2](i)}return i}
+    examples: {}

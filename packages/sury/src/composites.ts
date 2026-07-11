@@ -1,11 +1,11 @@
 import { Literal_parse, isArrayCond, jsonName, objectTagCond, setHas, unit } from "./primitives";
-import { baseSchema, getOrRethrow, panic, reversedKey, unknown, updateOutput } from "./schema";
+import { baseSchema, copySchema, getOrRethrow, panic, reversedKey, unknown, updateOutput } from "./schema";
 import { getOutputSchema, nestedLoc, nestedOptionParser, never_, parse, parseDynamic, typeCheckCond } from "./parse";
 import { B_Val_Object_add, B_Val_addKey, B_Val_scope, B_asyncVal, B_dynamicScope, B_embed, B_failWithArg, B_hoistChildChecks, B_hoistDecl, B_inlineConst, B_inlineLocation, B_isHoistable, B_makeInvalidInputDetails, B_markOutput, B_merge, B_mergeWithPathPrepend, B_next, B_nextConst, B_pushCheck, B_refine, B_throw, B_unsupportedDecode, B_varWithoutAllocation, Builder, _notVar, _notVarAtParent, _var, failInvalidType } from "./builder";
 import { Check, ErrorDetails, Internal, SuryErrorRecord, Val, immutableEmptyArray, immutableEmptyObject, isLiteral, isOptional } from "./types";
 import { flagUnsafeHas, valFlagAsync, valFlagNone } from "./flags";
 import { pathConcat, pathFromInlinedLocation } from "./path";
-import { arrayTag, nullTag, numberTag, objectTag, tagFlagArray, tagFlagFunction, tagFlagInstance, tagFlagNaN, tagFlagNever, tagFlagNull, tagFlagObject, tagFlagRef, tagFlagUndefined, tagFlagUnion, tagFlagUnknown, tagFlags, undefinedTag, unionTag, unknownTag } from "./tags";
+import { arrayTag, neverTag, nullTag, numberTag, objectTag, tagFlagArray, tagFlagFunction, tagFlagInstance, tagFlagNaN, tagFlagNever, tagFlagNull, tagFlagObject, tagFlagRef, tagFlagUndefined, tagFlagUnion, tagFlagUnknown, tagFlags, undefinedTag, unionTag, unknownTag } from "./tags";
 
 // PORT-NOTE: `B_Val_Object_t` is `{...val}` — the same runtime shape as `val`,
 // so this port uses the prelude's `Val` type for object vals.
@@ -533,23 +533,119 @@ export const unionIsSelfDecodeNoop = (schema: Internal): boolean => {
   );
 }
 
-export const unionIsWiderSchema = (schemaAnyOf: Internal[], inputAnyOf: Internal[]): boolean => {
-  return inputAnyOf.every((inputSchema, idx) => {
-    const schema = schemaAnyOf[idx];
-    if (schema !== undefined) {
-      return (
-        !flagUnsafeHas(
-          tagFlags[inputSchema.type]!,
-          tagFlagArray | tagFlagInstance | tagFlagRef | tagFlagUnion | tagFlagObject,
-        ) &&
-        inputSchema.type === schema.type &&
-        inputSchema.const === schema.const &&
-        inputSchema.to === undefined
-      );
+// An exact value/format schema, as opposed to a same-type catch-all
+export const unionIsSpecific = (schema: Internal): boolean => {
+  return isLiteral(schema) || schema.format !== undefined;
+}
+
+// Per-source-case target resolution for a union conversion (docs "Decoding
+// into / out of a union"). Tier 1: targets of the source's own type — an
+// exact const/format match binds its target exclusively, other same-type
+// sources share the remaining specific-then-catch-all targets. Tier 2: a
+// remaining null/undefined source takes the opposite nullish target while
+// still free. Tiers 1-2 reserve their targets; tier 3 offers each remaining
+// source the still-free targets in target order without reserving. A source
+// without a derived type ignores reservation and tries every target. An
+// empty row means no target is left — the conversion errors.
+export const unionResolveTargets = (sources: Internal[], targets: Internal[]): Internal[][] => {
+  const resolved: (Internal[] | undefined)[] = [];
+  const reserved = new Set<Internal>();
+  const exactBound = new Set<Internal>();
+
+  sources.forEach((source, idx) => {
+    if (flagUnsafeHas(tagFlags[source.type]!, (tagFlagUnknown | tagFlagUnion) | tagFlagRef)) {
+      resolved[idx] = targets;
     } else {
-      return false;
+      const group = targets.filter((t) => unionToKey(t) === unionToKey(source));
+      const exact = unionIsSpecific(source)
+        ? group.find((t) =>
+            isLiteral(source)
+              ? t.const === source.const ||
+                // Same-tag NaN consts never compare equal
+                flagUnsafeHas(tagFlags[source.type]!, tagFlagNaN)
+              : t.format === source.format,
+          )
+        : undefined;
+      if (exact !== undefined) {
+        resolved[idx] = [exact];
+        reserved.add(exact);
+        exactBound.add(exact);
+      } else if (group.length) {
+        const candidates = group
+          .filter(
+            (t) =>
+              !exactBound.has(t) &&
+              // A differing const can never accept the source value
+              !(isLiteral(t) && isLiteral(source)),
+          )
+          .sort((a, b) => +unionIsSpecific(b) - +unionIsSpecific(a));
+        candidates.forEach((t) => reserved.add(t));
+        resolved[idx] = candidates;
+      }
     }
   });
+
+  sources.forEach((source, idx) => {
+    if (
+      resolved[idx] === undefined &&
+      flagUnsafeHas(tagFlags[source.type]!, tagFlagNull | tagFlagUndefined)
+    ) {
+      const target = targets.find(
+        (t) =>
+          t.type === (source.type === nullTag ? undefinedTag : nullTag) && !reserved.has(t),
+      );
+      if (target !== undefined) {
+        resolved[idx] = [target];
+        reserved.add(target);
+      }
+    }
+  });
+
+  return sources.map((_, idx) => resolved[idx] || targets.filter((t) => !reserved.has(t)));
+}
+
+// A trusted union input passes through when every variant resolves to itself
+// in the target — same type/const/format and nothing left to decode. Order
+// independent, so a reordered or wider target union still passes through
+export const unionIsIdentity = (sources: Internal[], targets: Internal[]): boolean => {
+  const resolved = unionResolveTargets(sources, targets);
+  return sources.every((source, idx) => {
+    const target = resolved[idx]![0];
+    return (
+      target !== undefined &&
+      !flagUnsafeHas(
+        tagFlags[source.type]!,
+        ((tagFlagArray | tagFlagInstance) | (tagFlagRef | tagFlagUnion)) | tagFlagObject,
+      ) &&
+      source.type === target.type &&
+      source.const === target.const &&
+      (target.format === undefined || target.format === source.format) &&
+      target.to === undefined &&
+      target.parser === undefined
+    );
+  });
+}
+
+// Clone of the target union narrowed to the resolved candidates, keeping the
+// union's refiners and its own `.to` chain. With no candidate left the
+// returned decoder reports the unsupported conversion at codegen time, so an
+// enclosing union case folds it into the aggregated error.
+export const unionNarrow = (target: Internal, candidates: Internal[]): Internal => {
+  const anyOf = target.anyOf!;
+  if (candidates.length === anyOf.length && candidates.every((c, idx) => c === anyOf[idx])) {
+    return target;
+  }
+  if (candidates.length === 0) {
+    const mut = baseSchema(neverTag, false);
+    mut.decoder = (input: Val) => B_unsupportedDecode(input, input.s, target);
+    return mut;
+  }
+  const mut = copySchema(target);
+  mut.anyOf = candidates;
+  const has: Record<string, boolean> = {};
+  candidates.forEach((c) => setHas(has, c.type));
+  mut.has = has;
+  return mut;
 }
 
 // The union's own `.to` chain which is applied per case during decoding.
@@ -597,18 +693,12 @@ export const unionPerVariantVal = (input: Val, target: Internal): Val => {
 // meets a different expected schema
 export const unionEncoder = (input: Val, target: Internal): Val => {
   const inputAnyOf = input.s.anyOf!;
-  if (
-    target.type === unionTag &&
+  return (target.type === unionTag &&
     unionGetToPerCase(target) === undefined &&
-    unionIsWiderSchema(target.anyOf!, inputAnyOf)
-  ) {
-    // The target union decoder passes a narrower union input through as-is
-    return input;
-  } else if (unionCanDispatchPerVariant(inputAnyOf, target)) {
-    return unionPerVariantVal(input, target);
-  } else {
-    return input;
-  }
+    unionIsIdentity(inputAnyOf, target.anyOf!)) ||
+    !unionCanDispatchPerVariant(inputAnyOf, target)
+    ? input
+    : unionPerVariantVal(input, target);
 }
 
 export const unionDecoder: Builder = (input: Val) => {
@@ -625,8 +715,8 @@ export const unionDecoder: Builder = (input: Val) => {
       toPerCase === undefined &&
       schemas.every(unionIsSelfDecodeNoop)) ||
     (flagUnsafeHas(initialInputTagFlag, tagFlagUnion) &&
-      unionIsWiderSchema(schemas, input.s.anyOf!) &&
-      toPerCase === undefined) ||
+      toPerCase === undefined &&
+      unionIsIdentity(input.s.anyOf!, schemas)) ||
     (input.io! && input.e === input.s)
   ) {
     return input;
@@ -638,38 +728,18 @@ export const unionDecoder: Builder = (input: Val) => {
       input.s = unknown;
     }
 
-    let activeKeyRef = "";
     if (
       !flagUnsafeHas(
         initialInputTagFlag,
         ((tagFlagUnion | tagFlagRef) | tagFlagUnknown),
       )
     ) {
-      const sourceKey = unionToKey(input.s);
-      let hasNull = false;
-      let hasUndefined = false;
-      const len = schemas.length;
-      let i = 0;
-      while (activeKeyRef === "" && i < len) {
-        const s = schemas[i]!;
-        if (unionToKey(s) === sourceKey) {
-          activeKeyRef = sourceKey;
-        } else if (s.type === nullTag) {
-          hasNull = true;
-        } else if (s.type === undefinedTag) {
-          hasUndefined = true;
-        }
-        i = i + 1;
-      }
-      if (activeKeyRef === "") {
-        if (flagUnsafeHas(initialInputTagFlag, tagFlagUndefined) && hasNull) {
-          activeKeyRef = nullTag;
-        } else if (flagUnsafeHas(initialInputTagFlag, tagFlagNull) && hasUndefined) {
-          activeKeyRef = undefinedTag;
-        }
+      // The typed input is a single-case conversion source
+      schemas = unionResolveTargets([input.s], schemas)[0]!;
+      if (schemas.length === 0) {
+        return B_unsupportedDecode(input, input.s, selfSchema);
       }
     }
-    const activeKey = activeKeyRef;
 
     const initialInline = input.i;
 
@@ -877,7 +947,10 @@ export const unionDecoder: Builder = (input: Val) => {
               itemStart ||
               // Skipped cases have their errors embedded,
               // which the hoisted check below can't reference
-              caught
+              caught ||
+              // A deopt block is merged without cond hoisting, which can't
+              // emit a check pushed on a prev-less typeValidationOutput
+              (isDeopt && typeValidationOutput.prev === undefined)
             ) {
               const if_ = itemNextElse ? "else if" : "if";
               itemStart = itemStart + if_ + `(!(${itemNoop})){${fail(caught)}}`;
@@ -969,37 +1042,30 @@ export const unionDecoder: Builder = (input: Val) => {
       };
     })();
 
-    // Tier 1: for a typed const input, variants with a matching const are
-    // tried before catch-all and differently-const'ed variants
-    if (isLiteral(input.s)) {
-      const matching: Internal[] = [];
-      const rest: Internal[] = [];
-      for (let idx = 0; idx <= lastIdx; idx++) {
-        const schema = schemas[idx]!;
-        if (isLiteral(schema) && schema.const === input.s.const) {
-          matching.push(schema);
-        } else {
-          rest.push(schema);
-        }
-      }
-      schemas = matching.concat(rest);
-    }
+    // Per-case narrowed conversion targets when this union's `.to` head is a
+    // plain union (recursive targets keep their dedicated union-input handling)
+    const toResolved =
+      toPerCase !== undefined &&
+      toPerCase.type === unionTag &&
+      toPerCase.parser === undefined &&
+      !toPerCase.anyOf!.some((v) => flagUnsafeHas(tagFlags[v.type]!, tagFlagRef))
+        ? unionResolveTargets(schemas.map(getOutputSchema), toPerCase.anyOf!)
+        : undefined;
 
     for (let idx = 0; idx <= lastIdx; idx++) {
       const schema =
         toPerCase !== undefined
           ? updateOutput<Internal>(schemas[idx]!, (mut) => {
               appendUnionRefiners(mut);
-              mut.to = toPerCase;
+              mut.to =
+                toResolved !== undefined ? unionNarrow(toPerCase, toResolved[idx]!) : toPerCase;
             })
           : schemas[idx]!;
       const tag = schema.type;
       const tagFlag = tagFlags[tag]!;
       const key = unionToKey(schema);
 
-      if (activeKey !== "" && activeKey !== key) {
-        // not in active tier — skip
-      } else if (
+      if (
         flagUnsafeHas(tagFlag, tagFlagUndefined) &&
         "fromDefault" in (selfSchema as unknown as Record<string, unknown>)
       ) {

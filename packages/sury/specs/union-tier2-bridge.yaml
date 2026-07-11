@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.literal(null).with(S.to, S.union([S.string, S.literal(undefined)]))
+  input: any
+  output: any
+  instantiations: 574
+  bundleBytes: 10162
+jsonSchema:
+  input: '{ type: "null" }'
+  output: Expected JSON, received string | undefined
+operations:
+  parse:
+    expression: i=>{i===null||e[1](i);try{i=void 0}catch(e0){e[0](i,e0)}return i}
+    examples:
+      null-bridges-to-undefined:
+        input: "null"
+        output: undefined
+      string-target-never-tried:
+        input: '"hello"'
+        error: Expected null, received "hello"
+  decode:
+    expression: i=>{i===null||e[1](i);try{i=void 0}catch(e0){e[0](i,e0)}return i}
+    examples: {}
+  encode:
+    expression: i=>{if(typeof i==="string"){if(i==="null"){i=null}}else if(i===void 0){i=null}else{e[0](i)}return i}
+    examples: {}
