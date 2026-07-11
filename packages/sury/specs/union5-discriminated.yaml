@@ -3,7 +3,7 @@ ts:
   schema: 'S.union([S.schema({kind: "a", a: S.string}), S.schema({kind: "b", b: S.number}), S.schema({kind: "c", c: S.boolean}), S.schema({kind: "d", d: S.bigint}), S.schema({kind: "e", e: S.symbol})])'
   input: "{ kind: string; a: string; } | { kind: string; b: number; } | { kind: string; c: boolean; } | { kind: string; d: bigint; } | { kind: string; e: symbol; }"
   output: "{ kind: string; a: string; } | { kind: string; b: number; } | { kind: string; c: boolean; } | { kind: string; d: bigint; } | { kind: string; e: symbol; }"
-  instantiations: 90193
+  instantiations: 10300
   bundleBytes: 10147
 jsonSchema:
   input: 'Failed at ["d"]: Expected JSON, received bigint'
