@@ -8,5 +8,5 @@
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true
   },
-  "exclude": ["node_modules", "lib"]
+  "exclude": ["node_modules", "lib", "artifacts"]
 }

@@ -2,7 +2,7 @@
 // executing the real schema.
 //
 // Unlike format.ts (which runs on published sury), this half imports the
-// in-development sury SOURCE (`../sury/src/S.js`), because goldens must reflect
+// in-development sury SOURCE (`../sury/src/S.mjs`), because goldens must reflect
 // the code under test — that's how `spec check` catches codegen changes.
 //
 // There is no code-generation step: packages/sury/tests/spec_test.ts loops
@@ -14,7 +14,7 @@ import { join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { diffLinesUnified } from "@vitest/utils/diff";
-import * as S from "../sury/src/S.js";
+import * as S from "../sury/src/S.mjs";
 import {
   KEY_ORDER,
   TS_KEY_ORDER,
@@ -348,7 +348,7 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
 // usable Sury schema (e.g. `ts.schema: "42"` evaluates to the number 42).
 // Every Sury schema carries a Standard Schema `~standard` prop whose `vendor`
 // is `"sury"` (Sury's own internals use this exact check — see `js_assert` in
-// Sury.res.mjs) — a reliable, non-throwing alternative to probing with a builder.
+// the sury entry) — a reliable, non-throwing alternative to probing with a builder.
 const isUsableSchema = (schema: unknown): boolean =>
   (schema as { ["~standard"]?: { vendor?: string } } | null | undefined)?.["~standard"]?.vendor === "sury";
 

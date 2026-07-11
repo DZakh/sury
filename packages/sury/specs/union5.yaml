@@ -3,8 +3,8 @@ ts:
   schema: S.union([S.string, S.number, S.boolean, S.bigint, S.symbol])
   input: string | number | bigint | boolean | symbol
   output: string | number | bigint | boolean | symbol
-  instantiations: 34476
-  bundleBytes: 10098
+  instantiations: 2056
+  bundleBytes: 9975
 jsonSchema:
   input: Expected JSON, received string | number | boolean | bigint | symbol
   output: Expected JSON, received string | number | boolean | bigint | symbol

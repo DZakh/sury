@@ -22,6 +22,8 @@ jobs:
           cache: "pnpm"
       - run: pnpm install
 
+      - run: pnpm lint:deadcode
+
       - run: pnpm build
         working-directory: packages/sury
 

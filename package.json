@@ -9,7 +9,11 @@
     "build": "pnpm --filter=sury build",
     "benchmark": "pnpm --filter=sury bench",
     "benchmark:comparison": "pnpm --filter=e2e benchmark:comparison",
-    "lint": "pnpm --filter=sury lint:stdlib"
+    "lint": "pnpm --filter=sury lint:stdlib",
+    "lint:deadcode": "knip"
   },
-  "packageManager": "pnpm@9.0.5"
+  "packageManager": "pnpm@9.0.5",
+  "devDependencies": {
+    "knip": "6.26.0"
+  }
 }

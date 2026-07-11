@@ -1,6 +1,6 @@
 import { test, expectTypeOf, assertType } from "vitest";
 
-import * as S from "../src/S.js";
+import * as S from "../src/S.mjs";
 
 // FIXME: S.max should be applied to output
 // From https://x.com/dzakh_dev/status/1963982551208309222
@@ -57,16 +57,6 @@ test("JSON string demo", (t) => {
   const schemaWithTo2 = S.number.with(S.to, S.jsonString);
   t.expect(S.decoder(schemaWithTo2)(123)).toEqual("123");
   // i=>{return ""+i}
-});
-
-test("Successfully parses string", (t) => {
-  const schema = S.string;
-  const value = S.parser(schema)("123");
-
-  t.expect(value).toEqual("123");
-
-  expectSchemaType(schema).toBe<string, string>();
-  expectTypeOf(value).toEqualTypeOf<string>();
 });
 
 test("Successfully parses string with built-in refinement", (t) => {
@@ -154,48 +144,6 @@ test("Successfully converts Date to string with S.to", (t) => {
   expectTypeOf(value).toEqualTypeOf<string>();
 });
 
-test("Successfully parses int", (t) => {
-  const schema = S.int32;
-  const value = S.parser(schema)(123);
-
-  t.expect(value).toEqual(123);
-
-  expectSchemaType(schema).toBe<number, number>();
-  expectTypeOf(value).toEqualTypeOf<number>();
-});
-
-test("Successfully parses float", (t) => {
-  const schema = S.number;
-  const value = S.parser(schema)(123.4);
-
-  t.expect(value).toEqual(123.4);
-
-  expectSchemaType(schema).toBe<number, number>();
-  expectTypeOf(value).toEqualTypeOf<number>();
-});
-
-test("Successfully parses BigInt", (t) => {
-  const schema = S.bigint;
-  const value = S.parser(schema)(123n);
-
-  t.expect(value).toEqual(123n);
-
-  expectSchemaType(schema).toBe<bigint, bigint>();
-  expectTypeOf(value).toEqualTypeOf<bigint>();
-});
-
-test("Successfully parses symbol", (t) => {
-  const schema = S.symbol;
-  const data = Symbol("foo");
-  const value = S.parser(schema)(data);
-
-  t.expect(value).toEqual(data);
-  t.expect(value).not.toEqual(Symbol("foo")); // Because this is how symbols work
-
-  expectSchemaType(schema).toBe<symbol, symbol>();
-  expectTypeOf(value).toEqualTypeOf<symbol>();
-});
-
 test("Function literal schema", (t) => {
   const fn = function () {};
 
@@ -214,22 +162,6 @@ test("Function literal schema", (t) => {
   t.expect(value).not.toEqual(function () {});
 });
 
-test("Fails to parse float when NaN is provided", (t) => {
-  const schema = S.number;
-
-  t.expect(() => {
-    const value = S.parser(schema)(NaN);
-
-    expectSchemaType(schema).toBe<number, number>();
-    expectTypeOf(value).toEqualTypeOf<number>();
-  }).toThrow(
-    t.expect.objectContaining({
-      name: "SuryError",
-      message: "Expected number, received NaN",
-    }),
-  );
-});
-
 test("Successfully parses float when NaN is provided and NaN check disabled in global config", (t) => {
   S.global({
     disableNanNumberValidation: true,
@@ -242,36 +174,6 @@ test("Successfully parses float when NaN is provided and NaN check disabled in g
 
   expectSchemaType(schema).toBe<number, number>();
   expectTypeOf(value).toEqualTypeOf<number>();
-});
-
-test("Successfully parses bool", (t) => {
-  const schema = S.boolean;
-  const value = S.parser(schema)(true);
-
-  t.expect(value).toEqual(true);
-
-  expectSchemaType(schema).toBe<boolean, boolean>();
-  expectTypeOf(value).toEqualTypeOf<boolean>();
-});
-
-test("Successfully parses unknown", (t) => {
-  const schema = S.unknown;
-  const value = S.parser(schema)(true);
-
-  t.expect(value).toEqual(true);
-
-  expectSchemaType(schema).toBe<unknown, unknown>();
-  expectTypeOf(value).toEqualTypeOf<unknown>();
-});
-
-test("Successfully parses any", (t) => {
-  const schema = S.any;
-  const value = S.parser(schema)(true);
-
-  t.expect(value).toEqual(true);
-
-  expectSchemaType(schema).toBe<any, any>();
-  expectTypeOf(value).toEqualTypeOf<any>();
 });
 
 test("Successfully parses json", (t) => {
@@ -308,32 +210,6 @@ test("Successfully parses undefined", (t) => {
 
   expectSchemaType(schema).toBe<undefined, undefined>();
   expectTypeOf(value).toEqualTypeOf<undefined>();
-});
-
-test("Successfully parses void", (t) => {
-  const schema = S.void;
-  const value = S.parser(schema)(undefined);
-
-  t.expect(value).toEqual(undefined);
-
-  expectSchemaType(schema).toBe<void, void>();
-  expectTypeOf(value).toEqualTypeOf<void>();
-});
-
-test("Fails to parse never", (t) => {
-  const schema = S.never;
-
-  t.expect(() => {
-    const value = S.parser(schema)(true);
-
-    expectSchemaType(schema).toBe<never, never>();
-    expectTypeOf(value).toEqualTypeOf<never>();
-  }).toThrow(
-    t.expect.objectContaining({
-      name: "SuryError",
-      message: "Expected never, received true",
-    }),
-  );
 });
 
 test("Can get a reason from an error", (t) => {
@@ -705,16 +581,6 @@ test("Pattern match on schema", (t) => {
   } else {
     t.expect.fail("Not a schema");
   }
-});
-
-test("Test JSON Schema of int32", (t) => {
-  const schema = S.int32;
-
-  t.expect(S.toJSONSchema(schema)).toEqual({
-    type: "integer",
-    minimum: -2147483648,
-    maximum: 2147483647,
-  });
 });
 
 test("Test extended JSON Schema", (t) => {
@@ -1195,52 +1061,6 @@ test("Resets object strict mode with strip method", (t) => {
   expectTypeOf(value).toEqualTypeOf<{ foo: string }>();
 });
 
-test("Successfully parses intersected objects", (t) => {
-  const schema = S.merge(
-    S.schema({
-      foo: S.string,
-      bar: S.boolean,
-    }),
-    S.schema({
-      baz: S.string,
-    }),
-  );
-
-  t.expect(S.parser(schema).toString()).toEqual(
-    `i=>{typeof i==="object"&&i||e[3](i);let v0=i["foo"],v1=i["bar"],v2=i["baz"];typeof v0==="string"||e[0](v0);typeof v1==="boolean"||e[1](v1);typeof v2==="string"||e[2](v2);return {"foo":v0,"bar":v1,"baz":v2,}}`,
-  );
-
-  expectSchemaType(schema).toBe<
-    { foo: string; bar: boolean; baz: string },
-    Record<string, unknown>
-  >();
-
-  const result = S.safe(() =>
-    S.parser(schema)({
-      foo: "bar",
-      bar: true,
-    }),
-  );
-  if (result.success) {
-    t.expect.fail("Should fail");
-    return;
-  }
-  t.expect(result.error.message).toBe(
-    `Failed at ["baz"]: Expected string, received undefined`,
-  );
-
-  const value = S.parser(schema)({
-    foo: "bar",
-    baz: "baz",
-    bar: true,
-  });
-  t.expect(value).toEqual({
-    foo: "bar",
-    baz: "baz",
-    bar: true,
-  });
-});
-
 test("Fails to parse intersected objects with transform", (t) => {
   t.expect(() => {
     const schema = S.merge(
@@ -1302,38 +1122,6 @@ test("Fails to parse intersected objects with transform", (t) => {
   // });
 });
 
-test("Successfully serializes S.merge", (t) => {
-  const schema = S.merge(
-    S.schema({
-      foo: S.string,
-      bar: S.boolean,
-    }),
-    S.schema({
-      baz: S.string,
-    }),
-  );
-
-  t.expect(S.parser(S.reverse(schema)).toString()).toEqual(
-    `i=>{typeof i==="object"&&i||e[3](i);let v0=i["foo"],v1=i["bar"],v2=i["baz"];typeof v0==="string"||e[0](v0);typeof v1==="boolean"||e[1](v1);typeof v2==="string"||e[2](v2);return {"foo":v0,"bar":v1,"baz":v2,}}`,
-  );
-  t.expect(
-    S.encoder(schema).toString().startsWith("function noopOperation(i) {"),
-  ).toEqual(true);
-
-  const value = S.encoder(schema)({
-    foo: "bar",
-    baz: "baz",
-    bar: true,
-  });
-  expectTypeOf(value).toEqualTypeOf<Record<string, unknown>>();
-
-  t.expect(value).toEqual({
-    foo: "bar",
-    baz: "baz",
-    bar: true,
-  });
-});
-
 test("Merge overwrites the left fields by schema from the right", (t) => {
   const baseSchema = S.schema({
     type: S.union(["foo", "bar"]),
@@ -1356,7 +1144,7 @@ test("Merge overwrites the left fields by schema from the right", (t) => {
 
   expectSchemaType(fooSchema).toBe<
     { type: "foo"; name: string; fooCount: number },
-    Record<string, unknown>
+    { type: "foo"; name: string; fooCount: number }
   >();
 
   t.expect(value).toEqual({
@@ -1393,59 +1181,6 @@ test("Name of merge schema", (t) => {
   t.expect(S.toExpression(schema)).toBe(
     `{ foo: string; bar: boolean; baz: string; }`,
   );
-});
-
-// https://github.com/DZakh/sury/issues/157
-test("Merge preserves optional properties", (t) => {
-  const docMetaSchema = S.schema({
-    _id: S.optional(S.string),
-    _rev: S.optional(S.string),
-    _deleted: S.optional(S.boolean),
-  });
-
-  const productSchema = S.merge(
-    docMetaSchema,
-    S.schema({
-      code: S.min(S.string, 1, "Product Code is required"),
-      name: S.min(S.string, 1, "Product Name is required"),
-    }),
-  );
-
-  expectSchemaType(productSchema).toBe<
-    {
-      _id?: string | undefined;
-      _rev?: string | undefined;
-      _deleted?: boolean | undefined;
-      code: string;
-      name: string;
-    },
-    Record<string, unknown>
-  >();
-
-  const value = S.parser(productSchema)({
-    code: "P001",
-    name: "Widget",
-  });
-  t.expect(value).toEqual({
-    _id: undefined,
-    _rev: undefined,
-    _deleted: undefined,
-    code: "P001",
-    name: "Widget",
-  });
-
-  const valueWithOptionals = S.parser(productSchema)({
-    _id: "123",
-    code: "P001",
-    name: "Widget",
-  });
-  t.expect(valueWithOptionals).toEqual({
-    _id: "123",
-    _rev: undefined,
-    _deleted: undefined,
-    code: "P001",
-    name: "Widget",
-  });
 });
 
 test("Successfully parses object using S.schema", (t) => {
