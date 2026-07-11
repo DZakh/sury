@@ -18,6 +18,12 @@ operations:
       valid-negative:
         input: "-2147483648"
         output: "-2147483648"
+      valid-negative-zero:
+        input: "-0"
+        output: "-0"
+      invalid-nan:
+        input: NaN
+        error: Expected int32, received NaN
       invalid-float:
         input: "42.5"
         error: Expected int32, received 42.5

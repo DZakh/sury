@@ -4,10 +4,10 @@ ts:
   input: void
   output: void
   instantiations: 254
-  bundleBytes: 3935
+  bundleBytes: 3944
 jsonSchema:
-  input: Expected JSON, received undefined
-  output: Expected JSON, received undefined
+  input: Expected JSON, received void
+  output: Expected JSON, received void
 operations:
   parse:
     expression: i=>{i===void 0||e[0](i);return i}
@@ -17,7 +17,7 @@ operations:
         output: undefined
       invalid-null:
         input: "null"
-        error: Expected undefined, received null
+        error: Expected void, received null
   decode:
     expression: i=>{i===void 0||e[0](i);return i}
     examples:
