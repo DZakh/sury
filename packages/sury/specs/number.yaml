@@ -18,6 +18,12 @@ operations:
       valid-negative:
         input: "-1"
         output: "-1"
+      valid-negative-zero:
+        input: "-0"
+        output: "-0"
+      valid-infinity:
+        input: Infinity
+        output: Infinity
       invalid-nan:
         input: NaN
         error: Expected number, received NaN
