@@ -403,7 +403,11 @@ type ExtractLastInput<T extends readonly Schema<any, any>[]> =
     ? SingleInput
     : never;
 
-export type UnknownToOutput<T> = T extends Schema<infer Output, unknown>
+// Match the `~standard` marker instead of the full `Schema<…>` shape for the
+// same instantiation-cost reason as `Output<T>` above.
+export type UnknownToOutput<T> = T extends {
+  readonly ["~standard"]: { readonly types?: { readonly output: infer Output } };
+}
   ? Output
   : T extends (...args: any[]) => any
   ? T
@@ -413,7 +417,9 @@ export type UnknownToOutput<T> = T extends Schema<infer Output, unknown>
   ? ResolveObject<{ [K in keyof T]: UnknownToOutput<T[K]> }>
   : T;
 
-export type UnknownToInput<T> = T extends Schema<unknown, infer Input>
+export type UnknownToInput<T> = T extends {
+  readonly ["~standard"]: { readonly types?: { readonly input: infer Input } };
+}
   ? Input
   : T extends (...args: any[]) => any
   ? T

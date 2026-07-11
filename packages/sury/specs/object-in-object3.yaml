@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({a: S.string, nested: S.schema({b: S.number, inner: S.schema({c: S.boolean, d: S.optional(S.string)})})})"
   input: "{ a: string; nested: { b: number; inner: { d?: string | undefined; c: boolean; }; }; }"
   output: "{ a: string; nested: { b: number; inner: { d?: string | undefined; c: boolean; }; }; }"
-  instantiations: 50125
+  instantiations: 10286
   bundleBytes: 10766
 jsonSchema:
   input: '{ type: "object", properties: { a: { type: "string" }, nested: { type: "object", properties: { b: { type: "number" }, inner: { type: "object", properties: { c: { type: "boolean" }, d: { type: "string" } }, required: ["c"] } }, required: ["b", "inner"] } }, required: ["a", "nested"] }'
