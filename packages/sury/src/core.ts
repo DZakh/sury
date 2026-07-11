@@ -103,9 +103,9 @@ export function pathConcat(path: Path, concatedPath: Path): Path {
 
 const vendor = "sury";
 // Internal symbol to easily identify a SuryError instance.
-const s = Symbol(vendor);
+const s = /* @__PURE__ */ Symbol(vendor);
 // Internal symbol to identify the item proxy (see the makeObjectVal Proxy use).
-const itemSymbol = Symbol(vendor + ":item");
+const itemSymbol = /* @__PURE__ */ Symbol(vendor + ":item");
 
 // A hacky way to prevent prepending path when error is caught.
 // Can be removed after we remove effectCtx
@@ -7239,7 +7239,7 @@ export type StandardJsonSchemaOptions = {
 // `.jsonSchemaMetadataId`) keep reading like the source. The `include
 // JSONSchema` is covered by the type aliases above.
 
-export const jsonSchemaMetadataId: string = MetadataModule.Id.internal("JSONSchema");
+export const jsonSchemaMetadataId: string = /* @__PURE__ */ MetadataModule.Id.internal("JSONSchema");
 
 // @val external merge: (@as(json`{}`) _, t, t) => t = "Object.assign"
 export function jsonSchemaMerge(a: JSONSchemaT, b: JSONSchemaT): JSONSchemaT {

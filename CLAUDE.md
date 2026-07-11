@@ -4,9 +4,13 @@
 
 1. **DX** — intuitive public API and error messages.
 2. **Performance** — generated code is the hot path; avoid extra vars, allocations, double validation; inline over indirect.
-3. **Bundle size** — `Sury.res.mjs` ships to browsers. Reuse helpers (`B.refine`, `B.markOutput`) over duplicated codegen.
+3. **Bundle size** — `core.mjs` (built from `core.ts`) ships to browsers. Reuse helpers (`B_refine`, `B_markOutput`) over duplicated codegen.
 
 Tiebreaker: shortest *generated* code wins over shortest *library* code (runtime ships per-schema, library ships once).
+
+## Layout
+
+The implementation lives in `packages/sury/src/core.ts` (plain TypeScript, no runtime imports). `Sury.res` is a bindings-only module: the public ReScript types plus `@module("sury/core") external` declarations — "sury/core" resolves via the package's conditional export to the esbuild-generated `core.mjs`/`core.cjs` (kept fresh by `pnpm build:core`, see scripts/pack.ts). `S.js`/`S.mjs` (the JS/TS entry) import `core.mjs` directly. The former `module B` is flattened to `B_`-prefixed top-level functions (and `Literal.parse` → `Literal_parse`, etc.) so bundlers tree-shake each helper individually; keep new helpers flat for the same reason, and PURE-annotate any top-level call initializer. `val`/`check`/`bGlobal` runtime field names stay short (`cp`, `hd`, `vc`, …) — property names survive minification, so every character ships.
 
 ## Input vs Output
 
@@ -37,9 +41,9 @@ Per-schema execution order:
 
 The parse loop applies refiners **only for primitive decoders** (result has `isOutput !== Some(true)`). **Advanced decoders** (object, array, tuple, union, recursive — anything that sets `isOutput = Some(true)`) own refiner application themselves, so input checks land on the pre-transform val and output checks on the assembled output.
 
-Use `B.markOutput(val, ~valInput)`:
+Use `B_markOutput(val, valInput)`:
 - Pushes input-refiner checks onto `valInput.checks` (emits at pre-transform slot).
-- Wraps `val` via `B.refine` with output-refiner checks (observes assembled output).
+- Wraps `val` via `B_refine` with output-refiner checks (observes assembled output).
 - Sets `isOutput = Some(true)` on the result.
 - When `valInput.prev` is None, input checks fold into the output wrap so emit has a `prev.var()`.
 
@@ -66,14 +70,14 @@ Core fields:
 Transformation chain (relative to `.prev`):
 - `prev` — previous val in the chain
 - `codeFromPrev` — statements that produce this val from `.prev`. **A val owns the declaration of its own value here** (`let v=…;`); a non-empty `codeFromPrev` makes the val non-hoistable in `merge`, so a union discriminant can never be lifted above a `let` it reads (the `str->to(option(int))` bug class).
-- `hoistedDecls` — `let` declarations hoisted *onto this val* by a descendant whose own segment was already emitted, so the decl must live on a still-open owner that outlives it (a field read on its parent object, a loop accumulator before its `for`). Use `B.hoistDecl(owner, decl)` — it never mutates an unrelated val behind a callback. `merge` emits them right after this val's checks.
+- `hoistedDecls` — `let` declarations hoisted *onto this val* by a descendant whose own segment was already emitted, so the decl must live on a still-open owner that outlives it (a field read on its parent object, a loop accumulator before its `for`). Use `B_hoistDecl(owner, decl)` — it never mutates an unrelated val behind a callback. `merge` emits them right after this val's checks.
 - `finalized` — set by `merge` once a val's code is emitted. A late cached-bond materialization checks `parent.finalized` and re-reads inline instead of hoisting a now-undroppable decl (#240).
 - `checks` — `array<check>`; both type-narrows and user refiners live here. A check whose `fail === B.failInvalidType` is a type-narrow and **doubles as a union dispatch discriminant**.
 
 Helpers:
-- `B.next` — new val one step down the transform chain (sets `hasTransform`).
-- `B.refine` — clones a val to attach `checks`, keeping the var-allocation link.
-- `B.hoistDecl(owner, decl)` — attach a `let` declaration to a still-open owner val (prev/parent/self) whose segment dominates and outlives the materialized value.
-- `B.markOutput` — applies `inputRefiner`/`refiner` and sets `isOutput` (see Refiner ownership).
-- `B.merge` — walks the `.prev` chain into a code string. With `~hoistCond` (union codegen) it lifts type-narrow checks into a dispatch condition; a val with non-empty `codeFromPrev` is kept non-hoistable so its decl stays with the check.
+- `B_next` — new val one step down the transform chain (sets `hasTransform`).
+- `B_refine` — clones a val to attach `checks`, keeping the var-allocation link.
+- `B_hoistDecl(owner, decl)` — attach a `let` declaration to a still-open owner val (prev/parent/self) whose segment dominates and outlives the materialized value.
+- `B_markOutput` — applies `inputRefiner`/`refiner` and sets `isOutput` (see Refiner ownership).
+- `B_merge` — walks the `.prev` chain into a code string. With `~hoistCond` (union codegen) it lifts type-narrow checks into a dispatch condition; a val with non-empty `codeFromPrev` is kept non-hoistable so its decl stays with the check.
 
