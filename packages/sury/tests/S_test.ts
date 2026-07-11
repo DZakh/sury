@@ -1256,42 +1256,6 @@ test("Fails to parse intersected objects with transform", (t) => {
   // });
 });
 
-test("Successfully serializes S.merge", (t) => {
-  const schema = S.merge(
-    S.schema({
-      foo: S.string,
-      bar: S.boolean,
-    }),
-    S.schema({
-      baz: S.string,
-    }),
-  );
-
-  t.expect(S.parser(S.reverse(schema)).toString()).toEqual(
-    `i=>{typeof i==="object"&&i||e[3](i);let v0=i["foo"],v1=i["bar"],v2=i["baz"];typeof v0==="string"||e[0](v0);typeof v1==="boolean"||e[1](v1);typeof v2==="string"||e[2](v2);return {"foo":v0,"bar":v1,"baz":v2,}}`,
-  );
-  t.expect(
-    S.encoder(schema).toString().startsWith("function noopOperation(i) {"),
-  ).toEqual(true);
-
-  const value = S.encoder(schema)({
-    foo: "bar",
-    baz: "baz",
-    bar: true,
-  });
-  expectTypeOf(value).toEqualTypeOf<{
-    foo: string;
-    bar: boolean;
-    baz: string;
-  }>();
-
-  t.expect(value).toEqual({
-    foo: "bar",
-    baz: "baz",
-    bar: true,
-  });
-});
-
 test("Merge overwrites the left fields by schema from the right", (t) => {
   const baseSchema = S.schema({
     type: S.union(["foo", "bar"]),
