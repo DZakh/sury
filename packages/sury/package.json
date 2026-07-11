@@ -30,7 +30,7 @@
   "license": "MIT",
   "author": "Dmitry Zakharov <dzakh.dev@gmail.com>",
   "type": "module",
-  "main": "./src/S.js",
+  "main": "./src/S.mjs",
   "module": "./src/S.mjs",
   "types": "./src/S.d.ts",
   "exports": {
@@ -51,14 +51,17 @@
     "specs/*.yaml"
   ],
   "scripts": {
-    "coverage": "vitest run --coverage",
-    "spec": "tsx ../spec/cli.ts",
-    "build": "pnpm rescript && node ./scripts/pack/Pack.res.mjs",
+    "coverage": "pnpm build:entry && vitest run --coverage",
+    "spec": "pnpm build:entry && tsx ../spec/cli.ts",
+    "build:entry": "tsx ./scripts/pack.ts entry-only",
+    "build": "pnpm rescript && tsx ./scripts/pack.ts for-publish",
+    "res": "pnpm build:entry && rescript watch",
     "test:res": "cd ./packages/tests && rescript clean && rescript watch",
-    "test": "rescript build && vitest run",
+    "test": "pnpm build:entry && rescript build && vitest run",
     "typecheck": "vitest run --typecheck.only",
-    "bench": "vitest bench --run",
-    "lint:stdlib": "rescript-stdlib-vendorer lint --ignore-path=src"
+    "bench": "pnpm build:entry && vitest bench --run",
+    "lint:stdlib": "rescript-stdlib-vendorer lint --ignore-path=src",
+    "prepublishOnly": "node -e \"console.error('Publish from ./artifacts (pnpm build), not the dev package.'); process.exit(1)\""
   },
   "devDependencies": {
     "@codspeed/vitest-plugin": "5.6.0",
@@ -66,9 +69,9 @@
     "@rollup/plugin-node-resolve": "16.0.0",
     "@types/node": "20.19.41",
     "@vitest/coverage-v8": "4.1.7",
+    "esbuild": "0.28.1",
     "execa": "7.1.1",
     "rescript": "12.2.0",
-    "rescript-nodejs": "16.1.0",
     "rescript-stdlib-vendorer": "1.1.0",
     "rollup": "3.21.0",
     "tsx": "4.22.4",

@@ -4,7 +4,7 @@ ts:
   input: boolean
   output: boolean
   instantiations: 254
-  bundleBytes: 3881
+  bundleBytes: 3818
 jsonSchema:
   input: '{ type: "boolean" }'
   output: '{ type: "boolean" }'

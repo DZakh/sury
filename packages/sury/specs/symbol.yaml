@@ -4,7 +4,7 @@ ts:
   input: symbol
   output: symbol
   instantiations: 254
-  bundleBytes: 3795
+  bundleBytes: 3752
 jsonSchema:
   input: Expected JSON, received symbol
   output: Expected JSON, received symbol
