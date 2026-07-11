@@ -1,4 +1,7 @@
-import { AdditionalItems, AdditionalItemsMode, ErrorDetails, Flag, Internal, SuryErrorRecord, Tag, Val, s, unknownTag, valFlagNone } from "./types";
+import { AdditionalItems, AdditionalItemsMode, ErrorDetails, Internal, SuryErrorRecord, Val, s } from "./types";
+import type { Builder } from "./builder";
+import { Flag, valFlagNone } from "./flags";
+import { Tag, unknownTag } from "./tags";
 
 export function Schema(this: Internal): void {}
 export const schemaPrototype: Record<string, unknown> = Object.create(null);
@@ -98,7 +101,7 @@ export const baseSchema = (tag: Tag, selfReverse: boolean): Internal => {
   return schema;
 }
 
-export const noopDecoder = (input: Val): Val => {
+export const noopDecoder: Builder = (input: Val) => {
   return input;
 }
 

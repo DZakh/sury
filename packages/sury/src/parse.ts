@@ -1,7 +1,10 @@
 import { instanceofCond, isArrayCond, nanCond, objectTagCond, setHas, typeofCond } from "./primitives";
 import { baseSchema, cached, copySchema, getOrRethrow, globalConfig, panic, reversedKey, unknown, updateOutput, valKey, valueOptions } from "./schema";
-import { B_Val_scope, B_embedInvalidInput, B_inlineConst, B_markOutput, B_merge, B_next, B_operationArg, B_refine, B_unsupportedDecode, failInvalidType, noopOperation, operationArgVar } from "./builder";
-import { Builder, Encoder, Flag, Internal, Tag, Val, flagAsync, flagDisableNanNumberValidation, flagUnsafeHas, instanceTag, isLiteral, neverTag, numberTag, objectTag, pathConcat, pathDynamic, pathEmpty, s, tagFlagArray, tagFlagBigint, tagFlagBoolean, tagFlagInstance, tagFlagNaN, tagFlagNull, tagFlagNumber, tagFlagObject, tagFlagString, tagFlagSymbol, tagFlagUndefined, tagFlagUnknown, tagFlags, unknownTag, valFlagAsync } from "./types";
+import { B_Val_scope, B_embedInvalidInput, B_inlineConst, B_markOutput, B_merge, B_next, B_operationArg, B_refine, B_unsupportedDecode, Builder, Encoder, failInvalidType, noopOperation, operationArgVar } from "./builder";
+import { Internal, Val, isLiteral, s } from "./types";
+import { Flag, flagAsync, flagDisableNanNumberValidation, flagUnsafeHas, valFlagAsync } from "./flags";
+import { pathConcat, pathDynamic, pathEmpty } from "./path";
+import { Tag, instanceTag, neverTag, numberTag, objectTag, tagFlagArray, tagFlagBigint, tagFlagBoolean, tagFlagInstance, tagFlagNaN, tagFlagNull, tagFlagNumber, tagFlagObject, tagFlagString, tagFlagSymbol, tagFlagUndefined, tagFlagUnknown, tagFlags, unknownTag } from "./tags";
 export const parse = (input: Val): Val => {
   let valRef: Val = input;
   let appliedEncoderRef: Encoder | undefined = undefined;
@@ -267,6 +270,10 @@ export const reverse = (schema: Internal): Internal => {
   }
 }
 
+// PORT-NOTE: The ReScript signature `(~s1 as _, ~flag as _=?)` discards its
+// labeled args and the body reads `arguments` directly — so this is a plain
+// (non-arrow, to keep `arguments`) function with dummy params for arity.
+// getDecoder2/getDecoder3 call sites become getDecoder(s1, s2[, s3][, flag]).
 export function getDecoder(
   _s1?: unknown,
   _s2?: unknown,

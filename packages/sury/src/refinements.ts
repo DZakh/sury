@@ -3,11 +3,14 @@ import { getMutErrorMessage, internalRefine, nullAsUnit, transform } from "./ope
 import { schemaObject, schemaShape, schemaTuple } from "./factory";
 import { parse } from "./parse";
 import { SuryError, copySchema, panic, unknown } from "./schema";
-import { B_Val_scope, B_asyncVal, B_embed, B_failWithErrorMessage, B_inlineLocation, B_markOutput, B_merge, B_next, B_refine, B_varWithoutAllocation, _notVarBeforeValidation, _var, failInvalidType } from "./builder";
+import { B_Val_scope, B_asyncVal, B_embed, B_failWithErrorMessage, B_inlineLocation, B_markOutput, B_merge, B_next, B_refine, B_varWithoutAllocation, Builder, _notVarBeforeValidation, _var, failInvalidType } from "./builder";
 import { array, dictFactory, optionFactory, unionFactory } from "./composites";
-import { ErrorDetails, Flag, Internal, Tag, Val, flagUnsafeHas, inlinedValueFromString, numberTag, pathEmpty, pathFromInlinedLocation, stringify, tagFlagUnknown, tagFlags, valFlagAsync } from "./types";
+import { ErrorDetails, Internal, Val, stringify } from "./types";
+import { Flag, flagUnsafeHas, valFlagAsync } from "./flags";
+import { inlinedValueFromString, pathEmpty, pathFromInlinedLocation } from "./path";
+import { Tag, numberTag, tagFlagUnknown, tagFlags } from "./tags";
 
-export const compactColumnsDecoder = (input: Val): Val => {
+export const compactColumnsDecoder: Builder = (input: Val) => {
   const selfSchema = input.e;
   const isUnknownInput = flagUnsafeHas(
     tagFlags[input.s.type]! as unknown as Flag,
@@ -288,11 +291,18 @@ export const compactColumns = (inputSchema: Internal): Internal => {
   return mut;
 }
 
+// PORT-NOTE: `object`, `shape`, `tuple` alias `Schema.object/shape/tuple`
+// (renamed `SchemaModule` per conventions) — kept as aliases.
 export const object = schemaObject;
 export const nullAsOption = (item: Internal): Internal =>
   optionFactory(item, nullAsUnit());
+// PORT-NOTE: `null` is a reserved word in JS/TS binding position — exported
+// as `null_`; the ReScript bindings layer maps it back to `S.null`.
 export const null_ = (item: Internal): Internal =>
   unionFactory([item, nullLiteral()]);
+// PORT-NOTE: `let array = array` in the source is a self-alias no-op
+// (re-exposing the earlier `array` factory at this point in the module) —
+// skipped; the `array` binding from its own section is already exported.
 export const dict = dictFactory;
 export const shape = schemaShape;
 export const tuple = schemaTuple;

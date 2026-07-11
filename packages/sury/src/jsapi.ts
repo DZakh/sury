@@ -4,7 +4,11 @@ import { B_embed, B_failWithArg, B_invalidInputBuilder, B_makeInvalidConversionD
 import { definitionToSchema } from "./factory";
 import { objectDecoder, unionFactory } from "./composites";
 import { Option_getOr, Option_getOrWith, getAssertResult, internalRefine, nullAsUnit, transform } from "./operations";
-import { AdditionalItems, Builder, Check, Internal, Tag, Val, flagDisableNanNumberValidation, functionTag, isSchemaObject, objectTag, pathEmpty, pathFromArray, stringTag } from "./types";
+import { AdditionalItems, Check, Internal, Val, isSchemaObject } from "./types";
+import { Builder } from "./builder";
+import { flagDisableNanNumberValidation } from "./flags";
+import { Tag, functionTag, objectTag, stringTag } from "./tags";
+import { pathEmpty, pathFromArray } from "./path";
 import { getDecoder, reverse } from "./parse";
 
 export const js_parser = (...args: any[]) => (getDecoder as any)(unknown, ...args);
@@ -25,6 +29,8 @@ export const js_assert = (a: unknown, b: unknown): unknown => {
   const aIsSchema = (a as unknown as boolean) && isSchemaObject(a);
   const schema = (aIsSchema ? a : b) as Internal;
   const data = aIsSchema ? b : a;
+  // PORT-NOTE: getDecoder3 is a @val external self-call of the variadic
+  // getDecoder — ported as a plain 3-arg call per conventions.
   return (getDecoder as any)(unknown, schema, getAssertResult())(data);
 };
 
@@ -46,6 +52,8 @@ export const js_to = /* @__PURE__ */ (() => {
   // FIXME: Test how it'll work if we have async var as input
   // FIXME: Might not work well with object targets
   const customBuilder = (fn: (value: unknown) => unknown): Builder => {
+    // PORT-NOTE: Builder.make is an Obj.magic identity in the source — the
+    // builder function is used directly.
     return (input: Val): Val => {
       const target = input.e.to!;
       const outputVar = B_varWithoutAllocation(input.g);
@@ -152,6 +160,9 @@ export const js_nullable = (schema: Internal, maybeOr: unknown): Internal => {
 };
 
 export const js_merge = (s1: Internal, s2: Internal): Internal => {
+  // PORT-NOTE: the source matches on the public `Object({...})` variants —
+  // at runtime that's a `type === "object"` check plus field reads, ported
+  // as explicit conditions below.
   let result: Internal | undefined;
   if (
     s1.type === objectTag &&
@@ -190,6 +201,8 @@ export const js_merge = (s1: Internal, s2: Internal): Internal => {
   }
 };
 
+// PORT-NOTE: kept the source's `global` name — legal as a module-scoped
+// export even though Node types declare a `global` var.
 export const global = (override: GlobalConfigOverride): void => {
   globalConfig.a = (
     override.defaultAdditionalItems !== undefined
@@ -201,3 +214,6 @@ export const global = (override: GlobalConfigOverride): void => {
       ? flagDisableNanNumberValidation
       : initialDefaultFlag;
 };
+
+// PORT-NOTE: Sury.res line 7135 `let reverse = reverse->Obj.magic` merely
+// re-types the internal `reverse` for the public API — no runtime change.

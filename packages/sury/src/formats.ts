@@ -4,7 +4,11 @@ import { bool, float, inputToString, jsonName, literalDecoder, nullLiteral, numb
 import { baseSchema, cached, copySchema, unknown, updateOutput } from "./schema";
 import { B_Val_Object_add, B_embed, B_embedInvalidInput, B_failWithErrorMessage, B_next, B_nextConst, B_refine, B_unsupportedDecode, B_varWithoutAllocation, _var, failInvalidType } from "./builder";
 import { getDecoder, instanceDecoder, parse, reverse } from "./parse";
-import { Builder, Encoder, Internal, SchemaErrorMessage, Val, arrayTag, flagUnsafeHas, inlinedValueFromString, instanceTag, isLiteral, numberTag, refTag, stringTag, tagFlagArray, tagFlagBigint, tagFlagBoolean, tagFlagInstance, tagFlagNaN, tagFlagNull, tagFlagNumber, tagFlagObject, tagFlagRef, tagFlagString, tagFlagUndefined, tagFlagUnion, tagFlagUnknown, tagFlags, undefinedTag, unionTag, unknownTag } from "./types";
+import { Internal, SchemaErrorMessage, Val, isLiteral } from "./types";
+import { Builder, Encoder } from "./builder";
+import { flagUnsafeHas } from "./flags";
+import { inlinedValueFromString } from "./path";
+import { arrayTag, instanceTag, numberTag, refTag, stringTag, tagFlagArray, tagFlagBigint, tagFlagBoolean, tagFlagInstance, tagFlagNaN, tagFlagNull, tagFlagNumber, tagFlagObject, tagFlagRef, tagFlagString, tagFlagUndefined, tagFlagUnion, tagFlagUnknown, tagFlags, undefinedTag, unionTag, unknownTag } from "./tags";
 
 export const jsonEncoderFn = (input: Val, target: Internal): Val => {
   const toTagFlag = tagFlags[target.type]!;
@@ -525,6 +529,9 @@ export const date = (): Internal => {
   });
 }
 
+// PORT-NOTE: ReScript list runtime (v12): empty list = `0`, cons cell =
+// `{hd, tl}`. These two helpers replicate Stdlib List.fromArray / List.toArray
+// exactly for that representation.
 type RescriptList = 0 | { hd: unknown; tl: RescriptList };
 
 const listFromArray = (array: unknown[]): RescriptList => {

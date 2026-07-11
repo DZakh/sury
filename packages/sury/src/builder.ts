@@ -1,8 +1,25 @@
 import { SuryError, unknown } from "./schema";
-import { BGlobal, Check, ErrorDetails, Flag, Internal, Path, SuryErrorRecord, Val, arrayTag, flagAsync, flagNone, flagUnsafeHas, immutableEmptyArray, inlinedValueFromString, pathConcat, pathEmpty, pathFromInlinedLocation, s, shouldPrependPathKey, stringify, tagFlagBigint, tagFlagFunction, tagFlagInstance, tagFlagString, tagFlagSymbol, tagFlagUndefined, tagFlags, toExpression, valFlagAsync, valFlagNone } from "./types";
+import { BGlobal, Check, ErrorDetails, Internal, SuryErrorRecord, Val, immutableEmptyArray, s, shouldPrependPathKey, stringify, toExpression } from "./types";
+import { Flag, flagAsync, flagNone, flagUnsafeHas, valFlagAsync, valFlagNone } from "./flags";
+import { Path, inlinedValueFromString, pathConcat, pathEmpty, pathFromInlinedLocation } from "./path";
+import { arrayTag, tagFlagBigint, tagFlagFunction, tagFlagInstance, tagFlagString, tagFlagSymbol, tagFlagUndefined, tagFlags } from "./tags";
+
+export type Builder = (input: Val) => Val;
+export type Encoder = (input: Val, target: Internal) => Val;
+
+// PORT-NOTE: `type s<'value>` (the effect ctx record, Sury.res line 1050) is
+// prelude territory but core.ts has no runtime/type for it yet — `EffectCtx`
+// is declared here for `effectCtx`'s return type.
 export type EffectCtx = {
   fail: (message: string, path?: Path) => never;
 };
+
+// PORT-NOTE: `%raw("this")`-based functions (`_var`, `_bondVar`, `_prevVar`,
+// `_notVarBeforeValidation`, `_notVarAtParent`, `_notVar`) and
+// `failInvalidType` are standalone consts (not only `B.` members) because
+// they're compared/stored by reference (`val.v = _var`, `val.v !== _var`,
+// `check.f === failInvalidType`). `B` re-exports them so external call sites
+// can keep saying `_var` / `failInvalidType`.
 
 export function _var(this: Val): string {
   return this.i;

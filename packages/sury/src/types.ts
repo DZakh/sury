@@ -1,49 +1,22 @@
-// Path
-
-export type Path = string;
-
-export const pathEmpty: Path = "";
-export const pathDynamic: Path = "[]";
-
-export const inlinedValueFromString = (str: string): string => {
-  for (let idx = 0; idx < str.length; idx++) {
-    const ch = str[idx];
-    if (ch === '"' || ch === "\n") return JSON.stringify(str);
-  }
-  return `"${str}"`;
-}
-
-export const pathFromInlinedLocation = (inlinedLocation: string): Path => {
-  return `[${inlinedLocation}]`;
-}
-
-export const pathFromLocation = (location: string): Path => {
-  return `[${inlinedValueFromString(location)}]`;
-}
-
-export const pathToArray = (path: Path): string[] => {
-  switch (path) {
-    case "":
-      return [];
-    default:
-      return JSON.parse(path.split(`"]["`).join(`","`)) as string[];
-  }
-}
-
-export const pathFromArray = (array: string[]): Path => {
-  switch (array.length) {
-    case 0:
-      return "";
-    case 1:
-      return pathFromLocation(array[0]!);
-    default:
-      return array.map(pathFromLocation).join("");
-  }
-}
-
-export const pathConcat = (path: Path, concatedPath: Path): Path => {
-  return path + concatedPath;
-}
+import type { Builder, Encoder } from "./builder";
+import type { Path } from "./path";
+import {
+  arrayTag,
+  instanceTag,
+  nanTag,
+  nullTag,
+  objectTag,
+  Tag,
+  tagFlagBigint,
+  tagFlagFunction,
+  tagFlagObject,
+  tagFlagString,
+  tagFlagUndefined,
+  tagFlags,
+  undefinedTag,
+  unionTag,
+} from "./tags";
+import { Flag, flagUnsafeHas } from "./flags";
 
 export const vendor = "sury";
 // Internal symbol to easily identify a SuryError instance.
@@ -56,102 +29,12 @@ export const itemSymbol = /* @__PURE__ */ Symbol(vendor + ":item");
 // and there's not way to throw outside of the operation context.
 export const shouldPrependPathKey = "p";
 
-export type Tag =
-  | "string"
-  | "number"
-  | "bigint"
-  | "boolean"
-  | "symbol"
-  | "null"
-  | "undefined"
-  | "nan"
-  | "function"
-  | "instance"
-  | "array"
-  | "object"
-  | "union"
-  | "never"
-  | "unknown"
-  | "ref";
-
-// Use variables to reduce bundle size with min+gzip
-// Also as a good practice (ignore that we have tag variant 😅)
-export const stringTag: Tag = "string";
-export const numberTag: Tag = "number";
-export const bigintTag: Tag = "bigint";
-export const booleanTag: Tag = "boolean";
-export const symbolTag: Tag = "symbol";
-export const nullTag: Tag = "null";
-export const undefinedTag: Tag = "undefined";
-export const nanTag: Tag = "nan";
-export const functionTag: Tag = "function";
-export const instanceTag: Tag = "instance";
-export const arrayTag: Tag = "array";
-export const objectTag: Tag = "object";
-export const unionTag: Tag = "union";
-export const neverTag: Tag = "never";
-export const unknownTag: Tag = "unknown";
-export const refTag: Tag = "ref";
-
 export type NumberFormat = "int32" | "port";
 export type StringFormat = "json" | "date-time" | "email" | "uuid" | "cuid" | "url";
 export type ArrayFormat = "compactColumns";
 export type Format = NumberFormat | StringFormat | ArrayFormat;
 
 export type AdditionalItemsMode = "strip" | "strict";
-
-export type Flag = number;
-
-// Flag
-export const flagNone: Flag = 0;
-export const flagAsync: Flag = 1;
-export const flagDisableNanNumberValidation: Flag = 2;
-// flatten: 64
-// let without = (flags, flag) => flags->with(flag)->Int.bitwiseXor(flag)
-
-export const flagUnsafeHas = (acc: Flag, flag: Flag): boolean => {
-  return (acc & flag) !== 0;
-}
-
-// ValFlag
-export const valFlagNone = 0;
-export const valFlagAsync = 1;
-
-// TagFlag
-export const tagFlagUnknown = 1;
-export const tagFlagString = 2;
-export const tagFlagNumber = 4;
-export const tagFlagBoolean = 8;
-export const tagFlagUndefined = 16;
-export const tagFlagNull = 32;
-export const tagFlagObject = 64;
-export const tagFlagArray = 128;
-export const tagFlagUnion = 256;
-export const tagFlagRef = 512;
-export const tagFlagBigint = 1024;
-export const tagFlagNaN = 2048;
-export const tagFlagFunction = 4096;
-export const tagFlagInstance = 8192;
-export const tagFlagSymbol = 16384;
-export const tagFlagNever = 32768;
-export const tagFlags: Record<string, number> = {
-  [unknownTag]: 1,
-  [stringTag]: 2,
-  [numberTag]: 4,
-  [booleanTag]: 8,
-  [undefinedTag]: 16,
-  [nullTag]: 32,
-  [objectTag]: 64,
-  [arrayTag]: 128,
-  [unionTag]: 256,
-  [refTag]: 512,
-  [bigintTag]: 1024,
-  [nanTag]: 2048,
-  ["function"]: 4096,
-  [instanceTag]: 8192,
-  [neverTag]: 32768,
-  [symbolTag]: 16384,
-};
 
 export type InvalidInputDetails = {
   code: "invalid_input";
@@ -234,9 +117,6 @@ export type SchemaErrorMessage = {
   maxItems?: string;
   pattern?: string;
 }
-
-export type Builder = (input: Val) => Val;
-export type Encoder = (input: Val, target: Internal) => Val;
 
 export type Internal = {
   type: Tag;

@@ -145,7 +145,7 @@ export {
   pathFromArray as $res_pathFromArray,
   pathFromLocation as $res_pathFromLocation,
   pathConcat as $res_pathConcat,
-} from "./types";
+} from "./path";
 export {
   // Async flavor of the public `assert` — no public JS equivalent
   // (`asyncDecoderAssert` is a different, callback-taking API).

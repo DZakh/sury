@@ -6,8 +6,20 @@ import { SuryError, baseSchema, getOrRethrow, panic, unknown } from "./schema";
 import { Literal_parse, bool, float, int, jsonName, string } from "./primitives";
 import { B_makeInvalidInputDetails, B_operationArg } from "./builder";
 import { never_, parse, reverse } from "./parse";
-import { Internal, Path, arrayTag, booleanTag, flagNone, flagUnsafeHas, isLiteral, isOptional, neverTag, nullTag, numberTag, objectTag, pathConcat, pathDynamic, pathEmpty, pathFromLocation, refTag, stringTag, tagFlagArray, tagFlagObject, tagFlagUnion, tagFlags, toExpression, undefinedTag, unionTag, unknownTag } from "./types";
+import { Internal, isLiteral, isOptional, toExpression } from "./types";
+import { Path, pathConcat, pathDynamic, pathEmpty, pathFromLocation } from "./path";
+import { flagNone, flagUnsafeHas } from "./flags";
+import { arrayTag, booleanTag, neverTag, nullTag, numberTag, objectTag, refTag, stringTag, tagFlagArray, tagFlagObject, tagFlagUnion, tagFlags, undefinedTag, unionTag, unknownTag } from "./tags";
 import { Metadata_Id_internal, Metadata_get, Metadata_set, Option_getOr, assertOrThrow, defsPath, refine, __setStandardJSONSchemaConverter, strict } from "./operations";
+
+// PORT-NOTE: no runtime values had to be imported from JSONSchema.res or
+// StandardSchema.res — everything runtime-relevant there is `%identity`
+// externals (Arrayable.single/array, Mutable.fromReadOnly/toReadOnly,
+// Result casts) or `Object.assign` (Mutable.mixin), all inlined below.
+// Their types are ported as loose TS aliases with the RUNTIME field names
+// (`$ref`, `$schema`, `$defs`, `type`, `if`, `else` — the `@as(...)` names,
+// not the ReScript field names `ref`/`schema`/`defs`/`type_`/`if_`/`else_`).
+// =============================================================================
 
 /**
  * Primitive type
@@ -22,14 +34,27 @@ export type JSONSchemaTypeName =
   | "array"
   | "null";
 
+// PORT-NOTE: JSONSchema.Arrayable.t<'item> is an untagged `item | item[]`;
+// `Arrayable.single`/`Arrayable.array` are %identity and are dropped at call
+// sites, `Arrayable.isArray` is Array.isArray, and `Arrayable.classify` is an
+// inline Array.isArray test.
 export type JSONSchemaArrayable<Item> = Item | Item[];
 
+// PORT-NOTE: JSONSchema's `definition` is `@unboxed
+// Schema(t) | @as(false) Never | @as(true) Any` — at runtime a definition is
+// the schema object itself, `false`, or `true`. The `Schema(...)` wrapping
+// at construction sites is a no-op and is dropped; `Never` -> `false`,
+// `Any` -> `true`; the `Schema(t)` pattern -> `typeof d !== "boolean"`.
 export type JSONSchemaDefinition = JSONSchemaT | boolean;
 
 /**
  * JSON Schema v7
  * @see https://tools.ietf.org/html/draft-handrews-json-schema-validation-01
  */
+// PORT-NOTE: JSONSchema.t and JSONSchema.Mutable.t are the same runtime
+// object (Mutable.fromReadOnly/toReadOnly are %identity); TS has no
+// readonly/mutable split worth keeping here, so a single mutable type serves
+// both, and Mutable.fromReadOnly/toReadOnly calls are dropped.
 export type JSONSchemaT = {
   $id?: string;
   $ref?: string;
@@ -119,12 +144,25 @@ export type JSONSchemaT = {
   examples?: unknown[];
 };
 
+// PORT-NOTE: StandardSchema.JsonSchema.target is `@unboxed | @as("draft-07")
+// Draft07 | @as("draft-2020-12") Draft202012 | @as("openapi-3.0") OpenApi30 |
+// Unknown(string)` — at runtime it's just a string; the known dialects are
+// compared as string literals, everything else is the `Unknown` case.
+// TODO(integration): if section 06 already declares these two aliases for
+// standardJSONSchemaRef's signature, keep a single declaration.
 export type JsonSchemaTarget = "draft-07" | "draft-2020-12" | "openapi-3.0" | (string & {});
 
 export type StandardJsonSchemaOptions = {
   target: JsonSchemaTarget;
   libraryOptions?: Record<string, unknown>;
 };
+
+// PORT-NOTE: ported as standalone functions (the mutually recursive
+// encodeToJsonSchema / internalToJSONSchema / internalToJSONSchemaBase group
+// needs plain function declarations) plus a `RescriptJSONSchema` const
+// object so qualified call sites (`jsonSchemaMerge`, `.internalToJSONSchema`,
+// `.jsonSchemaMetadataId`) keep reading like the source. The `include
+// JSONSchema` is covered by the type aliases above.
 
 export const jsonSchemaMetadataId: string = /* @__PURE__ */ Metadata_Id_internal("JSONSchema");
 
@@ -616,6 +654,17 @@ export const extendJSONSchema = (schema: Internal, jsonSchema: JSONSchemaT): Int
   );
 }
 
+// PORT-NOTE: `castAnySchemaToJsonableS` is a bare `Obj.magic` (a pure no-op
+// type re-cast, `schema<'any> => schema<JSON.t>`). It has no runtime body, so
+// no value is emitted here and every `->castAnySchemaToJsonableS` call below
+// is simply dropped. If the public bindings layer needs the name, it's a TS
+// `as` cast there.
+
+// PORT-NOTE: the `let rec fromJSONSchema = { let helper = ...; jsonSchema => ... }`
+// block-scoped helpers (primitiveToSchema, toIntSchema,
+// definitionToDefaultValue) are hoisted to module-scope functions —
+// same behavior, they close over nothing but module-level bindings.
+
 const primitiveToSchema = (primitive: unknown): Internal => {
   return Literal_parse(primitive);
 }
@@ -910,6 +959,9 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
     jsonSchema.examples !== undefined ||
     jsonSchema.title !== undefined
   ) {
+    // PORT-NOTE: ReScript's `title: ?jsonSchema.title` optional-field punning
+    // assigns the option value directly (present-with-undefined when None) —
+    // a plain object literal with possibly-undefined fields matches that.
     schema = meta(schema, {
       title: jsonSchema.title,
       description: jsonSchema.description,
@@ -967,3 +1019,18 @@ export const length = (schema: Internal, length: number, maybeMessage?: string):
       );
   }
 }
+
+// PORT-NOTE: every one of these is a PURE NO-OP — a bare `Obj.magic` (or
+// `castToPublic` for `unknown`) that re-types an existing function/value from
+// its `internal`-returning form to the public `t<'x>`-returning form without
+// touching the runtime value. In this TS port the runtime object is `Internal`
+// everywhere and the public typing lives in the bindings layer, so NO runtime
+// code is emitted for any of them. Listed for completeness (all no-ops):
+//
+//   nullAsUnit, never_, unknown (castToPublic of the `unknown` schema const),
+//   unit, nullLiteral, nan, string, bool, int, float, bigint, symbol, date,
+//   json, jsonString, jsonStringWithSpace, uint8Array, isoDateTime, port,
+//   email, uuid, cuid, url
+//
+// The bindings layer (Sury.res / S.d.ts) should re-export the already-defined
+// functions of the same names under their public types.

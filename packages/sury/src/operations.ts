@@ -4,7 +4,14 @@ import { SuryError, baseSchema, cached, configurableValueOptions, copySchema, ge
 import type { JSONSchemaT, StandardJsonSchemaOptions } from "./jsonschema";
 import { compileDecoder, getDecoder, getOutputSchema, isAsyncInternal, reverse } from "./parse";
 import { B_effectCtx, B_embed, B_embedTransformation, B_inlineConst, B_invalidInputBuilder, B_invalidOperation, B_mergeWithPathPrepend, B_next, B_refine, B_varWithoutAllocation, EffectCtx, _var } from "./builder";
-import { AdditionalItems, Builder, Check, Internal, SchemaErrorMessage, SuryErrorRecord, Tag, Val, flagAsync, objectTag, pathEmpty, pathFromArray, pathToArray, refTag, s, toExpression, undefinedTag, valFlagAsync, vendor } from "./types";
+import { AdditionalItems, Check, Internal, SchemaErrorMessage, SuryErrorRecord, Val, s, toExpression, vendor } from "./types";
+import { Builder } from "./builder";
+import { flagAsync, valFlagAsync } from "./flags";
+import { pathEmpty, pathFromArray, pathToArray } from "./path";
+import { Tag, objectTag, refTag, undefinedTag } from "./tags";
+
+// PORT-NOTE: `JsResult` is defined here (first fragment to need it); if
+// another fragment also defines it, dedupe at integration time.
 
 export const recursiveDecoder: Builder = (input) => {
   const expectedSchema = input.e;
@@ -117,6 +124,9 @@ export const recursiveDecoder: Builder = (input) => {
   return output;
 };
 
+// PORT-NOTE: StandardSchema/JSONSchema types are ported as loose, type-only
+// aliases (no runtime import allowed here). `JSONSchemaT` stands in for
+// JSONSchema.t.
 export type StandardIssue = {
   message: string;
   path?: unknown[];
@@ -184,6 +194,9 @@ Object.defineProperty(schemaPrototype, "~standard", {
             issues: [
               {
                 message: error.reason,
+                // PORT-NOTE: the source maps each key through the unboxed
+                // `StandardSchema.Issue.String` constructor, which is an
+                // identity at runtime — the map is dropped here.
                 path:
                   error.path === pathEmpty ? undefined : pathToArray(error.path),
               },
@@ -237,6 +250,8 @@ export const isAsync = (schema: Internal): boolean => {
   }
 }
 
+// PORT-NOTE: jsResult<'v> ported as a `success`-discriminated union per
+// conventions.
 export type JsResult<V> =
   | { success: true; value: V }
   | { success: false; error: SuryErrorRecord };
@@ -271,6 +286,8 @@ export const js_safeAsync = <V>(fn: () => Promise<V>): Promise<JsResult<V>> => {
   }
 }
 
+// PORT-NOTE: `module Metadata` → flat `Metadata_*` functions. `Id.t<'metadata>` is a string at
+// runtime; `unionToKey` was `%identity` and is dropped.
 export type MetadataId = string;
 
 export const Metadata_Id_make = (namespace: string, name: string): MetadataId => {
@@ -392,6 +409,9 @@ export type TransformDefinition<Input = unknown, Output = unknown> = {
   s?: (output: Output) => Input;
 };
 
+// PORT-NOTE: `s<'output>` (the effect ctx passed to the transformer) is what
+// `B_effectCtx` returns: `{ fail(message, path?): never }`.
+
 export const transform = (
   schema: Internal,
   transformer: (ctx: EffectCtx) => TransformDefinition
@@ -439,11 +459,16 @@ export const transform = (
 }
 
 export const nullAsUnit = (): Internal => {
+  // PORT-NOTE: local `s` renamed to `schema` — `s` is the module-level error
+  // identity symbol in this file.
   const schema = copySchema(nullLiteral());
   schema.to = unit();
   return schema;
 }
 
+// PORT-NOTE: `Option.default = Value(unknown) | Callback(unit => unknown)` is
+// a regular (boxed) variant used only within this module; ported with a
+// string `TAG` discriminant — the representation never escapes.
 export type OptionDefault =
   | { TAG: "Value"; _0: unknown }
   | { TAG: "Callback"; _0: () => unknown };
@@ -539,6 +564,8 @@ export const Option_getOr = (schema: Internal, defalutValue: unknown): Internal 
 export const Option_getOrWith = (schema: Internal, defalutCb: () => unknown): Internal =>
   Option_getWithDefault(schema, { TAG: "Callback", _0: defalutCb });
 
+// PORT-NOTE: `Object.s` (the object ctx record) → `ObjectCtx`; field names are
+// the runtime names from `@as` (`f` for `field`, others unchanged).
 export type ObjectCtx = {
   // @as("f") — field
   f: (location: string, schema: Internal) => unknown;
@@ -611,6 +638,8 @@ export const deepStrict = (schema: Internal): Internal => {
   return ObjectModule.setAdditionalItems(schema, "strict", true);
 }
 
+// PORT-NOTE: `module Tuple` contains only the ctx record type — no runtime
+// const is emitted; `Tuple.s` → `TupleCtx`.
 export type TupleCtx = {
   item: (idx: number, schema: Internal) => unknown;
   tag: (idx: number, value: unknown) => void;
