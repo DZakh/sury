@@ -1,0 +1,244 @@
+import { nullLiteral, unit } from "./primitives.ts";
+import { GlobalConfigOverride, baseSchema, copySchema, getOrRethrow, globalConfig, initialDefaultFlag, initialOnAdditionalItems, panic, unknown, updateOutput } from "./schema.ts";
+import { B_embed, B_failWithArg, B_invalidInputBuilder, B_makeInvalidConversionDetails, B_next, B_varWithoutAllocation, _var } from "./builder.ts";
+import { definitionToSchema } from "./factory.ts";
+import { objectDecoder, unionFactory } from "./composites.ts";
+import { Option_getOr, Option_getOrWith, getAssertResult, internalRefine, nullAsUnit, transform } from "./operations.ts";
+import { AdditionalItems, Builder, Check, Internal, Tag, Val, flagDisableNanNumberValidation, functionTag, isSchemaObject, objectTag, pathEmpty, pathFromArray, stringTag } from "./types.ts";
+import { getDecoder, reverse } from "./parse.ts";
+// Section: Sury.res lines 6944-7136 — JS public API wrappers
+// (js_parser, js_asyncParser, js_asyncDecoder, js_encoder, js_asyncEncoder,
+//  js_assert, js_is, js_union, js_to, js_refine, noop, js_asyncDecoderAssert,
+//  js_optional, js_nullable, js_merge, global, reverse re-export)
+//
+// TODO(integration): expects from other sections:
+//   - getDecoder (raw variadic; reads extra args / flag) — earlier section
+//   - reverse (internal schema reverse) — earlier section; also see PORT-NOTE
+//     at the bottom: Sury.res line 7135 re-types it for the public API
+//   - getAssertResult — earlier section (~4411)
+//   - unionFactory — earlier section (~3989)
+//   - definitionToSchema — Schema factory section (~5485+)
+//   - B (Builder.B helpers: varWithoutAllocation, next, _var, embed,
+//     failWithArg, makeInvalidConversionDetails, invalidInputBuilder) —
+//     builder section (~1083+)
+//   - internalRefine — earlier section (~4560)
+//   - transform — earlier section (~4628)
+//   - Option_getOr / Option_getOrWith — Option module (~4773)
+//   - unit, nullAsUnit, nullLiteral — literal factories section (~2211+)
+//   - objectDecoder — object section
+// Prelude (core.ts) provides: unknown, isSchemaObject, InternalError,
+//   updateOutput, copySchema, baseSchema, typeOf, functionTag, stringTag,
+//   objectTag, pathFromArray, pathEmpty, globalConfig, Flag,
+//   initialOnAdditionalItems, initialDefaultFlag, GlobalConfigOverride,
+//   Internal, Val, Check.
+// ============================================================================
+
+export const js_parser = (...args: any[]) => (getDecoder as any)(unknown, ...args);
+
+export const js_asyncParser = (...args: any[]) => (getDecoder as any)(unknown, ...args, 1);
+
+export const js_asyncDecoder = (...args: any[]) => (getDecoder as any)(...args, 1);
+
+export const js_encoder = (...args: any[]) => (getDecoder as any)(...args.map(reverse));
+
+export const js_asyncEncoder = (...args: any[]) => (getDecoder as any)(...args.map(reverse), 1);
+
+// Accepts both `(schema, data)` and `(data, schema)` arg orders. We tell them
+// apart by the Standard Schema marker on a schema object. The truthiness guard
+// keeps `null`/`undefined` data from throwing on the marker access, routing it
+// to the data slot so validation fails with a proper Sury error.
+export const js_assert = (a: unknown, b: unknown): unknown => {
+  const aIsSchema = (a as unknown as boolean) && isSchemaObject(a);
+  const schema = (aIsSchema ? a : b) as Internal;
+  const data = aIsSchema ? b : a;
+  // PORT-NOTE: getDecoder3 is a @val external self-call of the variadic
+  // getDecoder — ported as a plain 3-arg call per conventions.
+  return (getDecoder as any)(unknown, schema, getAssertResult())(data);
+};
+
+export const js_is = (a: unknown, b: unknown): boolean => {
+  try {
+    js_assert(a, b);
+    return true;
+  } catch (exn) {
+    // Rethrow anything that isn't a Sury validation failure.
+    getOrRethrow(exn);
+    return false;
+  }
+};
+
+export const js_union = (values: unknown[]) =>
+  unionFactory(values.map(definitionToSchema) as unknown as Internal[]);
+
+export const js_to = /* @__PURE__ */ (() => {
+  // FIXME: Test how it'll work if we have async var as input
+  // FIXME: Might not work well with object targets
+  const customBuilder = (fn: (value: unknown) => unknown): Builder => {
+    // PORT-NOTE: Builder.make is an Obj.magic identity in the source — the
+    // builder function is used directly.
+    return (input: Val): Val => {
+      const target = input.e.to!;
+      const outputVar = B_varWithoutAllocation(input.g);
+      const output = B_next(input, outputVar, target, target);
+      output.v = _var;
+      output.cp = `let ${outputVar};try{${output.i}=${B_embed(
+        input,
+        fn,
+      )}(${input.i})}catch(x){${B_failWithArg(
+        output,
+        (e: unknown) => B_makeInvalidConversionDetails(input, target, e),
+        `x`,
+      )}}`;
+      return output;
+    };
+  };
+
+  return (
+    schema: Internal,
+    target: Internal,
+    maybeDecoder?: (value: unknown) => unknown,
+    maybeEncoder?: (target: unknown) => unknown,
+  ) => {
+    return updateOutput(schema, (mut) => {
+      if (maybeEncoder !== undefined) {
+        const targetMut = copySchema(target);
+        targetMut.serializer = customBuilder(maybeEncoder);
+        mut.to = targetMut;
+      } else {
+        mut.to = target;
+      }
+      if (maybeDecoder !== undefined) {
+        mut.parser = customBuilder(maybeDecoder);
+      }
+    });
+  };
+})();
+
+export const js_refine = (
+  schema: Internal,
+  refineCheck: (value: unknown) => boolean,
+  refineOptions?: { error?: string; path?: string[] },
+) => {
+  const message =
+    refineOptions !== undefined
+      ? refineOptions["error"] !== undefined
+        ? refineOptions["error"]
+        : "Refinement failed"
+      : "Refinement failed";
+  const extraPath =
+    refineOptions !== undefined
+      ? refineOptions["path"] !== undefined
+        ? pathFromArray(refineOptions["path"])
+        : pathEmpty
+      : pathEmpty;
+  return internalRefine(schema, (_: Internal) => (input: Val): Check[] => {
+    const embeddedCheck = B_embed(input, refineCheck);
+    return [
+      {
+        c: (inputVar: string) => `${embeddedCheck}(${inputVar})`,
+        f: B_invalidInputBuilder(undefined, extraPath, message),
+      },
+    ];
+  });
+};
+
+export const noop = <A>(a: A): A => a;
+export const js_asyncDecoderAssert = (
+  schema: Internal,
+  assertFn: (value: unknown) => Promise<unknown>,
+) => {
+  return transform(schema, (_: unknown) => {
+    return {
+      a: (v: unknown) => assertFn(v).then(() => v),
+      s: noop,
+    };
+  });
+};
+
+export const js_optional = (schema: Internal, maybeOr: unknown): Internal => {
+  // TODO: maybeOr should be part of the unit schema
+  schema = unionFactory([schema, unit()]) as unknown as Internal;
+  if (maybeOr !== undefined && (typeof maybeOr as Tag) === functionTag) {
+    return Option_getOrWith(schema, maybeOr as () => unknown) as unknown as Internal;
+  } else if (maybeOr !== undefined) {
+    return Option_getOr(schema, maybeOr) as unknown as Internal;
+  } else {
+    return schema;
+  }
+};
+
+export const js_nullable = (schema: Internal, maybeOr: unknown): Internal => {
+  // TODO: maybeOr should be part of the unit schema
+  if (maybeOr !== undefined) {
+    const schema2 = unionFactory([schema, nullAsUnit()]) as unknown as Internal;
+    if ((typeof maybeOr as Tag) === functionTag) {
+      return Option_getOrWith(schema2, maybeOr as () => unknown) as unknown as Internal;
+    } else {
+      return Option_getOr(schema2, maybeOr) as unknown as Internal;
+    }
+  } else {
+    return unionFactory([schema, nullLiteral()]) as unknown as Internal;
+  }
+};
+
+export const js_merge = (s1: Internal, s2: Internal): Internal => {
+  // PORT-NOTE: the source matches on the public `Object({...})` variants —
+  // at runtime that's a `type === "object"` check plus field reads, ported
+  // as explicit conditions below.
+  let result: Internal | undefined;
+  if (
+    s1.type === objectTag &&
+    s2.type === objectTag &&
+    // Filter out S.record schemas
+    (typeof s1.additionalItems as Tag) === stringTag &&
+    (typeof s2.additionalItems as Tag) === stringTag &&
+    !(s1.to as unknown as boolean) &&
+    !(s2.to as unknown as boolean)
+  ) {
+    const properties1 = s1.properties!;
+    const properties2 = s2.properties!;
+    const properties = { ...properties1 };
+    const keys2 = Object.keys(properties2);
+
+    for (let idx = 0; idx <= keys2.length - 1; idx++) {
+      const key = keys2[idx]!;
+      properties[key] = properties2[key]!;
+    }
+
+    const mut = baseSchema(objectTag, false);
+
+    // TODO: Merge to required fields
+    mut.required = Object.keys(properties);
+    mut.properties = properties;
+    mut.additionalItems = s1.additionalItems;
+    mut.decoder = objectDecoder;
+    result = mut;
+  }
+  if (result !== undefined) {
+    return result;
+  } else {
+    return panic(
+      "The merge supports only structured object schemas without transformations",
+    );
+  }
+};
+
+// PORT-NOTE: kept the source's `global` name — legal as a module-scoped
+// export even though Node types declare a `global` var.
+export const global = (override: GlobalConfigOverride): void => {
+  globalConfig.a = (
+    override.defaultAdditionalItems !== undefined
+      ? override.defaultAdditionalItems
+      : initialOnAdditionalItems
+  ) as unknown as AdditionalItems;
+  globalConfig.f =
+    override.disableNanNumberValidation === true
+      ? flagDisableNanNumberValidation
+      : initialDefaultFlag;
+};
+
+// PORT-NOTE: Sury.res line 7135 `let reverse = reverse->Obj.magic` merely
+// re-types the internal `reverse` for the public API — no runtime change.
+// TODO(integration): `reverse` must already be defined/exported by its
+// earlier section; do NOT redefine it here.
+// =============================================================================

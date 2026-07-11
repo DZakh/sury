@@ -39,10 +39,6 @@
       "require": "./src/S.js",
       "types": "./src/S.d.ts"
     },
-    "./core": {
-      "import": "./src/core.mjs",
-      "require": "./src/core.cjs"
-    },
     "./src/*": "./src/*",
     "./S.gen.js": {
       "types": "./src/S.gen.d.ts"
@@ -55,15 +51,15 @@
     "specs/*.yaml"
   ],
   "scripts": {
-    "coverage": "pnpm build:core && vitest run --coverage",
-    "spec": "pnpm build:core && tsx ../spec/cli.ts",
-    "build:core": "tsx ./scripts/pack.ts core-only",
+    "coverage": "pnpm build:entry && vitest run --coverage",
+    "spec": "pnpm build:entry && tsx ../spec/cli.ts",
+    "build:entry": "tsx ./scripts/pack.ts entry-only",
     "build": "pnpm rescript && tsx ./scripts/pack.ts for-publish",
-    "res": "pnpm build:core && rescript watch",
+    "res": "pnpm build:entry && rescript watch",
     "test:res": "cd ./packages/tests && rescript clean && rescript watch",
-    "test": "pnpm build:core && rescript build && vitest run",
+    "test": "pnpm build:entry && rescript build && vitest run",
     "typecheck": "vitest run --typecheck.only",
-    "bench": "pnpm build:core && vitest bench --run",
+    "bench": "pnpm build:entry && vitest bench --run",
     "lint:stdlib": "rescript-stdlib-vendorer lint --ignore-path=src"
   },
   "devDependencies": {
