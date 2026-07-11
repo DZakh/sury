@@ -76,6 +76,7 @@
   - [`toExpression`](#toExpression)
   - [`noValidation`](#noValidation)
 
+- [Standard Schema](#standard-schema)
 - [Error handling](#error-handling)
 - [Global config](#global-config)
   - [`defaultAdditionalItems`](#defaultAdditionalItems)
@@ -1686,6 +1687,20 @@ let schema = S.object(s => s.field("abc", S.int))->S.noValidation(true)
 Removes validation for the provided schema. Nested schemas are not affected.
 
 This can be useful to optimise `S.object` parsing when you construct the input data yourself.
+
+## Standard Schema
+
+Every schema implements the [Standard Schema](https://standardschema.dev/) spec (and its [JSON Schema](https://standardschema.dev/json-schema) extension) via `~standard`, typed by the `StandardSchema` module and readable through `S.untag`:
+
+```rescript
+let standard = (S.string->S.untag).standard
+
+standard.validate("abc") // {value: "abc"}
+
+S.enableStandardJSONSchema() // Once, to opt into jsonSchema (keeps toJSONSchema tree-shakeable otherwise)
+(standard.jsonSchema->Option.getUnsafe).input({target: StandardSchema.JsonSchema.Draft07})
+// {type: "string", $schema: "http://json-schema.org/draft-07/schema#"}
+```
 
 ## Error handling
 

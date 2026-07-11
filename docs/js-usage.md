@@ -285,6 +285,8 @@ S.toJSONSchema(userSchema);
 
 See how all the properties and examples are in the Input format. It's just asking to put itself to Fastify or any other server with OpenAPI integration 😁
 
+`S.toJSONSchema(schema, { target })` also supports emitting `"draft-07"` (default), `"draft-2020-12"`, or `"openapi-3.0"` dialects.
+
 If that's not cool enough for you, you can also turn a JSON Schema into a **Sury** schema:
 
 ```ts
@@ -330,6 +332,21 @@ const { object } = await generateObject({
   }),
 });
 ```
+
+The `~standard` property also implements the [Standard JSON Schema](https://standardschema.dev/json-schema) spec, exposing a `jsonSchema` converter for the schema's input and output types. Call `S.enableStandardJSONSchema()` once to enable it:
+
+```ts
+S.enableStandardJSONSchema();
+
+const schema = S.string.with(S.to, S.number);
+
+schema["~standard"].jsonSchema.input({ target: "draft-2020-12" });
+// { $schema: "https://json-schema.org/draft/2020-12/schema", type: "string" }
+schema["~standard"].jsonSchema.output({ target: "draft-2020-12" });
+// { $schema: "https://json-schema.org/draft/2020-12/schema", type: "number" }
+```
+
+> 🧠 `jsonSchema.input(options)` equals `S.toJSONSchema(schema, options)` and `.output(options)` equals `S.toJSONSchema(S.reverse(schema), options)`, so the `target` option behaves the same as above.
 
 ## Defining schemas
 
