@@ -7,14 +7,14 @@ ts:
   output: "{ a: string; }"
   instantiations: 1205
   bundleBytes: 9497
-  createPerf: 16087
+  createPerf: 142151
 jsonSchema:
   input: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
   output: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i||e[1](i);let v0=i["a"];typeof v0==="string"||e[0](v0);return {"a":v0,}}
-    compilePerf: 83432
+    compilePerf: 443109
     examples:
       valid:
         input: '{ a: "hello" }'

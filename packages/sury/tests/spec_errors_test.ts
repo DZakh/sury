@@ -60,7 +60,7 @@ test("stale golden (expression drifted from what the schema actually compiles to
         parse:
     -     expression: i=>i /* stale */
     +     expression: i=>{typeof i==="string"||e[0](i);return i}
-          compilePerf: 3392
+          compilePerf: 4179
           examples:
             valid:",
       "stdout": "",
@@ -153,7 +153,7 @@ test("identity claimed but the operation doesn't actually compile to identity", 
         parse:
     -     expression: i=>{typeof i==="string"||e[0](i);return i}
     +     expression: i=>{typeof i==="string"||e[1](i);i.length>2||e[0](i);return i}
-          compilePerf: 3392
+          compilePerf: 4179
           examples:
             valid:
     @@ -19,7 +19,7 @@
@@ -335,7 +335,7 @@ test("multiple simultaneous problems all get their own guiding message", async (
         parse:
     -     expression: i=>i /* stale */
     +     expression: i=>{typeof i==="string"||e[0](i);return i}
-          compilePerf: 3392
+          compilePerf: 4179
           examples:
             valid:",
       "stdout": "",

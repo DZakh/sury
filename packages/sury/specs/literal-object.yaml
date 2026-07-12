@@ -8,14 +8,14 @@ ts:
   output: '{ foo: "bar"; }'
   instantiations: 1043
   bundleBytes: 9382
-  createPerf: 8619
+  createPerf: 88415
 jsonSchema:
   input: '{ type: "object", properties: { foo: { type: "string", const: "bar" } }, required: ["foo"] }'
   output: '{ type: "object", properties: { foo: { type: "string", const: "bar" } }, required: ["foo"] }'
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i||e[1](i);let v0=i["foo"];v0==="bar"||e[0](v0);return {"foo":v0,}}
-    compilePerf: 81152
+    compilePerf: 440156
     examples:
       valid:
         input: '{ foo: "bar" }'

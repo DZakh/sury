@@ -12,7 +12,7 @@ jsonSchema:
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[0](i);return i}
-    compilePerf: 3392
+    compilePerf: 4179
     examples:
       valid:
         input: '"hello"'

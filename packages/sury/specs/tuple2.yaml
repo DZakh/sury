@@ -5,14 +5,14 @@ ts:
   output: "[string, number]"
   instantiations: 1132
   bundleBytes: 9689
-  createPerf: 313121
+  createPerf: 458104
 jsonSchema:
   input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string" }, { type: "number" }] }'
   output: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string" }, { type: "number" }] }'
 operations:
   parse:
     expression: i=>{Array.isArray(i)&&i.length===2||e[2](i);let v0=i["0"],v1=i["1"];typeof v0==="string"||e[0](v0);typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);return i}
-    compilePerf: 109233
+    compilePerf: 443704
     examples:
       valid:
         input: '["hello", 42]'

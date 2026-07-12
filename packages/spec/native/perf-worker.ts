@@ -49,16 +49,26 @@ for (let i = 0; i < 10; i++) {
   noop();
 }
 
+// A full GC on a clean slate just BEFORE each region (never between start/stop,
+// so it's never counted) empties the heap, so V8 can't trigger a GC INSIDE the
+// fence and pollute the count with millions of collection instructions. Live
+// values built before the fence (e.g. `fresh` below) survive it. --expose-gc
+// makes global.gc available.
+const gc = (): void => (globalThis as { gc?: () => void }).gc?.();
+
 // A discarded region first: the extra one-time cost the FIRST fenced region
 // pays lands here, not on __baseline or a real measurement.
+gc();
 cg.start("__warm");
 noop();
 cg.stop("__warm");
 
+gc();
 cg.start("__baseline");
 noop();
 cg.stop("__baseline");
 
+gc();
 cg.start("create");
 const created = factory();
 cg.stop("create");
@@ -68,6 +78,7 @@ for (const op of ops) {
   const compile = build[op];
   if (!compile) continue;
   const fresh = factory(); // built OUTSIDE the fence so create cost isn't counted
+  gc();
   cg.start(op);
   compile(fresh);
   cg.stop(op);

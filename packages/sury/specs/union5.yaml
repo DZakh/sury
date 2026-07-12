@@ -12,7 +12,7 @@ jsonSchema:
 operations:
   parse:
     expression: i=>{if(!(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i)||typeof i==="boolean"||typeof i==="bigint"||typeof i==="symbol")){e[0](i)}return i}
-    compilePerf: 202277
+    compilePerf: 280947
     examples:
       valid-bigint:
         input: 5n

@@ -12,7 +12,7 @@ jsonSchema:
 operations:
   parse:
     expression: i=>{typeof i==="boolean"||e[0](i);return i}
-    compilePerf: 3568
+    compilePerf: 4355
     examples:
       valid-true:
         input: "true"

@@ -91,16 +91,15 @@ const measureOne = (req: PerfRequest): Promise<PerfCounts | null> =>
         `--callgrind-out-file=${join(dir, "cg")}`,
         process.execPath,
         // --predictable: deterministic GC/scheduling so counts are exact.
-        // --max-*-space-size: V8 otherwise auto-tunes heap limits to the
-        // machine's RAM, so a major GC lands inside a fenced region on one
-        // machine but not another (a ~3M-instruction outlier). Pinning them
-        // large (the worker's working set is a few MB) makes GC timing
-        // machine-independent — no GC during measurement, anywhere.
+        // --expose-gc: the worker runs a full GC just BEFORE each fenced region
+        // (outside START/STOP, so it isn't counted) — that empties the heap so
+        // V8 can't trigger a GC INSIDE the fence. Without it a major GC lands in
+        // a heavy compile on some machines' heap layouts but not others, adding
+        // ~3M instructions (machine-dependent, unreproducible locally).
         // --experimental-strip-types: run the .ts worker directly (a transpiling
         // loader like tsx perturbs the counts; type-stripping doesn't).
         "--predictable",
-        "--max-old-space-size=4096",
-        "--max-semi-space-size=128",
+        "--expose-gc",
         "--experimental-strip-types",
         WORKER,
       ],

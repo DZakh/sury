@@ -12,7 +12,7 @@ jsonSchema:
 operations:
   parse:
     expression: i=>{typeof i==="bigint"||e[0](i);return i}
-    compilePerf: 3414
+    compilePerf: 4191
     examples:
       valid:
         input: 42n

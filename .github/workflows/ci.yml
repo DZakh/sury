@@ -78,7 +78,8 @@ jobs:
 
       # Read-only gate: recomputes every golden (codegen, bundle, types) AND
       # re-measures createPerf/compilePerf, failing on drift beyond the ±10%
-      # cross-machine band (see perf.ts; a GC-polluted region is retried).
+      # cross-machine band. The worker GCs before each fenced region so no GC
+      # pollutes a count (see perf.ts / perf-worker.ts).
       - run: pnpm --filter=spec spec check
 
   wallclock-benchmarks:
