@@ -519,10 +519,10 @@ module Tuple = {
 
 @module("sury") external tuple: (Tuple.s => 'value) => t<'value> = "tuple"
 let tuple1 = v0 => tuple(s => s.item(0, v0))
-// An array definition passed to the public JS `schema` is a tuple schema.
-@module("sury") external tuple2: array<t<unknown>> => t<'value> = "schema"
+// The public JS `tuple` also accepts an array definition directly.
+@module("sury") external tuple2: array<t<unknown>> => t<'value> = "tuple"
 let tuple2 = (v1, v2) => tuple2([castToUnknown(v1), castToUnknown(v2)])
-@module("sury") external tuple3: array<t<unknown>> => t<'value> = "schema"
+@module("sury") external tuple3: array<t<unknown>> => t<'value> = "tuple"
 let tuple3 = (v1, v2, v3) => tuple3([castToUnknown(v1), castToUnknown(v2), castToUnknown(v3)])
 
 module Option = {

@@ -77,14 +77,14 @@ function tuple1(v0) {
 }
 
 function tuple2(v1, v2) {
-  return Sury.schema([
+  return Sury.tuple([
     v1,
     v2
   ]);
 }
 
 function tuple3(v1, v2, v3) {
-  return Sury.schema([
+  return Sury.tuple([
     v1,
     v2,
     v3

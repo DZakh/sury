@@ -1,6 +1,8 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: S.schema([S.string, S.number])
+  aliases:
+    - S.tuple([S.string, S.number])
   input: "[string, number]"
   output: "[string, number]"
   instantiations: 1132

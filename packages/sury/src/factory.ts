@@ -246,7 +246,12 @@ export const schemaObject = (
   return mut;
 }
 
-export const schemaTuple = (definer: (ctx: TupleCtx) => unknown): Internal => {
+export const schemaTuple = (
+  definer: ((ctx: TupleCtx) => unknown) | unknown[]
+): Internal => {
+  if (typeof definer !== "function") {
+    return definitionToSchema(definer);
+  }
   const items: Internal[] = [];
 
   const item = (idx: number, schema: Internal): unknown => {
