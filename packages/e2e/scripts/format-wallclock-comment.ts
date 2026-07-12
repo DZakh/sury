@@ -1,21 +1,34 @@
-#!/usr/bin/env node
 // Turns a `vitest bench --outputJson` report into a markdown PR comment body.
-// Used by the CI "Wall-clock Benchmarks" job (see .github/workflows/ci.yml),
-// which reports real timings as a complement to CodSpeed's simulated
-// instruction counts.
+// Used by the CI "Wall-clock Benchmarks" job (see .github/workflows/ci.yml).
 import { readFileSync, writeFileSync } from "node:fs";
+
+interface Benchmark {
+  rank: number;
+  name: string;
+  hz: number;
+  rme: number;
+}
+
+interface BenchReport {
+  files: {
+    groups: {
+      fullName: string;
+      benchmarks: Benchmark[];
+    }[];
+  }[];
+}
 
 const [, , inputPath, outputPath] = process.argv;
 if (!inputPath || !outputPath) {
-  console.error("Usage: format-wallclock-comment.mjs <bench-results.json> <comment.md>");
+  console.error("Usage: format-wallclock-comment.ts <bench-results.json> <comment.md>");
   process.exit(1);
 }
 
-const report = JSON.parse(readFileSync(inputPath, "utf8"));
+const report: BenchReport = JSON.parse(readFileSync(inputPath, "utf8"));
 
-const formatHz = (hz) => hz.toLocaleString("en-US", { maximumFractionDigits: 0 });
-const groupName = (fullName) => fullName.split(" > ").pop();
-const benchLabel = (name) => name.split(": ").pop();
+const formatHz = (hz: number) => hz.toLocaleString("en-US", { maximumFractionDigits: 0 });
+const groupName = (fullName: string) => fullName.split(" > ").pop();
+const benchLabel = (name: string) => name.split(": ").pop();
 
 let tables = "";
 for (const file of report.files) {
@@ -40,9 +53,7 @@ const runUrl =
 
 const marker = "<!-- wallclock-bench-comment -->";
 const body = `${marker}
-## 📊 Wall-clock benchmark (\`comparison.bench.ts\`)
-
-Real wall-clock timings from \`vitest bench\`, measured directly on this CI runner — a complement to the *Benchmarks* job's CodSpeed-simulated instruction counts, not a replacement. Shared runners are noisy, so treat this as informational only; it's not used for regression gating.
+## 📊 Wall-clock benchmarks (\`comparison.bench.ts\`)
 ${tables}
 <sub>Commit \`${sha}\`${runUrl ? ` • [workflow run](${runUrl})` : ""}</sub>
 `;

@@ -91,7 +91,7 @@ jobs:
         run: pnpm --filter=e2e benchmark:comparison:report
 
       - name: Format PR comment
-        run: node packages/e2e/scripts/format-wallclock-comment.mjs packages/e2e/bench-results.json bench-comment.md
+        run: npx tsx packages/e2e/scripts/format-wallclock-comment.ts packages/e2e/bench-results.json bench-comment.md
 
       - name: Post/update PR comment
         uses: actions/github-script@v7
