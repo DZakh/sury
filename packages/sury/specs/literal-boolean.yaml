@@ -1,6 +1,8 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: S.schema(true)
+  aliases:
+    - S.literal(true)
   input: "true"
   output: "true"
   instantiations: 378
