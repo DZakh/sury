@@ -4,8 +4,6 @@
 type never
 
 module Path = {
-  // Abstract (no representation) so it's opaque without an S.resi; the string
-  // backing only surfaces through `toString` (%identity) and the %raw literals.
   type t
 
   external toString: t => string = "%identity"
@@ -368,7 +366,6 @@ external untag: t<'any> => untagged = "%identity"
 let () = __setExnId(%raw(`Exn`))
 
 module Flag = {
-  // Abstract like Path.t (see above) to keep the `int` representation opaque.
   type t
   let none: t = %raw(`0`)
   let async: t = %raw(`1`)
@@ -522,8 +519,7 @@ module Tuple = {
 
 @module("sury") external tuple: (Tuple.s => 'value) => t<'value> = "tuple"
 let tuple1 = v0 => tuple(s => s.item(0, v0))
-// An array definition passed to the public JS `schema` is a tuple schema; each
-// external is shadowed by its same-named wrapper below.
+// An array definition passed to the public JS `schema` is a tuple schema.
 @module("sury") external tuple2: array<t<unknown>> => t<'value> = "schema"
 let tuple2 = (v1, v2) => tuple2([castToUnknown(v1), castToUnknown(v2)])
 @module("sury") external tuple3: array<t<unknown>> => t<'value> = "schema"
