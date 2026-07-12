@@ -77,8 +77,8 @@ jobs:
       - run: pnpm --filter=sury build:entry
 
       # Read-only gate: recomputes every golden (codegen, bundle, types) AND
-      # re-measures createPerf/compilePerf, failing on any drift. Baselined
-      # perf numbers are gated; a `not-measured` field is not (see perf.ts).
+      # re-measures createPerf/compilePerf, failing on drift beyond the ±10%
+      # cross-machine band (see perf.ts; a GC-polluted region is retried).
       - run: pnpm --filter=spec spec check
 
   wallclock-benchmarks:

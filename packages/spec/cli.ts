@@ -7,7 +7,7 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { schemaJson, type Spec } from "./format";
-import { derivePerf, applyPerf, perfOps, perfUnavailableReason } from "./perf";
+import { derivePerf, applyPerf, perfOps, specExpected, perfUnavailableReason } from "./perf";
 import {
   SPECS_DIR,
   SCHEMA_PATH,
@@ -209,7 +209,7 @@ const cmdCheck = async (): Promise<void> => {
     : await derivePerf(
         files.map((file) => {
           const obj = readSpec(file);
-          return { id: specId(file), schema: obj.ts.schema, ops: perfOps(obj) };
+          return { id: specId(file), schema: obj.ts.schema, ops: perfOps(obj), expected: specExpected(obj) };
         }),
       );
 
