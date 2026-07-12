@@ -831,8 +831,6 @@ export const trim: <Input>(
 ) => Schema<string, Input>;
 
 export type AdditionalItemsMode = "strip" | "strict";
-/** @deprecated Use `AdditionalItemsMode` instead. */
-export type UnknownKeys = AdditionalItemsMode;
 
 export type GlobalConfigOverride = {
   defaultAdditionalItems?: AdditionalItemsMode;
