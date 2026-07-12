@@ -106,7 +106,7 @@ function schemaNested(this: AdvancedObjectCtx & Record<string, unknown>, fieldNa
   if (cachedCtx !== undefined) {
     return cachedCtx;
   } else {
-    const properties: Record<string, Internal> = {};
+    const properties = Object.create(null) as Record<string, Internal>;
     const required: string[] = [];
     let schema: Internal;
     {
@@ -184,7 +184,7 @@ export const schemaObject = (
     return definitionToSchema(definer);
   }
   let flattened: Internal[] | undefined = void 0;
-  const properties: Record<string, Internal> = {};
+  const properties = Object.create(null) as Record<string, Internal>;
 
   const flatten = (schema: Internal): unknown => {
     if (schema.type === objectTag) {
