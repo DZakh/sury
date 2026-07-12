@@ -20,5 +20,8 @@ operations:
       wrong-type:
         input: "{ constructor: 1, hasOwnProperty: 5 }"
         error: 'Failed at ["constructor"]: Expected string, received 1'
+      class-instance-value:
+        input: '{ constructor: new Date("1970-01-01T00:00:00.000Z"), hasOwnProperty: 5 }'
+        error: 'Failed at ["constructor"]: Expected string, received [object Date]'
   decode: identity
   encode: identity
