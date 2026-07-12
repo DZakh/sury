@@ -14,3 +14,4 @@ _opam/
 .attest
 packages/sury/src/S.mjs
 packages/spec/native/callgrind.node
+packages/spec/tsx-*/
