@@ -592,10 +592,15 @@ const traverseDefinition = (
         mut.decoder = arrayDecoder;
         return mut;
       } else {
-        const cnstr = (definition as Record<string, unknown>)["constructor"];
-        if (cnstr && cnstr !== Object) {
+        // A prototype other than Object.prototype (or null, e.g. Object.create(null))
+        // means `definition` is a genuine class instance (Date, RegExp, a user
+        // class, ...) to match as a literal — not a plain-record description.
+        // Checking definition["constructor"] instead would misclassify any plain
+        // record that happens to declare an own field named "constructor".
+        const proto = Object.getPrototypeOf(definition);
+        if (proto !== null && proto !== Object.prototype) {
           const mut = baseSchema(instanceTag, true);
-          mut.class = cnstr;
+          mut.class = (definition as Record<string, unknown>)["constructor"];
           mut.const = definition;
           mut.decoder = literalDecoder;
           return mut;
