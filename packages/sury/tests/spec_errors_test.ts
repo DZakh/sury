@@ -152,6 +152,21 @@ test("vs.zod overwrite form omits a side that actually diverges from ts (must be
   `);
 });
 
+test("vs.zod overwrite form omits the output side that actually diverges from ts (mirror of the input case)", async () => {
+  const spec = mutate((s) => {
+    // Same schema, same divergence — this time input records it and output
+    // is (incorrectly) omitted, exercising the output-side branch.
+    s.vs.zod = { schema: "z.string().nullable()", divergence: "adds | null", input: "string | null" };
+  });
+  await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ string
+        vs.zod: output omitted (no divergence) but Zod infers "string | null" !== ts.output "string" — add \`output\` to record the divergent type.",
+      "stdout": "",
+    }
+  `);
+});
+
 test("not canonical (on-disk text doesn't match the canonical form)", async () => {
   const spec = mutate(() => {});
   const scrambled = serialize(spec).replace("ts:\n", "ts:\n  # a stray comment\n");
