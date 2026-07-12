@@ -24,6 +24,28 @@ const mutate = (patch: (spec: Spec) => void): Spec => {
   return spec;
 };
 
+// A baseline whose decode/encode really do compile to the same code as
+// parse (unlike `string`'s, where decode skips parse's type check) — the
+// only kind of spec `eq-to-parse` applies to.
+const eqToParseBaseline = readSpec(listSpecFiles().find((f) => specId(f) === "never")!);
+
+const mutateEqToParse = (patch: (spec: Spec) => void): Spec => {
+  const spec = structuredClone(eqToParseBaseline);
+  patch(spec);
+  return spec;
+};
+
+// A baseline whose parse itself is `identity` — proves identity wins over
+// eq-to-parse when both would technically hold (there's no `parse` op to
+// point `eq-to-parse` at).
+const identityParseBaseline = readSpec(listSpecFiles().find((f) => specId(f) === "any")!);
+
+const mutateIdentityParse = (patch: (spec: Spec) => void): Spec => {
+  const spec = structuredClone(identityParseBaseline);
+  patch(spec);
+  return spec;
+};
+
 test("stale golden (expression drifted from what the schema actually compiles to)", async () => {
   const spec = mutate((s) => {
     if (s.operations.parse !== "identity") s.operations.parse.expression = "i=>i /* stale */";
@@ -167,6 +189,89 @@ test("full op block claimed but the operation actually compiles to identity", as
           examples: {}
         encode: identity
     ",
+      "stdout": "",
+    }
+  `);
+});
+
+test("eq-to-parse claimed but the operation doesn't actually compile to the same code as parse", async () => {
+  const spec = mutateEqToParse((s) => {
+    s.ts.schema = "S.string.with(S.min, 3)"; // decode drops parse's type check, so it no longer matches
+  });
+  await expect(runCheck("never", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ never
+        operations.decode: marked \`eq-to-parse\` but does not compile to the same code as parse — use a full op block with examples
+        operations.encode: marked \`eq-to-parse\` but does not compile to the same code as parse — use a full op block with examples
+        goldens stale — resolve the identity mismatch above first, then \`pnpm spec check never --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
+      # yaml-language-server: $schema=./spec.schema.json
+      ts:
+        schema: S.string.with(S.min, 3)
+    -   input: never
+    -   output: never
+    -   instantiations: 254
+    -   bundleBytes: 3551
+    +   input: string
+    +   output: string
+    +   instantiations: 5181
+    +   bundleBytes: 4218
+      jsonSchema:
+    -   input: "{ not: {} }"
+    -   output: "{ not: {} }"
+    +   input: '{ type: "string", minLength: 3 }'
+    +   output: '{ type: "string", minLength: 3 }'
+      operations:
+        parse:
+    -     expression: i=>{e[0](i);return i}
+    +     expression: i=>{typeof i==="string"||e[1](i);i.length>2||e[0](i);return i}
+          examples:
+            invalid-string:
+              input: '"anything"'
+    -         error: Expected never, received "anything"
+    +         output: '"anything"'
+            invalid-undefined:
+              input: undefined
+    -         error: Expected never, received undefined
+    +         error: Expected string, received undefined
+        decode: eq-to-parse
+        encode: eq-to-parse
+    ",
+      "stdout": "",
+    }
+  `);
+});
+
+test("full op block claimed but the operation actually compiles to the same code as parse", async () => {
+  const spec = mutateEqToParse((s) => {
+    s.operations.decode = { expression: "", examples: {} }; // never's decode really does mirror parse
+  });
+  await expect(runCheck("never", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ never
+        operations.decode: compiles to the same code as parse — use \`eq-to-parse\` instead of an expression + examples
+        goldens stale — resolve the identity mismatch above first, then \`pnpm spec check never --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
+    @@ -19,7 +19,7 @@
+              input: undefined
+              error: Expected never, received undefined
+        decode:
+    -     expression: ""
+    +     expression: i=>{e[0](i);return i}
+          examples: {}
+        encode: eq-to-parse
+    ",
+      "stdout": "",
+    }
+  `);
+});
+
+test("eq-to-parse claimed but parse itself is identity — identity wins", async () => {
+  const spec = mutateIdentityParse((s) => {
+    s.operations.decode = "eq-to-parse"; // any's decode really is identity, not merely eq-to-parse
+  });
+  await expect(runCheck("any", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ any
+        operations.decode: compiles to identity — use \`identity\` instead of \`eq-to-parse\`",
       "stdout": "",
     }
   `);

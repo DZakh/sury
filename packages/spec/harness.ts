@@ -120,13 +120,16 @@ const NOOP_OPERATION_WHICH_WILL_NEVER_CHANGE = "noopOperation";
 const isNoop = (fn: Function): boolean =>
   fn.name === NOOP_OPERATION_WHICH_WILL_NEVER_CHANGE;
 
-// Checks the identity invariant both ways: declared `identity` but doesn't
-// compile to a pass-through, or vice versa.
+// Checks the shorthand invariants both ways: a declared `identity`/`eq-to-parse`
+// that doesn't hold, or a full op block that should be a shorthand.
 export const identityViolations = (schema: any, spec: Spec): string[] => {
   const out: string[] = [];
+  const parseCode = OP_BUILDER.parse(schema).toString();
   for (const opName of OP_ORDER) {
     const op = spec.operations[opName];
-    const noop = isNoop(OP_BUILDER[opName](schema));
+    const fn = OP_BUILDER[opName](schema);
+    const noop = isNoop(fn);
+    const matchesParse = opName !== "parse" && !noop && fn.toString() === parseCode;
     if (op === "identity") {
       if (!noop)
         out.push(
@@ -134,7 +137,18 @@ export const identityViolations = (schema: any, spec: Spec): string[] => {
         );
     } else if (noop) {
       out.push(
-        `operations.${opName}: compiles to identity — use \`identity\` instead of an expression + examples`,
+        op === "eq-to-parse"
+          ? `operations.${opName}: compiles to identity — use \`identity\` instead of \`eq-to-parse\``
+          : `operations.${opName}: compiles to identity — use \`identity\` instead of an expression + examples`,
+      );
+    } else if (op === "eq-to-parse") {
+      if (!matchesParse)
+        out.push(
+          `operations.${opName}: marked \`eq-to-parse\` but does not compile to the same code as parse — use a full op block with examples`,
+        );
+    } else if (matchesParse) {
+      out.push(
+        `operations.${opName}: compiles to the same code as parse — use \`eq-to-parse\` instead of an expression + examples`,
       );
     }
   }
@@ -168,16 +182,20 @@ export const scaffoldJsonSchema = (schema: any): Spec["jsonSchema"] => deriveJso
 
 // Can throw if `schema` isn't actually a usable schema (e.g. `--ts` evaluated
 // to `undefined` from a typo like `S.strng`) — callers decide how to report that.
-export const scaffoldOperations = (schema: any): Spec["operations"] =>
-  Object.fromEntries(
+export const scaffoldOperations = (schema: any): Spec["operations"] => {
+  const parseCode = OP_BUILDER.parse(schema).toString();
+  return Object.fromEntries(
     OP_ORDER.map((opName) => {
       const fn = OP_BUILDER[opName](schema);
       const op: Operation = isNoop(fn)
         ? "identity"
-        : { expression: fn.toString(), examples: {} };
+        : opName !== "parse" && fn.toString() === parseCode
+          ? "eq-to-parse"
+          : { expression: fn.toString(), examples: {} };
       return [opName, op];
     }),
   ) as Spec["operations"];
+};
 
 // ---- canonical form -------------------------------------------------------
 
@@ -212,7 +230,7 @@ const canonExample = (ex: Example): Example => {
 };
 
 const canonOp = (op: Operation): Operation => {
-  if (op === "identity") return op;
+  if (typeof op === "string") return op;
   const o = order(op, ["expression", "examples"]);
   if (o.examples && typeof o.examples === "object") {
     const ex: Record<string, Example> = {};
@@ -231,9 +249,9 @@ export const canonicalize = (obj: Spec): Spec => {
       "output",
     ]) as Spec["jsonSchema"];
   if (o.operations) {
-    const ops = order(o.operations, OP_ORDER);
+    const ops = order(o.operations, OP_ORDER) as Record<OpName, Operation>;
     for (const name of OP_ORDER) if (ops[name]) ops[name] = canonOp(ops[name]);
-    o.operations = ops;
+    o.operations = ops as Spec["operations"];
   }
   return o;
 };
@@ -328,7 +346,7 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
 
   for (const opName of OP_ORDER) {
     const op = next.operations[opName];
-    if (op === "identity") continue;
+    if (typeof op === "string") continue;
     const fn = OP_BUILDER[opName](schema);
     if (!isSkip(op.expression)) op.expression = fn.toString();
     for (const [name, ex] of Object.entries(op.examples)) {
@@ -428,6 +446,7 @@ export const checkAliases = async (spec: Spec): Promise<string[]> => {
       if (js.output !== spec.jsonSchema.output)
         errs.push(`${label}: jsonSchema.output differs:\n${diffText(spec.jsonSchema.output, js.output)}`);
 
+      const aliasParseCode = OP_BUILDER.parse(aliasSchema).toString();
       for (const opName of OP_ORDER) {
         const op = spec.operations[opName];
         const fn = OP_BUILDER[opName](aliasSchema);
@@ -436,6 +455,11 @@ export const checkAliases = async (spec: Spec): Promise<string[]> => {
           if (!noop) errs.push(`${label}: operations.${opName} is \`identity\` on schema but not on this alias`);
         } else if (noop) {
           errs.push(`${label}: operations.${opName} compiles to identity on this alias but not on schema`);
+        } else if (op === "eq-to-parse") {
+          if (fn.toString() !== aliasParseCode)
+            errs.push(
+              `${label}: operations.${opName} is \`eq-to-parse\` on schema but does not compile to the same code as parse on this alias`,
+            );
         } else if (!isSkip(op.expression) && fn.toString() !== op.expression) {
           errs.push(`${label}: operations.${opName}.expression differs:\n${diffText(op.expression, fn.toString())}`);
         }
