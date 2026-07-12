@@ -24,6 +24,9 @@ operations:
       valid:
         input: "null"
         output: "null"
+      invalid-type:
+        input: undefined
+        error: Expected null, received undefined
   encode:
     expression: i=>{i===null||e[0](i);return i}
     examples:

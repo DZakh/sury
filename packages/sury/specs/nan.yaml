@@ -27,6 +27,12 @@ operations:
       valid:
         input: NaN
         output: NaN
+      invalid-value:
+        input: "123"
+        error: Expected NaN, received 123
+      invalid-type:
+        input: '"hello"'
+        error: Expected NaN, received "hello"
   encode:
     expression: i=>{Number.isNaN(i)||e[0](i);return i}
     examples:

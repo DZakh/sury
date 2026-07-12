@@ -27,6 +27,12 @@ operations:
       valid:
         input: "123"
         output: "123"
+      invalid-value:
+        input: "456"
+        error: Expected 123, received 456
+      invalid-type:
+        input: '"123"'
+        error: Expected 123, received "123"
   encode:
     expression: i=>{i===123||e[0](i);return i}
     examples:

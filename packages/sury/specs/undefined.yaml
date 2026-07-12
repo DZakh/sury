@@ -24,6 +24,9 @@ operations:
       valid:
         input: undefined
         output: undefined
+      invalid-type:
+        input: '"hello"'
+        error: Expected undefined, received "hello"
   encode:
     expression: i=>{i===void 0||e[0](i);return i}
     examples:

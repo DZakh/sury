@@ -15,6 +15,9 @@ operations:
       valid:
         input: '["bar", true]'
         output: '["bar", true]'
+      wrong-root-type:
+        input: "123"
+        error: Expected ["bar", true], received 123
       wrong-length:
         input: '["bar", true, false]'
         error: Expected ["bar", true], received ["bar", true, false]
