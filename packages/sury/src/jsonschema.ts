@@ -844,8 +844,6 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
       schema = string();
     }
     if (jsonSchema.pattern !== undefined) {
-      // `pattern` compiles the caller-supplied regex source as-is (no ReDoS
-      // guard) — only call fromJSONSchema on schema documents you trust.
       schema = pattern(schema, new RegExp(jsonSchema.pattern));
     }
     if (jsonSchema.minLength !== undefined) {
