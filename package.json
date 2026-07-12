@@ -14,7 +14,7 @@
   },
   "packageManager": "pnpm@9.0.5",
   "engines": {
-    "node": ">=24 <25"
+    "node": "24.16.0"
   },
   "devDependencies": {
     "knip": "6.26.0"
