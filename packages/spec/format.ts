@@ -143,37 +143,22 @@ const ts = S.schema({
     description: "The JS `.with`-chain surface: the schema itself, plus its inferred types, instantiation cost, and bundle size.",
   });
 
-// Overwrite form of `vs.zod`: a schema that HAS a Zod equivalent whose
-// inferred types intentionally DIFFER from Sury's (e.g. `S.merge` keeps
-// insertion order where Zod groups optionals last). Records the divergence —
-// the Zod schema plus the different types it infers — instead of asserting
-// equality (bare string) or claiming no equivalent exists (`_skip`).
-// `input`/`output` are goldens: `spec check --write` fills them from the Zod
-// schema, and `checkVs` refuses this form when the types don't actually
-// diverge from `ts` (the bare string form belongs there).
-// input and output are checked independently: a side that diverges from ts is
-// recorded (a string, filled by `--write`); a side that matches Sury is simply
-// omitted (its absence means "no divergence" — checkVs verifies it really does
-// equal ts). At least one side must diverge — omitting both is just the bare
-// string form (or a whole-dimension skip).
 const zodOverwrite = S.schema({
   schema: S.string.with(S.meta, {
-    description: "Equivalent Zod (v4) schema, at least one of whose inferred types differs from ts, e.g. `z.object({...})`.",
+    description: "Zod (v4) schema whose type differs from ts on ≥1 side, e.g. `z.object({...})`.",
   }),
   divergence: S.string.with(S.meta, {
-    description: "Hand-written: exactly how the Zod type differs from Sury's and why, e.g. `Zod groups optionals last; S.merge keeps insertion order`.",
+    description: "How the Zod type differs from Sury's, and why. Hand-written.",
   }),
   input: S.optional(S.string).with(S.meta, {
-    description: "Zod's inferred input type, recorded only when it diverges from ts.input (filled by `--write`); omit when it matches.",
+    description: "Zod's input type, only if it diverges from ts.input (filled by `--write`); omit when equal.",
   }),
   output: S.optional(S.string).with(S.meta, {
-    description: "Zod's inferred output type, recorded only when it diverges from ts.output (filled by `--write`); omit when it matches.",
+    description: "Zod's output type, only if it diverges from ts.output (filled by `--write`); omit when equal.",
   }),
 })
   .with(S.strict)
-  .with(S.meta, {
-    description: "Overwrite form: a Zod equivalent that infers a different type than Sury on at least one side, with the divergent side(s) recorded.",
-  });
+  .with(S.meta, { description: "Zod equivalent that infers a different type than Sury; divergent side(s) recorded." });
 export type ZodOverwrite = S.Output<typeof zodOverwrite>;
 
 // Cross-library equivalent, checked live like `ts.aliases` (no golden). A
@@ -183,10 +168,9 @@ export type ZodOverwrite = S.Output<typeof zodOverwrite>;
 const vs = S.schema({
   zod: S.union([S.string, zodOverwrite, skip]).with(S.meta, {
     description:
-      "Equivalent Zod (v4) schema, e.g. `z.string().min(3)`. Bare string: inferred types must equal " +
-      "ts.input/ts.output. Object `{schema,divergence,input?,output?}`: the Zod type differs from ts on at " +
-      "least one side — `divergence` explains how, the divergent side is recorded (filled by `--write`), a " +
-      "matching side is omitted. `_skip` alone if Zod can't express it at all.",
+      "Equivalent Zod (v4) schema. Bare string: inferred types must equal ts.input/ts.output. Object " +
+      "`{schema,divergence,input?,output?}`: differs from ts — divergent side recorded, matching side omitted. " +
+      "`_skip` if Zod can't express it.",
   }),
 })
   .with(S.strict)
