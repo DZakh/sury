@@ -448,16 +448,16 @@ external transform: (t<'input>, s<'output> => transformDefinition<'input, 'outpu
 // ReScript labeled args.
 type refineOptions = {error?: string, path?: array<string>}
 @module("sury")
-external jsRefine: (t<'value>, 'value => bool, refineOptions) => t<'value> = "refine"
-let refine = (schema, refiner, ~error=?, ~path=?) => jsRefine(schema, refiner, {?error, ?path})
+external refine: (t<'value>, 'value => bool, refineOptions) => t<'value> = "refine"
+let refine = (schema, refiner, ~error=?, ~path=?) => refine(schema, refiner, {?error, ?path})
 
 @module("sury") external shape: (t<'value>, 'value => 'shape) => t<'shape> = "shape"
 
 // The public JS `to` (called without custom coders) only lacks the
 // same-schema shortcut, which lives here instead.
-@module("sury") external jsTo: (t<'from>, t<'to>) => t<'to> = "to"
+@module("sury") external to: (t<'from>, t<'to>) => t<'to> = "to"
 let to = (from, target) =>
-  castToUnknown(from) === castToUnknown(target) ? castToAny(from) : jsTo(from, target)
+  castToUnknown(from) === castToUnknown(target) ? castToAny(from) : to(from, target)
 
 @module("sury") external reverse: t<'value> => t<unknown> = "reverse"
 
@@ -465,11 +465,11 @@ let to = (from, target) =>
 @module("sury") external asyncParser: (~to: t<'value>) => 'any => promise<'value> = "asyncParser"
 // The public JS `decoder` compiles from a schema's Input space; the ReScript
 // flavor decodes FROM a schema's Output space, so reverse `from` first.
-@module("sury") external jsDecoder: (t<unknown>, t<'to>) => 'from => 'to = "decoder"
+@module("sury") external decoder: (t<unknown>, t<'to>) => 'from => 'to = "decoder"
 @module("sury")
-external jsAsyncDecoder: (t<unknown>, t<'to>) => 'from => promise<'to> = "asyncDecoder"
-let decoder = (~from: t<'from>, ~to) => jsDecoder(reverse(from), to)
-let asyncDecoder = (~from: t<'from>, ~to) => jsAsyncDecoder(reverse(from), to)
+external asyncDecoder: (t<unknown>, t<'to>) => 'from => promise<'to> = "asyncDecoder"
+let decoder = (~from: t<'from>, ~to) => decoder(reverse(from), to)
+let asyncDecoder = (~from: t<'from>, ~to) => asyncDecoder(reverse(from), to)
 // Single-schema (Input -> Output) flavors — the public JS `decoder` /
 // `asyncDecoder` called with one argument.
 @module("sury") external decoder1: t<'value> => unknown => 'value = "decoder"
