@@ -348,7 +348,7 @@ export type Error =
       readonly code: "invalid_conversion";
       readonly from: Schema<unknown>;
       readonly to: Schema<unknown>;
-      readonly cause?: Error;
+      readonly cause?: unknown;
     })
   | (BaseError & {
       readonly code: "unrecognized_keys";
@@ -831,6 +831,8 @@ export const trim: <Input>(
 ) => Schema<string, Input>;
 
 export type AdditionalItemsMode = "strip" | "strict";
+/** @deprecated Use `AdditionalItemsMode` instead. */
+export type UnknownKeys = AdditionalItemsMode;
 
 export type GlobalConfigOverride = {
   defaultAdditionalItems?: AdditionalItemsMode;
