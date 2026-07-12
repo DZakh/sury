@@ -9,8 +9,8 @@ vs:
   zod:
     schema: "z.object({ _id: z.string().optional(), _rev: z.string().optional(), name: z.string(), code: z.string(), _deleted: z.boolean().optional() })"
     divergence: Field ordering. Zod groups optional fields last (name, code, then _id?, _rev?, _deleted?); S.merge preserves each sub-schema's insertion order, so required `code` from the second schema lands after the first schema's optionals (name, _id?, _rev?, code, _deleted?).
-    input: "{ _id?: string | undefined; _rev?: string | undefined; _deleted?: boolean | undefined; name: string; code: string; }"
-    output: "{ _id?: string | undefined; _rev?: string | undefined; _deleted?: boolean | undefined; name: string; code: string; }"
+    input: "{ name: string; code: string; _id?: string | undefined; _rev?: string | undefined; _deleted?: boolean | undefined; }"
+    output: "{ name: string; code: string; _id?: string | undefined; _rev?: string | undefined; _deleted?: boolean | undefined; }"
 jsonSchema:
   input: '{ type: "object", properties: { _id: { type: "string" }, _rev: { type: "string" }, name: { type: "string" }, code: { type: "string" }, _deleted: { type: "boolean" } }, required: ["name", "code"] }'
   output: '{ type: "object", properties: { _id: { type: "string" }, _rev: { type: "string" }, name: { type: "string" }, code: { type: "string" }, _deleted: { type: "boolean" } }, required: ["name", "code"] }'
