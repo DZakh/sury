@@ -36,8 +36,8 @@ importers:
         specifier: 4.1.7
         version: 4.1.7(@types/node@20.19.41)(@vitest/coverage-v8@4.1.7)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)(yaml@2.9.0)
       zod:
-        specifier: 4.0.0-beta.20250420T053007
-        version: 4.0.0-beta.20250420T053007
+        specifier: 4.4.3
+        version: 4.4.3
     devDependencies:
       '@codspeed/vitest-plugin':
         specifier: 5.6.0
@@ -786,9 +786,6 @@ packages:
   '@vitest/utils@4.1.7':
     resolution: {integrity: sha512-T532WBu791cBxJlCl6SO+J14l81DQx6uQHm1bQbmCDY7nqlEIgkza/UFnSBNaUtSf41unldDFjdOBYEQC4b5Hw==}
 
-  '@zod/core@0.8.1':
-    resolution: {integrity: sha512-djj8hPhxIHcG8ptxITaw/Bout5HJZ9NyRbKr95Eilqwt9R0kvITwUQGDU+n+MVdsBIka5KwztmZSLti22F+P0A==}
-
   agent-base@6.0.2:
     resolution: {integrity: sha512-RZNwNclF7+MS/8bDg70amg32dyeZGZxiDuQmZxKLAlQjr3jGyLx+4Kkk58UO7D2QdgFIQCovuSuZESne6RG6XQ==}
     engines: {node: '>= 6.0.0'}
@@ -1469,9 +1466,6 @@ packages:
     resolution: {integrity: sha512-4LCcse/U2MHZ63HAJVE+v71o7yOdIe4cZ70Wpf8D/IyjDKYQLV5GD46B+hSTjJsvV5PztjvHoU580EftxjDZFQ==}
     engines: {node: '>=12.20'}
 
-  zod@4.0.0-beta.20250420T053007:
-    resolution: {integrity: sha512-5pp8Q0PNDaNcUptGiBE9akyioJh3RJpagIxrLtAVMR9IxwcSZiOsJD/1/98CyhItdTlI2H91MfhhLzRlU+fifA==}
-
   zod@4.4.3:
     resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
@@ -1971,8 +1965,6 @@ snapshots:
       '@vitest/pretty-format': 4.1.7
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.0
-
-  '@zod/core@0.8.1': {}
 
   agent-base@6.0.2:
     dependencies:
@@ -2618,9 +2610,5 @@ snapshots:
   yaml@2.9.0: {}
 
   yocto-queue@1.2.2: {}
-
-  zod@4.0.0-beta.20250420T053007:
-    dependencies:
-      '@zod/core': 0.8.1
 
   zod@4.4.3: {}

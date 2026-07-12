@@ -476,18 +476,11 @@ export const checkAliases = async (spec: Spec): Promise<string[]> => {
 
 const ZOD_IMPORT = `import * as z from "zod";\n`;
 
-// Cross-checks a spec's `vs` equivalents against its recorded inferred types.
-// Live, like checkAliases — the `vs` field carries no golden of its own.
-// Only the type dimension is asserted (see the `vs` note in format.ts);
-// everything Sury and the other library diverge on by design is out of scope.
-// An absent `vs`, or a `_skip`ped entry, is a no-op.
-//
-// Strict string equality against the spec's already-recorded ts.input/ts.output
-// (both printed with the same InTypeAlias formatting): a drifting equivalent is
-// reported against the one schema the author actually reads. This works because
-// Sury infers objects with the same required-first/optional-last key ordering
-// Zod does (see ResolveObject in S.d.ts); where the author still needs to steer
-// ordering — e.g. union member order — they write the `vs` source to match.
+// Cross-checks a spec's `vs` equivalent against its recorded inferred types,
+// live like checkAliases (no golden of its own). Strict string equality —
+// both sides printed with the same InTypeAlias formatting — so the author
+// writes the `vs` source to match Sury's ordering where it differs (e.g.
+// union member order).
 export const checkVs = async (spec: Spec): Promise<string[]> => {
   const vs = spec.vs;
   if (!vs || isSkip(vs.zod)) return [];

@@ -723,11 +723,9 @@ export function deepStrict<Output, Input extends Record<string, unknown>>(
   schema: SchemaLike<Output, Input>
 ): Schema<Output, Input>;
 
-// Deliberately a bare Flatten, not ResolveObject: re-splitting the merged
-// intersection to hoist optionals last nearly doubled this type's
-// instantiation cost (a merged object is already an intersection, so the
-// extra required/optional passes compound). Merge keeps insertion order — the
-// one object shape where Sury's optional-last convention yields to type cost.
+// Bare Flatten, not ResolveObject: re-splitting the merged intersection to
+// hoist optionals last nearly doubled this type's instantiation cost, so Merge
+// keeps insertion order.
 type Merge<A, B> = Flatten<
   { [K in keyof A as K extends keyof B ? never : K]: A[K] } & B
 >;

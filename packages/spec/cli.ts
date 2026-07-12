@@ -153,10 +153,10 @@ const cmdNew = async (): Promise<void> => {
       instantiations: typeInfo.instantiations,
       bundleBytes,
     },
-    // `vs` is a required dimension but can't be derived — scaffold a skip so
-    // the spec is valid out of the box, and prompt the author (below) to
-    // replace it with the real Zod equivalent, or a truthful skip reason.
-    vs: { zod: { _skip: "not-applicable" } },
+    // `vs` is a required dimension but can't be derived — scaffold a `todo`
+    // skip (a placeholder, not a claim of no-equivalent) and prompt the author
+    // (below) to replace it with the real Zod equivalent.
+    vs: { zod: { _skip: "todo(#…)" } },
     jsonSchema: scaffoldJsonSchema(schema),
     operations,
   };
