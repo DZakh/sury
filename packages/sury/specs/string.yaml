@@ -5,12 +5,14 @@ ts:
   output: string
   instantiations: 254
   bundleBytes: 3744
+  createPerf: 2199
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "string" }'
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[0](i);return i}
+    compilePerf: 4309
     examples:
       valid:
         input: '"hello"'

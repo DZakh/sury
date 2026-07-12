@@ -6,7 +6,8 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { schemaJson, type Spec } from "./format";
+import { schemaJson, NOT_MEASURED, type Spec } from "./format";
+import { derivePerf, applyPerf, perfOps, perfUnavailableReason } from "./perf";
 import {
   SPECS_DIR,
   SCHEMA_PATH,
@@ -152,6 +153,9 @@ const cmdNew = async (): Promise<void> => {
       output: typeInfo.output,
       instantiations: typeInfo.instantiations,
       bundleBytes,
+      // Perf is env-dependent (needs valgrind), so it's not measured at
+      // scaffold time — the `check --write` in the hint below fills it.
+      createPerf: NOT_MEASURED,
     },
     jsonSchema: scaffoldJsonSchema(schema),
     operations,
@@ -193,44 +197,51 @@ const cmdCheck = async (): Promise<void> => {
     console.error(formatFailure("specs dir", dirErrs));
   }
 
+  const files = targets(rest.filter((a) => a !== WRITE_FLAG));
+
+  // Perf pass: one short-lived Valgrind worker per spec (batched, bounded to
+  // the core count). Skipped wholesale where perf can't be measured — the rest
+  // of the check still runs and existing perf goldens are carried through. See
+  // perf.ts and the `spec` skill's Perf section.
+  const perfReason = perfUnavailableReason();
+  if (perfReason) console.log(`perf: skipped (${perfReason})`);
+  const perfCounts = perfReason
+    ? new Map()
+    : await derivePerf(
+        files.map((file) => {
+          const obj = readSpec(file);
+          return { id: specId(file), schema: obj.ts.schema, ops: perfOps(obj) };
+        }),
+      );
+
   const results = await Promise.all(
-    targets(rest.filter((a) => a !== WRITE_FLAG)).map(async (file) => {
+    files.map(async (file) => {
       const id = specId(file);
       let raw = readFileSync(file, "utf8");
       let obj = readSpec(file);
-      // Set when --write's own recompute succeeds, so the checkSpec call
-      // below can reuse it instead of redoing the same esbuild+TS-
-      // introspection work purely to re-derive what's already known.
+      const counts = perfCounts.get(id) ?? null;
+      // The canonical, goldens-fresh serialization with measured perf folded in
+      // (applyPerf also ENSURES the perf fields exist, so a valgrind-less
+      // `--write` still yields a format-valid spec). Computed under the same
+      // guard the write path needs — schema evaluates and has no identity
+      // mismatch — and passed to checkSpec as its comparison target so perf
+      // staleness is caught read-only, not just rewritten by --write. A throw
+      // means the schema is broken: leave knownFresh unset and let checkSpec
+      // report the real problem.
       let knownFresh: string | undefined;
+      try {
+        const schema = evalSchema(obj.ts.schema);
+        if (identityViolations(schema, obj).length === 0)
+          knownFresh = serialize(applyPerf(await recomputeGoldens(obj), counts, write));
+      } catch {
+        // fall through — checkSpec below reports the real problem
+      }
 
-      if (write) {
-        let schema: any;
-        let evaluated = false;
-        try {
-          schema = evalSchema(obj.ts.schema);
-          evaluated = true;
-        } catch {
-          // fall through — checkSpec below reports the real problem
-        }
-        // `evaluated`, not `schema` truthiness — ts.schema could evaluate to
-        // a legitimately falsy value (e.g. `0`).
-        if (evaluated) {
-          try {
-            if (identityViolations(schema, obj).length === 0) {
-              knownFresh = serialize(await recomputeGoldens(obj));
-              if (knownFresh !== raw) {
-                writeFileSync(file, knownFresh);
-                raw = knownFresh;
-                obj = readSpec(file);
-                console.log(`wrote ${id}`);
-              }
-            }
-          } catch {
-            knownFresh = undefined;
-            // Not a usable schema, or some other execution failure — skip
-            // the write either way; checkSpec below reports the real problem.
-          }
-        }
+      if (write && knownFresh !== undefined && knownFresh !== raw) {
+        writeFileSync(file, knownFresh);
+        raw = knownFresh;
+        obj = readSpec(file);
+        console.log(`wrote ${id}`);
       }
 
       const errs = await checkSpec(id, obj, raw, knownFresh);

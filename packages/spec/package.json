@@ -5,7 +5,9 @@
   "type": "module",
   "description": "Sury declarative spec test harness (see .claude/skills/spec)",
   "scripts": {
-    "spec": "tsx ./cli.ts"
+    "spec": "tsx ./cli.ts",
+    "build:native": "node native/build.mjs",
+    "postinstall": "node native/build.mjs"
   },
   "dependencies": {
     "sury-published": "npm:sury@11.0.0-alpha.9"

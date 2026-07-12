@@ -13,3 +13,4 @@ tsconfig.tsbuildinfo
 _opam/
 .attest
 packages/sury/src/S.mjs
+packages/spec/native/callgrind.node

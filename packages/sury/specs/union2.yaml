@@ -5,12 +5,14 @@ ts:
   output: string | number
   instantiations: 983
   bundleBytes: 9693
+  createPerf: 12660
 jsonSchema:
   input: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
   output: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
 operations:
   parse:
     expression: i=>{if(!(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))){e[0](i)}return i}
+    compilePerf: 111805
     examples:
       valid-string:
         input: '"hello"'

@@ -5,12 +5,14 @@ ts:
   output: string | number | bigint | boolean | symbol
   instantiations: 1888
   bundleBytes: 9875
+  createPerf: 24581
 jsonSchema:
   input: Expected JSON, received string | number | boolean | bigint | symbol
   output: Expected JSON, received string | number | boolean | bigint | symbol
 operations:
   parse:
     expression: i=>{if(!(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i)||typeof i==="boolean"||typeof i==="bigint"||typeof i==="symbol")){e[0](i)}return i}
+    compilePerf: 202277
     examples:
       valid-bigint:
         input: 5n

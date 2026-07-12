@@ -25,7 +25,7 @@
               "properties": {
                 "_skip": {
                   "type": "string",
-                  "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…)."
+                  "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | not-measured | todo(#…)."
                 }
               },
               "additionalProperties": false,
@@ -47,7 +47,7 @@
               "properties": {
                 "_skip": {
                   "type": "string",
-                  "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…)."
+                  "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | not-measured | todo(#…)."
                 }
               },
               "additionalProperties": false,
@@ -69,7 +69,7 @@
               "properties": {
                 "_skip": {
                   "type": "string",
-                  "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…)."
+                  "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | not-measured | todo(#…)."
                 }
               },
               "additionalProperties": false,
@@ -91,7 +91,7 @@
               "properties": {
                 "_skip": {
                   "type": "string",
-                  "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…)."
+                  "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | not-measured | todo(#…)."
                 }
               },
               "additionalProperties": false,
@@ -102,6 +102,28 @@
             }
           ],
           "description": "Minified+gzipped bundle size of `schema` itself. Filled by `spec check --write`."
+        },
+        "createPerf": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "_skip": {
+                  "type": "string",
+                  "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | not-measured | todo(#…)."
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "_skip"
+              ],
+              "description": "Explicit opt-out for an unasserted dimension."
+            }
+          ],
+          "description": "Retired instructions to build `schema` once (warm), measured under Valgrind. Filled by `spec check --write` where valgrind is available; `not-measured` elsewhere."
         }
       },
       "additionalProperties": false,
@@ -110,7 +132,8 @@
         "input",
         "output",
         "instantiations",
-        "bundleBytes"
+        "bundleBytes",
+        "createPerf"
       ],
       "description": "The JS `.with`-chain surface: the schema itself, plus its inferred types, instantiation cost, and bundle size."
     },
@@ -153,7 +176,7 @@
                       "properties": {
                         "_skip": {
                           "type": "string",
-                          "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…)."
+                          "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | not-measured | todo(#…)."
                         }
                       },
                       "additionalProperties": false,
@@ -164,6 +187,28 @@
                     }
                   ],
                   "description": "Compiled function source (`.toString()`). Filled by `spec check --write`."
+                },
+                "compilePerf": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "_skip": {
+                          "type": "string",
+                          "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | not-measured | todo(#…)."
+                        }
+                      },
+                      "additionalProperties": false,
+                      "required": [
+                        "_skip"
+                      ],
+                      "description": "Explicit opt-out for an unasserted dimension."
+                    }
+                  ],
+                  "description": "Retired instructions to compile this operation once (warm), measured under Valgrind. Filled by `spec check --write` where valgrind is available; `not-measured` elsewhere."
                 },
                 "examples": {
                   "type": "object",
@@ -222,6 +267,7 @@
               "additionalProperties": false,
               "required": [
                 "expression",
+                "compilePerf",
                 "examples"
               ],
               "description": "Compiled codegen plus its runnable examples."
@@ -248,7 +294,7 @@
                       "properties": {
                         "_skip": {
                           "type": "string",
-                          "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…)."
+                          "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | not-measured | todo(#…)."
                         }
                       },
                       "additionalProperties": false,
@@ -259,6 +305,28 @@
                     }
                   ],
                   "description": "Compiled function source (`.toString()`). Filled by `spec check --write`."
+                },
+                "compilePerf": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "_skip": {
+                          "type": "string",
+                          "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | not-measured | todo(#…)."
+                        }
+                      },
+                      "additionalProperties": false,
+                      "required": [
+                        "_skip"
+                      ],
+                      "description": "Explicit opt-out for an unasserted dimension."
+                    }
+                  ],
+                  "description": "Retired instructions to compile this operation once (warm), measured under Valgrind. Filled by `spec check --write` where valgrind is available; `not-measured` elsewhere."
                 },
                 "examples": {
                   "type": "object",
@@ -317,6 +385,7 @@
               "additionalProperties": false,
               "required": [
                 "expression",
+                "compilePerf",
                 "examples"
               ],
               "description": "Compiled codegen plus its runnable examples."
@@ -343,7 +412,7 @@
                       "properties": {
                         "_skip": {
                           "type": "string",
-                          "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…)."
+                          "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | not-measured | todo(#…)."
                         }
                       },
                       "additionalProperties": false,
@@ -354,6 +423,28 @@
                     }
                   ],
                   "description": "Compiled function source (`.toString()`). Filled by `spec check --write`."
+                },
+                "compilePerf": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "_skip": {
+                          "type": "string",
+                          "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | not-measured | todo(#…)."
+                        }
+                      },
+                      "additionalProperties": false,
+                      "required": [
+                        "_skip"
+                      ],
+                      "description": "Explicit opt-out for an unasserted dimension."
+                    }
+                  ],
+                  "description": "Retired instructions to compile this operation once (warm), measured under Valgrind. Filled by `spec check --write` where valgrind is available; `not-measured` elsewhere."
                 },
                 "examples": {
                   "type": "object",
@@ -412,6 +503,7 @@
               "additionalProperties": false,
               "required": [
                 "expression",
+                "compilePerf",
                 "examples"
               ],
               "description": "Compiled codegen plus its runnable examples."

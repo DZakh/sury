@@ -18,7 +18,7 @@ jobs:
       - uses: pnpm/action-setup@v2
       - uses: actions/setup-node@v3
         with:
-          node-version: 24.16.0
+          node-version: 22.22.2
           cache: "pnpm"
       - run: pnpm install
 
@@ -43,30 +43,39 @@ jobs:
           name: sury
           path: packages/sury/artifacts
 
-  benchmarks:
-    name: Benchmarks
+  perf:
+    name: Perf goldens
     runs-on: ubuntu-24.04
-    permissions:
-      contents: read # required for actions/checkout
-      id-token: write # required for OIDC authentication with CodSpeed
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
       - uses: actions/setup-node@v3
         with:
-          node-version: 24.16.0
+          node-version: 22.22.2
           cache: "pnpm"
+
+      # Perf goldens are retired-instruction counts measured under Valgrind
+      # (see packages/spec/perf.ts). They're exact for a fixed Node/V8 build, so
+      # this job MUST use the same node-version the goldens were baselined on
+      # (22.22.2, above) — a different Node shifts every count. `pnpm install`
+      # builds the native callgrind addon via the spec package's postinstall.
+      - run: sudo apt-get update && sudo apt-get install -y valgrind
       - run: pnpm install
 
-      # Runs the Vitest runtime benchmarks under CodSpeed instrumentation
-      # (deterministic instruction counts). Posts a per-benchmark delta comment
-      # on PRs; regression gating is configured in the CodSpeed dashboard.
-      # Auth is tokenless via OIDC (see the permissions block above).
-      - name: Run benchmarks
-        uses: CodSpeedHQ/action@v4
-        with:
-          mode: simulation
-          run: pnpm --filter=sury bench && pnpm --filter=e2e benchmark:comparison
+      # `pnpm install` already builds the addon via the spec package's
+      # postinstall; this is an explicit guard so a skipped script can't
+      # silently turn the perf gate into a no-op (a missing addon makes
+      # `spec check` print `perf: skipped` and pass without gating).
+      - run: pnpm --filter=spec build:native
+
+      # The perf worker imports the in-development bundle, same as the rest of
+      # `spec check`'s golden recomputation.
+      - run: pnpm --filter=sury build:entry
+
+      # Read-only gate: recomputes every golden (codegen, bundle, types) AND
+      # re-measures createPerf/compilePerf, failing on any drift. Baselined
+      # perf numbers are gated; a `not-measured` field is not (see perf.ts).
+      - run: pnpm --filter=spec spec check
 
   ppx-build-linux:
     name: ppx-build-linux
@@ -201,7 +210,7 @@ jobs:
       - uses: pnpm/action-setup@v2
       - uses: actions/setup-node@v3
         with:
-          node-version: 24.16.0
+          node-version: 22.22.2
           cache: "pnpm"
       - run: pnpm install
 
@@ -255,7 +264,7 @@ jobs:
       - uses: pnpm/action-setup@v2
       - uses: actions/setup-node@v3
         with:
-          node-version: 24.16.0
+          node-version: 22.22.2
           cache: "pnpm"
       - run: pnpm install
 

@@ -5,12 +5,14 @@ ts:
   output: "{ a: string; b: number; c: boolean; d: bigint; e: symbol; f: string; g: number; h: boolean; i: bigint; j: symbol; }"
   instantiations: 2351
   bundleBytes: 9889
+  createPerf: 42757
 jsonSchema:
   input: 'Failed at ["d"]: Expected JSON, received bigint'
   output: 'Failed at ["d"]: Expected JSON, received bigint'
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i||e[10](i);let v0=i["a"],v1=i["b"],v2=i["c"],v3=i["d"],v4=i["e"],v5=i["f"],v6=i["g"],v7=i["h"],v8=i["i"],v9=i["j"];typeof v0==="string"||e[0](v0);typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);typeof v2==="boolean"||e[2](v2);typeof v3==="bigint"||e[3](v3);typeof v4==="symbol"||e[4](v4);typeof v5==="string"||e[5](v5);typeof v6==="number"&&!Number.isNaN(v6)||e[6](v6);typeof v7==="boolean"||e[7](v7);typeof v8==="bigint"||e[8](v8);typeof v9==="symbol"||e[9](v9);return {"a":v0,"b":v1,"c":v2,"d":v3,"e":v4,"f":v5,"g":v6,"h":v7,"i":v8,"j":v9,}}
+    compilePerf: 333092
     examples:
       valid:
         input: '{ a: "x", b: 1, c: true, d: 5n, e: Symbol.for("e"), f: "y", g: 2, h: false, i: 6n, j: Symbol.for("j") }'

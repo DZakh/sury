@@ -5,12 +5,14 @@ ts:
   output: symbol
   instantiations: 254
   bundleBytes: 3660
+  createPerf: 2199
 jsonSchema:
   input: Expected JSON, received symbol
   output: Expected JSON, received symbol
 operations:
   parse:
     expression: i=>{typeof i==="symbol"||e[0](i);return i}
+    compilePerf: 4309
     examples:
       valid:
         input: Symbol.for("test")

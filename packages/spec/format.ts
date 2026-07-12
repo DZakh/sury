@@ -33,7 +33,7 @@ import * as S from "sury-published";
 // lints the reason string (harness.ts's isValidSkipReason) and the schema
 // description below is derived from the same array, so there's exactly one
 // list to update.
-export const SKIP_REASONS = ["parser-only", "serializer-only", "lossy", "not-applicable"] as const;
+export const SKIP_REASONS = ["parser-only", "serializer-only", "lossy", "not-applicable", "not-measured"] as const;
 export const skip = S.schema({
   _skip: S.string.with(S.meta, {
     description: `Why unasserted: ${SKIP_REASONS.join(" | ")} | todo(#…).`,
@@ -42,6 +42,11 @@ export const skip = S.schema({
   .with(S.strict)
   .with(S.meta, { description: "Explicit opt-out for an unasserted dimension." });
 export type Skip = S.Output<typeof skip>;
+
+// Placeholder written by `spec new` (and any perf-less scaffold) for the
+// env-dependent perf goldens; the next `spec check --write` on a machine with
+// valgrind replaces it with a measured instruction count.
+export const NOT_MEASURED = { _skip: "not-measured" } as const;
 
 // Generic over the input schema so the inferred Output type isn't widened away
 // (a non-generic `S.Schema<unknown, unknown>` parameter would collapse it).
@@ -74,6 +79,11 @@ export type Example = S.Output<typeof example>;
 const operation = S.schema({
   expression: orSkip(S.string).with(S.meta, {
     description: "Compiled function source (`.toString()`). Filled by `spec check --write`.",
+  }),
+  compilePerf: orSkip(S.number).with(S.meta, {
+    description:
+      "Retired instructions to compile this operation once (warm), measured under Valgrind. " +
+      "Filled by `spec check --write` where valgrind is available; `not-measured` elsewhere.",
   }),
   examples: S.record(example).with(S.meta, {
     description: "Named example cases, keyed by a short name (e.g. `valid`, `invalid-type`).",
@@ -130,6 +140,11 @@ const ts = S.schema({
   bundleBytes: orSkip(S.number).with(S.meta, {
     description: "Minified+gzipped bundle size of `schema` itself. Filled by `spec check --write`.",
   }),
+  createPerf: orSkip(S.number).with(S.meta, {
+    description:
+      "Retired instructions to build `schema` once (warm), measured under Valgrind. " +
+      "Filled by `spec check --write` where valgrind is available; `not-measured` elsewhere.",
+  }),
 })
   .with(S.strict)
   .with(S.meta, {
@@ -168,6 +183,7 @@ export const TS_KEY_ORDER = keyOrder<Spec["ts"]>({
   output: true,
   instantiations: true,
   bundleBytes: true,
+  createPerf: true,
 });
 export const OP_ORDER = keyOrder<Spec["operations"]>({ parse: true, decode: true, encode: true });
 

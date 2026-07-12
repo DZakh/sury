@@ -32,15 +32,15 @@ test("stale golden (expression drifted from what the schema actually compiles to
     {
       "stderr": "✗ string
         goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -10,7 +10,7 @@
+    @@ -11,7 +11,7 @@
         output: '{ type: "string" }'
       operations:
         parse:
     -     expression: i=>i /* stale */
     +     expression: i=>{typeof i==="string"||e[0](i);return i}
+          compilePerf: 4309
           examples:
-            valid:
-              input: '"hello"'",
+            valid:",
       "stdout": "",
     }
   `);
@@ -57,7 +57,7 @@ test("stale golden (recorded example output no longer matches live behavior)", a
     {
       "stderr": "✗ string
         goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -14,7 +14,7 @@
+    @@ -16,7 +16,7 @@
           examples:
             valid:
               input: '"hello"'
@@ -113,7 +113,7 @@ test("identity claimed but the operation doesn't actually compile to identity", 
         operations.decode: marked \`identity\` but does not compile to identity — use a full op block with examples
         operations.encode: marked \`identity\` but does not compile to identity — use a full op block with examples
         goldens stale — resolve the identity mismatch above first, then \`pnpm spec check string --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -3,21 +3,21 @@
+    @@ -3,15 +3,15 @@
         schema: S.string.with(S.min, 3)
         input: string
         output: string
@@ -121,6 +121,7 @@ test("identity claimed but the operation doesn't actually compile to identity", 
     -   bundleBytes: 3744
     +   instantiations: 5181
     +   bundleBytes: 4218
+        createPerf: 2199
       jsonSchema:
     -   input: '{ type: "string" }'
     -   output: '{ type: "string" }'
@@ -130,9 +131,10 @@ test("identity claimed but the operation doesn't actually compile to identity", 
         parse:
     -     expression: i=>{typeof i==="string"||e[0](i);return i}
     +     expression: i=>{typeof i==="string"||e[1](i);i.length>2||e[0](i);return i}
+          compilePerf: 4309
           examples:
             valid:
-              input: '"hello"'
+    @@ -19,7 +19,7 @@
               output: '"hello"'
             empty:
               input: '""'
@@ -148,14 +150,14 @@ test("identity claimed but the operation doesn't actually compile to identity", 
 
 test("full op block claimed but the operation actually compiles to identity", async () => {
   const spec = mutate((s) => {
-    s.operations.decode = { expression: "", examples: {} }; // string's decode really is identity
+    s.operations.decode = { expression: "", compilePerf: 0, examples: {} }; // string's decode really is identity
   });
   await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
     {
       "stderr": "✗ string
         operations.decode: compiles to identity — use \`identity\` instead of an expression + examples
         goldens stale — resolve the identity mismatch above first, then \`pnpm spec check string --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -25,7 +25,10 @@
+    @@ -27,7 +27,10 @@
               input: "null"
               error: Expected string, received null
         decode:
@@ -164,9 +166,9 @@ test("full op block claimed but the operation actually compiles to identity", as
     +       function noopOperation(i) {
     +         return i;
     +       }
+          compilePerf: 0
           examples: {}
-        encode: identity
-    ",
+        encode: identity",
       "stdout": "",
     }
   `);
@@ -222,15 +224,15 @@ test("multiple simultaneous problems all get their own guiding message", async (
       "stderr": "✗ string
         ts.bundleBytes: invalid _skip reason "nonsense-reason"
         goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -11,7 +11,7 @@
+    @@ -12,7 +12,7 @@
         output: '{ type: "string" }'
       operations:
         parse:
     -     expression: i=>i /* stale */
     +     expression: i=>{typeof i==="string"||e[0](i);return i}
+          compilePerf: 4309
           examples:
-            valid:
-              input: '"hello"'",
+            valid:",
       "stdout": "",
     }
   `);

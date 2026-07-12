@@ -5,6 +5,7 @@ ts:
   output: unknown
   instantiations: 254
   bundleBytes: 3462
+  createPerf: 2199
 jsonSchema:
   input: Expected JSON, received unknown
   output: Expected JSON, received unknown

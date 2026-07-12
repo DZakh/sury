@@ -5,12 +5,14 @@ ts:
   output: "{ b?: number | undefined; d?: bigint | undefined; a: string; c: boolean; e: symbol; }"
   instantiations: 3630
   bundleBytes: 10539
+  createPerf: 36041
 jsonSchema:
   input: 'Failed at ["d"]: Expected JSON, received bigint | undefined'
   output: 'Failed at ["d"]: Expected JSON, received bigint | undefined'
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i||e[5](i);let v0=i["a"],v1=i["b"],v2=i["c"],v3=i["d"],v4=i["e"];typeof v0==="string"||e[0](v0);if(!(typeof v1==="number"&&!Number.isNaN(v1)||v1===void 0)){e[1](v1)}typeof v2==="boolean"||e[2](v2);if(!(typeof v3==="bigint"||v3===void 0)){e[3](v3)}typeof v4==="symbol"||e[4](v4);return {"a":v0,"b":v1,"c":v2,"d":v3,"e":v4,}}
+    compilePerf: 340152
     examples:
       valid-all-present:
         input: '{ a: "x", b: 1, c: true, d: 5n, e: Symbol.for("e") }'

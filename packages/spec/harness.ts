@@ -20,6 +20,7 @@ import {
   TS_KEY_ORDER,
   OP_ORDER,
   SKIP_REASONS,
+  NOT_MEASURED,
   isSkip,
   validate,
   type Spec,
@@ -162,7 +163,7 @@ export const scaffoldOperations = (schema: any): Spec["operations"] =>
       const fn = OP_BUILDER[opName](schema);
       const op: Operation = isNoop(fn)
         ? "identity"
-        : { expression: fn.toString(), examples: {} };
+        : { expression: fn.toString(), compilePerf: NOT_MEASURED, examples: {} };
       return [opName, op];
     }),
   ) as Spec["operations"];
@@ -201,7 +202,7 @@ const canonExample = (ex: Example): Example => {
 
 const canonOp = (op: Operation): Operation => {
   if (op === "identity") return op;
-  const o = order(op, ["expression", "examples"]);
+  const o = order(op, ["expression", "compilePerf", "examples"]);
   if (o.examples && typeof o.examples === "object") {
     const ex: Record<string, Example> = {};
     for (const [name, v] of Object.entries(o.examples)) ex[name] = canonExample(v);
@@ -227,7 +228,10 @@ export const canonicalize = (obj: Spec): Spec => {
 };
 
 export const serialize = (obj: Spec): string =>
-  HEADER + "\n" + stringifyYaml(canonicalize(obj), { lineWidth: 0 });
+  // aliasDuplicateObjects: false — two fields holding the same value (e.g. a
+  // shared `not-measured` placeholder on createPerf and compilePerf) must
+  // serialize as plain repeated blocks, never a YAML anchor/alias (`&a1`/`*a1`).
+  HEADER + "\n" + stringifyYaml(canonicalize(obj), { lineWidth: 0, aliasDuplicateObjects: false });
 
 // ---- golden recomputation --------------------------------------------------
 
