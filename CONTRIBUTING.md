@@ -14,7 +14,7 @@ The following steps will get you setup to contribute changes to this repo:
 2. Clone your forked repo: `git clone git@github.com:{your_username}/sury.git`
 3. Install [pnpm](https://pnpm.io/) if not available `npm i -g pnpm@9.0.5`
 4. Run `pnpm i` to install dependencies.
-5. Run `pnpm test` in `packages/sury` for tests (it builds the entry bundle and compiles the ReScript bindings first) or use Wallaby.js. Use `pnpm res` if you want the ReScript compiler in watch mode while editing `S.res`.
+5. Run `pnpm test` in `packages/sury` for tests (it builds the entry bundle and compiles the ReScript bindings first). Use `pnpm res` if you want the ReScript compiler in watch mode while editing `S.res`.
 
 The implementation lives in `packages/sury/src/*.ts` (see `CLAUDE.md` for the module layout); `src/S.res` is a thin ReScript bindings module on top of the same runtime.
 

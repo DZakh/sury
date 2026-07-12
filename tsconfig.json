@@ -1,4 +1,5 @@
-// Config for wallaby
+// Root config picked up by tsx (e.g. `tsx packages/spec/cli.ts`); see
+// packages/spec/cli.ts for why module stays at ES2020.
 {
   "compilerOptions": {
     "moduleResolution": "node",

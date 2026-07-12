@@ -259,7 +259,6 @@ export const reverse = (schema: Internal): Internal => {
 
     // Use defineProperty even though it's slower
     // but it improves logging experience a lot
-    // for some reason Wallaby still shows the property
     const r = reversedHead!;
     valueOptions[valKey] = r;
     Object.defineProperty(schema, reversedKey, valueOptions as PropertyDescriptor);
