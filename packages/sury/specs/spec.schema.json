@@ -472,6 +472,7 @@
   "additionalProperties": false,
   "required": [
     "ts",
+    "vs",
     "jsonSchema",
     "operations"
   ],

@@ -153,11 +153,17 @@ const cmdNew = async (): Promise<void> => {
       instantiations: typeInfo.instantiations,
       bundleBytes,
     },
+    // `vs` is a required dimension but can't be derived — scaffold a skip so
+    // the spec is valid out of the box, and prompt the author (below) to
+    // replace it with the real Zod equivalent, or a truthful skip reason.
+    vs: { zod: { _skip: "not-applicable" } },
     jsonSchema: scaffoldJsonSchema(schema),
     operations,
   };
   writeFileSync(file, serialize(spec));
-  console.log(`new ${id} -> specs/${id}.yaml (add example inputs, then \`pnpm spec check ${id} --write\`)`);
+  console.log(
+    `new ${id} -> specs/${id}.yaml (add example inputs and a \`vs.zod\` equivalent, then \`pnpm spec check ${id} --write\`)`,
+  );
 };
 
 const WRITE_FLAG = "--write";

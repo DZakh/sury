@@ -144,12 +144,12 @@ const ts = S.schema({
   });
 
 // A cross-library equivalent, checked *live* against this spec (never
-// snapshotted) — the same treatment `ts.aliases` gets, and why `vs` is
-// optional rather than a required dimension: it's an author-supplied
-// cross-check, not a derived fact about the schema. Only the dimensions that
-// genuinely agree across libraries are asserted (currently just the inferred
-// input/output types); everything Sury and Zod diverge on by design (codegen,
-// JSON Schema shape, error text, coercion) is deliberately out of scope.
+// snapshotted) — the same treatment `ts.aliases` gets. A required dimension
+// like every other: each spec must declare its Zod relationship, either a
+// real equivalent or an explicit `zod: { _skip: <reason> }`. Only the
+// dimensions that genuinely agree across libraries are asserted (currently
+// just the inferred input/output types); everything Sury and Zod diverge on
+// by design (codegen, JSON Schema shape, error text, coercion) is out of scope.
 const vs = S.schema({
   zod: orSkip(S.string).with(S.meta, {
     description:
@@ -168,7 +168,7 @@ export type Vs = S.Output<typeof vs>;
 
 export const specSchema = S.schema({
   ts,
-  vs: S.optional(vs),
+  vs,
   jsonSchema: S.schema({ input: S.string, output: S.string }).with(S.strict).with(S.meta, {
     description:
       "S.toJSONSchema(schema) for both directions, as a one-line source-text string (same " +
@@ -192,9 +192,7 @@ export type OpName = keyof Spec["operations"];
 // compile error, not a silently-out-of-order key at serialize time.
 const keyOrder = <T,>(order: Record<keyof T, true>) => Object.keys(order) as (keyof T)[];
 export const KEY_ORDER = keyOrder<Spec>({ ts: true, vs: true, jsonSchema: true, operations: true });
-// `vs` is optional, so its Output is `Vs | undefined`; the order helper needs
-// the concrete key set, hence `NonNullable`.
-export const VS_KEY_ORDER = keyOrder<NonNullable<Spec["vs"]>>({ zod: true });
+export const VS_KEY_ORDER = keyOrder<Spec["vs"]>({ zod: true });
 export const TS_KEY_ORDER = keyOrder<Spec["ts"]>({
   schema: true,
   aliases: true,
