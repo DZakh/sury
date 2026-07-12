@@ -8,6 +8,8 @@ ts:
   output: '{ foo: "bar"; }'
   instantiations: 1043
   bundleBytes: 9382
+vs:
+  zod: 'z.object({ foo: z.literal("bar") })'
 jsonSchema:
   input: '{ type: "object", properties: { foo: { type: "string", const: "bar" } }, required: ["foo"] }'
   output: '{ type: "object", properties: { foo: { type: "string", const: "bar" } }, required: ["foo"] }'

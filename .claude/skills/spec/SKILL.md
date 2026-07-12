@@ -25,6 +25,10 @@ Examples must cover every edge case found while investigating the schema — bou
 
 `ts.aliases`: optional alternate `.with`-chain sources that must behave identically to `ts.schema` (e.g. a shorthand spelling of the same schema). `spec check` verifies matching `ts.input`/`ts.output`, `jsonSchema`, and operation codegen live — no separate goldens or examples.
 
+## Cross-library (`vs`)
+
+`vs.zod`: optional hand-written equivalent schema in another library (Zod v4), e.g. `vs: { zod: z.string().min(3) }`. `spec check` derives its `~standard` (Standard Schema) input/output types and asserts **strict equality** with this spec's `ts.input`/`ts.output` — a live check, no golden of its own. Only the type dimension is asserted; everything Sury and Zod diverge on by design (codegen, JSON Schema shape, error text, coercion) is out of scope. Where the author must steer type ordering (e.g. union member order) write the `vs` source to match. No faithful equivalent? `vs: { zod: { _skip: <reason> } }`, or omit `vs` entirely.
+
 ## Specs are a metrics ratchet
 
 Goldens snapshot key metrics: generated code, `ts.bundleBytes`, `ts.instantiations`, inferred types. After core-logic changes, run `pnpm spec check --write` and **review the golden diff as the deliverable** — every metric should improve or stay flat. A regression is a design smell; if unavoidable, call it out in the commit/PR.

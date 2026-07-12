@@ -5,6 +5,8 @@ ts:
   output: "[string, number]"
   instantiations: 1132
   bundleBytes: 9689
+vs:
+  zod: z.tuple([z.string(), z.number()])
 jsonSchema:
   input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string" }, { type: "number" }] }'
   output: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string" }, { type: "number" }] }'

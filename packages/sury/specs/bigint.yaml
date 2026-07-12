@@ -5,6 +5,8 @@ ts:
   output: bigint
   instantiations: 254
   bundleBytes: 3744
+vs:
+  zod: z.bigint()
 jsonSchema:
   input: Expected JSON, received bigint
   output: Expected JSON, received bigint

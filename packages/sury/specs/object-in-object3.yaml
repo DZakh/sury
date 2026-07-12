@@ -4,10 +4,12 @@ ts:
   aliases:
     - "S.schema({a: S.string, nested: S.schema({b: S.number, inner: S.schema({c: S.boolean, d: S.optional(S.string)})})})"
     - "S.object({a: S.string, nested: {b: S.number, inner: {c: S.boolean, d: S.optional(S.string)}}})"
-  input: "{ a: string; nested: { b: number; inner: { d?: string | undefined; c: boolean; }; }; }"
-  output: "{ a: string; nested: { b: number; inner: { d?: string | undefined; c: boolean; }; }; }"
+  input: "{ a: string; nested: { b: number; inner: { c: boolean; d?: string | undefined; }; }; }"
+  output: "{ a: string; nested: { b: number; inner: { c: boolean; d?: string | undefined; }; }; }"
   instantiations: 2769
   bundleBytes: 10437
+vs:
+  zod: "z.object({ a: z.string(), nested: z.object({ b: z.number(), inner: z.object({ c: z.boolean(), d: z.string().optional() }) }) })"
 jsonSchema:
   input: '{ type: "object", properties: { a: { type: "string" }, nested: { type: "object", properties: { b: { type: "number" }, inner: { type: "object", properties: { c: { type: "boolean" }, d: { type: "string" } }, required: ["c"] } }, required: ["b", "inner"] } }, required: ["a", "nested"] }'
   output: '{ type: "object", properties: { a: { type: "string" }, nested: { type: "object", properties: { b: { type: "number" }, inner: { type: "object", properties: { c: { type: "boolean" }, d: { type: "string" } }, required: ["c"] } }, required: ["b", "inner"] } }, required: ["a", "nested"] }'

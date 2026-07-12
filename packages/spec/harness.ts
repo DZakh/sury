@@ -19,6 +19,7 @@ import * as S from "../sury/src/S.mjs";
 import {
   KEY_ORDER,
   TS_KEY_ORDER,
+  VS_KEY_ORDER,
   OP_ORDER,
   SKIP_REASONS,
   isSkip,
@@ -28,7 +29,7 @@ import {
   type Example,
   type OpName,
 } from "./format";
-import { deriveTypeInfo } from "./introspect";
+import { deriveTypeInfo, deriveVsTypeInfo } from "./introspect";
 import { deriveBundleBytes } from "./bundleSize";
 
 const here = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
@@ -243,6 +244,7 @@ const canonOp = (op: Operation): Operation => {
 export const canonicalize = (obj: Spec): Spec => {
   const o = order(obj, KEY_ORDER as string[]);
   if (o.ts) o.ts = order(o.ts, TS_KEY_ORDER as string[]);
+  if (o.vs) o.vs = order(o.vs as Record<string, unknown>, VS_KEY_ORDER as string[]) as Spec["vs"];
   if (o.jsonSchema)
     o.jsonSchema = order(o.jsonSchema as Record<string, unknown>, [
       "input",
@@ -472,6 +474,38 @@ export const checkAliases = async (spec: Spec): Promise<string[]> => {
   return errs;
 };
 
+const ZOD_IMPORT = `import * as z from "zod";\n`;
+
+// Cross-checks a spec's `vs` equivalents against its recorded inferred types.
+// Live, like checkAliases — the `vs` field carries no golden of its own.
+// Only the type dimension is asserted (see the `vs` note in format.ts);
+// everything Sury and the other library diverge on by design is out of scope.
+// An absent `vs`, or a `_skip`ped entry, is a no-op.
+//
+// Strict string equality against the spec's already-recorded ts.input/ts.output
+// (both printed with the same InTypeAlias formatting): a drifting equivalent is
+// reported against the one schema the author actually reads. This works because
+// Sury infers objects with the same required-first/optional-last key ordering
+// Zod does (see ResolveObject in S.d.ts); where the author still needs to steer
+// ordering — e.g. union member order — they write the `vs` source to match.
+export const checkVs = async (spec: Spec): Promise<string[]> => {
+  const vs = spec.vs;
+  if (!vs || isSkip(vs.zod)) return [];
+  const errs: string[] = [];
+  let info: { input: string; output: string };
+  try {
+    info = await deriveVsTypeInfo(ZOD_IMPORT, vs.zod);
+  } catch (e) {
+    errs.push(`vs.zod: did not typecheck: ${(e as Error).message}`);
+    return errs;
+  }
+  if (!isSkip(spec.ts.input) && info.input !== spec.ts.input)
+    errs.push(`vs.zod: input type ${JSON.stringify(info.input)} !== ts.input ${JSON.stringify(spec.ts.input)}`);
+  if (!isSkip(spec.ts.output) && info.output !== spec.ts.output)
+    errs.push(`vs.zod: output type ${JSON.stringify(info.output)} !== ts.output ${JSON.stringify(spec.ts.output)}`);
+  return errs;
+};
+
 // Never mutates a file or exits the process, so it's directly testable —
 // cli.ts's cmdCheck and tests/spec_errors_test.ts both call this same
 // function, so there's exactly one implementation of "what's wrong with this
@@ -524,6 +558,7 @@ export const checkSpec = async (
             `:\n${diffText(canon, fresh)}`,
         );
       errs.push(...(await checkAliases(spec)));
+      errs.push(...(await checkVs(spec)));
     } catch (e) {
       errs.push(`goldens could not be computed: ${(e as Error).message}`);
     }
@@ -534,5 +569,5 @@ export const checkSpec = async (
 // Re-exported so `spec new` can populate ts.input/ts.output/ts.instantiations/
 // ts.bundleBytes up front too (cli.ts only imports from harness.ts/format.ts,
 // never touches introspect.ts/bundleSize.ts directly).
-export { deriveTypeInfo, type TypeInfo } from "./introspect";
+export { deriveTypeInfo, deriveVsTypeInfo, type TypeInfo } from "./introspect";
 export { deriveBundleBytes } from "./bundleSize";

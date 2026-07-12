@@ -5,6 +5,8 @@ ts:
   output: number
   instantiations: 254
   bundleBytes: 3827
+vs:
+  zod: z.number()
 jsonSchema:
   input: '{ type: "number" }'
   output: '{ type: "number" }'

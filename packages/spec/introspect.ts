@@ -70,6 +70,30 @@ const getBaselineCount = (): number => {
   return baselineCount;
 };
 
+// Prints the resolved type of every top-level `type __X = …` alias in a
+// checked probe file, keyed by alias name. InTypeAlias makes the printer
+// expand a type that still carries an alias symbol back to the alias itself (a
+// union return type would otherwise print as the useless literal "__Output"
+// instead of "string | number"). Shared by every derivation below so they all
+// read the exact same way.
+const extractAliases = (program: ts.Program, file: ts.SourceFile): Record<string, string> => {
+  const checker = program.getTypeChecker();
+  const out: Record<string, string> = {};
+  ts.forEachChild(file, function visit(node) {
+    if (ts.isTypeAliasDeclaration(node))
+      out[node.name.text] = checker.typeToString(
+        checker.getTypeAtLocation(node.name),
+        undefined,
+        ts.TypeFormatFlags.InTypeAlias,
+      );
+    ts.forEachChild(node, visit);
+  });
+  return out;
+};
+
+const diagnosticsText = (diagnostics: readonly ts.Diagnostic[]): string =>
+  diagnostics.map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n")).join("\n");
+
 export type TypeInfo = { input: string; output: string; instantiations: number };
 
 // Derives {input, output} type strings and the instantiation count
@@ -89,36 +113,46 @@ export const deriveTypeInfo = async (schemaTs: string): Promise<TypeInfo> => {
     `type __Output = S.Output<typeof __schema>;\n` +
     `type __Input = S.Input<typeof __schema>;\n`;
   const { program, file, diagnostics, count } = check(withExpr);
-  const checker = program.getTypeChecker();
-  let output = "";
-  let input = "";
-  ts.forEachChild(file, function visit(node) {
-    if (ts.isTypeAliasDeclaration(node)) {
-      // Without InTypeAlias, typeToString prints a type's OWN alias name
-      // instead of expanding it whenever the resolved type still carries an
-      // alias symbol back to `__Output`/`__Input` themselves — e.g. a union
-      // return type prints as the useless literal string "__Output" rather
-      // than "string | number". InTypeAlias tells the printer this call IS
-      // the alias's own definition, so it always expands fully.
-      const str = checker.typeToString(
-        checker.getTypeAtLocation(node.name),
-        undefined,
-        ts.TypeFormatFlags.InTypeAlias,
-      );
-      if (node.name.text === "__Output") output = str;
-      if (node.name.text === "__Input") input = str;
-    }
-    ts.forEachChild(node, visit);
-  });
+  const { __Input: input, __Output: output } = extractAliases(program, file);
   // A schema that genuinely fails to typecheck should fail loudly here, not
   // silently produce an empty ts.output/ts.input golden that then happily
   // passes `spec check` forever (byte-identical "" recomputed each time).
   if (!output || !input) {
-    const msg = diagnostics.map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n")).join("\n");
+    const msg = diagnosticsText(diagnostics);
     throw new Error(
       `deriveTypeInfo: could not resolve __Output/__Input for \`${schemaTs}\`` +
         (msg ? `:\n${msg}` : " (no compiler diagnostics — schema didn't produce the expected type alias)"),
     );
   }
   return { input, output, instantiations: count - getBaselineCount() };
+};
+
+// The inferred input/output type strings of a `vs` cross-library schema, read
+// through the Standard Schema (`~standard`) interface rather than any one
+// library's own `Infer*` helper — so the same probe works for every
+// Standard-Schema vendor (Zod today, Valibot/ArkType tomorrow) and reads the
+// value's *published* type contract, exactly what a downstream user gets.
+// Printed with the same InTypeAlias formatting as `deriveTypeInfo`, so the
+// caller can compare the two strings directly for equality. `importLine`
+// brings the vendor into scope (e.g. `import * as z from "zod";`). No
+// instantiation count — only Sury's own schema owns that golden.
+export const deriveVsTypeInfo = async (
+  importLine: string,
+  expr: string,
+): Promise<{ input: string; output: string }> => {
+  const withExpr =
+    importLine +
+    `const __schema = ${expr};\n` +
+    `type __Output = NonNullable<(typeof __schema)["~standard"]["types"]>["output"];\n` +
+    `type __Input = NonNullable<(typeof __schema)["~standard"]["types"]>["input"];\n`;
+  const { program, file, diagnostics } = check(withExpr);
+  const { __Input: input, __Output: output } = extractAliases(program, file);
+  if (!output || !input) {
+    const msg = diagnosticsText(diagnostics);
+    throw new Error(
+      `deriveVsTypeInfo: could not resolve __Output/__Input for \`${expr}\`` +
+        (msg ? `:\n${msg}` : " (no compiler diagnostics — is it a Standard Schema value with a `~standard` prop?)"),
+    );
+  }
+  return { input, output };
 };

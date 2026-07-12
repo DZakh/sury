@@ -5,6 +5,9 @@ ts:
   output: symbol
   instantiations: 389
   bundleBytes: 9382
+vs:
+  zod:
+    _skip: not-applicable
 jsonSchema:
   input: Expected JSON, received Symbol(tuna)
   output: Expected JSON, received Symbol(tuna)

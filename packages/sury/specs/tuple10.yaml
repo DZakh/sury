@@ -5,6 +5,8 @@ ts:
   output: "[string, number, boolean, bigint, symbol, string, number, boolean, bigint, symbol]"
   instantiations: 2282
   bundleBytes: 9869
+vs:
+  zod: z.tuple([z.string(), z.number(), z.boolean(), z.bigint(), z.symbol(), z.string(), z.number(), z.boolean(), z.bigint(), z.symbol()])
 jsonSchema:
   input: 'Failed at ["3"]: Expected JSON, received bigint'
   output: 'Failed at ["3"]: Expected JSON, received bigint'

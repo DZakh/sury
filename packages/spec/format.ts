@@ -143,8 +143,32 @@ const ts = S.schema({
     description: "The JS `.with`-chain surface: the schema itself, plus its inferred types, instantiation cost, and bundle size.",
   });
 
+// A cross-library equivalent, checked *live* against this spec (never
+// snapshotted) — the same treatment `ts.aliases` gets, and why `vs` is
+// optional rather than a required dimension: it's an author-supplied
+// cross-check, not a derived fact about the schema. Only the dimensions that
+// genuinely agree across libraries are asserted (currently just the inferred
+// input/output types); everything Sury and Zod diverge on by design (codegen,
+// JSON Schema shape, error text, coercion) is deliberately out of scope.
+const vs = S.schema({
+  zod: orSkip(S.string).with(S.meta, {
+    description:
+      "An equivalent Zod (v4) schema as source (e.g. `z.string().min(3)`). Its inferred " +
+      "`z.input`/`z.output` must match this spec's ts.input/ts.output — checked live (not " +
+      "snapshotted) by `spec check`. You write this by hand; `_skip` it when no faithful " +
+      "Zod equivalent exists.",
+  }),
+})
+  .with(S.strict)
+  .with(S.meta, {
+    description:
+      "Equivalent schemas in other libraries, cross-checked against this spec's inferred types.",
+  });
+export type Vs = S.Output<typeof vs>;
+
 export const specSchema = S.schema({
   ts,
+  vs: S.optional(vs),
   jsonSchema: S.schema({ input: S.string, output: S.string }).with(S.strict).with(S.meta, {
     description:
       "S.toJSONSchema(schema) for both directions, as a one-line source-text string (same " +
@@ -167,7 +191,10 @@ export type OpName = keyof Spec["operations"];
 // `ts`/`operations`/`specSchema` without updating the matching order here is a
 // compile error, not a silently-out-of-order key at serialize time.
 const keyOrder = <T,>(order: Record<keyof T, true>) => Object.keys(order) as (keyof T)[];
-export const KEY_ORDER = keyOrder<Spec>({ ts: true, jsonSchema: true, operations: true });
+export const KEY_ORDER = keyOrder<Spec>({ ts: true, vs: true, jsonSchema: true, operations: true });
+// `vs` is optional, so its Output is `Vs | undefined`; the order helper needs
+// the concrete key set, hence `NonNullable`.
+export const VS_KEY_ORDER = keyOrder<NonNullable<Spec["vs"]>>({ zod: true });
 export const TS_KEY_ORDER = keyOrder<Spec["ts"]>({
   schema: true,
   aliases: true,

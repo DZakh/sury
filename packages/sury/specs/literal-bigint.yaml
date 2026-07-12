@@ -5,6 +5,8 @@ ts:
   output: 123n
   instantiations: 379
   bundleBytes: 9378
+vs:
+  zod: z.literal(123n)
 jsonSchema:
   input: Expected JSON, received 123n
   output: Expected JSON, received 123n
