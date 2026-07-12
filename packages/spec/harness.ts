@@ -398,31 +398,39 @@ export const checkAliases = async (spec: Spec): Promise<string[]> => {
       continue;
     }
 
-    if (!isSkip(spec.ts.input) || !isSkip(spec.ts.output)) {
-      const info = await deriveTypeInfo(aliasSrc);
-      if (!isSkip(spec.ts.input) && info.input !== spec.ts.input)
-        errs.push(`${label}: ts.input ${JSON.stringify(info.input)} !== ${JSON.stringify(spec.ts.input)}`);
-      if (!isSkip(spec.ts.output) && info.output !== spec.ts.output)
-        errs.push(`${label}: ts.output ${JSON.stringify(info.output)} !== ${JSON.stringify(spec.ts.output)}`);
-    }
-
-    const js = deriveJsonSchema(aliasSchema);
-    if (js.input !== spec.jsonSchema.input)
-      errs.push(`${label}: jsonSchema.input differs:\n${diffText(spec.jsonSchema.input, js.input)}`);
-    if (js.output !== spec.jsonSchema.output)
-      errs.push(`${label}: jsonSchema.output differs:\n${diffText(spec.jsonSchema.output, js.output)}`);
-
-    for (const opName of OP_ORDER) {
-      const op = spec.operations[opName];
-      const fn = OP_BUILDER[opName](aliasSchema);
-      const noop = isNoop(fn);
-      if (op === "identity") {
-        if (!noop) errs.push(`${label}: operations.${opName} is \`identity\` on schema but not on this alias`);
-      } else if (noop) {
-        errs.push(`${label}: operations.${opName} compiles to identity on this alias but not on schema`);
-      } else if (!isSkip(op.expression) && fn.toString() !== op.expression) {
-        errs.push(`${label}: operations.${opName}.expression differs:\n${diffText(op.expression, fn.toString())}`);
+    // Isolated per alias — a throw here (e.g. deriveTypeInfo failing to
+    // resolve the alias's type) must not abort the remaining aliases or
+    // surface as the outer, label-less "goldens could not be computed".
+    try {
+      if (!isSkip(spec.ts.input) || !isSkip(spec.ts.output)) {
+        const info = await deriveTypeInfo(aliasSrc);
+        if (!isSkip(spec.ts.input) && info.input !== spec.ts.input)
+          errs.push(`${label}: ts.input ${JSON.stringify(info.input)} !== ${JSON.stringify(spec.ts.input)}`);
+        if (!isSkip(spec.ts.output) && info.output !== spec.ts.output)
+          errs.push(`${label}: ts.output ${JSON.stringify(info.output)} !== ${JSON.stringify(spec.ts.output)}`);
       }
+
+      const js = deriveJsonSchema(aliasSchema);
+      if (js.input !== spec.jsonSchema.input)
+        errs.push(`${label}: jsonSchema.input differs:\n${diffText(spec.jsonSchema.input, js.input)}`);
+      if (js.output !== spec.jsonSchema.output)
+        errs.push(`${label}: jsonSchema.output differs:\n${diffText(spec.jsonSchema.output, js.output)}`);
+
+      for (const opName of OP_ORDER) {
+        const op = spec.operations[opName];
+        const fn = OP_BUILDER[opName](aliasSchema);
+        const noop = isNoop(fn);
+        if (op === "identity") {
+          if (!noop) errs.push(`${label}: operations.${opName} is \`identity\` on schema but not on this alias`);
+        } else if (noop) {
+          errs.push(`${label}: operations.${opName} compiles to identity on this alias but not on schema`);
+        } else if (!isSkip(op.expression) && fn.toString() !== op.expression) {
+          errs.push(`${label}: operations.${opName}.expression differs:\n${diffText(op.expression, fn.toString())}`);
+        }
+      }
+    } catch (e) {
+      errs.push(`${label}: could not be checked: ${(e as Error).message}`);
+      continue;
     }
   }
   return errs;

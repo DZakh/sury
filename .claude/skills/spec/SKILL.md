@@ -5,7 +5,7 @@ description: Develop Sury with the spec CLI. Use whenever changing Sury core log
 
 # Sury specs
 
-One `specs/<id>.yaml` = one schema's contract: type, JSON Schema, per-operation codegen + examples. You author only the schema and example *inputs*; `pnpm spec` derives every golden — **never hand-write one**.
+One `specs/<id>.yaml` = one schema's contract: type, JSON Schema, per-operation codegen + examples. You author the schema, any aliases, and example *inputs*; `pnpm spec` derives every golden — **never hand-write one**.
 
 ## Workflow
 
