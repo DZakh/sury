@@ -32,12 +32,12 @@ export const makeObjectVal = (prev: Val, schema: Internal): Val => {
       : {
           type: objectTag,
           required: [],
-          properties: {},
+          properties: Object.create(null),
           additionalItems: "strict",
           decoder: objectDecoder,
         }) as Internal,
     e: prev.e,
-    d: {},
+    d: Object.create(null),
     t: true,
     cp: "",
     hd: "",
@@ -1360,7 +1360,7 @@ export const valGet = (parent: Val, location: string): Val => {
   if (parent.d !== undefined) {
     vals = parent.d;
   } else {
-    const d: Record<string, Val> = {};
+    const d: Record<string, Val> = Object.create(null);
     parent.d = d;
     vals = d;
   }

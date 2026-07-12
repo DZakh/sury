@@ -5,14 +5,12 @@ ts:
   output: void
   instantiations: 254
   bundleBytes: 3825
-  createPerf: 0
 jsonSchema:
   input: Expected JSON, received void
   output: Expected JSON, received void
 operations:
   parse:
     expression: i=>{i===void 0||e[0](i);return i}
-    compilePerf: 3446
     examples:
       valid:
         input: undefined
@@ -20,17 +18,5 @@ operations:
       invalid-null:
         input: "null"
         error: Expected void, received null
-  decode:
-    expression: i=>{i===void 0||e[0](i);return i}
-    compilePerf: 2300
-    examples:
-      valid:
-        input: undefined
-        output: undefined
-  encode:
-    expression: i=>{i===void 0||e[0](i);return i}
-    compilePerf: 3731
-    examples:
-      valid:
-        input: undefined
-        output: undefined
+  decode: eq-to-parse
+  encode: eq-to-parse

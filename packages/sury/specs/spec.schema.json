@@ -244,6 +244,10 @@
               "const": "identity"
             },
             {
+              "type": "string",
+              "const": "eq-to-parse"
+            },
+            {
               "type": "object",
               "properties": {
                 "expression": {
@@ -341,6 +345,10 @@
             {
               "type": "string",
               "const": "identity"
+            },
+            {
+              "type": "string",
+              "const": "eq-to-parse"
             },
             {
               "type": "object",

@@ -3,7 +3,7 @@ ts:
   schema: S.schema([S.string, S.number, S.boolean, S.bigint, S.symbol, S.string, S.number, S.boolean, S.bigint, S.symbol])
   input: "[string, number, boolean, bigint, symbol, string, number, boolean, bigint, symbol]"
   output: "[string, number, boolean, bigint, symbol, string, number, boolean, bigint, symbol]"
-  instantiations: 2505
+  instantiations: 2282
   bundleBytes: 9869
   createPerf: 25482
 jsonSchema:

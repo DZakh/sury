@@ -15,3 +15,5 @@ _opam/
 packages/sury/src/S.mjs
 packages/spec/native/callgrind.node
 packages/spec/tsx-*/
+packages/e2e/bench-results.json
+bench-comment.md

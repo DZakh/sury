@@ -239,3 +239,80 @@ test("Field name in a format of a path is handled properly", t => {
     `Failed at ["[\\"abc\\"][\\"cde\\"]"]: Expected string, received undefined`,
   )
 })
+
+test(
+  "Successfully parses object with field names that shadow Object.prototype members",
+  t => {
+    let schema = S.object(s =>
+      {
+        "constructor": s.field("constructor", S.string),
+        "hasOwnProperty": s.field("hasOwnProperty", S.float),
+        "toString": s.field("toString", S.bool),
+        "valueOf": s.field("valueOf", S.string),
+      }
+    )
+
+    t->Assert.deepEqual(
+      %raw(`{constructor: "a", hasOwnProperty: 1, toString: true, valueOf: "b"}`)->S.parseOrThrow(
+        ~to=schema,
+      ),
+      {
+        "constructor": "a",
+        "hasOwnProperty": 1.,
+        "toString": true,
+        "valueOf": "b",
+      },
+    )
+  },
+)
+
+test(
+  "Successfully serializes object with field names that shadow Object.prototype members",
+  t => {
+    let schema = S.object(s =>
+      {
+        "constructor": s.field("constructor", S.string),
+        "hasOwnProperty": s.field("hasOwnProperty", S.float),
+      }
+    )
+
+    t->Assert.deepEqual(
+      {
+        "constructor": "a",
+        "hasOwnProperty": 1.,
+      }->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+      %raw(`{constructor: "a", hasOwnProperty: 1}`),
+    )
+  },
+)
+
+test(
+  "Fails with a proper error path for a field named after an Object.prototype member",
+  t => {
+    let schema = S.object(s =>
+      {
+        "field": s.field("constructor", S.string),
+      }
+    )
+
+    t->U.assertThrowsMessage(
+      () => %raw(`{"constructor": 1}`)->S.parseOrThrow(~to=schema),
+      `Failed at ["constructor"]: Expected string, received 1`,
+    )
+  },
+)
+
+test("Successfully parses S.schema with a field named \"constructor\"", t => {
+  let schema = S.schema(s => {
+    "constructor": s.matches(S.string),
+    "nested": {"constructor": s.matches(S.float)},
+  })
+
+  t->Assert.deepEqual(
+    %raw(`{constructor: "a", nested: {constructor: 1}}`)->S.parseOrThrow(~to=schema),
+    {
+      "constructor": "a",
+      "nested": {"constructor": 1.},
+    },
+  )
+})

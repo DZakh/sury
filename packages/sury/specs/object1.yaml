@@ -1,11 +1,13 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: "S.schema({a: S.string})"
+  aliases:
+    - "S.object({a: S.string})"
   input: "{ a: string; }"
   output: "{ a: string; }"
-  instantiations: 1225
+  instantiations: 1205
   bundleBytes: 9497
-  createPerf: 15852
+  createPerf: 16087
 jsonSchema:
   input: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
   output: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'

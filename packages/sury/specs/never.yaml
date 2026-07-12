@@ -5,14 +5,12 @@ ts:
   output: never
   instantiations: 254
   bundleBytes: 3551
-  createPerf: 0
 jsonSchema:
   input: "{ not: {} }"
   output: "{ not: {} }"
 operations:
   parse:
     expression: i=>{e[0](i);return i}
-    compilePerf: 3480
     examples:
       invalid-string:
         input: '"anything"'
@@ -20,17 +18,5 @@ operations:
       invalid-undefined:
         input: undefined
         error: Expected never, received undefined
-  decode:
-    expression: i=>{e[0](i);return i}
-    compilePerf: 2346
-    examples:
-      invalid:
-        input: "42"
-        error: Expected never, received 42
-  encode:
-    expression: i=>{e[0](i);return i}
-    compilePerf: 3761
-    examples:
-      invalid:
-        input: "42"
-        error: Expected never, received 42
+  decode: eq-to-parse
+  encode: eq-to-parse

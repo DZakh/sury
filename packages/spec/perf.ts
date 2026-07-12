@@ -14,6 +14,7 @@ import { tmpdir, cpus } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { OP_ORDER, type OpName, type Spec } from "./format";
+import { stripTypes } from "./harness";
 
 const here = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
 const ADDON = here("./native/callgrind.node");
@@ -90,7 +91,9 @@ const measureOne = (req: PerfRequest): Promise<PerfCounts | null> =>
           ...process.env,
           CG_ADDON: ADDON,
           SURY_ENTRY,
-          SPEC_SCHEMA: req.schema,
+          // Strip TS-only syntax (e.g. `as const`) so the worker's `new
+          // Function` sees plain JS, same as harness.evalSchema.
+          SPEC_SCHEMA: stripTypes(req.schema),
           SPEC_OPS: req.ops.join(","),
         },
       },

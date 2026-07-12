@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.schema(undefined)
+  input: undefined
+  output: undefined
+  instantiations: 369
+  bundleBytes: 9375
+jsonSchema:
+  input: Expected JSON, received undefined
+  output: Expected JSON, received undefined
+operations:
+  parse:
+    expression: i=>{i===void 0||e[0](i);return i}
+    examples:
+      valid:
+        input: undefined
+        output: undefined
+      invalid-type:
+        input: '"hello"'
+        error: Expected undefined, received "hello"
+  decode: eq-to-parse
+  encode: eq-to-parse

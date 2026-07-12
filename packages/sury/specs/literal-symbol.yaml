@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.schema(Symbol.for("tuna"))
+  input: symbol
+  output: symbol
+  instantiations: 389
+  bundleBytes: 9382
+jsonSchema:
+  input: Expected JSON, received Symbol(tuna)
+  output: Expected JSON, received Symbol(tuna)
+operations:
+  parse:
+    expression: i=>{i===e[0]||e[1](i);return i}
+    examples:
+      valid:
+        input: Symbol.for("tuna")
+        output: Symbol.for("tuna")
+      invalid-value:
+        input: Symbol.for("other")
+        error: Expected Symbol(tuna), received Symbol(other)
+      invalid-type:
+        input: '"tuna"'
+        error: Expected Symbol(tuna), received "tuna"
+  decode: eq-to-parse
+  encode: eq-to-parse

@@ -1,9 +1,11 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: "S.schema({a: S.string, b: S.optional(S.number), c: S.boolean, d: S.optional(S.bigint), e: S.symbol})"
+  aliases:
+    - "S.object({a: S.string, b: S.optional(S.number), c: S.boolean, d: S.optional(S.bigint), e: S.symbol})"
   input: "{ b?: number | undefined; d?: bigint | undefined; a: string; c: boolean; e: symbol; }"
   output: "{ b?: number | undefined; d?: bigint | undefined; a: string; c: boolean; e: symbol; }"
-  instantiations: 3630
+  instantiations: 3610
   bundleBytes: 10539
   createPerf: 33804
 jsonSchema:

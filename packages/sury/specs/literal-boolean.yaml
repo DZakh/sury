@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.schema(true)
+  input: "true"
+  output: "true"
+  instantiations: 378
+  bundleBytes: 9374
+jsonSchema:
+  input: '{ type: "boolean", const: true }'
+  output: '{ type: "boolean", const: true }'
+operations:
+  parse:
+    expression: i=>{i===true||e[0](i);return i}
+    examples:
+      valid:
+        input: "true"
+        output: "true"
+      invalid-value:
+        input: "false"
+        error: Expected true, received false
+      invalid-type:
+        input: "0"
+        error: Expected true, received 0
+  decode: eq-to-parse
+  encode: eq-to-parse

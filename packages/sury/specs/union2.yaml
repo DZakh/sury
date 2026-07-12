@@ -3,7 +3,7 @@ ts:
   schema: S.union([S.string, S.number])
   input: string | number
   output: string | number
-  instantiations: 983
+  instantiations: 972
   bundleBytes: 9693
   createPerf: 10393
 jsonSchema:

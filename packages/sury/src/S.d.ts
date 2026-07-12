@@ -403,6 +403,9 @@ type ExtractLastInput<T extends readonly SchemaLike<any, any>[]> =
 
 // Match the `~standard` marker instead of the full `Schema<…>` shape for the
 // same instantiation-cost reason as `Output<T>` above.
+// `-readonly` undoes the `readonly` that a `const T` call site (schema/union)
+// stamps onto every nested property — that marker only exists to keep literal
+// types from widening and shouldn't leak into the inferred Output/Input.
 export type UnknownToOutput<T> = T extends {
   readonly ["~standard"]: { readonly types?: { readonly output: infer Output } };
 }
@@ -410,9 +413,9 @@ export type UnknownToOutput<T> = T extends {
   : T extends (...args: any[]) => any
   ? T
   : T extends unknown[]
-  ? { [K in keyof T]: UnknownToOutput<T[K]> }
+  ? { -readonly [K in keyof T]: UnknownToOutput<T[K]> }
   : T extends { [k in keyof T]: unknown }
-  ? ResolveObject<{ [K in keyof T]: UnknownToOutput<T[K]> }>
+  ? ResolveObject<{ -readonly [K in keyof T]: UnknownToOutput<T[K]> }>
   : T;
 
 export type UnknownToInput<T> = T extends {
@@ -422,9 +425,9 @@ export type UnknownToInput<T> = T extends {
   : T extends (...args: any[]) => any
   ? T
   : T extends unknown[]
-  ? { [K in keyof T]: UnknownToInput<T[K]> }
+  ? { -readonly [K in keyof T]: UnknownToInput<T[K]> }
   : T extends { [k in keyof T]: unknown }
-  ? ResolveObject<{ [K in keyof T]: UnknownToInput<T[K]> }>
+  ? ResolveObject<{ -readonly [K in keyof T]: UnknownToInput<T[K]> }>
   : T;
 
 // Lightweight parameter type for inferring a schema's Output/Input: matching
@@ -470,48 +473,25 @@ type Flatten<T> = T extends object ? { [K in keyof T]: T[K] } : T;
 // there's nothing positional to map and `T` is returned as-is.
 type UnknownArrayToOutput<T extends unknown[]> = number extends T["length"]
   ? T
-  : { [K in keyof T]: UnknownToOutput<T[K]> };
+  : { -readonly [K in keyof T]: UnknownToOutput<T[K]> };
 type UnknownArrayToInput<T extends unknown[]> = number extends T["length"]
   ? T
-  : { [K in keyof T]: UnknownToInput<T[K]> };
+  : { -readonly [K in keyof T]: UnknownToInput<T[K]> };
 
-type Literal =
-  | string
-  | number
-  | boolean
-  | symbol
-  | bigint
-  | undefined
-  | null
-  | []
-  | SchemaLike<unknown, unknown>;
-
-export function schema<T extends Literal>(
-  value: T
-): Schema<UnknownToOutput<T>, UnknownToInput<T>>;
-export function schema<T extends Literal[]>(
+export function schema<const T extends unknown[]>(
   schemas: [...T]
 ): Schema<[...UnknownArrayToOutput<T>], [...UnknownArrayToInput<T>]>;
-export function schema<T extends unknown[]>(
-  schemas: [...T]
-): Schema<[...UnknownArrayToOutput<T>], [...UnknownArrayToInput<T>]>;
-export function schema<T>(
+export function schema<const T>(
   value: T
 ): Schema<UnknownToOutput<T>, UnknownToInput<T>>;
 
-export function union<const A extends Literal, const B extends Literal[]>(
+export function union<const A, const B extends unknown[]>(
   schemas: [A, ...B]
 ): Schema<
   UnknownToOutput<A> | UnknownArrayToOutput<B>[number],
   UnknownToInput<A> | UnknownArrayToInput<B>[number]
 >;
-export function union<A, B extends unknown[]>(
-  schemas: [A, ...B]
-): Schema<
-  UnknownToOutput<A> | UnknownArrayToOutput<B>[number],
-  UnknownToInput<A> | UnknownArrayToInput<B>[number]
->;
-export function union<T extends unknown>(
+export function union<const T>(
   schemas: readonly T[]
 ): Schema<UnknownToOutput<T>, UnknownToInput<T>>;
 
@@ -724,6 +704,9 @@ type ObjectCtx<Input extends Record<string, unknown>> = {
 export function object<Output, Input extends Record<string, unknown>>(
   definer: (ctx: ObjectCtx<Input>) => Output
 ): Schema<Output, Input>;
+export function object<T extends Record<string, unknown>>(
+  definition: T
+): Schema<UnknownToOutput<T>, UnknownToInput<T>>;
 
 export function strip<Output, Input extends Record<string, unknown>>(
   schema: SchemaLike<Output, Input>
