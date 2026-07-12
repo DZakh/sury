@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v6
         with:
           node-version: 24.16.0
           cache: "pnpm"
@@ -52,7 +52,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v6
         with:
           node-version: 24.16.0
           cache: "pnpm"
@@ -77,8 +77,10 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: pnpm/action-setup@v2
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v6
         with:
           node-version: 24.16.0
           cache: "pnpm"
@@ -93,7 +95,10 @@ jobs:
       - name: Format PR comment
         run: npx tsx packages/e2e/scripts/format-wallclock-comment.ts packages/e2e/bench-results.json bench-comment.md
 
+      # Forks get a read-only GITHUB_TOKEN on `pull_request`, so posting a
+      # comment would 403 — skip it there rather than failing the job.
       - name: Post/update PR comment
+        if: github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@v7
         with:
           script: |
@@ -253,7 +258,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v6
         with:
           node-version: 24.16.0
           cache: "pnpm"
@@ -307,7 +312,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v6
         with:
           node-version: 24.16.0
           cache: "pnpm"
