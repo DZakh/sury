@@ -364,7 +364,7 @@ external untag: t<'any> => untagged = "%identity"
 // hand it that identity once at module load — SuryError's RE_EXN_ID getter
 // returns it. `%raw` because a private exn constructor can't be referenced
 // as a value from ReScript code, only from spliced JS.
-@module("sury") external __setExnId: unknown => unit = "$res_setExnId"
+%%private(@module("sury") external __setExnId: unknown => unit = "$res_setExnId")
 let () = __setExnId(%raw(`Exn`))
 
 module Flag = {
