@@ -221,24 +221,6 @@ export const B_joinCode = (code: Code): string => {
   return result;
 }
 
-// Emptiness at decision time. Callers that branch on emptiness and then
-// discard the tree must join it first (sealing it) so a later fill falls
-// back to an inline re-read instead of being dropped.
-export const B_isEmptyCode = (code: Code): boolean => {
-  if (typeof code === "string") {
-    return code === "";
-  } else if (Array.isArray(code)) {
-    for (let i = 0; i < code.length; i++) {
-      if (!B_isEmptyCode(code[i]!)) {
-        return false;
-      }
-    }
-    return true;
-  } else {
-    return code.ck === "" && code.hd === "" && B_isEmptyCode(code.cp);
-  }
-}
-
 
 export const B_operationArg = (
   schema: Internal,
@@ -575,6 +557,24 @@ export const B_merge = (val: Val, hoistCond?: { contents: string; pl?: boolean }
   return code.reverse();
 }
 
+// Collapse a merge result that is empty right now to a sealed "" so
+// emptiness checks downstream are plain string comparisons and a late fill
+// can't be silently dropped into a discarded tree. Kept out of `merge`
+// itself so bundles without unions/catch-wrapping don't ship it.
+export const B_collapseMerge = (code: Code): Code => {
+  const vals = code as Val[];
+  for (let i = 0; i < vals.length; i++) {
+    const v = vals[i]!;
+    if (v.ck !== "" || v.hd !== "" || v.cp !== "") {
+      return code;
+    }
+  }
+  for (let i = 0; i < vals.length; i++) {
+    vals[i]!.fz = true;
+  }
+  return "";
+}
+
 export const B_next = (prev: Val, initial: string, schema: Internal, expected: Internal = prev.e): Val => {
   return {
     // FIXME: vals and other object.val fields should be copied
@@ -860,15 +860,15 @@ export const B_mergeWithCatch = (
   catchFn: (errorVar: string) => string,
   appendSafe?: () => string
 ): Code => {
-  const valCode = B_merge(val);
+  const valCode = B_collapseMerge(B_merge(val));
   if (
-    B_isEmptyCode(valCode) &&
+    valCode === "" &&
     // FIXME: Instead of this wrap all S.transform in a try/catch
     !flagUnsafeHas(val.f, valFlagAsync)
   ) {
-    // Keep the tree by reference: a late fill still emits (unwrapped —
-    // hoisted decls don't throw, so skipping the catch wrapper is safe).
-    return [valCode, appendSafe !== undefined ? appendSafe() : ""];
+    // valCode is a collapsed (sealed) "" here, so plain string concat keeps
+    // downstream emptiness checks cheap.
+    return (valCode as string) + (appendSafe !== undefined ? appendSafe() : "");
   } else {
     const errorVar = B_varWithoutAllocation(val.g);
 

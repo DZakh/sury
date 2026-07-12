@@ -1,7 +1,7 @@
 import { Literal_parse, isArrayCond, jsonName, objectTagCond, setHas, unit } from "./primitives";
 import { baseSchema, getOrRethrow, panic, reversedKey, unknown, updateOutput } from "./schema";
 import { getOutputSchema, nestedLoc, nestedOptionParser, never_, parse, parseDynamic, typeCheckCond } from "./parse";
-import { B_Val_Object_add, B_Val_addKey, B_Val_scope, B_addCode, B_isEmptyCode, B_joinCode, B_asyncVal, B_dynamicScope, B_embed, B_failWithArg, B_hoistChildChecks, B_hoistDecl, B_inlineConst, B_inlineLocation, B_isHoistable, B_isPeLiftable, B_makeInvalidInputDetails, B_markOutput, B_merge, B_mergeWithPathPrepend, B_next, B_nextConst, B_pushCheck, B_refine, B_throw, B_unsupportedDecode, B_varWithoutAllocation, Builder, _notVar, _notVarAtParent, _var, failInvalidType } from "./builder";
+import { B_Val_Object_add, B_Val_addKey, B_Val_scope, B_addCode, B_joinCode, B_asyncVal, B_dynamicScope, B_embed, B_failWithArg, B_hoistChildChecks, B_hoistDecl, B_inlineConst, B_inlineLocation, B_collapseMerge, B_isHoistable, B_isPeLiftable, B_makeInvalidInputDetails, B_markOutput, B_merge, B_mergeWithPathPrepend, B_next, B_nextConst, B_pushCheck, B_refine, B_throw, B_unsupportedDecode, B_varWithoutAllocation, Builder, _notVar, _notVarAtParent, _var, failInvalidType } from "./builder";
 import { Check, Code, ErrorDetails, Internal, SuryErrorRecord, Val, immutableEmptyArray, immutableEmptyObject, isLiteral, isOptional } from "./types";
 import { flagUnsafeHas, valFlagAsync, valFlagNone } from "./flags";
 import { pathConcat, pathFromInlinedLocation } from "./path";
@@ -766,7 +766,7 @@ export const unionDecoder: Builder = (input: Val) => {
           const itemOutput = parse(input);
           outputAnyOf.push(itemOutput.s);
 
-          itemCodeRef = B_merge(itemOutput, itemCondRef);
+          itemCodeRef = B_collapseMerge(B_merge(itemOutput, itemCondRef));
 
           if (itemOutput.t!) {
             output.t = true;
@@ -798,8 +798,10 @@ export const unionDecoder: Builder = (input: Val) => {
           }
         }
         const itemCond = itemCondRef.contents;
+        // Empty merges collapse to "" (sealed), so emptiness is a plain
+        // string comparison.
         const itemCode = itemCodeRef;
-        const itemCodeIsEmpty = B_isEmptyCode(itemCode);
+        const itemCodeIsEmpty = itemCode === "";
         // An only-case whose cond carries a lifted validation (pure-producer
         // fold) needs the exhaustive else — without it a failing cond falls
         // through and invalid input passes silently. A routing-only cond
@@ -809,12 +811,6 @@ export const unionDecoder: Builder = (input: Val) => {
         if (isOnlyCase && itemCondRef.pl && !itemCodeIsEmpty) {
           withExhaustiveCheck = true;
         }
-        if (itemCodeIsEmpty) {
-          // The empty tree is about to be discarded — join it so its chain
-          // seals and a late fill can't be silently dropped.
-          B_joinCode(itemCode);
-        }
-
         // Accumulate item parser when it has a discriminant
         if (!itemSkipped && itemCond) {
           if (!itemCodeIsEmpty) {
@@ -916,7 +912,7 @@ export const unionDecoder: Builder = (input: Val) => {
         itemIdx = itemIdx + 1;
       }
 
-      return [itemStart, itemEnd];
+      return itemStart.length === 0 && itemEnd === "" ? "" : [itemStart, itemEnd];
     };
 
     const start: Code[] = [];
@@ -1145,8 +1141,10 @@ export const unionDecoder: Builder = (input: Val) => {
                 const arr = byKey[key]!;
                 const typeValidationOutput = arr[1] as Val;
                 const itemsCode = getArrItemsCode(arr, true);
-                const blockCode: Code = [B_merge(typeValidationOutput), itemsCode];
-                const blockCodeIsEmpty = B_isEmptyCode(blockCode);
+                const tvCode = B_collapseMerge(B_merge(typeValidationOutput));
+                const blockCode: Code =
+                  tvCode === "" && itemsCode === "" ? "" : [tvCode, itemsCode];
+                const blockCodeIsEmpty = blockCode === "";
 
                 const embeddedError = staticBlockFailure;
                 if (embeddedError) {
@@ -1160,7 +1158,6 @@ export const unionDecoder: Builder = (input: Val) => {
                   } else {
                     // The block always fails — drop it
                     // and pass the embedded error along
-                    B_joinCode(blockCode);
                     caught = `${caught},${embeddedError}`;
                   }
                 } else if (!blockCodeIsEmpty) {
@@ -1169,9 +1166,6 @@ export const unionDecoder: Builder = (input: Val) => {
                   end = "}" + end;
                   caught = `${caught},${errorVar}`;
                 } else {
-                  // Empty tree discarded — join seals it so a late fill
-                  // can't be dropped.
-                  B_joinCode(blockCode);
                   exit = true;
                 }
               }
@@ -1195,16 +1189,16 @@ export const unionDecoder: Builder = (input: Val) => {
 
         const itemsCode = getArrItemsCode(arr, false);
 
-        const blockCondRef = { contents: "" };
-        const blockCode: Code = [B_merge(typeValidationOutput, blockCondRef), itemsCode];
+        const blockCondRef: { contents: string; pl?: boolean } = { contents: "" };
+        const tvCode = B_collapseMerge(B_merge(typeValidationOutput, blockCondRef));
+        const blockCode: Code = tvCode === "" && itemsCode === "" ? "" : [tvCode, itemsCode];
         const blockCond = blockCondRef.contents;
 
-        if (!B_isEmptyCode(blockCode) || unionIsPriority(tagFlags[firstSchema.type]!, byKey)) {
+        if (blockCode !== "" || unionIsPriority(tagFlags[firstSchema.type]!, byKey)) {
           const if_ = nextElse ? "else if" : "if";
           start.push(if_ + `(${blockCond}){`, blockCode, "}");
           nextElse = true;
         } else {
-          B_joinCode(blockCode);
           noop = noop ? `${noop}||${blockCond}` : blockCond;
         }
       }
@@ -1221,7 +1215,9 @@ export const unionDecoder: Builder = (input: Val) => {
               : errorCode);
     }
 
-    B_addCode(output, [start, end]);
+    if (start.length !== 0 || end !== "") {
+      B_addCode(output, [start, end]);
+    }
 
     // In case if input.var was called, but output.var wasn't
     if (input.i !== output.i) {
@@ -1241,7 +1237,7 @@ export const unionDecoder: Builder = (input: Val) => {
       // Use output.b instead of b because of mergeWithCatch
       // Should refactor mergeWithCatch to make it simpler
       // All of this is a hack to make mergeWithCatch think that there are no changes. eg S.array(S.option(item))
-      if (B_isEmptyCode(input.cp) && B_isEmptyCode(output.cp) && initialInline === "i") {
+      if (input.cp === "" && output.cp === "" && initialInline === "i") {
         // FIXME: Might not be not needed
         input.hd = "";
         input.v = _notVar;

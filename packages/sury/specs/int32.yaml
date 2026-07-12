@@ -4,7 +4,7 @@ ts:
   input: number
   output: number
   instantiations: 254
-  bundleBytes: 4091
+  bundleBytes: 4110
 jsonSchema:
   input: '{ type: "integer", minimum: -2147483648, maximum: 2147483647 }'
   output: '{ type: "integer", minimum: -2147483648, maximum: 2147483647 }'
