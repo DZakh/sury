@@ -72,6 +72,9 @@ jobs:
     name: Wall-clock Benchmarks (comparison)
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
+    concurrency:
+      group: wallclock-benchmarks-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     permissions:
       contents: read
       pull-requests: write
@@ -105,12 +108,14 @@ jobs:
             const fs = require("fs");
             const body = fs.readFileSync("bench-comment.md", "utf8");
             const marker = "<!-- wallclock-bench-comment -->";
-            const { data: comments } = await github.rest.issues.listComments({
+            const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
             });
-            const existing = comments.find((c) => c.body?.includes(marker));
+            const existing = comments.find(
+              (c) => c.user?.login === "github-actions[bot]" && c.body?.includes(marker)
+            );
             if (existing) {
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,
