@@ -1,4 +1,4 @@
-import { definitionToSchema, schemaDefiner, schemaFactory } from "./factory";
+import { definitionToSchema, schemaFactory } from "./factory";
 import { array, option } from "./composites";
 import { email, isoDateTime, json, meta, url, uuid } from "./formats";
 import { arrayLength, arrayMaxLength, arrayMinLength, dict, floatMax, floatMin, intMax, intMin, null_, object, pattern, stringLength, stringMaxLength, stringMinLength, tuple, union } from "./refinements";
@@ -716,7 +716,7 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
           schema = dict(fromJSONSchema(additionalProperties));
         }
       } else {
-        schema = schemaDefiner(() => {});
+        schema = schemaFactory({});
       }
     }
 

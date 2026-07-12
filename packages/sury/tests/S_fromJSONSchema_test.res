@@ -172,6 +172,12 @@ test("fromJSONSchema: object with additionalProperties true", t => {
   t->Assert.deepEqual(jsonRoundTrip(js), js)
 })
 
+test("fromJSONSchema: bare object with no properties or additionalProperties", t => {
+  let js = {type_: Arrayable.single(#object)}
+  let schema = S.fromJSONSchema(js)
+  t->Assert.deepEqual(parse(schema, {"foo": 1}), Dict.make())
+})
+
 // 5. Combinators
 
 test("fromJSONSchema: anyOf", t => {
