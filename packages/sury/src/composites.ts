@@ -14,6 +14,12 @@ import { Tag, arrayTag, nullTag, numberTag, objectTag, tagFlagArray, tagFlagFunc
 const isItemSchema = (x: AdditionalItems | undefined): x is Internal =>
   x !== undefined && typeof x !== "string";
 
+// B_refine with an empty checks array behaves differently from an omitted
+// one (`vc` ends up `[]` vs `undefined`), so tuple/object decoders must
+// still branch here rather than always passing `checks`.
+const refineChecks = (val: Val, schema: Internal, checks: Check[]): Val =>
+  checks.length > 0 ? B_refine(val, schema, checks) : B_refine(val, schema);
+
 type CheckCache = { contents: Check[] | undefined };
 
 export const makeObjectVal = (prev: Val, schema: Internal): Val => {
@@ -164,11 +170,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
     // Apply refine also when there are no checks,
     // so literals for union cases don't mutate input
     // FIXME: This should be removed and validation attached to output instead
-    if (checks.length > 0) {
-      input = B_refine(unknownInput, schema, checks);
-    } else {
-      input = B_refine(unknownInput, schema);
-    }
+    input = refineChecks(unknownInput, schema, checks);
   } else {
     input = B_unsupportedDecode(unknownInput, unknownInput.s, expectedSchema);
   }
@@ -299,11 +301,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
 
     // Apply refine also when there are no checks,
     // so literals for union cases don't mutate input
-    if (checks.length > 0) {
-      input = B_refine(unknownInput, schema, checks);
-    } else {
-      input = B_refine(unknownInput, schema);
-    }
+    input = refineChecks(unknownInput, schema, checks);
   } else {
     input = B_unsupportedDecode(unknownInput, unknownInput.s, expectedSchema);
   }

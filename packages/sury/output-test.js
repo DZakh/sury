@@ -1,1 +1,0 @@
-i => { if (typeof i !== "string") { e[3](i) } try { let v0; (v0 = i === "true") || i === "false" || e[0](i); i = v0 } catch (e0) { if () { let v1 = "undefined"; if (i !== "undefined") { e[1](v1) } i = void 0 } else { e[2](i, e0) } } return i }
