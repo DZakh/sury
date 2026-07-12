@@ -1,10 +1,14 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: S.schema(123n)
+  aliases:
+    - S.literal(123n)
   input: 123n
   output: 123n
   instantiations: 379
-  bundleBytes: 9876
+  bundleBytes: 9875
+vs:
+  zod: z.literal(123n)
 jsonSchema:
   input: Expected JSON, received 123n
   output: Expected JSON, received 123n

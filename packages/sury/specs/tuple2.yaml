@@ -1,25 +1,32 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: S.schema([S.string, S.number])
-  input: "[string, number]"
-  output: "[string, number]"
-  instantiations: 1132
-  bundleBytes: 10169
+  schema: S.schema(["bar", S.number])
+  aliases:
+    - S.tuple(["bar", S.number])
+  input: '["bar", number]'
+  output: '["bar", number]'
+  instantiations: 967
+  bundleBytes: 10084
+vs:
+  zod: z.tuple([z.string(), z.number()])
 jsonSchema:
-  input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string" }, { type: "number" }] }'
-  output: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string" }, { type: "number" }] }'
+  input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "bar" }, { type: "number" }] }'
+  output: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "bar" }, { type: "number" }] }'
 operations:
   parse:
-    expression: i=>{Array.isArray(i)&&i.length===2||e[2](i);let v0=i["0"],v1=i["1"];typeof v0==="string"||e[0](v0);typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);return i}
+    expression: i=>{Array.isArray(i)&&i.length===2||e[2](i);let v0=i["0"],v1=i["1"];v0==="bar"||e[0](v0);typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);return i}
     examples:
       valid:
-        input: '["hello", 42]'
-        output: '["hello", 42]'
+        input: '["bar", 42]'
+        output: '["bar", 42]'
       wrong-length:
-        input: '["hello"]'
-        error: Expected [string, number], received ["hello"]
+        input: '["bar"]'
+        error: Expected ["bar", number], received ["bar"]
+      invalid-literal:
+        input: '["baz", 42]'
+        error: 'Failed at ["0"]: Expected "bar", received "baz"'
       invalid-item:
-        input: '["hello", "not a number"]'
+        input: '["bar", "not a number"]'
         error: 'Failed at ["1"]: Expected number, received "not a number"'
   decode: identity
   encode: identity

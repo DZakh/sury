@@ -4,15 +4,12 @@
 type never
 
 module Path = {
-  type t = string
+  type t
 
   external toString: t => string = "%identity"
 
-  @inline
-  let empty = ""
-
-  @inline
-  let dynamic = "[]"
+  let empty: t = %raw(`""`)
+  let dynamic: t = %raw(`"[]"`)
 
   @module("sury") external toArray: t => array<string> = "$res_pathToArray"
   @module("sury") external fromArray: array<string> => t = "$res_pathFromArray"
@@ -302,7 +299,6 @@ and has = {
   array?: bool,
   object?: bool,
 }
-and flag = int
 and error = private {
   message: string,
   reason: string,
@@ -366,15 +362,16 @@ external untag: t<'any> => untagged = "%identity"
 // hand it that identity once at module load — SuryError's RE_EXN_ID getter
 // returns it. `%raw` because a private exn constructor can't be referenced
 // as a value from ReScript code, only from spliced JS.
-@module("sury") external __setExnId: unknown => unit = "$res_setExnId"
+%%private(@module("sury") external __setExnId: unknown => unit = "$res_setExnId")
 let () = __setExnId(%raw(`Exn`))
 
 module Flag = {
-  let none: flag = 0
-  let async: flag = 1
-
-  external with: (flag, flag) => flag = "%orint"
+  type t
+  let none: t = %raw(`0`)
+  let async: t = %raw(`1`)
+  external with: (t, t) => t = "%orint"
 }
+type flag = Flag.t
 
 type s<'value> = {fail: 'a. (string, ~path: Path.t=?) => 'a}
 
@@ -448,16 +445,16 @@ external transform: (t<'input>, s<'output> => transformDefinition<'input, 'outpu
 // ReScript labeled args.
 type refineOptions = {error?: string, path?: array<string>}
 @module("sury")
-external jsRefine: (t<'value>, 'value => bool, refineOptions) => t<'value> = "refine"
-let refine = (schema, refiner, ~error=?, ~path=?) => jsRefine(schema, refiner, {?error, ?path})
+external refine: (t<'value>, 'value => bool, refineOptions) => t<'value> = "refine"
+let refine = (schema, refiner, ~error=?, ~path=?) => refine(schema, refiner, {?error, ?path})
 
 @module("sury") external shape: (t<'value>, 'value => 'shape) => t<'shape> = "shape"
 
 // The public JS `to` (called without custom coders) only lacks the
 // same-schema shortcut, which lives here instead.
-@module("sury") external jsTo: (t<'from>, t<'to>) => t<'to> = "to"
+@module("sury") external to: (t<'from>, t<'to>) => t<'to> = "to"
 let to = (from, target) =>
-  castToUnknown(from) === castToUnknown(target) ? castToAny(from) : jsTo(from, target)
+  castToUnknown(from) === castToUnknown(target) ? castToAny(from) : to(from, target)
 
 @module("sury") external reverse: t<'value> => t<unknown> = "reverse"
 
@@ -465,11 +462,11 @@ let to = (from, target) =>
 @module("sury") external asyncParser: (~to: t<'value>) => 'any => promise<'value> = "asyncParser"
 // The public JS `decoder` compiles from a schema's Input space; the ReScript
 // flavor decodes FROM a schema's Output space, so reverse `from` first.
-@module("sury") external jsDecoder: (t<unknown>, t<'to>) => 'from => 'to = "decoder"
+@module("sury") external decoder: (t<unknown>, t<'to>) => 'from => 'to = "decoder"
 @module("sury")
-external jsAsyncDecoder: (t<unknown>, t<'to>) => 'from => promise<'to> = "asyncDecoder"
-let decoder = (~from: t<'from>, ~to) => jsDecoder(reverse(from), to)
-let asyncDecoder = (~from: t<'from>, ~to) => jsAsyncDecoder(reverse(from), to)
+external asyncDecoder: (t<unknown>, t<'to>) => 'from => promise<'to> = "asyncDecoder"
+let decoder = (~from: t<'from>, ~to) => decoder(reverse(from), to)
+let asyncDecoder = (~from: t<'from>, ~to) => asyncDecoder(reverse(from), to)
 // Single-schema (Input -> Output) flavors — the public JS `decoder` /
 // `asyncDecoder` called with one argument.
 @module("sury") external decoder1: t<'value> => unknown => 'value = "decoder"
@@ -522,10 +519,10 @@ module Tuple = {
 
 @module("sury") external tuple: (Tuple.s => 'value) => t<'value> = "tuple"
 let tuple1 = v0 => tuple(s => s.item(0, v0))
-// An array definition passed to the public JS `schema` is a tuple schema.
-@module("sury") external tupleN: array<t<unknown>> => t<'value> = "schema"
-let tuple2 = (v1, v2) => tupleN([castToUnknown(v1), castToUnknown(v2)])
-let tuple3 = (v1, v2, v3) => tupleN([castToUnknown(v1), castToUnknown(v2), castToUnknown(v3)])
+@module("sury") external tuple2: array<t<unknown>> => t<'value> = "schema"
+let tuple2 = (v1, v2) => tuple2([castToUnknown(v1), castToUnknown(v2)])
+@module("sury") external tuple3: array<t<unknown>> => t<'value> = "schema"
+let tuple3 = (v1, v2, v3) => tuple3([castToUnknown(v1), castToUnknown(v2), castToUnknown(v3)])
 
 module Option = {
   @module("sury")

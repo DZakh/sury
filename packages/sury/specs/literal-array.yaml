@@ -1,10 +1,14 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: S.schema(["bar", true])
+  aliases:
+    - S.literal(["bar", true])
   input: '["bar", true]'
   output: '["bar", true]'
   instantiations: 532
-  bundleBytes: 9880
+  bundleBytes: 9878
+vs:
+  zod: z.tuple([z.literal("bar"), z.literal(true)])
 jsonSchema:
   input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "bar" }, { type: "boolean", const: true }] }'
   output: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "bar" }, { type: "boolean", const: true }] }'

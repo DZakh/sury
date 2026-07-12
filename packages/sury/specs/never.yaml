@@ -4,7 +4,9 @@ ts:
   input: never
   output: never
   instantiations: 254
-  bundleBytes: 3716
+  bundleBytes: 3714
+vs:
+  zod: z.never()
 jsonSchema:
   input: "{ not: {} }"
   output: "{ not: {} }"

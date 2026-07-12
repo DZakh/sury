@@ -454,13 +454,15 @@ export function brand<ID extends string, Output = unknown, Input = unknown>(
 
 // `R` already holds each field's resolved type. A field is optional iff its type
 // admits `undefined`, so an `S.never` field stays required. The split is skipped
-// when no field is optional.
+// when no field is optional. Required keys come first, optional last — matching
+// the ordering Zod (and the wider Standard Schema ecosystem) infers, so a Sury
+// type reads the same as its cross-library equivalent.
 type ResolveObject<R> = undefined extends R[keyof R]
   ? Flatten<
       {
-        [K in keyof R as undefined extends R[K] ? K : never]?: R[K];
-      } & {
         [K in keyof R as undefined extends R[K] ? never : K]: R[K];
+      } & {
+        [K in keyof R as undefined extends R[K] ? K : never]?: R[K];
       }
     >
   : Flatten<R>;
@@ -482,6 +484,10 @@ export function schema<const T extends unknown[]>(
   schemas: [...T]
 ): Schema<[...UnknownArrayToOutput<T>], [...UnknownArrayToInput<T>]>;
 export function schema<const T>(
+  value: T
+): Schema<UnknownToOutput<T>, UnknownToInput<T>>;
+
+export function literal<const T>(
   value: T
 ): Schema<UnknownToOutput<T>, UnknownToInput<T>>;
 
@@ -638,6 +644,9 @@ export function tuple<Output, Input extends unknown[]>(
     tag: (inputIndex: number, value: unknown) => void;
   }) => Output
 ): Schema<Output, Input>;
+export function tuple<const T extends unknown[]>(
+  schemas: [...T]
+): Schema<[...UnknownArrayToOutput<T>], [...UnknownArrayToInput<T>]>;
 
 export function optional<
   Output,
@@ -721,6 +730,9 @@ export function deepStrict<Output, Input extends Record<string, unknown>>(
   schema: SchemaLike<Output, Input>
 ): Schema<Output, Input>;
 
+// Bare Flatten, not ResolveObject: re-splitting the merged intersection to
+// hoist optionals last nearly doubled this type's instantiation cost, so Merge
+// keeps insertion order.
 type Merge<A, B> = Flatten<
   { [K in keyof A as K extends keyof B ? never : K]: A[K] } & B
 >;

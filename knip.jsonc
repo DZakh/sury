@@ -31,8 +31,10 @@
         "entry": ["tests/**/*_test.ts", "tests/**/*.bench.ts"]
       },
       // @rescript/darwin-arm64 is a platform binary pulled in per-OS; the
-      // rescript runtime is imported by the checked-in compiled S.res.mjs.
-      "ignoreDependencies": ["@rescript/darwin-arm64", "@rescript/runtime"]
+      // rescript runtime is imported by the checked-in compiled S.res.mjs. zod
+      // is imported only via a string the spec harness's type probe generates
+      // at runtime (packages/spec/introspect.ts), so static analysis can't see it.
+      "ignoreDependencies": ["@rescript/darwin-arm64", "@rescript/runtime", "zod"]
     },
     "packages/spec": {
       "entry": ["cli.ts"],

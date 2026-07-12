@@ -4,7 +4,9 @@ ts:
   input: "null"
   output: "null"
   instantiations: 369
-  bundleBytes: 9872
+  bundleBytes: 9870
+vs:
+  zod: z.null()
 jsonSchema:
   input: '{ type: "null" }'
   output: '{ type: "null" }'

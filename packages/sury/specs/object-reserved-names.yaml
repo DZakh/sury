@@ -6,7 +6,9 @@ ts:
   input: "{ constructor: string; hasOwnProperty: number; }"
   output: "{ constructor: string; hasOwnProperty: number; }"
   instantiations: 1468
-  bundleBytes: 12292
+  bundleBytes: 12289
+vs:
+  zod: "z.object({ constructor: z.string(), hasOwnProperty: z.number() })"
 jsonSchema:
   input: '{ type: "object", properties: { constructor: { type: "string" }, hasOwnProperty: { type: "number" } }, required: ["constructor", "hasOwnProperty"] }'
   output: '{ type: "object", properties: { constructor: { type: "string" }, hasOwnProperty: { type: "number" } }, required: ["constructor", "hasOwnProperty"] }'

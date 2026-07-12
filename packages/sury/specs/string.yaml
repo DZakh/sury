@@ -4,7 +4,9 @@ ts:
   input: string
   output: string
   instantiations: 254
-  bundleBytes: 3905
+  bundleBytes: 3904
+vs:
+  zod: z.string()
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "string" }'

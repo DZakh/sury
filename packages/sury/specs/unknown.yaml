@@ -5,6 +5,8 @@ ts:
   output: unknown
   instantiations: 254
   bundleBytes: 3621
+vs:
+  zod: z.unknown()
 jsonSchema:
   input: Expected JSON, received unknown
   output: Expected JSON, received unknown

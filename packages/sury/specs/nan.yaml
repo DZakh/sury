@@ -4,7 +4,9 @@ ts:
   input: number
   output: number
   instantiations: 382
-  bundleBytes: 9875
+  bundleBytes: 9873
+vs:
+  zod: z.nan()
 jsonSchema:
   input: Expected JSON, received NaN
   output: Expected JSON, received NaN

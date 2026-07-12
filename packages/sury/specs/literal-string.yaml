@@ -1,10 +1,14 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: S.schema("tuna")
+  aliases:
+    - S.literal("tuna")
   input: '"tuna"'
   output: '"tuna"'
   instantiations: 429
-  bundleBytes: 9876
+  bundleBytes: 9874
+vs:
+  zod: z.literal("tuna")
 jsonSchema:
   input: '{ type: "string", const: "tuna" }'
   output: '{ type: "string", const: "tuna" }'

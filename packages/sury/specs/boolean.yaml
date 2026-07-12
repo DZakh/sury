@@ -4,7 +4,9 @@ ts:
   input: boolean
   output: boolean
   instantiations: 254
-  bundleBytes: 3891
+  bundleBytes: 3889
+vs:
+  zod: z.boolean()
 jsonSchema:
   input: '{ type: "boolean" }'
   output: '{ type: "boolean" }'

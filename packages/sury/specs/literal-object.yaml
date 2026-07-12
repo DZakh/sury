@@ -4,10 +4,13 @@ ts:
   aliases:
     - 'S.schema({ foo: "bar" as const })'
     - 'S.schema({ foo: S.schema("bar") })'
+    - 'S.literal({ foo: "bar" })'
   input: '{ foo: "bar"; }'
   output: '{ foo: "bar"; }'
   instantiations: 1043
-  bundleBytes: 9880
+  bundleBytes: 9878
+vs:
+  zod: 'z.object({ foo: z.literal("bar") })'
 jsonSchema:
   input: '{ type: "object", properties: { foo: { type: "string", const: "bar" } }, required: ["foo"] }'
   output: '{ type: "object", properties: { foo: { type: "string", const: "bar" } }, required: ["foo"] }'

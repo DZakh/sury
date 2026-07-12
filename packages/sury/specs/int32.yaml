@@ -4,7 +4,9 @@ ts:
   input: number
   output: number
   instantiations: 254
-  bundleBytes: 3997
+  bundleBytes: 3996
+vs:
+  zod: z.int32()
 jsonSchema:
   input: '{ type: "integer", minimum: -2147483648, maximum: 2147483647 }'
   output: '{ type: "integer", minimum: -2147483648, maximum: 2147483647 }'

@@ -5,6 +5,8 @@ ts:
   output: number | boolean | undefined
   instantiations: 6131
   bundleBytes: 11122
+vs:
+  zod: "z.union([z.string().transform((s) => (s === 'undefined' ? undefined : Number(s))), z.boolean()])"
 jsonSchema:
   input: '{ anyOf: [{ anyOf: [{ type: "string" }, { type: "string", const: "undefined" }] }, { type: "boolean" }] }'
   output: Expected JSON, received number | undefined

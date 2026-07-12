@@ -4,7 +4,9 @@ ts:
   input: string | number | bigint | boolean | symbol
   output: string | number | bigint | boolean | symbol
   instantiations: 1877
-  bundleBytes: 10369
+  bundleBytes: 10367
+vs:
+  zod: z.union([z.string(), z.number(), z.bigint(), z.boolean(), z.symbol()])
 jsonSchema:
   input: Expected JSON, received string | number | boolean | bigint | symbol
   output: Expected JSON, received string | number | boolean | bigint | symbol

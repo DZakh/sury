@@ -54,7 +54,7 @@ test("stale golden (expression drifted from what the schema actually compiles to
     {
       "stderr": "✗ string
         goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -10,7 +10,7 @@
+    @@ -12,7 +12,7 @@
         output: '{ type: "string" }'
       operations:
         parse:
@@ -79,7 +79,7 @@ test("stale golden (recorded example output no longer matches live behavior)", a
     {
       "stderr": "✗ string
         goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -14,7 +14,7 @@
+    @@ -16,7 +16,7 @@
           examples:
             valid:
               input: '"hello"'
@@ -101,6 +101,52 @@ test("invalid _skip reason (not an enum value or todo(#...))", async () => {
     {
       "stderr": "✗ string
         ts.bundleBytes: invalid _skip reason "because-i-said-so"",
+      "stdout": "",
+    }
+  `);
+});
+
+test("vs.zod overwrite form records a side that matches ts (should be omitted)", async () => {
+  const spec = mutate((s) => {
+    // string's ts.input/output are both `string`, and z.string() infers the
+    // same — so recording either side is wrong; each matching side must be
+    // omitted (its absence is what means "no divergence").
+    s.vs.zod = { schema: "z.string()", divergence: "none (contrived)", input: "string", output: "string" };
+  });
+  await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ string
+        vs.zod.input equals ts.input "string" — it matches Sury, so omit \`input\`.
+        vs.zod.output equals ts.output "string" — it matches Sury, so omit \`output\`.",
+      "stdout": "",
+    }
+  `);
+});
+
+test("vs.zod overwrite form omits both sides (records no divergence — belongs in the bare string form)", async () => {
+  const spec = mutate((s) => {
+    s.vs.zod = { schema: "z.string()", divergence: "none (contrived)" };
+  });
+  await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ string
+        vs.zod: overwrite form records no divergence (input and output both omitted) — use the bare \`zod: "z.string()"\` string form instead.",
+      "stdout": "",
+    }
+  `);
+});
+
+test("vs.zod overwrite form omits a side that actually diverges from ts (must be recorded)", async () => {
+  const spec = mutate((s) => {
+    // z.string().nullable() infers `string | null`, which diverges from
+    // string's ts.input/output (`string`). output records the divergence;
+    // input is omitted but shouldn't be.
+    s.vs.zod = { schema: "z.string().nullable()", divergence: "adds | null", output: "string | null" };
+  });
+  await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ string
+        vs.zod: input omitted (no divergence) but Zod infers "string | null" !== ts.input "string" — add \`input\` to record the divergent type.",
       "stdout": "",
     }
   `);
@@ -135,14 +181,16 @@ test("identity claimed but the operation doesn't actually compile to identity", 
         operations.decode: marked \`identity\` but does not compile to identity — use a full op block with examples
         operations.encode: marked \`identity\` but does not compile to identity — use a full op block with examples
         goldens stale — resolve the identity mismatch above first, then \`pnpm spec check string --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -3,21 +3,21 @@
+    @@ -3,23 +3,23 @@
         schema: S.string.with(S.min, 3)
         input: string
         output: string
     -   instantiations: 254
-    -   bundleBytes: 3905
+    -   bundleBytes: 3904
     +   instantiations: 5181
-    +   bundleBytes: 4380
+    +   bundleBytes: 4379
+      vs:
+        zod: z.string()
       jsonSchema:
     -   input: '{ type: "string" }'
     -   output: '{ type: "string" }'
@@ -177,7 +225,7 @@ test("full op block claimed but the operation actually compiles to identity", as
       "stderr": "✗ string
         operations.decode: compiles to identity — use \`identity\` instead of an expression + examples
         goldens stale — resolve the identity mismatch above first, then \`pnpm spec check string --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -25,7 +25,10 @@
+    @@ -27,7 +27,10 @@
               input: "null"
               error: Expected string, received null
         decode:
@@ -210,11 +258,13 @@ test("eq-to-parse claimed but the operation doesn't actually compile to the same
     -   input: never
     -   output: never
     -   instantiations: 254
-    -   bundleBytes: 3716
+    -   bundleBytes: 3714
     +   input: string
     +   output: string
     +   instantiations: 5181
-    +   bundleBytes: 4380
+    +   bundleBytes: 4379
+      vs:
+        zod: z.never()
       jsonSchema:
     -   input: "{ not: {} }"
     -   output: "{ not: {} }"
@@ -250,7 +300,7 @@ test("full op block claimed but the operation actually compiles to the same code
       "stderr": "✗ never
         operations.decode: compiles to the same code as parse — use \`eq-to-parse\` instead of an expression + examples
         goldens stale — resolve the identity mismatch above first, then \`pnpm spec check never --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -19,7 +19,7 @@
+    @@ -21,7 +21,7 @@
               input: undefined
               error: Expected never, received undefined
         decode:
@@ -327,7 +377,7 @@ test("multiple simultaneous problems all get their own guiding message", async (
       "stderr": "✗ string
         ts.bundleBytes: invalid _skip reason "nonsense-reason"
         goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -11,7 +11,7 @@
+    @@ -13,7 +13,7 @@
         output: '{ type: "string" }'
       operations:
         parse:
