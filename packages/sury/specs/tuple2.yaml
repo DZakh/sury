@@ -3,7 +3,7 @@ ts:
   schema: S.schema([S.string, S.number])
   input: "[string, number]"
   output: "[string, number]"
-  instantiations: 1227
+  instantiations: 1132
   bundleBytes: 9689
 jsonSchema:
   input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string" }, { type: "number" }] }'

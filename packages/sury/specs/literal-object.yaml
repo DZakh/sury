@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.schema({ foo: "bar" })'
+  aliases:
+    - 'S.schema({ foo: "bar" as const })'
+    - 'S.schema({ foo: S.schema("bar") })'
+  input: '{ foo: "bar"; }'
+  output: '{ foo: "bar"; }'
+  instantiations: 1043
+  bundleBytes: 9382
+jsonSchema:
+  input: '{ type: "object", properties: { foo: { type: "string", const: "bar" } }, required: ["foo"] }'
+  output: '{ type: "object", properties: { foo: { type: "string", const: "bar" } }, required: ["foo"] }'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i||e[1](i);let v0=i["foo"];v0==="bar"||e[0](v0);return {"foo":v0,}}
+    examples:
+      valid:
+        input: '{ foo: "bar" }'
+        output: '{ foo: "bar" }'
+      invalid-value:
+        input: '{ foo: "baz" }'
+        error: 'Failed at ["foo"]: Expected "bar", received "baz"'
+      invalid-type:
+        input: "null"
+        error: 'Expected { foo: "bar"; }, received null'
+  decode: identity
+  encode: identity
