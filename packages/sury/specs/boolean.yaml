@@ -5,14 +5,14 @@ ts:
   output: boolean
   instantiations: 254
   bundleBytes: 3733
-  createPerf: 2199
+  createPerf: 0
 jsonSchema:
   input: '{ type: "boolean" }'
   output: '{ type: "boolean" }'
 operations:
   parse:
     expression: i=>{typeof i==="boolean"||e[0](i);return i}
-    compilePerf: 4485
+    compilePerf: 3568
     examples:
       valid-true:
         input: "true"

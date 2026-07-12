@@ -38,7 +38,7 @@ test("stale golden (expression drifted from what the schema actually compiles to
         parse:
     -     expression: i=>i /* stale */
     +     expression: i=>{typeof i==="string"||e[0](i);return i}
-          compilePerf: 4309
+          compilePerf: 3392
           examples:
             valid:",
       "stdout": "",
@@ -121,7 +121,7 @@ test("identity claimed but the operation doesn't actually compile to identity", 
     -   bundleBytes: 3744
     +   instantiations: 5181
     +   bundleBytes: 4218
-        createPerf: 2199
+        createPerf: 0
       jsonSchema:
     -   input: '{ type: "string" }'
     -   output: '{ type: "string" }'
@@ -131,7 +131,7 @@ test("identity claimed but the operation doesn't actually compile to identity", 
         parse:
     -     expression: i=>{typeof i==="string"||e[0](i);return i}
     +     expression: i=>{typeof i==="string"||e[1](i);i.length>2||e[0](i);return i}
-          compilePerf: 4309
+          compilePerf: 3392
           examples:
             valid:
     @@ -19,7 +19,7 @@
@@ -150,7 +150,7 @@ test("identity claimed but the operation doesn't actually compile to identity", 
 
 test("full op block claimed but the operation actually compiles to identity", async () => {
   const spec = mutate((s) => {
-    s.operations.decode = { expression: "", compilePerf: 0, examples: {} }; // string's decode really is identity
+    s.operations.decode = { expression: "", examples: {} }; // string's decode really is identity
   });
   await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
     {
@@ -166,9 +166,9 @@ test("full op block claimed but the operation actually compiles to identity", as
     +       function noopOperation(i) {
     +         return i;
     +       }
-          compilePerf: 0
           examples: {}
-        encode: identity",
+        encode: identity
+    ",
       "stdout": "",
     }
   `);
@@ -230,7 +230,7 @@ test("multiple simultaneous problems all get their own guiding message", async (
         parse:
     -     expression: i=>i /* stale */
     +     expression: i=>{typeof i==="string"||e[0](i);return i}
-          compilePerf: 4309
+          compilePerf: 3392
           examples:
             valid:",
       "stdout": "",

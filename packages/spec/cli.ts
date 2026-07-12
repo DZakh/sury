@@ -6,7 +6,7 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { schemaJson, NOT_MEASURED, type Spec } from "./format";
+import { schemaJson, type Spec } from "./format";
 import { derivePerf, applyPerf, perfOps, perfUnavailableReason } from "./perf";
 import {
   SPECS_DIR,
@@ -153,9 +153,8 @@ const cmdNew = async (): Promise<void> => {
       output: typeInfo.output,
       instantiations: typeInfo.instantiations,
       bundleBytes,
-      // Perf is env-dependent (needs valgrind), so it's not measured at
-      // scaffold time — the `check --write` in the hint below fills it.
-      createPerf: NOT_MEASURED,
+      // createPerf (optional) is filled by the `check --write` in the hint
+      // below — perf needs valgrind, so it's not measured at scaffold time.
     },
     jsonSchema: scaffoldJsonSchema(schema),
     operations,
@@ -232,7 +231,7 @@ const cmdCheck = async (): Promise<void> => {
       try {
         const schema = evalSchema(obj.ts.schema);
         if (identityViolations(schema, obj).length === 0)
-          knownFresh = serialize(applyPerf(await recomputeGoldens(obj), counts, write));
+          knownFresh = serialize(applyPerf(await recomputeGoldens(obj), counts));
       } catch {
         // fall through — checkSpec below reports the real problem
       }

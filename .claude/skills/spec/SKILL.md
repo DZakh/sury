@@ -31,11 +31,10 @@ Goldens snapshot key metrics: generated code, `ts.bundleBytes`, `ts.instantiatio
 
 ## Perf goldens
 
-`ts.createPerf` (build the schema once) and `operations.<op>.compilePerf` (compile that operation once) are **retired-instruction counts** measured under Valgrind — deterministic where wall-clock ops/sec isn't, so they can be a golden. Each is measured in its own short-lived worker (`packages/spec/perf.ts` → `native/perf-worker.mjs`), warm and fenced by a tiny Callgrind addon (`native/callgrind.c`, built on `pnpm install`). `spec check` runs the perf pass on **every** run; a full sweep of all specs is ~20s.
+`ts.createPerf` (build the schema once) and `operations.<op>.compilePerf` (compile one operation once) are **retired-instruction counts** measured under Valgrind — deterministic where wall-clock ops/sec isn't. Each runs in its own warm, fenced worker (`packages/spec/perf.ts`), with the harness floor subtracted, so a bare constant like `S.string` reads ~0. `spec check` measures on **every** run (~20s for all specs); both fields are optional and present only where measured.
 
-- **Requirements:** valgrind on `PATH` + the built addon. Where either is missing, `spec check` prints `perf: skipped (…)` and leaves perf goldens untouched — the rest of the check still gates.
-- **Node-pinned:** counts are exact for one Node/V8 build (pinned in `package.json`'s `engines` and the CI perf job) but shift across Node versions — like `bundleBytes`, a Node bump re-baselines them. Run agent sessions on the pinned Node so local numbers match CI. A ±1% band absorbs toolchain wobble; a real codegen change re-records exactly.
-- **`not-measured`:** a not-yet-baselined field. Read-only `spec check` doesn't gate it; `check --write` (with valgrind) upgrades it to a real number, which then gates. `spec new` scaffolds it — baseline with `check --write` on the pinned Node.
+- **Requirements:** valgrind on `PATH` + the addon (`native/callgrind.c`, built on `pnpm install`). Missing either → `spec check` prints `perf: skipped (…)` and leaves perf goldens untouched, the rest still gates. Where valgrind *is* present, a missing golden reads as stale — run `--write`.
+- **Node-pinned:** counts are exact for one Node/V8 build (pinned in `package.json` `engines` + the CI perf job) but shift across versions — like `bundleBytes`, a Node bump re-baselines them (a ±1% band absorbs toolchain wobble). Run agent sessions on the pinned Node so local numbers match CI.
 
 ## Layout
 

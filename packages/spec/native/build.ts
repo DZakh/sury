@@ -3,6 +3,8 @@
 // measurement aid, so this must NEVER fail `pnpm install`: any problem (no
 // compiler, unusual Node layout) is logged and swallowed, and the harness
 // treats a missing callgrind.node as "perf measurement unavailable here".
+//
+// Run via tsx (see the spec package's postinstall / build:native scripts).
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -38,6 +40,6 @@ try {
   console.log(`[spec] built ${out}`);
 } catch (e) {
   console.warn(
-    `[spec] callgrind addon not built (perf specs will be skipped): ${(e && e.message) || e}`,
+    `[spec] callgrind addon not built (perf specs will be skipped): ${(e as Error)?.message ?? e}`,
   );
 }

@@ -4,21 +4,27 @@
 //
 // Unlike introspect.ts/bundleSize.ts, this can't run in-process: it needs a
 // child Node launched under Valgrind's Callgrind. Each spec gets its own
-// worker process (native/perf-worker.mjs) so V8 inline-cache state can't leak
+// worker process (native/perf-worker.ts) so V8 inline-cache state can't leak
 // between shapes; the native/callgrind.node addon fences each region and
 // Callgrind writes one dump per region, which we read back here. See the
-// engine notes in perf-worker.mjs and the `spec` skill's Perf section.
+// engine notes in perf-worker.ts and the `spec` skill's Perf section.
 import { spawn, execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, mkdtempSync, rmSync, existsSync } from "node:fs";
 import { tmpdir, cpus } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { OP_ORDER, NOT_MEASURED, isSkip, type OpName, type Spec } from "./format";
+import { OP_ORDER, type OpName, type Spec } from "./format";
 
 const here = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
 const ADDON = here("./native/callgrind.node");
-const WORKER = here("./native/perf-worker.mjs");
+const WORKER = here("./native/perf-worker.ts");
 const SURY_ENTRY = here("../sury/src/S.mjs");
+
+// The worker emits this warm fencing-floor region (a bare-constant return); we
+// subtract it from every measured region so a schema that's just a constant
+// reference (e.g. `S.string`) reads ~0 construction cost, not the ~800-2000
+// instructions the fence + call themselves take.
+const BASELINE = "__baseline";
 
 export type PerfCounts = { create: number; ops: Partial<Record<OpName, number>> };
 export type PerfRequest = { id: string; schema: string; ops: OpName[] };
@@ -71,7 +77,11 @@ const measureOne = (req: PerfRequest): Promise<PerfCounts | null> =>
         "--quiet",
         `--callgrind-out-file=${join(dir, "cg")}`,
         process.execPath,
+        // --predictable: deterministic GC/scheduling so counts are exact.
+        // --experimental-strip-types: run the .ts worker directly (a transpiling
+        // loader like tsx perturbs the counts; type-stripping doesn't).
         "--predictable",
+        "--experimental-strip-types",
         WORKER,
       ],
       {
@@ -89,10 +99,14 @@ const measureOne = (req: PerfRequest): Promise<PerfCounts | null> =>
       try {
         if (code !== 0) return resolve(null);
         const dumps = readDumps(dir);
-        if (dumps.create === undefined) return resolve(null);
+        const baseline = dumps[BASELINE];
+        if (baseline === undefined || dumps.create === undefined) return resolve(null);
+        // Subtract the warm fencing floor; clamp so a region cheaper than the
+        // baseline (a bare constant) reads 0 rather than a tiny negative.
+        const net = (n: number): number => Math.max(0, n - baseline);
         const ops: Partial<Record<OpName, number>> = {};
-        for (const op of req.ops) if (dumps[op] !== undefined) ops[op] = dumps[op];
-        resolve({ create: dumps.create, ops });
+        for (const op of req.ops) if (dumps[op] !== undefined) ops[op] = net(dumps[op]!);
+        resolve({ create: net(dumps.create), ops });
       } finally {
         rmSync(dir, { recursive: true, force: true });
       }
@@ -134,29 +148,26 @@ const bandKeep = (prior: unknown, measured: number): number =>
 export const perfOps = (spec: Spec): OpName[] =>
   OP_ORDER.filter((op) => spec.operations[op] !== "identity");
 
-// Folds perf goldens into a spec.
-//
-// A `not-measured` golden is a not-yet-baselined field: it only gates once it
-// holds a real number. So `write` matters — read-only `spec check` KEEPS a
-// `not-measured` (no staleness against a machine that could measure), while
-// `--write` upgrades it to the measured count. A field that already holds a
-// number always gates (band-compared) in both modes; the tolerance keeps an
-// unrelated toolchain wobble from churning every spec at once. `counts === null`
-// (no valgrind / worker failed) only ensures the required field exists, never
-// discarding a baselined number.
-const put = (prior: unknown, measured: number | undefined, write: boolean): unknown => {
-  if (measured === undefined) return typeof prior === "number" || isSkip(prior) ? prior : NOT_MEASURED;
-  if (typeof prior === "number") return bandKeep(prior, measured);
-  if (isSkip(prior)) return write ? measured : prior; // upgrade a not-measured only on --write
-  return write ? measured : NOT_MEASURED;
-};
+// Folds measured perf into a spec's optional createPerf / compilePerf fields.
+// A field already holding a number is band-compared (kept within tolerance,
+// re-recorded past it); an absent field is filled with the measurement — so a
+// valgrind-equipped read-only `spec check` surfaces a missing golden as a
+// stale diff (canon lacks it, fresh has it) suggesting `--write`. `measured`
+// undefined (no valgrind / worker failed for this metric) leaves the field
+// exactly as-is, never inventing or discarding a value.
+const put = (prior: number | undefined, measured: number | undefined): number | undefined =>
+  measured === undefined ? prior : typeof prior === "number" ? bandKeep(prior, measured) : measured;
 
-export const applyPerf = (spec: Spec, counts: PerfCounts | null, write: boolean): Spec => {
+export const applyPerf = (spec: Spec, counts: PerfCounts | null): Spec => {
   const next = structuredClone(spec);
-  next.ts.createPerf = put(next.ts.createPerf, counts?.create, write) as Spec["ts"]["createPerf"];
+  const createPerf = put(next.ts.createPerf, counts?.create);
+  if (createPerf === undefined) delete next.ts.createPerf;
+  else next.ts.createPerf = createPerf;
   for (const opName of perfOps(next)) {
-    const op = next.operations[opName] as { compilePerf?: unknown };
-    op.compilePerf = put(op.compilePerf, counts?.ops[opName], write);
+    const op = next.operations[opName] as { compilePerf?: number };
+    const filled = put(op.compilePerf, counts?.ops[opName]);
+    if (filled === undefined) delete op.compilePerf;
+    else op.compilePerf = filled;
   }
   return next;
 };

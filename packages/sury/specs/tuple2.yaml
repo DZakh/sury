@@ -5,7 +5,7 @@ ts:
   output: "[string, number]"
   instantiations: 1227
   bundleBytes: 9689
-  createPerf: 24514
+  createPerf: 22351
 jsonSchema:
   input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string" }, { type: "number" }] }'
   output: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string" }, { type: "number" }] }'

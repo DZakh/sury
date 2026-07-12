@@ -5,14 +5,14 @@ ts:
   output: bigint
   instantiations: 254
   bundleBytes: 3744
-  createPerf: 2199
+  createPerf: 0
 jsonSchema:
   input: Expected JSON, received bigint
   output: Expected JSON, received bigint
 operations:
   parse:
     expression: i=>{typeof i==="bigint"||e[0](i);return i}
-    compilePerf: 4331
+    compilePerf: 3414
     examples:
       valid:
         input: 42n

@@ -5,7 +5,7 @@ ts:
   output: string | number | bigint | boolean | symbol
   instantiations: 1888
   bundleBytes: 9875
-  createPerf: 24581
+  createPerf: 22314
 jsonSchema:
   input: Expected JSON, received string | number | boolean | bigint | symbol
   output: Expected JSON, received string | number | boolean | bigint | symbol

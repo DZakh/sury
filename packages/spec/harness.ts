@@ -20,7 +20,6 @@ import {
   TS_KEY_ORDER,
   OP_ORDER,
   SKIP_REASONS,
-  NOT_MEASURED,
   isSkip,
   validate,
   type Spec,
@@ -161,9 +160,9 @@ export const scaffoldOperations = (schema: any): Spec["operations"] =>
   Object.fromEntries(
     OP_ORDER.map((opName) => {
       const fn = OP_BUILDER[opName](schema);
-      const op: Operation = isNoop(fn)
-        ? "identity"
-        : { expression: fn.toString(), compilePerf: NOT_MEASURED, examples: {} };
+      // compilePerf is filled by the perf pass (spec check --write); it's
+      // optional, so a fresh scaffold simply omits it.
+      const op: Operation = isNoop(fn) ? "identity" : { expression: fn.toString(), examples: {} };
       return [opName, op];
     }),
   ) as Spec["operations"];

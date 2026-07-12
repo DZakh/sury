@@ -5,7 +5,7 @@ ts:
   output: "{ _id?: string | undefined; _rev?: string | undefined; _deleted?: boolean | undefined; code: string; name: string; }"
   instantiations: 6622
   bundleBytes: 10387
-  createPerf: 48661
+  createPerf: 46386
 jsonSchema:
   input: '{ type: "object", properties: { _id: { type: "string" }, _rev: { type: "string" }, _deleted: { type: "boolean" }, code: { type: "string" }, name: { type: "string" } }, required: ["code", "name"] }'
   output: '{ type: "object", properties: { _id: { type: "string" }, _rev: { type: "string" }, _deleted: { type: "boolean" }, code: { type: "string" }, name: { type: "string" } }, required: ["code", "name"] }'

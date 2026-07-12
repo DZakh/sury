@@ -7,7 +7,7 @@ ts:
   output: "{ a: string; nested: { b: number; inner: { d?: string | undefined; c: boolean; }; }; }"
   instantiations: 2789
   bundleBytes: 10437
-  createPerf: 37947
+  createPerf: 34669
 jsonSchema:
   input: '{ type: "object", properties: { a: { type: "string" }, nested: { type: "object", properties: { b: { type: "number" }, inner: { type: "object", properties: { c: { type: "boolean" }, d: { type: "string" } }, required: ["c"] } }, required: ["b", "inner"] } }, required: ["a", "nested"] }'
   output: '{ type: "object", properties: { a: { type: "string" }, nested: { type: "object", properties: { b: { type: "number" }, inner: { type: "object", properties: { c: { type: "boolean" }, d: { type: "string" } }, required: ["c"] } }, required: ["b", "inner"] } }, required: ["a", "nested"] }'
