@@ -157,20 +157,17 @@ export type StandardJsonSchemaOptions = {
   libraryOptions?: Record<string, unknown>;
 };
 
-// PORT-NOTE: ported as standalone functions (the mutually recursive
-// encodeToJsonSchema / internalToJSONSchema / internalToJSONSchemaBase group
-// needs plain function declarations) plus a `RescriptJSONSchema` const
-// object so qualified call sites (`jsonSchemaMerge`, `.internalToJSONSchema`,
-// `.jsonSchemaMetadataId`) keep reading like the source. The `include
-// JSONSchema` is covered by the type aliases above.
+// encodeToJsonSchema / internalToJSONSchema / internalToJSONSchemaBase below
+// are mutually recursive, so they're declared as standalone top-level
+// functions rather than nested closures.
 
-export const jsonSchemaMetadataId: string = /* @__PURE__ */ Metadata_Id_internal("JSONSchema");
+const jsonSchemaMetadataId: string = /* @__PURE__ */ Metadata_Id_internal("JSONSchema");
 
-export const jsonSchemaMerge = (a: JSONSchemaT, b: JSONSchemaT): JSONSchemaT => {
+const jsonSchemaMerge = (a: JSONSchemaT, b: JSONSchemaT): JSONSchemaT => {
   return Object.assign({}, a, b);
 }
 
-export const applyMetadataOverlay = (
+const applyMetadataOverlay = (
   jsonSchema: JSONSchemaT,
   schema: Internal,
   defs: Record<string, Internal>
@@ -185,9 +182,8 @@ export const applyMetadataOverlay = (
     jsonSchema.deprecated = schema.deprecated;
   }
   if (schema.examples !== undefined) {
-    jsonSchema.examples = schema.examples as // If a schema is Jsonable,
-    // then examples are Jsonable too.
-    unknown[];
+    // If a schema is Jsonable, then examples are Jsonable too.
+    jsonSchema.examples = schema.examples;
   }
   if (schema["$defs"] !== undefined) {
     Object.assign(defs, schema["$defs"]);
@@ -200,7 +196,7 @@ export const applyMetadataOverlay = (
   }
 }
 
-export const encodeToJsonSchema = (
+const encodeToJsonSchema = (
   schema: Internal,
   path: Path,
   defs: Record<string, Internal>,
@@ -209,12 +205,7 @@ export const encodeToJsonSchema = (
 ): JSONSchemaT | undefined => {
   const schemaInternal = schema;
   const reversed = reverse(schemaInternal);
-  const input = B_operationArg(
-    unknown,
-    reversed,
-    flagNone,
-    0 as unknown as Record<string, Internal>
-  );
+  const input = B_operationArg(unknown, reversed, flagNone, undefined);
   try {
     const output = parse(input);
     // The parse produces a val whose .schema reflects the
@@ -228,7 +219,7 @@ export const encodeToJsonSchema = (
   }
 }
 
-export const internalToJSONSchema = (
+const internalToJSONSchema = (
   schema: Internal,
   path: Path,
   defs: Record<string, Internal>,
@@ -247,22 +238,21 @@ export const internalToJSONSchema = (
   // they keep using the base path.
   const tagFlag = tagFlags[schemaInternal.type]!;
   const hasUserTo =
-    (schemaInternal.to as unknown as boolean) &&
+    !!schemaInternal.to &&
     !flagUnsafeHas(tagFlag, (tagFlagObject | tagFlagArray)) &&
-    !(flagUnsafeHas(tagFlag, tagFlagUnion) && (schemaInternal.parser as unknown as boolean));
+    !(flagUnsafeHas(tagFlag, tagFlagUnion) && !!schemaInternal.parser);
   const encoded = hasUserTo
     ? encodeToJsonSchema(schema, path, defs, parent, target)
     : undefined;
   if (encoded !== undefined) {
-    const mutableJs = encoded;
-    applyMetadataOverlay(mutableJs, schema, defs);
-    return mutableJs;
+    applyMetadataOverlay(encoded, schema, defs);
+    return encoded;
   } else {
     return internalToJSONSchemaBase(schema, path, defs, parent, target);
   }
 }
 
-export const internalToJSONSchemaBase = (
+const internalToJSONSchemaBase = (
   schema: Internal,
   path: Path,
   defs: Record<string, Internal>,
@@ -299,21 +289,19 @@ export const internalToJSONSchemaBase = (
       default:
         break;
     }
-    const internal = schema;
-    if (internal.minLength !== undefined) {
-      jsonSchema.minLength = internal.minLength;
+    if (schema.minLength !== undefined) {
+      jsonSchema.minLength = schema.minLength;
     }
-    if (internal.maxLength !== undefined) {
-      jsonSchema.maxLength = internal.maxLength;
+    if (schema.maxLength !== undefined) {
+      jsonSchema.maxLength = schema.maxLength;
     }
-    if (internal.pattern !== undefined) {
-      jsonSchema.pattern = (internal.pattern as unknown as { source: string }).source;
+    if (schema.pattern !== undefined) {
+      jsonSchema.pattern = schema.pattern.source;
     }
     if (const_ !== undefined) {
       setConstOrEnum(const_);
     }
   } else if (tag === numberTag) {
-    const internal = schema;
     const format = schema.format;
     const const_ = schema.const as number | undefined;
     if (format === "int32") {
@@ -327,11 +315,11 @@ export const internalToJSONSchemaBase = (
     } else {
       jsonSchema.type = "number";
     }
-    if (internal.minimum !== undefined) {
-      jsonSchema.minimum = internal.minimum;
+    if (schema.minimum !== undefined) {
+      jsonSchema.minimum = schema.minimum;
     }
-    if (internal.maximum !== undefined) {
-      jsonSchema.maximum = internal.maximum;
+    if (schema.maximum !== undefined) {
+      jsonSchema.maximum = schema.maximum;
     }
     if (const_ !== undefined) {
       setConstOrEnum(const_);
@@ -346,24 +334,22 @@ export const internalToJSONSchemaBase = (
     const additionalItems = schema.additionalItems!;
     const items = schema.items!;
     if (typeof additionalItems === "object") {
-      const childSchema = additionalItems;
       jsonSchema.items = internalToJSONSchema(
-        childSchema,
+        additionalItems,
         pathConcat(path, pathDynamic),
         defs,
         schema,
         target
       );
       jsonSchema.type = "array";
-      const internal = schema;
-      if (internal.minItems !== undefined) {
-        jsonSchema.minItems = internal.minItems;
+      if (schema.minItems !== undefined) {
+        jsonSchema.minItems = schema.minItems;
       }
-      if (internal.maxItems !== undefined) {
-        jsonSchema.maxItems = internal.maxItems;
+      if (schema.maxItems !== undefined) {
+        jsonSchema.maxItems = schema.maxItems;
       }
     } else {
-      const itemDefinitions: JSONSchemaDefinition[] = items.map((itemSchema, idx) => {
+      const itemDefinitions: JSONSchemaT[] = items.map((itemSchema, idx) => {
         return internalToJSONSchema(
           itemSchema,
           pathConcat(path, pathFromLocation(idx.toString())),
@@ -392,18 +378,17 @@ export const internalToJSONSchemaBase = (
   } else if (tag === unionTag) {
     const anyOf = schema.anyOf!;
     const literals: unknown[] = [];
-    const items: JSONSchemaDefinition[] = [];
+    const items: JSONSchemaT[] = [];
     const seen: Record<string, boolean> = {};
 
     anyOf.forEach((childSchema) => {
-      // Filter out undefined to support optional fields
-      if (childSchema.type === undefinedTag && parent.type === objectTag) {
-        // ()
-      } else {
+      // Filter out undefined to support optional fields — no `else` branch
+      // needed, this variant is simply skipped.
+      if (!(childSchema.type === undefinedTag && parent.type === objectTag)) {
         const childJsonSchema = internalToJSONSchema(childSchema, path, defs, schema, target);
         // Collapse structurally-identical members (e.g. variants coercing to
         // the same `.to` target) so the union renders as `T`, not `anyOf:[T,T]`.
-        const key = JSON.stringify(childJsonSchema) as unknown as string;
+        const key = JSON.stringify(childJsonSchema);
         if (!(key in seen)) {
           seen[key] = true;
           items.push(childJsonSchema);
@@ -429,7 +414,7 @@ export const internalToJSONSchemaBase = (
     const isNullDefinition = (definition: JSONSchemaDefinition): boolean => {
       if (typeof definition !== "boolean") {
         const t = definition;
-        if (t.type !== undefined && (t.type as unknown) === "null") {
+        if (t.type === "null") {
           return true;
         } else if (t.enum !== undefined && t.enum.length === 1 && t.enum[0] === null) {
           return true;
@@ -443,7 +428,7 @@ export const internalToJSONSchemaBase = (
 
     // TODO: Write a breaking test with itemsNumber === 0
     if (itemsNumber === 1) {
-      Object.assign(jsonSchema, items[0] as unknown as JSONSchemaT);
+      Object.assign(jsonSchema, items[0]);
     } else if (literals.length === itemsNumber) {
       jsonSchema.enum = literals;
     } else if (
@@ -470,26 +455,21 @@ export const internalToJSONSchemaBase = (
     const properties = schema.properties!;
     const additionalItems = schema.additionalItems!;
     if (typeof additionalItems === "object") {
-      const childSchema = additionalItems;
       jsonSchema.type = "object";
       const childJsonSchema = internalToJSONSchema(
-        childSchema,
+        additionalItems,
         pathConcat(path, pathDynamic),
         defs,
         schema,
         target
       );
       jsonSchema.additionalProperties =
-        Object.keys(childJsonSchema as unknown as Record<string, unknown>).length === 0
-          ? true
-          : childJsonSchema;
+        Object.keys(childJsonSchema).length === 0 ? true : childJsonSchema;
     } else {
       const required: string[] = [];
-      const keys = Object.keys(properties);
       const jsonProperties: Record<string, JSONSchemaDefinition> = {};
 
-      for (let idx = 0; idx <= keys.length - 1; idx++) {
-        const key = keys[idx]!;
+      Object.keys(properties).forEach((key) => {
         const itemSchema = properties[key]!;
         const fieldSchema = internalToJSONSchema(
           itemSchema,
@@ -502,7 +482,7 @@ export const internalToJSONSchemaBase = (
           required.push(key);
         }
         jsonProperties[key] = fieldSchema;
-      }
+      });
 
       jsonSchema.type = "object";
       jsonSchema.properties = jsonProperties;
@@ -537,7 +517,7 @@ export const internalToJSONSchemaBase = (
         })(),
         flagUnsafeHas(tagFlags[parent.type]!, tagFlagUnion) ? parent : schema,
         path,
-        0 as unknown as undefined,
+        undefined,
         false
       )
     );
@@ -555,7 +535,7 @@ export type toJSONSchemaOptions = { target?: JsonSchemaTarget };
 // has no `$schema` (openapi-3.0). Raises an `invalid_operation` error for
 // `Unknown` (an unsupported target, e.g. one that arrived as an arbitrary
 // string from JS via the Standard JSON Schema `Options`).
-export const targetSchemaUri = (target: JsonSchemaTarget): string | undefined => {
+const targetSchemaUri = (target: JsonSchemaTarget): string | undefined => {
   switch (target) {
     case "draft-07":
       return "http://json-schema.org/draft-07/schema#";
@@ -589,15 +569,8 @@ export const toJSONSchema = (schema: Internal, options?: toJSONSchemaOptions): J
     target = "draft-07";
     schemaUri = undefined;
   }
-  const rootSchema = schema;
   const defs: Record<string, Internal> = {};
-  const jsonSchema = internalToJSONSchema(
-    rootSchema,
-    pathEmpty,
-    defs,
-    rootSchema,
-    target
-  );
+  const jsonSchema = internalToJSONSchema(schema, pathEmpty, defs, schema, target);
   delete (defs as Record<string, unknown>).JSON;
   const defsKeys = Object.keys(defs);
   if (defsKeys.length) {
@@ -609,9 +582,11 @@ export const toJSONSchema = (schema: Internal, options?: toJSONSchemaOptions): J
       jsonSchemDefs[key] = internalToJSONSchema(
         schema,
         pathEmpty,
-        // It's not possible to have nested recursive schema.
-        // It should be grouped to a single $defs of the most top-level schema.
-        0 as unknown as Record<string, Internal>,
+        // A fresh, thrown-away sink — it's not possible to have nested
+        // recursive schemas here; everything should be grouped into the
+        // single top-level $defs collected above, not accumulate into a
+        // second one.
+        {},
         schema,
         target
       );
@@ -671,10 +646,7 @@ const primitiveToSchema = (primitive: unknown): Internal => {
 
 const toIntSchema = (jsonSchema: JSONSchemaT): Internal => {
   let schema = int();
-  // TODO: Support jsonSchema.multipleOf when it's in rescript-schema
-  // if (typeof jsonSchema.multipleOf === "number" && jsonSchema.multipleOf !== 1) {
-  //  r += `.multipleOf(${jsonSchema.multipleOf})`;
-  // }
+  // TODO: Support jsonSchema.multipleOf
   if (jsonSchema.minimum !== undefined) {
     schema = intMin(schema, jsonSchema.minimum | 0);
   } else if (jsonSchema.exclusiveMinimum !== undefined) {
@@ -710,12 +682,8 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
   };
 
   let schema: Internal;
-  if ((jsonSchema as { nullable?: boolean }).nullable) {
-    schema = null_(
-      fromJSONSchema(
-        jsonSchemaMerge(jsonSchema, { nullable: false } as unknown as JSONSchemaT)
-      )
-    );
+  if (jsonSchema.nullable) {
+    schema = null_(fromJSONSchema(jsonSchemaMerge(jsonSchema, { nullable: false })));
   } else if (jsonSchema.type === "object") {
     if (jsonSchema.properties !== undefined) {
       const properties = jsonSchema.properties;
@@ -723,7 +691,7 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
       Object.keys(properties).forEach((key) => {
         const property = properties[key]!;
         let propertySchema = jsonDefinitionToSchema(property);
-        if (!(jsonSchema.required !== undefined && jsonSchema.required.includes(key))) {
+        if (!jsonSchema.required?.includes(key)) {
           const defaultValue = definitionToDefaultValue(property);
           if (defaultValue !== undefined) {
             propertySchema = Option_getOr(option(propertySchema), defaultValue);
@@ -734,7 +702,7 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
         obj[key] = propertySchema;
       });
       schema = definitionToSchema(obj);
-      if (jsonSchema.additionalProperties !== undefined && jsonSchema.additionalProperties === false) {
+      if (jsonSchema.additionalProperties === false) {
         schema = strict(schema);
       }
     } else {
@@ -825,8 +793,8 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
             try {
               assertOrThrow(data, jsonDefinitionToSchema(d));
               validCount = validCount + 1;
-            } catch (_) {
-              // ()
+            } catch {
+              // Not valid against this definition — doesn't count towards validCount.
             }
           });
           return validCount === 1;
@@ -862,13 +830,7 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
     schema = primitiveToSchema(jsonSchema.const);
   } else if (Array.isArray(jsonSchema.type)) {
     const types = jsonSchema.type;
-    schema = union(
-      types.map((type_) => {
-        return fromJSONSchema(
-          jsonSchemaMerge(jsonSchema, { type: type_ })
-        );
-      })
-    );
+    schema = union(types.map((type) => fromJSONSchema(jsonSchemaMerge(jsonSchema, { type }))));
   } else if (jsonSchema.type === "string") {
     if (jsonSchema.format === "email") {
       schema = email();
@@ -947,7 +909,7 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
     throw new SuryError({
       code: "invalid_operation",
       path: pathEmpty,
-      reason: `Unsupported JSON Schema type: ${jsonSchema.type as unknown as string}`,
+      reason: `Unsupported JSON Schema type: ${jsonSchema.type}`,
     });
   } else {
     schema = anySchema;
@@ -959,15 +921,12 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
     jsonSchema.examples !== undefined ||
     jsonSchema.title !== undefined
   ) {
-    // PORT-NOTE: ReScript's `title: ?jsonSchema.title` optional-field punning
-    // assigns the option value directly (present-with-undefined when None) —
-    // a plain object literal with possibly-undefined fields matches that.
     schema = meta(schema, {
       title: jsonSchema.title,
       description: jsonSchema.description,
       deprecated: jsonSchema.deprecated,
       examples: jsonSchema.examples,
-    } as unknown as Parameters<typeof meta>[1]);
+    });
   }
 
   return schema;
@@ -982,7 +941,7 @@ export const min = (schema: Internal, minValue: number, maybeMessage?: string): 
     case numberTag:
       return schema.format === "int32" || schema.format === "port"
         ? intMin(schema, minValue, maybeMessage)
-        : floatMin(schema, minValue as unknown as number, maybeMessage);
+        : floatMin(schema, minValue, maybeMessage);
     default:
       return panic(
         `S.min is not supported for ${toExpression(schema)} schema. Coerce the schema to string, number or array using S.to first.`
@@ -999,7 +958,7 @@ export const max = (schema: Internal, maxValue: number, maybeMessage?: string): 
     case numberTag:
       return schema.format === "int32" || schema.format === "port"
         ? intMax(schema, maxValue, maybeMessage)
-        : floatMax(schema, maxValue as unknown as number, maybeMessage);
+        : floatMax(schema, maxValue, maybeMessage);
     default:
       return panic(
         `S.max is not supported for ${toExpression(schema)} schema. Coerce the schema to string, number or array using S.to first.`

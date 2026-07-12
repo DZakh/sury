@@ -102,6 +102,25 @@ S.reverse(S.schema({
 - **Loop guard message says 100 but triggers at 50.** The recursion guard in
   `packages/sury/src/parse.ts` throws "Loop count exceeded 100" behind a
   `> 50` check — align the number (and consider making the limit configurable).
+- **`deepStrip`/`deepStrict` don't descend when a nested schema's
+  `additionalItems` already matches the target mode.**
+  `Object_setAdditionalItems` (`packages/sury/src/operations.ts`) early-returns
+  the schema unchanged whenever `currentAdditionalItems === additionalItems`,
+  which also skips the `deep` recursion into `items`/`properties` — so a
+  nested object whose own mode already matches the top-level target, but whose
+  children don't, is left un-recursed-into. Present verbatim in the original
+  ReScript `Object.setAdditionalItems` (`Sury.res`), carried through the TS
+  migration unchanged.
+- **Homomorphic tuple-mapped types don't map variadic tuple elements.**
+  `UnknownArrayToOutput`/`UnknownArrayToInput` (`packages/sury/src/S.d.ts`)
+  guard on `number extends T["length"]` to distinguish tuples from plain
+  arrays, but a variadic tuple like `[string, ...number[]]` also has
+  `T["length"]` widened to `number`, so it falls into the "return as-is"
+  branch instead of mapping each element through `UnknownToOutput`/
+  `UnknownToInput`. Same guard existed in the original recursive
+  `_RestToOutput`/`_RestToInput` accumulator types, so this isn't a regression
+  from the homomorphic-type rewrite — just an existing gap now easier to spot
+  in the simpler form.
 
 ## v11 initial
 
