@@ -353,7 +353,7 @@ case the harness *should* have caught or guided better — a missing check, a we
 error message, a strictness gap that let a bad spec through — add a bullet here
 instead of silently working around it.
 
-- <placeholder>
+- `ts.instantiations`/`ts.bundleBytes` are sensitive to the exact toolchain (observed: Node 22.22.2 vs CI's pinned 24.16.0 produced different values for the same schema and same pinned esbuild/typescript versions — every other field, including generated code, matched exactly). `spec check --write` run on a machine that isn't CI can silently commit goldens CI will immediately reject. The harness could either pin/document the expected Node version for authoring, or print a warning when `process.version` doesn't match CI's, so `--write` output is trustworthy without a round-trip through Actions.
 
 ## License
 

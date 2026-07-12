@@ -143,9 +143,37 @@ test("Encodes object with a union of flattened tagged objects field to JSON stri
     `{"type":"a"}`,
   )
 
-  // Still fails once nested inside another object
+  // Regression: used to fail once nested inside another object
   t->Assert.deepEqual(
     {x: FlattenedA({s: None})}->S.decodeOrThrow(~from=flattenedContainerSchema, ~to=S.jsonString),
     `{"x":{"type":"a"}}`,
+  )
+})
+
+// https://github.com/DZakh/sury/pull/297#discussion_r3565781924
+// arrayDecoder has the same no-transform pass-through as objectDecoder (fixed
+// in the same commit), so cover the array/tuple side of the class too.
+test("Encodes an array of flattened tagged union values to JSON string", t => {
+  let arraySchema = S.array(flattenedXSchema)
+
+  t->Assert.deepEqual(
+    [FlattenedA({s: None}), FlattenedB({v: 1})]->S.decodeOrThrow(~from=arraySchema, ~to=S.jsonString),
+    `[{"type":"a"},{"v":1,"type":"b"}]`,
+  )
+
+  // Nested inside an object, matching the object regression above
+  let containerSchema = S.schema(s => {"items": s.matches(arraySchema)})
+  t->Assert.deepEqual(
+    {"items": [FlattenedA({s: None})]}->S.decodeOrThrow(~from=containerSchema, ~to=S.jsonString),
+    `{"items":[{"type":"a"}]}`,
+  )
+})
+
+test("Encodes a tuple of a flattened tagged union value to JSON string", t => {
+  let tupleSchema = S.tuple1(flattenedXSchema)
+
+  t->Assert.deepEqual(
+    FlattenedA({s: None})->S.decodeOrThrow(~from=tupleSchema, ~to=S.jsonString),
+    `[{"type":"a"}]`,
   )
 })

@@ -3,8 +3,8 @@ ts:
   schema: 'S.schema({x: S.union([S.object(s => { s.tag("type", "a"); return {TAG:"A", s: s.field("s", S.optional(S.string))} }), S.object(s => { s.tag("type", "b"); return {TAG:"B", v: s.field("v", S.int32)} })])}).with(S.to, S.json)'
   input: "{ x: Record<string, unknown>; }"
   output: JSON
-  instantiations: 7793
-  bundleBytes: 13297
+  instantiations: 7687
+  bundleBytes: 13138
 jsonSchema:
   input: '{ type: "object", properties: { x: { anyOf: [{ type: "object", properties: { type: { type: "string", const: "a" }, s: { type: "string" } }, required: ["type"] }, { type: "object", properties: { type: { type: "string", const: "b" }, v: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, required: ["type", "v"] }] } }, required: ["x"] }'
   output: '{ type: "object", properties: { x: { anyOf: [{ type: "object", properties: { TAG: { type: "string", const: "A" }, s: {} }, additionalProperties: false, required: ["TAG"] }, { type: "object", properties: { TAG: { type: "string", const: "B" }, v: { type: "integer", minimum: -2147483648, maximum: 2147483647 } }, additionalProperties: false, required: ["TAG", "v"] }] } }, additionalProperties: false, required: ["x"] }'
