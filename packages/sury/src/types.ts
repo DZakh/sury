@@ -234,8 +234,9 @@ export type Val = {
   // @as("cp") — codeFromPrev
   cp: Code;
   // Emitted checks code, set by `merge` when this val's segment is consed
-  // into the rope (the val doubles as its own hole). @as("ck") — checksCode
-  ck?: string;
+  // into the rope (the val doubles as its own hole). Initialized "" at every
+  // construction so the join can read it unconditionally. @as("ck") — checksCode
+  ck: string;
   // No-throw producer expression (e.g. `+i`): set by coercions whose
   // producing expression can never throw, so `merge(~hoistCond)` may fold
   // it into a union dispatch condition instead of deopting the case to

@@ -120,7 +120,7 @@ test("identity claimed but the operation doesn't actually compile to identity", 
     -   instantiations: 254
     -   bundleBytes: 4012
     +   instantiations: 5181
-    +   bundleBytes: 4499
+    +   bundleBytes: 4500
       jsonSchema:
     -   input: '{ type: "string" }'
     -   output: '{ type: "string" }'
