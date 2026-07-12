@@ -42,3 +42,6 @@ operations:
       invalid-value:
         input: 456n
         error: Expected 123n, received 456n
+      invalid-type:
+        input: "123"
+        error: Expected 123n, received 123
