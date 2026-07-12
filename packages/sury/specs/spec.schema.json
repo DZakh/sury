@@ -229,6 +229,10 @@
               "const": "identity"
             },
             {
+              "type": "string",
+              "const": "validated"
+            },
+            {
               "type": "object",
               "properties": {
                 "expression": {
@@ -322,6 +326,10 @@
             {
               "type": "string",
               "const": "identity"
+            },
+            {
+              "type": "string",
+              "const": "validated"
             },
             {
               "type": "object",

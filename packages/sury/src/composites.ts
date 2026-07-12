@@ -549,59 +549,90 @@ export const unionIsSpecific = (schema: Internal): boolean => {
 // empty row means no target is left — the conversion errors.
 export const unionResolveTargets = (sources: Internal[], targets: Internal[]): Internal[][] => {
   const resolved: (Internal[] | undefined)[] = [];
-  const reserved = new Set<Internal>();
-  const exactBound = new Set<Internal>();
+  // Keyed by schema seq: 2 — exclusively bound to an exact-matching source
+  // case, 1 — reserved by tiers 1-2
+  const taken: Record<number, number> = {};
 
-  sources.forEach((source, idx) => {
-    if (flagUnsafeHas(tagFlags[source.type]!, (tagFlagUnknown | tagFlagUnion) | tagFlagRef)) {
+  for (let idx = 0; idx < sources.length; idx++) {
+    const source = sources[idx]!;
+    const sourceTagFlag = tagFlags[source.type]!;
+    if (flagUnsafeHas(sourceTagFlag, (tagFlagUnknown | tagFlagUnion) | tagFlagRef)) {
       resolved[idx] = targets;
     } else {
-      const group = targets.filter((t) => unionToKey(t) === unionToKey(source));
-      const exact = unionIsSpecific(source)
-        ? group.find((t) =>
-            isLiteral(source)
-              ? t.const === source.const ||
+      const key = unionToKey(source);
+      const sourceIsLiteral = isLiteral(source);
+      let exact = false;
+      let hasSameType = false;
+      // Specifics go before catch-alls, keeping target order within each
+      let specificsEnd = 0;
+      const candidates: Internal[] = [];
+      for (let tIdx = 0; tIdx < targets.length; tIdx++) {
+        const target = targets[tIdx]!;
+        if (unionToKey(target) === key) {
+          hasSameType = true;
+          if (
+            unionIsSpecific(source) &&
+            (sourceIsLiteral
+              ? target.const === source.const ||
                 // Same-tag NaN consts never compare equal
-                flagUnsafeHas(tagFlags[source.type]!, tagFlagNaN)
-              : t.format === source.format,
-          )
-        : undefined;
-      if (exact !== undefined) {
-        resolved[idx] = [exact];
-        reserved.add(exact);
-        exactBound.add(exact);
-      } else if (group.length) {
-        const candidates = group
-          .filter(
-            (t) =>
-              !exactBound.has(t) &&
-              // A differing const can never accept the source value
-              !(isLiteral(t) && isLiteral(source)),
-          )
-          .sort((a, b) => +unionIsSpecific(b) - +unionIsSpecific(a));
-        candidates.forEach((t) => reserved.add(t));
+                flagUnsafeHas(sourceTagFlag, tagFlagNaN)
+              : target.format === source.format)
+          ) {
+            candidates.length = 0;
+            candidates.push(target);
+            taken[target.seq!] = 2;
+            exact = true;
+            break;
+          }
+          if (
+            taken[target.seq!] !== 2 &&
+            // A differing const can never accept the source value
+            !(isLiteral(target) && sourceIsLiteral)
+          ) {
+            if (unionIsSpecific(target)) {
+              candidates.splice(specificsEnd++, 0, target);
+            } else {
+              candidates.push(target);
+            }
+          }
+        }
+      }
+      if (exact) {
+        resolved[idx] = candidates;
+      } else if (hasSameType) {
+        for (let cIdx = 0; cIdx < candidates.length; cIdx++) {
+          taken[candidates[cIdx]!.seq!] = 1;
+        }
         resolved[idx] = candidates;
       }
     }
-  });
+  }
 
-  sources.forEach((source, idx) => {
+  for (let idx = 0; idx < sources.length; idx++) {
+    const source = sources[idx]!;
     if (
       resolved[idx] === undefined &&
       flagUnsafeHas(tagFlags[source.type]!, tagFlagNull | tagFlagUndefined)
     ) {
-      const target = targets.find(
-        (t) =>
-          t.type === (source.type === nullTag ? undefinedTag : nullTag) && !reserved.has(t),
-      );
-      if (target !== undefined) {
-        resolved[idx] = [target];
-        reserved.add(target);
+      const oppositeTag = source.type === nullTag ? undefinedTag : nullTag;
+      for (let tIdx = 0; tIdx < targets.length; tIdx++) {
+        const target = targets[tIdx]!;
+        if (target.type === oppositeTag && taken[target.seq!] === undefined) {
+          taken[target.seq!] = 1;
+          resolved[idx] = [target];
+          break;
+        }
       }
     }
-  });
+  }
 
-  return sources.map((_, idx) => resolved[idx] || targets.filter((t) => !reserved.has(t)));
+  for (let idx = 0; idx < sources.length; idx++) {
+    if (resolved[idx] === undefined) {
+      resolved[idx] = targets.filter((t) => taken[t.seq!] === undefined);
+    }
+  }
+
+  return resolved as Internal[][];
 }
 
 // A trusted union input passes through when every variant resolves to itself
@@ -1321,24 +1352,35 @@ export const unionFactory = (schemas: Internal[]): Internal => {
     return schemas[0]!;
   } else {
     const has: Record<string, boolean> = {};
-    const anyOf = new Set<Internal>();
+    const anyOf: Internal[] = [];
+    // Membership-only Set with a plain array alongside — skips the
+    // Array.from copy a Set-backed anyOf would need at the end
+    const seen = new Set<Internal>();
 
     for (let idx = 0; idx < schemas.length; idx++) {
       const schema = schemas[idx]!;
 
       // Check if the union is not transformed
       if (schema.type === unionTag && schema.to === undefined) {
-        schema.anyOf!.forEach((item) => {
-          anyOf.add(item);
-        });
+        const items = schema.anyOf!;
+        for (let itemIdx = 0; itemIdx < items.length; itemIdx++) {
+          const item = items[itemIdx]!;
+          if (!seen.has(item)) {
+            seen.add(item);
+            anyOf.push(item);
+          }
+        }
         Object.assign(has, schema.has!);
       } else {
-        anyOf.add(schema);
+        if (!seen.has(schema)) {
+          seen.add(schema);
+          anyOf.push(schema);
+        }
         setHas(has, schema.type);
       }
     }
     const mut = baseSchema(unionTag, false);
-    mut.anyOf = Array.from(anyOf);
+    mut.anyOf = anyOf;
     mut.decoder = unionDecoder;
     mut.encoder = unionEncoder;
     mut.has = has;

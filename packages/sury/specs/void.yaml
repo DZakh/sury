@@ -18,15 +18,5 @@ operations:
       invalid-null:
         input: "null"
         error: Expected void, received null
-  decode:
-    expression: i=>{i===void 0||e[0](i);return i}
-    examples:
-      valid:
-        input: undefined
-        output: undefined
-  encode:
-    expression: i=>{i===void 0||e[0](i);return i}
-    examples:
-      valid:
-        input: undefined
-        output: undefined
+  decode: validated
+  encode: validated

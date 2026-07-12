@@ -21,9 +21,5 @@ operations:
       number-is-not-coerced:
         input: "42"
         error: Expected bigint | string, received 42
-  decode:
-    expression: i=>{if(!(typeof i==="bigint"||typeof i==="string")){e[0](i)}return i}
-    examples: {}
-  encode:
-    expression: i=>{if(!(typeof i==="bigint"||typeof i==="string")){e[0](i)}return i}
-    examples: {}
+  decode: validated
+  encode: validated

@@ -21,9 +21,7 @@ operations:
       c-is-not-a-source-case:
         input: '"c"'
         error: Expected "a" | "b", received "c"
-  decode:
-    expression: i=>{if(!(typeof i==="string"&&(i==="a"||i==="b"))){e[0](i)}return i}
-    examples: {}
+  decode: validated
   encode:
     expression: i=>{if(typeof i==="string"){if(!(i==="b"||i==="a")){e[1](i,e[0])}}else{e[2](i)}return i}
     examples: {}

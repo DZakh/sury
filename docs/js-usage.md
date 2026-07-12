@@ -872,7 +872,7 @@ type Schema = S.Infer<typeof schema>; // "Win" | "Draw" | "Loss"
 
 ### Decoding into / out of a union
 
-Converting between unions (via `S.to`, or implicitly by reversing the schema) maps each **source** case to exactly one **target** case. Sury applies three rules across all source cases — tier 1 first, then tier 2, then tier 3 — and **reserves** a target as soon as a case binds to it, so no other case can reuse it (tiers 1 and 2 reserve; tier 3 does not):
+Converting between unions (via `S.to`, or implicitly by reversing the schema) maps each **source** case to a **target** case (several source cases may share one target — `"a" | "b"` both bind a `string` target). Sury applies three rules across all source cases — tier 1 first, then tier 2, then tier 3 — and **reserves** a target as soon as a case binds to it, so no other case can reuse it (tiers 1 and 2 reserve; tier 3 does not):
 
 1. **Same-type match (tier 1).** A source case that has a target of the same type binds to it directly and is never coerced. With several same-type targets, an exact value/format match (a specific string literal, `Int32`, …) wins over a catch-all, in target order. The matched target is reserved. If same-type targets exist but none accept the value, the conversion errors — it never falls through to coercion.
 2. **Nullish bridge (tier 2).** A remaining `null` or `undefined` source case maps to the opposite nullish target (`null` ↔ `undefined`) when one is still free, and reserves it.
