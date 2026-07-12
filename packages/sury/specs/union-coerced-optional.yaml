@@ -35,4 +35,16 @@ operations:
     examples: {}
   encode:
     expression: i=>{if(typeof i==="number"&&!Number.isNaN(i)){i=""+i}else if(i===void 0){i="undefined"}else if(!(typeof i==="boolean")){e[0](i)}return i}
-    examples: {}
+    examples:
+      number:
+        input: "42"
+        output: '"42"'
+      sentinel:
+        input: undefined
+        output: '"undefined"'
+      boolean:
+        input: "true"
+        output: "true"
+      rejected:
+        input: '"x"'
+        error: Expected number | undefined | boolean, received "x"

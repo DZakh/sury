@@ -75,7 +75,7 @@ Core fields:
 - `path` — location in input (for errors)
 - `isOutput` — `Some(true)` once refiners have been applied (see Refiner ownership)
 
-Deferred emission: generated code is a `Code` rope (`string | Code[] | Val`) where a val stands in as its own hole — the single `B_joinCode` in `compileDecoder` resolves it to `codeFromPrev` + `checksCode` + `hoistedDecls`, so all three stay writable after the val's segment was merged. Joining IS freezing: resolving a val's marker (or a mid-compile join into a closure body — `.then`, `Promise.all`, loop bodies) sets `finalized`. A caller that branches on `B_isEmptyCode` and then discards a tree must join it first so a late fill falls back to an inline re-read instead of being dropped.
+Deferred emission: generated code is a `Code` rope (`string | Code[] | Val`) where a val stands in as its own hole — the single `B_joinCode` in `compileDecoder` resolves it to `codeFromPrev` + `checksCode` + `hoistedDecls`, so all three stay writable after the val's segment was merged. Joining IS freezing: resolving a val's marker (or a mid-compile join into a closure body — `.then`, `Promise.all`, loop bodies) sets `finalized`. An all-empty merge collapses to a sealed `""` (`B_collapseMerge`), so emptiness checks are plain string comparisons and discarding an empty result is always safe.
 
 Transformation chain (relative to `.prev`):
 - `prev` — previous val in the chain
