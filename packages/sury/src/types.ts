@@ -214,8 +214,8 @@ export type Val = {
   // @as("fv") — flattenedVals
   fv?: Val[];
   // Code produced from `.prev` — a plain string rope in the common case.
-  // `merge` embeds a `{c: val}` hole instead of the value, so reassigning
-  // `cp` stays legal any time before the final join in compileDecoder.
+  // `merge` embeds the val itself as its own hole, so reassigning `cp`
+  // stays legal any time before the final join in compileDecoder.
   // @as("cp") — codeFromPrev
   cp: Code;
   // Emitted checks code, set by `merge` when this val's segment is consed
@@ -228,9 +228,9 @@ export type Val = {
   // try/catch. @as("pe") — pureExpression
   pe?: string;
   // Comma-joined `let` declarations hoisted onto this val by descendants
-  // that couldn't own them. `merge` embeds a `{h: val}` hole after this
-  // val's checks; the join reads `hd` at the end, so hoists stay legal after
-  // the val's segment was merged. @as("hd") — hoistedDecls
+  // that couldn't own them. This val's own marker in the rope resolves
+  // `hd` right after its checks; the join reads it at the end, so hoists
+  // stay legal after the val's segment was merged. @as("hd") — hoistedDecls
   hd: string;
   // Set by the join when this val's holes were resolved into a string (a
   // mid-compile join stringifies into a closure body or discards an empty
