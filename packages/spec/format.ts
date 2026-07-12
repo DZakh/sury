@@ -112,6 +112,12 @@ const ts = S.schema({
       "The schema under test, as JS `.with`-chain source (e.g. `S.string.with(S.min, 3)`). " +
       "You write this by hand; `spec check --write` never touches it.",
   }),
+  aliases: S.optional(S.array(S.string)).with(S.meta, {
+    description:
+      "Alternate `.with`-chain sources that must produce a schema equivalent to `schema` — " +
+      "same ts.input/ts.output, jsonSchema, and operations. Checked live (not separately " +
+      "snapshotted) by `spec check`. You write these by hand.",
+  }),
   input: orSkip(S.string).with(S.meta, {
     description: "`S.Input<typeof schema>` as a TS type string. Filled by `spec check --write`.",
   }),
@@ -157,6 +163,7 @@ const keyOrder = <T,>(order: Record<keyof T, true>) => Object.keys(order) as (ke
 export const KEY_ORDER = keyOrder<Spec>({ ts: true, jsonSchema: true, operations: true });
 export const TS_KEY_ORDER = keyOrder<Spec["ts"]>({
   schema: true,
+  aliases: true,
   input: true,
   output: true,
   instantiations: true,
