@@ -292,16 +292,22 @@ const getValByFrom = (input: Val, from: string[], idx: number): Val => {
   }
 }
 
-// Assemble an object/tuple val from a per-location field producer. Shared by
-// the shaped-parser reshape (reads each child via `from` paths) and the
-// flatten reuse path (reads each key from the parent's decoded `vals`).
+// Owns the shaped structure walk: assembles an object/tuple val from a
+// per-location field producer. `init` wires the fresh objectVal before the
+// walk and may pre-populate `d` (flattened merge) — pre-populated locations
+// are skipped. `onMissing` handles a non-object/tuple target.
 const assembleShapedObject = (
   input: Val,
   schema: Internal,
-  field: (location: string, childSchema: Internal) => Val
+  field: (location: string, childSchema: Internal) => Val,
+  init?: (output: Val) => void,
+  onMissing?: () => void
 ): Val => {
   const output = makeObjectVal(input, schema);
   output.io = true;
+  if (init !== undefined) {
+    init(output);
+  }
   if (schema.items !== undefined) {
     const items = schema.items;
     for (let idx = 0; idx < items.length; idx++) {
@@ -313,8 +319,13 @@ const assembleShapedObject = (
     const keys = Object.keys(properties);
     for (let idx = 0; idx < keys.length; idx++) {
       const location = keys[idx]!;
-      B_addObjectField(output, location, field(location, properties[location]!));
+      // Skip locations pre-populated by init (flattened fields)
+      if (!(location in output.d!)) {
+        B_addObjectField(output, location, field(location, properties[location]!));
+      }
     }
+  } else if (onMissing !== undefined) {
+    onMissing();
   } else {
     panic(
       `Don't know where the value is coming from: ${toExpression(schema)}` +
@@ -450,55 +461,57 @@ const getShapedSerializerOutput = (
   path: Path
 ): Val => {
   if (acc !== undefined && acc.val !== undefined) {
+    // Placement of an already-decoded val — don't overwrite its schema (#284);
+    // parse only re-advances `e` and emits nothing for an output val
     const v = B_scope(acc.val);
     v.t = true;
-    v.s = targetSchema;
     v.e = targetSchema;
     return parse(v);
+  } else if (isLiteral(targetSchema)) {
+    const v = B_nextConst(input, targetSchema, targetSchema);
+    v.prev = undefined;
+    v.p = input;
+    v.v = _notVarAtParent;
+    v.io = true;
+    return parse(v);
   } else {
-    if (isLiteral(targetSchema)) {
-      const v = B_nextConst(input, targetSchema, targetSchema);
-      v.prev = undefined;
-      v.p = input;
-      v.v = _notVarAtParent;
-      v.io = true;
-      return parse(v);
-    } else {
-      // When acc is None (discriminant field with no input), follow the to chain
-      // to get the actual output schema properties (e.g., for reversed transformed objects)
-      const resolvedTargetSchema = acc === undefined ? getOutputSchema(targetSchema) : targetSchema;
-      const v = makeObjectVal(input, resolvedTargetSchema);
-      v.e = resolvedTargetSchema;
-      v.io = true;
-      v.prev = undefined;
-      v.p = input;
-      v.v = _notVarAtParent;
+    // When acc is undefined (discriminant field with no input), follow the to chain
+    // to get the actual output schema properties (e.g., for reversed transformed objects)
+    const resolvedTargetSchema = acc === undefined ? getOutputSchema(targetSchema) : targetSchema;
 
-      if (
-        resolvedTargetSchema.items !== undefined &&
-        !(acc === undefined && typeof resolvedTargetSchema.additionalItems === objectTag)
-      ) {
-        const items = resolvedTargetSchema.items;
-        for (let idx = 0; idx < items.length; idx++) {
-          const location = String(idx);
-          B_addObjectField(
-            v,
-            location,
-            getShapedSerializerOutput(
-              input,
-              acc !== undefined && acc.properties !== undefined
-                ? acc.properties[location]
-                : undefined,
-              items[idx]!,
-              pathConcat(path, pathFromInlinedLocation(B_inlineLocation(input.g, location)))
-            )
-          );
-        }
-      } else if (
-        resolvedTargetSchema.properties !== undefined &&
-        !(acc === undefined && typeof resolvedTargetSchema.additionalItems === objectTag)
-      ) {
-        const properties = resolvedTargetSchema.properties;
+    const missingInput = (): never => {
+      // PORT-NOTE: the source shadows `path` here; renamed to `path2` (TS
+      // can't redeclare a parameter in the same scope).
+      const path2 =
+        targetSchema.from !== undefined
+          ? path + targetSchema.from.map((item) => `["${item}"]`).join("")
+          : path;
+      return B_invalidOperation(
+        input,
+        `Missing input for ${toExpression(targetSchema)}` + (path2 === "" ? "" : ` at ${path2}`)
+      );
+    };
+
+    // A dict-like target has no fixed locations to walk without an input acc
+    if (acc === undefined && typeof resolvedTargetSchema.additionalItems === objectTag) {
+      return missingInput();
+    }
+
+    return assembleShapedObject(
+      input,
+      resolvedTargetSchema,
+      (location, childSchema) =>
+        getShapedSerializerOutput(
+          input,
+          acc !== undefined && acc.properties !== undefined ? acc.properties[location] : undefined,
+          childSchema,
+          pathConcat(path, pathFromInlinedLocation(B_inlineLocation(input.g, location)))
+        ),
+      (v) => {
+        v.e = resolvedTargetSchema;
+        v.prev = undefined;
+        v.p = input;
+        v.v = _notVarAtParent;
         const flattened = resolvedTargetSchema.flattened;
         if (flattened !== undefined && acc !== undefined && acc.flattened !== undefined) {
           const flattenedSchemas = flattened;
@@ -513,43 +526,9 @@ const getShapedSerializerOutput = (
             B_mergeObjectFields(v, flattenedOutput.d!);
           });
         }
-
-        const keys = Object.keys(properties);
-        for (let idx = 0; idx < keys.length; idx++) {
-          const location = keys[idx]!;
-
-          // Skip fields added by flattened
-          if (!(location in v.d!)) {
-            B_addObjectField(
-              v,
-              location,
-              getShapedSerializerOutput(
-                input,
-                acc !== undefined && acc.properties !== undefined
-                  ? acc.properties[location]
-                  : undefined,
-                properties[location]!,
-                pathConcat(path, pathFromInlinedLocation(B_inlineLocation(input.g, location)))
-              )
-            );
-          }
-        }
-      } else {
-        // PORT-NOTE: the source shadows `path` here; renamed to `path2` (TS
-        // can't redeclare a parameter in the same scope).
-        const path2 =
-          targetSchema.from !== undefined
-            ? path + targetSchema.from.map((item) => `["${item}"]`).join("")
-            : path;
-        B_invalidOperation(
-          input,
-          `Missing input for ${toExpression(targetSchema)}` +
-            (path2 === "" ? "" : ` at ${path2}`)
-        );
-      }
-
-      return completeObjectVal(v);
-    }
+      },
+      missingInput
+    );
   }
 }
 
