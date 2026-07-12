@@ -235,7 +235,11 @@ export type Val = {
 }
 
 export const immutableEmptyArray: unknown[] = [];
-export const immutableEmptyObject: Record<string, unknown> = {};
+// Null-prototype: used as a schema's `properties` placeholder, so an
+// indexed/`in` lookup for a field named after an Object.prototype member
+// (constructor, toString, hasOwnProperty, ...) must not resolve to
+// something inherited instead of correctly reporting "no such property".
+export const immutableEmptyObject: Record<string, unknown> = Object.create(null);
 
 // This is dirty
 export const isSchemaObject = (obj: unknown): boolean => {
