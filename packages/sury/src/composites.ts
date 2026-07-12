@@ -1,7 +1,7 @@
 import { Literal_parse, isArrayCond, jsonName, objectTagCond, setHas, unit } from "./primitives";
 import { baseSchema, getOrRethrow, panic, reversedKey, unknown, updateOutput } from "./schema";
 import { getOutputSchema, nestedLoc, nestedOptionParser, never_, parse, parseDynamic, typeCheckCond } from "./parse";
-import { B_Val_Object_add, B_Val_addKey, B_Val_scope, B_addCode, B_isEmptyCode, B_joinCode, B_asyncVal, B_dynamicScope, B_embed, B_failWithArg, B_hoistChildChecks, B_hoistDecl, B_inlineConst, B_inlineLocation, B_isHoistable, B_makeInvalidInputDetails, B_markOutput, B_merge, B_mergeWithPathPrepend, B_next, B_nextConst, B_pushCheck, B_refine, B_throw, B_unsupportedDecode, B_varWithoutAllocation, Builder, _notVar, _notVarAtParent, _var, failInvalidType } from "./builder";
+import { B_Val_Object_add, B_Val_addKey, B_Val_scope, B_addCode, B_isEmptyCode, B_joinCode, B_asyncVal, B_dynamicScope, B_embed, B_failWithArg, B_hoistChildChecks, B_hoistDecl, B_inlineConst, B_inlineLocation, B_isHoistable, B_isPeLiftable, B_makeInvalidInputDetails, B_markOutput, B_merge, B_mergeWithPathPrepend, B_next, B_nextConst, B_pushCheck, B_refine, B_throw, B_unsupportedDecode, B_varWithoutAllocation, Builder, _notVar, _notVarAtParent, _var, failInvalidType } from "./builder";
 import { Check, Code, ErrorDetails, Internal, SuryErrorRecord, Val, immutableEmptyArray, immutableEmptyObject, isLiteral, isOptional } from "./types";
 import { flagUnsafeHas, valFlagAsync, valFlagNone } from "./flags";
 import { pathConcat, pathFromInlinedLocation } from "./path";
@@ -761,7 +761,7 @@ export const unionDecoder: Builder = (input: Val) => {
 
         let itemSkipped = false;
         let itemCodeRef: Code = "";
-        const itemCondRef = { contents: "" };
+        const itemCondRef: { contents: string; pl?: boolean } = { contents: "" };
         try {
           const itemOutput = parse(input);
           outputAnyOf.push(itemOutput.s);
@@ -800,6 +800,15 @@ export const unionDecoder: Builder = (input: Val) => {
         const itemCond = itemCondRef.contents;
         const itemCode = itemCodeRef;
         const itemCodeIsEmpty = B_isEmptyCode(itemCode);
+        // An only-case whose cond carries a lifted validation (pure-producer
+        // fold) needs the exhaustive else — without it a failing cond falls
+        // through and invalid input passes silently. A routing-only cond
+        // (e.g. the nested-option sentinel) keeps falling through: on the
+        // typed serialize side a non-matching value belongs to another
+        // variant and must pass unchanged.
+        if (isOnlyCase && itemCondRef.pl && !itemCodeIsEmpty) {
+          withExhaustiveCheck = true;
+        }
         if (itemCodeIsEmpty) {
           // The empty tree is about to be discarded — join it so its chain
           // seals and a late fill can't be silently dropped.
@@ -1124,8 +1133,9 @@ export const unionDecoder: Builder = (input: Val) => {
             const v: Val = valRef;
             valRef = v.prev;
             // Deopt to a try/catch block unless every level's checks are
-            // hoistable into the dispatch condition (same rule as merge).
-            shouldDeopt = !(v.vc && B_isHoistable(v));
+            // hoistable into the dispatch condition (same rules as merge:
+            // plain hoist or pure-producer fold).
+            shouldDeopt = !(v.vc && (B_isHoistable(v) || B_isPeLiftable(v)));
           }
 
           if (shouldDeopt) {

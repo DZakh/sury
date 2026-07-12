@@ -468,6 +468,23 @@ export const B_isHoistable = (val: Val): boolean => {
   return val.t === true ? val.prev!.t !== true && val.cp === "" : true;
 }
 
+// Whether a val's checks can lift together with its no-throw producer
+// (`pe`) folded into the dispatch condition. The producer must read a
+// stable var: a non-transforming prev, or the chain root (the dispatch
+// subject itself, materialized before the branch even when the wider chain
+// carries a transform flag). Shared by `merge(~hoistCond)` and the union
+// deopt scan so they can't drift.
+export const B_isPeLiftable = (val: Val): boolean => {
+  const prev = val.prev;
+  return (
+    val.pe !== undefined &&
+    val.t === true &&
+    prev !== undefined &&
+    (prev.t !== true || prev.prev === undefined) &&
+    val.cp === `let ${val.i}=${val.pe};`
+  );
+}
+
 // Walks the val.prev chain and assembles generated code. When
 // `~hoistCond` is provided (union codegen), type-narrow checks
 // (fail === failInvalidType) lift into that ref as a dispatch
@@ -475,7 +492,7 @@ export const B_isHoistable = (val: Val): boolean => {
 // emit inline so their case-specific error message survives. All
 // other callers pass no `~hoistCond` and get the plain merge:
 // every non-`noValidation` check is emitted inline.
-export const B_merge = (val: Val, hoistCond?: { contents: string }): Code => {
+export const B_merge = (val: Val, hoistCond?: { contents: string; pl?: boolean }): Code => {
   let current: Val | undefined = val;
   const code: Code[] = [];
 
@@ -486,13 +503,29 @@ export const B_merge = (val: Val, hoistCond?: { contents: string }): Code => {
     let currentCode = "";
 
     if (val.vc) {
-      if (hoistCond !== undefined && B_isHoistable(val)) {
+      // Whether this val's type-narrows may lift into the dispatch cond:
+      // plain-hoistable vals read the stable prev var; a val fed by its own
+      // no-throw producer (`pe`, e.g. `+i`) lifts by folding the producer
+      // into the cond as a comma expression and demoting the decl to a
+      // function-scoped `var`, so the assignment in the cond lands before
+      // the branch body that reads it — str->to(option(int)) union cases
+      // become `(v0=+i,!Number.isNaN(v0))` instead of try/catch dispatch.
+      let liftInput: string | undefined;
+      let pureLift = false;
+      if (hoistCond !== undefined) {
+        if (B_isHoistable(val)) {
+          liftInput = current!.v();
+        } else if (B_isPeLiftable(val)) {
+          liftInput = val.i;
+          pureLift = true;
+        }
+      }
+      if (liftInput !== undefined) {
         // Partition: route type-narrows to hoistCond, emit refines inline.
         // `noValidation` is intentionally bypassed for the hoisted part —
         // the cond routes between union cases, it doesn't reject, so
         // suppressing would break dispatch.
-        const prev = current!;
-        const inputVar = prev.v();
+        const inputVar = liftInput;
         const allChecks = val.vc!;
         let localHoist = "";
         for (let i = 0; i < allChecks.length; i++) {
@@ -510,7 +543,15 @@ export const B_merge = (val: Val, hoistCond?: { contents: string }): Code => {
           }
         }
         if (localHoist) {
-          const cond = hoistCond;
+          if (pureLift) {
+            val.cp = `var ${inputVar};`;
+            localHoist = `(${inputVar}=${val.pe},${localHoist})`;
+            // The cond now carries a rejecting validation, not just a
+            // routing discriminant — an only-case must emit the exhaustive
+            // else instead of falling through (see unionDecoder).
+            hoistCond!.pl = true;
+          }
+          const cond = hoistCond!;
           if (cond.contents) {
             cond.contents = `${localHoist}&&${cond.contents}`;
           } else {

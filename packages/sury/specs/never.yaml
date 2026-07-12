@@ -4,7 +4,7 @@ ts:
   input: never
   output: never
   instantiations: 254
-  bundleBytes: 3719
+  bundleBytes: 3799
 jsonSchema:
   input: "{ not: {} }"
   output: "{ not: {} }"

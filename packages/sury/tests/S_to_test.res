@@ -36,18 +36,17 @@ test("Coerce from string to option of int (union dispatch over a converted value
   t->Assert.deepEqual("undefined"->S.parseOrThrow(~to=schema), None)
   t->U.assertThrowsMessage(
     () => "1.5"->S.parseOrThrow(~to=schema),
-    `Expected int32 | undefined, received "1.5"
-- Expected int32, received 1.5`,
+    `Expected int32, received 1.5`,
   )
 
-  // Regression (v0 is not defined): the union discriminant must not be hoisted
-  // above the `let v0 = +i` conversion it reads. The string->number coercion is
-  // a self-contained codeFromPrev unit, so the int branch dispatches via
-  // try/catch with its declaration intact.
+  // The string->number coercion is a no-throw producer, so it folds into the
+  // dispatch condition ((v0=+i,!Number.isNaN(v0))) with a function-scoped
+  // `var v0` in the branch body — condition dispatch instead of the old
+  // try/catch (and no "v0 is not defined" hoisting hazard).
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[3](i);try{let v0=+i;!Number.isNaN(v0)||e[1](i);v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[0](v0);i=v0}catch(e0){if(i==="undefined"){i=void 0}else{e[2](i,e0)}}return i}`,
+    `i=>{typeof i==="string"||e[2](i);if((v0=+i,!Number.isNaN(v0))){var v0;v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[0](v0);i=v0}else if(i==="undefined"){i=void 0}else{e[1](i)}return i}`,
   )
 
   t->Assert.deepEqual(Some(123)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
@@ -423,7 +422,7 @@ test("Coerce string to unboxed union (each item separately)", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[3](i);try{let v0=+i;!Number.isNaN(v0)||e[0](i);i=v0}catch(e0){try{let v1;(v1=i==="true")||i==="false"||e[1](i);i=v1}catch(e1){e[2](i,e0,e1)}}return i}`,
+    `i=>{typeof i==="string"||e[3](i);try{let v0=+i;!Number.isNaN(v0)||e[1](i);i=v0}catch(e1){try{let v1;(v1=i==="true")||i==="false"||e[0](i);i=v1}catch(e2){e[2](i,e1,e2)}}return i}`,
   )
 
   t->Assert.deepEqual(Number(10.)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"10"`))

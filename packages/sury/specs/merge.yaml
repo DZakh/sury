@@ -4,7 +4,7 @@ ts:
   input: "{ a: string; b: number; c: boolean; d: bigint; e: symbol; }"
   output: "{ a: string; b: number; c: boolean; d: bigint; e: symbol; }"
   instantiations: 5630
-  bundleBytes: 10314
+  bundleBytes: 10489
 jsonSchema:
   input: 'Failed at ["d"]: Expected JSON, received bigint'
   output: 'Failed at ["d"]: Expected JSON, received bigint'

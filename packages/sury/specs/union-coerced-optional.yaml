@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.string.with(S.to, S.optional(S.number)), S.boolean])
+  input: string | boolean
+  output: number | boolean | undefined
+  instantiations: 6270
+  bundleBytes: 11111
+jsonSchema:
+  input: '{ anyOf: [{ anyOf: [{ type: "string" }, { type: "string", const: "undefined" }] }, { type: "boolean" }] }'
+  output: Expected JSON, received number | undefined
+operations:
+  parse:
+    expression: i=>{if(typeof i==="string"){if((v0=+i,!Number.isNaN(v0))){var v0;i=v0}else if(i==="undefined"){i=void 0}else{e[0](i)}}else if(!(typeof i==="boolean")){e[1](i)}return i}
+    examples:
+      coerced:
+        input: '"42"'
+        output: "42"
+      sentinel:
+        input: '"undefined"'
+        output: undefined
+      float:
+        input: '"1.5"'
+        output: "1.5"
+      boolean:
+        input: "true"
+        output: "true"
+      rejected:
+        input: '"abc"'
+        error: Expected number | undefined, received "abc"
+      nan-object:
+        input: "{}"
+        error: Expected string | boolean, received { }
+  decode:
+    expression: i=>{if(typeof i==="string"){if((v0=+i,!Number.isNaN(v0))){var v0;i=v0}else if(i==="undefined"){i=void 0}else{e[0](i)}}else if(!(typeof i==="boolean")){e[1](i)}return i}
+    examples: {}
+  encode:
+    expression: i=>{try{if(typeof i==="number"&&!Number.isNaN(i)){i=""+i}else if(i===void 0){i="undefined"}else{e[0](i)}}catch(e0){if(!(typeof i==="boolean")){e[1](i,e0)}}return i}
+    examples: {}

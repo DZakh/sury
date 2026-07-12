@@ -236,6 +236,11 @@ export type Val = {
   // Emitted checks code, set by `merge` when this val's segment is consed
   // into the rope (the val doubles as its own hole). @as("ck") — checksCode
   ck?: string;
+  // No-throw producer expression (e.g. `+i`): set by coercions whose
+  // producing expression can never throw, so `merge(~hoistCond)` may fold
+  // it into a union dispatch condition instead of deopting the case to
+  // try/catch. @as("pe") — pureExpression
+  pe?: string;
   // Comma-joined `let` declarations hoisted onto this val by descendants
   // that couldn't own them. `merge` embeds a `{h: val}` hole after this
   // val's checks; the join reads `hd` at the end, so hoists stay legal after

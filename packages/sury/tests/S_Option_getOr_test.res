@@ -342,7 +342,7 @@ test("Multi-member union with transformed members + getOr", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){try{let v0=+i;!Number.isNaN(v0)||e[0](i);i=v0}catch(e0){try{let v1;try{v1=BigInt(i)}catch(_){e[1](i)}i=v1}catch(e1){e[2](i,e0,e1)}}}else if(!(typeof i==="boolean"||i===void 0)){e[3](i)}return i===void 0?true:i}`,
+    `i=>{if(typeof i==="string"){if((v0=+i,!Number.isNaN(v0))){var v0;i=v0}else{try{let v1;try{v1=BigInt(i)}catch(_){e[0](i)}i=v1}catch(e1){e[1](i,e1)}}}else if(!(typeof i==="boolean"||i===void 0)){e[2](i)}return i===void 0?true:i}`,
   )
 
   t->U.assertCompiledCode(

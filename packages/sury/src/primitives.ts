@@ -50,10 +50,13 @@ export const numberDecoder: Builder = (input: Val) => {
 
     const output = B_next(input, outputVar, input.e);
     output.v = _var;
-    // Own the `+input` coercion (decl included) in codeFromPrev so it's
-    // non-hoistable: feeding a union dispatch (e.g. str->to(option(int))) can't
-    // lift the type-narrow check below above its `let v0=+i`.
-    output.cp = `let ${outputVar}=+${input.v()};`;
+    // Own the `+input` coercion (decl included) in codeFromPrev so a plain
+    // union lift can't hoist the type-narrow below above its `let v0=+i`.
+    // `+x` never throws, so expose it as a pure producer: merge(~hoistCond)
+    // may fold it into the dispatch condition (`(v0=+i,!Number.isNaN(v0))`)
+    // instead of deopting the case to try/catch.
+    output.pe = `+${input.v()}`;
+    output.cp = `let ${outputVar}=${output.pe};`;
 
     output.vc = [
       {
