@@ -111,7 +111,7 @@ S.reverse(S.schema({
   children don't, is left un-recursed-into. Present verbatim in the original
   ReScript `Object.setAdditionalItems` (`Sury.res`), carried through the TS
   migration unchanged.
-- **Homomorphic tuple mapped types don't map variadic tuple elements.**
+- **Homomorphic tuple-mapped types don't map variadic tuple elements.**
   `UnknownArrayToOutput`/`UnknownArrayToInput` (`packages/sury/src/S.d.ts`)
   guard on `number extends T["length"]` to distinguish tuples from plain
   arrays, but a variadic tuple like `[string, ...number[]]` also has
