@@ -644,11 +644,10 @@ export const schemaFactory = (definer: (ctx: unknown) => unknown): Internal => {
 export const js_schema = (definition: unknown): Internal => {
   return definitionToSchema(definition);
 }
-export const literal = js_schema;
 
 // PORT-NOTE: `enum` is a reserved word in TS — defined as `enum_` and
 // re-exported under the name `enum` (legal as an export alias).
 const enum_ = (values: unknown[]): Internal => {
-  return unionFactory(values.map(literal));
+  return unionFactory(values.map(js_schema));
 }
 export { enum_ as enum };

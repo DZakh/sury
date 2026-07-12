@@ -92,7 +92,7 @@ export {
   global,
 } from "./jsapi";
 export { getDecoder as decoder, reverse, instance } from "./parse";
-export { js_schema as schema, literal, enum } from "./factory";
+export { js_schema as schema, js_schema as literal, enum } from "./factory";
 export {
   recursive,
   strict,
