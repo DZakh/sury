@@ -3,6 +3,11 @@
 import * as Sury from "sury";
 import * as Primitive_exceptions from "@rescript/runtime/lib/es6/Primitive_exceptions.js";
 
+let Path = {
+  empty: "",
+  dynamic: "[]"
+};
+
 let Exn = /* @__PURE__ */Primitive_exceptions.create("S.Exn");
 
 Sury.$res_setExnId(Exn);
@@ -86,15 +91,11 @@ let Metadata = {
   Id: Id
 };
 
-let Path = {
-  empty: "",
-  dynamic: "[]"
-};
-
 export {
   Path,
-  Flag,
   Exn,
+  Flag,
+  $$Error,
   refine,
   to,
   decoder,
@@ -111,6 +112,5 @@ export {
   tuple3,
   Option,
   Metadata,
-  $$Error,
 }
 /*  Not a pure module */

@@ -3,7 +3,21 @@
 
 type never
 
-module Path = {
+// Signature-ascribed so `t` stays opaque without a top-level S.resi — a bare
+// `type t = string` in an interface-less module would leak the representation.
+module Path: {
+  type t
+
+  external toString: t => string = "%identity"
+
+  let empty: t
+  let dynamic: t
+
+  @module("sury") external toArray: t => array<string> = "$res_pathToArray"
+  @module("sury") external fromArray: array<string> => t = "$res_pathFromArray"
+  @module("sury") external fromLocation: string => t = "$res_pathFromLocation"
+  @module("sury") external concat: (t, t) => t = "$res_pathConcat"
+} = {
   type t = string
 
   external toString: t => string = "%identity"
@@ -302,7 +316,6 @@ and has = {
   array?: bool,
   object?: bool,
 }
-and flag = int
 and error = private {
   message: string,
   reason: string,
@@ -369,12 +382,20 @@ external untag: t<'any> => untagged = "%identity"
 @module("sury") external __setExnId: unknown => unit = "$res_setExnId"
 let () = __setExnId(%raw(`Exn`))
 
-module Flag = {
-  let none: flag = 0
-  let async: flag = 1
-
-  external with: (flag, flag) => flag = "%orint"
+// Opaque `t` via signature ascription (see Path) so the `int` representation
+// doesn't leak now that there's no S.resi to hide it.
+module Flag: {
+  type t
+  let none: t
+  let async: t
+  external with: (t, t) => t = "%orint"
+} = {
+  type t = int
+  let none = 0
+  let async = 1
+  external with: (t, t) => t = "%orint"
 }
+type flag = Flag.t
 
 type s<'value> = {fail: 'a. (string, ~path: Path.t=?) => 'a}
 
