@@ -374,6 +374,60 @@ const diffText = (a: string, b: string): string =>
     contextLines: 3,
   });
 
+// Confirms each `ts.aliases` entry evaluates to a schema equivalent to
+// `ts.schema` — same ts.input/ts.output, jsonSchema, and operations —
+// without giving an alias its own goldens to maintain. Compared directly
+// against the (already-validated) `spec`'s recorded values rather than
+// against each other, so a drifting alias is reported against the one
+// spelling the author actually reads top-to-bottom.
+export const checkAliases = async (spec: Spec): Promise<string[]> => {
+  const aliases = spec.ts.aliases;
+  if (!aliases || !aliases.length) return [];
+  const errs: string[] = [];
+  for (const aliasSrc of aliases) {
+    const label = `ts.aliases[${JSON.stringify(aliasSrc)}]`;
+    let aliasSchema: any;
+    try {
+      aliasSchema = evalSchema(aliasSrc);
+    } catch (e) {
+      errs.push(`${label}: did not evaluate: ${(e as Error).message}`);
+      continue;
+    }
+    if (!isUsableSchema(aliasSchema)) {
+      errs.push(`${label}: evaluated but isn't a Sury schema`);
+      continue;
+    }
+
+    if (!isSkip(spec.ts.input) || !isSkip(spec.ts.output)) {
+      const info = await deriveTypeInfo(aliasSrc);
+      if (!isSkip(spec.ts.input) && info.input !== spec.ts.input)
+        errs.push(`${label}: ts.input ${JSON.stringify(info.input)} !== ${JSON.stringify(spec.ts.input)}`);
+      if (!isSkip(spec.ts.output) && info.output !== spec.ts.output)
+        errs.push(`${label}: ts.output ${JSON.stringify(info.output)} !== ${JSON.stringify(spec.ts.output)}`);
+    }
+
+    const js = deriveJsonSchema(aliasSchema);
+    if (js.input !== spec.jsonSchema.input)
+      errs.push(`${label}: jsonSchema.input differs:\n${diffText(spec.jsonSchema.input, js.input)}`);
+    if (js.output !== spec.jsonSchema.output)
+      errs.push(`${label}: jsonSchema.output differs:\n${diffText(spec.jsonSchema.output, js.output)}`);
+
+    for (const opName of OP_ORDER) {
+      const op = spec.operations[opName];
+      const fn = OP_BUILDER[opName](aliasSchema);
+      const noop = isNoop(fn);
+      if (op === "identity") {
+        if (!noop) errs.push(`${label}: operations.${opName} is \`identity\` on schema but not on this alias`);
+      } else if (noop) {
+        errs.push(`${label}: operations.${opName} compiles to identity on this alias but not on schema`);
+      } else if (!isSkip(op.expression) && fn.toString() !== op.expression) {
+        errs.push(`${label}: operations.${opName}.expression differs:\n${diffText(op.expression, fn.toString())}`);
+      }
+    }
+  }
+  return errs;
+};
+
 // Never mutates a file or exits the process, so it's directly testable —
 // cli.ts's cmdCheck and tests/spec_errors_test.ts both call this same
 // function, so there's exactly one implementation of "what's wrong with this
@@ -425,6 +479,7 @@ export const checkSpec = async (
             : `goldens stale — run \`pnpm spec check ${id} --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix)`) +
             `:\n${diffText(canon, fresh)}`,
         );
+      errs.push(...(await checkAliases(spec)));
     } catch (e) {
       errs.push(`goldens could not be computed: ${(e as Error).message}`);
     }

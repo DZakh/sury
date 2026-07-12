@@ -21,6 +21,10 @@ The CLI strictly enforces the format — follow its error messages. Ops you can'
 
 Examples must include every edge case you discover while working on or investigating the schema — boundary values, IEEE-754 oddities (`-0`, `NaN`, `Infinity`), coercion corner cases, values that exercise each branch of the generated check. If an edge case surfaced in a bug report, review, or investigation, it goes into `examples` before the work is done — the spec is where such findings are pinned, not test files or commit messages.
 
+## Aliases
+
+`ts.aliases` is an optional list of alternate `.with`-chain sources that should behave identically to `ts.schema` — e.g. a shorthand spelling (plain nested object literal instead of an explicit `S.schema(...)`) of the same schema. `spec check` evaluates each alias live and confirms it produces the same `ts.input`/`ts.output`, `jsonSchema`, and operation codegen as `ts.schema` — no separate goldens to maintain, and no examples of its own.
+
 ## Specs are a metrics ratchet
 
 Goldens snapshot the library's key metrics per schema: generated code (`expression`), `ts.bundleBytes`, `ts.instantiations`, inferred types. When changing core logic, run `pnpm spec check --write` and **review the golden diff as the deliverable**: every metric should improve or stay flat. A regression is a design smell — rework the change; if genuinely impossible, call it out explicitly in the commit/PR.
