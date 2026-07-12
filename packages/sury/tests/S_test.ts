@@ -1423,31 +1423,6 @@ test("Successfully parses union with transformed items", (t) => {
   expectSchemaType(schema).toBe<number, string | number>();
 });
 
-test("Nested string literal", (t) => {
-  // A bare property value is always a literal schema at runtime (definitionToSchema
-  // treats it as an exact-match check either way), so `schema()`'s `const T` infers
-  // it as a literal type too — `as const` is redundant, not required.
-  const schema = S.schema({
-    nested: "tuna" as const,
-    withoutAsConst: "tuna",
-    inSchema: S.schema("tuna"),
-  });
-
-  t.expect(
-    S.parser(schema)({
-      nested: "tuna",
-      withoutAsConst: "tuna",
-      inSchema: "tuna",
-    }),
-  ).toEqual({ nested: "tuna", withoutAsConst: "tuna", inSchema: "tuna" });
-
-  expectSchemaType(schema).toBe<{
-    nested: "tuna";
-    withoutAsConst: "tuna";
-    inSchema: "tuna";
-  }>();
-});
-
 test("Correctly infers type", (t) => {
   const schema = S.string.with(S.to, S.number, Number);
   expectSchemaType(schema).toBe<number, string>();

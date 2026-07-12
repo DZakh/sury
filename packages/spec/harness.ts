@@ -14,6 +14,7 @@ import { join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { diffLinesUnified } from "@vitest/utils/diff";
+import ts from "typescript";
 import * as S from "../sury/src/S.mjs";
 import {
   KEY_ORDER,
@@ -97,8 +98,19 @@ export const parseSpec = (raw: string): Spec => parseYaml(raw) as Spec;
 
 export const readSpec = (file: string): Spec => parseSpec(readFileSync(file, "utf8"));
 
+// transpileModule (syntax-only, no type info) strips TS-only syntax like
+// `as const` so aliases can use it — `new Function` only ever sees plain JS.
+// The source is parenthesized before stripping (not after) so a bare object
+// literal parses as an expression, not a block statement with a labeled
+// statement inside — and the trailing `;\n` transpileModule always emits
+// comes off since it's re-wrapped in `return … ;` below.
+const stripTypes = (tsSource: string): string =>
+  ts.transpileModule(`(${tsSource})`, {
+    compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext },
+  }).outputText.trim().replace(/;$/, "");
+
 export const evalSchema = (tsSource: string): any =>
-  new Function("S", `return (${tsSource});`)(S);
+  new Function("S", `return ${stripTypes(tsSource)};`)(S);
 
 // Sury compiles a pass-through operation to this shared function — the ONLY
 // signal identity detection has. If this name is ever changed in Sury's

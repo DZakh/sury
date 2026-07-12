@@ -1,6 +1,9 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: 'S.schema({ foo: "bar" })'
+  aliases:
+    - 'S.schema({ foo: "bar" as const })'
+    - 'S.schema({ foo: S.schema("bar") })'
   input: '{ foo: "bar"; }'
   output: '{ foo: "bar"; }'
   instantiations: 1043
