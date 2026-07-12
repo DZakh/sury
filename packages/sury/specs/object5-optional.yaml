@@ -4,7 +4,7 @@ ts:
   input: "{ b?: number | undefined; d?: bigint | undefined; a: string; c: boolean; e: symbol; }"
   output: "{ b?: number | undefined; d?: bigint | undefined; a: string; c: boolean; e: symbol; }"
   instantiations: 3630
-  bundleBytes: 11017
+  bundleBytes: 11163
 jsonSchema:
   input: 'Failed at ["d"]: Expected JSON, received bigint | undefined'
   output: 'Failed at ["d"]: Expected JSON, received bigint | undefined'

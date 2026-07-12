@@ -83,6 +83,7 @@ Transformation chain (relative to `.prev`):
 - `hoistedDecls` — `let` declarations hoisted *onto this val* by a descendant that can't own them (a field read on its parent object, a loop accumulator before its `for`). Use `B_hoistDecl(owner, decl)` — legal any time before the final join. The join emits them right after this val's checks.
 - `finalized` — set by the join once a val's slots were read into a string. A late materialization on a finalized val re-reads inline instead of writing to a slot that can no longer emit (the old #240 class; now only reachable across real scope boundaries).
 - `checks` — `array<check>`; both type-narrows and user refiners live here. A check whose `fail === B.failInvalidType` is a type-narrow and **doubles as a union dispatch discriminant**.
+- `pe` — no-throw producer expression (`+x`, `x==="true"`, `new Date(x)`). A val emitting `cp = let v=<pe>;` plus type-narrow checks is `B_isPeLiftable`: union dispatch folds producer and checks into the condition (`(v0=+i,!Number.isNaN(v0))`, decl demoted to a branch-body `var`) instead of deopting the case to try/catch. Only mark producers that can never throw. Member unions without custom behavior are flattened into the parent case list (composing `.to`), so nested dispatches also become condition-dispatched sibling cases.
 
 Helpers:
 - `B_next` — new val one step down the transform chain (sets `hasTransform`).

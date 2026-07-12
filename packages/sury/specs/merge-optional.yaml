@@ -4,7 +4,7 @@ ts:
   input: "{ _id?: string | undefined; _rev?: string | undefined; _deleted?: boolean | undefined; code: string; name: string; }"
   output: "{ _id?: string | undefined; _rev?: string | undefined; _deleted?: boolean | undefined; code: string; name: string; }"
   instantiations: 6634
-  bundleBytes: 10879
+  bundleBytes: 11035
 jsonSchema:
   input: '{ type: "object", properties: { _id: { type: "string" }, _rev: { type: "string" }, _deleted: { type: "boolean" }, code: { type: "string" }, name: { type: "string" } }, required: ["code", "name"] }'
   output: '{ type: "object", properties: { _id: { type: "string" }, _rev: { type: "string" }, _deleted: { type: "boolean" }, code: { type: "string" }, name: { type: "string" } }, required: ["code", "name"] }'

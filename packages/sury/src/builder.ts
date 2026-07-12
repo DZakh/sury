@@ -216,9 +216,7 @@ const joinWalk = (code: Code): void => {
 export const B_joinCode = (code: Code): string => {
   joinAcc = "";
   joinWalk(code);
-  const result = joinAcc;
-  joinAcc = "";
-  return result;
+  return joinAcc;
 }
 
 

@@ -648,6 +648,54 @@ export const unionDecoder: Builder = (input: Val) => {
       input.s = unknown;
     }
 
+    // Flatten member unions into the parent case list (composing their `.to`
+    // onto each sub-member's output). The inner dispatch becomes ordinary
+    // sibling cases with hoistable narrows, so the parent doesn't have to
+    // wrap the member in try/catch and dispatch on thrown errors. Skipped
+    // when the member carries its own behavior that would be lost on its
+    // sub-members (refiners, custom parser/serializer/encoder, defaults,
+    // custom messages, validation opt-out).
+    {
+      let flattened: Internal[] | undefined;
+      for (let idx = 0; idx < schemas.length; idx++) {
+        const m = schemas[idx]!;
+        if (
+          m.type === unionTag &&
+          m.refiner === undefined &&
+          m.inputRefiner === undefined &&
+          m.parser === undefined &&
+          m.serializer === undefined &&
+          // Every union carries the generic unionEncoder; only a custom
+          // encoder blocks flattening.
+          (m.encoder === undefined || m.encoder === unionEncoder) &&
+          m.noValidation === undefined &&
+          m.errorMessage === undefined &&
+          !("default" in (m as unknown as Record<string, unknown>)) &&
+          !("fromDefault" in (m as unknown as Record<string, unknown>))
+        ) {
+          if (flattened === undefined) {
+            flattened = schemas.slice(0, idx);
+          }
+          const subs = m.anyOf!;
+          for (let subIdx = 0; subIdx < subs.length; subIdx++) {
+            const sub = subs[subIdx]!;
+            flattened.push(
+              m.to === undefined
+                ? sub
+                : updateOutput(sub, (mut) => {
+                    mut.to = m.to;
+                  }),
+            );
+          }
+        } else if (flattened !== undefined) {
+          flattened.push(m);
+        }
+      }
+      if (flattened !== undefined) {
+        schemas = flattened;
+      }
+    }
+
     let activeKeyRef = "";
     if (
       !flagUnsafeHas(
