@@ -190,33 +190,28 @@ export const B_addCode = (val: Val, code: Code): void => {
       : [val.cp, code];
 }
 
-// The single stringification point: flattens the rope into `joinAcc`,
+// The single stringification point: flattens the rope into a string,
 // resolving each val marker to its codeFromPrev + checks + hoisted decls.
 // Resolving a val seals it — after its slots have been read into a string,
 // a late materialization can no longer emit there and must fall back to an
 // inline re-read. Mid-compile joins (closure bodies, discarded empty
 // trees) therefore need no extra bookkeeping: joining IS freezing.
-let joinAcc = "";
-const joinWalk = (code: Code): void => {
-  if (typeof code === "string") {
-    joinAcc = joinAcc + code;
-  } else if (Array.isArray(code)) {
-    for (let i = 0; i < code.length; i++) {
-      joinWalk(code[i]!);
-    }
-  } else {
-    code.fz = true;
-    joinWalk(code.cp);
-    joinAcc = joinAcc + code.ck!;
-    if (code.hd !== "") {
-      joinAcc = joinAcc + `let ${code.hd};`;
-    }
-  }
-}
+// Returns its result rather than accumulating into a shared field, so a
+// join nested inside another (a closure body resolved mid-walk) can't
+// corrupt the outer one.
 export const B_joinCode = (code: Code): string => {
-  joinAcc = "";
-  joinWalk(code);
-  return joinAcc;
+  if (typeof code === "string") {
+    return code;
+  }
+  if (Array.isArray(code)) {
+    let acc = "";
+    for (let i = 0; i < code.length; i++) {
+      acc = acc + B_joinCode(code[i]!);
+    }
+    return acc;
+  }
+  code.fz = true;
+  return B_joinCode(code.cp) + code.ck + (code.hd !== "" ? `let ${code.hd};` : "");
 }
 
 
@@ -506,6 +501,8 @@ export const B_merge = (val: Val, hoistCond?: { contents: string; pl?: boolean }
         // the cond routes between union cases, it doesn't reject, so
         // suppressing would break dispatch.
         const inputVar = liftInput;
+        // `liftInput` is only set when `hoistCond` is defined.
+        const cond = hoistCond!;
         const allChecks = val.vc!;
         let localHoist = "";
         for (let i = 0; i < allChecks.length; i++) {
@@ -529,9 +526,8 @@ export const B_merge = (val: Val, hoistCond?: { contents: string; pl?: boolean }
             // The cond now carries a rejecting validation, not just a
             // routing discriminant — an only-case must emit the exhaustive
             // else instead of falling through (see unionDecoder).
-            hoistCond!.pl = true;
+            cond.pl = true;
           }
-          const cond = hoistCond!;
           if (cond.contents) {
             cond.contents = `${localHoist}&&${cond.contents}`;
           } else {

@@ -1494,7 +1494,7 @@ export const valGet = (parent: Val, location: string): Val => {
       s: schema,
       e: schema,
       cp: "",
-    ck: "",
+      ck: "",
       hd: "",
       path: pathConcat(parent.path, pathAppend),
       g: parent.g,
