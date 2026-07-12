@@ -6,6 +6,8 @@ ts:
   instantiations: 254
   bundleBytes: 3733
   createPerf: 0
+vs:
+  zod: z.boolean()
 jsonSchema:
   input: '{ type: "boolean" }'
   output: '{ type: "boolean" }'

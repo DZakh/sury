@@ -25,6 +25,15 @@ Examples must cover every edge case found while investigating the schema — bou
 
 `ts.aliases`: optional alternate `.with`-chain sources that must behave identically to `ts.schema` (e.g. a shorthand spelling of the same schema). `spec check` verifies matching `ts.input`/`ts.output`, `jsonSchema`, and operation codegen live — no separate goldens or examples.
 
+## Cross-library (`vs`)
+
+`vs.zod`: required Zod v4 equivalent, e.g. `vs: { zod: z.string().min(3) }`. `spec check` asserts its inferred (`~standard`) input/output types equal `ts.input`/`ts.output` — live, no golden, types only.
+
+Three forms:
+- **Bare string** — `zod: z.string().min(3)`. Zod's inferred types must equal `ts.input`/`ts.output`.
+- **Overwrite** — `zod: { schema, divergence, input?, output? }`. For a schema Zod *can* express but whose inferred type intentionally differs from Sury's on at least one side (e.g. `S.merge` keeps insertion order where Zod groups optionals last). `divergence` is a required hand-written note saying exactly what differs and why. `input`/`output` are checked independently: record the side that diverges (write the key — `spec check --write` fills it as a golden), **omit** the side that matches ts. `check` rejects a recorded side that actually matches (omit it) and an omitted side that actually diverges (record it); omitting both means no divergence — use the bare string form.
+- **Skip** — `zod: { _skip: <reason> }`. Zod can't express it.
+
 ## Specs are a metrics ratchet
 
 Goldens snapshot key metrics: generated code, `ts.bundleBytes`, `ts.instantiations`, inferred types, and runtime perf (`ts.createPerf`, `operations.<op>.compilePerf`). After core-logic changes, run `pnpm spec check --write` and **review the golden diff as the deliverable** — every metric should improve or stay flat. A regression is a design smell; if unavoidable, call it out in the commit/PR.

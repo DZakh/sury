@@ -6,6 +6,8 @@ ts:
   instantiations: 254
   bundleBytes: 3744
   createPerf: 0
+vs:
+  zod: z.string()
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "string" }'

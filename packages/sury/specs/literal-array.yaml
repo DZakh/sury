@@ -1,18 +1,22 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: S.schema(["bar", true])
+  aliases:
+    - S.literal(["bar", true])
   input: '["bar", true]'
   output: '["bar", true]'
   instantiations: 532
   bundleBytes: 9382
   createPerf: 10668
+vs:
+  zod: z.tuple([z.literal("bar"), z.literal(true)])
 jsonSchema:
   input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "bar" }, { type: "boolean", const: true }] }'
   output: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "bar" }, { type: "boolean", const: true }] }'
 operations:
   parse:
     expression: i=>{Array.isArray(i)&&i.length===2||e[2](i);let v0=i["0"],v1=i["1"];v0==="bar"||e[0](v0);v1===true||e[1](v1);return i}
-    compilePerf: 435287
+    compilePerf: 434993
     examples:
       valid:
         input: '["bar", true]'

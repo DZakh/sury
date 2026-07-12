@@ -1,10 +1,15 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: S.schema(Symbol.for("tuna"))
+  aliases:
+    - S.literal(Symbol.for("tuna"))
   input: symbol
   output: symbol
   instantiations: 389
   bundleBytes: 9382
+vs:
+  zod:
+    _skip: not-applicable
 jsonSchema:
   input: Expected JSON, received Symbol(tuna)
   output: Expected JSON, received Symbol(tuna)

@@ -156,11 +156,17 @@ const cmdNew = async (): Promise<void> => {
       // createPerf (optional) is filled by the `check --write` in the hint
       // below — perf needs valgrind, so it's not measured at scaffold time.
     },
+    // `vs` is a required dimension but can't be derived — scaffold a `todo`
+    // skip (a placeholder, not a claim of no-equivalent) and prompt the author
+    // (below) to replace it with the real Zod equivalent.
+    vs: { zod: { _skip: "todo(#…)" } },
     jsonSchema: scaffoldJsonSchema(schema),
     operations,
   };
   writeFileSync(file, serialize(spec));
-  console.log(`new ${id} -> specs/${id}.yaml (add example inputs, then \`pnpm spec check ${id} --write\`)`);
+  console.log(
+    `new ${id} -> specs/${id}.yaml (add example inputs and a \`vs.zod\` equivalent, then \`pnpm spec check ${id} --write\`)`,
+  );
 };
 
 const WRITE_FLAG = "--write";

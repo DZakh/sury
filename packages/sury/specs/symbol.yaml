@@ -6,6 +6,8 @@ ts:
   instantiations: 254
   bundleBytes: 3660
   createPerf: 0
+vs:
+  zod: z.symbol()
 jsonSchema:
   input: Expected JSON, received symbol
   output: Expected JSON, received symbol

@@ -6,6 +6,8 @@ ts:
   instantiations: 254
   bundleBytes: 3833
   createPerf: 0
+vs:
+  zod: z.int32()
 jsonSchema:
   input: '{ type: "integer", minimum: -2147483648, maximum: 2147483647 }'
   output: '{ type: "integer", minimum: -2147483648, maximum: 2147483647 }'

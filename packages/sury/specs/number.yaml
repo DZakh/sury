@@ -6,6 +6,8 @@ ts:
   instantiations: 254
   bundleBytes: 3827
   createPerf: 0
+vs:
+  zod: z.number()
 jsonSchema:
   input: '{ type: "number" }'
   output: '{ type: "number" }'

@@ -5,7 +5,9 @@ ts:
   output: "{ a: string; b: number; c: boolean; d: bigint; e: symbol; }"
   instantiations: 4700
   bundleBytes: 10020
-  createPerf: 142260
+  createPerf: 142275
+vs:
+  zod: "z.object({ a: z.string(), b: z.number(), c: z.boolean() }).extend({ d: z.bigint(), e: z.symbol() })"
 jsonSchema:
   input: 'Failed at ["d"]: Expected JSON, received bigint'
   output: 'Failed at ["d"]: Expected JSON, received bigint'

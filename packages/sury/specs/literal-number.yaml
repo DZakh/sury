@@ -1,10 +1,14 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: S.schema(123)
+  aliases:
+    - S.literal(123)
   input: "123"
   output: "123"
   instantiations: 382
   bundleBytes: 9377
+vs:
+  zod: z.literal(123)
 jsonSchema:
   input: '{ type: "number", const: 123 }'
   output: '{ type: "number", const: 123 }'

@@ -8,13 +8,15 @@ ts:
   instantiations: 1468
   bundleBytes: 11809
   createPerf: 91672
+vs:
+  zod: "z.object({ constructor: z.string(), hasOwnProperty: z.number() })"
 jsonSchema:
   input: '{ type: "object", properties: { constructor: { type: "string" }, hasOwnProperty: { type: "number" } }, required: ["constructor", "hasOwnProperty"] }'
   output: '{ type: "object", properties: { constructor: { type: "string" }, hasOwnProperty: { type: "number" } }, required: ["constructor", "hasOwnProperty"] }'
 operations:
   parse:
     expression: i=>{typeof i==="object"&&i||e[2](i);let v0=i["constructor"],v1=i["hasOwnProperty"];typeof v0==="string"||e[0](v0);typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);return {"constructor":v0,"hasOwnProperty":v1,}}
-    compilePerf: 503354
+    compilePerf: 503581
     examples:
       valid:
         input: '{ constructor: "hi", hasOwnProperty: 5 }'
