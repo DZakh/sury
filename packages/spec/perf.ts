@@ -93,13 +93,18 @@ const measureOne = (req: PerfRequest): Promise<PerfCounts | null> =>
         // --predictable: deterministic GC/scheduling so counts are exact.
         // --expose-gc: the worker runs a full GC just BEFORE each fenced region
         // (outside START/STOP, so it isn't counted) — that empties the heap so
-        // V8 can't trigger a GC INSIDE the fence. Without it a major GC lands in
-        // a heavy compile on some machines' heap layouts but not others, adding
-        // ~3M instructions (machine-dependent, unreproducible locally).
+        // V8 can't trigger a *major* GC INSIDE the fence.
+        // --max-semi-space-size: V8 otherwise sizes the young generation to the
+        // machine's RAM, so a big compile's in-fence allocation overflows a
+        // small nursery on the CI runner and triggers a *scavenge* mid-fence
+        // (~+40% on object10) that doesn't happen locally. Pinning it large
+        // makes the nursery identical everywhere; one compile never fills it.
+        // Together: no GC of any kind lands in a fence, on any machine.
         // --experimental-strip-types: run the .ts worker directly (a transpiling
         // loader like tsx perturbs the counts; type-stripping doesn't).
         "--predictable",
         "--expose-gc",
+        "--max-semi-space-size=512",
         "--experimental-strip-types",
         WORKER,
       ],
