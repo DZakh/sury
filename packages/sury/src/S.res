@@ -450,11 +450,7 @@ let refine = (schema, refiner, ~error=?, ~path=?) => refine(schema, refiner, {?e
 
 @module("sury") external shape: (t<'value>, 'value => 'shape) => t<'shape> = "shape"
 
-// The public JS `to` (called without custom coders) only lacks the
-// same-schema shortcut, which lives here instead.
 @module("sury") external to: (t<'from>, t<'to>) => t<'to> = "to"
-let to = (from, target) =>
-  castToUnknown(from) === castToUnknown(target) ? castToAny(from) : to(from, target)
 
 @module("sury") external reverse: t<'value> => t<unknown> = "reverse"
 

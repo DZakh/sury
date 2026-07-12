@@ -2,7 +2,8 @@ open Vitest
 
 test("Coerce from string to string", t => {
   let schema = S.string->S.to(S.string)
-  t->Assert.is(schema, S.string)
+  t->Assert.deepEqual("abc"->S.parseOrThrow(~to=schema), "abc")
+  t->Assert.deepEqual("abc"->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"abc"`))
 })
 
 test("Coerce from string to bool", t => {
