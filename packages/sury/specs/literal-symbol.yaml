@@ -1,6 +1,8 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: S.schema(Symbol.for("tuna"))
+  aliases:
+    - S.literal(Symbol.for("tuna"))
   input: symbol
   output: symbol
   instantiations: 389

@@ -485,6 +485,10 @@ export function schema<const T>(
   value: T
 ): Schema<UnknownToOutput<T>, UnknownToInput<T>>;
 
+export function literal<const T>(
+  value: T
+): Schema<UnknownToOutput<T>, UnknownToInput<T>>;
+
 export function union<const A, const B extends unknown[]>(
   schemas: [A, ...B]
 ): Schema<
@@ -638,6 +642,9 @@ export function tuple<Output, Input extends unknown[]>(
     tag: (inputIndex: number, value: unknown) => void;
   }) => Output
 ): Schema<Output, Input>;
+export function tuple<const T extends unknown[]>(
+  schemas: [...T]
+): Schema<[...UnknownArrayToOutput<T>], [...UnknownArrayToInput<T>]>;
 
 export function optional<
   Output,

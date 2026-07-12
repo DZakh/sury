@@ -1,6 +1,8 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: S.schema(123n)
+  aliases:
+    - S.literal(123n)
   input: 123n
   output: 123n
   instantiations: 379

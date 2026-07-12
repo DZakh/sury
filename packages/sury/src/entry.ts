@@ -92,7 +92,7 @@ export {
   global,
 } from "./jsapi";
 export { getDecoder as decoder, reverse, instance } from "./parse";
-export { js_schema as schema, literal, enum } from "./factory";
+export { schemaFactory as schema, schemaFactory as literal, enum } from "./factory";
 export {
   recursive,
   strict,
@@ -161,4 +161,4 @@ export {
 } from "./refinements";
 // The ReScript-flavored schema factory (definer-callback ctx); the public JS
 // `schema` takes a raw definition instead.
-export { schemaFactory as $res_schema } from "./factory";
+export { schemaDefiner as $res_schema } from "./factory";
