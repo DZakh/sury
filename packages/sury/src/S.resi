@@ -11,13 +11,10 @@ module Path: {
 
   external toString: t => string = "%identity"
 
-  let toArray: t => array<string>
-
-  let fromArray: array<string> => t
-
-  let fromLocation: string => t
-
-  let concat: (t, t) => t
+  @module("sury") external toArray: t => array<string> = "$res_pathToArray"
+  @module("sury") external fromArray: array<string> => t = "$res_pathFromArray"
+  @module("sury") external fromLocation: string => t = "$res_pathFromLocation"
+  @module("sury") external concat: (t, t) => t = "$res_pathConcat"
 }
 
 type numberFormat = | @as("int32") Int32 | @as("port") Port
@@ -338,44 +335,44 @@ type exn += private Exn(error)
 
 type s<'value> = {fail: 'a. (string, ~path: Path.t=?) => 'a}
 
-let never: t<never>
-let unknown: t<unknown>
-let unit: t<unit>
-let nullAsUnit: t<unit>
-let string: t<string>
-let bool: t<bool>
-let int: t<int>
-let float: t<float>
-let bigint: t<bigint>
-let symbol: t<Symbol.t>
-let nan: t<float>
-let date: t<Date.t>
-let json: t<JSON.t>
-let jsonString: t<string>
-let jsonStringWithSpace: int => t<string>
-let uint8Array: t<Uint8Array.t>
-let isoDateTime: t<string>
-let port: t<int>
-let email: t<string>
-let uuid: t<string>
-let cuid: t<string>
-let url: t<string>
+@module("sury") external never: t<never> = "never"
+@module("sury") external unknown: t<unknown> = "unknown"
+@module("sury") external unit: t<unit> = "$res_unit"
+@module("sury") external nullAsUnit: t<unit> = "$res_nullAsUnit"
+@module("sury") external string: t<string> = "string"
+@module("sury") external bool: t<bool> = "bool"
+@module("sury") external int: t<int> = "int"
+@module("sury") external float: t<float> = "float"
+@module("sury") external bigint: t<bigint> = "bigint"
+@module("sury") external symbol: t<Symbol.t> = "symbol"
+@module("sury") external nan: t<float> = "nan"
+@module("sury") external date: t<Date.t> = "date"
+@module("sury") external json: t<JSON.t> = "json"
+@module("sury") external jsonString: t<string> = "jsonString"
+@module("sury") external jsonStringWithSpace: int => t<string> = "jsonStringWithSpace"
+@module("sury") external uint8Array: t<Uint8Array.t> = "uint8Array"
+@module("sury") external isoDateTime: t<string> = "isoDateTime"
+@module("sury") external port: t<int> = "port"
+@module("sury") external email: t<string> = "email"
+@module("sury") external uuid: t<string> = "uuid"
+@module("sury") external cuid: t<string> = "cuid"
+@module("sury") external url: t<string> = "url"
 
-let literal: 'value => t<'value>
-let array: t<'value> => t<array<'value>>
-let compactColumns: t<'value> => t<array<array<'value>>>
-let list: t<'value> => t<list<'value>>
-let instance: unknown => t<unknown>
-let dict: t<'value> => t<dict<'value>>
-let option: t<'value> => t<option<'value>>
-let null: t<'value> => t<null<'value>>
-let nullAsOption: t<'value> => t<option<'value>>
-let nullable: t<'value> => t<nullable<'value>>
-let nullableAsOption: t<'value> => t<option<'value>>
-let union: array<t<'value>> => t<'value>
-let enum: array<'value> => t<'value>
+@module("sury") external literal: 'value => t<'value> = "literal"
+@module("sury") external array: t<'value> => t<array<'value>> = "array"
+@module("sury") external compactColumns: t<'value> => t<array<array<'value>>> = "compactColumns"
+@module("sury") external list: t<'value> => t<list<'value>> = "list"
+@module("sury") external instance: unknown => t<unknown> = "instance"
+@module("sury") external dict: t<'value> => t<dict<'value>> = "dict"
+@module("sury") external option: t<'value> => t<option<'value>> = "$res_option"
+@module("sury") external null: t<'value> => t<null<'value>> = "nullable"
+@module("sury") external nullAsOption: t<'value> => t<option<'value>> = "$res_nullAsOption"
+@module("sury") external nullable: t<'value> => t<nullable<'value>> = "nullish"
+@module("sury") external nullableAsOption: t<'value> => t<option<'value>> = "$res_nullableAsOption"
+@module("sury") external union: array<t<'value>> => t<'value> = "union"
+@module("sury") external enum: array<'value> => t<'value> = "enum"
 
-let meta: (t<'value>, meta<'value>) => t<'value>
+@module("sury") external meta: (t<'value>, meta<'value>) => t<'value> = "meta"
 
 type transformDefinition<'input, 'output> = {
   @as("p")
@@ -385,35 +382,38 @@ type transformDefinition<'input, 'output> = {
   @as("s")
   serializer?: 'output => 'input,
 }
-let transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) => t<'output>
+@module("sury")
+external transform: (t<'input>, s<'output> => transformDefinition<'input, 'output>) => t<'output> =
+  "$res_transform"
 
 let refine: (t<'value>, 'value => bool, ~error: string=?, ~path: array<string>=?) => t<'value>
 
-let shape: (t<'value>, 'value => 'shape) => t<'shape>
+@module("sury") external shape: (t<'value>, 'value => 'shape) => t<'shape> = "shape"
 
 let to: (t<'from>, t<'to>) => t<'to>
 
-let parser: (~to: t<'value>) => 'any => 'value
-let asyncParser: (~to: t<'value>) => 'any => promise<'value>
+@module("sury") external parser: (~to: t<'value>) => 'any => 'value = "parser"
+@module("sury") external asyncParser: (~to: t<'value>) => 'any => promise<'value> = "asyncParser"
 let decoder: (~from: t<'from>, ~to: t<'to>) => 'from => 'to
 let asyncDecoder: (~from: t<'from>, ~to: t<'to>) => 'from => promise<'to>
-let decoder1: t<'value> => unknown => 'value
-let asyncDecoder1: t<'value> => unknown => promise<'value>
+@module("sury") external decoder1: t<'value> => unknown => 'value = "decoder"
+@module("sury") external asyncDecoder1: t<'value> => unknown => promise<'value> = "asyncDecoder"
 
 let parseOrThrow: ('any, ~to: t<'value>) => 'value
 let parseAsyncOrThrow: ('any, ~to: t<'value>) => promise<'value>
-let assertOrThrow: ('any, ~to: t<'value>) => unit
-let assertAsyncOrThrow: ('any, ~to: t<'value>) => promise<unit>
+@module("sury") external assertOrThrow: ('any, ~to: t<'value>) => unit = "assert"
+@module("sury")
+external assertAsyncOrThrow: ('any, ~to: t<'value>) => promise<unit> = "$res_assertAsyncOrThrow"
 let decodeOrThrow: ('from, ~from: t<'from>, ~to: t<'to>) => 'to
 let decodeAsyncOrThrow: ('from, ~from: t<'from>, ~to: t<'to>) => promise<'to>
 
-let isAsync: t<'value> => bool
+@module("sury") external isAsync: t<'value> => bool = "isAsync"
 
-let recursive: (string, t<'value> => t<'value>) => t<'value>
+@module("sury") external recursive: (string, t<'value> => t<'value>) => t<'value> = "recursive"
 
-let noValidation: (t<'value>, bool) => t<'value>
+@module("sury") external noValidation: (t<'value>, bool) => t<'value> = "noValidation"
 
-let toExpression: t<'value> => string
+@module("sury") external toExpression: t<'value> => string = "toExpression"
 
 external castToUnknown: t<'value> => t<unknown> = "%identity"
 external castToAny: t<'value> => t<'any> = "%identity"
@@ -422,7 +422,7 @@ external untag: t<'value> => untagged = "%identity"
 module Schema: {
   type s = {@as("m") matches: 'value. t<'value> => 'value}
 }
-let schema: (Schema.s => 'value) => t<'value>
+@module("sury") external schema: (Schema.s => 'value) => t<'value> = "$res_schema"
 
 module Object: {
   type rec s = {
@@ -434,12 +434,12 @@ module Object: {
   }
 }
 
-let object: (Object.s => 'value) => t<'value>
+@module("sury") external object: (Object.s => 'value) => t<'value> = "object"
 
-let strip: t<'value> => t<'value>
-let deepStrip: t<'value> => t<'value>
-let strict: t<'value> => t<'value>
-let deepStrict: t<'value> => t<'value>
+@module("sury") external strip: t<'value> => t<'value> = "strip"
+@module("sury") external deepStrip: t<'value> => t<'value> = "deepStrip"
+@module("sury") external strict: t<'value> => t<'value> = "strict"
+@module("sury") external deepStrict: t<'value> => t<'value> = "deepStrict"
 
 module Tuple: {
   type s = {
@@ -448,60 +448,68 @@ module Tuple: {
   }
 }
 
-let tuple: (Tuple.s => 'value) => t<'value>
+@module("sury") external tuple: (Tuple.s => 'value) => t<'value> = "tuple"
 let tuple1: t<'value> => t<'value>
 let tuple2: (t<'v1>, t<'v2>) => t<('v1, 'v2)>
 let tuple3: (t<'v1>, t<'v2>, t<'v3>) => t<('v1, 'v2, 'v3)>
 
 module Option: {
-  let getOr: (t<option<'value>>, 'value) => t<'value>
-  let getOrWith: (t<option<'value>>, unit => 'value) => t<'value>
+  @module("sury")
+  external getOr: (t<option<'value>>, 'value) => t<'value> = "$res_Option_getOr"
+  @module("sury")
+  external getOrWith: (t<option<'value>>, unit => 'value) => t<'value> = "$res_Option_getOrWith"
 }
 
 module Metadata: {
   module Id: {
     type t<'metadata>
-    let make: (~namespace: string, ~name: string) => t<'metadata>
+    @module("sury")
+    external make: (~namespace: string, ~name: string) => t<'metadata> = "$res_Metadata_Id_make"
   }
 
-  let get: (t<'value>, ~id: Id.t<'metadata>) => option<'metadata>
+  @module("sury")
+  external get: (t<'value>, ~id: Id.t<'metadata>) => option<'metadata> = "$res_Metadata_get"
 
-  let set: (t<'value>, ~id: Id.t<'metadata>, 'metadata) => t<'value>
+  @module("sury")
+  external set: (t<'value>, ~id: Id.t<'metadata>, 'metadata) => t<'value> = "$res_Metadata_set"
 }
 
-let reverse: t<'value> => t<unknown>
+@module("sury") external reverse: t<'value> => t<unknown> = "reverse"
 
-let min: (t<'value>, int, ~message: string=?) => t<'value>
-let floatMin: (t<float>, float, ~message: string=?) => t<float>
+@module("sury") external min: (t<'value>, int, ~message: string=?) => t<'value> = "min"
+@module("sury") external floatMin: (t<float>, float, ~message: string=?) => t<float> = "min"
 
-let max: (t<'value>, int, ~message: string=?) => t<'value>
-let floatMax: (t<float>, float, ~message: string=?) => t<float>
+@module("sury") external max: (t<'value>, int, ~message: string=?) => t<'value> = "max"
+@module("sury") external floatMax: (t<float>, float, ~message: string=?) => t<float> = "max"
 
-let length: (t<'value>, int, ~message: string=?) => t<'value>
+@module("sury") external length: (t<'value>, int, ~message: string=?) => t<'value> = "length"
 
-let pattern: (t<string>, RegExp.t, ~message: string=?) => t<string>
-let trim: t<string> => t<string>
+@module("sury")
+external pattern: (t<string>, RegExp.t, ~message: string=?) => t<string> = "pattern"
+@module("sury") external trim: t<string> => t<string> = "trim"
 
 type toJSONSchemaOptions = {target?: StandardSchema.JsonSchema.target}
-let toJSONSchema: (t<'value>, ~options: toJSONSchemaOptions=?) => JSONSchema.t
-let fromJSONSchema: JSONSchema.t => t<JSON.t>
-let extendJSONSchema: (t<'value>, JSONSchema.t) => t<'value>
+@module("sury")
+external toJSONSchema: (t<'value>, ~options: toJSONSchemaOptions=?) => JSONSchema.t = "toJSONSchema"
+@module("sury") external fromJSONSchema: JSONSchema.t => t<JSON.t> = "fromJSONSchema"
+@module("sury")
+external extendJSONSchema: (t<'value>, JSONSchema.t) => t<'value> = "extendJSONSchema"
 // Enables `~standard.jsonSchema`; its input/output throw before this is called.
-let enableStandardJSONSchema: unit => unit
+@module("sury") external enableStandardJSONSchema: unit => unit = "enableStandardJSONSchema"
 
 type globalConfigOverride = {
   defaultAdditionalItems?: additionalItemsMode,
   disableNanNumberValidation?: bool,
 }
 
-let global: globalConfigOverride => unit
+@module("sury") external global: globalConfigOverride => unit = "global"
 
 module Error: {
   type class
 
-  let class: class
+  @module("sury") external class: class = "Error"
 
-  let make: errorDetails => error
+  @module("sury") @new external make: errorDetails => error = "Error"
 
   external classify: error => errorDetails = "%identity"
 }
