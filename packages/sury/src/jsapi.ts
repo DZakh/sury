@@ -17,10 +17,10 @@ export const js_asyncParser = (...args: unknown[]) => getDecoder(unknown, ...arg
 
 export const js_asyncDecoder = (...args: unknown[]) => getDecoder(...args, 1);
 
-export const js_encoder = (...args: unknown[]) => getDecoder(...args.map((s) => reverse(s as Internal)));
+export const js_encoder = (...args: unknown[]) => getDecoder(...(args as Internal[]).map(reverse));
 
 export const js_asyncEncoder = (...args: unknown[]) =>
-  getDecoder(...args.map((s) => reverse(s as Internal)), 1);
+  getDecoder(...(args as Internal[]).map(reverse), 1);
 
 // Accepts both `(schema, data)` and `(data, schema)` arg orders. We tell them
 // apart by the Standard Schema marker on a schema object. The truthiness guard

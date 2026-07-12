@@ -278,7 +278,7 @@ export type Schema<Output, Input = unknown> = {
   | {
       readonly type: "array";
       readonly items: Schema<unknown>;
-      readonly additionalItems: UnknownKeys | Schema<unknown>;
+      readonly additionalItems: AdditionalItemsMode | Schema<unknown>;
       readonly format?: ArrayFormat;
       readonly minItems?: number;
       readonly maxItems?: number;
@@ -288,7 +288,7 @@ export type Schema<Output, Input = unknown> = {
       readonly properties: {
         [key: string]: Schema<unknown>;
       };
-      readonly additionalItems: UnknownKeys | Schema<unknown>;
+      readonly additionalItems: AdditionalItemsMode | Schema<unknown>;
       readonly required?: string[];
     }
   | {
@@ -830,10 +830,10 @@ export const trim: <Input>(
   schema: SchemaLike<string, Input>
 ) => Schema<string, Input>;
 
-export type UnknownKeys = "strip" | "strict";
+export type AdditionalItemsMode = "strip" | "strict";
 
 export type GlobalConfigOverride = {
-  defaultAdditionalItems?: UnknownKeys;
+  defaultAdditionalItems?: AdditionalItemsMode;
   disableNanNumberValidation?: boolean;
 };
 
