@@ -11,8 +11,6 @@
   "rules": {
     "duplicates": "off"
   },
-  // Wallaby's config is loaded by the Wallaby runner, not imported anywhere.
-  "ignore": ["wallaby.conf.js"],
   // tsx runs the spec CLI; dune builds the OCaml ppx. Both are invoked from
   // scripts/CI, not declared as npm bin deps.
   "ignoreBinaries": ["tsx", "dune"],
