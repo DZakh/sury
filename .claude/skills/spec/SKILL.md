@@ -17,7 +17,7 @@ pnpm spec check [id]           # gate; omit [id] for all specs
 ```
 
 To add a case: add a named entry with just `input` under an op's `examples`, then `check --write`.
-The CLI strictly enforces the format — follow its error messages. Ops you can't assert take `_skip: <reason>`; ops that compile to a pass-through must be the bare literal `identity`, and a decode/encode that compiles to exactly the same code as `parse` must be the bare literal `validated` (its expression and examples live on `parse`).
+The CLI strictly enforces the format — follow its error messages. Ops you can't assert take `_skip: <reason>`; a pass-through op is the bare literal `identity`; a decode/encode that compiles to the same code as `parse` is `eq-to-parse`.
 
 Examples must include every edge case you discover while working on or investigating the schema — boundary values, IEEE-754 oddities (`-0`, `NaN`, `Infinity`), coercion corner cases, values that exercise each branch of the generated check. If an edge case surfaced in a bug report, review, or investigation, it goes into `examples` before the work is done — the spec is where such findings are pinned, not test files or commit messages.
 

@@ -84,7 +84,7 @@ const operation = S.schema({
 
 // An operation is either a full block or a literal shorthand:
 // - `identity` — Sury's pass-through compile.
-// - `validated` (decode/encode only) — compiles to exactly the same code as
+// - `eq-to-parse` (decode/encode only) — compiles to exactly the same code as
 //   the spec's `parse` op, so the expression and examples live there.
 // harness.identityViolations enforces the shorthands both ways: an op that
 // compiles to a shorthand's meaning must use it, and the shorthand must
@@ -92,9 +92,9 @@ const operation = S.schema({
 const operationOrIdentity = S.union(["identity", operation]).with(S.meta, {
   description: "`identity` if this compiles to Sury's pass-through, else a full operation block.",
 });
-const operationOrShorthand = S.union(["identity", "validated", operation]).with(S.meta, {
+const operationOrShorthand = S.union(["identity", "eq-to-parse", operation]).with(S.meta, {
   description:
-    "`identity` if this compiles to Sury's pass-through, `validated` if it compiles to the same code as `parse`, else a full operation block.",
+    "`identity` if this compiles to Sury's pass-through, `eq-to-parse` if it compiles to the same code as `parse`, else a full operation block.",
 });
 export type Operation = S.Output<typeof operationOrShorthand>;
 

@@ -108,7 +108,7 @@ const NOOP_OPERATION_WHICH_WILL_NEVER_CHANGE = "noopOperation";
 const isNoop = (fn: Function): boolean =>
   fn.name === NOOP_OPERATION_WHICH_WILL_NEVER_CHANGE;
 
-// Checks the shorthand invariants both ways: a declared `identity`/`validated`
+// Checks the shorthand invariants both ways: a declared `identity`/`eq-to-parse`
 // that doesn't hold, or a full op block that should be a shorthand.
 export const identityViolations = (schema: any, spec: Spec): string[] => {
   const out: string[] = [];
@@ -123,10 +123,10 @@ export const identityViolations = (schema: any, spec: Spec): string[] => {
         out.push(
           `operations.${opName}: marked \`identity\` but does not compile to identity — use a full op block with examples`,
         );
-    } else if (op === "validated") {
+    } else if (op === "eq-to-parse") {
       if (!matchesParse)
         out.push(
-          `operations.${opName}: marked \`validated\` but does not compile to the same code as parse — use a full op block with examples`,
+          `operations.${opName}: marked \`eq-to-parse\` but does not compile to the same code as parse — use a full op block with examples`,
         );
     } else if (noop) {
       out.push(
@@ -134,7 +134,7 @@ export const identityViolations = (schema: any, spec: Spec): string[] => {
       );
     } else if (matchesParse) {
       out.push(
-        `operations.${opName}: compiles to the same code as parse — use \`validated\` instead of an expression + examples`,
+        `operations.${opName}: compiles to the same code as parse — use \`eq-to-parse\` instead of an expression + examples`,
       );
     }
   }
@@ -176,7 +176,7 @@ export const scaffoldOperations = (schema: any): Spec["operations"] => {
       const op: Operation = isNoop(fn)
         ? "identity"
         : opName !== "parse" && fn.toString() === parseCode
-          ? "validated"
+          ? "eq-to-parse"
           : { expression: fn.toString(), examples: {} };
       return [opName, op];
     }),

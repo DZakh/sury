@@ -923,9 +923,9 @@ let schema = S.enum([Win, Draw, Loss])
 
 #### Decoding into / out of a union
 
-Converting between unions (via `S.to`, or implicitly by reversing the schema) maps each **source** case to a **target** case (several source cases may share one target — `"a" | "b"` both bind a `string` target). Sury applies three rules across all source cases — tier 1 first, then tier 2, then tier 3 — and **reserves** a target as soon as a case binds to it, so no other case can reuse it (tiers 1 and 2 reserve; tier 3 does not):
+When one union converts into another (via `S.to`, or implicitly by reversing the schema), Sury decides which target case each source case becomes. Three rules run in order — every source case tries tier 1 first, the leftovers try tier 2, and the rest fall to tier 3:
 
-1. **Same-type match (tier 1).** A source case that has a target of the same type binds to it directly and is never coerced. With several same-type targets, an exact value/format match (a specific string literal, `Int32`, …) wins over a catch-all, in target order. The matched target is reserved. If same-type targets exist but none accept the value, the conversion errors — it never falls through to coercion.
+1. **Same-type match (tier 1).** A source case that has a target of the same type binds to it directly and is never coerced. With several same-type targets, an exact value/format match (a specific string literal, `Int32`, …) wins over a catch-all, in target order. The matched target is **reserved**: tiers 2 and 3 can no longer map another source case to it (same-type source cases may still share it — `"a" | "b"` both bind a `string` target). If same-type targets exist but none accept the value, the conversion errors — it never falls through to coercion.
 2. **Nullish bridge (tier 2).** A remaining `null` or `undefined` source case maps to the opposite nullish target (`null` ↔ `undefined`) when one is still free, and reserves it.
 3. **Coercion (tier 3).** Each still-unmatched source case is tried against the remaining free targets in target order, converting across types: `int`/`bigint` → `string` via `"" ++ i`, `string` → `float` via `Float.fromString`, `string` → `bigint` via `BigInt.fromString`, stringified-literal matches like `"null" → null`, and more. Coercion does not reserve, so several source cases may coerce into the same target.
 

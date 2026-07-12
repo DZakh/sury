@@ -18,7 +18,7 @@ operations:
       string-target-never-tried:
         input: '"hello"'
         error: Expected null, received "hello"
-  decode: validated
+  decode: eq-to-parse
   encode:
     expression: i=>{if(typeof i==="string"){if(i==="null"){i=null}}else if(i===void 0){i=null}else{e[0](i)}return i}
     examples: {}

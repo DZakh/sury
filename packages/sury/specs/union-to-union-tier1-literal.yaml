@@ -21,7 +21,7 @@ operations:
       c-is-not-a-source-case:
         input: '"c"'
         error: Expected "a" | "b", received "c"
-  decode: validated
+  decode: eq-to-parse
   encode:
     expression: i=>{if(typeof i==="string"){if(!(i==="b"||i==="a")){e[1](i,e[0])}}else{e[2](i)}return i}
     examples: {}

@@ -21,7 +21,7 @@ operations:
       boolean-is-not-a-source-case:
         input: "true"
         error: Expected string | number, received true
-  decode: validated
+  decode: eq-to-parse
   encode:
     expression: i=>{if(typeof i==="boolean"){e[1](i,e[0])}else if(!(typeof i==="number"&&!Number.isNaN(i)||typeof i==="string")){e[2](i)}return i}
     examples:

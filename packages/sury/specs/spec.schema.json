@@ -230,7 +230,7 @@
             },
             {
               "type": "string",
-              "const": "validated"
+              "const": "eq-to-parse"
             },
             {
               "type": "object",
@@ -329,7 +329,7 @@
             },
             {
               "type": "string",
-              "const": "validated"
+              "const": "eq-to-parse"
             },
             {
               "type": "object",

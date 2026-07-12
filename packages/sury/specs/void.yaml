@@ -18,5 +18,5 @@ operations:
       invalid-null:
         input: "null"
         error: Expected void, received null
-  decode: validated
-  encode: validated
+  decode: eq-to-parse
+  encode: eq-to-parse
