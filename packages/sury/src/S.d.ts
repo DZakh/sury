@@ -724,6 +724,9 @@ type ObjectCtx<Input extends Record<string, unknown>> = {
 export function object<Output, Input extends Record<string, unknown>>(
   definer: (ctx: ObjectCtx<Input>) => Output
 ): Schema<Output, Input>;
+export function object<T extends Record<string, unknown>>(
+  definition: T
+): Schema<UnknownToOutput<T>, UnknownToInput<T>>;
 
 export function strip<Output, Input extends Record<string, unknown>>(
   schema: SchemaLike<Output, Input>

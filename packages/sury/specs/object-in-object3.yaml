@@ -3,6 +3,7 @@ ts:
   schema: "S.schema({a: S.string, nested: {b: S.number, inner: {c: S.boolean, d: S.optional(S.string)}}})"
   aliases:
     - "S.schema({a: S.string, nested: S.schema({b: S.number, inner: S.schema({c: S.boolean, d: S.optional(S.string)})})})"
+    - "S.object({a: S.string, nested: {b: S.number, inner: {c: S.boolean, d: S.optional(S.string)}}})"
   input: "{ a: string; nested: { b: number; inner: { d?: string | undefined; c: boolean; }; }; }"
   output: "{ a: string; nested: { b: number; inner: { d?: string | undefined; c: boolean; }; }; }"
   instantiations: 2789

@@ -177,7 +177,12 @@ function schemaNested(this: AdvancedObjectCtx & Record<string, unknown>, fieldNa
   }
 }
 
-export const schemaObject = (definer: (ctx: AdvancedObjectCtx) => unknown): Internal => {
+export const schemaObject = (
+  definer: ((ctx: AdvancedObjectCtx) => unknown) | Record<string, unknown>
+): Internal => {
+  if (typeof definer !== "function") {
+    return definitionToSchema(definer);
+  }
   let flattened: Internal[] | undefined = void 0;
   const properties: Record<string, Internal> = {};
 
