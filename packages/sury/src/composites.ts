@@ -1,7 +1,7 @@
 import { Literal_parse, isArrayCond, jsonName, objectTagCond, setHas, unit } from "./primitives";
 import { baseSchema, copySchema, getOrRethrow, panic, reversedKey, unknown, updateOutput } from "./schema";
 import { getOutputSchema, nestedLoc, nestedOptionParser, never_, parse, parseDynamic, typeCheckCond } from "./parse";
-import { B_Val_Object_add, B_Val_addKey, B_Val_scope, B_asyncVal, B_dynamicScope, B_embed, B_failWithArg, B_hoistChildChecks, B_hoistDecl, B_inlineConst, B_inlineLocation, B_isHoistable, B_makeInvalidInputDetails, B_markOutput, B_merge, B_mergeWithPathPrepend, B_next, B_nextConst, B_pushCheck, B_refine, B_throw, B_unsupportedDecode, B_varWithoutAllocation, Builder, _notVar, _notVarAtParent, _var, failInvalidType } from "./builder";
+import { B_Val_Object_add, B_Val_addKey, B_Val_scope, B_asyncVal, B_dynamicScope, B_embed, B_failWithArg, B_hoistChildChecks, B_hoistDecl, B_inlineConst, B_inlineLocation, B_isHoistable, B_makeInvalidInputDetails, B_markOutput, B_merge, B_mergeWithPathPrepend, B_next, B_nextConst, B_pushCheck, B_refine, B_throw, B_unsupportedDecode, B_unsupportedUnionDecode, B_varWithoutAllocation, Builder, _notVar, _notVarAtParent, _var, failInvalidType } from "./builder";
 import { Check, ErrorDetails, Internal, SuryErrorRecord, Val, immutableEmptyArray, immutableEmptyObject, isLiteral, isOptional } from "./types";
 import { flagUnsafeHas, valFlagAsync, valFlagNone } from "./flags";
 import { pathConcat, pathFromInlinedLocation } from "./path";
@@ -539,19 +539,16 @@ export const unionIsSpecific = (schema: Internal): boolean => {
 }
 
 // Per-source-case target resolution for a union conversion (docs "Decoding
-// into / out of a union"). Tier 1: targets of the source's own type — an
-// exact const/format match binds its target exclusively, other same-type
-// sources share the remaining specific-then-catch-all targets. Tier 2: a
-// remaining null/undefined source takes the opposite nullish target while
-// still free. Tiers 1-2 reserve their targets; tier 3 offers each remaining
-// source the still-free targets in target order without reserving. A source
-// without a derived type ignores reservation and tries every target. An
-// empty row means no target is left — the conversion errors.
+// into / out of a union"): each source case binds the target cases of its own
+// type — an exact const/format match binds its target exclusively, other
+// same-type sources share the specific-then-catch-all targets. There is no
+// implicit cross-type conversion: an empty row means the case has no target —
+// the caller fails the compile (or rejects at runtime for a reversed
+// conversion). A source without a derived type tries every target in order.
 export const unionResolveTargets = (sources: Internal[], targets: Internal[]): Internal[][] => {
-  const resolved: (Internal[] | undefined)[] = [];
-  // Keyed by schema seq: 2 — exclusively bound to an exact-matching source
-  // case, 1 — reserved by tiers 1-2
-  const taken: Record<number, number> = {};
+  const resolved: Internal[][] = [];
+  // Target seqs exclusively bound to an exact-matching source case
+  const exactBound: Record<number, number> = {};
 
   for (let idx = 0; idx < sources.length; idx++) {
     const source = sources[idx]!;
@@ -561,15 +558,12 @@ export const unionResolveTargets = (sources: Internal[], targets: Internal[]): I
     } else {
       const key = unionToKey(source);
       const sourceIsLiteral = isLiteral(source);
-      let exact = false;
-      let hasSameType = false;
       // Specifics go before catch-alls, keeping target order within each
       let specificsEnd = 0;
       const candidates: Internal[] = [];
       for (let tIdx = 0; tIdx < targets.length; tIdx++) {
         const target = targets[tIdx]!;
         if (unionToKey(target) === key) {
-          hasSameType = true;
           if (
             unionIsSpecific(source) &&
             (sourceIsLiteral
@@ -580,12 +574,11 @@ export const unionResolveTargets = (sources: Internal[], targets: Internal[]): I
           ) {
             candidates.length = 0;
             candidates.push(target);
-            taken[target.seq!] = 2;
-            exact = true;
+            exactBound[target.seq!] = 1;
             break;
           }
           if (
-            taken[target.seq!] !== 2 &&
+            exactBound[target.seq!] === undefined &&
             // A differing const can never accept the source value
             !(isLiteral(target) && sourceIsLiteral)
           ) {
@@ -597,42 +590,16 @@ export const unionResolveTargets = (sources: Internal[], targets: Internal[]): I
           }
         }
       }
-      if (exact) {
-        resolved[idx] = candidates;
-      } else if (hasSameType) {
-        for (let cIdx = 0; cIdx < candidates.length; cIdx++) {
-          taken[candidates[cIdx]!.seq!] = 1;
-        }
-        resolved[idx] = candidates;
-      }
+      resolved[idx] =
+        candidates.length === 0 && source.encoder !== undefined
+          ? // The source's own encoder (S.date, S.json, …) may convert to a
+            // target the type match can't see — try each in order
+            targets
+          : candidates;
     }
   }
 
-  for (let idx = 0; idx < sources.length; idx++) {
-    const source = sources[idx]!;
-    if (
-      resolved[idx] === undefined &&
-      flagUnsafeHas(tagFlags[source.type]!, tagFlagNull | tagFlagUndefined)
-    ) {
-      const oppositeTag = source.type === nullTag ? undefinedTag : nullTag;
-      for (let tIdx = 0; tIdx < targets.length; tIdx++) {
-        const target = targets[tIdx]!;
-        if (target.type === oppositeTag && taken[target.seq!] === undefined) {
-          taken[target.seq!] = 1;
-          resolved[idx] = [target];
-          break;
-        }
-      }
-    }
-  }
-
-  for (let idx = 0; idx < sources.length; idx++) {
-    if (resolved[idx] === undefined) {
-      resolved[idx] = targets.filter((t) => taken[t.seq!] === undefined);
-    }
-  }
-
-  return resolved as Internal[][];
+  return resolved;
 }
 
 // A trusted union input passes through when every variant resolves to itself
@@ -762,13 +729,15 @@ export const unionDecoder: Builder = (input: Val) => {
     if (
       !flagUnsafeHas(
         initialInputTagFlag,
-        ((tagFlagUnion | tagFlagRef) | tagFlagUnknown),
+        ((tagFlagUnion | tagFlagRef) | tagFlagUnknown) | tagFlagNever,
       )
     ) {
       // The typed input is a single-case conversion source
       schemas = unionResolveTargets([input.s], schemas)[0]!;
       if (schemas.length === 0) {
-        return B_unsupportedDecode(input, input.s, selfSchema);
+        return selfSchema.reversed!
+          ? B_unsupportedDecode(input, input.s, selfSchema)
+          : B_unsupportedUnionDecode(input, input.s, selfSchema);
       }
     }
 
@@ -991,7 +960,18 @@ export const unionDecoder: Builder = (input: Val) => {
                 f: failInvalidType,
               });
             }
-          } else if (withExhaustiveCheck) {
+          } else if (
+            withExhaustiveCheck ||
+            // A lone cond-ful case emits `if(cond){code}` — without the else
+            // a non-matching value would silently pass through unconverted.
+            // The nested-option box is the exception: a non-box object is a
+            // valid value and must pass through
+            (itemCond !== "" &&
+              !(
+                (input.e.properties as unknown as boolean) &&
+                nestedLoc in input.e.properties!
+              ))
+          ) {
             const errorCode = fail(caught);
             itemStart = itemStart + (itemNextElse ? `else{${errorCode}}` : errorCode);
           }
@@ -1075,21 +1055,38 @@ export const unionDecoder: Builder = (input: Val) => {
 
     // Per-case narrowed conversion targets when this union's `.to` head is a
     // plain union (recursive targets keep their dedicated union-input handling)
-    const toResolved =
+    let toResolved: Internal[][] | undefined;
+    if (
       toPerCase !== undefined &&
       toPerCase.type === unionTag &&
       toPerCase.parser === undefined &&
       !toPerCase.anyOf!.some((v) => flagUnsafeHas(tagFlags[v.type]!, tagFlagRef))
-        ? unionResolveTargets(schemas.map(getOutputSchema), toPerCase.anyOf!)
-        : undefined;
+    ) {
+      const caseOutputs = schemas.map(getOutputSchema);
+      toResolved = unionResolveTargets(caseOutputs, toPerCase.anyOf!);
+      if (!selfSchema.reversed!) {
+        for (let idx = 0; idx <= lastIdx; idx++) {
+          if (
+            toResolved[idx]!.length === 0 &&
+            // A case rejected with S.never throws before the conversion
+            !flagUnsafeHas(tagFlags[caseOutputs[idx]!.type]!, tagFlagNever)
+          ) {
+            B_unsupportedUnionDecode(input, caseOutputs[idx]!, toPerCase);
+          }
+        }
+      }
+    }
 
     for (let idx = 0; idx <= lastIdx; idx++) {
       const schema =
         toPerCase !== undefined
           ? updateOutput<Internal>(schemas[idx]!, (mut) => {
               appendUnionRefiners(mut);
-              mut.to =
-                toResolved !== undefined ? unionNarrow(toPerCase, toResolved[idx]!) : toPerCase;
+              // A never output already throws — leave the chain at its end
+              if (!flagUnsafeHas(tagFlags[mut.type]!, tagFlagNever)) {
+                mut.to =
+                  toResolved !== undefined ? unionNarrow(toPerCase, toResolved[idx]!) : toPerCase;
+              }
             })
           : schemas[idx]!;
       const tag = schema.type;
@@ -1097,8 +1094,10 @@ export const unionDecoder: Builder = (input: Val) => {
       const key = unionToKey(schema);
 
       if (
-        flagUnsafeHas(tagFlag, tagFlagUndefined) &&
-        "fromDefault" in (selfSchema as unknown as Record<string, unknown>)
+        // A never-headed case (e.g. a reversed rejection) accepts no value
+        flagUnsafeHas(tagFlag, tagFlagNever) ||
+        (flagUnsafeHas(tagFlag, tagFlagUndefined) &&
+          "fromDefault" in (selfSchema as unknown as Record<string, unknown>))
       ) {
         // skip it
       } else {
@@ -1173,6 +1172,11 @@ export const unionDecoder: Builder = (input: Val) => {
                     f: failInvalidType,
                   },
                 ]);
+              } else if (isLiteral(schema)) {
+                // A typed input already has the narrow's type; the per-const
+                // check lives in the case body (the shared narrow of a
+                // string/number literal deliberately carries no const)
+                return input;
               } else {
                 return schema.decoder(input);
               }

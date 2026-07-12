@@ -36,7 +36,15 @@ let makeSchema = () =>
       {
         "foo": s.matches(S.string),
         "bar": s.matches(S.bigint),
-        "zoo": s.matches(S.option(S.float)),
+        // The union is the optional field itself: absence binds the unit case,
+        // the "undefined" sentinel and the float conversion are explicit cases
+        "zoo": s.matches(
+          (S.union([
+            S.literal("undefined")->S.to(S.unit->Obj.magic)->S.castToUnknown,
+            S.string->S.to(S.float)->S.castToUnknown,
+            S.unit->S.castToUnknown,
+          ])->Obj.magic: S.t<option<float>>),
+        ),
       }
     ),
   )
@@ -85,16 +93,12 @@ test("[milestone 1] absent required string field stringifies to \"undefined\" (d
   )
 })
 
-test("the literal string \"undefined\" errors (undefined target reserved by the absent arm)", t => {
+test("the literal string \"undefined\" decodes to None (explicit sentinel case)", t => {
   let schema = makeSchema()
 
-  // The optional read's `undefined` arm binds the option's `undefined` target
-  // (tier 1) and reserves it, so the string arm can only coerce to `float` —
-  // the literal string "undefined" no longer maps to None.
-  t->U.assertThrowsMessage(
-    () => %raw(`{"foo":"a","bar":"123","zoo":"undefined"}`)->S.parseOrThrow(~to=schema),
-    `Failed at ["zoo"]: Expected number, received "undefined"
-- At ["zoo"]: Expected number, received "undefined"`,
+  t->Assert.deepEqual(
+    %raw(`{"foo":"a","bar":"123","zoo":"undefined"}`)->S.parseOrThrow(~to=schema),
+    {"foo": "a", "bar": 123n, "zoo": None},
   )
 })
 
@@ -104,7 +108,7 @@ test("[milestone 1] compiled parse code models each dict read as optional", t =>
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);for(let v0 in i){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}let v3=i["foo"],v5=i["bar"],v7=i["zoo"];if(v3===void 0){v3="undefined"}else if(!(typeof v3==="string")){e[1](v3)}if(typeof v5==="string"){let v4;try{v4=BigInt(v5)}catch(_){e[2](v5)}v5=v4}else if(v5===void 0){e[4](v5,e[3])}else{e[5](v5)}if(typeof v7==="string"){try{let v6=+v7;!Number.isNaN(v6)||e[6](v7);v7=v6}catch(e0){e[7](v7,e0)}}else if(!(v7===void 0)){e[8](v7)}return {"foo":v3,"bar":v5,"zoo":v7,}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[10](i);for(let v0 in i){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}let v3=i["foo"],v5=i["bar"],v6=i["zoo"];if(v3===void 0){v3="undefined"}else if(!(typeof v3==="string")){e[1](v3)}if(typeof v5==="string"){let v4;try{v4=BigInt(v5)}catch(_){e[2](v5)}v5=v4}else if(v5===void 0){e[4](v5,e[3])}else{e[5](v5)}if(typeof v6==="string"){try{if(v6==="undefined"){v6=void 0}else{e[6](v6)}}catch(e0){try{let v7=+v6;!Number.isNaN(v7)||e[7](v6);v6=v7}catch(e1){e[8](v6,e0,e1)}}}else if(!(v6===void 0)){e[9](v6)}return {"foo":v3,"bar":v5,"zoo":v6,}}`,
   )
 })
 
@@ -121,20 +125,9 @@ test("[milestone 2] encode round-trips back through the schema", t => {
   let schema = makeSchema()
 
   t->U.assertReverseParsesBack(schema, {"foo": "a", "bar": 123n, "zoo": Some(1.5)})
-  // FIXME: `None` encodes to the "undefined" string sentinel (the target is a
-  // plain `string`, outside the union tiers), but the forward decoder's
-  // `undefined` target is reserved by the absent arm, so the sentinel no
-  // longer parses back. Encoding `None` to an absent key would restore the
-  // round-trip.
-  t->Assert.deepEqual(
-    {"foo": "a", "bar": 7n, "zoo": None}->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    %raw(`{"foo":"a","bar":"7","zoo":"undefined"}`),
-  )
-  t->U.assertThrowsMessage(
-    () => %raw(`{"foo":"a","bar":"7","zoo":"undefined"}`)->S.parseOrThrow(~to=schema),
-    `Failed at ["zoo"]: Expected number, received "undefined"
-- At ["zoo"]: Expected number, received "undefined"`,
-  )
+  // The explicit "undefined" sentinel case makes None round-trip:
+  // None encodes to the sentinel string, which decodes back to None
+  t->U.assertReverseParsesBack(schema, {"foo": "a", "bar": 7n, "zoo": None})
 })
 
 test("[milestone 2] compiled encode iterates the source object's fixed keys", t => {
@@ -143,7 +136,7 @@ test("[milestone 2] compiled encode iterates the source object's fixed keys", t 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{let v0=i["zoo"];if(typeof v0==="number"&&!Number.isNaN(v0)){v0=""+i["zoo"]}else if(v0===void 0){v0="undefined"}else{e[0](v0)}return {"foo":i["foo"],"bar":""+i["bar"],"zoo":v0,}}`,
+    `i=>{let v0=i["zoo"];if(v0===void 0){v0="undefined"}else if(typeof v0==="number"&&!Number.isNaN(v0)){v0=""+i["zoo"]}else{e[0](v0)}if(!(typeof v0==="string")){e[1](v0)}return {"foo":i["foo"],"bar":""+i["bar"],"zoo":v0,}}`,
   )
 })
 

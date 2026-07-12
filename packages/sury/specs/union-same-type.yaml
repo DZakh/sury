@@ -4,7 +4,7 @@ ts:
   input: string
   output: string | boolean
   instantiations: 6808
-  bundleBytes: 10229
+  bundleBytes: 10363
 jsonSchema:
   input: '{ type: "string" }'
   output: '{ type: "string" }'

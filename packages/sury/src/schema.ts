@@ -127,6 +127,11 @@ export const copySchema = (schema: Internal): Internal => {
   for (const k in schema) {
     (c as unknown as Record<string, unknown>)[k] = (schema as unknown as Record<string, unknown>)[k];
   }
+  if (schema.reversed!) {
+    // Non-enumerable (see reverse), so the for-in copy above misses it
+    valueOptions[valKey] = true;
+    Object.defineProperty(c, "reversed", valueOptions as PropertyDescriptor);
+  }
   c.seq = seq++;
   return c;
 }

@@ -4,7 +4,7 @@ ts:
   input: string | number
   output: string | number | boolean
   instantiations: 7342
-  bundleBytes: 10406
+  bundleBytes: 10538
 jsonSchema:
   input: '{ anyOf: [{ type: "number" }, { type: "string" }] }'
   output: '{ anyOf: [{ type: "string" }, { type: "number" }] }'

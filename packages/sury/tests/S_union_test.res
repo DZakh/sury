@@ -33,7 +33,7 @@ test("Parses when both schemas misses parser and have the same type", t => {
     let _ = %raw(`null`)->S.parseOrThrow(~to=schema)
     t->Assert.fail("Expected to throw")
   } catch {
-  | S.Exn(error) => t->Assert.is(error.message, `Expected string | string, received null`)
+  | S.Exn(error) => t->Assert.is(error.message, `Expected string, received null`)
   }
 
   try {
@@ -43,7 +43,7 @@ test("Parses when both schemas misses parser and have the same type", t => {
   | S.Exn(error) =>
     t->Assert.is(
       error.message,
-      `Expected string | string, received "foo"
+      `Expected string, received "foo"
 - The S.transform parser is missing`,
     )
   }
@@ -100,7 +100,7 @@ test("Serializes when both schemas misses serializer", t => {
   | S.Exn(error) =>
     t->Assert.is(
       error.message,
-      `Expected unknown | unknown, received null
+      `Expected unknown, received null
 - The S.transform serializer is missing`,
     )
   }
@@ -832,30 +832,26 @@ test("json-rpc response", t => {
   t->U.assertCompiledCode(
     ~schema=getLogsResponseSchema,
     ~op=#Encode,
-    // FIXME: Exhaustive check doesn't work
-    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["TAG"]==="Ok"){let v0=i["_0"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path="[\\"_0\\"]"+\'["\'+v1+\'"]\'+v3.path;throw v3}}i={"result":v0,}}else if(i["TAG"]==="Error"){let v4=i["_0"];if(typeof v4==="string"){if(v4==="LogsNotFound"){v4={"message":"NotFound",}}}else if(typeof v4==="object"&&v4&&!Array.isArray(v4)){if(v4["NAME"]==="InvalidData"){let v5=v4["VAL"];typeof v5==="string"||e[2](v5);v4={"message":"Invalid","data":v5,}}}else{e[3](v4)}i={"error":v4,}}else{e[4](i)}}else{e[5](i)}return i}`,
+    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["TAG"]==="Ok"){let v0=i["_0"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path="[\\"_0\\"]"+\'["\'+v1+\'"]\'+v3.path;throw v3}}i={"result":v0,}}else if(i["TAG"]==="Error"){let v4=i["_0"];if(typeof v4==="string"){if(v4==="LogsNotFound"){v4={"message":"NotFound",}}else{e[2](v4)}}else if(typeof v4==="object"&&v4&&!Array.isArray(v4)){if(v4["NAME"]==="InvalidData"){let v5=v4["VAL"];typeof v5==="string"||e[3](v5);v4={"message":"Invalid","data":v5,}}else{e[4](v4)}}else{e[5](v4)}i={"error":v4,}}else{e[6](i)}}else{e[7](i)}return i}`,
   )
 
-  // FIXME: pin the current (buggy) Encode behaviour for the
-  // exhaustive-check gap noted above. The inner per-discriminant arms
-  // (LogsNotFound / InvalidData) lack their own `else { fail }`, so a
-  // value of the right outer type but a bogus inner variant silently
-  // round-trips instead of throwing. When the codegen gap is closed
-  // these decodeOrThrow calls will throw — switch them to
-  // assertThrowsMessage and remove the FIXME on the snapshot above.
-  t->Assert.unsafeDeepEqual(
-    %raw(`{TAG:"Error",_0:"BogusVariant"}`)->S.decodeOrThrow(
-      ~from=getLogsResponseSchema,
-      ~to=S.unknown,
-    ),
-    %raw(`{"error":"BogusVariant"}`),
+  // The per-discriminant arms are exhaustive: a value of the right outer
+  // type but a bogus inner variant throws instead of round-tripping
+  t->U.assertThrowsMessage(
+    () =>
+      %raw(`{TAG:"Error",_0:"BogusVariant"}`)->S.decodeOrThrow(
+        ~from=getLogsResponseSchema,
+        ~to=S.unknown,
+      ),
+    `Failed at ["_0"]: Expected "LogsNotFound" | { NAME: "InvalidData"; VAL: string; }, received "BogusVariant"`,
   )
-  t->Assert.unsafeDeepEqual(
-    %raw(`{TAG:"Error",_0:{NAME:"BogusObj"}}`)->S.decodeOrThrow(
-      ~from=getLogsResponseSchema,
-      ~to=S.unknown,
-    ),
-    %raw(`{"error":{"NAME":"BogusObj"}}`),
+  t->U.assertThrowsMessage(
+    () =>
+      %raw(`{TAG:"Error",_0:{NAME:"BogusObj"}}`)->S.decodeOrThrow(
+        ~from=getLogsResponseSchema,
+        ~to=S.unknown,
+      ),
+    `Failed at ["_0"]: Expected "LogsNotFound" | { NAME: "InvalidData"; VAL: string; }, received { NAME: "BogusObj"; }`,
   )
 })
 
@@ -1062,11 +1058,13 @@ test("Union type-narrow stays in sync with each schema's own decoder", t => {
   assertSync(S.array(S.string), ~other=S.bool->S.castToUnknown, [`Array.isArray(i)`])
 })
 
-test("Coerces a concrete input into a union's instance member via the member's decoder", t => {
-  // The dispatch narrow delegates a concrete (non-`unknown`) input to the member's
-  // own decoder, so coercion into an instance variant works (string -> new Date)
-  // instead of being rejected as it was with the old generic `instance(class)` narrow.
-  let schema = S.string->S.to(S.union([S.date->S.castToUnknown, S.float->S.castToUnknown]))
+test("Coerces a concrete input into a union's instance member via an explicit case", t => {
+  // The conversion into the Date variant is declared on the case; the bare
+  // `S.date` member would fail at first compile (no string case in the union)
+  let schema =
+    S.string->S.to(
+      S.union([S.string->S.to(S.date)->S.castToUnknown, S.float->S.castToUnknown]),
+    )
   t->Assert.deepEqual(
     "2024-01-01T00:00:00.000Z"->S.parseOrThrow(~to=schema),
     Date.fromString("2024-01-01T00:00:00.000Z")->Obj.magic,

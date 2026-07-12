@@ -95,7 +95,7 @@ test("Expression of Union schema", t => {
 test("Expression of Union schema with duplicated items", t => {
   t->Assert.deepEqual(
     S.union([S.literal("foo"), S.string, S.literal("foo")])->S.toExpression,
-    `"foo" | string | "foo"`,
+    `"foo" | string`,
   )
 })
 
@@ -141,19 +141,17 @@ test("Expression of renamed schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseParse,
-    `i=>{try{e[0](i);}catch(e0){if(i===void 0){i=null}else{e[1](i,e0)}}return i}`,
+    `i=>{if(i===void 0){i=null}else{e[0](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{e[0](i);}catch(e0){if(i===void 0){i=null}else{e[1](i,e0)}}return i}`,
+    `i=>{if(i===void 0){i=null}else{e[0](i)}return i}`,
   )
   t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`null`))
-  // TODO: Can be improved. No need to duplicate Expected/received error
   t->U.assertThrowsMessage(
     () => %raw(`"smth"`)->S.parseOrThrow(~to=schema->S.reverse),
-    `Expected Ethers.BigInt, received "smth"
-- Expected never, received "smth"`,
+    `Expected Ethers.BigInt, received "smth"`,
   )
 })
 

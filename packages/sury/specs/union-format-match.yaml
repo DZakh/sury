@@ -4,7 +4,7 @@ ts:
   input: number
   output: number
   instantiations: 6428
-  bundleBytes: 10259
+  bundleBytes: 10385
 jsonSchema:
   input: '{ anyOf: [{ type: "integer", minimum: -2147483648, maximum: 2147483647 }, { type: "number" }] }'
   output: '{ anyOf: [{ type: "integer", minimum: -2147483648, maximum: 2147483647 }, { anyOf: [{ type: "integer", minimum: -2147483648, maximum: 2147483647 }, { type: "number" }] }] }'

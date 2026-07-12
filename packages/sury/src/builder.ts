@@ -235,6 +235,21 @@ export const B_unsupportedDecode = (b: Val, from: Internal, target: Internal): n
   });
 }
 
+// The declared direction of a union conversion has no case for `from` —
+// thrown at first compile so the schema fails before any data flows
+export const B_unsupportedUnionDecode = (b: Val, from: Internal, target: Internal): never => {
+  const fromExpression = toExpression(from);
+  return B_throw({
+    code: "unsupported_decode",
+    from: from,
+    to: target,
+    reason: `Can't decode ${fromExpression} to ${toExpression(
+      target
+    )}. Union conversions are explicit: add a ${fromExpression} case to the union or reject the input with an S.never case`,
+    path: b.path,
+  });
+}
+
 export const B_failWithArg = <Arg>(b: Val, fn: (arg: Arg) => ErrorDetails, arg: string): string => {
   return `${B_embed(b, (arg: Arg) => {
     B_throw(fn(arg));

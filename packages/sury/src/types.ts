@@ -122,6 +122,10 @@ export type Internal = {
   type: Tag;
   // A serial number for the schema, used for caching operations.
   seq?: number;
+  // Set on every schema produced by S.reverse. A reversed union conversion
+  // treats an unmatched source case as a runtime reject (a widening reverses
+  // to a narrowing), where the declared direction fails at first compile.
+  reversed?: boolean;
   // Builder for transforming to the "to" schema. If missing, should apply
   // coercion logic.
   parser?: Builder;
@@ -317,7 +321,9 @@ export const toExpression = (schema: Internal): string => {
   } else if (schema.const !== undefined) {
     return stringify(schema.const);
   } else if (schema.anyOf !== undefined) {
-    return schema.anyOf.map(toExpression).join(" | ");
+    // Dedupe: several cases may share a head type (e.g. explicit conversions
+    // from the same source type)
+    return Array.from(new Set(schema.anyOf.map(toExpression))).join(" | ");
   } else if (schema.format === "compactColumns") {
     // For compactColumns, show the column types if we have properties from .to
     const to = schema.to;

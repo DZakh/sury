@@ -489,7 +489,7 @@ module Union = {
       () => {
         4->S.parseOrThrow(~to=schema)
       },
-      "Expected 2 | 2 | 3, received 4
+      "Expected 2 | 3, received 4
 - Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead",
     )
   })

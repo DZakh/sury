@@ -1,24 +1,24 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: S.union([S.bigint, S.number, S.literal(null)]).with(S.to, S.union([S.string, S.literal(undefined)]))
+  schema: S.union([S.bigint.with(S.to, S.string), S.number.with(S.to, S.string), S.literal(null).with(S.to, S.literal(undefined))]).with(S.to, S.union([S.string, S.literal(undefined)]))
   input: any
   output: any
-  instantiations: 7239
-  bundleBytes: 10430
+  instantiations: 7884
+  bundleBytes: 10559
 jsonSchema:
   input: Expected JSON, received bigint | number | null
   output: Expected JSON, received string | undefined
 operations:
   parse:
-    expression: i=>{if(typeof i==="bigint"){try{i=""+i}catch(e0){e[0](i,e0)}}else if(typeof i==="number"&&!Number.isNaN(i)){try{i=""+i}catch(e0){e[1](i,e0)}}else if(i===null){try{i=void 0}catch(e0){e[2](i,e0)}}else{e[3](i)}return i}
+    expression: i=>{if(typeof i==="bigint"){i=""+i}else if(typeof i==="number"&&!Number.isNaN(i)){i=""+i}else if(i===null){i=void 0}else{e[0](i)}return i}
     examples:
-      bigint-to-string:
+      bigint-case-to-string:
         input: 123n
         output: '"123"'
-      number-to-string:
+      number-case-to-string:
         input: "123.12"
         output: '"123.12"'
-      null-bridges-to-undefined:
+      null-case-to-undefined:
         input: "null"
         output: undefined
       boolean-has-no-source-case:
@@ -28,24 +28,24 @@ operations:
   encode:
     expression: i=>{if(typeof i==="string"){try{let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0}catch(e0){try{let v1=+i;!Number.isNaN(v1)||e[1](i);i=v1}catch(e1){e[2](i,e0,e1)}}}else if(i===void 0){try{i=null}catch(e0){e[3](i,e0)}}else{e[4](i)}return i}
     examples:
-      undefined-bridges-to-null:
+      undefined-back-to-null:
         input: undefined
         output: "null"
-      bigint-parse-wins:
+      bigint-case-first:
         input: '"123"'
         output: 123n
-      bigint-throws-number-wins:
+      bigint-throws-number-case-wins:
         input: '"123.12"'
         output: "123.12"
-      no-free-target-accepts:
+      no-case-accepts:
         input: '"abc"'
         error: |-
-          Expected bigint | number, received "abc"
+          Expected string, received "abc"
           - Expected bigint, received "abc"
           - Expected number, received "abc"
-      null-target-reserved-by-bridge:
+      no-null-string-case-declared:
         input: '"null"'
         error: |-
-          Expected bigint | number, received "null"
+          Expected string, received "null"
           - Expected bigint, received "null"
           - Expected number, received "null"

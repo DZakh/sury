@@ -175,6 +175,10 @@ export const reverse = (schema: Internal): Internal => {
 
     while (current as unknown as boolean) {
       const mut = copySchema(current!);
+      // Non-enumerable so reversed schemas stay deep-equal to hand-built
+      // ones and copySchema's for-in doesn't leak the flag into derivatives
+      valueOptions[valKey] = true;
+      Object.defineProperty(mut, "reversed", valueOptions as PropertyDescriptor);
       const next = mut.to;
       if (reversedHead === undefined) {
         delete mut.to;

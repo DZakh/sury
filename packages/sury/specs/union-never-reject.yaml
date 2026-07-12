@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.string, S.bigint.with(S.to, S.never)]).with(S.to, S.union([S.number, S.string]))
+  input: string | bigint
+  output: string | number
+  instantiations: 7656
+  bundleBytes: 10538
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ anyOf: [{ type: "number" }, { type: "string" }] }'
+operations:
+  parse:
+    expression: i=>{if(typeof i==="bigint"){e[0](i);}else if(!(typeof i==="string")){e[1](i)}return i}
+    examples:
+      string-binds-string:
+        input: '"123"'
+        output: '"123"'
+      bigint-explicitly-rejected:
+        input: 123n
+        error: Expected never, received 123n
+  decode: eq-to-parse
+  encode:
+    expression: i=>{if(typeof i==="number"&&!Number.isNaN(i)){e[1](i,e[0])}else if(!(typeof i==="string")){e[2](i)}return i}
+    examples: {}
