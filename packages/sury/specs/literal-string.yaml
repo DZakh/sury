@@ -21,24 +21,5 @@ operations:
       invalid-type:
         input: "123"
         error: Expected "tuna", received 123
-  decode:
-    expression: i=>{i==="tuna"||e[0](i);return i}
-    examples:
-      valid:
-        input: '"tuna"'
-        output: '"tuna"'
-      invalid-value:
-        input: '"bass"'
-        error: Expected "tuna", received "bass"
-      invalid-type:
-        input: "123"
-        error: Expected "tuna", received 123
-  encode:
-    expression: i=>{i==="tuna"||e[0](i);return i}
-    examples:
-      valid:
-        input: '"tuna"'
-        output: '"tuna"'
-      invalid-value:
-        input: '"bass"'
-        error: Expected "tuna", received "bass"
+  decode: eq-to-parse
+  encode: eq-to-parse

@@ -21,27 +21,5 @@ operations:
       invalid-type:
         input: "123"
         error: Expected 123n, received 123
-  decode:
-    expression: i=>{i===123n||e[0](i);return i}
-    examples:
-      valid:
-        input: 123n
-        output: 123n
-      invalid-value:
-        input: 456n
-        error: Expected 123n, received 456n
-      invalid-type:
-        input: "123"
-        error: Expected 123n, received 123
-  encode:
-    expression: i=>{i===123n||e[0](i);return i}
-    examples:
-      valid:
-        input: 123n
-        output: 123n
-      invalid-value:
-        input: 456n
-        error: Expected 123n, received 456n
-      invalid-type:
-        input: "123"
-        error: Expected 123n, received 123
+  decode: eq-to-parse
+  encode: eq-to-parse

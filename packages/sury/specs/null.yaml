@@ -18,21 +18,5 @@ operations:
       invalid-type:
         input: undefined
         error: Expected null, received undefined
-  decode:
-    expression: i=>{i===null||e[0](i);return i}
-    examples:
-      valid:
-        input: "null"
-        output: "null"
-      invalid-type:
-        input: undefined
-        error: Expected null, received undefined
-  encode:
-    expression: i=>{i===null||e[0](i);return i}
-    examples:
-      valid:
-        input: "null"
-        output: "null"
-      invalid-type:
-        input: "123"
-        error: Expected null, received 123
+  decode: eq-to-parse
+  encode: eq-to-parse

@@ -18,21 +18,5 @@ operations:
       invalid-type:
         input: '"hello"'
         error: Expected undefined, received "hello"
-  decode:
-    expression: i=>{i===void 0||e[0](i);return i}
-    examples:
-      valid:
-        input: undefined
-        output: undefined
-      invalid-type:
-        input: '"hello"'
-        error: Expected undefined, received "hello"
-  encode:
-    expression: i=>{i===void 0||e[0](i);return i}
-    examples:
-      valid:
-        input: undefined
-        output: undefined
-      invalid-type:
-        input: "123"
-        error: Expected undefined, received 123
+  decode: eq-to-parse
+  encode: eq-to-parse

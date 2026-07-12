@@ -21,24 +21,5 @@ operations:
       invalid-type:
         input: "0"
         error: Expected true, received 0
-  decode:
-    expression: i=>{i===true||e[0](i);return i}
-    examples:
-      valid:
-        input: "true"
-        output: "true"
-      invalid-value:
-        input: "false"
-        error: Expected true, received false
-      invalid-type:
-        input: "0"
-        error: Expected true, received 0
-  encode:
-    expression: i=>{i===true||e[0](i);return i}
-    examples:
-      valid:
-        input: "true"
-        output: "true"
-      invalid-value:
-        input: "false"
-        error: Expected true, received false
+  decode: eq-to-parse
+  encode: eq-to-parse
