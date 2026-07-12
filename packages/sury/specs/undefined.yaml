@@ -3,7 +3,7 @@ ts:
   schema: S.schema(undefined)
   input: undefined
   output: undefined
-  instantiations: 370
+  instantiations: 369
   bundleBytes: 9375
 jsonSchema:
   input: Expected JSON, received undefined

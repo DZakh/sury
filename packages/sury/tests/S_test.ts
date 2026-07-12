@@ -337,7 +337,7 @@ test("Successfully serialized JSON object", (t) => {
   const valueWithSpace = S.encoder(schemaWithSpace)({ foo: [1, 2] });
   t.expect(valueWithSpace).toEqual('{\n  "foo": [\n    1,\n    2\n  ]\n}');
 
-  expectSchemaType(schema).toBe<{ foo: number[] }, string>();
+  expectSchemaType(schema).toBe<{ foo: [1, number] }, string>();
   expectSchemaType(schema).toBe<
     S.Output<typeof schemaWithSpace>,
     S.Input<typeof schemaWithSpace>
@@ -1424,6 +1424,9 @@ test("Successfully parses union with transformed items", (t) => {
 });
 
 test("Nested string literal", (t) => {
+  // A bare property value is always a literal schema at runtime (definitionToSchema
+  // treats it as an exact-match check either way), so `schema()`'s `const T` infers
+  // it as a literal type too — `as const` is redundant, not required.
   const schema = S.schema({
     nested: "tuna" as const,
     withoutAsConst: "tuna",
@@ -1440,7 +1443,7 @@ test("Nested string literal", (t) => {
 
   expectSchemaType(schema).toBe<{
     nested: "tuna";
-    withoutAsConst: string;
+    withoutAsConst: "tuna";
     inSchema: "tuna";
   }>();
 });

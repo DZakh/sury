@@ -3,7 +3,7 @@ ts:
   schema: S.schema(Symbol.for("tuna"))
   input: symbol
   output: symbol
-  instantiations: 384
+  instantiations: 389
   bundleBytes: 9382
 jsonSchema:
   input: Expected JSON, received Symbol(tuna)

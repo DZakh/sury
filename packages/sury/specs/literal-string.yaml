@@ -3,7 +3,7 @@ ts:
   schema: S.schema("tuna")
   input: '"tuna"'
   output: '"tuna"'
-  instantiations: 422
+  instantiations: 429
   bundleBytes: 9378
 jsonSchema:
   input: '{ type: "string", const: "tuna" }'

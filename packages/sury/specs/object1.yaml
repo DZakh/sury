@@ -3,7 +3,7 @@ ts:
   schema: "S.schema({a: S.string})"
   input: "{ a: string; }"
   output: "{ a: string; }"
-  instantiations: 1225
+  instantiations: 1205
   bundleBytes: 9497
 jsonSchema:
   input: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'

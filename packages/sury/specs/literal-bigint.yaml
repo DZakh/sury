@@ -3,7 +3,7 @@ ts:
   schema: S.schema(123n)
   input: 123n
   output: 123n
-  instantiations: 374
+  instantiations: 379
   bundleBytes: 9378
 jsonSchema:
   input: Expected JSON, received 123n

@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
   schema: 'S.schema({ foo: "bar" })'
-  input: "{ foo: string; }"
-  output: "{ foo: string; }"
-  instantiations: 1063
+  input: '{ foo: "bar"; }'
+  output: '{ foo: "bar"; }'
+  instantiations: 1043
   bundleBytes: 9382
 jsonSchema:
   input: '{ type: "object", properties: { foo: { type: "string", const: "bar" } }, required: ["foo"] }'

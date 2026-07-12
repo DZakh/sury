@@ -3,7 +3,7 @@ ts:
   schema: S.schema(true)
   input: "true"
   output: "true"
-  instantiations: 371
+  instantiations: 378
   bundleBytes: 9374
 jsonSchema:
   input: '{ type: "boolean", const: true }'

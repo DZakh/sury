@@ -3,7 +3,7 @@ ts:
   schema: S.schema(123)
   input: "123"
   output: "123"
-  instantiations: 377
+  instantiations: 382
   bundleBytes: 9377
 jsonSchema:
   input: '{ type: "number", const: 123 }'
