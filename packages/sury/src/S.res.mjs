@@ -3,18 +3,26 @@
 import * as Sury from "sury";
 import * as Primitive_exceptions from "@rescript/runtime/lib/es6/Primitive_exceptions.js";
 
+let empty = "";
+
+let dynamic = "[]";
+
 let Path = {
-  empty: "",
-  dynamic: "[]"
+  empty: empty,
+  dynamic: dynamic
 };
 
 let Exn = /* @__PURE__ */Primitive_exceptions.create("S.Exn");
 
 Sury.$res_setExnId(Exn);
 
+let none = 0;
+
+let async = 1;
+
 let Flag = {
-  none: 0,
-  async: 1
+  none: none,
+  async: async
 };
 
 let $$Error = {};
