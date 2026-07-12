@@ -154,7 +154,6 @@ const vs = S.schema({
 })
   .with(S.strict)
   .with(S.meta, { description: "Cross-library equivalents, type-checked against this spec." });
-export type Vs = S.Output<typeof vs>;
 
 export const specSchema = S.schema({
   ts,
