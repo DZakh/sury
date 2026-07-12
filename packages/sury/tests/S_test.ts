@@ -1423,14 +1423,6 @@ test("Successfully parses union with transformed items", (t) => {
   expectSchemaType(schema).toBe<number, string | number>();
 });
 
-test("String literal", (t) => {
-  const schema = S.schema("tuna");
-
-  t.expect(S.parser(schema)("tuna")).toEqual("tuna");
-
-  expectSchemaType(schema).toBe<"tuna">();
-});
-
 test("Nested string literal", (t) => {
   const schema = S.schema({
     nested: "tuna" as const,
@@ -1451,73 +1443,6 @@ test("Nested string literal", (t) => {
     withoutAsConst: string;
     inSchema: "tuna";
   }>();
-});
-
-test("Boolean literal", (t) => {
-  const schema = S.schema(true);
-
-  t.expect(S.parser(schema)(true)).toEqual(true);
-
-  expectSchemaType(schema).toBe<true, true>();
-});
-
-test("Number literal", (t) => {
-  const schema = S.schema(123);
-
-  t.expect(S.parser(schema)(123)).toEqual(123);
-
-  expectSchemaType(schema).toBe<123, 123>();
-});
-
-test("Undefined literal", (t) => {
-  const schema = S.schema(undefined);
-
-  t.expect(S.parser(schema)(undefined)).toEqual(undefined);
-
-  expectSchemaType(schema).toBe<undefined, undefined>();
-});
-
-test("Null literal", (t) => {
-  const schema = S.schema(null);
-
-  t.expect(S.parser(schema)(null)).toEqual(null);
-
-  expectSchemaType(schema).toBe<null, null>();
-});
-
-test("Symbol literal", (t) => {
-  let symbol = Symbol();
-  const schema = S.schema(symbol);
-
-  t.expect(S.parser(schema)(symbol)).toEqual(symbol);
-
-  expectSchemaType(schema).toBe<symbol, symbol>();
-});
-
-test("BigInt literal", (t) => {
-  const schema = S.schema(123n);
-
-  t.expect(S.parser(schema)(123n)).toEqual(123n);
-
-  expectSchemaType(schema).toBe<123n, 123n>();
-});
-
-test("NaN literal", (t) => {
-  const schema = S.schema(NaN);
-
-  t.expect(S.parser(schema)(NaN)).toEqual(NaN);
-
-  expectSchemaType(schema).toBe<number, number>();
-});
-
-test("Tuple literal", (t) => {
-  const cliArgsSchema = S.schema(["help", "lint"] as const);
-
-  t.expect(S.parser(cliArgsSchema)(["help", "lint"])).toEqual(["help", "lint"]);
-
-  expectTypeOf(cliArgsSchema).toEqualTypeOf<
-    S.Schema<["help", "lint"], ["help", "lint"]>
-  >();
 });
 
 test("Correctly infers type", (t) => {

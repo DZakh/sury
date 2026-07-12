@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.schema(123)
+  input: "123"
+  output: "123"
+  instantiations: 377
+  bundleBytes: 9377
+jsonSchema:
+  input: '{ type: "number", const: 123 }'
+  output: '{ type: "number", const: 123 }'
+operations:
+  parse:
+    expression: i=>{i===123||e[0](i);return i}
+    examples:
+      valid:
+        input: "123"
+        output: "123"
+      invalid-value:
+        input: "456"
+        error: Expected 123, received 456
+      invalid-type:
+        input: '"123"'
+        error: Expected 123, received "123"
+  decode:
+    expression: i=>{i===123||e[0](i);return i}
+    examples:
+      valid:
+        input: "123"
+        output: "123"
+  encode:
+    expression: i=>{i===123||e[0](i);return i}
+    examples:
+      valid:
+        input: "123"
+        output: "123"
+      invalid-value:
+        input: "456"
+        error: Expected 123, received 456

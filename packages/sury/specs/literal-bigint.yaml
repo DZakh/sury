@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.schema(123n)
+  input: 123n
+  output: 123n
+  instantiations: 374
+  bundleBytes: 9378
+jsonSchema:
+  input: Expected JSON, received 123n
+  output: Expected JSON, received 123n
+operations:
+  parse:
+    expression: i=>{i===123n||e[0](i);return i}
+    examples:
+      valid:
+        input: 123n
+        output: 123n
+      invalid-value:
+        input: 456n
+        error: Expected 123n, received 456n
+      invalid-type:
+        input: "123"
+        error: Expected 123n, received 123
+  decode:
+    expression: i=>{i===123n||e[0](i);return i}
+    examples:
+      valid:
+        input: 123n
+        output: 123n
+  encode:
+    expression: i=>{i===123n||e[0](i);return i}
+    examples:
+      valid:
+        input: 123n
+        output: 123n
+      invalid-value:
+        input: 456n
+        error: Expected 123n, received 456n

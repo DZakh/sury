@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.schema("tuna")
+  input: '"tuna"'
+  output: '"tuna"'
+  instantiations: 422
+  bundleBytes: 9378
+jsonSchema:
+  input: '{ type: "string", const: "tuna" }'
+  output: '{ type: "string", const: "tuna" }'
+operations:
+  parse:
+    expression: i=>{i==="tuna"||e[0](i);return i}
+    examples:
+      valid:
+        input: '"tuna"'
+        output: '"tuna"'
+      invalid-value:
+        input: '"bass"'
+        error: Expected "tuna", received "bass"
+      invalid-type:
+        input: "123"
+        error: Expected "tuna", received 123
+  decode:
+    expression: i=>{i==="tuna"||e[0](i);return i}
+    examples:
+      valid:
+        input: '"tuna"'
+        output: '"tuna"'
+  encode:
+    expression: i=>{i==="tuna"||e[0](i);return i}
+    examples:
+      valid:
+        input: '"tuna"'
+        output: '"tuna"'
+      invalid-value:
+        input: '"bass"'
+        error: Expected "tuna", received "bass"
