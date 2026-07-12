@@ -1,7 +1,9 @@
 // Cross-library comparison benchmarks (Sury vs Zod / Valibot / ArkType /
-// TypeBox). Run with `pnpm --filter=e2e benchmark:comparison`; instrumented by
-// CodSpeed in CI. Each `describe` is a head-to-head group, so Vitest prints the
-// relative "x faster" summary per operation.
+// TypeBox). Run with `pnpm --filter=e2e benchmark:comparison`. Each `describe`
+// is a head-to-head group, so Vitest prints the relative "x faster" summary
+// per operation. In CI, the `benchmarks` job runs this under CodSpeed
+// (simulated instruction counts) and the `wallclock-benchmarks` job runs it
+// plain (real wall-clock ops/sec, posted as a PR comment).
 
 import { bench, describe } from "vitest";
 import { z } from "zod";
