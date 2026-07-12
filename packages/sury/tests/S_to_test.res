@@ -19,12 +19,12 @@ test("Coerce from string to bool", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[1](i);let v0;(v0=i==="true")||i==="false"||e[0](i);return v0}`,
+    `i=>{typeof i==="string"||e[1](i);let v0=i==="true";v0||i==="false"||e[0](i);return v0}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Convert,
-    `i=>{let v0;(v0=i==="true")||i==="false"||e[0](i);return v0}`,
+    `i=>{let v0=i==="true";v0||i==="false"||e[0](i);return v0}`,
   )
   t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return ""+i}`)
 })
@@ -74,7 +74,7 @@ test("Coerce from bool to string", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{let v0;(v0=i===\"true\")||i===\"false\"||e[0](i);return v0}`,
+    `i=>{let v0=i===\"true\";v0||i===\"false\"||e[0](i);return v0}`,
   )
 })
 
@@ -413,16 +413,14 @@ test("Coerce string to unboxed union (each item separately)", t => {
       "t"->S.parseOrThrow(~to=schema)
     },
     ~expectations={
-      message: `Expected number | boolean, received "t"
-- Expected number, received "t"
-- Expected boolean, received "t"`,
+      message: `Expected number | boolean, received "t"`,
     },
   )
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[3](i);try{let v0=+i;!Number.isNaN(v0)||e[1](i);i=v0}catch(e1){try{let v1;(v1=i==="true")||i==="false"||e[0](i);i=v1}catch(e2){e[2](i,e1,e2)}}return i}`,
+    `i=>{typeof i==="string"||e[1](i);if((v0=+i,!Number.isNaN(v0))){var v0;i=v0}else if((v1=i==="true",v1||i==="false")){var v1;i=v1}else{e[0](i)}return i}`,
   )
 
   t->Assert.deepEqual(Number(10.)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"10"`))
@@ -508,7 +506,7 @@ test("Coerce from string to optional bool", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[2](i);try{let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}catch(e0){if(i==="undefined"){i=void 0}else{e[1](i,e0)}}return i}`,
+    `i=>{typeof i==="string"||e[1](i);if((v0=i==="true",v0||i==="false")){var v0;i=v0}else if(i==="undefined"){i=void 0}else{e[0](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,

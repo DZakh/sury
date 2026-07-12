@@ -275,7 +275,7 @@ test("Compiled code snapshot of variant applied to object", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i||e[2](i);let v1=i["foo"];typeof v1==="string"||e[1](v1);let v0;(v0=v1==="true")||v1==="false"||e[0](v1);return {"TAG":"Ok","_0":v0,}}`,
+    `i=>{typeof i==="object"&&i||e[2](i);let v1=i["foo"];typeof v1==="string"||e[1](v1);let v0=v1==="true";v0||v1==="false"||e[0](v1);return {"TAG":"Ok","_0":v0,}}`,
   )
   t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"foo":""+i["_0"],}}`)
 })

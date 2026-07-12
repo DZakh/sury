@@ -154,9 +154,18 @@ export const booleanDecoder: Builder = (input: Val) => {
     output.v = _var;
 
     const inputVar = input.v();
-    output.cp = `let ${outputVar};(${output.i}=${inputVar}==="true")||${inputVar}==="false"||${B_embedInvalidInput(
-      input,
-    )};`;
+    // `x==="true"` never throws, so split the coercion into a pure producer
+    // and a rejecting check: merge(~hoistCond) can fold both into a union
+    // dispatch condition ((v0=i==="true",v0||i==="false")) instead of
+    // deopting the case to try/catch.
+    output.pe = `${inputVar}==="true"`;
+    output.cp = `let ${outputVar}=${output.pe};`;
+    output.vc = [
+      {
+        c: (_inputVar) => `${outputVar}||${inputVar}==="false"`,
+        f: failInvalidType,
+      },
+    ];
     return output;
   } else if (!flagUnsafeHas(inputTagFlag, tagFlagBoolean)) {
     return B_unsupportedDecode(input, input.s, input.e);
