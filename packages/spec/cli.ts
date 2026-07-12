@@ -202,7 +202,13 @@ const cmdCheck = async (): Promise<void> => {
   // the core count). Skipped wholesale where perf can't be measured — the rest
   // of the check still runs and existing perf goldens are carried through. See
   // perf.ts and the `spec` skill's Perf section.
-  const perfReason = perfUnavailableReason();
+  //
+  // Off unless SPEC_PERF is set, because instruction counts aren't reproducible
+  // across machines (CPU model / glibc): the goldens are baselined on the CI
+  // runner, which sets SPEC_PERF=1 to gate them. A local `spec check` on any
+  // other machine would only churn them, so it leaves them untouched; set
+  // SPEC_PERF=1 locally to measure your own machine's numbers ad hoc.
+  const perfReason = process.env.SPEC_PERF ? perfUnavailableReason() : "off (set SPEC_PERF=1; CI gates perf)";
   if (perfReason) console.log(`perf: skipped (${perfReason})`);
   const perfCounts = perfReason
     ? new Map()

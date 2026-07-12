@@ -10,7 +10,7 @@ Tiebreaker: shortest *generated* code wins over shortest *library* code (runtime
 
 ## Benchmarking
 
-Perf claims use **deterministic instruction counts**, never wall-clock ops/sec (too noisy in an agent session or CI to gate). The spec goldens carry them: `ts.createPerf` (schema construction) and `operations.<op>.compilePerf` (operation compilation), measured under Valgrind by `pnpm spec check` — see the `spec` skill's Perf section. Report instruction-count deltas, not ms. An unexpected codegen diff in a spec's `expression` golden is itself a perf-review trigger. The wall-clock benches (`packages/sury/tests/sury.bench.ts`, `packages/e2e/…/comparison.bench.ts`) stay for human "feel" and cross-library positioning only — ungated, never quoted as a number.
+Perf claims use **deterministic instruction counts**, never wall-clock ops/sec (too noisy in an agent session or CI to gate). The spec goldens carry them: `ts.createPerf` (schema construction) and `operations.<op>.compilePerf` (operation compilation), measured under Valgrind by `SPEC_PERF=1 pnpm spec check` — see the `spec` skill's Perf section. These counts are exact within one machine but drift across machines, so the CI runner is their source of truth and a plain local `spec check` skips them; measure locally (`SPEC_PERF=1`) for relative before/after deltas on your own machine. Report instruction-count deltas, not ms. An unexpected codegen diff in a spec's `expression` golden is itself a perf-review trigger. The wall-clock benches (`packages/sury/tests/sury.bench.ts`, `packages/e2e/…/comparison.bench.ts`) stay for human "feel" and cross-library positioning only — ungated, never quoted as a number.
 
 ## Layout
 

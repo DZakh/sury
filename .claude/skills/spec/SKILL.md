@@ -31,7 +31,7 @@ Goldens snapshot key metrics: generated code, `ts.bundleBytes`, `ts.instantiatio
 
 ## Perf goldens
 
-`ts.createPerf` / `operations.<op>.compilePerf`: retired-instruction counts (Valgrind, harness-floor subtracted so bare constants read ~0), measured by every `spec check` where valgrind is present, else skipped. Node-pinned — run agent sessions on the repo's pinned Node so numbers match CI.
+`ts.createPerf` / `operations.<op>.compilePerf`: retired-instruction counts (Valgrind under `setarch -R`, harness-floor subtracted so bare constants read ~0). Exact within one machine but NOT across machines — CPU model / glibc shift a big compile's count past the ±10% band — so the **CI runner is the source of truth**: goldens are baselined there and the `Perf goldens` CI job (which sets `SPEC_PERF=1`) gates them. A local `spec check` skips perf by default so it can't churn the runner's goldens; set `SPEC_PERF=1` to measure your own machine's numbers for relative before/after checks (their absolute values won't match the committed goldens). To refresh the goldens, run `SPEC_PERF=1 pnpm spec check --write` on the CI runner (not locally).
 
 ## Layout
 

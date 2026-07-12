@@ -55,6 +55,22 @@ const hasValgrind = (): boolean => {
   return valgrindOk;
 };
 
+// `setarch -R` disables ASLR for the worker, so mmap/heap addresses are the same
+// every run and on every machine — otherwise a handful of address-dependent
+// counts wobble. Linux-only (util-linux); absent (e.g. macOS) we run without it.
+let setarchOk: boolean | undefined;
+const hasSetarch = (): boolean => {
+  if (setarchOk === undefined) {
+    try {
+      execFileSync("setarch", ["-R", "true"], { stdio: "ignore" });
+      setarchOk = true;
+    } catch {
+      setarchOk = false;
+    }
+  }
+  return setarchOk;
+};
+
 // Perf goldens can only be measured where both the addon built and valgrind is
 // installed. Everywhere else the harness leaves existing perf values untouched
 // (see cli.ts) rather than blocking the rest of `spec check`.
@@ -82,32 +98,37 @@ const readDumps = (dir: string): Record<string, number> => {
 const measureOne = (req: PerfRequest): Promise<PerfCounts | null> =>
   new Promise((resolve) => {
     const dir = mkdtempSync(join(tmpdir(), "sury-perf-"));
+    const valgrindArgs = [
+      "--tool=callgrind",
+      "--instr-atstart=no",
+      "--quiet",
+      `--callgrind-out-file=${join(dir, "cg")}`,
+      process.execPath,
+      // --predictable: deterministic GC/scheduling so counts are exact.
+      // --expose-gc: the worker runs a full GC just BEFORE each fenced region
+      // (outside START/STOP, so it isn't counted) — that empties the heap so V8
+      // can't trigger a *major* GC INSIDE the fence and pollute the count.
+      // --max-semi-space-size: a large young generation so a single compile
+      // never fills it (fewer scavenges → faster, fewer stray counts).
+      // These make counts exact within one machine. They do NOT make them equal
+      // ACROSS machines — CPU model and glibc still shift a big compile's count
+      // by more than the band — so goldens are baselined on the CI runner and
+      // the local gate is informational (see cli.ts / the `spec` skill).
+      // --experimental-strip-types: run the .ts worker directly (a transpiling
+      // loader like tsx perturbs the counts; type-stripping doesn't).
+      "--predictable",
+      "--expose-gc",
+      "--max-semi-space-size=512",
+      "--experimental-strip-types",
+      WORKER,
+    ];
+    // Run under `setarch -R` (ASLR off) where available; else valgrind directly.
+    const [cmd, args] = hasSetarch()
+      ? (["setarch", ["-R", "valgrind", ...valgrindArgs]] as const)
+      : (["valgrind", valgrindArgs] as const);
     const child = spawn(
-      "valgrind",
-      [
-        "--tool=callgrind",
-        "--instr-atstart=no",
-        "--quiet",
-        `--callgrind-out-file=${join(dir, "cg")}`,
-        process.execPath,
-        // --predictable: deterministic GC/scheduling so counts are exact.
-        // --expose-gc: the worker runs a full GC just BEFORE each fenced region
-        // (outside START/STOP, so it isn't counted) — that empties the heap so
-        // V8 can't trigger a *major* GC INSIDE the fence.
-        // --max-semi-space-size: V8 otherwise sizes the young generation to the
-        // machine's RAM, so a big compile's in-fence allocation overflows a
-        // small nursery on the CI runner and triggers a *scavenge* mid-fence
-        // (~+40% on object10) that doesn't happen locally. Pinning it large
-        // makes the nursery identical everywhere; one compile never fills it.
-        // Together: no GC of any kind lands in a fence, on any machine.
-        // --experimental-strip-types: run the .ts worker directly (a transpiling
-        // loader like tsx perturbs the counts; type-stripping doesn't).
-        "--predictable",
-        "--expose-gc",
-        "--max-semi-space-size=512",
-        "--experimental-strip-types",
-        WORKER,
-      ],
+      cmd,
+      args,
       {
         stdio: "ignore",
         env: {

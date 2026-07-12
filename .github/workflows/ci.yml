@@ -58,11 +58,12 @@ jobs:
           node-version: 22.22.2
           cache: "pnpm"
 
-      # Perf goldens are retired-instruction counts measured under Valgrind
-      # (see packages/spec/perf.ts). They're exact for a fixed Node/V8 build, so
-      # this job MUST use the same node-version the goldens were baselined on
-      # (22.22.2, above) — a different Node shifts every count. `pnpm install`
-      # builds the native callgrind addon via the spec package's postinstall.
+      # Perf goldens are retired-instruction counts (see packages/spec/perf.ts).
+      # They're exact within one machine but NOT across machines — CPU model and
+      # glibc shift a big compile's count by more than the band — so THIS runner
+      # is the source of truth: the goldens are baselined here and this job gates
+      # them. Keep node-version pinned (a different Node shifts every count too).
+      # `pnpm install` builds the native callgrind addon via the postinstall.
       - run: sudo apt-get update && sudo apt-get install -y valgrind
       - run: pnpm install
 
@@ -76,11 +77,14 @@ jobs:
       # `spec check`'s golden recomputation.
       - run: pnpm --filter=sury build:entry
 
-      # Read-only gate: recomputes every golden (codegen, bundle, types) AND
-      # re-measures createPerf/compilePerf, failing on drift beyond the ±10%
-      # cross-machine band. The worker GCs before each fenced region so no GC
-      # pollutes a count (see perf.ts / perf-worker.ts).
+      # Read-only gate. SPEC_PERF=1 turns perf measurement on (off by default, so
+      # a `spec check` on any other machine doesn't churn these runner-baselined
+      # goldens). Recomputes every golden (codegen, bundle, types) AND re-measures
+      # createPerf/compilePerf under Valgrind (setarch -R pins ASLR), failing on
+      # drift beyond the ±10% band that absorbs runner-to-runner CPU variance.
       - run: pnpm --filter=spec spec check
+        env:
+          SPEC_PERF: "1"
 
   wallclock-benchmarks:
     name: Wall-clock Benchmarks (comparison)
