@@ -1275,8 +1275,9 @@ export const unionDecoder: Builder = (input: Val) => {
       // Should refactor B_mergeWithCatch to make it simpler
       // All of this is a hack to make B_mergeWithCatch think that there are no changes. eg S.array(S.option(item))
       if (input.cp === "" && output.cp === "" && initialInline === "i") {
-        // FIXME: Might not be needed
-        input.hd = "";
+        // Don't clear input.hd: unlike cp, hd isn't flushed eagerly — it
+        // resolves at the final join, so any decl already hoisted onto
+        // `input` (B_hoistDecl) must survive being reused as the output val.
         input.v = _notVar;
         input.i = initialInline;
         o = input;
