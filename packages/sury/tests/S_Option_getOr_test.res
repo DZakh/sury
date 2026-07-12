@@ -280,7 +280,7 @@ test("Default on a primary item with S.to runs the transformation on parse and r
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);i=v0}else if(!(i===void 0)){e[1](i)}return i===void 0?e[2]:i}`,
+    `i=>{if(typeof i==="string"){if((v0=new Date(i),!Number.isNaN(v0.getTime()))){var v0;i=v0}else{e[0](i)}}else if(!(i===void 0)){e[1](i)}return i===void 0?e[2]:i}`,
   )
   // Output is non-optional Date, so encoder skips both undefined and Date checks.
   t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return i.toISOString()}`)

@@ -503,7 +503,21 @@ export const date = (): Internal => {
     s.decoder = (input: Val): Val => {
       const inputTagFlag = tagFlags[input.s.type]!;
       if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
-        return invalidDateRefine(B_next(input, `new Date(${input.i})`, s));
+        const outputVar = B_varWithoutAllocation(input.g);
+        const output = B_next(input, outputVar, s);
+        output.v = _var;
+        // `new Date(x)` never throws (invalid input yields a NaN date), so
+        // expose it as a pure producer: union dispatch can fold it into the
+        // condition instead of deopting the case to try/catch.
+        output.pe = `new Date(${input.v()})`;
+        output.cp = `let ${outputVar}=${output.pe};`;
+        output.vc = [
+          {
+            c: (_inputVar) => `!Number.isNaN(${outputVar}.getTime())`,
+            f: failInvalidType,
+          },
+        ];
+        return output;
       } else if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
         return invalidDateRefine(instanceDecoder(input));
       } else if (flagUnsafeHas(inputTagFlag, tagFlagInstance) && input.s.class === s.class) {

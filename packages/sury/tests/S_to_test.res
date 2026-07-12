@@ -1031,7 +1031,7 @@ test("Tier 1 instance: S.date -> S.union([S.string, S.date]) keeps Date identity
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);i=new Date(i)}else if(!(i instanceof e[1])){e[2](i)}return i}`,
+    `i=>{if(typeof i==="string"){if((v0=new Date(i),!Number.isNaN(v0.getTime()))){var v0;i=v0}else{e[0](i)}}else if(!(i instanceof e[1])){e[2](i)}return i}`,
   )
 })
 

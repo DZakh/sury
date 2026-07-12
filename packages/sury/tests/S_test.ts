@@ -2323,7 +2323,7 @@ test("Decode from json", async (t) => {
     field: new Date("2024-01-01T00:00:00.000Z"),
   });
   t.expect(jsonToDate.toString()).toEqual(
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v1=i["field"];typeof v1==="string"||e[1](v1);let v0=new Date(i["field"]);!Number.isNaN(v0.getTime())||e[0](v0);return {"field":v0,}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v1=i["field"];typeof v1==="string"||e[1](v1);let v0=new Date(v1);!Number.isNaN(v0.getTime())||e[0](v1);return {"field":v0,}}`,
   );
 
   // JSON string to Date: full round-trip through jsonString
