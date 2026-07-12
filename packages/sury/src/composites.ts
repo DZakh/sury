@@ -250,7 +250,10 @@ export const arrayDecoder = (unknownInput: Val): Val => {
     if (shouldRecreateInput) {
       output = completeObjectVal(objectVal);
     } else {
-      const o = B_refine(input);
+      // Same stale-schema class as #284/#252: carry expectedSchema, not
+      // input.schema (which may be a minimal union dispatch narrow), so a
+      // pending `.to(json)` conversion routes through the fixed-items path
+      const o = B_refine(input, expectedSchema);
       o.cp = objectVal.cp;
       o.d = objectVal.d;
       output = o;
@@ -470,7 +473,12 @@ export const objectDecoder = (unknownInput: Val): Val => {
     if (shouldRecreateInput) {
       output = completeObjectVal(objectVal);
     } else {
-      const o = B_refine(input);
+      // The value was just validated against expectedSchema — carry it as
+      // the val's schema instead of input.schema, which may be a minimal
+      // union dispatch narrow ({properties:{}, additionalItems: unknown}).
+      // Keeping the narrow mis-routed a pending `.to(json)` conversion
+      // into the dict path, which rejects undefined optional fields (#252)
+      const o = B_refine(input, expectedSchema);
       o.cp = objectVal.cp;
       o.d = objectVal.d;
       output = o;
