@@ -7,7 +7,9 @@ ts:
   bundleBytes: 10387
 vs:
   zod:
-    _skip: not-applicable
+    schema: "z.object({ _id: z.string().optional(), _rev: z.string().optional(), name: z.string(), code: z.string(), _deleted: z.boolean().optional() })"
+    input: "{ name: string; code: string; _id?: string | undefined; _rev?: string | undefined; _deleted?: boolean | undefined; }"
+    output: "{ name: string; code: string; _id?: string | undefined; _rev?: string | undefined; _deleted?: boolean | undefined; }"
 jsonSchema:
   input: '{ type: "object", properties: { _id: { type: "string" }, _rev: { type: "string" }, name: { type: "string" }, code: { type: "string" }, _deleted: { type: "boolean" } }, required: ["name", "code"] }'
   output: '{ type: "object", properties: { _id: { type: "string" }, _rev: { type: "string" }, name: { type: "string" }, code: { type: "string" }, _deleted: { type: "boolean" } }, required: ["name", "code"] }'

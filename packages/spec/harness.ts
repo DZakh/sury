@@ -20,9 +20,11 @@ import {
   KEY_ORDER,
   TS_KEY_ORDER,
   VS_KEY_ORDER,
+  VS_ZOD_KEY_ORDER,
   OP_ORDER,
   SKIP_REASONS,
   isSkip,
+  isZodOverwrite,
   validate,
   type Spec,
   type Operation,
@@ -244,7 +246,11 @@ const canonOp = (op: Operation): Operation => {
 export const canonicalize = (obj: Spec): Spec => {
   const o = order(obj, KEY_ORDER as string[]);
   if (o.ts) o.ts = order(o.ts, TS_KEY_ORDER as string[]);
-  if (o.vs) o.vs = order(o.vs as Record<string, unknown>, VS_KEY_ORDER as string[]) as Spec["vs"];
+  if (o.vs) {
+    o.vs = order(o.vs as Record<string, unknown>, VS_KEY_ORDER as string[]) as Spec["vs"];
+    if (isZodOverwrite(o.vs.zod))
+      o.vs.zod = order(o.vs.zod as Record<string, unknown>, VS_ZOD_KEY_ORDER as string[]) as typeof o.vs.zod;
+  }
   if (o.jsonSchema)
     o.jsonSchema = order(o.jsonSchema as Record<string, unknown>, [
       "input",
@@ -315,6 +321,8 @@ const valueToCode = (v: unknown, seen: WeakSet<object> = new WeakSet()): string 
   throw new Error(`cannot represent a ${typeof v} as spec source code`);
 };
 
+const ZOD_IMPORT = `import * as z from "zod";\n`;
+
 const clean = <T extends Record<string, unknown>>(o: T): T => {
   const r: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(o)) if (v !== undefined) r[k] = v;
@@ -342,6 +350,17 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
     if (!isSkip(next.ts.input)) next.ts.input = info.input;
     if (!isSkip(next.ts.output)) next.ts.output = info.output;
     if (!isSkip(next.ts.instantiations)) next.ts.instantiations = info.instantiations;
+  }
+
+  // The overwrite form of `vs.zod` records Zod's inferred types as goldens
+  // (they differ from ts by design); the harness owns them, so fill from the
+  // live Zod schema. A schema that doesn't typecheck throws here and surfaces
+  // via checkSpec's "goldens could not be computed" — same as any other
+  // uncomputable golden.
+  if (isZodOverwrite(next.vs.zod)) {
+    const zi = await deriveVsTypeInfo(ZOD_IMPORT, next.vs.zod.schema);
+    next.vs.zod.input = zi.input;
+    next.vs.zod.output = zi.output;
   }
 
   next.jsonSchema = deriveJsonSchema(schema);
@@ -474,8 +493,6 @@ export const checkAliases = async (spec: Spec): Promise<string[]> => {
   return errs;
 };
 
-const ZOD_IMPORT = `import * as z from "zod";\n`;
-
 // Cross-checks a spec's `vs` equivalent against its recorded inferred types,
 // live like checkAliases (no golden of its own). Strict string equality —
 // both sides printed with the same InTypeAlias formatting — so the author
@@ -485,13 +502,34 @@ export const checkVs = async (spec: Spec): Promise<string[]> => {
   const vs = spec.vs;
   if (!vs || isSkip(vs.zod)) return [];
   const errs: string[] = [];
+
+  const zodSource = isZodOverwrite(vs.zod) ? vs.zod.schema : vs.zod;
   let info: { input: string; output: string };
   try {
-    info = await deriveVsTypeInfo(ZOD_IMPORT, vs.zod);
+    info = await deriveVsTypeInfo(ZOD_IMPORT, zodSource);
   } catch (e) {
     errs.push(`vs.zod: did not typecheck: ${(e as Error).message}`);
     return errs;
   }
+
+  const matches =
+    !isSkip(spec.ts.input) &&
+    !isSkip(spec.ts.output) &&
+    info.input === spec.ts.input &&
+    info.output === spec.ts.output;
+
+  if (isZodOverwrite(vs.zod)) {
+    // The overwrite form exists only to record a divergence. When Zod actually
+    // infers the same type as Sury, the bare string form (which asserts that
+    // equality) is the right tool — refuse the object form here.
+    if (matches)
+      errs.push(
+        "vs.zod: overwrite form, but its inferred types equal ts.input/ts.output — " +
+          `use the bare \`zod: ${JSON.stringify(vs.zod.schema)}\` string form instead.`,
+      );
+    return errs;
+  }
+
   if (!isSkip(spec.ts.input) && info.input !== spec.ts.input)
     errs.push(`vs.zod: input type ${JSON.stringify(info.input)} !== ts.input ${JSON.stringify(spec.ts.input)}`);
   if (!isSkip(spec.ts.output) && info.output !== spec.ts.output)

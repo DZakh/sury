@@ -106,6 +106,22 @@ test("invalid _skip reason (not an enum value or todo(#...))", async () => {
   `);
 });
 
+test("vs.zod overwrite form whose inferred types don't diverge from ts (belongs in the bare string form)", async () => {
+  const spec = mutate((s) => {
+    // string's ts.input/output are both `string`, and z.string() infers the
+    // same — so the overwrite form records no divergence and should be the
+    // bare `zod: z.string()` string instead.
+    s.vs.zod = { schema: "z.string()", input: "string", output: "string" };
+  });
+  await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ string
+        vs.zod: overwrite form, but its inferred types equal ts.input/ts.output — use the bare \`zod: "z.string()"\` string form instead.",
+      "stdout": "",
+    }
+  `);
+});
+
 test("not canonical (on-disk text doesn't match the canonical form)", async () => {
   const spec = mutate(() => {});
   const scrambled = serialize(spec).replace("ts:\n", "ts:\n  # a stray comment\n");

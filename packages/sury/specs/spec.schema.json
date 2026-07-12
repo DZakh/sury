@@ -125,6 +125,30 @@
             {
               "type": "object",
               "properties": {
+                "schema": {
+                  "type": "string",
+                  "description": "Equivalent Zod (v4) schema whose inferred types intentionally differ from ts, e.g. `z.object({...})`."
+                },
+                "input": {
+                  "type": "string",
+                  "description": "Zod's inferred input type — differs from ts.input by design. Filled by `spec check --write`."
+                },
+                "output": {
+                  "type": "string",
+                  "description": "Zod's inferred output type — differs from ts.output by design. Filled by `spec check --write`."
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "schema",
+                "input",
+                "output"
+              ],
+              "description": "Overwrite form: a Zod equivalent that infers a different type than Sury, with that type recorded."
+            },
+            {
+              "type": "object",
+              "properties": {
                 "_skip": {
                   "type": "string",
                   "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…)."
@@ -137,7 +161,7 @@
               "description": "Explicit opt-out for an unasserted dimension."
             }
           ],
-          "description": "Equivalent Zod (v4) schema, e.g. `z.string().min(3)`. Inferred types must equal ts.input/ts.output; `_skip` if none fits."
+          "description": "Equivalent Zod (v4) schema, e.g. `z.string().min(3)`. Bare string: inferred types must equal ts.input/ts.output. Object `{schema,input,output}`: the Zod type intentionally differs from ts (input/output filled by `--write`). `_skip` if Zod can't express it at all."
         }
       },
       "additionalProperties": false,

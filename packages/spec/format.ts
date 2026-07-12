@@ -143,13 +143,41 @@ const ts = S.schema({
     description: "The JS `.with`-chain surface: the schema itself, plus its inferred types, instantiation cost, and bundle size.",
   });
 
+// Overwrite form of `vs.zod`: a schema that HAS a Zod equivalent whose
+// inferred types intentionally DIFFER from Sury's (e.g. `S.merge` keeps
+// insertion order where Zod groups optionals last). Records the divergence —
+// the Zod schema plus the different types it infers — instead of asserting
+// equality (bare string) or claiming no equivalent exists (`_skip`).
+// `input`/`output` are goldens: `spec check --write` fills them from the Zod
+// schema, and `checkVs` refuses this form when the types don't actually
+// diverge from `ts` (the bare string form belongs there).
+const zodOverwrite = S.schema({
+  schema: S.string.with(S.meta, {
+    description: "Equivalent Zod (v4) schema whose inferred types intentionally differ from ts, e.g. `z.object({...})`.",
+  }),
+  input: S.string.with(S.meta, {
+    description: "Zod's inferred input type — differs from ts.input by design. Filled by `spec check --write`.",
+  }),
+  output: S.string.with(S.meta, {
+    description: "Zod's inferred output type — differs from ts.output by design. Filled by `spec check --write`.",
+  }),
+})
+  .with(S.strict)
+  .with(S.meta, {
+    description: "Overwrite form: a Zod equivalent that infers a different type than Sury, with that type recorded.",
+  });
+export type ZodOverwrite = S.Output<typeof zodOverwrite>;
+
 // Cross-library equivalent, checked live like `ts.aliases` (no golden). A
 // required dimension: each spec declares a real Zod equivalent or an explicit
 // `zod: { _skip }`. Only inferred types are asserted — codegen, JSON Schema,
 // errors, coercion diverge by design.
 const vs = S.schema({
-  zod: orSkip(S.string).with(S.meta, {
-    description: "Equivalent Zod (v4) schema, e.g. `z.string().min(3)`. Inferred types must equal ts.input/ts.output; `_skip` if none fits.",
+  zod: S.union([S.string, zodOverwrite, skip]).with(S.meta, {
+    description:
+      "Equivalent Zod (v4) schema, e.g. `z.string().min(3)`. Bare string: inferred types must equal " +
+      "ts.input/ts.output. Object `{schema,input,output}`: the Zod type intentionally differs from ts " +
+      "(input/output filled by `--write`). `_skip` if Zod can't express it at all.",
   }),
 })
   .with(S.strict)
@@ -182,6 +210,7 @@ export type OpName = keyof Spec["operations"];
 const keyOrder = <T,>(order: Record<keyof T, true>) => Object.keys(order) as (keyof T)[];
 export const KEY_ORDER = keyOrder<Spec>({ ts: true, vs: true, jsonSchema: true, operations: true });
 export const VS_KEY_ORDER = keyOrder<Spec["vs"]>({ zod: true });
+export const VS_ZOD_KEY_ORDER = keyOrder<ZodOverwrite>({ schema: true, input: true, output: true });
 export const TS_KEY_ORDER = keyOrder<Spec["ts"]>({
   schema: true,
   aliases: true,
@@ -194,6 +223,11 @@ export const OP_ORDER = keyOrder<Spec["operations"]>({ parse: true, decode: true
 
 export const isSkip = (v: unknown): v is Skip =>
   v !== null && typeof v === "object" && "_skip" in (v as object);
+
+// The overwrite form of `vs.zod` — distinguished from a bare string (Zod
+// source) and from `{_skip}` by carrying its own `schema` key.
+export const isZodOverwrite = (v: unknown): v is ZodOverwrite =>
+  v !== null && typeof v === "object" && "schema" in (v as object);
 
 // Parse, don't validate: return the parsed Spec itself, not just a pass/fail
 // flag, so callers work from the value Sury actually confirmed matches the

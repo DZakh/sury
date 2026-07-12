@@ -27,7 +27,12 @@ Examples must cover every edge case found while investigating the schema — bou
 
 ## Cross-library (`vs`)
 
-`vs.zod`: required Zod v4 equivalent, e.g. `vs: { zod: z.string().min(3) }`. `spec check` asserts its inferred (`~standard`) input/output types equal `ts.input`/`ts.output` — live, no golden, types only. No fit? `vs: { zod: { _skip: <reason> } }`.
+`vs.zod`: required Zod v4 equivalent, e.g. `vs: { zod: z.string().min(3) }`. `spec check` asserts its inferred (`~standard`) input/output types equal `ts.input`/`ts.output` — live, no golden, types only.
+
+Three forms:
+- **Bare string** — `zod: z.string().min(3)`. Zod's inferred types must equal `ts.input`/`ts.output`.
+- **Overwrite** — `zod: { schema, input, output }`. For a schema Zod *can* express but whose inferred type intentionally differs from Sury's (e.g. `S.merge` keeps insertion order where Zod groups optionals last). You write `schema`; `spec check --write` fills `input`/`output` from the Zod schema (they're goldens). `check` rejects this form when the types *don't* actually diverge from `ts` — use the bare string then.
+- **Skip** — `zod: { _skip: <reason> }`. Only when Zod can't express the schema at all.
 
 ## Specs are a metrics ratchet
 
