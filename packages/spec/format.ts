@@ -143,8 +143,42 @@ const ts = S.schema({
     description: "The JS `.with`-chain surface: the schema itself, plus its inferred types, instantiation cost, and bundle size.",
   });
 
+const zodOverwrite = S.schema({
+  schema: S.string.with(S.meta, {
+    description: "Zod (v4) schema whose type differs from ts on ≥1 side, e.g. `z.object({...})`.",
+  }),
+  divergence: S.string.with(S.meta, {
+    description: "How the Zod type differs from Sury's, and why. Hand-written.",
+  }),
+  input: S.optional(S.string).with(S.meta, {
+    description: "Zod's input type, only if it diverges from ts.input (filled by `--write`); omit when equal.",
+  }),
+  output: S.optional(S.string).with(S.meta, {
+    description: "Zod's output type, only if it diverges from ts.output (filled by `--write`); omit when equal.",
+  }),
+})
+  .with(S.strict)
+  .with(S.meta, { description: "Zod equivalent that infers a different type than Sury; divergent side(s) recorded." });
+export type ZodOverwrite = S.Output<typeof zodOverwrite>;
+
+// Cross-library equivalent, checked live like `ts.aliases` (no golden). A
+// required dimension: each spec declares a real Zod equivalent or an explicit
+// `zod: { _skip }`. Only inferred types are asserted — codegen, JSON Schema,
+// errors, coercion diverge by design.
+const vs = S.schema({
+  zod: S.union([S.string, zodOverwrite, skip]).with(S.meta, {
+    description:
+      "Equivalent Zod (v4) schema. Bare string: inferred types must equal ts.input/ts.output. Object " +
+      "`{schema,divergence,input?,output?}`: differs from ts — divergent side recorded, matching side omitted. " +
+      "`_skip` if Zod can't express it.",
+  }),
+})
+  .with(S.strict)
+  .with(S.meta, { description: "Cross-library equivalents, type-checked against this spec." });
+
 export const specSchema = S.schema({
   ts,
+  vs,
   jsonSchema: S.schema({ input: S.string, output: S.string }).with(S.strict).with(S.meta, {
     description:
       "S.toJSONSchema(schema) for both directions, as a one-line source-text string (same " +
@@ -167,7 +201,9 @@ export type OpName = keyof Spec["operations"];
 // `ts`/`operations`/`specSchema` without updating the matching order here is a
 // compile error, not a silently-out-of-order key at serialize time.
 const keyOrder = <T,>(order: Record<keyof T, true>) => Object.keys(order) as (keyof T)[];
-export const KEY_ORDER = keyOrder<Spec>({ ts: true, jsonSchema: true, operations: true });
+export const KEY_ORDER = keyOrder<Spec>({ ts: true, vs: true, jsonSchema: true, operations: true });
+export const VS_KEY_ORDER = keyOrder<Spec["vs"]>({ zod: true });
+export const VS_ZOD_KEY_ORDER = keyOrder<ZodOverwrite>({ schema: true, divergence: true, input: true, output: true });
 export const TS_KEY_ORDER = keyOrder<Spec["ts"]>({
   schema: true,
   aliases: true,
@@ -180,6 +216,11 @@ export const OP_ORDER = keyOrder<Spec["operations"]>({ parse: true, decode: true
 
 export const isSkip = (v: unknown): v is Skip =>
   v !== null && typeof v === "object" && "_skip" in (v as object);
+
+// The overwrite form of `vs.zod` — distinguished from a bare string (Zod
+// source) and from `{_skip}` by carrying its own `schema` key.
+export const isZodOverwrite = (v: unknown): v is ZodOverwrite =>
+  v !== null && typeof v === "object" && "schema" in (v as object);
 
 // Parse, don't validate: return the parsed Spec itself, not just a pass/fail
 // flag, so callers work from the value Sury actually confirmed matches the

@@ -1,23 +1,29 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: "S.merge(S.schema({_id: S.optional(S.string), _rev: S.optional(S.string), _deleted: S.optional(S.boolean)}), S.schema({code: S.string, name: S.string}))"
-  input: "{ _id?: string | undefined; _rev?: string | undefined; _deleted?: boolean | undefined; code: string; name: string; }"
-  output: "{ _id?: string | undefined; _rev?: string | undefined; _deleted?: boolean | undefined; code: string; name: string; }"
-  instantiations: 5701
+  schema: "S.merge(S.schema({_id: S.optional(S.string), _rev: S.optional(S.string), name: S.string}), S.schema({code: S.string, _deleted: S.optional(S.boolean)}))"
+  input: "{ name: string; _id?: string | undefined; _rev?: string | undefined; code: string; _deleted?: boolean | undefined; }"
+  output: "{ name: string; _id?: string | undefined; _rev?: string | undefined; code: string; _deleted?: boolean | undefined; }"
+  instantiations: 7626
   bundleBytes: 10387
+vs:
+  zod:
+    schema: "z.object({ _id: z.string().optional(), _rev: z.string().optional(), name: z.string(), code: z.string(), _deleted: z.boolean().optional() })"
+    divergence: Field ordering. Zod groups optional fields last (name, code, then _id?, _rev?, _deleted?); S.merge preserves each sub-schema's insertion order, so required `code` from the second schema lands after the first schema's optionals (name, _id?, _rev?, code, _deleted?).
+    input: "{ name: string; code: string; _id?: string | undefined; _rev?: string | undefined; _deleted?: boolean | undefined; }"
+    output: "{ name: string; code: string; _id?: string | undefined; _rev?: string | undefined; _deleted?: boolean | undefined; }"
 jsonSchema:
-  input: '{ type: "object", properties: { _id: { type: "string" }, _rev: { type: "string" }, _deleted: { type: "boolean" }, code: { type: "string" }, name: { type: "string" } }, required: ["code", "name"] }'
-  output: '{ type: "object", properties: { _id: { type: "string" }, _rev: { type: "string" }, _deleted: { type: "boolean" }, code: { type: "string" }, name: { type: "string" } }, required: ["code", "name"] }'
+  input: '{ type: "object", properties: { _id: { type: "string" }, _rev: { type: "string" }, name: { type: "string" }, code: { type: "string" }, _deleted: { type: "boolean" } }, required: ["name", "code"] }'
+  output: '{ type: "object", properties: { _id: { type: "string" }, _rev: { type: "string" }, name: { type: "string" }, code: { type: "string" }, _deleted: { type: "boolean" } }, required: ["name", "code"] }'
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i||e[5](i);let v0=i["_id"],v1=i["_rev"],v2=i["_deleted"],v3=i["code"],v4=i["name"];if(!(typeof v0==="string"||v0===void 0)){e[0](v0)}if(!(typeof v1==="string"||v1===void 0)){e[1](v1)}if(!(typeof v2==="boolean"||v2===void 0)){e[2](v2)}typeof v3==="string"||e[3](v3);typeof v4==="string"||e[4](v4);return {"_id":v0,"_rev":v1,"_deleted":v2,"code":v3,"name":v4,}}
+    expression: i=>{typeof i==="object"&&i||e[5](i);let v0=i["_id"],v1=i["_rev"],v2=i["name"],v3=i["code"],v4=i["_deleted"];if(!(typeof v0==="string"||v0===void 0)){e[0](v0)}if(!(typeof v1==="string"||v1===void 0)){e[1](v1)}typeof v2==="string"||e[2](v2);typeof v3==="string"||e[3](v3);if(!(typeof v4==="boolean"||v4===void 0)){e[4](v4)}return {"_id":v0,"_rev":v1,"name":v2,"code":v3,"_deleted":v4,}}
     examples:
       valid-all-present:
         input: '{ _id: "1", _rev: "2", _deleted: false, code: "x", name: "y" }'
-        output: '{ _id: "1", _rev: "2", _deleted: false, code: "x", name: "y" }'
+        output: '{ _id: "1", _rev: "2", name: "y", code: "x", _deleted: false }'
       valid-optional-omitted:
         input: '{ code: "x", name: "y" }'
-        output: '{ _id: undefined, _rev: undefined, _deleted: undefined, code: "x", name: "y" }'
+        output: '{ _id: undefined, _rev: undefined, name: "y", code: "x", _deleted: undefined }'
       invalid-required:
         input: '{ code: "x" }'
         error: 'Failed at ["name"]: Expected string, received undefined'

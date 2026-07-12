@@ -5,6 +5,8 @@ ts:
   output: string | number
   instantiations: 972
   bundleBytes: 9693
+vs:
+  zod: z.union([z.string(), z.number()])
 jsonSchema:
   input: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
   output: '{ anyOf: [{ type: "string" }, { type: "number" }] }'

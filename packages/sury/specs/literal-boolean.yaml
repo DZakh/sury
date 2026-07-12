@@ -7,6 +7,8 @@ ts:
   output: "true"
   instantiations: 378
   bundleBytes: 9374
+vs:
+  zod: z.literal(true)
 jsonSchema:
   input: '{ type: "boolean", const: true }'
   output: '{ type: "boolean", const: true }'

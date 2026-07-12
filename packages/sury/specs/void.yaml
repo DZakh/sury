@@ -5,6 +5,8 @@ ts:
   output: void
   instantiations: 254
   bundleBytes: 3825
+vs:
+  zod: z.void()
 jsonSchema:
   input: Expected JSON, received void
   output: Expected JSON, received void

@@ -19,16 +19,19 @@ import * as S from "../sury/src/S.mjs";
 import {
   KEY_ORDER,
   TS_KEY_ORDER,
+  VS_KEY_ORDER,
+  VS_ZOD_KEY_ORDER,
   OP_ORDER,
   SKIP_REASONS,
   isSkip,
+  isZodOverwrite,
   validate,
   type Spec,
   type Operation,
   type Example,
   type OpName,
 } from "./format";
-import { deriveTypeInfo } from "./introspect";
+import { deriveTypeInfo, deriveVsTypeInfo } from "./introspect";
 import { deriveBundleBytes } from "./bundleSize";
 
 const here = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
@@ -243,6 +246,11 @@ const canonOp = (op: Operation): Operation => {
 export const canonicalize = (obj: Spec): Spec => {
   const o = order(obj, KEY_ORDER as string[]);
   if (o.ts) o.ts = order(o.ts, TS_KEY_ORDER as string[]);
+  if (o.vs) {
+    o.vs = order(o.vs as Record<string, unknown>, VS_KEY_ORDER as string[]) as Spec["vs"];
+    if (isZodOverwrite(o.vs.zod))
+      o.vs.zod = order(o.vs.zod as Record<string, unknown>, VS_ZOD_KEY_ORDER as string[]) as typeof o.vs.zod;
+  }
   if (o.jsonSchema)
     o.jsonSchema = order(o.jsonSchema as Record<string, unknown>, [
       "input",
@@ -313,6 +321,8 @@ const valueToCode = (v: unknown, seen: WeakSet<object> = new WeakSet()): string 
   throw new Error(`cannot represent a ${typeof v} as spec source code`);
 };
 
+const ZOD_IMPORT = `import * as z from "zod";\n`;
+
 const clean = <T extends Record<string, unknown>>(o: T): T => {
   const r: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(o)) if (v !== undefined) r[k] = v;
@@ -340,6 +350,18 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
     if (!isSkip(next.ts.input)) next.ts.input = info.input;
     if (!isSkip(next.ts.output)) next.ts.output = info.output;
     if (!isSkip(next.ts.instantiations)) next.ts.instantiations = info.instantiations;
+  }
+
+  // The overwrite form of `vs.zod` records Zod's inferred types as goldens for
+  // the side(s) that diverge from ts; the harness owns those, so fill from the
+  // live Zod schema. An omitted side matches ts and isn't recorded (checkVs
+  // verifies the match). A schema that doesn't typecheck throws here and
+  // surfaces via checkSpec's "goldens could not be computed" — same as any
+  // other uncomputable golden.
+  if (isZodOverwrite(next.vs.zod)) {
+    const zi = await deriveVsTypeInfo(ZOD_IMPORT, next.vs.zod.schema);
+    if (next.vs.zod.input !== undefined) next.vs.zod.input = zi.input;
+    if (next.vs.zod.output !== undefined) next.vs.zod.output = zi.output;
   }
 
   next.jsonSchema = deriveJsonSchema(schema);
@@ -472,6 +494,71 @@ export const checkAliases = async (spec: Spec): Promise<string[]> => {
   return errs;
 };
 
+// Cross-checks a spec's `vs` equivalent against its recorded inferred types,
+// live like checkAliases (no golden of its own). Strict string equality —
+// both sides printed with the same InTypeAlias formatting — so the author
+// writes the `vs` source to match Sury's ordering where it differs (e.g.
+// union member order).
+export const checkVs = async (spec: Spec): Promise<string[]> => {
+  const vs = spec.vs;
+  if (!vs || isSkip(vs.zod)) return [];
+  const errs: string[] = [];
+
+  const zodSource = isZodOverwrite(vs.zod) ? vs.zod.schema : vs.zod;
+  let info: { input: string; output: string };
+  try {
+    info = await deriveVsTypeInfo(ZOD_IMPORT, zodSource);
+  } catch (e) {
+    errs.push(`vs.zod: did not typecheck: ${(e as Error).message}`);
+    return errs;
+  }
+
+  if (isZodOverwrite(vs.zod)) {
+    // The overwrite form records a divergence, per side. A present side must
+    // actually differ from ts; an omitted side means "no divergence" and must
+    // actually match. If both sides are omitted, nothing diverges — the bare
+    // string form (which asserts both equalities) is the right tool.
+    const hasInput = vs.zod.input !== undefined;
+    const hasOutput = vs.zod.output !== undefined;
+    if (!hasInput && !hasOutput) {
+      errs.push(
+        "vs.zod: overwrite form records no divergence (input and output both omitted) — " +
+          `use the bare \`zod: ${JSON.stringify(vs.zod.schema)}\` string form instead.`,
+      );
+      return errs;
+    }
+    if (!isSkip(spec.ts.input)) {
+      if (!hasInput && info.input !== spec.ts.input)
+        errs.push(
+          `vs.zod: input omitted (no divergence) but Zod infers ${JSON.stringify(info.input)} !== ts.input ` +
+            `${JSON.stringify(spec.ts.input)} — add \`input\` to record the divergent type.`,
+        );
+      else if (hasInput && info.input === spec.ts.input)
+        errs.push(
+          `vs.zod.input equals ts.input ${JSON.stringify(spec.ts.input)} — it matches Sury, so omit \`input\`.`,
+        );
+    }
+    if (!isSkip(spec.ts.output)) {
+      if (!hasOutput && info.output !== spec.ts.output)
+        errs.push(
+          `vs.zod: output omitted (no divergence) but Zod infers ${JSON.stringify(info.output)} !== ts.output ` +
+            `${JSON.stringify(spec.ts.output)} — add \`output\` to record the divergent type.`,
+        );
+      else if (hasOutput && info.output === spec.ts.output)
+        errs.push(
+          `vs.zod.output equals ts.output ${JSON.stringify(spec.ts.output)} — it matches Sury, so omit \`output\`.`,
+        );
+    }
+    return errs;
+  }
+
+  if (!isSkip(spec.ts.input) && info.input !== spec.ts.input)
+    errs.push(`vs.zod: input type ${JSON.stringify(info.input)} !== ts.input ${JSON.stringify(spec.ts.input)}`);
+  if (!isSkip(spec.ts.output) && info.output !== spec.ts.output)
+    errs.push(`vs.zod: output type ${JSON.stringify(info.output)} !== ts.output ${JSON.stringify(spec.ts.output)}`);
+  return errs;
+};
+
 // Never mutates a file or exits the process, so it's directly testable —
 // cli.ts's cmdCheck and tests/spec_errors_test.ts both call this same
 // function, so there's exactly one implementation of "what's wrong with this
@@ -524,6 +611,7 @@ export const checkSpec = async (
             `:\n${diffText(canon, fresh)}`,
         );
       errs.push(...(await checkAliases(spec)));
+      errs.push(...(await checkVs(spec)));
     } catch (e) {
       errs.push(`goldens could not be computed: ${(e as Error).message}`);
     }
@@ -534,5 +622,5 @@ export const checkSpec = async (
 // Re-exported so `spec new` can populate ts.input/ts.output/ts.instantiations/
 // ts.bundleBytes up front too (cli.ts only imports from harness.ts/format.ts,
 // never touches introspect.ts/bundleSize.ts directly).
-export { deriveTypeInfo, type TypeInfo } from "./introspect";
+export { deriveTypeInfo, deriveVsTypeInfo, type TypeInfo } from "./introspect";
 export { deriveBundleBytes } from "./bundleSize";

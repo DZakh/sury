@@ -5,6 +5,8 @@ ts:
   output: number
   instantiations: 382
   bundleBytes: 9377
+vs:
+  zod: z.nan()
 jsonSchema:
   input: Expected JSON, received NaN
   output: Expected JSON, received NaN

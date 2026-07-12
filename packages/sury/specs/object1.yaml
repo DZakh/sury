@@ -7,6 +7,8 @@ ts:
   output: "{ a: string; }"
   instantiations: 1205
   bundleBytes: 9497
+vs:
+  zod: "z.object({ a: z.string() })"
 jsonSchema:
   input: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
   output: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
