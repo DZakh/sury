@@ -8,10 +8,7 @@ import { AdditionalItems, Check, Internal, SchemaErrorMessage, SuryErrorRecord, 
 import { Builder } from "./builder";
 import { flagAsync, valFlagAsync } from "./flags";
 import { pathEmpty, pathFromArray, pathToArray } from "./path";
-import { Tag, objectTag, refTag, undefinedTag } from "./tags";
-
-// PORT-NOTE: `JsResult` is defined here (first fragment to need it); if
-// another fragment also defines it, dedupe at integration time.
+import { objectTag, refTag, undefinedTag } from "./tags";
 
 export const recursiveDecoder: Builder = (input) => {
   const expectedSchema = input.e;
@@ -31,10 +28,7 @@ export const recursiveDecoder: Builder = (input) => {
   const fn = (def as unknown as Record<string, unknown>)[key];
   if (fn !== undefined) {
     // Circular reference (fn === 0) or already compiled
-    recOperation =
-      fn === (0 as unknown)
-        ? B_embed(input, def) + `["${key}"]`
-        : B_embed(input, fn);
+    recOperation = fn === 0 ? B_embed(input, def) + `["${key}"]` : B_embed(input, fn);
   } else {
     // Optimistic compilation with recompile if assumptions were wrong
     let assumedHasTransform = def.hasTransform !== undefined ? def.hasTransform : false;
@@ -105,7 +99,7 @@ export const recursiveDecoder: Builder = (input) => {
     output.cp = `${outputVar}=${recOperation}(${input.i});`;
 
     if (isAsync) {
-      output.f = (output.f | valFlagAsync);
+      output.f |= valFlagAsync;
     }
   } else {
     // No transform: call for validation but don't capture result
@@ -198,9 +192,6 @@ Object.defineProperty(schemaPrototype, "~standard", {
             issues: [
               {
                 message: error.reason,
-                // PORT-NOTE: the source maps each key through the unboxed
-                // `StandardSchema.Issue.String` constructor, which is an
-                // identity at runtime — the map is dropped here.
                 path:
                   error.path === pathEmpty ? undefined : pathToArray(error.path),
               },
@@ -248,14 +239,12 @@ export const assertAsyncOrThrow = (any: unknown, schema: Internal): Promise<void
 
 export const isAsync = (schema: Internal): boolean => {
   if (schema.isAsync === undefined) {
-    return isAsyncInternal(schema, 0 as unknown as Record<string, Internal>);
+    return isAsyncInternal(schema, undefined);
   } else {
     return schema.isAsync;
   }
 }
 
-// PORT-NOTE: jsResult<'v> ported as a `success`-discriminated union per
-// conventions.
 export type JsResult<V> =
   | { success: true; value: V }
   | { success: false; error: SuryErrorRecord };
@@ -321,12 +310,12 @@ export const recursive = (name: string, fn: (schema: Internal) => Internal): Int
   refSchema.decoder = recursiveDecoder;
 
   // This is for mutual recursion
-  const isNestedRec = globalConfig.d as unknown as boolean;
+  const isNestedRec = globalConfig.d !== undefined;
   if (!isNestedRec) {
     globalConfig.d = {};
   }
   const def = fn(refSchema);
-  if (def.name as unknown as boolean) {
+  if (def.name) {
     refSchema.name = def.name;
   }
   globalConfig.d![name] = def;
@@ -365,10 +354,7 @@ export const internalRefine = (
     if (existingRefiner !== undefined) {
       mut.refiner = (input) => {
         const arr = existingRefiner(input);
-        const next = refiner(input);
-        for (let i = 0; i < next.length; i++) {
-          arr.push(next[i]!);
-        }
+        arr.push(...refiner(input));
         return arr;
       };
     } else {
@@ -396,11 +382,9 @@ export const refine = (
   });
 }
 
-export const getMutErrorMessage = (mut: Internal): Record<string, string> => {
-  const em: Record<string, string> = mut.errorMessage
-    ? { ...(mut.errorMessage as unknown as Record<string, string>) }
-    : {};
-  mut.errorMessage = em as unknown as SchemaErrorMessage;
+export const getMutErrorMessage = (mut: Internal): SchemaErrorMessage => {
+  const em: SchemaErrorMessage = mut.errorMessage ? { ...mut.errorMessage } : {};
+  mut.errorMessage = em;
   return em;
 }
 
@@ -470,12 +454,11 @@ export const nullAsUnit = (): Internal => {
   return schema;
 }
 
-// PORT-NOTE: `Option.default = Value(unknown) | Callback(unit => unknown)` is
-// a regular (boxed) variant used only within this module; ported with a
-// string `TAG` discriminant — the representation never escapes.
+// A default is either an eager value or a lazily-called callback — used only
+// within this module, never exposed to callers.
 export type OptionDefault =
-  | { TAG: "Value"; _0: unknown }
-  | { TAG: "Callback"; _0: () => unknown };
+  | { type: "value"; value: unknown }
+  | { type: "callback"; callback: () => unknown };
 
 export const Option_getWithDefault = (schema: Internal, default_: OptionDefault): Internal => {
   return updateOutput(schema, (mut) => {
@@ -490,12 +473,9 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
       for (let idx = 0; idx < anyOf.length; idx++) {
         const schema = anyOf[idx]!;
         const outputSchema = getOutputSchema(schema);
-        switch (outputSchema.type) {
-          case undefinedTag:
-            break;
-          default:
-            outputItems.push(outputSchema);
-            originalItems.push(schema);
+        if (outputSchema.type !== undefinedTag) {
+          outputItems.push(outputSchema);
+          originalItems.push(schema);
         }
       }
 
@@ -508,8 +488,8 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
       const originalItem: Internal =
         originalItems.length === 1 ? originalItems[0]! : unionFactory(originalItems);
 
-      if (default_.TAG === "Value") {
-        const v = default_._0;
+      if (default_.type === "value") {
+        const v = default_.value;
         // Full unknown -> item decode so primitive item types still get type-checked.
         try {
           (getDecoder(unknown, item) as (input: unknown) => unknown)(v);
@@ -537,9 +517,9 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
         return B_next(
           input,
           `${inputVar}===void 0?${
-            default_.TAG === "Value"
-              ? B_inlineConst(input, Literal_parse(default_._0))
-              : `${B_embed(input, default_._0)}()`
+            default_.type === "value"
+              ? B_inlineConst(input, Literal_parse(default_.value))
+              : `${B_embed(input, default_.callback)}()`
           }:${inputVar}`,
           nextSchema,
           nextSchema
@@ -563,10 +543,10 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
   });
 };
 
-export const Option_getOr = (schema: Internal, defalutValue: unknown): Internal =>
-  Option_getWithDefault(schema, { TAG: "Value", _0: defalutValue });
-export const Option_getOrWith = (schema: Internal, defalutCb: () => unknown): Internal =>
-  Option_getWithDefault(schema, { TAG: "Callback", _0: defalutCb });
+export const Option_getOr = (schema: Internal, defaultValue: unknown): Internal =>
+  Option_getWithDefault(schema, { type: "value", value: defaultValue });
+export const Option_getOrWith = (schema: Internal, defaultCb: () => unknown): Internal =>
+  Option_getWithDefault(schema, { type: "callback", callback: defaultCb });
 
 // PORT-NOTE: `Object.s` (the object ctx record) → `ObjectCtx`; field names are
 // the runtime names from `@as` (`f` for `field`, others unchanged).
@@ -579,71 +559,57 @@ export type ObjectCtx = {
   flatten: (schema: Internal) => unknown;
 };
 
-export const ObjectModule = {
-  setAdditionalItems: (
-    schema: Internal,
-    additionalItems: AdditionalItems,
-    deep: boolean
-  ): Internal => {
-    const currentAdditionalItems = schema.additionalItems;
-    if (
-      currentAdditionalItems !== undefined &&
-      currentAdditionalItems !== additionalItems &&
-      (typeof currentAdditionalItems as Tag) !== objectTag
-    ) {
-      const mut = copySchema(schema);
-      mut.additionalItems = additionalItems;
-      if (deep) {
-        const items = schema.items;
-        if (items !== undefined) {
-          const newItems: Internal[] = [];
-          for (let idx = 0; idx < items.length; idx++) {
-            const s = items[idx]!;
-            newItems.push(ObjectModule.setAdditionalItems(s, additionalItems, deep));
-          }
-          mut.items = newItems;
-        }
-
-        const properties = schema.properties;
-        if (properties !== undefined) {
-          const newProperties: Record<string, Internal> = {};
-          const keys = Object.keys(properties);
-          for (let idx = 0; idx < keys.length; idx++) {
-            const key = keys[idx]!;
-            newProperties[key] = ObjectModule.setAdditionalItems(
-              properties[key]!,
-              additionalItems,
-              deep
-            );
-          }
-          mut.properties = newProperties;
-        }
+export const Object_setAdditionalItems = (
+  schema: Internal,
+  additionalItems: AdditionalItems,
+  deep: boolean
+): Internal => {
+  const currentAdditionalItems = schema.additionalItems;
+  if (
+    currentAdditionalItems !== undefined &&
+    currentAdditionalItems !== additionalItems &&
+    typeof currentAdditionalItems !== objectTag
+  ) {
+    const mut = copySchema(schema);
+    mut.additionalItems = additionalItems;
+    if (deep) {
+      const items = schema.items;
+      if (items !== undefined) {
+        mut.items = items.map((s) => Object_setAdditionalItems(s, additionalItems, deep));
       }
-      return mut;
-    } else {
-      return schema;
+
+      const properties = schema.properties;
+      if (properties !== undefined) {
+        mut.properties = Object.fromEntries(
+          Object.keys(properties).map((key) => [
+            key,
+            Object_setAdditionalItems(properties[key]!, additionalItems, deep),
+          ])
+        );
+      }
     }
-  },
+    return mut;
+  } else {
+    return schema;
+  }
 };
 
 export const strip = (schema: Internal): Internal => {
-  return ObjectModule.setAdditionalItems(schema, "strip", false);
+  return Object_setAdditionalItems(schema, "strip", false);
 }
 
 export const deepStrip = (schema: Internal): Internal => {
-  return ObjectModule.setAdditionalItems(schema, "strip", true);
+  return Object_setAdditionalItems(schema, "strip", true);
 }
 
 export const strict = (schema: Internal): Internal => {
-  return ObjectModule.setAdditionalItems(schema, "strict", false);
+  return Object_setAdditionalItems(schema, "strict", false);
 }
 
 export const deepStrict = (schema: Internal): Internal => {
-  return ObjectModule.setAdditionalItems(schema, "strict", true);
+  return Object_setAdditionalItems(schema, "strict", true);
 }
 
-// PORT-NOTE: `module Tuple` contains only the ctx record type — no runtime
-// const is emitted; `Tuple.s` → `TupleCtx`.
 export type TupleCtx = {
   item: (idx: number, schema: Internal) => unknown;
   tag: (idx: number, value: unknown) => void;

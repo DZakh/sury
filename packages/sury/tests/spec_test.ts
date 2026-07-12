@@ -14,6 +14,7 @@ import {
   recomputeGoldens,
   evalSchema,
   identityViolations,
+  checkAliases,
   lintSkips,
   lintSpecsDir,
 } from "../../spec/harness";
@@ -82,6 +83,14 @@ describe.each(specs)("spec: $id", ({ file }) => {
 
   test("goldens match live behavior (run `pnpm spec check --write`)", async () => {
     expect(serialize(await recomputeGoldens(spec))).toBe(serialize(spec));
+  });
+
+  // Only checkSpec runs this too — same reasoning as the identity-invariant
+  // test above: a drifting `ts.aliases` entry should fail `pnpm test`, not
+  // just the occasional manual `pnpm spec check`.
+  test("aliases (if any) are equivalent to the schema (run `pnpm spec check`)", async () => {
+    const errs = await checkAliases(spec);
+    expect(errs, errs.join("\n")).toEqual([]);
   });
 });
 

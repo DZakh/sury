@@ -82,23 +82,30 @@ const operation = S.schema({
   .with(S.strict)
   .with(S.meta, { description: "Compiled codegen plus its runnable examples." });
 
-// An operation is either a full block, or the literal `identity` shorthand for
-// Sury's pass-through compile. harness.identityViolations enforces this both
-// ways: an op that compiles to the pass-through must say `identity`, and
-// `identity` must actually compile to it.
+// An operation is either a full block or a literal shorthand:
+// - `identity` — Sury's pass-through compile.
+// - `eq-to-parse` (decode/encode only) — compiles to exactly the same code as
+//   the spec's `parse` op, so the expression and examples live there.
+// harness.identityViolations enforces the shorthands both ways: an op that
+// compiles to a shorthand's meaning must use it, and the shorthand must
+// actually hold.
 const operationOrIdentity = S.union(["identity", operation]).with(S.meta, {
   description: "`identity` if this compiles to Sury's pass-through, else a full operation block.",
 });
-export type Operation = S.Output<typeof operationOrIdentity>;
+const operationOrShorthand = S.union(["identity", "eq-to-parse", operation]).with(S.meta, {
+  description:
+    "`identity` if this compiles to Sury's pass-through, `eq-to-parse` if it compiles to the same code as `parse`, else a full operation block.",
+});
+export type Operation = S.Output<typeof operationOrShorthand>;
 
 const operations = S.schema({
   parse: operationOrIdentity.with(S.meta, {
     description: "unknown → Output, with validation (the untrusted-input direction).",
   }),
-  decode: operationOrIdentity.with(S.meta, {
+  decode: operationOrShorthand.with(S.meta, {
     description: "Input → Output, no top-level type narrowing (input is already typed).",
   }),
-  encode: operationOrIdentity.with(S.meta, { description: "Output → Input (the reverse direction)." }),
+  encode: operationOrShorthand.with(S.meta, { description: "Output → Input (the reverse direction)." }),
 })
   .with(S.strict)
   .with(S.meta, { description: "The three compiled directions through the schema: parse, decode, encode." });
@@ -111,6 +118,12 @@ const ts = S.schema({
     description:
       "The schema under test, as JS `.with`-chain source (e.g. `S.string.with(S.min, 3)`). " +
       "You write this by hand; `spec check --write` never touches it.",
+  }),
+  aliases: S.optional(S.array(S.string)).with(S.meta, {
+    description:
+      "Alternate `.with`-chain sources that must produce a schema equivalent to `schema` — " +
+      "same ts.input/ts.output, jsonSchema, and operations. Checked live (not separately " +
+      "snapshotted) by `spec check`. You write these by hand.",
   }),
   input: orSkip(S.string).with(S.meta, {
     description: "`S.Input<typeof schema>` as a TS type string. Filled by `spec check --write`.",
@@ -157,6 +170,7 @@ const keyOrder = <T,>(order: Record<keyof T, true>) => Object.keys(order) as (ke
 export const KEY_ORDER = keyOrder<Spec>({ ts: true, jsonSchema: true, operations: true });
 export const TS_KEY_ORDER = keyOrder<Spec["ts"]>({
   schema: true,
+  aliases: true,
   input: true,
   output: true,
   instantiations: true,

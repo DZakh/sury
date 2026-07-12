@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.object({constructor: S.string, hasOwnProperty: S.number})"
+  aliases:
+    - "S.schema({constructor: S.string, hasOwnProperty: S.number})"
+  input: "{ constructor: string; hasOwnProperty: number; }"
+  output: "{ constructor: string; hasOwnProperty: number; }"
+  instantiations: 1468
+  bundleBytes: 12292
+jsonSchema:
+  input: '{ type: "object", properties: { constructor: { type: "string" }, hasOwnProperty: { type: "number" } }, required: ["constructor", "hasOwnProperty"] }'
+  output: '{ type: "object", properties: { constructor: { type: "string" }, hasOwnProperty: { type: "number" } }, required: ["constructor", "hasOwnProperty"] }'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i||e[2](i);let v0=i["constructor"],v1=i["hasOwnProperty"];typeof v0==="string"||e[0](v0);typeof v1==="number"&&!Number.isNaN(v1)||e[1](v1);return {"constructor":v0,"hasOwnProperty":v1,}}
+    examples:
+      valid:
+        input: '{ constructor: "hi", hasOwnProperty: 5 }'
+        output: '{ constructor: "hi", hasOwnProperty: 5 }'
+      wrong-type:
+        input: "{ constructor: 1, hasOwnProperty: 5 }"
+        error: 'Failed at ["constructor"]: Expected string, received 1'
+      missing-fields:
+        input: "{}"
+        error: 'Failed at ["constructor"]: Expected string, received Function'
+      not-an-object:
+        input: '"nope"'
+        error: 'Expected { constructor: string; hasOwnProperty: number; }, received "nope"'
+      array-input:
+        input: "[]"
+        error: 'Failed at ["constructor"]: Expected string, received Function'
+      class-instance-input:
+        input: new Date("1970-01-01T00:00:00.000Z")
+        error: 'Failed at ["constructor"]: Expected string, received Function'
+  decode: identity
+  encode: identity

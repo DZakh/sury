@@ -4,7 +4,7 @@ ts:
   input: never
   output: never
   instantiations: 254
-  bundleBytes: 3823
+  bundleBytes: 3716
 jsonSchema:
   input: "{ not: {} }"
   output: "{ not: {} }"
@@ -18,15 +18,5 @@ operations:
       invalid-undefined:
         input: undefined
         error: Expected never, received undefined
-  decode:
-    expression: i=>{e[0](i);return i}
-    examples:
-      invalid:
-        input: "42"
-        error: Expected never, received 42
-  encode:
-    expression: i=>{e[0](i);return i}
-    examples:
-      invalid:
-        input: "42"
-        error: Expected never, received 42
+  decode: eq-to-parse
+  encode: eq-to-parse

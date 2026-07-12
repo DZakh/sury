@@ -1,16 +1,10 @@
-// Path
-
 export type Path = string;
 
 export const pathEmpty: Path = "";
 export const pathDynamic: Path = "[]";
 
 export const inlinedValueFromString = (str: string): string => {
-  for (let idx = 0; idx < str.length; idx++) {
-    const ch = str[idx];
-    if (ch === '"' || ch === "\n") return JSON.stringify(str);
-  }
-  return `"${str}"`;
+  return str.includes('"') || str.includes("\n") ? JSON.stringify(str) : `"${str}"`;
 }
 
 export const pathFromInlinedLocation = (inlinedLocation: string): Path => {
@@ -22,12 +16,7 @@ export const pathFromLocation = (location: string): Path => {
 }
 
 export const pathToArray = (path: Path): string[] => {
-  switch (path) {
-    case "":
-      return [];
-    default:
-      return JSON.parse(path.split(`"]["`).join(`","`)) as string[];
-  }
+  return path === "" ? [] : (JSON.parse(path.split(`"]["`).join(`","`)) as string[]);
 }
 
 export const pathFromArray = (array: string[]): Path => {

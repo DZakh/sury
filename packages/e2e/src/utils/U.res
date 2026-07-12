@@ -1,11 +1,8 @@
 open Vitest
 
-// The hack to bypass wallaby adding tags
-// and turning the function into:
-// function noopOperation(i) {␊
-//     var $_$c = $_$wf(3);␊
-//     return $_$w(3, 444, $_$c), i;␊
-// }
+// Read the real toString() instead of hardcoding it, so coverage/instrumentation
+// tooling that rewrites function source (and would otherwise change the literal
+// output) can't desync this from the actual generated code.
 let noopOpCode: string = (S.decoder(~from=S.unknown, ~to=S.unknown)->Obj.magic)["toString"]()
 
 external magic: 'a => 'b = "%identity"

@@ -1,5 +1,5 @@
 import { SuryError, unknown } from "./schema";
-import { BGlobal, Check, Code, ErrorDetails, Internal, SuryErrorRecord, Val, immutableEmptyArray, s, shouldPrependPathKey, stringify, toExpression } from "./types";
+import { BGlobal, Check, Code, ErrorDetails, Internal, InvalidInputDetails, SuryErrorRecord, Val, immutableEmptyArray, s, shouldPrependPathKey, stringify, toExpression } from "./types";
 import { Flag, flagAsync, flagNone, flagUnsafeHas, valFlagAsync, valFlagNone } from "./flags";
 import { Path, inlinedValueFromString, pathConcat, pathEmpty, pathFromInlinedLocation } from "./path";
 import { arrayTag, tagFlagBigint, tagFlagFunction, tagFlagInstance, tagFlagString, tagFlagSymbol, tagFlagUndefined, tagFlags } from "./tags";
@@ -7,19 +7,15 @@ import { arrayTag, tagFlagBigint, tagFlagFunction, tagFlagInstance, tagFlagStrin
 export type Builder = (input: Val) => Val;
 export type Encoder = (input: Val, target: Internal) => Val;
 
-// PORT-NOTE: `type s<'value>` (the effect ctx record, Sury.res line 1050) is
-// prelude territory but core.ts has no runtime/type for it yet — `EffectCtx`
-// is declared here for `effectCtx`'s return type.
 export type EffectCtx = {
   fail: (message: string, path?: Path) => never;
 };
 
-// PORT-NOTE: `%raw("this")`-based functions (`_var`, `_bondVar`, `_prevVar`,
-// `_notVarBeforeValidation`, `_notVarAtParent`, `_notVar`) and
-// `failInvalidType` are standalone consts (not only `B.` members) because
-// they're compared/stored by reference (`val.v = _var`, `val.v !== _var`,
-// `check.f === failInvalidType`). `B` re-exports them so external call sites
-// can keep saying `_var` / `failInvalidType`.
+// `_var`/`_bondVar`/`_prevVar`/`_notVarBeforeValidation`/`_notVarAtParent`/
+// `_notVar` and `failInvalidType` are top-level consts (not object methods)
+// because they're compared/stored by reference (`val.v = _var`,
+// `val.v !== _var`, `check.f === failInvalidType`) — a method wrapper would
+// break that identity comparison.
 
 export function _var(this: Val): string {
   return this.i;
@@ -108,14 +104,8 @@ export const operationArgVar = "i";
 // Pass this as `fail` on every check that wants "expected X, received Y"
 // error semantics. Stable reference → adjacent checks fuse.
 export const failInvalidType = (input: Val): (value: unknown) => ErrorDetails => {
-  let override: string | undefined;
   const em = input.e.errorMessage;
-  if (em !== undefined) {
-    const d = em as unknown as Record<string, string | undefined>;
-    override = d["type"] !== undefined ? d["type"] : d["_"];
-  } else {
-    override = undefined;
-  }
+  const override = em !== undefined ? (em.type !== undefined ? em.type : em._) : undefined;
   return B_invalidInputBuilder(undefined, undefined, override)(input);
 }
 
@@ -267,8 +257,8 @@ export const B_makeInvalidConversionDetails = (input: Val, to: Internal, cause: 
     const error = cause as unknown as SuryErrorRecord;
 
     // Read about this in shouldPrependPathKey comment.
-    if (!(cause as Record<string, unknown>)[shouldPrependPathKey]) {
-      (cause as Record<string, unknown>)["path"] = pathConcat(input.path, error.path);
+    if (!error[shouldPrependPathKey]) {
+      error["path"] = pathConcat(input.path, error.path);
     }
     return error as unknown as ErrorDetails;
   } else {
@@ -296,7 +286,7 @@ export const B_makeInvalidConversionDetails = (input: Val, to: Internal, cause: 
 
 // Checks run against `prev.var()`, so the runtime type at check time
 // is `prev.schema`, not the post-narrowing schema on the current val.
-export const B_receivedSchema = (val: Val): Internal => {
+const B_receivedSchema = (val: Val): Internal => {
   return val.prev !== undefined ? val.prev.s : val.s;
 }
 
@@ -317,20 +307,20 @@ export const B_makeInvalidInputDetails = (
         }`;
   if (unionErrors !== undefined) {
     const caseErrors = unionErrors;
-    const reasonsDict: Record<string, number> = {};
+    const seenReasons = new Set<string>();
     for (let idx = 0; idx < caseErrors.length; idx++) {
       const caseError = caseErrors[idx]!;
       const caseReason = caseError.reason.split("\n").join("\n  ");
       const location = caseError.path === "" ? "" : `At ${caseError.path}: `;
       const line = `\n- ${location}${caseReason}`;
-      if (!reasonsDict[line]) {
-        reasonsDict[line] = 1;
+      if (!seenReasons.has(line)) {
+        seenReasons.add(line);
         reasonRef = reasonRef + line;
       }
     }
   }
 
-  const details: ErrorDetails = {
+  const details: InvalidInputDetails = {
     code: "invalid_input",
     expected: expected,
     received,
@@ -339,7 +329,7 @@ export const B_makeInvalidInputDetails = (
     unionErrors,
   };
   if (includeInput) {
-    (details as unknown as Record<string, unknown>)["input"] = input;
+    details.input = input;
   }
   return details;
 }
@@ -377,14 +367,8 @@ export const B_failWithErrorMessage = (
   defaultMessage?: string
 ): (input: Val) => (value: unknown) => ErrorDetails => {
   return (input: Val) => {
-    let override: string | undefined;
-    const em = input.e.errorMessage;
-    if (em !== undefined) {
-      const d = em as unknown as Record<string, string | undefined>;
-      override = d[key] !== undefined ? d[key] : d["_"];
-    } else {
-      override = undefined;
-    }
+    const em = input.e.errorMessage as Record<string, string | undefined> | undefined;
+    const override = em !== undefined ? (em[key] !== undefined ? em[key] : em["_"]) : undefined;
     const m = override !== undefined ? override : defaultMessage;
     if (m !== undefined) {
       return B_invalidInputBuilder(undefined, undefined, m)(input);
@@ -401,10 +385,10 @@ export const B_embedInvalidInput = (input: Val, expected: Internal = input.e): s
   return B_failWithArg(input, B_invalidInputBuilder(expected)(input), input.v());
 }
 
-// Caller must verify `val.checks->unsafeToBool` and
-// `val.expected.noValidation !== Some(true)` first — the unwrap below
-// is unchecked. `inputVar` is usually `val.prev.var()`.
-export const B_emitChecks = (val: Val, inputVar: string): string => {
+// Caller must verify `val.vc` is truthy and `val.expected.noValidation !==
+// true` first — the `!` unwrap below is unchecked. `inputVar` is usually
+// `val.prev.var()`.
+const B_emitChecks = (val: Val, inputVar: string): string => {
   const checks = val.vc!;
   const len = checks.length;
   if (len === 1) {
@@ -569,9 +553,26 @@ export const B_collapseMerge = (code: Code): Code => {
   return "";
 }
 
+// Rebinds `val.v` so the next call to it also stashes the resolved var name
+// (and switches `nextVal.v` to the plain `_var` reader) onto `nextVal` —
+// links a derived val's var resolution to its source without eagerly
+// materializing a var. Shared by every "derive a val from a val" builder.
+const B_linkVar = (val: Val, nextVal: Val): void => {
+  const valVar: () => string = val.v.bind(val);
+  val.v = () => {
+    const v = valVar();
+    nextVal.i = v;
+    nextVal.v = _var;
+    return v;
+  };
+}
+
 export const B_next = (prev: Val, initial: string, schema: Internal, expected: Internal = prev.e): Val => {
   return {
-    // FIXME: vals and other object.val fields should be copied
+    // FIXME: `d` (the object-field-vals dict) and other val fields that hold
+    // child vals are shared by reference with `prev`/`val`, not copied — see
+    // the matching note on B_scope's `d: val.d` below. Whether that aliasing
+    // is actually safe is an open question, not a settled design.
     prev,
     v: _notVar,
     i: initial,
@@ -609,13 +610,7 @@ export const B_refine = (val: Val, schema: Internal = val.s, checks?: Check[], e
     d: val.d,
   };
   if (shouldLink) {
-    const valVar: () => string = val.v.bind(val);
-    val.v = () => {
-      const v = valVar();
-      nextVal.i = v;
-      nextVal.v = _var;
-      return v;
-    };
+    B_linkVar(val, nextVal);
   }
   return nextVal;
 }
@@ -734,7 +729,7 @@ export const B_asyncVal = (from: Val, initial: string): Val => {
   return v;
 }
 
-export const B_Val_Object_add = (objectVal: Val, location: string, val: Val): void => {
+export const B_addObjectField = (objectVal: Val, location: string, val: Val): void => {
   if (objectVal.s.type === arrayTag) {
     objectVal.s.items!.push(val.s);
   } else {
@@ -757,19 +752,17 @@ export const B_Val_Object_add = (objectVal: Val, location: string, val: Val): vo
   objectVal.d![location] = val;
 }
 
-export const B_Val_Object_merge = (target: Val, vals: Record<string, Val>): void => {
-  const locations = Object.keys(vals);
-  for (let idx = 0; idx < locations.length; idx++) {
-    const location = locations[idx]!;
-    B_Val_Object_add(target, location, vals[location]!);
+export const B_mergeObjectFields = (target: Val, vals: Record<string, Val>): void => {
+  for (const location of Object.keys(vals)) {
+    B_addObjectField(target, location, vals[location]!);
   }
 }
 
-export const B_Val_addKey = (objVal: Val, key: string, value: Val): string => {
+export const B_addKey = (objVal: Val, key: string, value: Val): string => {
   return `${objVal.v()}[${key}]=${value.i}`;
 }
 
-export const B_Val_scope = (val: Val): Val => {
+export const B_scope = (val: Val): Val => {
   const shouldLink = val.v !== _var;
 
   // TODO: Simplify bond
@@ -788,16 +781,10 @@ export const B_Val_scope = (val: Val): Val => {
     u: false,
     t: false,
     io: val.io,
-    d: val.d, // TODO: Is this correct?
+    d: val.d, // See the aliasing note on B_next's `d: prev.d` above.
   };
   if (shouldLink) {
-    const valVar: () => string = val.v.bind(val);
-    val.v = () => {
-      const v = valVar();
-      nextVal.i = v;
-      nextVal.v = _var;
-      return v;
-    };
+    B_linkVar(val, nextVal);
   }
   return nextVal;
 }
@@ -815,9 +802,9 @@ export const B_embedTransformation = (input: Val, fn: (input: unknown) => unknow
           "Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead",
       });
     }
-    output.f = (output.f | valFlagAsync);
+    output.f |= valFlagAsync;
   }
-  const embededFn = B_embed(input, fn);
+  const embeddedFn = B_embed(input, fn);
   const failure = `${B_failWithArg(
     output,
     (e: unknown) => B_makeInvalidConversionDetails(input, unknown, e),
@@ -826,7 +813,7 @@ export const B_embedTransformation = (input: Val, fn: (input: unknown) => unknow
   // Feed the transform the input's var when it already carries checks — it's
   // materialized into a var anyway (the check references it), so reuse it
   // instead of re-inlining the source expression (e.g. `i["x"]`) twice.
-  output.cp = `let ${outputVar};try{${outputVar}=${embededFn}(${
+  output.cp = `let ${outputVar};try{${outputVar}=${embeddedFn}(${
     input.vc ? input.v() : input.i
   })${isAsync ? `.catch(x=>${failure})` : ""}}catch(x){${failure}}`;
   return output;
@@ -849,7 +836,7 @@ export const B_invalidOperation = (val: Val, description: string): never => {
   return B_throw({ code: "invalid_operation", reason: description, path: val.path });
 }
 
-export const B_mergeWithCatch = (
+const B_mergeWithCatch = (
   val: Val,
   catchFn: (errorVar: string) => string,
   appendSafe?: () => string

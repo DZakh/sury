@@ -14,6 +14,7 @@ import { join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { diffLinesUnified } from "@vitest/utils/diff";
+import ts from "typescript";
 import * as S from "../sury/src/S.mjs";
 import {
   KEY_ORDER,
@@ -97,8 +98,19 @@ export const parseSpec = (raw: string): Spec => parseYaml(raw) as Spec;
 
 export const readSpec = (file: string): Spec => parseSpec(readFileSync(file, "utf8"));
 
+// transpileModule (syntax-only, no type info) strips TS-only syntax like
+// `as const` so aliases can use it — `new Function` only ever sees plain JS.
+// The source is parenthesized before stripping (not after) so a bare object
+// literal parses as an expression, not a block statement with a labeled
+// statement inside — and the trailing `;\n` transpileModule always emits
+// comes off since it's re-wrapped in `return … ;` below.
+const stripTypes = (tsSource: string): string =>
+  ts.transpileModule(`(${tsSource})`, {
+    compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext },
+  }).outputText.trim().replace(/;$/, "");
+
 export const evalSchema = (tsSource: string): any =>
-  new Function("S", `return (${tsSource});`)(S);
+  new Function("S", `return ${stripTypes(tsSource)};`)(S);
 
 // Sury compiles a pass-through operation to this shared function — the ONLY
 // signal identity detection has. If this name is ever changed in Sury's
@@ -108,13 +120,16 @@ const NOOP_OPERATION_WHICH_WILL_NEVER_CHANGE = "noopOperation";
 const isNoop = (fn: Function): boolean =>
   fn.name === NOOP_OPERATION_WHICH_WILL_NEVER_CHANGE;
 
-// Checks the identity invariant both ways: declared `identity` but doesn't
-// compile to a pass-through, or vice versa.
+// Checks the shorthand invariants both ways: a declared `identity`/`eq-to-parse`
+// that doesn't hold, or a full op block that should be a shorthand.
 export const identityViolations = (schema: any, spec: Spec): string[] => {
   const out: string[] = [];
+  const parseCode = OP_BUILDER.parse(schema).toString();
   for (const opName of OP_ORDER) {
     const op = spec.operations[opName];
-    const noop = isNoop(OP_BUILDER[opName](schema));
+    const fn = OP_BUILDER[opName](schema);
+    const noop = isNoop(fn);
+    const matchesParse = opName !== "parse" && !noop && fn.toString() === parseCode;
     if (op === "identity") {
       if (!noop)
         out.push(
@@ -122,7 +137,18 @@ export const identityViolations = (schema: any, spec: Spec): string[] => {
         );
     } else if (noop) {
       out.push(
-        `operations.${opName}: compiles to identity — use \`identity\` instead of an expression + examples`,
+        op === "eq-to-parse"
+          ? `operations.${opName}: compiles to identity — use \`identity\` instead of \`eq-to-parse\``
+          : `operations.${opName}: compiles to identity — use \`identity\` instead of an expression + examples`,
+      );
+    } else if (op === "eq-to-parse") {
+      if (!matchesParse)
+        out.push(
+          `operations.${opName}: marked \`eq-to-parse\` but does not compile to the same code as parse — use a full op block with examples`,
+        );
+    } else if (matchesParse) {
+      out.push(
+        `operations.${opName}: compiles to the same code as parse — use \`eq-to-parse\` instead of an expression + examples`,
       );
     }
   }
@@ -156,16 +182,20 @@ export const scaffoldJsonSchema = (schema: any): Spec["jsonSchema"] => deriveJso
 
 // Can throw if `schema` isn't actually a usable schema (e.g. `--ts` evaluated
 // to `undefined` from a typo like `S.strng`) — callers decide how to report that.
-export const scaffoldOperations = (schema: any): Spec["operations"] =>
-  Object.fromEntries(
+export const scaffoldOperations = (schema: any): Spec["operations"] => {
+  const parseCode = OP_BUILDER.parse(schema).toString();
+  return Object.fromEntries(
     OP_ORDER.map((opName) => {
       const fn = OP_BUILDER[opName](schema);
       const op: Operation = isNoop(fn)
         ? "identity"
-        : { expression: fn.toString(), examples: {} };
+        : opName !== "parse" && fn.toString() === parseCode
+          ? "eq-to-parse"
+          : { expression: fn.toString(), examples: {} };
       return [opName, op];
     }),
   ) as Spec["operations"];
+};
 
 // ---- canonical form -------------------------------------------------------
 
@@ -200,7 +230,7 @@ const canonExample = (ex: Example): Example => {
 };
 
 const canonOp = (op: Operation): Operation => {
-  if (op === "identity") return op;
+  if (typeof op === "string") return op;
   const o = order(op, ["expression", "examples"]);
   if (o.examples && typeof o.examples === "object") {
     const ex: Record<string, Example> = {};
@@ -219,9 +249,9 @@ export const canonicalize = (obj: Spec): Spec => {
       "output",
     ]) as Spec["jsonSchema"];
   if (o.operations) {
-    const ops = order(o.operations, OP_ORDER);
+    const ops = order(o.operations, OP_ORDER) as Record<OpName, Operation>;
     for (const name of OP_ORDER) if (ops[name]) ops[name] = canonOp(ops[name]);
-    o.operations = ops;
+    o.operations = ops as Spec["operations"];
   }
   return o;
 };
@@ -316,7 +346,7 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
 
   for (const opName of OP_ORDER) {
     const op = next.operations[opName];
-    if (op === "identity") continue;
+    if (typeof op === "string") continue;
     const fn = OP_BUILDER[opName](schema);
     if (!isSkip(op.expression)) op.expression = fn.toString();
     for (const [name, ex] of Object.entries(op.examples)) {
@@ -374,6 +404,74 @@ const diffText = (a: string, b: string): string =>
     contextLines: 3,
   });
 
+// Confirms each `ts.aliases` entry evaluates to a schema equivalent to
+// `ts.schema` — same ts.input/ts.output, jsonSchema, and operations —
+// without giving an alias its own goldens to maintain. Compared directly
+// against the (already-validated) `spec`'s recorded values rather than
+// against each other, so a drifting alias is reported against the one
+// spelling the author actually reads top-to-bottom.
+export const checkAliases = async (spec: Spec): Promise<string[]> => {
+  const aliases = spec.ts.aliases;
+  if (!aliases || !aliases.length) return [];
+  const errs: string[] = [];
+  for (const aliasSrc of aliases) {
+    const label = `ts.aliases[${JSON.stringify(aliasSrc)}]`;
+    let aliasSchema: any;
+    try {
+      aliasSchema = evalSchema(aliasSrc);
+    } catch (e) {
+      errs.push(`${label}: did not evaluate: ${(e as Error).message}`);
+      continue;
+    }
+    if (!isUsableSchema(aliasSchema)) {
+      errs.push(`${label}: evaluated but isn't a Sury schema`);
+      continue;
+    }
+
+    // Isolated per alias — a throw here (e.g. deriveTypeInfo failing to
+    // resolve the alias's type) must not abort the remaining aliases or
+    // surface as the outer, label-less "goldens could not be computed".
+    try {
+      if (!isSkip(spec.ts.input) || !isSkip(spec.ts.output)) {
+        const info = await deriveTypeInfo(aliasSrc);
+        if (!isSkip(spec.ts.input) && info.input !== spec.ts.input)
+          errs.push(`${label}: ts.input ${JSON.stringify(info.input)} !== ${JSON.stringify(spec.ts.input)}`);
+        if (!isSkip(spec.ts.output) && info.output !== spec.ts.output)
+          errs.push(`${label}: ts.output ${JSON.stringify(info.output)} !== ${JSON.stringify(spec.ts.output)}`);
+      }
+
+      const js = deriveJsonSchema(aliasSchema);
+      if (js.input !== spec.jsonSchema.input)
+        errs.push(`${label}: jsonSchema.input differs:\n${diffText(spec.jsonSchema.input, js.input)}`);
+      if (js.output !== spec.jsonSchema.output)
+        errs.push(`${label}: jsonSchema.output differs:\n${diffText(spec.jsonSchema.output, js.output)}`);
+
+      const aliasParseCode = OP_BUILDER.parse(aliasSchema).toString();
+      for (const opName of OP_ORDER) {
+        const op = spec.operations[opName];
+        const fn = OP_BUILDER[opName](aliasSchema);
+        const noop = isNoop(fn);
+        if (op === "identity") {
+          if (!noop) errs.push(`${label}: operations.${opName} is \`identity\` on schema but not on this alias`);
+        } else if (noop) {
+          errs.push(`${label}: operations.${opName} compiles to identity on this alias but not on schema`);
+        } else if (op === "eq-to-parse") {
+          if (fn.toString() !== aliasParseCode)
+            errs.push(
+              `${label}: operations.${opName} is \`eq-to-parse\` on schema but does not compile to the same code as parse on this alias`,
+            );
+        } else if (!isSkip(op.expression) && fn.toString() !== op.expression) {
+          errs.push(`${label}: operations.${opName}.expression differs:\n${diffText(op.expression, fn.toString())}`);
+        }
+      }
+    } catch (e) {
+      errs.push(`${label}: could not be checked: ${(e as Error).message}`);
+      continue;
+    }
+  }
+  return errs;
+};
+
 // Never mutates a file or exits the process, so it's directly testable —
 // cli.ts's cmdCheck and tests/spec_errors_test.ts both call this same
 // function, so there's exactly one implementation of "what's wrong with this
@@ -425,6 +523,7 @@ export const checkSpec = async (
             : `goldens stale — run \`pnpm spec check ${id} --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix)`) +
             `:\n${diffText(canon, fresh)}`,
         );
+      errs.push(...(await checkAliases(spec)));
     } catch (e) {
       errs.push(`goldens could not be computed: ${(e as Error).message}`);
     }

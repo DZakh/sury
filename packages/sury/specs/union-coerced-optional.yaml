@@ -3,8 +3,8 @@ ts:
   schema: S.union([S.string.with(S.to, S.optional(S.number)), S.boolean])
   input: string | boolean
   output: number | boolean | undefined
-  instantiations: 6270
-  bundleBytes: 11277
+  instantiations: 6131
+  bundleBytes: 11122
 jsonSchema:
   input: '{ anyOf: [{ anyOf: [{ type: "string" }, { type: "string", const: "undefined" }] }, { type: "boolean" }] }'
   output: Expected JSON, received number | undefined
@@ -30,9 +30,7 @@ operations:
       nan-object:
         input: "{}"
         error: Expected string | boolean, received { }
-  decode:
-    expression: i=>{if(typeof i==="string"){if((v0=+i,!Number.isNaN(v0))){var v0;i=v0}else if(i==="undefined"){i=void 0}else{e[0](i)}}else if(!(typeof i==="boolean")){e[1](i)}return i}
-    examples: {}
+  decode: eq-to-parse
   encode:
     expression: i=>{if(typeof i==="number"&&!Number.isNaN(i)){i=""+i}else if(i===void 0){i="undefined"}else if(!(typeof i==="boolean")){e[0](i)}return i}
     examples:

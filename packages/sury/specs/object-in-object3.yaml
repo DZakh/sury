@@ -1,10 +1,13 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: "S.schema({a: S.string, nested: S.schema({b: S.number, inner: S.schema({c: S.boolean, d: S.optional(S.string)})})})"
+  schema: "S.schema({a: S.string, nested: {b: S.number, inner: {c: S.boolean, d: S.optional(S.string)}}})"
+  aliases:
+    - "S.schema({a: S.string, nested: S.schema({b: S.number, inner: S.schema({c: S.boolean, d: S.optional(S.string)})})})"
+    - "S.object({a: S.string, nested: {b: S.number, inner: {c: S.boolean, d: S.optional(S.string)}}})"
   input: "{ a: string; nested: { b: number; inner: { d?: string | undefined; c: boolean; }; }; }"
   output: "{ a: string; nested: { b: number; inner: { d?: string | undefined; c: boolean; }; }; }"
-  instantiations: 5108
-  bundleBytes: 11066
+  instantiations: 2769
+  bundleBytes: 10907
 jsonSchema:
   input: '{ type: "object", properties: { a: { type: "string" }, nested: { type: "object", properties: { b: { type: "number" }, inner: { type: "object", properties: { c: { type: "boolean" }, d: { type: "string" } }, required: ["c"] } }, required: ["b", "inner"] } }, required: ["a", "nested"] }'
   output: '{ type: "object", properties: { a: { type: "string" }, nested: { type: "object", properties: { b: { type: "number" }, inner: { type: "object", properties: { c: { type: "boolean" }, d: { type: "string" } }, required: ["c"] } }, required: ["b", "inner"] } }, required: ["a", "nested"] }'

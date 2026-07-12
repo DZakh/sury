@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.schema(NaN)
+  input: number
+  output: number
+  instantiations: 382
+  bundleBytes: 9875
+jsonSchema:
+  input: Expected JSON, received NaN
+  output: Expected JSON, received NaN
+operations:
+  parse:
+    expression: i=>{Number.isNaN(i)||e[0](i);return i}
+    examples:
+      valid:
+        input: NaN
+        output: NaN
+      invalid-value:
+        input: "123"
+        error: Expected NaN, received 123
+      invalid-type:
+        input: '"hello"'
+        error: Expected NaN, received "hello"
+  decode: eq-to-parse
+  encode: eq-to-parse

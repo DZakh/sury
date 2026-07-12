@@ -17,16 +17,14 @@ Schema.prototype = schemaPrototype;
 let seq = 1;
 
 let exnId: unknown = {};
-export function __setExnId(id: unknown): void {
+export const __setExnId = (id: unknown): void => {
   exnId = id;
 }
 
 export class SuryError extends Error {
   constructor(params: ErrorDetails | Record<string, unknown>) {
     super();
-    for (const key in params) {
-      (this as unknown as Record<string, unknown>)[key] = (params as Record<string, unknown>)[key];
-    }
+    Object.assign(this, params);
   }
   get message(): string {
     return formatErrorMessage(this as unknown as SuryErrorRecord);
@@ -43,13 +41,15 @@ Object.defineProperty(SuryError.prototype, "s", { value: s });
 
 export const getOrRethrow = (exn: unknown): SuryErrorRecord => {
   if (exn && (exn as { s?: symbol }).s === s) {
-    return exn as unknown as SuryErrorRecord;
+    return exn as SuryErrorRecord;
   } else {
     throw exn;
   }
 }
 
-// TODO: Throw S.Error
+// Internal invariant/misuse errors (bad schema construction, not input
+// validation) — intentionally a plain Error, not SuryError: there's no
+// ErrorDetails shape (code/path/reason) to attach at these call sites.
 export const panic = (message: string): never => {
   throw new Error(`[Sury] ${message}`);
 }
@@ -61,14 +61,10 @@ const formatErrorMessage = (error: SuryErrorRecord): string => {
 export const errorClass: unknown = SuryError;
 
 export type GlobalConfig = {
-  // @as("m")
-  m: (error: SuryErrorRecord) => string;
-  // @as("d") — defsAccumulator
-  d?: Record<string, Internal>;
-  // @as("a") — defaultAdditionalItems
-  a: AdditionalItems;
-  // @as("f") — defaultFlag
-  f: Flag;
+  m: (error: SuryErrorRecord) => string; // messageFormatter
+  d?: Record<string, Internal>; // defsAccumulator
+  a: AdditionalItems; // defaultAdditionalItems
+  f: Flag; // defaultFlag
 }
 
 export type GlobalConfigOverride = {
@@ -77,11 +73,11 @@ export type GlobalConfigOverride = {
 }
 
 export const initialOnAdditionalItems: AdditionalItemsMode = "strip";
-export const initialDefaultFlag: Flag = valFlagNone as unknown as Flag;
+export const initialDefaultFlag: Flag = valFlagNone;
 export const globalConfig: GlobalConfig = {
   m: formatErrorMessage,
   d: undefined,
-  a: initialOnAdditionalItems as unknown as AdditionalItems,
+  a: initialOnAdditionalItems,
   f: initialDefaultFlag,
 };
 
@@ -90,8 +86,10 @@ export const configurableValueOptions = { configurable: true };
 export const valKey = "value";
 export const reversedKey = "r";
 
+const SchemaCtor = Schema as unknown as { new (): Internal };
+
 export const baseSchema = (tag: Tag, selfReverse: boolean): Internal => {
-  const schema = new (Schema as unknown as { new (): Internal })();
+  const schema = new SchemaCtor();
   schema.type = tag;
   schema.seq = seq++;
   if (selfReverse) {
@@ -123,10 +121,7 @@ export const unknown: Internal = baseSchema(unknownTag, true);
 unknown.decoder = noopDecoder;
 
 export const copySchema = (schema: Internal): Internal => {
-  const c = new (Schema as unknown as { new (): Internal })();
-  for (const k in schema) {
-    (c as unknown as Record<string, unknown>)[k] = (schema as unknown as Record<string, unknown>)[k];
-  }
+  const c: Internal = Object.assign(new SchemaCtor(), schema);
   c.seq = seq++;
   return c;
 }
