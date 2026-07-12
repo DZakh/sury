@@ -3,8 +3,8 @@ ts:
   schema: S.union([S.string, S.number])
   input: string | number
   output: string | number
-  instantiations: 1083
-  bundleBytes: 9799
+  instantiations: 983
+  bundleBytes: 9693
 jsonSchema:
   input: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
   output: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
