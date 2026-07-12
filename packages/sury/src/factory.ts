@@ -9,10 +9,10 @@ import { Path, inlinedValueFromString, pathConcat, pathEmpty, pathFromInlinedLoc
 import { arrayTag, instanceTag, objectTag } from "./tags";
 
 // The factory functions below (`schemaShape`, `schemaNested`, `schemaObject`,
-// `schemaTuple`, `schemaFactory`) are standalone top-level functions rather
-// than object methods — several are mutually recursive, which is awkward to
-// express inside an object literal — with `schema`-prefixed names to avoid
-// colliding with other sections.
+// `schemaTuple`, `schemaDefiner`, `schemaFactory`) are standalone top-level
+// functions rather than object methods — several are mutually recursive,
+// which is awkward to express inside an object literal — with
+// `schema`-prefixed names to avoid colliding with other sections.
 
 type ShapedSerializerAcc = {
   val?: Val;
@@ -634,20 +634,20 @@ const traverseDefinition = (
 const schemaCtx: SchemaCtx = {
   m: (schema) => schema,
 };
-export const schemaFactory = (definer: (ctx: unknown) => unknown): Internal => {
+export const schemaDefiner = (definer: (ctx: unknown) => unknown): Internal => {
   return definitionToSchema(definer(schemaCtx));
 }
 
-// Identifier alias (not a `schemaFactory` property read) so esbuild can
+// Identifier alias (not a `schemaDefiner` property read) so esbuild can
 // tree-shake: a property-read initializer is treated as possibly
 // side-effectful and would retain the whole schema machinery in every bundle.
-export const js_schema = (definition: unknown): Internal => {
+export const schemaFactory = (definition: unknown): Internal => {
   return definitionToSchema(definition);
 }
 
 // PORT-NOTE: `enum` is a reserved word in TS — defined as `enum_` and
 // re-exported under the name `enum` (legal as an export alias).
 const enum_ = (values: unknown[]): Internal => {
-  return unionFactory(values.map(js_schema));
+  return unionFactory(values.map(schemaFactory));
 }
 export { enum_ as enum };

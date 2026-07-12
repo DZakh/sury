@@ -1,4 +1,4 @@
-import { definitionToSchema, js_schema, schemaFactory } from "./factory";
+import { definitionToSchema, schemaDefiner, schemaFactory } from "./factory";
 import { array, option } from "./composites";
 import { email, isoDateTime, json, meta, url, uuid } from "./formats";
 import { arrayLength, arrayMaxLength, arrayMinLength, dict, floatMax, floatMin, intMax, intMin, null_, object, pattern, stringLength, stringMaxLength, stringMinLength, tuple, union } from "./refinements";
@@ -716,7 +716,7 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
           schema = dict(fromJSONSchema(additionalProperties));
         }
       } else {
-        schema = schemaFactory(() => {});
+        schema = schemaDefiner(() => {});
       }
     }
 
@@ -873,7 +873,7 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
   } else if (jsonSchema.type === "boolean") {
     schema = bool();
   } else if (jsonSchema.type === "null") {
-    schema = js_schema(null);
+    schema = schemaFactory(null);
   } else if (
     jsonSchema.if !== undefined &&
     jsonSchema.then !== undefined &&
