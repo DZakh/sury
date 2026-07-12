@@ -352,15 +352,16 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
     if (!isSkip(next.ts.instantiations)) next.ts.instantiations = info.instantiations;
   }
 
-  // The overwrite form of `vs.zod` records Zod's inferred types as goldens
-  // (they differ from ts by design); the harness owns them, so fill from the
-  // live Zod schema. A schema that doesn't typecheck throws here and surfaces
-  // via checkSpec's "goldens could not be computed" — same as any other
-  // uncomputable golden.
+  // The overwrite form of `vs.zod` records Zod's inferred types as goldens for
+  // the side(s) that diverge from ts; the harness owns those, so fill from the
+  // live Zod schema. An omitted side matches ts and isn't recorded (checkVs
+  // verifies the match). A schema that doesn't typecheck throws here and
+  // surfaces via checkSpec's "goldens could not be computed" — same as any
+  // other uncomputable golden.
   if (isZodOverwrite(next.vs.zod)) {
     const zi = await deriveVsTypeInfo(ZOD_IMPORT, next.vs.zod.schema);
-    next.vs.zod.input = zi.input;
-    next.vs.zod.output = zi.output;
+    if (next.vs.zod.input !== undefined) next.vs.zod.input = zi.input;
+    if (next.vs.zod.output !== undefined) next.vs.zod.output = zi.output;
   }
 
   next.jsonSchema = deriveJsonSchema(schema);
@@ -512,21 +513,42 @@ export const checkVs = async (spec: Spec): Promise<string[]> => {
     return errs;
   }
 
-  const matches =
-    !isSkip(spec.ts.input) &&
-    !isSkip(spec.ts.output) &&
-    info.input === spec.ts.input &&
-    info.output === spec.ts.output;
-
   if (isZodOverwrite(vs.zod)) {
-    // The overwrite form exists only to record a divergence. When Zod actually
-    // infers the same type as Sury, the bare string form (which asserts that
-    // equality) is the right tool — refuse the object form here.
-    if (matches)
+    // The overwrite form records a divergence, per side. A present side must
+    // actually differ from ts; an omitted side means "no divergence" and must
+    // actually match. If both sides are omitted, nothing diverges — the bare
+    // string form (which asserts both equalities) is the right tool.
+    const hasInput = vs.zod.input !== undefined;
+    const hasOutput = vs.zod.output !== undefined;
+    if (!hasInput && !hasOutput) {
       errs.push(
-        "vs.zod: overwrite form, but its inferred types equal ts.input/ts.output — " +
+        "vs.zod: overwrite form records no divergence (input and output both omitted) — " +
           `use the bare \`zod: ${JSON.stringify(vs.zod.schema)}\` string form instead.`,
       );
+      return errs;
+    }
+    if (!isSkip(spec.ts.input)) {
+      if (!hasInput && info.input !== spec.ts.input)
+        errs.push(
+          `vs.zod: input omitted (no divergence) but Zod infers ${JSON.stringify(info.input)} !== ts.input ` +
+            `${JSON.stringify(spec.ts.input)} — add \`input\` to record the divergent type.`,
+        );
+      else if (hasInput && info.input === spec.ts.input)
+        errs.push(
+          `vs.zod.input equals ts.input ${JSON.stringify(spec.ts.input)} — it matches Sury, so omit \`input\`.`,
+        );
+    }
+    if (!isSkip(spec.ts.output)) {
+      if (!hasOutput && info.output !== spec.ts.output)
+        errs.push(
+          `vs.zod: output omitted (no divergence) but Zod infers ${JSON.stringify(info.output)} !== ts.output ` +
+            `${JSON.stringify(spec.ts.output)} — add \`output\` to record the divergent type.`,
+        );
+      else if (hasOutput && info.output === spec.ts.output)
+        errs.push(
+          `vs.zod.output equals ts.output ${JSON.stringify(spec.ts.output)} — it matches Sury, so omit \`output\`.`,
+        );
+    }
     return errs;
   }
 

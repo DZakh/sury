@@ -106,17 +106,47 @@ test("invalid _skip reason (not an enum value or todo(#...))", async () => {
   `);
 });
 
-test("vs.zod overwrite form whose inferred types don't diverge from ts (belongs in the bare string form)", async () => {
+test("vs.zod overwrite form records a side that matches ts (should be omitted)", async () => {
   const spec = mutate((s) => {
     // string's ts.input/output are both `string`, and z.string() infers the
-    // same — so the overwrite form records no divergence and should be the
-    // bare `zod: z.string()` string instead.
+    // same — so recording either side is wrong; each matching side must be
+    // omitted (its absence is what means "no divergence").
     s.vs.zod = { schema: "z.string()", input: "string", output: "string" };
   });
   await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
     {
       "stderr": "✗ string
-        vs.zod: overwrite form, but its inferred types equal ts.input/ts.output — use the bare \`zod: "z.string()"\` string form instead.",
+        vs.zod.input equals ts.input "string" — it matches Sury, so omit \`input\`.
+        vs.zod.output equals ts.output "string" — it matches Sury, so omit \`output\`.",
+      "stdout": "",
+    }
+  `);
+});
+
+test("vs.zod overwrite form omits both sides (records no divergence — belongs in the bare string form)", async () => {
+  const spec = mutate((s) => {
+    s.vs.zod = { schema: "z.string()" };
+  });
+  await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ string
+        vs.zod: overwrite form records no divergence (input and output both omitted) — use the bare \`zod: "z.string()"\` string form instead.",
+      "stdout": "",
+    }
+  `);
+});
+
+test("vs.zod overwrite form omits a side that actually diverges from ts (must be recorded)", async () => {
+  const spec = mutate((s) => {
+    // z.string().nullable() infers `string | null`, which diverges from
+    // string's ts.input/output (`string`). output records the divergence;
+    // input is omitted but shouldn't be.
+    s.vs.zod = { schema: "z.string().nullable()", output: "string | null" };
+  });
+  await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ string
+        vs.zod: input omitted (no divergence) but Zod infers "string | null" !== ts.input "string" — add \`input\` to record the divergent type.",
       "stdout": "",
     }
   `);

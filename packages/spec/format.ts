@@ -151,20 +151,25 @@ const ts = S.schema({
 // `input`/`output` are goldens: `spec check --write` fills them from the Zod
 // schema, and `checkVs` refuses this form when the types don't actually
 // diverge from `ts` (the bare string form belongs there).
+// input and output are checked independently: a side that diverges from ts is
+// recorded (a string, filled by `--write`); a side that matches Sury is simply
+// omitted (its absence means "no divergence" — checkVs verifies it really does
+// equal ts). At least one side must diverge — omitting both is just the bare
+// string form (or a whole-dimension skip).
 const zodOverwrite = S.schema({
   schema: S.string.with(S.meta, {
-    description: "Equivalent Zod (v4) schema whose inferred types intentionally differ from ts, e.g. `z.object({...})`.",
+    description: "Equivalent Zod (v4) schema, at least one of whose inferred types differs from ts, e.g. `z.object({...})`.",
   }),
-  input: S.string.with(S.meta, {
-    description: "Zod's inferred input type — differs from ts.input by design. Filled by `spec check --write`.",
+  input: S.optional(S.string).with(S.meta, {
+    description: "Zod's inferred input type, recorded only when it diverges from ts.input (filled by `--write`); omit when it matches.",
   }),
-  output: S.string.with(S.meta, {
-    description: "Zod's inferred output type — differs from ts.output by design. Filled by `spec check --write`.",
+  output: S.optional(S.string).with(S.meta, {
+    description: "Zod's inferred output type, recorded only when it diverges from ts.output (filled by `--write`); omit when it matches.",
   }),
 })
   .with(S.strict)
   .with(S.meta, {
-    description: "Overwrite form: a Zod equivalent that infers a different type than Sury, with that type recorded.",
+    description: "Overwrite form: a Zod equivalent that infers a different type than Sury on at least one side, with the divergent side(s) recorded.",
   });
 export type ZodOverwrite = S.Output<typeof zodOverwrite>;
 
@@ -176,8 +181,9 @@ const vs = S.schema({
   zod: S.union([S.string, zodOverwrite, skip]).with(S.meta, {
     description:
       "Equivalent Zod (v4) schema, e.g. `z.string().min(3)`. Bare string: inferred types must equal " +
-      "ts.input/ts.output. Object `{schema,input,output}`: the Zod type intentionally differs from ts " +
-      "(input/output filled by `--write`). `_skip` if Zod can't express it at all.",
+      "ts.input/ts.output. Object `{schema,input?,output?}`: the Zod type differs from ts on at least one " +
+      "side — that side is recorded (filled by `--write`), a matching side is omitted. `_skip` alone if " +
+      "Zod can't express it at all.",
   }),
 })
   .with(S.strict)

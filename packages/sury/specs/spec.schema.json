@@ -127,24 +127,22 @@
               "properties": {
                 "schema": {
                   "type": "string",
-                  "description": "Equivalent Zod (v4) schema whose inferred types intentionally differ from ts, e.g. `z.object({...})`."
+                  "description": "Equivalent Zod (v4) schema, at least one of whose inferred types differs from ts, e.g. `z.object({...})`."
                 },
                 "input": {
                   "type": "string",
-                  "description": "Zod's inferred input type — differs from ts.input by design. Filled by `spec check --write`."
+                  "description": "Zod's inferred input type, recorded only when it diverges from ts.input (filled by `--write`); omit when it matches."
                 },
                 "output": {
                   "type": "string",
-                  "description": "Zod's inferred output type — differs from ts.output by design. Filled by `spec check --write`."
+                  "description": "Zod's inferred output type, recorded only when it diverges from ts.output (filled by `--write`); omit when it matches."
                 }
               },
               "additionalProperties": false,
               "required": [
-                "schema",
-                "input",
-                "output"
+                "schema"
               ],
-              "description": "Overwrite form: a Zod equivalent that infers a different type than Sury, with that type recorded."
+              "description": "Overwrite form: a Zod equivalent that infers a different type than Sury on at least one side, with the divergent side(s) recorded."
             },
             {
               "type": "object",
@@ -161,7 +159,7 @@
               "description": "Explicit opt-out for an unasserted dimension."
             }
           ],
-          "description": "Equivalent Zod (v4) schema, e.g. `z.string().min(3)`. Bare string: inferred types must equal ts.input/ts.output. Object `{schema,input,output}`: the Zod type intentionally differs from ts (input/output filled by `--write`). `_skip` if Zod can't express it at all."
+          "description": "Equivalent Zod (v4) schema, e.g. `z.string().min(3)`. Bare string: inferred types must equal ts.input/ts.output. Object `{schema,input?,output?}`: the Zod type differs from ts on at least one side — that side is recorded (filled by `--write`), a matching side is omitted. `_skip` alone if Zod can't express it at all."
         }
       },
       "additionalProperties": false,
