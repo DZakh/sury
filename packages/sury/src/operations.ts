@@ -102,7 +102,7 @@ export const recursiveDecoder: Builder = (input) => {
     output = B_next(input, outputVar, expectedSchema, expectedSchema);
     output.v = _var;
 
-    output.cp.push(`${outputVar}=${recOperation}(${input.i});`);
+    output.cp = `${outputVar}=${recOperation}(${input.i});`;
 
     if (isAsync) {
       output.f = (output.f | valFlagAsync);
@@ -110,14 +110,19 @@ export const recursiveDecoder: Builder = (input) => {
   } else {
     // No transform: call for validation but don't capture result
     output = B_refine(input, expectedSchema, undefined, expectedSchema);
-    output.cp.push(`${recOperation}(${input.i});`);
+    output.cp = `${recOperation}(${input.i});`;
   }
 
-  output.prev = undefined;
-  // A fresh array: the merged tree still references the old `cp` array by
-  // reference (no cycle), and this val stays open for later fills — the old
-  // "un-finalize" hack is gone since merge no longer freezes.
-  output.cp = [outputDecl, B_mergeWithPathPrepend(output, input)];
+  // Merge over a snapshot: `{c: output}` in the merged tree would read the
+  // reassigned `cp` below and cycle at join time. The snapshot pins the
+  // pre-wrap code; `output` itself stays open — later hoists land on its
+  // own `{h}` hole emitted by the outer merge (the old "un-finalize" hack
+  // is gone since merge no longer freezes).
+  const snapshot: Val = { ...output };
+  snapshot.prev = undefined;
+  output.cp = [outputDecl, B_mergeWithPathPrepend(snapshot, input)];
+  // mergeWithCatch may wrap an async inline in `.catch` on the snapshot.
+  output.i = snapshot.i;
   output.prev = input;
 
   return output;

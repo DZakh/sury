@@ -75,17 +75,20 @@ Core fields:
 - `path` — location in input (for errors)
 - `isOutput` — `Some(true)` once refiners have been applied (see Refiner ownership)
 
+Deferred emission: generated code is a `Code` rope (`string | Code[] | Val`) where a val stands in as its own hole — the single `B_joinCode` in `compileDecoder` resolves it to `codeFromPrev` + `checksCode` + `hoistedDecls`, so all three stay writable after the val's segment was merged. Joining IS freezing: resolving a val's marker (or a mid-compile join into a closure body — `.then`, `Promise.all`, loop bodies) sets `finalized`. A caller that branches on `B_isEmptyCode` and then discards a tree must join it first so a late fill falls back to an inline re-read instead of being dropped.
+
 Transformation chain (relative to `.prev`):
 - `prev` — previous val in the chain
-- `codeFromPrev` — statements that produce this val from `.prev`. **A val owns the declaration of its own value here** (`let v=…;`); a non-empty `codeFromPrev` makes the val non-hoistable in `merge`, so a union discriminant can never be lifted above a `let` it reads (the `str->to(option(int))` bug class).
-- `hoistedDecls` — `let` declarations hoisted *onto this val* by a descendant whose own segment was already emitted, so the decl must live on a still-open owner that outlives it (a field read on its parent object, a loop accumulator before its `for`). Use `B_hoistDecl(owner, decl)` — it never mutates an unrelated val behind a callback. `merge` emits them right after this val's checks.
-- `finalized` — set by `merge` once a val's code is emitted. A late cached-bond materialization checks `parent.finalized` and re-reads inline instead of hoisting a now-undroppable decl (#240).
+- `codeFromPrev` — code that produces this val from `.prev`. **A val owns the declaration of its own value here** (`let v=…;`, appended via `B_addCode` — legal even after the segment was merged); a non-empty `codeFromPrev` makes the val non-hoistable in `merge`, so a union discriminant can never be lifted above a `let` it reads (the `str->to(option(int))` bug class).
+- `hoistedDecls` — `let` declarations hoisted *onto this val* by a descendant that can't own them (a field read on its parent object, a loop accumulator before its `for`). Use `B_hoistDecl(owner, decl)` — legal any time before the final join. The join emits them right after this val's checks.
+- `finalized` — set by the join once a val's slots were read into a string. A late materialization on a finalized val re-reads inline instead of writing to a slot that can no longer emit (the old #240 class; now only reachable across real scope boundaries).
 - `checks` — `array<check>`; both type-narrows and user refiners live here. A check whose `fail === B.failInvalidType` is a type-narrow and **doubles as a union dispatch discriminant**.
 
 Helpers:
 - `B_next` — new val one step down the transform chain (sets `hasTransform`).
 - `B_refine` — clones a val to attach `checks`, keeping the var-allocation link.
-- `B_hoistDecl(owner, decl)` — attach a `let` declaration to a still-open owner val (prev/parent/self) whose segment dominates and outlives the materialized value.
+- `B_hoistDecl(owner, decl)` — attach a `let` declaration to an owner val (prev/parent/self) whose segment dominates and outlives the materialized value.
 - `B_markOutput` — applies `inputRefiner`/`refiner` and sets `isOutput` (see Refiner ownership).
-- `B_merge` — walks the `.prev` chain into a code string. With `~hoistCond` (union codegen) it lifts type-narrow checks into a dispatch condition; a val with non-empty `codeFromPrev` is kept non-hoistable so its decl stays with the check.
+- `B_merge` — walks the `.prev` chain into a `Code` rope of val markers (checks stringify into `checksCode`; `codeFromPrev`/`hoistedDecls` resolve at the join). With `~hoistCond` (union codegen) it lifts type-narrow checks into a dispatch condition; a val with non-empty `codeFromPrev` is kept non-hoistable so its decl stays with the check.
+- `B_joinCode` — the single stringification point; seals every val it resolves.
 

@@ -1,4 +1,4 @@
-import { B_Val_Object_add, B_Val_Object_merge, B_Val_scope, B_inlineLocation, B_invalidOperation, B_markOutput, B_merge, B_nextConst, Builder, _notVarAtParent } from "./builder";
+import { B_Val_Object_add, B_Val_Object_merge, B_Val_scope, B_addCode, B_inlineLocation, B_invalidOperation, B_markOutput, B_merge, B_nextConst, Builder, _notVarAtParent } from "./builder";
 import { Literal_parse, literalDecoder, unit } from "./primitives";
 import { Option_getOr, TupleCtx } from "./operations";
 import { arrayDecoder, completeObjectVal, makeObjectVal, objectDecoder, optionFactory, unionFactory, valGet } from "./composites";
@@ -397,7 +397,7 @@ export const shapedParser: Builder = (input: Val) => {
         flattenedVal = B_markOutput(assembled, assembled);
       }
       flattenedVals.push(flattenedVal);
-      input.cp.push(B_merge(flattenedVal));
+      B_addCode(input, B_merge(flattenedVal));
     }
     input.fv = flattenedVals;
   }

@@ -1,7 +1,7 @@
 import { Literal_parse, isArrayCond, jsonName, objectTagCond, setHas, unit } from "./primitives";
 import { baseSchema, getOrRethrow, panic, reversedKey, unknown, updateOutput } from "./schema";
 import { getOutputSchema, nestedLoc, nestedOptionParser, never_, parse, parseDynamic, typeCheckCond } from "./parse";
-import { B_Val_Object_add, B_Val_addKey, B_Val_scope, B_isEmptyCode, B_joinCode, B_seal, B_asyncVal, B_dynamicScope, B_embed, B_failWithArg, B_hoistChildChecks, B_hoistDecl, B_inlineConst, B_inlineLocation, B_isHoistable, B_makeInvalidInputDetails, B_markOutput, B_merge, B_mergeWithPathPrepend, B_next, B_nextConst, B_pushCheck, B_refine, B_throw, B_unsupportedDecode, B_varWithoutAllocation, Builder, _notVar, _notVarAtParent, _var, failInvalidType } from "./builder";
+import { B_Val_Object_add, B_Val_addKey, B_Val_scope, B_addCode, B_isEmptyCode, B_joinCode, B_asyncVal, B_dynamicScope, B_embed, B_failWithArg, B_hoistChildChecks, B_hoistDecl, B_inlineConst, B_inlineLocation, B_isHoistable, B_makeInvalidInputDetails, B_markOutput, B_merge, B_mergeWithPathPrepend, B_next, B_nextConst, B_pushCheck, B_refine, B_throw, B_unsupportedDecode, B_varWithoutAllocation, Builder, _notVar, _notVarAtParent, _var, failInvalidType } from "./builder";
 import { Check, Code, ErrorDetails, Internal, SuryErrorRecord, Val, immutableEmptyArray, immutableEmptyObject, isLiteral, isOptional } from "./types";
 import { flagUnsafeHas, valFlagAsync, valFlagNone } from "./flags";
 import { pathConcat, pathFromInlinedLocation } from "./path";
@@ -33,7 +33,8 @@ export const makeObjectVal = (prev: Val, schema: Internal): Val => {
     e: prev.e,
     d: {},
     t: true,
-    cp: [],
+    cp: "",
+    ck: "",
     hd: "",
     path: prev.path,
     g: prev.g,
@@ -80,9 +81,9 @@ export const completeObjectVal = (objectVal: Val): Val => {
     const operationInput = B_Val_scope(valWithRequired);
     operationInput.io = true;
     const operationOutput = parse(operationInput);
-    // Stringified into the Promise.all closure body — a real scope boundary.
+    // Stringified into the Promise.all closure body — a real scope
+    // boundary; the join itself seals the chain.
     const operationCode = B_joinCode(B_merge(operationOutput));
-    B_seal(operationOutput);
 
     if (operationCode === "" && promiseAllContent === `${operationOutput.i},`) {
       valWithRequired.i = operationOutput.i;
@@ -100,7 +101,7 @@ export const completeObjectVal = (objectVal: Val): Val => {
     } else {
       const code = optionalSettingCode(valWithRequired.v());
       const output = B_refine(valWithRequired);
-      output.cp.push(code);
+      B_addCode(output, code);
       return output;
     }
   }
@@ -199,14 +200,13 @@ export const arrayDecoder = (unknownInput: Val): Val => {
         hasTransform ? () => B_Val_addKey(output2, iteratorVar, itemOutput) : undefined,
       );
 
-      // The loop body is a block scope: freeze the item chain against late
-      // fills (matches the pre-tree behavior where merge froze it).
-      B_seal(itemOutput);
-      if (hasTransform || !B_isEmptyCode(itemCode)) {
-        output2.cp.push(
-          `for(let ${iteratorVar}=${expectedLength};${iteratorVar}<${inputVar}.length;++${iteratorVar}){`,
-          itemCode,
-          "}",
+      // The loop body is a block scope — join here; the join seals the item
+      // chain against late fills.
+      const itemCodeStr = B_joinCode(itemCode);
+      if (hasTransform || itemCodeStr !== "") {
+        B_addCode(
+          output2,
+          `for(let ${iteratorVar}=${expectedLength};${iteratorVar}<${inputVar}.length;++${iteratorVar}){${itemCodeStr}}`,
         );
       }
 
@@ -351,9 +351,9 @@ export const objectDecoder = (unknownInput: Val): Val => {
       hasTransform ? () => B_Val_addKey(output2, keyVar, itemOutput) : undefined,
     );
 
-    B_seal(itemOutput);
-    if (hasTransform || !B_isEmptyCode(itemCode)) {
-      output2.cp.push(`for(let ${keyVar} in ${inputVar}){`, itemCode, "}");
+    const itemCodeStr = B_joinCode(itemCode);
+    if (hasTransform || itemCodeStr !== "") {
+      B_addCode(output2, `for(let ${keyVar} in ${inputVar}){${itemCodeStr}}`);
     }
 
     if (flagUnsafeHas(itemOutput.f, valFlagAsync)) {
@@ -467,7 +467,8 @@ export const objectDecoder = (unknownInput: Val): Val => {
           excessCode = excessCode + `${keyVar}!==${B_inlineLocation(input.g, key)}`;
         }
       }
-      objectVal.cp.push(
+      B_addCode(
+        objectVal,
         excessCode +
         `){${B_failWithArg(
           input,
@@ -479,7 +480,8 @@ export const objectDecoder = (unknownInput: Val): Val => {
               keys: [exccessFieldName],
             }) as ErrorDetails,
           keyVar,
-        )}}}`);
+        )}}}`,
+      );
     }
 
     // After input.schema was used, set it to selfSchema
@@ -798,6 +800,11 @@ export const unionDecoder: Builder = (input: Val) => {
         const itemCond = itemCondRef.contents;
         const itemCode = itemCodeRef;
         const itemCodeIsEmpty = B_isEmptyCode(itemCode);
+        if (itemCodeIsEmpty) {
+          // The empty tree is about to be discarded — join it so its chain
+          // seals and a late fill can't be silently dropped.
+          B_joinCode(itemCode);
+        }
 
         // Accumulate item parser when it has a discriminant
         if (!itemSkipped && itemCond) {
@@ -1143,7 +1150,7 @@ export const unionDecoder: Builder = (input: Val) => {
                   } else {
                     // The block always fails — drop it
                     // and pass the embedded error along
-                    B_seal(typeValidationOutput);
+                    B_joinCode(blockCode);
                     caught = `${caught},${embeddedError}`;
                   }
                 } else if (!blockCodeIsEmpty) {
@@ -1152,8 +1159,9 @@ export const unionDecoder: Builder = (input: Val) => {
                   end = "}" + end;
                   caught = `${caught},${errorVar}`;
                 } else {
-                  // Empty tree discarded — freeze so a late fill can't be dropped.
-                  B_seal(typeValidationOutput);
+                  // Empty tree discarded — join seals it so a late fill
+                  // can't be dropped.
+                  B_joinCode(blockCode);
                   exit = true;
                 }
               }
@@ -1186,7 +1194,7 @@ export const unionDecoder: Builder = (input: Val) => {
           start.push(if_ + `(${blockCond}){`, blockCode, "}");
           nextElse = true;
         } else {
-          B_seal(typeValidationOutput);
+          B_joinCode(blockCode);
           noop = noop ? `${noop}||${blockCond}` : blockCond;
         }
       }
@@ -1203,7 +1211,7 @@ export const unionDecoder: Builder = (input: Val) => {
               : errorCode);
     }
 
-    output.cp.push(start, end);
+    B_addCode(output, [start, end]);
 
     // In case if input.var was called, but output.var wasn't
     if (input.i !== output.i) {
@@ -1431,7 +1439,8 @@ export const valGet = (parent: Val, location: string): Val => {
       f: valFlagNone,
       s: schema,
       e: schema,
-      cp: [],
+      cp: "",
+    ck: "",
       hd: "",
       path: pathConcat(parent.path, pathAppend),
       g: parent.g,

@@ -197,10 +197,11 @@ export type Check = {
   f: (input: Val) => (value: unknown) => ErrorDetails;
 }
 
-// Generated-code rope: a string chunk, a nested tree (kept by reference so
-// late fills propagate), or a hole resolving to a val's hoisted decls at the
-// single final join.
-export type Code = string | Code[] | { h: Val };
+// Generated-code rope: a string chunk, a nested tree, or a val standing in
+// as its own hole — resolved at the single final join to the val's
+// codeFromPrev + checks (`ck`) + hoisted decls, all of which stay writable
+// after the val's segment was merged. Resolving a val seals it (`fz`).
+export type Code = string | Code[] | Val;
 
 export type Val = {
   // We might have the same value, but different instances of the val
@@ -227,19 +228,23 @@ export type Val = {
   d?: Record<string, Val>;
   // @as("fv") — flattenedVals
   fv?: Val[];
-  // Code chunk tree produced from `.prev`. Mutable in place: `merge` embeds
-  // the array by reference, so a late materialization may still push into it
-  // any time before the final join in compileDecoder. @as("cp") — codeFromPrev
-  cp: Code[];
+  // Code produced from `.prev` — a plain string rope in the common case.
+  // `merge` embeds a `{c: val}` hole instead of the value, so reassigning
+  // `cp` stays legal any time before the final join in compileDecoder.
+  // @as("cp") — codeFromPrev
+  cp: Code;
+  // Emitted checks code, set by `merge` when this val's segment is consed
+  // into the rope (the val doubles as its own hole). @as("ck") — checksCode
+  ck?: string;
   // Comma-joined `let` declarations hoisted onto this val by descendants
-  // that couldn't own them. `merge` embeds a hole (`{h: val}`) after this
+  // that couldn't own them. `merge` embeds a `{h: val}` hole after this
   // val's checks; the join reads `hd` at the end, so hoists stay legal after
   // the val's segment was merged. @as("hd") — hoistedDecls
   hd: string;
-  // Set when this val's code was stringified into a closure body (`.then`,
-  // `Promise.all`) or its tree was discarded — a real freeze: later
-  // materializations must re-read inline instead of filling their slot.
-  // @as("fz") — finalized
+  // Set by the join when this val's holes were resolved into a string (a
+  // mid-compile join stringifies into a closure body or discards an empty
+  // tree) — a real freeze: later materializations must re-read inline
+  // instead of writing to slots that can no longer emit. @as("fz") — finalized
   fz?: boolean;
   // Invariant: absent iff no checks. Never stored as `[]` so callers can
   // test presence with a plain truthy check instead of length.

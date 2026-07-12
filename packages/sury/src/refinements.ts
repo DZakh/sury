@@ -3,7 +3,7 @@ import { getMutErrorMessage, internalRefine, nullAsUnit, transform } from "./ope
 import { schemaObject, schemaShape, schemaTuple } from "./factory";
 import { parse } from "./parse";
 import { SuryError, copySchema, panic, unknown } from "./schema";
-import { B_Val_scope, B_asyncVal, B_embed, B_joinCode, B_seal, B_failWithErrorMessage, B_inlineLocation, B_markOutput, B_merge, B_next, B_refine, B_varWithoutAllocation, Builder, _notVarBeforeValidation, _var, failInvalidType } from "./builder";
+import { B_Val_scope, B_asyncVal, B_embed, B_joinCode, B_failWithErrorMessage, B_inlineLocation, B_markOutput, B_merge, B_next, B_refine, B_varWithoutAllocation, Builder, _notVarBeforeValidation, _var, failInvalidType } from "./builder";
 import { array, dictFactory, optionFactory, unionFactory } from "./composites";
 import { ErrorDetails, Internal, Val, stringify } from "./types";
 import { Flag, flagUnsafeHas, valFlagAsync } from "./flags";
@@ -165,7 +165,6 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
         }
 
         itemParseCode = itemParseCode + B_joinCode(B_merge(itemOutput));
-        B_seal(itemOutput);
         lengthCode = lengthCode + `${inputVar}[${idxStr}].length,`;
         asyncInlines = asyncInlines + `${itemOutput.i},`;
         itemBuildCode =
@@ -176,7 +175,7 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
       output.v = _var;
       // Row accumulator: declared at the head of its own segment, before the
       // `for` below that fills it.
-      output.cp.push(`let ${outputVar}=new Array(Math.max(${lengthCode}));`);
+      output.cp = `let ${outputVar}=new Array(Math.max(${lengthCode}));`;
 
       // Wrap the row body in a single try/catch that prepends the row index to
       // any thrown error — giving paths like ["0"]["bar"]. A single wrapper is
@@ -207,8 +206,9 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
         const errorVar = B_varWithoutAllocation(input2.g);
         wrappedBody = `try{${rowBody}}catch(${errorVar}){${errorVar}.path='["'+${iteratorVar}+'"]'+${errorVar}.path;throw ${errorVar}}`;
       }
-      output.cp.push(
-        `for(let ${iteratorVar}=0;${iteratorVar}<${outputVar}.length;++${iteratorVar}){${wrappedBody}}`);
+      output.cp =
+        output.cp +
+        `for(let ${iteratorVar}=0;${iteratorVar}<${outputVar}.length;++${iteratorVar}){${wrappedBody}}`;
 
       let output2 = output;
       if (hasAsync) {
@@ -253,7 +253,6 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
 
           const itemOutput = parse(itemInput);
           perFieldCode = perFieldCode + B_joinCode(B_merge(itemOutput));
-          B_seal(itemOutput);
           settingCode =
             settingCode +
             `${outputVar}[${idx}][${iteratorVar}]=${itemOutput.i};`;
@@ -267,7 +266,7 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
       const output = B_next(input, outputVar, outputSchema, outputSchema);
       output.v = _var;
       // Columnar accumulator: declared before the `for` that fills it.
-      output.cp.push(`let ${outputVar}=[${initialArraysCode}];`);
+      output.cp = `let ${outputVar}=[${initialArraysCode}];`;
       const loopBody = perFieldCode + settingCode;
       let wrappedBody: string;
       if (needsPerFieldTransform && perFieldCode !== "") {
@@ -276,8 +275,9 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
       } else {
         wrappedBody = loopBody;
       }
-      output.cp.push(
-        `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${wrappedBody}}`);
+      output.cp =
+        output.cp +
+        `for(let ${iteratorVar}=0;${iteratorVar}<${inputVar}.length;++${iteratorVar}){${wrappedBody}}`;
       return B_markOutput(output, input);
     }
   }

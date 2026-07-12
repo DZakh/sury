@@ -265,10 +265,10 @@ export const jsonString = /* @__PURE__ */ (() => {
         output.v = _var;
 
         const inputVar = input.v();
-        output.cp.push(`let ${outputVar};try{${outputVar}=JSON.parse(${inputVar})}catch(t){${B_embedInvalidInput(
+        output.cp = `let ${outputVar};try{${outputVar}=JSON.parse(${inputVar})}catch(t){${B_embedInvalidInput(
           input,
           input.s,
-        )}}`);
+        )}}`;
 
         return output;
       }
@@ -299,9 +299,9 @@ export const jsonString = /* @__PURE__ */ (() => {
       } else {
         const stringVar = stringVal.v();
         const output = B_refine(stringVal, expectedSchema);
-        output.cp.push(`try{JSON.parse(${stringVar})}catch(t){${B_embedInvalidInput(
+        output.cp = `try{JSON.parse(${stringVar})}catch(t){${B_embedInvalidInput(
           stringVal,
-        )}}`);
+        )}}`;
         return output;
       }
     } else if (input.s.format === "json") {
