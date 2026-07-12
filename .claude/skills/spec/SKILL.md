@@ -31,7 +31,7 @@ Examples must cover every edge case found while investigating the schema — bou
 
 Three forms:
 - **Bare string** — `zod: z.string().min(3)`. Zod's inferred types must equal `ts.input`/`ts.output`.
-- **Overwrite** — `zod: { schema, input?, output? }`. For a schema Zod *can* express but whose inferred type intentionally differs from Sury's on at least one side (e.g. `S.merge` keeps insertion order where Zod groups optionals last). `input`/`output` are checked independently: record the side that diverges (write the key — `spec check --write` fills it as a golden), **omit** the side that matches ts. `check` rejects a recorded side that actually matches (omit it) and an omitted side that actually diverges (record it); omitting both means no divergence — use the bare string form.
+- **Overwrite** — `zod: { schema, divergence, input?, output? }`. For a schema Zod *can* express but whose inferred type intentionally differs from Sury's on at least one side (e.g. `S.merge` keeps insertion order where Zod groups optionals last). `divergence` is a required hand-written note saying exactly what differs and why. `input`/`output` are checked independently: record the side that diverges (write the key — `spec check --write` fills it as a golden), **omit** the side that matches ts. `check` rejects a recorded side that actually matches (omit it) and an omitted side that actually diverges (record it); omitting both means no divergence — use the bare string form.
 - **Skip** — `zod: { _skip: <reason> }`. Only when Zod can't express the schema at all.
 
 ## Specs are a metrics ratchet

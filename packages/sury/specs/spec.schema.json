@@ -129,6 +129,10 @@
                   "type": "string",
                   "description": "Equivalent Zod (v4) schema, at least one of whose inferred types differs from ts, e.g. `z.object({...})`."
                 },
+                "divergence": {
+                  "type": "string",
+                  "description": "Hand-written: exactly how the Zod type differs from Sury's and why, e.g. `Zod groups optionals last; S.merge keeps insertion order`."
+                },
                 "input": {
                   "type": "string",
                   "description": "Zod's inferred input type, recorded only when it diverges from ts.input (filled by `--write`); omit when it matches."
@@ -140,7 +144,8 @@
               },
               "additionalProperties": false,
               "required": [
-                "schema"
+                "schema",
+                "divergence"
               ],
               "description": "Overwrite form: a Zod equivalent that infers a different type than Sury on at least one side, with the divergent side(s) recorded."
             },
@@ -159,7 +164,7 @@
               "description": "Explicit opt-out for an unasserted dimension."
             }
           ],
-          "description": "Equivalent Zod (v4) schema, e.g. `z.string().min(3)`. Bare string: inferred types must equal ts.input/ts.output. Object `{schema,input?,output?}`: the Zod type differs from ts on at least one side — that side is recorded (filled by `--write`), a matching side is omitted. `_skip` alone if Zod can't express it at all."
+          "description": "Equivalent Zod (v4) schema, e.g. `z.string().min(3)`. Bare string: inferred types must equal ts.input/ts.output. Object `{schema,divergence,input?,output?}`: the Zod type differs from ts on at least one side — `divergence` explains how, the divergent side is recorded (filled by `--write`), a matching side is omitted. `_skip` alone if Zod can't express it at all."
         }
       },
       "additionalProperties": false,

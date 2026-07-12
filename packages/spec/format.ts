@@ -160,6 +160,9 @@ const zodOverwrite = S.schema({
   schema: S.string.with(S.meta, {
     description: "Equivalent Zod (v4) schema, at least one of whose inferred types differs from ts, e.g. `z.object({...})`.",
   }),
+  divergence: S.string.with(S.meta, {
+    description: "Hand-written: exactly how the Zod type differs from Sury's and why, e.g. `Zod groups optionals last; S.merge keeps insertion order`.",
+  }),
   input: S.optional(S.string).with(S.meta, {
     description: "Zod's inferred input type, recorded only when it diverges from ts.input (filled by `--write`); omit when it matches.",
   }),
@@ -181,9 +184,9 @@ const vs = S.schema({
   zod: S.union([S.string, zodOverwrite, skip]).with(S.meta, {
     description:
       "Equivalent Zod (v4) schema, e.g. `z.string().min(3)`. Bare string: inferred types must equal " +
-      "ts.input/ts.output. Object `{schema,input?,output?}`: the Zod type differs from ts on at least one " +
-      "side — that side is recorded (filled by `--write`), a matching side is omitted. `_skip` alone if " +
-      "Zod can't express it at all.",
+      "ts.input/ts.output. Object `{schema,divergence,input?,output?}`: the Zod type differs from ts on at " +
+      "least one side — `divergence` explains how, the divergent side is recorded (filled by `--write`), a " +
+      "matching side is omitted. `_skip` alone if Zod can't express it at all.",
   }),
 })
   .with(S.strict)
@@ -216,7 +219,7 @@ export type OpName = keyof Spec["operations"];
 const keyOrder = <T,>(order: Record<keyof T, true>) => Object.keys(order) as (keyof T)[];
 export const KEY_ORDER = keyOrder<Spec>({ ts: true, vs: true, jsonSchema: true, operations: true });
 export const VS_KEY_ORDER = keyOrder<Spec["vs"]>({ zod: true });
-export const VS_ZOD_KEY_ORDER = keyOrder<ZodOverwrite>({ schema: true, input: true, output: true });
+export const VS_ZOD_KEY_ORDER = keyOrder<ZodOverwrite>({ schema: true, divergence: true, input: true, output: true });
 export const TS_KEY_ORDER = keyOrder<Spec["ts"]>({
   schema: true,
   aliases: true,
