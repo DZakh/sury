@@ -137,14 +137,14 @@
               "description": "Explicit opt-out for an unasserted dimension."
             }
           ],
-          "description": "An equivalent Zod (v4) schema as source (e.g. `z.string().min(3)`). Its inferred `z.input`/`z.output` must match this spec's ts.input/ts.output — checked live (not snapshotted) by `spec check`. You write this by hand; `_skip` it when no faithful Zod equivalent exists."
+          "description": "Equivalent Zod (v4) schema, e.g. `z.string().min(3)`. Inferred types must equal ts.input/ts.output; `_skip` if none fits."
         }
       },
       "additionalProperties": false,
       "required": [
         "zod"
       ],
-      "description": "Equivalent schemas in other libraries, cross-checked against this spec's inferred types."
+      "description": "Cross-library equivalents, type-checked against this spec."
     },
     "jsonSchema": {
       "type": "object",

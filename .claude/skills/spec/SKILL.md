@@ -27,7 +27,7 @@ Examples must cover every edge case found while investigating the schema — bou
 
 ## Cross-library (`vs`)
 
-`vs.zod`: optional hand-written equivalent schema in another library (Zod v4), e.g. `vs: { zod: z.string().min(3) }`. `spec check` derives its `~standard` (Standard Schema) input/output types and asserts **strict equality** with this spec's `ts.input`/`ts.output` — a live check, no golden of its own. Only the type dimension is asserted; everything Sury and Zod diverge on by design (codegen, JSON Schema shape, error text, coercion) is out of scope. Where the author must steer type ordering (e.g. union member order) write the `vs` source to match. No faithful equivalent? `vs: { zod: { _skip: <reason> } }`, or omit `vs` entirely.
+`vs.zod`: required Zod v4 equivalent, e.g. `vs: { zod: z.string().min(3) }`. `spec check` asserts its inferred (`~standard`) input/output types equal `ts.input`/`ts.output` — live, no golden, types only. No fit? `vs: { zod: { _skip: <reason> } }`.
 
 ## Specs are a metrics ratchet
 

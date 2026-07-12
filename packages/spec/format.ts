@@ -143,27 +143,17 @@ const ts = S.schema({
     description: "The JS `.with`-chain surface: the schema itself, plus its inferred types, instantiation cost, and bundle size.",
   });
 
-// A cross-library equivalent, checked *live* against this spec (never
-// snapshotted) — the same treatment `ts.aliases` gets. A required dimension
-// like every other: each spec must declare its Zod relationship, either a
-// real equivalent or an explicit `zod: { _skip: <reason> }`. Only the
-// dimensions that genuinely agree across libraries are asserted (currently
-// just the inferred input/output types); everything Sury and Zod diverge on
-// by design (codegen, JSON Schema shape, error text, coercion) is out of scope.
+// Cross-library equivalent, checked live like `ts.aliases` (no golden). A
+// required dimension: each spec declares a real Zod equivalent or an explicit
+// `zod: { _skip }`. Only inferred types are asserted — codegen, JSON Schema,
+// errors, coercion diverge by design.
 const vs = S.schema({
   zod: orSkip(S.string).with(S.meta, {
-    description:
-      "An equivalent Zod (v4) schema as source (e.g. `z.string().min(3)`). Its inferred " +
-      "`z.input`/`z.output` must match this spec's ts.input/ts.output — checked live (not " +
-      "snapshotted) by `spec check`. You write this by hand; `_skip` it when no faithful " +
-      "Zod equivalent exists.",
+    description: "Equivalent Zod (v4) schema, e.g. `z.string().min(3)`. Inferred types must equal ts.input/ts.output; `_skip` if none fits.",
   }),
 })
   .with(S.strict)
-  .with(S.meta, {
-    description:
-      "Equivalent schemas in other libraries, cross-checked against this spec's inferred types.",
-  });
+  .with(S.meta, { description: "Cross-library equivalents, type-checked against this spec." });
 export type Vs = S.Output<typeof vs>;
 
 export const specSchema = S.schema({
