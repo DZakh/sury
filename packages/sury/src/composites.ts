@@ -540,7 +540,10 @@ export const unionIsWiderSchema = (schemaAnyOf: Internal[], inputAnyOf: Internal
         ) &&
         inputSchema.type === schema.type &&
         inputSchema.const === schema.const &&
-        inputSchema.to === undefined
+        inputSchema.to === undefined &&
+        // A paired variant with its own `.to` still transforms the value,
+        // so passing the input through would skip the conversion
+        schema.to === undefined
       );
     } else {
       return false;
