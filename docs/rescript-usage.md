@@ -923,44 +923,106 @@ let schema = S.enum([Win, Draw, Loss])
 
 #### Decoding into / out of a union
 
-When you compile `source -> targetUnion` (via `S.to`, or implicitly by reversing the schema), Sury picks the target variant using a three-tier algorithm based on the source's **derived tag** — the tag known at compile time, which may be narrower than the original type (an upstream transformation can refine it). If the source is itself a union, the algorithm runs independently for each source variant.
+When a conversion (via `S.to`, or implicitly by reversing the schema) has a union on either side, Sury follows four rules. They all build on one definition:
 
-If the source is `unknown` (no derived tag), the tag-based tiers are skipped and target variants are simply attempted in target-union order at runtime.
+> Two schemas have the **same type** when their type tags match — including the class for instances, the format for formatted primitives (`Int32`, etc.), and the reference for recursive schemas, where relevant. `S.json` and `S.string` are *not* the same type, even though every JSON string would validate against `S.string`.
 
-1. **Same-tag group.** Collect target variants sharing the source's tag. If non-empty, match only within this group: variants with a matching `const`/`format` (string literals, `Int32`, etc.) are tried first in target-union order, then any remaining catch-all same-tag variants. Variants with a different tag are never tried from here — if every branch in the group fails, the match errors.
-2. **Nullish bridge.** Used only when tier 1 is empty. If the source tag is `null` or `undefined`, use the opposite nullish target variant (if present), exclusively.
-3. **Fallback.** Used only when tiers 1 and 2 are both empty. Build a decoder for every target variant in target-union order. Cross-type coercions live here: `int`/`bigint` → `string` via `"" ++ i`, `string` → `float` via `Float.fromString`, `string` → `bigint` via `BigInt.fromString`, stringified-const matches like `"null" → null`, and more.
+Matching uses the **derived** type — the type known at compile time, which may be narrower than the original (an upstream transformation can refine it). If the source type is `unknown`, matching is skipped and target variants are simply attempted in definition order at runtime.
 
-**Worked example** — `S.union([S.bigint, S.float, S.nullLiteral])->S.to(S.union([S.string, S.unit]))`:
+##### Rule 1: non-union → non-union
 
-Forward:
-
-- `123n` → `"123"` (tier 3: bigint → string)
-- `123.12` → `"123.12"` (tier 3: float → string)
-- `null` → `undefined` (tier 2: nullish bridge)
-
-Reverse (via `S.decodeOrThrow(~from=schema, ~to=S.unknown)`):
-
-- `"null"` → `null` (tier 3: stringified-const literal match)
-- `undefined` → `null` (tier 2: nullish bridge)
-- `"123"` → `123n` (tier 3: bigint attempted first by target order; parse succeeds)
-- `"123.12"` → `123.12` (tier 3: bigint parse throws, falls through to float)
-- `"abc"` → error (tier 3: no variant's decoder succeeds)
-
-**Identity wins over coercion.** For `S.union([S.string, S.bigint])->S.to(S.union([S.float, S.string]))`:
-
-- `"123"` → `"123"` (tier 1: `string` matches `string`, never coerced to `float` even though a `float` target exists)
-- `123n` → `"123"` (tier 3: no `bigint` target, falls through to `string` via `"" ++ i`)
-
-To opt into `string → float` when a `string` target also exists, write the transform into a variant explicitly:
+Built-in decoding (coercion) always applies:
 
 ```rescript
-S.union([S.string->S.to(S.float), S.string])
+S.string->S.to(S.unit)
+// "undefined" <-> undefined
 ```
 
-The transformed variant is const/format-refined relative to the catch-all `string` and matches first within tier 1.
+##### Rule 2: non-union → union
 
-> 🧠 Union conversion always performs exhaustive validation now — every variant is checked, so transformed unions stay consistent across decode and encode.
+The built-in decoder is applied separately for every target variant, attempted in definition order, grouped by type:
+
+```rescript
+let schema = S.json->S.to(S.union([S.bigint, S.string]))
+
+"123"->S.parseOrThrow(~to=schema) // 123n — the bigint variant comes first
+"abc"->S.parseOrThrow(~to=schema) // "abc" — bigint decoding fails, string accepts
+true->S.parseOrThrow(~to=schema) // throws — no implicit double decoding (true -> "true" -> ...)
+```
+
+`S.json` is not the exact `string` type, so string inputs still go through variant decoding instead of passing through.
+
+**Exception — partial type match.** If the source has the same type as *some but not all* target variants, the operation is rejected when the conversion is compiled. Sury can't tell whether you want a pass-through for the matching variant, decoding attempts in definition order, or simply widened the type with no decoding intent:
+
+```rescript
+S.string->S.to(S.union([S.float, S.string]))
+// Invalid operation: for "123" — keep "123" or decode to 123.?
+```
+
+Say what you mean with an explicit variant:
+
+```rescript
+// Try decoding to float first, keep the string otherwise:
+S.string->S.to(S.union([S.string->S.to(S.float), S.string]))
+
+// Pass strings through, never producing a float:
+S.string->S.to(S.union([S.never->S.to(S.float), S.string]))
+```
+
+##### Rule 3: union → non-union
+
+The mirror of rule 2: every source variant gets its own built-in decoder to the target, dispatched in definition order, grouped by type:
+
+```rescript
+let schema = S.union([S.bigint, S.string])->S.to(S.json)
+
+123n->S.parseOrThrow(~to=schema) // "123"
+"123"->S.parseOrThrow(~to=schema) // "123"
+"abc"->S.parseOrThrow(~to=schema) // "abc"
+```
+
+**Exception — partial type match.** If the target has the same type as some but not all source variants, the operation is rejected. Sury can't tell whether the non-matching variants should decode to the target or be rejected as failed cases:
+
+```rescript
+S.union([S.float, S.string])->S.to(S.string)
+// Invalid operation: for 123. — decode to "123" or fail as a non-matching case?
+```
+
+Say what you mean with an explicit target union:
+
+```rescript
+// Decode floats to strings:
+S.union([S.float, S.string])->S.to(S.union([S.float->S.to(S.string), S.string]))
+
+// Reject floats:
+S.union([S.float, S.string])->S.to(S.union([S.float->S.to(S.never), S.string]))
+```
+
+##### Rule 4: union → union
+
+No coercion — values pass through to the same-type target variant. The two unions must cover each other: every source variant needs at least one same-type target variant, and every target variant needs at least one same-type source variant. Otherwise the operation is rejected:
+
+```rescript
+S.union([S.string, S.float])->S.to(S.union([S.float, S.string])) // ✅
+S.union([S.string, S.float])->S.to(S.union([S.float, S.string, S.bool])) // ❌ bool has no source variant
+S.union([S.string, S.float, S.bool])->S.to(S.union([S.float, S.string])) // ❌ bool has no target variant
+S.union([S.string, S.float, S.bigint])->S.to(S.union([S.json, S.bigint])) // ❌ json is not the exact string/float type
+```
+
+A transformed target variant matches by its input type, so per-variant conversion is always available explicitly:
+
+```rescript
+S.option(S.string)->S.to(S.nullable(S.bool)) // ❌ string doesn't match bool
+S.option(S.string)->S.to(S.nullable(S.string->S.to(S.bool))) // ✅
+```
+
+**Exception — const bridge.** If exactly one source variant and exactly one target variant are const schemas, they match each other regardless of type — only the remaining variants must match by type. This is what makes nullish conversions work:
+
+```rescript
+S.option(S.string)->S.to(S.nullable(S.string)) // ✅ undefined <-> null
+```
+
+> 🧠 Union conversion always performs exhaustive validation — every variant is checked, so transformed unions stay consistent across decode and encode.
 
 ### **`array`**
 
