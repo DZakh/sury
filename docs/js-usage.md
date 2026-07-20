@@ -872,11 +872,13 @@ type Schema = S.Infer<typeof schema>; // "Win" | "Draw" | "Loss"
 
 ### Decoding into / out of a union
 
-When a conversion (via `S.to`, or implicitly by reversing the schema) has a union on either side, Sury follows four rules. They all build on one definition:
+When a conversion (via `S.to`, or implicitly by reversing the schema) has a union on either side, Sury follows four rules. They all build on a few shared definitions:
 
-> Two schemas have the **same type** when their type tags match — including the class for instances, the format for formatted primitives (`Int32`, etc.), and the reference for recursive schemas, where relevant. `S.json` and `S.string` are *not* the same type, even though every JSON string would validate against `S.string`.
+> Two schemas have the **same type** when their type tags match — including the class for instances, the format for formatted primitives, and the reference for recursive schemas, where relevant. `S.int32` and `S.number` are different types, and so are `S.json` and `S.string` — even though every JSON string would validate against `S.string`.
 
-Matching uses the **derived** type — the type known at compile time, which may be narrower than the original (an upstream transformation can refine it). If the source type is `unknown`, matching is skipped and target variants are simply attempted in definition order at runtime.
+- **Checks run at operation creation time**, against the **derived** types — the actual schema at that point in the pipeline, which may be narrower than the originally defined one (an upstream transformation can refine it). If the source type is `unknown`, matching is skipped and target variants are simply attempted in definition order at runtime.
+- **Nested unions are flattened** before the rules apply: `S.union([S.string, S.union([S.number, S.boolean])])` acts as a three-variant union. The exception is a union carrying its own format, transformation, or refinement — it's treated as a normal (non-union) schema on its side of the conversion.
+- **`S.never` marks an unreachable path.** `S.never` variants — including transformed ones like `S.never.with(S.to, S.number)`, which match by their `never` input — are ignored by type matching: they never trigger the exceptions below and don't count toward rule 4's coverage.
 
 #### Rule 1: non-union → non-union
 
@@ -901,7 +903,7 @@ S.parser(schema)(true); // throws — no implicit double decoding (true -> "true
 
 `S.json` is not the exact `string` type, so string inputs still go through variant decoding instead of passing through.
 
-**Exception — partial type match.** If the source has the same type as *some but not all* target variants, the operation is rejected when the conversion is compiled. Sury can't tell whether you want a pass-through for the matching variant, decoding attempts in definition order, or simply widened the type with no decoding intent:
+**Exception — partial type match.** If the source has the same type as *some but not all* target variants, the operation is rejected when it's created. Sury can't tell whether you want a pass-through for the matching variant, decoding attempts in definition order, or simply widened the type with no decoding intent:
 
 ```ts
 S.string.with(S.to, S.union([S.number, S.string]));
@@ -917,6 +919,18 @@ S.string.with(S.to, S.union([S.string.with(S.to, S.number), S.string]));
 // Pass strings through, never producing a number:
 S.string.with(S.to, S.union([S.never.with(S.to, S.number), S.string]));
 ```
+
+The same applies to widening into optional or nullable targets:
+
+```ts
+S.string.with(S.to, S.optional(S.string));
+// Invalid operation: for "undefined" — keep the string or decode to undefined?
+
+// Widen without decoding — the undefined variant is unreachable:
+S.string.with(S.to, S.union([S.string, S.never.with(S.to, S.schema(undefined))]));
+```
+
+The `Invalid operation` error suggests these rewrites.
 
 #### Rule 3: union → non-union
 
@@ -953,6 +967,8 @@ S.union([S.number, S.string]).with(
 );
 ```
 
+The `Invalid operation` error suggests these rewrites.
+
 #### Rule 4: union → union
 
 No coercion — values pass through to the same-type target variant. The two unions must cover each other: every source variant needs at least one same-type target variant, and every target variant needs at least one same-type source variant. Otherwise the operation is rejected:
@@ -964,18 +980,32 @@ S.union([S.string, S.number, S.boolean]).with(S.to, S.union([S.number, S.string]
 S.union([S.string, S.number, S.bigint]).with(S.to, S.union([S.json, S.bigint])); // ❌ json is not the exact string/number type
 ```
 
-A transformed target variant matches by its input type, so per-variant conversion is always available explicitly:
+A transformed source variant matches by its output type, and a transformed target variant by its input type — so per-variant conversion is always available explicitly:
 
 ```ts
 S.optional(S.string).with(S.to, S.nullable(S.boolean)); // ❌ string doesn't match boolean
 S.optional(S.string).with(S.to, S.nullable(S.string.with(S.to, S.boolean))); // ✅
 ```
 
-**Exception — const bridge.** If exactly one source variant and exactly one target variant are const schemas, they match each other regardless of type — only the remaining variants must match by type. This is what makes nullish conversions work:
+**Exception — nullish bridge.** An `undefined` variant on one side may match a `null` variant on the other (and vice versa). All other variants still must match by type:
 
 ```ts
 S.optional(S.string).with(S.to, S.nullable(S.string)); // ✅ undefined <-> null
+S.optional(S.literal("x")).with(S.to, S.nullable(S.literal("x"))); // ✅ "x" matches by type, undefined <-> null
 ```
+
+**Worked example** — `S.union([S.bigint, S.number, null]).with(S.to, S.union([S.bigint, S.number, undefined]))`:
+
+Forward:
+
+- `123n` → `123n` (bigint passes through)
+- `123.12` → `123.12` (number passes through)
+- `null` → `undefined` (nullish bridge)
+
+Reverse (via `S.encoder`):
+
+- `undefined` → `null` (nullish bridge)
+- `123n` → `123n`, `123.12` → `123.12` (pass through)
 
 > 🧠 Union conversion always performs exhaustive validation — every variant is checked, so transformed unions stay consistent across decode and encode.
 
