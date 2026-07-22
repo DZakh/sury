@@ -135,6 +135,7 @@ function cleanUpSchema(schema) {
     let value = param[1];
     let key = param[0];
     switch (key) {
+      case "c" :
       case "hasTransform" :
       case "isAsync" :
       case "k" :

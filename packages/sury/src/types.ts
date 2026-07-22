@@ -159,6 +159,10 @@ export type Internal = {
   // The reversed (Input ↔ Output swapped) schema, cached lazily as a hidden
   // non-enumerable property via Object.defineProperty (see schema.ts/parse.ts).
   r?: Internal;
+  // Compiled-operation cache: a fixed-key sub-object mapping the seq-namespaced
+  // operation key to its compiled function. Kept off the schema's own shape so
+  // unique keys don't dictionary-ize it; reset by copySchema (getDecoder).
+  c?: Record<string, unknown>;
 }
 
 export type BGlobal = {
@@ -241,9 +245,13 @@ export const immutableEmptyArray: unknown[] = [];
 // something inherited instead of correctly reporting "no such property".
 export const immutableEmptyObject: Record<string, unknown> = Object.create(null);
 
-// This is dirty
+// `~standard` is a prototype getter that allocates a fresh StandardProps
+// object on every read, so probe it with `in` (existence check, never invokes
+// the getter) instead of reading the value — this runs per node in
+// definition traversal. The typeof guard keeps it safe on primitive `data`
+// passed to js_assert (`"x" in aString` would throw).
 export const isSchemaObject = (obj: unknown): boolean => {
-  return !!(obj as { "~standard"?: unknown })["~standard"];
+  return typeof obj === "object" && obj !== null && "~standard" in obj;
 }
 
 export const constField = "const";

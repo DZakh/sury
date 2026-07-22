@@ -4,7 +4,7 @@ ts:
   input: boolean
   output: boolean
   instantiations: 254
-  bundleBytes: 3733
+  bundleBytes: 3781
 vs:
   zod: z.boolean()
 jsonSchema:

@@ -82,7 +82,6 @@ export const globalConfig: GlobalConfig = {
 };
 
 export const valueOptions: Record<string, unknown> = {};
-export const configurableValueOptions = { configurable: true };
 export const valKey = "value";
 export const reversedKey = "r";
 
@@ -123,7 +122,24 @@ unknown.decoder = noopDecoder;
 export const copySchema = (schema: Internal): Internal => {
   const c: Internal = Object.assign(new SchemaCtor(), schema);
   c.seq = seq++;
+  // A copy is a distinct schema (new seq): drop the op cache Object.assign just
+  // copied so it's neither shared (writes would leak into a long-lived source)
+  // nor kept as dead, never-hit entries keyed by the source's seq.
+  c.c = undefined;
   return c;
+}
+
+// The compiled-operation cache is a fixed-key `c` sub-object: op keys are
+// seq-namespaced (globally unique), so storing them directly on the schema
+// would force it into V8 dictionary mode (a large slice of compile time). It
+// must be installed by a *plain* assignment (a fast fixed-key hidden-class
+// transition) — a non-enumerable defineProperty would dictionary-ize the
+// schema just as the dynamic keys did, losing the win. Being enumerable, it's
+// dropped by copySchema (so copies never share it) and skipped by the test
+// schema-equality helper. Null-prototype keeps `in`/index lookups from
+// false-hitting Object.prototype members.
+export const getOpCache = (schema: Internal): Record<string, unknown> => {
+  return schema.c || (schema.c = Object.create(null) as Record<string, unknown>);
 }
 
 export const updateOutput = <Value>(schema: Internal, fn: (schema: Internal) => void): Value => {

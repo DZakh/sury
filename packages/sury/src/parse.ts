@@ -1,5 +1,5 @@
 import { instanceofCond, isArrayCond, nanCond, objectTagCond, setHas, typeofCond } from "./primitives";
-import { baseSchema, cached, copySchema, getOrRethrow, globalConfig, panic, reversedKey, unknown, updateOutput, valKey, valueOptions } from "./schema";
+import { baseSchema, cached, copySchema, getOpCache, getOrRethrow, globalConfig, panic, reversedKey, unknown, updateOutput, valKey, valueOptions } from "./schema";
 import { B_scope, B_embedInvalidInput, B_inlineConst, B_markOutput, B_merge, B_next, B_operationArg, B_refine, B_unsupportedDecode, Builder, Encoder, failInvalidType, noopOperation, operationArgVar } from "./builder";
 import { Internal, Val, isLiteral, s } from "./types";
 import { Flag, flagAsync, flagDisableNanNumberValidation, flagUnsafeHas, valFlagAsync } from "./flags";
@@ -306,24 +306,23 @@ export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
     return panic("No schema provided for decoder.");
   } else {
     const key = keyRef;
-    const cacheTargetRecord = cacheTarget as unknown as Record<string, (from: unknown) => unknown>;
-    if (key in cacheTargetRecord) {
-      return cacheTargetRecord[key]!;
-    } else {
-      let schema: Internal = args[idx - 1] as Internal;
-      for (let i = idx - 2; i >= 0; i--) {
-        const to = schema;
-        schema = updateOutput(args[i] as Internal, (mut) => {
-          mut.to = to;
-        });
-      }
-      const f = compileDecoder(schema, schema, flag!, undefined);
-      // Reusing the same object makes it a little bit faster
-      valueOptions[valKey] = f;
-      // Use defineProperty, so the cache keys are not enumerable
-      Object.defineProperty(cacheTarget, key, valueOptions as PropertyDescriptor);
-      return f as (from: unknown) => unknown;
+    // Op cache lives in the non-enumerable `c` sub-object (getOpCache), off the
+    // schema's own shape — see its comment. `in` here is cheap: `c` is a small
+    // null-prototype object, unlike the schema (many props + prototype chain).
+    const cache = cacheTarget.c;
+    if (cache && key in cache) {
+      return cache[key] as (from: unknown) => unknown;
     }
+    let schema: Internal = args[idx - 1] as Internal;
+    for (let i = idx - 2; i >= 0; i--) {
+      const to = schema;
+      schema = updateOutput(args[i] as Internal, (mut) => {
+        mut.to = to;
+      });
+    }
+    const f = compileDecoder(schema, schema, flag!, undefined);
+    getOpCache(cacheTarget)[key] = f;
+    return f as (from: unknown) => unknown;
   }
 }
 

@@ -1,6 +1,6 @@
 import { unionFactory } from "./composites";
 import { Literal_parse, literalDecoder, nullLiteral, unit } from "./primitives";
-import { SuryError, baseSchema, cached, configurableValueOptions, copySchema, getOrRethrow, globalConfig, noopDecoder, panic, schemaPrototype, unknown, updateOutput, valKey, valueOptions } from "./schema";
+import { SuryError, baseSchema, cached, copySchema, getOpCache, getOrRethrow, globalConfig, noopDecoder, panic, schemaPrototype, unknown, updateOutput } from "./schema";
 import type { JSONSchemaT, StandardJsonSchemaOptions } from "./jsonschema";
 import { compileDecoder, getDecoder, getOutputSchema, isAsyncInternal, reverse } from "./parse";
 import { B_effectCtx, B_embed, B_embedTransformation, B_inlineConst, B_invalidInputBuilder, B_invalidOperation, B_mergeWithPathPrepend, B_next, B_refine, B_varWithoutAllocation, EffectCtx, _var } from "./builder";
@@ -25,11 +25,19 @@ export const recursiveDecoder: Builder = (input) => {
   const key = `${inputSchema.seq}-${def.seq}--${flag}`;
   let recOperation = "";
 
-  const fn = (def as unknown as Record<string, unknown>)[key];
+  // Shares the `.c` op-cache sub-object with getDecoder: a top-level
+  // getDecoder(unknown, def) reuses the entry written here during the parent
+  // compile instead of recompiling def with no $defs in scope. The runtime
+  // circular-ref lookup therefore reads `def.c["key"]` too.
+  const cache = def.c;
+  const fn = cache !== undefined ? cache[key] : undefined;
   if (fn !== undefined) {
-    // Circular reference (fn === 0) or already compiled
-    recOperation = fn === 0 ? B_embed(input, def) + `["${key}"]` : B_embed(input, fn);
+    // Circular reference (fn === 0) or already compiled. For the circular case
+    // embed the cache sub-object itself so the runtime lookup stays `e[N][key]`
+    // — the compiled fn lands at `cache[key]` before this operation runs.
+    recOperation = fn === 0 ? B_embed(input, cache!) + `["${key}"]` : B_embed(input, fn);
   } else {
+    const c = getOpCache(def);
     // Optimistic compilation with recompile if assumptions were wrong
     let assumedHasTransform = def.hasTransform !== undefined ? def.hasTransform : false;
     let assumedIsAsync = def.isAsync !== undefined ? def.isAsync : false;
@@ -48,16 +56,14 @@ export const recursiveDecoder: Builder = (input) => {
         def.isAsync = assumedIsAsync;
       }
 
-      // Mark as in-progress
-      (configurableValueOptions as unknown as Record<string, unknown>)[valKey] = 0;
-      Object.defineProperty(def, key, configurableValueOptions as PropertyDescriptor);
+      // Mark as in-progress (0); inner circular refs read this from `c`.
+      c[key] = 0;
 
       // Compile
       const fn = compileDecoder(inputSchema, def, flag, defs);
 
       // Cache result
-      valueOptions[valKey] = fn;
-      Object.defineProperty(def, key, valueOptions as PropertyDescriptor);
+      c[key] = fn;
 
       finalFn = fn;
 
@@ -73,7 +79,7 @@ export const recursiveDecoder: Builder = (input) => {
         assumedHasTransform = actualHasTransform;
         assumedIsAsync = actualIsAsync;
         // Delete cached function to force recompilation
-        delete (def as unknown as Record<string, unknown>)[key];
+        delete c[key];
         compileNeeded = true;
       }
     }

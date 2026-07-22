@@ -159,7 +159,8 @@ let rec cleanUpSchema = schema => {
     | "hasTransform"
     | "seq" => ()
     // ditemToItem leftovers FIXME:
-    | "k" | "p" | "of" | "r" => ()
+    // `c` is the internal compiled-operation cache sub-object.
+    | "k" | "p" | "of" | "r" | "c" => ()
     | _ =>
       if typeof(value) === #function {
         ()

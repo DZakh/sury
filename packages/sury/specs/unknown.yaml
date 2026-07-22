@@ -4,7 +4,7 @@ ts:
   input: unknown
   output: unknown
   instantiations: 254
-  bundleBytes: 3462
+  bundleBytes: 3508
 vs:
   zod: z.unknown()
 jsonSchema:
