@@ -5,6 +5,11 @@ open Vitest
 // JSON, received ..." because an object field typed as a union with an
 // undefined variant was checked against generic JSON instead of having
 // each variant converted recursively.
+//
+// How None serializes depends on whether the schema can represent it by
+// absence: `option` and `nullableAsOption` accept undefined/missing, so None
+// serializes as an omitted field (round-trips back to None); `nullAsOption`
+// has only a `null` representation, so None serializes as JSON `null`.
 
 type inner = {s: option<string>}
 type outer = {a: option<inner>}
@@ -34,6 +39,39 @@ test("Nested nullable option round-trips through S.json", t => {
   let encoded = value->S.decodeOrThrow(~from=outerSchema, ~to=S.json)
   t->Assert.deepEqual(encoded, %raw(`{a: {}}`))
   t->Assert.deepEqual(encoded->S.parseOrThrow(~to=outerSchema), value)
+})
+
+test("Field-level JSON encoding: option/nullableAsOption omit None, nullAsOption emits null", t => {
+  // The crux of #311: a schema that can represent None by absence omits it;
+  // nullAsOption can't (no undefined arm), so its None becomes JSON null.
+  let optionSchema = S.schema(m => {"v": m.matches(S.option(S.string))})
+  let nullableAsOptionSchema = S.schema(m => {"v": m.matches(S.nullableAsOption(S.string))})
+  let nullAsOptionSchema = S.schema(m => {"v": m.matches(S.nullAsOption(S.string))})
+
+  t->Assert.deepEqual({"v": None}->S.decodeOrThrow(~from=optionSchema, ~to=S.json), %raw(`{}`))
+  t->Assert.deepEqual(
+    {"v": None}->S.decodeOrThrow(~from=nullableAsOptionSchema, ~to=S.json),
+    %raw(`{}`),
+  )
+  t->Assert.deepEqual(
+    {"v": None}->S.decodeOrThrow(~from=nullAsOptionSchema, ~to=S.json),
+    %raw(`{v: null}`),
+  )
+
+  // Present values serialize the same for all three.
+  t->Assert.deepEqual(
+    {"v": Some("x")}->S.decodeOrThrow(~from=nullableAsOptionSchema, ~to=S.json),
+    %raw(`{v: "x"}`),
+  )
+})
+
+test("nullAsOption nested inside an option object field emits null, not omit", t => {
+  let innerSchema = S.schema(m => {"s": m.matches(S.nullAsOption(S.string))})
+  let outerSchema = S.schema(m => {"a": m.matches(S.option(innerSchema))})
+  t->Assert.deepEqual(
+    {"a": Some({"s": None})}->S.decodeOrThrow(~from=outerSchema, ~to=S.json),
+    %raw(`{a: {s: null}}`),
+  )
 })
 
 test("Plain optional object field with an optional field encodes to JSON", t => {
