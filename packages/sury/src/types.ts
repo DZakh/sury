@@ -249,11 +249,11 @@ export const immutableEmptyObject: Record<string, unknown> = Object.create(null)
 
 // `~standard` is a prototype getter that allocates a fresh StandardProps
 // object on every read, so probe it with `in` (existence check, never invokes
-// the getter) instead of reading the value — this runs per node in
-// definition traversal. The typeof guard keeps it safe on primitive `data`
-// passed to js_assert (`"x" in aString` would throw).
+// the getter) instead of reading the value — this runs per node in definition
+// traversal. Callers must pass a non-null object: traverseDefinition already
+// guards, and js_assert adds a typeof check (`"x" in aPrimitive` throws).
 export const isSchemaObject = (obj: unknown): boolean => {
-  return typeof obj === "object" && obj !== null && "~standard" in obj;
+  return "~standard" in (obj as object);
 }
 
 export const constField = "const";

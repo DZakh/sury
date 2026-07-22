@@ -27,7 +27,9 @@ export const js_asyncEncoder = (...args: unknown[]) =>
 // keeps `null`/`undefined` data from throwing on the marker access, routing it
 // to the data slot so validation fails with a proper Sury error.
 export const js_assert = (a: unknown, b: unknown): unknown => {
-  const aIsSchema = !!a && isSchemaObject(a);
+  // `a` may be raw data (either arg order), so guard the object-ness here —
+  // isSchemaObject uses a bare `in` that would throw on a primitive.
+  const aIsSchema = typeof a === "object" && a !== null && isSchemaObject(a);
   const schema = (aIsSchema ? a : b) as Internal;
   const data = aIsSchema ? b : a;
   return getDecoder(unknown, schema, getAssertResult())(data);
