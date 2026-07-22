@@ -17,11 +17,12 @@ const isItemSchema = (x: AdditionalItems | undefined): x is Internal =>
 type CheckCache = { contents: Check[] | undefined };
 
 export const makeObjectVal = (prev: Val, schema: Internal): Val => {
+  // Canonical Val field order (see B_operationArg in builder.ts).
   return {
-    prev,
+    b: undefined,
+    p: undefined,
     v: _notVar,
     i: "",
-    f: valFlagNone,
     s: (schema.type === arrayTag
       ? {
           type: arrayTag,
@@ -36,13 +37,21 @@ export const makeObjectVal = (prev: Val, schema: Internal): Val => {
           additionalItems: "strict",
           decoder: objectDecoder,
         }) as Internal,
+    io: undefined,
     e: prev.e,
+    prev,
+    f: valFlagNone,
     d: Object.create(null),
-    t: true,
+    fv: undefined,
     cp: "",
     hd: "",
+    fz: undefined,
+    vc: undefined,
+    u: undefined,
+    t: true,
     path: prev.path,
     g: prev.g,
+    o: undefined,
   };
 }
 export const completeObjectVal = (objectVal: Val): Val => {
@@ -1405,17 +1414,28 @@ export const valGet = (parent: Val, location: string): Val => {
 
     const pathAppend = pathFromInlinedLocation(B_inlineLocation(parent.g, location));
 
+    // Canonical Val field order (see B_operationArg in builder.ts).
     const item: Val = {
+      b: undefined,
+      p: parent,
       v: _notVarAtParent,
       i: isLiteral(schema) ? B_inlineConst(parent, schema) : `${parent.v()}${pathAppend}`,
-      f: valFlagNone,
       s: schema,
+      io: undefined,
       e: schema,
+      prev: undefined,
+      f: valFlagNone,
+      d: undefined,
+      fv: undefined,
       cp: "",
       hd: "",
+      fz: undefined,
+      vc: undefined,
+      u: undefined,
+      t: undefined,
       path: pathConcat(parent.path, pathAppend),
       g: parent.g,
-      p: parent,
+      o: undefined,
     };
     vals[location] = item;
     return item;
