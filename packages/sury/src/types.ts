@@ -174,6 +174,8 @@ export type BGlobal = {
   e: unknown[];
   // @as("d") — defs
   d?: Record<string, Internal>;
+  // @as("l") — per-operation cache of escaped locations (B_inlineLocation)
+  l?: Record<string, string>;
 }
 
 // Adjacent checks sharing `fail` by reference equality are fused with `&&`

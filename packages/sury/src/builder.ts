@@ -152,18 +152,16 @@ export const B_inlineConst = (b: Val, schema: Internal): string => {
   }
 }
 
-// Escape it once per compiled operation.
-// Use bGlobal as cache, so we don't allocate another object + it's garbage collected.
+// Escape each location once per compiled operation, cached in a per-global
+// null-prototype sub-object keyed by the raw location. Keying `global` itself
+// (as before) both allocated a `"${location}"` key string per call and
+// dictionary-ized bGlobal — whose v/o/e/d are read throughout codegen. The
+// null prototype lets a raw key (incl. Object.prototype member names) index
+// safely without a quoting prefix.
 export const B_inlineLocation = (global: BGlobal, location: string): string => {
-  const key = `"${location}"`;
-  const cached = (global as unknown as Record<string, string | undefined>)[key];
-  if (cached !== undefined) {
-    return cached;
-  } else {
-    const inlinedLocation = inlinedValueFromString(location);
-    (global as unknown as Record<string, string>)[key] = inlinedLocation;
-    return inlinedLocation;
-  }
+  const cache = global.l || (global.l = Object.create(null) as Record<string, string>);
+  const cached = cache[location];
+  return cached !== undefined ? cached : (cache[location] = inlinedValueFromString(location));
 }
 
 
