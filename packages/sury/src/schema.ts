@@ -5,10 +5,13 @@ import { Tag, unknownTag } from "./tags";
 
 export function Schema(this: Internal): void {}
 export const schemaPrototype: Record<string, unknown> = Object.create(null);
+// A plain (non-enumerable) method, not a getter returning a closure: the
+// getter form allocated a fresh arrow on every `.with` access, and `.with` is
+// the primary modifier API called all over user construction code. The method
+// binds `this` through the call, so no per-access closure is needed.
 Object.defineProperty(schemaPrototype, "with", {
-  get(this: Internal) {
-    return (fn: (self: Internal, ...args: unknown[]) => unknown, ...args: unknown[]) =>
-      fn(this, ...args);
+  value(this: Internal, fn: (self: Internal, ...args: unknown[]) => unknown, ...args: unknown[]): unknown {
+    return fn(this, ...args);
   },
 });
 // Also has ~standard below

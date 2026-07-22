@@ -241,9 +241,15 @@ export const immutableEmptyArray: unknown[] = [];
 // something inherited instead of correctly reporting "no such property".
 export const immutableEmptyObject: Record<string, unknown> = Object.create(null);
 
-// This is dirty
+// Probe the Standard Schema marker's *presence* with `in` instead of reading
+// it: the `~standard` prototype getter allocates a fresh StandardProps object
+// (+4 closures) on every access, and this runs per-node while building every
+// `S.schema({...})`. `in` walks the prototype chain without invoking the
+// getter. The `typeof === object` guard keeps primitives (passed by
+// `js_assert`) from throwing on `in` and reproduces the old falsy-on-primitive
+// result.
 export const isSchemaObject = (obj: unknown): boolean => {
-  return !!(obj as { "~standard"?: unknown })["~standard"];
+  return typeof obj === objectTag && obj !== null && "~standard" in (obj as object);
 }
 
 export const constField = "const";

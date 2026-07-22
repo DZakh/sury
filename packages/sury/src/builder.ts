@@ -152,18 +152,14 @@ export const B_inlineConst = (b: Val, schema: Internal): string => {
   }
 }
 
-// Escape it once per compiled operation.
-// Use bGlobal as cache, so we don't allocate another object + it's garbage collected.
+// Escape a location into an inlined JS string literal. Previously this cached
+// the result on bGlobal, but that cost more than it saved: the cache key
+// `"${location}"` is itself a fresh string (and for a plain identifier is
+// byte-identical to the value it caches), and stashing arbitrary field-name
+// keys on the per-compile bGlobal transitioned it to dictionary mode. A direct
+// escape allocates strictly fewer strings and keeps bGlobal monomorphic.
 export const B_inlineLocation = (global: BGlobal, location: string): string => {
-  const key = `"${location}"`;
-  const cached = (global as unknown as Record<string, string | undefined>)[key];
-  if (cached !== undefined) {
-    return cached;
-  } else {
-    const inlinedLocation = inlinedValueFromString(location);
-    (global as unknown as Record<string, string>)[key] = inlinedLocation;
-    return inlinedLocation;
-  }
+  return inlinedValueFromString(location);
 }
 
 
