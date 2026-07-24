@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.string, S.number]).with(S.to, S.union([S.number, S.string]))
+  input: string | number
+  output: string | number
+  instantiations: 6196
+  bundleBytes: 9950
+vs:
+  zod: z.union([z.string(), z.number()])
+jsonSchema:
+  input: '{ anyOf: [{ type: "number" }, { type: "string" }] }'
+  output: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
+operations:
+  parse:
+    expression: i=>{if(!(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))){e[0](i)}return i}
+    examples:
+      string-never-coerced:
+        input: '"123"'
+        output: '"123"'
+      number:
+        input: "123"
+        output: "123"
+      invalid:
+        input: "true"
+        error: Expected string | number, received true
+      nan-rejected:
+        input: NaN
+        error: Expected string | number, received NaN
+      negative-zero:
+        input: "-0"
+        output: "-0"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{if(!(typeof i==="number"&&!Number.isNaN(i)||typeof i==="string")){e[0](i)}return i}
+    examples:
+      string:
+        input: '"123"'
+        output: '"123"'
+      number:
+        input: "123"
+        output: "123"

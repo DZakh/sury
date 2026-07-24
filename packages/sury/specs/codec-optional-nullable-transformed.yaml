@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.optional(S.string).with(S.to, S.nullable(S.string.with(S.to, S.boolean)))
+  input: string | undefined
+  output: boolean | null
+  instantiations: 5756
+  bundleBytes: 7824
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: Expected JSON, received string | undefined
+  output: '{ anyOf: [{ type: "boolean" }, { type: "null" }] }'
+operations:
+  parse:
+    expression: i=>{if(typeof i==="string"){try{let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}catch(e0){e[1](i,e0)}}else if(i===void 0){try{i=null}catch(e1){e[2](i,e1)}}else{e[3](i)}return i}
+    examples:
+      true-string:
+        input: '"true"'
+        output: "true"
+      false-string:
+        input: '"false"'
+        output: "false"
+      undefined:
+        input: undefined
+        output: "null"
+      invalid:
+        input: '"abc"'
+        error: |-
+          Expected string | null, received "abc"
+          - Expected boolean, received "abc"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{if(typeof i==="boolean"){i=""+i}else if(i===null){try{i=void 0}catch(e1){e[0](i,e1)}}else{e[1](i)}return i}
+    examples:
+      boolean:
+        input: "true"
+        output: '"true"'
+      "null":
+        input: "null"
+        output: undefined

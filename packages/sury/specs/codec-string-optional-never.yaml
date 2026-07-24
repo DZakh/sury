@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.to, S.union([S.string, S.never.with(S.to, S.schema(undefined))]))
+  input: string
+  output: string | undefined
+  instantiations: 6704
+  bundleBytes: 9780
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "string" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[0](i);return i}
+    examples:
+      string:
+        input: '"abc"'
+        output: '"abc"'
+      undefined-string-stays-string:
+        input: '"undefined"'
+        output: '"undefined"'
+  decode: identity
+  encode:
+    expression: i=>{if(i===void 0){e[0](i);}else if(!(typeof i==="string")){e[1](i)}return i}
+    examples:
+      string:
+        input: '"abc"'
+        output: '"abc"'

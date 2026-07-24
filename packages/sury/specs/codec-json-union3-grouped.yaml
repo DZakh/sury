@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.json.with(S.to, S.union([S.literal("a"), S.number, S.literal("b")]))
+  input: JSON
+  output: number | "a" | "b"
+  instantiations: 6578
+  bundleBytes: 10982
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ anyOf: [{ type: "string", const: "a" }, { type: "string", const: "b" }, { type: "number" }] }'
+  output: '{ anyOf: [{ type: "string", const: "a" }, { type: "string", const: "b" }, { type: "number" }] }'
+operations:
+  parse:
+    expression: i=>{if(!(typeof i==="string"&&(i==="a"||i==="b")||typeof i==="number"&&!Number.isNaN(i))){e[0](i)}return i}
+    examples:
+      first-literal:
+        input: '"a"'
+        output: '"a"'
+      second-literal-groups-before-number:
+        input: '"b"'
+        output: '"b"'
+      number:
+        input: "5"
+        output: "5"
+      unmatched-string-skips-number:
+        input: '"c"'
+        error: Expected "a" | number | "b", received "c"
+      no-double-decoding:
+        input: "true"
+        error: Expected "a" | number | "b", received true
+  decode: eq-to-parse
+  encode: eq-to-parse

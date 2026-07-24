@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.optional(S.literal("x")).with(S.to, S.nullable(S.literal("x")))
+  input: '"x" | undefined'
+  output: '"x" | null'
+  instantiations: 5690
+  bundleBytes: 10320
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: Maximum call stack size exceeded
+  output: Maximum call stack size exceeded
+operations:
+  parse:
+    expression: i=>{if(i===void 0){try{i=null}catch(e1){e[0](i,e1)}}else if(!(typeof i==="string"&&(i==="x"))){e[1](i)}return i}
+    examples:
+      literal:
+        input: '"x"'
+        output: '"x"'
+      undefined-bridges-to-null:
+        input: undefined
+        output: "null"
+      invalid:
+        input: '"y"'
+        error: Expected "x" | undefined, received "y"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{if(i===null){try{i=void 0}catch(e1){e[0](i,e1)}}else if(!(typeof i==="string"&&(i==="x"))){e[1](i)}return i}
+    examples:
+      literal:
+        input: '"x"'
+        output: '"x"'
+      "null":
+        input: "null"
+        output: undefined

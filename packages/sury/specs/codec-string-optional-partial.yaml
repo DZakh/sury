@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.to, S.optional(S.string))
+  input: string
+  output: string | undefined
+  instantiations: 5243
+  bundleBytes: 7674
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ anyOf: [{ type: "string" }, { type: "string", const: "undefined" }] }'
+  output: '{ anyOf: [{ type: "string" }, { type: "string", const: "undefined" }] }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[0](i);return i}
+    examples:
+      string:
+        input: '"abc"'
+        output: '"abc"'
+      ambiguous-undefined-string:
+        input: '"undefined"'
+        output: '"undefined"'
+  decode: identity
+  encode:
+    expression: i=>{if(i===void 0){i="undefined"}else if(!(typeof i==="string")){e[0](i)}return i}
+    examples:
+      string:
+        input: '"abc"'
+        output: '"abc"'
+      undefined:
+        input: undefined
+        output: '"undefined"'

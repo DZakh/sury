@@ -353,7 +353,14 @@ case the harness *should* have caught or guided better — a missing check, a we
 error message, a strictness gap that let a bad spec through — add a bullet here
 instead of silently working around it.
 
-- <placeholder>
+- Operation goldens can only be a compiled `expression` or `_skip`, but the
+  union conversion rules (docs "Decoding into / out of a union") reject invalid
+  combinations by throwing when the operation is created. Those error messages
+  (including their suggested rewrites) are product surface and need to be
+  ratcheted like codegen. Add a `creationError` operation golden — the message
+  thrown at operation creation, filled by `check --write` — mirroring how
+  `jsonSchema` already records thrown messages for unrepresentable directions.
+  Needed by the `codec-*-partial` / `codec-*-extra-*` specs.
 
 ## License
 

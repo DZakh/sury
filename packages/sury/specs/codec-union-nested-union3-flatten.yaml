@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.string, S.union([S.number, S.boolean])]).with(S.to, S.union([S.boolean, S.number, S.string]))
+  input: string | number | boolean
+  output: string | number | boolean
+  instantiations: 6907
+  bundleBytes: 10024
+vs:
+  zod: z.union([z.string(), z.union([z.number(), z.boolean()])])
+jsonSchema:
+  input: '{ anyOf: [{ type: "boolean" }, { type: "number" }, { type: "string" }] }'
+  output: '{ anyOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }] }'
+operations:
+  parse:
+    expression: i=>{if(!(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i)||typeof i==="boolean")){e[0](i)}return i}
+    examples:
+      string:
+        input: '"a"'
+        output: '"a"'
+      number:
+        input: "1"
+        output: "1"
+      boolean:
+        input: "true"
+        output: "true"
+      nan-rejected:
+        input: NaN
+        error: Expected string | number | boolean, received NaN
+  decode: eq-to-parse
+  encode:
+    expression: i=>{if(!(typeof i==="boolean"||typeof i==="number"&&!Number.isNaN(i)||typeof i==="string")){e[0](i)}return i}
+    examples:
+      string:
+        input: '"a"'
+        output: '"a"'
+      number:
+        input: "1"
+        output: "1"
+      boolean:
+        input: "true"
+        output: "true"

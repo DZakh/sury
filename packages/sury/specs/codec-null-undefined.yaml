@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.schema(null).with(S.to, S.schema(undefined))
+  input: "null"
+  output: undefined
+  instantiations: 5522
+  bundleBytes: 9644
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "null" }'
+  output: Expected JSON, received undefined
+operations:
+  parse:
+    expression: i=>{i===null||e[0](i);return void 0}
+    examples:
+      valid:
+        input: "null"
+        output: undefined
+      invalid:
+        input: '"abc"'
+        error: Expected null, received "abc"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{i===void 0||e[0](i);return null}
+    examples:
+      valid:
+        input: undefined
+        output: "null"

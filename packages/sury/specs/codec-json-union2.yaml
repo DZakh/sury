@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.json.with(S.to, S.union([S.bigint, S.string]))
+  input: JSON
+  output: string | bigint
+  instantiations: 6083
+  bundleBytes: 11022
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string" }'
+  output: Expected JSON, received bigint | string
+operations:
+  parse:
+    expression: i=>{if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0}else if(!(typeof i==="string")){e[1](i)}return i}
+    examples:
+      bigint-string:
+        input: '"123"'
+        output: 123n
+      catchall-string:
+        input: '"abc"'
+        error: Expected bigint, received "abc"
+      no-double-decoding:
+        input: "true"
+        error: Expected bigint | string, received true
+      number:
+        input: "123"
+        error: Expected bigint | string, received 123
+      negative-bigint-string:
+        input: '"-123"'
+        output: -123n
+  decode: eq-to-parse
+  encode:
+    expression: i=>{if(typeof i==="bigint"){i=""+i}else if(!(typeof i==="string")){e[0](i)}return i}
+    examples:
+      bigint:
+        input: 123n
+        output: '"123"'
+      string:
+        input: '"abc"'
+        output: '"abc"'
+      numeric-string:
+        input: '"123"'
+        output: '"123"'
