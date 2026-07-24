@@ -6,7 +6,7 @@ ts:
   input: "{ a: string; c: boolean; e: symbol; b?: number | undefined; d?: bigint | undefined; }"
   output: "{ a: string; c: boolean; e: symbol; b?: number | undefined; d?: bigint | undefined; }"
   instantiations: 3610
-  bundleBytes: 10573
+  bundleBytes: 10562
 vs:
   zod: "z.object({ a: z.string(), b: z.number().optional(), c: z.boolean(), d: z.bigint().optional(), e: z.symbol() })"
 jsonSchema:

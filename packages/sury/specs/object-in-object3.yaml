@@ -7,7 +7,7 @@ ts:
   input: "{ a: string; nested: { b: number; inner: { c: boolean; d?: string | undefined; }; }; }"
   output: "{ a: string; nested: { b: number; inner: { c: boolean; d?: string | undefined; }; }; }"
   instantiations: 2769
-  bundleBytes: 10481
+  bundleBytes: 10470
 vs:
   zod: "z.object({ a: z.string(), nested: z.object({ b: z.number(), inner: z.object({ c: z.boolean(), d: z.string().optional() }) }) })"
 jsonSchema:

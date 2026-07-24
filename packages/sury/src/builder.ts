@@ -152,17 +152,6 @@ export const B_inlineConst = (b: Val, schema: Internal): string => {
   }
 }
 
-// Escape a location into an inlined JS string literal. Previously this cached
-// the result on bGlobal, but that cost more than it saved: the cache key
-// `"${location}"` is itself a fresh string (and for a plain identifier is
-// byte-identical to the value it caches), and stashing arbitrary field-name
-// keys on the per-compile bGlobal transitioned it to dictionary mode. A direct
-// escape allocates strictly fewer strings and keeps bGlobal monomorphic.
-export const B_inlineLocation = (global: BGlobal, location: string): string => {
-  return inlinedValueFromString(location);
-}
-
-
 export const B_varWithoutAllocation = (global: BGlobal): string => {
   const newCounter = global.v + 1;
   global.v = newCounter;
@@ -630,7 +619,7 @@ export const B_markOutput = (val: Val, valInput: Val): Val => {
 // parent's own type guard. No-op if the child has no checks.
 export const B_hoistChildChecks = (parent: Val, child: Val, key: string): void => {
   if (child.vc) {
-    const pathAppend = pathFromInlinedLocation(B_inlineLocation(parent.g, key));
+    const pathAppend = pathFromInlinedLocation(inlinedValueFromString(key));
     child.vc!.forEach((check) => {
       B_pushCheck(parent, {
         c: (inputVar) => check.c(inputVar + pathAppend),

@@ -3,7 +3,7 @@ import { getMutErrorMessage, internalRefine, nullAsUnit, transform } from "./ope
 import { schemaObject, schemaShape, schemaTuple } from "./factory";
 import { parse } from "./parse";
 import { SuryError, copySchema, panic, unknown } from "./schema";
-import { B_scope, B_asyncVal, B_embed, B_failWithErrorMessage, B_inlineLocation, B_markOutput, B_merge, B_next, B_refine, B_varWithoutAllocation, Builder, _notVarBeforeValidation, _var, failInvalidType } from "./builder";
+import { B_scope, B_asyncVal, B_embed, B_failWithErrorMessage, B_markOutput, B_merge, B_next, B_refine, B_varWithoutAllocation, Builder, _notVarBeforeValidation, _var, failInvalidType } from "./builder";
 import { array, dictFactory, optionFactory, unionFactory } from "./composites";
 import { Internal, U, Val, stringify } from "./types";
 import { flagUnsafeHas, valFlagAsync } from "./flags";
@@ -146,7 +146,7 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
         itemInput.io = false;
 
         // Path like ["bar"] so validation errors carry the field location.
-        itemInput.path = pathFromInlinedLocation(B_inlineLocation(input.g, key));
+        itemInput.path = pathFromInlinedLocation(inlinedValueFromString(key));
 
         const itemOutput = parse(itemInput);
         if (flagUnsafeHas(itemOutput.f, valFlagAsync)) {
@@ -233,7 +233,7 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
           itemInput.e = declaredItemSchema;
           itemInput.v = _notVarBeforeValidation;
           itemInput.io = false;
-          itemInput.path = pathFromInlinedLocation(B_inlineLocation(input.g, key));
+          itemInput.path = pathFromInlinedLocation(inlinedValueFromString(key));
 
           const itemOutput = parse(itemInput);
           perFieldCode = perFieldCode + B_merge(itemOutput);

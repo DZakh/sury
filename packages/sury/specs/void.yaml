@@ -4,7 +4,7 @@ ts:
   input: void
   output: void
   instantiations: 254
-  bundleBytes: 3859
+  bundleBytes: 3858
 vs:
   zod: z.void()
 jsonSchema:

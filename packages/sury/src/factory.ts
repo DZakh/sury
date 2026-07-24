@@ -1,4 +1,4 @@
-import { B_addObjectField, B_mergeObjectFields, B_scope, B_inlineLocation, B_invalidOperation, B_markOutput, B_merge, B_nextConst, Builder, _notVarAtParent } from "./builder";
+import { B_addObjectField, B_mergeObjectFields, B_scope, B_invalidOperation, B_markOutput, B_merge, B_nextConst, Builder, _notVarAtParent } from "./builder";
 import { Literal_parse, literalDecoder, unit } from "./primitives";
 import { Option_getOr, TupleCtx } from "./operations";
 import { arrayDecoder, completeObjectVal, makeObjectVal, objectDecoder, optionFactory, unionFactory, valGet } from "./composites";
@@ -515,7 +515,7 @@ const getShapedSerializerOutput = (
           input,
           acc !== U && acc.properties !== U ? acc.properties[location] : U,
           childSchema,
-          pathConcat(path, pathFromInlinedLocation(B_inlineLocation(input.g, location)))
+          pathConcat(path, pathFromInlinedLocation(inlinedValueFromString(location)))
         ),
       (v) => {
         v.e = resolvedTargetSchema;

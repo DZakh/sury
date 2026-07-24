@@ -4,7 +4,7 @@ ts:
   input: "null"
   output: "null"
   instantiations: 369
-  bundleBytes: 9439
+  bundleBytes: 9427
 vs:
   zod: z.null()
 jsonSchema:

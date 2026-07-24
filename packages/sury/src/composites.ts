@@ -1,10 +1,10 @@
 import { Literal_parse, isArrayCond, jsonName, objectTagCond, setHas, unit } from "./primitives";
 import { baseSchema, getOrRethrow, panic, unknown, updateOutput } from "./schema";
 import { getOutputSchema, nestedLoc, nestedOptionParser, never_, parse, parseDynamic, typeCheckCond } from "./parse";
-import { B_addObjectField, B_addKey, B_scope, B_asyncVal, B_dynamicScope, B_embed, B_failWithArg, B_hoistChildChecks, B_hoistDecl, B_inlineConst, B_inlineLocation, B_isHoistable, B_makeInvalidInputDetails, B_markOutput, B_merge, B_mergeWithPathPrepend, B_next, B_nextConst, B_pushCheck, B_refine, B_throw, B_unsupportedDecode, B_varWithoutAllocation, Builder, _notVar, _notVarAtParent, _var, failInvalidType } from "./builder";
+import { B_addObjectField, B_addKey, B_scope, B_asyncVal, B_dynamicScope, B_embed, B_failWithArg, B_hoistChildChecks, B_hoistDecl, B_inlineConst, B_isHoistable, B_makeInvalidInputDetails, B_markOutput, B_merge, B_mergeWithPathPrepend, B_next, B_nextConst, B_pushCheck, B_refine, B_throw, B_unsupportedDecode, B_varWithoutAllocation, Builder, _notVar, _notVarAtParent, _var, failInvalidType } from "./builder";
 import { AdditionalItems, Check, ErrorDetails, Internal, SuryErrorRecord, U, Val, immutableEmptyArray, immutableEmptyObject, isLiteral, isOptional } from "./types";
 import { flagUnsafeHas, valFlagAsync, valFlagNone } from "./flags";
-import { pathConcat, pathFromInlinedLocation } from "./path";
+import { inlinedValueFromString, pathConcat, pathFromInlinedLocation } from "./path";
 import { Tag, arrayTag, nullTag, numberTag, objectTag, tagFlagArray, tagFlagFunction, tagFlagInstance, tagFlagNaN, tagFlagNever, tagFlagNull, tagFlagObject, tagFlagRef, tagFlagUndefined, tagFlagUnion, tagFlagUnknown, tagFlags, undefinedTag, unionTag, unknownTag } from "./tags";
 
 // An object/array val (`makeObjectVal`'s result) reuses the plain `Val`
@@ -73,13 +73,13 @@ export const completeObjectVal = (objectVal: Val): Val => {
       optionalSettingCode = (objectVar: string) => {
         return (
           (existingFn === U ? "" : existingFn(objectVar)) +
-          `if(${val.v()}!==void 0){${objectVar}[${B_inlineLocation(objectVal.g, key)}]=${val.i}}`
+          `if(${val.v()}!==void 0){${objectVar}[${inlinedValueFromString(key)}]=${val.i}}`
         );
       };
     } else {
       inline =
         inline +
-        (isArray ? `${val.i}` : `${B_inlineLocation(objectVal.g, key)}:${val.i}`) +
+        (isArray ? `${val.i}` : `${inlinedValueFromString(key)}:${val.i}`) +
         ",";
     }
   }
@@ -459,7 +459,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
           if (idx !== 0) {
             objectVal.cp = objectVal.cp + "&&";
           }
-          objectVal.cp = objectVal.cp + `${keyVar}!==${B_inlineLocation(input.g, key)}`;
+          objectVal.cp = objectVal.cp + `${keyVar}!==${inlinedValueFromString(key)}`;
         }
       }
       objectVal.cp =
@@ -1415,7 +1415,7 @@ export const valGet = (parent: Val, location: string): Val => {
       }
     }
 
-    const pathAppend = pathFromInlinedLocation(B_inlineLocation(parent.g, location));
+    const pathAppend = pathFromInlinedLocation(inlinedValueFromString(location));
 
     // Canonical Val field order (see B_operationArg in builder.ts).
     const item: Val = {

@@ -6,7 +6,7 @@ ts:
   input: "{ constructor: string; hasOwnProperty: number; }"
   output: "{ constructor: string; hasOwnProperty: number; }"
   instantiations: 1468
-  bundleBytes: 11863
+  bundleBytes: 11840
 vs:
   zod: "z.object({ constructor: z.string(), hasOwnProperty: z.number() })"
 jsonSchema:
