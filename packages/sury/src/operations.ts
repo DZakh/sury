@@ -171,6 +171,16 @@ export const getStandardJSONSchema = (
   }
 }
 
+// A lazy prototype getter (not an eager per-schema property — that would put
+// 2 allocations + 4 closures on the baseSchema hot path for a feature most
+// schemas never use), cached on first access: Standard Schema consumers read
+// `schema["~standard"].validate` per validation call, so an uncached getter
+// re-allocates the whole props object per request. The cache is written as a
+// NON-enumerable own property (valueOptions descriptor) on purpose —
+// copySchema's Object.assign copies enumerable own props, and the cached
+// object closes over THIS schema, so an enumerable cache would leak onto
+// derived schemas and validate against the wrong one; non-enumerable means
+// copies lazily re-derive their own.
 Object.defineProperty(schemaPrototype, "~standard", {
   get: function (this: Internal) {
     const schema = this;
@@ -205,6 +215,8 @@ Object.defineProperty(schemaPrototype, "~standard", {
         output: (options) => getStandardJSONSchema(schema, options, true),
       },
     };
+    valueOptions[valKey] = standard;
+    Object.defineProperty(schema, "~standard", valueOptions as PropertyDescriptor);
     return standard;
   },
 });
