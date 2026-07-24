@@ -134,6 +134,31 @@ test("Record schema with nullable field", t => {
   )
 })
 
+@schema
+type recordWithOptionalNullableField = {
+  foo?: @s.nullable string,
+}
+test("Record schema with @s.nullable on optional field", t => {
+  t->assertEqualSchemas(
+    recordWithOptionalNullableFieldSchema,
+    S.schema(s => {
+      foo: ?s.matches(S.nullableAsOption(S.string)),
+    }),
+  )
+  t->Assert.deepEqual(
+    %raw(`{}`)->S.parseOrThrow(~to=recordWithOptionalNullableFieldSchema),
+    {foo: ?None},
+  )
+  t->Assert.deepEqual(
+    %raw(`{"foo":null}`)->S.parseOrThrow(~to=recordWithOptionalNullableFieldSchema),
+    {foo: ?None},
+  )
+  t->Assert.deepEqual(
+    %raw(`{"foo":"bar"}`)->S.parseOrThrow(~to=recordWithOptionalNullableFieldSchema),
+    {foo: "bar"},
+  )
+})
+
 test("@s.strict on root record type", t => {
   t->assertEqualSchemas(
     strictRecordSchema,

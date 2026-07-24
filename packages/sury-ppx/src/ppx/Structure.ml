@@ -18,6 +18,19 @@ let applySchemaAttribute ~loc schema_expr
     fail loc ("Unsupported schema attribute: \"@" ^ txt ^ "\"")
   | _ -> schema_expr
 
+let optionFactoryExpression ~loc ptyp_attributes =
+  match
+    ( getAttributeByName ptyp_attributes "s.null",
+      getAttributeByName ptyp_attributes "s.nullable" )
+  with
+  | Ok None, Ok None -> [%expr S.option]
+  | Ok (Some _), Ok None -> [%expr S.nullAsOption]
+  | Ok None, Ok (Some _) -> [%expr S.nullableAsOption]
+  | Ok (Some _), Ok (Some _) ->
+    fail loc
+      "Attributes @s.null and @s.nullable are not supported at the same time"
+  | _, Error s | Error s, _ -> fail loc s
+
 let rec generateConstrSchemaExpression {Location.txt = identifier; loc}
     type_args option_factory_expression =
   let open Longident in
@@ -136,7 +149,31 @@ and generatePolyvariantSchemaExpression row_fields =
 
 and generateFieldSchemaExpression field =
   let schema_expression = generateCoreTypeSchemaExpression field.core_type in
-  if field.is_optional then [%expr Obj.magic (S.option [%e schema_expression])]
+  if field.is_optional then
+    let {ptyp_desc; ptyp_loc; ptyp_attributes} = field.core_type in
+    (* On `option<_>` (and `@s.default`/`@s.defaultWith`) the factory is
+       already consumed by generateCoreTypeSchemaExpression, so applying it
+       again as the optionality wrapper would double it up. *)
+    let factory_consumed =
+      (match ptyp_desc with
+      | Ptyp_constr ({txt = Longident.Lident "option"}, [_]) -> true
+      | _ -> false)
+      || ["s.default"; "s.defaultWith"]
+         |> List.exists (fun name ->
+                match getAttributeByName ptyp_attributes name with
+                | Ok (Some _) -> true
+                | _ -> false)
+    in
+    let wrapper =
+      match
+        (factory_consumed, getAttributeByName ptyp_attributes "s.nullable")
+      with
+      (* S.nullableAsOption already accepts undefined, so the optional field
+         doesn't need an extra S.option on top of it. *)
+      | false, Ok (Some _) -> optionFactoryExpression ~loc:ptyp_loc ptyp_attributes
+      | _ -> [%expr S.option]
+    in
+    [%expr Obj.magic ([%e wrapper] [%e schema_expression])]
   else schema_expression
 
 and generateVariantSchemaExpression constr_decls =
@@ -322,17 +359,7 @@ and generateCoreTypeSchemaExpression core_type =
   let {ptyp_desc; ptyp_loc; ptyp_attributes} = core_type in
   let customSchemaExpression = getAttributeByName ptyp_attributes "s.matches" in
   let option_factory_expression =
-    match
-      ( getAttributeByName ptyp_attributes "s.null",
-        getAttributeByName ptyp_attributes "s.nullable" )
-    with
-    | Ok None, Ok None -> [%expr S.option]
-    | Ok (Some _), Ok None -> [%expr S.nullAsOption]
-    | Ok None, Ok (Some _) -> [%expr S.nullableAsOption]
-    | Ok (Some _), Ok (Some _) ->
-      fail ptyp_loc
-        "Attributes @s.null and @s.nullable are not supported at the same time"
-    | _, Error s | Error s, _ -> fail ptyp_loc s
+    optionFactoryExpression ~loc:ptyp_loc ptyp_attributes
   in
   let schema_expression =
     match customSchemaExpression with
