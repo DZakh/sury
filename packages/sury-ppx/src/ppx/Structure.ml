@@ -165,13 +165,23 @@ and generateFieldSchemaExpression field =
                 | _ -> false)
     in
     let wrapper =
-      match
-        (factory_consumed, getAttributeByName ptyp_attributes "s.nullable")
-      with
-      (* S.nullableAsOption already accepts undefined, so the optional field
-         doesn't need an extra S.option on top of it. *)
-      | false, Ok (Some _) -> optionFactoryExpression ~loc:ptyp_loc ptyp_attributes
-      | _ -> [%expr S.option]
+      if factory_consumed then [%expr S.option]
+      else
+        match
+          ( getAttributeByName ptyp_attributes "s.null",
+            getAttributeByName ptyp_attributes "s.nullable" )
+        with
+        (* S.nullableAsOption already accepts undefined, so the optional field
+           doesn't need an extra S.option on top of it. *)
+        | Ok None, Ok (Some _) ->
+          optionFactoryExpression ~loc:ptyp_loc ptyp_attributes
+        (* S.nullAsOption rejects undefined, which an optional field must
+           accept, so there's no valid schema for this combination. *)
+        | Ok (Some _), _ ->
+          fail ptyp_loc
+            "@s.null is not supported on optional fields. Use `@s.null \
+             option<'value>` for the field type or @s.nullable instead"
+        | _ -> [%expr S.option]
     in
     [%expr Obj.magic ([%e wrapper] [%e schema_expression])]
   else schema_expression

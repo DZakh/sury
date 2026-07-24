@@ -143,6 +143,8 @@ type t = @s.null option<string>
 let schema = S.nullAsOption(S.string)
 ```
 
+Not allowed on optional record fields without an `option<_>` type (`foo?: @s.null string`) — `S.nullAsOption` rejects `undefined`, which an optional field must accept. Use `@s.null option<'value>` for the field type or `@s.nullable` instead.
+
 ### `@s.nullable`
 
 **Applies to**: option type expressions
