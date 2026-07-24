@@ -4,7 +4,7 @@ ts:
   input: bigint
   output: bigint
   instantiations: 254
-  bundleBytes: 3799
+  bundleBytes: 3788
 vs:
   zod: z.bigint()
 jsonSchema:

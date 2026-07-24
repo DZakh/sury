@@ -6,7 +6,7 @@ ts:
   input: symbol
   output: symbol
   instantiations: 389
-  bundleBytes: 9382
+  bundleBytes: 9447
 vs:
   zod:
     _skip: not-applicable

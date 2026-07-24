@@ -4,7 +4,7 @@ ts:
   input: symbol
   output: symbol
   instantiations: 254
-  bundleBytes: 3713
+  bundleBytes: 3706
 vs:
   zod: z.symbol()
 jsonSchema:

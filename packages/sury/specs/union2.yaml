@@ -4,7 +4,7 @@ ts:
   input: string | number
   output: string | number
   instantiations: 972
-  bundleBytes: 9797
+  bundleBytes: 9767
 vs:
   zod: z.union([z.string(), z.number()])
 jsonSchema:

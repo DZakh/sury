@@ -6,7 +6,7 @@ ts:
   input: "{ a: string; }"
   output: "{ a: string; }"
   instantiations: 1205
-  bundleBytes: 9597
+  bundleBytes: 9576
 vs:
   zod: "z.object({ a: z.string() })"
 jsonSchema:
