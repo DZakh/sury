@@ -4,7 +4,7 @@ import { bool, float, inputToString, jsonName, literalDecoder, nullLiteral, numb
 import { baseSchema, cached, copySchema, unknown } from "./schema";
 import { B_addObjectField, B_embed, B_embedInvalidInput, B_failWithErrorMessage, B_next, B_nextConst, B_refine, B_unsupportedDecode, B_varWithoutAllocation, _var, failInvalidType } from "./builder";
 import { getDecoder, instanceDecoder, parse, reverse } from "./parse";
-import { Internal, SchemaErrorMessage, Val, isLiteral } from "./types";
+import { Internal, SchemaErrorMessage, U, Val, isLiteral } from "./types";
 import { Builder, Encoder } from "./builder";
 import { flagUnsafeHas } from "./flags";
 import { inlinedValueFromString } from "./path";
@@ -19,16 +19,16 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
       tagFlagString | tagFlagBoolean | tagFlagNumber | tagFlagNull,
     )
   ) {
-    return parse(B_refine(input, unknown, undefined, target));
+    return parse(B_refine(input, unknown, U, target));
   } else if (flagUnsafeHas(toTagFlag, (tagFlagUndefined | tagFlagNaN))) {
     const jsonExpected = copySchema(nullLiteral());
     jsonExpected.to = target;
-    return parse(B_refine(input, unknown, undefined, jsonExpected));
+    return parse(B_refine(input, unknown, U, jsonExpected));
   } else if (flagUnsafeHas(toTagFlag, tagFlagArray)) {
     // Validate that the input is an array
     // and then update the schema to be an array of json instead of array of unknown
     const jsonExpected = array(unknown);
-    const output = parse(B_refine(input, unknown, undefined, jsonExpected));
+    const output = parse(B_refine(input, unknown, U, jsonExpected));
     output.s.additionalItems = json();
     output.e = target;
     output.io = false;
@@ -37,7 +37,7 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
     // Validate that the input is an object
     // and then update the schema to be an object of json instead of object of unknown
     const jsonExpected = dictFactory(unknown);
-    const output = parse(B_refine(input, unknown, undefined, jsonExpected));
+    const output = parse(B_refine(input, unknown, U, jsonExpected));
     output.s.additionalItems = json();
     output.e = target;
     output.io = false;
@@ -48,7 +48,7 @@ export const jsonEncoderFn = (input: Val, target: Internal): Val => {
     // For non-JSON types (bigint, instance, etc.), decode through string
     const jsonExpected = copySchema(string());
     jsonExpected.to = target;
-    return parse(B_refine(input, unknown, undefined, jsonExpected));
+    return parse(B_refine(input, unknown, U, jsonExpected));
   }
 }
 
@@ -86,12 +86,12 @@ export const jsonDecoderFn = (input: Val): Val => {
         ? json()
         : input.s.additionalItems;
     expected.to = input.e.to;
-    return parse(B_refine(input, undefined, undefined, expected));
+    return parse(B_refine(input, U, U, expected));
   } else if (flagUnsafeHas(inputTagFlag, tagFlagObject)) {
     if (typeof input.s.additionalItems === "object") {
       const expected = dictFactory(json());
       expected.to = input.e.to;
-      return parse(B_refine(input, undefined, undefined, expected));
+      return parse(B_refine(input, U, U, expected));
     } else {
       const jsonVal = makeObjectVal(input, input.s);
       jsonVal.e = json();
@@ -239,7 +239,7 @@ export const jsonString = /* @__PURE__ */ (() => {
         jsonStringConstSchema.const = constSchemaToJsonStringConst(input, target);
         jsonStringConstSchema.to = target;
         jsonStringConstSchema.decoder = literalDecoder;
-        return B_refine(input, undefined, undefined, jsonStringConstSchema);
+        return B_refine(input, U, U, jsonStringConstSchema);
       } else {
         const outputVar = B_varWithoutAllocation(input.g);
 
@@ -300,11 +300,11 @@ export const jsonString = /* @__PURE__ */ (() => {
     } else if (flagUnsafeHas(inputTagFlag, tagFlagBigint)) {
       return B_next(input, `"\\""+${input.i}+"\\""`, expectedSchema);
     } else if (flagUnsafeHas(inputTagFlag, (tagFlagObject | tagFlagArray))) {
-      const jsonVal = parse(B_refine(input, undefined, undefined, json()));
+      const jsonVal = parse(B_refine(input, U, U, json()));
       return B_next(
         jsonVal,
         `JSON.stringify(${jsonVal.i}${
-          expectedSchema.space === 0 || expectedSchema.space === undefined
+          expectedSchema.space === 0 || expectedSchema.space === U
             ? ""
             : `,null,${expectedSchema.space}`
         })`,
@@ -348,7 +348,7 @@ export const uint8Array = (): Internal => {
         input = instanceDecoder(input);
       }
 
-      if (inputArg.e.to !== undefined && inputArg.e.parser === undefined) {
+      if (inputArg.e.to !== U && inputArg.e.parser === U) {
         const to = inputArg.e.to;
         const toTagFlag = tagFlags[to.type]!;
         if (flagUnsafeHas(toTagFlag, tagFlagString)) {
@@ -554,41 +554,41 @@ export type Meta<Value> = {
 // TODO: Better test reverse
 export const meta = <Value>(schema: Internal, data: Meta<Value>): Internal => {
   const mut = copySchema(schema);
-  if (data.name !== undefined) {
+  if (data.name !== U) {
     if (data.name === "") {
-      mut.name = undefined;
+      mut.name = U;
     } else {
       mut.name = data.name;
     }
   }
-  if (data.title !== undefined) {
+  if (data.title !== U) {
     if (data.title === "") {
-      mut.title = undefined;
+      mut.title = U;
     } else {
       mut.title = data.title;
     }
   }
-  if (data.description !== undefined) {
+  if (data.description !== U) {
     if (data.description === "") {
-      mut.description = undefined;
+      mut.description = U;
     } else {
       mut.description = data.description;
     }
   }
-  if (data.deprecated !== undefined) {
+  if (data.deprecated !== U) {
     mut.deprecated = data.deprecated;
   }
-  if (data.examples !== undefined) {
+  if (data.examples !== U) {
     if (data.examples.length === 0) {
       delete mut.examples;
     } else {
       mut.examples = data.examples.map(getDecoder(reverse(schema)));
     }
   }
-  if (data.errorMessage !== undefined) {
+  if (data.errorMessage !== U) {
     const em = data.errorMessage;
     if (Object.keys(em).length === 0) {
-      mut.errorMessage = undefined;
+      mut.errorMessage = U;
     } else {
       mut.errorMessage = em;
     }

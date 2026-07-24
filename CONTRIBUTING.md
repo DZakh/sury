@@ -353,7 +353,13 @@ case the harness *should* have caught or guided better — a missing check, a we
 error message, a strictness gap that let a bad spec through — add a bullet here
 instead of silently working around it.
 
-- <placeholder>
+- `bundleBytes`'s ±1% tolerance band (harness.ts `recomputeGoldens`) lets small
+  regressions accumulate silently: several commits each drifting <1% keep
+  passing against a stale golden, and the change that finally crosses the line
+  gets blamed for the whole accumulated delta (observed: a +9 B change surfaced
+  as +97 B because ~88 B of prior drift was hiding inside the band). Consider
+  tracking the live measurement alongside the golden, or re-recording when the
+  drift direction is consistent across runs.
 
 ## License
 

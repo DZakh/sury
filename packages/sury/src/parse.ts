@@ -1,17 +1,17 @@
 import { instanceofCond, isArrayCond, nanCond, objectTagCond, setHas, typeofCond } from "./primitives";
 import { baseSchema, cached, copySchema, getOrRethrow, globalConfig, panic, reversedKey, unknown, updateOutput, valKey, valueOptions } from "./schema";
 import { B_scope, B_embedInvalidInput, B_inlineConst, B_markOutput, B_merge, B_next, B_operationArg, B_refine, B_unsupportedDecode, Builder, Encoder, failInvalidType, noopOperation, operationArgVar } from "./builder";
-import { Internal, Val, isLiteral, s } from "./types";
+import { Internal, U, Val, isLiteral, s } from "./types";
 import { Flag, flagAsync, flagDisableNanNumberValidation, flagUnsafeHas, valFlagAsync } from "./flags";
 import { pathConcat, pathDynamic, pathEmpty } from "./path";
 import { instanceTag, neverTag, numberTag, objectTag, tagFlagArray, tagFlagBigint, tagFlagBoolean, tagFlagInstance, tagFlagNaN, tagFlagNull, tagFlagNumber, tagFlagObject, tagFlagString, tagFlagSymbol, tagFlagUndefined, tagFlagUnknown, tagFlags, unknownTag } from "./tags";
 export const parse = (input: Val): Val => {
   let result: Val = input;
-  let appliedEncoderRef: Encoder | undefined = undefined;
+  let appliedEncoderRef: Encoder | undefined = U;
   let loopCount = 0;
   while (!result.io || result.e.to) {
     const appliedEncoder: Encoder | undefined = appliedEncoderRef;
-    appliedEncoderRef = undefined;
+    appliedEncoderRef = U;
     const loopInput = result;
 
     loopCount = loopCount + 1;
@@ -50,17 +50,17 @@ export const parse = (input: Val): Val => {
           operationOutput.e,
         );
       } else {
-        result = B_refine(loopInput, operationOutput.s, undefined, operationOutput.e);
+        result = B_refine(loopInput, operationOutput.s, U, operationOutput.e);
       }
       result.f |= valFlagAsync;
       result.io = true;
     } else if (loopInput.io) {
       // It's guaranteed that to is not undefined, because it's checked in the while condition
       const to = loopInput.e.to!;
-      if (loopInput.e.parser !== undefined) {
+      if (loopInput.e.parser !== U) {
         result = loopInput.e.parser(loopInput);
       } else {
-        result = B_refine(result, undefined, undefined, to);
+        result = B_refine(result, U, U, to);
       }
     } else {
       const maybeEncoder = loopInput.s.encoder;
@@ -98,7 +98,7 @@ export const parseDynamic = (input: Val): Val => {
     const error = getOrRethrow(exn);
     // For the case parent must always be present
     error.path = pathConcat(
-      input.p !== undefined ? input.p.path : pathEmpty,
+      input.p !== U ? input.p.path : pathEmpty,
       pathConcat(pathConcat(input.path, pathDynamic), error.path),
     );
 
@@ -157,7 +157,7 @@ export const compileDecoder = (
   }
 }
 export const getOutputSchema = (schema: Internal): Internal => {
-  if (schema.to !== undefined) {
+  if (schema.to !== U) {
     return getOutputSchema(schema.to);
   } else {
     return schema;
@@ -168,55 +168,55 @@ export const reverse = (schema: Internal): Internal => {
   if (reversedKey in schemaRecord) {
     return schemaRecord[reversedKey]!;
   } else {
-    let reversedHead: Internal | undefined = undefined;
+    let reversedHead: Internal | undefined = U;
     let current: Internal | undefined = schema;
 
     while (current) {
       const mut = copySchema(current!);
       const next = mut.to;
-      if (reversedHead === undefined) {
+      if (reversedHead === U) {
         delete mut.to;
       } else {
         mut.to = reversedHead;
       }
       const parser = mut.parser;
-      if (mut.serializer !== undefined) {
+      if (mut.serializer !== U) {
         mut.parser = mut.serializer;
       } else {
         delete mut.parser;
       }
-      if (parser !== undefined) {
+      if (parser !== U) {
         mut.serializer = parser;
       } else {
         delete mut.serializer;
       }
       // Swap inputRefiner and refiner
       const refiner = mut.refiner;
-      if (mut.inputRefiner !== undefined) {
+      if (mut.inputRefiner !== U) {
         mut.refiner = mut.inputRefiner;
       } else {
         delete mut.refiner;
       }
-      if (refiner !== undefined) {
+      if (refiner !== U) {
         mut.inputRefiner = refiner;
       } else {
         delete mut.inputRefiner;
       }
       const fromDefault = mut.fromDefault;
-      if (mut.default !== undefined) {
+      if (mut.default !== U) {
         mut.fromDefault = mut.default;
       } else {
         delete mut.fromDefault;
       }
-      if (fromDefault !== undefined) {
+      if (fromDefault !== U) {
         mut.default = fromDefault;
       } else {
         delete mut.default;
       }
-      if (mut.items !== undefined) {
+      if (mut.items !== U) {
         mut.items = mut.items.map(reverse);
       }
-      if (mut.properties !== undefined) {
+      if (mut.properties !== U) {
         const properties = mut.properties;
         const newProperties: Record<string, Internal> = {};
         const keys = Object.keys(properties);
@@ -230,7 +230,7 @@ export const reverse = (schema: Internal): Internal => {
       if (typeof mut.additionalItems === objectTag) {
         mut.additionalItems = reverse(mut.additionalItems as Internal);
       }
-      if (mut.anyOf !== undefined) {
+      if (mut.anyOf !== U) {
         const anyOf = mut.anyOf;
         const has: Record<string, boolean> = {};
         const newAnyOf: Internal[] = [];
@@ -243,7 +243,7 @@ export const reverse = (schema: Internal): Internal => {
         mut.has = has;
         mut.anyOf = newAnyOf;
       }
-      if (mut["$defs"] !== undefined) {
+      if (mut["$defs"] !== U) {
         const defs = mut["$defs"];
         const reversedDefs: Record<string, Internal> = {};
         const defsKeys = Object.keys(defs);
@@ -275,12 +275,12 @@ export const reverse = (schema: Internal): Internal => {
 export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
   const args = arguments as unknown as unknown[];
   let idx = 0;
-  let flag: Flag | undefined = undefined;
+  let flag: Flag | undefined = U;
   let keyRef = "";
   let maxSeq = 0;
-  let cacheTarget: Internal | undefined = undefined;
+  let cacheTarget: Internal | undefined = U;
 
-  while (flag === undefined) {
+  while (flag === U) {
     const arg = args[idx];
     if (!arg) {
       const f = globalConfig.f;
@@ -302,7 +302,7 @@ export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
     }
   }
 
-  if (cacheTarget === undefined) {
+  if (cacheTarget === U) {
     return panic("No schema provided for decoder.");
   } else {
     const key = keyRef;
@@ -317,7 +317,7 @@ export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
           mut.to = to;
         });
       }
-      const f = compileDecoder(schema, schema, flag!, undefined);
+      const f = compileDecoder(schema, schema, flag!, U);
       // Reusing the same object makes it a little bit faster
       valueOptions[valKey] = f;
       // Use defineProperty, so the cache keys are not enumerable
@@ -330,7 +330,7 @@ export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
 export const nestedLoc = "BS_PRIVATE_NESTED_SOME_NONE";
 
 const neverBuilderFn = (input: Val): Val => {
-  const output = B_refine(input, undefined, undefined, never_());
+  const output = B_refine(input, U, U, never_());
   output.cp = B_embedInvalidInput(input) + ";";
   return output;
 }

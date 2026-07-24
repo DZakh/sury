@@ -1,4 +1,4 @@
-import { AdditionalItems, AdditionalItemsMode, ErrorDetails, Internal, SuryErrorRecord, Val, s } from "./types";
+import { AdditionalItems, AdditionalItemsMode, ErrorDetails, Internal, SuryErrorRecord, U, Val, s } from "./types";
 import type { Builder } from "./builder";
 import { Flag, valFlagNone } from "./flags";
 import { Tag, unknownTag } from "./tags";
@@ -79,7 +79,7 @@ export const initialOnAdditionalItems: AdditionalItemsMode = "strip";
 export const initialDefaultFlag: Flag = valFlagNone;
 export const globalConfig: GlobalConfig = {
   m: formatErrorMessage,
-  d: undefined,
+  d: U,
   a: initialOnAdditionalItems,
   f: initialDefaultFlag,
 };
@@ -110,7 +110,7 @@ const factoryCache: Record<string, Internal> = {};
 
 export const cached = (key: string, tag: Tag, init: (schema: Internal) => void): Internal => {
   const existing = factoryCache[key];
-  if (existing !== undefined) {
+  if (existing !== U) {
     return existing;
   } else {
     const schema = baseSchema(tag, true);
@@ -132,7 +132,7 @@ export const copySchema = (schema: Internal): Internal => {
 export const updateOutput = <Value>(schema: Internal, fn: (schema: Internal) => void): Value => {
   const root = copySchema(schema);
   let mut = root;
-  while (mut.to !== undefined) {
+  while (mut.to !== U) {
     const next = copySchema(mut.to);
     mut.to = next;
     mut = next;

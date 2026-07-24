@@ -234,6 +234,12 @@ export type Val = {
   o?: boolean;
 }
 
+// Shared `undefined` for every value-position use across the implementation:
+// a bare `undefined` minifies to `void 0` (6 chars), this const to 1. Never
+// interpolate it into generated-code strings — emitted JS text keeps literal
+// `void 0`.
+export const U = undefined;
+
 export const immutableEmptyArray: unknown[] = [];
 // Null-prototype: used as a schema's `properties` placeholder, so an
 // indexed/`in` lookup for a field named after an Object.prototype member
@@ -294,18 +300,18 @@ export const stringify = (unknown: unknown): string => {
 }
 
 export const toExpression = (schema: Internal): string => {
-  if (schema.name !== undefined) {
+  if (schema.name !== U) {
     return schema.name;
-  } else if (schema.const !== undefined) {
+  } else if (schema.const !== U) {
     return stringify(schema.const);
-  } else if (schema.anyOf !== undefined) {
+  } else if (schema.anyOf !== U) {
     return schema.anyOf.map(toExpression).join(" | ");
   } else if (schema.format === "compactColumns") {
     // For compactColumns, show the column types if we have properties from .to
     const to = schema.to;
-    if (to !== undefined) {
+    if (to !== U) {
       const props = to.properties;
-      if (props !== undefined) {
+      if (props !== U) {
         const keys = Object.keys(props);
         return `[${keys
           .map((key) => {
@@ -319,14 +325,14 @@ export const toExpression = (schema: Internal): string => {
     } else {
       // No S.to applied, reuse the array expression logic
       const additionalItems = schema.additionalItems;
-      if (additionalItems !== undefined && typeof additionalItems === "object") {
+      if (additionalItems !== U && typeof additionalItems === "object") {
         const innerArraySchema = additionalItems;
         return `${toExpression(innerArraySchema)}[]`;
       } else {
         return "unknown[][]";
       }
     }
-  } else if (schema.format !== undefined) {
+  } else if (schema.format !== U) {
     return schema.format;
   } else if (schema.type === objectTag) {
     const properties = schema.properties!;

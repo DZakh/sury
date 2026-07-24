@@ -4,7 +4,7 @@ import { SuryError, baseSchema, cached, configurableValueOptions, copySchema, ge
 import type { JSONSchemaT, StandardJsonSchemaOptions } from "./jsonschema";
 import { compileDecoder, getDecoder, getOutputSchema, isAsyncInternal, reverse } from "./parse";
 import { B_effectCtx, B_embed, B_embedTransformation, B_inlineConst, B_invalidInputBuilder, B_invalidOperation, B_mergeWithPathPrepend, B_next, B_refine, B_varWithoutAllocation, EffectCtx, _var } from "./builder";
-import { AdditionalItems, Check, Internal, SchemaErrorMessage, SuryErrorRecord, Val, s, toExpression, vendor } from "./types";
+import { AdditionalItems, Check, Internal, SchemaErrorMessage, SuryErrorRecord, U, Val, s, toExpression, vendor } from "./types";
 import { Builder } from "./builder";
 import { flagAsync, valFlagAsync } from "./flags";
 import { pathEmpty, pathFromArray, pathToArray } from "./path";
@@ -26,13 +26,13 @@ export const recursiveDecoder: Builder = (input) => {
   let recOperation = "";
 
   const fn = (def as unknown as Record<string, unknown>)[key];
-  if (fn !== undefined) {
+  if (fn !== U) {
     // Circular reference (fn === 0) or already compiled
     recOperation = fn === 0 ? B_embed(input, def) + `["${key}"]` : B_embed(input, fn);
   } else {
     // Optimistic compilation with recompile if assumptions were wrong
-    let assumedHasTransform = def.hasTransform !== undefined ? def.hasTransform : false;
-    let assumedIsAsync = def.isAsync !== undefined ? def.isAsync : false;
+    let assumedHasTransform = def.hasTransform !== U ? def.hasTransform : false;
+    let assumedIsAsync = def.isAsync !== U ? def.isAsync : false;
     let compileNeeded = true;
     let finalFn: unknown = 0;
 
@@ -41,10 +41,10 @@ export const recursiveDecoder: Builder = (input) => {
 
       // Set optimistic values on def before compiling (if not already set)
       // Inner circular references will read these values
-      if (def.hasTransform === undefined) {
+      if (def.hasTransform === U) {
         def.hasTransform = assumedHasTransform;
       }
-      if (def.isAsync === undefined) {
+      if (def.isAsync === U) {
         def.isAsync = assumedIsAsync;
       }
 
@@ -103,16 +103,16 @@ export const recursiveDecoder: Builder = (input) => {
     }
   } else {
     // No transform: call for validation but don't capture result
-    output = B_refine(input, expectedSchema, undefined, expectedSchema);
+    output = B_refine(input, expectedSchema, U, expectedSchema);
     output.cp = `${recOperation}(${input.i});`;
   }
 
-  output.prev = undefined;
+  output.prev = U;
   output.cp = outputDecl + B_mergeWithPathPrepend(output, input);
 
   // Un-finalize: this val may be reused as input to a subsequent parser (e.g.
   // S.transform on a recursive schema) and must accept hoisted decls again.
-  output.fz = undefined;
+  output.fz = U;
   output.prev = input;
 
   return output;
@@ -159,7 +159,7 @@ export const getStandardJSONSchema = (
   options: StandardJsonSchemaOptions,
   isOutput: boolean
 ): JSONSchemaT => {
-  if (standardJSONSchemaConverter !== undefined) {
+  if (standardJSONSchemaConverter !== U) {
     return standardJSONSchemaConverter(schema, options, isOutput);
   } else {
     throw new SuryError({
@@ -199,7 +199,7 @@ Object.defineProperty(schemaPrototype, "~standard", {
               {
                 message: error.reason,
                 path:
-                  error.path === pathEmpty ? undefined : pathToArray(error.path),
+                  error.path === pathEmpty ? U : pathToArray(error.path),
               },
             ],
           };
@@ -227,7 +227,7 @@ Object.defineProperty(schemaPrototype, "~standard", {
 
 export const getAssertResult = (): Internal => {
   return cached("a", undefinedTag, (s) => {
-    s.const = void 0;
+    s.const = U;
     s.decoder = literalDecoder;
     s.noValidation = true;
   });
@@ -246,8 +246,8 @@ export const assertAsyncOrThrow = (any: unknown, schema: Internal): Promise<void
 }
 
 export const isAsync = (schema: Internal): boolean => {
-  if (schema.isAsync === undefined) {
-    return isAsyncInternal(schema, undefined);
+  if (schema.isAsync === U) {
+    return isAsyncInternal(schema, U);
   } else {
     return schema.isAsync;
   }
@@ -318,7 +318,7 @@ export const recursive = (name: string, fn: (schema: Internal) => Internal): Int
   refSchema.decoder = recursiveDecoder;
 
   // This is for mutual recursion
-  const isNestedRec = globalConfig.d !== undefined;
+  const isNestedRec = globalConfig.d !== U;
   if (!isNestedRec) {
     globalConfig.d = {};
   }
@@ -337,7 +337,7 @@ export const recursive = (name: string, fn: (schema: Internal) => Internal): Int
     schema["$defs"] = globalConfig.d;
     schema.decoder = recursiveDecoder;
 
-    globalConfig.d = undefined;
+    globalConfig.d = U;
 
     return schema;
   }
@@ -359,7 +359,7 @@ export const internalRefine = (
   return updateOutput(schema, (mut) => {
     const refiner = makeRefiner(mut);
     const existingRefiner = mut.refiner;
-    if (existingRefiner !== undefined) {
+    if (existingRefiner !== U) {
       mut.refiner = (input) => {
         const arr = existingRefiner(input);
         arr.push(...refiner(input));
@@ -377,14 +377,14 @@ export const refine = (
   error?: string,
   path?: string[]
 ): Internal => {
-  const message = error !== undefined ? error : "Refinement failed";
-  const extraPath = path !== undefined ? pathFromArray(path) : pathEmpty;
+  const message = error !== U ? error : "Refinement failed";
+  const extraPath = path !== U ? pathFromArray(path) : pathEmpty;
   return internalRefine(schema, (_) => (input) => {
     const embeddedCheck = B_embed(input, refineCheck);
     return [
       {
         c: (inputVar) => `${embeddedCheck}(${inputVar})`,
-        f: B_invalidInputBuilder(undefined, extraPath, message),
+        f: B_invalidInputBuilder(U, extraPath, message),
       },
     ];
   });
@@ -415,17 +415,17 @@ export const transform = (
   return updateOutput(schema, (mut) => {
     mut.parser = (input) => {
       const definition = transformer(B_effectCtx(input));
-      if (definition.p !== undefined && definition.a === undefined) {
+      if (definition.p !== U && definition.a === U) {
         return B_embedTransformation(input, definition.p, false);
-      } else if (definition.p === undefined && definition.a !== undefined) {
+      } else if (definition.p === U && definition.a !== U) {
         return B_embedTransformation(input, definition.a, true);
       } else if (
-        definition.p === undefined &&
-        definition.a === undefined &&
-        definition.s === undefined
+        definition.p === U &&
+        definition.a === U &&
+        definition.s === U
       ) {
-        return B_refine(input, undefined, undefined, input.e.to!);
-      } else if (definition.p === undefined && definition.a === undefined) {
+        return B_refine(input, U, U, input.e.to!);
+      } else if (definition.p === U && definition.a === U) {
         return B_invalidOperation(input, `The S.transform parser is missing`);
       } else {
         return B_invalidOperation(
@@ -437,14 +437,14 @@ export const transform = (
     const to = copySchema(unknown);
     to.serializer = (input) => {
       const definition = transformer(B_effectCtx(input));
-      if (definition.s !== undefined) {
+      if (definition.s !== U) {
         return B_embedTransformation(input, definition.s, false);
       } else if (
-        definition.p === undefined &&
-        definition.a === undefined &&
-        definition.s === undefined
+        definition.p === U &&
+        definition.a === U &&
+        definition.s === U
       ) {
-        return B_refine(input, undefined, undefined, input.e.to!);
+        return B_refine(input, U, U, input.e.to!);
       } else {
         return B_invalidOperation(input, `The S.transform serializer is missing`);
       }
@@ -471,7 +471,7 @@ export type OptionDefault =
 export const Option_getWithDefault = (schema: Internal, default_: OptionDefault): Internal => {
   return updateOutput(schema, (mut) => {
     const anyOf = mut.anyOf;
-    if (anyOf !== undefined) {
+    if (anyOf !== U) {
       const outputItems: Internal[] = [];
       // FIXME: drop `originalItems` once unionDecoder can reverse member
       // `.to` chains — then mut.default + the serializer can both run
@@ -538,7 +538,7 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
       const originalDecoder = to.decoder;
       to.serializer = (input) => {
         const nextSchema = reverse(originalItem);
-        return B_refine(originalDecoder(input), nextSchema, undefined, nextSchema);
+        return B_refine(originalDecoder(input), nextSchema, U, nextSchema);
       };
 
       // FIXME: This looks wrong, but this is how it was with prev architecture
@@ -574,7 +574,7 @@ export const Object_setAdditionalItems = (
 ): Internal => {
   const currentAdditionalItems = schema.additionalItems;
   if (
-    currentAdditionalItems !== undefined &&
+    currentAdditionalItems !== U &&
     currentAdditionalItems !== additionalItems &&
     typeof currentAdditionalItems !== objectTag
   ) {
@@ -582,12 +582,12 @@ export const Object_setAdditionalItems = (
     mut.additionalItems = additionalItems;
     if (deep) {
       const items = schema.items;
-      if (items !== undefined) {
+      if (items !== U) {
         mut.items = items.map((s) => Object_setAdditionalItems(s, additionalItems, deep));
       }
 
       const properties = schema.properties;
-      if (properties !== undefined) {
+      if (properties !== U) {
         mut.properties = Object.fromEntries(
           Object.keys(properties).map((key) => [
             key,

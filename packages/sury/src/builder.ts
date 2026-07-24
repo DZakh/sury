@@ -1,5 +1,5 @@
 import { SuryError, unknown } from "./schema";
-import { BGlobal, Check, ErrorDetails, Internal, InvalidInputDetails, SuryErrorRecord, Val, immutableEmptyArray, s, shouldPrependPathKey, stringify, toExpression } from "./types";
+import { BGlobal, Check, ErrorDetails, Internal, InvalidInputDetails, SuryErrorRecord, U, Val, immutableEmptyArray, s, shouldPrependPathKey, stringify, toExpression } from "./types";
 import { Flag, flagAsync, flagNone, flagUnsafeHas, valFlagAsync, valFlagNone } from "./flags";
 import { Path, inlinedValueFromString, pathConcat, pathEmpty, pathFromInlinedLocation } from "./path";
 import { arrayTag, tagFlagBigint, tagFlagFunction, tagFlagInstance, tagFlagString, tagFlagSymbol, tagFlagUndefined, tagFlags } from "./tags";
@@ -87,7 +87,7 @@ export function _notVar(this: Val): string {
     return val.i;
   } else {
     const v = B_varWithoutAllocation(val.g);
-    if (val.prev !== undefined) {
+    if (val.prev !== U) {
       // Own the decl in codeFromPrev: a non-empty codeFromPrev is
       // non-hoistable in `merge`, so a union discriminant reading this var
       // can't be lifted above its `let` (the str->to(option(int)) bug class).
@@ -120,8 +120,8 @@ export const operationArgVar = "i";
 // error semantics. Stable reference → adjacent checks fuse.
 export const failInvalidType = (input: Val): (value: unknown) => ErrorDetails => {
   const em = input.e.errorMessage;
-  const override = em !== undefined ? (em.type !== undefined ? em.type : em._) : undefined;
-  return B_invalidInputBuilder(undefined, undefined, override)(input);
+  const override = em !== U ? (em.type !== U ? em.type : em._) : U;
+  return B_invalidInputBuilder(U, U, override)(input);
 }
 
 export const B_embed = (b: Val, value: unknown): string => {
@@ -192,23 +192,23 @@ export const B_operationArg = (
   // monomorphic property reads in the hot merge/parse loops and faster
   // allocation. Keep this canonical order in sync across all Val creators.
   return {
-    b: undefined,
-    p: undefined,
+    b: U,
+    p: U,
     v: _var,
     i: operationArgVar,
     s: schema,
-    io: undefined,
+    io: U,
     e: expected,
-    prev: undefined,
+    prev: U,
     f: valFlagNone,
-    d: undefined,
-    fv: undefined,
+    d: U,
+    fv: U,
     cp: "",
     hd: "",
-    fz: undefined,
-    vc: undefined,
-    u: undefined,
-    t: undefined,
+    fz: U,
+    vc: U,
+    u: U,
+    t: U,
     path: pathEmpty,
     g: {
       d: defs,
@@ -216,7 +216,7 @@ export const B_operationArg = (
       e: [],
       v: -1,
     },
-    o: undefined,
+    o: U,
   };
 }
 
@@ -277,7 +277,7 @@ export const B_makeInvalidConversionDetails = (input: Val, to: Internal, cause: 
 // Checks run against `prev.var()`, so the runtime type at check time
 // is `prev.schema`, not the post-narrowing schema on the current val.
 const B_receivedSchema = (val: Val): Internal => {
-  return val.prev !== undefined ? val.prev.s : val.s;
+  return val.prev !== U ? val.prev.s : val.s;
 }
 
 export const B_makeInvalidInputDetails = (
@@ -290,12 +290,12 @@ export const B_makeInvalidInputDetails = (
   reasonOverride?: string
 ): ErrorDetails => {
   let reasonRef =
-    reasonOverride !== undefined
+    reasonOverride !== U
       ? reasonOverride
       : `Expected ${toExpression(expected)}, received ${
           includeInput ? stringify(input) : toExpression(received)
         }`;
-  if (unionErrors !== undefined) {
+  if (unionErrors !== U) {
     const caseErrors = unionErrors;
     const seenReasons = new Set<string>();
     for (let idx = 0; idx < caseErrors.length; idx++) {
@@ -335,7 +335,7 @@ export const B_invalidInputBuilder = (
   includeInput: boolean = true
 ): (input: Val) => (value: unknown) => ErrorDetails => {
   return (input: Val) => {
-    const expected_ = expected !== undefined ? expected : input.e;
+    const expected_ = expected !== U ? expected : input.e;
     const received = B_receivedSchema(input);
     const path = extraPath === pathEmpty ? input.path : pathConcat(input.path, extraPath);
     return (value: unknown) =>
@@ -345,7 +345,7 @@ export const B_invalidInputBuilder = (
         path,
         value,
         includeInput,
-        undefined,
+        U,
         reasonOverride
       );
   };
@@ -358,10 +358,10 @@ export const B_failWithErrorMessage = (
 ): (input: Val) => (value: unknown) => ErrorDetails => {
   return (input: Val) => {
     const em = input.e.errorMessage as Record<string, string | undefined> | undefined;
-    const override = em !== undefined ? (em[key] !== undefined ? em[key] : em["_"]) : undefined;
-    const m = override !== undefined ? override : defaultMessage;
-    if (m !== undefined) {
-      return B_invalidInputBuilder(undefined, undefined, m)(input);
+    const override = em !== U ? (em[key] !== U ? em[key] : em["_"]) : U;
+    const m = override !== U ? override : defaultMessage;
+    if (m !== U) {
+      return B_invalidInputBuilder(U, U, m)(input);
     } else {
       return failInvalidType(input);
     }
@@ -428,14 +428,14 @@ export const B_merge = (val: Val, hoistCond?: { contents: string }): string => {
   let current: Val | undefined = val;
   let code = "";
 
-  while (current !== undefined) {
+  while (current !== U) {
     const val: Val = current;
     current = val.prev;
 
     let currentCode = "";
 
     if (val.vc) {
-      if (hoistCond !== undefined && B_isHoistable(val)) {
+      if (hoistCond !== U && B_isHoistable(val)) {
         // Partition: route type-narrows to hoistCond, emit refines inline.
         // `noValidation` is intentionally bypassed for the hoisted part —
         // the cond routes between union cases, it doesn't reject, so
@@ -510,26 +510,26 @@ export const B_next = (prev: Val, initial: string, schema: Internal, expected: I
   // is actually safe is an open question, not a settled design.
   // Canonical Val field order (see B_operationArg).
   return {
-    b: undefined,
-    p: undefined,
+    b: U,
+    p: U,
     v: _notVar,
     i: initial,
     s: schema,
-    io: undefined,
+    io: U,
     e: expected,
     prev,
     f: valFlagNone,
     d: prev.d,
-    fv: undefined,
+    fv: U,
     cp: "",
     hd: "",
-    fz: undefined,
-    vc: undefined,
-    u: undefined,
+    fz: U,
+    vc: U,
+    u: U,
     t: true,
     path: prev.path,
     g: prev.g,
-    o: undefined,
+    o: U,
   };
 }
 
@@ -539,26 +539,26 @@ export const B_refine = (val: Val, schema: Internal = val.s, checks?: Check[], e
   const shouldLink = val.v !== _var;
   // Canonical Val field order (see B_operationArg).
   const nextVal: Val = {
-    b: undefined,
-    p: undefined,
+    b: U,
+    p: U,
     v: shouldLink ? _prevVar : _var,
     i: val.i,
     s: schema,
-    io: undefined,
+    io: U,
     e: expected,
     prev: val,
     f: val.f,
     d: val.d,
-    fv: undefined,
+    fv: U,
     cp: "",
     hd: "",
-    fz: undefined,
+    fz: U,
     vc: checks,
-    u: undefined,
+    u: U,
     t: val.t,
     path: val.path,
     g: val.g,
-    o: undefined,
+    o: U,
   };
   if (shouldLink) {
     B_linkVar(val, nextVal);
@@ -569,7 +569,7 @@ export const B_refine = (val: Val, schema: Internal = val.s, checks?: Check[], e
 // Lazy-allocate helper for mutating an existing val (as opposed to
 // building a local array and passing it through `refine`).
 export const B_pushCheck = (val: Val, check: Check): void => {
-  if (val.vc !== undefined) {
+  if (val.vc !== U) {
     val.vc.push(check);
   } else {
     val.vc = [check];
@@ -583,40 +583,40 @@ export const B_pushCheck = (val: Val, check: Check): void => {
 export const B_markOutput = (val: Val, valInput: Val): Val => {
   let deferredInputChecks: Check[] | undefined;
   const inputRefiner = valInput.e.inputRefiner;
-  if (inputRefiner !== undefined) {
+  if (inputRefiner !== U) {
     const checks = inputRefiner(valInput);
     if (checks.length > 0) {
-      if (valInput.prev !== undefined) {
+      if (valInput.prev !== U) {
         for (let i = 0; i < checks.length; i++) {
           B_pushCheck(valInput, checks[i]!);
         }
-        deferredInputChecks = undefined;
+        deferredInputChecks = U;
       } else {
         deferredInputChecks = checks;
       }
     } else {
-      deferredInputChecks = undefined;
+      deferredInputChecks = U;
     }
   } else {
-    deferredInputChecks = undefined;
+    deferredInputChecks = U;
   }
 
   let outputChecks: Check[] | undefined;
   const refiner = val.e.refiner;
-  if (refiner !== undefined) {
+  if (refiner !== U) {
     const checks = refiner(val);
-    outputChecks = checks.length > 0 ? checks : undefined;
+    outputChecks = checks.length > 0 ? checks : U;
   } else {
-    outputChecks = undefined;
+    outputChecks = U;
   }
 
   let result: Val;
-  if (deferredInputChecks !== undefined && outputChecks !== undefined) {
-    result = B_refine(val, undefined, deferredInputChecks.concat(outputChecks));
-  } else if (deferredInputChecks !== undefined) {
-    result = B_refine(val, undefined, deferredInputChecks);
-  } else if (outputChecks !== undefined) {
-    result = B_refine(val, undefined, outputChecks);
+  if (deferredInputChecks !== U && outputChecks !== U) {
+    result = B_refine(val, U, deferredInputChecks.concat(outputChecks));
+  } else if (deferredInputChecks !== U) {
+    result = B_refine(val, U, deferredInputChecks);
+  } else if (outputChecks !== U) {
+    result = B_refine(val, U, outputChecks);
   } else {
     result = val;
   }
@@ -637,7 +637,7 @@ export const B_hoistChildChecks = (parent: Val, child: Val, key: string): void =
         f: check.f,
       });
     });
-    child.vc = undefined;
+    child.vc = U;
   }
 }
 
@@ -651,32 +651,32 @@ export const B_dynamicScope = (from: Val, locationVar: string): Val => {
   const expectedAdditionalItems = from.e.additionalItems;
   // Canonical Val field order (see B_operationArg).
   return {
-    b: undefined,
+    b: U,
     p: from,
     v: _notVarBeforeValidation,
     i: `${from.v()}[${locationVar}]`,
     s:
-      schemaAdditionalItems !== undefined && typeof schemaAdditionalItems !== "string"
+      schemaAdditionalItems !== U && typeof schemaAdditionalItems !== "string"
         ? schemaAdditionalItems
         : unknown,
-    io: undefined,
+    io: U,
     e:
-      expectedAdditionalItems !== undefined && typeof expectedAdditionalItems !== "string"
+      expectedAdditionalItems !== U && typeof expectedAdditionalItems !== "string"
         ? expectedAdditionalItems
         : unknown,
-    prev: undefined,
+    prev: U,
     f: from.f,
-    d: undefined,
-    fv: undefined,
+    d: U,
+    fv: U,
     cp: "",
     hd: "",
-    fz: undefined,
-    vc: undefined,
-    u: undefined,
-    t: undefined,
+    fz: U,
+    vc: U,
+    u: U,
+    t: U,
     path: pathEmpty,
     g: from.g,
-    o: undefined,
+    o: U,
   };
 }
 
@@ -730,25 +730,25 @@ export const B_scope = (val: Val): Val => {
   // Canonical Val field order (see B_operationArg).
   const nextVal: Val = {
     b: val,
-    p: undefined,
+    p: U,
     v: shouldLink ? _bondVar : _var,
     i: val.i,
     s: val.s,
     io: val.io,
     e: val.e,
-    prev: undefined,
+    prev: U,
     f: flagNone,
     d: val.d, // See the aliasing note on B_next's `d: prev.d` above.
-    fv: undefined,
+    fv: U,
     cp: "",
     hd: "",
-    fz: undefined,
-    vc: undefined,
+    fz: U,
+    vc: U,
     u: false,
     t: false,
     path: val.path,
     g: val.g,
-    o: undefined,
+    o: U,
   };
   if (shouldLink) {
     B_linkVar(val, nextVal);
@@ -790,7 +790,7 @@ export const B_effectCtx = (input: Val): EffectCtx => {
   return {
     fail: (message: string, path: Path = pathEmpty): never => {
       const error = new SuryError(
-        B_invalidInputBuilder(undefined, path, message, false)(input)(void 0)
+        B_invalidInputBuilder(U, path, message, false)(input)(U)
       );
       // Read about this in shouldPrependPathKey comment.
       (error as unknown as Record<string, unknown>)[shouldPrependPathKey] = 1;
@@ -814,7 +814,7 @@ const B_mergeWithCatch = (
     // FIXME: Instead of this wrap all S.transform in a try/catch
     !flagUnsafeHas(val.f, valFlagAsync)
   ) {
-    return valCode + (appendSafe !== undefined ? appendSafe() : "");
+    return valCode + (appendSafe !== U ? appendSafe() : "");
   } else {
     const errorVar = B_varWithoutAllocation(val.g);
 
@@ -824,7 +824,7 @@ const B_mergeWithCatch = (
       val.i = `${val.i}.catch(${errorVar}=>{${catchCode}})`;
     }
     return `try{${valCode}${
-      appendSafe !== undefined ? appendSafe() : ""
+      appendSafe !== U ? appendSafe() : ""
     }}catch(${errorVar}){${catchCode}}`;
   }
 }
@@ -835,7 +835,7 @@ export const B_mergeWithPathPrepend = (
   locationVar?: string,
   appendSafe?: () => string
 ): string => {
-  if (val.path === pathEmpty && locationVar === undefined) {
+  if (val.path === pathEmpty && locationVar === U) {
     return B_merge(val);
   } else {
     return B_mergeWithCatch(
@@ -843,7 +843,7 @@ export const B_mergeWithPathPrepend = (
       (errorVar) =>
         `${errorVar}.path=${
           parent.path === "" ? "" : `${inlinedValueFromString(parent.path)}+`
-        }${locationVar !== undefined ? `'["'+${locationVar}+'"]'+` : ""}${errorVar}.path`,
+        }${locationVar !== U ? `'["'+${locationVar}+'"]'+` : ""}${errorVar}.path`,
       appendSafe
     );
   }

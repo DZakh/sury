@@ -4,7 +4,7 @@ import { Option_getOr, TupleCtx } from "./operations";
 import { arrayDecoder, completeObjectVal, makeObjectVal, objectDecoder, optionFactory, unionFactory, valGet } from "./composites";
 import { getOutputSchema, parse, reverse } from "./parse";
 import { baseSchema, copySchema, globalConfig, panic, updateOutput } from "./schema";
-import { Internal, Val, immutableEmptyArray, isLiteral, isSchemaObject, itemSymbol, toExpression } from "./types";
+import { Internal, U, Val, immutableEmptyArray, isLiteral, isSchemaObject, itemSymbol, toExpression } from "./types";
 import { Path, inlinedValueFromString, pathConcat, pathEmpty, pathFromInlinedLocation } from "./path";
 import { arrayTag, instanceTag, objectTag } from "./tags";
 
@@ -51,7 +51,7 @@ const makeFieldOr = (field: (location: string, schema: Internal) => unknown) =>
 const proxifyShapedSchema = (schema: Internal, from: string[], fromFlattened?: number): unknown => {
   const mut = copySchema(getOutputSchema(schema));
   mut.from = from;
-  if (fromFlattened !== undefined) {
+  if (fromFlattened !== U) {
     mut.fromFlattened = fromFlattened;
   }
   return new Proxy(mut, {
@@ -62,15 +62,15 @@ const proxifyShapedSchema = (schema: Internal, from: string[], fromFlattened?: n
         const location = prop as string;
 
         let maybeField: Internal | undefined;
-        if (target.properties !== undefined) {
+        if (target.properties !== U) {
           maybeField = target.properties[location];
-        } else if (target.items !== undefined) {
+        } else if (target.items !== U) {
           // If there are no properties, then it must be Tuple
           maybeField = target.items[location as unknown as number];
         } else {
-          maybeField = undefined;
+          maybeField = U;
         }
-        if (maybeField === undefined) {
+        if (maybeField === U) {
           panic(`Cannot read property "${location}" of ${toExpression(target)}`);
         }
 
@@ -103,7 +103,7 @@ function schemaNested(this: AdvancedObjectCtx & Record<string, unknown>, fieldNa
   const cacheId = `~${fieldName}`;
 
   const cachedCtx = parentCtx[cacheId] as AdvancedObjectCtx | undefined;
-  if (cachedCtx !== undefined) {
+  if (cachedCtx !== U) {
     return cachedCtx;
   } else {
     const properties = Object.create(null) as Record<string, Internal>;
@@ -183,7 +183,7 @@ export const schemaObject = (
   if (typeof definer !== "function") {
     return definitionToSchema(definer);
   }
-  let flattened: Internal[] | undefined = void 0;
+  let flattened: Internal[] | undefined = U;
   const properties = Object.create(null) as Record<string, Internal>;
 
   const flatten = (schema: Internal): unknown => {
@@ -194,9 +194,9 @@ export const schemaObject = (
         const key = flattenedKeys[idx]!;
         const flattenedSchema = flattenedProperties[key]!;
         const existing = properties[key];
-        if (existing !== undefined && existing === flattenedSchema) {
+        if (existing !== U && existing === flattenedSchema) {
           // Same field flattened in from two places — already registered, skip.
-        } else if (existing !== undefined) {
+        } else if (existing !== U) {
           panic(`The field "${key}" defined twice with incompatible schemas`);
         } else {
           properties[key] = flattenedSchema;
@@ -240,7 +240,7 @@ export const schemaObject = (
   mut.decoder = objectDecoder;
   mut.parser = shapedParser;
   mut.to = definitionToShapedSchema(definition);
-  if (flattened !== undefined) {
+  if (flattened !== U) {
     mut.flattened = flattened;
   }
   return mut;
@@ -295,7 +295,7 @@ const getValByFrom = (input: Val, from: string[], idx: number): Val => {
   // the right `input.fv[fromFlattened]` before calling this) — this walk only
   // needs to handle a plain nested `from` path.
   const key = from[idx];
-  if (key !== undefined) {
+  if (key !== U) {
     return getValByFrom(input.d![key]!, from, idx + 1);
   } else {
     return input;
@@ -315,16 +315,16 @@ const assembleShapedObject = (
 ): Val => {
   const output = makeObjectVal(input, schema);
   output.io = true;
-  if (init !== undefined) {
+  if (init !== U) {
     init(output);
   }
-  if (schema.items !== undefined) {
+  if (schema.items !== U) {
     const items = schema.items;
     for (let idx = 0; idx < items.length; idx++) {
       const location = String(idx);
       B_addObjectField(output, location, field(location, items[idx]!));
     }
-  } else if (schema.properties !== undefined) {
+  } else if (schema.properties !== U) {
     const properties = schema.properties;
     const keys = Object.keys(properties);
     for (let idx = 0; idx < keys.length; idx++) {
@@ -334,7 +334,7 @@ const assembleShapedObject = (
         B_addObjectField(output, location, field(location, properties[location]!));
       }
     }
-  } else if (onMissing !== undefined) {
+  } else if (onMissing !== U) {
     onMissing();
   } else {
     panic(
@@ -347,11 +347,11 @@ const assembleShapedObject = (
 
 const getShapedParserOutput = (input: Val, targetSchema: Internal): Val => {
   let v: Val;
-  if (targetSchema.fromFlattened !== undefined) {
+  if (targetSchema.fromFlattened !== U) {
     v = B_scope(
       getValByFrom(input.fv![targetSchema.fromFlattened]!, targetSchema.from!, 0)
     );
-  } else if (targetSchema.from !== undefined) {
+  } else if (targetSchema.from !== U) {
     v = B_scope(getValByFrom(input, targetSchema.from, 0));
   } else if (isLiteral(targetSchema)) {
     v = B_nextConst(input, targetSchema);
@@ -360,14 +360,14 @@ const getShapedParserOutput = (input: Val, targetSchema: Internal): Val => {
       getShapedParserOutput(input, childSchema)
     );
   }
-  v.prev = undefined;
+  v.prev = U;
   v.e = targetSchema;
   return v;
 }
 
 const shapedParser: Builder = (input: Val) => {
   const flattened = input.e.flattened;
-  if (flattened !== undefined) {
+  if (flattened !== U) {
     const flattenedVals: Val[] = [];
     for (let idx = 0; idx < flattened.length; idx++) {
       const flattenedSchema = flattened[idx]!;
@@ -377,7 +377,7 @@ const shapedParser: Builder = (input: Val) => {
       // would re-apply field-level transforms on the already-transformed value
       // (issue #271).
       let flattenedVal: Val;
-      if (flattenedSchema.to !== undefined) {
+      if (flattenedSchema.to !== U) {
         // The flattened schema has its own reshape/transform. Mark the input as
         // output so the parse loop skips the decoder and runs only that `.to`,
         // reading the decoded fields back through the shared `vals`.
@@ -399,7 +399,7 @@ const shapedParser: Builder = (input: Val) => {
         // from `prev` (as getShapedParserOutput does) so `merge` doesn't
         // re-emit the parent's declarations. Done before markOutput so any
         // refiner wrap it adds still points at the assembled object.
-        assembled.prev = undefined;
+        assembled.prev = U;
         flattenedVal = B_markOutput(assembled, assembled);
       }
       flattenedVals.push(flattenedVal);
@@ -416,16 +416,16 @@ const shapedParser: Builder = (input: Val) => {
 }
 
 const prepareShapedSerializerAcc = (acc: ShapedSerializerAcc, input: Val): void => {
-  if (input.e.from !== undefined) {
+  if (input.e.from !== U) {
     const from = input.e.from;
     const fromFlattened = input.e.fromFlattened;
     let accAtFrom: ShapedSerializerAcc;
-    if (fromFlattened !== undefined) {
-      if (acc.flattened === undefined) {
+    if (fromFlattened !== U) {
+      if (acc.flattened === U) {
         acc.flattened = [];
       }
       const existing = acc.flattened[fromFlattened];
-      if (existing === undefined) {
+      if (existing === U) {
         const newAcc: ShapedSerializerAcc = {};
         acc.flattened[fromFlattened] = newAcc;
         accAtFrom = newAcc;
@@ -438,7 +438,7 @@ const prepareShapedSerializerAcc = (acc: ShapedSerializerAcc, input: Val): void 
     for (let idx = 0; idx < from.length; idx++) {
       const key = from[idx]!;
       let p: Record<string, ShapedSerializerAcc>;
-      if (accAtFrom.properties !== undefined) {
+      if (accAtFrom.properties !== U) {
         p = accAtFrom.properties;
       } else {
         p = {};
@@ -446,7 +446,7 @@ const prepareShapedSerializerAcc = (acc: ShapedSerializerAcc, input: Val): void 
         accAtFrom.properties = p;
       }
       const existingAcc = p[key];
-      if (existingAcc !== undefined) {
+      if (existingAcc !== U) {
         accAtFrom = existingAcc;
       } else {
         const newAcc: ShapedSerializerAcc = {};
@@ -455,7 +455,7 @@ const prepareShapedSerializerAcc = (acc: ShapedSerializerAcc, input: Val): void 
       }
     }
     accAtFrom.val = input;
-  } else if (input.d !== undefined) {
+  } else if (input.d !== U) {
     const vals = input.d;
     const keys = Object.keys(vals);
     for (let idx = 0; idx < keys.length; idx++) {
@@ -470,7 +470,7 @@ const getShapedSerializerOutput = (
   targetSchema: Internal,
   path: Path
 ): Val => {
-  if (acc !== undefined && acc.val !== undefined) {
+  if (acc !== U && acc.val !== U) {
     // Placement of an already-decoded val — don't overwrite its schema (#284);
     // parse only re-advances `e` and emits nothing for an output val
     const v = B_scope(acc.val);
@@ -479,7 +479,7 @@ const getShapedSerializerOutput = (
     return parse(v);
   } else if (isLiteral(targetSchema)) {
     const v = B_nextConst(input, targetSchema, targetSchema);
-    v.prev = undefined;
+    v.prev = U;
     v.p = input;
     v.v = _notVarAtParent;
     v.io = true;
@@ -487,13 +487,13 @@ const getShapedSerializerOutput = (
   } else {
     // When acc is undefined (discriminant field with no input), follow the to chain
     // to get the actual output schema properties (e.g., for reversed transformed objects)
-    const resolvedTargetSchema = acc === undefined ? getOutputSchema(targetSchema) : targetSchema;
+    const resolvedTargetSchema = acc === U ? getOutputSchema(targetSchema) : targetSchema;
 
     const missingInput = (): never => {
       // PORT-NOTE: the source shadows `path` here; renamed to `path2` (TS
       // can't redeclare a parameter in the same scope).
       const path2 =
-        targetSchema.from !== undefined
+        targetSchema.from !== U
           ? path + targetSchema.from.map((item) => `["${item}"]`).join("")
           : path;
       return B_invalidOperation(
@@ -503,7 +503,7 @@ const getShapedSerializerOutput = (
     };
 
     // A dict-like target has no fixed locations to walk without an input acc
-    if (acc === undefined && typeof resolvedTargetSchema.additionalItems === objectTag) {
+    if (acc === U && typeof resolvedTargetSchema.additionalItems === objectTag) {
       return missingInput();
     }
 
@@ -513,17 +513,17 @@ const getShapedSerializerOutput = (
       (location, childSchema) =>
         getShapedSerializerOutput(
           input,
-          acc !== undefined && acc.properties !== undefined ? acc.properties[location] : undefined,
+          acc !== U && acc.properties !== U ? acc.properties[location] : U,
           childSchema,
           pathConcat(path, pathFromInlinedLocation(B_inlineLocation(input.g, location)))
         ),
       (v) => {
         v.e = resolvedTargetSchema;
-        v.prev = undefined;
+        v.prev = U;
         v.p = input;
         v.v = _notVarAtParent;
         const flattened = resolvedTargetSchema.flattened;
-        if (flattened !== undefined && acc !== undefined && acc.flattened !== undefined) {
+        if (flattened !== U && acc !== U && acc.flattened !== U) {
           const flattenedSchemas = flattened;
           const flattenedAcc = acc.flattened;
           flattenedAcc.forEach((acc, idx) => {
@@ -570,7 +570,7 @@ export const definitionToSchema = (definition: unknown): Internal => {
     if (isSchemaObject(node)) {
       return node as Internal;
     } else {
-      return undefined;
+      return U;
     }
   });
 }
@@ -581,7 +581,7 @@ const traverseDefinition = (
 ): Internal => {
   if (typeof definition === objectTag && definition !== null) {
     const s = onNode(definition);
-    if (s !== undefined) {
+    if (s !== U) {
       return s;
     } else {
       if (Array.isArray(definition)) {

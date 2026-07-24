@@ -1,6 +1,6 @@
 import { baseSchema, cached } from "./schema";
 import { B_embed, B_embedInvalidInput, B_inlineConst, B_next, B_nextConst, B_refine, B_unsupportedDecode, B_varWithoutAllocation, _var, failInvalidType } from "./builder";
-import { Check, Internal, Val, isLiteral } from "./types";
+import { Check, Internal, U, Val, isLiteral } from "./types";
 import { Builder } from "./builder";
 import { flagDisableNanNumberValidation, flagUnsafeHas } from "./flags";
 import { Tag, bigintTag, booleanTag, instanceTag, nanTag, nullTag, numberTag, objectTag, stringTag, symbolTag, tagFlagBigint, tagFlagBoolean, tagFlagNaN, tagFlagNull, tagFlagNumber, tagFlagRef, tagFlagString, tagFlagSymbol, tagFlagUndefined, tagFlagUnion, tagFlagUnknown, tagFlags, undefinedTag, unknownTag } from "./tags";
@@ -255,13 +255,13 @@ export const literalDecoder: Builder = (input: Val) => {
 
 export const unit = () =>
   cached(undefinedTag, undefinedTag, (s) => {
-    s.const = void 0;
+    s.const = U;
     s.decoder = literalDecoder;
   });
 
 export const void_ = () =>
   cached("void", undefinedTag, (s) => {
-    s.const = void 0;
+    s.const = U;
     s.name = "void";
     s.decoder = literalDecoder;
   });
