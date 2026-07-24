@@ -1,7 +1,7 @@
 import { Literal_parse, isArrayCond, jsonName, objectTagCond, setHas, unit } from "./primitives";
 import { baseSchema, getOrRethrow, panic, unknown, updateOutput } from "./schema";
 import { getOutputSchema, nestedLoc, nestedOptionParser, never_, parse, parseDynamic, typeCheckCond } from "./parse";
-import { B_addObjectField, B_addKey, B_scope, B_asyncVal, B_dynamicScope, B_embed, B_failWithArg, B_hoistChildChecks, B_hoistDecl, B_inlineConst, B_inlineLocation, B_isHoistable, B_makeInvalidInputDetails, B_markOutput, B_merge, B_mergeWithPathPrepend, B_next, B_nextConst, B_pushCheck, B_refine, B_throw, B_unsupportedDecode, B_val, B_varWithoutAllocation, Builder, U, _notVar, _notVarAtParent, _var, failInvalidType } from "./builder";
+import { B_addObjectField, B_addKey, B_scope, B_asyncVal, B_dynamicScope, B_embed, B_failWithArg, B_hoistChildChecks, B_hoistDecl, B_inlineConst, B_inlineLocation, B_isHoistable, B_makeInvalidInputDetails, B_markOutput, B_merge, B_mergeWithPathPrepend, B_next, B_nextConst, B_pushCheck, B_refine, B_throw, B_unsupportedDecode, B_varWithoutAllocation, Builder, _notVar, _notVarAtParent, _var, failInvalidType } from "./builder";
 import { AdditionalItems, Check, ErrorDetails, Internal, SuryErrorRecord, Val, immutableEmptyArray, immutableEmptyObject, isLiteral, isOptional } from "./types";
 import { flagUnsafeHas, valFlagAsync, valFlagNone } from "./flags";
 import { pathConcat, pathFromInlinedLocation } from "./path";
@@ -17,12 +17,13 @@ const isItemSchema = (x: AdditionalItems | undefined): x is Internal =>
 type CheckCache = { contents: Check[] | undefined };
 
 export const makeObjectVal = (prev: Val, schema: Internal): Val => {
-  return B_val(
-    U,
-    U,
-    _notVar,
-    "",
-    (schema.type === arrayTag
+  // Canonical Val field order (see B_operationArg in builder.ts).
+  return {
+    b: undefined,
+    p: undefined,
+    v: _notVar,
+    i: "",
+    s: (schema.type === arrayTag
       ? {
           type: arrayTag,
           items: [],
@@ -36,17 +37,22 @@ export const makeObjectVal = (prev: Val, schema: Internal): Val => {
           additionalItems: "strict",
           decoder: objectDecoder,
         }) as Internal,
-    U,
-    prev.e,
+    io: undefined,
+    e: prev.e,
     prev,
-    valFlagNone,
-    Object.create(null),
-    U,
-    U,
-    true,
-    prev.path,
-    prev.g
-  );
+    f: valFlagNone,
+    d: Object.create(null),
+    fv: undefined,
+    cp: "",
+    hd: "",
+    fz: undefined,
+    vc: undefined,
+    u: undefined,
+    t: true,
+    path: prev.path,
+    g: prev.g,
+    o: undefined,
+  };
 }
 export const completeObjectVal = (objectVal: Val): Val => {
   const isArray = objectVal.s.type === arrayTag;
@@ -1408,23 +1414,29 @@ export const valGet = (parent: Val, location: string): Val => {
 
     const pathAppend = pathFromInlinedLocation(B_inlineLocation(parent.g, location));
 
-    const item = B_val(
-      U,
-      parent,
-      _notVarAtParent,
-      isLiteral(schema) ? B_inlineConst(parent, schema) : `${parent.v()}${pathAppend}`,
-      schema,
-      U,
-      schema,
-      U,
-      valFlagNone,
-      U,
-      U,
-      U,
-      U,
-      pathConcat(parent.path, pathAppend),
-      parent.g
-    );
+    // Canonical Val field order (see B_operationArg in builder.ts).
+    const item: Val = {
+      b: undefined,
+      p: parent,
+      v: _notVarAtParent,
+      i: isLiteral(schema) ? B_inlineConst(parent, schema) : `${parent.v()}${pathAppend}`,
+      s: schema,
+      io: undefined,
+      e: schema,
+      prev: undefined,
+      f: valFlagNone,
+      d: undefined,
+      fv: undefined,
+      cp: "",
+      hd: "",
+      fz: undefined,
+      vc: undefined,
+      u: undefined,
+      t: undefined,
+      path: pathConcat(parent.path, pathAppend),
+      g: parent.g,
+      o: undefined,
+    };
     vals[location] = item;
     return item;
   }

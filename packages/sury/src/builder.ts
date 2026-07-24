@@ -181,67 +181,43 @@ export const B_hoistDecl = (owner: Val, decl: string): void => {
 }
 
 
-// 1-char-minified placeholder for "field unset" in B_val calls.
-export const U = undefined;
-
-// THE single Val creator: every codegen Val is born here, so they all share
-// one object literal → ONE V8 hidden class → monomorphic property reads in
-// the hot merge/parse loops and cheap allocation. Positional args cover only
-// the fields that ever vary at creation; `cp`/`hd` always start "" and
-// `fv`/`fz`/`o` always start unset, so they're hardcoded. Callers pass `U`
-// for unset slots. Add a new Val field HERE (and in the `Val` type), nowhere
-// else.
-export const B_val = (
-  b: Val | undefined,
-  p: Val | undefined,
-  v: () => string,
-  i: string,
-  s: Internal,
-  io: boolean | undefined,
-  e: Internal,
-  prev: Val | undefined,
-  f: Flag,
-  d: Record<string, Val> | undefined,
-  vc: Check[] | undefined,
-  u: boolean | undefined,
-  t: boolean | undefined,
-  path: Path,
-  g: BGlobal
-): Val => ({
-  b,
-  p,
-  v,
-  i,
-  s,
-  io,
-  e,
-  prev,
-  f,
-  d,
-  fv: U,
-  cp: "",
-  hd: "",
-  fz: U,
-  vc,
-  u,
-  t,
-  path,
-  g,
-  o: U,
-});
-
 export const B_operationArg = (
   schema: Internal,
   expected: Internal,
   flag: Flag,
   defs: Record<string, Internal> | undefined
 ): Val => {
-  return B_val(U, U, _var, operationArgVar, schema, U, expected, U, valFlagNone, U, U, U, U, pathEmpty, {
-    d: defs,
-    o: flag,
-    e: [],
-    v: -1,
-  });
+  // Every Val literal in the codegen path lists the same fields in the same
+  // order (undefined where unset) so V8 gives them all ONE hidden class —
+  // monomorphic property reads in the hot merge/parse loops and faster
+  // allocation. Keep this canonical order in sync across all Val creators.
+  return {
+    b: undefined,
+    p: undefined,
+    v: _var,
+    i: operationArgVar,
+    s: schema,
+    io: undefined,
+    e: expected,
+    prev: undefined,
+    f: valFlagNone,
+    d: undefined,
+    fv: undefined,
+    cp: "",
+    hd: "",
+    fz: undefined,
+    vc: undefined,
+    u: undefined,
+    t: undefined,
+    path: pathEmpty,
+    g: {
+      d: defs,
+      o: flag,
+      e: [],
+      v: -1,
+    },
+    o: undefined,
+  };
 }
 
 export const B_throw = (errorDetails: ErrorDetails): never => {
@@ -532,14 +508,58 @@ export const B_next = (prev: Val, initial: string, schema: Internal, expected: I
   // child vals are shared by reference with `prev`/`val`, not copied — see
   // the matching note on B_scope's `d: val.d` below. Whether that aliasing
   // is actually safe is an open question, not a settled design.
-  return B_val(U, U, _notVar, initial, schema, U, expected, prev, valFlagNone, prev.d, U, U, true, prev.path, prev.g);
+  // Canonical Val field order (see B_operationArg).
+  return {
+    b: undefined,
+    p: undefined,
+    v: _notVar,
+    i: initial,
+    s: schema,
+    io: undefined,
+    e: expected,
+    prev,
+    f: valFlagNone,
+    d: prev.d,
+    fv: undefined,
+    cp: "",
+    hd: "",
+    fz: undefined,
+    vc: undefined,
+    u: undefined,
+    t: true,
+    path: prev.path,
+    g: prev.g,
+    o: undefined,
+  };
 }
 
 // Pass a non-empty `~checks` or omit it. Never pass `~checks=[]` —
 // that would break the val.checks "absent iff no checks" invariant.
 export const B_refine = (val: Val, schema: Internal = val.s, checks?: Check[], expected: Internal = val.e): Val => {
   const shouldLink = val.v !== _var;
-  const nextVal = B_val(U, U, shouldLink ? _prevVar : _var, val.i, schema, U, expected, val, val.f, val.d, checks, U, val.t, val.path, val.g);
+  // Canonical Val field order (see B_operationArg).
+  const nextVal: Val = {
+    b: undefined,
+    p: undefined,
+    v: shouldLink ? _prevVar : _var,
+    i: val.i,
+    s: schema,
+    io: undefined,
+    e: expected,
+    prev: val,
+    f: val.f,
+    d: val.d,
+    fv: undefined,
+    cp: "",
+    hd: "",
+    fz: undefined,
+    vc: checks,
+    u: undefined,
+    t: val.t,
+    path: val.path,
+    g: val.g,
+    o: undefined,
+  };
   if (shouldLink) {
     B_linkVar(val, nextVal);
   }
@@ -629,27 +649,35 @@ export const B_dynamicScope = (from: Val, locationVar: string): Val => {
   // dict sources; the `unknown` fallback keeps a misuse safe instead of crashing.
   const schemaAdditionalItems = from.s.additionalItems;
   const expectedAdditionalItems = from.e.additionalItems;
-  return B_val(
-    U,
-    from,
-    _notVarBeforeValidation,
-    `${from.v()}[${locationVar}]`,
-    schemaAdditionalItems !== undefined && typeof schemaAdditionalItems !== "string"
-      ? schemaAdditionalItems
-      : unknown,
-    U,
-    expectedAdditionalItems !== undefined && typeof expectedAdditionalItems !== "string"
-      ? expectedAdditionalItems
-      : unknown,
-    U,
-    from.f,
-    U,
-    U,
-    U,
-    U,
-    pathEmpty,
-    from.g
-  );
+  // Canonical Val field order (see B_operationArg).
+  return {
+    b: undefined,
+    p: from,
+    v: _notVarBeforeValidation,
+    i: `${from.v()}[${locationVar}]`,
+    s:
+      schemaAdditionalItems !== undefined && typeof schemaAdditionalItems !== "string"
+        ? schemaAdditionalItems
+        : unknown,
+    io: undefined,
+    e:
+      expectedAdditionalItems !== undefined && typeof expectedAdditionalItems !== "string"
+        ? expectedAdditionalItems
+        : unknown,
+    prev: undefined,
+    f: from.f,
+    d: undefined,
+    fv: undefined,
+    cp: "",
+    hd: "",
+    fz: undefined,
+    vc: undefined,
+    u: undefined,
+    t: undefined,
+    path: pathEmpty,
+    g: from.g,
+    o: undefined,
+  };
 }
 
 export const B_nextConst = (from: Val, schema: Internal, expected?: Internal): Val => {
@@ -699,8 +727,29 @@ export const B_scope = (val: Val): Val => {
   const shouldLink = val.v !== _var;
 
   // TODO: Simplify bond
-  // `d: val.d` — see the aliasing note on B_next's `d: prev.d` above.
-  const nextVal = B_val(val, U, shouldLink ? _bondVar : _var, val.i, val.s, val.io, val.e, U, flagNone, val.d, U, false, false, val.path, val.g);
+  // Canonical Val field order (see B_operationArg).
+  const nextVal: Val = {
+    b: val,
+    p: undefined,
+    v: shouldLink ? _bondVar : _var,
+    i: val.i,
+    s: val.s,
+    io: val.io,
+    e: val.e,
+    prev: undefined,
+    f: flagNone,
+    d: val.d, // See the aliasing note on B_next's `d: prev.d` above.
+    fv: undefined,
+    cp: "",
+    hd: "",
+    fz: undefined,
+    vc: undefined,
+    u: false,
+    t: false,
+    path: val.path,
+    g: val.g,
+    o: undefined,
+  };
   if (shouldLink) {
     B_linkVar(val, nextVal);
   }

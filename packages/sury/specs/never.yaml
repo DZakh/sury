@@ -4,7 +4,7 @@ ts:
   input: never
   output: never
   instantiations: 254
-  bundleBytes: 3591
+  bundleBytes: 3589
 vs:
   zod: z.never()
 jsonSchema:
