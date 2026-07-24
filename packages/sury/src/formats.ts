@@ -1,9 +1,9 @@
 import { defsPath, recursiveDecoder, transform } from "./operations";
 import { array, arrayDecoder, completeObjectVal, dictFactory, makeObjectVal, unionDecoder, unionFactory, unionPerVariantVal, valGet } from "./composites";
-import { bool, float, inputToString, jsonName, literalDecoder, nullLiteral, numberDecoder, string, stringDecoderFn, unit } from "./primitives";
-import { baseSchema, cached, copySchema, unknown } from "./schema";
+import { bool, float, inputToString, jsonName, literalDecoder, nullLiteral, numberDecoder, string, stringDecoderFn } from "./primitives";
+import { baseSchema, cached, copySchema, unknown, updateOutput } from "./schema";
 import { B_addObjectField, B_embed, B_embedInvalidInput, B_failWithErrorMessage, B_next, B_nextConst, B_refine, B_unsupportedDecode, B_varWithoutAllocation, _var, failInvalidType } from "./builder";
-import { getDecoder, instanceDecoder, parse, reverse } from "./parse";
+import { getDecoder, getOutputSchema, instanceDecoder, parse, reverse } from "./parse";
 import { Internal, SchemaErrorMessage, U, Val, isLiteral } from "./types";
 import { Builder, Encoder } from "./builder";
 import { flagUnsafeHas } from "./flags";
@@ -107,7 +107,20 @@ export const jsonDecoderFn = (input: Val): Val => {
         itemVal.io = false;
 
         if (itemVal.s.type === unionTag && itemVal.s.has![undefinedTag]) {
-          itemVal.e = unionFactory([unit(), json()]);
+          // Per-variant conversion instead of a generic `undefined | JSON`
+          // check: an undefined variant stays undefined so the object
+          // rebuild omits the field, while non-jsonable variants get
+          // `.to(json)` appended and keep converting recursively (#311)
+          itemVal.e = unionFactory(
+            itemVal.s.anyOf!.map((variant) => {
+              const variantOutput = getOutputSchema(variant);
+              return variantOutput.type === undefinedTag || isJsonable(variantOutput)
+                ? variant
+                : updateOutput<Internal>(variant, (mut) => {
+                    mut.to = json();
+                  });
+            })
+          );
           const itemOutput = parse(itemVal);
           itemOutput.o = true;
           B_addObjectField(jsonVal, key, itemOutput);

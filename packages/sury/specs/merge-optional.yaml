@@ -4,7 +4,7 @@ ts:
   input: "{ name: string; _id?: string | undefined; _rev?: string | undefined; code: string; _deleted?: boolean | undefined; }"
   output: "{ name: string; _id?: string | undefined; _rev?: string | undefined; code: string; _deleted?: boolean | undefined; }"
   instantiations: 7626
-  bundleBytes: 10431
+  bundleBytes: 10433
 vs:
   zod:
     schema: "z.object({ _id: z.string().optional(), _rev: z.string().optional(), name: z.string(), code: z.string(), _deleted: z.boolean().optional() })"

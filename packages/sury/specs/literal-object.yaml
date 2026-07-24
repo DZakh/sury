@@ -8,7 +8,7 @@ ts:
   input: '{ foo: "bar"; }'
   output: '{ foo: "bar"; }'
   instantiations: 1043
-  bundleBytes: 9444
+  bundleBytes: 9447
 vs:
   zod: 'z.object({ foo: z.literal("bar") })'
 jsonSchema:
