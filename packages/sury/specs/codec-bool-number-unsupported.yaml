@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.boolean.with(S.to, S.number)
+  input: boolean
+  output: number
+  instantiations: 5106
+  bundleBytes: 4187
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "boolean" }'
+  output: '{ type: "number" }'
+operations:
+  parse:
+    creationError: Can't decode boolean to number. Use S.to to define a custom decoder
+  decode:
+    creationError: Can't decode boolean to number. Use S.to to define a custom decoder
+  encode:
+    creationError: Can't decode number to boolean. Use S.to to define a custom decoder

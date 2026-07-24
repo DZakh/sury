@@ -7,7 +7,7 @@
 import { test, expect, vi } from "vitest";
 import { listSpecFiles, readSpec, serialize, specId } from "../../spec/harness";
 import { runCheck } from "../../spec/report";
-import type { Spec } from "../../spec/format";
+import { isCreationError, type Spec } from "../../spec/format";
 
 // Every test here calls runCheck, which (for a schema that still evaluates)
 // runs a full recomputeGoldens — the same cold-start cost documented in
@@ -48,7 +48,8 @@ const mutateIdentityParse = (patch: (spec: Spec) => void): Spec => {
 
 test("stale golden (expression drifted from what the schema actually compiles to)", async () => {
   const spec = mutate((s) => {
-    if (s.operations.parse !== "identity") s.operations.parse.expression = "i=>i /* stale */";
+    if (s.operations.parse !== "identity" && !isCreationError(s.operations.parse))
+      s.operations.parse.expression = "i=>i /* stale */";
   });
   await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
     {
@@ -70,7 +71,7 @@ test("stale golden (expression drifted from what the schema actually compiles to
 
 test("stale golden (recorded example output no longer matches live behavior)", async () => {
   const spec = mutate((s) => {
-    if (s.operations.parse !== "identity") {
+    if (s.operations.parse !== "identity" && !isCreationError(s.operations.parse)) {
       const ex = s.operations.parse.examples.valid;
       if (ex && "output" in ex) ex.output = '"WRONG"';
     }
@@ -101,6 +102,33 @@ test("invalid _skip reason (not an enum value or todo(#...))", async () => {
     {
       "stderr": "✗ string
         ts.bundleBytes: invalid _skip reason "because-i-said-so"",
+      "stdout": "",
+    }
+  `);
+});
+
+// A baseline whose operations are rejected at creation (an unsupported `.to`),
+// so every direction is a `creationError` block instead of compiled code.
+const creationErrorBaseline = readSpec(
+  listSpecFiles().find((f) => specId(f) === "codec-bool-number-unsupported")!,
+);
+
+test("stale creationError golden (recorded message drifted from what the schema actually throws)", async () => {
+  const spec = structuredClone(creationErrorBaseline);
+  if (isCreationError(spec.operations.parse)) spec.operations.parse.creationError = "stale message";
+  await expect(runCheck("codec-bool-number-unsupported", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ codec-bool-number-unsupported
+        goldens stale — run \`pnpm spec check codec-bool-number-unsupported --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
+    @@ -13,7 +13,7 @@
+        output: '{ type: "number" }'
+      operations:
+        parse:
+    -     creationError: stale message
+    +     creationError: Can't decode boolean to number. Use S.to to define a custom decoder
+        decode:
+          creationError: Can't decode boolean to number. Use S.to to define a custom decoder
+        encode:",
       "stdout": "",
     }
   `);
@@ -370,7 +398,8 @@ test("schema source doesn't evaluate (syntax error)", async () => {
 test("multiple simultaneous problems all get their own guiding message", async () => {
   const spec = mutate((s) => {
     s.ts.bundleBytes = { _skip: "nonsense-reason" };
-    if (s.operations.parse !== "identity") s.operations.parse.expression = "i=>i /* stale */";
+    if (s.operations.parse !== "identity" && !isCreationError(s.operations.parse))
+      s.operations.parse.expression = "i=>i /* stale */";
   });
   await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
     {

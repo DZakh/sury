@@ -25,6 +25,7 @@ import {
   SKIP_REASONS,
   isSkip,
   isZodOverwrite,
+  isCreationError,
   validate,
   type Spec,
   type Operation,
@@ -127,12 +128,23 @@ const isNoop = (fn: Function): boolean =>
 // that doesn't hold, or a full op block that should be a shorthand.
 export const identityViolations = (schema: any, spec: Spec): string[] => {
   const out: string[] = [];
-  const parseCode = OP_BUILDER.parse(schema).toString();
+  const parseBuilt = buildOp("parse", schema);
+  const parseCode = "fn" in parseBuilt ? parseBuilt.fn.toString() : undefined;
   for (const opName of OP_ORDER) {
     const op = spec.operations[opName];
-    const fn = OP_BUILDER[opName](schema);
+    const built = opName === "parse" ? parseBuilt : buildOp(opName, schema);
+    // Rejected at operation creation: no compiled form, so the shorthand
+    // invariants don't apply. recomputeGoldens records/refreshes the
+    // `creationError` message, and the staleness diff carries any shape
+    // transition (expression↔creationError) — same as jsonSchema's
+    // success↔error string flips, which aren't gated here either.
+    if (!("fn" in built)) continue;
+    // Was a `{creationError}` block but now compiles — likewise left to
+    // recompute + staleness, not flagged as a shorthand violation.
+    if (isCreationError(op)) continue;
+    const fn = built.fn;
     const noop = isNoop(fn);
-    const matchesParse = opName !== "parse" && !noop && fn.toString() === parseCode;
+    const matchesParse = opName !== "parse" && !noop && parseCode !== undefined && fn.toString() === parseCode;
     if (op === "identity") {
       if (!noop)
         out.push(
@@ -183,18 +195,48 @@ const deriveJsonSchema = (schema: any): Spec["jsonSchema"] => ({
 // No example inputs needed, so `spec new` can fill this in immediately from `--ts`.
 export const scaffoldJsonSchema = (schema: any): Spec["jsonSchema"] => deriveJsonSchema(schema);
 
+// Compile an operation, capturing a conversion rejected at operation creation
+// as a message instead of letting it abort — the operation analogue of
+// toJsonSchemaOrError. Only a SuryError (`S.Error`) is caught: that's the
+// intended "this conversion is unsupported/ambiguous" signal. Any other throw
+// is an internal fault and propagates, surfacing loudly as "goldens could not
+// be computed" rather than freezing a bug as a golden.
+type BuiltOp = { fn: (input: any) => any } | { creationError: string };
+const buildOp = (opName: OpName, schema: any): BuiltOp => {
+  try {
+    return { fn: OP_BUILDER[opName](schema) };
+  } catch (e) {
+    // Grab the message before narrowing — `S.Error` (Sury's error type) doesn't
+    // structurally overlap the global `Error`, so casting the narrowed value is
+    // rejected; the cast is fine while `e` is still `unknown`.
+    const message = (e as Error).message;
+    if (e instanceof S.Error) return { creationError: message };
+    throw e;
+  }
+};
+
+// Map a successfully-compiled op fn to its canonical block/shorthand form.
+// `parseCode` is undefined when parse itself was rejected at creation, so no
+// `eq-to-parse` collapse is possible.
+const opBlockOrShorthand = (opName: OpName, fn: (input: any) => any, parseCode: string | undefined): Operation =>
+  isNoop(fn)
+    ? "identity"
+    : opName !== "parse" && parseCode !== undefined && fn.toString() === parseCode
+      ? "eq-to-parse"
+      : { expression: fn.toString(), examples: {} };
+
 // Can throw if `schema` isn't actually a usable schema (e.g. `--ts` evaluated
 // to `undefined` from a typo like `S.strng`) — callers decide how to report that.
 export const scaffoldOperations = (schema: any): Spec["operations"] => {
-  const parseCode = OP_BUILDER.parse(schema).toString();
+  const parseBuilt = buildOp("parse", schema);
+  const parseCode = "fn" in parseBuilt ? parseBuilt.fn.toString() : undefined;
   return Object.fromEntries(
     OP_ORDER.map((opName) => {
-      const fn = OP_BUILDER[opName](schema);
-      const op: Operation = isNoop(fn)
-        ? "identity"
-        : opName !== "parse" && fn.toString() === parseCode
-          ? "eq-to-parse"
-          : { expression: fn.toString(), examples: {} };
+      const built = opName === "parse" ? parseBuilt : buildOp(opName, schema);
+      const op: Operation =
+        "creationError" in built
+          ? { creationError: built.creationError }
+          : opBlockOrShorthand(opName, built.fn, parseCode);
       return [opName, op];
     }),
   ) as Spec["operations"];
@@ -234,6 +276,7 @@ const canonExample = (ex: Example): Example => {
 
 const canonOp = (op: Operation): Operation => {
   if (typeof op === "string") return op;
+  if (isCreationError(op)) return order(op, ["creationError"]);
   const o = order(op, ["expression", "examples"]);
   if (o.examples && typeof o.examples === "object") {
     const ex: Record<string, Example> = {};
@@ -366,10 +409,29 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
 
   next.jsonSchema = deriveJsonSchema(schema);
 
+  const parseBuilt = buildOp("parse", schema);
+  const parseCode = "fn" in parseBuilt ? parseBuilt.fn.toString() : undefined;
+  // Indexing by a `OpName` union narrows the value type to the intersection of
+  // the three fields (which drops `eq-to-parse`), so reassignments below go
+  // through this widened view.
+  const ops = next.operations as Record<OpName, Operation>;
   for (const opName of OP_ORDER) {
     const op = next.operations[opName];
     if (typeof op === "string") continue;
-    const fn = OP_BUILDER[opName](schema);
+    const built = opName === "parse" ? parseBuilt : buildOp(opName, schema);
+    if ("creationError" in built) {
+      // Rejected at creation — replace the whole block with the message. Any
+      // recorded expression/examples are dropped (they can't run).
+      ops[opName] = { creationError: built.creationError };
+      continue;
+    }
+    const fn = built.fn;
+    if (isCreationError(op)) {
+      // Was rejected, now compiles — rewrite to the canonical block/shorthand.
+      // Examples are author-owned and can't be invented, so start empty.
+      ops[opName] = opBlockOrShorthand(opName, fn, parseCode);
+      continue;
+    }
     if (!isSkip(op.expression)) op.expression = fn.toString();
     for (const [name, ex] of Object.entries(op.examples)) {
       const bench = ex.bench;
@@ -468,17 +530,32 @@ export const checkAliases = async (spec: Spec): Promise<string[]> => {
       if (js.output !== spec.jsonSchema.output)
         errs.push(`${label}: jsonSchema.output differs:\n${diffText(spec.jsonSchema.output, js.output)}`);
 
-      const aliasParseCode = OP_BUILDER.parse(aliasSchema).toString();
+      const aliasParseBuilt = buildOp("parse", aliasSchema);
+      const aliasParseCode = "fn" in aliasParseBuilt ? aliasParseBuilt.fn.toString() : undefined;
       for (const opName of OP_ORDER) {
         const op = spec.operations[opName];
-        const fn = OP_BUILDER[opName](aliasSchema);
+        const built = opName === "parse" ? aliasParseBuilt : buildOp(opName, aliasSchema);
+        if (isCreationError(op)) {
+          if ("fn" in built)
+            errs.push(`${label}: operations.${opName} is a \`creationError\` on schema but compiles on this alias`);
+          else if (built.creationError !== op.creationError)
+            errs.push(`${label}: operations.${opName}.creationError differs:\n${diffText(op.creationError, built.creationError)}`);
+          continue;
+        }
+        if (!("fn" in built)) {
+          errs.push(
+            `${label}: operations.${opName} compiles on schema but is rejected at operation creation on this alias: ${built.creationError}`,
+          );
+          continue;
+        }
+        const fn = built.fn;
         const noop = isNoop(fn);
         if (op === "identity") {
           if (!noop) errs.push(`${label}: operations.${opName} is \`identity\` on schema but not on this alias`);
         } else if (noop) {
           errs.push(`${label}: operations.${opName} compiles to identity on this alias but not on schema`);
         } else if (op === "eq-to-parse") {
-          if (fn.toString() !== aliasParseCode)
+          if (aliasParseCode === undefined || fn.toString() !== aliasParseCode)
             errs.push(
               `${label}: operations.${opName} is \`eq-to-parse\` on schema but does not compile to the same code as parse on this alias`,
             );

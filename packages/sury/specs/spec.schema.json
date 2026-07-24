@@ -284,6 +284,20 @@
                 "examples"
               ],
               "description": "Compiled codegen plus its runnable examples."
+            },
+            {
+              "type": "object",
+              "properties": {
+                "creationError": {
+                  "type": "string",
+                  "description": "The Sury error thrown when this operation is compiled (a conversion rejected at operation creation). Filled by `spec check --write`."
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "creationError"
+              ],
+              "description": "An operation that can't be compiled — the creation-time error, ratcheted like codegen."
             }
           ],
           "description": "unknown → Output, with validation (the untrusted-input direction)."
@@ -383,6 +397,20 @@
                 "examples"
               ],
               "description": "Compiled codegen plus its runnable examples."
+            },
+            {
+              "type": "object",
+              "properties": {
+                "creationError": {
+                  "type": "string",
+                  "description": "The Sury error thrown when this operation is compiled (a conversion rejected at operation creation). Filled by `spec check --write`."
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "creationError"
+              ],
+              "description": "An operation that can't be compiled — the creation-time error, ratcheted like codegen."
             }
           ],
           "description": "Input → Output, no top-level type narrowing (input is already typed)."
@@ -482,6 +510,20 @@
                 "examples"
               ],
               "description": "Compiled codegen plus its runnable examples."
+            },
+            {
+              "type": "object",
+              "properties": {
+                "creationError": {
+                  "type": "string",
+                  "description": "The Sury error thrown when this operation is compiled (a conversion rejected at operation creation). Filled by `spec check --write`."
+                }
+              },
+              "additionalProperties": false,
+              "required": [
+                "creationError"
+              ],
+              "description": "An operation that can't be compiled — the creation-time error, ratcheted like codegen."
             }
           ],
           "description": "Output → Input (the reverse direction)."
