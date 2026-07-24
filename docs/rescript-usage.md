@@ -928,7 +928,6 @@ When a conversion (via `S.to`, or implicitly by reversing the schema) has a unio
 > Two schemas have the **same type** when their type tags match — including the class for instances, the format for formatted primitives, and the reference for recursive schemas, where relevant. `S.int` (an `Int32`-formatted number) and `S.float` are different types, and so are `S.json` and `S.string` — even though every JSON string would validate against `S.string`.
 
 - **Checks run at operation creation time**, against the **derived** types — the actual schema at that point in the pipeline, which may be narrower than the originally defined one (an upstream transformation can refine it). Reversing a schema doesn't re-run the checks: it reverses the already-resolved per-variant pipelines.
-- **`S.unknown` is a normal type** whose tag only matches another `unknown`. An `unknown` source into a union of concrete types matches none of them, so it falls into per-variant decoding — each variant is attempted in definition order at runtime.
 - **Nested unions are flattened** before the rules apply: `S.union([S.string, S.union([S.float, S.bool])])` acts as a three-variant union. The exception is a union carrying its own format, transformation, or refinement — it's treated as a normal (non-union) schema on its side of the conversion.
 - **`S.never` marks an unreachable path.** `S.never` variants — including transformed ones like `S.never->S.to(S.float)`, which match by their `never` input — are ignored by type matching: they never trigger the exceptions below and don't count toward rule 4's coverage.
 
@@ -943,7 +942,7 @@ S.literal(Null.null)->S.to(S.unit) // null <-> undefined
 
 ##### Rule 2: non-union → union
 
-The built-in decoder is applied separately for every target variant, attempted in definition order, grouped by type:
+The built-in decoder is applied separately for every target variant, attempted in definition order, grouped by tag:
 
 ```rescript
 let schema = S.json->S.to(S.union([S.bigint, S.string]))
@@ -955,13 +954,15 @@ true->S.parseOrThrow(~to=schema) // throws — no implicit double decoding (true
 
 `S.json` is not the exact `string` type, so string inputs still go through variant decoding instead of passing through.
 
-**Grouped by type** means same-type variants form a single group at the position of the first one. The runtime value's type picks the group; only that group's variants are attempted, in definition order:
+**Grouped by tag** means same-tag variants form a single group at the position of the first one. The runtime value's tag picks the group; only that group's variants are attempted, in definition order:
 
 ```rescript
 let schema = S.json->S.to(S.union([S.literal("a"), S.float, S.literal("b")]))
 
 "b"->S.parseOrThrow(~to=schema) // "b" — tries "a", then "b"; the float variant is never attempted
 ```
+
+`S.unknown` is a normal type here — it only matches another `unknown`. An `unknown` source matches none of the concrete variants, so it takes the same path: every variant is attempted, grouped by tag, in definition order.
 
 **Exception — partial type match.** If the source has the same type as *some but not all* target variants, the operation is rejected when it's created. Sury can't tell whether you want a pass-through for the matching variant, decoding attempts in definition order, or simply widened the type with no decoding intent:
 
@@ -994,7 +995,7 @@ The `Invalid operation` error suggests these rewrites.
 
 ##### Rule 3: union → non-union
 
-The mirror of rule 2: every source variant gets its own built-in decoder to the target, dispatched in definition order, grouped by type:
+The mirror of rule 2: every source variant gets its own built-in decoder to the target, dispatched in definition order, grouped by tag:
 
 ```rescript
 let schema = S.union([S.bigint, S.string])->S.to(S.json)
