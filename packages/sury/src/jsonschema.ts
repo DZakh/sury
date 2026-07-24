@@ -6,7 +6,7 @@ import { SuryError, baseSchema, getOrRethrow, panic, unknown } from "./schema";
 import { Literal_parse, bool, float, int, jsonName, string } from "./primitives";
 import { B_makeInvalidInputDetails, B_operationArg } from "./builder";
 import { never_, parse, reverse } from "./parse";
-import { Internal, isLiteral, isOptional, toExpression } from "./types";
+import { Internal, U, isLiteral, isOptional, toExpression } from "./types";
 import { Path, pathConcat, pathDynamic, pathEmpty, pathFromLocation } from "./path";
 import { flagNone, flagUnsafeHas } from "./flags";
 import { arrayTag, booleanTag, neverTag, nullTag, numberTag, objectTag, refTag, stringTag, tagFlagArray, tagFlagObject, tagFlagUnion, tagFlags, undefinedTag, unionTag, unknownTag } from "./tags";
@@ -172,26 +172,26 @@ const applyMetadataOverlay = (
   schema: Internal,
   defs: Record<string, Internal>
 ): void => {
-  if (schema.description !== undefined) {
+  if (schema.description !== U) {
     jsonSchema.description = schema.description;
   }
-  if (schema.title !== undefined) {
+  if (schema.title !== U) {
     jsonSchema.title = schema.title;
   }
-  if (schema.deprecated !== undefined) {
+  if (schema.deprecated !== U) {
     jsonSchema.deprecated = schema.deprecated;
   }
-  if (schema.examples !== undefined) {
+  if (schema.examples !== U) {
     // If a schema is Jsonable, then examples are Jsonable too.
     jsonSchema.examples = schema.examples;
   }
-  if (schema["$defs"] !== undefined) {
+  if (schema["$defs"] !== U) {
     Object.assign(defs, schema["$defs"]);
   }
   const metadataRawSchema = Metadata_get(schema, jsonSchemaMetadataId) as
     | JSONSchemaT
     | undefined;
-  if (metadataRawSchema !== undefined) {
+  if (metadataRawSchema !== U) {
     Object.assign(jsonSchema, metadataRawSchema);
   }
 }
@@ -205,7 +205,7 @@ const encodeToJsonSchema = (
 ): JSONSchemaT | undefined => {
   const schemaInternal = schema;
   const reversed = reverse(schemaInternal);
-  const input = B_operationArg(unknown, reversed, flagNone, undefined);
+  const input = B_operationArg(unknown, reversed, flagNone, U);
   try {
     const output = parse(input);
     // The parse produces a val whose .schema reflects the
@@ -215,7 +215,7 @@ const encodeToJsonSchema = (
     getOrRethrow(exn);
 
     // Parse failed — caller falls through to normal tag-based logic.
-    return undefined;
+    return U;
   }
 }
 
@@ -243,8 +243,8 @@ const internalToJSONSchema = (
     !(flagUnsafeHas(tagFlag, tagFlagUnion) && !!schemaInternal.parser);
   const encoded = hasUserTo
     ? encodeToJsonSchema(schema, path, defs, parent, target)
-    : undefined;
-  if (encoded !== undefined) {
+    : U;
+  if (encoded !== U) {
     applyMetadataOverlay(encoded, schema, defs);
     return encoded;
   } else {
@@ -289,16 +289,16 @@ const internalToJSONSchemaBase = (
       default:
         break;
     }
-    if (schema.minLength !== undefined) {
+    if (schema.minLength !== U) {
       jsonSchema.minLength = schema.minLength;
     }
-    if (schema.maxLength !== undefined) {
+    if (schema.maxLength !== U) {
       jsonSchema.maxLength = schema.maxLength;
     }
-    if (schema.pattern !== undefined) {
+    if (schema.pattern !== U) {
       jsonSchema.pattern = schema.pattern.source;
     }
-    if (const_ !== undefined) {
+    if (const_ !== U) {
       setConstOrEnum(const_);
     }
   } else if (tag === numberTag) {
@@ -315,19 +315,19 @@ const internalToJSONSchemaBase = (
     } else {
       jsonSchema.type = "number";
     }
-    if (schema.minimum !== undefined) {
+    if (schema.minimum !== U) {
       jsonSchema.minimum = schema.minimum;
     }
-    if (schema.maximum !== undefined) {
+    if (schema.maximum !== U) {
       jsonSchema.maximum = schema.maximum;
     }
-    if (const_ !== undefined) {
+    if (const_ !== U) {
       setConstOrEnum(const_);
     }
   } else if (tag === booleanTag) {
     const const_ = schema.const as boolean | undefined;
     jsonSchema.type = "boolean";
-    if (const_ !== undefined) {
+    if (const_ !== U) {
       setConstOrEnum(const_);
     }
   } else if (tag === arrayTag) {
@@ -342,10 +342,10 @@ const internalToJSONSchemaBase = (
         target
       );
       jsonSchema.type = "array";
-      if (schema.minItems !== undefined) {
+      if (schema.minItems !== U) {
         jsonSchema.minItems = schema.minItems;
       }
-      if (schema.maxItems !== undefined) {
+      if (schema.maxItems !== U) {
         jsonSchema.maxItems = schema.maxItems;
       }
     } else {
@@ -403,7 +403,7 @@ const internalToJSONSchemaBase = (
 
     const itemsNumber = items.length;
 
-    if (schema.default !== undefined) {
+    if (schema.default !== U) {
       jsonSchema.default = schema.default;
     }
 
@@ -416,7 +416,7 @@ const internalToJSONSchemaBase = (
         const t = definition;
         if (t.type === "null") {
           return true;
-        } else if (t.enum !== undefined && t.enum.length === 1 && t.enum[0] === null) {
+        } else if (t.enum !== U && t.enum.length === 1 && t.enum[0] === null) {
           return true;
         } else {
           return false;
@@ -517,7 +517,7 @@ const internalToJSONSchemaBase = (
         })(),
         flagUnsafeHas(tagFlags[parent.type]!, tagFlagUnion) ? parent : schema,
         path,
-        undefined,
+        U,
         false
       )
     );
@@ -543,7 +543,7 @@ const targetSchemaUri = (target: JsonSchemaTarget): string | undefined => {
       return "https://json-schema.org/draft/2020-12/schema";
     // OpenAPI 3.0 has no `$schema` property.
     case "openapi-3.0":
-      return undefined;
+      return U;
     default: {
       const unsupported = target;
       throw new SuryError({
@@ -562,12 +562,12 @@ export const toJSONSchema = (schema: Internal, options?: toJSONSchemaOptions): J
   // for openapi-3.0, which stamps no `$schema`).
   let target: JsonSchemaTarget;
   let schemaUri: string | undefined;
-  if (options !== undefined) {
-    target = options.target !== undefined ? options.target : "draft-07";
+  if (options !== U) {
+    target = options.target !== U ? options.target : "draft-07";
     schemaUri = targetSchemaUri(target);
   } else {
     target = "draft-07";
-    schemaUri = undefined;
+    schemaUri = U;
   }
   const defs: Record<string, Internal> = {};
   const jsonSchema = internalToJSONSchema(schema, pathEmpty, defs, schema, target);
@@ -593,7 +593,7 @@ export const toJSONSchema = (schema: Internal, options?: toJSONSchemaOptions): J
     });
     jsonSchema.$defs = jsonSchemDefs;
   }
-  if (schemaUri !== undefined) {
+  if (schemaUri !== U) {
     jsonSchema.$schema = schemaUri;
   }
   return jsonSchema;
@@ -623,7 +623,7 @@ export const extendJSONSchema = (schema: Internal, jsonSchema: JSONSchemaT): Int
   return Metadata_set(
     schema,
     jsonSchemaMetadataId,
-    existingSchemaExtend !== undefined
+    existingSchemaExtend !== U
       ? jsonSchemaMerge(existingSchemaExtend, jsonSchema)
       : jsonSchema
   );
@@ -647,14 +647,14 @@ const primitiveToSchema = (primitive: unknown): Internal => {
 const toIntSchema = (jsonSchema: JSONSchemaT): Internal => {
   let schema = int();
   // TODO: Support jsonSchema.multipleOf
-  if (jsonSchema.minimum !== undefined) {
+  if (jsonSchema.minimum !== U) {
     schema = intMin(schema, jsonSchema.minimum | 0);
-  } else if (jsonSchema.exclusiveMinimum !== undefined) {
+  } else if (jsonSchema.exclusiveMinimum !== U) {
     schema = intMin(schema, (jsonSchema.exclusiveMinimum + 1) | 0);
   }
-  if (jsonSchema.maximum !== undefined) {
+  if (jsonSchema.maximum !== U) {
     schema = intMax(schema, jsonSchema.maximum | 0);
-  } else if (jsonSchema.exclusiveMinimum !== undefined) {
+  } else if (jsonSchema.exclusiveMinimum !== U) {
     schema = intMax(schema, (jsonSchema.exclusiveMinimum - 1) | 0);
   }
   return schema;
@@ -664,7 +664,7 @@ const definitionToDefaultValue = (definition: JSONSchemaDefinition): unknown => 
   if (typeof definition !== "boolean") {
     return definition.default;
   } else {
-    return undefined;
+    return U;
   }
 }
 
@@ -685,7 +685,7 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
   if (jsonSchema.nullable) {
     schema = null_(fromJSONSchema(jsonSchemaMerge(jsonSchema, { nullable: false })));
   } else if (jsonSchema.type === "object") {
-    if (jsonSchema.properties !== undefined) {
+    if (jsonSchema.properties !== U) {
       const properties = jsonSchema.properties;
       const obj: Record<string, Internal> = {};
       Object.keys(properties).forEach((key) => {
@@ -693,7 +693,7 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
         let propertySchema = jsonDefinitionToSchema(property);
         if (!jsonSchema.required?.includes(key)) {
           const defaultValue = definitionToDefaultValue(property);
-          if (defaultValue !== undefined) {
+          if (defaultValue !== U) {
             propertySchema = Option_getOr(option(propertySchema), defaultValue);
           } else {
             propertySchema = option(propertySchema);
@@ -707,7 +707,7 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
       }
     } else {
       const additionalProperties = jsonSchema.additionalProperties;
-      if (additionalProperties !== undefined) {
+      if (additionalProperties !== U) {
         if (additionalProperties === true) {
           schema = dict(anySchema);
         } else if (additionalProperties === false) {
@@ -722,14 +722,14 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
 
     // TODO: jsonSchema.anyOf and jsonSchema.oneOf support
   } else if (jsonSchema.type === "array") {
-    if (jsonSchema.prefixItems !== undefined) {
+    if (jsonSchema.prefixItems !== U) {
       // draft-2020-12 describes tuples with `prefixItems` instead of an
       // `items` array.
       const prefixItems = jsonSchema.prefixItems;
       schema = tuple((s: { item: (idx: number, schema: Internal) => unknown }) =>
         prefixItems.map((d, idx) => s.item(idx, jsonDefinitionToSchema(d)))
       );
-    } else if (jsonSchema.items !== undefined) {
+    } else if (jsonSchema.items !== U) {
       const items = jsonSchema.items;
       if (Array.isArray(items)) {
         schema = tuple((s: { item: (idx: number, schema: Internal) => unknown }) =>
@@ -741,13 +741,13 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
     } else {
       schema = array(anySchema);
     }
-    if (jsonSchema.minItems !== undefined) {
+    if (jsonSchema.minItems !== U) {
       schema = arrayMinLength(schema, jsonSchema.minItems);
     }
-    if (jsonSchema.maxItems !== undefined) {
+    if (jsonSchema.maxItems !== U) {
       schema = arrayMaxLength(schema, jsonSchema.maxItems);
     }
-  } else if (jsonSchema.anyOf !== undefined) {
+  } else if (jsonSchema.anyOf !== U) {
     const definitions = jsonSchema.anyOf;
     if (definitions.length === 0) {
       schema = anySchema;
@@ -756,7 +756,7 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
     } else {
       schema = union(definitions.map(jsonDefinitionToSchema));
     }
-  } else if (jsonSchema.allOf !== undefined) {
+  } else if (jsonSchema.allOf !== U) {
     const definitions = jsonSchema.allOf;
     if (definitions.length === 0) {
       schema = anySchema;
@@ -778,7 +778,7 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
         "Should pass for all schemas of the allOf property."
       );
     }
-  } else if (jsonSchema.oneOf !== undefined) {
+  } else if (jsonSchema.oneOf !== U) {
     const definitions = jsonSchema.oneOf;
     if (definitions.length === 0) {
       schema = anySchema;
@@ -802,7 +802,7 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
         "Should pass exactly one schema according to the oneOf property."
       );
     }
-  } else if (jsonSchema.not !== undefined) {
+  } else if (jsonSchema.not !== U) {
     const not = jsonSchema.not;
     schema = refine(
       anySchema,
@@ -817,7 +817,7 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
       "Should NOT be valid against schema in the not property."
     );
     // needs to come before primitives
-  } else if (jsonSchema.enum !== undefined) {
+  } else if (jsonSchema.enum !== U) {
     const primitives = jsonSchema.enum;
     if (primitives.length === 0) {
       schema = anySchema;
@@ -826,7 +826,7 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
     } else {
       schema = union(primitives.map(primitiveToSchema));
     }
-  } else if (jsonSchema.const !== undefined) {
+  } else if (jsonSchema.const !== U) {
     schema = primitiveToSchema(jsonSchema.const);
   } else if (Array.isArray(jsonSchema.type)) {
     const types = jsonSchema.type;
@@ -843,13 +843,13 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
     } else {
       schema = string();
     }
-    if (jsonSchema.pattern !== undefined) {
+    if (jsonSchema.pattern !== U) {
       schema = pattern(schema, new RegExp(jsonSchema.pattern));
     }
-    if (jsonSchema.minLength !== undefined) {
+    if (jsonSchema.minLength !== U) {
       schema = stringMinLength(schema, jsonSchema.minLength);
     }
-    if (jsonSchema.maxLength !== undefined) {
+    if (jsonSchema.maxLength !== U) {
       schema = stringMaxLength(schema, jsonSchema.maxLength);
     }
   } else if (jsonSchema.type === "integer") {
@@ -860,14 +860,14 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
     schema = toIntSchema(jsonSchema);
   } else if (jsonSchema.type === "number") {
     schema = float();
-    if (jsonSchema.minimum !== undefined) {
+    if (jsonSchema.minimum !== U) {
       schema = floatMin(schema, jsonSchema.minimum);
-    } else if (jsonSchema.exclusiveMinimum !== undefined) {
+    } else if (jsonSchema.exclusiveMinimum !== U) {
       schema = floatMin(schema, jsonSchema.exclusiveMinimum + 1);
     }
-    if (jsonSchema.maximum !== undefined) {
+    if (jsonSchema.maximum !== U) {
       schema = floatMax(schema, jsonSchema.maximum);
-    } else if (jsonSchema.exclusiveMinimum !== undefined) {
+    } else if (jsonSchema.exclusiveMinimum !== U) {
       schema = floatMax(schema, jsonSchema.exclusiveMinimum - 1);
     }
   } else if (jsonSchema.type === "boolean") {
@@ -875,9 +875,9 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
   } else if (jsonSchema.type === "null") {
     schema = schemaFactory(null);
   } else if (
-    jsonSchema.if !== undefined &&
-    jsonSchema.then !== undefined &&
-    jsonSchema.else !== undefined
+    jsonSchema.if !== U &&
+    jsonSchema.then !== U &&
+    jsonSchema.else !== U
   ) {
     const ifSchema = jsonDefinitionToSchema(jsonSchema.if);
     const thenSchema = jsonDefinitionToSchema(jsonSchema.then);
@@ -905,7 +905,7 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
       },
       "Should pass the if/then/else schema validation."
     );
-  } else if (jsonSchema.type !== undefined) {
+  } else if (jsonSchema.type !== U) {
     throw new SuryError({
       code: "invalid_operation",
       path: pathEmpty,
@@ -916,10 +916,10 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
   }
 
   if (
-    jsonSchema.description !== undefined ||
-    jsonSchema.deprecated !== undefined ||
-    jsonSchema.examples !== undefined ||
-    jsonSchema.title !== undefined
+    jsonSchema.description !== U ||
+    jsonSchema.deprecated !== U ||
+    jsonSchema.examples !== U ||
+    jsonSchema.title !== U
   ) {
     schema = meta(schema, {
       title: jsonSchema.title,

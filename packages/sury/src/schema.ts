@@ -1,14 +1,17 @@
-import { AdditionalItems, AdditionalItemsMode, ErrorDetails, Internal, SuryErrorRecord, Val, s } from "./types";
+import { AdditionalItems, AdditionalItemsMode, ErrorDetails, Internal, SuryErrorRecord, U, Val, s } from "./types";
 import type { Builder } from "./builder";
 import { Flag, valFlagNone } from "./flags";
 import { Tag, unknownTag } from "./tags";
 
 export function Schema(this: Internal): void {}
 export const schemaPrototype: Record<string, unknown> = Object.create(null);
+// A plain (non-enumerable) method, not a getter returning a closure: the
+// getter form allocated a fresh arrow on every `.with` access, and `.with` is
+// the primary modifier API called all over user construction code. The method
+// binds `this` through the call, so no per-access closure is needed.
 Object.defineProperty(schemaPrototype, "with", {
-  get(this: Internal) {
-    return (fn: (self: Internal, ...args: unknown[]) => unknown, ...args: unknown[]) =>
-      fn(this, ...args);
+  value(this: Internal, fn: (self: Internal, ...args: unknown[]) => unknown, ...args: unknown[]): unknown {
+    return fn(this, ...args);
   },
 });
 // Also has ~standard below
@@ -76,7 +79,7 @@ export const initialOnAdditionalItems: AdditionalItemsMode = "strip";
 export const initialDefaultFlag: Flag = valFlagNone;
 export const globalConfig: GlobalConfig = {
   m: formatErrorMessage,
-  d: undefined,
+  d: U,
   a: initialOnAdditionalItems,
   f: initialDefaultFlag,
 };
@@ -107,7 +110,7 @@ const factoryCache: Record<string, Internal> = {};
 
 export const cached = (key: string, tag: Tag, init: (schema: Internal) => void): Internal => {
   const existing = factoryCache[key];
-  if (existing !== undefined) {
+  if (existing !== U) {
     return existing;
   } else {
     const schema = baseSchema(tag, true);
@@ -129,7 +132,7 @@ export const copySchema = (schema: Internal): Internal => {
 export const updateOutput = <Value>(schema: Internal, fn: (schema: Internal) => void): Value => {
   const root = copySchema(schema);
   let mut = root;
-  while (mut.to !== undefined) {
+  while (mut.to !== U) {
     const next = copySchema(mut.to);
     mut.to = next;
     mut = next;

@@ -4,7 +4,7 @@ ts:
   input: undefined
   output: undefined
   instantiations: 369
-  bundleBytes: 9375
+  bundleBytes: 9429
 vs:
   zod: z.undefined()
 jsonSchema:

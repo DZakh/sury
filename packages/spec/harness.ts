@@ -383,15 +383,12 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
   }
 
   if (bundleBytesPromise) {
-    const measured = await bundleBytesPromise;
-    // ±1% tolerance: gzip byte counts wobble with toolchain bumps (esbuild,
-    // zlib) even when nothing about the schema changed. Within the band the
-    // recorded golden is kept, so an unrelated dependency bump doesn't go
-    // stale across every spec at once; a real size change (>1%) re-records
-    // exactly.
-    const prior = next.ts.bundleBytes;
-    next.ts.bundleBytes =
-      typeof prior === "number" && Math.abs(measured - prior) <= prior * 0.01 ? prior : measured;
+    // Recorded exactly — no tolerance band. A band (formerly ±1%, meant to
+    // absorb toolchain wobble) let consistent sub-1% drift accumulate against
+    // stale goldens and misattributed the whole delta to whichever change
+    // finally crossed the line. A toolchain bump now re-records every spec at
+    // once, which is the honest diff.
+    next.ts.bundleBytes = await bundleBytesPromise;
   }
   return next;
 };

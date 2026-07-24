@@ -6,7 +6,7 @@ ts:
   input: "123"
   output: "123"
   instantiations: 382
-  bundleBytes: 9377
+  bundleBytes: 9431
 vs:
   zod: z.literal(123)
 jsonSchema:

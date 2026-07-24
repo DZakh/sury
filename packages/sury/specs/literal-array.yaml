@@ -6,7 +6,7 @@ ts:
   input: '["bar", true]'
   output: '["bar", true]'
   instantiations: 532
-  bundleBytes: 9382
+  bundleBytes: 9435
 vs:
   zod: z.tuple([z.literal("bar"), z.literal(true)])
 jsonSchema:
