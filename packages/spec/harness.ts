@@ -195,23 +195,20 @@ const deriveJsonSchema = (schema: any): Spec["jsonSchema"] => ({
 // No example inputs needed, so `spec new` can fill this in immediately from `--ts`.
 export const scaffoldJsonSchema = (schema: any): Spec["jsonSchema"] => deriveJsonSchema(schema);
 
-// Compile an operation, capturing a conversion rejected at operation creation
-// as a message instead of letting it abort — the operation analogue of
-// toJsonSchemaOrError. Only a SuryError (`S.Error`) is caught: that's the
-// intended "this conversion is unsupported/ambiguous" signal. Any other throw
-// is an internal fault and propagates, surfacing loudly as "goldens could not
-// be computed" rather than freezing a bug as a golden.
+// Compile an operation, capturing any creation-time throw as the golden instead
+// of letting it abort — the operation analogue of toJsonSchemaOrError. The
+// message is prefixed with the error class (`SuryError:` for an intended
+// unsupported/ambiguous conversion, `TypeError:` etc. for an internal fault),
+// so a bug stays visibly distinct in the golden — and flips back to compiled
+// code once a fix turns the crash into a real operation — rather than silently
+// masquerading as a normal rejection.
 type BuiltOp = { fn: (input: any) => any } | { creationError: string };
 const buildOp = (opName: OpName, schema: any): BuiltOp => {
   try {
     return { fn: OP_BUILDER[opName](schema) };
   } catch (e) {
-    // Grab the message before narrowing — `S.Error` (Sury's error type) doesn't
-    // structurally overlap the global `Error`, so casting the narrowed value is
-    // rejected; the cast is fine while `e` is still `unknown`.
-    const message = (e as Error).message;
-    if (e instanceof S.Error) return { creationError: message };
-    throw e;
+    const err = e as Error;
+    return { creationError: `${err.constructor.name}: ${err.message}` };
   }
 };
 

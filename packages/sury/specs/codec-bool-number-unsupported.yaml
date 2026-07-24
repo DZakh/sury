@@ -13,6 +13,6 @@ jsonSchema:
   output: '{ type: "number" }'
 operations:
   parse:
-    creationError: Can't decode boolean to number. Use S.to to define a custom decoder
+    creationError: "SuryError: Can't decode boolean to number. Use S.to to define a custom decoder"
   decode: eq-to-parse
   encode: eq-to-parse

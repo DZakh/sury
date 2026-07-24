@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.number.with(S.to, S.union([S.int32, S.string]))
+  input: number
+  output: string | number
+  instantiations: 6059
+  bundleBytes: 9957
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ anyOf: [{ type: "integer", minimum: -2147483648, maximum: 2147483647 }, { type: "number" }] }'
+  output: Cannot read properties of undefined (reading 'v')
+operations:
+  parse:
+    creationError: "TypeError: Cannot read properties of undefined (reading 'v')"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{if(typeof i==="string"){let v0=+i;!Number.isNaN(v0)||e[0](i);i=v0}else if(!(typeof i==="number"&&!Number.isNaN(i)&&(i<=2147483647&&i>=-2147483648&&i%1===0))){e[1](i)}return i}
+    examples:
+      int32-number:
+        input: "123"
+        output: "123"
+      non-int32-number:
+        input: "1.5"
+        error: Expected int32 | string, received 1.5
+      out-of-range-number:
+        input: "2147483648"
+        error: Expected int32 | string, received 2147483648
+      numeric-string:
+        input: '"123"'
+        output: "123"
+      float-string:
+        input: '"1.5"'
+        output: "1.5"
