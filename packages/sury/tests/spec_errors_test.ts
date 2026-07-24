@@ -126,9 +126,9 @@ test("stale creationError golden (recorded message drifted from what the schema 
         parse:
     -     creationError: stale message
     +     creationError: Can't decode boolean to number. Use S.to to define a custom decoder
-        decode:
-          creationError: Can't decode boolean to number. Use S.to to define a custom decoder
-        encode:",
+        decode: eq-to-parse
+        encode: eq-to-parse
+    ",
       "stdout": "",
     }
   `);

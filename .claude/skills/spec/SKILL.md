@@ -17,7 +17,7 @@ pnpm spec check [id]           # gate; omit [id] for all specs
 ```
 
 Add a case: named entry with just `input` under an op's `examples`, then `check --write`.
-Follow the CLI's error messages. Unassertable ops take `_skip: <reason>`; pass-through ops must be the bare literal `identity`; a decode/encode that compiles to the same code as `parse` must be the bare literal `eq-to-parse` (its expression and examples live on `parse`). An op rejected at operation creation (an unsupported or ambiguous `.to`) has no `expression` — `check --write` records the thrown message as a `creationError:` block instead (per direction, like a thrown `jsonSchema`); leave the block for the harness to fill, never hand-write the message.
+Follow the CLI's error messages. Unassertable ops take `_skip: <reason>`; pass-through ops must be the bare literal `identity`; a decode/encode that compiles to the same code as `parse` must be the bare literal `eq-to-parse` (its expression and examples live on `parse`).
 
 Examples must cover every edge case found while investigating the schema — boundary values, IEEE-754 oddities (`-0`, `NaN`, `Infinity`), coercion corners, each generated-check branch. Findings from a bug report/review go into `examples`, not test files or commit messages.
 
