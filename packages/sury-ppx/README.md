@@ -147,7 +147,7 @@ Not allowed on optional record fields without an `option<_>` type (`foo?: @s.nul
 
 ### `@s.nullable`
 
-**Applies to**: option type expressions
+**Applies to**: option type expressions and optional record fields
 
 Tells to use `S.nullableAsOption` for the option schema constructor.
 
