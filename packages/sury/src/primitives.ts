@@ -1,6 +1,6 @@
 import { baseSchema, cached } from "./schema";
 import { B_embed, B_embedInvalidInput, B_inlineConst, B_next, B_nextConst, B_refine, B_unsupportedDecode, B_varWithoutAllocation, _var, failInvalidType } from "./builder";
-import { Check, Internal, Val, isLiteral } from "./types";
+import { Check, Internal, U, Val, isLiteral } from "./types";
 import { Builder } from "./builder";
 import { flagDisableNanNumberValidation, flagUnsafeHas } from "./flags";
 import { Tag, bigintTag, booleanTag, instanceTag, nanTag, nullTag, numberTag, objectTag, stringTag, symbolTag, tagFlagBigint, tagFlagBoolean, tagFlagNaN, tagFlagNull, tagFlagNumber, tagFlagRef, tagFlagString, tagFlagSymbol, tagFlagUndefined, tagFlagUnion, tagFlagUnknown, tagFlags, undefinedTag, unknownTag } from "./tags";
@@ -10,9 +10,15 @@ export const int32FormatValidation = (inputVar: string) => {
 };
 
 // Atomic type-narrow conditions, shared by the type decoders and the union
-// dispatch (`typeCheckCond`) so the two can't drift.
-export const typeofCond = (tag: Tag) => (inputVar: string): string =>
-  `typeof ${inputVar}==="${tag}"`;
+// dispatch (`typeCheckCond`) so the two can't drift. Memoized per tag: the
+// returned closure depends only on `tag`, and this is called all over the
+// primitive decoders and union dispatch, so caching stops a fresh closure
+// being allocated on every decode (a large share of codegen GC — see the
+// GC-dominated compile profile).
+const typeofCondCache: Record<string, (inputVar: string) => string> = {};
+export const typeofCond = (tag: Tag): ((inputVar: string) => string) =>
+  typeofCondCache[tag] ||
+  (typeofCondCache[tag] = (inputVar) => `typeof ${inputVar}==="${tag}"`);
 export const nanCond = (inputVar: string): string => `Number.isNaN(${inputVar})`;
 export const isArrayCond = (inputVar: string): string => `Array.isArray(${inputVar})`;
 export const objectTagCond = (inputVar: string): string =>
@@ -21,15 +27,22 @@ export const objectTagCond = (inputVar: string): string =>
 export const instanceofCond = (b: Val, class_: unknown) => (inputVar: string): string =>
   `${inputVar} instanceof ${B_embed(b, class_)}`;
 
+// Shared, immutable per-tag type-narrow Check objects. A Check's c/f are only
+// ever called, never reassigned, and callers always wrap it in a fresh array
+// before it becomes a val's `.vc` (which may then be pushed to / cleared), so
+// reusing one object per tag drops a Check allocation on every primitive
+// decode without any aliasing hazard.
+const typeofCheckCache: Record<string, Check> = {};
+const typeofCheck = (tag: Tag): Check =>
+  typeofCheckCache[tag] || (typeofCheckCache[tag] = { c: typeofCond(tag), f: failInvalidType });
+const notNanCheck: Check = { c: (inputVar) => `!${nanCond(inputVar)}`, f: failInvalidType };
+const int32Check: Check = { c: int32FormatValidation, f: failInvalidType };
+const nanCheck: Check = { c: nanCond, f: failInvalidType };
+
 // Reject anything but `tag` when the input is still `unknown` — shared by
 // every primitive decoder's unknown-input branch.
 const B_refineTypeofUnknown = (input: Val, tag: Tag): Val => {
-  return B_refine(input, input.e, [
-    {
-      c: typeofCond(tag),
-      f: failInvalidType,
-    },
-  ]);
+  return B_refine(input, input.e, [typeofCheck(tag)]);
 }
 
 // Allocate a fresh var and start a new Val from it — shared by every
@@ -43,23 +56,12 @@ const B_nextVar = (input: Val, expected: Internal): Val => {
 export const numberDecoder: Builder = (input: Val) => {
   const inputTagFlag = tagFlags[input.s.type]!;
   if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
-    const checks: Check[] = [
-      {
-        c: typeofCond(numberTag),
-        f: failInvalidType,
-      },
-    ];
+    const checks: Check[] = [typeofCheck(numberTag)];
     if (input.e.format === "int32") {
-      checks.push({
-        c: int32FormatValidation,
-        f: failInvalidType,
-      });
+      checks.push(int32Check);
     } else {
       if (!flagUnsafeHas(input.g.o, flagDisableNanNumberValidation)) {
-        checks.push({
-          c: (inputVar) => `!${nanCond(inputVar)}`,
-          f: failInvalidType,
-        });
+        checks.push(notNanCheck);
       }
     }
     return B_refine(input, input.e, checks);
@@ -83,12 +85,7 @@ export const numberDecoder: Builder = (input: Val) => {
   } else if (!flagUnsafeHas(inputTagFlag, tagFlagNumber)) {
     return B_unsupportedDecode(input, input.s, input.e);
   } else if (input.s.format !== input.e.format && input.e.format === "int32") {
-    return B_refine(input, input.e, [
-      {
-        c: int32FormatValidation,
-        f: failInvalidType,
-      },
-    ]);
+    return B_refine(input, input.e, [int32Check]);
   } else {
     return input;
   }
@@ -244,12 +241,7 @@ export const literalDecoder: Builder = (input: Val) => {
 
       return B_nextConst(stringConstVal, expectedSchema, expectedSchema);
     } else if (flagUnsafeHas(schemaTagFlag, tagFlagNaN)) {
-      return B_refine(input, expectedSchema, [
-        {
-          c: nanCond,
-          f: failInvalidType,
-        },
-      ]);
+      return B_refine(input, expectedSchema, [nanCheck]);
     } else {
       return B_refine(input, expectedSchema, [
         {
@@ -263,13 +255,13 @@ export const literalDecoder: Builder = (input: Val) => {
 
 export const unit = () =>
   cached(undefinedTag, undefinedTag, (s) => {
-    s.const = void 0;
+    s.const = U;
     s.decoder = literalDecoder;
   });
 
 export const void_ = () =>
   cached("void", undefinedTag, (s) => {
-    s.const = void 0;
+    s.const = U;
     s.name = "void";
     s.decoder = literalDecoder;
   });

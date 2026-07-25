@@ -186,9 +186,9 @@ test("identity claimed but the operation doesn't actually compile to identity", 
         input: string
         output: string
     -   instantiations: 254
-    -   bundleBytes: 3744
+    -   bundleBytes: 3790
     +   instantiations: 5181
-    +   bundleBytes: 4218
+    +   bundleBytes: 4266
       vs:
         zod: z.string()
       jsonSchema:
@@ -258,11 +258,11 @@ test("eq-to-parse claimed but the operation doesn't actually compile to the same
     -   input: never
     -   output: never
     -   instantiations: 254
-    -   bundleBytes: 3551
+    -   bundleBytes: 3569
     +   input: string
     +   output: string
     +   instantiations: 5181
-    +   bundleBytes: 4218
+    +   bundleBytes: 4266
       vs:
         zod: z.never()
       jsonSchema:

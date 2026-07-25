@@ -6,9 +6,9 @@ ts:
   input: '["bar", number]'
   output: '["bar", number]'
   instantiations: 967
-  bundleBytes: 9689
+  bundleBytes: 9660
 vs:
-  zod: z.tuple([z.string(), z.number()])
+  zod: z.tuple([z.literal("bar"), z.number()])
 jsonSchema:
   input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "bar" }, { type: "number" }] }'
   output: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "string", const: "bar" }, { type: "number" }] }'

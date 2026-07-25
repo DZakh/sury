@@ -354,6 +354,7 @@ error message, a strictness gap that let a bad spec through — add a bullet her
 instead of silently working around it.
 
 - <placeholder>
+- No operation dimension for JSON-target conversions (`.to(S.json)` / `.to(S.jsonString)`), so bugs like #311 (nested optional fields failing to encode) can't be captured as spec examples — their repros live in `tests/` instead.
 
 ## License
 

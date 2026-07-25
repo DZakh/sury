@@ -1,10 +1,10 @@
 import { Literal_parse, isArrayCond, jsonName, objectTagCond, setHas, unit } from "./primitives";
 import { baseSchema, getOrRethrow, panic, unknown, updateOutput } from "./schema";
 import { getOutputSchema, nestedLoc, nestedOptionParser, never_, parse, parseDynamic, typeCheckCond } from "./parse";
-import { B_addObjectField, B_addKey, B_scope, B_asyncVal, B_dynamicScope, B_embed, B_failWithArg, B_hoistChildChecks, B_hoistDecl, B_inlineConst, B_inlineLocation, B_isHoistable, B_makeInvalidInputDetails, B_markOutput, B_merge, B_mergeWithPathPrepend, B_next, B_nextConst, B_pushCheck, B_refine, B_throw, B_unsupportedDecode, B_varWithoutAllocation, Builder, _notVar, _notVarAtParent, _var, failInvalidType } from "./builder";
-import { AdditionalItems, Check, ErrorDetails, Internal, SuryErrorRecord, Val, immutableEmptyArray, immutableEmptyObject, isLiteral, isOptional } from "./types";
+import { B_addObjectField, B_addKey, B_scope, B_asyncVal, B_dynamicScope, B_embed, B_failWithArg, B_hoistChildChecks, B_hoistDecl, B_inlineConst, B_isHoistable, B_makeInvalidInputDetails, B_markOutput, B_merge, B_mergeWithPathPrepend, B_next, B_nextConst, B_pushCheck, B_refine, B_throw, B_unsupportedDecode, B_varWithoutAllocation, Builder, _notVar, _notVarAtParent, _var, failInvalidType } from "./builder";
+import { AdditionalItems, Check, ErrorDetails, Internal, SuryErrorRecord, U, Val, immutableEmptyArray, immutableEmptyObject, isLiteral, isOptional } from "./types";
 import { flagUnsafeHas, valFlagAsync, valFlagNone } from "./flags";
-import { pathConcat, pathFromInlinedLocation } from "./path";
+import { inlinedValueFromString, pathConcat, pathFromInlinedLocation } from "./path";
 import { Tag, arrayTag, nullTag, numberTag, objectTag, tagFlagArray, tagFlagFunction, tagFlagInstance, tagFlagNaN, tagFlagNever, tagFlagNull, tagFlagObject, tagFlagRef, tagFlagUndefined, tagFlagUnion, tagFlagUnknown, tagFlags, undefinedTag, unionTag, unknownTag } from "./tags";
 
 // An object/array val (`makeObjectVal`'s result) reuses the plain `Val`
@@ -12,16 +12,17 @@ import { Tag, arrayTag, nullTag, numberTag, objectTag, tagFlagArray, tagFlagFunc
 
 // Narrows the dict-value-schema-or-mode union down to the schema case.
 const isItemSchema = (x: AdditionalItems | undefined): x is Internal =>
-  x !== undefined && typeof x !== "string";
+  x !== U && typeof x !== "string";
 
 type CheckCache = { contents: Check[] | undefined };
 
 export const makeObjectVal = (prev: Val, schema: Internal): Val => {
+  // Canonical Val field order (see B_operationArg in builder.ts).
   return {
-    prev,
+    b: U,
+    p: U,
     v: _notVar,
     i: "",
-    f: valFlagNone,
     s: (schema.type === arrayTag
       ? {
           type: arrayTag,
@@ -36,20 +37,28 @@ export const makeObjectVal = (prev: Val, schema: Internal): Val => {
           additionalItems: "strict",
           decoder: objectDecoder,
         }) as Internal,
+    io: U,
     e: prev.e,
+    prev,
+    f: valFlagNone,
     d: Object.create(null),
-    t: true,
+    fv: U,
     cp: "",
     hd: "",
+    fz: U,
+    vc: U,
+    u: U,
+    t: true,
     path: prev.path,
     g: prev.g,
+    o: U,
   };
 }
 export const completeObjectVal = (objectVal: Val): Val => {
   const isArray = objectVal.s.type === arrayTag;
   let inline = "";
   let promiseAllContent = "";
-  let optionalSettingCode: ((objectVar: string) => string) | undefined = undefined;
+  let optionalSettingCode: ((objectVar: string) => string) | undefined = U;
 
   const keys = Object.keys(objectVal.d!);
 
@@ -63,14 +72,14 @@ export const completeObjectVal = (objectVal: Val): Val => {
       const existingFn = optionalSettingCode as ((objectVar: string) => string) | undefined;
       optionalSettingCode = (objectVar: string) => {
         return (
-          (existingFn === undefined ? "" : existingFn(objectVar)) +
-          `if(${val.v()}!==void 0){${objectVar}[${B_inlineLocation(objectVal.g, key)}]=${val.i}}`
+          (existingFn === U ? "" : existingFn(objectVar)) +
+          `if(${val.v()}!==void 0){${objectVar}[${inlinedValueFromString(key)}]=${val.i}}`
         );
       };
     } else {
       inline =
         inline +
-        (isArray ? `${val.i}` : `${B_inlineLocation(objectVal.g, key)}:${val.i}`) +
+        (isArray ? `${val.i}` : `${inlinedValueFromString(key)}:${val.i}`) +
         ",";
     }
   }
@@ -99,7 +108,7 @@ export const completeObjectVal = (objectVal: Val): Val => {
     valWithRequired.io = true;
     return valWithRequired;
   } else {
-    if (optionalSettingCode === undefined) {
+    if (optionalSettingCode === U) {
       return valWithRequired;
     } else {
       const code = optionalSettingCode(valWithRequired.v());
@@ -195,7 +204,7 @@ export const arrayDecoder = (unknownInput: Val): Val => {
         itemOutput,
         input,
         iteratorVar,
-        hasTransform ? () => B_addKey(output2, iteratorVar, itemOutput) : undefined,
+        hasTransform ? () => B_addKey(output2, iteratorVar, itemOutput) : U,
       );
 
       if (hasTransform || itemCode !== "") {
@@ -313,7 +322,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
   const expectedAdditionalItems = expectedSchema.additionalItems;
   const dictItem: Internal | undefined = isItemSchema(expectedAdditionalItems)
     ? expectedAdditionalItems
-    : undefined;
+    : U;
   // Only a dict source can be iterated dynamically (`for..in`). A fixed-property
   // object source coerced into a dict target reuses the static object-literal
   // construction below, driven by the source's known keys.
@@ -322,9 +331,9 @@ export const objectDecoder = (unknownInput: Val): Val => {
 
   let output: Val;
   // dict<unknown> target: any object/dict is already a valid value, pass through.
-  if (dictItem !== undefined && dictItem === unknown) {
+  if (dictItem !== U && dictItem === unknown) {
     output = input;
-  } else if (dictItem !== undefined && sourceIsDict) {
+  } else if (dictItem !== U && sourceIsDict) {
     const inputVar = input.v();
     const keyVar = B_varWithoutAllocation(input.g);
     const itemInput = B_dynamicScope(input, keyVar);
@@ -340,7 +349,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
       itemOutput,
       input,
       keyVar,
-      hasTransform ? () => B_addKey(output2, keyVar, itemOutput) : undefined,
+      hasTransform ? () => B_addKey(output2, keyVar, itemOutput) : U,
     );
 
     if (hasTransform || itemCode !== "") {
@@ -360,7 +369,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
     } else {
       output = output2;
     }
-  } else if (dictItem !== undefined) {
+  } else if (dictItem !== U) {
     const itemSchema = dictItem;
     // Encode a fixed-property object into a dict: build an object literal from
     // the SOURCE's keys, coercing every value to the dict's value schema.
@@ -450,7 +459,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
           if (idx !== 0) {
             objectVal.cp = objectVal.cp + "&&";
           }
-          objectVal.cp = objectVal.cp + `${keyVar}!==${B_inlineLocation(input.g, key)}`;
+          objectVal.cp = objectVal.cp + `${keyVar}!==${inlinedValueFromString(key)}`;
         }
       }
       objectVal.cp =
@@ -515,15 +524,15 @@ export const unionIsPriority = (tagFlag: number, byKey: Record<string, unknown[]
 export const unionIsSelfDecodeNoop = (schema: Internal): boolean => {
   const additionalItems = schema.additionalItems;
   return (
-    schema.to === undefined &&
-    schema.parser === undefined &&
+    schema.to === U &&
+    schema.parser === U &&
     !flagUnsafeHas(tagFlags[schema.type]!, tagFlagRef) &&
-    (schema.anyOf !== undefined ? schema.anyOf.every(unionIsSelfDecodeNoop) : true) &&
-    (schema.items !== undefined ? schema.items.every(unionIsSelfDecodeNoop) : true) &&
-    (schema.properties !== undefined
+    (schema.anyOf !== U ? schema.anyOf.every(unionIsSelfDecodeNoop) : true) &&
+    (schema.items !== U ? schema.items.every(unionIsSelfDecodeNoop) : true) &&
+    (schema.properties !== U
       ? Object.values(schema.properties).every(unionIsSelfDecodeNoop)
       : true) &&
-    (additionalItems !== undefined && typeof additionalItems !== "string"
+    (additionalItems !== U && typeof additionalItems !== "string"
       ? unionIsSelfDecodeNoop(additionalItems)
       : true)
   );
@@ -532,7 +541,7 @@ export const unionIsSelfDecodeNoop = (schema: Internal): boolean => {
 export const unionIsWiderSchema = (schemaAnyOf: Internal[], inputAnyOf: Internal[]): boolean => {
   return inputAnyOf.every((inputSchema, idx) => {
     const schema = schemaAnyOf[idx];
-    if (schema !== undefined) {
+    if (schema !== U) {
       return (
         !flagUnsafeHas(
           tagFlags[inputSchema.type]!,
@@ -540,7 +549,10 @@ export const unionIsWiderSchema = (schemaAnyOf: Internal[], inputAnyOf: Internal
         ) &&
         inputSchema.type === schema.type &&
         inputSchema.const === schema.const &&
-        inputSchema.to === undefined
+        inputSchema.to === U &&
+        // A paired variant with its own `.to` still transforms the value,
+        // so passing the input through would skip the conversion
+        schema.to === U
       );
     } else {
       return false;
@@ -551,7 +563,7 @@ export const unionIsWiderSchema = (schemaAnyOf: Internal[], inputAnyOf: Internal
 // The union's own `.to` chain which is applied per case during decoding.
 // None when the union has a custom parser owning the `.to` conversion
 export const unionGetToPerCase = (schema: Internal): Internal | undefined => {
-  return schema.parser === undefined && schema.to !== undefined ? schema.to : undefined;
+  return schema.parser === U && schema.to !== U ? schema.to : U;
 }
 
 // Whether a union-typed input can be decoded by dispatching
@@ -568,8 +580,8 @@ export const unionCanDispatchPerVariant = (inputAnyOf: Internal[], target: Inter
     // transformed unions) aren't supported per-variant yet
     !inputAnyOf.some(
       (v) =>
-        v.to !== undefined ||
-        v.parser !== undefined ||
+        v.to !== U ||
+        v.parser !== U ||
         flagUnsafeHas(tagFlags[v.type]!, tagFlagRef),
     )
   );
@@ -582,7 +594,7 @@ export const unionPerVariantVal = (input: Val, target: Internal): Val => {
   return B_refine(
     input,
     unknown,
-    undefined,
+    U,
     updateOutput<Internal>(input.s, (mut) => {
       mut.to = target;
     }),
@@ -595,7 +607,7 @@ export const unionEncoder = (input: Val, target: Internal): Val => {
   const inputAnyOf = input.s.anyOf!;
   if (
     target.type === unionTag &&
-    unionGetToPerCase(target) === undefined &&
+    unionGetToPerCase(target) === U &&
     unionIsWiderSchema(target.anyOf!, inputAnyOf)
   ) {
     // The target union decoder passes a narrower union input through as-is
@@ -618,18 +630,18 @@ export const unionDecoder: Builder = (input: Val) => {
     // The input val is already of the union type (trusted self-decode).
     // Only allowed when no variant transforms the value
     (input.s === selfSchema &&
-      toPerCase === undefined &&
+      toPerCase === U &&
       schemas.every(unionIsSelfDecodeNoop)) ||
     (flagUnsafeHas(initialInputTagFlag, tagFlagUnion) &&
       unionIsWiderSchema(schemas, input.s.anyOf!) &&
-      toPerCase === undefined) ||
+      toPerCase === U) ||
     (input.io! && input.e === input.s)
   ) {
     return input;
   } else {
     if (
       flagUnsafeHas(initialInputTagFlag, tagFlagUnion) ||
-      (input.s.encoder === undefined && flagUnsafeHas(initialInputTagFlag, tagFlagRef))
+      (input.s.encoder === U && flagUnsafeHas(initialInputTagFlag, tagFlagRef))
     ) {
       input.s = unknown;
     }
@@ -682,7 +694,7 @@ export const unionDecoder: Builder = (input: Val) => {
               input.path,
               args[0],
               true,
-              args.length > 1 ? (Array.from(args).slice(1) as SuryErrorRecord[]) : undefined,
+              args.length > 1 ? (Array.from(args).slice(1) as SuryErrorRecord[]) : U,
             ),
           );
         },
@@ -785,7 +797,7 @@ export const unionDecoder: Builder = (input: Val) => {
         if (!itemSkipped && itemCond) {
           if (itemCode) {
             const existing = byDiscriminant[itemCond];
-            if (existing !== undefined) {
+            if (existing !== U) {
               if (Array.isArray(existing)) {
                 existing.push(itemCode);
               } else {
@@ -911,19 +923,19 @@ export const unionDecoder: Builder = (input: Val) => {
       // Call each source refiner at most once so its predicate is embedded
       // in `input.global.embeded` once and every case references the same
       // `e[N]`. `B_embed` is append-only, so a per-case call would duplicate.
-      const cachedRefinerChecks: CheckCache = { contents: undefined };
-      const cachedInputRefinerChecks: CheckCache = { contents: undefined };
+      const cachedRefinerChecks: CheckCache = { contents: U };
+      const cachedInputRefinerChecks: CheckCache = { contents: U };
       const attach = (
         current: ((input: Val) => Check[]) | undefined,
         source: ((input: Val) => Check[]) | undefined,
         cache: CheckCache,
       ): ((input: Val) => Check[]) | undefined => {
-        if (source === undefined) {
+        if (source === U) {
           return current;
         } else {
           const fn = source;
           const getCached = (input: Val): Check[] => {
-            if (cache.contents !== undefined) {
+            if (cache.contents !== U) {
               return cache.contents;
             } else {
               const checks = fn(input);
@@ -931,7 +943,7 @@ export const unionDecoder: Builder = (input: Val) => {
               return checks;
             }
           };
-          if (current === undefined) {
+          if (current === U) {
             return getCached;
           } else {
             const existing = current;
@@ -948,11 +960,11 @@ export const unionDecoder: Builder = (input: Val) => {
       };
       return (mut: Internal) => {
         const r = attach(mut.refiner, unionRefiner, cachedRefinerChecks);
-        if (r !== undefined) {
+        if (r !== U) {
           mut.refiner = r;
         }
         const ir = attach(mut.inputRefiner, unionInputRefiner, cachedInputRefinerChecks);
-        if (ir !== undefined) {
+        if (ir !== U) {
           mut.inputRefiner = ir;
         }
       };
@@ -976,7 +988,7 @@ export const unionDecoder: Builder = (input: Val) => {
 
     for (let idx = 0; idx <= lastIdx; idx++) {
       const schema =
-        toPerCase !== undefined
+        toPerCase !== U
           ? updateOutput<Internal>(schemas[idx]!, (mut) => {
               appendUnionRefiners(mut);
               mut.to = toPerCase;
@@ -995,7 +1007,7 @@ export const unionDecoder: Builder = (input: Val) => {
         // skip it
       } else {
         const initialArr = byKey[key];
-        if (initialArr !== undefined) {
+        if (initialArr !== U) {
           const arr = initialArr;
           if (
             flagUnsafeHas(tagFlag, tagFlagObject) &&
@@ -1078,7 +1090,7 @@ export const unionDecoder: Builder = (input: Val) => {
           } catch (_) {
             // Discard any checks parse managed to push before throwing,
             // so the deopt path doesn't see leftover partial state.
-            typeValidationInput.vc = undefined;
+            typeValidationInput.vc = U;
             typeValidationOutput = typeValidationInput;
           }
 
@@ -1098,7 +1110,7 @@ export const unionDecoder: Builder = (input: Val) => {
 
           let shouldDeopt = true;
           let valRef: Val | undefined = typeValidationOutput;
-          while (valRef !== undefined && shouldDeopt) {
+          while (valRef !== U && shouldDeopt) {
             const v: Val = valRef;
             valRef = v.prev;
             // Deopt to a try/catch block unless every level's checks are
@@ -1222,7 +1234,7 @@ export const unionDecoder: Builder = (input: Val) => {
     // coercing to the same `.to` target now produce structurally-identical (but
     // not identity-equal) outputs; `toJSONSchema` collapses the duplicate.
     o.s = outputAnyOf.length ? unionFactory(outputAnyOf) : never_();
-    if (toPerCase !== undefined) {
+    if (toPerCase !== U) {
       o.io = true;
       o.e = getOutputSchema(toPerCase);
     } else {
@@ -1248,7 +1260,7 @@ export const unionFactory = (schemas: Internal[]): Internal => {
 
     schemas.forEach((schema) => {
       // Check if the union is not transformed
-      if (schema.type === unionTag && schema.to === undefined) {
+      if (schema.type === unionTag && schema.to === U) {
         schema.anyOf!.forEach((item) => {
           anyOf.add(item);
         });
@@ -1316,10 +1328,10 @@ export const optionFactory = (item: Internal, unitSchema: Internal = unit()): In
           mutHas[unitSchema.type] = true;
           newAnyOf.push(unitSchema);
           toPush = nestedOption(schema);
-        } else if (schemaOut.properties !== undefined) {
+        } else if (schemaOut.properties !== U) {
           const properties = schemaOut.properties;
           const nestedSchema = properties[nestedLoc];
-          if (nestedSchema !== undefined) {
+          if (nestedSchema !== U) {
             toPush = updateOutput<Internal>(schema, (mut) => {
               // FIXME: dict{}
               const properties: Record<string, Internal> = {};
@@ -1357,7 +1369,7 @@ export const option = (item: Internal): Internal => {
 
 export const valGet = (parent: Val, location: string): Val => {
   let vals: Record<string, Val>;
-  if (parent.d !== undefined) {
+  if (parent.d !== U) {
     vals = parent.d;
   } else {
     const d: Record<string, Val> = Object.create(null);
@@ -1366,7 +1378,7 @@ export const valGet = (parent: Val, location: string): Val => {
   }
 
   const existing = vals[location];
-  if (existing !== undefined) {
+  if (existing !== U) {
     return B_scope(existing);
   } else {
     let locationSchema: Internal | undefined;
@@ -1376,7 +1388,7 @@ export const valGet = (parent: Val, location: string): Val => {
       locationSchema = parent.s.items![Number(location)];
     }
     let schema: Internal;
-    if (locationSchema !== undefined) {
+    if (locationSchema !== U) {
       schema = locationSchema;
     } else {
       const additionalItems = parent.s.additionalItems;
@@ -1403,19 +1415,30 @@ export const valGet = (parent: Val, location: string): Val => {
       }
     }
 
-    const pathAppend = pathFromInlinedLocation(B_inlineLocation(parent.g, location));
+    const pathAppend = pathFromInlinedLocation(inlinedValueFromString(location));
 
+    // Canonical Val field order (see B_operationArg in builder.ts).
     const item: Val = {
+      b: U,
+      p: parent,
       v: _notVarAtParent,
       i: isLiteral(schema) ? B_inlineConst(parent, schema) : `${parent.v()}${pathAppend}`,
-      f: valFlagNone,
       s: schema,
+      io: U,
       e: schema,
+      prev: U,
+      f: valFlagNone,
+      d: U,
+      fv: U,
       cp: "",
       hd: "",
+      fz: U,
+      vc: U,
+      u: U,
+      t: U,
       path: pathConcat(parent.path, pathAppend),
       g: parent.g,
-      p: parent,
+      o: U,
     };
     vals[location] = item;
     return item;
