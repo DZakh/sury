@@ -151,41 +151,25 @@ and generateFieldSchemaExpression field =
   let schema_expression = generateCoreTypeSchemaExpression field.core_type in
   if field.is_optional then
     let {ptyp_desc; ptyp_loc; ptyp_attributes} = field.core_type in
-    let is_option_type =
-      match ptyp_desc with
-      | Ptyp_constr ({txt = Longident.Lident "option"}, [_]) -> true
-      | _ -> false
-    in
     (* On `option<_>` (and `@s.default`/`@s.defaultWith`) the factory is
        already consumed by generateCoreTypeSchemaExpression, so applying it
        again as the optionality wrapper would double it up. *)
     let factory_consumed =
-      is_option_type
+      (match ptyp_desc with
+      | Ptyp_constr ({txt = Longident.Lident "option"}, [_]) -> true
+      | _ -> false)
       || ["s.default"; "s.defaultWith"]
          |> List.exists (fun name ->
                 match getAttributeByName ptyp_attributes name with
                 | Ok (Some _) -> true
                 | _ -> false)
     in
+    (* S.nullAsOption/S.nullableAsOption already produce an option<_>, so on an
+       optional field they replace the S.option wrapper instead of nesting
+       inside it. *)
     let wrapper =
-      match
-        ( getAttributeByName ptyp_attributes "s.null",
-          getAttributeByName ptyp_attributes "s.nullable" )
-      with
-      (* S.nullAsOption rejects undefined, which an optional field must accept,
-         so there's no valid schema for this combination unless the inner
-         `option<_>` type already consumed the factory. Reject before the
-         factory_consumed shortcut so @s.default/@s.defaultWith can't bypass it. *)
-      | Ok (Some _), _ when not is_option_type ->
-        fail ptyp_loc
-          "@s.null is not supported on optional fields. Use `@s.null \
-           option<'value>` for the field type or @s.nullable instead"
-      | _ when factory_consumed -> [%expr S.option]
-      (* S.nullableAsOption already accepts undefined, so the optional field
-         doesn't need an extra S.option on top of it. *)
-      | Ok None, Ok (Some _) ->
-        optionFactoryExpression ~loc:ptyp_loc ptyp_attributes
-      | _ -> [%expr S.option]
+      if factory_consumed then [%expr S.option]
+      else optionFactoryExpression ~loc:ptyp_loc ptyp_attributes
     in
     [%expr Obj.magic ([%e wrapper] [%e schema_expression])]
   else schema_expression
