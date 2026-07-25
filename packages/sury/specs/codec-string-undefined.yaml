@@ -26,7 +26,13 @@ operations:
         error: Expected string, received 123
   decode:
     expression: i=>{i==="undefined"||e[0](i);return void 0}
-    examples: {}
+    examples:
+      valid:
+        input: '"undefined"'
+        output: undefined
+      invalid-string:
+        input: '"abc"'
+        error: Expected "undefined", received "abc"
   encode:
     expression: i=>{i===void 0||e[0](i);return "undefined"}
     examples:

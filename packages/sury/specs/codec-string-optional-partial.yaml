@@ -28,6 +28,9 @@ operations:
       string:
         input: '"abc"'
         output: '"abc"'
+      # FIXME: not injective — this collides with a genuine "undefined" string
+      # (see the parse `ambiguous-undefined-string` example), so an encoded
+      # undefined parses back as the string, never as undefined.
       undefined:
         input: undefined
         output: '"undefined"'

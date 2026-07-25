@@ -27,12 +27,15 @@ operations:
         input: '{ a: "x", nested: { b: "not a number", inner: { c: true } } }'
         error: 'Failed at ["nested"]["b"]: Expected number, received "not a number"'
   decode:
+    # FIXME: two property reads whose results are discarded, then the input is
+    # returned unchanged — nothing here transforms, so it should be `identity`.
     expression: i=>{let v0=i["nested"];let v1=v0["inner"];return i}
     examples:
       valid:
         input: '{ a: "x", nested: { b: 1, inner: { c: true, d: "y" } } }'
         output: '{ a: "x", nested: { b: 1, inner: { c: true, d: "y" } } }'
   encode:
+    # FIXME: the same discarded reads as decode.
     expression: i=>{let v0=i["nested"];let v1=v0["inner"];return i}
     examples:
       valid:

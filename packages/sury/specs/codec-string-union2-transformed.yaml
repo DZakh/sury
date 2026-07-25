@@ -13,6 +13,8 @@ jsonSchema:
   output: '{ anyOf: [{ type: "number" }, { type: "string" }] }'
 operations:
   parse:
+    # FIXME: `catch(e0){}` swallows everything the branch throws, not just the
+    # type miss it means to fall back from (decode's expression too).
     expression: i=>{typeof i==="string"||e[1](i);try{let v0=+i;!Number.isNaN(v0)||e[0](i);i=v0}catch(e0){}return i}
     examples:
       decodes-to-number:
@@ -26,7 +28,27 @@ operations:
         output: "1.5"
   decode:
     expression: i=>{try{let v0=+i;!Number.isNaN(v0)||e[0](i);i=v0}catch(e0){}return i}
-    examples: {}
+    examples:
+      decodes-to-number:
+        input: '"123"'
+        output: "123"
+      falls-back-to-string:
+        input: '"abc"'
+        output: '"abc"'
+      # FIXME: `+i` decodes blank strings to 0 — "" and "   " should fall back to
+      # the S.string member, as "abc" does, not become a number.
+      empty-string:
+        input: '""'
+        output: "0"
+      whitespace-string:
+        input: '"   "'
+        output: "0"
+      hex-string:
+        input: '"0x10"'
+        output: "16"
+      infinity-string:
+        input: '"Infinity"'
+        output: Infinity
   encode:
     expression: i=>{if(typeof i==="number"&&!Number.isNaN(i)){i=""+i}else if(!(typeof i==="string")){e[0](i)}return i}
     examples:

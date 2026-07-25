@@ -10,9 +10,13 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ anyOf: [{ type: "integer", minimum: -2147483648, maximum: 2147483647 }, { type: "number" }] }'
+  # FIXME: the same internal crash as operations.parse, surfaced through toJSONSchema.
   output: Cannot read properties of undefined (reading 'v')
 operations:
   parse:
+    # FIXME: a TypeError is an internal fault, not a rejection — parse and decode
+    # both fail to compile while encode compiles fine, so it's the reverse of a
+    # working conversion that crashes.
     creationError: "TypeError: Cannot read properties of undefined (reading 'v')"
   decode: eq-to-parse
   encode:
