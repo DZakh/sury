@@ -70,7 +70,7 @@ const proxifyShapedSchema = (schema: Internal, from: string[], fromFlattened?: n
         } else {
           maybeField = U;
         }
-        if (maybeField === U) {
+        if (!maybeField) {
           panic(`Cannot read property "${location}" of ${toExpression(target)}`);
         }
 
