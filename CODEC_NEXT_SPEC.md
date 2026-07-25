@@ -84,25 +84,29 @@ S.parser(schema)("124"); // 124n — the literal fails, the bigint variant decod
 S.parser(schema)("abc"); // "abc" — bigint decoding fails, the catch-all string accepts
 ```
 
-`"123"` and the catch-all `S.string` share the string tag, but merging them
-would hide the `S.bigint` between them, and `"124"` would come back a string.
-The same holds with the tags swapped — the `S.number` variant below is reached
-by a string, even though the two literals around it are both strings:
+**Built-in decoding fills gaps, it doesn't re-type what the source already
+has.** A variant whose tag the source can produce takes those values as they
+are; the built-in decoder only steps in for a variant whose tag the source has
+no way to produce. `bigint` is not a JSON tag, so a JSON string is offered to
+`BigInt`; `string` and `number` both are, so a JSON boolean never becomes
+`"true"` and a JSON string never becomes a number:
 
 ```ts
 const schema = S.json.with(S.to, S.union([S.literal("a"), S.number, S.literal("b")]));
 
-S.parser(schema)("b"); // "b" — "a" fails, `+"b"` is NaN, "b" matches
-S.parser(schema)("5"); // 5 — neither literal matches, the number variant decodes
+S.parser(schema)("b"); // "b" — "a" fails, "b" matches
+S.parser(schema)("5"); // throws — S.number takes JSON numbers as they are, it doesn't decode "5"
 S.parser(schema)("c"); // throws — no variant accepts
 ```
 
 **Grouping is codegen, not semantics.** Emitting same-tag variants under one
 shared type check — `typeof i==="string"&&(i==="a"||i==="b")` — is an
-optimization, allowed exactly while it doesn't change which variant wins. It
-doesn't when nothing else sits between them; it does in both examples above, so
-there each check stays in its own definition slot and the repeated `typeof`
-is reused from a var instead.
+optimization, allowed exactly while it can't change which variant wins. Hoisting
+`"a"` and `"b"` past `S.number` above is legal: neither literal can take a value
+`S.number` would have taken. Hoisting `"123"` and the catch-all `S.string` past
+`S.bigint` is not: the catch-all takes every string, `"124"` among them. Where
+the shortcut isn't available, each check stays in its own definition slot and
+the repeated `typeof` is reused from a var.
 
 `S.unknown` is a normal type here — it only matches another `unknown`. An
 `unknown` source matches none of the concrete variants, so it takes the same
@@ -234,7 +238,6 @@ Behavior change expected, today's goldens are wrong:
 | ------------------------------------ | ---- | -------------------------------------------------------------------- |
 | `codec-literal-array-literal-string` | 1    | collection literals remap like every other literal pair              |
 | `codec-json-union2`                  | 2    | non-bigint string falls back to the `S.string` variant               |
-| `codec-json-union3-grouped`          | 2    | the `S.number` variant between the two literals is still attempted   |
 | `codec-json-union3-ungrouped`        | 2    | `"123"` matches the literal, `"124"` reaches the `S.bigint` variant  |
 | `codec-number-union2-int32`          | 2    | compiles instead of crashing; int32 first, string next               |
 | `codec-string-optional-partial`      | 2    | rejected — partial type match                                        |
@@ -247,8 +250,9 @@ Behavior change expected, today's goldens are wrong:
 | `codec-union3-union2-json`           | 4    | rejected — `json` is not the exact `string`/`number` type             |
 
 Already spec-conformant (their remaining `FIXME`s are codegen bugs, not rule
-changes): `codec-bool-number-unsupported`, `codec-literal-string-literal-number`,
-`codec-null-undefined`, `codec-optional-literal-nullable-literal`,
+changes): `codec-bool-number-unsupported`, `codec-json-union3-grouped`,
+`codec-literal-string-literal-number`, `codec-null-undefined`,
+`codec-optional-literal-nullable-literal`,
 `codec-optional-nullable-transformed`, `codec-optional-nullable`,
 `codec-optional-nullish`, `codec-string-optional-never`, `codec-string-undefined`,
 `codec-string-union2-never`, `codec-string-union2-transformed`,

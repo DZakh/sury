@@ -1,12 +1,10 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  # FIXME: Codec next expects: rule 2 attempts every member in definition order, so the
-  # S.number between the two string literals keeps its turn and a numeric string
-  # decodes through it. Sharing one `typeof i==="string"` between "a" and "b" is an
-  # internal optimization, legal only while it doesn't change which member wins —
-  # here it hides S.number, so the two literal checks belong in their definition slots
-  # with the typeof reused from a var. The mirror of codec-json-union3-ungrouped,
-  # where S.bigint sits between the members.
+  # FIXME: Codec next expects: stay the same — sharing one `typeof i==="string"`
+  # between "a" and "b" is an internal optimization, and a legal one here: hoisting
+  # them past S.number can't change which member wins, since neither literal can take
+  # a value S.number would take. codec-json-union3-ungrouped is where the same
+  # optimization is illegal — its catch-all S.string would swallow S.bigint's values.
   schema: S.json.with(S.to, S.union([S.literal("a"), S.number, S.literal("b")]))
   input: JSON
   output: number | "a" | "b"
@@ -31,10 +29,7 @@ operations:
       number:
         input: "5"
         output: "5"
-      # FIXME: hoisting both literals under one typeof moved S.number behind them, so a
-      # numeric string never reaches it — "5" should decode to 5 the way "124" should
-      # reach S.bigint in codec-json-union3-ungrouped.
-      numeric-string-skips-number:
+      numeric-string-not-coerced:
         input: '"5"'
         error: Expected "a" | number | "b", received "5"
       unmatched-string:
