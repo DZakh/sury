@@ -71,7 +71,8 @@ test("lintSpecsDir rejects a non-yaml file and a dotted/invalid id", () => {
 
 // The `--write` summary is what a caller reads instead of the golden diff, so
 // its exact rendering is asserted rather than left to whatever it happens to
-// print: ranking (worst regression first), aligned columns, and each section.
+// print: one list per metric ordered worst-regression-first, aligned columns,
+// and an unchanged row (`string` below) omitted rather than shown at 0%.
 test("summarize renders ranked metric moves and behavior changes", () => {
   const before = readSpec(listSpecFiles().find((f) => specId(f) === "string")!);
   const after = structuredClone(before);
@@ -82,24 +83,38 @@ test("summarize renders ranked metric moves and behavior changes", () => {
     const ex = after.operations.parse.examples.valid;
     if (ex && "output" in ex) ex.output = '"HELLO"';
   }
+  const improvedBefore = readSpec(listSpecFiles().find((f) => specId(f) === "never")!);
+  const improvedAfter = structuredClone(improvedBefore);
+  improvedAfter.ts.instantiations = 100;
   expect(
-    summarize([{ id: "string", before, after }], {
-      before: { total: 20000, exports: { string: 3790, toJSONSchema: 4000, oldExport: 10 } },
-      after: { total: 20690, exports: { string: 3790, toJSONSchema: 5229, newExport: 20 } },
-    }),
+    summarize(
+      [
+        { id: "string", before, after },
+        { id: "never", before: improvedBefore, after: improvedAfter },
+      ],
+      {
+        before: {
+          total: 20000,
+          exports: { string: 3790, toJSONSchema: 4000, fromJSONSchema: 20000, oldExport: 10 },
+        },
+        after: {
+          total: 20690,
+          exports: { string: 3790, toJSONSchema: 5229, fromJSONSchema: 15165, newExport: 20 },
+        },
+      },
+    ),
   ).toMatchInlineSnapshot(`
     "ts.instantiations:
-      regressions:
-        string  254 → 300  +18.1%
+      string  254 → 300  +18.1%
+      never   254 → 100  -60.6%
     operations.expression (chars):
-      improvements:
-        string.parse  42 → 4  -90.5%
+      string.parse  42 → 4  -90.5%
     bundleSize:
       total  20000 → 20690  +3.5%
       added: newExport 20
       removed: oldExport
-      regressions:
-        toJSONSchema  4000 → 5229  +30.7%
+      toJSONSchema     4000 →  5229  +30.7%
+      fromJSONSchema  20000 → 15165  -24.2%
     behavior changed:
       string.ts.output  string → string | undefined
       string.parse.valid  output "hello" → output "HELLO""

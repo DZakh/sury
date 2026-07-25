@@ -31,16 +31,12 @@ const render = (deltas: Delta[]): string[] => {
   });
 };
 
+// One list ordered by percentage, worst regression to biggest improvement —
+// no regression/improvement grouping, since the sign already separates them.
 const section = (title: string, deltas: Delta[], lead: string[] = []): string[] => {
-  const regressions = deltas.filter((d) => d.after > d.before).sort((a, b) => pct(b) - pct(a));
-  const improvements = deltas.filter((d) => d.after < d.before).sort((a, b) => pct(a) - pct(b));
-  if (!regressions.length && !improvements.length && !lead.length) return [];
-  return [
-    `${title}:`,
-    ...lead.map((l) => `  ${l}`),
-    ...(regressions.length ? ["  regressions:", ...render(regressions).map((l) => `    ${l}`)] : []),
-    ...(improvements.length ? ["  improvements:", ...render(improvements).map((l) => `    ${l}`)] : []),
-  ];
+  const moved = deltas.filter((d) => d.after !== d.before).sort((a, b) => pct(b) - pct(a));
+  if (!moved.length && !lead.length) return [];
+  return [`${title}:`, ...lead.map((l) => `  ${l}`), ...render(moved).map((l) => `  ${l}`)];
 };
 
 const outcome = (ex: Example): string => ("output" in ex ? `output ${ex.output}` : `error ${ex.error}`);
