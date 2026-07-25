@@ -41,10 +41,12 @@ const here = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
 // The spec suite lives in the sury package (specs ship with it).
 export const SPECS_DIR = here("../sury/specs/");
 export const SCHEMA_PATH = join(SPECS_DIR, "spec.schema.json");
-// bundleSize.yaml stays in the harness package instead: it's one whole-package
-// measurement, not a per-schema contract, so it isn't part of the published
-// spec suite.
-export const BUNDLE_SIZE_PATH = here("./bundleSize.yaml");
+export const BUNDLE_SIZE_PATH = join(SPECS_DIR, "bundleSize.yaml");
+
+// Lives in the specs dir but isn't a spec: one whole-package measurement, not
+// a per-schema contract. `bundleSize` is a valid spec id, so every walk of the
+// directory has to exclude it by name or it gets validated as a Spec.
+const NON_SPEC_FILES = new Set([basename(SCHEMA_PATH), basename(BUNDLE_SIZE_PATH)]);
 
 const HEADER = "# yaml-language-server: $schema=./spec.schema.json";
 
@@ -84,11 +86,12 @@ const VALID_ID_RE = /^[a-zA-Z0-9-]+$/;
 // the id/filename rules directly, without touching the filesystem.
 export const lintSpecsDir = (names: string[] = readdirSync(SPECS_DIR)): string[] => {
   const errs: string[] = [];
-  const schemaFile = basename(SCHEMA_PATH);
   for (const name of names) {
-    if (name === schemaFile) continue;
+    if (NON_SPEC_FILES.has(name)) continue;
     if (!name.endsWith(".yaml")) {
-      errs.push(`specs dir: unexpected file ${JSON.stringify(name)} (only *.yaml and ${schemaFile} allowed)`);
+      errs.push(
+        `specs dir: unexpected file ${JSON.stringify(name)} (only *.yaml and ${[...NON_SPEC_FILES].join("/")} allowed)`,
+      );
       continue;
     }
     const id = name.replace(/\.yaml$/, "");
@@ -100,7 +103,7 @@ export const lintSpecsDir = (names: string[] = readdirSync(SPECS_DIR)): string[]
 
 export const listSpecFiles = (): string[] =>
   readdirSync(SPECS_DIR)
-    .filter((f) => f.endsWith(".yaml"))
+    .filter((f) => f.endsWith(".yaml") && !NON_SPEC_FILES.has(f))
     .map((f) => join(SPECS_DIR, f))
     .sort();
 

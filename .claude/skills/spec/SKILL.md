@@ -36,9 +36,9 @@ Three forms:
 
 ## Specs are a metrics ratchet
 
-Goldens snapshot key metrics: generated code, `ts.instantiations`, inferred types. Bundle size is ratcheted per *export*, not per schema, in `packages/spec/bundleSize.yaml` — the same `pnpm spec check --write` re-records it (whatever `[id…]` you pass), so `S.toJSONSchema`/`S.fromJSONSchema` and friends are covered even though no schema expression reaches them. After core-logic changes, run `pnpm spec check --write` and **review the golden diff as the deliverable** — every metric should improve or stay flat. A regression is a design smell; if unavoidable, call it out in the commit/PR.
+Goldens snapshot key metrics: generated code, `ts.instantiations`, inferred types, and per-export bundle size in `specs/bundleSize.yaml` (per export, not per schema — no schema expression reaches `S.toJSONSchema` and friends). After core-logic changes, run `pnpm spec check --write` and **review the golden diff as the deliverable** — every metric should improve or stay flat. A regression is a design smell; if unavoidable, call it out in the commit/PR.
 
 ## Layout
 
-- `packages/sury/specs/*.yaml` — specs; published as machine-checked documentation.
-- `packages/spec/` — the spec CLI, plus `bundleSize.yaml` (a whole-package metric, so it lives with the harness rather than the published spec suite). Don't touch it for Sury-itself work — except `bundleSize.yaml`, which is a golden you re-record; gaps go under **Spec Harness Suggestions** in `CONTRIBUTING.md`.
+- `packages/sury/specs/*.yaml` — specs, plus `bundleSize.yaml` (a whole-package metric, not a spec); published as machine-checked documentation.
+- `packages/spec/` — the spec CLI. Don't touch it for Sury-itself work; gaps go under **Spec Harness Suggestions** in `CONTRIBUTING.md`.

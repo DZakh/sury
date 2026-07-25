@@ -41,6 +41,10 @@ const targets = (ids: string[] = rest): string[] =>
   ids.length
     ? ids.map((id) => {
         const file = join(SPECS_DIR, `${id.replace(/\.yaml$/, "")}.yaml`);
+        // Sits in the specs dir but isn't a spec, so it would otherwise be
+        // validated as one.
+        if (file === BUNDLE_SIZE_PATH)
+          fail(`${id} isn't a spec — bundleSize.yaml is checked on every \`spec check\` run`);
         if (!existsSync(file)) fail(`no such spec: ${id} (expected ${file})`);
         return file;
       })

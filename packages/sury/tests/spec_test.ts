@@ -55,9 +55,15 @@ test("specs dir contains only valid spec files (run `pnpm spec check`)", () => {
 });
 
 test("lintSpecsDir rejects a non-yaml file and a dotted/invalid id", () => {
-  const errs = lintSpecsDir(["good-id.yaml", "notes.txt", "bad.dotted.yaml", "spec.schema.json"]);
+  const errs = lintSpecsDir([
+    "good-id.yaml",
+    "notes.txt",
+    "bad.dotted.yaml",
+    "spec.schema.json",
+    "bundleSize.yaml",
+  ]);
   expect(errs).toEqual([
-    `specs dir: unexpected file "notes.txt" (only *.yaml and spec.schema.json allowed)`,
+    `specs dir: unexpected file "notes.txt" (only *.yaml and spec.schema.json/bundleSize.yaml allowed)`,
     `specs dir: invalid spec id "bad.dotted" (only letters, digits, and - allowed)`,
   ]);
 });

@@ -336,7 +336,7 @@ Implementation notes for `packages/spec` (see the `spec` skill for the authoring
   an unrelated whole-project assertion scan this harness has no use for). Declares the schema, extracts
   `S.Output<>`/`S.Input<>`, and reads `checker.typeToString()`/`program.getInstantiationCount()` (diffed
   against a bare-import baseline) from an isolated virtual TS environment memoized per process.
-- **`bundleSize.yaml`** (`packages/spec/bundleSize.ts`) — not a spec dimension. One whole-package ledger
+- **`specs/bundleSize.yaml`** (`packages/spec/bundleSize.ts`) — not a spec dimension. One whole-package ledger
   of minified+gzipped bytes per public export, each bundled in isolation with esbuild (aliasing the bare
   `sury` specifier to the dev source), plus `total` for the whole entry as the anchor row. `spec check`
   gates it regardless of any `[id…]` filter, and `--write` re-records it. Per-export rather than
