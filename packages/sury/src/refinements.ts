@@ -47,7 +47,7 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
     }
   }
 
-  if (maybeProperties === U) {
+  if (!maybeProperties) {
     return panic(
       "S.compactColumns supports only object schemas. Use S.compactColumns(S.unknown)->S.to(S.array(objectSchema)).",
     );
