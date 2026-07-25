@@ -34,14 +34,6 @@ function refine(schema, refiner, error, path) {
   });
 }
 
-function to(from, target) {
-  if (from === target) {
-    return from;
-  } else {
-    return Sury.to(from, target);
-  }
-}
-
 function decoder(from, to) {
   return Sury.decoder(Sury.reverse(from), to);
 }
@@ -105,7 +97,6 @@ export {
   Flag,
   $$Error,
   refine,
-  to,
   decoder,
   asyncDecoder,
   parseOrThrow,

@@ -6,10 +6,10 @@ test("Coerce from string to string", t => {
 })
 
 test("Coerce a one-directional transform to itself relies on the same-instance shortcut", t => {
-  // `S.to` in ReScript returns `from` untouched when both arguments are the same
-  // instance. Without that shortcut this would chain the transform's int output
-  // back into the target's string decoder, which the missing serializer can't
-  // bridge — as the two-instances case below shows.
+  // `S.to` returns `from` untouched when both arguments are the same instance.
+  // Without that shortcut this would chain the transform's int output back into
+  // the target's string decoder, which the missing serializer can't bridge — as
+  // the two-instances case below shows.
   let makeSchema = () => S.string->S.transform(_ => {parser: String.length})
 
   let schema = makeSchema()

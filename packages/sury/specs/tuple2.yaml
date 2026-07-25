@@ -6,7 +6,7 @@ ts:
   input: '["bar", number]'
   output: '["bar", number]'
   instantiations: 967
-  bundleBytes: 9660
+  bundleBytes: 9659
 vs:
   zod: z.tuple([z.literal("bar"), z.number()])
 jsonSchema:

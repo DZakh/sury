@@ -73,6 +73,12 @@ export const js_to = /* @__PURE__ */ (() => {
     maybeDecoder?: (value: unknown) => unknown,
     maybeEncoder?: (target: unknown) => unknown,
   ) => {
+    // Chaining a schema to itself would append a second copy of its own chain,
+    // re-decoding the value it just produced. Custom coders still get a real
+    // conversion step — only the coder-less spelling is a no-op.
+    if (schema === target && maybeDecoder === U && maybeEncoder === U) {
+      return schema;
+    }
     return updateOutput(schema, (mut) => {
       if (maybeEncoder !== U) {
         const targetMut = copySchema(target);
