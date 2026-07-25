@@ -12,10 +12,12 @@ demands of it.
 ## Shared definitions
 
 > Two schemas have the **same type** when their type tags match — including the
-> class for instances, the format for formatted primitives, and the reference
-> for recursive schemas, where relevant. `S.int32` and `S.number` are different
-> types, and so are `S.json` and `S.string` — even though every JSON string
-> would validate against `S.string`.
+> class for instances and the format for formatted primitives, where relevant.
+> `S.int32` and `S.number` are different types, and so are `S.json` and
+> `S.string` — even though every JSON string would validate against `S.string`.
+> A schema with no tag of its own to compare — a recursive schema, or a union
+> treated as a normal schema (below) — has the same type as another only when
+> the two are strictly equal, i.e. the same schema reference.
 
 - **Checks run at operation creation time**, against the **derived** types — the
   actual schema at that point in the pipeline, which may be narrower than the
@@ -26,7 +28,8 @@ demands of it.
   `S.union([S.string, S.union([S.number, S.boolean])])` acts as a three-variant
   union. The exception is a union carrying its own format, transformation, or
   refinement — it's treated as a normal (non-union) schema on its side of the
-  conversion.
+  conversion, so it type-matches by strict equality: the same union reference on
+  the other side matches, an identically written one does not.
 - **`S.never` marks an unreachable path.** `S.never` variants — including
   transformed ones like `S.never.with(S.to, S.number)`, which match by their
   `never` input — are ignored by type matching: they never trigger the
@@ -42,19 +45,19 @@ S.schema(null).with(S.to, S.schema(undefined)); // null <-> undefined
 ```
 
 **Literal → literal is one remap, not a table of pairs.** Whatever their tags,
-one literal decodes into another by validating the source const and returning
-the target const — `null <-> undefined` is an instance of it, not a nullish
-special case:
+one primitive literal decodes into another by validating the source const and
+returning the target const — `null <-> undefined` is an instance of it, not a
+nullish special case:
 
 ```ts
 S.schema("a").with(S.to, S.schema(42)); // "a" <-> 42
 S.schema(1).with(S.to, S.schema(true)); // 1 <-> true
 S.schema(1n).with(S.to, S.schema("one")); // 1n <-> "one"
 S.schema(NaN).with(S.to, S.schema(0)); // NaN <-> 0
-S.schema([1, 2]).with(S.to, S.schema("done")); // [1, 2] <-> "done"
 ```
 
-The collection-literal line is the one that doesn't hold today — see
+Collection literals stay out of it — `S.schema([1, 2]).with(S.to,
+S.schema("done"))` keeps today's behavior, snapshot in
 `codec-literal-array-literal-string`.
 
 ## Rule 2: non-union → union
@@ -236,7 +239,7 @@ Behavior change expected, today's goldens are wrong:
 
 | Spec                                 | Rule | Expected                                                             |
 | ------------------------------------ | ---- | -------------------------------------------------------------------- |
-| `codec-literal-array-literal-string` | 1    | collection literals remap like every other literal pair              |
+| `codec-union-nested-refined-union`   | —    | a union with its own refinement isn't flattened, and it still refines |
 | `codec-json-union2`                  | 2    | non-bigint string falls back to the `S.string` variant               |
 | `codec-json-union3-ungrouped`        | 2    | `"123"` matches the literal, `"124"` reaches the `S.bigint` variant  |
 | `codec-number-union2-int32`          | 2    | compiles instead of crashing; int32 first, string next               |
@@ -251,8 +254,8 @@ Behavior change expected, today's goldens are wrong:
 
 Already spec-conformant (their remaining `FIXME`s are codegen bugs, not rule
 changes): `codec-bool-number-unsupported`, `codec-json-union3-grouped`,
-`codec-literal-string-literal-number`, `codec-null-undefined`,
-`codec-optional-literal-nullable-literal`,
+`codec-literal-array-literal-string`, `codec-literal-string-literal-number`,
+`codec-null-undefined`, `codec-optional-literal-nullable-literal`,
 `codec-optional-nullable-transformed`, `codec-optional-nullable`,
 `codec-optional-nullish`, `codec-string-optional-never`, `codec-string-undefined`,
 `codec-string-union2-never`, `codec-string-union2-transformed`,

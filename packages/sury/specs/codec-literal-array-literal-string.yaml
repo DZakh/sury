@@ -1,10 +1,9 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  # FIXME: Codec next expects: rule 1's literal remap (see
-  # codec-literal-string-literal-number) to reach collection literals too — [1, 2]
-  # parses to "done" and "done" encodes back to [1, 2]. Today the remap is emitted as
-  # an extra `i==="done"` check on the array that can never hold, so every direction
-  # either throws at runtime or fails to compile.
+  # FIXME: Codec next expects: stay the same — rule 1's literal remap (see
+  # codec-literal-string-literal-number) stops at primitive literals, so a collection
+  # literal keeps the behavior below: the remap lands as an extra `i==="done"` check
+  # the array can never satisfy, and encode refuses to compile at all.
   schema: S.schema([1, 2]).with(S.to, S.schema("done"))
   input: "[1, 2]"
   output: '"done"'
@@ -18,8 +17,6 @@ jsonSchema:
   output: '{ type: "string", const: "done" }'
 operations:
   parse:
-    # FIXME: the tuple is validated and then tested against the target const, so the
-    # only value that clears the array checks fails the one after them.
     expression: i=>{Array.isArray(i)&&i.length===2||e[3](i);let v0=i["0"],v1=i["1"];v0===1||e[0](v0);v1===2||e[1](v1);i==="done"||e[2](i);return i}
     examples:
       const:
@@ -32,8 +29,6 @@ operations:
         input: '"done"'
         error: Expected [1, 2], received "done"
   decode:
-    # FIXME: the array checks are dropped and only the target-const test survives, so
-    # decode rejects the very value its input type describes.
     expression: i=>{i==="done"||e[0](i);return i}
     examples:
       const:
