@@ -182,19 +182,50 @@ test("vs.zod overwrite form omits a side that actually diverges from ts (must be
 
 test("not canonical (on-disk text doesn't match the canonical form)", async () => {
   const spec = mutate(() => {});
-  const scrambled = serialize(spec).replace("ts:\n", "ts:\n  # a stray comment\n");
+  const scrambled = serialize(spec).replace("vs:\n  zod: z.string()\n", "vs: { zod: z.string() }\n");
   await expect(runCheck("string", scrambled)).resolves.toMatchInlineSnapshot(`
     {
       "stderr": "✗ string
         not canonical — run \`pnpm spec format string\` (or \`pnpm spec check string --write\`, which also refreshes goldens):
-    @@ -1,6 +1,5 @@
-      # yaml-language-server: $schema=./spec.schema.json
-      ts:
-    -   # a stray comment
-        schema: S.string
-        input: string
-        output: string",
+    @@ -5,7 +5,8 @@
+        output: string
+        instantiations: 254
+        bundleBytes: 3744
+    - vs: { zod: z.string() }
+    + vs:
+    +   zod: z.string()
+      jsonSchema:
+        input: '{ type: "string" }'
+        output: '{ type: "string" }'",
       "stdout": "",
+    }
+  `);
+});
+
+test("a comment that isn't a FIXME (prose the checker can't verify)", async () => {
+  const spec = mutate(() => {});
+  const commented = serialize(spec).replace("ts:\n", "ts:\n  # the fastest schema there is\n");
+  await expect(runCheck("string", commented)).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ string
+        ts.schema: comment "the fastest schema there is" is not allowed — prefix it with \`FIXME:\` if it flags broken behavior to address, or move it to Spec Harness Suggestions in CONTRIBUTING.md if the spec format can't express it",
+      "stdout": "",
+    }
+  `);
+});
+
+// The canonical form is rebuilt from the parsed object, so a comment survives
+// only if it's re-anchored — otherwise `--write` would silently delete the one
+// marker an author leaves behind.
+test("a FIXME comment is allowed and survives canonicalization", async () => {
+  const spec = mutate(() => {});
+  const commented = serialize(spec)
+    .replace("ts:\n", "ts:\n  # FIXME: coercion is wrong here (#123)\n")
+    .replace("  decode: identity\n", "  decode: identity # FIXME: should not be identity\n");
+  await expect(runCheck("string", commented)).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "",
+      "stdout": "✓ string",
     }
   `);
 });

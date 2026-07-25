@@ -15,6 +15,8 @@ import {
   evalSchema,
   identityViolations,
   checkAliases,
+  collectComments,
+  lintComments,
   lintSkips,
   lintSpecsDir,
 } from "../../spec/harness";
@@ -62,7 +64,14 @@ describe.each(specs)("spec: $id", ({ file }) => {
   });
 
   test("is in canonical form (run `pnpm spec format`)", () => {
-    expect(readFileSync(file, "utf8")).toBe(serialize(spec));
+    const raw = readFileSync(file, "utf8");
+    expect(raw).toBe(serialize(spec, collectComments(raw)));
+  });
+
+  test("every comment is a `FIXME:` (run `pnpm spec check`)", () => {
+    const errs: string[] = [];
+    lintComments(collectComments(readFileSync(file, "utf8")), errs);
+    expect(errs, errs.join("\n")).toEqual([]);
   });
 
   // Only checkSpec (the pnpm spec check gate) runs these two — nothing else
