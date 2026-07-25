@@ -73,9 +73,8 @@ S.parser(schema)(true); // throws — no implicit double decoding (true -> "true
 `S.json` is not the exact `string` type, so string inputs still go through
 variant decoding instead of passing through.
 
-**Definition order is not tag order.** Same-tag variants are *not* collapsed
-into one group: a differently-tagged variant sitting between them keeps its
-turn, and the first variant that accepts wins.
+**Definition order is not tag order.** The first variant that accepts wins, and
+a differently-tagged variant sitting between two same-tag ones keeps its turn.
 
 ```ts
 const schema = S.json.with(S.to, S.union(["123", S.bigint, S.string]));
@@ -85,7 +84,7 @@ S.parser(schema)("124"); // 124n — the literal fails, the bigint variant decod
 S.parser(schema)("abc"); // "abc" — bigint decoding fails, the catch-all string accepts
 ```
 
-`"123"` and the catch-all `S.string` share the string tag, but grouping them
+`"123"` and the catch-all `S.string` share the string tag, but merging them
 would hide the `S.bigint` between them, and `"124"` would come back a string.
 The same holds with the tags swapped — the `S.number` variant below is reached
 by a string, even though the two literals around it are both strings:
@@ -97,6 +96,13 @@ S.parser(schema)("b"); // "b" — "a" fails, `+"b"` is NaN, "b" matches
 S.parser(schema)("5"); // 5 — neither literal matches, the number variant decodes
 S.parser(schema)("c"); // throws — no variant accepts
 ```
+
+**Grouping is codegen, not semantics.** Emitting same-tag variants under one
+shared type check — `typeof i==="string"&&(i==="a"||i==="b")` — is an
+optimization, allowed exactly while it doesn't change which variant wins. It
+doesn't when nothing else sits between them; it does in both examples above, so
+there each check stays in its own definition slot and the repeated `typeof`
+is reused from a var instead.
 
 `S.unknown` is a normal type here — it only matches another `unknown`. An
 `unknown` source matches none of the concrete variants, so it takes the same

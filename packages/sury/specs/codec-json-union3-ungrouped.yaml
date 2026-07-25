@@ -1,9 +1,10 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  # FIXME: Codec next expects: rule 2 attempts every variant in definition order — the
-  # "123" literal and the catch-all S.string are not grouped across the bigint between
-  # them, so "123" matches the literal and stays a string, "124" decodes to 124n
-  # through the bigint variant, and "abc" falls back to S.string.
+  # FIXME: Codec next expects: rule 2 attempts every member in definition order, so
+  # "123" matches the literal and stays a string, "124" decodes to 124n through
+  # S.bigint, and "abc" falls back to S.string. Sharing one `typeof i==="string"`
+  # between the literal and the catch-all is an internal optimization, and not one
+  # available here — it would move S.bigint behind both and swallow "124".
   schema: S.json.with(S.to, S.union(["123", S.bigint, S.string]))
   input: JSON
   output: string | bigint

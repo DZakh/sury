@@ -1,10 +1,12 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  # FIXME: Codec next expects: rule 2 attempts every variant in definition order, so
-  # the number variant between the two string literals keeps its turn: "a" and "b"
-  # still match their literals, but a numeric string decodes through S.number instead
-  # of being skipped because the two literals share the string tag. The mirror of
-  # codec-json-union3-ungrouped, where the bigint variant sits between the members.
+  # FIXME: Codec next expects: rule 2 attempts every member in definition order, so the
+  # S.number between the two string literals keeps its turn and a numeric string
+  # decodes through it. Sharing one `typeof i==="string"` between "a" and "b" is an
+  # internal optimization, legal only while it doesn't change which member wins —
+  # here it hides S.number, so the two literal checks belong in their definition slots
+  # with the typeof reused from a var. The mirror of codec-json-union3-ungrouped,
+  # where S.bigint sits between the members.
   schema: S.json.with(S.to, S.union([S.literal("a"), S.number, S.literal("b")]))
   input: JSON
   output: number | "a" | "b"
@@ -23,19 +25,19 @@ operations:
       first-literal:
         input: '"a"'
         output: '"a"'
-      second-literal-groups-before-number:
+      second-literal-behind-number:
         input: '"b"'
         output: '"b"'
       number:
         input: "5"
         output: "5"
-      # FIXME: the number variant is skipped for string input because the two literals
-      # group ahead of it — "5" should decode to 5 the way "124" should reach the
-      # bigint variant in codec-json-union3-ungrouped.
+      # FIXME: hoisting both literals under one typeof moved S.number behind them, so a
+      # numeric string never reaches it — "5" should decode to 5 the way "124" should
+      # reach S.bigint in codec-json-union3-ungrouped.
       numeric-string-skips-number:
         input: '"5"'
         error: Expected "a" | number | "b", received "5"
-      unmatched-string-skips-number:
+      unmatched-string:
         input: '"c"'
         error: Expected "a" | number | "b", received "c"
       no-double-decoding:
