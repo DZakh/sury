@@ -214,9 +214,6 @@ export const TS_KEY_ORDER = keyOrder<Spec["ts"]>({
 });
 export const OP_ORDER = keyOrder<Spec["operations"]>({ parse: true, decode: true, encode: true });
 
-// Ask the schema, don't re-duck-type its shape by hand: `S.is` safe-parses
-// against `skip`/`zodOverwrite` themselves, so the discriminant stays derived
-// from the one definition instead of a hand-picked key that could drift from it.
 export const isSkip = (v: unknown): v is Skip => S.is(skip, v);
 
 // The overwrite form of `vs.zod` — distinguished from a bare string (Zod
