@@ -43,6 +43,30 @@ jobs:
           name: sury
           path: packages/sury/artifacts
 
+  compliance:
+    name: JSON Schema Test Suite
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.16.0
+          cache: "pnpm"
+      - run: pnpm install
+
+      # Fetches the pinned upstream revision (see suite-ref.json) and fails if
+      # the score drifts from packages/json-schema-test-suite/goldens/ in
+      # either direction — a fix that improves coverage is expected to land the
+      # regenerated golden alongside it.
+      - name: Restore suite checkout
+        uses: actions/cache@v4
+        with:
+          path: packages/json-schema-test-suite/.suite
+          key: json-schema-test-suite-${{ hashFiles('packages/json-schema-test-suite/suite-ref.json') }}
+
+      - run: pnpm compliance
+
   benchmarks:
     name: Benchmarks
     runs-on: ubuntu-24.04

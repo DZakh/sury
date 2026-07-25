@@ -1,0 +1,5 @@
+{
+  "$comment": "Pinned upstream revision. Bumping this is a deliberate PR — re-run `pnpm compliance --update` in the same commit so the golden diff shows what the new tests changed.",
+  "repository": "https://github.com/json-schema-org/JSON-Schema-Test-Suite.git",
+  "commit": "0c7b65dc16dd8eaa7bd83e21099c76610c3b246a"
+}
