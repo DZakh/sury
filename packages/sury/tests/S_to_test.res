@@ -5,6 +5,23 @@ test("Coerce from string to string", t => {
   t->Assert.is(schema, S.string)
 })
 
+test("Coerce a one-directional transform to itself relies on the same-instance shortcut", t => {
+  // `S.to` in ReScript returns `from` untouched when both arguments are the same
+  // instance. Without that shortcut this would chain the transform's int output
+  // back into the target's string decoder, which the missing serializer can't
+  // bridge — as the two-instances case below shows.
+  let makeSchema = () => S.string->S.transform(_ => {parser: String.length})
+
+  let schema = makeSchema()
+  t->Assert.is(schema->S.to(schema), schema)
+  t->Assert.deepEqual("hello"->S.parseOrThrow(~to=schema->S.to(schema)), 5)
+
+  t->U.assertThrowsMessage(
+    () => "hello"->S.parseOrThrow(~to=makeSchema()->S.to(makeSchema())),
+    `Expected string, received 5`,
+  )
+})
+
 test("Coerce from string to bool", t => {
   let schema = S.string->S.to(S.bool)
 
