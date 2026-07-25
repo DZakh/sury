@@ -10,6 +10,7 @@ import { schemaJson, type Spec } from "./format";
 import {
   SPECS_DIR,
   SCHEMA_PATH,
+  BUNDLE_SIZE_PATH,
   listSpecFiles,
   lintSpecsDir,
   specId,
@@ -21,7 +22,7 @@ import {
   scaffoldJsonSchema,
   scaffoldOperations,
   deriveTypeInfo,
-  deriveBundleBytes,
+  checkBundleSize,
   checkSpec,
 } from "./harness";
 import { red, green, formatFailure } from "./report";
@@ -61,10 +62,11 @@ Commands:
       e.g. spec new --id string-min --ts "S.string.with(S.min, 3)"
 
   check [id…] [--write]
-      Gate: format-valid, canonical, skips valid, goldens fresh. Read-only
-      by default. --write persists whatever's safely fixable; a
-      format-invalid spec or a live identity mismatch needs a fix first —
-      resolve it, then re-run.
+      Gate: format-valid, canonical, skips valid, goldens fresh, plus the
+      whole-package bundleSize.yaml (checked whatever [id…] says — it isn't
+      per-spec). Read-only by default. --write persists whatever's safely
+      fixable; a format-invalid spec or a live identity mismatch needs a fix
+      first — resolve it, then re-run.
 
   format [id…]
       Rewrite to canonical form only — no golden recompute.
@@ -130,10 +132,7 @@ const cmdNew = async (): Promise<void> => {
   } catch (e) {
     fail(`--ts did not evaluate: ${(e as Error).message}`);
   }
-  // deriveBundleBytes (genuinely async, esbuild child process) goes first so
-  // it's kicked off before deriveTypeInfo's synchronous compiler work runs —
-  // see the ordering note on recomputeGoldens in harness.ts.
-  const [bundleBytes, typeInfo] = await Promise.all([deriveBundleBytes(ts), deriveTypeInfo(ts)]);
+  const typeInfo = await deriveTypeInfo(ts);
   // scaffoldJsonSchema tolerates a schema it can't represent (records the
   // thrown message instead), but scaffoldOperations has no such fallback — a
   // --ts that evaluates without throwing to something that isn't a usable
@@ -151,7 +150,6 @@ const cmdNew = async (): Promise<void> => {
       input: typeInfo.input,
       output: typeInfo.output,
       instantiations: typeInfo.instantiations,
-      bundleBytes,
     },
     // `vs` is a required dimension but can't be derived — scaffold a `todo`
     // skip (a placeholder, not a claim of no-equivalent) and prompt the author
@@ -179,6 +177,12 @@ const cmdCheck = async (): Promise<void> => {
   const write = rest.includes(WRITE_FLAG);
   let failed = 0;
 
+  // bundleSize.yaml measures the package's whole export surface, so it's a
+  // file-level check like the two below — not per-spec, and deliberately not
+  // filtered by [id…]: skipping it on a narrowed run is how it goes stale.
+  // Kicked off first so its esbuild build overlaps the sync work that follows.
+  const bundleSizePromise = checkBundleSize();
+
   // Existence and freshness are checked as two separate facts, not one
   // `existsSync && readFileSync(...) !== schemaJson()` expression — that
   // would short-circuit to "no failure" for a deleted spec.schema.json
@@ -197,6 +201,21 @@ const cmdCheck = async (): Promise<void> => {
   if (dirErrs.length) {
     failed++;
     console.error(formatFailure("specs dir", dirErrs));
+  }
+
+  const bundleSize = await bundleSizePromise;
+  if (bundleSize.errs.length) {
+    // Fully derived, so --write resolves anything the measurement could
+    // produce — there's no author-owned part needing a manual fix first, as a
+    // spec's goldens can have. A failed measurement has no `fresh` to write,
+    // and still reports.
+    if (write && bundleSize.fresh !== undefined) {
+      writeFileSync(BUNDLE_SIZE_PATH, bundleSize.fresh);
+      console.log("wrote bundleSize.yaml");
+    } else {
+      failed++;
+      console.error(formatFailure("bundleSize.yaml", bundleSize.errs));
+    }
   }
 
   const results = await Promise.all(

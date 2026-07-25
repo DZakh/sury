@@ -4,7 +4,6 @@ ts:
   input: number
   output: number
   instantiations: 254
-  bundleBytes: 3892
 vs:
   zod: z.int32()
 jsonSchema:

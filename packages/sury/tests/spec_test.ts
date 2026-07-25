@@ -1,8 +1,8 @@
 // Tests for the spec harness (packages/spec). There is no code-generation
 // step — this file IS the test: it dynamically loops over every spec at
 // run time and calls straight into the harness, so example execution and
-// jsonSchema/instantiations/bundleBytes drift are exercised (and covered) by
-// this real Vitest run, same as any hand-written test.
+// jsonSchema/instantiations drift are exercised (and covered) by this real
+// Vitest run, same as any hand-written test.
 import { readFileSync } from "node:fs";
 import { test, expect, describe, vi } from "vitest";
 import {
@@ -17,12 +17,13 @@ import {
   checkAliases,
   lintSkips,
   lintSpecsDir,
+  checkBundleSize,
 } from "../../spec/harness";
 import { validate, schemaJson } from "../../spec/format";
 
-// recomputeGoldens does a TS-program introspection pass plus an esbuild
-// child-process build per spec; the first spec processed pays the ~1s
-// cold-start cost the spec skill documents, which a slower/more contended CI
+// recomputeGoldens does a TS-program introspection pass per spec, and the
+// bundleSize check an esbuild build over every export; the first spec processed
+// pays the ~1s cold-start cost the spec skill documents, which a slower/more contended CI
 // runner can push past Vitest's 5000ms default. Scoped to this file (and
 // spec_errors_test.ts, which exercises the same path via checkSpec) rather
 // than raised globally, so the rest of the suite keeps a tight default.
@@ -38,6 +39,14 @@ test("there is at least one spec", () => {
 // format change whose spec.schema.json wasn't re-emitted.
 test("spec.schema.json is fresh (run `pnpm spec schema`)", () => {
   expect(readFileSync(SCHEMA_PATH, "utf8")).toBe(schemaJson());
+});
+
+// Same reasoning as the spec.schema.json freshness test above: CI runs
+// `pnpm test`, not `pnpm spec check`, so without this the bundle-size ratchet
+// would only bite on a manual run.
+test("bundleSize.yaml is fresh (run `pnpm spec check --write`)", async () => {
+  const { errs } = await checkBundleSize();
+  expect(errs, errs.join("\n")).toEqual([]);
 });
 
 test("specs dir contains only valid spec files (run `pnpm spec check`)", () => {

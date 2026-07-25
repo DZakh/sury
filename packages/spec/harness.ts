@@ -9,7 +9,7 @@
 // over listSpecFiles()/readSpec() at run time and calls straight into this
 // module, so drift in any dimension is exercised by a real Vitest run without
 // ever materializing a generated .ts file per spec.
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
@@ -22,22 +22,29 @@ import {
   VS_KEY_ORDER,
   VS_ZOD_KEY_ORDER,
   OP_ORDER,
+  BUNDLE_SIZE_KEY_ORDER,
   SKIP_REASONS,
   isSkip,
   isZodOverwrite,
   validate,
+  validateBundleSize,
   type Spec,
   type Operation,
   type Example,
   type OpName,
+  type BundleSize,
 } from "./format";
 import { deriveTypeInfo, deriveVsTypeInfo } from "./introspect";
-import { deriveBundleBytes } from "./bundleSize";
+import { deriveBundleSize } from "./bundleSize";
 
 const here = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
 // The spec suite lives in the sury package (specs ship with it).
 export const SPECS_DIR = here("../sury/specs/");
 export const SCHEMA_PATH = join(SPECS_DIR, "spec.schema.json");
+// bundleSize.yaml stays in the harness package instead: it's one whole-package
+// measurement, not a per-schema contract, so it isn't part of the published
+// spec suite.
+export const BUNDLE_SIZE_PATH = here("./bundleSize.yaml");
 
 const HEADER = "# yaml-language-server: $schema=./spec.schema.json";
 
@@ -51,7 +58,7 @@ const SKIP_REASON_SET = new Set<string>(SKIP_REASONS);
 export const isValidSkipReason = (r: unknown): boolean =>
   typeof r === "string" && (SKIP_REASON_SET.has(r) || /^todo\(#.+\)$/.test(r));
 
-// `path` is relative to the spec root (e.g. `ts.bundleBytes`) — the reported
+// `path` is relative to the spec root (e.g. `ts.instantiations`) — the reported
 // error already sits under a `✗ <id>` header, so prefixing the id here would
 // print it twice.
 export const lintSkips = (obj: unknown, path: string, out: string[]): void => {
@@ -330,20 +337,9 @@ const clean = <T extends Record<string, unknown>>(o: T): T => {
 };
 
 // The author owns inputs and skips; the harness owns every derived answer.
-//
-// The esbuild-based bundle measurement is kicked off FIRST, before any of the
-// synchronous work below, so its child-process build genuinely overlaps with
-// the (CPU-bound, single-threaded) TS introspection and operation execution —
-// awaiting a promise you call *after* doing unrelated sync work just means you
-// awaited something that was already progressing; calling it first is what
-// lets the two actually run concurrently.
 export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
   const next: Spec = structuredClone(obj);
   const schema = evalSchema(next.ts.schema);
-
-  const bundleBytesPromise = isSkip(next.ts.bundleBytes)
-    ? null
-    : deriveBundleBytes(next.ts.schema);
 
   if (!isSkip(next.ts.input) || !isSkip(next.ts.output) || !isSkip(next.ts.instantiations)) {
     const info = await deriveTypeInfo(next.ts.schema);
@@ -382,14 +378,6 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
     }
   }
 
-  if (bundleBytesPromise) {
-    // Recorded exactly — no tolerance band. A band (formerly ±1%, meant to
-    // absorb toolchain wobble) let consistent sub-1% drift accumulate against
-    // stale goldens and misattributed the whole delta to whichever change
-    // finally crossed the line. A toolchain bump now re-records every spec at
-    // once, which is the honest diff.
-    next.ts.bundleBytes = await bundleBytesPromise;
-  }
   return next;
 };
 
@@ -616,8 +604,52 @@ export const checkSpec = async (
   return errs;
 };
 
-// Re-exported so `spec new` can populate ts.input/ts.output/ts.instantiations/
-// ts.bundleBytes up front too (cli.ts only imports from harness.ts/format.ts,
-// never touches introspect.ts/bundleSize.ts directly).
+// ---- bundleSize.yaml -------------------------------------------------------
+
+const serializeBundleSize = (obj: BundleSize): string =>
+  stringifyYaml(order(obj, BUNDLE_SIZE_KEY_ORDER as string[]), { lineWidth: 0 });
+
+const readBundleSizeRaw = (): string =>
+  existsSync(BUNDLE_SIZE_PATH) ? readFileSync(BUNDLE_SIZE_PATH, "utf8") : "";
+
+// Every row is derived, so the check is just "does the file equal what the live
+// entry measures" — no author-owned part to preserve. `fresh` comes back with
+// the errors so `--write` writes exactly what was compared instead of running
+// the measurement a second time; it's absent when the measurement itself
+// failed, which is what tells `--write` there's nothing safe to write.
+//
+// `raw` is injectable (defaulting to the real file) so tests can exercise the
+// reporting without touching the filesystem, same as lintSpecsDir's `names`.
+export const checkBundleSize = async (
+  raw: string = readBundleSizeRaw(),
+): Promise<{ errs: string[]; fresh?: string }> => {
+  const errs: string[] = [];
+
+  let fresh: string;
+  try {
+    fresh = serializeBundleSize(await deriveBundleSize());
+  } catch (e) {
+    return { errs: [`could not be measured: ${(e as Error).message}`] };
+  }
+
+  if (!raw) return { errs: ["missing — run `pnpm spec check --write`"], fresh };
+
+  // Reported alongside (not instead of) the staleness diff below: for a
+  // hand-mangled file, a pointed "expected number at exports.string" is the
+  // message that explains it, not a whole-file golden diff.
+  try {
+    const v = validateBundleSize(parseYaml(raw));
+    if (!v.ok) errs.push(`schema: ${v.error}`);
+  } catch (e) {
+    errs.push(`is not valid YAML: ${(e as Error).message}`);
+  }
+
+  if (raw !== fresh) errs.push(`stale — run \`pnpm spec check --write\`:\n${diffText(raw, fresh)}`);
+
+  return { errs, fresh };
+};
+
+// Re-exported so `spec new` can populate ts.input/ts.output/ts.instantiations
+// up front too (cli.ts only imports from harness.ts/format.ts, never touches
+// introspect.ts/bundleSize.ts directly).
 export { deriveTypeInfo, deriveVsTypeInfo, type TypeInfo } from "./introspect";
-export { deriveBundleBytes } from "./bundleSize";

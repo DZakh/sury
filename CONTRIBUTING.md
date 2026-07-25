@@ -336,10 +336,16 @@ Implementation notes for `packages/spec` (see the `spec` skill for the authoring
   an unrelated whole-project assertion scan this harness has no use for). Declares the schema, extracts
   `S.Output<>`/`S.Input<>`, and reads `checker.typeToString()`/`program.getInstantiationCount()` (diffed
   against a bare-import baseline) from an isolated virtual TS environment memoized per process.
-- **`ts.bundleBytes`** (`packages/spec/bundleSize.ts`) — bundles `schema` itself with esbuild (aliasing
-  the bare `sury` specifier to the dev source), minifies, and gzips. Carries a ±1% tolerance: within the
-  band `recomputeGoldens` keeps the committed number, so a toolchain bump (esbuild, zlib) doesn't go
-  stale across every spec at once; a real size change beyond it re-records exactly.
+- **`bundleSize.yaml`** (`packages/spec/bundleSize.ts`) — not a spec dimension. One whole-package ledger
+  of minified+gzipped bytes per public export, each bundled in isolation with esbuild (aliasing the bare
+  `sury` specifier to the dev source), plus `total` for the whole entry as the anchor row. `spec check`
+  gates it regardless of any `[id…]` filter, and `--write` re-records it. Per-export rather than
+  per-schema because a schema's bundle cost is the cost of the exports it reaches plus the byte cost of
+  its own source literal, and reachability from several entry symbols is the union of their graphs — so
+  no composite number can grow without an export row growing too, while `toJSONSchema`/`fromJSONSchema`
+  are reached by no schema expression at all. Every entry point is measured in one esbuild invocation
+  (one virtual entry per export), and recorded exactly with no tolerance band — a toolchain bump
+  re-records every row at once, which is the honest diff.
 
 `ts.instantiations` includes real, fixed per-builder-kind dispatch cost on top of per-field cost — e.g.
 a plain value like `S.string` measures far lower than any `S.schema({...})` call regardless of field
