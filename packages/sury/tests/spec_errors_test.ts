@@ -202,6 +202,20 @@ test("not canonical (on-disk text doesn't match the canonical form)", async () =
   `);
 });
 
+test("a compiled op block with no examples (codegen nothing ever runs)", async () => {
+  const spec = mutate((s) => {
+    if (s.operations.parse !== "identity" && !isCreationError(s.operations.parse))
+      s.operations.parse.examples = {};
+  });
+  await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ string
+        operations.parse: no examples — a compiled op block must run at least one input (add a named entry with just \`input\`, then \`--write\` fills the result)",
+      "stdout": "",
+    }
+  `);
+});
+
 test("a comment that isn't a FIXME (prose the checker can't verify)", async () => {
   const spec = mutate(() => {});
   const commented = serialize(spec).replace("ts:\n", "ts:\n  # the fastest schema there is\n");
@@ -282,6 +296,7 @@ test("full op block claimed but the operation actually compiles to identity", as
   await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
     {
       "stderr": "✗ string
+        operations.decode: no examples — a compiled op block must run at least one input (add a named entry with just \`input\`, then \`--write\` fills the result)
         operations.decode: compiles to identity — use \`identity\` instead of an expression + examples
         goldens stale — resolve the identity mismatch above first, then \`pnpm spec check string --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
     @@ -27,7 +27,10 @@
@@ -357,6 +372,7 @@ test("full op block claimed but the operation actually compiles to the same code
   await expect(runCheck("never", serialize(spec))).resolves.toMatchInlineSnapshot(`
     {
       "stderr": "✗ never
+        operations.decode: no examples — a compiled op block must run at least one input (add a named entry with just \`input\`, then \`--write\` fills the result)
         operations.decode: compiles to the same code as parse — use \`eq-to-parse\` instead of an expression + examples
         goldens stale — resolve the identity mismatch above first, then \`pnpm spec check never --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
     @@ -21,7 +21,7 @@

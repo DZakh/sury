@@ -17,6 +17,7 @@ import {
   checkAliases,
   collectComments,
   lintComments,
+  lintExamples,
   lintSkips,
   lintSpecsDir,
 } from "../../spec/harness";
@@ -87,6 +88,12 @@ describe.each(specs)("spec: $id", ({ file }) => {
   test("every _skip reason is valid (run `pnpm spec check`)", () => {
     const errs: string[] = [];
     lintSkips(spec, "", errs);
+    expect(errs, errs.join("\n")).toEqual([]);
+  });
+
+  test("every compiled op block has examples (run `pnpm spec check`)", () => {
+    const errs: string[] = [];
+    lintExamples(spec, errs);
     expect(errs, errs.join("\n")).toEqual([]);
   });
 

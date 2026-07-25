@@ -9,6 +9,8 @@ vs:
   zod:
     _skip: not-applicable
 jsonSchema:
+  # FIXME: S.toJSONSchema recurses forever on this conversion — neither side is
+  # unrepresentable ('"x" | undefined' and '"x" | null' both are).
   input: Maximum call stack size exceeded
   output: Maximum call stack size exceeded
 operations:

@@ -13,11 +13,16 @@ jsonSchema:
   output: Expected JSON, received bigint | string
 operations:
   parse:
+    # FIXME: `else if(!(typeof i==="string"))` re-tests the condition it's already
+    # the else of — always true, so it should be a bare `else`.
     expression: i=>{if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0}else if(!(typeof i==="string")){e[1](i)}return i}
     examples:
       bigint-string:
         input: '"123"'
         output: 123n
+      # FIXME: the S.string member never gets a chance — a string that isn't a
+      # bigint should fall back to it, not error. codec-string-union2-transformed
+      # falls back in the same shape (its `falls-back-to-string` example).
       catchall-string:
         input: '"abc"'
         error: Expected bigint, received "abc"

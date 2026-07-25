@@ -65,6 +65,21 @@ export const lintSkips = (obj: unknown, path: string, out: string[]): void => {
     for (const [k, v] of Object.entries(obj)) lintSkips(v, path ? `${path}.${k}` : k, out);
 };
 
+// A full op block is chosen over `identity`/`eq-to-parse` precisely because it
+// has real codegen — and nothing ever runs that codegen until an example does,
+// so an empty map snapshots an expression no test executes.
+export const lintExamples = (spec: Spec, out: string[]): void => {
+  const ops = spec.operations as Record<OpName, Operation>;
+  for (const opName of OP_ORDER) {
+    const op = ops[opName];
+    if (typeof op === "string" || isCreationError(op) || Object.keys(op.examples).length) continue;
+    out.push(
+      `operations.${opName}: no examples — a compiled op block must run at least one input ` +
+        "(add a named entry with just `input`, then `--write` fills the result)",
+    );
+  }
+};
+
 export const specId = (file: string): string =>
   basename(file).replace(/\.yaml$/, "");
 
@@ -755,6 +770,7 @@ export const checkSpec = async (
   const spec = v.ok ? v.value : obj;
 
   lintSkips(spec, "", errs);
+  lintExamples(spec, errs);
 
   // Collected before the canonical form is built (rather than dropped) so a
   // disallowed comment is reported as itself, not as a "not canonical" diff —
