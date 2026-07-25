@@ -625,31 +625,35 @@ const readBundleSizeRaw = (): string =>
 // reporting without touching the filesystem, same as lintSpecsDir's `names`.
 export const checkBundleSize = async (
   raw: string = readBundleSizeRaw(),
-): Promise<{ errs: string[]; fresh?: string }> => {
+): Promise<{ errs: string[]; fresh?: string; before?: BundleSize; after?: BundleSize }> => {
   const errs: string[] = [];
 
+  let after: BundleSize;
   let fresh: string;
   try {
-    fresh = serializeBundleSize(await deriveBundleSize());
+    after = await deriveBundleSize();
+    fresh = serializeBundleSize(after);
   } catch (e) {
     return { errs: [`could not be measured: ${(e as Error).message}`] };
   }
 
-  if (!raw) return { errs: ["missing — run `pnpm spec check --write`"], fresh };
+  if (!raw) return { errs: ["missing — run `pnpm spec check --write`"], fresh, after };
 
   // Reported alongside (not instead of) the staleness diff below: for a
   // hand-mangled file, a pointed "expected number at exports.string" is the
   // message that explains it, not a whole-file golden diff.
+  let before: BundleSize | undefined;
   try {
     const v = validateBundleSize(parseYaml(raw));
-    if (!v.ok) errs.push(`schema: ${v.error}`);
+    if (v.ok) before = v.value;
+    else errs.push(`schema: ${v.error}`);
   } catch (e) {
     errs.push(`is not valid YAML: ${(e as Error).message}`);
   }
 
   if (raw !== fresh) errs.push(`stale — run \`pnpm spec check --write\`:\n${diffText(raw, fresh)}`);
 
-  return { errs, fresh };
+  return { errs, fresh, before, after };
 };
 
 // Re-exported so `spec new` can populate ts.input/ts.output/ts.instantiations

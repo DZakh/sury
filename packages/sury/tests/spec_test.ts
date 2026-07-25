@@ -20,6 +20,7 @@ import {
   checkBundleSize,
 } from "../../spec/harness";
 import { validate, schemaJson } from "../../spec/format";
+import { summarize } from "../../spec/summary";
 
 // recomputeGoldens does a TS-program introspection pass per spec, and the
 // bundleSize check an esbuild build over every export; the first spec processed
@@ -66,6 +67,43 @@ test("lintSpecsDir rejects a non-yaml file and a dotted/invalid id", () => {
     `specs dir: unexpected file "notes.txt" (only *.yaml and spec.schema.json/bundleSize.yaml allowed)`,
     `specs dir: invalid spec id "bad.dotted" (only letters, digits, and - allowed)`,
   ]);
+});
+
+// The `--write` summary is what a caller reads instead of the golden diff, so
+// its exact rendering is asserted rather than left to whatever it happens to
+// print: ranking (worst regression first), aligned columns, and each section.
+test("summarize renders ranked metric moves and behavior changes", () => {
+  const before = readSpec(listSpecFiles().find((f) => specId(f) === "string")!);
+  const after = structuredClone(before);
+  after.ts.instantiations = 300;
+  after.ts.output = "string | undefined";
+  if (after.operations.parse !== "identity") {
+    after.operations.parse.expression = "i=>i";
+    const ex = after.operations.parse.examples.valid;
+    if (ex && "output" in ex) ex.output = '"HELLO"';
+  }
+  expect(
+    summarize([{ id: "string", before, after }], {
+      before: { total: 20000, exports: { string: 3790, toJSONSchema: 4000, oldExport: 10 } },
+      after: { total: 20690, exports: { string: 3790, toJSONSchema: 5229, newExport: 20 } },
+    }),
+  ).toMatchInlineSnapshot(`
+    "ts.instantiations:
+      regressions:
+        string  254 → 300  +18.1%
+    operations.expression (chars):
+      improvements:
+        string.parse  42 → 4  -90.5%
+    bundleSize:
+      total  20000 → 20690  +3.5%
+      added: newExport 20
+      removed: oldExport
+      regressions:
+        toJSONSchema  4000 → 5229  +30.7%
+    behavior changed:
+      string.ts.output  string → string | undefined
+      string.parse.valid  output "hello" → output "HELLO""
+  `);
 });
 
 describe.each(specs)("spec: $id", ({ file }) => {

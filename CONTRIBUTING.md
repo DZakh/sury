@@ -338,14 +338,18 @@ Implementation notes for `packages/spec` (see the `spec` skill for the authoring
   against a bare-import baseline) from an isolated virtual TS environment memoized per process.
 - **`specs/bundleSize.yaml`** (`packages/spec/bundleSize.ts`) — not a spec dimension. One whole-package ledger
   of minified+gzipped bytes per public export, each bundled in isolation with esbuild (aliasing the bare
-  `sury` specifier to the dev source), plus `total` for the whole entry as the anchor row. `spec check`
-  gates it regardless of any `[id…]` filter, and `--write` re-records it. Per-export rather than
-  per-schema because a schema's bundle cost is the cost of the exports it reaches plus the byte cost of
-  its own source literal, and reachability from several entry symbols is the union of their graphs — so
-  no composite number can grow without an export row growing too, while `toJSONSchema`/`fromJSONSchema`
-  are reached by no schema expression at all. Every entry point is measured in one esbuild invocation
-  (one virtual entry per export), and recorded exactly with no tolerance band — a toolchain bump
-  re-records every row at once, which is the honest diff.
+  `sury` specifier to the dev source), plus `total` for the whole entry as the anchor row. Whole-package,
+  so only a full `spec check` (no `[id…]`) checks or rewrites it. Per-export rather than per-schema
+  because reachability from several entry symbols is the union of their graphs — no composite number can
+  grow without an export row growing too — while `toJSONSchema`/`fromJSONSchema` are reached by no schema
+  expression at all. Every entry point is measured in one esbuild invocation (one virtual entry per
+  export), and recorded exactly with no tolerance band — a toolchain bump re-records every row at once,
+  which is the honest diff.
+
+- **`--write` summary** (`packages/spec/summary.ts`) — after a write, prints each tracked metric that
+  moved (instantiations, generated-code length, per-export bundle size) ranked by percentage, plus the
+  changes that aren't better-or-worse but need noticing (inferred types, JSON Schema, example outcomes).
+  So the ratchet can be read off the run instead of by opening every rewritten file.
 
 `ts.instantiations` includes real, fixed per-builder-kind dispatch cost on top of per-field cost — e.g.
 a plain value like `S.string` measures far lower than any `S.schema({...})` call regardless of field
