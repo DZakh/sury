@@ -214,13 +214,11 @@ export const TS_KEY_ORDER = keyOrder<Spec["ts"]>({
 });
 export const OP_ORDER = keyOrder<Spec["operations"]>({ parse: true, decode: true, encode: true });
 
-export const isSkip = (v: unknown): v is Skip =>
-  v !== null && typeof v === "object" && "_skip" in (v as object);
+export const isSkip = (v: unknown): v is Skip => S.is(skip, v);
 
 // The overwrite form of `vs.zod` — distinguished from a bare string (Zod
 // source) and from `{_skip}` by carrying its own `schema` key.
-export const isZodOverwrite = (v: unknown): v is ZodOverwrite =>
-  v !== null && typeof v === "object" && "schema" in (v as object);
+export const isZodOverwrite = (v: unknown): v is ZodOverwrite => S.is(zodOverwrite, v);
 
 // Parse, don't validate: return the parsed Spec itself, not just a pass/fail
 // flag, so callers work from the value Sury actually confirmed matches the
