@@ -1,5 +1,7 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
+  # FIXME: Codec next expects: rejected at creation — rule 4 matches by exact type and
+  # S.json is neither the string nor the number type.
   schema: S.union([S.string, S.number, S.bigint]).with(S.to, S.union([S.json, S.bigint]))
   input: string | number | bigint
   output: bigint | JSON

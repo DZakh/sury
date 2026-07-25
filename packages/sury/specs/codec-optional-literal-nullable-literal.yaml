@@ -1,5 +1,7 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
+  # FIXME: Codec next expects: stay the same — rule 4 matches "x" by type and bridges
+  # undefined <-> null.
   schema: S.optional(S.literal("x")).with(S.to, S.nullable(S.literal("x")))
   input: '"x" | undefined'
   output: '"x" | null'

@@ -1,5 +1,7 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
+  # FIXME: Codec next expects: stay the same — rule 4 passes bigint/number through and
+  # bridges null <-> undefined.
   schema: S.union([S.bigint, S.number, null]).with(S.to, S.union([S.bigint, S.number, undefined]))
   input: number | bigint | null
   output: number | bigint | undefined

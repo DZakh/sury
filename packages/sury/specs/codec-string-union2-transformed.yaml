@@ -1,5 +1,8 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
+  # FIXME: Codec next expects: stay the same — every target variant matches by its
+  # string input, so the transformed variant is tried first and the catch-all keeps
+  # the rest.
   schema: S.string.with(S.to, S.union([S.string.with(S.to, S.number), S.string]))
   input: string
   output: string | number

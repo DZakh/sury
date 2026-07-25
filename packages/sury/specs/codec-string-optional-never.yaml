@@ -1,5 +1,7 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
+  # FIXME: Codec next expects: stay the same — the S.never variant is ignored by type
+  # matching, so the source fully matches the S.string variant and passes through.
   schema: S.string.with(S.to, S.union([S.string, S.never.with(S.to, S.schema(undefined))]))
   input: string
   output: string | undefined

@@ -1,5 +1,7 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
+  # FIXME: Codec next expects: stay the same — rule 1 always applies the built-in null
+  # <-> undefined decoding.
   schema: S.schema(null).with(S.to, S.schema(undefined))
   input: "null"
   output: undefined

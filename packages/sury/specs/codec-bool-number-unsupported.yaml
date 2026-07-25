@@ -1,5 +1,7 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
+  # FIXME: Codec next expects: stay the same — rule 1 has no built-in boolean → number
+  # decoding.
   schema: S.boolean.with(S.to, S.number)
   input: boolean
   output: number

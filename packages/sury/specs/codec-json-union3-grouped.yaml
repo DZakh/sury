@@ -1,5 +1,7 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
+  # FIXME: Codec next expects: stay the same — rule 2 groups same-tag variants, so "b"
+  # matches within the string group and the number variant is never attempted.
   schema: S.json.with(S.to, S.union([S.literal("a"), S.number, S.literal("b")]))
   input: JSON
   output: number | "a" | "b"

@@ -1,5 +1,8 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
+  # FIXME: Codec next expects: rule 2 — S.number is neither the int32 nor the string
+  # type, so parse/decode must compile (int32 attempted first, string next) instead of
+  # throwing at creation.
   schema: S.number.with(S.to, S.union([S.int32, S.string]))
   input: number
   output: string | number
