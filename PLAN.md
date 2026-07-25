@@ -1,204 +1,227 @@
 # Union `.to` rules — one-go rewrite plan
 
 > Working document for the `claude/codec-specs-s-to-rules-*` branch. Delete before merge.
-> Replaces the 7-phase iterative plan with a single coordinated change: the phases each
-> mutate a site of `composites.ts` that is entangled with the others (activeKey feeds the
-> skip loop, byKey feeds `getArrItemsCode`, `unionEncoder` branches on `unionIsWiderSchema`),
-> so every intermediate state is broken. Instead: fix the contract first, encode it as
-> specs/tests, then land the implementation as one change verified by the spec ratchet.
+> Replaces the 7-phase iterative plan: each phase mutates a site of `composites.ts` that is
+> entangled with the others (activeKey feeds the skip loop, byKey feeds `getArrItemsCode`,
+> `unionEncoder` branches on `unionIsWiderSchema`), so every intermediate state is broken.
+> Instead: fix the contract, encode it as specs/tests, land the implementation as one change
+> verified by the spec ratchet.
+>
+> Every "today" claim below is **verified empirically** against the built `src/S.mjs`
+> (probes in the session scratchpad), not read off the source.
 
-## 0. The contract — rules stated precisely
+## 0. The contract
 
-**Match key.** Every schema has a match key: `(tag, format, class-reference, ref-target)`.
-Compared as a tuple (not a string): `class` by reference identity, recursive refs by ref
-identity. This is distinct from `unionToKey` (composites.ts:507), which stays as-is —
-`unionToKey` is the *runtime dispatch* key (typeof-discriminable, class by *name*);
-the match key is the *compile-time pairing* key (finer: `int32 ≠ number`).
+### 0.1 Match key
 
-- Source variants are keyed by their **output** schema (`getOutputSchema(v)`).
-- Target variants are keyed by their **own input-side** type.
-- `never`-tagged variants are **exempt from needing** a counterpart on both sides, but a
-  source variant `S.never.with(S.to, t)` still **provides** coverage for target `t`
-  (its output key is `t`'s key). This is what makes the never-recipe work.
+`matchKey(schema) = (tag, class-reference, ref-identity)`.
 
-**Rule 1 — nullish coercion is built-in.** `undefined ↔ null` becomes an ordinary
-primitive coercion in `literalDecoder` (primitives.ts:210), living next to the
-stringified-const coercions, both directions. All union-level bridge machinery is deleted.
+- **No `format`.** `int32` and `number` share a key. (Verified counterexample:
+  `S.int32 → S.union([S.int32, S.number])` works today; with format in the key the plain
+  `number` variant becomes an uncovered leftover and a working schema starts erroring. Worse,
+  `S.int32 → S.union([S.string, S.number])` would drop to the coercion regime where *target
+  order* silently decides `5` vs `"5"`.) `format`/`const` keep their existing job: **ordering
+  inside a same-key group** (const-refined, then format-refined, then catch-all).
+- **No `const`** either, same reason — the const-priority reorder (composites.ts:975) already
+  handles it, at the right granularity.
+- **`class` by reference**, unlike `unionToKey`. Two distinct classes both named `Box` must not
+  pair. (Today they do, producing a *runtime* "Expected Box | string" failure; by-reference
+  turns it into a creation-time error.)
+- `unionToKey` (composites.ts:507) is untouched: it stays the *runtime dispatch* key
+  (typeof-discriminable, class by name). Match key is the *compile-time pairing* key. Two keys,
+  two jobs — do not conflate them.
 
-**Rule 2 — decode, typed source → target union.** Count non-never target variants whose
-key equals the source key:
-- **all** match → dispatch inside the group (today's activeKey behavior; const-matched
-  variants first via the reorder at composites.ts:975, then target order);
-- **none** match → compile every group; per-variant coercion decides (today's tier 3);
-- **partial** → invalid operation at compile time. "Identity wins" is dead; the user
-  opts in explicitly: `S.union([S.string.with(S.to, S.number), S.string])`.
+Source variants are keyed by their **output** schema (`getOutputSchema`); target variants by
+their own **input** type. A non-union counts as a one-variant side.
 
-**Rule 3 — encode, union source → typed target.** Symmetric on output keys: count source
-variants whose *output* key equals the target key. All → per-variant identity dispatch
-(replaces the `unionIsWiderSchema` pass-through); none → per-variant coercion; partial →
-invalid operation. Requires lifting `unionCanDispatchPerVariant`'s bail-outs for
-transformed variants (composites.ts:581-586) — the suggested rewrites *are* transformed
-variants. Ref/json targets keep their dedicated handling.
+**Exempt from coverage counting:** `never`-keyed target variants; source variants whose output
+is `never`; `unknown`/`union`/`ref`/`json`-keyed target variants (catch-alls — reachable from
+any source, so never "missed"); the `undefined` variant skipped under `fromDefault`
+(composites.ts:1003). A source variant `S.never.with(S.to, X)` is a normal source variant with
+`matchKey(X)` — it **provides** coverage for target `X` while never matching at runtime. That is
+the whole never-recipe, and it already works mechanically today (verified: output type of
+`S.union([S.string, S.never.with(S.to, S.number)])` is `string | number`; encoding `5` throws
+"Expected never").
 
-**Rule 4 — union → union.** Bipartite coverage: every non-never source variant needs a
-same-key target variant and vice versa. Leftover **nullish const** variants may bridge to
-the opposite nullish const on the other side (reusing an already-matched one is allowed).
-Covered → each source variant gets `.to` pointed at its same-key target group ("same type
-wins" is free — bridges only exist where no same-key match exists); a bridged variant
-compiles to a direct const→const mapping. Not covered → invalid operation.
+### 0.2 Destination ranks
 
-**The error is the feature.** Invalid operation = `panic` (plain `Error`, schema.ts:56).
-Message renders: both derived shapes (`toExpression`), the matched vs unmatched variants,
-and both rewrite templates built from the actual schemas —
-`x.with(S.to, target)` (opt into coercion) and `S.never.with(S.to, target)` (accept an
-extra target variant). It must escape to operation creation, never become a runtime
-branch failure (see §4, error channel).
+Each source variant resolves to a destination by the first applicable rank:
 
-## 1. Behavior matrix (the cases specs/tests must pin)
+- **R1 — same key.** The group of target variants sharing its key, tried in group order.
+- **R2 — nullish bridge** (*the union special case*). Source variant is a nullish const, no R1
+  group exists, and the opposite nullish const is a target → that variant, **exclusively**.
+  Total, lossless, symmetric. This is today's tier 2, kept as a rule.
+- **R3 — coercion.** No key match: every target group is compiled and tried in target order
+  (today's tier 3).
 
-| # | Conversion | Verdict | Result |
-|---|---|---|---|
-| 1 | `S.string → S.union([S.bool, S.string])` | partial | **compile error** (was: identity wins) |
-| 2 | `S.string → S.union([S.string.with(S.to, S.number), S.string])` (the canonical opt-in rewrite of row 1's intent) | all (keys all string) | group dispatch, const/format-refined variant first |
-| 3 | `S.bool → S.union([S.string, S.float])` | none | tier-3-style per-group coercion, `""+i` wins |
-| 4 | `S.schema(null) → S.optional(S.string)` | none | `null → undefined` via rule 1 (string group fails at compile → branch dropped by `staticBlockFailure`) — **depends on D1** |
-| 5 | `S.unit → S.union([S.literal(null), S.unit])` | partial | **compile error** (was: tier-1 keeps undefined) — flips test S_to_test.res:1041 |
-| 6 | `S.union([S.bigint, S.number, S.null]) → S.union([S.string, S.unit])` | rule 4 uncovered | **compile error** (the old flagship example becomes the error showcase) |
-| 7 | `S.union([S.float, S.string]) → S.float` | partial (outputs: match+no-match) | **compile error**; fix: `S.union([S.float, S.string.with(S.to, S.float)])` |
-| 8 | `S.union(["a","b"]) → S.string` | all | per-variant pass-through (replaces widening acceptance) |
-| 9 | union→union with `S.never.with(S.to, t)` source variant | covered | decode: never branch always fails (other variants own the input); encode: `t → never` fails at runtime — correct, nothing maps back |
-| 10 | `S.union([S.literal(null)…]) ↔ union([…S.unit])` leftovers | rule 4 nullish bridge | direct const→const |
-| 11 | `S.int32 → S.union([S.float, …])` | int32 ≠ number key | none/partial per the rest — pins the format-in-key rule |
-| 12 | instance sources/targets | class-reference key | `Set → union([Map, Set])`: all-in-group by class; two classes with the same `.name` must **not** match (unlike `unionToKey`) |
+### 0.3 Coverage, per arity
 
-## 2. Open decisions — settle before writing code
+| Arity | Regime |
+|---|---|
+| **Rule 2** — one source → union target | R1 (all-or-error) → R2 (exclusive) → R3 |
+| **Rule 3** — union source → one target | symmetric: all variants' output keys equal the target key → per-variant pass-through; some but not all → error; none → R3 per variant |
+| **Rule 4** — union → union | R1 pairing + R2 for leftovers. **No R3.** Any uncovered variant on either side → error |
 
-**D1 (blocking case 4): implicit nullish↔string stringified coercion.** Today
-`stringDecoderFn` turns a nullish literal into the string const `"null"`/`"undefined"`
-(primitives.ts:115-124) and `literalDecoder` parses `"null" → null` back
-(primitives.ts:223-242). If these survive, case 4 breaks: with a "none" verdict the
-groups compile in target order, the string group succeeds (`null → "null"`) and wins over
-the undefined group — `S.schema(null) → S.optional(S.string)` would yield `"null"`, not
-`undefined`. **Recommendation: delete the nullish half of both stringified-const branches
-(keep bool/number/bigint)** — this is the concrete meaning of "the general const bridge is
-gone, only nullish bridges", it makes case 4 fall out of plain rule-2 compilation, and it
-matches the changelog item that the flagship `"null" → null` conversion is now invalid.
+**Coverage rule (R1 regime).** If any source variant resolves at R1, every non-exempt target key
+must be the destination of some source variant. Many source variants → one target key is fine;
+one source variant cannot cover two target keys (it produces one value). R2 resolutions carry no
+coverage obligation — see the wart in §0.5.
 
-**D2: strictness of rule 2 for nullish sources.** Case 5 makes
-`undefined → [null, undefined]` a compile error (partial). This is the consistent reading
-(null and undefined are *different* match keys — required for case 4 to be "none"), but it
-flips an existing passing test and risks touching `S.nullish`/nested-option internals.
-**Recommendation: keep strict**, and gate on the audit in §5 step 7 (option/nullable/
-nullish/default machinery must not route through rule 2 with a nullish typed source; if it
-does, fix the machinery with explicit variants, not the rule).
+**Why rule 4 has no R3:** with a union on both sides, "try every target for every source" is a
+combinatorial guess. It is what produces today's unreadable flagship codegen (nested
+`try{BigInt(i)}catch{+i}catch{i==="null"}`) and it is why the flagship conversion becomes an
+error. With one side singular the trial set is small and legible, so R3 survives there.
 
-**D3: explicit const↔const.** `S.literal("a").with(S.to, S.literal(5))` — single-schema,
-explicit. `literalDecoder`'s mismatched-const branch (primitives.ts:214-219) powers it and
-also powers rule-4 nullish bridges. **Recommendation: keep it** — "explicit is opt-in";
-only *union-implicit* const pairing disappears (via the coverage rule, not via
-`literalDecoder`).
+### 0.4 The error is the feature
 
-**D4: instance keys by class reference.** `unionToKey` uses `class.name` (needed for the
-string-keyed byKey dispatch); the match tuple uses the class reference.
-**Recommendation: yes** (case 12). Cost: the resolver compares tuples with a tiny
-`matchKeyEq` instead of string equality.
+Invalid operation = `panic` (plain `Error`, schema.ts:56), at operation-creation time. Message
+renders both derived shapes (`toExpression`), which variants matched, which didn't, and the
+rewrite template for the *actual* failure mode:
 
-## 3. Architecture of the change
+- uncovered **target** variant `T` → `S.never.with(S.to, <T>)` added to the source union
+  (or `S.union([<source>, S.never.with(S.to, <T>)])` when the source is singular);
+- uncovered **source** variant `s` → `<s>.with(S.to, <T>)`, one line per unmatched target key.
 
-**New matching core (composites.ts, near unionToKey):**
-- `matchKeyEq(a, b)` — tuple compare on `(type, format, class, ref-identity)`.
-- One resolver used by all three arities, direction-agnostic so decode-of-schema ≡
-  encode-of-reverse by construction:
-  `resolveConversion(sourceVariants /* keyed by output */, targetVariants /* keyed by input */)`
-  → per-source-variant assignment (`sameKeyGroup(targets)` | `coerceAll` | `nullishBridge(t)`)
-  or panic. Rule 2 = |S|=1 vs union; rule 3 = union vs |T|=1; rule 4 = union vs union
-  with the coverage + bridge pass.
-- Invalid-operation renderer: builds the message + both rewrite templates from the real
-  schemas via `toExpression`, then `panic`s.
+### 0.5 Known wart, accepted
 
-**`unionFactory` flatten TODO (composites.ts:1247):** spread a nested union only when it
-carries no `format`/`parser`/`to`/`refiner`/`inputRefiner` (today only `to` is checked —
-spreading currently drops a nested union's refiner). Gives the flattening rule everywhere
-for free, including the shapes the resolver sees.
+R1 demands coverage, R2 does not. So `S.schema(null) → S.union([S.string, undefined])` bridges
+silently (R2), while the near-identical `S.schema(null) → S.union([S.schema(null), S.string])`
+errors (R1 + uncovered `string`). This is the price of keeping today's tier-2 behavior, which
+is a deliberate decision (§0.6 D1). The strict alternative — R2 also requires coverage, making
+row 4 an error with the never-recipe as migration — is a one-line change to the resolver if the
+wart ever bites.
 
-**`unionDecoder` (composites.ts:622):**
-- Replace the activeKey block (649-679) with the rule-2 verdict; delete the nullish-bridge
-  arm (672-678). "all" keeps `activeKey = sourceKey` so the skip loop at 1001 is untouched;
-  "none" keeps `activeKey = ""`.
-- Delete the `unionIsWiderSchema` self-decode acceptance (635-637); union-typed inputs go
-  through per-variant dispatch under rule 4.
-- Survivors, untouched: const-priority reorder (975-987), first-occurrence byKey grouping,
-  `unionIsPriority` NaN/instance ordering, `fromDefault` undefined-skip (1003-1007 — the
-  skipped variant must also be excluded from the verdict counts, it is effectively not a
-  target), `appendUnionRefiners`, the whole `getArrItemsCode` machine.
+### 0.6 Decisions
 
-**`unionEncoder` (composites.ts:606):** delete the `unionIsWiderSchema` branch; compute
-rule-3/4 verdict; dispatch via `unionPerVariantVal`. Lift the transformed-variant
-bail-outs in `unionCanDispatchPerVariant`; keep the ref/json bail-outs. This is the
-deepest work item: per-variant dispatch must now handle variants with their own
-`.to`/`parser` chains — dispatch narrow comes from the variant's input-side tag
-(unchanged), pairing comes from the variant's output key (resolver). Do not conflate the
-two keys.
+- **D1 — resolved (user).** The `string ↔ null` codec **keeps** its coercion:
+  `S.schema(null).with(S.to, S.string)` → `"null"` and `S.string.with(S.to, S.schema(null))`
+  parses `"null"` stay as they are. No primitives change. The earlier recommendation to delete
+  the nullish stringified-const branches is **rejected** — unnecessary once the union gets R2,
+  and it would have killed a working codec. The union special case is R2, ranked above R3.
+- **D2 — resolved (user).** `S.unit → S.union([null, undefined])` is a **compile error**
+  (1 of 2 target keys matched → partial). Its price, stated plainly: any *exact match plus
+  leftover nullish target* now errors, which includes widening into an optional —
+  `S.string.with(S.to, S.optional(S.string))` errors where today it "works". That is fine, and
+  arguably a fix: today's encode side of exactly that schema turns `undefined` into the **string
+  `"undefined"`** (verified), i.e. today's widening silently corrupts. No nullish exemption is
+  possible — it would un-error D2 itself, since the two cases have the same shape.
+- **D3 — keep.** Explicit const→const `.to` stays. It needs **no work**: `literalDecoder`'s
+  mismatched-const branch already emits both directions (verified: `null → void 0`,
+  `undefined → null`). **Phase 3 (rule 1) is therefore already implemented** — it collapses to
+  "spec it, don't build it", and R2's codegen reuses this exact path (`try{i=void 0}`).
+- **D4 — revised.** Class by reference: **yes**. Format in the key: **no** (§0.1).
 
-**Error channel:** no marker needed. `panic` throws a plain `Error`; `getOrRethrow`
-already rethrows non-SuryErrors, so the per-variant catch at composites.ts:778 is safe.
-The one swallow-everything site is `catch (_)` at composites.ts:1090 — change it to
-rethrow anything that is not a SuryError. Audit the remaining compile-path catches
-(parse.ts:98,120; operations.ts:196,505; jsonschema.ts:215; jsapi.ts:42) — all
-`getOrRethrow`-based, so panics escape to operation creation as required.
+## 1. Behavior matrix — every row verified against today
 
-**Primitives (primitives.ts):** add `null ↔ undefined` to `literalDecoder` (rule 1);
-apply D1 (delete nullish stringified branches in `stringDecoderFn` + `literalDecoder`'s
-string-input side).
+| # | Conversion | Today (verified) | New | Mechanism |
+|---|---|---|---|---|
+| 1 | `S.string → union([string, number])` | `"123"` → `"123"` (identity wins) | **error** | R1 partial |
+| 2 | `S.string → union([string.to(number), string])` | — | works | R1 group, refined first |
+| 3 | `S.bool → union([string, float])` | `true` → `"true"` | unchanged | R3 |
+| 4 | `S.schema(null) → optional(string)` | `null` → `undefined`, string branch not compiled | unchanged | **R2** |
+| 5 | `S.schema(undefined) → union([null, undefined])` | `undefined` → `undefined` | **error** (D2) | R1 partial |
+| 6 | `union([bigint, number, null]) → union([string, undefined])` (flagship) | works, 5-branch nested codegen | **error** | rule 4, no R3 |
+| 6b | migration: `union([bigint.to(string), number.to(string), null])` → same target | — | works | R1 ×2 + R2 leftover |
+| 7 | `union([string, number]) → string` | `5` → `"5"` | **error** | rule 3 partial |
+| 7b | migration: `union([string, number.to(string)]) → string` | works | unchanged | rule 3 all-match |
+| 8 | `union(["a","b"]) → string` | works | unchanged | rule 3 all-match |
+| 9 | `optional(string) → string` | `undefined` → **`"undefined"`** (string!) | **error** | rule 3 partial |
+| 10 | `union([bigint, number]) → string` | both `""+i` | unchanged | rule 3, none → R3 |
+| 11 | `S.int32 → union([int32, number])` | `5` → `5` | unchanged | R1 group (needs format **out** of key) |
+| 12 | `instance(Box) → union([instance(OtherBox-same-name), string])` | **runtime** "Expected Box \| string" | creation-time error | key by reference |
+| 13 | `union([string, never.to(number)])` | output type `string \| number`; encode `5` throws | unchanged | never-recipe |
+| 14 | `S.string → optional(string)` | parse ok; **encode `undefined` → `"undefined"`** | **error** | D2's price |
 
-**Deletions:** `unionIsWiderSchema`, the bridge arm, tier-ordering special cases the
-verdict supersedes. Net `S.mjs` should shrink: tier/bridge codegen goes away and the
-resolver is creation-time-only code — but it still ships in the bundle, so hold the
-result to the `bundleBytes` ratchet, not to assumption.
+Rows that stay valid become specs; rows that become errors are tests (specs can't express
+creation-time throws) asserting the full message including both rewrite templates.
 
-## 4. Execution order (inside the single change)
+## 2. Architecture
 
-1. **Docs first — the contract of record.** Rewrite docs/js-usage.md §"Decoding into /
-   out of a union" (873-912) to state §0's rules; the old worked example becomes the
-   invalid-operation showcase with its error text and both rewrites. (The branch's whole
-   premise is "specs match the S.to rules in js-docs" — today the docs still describe the
-   three-tier algorithm, so the rules exist nowhere in the repo.)
-2. **Red first.** Author the new codec specs (`pnpm spec new`, one yaml per matrix row
-   that yields a *valid* schema: rows 2,3,4,8,9,10,11,12) and rewrite the tier tests in
-   S_to_test.res:889-1055 for the error rows (1,5,6,7 — specs can't express
-   creation-time throws; those live in tests, asserting the full message incl. both
-   rewrite templates). All red against current behavior.
-3. Primitives: rule 1 + D1.
-4. Matching core + `unionFactory` flatten + error renderer.
-5. `unionDecoder` rewiring + catch(_) fix.
-6. `unionEncoder` rewiring + bail-out lift.
-7. **Internal-consumer audit:** run the full suite; specifically chase
-   option/nullable/nullish/default/nested-option (`optionFactory`, `nestedNone`,
-   `fromDefault`) and recursive/ref and async-variant paths — these are the internal
-   users of union conversion most likely to now hit partial-verdict panics.
-8. `pnpm spec check --write` over everything; **review the golden diff as the
-   deliverable** — codegen, `instantiations`, `bundleBytes` all flat-or-better; call out
-   any unavoidable regression.
+**Matching core** (composites.ts, beside `unionToKey`):
+- `matchKeyEq(a, b)` — tuple compare, no string building.
+- `resolveConversion(sourceVariants, targetVariants, arity)` → per-source-variant destination
+  (`group(targets)` | `bridge(target)` | `coerceAll`) or panic. Direction-agnostic, so
+  decode-of-schema ≡ encode-of-reverse by construction. Rules 2/3/4 are the three arities of
+  this one function.
+- Group ordering made explicit (const-refined → format-refined → catch-all) instead of emergent
+  from byKey insertion order.
+- The invalid-operation renderer (§0.4).
 
-## 5. Breaking-changes list (for the release notes; repo has no CHANGELOG file)
+**`unionFactory`** (composites.ts:1247): implement the flatten TODO — spread a nested union only
+when it carries no `format`/`parser`/`to`/`refiner`/`inputRefiner` (today only `to` is checked,
+so spreading silently drops a nested union's refiner). Gives the flattening rule everywhere and
+normalizes what the resolver sees.
 
-- Identity-wins is gone: a typed source meeting a union with a *mix* of same-key and
-  other-key variants is a compile-time error (was: silently picked the same-key variant).
-- Union widening pass-through is gone: wider target unions are an error; migrate with a
-  `S.never.with(S.to, extra)` source variant.
-- The general const bridge is gone: implicit nullish↔string stringified coercion is
-  removed (D1); `"null" → null` no longer parses implicitly. Only nullish consts bridge,
-  and only inside rule-4 coverage.
-- The flagship `S.union([S.bigint, S.number, null]) → S.union([S.string, undefined])`
-  conversion is now a compile-time error whose message contains its own migration.
-- `undefined ↔ null` now coerces as a built-in primitive coercion everywhere (rule 1).
+**`unionDecoder`** (composites.ts:622): replace the activeKey block (649-679) with the resolver
+verdict; the nullish-bridge arm (672-678) becomes R2, driven by the resolver rather than by
+"tier 1 was empty". Delete the `unionIsWiderSchema` self-decode acceptance (635-637). "All
+match" keeps `activeKey = sourceKey`, "none" keeps `""`, so the skip loop at 1001 and everything
+downstream — const reorder, byKey grouping, `unionIsPriority`, `appendUnionRefiners`, the whole
+`getArrItemsCode` machine — is untouched.
 
-## 6. Risk register
+**`unionEncoder`** (composites.ts:606): drop the `unionIsWiderSchema` branch; take the rule-3/4
+verdict; dispatch via `unionPerVariantVal`. Lift `unionCanDispatchPerVariant`'s
+transformed-variant bail-outs (581-586) — the migrations *are* transformed variants (rows 6b,
+7b). Keep the ref/json bail-outs. Deepest work item: dispatch narrow comes from the variant's
+**input** tag, pairing from its **output** key.
+
+**Primitives:** no change (D1, D3).
+
+**Error channel:** no marker needed. `panic` throws a plain `Error` and `getOrRethrow` rethrows
+non-SuryErrors, so the per-variant catch at composites.ts:779 already lets it escape. The one
+swallow-everything site is `catch (_)` at composites.ts:1090 — make it rethrow non-SuryErrors.
+Other compile-path catches (parse.ts:98,120; operations.ts:196,505; jsonschema.ts:215;
+jsapi.ts:42) are all `getOrRethrow`-based; verified safe by inspection, to be confirmed by the
+error-message tests.
+
+**Deletions:** `unionIsWiderSchema`, the tier-keyed bridge arm. Net `S.mjs` should shrink (tier
+logic and widening checks go; the resolver is creation-time-only) — but it still ships, so hold
+the result to the `bundleBytes` ratchet rather than to the assumption.
+
+## 3. Execution order (one change)
+
+1. **Docs first — the contract of record.** Rewrite docs/js-usage.md §"Decoding into / out of a
+   union" (873-912) as §0. The three-tier prose and the flagship worked example are the *old*
+   spec; the flagship becomes the invalid-operation showcase with its real error text and
+   migration. (The branch premise is "specs match the S.to rules in js-docs" — today those rules
+   exist nowhere in the repo, so the docs are step 1, not step 8.)
+2. **Red first.** Specs for the valid rows (2,3,4,8,10,11,13 + 6b,7b) via `pnpm spec new`;
+   tests in S_to_test.res:889-1055 rewritten for the error rows (1,5,6,7,9,12,14), asserting the
+   full message.
+3. Matching core + `unionFactory` flatten + error renderer.
+4. `unionDecoder` rewiring + `catch(_)` fix.
+5. `unionEncoder` rewiring + bail-out lift.
+6. **Internal-consumer audit.** Full suite, then specifically:
+   `optionFactory`/`nestedOption`/`nestedNone`/`fromDefault`, `S.nullish`, recursive/ref paths,
+   async variants. These build unions with nullish variants and reverse them — the most likely
+   sources of new partial-verdict panics. Fix machinery with explicit variants; never by
+   weakening a rule.
+7. `pnpm spec check --write`; **review the golden diff as the deliverable** — codegen,
+   `instantiations`, `bundleBytes` flat-or-better; call out anything unavoidable.
+
+## 4. Breaking changes (release notes; repo has no CHANGELOG file)
+
+- **Identity-wins is an error.** A typed source meeting a union with a mix of same-key and
+  other-key variants no longer silently picks the same-key variant (row 1).
+- **Union widening is an error**, including widening into an optional (rows 9, 14) — migrate with
+  a `S.never.with(S.to, …)` source variant. Note this *removes a corruption*: widening currently
+  encodes `undefined` to the string `"undefined"`.
+- **Union→union requires key coverage** (no coercion guessing): the flagship
+  `union([bigint, number, null]) → union([string, undefined])` is now a creation-time error whose
+  message contains its own migration (row 6b).
+- **Nullish is no longer interchangeable by accident** (row 5): `undefined → null | undefined`
+  errors instead of quietly keeping `undefined`.
+- **Distinct classes with the same name no longer pair** — a runtime failure becomes a
+  creation-time one (row 12).
+- Unchanged and explicitly preserved: the `string ↔ null` codec, the nullish bridge inside
+  unions (row 4), explicit const→const `.to`, and `int32`/`number` grouping (row 11).
+
+## 5. Risks
 
 | Risk | Why | Mitigation |
 |---|---|---|
-| option/nullish/default internals hit new panics | they build unions with nullish variants and reverse them | step 7 audit; fix machinery with explicit variants, never by weakening rules |
-| transformed-variant per-variant dispatch | bail-outs existed for a reason; reversed chains change variant input tags | pin with specs (matrix rows 2/7/9) incl. async variants; keep ref/json dedicated paths |
-| dead-branch codegen from compile-failing groups | "none" verdict + D1 relies on `staticBlockFailure` dropping branches | assert generated code in specs (row 4 must compile to a bare const mapping) |
-| bundle ratchet | resolver ships in S.mjs | spec check gate; reuse `toExpression`, keep renderer lean |
-| same-name distinct classes | match must be by reference, dispatch by name | matrix row 12 test |
+| option/nullish/default internals hit new panics | they build nullish-variant unions and reverse them; D2 makes those shapes strict | step 6 audit; fix machinery, not rules |
+| transformed-variant per-variant dispatch | the lifted bail-outs existed for a reason; reversed chains change variant input tags | rows 2/6b/7b/13 as specs, incl. async |
+| the §0.5 wart surfaces in real code | R1 demands coverage, R2 doesn't | documented; strict variant is a one-liner |
+| coverage-exempt catch-all targets | `unknown`-keyed target variants next to an R1 match are exempt from counting yet not compiled | pin with the existing unknown-source test (S_to_test.res:1057) + a new exact-match-plus-unknown case |
+| bundle ratchet | resolver ships in `S.mjs` | spec gate; reuse `toExpression`, keep the renderer lean |
