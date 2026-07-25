@@ -1,8 +1,7 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  # FIXME: Codec next expects: stay the same — rule 1's built-in decoding covers any
-  # literal pair, whatever their tags: validate the source const, return the target
-  # const. codec-null-undefined is this same remap, not a nullish special case.
+  # FIXME: Codec next expects: stay the same — which pairs have a built-in decoder is
+  # out of CODEC_NEXT_SPEC.md's scope, literal-to-literal included.
   schema: S.schema("a").with(S.to, S.schema(42))
   aliases:
     - S.literal("a").with(S.to, S.literal(42))

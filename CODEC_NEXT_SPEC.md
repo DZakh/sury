@@ -44,21 +44,10 @@ S.string.with(S.to, S.schema(undefined)); // "undefined" <-> undefined
 S.schema(null).with(S.to, S.schema(undefined)); // null <-> undefined
 ```
 
-**Literal → literal is one remap, not a table of pairs.** Whatever their tags,
-one primitive literal decodes into another by validating the source const and
-returning the target const — `null <-> undefined` is an instance of it, not a
-nullish special case:
-
-```ts
-S.schema("a").with(S.to, S.schema(42)); // "a" <-> 42
-S.schema(1).with(S.to, S.schema(true)); // 1 <-> true
-S.schema(1n).with(S.to, S.schema("one")); // 1n <-> "one"
-S.schema(NaN).with(S.to, S.schema(0)); // NaN <-> 0
-```
-
-Collection literals stay out of it — `S.schema([1, 2]).with(S.to,
-S.schema("done"))` keeps today's behavior, snapshot in
-`codec-literal-array-literal-string`.
+Which pairs have a built-in decoder is out of scope here — literal-to-literal
+conversion in particular keeps whatever it does today
+(`codec-literal-string-literal-number`, `codec-literal-array-literal-string`).
+These rules only decide which schemas that decoder is asked about.
 
 ## Rule 2: non-union → union
 
@@ -254,7 +243,6 @@ Behavior change expected, today's goldens are wrong:
 
 Already spec-conformant (their remaining `FIXME`s are codegen bugs, not rule
 changes): `codec-bool-number-unsupported`, `codec-json-union3-grouped`,
-`codec-literal-array-literal-string`, `codec-literal-string-literal-number`,
 `codec-null-undefined`, `codec-optional-literal-nullable-literal`,
 `codec-optional-nullable-transformed`, `codec-optional-nullable`,
 `codec-optional-nullish`, `codec-string-optional-never`, `codec-string-undefined`,

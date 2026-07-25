@@ -1,9 +1,7 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  # FIXME: Codec next expects: stay the same — rule 1's literal remap (see
-  # codec-literal-string-literal-number) stops at primitive literals, so a collection
-  # literal keeps the behavior below: the remap lands as an extra `i==="done"` check
-  # the array can never satisfy, and encode refuses to compile at all.
+  # FIXME: Codec next expects: stay the same — literal-to-literal decoding is out of
+  # CODEC_NEXT_SPEC.md's scope, this collection-literal shape included.
   schema: S.schema([1, 2]).with(S.to, S.schema("done"))
   input: "[1, 2]"
   output: '"done"'
