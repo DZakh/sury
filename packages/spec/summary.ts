@@ -11,6 +11,13 @@ export type BundleSizeChange = { before?: BundleSize; after: BundleSize };
 
 type Delta = { label: string; before: number; after: number };
 
+// Generated code is the hot path, so the summary shows the codegen itself, not
+// just how much of it there is. Clipped because a discriminated-union parse
+// runs past 600 characters and the point is to be readable at a glance — the
+// spec file has the untruncated text.
+type ExpressionDelta = Delta & { beforeSrc: string; afterSrc: string };
+const EXPRESSION_CLIP = 200;
+
 // A metric that grew from nothing has no meaningful percentage, so it ranks
 // above every finite one rather than sorting as 0%.
 const pct = (d: Delta): number => (d.before === 0 ? Infinity * Math.sign(d.after - d.before) : ((d.after - d.before) / d.before) * 100);
@@ -39,6 +46,23 @@ const section = (title: string, deltas: Delta[], lead: string[] = []): string[] 
   return [`${title}:`, ...lead.map((l) => `  ${l}`), ...render(moved).map((l) => `  ${l}`)];
 };
 
+// Ranked like any other metric, but each entry carries its own before/after
+// block, so it renders as one stanza per operation rather than a flat row.
+const expressionSection = (deltas: ExpressionDelta[]): string[] => {
+  const moved = deltas.filter((d) => d.beforeSrc !== d.afterSrc).sort((a, b) => pct(b) - pct(a));
+  if (!moved.length) return [];
+  const chars = render(moved.map((d) => ({ ...d, label: "chars" })));
+  return [
+    "operations.expression:",
+    ...moved.flatMap((d, i) => [
+      `  ${d.label}:`,
+      `    ${chars[i]}`,
+      `    before  ${clip(d.beforeSrc, EXPRESSION_CLIP)}`,
+      `    after   ${clip(d.afterSrc, EXPRESSION_CLIP)}`,
+    ]),
+  ];
+};
+
 const outcome = (ex: Example): string => ("output" in ex ? `output ${ex.output}` : `error ${ex.error}`);
 
 const changed = (label: string, before: string, after: string, out: string[]): void => {
@@ -47,9 +71,9 @@ const changed = (label: string, before: string, after: string, out: string[]): v
 
 const specDeltas = (
   changes: SpecChange[],
-): { instantiations: Delta[]; expression: Delta[]; behavior: string[] } => {
+): { instantiations: Delta[]; expression: ExpressionDelta[]; behavior: string[] } => {
   const instantiations: Delta[] = [];
-  const expression: Delta[] = [];
+  const expression: ExpressionDelta[] = [];
   const behavior: string[] = [];
 
   for (const { id, before, after } of changes) {
@@ -70,7 +94,13 @@ const specDeltas = (
       // blocks the write), so a differing kind here means a hand edit.
       if (typeof b === "string" || typeof a === "string") continue;
       if (!isSkip(b.expression) && !isSkip(a.expression))
-        expression.push({ label: `${id}.${op}`, before: b.expression.length, after: a.expression.length });
+        expression.push({
+          label: `${id}.${op}`,
+          before: b.expression.length,
+          after: a.expression.length,
+          beforeSrc: b.expression,
+          afterSrc: a.expression,
+        });
       for (const [name, ex] of Object.entries(a.examples)) {
         const prev = b.examples[name];
         if (prev) changed(`${id}.${op}.${name}`, outcome(prev), outcome(ex), behavior);
@@ -105,7 +135,7 @@ export const summarize = (changes: SpecChange[], bundleSize?: BundleSizeChange):
   const { instantiations, expression, behavior } = specDeltas(changes);
   const lines = [
     ...section("ts.instantiations", instantiations),
-    ...section("operations.expression (chars)", expression),
+    ...expressionSection(expression),
     ...(bundleSize ? bundleSizeSection(bundleSize) : []),
     ...(behavior.length ? ["behavior changed:", ...behavior.map((l) => `  ${l}`)] : []),
   ];

@@ -107,8 +107,11 @@ test("summarize renders ranked metric moves and behavior changes", () => {
     "ts.instantiations:
       string  254 → 300  +18.1%
       never   254 → 100  -60.6%
-    operations.expression (chars):
-      string.parse  42 → 4  -90.5%
+    operations.expression:
+      string.parse:
+        chars  42 → 4  -90.5%
+        before  i=>{typeof i==="string"||e[0](i);return i}
+        after   i=>i
     bundleSize:
       total  20000 → 20690  +3.5%
       added: newExport 20
