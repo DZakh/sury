@@ -41,10 +41,26 @@ S.string.with(S.to, S.schema(undefined)); // "undefined" <-> undefined
 S.schema(null).with(S.to, S.schema(undefined)); // null <-> undefined
 ```
 
+**Literal → literal is one remap, not a table of pairs.** Whatever their tags,
+one literal decodes into another by validating the source const and returning
+the target const — `null <-> undefined` is an instance of it, not a nullish
+special case:
+
+```ts
+S.schema("a").with(S.to, S.schema(42)); // "a" <-> 42
+S.schema(1).with(S.to, S.schema(true)); // 1 <-> true
+S.schema(1n).with(S.to, S.schema("one")); // 1n <-> "one"
+S.schema(NaN).with(S.to, S.schema(0)); // NaN <-> 0
+S.schema([1, 2]).with(S.to, S.schema("done")); // [1, 2] <-> "done"
+```
+
+The collection-literal line is the one that doesn't hold today — see
+`codec-literal-array-literal-string`.
+
 ## Rule 2: non-union → union
 
 The built-in decoder is applied separately for every target variant, attempted
-in definition order, grouped by tag:
+in definition order:
 
 ```ts
 const schema = S.json.with(S.to, S.union([S.bigint, S.string]));
@@ -57,19 +73,34 @@ S.parser(schema)(true); // throws — no implicit double decoding (true -> "true
 `S.json` is not the exact `string` type, so string inputs still go through
 variant decoding instead of passing through.
 
-**Grouped by tag** means same-tag variants form a single group at the position
-of the first one. The runtime value's tag picks the group; only that group's
-variants are attempted, in definition order:
+**Definition order is not tag order.** Same-tag variants are *not* collapsed
+into one group: a differently-tagged variant sitting between them keeps its
+turn, and the first variant that accepts wins.
+
+```ts
+const schema = S.json.with(S.to, S.union(["123", S.bigint, S.string]));
+
+S.parser(schema)("123"); // "123" — the literal matches first and stays a string
+S.parser(schema)("124"); // 124n — the literal fails, the bigint variant decodes
+S.parser(schema)("abc"); // "abc" — bigint decoding fails, the catch-all string accepts
+```
+
+`"123"` and the catch-all `S.string` share the string tag, but grouping them
+would hide the `S.bigint` between them, and `"124"` would come back a string.
+The same holds with the tags swapped — the `S.number` variant below is reached
+by a string, even though the two literals around it are both strings:
 
 ```ts
 const schema = S.json.with(S.to, S.union([S.literal("a"), S.number, S.literal("b")]));
 
-S.parser(schema)("b"); // "b" — tries "a", then "b"; the number variant is never attempted
+S.parser(schema)("b"); // "b" — "a" fails, `+"b"` is NaN, "b" matches
+S.parser(schema)("5"); // 5 — neither literal matches, the number variant decodes
+S.parser(schema)("c"); // throws — no variant accepts
 ```
 
 `S.unknown` is a normal type here — it only matches another `unknown`. An
 `unknown` source matches none of the concrete variants, so it takes the same
-path: every variant is attempted, grouped by tag, in definition order.
+path: every variant is attempted, in definition order.
 
 **Exception — partial type match.** If the source has the same type as *some but
 not all* target variants, the operation is rejected when it's created. Sury
@@ -107,7 +138,7 @@ The `Invalid operation` error suggests these rewrites.
 ## Rule 3: union → non-union
 
 The mirror of rule 2: every source variant gets its own built-in decoder to the
-target, dispatched in definition order, grouped by tag:
+target, dispatched in definition order:
 
 ```ts
 const schema = S.union([S.bigint, S.string]).with(S.to, S.json);
@@ -193,21 +224,24 @@ checked, so transformed unions stay consistent across decode and encode.
 
 Behavior change expected, today's goldens are wrong:
 
-| Spec                                | Rule | Expected                                                          |
-| ----------------------------------- | ---- | ----------------------------------------------------------------- |
-| `codec-json-union2`                 | 2    | non-bigint string falls back to the `S.string` variant            |
-| `codec-number-union2-int32`         | 2    | compiles instead of crashing; int32 first, string next            |
-| `codec-string-optional-partial`     | 2    | rejected — partial type match                                     |
-| `codec-string-union2-partial`       | 2    | rejected — partial type match                                     |
-| `codec-unknown-union2`              | 2    | per-variant decoding, same path as `codec-json-union2`            |
-| `codec-union2-string-partial`       | 3    | rejected — partial type match                                     |
-| `codec-optional-nullable-partial`   | 4    | rejected — `string` has no same-type target variant               |
-| `codec-union2-union3-extra-target`  | 4    | rejected — `boolean` has no source variant                        |
-| `codec-union3-union2-extra-source`  | 4    | rejected — `boolean` has no target variant                        |
-| `codec-union3-union2-json`          | 4    | rejected — `json` is not the exact `string`/`number` type          |
+| Spec                                 | Rule | Expected                                                             |
+| ------------------------------------ | ---- | -------------------------------------------------------------------- |
+| `codec-literal-array-literal-string` | 1    | collection literals remap like every other literal pair              |
+| `codec-json-union2`                  | 2    | non-bigint string falls back to the `S.string` variant               |
+| `codec-json-union3-grouped`          | 2    | the `S.number` variant between the two literals is still attempted   |
+| `codec-json-union3-ungrouped`        | 2    | `"123"` matches the literal, `"124"` reaches the `S.bigint` variant  |
+| `codec-number-union2-int32`          | 2    | compiles instead of crashing; int32 first, string next               |
+| `codec-string-optional-partial`      | 2    | rejected — partial type match                                        |
+| `codec-string-union2-partial`        | 2    | rejected — partial type match                                        |
+| `codec-unknown-union2`               | 2    | per-variant decoding, same path as `codec-json-union2`               |
+| `codec-union2-string-partial`        | 3    | rejected — partial type match                                        |
+| `codec-optional-nullable-partial`    | 4    | rejected — `string` has no same-type target variant                  |
+| `codec-union2-union3-extra-target`   | 4    | rejected — `boolean` has no source variant                           |
+| `codec-union3-union2-extra-source`   | 4    | rejected — `boolean` has no target variant                           |
+| `codec-union3-union2-json`           | 4    | rejected — `json` is not the exact `string`/`number` type             |
 
 Already spec-conformant (their remaining `FIXME`s are codegen bugs, not rule
-changes): `codec-bool-number-unsupported`, `codec-json-union3-grouped`,
+changes): `codec-bool-number-unsupported`, `codec-literal-string-literal-number`,
 `codec-null-undefined`, `codec-optional-literal-nullable-literal`,
 `codec-optional-nullable-transformed`, `codec-optional-nullable`,
 `codec-optional-nullish`, `codec-string-optional-never`, `codec-string-undefined`,

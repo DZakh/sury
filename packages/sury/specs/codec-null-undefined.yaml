@@ -1,7 +1,8 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  # FIXME: Codec next expects: stay the same — rule 1 always applies the built-in null
-  # <-> undefined decoding.
+  # FIXME: Codec next expects: stay the same — this is rule 1's literal remap (see
+  # codec-literal-string-literal-number), which covers any literal pair, not a nullish
+  # special case.
   schema: S.schema(null).with(S.to, S.schema(undefined))
   input: "null"
   output: undefined

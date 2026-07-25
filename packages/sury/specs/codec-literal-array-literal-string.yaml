@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  # FIXME: Codec next expects: rule 1's literal remap (see
+  # codec-literal-string-literal-number) to reach collection literals too — [1, 2]
+  # parses to "done" and "done" encodes back to [1, 2]. Today the remap is emitted as
+  # an extra `i==="done"` check on the array that can never hold, so every direction
+  # either throws at runtime or fails to compile.
+  schema: S.schema([1, 2]).with(S.to, S.schema("done"))
+  input: "[1, 2]"
+  output: '"done"'
+  instantiations: 5704
+  bundleBytes: 9652
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "number", const: 1 }, { type: "number", const: 2 }] }'
+  output: '{ type: "string", const: "done" }'
+operations:
+  parse:
+    # FIXME: the tuple is validated and then tested against the target const, so the
+    # only value that clears the array checks fails the one after them.
+    expression: i=>{Array.isArray(i)&&i.length===2||e[3](i);let v0=i["0"],v1=i["1"];v0===1||e[0](v0);v1===2||e[1](v1);i==="done"||e[2](i);return i}
+    examples:
+      const:
+        input: "[1, 2]"
+        error: Expected "done", received [1, 2]
+      other-array:
+        input: "[1, 3]"
+        error: 'Failed at ["1"]: Expected 2, received 3'
+      target-const:
+        input: '"done"'
+        error: Expected [1, 2], received "done"
+  decode:
+    # FIXME: the array checks are dropped and only the target-const test survives, so
+    # decode rejects the very value its input type describes.
+    expression: i=>{i==="done"||e[0](i);return i}
+    examples:
+      const:
+        input: "[1, 2]"
+        error: Expected "done", received [1, 2]
+  encode:
+    creationError: "SuryError: Can't decode \"done\" to [1, 2]. Use S.to to define a custom decoder"
