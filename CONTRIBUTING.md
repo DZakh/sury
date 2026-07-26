@@ -197,11 +197,11 @@ https://bundlejs.com/ with the recipes below.
 `sury`
 
 ```ts
-export * as S from "sury@10.0.0-rc.0";
+export * as S from "sury@11.0.0-alpha.11";
 ```
 
 ```ts
-import * as S from "sury@10.0.0-rc.0";
+import * as S from "sury@11.0.0-alpha.11";
 
 const schema = S.schema({
   number: S.number,
@@ -216,17 +216,17 @@ const schema = S.schema({
     bool: S.boolean,
   },
 });
-S.parseOrThrow(data, schema);
+S.parser(schema)(data);
 ```
 
 valibot
 
 ```ts
-export * as v from "valibot@1.0.0";
+export * as v from "valibot@1.4.2";
 ```
 
 ```ts
-import * as v from "valibot@1.0.0";
+import * as v from "valibot@1.4.2";
 
 const schema = v.object({
   number: v.number(),
@@ -247,11 +247,11 @@ v.parse(schema, data);
 zod
 
 ```ts
-export * as z from "zod@4.0.0-beta.20250420T053007";
+export * as z from "zod@4.4.3";
 ```
 
 ```ts
-import * as z from "zod@4.0.0-beta.20250420T053007";
+import * as z from "zod@4.4.3";
 
 const schema = z.object({
   number: z.number(),
@@ -272,15 +272,15 @@ schema.parse(data);
 ### TypeBox
 
 ```ts
-export * from "@sinclair/typebox";
+export * from "@sinclair/typebox@0.34.52";
 // Include Value for transforms support
-export * from "@sinclair/typebox/value";
-export * from "@sinclair/typebox/compiler";
+export * from "@sinclair/typebox@0.34.52/value";
+export * from "@sinclair/typebox@0.34.52/compiler";
 ```
 
 ```ts
-import { Type } from "@sinclair/typebox";
-import { TypeCompiler } from "@sinclair/typebox/compiler";
+import { Type } from "@sinclair/typebox@0.34.52";
+import { TypeCompiler } from "@sinclair/typebox@0.34.52/compiler";
 
 const schema = TypeCompiler.Compile(
   Type.Object({
@@ -305,11 +305,11 @@ if (!schema.Check(data)) {
 ArkType
 
 ```ts
-export * from "arktype@2.1.20";
+export * from "arktype@2.2.3";
 ```
 
 ```ts
-import { type } from "arktype@2.1.20";
+import { type } from "arktype@2.2.3";
 
 const schema = type({
   number: "number",

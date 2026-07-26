@@ -79,7 +79,7 @@ The main building block of **Sury** is a schema. You can think of it as a type d
 Let's start with a simple object schema for the purpose of this guide. I use the same example as [Zod v4](https://v4.zod.dev/basics) docs so you can easily compare the two.
 
 ```ts
-import * as S from "sury"; // 4.3 kB (min + gzip)
+import * as S from "sury"; // 9.77 kB (min + gzip)
 
 const playerSchema = S.schema({
   username: S.string,
