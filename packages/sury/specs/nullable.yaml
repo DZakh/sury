@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.nullable(S.string)
+  input: string | null
+  output: string | null
+  instantiations: 380
+vs:
+  zod: z.string().nullable()
+jsonSchema:
+  input: '{ anyOf: [{ type: "string" }, { type: "null" }] }'
+  output: '{ anyOf: [{ type: "string" }, { type: "null" }] }'
+operations:
+  parse:
+    expression: i=>{if(!(typeof i==="string"||i===null)){e[0](i)}return i}
+    examples:
+      string:
+        input: '"abc"'
+        output: '"abc"'
+      empty-string:
+        input: '""'
+        output: '""'
+      null-passes-through:
+        input: "null"
+        output: "null"
+      invalid-undefined:
+        input: undefined
+        error: Expected string | null, received undefined
+      invalid-type:
+        input: "1"
+        error: Expected string | null, received 1
+  decode: identity
+  encode: identity

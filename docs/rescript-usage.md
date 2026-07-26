@@ -34,52 +34,54 @@
     - [Transform to a variant](#transform-to-a-variant)
     - [`s.flatten`](#sflatten)
     - [`s.nested`](#snested)
-    - [`Object destructuring`](#object-destructuring)
+    - [Object destructuring](#object-destructuring)
   - [`strict`](#strict)
   - [`strip`](#strip)
-  - [`deepStrict` & `deepStrip`](#deepstrict--deepstrip)
+  - [`deepStrict` & `deepStrip`](#deepstrict-deepstrip)
   - [`schema`](#schema)
-  - [`to`](#to)
+  - [`shape`](#shape)
   - [`union`](#union)
     - [Enums](#enums)
+    - [Decoding into / out of a union](#decoding-into-out-of-a-union)
   - [`array`](#array)
   - [`list`](#list)
   - [`compactColumns`](#compactcolumns)
   - [`tuple`](#tuple)
   - [`tuple1` - `tuple3`](#tuple1---tuple3)
   - [`dict`](#dict)
-  - [`unknown`](#unknown)
   - [`date`](#date)
   - [`isoDateTime`](#isodatetime)
   - [`instance`](#instance)
+  - [`unknown`](#unknown)
   - [`never`](#never)
   - [`json`](#json)
-  - [`jsonString`](#jsonString)
+  - [`jsonString`](#jsonstring)
   - [`meta`](#meta)
   - [`recursive`](#recursive)
 - [Custom schema](#custom-schema)
 - [Refinements](#refinements)
+  - [`refine`](#refine)
+    - [Custom error message](#custom-error-message)
+    - [Custom error path](#custom-error-path)
+    - [Chaining refinements](#chaining-refinements)
 - [Transforms](#transforms)
+  - [`transform`](#transform)
 - [Functions on schema](#functions-on-schema)
-
-  - [`Built-in operations`](#built-in-operations)
-  - [`parseOrThrow`](#parseorthrow)
-  - [`decodeOrThrow`](#decodeorthrow)
-  - [`assertOrThrow`](#assertorthrow)
-  - [`parser`](#parser)
-  - [`decoder`](#decoder)
-  - [`decoder1`](#decoder1)
+  - [Pipelines](#pipelines)
+  - [Built-in operations](#built-in-operations)
+  - [`parser` / `asyncParser`](#parser-asyncparser)
+  - [`decoder` / `asyncDecoder`](#decoder-asyncdecoder)
+  - [`decoder1` / `asyncDecoder1`](#decoder1-asyncdecoder1)
   - [`reverse`](#reverse)
   - [`to`](#to)
   - [`isAsync`](#isasync)
   - [`name`](#name)
-  - [`toExpression`](#toExpression)
-  - [`noValidation`](#noValidation)
-
+  - [`toExpression`](#toexpression)
+  - [`noValidation`](#novalidation)
 - [Standard Schema](#standard-schema)
 - [Error handling](#error-handling)
 - [Global config](#global-config)
-  - [`defaultAdditionalItems`](#defaultAdditionalItems)
+  - [`defaultAdditionalItems`](#defaultadditionalitems)
   - [`disableNanNumberValidation`](#disablenannumbervalidation)
 
 ## Install
@@ -163,100 +165,11 @@ let filmSchema = S.object(s => {
 //   "Age": undefined,
 // }
 
-// 5. Use schema as a building block for other tools
-// For example, create a JSON schema and use it for OpenAPI generation
+// 5. Convert the schema to a JSON schema
 let filmJSONSchema = filmSchema->S.toJSONSchema
 ```
 
-The library uses `eval` to compile the most performant possible code for parsers and serializers. See yourself how good it is 👌
-
-<details>
-
-<summary>
-Compiled parser code
-</summary>
-
-```javascript
-(i) => {
-  if (typeof i !== "object" || !i) {
-    e[0](i);
-  }
-  let v0 = i["Id"],
-    v1 = i["Title"];
-  if (typeof v0 !== "number" || Number.isNaN(v0)) {
-    e[1](v0);
-  }
-  if (typeof v1 !== "string") {
-    e[2](v1);
-  }
-  let v2 = i["Tags"];
-  if (Array.isArray(v2)) {
-    for (let v3 = 0; v3 < v2.length; ++v3) {
-      try {
-        let v5 = v2[v3];
-        if (typeof v5 !== "string") {
-          e[3](v5);
-        }
-      } catch (v4) {
-        if (v4 && v4.s === s) {
-          v4.path = '["Tags"]' + "[\"'+v3+'\"]" + v4.path;
-        }
-        throw v4;
-      }
-    }
-  } else if (v2 === void 0) {
-    v2 = e[4];
-  } else {
-    e[5](v2);
-  }
-  let v6 = i["Rating"];
-  if (
-    !(
-      typeof v6 === "string" &&
-      (v6 === "G" || v6 === "PG" || v6 === "PG13" || v6 === "R")
-    )
-  ) {
-    e[6](v6);
-  }
-  let v7 = i["Age"];
-  if (
-    !(
-      (typeof v7 === "number" &&
-        v7 < 2147483647 &&
-        v7 > -2147483648 &&
-        v7 % 1 === 0) ||
-      v7 === void 0
-    )
-  ) {
-    e[7](v7);
-  }
-  return {
-    id: v0,
-    title: v1,
-    tags: v2,
-    rating: v6,
-    deprecatedAgeRestriction: v7,
-  };
-};
-```
-
-</details>
-<details>
-
-<summary>
-Compiled serializer code
-</summary>
-
-```javascript
-(i) => {
-  let v0 = i["tags"],
-    v3 = i["rating"],
-    v4 = i["deprecatedAgeRestriction"];
-  return { Id: i["id"], Title: i["title"], Tags: v0, Rating: v3, Age: v4 };
-};
-```
-
-</details>
+> 🧠 Schemas compile to JavaScript via `eval`. Print the generated code with [`toExpression`](#toexpression).
 
 ## Real-world examples
 
@@ -705,7 +618,7 @@ The `s.nested` returns a complete `S.Object.s` context of the nested object, whi
 
 #### Object destructuring
 
-It's possible to destructure object field schemas inside of definition. You could also notice it in the `s.flatten` example 😁
+It's possible to destructure object field schemas inside of definition, as in the `s.flatten` example above.
 
 ```rescript
 let entitySchema = S.object(s => {
@@ -1011,9 +924,7 @@ let schema = S.compactColumns(S.schema(s => {
 // [["0", "1"], ["Hello", null], [false, true]]
 ```
 
-The helper function is inspired by the article [Boosting Postgres INSERT Performance by 2x With UNNEST](https://www.timescale.com/blog/boosting-postgres-insert-performance). It allows you to flatten a nested array of objects into arrays of values by field.
-
-The main concern of the approach described in the article is usability. And **Sury** completely solves the problem, providing a simple and intuitive API that is even more performant than `S.array`.
+It flattens a nested array of objects into arrays of values by field — the layout described in [Boosting Postgres INSERT Performance by 2x With UNNEST](https://www.timescale.com/blog/boosting-postgres-insert-performance).
 
 <details>
 
@@ -1430,11 +1341,9 @@ await "1"->S.parseAsyncOrThrow(~to=userSchema)
 
 ## Functions on schema
 
-### The mental model: pipelines, not operations
+### Pipelines
 
-If you're coming from earlier Sury releases (or from any other validation library), you're used to a separate function for every input/output pair: `parseJsonOrThrow`, `parseJsonStringOrThrow`, `reverseConvertToJsonOrThrow`, and so on. **Sury treats those targets as schemas instead.** `S.json`, `S.jsonString`, `S.unknown`, `S.date`, `S.uint8Array` — none of them are special, they're just schemas like any other.
-
-So instead of a fixed menu of operations, you describe the shape of the data at each stage with `~from` and `~to`, and Sury compiles the whole pipeline into a single ultra-optimized function via `new Function`. Adding stages costs you nothing at runtime.
+Conversion targets are schemas, not dedicated functions: `S.json`, `S.jsonString`, `S.unknown`, `S.date`, and `S.uint8Array` are ordinary schemas usable at any position in a chain. Describe the shape of the data at each stage with `~from` and `~to`, and Sury compiles the whole pipeline into a single function via `new Function`.
 
 ```rescript
 // Validate any input value.
