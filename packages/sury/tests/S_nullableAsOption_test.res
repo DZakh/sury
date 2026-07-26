@@ -41,7 +41,7 @@ test("Correctly reverse convert", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(!(typeof i==="boolean"||i===void 0)){e[0](i)}return i}`,
+    `i=>{(typeof i==="boolean"||i===void 0)||e[0](i);return i}`,
   )
 })
 

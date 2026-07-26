@@ -86,7 +86,7 @@ test("Case with missing item at the end", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{Array.isArray(i)&&i.length===2&&Array.isArray(i[0])&&Array.isArray(i[1])||e[2](i);let v1=new Array(Math.max(i[0].length,i[1].length,));for(let v0=0;v0<v1.length;++v0){try{let v2=i[0][v0];if(!(typeof v2==="string"||v2===void 0)){e[0](v2)}let v3=i[1][v0];typeof v3==="boolean"||e[1](v3);v1[v0]={"foo":v2,"bar":v3,};}catch(v4){v4.path='["'+v0+'"]'+v4.path;throw v4}}return v1}`,
+    `i=>{Array.isArray(i)&&i.length===2&&Array.isArray(i[0])&&Array.isArray(i[1])||e[2](i);let v1=new Array(Math.max(i[0].length,i[1].length,));for(let v0=0;v0<v1.length;++v0){try{let v2=i[0][v0];(typeof v2==="string"||v2===void 0)||e[0](v2);let v3=i[1][v0];typeof v3==="boolean"||e[1](v3);v1[v0]={"foo":v2,"bar":v3,};}catch(v4){v4.path='["'+v0+'"]'+v4.path;throw v4}}return v1}`,
   )
   t->U.assertCompiledCode(
     ~schema,

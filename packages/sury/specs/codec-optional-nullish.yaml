@@ -12,7 +12,7 @@ jsonSchema:
   output: Expected JSON, received string | null | undefined
 operations:
   parse:
-    expression: i=>{if(!(typeof i==="string"||i===void 0)){e[0](i)}return i}
+    expression: i=>{(typeof i==="string"||i===void 0)||e[0](i);return i}
     examples:
       string:
         input: '"abc"'

@@ -12,7 +12,7 @@ jsonSchema:
   output: '{ anyOf: [{ type: "string", const: "a" }, { type: "string", const: "b" }, { type: "number" }] }'
 operations:
   parse:
-    expression: i=>{if(!(typeof i==="string"&&(i==="a"||i==="b")||typeof i==="number"&&!Number.isNaN(i))){e[0](i)}return i}
+    expression: i=>{(typeof i==="string"&&(i==="a"||i==="b")||typeof i==="number"&&!Number.isNaN(i))||e[0](i);return i}
     examples:
       first-literal:
         input: '"a"'

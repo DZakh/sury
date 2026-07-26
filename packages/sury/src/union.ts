@@ -372,6 +372,41 @@ const unionStructured =
 const unionWiden = (tagFlag: number): number =>
   flagUnsafeHas(tagFlag, unionObjectish) ? unionObjectish : tagFlag;
 
+// The tags a nested union accepts, when it compiles to nothing but a type test
+// over its members. A union tag has no `typeof` discriminant of its own, so the
+// dispatch would otherwise have to assume the variant might accept anything and
+// learn otherwise by catching its failure — which costs a thrown exception on
+// input the variant was never going to take. Returns 0 when that isn't provable,
+// leaving the conservative source mask in place. Anything that would give a
+// member code of its own (a transform, a refinement, a nested shape) bails: the
+// mask has to describe what the emitted dispatch condition accepts, and only a
+// pure type test keeps the two in step.
+const unionNestedMask = (schema: Internal): number => {
+  const members = schema.anyOf;
+  if (members === U || schema.to !== U || schema.parser !== U) {
+    return 0;
+  }
+  let mask = 0;
+  for (let idx = 0; idx < members.length; idx++) {
+    const member = members[idx]!;
+    const tagFlag = tagFlags[member.type]!;
+    if (flagUnsafeHas(tagFlag, tagFlagNever)) {
+      continue;
+    }
+    if (
+      flagUnsafeHas(tagFlag, unionOpaqueTags | unionStructured) ||
+      !unionIsNoop(member) ||
+      member.refiner !== U ||
+      member.inputRefiner !== U ||
+      member.noValidation !== U
+    ) {
+      return 0;
+    }
+    mask = mask | unionWiden(tagFlag);
+  }
+  return mask;
+};
+
 // ── Rejections ───────────────────────────────────────────────────────────────
 
 // A source matching some but not all variants by type is ambiguous — Sury can't
@@ -639,6 +674,12 @@ export const unionDecoder: Builder = (input: Val) => {
       narrowInput.e = unknown;
       narrowVal = narrowInput;
       mask = sourceMask;
+      if (flagUnsafeHas(tagFlag, tagFlagUnion)) {
+        const nested = unionNestedMask(variant);
+        if (nested !== 0) {
+          mask = sourceMask & nested;
+        }
+      }
     } else if (soleTag && tagCount[key] === 1 && variant.to === U) {
       // A conversion still needs the narrow: it stands in as the case's clean
       // input schema, where decoding straight from the source would leave the
@@ -681,7 +722,7 @@ export const unionDecoder: Builder = (input: Val) => {
   }
 
   // ── Pass 3 (forward): emit ─────────────────────────────────────────────────
-  const output = B_refine(input);
+  let output = B_refine(input);
   const outputAnyOf: Internal[] = [];
   const initialInline = input.i;
 
@@ -888,10 +929,36 @@ export const unionDecoder: Builder = (input: Val) => {
     }
   }
 
-  const dispatch = unionEmitChain(branches, ctx);
-  // The whole dispatch can collapse to one unbraced statement (a case that
-  // always applies), and the caller appends `return` right after it.
-  output.cp = output.cp + dispatch + (ctx.b ? ";" : "");
+  // A union that only validates — every branch a pass-through carrying a
+  // condition of its own — has nothing to emit but its own narrow. Kept as a
+  // check instead of an `if(!cond){fail}` statement it stays hoistable, so an
+  // enclosing union lifts it into the dispatch and reaches the next variant with
+  // an `else` rather than through a thrown exception.
+  let pureNarrow = false;
+  if (branches.length > 0 && branches.every((b) => b.b === "" && b.c !== "")) {
+    let fused = branches[0]!.c;
+    for (let idx = 1; idx < branches.length; idx++) {
+      fused = `${fused}||${branches[idx]!.c}`;
+    }
+    if (branches.length > 1) {
+      // A disjunction needs its own parens inside the `&&` chain a check emits.
+      fused = `(${fused})`;
+    }
+    // Two vals: the inner one carries the narrow with `self` pinned as its
+    // expected schema, the outer absorbs the tail's mutations below — which
+    // overwrite `e` with the `.to` target and rebuild `s` from the variants'
+    // outputs, either of which would otherwise rename the check's error to a
+    // schema the value was never matched against.
+    pureNarrow = true;
+    output = B_refine(
+      B_refine(output, output.s, [{ c: (_inputVar) => fused, f: failInvalidType }], self)
+    );
+  } else {
+    const dispatch = unionEmitChain(branches, ctx);
+    // The whole dispatch can collapse to one unbraced statement (a case that
+    // always applies), and the caller appends `return` right after it.
+    output.cp = output.cp + dispatch + (ctx.b ? ";" : "");
+  }
 
   // In case input.var was called, but output.var wasn't
   if (input.i !== output.i) {
@@ -907,6 +974,9 @@ export const unionDecoder: Builder = (input: Val) => {
     output.v === _var &&
     input.cp === "" &&
     output.cp === "" &&
+    // A pure-validation union emits no code but carries its narrow as a check,
+    // and dropping `output` for `input` would drop the whole validation.
+    !pureNarrow &&
     initialInline === "i"
   ) {
     // Nothing was emitted: hand back the untouched input so callers keep

@@ -79,7 +79,7 @@ test("Successfully parses schema with transformation", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(!(typeof i==="number"&&!Number.isNaN(i)||i===void 0)){e[0](i)}let v0;try{v0=e[1](i===void 0?-123:i)}catch(x){e[2](x)}if(!(typeof v0==="string"||v0===void 0)){e[3](v0)}return v0===void 0?"not positive":v0}`,
+    `i=>{(typeof i==="number"&&!Number.isNaN(i)||i===void 0)||e[3](i);let v0;try{v0=e[0](i===void 0?-123:i)}catch(x){e[1](x)}(typeof v0==="string"||v0===void 0)||e[2](v0);return v0===void 0?"not positive":v0}`,
   )
 })
 
@@ -95,7 +95,7 @@ test("Compiled parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(!(typeof i==="boolean"||i===void 0)){e[0](i)}return i===void 0?false:i}`,
+    `i=>{(typeof i==="boolean"||i===void 0)||e[0](i);return i===void 0?false:i}`,
   )
 })
 
@@ -122,7 +122,7 @@ asyncTest("Compiled async parse code snapshot", async t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{if(!(typeof i==="boolean"||i===void 0)){e[0](i)}let v0;try{v0=e[1](i===void 0?false:i).catch(x=>e[2](x))}catch(x){e[2](x)}return v0}`,
+    `i=>{(typeof i==="boolean"||i===void 0)||e[2](i);let v0;try{v0=e[0](i===void 0?false:i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0}`,
   )
 })
 

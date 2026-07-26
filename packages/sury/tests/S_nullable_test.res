@@ -14,7 +14,7 @@ test("Correctly parses", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(!(typeof i==="boolean"||i===void 0||i===null)){e[0](i)}return i}`,
+    `i=>{(typeof i==="boolean"||i===void 0||i===null)||e[0](i);return i}`,
   )
 })
 
@@ -42,7 +42,7 @@ test("Correctly reverse convert", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(!(typeof i==="boolean"||i===void 0||i===null)){e[0](i)}return i}`,
+    `i=>{(typeof i==="boolean"||i===void 0||i===null)||e[0](i);return i}`,
   )
 })
 

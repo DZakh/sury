@@ -61,7 +61,21 @@ Acceptance masks are read off the narrow the attempt actually emitted
 `S.bigint` accepts *strings*. Only **hoistable** narrows count: a check the
 dispatch can't lift stays in the body and constrains nothing about which values
 reach the case. `unionWiden` closes the mask over object/instance, which the
-`typeof` narrows don't separate.
+`typeof` narrows don't separate. A `union`-tagged variant has no `typeof`
+discriminant of its own, so the dispatch would have to assume it might accept
+anything and learn otherwise by catching its failure; `unionNestedMask` reads the
+tags a nested union accepts *when it compiles to nothing but a type test*, and
+returns 0 — keeping the conservative source mask — the moment a member would get
+code of its own.
+
+A union whose every branch is a pass-through emits its narrow as one **check** on
+the output val rather than an `if(!cond){fail}` statement. That's the library's
+standard check shape (shorter), and it keeps the narrow hoistable, so an
+enclosing union lifts it into the dispatch instead of reaching the next variant
+through a thrown exception. The check pins `self` as its expected schema on a val
+of its own: the decoder's tail overwrites `e` with the `.to` target and rebuilds
+`s` from the variants' outputs, either of which would otherwise rename the error
+to a schema the value was never matched against.
 
 Two internal shapes bypass the user-facing rules, both marked
 `Internal.perVariant`: a possibly-absent dict read (`V | undefined`, from

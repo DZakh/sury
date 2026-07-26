@@ -33,7 +33,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(!(typeof i==="string"||i===void 0)){e[0](i)}return i}`,
+      `i=>{(typeof i==="string"||i===void 0)||e[0](i);return i}`,
     )
   })
 
@@ -54,7 +54,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Encode,
-      `i=>{if(!(typeof i==="string"||i===void 0)){e[0](i)}return i}`,
+      `i=>{(typeof i==="string"||i===void 0)||e[0](i);return i}`,
     )
   })
 
@@ -144,7 +144,7 @@ test("Applies valFromOption for Some()", t => {
   t->Assert.deepEqual(Some()->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
   t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
 
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(!(i===void 0)){e[0](i)}return i}`)
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{i===void 0||e[0](i);return i}`)
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
@@ -163,7 +163,7 @@ test("Nested option support", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(!(typeof i==="boolean"||i===void 0)){e[0](i)}return i}`,
+    `i=>{(typeof i==="boolean"||i===void 0)||e[0](i);return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -184,7 +184,7 @@ test("Triple nested option support", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(!(typeof i==="boolean"||i===void 0)){e[0](i)}return i}`,
+    `i=>{(typeof i==="boolean"||i===void 0)||e[0](i);return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -226,7 +226,7 @@ test("Doesn't apply valFromOption for non-undefined literals in option", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(!(i===null||i===void 0)){e[0](i)}return i}`,
+    `i=>{(i===null||i===void 0)||e[0](i);return i}`,
   )
 })
 

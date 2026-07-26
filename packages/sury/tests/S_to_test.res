@@ -867,7 +867,7 @@ test("Rejects widening a union into one with an uncovered member", t => {
     true->S.parseOrThrow(~to=explicit)
   }, "Expected string | number, received true")
 
-  t->U.assertCompiledCode(~schema=explicit, ~op=#Parse, `i=>{if(!(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))){e[0](i)}return i}`)
+  t->U.assertCompiledCode(~schema=explicit, ~op=#Parse, `i=>{(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))||e[0](i);return i}`)
 })
 
 test("Fails to transform union to union to string", t => {
@@ -897,7 +897,7 @@ test("Transform from union to reordered union keeps source type", t => {
   t->U.assertThrowsMessage(() => {
     true->S.parseOrThrow(~to=schema)
   }, "Expected string | number, received true")
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(!(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))){e[0](i)}return i}`)
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))||e[0](i);return i}`)
 })
 
 test("Rejects a source matching some but not all target members", t => {
@@ -1272,7 +1272,7 @@ test("Tier 1: matching const variant wins over an earlier mapped literal", t => 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(!(typeof i==="string"&&(i==="a"||i==="b"))){e[0](i)}return i}`,
+    `i=>{typeof i==="string"&&(i==="a"||i==="b")||e[0](i);return i}`,
   )
 })
 
