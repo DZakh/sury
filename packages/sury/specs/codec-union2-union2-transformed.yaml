@@ -1,5 +1,7 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
+  # FIXME: Codec next expects: stay the same — rule 4 matches number to the
+  # transformed variant by its number input and string to the catch-all.
   schema: S.union([S.number, S.string]).with(S.to, S.union([S.number.with(S.to, S.string), S.string]))
   input: string | number
   output: string

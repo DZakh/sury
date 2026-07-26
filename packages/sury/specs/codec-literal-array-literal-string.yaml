@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  # FIXME: Codec next expects: stay the same — literal-to-literal decoding is out of
+  # CODEC_NEXT_SPEC.md's scope, this collection-literal shape included.
+  schema: S.schema([1, 2]).with(S.to, S.schema("done"))
+  input: "[1, 2]"
+  output: '"done"'
+  instantiations: 5704
+  bundleBytes: 9652
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "array", minItems: 2, maxItems: 2, items: [{ type: "number", const: 1 }, { type: "number", const: 2 }] }'
+  output: '{ type: "string", const: "done" }'
+operations:
+  parse:
+    expression: i=>{Array.isArray(i)&&i.length===2||e[3](i);let v0=i["0"],v1=i["1"];v0===1||e[0](v0);v1===2||e[1](v1);i==="done"||e[2](i);return i}
+    examples:
+      const:
+        input: "[1, 2]"
+        error: Expected "done", received [1, 2]
+      other-array:
+        input: "[1, 3]"
+        error: 'Failed at ["1"]: Expected 2, received 3'
+      target-const:
+        input: '"done"'
+        error: Expected [1, 2], received "done"
+  decode:
+    expression: i=>{i==="done"||e[0](i);return i}
+    examples:
+      const:
+        input: "[1, 2]"
+        error: Expected "done", received [1, 2]
+  encode:
+    creationError: "SuryError: Can't decode \"done\" to [1, 2]. Use S.to to define a custom decoder"

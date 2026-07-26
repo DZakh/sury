@@ -1,5 +1,8 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
+  # FIXME: Codec next expects: rejected at creation — rule 4 coerces nothing and
+  # string has no same-type target variant. S.optional(S.string).with(S.to,
+  # S.nullable(S.string.with(S.to, S.boolean))) converts per variant.
   schema: S.optional(S.string).with(S.to, S.nullable(S.boolean))
   input: string | undefined
   output: boolean | null

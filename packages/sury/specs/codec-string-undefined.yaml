@@ -1,5 +1,7 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
+  # FIXME: Codec next expects: stay the same — rule 1 always applies the built-in
+  # "undefined" <-> undefined decoding.
   schema: S.string.with(S.to, S.schema(undefined))
   input: string
   output: undefined

@@ -1,5 +1,8 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
+  # FIXME: Codec next expects: rejected at creation — rule 2 partial type match
+  # (string matches the string variant but not the undefined one). S.union([S.string,
+  # S.never.with(S.to, S.schema(undefined))]) widens without decoding.
   schema: S.string.with(S.to, S.optional(S.string))
   input: string
   output: string | undefined

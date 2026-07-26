@@ -1,5 +1,7 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
+  # FIXME: Codec next expects: rejected at creation — rule 4 requires mutual coverage
+  # and the boolean source variant has no same-type target variant.
   schema: S.union([S.string, S.number, S.boolean]).with(S.to, S.union([S.number, S.string]))
   input: string | number | boolean
   output: string | number

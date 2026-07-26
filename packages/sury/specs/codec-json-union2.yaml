@@ -1,5 +1,8 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
+  # FIXME: Codec next expects: rule 2 attempts every target variant, so a string that
+  # isn't a bigint falls back to the S.string member ("abc" → "abc") instead of
+  # erroring; true stays rejected (no double decoding).
   schema: S.json.with(S.to, S.union([S.bigint, S.string]))
   input: JSON
   output: string | bigint

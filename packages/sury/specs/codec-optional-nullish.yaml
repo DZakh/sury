@@ -1,5 +1,7 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
+  # FIXME: Codec next expects: stay the same — rule 4 lets the same-type undefined
+  # target win, and the reverse bridges null → undefined.
   schema: S.optional(S.string).with(S.to, S.union([S.string, null, undefined]))
   input: string | undefined
   output: string | null | undefined

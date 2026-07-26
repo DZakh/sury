@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  # FIXME: Codec next expects: stay the same — which pairs have a built-in decoder is
+  # out of CODEC_NEXT_SPEC.md's scope, literal-to-literal included.
+  schema: S.schema("a").with(S.to, S.schema(42))
+  aliases:
+    - S.literal("a").with(S.to, S.literal(42))
+  input: '"a"'
+  output: "42"
+  instantiations: 5590
+  bundleBytes: 9648
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string", const: "a" }'
+  output: '{ type: "number", const: 42 }'
+operations:
+  parse:
+    expression: i=>{i==="a"||e[0](i);return 42}
+    examples:
+      const:
+        input: '"a"'
+        output: "42"
+      other-string:
+        input: '"b"'
+        error: Expected "a", received "b"
+      target-const:
+        input: "42"
+        error: Expected "a", received 42
+      stringified-target-const:
+        input: '"42"'
+        error: Expected "a", received "42"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{i===42||e[0](i);return "a"}
+    examples:
+      const:
+        input: "42"
+        output: '"a"'
+      source-const:
+        input: '"a"'
+        error: Expected 42, received "a"
+      other-number:
+        input: "43"
+        error: Expected 42, received 43
