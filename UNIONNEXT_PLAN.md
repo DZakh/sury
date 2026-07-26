@@ -78,7 +78,7 @@ choices, each of which the rewrite removes rather than patches:
    hoisted cases *don't* fall back at all. Universal fallback (above) is the
    single rule replacing both behaviors.
 
-## Architecture: fused resolve+emit over two scans
+## Architecture: fused resolve+emit
 
 Per your call: resolution and emission are **fused** rather than staged
 through a plan-object IR — with one structural concession, a reverse
@@ -92,28 +92,36 @@ allocation beyond a few parallel arrays.
 ```
 unionNext(items)                     — creation: flatten, dedupe, wire decoder/encoder
 UN_decoder / UN_encoder:
-  scan  (reverse, ints only)         — masks + suffix masks + ALL rule rejections
-  emit  (forward, fused decisions)   — grouping, fallback, elision decided inline
+  pass 1 (forward)  — mask-only rejections (partial match, rule 4 coverage),
+                      then per-case attempt vals via plain parse();
+                      creation errors propagate uncaught
+  pass 2 (reverse)  — ints only: suffix acceptance masks
+  pass 3 (forward)  — emit: grouping, fallback, elision decided inline
 ```
 
-- **Reverse scan** — for each variant, compute and store into parallel
-  primitive arrays (structure-of-arrays; V8 keeps them PACKED_SMI —
-  faster and lighter than an array of plan objects):
-  - `mask[i]` — acceptance mask (own-tag bits + offered rep bits),
-  - `suffix[i]` — `mask[i+1] | suffix[i+1]` (what any *later* case accepts),
+- **Pass 1 (forward)** — rejections that need only tags/formats (partial
+  match, rule 4 coverage) fire first as pure mask predicates, before any
+  codegen. Then each surviving case's attempt val(s) are built with plain
+  `parse()` (`s = source`, `e = case`) — the parse loop runs the source
+  encoder then the case decoder (the encoder-as-oracle rule below), and an
+  `unsupported_decode` thrown here propagates uncaught: the whole-op
+  rejection. Alongside each attempt, store into parallel primitive arrays
+  (structure-of-arrays; PACKED_SMI — no plan-object allocation):
+  - `mask[i]` — acceptance mask, read off the attempt's emitted type
+    narrows (own-tag and/or representation-tag bits),
   - `kind[i]` — dispatch class bit, plus an approximate-acceptance flag
     (refined/structured cases whose accepted set is a strict subset of
     their tags — approximation blocks elision, never enables it),
   - literal consts in one parallel `consts` array for exact comparisons.
-  The same scan fires **every** rule rejection (partial match, rule 4
-  coverage, reachability) — pure mask predicates, so rejections cost no
-  codegen work and no emission ever starts for a rejected operation.
-- **Forward emit** — walks variants once, making the former "plan" decisions
-  inline from the arrays: group-merge legality (`mask[i] & interveningMask`),
-  fallback elision (`mask[i] & suffix[i]`), literal fusion (consts array),
-  building `{pre, cond, body}` for each case directly.
+- **Pass 2 (reverse, trivial)** — `suffix[i] = mask[i+1] | suffix[i+1]`:
+  what any *later* case accepts — the lookahead grouping and elision need,
+  in O(n) integer ops.
+- **Pass 3 (forward emit)** — stitches the attempt vals into `{pre, cond,
+  body}` branches, making the former "plan" decisions inline from the
+  arrays: group-merge legality (`mask[i] & interveningMask`), fallback
+  elision (`mask[i] & suffix[i]`), literal fusion (consts array).
 
-Readability cost is real and contained: the two scans are two small named
+Readability cost is real and contained: the passes are small named
 functions, the mask predicates carry the rule names, and the *readable*
 statement of the semantics lives in `CODEC_NEXT_SPEC.md` + the codec specs —
 which is where behavior is reviewed anyway.
@@ -152,79 +160,93 @@ no emitted branch where it is unreachable (`never.with(S.to, X)` as target);
 a reachable `X.with(S.to, never)` arm still compiles to its explicit
 rejection branch.
 
-### Gap-fill routing: offer table vs probing (context for the decision)
+### Gap-fill routing: the source encoder is the representation oracle
 
-The one place rule 2 needs knowledge that lives nowhere today as data: when a
-target variant's tag is something the source *cannot produce*, which runtime
-representations are **offered** to that variant's built-in decoder?
+**Settled (your call): no static table.** The general rule — *if the encoder
+fails, fall to the next case; if it passes, continue with the decoder* —
+turns out to map 1:1 onto machinery that already exists. An attempt for case
+`C` is one ordinary `parse()` of a val with `s = source, e = C`: the parse
+loop already runs `source.encoder(input, C)` first when the source has one,
+then `C.decoder`. unionNext adds only ordering, cond extraction, and
+fallback stitching around plain `parse` calls.
 
-Worked example — `S.json.with(S.to, S.union([S.bigint, S.string]))`:
-
-```
-runtime value      producible      offered to S.bigint?      offered to S.string?
-─────────────────  by JSON? ─────  ────────────────────────  ─────────────────────
-"123"  (string)    yes             YES → BigInt("123")→123n  yes (as-is, fallback)
-"abc"  (string)    yes             yes → BigInt throws ↘     yes (as-is) → "abc"
-123    (number)    yes             NO                        no  → throw
-true   (boolean)   yes             no                        no  → throw
-```
-
-The decisive cell is `123 → S.bigint`: `bigintDecoder` **can** decode numbers
-(`BigInt(123)` — rule 1 uses it for `S.number.to(S.bigint)`), yet the spec
-demands JSON `123` throws. The reason is representational: JSON's encoding of
-a bigint *is a string* (that's what `jsonEncoderFn` emits), so only strings
-are offered. "Which tags represent X under this source" is source knowledge,
-not decoder knowledge.
-
-**Option A — static table (recommended).** Two integer functions:
+Worked example — `S.json.with(S.to, S.union([S.bigint, S.string]))`.
+`jsonEncoderFn` today (formats.ts):
 
 ```
-UN_offerMask (source-agnostic, ~10 rows)   UN_repMask(source, variantTag)
-  bigint    ← string                         default: offerMask[tag] & producible(source)
-  number    ← string                         json override: bigint → string
-  int32     ← string                                        undefined → null
-  boolean   ← string                                        instance/date → string, …
-  string    ← number|boolean|bigint
-  literalᵗ  ← string   (t ∉ {string})
-  null      ← undefined
-  undefined ← null
+target tag                       jsonEncoderFn emits
+──────────────────────────────   ─────────────────────────────────────────────
+string|number|boolean|null       narrow to that tag  (as-is: no re-typing)
+undefined|nan                    nullLiteral().to(target)   (null is the rep)
+array / object                   isArray / object narrow, items become json
+union|ref                        input unchanged (the union drives per-case)
+else (bigint, instance, …)       string().to(target)        (string is the rep)
 ```
 
-Resolution reads two ints per variant. The table encodes **reachability
-only** — the emitted coercion still comes from calling the existing decoder
-composition (`parse` with `e = variant`, `s` = tag-narrow), so no conversion
-logic is duplicated, and every row is pinned by a codec spec (drift between
-table and decoders breaks a golden).
-
-**Option B — probing.** No table: at operation creation, for each
-(producible tag × gap variant) build a throwaway val narrowed to that tag,
-run `parse` toward the variant, and take "didn't throw" as membership:
+So per case, at runtime:
 
 ```
-probe(json → bigint):   string  → bigintDecoder ✓ → offered
-                        number  → bigintDecoder ✓ → offered   ← WRONG: 123 must throw
-                        boolean → unsupported ✗   → not offered
+value        bigint case: typeof i==="string" → BigInt(i)     string case: typeof i==="string"
+"123"        cond ✓ → 123n                                    (not reached)
+"abc"        cond ✓ → BigInt throws → NEXT CASE               cond ✓ → "abc"
+123          cond ✗ (encoder narrow failed) → NEXT CASE       cond ✗ → no case → throw
+true         cond ✗ → NEXT CASE                               cond ✗ → no case → throw
 ```
 
-Two structural failures:
+The decisive property: `bigintDecoder` *can* decode numbers (`BigInt(123)` —
+rule 1 uses it for `S.number.to(S.bigint)`), yet JSON `123` must throw. No
+table row encodes that — `jsonEncoderFn` does, by emitting a string narrow
+for the bigint target. "Encoder failed" is simply that narrow failing: at
+runtime it's a cond miss routing to the next case (universal fallback); at
+creation, an `unsupported_decode` thrown while building an attempt
+propagates uncaught and rejects the whole operation (the spec's
+variant-undecodable rule — `boolean → union([string, symbol])` dies on the
+symbol attempt). A case with no buildable attempt at all rejects the same
+way, automatically — no reachability bookkeeping needed.
 
-1. **It answers the wrong question.** Decoder support = what *can* decode,
-   not what this source's representation *is*. `bigint ← number` probes as
-   supported but must not be offered under JSON — fixing that needs a
-   per-source exception, i.e. the table again, now wrapped in probing
-   machinery.
-2. **It can't tell "not offered" from "must reject".** The probe's ✗ is a
-   caught `unsupported_decode` — the exact salvage-catch the rewrite
-   removes. `boolean → union([string, symbol])` must reject the *whole
-   operation* (symbol has no path), while `json → union([bigint, string])`
-   must not reject although `bigint ← boolean` probes ✗. Telling those apart
-   inside catch handlers re-implements the reachability rule in a slower,
-   less debuggable place — plus each cold compile pays tag×variant `parse`
-   runs (val allocations, exception unwinds) versus two int reads.
+**Why this is future-proof:** adding or changing a coercion means editing
+the *source schema's encoder* — the same single place rule 1 already reads —
+and every union conversion picks it up. Nothing to keep in sync, which was
+the table's fatal flaw.
 
-Hence the table, with the source-owned `repMask` hook keeping json's
-representation knowledge on the json schema where it already lives (its
-encoder) — as plan-time data instead of a runtime probe.
+**`S.unknown` needs the same oracle.** This is what reconciles two goldens
+that otherwise contradict:
+
+- `union2.yaml` (`S.union([S.string, S.number])`, parse) must stay pure
+  validation — `42` must not become `"42"`.
+- `codec-unknown-union2` (`S.unknown.with(S.to, S.union([S.bigint,
+  S.string]))`) must coerce `"123" → 123n` "as in codec-json-union2".
+
+Bare decoders-from-unknown only emit typeof narrows, so with no oracle the
+second golden is unreachable; a naive "offer everything" oracle breaks the
+first. The resolution: unknown uses the *JSON representation model* —
+JSON-native tags (string, number, boolean, null, object, array) are as-is
+only; non-JSON types (bigint, instance, …) additionally get their
+string/null representation attempt. Concretely, a case gets up to two entry
+paths: **as-is** (own tag ∈ producible(source), pure narrow + case pipeline)
+and **representation** (the shared rep encoder, extracted from
+`jsonEncoderFn`'s dispatch). For json only one path ever exists (its encoder
+picks); for unknown a bigint case gets both (`typeof i==="bigint"` pass, and
+`typeof i==="string"` → BigInt attempt); for single-tag sources the source
+tag itself is the only representation, offered directly to the case decoder.
+
+Implementation caution: the rep encoder is **not** installed as
+`unknown.encoder` — the shared `unknown` constant heads every compiled
+pipeline, so a global encoder would fire on all `s.encoder` checks in the
+parse loop and perturb non-union codegen. unionNext invokes the shared rep
+helper internally when `source.type === unknownTag`. `jsonEncoderFn` gets
+audited during implementation to confirm it rejects wrong-representation
+inputs at the granularity the rule needs (the codecnext specs pin every
+cell of the tables above).
+
+One user-visible consequence to be aware of: `S.parser(schema)` compiles as
+`unknown.to(schema)` (`js_parser = getDecoder(unknown, ...)`), so plain
+parsing of a union containing a non-JSON type inherits rule 2's coercion —
+`S.parser(S.union([S.bigint, S.string]))("123")` yields `123n`. That is
+exactly what `codec-unknown-union2`'s expected golden asserts (its parse op
+*is* this chain), and JSON-native unions like `union2` are untouched — but
+it's a semantics change for plain parsers of bigint/instance-bearing unions,
+worth an explicit spec case and a line in the docs update.
 
 ### The four rules as scan predicates
 
@@ -239,18 +261,18 @@ Let `M` = non-never target variants with `UN_sameType(source, variant)`.
     suggested rewrites in the message.
   - `M = all` ⇒ ordered attempts from the as-is source value (transformed
     variants run their own `.to`); universal fallback chains them.
-  - `M = ∅` ⇒ gap decoding: each variant accepts (a) values of its own tag
-    when that tag ∈ producible(source) — as-is, validate only — and (b) its
-    `UN_repMask` tags via built-in decode. Definition order + universal
-    fallback (yields `codec-number-union2-int32`: int32 range-check then
-    `""+i`; `codec-json-union2`: literal, BigInt attempt, string catch-all).
-    `unknown` source: producible = 0 ⇒ every variant pure gap — own tag
-    as-is *plus* offered decodes — reproducing `codec-unknown-union2`
-    ("123" → 123n).
-  - Reachability: a non-never variant with own-tag ∉ producible and
-    `UN_repMask = 0` ⇒ whole operation throws `unsupported_decode`. No
-    dropping, no per-value throw branch, no always-throwing op — the three
-    `codec-bool-union2*` / `codec-union2-string-unsupported` rows.
+  - `M = ∅` ⇒ gap decoding: each case gets its entry paths per the
+    encoder-as-oracle rule — as-is when its tag ∈ producible(source),
+    representation via the source's encoder otherwise (or additionally, for
+    `unknown`). Definition order + universal fallback (yields
+    `codec-number-union2-int32`: int32 range-check then `""+i`;
+    `codec-json-union2`: literal, BigInt attempt, string catch-all;
+    `codec-unknown-union2`: "123" → 123n via the unknown rep oracle).
+  - Reachability is automatic: a case whose every attempt throws
+    `unsupported_decode` at creation rejects the whole operation (the
+    throw propagates — there is no catch). No dropping, no per-value throw
+    branch, no always-throwing op — the three `codec-bool-union2*` /
+    `codec-union2-string-unsupported` rows.
 - **Rule 3 (union → non-union)** — in `UN_encoder`: match each source
   variant's output type against the target. Partial ⇒ `invalid_operation`
   with the two rewrites. Otherwise **rewrite**: source union with
@@ -466,21 +488,36 @@ ship — called out as expected in the Stage 1 commit.
 
 ## Execution order
 
-1. `unionnext.ts`: identity + masks (`UN_sameType`, `UN_producibleMask`,
-   `UN_offerMask`, `UN_repMask`).
-2. Reverse scan: parallel arrays, suffix masks, all rejections (rules 2–4 +
-   reachability), acceptance approximation.
-3. Forward emit: `{pre, cond, body}`, grouping, universal fallback with
-   elision, refiner/async join, static shortcuts.
+1. `unionnext.ts`: identity + masks (`UN_sameType`, `UN_producibleMask`);
+   extract the shared representation encoder from `jsonEncoderFn`'s dispatch
+   and audit that it rejects wrong-representation inputs at the granularity
+   the oracle rule needs; wire the unknown-source rep path (internal helper,
+   NOT `unknown.encoder`).
+2. Pass 1: mask-only rejections (rules 2–4 partial/coverage), per-case
+   attempt vals via plain `parse()`, acceptance masks off the emitted
+   narrows, approximation flags.
+3. Pass 2 + Pass 3: suffix masks; `{pre, cond, body}` emit, grouping,
+   universal fallback with elision, refiner/async join, static shortcuts.
 4. Factory + Stage 1 wiring.
-5. Author codecnext specs (behavior-change table first — it defines done);
+5. Author codecnext specs (behavior-change table first — it defines done),
+   including the plain-parser coercion consequence case
+   (`S.parser(S.union([S.bigint, S.string]))("123") → 123n`);
    `pnpm spec check --write`; iterate to conformance.
 6. Bench loop over D1–D5; fold winners; delete temp bench.
 7. Stage 2: switchover steps 1–6 above.
 
-## Open question
+## Settled decisions
 
-**Offer/rep table vs probing** — recommended: the static table, per the
-context section above (probing answers decoder capability, not source
-representation, and cannot distinguish "not offered" from "must reject"
-without re-introducing salvage catches). Confirm and it's settled.
+- **Fallback**: universal — discriminant, refinement, or any decoding
+  failure passes the value to the next case; provably-terminal fallbacks
+  compile to direct precise throws.
+- **Gap-fill routing**: no static table — the source encoder is the
+  representation oracle (encoder failed → next case; encoder passed →
+  continue with decoder); `unknown` reuses the JSON representation model
+  via a shared internal helper.
+- **Rollout**: Stage 1 ships `S.unionNext` until the codecnext specs meet
+  the spec doc; Stage 2 replaces `S.union`'s implementation, deletes the
+  old cluster, re-derives goldens, greens the full test surface, and
+  removes the temporary export.
+- **Implementation shape** (dispatch skeleton, literal fusion, elision
+  aggressiveness, …): decided by the measure-&-iterate loop, not upfront.
