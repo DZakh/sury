@@ -222,6 +222,32 @@ Reverse (via `S.encoder`):
 Union conversion always performs exhaustive validation — every variant is
 checked, so transformed unions stay consistent across decode and encode.
 
+## No built-in decoder for a variant
+
+A pair with no built-in decoder is rejected when the operation is created —
+`Can't decode boolean to number. Use S.to to define a custom decoder`. Being one
+variant of a union changes nothing about that: if any variant's decoder can't be
+built, the whole operation is rejected, under every rule above.
+
+```ts
+S.boolean.with(S.to, S.union([S.string, S.symbol])); // ❌ boolean -> symbol has no decoder
+S.union([S.boolean, S.symbol]).with(S.to, S.string); // ❌ symbol -> string has no decoder
+S.boolean.with(S.to, S.union([S.number, S.symbol])); // ❌ neither variant is decodable
+```
+
+None of the three salvage attempts are available: a variant is never dropped
+from the generated code, never left as a dispatch branch that throws per value,
+and a conversion with no decodable variant at all never compiles into an
+operation that throws for every input. The error belongs to the operation, so it
+is raised once, where the operation is written.
+
+`S.never` remains the way to say a path is deliberately unreachable — it is
+ignored by variant matching, so it never triggers this rejection:
+
+```ts
+S.boolean.with(S.to, S.union([S.string, S.never.with(S.to, S.symbol)])); // ✅ the symbol path is unreachable
+```
+
 ## Spec coverage
 
 Behavior change expected, today's goldens are wrong:
@@ -229,6 +255,9 @@ Behavior change expected, today's goldens are wrong:
 | Spec                                 | Rule | Expected                                                             |
 | ------------------------------------ | ---- | -------------------------------------------------------------------- |
 | `codec-union-nested-refined-union`   | —    | a union with its own refinement isn't flattened, and it still refines |
+| `codec-bool-union2-unsupported`      | —    | rejected — no `boolean -> symbol` decoder; today the variant is dropped |
+| `codec-bool-union2-all-unsupported`  | —    | rejected — today it compiles into an always-throwing operation        |
+| `codec-union2-string-unsupported`    | —    | rejected — no `symbol -> string` decoder; today the branch throws     |
 | `codec-json-union2`                  | 2    | non-bigint string falls back to the `S.string` variant               |
 | `codec-json-union3-ungrouped`        | 2    | `"123"` matches the literal, `"124"` reaches the `S.bigint` variant  |
 | `codec-number-union2-int32`          | 2    | compiles instead of crashing; int32 first, string next               |
