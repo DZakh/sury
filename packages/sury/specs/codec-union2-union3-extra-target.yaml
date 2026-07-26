@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  # FIXME: Codec next expects: rejected at creation — rule 4 requires mutual coverage
+  # and the boolean target variant has no same-type source variant.
+  schema: S.union([S.string, S.number]).with(S.to, S.union([S.number, S.string, S.boolean]))
+  input: string | number
+  output: string | number | boolean
+  instantiations: 6536
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ anyOf: [{ type: "number" }, { type: "string" }] }'
+  output: '{ anyOf: [{ type: "string" }, { type: "number" }] }'
+operations:
+  parse:
+    expression: i=>{if(!(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))){e[0](i)}return i}
+    examples:
+      string:
+        input: '"abc"'
+        output: '"abc"'
+      number:
+        input: "123"
+        output: "123"
+  decode: eq-to-parse
+  encode:
+    # FIXME: `""+i` on a boolean can't throw, so the catch is unreachable — and
+    # codec-union3-union2-extra-source (the mirror of this shape) passes the same
+    # helper's arguments in a different order, so one of the two is wrong.
+    expression: i=>{if(typeof i==="boolean"){try{i=""+i}catch(e0){e[1](i,e0,e[0])}}else if(!(typeof i==="number"&&!Number.isNaN(i)||typeof i==="string")){e[2](i)}return i}
+    examples:
+      string:
+        input: '"abc"'
+        output: '"abc"'
+      number:
+        input: "123"
+        output: "123"
+      boolean:
+        input: "true"
+        output: '"true"'

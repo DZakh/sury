@@ -18,7 +18,7 @@ import { cpus } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
-import { OP_ORDER, type OpName } from "./format";
+import { OP_ORDER, isCreationError, type OpName } from "./format";
 import { evalSchema, readSpec, specId, stripTypes } from "./harness";
 
 const here = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
@@ -209,6 +209,10 @@ export const deriveTargets = (files: string[]): { targets: Target[]; skippedCons
     for (const op of OP_ORDER) {
       const block = spec.operations[op];
       if (typeof block === "string") continue;
+      // Rejected at operation creation: there is no compiled operation to time
+      // and no examples to run. Timing how fast it throws would measure error
+      // construction, not the schema.
+      if (isCreationError(block)) continue;
       if (!constant)
         targets.push({ ...base, name: `${id}${SEP}create+compile${SEP}${op}`, phase: "create+compile", op });
       for (const [example, ex] of Object.entries(block.examples))

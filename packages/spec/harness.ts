@@ -12,7 +12,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
+import { Document, parse as parseYaml, parseDocument, stringify as stringifyYaml, isMap, isSeq } from "yaml";
 import { diffLinesUnified } from "@vitest/utils/diff";
 import ts from "typescript";
 import * as S from "../sury/src/S.mjs";
@@ -26,6 +26,7 @@ import {
   SKIP_REASONS,
   isSkip,
   isZodOverwrite,
+  isCreationError,
   validate,
   validateBundleSize,
   type Spec,
@@ -71,6 +72,21 @@ export const lintSkips = (obj: unknown, path: string, out: string[]): void => {
   }
   if (obj && typeof obj === "object")
     for (const [k, v] of Object.entries(obj)) lintSkips(v, path ? `${path}.${k}` : k, out);
+};
+
+// A full op block is chosen over `identity`/`eq-to-parse` precisely because it
+// has real codegen — and nothing ever runs that codegen until an example does,
+// so an empty map snapshots an expression no test executes.
+export const lintExamples = (spec: Spec, out: string[]): void => {
+  const ops = spec.operations as Record<OpName, Operation>;
+  for (const opName of OP_ORDER) {
+    const op = ops[opName];
+    if (typeof op === "string" || isCreationError(op) || Object.keys(op.examples).length) continue;
+    out.push(
+      `operations.${opName}: no examples — a compiled op block must run at least one input ` +
+        "(add a named entry with just `input`, then `--write` fills the result)",
+    );
+  }
 };
 
 export const specId = (file: string): string =>
@@ -137,12 +153,23 @@ const isNoop = (fn: Function): boolean =>
 // that doesn't hold, or a full op block that should be a shorthand.
 export const identityViolations = (schema: any, spec: Spec): string[] => {
   const out: string[] = [];
-  const parseCode = OP_BUILDER.parse(schema).toString();
+  const parseBuilt = buildOp("parse", schema);
+  const parseCode = "fn" in parseBuilt ? parseBuilt.fn.toString() : undefined;
   for (const opName of OP_ORDER) {
     const op = spec.operations[opName];
-    const fn = OP_BUILDER[opName](schema);
+    const built = opName === "parse" ? parseBuilt : buildOp(opName, schema);
+    // Rejected at operation creation: no compiled form, so the shorthand
+    // invariants don't apply. recomputeGoldens records/refreshes the
+    // `creationError` message, and the staleness diff carries any shape
+    // transition (expression↔creationError) — same as jsonSchema's
+    // success↔error string flips, which aren't gated here either.
+    if (!("fn" in built)) continue;
+    // Was a `{creationError}` block but now compiles — likewise left to
+    // recompute + staleness, not flagged as a shorthand violation.
+    if (isCreationError(op)) continue;
+    const fn = built.fn;
     const noop = isNoop(fn);
-    const matchesParse = opName !== "parse" && !noop && fn.toString() === parseCode;
+    const matchesParse = opName !== "parse" && !noop && parseCode !== undefined && fn.toString() === parseCode;
     if (op === "identity") {
       if (!noop)
         out.push(
@@ -193,20 +220,50 @@ const deriveJsonSchema = (schema: any): Spec["jsonSchema"] => ({
 // No example inputs needed, so `spec new` can fill this in immediately from `--ts`.
 export const scaffoldJsonSchema = (schema: any): Spec["jsonSchema"] => deriveJsonSchema(schema);
 
+// Compile an operation, capturing any creation-time throw as the golden instead
+// of letting it abort — the operation analogue of toJsonSchemaOrError. The
+// message is prefixed with the error class (`SuryError:` for an intended
+// unsupported/ambiguous conversion, `TypeError:` etc. for an internal fault),
+// so a bug stays visibly distinct in the golden — and flips back to compiled
+// code once a fix turns the crash into a real operation — rather than silently
+// masquerading as a normal rejection.
+type BuiltOp = { fn: (input: any) => any } | { creationError: string };
+const buildOp = (opName: OpName, schema: any): BuiltOp => {
+  try {
+    return { fn: OP_BUILDER[opName](schema) };
+  } catch (e) {
+    const err = e as Error;
+    return { creationError: `${err.constructor.name}: ${err.message}` };
+  }
+};
+
+// Reduce a built op to its canonical form against parse:
+// - rejected at creation → a `{creationError}` block, or `eq-to-parse` when a
+//   non-parse direction fails the same way parse does (co-failure; only parse
+//   records the message, so a differing reverse message isn't ratcheted).
+// - compiles to Sury's noop → `identity`.
+// - a non-parse direction compiling to parse's exact code → `eq-to-parse`.
+// - otherwise a fresh `{expression, examples:{}}` block.
+const opForm = (opName: OpName, built: BuiltOp, parseBuilt: BuiltOp): Operation => {
+  if ("creationError" in built) {
+    return opName !== "parse" && "creationError" in parseBuilt
+      ? "eq-to-parse"
+      : { creationError: built.creationError };
+  }
+  const parseCode = "fn" in parseBuilt ? parseBuilt.fn.toString() : undefined;
+  return isNoop(built.fn)
+    ? "identity"
+    : opName !== "parse" && parseCode !== undefined && built.fn.toString() === parseCode
+      ? "eq-to-parse"
+      : { expression: built.fn.toString(), examples: {} };
+};
+
 // Can throw if `schema` isn't actually a usable schema (e.g. `--ts` evaluated
 // to `undefined` from a typo like `S.strng`) — callers decide how to report that.
 export const scaffoldOperations = (schema: any): Spec["operations"] => {
-  const parseCode = OP_BUILDER.parse(schema).toString();
+  const parseBuilt = buildOp("parse", schema);
   return Object.fromEntries(
-    OP_ORDER.map((opName) => {
-      const fn = OP_BUILDER[opName](schema);
-      const op: Operation = isNoop(fn)
-        ? "identity"
-        : opName !== "parse" && fn.toString() === parseCode
-          ? "eq-to-parse"
-          : { expression: fn.toString(), examples: {} };
-      return [opName, op];
-    }),
+    OP_ORDER.map((opName) => [opName, opForm(opName, opName === "parse" ? parseBuilt : buildOp(opName, schema), parseBuilt)]),
   ) as Spec["operations"];
 };
 
@@ -244,6 +301,7 @@ const canonExample = (ex: Example): Example => {
 
 const canonOp = (op: Operation): Operation => {
   if (typeof op === "string") return op;
+  if (isCreationError(op)) return order(op, ["creationError"]);
   const o = order(op, ["expression", "examples"]);
   if (o.examples && typeof o.examples === "object") {
     const ex: Record<string, Example> = {};
@@ -274,8 +332,98 @@ export const canonicalize = (obj: Spec): Spec => {
   return o;
 };
 
-export const serialize = (obj: Spec): string =>
-  HEADER + "\n" + stringifyYaml(canonicalize(obj), { lineWidth: 0 });
+// ---- comments -------------------------------------------------------------
+
+// Rebuilding the YAML from the parsed object would drop every comment, so they
+// are lifted off the on-disk text and re-attached to the canonical document,
+// anchored by the dotted spec path they annotate (`ts.schema`,
+// `ts.aliases[0]`; `""` for a comment trailing the whole file).
+type Anchor = { before?: string; trailing?: string };
+export type SpecComments = ReadonlyMap<string, Anchor>;
+const NO_COMMENTS: SpecComments = new Map();
+
+// `owner` is the collection whose FIRST item this path is: yaml hangs a
+// leading comment on the collection node in that one position and on the item
+// itself everywhere else, though both mean "the lines above this path".
+type AnchorVisitor = (path: string, before: any, trailing: any, owner?: any) => void;
+
+const eachAnchor = (node: unknown, path: string, visit: AnchorVisitor): void => {
+  if (isMap(node)) {
+    node.items.forEach((pair: any, i) => {
+      const p = path ? `${path}.${pair.key.value}` : String(pair.key.value);
+      visit(p, pair.key, pair.value, i === 0 ? node : undefined);
+      eachAnchor(pair.value, p, visit);
+    });
+  } else if (isSeq(node)) {
+    node.items.forEach((item: any, i) => {
+      const p = `${path}[${i}]`;
+      visit(p, item, item, i === 0 ? node : undefined);
+      eachAnchor(item, p, visit);
+    });
+  }
+};
+
+export const collectComments = (raw: string): SpecComments => {
+  // The header is machine-owned (serialize re-emits it); parsing without it
+  // keeps it from being collected as a comment on the first key.
+  const doc = parseDocument(raw.startsWith(HEADER + "\n") ? raw.slice(HEADER.length + 1) : raw);
+  const out = new Map<string, Anchor>();
+  const add = (path: string, side: keyof Anchor, text?: string | null): void => {
+    if (text == null) return;
+    const at = out.get(path) ?? {};
+    at[side] = at[side] === undefined ? text : `${at[side]}\n${text}`;
+    out.set(path, at);
+  };
+  eachAnchor(doc.contents, "", (path, before, trailing, owner) => {
+    add(path, "before", owner?.commentBefore);
+    add(path, "before", before.commentBefore);
+    add(path, "trailing", trailing?.comment);
+  });
+  add("", "trailing", doc.comment);
+  return out;
+};
+
+const applyComments = (doc: Document, comments: SpecComments): void => {
+  eachAnchor(doc.contents, "", (path, before, trailing) => {
+    const at = comments.get(path);
+    if (!at) return;
+    if (at.before !== undefined) before.commentBefore = at.before;
+    if (at.trailing !== undefined && trailing) trailing.comment = at.trailing;
+  });
+  const trailing = comments.get("")?.trailing;
+  if (trailing !== undefined) doc.comment = trailing;
+};
+
+// A spec is machine-checked documentation: every claim about the schema is a
+// dimension the harness executes, so prose the checker can't see is a claim
+// nothing enforces. The one exception is `FIXME:` — a marker for behavior the
+// goldens currently snapshot but shouldn't.
+const FIXME = "FIXME:";
+
+// Consecutive `#` lines arrive as one string; a blank line between them starts
+// a separate comment, and only a comment's first line carries the prefix (the
+// rest is continuation).
+export const lintComments = (comments: SpecComments, out: string[]): void => {
+  for (const [path, anchor] of comments)
+    for (const text of [anchor.before, anchor.trailing]) {
+      if (text === undefined) continue;
+      for (const comment of text.split(/\n\s*\n/)) {
+        const first = comment.split("\n")[0]!.trim();
+        if (first.startsWith(FIXME)) continue;
+        out.push(
+          `${path ? `${path}: ` : ""}comment ${JSON.stringify(first)} is not allowed — prefix it with ` +
+            `\`${FIXME}\` if it flags broken behavior to address, or move it to Spec Harness Suggestions ` +
+            `in CONTRIBUTING.md if the spec format can't express it`,
+        );
+      }
+    }
+};
+
+export const serialize = (obj: Spec, comments: SpecComments = NO_COMMENTS): string => {
+  const doc = new Document(canonicalize(obj));
+  if (comments.size) applyComments(doc, comments);
+  return HEADER + "\n" + doc.toString({ lineWidth: 0 });
+};
 
 // ---- golden recomputation --------------------------------------------------
 
@@ -365,10 +513,32 @@ export const recomputeGoldens = async (obj: Spec): Promise<Spec> => {
 
   next.jsonSchema = deriveJsonSchema(schema);
 
+  const parseBuilt = buildOp("parse", schema);
+  // Indexing by a `OpName` union narrows the value type to the intersection of
+  // the three fields (which drops `eq-to-parse`), so reassignments below go
+  // through this widened view.
+  const ops = next.operations as Record<OpName, Operation>;
   for (const opName of OP_ORDER) {
     const op = next.operations[opName];
+    const built = opName === "parse" ? parseBuilt : buildOp(opName, schema);
+    if ("creationError" in built) {
+      // Rejected at creation — take the canonical creationError form (a block,
+      // or `eq-to-parse` on a co-failing direction). Any recorded
+      // expression/examples are dropped (they can't run).
+      ops[opName] = opForm(opName, built, parseBuilt);
+      continue;
+    }
+    // Compiles. A prior string shorthand (identity / eq-to-parse) is left for
+    // identityViolations to validate; only a creationError→compiles transition
+    // and in-place expression refresh happen here.
     if (typeof op === "string") continue;
-    const fn = OP_BUILDER[opName](schema);
+    const fn = built.fn;
+    if (isCreationError(op)) {
+      // Was rejected, now compiles — rewrite to the canonical block/shorthand.
+      // Examples are author-owned and can't be invented, so start empty.
+      ops[opName] = opForm(opName, built, parseBuilt);
+      continue;
+    }
     if (!isSkip(op.expression)) op.expression = fn.toString();
     for (const [name, ex] of Object.entries(op.examples)) {
       const bench = ex.bench;
@@ -456,17 +626,36 @@ export const checkAliases = async (spec: Spec): Promise<string[]> => {
       if (js.output !== spec.jsonSchema.output)
         errs.push(`${label}: jsonSchema.output differs:\n${diffText(spec.jsonSchema.output, js.output)}`);
 
-      const aliasParseCode = OP_BUILDER.parse(aliasSchema).toString();
+      const aliasParseBuilt = buildOp("parse", aliasSchema);
+      const aliasParseCode = "fn" in aliasParseBuilt ? aliasParseBuilt.fn.toString() : undefined;
       for (const opName of OP_ORDER) {
         const op = spec.operations[opName];
-        const fn = OP_BUILDER[opName](aliasSchema);
+        const built = opName === "parse" ? aliasParseBuilt : buildOp(opName, aliasSchema);
+        if (isCreationError(op)) {
+          if ("fn" in built)
+            errs.push(`${label}: operations.${opName} is a \`creationError\` on schema but compiles on this alias`);
+          else if (built.creationError !== op.creationError)
+            errs.push(`${label}: operations.${opName}.creationError differs:\n${diffText(op.creationError, built.creationError)}`);
+          continue;
+        }
+        if (!("fn" in built)) {
+          // Valid when the schema's op is the co-failure `eq-to-parse` and the
+          // alias's parse is likewise rejected — both fail at creation the same
+          // way. Otherwise the alias diverges from a compiling schema op.
+          if (!(op === "eq-to-parse" && !("fn" in aliasParseBuilt)))
+            errs.push(
+              `${label}: operations.${opName} does not fail at creation on schema but is rejected at operation creation on this alias: ${built.creationError}`,
+            );
+          continue;
+        }
+        const fn = built.fn;
         const noop = isNoop(fn);
         if (op === "identity") {
           if (!noop) errs.push(`${label}: operations.${opName} is \`identity\` on schema but not on this alias`);
         } else if (noop) {
           errs.push(`${label}: operations.${opName} compiles to identity on this alias but not on schema`);
         } else if (op === "eq-to-parse") {
-          if (fn.toString() !== aliasParseCode)
+          if (aliasParseCode === undefined || fn.toString() !== aliasParseCode)
             errs.push(
               `${label}: operations.${opName} is \`eq-to-parse\` on schema but does not compile to the same code as parse on this alias`,
             );
@@ -569,8 +758,15 @@ export const checkSpec = async (
   const spec = v.ok ? v.value : obj;
 
   lintSkips(spec, "", errs);
+  lintExamples(spec, errs);
 
-  const canon = serialize(spec);
+  // Collected before the canonical form is built (rather than dropped) so a
+  // disallowed comment is reported as itself, not as a "not canonical" diff —
+  // and so `--write` never silently deletes one.
+  const comments = collectComments(raw);
+  lintComments(comments, errs);
+
+  const canon = serialize(spec, comments);
   if (raw !== canon)
     errs.push(
       `not canonical — run \`pnpm spec format ${id}\` (or \`pnpm spec check ${id} --write\`, which also refreshes goldens):\n${diffText(raw, canon)}`,
@@ -590,7 +786,7 @@ export const checkSpec = async (
     try {
       const violations = identityViolations(schema, spec);
       for (const violation of violations) errs.push(violation);
-      const fresh = knownFresh ?? serialize(await recomputeGoldens(spec));
+      const fresh = knownFresh ?? serialize(await recomputeGoldens(spec), comments);
       if (fresh !== canon)
         errs.push(
           (violations.length

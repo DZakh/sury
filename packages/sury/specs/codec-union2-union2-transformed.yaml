@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  # FIXME: Codec next expects: stay the same — rule 4 matches number to the
+  # transformed variant by its number input and string to the catch-all.
+  schema: S.union([S.number, S.string]).with(S.to, S.union([S.number.with(S.to, S.string), S.string]))
+  input: string | number
+  output: string
+  instantiations: 6680
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ anyOf: [{ type: "number" }, { type: "string" }] }'
+  output: '{ type: "string" }'
+operations:
+  parse:
+    expression: i=>{if(typeof i==="number"&&!Number.isNaN(i)){try{i=""+i}catch(e0){e[0](i,e0)}}else if(!(typeof i==="string")){e[1](i)}return i}
+    examples:
+      number-decoded:
+        input: "123"
+        output: '"123"'
+      string:
+        input: '"abc"'
+        output: '"abc"'
+      float-decoded:
+        input: "1.5"
+        output: '"1.5"'
+  decode: eq-to-parse
+  encode:
+    # FIXME: `catch(e0){}` swallows everything the branch throws, not just the
+    # type miss it means to fall back from.
+    expression: i=>{if(typeof i==="string"){try{let v0=+i;!Number.isNaN(v0)||e[0](i);i=v0}catch(e0){}}else{e[1](i)}return i}
+    examples:
+      numeric-string:
+        input: '"123"'
+        output: "123"
+      string:
+        input: '"abc"'
+        output: '"abc"'

@@ -7,7 +7,7 @@
 import { test, expect, vi } from "vitest";
 import { listSpecFiles, readSpec, serialize, specId } from "../../spec/harness";
 import { runCheck } from "../../spec/report";
-import type { Spec } from "../../spec/format";
+import { isCreationError, type Spec } from "../../spec/format";
 
 // Every test here calls runCheck, which (for a schema that still evaluates)
 // runs a full recomputeGoldens — the same cold-start cost documented in
@@ -48,7 +48,8 @@ const mutateIdentityParse = (patch: (spec: Spec) => void): Spec => {
 
 test("stale golden (expression drifted from what the schema actually compiles to)", async () => {
   const spec = mutate((s) => {
-    if (s.operations.parse !== "identity") s.operations.parse.expression = "i=>i /* stale */";
+    if (s.operations.parse !== "identity" && !isCreationError(s.operations.parse))
+      s.operations.parse.expression = "i=>i /* stale */";
   });
   await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
     {
@@ -70,7 +71,7 @@ test("stale golden (expression drifted from what the schema actually compiles to
 
 test("stale golden (recorded example output no longer matches live behavior)", async () => {
   const spec = mutate((s) => {
-    if (s.operations.parse !== "identity") {
+    if (s.operations.parse !== "identity" && !isCreationError(s.operations.parse)) {
       const ex = s.operations.parse.examples.valid;
       if (ex && "output" in ex) ex.output = '"WRONG"';
     }
@@ -101,6 +102,33 @@ test("invalid _skip reason (not an enum value or todo(#...))", async () => {
     {
       "stderr": "✗ string
         ts.instantiations: invalid _skip reason "because-i-said-so"",
+      "stdout": "",
+    }
+  `);
+});
+
+// A baseline whose operations are rejected at creation (an unsupported `.to`),
+// so every direction is a `creationError` block instead of compiled code.
+const creationErrorBaseline = readSpec(
+  listSpecFiles().find((f) => specId(f) === "codec-bool-number-unsupported")!,
+);
+
+test("stale creationError golden (recorded message drifted from what the schema actually throws)", async () => {
+  const spec = structuredClone(creationErrorBaseline);
+  if (isCreationError(spec.operations.parse)) spec.operations.parse.creationError = "stale message";
+  await expect(runCheck("codec-bool-number-unsupported", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ codec-bool-number-unsupported
+        goldens stale — run \`pnpm spec check codec-bool-number-unsupported --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
+    @@ -12,7 +12,7 @@
+        output: '{ type: "number" }'
+      operations:
+        parse:
+    -     creationError: stale message
+    +     creationError: "SuryError: Can't decode boolean to number. Use S.to to define a custom decoder"
+        decode: eq-to-parse
+        encode: eq-to-parse
+    ",
       "stdout": "",
     }
   `);
@@ -154,19 +182,64 @@ test("vs.zod overwrite form omits a side that actually diverges from ts (must be
 
 test("not canonical (on-disk text doesn't match the canonical form)", async () => {
   const spec = mutate(() => {});
-  const scrambled = serialize(spec).replace("ts:\n", "ts:\n  # a stray comment\n");
+  const scrambled = serialize(spec).replace("vs:\n  zod: z.string()\n", "vs: { zod: z.string() }\n");
   await expect(runCheck("string", scrambled)).resolves.toMatchInlineSnapshot(`
     {
       "stderr": "✗ string
         not canonical — run \`pnpm spec format string\` (or \`pnpm spec check string --write\`, which also refreshes goldens):
-    @@ -1,6 +1,5 @@
-      # yaml-language-server: $schema=./spec.schema.json
-      ts:
-    -   # a stray comment
-        schema: S.string
+    @@ -4,7 +4,8 @@
         input: string
-        output: string",
+        output: string
+        instantiations: 254
+    - vs: { zod: z.string() }
+    + vs:
+    +   zod: z.string()
+      jsonSchema:
+        input: '{ type: "string" }'
+        output: '{ type: "string" }'",
       "stdout": "",
+    }
+  `);
+});
+
+test("a compiled op block with no examples (codegen nothing ever runs)", async () => {
+  const spec = mutate((s) => {
+    if (s.operations.parse !== "identity" && !isCreationError(s.operations.parse))
+      s.operations.parse.examples = {};
+  });
+  await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ string
+        operations.parse: no examples — a compiled op block must run at least one input (add a named entry with just \`input\`, then \`--write\` fills the result)",
+      "stdout": "",
+    }
+  `);
+});
+
+test("a comment that isn't a FIXME (prose the checker can't verify)", async () => {
+  const spec = mutate(() => {});
+  const commented = serialize(spec).replace("ts:\n", "ts:\n  # the fastest schema there is\n");
+  await expect(runCheck("string", commented)).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "✗ string
+        ts.schema: comment "the fastest schema there is" is not allowed — prefix it with \`FIXME:\` if it flags broken behavior to address, or move it to Spec Harness Suggestions in CONTRIBUTING.md if the spec format can't express it",
+      "stdout": "",
+    }
+  `);
+});
+
+// The canonical form is rebuilt from the parsed object, so a comment survives
+// only if it's re-anchored — otherwise `--write` would silently delete the one
+// marker an author leaves behind.
+test("a FIXME comment is allowed and survives canonicalization", async () => {
+  const spec = mutate(() => {});
+  const commented = serialize(spec)
+    .replace("ts:\n", "ts:\n  # FIXME: coercion is wrong here (#123)\n")
+    .replace("  decode: identity\n", "  decode: identity # FIXME: should not be identity\n");
+  await expect(runCheck("string", commented)).resolves.toMatchInlineSnapshot(`
+    {
+      "stderr": "",
+      "stdout": "✓ string",
     }
   `);
 });
@@ -221,6 +294,7 @@ test("full op block claimed but the operation actually compiles to identity", as
   await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
     {
       "stderr": "✗ string
+        operations.decode: no examples — a compiled op block must run at least one input (add a named entry with just \`input\`, then \`--write\` fills the result)
         operations.decode: compiles to identity — use \`identity\` instead of an expression + examples
         goldens stale — resolve the identity mismatch above first, then \`pnpm spec check string --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
     @@ -26,7 +26,10 @@
@@ -294,6 +368,7 @@ test("full op block claimed but the operation actually compiles to the same code
   await expect(runCheck("never", serialize(spec))).resolves.toMatchInlineSnapshot(`
     {
       "stderr": "✗ never
+        operations.decode: no examples — a compiled op block must run at least one input (add a named entry with just \`input\`, then \`--write\` fills the result)
         operations.decode: compiles to the same code as parse — use \`eq-to-parse\` instead of an expression + examples
         goldens stale — resolve the identity mismatch above first, then \`pnpm spec check never --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
     @@ -20,7 +20,7 @@
@@ -366,7 +441,8 @@ test("schema source doesn't evaluate (syntax error)", async () => {
 test("multiple simultaneous problems all get their own guiding message", async () => {
   const spec = mutate((s) => {
     s.ts.instantiations = { _skip: "nonsense-reason" };
-    if (s.operations.parse !== "identity") s.operations.parse.expression = "i=>i /* stale */";
+    if (s.operations.parse !== "identity" && !isCreationError(s.operations.parse))
+      s.operations.parse.expression = "i=>i /* stale */";
   });
   await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
     {
