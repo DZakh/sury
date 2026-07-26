@@ -1,5 +1,7 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
+  # FIXME: Codec next expects: stay the same — rule 1 always applies the built-in
+  # "undefined" <-> undefined decoding.
   schema: S.string.with(S.to, S.schema(undefined))
   input: string
   output: undefined
@@ -25,7 +27,13 @@ operations:
         error: Expected string, received 123
   decode:
     expression: i=>{i==="undefined"||e[0](i);return void 0}
-    examples: {}
+    examples:
+      valid:
+        input: '"undefined"'
+        output: undefined
+      invalid-string:
+        input: '"abc"'
+        error: Expected "undefined", received "abc"
   encode:
     expression: i=>{i===void 0||e[0](i);return "undefined"}
     examples:

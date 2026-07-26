@@ -1,5 +1,8 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
+  # FIXME: Codec next expects: rule 2 — S.number is neither the int32 nor the string
+  # type, so parse/decode must compile (int32 attempted first, string next) instead of
+  # throwing at creation.
   schema: S.number.with(S.to, S.union([S.int32, S.string]))
   input: number
   output: string | number
@@ -9,9 +12,13 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ anyOf: [{ type: "integer", minimum: -2147483648, maximum: 2147483647 }, { type: "number" }] }'
+  # FIXME: the same internal crash as operations.parse, surfaced through toJSONSchema.
   output: Cannot read properties of undefined (reading 'v')
 operations:
   parse:
+    # FIXME: a TypeError is an internal fault, not a rejection — parse and decode
+    # both fail to compile while encode compiles fine, so it's the reverse of a
+    # working conversion that crashes.
     creationError: "TypeError: Cannot read properties of undefined (reading 'v')"
   decode: eq-to-parse
   encode:

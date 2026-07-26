@@ -12,7 +12,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, basename } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
+import { Document, parse as parseYaml, parseDocument, stringify as stringifyYaml, isMap, isSeq } from "yaml";
 import { diffLinesUnified } from "@vitest/utils/diff";
 import ts from "typescript";
 import * as S from "../sury/src/S.mjs";
@@ -72,6 +72,21 @@ export const lintSkips = (obj: unknown, path: string, out: string[]): void => {
   }
   if (obj && typeof obj === "object")
     for (const [k, v] of Object.entries(obj)) lintSkips(v, path ? `${path}.${k}` : k, out);
+};
+
+// A full op block is chosen over `identity`/`eq-to-parse` precisely because it
+// has real codegen — and nothing ever runs that codegen until an example does,
+// so an empty map snapshots an expression no test executes.
+export const lintExamples = (spec: Spec, out: string[]): void => {
+  const ops = spec.operations as Record<OpName, Operation>;
+  for (const opName of OP_ORDER) {
+    const op = ops[opName];
+    if (typeof op === "string" || isCreationError(op) || Object.keys(op.examples).length) continue;
+    out.push(
+      `operations.${opName}: no examples — a compiled op block must run at least one input ` +
+        "(add a named entry with just `input`, then `--write` fills the result)",
+    );
+  }
 };
 
 export const specId = (file: string): string =>
@@ -317,8 +332,98 @@ export const canonicalize = (obj: Spec): Spec => {
   return o;
 };
 
-export const serialize = (obj: Spec): string =>
-  HEADER + "\n" + stringifyYaml(canonicalize(obj), { lineWidth: 0 });
+// ---- comments -------------------------------------------------------------
+
+// Rebuilding the YAML from the parsed object would drop every comment, so they
+// are lifted off the on-disk text and re-attached to the canonical document,
+// anchored by the dotted spec path they annotate (`ts.schema`,
+// `ts.aliases[0]`; `""` for a comment trailing the whole file).
+type Anchor = { before?: string; trailing?: string };
+export type SpecComments = ReadonlyMap<string, Anchor>;
+const NO_COMMENTS: SpecComments = new Map();
+
+// `owner` is the collection whose FIRST item this path is: yaml hangs a
+// leading comment on the collection node in that one position and on the item
+// itself everywhere else, though both mean "the lines above this path".
+type AnchorVisitor = (path: string, before: any, trailing: any, owner?: any) => void;
+
+const eachAnchor = (node: unknown, path: string, visit: AnchorVisitor): void => {
+  if (isMap(node)) {
+    node.items.forEach((pair: any, i) => {
+      const p = path ? `${path}.${pair.key.value}` : String(pair.key.value);
+      visit(p, pair.key, pair.value, i === 0 ? node : undefined);
+      eachAnchor(pair.value, p, visit);
+    });
+  } else if (isSeq(node)) {
+    node.items.forEach((item: any, i) => {
+      const p = `${path}[${i}]`;
+      visit(p, item, item, i === 0 ? node : undefined);
+      eachAnchor(item, p, visit);
+    });
+  }
+};
+
+export const collectComments = (raw: string): SpecComments => {
+  // The header is machine-owned (serialize re-emits it); parsing without it
+  // keeps it from being collected as a comment on the first key.
+  const doc = parseDocument(raw.startsWith(HEADER + "\n") ? raw.slice(HEADER.length + 1) : raw);
+  const out = new Map<string, Anchor>();
+  const add = (path: string, side: keyof Anchor, text?: string | null): void => {
+    if (text == null) return;
+    const at = out.get(path) ?? {};
+    at[side] = at[side] === undefined ? text : `${at[side]}\n${text}`;
+    out.set(path, at);
+  };
+  eachAnchor(doc.contents, "", (path, before, trailing, owner) => {
+    add(path, "before", owner?.commentBefore);
+    add(path, "before", before.commentBefore);
+    add(path, "trailing", trailing?.comment);
+  });
+  add("", "trailing", doc.comment);
+  return out;
+};
+
+const applyComments = (doc: Document, comments: SpecComments): void => {
+  eachAnchor(doc.contents, "", (path, before, trailing) => {
+    const at = comments.get(path);
+    if (!at) return;
+    if (at.before !== undefined) before.commentBefore = at.before;
+    if (at.trailing !== undefined && trailing) trailing.comment = at.trailing;
+  });
+  const trailing = comments.get("")?.trailing;
+  if (trailing !== undefined) doc.comment = trailing;
+};
+
+// A spec is machine-checked documentation: every claim about the schema is a
+// dimension the harness executes, so prose the checker can't see is a claim
+// nothing enforces. The one exception is `FIXME:` — a marker for behavior the
+// goldens currently snapshot but shouldn't.
+const FIXME = "FIXME:";
+
+// Consecutive `#` lines arrive as one string; a blank line between them starts
+// a separate comment, and only a comment's first line carries the prefix (the
+// rest is continuation).
+export const lintComments = (comments: SpecComments, out: string[]): void => {
+  for (const [path, anchor] of comments)
+    for (const text of [anchor.before, anchor.trailing]) {
+      if (text === undefined) continue;
+      for (const comment of text.split(/\n\s*\n/)) {
+        const first = comment.split("\n")[0]!.trim();
+        if (first.startsWith(FIXME)) continue;
+        out.push(
+          `${path ? `${path}: ` : ""}comment ${JSON.stringify(first)} is not allowed — prefix it with ` +
+            `\`${FIXME}\` if it flags broken behavior to address, or move it to Spec Harness Suggestions ` +
+            `in CONTRIBUTING.md if the spec format can't express it`,
+        );
+      }
+    }
+};
+
+export const serialize = (obj: Spec, comments: SpecComments = NO_COMMENTS): string => {
+  const doc = new Document(canonicalize(obj));
+  if (comments.size) applyComments(doc, comments);
+  return HEADER + "\n" + doc.toString({ lineWidth: 0 });
+};
 
 // ---- golden recomputation --------------------------------------------------
 
@@ -653,8 +758,15 @@ export const checkSpec = async (
   const spec = v.ok ? v.value : obj;
 
   lintSkips(spec, "", errs);
+  lintExamples(spec, errs);
 
-  const canon = serialize(spec);
+  // Collected before the canonical form is built (rather than dropped) so a
+  // disallowed comment is reported as itself, not as a "not canonical" diff —
+  // and so `--write` never silently deletes one.
+  const comments = collectComments(raw);
+  lintComments(comments, errs);
+
+  const canon = serialize(spec, comments);
   if (raw !== canon)
     errs.push(
       `not canonical — run \`pnpm spec format ${id}\` (or \`pnpm spec check ${id} --write\`, which also refreshes goldens):\n${diffText(raw, canon)}`,
@@ -674,7 +786,7 @@ export const checkSpec = async (
     try {
       const violations = identityViolations(schema, spec);
       for (const violation of violations) errs.push(violation);
-      const fresh = knownFresh ?? serialize(await recomputeGoldens(spec));
+      const fresh = knownFresh ?? serialize(await recomputeGoldens(spec), comments);
       if (fresh !== canon)
         errs.push(
           (violations.length

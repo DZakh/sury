@@ -1,5 +1,7 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
+  # FIXME: Codec next expects: stay the same — rule 4 matches "x" by type and bridges
+  # undefined <-> null.
   schema: S.optional(S.literal("x")).with(S.to, S.nullable(S.literal("x")))
   input: '"x" | undefined'
   output: '"x" | null'
@@ -8,6 +10,8 @@ vs:
   zod:
     _skip: not-applicable
 jsonSchema:
+  # FIXME: S.toJSONSchema recurses forever on this conversion — neither side is
+  # unrepresentable ('"x" | undefined' and '"x" | null' both are).
   input: Maximum call stack size exceeded
   output: Maximum call stack size exceeded
 operations:

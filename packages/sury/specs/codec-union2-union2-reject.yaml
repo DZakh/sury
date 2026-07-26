@@ -1,5 +1,7 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
+  # FIXME: Codec next expects: stay the same — the explicit S.never target variant is
+  # how rule 3's partial match is resolved into rejecting numbers.
   schema: S.union([S.number, S.string]).with(S.to, S.union([S.number.with(S.to, S.never), S.string]))
   input: string | number
   output: string

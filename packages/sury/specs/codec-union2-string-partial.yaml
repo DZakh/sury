@@ -1,5 +1,9 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
+  # FIXME: Codec next expects: rejected at creation — rule 3 partial type match (123
+  # could decode to "123" or fail as a non-matching case).
+  # S.union([S.number.with(S.to, S.string), S.string]) and
+  # S.union([S.number.with(S.to, S.never), S.string]) are the two explicit targets.
   schema: S.union([S.number, S.string]).with(S.to, S.string)
   input: string | number
   output: string

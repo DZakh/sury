@@ -1,5 +1,7 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
+  # FIXME: Codec next expects: stay the same — rule 4 passes both variants through,
+  # never coercing "123" to a number.
   schema: S.union([S.string, S.number]).with(S.to, S.union([S.number, S.string]))
   input: string | number
   output: string | number

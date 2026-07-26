@@ -15,6 +15,9 @@ import {
   evalSchema,
   identityViolations,
   checkAliases,
+  collectComments,
+  lintComments,
+  lintExamples,
   lintSkips,
   lintSpecsDir,
   checkBundleSize,
@@ -163,7 +166,14 @@ describe.each(specs)("spec: $id", ({ file }) => {
   });
 
   test("is in canonical form (run `pnpm spec format`)", () => {
-    expect(readFileSync(file, "utf8")).toBe(serialize(spec));
+    const raw = readFileSync(file, "utf8");
+    expect(raw).toBe(serialize(spec, collectComments(raw)));
+  });
+
+  test("every comment is a `FIXME:` (run `pnpm spec check`)", () => {
+    const errs: string[] = [];
+    lintComments(collectComments(readFileSync(file, "utf8")), errs);
+    expect(errs, errs.join("\n")).toEqual([]);
   });
 
   // Only checkSpec (the pnpm spec check gate) runs these two — nothing else
@@ -179,6 +189,12 @@ describe.each(specs)("spec: $id", ({ file }) => {
   test("every _skip reason is valid (run `pnpm spec check`)", () => {
     const errs: string[] = [];
     lintSkips(spec, "", errs);
+    expect(errs, errs.join("\n")).toEqual([]);
+  });
+
+  test("every compiled op block has examples (run `pnpm spec check`)", () => {
+    const errs: string[] = [];
+    lintExamples(spec, errs);
     expect(errs, errs.join("\n")).toEqual([]);
   });
 

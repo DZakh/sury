@@ -872,153 +872,44 @@ type Schema = S.Infer<typeof schema>; // "Win" | "Draw" | "Loss"
 
 ### Decoding into / out of a union
 
-When a conversion (via `S.to`, or implicitly by reversing the schema) has a union on either side, Sury follows four rules. They all build on a few shared definitions:
+When you compile `source -> targetUnion` (via `S.to`, or implicitly by reversing the schema), Sury picks the target variant using a three-tier algorithm based on the source's **derived tag** — the tag known at compile time, which may be narrower than the original type (an upstream transformation can refine it). If the source is itself a union, the algorithm runs independently for each source variant.
 
-> Two schemas have the **same type** when their type tags match — including the class for instances, the format for formatted primitives, and the reference for recursive schemas, where relevant. `S.int32` and `S.number` are different types, and so are `S.json` and `S.string` — even though every JSON string would validate against `S.string`.
+If the source is `unknown` (no derived tag), the tag-based tiers are skipped and target variants are simply attempted in target-union order at runtime.
 
-- **Checks run at operation creation time**, against the **derived** types — the actual schema at that point in the pipeline, which may be narrower than the originally defined one (an upstream transformation can refine it). Reversing a schema doesn't re-run the checks: it reverses the already-resolved per-variant pipelines.
-- **Nested unions are flattened** before the rules apply: `S.union([S.string, S.union([S.number, S.boolean])])` acts as a three-variant union. The exception is a union carrying its own format, transformation, or refinement — it's treated as a normal (non-union) schema on its side of the conversion.
-- **`S.never` marks an unreachable path.** `S.never` variants — including transformed ones like `S.never.with(S.to, S.number)`, which match by their `never` input — are ignored by type matching: they never trigger the exceptions below and don't count toward rule 4's coverage.
+1. **Same-tag group.** Collect target variants sharing the source's tag. If non-empty, match only within this group: variants with a matching `const`/`format` (string literals, `Int32`, etc.) are tried first in target-union order, then any remaining catch-all same-tag variants. Variants with a different tag are never tried from here — if every branch in the group fails, the match errors.
+2. **Nullish bridge.** Used only when tier 1 is empty. If the source tag is `null` or `undefined`, use the opposite nullish target variant (if present), exclusively.
+3. **Fallback.** Used only when tiers 1 and 2 are both empty. Build a decoder for every target variant in target-union order. Cross-type coercions live here: `number`/`bigint` → `string` via `"" + i`, `string` → `number` via `+i`, `string` → `bigint` via `BigInt(i)`, stringified-const matches like `"null" → null`, and more.
 
-#### Rule 1: non-union → non-union
-
-Built-in decoding (coercion) always applies:
-
-```ts
-S.string.with(S.to, S.schema(undefined)); // "undefined" <-> undefined
-S.schema(null).with(S.to, S.schema(undefined)); // null <-> undefined
-```
-
-#### Rule 2: non-union → union
-
-The built-in decoder is applied separately for every target variant, attempted in definition order, grouped by tag:
-
-```ts
-const schema = S.json.with(S.to, S.union([S.bigint, S.string]));
-
-S.parser(schema)("123"); // 123n — the bigint variant comes first
-S.parser(schema)("abc"); // "abc" — bigint decoding fails, string accepts
-S.parser(schema)(true); // throws — no implicit double decoding (true -> "true" -> ...)
-```
-
-`S.json` is not the exact `string` type, so string inputs still go through variant decoding instead of passing through.
-
-**Grouped by tag** means same-tag variants form a single group at the position of the first one. The runtime value's tag picks the group; only that group's variants are attempted, in definition order:
-
-```ts
-const schema = S.json.with(S.to, S.union([S.literal("a"), S.number, S.literal("b")]));
-
-S.parser(schema)("b"); // "b" — tries "a", then "b"; the number variant is never attempted
-```
-
-`S.unknown` is a normal type here — it only matches another `unknown`. An `unknown` source matches none of the concrete variants, so it takes the same path: every variant is attempted, grouped by tag, in definition order.
-
-**Exception — partial type match.** If the source has the same type as *some but not all* target variants, the operation is rejected when it's created. Sury can't tell whether you want a pass-through for the matching variant, decoding attempts in definition order, or simply widened the type with no decoding intent:
-
-```ts
-S.string.with(S.to, S.union([S.number, S.string]));
-// Invalid operation: for "123" — keep "123" or decode to 123?
-```
-
-Say what you mean with an explicit variant:
-
-```ts
-// Try decoding to number first, keep the string otherwise:
-S.string.with(S.to, S.union([S.string.with(S.to, S.number), S.string]));
-
-// Pass strings through, never producing a number:
-S.string.with(S.to, S.union([S.never.with(S.to, S.number), S.string]));
-```
-
-The same applies to widening into optional or nullable targets:
-
-```ts
-S.string.with(S.to, S.optional(S.string));
-// Invalid operation: for "undefined" — keep the string or decode to undefined?
-
-// Widen without decoding — the undefined variant is unreachable:
-S.string.with(S.to, S.union([S.string, S.never.with(S.to, S.schema(undefined))]));
-```
-
-The `Invalid operation` error suggests these rewrites.
-
-#### Rule 3: union → non-union
-
-The mirror of rule 2: every source variant gets its own built-in decoder to the target, dispatched in definition order, grouped by tag:
-
-```ts
-const schema = S.union([S.bigint, S.string]).with(S.to, S.json);
-
-S.parser(schema)(123n); // "123"
-S.parser(schema)("123"); // "123"
-S.parser(schema)("abc"); // "abc"
-```
-
-**Exception — partial type match.** If the target has the same type as some but not all source variants, the operation is rejected. Sury can't tell whether the non-matching variants should decode to the target or be rejected as failed cases:
-
-```ts
-S.union([S.number, S.string]).with(S.to, S.string);
-// Invalid operation: for 123 — decode to "123" or fail as a non-matching case?
-```
-
-Say what you mean with an explicit target union:
-
-```ts
-// Decode numbers to strings:
-S.union([S.number, S.string]).with(
-  S.to,
-  S.union([S.number.with(S.to, S.string), S.string])
-);
-
-// Reject numbers:
-S.union([S.number, S.string]).with(
-  S.to,
-  S.union([S.number.with(S.to, S.never), S.string])
-);
-```
-
-The `Invalid operation` error suggests these rewrites.
-
-#### Rule 4: union → union
-
-No coercion — values pass through to the same-type target variant. The two unions must cover each other: every source variant needs at least one same-type target variant, and every target variant needs at least one same-type source variant. Otherwise the operation is rejected:
-
-```ts
-S.union([S.string, S.number]).with(S.to, S.union([S.number, S.string])); // ✅
-S.union([S.string, S.number]).with(S.to, S.union([S.number, S.string, S.boolean])); // ❌ boolean has no source variant
-S.union([S.string, S.number, S.boolean]).with(S.to, S.union([S.number, S.string])); // ❌ boolean has no target variant
-S.union([S.string, S.number, S.bigint]).with(S.to, S.union([S.json, S.bigint])); // ❌ json is not the exact string/number type
-```
-
-A transformed source variant matches by its output type, and a transformed target variant by its input type — so per-variant conversion is always available explicitly:
-
-```ts
-S.optional(S.string).with(S.to, S.nullable(S.boolean)); // ❌ string doesn't match boolean
-S.optional(S.string).with(S.to, S.nullable(S.string.with(S.to, S.boolean))); // ✅
-```
-
-**Exception — nullish bridge.** A `null` or `undefined` variant left unmatched by type may match the opposite nullish variant on the other side — even one that already has a same-type match. At runtime the same-type target wins; the bridge only kicks in when there is none:
-
-```ts
-S.optional(S.string).with(S.to, S.nullable(S.string)); // ✅ undefined <-> null
-S.optional(S.literal("x")).with(S.to, S.nullable(S.literal("x"))); // ✅ "x" matches by type, undefined <-> null
-S.optional(S.string).with(S.to, S.union([S.string, null, undefined])); // ✅ undefined -> undefined (same type wins); reverse maps null -> undefined
-```
-
-**Worked example** — `S.union([S.bigint, S.number, null]).with(S.to, S.union([S.bigint, S.number, undefined]))`:
+**Worked example** — `S.union([S.bigint, S.number, null]).with(S.to, S.union([S.string, undefined]))`:
 
 Forward:
 
-- `123n` → `123n` (bigint passes through)
-- `123.12` → `123.12` (number passes through)
-- `null` → `undefined` (nullish bridge)
+- `123n` → `"123"` (tier 3: bigint → string)
+- `123.12` → `"123.12"` (tier 3: number → string)
+- `null` → `undefined` (tier 2: nullish bridge)
 
 Reverse (via `S.encoder`):
 
-- `undefined` → `null` (nullish bridge)
-- `123n` → `123n`, `123.12` → `123.12` (pass through)
+- `"null"` → `null` (tier 3: stringified-const literal match)
+- `undefined` → `null` (tier 2: nullish bridge)
+- `"123"` → `123n` (tier 3: bigint attempted first by target order; parse succeeds)
+- `"123.12"` → `123.12` (tier 3: bigint parse throws, falls through to number)
+- `"abc"` → error (tier 3: no variant's decoder succeeds)
 
-> 🧠 Union conversion always performs exhaustive validation — every variant is checked, so transformed unions stay consistent across decode and encode.
+**Identity wins over coercion.** For `S.union([S.string, S.bigint]).with(S.to, S.union([S.number, S.string]))`:
+
+- `"123"` → `"123"` (tier 1: `string` matches `string`, never coerced to `number` even though a `number` target exists)
+- `123n` → `"123"` (tier 3: no `bigint` target, falls through to `string` via `"" + i`)
+
+To opt into `string → number` when a `string` target also exists, write the transform into a variant explicitly:
+
+```ts
+S.union([S.string.with(S.to, S.number), S.string]);
+```
+
+The transformed variant is const/format-refined relative to the catch-all `string` and matches first within tier 1.
+
+> 🧠 Union conversion always performs exhaustive validation now — every variant is checked, so transformed unions stay consistent across decode and encode.
 
 ## Records
 
