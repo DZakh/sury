@@ -102,7 +102,7 @@ If the data is invalid, the function will throw an error.
 
 ```ts
 S.parser(playerSchema)({ username: "billie", xp: "not a number" });
-// => throws S.Error: Failed at ["xp"]: Expected number, got string
+// => throws S.Error: Failed at ["xp"]: Expected number, received "not a number"
 ```
 
 **Sury** API explicitly tells you that it might throw an error. If you need you can catch it and perform `err instanceof S.Error` check. But **Sury** provides a convenient API which does it for you:
@@ -297,7 +297,7 @@ S.assert(
   }),
   "example.com"
 );
-// Throws S.Error: Invalid email address
+// Throws S.Error: Expected email, received "example.com"
 ```
 
 ### Standard Schema
