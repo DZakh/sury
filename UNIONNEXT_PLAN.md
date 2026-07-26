@@ -1,7 +1,7 @@
 # unionNext — final one-shot rewrite plan
 
 Implementation plan for a from-scratch union factory (`unionNext`) that behaves
-exactly as `CODEC_NEXT_SPEC.md` describes. Delivered in two stages inside one
+exactly as `CODEC_SPEC.md` describes. Delivered in two stages inside one
 effort: **Stage 1** builds `unionNext` side-by-side with `S.union` and iterates
 until the `codecnext-*` specs meet the spec doc; **Stage 2** replaces the
 `S.union` implementation with it, re-derives the existing goldens, and makes
@@ -123,7 +123,7 @@ UN_decoder / UN_encoder:
 
 Readability cost is real and contained: the passes are small named
 functions, the mask predicates carry the rule names, and the *readable*
-statement of the semantics lives in `CODEC_NEXT_SPEC.md` + the codec specs —
+statement of the semantics lives in `CODEC_SPEC.md` + the codec specs —
 which is where behavior is reviewed anyway.
 
 ### Phase 1 — creation: `unionNext(items: Internal[]): Internal`
@@ -224,7 +224,7 @@ unknown-shaped goldens identical in behavior:
 - `codec-unknown-union2` (`S.unknown.with(S.to, S.union([S.bigint,
   S.string]))`): `"123"` stays `"123"`, `123n` passes, `true` throws — the
   *current* golden, which is thereby already spec-conformant; its `FIXME:
-  Codec next expects` note comes off, and `CODEC_NEXT_SPEC.md`'s unknown
+  Codec next expects` note comes off, and `CODEC_SPEC.md`'s unknown
   paragraph + coverage table move it to the conformant list.
 
 Plain parsers therefore never coerce: `S.parser` = `unknown.to(schema)` =
@@ -422,7 +422,7 @@ Spec gate — new `specs/codecnext-*.yaml` authored with `pnpm spec new`,
 using explicit `S.unionNext([...])` spellings (optional/nullable spelled
 `S.unionNext([X, undefined])` / `[X, null]`):
 
-1. One spec per row of `CODEC_NEXT_SPEC.md`'s behavior-change table (14
+1. One spec per row of `CODEC_SPEC.md`'s behavior-change table (14
    rows once `codec-unknown-union2` moves to the conformant list),
    including `creationError` goldens with the suggested-rewrite text.
 2. Mirrors of the 17 already-conformant codec specs, proving parity or

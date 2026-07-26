@@ -1,7 +1,7 @@
 import { Literal_parse, isArrayCond, jsonName, objectTagCond, unit } from "./primitives";
 import { baseSchema, getOrRethrow, panic, unknown, updateOutput } from "./schema";
 import { getOutputSchema, nestedLoc, nestedOptionParser, parse, parseDynamic } from "./parse";
-import { unionFactory } from "./unionnext";
+import { unionFactory } from "./union";
 import { B_addObjectField, B_addKey, B_scope, B_asyncVal, B_dynamicScope, B_failWithArg, B_hoistChildChecks, B_hoistDecl, B_inlineConst, B_markOutput, B_merge, B_mergeWithPathPrepend, B_next, B_nextConst, B_refine, B_unsupportedDecode, B_varWithoutAllocation, _notVar, _notVarAtParent, failInvalidType } from "./builder";
 import { AdditionalItems, Check, ErrorDetails, Internal, U, Val, immutableEmptyArray, immutableEmptyObject, isLiteral, isOptional } from "./types";
 import { flagUnsafeHas, valFlagAsync, valFlagNone } from "./flags";

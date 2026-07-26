@@ -76,6 +76,27 @@ describe("object", () => {
 const union = S.union([{ box: S.string }, S.string.with(S.to, S.number)]);
 const parseUnion = S.parser(union);
 
+// Grouping, resolution and emit all scale with variant count and with how the
+// variants relate, so the cold path is benched over the shapes that stress each:
+// one narrow per variant (discriminated), many variants under one narrow (enum),
+// the two-variant shape every S.optional compiles to, and a conversion that has
+// to resolve source against target variant by variant.
+const makeDiscriminated = () =>
+  S.union([
+    { kind: "a" as const, a: S.string },
+    { kind: "b" as const, b: S.number },
+    { kind: "c" as const, c: S.boolean },
+    { kind: "d" as const, d: S.bigint },
+    { kind: "e" as const, e: S.string },
+  ]);
+const enumValues = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
+const makeEnum = () => S.union(enumValues);
+const makeConversion = () => S.optional(S.string).with(S.to, S.nullable(S.string));
+
+const parseDiscriminated = S.parser(makeDiscriminated());
+const parseEnum = S.parser(makeEnum());
+const discriminatedData = Object.freeze({ kind: "e", e: "x" });
+
 describe("union", () => {
   // Dispatch to the object branch (no transform).
   bench("union: parse object branch", () => {
@@ -85,6 +106,47 @@ describe("union", () => {
   // Dispatch to the string->number branch (runs the transform).
   bench("union: parse transform branch", () => {
     parseUnion("123");
+  });
+
+  // Hot path: the last variant, so the whole dispatch chain is walked.
+  bench("union: parse discriminated last branch", () => {
+    parseDiscriminated(discriminatedData);
+  });
+
+  bench("union: parse enum", () => {
+    parseEnum("j");
+  });
+
+  // Construction only — no compilation.
+  bench("union: create discriminated", () => {
+    makeDiscriminated();
+  });
+
+  bench("union: create enum", () => {
+    makeEnum();
+  });
+
+  // Cold path: a fresh schema each time, so nothing hits the operation cache.
+  bench("union: compile discriminated", () => {
+    S.parser(makeDiscriminated());
+  });
+
+  bench("union: compile enum", () => {
+    S.parser(makeEnum());
+  });
+
+  bench("union: compile optional", () => {
+    S.parser(S.optional(S.string));
+  });
+
+  bench("union: compile conversion", () => {
+    S.parser(makeConversion());
+  });
+
+  // Reverse: the same resolution mirrored, which is where the encoder decides
+  // rules 3 and 4.
+  bench("union: compile conversion (encode)", () => {
+    S.encoder(makeConversion());
   });
 });
 

@@ -12,7 +12,7 @@ jsonSchema:
   output: '{ enum: ["x", null] }'
 operations:
   parse:
-    expression: i=>{if(i===void 0){i=null}else if(!(typeof i==="string"&&(i==="x"))){e[0](i)}return i}
+    expression: i=>{if(i===void 0){i=null}else if(!(i==="x")){e[0](i)}return i}
     examples:
       literal:
         input: '"x"'
@@ -25,7 +25,7 @@ operations:
         error: Expected "x" | undefined, received "y"
   decode: eq-to-parse
   encode:
-    expression: i=>{if(i===null){i=void 0}else if(!(typeof i==="string"&&(i==="x"))){e[0](i)}return i}
+    expression: i=>{if(i===null){i=void 0}else if(!(i==="x")){e[0](i)}return i}
     examples:
       literal:
         input: '"x"'

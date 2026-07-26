@@ -72,7 +72,7 @@ test("Coerce from string to option of int (union dispatch over a converted value
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(typeof i==="number"&&!Number.isNaN(i)){if(i<=2147483647&&i>=-2147483648&&i%1===0){i=""+i}else{e[0](i)}}else if(i===void 0){i="undefined"}else{e[1](i)}return i}`,
+    `i=>{if(typeof i==="number"&&!Number.isNaN(i)&&i<=2147483647&&i>=-2147483648&&i%1===0){i=""+i}else if(i===void 0){i="undefined"}else{e[0](i)}return i}`,
   )
 })
 

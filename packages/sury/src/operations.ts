@@ -1,4 +1,4 @@
-import { unionFactory } from "./unionnext";
+import { unionFactory } from "./union";
 import { Literal_parse, literalDecoder, nullLiteral, unit } from "./primitives";
 import { SuryError, baseSchema, cached, configurableValueOptions, copySchema, getOrRethrow, globalConfig, noopDecoder, panic, schemaPrototype, unknown, updateOutput, valKey, valueOptions } from "./schema";
 import type { JSONSchemaT, StandardJsonSchemaOptions } from "./jsonschema";

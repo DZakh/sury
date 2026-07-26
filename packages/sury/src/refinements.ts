@@ -5,7 +5,7 @@ import { parse } from "./parse";
 import { SuryError, copySchema, panic, unknown } from "./schema";
 import { B_scope, B_asyncVal, B_embed, B_failWithErrorMessage, B_markOutput, B_merge, B_next, B_refine, B_varWithoutAllocation, Builder, _notVarBeforeValidation, _var, failInvalidType } from "./builder";
 import { array, dictFactory, optionFactory } from "./composites";
-import { unionFactory } from "./unionnext";
+import { unionFactory } from "./union";
 import { Internal, U, Val, stringify } from "./types";
 import { flagUnsafeHas, valFlagAsync } from "./flags";
 import { inlinedValueFromString, pathEmpty, pathFromInlinedLocation } from "./path";

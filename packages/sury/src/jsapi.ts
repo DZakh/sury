@@ -3,7 +3,7 @@ import { GlobalConfigOverride, baseSchema, copySchema, getOrRethrow, globalConfi
 import { B_embed, B_failWithArg, B_invalidInputBuilder, B_makeInvalidConversionDetails, B_next, B_varWithoutAllocation, EffectCtx, _var } from "./builder";
 import { definitionToSchema } from "./factory";
 import { objectDecoder } from "./composites";
-import { unionFactory } from "./unionnext";
+import { unionFactory } from "./union";
 import { Option_getOr, Option_getOrWith, getAssertResult, internalRefine, nullAsUnit, transform } from "./operations";
 import { Check, Internal, U, Val, isSchemaObject } from "./types";
 import { Builder } from "./builder";

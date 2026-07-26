@@ -10,7 +10,7 @@ Tiebreaker: shortest *generated* code wins over shortest *library* code (runtime
 
 ## Layout
 
-The implementation lives in `packages/sury/src/*.ts` — plain TypeScript, layered acyclically (types → schema → builder → primitives → parse → unionnext → composites → operations → formats → factory → refinements → jsapi → jsonschema; only type-only imports may point "up"). `src/entry.ts` is the single public entry: it re-exports the curated JS/TS API under its documented names, creates the eager PURE-annotated schema constants, and exposes a minimal ReScript-binding surface (`$res_*`-named exports, only for APIs with no public-JS equivalent — `$res` because ReScript externals reject `~` in names). `scripts/pack.ts` bundles it to the gitignored `src/S.mjs` (`pnpm build:entry`); the checked-in `src/S.d.mts` → `S.d.ts` provides its types, and the publish step additionally emits a CJS `S.js` into the artifact for the require condition. `S.res` is the one ReScript module: public types plus `@module("sury") external` bindings resolved through the package's own "." export, so ReScript and JS share a single runtime instance. Where the ReScript API differs from JS only in argument shape, S.res binds the public JS export and adapts in ReScript (`refine`, `to`, `decoder`, `tuple1/2/3`, `parseOrThrow`, …) rather than adding a `$res_*` export. The former `module B` is flattened to `B_`-prefixed top-level functions (and `Literal.parse` → `Literal_parse`, etc.) so bundlers tree-shake each helper individually; keep new helpers flat for the same reason, and PURE-annotate any top-level call initializer. Prefer `const name = () => {}` arrows over `function` declarations (measurably smaller minified; `noopOperation` and the `this`-based `_var` family are the deliberate exceptions), and inline former ReScript intrinsics (`a | b`, `typeof x`) rather than wrapping them in helpers. `val`/`check`/`bGlobal` runtime field names stay short (`cp`, `hd`, `vc`, …) — property names survive minification, so every character ships.
+The implementation lives in `packages/sury/src/*.ts` — plain TypeScript, layered acyclically (types → schema → builder → primitives → parse → union → composites → operations → formats → factory → refinements → jsapi → jsonschema; only type-only imports may point "up"). `src/entry.ts` is the single public entry: it re-exports the curated JS/TS API under its documented names, creates the eager PURE-annotated schema constants, and exposes a minimal ReScript-binding surface (`$res_*`-named exports, only for APIs with no public-JS equivalent — `$res` because ReScript externals reject `~` in names). `scripts/pack.ts` bundles it to the gitignored `src/S.mjs` (`pnpm build:entry`); the checked-in `src/S.d.mts` → `S.d.ts` provides its types, and the publish step additionally emits a CJS `S.js` into the artifact for the require condition. `S.res` is the one ReScript module: public types plus `@module("sury") external` bindings resolved through the package's own "." export, so ReScript and JS share a single runtime instance. Where the ReScript API differs from JS only in argument shape, S.res binds the public JS export and adapts in ReScript (`refine`, `to`, `decoder`, `tuple1/2/3`, `parseOrThrow`, …) rather than adding a `$res_*` export. The former `module B` is flattened to `B_`-prefixed top-level functions (and `Literal.parse` → `Literal_parse`, etc.) so bundlers tree-shake each helper individually; keep new helpers flat for the same reason, and PURE-annotate any top-level call initializer. Prefer `const name = () => {}` arrows over `function` declarations (measurably smaller minified; `noopOperation` and the `this`-based `_var` family are the deliberate exceptions), and inline former ReScript intrinsics (`a | b`, `typeof x`) rather than wrapping them in helpers. `val`/`check`/`bGlobal` runtime field names stay short (`cp`, `hd`, `vc`, …) — property names survive minification, so every character ships.
 
 ## Comments
 
@@ -33,34 +33,34 @@ Schema modifiers (`.with(S.refine, …)`, etc.) apply to the **output** type. `i
 
 ## Union
 
-`src/unionnext.ts` owns `S.union` end to end: the factory, `UN_decoder`, and
-`UN_encoder`. `CODEC_NEXT_SPEC.md` is the normative statement of *what* it does
+`src/union.ts` owns `S.union` end to end: the factory, `unionDecoder`, and
+`unionEncoder`. `CODEC_SPEC.md` is the normative statement of *what* it does
 (the four conversion rules, the rejections, universal fallback); this section is
 *how*.
 
-`UN_decoder` runs three passes over the variants:
+`unionDecoder` runs three passes over the variants:
 
 1. **Forward — group.** Rejections that need only types fire first (rule 2's
-   partial match; rules 3/4 via `UN_resolve` when the union carries its own
+   partial match; rules 3/4 via `unionResolve` when the union carries its own
    `.to`). Then each variant joins a group keyed by its tag: a group owns one
-   shared type narrow (`UN_narrowSchema`), parsed once, and every variant in it
+   shared type narrow (`unionNarrowSchema`), parsed once, and every variant in it
    branches from that narrowed val. Merging a variant into an earlier group is
    legal only while no case in between could accept the same values
    (`maskAt[j] & group.m`). A creation error from `parse` propagates — a variant
    is never dropped, and that's the spec's whole-operation rejection.
 2. **Reverse — suffix masks.** `suffix[i]` = what any later group accepts, in
    O(n) integer ops. It's the only lookahead the emit needs.
-3. **Forward — emit.** `UN_emitChain` stitches `{cond, body}` alternatives into
-   one fallback chain. A body that can't throw (`UN_canThrow`) or whose failure
+3. **Forward — emit.** `unionEmitChain` stitches `{cond, body}` alternatives into
+   one fallback chain. A body that can't throw (`unionCanThrow`) or whose failure
    nothing later could recover from becomes a plain `if(cond){body}`; otherwise
    it runs inside `try{…}catch(eN){ <rest of the chain> }`, and the final `else`
    raises the aggregated union error with the caught `eN`s.
 
 Acceptance masks are read off the narrow the attempt actually emitted
-(`UN_acceptMask`), not off the variant's own tag — a JSON string offered to
+(`unionAcceptMask`), not off the variant's own tag — a JSON string offered to
 `S.bigint` accepts *strings*. Only **hoistable** narrows count: a check the
 dispatch can't lift stays in the body and constrains nothing about which values
-reach the case. `UN_widen` closes the mask over object/instance, which the
+reach the case. `unionWiden` closes the mask over object/instance, which the
 `typeof` narrows don't separate.
 
 Two internal shapes bypass the user-facing rules, both marked

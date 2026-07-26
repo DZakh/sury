@@ -1,6 +1,6 @@
 import { defsPath, recursiveDecoder, transform } from "./operations";
 import { array, arrayDecoder, completeObjectVal, dictFactory, makeObjectVal, valGet } from "./composites";
-import { UN_decoder, UN_rewriteTo, unionFactory } from "./unionnext";
+import { unionDecoder, unionRewriteTo, unionFactory } from "./union";
 import { bool, float, inputToString, jsonName, literalDecoder, nullLiteral, numberDecoder, string, stringDecoderFn } from "./primitives";
 import { baseSchema, cached, copySchema, unknown, updateOutput } from "./schema";
 import { B_addObjectField, B_embed, B_embedInvalidInput, B_failWithErrorMessage, B_next, B_nextConst, B_refine, B_unsupportedDecode, B_varWithoutAllocation, _var, failInvalidType } from "./builder";
@@ -149,7 +149,7 @@ export const jsonDecoderFn = (input: Val): Val => {
     !(undefinedTag in input.s.has!)
   ) {
     // Decode each union variant to JSON separately
-    return parse(UN_rewriteTo(input, input.e));
+    return parse(unionRewriteTo(input, input.e));
   } else if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
     const to = input.e.to!;
     // Whether we can optimize encoding during decoding
@@ -207,7 +207,7 @@ export const json = (): Internal => {
     const jsonDef = baseSchema(unionTag, true);
     jsonDef.anyOf = anyOf;
     jsonDef.has = has;
-    jsonDef.decoder = UN_decoder;
+    jsonDef.decoder = unionDecoder;
     jsonDef.name = jsonName;
     jsonDef.type = unionTag;
 

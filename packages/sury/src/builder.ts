@@ -404,14 +404,14 @@ export const B_isHoistable = (val: Val): boolean => {
 }
 
 // A hoisted type-narrow kept in both forms: `c` routes the value to the next
-// union case (dispatch), and re-emitting it with `f` rejects the case from
-// inside a `try` (fallback). The fail closure is captured during the merge, but
-// the embed slot is only allocated if the rejecting form is actually needed.
+// union case (dispatch), and re-emitting it against `v` rejects the case from
+// inside a `try` (fallback). Only `c` and the two strings it needs are captured —
+// most cases never emit the rejecting form, so its closure and embed slot are
+// built on demand (see `unionRejectCond`).
 export type Hoist = {
   v: Val;
   i: string;
   c: string;
-  f: (value: unknown) => ErrorDetails;
 }
 export type HoistCond = { c: string; h: Hoist[] }
 
@@ -450,7 +450,7 @@ export const B_merge = (val: Val, out?: HoistCond): string => {
         }
         if (hoisted) {
           out.c = out.c ? `${hoisted}&&${out.c}` : hoisted;
-          out.h.unshift({ v: val, i: inputVar, c: hoisted, f: failInvalidType(val) });
+          out.h.unshift({ v: val, i: inputVar, c: hoisted });
         }
       } else if (val.e.noValidation !== true) {
         currentCode = B_emitChecks(val, current!.v());

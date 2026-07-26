@@ -2,7 +2,7 @@ import { B_addObjectField, B_mergeObjectFields, B_scope, B_invalidOperation, B_m
 import { Literal_parse, literalDecoder, unit } from "./primitives";
 import { Option_getOr, TupleCtx } from "./operations";
 import { arrayDecoder, completeObjectVal, makeObjectVal, objectDecoder, optionFactory, valGet } from "./composites";
-import { unionFactory } from "./unionnext";
+import { unionFactory } from "./union";
 import { getOutputSchema, parse, reverse } from "./parse";
 import { baseSchema, copySchema, globalConfig, panic, updateOutput } from "./schema";
 import { Internal, U, Val, immutableEmptyArray, isLiteral, isSchemaObject, itemSymbol, toExpression } from "./types";
