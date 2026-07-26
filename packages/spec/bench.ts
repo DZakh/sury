@@ -285,12 +285,6 @@ const medianOf = (xs: number[]): number => {
 
 // ---- run -------------------------------------------------------------------
 
-const bySpec = (targets: Target[]): Map<string, Target[]> => {
-  const map = new Map<string, Target[]>();
-  for (const t of targets) (map.get(t.specId) ?? map.set(t.specId, []).get(t.specId)!).push(t);
-  return map;
-};
-
 export const runPerf = async (files: string[], against?: string): Promise<Perf> => {
   const { sha, label } = resolveBaseline(against);
   mkdirSync(CACHE, { recursive: true });
@@ -303,36 +297,44 @@ export const runPerf = async (files: string[], against?: string): Promise<Perf> 
   ]);
 
   const { targets, skippedConstants } = deriveTargets(files);
-  const groups = [...bySpec(targets)];
-  const results: ChildResult[] = [];
+  const childPath = join(CACHE, "child.mjs");
+  const payloadFor = (list: Target[]): ChildPayload => ({
+    baseline: pathToFileURL(baselinePath).href,
+    current: pathToFileURL(currentPath).href,
+    targets: list,
+    batchTargetNs: BATCH_TARGET_NS,
+    warmupBatches: WARMUP_BATCHES,
+    blocks: BLOCKS,
+    roundsPerBlock: ROUNDS_PER_BLOCK,
+  });
 
-  // Children run one at a time: benchmark processes in parallel contend for
-  // CPU and cache, which is fine for a rough screen and disqualifying for the
-  // number actually reported.
   // Progress is a redrawn line, so it's for a terminal only — in CI (where the
-  // run is captured into an artifact) it would be 30 lines of noise.
+  // run is captured into an artifact) it would be one line per target.
   const progress = (text: string) => process.stderr.isTTY && process.stderr.write(text);
-  let done = 0;
-  for (const [id, specTargets] of groups) {
-    progress(`\rperf ${++done}/${groups.length} ${id}${" ".repeat(20)}`);
-    const payload: ChildPayload = {
-      baseline: pathToFileURL(baselinePath).href,
-      current: pathToFileURL(currentPath).href,
-      targets: specTargets,
-      batchTargetNs: BATCH_TARGET_NS,
-      warmupBatches: WARMUP_BATCHES,
-      blocks: BLOCKS,
-      roundsPerBlock: ROUNDS_PER_BLOCK,
-    };
-    const out = execFileSync(process.execPath, ["--expose-gc", join(CACHE, "child.mjs")], {
-      input: JSON.stringify(payload),
-      encoding: "utf8",
-      maxBuffer: 1 << 26,
-      stdio: ["pipe", "pipe", "inherit"],
-    });
-    results.push(...(JSON.parse(out).results as ChildResult[]));
-  }
-  progress(`\r${" ".repeat(60)}\r`);
+
+  // One process per target, not one per spec. Every target then starts from an
+  // identical fresh heap, which is what makes a control able to calibrate the
+  // targets it stands in for — grouped by spec, controls ran last, measuring a
+  // heap that spec's creation targets had already churned. Targets run one at a
+  // time: benchmark processes in parallel contend for CPU and cache.
+  const measureAll = (list: Target[], label: string): ChildResult[] => {
+    const out: ChildResult[] = [];
+    let done = 0;
+    for (const target of list) {
+      progress(`\rperf ${label} ${++done}/${list.length} ${target.name}${" ".repeat(12)}`);
+      const raw = execFileSync(process.execPath, ["--expose-gc", childPath], {
+        input: JSON.stringify(payloadFor([target])),
+        encoding: "utf8",
+        maxBuffer: 1 << 26,
+        stdio: ["pipe", "pipe", "inherit"],
+      });
+      out.push(...(JSON.parse(raw).results as ChildResult[]));
+    }
+    progress(`\r${" ".repeat(78)}\r`);
+    return out;
+  };
+
+  const results = measureAll(targets, "measure");
 
   const targetByName = new Map(targets.map((t) => [t.name, t]));
   const measured = new Map<string, { phase: Phase; pct: number; median: number; batch: number }>();
@@ -373,9 +375,30 @@ export const runPerf = async (files: string[], against?: string): Promise<Perf> 
   const floorFor = (phase: Phase) => floors.find((f) => f.phase === phase)!.pct;
 
   const real = entries.filter(([name]) => !isControl(name));
-  const changed = real
+  const candidates = real
     .filter(([, m]) => Math.abs(m.pct) >= floorFor(m.phase))
-    .map(([name, m]) => ({ name, ...m }))
+    .map(([name, m]) => ({ name, ...m }));
+
+  // Everything that cleared its floor is measured again from scratch and kept
+  // only if the second run agrees on the direction — an independent
+  // confirmation, not a second sample to pool with the first. Averaging the two
+  // would be actively harmful: re-measuring only the large values and taking
+  // their mean pulls them toward it, damping a real regression exactly as much
+  // as a false one. The magnitude kept is the smaller of the two, for the same
+  // reason the interval bound is its conservative end. Only a handful of
+  // targets ever reach this pass, so it costs a second or two.
+  const confirmed = new Map<string, number>();
+  if (candidates.length)
+    for (const r of measureAll(candidates.map((c) => targetByName.get(c.name)!), "confirm"))
+      if ("ratios" in r) confirmed.set(r.name, conservativePct(r.ratios));
+
+  const changed = candidates
+    .flatMap((c) => {
+      const again = confirmed.get(c.name);
+      if (again === undefined || Math.sign(again) !== Math.sign(c.pct)) return [];
+      const pct = Math.sign(c.pct) * Math.min(Math.abs(c.pct), Math.abs(again));
+      return Math.abs(pct) >= floorFor(c.phase) ? [{ ...c, pct }] : [];
+    })
     .sort((a, b) => b.pct - a.pct);
 
   const cpu = cpus();
@@ -390,6 +413,6 @@ export const runPerf = async (files: string[], against?: string): Promise<Perf> 
     errors,
     meta:
       `node ${process.versions.node} · ${process.platform} ${process.arch} · ${cpu.length} cores · ` +
-      `${BLOCKS}×${ROUNDS_PER_BLOCK} rounds`,
+      `${BLOCKS}×${ROUNDS_PER_BLOCK} rounds · confirmed`,
   };
 };
