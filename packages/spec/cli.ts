@@ -26,7 +26,8 @@ import {
   checkSpec,
 } from "./harness";
 import { red, green, formatFailure } from "./report";
-import { summarize, type SpecChange, type BundleSizeChange } from "./summary";
+import { summarize, renderPerformance, type SpecChange, type BundleSizeChange } from "./summary";
+import { runPerf } from "./bench";
 
 // A script, not a library — nothing here is exported. Importing it (instead
 // of report.ts/harness.ts, which hold the testable logic) would silently run
@@ -66,7 +67,7 @@ Commands:
       example inputs, then run \`check --write\`.
       e.g. spec new --id string-min --ts "S.string.with(S.min, 3)"
 
-  check [id…] [--write]
+  check [id…] [--write] [--perf=skip|only] [--against <ref>]
       Gate: format-valid, canonical, skips valid, goldens fresh. Read-only
       by default. --write persists whatever's safely fixable, then prints
       what moved (instantiations, generated-code length, bundle size,
@@ -74,6 +75,13 @@ Commands:
       identity mismatch needs a fix first — resolve it, then re-run.
       bundleSize.yaml is whole-package, so only a full run (no [id…])
       checks or rewrites it.
+
+      Also measures schema creation, creation+compilation, and every
+      example, against the same library built from a git ref — reported
+      as a relative delta, never as a stored number, and never affecting
+      the exit code. --perf=skip drops it (the fast loop); --perf=only
+      runs it alone. --against defaults to the PR base under CI, else the
+      merge-base with main. Narrow with [id…] while editing one schema.
 
   format [id…]
       Rewrite to canonical form only — no golden recompute.
@@ -171,7 +179,43 @@ const cmdNew = async (): Promise<void> => {
   );
 };
 
-const WRITE_FLAG = "--write";
+const PERF_MODES = ["skip", "only"] as const;
+type PerfMode = (typeof PERF_MODES)[number] | "with";
+
+const parseCheckArgs = (argv: string[]): { write: boolean; perf: PerfMode; against?: string; ids: string[] } => {
+  let write = false;
+  let perf: PerfMode = "with";
+  let against: string | undefined;
+  const ids: string[] = [];
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]!;
+    if (a === "--write") write = true;
+    else if (a.startsWith("--perf=")) {
+      const value = a.slice("--perf=".length);
+      if (!(PERF_MODES as readonly string[]).includes(value))
+        fail(`--perf must be ${PERF_MODES.join(" or ")} (got ${JSON.stringify(value)}); omit it to check both`);
+      perf = value as PerfMode;
+    } else if (a === "--against") {
+      const value = argv[++i];
+      if (value === undefined) fail("--against requires a value");
+      against = value;
+    } else if (a.startsWith("--")) {
+      fail(`unknown flag ${JSON.stringify(a)} — see \`spec help\``);
+    } else ids.push(a);
+  }
+  return { write, perf, against, ids };
+};
+
+// A regression is never a failure: wall-clock is advisory, and a gate that
+// occasionally cries wolf is a gate nobody reads. A failure to *measure*
+// (unresolvable ref, bundle error) is a real error and does exit non-zero.
+const measurePerf = async (files: string[], against?: string): Promise<void> => {
+  try {
+    console.log(`\n${renderPerformance(await runPerf(files, against))}`);
+  } catch (e) {
+    fail(`performance: ${(e as Error).message}`);
+  }
+};
 
 // --write persists whatever's safely fixable (canonical form, stale goldens)
 // before checking, but deliberately doesn't require the spec to already be
@@ -181,9 +225,13 @@ const WRITE_FLAG = "--write";
 // before printing (not logged as each resolves) so concurrent per-file work
 // doesn't interleave the report output.
 const cmdCheck = async (): Promise<void> => {
-  const write = rest.includes(WRITE_FLAG);
-  const ids = rest.filter((a) => a !== WRITE_FLAG);
+  const { write, perf, against, ids } = parseCheckArgs(rest);
   let failed = 0;
+
+  // Splits the run in two for CI, where the goldens gate and the (advisory,
+  // comment-posting) perf report want different jobs and different exit
+  // semantics.
+  if (perf === "only") return measurePerf(targets(ids), against);
 
   // bundleSize.yaml measures the package's whole export surface, so it isn't a
   // spec and a narrowed run has nothing to say about it — reporting it stale
@@ -293,6 +341,11 @@ const cmdCheck = async (): Promise<void> => {
     bundleSizeChange,
   );
   if (summary) console.log(`\n${summary}`);
+
+  // After the goldens, so the report reads bottom-up as "what changed, then
+  // what it cost". Runs even when a check failed — a stale golden doesn't make
+  // the timing less interesting.
+  if (perf === "with") await measurePerf(targets(ids), against);
 
   if (failed) fail(`${failed} check(s) failed`);
 };
