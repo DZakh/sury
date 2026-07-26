@@ -1661,6 +1661,26 @@ test("Compiled operations stay per-operation and per-global-config", (t) => {
   t.expect(standard.validate(NaN)).toEqual(nanRejected);
 });
 
+// `~standard.validate` holds its decoder across calls, and compiling one is
+// exactly what a rejected conversion refuses to do — so the failure has to be
+// reached again on every call, not once. Cached ahead of the compile it would
+// leave nothing to call, and every request after the first would get a
+// TypeError out of `validate` in place of the issue it reports today.
+test("A conversion rejected at operation creation reports the same issue on every validate", (t) => {
+  const standard = S.boolean.with(S.to, S.number)["~standard"];
+  const rejected = {
+    issues: [
+      {
+        message: "Can't decode boolean to number. Use S.to to define a custom decoder",
+        path: undefined,
+      },
+    ],
+  };
+  t.expect(standard.validate(true)).toEqual(rejected);
+  t.expect(standard.validate(true)).toEqual(rejected);
+  t.expect(standard.validate(true)).toEqual(rejected);
+});
+
 test("Standard JSON Schema interface support", (t) => {
   const schema = S.schema({ foo: S.to(S.string, S.number) });
   const standard = schema["~standard"];

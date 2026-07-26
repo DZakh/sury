@@ -198,8 +198,13 @@ Object.defineProperty(schemaPrototype, "~standard", {
       validate: (input: unknown): StandardResult => {
         try {
           if (decoderFlag !== globalConfig.f) {
-            decoderFlag = globalConfig.f;
+            // Committed only once getDecoder returns: it throws for a schema
+            // whose operation is rejected at creation, and a flag committed
+            // ahead of it would leave `decoder` undefined while claiming to be
+            // current — turning every call after the first into a TypeError
+            // instead of the same Sury issue.
             decoder = getDecoder(unknown, schema) as (input: unknown) => unknown;
+            decoderFlag = globalConfig.f;
           }
           return {
             value: decoder(input),

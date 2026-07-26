@@ -280,6 +280,13 @@ export const reverse = (schema: Internal): Internal => {
 // Object.assign must not carry a memo onto a derived schema, where it would
 // hand back the original's compiled function; configurable because a schema
 // asked for a second operation redefines it.
+//
+// Only a key that is already in the cache is memoized, which is also what
+// keeps this correct against recursiveDecoder (operations.ts): it writes and
+// `delete`s the SAME key namespace on a `$defs` entry while recompiling under
+// a corrected assumption, but only while that key is absent — so nothing it
+// deletes can have been memoized here. A memo would survive such a delete and
+// keep handing back the discarded function.
 type OpMemo = {
   a: unknown[]; // the schema arguments, in order
   f: Flag;

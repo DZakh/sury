@@ -12,7 +12,7 @@ import { test, expect } from "vitest";
 import { conservativePct, deriveTargets, type Perf } from "../../spec/bench";
 import { renderPerformance } from "../../spec/summary";
 import { renderComment } from "../../spec/perfComment";
-import { listSpecFiles, specId } from "../../spec/harness";
+import { listSpecFiles, readScenarios, specId } from "../../spec/harness";
 
 const ratios = (...xs: number[]) => xs;
 
@@ -83,9 +83,16 @@ test("a scenario contributes one target built from its own prepare and run", () 
 
 test("scenarios are selected by name, so narrowing to a spec picks up none of them", () => {
   expect(targetsFor("string").targets.some((t) => t.phase === "scenario")).toBe(false);
-  expect(
-    deriveTargets([], []).targets.length,
-  ).toBe(0);
+  expect(deriveTargets([], []).targets.length).toBe(0);
+});
+
+// The unnarrowed case, which is what CI and a bare `pnpm spec check` run: no
+// scenario argument at all has to mean every scenario, not none — the same
+// omission that means every spec.
+test("omitting the scenario selection runs all of them", () => {
+  const real = deriveTargets([], undefined).targets.filter((t) => !t.control);
+  expect(real.map((t) => t.specId).sort()).toEqual(Object.keys(readScenarios()).sort());
+  expect(real.length).toBeGreaterThan(1);
 });
 
 test("an example expecting an error is marked as throwing, so it is measured in a try/catch", () => {

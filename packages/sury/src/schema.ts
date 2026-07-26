@@ -24,6 +24,14 @@ Schema.prototype = schemaPrototype;
 // prototype is what `new` picks and what Object.assign never copies, so a
 // derived schema falls back to computing its reverse, which is the right
 // answer: what was copied to be modified no longer reverses to itself.
+//
+// Getter only, deliberately: `schema.r = …` on one of these throws (strict
+// mode, no setter), which is the point — the reverse cache is written with
+// defineProperty everywhere it's written at all (parse.ts), and a plain
+// assignment would be shadowing a schema's own identity. Anything copying INTO
+// a self-reversing schema — `Object.assign(schema, …)` with an `r` in the
+// source — would throw for the same reason; copySchema assigns into a fresh
+// plain-prototype instance, which is why it doesn't.
 function SelfReverseSchema(this: Internal): void {}
 const selfReversePrototype: Record<string, unknown> = Object.create(schemaPrototype);
 Object.defineProperty(selfReversePrototype, "r", {
