@@ -1,23 +1,26 @@
 # unionNext — final one-shot rewrite plan
 
 Implementation plan for a from-scratch union factory (`unionNext`) that behaves
-exactly as `CODEC_NEXT_SPEC.md` describes. Built side-by-side with the existing
-`S.union`; nothing existing changes behavior until a later switchover PR
-replaces `unionFactory` with the new implementation and rewrites the
-`codec-*.yaml` goldens.
+exactly as `CODEC_NEXT_SPEC.md` describes. Delivered in two stages inside one
+effort: **Stage 1** builds `unionNext` side-by-side with `S.union` and iterates
+until the `codecnext-*` specs meet the spec doc; **Stage 2** replaces the
+`S.union` implementation with it, re-derives the existing goldens, and makes
+the whole test surface pass (updating tests whose expectations encoded the old
+rules).
 
 Non-functional targets, in the repo's priority order:
 
 1. **DX** — every spec rejection happens at operation creation with the
    spec's "Invalid operation … say what you mean" suggestions; runtime
    failures aggregate per-case errors under one union error.
-2. **Performance** — creation does one resolution pass with integer masks (no
-   Sets, no string-keyed dictionaries, no codegen-exception probing);
-   generated code is a flat dispatch chain whose exact shape is **decided
-   empirically** (see "Measure & iterate" below), not by intuition.
-3. **Bundle** — one new flat module reusing `B_*` helpers; net size is
-   measured at switchover when `unionDecoder`/`unionEncoder` + the five
-   `unionIs*`/`unionCan*` helpers (~350 lines of `composites.ts`) get deleted.
+2. **Performance** — resolution and emission are fused into two linear scans
+   over primitive integer arrays (no plan-object IR, no Sets, no
+   string-keyed dictionaries, no codegen-exception probing); generated-code
+   shape is **decided empirically** (see "Measure & iterate"), not by
+   intuition.
+3. **Bundle** — one new flat module reusing `B_*` helpers; Stage 2 deletes
+   `unionDecoder`/`unionEncoder` + the five `unionIs*`/`unionCan*` helpers
+   (~350 lines of `composites.ts`), where the net size win is measured.
 
 ## Settled semantics: universal case fallback
 
@@ -25,18 +28,16 @@ Non-functional targets, in the repo's priority order:
 decoding error inside the case body — passes the value to the next case.**
 Only when no case remains does the union throw, and that error aggregates the
 individual case errors (`unionErrors`, as today). This is the uniform rule for
-plain validation unions and for every conversion rule below; it subsumes the
-old design's separation of "type-narrow → dispatch cond" vs "refinement →
-committed body".
+plain validation unions and for every conversion rule below.
 
 Consequences:
 
 - A case's *selection condition* may absorb **all** of its cond-expressible
   checks (type narrows *and* refinements): since failure means "try the next
   case" anyway, `if(typeof i==="string"&&i.length>=3){...}else if(...)` is
-  both the semantics and the fastest emission. This also fixes the two
-  known bugs from IDEAS.md (fused type+refinement error, and same-type cases
-  with different refinements losing dispatch).
+  both the semantics and the fastest emission. This also fixes the two known
+  bugs from IDEAS.md (fused type+refinement error, and same-type cases with
+  different refinements losing dispatch).
 - Case bodies that can genuinely throw (embedded `BigInt(...)`, custom
   `S.to` coders, nested object field validation) get fallback routing —
   `try{}catch(eN){ <next case> }` or a cond rewrite where the failure is
@@ -61,36 +62,61 @@ choices, each of which the rewrite removes rather than patches:
    (`getArrItemsCode`, the `typeValidationOutput` probe). A creation-time
    `unsupported_decode` becomes a dropped variant, a per-value throwing
    branch, or an always-throwing operation — the exact three salvage modes
-   the spec forbids. unionNext resolves *before* any codegen; `parse` is only
-   invoked on variants the plan already accepted, and builder-time errors
-   propagate out of operation creation untouched.
-2. **Semantics and codegen are fused.** Which variant wins is an emergent
-   property of `byKey`/`byDiscriminant` string accumulation, so ordering bugs
-   (`codec-json-union2`'s dead `S.string` member, the `else if` re-testing its
-   own else) are unfixable locally. unionNext computes a semantic plan first
-   (ordered attempts per variant, with acceptance domains), then a grouping
-   pass that is *provably* behavior-preserving (spec: "grouping is codegen,
-   not semantics").
+   the spec forbids. unionNext decides viability from masks *before* calling
+   `parse`; builder-time errors propagate out of operation creation
+   untouched.
+2. **Semantics and codegen are fused with no semantic layer at all.** Which
+   variant wins is an emergent property of `byKey`/`byDiscriminant` string
+   accumulation, so ordering bugs (`codec-json-union2`'s dead `S.string`
+   member, the `else if` re-testing its own else) are unfixable locally.
+   unionNext fuses *phases* for speed (below) but keeps the semantic
+   decisions expressed as mask predicates that exist independently of any
+   emitted string.
 3. **Fallback is try/catch-shaped and partial.** `catch(e0){}` swallows
    everything a branch throws, not just the type miss it falls back from
    (`codec-string-union2-transformed` FIXME), while refinement failures in
    hoisted cases *don't* fall back at all. Universal fallback (above) is the
    single rule replacing both behaviors.
 
-## Architecture: three phases
+## Architecture: fused resolve+emit over two scans
+
+Per your call: resolution and emission are **fused** rather than staged
+through a plan-object IR — with one structural concession, a reverse
+*pre-scan* that only computes integers. Full single-pass fusion is impossible
+in principle: grouping legality and fallback elision for case *i* depend on
+whether any case *after i* can accept the same values, and the spec's
+rejections must be decided from the whole variant list. The cheapest complete
+lookahead is a reverse scan accumulating suffix masks — O(n) integer ops, no
+allocation beyond a few parallel arrays.
 
 ```
-unionNext(items)          — schema creation: flatten, dedupe, wire decoder/encoder
-UN_resolve(...)           — operation creation: rules 1–4 → Plan | throw
-UN_emit(plan, input)      — codegen: Plan → {pre, cond, body} branches → Val
+unionNext(items)                     — creation: flatten, dedupe, wire decoder/encoder
+UN_decoder / UN_encoder:
+  scan  (reverse, ints only)         — masks + suffix masks + ALL rule rejections
+  emit  (forward, fused decisions)   — grouping, fallback, elision decided inline
 ```
 
-New module `packages/sury/src/unionnext.ts`, flat `UN_`-prefixed top-level
-arrows (tree-shaking convention), importing only from `builder`, `types`,
-`tags`, `flags`, `path`, `schema`, `parse`. No imports from `composites.ts`
-(that's the module being replaced); the two needed pieces that currently live
-there (`typeCheckCond` is already in `parse.ts`; object-literal discriminant
-hoisting via `B_hoistChildChecks` is in `builder.ts`) are reachable without it.
+- **Reverse scan** — for each variant, compute and store into parallel
+  primitive arrays (structure-of-arrays; V8 keeps them PACKED_SMI —
+  faster and lighter than an array of plan objects):
+  - `mask[i]` — acceptance mask (own-tag bits + offered rep bits),
+  - `suffix[i]` — `mask[i+1] | suffix[i+1]` (what any *later* case accepts),
+  - `kind[i]` — dispatch class bit, plus an approximate-acceptance flag
+    (refined/structured cases whose accepted set is a strict subset of
+    their tags — approximation blocks elision, never enables it),
+  - literal consts in one parallel `consts` array for exact comparisons.
+  The same scan fires **every** rule rejection (partial match, rule 4
+  coverage, reachability) — pure mask predicates, so rejections cost no
+  codegen work and no emission ever starts for a rejected operation.
+- **Forward emit** — walks variants once, making the former "plan" decisions
+  inline from the arrays: group-merge legality (`mask[i] & interveningMask`),
+  fallback elision (`mask[i] & suffix[i]`), literal fusion (consts array),
+  building `{pre, cond, body}` for each case directly.
+
+Readability cost is real and contained: the two scans are two small named
+functions, the mask predicates carry the rule names, and the *readable*
+statement of the semantics lives in `CODEC_NEXT_SPEC.md` + the codec specs —
+which is where behavior is reviewed anyway.
 
 ### Phase 1 — creation: `unionNext(items: Internal[]): Internal`
 
@@ -100,21 +126,14 @@ hoisting via `B_hoistChildChecks` is in `builder.ts`) are reachable without it.
   inputRefiner === U` (today only `to` is checked; the missing conditions are
   the `codec-union-nested-refined-union` fix). An opaque union stays as one
   variant and type-matches by reference only.
-- Dedupe by reference in the same single pass (array scan, no `Set` — variant
-  counts are small and `Set` costs allocation plus megamorphic iteration).
+- Dedupe by reference in the same single pass (array scan, no `Set`).
 - Wire `decoder = UN_decoder`, `encoder = UN_encoder`, keep `has` exactly as
   today (its consumers — `isOptional`, reverse, jsonschema — stay untouched).
-- No other precomputation: resolution work belongs to operation creation,
+- No other precomputation: scan/emit work belongs to operation creation,
   which `getDecoder` already caches per schema pair, so creation stays O(n)
   with zero closures.
 
-### Phase 2 — resolution
-
-All spec checks live here, running against **derived** types: `UN_decoder`
-receives `input.s` (derived source) and `input.e` (the union); `UN_encoder`
-receives the union-typed `input` and the `target`.
-
-#### Type identity (spec "same type")
+### Type identity (spec "same type")
 
 ```ts
 UN_sameType = (a, b) =>
@@ -126,43 +145,88 @@ UN_sameType = (a, b) =>
 ```
 
 `S.json` is `refTag` ⇒ opaque ⇒ matches only itself. `S.unknown` matches only
-`unknown` (plain tag equality). Matching sides per spec: a source variant
-matches by `getOutputSchema(variant)`, a target variant by the variant itself
-(its input). A variant whose matching side is `never` is skipped everywhere:
-no exception triggering, no coverage counting, no emitted branch on the side
-where it is unreachable (`never.with(S.to, X)` as target), but a reachable
-`X.with(S.to, never)` arm still compiles to its explicit rejection branch.
+`unknown`. A source variant matches by `getOutputSchema(variant)`, a target
+variant by the variant itself (its input). A variant whose matching side is
+`never` is skipped everywhere: no exception triggering, no coverage counting,
+no emitted branch where it is unreachable (`never.with(S.to, X)` as target);
+a reachable `X.with(S.to, never)` arm still compiles to its explicit
+rejection branch.
 
-#### Acceptance model (drives rule 2/3, grouping legality, and fallback elision)
+### Gap-fill routing: offer table vs probing (context for the decision)
 
-Two integer masks over the existing `tagFlags` bits — all coverage,
-partial-match, and can-a-later-case-accept questions become integer ops:
+The one place rule 2 needs knowledge that lives nowhere today as data: when a
+target variant's tag is something the source *cannot produce*, which runtime
+representations are **offered** to that variant's built-in decoder?
 
-- `UN_producibleMask(schema)`: runtime tags the source's values can carry.
-  Own tag for concrete schemas; OR of variants for transparent unions; for
-  `S.json` the JSON value tags (string|number|boolean|null|object|array);
-  `unknown` ⇒ 0 (see below).
-- `UN_offerMask(variantSchema)`: which *foreign* runtime tags the built-in
-  decode into this variant is offered (gap filling). A small static table
-  mirroring today's decoders: `number|int32 ← string`, `bigint ← string`,
-  `boolean ← string`, `string ← number|boolean|bigint`, non-string literals ←
-  string (via `literalDecoder`'s string branch), `null ↔ undefined`, etc.
-  This table is the **only new routing knowledge** in the design — the actual
-  coercion code still comes from the existing decoder/encoder composition —
-  and every entry is pinned by a codec spec.
-  - Source-sensitive representations stay with the source, where they live
-    today: for an encoder-bearing source (`S.json`), the representation of a
-    non-producible target tag is defined by that encoder (bigint ⇒ string,
-    undefined ⇒ null). Resolution asks a tiny per-source hook
-    (`UN_repMask(source, variantTag)`; default = `UN_offerMask ∩
-    producible(source)`, json overrides) instead of probing codegen. This is
-    what keeps JSON numbers out of `BigInt` while JSON strings reach it.
-- A case's acceptance is refined past the mask by literal consts (exact
-  values) and marked *approximate* when refinements or nested structure make
-  it a strict subset of its tags — approximate acceptance can never justify
-  eliding a later case's fallback, only disjointness can.
+Worked example — `S.json.with(S.to, S.union([S.bigint, S.string]))`:
 
-#### The four rules as plan constructors
+```
+runtime value      producible      offered to S.bigint?      offered to S.string?
+─────────────────  by JSON? ─────  ────────────────────────  ─────────────────────
+"123"  (string)    yes             YES → BigInt("123")→123n  yes (as-is, fallback)
+"abc"  (string)    yes             yes → BigInt throws ↘     yes (as-is) → "abc"
+123    (number)    yes             NO                        no  → throw
+true   (boolean)   yes             no                        no  → throw
+```
+
+The decisive cell is `123 → S.bigint`: `bigintDecoder` **can** decode numbers
+(`BigInt(123)` — rule 1 uses it for `S.number.to(S.bigint)`), yet the spec
+demands JSON `123` throws. The reason is representational: JSON's encoding of
+a bigint *is a string* (that's what `jsonEncoderFn` emits), so only strings
+are offered. "Which tags represent X under this source" is source knowledge,
+not decoder knowledge.
+
+**Option A — static table (recommended).** Two integer functions:
+
+```
+UN_offerMask (source-agnostic, ~10 rows)   UN_repMask(source, variantTag)
+  bigint    ← string                         default: offerMask[tag] & producible(source)
+  number    ← string                         json override: bigint → string
+  int32     ← string                                        undefined → null
+  boolean   ← string                                        instance/date → string, …
+  string    ← number|boolean|bigint
+  literalᵗ  ← string   (t ∉ {string})
+  null      ← undefined
+  undefined ← null
+```
+
+Resolution reads two ints per variant. The table encodes **reachability
+only** — the emitted coercion still comes from calling the existing decoder
+composition (`parse` with `e = variant`, `s` = tag-narrow), so no conversion
+logic is duplicated, and every row is pinned by a codec spec (drift between
+table and decoders breaks a golden).
+
+**Option B — probing.** No table: at operation creation, for each
+(producible tag × gap variant) build a throwaway val narrowed to that tag,
+run `parse` toward the variant, and take "didn't throw" as membership:
+
+```
+probe(json → bigint):   string  → bigintDecoder ✓ → offered
+                        number  → bigintDecoder ✓ → offered   ← WRONG: 123 must throw
+                        boolean → unsupported ✗   → not offered
+```
+
+Two structural failures:
+
+1. **It answers the wrong question.** Decoder support = what *can* decode,
+   not what this source's representation *is*. `bigint ← number` probes as
+   supported but must not be offered under JSON — fixing that needs a
+   per-source exception, i.e. the table again, now wrapped in probing
+   machinery.
+2. **It can't tell "not offered" from "must reject".** The probe's ✗ is a
+   caught `unsupported_decode` — the exact salvage-catch the rewrite
+   removes. `boolean → union([string, symbol])` must reject the *whole
+   operation* (symbol has no path), while `json → union([bigint, string])`
+   must not reject although `bigint ← boolean` probes ✗. Telling those apart
+   inside catch handlers re-implements the reachability rule in a slower,
+   less debuggable place — plus each cold compile pays tag×variant `parse`
+   runs (val allocations, exception unwinds) versus two int reads.
+
+Hence the table, with the source-owned `repMask` hook keeping json's
+representation knowledge on the json schema where it already lives (its
+encoder) — as plan-time data instead of a runtime probe.
+
+### The four rules as scan predicates
 
 Let `M` = non-never target variants with `UN_sameType(source, variant)`.
 
@@ -171,137 +235,106 @@ Let `M` = non-never target variants with `UN_sameType(source, variant)`.
   delegates to it per variant.
 - **Rule 2 (non-union → union)** — in `UN_decoder` when `input.s` is not a
   transparent union:
-  - `0 < |M| < |variants∖never|` ⇒ throw `invalid_operation` with the spec's
-    two suggested rewrites in the message.
-  - `M = all` ⇒ ordered attempts, each variant's pipeline starting from the
-    as-is source value (transformed variants run their own `.to`; plain ones
-    pass through). Universal fallback chains the attempts.
+  - `0 < |M| < |variants∖never|` ⇒ `invalid_operation` with the spec's two
+    suggested rewrites in the message.
+  - `M = all` ⇒ ordered attempts from the as-is source value (transformed
+    variants run their own `.to`); universal fallback chains them.
   - `M = ∅` ⇒ gap decoding: each variant accepts (a) values of its own tag
-    when that tag ∈ producible(source) — as-is, validate only — and (b)
-    values of its `UN_repMask` tags — via built-in decode. Attempts in
-    definition order with universal fallback (this yields
-    `codec-number-union2-int32`: int32 range-check first, `""+i` next; and
-    `codec-json-union2`: literal, then BigInt attempt, then string
-    catch-all). `unknown` source: producible = 0, so every variant is pure
-    gap — as-is for its own tag *plus* offered decodes — reproducing
-    `codec-unknown-union2` ("123" → 123n).
+    when that tag ∈ producible(source) — as-is, validate only — and (b) its
+    `UN_repMask` tags via built-in decode. Definition order + universal
+    fallback (yields `codec-number-union2-int32`: int32 range-check then
+    `""+i`; `codec-json-union2`: literal, BigInt attempt, string catch-all).
+    `unknown` source: producible = 0 ⇒ every variant pure gap — own tag
+    as-is *plus* offered decodes — reproducing `codec-unknown-union2`
+    ("123" → 123n).
   - Reachability: a non-never variant with own-tag ∉ producible and
-    `UN_repMask = 0` has no consuming path ⇒ the whole operation throws
-    `unsupported_decode` ("Can't decode X to Y…"). No dropping, no per-value
-    throw branch, no always-throwing op — fixes the three
+    `UN_repMask = 0` ⇒ whole operation throws `unsupported_decode`. No
+    dropping, no per-value throw branch, no always-throwing op — the three
     `codec-bool-union2*` / `codec-union2-string-unsupported` rows.
 - **Rule 3 (union → non-union)** — in `UN_encoder`: match each source
   variant's output type against the target. Partial ⇒ `invalid_operation`
-  with the two rewrites. Otherwise **rewrite**: return a val whose expected
-  schema is the source union with `variant.to(target)` appended per variant
-  (the `unionPerVariantVal` trick, kept — it makes rule 3 literally the
-  rewrite the error message suggests), then let `UN_decoder` compile the
-  dispatch. Any variant pair without a built-in decoder rejects the whole
-  operation at this point, because `parse` on an accepted plan no longer runs
-  under a salvage catch.
+  with the two rewrites. Otherwise **rewrite**: source union with
+  `variant.to(target)` appended per variant (the `unionPerVariantVal` trick,
+  kept — rule 3 literally becomes the rewrite its error suggests), then
+  `UN_decoder` compiles the dispatch. A variant pair without a built-in
+  decoder rejects the whole operation here, because accepted plans run
+  `parse` with no salvage catch.
 - **Rule 4 (union → union)** — in `UN_encoder` when the target is a
-  (transparent) union: build the matching at plan time — for each source
-  variant (by output type), the *first* same-type target variant in
-  definition order; unmatched `null`/`undefined` bridge to the opposite
-  nullish variant even if that one already has a same-type match (runtime
-  same-type wins; the bridge branch only exists where there is no same-type
-  source). Coverage must hold both ways over non-never variants, else
-  `invalid_operation` naming the uncovered variant. Then rewrite per source
-  variant: matched plain target ⇒ pass-through (type check only — exhaustive
-  validation is preserved because every branch still carries its check and
-  the final `else` throws); matched transformed target ⇒ append that
-  variant's `.to` pipeline; bridge ⇒ const swap (`i=null` / `i=void 0`).
-  Resolution is a pure function of (source variants by output, target
-  variants by input); `reverse` maps those two sets into each other, so
-  compiling the reversed schema yields the mirrored plan — the spec's
-  "reversing doesn't re-run the checks" holds observably, and both directions
-  get pinned by specs.
+  transparent union: for each source variant (by output type), the *first*
+  same-type target variant in definition order; unmatched `null`/`undefined`
+  bridge to the opposite nullish variant even if that one already has a
+  same-type match (runtime same-type wins; the bridge branch exists only
+  where there is no same-type source). Coverage must hold both ways over
+  non-never variants, else `invalid_operation` naming the uncovered variant.
+  Rewrite per source variant: matched plain target ⇒ pass-through (type
+  check only — exhaustiveness preserved by the final `else`); matched
+  transformed target ⇒ append that variant's `.to` pipeline; bridge ⇒ const
+  swap (`i=null` / `i=void 0`). Matching is a pure function of (source
+  variants by output, target variants by input); `reverse` maps those sets
+  into each other, so compiling the reversed schema yields the mirrored
+  plan — the spec's "reversing doesn't re-run the checks" holds observably,
+  pinned by specs in both directions.
 
-The plan is an array of monomorphic records (single hidden class, fields
-always initialized in canonical order, integer/enum fields — no
-`string | string[]` unions like today's `byDiscriminant`):
-
-```ts
-type UN_Attempt = {
-  v: Internal;   // variant (with .to appended by rules 3/4 rewrites)
-  m: number;     // acceptance mask: own-tag bit(s) + offered rep bits
-  k: number;     // dispatch class bit (typeof group) or 0 for opaque
-  c: unknown;    // literal const, U otherwise (exact acceptance)
-  x: boolean;    // acceptance is approximate (refined/structured subset)
-};
-```
-
-### Phase 3 — codegen: `UN_emit`
+### Emit (forward walk)
 
 Branch IR anticipated by the `B_isHoistable` comment — `{pre, cond, body}`:
 
 - `pre` — producer statements a discriminant reads (`let v0=+i;`), emitted
   *before* the cond inside the owning branch of the outer chain, never
-  hoisted across it. This dissolves the `str->to(option(int))` bug class by
-  construction instead of guarding it with `B_isHoistable`.
+  hoisted across it. Dissolves the `str->to(option(int))` bug class by
+  construction.
 - `cond` — the case selection condition: type narrows *plus* every
   cond-expressible check of the case (universal fallback makes refinements
   selection criteria, not committed asserts), built from `typeCheckCond`
   atoms, literal `===` conds, and lifted `Check.c` conds (reusing
-  `B_merge(~hoistCond)` on the case's val chain, now without the
-  type-narrow-only partition).
+  `B_merge(~hoistCond)` without the type-narrow-only partition).
 - `body` — the case pipeline merged from its val chain (`parse` on a val
   with `e = variant`, `s` = tag-narrow of the group, `u = true`), including
   object-literal discriminant hoisting via `B_hoistChildChecks` so
-  discriminated-union codegen keeps its current `i["kind"]==="a"` shape.
+  discriminated-union codegen keeps its `i["kind"]==="a"` shape.
 
-Emission rules:
+Emission rules (decisions read straight off the scan arrays):
 
-1. **Grouping pass (legality-checked).** Walk attempts in definition order;
-   an attempt may merge into an earlier group with the same dispatch class
-   iff no attempt between them intersects its acceptance (mask intersection,
-   literal consts exact, approximate acceptance counts as intersecting).
-   Same-tag literals fuse into one
-   `typeof i==="string"&&(i==="a"||i==="b")` cond; an illegal hoist (string
-   catch-all past bigint-from-string) stays in its definition slot, and when
-   the same `typeof` is tested in more than one slot it is materialized once
-   into a var and reused (spec's "repeated typeof is reused from a var").
-2. **Fallback routing (universal).** A non-final attempt whose failure
-   points are all `Check`s folds them into its selection cond — the failing
-   value simply doesn't select the case. Bodies with embedded throwing code
-   get `try{}catch(eN){ <route to next candidate> }`; the catch never
-   swallows terminally — when no candidate remains it feeds `eN` into the
-   aggregated union error.
-3. **Fallback elision.** When the acceptance masks prove no later case
-   intersects this case's accepted set, emit the body's failures as direct
-   throws with their precise errors (no try/catch, no re-dispatch) — the
-   discriminated-union fast shape. Elision is decided per failure point from
-   the plan, never by probing.
+1. **Grouping.** A case merges into an earlier same-class group iff no case
+   between them intersects its acceptance (mask `&`, literal consts exact,
+   approximate acceptance counts as intersecting). Same-tag literals fuse
+   into `typeof i==="string"&&(i==="a"||i==="b")`; an illegal hoist (string
+   catch-all past bigint-from-string) stays in its definition slot; a
+   `typeof` tested in more than one slot materializes once into a var.
+2. **Fallback routing (universal).** A non-final case whose failure points
+   are all `Check`s folds them into its selection cond. Bodies with embedded
+   throwing code get `try{}catch(eN){ <next candidate> }`; a terminal catch
+   feeds `eN` into the aggregated union error, never swallows.
+3. **Fallback elision.** `mask[i] & suffix[i] === 0` ⇒ no later case can
+   accept ⇒ body failures emit as direct throws with precise errors (the
+   discriminated-union fast shape). Decided per failure point from the
+   arrays, never by probing.
 4. **Exhaustive close.** Final `else` throws the aggregated union error via
    one embedded fail fn (`expected` = the union, collected `eN` case errors
-   as `unionErrors`) — same UX as today, one embed slot.
-5. **Refiners.** `B_markOutput` semantics per CLAUDE.md: the union's
-   `inputRefiner` checks attach once to the pre-dispatch val; the `refiner`
+   as `unionErrors`).
+5. **Refiners.** Per CLAUDE.md `B_markOutput` semantics: the union's
+   `inputRefiner` checks attach once to the pre-dispatch val; `refiner`
    wraps the *joined* output val once after the chain (not per-case as the
-   current `appendUnionRefiners` FIXME does — one emit site, smaller code).
-   Async: if any branch is async the joined val is async and output checks
-   run inside `.then` on the resolved value, never on the Promise.
-6. **Async join** as today: mark output async when any branch is; sync
-   branches' results unify through `Promise.resolve` at the join only when
-   needed.
-7. **Static shortcuts** (replacing today's tier-1/self-decode special
-   cases): source is the union itself with no transforms ⇒ identity; source
-   is a literal const ⇒ resolve the winner statically at creation and emit
-   only the plausible attempt prefix (constant folding — strictly better than
-   today's reorder hack); target union already validated (`io && s === e`) ⇒
-   identity.
+   current `appendUnionRefiners` FIXME does). Async output checks run inside
+   `.then` on the resolved value, never on the Promise.
+6. **Async join** as today: joined val async when any branch is; sync
+   results unify through `Promise.resolve` only when needed.
+7. **Static shortcuts** (replacing tier-1/self-decode special cases): source
+   is the union itself with no transforms ⇒ identity; literal-const source ⇒
+   resolve the winner statically and emit only the plausible attempt prefix;
+   already-validated target (`io && s === e`) ⇒ identity.
 
-Deliberately ported behaviors (each gets a spec case so the port is pinned):
-`fromDefault` skipping the undefined variant; issue #150 nested-option
-ordering (`BS_PRIVATE_NESTED_SOME_NONE` priority); NaN-before-number and
-instance/array-before-object priority ordering; `noValidation` interaction
-(the literal-in-union `noValidation` dispatch hole from IDEAS.md is rejected
-at creation rather than silently miscompiled).
+Deliberately ported behaviors (each pinned by a spec case): `fromDefault`
+skipping the undefined variant; issue #150 nested-option ordering
+(`BS_PRIVATE_NESTED_SOME_NONE` priority); NaN-before-number and
+instance/array-before-object priority; `noValidation` interaction (the
+literal-in-union `noValidation` dispatch hole from IDEAS.md is rejected at
+creation rather than silently miscompiled).
 
 ## Measure & iterate (how "better" gets decided)
 
-Implementation shape questions are settled by measurement, not argument. The
-loop, run after each candidate lands:
+Implementation shape questions are settled by measurement. The loop, run
+after each candidate lands:
 
 ```bash
 pnpm spec check --write            # codegen goldens + instantiations + whole-package bundle size
@@ -310,8 +343,7 @@ pnpm --filter=sury bench           # vitest bench (tests/*.bench.ts)
 ```
 
 **Temporary bench file** `packages/sury/tests/unionnext.bench.ts` (same
-harness as `sury.bench.ts`, imports `../src/S.mjs`), covering both sides of
-the cost model:
+harness as `sury.bench.ts`, imports `../src/S.mjs`):
 
 - *Creation/compile (cold):* `unionNext([...])` factory alone;
   `S.parser(makeUnion())` for — 2-variant primitive union, 5-variant
@@ -320,122 +352,135 @@ the cost model:
   (`optional → nullable`) conversions. Each with an `S.union` baseline where
   the old implementation supports the shape.
 - *Runtime (hot):* compiled parse hitting first / middle / last case;
-  fallback-heavy input (value that fails N-1 cases before matching);
-  miss (aggregated error path); discriminated object dispatch; the two
-  existing `sury.bench.ts` union benches replicated on unionNext.
+  fallback-heavy input (fails N-1 cases before matching); miss (aggregated
+  error path); discriminated object dispatch; the two existing
+  `sury.bench.ts` union benches replicated on unionNext.
 
-Candidate axes to A/B through the loop (each is a localized emission or
-resolution strategy, so variants are cheap to swap):
+Candidate axes to A/B through the loop:
 
 - **D1 — fallback mechanism:** checks folded into selection conds vs
-  `try/catch` routing for borderline cases (e.g. cheap-but-many refinement
-  conds); measures runtime on fallback-heavy inputs + bundle delta.
+  `try/catch` routing for borderline cases; runtime on fallback-heavy inputs
+  + bundle delta.
 - **D2 — dispatch skeleton:** flat `if/else if` on `typeof` conds vs a
-  materialized `typeof` var vs `switch(typeof i)`; measures hot dispatch and
-  generated-code size across 2/5/10-variant unions.
+  materialized `typeof` var vs `switch(typeof i)`; hot dispatch + code size
+  across 2/5/10-variant unions.
 - **D3 — literal fusion shape:** `i==="a"||i==="b"` chains vs `switch` on
-  the value for enum-like unions past ~N literals; find N empirically.
-- **D4 — resolution representation:** integer-mask plan records vs direct
-  schema rescans per question; measures cold compile time (`create+parse`)
-  and factory allocation.
+  the value past ~N literals; find N empirically.
+- **D4 — scan representation:** parallel Smi arrays vs direct schema rescans
+  per question; cold compile (`create+parse`) and factory allocation.
 - **D5 — fallback elision aggressiveness:** always-aggregate vs
-  direct-throw-when-provably-terminal; measures error-path cost and codegen
-  size on discriminated unions (goldens make the DX difference reviewable).
+  direct-throw-when-provably-terminal; error-path cost + codegen size on
+  discriminated unions (goldens make the DX difference reviewable).
 
-Decision rule per axis, in repo priority order: (1) DX — goldens must stay
-readable and errors precise (spec check diff is the review artifact); (2)
+Decision rule per axis, in repo priority order: (1) DX — goldens readable,
+errors precise (spec check diff is the review artifact); (2)
 generated-operation runtime, then cold compile time; (3) whole-package
 bundle size from `bundleSize.yaml`. Iterate until no axis has a strictly
-better candidate; record the losing variants' numbers in the PR description
-so the choices are auditable. The temporary bench file is deleted at the end
-of the loop; any bench that proved decision-relevant graduates into
-`sury.bench.ts`'s union section instead.
+better candidate; record losing variants' numbers in the PR description. The
+temporary bench file is deleted at the end; decision-relevant benches
+graduate into `sury.bench.ts`'s union section.
 
-## V8 / perf tactics (creation path)
+## V8 / perf tactics
 
-- Every `Val` keeps the canonical field order (reuse `B_next`/`B_refine`/
-  `B_scope` exclusively — no new val shapes).
-- Plan records monomorphic (one hidden class), attempts stored in plain
-  arrays indexed by integers; tag sets are ints (`tagFlags`), so partial
-  match, coverage, grouping legality, and fallback elision are `&`/`===` on
-  Smis.
+- Every `Val` keeps the canonical field order (`B_next`/`B_refine`/`B_scope`
+  exclusively — no new val shapes).
+- Scan data as parallel primitive arrays (PACKED_SMI), decisions as `&`/
+  `===` on Smis; no plan-object allocation at all.
 - No string-keyed accumulation objects in the emit loop (today's
   `byKey`/`byDiscriminant` go dictionary-mode); string building stays `+`
-  (V8 rope strings), conds reuse the memoized `typeofCond` closures.
-- No `try/catch` around `parse` at creation (removes hidden exception-path
-  cost and the salvage semantics in one move); resolution never calls
-  `parse` for skipped/never variants at all, where today every variant pays
-  a `B_scope` + narrow + probe.
+  (rope strings); conds reuse memoized `typeofCond` closures.
+- No `try/catch` around `parse` at creation; `parse` never runs for
+  skipped/never variants, where today every variant pays a `B_scope` +
+  narrow + probe.
 
-## Wiring
+## Stage 1 — unionNext until codecnext meets the spec
 
-- `src/unionnext.ts` — the module (factory + resolver + emit).
-- `src/entry.ts` — `export { unionNext } from ...` plus a `js_unionNext` in
-  `jsapi.ts` mapping raw definitions through `definitionToSchema` (same shape
-  as `js_union`).
-- `src/S.d.mts`/`S.d.ts` — `unionNext` typed identically to `union`.
-- `packages/sury/tests/unionnext.bench.ts` — temporary, deleted after the
-  iteration loop (winners graduate to `sury.bench.ts`).
-- No `S.res` binding yet (JS-first experimental surface); no changes to
-  `optionFactory`/`js_optional`/`js_nullable` until switchover.
+Wiring:
 
-## Spec coverage (the deliverable gate)
+- `src/unionnext.ts` — the module (factory + fused scan/emit).
+- `src/entry.ts` — `export { unionNext }`; `js_unionNext` in `jsapi.ts`
+  mapping raw definitions through `definitionToSchema` (same shape as
+  `js_union`); `S.d.mts`/`S.d.ts` typing identical to `union`.
+  `S.unionNext` is explicitly temporary — it exists only until Stage 2.
+- `packages/sury/tests/unionnext.bench.ts` — temporary (deleted at loop
+  end).
+- No `S.res` binding; no changes to `optionFactory`/`js_optional`/
+  `js_nullable` yet. Mixed old/new unions in one pipeline are out of scope
+  during Stage 1 (old `unionEncoder` behavior applies; new specs use
+  pure-unionNext spellings) — the question dissolves at Stage 2.
 
-New `specs/codecnext-*.yaml` authored with `pnpm spec new`, written with
-explicit `S.unionNext([...])` spellings (optional/nullable spelled as
-`S.unionNext([X, undefined])` / `[X, null]` since the option factories still
-build old unions):
+Spec gate — new `specs/codecnext-*.yaml` authored with `pnpm spec new`,
+using explicit `S.unionNext([...])` spellings (optional/nullable spelled
+`S.unionNext([X, undefined])` / `[X, null]`):
 
-1. One spec per row of `CODEC_NEXT_SPEC.md`'s behavior-change table (15 rows)
-   asserting the *new* expected outcome, including `creationError` goldens
-   for every rejection with the suggested-rewrite text.
-2. Mirrors of the 16 already-conformant codec specs, proving parity or better
-   codegen (the tracked FIXME codegen bugs — dead `else if` re-test,
-   catch-all swallow — must be gone in the unionNext goldens).
+1. One spec per row of `CODEC_NEXT_SPEC.md`'s behavior-change table (15
+   rows), including `creationError` goldens with the suggested-rewrite text.
+2. Mirrors of the 16 already-conformant codec specs, proving parity or
+   better codegen (the tracked FIXME bugs — dead `else if` re-test,
+   catch-all swallow — must be gone).
 3. Plain-union parity specs mirroring `union2`, `union5`,
-   `union5-discriminated` — generated code must match or beat the current
-   goldens where semantics are unchanged (this is the "generated operation
-   most optimal" ratchet), plus **universal-fallback specs** that pin the new
-   semantics: refined same-type cases falling through
-   (`unionNext([string.with(min,3), number, string])`), decode-error
-   fall-through, and a discriminated union showing elided fallback keeps the
-   precise per-case error.
-4. Both directions everywhere `eq-to-parse` doesn't hold, pinning the
-   reverse-symmetry claim of rule 4.
+   `union5-discriminated` — match or beat current goldens where semantics
+   are unchanged — plus **universal-fallback specs**: refined same-type
+   cases falling through (`unionNext([string.with(min,3), number,
+   string])`), decode-error fall-through, and a discriminated union showing
+   elided fallback keeps the precise per-case error.
+4. Both directions wherever `eq-to-parse` doesn't hold (rule 4 reverse
+   symmetry).
 
-`pnpm spec check --write` after implementation; the metrics summary
-(instantiations, codegen, bundle) is part of the commit message.
-`bundleSize.yaml` will show a temporary whole-package increase while both
-unions ship — called out as expected, netted out at switchover.
+Stage 1 exit: every codecnext golden matches the spec doc, bench loop done.
+`bundleSize.yaml` shows a temporary whole-package increase while both unions
+ship — called out as expected in the Stage 1 commit.
 
-## One-shot execution order
+## Stage 2 — switchover: `S.union` becomes unionNext
 
-1. `unionnext.ts`: identity + masks + offer table (`UN_sameType`,
-   `UN_producibleMask`, `UN_offerMask`, `UN_repMask`).
-2. Resolver: rule 2 plan builder, rules 3/4 rewrites, all rejection
-   messages, acceptance/approximation marking.
-3. Emit: `{pre, cond, body}` chain, grouping pass, universal fallback with
+1. Point `unionFactory` at the unionNext implementation so every internal
+   builder routes through it: `js_union`, `js_optional`, `js_nullable`,
+   `nullish`, `enum`, `optionFactory`/`nestedOption`, `valGet`'s dict-key
+   option, the `S.json` def, `operations.ts`'s output-union rebuilds.
+2. Delete the old cluster: `unionDecoder`, `unionEncoder`,
+   `unionIsSelfDecodeNoop`, `unionIsWiderSchema`, `unionGetToPerCase`,
+   `unionCanDispatchPerVariant`, `unionIsPriority` (and `unionToKey` if the
+   new emit doesn't reuse it). This is where the bundle-size win lands.
+3. Re-derive all goldens: `pnpm spec check --write` — the 15
+   behavior-change rows change per the spec table (their `FIXME: Codec next
+   expects:` notes come off), the 16 conformant specs must stay flat or
+   improve, all non-codec specs (`union2`, `union5`, `union5-discriminated`,
+   `object*`, option/nullable-touching specs) must stay flat or improve.
+4. Full gates green: `pnpm test` (the 107 ReScript test files via vitest —
+   `S_union_test.res`, `S_option_test.res`, `S_nullable_test.res`,
+   `S_to_test.res`, `S_union_optionInObject_test.res`,
+   `S_union_nestedOptionAndVariant_test.res` are the likely hot spots),
+   `pnpm --filter=e2e test` (genType/ppx), `pnpm compliance` (JSON-Schema
+   suite), `pnpm lint:deadcode`. Tests whose expectations encoded old rules
+   (dropped-variant salvage, non-fallback refinements, partial-match
+   acceptance) are updated to the spec semantics — each update cites the
+   spec rule it follows.
+5. Fold `codecnext-*` back: rows that mirror an existing `codec-*` spec are
+   deleted in favor of the (now-correct) original; net-new coverage
+   (universal fallback, creation errors) is renamed into `codec-*`.
+   `docs/*-usage.md` union/conversion sections update per the spec doc's
+   "this file replaces it once the implementation lands".
+6. Remove the temporary `S.unionNext`/`js_unionNext` export and d.ts entry;
+   final metrics summary (instantiations, codegen, bundle — now net of the
+   deleted old cluster) goes in the commit/PR.
+
+## Execution order
+
+1. `unionnext.ts`: identity + masks (`UN_sameType`, `UN_producibleMask`,
+   `UN_offerMask`, `UN_repMask`).
+2. Reverse scan: parallel arrays, suffix masks, all rejections (rules 2–4 +
+   reachability), acceptance approximation.
+3. Forward emit: `{pre, cond, body}`, grouping, universal fallback with
    elision, refiner/async join, static shortcuts.
-4. Factory + wiring (`entry.ts`, `jsapi.ts`, `S.d.mts`).
-5. Author specs (table rows first — they define done), `pnpm spec check
-   --write`, iterate until every expected behavior and rejection matches the
-   spec doc.
-6. Add `tests/unionnext.bench.ts`; run the measure-&-iterate loop over axes
-   D1–D5 until no candidate improves; fold winners in, delete the temp
-   bench, graduate the useful cases into `sury.bench.ts`.
-7. Ported-behavior specs + parity specs, final metrics review, commit with
-   the spec-check summary and the bench comparison table.
+4. Factory + Stage 1 wiring.
+5. Author codecnext specs (behavior-change table first — it defines done);
+   `pnpm spec check --write`; iterate to conformance.
+6. Bench loop over D1–D5; fold winners; delete temp bench.
+7. Stage 2: switchover steps 1–6 above.
 
-## Remaining open questions (recommendation first)
+## Open question
 
-1. **Offer/rep table vs probing.** Recommended: the static table (this
-   plan). Alternative — deriving representations by symbolically running
-   source encoders — avoids the table but reintroduces codegen-time
-   discovery, the root cause being removed. The table is ~10 entries and
-   fully spec-pinned.
-2. **Mixed old/new unions in one pipeline** (old `S.optional` source into a
-   `unionNext` target). Recommended: out of scope; old `unionEncoder`
-   behavior applies until switchover, and new specs use pure-unionNext
-   spellings. Documenting this beats half-supporting it.
-3. **Public name.** `S.unionNext` as a temporary documented-as-experimental
-   export, removed at switchover when `S.union` adopts the implementation.
+**Offer/rep table vs probing** — recommended: the static table, per the
+context section above (probing answers decoder capability, not source
+representation, and cannot distinguish "not offered" from "must reject"
+without re-introducing salvage catches). Confirm and it's settled.
