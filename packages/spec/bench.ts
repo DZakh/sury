@@ -12,7 +12,7 @@
 // reports the largest delta they produce as that run's noise floor. So a report
 // states its own confidence instead of needing a separate calibration command,
 // and nothing below that floor is shown.
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { cpus } from "node:os";
 import { dirname, join } from "node:path";
@@ -27,8 +27,12 @@ const CACHE = here("./.bench-cache/");
 const SURY_SRC = "packages/sury/src";
 
 // Long enough that the two clock reads bracketing a batch are noise rather
-// than signal (~25ns each against a 1ms batch).
-const BATCH_TARGET_NS = 1_000_000;
+// than signal: ~25ns each against a 500µs batch is under 0.01%, which leaves
+// no reason to pay for a longer one — and batches are the bulk of a run.
+const BATCH_TARGET_NS = 500_000;
+// Half the cores for the screening pass, so processes overlap without every
+// one fighting for a core. A two-core CI runner falls back to serial.
+const SCREEN_JOBS = Math.max(1, Math.floor(cpus().length / 2));
 const WARMUP_BATCHES = 20;
 // Confidence comes from the BLOCK count, not the round count: the interval
 // spans every block, so a delta is reported only when all of them independently
@@ -316,92 +320,101 @@ export const runPerf = async (files: string[], against?: string): Promise<Perf> 
   // run is captured into an artifact) it would be one line per target.
   const progress = (text: string) => process.stderr.isTTY && process.stderr.write(text);
 
-  // One process per target, not one per spec. Every target then starts from an
-  // identical fresh heap, which is what makes a control able to calibrate the
-  // targets it stands in for — grouped by spec, controls ran last, measuring a
-  // heap that spec's creation targets had already churned. Targets run one at a
-  // time: benchmark processes in parallel contend for CPU and cache.
-  const measureAll = (list: Target[], label: string): ChildResult[] => {
+  const runChild = (target: Target): Promise<ChildResult[]> =>
+    new Promise((resolve, reject) => {
+      const child = spawn(process.execPath, ["--expose-gc", childPath], { stdio: ["pipe", "pipe", "inherit"] });
+      let out = "";
+      child.stdout.setEncoding("utf8");
+      child.stdout.on("data", (chunk) => (out += chunk));
+      child.on("error", reject);
+      child.on("close", (code) =>
+        code === 0
+          ? resolve(JSON.parse(out).results as ChildResult[])
+          : reject(new Error(`measuring ${target.name} exited with ${code}`)),
+      );
+      child.stdin.end(JSON.stringify(payloadFor([target])));
+    });
+
+  // One process per target, so every target starts from an identical fresh
+  // heap: grouped by spec, targets inherited whatever the previous one left
+  // behind, which mattered most for the creation targets that churn it hardest.
+  const measureAll = async (list: Target[], label: string, jobs: number): Promise<ChildResult[]> => {
     const out: ChildResult[] = [];
+    let next = 0;
     let done = 0;
-    for (const target of list) {
-      progress(`\rperf ${label} ${++done}/${list.length} ${target.name}${" ".repeat(12)}`);
-      const raw = execFileSync(process.execPath, ["--expose-gc", childPath], {
-        input: JSON.stringify(payloadFor([target])),
-        encoding: "utf8",
-        maxBuffer: 1 << 26,
-        stdio: ["pipe", "pipe", "inherit"],
-      });
-      out.push(...(JSON.parse(raw).results as ChildResult[]));
-    }
+    const worker = async (): Promise<void> => {
+      for (let i = next++; i < list.length; i = next++) {
+        out.push(...(await runChild(list[i]!)));
+        progress(`\rperf ${label} ${++done}/${list.length}${" ".repeat(12)}`);
+      }
+    };
+    await Promise.all(Array.from({ length: Math.max(1, Math.min(jobs, list.length)) }, worker));
     progress(`\r${" ".repeat(78)}\r`);
     return out;
   };
 
-  const results = measureAll(targets, "measure");
+  const real = targets.filter((t) => !t.control);
+  const controls = targets.filter((t) => t.control);
 
-  const targetByName = new Map(targets.map((t) => [t.name, t]));
-  const measured = new Map<string, { phase: Phase; pct: number; median: number; batch: number }>();
   const added: string[] = [];
   const errors: { name: string; error: string }[] = [];
-  for (const r of results) {
-    if ("error" in r) errors.push({ name: r.name, error: r.error });
-    else if ("unsupported" in r) added.push(r.name);
-    else
-      measured.set(r.name, {
-        phase: targetByName.get(r.name)!.phase,
-        pct: conservativePct(r.ratios),
-        median: medianOf(r.ratios),
-        batch: r.batch,
-      });
-  }
+  const collect = (results: ChildResult[]) => {
+    const map = new Map<string, { pct: number; median: number; batch: number }>();
+    for (const r of results) {
+      if ("error" in r) errors.push({ name: r.name, error: r.error });
+      else if ("unsupported" in r) added.push(r.name);
+      else map.set(r.name, { pct: conservativePct(r.ratios), median: medianOf(r.ratios), batch: r.batch });
+    }
+    return map;
+  };
 
-  const entries = [...measured];
-  const isControl = (name: string) => name.startsWith(`control${SEP}`);
+  // Screening runs in parallel. Contention makes it noisier, but noise only
+  // widens an interval — it can hide a regression, never invent one — and
+  // everything that survives is re-measured serially below. The bar here is
+  // deliberately the loosest one, since a false candidate costs a second and a
+  // missed one is gone for good.
+  const screened = collect(await measureAll(real, "measure", SCREEN_JOBS));
+  const candidates = real.filter((t) => Math.abs(screened.get(t.name)?.pct ?? 0) >= MIN_FLOOR_PCT);
 
-  // A phase's floor is whatever its own controls — identical code on both
-  // sides — still managed to report. Both statistics are used: the conservative
-  // bound catches a control that produced an outright false positive, and the
-  // median catches the subtler case where a phase is visibly biased without any
-  // single control clearing the bar. Anything a run can produce from nothing is
-  // not evidence about the change.
+  // Controls are measured HERE, not in the screening pass, so the floors they
+  // set are established under the same quiet serial conditions as the values
+  // those floors gate. Screened under contention they would read as noisier
+  // than the run they describe, and suppress real regressions to match.
+  const confirmed = collect(await measureAll([...candidates, ...controls], "confirm", 1));
+
   const floors = PHASES.map((phase) => {
-    const controls = entries.filter(([name, m]) => isControl(name) && m.phase === phase).map(([, m]) => m);
+    const measured = controls
+      .filter((c) => c.phase === phase)
+      .flatMap((c) => {
+        const m = confirmed.get(c.name);
+        return m ? [m] : [];
+      });
+    // Both statistics: the conservative bound catches a control that produced
+    // an outright false positive, the median the subtler case of a phase that
+    // is visibly biased without any single control clearing the bar.
     return {
       phase,
       pct: Math.max(
         MIN_FLOOR_PCT,
-        ...controls.map((m) => Math.abs(m.pct)),
-        ...controls.map((m) => Math.abs(m.median - 1) * 100),
+        ...measured.map((m) => Math.abs(m.pct)),
+        ...measured.map((m) => Math.abs(m.median - 1) * 100),
       ),
     };
   });
   const floorFor = (phase: Phase) => floors.find((f) => f.phase === phase)!.pct;
 
-  const real = entries.filter(([name]) => !isControl(name));
-  const candidates = real
-    .filter(([, m]) => Math.abs(m.pct) >= floorFor(m.phase))
-    .map(([name, m]) => ({ name, ...m }));
-
-  // Everything that cleared its floor is measured again from scratch and kept
-  // only if the second run agrees on the direction — an independent
-  // confirmation, not a second sample to pool with the first. Averaging the two
-  // would be actively harmful: re-measuring only the large values and taking
-  // their mean pulls them toward it, damping a real regression exactly as much
-  // as a false one. The magnitude kept is the smaller of the two, for the same
-  // reason the interval bound is its conservative end. Only a handful of
-  // targets ever reach this pass, so it costs a second or two.
-  const confirmed = new Map<string, number>();
-  if (candidates.length)
-    for (const r of measureAll(candidates.map((c) => targetByName.get(c.name)!), "confirm"))
-      if ("ratios" in r) confirmed.set(r.name, conservativePct(r.ratios));
-
+  // Kept only if the serial re-measurement agrees on direction, reporting the
+  // smaller magnitude. Deliberately not an average of the two: re-measuring
+  // only the large values and pooling them pulls a real regression toward the
+  // mean exactly as hard as a false one, so this confirms rather than estimates.
   const changed = candidates
-    .flatMap((c) => {
-      const again = confirmed.get(c.name);
-      if (again === undefined || Math.sign(again) !== Math.sign(c.pct)) return [];
-      const pct = Math.sign(c.pct) * Math.min(Math.abs(c.pct), Math.abs(again));
-      return Math.abs(pct) >= floorFor(c.phase) ? [{ ...c, pct }] : [];
+    .flatMap((t) => {
+      const first = screened.get(t.name)!;
+      const again = confirmed.get(t.name);
+      if (!again || Math.sign(again.pct) !== Math.sign(first.pct)) return [];
+      const pct = Math.sign(first.pct) * Math.min(Math.abs(first.pct), Math.abs(again.pct));
+      if (Math.abs(pct) < floorFor(t.phase)) return [];
+      return [{ name: t.name, phase: t.phase, pct, median: again.median, batch: again.batch }];
     })
     .sort((a, b) => b.pct - a.pct);
 
@@ -412,11 +425,11 @@ export const runPerf = async (files: string[], against?: string): Promise<Perf> 
     floors,
     changed,
     unchanged: real.length - changed.length,
-    added,
+    added: [...new Set(added)],
     skippedConstants,
     errors,
     meta:
       `node ${process.versions.node} · ${process.platform} ${process.arch} · ${cpu.length} cores · ` +
-      `${BLOCKS}×${ROUNDS_PER_BLOCK} rounds · confirmed`,
+      `${BLOCKS}×${ROUNDS_PER_BLOCK} rounds · ${SCREEN_JOBS} screening jobs · confirmed`,
   };
 };
