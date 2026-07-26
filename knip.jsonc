@@ -22,13 +22,12 @@
         "src/entry.ts",
         // Invoked through package.json scripts (build:entry / build).
         "scripts/pack.ts",
-        "tests/**/*_test.ts",
-        "tests/**/*.bench.ts"
+        "tests/**/*_test.ts"
       ],
       "project": ["src/**/*.ts", "scripts/**/*.ts", "tests/**/*.ts"],
       "vitest": {
         "config": ["vitest.config.mjs"],
-        "entry": ["tests/**/*_test.ts", "tests/**/*.bench.ts"]
+        "entry": ["tests/**/*_test.ts"]
       },
       // @rescript/darwin-arm64 is a platform binary pulled in per-OS; the
       // rescript runtime is imported by the checked-in compiled S.res.mjs. zod
