@@ -1620,6 +1620,47 @@ test("Standard schema", (t) => {
   >();
 });
 
+// getDecoder answers a repeated call from a one-entry memo on the schema, and
+// `~standard.validate` holds its compiled decoder in a closure. Both are keyed
+// on the arguments and the global flag, so anything that picks a different
+// compiled operation must still get it.
+test("Compiled operations stay per-operation and per-global-config", (t) => {
+  const schema = S.schema({ a: S.string.with(S.to, S.number, Number, String) });
+
+  // Alternating operations on one schema must not answer each other.
+  for (let i = 0; i < 3; i++) {
+    t.expect(S.parser(schema)({ a: "1" })).toEqual({ a: 1 });
+    t.expect(S.encoder(schema)({ a: 1 })).toEqual({ a: "1" });
+    t.expect(S.decoder(schema)({ a: "3" })).toEqual({ a: 3 });
+    t.expect(S.is(schema, { a: "1" })).toBe(true);
+    t.expect(S.is(schema, { a: 1 })).toBe(false);
+    t.expect(schema["~standard"].validate({ a: "2" })).toEqual({
+      value: { a: 2 },
+    });
+  }
+
+  // A derived schema must compile its own operation, not inherit the original's.
+  t.expect(S.is(S.number, NaN)).toBe(false);
+  const derived = S.number.with(S.meta, { title: "t" });
+  t.expect(S.parser(derived)(1)).toBe(1);
+  t.expect(S.is(derived, NaN)).toBe(false);
+
+  const standard = S.number["~standard"];
+  const nanRejected = {
+    issues: [{ message: "Expected number, received NaN", path: undefined }],
+  };
+  t.expect(standard.validate(NaN)).toEqual(nanRejected);
+  try {
+    S.global({ disableNanNumberValidation: true });
+    t.expect(S.is(S.number, NaN)).toBe(true);
+    t.expect(standard.validate(NaN)).toEqual({ value: NaN });
+  } finally {
+    S.global({});
+  }
+  t.expect(S.is(S.number, NaN)).toBe(false);
+  t.expect(standard.validate(NaN)).toEqual(nanRejected);
+});
+
 test("Standard JSON Schema interface support", (t) => {
   const schema = S.schema({ foo: S.to(S.string, S.number) });
   const standard = schema["~standard"];

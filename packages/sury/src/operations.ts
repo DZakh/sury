@@ -6,7 +6,7 @@ import { compileDecoder, getDecoder, getOutputSchema, isAsyncInternal, reverse }
 import { B_effectCtx, B_embed, B_embedTransformation, B_inlineConst, B_invalidInputBuilder, B_invalidOperation, B_mergeWithPathPrepend, B_next, B_refine, B_varWithoutAllocation, EffectCtx, _var } from "./builder";
 import { AdditionalItems, Check, Internal, SchemaErrorMessage, SuryErrorRecord, U, Val, s, toExpression, vendor } from "./types";
 import { Builder } from "./builder";
-import { flagAsync, valFlagAsync } from "./flags";
+import { Flag, flagAsync, valFlagAsync } from "./flags";
 import { pathEmpty, pathFromArray, pathToArray } from "./path";
 import { objectTag, refTag, undefinedTag } from "./tags";
 
@@ -184,13 +184,25 @@ export const getStandardJSONSchema = (
 Object.defineProperty(schemaPrototype, "~standard", {
   get: function (this: Internal) {
     const schema = this;
+    // Hold the compiled decoder in the closure: this is the one Sury entry
+    // point a consumer cannot hoist — the Standard Schema contract is a
+    // per-call `schema["~standard"].validate(input)` — so the getDecoder
+    // lookup would otherwise outweigh the decode itself. `globalConfig.f` is
+    // what getDecoder resolves the flag from, so re-reading it is the whole
+    // invalidation condition.
+    let decoderFlag: Flag | undefined = U;
+    let decoder: (input: unknown) => unknown;
     const standard: StandardProps = {
       version: 1,
       vendor,
       validate: (input: unknown): StandardResult => {
         try {
+          if (decoderFlag !== globalConfig.f) {
+            decoderFlag = globalConfig.f;
+            decoder = getDecoder(unknown, schema) as (input: unknown) => unknown;
+          }
           return {
-            value: (getDecoder(unknown, schema) as (input: unknown) => unknown)(input),
+            value: decoder(input),
           };
         } catch (exn) {
           const error = getOrRethrow(exn);

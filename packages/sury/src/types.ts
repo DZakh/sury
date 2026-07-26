@@ -157,8 +157,11 @@ export type Internal = {
   hasTransform?: boolean; // Optional value means that it's not lazily computed yet.
   "~standard"?: unknown;
   // The reversed (Input ↔ Output swapped) schema, cached lazily as a hidden
-  // non-enumerable property via Object.defineProperty (see schema.ts/parse.ts).
+  // non-enumerable property via Object.defineProperty (see parse.ts).
   r?: Internal;
+  // True (inherited from the self-reverse prototype) when the schema reverses
+  // to itself — see isSelfReversed in schema.ts.
+  rs?: boolean;
 }
 
 export type BGlobal = {

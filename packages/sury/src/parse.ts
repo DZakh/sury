@@ -1,7 +1,7 @@
 import { instanceofCond, isArrayCond, nanCond, objectTagCond, setHas, typeofCond } from "./primitives";
-import { baseSchema, cached, copySchema, getOrRethrow, globalConfig, panic, reversedKey, unknown, updateOutput, valKey, valueOptions } from "./schema";
+import { baseSchema, cached, configurableValueOptions, copySchema, getOrRethrow, globalConfig, isSelfReversed, panic, reversedKey, unknown, updateOutput, valKey, valueOptions } from "./schema";
 import { B_scope, B_embedInvalidInput, B_inlineConst, B_markOutput, B_merge, B_next, B_operationArg, B_refine, B_unsupportedDecode, Builder, Encoder, failInvalidType, noopOperation, operationArgVar } from "./builder";
-import { Internal, U, Val, isLiteral, s } from "./types";
+import { Internal, U, Val, immutableEmptyArray, isLiteral, s } from "./types";
 import { Flag, flagAsync, flagDisableNanNumberValidation, flagUnsafeHas, valFlagAsync } from "./flags";
 import { pathConcat, pathDynamic, pathEmpty } from "./path";
 import { instanceTag, neverTag, numberTag, objectTag, tagFlagArray, tagFlagBigint, tagFlagBoolean, tagFlagInstance, tagFlagNaN, tagFlagNull, tagFlagNumber, tagFlagObject, tagFlagString, tagFlagSymbol, tagFlagUndefined, tagFlagUnknown, tagFlags, unknownTag } from "./tags";
@@ -165,7 +165,9 @@ export const getOutputSchema = (schema: Internal): Internal => {
 }
 export const reverse = (schema: Internal): Internal => {
   const schemaRecord = schema as unknown as Record<string, Internal>;
-  if (reversedKey in schemaRecord) {
+  if (isSelfReversed(schema)) {
+    return schema;
+  } else if (reversedKey in schemaRecord) {
     return schemaRecord[reversedKey]!;
   } else {
     let reversedHead: Internal | undefined = U;
@@ -268,6 +270,25 @@ export const reverse = (schema: Internal): Internal => {
   }
 }
 
+// One-entry memo of the last getDecoder call answered by this schema, held on
+// the cache target under `memoKey`. The keyed cache below is fast to write and
+// impossible to beat on generality, but its key is assembled per call, and a
+// string built at runtime is not internalized: every property lookup with one
+// re-hashes it into the string table, which costs an order of magnitude more
+// than the read it performs. Callers that can't hoist the compiled function —
+// `schema["~standard"].validate` per request, `S.is`/`S.assert` per value —
+// pass the very same arguments every time, so identity-comparing them answers
+// the call before any key exists. Non-enumerable because copySchema's
+// Object.assign must not carry a memo onto a derived schema, where it would
+// hand back the original's compiled function; configurable because a schema
+// asked for a second operation redefines it.
+type OpMemo = {
+  a: unknown[]; // the schema arguments, in order
+  f: Flag;
+  v: (from: unknown) => unknown;
+};
+const memoKey = "c";
+
 // A plain (non-arrow, to keep `arguments`) function so call sites can pass
 // getDecoder(s1, s2[, s3][, flag]) with any number of schemas plus an
 // optional trailing flag — the body reads `arguments` directly; the declared
@@ -276,20 +297,15 @@ export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
   const args = arguments as unknown as unknown[];
   let idx = 0;
   let flag: Flag | undefined = U;
-  let keyRef = "";
   let maxSeq = 0;
   let cacheTarget: Internal | undefined = U;
 
   while (flag === U) {
     const arg = args[idx];
     if (!arg) {
-      const f = globalConfig.f;
-      flag = f;
-      keyRef = keyRef + "-" + f;
+      flag = globalConfig.f;
     } else if (typeof arg === numberTag) {
-      const f = (arg as Flag) | globalConfig.f;
-      flag = f;
-      keyRef = keyRef + "-" + f;
+      flag = (arg as Flag) | globalConfig.f;
     } else {
       const schema: Internal = arg as Internal;
       const seq = schema.seq!;
@@ -297,7 +313,6 @@ export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
         maxSeq = seq;
         cacheTarget = schema;
       }
-      keyRef = keyRef + seq + "-";
       idx = idx + 1;
     }
   }
@@ -305,10 +320,33 @@ export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
   if (cacheTarget === U) {
     return panic("No schema provided for decoder.");
   } else {
-    const key = keyRef;
+    const memo = (cacheTarget as unknown as Record<string, OpMemo | undefined>)[memoKey];
+    if (memo !== U && memo.f === flag && memo.a.length === idx) {
+      let i = idx;
+      while (i-- !== 0 && memo.a[i] === args[i]) {}
+      if (i < 0) {
+        return memo.v;
+      }
+    }
+
+    let keyRef = "";
+    for (let i = 0; i < idx; i++) {
+      keyRef = keyRef + (args[i] as Internal).seq + "-";
+    }
+    const key = keyRef + "-" + flag;
     const cacheTargetRecord = cacheTarget as unknown as Record<string, (from: unknown) => unknown>;
     if (key in cacheTargetRecord) {
-      return cacheTargetRecord[key]!;
+      // Only a repeat of an already-compiled operation is worth memoizing: the
+      // first call has a compile to pay for and would just add the write to it.
+      const operation = cacheTargetRecord[key]!;
+      const created: OpMemo = {
+        a: immutableEmptyArray.slice.call(args, 0, idx) as unknown[],
+        f: flag!,
+        v: operation,
+      };
+      (configurableValueOptions as Record<string, unknown>)[valKey] = created;
+      Object.defineProperty(cacheTarget, memoKey, configurableValueOptions as PropertyDescriptor);
+      return operation;
     } else {
       let schema: Internal = args[idx - 1] as Internal;
       for (let i = idx - 2; i >= 0; i--) {
