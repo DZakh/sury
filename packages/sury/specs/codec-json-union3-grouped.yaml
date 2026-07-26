@@ -1,10 +1,5 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  # FIXME: Codec next expects: stay the same — sharing one `typeof i==="string"`
-  # between "a" and "b" is an internal optimization, and a legal one here: hoisting
-  # them past S.number can't change which member wins, since neither literal can take
-  # a value S.number would take. codec-json-union3-ungrouped is where the same
-  # optimization is illegal — its catch-all S.string would swallow S.bigint's values.
   schema: S.json.with(S.to, S.union([S.literal("a"), S.number, S.literal("b")]))
   input: JSON
   output: number | "a" | "b"

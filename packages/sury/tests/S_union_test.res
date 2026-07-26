@@ -23,92 +23,41 @@ test("Successfully parses polymorphic variants", t => {
   t->Assert.deepEqual(%raw(`"apple"`)->S.parseOrThrow(~to=schema), #apple)
 })
 
-test("Parses when both schemas misses parser and have the same type", t => {
+// A member whose coder can't be built is an error in the operation, not a
+// branch to drop: it's raised once, where the operation is created.
+test("Rejects at creation when both schemas miss the parser", t => {
   let schema = S.union([
     S.string->S.transform(_ => {serializer: _ => "apple"}),
     S.string->S.transform(_ => {serializer: _ => "apple"}),
   ])
 
-  try {
-    let _ = %raw(`null`)->S.parseOrThrow(~to=schema)
-    t->Assert.fail("Expected to throw")
-  } catch {
-  | S.Exn(error) => t->Assert.is(error.message, `Expected string | string, received null`)
-  }
-
-  try {
-    let _ = %raw(`"foo"`)->S.parseOrThrow(~to=schema)
-    t->Assert.fail("Expected to throw")
-  } catch {
-  | S.Exn(error) =>
-    t->Assert.is(
-      error.message,
-      `Expected string | string, received "foo"
-- The S.transform parser is missing`,
-    )
-  }
-
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Parse,
-    `i=>{if(typeof i==="string"){e[2](i,e[0],e[1])}else{e[3](i)}return i}`,
+  t->U.assertThrowsMessage(
+    () => %raw(`"foo"`)->S.parseOrThrow(~to=schema),
+    `The S.transform parser is missing`,
   )
 })
 
-test("Parses when both schemas misses parser and have different types", t => {
+test("Rejects at creation when both schemas miss the parser and have different types", t => {
   let schema = S.union([
     S.literal(#apple)->S.transform(_ => {serializer: _ => #apple}),
     S.string->S.transform(_ => {serializer: _ => "apple"}),
   ])
 
-  try {
-    let _ = %raw(`null`)->S.parseOrThrow(~to=schema)
-    t->Assert.fail("Expected to throw")
-  } catch {
-  | S.Exn(error) => t->Assert.is(error.message, `Expected "apple" | string, received null`)
-  }
-
-  try {
-    let _ = %raw(`"abc"`)->S.parseOrThrow(~to=schema)
-    t->Assert.fail("Expected to throw")
-  } catch {
-  | S.Exn(error) =>
-    t->Assert.is(
-      error.message,
-      `Expected "apple" | string, received "abc"
-- The S.transform parser is missing`,
-    )
-  }
-
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Parse,
-    `i=>{if(typeof i==="string"){e[2](i,e[0],e[1])}else{e[3](i)}return i}`,
+  t->U.assertThrowsMessage(
+    () => %raw(`"abc"`)->S.parseOrThrow(~to=schema),
+    `The S.transform parser is missing`,
   )
 })
 
-test("Serializes when both schemas misses serializer", t => {
+test("Rejects at creation when both schemas miss the serializer", t => {
   let schema = S.union([
     S.literal(#apple)->S.transform(_ => {parser: _ => #apple}),
     S.string->S.transform(_ => {parser: _ => #apple}),
   ])
 
-  try {
-    let _ = %raw(`null`)->S.decodeOrThrow(~from=schema, ~to=S.unknown)
-    t->Assert.fail("Expected to throw")
-  } catch {
-  | S.Exn(error) =>
-    t->Assert.is(
-      error.message,
-      `Expected unknown | unknown, received null
-- The S.transform serializer is missing`,
-    )
-  }
-
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Encode,
-    `i=>{e[2](i,e[0],e[1]);return i}`,
+  t->U.assertThrowsMessage(
+    () => %raw(`null`)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    `The S.transform serializer is missing`,
   )
 })
 
@@ -145,24 +94,16 @@ test("Ensures parsing order with unknown schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{typeof i==="string"||e[1](i);i.length===2||e[0](i);}catch(e2){try{typeof i==="boolean"||e[2](i);}catch(e3){try{let v0;try{v0=e[3](i)}catch(x){e[4](x)}i=v0}catch(e4){if(!(typeof i==="number"&&!Number.isNaN(i)||typeof i==="bigint")){e[5](i,e2,e3,e4)}}}}return i}`,
+    `i=>{try{typeof i==="string"||e[3](i);i.length===2||e[0](i);}catch(e0){if(!(typeof i==="boolean")){try{let v0;try{v0=e[1](i)}catch(x){e[2](x)}i=v0}catch(e1){if(!(typeof i==="number"&&!Number.isNaN(i)||typeof i==="bigint")){e[4](i,e0,e1)}}}}return i}`,
   )
 })
 
-test("Parses when second schema misses parser", t => {
+test("Rejects at creation when the second schema misses the parser", t => {
   let schema = S.union([S.literal(#apple), S.string->S.transform(_ => {serializer: _ => "apple"})])
 
-  t->Assert.deepEqual("apple"->S.parseOrThrow(~to=schema), #apple)
   t->U.assertThrowsMessage(
-    () => "foo"->S.parseOrThrow(~to=schema),
-    `Expected "apple" | string, received "foo"
-- The S.transform parser is missing`,
-  )
-
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Parse,
-    `i=>{if(typeof i==="string"){if(!(i==="apple")){e[1](i,e[0])}}else{e[2](i)}return i}`,
+    () => "apple"->S.parseOrThrow(~to=schema),
+    `The S.transform parser is missing`,
   )
 })
 
@@ -195,34 +136,21 @@ test("Reports the named union schema when a string-shape fallback rejects a non-
     `Expected indexer plan, received 42`,
   )
 
-  t->Assert.deepEqual(#hyper->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"hyper"`))
+  // The `S.shape(_ => #unknown)` member throws away its input, so there is no
+  // way back from #unknown to a string. That's an error in the encode operation
+  // itself, raised once when it's created rather than per value.
   t->U.assertThrowsMessage(
-    () => #unknown->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    `Expected indexer plan, received "unknown"
-- Missing input for string`,
+    () => #hyper->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    `Missing input for string`,
   )
 })
 
-test("Serializes when second struct misses serializer", t => {
+test("Rejects at creation when the second struct misses the serializer", t => {
   let schema = S.union([S.literal(#apple), S.string->S.transform(_ => {parser: _ => #apple})])
 
-  t->Assert.deepEqual(#apple->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"apple"`))
-  // FIXME: literal case should report `Expected "apple"`, but the union codegen
-  // folds the literal's discriminant onto `typeValidationOutput` via `pushCheck`
-  // (Sury.res:3885), which snaps its error to `typeValidationOutput.expected`
-  // (= plain `string()`). Recover the literal's `expected` so this becomes
-  // `Expected "apple", received "orange"`.
   t->U.assertThrowsMessage(
-    () => #orange->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    `Expected "apple" | unknown, received "orange"
-- Expected string, received "orange"
-- The S.transform serializer is missing`,
-  )
-
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Encode,
-    `i=>{try{typeof i==="string"&&(i==="apple")||e[0](i);}catch(e1){e[2](i,e1,e[1])}return i}`,
+    () => #apple->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    `The S.transform serializer is missing`,
   )
 })
 
@@ -474,7 +402,7 @@ test("Instance schema should be checked before object even if it's later item in
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(i instanceof e[0]){}else if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["foo"];typeof v0==="string"||e[1](v0);i=[v0,]}else{e[2](i)}return i}`,
+    `i=>{if(!(i instanceof e[0])){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["foo"];typeof v0==="string"||e[1](v0);i=[v0,]}else{e[2](i)}}return i}`,
   )
 })
 
@@ -530,7 +458,7 @@ test("Successfully serializes unboxed variant", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{try{typeof i==="string"||e[0](i);}catch(e1){try{let v0;try{v0=e[1](i)}catch(x){e[2](x)}typeof v0==="string"||e[3](v0);i=v0}catch(e2){e[4](i,e1,e2)}}return i}`,
+    `i=>{if(!(typeof i==="string")){let v0;try{v0=e[0](i)}catch(x){e[1](x)}typeof v0==="string"||e[2](v0);i=v0}return i}`,
   )
 })
 
@@ -832,30 +760,26 @@ test("json-rpc response", t => {
   t->U.assertCompiledCode(
     ~schema=getLogsResponseSchema,
     ~op=#Encode,
-    // FIXME: Exhaustive check doesn't work
-    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["TAG"]==="Ok"){let v0=i["_0"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path="[\\"_0\\"]"+\'["\'+v1+\'"]\'+v3.path;throw v3}}i={"result":v0,}}else if(i["TAG"]==="Error"){let v4=i["_0"];if(typeof v4==="string"){if(v4==="LogsNotFound"){v4={"message":"NotFound",}}}else if(typeof v4==="object"&&v4&&!Array.isArray(v4)){if(v4["NAME"]==="InvalidData"){let v5=v4["VAL"];typeof v5==="string"||e[2](v5);v4={"message":"Invalid","data":v5,}}}else{e[3](v4)}i={"error":v4,}}else{e[4](i)}}else{e[5](i)}return i}`,
+    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["TAG"]==="Ok"){let v0=i["_0"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path="[\\"_0\\"]"+\'["\'+v1+\'"]\'+v3.path;throw v3}}i={"result":v0,}}else if(i["TAG"]==="Error"){let v4=i["_0"];if(typeof v4==="string"){if(v4==="LogsNotFound"){v4={"message":"NotFound",}}else{e[2](v4)}}else if(typeof v4==="object"&&v4&&!Array.isArray(v4)){if(v4["NAME"]==="InvalidData"){let v5=v4["VAL"];typeof v5==="string"||e[3](v5);v4={"message":"Invalid","data":v5,}}else{e[4](v4)}}else{e[5](v4)}i={"error":v4,}}else{e[6](i)}}else{e[7](i)}return i}`,
   )
 
-  // FIXME: pin the current (buggy) Encode behaviour for the
-  // exhaustive-check gap noted above. The inner per-discriminant arms
-  // (LogsNotFound / InvalidData) lack their own `else { fail }`, so a
-  // value of the right outer type but a bogus inner variant silently
-  // round-trips instead of throwing. When the codegen gap is closed
-  // these decodeOrThrow calls will throw — switch them to
-  // assertThrowsMessage and remove the FIXME on the snapshot above.
-  t->Assert.unsafeDeepEqual(
-    %raw(`{TAG:"Error",_0:"BogusVariant"}`)->S.decodeOrThrow(
-      ~from=getLogsResponseSchema,
-      ~to=S.unknown,
-    ),
-    %raw(`{"error":"BogusVariant"}`),
+  // A value of the right outer type but a bogus inner variant is rejected now
+  // that each per-discriminant arm closes with its own exhaustive check.
+  t->U.assertThrowsMessage(
+    () =>
+      %raw(`{TAG:"Error",_0:"BogusVariant"}`)->S.decodeOrThrow(
+        ~from=getLogsResponseSchema,
+        ~to=S.unknown,
+      ),
+    `Failed at ["_0"]: Expected "LogsNotFound" | { NAME: "InvalidData"; VAL: string; }, received "BogusVariant"`,
   )
-  t->Assert.unsafeDeepEqual(
-    %raw(`{TAG:"Error",_0:{NAME:"BogusObj"}}`)->S.decodeOrThrow(
-      ~from=getLogsResponseSchema,
-      ~to=S.unknown,
-    ),
-    %raw(`{"error":{"NAME":"BogusObj"}}`),
+  t->U.assertThrowsMessage(
+    () =>
+      %raw(`{TAG:"Error",_0:{NAME:"BogusObj"}}`)->S.decodeOrThrow(
+        ~from=getLogsResponseSchema,
+        ~to=S.unknown,
+      ),
+    `Failed at ["_0"]: Expected "LogsNotFound" | { NAME: "InvalidData"; VAL: string; }, received { NAME: "BogusObj"; }`,
   )
 })
 
@@ -899,7 +823,9 @@ test("Issue https://github.com/DZakh/rescript-schema/issues/101", t => {
 test("Regression https://github.com/DZakh/sury/issues/121", t => {
   let schema = S.union([S.literal(%raw(`null`))->S.castToUnknown, S.unknown])
 
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{try{i===null||e[0](i);}catch(e1){}return i}`)
+  // The `S.unknown` member accepts everything, so checking `null` first and
+  // swallowing the failure is pure overhead — the union is a noop.
+  t->U.assertCompiledCodeIsNoop(~schema, ~op=#Parse)
 
   let data = %raw(`{a: 'hey'}`)
   t->Assert.deepEqual(data->S.parseOrThrow(~to=schema), data)
@@ -947,7 +873,7 @@ test("Objects with the same discriminant", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["type"]==="A"){try{let v0=i["value"];if(!(typeof v0==="string"&&(v0==="foo"||v0==="bar"))){e[0](v0)}i={"TAG":"Ok","_0":v0,}}catch(e0){try{let v1=i["value"];typeof v1==="string"||e[1](v1);i={"TAG":"Error","_0":v1,}}catch(e1){e[2](i,e0,e1)}}}else{e[3](i)}}else{e[4](i)}return i}`,
+    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){try{i["type"]==="A"||e[2](i);let v0=i["value"];if(!(typeof v0==="string"&&(v0==="foo"||v0==="bar"))){e[0](v0)}i={"TAG":"Ok","_0":v0,}}catch(e0){try{i["type"]==="A"||e[3](i);let v1=i["value"];typeof v1==="string"||e[1](v1);i={"TAG":"Error","_0":v1,}}catch(e1){e[4](i,e0,e1)}}}else{e[5](i)}return i}`,
   )
 })
 

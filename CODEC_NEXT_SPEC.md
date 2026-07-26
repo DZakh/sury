@@ -1,13 +1,13 @@
 # Codec next
 
-Draft spec for the next codec implementation — how a conversion (`S.to`, or the
-implicit one created by reversing a schema) picks what to decode into what.
+Spec for the codec implementation — how a conversion (`S.to`, or the implicit one
+created by reversing a schema) picks what to decode into what.
 
-Nothing here is implemented yet. `docs/*-usage.md` still describes the shipped
-three-tier algorithm; this file replaces it once the implementation lands. The
-`packages/sury/specs/codec-*.yaml` specs snapshot today's behavior and each
-carries a `FIXME: Codec next expects:` note on its schema saying what this spec
-demands of it.
+**Implemented.** `src/unionnext.ts` is the union factory, decoder and encoder
+these rules describe; `docs/js-usage.md` and `docs/rescript-usage.md` carry the
+user-facing version under "Decoding into / out of a union". The
+`packages/sury/specs/codec-*.yaml` specs snapshot the behavior, and their
+`FIXME: Codec next expects:` notes are gone — every row now matches.
 
 ## Shared definitions
 
@@ -104,7 +104,19 @@ the repeated `typeof` is reused from a var.
 `unknown` value may already *be* any of the variant types, so the
 no-re-typing rule leaves no gap to fill: built-in decoding never steps in,
 and the conversion is pure validation — every variant checked by its type,
-in definition order, values narrowed but never re-typed.
+in definition order, values narrowed but never re-typed. Nothing is coerced
+either way, so an `unknown` source is never ambiguous and never triggers the
+partial-match rejection below.
+
+**A const source reaches only the variant that spells it out.** When the source is
+a literal and some variant has the identical `const`, the value already *is* that
+literal: every other variant is dead code, so only the matching ones compile and
+there is no ambiguity to reject.
+
+```ts
+S.schema(undefined).with(S.to, S.union([S.schema(null), S.schema(undefined)]));
+// undefined -> undefined; the null variant is unreachable, so no nullish bridge
+```
 
 **Exception — partial type match.** If the source has the same type as *some but
 not all* target variants, the operation is rejected when it's created. Sury
@@ -224,6 +236,27 @@ Reverse (via `S.encoder`):
 Union conversion always performs exhaustive validation — every variant is
 checked, so transformed unions stay consistent across decode and encode.
 
+## Failure hands the value to the next variant
+
+Any failure of a variant — a discriminant miss, a refinement failure, or an error
+raised anywhere inside its body — passes the value to the next variant. Only when
+none is left does the union throw, aggregating the per-variant reasons under one
+error. This is the uniform rule for plain validation unions and for every
+conversion rule above.
+
+Two consequences:
+
+- A variant's selection condition can absorb its cond-expressible checks, since
+  failing them means "try the next variant" anyway. Same-type variants with
+  different refinements therefore keep their dispatch:
+  `S.union([S.string.with(S.min, 3), S.number, S.string])` accepts `"ab"` through
+  the catch-all.
+- Where no later variant could accept a value that entered this one (disjoint
+  types, disjoint literal discriminants — the discriminated-union shape), the
+  fall-through is dead code. The variant throws its own precise error instead
+  (`Failed at ["a"]: Expected string, received 42`), which keeps happy paths free
+  of `try`/`catch` and sharpens the message.
+
 ## No built-in decoder for a variant
 
 A pair with no built-in decoder is rejected when the operation is created —
@@ -257,31 +290,28 @@ S.boolean.with(S.to, S.union([S.string, S.never.with(S.to, S.symbol)])); // ✅ 
 
 ## Spec coverage
 
-Behavior change expected, today's goldens are wrong:
+Every `packages/sury/specs/codec-*.yaml` spec matches these rules. The rows that
+changed when the implementation landed:
 
-| Spec                                 | Rule | Expected                                                             |
+| Spec                                 | Rule | Behavior                                                             |
 | ------------------------------------ | ---- | -------------------------------------------------------------------- |
-| `codec-union-nested-refined-union`   | —    | a union with its own refinement isn't flattened, and it still refines |
-| `codec-bool-union2-unsupported`      | —    | rejected — no `boolean -> symbol` decoder; today the variant is dropped |
-| `codec-bool-union2-all-unsupported`  | —    | rejected — today it compiles into an always-throwing operation        |
-| `codec-union2-string-unsupported`    | —    | rejected — no `symbol -> string` decoder; today the branch throws     |
-| `codec-json-union2`                  | 2    | non-bigint string falls back to the `S.string` variant               |
-| `codec-json-union3-ungrouped`        | 2    | `"123"` matches the literal, `"124"` reaches the `S.bigint` variant  |
-| `codec-number-union2-int32`          | 2    | compiles instead of crashing; int32 first, string next               |
-| `codec-string-optional-partial`      | 2    | rejected — partial type match                                        |
-| `codec-string-union2-partial`        | 2    | rejected — partial type match                                        |
-| `codec-union2-string-partial`        | 3    | rejected — partial type match                                        |
-| `codec-optional-nullable-partial`    | 4    | rejected — `string` has no same-type target variant                  |
-| `codec-union2-union3-extra-target`   | 4    | rejected — `boolean` has no source variant                           |
-| `codec-union3-union2-extra-source`   | 4    | rejected — `boolean` has no target variant                           |
-| `codec-union3-union2-json`           | 4    | rejected — `json` is not the exact `string`/`number` type             |
+| `codec-union-nested-refined-union`    | —    | a union with its own refinement isn't flattened, and it still refines |
+| `codec-bool-union2-unsupported`       | —    | rejected — no `boolean -> symbol` decoder                            |
+| `codec-bool-union2-all-unsupported`   | —    | rejected — no decoder for either member                              |
+| `codec-union2-string-unsupported`     | —    | rejected — no `symbol -> string` decoder                             |
+| `codec-json-union2`                   | 2    | non-bigint string falls back to the `S.string` member                |
+| `codec-json-union3-ungrouped`         | 2    | `"123"` matches the literal, `"124"` reaches the `S.bigint` member    |
+| `codec-number-union2-int32`           | 2    | compiles: int32 first, string next                                   |
+| `codec-string-optional-partial`       | 2    | rejected — partial type match                                        |
+| `codec-string-union2-partial`         | 2    | rejected — partial type match                                        |
+| `codec-union2-string-partial`         | 3    | rejected — partial type match                                        |
+| `codec-optional-nullable-partial`     | 4    | rejected — `string` has no same-type target member                   |
+| `codec-union2-union3-extra-target`    | 4    | rejected — `boolean` has no source member                            |
+| `codec-union3-union2-extra-source`    | 4    | rejected — `boolean` has no target member                            |
+| `codec-union3-union2-json`            | 4    | rejected — `json` is not the exact `string`/`number` type             |
+| `codec-union-refined-fallback`         | —    | new: a refined member falls through to a same-type catch-all          |
 
-Already spec-conformant (their remaining `FIXME`s are codegen bugs, not rule
-changes): `codec-bool-number-unsupported`, `codec-json-union3-grouped`,
-`codec-null-undefined`, `codec-optional-literal-nullable-literal`,
-`codec-optional-nullable-transformed`, `codec-optional-nullable`,
-`codec-optional-nullish`, `codec-string-optional-never`, `codec-string-undefined`,
-`codec-string-union2-never`, `codec-string-union2-transformed`,
-`codec-union-nested-union3-flatten`, `codec-union2-union2-reject`,
-`codec-union2-union2-swap`, `codec-union2-union2-transformed`,
-`codec-union3-union3-bridge`, `codec-unknown-union2`.
+The already-conformant rows kept their behavior; several lost dead code the old
+implementation emitted (a `try/catch` around a body that can't throw, an `else if`
+re-testing its own `else`) and now report the precise per-member error where the
+fall-through is provably dead.

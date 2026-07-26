@@ -1,8 +1,5 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  # FIXME: Codec next expects: stay the same — every target variant matches by its
-  # string input, so the transformed variant is tried first and the catch-all keeps
-  # the rest.
   schema: S.string.with(S.to, S.union([S.string.with(S.to, S.number), S.string]))
   input: string
   output: string | number
@@ -15,8 +12,6 @@ jsonSchema:
   output: '{ anyOf: [{ type: "number" }, { type: "string" }] }'
 operations:
   parse:
-    # FIXME: `catch(e0){}` swallows everything the branch throws, not just the
-    # type miss it means to fall back from (decode's expression too).
     expression: i=>{typeof i==="string"||e[1](i);try{let v0=+i;!Number.isNaN(v0)||e[0](i);i=v0}catch(e0){}return i}
     examples:
       decodes-to-number:

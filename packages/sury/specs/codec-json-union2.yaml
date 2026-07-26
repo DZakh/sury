@@ -1,8 +1,5 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  # FIXME: Codec next expects: rule 2 attempts every target variant, so a string that
-  # isn't a bigint falls back to the S.string member ("abc" → "abc") instead of
-  # erroring; true stays rejected (no double decoding).
   schema: S.json.with(S.to, S.union([S.bigint, S.string]))
   input: JSON
   output: string | bigint
@@ -15,25 +12,24 @@ jsonSchema:
   output: Expected JSON, received bigint | string
 operations:
   parse:
-    # FIXME: `else if(!(typeof i==="string"))` re-tests the condition it's already
-    # the else of — always true, so it should be a bare `else`.
-    expression: i=>{if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0}else if(!(typeof i==="string")){e[1](i)}return i}
+    expression: i=>{try{typeof i==="string"||e[1](i);let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0}catch(e0){if(!(typeof i==="string")){e[2](i,e0)}}return i}
     examples:
       bigint-string:
         input: '"123"'
         output: 123n
-      # FIXME: the S.string member never gets a chance — a string that isn't a
-      # bigint should fall back to it, not error. codec-string-union2-transformed
-      # falls back in the same shape (its `falls-back-to-string` example).
       catchall-string:
         input: '"abc"'
-        error: Expected bigint, received "abc"
+        output: '"abc"'
       no-double-decoding:
         input: "true"
-        error: Expected bigint | string, received true
+        error: |-
+          Expected bigint | string, received true
+          - Expected string, received true
       number:
         input: "123"
-        error: Expected bigint | string, received 123
+        error: |-
+          Expected bigint | string, received 123
+          - Expected string, received 123
       negative-bigint-string:
         input: '"-123"'
         output: -123n

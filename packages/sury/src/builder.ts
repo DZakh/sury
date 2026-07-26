@@ -398,22 +398,29 @@ const B_emitChecks = (val: Val, inputVar: string): string => {
 // transforming val is safe only when its prev is non-transforming (stable
 // input var) and it has no codeFromPrev of its own to leave behind — else
 // the lifted check runs before that producer (the str->to(option(int))
-// "v0 is not defined" bug class). Shared by `merge(~hoistCond)` and the
-// union deopt scan so they can't drift. Phase 2's {pre, cond, body}
-// dispatch will lift the producer into `pre`, collapsing this to "the
-// check is a type-narrow."
+// "v0 is not defined" bug class).
 export const B_isHoistable = (val: Val): boolean => {
   return val.t === true ? val.prev!.t !== true && val.cp === "" : true;
 }
 
-// Walks the val.prev chain and assembles generated code. When
-// `~hoistCond` is provided (union codegen), type-narrow checks
-// (fail === failInvalidType) lift into that ref as a dispatch
-// discriminant instead of being emitted; constraint refines still
-// emit inline so their case-specific error message survives. All
-// other callers pass no `~hoistCond` and get the plain merge:
-// every non-`noValidation` check is emitted inline.
-export const B_merge = (val: Val, hoistCond?: { contents: string }): string => {
+// A hoisted type-narrow kept in both forms: `c` routes the value to the next
+// union case (dispatch), and re-emitting it with `f` rejects the case from
+// inside a `try` (fallback). The fail closure is captured during the merge, but
+// the embed slot is only allocated if the rejecting form is actually needed.
+export type Hoist = {
+  v: Val;
+  i: string;
+  c: string;
+  f: (value: unknown) => ErrorDetails;
+}
+export type HoistCond = { c: string; h: Hoist[] }
+
+// Walks the val.prev chain and assembles generated code: every
+// non-`noValidation` check is emitted inline. With `~out` (union codegen),
+// type-narrow checks (fail === failInvalidType) lift into it as a dispatch
+// discriminant instead of being emitted; constraint refines still emit inline so
+// their case-specific error message survives.
+export const B_merge = (val: Val, out?: HoistCond): string => {
   let current: Val | undefined = val;
   let code = "";
 
@@ -424,40 +431,29 @@ export const B_merge = (val: Val, hoistCond?: { contents: string }): string => {
     let currentCode = "";
 
     if (val.vc) {
-      if (hoistCond !== U && B_isHoistable(val)) {
-        // Partition: route type-narrows to hoistCond, emit refines inline.
-        // `noValidation` is intentionally bypassed for the hoisted part —
-        // the cond routes between union cases, it doesn't reject, so
-        // suppressing would break dispatch.
-        const prev = current!;
-        const inputVar = prev.v();
-        const allChecks = val.vc!;
-        let localHoist = "";
-        for (let i = 0; i < allChecks.length; i++) {
-          const check = allChecks[i]!;
+      if (out !== U && B_isHoistable(val)) {
+        const inputVar = current!.v();
+        const checks = val.vc;
+        let hoisted = "";
+        for (let i = 0; i < checks.length; i++) {
+          const check = checks[i]!;
           const condCode = check.c(inputVar);
           if (check.f === failInvalidType) {
-            if (localHoist) {
-              localHoist = `${localHoist}&&${condCode}`;
-            } else {
-              localHoist = condCode;
-            }
+            hoisted = hoisted ? `${hoisted}&&${condCode}` : condCode;
           } else if (val.e.noValidation !== true) {
+            // `noValidation` is intentionally bypassed for the hoisted part —
+            // the cond routes between cases, it doesn't reject, so suppressing
+            // it would break dispatch.
             currentCode =
               currentCode + `${condCode}||${B_failWithArg(val, check.f(val), inputVar)};`;
           }
         }
-        if (localHoist) {
-          const cond = hoistCond;
-          if (cond.contents) {
-            cond.contents = `${localHoist}&&${cond.contents}`;
-          } else {
-            cond.contents = localHoist;
-          }
+        if (hoisted) {
+          out.c = out.c ? `${hoisted}&&${out.c}` : hoisted;
+          out.h.unshift({ v: val, i: inputVar, c: hoisted, f: failInvalidType(val) });
         }
       } else if (val.e.noValidation !== true) {
-        const prev = current!;
-        currentCode = B_emitChecks(val, prev.v());
+        currentCode = B_emitChecks(val, current!.v());
       }
     }
 

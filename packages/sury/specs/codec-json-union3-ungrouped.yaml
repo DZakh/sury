@@ -1,10 +1,5 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  # FIXME: Codec next expects: rule 2 attempts every member in definition order, so
-  # "123" matches the literal and stays a string, "124" decodes to 124n through
-  # S.bigint, and "abc" falls back to S.string. Sharing one `typeof i==="string"`
-  # between the literal and the catch-all is an internal optimization, and not one
-  # available here — it would move S.bigint behind both and swallow "124".
   schema: S.json.with(S.to, S.union(["123", S.bigint, S.string]))
   input: JSON
   output: string | bigint
@@ -17,23 +12,17 @@ jsonSchema:
   output: Expected JSON, received "123" | bigint | string
 operations:
   parse:
-    # FIXME: the "123" member is absent from the generated code — every string goes to
-    # BigInt, so the literal that should match first can never win. `else
-    # if(!(typeof i==="string"))` also re-tests the condition it's already the else of.
-    expression: i=>{if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0}else if(!(typeof i==="string")){e[1](i)}return i}
+    expression: i=>{if(!(typeof i==="string"&&(i==="123"))){try{typeof i==="string"||e[1](i);let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0}catch(e0){if(!(typeof i==="string")){e[2](i,e0)}}}return i}
     examples:
       literal-member:
         input: '"123"'
-        output: 123n
+        output: '"123"'
       bigint-string:
         input: '"124"'
         output: 124n
-      # FIXME: the S.string member never gets a chance — a string that isn't a bigint
-      # should fall back to it, not error (same shape as codec-json-union2's
-      # `catchall-string`).
       catchall-string:
         input: '"abc"'
-        error: Expected bigint, received "abc"
+        output: '"abc"'
       # FIXME: BigInt("") is 0n and BigInt("   ") is 0n, so blank strings decode to a
       # bigint instead of falling back to the S.string member.
       empty-string:
@@ -44,10 +33,14 @@ operations:
         output: 0n
       no-double-decoding:
         input: "true"
-        error: Expected "123" | bigint | string, received true
+        error: |-
+          Expected "123" | bigint | string, received true
+          - Expected string, received true
       number:
         input: "123"
-        error: Expected "123" | bigint | string, received 123
+        error: |-
+          Expected "123" | bigint | string, received 123
+          - Expected string, received 123
   decode: eq-to-parse
   encode:
     expression: i=>{if(typeof i==="bigint"){i=""+i}else if(!(typeof i==="string")){e[0](i)}return i}

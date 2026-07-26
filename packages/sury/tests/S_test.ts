@@ -1685,7 +1685,7 @@ test("Env schema: Reggression version", (t) => {
   };
 
   t.expect(S.parser(env(S.boolean)).toString()).toEqual(
-    `i=>{if(typeof i==="string"){if(i==="t"){i=true}else if(i==="1"){i=true}else if(i==="f"){i=false}else if(i==="0"){i=false}else{try{let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}catch(e4){e[1](i,e4)}}}else{e[2](i)}return i}`,
+    `i=>{if(typeof i==="string"){if(i==="t"){i=true}else if(i==="1"){i=true}else if(i==="f"){i=false}else if(i==="0"){i=false}else{let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}}else{e[1](i)}return i}`,
   );
 
   t.expect(S.parser(env(S.boolean))("t")).toEqual(true);

@@ -849,7 +849,7 @@ An union represents a logical OR relationship. You can apply this concept to you
 
 On validation, the `S.union` schema returns the result of the first item that was successfully validated.
 
-> 🧠 Schemas are not guaranteed to be validated in the order they are passed to `S.union`. They are grouped by the input data type to optimise performance and improve error message. Schemas with unknown data typed validated the last.
+> 🧠 Members are dispatched in the order they are passed to `S.union`. Members sharing an input data type are grouped under one type check to optimise performance and improve error messages, but only where that can't change which member wins.
 
 ```rescript
 // TypeScript type for reference:
@@ -923,168 +923,122 @@ let schema = S.enum([Win, Draw, Loss])
 
 #### Decoding into / out of a union
 
-When you compile `source -> targetUnion` (via `S.to`, or implicitly by reversing the schema), Sury picks the target variant using a three-tier algorithm based on the source's **derived tag** — the tag known at compile time, which may be narrower than the original type (an upstream transformation can refine it). If the source is itself a union, the algorithm runs independently for each source variant.
+When you compile `source -> target` (via `S.to`, or implicitly by reversing the
+schema) and either side is a union, which member handles a value is decided at
+**operation creation time**, from the types the pipeline actually derives — an
+upstream transformation can narrow a type, and the derived one is what counts.
+Two schemas have the **same type** when their type tags match, including the
+class for instances and the format for formatted primitives: `S.int` and
+`S.float` are different types, and so are `S.json` and `S.string`.
 
-If the source is `unknown` (no derived tag), the tag-based tiers are skipped and target variants are simply attempted in target-union order at runtime.
+Nested unions are flattened first (`S.union([S.string, S.union([S.float,
+S.bool])])` is a three-member union), unless the inner union carries its own
+format, transformation or refinement — then it stays one opaque member that
+matches only the very same union reference.
 
-1. **Same-tag group.** Collect target variants sharing the source's tag. If non-empty, match only within this group: variants with a matching `const`/`format` (string literals, `Int32`, etc.) are tried first in target-union order, then any remaining catch-all same-tag variants. Variants with a different tag are never tried from here — if every branch in the group fails, the match errors.
-2. **Nullish bridge.** Used only when tier 1 is empty. If the source tag is `null` or `undefined`, use the opposite nullish target variant (if present), exclusively.
-3. **Fallback.** Used only when tiers 1 and 2 are both empty. Build a decoder for every target variant in target-union order. Cross-type coercions live here: `int`/`bigint` → `string` via `"" ++ i`, `string` → `float` via `Float.fromString`, `string` → `bigint` via `BigInt.fromString`, stringified-const matches like `"null" → null`, and more.
+`S.never` marks a path as deliberately unreachable: a `never` member is ignored
+by type matching, never triggers a rejection, and compiles no branch of its own.
 
-**Worked example** — `S.union([S.bigint, S.float, S.nullLiteral])->S.to(S.union([S.string, S.unit]))`:
-
-Forward:
-
-- `123n` → `"123"` (tier 3: bigint → string)
-- `123.12` → `"123.12"` (tier 3: float → string)
-- `null` → `undefined` (tier 2: nullish bridge)
-
-Reverse (via `S.decodeOrThrow(~from=schema, ~to=S.unknown)`):
-
-- `"null"` → `null` (tier 3: stringified-const literal match)
-- `undefined` → `null` (tier 2: nullish bridge)
-- `"123"` → `123n` (tier 3: bigint attempted first by target order; parse succeeds)
-- `"123.12"` → `123.12` (tier 3: bigint parse throws, falls through to float)
-- `"abc"` → error (tier 3: no variant's decoder succeeds)
-
-**Identity wins over coercion.** For `S.union([S.string, S.bigint])->S.to(S.union([S.float, S.string]))`:
-
-- `"123"` → `"123"` (tier 1: `string` matches `string`, never coerced to `float` even though a `float` target exists)
-- `123n` → `"123"` (tier 3: no `bigint` target, falls through to `string` via `"" ++ i`)
-
-To opt into `string → float` when a `string` target also exists, write the transform into a variant explicitly:
+**Non-union → union.** The built-in decoder is applied per member, attempted in
+definition order, and the first member that accepts wins:
 
 ```rescript
-S.union([S.string->S.to(S.float), S.string])
+let schema = S.json->S.to(S.union([S.bigint->S.castToUnknown, S.string->S.castToUnknown]))
+
+"123"->S.parseOrThrow(~to=schema) // 123n — the bigint member comes first
+"abc"->S.parseOrThrow(~to=schema) // "abc" — BigInt throws, the string member accepts
+true->S.parseOrThrow(~to=schema) // raises — no implicit double decoding
 ```
 
-The transformed variant is const/format-refined relative to the catch-all `string` and matches first within tier 1.
+Built-in decoding fills gaps, it doesn't re-type what the source already has: a
+member whose tag the source can produce takes those values as they are, and the
+decoder only steps in for a tag the source has no way to produce. `bigint` is not
+a JSON tag, so a JSON string is offered to `BigInt`; `number` is, so a JSON string
+never becomes a number. An `unknown` source can already be any of the member
+types, so nothing is coerced — the conversion is pure validation.
 
-> 🧠 Union conversion always performs exhaustive validation now — every variant is checked, so transformed unions stay consistent across decode and encode.
+**Union → non-union.** The mirror image: every source member gets its own
+built-in decoder to the target, dispatched in definition order.
 
-### **`array`**
-
-`S.t<'value> => S.t<array<'value>>`
+**Union → union.** No coercion — values pass through to the same-type target
+member, and the two unions have to cover each other. A `null` or `undefined`
+member left unmatched may bridge to the opposite nullish member on the other
+side; at runtime a same-type match always wins, so the bridge only fills a hole.
 
 ```rescript
-let schema = S.array(S.string)
-
-["Hello", "World"]->S.parseOrThrow(~to=schema)
-// ["Hello", "World"]
+S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])
+->S.to(S.union([S.float->S.castToUnknown, S.string->S.castToUnknown])) // ✅ both pass through
+S.option(S.string)->S.to(S.null(S.string)) // ✅ None <-> null
 ```
 
-The `S.array` schema represents an array of data of a specific type.
+**Any member that fails hands the value to the next one** — a type miss, a
+refinement failure, or an error raised inside the member's own body all fall
+through, and only when no member is left does the union throw, aggregating the
+per-member reasons. When no later member could accept the value anyway (disjoint
+types, disjoint literal discriminants — the discriminated-union shape), the
+fall-through is dead code and the member throws its own precise error instead.
 
-**Sury** includes some of array-specific refinements:
+#### When a conversion is rejected
+
+Rather than guess, Sury rejects an ambiguous or impossible conversion where it is
+written. Every rejection names a rewrite that says what you mean.
+
+**Some members match, others don't.** For `"123"` — keep the string, or decode it
+to a number?
 
 ```rescript
-S.array(itemSchema)->S.max(5) // Array must be 5 or fewer items long
-S.array(itemSchema)->S.min(5) // Array must be 5 or more items long
-S.array(itemSchema)->S.length(5) // Array must be exactly 5 items long
+S.string->S.to(S.union([S.float->S.castToUnknown, S.string->S.castToUnknown]))
+// Invalid operation: can't convert string to number | string — string has the same
+// type as the source and the others don't.
+
+// Try decoding to a float first, keep the string otherwise:
+S.string->S.to(
+  S.union([S.string->S.to(S.float)->S.castToUnknown, S.string->S.castToUnknown]),
+)
+// Or pass strings through, never producing a float:
+S.string->S.to(
+  S.union([S.never->S.to(S.float)->S.castToUnknown, S.string->S.castToUnknown]),
+)
 ```
 
-### **`list`**
+The same applies to widening into an optional or nullable target, and — mirrored
+— when a union source meets a single target that only some members share.
 
-`S.t<'value> => S.t<list<'value>>`
+**The two unions don't cover each other.** Union-to-union coerces nothing, so a
+member with no same-type counterpart has nowhere to go:
 
 ```rescript
-let schema = S.list(S.string)
-
-["Hello", "World"]->S.parseOrThrow(~to=schema)
-// list{"Hello", "World"}
+S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])->S.to(
+  S.union([
+    S.float->S.castToUnknown,
+    S.string->S.castToUnknown,
+    S.bool->S.castToUnknown,
+  ]),
+)
+// Invalid operation: … boolean has no same-type variant on the other side.
+S.option(S.string)->S.to(S.null(S.bool)) // ❌ string doesn't match boolean
+S.option(S.string)->S.to(S.null(S.string->S.to(S.bool))) // ✅
 ```
 
-The `S.list` schema represents an array of data of a specific type which is transformed to ReScript's list data-structure.
-
-### **`compactColumns`**
-
-`S.t<'value> => S.t<array<array<'value>>>`
+**A member has no built-in decoder.** Being one member of a union changes nothing
+about that — the error belongs to the operation, so it is raised once:
 
 ```rescript
-let schema = S.compactColumns(S.schema(s => {
-  id: s.matches(S.string),
-  name: s.matches(S.nullAsOption(S.string)),
-  deleted: s.matches(S.bool),
-}))
-
-[{id: "0", name: Some("Hello"), deleted: false}, {id: "1", name: None, deleted: true}]->S.decodeOrThrow(~from=schema, ~to=S.unknown)
-// [["0", "1"], ["Hello", null], [false, true]]
+S.bool->S.to(S.union([S.string->S.castToUnknown, S.symbol->S.castToUnknown]))
+// ❌ boolean -> symbol has no decoder
+S.union([S.bool->S.castToUnknown, S.symbol->S.castToUnknown])->S.to(S.string)
+// ❌ symbol -> string has no decoder
+S.bool->S.to(
+  S.union([S.string->S.castToUnknown, S.never->S.to(S.symbol)->S.castToUnknown]),
+) // ✅ unreachable
 ```
 
-The helper function is inspired by the article [Boosting Postgres INSERT Performance by 2x With UNNEST](https://www.timescale.com/blog/boosting-postgres-insert-performance). It allows you to flatten a nested array of objects into arrays of values by field.
+A member is never dropped from the generated code, never left as a branch that
+throws per value, and a conversion with no decodable member never compiles into
+an operation that throws for every input.
 
-The main concern of the approach described in the article is usability. And **Sury** completely solves the problem, providing a simple and intuitive API that is even more performant than `S.array`.
-
-<details>
-
-<summary>
-Checkout the compiled code yourself:
-</summary>
-
-```javascript
-(i) => {
-  let v1 = [new Array(i.length), new Array(i.length), new Array(i.length)];
-  for (let v0 = 0; v0 < i.length; ++v0) {
-    let v3 = i[v0];
-    try {
-      let v4 = v3["name"];
-      if (v4 === void 0) {
-        v4 = null;
-      }
-      v1[0][v0] = v3["id"];
-      v1[1][v0] = v4;
-      v1[2][v0] = v3["deleted"];
-    } catch (v2) {
-      if (v2 && v2.s === s) {
-        v2.path = "" + "[\"'+v0+'\"]" + v2.path;
-      }
-      throw v2;
-    }
-  }
-  return v1;
-};
-```
-
-</details>
-
-### **`tuple`**
-
-`(S.Tuple.s => 'value) => S.t<'value>`
-
-```rescript
-type point = {
-  x: int,
-  y: int,
-}
-
-// The pointSchema will have the S.t<point> type
-let pointSchema = S.tuple(s => {
-  s.tag(0, "point")
-  {
-    x: s.item(1, S.int),
-    y: s.item(2, S.int),
-  }
-})
-
-// It can be used both for parsing and serializing
-["point", 1, -4]->S.parseOrThrow(~to=pointSchema)
-{ x: 1, y: -4 }->S.decodeOrThrow(~from=pointSchema, ~to=S.unknown)
-```
-
-The `S.tuple` schema represents that a data is an array of a specific length with values each of a specific type.
-
-For short tuples without the need for transformation, there are wrappers over `S.tuple`:
-
-### **`tuple1` - `tuple3`**
-
-`(S.t<'v0>, S.t<'v1>, S.t<'v2>) => S.t<('v0, 'v1, 'v2)>`
-
-```rescript
-let schema = S.tuple3(S.string, S.int, S.bool)
-
-%raw(`["a", 1, true]`)->S.parseOrThrow(~to=schema)
-// ("a", 1, true)
-```
+> 🧠 Union conversion always performs exhaustive validation — every member is
+> checked, so transformed unions stay consistent across decode and encode.
 
 ### **`dict`**
 

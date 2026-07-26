@@ -1,9 +1,5 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  # FIXME: Codec next expects: rejected at creation — neither member has a built-in
-  # decoder from boolean, so nothing about this conversion can work. Today it compiles
-  # into a parser that type-checks its input and then throws for every value, carrying
-  # both creation-time messages as nested causes.
   schema: S.boolean.with(S.to, S.union([S.number, S.symbol]))
   input: boolean
   output: number | symbol
@@ -12,45 +8,10 @@ vs:
   zod:
     _skip: not-applicable
 jsonSchema:
-  # FIXME: reported as never on both sides — the schema's own types are boolean and
-  # number | symbol.
-  input: "{ not: {} }"
-  output: "{ not: {} }"
+  input: '{ type: "boolean" }'
+  output: Expected JSON, received number | symbol
 operations:
   parse:
-    expression: i=>{typeof i==="boolean"||e[3](i);e[2](i,e[0],e[1]);return i}
-    examples:
-      boolean-always-fails:
-        input: "true"
-        error: |-
-          Expected number | symbol, received true
-          - Can't decode boolean to number. Use S.to to define a custom decoder
-          - Can't decode boolean to symbol. Use S.to to define a custom decoder
-      invalid:
-        input: '"abc"'
-        error: Expected boolean, received "abc"
-  decode:
-    expression: i=>{e[2](i,e[0],e[1]);return i}
-    examples:
-      boolean-always-fails:
-        input: "true"
-        error: |-
-          Expected number | symbol, received true
-          - Can't decode boolean to number. Use S.to to define a custom decoder
-          - Can't decode boolean to symbol. Use S.to to define a custom decoder
-  encode:
-    expression: i=>{if(typeof i==="number"&&!Number.isNaN(i)){e[1](i,e[0])}else if(typeof i==="symbol"){e[3](i,e[2])}else{e[4](i)}return i}
-    examples:
-      number-member:
-        input: "5"
-        error: |-
-          Expected number | symbol, received 5
-          - Can't decode number to boolean. Use S.to to define a custom decoder
-      symbol-member:
-        input: Symbol("s")
-        error: |-
-          Expected number | symbol, received Symbol(s)
-          - Can't decode symbol to boolean. Use S.to to define a custom decoder
-      invalid:
-        input: '"abc"'
-        error: Expected number | symbol, received "abc"
+    creationError: "SuryError: Can't decode boolean to number. Use S.to to define a custom decoder"
+  decode: eq-to-parse
+  encode: eq-to-parse

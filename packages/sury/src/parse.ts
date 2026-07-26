@@ -68,7 +68,10 @@ export const parse = (input: Val): Val => {
         maybeEncoder &&
         maybeEncoder !== appliedEncoder &&
         loopInput.s !== loopInput.e &&
-        loopInput.e.type !== unknownTag
+        loopInput.e.type !== unknownTag &&
+        // A `noValidation` target (S.assert's result sentinel) throws the value
+        // away, so there is nothing for an encoder to re-represent.
+        !loopInput.e.noValidation
       ) {
         result = maybeEncoder!(loopInput, loopInput.e);
       }
@@ -330,7 +333,10 @@ export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
 export const nestedLoc = "BS_PRIVATE_NESTED_SOME_NONE";
 
 const neverBuilderFn = (input: Val): Val => {
-  const output = B_refine(input, U, U, never_());
+  // Carry `never` as the val's own schema, not the input's: nothing gets past
+  // this branch, so a union built from its cases' output schemas must not list
+  // the input type as something the union can produce.
+  const output = B_refine(input, never_(), U, never_());
   output.cp = B_embedInvalidInput(input) + ";";
   return output;
 }

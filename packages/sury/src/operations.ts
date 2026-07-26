@@ -1,4 +1,4 @@
-import { unionFactory } from "./composites";
+import { unionFactory } from "./unionnext";
 import { Literal_parse, literalDecoder, nullLiteral, unit } from "./primitives";
 import { SuryError, baseSchema, cached, configurableValueOptions, copySchema, getOrRethrow, globalConfig, noopDecoder, panic, schemaPrototype, unknown, updateOutput, valKey, valueOptions } from "./schema";
 import type { JSONSchemaT, StandardJsonSchemaOptions } from "./jsonschema";
@@ -473,7 +473,7 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
     const anyOf = mut.anyOf;
     if (anyOf !== U) {
       const outputItems: Internal[] = [];
-      // FIXME: drop `originalItems` once unionDecoder can reverse member
+      // FIXME: drop `originalItems` once the union decoder can reverse member
       // `.to` chains — then mut.default + the serializer can both run
       // through `schema->reverse` directly.
       const originalItems: Internal[] = [];

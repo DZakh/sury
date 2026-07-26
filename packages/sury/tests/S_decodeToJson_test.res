@@ -216,15 +216,13 @@ test("Encodes a union to JSON when at least one item is not JSON-able", t => {
   t->Assert.deepEqual(%raw(`true`)->S.decodeOrThrow(~from=schema, ~to=S.json), JSON.Encode.bool(true))
   t->U.assertThrowsMessage(
     () => %raw(`123n`)->S.decodeOrThrow(~from=schema, ~to=S.json),
-    `Expected string | unknown, received 123n
-- Expected string, received 123n
-- Expected JSON, received 123n`,
+    `Expected JSON, received 123n`,
   )
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#EncodeToJson,
-    `i=>{try{typeof i==="string"||e[0](i);}catch(e1){try{e[1](i);}catch(e2){e[2](i,e1,e2)}}return i}`,
+    `i=>{if(!(typeof i==="string")){e[0](i);}return i}`,
   )
 })
 
@@ -234,7 +232,7 @@ test("Encodes a union of NaN and unknown to JSON", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#EncodeToJson,
-    `i=>{try{Number.isNaN(i)||e[0](i);i=null}catch(e1){try{e[1](i);}catch(e2){e[2](i,e1,e2)}}return i}`,
+    `i=>{if(Number.isNaN(i)){i=null}else{e[0](i);}return i}`,
   )
 
   t->Assert.deepEqual(%raw(`NaN`)->S.decodeOrThrow(~from=schema, ~to=S.json), JSON.Null)
@@ -244,9 +242,7 @@ test("Encodes a union of NaN and unknown to JSON", t => {
   )
   t->U.assertThrowsMessage(
     () => %raw(`123n`)->S.decodeOrThrow(~from=schema, ~to=S.json),
-    `Expected NaN | unknown, received 123n
-- Expected NaN, received 123n
-- Expected JSON, received 123n`,
+    `Expected JSON, received 123n`,
   )
 })
 
