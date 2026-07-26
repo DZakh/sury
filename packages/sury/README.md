@@ -321,7 +321,7 @@ It's short, it's pronounceable, and the 🧬 fits: a schema is the DNA of your d
 
 ## Contributing
 
-Bug reports, ideas, and pull requests are all welcome — see [CONTRIBUTING.md](https://github.com/DZakh/sury/blob/main/CONTRIBUTING.md) to get started.
+Bug reports, ideas, and pull requests are all welcome — open an [issue](https://github.com/DZakh/sury/issues) to get started.
 
 ## Sponsorship
 
