@@ -4,31 +4,31 @@ ts:
   # bridges undefined <-> null.
   schema: S.optional(S.string).with(S.to, S.nullable(S.string))
   input: string | undefined
-  output: string | undefined
+  output: string | null
   instantiations: 5327
 vs:
   zod:
     _skip: not-applicable
 jsonSchema:
   input: Expected JSON, received string | undefined
-  output: Expected JSON, received string | undefined
+  output: '{ anyOf: [{ type: "string" }, { type: "null" }] }'
 operations:
   parse:
-    expression: i=>{if(i===void 0){try{i=void 0}catch(e1){e[0](i,e1)}}else if(!(typeof i==="string")){e[1](i)}return i}
+    expression: i=>{if(i===void 0){try{i=null}catch(e1){e[0](i,e1)}}else if(!(typeof i==="string")){e[1](i)}return i}
     examples:
       string:
         input: '"abc"'
         output: '"abc"'
       undefined-bridges-to-null:
         input: undefined
-        output: undefined
+        output: "null"
   decode: eq-to-parse
   encode:
-    expression: i=>{if(i===void 0){let v0=null;try{v0=void 0}catch(e1){e[0](v0,e1)}i=v0}else if(!(typeof i==="string")){e[1](i)}return i}
+    expression: i=>{if(i===null){try{i=void 0}catch(e1){e[0](i,e1)}}else if(!(typeof i==="string")){e[1](i)}return i}
     examples:
       string:
         input: '"abc"'
         output: '"abc"'
       null-bridges-to-undefined:
         input: "null"
-        error: Expected string | undefined, received null
+        output: undefined

@@ -2,19 +2,16 @@
 ts:
   schema: S.nullable(S.string)
   input: string | null
-  output: string | undefined
+  output: string | null
   instantiations: 380
 vs:
-  zod:
-    schema: z.string().nullable()
-    divergence: "Sury bridges the two absent values: null decodes to undefined and undefined encodes back to null, so the output is what JS code actually pattern-matches on. Zod keeps null on both sides."
-    output: string | null
+  zod: z.string().nullable()
 jsonSchema:
   input: '{ anyOf: [{ type: "string" }, { type: "null" }] }'
-  output: Expected JSON, received string | undefined
+  output: '{ anyOf: [{ type: "string" }, { type: "null" }] }'
 operations:
   parse:
-    expression: i=>{if(i===null){i=void 0}else if(!(typeof i==="string")){e[0](i)}return i}
+    expression: i=>{if(!(typeof i==="string"||i===null)){e[0](i)}return i}
     examples:
       string:
         input: '"abc"'
@@ -22,31 +19,14 @@ operations:
       empty-string:
         input: '""'
         output: '""'
-      null-bridges-to-undefined:
+      null-passes-through:
         input: "null"
-        output: undefined
+        output: "null"
       invalid-undefined:
         input: undefined
         error: Expected string | null, received undefined
       invalid-type:
         input: "1"
         error: Expected string | null, received 1
-  decode: eq-to-parse
-  encode:
-    expression: i=>{if(i===void 0){i=null}else if(!(typeof i==="string")){e[0](i)}return i}
-    examples:
-      string:
-        input: '"abc"'
-        output: '"abc"'
-      empty-string:
-        input: '""'
-        output: '""'
-      undefined-bridges-to-null:
-        input: undefined
-        output: "null"
-      invalid-null:
-        input: "null"
-        error: Expected string | undefined, received null
-      invalid-type:
-        input: "1"
-        error: Expected string | undefined, received 1
+  decode: identity
+  encode: identity

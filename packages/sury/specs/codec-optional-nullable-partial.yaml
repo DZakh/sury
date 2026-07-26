@@ -5,17 +5,17 @@ ts:
   # S.nullable(S.string.with(S.to, S.boolean))) converts per variant.
   schema: S.optional(S.string).with(S.to, S.nullable(S.boolean))
   input: string | undefined
-  output: boolean | undefined
+  output: boolean | null
   instantiations: 5390
 vs:
   zod:
     _skip: not-applicable
 jsonSchema:
   input: Expected JSON, received string | undefined
-  output: Expected JSON, received boolean | undefined
+  output: '{ anyOf: [{ type: "boolean" }, { type: "null" }] }'
 operations:
   parse:
-    expression: i=>{if(typeof i==="string"){try{let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}catch(e0){if(i==="null"){i=void 0}else{e[1](i,e0)}}}else if(i===void 0){try{i=void 0}catch(e1){e[2](i,e1)}}else{e[3](i)}return i}
+    expression: i=>{if(typeof i==="string"){try{let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}catch(e0){if(i==="null"){i=null}else{e[1](i,e0)}}}else if(i===void 0){try{i=null}catch(e1){e[2](i,e1)}}else{e[3](i)}return i}
     examples:
       string:
         input: '"abc"'
@@ -24,16 +24,16 @@ operations:
           - Expected boolean, received "abc"
       undefined:
         input: undefined
-        output: undefined
+        output: "null"
   decode: eq-to-parse
   encode:
     # FIXME: `""+i` on a boolean can't throw, so the first catch (and its
     # `i===void 0` re-test of a value already known to be a boolean) is dead.
-    expression: i=>{if(typeof i==="boolean"){try{i=""+i}catch(e0){if(!(i===void 0)){e[0](i,e0)}}}else if(i===void 0){let v0=null;try{v0=void 0}catch(e1){e[1](v0,e1)}i=v0}else{e[2](i)}return i}
+    expression: i=>{if(typeof i==="boolean"){try{i=""+i}catch(e0){if(!(i===void 0)){e[0](i,e0)}}}else if(i===null){try{i=void 0}catch(e1){e[1](i,e1)}}else{e[2](i)}return i}
     examples:
       boolean:
         input: "true"
         output: '"true"'
       "null":
         input: "null"
-        error: Expected boolean | undefined, received null
+        output: undefined

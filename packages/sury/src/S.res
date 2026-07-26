@@ -418,7 +418,9 @@ module Error = {
 @module("sury") external instance: unknown => t<unknown> = "instance"
 @module("sury") external dict: t<'value> => t<dict<'value>> = "dict"
 @module("sury") external option: t<'value> => t<option<'value>> = "$res_option"
-@module("sury") external null: t<'value> => t<null<'value>> = "$res_null"
+// The public JS `nullable` called without a default is exactly
+// `union([item, literal(null)])` — what ReScript calls `S.null`.
+@module("sury") external null: t<'value> => t<null<'value>> = "nullable"
 @module("sury") external nullAsOption: t<'value> => t<option<'value>> = "$res_nullAsOption"
 @module("sury") external nullable: t<'value> => t<nullable<'value>> = "nullish"
 @module("sury") external nullableAsOption: t<'value> => t<option<'value>> = "$res_nullableAsOption"

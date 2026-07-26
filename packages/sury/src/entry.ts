@@ -105,8 +105,8 @@ export {
   js_safeAsync as safeAsync,
 } from "./operations";
 export { array } from "./composites";
-// `nullish` accepts null | undefined and preserves both — distinct from
-// `nullable` (js_nullable) above, which decodes null to undefined.
+// `nullish` accepts null | undefined (the 3-member union) — distinct from
+// `nullable` (js_nullable) above, which handles null only.
 export { nullable as nullish } from "./refinements";
 export {
   compactColumns,
@@ -156,9 +156,6 @@ export {
 } from "./operations";
 export { option as $res_option } from "./composites";
 export {
-  // `union([item, literal(null)])` — ReScript's `S.null`. The public JS
-  // `nullable` bridges null <-> undefined instead, so it can't back this.
-  null_ as $res_null,
   nullAsOption as $res_nullAsOption,
   nullableAsOption as $res_nullableAsOption,
 } from "./refinements";

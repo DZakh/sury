@@ -416,16 +416,14 @@ Conceptually, this is how **Sury** processes default values:
 
 ## Nullables
 
-Similarly, you can create nullable types with `S.nullable`. It bridges the two absent values: `null` decodes to `undefined`, and `undefined` encodes back to `null`, so your code only ever pattern-matches on one of them.
+Similarly, you can create nullable types with `S.nullable`. `null` is accepted and preserved on both sides — it is not rewritten to `undefined`.
 
 ```ts
 const nullableStringSchema = S.nullable(S.string);
-//? S.Schema<string | undefined, string | null>
+//? S.Schema<string | null, string | null>
 
 S.parser(nullableStringSchema)("asdf"); // => "asdf"
-S.parser(nullableStringSchema)(null); // => undefined
-
-S.encoder(nullableStringSchema)(undefined); // => null
+S.parser(nullableStringSchema)(null); // => null
 ```
 
 Pass a fallback as the second argument to replace the absent case:
@@ -434,7 +432,7 @@ Pass a fallback as the second argument to replace the absent case:
 S.parser(S.nullable(S.string, "fallback"))(null); // => "fallback"
 ```
 
-> 🧠 Use [`S.nullish`](#nullish) if you need `null` and `undefined` to both be accepted and preserved as-is.
+> 🧠 Use [`S.nullish`](#nullish) if `undefined` should be accepted too. ReScript users: `S.null` is this schema, while ReScript's `S.nullable` is [`S.nullish`](#nullish) — see the [ReScript reference](/docs/rescript-usage.md).
 
 ## Nullish
 

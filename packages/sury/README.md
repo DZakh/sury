@@ -160,13 +160,13 @@ The whole tree — top-level operation plus every nested `S.to` — still folds 
 Once schemas are stages, layouts that usually need hand-written glue become a single definition. `S.compactColumns` maps columnar arrays to rows, in both directions:
 
 ```ts
-const cityRow = S.schema({ id: S.string, city: S.string });
+const cityRow = S.schema({ id: S.bigint, city: S.string });
 const rows = S.compactColumns(S.json).with(S.to, S.array(cityRow));
 
 S.parser(rows)([["1", "2"], ["Tbilisi", "Batumi"]]);
-// => [{ id: "1", city: "Tbilisi" }, { id: "2", city: "Batumi" }]
+// => [{ id: 1n, city: "Tbilisi" }, { id: 2n, city: "Batumi" }]
 
-S.encoder(rows)([{ id: "1", city: "Tbilisi" }, { id: "2", city: "Batumi" }]);
+S.encoder(rows)([{ id: 1n, city: "Tbilisi" }, { id: 2n, city: "Batumi" }]);
 // => [["1", "2"], ["Tbilisi", "Batumi"]]
 ```
 

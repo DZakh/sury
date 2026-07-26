@@ -148,7 +148,7 @@ export const js_nullable = (schema: Internal, maybeOr: unknown): Internal => {
       return Option_getOr(schema2, maybeOr);
     }
   } else {
-    return unionFactory([schema, nullAsUnit()]);
+    return unionFactory([schema, nullLiteral()]);
   }
 };
 
