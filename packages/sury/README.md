@@ -1,5 +1,4 @@
 [![CI](https://github.com/DZakh/sury/actions/workflows/ci.yml/badge.svg)](https://github.com/DZakh/sury/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/DZakh/sury/branch/main/graph/badge.svg?token=40G6YKKD6J)](https://codecov.io/gh/DZakh/sury)
 [![sury npm](https://img.shields.io/npm/dm/sury?label=Sury)](https://www.npmjs.com/package/sury)
 [![rescript-schema npm](https://img.shields.io/npm/dm/rescript-schema?label=ReScript%20Schema)](https://www.npmjs.com/package/rescript-schema)
 [![license](https://img.shields.io/npm/l/sury)](https://github.com/DZakh/sury/blob/main/LICENSE)
@@ -12,7 +11,7 @@ Describe your data once, then parse it, validate it, transform it, serialize it 
 
 > Formerly known as **ReScript Schema**. It's plain JavaScript — you don't need the ReScript compiler to use it. ReScript users, see the [ReScript docs](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md).
 
-## Install
+## Getting started
 
 ```sh
 npm install sury
@@ -37,6 +36,8 @@ type Player = S.Infer<typeof playerSchema>;
 ```
 
 The API mirrors TypeScript types, so there's not much new syntax to learn.
+
+**Full API reference:** [JS/TS](https://github.com/DZakh/sury/blob/main/docs/js-usage.md) · [ReScript](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md) · [PPX](https://github.com/DZakh/sury/blob/main/packages/sury-ppx/README.md)
 
 ## Why Sury
 
@@ -236,12 +237,6 @@ else result.error;
 - The **fastest** parsing and validation library in the JavaScript ecosystem ([benchmarks](#comparison))
 - Small JS footprint & tree-shakable API
 - Async transformations, recursive schemas, and custom schemas
-
-## Documentation
-
-- [For JS/TS users](https://github.com/DZakh/sury/blob/main/docs/js-usage.md)
-- [For ReScript users](https://github.com/DZakh/sury/blob/main/docs/rescript-usage.md)
-- [For PPX users](https://github.com/DZakh/sury/blob/main/packages/sury-ppx/README.md)
 
 ## Integrations
 
