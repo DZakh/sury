@@ -322,6 +322,12 @@ export const runPerf = async (files: string[], against?: string): Promise<Perf> 
 
   const runChild = (target: Target): Promise<ChildResult[]> =>
     new Promise((resolve, reject) => {
+      // Deliberately no NODE_COMPILE_CACHE here. It saves ~9ms of the ~70ms
+      // startup, but the two bundles are byte-identical, so the second import
+      // deserializes the first one's cached bytecode instead of compiling its
+      // own — and the sides then enter measurement in different states. Trying
+      // it produced reproducible, direction-consistent phantoms up to 37% (the
+      // same targets, to a tenth of a percent, run after run).
       const child = spawn(process.execPath, ["--expose-gc", childPath], { stdio: ["pipe", "pipe", "inherit"] });
       let out = "";
       child.stdout.setEncoding("utf8");
