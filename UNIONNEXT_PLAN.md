@@ -1,4 +1,4 @@
-# unionNext — one-shot rewrite plan
+# unionNext — final one-shot rewrite plan
 
 Implementation plan for a from-scratch union factory (`unionNext`) that behaves
 exactly as `CODEC_NEXT_SPEC.md` describes. Built side-by-side with the existing
@@ -9,14 +9,47 @@ replaces `unionFactory` with the new implementation and rewrites the
 Non-functional targets, in the repo's priority order:
 
 1. **DX** — every spec rejection happens at operation creation with the
-   spec's "Invalid operation … say what you mean" suggestions.
+   spec's "Invalid operation … say what you mean" suggestions; runtime
+   failures aggregate per-case errors under one union error.
 2. **Performance** — creation does one resolution pass with integer masks (no
    Sets, no string-keyed dictionaries, no codegen-exception probing);
-   generated code is a flat `if/else if/else` chain with cond-based fallback
-   instead of try/catch wherever failure is expressible as a condition.
+   generated code is a flat dispatch chain whose exact shape is **decided
+   empirically** (see "Measure & iterate" below), not by intuition.
 3. **Bundle** — one new flat module reusing `B_*` helpers; net size is
    measured at switchover when `unionDecoder`/`unionEncoder` + the five
    `unionIs*`/`unionCan*` helpers (~350 lines of `composites.ts`) get deleted.
+
+## Settled semantics: universal case fallback
+
+**Any failure of a case — discriminant miss, refinement failure, or any
+decoding error inside the case body — passes the value to the next case.**
+Only when no case remains does the union throw, and that error aggregates the
+individual case errors (`unionErrors`, as today). This is the uniform rule for
+plain validation unions and for every conversion rule below; it subsumes the
+old design's separation of "type-narrow → dispatch cond" vs "refinement →
+committed body".
+
+Consequences:
+
+- A case's *selection condition* may absorb **all** of its cond-expressible
+  checks (type narrows *and* refinements): since failure means "try the next
+  case" anyway, `if(typeof i==="string"&&i.length>=3){...}else if(...)` is
+  both the semantics and the fastest emission. This also fixes the two
+  known bugs from IDEAS.md (fused type+refinement error, and same-type cases
+  with different refinements losing dispatch).
+- Case bodies that can genuinely throw (embedded `BigInt(...)`, custom
+  `S.to` coders, nested object field validation) get fallback routing —
+  `try{}catch(eN){ <next case> }` or a cond rewrite where the failure is
+  check-shaped — **only when a later case could still accept the value**.
+- **Compiled-away fallback:** when acceptance analysis proves no later case
+  can accept a value that entered this case (disjoint tag masks, disjoint
+  literal discriminants — the discriminated-union shape), the fall-through
+  is dead: reaching the final `else` would just re-raise this case's error
+  inside the aggregate. Emit a direct throw with the precise per-case error
+  instead (`Failed at ["a"]: Expected string, received 42`). The accepted
+  input set is identical; the error is sharper and the code smaller. This
+  preserves the current `union5-discriminated` golden shape and keeps happy
+  paths free of try/catch.
 
 ## Why from scratch, structurally
 
@@ -38,12 +71,11 @@ choices, each of which the rewrite removes rather than patches:
    (ordered attempts per variant, with acceptance domains), then a grouping
    pass that is *provably* behavior-preserving (spec: "grouping is codegen,
    not semantics").
-3. **Fallback is try/catch-shaped.** `catch(e0){}` swallows everything a
-   branch throws, not just the type miss it falls back from
-   (`codec-string-union2-transformed` FIXME). unionNext threads variant
-   failure out as *conditions* (the existing `Check` model) whenever the
-   variant body's failure points are all checks; try/catch remains only for
-   genuinely-throwing bodies (`BigInt(...)`, custom `S.to` coders).
+3. **Fallback is try/catch-shaped and partial.** `catch(e0){}` swallows
+   everything a branch throws, not just the type miss it falls back from
+   (`codec-string-union2-transformed` FIXME), while refinement failures in
+   hoisted cases *don't* fall back at all. Universal fallback (above) is the
+   single rule replacing both behaviors.
 
 ## Architecture: three phases
 
@@ -101,10 +133,10 @@ no exception triggering, no coverage counting, no emitted branch on the side
 where it is unreachable (`never.with(S.to, X)` as target), but a reachable
 `X.with(S.to, never)` arm still compiles to its explicit rejection branch.
 
-#### Acceptance model (drives rule 2/3 and grouping legality)
+#### Acceptance model (drives rule 2/3, grouping legality, and fallback elision)
 
-Two integer masks over the existing `tagFlags` bits — all coverage and
-partial-match questions become integer ops, no arrays or Sets:
+Two integer masks over the existing `tagFlags` bits — all coverage,
+partial-match, and can-a-later-case-accept questions become integer ops:
 
 - `UN_producibleMask(schema)`: runtime tags the source's values can carry.
   Own tag for concrete schemas; OR of variants for transparent unions; for
@@ -125,6 +157,10 @@ partial-match questions become integer ops, no arrays or Sets:
     (`UN_repMask(source, variantTag)`; default = `UN_offerMask ∩
     producible(source)`, json overrides) instead of probing codegen. This is
     what keeps JSON numbers out of `BigInt` while JSON strings reach it.
+- A case's acceptance is refined past the mask by literal consts (exact
+  values) and marked *approximate* when refinements or nested structure make
+  it a strict subset of its tags — approximate acceptance can never justify
+  eliding a later case's fallback, only disjointness can.
 
 #### The four rules as plan constructors
 
@@ -139,11 +175,11 @@ Let `M` = non-never target variants with `UN_sameType(source, variant)`.
     two suggested rewrites in the message.
   - `M = all` ⇒ ordered attempts, each variant's pipeline starting from the
     as-is source value (transformed variants run their own `.to`; plain ones
-    pass through). Failure of a non-last attempt advances to the next.
+    pass through). Universal fallback chains the attempts.
   - `M = ∅` ⇒ gap decoding: each variant accepts (a) values of its own tag
     when that tag ∈ producible(source) — as-is, validate only — and (b)
     values of its `UN_repMask` tags — via built-in decode. Attempts in
-    definition order with fallback-on-failure (this yields
+    definition order with universal fallback (this yields
     `codec-number-union2-int32`: int32 range-check first, `""+i` next; and
     `codec-json-union2`: literal, then BigInt attempt, then string
     catch-all). `unknown` source: producible = 0, so every variant is pure
@@ -190,7 +226,8 @@ type UN_Attempt = {
   v: Internal;   // variant (with .to appended by rules 3/4 rewrites)
   m: number;     // acceptance mask: own-tag bit(s) + offered rep bits
   k: number;     // dispatch class bit (typeof group) or 0 for opaque
-  c: unknown;    // literal const, U otherwise (exact acceptance for grouping)
+  c: unknown;    // literal const, U otherwise (exact acceptance)
+  x: boolean;    // acceptance is approximate (refined/structured subset)
 };
 ```
 
@@ -202,10 +239,13 @@ Branch IR anticipated by the `B_isHoistable` comment — `{pre, cond, body}`:
   *before* the cond inside the owning branch of the outer chain, never
   hoisted across it. This dissolves the `str->to(option(int))` bug class by
   construction instead of guarding it with `B_isHoistable`.
-- `cond` — the dispatch discriminant, built from `typeCheckCond` atoms plus
-  literal `===` conds; type-narrow checks of the variant's val chain lift
-  here (reusing `B_merge(~hoistCond)` on the variant body).
-- `body` — the variant pipeline merged from its val chain (`parse` on a val
+- `cond` — the case selection condition: type narrows *plus* every
+  cond-expressible check of the case (universal fallback makes refinements
+  selection criteria, not committed asserts), built from `typeCheckCond`
+  atoms, literal `===` conds, and lifted `Check.c` conds (reusing
+  `B_merge(~hoistCond)` on the case's val chain, now without the
+  type-narrow-only partition).
+- `body` — the case pipeline merged from its val chain (`parse` on a val
   with `e = variant`, `s` = tag-narrow of the group, `u = true`), including
   object-literal discriminant hoisting via `B_hoistChildChecks` so
   discriminated-union codegen keeps its current `i["kind"]==="a"` shape.
@@ -215,31 +255,36 @@ Emission rules:
 1. **Grouping pass (legality-checked).** Walk attempts in definition order;
    an attempt may merge into an earlier group with the same dispatch class
    iff no attempt between them intersects its acceptance (mask intersection,
-   with literal consts compared exactly). Same-tag literals fuse into one
+   literal consts exact, approximate acceptance counts as intersecting).
+   Same-tag literals fuse into one
    `typeof i==="string"&&(i==="a"||i==="b")` cond; an illegal hoist (string
    catch-all past bigint-from-string) stays in its definition slot, and when
    the same `typeof` is tested in more than one slot it is materialized once
    into a var and reused (spec's "repeated typeof is reused from a var").
-2. **Fallback = conditions first, try/catch last.** Inside a group, a
-   non-final attempt whose body's failure points are all `Check`s is emitted
-   as nested conds: the failing check routes to the next attempt instead of
-   throwing (`if(int32(i)){...}else{i=""+i}`). Only bodies with embedded
-   throwing code (`BigInt`, custom transforms, nested objects) get
-   `try{}catch(eN){}` — and the catch *re-dispatches to the next attempt*,
-   never silently swallows when no attempt remains.
-3. **Exhaustive close.** Final `else` throws the aggregated union error via
+2. **Fallback routing (universal).** A non-final attempt whose failure
+   points are all `Check`s folds them into its selection cond — the failing
+   value simply doesn't select the case. Bodies with embedded throwing code
+   get `try{}catch(eN){ <route to next candidate> }`; the catch never
+   swallows terminally — when no candidate remains it feeds `eN` into the
+   aggregated union error.
+3. **Fallback elision.** When the acceptance masks prove no later case
+   intersects this case's accepted set, emit the body's failures as direct
+   throws with their precise errors (no try/catch, no re-dispatch) — the
+   discriminated-union fast shape. Elision is decided per failure point from
+   the plan, never by probing.
+4. **Exhaustive close.** Final `else` throws the aggregated union error via
    one embedded fail fn (`expected` = the union, collected `eN` case errors
    as `unionErrors`) — same UX as today, one embed slot.
-4. **Refiners.** `B_markOutput` semantics per CLAUDE.md: the union's
+5. **Refiners.** `B_markOutput` semantics per CLAUDE.md: the union's
    `inputRefiner` checks attach once to the pre-dispatch val; the `refiner`
    wraps the *joined* output val once after the chain (not per-case as the
    current `appendUnionRefiners` FIXME does — one emit site, smaller code).
    Async: if any branch is async the joined val is async and output checks
    run inside `.then` on the resolved value, never on the Promise.
-5. **Async join** as today: mark output async when any branch is; sync
+6. **Async join** as today: mark output async when any branch is; sync
    branches' results unify through `Promise.resolve` at the join only when
    needed.
-6. **Static shortcuts** (replacing today's tier-1/self-decode special
+7. **Static shortcuts** (replacing today's tier-1/self-decode special
    cases): source is the union itself with no transforms ⇒ identity; source
    is a literal const ⇒ resolve the winner statically at creation and emit
    only the plausible attempt prefix (constant folding — strictly better than
@@ -250,8 +295,61 @@ Deliberately ported behaviors (each gets a spec case so the port is pinned):
 `fromDefault` skipping the undefined variant; issue #150 nested-option
 ordering (`BS_PRIVATE_NESTED_SOME_NONE` priority); NaN-before-number and
 instance/array-before-object priority ordering; `noValidation` interaction
-(and while at it, the literal-in-union `noValidation` dispatch hole from
-IDEAS.md is rejected at creation rather than silently miscompiled).
+(the literal-in-union `noValidation` dispatch hole from IDEAS.md is rejected
+at creation rather than silently miscompiled).
+
+## Measure & iterate (how "better" gets decided)
+
+Implementation shape questions are settled by measurement, not argument. The
+loop, run after each candidate lands:
+
+```bash
+pnpm spec check --write            # codegen goldens + instantiations + whole-package bundle size
+pnpm --filter=sury build:entry     # rebuild S.mjs for the bench import
+pnpm --filter=sury bench           # vitest bench (tests/*.bench.ts)
+```
+
+**Temporary bench file** `packages/sury/tests/unionnext.bench.ts` (same
+harness as `sury.bench.ts`, imports `../src/S.mjs`), covering both sides of
+the cost model:
+
+- *Creation/compile (cold):* `unionNext([...])` factory alone;
+  `S.parser(makeUnion())` for — 2-variant primitive union, 5-variant
+  discriminated object union, literal-heavy enum-like union (10 literals),
+  rule 2 (`json → union`), rule 3 (`union → json`), rule 4
+  (`optional → nullable`) conversions. Each with an `S.union` baseline where
+  the old implementation supports the shape.
+- *Runtime (hot):* compiled parse hitting first / middle / last case;
+  fallback-heavy input (value that fails N-1 cases before matching);
+  miss (aggregated error path); discriminated object dispatch; the two
+  existing `sury.bench.ts` union benches replicated on unionNext.
+
+Candidate axes to A/B through the loop (each is a localized emission or
+resolution strategy, so variants are cheap to swap):
+
+- **D1 — fallback mechanism:** checks folded into selection conds vs
+  `try/catch` routing for borderline cases (e.g. cheap-but-many refinement
+  conds); measures runtime on fallback-heavy inputs + bundle delta.
+- **D2 — dispatch skeleton:** flat `if/else if` on `typeof` conds vs a
+  materialized `typeof` var vs `switch(typeof i)`; measures hot dispatch and
+  generated-code size across 2/5/10-variant unions.
+- **D3 — literal fusion shape:** `i==="a"||i==="b"` chains vs `switch` on
+  the value for enum-like unions past ~N literals; find N empirically.
+- **D4 — resolution representation:** integer-mask plan records vs direct
+  schema rescans per question; measures cold compile time (`create+parse`)
+  and factory allocation.
+- **D5 — fallback elision aggressiveness:** always-aggregate vs
+  direct-throw-when-provably-terminal; measures error-path cost and codegen
+  size on discriminated unions (goldens make the DX difference reviewable).
+
+Decision rule per axis, in repo priority order: (1) DX — goldens must stay
+readable and errors precise (spec check diff is the review artifact); (2)
+generated-operation runtime, then cold compile time; (3) whole-package
+bundle size from `bundleSize.yaml`. Iterate until no axis has a strictly
+better candidate; record the losing variants' numbers in the PR description
+so the choices are auditable. The temporary bench file is deleted at the end
+of the loop; any bench that proved decision-relevant graduates into
+`sury.bench.ts`'s union section instead.
 
 ## V8 / perf tactics (creation path)
 
@@ -259,7 +357,8 @@ IDEAS.md is rejected at creation rather than silently miscompiled).
   `B_scope` exclusively — no new val shapes).
 - Plan records monomorphic (one hidden class), attempts stored in plain
   arrays indexed by integers; tag sets are ints (`tagFlags`), so partial
-  match, coverage, and grouping legality are `&`/`===` on Smis.
+  match, coverage, grouping legality, and fallback elision are `&`/`===` on
+  Smis.
 - No string-keyed accumulation objects in the emit loop (today's
   `byKey`/`byDiscriminant` go dictionary-mode); string building stays `+`
   (V8 rope strings), conds reuse the memoized `typeofCond` closures.
@@ -275,6 +374,8 @@ IDEAS.md is rejected at creation rather than silently miscompiled).
   `jsapi.ts` mapping raw definitions through `definitionToSchema` (same shape
   as `js_union`).
 - `src/S.d.mts`/`S.d.ts` — `unionNext` typed identically to `union`.
+- `packages/sury/tests/unionnext.bench.ts` — temporary, deleted after the
+  iteration loop (winners graduate to `sury.bench.ts`).
 - No `S.res` binding yet (JS-first experimental surface); no changes to
   `optionFactory`/`js_optional`/`js_nullable` until switchover.
 
@@ -293,8 +394,12 @@ build old unions):
    catch-all swallow — must be gone in the unionNext goldens).
 3. Plain-union parity specs mirroring `union2`, `union5`,
    `union5-discriminated` — generated code must match or beat the current
-   goldens byte-for-byte where semantics are unchanged (this is the
-   "generated operation most optimal" ratchet).
+   goldens where semantics are unchanged (this is the "generated operation
+   most optimal" ratchet), plus **universal-fallback specs** that pin the new
+   semantics: refined same-type cases falling through
+   (`unionNext([string.with(min,3), number, string])`), decode-error
+   fall-through, and a discriminated union showing elided fallback keeps the
+   precise per-case error.
 4. Both directions everywhere `eq-to-parse` doesn't hold, pinning the
    reverse-symmetry claim of rule 4.
 
@@ -308,16 +413,20 @@ unions ship — called out as expected, netted out at switchover.
 1. `unionnext.ts`: identity + masks + offer table (`UN_sameType`,
    `UN_producibleMask`, `UN_offerMask`, `UN_repMask`).
 2. Resolver: rule 2 plan builder, rules 3/4 rewrites, all rejection
-   messages.
-3. Emit: `{pre, cond, body}` chain, grouping pass, cond-based fallback,
-   refiner/async join, static shortcuts.
+   messages, acceptance/approximation marking.
+3. Emit: `{pre, cond, body}` chain, grouping pass, universal fallback with
+   elision, refiner/async join, static shortcuts.
 4. Factory + wiring (`entry.ts`, `jsapi.ts`, `S.d.mts`).
 5. Author specs (table rows first — they define done), `pnpm spec check
    --write`, iterate until every expected behavior and rejection matches the
    spec doc.
-6. Ported-behavior specs + parity specs, metrics review, commit.
+6. Add `tests/unionnext.bench.ts`; run the measure-&-iterate loop over axes
+   D1–D5 until no candidate improves; fold winners in, delete the temp
+   bench, graduate the useful cases into `sury.bench.ts`.
+7. Ported-behavior specs + parity specs, final metrics review, commit with
+   the spec-check summary and the bench comparison table.
 
-## Open questions (recommendation first)
+## Remaining open questions (recommendation first)
 
 1. **Offer/rep table vs probing.** Recommended: the static table (this
    plan). Alternative — deriving representations by symbolically running
@@ -328,10 +437,5 @@ unions ship — called out as expected, netted out at switchover.
    `unionNext` target). Recommended: out of scope; old `unionEncoder`
    behavior applies until switchover, and new specs use pure-unionNext
    spellings. Documenting this beats half-supporting it.
-3. **Rule 2 `M = all` with a *refined* same-type variant** (e.g.
-   `unionNext([string.with(min,3), string])` from a string source): the spec
-   is silent on whether the refinement participates in fallback. Recommended:
-   refinement failure of a non-last attempt falls through (consistent with
-   attempt semantics); pin with a spec case either way.
-4. **Public name.** `S.unionNext` as a temporary documented-as-experimental
+3. **Public name.** `S.unionNext` as a temporary documented-as-experimental
    export, removed at switchover when `S.union` adopts the implementation.
