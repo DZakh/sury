@@ -748,11 +748,32 @@ test("Coerce from JSON to tuple with bigint", t => {
 //   // )
 // })
 
-test("Coerce from union to bigint", t => {
+// Union conversions follow the codec rules in docs/js-usage.md: a conversion is
+// resolved when the operation is created, so an ambiguous one — or one with a
+// variant the decoder can't be built for — is rejected there instead of
+// silently dropping a variant or leaving a branch that throws per value.
+
+test("Union to a single schema rejects a variant with no decoder", t => {
   let schema =
     S.union([S.string->S.castToUnknown, S.float->S.castToUnknown, S.bool->S.castToUnknown])->S.to(
       S.bigint,
     )
+
+  t->U.assertThrowsMessage(
+    () => "123"->S.parseOrThrow(~to=schema),
+    "Can't decode boolean to bigint. Use S.to to define a custom decoder",
+  )
+})
+
+test("Coerce from union to bigint", t => {
+  // Rule 3: every source variant gets its own decoder to the target. The
+  // boolean variant has none, so it says what it means with `S.to(S.never)`.
+  let schema =
+    S.union([
+      S.string->S.castToUnknown,
+      S.float->S.castToUnknown,
+      S.bool->S.to(S.never)->S.castToUnknown,
+    ])->S.to(S.bigint)
 
   t->Assert.deepEqual("123"->S.parseOrThrow(~to=schema), %raw(`123n`))
   t->Assert.deepEqual(123->S.parseOrThrow(~to=schema), %raw(`123n`))
@@ -760,45 +781,34 @@ test("Coerce from union to bigint", t => {
     () => {
       true->S.parseOrThrow(~to=schema)
     },
-    `Expected string | number | boolean, received true
-- Can't decode boolean to bigint. Use S.to to define a custom decoder`,
+`Expected never, received true`,
   )
   t->U.assertThrowsMessage(() => {
     123n->S.parseOrThrow(~to=schema)
   }, "Expected string | number | boolean, received 123n")
 
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Parse,
-    `i=>{if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0}else if(typeof i==="number"&&!Number.isNaN(i)){i=BigInt(i)}else if(typeof i==="boolean"){e[2](i,e[1])}else{e[3](i)}return i}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0}else if(typeof i==="number"&&!Number.isNaN(i)){i=BigInt(i)}else if(typeof i==="boolean"){e[1](i);}else{e[2](i)}return i}`)
 
-  t->Assert.deepEqual(123n->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
-
-  // TODO: Can be improved
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Encode,
-    `i=>{try{i=""+i}catch(e0){e[2](i,e0,e[0],e[1])}return i}`,
-  )
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#ReverseParse,
-    `i=>{typeof i==="bigint"||e[3](i);try{i=""+i}catch(e0){e[2](i,e0,e[0],e[1])}return i}`,
+  // The reverse is rule 2 (bigint into the source union) and there's no
+  // bigint -> number decoder, so the encode operation is rejected where it's
+  // created. Spell the number variant's own conversion out to encode as well.
+  t->U.assertThrowsMessage(
+    () => 123n->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    "Can't decode bigint to number. Use S.to to define a custom decoder",
   )
 })
 
 test("Coerce from union to bigint with refinement on union", t => {
   let schema =
-    S.union([S.string->S.castToUnknown, S.float->S.castToUnknown, S.bool->S.castToUnknown])
+    S.union([
+      S.string->S.castToUnknown,
+      S.float->S.castToUnknown,
+      S.bool->S.to(S.never)->S.castToUnknown,
+    ])
     ->S.refine(v => typeof(v) !== #bigint, ~error="Unsupported bigint")
     ->S.to(S.bigint)
 
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Parse,
-    `i=>{if(typeof i==="string"){e[0](i)||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}i=v0}else if(typeof i==="number"&&!Number.isNaN(i)){e[0](i)||e[3](i);i=BigInt(i)}else if(typeof i==="boolean"){e[5](i,e[4])}else{e[6](i)}return i}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(typeof i==="string"){e[0](i)||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}i=v0}else if(typeof i==="number"&&!Number.isNaN(i)){e[0](i)||e[3](i);i=BigInt(i)}else if(typeof i==="boolean"){e[4](i);}else{e[5](i)}return i}`)
 })
 
 test("Coerce from union to bigint with refinement on union (with an item transformed to)", t => {
@@ -806,7 +816,7 @@ test("Coerce from union to bigint with refinement on union (with an item transfo
     S.union([
       S.string->S.castToUnknown,
       S.float->S.to(S.string)->S.castToUnknown,
-      S.bool->S.castToUnknown,
+      S.bool->S.to(S.never)->S.castToUnknown,
     ])
     ->S.refine(v => typeof(v) !== #bigint, ~error="Unsupported bigint")
     ->S.to(S.bigint)
@@ -814,53 +824,60 @@ test("Coerce from union to bigint with refinement on union (with an item transfo
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){e[0](i)||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}i=v0}else if(typeof i==="number"&&!Number.isNaN(i)){let v2=""+i;e[0](v2)||e[4](v2);let v1;try{v1=BigInt(v2)}catch(_){e[3](v2)}i=v1}else if(typeof i==="boolean"){e[6](i,e[5])}else{e[7](i)}return i}`,
+    `i=>{if(typeof i==="string"){e[0](i)||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}i=v0}else if(typeof i==="number"&&!Number.isNaN(i)){let v2=""+i;e[0](v2)||e[4](v2);let v1;try{v1=BigInt(v2)}catch(_){e[3](v2)}i=v1}else if(typeof i==="boolean"){e[5](i);}else{e[6](i)}return i}`,
     ~message="Should apply refinement after the item transformation",
   )
 })
 
 test("Coerce from union to bigint and then to string", t => {
   let schema =
-    S.union([S.string->S.castToUnknown, S.float->S.castToUnknown, S.bool->S.castToUnknown])
+    S.union([
+      S.string->S.castToUnknown,
+      S.float->S.castToUnknown,
+      S.bool->S.to(S.never)->S.castToUnknown,
+    ])
     ->S.to(S.bigint)
     ->S.to(S.string)
 
   t->Assert.deepEqual("123"->S.parseOrThrow(~to=schema), %raw(`"123"`))
   t->Assert.deepEqual(123->S.parseOrThrow(~to=schema), %raw(`"123"`))
+
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=""+v0}else if(typeof i==="number"&&!Number.isNaN(i)){i=""+BigInt(i)}else if(typeof i==="boolean"){e[1](i);}else{e[2](i)}return i}`)
+
   t->U.assertThrowsMessage(
-    () => {
-      true->S.parseOrThrow(~to=schema)
-    },
-    `Expected string | number | boolean, received true
-- Can't decode boolean to bigint. Use S.to to define a custom decoder`,
-  )
-  t->U.assertThrowsMessage(() => {
-    123n->S.parseOrThrow(~to=schema)
-  }, "Expected string | number | boolean, received 123n")
-
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Parse,
-    `i=>{if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=""+v0}else if(typeof i==="number"&&!Number.isNaN(i)){i=""+BigInt(i)}else if(typeof i==="boolean"){e[2](i,e[1])}else{e[3](i)}return i}`,
-  )
-
-  t->Assert.deepEqual("123"->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
-  t->U.assertThrowsMessage(() => {
-    "abc"->S.decodeOrThrow(~from=schema, ~to=S.unknown)
-  }, `Expected bigint, received "abc"`)
-
-  // TODO: Can be improved
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Encode,
-    `i=>{let v0;try{v0=BigInt(i)}catch(_){e[0](i)}try{v0=""+v0}catch(e0){e[3](v0,e0,e[1],e[2])}return v0}`,
+    () => "123"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
+    "Can't decode bigint to number. Use S.to to define a custom decoder",
   )
 })
 
-test("Coerce from union to wider union should keep the original value type", t => {
+test("Rule 4: a target variant with no source of the same type is rejected", t => {
   let schema =
     S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])->S.to(
       S.union([S.string->S.castToUnknown, S.float->S.castToUnknown, S.bool->S.castToUnknown]),
+    )
+
+  t->U.assertThrowsMessage(
+    () => "123"->S.parseOrThrow(~to=schema),
+    "Can't decode string | number to string | number | boolean: boolean has no variant of the same type on the other side. Use S.to on it, or S.never to make it unreachable",
+  )
+})
+
+test("Rule 4: a source variant with no target of the same type is rejected", t => {
+  let schema =
+    S.union([S.string->S.castToUnknown, S.float->S.castToUnknown, S.bool->S.castToUnknown])->S.to(
+      S.union([S.float->S.castToUnknown, S.string->S.castToUnknown]),
+    )
+
+  t->U.assertThrowsMessage(
+    () => "123"->S.parseOrThrow(~to=schema),
+    "Can't decode string | number | boolean to number | string: boolean has no variant of the same type on the other side. Use S.to on it, or S.never to make it unreachable",
+  )
+})
+
+test("Rule 4: union to a reordered union of the same types passes values through", t => {
+  let schema =
+    S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])->S.to(
+      S.union([S.float->S.castToUnknown, S.string->S.castToUnknown]),
     )
 
   t->Assert.deepEqual("123"->S.parseOrThrow(~to=schema), %raw(`"123"`))
@@ -869,125 +886,91 @@ test("Coerce from union to wider union should keep the original value type", t =
     true->S.parseOrThrow(~to=schema)
   }, "Expected string | number, received true")
 
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Parse,
-    `i=>{if(!(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))){e[0](i)}return i}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(!(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))){e[0](i)}return i}`)
 })
 
-test("Fails to transform union to union to string", t => {
-  let schema =
-    S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])
-    ->S.to(S.union([S.string->S.castToUnknown, S.float->S.castToUnknown, S.bool->S.castToUnknown]))
-    ->S.to(S.string)
-
-  t->U.assertThrowsMessage(() => {
-    true->S.parseOrThrow(~to=schema)
-  }, "Expected string | number, received true")
-})
-
-test("Transform from union to wider union with different items order keeps source type", t => {
-  let schema =
-    S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])->S.to(
-      S.union([S.float->S.castToUnknown, S.string->S.castToUnknown, S.bool->S.castToUnknown]),
-    )
-
-  t->U.assertThrowsMessage(() => {
-    true->S.parseOrThrow(~to=schema)
-  }, "Expected string | number, received true")
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Parse,
-    `i=>{if(!(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))){e[0](i)}return i}`,
-  )
-})
-
-test("Tier 1: source tag matches a target variant — identity wins, no cross-type coercion", t => {
+test("Rule 2: a source matching some but not all target variants is rejected", t => {
   let schema = S.string->S.to(S.union([S.bool->S.castToUnknown, S.string->S.castToUnknown]))
 
-  // String input flows through as a string. The bool variant is never tried,
+  t->U.assertThrowsMessage(
+    () => "true"->S.parseOrThrow(~to=schema),
+    "Can't decode string to boolean | string: string matches it, boolean doesn't. Use S.to on it, or S.never to make it unreachable",
+  )
+})
+
+test("Rule 2: an explicitly unreachable variant lets the source pass through", t => {
+  let schema =
+    S.string->S.to(S.union([S.never->S.to(S.bool)->S.castToUnknown, S.string->S.castToUnknown]))
+
+  // String input flows through as a string. The bool variant is unreachable,
   // so "true"/"false" are NOT coerced to bool.
   t->Assert.deepEqual("true"->S.parseOrThrow(~to=schema), %raw(`"true"`))
-  t->Assert.deepEqual("false"->S.parseOrThrow(~to=schema), %raw(`"false"`))
   t->Assert.deepEqual("anything"->S.parseOrThrow(~to=schema), %raw(`"anything"`))
   t->U.assertThrowsMessage(() => true->S.parseOrThrow(~to=schema), `Expected string, received true`)
 
   t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{typeof i==="string"||e[0](i);return i}`)
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#Convert)
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Encode,
-    `i=>{if(typeof i==="boolean"){i=""+i}else if(!(typeof i==="string")){e[0](i)}return i}`,
-  )
 })
 
-test(
-  "Tier 2: nullish bridge — null source uses opposite undefined target when no null target",
-  t => {
-    let schema =
-      S.literal(%raw(`null`))->S.to(S.union([S.string->S.castToUnknown, S.unit->S.castToUnknown]))
+test("Rule 2: every variant is attempted in definition order", t => {
+  // No target variant has the source's type, so each one is offered the
+  // built-in decoder, first match wins.
+  let schema =
+    S.literal(%raw(`null`))->S.to(S.union([S.string->S.castToUnknown, S.unit->S.castToUnknown]))
 
-    // null bridges to undefined (the opposite-nullish target). The string
-    // variant is never compiled into the dispatch.
-    t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(~to=schema), %raw(`undefined`))
-    t->U.assertThrowsMessage(
-      () => "hello"->S.parseOrThrow(~to=schema),
-      `Expected null, received "hello"`,
-    )
-
-    t->U.assertCompiledCode(
-      ~schema,
-      ~op=#Parse,
-      `i=>{i===null||e[1](i);try{i=void 0}catch(e1){e[0](i,e1)}return i}`,
-    )
-  },
-)
-
-test("Tier 3: no source-tag match — coercion fallback retained", t => {
-  let schema = S.bool->S.to(S.union([S.string->S.castToUnknown, S.float->S.castToUnknown]))
-
-  // Source tag (boolean) matches no target tag → fall through to today's
-  // trial-coercion behavior. bool→string via `""+i` succeeds.
-  t->Assert.deepEqual(true->S.parseOrThrow(~to=schema), %raw(`"true"`))
-  t->Assert.deepEqual(false->S.parseOrThrow(~to=schema), %raw(`"false"`))
+  // The string variant comes first and `null` has a built-in decoding to
+  // `"null"`, so it wins — definition order, not a nullish bridge (that
+  // exception belongs to rule 4).
+  t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(~to=schema), %raw(`"null"`))
   t->U.assertThrowsMessage(
     () => "hello"->S.parseOrThrow(~to=schema),
-    `Expected boolean, received "hello"`,
+    `Expected null, received "hello"`,
   )
 
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Parse,
-    `i=>{typeof i==="boolean"||e[2](i);try{i=""+i}catch(e0){e[1](i,e0,e[0])}return i}`,
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{i===null||e[1](i);try{i="null"}catch(e0){try{i=void 0}catch(e1){e[0](i,e0,e1)}}return i}`)
+})
+
+test("Rule 2: a variant with no decoder from the source is rejected", t => {
+  let schema = S.bool->S.to(S.union([S.string->S.castToUnknown, S.float->S.castToUnknown]))
+
+  t->U.assertThrowsMessage(
+    () => true->S.parseOrThrow(~to=schema),
+    "Can't decode boolean to number. Use S.to to define a custom decoder",
   )
 })
 
-test(
-  "Tier 2: nullish bridge — undefined source uses opposite null target when no undefined target",
-  t => {
-    let schema =
-      S.unit->S.to(S.union([S.string->S.castToUnknown, S.literal(%raw(`null`))->S.castToUnknown]))
+test("Rule 2: a nullish source reaches the first variant that accepts it", t => {
+  let schema =
+    S.unit->S.to(S.union([S.literal(%raw(`null`))->S.castToUnknown, S.string->S.castToUnknown]))
 
-    // undefined bridges to null. The string variant is never compiled into the dispatch.
-    t->Assert.deepEqual(()->S.parseOrThrow(~to=schema), %raw(`null`))
-    t->U.assertThrowsMessage(
-      () => "hello"->S.parseOrThrow(~to=schema),
-      `Expected undefined, received "hello"`,
-    )
+  t->Assert.deepEqual(()->S.parseOrThrow(~to=schema), %raw(`null`))
+  t->U.assertThrowsMessage(
+    () => "hello"->S.parseOrThrow(~to=schema),
+    `Expected undefined, received "hello"`,
+  )
 
-    t->U.assertCompiledCode(
-      ~schema,
-      ~op=#Parse,
-      `i=>{i===void 0||e[1](i);try{i=null}catch(e1){e[0](i,e1)}return i}`,
-    )
-  },
-)
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{i===void 0||e[1](i);try{i=null}catch(e0){try{i="undefined"}catch(e1){e[0](i,e0,e1)}}return i}`)
+})
 
-test("Tier 1 instance: same class wins, other instance branch never compiled", t => {
+test("Rule 2 instance: a source matching one class but not the other is rejected", t => {
   let schema =
     S.instance(%raw(`Set`))->S.to(
       S.union([S.instance(%raw(`Map`))->Obj.magic, S.instance(%raw(`Set`))->Obj.magic]),
+    )
+
+  t->U.assertThrowsMessage(
+    () => %raw(`new Set(["a"])`)->S.parseOrThrow(~to=schema),
+    "Can't decode Set to Map | Set: Set matches it, Map doesn't. Use S.to on it, or S.never to make it unreachable",
+  )
+})
+
+test("Rule 2 instance: an unreachable other class keeps the identity", t => {
+  let schema =
+    S.instance(%raw(`Set`))->S.to(
+      S.union([
+        S.never->S.to(S.instance(%raw(`Map`)))->Obj.magic,
+        S.instance(%raw(`Set`))->Obj.magic,
+      ]),
     )
 
   t->Assert.deepEqual(%raw(`new Set(["a"])`)->S.parseOrThrow(~to=schema), %raw(`new Set(["a"])`))
@@ -996,38 +979,25 @@ test("Tier 1 instance: same class wins, other instance branch never compiled", t
     `Expected Set, received [object Map]`,
   )
 
-  // Generated dispatch only checks `i instanceof Set` — Map branch absent.
   t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{i instanceof e[0]||e[1](i);return i}`)
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#Convert)
 })
 
-test("Tier 3 instance: source class absent from target — coercion fallback retained", t => {
+test("Rule 2 instance: a class with no decoder from the source is rejected", t => {
   let schema =
     S.instance(%raw(`Set`))->S.to(
       S.union([S.string->S.castToUnknown, S.instance(%raw(`Map`))->Obj.magic]),
     )
 
-  // Set source matches neither string nor Map by class name → tier-3 fallback.
   t->U.assertThrowsMessage(
     () => %raw(`new Set()`)->S.parseOrThrow(~to=schema),
-    `Expected string | Map, received [object Set]
-- Can't decode Set to string. Use S.to to define a custom decoder
-- Can't decode Set to Map. Use S.to to define a custom decoder`,
-  )
-  t->U.assertThrowsMessage(
-    () => "hello"->S.parseOrThrow(~to=schema),
-    `Expected Set, received "hello"`,
-  )
-
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Parse,
-    `i=>{i instanceof e[3]||e[4](i);e[2](i,e[0],e[1]);return i}`,
+    "Can't decode Set to string. Use S.to to define a custom decoder",
   )
 })
 
-test("Tier 1 instance: S.date -> S.union([S.string, S.date]) keeps Date identity", t => {
-  let schema = S.date->S.to(S.union([S.string->S.castToUnknown, S.date->S.castToUnknown]))
+test("Rule 2 instance: S.date -> S.union([S.never->S.to(S.string), S.date]) keeps Date identity", t => {
+  let schema =
+    S.date->S.to(S.union([S.never->S.to(S.string)->S.castToUnknown, S.date->S.castToUnknown]))
 
   let d = Date.fromString("2024-01-01T00:00:00Z")
   t->Assert.deepEqual(d->S.parseOrThrow(~to=schema), d->Obj.magic)
@@ -1040,42 +1010,25 @@ test("Tier 1 instance: S.date -> S.union([S.string, S.date]) keeps Date identity
     `Expected Date, received [object Date]`,
   )
 
-  // Forward dispatch only checks the Date branch; the string variant is absent.
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Parse,
-    `i=>{i instanceof e[1]||e[2](i);!Number.isNaN(i.getTime())||e[0](i);return i}`,
-  )
+  // Forward dispatch only checks the Date branch; the string variant is unreachable.
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{i instanceof e[1]||e[2](i);!Number.isNaN(i.getTime())||e[0](i);return i}`)
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#Convert)
-  // Reverse handles both source variants: parse string as Date, or pass Date through.
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Encode,
-    `i=>{if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);i=new Date(i)}else if(!(i instanceof e[1])){e[2](i)}return i}`,
-  )
 })
 
-test("Tier 1 over tier 2: undefined -> [null, undefined] keeps undefined (tier-1 wins)", t => {
+test("Rule 2: undefined source matching the undefined variant but not null is rejected", t => {
   let schema =
     S.unit->S.to(S.union([S.literal(%raw(`null`))->S.castToUnknown, S.unit->S.castToUnknown]))
 
-  // The undefined target is present, so tier-1 must win — undefined stays undefined.
-  // The null bridge must NOT be applied even though null is also a target.
-  t->Assert.deepEqual(()->S.parseOrThrow(~to=schema), %raw(`undefined`))
   t->U.assertThrowsMessage(
-    () => %raw(`null`)->S.parseOrThrow(~to=schema),
-    `Expected undefined, received null`,
+    () => ()->S.parseOrThrow(~to=schema),
+    "Can't decode undefined to null | undefined: undefined matches it, null doesn't. Use S.to on it, or S.never to make it unreachable",
   )
-
-  // Generated dispatch only checks `i===void 0` — the null branch is absent.
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{i===void 0||e[0](i);return i}`)
 })
 
 test("Tier 3 fallback for unknown source — transform on unknown variant still runs", t => {
-  // Source is S.unknown. Even though the target has an `unknown` variant
-  // (the second one, with a transform), tier-1 must NOT fire here: an
-  // unknown source has no derived tag, so dispatch falls through to
-  // tier-3 trial and tries `string` first, then the transformed unknown.
+  // Source is S.unknown, which has no type of its own to compare, so every
+  // variant is attempted in definition order: `string` first, then the
+  // transformed unknown.
   let schema = S.unknown->S.to(
     S.union([
       S.string->S.castToUnknown,
@@ -1094,8 +1047,6 @@ test("Tier 3 fallback for unknown source — transform on unknown variant still 
   // variant, which applies the transform (wraps in Some).
   t->Assert.deepEqual(123->S.parseOrThrow(~to=schema), Some(123)->Obj.magic)
 
-  // Generated code is the tier-3 trial chain — string check first, then
-  // the transformed unknown branch in a catch.
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
@@ -1103,59 +1054,41 @@ test("Tier 3 fallback for unknown source — transform on unknown variant still 
   )
 })
 
-test(
-  "Tier 1: union with refine+to as target — downstream refine/to only see narrowed variant",
-  t => {
-    // Source S.string matches the string variant in the target union.
-    // Tier 1 narrows the target union to just [string], so the union's refiner
-    // and the chained .to(bigint) should compile only for the string case.
-    let target =
-      S.union([S.string->S.castToUnknown, S.float->S.castToUnknown, S.bool->S.castToUnknown])
-      ->S.refine(v => typeof(v) !== #bigint, ~error="Unsupported bigint")
-      ->S.to(S.bigint)
-    let schema = S.string->S.to(target)
+test("A union carrying a refinement takes part in a conversion as a normal schema", t => {
+  // The target union has a refine and a chained `.to(S.bigint)` of its own, so
+  // rule 2 doesn't apply to it — the conversion is `S.string` into an opaque
+  // schema, and the union's own decoder dispatches over its variants.
+  let target =
+    S.union([
+      S.string->S.castToUnknown,
+      S.float->S.castToUnknown,
+      S.bool->S.to(S.never)->S.castToUnknown,
+    ])
+    ->S.refine(v => typeof(v) !== #bigint, ~error="Unsupported bigint")
+    ->S.to(S.bigint)
+  let schema = S.string->S.to(target)
 
-    t->Assert.deepEqual("123"->S.parseOrThrow(~to=schema), %raw(`123n`))
+  t->Assert.deepEqual("123"->S.parseOrThrow(~to=schema), %raw(`123n`))
 
-    // FIXME: ideally the only surviving case should compile inline as
-    // `typeof i==="string"||e(i);if(!e(i)){e()}let v0=BigInt(i);return v0` —
-    // outer typecheck, per-case refine, string→bigint, no exhaustive wrapper.
-    // Today the union still wraps the single surviving case in try/catch.
-    t->U.assertCompiledCode(
-      ~schema,
-      ~op=#Parse,
-      `i=>{typeof i==="string"||e[4](i);try{e[0](i)||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}i=v0}catch(e0){e[3](i,e0)}return i}`,
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{typeof i==="string"||e[8](i);try{e[0](i)||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}i=v0}catch(e0){try{let v1=+i;!Number.isNaN(v1)||e[4](i);e[0](v1)||e[3](v1);i=BigInt(v1)}catch(e1){try{let v2;(v2=i==="true")||i==="false"||e[5](i);e[6](v2);i=v2}catch(e2){e[7](i,e0,e1,e2)}}}return i}`)
+})
+
+test("A nested union keeps its own refinement instead of being flattened", t => {
+  let inner =
+    S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])->S.refine(
+      v => v !== %raw(`""`),
+      ~error="Expected a non-empty value",
     )
-  },
-)
+  let schema = S.union([inner->S.castToUnknown, S.bool->S.castToUnknown])
 
-test(
-  "Tier 1: S.string -> S.to(union[str,bigint] -> refine -> to(bigint)) — union output schema is S.string, downstream sees only refine + BigInt",
-  t => {
-    // The target is a 2-variant union [string, bigint] with a refine and a
-    // .to(S.bigint) chained on it. Source is S.string, so tier-1 narrows the
-    // union to just [string]; the union decoder's output schema becomes S.string.
-    // Downstream the refine and .to(S.bigint) compile against that single
-    // surviving variant — no bigint case, no fallback.
-    let target =
-      S.union([S.string->S.castToUnknown, S.bigint->S.castToUnknown])
-      ->S.refine(_ => true)
-      ->S.to(S.bigint)
-    let schema = S.string->S.to(target)
-
-    t->Assert.deepEqual("123"->S.parseOrThrow(~to=schema), %raw(`123n`))
-
-    // FIXME: ideally the surviving string case should compile inline without
-    // the exhaustive try/catch wrapper around it. Locked to current output
-    // until the union codegen learns to bypass dispatch for single-case
-    // narrowing.
-    t->U.assertCompiledCode(
-      ~schema,
-      ~op=#Parse,
-      `i=>{typeof i==="string"||e[4](i);try{e[0](i)||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}i=v0}catch(e0){e[3](i,e0)}return i}`,
-    )
-  },
-)
+  t->Assert.deepEqual("abc"->S.parseOrThrow(~to=schema), %raw(`"abc"`))
+  t->Assert.deepEqual(true->S.parseOrThrow(~to=schema), %raw(`true`))
+  t->U.assertThrowsMessage(
+    () => ""->S.parseOrThrow(~to=schema),
+    `Expected string | number | boolean, received ""
+- Expected a non-empty value`,
+  )
+})
 
 // Union schema as decoder input: the conversion runs for each source variant
 // separately (see "Decoding into / out of a union" in the docs)
@@ -1165,7 +1098,10 @@ test("Converts union nested in object into another union (each source variant se
     S.schema(s =>
       {
         "f": s.matches(
-          S.union([S.bigint->S.castToUnknown, S.literal(%raw(`null`))->S.castToUnknown]),
+          S.union([
+            S.bigint->S.to(S.string)->S.castToUnknown,
+            S.literal(%raw(`null`))->S.castToUnknown,
+          ]),
         ),
       }
     )->S.to(
@@ -1194,7 +1130,9 @@ test("Converts union nested in object into a single schema (each source variant 
   let schema =
     S.schema(s =>
       {
-        "f": s.matches(S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])),
+        "f": s.matches(
+          S.union([S.string->S.castToUnknown, S.float->S.to(S.string)->S.castToUnknown]),
+        ),
       }
     )->S.to(S.schema(s => {"f": s.matches(S.string)}))
 
@@ -1202,7 +1140,7 @@ test("Converts union nested in object into a single schema (each source variant 
   t->Assert.deepEqual({"f": %raw(`"abc"`)}->S.parseOrThrow(~to=schema), {"f": %raw(`"abc"`)})
 })
 
-test("Union variant failing to decode to the target reports an aggregated error", t => {
+test("Union variant failing to decode to the target rejects the operation", t => {
   let schema =
     S.schema(s =>
       {
@@ -1210,37 +1148,41 @@ test("Union variant failing to decode to the target reports an aggregated error"
       }
     )->S.to(S.schema(s => {"f": s.matches(S.bigint)}))
 
-  t->Assert.deepEqual({"f": %raw(`"12"`)}->S.parseOrThrow(~to=schema), {"f": %raw(`12n`)})
   t->U.assertThrowsMessage(
-    () => {"f": %raw(`true`)}->S.parseOrThrow(~to=schema),
-    `Failed at ["f"]: Expected string | boolean, received true
-- At ["f"]: Can't decode boolean to bigint. Use S.to to define a custom decoder`,
+    () => {"f": %raw(`"12"`)}->S.parseOrThrow(~to=schema),
+    `Failed at ["f"]: Can't decode boolean to bigint. Use S.to to define a custom decoder`,
   )
 })
 
-test("Tier 1: matching const variant wins over an earlier mapped literal", t => {
+test("Rule 4: literal variants pair by value, an extra target variant is rejected", t => {
+  t->U.assertThrowsMessage(
+    () =>
+      "a"->S.parseOrThrow(
+        ~to=S.union([S.literal("a"), S.literal("b")])->S.to(
+          S.union([S.literal("b"), S.literal("a"), S.literal("c")]),
+        ),
+      ),
+    `Can't decode "a" | "b" to "b" | "a" | "c": "c" has no variant of the same type on the other side. Use S.to on it, or S.never to make it unreachable`,
+  )
+
   let schema =
-    S.union([S.literal("a"), S.literal("b")])->S.to(
-      S.union([S.literal("b"), S.literal("a"), S.literal("c")]),
-    )
+    S.union([S.literal("a"), S.literal("b")])->S.to(S.union([S.literal("b"), S.literal("a")]))
 
   t->Assert.deepEqual("a"->S.parseOrThrow(~to=schema), "a")
   t->Assert.deepEqual("b"->S.parseOrThrow(~to=schema), "b")
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Parse,
-    `i=>{if(!(typeof i==="string"&&(i==="a"||i==="b"))){e[0](i)}return i}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(!(typeof i==="string"&&(i==="a"||i==="b"))){e[0](i)}return i}`)
 })
 
-test("Tier 1: object source picks the matching object variant in target union", t => {
+test("Rule 2: an object source is the same type as every object variant", t => {
   let objA = S.schema(s => {"k": s.matches(S.literal("a")), "x": s.matches(S.float)})
   let objB = S.schema(s => {"k": s.matches(S.literal("b")), "y": s.matches(S.string)})
   let schema = objA->S.to(S.union([objB->Obj.magic, objA->Obj.magic]))
 
-  t->Assert.deepEqual(
-    {"k": "a", "x": 1.}->S.parseOrThrow(~to=schema),
-    {"k": "a", "x": 1.}->Obj.magic,
+  // Both variants have the object type, so both are attempted — and objA has
+  // no `y` field to decode into objB with.
+  t->U.assertThrowsMessage(
+    () => {"k": "a", "x": 1.}->S.parseOrThrow(~to=schema),
+    `Can't decode { k: "a"; x: number; } to { k: "b"; y: string; }. Use S.to to define a custom decoder`,
   )
 })
 
@@ -1268,9 +1210,12 @@ test("Converts union of objects into reordered union of objects", t => {
 
 test("Converts union nested in array into another union (each source variant separately)", t => {
   let schema =
-    S.array(S.union([S.bigint->S.castToUnknown, S.literal(%raw(`null`))->S.castToUnknown]))->S.to(
-      S.array(S.union([S.string->S.castToUnknown, S.unit->S.castToUnknown])),
-    )
+    S.array(
+      S.union([
+        S.bigint->S.to(S.string)->S.castToUnknown,
+        S.literal(%raw(`null`))->S.castToUnknown,
+      ]),
+    )->S.to(S.array(S.union([S.string->S.castToUnknown, S.unit->S.castToUnknown])))
 
   t->Assert.deepEqual(
     %raw(`[123n, null]`)->S.parseOrThrow(~to=schema),
@@ -1285,7 +1230,7 @@ test("Converts union nested in array into another union (each source variant sep
 test("Converts union nested in tuple into a single schema (each source variant separately)", t => {
   let schema =
     S.schema(s => (
-      s.matches(S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])),
+      s.matches(S.union([S.string->S.castToUnknown, S.float->S.to(S.string)->S.castToUnknown])),
       s.matches(S.bool),
     ))->S.to(S.schema(s => (s.matches(S.string), s.matches(S.bool))))
 
@@ -1297,7 +1242,9 @@ asyncTest("Converts union nested in object into an async target (each source var
   let schema =
     S.schema(s =>
       {
-        "f": s.matches(S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])),
+        "f": s.matches(
+          S.union([S.string->S.castToUnknown, S.float->S.to(S.string)->S.castToUnknown]),
+        ),
       }
     )->S.to(
       S.schema(s =>

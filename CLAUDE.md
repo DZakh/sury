@@ -45,6 +45,12 @@ Per-schema execution order:
 
 `S.reverse` swaps `inputRefiner ↔ refiner`, `parser ↔ serializer`, and reverses the `.to` chain.
 
+## Conversion rules
+
+Which schema decodes into which is resolved when the operation is compiled, in `composites.ts`: `sameType`/`isPlainUnion` define type identity and flattening, `unionCheckAmbiguous` covers rules 2–3 (union ↔ single schema), `unionPairVariants` covers rule 4 (union ↔ union). An ambiguous or uncoverable conversion, or one with a variant whose decoder can't be built, is rejected there — never dropped, never left as a per-value throw. `docs/js-usage.md` § "Decoding into / out of a union" is the user-facing statement of the same rules; keep the two in sync, and add a `specs/codec-*.yaml` case for anything the rules newly decide.
+
+Two exemptions keep the older lenient behavior, where a member that can't be built becomes an aggregated runtime error instead: plain union *validation* (no conversion to blame) and an `Internal.implicit` union — the library's own model of a possibly-absent `dict` read, which the author never wrote and so can't disambiguate.
+
 ## Refiner ownership
 
 The parse loop applies refiners **only for primitive decoders** (result has `isOutput !== Some(true)`). **Advanced decoders** (object, array, tuple, union, recursive — anything that sets `isOutput = Some(true)`) own refiner application themselves, so input checks land on the pre-transform val and output checks on the assembled output.

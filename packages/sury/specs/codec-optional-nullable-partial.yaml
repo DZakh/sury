@@ -1,8 +1,5 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  # FIXME: Codec next expects: rejected at creation — rule 4 coerces nothing and
-  # string has no same-type target variant. S.optional(S.string).with(S.to,
-  # S.nullable(S.string.with(S.to, S.boolean))) converts per variant.
   schema: S.optional(S.string).with(S.to, S.nullable(S.boolean))
   input: string | undefined
   output: boolean | null
@@ -15,25 +12,6 @@ jsonSchema:
   output: '{ anyOf: [{ type: "boolean" }, { type: "null" }] }'
 operations:
   parse:
-    expression: i=>{if(typeof i==="string"){try{let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}catch(e0){if(i==="null"){i=null}else{e[1](i,e0)}}}else if(i===void 0){try{i=null}catch(e1){e[2](i,e1)}}else{e[3](i)}return i}
-    examples:
-      string:
-        input: '"abc"'
-        error: |-
-          Expected boolean | null, received "abc"
-          - Expected boolean, received "abc"
-      undefined:
-        input: undefined
-        output: "null"
+    creationError: "SuryError: Can't decode string | undefined to boolean | null: string has no variant of the same type on the other side. Use S.to on it, or S.never to make it unreachable"
   decode: eq-to-parse
-  encode:
-    # FIXME: `""+i` on a boolean can't throw, so the first catch (and its
-    # `i===void 0` re-test of a value already known to be a boolean) is dead.
-    expression: i=>{if(typeof i==="boolean"){try{i=""+i}catch(e0){if(!(i===void 0)){e[0](i,e0)}}}else if(i===null){try{i=void 0}catch(e1){e[1](i,e1)}}else{e[2](i)}return i}
-    examples:
-      boolean:
-        input: "true"
-        output: '"true"'
-      "null":
-        input: "null"
-        output: undefined
+  encode: eq-to-parse

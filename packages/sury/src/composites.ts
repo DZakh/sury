@@ -1,11 +1,11 @@
 import { Literal_parse, isArrayCond, jsonName, objectTagCond, setHas, unit } from "./primitives";
-import { baseSchema, getOrRethrow, panic, unknown, updateOutput } from "./schema";
+import { baseSchema, copySchema, getOrRethrow, panic, unknown, updateOutput } from "./schema";
 import { getOutputSchema, nestedLoc, nestedOptionParser, never_, parse, parseDynamic, typeCheckCond } from "./parse";
-import { B_addObjectField, B_addKey, B_scope, B_asyncVal, B_dynamicScope, B_embed, B_failWithArg, B_hoistChildChecks, B_hoistDecl, B_inlineConst, B_isHoistable, B_makeInvalidInputDetails, B_markOutput, B_merge, B_mergeWithPathPrepend, B_next, B_nextConst, B_pushCheck, B_refine, B_throw, B_unsupportedDecode, B_varWithoutAllocation, Builder, _notVar, _notVarAtParent, _var, failInvalidType } from "./builder";
-import { AdditionalItems, Check, ErrorDetails, Internal, SuryErrorRecord, U, Val, immutableEmptyArray, immutableEmptyObject, isLiteral, isOptional } from "./types";
+import { B_addObjectField, B_addKey, B_scope, B_asyncVal, B_dynamicScope, B_embed, B_failWithArg, B_hoistChildChecks, B_hoistDecl, B_inlineConst, B_invalidOperation, B_isHoistable, B_makeInvalidInputDetails, B_markOutput, B_merge, B_mergeWithPathPrepend, B_next, B_nextConst, B_pushCheck, B_refine, B_throw, B_unsupportedDecode, B_varWithoutAllocation, Builder, _notVar, _notVarAtParent, _var, failInvalidType } from "./builder";
+import { AdditionalItems, Check, ErrorDetails, Internal, SuryErrorRecord, U, Val, immutableEmptyArray, immutableEmptyObject, isLiteral, isOptional, toExpression } from "./types";
 import { flagUnsafeHas, valFlagAsync, valFlagNone } from "./flags";
 import { inlinedValueFromString, pathConcat, pathFromInlinedLocation } from "./path";
-import { Tag, arrayTag, nullTag, numberTag, objectTag, tagFlagArray, tagFlagFunction, tagFlagInstance, tagFlagNaN, tagFlagNever, tagFlagNull, tagFlagObject, tagFlagRef, tagFlagUndefined, tagFlagUnion, tagFlagUnknown, tagFlags, undefinedTag, unionTag, unknownTag } from "./tags";
+import { Tag, arrayTag, neverTag, nullTag, numberTag, objectTag, tagFlagArray, tagFlagFunction, tagFlagInstance, tagFlagNaN, tagFlagNever, tagFlagNull, tagFlagObject, tagFlagRef, tagFlagUndefined, tagFlagUnion, tagFlagUnknown, tagFlags, undefinedTag, unionTag, unknownTag } from "./tags";
 
 // An object/array val (`makeObjectVal`'s result) reuses the plain `Val`
 // shape — there's no separate "object val" type.
@@ -510,12 +510,46 @@ export const unionToKey = (schema: Internal): string => {
     : schema.type;
 }
 
-export const unionIsPriority = (tagFlag: number, byKey: Record<string, unknown[]>): boolean => {
+export const unionIsPriority = (tagFlag: number, byTypeKey: Record<string, boolean>): boolean => {
   return (
     (flagUnsafeHas(tagFlag, (tagFlagArray | tagFlagInstance)) &&
-      objectTag in byKey) ||
-    (flagUnsafeHas(tagFlag, tagFlagNaN) && numberTag in byKey)
+      objectTag in byTypeKey) ||
+    (flagUnsafeHas(tagFlag, tagFlagNaN) && numberTag in byTypeKey)
   );
+}
+
+// What a compiled union case dispatches on:
+// - `k` its dispatch signature, the runtime types its type checks narrow to.
+//   Two cases sharing it compete for the same values, so they may only be
+//   emitted under one shared check when neither carries a body of its own.
+// - `p` whether the case is a pure narrow (no body, no transformation).
+// An empty signature means the case has no hoistable discriminant at all —
+// there is nothing to branch on, so it needs a try/catch slot.
+export const unionCaseDispatch = (val: Val): { k: string; p: boolean } => {
+  let key = "";
+  let pure = val.t !== true;
+  let current: Val | undefined = val;
+  while (current !== U) {
+    const v: Val = current;
+    current = v.prev;
+    if (v.cp !== "" || v.hd !== "") {
+      pure = false;
+    }
+    if (v.vc) {
+      if (current === U || !B_isHoistable(v)) {
+        pure = false;
+      } else {
+        const checks = v.vc;
+        for (let i = 0; i < checks.length; i++) {
+          if (checks[i]!.f !== failInvalidType) {
+            pure = false;
+          }
+        }
+        key = unionToKey(v.s) + "|" + key;
+      }
+    }
+  }
+  return { k: key, p: pure };
 }
 
 // Whether decoding a value already known to be of the schema type
@@ -538,6 +572,9 @@ export const unionIsSelfDecodeNoop = (schema: Internal): boolean => {
   );
 }
 
+// Pass-through shortcut for a union-typed val meeting a union expectation that
+// covers it position by position. Only reachable when per-variant dispatch is
+// unavailable (a recursive variant) — a real conversion goes through the rules.
 export const unionIsWiderSchema = (schemaAnyOf: Internal[], inputAnyOf: Internal[]): boolean => {
   return inputAnyOf.every((inputSchema, idx) => {
     const schema = schemaAnyOf[idx];
@@ -566,6 +603,207 @@ export const unionGetToPerCase = (schema: Internal): Internal | undefined => {
   return schema.parser === U && schema.to !== U ? schema.to : U;
 }
 
+// Two schemas have the same type when their type tags match — the class for
+// instances and the format for formatted primitives included, so `S.int32` and
+// `S.number` are different types. A schema with no tag of its own to compare —
+// a recursive schema, or a union taking part as a normal schema — has the same
+// type as another only when the two are strictly equal. `unknown` has no type
+// to compare at all: it matches nothing, so an unknown source always reaches
+// every variant's decoder (which is what plain union validation is).
+export const sameType = (a: Internal, b: Internal): boolean => {
+  const flags = tagFlags[a.type]! | tagFlags[b.type]!;
+  if (flagUnsafeHas(flags, tagFlagUnknown)) {
+    return false;
+  }
+  if (a === b) {
+    return true;
+  }
+  return (
+    !flagUnsafeHas(flags, (tagFlagRef | tagFlagUnion)) &&
+    a.type === b.type &&
+    a.class === b.class &&
+    a.format === b.format &&
+    // Two literals of the same tag are still different types when they hold
+    // different values — otherwise rule 4 would pair `"a"` with `"b"`. A
+    // literal and the plain type it belongs to do match: `S.literal("a")` is
+    // one of the values `S.string` produces.
+    (a.const === b.const || !isLiteral(a) || !isLiteral(b))
+  );
+}
+
+// A union carrying its own format, transformation or refinement is not
+// flattened and takes part in a conversion as a normal schema — otherwise the
+// thing it carries would be dropped together with the wrapper.
+export const isPlainUnion = (schema: Internal): boolean => {
+  return (
+    schema.type === unionTag &&
+    schema.to === U &&
+    schema.parser === U &&
+    schema.refiner === U &&
+    schema.inputRefiner === U &&
+    schema.format === U
+  );
+}
+
+// `S.never` marks a deliberately unreachable path, so a variant matching by a
+// `never` type is skipped by the rules below instead of failing them.
+const isUnreachable = (schema: Internal): boolean => schema.type === neverTag;
+
+const conversionFailure = (input: Val, from: Internal, to: Internal, detail: string): never => {
+  return B_invalidOperation(
+    input,
+    `Can't decode ${toExpression(from)} to ${toExpression(to)}: ${detail}`
+  );
+}
+
+// Rules 2 and 3 — a conversion between a union and a schema with a type of
+// its own applies the built-in decoder per variant. When the single side has
+// the same type as some but not all variants, there is no telling a widening
+// from a decoding intent, so the operation is rejected. A variant is seen by
+// what the conversion reads from it: its input when the union is the target,
+// its output when the union is the source.
+export const unionCheckAmbiguous = (
+  input: Val,
+  from: Internal,
+  to: Internal,
+  variants: Internal[],
+  isSource: boolean
+): void => {
+  const single = isSource ? to : from;
+  let matched: Internal | undefined = U;
+  let unmatched: Internal | undefined = U;
+  for (let idx = 0; idx < variants.length; idx++) {
+    const variant = isSource ? getOutputSchema(variants[idx]!) : variants[idx]!;
+    if (isUnreachable(variant)) {
+      continue;
+    }
+    if (sameType(single, variant)) {
+      matched = matched !== U ? matched : variant;
+    } else {
+      unmatched = unmatched !== U ? unmatched : variant;
+    }
+  }
+  if (matched !== U && unmatched !== U) {
+    conversionFailure(
+      input,
+      from,
+      to,
+      `${toExpression(matched)} matches it, ${toExpression(unmatched)} doesn't` + conversionHint
+    );
+  }
+}
+
+const conversionHint = ". Use S.to on it, or S.never to make it unreachable";
+
+const noMatchDetail = (schema: Internal): string =>
+  `${toExpression(schema)} has no variant of the same type on the other side` + conversionHint;
+
+const nullishOpposite = (schema: Internal): Tag | undefined => {
+  const tag = schema.type;
+  return tag === nullTag ? undefinedTag : tag === undefinedTag ? nullTag : U;
+}
+
+// Rule 4 (union → union): no coercion — every value passes through to the
+// same-type target variant. Returns the target variant each source variant
+// converts into (None for an unreachable variant), and rejects the operation
+// unless the two unions cover each other. A `null`/`undefined` variant left
+// unmatched may bridge to the opposite nullish variant on the other side — at
+// runtime the same-type target wins, the bridge only fills a gap.
+export const unionPairVariants = (
+  input: Val,
+  source: Internal,
+  target: Internal,
+  sourceVariants: Internal[],
+  targetVariants: Internal[]
+): (Internal | undefined)[] => {
+  const outputs = sourceVariants.map(getOutputSchema);
+  const covered: boolean[] = [];
+  const find = (out: Internal, byIdentity: boolean): Internal | undefined => {
+    for (let j = 0; j < targetVariants.length; j++) {
+      const variant = targetVariants[j]!;
+      if (
+        byIdentity
+          ? variant === out
+          : !isUnreachable(variant) &&
+            (sameType(out, variant) || variant.type === nullishOpposite(out))
+      ) {
+        covered[j] = true;
+        return variant;
+      }
+    }
+    return U;
+  };
+
+  // Same-type matching alone can't tell two object variants apart (their tag
+  // is all they have), so the variant that *is* the target wins first — a
+  // reordered union of objects pairs each variant with itself instead of with
+  // whichever object the target happens to list first.
+  const pairs = outputs.map((out) => (isUnreachable(out) ? U : find(out, true)));
+  outputs.forEach((out, idx) => {
+    if (pairs[idx] === U && !isUnreachable(out)) {
+      const pair = find(out, false);
+      if (pair === U) {
+        conversionFailure(input, source, target, noMatchDetail(out));
+      }
+      pairs[idx] = pair;
+    }
+  });
+
+  targetVariants.forEach((variant, j) => {
+    const opposite = nullishOpposite(variant);
+    let bridged = covered[j] === true || isUnreachable(variant);
+    for (let idx = 0; opposite !== U && !bridged && idx < outputs.length; idx++) {
+      bridged = outputs[idx]!.type === opposite;
+    }
+    if (!bridged) {
+      conversionFailure(input, source, target, noMatchDetail(variant));
+    }
+  });
+
+  return pairs;
+}
+
+// Resolves what each source variant converts into, applying rule 4 when both
+// sides are plain unions and rule 3 otherwise.
+export const unionResolveTargets = (
+  input: Val,
+  source: Internal,
+  variants: Internal[],
+  target: Internal
+): (Internal | undefined)[] => {
+  let resolved = target;
+  if (source.implicit) {
+    // An implicit union is the library's own model of a possibly-absent
+    // property read, not something the author wrote, so there is no authoring
+    // ambiguity for the rules to reject: every variant keeps attempting the
+    // whole target and a variant with no decoder stays a runtime failure. The
+    // mark travels onto the target union so nested conversions stay exempt.
+    if (target.type === unionTag && !target.implicit) {
+      resolved = copySchema(target);
+      resolved.implicit = true;
+    }
+  } else if (isPlainUnion(target)) {
+    return unionPairVariants(input, source, target, variants, target.anyOf!);
+  } else {
+    unionCheckAmbiguous(input, source, target, variants, true);
+  }
+  return variants.map(() => resolved);
+}
+
+// Re-drives the source union with `.to(target)` appended, so its decoder
+// dispatches per variant and each variant converts to the target
+// independently (the documented per-source-variant algorithm)
+export const unionPerVariantVal = (input: Val, target: Internal): Val => {
+  return B_refine(
+    input,
+    unknown,
+    U,
+    updateOutput<Internal>(input.s, (mut) => {
+      mut.to = target;
+    }),
+  );
+}
+
 // Whether a union-typed input can be decoded by dispatching
 // over its variants with `.to(target)` appended to each
 export const unionCanDispatchPerVariant = (inputAnyOf: Internal[], target: Internal): boolean => {
@@ -587,22 +825,10 @@ export const unionCanDispatchPerVariant = (inputAnyOf: Internal[], target: Inter
   );
 }
 
-// Re-drives the source union with `.to(target)` appended, so its decoder
-// dispatches per variant and each variant converts to the target
-// independently (the documented per-source-variant algorithm)
-export const unionPerVariantVal = (input: Val, target: Internal): Val => {
-  return B_refine(
-    input,
-    unknown,
-    U,
-    updateOutput<Internal>(input.s, (mut) => {
-      mut.to = target;
-    }),
-  );
-}
-
-// Applied by the parse loop when a union-typed val
-// meets a different expected schema
+// Applied by the parse loop when a union-typed val meets a different expected
+// schema. An author-written union conversion never lands here — `S.to` puts
+// the target on the union itself, which `unionDecoder` resolves through the
+// rules — so this is a val flowing into a differently-spelled expectation.
 export const unionEncoder = (input: Val, target: Internal): Val => {
   const inputAnyOf = input.s.anyOf!;
   if (
@@ -621,7 +847,7 @@ export const unionEncoder = (input: Val, target: Internal): Val => {
 
 export const unionDecoder: Builder = (input: Val) => {
   const selfSchema = input.e;
-  let schemas = selfSchema.anyOf!;
+  const schemas = selfSchema.anyOf!;
   const initialInputTagFlag = tagFlags[input.s.type]!;
 
   const toPerCase = unionGetToPerCase(selfSchema);
@@ -639,6 +865,31 @@ export const unionDecoder: Builder = (input: Val) => {
   ) {
     return input;
   } else {
+    // Rule 2 — a conversion into this union from a schema that has a type of
+    // its own. Runs before the input schema is widened below, and never for a
+    // union/ref/unknown source: those have no type to disambiguate against
+    // (an `unknown` source is plain union validation). A union carrying
+    // something of its own — or one the library synthesized — takes part as a
+    // normal schema, so a conversion into it is rule 1 and its variants aren't
+    // the author's to disambiguate.
+    if (
+      isPlainUnion(selfSchema) &&
+      !selfSchema.implicit &&
+      !flagUnsafeHas(
+        initialInputTagFlag,
+        (((tagFlagUnion | tagFlagRef) | tagFlagUnknown) | tagFlagNever),
+      )
+    ) {
+      unionCheckAmbiguous(input, input.s, selfSchema, schemas, false);
+    }
+
+    // Rules 3 and 4 — this union is the source of a conversion, so each
+    // variant is paired with what it converts into.
+    const perCaseTargets =
+      toPerCase !== U
+        ? unionResolveTargets(input, selfSchema, schemas, toPerCase)
+        : U;
+
     if (
       flagUnsafeHas(initialInputTagFlag, tagFlagUnion) ||
       (input.s.encoder === U && flagUnsafeHas(initialInputTagFlag, tagFlagRef))
@@ -646,40 +897,22 @@ export const unionDecoder: Builder = (input: Val) => {
       input.s = unknown;
     }
 
-    let activeKeyRef = "";
-    if (
-      !flagUnsafeHas(
-        initialInputTagFlag,
-        ((tagFlagUnion | tagFlagRef) | tagFlagUnknown),
-      )
-    ) {
-      const sourceKey = unionToKey(input.s);
-      let hasNull = false;
-      let hasUndefined = false;
-      const len = schemas.length;
-      let i = 0;
-      while (activeKeyRef === "" && i < len) {
-        const s = schemas[i]!;
-        if (unionToKey(s) === sourceKey) {
-          activeKeyRef = sourceKey;
-        } else if (s.type === nullTag) {
-          hasNull = true;
-        } else if (s.type === undefinedTag) {
-          hasUndefined = true;
-        }
-        i = i + 1;
-      }
-      if (activeKeyRef === "") {
-        if (flagUnsafeHas(initialInputTagFlag, tagFlagUndefined) && hasNull) {
-          activeKeyRef = nullTag;
-        } else if (flagUnsafeHas(initialInputTagFlag, tagFlagNull) && hasUndefined) {
-          activeKeyRef = undefinedTag;
-        }
-      }
-    }
-    const activeKey = activeKeyRef;
-
     const initialInline = input.i;
+    // No conversion to blame for a case that fails to build: nothing narrows
+    // the input, and `.to(S.unknown)` only widens (it's what an operation
+    // appends to run a schema's own chain).
+    const isValidation =
+      (toPerCase === U || getOutputSchema(toPerCase).type === unknownTag) &&
+      flagUnsafeHas(tagFlags[input.s.type]!, tagFlagUnknown);
+    // Whether a case that fails to build takes the whole operation down.
+    // Plain union validation still aggregates a member that can't run in this
+    // direction (an `S.transform` with only a serializer) into a runtime
+    // error, but a pair with no built-in decoder belongs to the conversion
+    // that asked for it — wherever that conversion is written.
+    const caseFailureIsFatal = (exn: unknown): boolean =>
+      selfSchema.implicit !== true &&
+      (!isValidation ||
+        (exn as { code?: string }).code === "unsupported_decode");
 
     const fail = (caught: string) => {
       return `${B_embed(
@@ -776,6 +1009,13 @@ export const unionDecoder: Builder = (input: Val) => {
             }
           }
         } catch (exn) {
+          // A case the decoder can't be built for rejects the operation — the
+          // error belongs where the conversion is written, not to every value
+          // that reaches this branch. Only an implicit union still degrades it
+          // to a runtime failure (see `unionResolveTargets`).
+          if (caseFailureIsFatal(exn)) {
+            throw exn;
+          }
           const errorVar = B_embed(input, getOrRethrow(exn));
           caught = `${caught},${errorVar}`;
           if (isDeopt && isOnlyCase) {
@@ -911,6 +1151,12 @@ export const unionDecoder: Builder = (input: Val) => {
 
     const lastIdx = schemas.length - 1;
     let byKey: Record<string, unknown[]> = {};
+    // Whether a group's shared type check is a pure narrow — only then may a
+    // later case with the same signature join it.
+    let byPure: Record<string, boolean> = {};
+    // Type tags of the open groups, for the NaN-before-number and
+    // instance/array-before-object dispatch ordering.
+    let byTypeKey: Record<string, boolean> = {};
     let keys: string[] = [];
 
     // FIXME: minimal fix — applies the union's refiner/inputRefiner per
@@ -970,44 +1216,156 @@ export const unionDecoder: Builder = (input: Val) => {
       };
     })();
 
-    // Tier 1: for a typed const input, variants with a matching const are
-    // tried before catch-all and differently-const'ed variants
-    if (isLiteral(input.s)) {
-      const matching: Internal[] = [];
-      const rest: Internal[] = [];
-      for (let idx = 0; idx <= lastIdx; idx++) {
-        const schema = schemas[idx]!;
-        if (isLiteral(schema) && schema.const === input.s.const) {
-          matching.push(schema);
-        } else {
-          rest.push(schema);
+    // Closes every accumulated group into a try/catch chain, so a case that
+    // fails at runtime falls through to the next one instead of being cut off
+    // by an `else`. Used whenever the if/else-if shape would be wrong: a case
+    // with no hoistable discriminant, or one repeating an earlier group's
+    // dispatch signature (both compete for the same values).
+    const flushGroups = (idx: number) => {
+      for (let keyIdx = 0; keyIdx < keys.length; keyIdx++) {
+        const key = keys[keyIdx]!;
+        if (!exit) {
+          const arr = byKey[key]!;
+          const typeValidationOutput = arr[1] as Val;
+          const itemsCode = getArrItemsCode(arr, true);
+          const blockCode = B_merge(typeValidationOutput) + itemsCode;
+
+          const embeddedError = staticBlockFailure;
+          if (embeddedError) {
+            staticBlockFailure = "";
+            if (blockCode) {
+              // Type validation code is still relevant — restore the throw
+              const errorVar = `e` + (idx + keyIdx);
+              start = start + `try{${blockCode}throw ${embeddedError}}catch(${errorVar}){`;
+              end = "}" + end;
+              caught = `${caught},${errorVar}`;
+            } else {
+              // The block always fails — drop it
+              // and pass the embedded error along
+              caught = `${caught},${embeddedError}`;
+            }
+          } else if (blockCode) {
+            const errorVar = `e` + (idx + keyIdx);
+            start = start + `try{${blockCode}}catch(${errorVar}){`;
+            end = "}" + end;
+            caught = `${caught},${errorVar}`;
+          } else {
+            exit = true;
+          }
         }
       }
-      schemas = matching.concat(rest);
-    }
+
+      byKey = {};
+      byPure = {};
+      byTypeKey = {};
+      keys = [];
+    };
 
     for (let idx = 0; idx <= lastIdx; idx++) {
+      const source = schemas[idx]!;
+      // Rule 4 pairs each variant with what it converts into; rules 2 and 3
+      // give every variant the same target. None means the variant is
+      // unreachable, or already produces the paired type.
+      const pairTarget = perCaseTargets !== U ? perCaseTargets[idx] : U;
+      const needsTo = pairTarget !== U && getOutputSchema(source) !== pairTarget;
       const schema =
         toPerCase !== U
-          ? updateOutput<Internal>(schemas[idx]!, (mut) => {
+          ? updateOutput<Internal>(source, (mut) => {
               appendUnionRefiners(mut);
-              mut.to = toPerCase;
+              if (needsTo) {
+                mut.to = pairTarget;
+              }
             })
-          : schemas[idx]!;
+          : source;
       const tag = schema.type;
       const tagFlag = tagFlags[tag]!;
-      const key = unionToKey(schema);
+      const typeKey = unionToKey(schema);
 
-      if (activeKey !== "" && activeKey !== key) {
-        // not in active tier — skip
-      } else if (
-        flagUnsafeHas(tagFlag, tagFlagUndefined) &&
-        "fromDefault" in selfSchema
+      if (
+        // `S.never` marks a deliberately unreachable path: no value can reach
+        // this case, so it contributes no dispatch branch. (A variant that
+        // decodes *into* never keeps its branch — its input is reachable, and
+        // rejecting it at runtime is the point.)
+        flagUnsafeHas(tagFlag, tagFlagNever) ||
+        (flagUnsafeHas(tagFlag, tagFlagUndefined) && "fromDefault" in selfSchema)
       ) {
         // skip it
       } else {
+        // Recreate input val for every schema
+        // since we will mutate it
+        const typeValidationInput = B_scope(input);
+        // Tree-shaking: build the narrow without a per-type factory. A
+        // `string()`/`instance()`/… reference would pin every type decoder into
+        // any union-using bundle — and `S.optional`/`S.nullable` are unions.
+        if (
+          flagUnsafeHas(
+            tagFlag,
+            tagFlagUnknown | tagFlagUnion | tagFlagRef | tagFlagFunction | tagFlagNever,
+          )
+        ) {
+          // unknown / union / ref / json / function / never have no `typeof`
+          // discriminant — the deopt (try-each) path handles them, so no
+          // narrow is needed.
+          typeValidationInput.e = unknown;
+        } else {
+          // A minimal narrow standing in as the variant's runtime schema,
+          // carrying the member's encoder so a pending `.to` reverse reaches it.
+          const narrow = baseSchema(schema.type, false);
+          narrow.encoder = schema.encoder;
+          if (flagUnsafeHas(tagFlag, tagFlagInstance)) {
+            narrow.class = schema.class;
+          } else if (flagUnsafeHas(tagFlag, tagFlagObject)) {
+            narrow.properties = immutableEmptyObject as Record<string, Internal>;
+            narrow.additionalItems = unknown;
+          } else if (flagUnsafeHas(tagFlag, tagFlagArray)) {
+            narrow.additionalItems = unknown;
+            narrow.items = immutableEmptyArray as Internal[];
+          } else if (
+            flagUnsafeHas(
+              tagFlag,
+              ((tagFlagNull | tagFlagUndefined) | tagFlagNaN),
+            )
+          ) {
+            // null/undefined/nan stay literals so the case body passes through.
+            narrow.const = schema.const;
+          }
+          // Per-invocation, not hoisted: this narrow is re-decoded during `.to`
+          // per-variant conversion — with the union's `unknown` input (emit the
+          // discriminant) or a concrete coerced value (delegate to schema.decoder).
+          narrow.decoder = (input: Val) => {
+            if (flagUnsafeHas(tagFlags[input.s.type]!, tagFlagUnknown)) {
+              return B_refine(input, input.e, [
+                {
+                  c: (inputVar) => typeCheckCond(input, schema, inputVar),
+                  f: failInvalidType,
+                },
+              ]);
+            } else {
+              return schema.decoder(input);
+            }
+          };
+          typeValidationInput.e = narrow;
+        }
+
+        // A variant the decoder can't be built for rejects the whole
+        // operation — being one case of a union changes nothing about that.
+        let typeValidationOutput: Val;
+        try {
+          typeValidationOutput = parse(typeValidationInput);
+        } catch (exn) {
+          if (caseFailureIsFatal(exn)) {
+            throw exn;
+          }
+          // Discard any checks parse managed to push before throwing,
+          // so the deopt path doesn't see leftover partial state.
+          typeValidationInput.vc = U;
+          typeValidationOutput = typeValidationInput;
+        }
+        const dispatch = unionCaseDispatch(typeValidationOutput);
+        const key = dispatch.k;
+
         const initialArr = byKey[key];
-        if (initialArr !== U) {
+        if (initialArr !== U && dispatch.p && byPure[key]!) {
           const arr = initialArr;
           if (
             flagUnsafeHas(tagFlag, tagFlagObject) &&
@@ -1028,73 +1386,13 @@ export const unionDecoder: Builder = (input: Val) => {
             arr.push(schema as unknown);
           }
         } else {
-          // Recreate input val for every schema
-          // since we will mutate it
-          const typeValidationInput = B_scope(input);
-          // Tree-shaking: build the narrow without a per-type factory. A
-          // `string()`/`instance()`/… reference would pin every type decoder into
-          // any union-using bundle — and `S.optional`/`S.nullable` are unions.
-          if (
-            flagUnsafeHas(
-              tagFlag,
-              tagFlagUnknown | tagFlagUnion | tagFlagRef | tagFlagFunction | tagFlagNever,
-            )
-          ) {
-            // unknown / union / ref / json / function / never have no `typeof`
-            // discriminant — the deopt (try-each) path handles them, so no
-            // narrow is needed.
-            typeValidationInput.e = unknown;
-          } else {
-            // A minimal narrow standing in as the variant's runtime schema,
-            // carrying the member's encoder so a pending `.to` reverse reaches it.
-            const narrow = baseSchema(schema.type, false);
-            narrow.encoder = schema.encoder;
-            if (flagUnsafeHas(tagFlag, tagFlagInstance)) {
-              narrow.class = schema.class;
-            } else if (flagUnsafeHas(tagFlag, tagFlagObject)) {
-              narrow.properties = immutableEmptyObject as Record<string, Internal>;
-              narrow.additionalItems = unknown;
-            } else if (flagUnsafeHas(tagFlag, tagFlagArray)) {
-              narrow.additionalItems = unknown;
-              narrow.items = immutableEmptyArray as Internal[];
-            } else if (
-              flagUnsafeHas(
-                tagFlag,
-                ((tagFlagNull | tagFlagUndefined) | tagFlagNaN),
-              )
-            ) {
-              // null/undefined/nan stay literals so the case body passes through.
-              narrow.const = schema.const;
-            }
-            // Per-invocation, not hoisted: this narrow is re-decoded during `.to`
-            // per-variant conversion — with the union's `unknown` input (emit the
-            // discriminant) or a concrete coerced value (delegate to schema.decoder).
-            narrow.decoder = (input: Val) => {
-              if (flagUnsafeHas(tagFlags[input.s.type]!, tagFlagUnknown)) {
-                return B_refine(input, input.e, [
-                  {
-                    c: (inputVar) => typeCheckCond(input, schema, inputVar),
-                    f: failInvalidType,
-                  },
-                ]);
-              } else {
-                return schema.decoder(input);
-              }
-            };
-            typeValidationInput.e = narrow;
+          if (initialArr !== U) {
+            // Same dispatch signature as an open group we can't join — an
+            // `else if` would make this case unreachable, so chain instead.
+            flushGroups(idx);
           }
 
-          let typeValidationOutput: Val;
-          try {
-            typeValidationOutput = parse(typeValidationInput);
-          } catch (_) {
-            // Discard any checks parse managed to push before throwing,
-            // so the deopt path doesn't see leftover partial state.
-            typeValidationInput.vc = U;
-            typeValidationOutput = typeValidationInput;
-          }
-
-          if (unionIsPriority(tagFlag, byKey)) {
+          if (unionIsPriority(tagFlag, byTypeKey)) {
             // Not the fastest way, but it's the simplest way
             // to make sure NaN is checked before number
             // And instance and array checked before object
@@ -1107,54 +1405,11 @@ export const unionDecoder: Builder = (input: Val) => {
             typeValidationOutput as unknown,
             schema as unknown,
           ];
+          byPure[key] = dispatch.p;
+          byTypeKey[typeKey] = true;
 
-          let shouldDeopt = true;
-          let valRef: Val | undefined = typeValidationOutput;
-          while (valRef !== U && shouldDeopt) {
-            const v: Val = valRef;
-            valRef = v.prev;
-            // Deopt to a try/catch block unless every level's checks are
-            // hoistable into the dispatch condition (same rule as merge).
-            shouldDeopt = !(v.vc && B_isHoistable(v));
-          }
-
-          if (shouldDeopt) {
-            for (let keyIdx = 0; keyIdx < keys.length; keyIdx++) {
-              const key = keys[keyIdx]!;
-              if (!exit) {
-                const arr = byKey[key]!;
-                const typeValidationOutput = arr[1] as Val;
-                const itemsCode = getArrItemsCode(arr, true);
-                const blockCode = B_merge(typeValidationOutput) + itemsCode;
-
-                const embeddedError = staticBlockFailure;
-                if (embeddedError) {
-                  staticBlockFailure = "";
-                  if (blockCode) {
-                    // Type validation code is still relevant — restore the throw
-                    const errorVar = `e` + (idx + keyIdx);
-                    start =
-                      start + `try{${blockCode}throw ${embeddedError}}catch(${errorVar}){`;
-                    end = "}" + end;
-                    caught = `${caught},${errorVar}`;
-                  } else {
-                    // The block always fails — drop it
-                    // and pass the embedded error along
-                    caught = `${caught},${embeddedError}`;
-                  }
-                } else if (blockCode) {
-                  const errorVar = `e` + (idx + keyIdx);
-                  start = start + `try{${blockCode}}catch(${errorVar}){`;
-                  end = "}" + end;
-                  caught = `${caught},${errorVar}`;
-                } else {
-                  exit = true;
-                }
-              }
-            }
-
-            byKey = {};
-            keys = [];
+          if (key === "") {
+            flushGroups(idx);
           }
         }
       }
@@ -1175,7 +1430,7 @@ export const unionDecoder: Builder = (input: Val) => {
         const blockCode = B_merge(typeValidationOutput, blockCondRef) + itemsCode;
         const blockCond = blockCondRef.contents;
 
-        if (blockCode || unionIsPriority(tagFlags[firstSchema.type]!, byKey)) {
+        if (blockCode || unionIsPriority(tagFlags[firstSchema.type]!, byTypeKey)) {
           const if_ = nextElse ? "else if" : "if";
           start = start + if_ + `(${blockCond}){${blockCode}}`;
           nextElse = true;
@@ -1259,8 +1514,10 @@ export const unionFactory = (schemas: Internal[]): Internal => {
     const anyOf = new Set<Internal>();
 
     schemas.forEach((schema) => {
-      // Check if the union is not transformed
-      if (schema.type === unionTag && schema.to === U) {
+      // A nested union flattens into this one, unless it carries something of
+      // its own (a refinement, transformation or format) that inlining its
+      // variants would drop.
+      if (isPlainUnion(schema)) {
         schema.anyOf!.forEach((item) => {
           anyOf.add(item);
         });
@@ -1407,6 +1664,10 @@ export const valGet = (parent: Val, location: string): Val => {
           !isOptional(s)
         ) {
           schema = option(s);
+          // Not an authored union — the conversion rules skip it (see
+          // `unionResolveTargets`), so `dict<string>` still coerces into a
+          // structured object whose fields need their own decoders.
+          schema.implicit = true;
         } else {
           schema = s;
         }

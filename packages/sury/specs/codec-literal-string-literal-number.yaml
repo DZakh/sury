@@ -1,7 +1,5 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  # FIXME: Codec next expects: stay the same — which pairs have a built-in decoder is
-  # out of CODEC_NEXT_SPEC.md's scope, literal-to-literal included.
   schema: S.schema("a").with(S.to, S.schema(42))
   aliases:
     - S.literal("a").with(S.to, S.literal(42))

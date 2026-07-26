@@ -1,8 +1,5 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  # FIXME: Codec next expects: rejected at creation — rule 2 partial type match
-  # (string matches the string variant but not the undefined one). S.union([S.string,
-  # S.never.with(S.to, S.schema(undefined))]) widens without decoding.
   schema: S.string.with(S.to, S.optional(S.string))
   input: string
   output: string | undefined
@@ -11,28 +8,10 @@ vs:
   zod:
     _skip: not-applicable
 jsonSchema:
-  input: '{ anyOf: [{ type: "string" }, { type: "string", const: "undefined" }] }'
-  output: '{ anyOf: [{ type: "string" }, { type: "string", const: "undefined" }] }'
+  input: '{ type: "string" }'
+  output: Expected JSON, received string | undefined
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[0](i);return i}
-    examples:
-      string:
-        input: '"abc"'
-        output: '"abc"'
-      ambiguous-undefined-string:
-        input: '"undefined"'
-        output: '"undefined"'
-  decode: identity
-  encode:
-    expression: i=>{if(i===void 0){i="undefined"}else if(!(typeof i==="string")){e[0](i)}return i}
-    examples:
-      string:
-        input: '"abc"'
-        output: '"abc"'
-      # FIXME: not injective — this collides with a genuine "undefined" string
-      # (see the parse `ambiguous-undefined-string` example), so an encoded
-      # undefined parses back as the string, never as undefined.
-      undefined:
-        input: undefined
-        output: '"undefined"'
+    creationError: "SuryError: Can't decode string to string | undefined: string matches it, undefined doesn't. Use S.to on it, or S.never to make it unreachable"
+  decode: eq-to-parse
+  encode: eq-to-parse

@@ -424,12 +424,12 @@ export const B_merge = (val: Val, hoistCond?: { contents: string }): string => {
     let currentCode = "";
 
     if (val.vc) {
-      if (hoistCond !== U && B_isHoistable(val)) {
+      if (hoistCond !== U && current !== U && B_isHoistable(val)) {
         // Partition: route type-narrows to hoistCond, emit refines inline.
         // `noValidation` is intentionally bypassed for the hoisted part —
         // the cond routes between union cases, it doesn't reject, so
         // suppressing would break dispatch.
-        const prev = current!;
+        const prev = current;
         const inputVar = prev.v();
         const allChecks = val.vc!;
         let localHoist = "";
@@ -456,8 +456,9 @@ export const B_merge = (val: Val, hoistCond?: { contents: string }): string => {
           }
         }
       } else if (val.e.noValidation !== true) {
-        const prev = current!;
-        currentCode = B_emitChecks(val, prev.v());
+        // A root val carries no `prev` to read from — its checks run against
+        // the value it is itself (a union case whose narrow was a noop).
+        currentCode = B_emitChecks(val, (current !== U ? current : val).v());
       }
     }
 

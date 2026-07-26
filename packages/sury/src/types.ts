@@ -137,6 +137,11 @@ export type Internal = {
   format?: Format;
   has?: Partial<Record<Tag, boolean>>;
   anyOf?: Internal[];
+  // Set on a union the library synthesized rather than the author writing it
+  // (today: a `dict<V>` value read by a fixed key, which may be absent). The
+  // conversion rules are about resolving what an author meant, so they don't
+  // apply to it — see `unionResolveTargets`.
+  implicit?: boolean;
   additionalItems?: AdditionalItems;
   items?: Internal[];
   required?: string[];

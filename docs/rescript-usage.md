@@ -923,44 +923,108 @@ let schema = S.enum([Win, Draw, Loss])
 
 #### Decoding into / out of a union
 
-When you compile `source -> targetUnion` (via `S.to`, or implicitly by reversing the schema), Sury picks the target variant using a three-tier algorithm based on the source's **derived tag** — the tag known at compile time, which may be narrower than the original type (an upstream transformation can refine it). If the source is itself a union, the algorithm runs independently for each source variant.
+A conversion — `S.to`, or the implicit one created by reversing a schema — is
+resolved when the operation is created. Sury decides there which schema decodes
+into which, and rejects the conversion when the answer is ambiguous, so an
+operation never silently drops a variant, leaves a branch that throws for every
+value, or compiles into something that can't work at all.
 
-If the source is `unknown` (no derived tag), the tag-based tiers are skipped and target variants are simply attempted in target-union order at runtime.
+The checks run against the **derived** types — the actual schema at that point
+in the pipeline, which may be narrower than the originally defined one (an
+upstream transformation can refine it).
 
-1. **Same-tag group.** Collect target variants sharing the source's tag. If non-empty, match only within this group: variants with a matching `const`/`format` (string literals, `Int32`, etc.) are tried first in target-union order, then any remaining catch-all same-tag variants. Variants with a different tag are never tried from here — if every branch in the group fails, the match errors.
-2. **Nullish bridge.** Used only when tier 1 is empty. If the source tag is `null` or `undefined`, use the opposite nullish target variant (if present), exclusively.
-3. **Fallback.** Used only when tiers 1 and 2 are both empty. Build a decoder for every target variant in target-union order. Cross-type coercions live here: `int`/`bigint` → `string` via `"" ++ i`, `string` → `float` via `Float.fromString`, `string` → `bigint` via `BigInt.fromString`, stringified-const matches like `"null" → null`, and more.
+Two schemas have the **same type** when their type tags match — including the
+class for instances, the format for formatted primitives, and the value for
+literals. `S.int` and `S.float` are different types, and so are `S.json` and
+`S.string`. A schema with no tag of its own to compare — a recursive schema, or
+a union taking part as a normal schema (below) — has the same type as another
+only when the two are strictly equal. `S.unknown` has no type to compare at
+all, so it matches nothing and always reaches every variant's decoder.
 
-**Worked example** — `S.union([S.bigint, S.float, S.nullLiteral])->S.to(S.union([S.string, S.unit]))`:
+**Nested unions are flattened** before the rules apply, unless the nested union
+carries its own format, transformation or refinement — such a union takes part
+as a normal (non-union) schema on its side of the conversion and keeps what it
+carries.
+
+**`S.never` marks an unreachable path.** A variant matching by a `never` type —
+including a transformed one like `S.never->S.to(S.float)`, which matches by its
+`never` input — is ignored by type matching: it never triggers the rejections
+below, and no branch is generated for it.
+
+**Rule 1: non-union → non-union.** Built-in decoding (coercion) always applies,
+e.g. `S.string->S.to(S.unit)` decodes `"undefined" <-> ()`.
+
+**Rule 2: non-union → union.** The built-in decoder is applied separately for
+every target variant, attempted in definition order — the first that accepts
+wins, and a differently-tagged variant sitting between two same-tag ones keeps
+its turn.
+
+```rescript
+let schema = S.json->S.to(S.union([S.bigint->S.castToUnknown, S.string->S.castToUnknown]))
+
+%raw(`"123"`)->S.parseOrThrow(~to=schema) // 123n — the bigint variant comes first
+%raw(`"abc"`)->S.parseOrThrow(~to=schema) // "abc" — bigint decoding fails, string accepts
+%raw(`true`)->S.parseOrThrow(~to=schema) // throws — no implicit double decoding
+```
+
+If the source has the same type as *some but not all* target variants, the
+operation is rejected: Sury can't tell a pass-through for the matching variant
+from a decoding attempt in definition order.
+
+```rescript
+S.string->S.to(S.union([S.float->S.castToUnknown, S.string->S.castToUnknown]))
+// Can't decode string to number | string: string matches it, number doesn't.
+// Use S.to on it, or S.never to make it unreachable
+```
+
+Say what you mean with an explicit variant — `S.string->S.to(S.float)` to
+decode, or `S.never->S.to(S.float)` to leave that variant unreachable.
+
+**Rule 3: union → non-union.** The mirror of rule 2: every source variant gets
+its own built-in decoder to the target. A target matching some but not all
+source variants is rejected the same way; spell it out with
+`S.float->S.to(S.string)` to decode that variant, or `S.float->S.to(S.never)`
+to reject it.
+
+**Rule 4: union → union.** No coercion — values pass through to the same-type
+target variant, and the two unions must cover each other. A transformed source
+variant matches by its output type and a transformed target variant by its
+input type, so per-variant conversion is always available explicitly.
+
+```rescript
+S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])
+->S.to(S.union([S.float->S.castToUnknown, S.string->S.castToUnknown])) // ✅
+S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])
+->S.to(S.union([S.float->S.castToUnknown, S.string->S.castToUnknown, S.bool->S.castToUnknown]))
+// ❌ boolean has no variant of the same type on the other side
+```
+
+A `null` or `undefined` variant left unmatched by type may bridge to the
+opposite nullish variant on the other side — at runtime the same-type target
+wins, the bridge only fills a gap.
+
+**Worked example** — `S.union([S.bigint, S.float, S.nullLiteral])->S.to(S.union([S.bigint, S.float, S.unit]))`:
 
 Forward:
 
-- `123n` → `"123"` (tier 3: bigint → string)
-- `123.12` → `"123.12"` (tier 3: float → string)
-- `null` → `undefined` (tier 2: nullish bridge)
+- `123n` → `123n`, `123.12` → `123.12` (pass through)
+- `null` → `undefined` (nullish bridge)
 
 Reverse (via `S.decodeOrThrow(~from=schema, ~to=S.unknown)`):
 
-- `"null"` → `null` (tier 3: stringified-const literal match)
-- `undefined` → `null` (tier 2: nullish bridge)
-- `"123"` → `123n` (tier 3: bigint attempted first by target order; parse succeeds)
-- `"123.12"` → `123.12` (tier 3: bigint parse throws, falls through to float)
-- `"abc"` → error (tier 3: no variant's decoder succeeds)
+- `undefined` → `null` (nullish bridge)
+- `123n` → `123n`, `123.12` → `123.12` (pass through)
 
-**Identity wins over coercion.** For `S.union([S.string, S.bigint])->S.to(S.union([S.float, S.string]))`:
+**No built-in decoder for a variant.** A pair with no built-in decoder is
+rejected when the operation is created, and being one variant of a union
+changes nothing about that: if any variant's decoder can't be built, the whole
+operation is rejected under every rule above. `S.never` remains the way to say
+a path is deliberately unreachable, so it never triggers this rejection. A
+conversion can be valid in one direction and rejected in the other — each
+operation reports its own rejection.
 
-- `"123"` → `"123"` (tier 1: `string` matches `string`, never coerced to `float` even though a `float` target exists)
-- `123n` → `"123"` (tier 3: no `bigint` target, falls through to `string` via `"" ++ i`)
+> 🧠 Union conversion always performs exhaustive validation — every variant is checked, so transformed unions stay consistent across decode and encode.
 
-To opt into `string → float` when a `string` target also exists, write the transform into a variant explicitly:
-
-```rescript
-S.union([S.string->S.to(S.float), S.string])
-```
-
-The transformed variant is const/format-refined relative to the catch-all `string` and matches first within tier 1.
-
-> 🧠 Union conversion always performs exhaustive validation now — every variant is checked, so transformed unions stay consistent across decode and encode.
 
 ### **`array`**
 

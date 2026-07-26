@@ -1,9 +1,5 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  # FIXME: Codec next expects: rejected at creation — rule 2 partial type match ("123"
-  # could stay a string or decode to 123). S.union([S.string.with(S.to, S.number),
-  # S.string]) and S.union([S.never.with(S.to, S.number), S.string]) are the two
-  # explicit spellings.
   schema: S.string.with(S.to, S.union([S.number, S.string]))
   input: string
   output: string | number
@@ -13,24 +9,9 @@ vs:
     _skip: not-applicable
 jsonSchema:
   input: '{ type: "string" }'
-  output: '{ type: "string" }'
+  output: '{ anyOf: [{ type: "number" }, { type: "string" }] }'
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[0](i);return i}
-    examples:
-      ambiguous-numeric-string:
-        input: '"123"'
-        output: '"123"'
-      string:
-        input: '"abc"'
-        output: '"abc"'
-  decode: identity
-  encode:
-    expression: i=>{if(typeof i==="number"&&!Number.isNaN(i)){i=""+i}else if(!(typeof i==="string")){e[0](i)}return i}
-    examples:
-      number:
-        input: "123"
-        output: '"123"'
-      string:
-        input: '"abc"'
-        output: '"abc"'
+    creationError: "SuryError: Can't decode string to number | string: string matches it, number doesn't. Use S.to on it, or S.never to make it unreachable"
+  decode: eq-to-parse
+  encode: eq-to-parse

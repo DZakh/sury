@@ -268,12 +268,23 @@ test("Reverse converts deeply nested records/array sharing a nullable Timestamp 
 })
 
 test("Encodes a nullable optional Timestamp whose input is string | number (issue repro)", t => {
-  // The reported Timestamp accepts a string or a numeric timestamp:
-  //   S.union([S.string, S.float])->S.to(S.date)
-  // so `@s.nullable option<Timestamp.t>` reverses to a Date variant whose `.to`
-  // target is `string | number`. Encoding used to throw exactly
+  // The reported Timestamp accepts a string or a numeric timestamp, so
+  // `@s.nullable option<Timestamp.t>` reverses to a Date variant whose target
+  // is `string | number`. Encoding used to throw exactly
   // `Expected string | number, received [object Date]`.
-  let timestamp = S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])->S.to(S.date)
+  // `S.union([S.string, S.float])->S.to(S.date)` can't express it — there's no
+  // built-in number -> Date decoder, and the conversion rules reject a variant
+  // the decoder can't be built for — so each variant carries its own.
+  let timestamp: S.t<Date.t> =
+    S.union([
+      S.string->S.to(S.date)->S.castToUnknown,
+      S.float
+      ->S.transform(_ => {
+        parser: v => Date.fromTime(v)->Obj.magic,
+        serializer: d => (d->Obj.magic: Date.t)->Date.getTime->Obj.magic,
+      })
+      ->S.castToUnknown,
+    ])->Obj.magic
   let schema = S.nullableAsOption(timestamp)
   let date = Date.fromString("2024-01-01T00:00:00.000Z")
 
@@ -287,6 +298,6 @@ test("Encodes a nullable optional Timestamp whose input is string | number (issu
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(i instanceof e[2]){try{i=i.toISOString()}catch(e0){e[1](i,e0,e[0])}}else if(!(i===void 0)){e[3](i)}return i}`,
+    `i=>{try{i instanceof e[0]||e[1](i);i=i.toISOString()}catch(e1){try{let v0;try{v0=e[2](i)}catch(x){e[3](x)}typeof v0==="number"&&!Number.isNaN(v0)||e[4](v0);i=v0}catch(e2){if(!(i===void 0)){e[5](i,e1,e2)}}}return i}`,
   )
 })

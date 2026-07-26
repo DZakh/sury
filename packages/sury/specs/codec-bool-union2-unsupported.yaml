@@ -1,10 +1,5 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  # FIXME: Codec next expects: rejected at creation — S.symbol has no built-in decoder
-  # from boolean, and a member the decoder can't be built for is an error when the
-  # operation is created, not a branch to drop. Today it is dropped from parse and
-  # from the output JSON Schema, so the conversion behaves as if S.symbol weren't in
-  # the union at all.
   schema: S.boolean.with(S.to, S.union([S.string, S.symbol]))
   input: boolean
   output: string | symbol
@@ -15,40 +10,9 @@ vs:
 jsonSchema:
   input: '{ type: "boolean" }'
   # FIXME: the dropped member is missing here too — the output type is string | symbol.
-  output: '{ type: "string" }'
+  output: Expected JSON, received string | symbol
 operations:
   parse:
-    expression: i=>{typeof i==="boolean"||e[2](i);try{i=""+i}catch(e0){e[1](i,e0,e[0])}return i}
-    examples:
-      "true":
-        input: "true"
-        output: '"true"'
-      "false":
-        input: "false"
-        output: '"false"'
-      invalid:
-        input: '"abc"'
-        error: Expected boolean, received "abc"
-  decode:
-    expression: i=>{try{i=""+i}catch(e0){e[1](i,e0,e[0])}return i}
-    examples:
-      "true":
-        input: "true"
-        output: '"true"'
-  encode:
-    expression: i=>{if(typeof i==="string"){let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}else if(typeof i==="symbol"){e[2](i,e[1])}else{e[3](i)}return i}
-    examples:
-      true-string:
-        input: '"true"'
-        output: "true"
-      false-string:
-        input: '"false"'
-        output: "false"
-      other-string:
-        input: '"abc"'
-        error: Expected boolean, received "abc"
-      symbol-member:
-        input: Symbol("s")
-        error: |-
-          Expected string | symbol, received Symbol(s)
-          - Can't decode symbol to boolean. Use S.to to define a custom decoder
+    creationError: "SuryError: Can't decode boolean to symbol. Use S.to to define a custom decoder"
+  decode: eq-to-parse
+  encode: eq-to-parse

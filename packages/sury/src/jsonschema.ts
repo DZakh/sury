@@ -5,7 +5,7 @@ import { arrayLength, arrayMaxLength, arrayMinLength, dict, floatMax, floatMin, 
 import { SuryError, baseSchema, getOrRethrow, panic, unknown } from "./schema";
 import { Literal_parse, bool, float, int, jsonName, string } from "./primitives";
 import { B_makeInvalidInputDetails, B_operationArg } from "./builder";
-import { never_, parse, reverse } from "./parse";
+import { getOutputSchema, never_, parse, reverse } from "./parse";
 import { Internal, U, isLiteral, isOptional, toExpression } from "./types";
 import { Path, pathConcat, pathDynamic, pathEmpty, pathFromLocation } from "./path";
 import { flagNone, flagUnsafeHas } from "./flags";
@@ -210,6 +210,12 @@ const encodeToJsonSchema = (
     const output = parse(input);
     // The parse produces a val whose .schema reflects the
     // JSON-compatible transformed structure.
+    if (output.s === reversed) {
+      // It learned nothing — a conversion whose stages share a type hands the
+      // reversed schema straight back, still carrying the `.to` that was just
+      // followed. Recursing on it would reverse forever.
+      return U;
+    }
     return internalToJSONSchema(output.s, path, defs, parent, target);
   } catch (exn) {
     getOrRethrow(exn);
@@ -383,8 +389,13 @@ const internalToJSONSchemaBase = (
 
     anyOf.forEach((childSchema) => {
       // Filter out undefined to support optional fields — no `else` branch
-      // needed, this variant is simply skipped.
-      if (!(childSchema.type === undefinedTag && parent.type === objectTag)) {
+      // needed, this variant is simply skipped. A variant marked unreachable
+      // with `S.never` is skipped for the same reason: no value takes it, and
+      // the decoder emits no branch for it either.
+      if (
+        !(childSchema.type === undefinedTag && parent.type === objectTag) &&
+        getOutputSchema(childSchema).type !== neverTag
+      ) {
         const childJsonSchema = internalToJSONSchema(childSchema, path, defs, schema, target);
         // Collapse structurally-identical members (e.g. variants coercing to
         // the same `.to` target) so the union renders as `T`, not `anyOf:[T,T]`.

@@ -1,7 +1,5 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  # FIXME: Codec next expects: stay the same — the nested union flattens first, and
-  # rule 4 has the two three-variant unions covering each other.
   schema: S.union([S.string, S.union([S.number, S.boolean])]).with(S.to, S.union([S.boolean, S.number, S.string]))
   input: string | number | boolean
   output: string | number | boolean
