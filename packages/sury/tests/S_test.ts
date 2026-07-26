@@ -124,6 +124,27 @@ test("Successfully parses string to Date via S.to(S.date)", (t) => {
   expectTypeOf(value).toEqualTypeOf<Date>();
 });
 
+test("S.to returns the schema itself when the target is the same instance", (t) => {
+  const make = () => S.string.with(S.to, S.number, (string) => string.length);
+  const schema = make();
+
+  t.expect(S.to(schema, schema)).toBe(schema);
+  t.expect(schema.with(S.to, schema)).toBe(schema);
+  t.expect(S.parser(schema.with(S.to, schema))("hello")).toBe(5);
+
+  // Without the shortcut this appends a second copy of the chain, so the
+  // decoder runs twice over its own output — silently wrong, not an error.
+  t.expect(S.parser(S.to(schema, make()))("hello")).toBe(1);
+
+  // Custom coders still mean a real conversion step, same instance or not.
+  const doubled = S.to(schema, schema, (n) => String(n * 2));
+  t.expect(doubled).not.toBe(schema);
+  t.expect(S.parser(doubled)("hello")).toBe(2);
+
+  expectSchemaType(schema).toBe<number, string>();
+  expectSchemaType(S.to(schema, schema)).toBe<number, string>();
+});
+
 test("Successfully parses string to Date with S.to", (t) => {
   const schema = S.string.with(S.to, S.date);
   const value = S.parser(schema)("2024-01-01T00:00:00.000Z");
