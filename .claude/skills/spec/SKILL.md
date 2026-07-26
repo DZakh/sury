@@ -32,6 +32,8 @@ Examples must cover every edge case found while investigating the schema — bou
 
 Goldens snapshot generated code, `ts.instantiations`, inferred types, and per-export bundle size (`specs/bundleSize.yaml`). After core-logic changes run `pnpm spec check --write`: it prints every metric that moved, ranked by percentage — **that summary is the deliverable**. Each should improve or stay flat; a regression is a design smell, so call it out in the commit/PR when it's unavoidable.
 
+`check` also reports a relative performance delta (schema creation, creation+compilation, every example) against the library built from a git ref. Nothing is stored and it never fails the run. Use `--perf=skip` for the tight loop, `--perf=only` to measure alone, `[id…]` to narrow. **Ignore anything at or below the printed noise floor** — that's what the run could fabricate from nothing.
+
 ## Layout
 
 - `packages/sury/specs/*.yaml` — specs, plus `bundleSize.yaml`; published as machine-checked documentation.

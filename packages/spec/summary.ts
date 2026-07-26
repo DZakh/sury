@@ -5,6 +5,9 @@
 // metric that regressed or improved (worst first, by percentage), plus the
 // behavior changes that aren't better-or-worse but do need noticing.
 import { OP_ORDER, isSkip, isCreationError, type Spec, type BundleSize, type Example, type Operation } from "./format";
+// Type-only: bench.ts bundles both library versions and forks processes, none
+// of which spec_test.ts (which imports summarize) should pull in.
+import type { Perf } from "./bench";
 
 export type SpecChange = { id: string; before: Spec; after: Spec };
 export type BundleSizeChange = { before?: BundleSize; after: BundleSize };
@@ -147,6 +150,31 @@ const bundleSizeSection = (change: BundleSizeChange): string[] => {
     .map(([name, bytes]) => ({ label: name, before: before.exports[name]!, after: bytes }));
 
   return section("bundleSize", deltas, lead);
+};
+
+// Sorted worst-regression-first like every other section, so the perf table
+// reads the same way as the instantiations and bundleSize ones. Positive is a
+// slowdown, matching those (where growth is the bad direction) — and matching
+// the ratio the child measures, current over baseline.
+export const renderPerformance = (perf: Perf): string => {
+  const floors = perf.floors.map((f) => `${f.phase} ${f.pct.toFixed(1)}%`).join(" · ");
+  const lines = [`performance vs ${perf.baselineSha} (${perf.baselineLabel}) · noise floor ${floors}`];
+
+  if (perf.changed.length) {
+    const width = Math.max(...perf.changed.map((c) => c.name.length));
+    for (const c of perf.changed)
+      lines.push(`  ${c.name.padEnd(width)}  ${c.pct > 0 ? "+" : ""}${c.pct.toFixed(1)}%`);
+  } else {
+    lines.push("  no significant changes");
+  }
+
+  if (perf.added.length) lines.push(`  new: ${perf.added.join(", ")}`);
+  for (const e of perf.errors) lines.push(`  could not measure ${e.name}: ${e.error}`);
+  lines.push(
+    `  ${perf.unchanged} unchanged · ${perf.skippedConstants} constant-schema targets skipped · advisory only`,
+    `  ${perf.meta}`,
+  );
+  return lines.join("\n");
 };
 
 // Empty when nothing tracked moved — a formatting-only rewrite has no summary
