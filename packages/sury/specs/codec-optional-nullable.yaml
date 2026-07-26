@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  # FIXME: Codec next expects: stay the same — rule 4 passes string through and
+  # bridges undefined <-> null.
+  schema: S.optional(S.string).with(S.to, S.nullable(S.string))
+  input: string | undefined
+  output: string | null
+  instantiations: 5327
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: Expected JSON, received string | undefined
+  output: '{ anyOf: [{ type: "string" }, { type: "null" }] }'
+operations:
+  parse:
+    expression: i=>{if(i===void 0){try{i=null}catch(e1){e[0](i,e1)}}else if(!(typeof i==="string")){e[1](i)}return i}
+    examples:
+      string:
+        input: '"abc"'
+        output: '"abc"'
+      undefined-bridges-to-null:
+        input: undefined
+        output: "null"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{if(i===null){try{i=void 0}catch(e1){e[0](i,e1)}}else if(!(typeof i==="string")){e[1](i)}return i}
+    examples:
+      string:
+        input: '"abc"'
+        output: '"abc"'
+      null-bridges-to-undefined:
+        input: "null"
+        output: undefined

@@ -71,7 +71,7 @@ export type Example = S.Output<typeof example>;
 
 // Examples are addressed by name, not array index, so identity survives
 // insertion/removal.
-const operation = S.schema({
+const operationExpression = S.schema({
   expression: orSkip(S.string).with(S.meta, {
     description: "Compiled function source (`.toString()`). Filled by `spec check --write`.",
   }),
@@ -82,20 +82,44 @@ const operation = S.schema({
   .with(S.strict)
   .with(S.meta, { description: "Compiled codegen plus its runnable examples." });
 
+// The operation analogue of a thrown `jsonSchema` string: some conversions are
+// rejected when the operation is compiled (an unsupported or ambiguous `.to`),
+// so there's no `expression` to record — only the creation-time message. Kept
+// as its own block (not a `_skip`) because that message, and its suggested
+// rewrites, are product surface to be ratcheted like codegen. Recorded per
+// direction, like jsonSchema — the two directions can throw different messages.
+const operationCreationError = S.schema({
+  creationError: S.string.with(S.meta, {
+    description:
+      "The Sury error thrown when this operation is compiled (a conversion rejected at " +
+      "operation creation). Filled by `spec check --write`.",
+  }),
+})
+  .with(S.strict)
+  .with(S.meta, {
+    description: "An operation that can't be compiled — the creation-time error, ratcheted like codegen.",
+  });
+export type CreationError = S.Output<typeof operationCreationError>;
+
 // An operation is either a full block or a literal shorthand:
 // - `identity` — Sury's pass-through compile.
 // - `eq-to-parse` (decode/encode only) — compiles to exactly the same code as
 //   the spec's `parse` op, so the expression and examples live there.
+// - a `{creationError}` block — rejected at operation creation.
 // harness.identityViolations enforces the shorthands both ways: an op that
 // compiles to a shorthand's meaning must use it, and the shorthand must
 // actually hold.
-const operationOrIdentity = S.union(["identity", operation]).with(S.meta, {
-  description: "`identity` if this compiles to Sury's pass-through, else a full operation block.",
-});
-const operationOrShorthand = S.union(["identity", "eq-to-parse", operation]).with(S.meta, {
+const operationOrIdentity = S.union(["identity", operationExpression, operationCreationError]).with(S.meta, {
   description:
-    "`identity` if this compiles to Sury's pass-through, `eq-to-parse` if it compiles to the same code as `parse`, else a full operation block.",
+    "`identity` if this compiles to Sury's pass-through, a `{creationError}` block if rejected at operation creation, else a full operation block.",
 });
+const operationOrShorthand = S.union(["identity", "eq-to-parse", operationExpression, operationCreationError]).with(
+  S.meta,
+  {
+    description:
+      "`identity` if this compiles to Sury's pass-through, `eq-to-parse` if it compiles to the same code as `parse`, a `{creationError}` block if rejected at operation creation, else a full operation block.",
+  },
+);
 export type Operation = S.Output<typeof operationOrShorthand>;
 
 const operations = S.schema({
@@ -215,6 +239,10 @@ export const isSkip = (v: unknown): v is Skip => S.is(skip, v);
 // The overwrite form of `vs.zod` — distinguished from a bare string (Zod
 // source) and from `{_skip}` by carrying its own `schema` key.
 export const isZodOverwrite = (v: unknown): v is ZodOverwrite => S.is(zodOverwrite, v);
+
+// The creation-error operation block — distinguished from an `{expression,
+// examples}` block and the string shorthands by carrying `creationError`.
+export const isCreationError = (v: unknown): v is CreationError => S.is(operationCreationError, v);
 
 // Parse, don't validate: return the parsed Spec itself, not just a pass/fail
 // flag, so callers work from the value Sury actually confirmed matches the

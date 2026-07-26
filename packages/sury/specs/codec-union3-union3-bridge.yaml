@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  # FIXME: Codec next expects: stay the same — rule 4 passes bigint/number through and
+  # bridges null <-> undefined.
+  schema: S.union([S.bigint, S.number, null]).with(S.to, S.union([S.bigint, S.number, undefined]))
+  input: number | bigint | null
+  output: number | bigint | undefined
+  instantiations: 6352
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: Expected JSON, received bigint | number | null
+  output: Expected JSON, received bigint | number | undefined
+operations:
+  parse:
+    expression: i=>{if(i===null){try{i=void 0}catch(e2){e[0](i,e2)}}else if(!(typeof i==="bigint"||typeof i==="number"&&!Number.isNaN(i))){e[1](i)}return i}
+    examples:
+      bigint:
+        input: 123n
+        output: 123n
+      number:
+        input: "123.12"
+        output: "123.12"
+      null-bridges-to-undefined:
+        input: "null"
+        output: undefined
+  decode: eq-to-parse
+  encode:
+    expression: i=>{if(i===void 0){try{i=null}catch(e2){e[0](i,e2)}}else if(!(typeof i==="bigint"||typeof i==="number"&&!Number.isNaN(i))){e[1](i)}return i}
+    examples:
+      undefined-bridges-to-null:
+        input: undefined
+        output: "null"
+      bigint:
+        input: 123n
+        output: 123n
+      number:
+        input: "123.12"
+        output: "123.12"

@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  # FIXME: Codec next expects: stay the same — the S.never variant is ignored by type
+  # matching, so strings pass through and never become numbers.
+  schema: S.string.with(S.to, S.union([S.never.with(S.to, S.number), S.string]))
+  input: string
+  output: string | number
+  instantiations: 6379
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ anyOf: [{ type: "number" }, { type: "string" }] }'
+  output: '{ anyOf: [{ type: "number" }, { type: "string" }] }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[0](i);return i}
+    examples:
+      numeric-string-stays-string:
+        input: '"123"'
+        output: '"123"'
+      string:
+        input: '"abc"'
+        output: '"abc"'
+  decode: identity
+  encode:
+    expression: i=>{if(typeof i==="number"&&!Number.isNaN(i)){e[0](i);}else if(!(typeof i==="string")){e[1](i)}return i}
+    examples:
+      string:
+        input: '"abc"'
+        output: '"abc"'
