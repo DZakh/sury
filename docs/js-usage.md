@@ -416,13 +416,25 @@ Conceptually, this is how **Sury** processes default values:
 
 ## Nullables
 
-Similarly, you can create nullable types with `S.nullable`.
+Similarly, you can create nullable types with `S.nullable`. It bridges the two absent values: `null` decodes to `undefined`, and `undefined` encodes back to `null`, so your code only ever pattern-matches on one of them.
 
 ```ts
 const nullableStringSchema = S.nullable(S.string);
+//? S.Schema<string | undefined, string | null>
+
 S.parser(nullableStringSchema)("asdf"); // => "asdf"
-S.parser(nullableStringSchema)(null); // => null
+S.parser(nullableStringSchema)(null); // => undefined
+
+S.encoder(nullableStringSchema)(undefined); // => null
 ```
+
+Pass a fallback as the second argument to replace the absent case:
+
+```ts
+S.parser(S.nullable(S.string, "fallback"))(null); // => "fallback"
+```
+
+> 🧠 Use [`S.nullish`](#nullish) if you need `null` and `undefined` to both be accepted and preserved as-is.
 
 ## Nullish
 
@@ -597,7 +609,7 @@ const rowSchema = S.schema({
   deleted: S.boolean,
 });
 
-const schema = S.compactColumns(S.unknown).with(S.to, S.array(rowSchema));
+const schema = S.compactColumns(S.json).with(S.to, S.array(rowSchema));
 
 S.encoder(schema)([
   { id: "0", name: "Hello", deleted: false },

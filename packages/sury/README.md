@@ -161,7 +161,7 @@ Once schemas are stages, layouts that usually need hand-written glue become a si
 
 ```ts
 const cityRow = S.schema({ id: S.string, city: S.string });
-const rows = S.compactColumns(S.unknown).with(S.to, S.array(cityRow));
+const rows = S.compactColumns(S.json).with(S.to, S.array(cityRow));
 
 S.parser(rows)([["1", "2"], ["Tbilisi", "Batumi"]]);
 // => [{ id: "1", city: "Tbilisi" }, { id: "2", city: "Batumi" }]
@@ -298,10 +298,6 @@ Independent benchmarks and conformance suites that include **Sury**:
 Yes — that's where the speed comes from. The approach is battle-tested and has no known security issues; it's also how TypeBox, Zod v4, and ArkType work. Even Cloudflare Workers added support for it.
 
 There's currently no eval-free mode, so **Sury** won't run in environments that forbid dynamic code evaluation, such as pages under a strict CSP without `'unsafe-eval'`, some browser extension contexts, and a few restricted edge runtimes. If that's your environment, [Valibot](https://valibot.dev/) is the honest recommendation today.
-
-### Which version should I install?
-
-`npm install sury` gives you the current `latest` on npm, which is `11.0.0-alpha.x` — that's the version the numbers above measure. The last v10 release is `10.0.4` if you need to pin it.
 
 ### Why "Sury"?
 

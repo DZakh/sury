@@ -4,17 +4,17 @@ ts:
   # variant by its string input and bridges undefined <-> null.
   schema: S.optional(S.string).with(S.to, S.nullable(S.string.with(S.to, S.boolean)))
   input: string | undefined
-  output: boolean | null
+  output: boolean | undefined
   instantiations: 5756
 vs:
   zod:
     _skip: not-applicable
 jsonSchema:
   input: Expected JSON, received string | undefined
-  output: '{ anyOf: [{ type: "boolean" }, { type: "null" }] }'
+  output: Expected JSON, received boolean | undefined
 operations:
   parse:
-    expression: i=>{if(typeof i==="string"){try{let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}catch(e0){e[1](i,e0)}}else if(i===void 0){try{i=null}catch(e1){e[2](i,e1)}}else{e[3](i)}return i}
+    expression: i=>{if(typeof i==="string"){try{let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}catch(e0){e[1](i,e0)}}else if(i===void 0){try{i=void 0}catch(e1){e[2](i,e1)}}else{e[3](i)}return i}
     examples:
       true-string:
         input: '"true"'
@@ -24,7 +24,7 @@ operations:
         output: "false"
       undefined:
         input: undefined
-        output: "null"
+        output: undefined
       invalid:
         input: '"abc"'
         error: |-
@@ -32,11 +32,11 @@ operations:
           - Expected boolean, received "abc"
   decode: eq-to-parse
   encode:
-    expression: i=>{if(typeof i==="boolean"){i=""+i}else if(i===null){try{i=void 0}catch(e1){e[0](i,e1)}}else{e[1](i)}return i}
+    expression: i=>{if(typeof i==="boolean"){i=""+i}else if(i===void 0){let v0=null;try{v0=void 0}catch(e1){e[0](v0,e1)}i=v0}else{e[1](i)}return i}
     examples:
       boolean:
         input: "true"
         output: '"true"'
       "null":
         input: "null"
-        output: undefined
+        error: Expected boolean | undefined, received null
