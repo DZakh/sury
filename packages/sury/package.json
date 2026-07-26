@@ -56,7 +56,6 @@
     "build:entry": "tsx ./scripts/pack.ts entry-only",
     "build": "pnpm rescript && tsx ./scripts/pack.ts for-publish",
     "res": "pnpm build:entry && rescript watch",
-    "test:res": "cd ./packages/tests && rescript clean && rescript watch",
     "test": "pnpm build:entry && rescript build && vitest run",
     "typecheck": "vitest run --typecheck.only",
     "lint:stdlib": "rescript-stdlib-vendorer lint --ignore-path=src",
