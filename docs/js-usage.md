@@ -47,7 +47,7 @@
 - [Refinements](#refinements)
   - [`shape`](#shape)
 - [Functions on schema](#functions-on-schema)
-  - [The mental model: pipelines, not operations](#the-mental-model-pipelines-not-operations)
+  - [Pipelines](#pipelines)
   - [Built-in operations](#built-in-operations)
   - [Chaining operations](#chaining-operations)
   - [`reverse`](#reverse)
@@ -69,7 +69,7 @@ npm install sury
 
 ## Basic usage
 
-The main building block of **Sury** is a schema — a type definition that exists at runtime, giving you infinite possibilities of using it.
+The main building block of **Sury** is a schema — a type definition that exists at runtime.
 
 ```ts
 import * as S from "sury"; // 9.77 kB (min + gzip)
@@ -79,8 +79,6 @@ const playerSchema = S.schema({
   xp: S.number,
 });
 ```
-
-> 🧠 The API is very similar to TypeScript types, so you don't need to learn a new syntax.
 
 ### Parsing data
 
@@ -153,7 +151,7 @@ S.parser(S.reverse(userSchema))({ id: 0n, name: "Dmitry" });
 
 ### JSON Schema
 
-`S.toJSONSchema(schema, { target })` emits `"draft-07"` (default), `"draft-2020-12"`, or `"openapi-3.0"`. Properties and examples come out in the **Input** format, ready for Fastify or any OpenAPI integration:
+`S.toJSONSchema(schema, { target })` emits `"draft-07"` (default), `"draft-2020-12"`, or `"openapi-3.0"`. Properties and examples come out in the **Input** format:
 
 ```ts
 const documented = userSchema.with(S.meta, {
@@ -191,7 +189,7 @@ S.assert(
 
 ### Standard Schema
 
-**Sury** implements the [Standard Schema](https://standardschema.dev/) specification, which is already integrated with over 32 popular libraries — [tRPC](https://trpc.io/), [TanStack Form](https://tanstack.com/form), [Hono](https://hono.dev/), and more:
+**Sury** implements the [Standard Schema](https://standardschema.dev/) specification:
 
 ```ts
 schema["~standard"].validate({ name: "Dmitry" });
@@ -215,7 +213,6 @@ schema["~standard"].jsonSchema.output({ target: "draft-2020-12" });
 ```
 
 > 🧠 `jsonSchema.input(options)` equals `S.toJSONSchema(schema, options)` and `.output(options)` equals `S.toJSONSchema(S.reverse(schema), options)`, so the `target` option behaves the same as above. The `options` argument is required by the spec.
-
 
 ## Defining schemas
 
@@ -416,12 +413,10 @@ Conceptually, this is how **Sury** processes default values:
 
 ## Nullables
 
-Similarly, you can create nullable types with `S.nullable`. `null` is accepted and preserved on both sides — it is not rewritten to `undefined`.
+Similarly, you can create nullable types with `S.nullable`.
 
 ```ts
 const nullableStringSchema = S.nullable(S.string);
-//? S.Schema<string | null, string | null>
-
 S.parser(nullableStringSchema)("asdf"); // => "asdf"
 S.parser(nullableStringSchema)(null); // => null
 ```
@@ -431,8 +426,6 @@ Pass a fallback as the second argument to replace the absent case:
 ```ts
 S.parser(S.nullable(S.string, "fallback"))(null); // => "fallback"
 ```
-
-> 🧠 Use [`S.nullish`](#nullish) if `undefined` should be accepted too. ReScript users: `S.null` is this schema, while ReScript's `S.nullable` is [`S.nullish`](#nullish) — see the [ReScript reference](/docs/rescript-usage.md).
 
 ## Nullish
 
@@ -619,7 +612,7 @@ S.parser(schema)([["0", "1"], ["Hello", "World"], [false, true]]);
 // [{ id: "0", name: "Hello", deleted: false }, { id: "1", name: "World", deleted: true }]
 ```
 
-The helper is inspired by [Boosting Postgres INSERT Performance by 2x With UNNEST](https://www.timescale.com/blog/boosting-postgres-insert-performance). The main concern with the approach described there is usability, which **Sury** solves with an API that's even more performant than `S.array`:
+The layout is the one described in [Boosting Postgres INSERT Performance by 2x With UNNEST](https://www.timescale.com/blog/boosting-postgres-insert-performance).
 
 <details>
 
@@ -1048,16 +1041,14 @@ S.encoder(circleSchema)({ kind: "circle", radius: 1 }); //? 1
 
 ## Functions on schema
 
-### The mental model: pipelines, not operations
+### Pipelines
 
-If you've used other validation libraries, you're used to a separate function for every input/output pair: `parseJson`, `parseJsonString`, `convertToJson`, `convertToJsonString`, and so on. **Sury treats those targets as schemas instead.** `S.json`, `S.jsonString`, `S.unknown`, `S.date`, `S.uint8Array` — none of them are special, they're just schemas like any other.
-
-The two operation functions you need are:
+Conversion targets are schemas, not dedicated functions: `S.json`, `S.jsonString`, `S.unknown`, `S.date`, and `S.uint8Array` are ordinary schemas usable at any position in a chain.
 
 - **`S.decoder(from, …intermediate, to)`** — compile a forward pipeline from one schema to another.
 - **`S.encoder(from, …intermediate, to)`** — compile the reverse pipeline.
 
-Every call fuses the whole chain into a single ultra-optimized function generated via `new Function`, so adding stages costs you nothing at runtime.
+Each call fuses the whole chain into a single function generated via `new Function`.
 
 ```ts
 // Validate unknown input.
@@ -1073,9 +1064,7 @@ S.encoder(userSchema, S.jsonString)(user);
 S.decoder(S.uint8Array, S.string)(bytes);
 ```
 
-You're no longer picking from a fixed menu of operations — you're describing the shape of the data at each stage and letting Sury compile the path.
-
-The **same pipeline idea works inside schemas** via [`S.to`](#to). A field, an array element, a tuple slot — any nested schema can be its own multi-stage chain:
+The same applies inside schemas via [`S.to`](#to). A field, an array element, or a tuple slot can be its own multi-stage chain:
 
 ```ts
 const apiUser = S.schema({
@@ -1090,7 +1079,7 @@ const apiUser = S.schema({
 });
 ```
 
-`S.to` is the same compiler as `S.decoder` / `S.encoder`, just used at a single point in a larger schema. The whole tree — top-level operation plus every nested `S.to` — still folds into one generated function, so deep pipelines stay free of runtime overhead.
+`S.to` is the same compiler as `S.decoder` / `S.encoder`, applied at a single point in a larger schema. The whole tree — top-level operation plus every nested `S.to` — folds into one generated function.
 
 > 🧠 `S.parser` and `S.assert` aren't separate primitives — they're just specializations of `S.decoder` with `S.unknown` on the input side. `S.parser(schema)` is `S.decoder(S.unknown, schema)`. `S.assert(schema, data)` runs a decoder from `S.unknown` *through* the schema *to* `S.literal(true).with(S.noValidation, true)` — the target is a no-op constant with validation disabled, so the compiler emits the schema's validation but no output-construction code at all. That's why `assert` is 2–3× faster than `parser`.
 

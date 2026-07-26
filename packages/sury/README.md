@@ -182,17 +182,27 @@ S.enableStandardJSONSchema();
 const productSchema = S.schema({
   id: S.string,
   price: S.string.with(S.to, S.number),
+}).with(S.meta, {
+  description: "A product in the catalog",
+  examples: [{ id: "p_1", price: 9.99 }],
 });
 
 productSchema["~standard"].jsonSchema.input({ target: "draft-2020-12" });
-// { $schema: "https://json-schema.org/draft/2020-12/schema", type: "object",
-//   properties: { id: { type: "string" }, price: { type: "string" } }, … }
-//                                                 ↑ the wire format
+// {
+//   $schema: "https://json-schema.org/draft/2020-12/schema",
+//   type: "object",
+//   properties: { id: { type: "string" }, price: { type: "string" } },
+//   required: ["id", "price"],                    ↑ the wire format
+//   description: "A product in the catalog",
+//   examples: [{ id: "p_1", price: "9.99" }],
+// }
 
 productSchema["~standard"].jsonSchema.output({ target: "draft-2020-12" });
 // { … properties: { id: { type: "string" }, price: { type: "number" } }, … }
 //                                                   ↑ what your code receives
 ```
+
+`S.meta` attaches `description`, `title`, `examples`, and `deprecated`. You write examples in the Output format you actually work with (`price: 9.99`), and they're emitted in the Input format the wire uses (`price: "9.99"`) — so a generated OpenAPI document describes the payload a client really sends.
 
 `"draft-07"`, `"draft-2020-12"`, and `"openapi-3.0"` are all supported targets, and `S.toJSONSchema(schema, options)` is available directly if you'd rather not go through `~standard`.
 
