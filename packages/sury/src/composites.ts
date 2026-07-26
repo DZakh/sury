@@ -1,15 +1,69 @@
-import { Literal_parse, isArrayCond, jsonName, objectTagCond, unit } from "./primitives";
-import { baseSchema, getOrRethrow, panic, unknown, updateOutput } from "./schema";
-import { getOutputSchema, nestedLoc, nestedOptionParser, parse, parseDynamic } from "./parse";
-import { unionFactory } from "./union";
-import { B_addObjectField, B_addKey, B_scope, B_asyncVal, B_dynamicScope, B_failWithArg, B_hoistChildChecks, B_hoistDecl, B_inlineConst, B_markOutput, B_merge, B_mergeWithPathPrepend, B_next, B_nextConst, B_refine, B_unsupportedDecode, B_varWithoutAllocation, _notVar, _notVarAtParent, failInvalidType } from "./builder";
-import { AdditionalItems, Check, ErrorDetails, Internal, U, Val, immutableEmptyArray, immutableEmptyObject, isLiteral, isOptional } from "./types";
-import { flagUnsafeHas, valFlagAsync, valFlagNone } from "./flags";
-import { inlinedValueFromString, pathConcat, pathFromInlinedLocation } from "./path";
-import { arrayTag, objectTag, tagFlagArray, tagFlagObject, tagFlagRef, tagFlagUnknown, tagFlags, undefinedTag, unionTag, unknownTag } from "./tags";
-
 // An object/array val (`makeObjectVal`'s result) reuses the plain `Val`
 // shape — there's no separate "object val" type.
+
+import {
+  type AdditionalItems,
+  arrayTag,
+  baseSchema,
+  type Check,
+  type ErrorDetails,
+  flagUnsafeHas,
+  immutableEmptyArray,
+  immutableEmptyObject,
+  inlinedValueFromString,
+  type Internal,
+  isLiteral,
+  isOptional,
+  jsonName,
+  objectTag,
+  pathConcat,
+  pathFromInlinedLocation,
+  tagFlagArray,
+  tagFlagObject,
+  tagFlagRef,
+  tagFlags,
+  tagFlagUnknown,
+  U,
+  undefinedTag,
+  unionTag,
+  unknown,
+  unknownTag,
+  updateOutput,
+  type Val,
+  valFlagAsync,
+  valFlagNone,
+} from "./base";
+import {
+  _notVar,
+  _notVarAtParent,
+  B_addKey,
+  B_addObjectField,
+  B_asyncVal,
+  B_dynamicScope,
+  B_failWithArg,
+  B_hoistChildChecks,
+  B_hoistDecl,
+  B_inlineConst,
+  B_markOutput,
+  B_merge,
+  B_mergeWithPathPrepend,
+  B_next,
+  B_nextConst,
+  B_refine,
+  B_scope,
+  B_unsupportedDecode,
+  B_varWithoutAllocation,
+  failInvalidType,
+} from "./builder";
+import {
+  getOutputSchema,
+  nestedLoc,
+  nestedOptionParser,
+  parse,
+  parseDynamic,
+} from "./parse";
+import { isArrayCond, Literal_parse, objectTagCond, unit } from "./primitives";
+import { unionFactory } from "./union";
 
 // Narrows the dict-value-schema-or-mode union down to the schema case.
 const isItemSchema = (x: AdditionalItems | undefined): x is Internal =>

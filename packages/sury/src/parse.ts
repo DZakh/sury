@@ -1,10 +1,72 @@
-import { instanceofCond, isArrayCond, nanCond, objectTagCond, setHas, typeofCond } from "./primitives";
-import { baseSchema, cached, copySchema, getOrRethrow, globalConfig, panic, reversedKey, unknown, updateOutput, valKey, valueOptions } from "./schema";
-import { B_scope, B_embedInvalidInput, B_inlineConst, B_markOutput, B_merge, B_next, B_operationArg, B_refine, B_unsupportedDecode, Builder, Encoder, failInvalidType, noopOperation, operationArgVar } from "./builder";
-import { Internal, U, Val, isLiteral, s } from "./types";
-import { Flag, flagAsync, flagDisableNanNumberValidation, flagUnsafeHas, valFlagAsync } from "./flags";
-import { pathConcat, pathDynamic, pathEmpty } from "./path";
-import { instanceTag, neverTag, numberTag, objectTag, tagFlagArray, tagFlagBigint, tagFlagBoolean, tagFlagInstance, tagFlagNaN, tagFlagNull, tagFlagNumber, tagFlagObject, tagFlagString, tagFlagSymbol, tagFlagUndefined, tagFlagUnknown, tagFlags, unknownTag } from "./tags";
+import {
+  baseSchema,
+  type Builder,
+  cached,
+  copySchema,
+  type Encoder,
+  type Flag,
+  flagAsync,
+  flagDisableNanNumberValidation,
+  flagUnsafeHas,
+  getOrRethrow,
+  globalConfig,
+  instanceTag,
+  type Internal,
+  isLiteral,
+  neverTag,
+  numberTag,
+  objectTag,
+  panic,
+  pathConcat,
+  pathDynamic,
+  pathEmpty,
+  reversedKey,
+  s,
+  setHas,
+  tagFlagArray,
+  tagFlagBigint,
+  tagFlagBoolean,
+  tagFlagInstance,
+  tagFlagNaN,
+  tagFlagNull,
+  tagFlagNumber,
+  tagFlagObject,
+  tagFlags,
+  tagFlagString,
+  tagFlagSymbol,
+  tagFlagUndefined,
+  tagFlagUnknown,
+  U,
+  unknown,
+  unknownTag,
+  updateOutput,
+  type Val,
+  valFlagAsync,
+  valKey,
+  valueOptions,
+} from "./base";
+import {
+  B_embedInvalidInput,
+  B_inlineConst,
+  B_markOutput,
+  B_merge,
+  B_next,
+  B_operationArg,
+  B_refine,
+  B_scope,
+  B_unsupportedDecode,
+  failInvalidType,
+  noopOperation,
+  operationArgVar,
+} from "./builder";
+import {
+  instanceofCond,
+  isArrayCond,
+  nanCond,
+  objectTagCond,
+  typeofCond,
+} from "./primitives";
+
 export const parse = (input: Val): Val => {
   let result: Val = input;
   let appliedEncoderRef: Encoder | undefined = U;

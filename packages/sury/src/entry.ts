@@ -24,19 +24,25 @@ import {
   void_ as voidFactory,
 } from "./primitives";
 import { never_ } from "./parse";
-import { nullAsUnit as nullAsUnitFactory } from "./operations";
+import { nullAsUnit as nullAsUnitFactory } from "./modifiers";
 import {
   json as jsonFactory,
   jsonString as jsonStringFactory,
+} from "./advanced/json";
+import {
   uint8Array as uint8ArrayFactory,
+} from "./advanced/uint8Array";
+import {
   date as dateFactory,
+} from "./advanced/date";
+import {
   isoDateTime as isoDateTimeFactory,
   port as portFactory,
   email as emailFactory,
   uuid as uuidFactory,
   cuid as cuidFactory,
   url as urlFactory,
-} from "./formats";
+} from "./refinements";
 
 // ── Eager schema constants (shared by both surfaces) ─────────────────────────
 
@@ -70,7 +76,7 @@ export {
   unknown as any,
   errorClass as Error,
   __setExnId as $res_setExnId,
-} from "./schema";
+} from "./base";
 
 // ── Public JS/TS API (names match S.d.ts) ────────────────────────────────────
 
@@ -95,11 +101,15 @@ export { getDecoder as decoder, reverse, instance } from "./parse";
 export { schemaFactory as schema, schemaFactory as literal, enum } from "./factory";
 export {
   recursive,
+} from "./advanced/recursive";
+export {
   strict,
   deepStrict,
   strip,
   deepStrip,
   noValidation,
+} from "./modifiers";
+export {
   isAsync,
   js_safe as safe,
   js_safeAsync as safeAsync,
@@ -110,6 +120,8 @@ export { array } from "./composites";
 export { nullable as nullish } from "./refinements";
 export {
   compactColumns,
+} from "./advanced/compactColumns";
+export {
   dict,
   dict as record,
   object,
@@ -118,7 +130,12 @@ export {
   pattern,
   trim,
 } from "./refinements";
-export { meta, brand, jsonStringWithSpace, list } from "./formats";
+export {
+  meta,
+  brand,
+} from "./modifiers";
+export { jsonStringWithSpace } from "./advanced/json";
+export { list } from "./advanced/list";
 export {
   toJSONSchema,
   fromJSONSchema,
@@ -128,7 +145,7 @@ export {
   max,
   length,
 } from "./jsonschema";
-export { toExpression } from "./types";
+export { toExpression } from "./base";
 
 // ── ReScript binding surface (extra names, not part of S.d.ts) ───────────────
 //
@@ -142,18 +159,20 @@ export {
   pathFromArray as $res_pathFromArray,
   pathFromLocation as $res_pathFromLocation,
   pathConcat as $res_pathConcat,
-} from "./path";
+} from "./base";
 export {
   // Async flavor of the public `assert` — no public JS equivalent
   // (`asyncDecoderAssert` is a different, callback-taking API).
   assertAsyncOrThrow as $res_assertAsyncOrThrow,
+} from "./operations";
+export {
   transform as $res_transform,
   Option_getOr as $res_Option_getOr,
   Option_getOrWith as $res_Option_getOrWith,
   Metadata_Id_make as $res_Metadata_Id_make,
   Metadata_get as $res_Metadata_get,
   Metadata_set as $res_Metadata_set,
-} from "./operations";
+} from "./modifiers";
 export { option as $res_option } from "./composites";
 export {
   nullAsOption as $res_nullAsOption,

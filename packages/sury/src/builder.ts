@@ -1,8 +1,39 @@
-import { SuryError, unknown } from "./schema";
-import { BGlobal, Check, ErrorDetails, Internal, InvalidInputDetails, SuryErrorRecord, U, Val, immutableEmptyArray, s, shouldPrependPathKey, stringify, toExpression } from "./types";
-import { Flag, flagAsync, flagNone, flagUnsafeHas, valFlagAsync, valFlagNone } from "./flags";
-import { Path, inlinedValueFromString, pathConcat, pathEmpty, pathFromInlinedLocation } from "./path";
-import { arrayTag, tagFlagBigint, tagFlagFunction, tagFlagInstance, tagFlagString, tagFlagSymbol, tagFlagUndefined, tagFlags } from "./tags";
+import {
+  arrayTag,
+  type BGlobal,
+  type Check,
+  type ErrorDetails,
+  type Flag,
+  flagAsync,
+  flagNone,
+  flagUnsafeHas,
+  immutableEmptyArray,
+  inlinedValueFromString,
+  type Internal,
+  type InvalidInputDetails,
+  type Path,
+  pathConcat,
+  pathEmpty,
+  pathFromInlinedLocation,
+  s,
+  shouldPrependPathKey,
+  stringify,
+  SuryError,
+  type SuryErrorRecord,
+  tagFlagBigint,
+  tagFlagFunction,
+  tagFlagInstance,
+  tagFlags,
+  tagFlagString,
+  tagFlagSymbol,
+  tagFlagUndefined,
+  toExpression,
+  U,
+  unknown,
+  type Val,
+  valFlagAsync,
+  valFlagNone,
+} from "./base";
 
 export type Builder = (input: Val) => Val;
 export type Encoder = (input: Val, target: Internal) => Val;

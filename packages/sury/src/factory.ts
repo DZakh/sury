@@ -1,19 +1,55 @@
-import { B_addObjectField, B_mergeObjectFields, B_scope, B_invalidOperation, B_markOutput, B_merge, B_nextConst, Builder, _notVarAtParent } from "./builder";
-import { Literal_parse, literalDecoder, unit } from "./primitives";
-import { Option_getOr, TupleCtx } from "./operations";
-import { arrayDecoder, completeObjectVal, makeObjectVal, objectDecoder, optionFactory, valGet } from "./composites";
-import { unionFactory } from "./union";
-import { getOutputSchema, parse, reverse } from "./parse";
-import { baseSchema, copySchema, globalConfig, panic, updateOutput } from "./schema";
-import { Internal, U, Val, immutableEmptyArray, isLiteral, isSchemaObject, itemSymbol, toExpression } from "./types";
-import { Path, inlinedValueFromString, pathConcat, pathEmpty, pathFromInlinedLocation } from "./path";
-import { arrayTag, instanceTag, objectTag } from "./tags";
-
 // The factory functions below (`schemaShape`, `schemaNested`, `schemaObject`,
 // `schemaTuple`, `schemaDefiner`, `schemaFactory`) are standalone top-level
 // functions rather than object methods — several are mutually recursive,
 // which is awkward to express inside an object literal — with
 // `schema`-prefixed names to avoid colliding with other sections.
+
+import {
+  arrayTag,
+  baseSchema,
+  type Builder,
+  copySchema,
+  globalConfig,
+  immutableEmptyArray,
+  inlinedValueFromString,
+  instanceTag,
+  type Internal,
+  isLiteral,
+  isSchemaObject,
+  itemSymbol,
+  objectTag,
+  panic,
+  type Path,
+  pathConcat,
+  pathEmpty,
+  pathFromInlinedLocation,
+  toExpression,
+  U,
+  updateOutput,
+  type Val,
+} from "./base";
+import {
+  _notVarAtParent,
+  B_addObjectField,
+  B_invalidOperation,
+  B_markOutput,
+  B_merge,
+  B_mergeObjectFields,
+  B_nextConst,
+  B_scope,
+} from "./builder";
+import {
+  arrayDecoder,
+  completeObjectVal,
+  makeObjectVal,
+  objectDecoder,
+  optionFactory,
+  valGet,
+} from "./composites";
+import { Option_getOr, type TupleCtx } from "./modifiers";
+import { getOutputSchema, parse, reverse } from "./parse";
+import { Literal_parse, literalDecoder, unit } from "./primitives";
+import { unionFactory } from "./union";
 
 type ShapedSerializerAcc = {
   val?: Val;

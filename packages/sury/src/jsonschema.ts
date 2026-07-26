@@ -1,17 +1,3 @@
-import { definitionToSchema, schemaFactory } from "./factory";
-import { array, option } from "./composites";
-import { email, isoDateTime, json, meta, url, uuid } from "./formats";
-import { arrayLength, arrayMaxLength, arrayMinLength, dict, floatMax, floatMin, intMax, intMin, null_, object, pattern, stringLength, stringMaxLength, stringMinLength, tuple, union } from "./refinements";
-import { SuryError, baseSchema, getOrRethrow, panic, unknown } from "./schema";
-import { Literal_parse, bool, float, int, jsonName, string } from "./primitives";
-import { B_makeInvalidInputDetails, B_operationArg } from "./builder";
-import { never_, parse, reverse } from "./parse";
-import { Internal, U, isLiteral, isOptional, toExpression } from "./types";
-import { Path, pathConcat, pathDynamic, pathEmpty, pathFromLocation } from "./path";
-import { flagNone, flagUnsafeHas } from "./flags";
-import { arrayTag, booleanTag, neverTag, nullTag, numberTag, objectTag, refTag, stringTag, tagFlagArray, tagFlagObject, tagFlagUnion, tagFlags, undefinedTag, unionTag, unknownTag } from "./tags";
-import { Metadata_Id_internal, Metadata_get, Metadata_set, Option_getOr, assertOrThrow, defsPath, refine, __setStandardJSONSchemaConverter, strict } from "./operations";
-
 // PORT-NOTE: no runtime values had to be imported from JSONSchema.res or
 // StandardSchema.res — everything runtime-relevant there is `%identity`
 // externals (Arrayable.single/array, Mutable.fromReadOnly/toReadOnly,
@@ -20,6 +6,81 @@ import { Metadata_Id_internal, Metadata_get, Metadata_set, Option_getOr, assertO
 // (`$ref`, `$schema`, `$defs`, `type`, `if`, `else` — the `@as(...)` names,
 // not the ReScript field names `ref`/`schema`/`defs`/`type_`/`if_`/`else_`).
 // =============================================================================
+
+import {
+  arrayTag,
+  baseSchema,
+  booleanTag,
+  defsPath,
+  flagNone,
+  flagUnsafeHas,
+  getOrRethrow,
+  type Internal,
+  isLiteral,
+  isOptional,
+  jsonName,
+  neverTag,
+  nullTag,
+  numberTag,
+  objectTag,
+  panic,
+  type Path,
+  pathConcat,
+  pathDynamic,
+  pathEmpty,
+  pathFromLocation,
+  refTag,
+  stringTag,
+  SuryError,
+  tagFlagArray,
+  tagFlagObject,
+  tagFlags,
+  tagFlagUnion,
+  toExpression,
+  U,
+  undefinedTag,
+  unionTag,
+  unknown,
+  unknownTag,
+} from "./base";
+import { json } from "./advanced/json";
+import { B_makeInvalidInputDetails, B_operationArg } from "./builder";
+import { array, option } from "./composites";
+import { definitionToSchema, schemaFactory } from "./factory";
+import {
+  meta,
+  Metadata_get,
+  Metadata_Id_internal,
+  Metadata_set,
+  Option_getOr,
+  refine,
+  strict,
+} from "./modifiers";
+import { __setStandardJSONSchemaConverter, assertOrThrow } from "./operations";
+import { never_, parse, reverse } from "./parse";
+import { bool, float, int, Literal_parse, string } from "./primitives";
+import {
+  arrayLength,
+  arrayMaxLength,
+  arrayMinLength,
+  dict,
+  email,
+  floatMax,
+  floatMin,
+  intMax,
+  intMin,
+  isoDateTime,
+  null_,
+  object,
+  pattern,
+  stringLength,
+  stringMaxLength,
+  stringMinLength,
+  tuple,
+  union,
+  url,
+  uuid,
+} from "./refinements";
 
 /**
  * Primitive type

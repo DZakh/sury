@@ -1,22 +1,144 @@
-import type { Builder, Encoder } from "./builder";
-import type { Path } from "./path";
-import {
-  arrayTag,
-  instanceTag,
-  nanTag,
-  nullTag,
-  objectTag,
-  Tag,
-  tagFlagBigint,
-  tagFlagFunction,
-  tagFlagObject,
-  tagFlagString,
-  tagFlagUndefined,
-  tagFlags,
-  undefinedTag,
-  unionTag,
-} from "./tags";
-import { Flag, flagUnsafeHas } from "./flags";
+// The base layer: the data model (`Internal`, `Val`, `Check`), the schema
+// object and its prototype, tags, flags and paths — merged into one module
+// because they are mutually dependent by nature and splitting them bought
+// nothing but import churn. Nothing here imports from another module in the
+// package: base is the bottom of the layering, so every other module can reach
+// it without a cycle.
+
+// Lives here rather than in builder.ts so base has no outgoing edge: both are
+// one-liners over `Val`/`Internal`, and builder.ts importing them back is free.
+export type Builder = (input: Val) => Val;
+export type Encoder = (input: Val, target: Internal) => Val;
+
+// ── flags ─────────────────────────────────────────────────────────────────────
+
+export type Flag = number;
+
+export const flagNone: Flag = 0;
+export const flagAsync: Flag = 1;
+export const flagDisableNanNumberValidation: Flag = 2;
+// flatten: 64
+
+export const flagUnsafeHas = (acc: Flag, flag: Flag): boolean => {
+  return (acc & flag) !== 0;
+}
+
+export const valFlagNone: Flag = 0;
+export const valFlagAsync: Flag = 1;
+
+// ── path ──────────────────────────────────────────────────────────────────────
+
+export type Path = string;
+
+export const pathEmpty: Path = "";
+export const pathDynamic: Path = "[]";
+
+export const inlinedValueFromString = (str: string): string => {
+  return str.includes('"') || str.includes("\n") ? JSON.stringify(str) : `"${str}"`;
+}
+
+export const pathFromInlinedLocation = (inlinedLocation: string): Path => {
+  return `[${inlinedLocation}]`;
+}
+
+export const pathFromLocation = (location: string): Path => {
+  return `[${inlinedValueFromString(location)}]`;
+}
+
+export const pathToArray = (path: Path): string[] => {
+  return path === "" ? [] : (JSON.parse(path.split(`"]["`).join(`","`)) as string[]);
+}
+
+export const pathFromArray = (array: string[]): Path => {
+  switch (array.length) {
+    case 0:
+      return "";
+    case 1:
+      return pathFromLocation(array[0]!);
+    default:
+      return array.map(pathFromLocation).join("");
+  }
+}
+
+export const pathConcat = (path: Path, concatedPath: Path): Path => {
+  return path + concatedPath;
+}
+
+// ── tags ──────────────────────────────────────────────────────────────────────
+
+export type Tag =
+  | "string"
+  | "number"
+  | "bigint"
+  | "boolean"
+  | "symbol"
+  | "null"
+  | "undefined"
+  | "nan"
+  | "function"
+  | "instance"
+  | "array"
+  | "object"
+  | "union"
+  | "never"
+  | "unknown"
+  | "ref";
+
+// Use variables to reduce bundle size with min+gzip
+// Also as a good practice (ignore that we have tag variant 😅)
+export const stringTag: Tag = "string";
+export const numberTag: Tag = "number";
+export const bigintTag: Tag = "bigint";
+export const booleanTag: Tag = "boolean";
+export const symbolTag: Tag = "symbol";
+export const nullTag: Tag = "null";
+export const undefinedTag: Tag = "undefined";
+export const nanTag: Tag = "nan";
+export const functionTag: Tag = "function";
+export const instanceTag: Tag = "instance";
+export const arrayTag: Tag = "array";
+export const objectTag: Tag = "object";
+export const unionTag: Tag = "union";
+export const neverTag: Tag = "never";
+export const unknownTag: Tag = "unknown";
+export const refTag: Tag = "ref";
+
+export const tagFlagUnknown = 1;
+export const tagFlagString = 2;
+export const tagFlagNumber = 4;
+export const tagFlagBoolean = 8;
+export const tagFlagUndefined = 16;
+export const tagFlagNull = 32;
+export const tagFlagObject = 64;
+export const tagFlagArray = 128;
+export const tagFlagUnion = 256;
+export const tagFlagRef = 512;
+export const tagFlagBigint = 1024;
+export const tagFlagNaN = 2048;
+export const tagFlagFunction = 4096;
+export const tagFlagInstance = 8192;
+export const tagFlagSymbol = 16384;
+export const tagFlagNever = 32768;
+export const tagFlags: Record<Tag, number> = {
+  [unknownTag]: 1,
+  [stringTag]: 2,
+  [numberTag]: 4,
+  [booleanTag]: 8,
+  [undefinedTag]: 16,
+  [nullTag]: 32,
+  [objectTag]: 64,
+  [arrayTag]: 128,
+  [unionTag]: 256,
+  [refTag]: 512,
+  [bigintTag]: 1024,
+  [nanTag]: 2048,
+  [functionTag]: 4096,
+  [instanceTag]: 8192,
+  [neverTag]: 32768,
+  [symbolTag]: 16384,
+};
+
+// ── types ─────────────────────────────────────────────────────────────────────
 
 export const vendor = "sury";
 // Internal symbol to easily identify a SuryError instance.
@@ -374,3 +496,157 @@ export const toExpression = (schema: Internal): string => {
     return schema.type;
   }
 }
+
+// ── schema ────────────────────────────────────────────────────────────────────
+
+export function Schema(this: Internal): void {}
+export const schemaPrototype: Record<string, unknown> = Object.create(null);
+// A plain (non-enumerable) method, not a getter returning a closure: the
+// getter form allocated a fresh arrow on every `.with` access, and `.with` is
+// the primary modifier API called all over user construction code. The method
+// binds `this` through the call, so no per-access closure is needed.
+Object.defineProperty(schemaPrototype, "with", {
+  value(this: Internal, fn: (self: Internal, ...args: unknown[]) => unknown, ...args: unknown[]): unknown {
+    return fn(this, ...args);
+  },
+});
+// Also has ~standard below
+Schema.prototype = schemaPrototype;
+
+let seq = 1;
+
+let exnId: unknown = {};
+export const __setExnId = (id: unknown): void => {
+  exnId = id;
+}
+
+export class SuryError extends Error {
+  constructor(params: ErrorDetails | Record<string, unknown>) {
+    super();
+    Object.assign(this, params);
+  }
+  get message(): string {
+    return formatErrorMessage(this as unknown as SuryErrorRecord);
+  }
+  get _1(): this {
+    return this;
+  }
+  get RE_EXN_ID(): unknown {
+    return exnId;
+  }
+}
+Object.defineProperty(SuryError.prototype, "name", { value: "SuryError" });
+Object.defineProperty(SuryError.prototype, "s", { value: s });
+
+export const getOrRethrow = (exn: unknown): SuryErrorRecord => {
+  if (exn && (exn as { s?: symbol }).s === s) {
+    return exn as SuryErrorRecord;
+  } else {
+    throw exn;
+  }
+}
+
+// Internal invariant/misuse errors (bad schema construction, not input
+// validation) — intentionally a plain Error, not SuryError: there's no
+// ErrorDetails shape (code/path/reason) to attach at these call sites.
+export const panic = (message: string): never => {
+  throw new Error(`[Sury] ${message}`);
+}
+
+const formatErrorMessage = (error: SuryErrorRecord): string => {
+  return `${error.path === "" ? "" : `Failed at ${error.path}: `}${error.reason}`;
+}
+
+export const errorClass: unknown = SuryError;
+
+export type GlobalConfig = {
+  m: (error: SuryErrorRecord) => string; // messageFormatter
+  d?: Record<string, Internal>; // defsAccumulator
+  a: AdditionalItems; // defaultAdditionalItems
+  f: Flag; // defaultFlag
+}
+
+export type GlobalConfigOverride = {
+  defaultAdditionalItems?: AdditionalItemsMode;
+  disableNanNumberValidation?: boolean;
+}
+
+export const initialOnAdditionalItems: AdditionalItemsMode = "strip";
+export const initialDefaultFlag: Flag = valFlagNone;
+export const globalConfig: GlobalConfig = {
+  m: formatErrorMessage,
+  d: U,
+  a: initialOnAdditionalItems,
+  f: initialDefaultFlag,
+};
+
+export const valueOptions: Record<string, unknown> = {};
+export const configurableValueOptions = { configurable: true };
+export const valKey = "value";
+export const reversedKey = "r";
+
+const SchemaCtor = Schema as unknown as { new (): Internal };
+
+export const baseSchema = (tag: Tag, selfReverse: boolean): Internal => {
+  const schema = new SchemaCtor();
+  schema.type = tag;
+  schema.seq = seq++;
+  if (selfReverse) {
+    valueOptions[valKey] = schema;
+    Object.defineProperty(schema, reversedKey, valueOptions as PropertyDescriptor);
+  }
+  return schema;
+}
+
+export const noopDecoder: Builder = (input: Val) => {
+  return input;
+}
+
+const factoryCache: Record<string, Internal> = {};
+
+export const cached = (key: string, tag: Tag, init: (schema: Internal) => void): Internal => {
+  const existing = factoryCache[key];
+  if (existing !== U) {
+    return existing;
+  } else {
+    const schema = baseSchema(tag, true);
+    init(schema);
+    factoryCache[key] = schema;
+    return schema;
+  }
+}
+
+export const unknown: Internal = baseSchema(unknownTag, true);
+unknown.decoder = noopDecoder;
+
+export const copySchema = (schema: Internal): Internal => {
+  const c: Internal = Object.assign(new SchemaCtor(), schema);
+  c.seq = seq++;
+  return c;
+}
+
+export const updateOutput = <Value>(schema: Internal, fn: (schema: Internal) => void): Value => {
+  const root = copySchema(schema);
+  let mut = root;
+  while (mut.to !== U) {
+    const next = copySchema(mut.to);
+    mut.to = next;
+    mut = next;
+  }
+  // This should be the Output schema
+  fn(mut);
+  return root as unknown as Value;
+}
+
+export const setHas = (has: Partial<Record<Tag, boolean>>, tag: Tag): void => {
+  has[flagUnsafeHas(tagFlags[tag]!, tagFlagUnion | tagFlagRef) ? unknownTag : tag] = true;
+}
+
+// The JSON Schema pointer prefix. Shared rather than owned by jsonschema.ts:
+// `S.recursive` mints `$ref`s against it and `S.json` names itself through it,
+// and both sit below the converter in the layering.
+export const defsPath = `#/$defs/`;
+
+// `S.json`'s schema identity, recognised by name where importing the schema
+// itself would close a cycle (composites' JSON-sourced object reads).
+export const jsonName = `JSON`;

@@ -1,16 +1,50 @@
-import { nullLiteral, unit } from "./primitives";
-import { GlobalConfigOverride, baseSchema, copySchema, getOrRethrow, globalConfig, initialDefaultFlag, initialOnAdditionalItems, panic, unknown, updateOutput } from "./schema";
-import { B_embed, B_failWithArg, B_invalidInputBuilder, B_makeInvalidConversionDetails, B_next, B_varWithoutAllocation, EffectCtx, _var } from "./builder";
-import { definitionToSchema } from "./factory";
+import {
+  baseSchema,
+  type Builder,
+  type Check,
+  copySchema,
+  flagDisableNanNumberValidation,
+  functionTag,
+  getOrRethrow,
+  globalConfig,
+  type GlobalConfigOverride,
+  initialDefaultFlag,
+  initialOnAdditionalItems,
+  type Internal,
+  isSchemaObject,
+  objectTag,
+  panic,
+  pathEmpty,
+  pathFromArray,
+  stringTag,
+  U,
+  unknown,
+  updateOutput,
+  type Val,
+} from "./base";
+import {
+  _var,
+  B_embed,
+  B_failWithArg,
+  B_invalidInputBuilder,
+  B_makeInvalidConversionDetails,
+  B_next,
+  B_varWithoutAllocation,
+  type EffectCtx,
+} from "./builder";
 import { objectDecoder } from "./composites";
-import { unionFactory } from "./union";
-import { Option_getOr, Option_getOrWith, getAssertResult, internalRefine, nullAsUnit, transform } from "./operations";
-import { Check, Internal, U, Val, isSchemaObject } from "./types";
-import { Builder } from "./builder";
-import { flagDisableNanNumberValidation } from "./flags";
-import { functionTag, objectTag, stringTag } from "./tags";
-import { pathEmpty, pathFromArray } from "./path";
+import { definitionToSchema } from "./factory";
+import {
+  internalRefine,
+  nullAsUnit,
+  Option_getOr,
+  Option_getOrWith,
+  transform,
+} from "./modifiers";
+import { getAssertResult } from "./operations";
 import { getDecoder, reverse } from "./parse";
+import { nullLiteral, unit } from "./primitives";
+import { unionFactory } from "./union";
 
 export const js_parser = (...args: unknown[]) => getDecoder(unknown, ...args);
 
