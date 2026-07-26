@@ -37,7 +37,10 @@
       "ignoreDependencies": ["@rescript/darwin-arm64", "@rescript/runtime", "zod"]
     },
     "packages/spec": {
-      "entry": ["cli.ts"],
+      // benchChild.ts is esbuilt to .bench-cache and spawned as a subprocess,
+      // and perfComment.ts is run by CI to format the PR comment — neither is
+      // ever imported, so both need anchoring.
+      "entry": ["cli.ts", "benchChild.ts", "perfComment.ts"],
       "project": ["**/*.ts"]
     },
     "packages/json-schema-test-suite": {

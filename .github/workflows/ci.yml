@@ -125,7 +125,7 @@ jobs:
       - name: Spec performance
         # For pipefail: the default `bash -e` would let `tee` mask a failure.
         shell: bash
-        run: pnpm --filter=sury spec --perf=only | tee spec-perf.txt
+        run: pnpm --filter=sury spec check --perf=only | tee spec-perf.txt
 
       - uses: actions/upload-artifact@v4
         id: spec-perf-artifact
