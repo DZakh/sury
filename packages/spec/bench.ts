@@ -19,7 +19,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
 import { OP_ORDER, isCreationError, type OpName } from "./format";
-import { evalSchema, readSpec, specId, stripTypes } from "./harness";
+import { evalSchema, readScenarios, readSpec, scenarioSource, specId, stripTypes } from "./harness";
 
 const here = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
 const REPO_ROOT = here("../../");
@@ -55,9 +55,9 @@ const CONTROLS_PER_PHASE = 6;
 // point a real but sub-noise delta is not actionable, and listing it trains
 // the reader to ignore the section.
 const MIN_FLOOR_PCT = 3;
-const PHASES = ["create", "create+compile", "run"] as const;
+const PHASES = ["create", "create+compile", "run", "scenario"] as const;
 
-export type Phase = "create" | "create+compile" | "run";
+export type Phase = "create" | "create+compile" | "run" | "scenario";
 
 export type Target = {
   name: string;
@@ -65,8 +65,11 @@ export type Target = {
   phase: Phase;
   op?: OpName;
   /** Type-stripped already: the child has no TypeScript to strip it with. */
-  schemaSrc: string;
+  schemaSrc?: string;
   inputSrc?: string;
+  /** `scenario` phase only — same type-stripped contract as schemaSrc. */
+  prepareSrc?: string;
+  runSrc?: string;
   throws: boolean;
   control: boolean;
 };
@@ -188,9 +191,26 @@ const SEP = " · ";
 // operation is cached on the singleton, so a second call measures the cache.
 const isConstantSchema = (src: string): boolean => evalSchema(src) === evalSchema(src);
 
-export const deriveTargets = (files: string[]): { targets: Target[]; skippedConstants: number } => {
+// Scenarios are selected by their own id, since they aren't files: a narrowed
+// run naming only spec ids gets no scenarios, and vice versa.
+export const deriveTargets = (
+  files: string[],
+  scenarioIds?: string[],
+): { targets: Target[]; skippedConstants: number } => {
   const targets: Target[] = [];
   let skippedConstants = 0;
+
+  for (const [id, scenario] of Object.entries(readScenarios())) {
+    if (scenarioIds && !scenarioIds.includes(id)) continue;
+    targets.push({
+      name: `${id}${SEP}scenario`,
+      specId: id,
+      phase: "scenario",
+      ...scenarioSource(scenario),
+      throws: false,
+      control: false,
+    });
+  }
 
   for (const file of files) {
     const id = specId(file);
@@ -293,7 +313,11 @@ const medianOf = (xs: number[]): number => {
 
 // ---- run -------------------------------------------------------------------
 
-export const runPerf = async (files: string[], against?: string): Promise<Perf> => {
+export const runPerf = async (
+  files: string[],
+  against?: string,
+  scenarioIds?: string[],
+): Promise<Perf> => {
   const { sha, label } = resolveBaseline(against);
   mkdirSync(CACHE, { recursive: true });
 
@@ -304,7 +328,7 @@ export const runPerf = async (files: string[], against?: string): Promise<Perf> 
     buildChild(),
   ]);
 
-  const { targets, skippedConstants } = deriveTargets(files);
+  const { targets, skippedConstants } = deriveTargets(files, scenarioIds);
   const childPath = join(CACHE, "child.mjs");
   const payloadFor = (list: Target[]): ChildPayload => ({
     baseline: pathToFileURL(baselinePath).href,

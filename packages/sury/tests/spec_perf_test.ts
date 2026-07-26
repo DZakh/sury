@@ -40,7 +40,10 @@ test("conservativePct needs unanimity: one dissenting block is enough to report 
 
 // ---- targets ---------------------------------------------------------------
 
-const targetsFor = (id: string) => deriveTargets([listSpecFiles().find((f) => specId(f) === id)!]);
+// `[]` for the scenarios: they aren't files, so a run narrowed to one spec
+// selects none of them (an omitted argument means "every scenario").
+const targetsFor = (id: string) =>
+  deriveTargets([listSpecFiles().find((f) => specId(f) === id)!], []);
 
 test("a constant schema contributes no creation targets", () => {
   // `S.string` is a module-level constant, so there is nothing to construct and
@@ -62,6 +65,27 @@ test("a factory schema contributes creation and compilation targets alongside ev
     .map((t) => t.name);
   expect(names.slice(0, 2)).toEqual(["object1 · create", "object1 · create+compile · parse"]);
   expect(names.length).toBeGreaterThan(2);
+});
+
+// A scenario carries its own setup and expression instead of a schema, and is
+// selected by name — the one target kind that comes from scenarios.yaml rather
+// than from a spec file.
+test("a scenario contributes one target built from its own prepare and run", () => {
+  const { targets } = deriveTargets([], ["standard-schema-validate"]);
+  const real = targets.filter((t) => !t.control);
+  expect(real.map((t) => t.name)).toEqual(["standard-schema-validate · scenario"]);
+  expect(real[0]!.phase).toBe("scenario");
+  expect(real[0]!.schemaSrc).toBe(undefined);
+  expect(real[0]!.prepareSrc).toContain("S.schema(");
+  // Parenthesized by stripTypes, same as a spec's ts.schema.
+  expect(real[0]!.runSrc).toBe('(schema["~standard"].validate(data))');
+});
+
+test("scenarios are selected by name, so narrowing to a spec picks up none of them", () => {
+  expect(targetsFor("string").targets.some((t) => t.phase === "scenario")).toBe(false);
+  expect(
+    deriveTargets([], []).targets.length,
+  ).toBe(0);
 });
 
 test("an example expecting an error is marked as throwing, so it is measured in a try/catch", () => {

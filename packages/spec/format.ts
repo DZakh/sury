@@ -297,3 +297,49 @@ export const validateBundleSize = (
     return { ok: false, error: (e as Error).message };
   }
 };
+
+// ---- scenarios.yaml --------------------------------------------------------
+
+// Perf-only measurements that aren't a schema's contract, so they can't be a
+// spec dimension: a spec times its schema's creation, compilation and compiled
+// operation, which is the library's inner surface. A scenario times a whole
+// call the way a consumer writes it — `schema["~standard"].validate(input)`,
+// `S.is(schema, value)` — where the dispatch around the compiled operation is
+// the thing being measured and is invisible to every per-spec phase.
+//
+// Nothing is snapshotted (perf never stores a number), so a scenario has no
+// goldens and no `--write` step. It is still schema-validated, and `spec check`
+// executes each one against the dev source, so a typo fails the gate instead of
+// silently reporting itself as "new" for the rest of time.
+export const scenarioSchema = S.schema({
+  prepare: S.optional(S.string).with(S.meta, {
+    description:
+      "Statements run once per library version before measuring, with `S` in scope; their bindings are in scope for `run`. Build the schema and the input here — only `run` is timed.",
+  }),
+  run: S.string.with(S.meta, {
+    description:
+      "The expression to measure, evaluated in `prepare`'s scope. Must not throw: timing a throw measures error construction.",
+  }),
+})
+  .with(S.strict)
+  .with(S.meta, { description: "One measured consumer-level call." });
+export type Scenario = S.Output<typeof scenarioSchema>;
+
+export const scenariosSchema = S.record(scenarioSchema).with(S.meta, {
+  description:
+    "Consumer-level performance scenarios, keyed by id, measured by `spec check --perf` alongside the specs.",
+});
+export type Scenarios = S.Output<typeof scenariosSchema>;
+
+export const validateScenarios = (
+  obj: unknown,
+): { ok: true; value: Scenarios } | { ok: false; error: string } => {
+  try {
+    return { ok: true, value: S.parser(scenariosSchema)(obj) };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+};
+
+export const scenariosSchemaJson = (): string =>
+  JSON.stringify(S.toJSONSchema(scenariosSchema), null, 2) + "\n";

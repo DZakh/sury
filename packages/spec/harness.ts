@@ -29,12 +29,16 @@ import {
   isCreationError,
   validate,
   validateBundleSize,
+  validateScenarios,
   type Spec,
   type Operation,
   type Example,
   type OpName,
   type BundleSize,
+  type Scenario,
+  type Scenarios,
 } from "./format";
+import { buildScenarioRunner, type ScenarioSource } from "./scenario";
 import { deriveTypeInfo, deriveVsTypeInfo } from "./introspect";
 import { deriveBundleSize } from "./bundleSize";
 
@@ -43,11 +47,19 @@ const here = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
 export const SPECS_DIR = here("../sury/specs/");
 export const SCHEMA_PATH = join(SPECS_DIR, "spec.schema.json");
 export const BUNDLE_SIZE_PATH = join(SPECS_DIR, "bundleSize.yaml");
+export const SCENARIOS_PATH = join(SPECS_DIR, "scenarios.yaml");
+export const SCENARIOS_SCHEMA_PATH = join(SPECS_DIR, "scenarios.schema.json");
 
-// Lives in the specs dir but isn't a spec: one whole-package measurement, not
-// a per-schema contract. `bundleSize` is a valid spec id, so every walk of the
-// directory has to exclude it by name or it gets validated as a Spec.
-const NON_SPEC_FILES = new Set([basename(SCHEMA_PATH), basename(BUNDLE_SIZE_PATH)]);
+// Live in the specs dir but aren't specs: one whole-package measurement and
+// one set of consumer-level perf scenarios, neither a per-schema contract.
+// `bundleSize` and `scenarios` are both valid spec ids, so every walk of the
+// directory has to exclude them by name or they get validated as Specs.
+const NON_SPEC_FILES = new Set([
+  basename(SCHEMA_PATH),
+  basename(BUNDLE_SIZE_PATH),
+  basename(SCENARIOS_PATH),
+  basename(SCENARIOS_SCHEMA_PATH),
+]);
 
 const HEADER = "# yaml-language-server: $schema=./spec.schema.json";
 
@@ -140,6 +152,19 @@ export const stripTypes = (tsSource: string): string =>
 
 export const evalSchema = (tsSource: string): any =>
   new Function("S", `return ${stripTypes(tsSource)};`)(S);
+
+// A scenario's `prepare` is statements, not an expression, so it goes through
+// transpileModule directly — stripTypes' parenthesization exists only to keep
+// a bare object literal from parsing as a block, which statements must not get.
+const stripStatements = (tsSource: string): string =>
+  ts.transpileModule(tsSource, {
+    compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext },
+  }).outputText.trim();
+
+export const scenarioSource = (scenario: Scenario): ScenarioSource => ({
+  prepareSrc: scenario.prepare === undefined ? undefined : stripStatements(scenario.prepare),
+  runSrc: stripTypes(scenario.run),
+});
 
 // Sury compiles a pass-through operation to this shared function — the ONLY
 // signal identity detection has. If this name is ever changed in Sury's
@@ -857,6 +882,58 @@ export const checkBundleSize = async (
   if (raw !== fresh) errs.push(`stale — run \`pnpm spec check --write\`:\n${diffText(raw, fresh)}`);
 
   return { errs, fresh, before, after };
+};
+
+// ---- scenarios.yaml --------------------------------------------------------
+
+export const readScenarios = (raw: string = readScenariosRaw()): Scenarios =>
+  raw ? ((parseYaml(raw) as Scenarios) ?? {}) : {};
+
+const readScenariosRaw = (): string =>
+  existsSync(SCENARIOS_PATH) ? readFileSync(SCENARIOS_PATH, "utf8") : "";
+
+// Scenarios have no goldens to go stale, so this checks the two things that
+// can still be wrong: the file's shape, and whether each scenario actually
+// runs. The second is the one that matters — a scenario that throws is
+// reported by the perf pass as "new" (indistinguishable from one the baseline
+// predates), which would leave a typo quietly unmeasured forever.
+//
+// `raw` and `specIds` are injectable (defaulting to the real file and
+// directory) so tests can exercise the reporting without touching the
+// filesystem, same as lintSpecsDir's `names`.
+export const checkScenarios = (
+  raw: string = readScenariosRaw(),
+  specIds: string[] = listSpecFiles().map(specId),
+): string[] => {
+  if (!raw) return [];
+
+  let parsed: unknown;
+  try {
+    parsed = parseYaml(raw);
+  } catch (e) {
+    return [`is not valid YAML: ${(e as Error).message}`];
+  }
+
+  const v = validateScenarios(parsed);
+  if (!v.ok) return [`schema: ${v.error}`];
+
+  const errs: string[] = [];
+  const taken = new Set(specIds);
+  for (const [id, scenario] of Object.entries(v.value)) {
+    // `spec check --perf [id…]` resolves an id against both, so a name that
+    // is both a spec and a scenario would silently select only one of them.
+    if (taken.has(id)) errs.push(`${id}: id collides with a spec of the same name`);
+    if (!VALID_ID_RE.test(id))
+      errs.push(`${id}: invalid scenario id (only letters, digits, and - allowed)`);
+    try {
+      // Built exactly as benchChild.ts builds it (and buildScenarioRunner runs
+      // it once), so what passes here is what the perf pass can measure.
+      buildScenarioRunner(S, scenarioSource(scenario), { v: undefined });
+    } catch (e) {
+      errs.push(`${id}: did not run: ${(e as Error).message}`);
+    }
+  }
+  return errs;
 };
 
 // Re-exported so `spec new` can populate ts.input/ts.output/ts.instantiations

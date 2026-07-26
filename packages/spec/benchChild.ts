@@ -11,6 +11,7 @@
 // Bundled to .bench-cache/child.mjs (see bench.ts) instead of run through tsx,
 // because 32 tsx startups would cost more than the measurement itself.
 import type { ChildPayload, ChildResult, Target } from "./bench";
+import { buildScenarioRunner } from "./scenario";
 
 const OP_BUILDER = { parse: "parser", decode: "decoder", encode: "encoder" } as const;
 
@@ -27,6 +28,12 @@ const boxes: { v: unknown }[] = [];
 const buildRunner = (S: any, target: Target): ((n: number) => void) => {
   const box: { v: unknown } = { v: undefined };
   boxes.push(box);
+
+  // No schema of its own: a scenario is whatever a consumer writes, so it
+  // brings its own setup and its own expression.
+  if (target.phase === "scenario")
+    return buildScenarioRunner(S, { prepareSrc: target.prepareSrc, runSrc: target.runSrc! }, box);
+
   const factory = new Function("S", `return ${target.schemaSrc};`) as (s: any) => unknown;
 
   if (target.phase === "create")
