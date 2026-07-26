@@ -1,5 +1,5 @@
 import { Literal_parse, isArrayCond, jsonName, objectTagCond, setHas, unit } from "./primitives";
-import { baseSchema, getOrRethrow, isSelfReversed, panic, unknown, updateOutput } from "./schema";
+import { baseSchema, getOrRethrow, panic, unknown, updateOutput } from "./schema";
 import { getOutputSchema, nestedLoc, nestedOptionParser, never_, parse, parseDynamic, typeCheckCond } from "./parse";
 import { B_addObjectField, B_addKey, B_scope, B_asyncVal, B_dynamicScope, B_embed, B_failWithArg, B_hoistChildChecks, B_hoistDecl, B_inlineConst, B_isHoistable, B_makeInvalidInputDetails, B_markOutput, B_merge, B_mergeWithPathPrepend, B_next, B_nextConst, B_pushCheck, B_refine, B_throw, B_unsupportedDecode, B_varWithoutAllocation, Builder, _notVar, _notVarAtParent, _var, failInvalidType } from "./builder";
 import { AdditionalItems, Check, ErrorDetails, Internal, SuryErrorRecord, U, Val, immutableEmptyArray, immutableEmptyObject, isLiteral, isOptional } from "./types";
@@ -120,7 +120,7 @@ export const completeObjectVal = (objectVal: Val): Val => {
 }
 export const array = (item: Internal): Internal => {
   const itemInternal = item;
-  const mut = baseSchema(arrayTag, isSelfReversed(itemInternal));
+  const mut = baseSchema(arrayTag, itemInternal.r === itemInternal);
   mut.additionalItems = itemInternal;
   mut.items = immutableEmptyArray as Internal[];
   mut.decoder = arrayDecoder;
@@ -497,7 +497,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
 }
 
 export const dictFactory = (item: Internal): Internal => {
-  const mut = baseSchema(objectTag, isSelfReversed(item));
+  const mut = baseSchema(objectTag, item.r === item);
   mut.properties = immutableEmptyObject as Record<string, Internal>;
   mut.additionalItems = item;
   mut.decoder = objectDecoder;

@@ -1,5 +1,5 @@
 import { instanceofCond, isArrayCond, nanCond, objectTagCond, setHas, typeofCond } from "./primitives";
-import { baseSchema, cached, configurableValueOptions, copySchema, getOrRethrow, globalConfig, isSelfReversed, panic, reversedKey, unknown, updateOutput, valKey, valueOptions } from "./schema";
+import { baseSchema, cached, configurableValueOptions, copySchema, getOrRethrow, globalConfig, panic, reversedKey, unknown, updateOutput, valKey, valueOptions } from "./schema";
 import { B_scope, B_embedInvalidInput, B_inlineConst, B_markOutput, B_merge, B_next, B_operationArg, B_refine, B_unsupportedDecode, Builder, Encoder, failInvalidType, noopOperation, operationArgVar } from "./builder";
 import { Internal, U, Val, immutableEmptyArray, isLiteral, s } from "./types";
 import { Flag, flagAsync, flagDisableNanNumberValidation, flagUnsafeHas, valFlagAsync } from "./flags";
@@ -165,9 +165,7 @@ export const getOutputSchema = (schema: Internal): Internal => {
 }
 export const reverse = (schema: Internal): Internal => {
   const schemaRecord = schema as unknown as Record<string, Internal>;
-  if (isSelfReversed(schema)) {
-    return schema;
-  } else if (reversedKey in schemaRecord) {
+  if (reversedKey in schemaRecord) {
     return schemaRecord[reversedKey]!;
   } else {
     let reversedHead: Internal | undefined = U;

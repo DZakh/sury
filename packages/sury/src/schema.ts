@@ -17,22 +17,21 @@ Object.defineProperty(schemaPrototype, "with", {
 // Also has ~standard below
 Schema.prototype = schemaPrototype;
 
-// A schema that reverses to itself is marked by which prototype it was built
-// with, not by an own property: installing a non-enumerable `r` cost a
+// A schema that reverses to itself answers `r` from its prototype instead of
+// caching itself under an own one: installing that own property cost a
 // defineProperty — an order of magnitude more than everything else baseSchema
-// does — on the path every literal, instance and primitive factory runs, and a
-// plain own marker would instead ride along on copySchema's Object.assign. The
+// does — on the path every literal, instance and primitive factory runs. The
 // prototype is what `new` picks and what Object.assign never copies, so a
-// derived schema comes out unmarked, which is the right answer: what was copied
-// to be modified no longer reverses to itself.
+// derived schema falls back to computing its reverse, which is the right
+// answer: what was copied to be modified no longer reverses to itself.
 function SelfReverseSchema(this: Internal): void {}
 const selfReversePrototype: Record<string, unknown> = Object.create(schemaPrototype);
-selfReversePrototype["rs"] = true;
+Object.defineProperty(selfReversePrototype, "r", {
+  get: function (this: Internal) {
+    return this;
+  },
+});
 SelfReverseSchema.prototype = selfReversePrototype;
-
-export const isSelfReversed = (schema: Internal): boolean => {
-  return schema.rs === true;
-}
 
 let seq = 1;
 
