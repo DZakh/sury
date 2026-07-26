@@ -46,13 +46,9 @@ Declare the union, and get parsing, narrowing, and serialization from one defini
 
 ```ts
 const eventSchema = S.union([
-  { type: "user.created" as const, id: S.string.with(S.to, S.bigint) },
-  {
-    type: "user.renamed" as const,
-    id: S.string.with(S.to, S.bigint),
-    name: S.string,
-  },
-  { type: "user.deleted" as const, id: S.string.with(S.to, S.bigint) },
+  { type: "user.created", id: S.bigint },
+  { type: "user.renamed", id: S.bigint, name: S.string },
+  { type: "user.deleted", id: S.bigint },
 ]);
 
 // Chain schemas to build a pipeline — no JSON.parse in your own code
@@ -72,6 +68,8 @@ S.encoder(eventSchema, S.jsonString)(event);
 // => '{"type":"user.renamed","id":"42","name":"Dmitry"}'
 ```
 
+Note that you write `id: S.bigint` — the type you want to work with. A `bigint` can't exist in JSON, so **Sury** infers the `"42"` → `42n` coercion from the input side of the pipeline, in both directions. No `as const`, no coercion wrappers, no second schema for the wire format.
+
 Errors point at the field inside the matched variant, not at the union as a whole:
 
 ```ts
@@ -81,7 +79,7 @@ parseEvent('{"type":"user.renamed","id":"42"}');
 
 ### See the code it compiles
 
-`parseEvent` above isn't an interpreter walking a schema tree at runtime — it's a function **Sury** generated for exactly this shape. The union dispatches on the discriminant, the `bigint` coercion is inlined, and the whole `S.jsonString` → union → field-level pipeline is fused into one pass:
+`parseEvent` above isn't an interpreter walking a schema tree at runtime — it's a function **Sury** generated for exactly this shape. The union dispatches on the discriminant, the inferred `bigint` coercion is inlined as a bare `BigInt()` call, and the whole `S.jsonString` → union → field-level pipeline is fused into one pass:
 
 ```js
 (i) => {
