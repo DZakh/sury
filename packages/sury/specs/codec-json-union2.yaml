@@ -4,7 +4,6 @@ ts:
   input: JSON
   output: string | bigint
   instantiations: 6083
-  bundleBytes: 11022
 vs:
   zod:
     _skip: not-applicable

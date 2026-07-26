@@ -4,7 +4,6 @@ ts:
   input: boolean
   output: number
   instantiations: 5106
-  bundleBytes: 4187
 vs:
   zod:
     _skip: not-applicable

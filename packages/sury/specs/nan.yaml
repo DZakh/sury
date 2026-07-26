@@ -4,7 +4,6 @@ ts:
   input: number
   output: number
   instantiations: 382
-  bundleBytes: 9377
 vs:
   zod: z.nan()
 jsonSchema:

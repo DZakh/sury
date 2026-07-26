@@ -3,9 +3,9 @@ import { getMutErrorMessage, internalRefine, nullAsUnit, transform } from "./ope
 import { schemaObject, schemaShape, schemaTuple } from "./factory";
 import { parse } from "./parse";
 import { SuryError, copySchema, panic, unknown } from "./schema";
-import { B_scope, B_asyncVal, B_embed, B_failWithErrorMessage, B_inlineLocation, B_markOutput, B_merge, B_next, B_refine, B_varWithoutAllocation, Builder, _notVarBeforeValidation, _var, failInvalidType } from "./builder";
+import { B_scope, B_asyncVal, B_embed, B_failWithErrorMessage, B_markOutput, B_merge, B_next, B_refine, B_varWithoutAllocation, Builder, _notVarBeforeValidation, _var, failInvalidType } from "./builder";
 import { array, dictFactory, optionFactory, unionFactory } from "./composites";
-import { Internal, Val, stringify } from "./types";
+import { Internal, U, Val, stringify } from "./types";
 import { flagUnsafeHas, valFlagAsync } from "./flags";
 import { inlinedValueFromString, pathEmpty, pathFromInlinedLocation } from "./path";
 import { numberTag, tagFlagUnknown, tagFlags } from "./tags";
@@ -25,29 +25,29 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
   // object schema left over after the preceding parse pipeline step).
   let forwardProps: Record<string, Internal> | undefined;
   if (
-    selfSchema.to !== undefined &&
+    selfSchema.to !== U &&
     typeof selfSchema.to.additionalItems === "object"
   ) {
     forwardProps = (selfSchema.to.additionalItems as Internal).properties;
   } else {
-    forwardProps = undefined;
+    forwardProps = U;
   }
-  const isForwardDirection = forwardProps !== undefined;
+  const isForwardDirection = forwardProps !== U;
   let maybeProperties: Record<string, Internal> | undefined;
   if (isForwardDirection) {
     maybeProperties = forwardProps;
   } else {
     if (
-      input.s.additionalItems !== undefined &&
+      input.s.additionalItems !== U &&
       typeof input.s.additionalItems === "object"
     ) {
       maybeProperties = (input.s.additionalItems as Internal).properties;
     } else {
-      maybeProperties = undefined;
+      maybeProperties = U;
     }
   }
 
-  if (maybeProperties === undefined) {
+  if (!maybeProperties) {
     return panic(
       "S.compactColumns supports only object schemas. Use S.compactColumns(S.unknown)->S.to(S.array(objectSchema)).",
     );
@@ -72,7 +72,7 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
 
     if (keysLen === 0) {
       if (isUnknownInput) {
-        input = B_refine(input, undefined, [
+        input = B_refine(input, U, [
           {
             c: (inputVar: string) =>
               `Array.isArray(${inputVar})&&${inputVar}.length===0`,
@@ -85,7 +85,7 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
     } else if (isForwardDirection) {
       // Forward direction: columnar → rows
       if (isUnknownInput) {
-        input = B_refine(input, undefined, [
+        input = B_refine(input, U, [
           {
             c: (inputVar: string) => {
               let check = `Array.isArray(${inputVar})&&${inputVar}.length===${keysLen}`;
@@ -146,7 +146,7 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
         itemInput.io = false;
 
         // Path like ["bar"] so validation errors carry the field location.
-        itemInput.path = pathFromInlinedLocation(B_inlineLocation(input.g, key));
+        itemInput.path = pathFromInlinedLocation(inlinedValueFromString(key));
 
         const itemOutput = parse(itemInput);
         if (flagUnsafeHas(itemOutput.f, valFlagAsync)) {
@@ -233,7 +233,7 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
           itemInput.e = declaredItemSchema;
           itemInput.v = _notVarBeforeValidation;
           itemInput.io = false;
-          itemInput.path = pathFromInlinedLocation(B_inlineLocation(input.g, key));
+          itemInput.path = pathFromInlinedLocation(inlinedValueFromString(key));
 
           const itemOutput = parse(itemInput);
           perFieldCode = perFieldCode + B_merge(itemOutput);

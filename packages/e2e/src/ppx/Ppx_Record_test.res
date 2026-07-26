@@ -134,6 +134,63 @@ test("Record schema with nullable field", t => {
   )
 })
 
+@schema
+type recordWithOptionalNullableField = {
+  foo?: @s.nullable string,
+}
+test("Record schema with @s.nullable on optional field", t => {
+  t->assertEqualSchemas(
+    recordWithOptionalNullableFieldSchema,
+    S.schema(s => {
+      foo: ?s.matches(S.nullableAsOption(S.string)),
+    }),
+  )
+  t->Assert.deepEqual(
+    %raw(`{}`)->S.parseOrThrow(~to=recordWithOptionalNullableFieldSchema),
+    {foo: ?None},
+  )
+  t->Assert.deepEqual(
+    %raw(`{"foo":null}`)->S.parseOrThrow(~to=recordWithOptionalNullableFieldSchema),
+    {foo: ?None},
+  )
+  t->Assert.deepEqual(
+    %raw(`{"foo":"bar"}`)->S.parseOrThrow(~to=recordWithOptionalNullableFieldSchema),
+    {foo: "bar"},
+  )
+})
+
+@schema
+type recordWithOptionalNullField = {
+  foo?: @s.null string,
+}
+test("Record schema with @s.null on optional field", t => {
+  t->assertEqualSchemas(
+    recordWithOptionalNullFieldSchema,
+    S.schema(s => {
+      foo: ?s.matches(S.nullAsOption(S.string)),
+    }),
+  )
+  t->Assert.deepEqual(
+    %raw(`{"foo":null}`)->S.parseOrThrow(~to=recordWithOptionalNullFieldSchema),
+    {foo: ?None},
+  )
+  t->Assert.deepEqual(
+    %raw(`{"foo":"bar"}`)->S.parseOrThrow(~to=recordWithOptionalNullFieldSchema),
+    {foo: "bar"},
+  )
+  t->assertThrowsMessage(
+    () => %raw(`{}`)->S.parseOrThrow(~to=recordWithOptionalNullFieldSchema),
+    `Failed at ["foo"]: Expected string | null, received undefined`,
+  )
+  t->Assert.deepEqual(
+    ({foo: ?None}: recordWithOptionalNullField)->S.decodeOrThrow(
+      ~from=recordWithOptionalNullFieldSchema,
+      ~to=S.unknown,
+    ),
+    %raw(`{"foo":null}`),
+  )
+})
+
 test("@s.strict on root record type", t => {
   t->assertEqualSchemas(
     strictRecordSchema,

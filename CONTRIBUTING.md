@@ -327,24 +327,6 @@ const schema = type({
 schema(data);
 ```
 
-## Spec Harness
-
-Implementation notes for `packages/spec` (see the `spec` skill for the authoring workflow):
-
-- **`ts.input`/`ts.output`/`ts.instantiations`** (`packages/spec/introspect.ts`) — a small vendored
-  `@typescript/vfs` environment, not `@ark/attest` (same underlying mechanism; attest is slow because of
-  an unrelated whole-project assertion scan this harness has no use for). Declares the schema, extracts
-  `S.Output<>`/`S.Input<>`, and reads `checker.typeToString()`/`program.getInstantiationCount()` (diffed
-  against a bare-import baseline) from an isolated virtual TS environment memoized per process.
-- **`ts.bundleBytes`** (`packages/spec/bundleSize.ts`) — bundles `schema` itself with esbuild (aliasing
-  the bare `sury` specifier to the dev source), minifies, and gzips. Carries a ±1% tolerance: within the
-  band `recomputeGoldens` keeps the committed number, so a toolchain bump (esbuild, zlib) doesn't go
-  stale across every spec at once; a real size change beyond it re-records exactly.
-
-`ts.instantiations` includes real, fixed per-builder-kind dispatch cost on top of per-field cost — e.g.
-a plain value like `S.string` measures far lower than any `S.schema({...})` call regardless of field
-count. A jump for one kind of schema and not another can be a genuine regression signal, not noise.
-
 ## Spec Harness Suggestions
 
 A running list of strictness or author-guidance features the spec harness

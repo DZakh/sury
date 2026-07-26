@@ -4,7 +4,6 @@ ts:
   input: JSON
   output: number | "a" | "b"
   instantiations: 6578
-  bundleBytes: 10982
 vs:
   zod:
     _skip: not-applicable

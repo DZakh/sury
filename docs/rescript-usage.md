@@ -1820,7 +1820,7 @@ If you want to handle the error, the best way to use `try/catch` block:
 
 ```rescript
 try true->S.parseOrThrow(~to=schema) catch {
-| S.Error(error) => Console.log(error.message)
+| S.Exn(error) => Console.log(error.message)
 }
 ```
 

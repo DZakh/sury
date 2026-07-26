@@ -4,7 +4,6 @@ ts:
   input: string | number | boolean
   output: string | number | boolean
   instantiations: 6907
-  bundleBytes: 10024
 vs:
   zod: z.union([z.string(), z.union([z.number(), z.boolean()])])
 jsonSchema:

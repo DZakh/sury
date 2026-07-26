@@ -6,7 +6,6 @@ ts:
   input: '"tuna"'
   output: '"tuna"'
   instantiations: 429
-  bundleBytes: 9378
 vs:
   zod: z.literal("tuna")
 jsonSchema:

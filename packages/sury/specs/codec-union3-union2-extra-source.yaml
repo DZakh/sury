@@ -4,7 +4,6 @@ ts:
   input: string | number | boolean
   output: string | number
   instantiations: 6536
-  bundleBytes: 10017
 vs:
   zod:
     _skip: not-applicable

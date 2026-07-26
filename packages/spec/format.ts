@@ -99,6 +99,7 @@ const operationCreationError = S.schema({
   .with(S.meta, {
     description: "An operation that can't be compiled — the creation-time error, ratcheted like codegen.",
   });
+export type CreationError = S.Output<typeof operationCreationError>;
 
 // An operation is either a full block or a literal shorthand:
 // - `identity` — Sury's pass-through compile.
@@ -157,13 +158,10 @@ const ts = S.schema({
   instantiations: orSkip(S.number).with(S.meta, {
     description: "TS type-instantiation cost of this schema. Filled by `spec check --write`.",
   }),
-  bundleBytes: orSkip(S.number).with(S.meta, {
-    description: "Minified+gzipped bundle size of `schema` itself. Filled by `spec check --write`.",
-  }),
 })
   .with(S.strict)
   .with(S.meta, {
-    description: "The JS `.with`-chain surface: the schema itself, plus its inferred types, instantiation cost, and bundle size.",
+    description: "The JS `.with`-chain surface: the schema itself, plus its inferred types and instantiation cost.",
   });
 
 const zodOverwrite = S.schema({
@@ -233,22 +231,18 @@ export const TS_KEY_ORDER = keyOrder<Spec["ts"]>({
   input: true,
   output: true,
   instantiations: true,
-  bundleBytes: true,
 });
 export const OP_ORDER = keyOrder<Spec["operations"]>({ parse: true, decode: true, encode: true });
 
-export const isSkip = (v: unknown): v is Skip =>
-  v !== null && typeof v === "object" && "_skip" in (v as object);
+export const isSkip = (v: unknown): v is Skip => S.is(skip, v);
 
 // The overwrite form of `vs.zod` — distinguished from a bare string (Zod
 // source) and from `{_skip}` by carrying its own `schema` key.
-export const isZodOverwrite = (v: unknown): v is ZodOverwrite =>
-  v !== null && typeof v === "object" && "schema" in (v as object);
+export const isZodOverwrite = (v: unknown): v is ZodOverwrite => S.is(zodOverwrite, v);
 
 // The creation-error operation block — distinguished from an `{expression,
 // examples}` block and the string shorthands by carrying `creationError`.
-export const isCreationError = (v: unknown): v is { creationError: string } =>
-  v !== null && typeof v === "object" && "creationError" in (v as object);
+export const isCreationError = (v: unknown): v is CreationError => S.is(operationCreationError, v);
 
 // Parse, don't validate: return the parsed Spec itself, not just a pass/fail
 // flag, so callers work from the value Sury actually confirmed matches the
@@ -265,3 +259,41 @@ export const validate = (
 
 export const schemaJson = (): string =>
   JSON.stringify(S.toJSONSchema(specSchema), null, 2) + "\n";
+
+// ---- bundleSize.yaml -------------------------------------------------------
+
+// The whole-package bundle-size ratchet: one gzipped-byte row per public
+// export of the dev entry, plus `total` for the whole entry. A second format
+// alongside `specSchema`, not a spec dimension — bundle cost is a property of
+// the package's export surface, and a per-schema number measures only the
+// exports that schema reaches plus the author's own source literal.
+//
+// Every field is derived (bundleSize.ts measures them), so unlike specs there
+// is no hand-authored part and no emitted JSON Schema — no author for
+// yaml-language-server to help. It's still schema-validated so a hand-edited
+// or truncated file fails with a pointed message instead of a whole-file diff.
+export const bundleSizeSchema = S.schema({
+  total: S.number.with(S.meta, {
+    description: "Minified+gzipped size of the whole entry (`export * from \"sury\"`) — the anchor row.",
+  }),
+  exports: S.record(S.number).with(S.meta, {
+    description: "Minified+gzipped size of each public export bundled in isolation, keyed by export name.",
+  }),
+})
+  .with(S.strict)
+  .with(S.meta, {
+    description: "Bundle size of the package's export surface. Filled by `spec check --write`.",
+  });
+export type BundleSize = S.Output<typeof bundleSizeSchema>;
+
+export const BUNDLE_SIZE_KEY_ORDER = keyOrder<BundleSize>({ total: true, exports: true });
+
+export const validateBundleSize = (
+  obj: unknown,
+): { ok: true; value: BundleSize } | { ok: false; error: string } => {
+  try {
+    return { ok: true, value: S.parser(bundleSizeSchema)(obj) };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+};

@@ -6,7 +6,6 @@ ts:
   input: '{ kind: "a"; a: string; } | { kind: "b"; b: number; } | { kind: "c"; c: boolean; } | { kind: "d"; d: bigint; } | { kind: "e"; e: symbol; }'
   output: '{ kind: "a"; a: string; } | { kind: "b"; b: number; } | { kind: "c"; c: boolean; } | { kind: "d"; d: bigint; } | { kind: "e"; e: symbol; }'
   instantiations: 4876
-  bundleBytes: 9906
 vs:
   zod: 'z.discriminatedUnion("kind", [z.object({ kind: z.literal("a"), a: z.string() }), z.object({ kind: z.literal("b"), b: z.number() }), z.object({ kind: z.literal("c"), c: z.boolean() }), z.object({ kind: z.literal("d"), d: z.bigint() }), z.object({ kind: z.literal("e"), e: z.symbol() })])'
 jsonSchema:

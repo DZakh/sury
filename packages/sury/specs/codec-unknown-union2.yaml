@@ -4,7 +4,6 @@ ts:
   input: unknown
   output: string | bigint
   instantiations: 6059
-  bundleBytes: 9858
 vs:
   zod:
     _skip: not-applicable

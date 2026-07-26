@@ -55,7 +55,7 @@ test("stale golden (expression drifted from what the schema actually compiles to
     {
       "stderr": "✗ string
         goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -12,7 +12,7 @@
+    @@ -11,7 +11,7 @@
         output: '{ type: "string" }'
       operations:
         parse:
@@ -80,7 +80,7 @@ test("stale golden (recorded example output no longer matches live behavior)", a
     {
       "stderr": "✗ string
         goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -16,7 +16,7 @@
+    @@ -15,7 +15,7 @@
           examples:
             valid:
               input: '"hello"'
@@ -96,12 +96,12 @@ test("stale golden (recorded example output no longer matches live behavior)", a
 
 test("invalid _skip reason (not an enum value or todo(#...))", async () => {
   const spec = mutate((s) => {
-    s.ts.bundleBytes = { _skip: "because-i-said-so" };
+    s.ts.instantiations = { _skip: "because-i-said-so" };
   });
   await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
     {
       "stderr": "✗ string
-        ts.bundleBytes: invalid _skip reason "because-i-said-so"",
+        ts.instantiations: invalid _skip reason "because-i-said-so"",
       "stdout": "",
     }
   `);
@@ -120,7 +120,7 @@ test("stale creationError golden (recorded message drifted from what the schema 
     {
       "stderr": "✗ codec-bool-number-unsupported
         goldens stale — run \`pnpm spec check codec-bool-number-unsupported --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -13,7 +13,7 @@
+    @@ -12,7 +12,7 @@
         output: '{ type: "number" }'
       operations:
         parse:
@@ -209,14 +209,12 @@ test("identity claimed but the operation doesn't actually compile to identity", 
         operations.decode: marked \`identity\` but does not compile to identity — use a full op block with examples
         operations.encode: marked \`identity\` but does not compile to identity — use a full op block with examples
         goldens stale — resolve the identity mismatch above first, then \`pnpm spec check string --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -3,23 +3,23 @@
+    @@ -3,22 +3,22 @@
         schema: S.string.with(S.min, 3)
         input: string
         output: string
     -   instantiations: 254
-    -   bundleBytes: 3744
     +   instantiations: 5181
-    +   bundleBytes: 4217
       vs:
         zod: z.string()
       jsonSchema:
@@ -253,7 +251,7 @@ test("full op block claimed but the operation actually compiles to identity", as
       "stderr": "✗ string
         operations.decode: compiles to identity — use \`identity\` instead of an expression + examples
         goldens stale — resolve the identity mismatch above first, then \`pnpm spec check string --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -27,7 +27,10 @@
+    @@ -26,7 +26,10 @@
               input: "null"
               error: Expected string, received null
         decode:
@@ -286,11 +284,9 @@ test("eq-to-parse claimed but the operation doesn't actually compile to the same
     -   input: never
     -   output: never
     -   instantiations: 254
-    -   bundleBytes: 3551
     +   input: string
     +   output: string
     +   instantiations: 5181
-    +   bundleBytes: 4217
       vs:
         zod: z.never()
       jsonSchema:
@@ -328,7 +324,7 @@ test("full op block claimed but the operation actually compiles to the same code
       "stderr": "✗ never
         operations.decode: compiles to the same code as parse — use \`eq-to-parse\` instead of an expression + examples
         goldens stale — resolve the identity mismatch above first, then \`pnpm spec check never --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -21,7 +21,7 @@
+    @@ -20,7 +20,7 @@
               input: undefined
               error: Expected never, received undefined
         decode:
@@ -397,16 +393,16 @@ test("schema source doesn't evaluate (syntax error)", async () => {
 
 test("multiple simultaneous problems all get their own guiding message", async () => {
   const spec = mutate((s) => {
-    s.ts.bundleBytes = { _skip: "nonsense-reason" };
+    s.ts.instantiations = { _skip: "nonsense-reason" };
     if (s.operations.parse !== "identity" && !isCreationError(s.operations.parse))
       s.operations.parse.expression = "i=>i /* stale */";
   });
   await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
     {
       "stderr": "✗ string
-        ts.bundleBytes: invalid _skip reason "nonsense-reason"
+        ts.instantiations: invalid _skip reason "nonsense-reason"
         goldens stale — run \`pnpm spec check string --write\` (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -13,7 +13,7 @@
+    @@ -12,7 +12,7 @@
         output: '{ type: "string" }'
       operations:
         parse:

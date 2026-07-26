@@ -1,8 +1,8 @@
 // Tests for the spec harness (packages/spec). There is no code-generation
 // step — this file IS the test: it dynamically loops over every spec at
 // run time and calls straight into the harness, so example execution and
-// jsonSchema/instantiations/bundleBytes drift are exercised (and covered) by
-// this real Vitest run, same as any hand-written test.
+// jsonSchema/instantiations drift are exercised (and covered) by this real
+// Vitest run, same as any hand-written test.
 import { readFileSync } from "node:fs";
 import { test, expect, describe, vi } from "vitest";
 import {
@@ -17,12 +17,14 @@ import {
   checkAliases,
   lintSkips,
   lintSpecsDir,
+  checkBundleSize,
 } from "../../spec/harness";
-import { validate, schemaJson } from "../../spec/format";
+import { validate, schemaJson, isCreationError } from "../../spec/format";
+import { summarize } from "../../spec/summary";
 
-// recomputeGoldens does a TS-program introspection pass plus an esbuild
-// child-process build per spec; the first spec processed pays the ~1s
-// cold-start cost the spec skill documents, which a slower/more contended CI
+// recomputeGoldens does a TS-program introspection pass per spec, and the
+// bundleSize check an esbuild build over every export; the first spec processed
+// pays the ~1s cold-start cost the spec skill documents, which a slower/more contended CI
 // runner can push past Vitest's 5000ms default. Scoped to this file (and
 // spec_errors_test.ts, which exercises the same path via checkSpec) rather
 // than raised globally, so the rest of the suite keeps a tight default.
@@ -40,17 +42,116 @@ test("spec.schema.json is fresh (run `pnpm spec schema`)", () => {
   expect(readFileSync(SCHEMA_PATH, "utf8")).toBe(schemaJson());
 });
 
+// Same reasoning as the spec.schema.json freshness test above: CI runs
+// `pnpm test`, not `pnpm spec check`, so without this the bundle-size ratchet
+// would only bite on a manual run.
+test("bundleSize.yaml is fresh (run `pnpm spec check --write`)", async () => {
+  const { errs } = await checkBundleSize();
+  expect(errs, errs.join("\n")).toEqual([]);
+});
+
 test("specs dir contains only valid spec files (run `pnpm spec check`)", () => {
   const errs = lintSpecsDir();
   expect(errs, errs.join("\n")).toEqual([]);
 });
 
 test("lintSpecsDir rejects a non-yaml file and a dotted/invalid id", () => {
-  const errs = lintSpecsDir(["good-id.yaml", "notes.txt", "bad.dotted.yaml", "spec.schema.json"]);
+  const errs = lintSpecsDir([
+    "good-id.yaml",
+    "notes.txt",
+    "bad.dotted.yaml",
+    "spec.schema.json",
+    "bundleSize.yaml",
+  ]);
   expect(errs).toEqual([
-    `specs dir: unexpected file "notes.txt" (only *.yaml and spec.schema.json allowed)`,
+    `specs dir: unexpected file "notes.txt" (only *.yaml and spec.schema.json/bundleSize.yaml allowed)`,
     `specs dir: invalid spec id "bad.dotted" (only letters, digits, and - allowed)`,
   ]);
+});
+
+// The `--write` summary is what a caller reads instead of the golden diff, so
+// its exact rendering is asserted rather than left to whatever it happens to
+// print: one list per metric ordered worst-regression-first, aligned columns,
+// and an unchanged row (`string` below) omitted rather than shown at 0%.
+test("summarize renders ranked metric moves and behavior changes", () => {
+  const before = readSpec(listSpecFiles().find((f) => specId(f) === "string")!);
+  const after = structuredClone(before);
+  after.ts.instantiations = 300;
+  after.ts.output = "string | undefined";
+  if (after.operations.parse !== "identity" && !isCreationError(after.operations.parse)) {
+    after.operations.parse.expression = "i=>i";
+    const ex = after.operations.parse.examples.valid;
+    if (ex && "output" in ex) ex.output = '"HELLO"';
+  }
+  const improvedBefore = readSpec(listSpecFiles().find((f) => specId(f) === "never")!);
+  const improvedAfter = structuredClone(improvedBefore);
+  improvedAfter.ts.instantiations = 100;
+  expect(
+    summarize(
+      [
+        { id: "string", before, after },
+        { id: "never", before: improvedBefore, after: improvedAfter },
+      ],
+      {
+        before: {
+          total: 20000,
+          exports: { string: 3790, toJSONSchema: 4000, fromJSONSchema: 20000, oldExport: 10 },
+        },
+        after: {
+          total: 20690,
+          exports: { string: 3790, toJSONSchema: 5229, fromJSONSchema: 15165, newExport: 20 },
+        },
+      },
+    ),
+  ).toMatchInlineSnapshot(`
+    "ts.instantiations:
+      string  254 → 300  +18.1%
+      never   254 → 100  -60.6%
+    operations.expression:
+      string.parse:
+        chars  42 → 4  -90.5%
+        before  i=>{typeof i==="string"||e[0](i);return i}
+        after   i=>i
+    bundleSize:
+      total  20000 → 20690  +3.5%
+      added: newExport 20
+      removed: oldExport
+      toJSONSchema     4000 →  5229  +30.7%
+      fromJSONSchema  20000 → 15165  -24.2%
+    behavior changed:
+      string.ts.output  string → string | undefined
+      string.parse.valid  output "hello" → output "HELLO""
+  `);
+});
+
+// An op flipping between compiling and being rejected at operation creation is
+// the change a conversion-rules rework produces, so the summary has to render
+// it rather than skip it as an unreadable kind change.
+test("summarize renders creation-error flips and message drift", () => {
+  const compiling = readSpec(listSpecFiles().find((f) => specId(f) === "string")!);
+  const rejected = readSpec(listSpecFiles().find((f) => specId(f) === "codec-bool-number-unsupported")!);
+
+  const nowRejected = structuredClone(compiling);
+  nowRejected.operations.parse = { creationError: "SuryError: Can't decode string to number" };
+
+  const messageDrifted = structuredClone(rejected);
+  messageDrifted.operations.parse = { creationError: "SuryError: some new wording" };
+
+  expect(
+    summarize(
+      [
+        { id: "string", before: compiling, after: nowRejected },
+        { id: "codec-bool-number-unsupported", before: rejected, after: messageDrifted },
+      ],
+      { after: { total: 20000, exports: {} } },
+    ),
+  ).toMatchInlineSnapshot(`
+    "bundleSize:
+      first recorded — 0 exports, total 20000
+    behavior changed:
+      string.parse  compiled → creationError SuryError: Can't decode string to number
+      codec-bool-number-unsupported.parse.creationError  SuryError: Can't decode boolean to number. Use S.to to define a custom decoder → SuryError: some new wording"
+  `);
 });
 
 describe.each(specs)("spec: $id", ({ file }) => {

@@ -4,7 +4,6 @@ ts:
   input: any
   output: any
   instantiations: 254
-  bundleBytes: 3462
 vs:
   zod: z.any()
 jsonSchema:

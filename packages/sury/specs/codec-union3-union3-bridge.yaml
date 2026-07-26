@@ -4,7 +4,6 @@ ts:
   input: number | bigint | null
   output: number | bigint | undefined
   instantiations: 6352
-  bundleBytes: 9934
 vs:
   zod:
     _skip: not-applicable

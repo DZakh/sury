@@ -4,7 +4,7 @@ import { B_embed, B_failWithArg, B_invalidInputBuilder, B_makeInvalidConversionD
 import { definitionToSchema } from "./factory";
 import { objectDecoder, unionFactory } from "./composites";
 import { Option_getOr, Option_getOrWith, getAssertResult, internalRefine, nullAsUnit, transform } from "./operations";
-import { Check, Internal, Val, isSchemaObject } from "./types";
+import { Check, Internal, U, Val, isSchemaObject } from "./types";
 import { Builder } from "./builder";
 import { flagDisableNanNumberValidation } from "./flags";
 import { functionTag, objectTag, stringTag } from "./tags";
@@ -73,15 +73,21 @@ export const js_to = /* @__PURE__ */ (() => {
     maybeDecoder?: (value: unknown) => unknown,
     maybeEncoder?: (target: unknown) => unknown,
   ) => {
+    // Chaining a schema to itself would append a second copy of its own chain,
+    // re-decoding the value it just produced. Custom coders still get a real
+    // conversion step — only the coder-less spelling is a no-op.
+    if (schema === target && !maybeDecoder && !maybeEncoder) {
+      return schema;
+    }
     return updateOutput(schema, (mut) => {
-      if (maybeEncoder !== undefined) {
+      if (maybeEncoder) {
         const targetMut = copySchema(target);
         targetMut.serializer = customBuilder(maybeEncoder);
         mut.to = targetMut;
       } else {
         mut.to = target;
       }
-      if (maybeDecoder !== undefined) {
+      if (maybeDecoder) {
         mut.parser = customBuilder(maybeDecoder);
       }
     });
@@ -95,13 +101,13 @@ export const js_refine = (
 ) => {
   const message = refineOptions?.error ?? "Refinement failed";
   const extraPath =
-    refineOptions?.path !== undefined ? pathFromArray(refineOptions.path) : pathEmpty;
+    refineOptions?.path !== U ? pathFromArray(refineOptions.path) : pathEmpty;
   return internalRefine(schema, (_: Internal) => (input: Val): Check[] => {
     const embeddedCheck = B_embed(input, refineCheck);
     return [
       {
         c: (inputVar: string) => `${embeddedCheck}(${inputVar})`,
-        f: B_invalidInputBuilder(undefined, extraPath, message),
+        f: B_invalidInputBuilder(U, extraPath, message),
       },
     ];
   });
@@ -123,9 +129,9 @@ export const js_asyncDecoderAssert = (
 export const js_optional = (schema: Internal, maybeOr: unknown): Internal => {
   // TODO: maybeOr should be part of the unit schema
   schema = unionFactory([schema, unit()]);
-  if (maybeOr !== undefined && typeof maybeOr === functionTag) {
+  if (maybeOr !== U && typeof maybeOr === functionTag) {
     return Option_getOrWith(schema, maybeOr as () => unknown);
-  } else if (maybeOr !== undefined) {
+  } else if (maybeOr !== U) {
     return Option_getOr(schema, maybeOr);
   } else {
     return schema;
@@ -134,7 +140,7 @@ export const js_optional = (schema: Internal, maybeOr: unknown): Internal => {
 
 export const js_nullable = (schema: Internal, maybeOr: unknown): Internal => {
   // TODO: maybeOr should be part of the unit schema
-  if (maybeOr !== undefined) {
+  if (maybeOr !== U) {
     const schema2 = unionFactory([schema, nullAsUnit()]);
     if (typeof maybeOr === functionTag) {
       return Option_getOrWith(schema2, maybeOr as () => unknown);
@@ -171,7 +177,7 @@ export const js_merge = (s1: Internal, s2: Internal): Internal => {
     mut.decoder = objectDecoder;
     result = mut;
   }
-  if (result !== undefined) {
+  if (result !== U) {
     return result;
   } else {
     return panic(
@@ -184,7 +190,7 @@ export const js_merge = (s1: Internal, s2: Internal): Internal => {
 // export even though Node types declare a `global` var.
 export const global = (override: GlobalConfigOverride): void => {
   globalConfig.a =
-    override.defaultAdditionalItems !== undefined
+    override.defaultAdditionalItems !== U
       ? override.defaultAdditionalItems
       : initialOnAdditionalItems;
   globalConfig.f =
