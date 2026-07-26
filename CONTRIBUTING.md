@@ -327,17 +327,6 @@ const schema = type({
 schema(data);
 ```
 
-### Speed rows
-
-The `ops/ms` rows use the schema and data from
-`packages/e2e/src/benchmark/comparison.bench.ts`, but not Vitest's runner — its
-per-iteration bookkeeping costs more than a JIT-compiled validator's parse and
-flattens Sury, TypeBox and ArkType into each other. Measure them in a plain
-script instead: warm each closure for ~500ms, then time batches (200k
-iterations for parse, 2k for create + parse) and keep the fastest batch, which
-drops GC and scheduler noise. Re-measure every library on one machine in one
-run — absolute numbers are machine-specific, only the ratios travel.
-
 ## Spec Harness Suggestions
 
 A running list of strictness or author-guidance features the spec harness

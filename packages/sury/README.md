@@ -65,8 +65,6 @@ At the same time **Sury** is the fastest composable validation library in the en
 | **Infered TS Type**                      | `S.Schema<{foo: string}, {foo: string}>`              | `z.ZodObject<{foo: z.ZodString}, $strip>` | `TObject<{foo: TString}>`                                  | `v.ObjectSchema<{readonly foo: v.StringSchema<undefined>}, undefined>` | `Type<{foo: string}, {}>`            |
 | **Ecosystem**                            | ⭐️⭐️                                                | ⭐️⭐️⭐️⭐️⭐️                           | ⭐️⭐️⭐️⭐️⭐️                                            | ⭐️⭐️⭐️                                                              | ⭐️⭐️                               |
 
-> 🧠 Sizes come from the [bundlejs recipes](/CONTRIBUTING.md#make-comparison) (bundle + minify + gzip). Speed is measured with the same schema and data as the [comparison benchmark](/packages/e2e/src/benchmark/comparison.bench.ts), in a warmed-up loop on Node.js 22 — absolute ops/ms depend on the machine, the ratios between libraries don't.
-
 ## Sponsorship
 
 If you're enjoying **Sury** and want to give back, that would be rad!
