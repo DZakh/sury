@@ -327,34 +327,6 @@ const schema = type({
 schema(data);
 ```
 
-## Spec Harness
-
-Implementation notes for `packages/spec` (see the `spec` skill for the authoring workflow):
-
-- **`ts.input`/`ts.output`/`ts.instantiations`** (`packages/spec/introspect.ts`) — a small vendored
-  `@typescript/vfs` environment, not `@ark/attest` (same underlying mechanism; attest is slow because of
-  an unrelated whole-project assertion scan this harness has no use for). Declares the schema, extracts
-  `S.Output<>`/`S.Input<>`, and reads `checker.typeToString()`/`program.getInstantiationCount()` (diffed
-  against a bare-import baseline) from an isolated virtual TS environment memoized per process.
-- **`specs/bundleSize.yaml`** (`packages/spec/bundleSize.ts`) — not a spec dimension. One whole-package ledger
-  of minified+gzipped bytes per public export, each bundled in isolation with esbuild (aliasing the bare
-  `sury` specifier to the dev source), plus `total` for the whole entry as the anchor row. Whole-package,
-  so only a full `spec check` (no `[id…]`) checks or rewrites it. Per-export rather than per-schema
-  because reachability from several entry symbols is the union of their graphs — no composite number can
-  grow without an export row growing too — while `toJSONSchema`/`fromJSONSchema` are reached by no schema
-  expression at all. Every entry point is measured in one esbuild invocation (one virtual entry per
-  export), and recorded exactly with no tolerance band — a toolchain bump re-records every row at once,
-  which is the honest diff.
-
-- **`--write` summary** (`packages/spec/summary.ts`) — after a write, prints each tracked metric that
-  moved (instantiations, generated-code length, per-export bundle size) ranked by percentage, plus the
-  changes that aren't better-or-worse but need noticing (inferred types, JSON Schema, example outcomes).
-  So the ratchet can be read off the run instead of by opening every rewritten file.
-
-`ts.instantiations` includes real, fixed per-builder-kind dispatch cost on top of per-field cost — e.g.
-a plain value like `S.string` measures far lower than any `S.schema({...})` call regardless of field
-count. A jump for one kind of schema and not another can be a genuine regression signal, not noise.
-
 ## Spec Harness Suggestions
 
 A running list of strictness or author-guidance features the spec harness

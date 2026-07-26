@@ -101,11 +101,14 @@ export type TypeInfo = { input: string; output: string; instantiations: number }
 // from it — the realistic combined per-schema cost, not the isolated cost of
 // either half alone.
 //
-// Returns a Promise for a uniform async API alongside bundleSize.ts's
-// genuinely-async esbuild call, so a caller can `Promise.all` the two — but
-// the TS Program/checker calls inside are inherently synchronous (no async
-// variant of the compiler API exists), so this doesn't itself parallelize
-// across concurrent calls; it just composes cleanly with what does.
+// The count carries a fixed per-builder-kind dispatch cost on top of per-field
+// cost, so it doesn't compare across kinds: a plain value like `S.string`
+// measures far lower than any `S.schema({...})` call regardless of field count.
+// A jump for one kind of schema and not another is a real signal, not noise.
+//
+// Promise-returning only so callers can await it uniformly — the TS
+// Program/checker calls inside are inherently synchronous (no async variant of
+// the compiler API exists), so nothing here parallelizes.
 export const deriveTypeInfo = async (schemaTs: string): Promise<TypeInfo> => {
   const withExpr =
     IMPORT_LINE +
