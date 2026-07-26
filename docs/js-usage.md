@@ -10,7 +10,6 @@
   - [Parsing data](#parsing-data)
   - [Inferred types](#inferred-types)
   - [Serializing data](#serializing-data)
-  - [Performance](#performance)
   - [JSON Schema](#json-schema)
   - [Standard Schema](#standard-schema)
 - [Defining schemas](#defining-schemas)
@@ -27,27 +26,25 @@
   - [Advanced object schema](#advanced-object-schema)
   - [`strict`](#strict)
   - [`strip`](#strip)
-  - [`deepStrict` & `deepStrip`](#deepstrict--deepstrip)
+  - [`deepStrict` & `deepStrip`](#deepstrict-deepstrip)
   - [`merge`](#merge)
 - [Arrays](#arrays)
+  - [Compact Columns](#compact-columns)
 - [Tuples](#tuples)
   - [Advanced tuple schema](#advanced-tuple-schema)
 - [Unions](#unions)
   - [Discriminated unions](#discriminated-unions)
   - [Enums](#enums)
-  - [Decoding into / out of a union](#decoding-into--out-of-a-union)
+  - [Decoding into / out of a union](#decoding-into-out-of-a-union)
 - [Records](#records)
-- [JSON](#json)
-- [JSON string](#json-string)
 - [Date](#date)
 - [ISO DateTime](#iso-datetime)
 - [Instance](#instance)
 - [Meta](#meta)
+- [Brand](#brand)
 - [Custom schema](#custom-schema)
 - [Recursive schemas](#recursive-schemas)
 - [Refinements](#refinements)
-- [Transforms](#transforms)
-  - [`transform`](#transforms)
   - [`shape`](#shape)
 - [Functions on schema](#functions-on-schema)
   - [The mental model: pipelines, not operations](#the-mental-model-pipelines-not-operations)
@@ -55,13 +52,11 @@
   - [Chaining operations](#chaining-operations)
   - [`reverse`](#reverse)
   - [`to`](#to)
-  - [`standard`](#standard)
   - [`name`](#name)
-  - [`toExpression`](#toExpression)
+  - [`toExpression`](#toexpression)
 - [Error handling](#error-handling)
-- [Comparison](#comparison)
 - [Global config](#global-config)
-  - [`defaultAdditionalItems`](#defaultAdditionalItems)
+  - [`defaultAdditionalItems`](#defaultadditionalitems)
   - [`disableNanNumberValidation`](#disablenannumbervalidation)
 
 ## Install
@@ -74,9 +69,7 @@ npm install sury
 
 ## Basic usage
 
-The main building block of **Sury** is a schema. You can think of it as a type definition that exists at runtime - giving you infinite possibilities of using it.
-
-Let's start with a simple object schema for the purpose of this guide. I use the same example as [Zod v4](https://v4.zod.dev/basics) docs so you can easily compare the two.
+The main building block of **Sury** is a schema — a type definition that exists at runtime, giving you infinite possibilities of using it.
 
 ```ts
 import * as S from "sury"; // 9.77 kB (min + gzip)
@@ -91,44 +84,27 @@ const playerSchema = S.schema({
 
 ### Parsing data
 
-The most basic use-case for a schema is to parse unknown data. If the data is valid, the function will return a strongly-typed deep clone of the input. (With stripped fields by default)
+Parses unknown data and returns a strongly-typed deep clone of the input, with unknown fields stripped by default:
 
 ```ts
 S.parser(playerSchema)({ username: "billie", xp: 100 });
 // => returns { username: "billie", xp: 100 }
 ```
 
-If the data is invalid, the function will throw an error.
+Invalid data throws `S.Error`:
 
 ```ts
 S.parser(playerSchema)({ username: "billie", xp: "not a number" });
 // => throws S.Error: Failed at ["xp"]: Expected number, received "not a number"
 ```
 
-**Sury** API explicitly tells you that it might throw an error. If you need you can catch it and perform `err instanceof S.Error` check. But **Sury** provides a convenient API which does it for you:
+Use `S.safe` / `S.safeAsync` if you'd rather have a result than an exception — see [Error handling](#error-handling).
 
-```ts
-const result = S.safe(() =>
-  S.parser(playerSchema)({ username: "billie", xp: "not a number" })
-);
-// Or for async operations:
-const result = await S.safeAsync(() =>
-  S.asyncParser(playerSchema)({ username: "billie", xp: "not a number" })
-);
-
-// The result type is a discriminated union, so you can handle both cases conveniently:
-if (!result.success) {
-  result.error; // handle error
-} else {
-  result.value; // do stuff
-}
-```
-
-> 🧠 Besides `parser` there are also built-in operations to transform the data without validation, assert without allocating output, serialize back to the initial format and more. For more advanced pipelines, chain schemas with `S.decoder(input, …intermediate, output)` or `S.encoder(output, …intermediate, input)`.
+> 🧠 Besides `parser` there are operations to transform without validation, assert without allocating an output, and serialize back to the input format. See [Functions on schema](#functions-on-schema).
 
 ### Inferred types
 
-**Sury** automatically infers the static type from the schema definition. It has a really nice type on hover, which you can extract by using `S.Infer<typeof schema>`, `S.Output<typeof schema>`, or `S.Input<typeof schema>`.
+**Sury** infers the static type from the schema definition. Extract it with `S.Infer<typeof schema>`, `S.Output<typeof schema>`, or `S.Input<typeof schema>`:
 
 ```ts
 const playerSchema = S.schema({
@@ -138,156 +114,67 @@ const playerSchema = S.schema({
 //? S.Schema<{ username: string; xp: number }, { username: string; xp: number }>
 
 type Player = S.Infer<typeof playerSchema>;
-
-// Use it in your code
-const player: Player = { username: "billie", xp: 100 };
 ```
 
 ### Serializing data
 
-If you wonder why the schema needs an `Input` type, it's because **Sury** supports serializing data back to the initial format.
+Every schema has an `Input` type as well as an `Output` type, so the same definition serializes back to the input format:
 
 ```ts
 S.encoder(playerSchema)({ username: "billie", xp: 100 });
 // => returns { username: "billie", xp: 100 }
 ```
 
-Doesn't look like a big deal, with the example above. But if you have a more complex schema with transformations, it can be really useful.
+That's uneventful without transformations. Add some — [`to`](#to) for coercion, [`shape`](#shape) for restructuring — and the reverse direction comes with them:
 
 ```ts
-// 1. Create some advanced schema with transformations
-//    S.to - for easy & fast coercion
-//    S.shape - for fields transformation
-//    S.meta - with examples in Output format
 const userSchema = S.schema({
   USER_ID: S.string.with(S.to, S.bigint),
   USER_NAME: S.string,
-})
-  .with(S.shape, (input) => ({
-    id: input.USER_ID,
-    name: input.USER_NAME,
-  }))
-  .with(S.meta, {
-    description: "User entity in our system",
-    examples: [
-      {
-        id: 0n,
-        name: "Dmitry",
-      },
-    ],
-  });
-// On hover:
-// S.Schema<{
-//     id: bigint;
-//     name: string;
-// }, {
-//     USER_ID: string;
-//     USER_NAME: string;
-// }>
+}).with(S.shape, (input) => ({
+  id: input.USER_ID,
+  name: input.USER_NAME,
+}));
+//? S.Schema<{ id: bigint; name: string }, { USER_ID: string; USER_NAME: string }>
 
-// 2. You can use it for parsing Input to Output
-S.parser(userSchema)({
-  USER_ID: "0",
-  USER_NAME: "Dmitry",
-});
+S.parser(userSchema)({ USER_ID: "0", USER_NAME: "Dmitry" });
 // { id: 0n, name: "Dmitry" }
-// See how "0" is turned into 0n and fields are renamed
 
-// 3. And reverse the schema and use it for parsing Output to Input
-S.parser(S.reverse(userSchema))({
-  id: 0n,
-  name: "Dmitry",
-});
+S.encoder(userSchema)({ id: 0n, name: "Dmitry" });
 // { USER_ID: "0", USER_NAME: "Dmitry" }
-// Just use `S.reverse` and get a full-featured schema with switched `Output` and `Input` types
-// Note: You can use `S.encoder(schema)(data)` if you don't need to perform validation
 ```
 
-### Performance
-
-This is not really about usage, but what you should be aware of is that **Sury** will most likely outperform not only other libraries, but also your own hand-rolled validation logic.
+`S.encoder` skips validation. For a validating reverse pass, use [`reverse`](#reverse), which returns a full-featured schema with `Input` and `Output` swapped:
 
 ```ts
-// This is how S.parser(userSchema)(data) is compiled
-(i) => {
-  if (typeof i !== "object" || !i) {
-    e[3](i);
-  }
-  let v0 = i["USER_ID"],
-    v2 = i["USER_NAME"];
-  if (typeof v0 !== "string") {
-    e[0](v0);
-  }
-  let v1;
-  try {
-    v1 = BigInt(v0);
-  } catch (_) {
-    e[1](v0);
-  }
-  if (typeof v2 !== "string") {
-    e[2](v2);
-  }
-  return { id: v1, name: v2 };
-};
+S.parser(S.reverse(userSchema))({ id: 0n, name: "Dmitry" });
+// { USER_ID: "0", USER_NAME: "Dmitry" }
 ```
-
-```ts
-// This is how S.encoder(userSchema)(data) is compiled
-(i) => {
-  let v0 = i["id"];
-  return { USER_ID: "" + v0, USER_NAME: i["name"] };
-};
-```
-
-So if you need the fastest possible parsing/serializing - **Sury** is the way to go ⭐
 
 ### JSON Schema
 
-**Sury** internal representation is very simple and alike to JSON Schema, so you can use it directly.
+`S.toJSONSchema(schema, { target })` emits `"draft-07"` (default), `"draft-2020-12"`, or `"openapi-3.0"`. Properties and examples come out in the **Input** format, ready for Fastify or any OpenAPI integration:
 
 ```ts
-console.log(
-  S.schema("Hello world!").with(S.meta, { description: "Your greeting :)" })
-);
-// {
-//   type: "string",
-//   const: "Hello world!",
-//   description: "Your greeting :)",
-//   ...a few internal properties
-// }
-```
+const documented = userSchema.with(S.meta, {
+  description: "User entity in our system",
+  examples: [{ id: 0n, name: "Dmitry" }],
+});
 
-But for better interoperability, you can convert it to the official JSON Schema specification. Let's take the `User` schema from the example above and convert it:
-
-```ts
-S.toJSONSchema(userSchema);
+S.toJSONSchema(documented);
 // {
 //   type: "object",
-//   additionalProperties: true,
 //   properties: {
-//     USER_ID: {
-//       type: "string",
-//     },
-//     USER_NAME: {
-//       type: "string",
-//     },
+//     USER_ID: { type: "string" },
+//     USER_NAME: { type: "string" },
 //   },
 //   required: ["USER_ID", "USER_NAME"],
 //   description: "User entity in our system",
-//   examples: [
-//     {
-//       USER_ID: "0",
-//       USER_NAME: "Dmitry",
-//     },
-//   ],
+//   examples: [{ USER_ID: "0", USER_NAME: "Dmitry" }],
 // }
 ```
 
-See how all the properties and examples are in the Input format. It's just asking to put itself to Fastify or any other server with OpenAPI integration 😁
-
-`S.toJSONSchema(schema, { target })` also supports emitting `"draft-07"` (default), `"draft-2020-12"`, or `"openapi-3.0"` dialects.
-
-If that's not cool enough for you, you can also turn a JSON Schema into a **Sury** schema:
+`S.fromJSONSchema` converts in the other direction:
 
 ```ts
 S.assert(
@@ -300,37 +187,18 @@ S.assert(
 // Throws S.Error: Expected email, received "example.com"
 ```
 
+> 🧠 **Sury**'s internal representation is itself JSON Schema-shaped, so a schema is readable as-is: `S.schema("Hello world!")` logs `{ type: "string", const: "Hello world!", … }`.
+
 ### Standard Schema
 
-**Sury** implements a [Standard Schema](https://standardschema.dev/) specification which is already integrated with over 32 popular libraries.
-
-Here's an example how you can use **Sury** to generate structured data using [xsAI](https://xsai.js.org/):
+**Sury** implements the [Standard Schema](https://standardschema.dev/) specification, which is already integrated with over 32 popular libraries — [tRPC](https://trpc.io/), [TanStack Form](https://tanstack.com/form), [Hono](https://hono.dev/), and more:
 
 ```ts
-import { generateObject } from "@xsai/generate-object";
-import { env } from "node:process";
-import * as S from "sury";
+schema["~standard"].validate({ name: "Dmitry" });
+// { value: { name: "Dmitry" } }
 
-const { object } = await generateObject({
-  apiKey: env.OPENAI_API_KEY!,
-  baseURL: "https://api.openai.com/v1/",
-  messages: [
-    {
-      content: "Extract the event information.",
-      role: "system",
-    },
-    {
-      content: "Alice and Bob are going to a science fair on Friday.",
-      role: "user",
-    },
-  ],
-  model: "gpt-4o",
-  schema: S.schema({
-    name: S.string,
-    date: S.string,
-    participants: S.array(S.string),
-  }),
-});
+schema["~standard"].validate({ name: 1 });
+// { issues: [{ message: "Expected string, received 1", path: ["name"] }] }
 ```
 
 The `~standard` property also implements the [Standard JSON Schema](https://standardschema.dev/json-schema) spec, exposing a `jsonSchema` converter for the schema's input and output types. Call `S.enableStandardJSONSchema()` once to enable it:
@@ -346,7 +214,8 @@ schema["~standard"].jsonSchema.output({ target: "draft-2020-12" });
 // { $schema: "https://json-schema.org/draft/2020-12/schema", type: "number" }
 ```
 
-> 🧠 `jsonSchema.input(options)` equals `S.toJSONSchema(schema, options)` and `.output(options)` equals `S.toJSONSchema(S.reverse(schema), options)`, so the `target` option behaves the same as above.
+> 🧠 `jsonSchema.input(options)` equals `S.toJSONSchema(schema, options)` and `.output(options)` equals `S.toJSONSchema(S.reverse(schema), options)`, so the `target` option behaves the same as above. The `options` argument is required by the spec.
+
 
 ## Defining schemas
 
@@ -719,25 +588,28 @@ S.length(S.array(S.string), 5); // Array must be exactly 5 items long
 
 ### Compact Columns
 
-```ts
-const schema = S.compactColumns(
-  S.schema({
-    id: S.string,
-    name: S.nullable(S.string),
-    deleted: S.boolean,
-  })
-);
+`S.compactColumns` flattens an array of objects into one array of values per field, and back again:
 
-const value = S.encoder(schema)([
+```ts
+const rowSchema = S.schema({
+  id: S.string,
+  name: S.string,
+  deleted: S.boolean,
+});
+
+const schema = S.compactColumns(S.unknown).with(S.to, S.array(rowSchema));
+
+S.encoder(schema)([
   { id: "0", name: "Hello", deleted: false },
-  { id: "1", name: undefined, deleted: true },
+  { id: "1", name: "World", deleted: true },
 ]);
-// [["0", "1"], ["Hello", null], [false, true]]
+// [["0", "1"], ["Hello", "World"], [false, true]]
+
+S.parser(schema)([["0", "1"], ["Hello", "World"], [false, true]]);
+// [{ id: "0", name: "Hello", deleted: false }, { id: "1", name: "World", deleted: true }]
 ```
 
-The helper function is inspired by the article [Boosting Postgres INSERT Performance by 2x With UNNEST](https://www.timescale.com/blog/boosting-postgres-insert-performance). It allows you to flatten a nested array of objects into arrays of values by field.
-
-The main concern of the approach described in the article is usability. And **Sury** completely solves the problem, providing a simple and intuitive API that is even more performant than `S.array`.
+The helper is inspired by [Boosting Postgres INSERT Performance by 2x With UNNEST](https://www.timescale.com/blog/boosting-postgres-insert-performance). The main concern with the approach described there is usability, which **Sury** solves with an API that's even more performant than `S.array`:
 
 <details>
 
@@ -747,25 +619,13 @@ Checkout the compiled code yourself:
 
 ```javascript
 (i) => {
-  let v1 = [new Array(i.length), new Array(i.length), new Array(i.length)];
-  for (let v0 = 0; v0 < i.length; ++v0) {
-    let v3 = i[v0];
-    try {
-      let v4 = v3["name"];
-      if (v4 === void 0) {
-        v4 = null;
-      }
-      v1[0][v0] = v3["id"];
-      v1[1][v0] = v4;
-      v1[2][v0] = v3["deleted"];
-    } catch (v2) {
-      if (v2 && v2.s === s) {
-        v2.path = "" + "[\"'+v0+'\"]" + v2.path;
-      }
-      throw v2;
-    }
+  let v4 = [new Array(i.length), new Array(i.length), new Array(i.length)];
+  for (let v3 = 0; v3 < i.length; ++v3) {
+    v4[0][v3] = i[v3]["id"];
+    v4[1][v3] = i[v3]["name"];
+    v4[2][v3] = i[v3]["deleted"];
   }
-  return v1;
+  return v4;
 };
 ```
 
@@ -1199,8 +1059,8 @@ S.decoder(S.jsonString, userSchema)(rawString);
 // Encode a domain value all the way out to a JSON string.
 S.encoder(userSchema, S.jsonString)(user);
 
-// Decode a binary payload of UTF-8 JSON, then validate.
-S.decoder(S.uint8Array, S.jsonString, userSchema)(bytes);
+// Decode a UTF-8 byte payload into text.
+S.decoder(S.uint8Array, S.string)(bytes);
 ```
 
 You're no longer picking from a fixed menu of operations — you're describing the shape of the data at each stage and letting Sury compile the path.

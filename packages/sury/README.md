@@ -137,23 +137,81 @@ S.encoder(userSchema)({ id: 0n, name: "Dmitry" });
 
 Every schema is reversible, so `S.reverse` hands you a full-featured schema with `Input` and `Output` swapped — usable with every operation, not just a serialize shortcut.
 
-### JSON Schema, in both directions
+### Every schema is a pipeline stage
 
-**Sury**'s internal representation is JSON Schema-shaped, so conversion is native rather than bolted on. `S.toJSONSchema` emits `"draft-07"` (default), `"draft-2020-12"`, or `"openapi-3.0"`, with descriptions and examples in the Input format — ready to hand to Fastify or any OpenAPI integration:
+`S.jsonString` above wasn't a special "parse JSON" mode — it's an ordinary schema used as a stage. So is `S.json`, `S.uint8Array`, `S.date`, and every schema you write. Instead of a fixed menu of `parseJson` / `parseJsonString` / `convertToJson` functions, you describe the shape of the data at each step and let **Sury** compile the path between them.
+
+Stages nest, so any field can be its own pipeline:
 
 ```ts
-S.toJSONSchema(userSchema);
-// { type: "object", properties: { USER_ID: { type: "string" }, … }, required: […] }
+const apiUser = S.schema({
+  // Arrives as JSON text, parsed and validated as an array of addresses
+  addresses: S.jsonString.with(S.to, S.array(addressSchema)),
+  // Arrives as a string, mapped to a Date
+  createdAt: S.string.with(S.to, S.date),
+  // Element-level transforms work the same way
+  ids: S.array(S.string.with(S.to, S.bigint)),
+});
 ```
 
-And it reads JSON Schema back in:
+The whole tree — top-level operation plus every nested `S.to` — still folds into one generated function, so deep pipelines cost nothing at runtime.
+
+Once schemas are stages, layouts that usually need hand-written glue become a single definition. `S.compactColumns` maps columnar arrays to rows, in both directions:
+
+```ts
+const cityRow = S.schema({ id: S.string, city: S.string });
+const rows = S.compactColumns(S.unknown).with(S.to, S.array(cityRow));
+
+S.parser(rows)([["1", "2"], ["Tbilisi", "Batumi"]]);
+// => [{ id: "1", city: "Tbilisi" }, { id: "2", city: "Batumi" }]
+
+S.encoder(rows)([{ id: "1", city: "Tbilisi" }, { id: "2", city: "Batumi" }]);
+// => [["1", "2"], ["Tbilisi", "Batumi"]]
+```
+
+### JSON Schema, through the standard interface
+
+**Sury**'s internal representation is JSON Schema-shaped, so conversion is native rather than bolted on — and it's exposed through the [Standard JSON Schema](https://standardschema.dev/json-schema) extension of the [Standard Schema](https://standardschema.dev/) spec, so tools consume it without special-casing **Sury**.
+
+Because **Sury** tracks Input and Output separately, it describes both sides of a transformation:
+
+```ts
+S.enableStandardJSONSchema();
+
+const productSchema = S.schema({
+  id: S.string,
+  price: S.string.with(S.to, S.number),
+});
+
+productSchema["~standard"].jsonSchema.input({ target: "draft-2020-12" });
+// { $schema: "https://json-schema.org/draft/2020-12/schema", type: "object",
+//   properties: { id: { type: "string" }, price: { type: "string" } }, … }
+//                                                 ↑ the wire format
+
+productSchema["~standard"].jsonSchema.output({ target: "draft-2020-12" });
+// { … properties: { id: { type: "string" }, price: { type: "number" } }, … }
+//                                                   ↑ what your code receives
+```
+
+`"draft-07"`, `"draft-2020-12"`, and `"openapi-3.0"` are all supported targets, and `S.toJSONSchema(schema, options)` is available directly if you'd rather not go through `~standard`.
+
+It reads JSON Schema back in, too:
 
 ```ts
 S.assert(S.fromJSONSchema({ type: "string", format: "email" }), "example.com");
 // => throws S.Error: Expected email, received "example.com"
 ```
 
-This also satisfies the [Standard JSON Schema](https://standardschema.dev/json-schema) extension of the [Standard Schema](https://standardschema.dev/) spec, so tools can discover it without special-casing **Sury**.
+### Types you can actually read
+
+Hover any schema and you see the data, not the library's internals:
+
+```ts
+S.schema({ foo: S.string });
+//? S.Schema<{ foo: string }, { foo: string }>
+```
+
+Compare that with `v.ObjectSchema<{readonly foo: v.StringSchema<undefined>}, undefined>`. Both `Input` and `Output` are right there, which is what makes a transformation's two sides obvious at a glance rather than something you reconstruct in your head.
 
 ### Errors that tell you where to look
 
@@ -178,8 +236,6 @@ else result.error;
 - The **fastest** parsing and validation library in the JavaScript ecosystem ([benchmarks](#comparison))
 - Small JS footprint & tree-shakable API
 - Async transformations, recursive schemas, and custom schemas
-- Immutable API with 100+ different operations
-- Flexible global config
 
 ## Documentation
 
@@ -237,8 +293,6 @@ Independent benchmarks and conformance suites that include **Sury**:
 | **Codegen-free** (doesn't need compiler) | ✅                                       | ✅                                        | ✅                        | ✅                                                                    | ✅                        |
 | **Eval-free**                            | ❌                                       | ⭕ opt-out                                | ⭕ opt-in                 | ✅                                                                    | ⭕ opt-out                |
 | **Ecosystem**                            | ⭐️⭐️                                   | ⭐️⭐️⭐️⭐️⭐️                           | ⭐️⭐️⭐️⭐️⭐️           | ⭐️⭐️⭐️                                                             | ⭐️⭐️                    |
-
-The **Inferred TS type** row is worth a second look — it's the difference between a hover tooltip you can read and one you can't, and it's what your editor shows on every schema in your codebase.
 
 **Sury**'s own ecosystem is young, but implementing Standard Schema means the 32+ libraries that support the spec already work with it today.
 
