@@ -133,7 +133,7 @@ export const readSpec = (file: string): Spec => parseSpec(readFileSync(file, "ut
 // literal parses as an expression, not a block statement with a labeled
 // statement inside — and the trailing `;\n` transpileModule always emits
 // comes off since it's re-wrapped in `return … ;` below.
-const stripTypes = (tsSource: string): string =>
+export const stripTypes = (tsSource: string): string =>
   ts.transpileModule(`(${tsSource})`, {
     compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext },
   }).outputText.trim().replace(/;$/, "");
