@@ -19,9 +19,9 @@
     "vitest": "4.1.7",
     "sury": "file:../sury",
     "sury-ppx": "workspace:sury-ppx",
-    "arktype": "2.1.20",
-    "valibot": "1.0.0",
+    "arktype": "2.2.3",
+    "valibot": "1.4.2",
     "zod": "4.4.3",
-    "@sinclair/typebox": "0.34.33"
+    "@sinclair/typebox": "0.34.52"
   }
 }
