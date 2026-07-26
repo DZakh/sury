@@ -14,8 +14,10 @@ import {
   listSpecFiles,
   lintSpecsDir,
   specId,
+  parseSpec,
   readSpec,
   serialize,
+  collectComments,
   recomputeGoldens,
   evalSchema,
   identityViolations,
@@ -99,7 +101,8 @@ const cmdSchema = (): void => {
 
 const cmdFormat = (): void => {
   for (const file of targets()) {
-    writeFileSync(file, serialize(readSpec(file)));
+    const raw = readFileSync(file, "utf8");
+    writeFileSync(file, serialize(parseSpec(raw), collectComments(raw)));
     console.log(`format ${specId(file)}`);
   }
 };
@@ -255,7 +258,7 @@ const cmdCheck = async (): Promise<void> => {
           try {
             if (identityViolations(schema, obj).length === 0) {
               const recomputed = await recomputeGoldens(obj);
-              knownFresh = serialize(recomputed);
+              knownFresh = serialize(recomputed, collectComments(raw));
               if (knownFresh !== raw) {
                 writeFileSync(file, knownFresh);
                 change = { id, before: obj, after: recomputed };

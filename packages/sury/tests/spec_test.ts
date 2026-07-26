@@ -15,11 +15,14 @@ import {
   evalSchema,
   identityViolations,
   checkAliases,
+  collectComments,
+  lintComments,
+  lintExamples,
   lintSkips,
   lintSpecsDir,
   checkBundleSize,
 } from "../../spec/harness";
-import { validate, schemaJson } from "../../spec/format";
+import { validate, schemaJson, isCreationError } from "../../spec/format";
 import { summarize } from "../../spec/summary";
 
 // recomputeGoldens does a TS-program introspection pass per spec, and the
@@ -78,7 +81,7 @@ test("summarize renders ranked metric moves and behavior changes", () => {
   const after = structuredClone(before);
   after.ts.instantiations = 300;
   after.ts.output = "string | undefined";
-  if (after.operations.parse !== "identity") {
+  if (after.operations.parse !== "identity" && !isCreationError(after.operations.parse)) {
     after.operations.parse.expression = "i=>i";
     const ex = after.operations.parse.examples.valid;
     if (ex && "output" in ex) ex.output = '"HELLO"';
@@ -124,6 +127,36 @@ test("summarize renders ranked metric moves and behavior changes", () => {
   `);
 });
 
+// An op flipping between compiling and being rejected at operation creation is
+// the change a conversion-rules rework produces, so the summary has to render
+// it rather than skip it as an unreadable kind change.
+test("summarize renders creation-error flips and message drift", () => {
+  const compiling = readSpec(listSpecFiles().find((f) => specId(f) === "string")!);
+  const rejected = readSpec(listSpecFiles().find((f) => specId(f) === "codec-bool-number-unsupported")!);
+
+  const nowRejected = structuredClone(compiling);
+  nowRejected.operations.parse = { creationError: "SuryError: Can't decode string to number" };
+
+  const messageDrifted = structuredClone(rejected);
+  messageDrifted.operations.parse = { creationError: "SuryError: some new wording" };
+
+  expect(
+    summarize(
+      [
+        { id: "string", before: compiling, after: nowRejected },
+        { id: "codec-bool-number-unsupported", before: rejected, after: messageDrifted },
+      ],
+      { after: { total: 20000, exports: {} } },
+    ),
+  ).toMatchInlineSnapshot(`
+    "bundleSize:
+      first recorded — 0 exports, total 20000
+    behavior changed:
+      string.parse  compiled → creationError SuryError: Can't decode string to number
+      codec-bool-number-unsupported.parse.creationError  SuryError: Can't decode boolean to number. Use S.to to define a custom decoder → SuryError: some new wording"
+  `);
+});
+
 describe.each(specs)("spec: $id", ({ file }) => {
   const spec = readSpec(file);
 
@@ -133,7 +166,14 @@ describe.each(specs)("spec: $id", ({ file }) => {
   });
 
   test("is in canonical form (run `pnpm spec format`)", () => {
-    expect(readFileSync(file, "utf8")).toBe(serialize(spec));
+    const raw = readFileSync(file, "utf8");
+    expect(raw).toBe(serialize(spec, collectComments(raw)));
+  });
+
+  test("every comment is a `FIXME:` (run `pnpm spec check`)", () => {
+    const errs: string[] = [];
+    lintComments(collectComments(readFileSync(file, "utf8")), errs);
+    expect(errs, errs.join("\n")).toEqual([]);
   });
 
   // Only checkSpec (the pnpm spec check gate) runs these two — nothing else
@@ -149,6 +189,12 @@ describe.each(specs)("spec: $id", ({ file }) => {
   test("every _skip reason is valid (run `pnpm spec check`)", () => {
     const errs: string[] = [];
     lintSkips(spec, "", errs);
+    expect(errs, errs.join("\n")).toEqual([]);
+  });
+
+  test("every compiled op block has examples (run `pnpm spec check`)", () => {
+    const errs: string[] = [];
+    lintExamples(spec, errs);
     expect(errs, errs.join("\n")).toEqual([]);
   });
 

@@ -4,7 +4,7 @@
 // rewritten file. This renders the same information in one place: each tracked
 // metric that regressed or improved (worst first, by percentage), plus the
 // behavior changes that aren't better-or-worse but do need noticing.
-import { OP_ORDER, isSkip, type Spec, type BundleSize, type Example } from "./format";
+import { OP_ORDER, isSkip, isCreationError, type Spec, type BundleSize, type Example, type Operation } from "./format";
 
 export type SpecChange = { id: string; before: Spec; after: Spec };
 export type BundleSizeChange = { before?: BundleSize; after: BundleSize };
@@ -65,6 +65,11 @@ const expressionSection = (deltas: ExpressionDelta[]): string[] => {
 
 const outcome = (ex: Example): string => ("output" in ex ? `output ${ex.output}` : `error ${ex.error}`);
 
+// How an op resolved, for the behavior list — enough to read a flip between
+// compiling and being rejected at operation creation at a glance.
+const opKind = (op: Operation): string =>
+  typeof op === "string" ? op : isCreationError(op) ? `creationError ${op.creationError}` : "compiled";
+
 const changed = (label: string, before: string, after: string, out: string[]): void => {
   if (before !== after) out.push(`${label}  ${clip(before)} → ${clip(after)}`);
 };
@@ -90,6 +95,21 @@ const specDeltas = (
     for (const op of OP_ORDER) {
       const b = before.operations[op];
       const a = after.operations[op];
+      // Rejected at operation creation on both sides: the thrown message is
+      // this op's only golden, so a drifting message IS the behavior change.
+      if (isCreationError(b) && isCreationError(a)) {
+        changed(`${id}.${op}.creationError`, b.creationError, a.creationError, behavior);
+        continue;
+      }
+      // Exactly one side is a creationError (both were handled above), so this
+      // op flipped between compiling and being rejected at creation — the
+      // loudest change an op can have. Reported even when the other side is a
+      // shorthand, since `--write` does perform this flip (unlike a shorthand
+      // mismatch, an op that newly fails at creation doesn't block the write).
+      if (isCreationError(b) || isCreationError(a)) {
+        behavior.push(`${id}.${op}  ${clip(opKind(b))} → ${clip(opKind(a))}`);
+        continue;
+      }
       // An op's shorthand can't change under --write (a shorthand mismatch
       // blocks the write), so a differing kind here means a hand edit.
       if (typeof b === "string" || typeof a === "string") continue;

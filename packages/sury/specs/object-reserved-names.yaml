@@ -21,6 +21,10 @@ operations:
       wrong-type:
         input: "{ constructor: 1, hasOwnProperty: 5 }"
         error: 'Failed at ["constructor"]: Expected string, received 1'
+      # FIXME: fields are read off the prototype chain, so an absent one reports
+      # the inherited value ("received Function") instead of undefined — and an
+      # *optional* field named after a prototype member fails outright:
+      # S.schema({toString: S.optional(S.string)}) rejects {}.
       missing-fields:
         input: "{}"
         error: 'Failed at ["constructor"]: Expected string, received Function'
