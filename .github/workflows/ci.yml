@@ -145,6 +145,10 @@ jobs:
     name: Performance drift since last release
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
+    # Reads the repo and writes a file ($GITHUB_STEP_SUMMARY); it never calls
+    # the API, so it needs strictly less than the `performance` job above.
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
