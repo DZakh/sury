@@ -230,10 +230,15 @@ variant of a union changes nothing about that: if any variant's decoder can't be
 built, the whole operation is rejected, under every rule above.
 
 ```ts
+S.boolean.with(S.to, S.number); // ❌ the reference case, no union involved
 S.boolean.with(S.to, S.union([S.string, S.symbol])); // ❌ boolean -> symbol has no decoder
 S.union([S.boolean, S.symbol]).with(S.to, S.string); // ❌ symbol -> string has no decoder
 S.boolean.with(S.to, S.union([S.number, S.symbol])); // ❌ neither variant is decodable
 ```
+
+Only the first of those four is rejected today
+(`codec-bool-number-unsupported`); the three union shapes each compile into
+something else.
 
 None of the three salvage attempts are available: a variant is never dropped
 from the generated code, never left as a dispatch branch that throws per value,

@@ -1,7 +1,9 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  # FIXME: Codec next expects: stay the same — rule 1 has no built-in boolean → number
-  # decoding.
+  # FIXME: Codec next expects: stay the same — the reference case for a pair with no
+  # built-in decoder, and the shape the codec-*-unsupported specs have to match:
+  # wrapping either side in a union must not turn this creation error into a dropped
+  # member, a throwing branch, or an always-throwing operation.
   schema: S.boolean.with(S.to, S.number)
   input: boolean
   output: number
