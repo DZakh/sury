@@ -209,44 +209,32 @@ the *source schema's encoder* — the same single place rule 1 already reads —
 and every union conversion picks it up. Nothing to keep in sync, which was
 the table's fatal flaw.
 
-**`S.unknown` needs the same oracle.** This is what reconciles two goldens
-that otherwise contradict:
+**`S.unknown`: pure validation (settled).** An unknown value may already
+*be* any of the variant types, so under the no-re-typing rule nothing is a
+gap: `producible(unknown)` = all tags ⇒ built-in decoding never steps in ⇒
+the conversion is pure validation — each case checked by its type in
+definition order, values narrowed but never re-typed. This is the same
+producible-mask logic as every other source, no special handling at all:
+no unknown oracle, no rep helper, no second entry path. It keeps both
+unknown-shaped goldens identical in behavior:
 
-- `union2.yaml` (`S.union([S.string, S.number])`, parse) must stay pure
-  validation — `42` must not become `"42"`.
+- `union2.yaml` (`S.union([S.string, S.number])`, parse — compiled as
+  `unknown.to(union)` via `js_parser`): `42` stays `42`, `"hello"` stays
+  `"hello"`.
 - `codec-unknown-union2` (`S.unknown.with(S.to, S.union([S.bigint,
-  S.string]))`) must coerce `"123" → 123n` "as in codec-json-union2".
+  S.string]))`): `"123"` stays `"123"`, `123n` passes, `true` throws — the
+  *current* golden, which is thereby already spec-conformant; its `FIXME:
+  Codec next expects` note comes off, and `CODEC_NEXT_SPEC.md`'s unknown
+  paragraph + coverage table move it to the conformant list.
 
-Bare decoders-from-unknown only emit typeof narrows, so with no oracle the
-second golden is unreachable; a naive "offer everything" oracle breaks the
-first. The resolution: unknown uses the *JSON representation model* —
-JSON-native tags (string, number, boolean, null, object, array) are as-is
-only; non-JSON types (bigint, instance, …) additionally get their
-string/null representation attempt. Concretely, a case gets up to two entry
-paths: **as-is** (own tag ∈ producible(source), pure narrow + case pipeline)
-and **representation** (the shared rep encoder, extracted from
-`jsonEncoderFn`'s dispatch). For json only one path ever exists (its encoder
-picks); for unknown a bigint case gets both (`typeof i==="bigint"` pass, and
-`typeof i==="string"` → BigInt attempt); for single-tag sources the source
-tag itself is the only representation, offered directly to the case decoder.
-
-Implementation caution: the rep encoder is **not** installed as
-`unknown.encoder` — the shared `unknown` constant heads every compiled
-pipeline, so a global encoder would fire on all `s.encoder` checks in the
-parse loop and perturb non-union codegen. unionNext invokes the shared rep
-helper internally when `source.type === unknownTag`. `jsonEncoderFn` gets
-audited during implementation to confirm it rejects wrong-representation
-inputs at the granularity the rule needs (the codecnext specs pin every
-cell of the tables above).
-
-One user-visible consequence to be aware of: `S.parser(schema)` compiles as
-`unknown.to(schema)` (`js_parser = getDecoder(unknown, ...)`), so plain
-parsing of a union containing a non-JSON type inherits rule 2's coercion —
-`S.parser(S.union([S.bigint, S.string]))("123")` yields `123n`. That is
-exactly what `codec-unknown-union2`'s expected golden asserts (its parse op
-*is* this chain), and JSON-native unions like `union2` are untouched — but
-it's a semantics change for plain parsers of bigint/instance-bearing unions,
-worth an explicit spec case and a line in the docs update.
+Plain parsers therefore never coerce: `S.parser` = `unknown.to(schema)` =
+validation for every union, bigint-bearing or not. The oracle rule applies
+exactly where representation knowledge exists — encoder-bearing sources
+(`S.json`, `S.jsonString`) and single-tag sources (whose one tag is offered
+directly to case decoders). `jsonEncoderFn` gets audited during
+implementation to confirm it rejects wrong-representation inputs at the
+granularity the rule needs (the codecnext specs pin every cell of the
+tables above).
 
 ### The four rules as scan predicates
 
@@ -261,13 +249,12 @@ Let `M` = non-never target variants with `UN_sameType(source, variant)`.
     suggested rewrites in the message.
   - `M = all` ⇒ ordered attempts from the as-is source value (transformed
     variants run their own `.to`); universal fallback chains them.
-  - `M = ∅` ⇒ gap decoding: each case gets its entry paths per the
-    encoder-as-oracle rule — as-is when its tag ∈ producible(source),
-    representation via the source's encoder otherwise (or additionally, for
-    `unknown`). Definition order + universal fallback (yields
-    `codec-number-union2-int32`: int32 range-check then `""+i`;
+  - `M = ∅` ⇒ per the encoder-as-oracle rule, each case is entered as-is
+    when its tag ∈ producible(source) and via the source encoder's
+    representation only otherwise. Definition order + universal fallback
+    (yields `codec-number-union2-int32`: int32 range-check then `""+i`;
     `codec-json-union2`: literal, BigInt attempt, string catch-all;
-    `codec-unknown-union2`: "123" → 123n via the unknown rep oracle).
+    `codec-unknown-union2`: producible = everything ⇒ pure validation).
   - Reachability is automatic: a case whose every attempt throws
     `unsupported_decode` at creation rejects the whole operation (the
     throw propagates — there is no catch). No dropping, no per-value throw
@@ -435,9 +422,10 @@ Spec gate — new `specs/codecnext-*.yaml` authored with `pnpm spec new`,
 using explicit `S.unionNext([...])` spellings (optional/nullable spelled
 `S.unionNext([X, undefined])` / `[X, null]`):
 
-1. One spec per row of `CODEC_NEXT_SPEC.md`'s behavior-change table (15
-   rows), including `creationError` goldens with the suggested-rewrite text.
-2. Mirrors of the 16 already-conformant codec specs, proving parity or
+1. One spec per row of `CODEC_NEXT_SPEC.md`'s behavior-change table (14
+   rows once `codec-unknown-union2` moves to the conformant list),
+   including `creationError` goldens with the suggested-rewrite text.
+2. Mirrors of the 17 already-conformant codec specs, proving parity or
    better codegen (the tracked FIXME bugs — dead `else if` re-test,
    catch-all swallow — must be gone).
 3. Plain-union parity specs mirroring `union2`, `union5`,
@@ -463,9 +451,9 @@ ship — called out as expected in the Stage 1 commit.
    `unionIsSelfDecodeNoop`, `unionIsWiderSchema`, `unionGetToPerCase`,
    `unionCanDispatchPerVariant`, `unionIsPriority` (and `unionToKey` if the
    new emit doesn't reuse it). This is where the bundle-size win lands.
-3. Re-derive all goldens: `pnpm spec check --write` — the 15
+3. Re-derive all goldens: `pnpm spec check --write` — the 14
    behavior-change rows change per the spec table (their `FIXME: Codec next
-   expects:` notes come off), the 16 conformant specs must stay flat or
+   expects:` notes come off), the 17 conformant specs must stay flat or
    improve, all non-codec specs (`union2`, `union5`, `union5-discriminated`,
    `object*`, option/nullable-touching specs) must stay flat or improve.
 4. Full gates green: `pnpm test` (the 107 ReScript test files via vitest —
@@ -488,11 +476,10 @@ ship — called out as expected in the Stage 1 commit.
 
 ## Execution order
 
-1. `unionnext.ts`: identity + masks (`UN_sameType`, `UN_producibleMask`);
-   extract the shared representation encoder from `jsonEncoderFn`'s dispatch
-   and audit that it rejects wrong-representation inputs at the granularity
-   the oracle rule needs; wire the unknown-source rep path (internal helper,
-   NOT `unknown.encoder`).
+1. `unionnext.ts`: identity + masks (`UN_sameType`, `UN_producibleMask`,
+   with `producible(unknown)` = all tags); audit `jsonEncoderFn` — as the
+   representation oracle it must reject wrong-representation inputs at the
+   granularity the rule needs.
 2. Pass 1: mask-only rejections (rules 2–4 partial/coverage), per-case
    attempt vals via plain `parse()`, acceptance masks off the emitted
    narrows, approximation flags.
@@ -500,9 +487,9 @@ ship — called out as expected in the Stage 1 commit.
    universal fallback with elision, refiner/async join, static shortcuts.
 4. Factory + Stage 1 wiring.
 5. Author codecnext specs (behavior-change table first — it defines done),
-   including the plain-parser coercion consequence case
-   (`S.parser(S.union([S.bigint, S.string]))("123") → 123n`);
-   `pnpm spec check --write`; iterate to conformance.
+   including the unknown-source mirror pinning pure validation
+   (`S.unknown.with(S.to, S.unionNext([S.bigint, S.string]))`: `"123"`
+   stays `"123"`); `pnpm spec check --write`; iterate to conformance.
 6. Bench loop over D1–D5; fold winners; delete temp bench.
 7. Stage 2: switchover steps 1–6 above.
 
@@ -513,8 +500,12 @@ ship — called out as expected in the Stage 1 commit.
   compile to direct precise throws.
 - **Gap-fill routing**: no static table — the source encoder is the
   representation oracle (encoder failed → next case; encoder passed →
-  continue with decoder); `unknown` reuses the JSON representation model
-  via a shared internal helper.
+  continue with decoder).
+- **`unknown` sources**: pure validation — `producible(unknown)` = all
+  tags, so the no-re-typing rule leaves nothing to decode; plain parsers
+  (`unknown.to(schema)`) never coerce. `codec-unknown-union2`'s current
+  golden is thereby already conformant; its FIXME and the spec doc's
+  unknown paragraph/coverage row update accordingly.
 - **Rollout**: Stage 1 ships `S.unionNext` until the codecnext specs meet
   the spec doc; Stage 2 replaces `S.union`'s implementation, deletes the
   old cluster, re-derives goldens, greens the full test surface, and

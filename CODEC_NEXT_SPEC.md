@@ -100,9 +100,11 @@ optimization, allowed exactly while it can't change which variant wins. Hoisting
 the shortcut isn't available, each check stays in its own definition slot and
 the repeated `typeof` is reused from a var.
 
-`S.unknown` is a normal type here — it only matches another `unknown`. An
-`unknown` source matches none of the concrete variants, so it takes the same
-path: every variant is attempted, in definition order.
+`S.unknown` is a normal type here — it only matches another `unknown`. But an
+`unknown` value may already *be* any of the variant types, so the
+no-re-typing rule leaves no gap to fill: built-in decoding never steps in,
+and the conversion is pure validation — every variant checked by its type,
+in definition order, values narrowed but never re-typed.
 
 **Exception — partial type match.** If the source has the same type as *some but
 not all* target variants, the operation is rejected when it's created. Sury
@@ -268,7 +270,6 @@ Behavior change expected, today's goldens are wrong:
 | `codec-number-union2-int32`          | 2    | compiles instead of crashing; int32 first, string next               |
 | `codec-string-optional-partial`      | 2    | rejected — partial type match                                        |
 | `codec-string-union2-partial`        | 2    | rejected — partial type match                                        |
-| `codec-unknown-union2`               | 2    | per-variant decoding, same path as `codec-json-union2`               |
 | `codec-union2-string-partial`        | 3    | rejected — partial type match                                        |
 | `codec-optional-nullable-partial`    | 4    | rejected — `string` has no same-type target variant                  |
 | `codec-union2-union3-extra-target`   | 4    | rejected — `boolean` has no source variant                           |
@@ -283,4 +284,4 @@ changes): `codec-bool-number-unsupported`, `codec-json-union3-grouped`,
 `codec-string-union2-never`, `codec-string-union2-transformed`,
 `codec-union-nested-union3-flatten`, `codec-union2-union2-reject`,
 `codec-union2-union2-swap`, `codec-union2-union2-transformed`,
-`codec-union3-union3-bridge`.
+`codec-union3-union3-bridge`, `codec-unknown-union2`.
