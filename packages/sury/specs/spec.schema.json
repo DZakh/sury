@@ -80,28 +80,6 @@
             }
           ],
           "description": "TS type-instantiation cost of this schema. Filled by `spec check --write`."
-        },
-        "bundleBytes": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "object",
-              "properties": {
-                "_skip": {
-                  "type": "string",
-                  "description": "Why unasserted: parser-only | serializer-only | lossy | not-applicable | todo(#…)."
-                }
-              },
-              "additionalProperties": false,
-              "required": [
-                "_skip"
-              ],
-              "description": "Explicit opt-out for an unasserted dimension."
-            }
-          ],
-          "description": "Minified+gzipped bundle size of `schema` itself. Filled by `spec check --write`."
         }
       },
       "additionalProperties": false,
@@ -109,10 +87,9 @@
         "schema",
         "input",
         "output",
-        "instantiations",
-        "bundleBytes"
+        "instantiations"
       ],
-      "description": "The JS `.with`-chain surface: the schema itself, plus its inferred types, instantiation cost, and bundle size."
+      "description": "The JS `.with`-chain surface: the schema itself, plus its inferred types and instantiation cost."
     },
     "vs": {
       "type": "object",

@@ -10,6 +10,7 @@ import { schemaJson, type Spec } from "./format";
 import {
   SPECS_DIR,
   SCHEMA_PATH,
+  BUNDLE_SIZE_PATH,
   listSpecFiles,
   lintSpecsDir,
   specId,
@@ -21,10 +22,11 @@ import {
   scaffoldJsonSchema,
   scaffoldOperations,
   deriveTypeInfo,
-  deriveBundleBytes,
+  checkBundleSize,
   checkSpec,
 } from "./harness";
 import { red, green, formatFailure } from "./report";
+import { summarize, type SpecChange, type BundleSizeChange } from "./summary";
 
 // A script, not a library — nothing here is exported. Importing it (instead
 // of report.ts/harness.ts, which hold the testable logic) would silently run
@@ -40,6 +42,10 @@ const targets = (ids: string[] = rest): string[] =>
   ids.length
     ? ids.map((id) => {
         const file = join(SPECS_DIR, `${id.replace(/\.yaml$/, "")}.yaml`);
+        // Sits in the specs dir but isn't a spec, so it would otherwise be
+        // validated as one.
+        if (file === BUNDLE_SIZE_PATH)
+          fail(`${id} isn't a spec — bundleSize.yaml is checked by a full \`spec check\` (no [id…])`);
         if (!existsSync(file)) fail(`no such spec: ${id} (expected ${file})`);
         return file;
       })
@@ -62,9 +68,12 @@ Commands:
 
   check [id…] [--write]
       Gate: format-valid, canonical, skips valid, goldens fresh. Read-only
-      by default. --write persists whatever's safely fixable; a
-      format-invalid spec or a live identity mismatch needs a fix first —
-      resolve it, then re-run.
+      by default. --write persists whatever's safely fixable, then prints
+      what moved (instantiations, generated-code length, bundle size,
+      behavior) ranked by percentage; a format-invalid spec or a live
+      identity mismatch needs a fix first — resolve it, then re-run.
+      bundleSize.yaml is whole-package, so only a full run (no [id…])
+      checks or rewrites it.
 
   format [id…]
       Rewrite to canonical form only — no golden recompute.
@@ -130,10 +139,7 @@ const cmdNew = async (): Promise<void> => {
   } catch (e) {
     fail(`--ts did not evaluate: ${(e as Error).message}`);
   }
-  // deriveBundleBytes (genuinely async, esbuild child process) goes first so
-  // it's kicked off before deriveTypeInfo's synchronous compiler work runs —
-  // see the ordering note on recomputeGoldens in harness.ts.
-  const [bundleBytes, typeInfo] = await Promise.all([deriveBundleBytes(ts), deriveTypeInfo(ts)]);
+  const typeInfo = await deriveTypeInfo(ts);
   // scaffoldJsonSchema tolerates a schema it can't represent (records the
   // thrown message instead), but scaffoldOperations has no such fallback — a
   // --ts that evaluates without throwing to something that isn't a usable
@@ -151,7 +157,6 @@ const cmdNew = async (): Promise<void> => {
       input: typeInfo.input,
       output: typeInfo.output,
       instantiations: typeInfo.instantiations,
-      bundleBytes,
     },
     // `vs` is a required dimension but can't be derived — scaffold a `todo`
     // skip (a placeholder, not a claim of no-equivalent) and prompt the author
@@ -177,7 +182,15 @@ const WRITE_FLAG = "--write";
 // doesn't interleave the report output.
 const cmdCheck = async (): Promise<void> => {
   const write = rest.includes(WRITE_FLAG);
+  const ids = rest.filter((a) => a !== WRITE_FLAG);
   let failed = 0;
+
+  // bundleSize.yaml measures the package's whole export surface, so it isn't a
+  // spec and a narrowed run has nothing to say about it — reporting it stale
+  // there would point at a fix (`--write`) the same invocation can't perform.
+  // The full run (what CI and spec_test.ts do) is the gate. Kicked off first so
+  // its esbuild build overlaps the sync work that follows.
+  const bundleSizePromise = ids.length ? null : checkBundleSize();
 
   // Existence and freshness are checked as two separate facts, not one
   // `existsSync && readFileSync(...) !== schemaJson()` expression — that
@@ -199,15 +212,33 @@ const cmdCheck = async (): Promise<void> => {
     console.error(formatFailure("specs dir", dirErrs));
   }
 
+  let bundleSizeChange: BundleSizeChange | undefined;
+  const bundleSize = await bundleSizePromise;
+  if (bundleSize?.errs.length) {
+    // Fully derived, so --write resolves anything the measurement could
+    // produce — there's no author-owned part needing a manual fix first, as a
+    // spec's goldens can have. A failed measurement has no `fresh` to write,
+    // and still reports.
+    if (write && bundleSize.fresh !== undefined) {
+      writeFileSync(BUNDLE_SIZE_PATH, bundleSize.fresh);
+      console.log("wrote bundleSize.yaml");
+      bundleSizeChange = { before: bundleSize.before, after: bundleSize.after! };
+    } else {
+      failed++;
+      console.error(formatFailure("bundleSize.yaml", bundleSize.errs));
+    }
+  }
+
   const results = await Promise.all(
-    targets(rest.filter((a) => a !== WRITE_FLAG)).map(async (file) => {
+    targets(ids).map(async (file) => {
       const id = specId(file);
       let raw = readFileSync(file, "utf8");
       let obj = readSpec(file);
       // Set when --write's own recompute succeeds, so the checkSpec call
-      // below can reuse it instead of redoing the same esbuild+TS-
-      // introspection work purely to re-derive what's already known.
+      // below can reuse it instead of redoing the same TS-introspection work
+      // purely to re-derive what's already known.
       let knownFresh: string | undefined;
+      let change: SpecChange | undefined;
 
       if (write) {
         let schema: any;
@@ -223,9 +254,11 @@ const cmdCheck = async (): Promise<void> => {
         if (evaluated) {
           try {
             if (identityViolations(schema, obj).length === 0) {
-              knownFresh = serialize(await recomputeGoldens(obj));
+              const recomputed = await recomputeGoldens(obj);
+              knownFresh = serialize(recomputed);
               if (knownFresh !== raw) {
                 writeFileSync(file, knownFresh);
+                change = { id, before: obj, after: recomputed };
                 raw = knownFresh;
                 obj = readSpec(file);
                 console.log(`wrote ${id}`);
@@ -240,7 +273,7 @@ const cmdCheck = async (): Promise<void> => {
       }
 
       const errs = await checkSpec(id, obj, raw, knownFresh);
-      return { id, errs };
+      return { id, errs, change };
     }),
   );
 
@@ -252,6 +285,15 @@ const cmdCheck = async (): Promise<void> => {
       console.log(green(`✓ ${id}`));
     }
   }
+
+  // What moved, ranked — so the metrics ratchet can be read off the run itself
+  // instead of by opening every file that was rewritten.
+  const summary = summarize(
+    results.flatMap((r) => (r.change ? [r.change] : [])),
+    bundleSizeChange,
+  );
+  if (summary) console.log(`\n${summary}`);
+
   if (failed) fail(`${failed} check(s) failed`);
 };
 
