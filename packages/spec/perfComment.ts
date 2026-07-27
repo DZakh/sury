@@ -25,7 +25,11 @@ export const renderComment = (report: string, artifactUrl?: string, heading = "S
     const m = l.match(ROW);
     return m ? [{ name: m[1]!, pct: m[2]!, dir: m[3]! }] : [];
   });
-  const footer = lines.filter((l) => /advisory only$|^ {2}(new|could not measure)/.test(l.trim()) || /^ {2}node /.test(l));
+  const footer = lines.filter(
+    (l) =>
+      /advisory only$|^ {2}(new|could not measure|behavior changed)/.test(l.trim()) ||
+      /^ {2}node /.test(l),
+  );
 
   const out = [`### ${heading}`, ""];
   out.push(

@@ -177,6 +177,8 @@ export const renderPerformance = (perf: Perf): string => {
   }
 
   if (perf.added.length) lines.push(`  new: ${perf.added.join(", ")}`);
+  for (const o of perf.outcomeChanged)
+    lines.push(`  behavior changed, not timed — ${o.name}: ${o.note}`);
   for (const e of perf.errors) lines.push(`  could not measure ${e.name}: ${e.error}`);
   lines.push(
     `  ${perf.unchanged} unchanged · ${perf.skippedConstants} constant-schema targets skipped · advisory only`,

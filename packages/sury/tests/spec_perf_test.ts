@@ -96,6 +96,7 @@ const perf = (changed: Perf["changed"], over: Partial<Perf> = {}): Perf => ({
   added: [],
   skippedConstants: 13,
   errors: [],
+  outcomeChanged: [],
   meta: "node 24.16.0 · linux x64 · 4 cores · 8×2 rounds · confirmed",
   ...over,
 });
@@ -147,6 +148,24 @@ test("renderPerformance names the direction, since the sign alone doesn't", () =
   expect(out).toContain("+12.4% slower");
   expect(out).toContain("-9.9% faster");
   expect(out).toContain("+% slower than baseline, -% faster");
+});
+
+test("renderPerformance reports an accept/reject flip as behavior, not as a timing", () => {
+  // Timing a returned value against a thrown error reports the correctness fix
+  // that started rejecting the input as several hundred times "slower" — which
+  // is how `optional-object · parse · array-is-not-an-object` landed in a PR
+  // comment at +78548%.
+  const out = renderPerformance(
+    perf([], {
+      outcomeChanged: [
+        { name: "optional-object · parse · array-is-not-an-object", note: "baseline accepted it, now rejected" },
+      ],
+    }),
+  );
+  expect(out).toContain(
+    "behavior changed, not timed — optional-object · parse · array-is-not-an-object: baseline accepted it, now rejected",
+  );
+  expect(out).not.toContain("%slower");
 });
 
 test("renderPerformance reports a target the baseline cannot run as new, not as a failure", () => {
