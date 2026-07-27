@@ -59,7 +59,9 @@ import { getOutputSchema, nestedLoc, never_, parse, typeCheckCond } from "./pars
 
 // Every tag bit set — the acceptance mask of a case that narrows nothing, and of
 // a source that can hold any runtime type.
-const unionAnyTag = 65535;
+// Exported only for the guard test that pins it to the fold of `tagFlags` — a
+// 17th tag added without widening this would silently corrupt fallback elision.
+export const unionAnyTag = 65535;
 // Tags with no `typeof`-style discriminant: they can't own a shared group
 // narrow, so each such variant dispatches inside its own decoded body.
 const unionOpaqueTags =
@@ -88,10 +90,22 @@ const unionIsTransparent = (schema: Internal): boolean =>
   schema.inputRefiner === U;
 
 // Grouping key: variants sharing it can share one emitted type narrow.
-const unionKey = (schema: Internal): string =>
-  flagUnsafeHas(tagFlags[schema.type]!, tagFlagInstance)
-    ? (schema.class as { name: string })["name"]
-    : schema.type;
+// Grouping key. Instance variants key by class *identity*, not `class.name`:
+// two distinct classes routinely share a name (any minified bundle), and a
+// shared key would put the second class under the first one's `instanceof`
+// narrow — where its case decodes to nothing and every instance of it gets
+// rejected by a check it can never pass. `@` can't collide with a tag name.
+const unionKey = (schema: Internal, classIds: Map<unknown, number>): string => {
+  if (!flagUnsafeHas(tagFlags[schema.type]!, tagFlagInstance)) {
+    return schema.type;
+  }
+  let id = classIds.get(schema.class);
+  if (id === U) {
+    id = classIds.size;
+    classIds.set(schema.class, id);
+  }
+  return "@" + id;
+};
 
 // NaN has to be tested before number, and instance/array before object — their
 // narrows overlap and the more specific one has to win.
@@ -607,8 +621,9 @@ export const unionDecoder: Builder = (input: Val) => {
   const soleTag = flagUnsafeHas(tagFlags[source.type]!, tagFlagUnknown);
   const keyAt: string[] = [];
   const tagCount: Record<string, number> = Object.create(null);
+  const classIds = new Map<unknown, number>();
   for (let idx = 0; idx < variants.length; idx++) {
-    const key = unionKey(variants[idx]!);
+    const key = unionKey(variants[idx]!, classIds);
     keyAt.push(key);
     tagCount[key] = (tagCount[key] || 0) + 1;
   }

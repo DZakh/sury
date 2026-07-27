@@ -38,8 +38,12 @@ Schema modifiers (`.with(S.refine, …)`, etc.) apply to the **output** type. `i
 (the four conversion rules, the rejections, universal fallback); this section is
 *how*.
 
-`unionDecoder` runs three passes over the variants:
+`unionDecoder` runs four passes over the variants:
 
+0. **Keys.** Each variant's grouping key (its tag; class *identity* for
+   instances — never `class.name`, which collides after minification) and how
+   many variants share it, so pass 1 can skip the shared narrow for a tag
+   carried by exactly one variant of an `unknown` source.
 1. **Forward — group.** Rejections that need only types fire first (rule 2's
    partial match; rules 3/4 via `unionResolve` when the union carries its own
    `.to`). Then each variant joins a group keyed by its tag: a group owns one
