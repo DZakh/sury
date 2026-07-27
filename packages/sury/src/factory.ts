@@ -121,6 +121,7 @@ const proxifyShapedSchema = (schema: Internal, from: string[], fromFlattened?: n
   } as ProxyHandler<object>);
 }
 
+// @__NO_SIDE_EFFECTS__
 export const schemaShape = <Value>(schema: Internal, definer: (value: unknown) => unknown): Value => {
   return updateOutput<Value>(schema, (mut) => {
     const fromProxy = proxifyShapedSchema(mut, inputFrom);
@@ -214,6 +215,7 @@ function schemaNested(this: AdvancedObjectCtx & Record<string, unknown>, fieldNa
   }
 }
 
+// @__NO_SIDE_EFFECTS__
 export const schemaObject = (
   definer: ((ctx: AdvancedObjectCtx) => unknown) | Record<string, unknown>
 ): Internal => {
@@ -283,6 +285,7 @@ export const schemaObject = (
   return mut;
 }
 
+// @__NO_SIDE_EFFECTS__
 export const schemaTuple = (
   definer: ((ctx: TupleCtx) => unknown) | unknown[]
 ): Internal => {
@@ -671,6 +674,7 @@ const traverseDefinition = (
 const schemaCtx: SchemaCtx = {
   m: (schema) => schema,
 };
+// @__NO_SIDE_EFFECTS__
 export const schemaDefiner = (definer: (ctx: unknown) => unknown): Internal => {
   return definitionToSchema(definer(schemaCtx));
 }
@@ -678,12 +682,14 @@ export const schemaDefiner = (definer: (ctx: unknown) => unknown): Internal => {
 // Identifier alias (not a `schemaDefiner` property read) so esbuild can
 // tree-shake: a property-read initializer is treated as possibly
 // side-effectful and would retain the whole schema machinery in every bundle.
+// @__NO_SIDE_EFFECTS__
 export const schemaFactory = (definition: unknown): Internal => {
   return definitionToSchema(definition);
 }
 
 // PORT-NOTE: `enum` is a reserved word in TS — defined as `enum_` and
 // re-exported under the name `enum` (legal as an export alias).
+// @__NO_SIDE_EFFECTS__
 const enum_ = (values: unknown[]): Internal => {
   return unionFactory(values.map(schemaFactory));
 }

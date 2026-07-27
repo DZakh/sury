@@ -40,24 +40,28 @@ import { unionFactory } from "./union";
 // runtime; `unionToKey` was `%identity` and is dropped.
 export type MetadataId = string;
 
+// @__NO_SIDE_EFFECTS__
 export const Metadata_Id_make = (namespace: string, name: string): MetadataId => {
   return `m:${namespace}:${name}`;
 };
 export const Metadata_Id_internal = (name: string): MetadataId => {
   return `m:${name}`;
 };
+// @__NO_SIDE_EFFECTS__
 export const Metadata_get = (schema: Internal, id: MetadataId): unknown => {
   return (schema as unknown as Record<string, unknown>)[id];
 };
 export const Metadata_setInPlace = (schema: Internal, id: MetadataId, metadata: unknown): void => {
   (schema as unknown as Record<string, unknown>)[id] = metadata;
 };
+// @__NO_SIDE_EFFECTS__
 export const Metadata_set = (schema: Internal, id: MetadataId, metadata: unknown): Internal => {
   const mut = copySchema(schema);
   Metadata_setInPlace(mut, id, metadata);
   return mut;
 };
 
+// @__NO_SIDE_EFFECTS__
 export const noValidation = (schema: Internal, value: boolean): Internal => {
   const mut = copySchema(schema);
 
@@ -86,6 +90,7 @@ export const internalRefine = (
   });
 }
 
+// @__NO_SIDE_EFFECTS__
 export const refine = (
   schema: Internal,
   refineCheck: (value: unknown) => boolean,
@@ -155,6 +160,7 @@ export type TransformDefinition<Input = unknown, Output = unknown> = {
 // PORT-NOTE: `s<'output>` (the effect ctx passed to the transformer) is what
 // `B_effectCtx` returns: `{ fail(message, path?): never }`.
 
+// @__NO_SIDE_EFFECTS__
 export const transform = (
   schema: Internal,
   transformer: (ctx: EffectCtx) => TransformDefinition
@@ -201,6 +207,7 @@ export const transform = (
   });
 }
 
+// @__NO_SIDE_EFFECTS__
 export const nullAsUnit = (): Internal => {
   // PORT-NOTE: local `s` renamed to `schema` — `s` is the module-level error
   // identity symbol in this file.
@@ -298,8 +305,10 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
   });
 };
 
+// @__NO_SIDE_EFFECTS__
 export const Option_getOr = (schema: Internal, defaultValue: unknown): Internal =>
   Option_getWithDefault(schema, { type: "value", value: defaultValue });
+// @__NO_SIDE_EFFECTS__
 export const Option_getOrWith = (schema: Internal, defaultCb: () => unknown): Internal =>
   Option_getWithDefault(schema, { type: "callback", callback: defaultCb });
 
@@ -349,18 +358,22 @@ export const Object_setAdditionalItems = (
   }
 };
 
+// @__NO_SIDE_EFFECTS__
 export const strip = (schema: Internal): Internal => {
   return Object_setAdditionalItems(schema, "strip", false);
 }
 
+// @__NO_SIDE_EFFECTS__
 export const deepStrip = (schema: Internal): Internal => {
   return Object_setAdditionalItems(schema, "strip", true);
 }
 
+// @__NO_SIDE_EFFECTS__
 export const strict = (schema: Internal): Internal => {
   return Object_setAdditionalItems(schema, "strict", false);
 }
 
+// @__NO_SIDE_EFFECTS__
 export const deepStrict = (schema: Internal): Internal => {
   return Object_setAdditionalItems(schema, "strict", true);
 }
@@ -380,6 +393,7 @@ export type Meta<Value> = {
 };
 
 // TODO: Better test reverse
+// @__NO_SIDE_EFFECTS__
 export const meta = <Value>(schema: Internal, data: Meta<Value>): Internal => {
   const mut = copySchema(schema);
   if (data.name !== U) {
@@ -424,6 +438,7 @@ export const meta = <Value>(schema: Internal, data: Meta<Value>): Internal => {
   return mut;
 }
 
+// @__NO_SIDE_EFFECTS__
 export const brand = (schema: Internal, id: string): Internal => {
   const mut = copySchema(schema);
   mut.name = id;

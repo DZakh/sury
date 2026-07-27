@@ -12,6 +12,46 @@ Tiebreaker: shortest *generated* code wins over shortest *library* code (runtime
 
 The implementation lives in `packages/sury/src/*.ts` — plain TypeScript, layered acyclically (base → builder → primitives → parse → union → composites → factory → modifiers → refinements → operations → advanced/\* → jsapi → jsonschema; only type-only imports may point "up", and `operations → jsonschema` is the one that does). `base.ts` is the bottom: the data model (`Internal`, `Val`, `Check`), the schema object and its prototype, tags, flags and paths, plus the `Builder`/`Encoder` aliases — merged into one module because they are mutually dependent by nature, and it has **no outgoing edge at all**, so anything may reach it. The split by concern is what each name says: `factory.ts` builds schemas, `modifiers.ts` takes a schema and returns a changed one (refine, transform, metadata, object modes, defaults), `refinements.ts` layers checks (and the string formats, which are the same idea with a canned predicate), `operations.ts` compiles a schema into a callable. `src/advanced/` holds one file per schema that nothing else builds on — `json`, `recursive`, `compactColumns`, `uint8Array`, `date`, `list` — so a schema with a decoder of its own is read on its own; `union` is *not* among them (six modules build on it, so it stays in the core). Two identity constants live in base rather than with their schema, because the modules that recognise them by name can't import them without a cycle: `defsPath` (`S.recursive`'s `$ref` prefix) and `jsonName`. `src/entry.ts` is the single public entry: it re-exports the curated JS/TS API under its documented names, creates the eager PURE-annotated schema constants, and exposes a minimal ReScript-binding surface (`$res_*`-named exports, only for APIs with no public-JS equivalent — `$res` because ReScript externals reject `~` in names). `scripts/pack.ts` bundles it to the gitignored `src/S.mjs` (`pnpm build:entry`); the checked-in `src/S.d.mts` → `S.d.ts` provides its types, and the publish step additionally emits a CJS `S.js` into the artifact for the require condition. `S.res` is the one ReScript module: public types plus `@module("sury") external` bindings resolved through the package's own "." export, so ReScript and JS share a single runtime instance. Where the ReScript API differs from JS only in argument shape, S.res binds the public JS export and adapts in ReScript (`refine`, `to`, `decoder`, `tuple1/2/3`, `parseOrThrow`, …) rather than adding a `$res_*` export. The former `module B` is flattened to `B_`-prefixed top-level functions (and `Literal.parse` → `Literal_parse`, etc.) so bundlers tree-shake each helper individually; keep new helpers flat for the same reason, and PURE-annotate any top-level call initializer. Prefer `const name = () => {}` arrows over `function` declarations (measurably smaller minified; `noopOperation` and the `this`-based `_var` family are the deliberate exceptions), and inline former ReScript intrinsics (`a | b`, `typeof x`) rather than wrapping them in helpers. `val`/`check`/`bGlobal` runtime field names stay short (`cp`, `hd`, `vc`, …) — property names survive minification, so every character ships.
 
+## Tree-shaking
+
+Two different questions, with two different answers.
+
+*How much of Sury does a consumer's bundle carry?* `bundleSize.yaml` measures
+that, one row per public export. It is bounded from below by the eager
+`Object.defineProperty(schemaPrototype, "~standard", …)` in `operations.ts`: an
+unconditional top-level mutation no bundler can drop, whose getter reaches
+`getDecoder` → `compileDecoder` → `parse` → the whole builder. That is why every
+row starts at ~3.5 kB even for `S.unknown`. Making Standard Schema opt-in the
+way `enableStandardJSONSchema` already is would cut a schema-only import to
+~0.7 kB; it is a breaking API change, so it hasn't been made.
+
+*How much of the **consumer's own** schema code survives?* That's what
+`@__NO_SIDE_EFFECTS__` on every public factory buys: without it a shared
+`schemas.ts` is a wall of unanalyzable calls, and importing one schema from it
+retains all of them plus everything they reach. Rules:
+
+- Every public export that is a pure factory carries `// @__NO_SIDE_EFFECTS__`
+  on the line above its declaration. The exceptions are the exports whose whole
+  point is the effect — `assert`, `is`, `safe`, `safeAsync`, `global`,
+  `enableStandardJSONSchema`, `$res_assertAsyncOrThrow`, `$res_setExnId`.
+- Never publish a factory through an alias (`export const object = schemaObject`).
+  The annotation counts only on the declaration that *is* the function; an alias
+  makes the public name a variable holding one, and the annotation is lost.
+  Re-export instead (`export { schemaObject as object } from "./factory"`).
+- `tests/treeShaking_test.ts` asserts both of these against the emitted
+  `src/S.mjs`. `bundleSize.yaml` cannot: it measures with esbuild, which honors
+  `@__NO_SIDE_EFFECTS__` only within a single file, so the annotations are
+  invisible to it (Rollup ≥ 4 and Rolldown do honor them across the package
+  boundary; that's where the win lands).
+- `schema.with(S.meta, …)` is a method call on an opaque receiver — no bundler
+  can drop it. The functional spelling `S.meta(schema, …)` is equivalent and
+  does shake.
+- `package.json`'s `sideEffects` lists `S.res.mjs`/`S.res.js` rather than being
+  `false`: those carry a top-level `$res_setExnId(Exn)` that registers the
+  ReScript exception identity, and a blanket `false` lets a bundler drop it
+  while keeping the bindings around it — `try { … } catch { S.Raised }` then
+  stops matching. Everything else in the package is side-effect-free.
+
 ## Comments
 
 - Default: no comment.

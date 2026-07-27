@@ -228,6 +228,7 @@ export const getOutputSchema = (schema: Internal): Internal => {
     return schema;
   }
 }
+// @__NO_SIDE_EFFECTS__
 export const reverse = (schema: Internal): Internal => {
   const schemaRecord = schema as unknown as Record<string, Internal>;
   if (reversedKey in schemaRecord) {
@@ -337,6 +338,7 @@ export const reverse = (schema: Internal): Internal => {
 // getDecoder(s1, s2[, s3][, flag]) with any number of schemas plus an
 // optional trailing flag — the body reads `arguments` directly; the declared
 // rest param (unused, hence `_`) exists only to make that call shape typecheck.
+// @__NO_SIDE_EFFECTS__
 export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
   const args = arguments as unknown as unknown[];
   let idx = 0;
@@ -434,6 +436,7 @@ export const instanceDecoder: Builder = (input: Val) => {
   }
 };
 
+// @__NO_SIDE_EFFECTS__
 export const instance = (class_: unknown): Internal => {
   const mut = baseSchema(instanceTag, true);
   mut.class = class_;

@@ -41,14 +41,17 @@ export const pathFromInlinedLocation = (inlinedLocation: string): Path => {
   return `[${inlinedLocation}]`;
 }
 
+// @__NO_SIDE_EFFECTS__
 export const pathFromLocation = (location: string): Path => {
   return `[${inlinedValueFromString(location)}]`;
 }
 
+// @__NO_SIDE_EFFECTS__
 export const pathToArray = (path: Path): string[] => {
   return path === "" ? [] : (JSON.parse(path.split(`"]["`).join(`","`)) as string[]);
 }
 
+// @__NO_SIDE_EFFECTS__
 export const pathFromArray = (array: string[]): Path => {
   switch (array.length) {
     case 0:
@@ -60,6 +63,7 @@ export const pathFromArray = (array: string[]): Path => {
   }
 }
 
+// @__NO_SIDE_EFFECTS__
 export const pathConcat = (path: Path, concatedPath: Path): Path => {
   return path + concatedPath;
 }
@@ -431,6 +435,7 @@ export const stringify = (unknown: unknown): string => {
   }
 }
 
+// @__NO_SIDE_EFFECTS__
 export const toExpression = (schema: Internal): string => {
   if (schema.name !== U) {
     return schema.name;

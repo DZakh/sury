@@ -27,6 +27,7 @@ const listToArray = (list: RescriptList): unknown[] => {
   return array;
 }
 
+// @__NO_SIDE_EFFECTS__
 export const list = (schema: Internal): Internal => {
   return transform(array(schema), (_: unknown) => ({
     p: (array: unknown) => listFromArray(array as unknown[]),

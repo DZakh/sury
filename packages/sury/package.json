@@ -30,6 +30,10 @@
   "license": "MIT",
   "author": "Dmitry Zakharov <dzakh.dev@gmail.com>",
   "type": "module",
+  "sideEffects": [
+    "./src/S.res.mjs",
+    "./src/S.res.js"
+  ],
   "main": "./src/S.mjs",
   "module": "./src/S.mjs",
   "types": "./src/S.d.ts",

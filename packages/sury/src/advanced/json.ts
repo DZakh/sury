@@ -402,6 +402,7 @@ export const jsonString = /* @__PURE__ */ (() => {
     });
 })();
 
+// @__NO_SIDE_EFFECTS__
 export const jsonStringWithSpace = (space: number): Internal => {
   const mut = copySchema(jsonString());
   mut.space = space;
