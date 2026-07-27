@@ -203,11 +203,11 @@ type UnionCtx = {
   rethrow: () => string;
 };
 
-// Whether generated code can raise. Every Sury throw goes through an embedded
-// helper (`e[N](…)`) or a bare `throw`, so their absence proves the body only
-// computes — no `try` is needed to fall back from it.
-const unionCanThrow = (code: string): boolean =>
-  code.indexOf("e[") !== -1 || code.indexOf("throw") !== -1;
+// Whether a stretch of emitted code can raise is read off `g.t` (see
+// `B_markThrow`) by bracketing the emission, not by inspecting the string it
+// produced: `e[N](…)` is the accessor for *every* embed, so a body holding
+// nothing but a total transform was wrapped in a `try` it could never need, and
+// a raise spelled some other way would have silently lost its fallback.
 
 // Emits a linear fallback chain: every alternative that fails hands the value to
 // the next one, and the last failure raises the aggregated union error. An
@@ -516,6 +516,10 @@ type UnionGroup = {
   items: Internal[];
   // Definition index of the last variant added, for merge legality.
   last: number;
+  // Whether the shared narrow's own code can raise. Captured here because the
+  // narrow is *built* in pass 1 but *emitted* in pass 3, so a mark taken around
+  // the emission would miss it.
+  nt: boolean;
 };
 
 export const unionDecoder: Builder = (input: Val) => {
@@ -695,6 +699,7 @@ export const unionDecoder: Builder = (input: Val) => {
 
     const narrowInput = B_scope(input);
     narrowInput.io = false;
+    const narrowMark = input.g.t;
     let narrowVal: Val;
     let mask: number;
     if (flagUnsafeHas(tagFlag, unionOpaqueTags)) {
@@ -731,6 +736,7 @@ export const unionDecoder: Builder = (input: Val) => {
       m: mask,
       items: [variant],
       last: idx,
+      nt: input.g.t !== narrowMark,
     };
     openByKey[key] = group;
     if (unionIsPriority(tagFlag, seenKeys)) {
@@ -802,6 +808,9 @@ export const unionDecoder: Builder = (input: Val) => {
       caseInput.io = false;
       caseInput.e = variant;
 
+      // Bracket everything this case emits — its decode and its merge below.
+      const caseMark = input.g.t;
+
       let caseOut: Val;
       if (salvage) {
         // Sury's own possibly-absent read: a variant with no decoder to the
@@ -840,7 +849,7 @@ export const unionDecoder: Builder = (input: Val) => {
         c: cond.c,
         b: body,
         q: cond,
-        th: unionCanThrow(body),
+        th: input.g.t !== caseMark,
         ft: false,
         df: false,
         n: needsTerminator,
@@ -888,6 +897,11 @@ export const unionDecoder: Builder = (input: Val) => {
     const groupCond: HoistCond = { c: "", h: [] };
     let groupBody: string;
     let bare = false;
+    // The cases are already emitted, so their own `th` carries over; this mark
+    // covers what the group adds on top — its shared narrow, whose raises were
+    // built back in pass 1 but only land here, and the chain around them.
+    const groupMark = input.g.t;
+    let groupThrows: boolean;
     if (cases.every((c) => c.b === "")) {
       // Every case accepts with no code of its own, so the group is pure
       // validation: fold the discriminants into its own narrow and let them
@@ -917,6 +931,7 @@ export const unionDecoder: Builder = (input: Val) => {
         }
       }
       groupBody = B_merge(group.nv, groupCond);
+      groupThrows = group.nt || input.g.t !== groupMark;
     } else {
       const narrowCode = B_merge(group.nv, groupCond);
       const only = cases.length === 1 ? cases[0]! : U;
@@ -928,10 +943,13 @@ export const unionDecoder: Builder = (input: Val) => {
         groupCond.h = groupCond.h.concat(only.q.h);
         groupBody = only.b;
         bare = only.n;
+        groupThrows = group.nt || only.th || input.g.t !== groupMark;
       } else {
         const inner = unionEmitChain(cases, ctx);
         bare = ctx.b;
         groupBody = narrowCode + inner;
+        groupThrows =
+          group.nt || input.g.t !== groupMark || cases.some((c) => c.th);
       }
     }
 
@@ -939,7 +957,7 @@ export const unionDecoder: Builder = (input: Val) => {
       c: groupCond.c,
       b: groupBody,
       q: groupCond,
-      th: unionCanThrow(groupBody),
+      th: groupThrows,
       ft: groupFallsThrough,
       df: false,
       n: bare,

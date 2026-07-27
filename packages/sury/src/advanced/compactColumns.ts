@@ -21,6 +21,7 @@ import {
   _var,
   B_asyncVal,
   B_markOutput,
+  B_markThrow,
   B_merge,
   B_next,
   B_refine,
@@ -214,6 +215,7 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
         wrappedBody = rowBody;
       } else {
         const errorVar = B_varWithoutAllocation(input.g);
+        B_markThrow(input);
         wrappedBody = `try{${rowBody}}catch(${errorVar}){${errorVar}.path='["'+${iteratorVar}+'"]'+${errorVar}.path;throw ${errorVar}}`;
       }
       output.cp =
@@ -276,6 +278,7 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
       let wrappedBody: string;
       if (needsPerFieldTransform && perFieldCode !== "") {
         const errorVar = B_varWithoutAllocation(input.g);
+        B_markThrow(input);
         wrappedBody = `try{${loopBody}}catch(${errorVar}){${errorVar}.path='["'+${iteratorVar}+'"]'+${errorVar}.path;throw ${errorVar}}`;
       } else {
         wrappedBody = loopBody;

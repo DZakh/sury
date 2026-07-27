@@ -1,9 +1,11 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: "S.union([S.schema({ a: S.string }), S.number])"
+  schema: "S.union([{ a: S.string }, S.number])"
+  aliases:
+    - "S.union([S.schema({ a: S.string }), S.number])"
   input: "number | { a: string; }"
   output: "number | { a: string; }"
-  instantiations: 2631
+  instantiations: 1727
 vs:
   zod: "z.union([z.object({ a: z.string() }), z.number()])"
 jsonSchema:
