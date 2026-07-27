@@ -1661,24 +1661,26 @@ test("Compiled operations stay per-operation and per-global-config", (t) => {
   t.expect(standard.validate(NaN)).toEqual(nanRejected);
 });
 
-// `~standard.validate` holds its decoder across calls, and compiling one is
-// exactly what a rejected conversion refuses to do — so the failure has to be
-// reached again on every call, not once. Cached ahead of the compile it would
-// leave nothing to call, and every request after the first would get a
-// TypeError out of `validate` in place of the issue it reports today.
-test("A conversion rejected at operation creation reports the same issue on every validate", (t) => {
+// A conversion rejected at operation creation fails for every input, so it
+// isn't a fact about the value being validated — it's a bug in the schema, and
+// `issues` is the channel a consumer renders to the person filling in the
+// form. It throws to the developer instead, and keeps throwing: `validate`
+// holds its decoder across calls, and a compile that never produced one must
+// not leave the cache claiming to be current.
+test("A conversion rejected at operation creation throws from validate, on every call", (t) => {
   const standard = S.boolean.with(S.to, S.number)["~standard"];
-  const rejected = {
-    issues: [
-      {
-        message: "Can't decode boolean to number. Use S.to to define a custom decoder",
-        path: undefined,
-      },
-    ],
-  };
-  t.expect(standard.validate(true)).toEqual(rejected);
-  t.expect(standard.validate(true)).toEqual(rejected);
-  t.expect(standard.validate(true)).toEqual(rejected);
+  const message = "Can't decode boolean to number. Use S.to to define a custom decoder";
+  for (let i = 0; i < 3; i++) {
+    t.expect(() => standard.validate(true)).toThrow(message);
+  }
+
+  // Only the compile is promoted: an input that fails validation is still a
+  // result, not an exception.
+  const schema = S.schema({ id: S.string });
+  t.expect(schema["~standard"].validate({ id: "a" })).toEqual({ value: { id: "a" } });
+  t.expect(schema["~standard"].validate({ id: 1 })).toEqual({
+    issues: [{ message: "Expected string, received 1", path: ["id"] }],
+  });
 });
 
 test("Standard JSON Schema interface support", (t) => {

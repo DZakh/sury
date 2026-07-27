@@ -196,16 +196,19 @@ Object.defineProperty(schemaPrototype, "~standard", {
       version: 1,
       vendor,
       validate: (input: unknown): StandardResult => {
+        // Outside the try on purpose. A conversion rejected at operation
+        // creation is a bug in the schema, not a fact about this input: it
+        // fails for every value, and an `issues` entry is what a consumer
+        // renders to the person filling in the form — so reporting it there
+        // puts "Use S.to to define a custom decoder" in front of the wrong
+        // audience, and hides it from the developer whose schema it is.
+        // Thrown instead, and thrown again on every call, since `decoderFlag`
+        // is only committed once there is a decoder to commit it for.
+        if (decoderFlag !== globalConfig.f) {
+          decoder = getDecoder(unknown, schema) as (input: unknown) => unknown;
+          decoderFlag = globalConfig.f;
+        }
         try {
-          if (decoderFlag !== globalConfig.f) {
-            // Committed only once getDecoder returns: it throws for a schema
-            // whose operation is rejected at creation, and a flag committed
-            // ahead of it would leave `decoder` undefined while claiming to be
-            // current — turning every call after the first into a TypeError
-            // instead of the same Sury issue.
-            decoder = getDecoder(unknown, schema) as (input: unknown) => unknown;
-            decoderFlag = globalConfig.f;
-          }
           return {
             value: decoder(input),
           };
