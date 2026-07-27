@@ -2423,6 +2423,86 @@ test("fromJSONSchema", (t) => {
   );
 });
 
+test("fromJSONSchema: assertion keywords bind without an explicit `type`", (t) => {
+  const parse = (js: object) => S.parser(S.fromJSONSchema(js as never)) as (d: unknown) => unknown;
+
+  const obj = parse({ properties: { bar: { type: "integer" } }, required: ["bar"] });
+  t.expect(obj({ bar: 2 })).toEqual({ bar: 2 });
+  t.expect(S.safe(() => obj({ bar: "x" })).error).toBeDefined();
+  t.expect(S.safe(() => obj({})).error).toBeDefined();
+
+  const min = parse({ minimum: 5 });
+  t.expect(min(7)).toBe(7);
+  t.expect(S.safe(() => min(3)).error).toBeDefined();
+  // Vacuous off-type: `minimum` says nothing about a string.
+  t.expect(min("abc")).toBe("abc");
+
+  const minLength = parse({ minLength: 3 });
+  t.expect(minLength("abcd")).toBe("abcd");
+  t.expect(S.safe(() => minLength("a")).error).toBeDefined();
+  t.expect(minLength(1)).toBe(1);
+});
+
+test("fromJSONSchema: composition keywords constrain in addition to the base shape", (t) => {
+  const schema = S.fromJSONSchema({
+    type: "object",
+    properties: { bar: { type: "integer" } },
+    required: ["bar"],
+    allOf: [{ properties: { foo: { type: "string" } }, required: ["foo"] }],
+  } as never);
+  const parse = S.parser(schema) as (d: unknown) => unknown;
+
+  // The allOf branch sees the whole document, while the base object schema
+  // still strips what it doesn't declare — so `foo` validates, then drops.
+  t.expect(parse({ bar: 2, foo: "x" })).toEqual({ bar: 2 });
+  // Fails the base shape.
+  t.expect(S.safe(() => parse({ bar: "no", foo: "x" })).error).toBeDefined();
+  // Fails only the allOf branch — the base shape alone used to win.
+  t.expect(S.safe(() => parse({ bar: 2 })).error).toBeDefined();
+});
+
+test("fromJSONSchema: oneOf counts matches, `not` and if/then/else layer on", (t) => {
+  const one = S.parser(
+    S.fromJSONSchema({ oneOf: [{ type: "number" }, { type: "string" }] } as never),
+  ) as (d: unknown) => unknown;
+  t.expect(one(1)).toBe(1);
+  t.expect(S.safe(() => one(true)).error).toBeDefined();
+
+  const not = S.parser(S.fromJSONSchema({ not: { type: "string" } } as never)) as (
+    d: unknown,
+  ) => unknown;
+  t.expect(not(1)).toBe(1);
+  t.expect(S.safe(() => not("x")).error).toBeDefined();
+
+  // `then`/`else` are each optional and default to "always passes".
+  const ite = S.parser(
+    S.fromJSONSchema({ if: { type: "number" }, then: { minimum: 5 } } as never),
+  ) as (d: unknown) => unknown;
+  t.expect(ite(7)).toBe(7);
+  t.expect(ite("anything")).toBe("anything");
+  t.expect(S.safe(() => ite(3)).error).toBeDefined();
+});
+
+test("fromJSONSchema: an unmodelled assertion keyword fails at creation", (t) => {
+  // Ignoring it would widen the schema — the validator would accept data the
+  // author wrote the keyword to reject — so this must not silently succeed.
+  const result = S.safe(() => S.fromJSONSchema({ type: "number", multipleOf: 2 } as never));
+  t.expect(result.error?.message).toContain("Unsupported JSON Schema keyword: multipleOf");
+
+  t.expect(
+    S.safe(() => S.fromJSONSchema({ type: "array", uniqueItems: true } as never)).error?.message,
+  ).toContain("uniqueItems");
+});
+
+test("fromJSONSchema: exclusiveMaximum bounds the maximum, not the minimum", (t) => {
+  const parse = S.parser(
+    S.fromJSONSchema({ type: "integer", exclusiveMaximum: 5 } as never),
+  ) as (d: unknown) => unknown;
+  t.expect(parse(4)).toBe(4);
+  t.expect(S.safe(() => parse(5)).error).toBeDefined();
+  t.expect(S.safe(() => parse(9)).error).toBeDefined();
+});
+
 test("Compile types", async (t) => {
   const schema = S.union([
     S.string,
