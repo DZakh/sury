@@ -70,7 +70,7 @@ module CknittelBugReport2 = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{typeof i==="object"&&i||e[4](i);let v0=i["test"];if(typeof v0==="object"&&v0&&!Array.isArray(v0)){if(v0["type"]==="a"){let v1=v0["x"];typeof v1==="number"&&v1<=2147483647&&v1>=-2147483648&&v1%1===0||e[0](v1);v0={"TAG":"A","_0":{"x":v1,},}}else if(v0["type"]==="b"){let v2=v0["y"];typeof v2==="string"||e[1](v2);v0={"TAG":"B","_0":{"y":v2,},}}else{e[2](v0)}}else if(!(v0===void 0)){e[3](v0)}return {"test":v0,}}`,
+      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["test"];if(typeof v0==="object"&&v0&&!Array.isArray(v0)){if(v0["type"]==="a"){let v1=v0["x"];typeof v1==="number"&&v1<=2147483647&&v1>=-2147483648&&v1%1===0||e[0](v1);v0={"TAG":"A","_0":{"x":v1,},}}else if(v0["type"]==="b"){let v2=v0["y"];typeof v2==="string"||e[1](v2);v0={"TAG":"B","_0":{"y":v2,},}}else{e[2](v0)}}else if(!(v0===void 0)){e[3](v0)}return {"test":v0,}}`,
     )
 
     t->Assert.deepEqual(S.decodeOrThrow("{}", ~from=S.jsonString, ~to=schema), {test: None})
@@ -96,7 +96,7 @@ module CknittelBugReport2 = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["statusCode"];typeof v0==="object"&&v0&&v0["kind"]==="ok"||e[0](v0);i={"TAG":"Ok","_0":void 0,}}catch(e0){try{let v1=i["statusCode"];typeof v1==="object"&&v1&&v1["kind"]==="serviceError"||e[3](v1);let v2=v1["serviceCode"],v3=v1["text"];typeof v2==="string"||e[1](v2);typeof v3==="string"||e[2](v3);i={"TAG":"Error","_0":{"serviceCode":v2,"text":v3,},}}catch(e1){e[4](i,e0,e1)}}}else{e[5](i)}return i}`,
+      `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["statusCode"];typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0["kind"]==="ok"||e[0](v0);i={"TAG":"Ok","_0":void 0,}}catch(e0){e[4](e0);try{let v1=i["statusCode"];typeof v1==="object"&&v1&&!Array.isArray(v1)&&v1["kind"]==="serviceError"||e[3](v1);let v2=v1["serviceCode"],v3=v1["text"];typeof v2==="string"||e[1](v2);typeof v3==="string"||e[2](v3);i={"TAG":"Error","_0":{"serviceCode":v2,"text":v3,},}}catch(e1){e[4](e1);e[5](i,e0,e1)}}}else{e[6](i)}return i}`,
     )
 
     t->Assert.deepEqual(S.decodeOrThrow(`{"statusCode": {"kind": "ok"}}`, ~from=S.jsonString, ~to=schema), Ok())
