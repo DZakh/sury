@@ -1683,6 +1683,33 @@ test("A conversion rejected at operation creation throws from validate, on every
   });
 });
 
+// `S.is` makes the same split, for the same reason: `false` is an answer about
+// the value, and a schema with no compilable operation has no answer to give.
+test("A conversion rejected at operation creation throws from S.is, rather than reading as false", (t) => {
+  const rejected = S.boolean.with(S.to, S.number);
+  const message = "Can't decode boolean to number. Use S.to to define a custom decoder";
+  t.expect(() => S.is(rejected, true)).toThrow(message);
+  t.expect(() => S.is(rejected, true)).toThrow(message);
+  t.expect(() => S.is(true, rejected)).toThrow(message);
+
+  const schema = S.schema({ id: S.string });
+  t.expect(S.is(schema, { id: "a" })).toBe(true);
+  t.expect(S.is(schema, { id: 1 })).toBe(false);
+  // Both arg orders, and the falsy-data guard that keeps `null`/`undefined`
+  // out of the schema slot.
+  t.expect(S.is({ id: "a" }, schema)).toBe(true);
+  t.expect(S.is(schema, null)).toBe(false);
+  t.expect(S.is(null, schema)).toBe(false);
+  t.expect(S.is(schema, undefined)).toBe(false);
+
+  // Only a Sury validation failure becomes `false` — a user refinement that
+  // throws something else still propagates.
+  const boom = S.string.with(S.refine, () => {
+    throw new RangeError("boom");
+  });
+  t.expect(() => S.is(boom, "x")).toThrow("boom");
+});
+
 test("Standard JSON Schema interface support", (t) => {
   const schema = S.schema({ foo: S.to(S.string, S.number) });
   const standard = schema["~standard"];

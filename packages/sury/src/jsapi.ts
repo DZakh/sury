@@ -22,20 +22,31 @@ export const js_encoder = (...args: unknown[]) => getDecoder(...(args as Interna
 export const js_asyncEncoder = (...args: unknown[]) =>
   getDecoder(...(args as Internal[]).map(reverse), 1);
 
-// Accepts both `(schema, data)` and `(data, schema)` arg orders. We tell them
-// apart by the Standard Schema marker on a schema object. The truthiness guard
-// keeps `null`/`undefined` data from throwing on the marker access, routing it
-// to the data slot so validation fails with a proper Sury error.
+// `assert` and `is` both accept `(schema, data)` and `(data, schema)`. We tell
+// them apart by the Standard Schema marker on a schema object; the truthiness
+// guard keeps `null`/`undefined` data from throwing on the marker access,
+// routing it to the data slot so validation fails with a proper Sury error.
+// Shared because that guard is the subtle part — the two ternaries it feeds
+// are spelled out at each call site so neither has to allocate a pair to
+// carry them.
+const isSchemaFirst = (a: unknown): boolean => !!a && isSchemaObject(a);
+
 export const js_assert = (a: unknown, b: unknown): unknown => {
-  const aIsSchema = !!a && isSchemaObject(a);
+  const aIsSchema = isSchemaFirst(a);
   const schema = (aIsSchema ? a : b) as Internal;
   const data = aIsSchema ? b : a;
   return getDecoder(unknown, schema, getAssertResult())(data);
 };
 
 export const js_is = (a: unknown, b: unknown): boolean => {
+  const aIsSchema = isSchemaFirst(a);
+  // Compiled outside the try, so a conversion rejected at operation creation
+  // is thrown rather than answered. `false` would say the value doesn't match
+  // the schema, when what happened is that the schema can't check any value at
+  // all — the same split `~standard.validate` makes between issues and throws.
+  const operation = getDecoder(unknown, (aIsSchema ? a : b) as Internal, getAssertResult());
   try {
-    js_assert(a, b);
+    operation(aIsSchema ? b : a);
     return true;
   } catch (exn) {
     // Rethrow anything that isn't a Sury validation failure.
