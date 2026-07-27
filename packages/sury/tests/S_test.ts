@@ -2289,7 +2289,7 @@ test("Parse to literal with no validation to emulate assert", async (t) => {
   expectTypeOf(fn).toEqualTypeOf<(data: unknown) => true>();
   t.expect(fn({ foo: "bar" })).toEqual(true);
   t.expect(fn.toString()).toEqual(
-    `i=>{typeof i==="object"&&i||e[1](i);let v0=i["foo"];typeof v0==="string"||e[0](v0);return true}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["foo"];typeof v0==="string"||e[0](v0);return true}`,
   );
 });
 

@@ -4,12 +4,12 @@
   "dialect": "draft7",
   "summary": {
     "assertions": 927,
-    "passed": 684,
-    "failed": 237,
+    "passed": 685,
+    "failed": 236,
     "errored": 6,
-    "rate": "73.8%",
-    "assertOpPassed": 684,
-    "assertOpRate": "73.8%",
+    "rate": "73.9%",
+    "assertOpPassed": 685,
+    "assertOpRate": "73.9%",
     "divergent": 0
   },
   "erroredCases": [
@@ -234,7 +234,6 @@
     "required.json :: required properties whose names are Javascript object property names :: __proto__ present",
     "required.json :: required properties whose names are Javascript object property names :: toString present",
     "required.json :: required properties whose names are Javascript object property names :: constructor present",
-    "type.json :: object type matches objects :: an array is not an object",
     "uniqueItems.json :: uniqueItems validation :: non-unique array of integers is invalid",
     "uniqueItems.json :: uniqueItems validation :: non-unique array of more than two integers is invalid",
     "uniqueItems.json :: uniqueItems validation :: numbers are unique if mathematically unequal",

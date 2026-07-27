@@ -618,7 +618,7 @@ test("Parse reversed schema with nested objects and tuples has type validation",
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ReverseParse,
-    `i=>{typeof i==="object"&&i||e[7](i);let v0=i["foo"],v1=i["obj"],v4=i["tuple"];v0===1||e[0](v0);typeof v1==="object"&&v1||e[3](v1);let v2=v1["foo"],v3=v1["bar"];v2===2||e[1](v2);typeof v3==="string"||e[2](v3);Array.isArray(v4)&&v4.length===2||e[6](v4);let v5=v4["0"],v6=v4["1"];v5===3||e[4](v5);typeof v6==="boolean"||e[5](v6);return {"bar":v3,"baz":v6,}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[7](i);let v0=i["foo"],v1=i["obj"],v4=i["tuple"];v0===1||e[0](v0);typeof v1==="object"&&v1&&!Array.isArray(v1)||e[3](v1);let v2=v1["foo"],v3=v1["bar"];v2===2||e[1](v2);typeof v3==="string"||e[2](v3);Array.isArray(v4)&&v4.length===2||e[6](v4);let v5=v4["0"],v6=v4["1"];v5===3||e[4](v5);typeof v6==="boolean"||e[5](v6);return {"bar":v3,"baz":v6,}}`,
   )
 })
 
@@ -674,7 +674,7 @@ module BenchmarkWithSObject = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{typeof i==="object"&&i||e[10](i);let v0=i["number"],v1=i["negNumber"],v2=i["maxNumber"],v3=i["string"],v4=i["longString"],v5=i["boolean"],v6=i["deeplyNested"];typeof v0==="number"||e[0](v0);typeof v1==="number"||e[1](v1);typeof v2==="number"||e[2](v2);typeof v3==="string"||e[3](v3);typeof v4==="string"||e[4](v4);typeof v5==="boolean"||e[5](v5);typeof v6==="object"&&v6||e[9](v6);let v7=v6["foo"],v8=v6["num"],v9=v6["bool"];typeof v7==="string"||e[6](v7);typeof v8==="number"||e[7](v8);typeof v9==="boolean"||e[8](v9);return {"number":v0,"negNumber":v1,"maxNumber":v2,"string":v3,"longString":v4,"boolean":v5,"deeplyNested":{"foo":v7,"num":v8,"bool":v9,},}}`,
+      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[10](i);let v0=i["number"],v1=i["negNumber"],v2=i["maxNumber"],v3=i["string"],v4=i["longString"],v5=i["boolean"],v6=i["deeplyNested"];typeof v0==="number"||e[0](v0);typeof v1==="number"||e[1](v1);typeof v2==="number"||e[2](v2);typeof v3==="string"||e[3](v3);typeof v4==="string"||e[4](v4);typeof v5==="boolean"||e[5](v5);typeof v6==="object"&&v6&&!Array.isArray(v6)||e[9](v6);let v7=v6["foo"],v8=v6["num"],v9=v6["bool"];typeof v7==="string"||e[6](v7);typeof v8==="number"||e[7](v8);typeof v9==="boolean"||e[8](v9);return {"number":v0,"negNumber":v1,"maxNumber":v2,"string":v3,"longString":v4,"boolean":v5,"deeplyNested":{"foo":v7,"num":v8,"bool":v9,},}}`,
     )
     S.global({})
   })
@@ -690,7 +690,7 @@ module BenchmarkWithSObject = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Assert,
-      `i=>{typeof i==="object"&&i||e[10](i);let v0=i["number"],v1=i["negNumber"],v2=i["maxNumber"],v3=i["string"],v4=i["longString"],v5=i["boolean"],v6=i["deeplyNested"];typeof v0==="number"||e[0](v0);typeof v1==="number"||e[1](v1);typeof v2==="number"||e[2](v2);typeof v3==="string"||e[3](v3);typeof v4==="string"||e[4](v4);typeof v5==="boolean"||e[5](v5);typeof v6==="object"&&v6||e[9](v6);let v7=v6["foo"],v8=v6["num"],v9=v6["bool"];typeof v7==="string"||e[6](v7);typeof v8==="number"||e[7](v8);typeof v9==="boolean"||e[8](v9);return void 0}`,
+      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[10](i);let v0=i["number"],v1=i["negNumber"],v2=i["maxNumber"],v3=i["string"],v4=i["longString"],v5=i["boolean"],v6=i["deeplyNested"];typeof v0==="number"||e[0](v0);typeof v1==="number"||e[1](v1);typeof v2==="number"||e[2](v2);typeof v3==="string"||e[3](v3);typeof v4==="string"||e[4](v4);typeof v5==="boolean"||e[5](v5);typeof v6==="object"&&v6&&!Array.isArray(v6)||e[9](v6);let v7=v6["foo"],v8=v6["num"],v9=v6["bool"];typeof v7==="string"||e[6](v7);typeof v8==="number"||e[7](v8);typeof v9==="boolean"||e[8](v9);return void 0}`,
     )
     S.global({})
   })
@@ -791,7 +791,7 @@ module Benchmark = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{typeof i==="object"&&i||e[10](i);let v0=i["number"],v1=i["negNumber"],v2=i["maxNumber"],v3=i["string"],v4=i["longString"],v5=i["boolean"],v6=i["deeplyNested"];typeof v0==="number"||e[0](v0);typeof v1==="number"||e[1](v1);typeof v2==="number"||e[2](v2);typeof v3==="string"||e[3](v3);typeof v4==="string"||e[4](v4);typeof v5==="boolean"||e[5](v5);typeof v6==="object"&&v6||e[9](v6);let v7=v6["foo"],v8=v6["num"],v9=v6["bool"];typeof v7==="string"||e[6](v7);typeof v8==="number"||e[7](v8);typeof v9==="boolean"||e[8](v9);return {"number":v0,"negNumber":v1,"maxNumber":v2,"string":v3,"longString":v4,"boolean":v5,"deeplyNested":{"foo":v7,"num":v8,"bool":v9,},}}`,
+      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[10](i);let v0=i["number"],v1=i["negNumber"],v2=i["maxNumber"],v3=i["string"],v4=i["longString"],v5=i["boolean"],v6=i["deeplyNested"];typeof v0==="number"||e[0](v0);typeof v1==="number"||e[1](v1);typeof v2==="number"||e[2](v2);typeof v3==="string"||e[3](v3);typeof v4==="string"||e[4](v4);typeof v5==="boolean"||e[5](v5);typeof v6==="object"&&v6&&!Array.isArray(v6)||e[9](v6);let v7=v6["foo"],v8=v6["num"],v9=v6["bool"];typeof v7==="string"||e[6](v7);typeof v8==="number"||e[7](v8);typeof v9==="boolean"||e[8](v9);return {"number":v0,"negNumber":v1,"maxNumber":v2,"string":v3,"longString":v4,"boolean":v5,"deeplyNested":{"foo":v7,"num":v8,"bool":v9,},}}`,
     )
 
     t->Assert.deepEqual(makeTestObject()->S.parseOrThrow(~to=schema), makeTestObject())
@@ -810,7 +810,7 @@ module Benchmark = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Assert,
-      `i=>{typeof i==="object"&&i||e[10](i);let v0=i["number"],v1=i["negNumber"],v2=i["maxNumber"],v3=i["string"],v4=i["longString"],v5=i["boolean"],v6=i["deeplyNested"];typeof v0==="number"||e[0](v0);typeof v1==="number"||e[1](v1);typeof v2==="number"||e[2](v2);typeof v3==="string"||e[3](v3);typeof v4==="string"||e[4](v4);typeof v5==="boolean"||e[5](v5);typeof v6==="object"&&v6||e[9](v6);let v7=v6["foo"],v8=v6["num"],v9=v6["bool"];typeof v7==="string"||e[6](v7);typeof v8==="number"||e[7](v8);typeof v9==="boolean"||e[8](v9);return void 0}`,
+      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[10](i);let v0=i["number"],v1=i["negNumber"],v2=i["maxNumber"],v3=i["string"],v4=i["longString"],v5=i["boolean"],v6=i["deeplyNested"];typeof v0==="number"||e[0](v0);typeof v1==="number"||e[1](v1);typeof v2==="number"||e[2](v2);typeof v3==="string"||e[3](v3);typeof v4==="string"||e[4](v4);typeof v5==="boolean"||e[5](v5);typeof v6==="object"&&v6&&!Array.isArray(v6)||e[9](v6);let v7=v6["foo"],v8=v6["num"],v9=v6["bool"];typeof v7==="string"||e[6](v7);typeof v8==="number"||e[7](v8);typeof v9==="boolean"||e[8](v9);return void 0}`,
     )
     S.global({})
   })
@@ -978,7 +978,7 @@ test("Can destructure fields of simple nested objects", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i||e[3](i);let v0=i["nested"];typeof v0==="object"&&v0||e[2](v0);let v1=v0["foo"],v2=v0["bar"];typeof v1==="string"||e[0](v1);typeof v2==="string"||e[1](v2);return {"baz":v2,"foz":v1,}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["nested"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["foo"],v2=v0["bar"];typeof v1==="string"||e[0](v1);typeof v2==="string"||e[1](v2);return {"baz":v2,"foz":v1,}}`,
   )
 
   t->Assert.deepEqual(
@@ -1050,7 +1050,7 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{typeof i==="object"&&i||e[2](i);let v0=i["foo"],v1=i["bar"];typeof v0==="string"||e[0](v0);typeof v1==="boolean"||e[1](v1);return {"foo":v0,"bar":v1,}}`,
+      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["foo"],v1=i["bar"];typeof v0==="string"||e[0](v0);typeof v1==="boolean"||e[1](v1);return {"foo":v0,"bar":v1,}}`,
     )
     t->U.assertCompiledCode(
       ~schema,
@@ -1078,7 +1078,7 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{typeof i==="object"&&i||e[5](i);let v0=i["foo"],v1=i["bar"];v0===12||e[0](v0);typeof v1==="object"&&v1||e[4](v1);let v2=v1["baz"];typeof v2==="string"||e[1](v2);let v3={"baz":v2,};e[2](v3)||e[3](v3);return {"foo":v0,"bar":v3,}}`,
+      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i["foo"],v1=i["bar"];v0===12||e[0](v0);typeof v1==="object"&&v1&&!Array.isArray(v1)||e[4](v1);let v2=v1["baz"];typeof v2==="string"||e[1](v2);let v3={"baz":v2,};e[2](v3)||e[3](v3);return {"foo":v0,"bar":v3,}}`,
     )
     t->U.assertCompiledCode(
       ~schema,
@@ -1098,7 +1098,7 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ParseAsync,
-      `i=>{typeof i==="object"&&i||e[3](i);let v1=i["bar"];let v0;try{v0=e[0](i["foo"]).catch(x=>e[1](x))}catch(x){e[1](x)}typeof v1==="boolean"||e[2](v1);return Promise.all([v0,]).then(([v0,])=>{return {"foo":v0,"bar":v1,}})}`,
+      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v1=i["bar"];let v0;try{v0=e[0](i["foo"]).catch(x=>e[1](x))}catch(x){e[1](x)}typeof v1==="boolean"||e[2](v1);return Promise.all([v0,]).then(([v0,])=>{return {"foo":v0,"bar":v1,}})}`,
     )
   })
 
@@ -1110,7 +1110,7 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ParseAsync,
-      `i=>{typeof i==="object"&&i||e[2](i);let v0;try{v0=e[0](i["foo"]).catch(x=>e[1](x))}catch(x){e[1](x)}return v0}`,
+      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0;try{v0=e[0](i["foo"]).catch(x=>e[1](x))}catch(x){e[1](x)}return v0}`,
     )
   })
 
@@ -1154,7 +1154,7 @@ module Compiled = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{typeof i==="object"&&i||e[2](i);let v1=i["nested"];typeof v1==="object"&&v1&&!Array.isArray(v1)||e[1](v1);let v0;for(v0 in v1){if(true){e[0](v0)}}return {"nested":void 0,}}`,
+      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v1=i["nested"];typeof v1==="object"&&v1&&!Array.isArray(v1)||e[1](v1);let v0;for(v0 in v1){if(true){e[0](v0)}}return {"nested":void 0,}}`,
     )
     t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"nested":{},}}`)
   })
@@ -1293,7 +1293,7 @@ test("Reverse object with discriminant which is an object transformed to literal
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i||e[3](i);let v0=i["kind"],v2=i["field"];typeof v0==="object"&&v0||e[1](v0);let v1=v0["nestedKind"];v1==="test"||e[0](v1);typeof v2==="boolean"||e[2](v2);return v2}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[3](i);let v0=i["kind"],v2=i["field"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);let v1=v0["nestedKind"];v1==="test"||e[0](v1);typeof v2==="boolean"||e[2](v2);return v2}`,
   )
 
   t->U.assertCompiledCode(

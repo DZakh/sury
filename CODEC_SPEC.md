@@ -326,6 +326,7 @@ changed when the implementation landed:
 | `union2-refine-throws`                 | —    | new: a foreign exception propagates instead of matching the catch-all |
 | `optional-object`                      | —    | new: an array is not an object, in the `X \| undefined` dispatch too   |
 | `union2-object-number`                 | —    | new: the same, for an object member sharing a union with another tag  |
+| `object1`, `object5-optional`          | —    | an array is not an object at the top level either, in every mode      |
 
 The already-conformant rows kept their behavior; several lost dead code the old
 implementation emitted (a `try/catch` around a body that can't throw, an `else if`

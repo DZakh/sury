@@ -4,12 +4,12 @@
   "dialect": "draft2020-12",
   "summary": {
     "assertions": 1299,
-    "passed": 904,
-    "failed": 389,
+    "passed": 905,
+    "failed": 388,
     "errored": 6,
-    "rate": "69.6%",
-    "assertOpPassed": 904,
-    "assertOpRate": "69.6%",
+    "rate": "69.7%",
+    "assertOpPassed": 905,
+    "assertOpRate": "69.7%",
     "divergent": 0
   },
   "erroredCases": [
@@ -299,7 +299,6 @@
     "required.json :: required properties whose names are Javascript object property names :: __proto__ present",
     "required.json :: required properties whose names are Javascript object property names :: toString present",
     "required.json :: required properties whose names are Javascript object property names :: constructor present",
-    "type.json :: object type matches objects :: an array is not an object",
     "unevaluatedItems.json :: unevaluatedItems false :: with unevaluated items",
     "unevaluatedItems.json :: unevaluatedItems as schema :: with invalid unevaluated items",
     "unevaluatedItems.json :: unevaluatedItems with tuple :: with unevaluated items",

@@ -626,10 +626,10 @@ export const unionDecoder: Builder = (input: Val) => {
   // `parse` calls for the `X | undefined` shape every `S.optional` compiles to,
   // and it's only sound with an acceptance mask that doesn't need the narrow
   // either: an `unknown` source hands the value to each decoder untouched, so a
-  // variant's own tag *is* what its cond accepts. `object` is the one tag where
-  // that doesn't hold — a `strip` object rebuilds its value, so its own decoder
-  // skips the `!Array.isArray` half of the narrow (composites.ts) and would let
-  // an array into the case while `maskAt` claims only object/instance reach it.
+  // variant's own tag *is* what its cond accepts. That premise is why every
+  // decoder's own narrow has to be exactly `typeCheckCond` for its tag — an
+  // object mode that skipped the `!Array.isArray` half would silently widen
+  // what the case accepts past what `maskAt` claims.
   const soleTag = flagUnsafeHas(tagFlags[source.type]!, tagFlagUnknown);
   const keyAt: string[] = [];
   const tagCount: Record<string, number> = Object.create(null);
@@ -709,12 +709,7 @@ export const unionDecoder: Builder = (input: Val) => {
           mask = sourceMask & nested;
         }
       }
-    } else if (
-      soleTag &&
-      tagCount[key] === 1 &&
-      variant.to === U &&
-      !flagUnsafeHas(tagFlag, tagFlagObject)
-    ) {
+    } else if (soleTag && tagCount[key] === 1 && variant.to === U) {
       // A conversion still needs the narrow: it stands in as the case's clean
       // input schema, where decoding straight from the source would leave the
       // case's output val describing a `.to` that has already run (#284).

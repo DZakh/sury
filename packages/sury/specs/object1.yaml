@@ -13,7 +13,7 @@ jsonSchema:
   output: '{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }'
 operations:
   parse:
-    expression: i=>{typeof i==="object"&&i||e[1](i);let v0=i["a"];typeof v0==="string"||e[0](v0);return {"a":v0,}}
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["a"];typeof v0==="string"||e[0](v0);return {"a":v0,}}
     examples:
       valid:
         input: '{ a: "hello" }'
@@ -24,5 +24,14 @@ operations:
       not-an-object:
         input: '"nope"'
         error: 'Expected { a: string; }, received "nope"'
+      array-is-not-an-object:
+        input: '["hello"]'
+        error: 'Expected { a: string; }, received ["hello"]'
+      empty-array-is-not-an-object:
+        input: "[]"
+        error: "Expected { a: string; }, received []"
+      null-is-not-an-object:
+        input: "null"
+        error: "Expected { a: string; }, received null"
   decode: identity
   encode: identity

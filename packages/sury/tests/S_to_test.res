@@ -228,7 +228,7 @@ test("Coerce from object shaped as string to float", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i||e[2](i);let v0=i["foo"];typeof v0==="string"||e[0](v0);let v1=+v0;!Number.isNaN(v1)||e[1](v0);return v1}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["foo"];typeof v0==="string"||e[0](v0);let v1=+v0;!Number.isNaN(v1)||e[1](v0);return v1}`,
   )
 
   t->Assert.deepEqual(123.->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`{"foo": "123"}`))
@@ -256,7 +256,7 @@ test("Coerce to literal can be used as tag and automatically embeded on reverse 
     ~schema,
     ~op=#Parse,
     // FIXME: Test that it'll work with S.refine on S.string
-    `i=>{typeof i==="object"&&i||e[2](i);let v0=i["tag"];typeof v0==="string"||e[1](v0);v0==="true"||e[0](v0);return void 0}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["tag"];typeof v0==="string"||e[1](v0);v0==="true"||e[0](v0);return void 0}`,
   )
 })
 
