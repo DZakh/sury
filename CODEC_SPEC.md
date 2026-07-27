@@ -239,11 +239,23 @@ checked, so transformed unions stay consistent across decode and encode.
 
 ## Failure hands the value to the next variant
 
-Any failure of a variant — a discriminant miss, a refinement failure, or an error
-raised anywhere inside its body — passes the value to the next variant. Only when
-none is left does the union throw, aggregating the per-variant reasons under one
-error. This is the uniform rule for plain validation unions and for every
-conversion rule above.
+Any *validation* failure of a variant — a discriminant miss, a refinement
+failure, or a `S.Error` raised anywhere inside its body — passes the value to the
+next variant. Only when none is left does the union throw, aggregating the
+per-variant reasons under one error. This is the uniform rule for plain
+validation unions and for every conversion rule above.
+
+A variant that throws something that isn't a Sury error propagates it instead.
+That exception is a bug in the code that raised it — a `TypeError` from a
+predicate that assumed the wrong type, say — not a statement about whether the
+value matches, and treating it as "try the next variant" would let a later
+catch-all turn the bug into a silently successful parse:
+
+```ts
+S.union([S.string.with(S.refine, (v) => v.trim().length > 0), S.string]);
+// a non-string never reaches the predicate — but if one did, the TypeError
+// surfaces rather than falling through to the catch-all
+```
 
 Two consequences:
 
@@ -311,6 +323,9 @@ changed when the implementation landed:
 | `codec-union3-union2-extra-source`    | 4    | rejected — `boolean` has no target member                            |
 | `codec-union3-union2-json`            | 4    | rejected — `json` is not the exact `string`/`number` type             |
 | `codec-union-refined-fallback`         | —    | new: a refined member falls through to a same-type catch-all          |
+| `union2-refine-throws`                 | —    | new: a foreign exception propagates instead of matching the catch-all |
+| `optional-object`                      | —    | new: an array is not an object, in the `X \| undefined` dispatch too   |
+| `union2-object-number`                 | —    | new: the same, for an object member sharing a union with another tag  |
 
 The already-conformant rows kept their behavior; several lost dead code the old
 implementation emitted (a `try/catch` around a body that can't throw, an `else if`

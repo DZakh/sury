@@ -64,7 +64,7 @@ test("Coerce from string to option of int (union dispatch over a converted value
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[3](i);try{let v0=+i;!Number.isNaN(v0)||e[1](i);v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[0](v0);i=v0}catch(e0){if(i==="undefined"){i=void 0}else{e[2](i,e0)}}return i}`,
+    `i=>{typeof i==="string"||e[4](i);try{let v0=+i;!Number.isNaN(v0)||e[1](i);v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[0](v0);i=v0}catch(e0){e[2](e0);if(i==="undefined"){i=void 0}else{e[3](i,e0)}}return i}`,
   )
 
   t->Assert.deepEqual(Some(123)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
@@ -440,7 +440,7 @@ test("Coerce string to unboxed union (each item separately)", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[3](i);try{let v0=+i;!Number.isNaN(v0)||e[1](i);i=v0}catch(e0){try{let v1;(v1=i==="true")||i==="false"||e[0](i);i=v1}catch(e1){e[2](i,e0,e1)}}return i}`,
+    `i=>{typeof i==="string"||e[4](i);try{let v0=+i;!Number.isNaN(v0)||e[1](i);i=v0}catch(e0){e[2](e0);try{let v1;(v1=i==="true")||i==="false"||e[0](i);i=v1}catch(e1){e[2](e1);e[3](i,e0,e1)}}return i}`,
   )
 
   t->Assert.deepEqual(Number(10.)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"10"`))
@@ -526,7 +526,7 @@ test("Coerce from string to optional bool", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[2](i);try{let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}catch(e0){if(i==="undefined"){i=void 0}else{e[1](i,e0)}}return i}`,
+    `i=>{typeof i==="string"||e[3](i);try{let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}catch(e0){e[1](e0);if(i==="undefined"){i=void 0}else{e[2](i,e0)}}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,

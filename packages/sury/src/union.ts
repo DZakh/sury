@@ -189,13 +189,18 @@ type UnionCase = {
 };
 
 type UnionCtx = {
-  // Error-var counter, shared across nesting levels so names can't shadow.
+  // Error-var counter. Per decoder, so a nested union restarts at `e0` — its
+  // `catch` sits inside the outer `try`, never around the outer chain's own
+  // reference to `e0`, so the reused name can't shadow a live binding.
   n: number;
   // Set by `unionEmitChain` when its code ends with an unbraced, unterminated
   // statement. Read right after the call, so nesting can't confuse it.
   b: boolean;
   // The aggregated union error, given the caught per-case error vars.
   fail: (caught: string) => string;
+  // `e[N]` for `getOrRethrow`, embedded on first use and shared by every case:
+  // only a Sury validation error means "this variant didn't match".
+  rethrow: () => string;
 };
 
 // Whether generated code can raise. Every Sury throw goes through an embedded
@@ -262,7 +267,12 @@ const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx): string => {
         chained = false;
       }
       const errorVar = "e" + ctx.n++;
-      head = head + `try{${unionRejectCond(c.q)}${c.b}}catch(${errorVar}){`;
+      // A foreign exception — a `TypeError` from a buggy user predicate, say —
+      // is a bug, not a variant miss. Rethrowing it beats reporting "didn't
+      // match" and silently succeeding through a later catch-all.
+      head =
+        head +
+        `try{${unionRejectCond(c.q)}${c.b}}catch(${errorVar}){${ctx.rethrow()}(${errorVar});`;
       tail = "}" + tail;
       caught = `${caught},${errorVar}`;
     } else if (c.c === "") {
@@ -434,19 +444,24 @@ const unionNestedMask = (schema: Internal): number => {
 // written, naming the spellings that resolve it.
 const unionCheckPartial = (
   input: Val,
-  from: Internal,
-  other: Internal,
+  source: Internal,
+  target: Internal,
+  // The union's variants, and the side of each one the other side is compared
+  // against: its input under rule 2 (the union is the target), its output under
+  // rule 3 (the union is the source).
   variants: Internal[],
   matchSide: (variant: Internal) => Internal,
-  counts: (variant: Internal) => boolean,
-  side: string
+  // What the unmatched side is called in the message — the union sits opposite
+  // it, so this is also which of source/target `variants` belongs to.
+  side: "source" | "target"
 ): void => {
+  const other = side === "target" ? target : source;
   let total = 0;
   let matches = 0;
   let matched: Internal | undefined = U;
   for (let idx = 0; idx < variants.length; idx++) {
     const variant = variants[idx]!;
-    if (!counts(variant)) {
+    if (!unionCounts(variant)) {
       continue;
     }
     total = total + 1;
@@ -460,8 +475,8 @@ const unionCheckPartial = (
   if (matches > 0 && matches < total) {
     unionInvalid(
       input,
-      side === "target" ? from : other,
-      side === "target" ? other : from,
+      source,
+      target,
       `${toExpression(matched!)} has the same type as the ${side} and the others don't`
     );
   }
@@ -491,8 +506,6 @@ const unionInvalid = (input: Val, from: Internal, to: Internal, why: string): ne
 // ── Decoder ──────────────────────────────────────────────────────────────────
 
 type UnionGroup = {
-  // Grouping key — variants under it share `nv`'s emitted narrow.
-  k: string;
   // The scoped input the group's cases branch from.
   ni: Val;
   // The narrowed val, parsed once and shared.
@@ -560,15 +573,7 @@ export const unionDecoder: Builder = (input: Val) => {
       variants.some((v) => isLiteral(v) && v.const === source.const)
     )
   ) {
-    unionCheckPartial(
-      input,
-      self,
-      source,
-      variants,
-      (v) => v,
-      unionCounts,
-      "source"
-    );
+    unionCheckPartial(input, source, self, variants, (v) => v, "source");
   }
 
   // A union carrying its own `.to` converts per variant, so rules 3 and 4 have
@@ -621,7 +626,10 @@ export const unionDecoder: Builder = (input: Val) => {
   // `parse` calls for the `X | undefined` shape every `S.optional` compiles to,
   // and it's only sound with an acceptance mask that doesn't need the narrow
   // either: an `unknown` source hands the value to each decoder untouched, so a
-  // variant's own tag *is* what its cond accepts.
+  // variant's own tag *is* what its cond accepts. `object` is the one tag where
+  // that doesn't hold — a `strip` object rebuilds its value, so its own decoder
+  // skips the `!Array.isArray` half of the narrow (composites.ts) and would let
+  // an array into the case while `maskAt` claims only object/instance reach it.
   const soleTag = flagUnsafeHas(tagFlags[source.type]!, tagFlagUnknown);
   const keyAt: string[] = [];
   const tagCount: Record<string, number> = Object.create(null);
@@ -701,7 +709,12 @@ export const unionDecoder: Builder = (input: Val) => {
           mask = sourceMask & nested;
         }
       }
-    } else if (soleTag && tagCount[key] === 1 && variant.to === U) {
+    } else if (
+      soleTag &&
+      tagCount[key] === 1 &&
+      variant.to === U &&
+      !flagUnsafeHas(tagFlag, tagFlagObject)
+    ) {
       // A conversion still needs the narrow: it stands in as the case's clean
       // input schema, where decoding straight from the source would leave the
       // case's output val describing a `.to` that has already run (#284).
@@ -718,7 +731,6 @@ export const unionDecoder: Builder = (input: Val) => {
     maskAt[idx] = mask;
 
     const group: UnionGroup = {
-      k: key,
       ni: narrowInput,
       nv: narrowVal,
       m: mask,
@@ -751,6 +763,7 @@ export const unionDecoder: Builder = (input: Val) => {
   // Embedded creation errors of dropped variants, reported as the union error's
   // per-case reasons.
   let salvaged = "";
+  let rethrow = "";
 
   const ctx: UnionCtx = {
     n: 0,
@@ -773,6 +786,7 @@ export const unionDecoder: Builder = (input: Val) => {
           );
         }
       )}(${input.v()}${salvaged}${caught})`,
+    rethrow: () => rethrow || (rethrow = B_embed(input, getOrRethrow)),
   };
 
   const branches: UnionCase[] = [];
@@ -1182,7 +1196,7 @@ const unionResolve = (
   // nothing; and a `noValidation` target (S.assert's result sentinel), which
   // discards the value entirely.
   if (!flagUnsafeHas(tagFlags[target.type]!, tagFlagUnknown) && !target.noValidation) {
-    unionCheckPartial(input, source, target, variants, getOutputSchema, unionCounts, "target");
+    unionCheckPartial(input, source, target, variants, getOutputSchema, "target");
   }
   return variants.map((variant) =>
     getOutputSchema(variant).type === neverTag ? U : target
