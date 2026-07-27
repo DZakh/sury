@@ -25,10 +25,11 @@ export const renderComment = (report: string, artifactUrl?: string, heading = "S
     const m = l.match(ROW);
     return m ? [{ name: m[1]!, pct: m[2]!, dir: m[3]! }] : [];
   });
-  const footer = lines.filter(
-    (l) =>
-      /advisory only$|^ {2}(new|could not measure|behavior changed)/.test(l.trim()) ||
-      /^ {2}node /.test(l),
+  // Matched against the raw line, not `l.trim()`: these patterns are anchored on
+  // the report's two-space indent, and trimming first made them unmatchable —
+  // `new:` and `could not measure` had silently never reached a comment.
+  const footer = lines.filter((l) =>
+    /^ {2}(new|could not measure|behavior changed|node )/.test(l) || /advisory only$/.test(l),
   );
 
   const out = [`### ${heading}`, ""];

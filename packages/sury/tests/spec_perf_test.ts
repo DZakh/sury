@@ -205,6 +205,27 @@ test("renderComment builds a table, links the full report, and carries the stick
   expect(out).toContain("<!-- spec-perf -->");
 });
 
+test("renderComment carries every footer line the CLI emits", () => {
+  // Each of these is the only place its information appears; a filter that
+  // drops them leaves the comment quietly claiming a clean run.
+  const out = renderComment(
+    renderPerformance(
+      perf([], {
+        added: ["merge · parse · sparse"],
+        errors: [{ name: "union5 · create", error: "boom" }],
+        outcomeChanged: [
+          { name: "optional-object · parse · array-is-not-an-object", note: "baseline accepted it, now rejected" },
+        ],
+      }),
+    ),
+  );
+  expect(out).toContain("new: merge · parse · sparse");
+  expect(out).toContain("could not measure union5 · create: boom");
+  expect(out).toContain("behavior changed, not timed — optional-object · parse · array-is-not-an-object");
+  expect(out).toContain("advisory only");
+  expect(out).toContain("node 24.16.0");
+});
+
 test("renderComment truncates to the worst rows and says how many it dropped", () => {
   const rows = Array.from({ length: 14 }, (_, i) => row(`target-${i} · create`, "create", 20 - i));
   const out = renderComment(report(rows));
