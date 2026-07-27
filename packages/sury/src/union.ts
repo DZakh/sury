@@ -58,10 +58,14 @@ import {
 import { getOutputSchema, nestedLoc, never_, parse, typeCheckCond } from "./parse";
 
 // Every tag bit set — the acceptance mask of a case that narrows nothing, and of
-// a source that can hold any runtime type.
-// Exported only for the guard test that pins it to the fold of `tagFlags` — a
-// 17th tag added without widening this would silently corrupt fallback elision.
-export const unionAnyTag = 65535;
+// a source that can hold any runtime type. Folded from `tagFlags` rather than
+// written as a literal: a 17th tag added without widening a hand-kept mask would
+// silently turn "accepts anything" into "anything but the new tag", and
+// fallback elision would drop reachable cases.
+const unionAnyTag = /* @__PURE__ */ Object.values(tagFlags).reduce(
+  (acc, tagFlag) => acc | tagFlag,
+  0
+);
 // Tags with no `typeof`-style discriminant: they can't own a shared group
 // narrow, so each such variant dispatches inside its own decoded body.
 const unionOpaqueTags =
