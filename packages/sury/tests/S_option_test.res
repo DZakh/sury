@@ -44,7 +44,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ParseAsync,
-      `i=>{try{let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}i=v0}catch(e0){if(!(i===void 0)){e[2](i,e0)}}return Promise.resolve(i)}`,
+      `i=>{try{let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}i=v0}catch(e0){e[2](e0);if(!(i===void 0)){e[3](i,e0)}}return Promise.resolve(i)}`,
     )
   })
 

@@ -155,10 +155,17 @@ export const failInvalidType = (input: Val): (value: unknown) => ErrorDetails =>
   return B_invalidInputBuilder(U, U, override)(input);
 }
 
+// Bumps the raise counter: an embedded value is reached through `e[N]`, and
+// anything callable behind that accessor may raise — a fail helper, a user
+// transform, `S.json`'s validator. Counting every embed over-reports for the
+// inert ones (a symbol literal compared with `===`), which is the safe
+// direction: union codegen wraps a case in a `try` it turns out not to need,
+// rather than dropping the fallback a raise needed.
 export const B_embed = (b: Val, value: unknown): string => {
   const e = b.g.e;
   const l = e.length;
   e[l] = value;
+  b.g.t++;
   return `e[${l}]`;
 }
 
@@ -235,6 +242,7 @@ export const B_operationArg = (
       o: flag,
       e: [],
       v: -1,
+      t: 0,
     },
     o: U,
   };
@@ -261,6 +269,16 @@ export const B_failWithArg = <Arg>(b: Val, fn: (arg: Arg) => ErrorDetails, arg: 
     B_throw(fn(arg));
   })}(${arg})`;
 }
+
+// Record a raise that reaches generated code without an embed behind it — the
+// bare `throw` a loop wrapper re-raises a nested error with. Union codegen
+// decides whether a case needs a `try` by bracketing an emission and reading
+// `g.t`, so a raise counted by neither this nor `B_embed` is a case that
+// silently loses its fallback.
+export const B_markThrow = (b: Val): void => {
+  b.g.t++;
+}
+
 
 export const B_makeInvalidConversionDetails = (input: Val, to: Internal, cause: unknown): ErrorDetails => {
   if (cause && (cause as { s?: symbol }).s === s) {
@@ -834,6 +852,7 @@ const B_mergeWithCatch = (
   } else {
     const errorVar = B_varWithoutAllocation(val.g);
 
+    B_markThrow(val);
     const catchCode = `${catchFn(errorVar)};throw ${errorVar}`;
 
     if (flagUnsafeHas(val.f, valFlagAsync)) {

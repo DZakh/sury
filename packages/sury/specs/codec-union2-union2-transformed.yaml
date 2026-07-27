@@ -25,7 +25,7 @@ operations:
         output: '"1.5"'
   decode: eq-to-parse
   encode:
-    expression: i=>{if(typeof i==="string"){try{let v0=+i;!Number.isNaN(v0)||e[0](i);i=v0}catch(e0){}}else{e[1](i)}return i}
+    expression: i=>{if(typeof i==="string"){try{let v0=+i;!Number.isNaN(v0)||e[0](i);i=v0}catch(e0){e[1](e0);}}else{e[2](i)}return i}
     examples:
       numeric-string:
         input: '"123"'

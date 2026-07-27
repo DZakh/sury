@@ -96,6 +96,7 @@ const perf = (changed: Perf["changed"], over: Partial<Perf> = {}): Perf => ({
   added: [],
   skippedConstants: 13,
   errors: [],
+  outcomeChanged: [],
   meta: "node 24.16.0 · linux x64 · 4 cores · 8×2 rounds · confirmed",
   ...over,
 });
@@ -118,10 +119,10 @@ test("renderPerformance ranks worst regression first and states the floor per ph
       ]),
     ),
   ).toMatchInlineSnapshot(`
-    "performance vs 93999e3 (merge-base with main) · noise floor create 8.2% · create+compile 3.0% · run 3.0%
-      object10 · create        +12.4%
-      object1 · parse · valid  +4.1%
-      union2 · parse · nested  -6.1%
+    "performance vs 93999e3 (merge-base with main) · +% slower than baseline, -% faster · noise floor create 8.2% · create+compile 3.0% · run 3.0%
+      object10 · create        +12.4% slower
+      object1 · parse · valid  +4.1% slower
+      union2 · parse · nested  -6.1% faster
       137 unchanged · 13 constant-schema targets skipped · advisory only
       node 24.16.0 · linux x64 · 4 cores · 8×2 rounds · confirmed"
   `);
@@ -129,11 +130,42 @@ test("renderPerformance ranks worst regression first and states the floor per ph
 
 test("renderPerformance says so plainly when nothing cleared the floor", () => {
   expect(renderPerformance(perf([], { unchanged: 140 }))).toMatchInlineSnapshot(`
-    "performance vs 93999e3 (merge-base with main) · noise floor create 8.2% · create+compile 3.0% · run 3.0%
+    "performance vs 93999e3 (merge-base with main) · +% slower than baseline, -% faster · noise floor create 8.2% · create+compile 3.0% · run 3.0%
       no significant changes
       140 unchanged · 13 constant-schema targets skipped · advisory only
       node 24.16.0 · linux x64 · 4 cores · 8×2 rounds · confirmed"
   `);
+});
+
+test("renderPerformance names the direction, since the sign alone doesn't", () => {
+  // `benchChild` measures current/baseline, so a ratio above 1 means the
+  // current side took longer. Positive is therefore a regression — the same
+  // direction as the bundleSize and instantiations sections, where growth is
+  // the bad way — but nothing about "+12.4%" says so on its own.
+  const out = renderPerformance(
+    perf([row("slower · create", "create", 12.4), row("faster · create", "create", -9.9)]),
+  );
+  expect(out).toContain("+12.4% slower");
+  expect(out).toContain("-9.9% faster");
+  expect(out).toContain("+% slower than baseline, -% faster");
+});
+
+test("renderPerformance reports an accept/reject flip as behavior, not as a timing", () => {
+  // Timing a returned value against a thrown error reports the correctness fix
+  // that started rejecting the input as several hundred times "slower" — which
+  // is how `optional-object · parse · array-is-not-an-object` landed in a PR
+  // comment at +78548%.
+  const out = renderPerformance(
+    perf([], {
+      outcomeChanged: [
+        { name: "optional-object · parse · array-is-not-an-object", note: "baseline accepted it, now rejected" },
+      ],
+    }),
+  );
+  expect(out).toContain(
+    "behavior changed, not timed — optional-object · parse · array-is-not-an-object: baseline accepted it, now rejected",
+  );
+  expect(out).not.toContain("%slower");
 });
 
 test("renderPerformance reports a target the baseline cannot run as new, not as a failure", () => {
@@ -148,29 +180,57 @@ test("renderPerformance surfaces a measurement failure without pretending it was
 
 // ---- PR comment ------------------------------------------------------------
 
-const report = (rows: string[]) =>
-  [
-    "performance vs 93999e3 (merge-base with main) · noise floor create 8.2% · create+compile 3.0% · run 3.0%",
-    ...rows,
-    "  137 unchanged · 13 constant-schema targets skipped · advisory only",
-    "  node 24.16.0 · linux x64 · 4 cores · 8×2 rounds · confirmed",
-  ].join("\n");
+// Built by `renderPerformance` rather than spelled by hand: `renderComment`
+// parses that exact output, so a hand-written fixture lets the two drift
+// silently — which is how the direction word reached the terminal while the PR
+// comment still rendered a bare, ambiguous percentage.
+const report = (rows: Perf["changed"]) => renderPerformance(perf(rows));
 
 test("renderComment builds a table, links the full report, and carries the sticky marker", () => {
-  const out = renderComment(report(["  object10 · create        +12.4%", "  union2 · parse · nested  -6.1%"]), "https://x/artifact");
-  expect(out).toContain("| `object10 · create` | +12.4% |");
-  expect(out).toContain("| `union2 · parse · nested` | -6.1% |");
+  const out = renderComment(
+    report([
+      row("object10 · create", "create", 12.4),
+      row("union2 · parse · nested", "run", -6.1),
+    ]),
+    "https://x/artifact",
+  );
+  // A signed percentage alone doesn't say which way is bad, in the terminal or
+  // in a PR comment, so the direction rides along with every row.
+  expect(out).toContain("| `object10 · create` | +12.4% slower |");
+  expect(out).toContain("| `union2 · parse · nested` | -6.1% faster |");
+  expect(out).toContain("+% slower than baseline, -% faster");
   expect(out).toContain("[Full report ↗](https://x/artifact)");
   // Without the marker the posting step can't find its own comment and would
   // open a new one on every push.
   expect(out).toContain("<!-- spec-perf -->");
 });
 
+test("renderComment carries every footer line the CLI emits", () => {
+  // Each of these is the only place its information appears; a filter that
+  // drops them leaves the comment quietly claiming a clean run.
+  const out = renderComment(
+    renderPerformance(
+      perf([], {
+        added: ["merge · parse · sparse"],
+        errors: [{ name: "union5 · create", error: "boom" }],
+        outcomeChanged: [
+          { name: "optional-object · parse · array-is-not-an-object", note: "baseline accepted it, now rejected" },
+        ],
+      }),
+    ),
+  );
+  expect(out).toContain("new: merge · parse · sparse");
+  expect(out).toContain("could not measure union5 · create: boom");
+  expect(out).toContain("behavior changed, not timed — optional-object · parse · array-is-not-an-object");
+  expect(out).toContain("advisory only");
+  expect(out).toContain("node 24.16.0");
+});
+
 test("renderComment truncates to the worst rows and says how many it dropped", () => {
-  const rows = Array.from({ length: 14 }, (_, i) => `  target-${i} · create  +${20 - i}.0%`);
+  const rows = Array.from({ length: 14 }, (_, i) => row(`target-${i} · create`, "create", 20 - i));
   const out = renderComment(report(rows));
-  expect(out).toContain("| `target-0 · create` | +20.0% |");
-  expect(out).toContain("| `target-9 · create` | +11.0% |");
+  expect(out).toContain("| `target-0 · create` | +20.0% slower |");
+  expect(out).toContain("| `target-9 · create` | +11.0% slower |");
   // The CLI already ordered them worst-first, so the dropped rows are the least
   // interesting ones.
   expect(out).not.toContain("target-10 · create");
@@ -178,7 +238,7 @@ test("renderComment truncates to the worst rows and says how many it dropped", (
 });
 
 test("renderComment still posts when nothing changed, so a missing comment means a broken job", () => {
-  const out = renderComment(report(["  no significant changes"]));
+  const out = renderComment(report([]));
   expect(out).toContain("No significant changes.");
   expect(out).toContain("<!-- spec-perf -->");
 });

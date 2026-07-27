@@ -105,6 +105,38 @@ export const refine = (
   });
 }
 
+// `refine`, but on the schema's Input rather than its assembled Output. A JSON
+// Schema composition keyword (`allOf`, `not`, …) asserts about the data as
+// given, and an object schema strips unknown keys on the way out — an output
+// refiner would judge `{a}` where the document said `{a, b}`.
+export const refineInput = (
+  schema: Internal,
+  refineCheck: (value: unknown) => boolean,
+  error?: string
+): Internal => {
+  const message = error !== U ? error : "Refinement failed";
+  return updateOutput(schema, (mut) => {
+    const refiner = (input: Val): Check[] => {
+      const embeddedCheck = B_embed(input, refineCheck);
+      return [
+        {
+          c: (inputVar) => `${embeddedCheck}(${inputVar})`,
+          f: B_invalidInputBuilder(U, pathEmpty, message),
+        },
+      ];
+    };
+    const existing = mut.inputRefiner;
+    mut.inputRefiner =
+      existing !== U
+        ? (input) => {
+            const arr = existing(input);
+            arr.push(...refiner(input));
+            return arr;
+          }
+        : refiner;
+  });
+}
+
 export const getMutErrorMessage = (mut: Internal): SchemaErrorMessage => {
   const em: SchemaErrorMessage = mut.errorMessage ? { ...mut.errorMessage } : {};
   mut.errorMessage = em;

@@ -192,7 +192,7 @@ test("Example", t => {
 })
 
 test(
-  "Strict object schema should also check that object is not Array. Otherwise it will incorrectly return array input",
+  "Object schema rejects an array in every mode, even when its index-like keys would all match",
   t => {
     let schema = S.schema(s =>
       {
@@ -201,7 +201,10 @@ test(
       }
     )
 
-    t->Assert.deepEqual(%raw(`["foo", true]`)->S.parseOrThrow(~to=schema), {"0": "foo", "1": true})
+    t->U.assertThrowsMessage(
+      () => %raw(`["foo", true]`)->S.parseOrThrow(~to=schema),
+      `Expected { 0: string; 1: boolean; }, received ["foo", true]`,
+    )
 
     t->U.assertThrowsMessage(
       () => %raw(`["foo", true]`)->S.parseOrThrow(~to=schema->S.strict),
@@ -246,7 +249,7 @@ test("Object schema with empty object field", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i||e[1](i);let v0=i["foo"];typeof v0==="object"&&v0||e[0](v0);return {"foo":{},}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["foo"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[0](v0);return {"foo":{},}}`,
   )
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#Encode)
 })
@@ -266,7 +269,7 @@ test("Object schema with nested object field containing only literal", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i||e[2](i);let v0=i["foo"];typeof v0==="object"&&v0||e[1](v0);let v1=v0["bar"];v1==="baz"||e[0](v1);return {"foo":{"bar":v1,},}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["foo"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);let v1=v0["bar"];v1==="baz"||e[0](v1);return {"foo":{"bar":v1,},}}`,
   )
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#Encode)
 })
@@ -287,6 +290,6 @@ test("https://github.com/DZakh/sury/issues/131", t => {
   t->U.assertCompiledCode(
     ~schema=testSchema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i||e[2](i);let v0=i["foobar"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];(typeof v2==="string"||v2===void 0)||e[0](v2);}catch(v3){v3.path="[\\"foobar\\"]"+\'["\'+v1+\'"]\'+v3.path;throw v3}}return {"foobar":v0,}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["foobar"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];(typeof v2==="string"||v2===void 0)||e[0](v2);}catch(v3){v3.path="[\\"foobar\\"]"+\'["\'+v1+\'"]\'+v3.path;throw v3}}return {"foobar":v0,}}`,
   )
 })

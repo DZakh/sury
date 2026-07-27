@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.optional(S.schema({ a: S.optional(S.string) }))"
+  input: "{ a?: string | undefined; } | undefined"
+  output: "{ a?: string | undefined; } | undefined"
+  instantiations: 2752
+vs:
+  zod: "z.object({ a: z.string().optional() }).optional()"
+jsonSchema:
+  input: "Expected JSON, received { a: string | undefined; } | undefined"
+  output: "Expected JSON, received { a: string | undefined; } | undefined"
+operations:
+  parse:
+    expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["a"];(typeof v0==="string"||v0===void 0)||e[0](v0);i={"a":v0,}}else if(!(i===void 0)){e[1](i)}return i}
+    examples:
+      object:
+        input: '{ a: "x" }'
+        output: '{ a: "x" }'
+      empty-object:
+        input: "{}"
+        output: "{ a: undefined }"
+      undefined:
+        input: undefined
+        output: undefined
+      array-is-not-an-object:
+        input: "[]"
+        error: "Expected { a: string | undefined; } | undefined, received []"
+      array-with-items-is-not-an-object:
+        input: '["x"]'
+        error: 'Expected { a: string | undefined; } | undefined, received ["x"]'
+      null-is-not-an-object:
+        input: "null"
+        error: "Expected { a: string | undefined; } | undefined, received null"
+      wrong-member-type:
+        input: "{ a: 1 }"
+        error: 'Failed at ["a"]: Expected string | undefined, received 1'
+  decode: identity
+  encode: identity

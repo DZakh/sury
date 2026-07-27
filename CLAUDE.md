@@ -60,6 +60,13 @@ Schema modifiers (`.with(S.refine, …)`, etc.) apply to the **output** type. `i
    it runs inside `try{…}catch(eN){ <rest of the chain> }`, and the final `else`
    raises the aggregated union error with the caught `eN`s.
 
+Pass 1 skips the shared narrow when a tag is carried by exactly one variant of
+an `unknown` source, on the premise that the variant's own decoder emits the
+narrow the shared one would. That makes "a decoder's own type narrow is exactly
+`typeCheckCond` for its tag" a cross-module invariant: an object mode that
+skipped `!Array.isArray` because it rebuilds its value anyway would widen what
+the case accepts past what `maskAt` claims.
+
 Acceptance masks are read off the narrow the attempt actually emitted
 (`unionAcceptMask`), not off the variant's own tag — a JSON string offered to
 `S.bigint` accepts *strings*. Only **hoistable** narrows count: a check the

@@ -12,7 +12,7 @@ jsonSchema:
   output: '{ anyOf: [{ type: "number" }, { type: "string" }] }'
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[1](i);try{let v0=+i;!Number.isNaN(v0)||e[0](i);i=v0}catch(e0){}return i}
+    expression: i=>{typeof i==="string"||e[2](i);try{let v0=+i;!Number.isNaN(v0)||e[0](i);i=v0}catch(e0){e[1](e0);}return i}
     examples:
       decodes-to-number:
         input: '"123"'
@@ -24,7 +24,7 @@ operations:
         input: '"1.5"'
         output: "1.5"
   decode:
-    expression: i=>{try{let v0=+i;!Number.isNaN(v0)||e[0](i);i=v0}catch(e0){}return i}
+    expression: i=>{try{let v0=+i;!Number.isNaN(v0)||e[0](i);i=v0}catch(e0){e[1](e0);}return i}
     examples:
       decodes-to-number:
         input: '"123"'

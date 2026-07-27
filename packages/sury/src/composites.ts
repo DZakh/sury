@@ -348,15 +348,15 @@ export const objectDecoder = (unknownInput: Val): Val => {
         c: objectTagCond,
         f: failInvalidType,
       });
-      if (expectedSchema.additionalItems !== "strip") {
-        // For strip case we recreate the value
-        // For other cases we might optimize it,
-        // this is why the check is a must have
-        checks.push({
-          c: (inputVar) => `!${isArrayCond(inputVar)}`,
-          f: failInvalidType,
-        });
-      }
+      // An array is not an object, whatever the mode. `strip` could skip this
+      // and still produce a sound value — it rebuilds from known properties, so
+      // an array decodes to `{}` — but that's silent acceptance of the wrong
+      // type, and it made the narrow weaker than `typeCheckCond`, which a union
+      // dispatch reads as the case's acceptance mask.
+      checks.push({
+        c: (inputVar) => `!${isArrayCond(inputVar)}`,
+        f: failInvalidType,
+      });
     }
 
     // Apply refine also when there are no checks,

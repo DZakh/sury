@@ -298,6 +298,10 @@ export type BGlobal = {
   e: unknown[];
   // @as("d") — defs
   d?: Record<string, Internal>;
+  // @as("t") — throwCounter. Bumped by every helper that emits a raise into
+  // generated code, so a builder can bracket a stretch of emission and learn
+  // whether what it produced can throw. Read the difference, never the value.
+  t: number;
 }
 
 // Adjacent checks sharing `fail` by reference equality are fused with `&&`

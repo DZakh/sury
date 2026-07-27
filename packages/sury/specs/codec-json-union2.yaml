@@ -12,7 +12,7 @@ jsonSchema:
   output: Expected JSON, received bigint | string
 operations:
   parse:
-    expression: i=>{try{typeof i==="string"||e[1](i);let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0}catch(e0){if(!(typeof i==="string")){e[2](i,e0)}}return i}
+    expression: i=>{try{typeof i==="string"||e[1](i);let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0}catch(e0){e[2](e0);if(!(typeof i==="string")){e[3](i,e0)}}return i}
     examples:
       bigint-string:
         input: '"123"'
