@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.schema(Symbol.for("union-fallback")).with(S.refine, () => false, "first rejected"), S.schema(Symbol.for("union-fallback"))])
+  input: symbol
+  output: unknown
+  instantiations: 6665
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: Expected JSON, received Symbol(union-fallback) | Symbol(union-fallback)
+  output: Expected JSON, received Symbol(union-fallback) | Symbol(union-fallback)
+operations:
+  parse:
+    expression: i=>{if(typeof i==="symbol"){try{i===e[2]||e[4](i);e[0](i)||e[1](i);}catch(e0){e[5](e0);if(!(i===e[3])){e[6](i,e0)}}}else{e[7](i)}return i}
+    examples:
+      same-symbol-fallback:
+        input: Symbol.for("union-fallback")
+        output: Symbol.for("union-fallback")
+      other-symbol-rejected:
+        input: Symbol.for("other")
+        error: |-
+          Expected Symbol(union-fallback) | Symbol(union-fallback), received Symbol(other)
+          - Expected Symbol(union-fallback), received Symbol(other)
+  decode: identity
+  encode: identity

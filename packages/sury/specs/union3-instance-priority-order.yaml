@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.instance(Error).with(S.to, S.string, () => "error"), S.schema({ x: S.string }), S.instance(TypeError).with(S.to, S.string, () => "type-error")])'
+  input: "Error | { x: string; }"
+  output: "string | { x: string; }"
+  instantiations: 7699
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: "Expected JSON, received Error | { x: string; } | TypeError"
+  output: '{ anyOf: [{ type: "string" }, { type: "object", properties: { x: { type: "string" } }, required: ["x"] }] }'
+operations:
+  parse:
+    expression: i=>{try{i instanceof e[2]||e[7](i);let v0;try{v0=e[0](i)}catch(x){e[1](x)}i=v0}catch(e0){e[8](e0);try{i instanceof e[5]||e[9](i);let v1;try{v1=e[3](i)}catch(x){e[4](x)}i=v1}catch(e1){e[8](e1);try{typeof i==="object"&&i&&!Array.isArray(i)||e[10](i);let v2=i["x"];typeof v2==="string"||e[6](v2);i={"x":v2,}}catch(e2){e[8](e2);e[11](i,e0,e1,e2)}}}return i}
+    examples:
+      object-member:
+        input: '{ x: "ok" }'
+        output: '{ x: "ok" }'
+      error-member:
+        input: new Error("x")
+        output: '"error"'
+      overlapping-subclass:
+        input: new TypeError("x")
+        output: '"error"'
+  decode: eq-to-parse
+  encode:
+    creationError: "SuryError: Can't decode string to Error. Use S.to to define a custom decoder"

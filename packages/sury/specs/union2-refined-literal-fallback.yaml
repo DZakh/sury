@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.string.with(S.min, 3), S.schema("x")])
+  input: string
+  output: string
+  instantiations: 6159
+vs:
+  zod: z.union([z.string().min(3), z.literal("x")])
+jsonSchema:
+  input: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "string", const: "x" }] }'
+  output: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "string", const: "x" }] }'
+operations:
+  parse:
+    expression: i=>{if(typeof i==="string"){try{i.length>2||e[0](i);}catch(e0){e[1](e0);if(!(i==="x")){e[2](i,e0)}}}else{e[3](i)}return i}
+    examples:
+      refined-member:
+        input: '"long"'
+        output: '"long"'
+      literal-fallback:
+        input: '"x"'
+        output: '"x"'
+      rejected-by-both:
+        input: '"no"'
+        error: |-
+          Expected string | "x", received "no"
+          - String must be 3 or more characters long
+  decode: identity
+  encode: identity
