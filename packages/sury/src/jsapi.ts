@@ -46,14 +46,19 @@ import { getDecoder, reverse } from "./parse";
 import { nullLiteral, unit } from "./primitives";
 import { unionFactory } from "./union";
 
+// @__NO_SIDE_EFFECTS__
 export const js_parser = (...args: unknown[]) => getDecoder(unknown, ...args);
 
+// @__NO_SIDE_EFFECTS__
 export const js_asyncParser = (...args: unknown[]) => getDecoder(unknown, ...args, 1);
 
+// @__NO_SIDE_EFFECTS__
 export const js_asyncDecoder = (...args: unknown[]) => getDecoder(...args, 1);
 
+// @__NO_SIDE_EFFECTS__
 export const js_encoder = (...args: unknown[]) => getDecoder(...(args as Internal[]).map(reverse));
 
+// @__NO_SIDE_EFFECTS__
 export const js_asyncEncoder = (...args: unknown[]) =>
   getDecoder(...(args as Internal[]).map(reverse), 1);
 
@@ -79,56 +84,57 @@ export const js_is = (a: unknown, b: unknown): boolean => {
   }
 };
 
+// @__NO_SIDE_EFFECTS__
 export const js_union = (values: unknown[]) => unionFactory(values.map(definitionToSchema));
 
-export const js_to = /* @__PURE__ */ (() => {
-  // FIXME: Test how it'll work if we have async var as input
-  // FIXME: Might not work well with object targets
-  const customBuilder = (fn: (value: unknown) => unknown): Builder => {
-    return (input: Val): Val => {
-      const target = input.e.to!;
-      const outputVar = B_varWithoutAllocation(input.g);
-      const output = B_next(input, outputVar, target, target);
-      output.v = _var;
-      output.cp = `let ${outputVar};try{${output.i}=${B_embed(
-        input,
-        fn,
-      )}(${input.i})}catch(x){${B_failWithArg(
-        output,
-        (e: unknown) => B_makeInvalidConversionDetails(input, target, e),
-        `x`,
-      )}}`;
-      return output;
-    };
+// FIXME: Test how it'll work if we have async var as input
+// FIXME: Might not work well with object targets
+const customBuilder = (fn: (value: unknown) => unknown): Builder => {
+  return (input: Val): Val => {
+    const target = input.e.to!;
+    const outputVar = B_varWithoutAllocation(input.g);
+    const output = B_next(input, outputVar, target, target);
+    output.v = _var;
+    output.cp = `let ${outputVar};try{${output.i}=${B_embed(
+      input,
+      fn,
+    )}(${input.i})}catch(x){${B_failWithArg(
+      output,
+      (e: unknown) => B_makeInvalidConversionDetails(input, target, e),
+      `x`,
+    )}}`;
+    return output;
   };
+};
 
-  return (
-    schema: Internal,
-    target: Internal,
-    maybeDecoder?: (value: unknown) => unknown,
-    maybeEncoder?: (target: unknown) => unknown,
-  ) => {
-    // Chaining a schema to itself would append a second copy of its own chain,
-    // re-decoding the value it just produced. Custom coders still get a real
-    // conversion step — only the coder-less spelling is a no-op.
-    if (schema === target && !maybeDecoder && !maybeEncoder) {
-      return schema;
+// @__NO_SIDE_EFFECTS__
+export const js_to = (
+  schema: Internal,
+  target: Internal,
+  maybeDecoder?: (value: unknown) => unknown,
+  maybeEncoder?: (target: unknown) => unknown,
+) => {
+  // Chaining a schema to itself would append a second copy of its own chain,
+  // re-decoding the value it just produced. Custom coders still get a real
+  // conversion step — only the coder-less spelling is a no-op.
+  if (schema === target && !maybeDecoder && !maybeEncoder) {
+    return schema;
+  }
+  return updateOutput(schema, (mut) => {
+    if (maybeEncoder) {
+      const targetMut = copySchema(target);
+      targetMut.serializer = customBuilder(maybeEncoder);
+      mut.to = targetMut;
+    } else {
+      mut.to = target;
     }
-    return updateOutput(schema, (mut) => {
-      if (maybeEncoder) {
-        const targetMut = copySchema(target);
-        targetMut.serializer = customBuilder(maybeEncoder);
-        mut.to = targetMut;
-      } else {
-        mut.to = target;
-      }
-      if (maybeDecoder) {
-        mut.parser = customBuilder(maybeDecoder);
-      }
-    });
-  };
-})();
+    if (maybeDecoder) {
+      mut.parser = customBuilder(maybeDecoder);
+    }
+  });
+};
 
+// @__NO_SIDE_EFFECTS__
 export const js_refine = (
   schema: Internal,
   refineCheck: (value: unknown) => boolean,
@@ -149,6 +155,7 @@ export const js_refine = (
 };
 
 const noop = <A>(a: A): A => a;
+// @__NO_SIDE_EFFECTS__
 export const js_asyncDecoderAssert = (
   schema: Internal,
   assertFn: (value: unknown) => Promise<unknown>,
@@ -161,6 +168,7 @@ export const js_asyncDecoderAssert = (
   });
 };
 
+// @__NO_SIDE_EFFECTS__
 export const js_optional = (schema: Internal, maybeOr: unknown): Internal => {
   // TODO: maybeOr should be part of the unit schema
   schema = unionFactory([schema, unit()]);
@@ -173,6 +181,7 @@ export const js_optional = (schema: Internal, maybeOr: unknown): Internal => {
   }
 };
 
+// @__NO_SIDE_EFFECTS__
 export const js_nullable = (schema: Internal, maybeOr: unknown): Internal => {
   // TODO: maybeOr should be part of the unit schema
   if (maybeOr !== U) {
@@ -187,6 +196,7 @@ export const js_nullable = (schema: Internal, maybeOr: unknown): Internal => {
   }
 };
 
+// @__NO_SIDE_EFFECTS__
 export const js_merge = (s1: Internal, s2: Internal): Internal => {
   // PORT-NOTE: the source matches on the public `Object({...})` variants —
   // at runtime that's a `type === "object"` check plus field reads, ported

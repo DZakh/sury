@@ -171,6 +171,7 @@ export const completeObjectVal = (objectVal: Val): Val => {
     }
   }
 }
+// @__NO_SIDE_EFFECTS__
 export const array = (item: Internal): Internal => {
   const itemInternal = item;
   const mut = baseSchema(arrayTag, itemInternal.r === itemInternal);
@@ -549,6 +550,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
   return B_markOutput(output, input);
 }
 
+// @__NO_SIDE_EFFECTS__
 export const dictFactory = (item: Internal): Internal => {
   const mut = baseSchema(objectTag, item.r === item);
   mut.properties = immutableEmptyObject as Record<string, Internal>;
@@ -641,6 +643,7 @@ export const optionFactory = (item: Internal, unitSchema: Internal = unit()): In
   }
 }
 
+// @__NO_SIDE_EFFECTS__
 export const option = (item: Internal): Internal => {
   return optionFactory(item, unit());
 }

@@ -617,6 +617,7 @@ const targetSchemaUri = (target: JsonSchemaTarget): string | undefined => {
   }
 }
 
+// @__NO_SIDE_EFFECTS__
 export const toJSONSchema = (schema: Internal, options?: toJSONSchemaOptions): JSONSchemaT => {
   // Resolve the target and the `$schema` URI to stamp. When no options object is
   // provided we keep the historical behavior: default to "draft-07" and do NOT
@@ -678,6 +679,7 @@ export const enableStandardJSONSchema = (): void => {
   });
 }
 
+// @__NO_SIDE_EFFECTS__
 export const extendJSONSchema = (schema: Internal, jsonSchema: JSONSchemaT): Internal => {
   const existingSchemaExtend = Metadata_get(schema, jsonSchemaMetadataId) as
     | JSONSchemaT
@@ -784,6 +786,7 @@ const definitionToDefaultValue = (definition: JSONSchemaDefinition): unknown => 
   }
 }
 
+// @__NO_SIDE_EFFECTS__
 export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
   const anySchema = json();
 
@@ -1042,6 +1045,7 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
   return schema;
 }
 
+// @__NO_SIDE_EFFECTS__
 export const min = (schema: Internal, minValue: number, maybeMessage?: string): Internal => {
   switch (schema.type) {
     case stringTag:
@@ -1059,6 +1063,7 @@ export const min = (schema: Internal, minValue: number, maybeMessage?: string): 
   }
 }
 
+// @__NO_SIDE_EFFECTS__
 export const max = (schema: Internal, maxValue: number, maybeMessage?: string): Internal => {
   switch (schema.type) {
     case stringTag:
@@ -1076,6 +1081,7 @@ export const max = (schema: Internal, maxValue: number, maybeMessage?: string): 
   }
 }
 
+// @__NO_SIDE_EFFECTS__
 export const length = (schema: Internal, length: number, maybeMessage?: string): Internal => {
   switch (schema.type) {
     case stringTag:

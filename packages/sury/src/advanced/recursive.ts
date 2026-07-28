@@ -133,6 +133,7 @@ export const recursiveDecoder: Builder = (input) => {
   return output;
 };
 
+// @__NO_SIDE_EFFECTS__
 export const recursive = (name: string, fn: (schema: Internal) => Internal): Internal => {
   const ref = `${defsPath}${name}`;
   const refSchema = baseSchema(refTag, false);

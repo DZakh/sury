@@ -291,6 +291,7 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
   }
 }
 
+// @__NO_SIDE_EFFECTS__
 export const compactColumns = (inputSchema: Internal): Internal => {
   const innerArray = array(inputSchema);
   const mut = array(innerArray);

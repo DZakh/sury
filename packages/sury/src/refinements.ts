@@ -12,23 +12,26 @@ import {
   type Val,
 } from "./base";
 import { B_embed, B_failWithErrorMessage } from "./builder";
-import { dictFactory, optionFactory } from "./composites";
-import { schemaObject, schemaShape, schemaTuple } from "./factory";
+import { optionFactory } from "./composites";
 import { getMutErrorMessage, internalRefine, nullAsUnit, transform } from "./modifiers";
 import { nullLiteral, numberDecoder, stringDecoderFn, unit } from "./primitives";
 import { unionFactory } from "./union";
 
-export const object = schemaObject;
+// Re-exports, not `const object = schemaObject` aliases: an alias makes the
+// public name a variable that merely holds the function, and a bundler honors
+// `@__NO_SIDE_EFFECTS__` only on the declaration that IS the function — so an
+// alias silently drops the annotation, and every `S.object(…)` a consumer
+// never uses stays in their bundle.
+export { schemaObject as object, schemaShape as shape, schemaTuple as tuple } from "./factory";
+export { dictFactory as dict } from "./composites";
+export { unionFactory as union } from "./union";
+// @__NO_SIDE_EFFECTS__
 export const nullAsOption = (item: Internal): Internal =>
   optionFactory(item, nullAsUnit());
 // `null` is a reserved word in JS/TS binding position, so this is exported
 // as `null_`.
 export const null_ = (item: Internal): Internal =>
   unionFactory([item, nullLiteral()]);
-export const dict = dictFactory;
-export const shape = schemaShape;
-export const tuple = schemaTuple;
-export const union = unionFactory;
 
 // =============
 // Built-in refinements
@@ -220,6 +223,7 @@ export const stringLength = (schema: Internal, length: number, maybeMessage?: st
   });
 }
 
+// @__NO_SIDE_EFFECTS__
 export const pattern = (schema: Internal, re: RegExp, message: string = `Invalid pattern`): Internal => {
   return internalRefine(schema, (mut: Internal) => {
     mut.pattern = re;
@@ -239,6 +243,7 @@ export const pattern = (schema: Internal, re: RegExp, message: string = `Invalid
   });
 }
 
+// @__NO_SIDE_EFFECTS__
 export const trim = (schema: Internal): Internal => {
   const transformer = (string: unknown) => (string as string).trim();
   return transform(schema, (_: unknown) => ({
@@ -247,10 +252,12 @@ export const trim = (schema: Internal): Internal => {
   }));
 }
 
+// @__NO_SIDE_EFFECTS__
 export const nullable = (schema: Internal): Internal => {
   return unionFactory([schema, unit(), nullLiteral()]);
 }
 
+// @__NO_SIDE_EFFECTS__
 export const nullableAsOption = (schema: Internal): Internal => {
   return unionFactory([schema, unit(), nullAsUnit()]);
 }

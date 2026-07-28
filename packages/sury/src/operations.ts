@@ -150,6 +150,7 @@ export const assertAsyncOrThrow = (any: unknown, schema: Internal): Promise<void
   )(any);
 }
 
+// @__NO_SIDE_EFFECTS__
 export const isAsync = (schema: Internal): boolean => {
   if (schema.isAsync === U) {
     return isAsyncInternal(schema, U);
