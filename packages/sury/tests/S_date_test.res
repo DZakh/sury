@@ -198,7 +198,7 @@ test("Reverse converts nullableAsOption string-to-date schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);i=v0}else if(i===null){i=void 0}else if(!(i===void 0)){e[1](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);i=v0;break}if(i===void 0)break;if(i===null){i=void 0;break}e[1](i)}return i}`,
   )
 
   t->Assert.deepEqual(
@@ -209,7 +209,7 @@ test("Reverse converts nullableAsOption string-to-date schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(i instanceof e[0]){i=i.toISOString()}else if(!(i===void 0)){e[1](i)}return i}`,
+    `i=>{for(;;){if(i instanceof e[0]){i=i.toISOString();break}if(i===void 0)break;if(i===void 0){i=null;break}e[1](i)}return i}`,
   )
 })
 
@@ -225,7 +225,7 @@ test("Reverse converts nullable string-to-date schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(i instanceof e[0]){i=i.toISOString()}else if(!(i===void 0||i===null)){e[1](i)}return i}`,
+    `i=>{for(;;){if(i instanceof e[0]){i=i.toISOString();break}if(i===void 0)break;if(i===null)break;e[1](i)}return i}`,
   )
 })
 
@@ -305,5 +305,5 @@ test("Encodes a nullable optional Timestamp whose input is string | number (issu
     Some(date)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     "2024-01-01T00:00:00.000Z"->Obj.magic,
   )
-  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{if(i instanceof e[3]){i=i.toISOString();}else if(!(i===void 0)){e[4](i)}return i}`)
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{for(;;){if(i instanceof e[2]){for(;;){i=i.toISOString();break;};break}if(i===void 0)break;if(i===void 0){i=null;break}e[3](i)}return i}`)
 })

@@ -17,6 +17,10 @@ export type Flag = number;
 export const flagNone: Flag = 0;
 export const flagAsync: Flag = 1;
 export const flagDisableNanNumberValidation: Flag = 2;
+// Compile-time context: a custom transform emitted inside a union case must
+// preserve the original exception so union dispatch can distinguish Sury
+// failures (fall through) from foreign exceptions (escape).
+export const flagUnionTransformContext: Flag = 4;
 // flatten: 64
 
 export const flagUnsafeHas = (acc: Flag, flag: Flag): boolean => {
@@ -442,7 +446,11 @@ export const toExpression = (schema: Internal): string => {
   } else if (schema.const !== U) {
     return stringify(schema.const);
   } else if (schema.anyOf !== U) {
-    return schema.anyOf.map(toExpression).join(" | ");
+    // Repeated members remain significant to decoding (the same effectful
+    // schema may intentionally run more than once), but not to the human
+    // expression describing the union. Identity-only deduplication avoids
+    // conflating distinct symbols/classes that merely render alike.
+    return [...new Set(schema.anyOf)].map(toExpression).join(" | ");
   } else if (schema.format === "compactColumns") {
     // For compactColumns, show the column types if we have properties from .to
     const to = schema.to;

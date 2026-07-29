@@ -109,14 +109,19 @@ in definition order, values narrowed but never re-typed. Nothing is coerced
 either way, so an `unknown` source is never ambiguous and never triggers the
 partial-match rejection below.
 
-**A const source reaches only the variant that spells it out.** When the source is
-a literal and some variant has the identical `const`, the value already *is* that
-literal: every other variant is dead code, so only the matching ones compile and
-there is no ambiguity to reject.
+**A const source does not enable unrelated implicit coercion.** When a variant
+has the identical `const`, other literal values and cross-tag gap-filling are
+unreachable. Earlier members that natively accept the literal's representation
+still run in definition order, however: a broad refinement or an explicit
+same-input transformation may reject or transform before the literal fallback.
+There is no partial-match ambiguity to reject.
 
 ```ts
 S.schema(undefined).with(S.to, S.union([S.schema(null), S.schema(undefined)]));
 // undefined -> undefined; the null variant is unreachable, so no nullish bridge
+
+S.schema("x").with(S.to, S.union([S.string.with(S.min, 3), S.schema("x")]));
+// the refinement rejects, then the literal fallback accepts "x"
 ```
 
 **Exception — partial type match.** If the source has the same type as *some but

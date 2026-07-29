@@ -12,7 +12,7 @@ jsonSchema:
   output: Expected JSON, received "123" | bigint | string
 operations:
   parse:
-    expression: i=>{if(!(typeof i==="string"&&i==="123")){try{typeof i==="string"||e[1](i);let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0}catch(e0){e[2](e0);if(!(typeof i==="string")){e[3](i,e0)}}}return i}
+    expression: i=>{for(;;){let r;if(typeof i==="string"&&i==="123")break;if(typeof i==="string"){try{let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0;;break}catch(x){(r||(r=[])).push(e[1](x))}}if(typeof i==="string")break;e[2](i,...(r||[]))}return i}
     examples:
       literal-member:
         input: '"123"'
@@ -33,17 +33,13 @@ operations:
         output: 0n
       no-double-decoding:
         input: "true"
-        error: |-
-          Expected "123" | bigint | string, received true
-          - Expected string, received true
+        error: Expected "123" | bigint | string, received true
       number:
         input: "123"
-        error: |-
-          Expected "123" | bigint | string, received 123
-          - Expected string, received 123
+        error: Expected "123" | bigint | string, received 123
   decode: eq-to-parse
   encode:
-    expression: i=>{if(typeof i==="bigint"){i=""+i}else if(!(typeof i==="string")){e[0](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="string"&&i==="123")break;if(typeof i==="string")break;if(typeof i==="bigint"){i=""+i;break}e[0](i)}return i}
     examples:
       bigint:
         input: 123n

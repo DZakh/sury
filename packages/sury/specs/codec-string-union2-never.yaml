@@ -8,8 +8,8 @@ vs:
   zod:
     _skip: not-applicable
 jsonSchema:
-  input: '{ anyOf: [{ not: {} }, { type: "string" }] }'
-  output: '{ anyOf: [{ not: {} }, { type: "string" }] }'
+  input: '{ type: "string" }'
+  output: '{ type: "string" }'
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[0](i);return i}
@@ -22,7 +22,7 @@ operations:
         output: '"abc"'
   decode: identity
   encode:
-    expression: i=>{if(typeof i==="number"&&!Number.isNaN(i)){e[0](i);}else if(!(typeof i==="string")){e[1](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="number"&&!Number.isNaN(i)){e[0](i);;break}if(typeof i==="string")break;e[1](i)}return i}
     examples:
       string:
         input: '"abc"'

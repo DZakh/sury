@@ -12,7 +12,7 @@ jsonSchema:
   output: '{ anyOf: [{ type: "boolean" }, { type: "null" }] }'
 operations:
   parse:
-    expression: i=>{if(typeof i==="string"){let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}else if(i===void 0){i=null}else{e[1](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="string"){let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0;break}if(i===void 0){i=null;break}e[1](i)}return i}
     examples:
       true-string:
         input: '"true"'
@@ -28,7 +28,7 @@ operations:
         error: Expected boolean, received "abc"
   decode: eq-to-parse
   encode:
-    expression: i=>{if(typeof i==="boolean"){i=""+i}else if(i===null){i=void 0}else{e[0](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="boolean"){i=""+i;break}if(i===null){i=void 0;break}e[0](i)}return i}
     examples:
       boolean:
         input: "true"

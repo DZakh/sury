@@ -121,6 +121,12 @@ export const numberDecoder: Builder = (input: Val) => {
       },
     ];
     return output;
+  } else if (
+    flagUnsafeHas(inputTagFlag, tagFlagNaN) &&
+    input.e.format !== "int32" &&
+    flagUnsafeHas(input.g.o, flagDisableNanNumberValidation)
+  ) {
+    return B_refine(input, input.e);
   } else if (!flagUnsafeHas(inputTagFlag, tagFlagNumber)) {
     return B_unsupportedDecode(input, input.s, input.e);
   } else if (input.s.format !== input.e.format && input.e.format === "int32") {

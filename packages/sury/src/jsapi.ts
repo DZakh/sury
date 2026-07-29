@@ -4,6 +4,7 @@ import {
   type Check,
   copySchema,
   flagDisableNanNumberValidation,
+  flagUnionTransformContext,
   functionTag,
   getOrRethrow,
   globalConfig,
@@ -98,7 +99,11 @@ const customBuilder = (fn: (value: unknown) => unknown): Builder => {
     output.cp = `let ${outputVar};try{${output.i}=${B_embed(
       input,
       fn,
-    )}(${input.i})}catch(x){${B_failWithArg(
+    )}(${input.i})}catch(x){${
+      input.g.o & flagUnionTransformContext
+        ? `${B_embed(input, getOrRethrow)}(x);`
+        : ""
+    }${B_failWithArg(
       output,
       (e: unknown) => B_makeInvalidConversionDetails(input, target, e),
       `x`,

@@ -11,7 +11,7 @@ jsonSchema:
   output: '{ type: "string" }'
 operations:
   parse:
-    expression: i=>{if(typeof i==="string"){try{e[0](i)||e[1](i);}catch(e0){e[2](e0);}}else{e[3](i)}return i}
+    expression: i=>{if(typeof i==="string"){for(;;){let r;try{e[0](i)||e[1](i);;break}catch(x){(r||(r=[])).push(e[2](x))}break;}}else{e[3](i)}return i}
     examples:
       foreign-error-propagates-instead-of-matching-the-catch-all:
         input: '"x"'

@@ -6,6 +6,7 @@ import {
   type Flag,
   flagAsync,
   flagNone,
+  flagUnionTransformContext,
   flagUnsafeHas,
   immutableEmptyArray,
   inlinedValueFromString,
@@ -806,6 +807,13 @@ export const B_embedTransformation = (input: Val, fn: (input: unknown) => unknow
     output.f |= valFlagAsync;
   }
   const embeddedFn = B_embed(input, fn);
+  const inputValue = input.vc ? input.v() : input.i;
+  if (input.g.o & flagUnionTransformContext) {
+    // The enclosing union owns exception classification. Wrapping a foreign
+    // exception here would make it look like a Sury mismatch.
+    output.cp = `let ${outputVar}=${embeddedFn}(${inputValue});`;
+    return output;
+  }
   const failure = `${B_failWithArg(
     output,
     (e: unknown) => B_makeInvalidConversionDetails(input, unknown, e),
@@ -814,9 +822,9 @@ export const B_embedTransformation = (input: Val, fn: (input: unknown) => unknow
   // Feed the transform the input's var when it already carries checks — it's
   // materialized into a var anyway (the check references it), so reuse it
   // instead of re-inlining the source expression (e.g. `i["x"]`) twice.
-  output.cp = `let ${outputVar};try{${outputVar}=${embeddedFn}(${
-    input.vc ? input.v() : input.i
-  })${isAsync ? `.catch(x=>${failure})` : ""}}catch(x){${failure}}`;
+  output.cp = `let ${outputVar};try{${outputVar}=${embeddedFn}(${inputValue})${
+    isAsync ? `.catch(x=>${failure})` : ""
+  }}catch(x){${failure}}`;
   return output;
 }
 

@@ -64,7 +64,7 @@ test("Coerce from string to option of int (union dispatch over a converted value
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[4](i);try{let v0=+i;!Number.isNaN(v0)||e[1](i);v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[0](v0);i=v0}catch(e0){e[2](e0);if(i==="undefined"){i=void 0}else{e[3](i,e0)}}return i}`,
+    `i=>{typeof i==="string"||e[4](i);for(;;){let r;try{let v0=+i;!Number.isNaN(v0)||e[1](i);v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[0](v0);i=v0;;break}catch(x){(r||(r=[])).push(e[2](x))}if(i==="undefined"){i=void 0;break}e[3](i,...(r||[]))}return i}`,
   )
 
   t->Assert.deepEqual(Some(123)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"123"`))
@@ -72,7 +72,7 @@ test("Coerce from string to option of int (union dispatch over a converted value
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(typeof i==="number"&&!Number.isNaN(i)&&i<=2147483647&&i>=-2147483648&&i%1===0){i=""+i}else if(i===void 0){i="undefined"}else{e[0](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="number"&&!Number.isNaN(i)&&i<=2147483647&&i>=-2147483648&&i%1===0){i=""+i;break}if(i===void 0){i="undefined";break}e[0](i)}return i}`,
   )
 })
 
@@ -440,7 +440,7 @@ test("Coerce string to unboxed union (each item separately)", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[4](i);try{let v0=+i;!Number.isNaN(v0)||e[1](i);i=v0}catch(e0){e[2](e0);try{let v1;(v1=i==="true")||i==="false"||e[0](i);i=v1}catch(e1){e[2](e1);e[3](i,e0,e1)}}return i}`,
+    `i=>{typeof i==="string"||e[4](i);for(;;){let r;try{let v0=+i;!Number.isNaN(v0)||e[0](i);i=v0;;break}catch(x){(r||(r=[])).push(e[2](x))}try{let v1;(v1=i==="true")||i==="false"||e[1](i);i=v1;;break}catch(x){x=e[2](x);if(!r)throw x;r.push(x)}e[3](i,...(r||[]))}return i}`,
   )
 
   t->Assert.deepEqual(Number(10.)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"10"`))
@@ -450,7 +450,7 @@ test("Coerce string to unboxed union (each item separately)", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(typeof i==="number"&&!Number.isNaN(i)){i=""+i}else if(typeof i==="boolean"){i=""+i}else{e[0](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="number"&&!Number.isNaN(i)){i=""+i;break}if(typeof i==="boolean"){i=""+i;break}e[0](i)}return i}`,
   )
 })
 
@@ -526,12 +526,12 @@ test("Coerce from string to optional bool", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[3](i);try{let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}catch(e0){e[1](e0);if(i==="undefined"){i=void 0}else{e[2](i,e0)}}return i}`,
+    `i=>{typeof i==="string"||e[3](i);for(;;){let r;try{let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0;;break}catch(x){(r||(r=[])).push(e[1](x))}if(i==="undefined"){i=void 0;break}e[2](i,...(r||[]))}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(typeof i==="boolean"){i=""+i}else if(i===void 0){i="undefined"}else{e[0](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="boolean"){i=""+i;break}if(i===void 0){i="undefined";break}e[0](i)}return i}`,
   )
 })
 
@@ -648,13 +648,13 @@ test("Coerce from JSON to optional bigint", t => {
     ~schema,
     ~embedded=[],
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0}else if(i===null){i=void 0}else{e[1](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0;;break}if(i===null){i=void 0;break}e[1](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~embedded=[],
     ~op=#Encode,
-    `i=>{if(typeof i==="bigint"){i=""+i}else if(i===void 0){i=null}else{e[0](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="bigint"){i=""+i;break}if(i===void 0){i=null;break}e[0](i)}return i}`,
   )
 })
 
@@ -757,7 +757,7 @@ test("Coerce from union to bigint", t => {
     123n->S.parseOrThrow(~to=schema)
   }, "Expected string | number, received 123n")
 
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0}else if(typeof i==="number"&&!Number.isNaN(i)){i=BigInt(i)}else{e[1](i)}return i}`)
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0;break}if(typeof i==="number"&&!Number.isNaN(i)){i=BigInt(i);break}e[1](i)}return i}`)
 })
 
 test("Rejects a union -> bigint conversion whose member has no decoder", t => {
@@ -809,7 +809,7 @@ test("Coerce from union to bigint with refinement on union", t => {
     ->S.refine(v => typeof(v) !== #bigint, ~error="Unsupported bigint")
     ->S.to(S.bigint)
 
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(typeof i==="string"){e[0](i)||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}i=v0}else if(typeof i==="number"&&!Number.isNaN(i)){e[0](i)||e[3](i);i=BigInt(i)}else{e[4](i)}return i}`)
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{for(;;){if(typeof i==="string"){e[0](i)||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}i=v0;break}if(typeof i==="number"&&!Number.isNaN(i)){e[0](i)||e[3](i);i=BigInt(i);break}e[4](i)}return i}`)
 })
 
 test("Coerce from union to bigint with refinement on union (with an item transformed to)", t => {
@@ -821,7 +821,7 @@ test("Coerce from union to bigint with refinement on union (with an item transfo
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){e[0](i)||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}i=v0}else if(typeof i==="number"&&!Number.isNaN(i)){let v2=""+i;e[0](v2)||e[4](v2);let v1;try{v1=BigInt(v2)}catch(_){e[3](v2)}i=v1}else{e[5](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="string"){e[0](i)||e[2](i);let v0;try{v0=BigInt(i)}catch(_){e[1](i)}i=v0;break}if(typeof i==="number"&&!Number.isNaN(i)){let v2=""+i;e[0](v2)||e[4](v2);let v1;try{v1=BigInt(v2)}catch(_){e[3](v2)}i=v1;break}e[5](i)}return i}`,
     ~message="Should apply refinement after the item transformation",
   )
 })
@@ -836,7 +836,7 @@ test("Coerce from union to bigint and then to string", t => {
     123n->S.parseOrThrow(~to=schema)
   }, "Expected string | number, received 123n")
 
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=""+v0}else if(typeof i==="number"&&!Number.isNaN(i)){i=""+BigInt(i)}else{e[1](i)}return i}`)
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{for(;;){if(typeof i==="string"){let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=""+v0;break}if(typeof i==="number"&&!Number.isNaN(i)){i=""+BigInt(i);break}e[1](i)}return i}`)
 })
 
 test("Rejects widening a union into one with an uncovered member", t => {
@@ -940,7 +940,7 @@ test("No nullish bridge for a non-union source — members are tried in order", 
     `Expected null, received "hello"`,
   )
 
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{i===null||e[0](i);i="null";return i}`)
+  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{i===null||e[0](i);for(;;){i="null";break;}return i}`)
 
   // Reach the undefined member by marking the string one unreachable.
   let toUndefined =
@@ -1099,7 +1099,7 @@ test("Tier 3 fallback for unknown source — transform on unknown variant still 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(!(typeof i==="string")){let v0;try{v0=e[0](i)}catch(x){e[1](x)}i=v0}return i}`,
+    `i=>{for(;;){if(typeof i==="string")break;let v0=e[0](i);i=v0;break;}return i}`,
   )
 })
 

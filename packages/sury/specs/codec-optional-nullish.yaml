@@ -22,7 +22,7 @@ operations:
         output: undefined
   decode: eq-to-parse
   encode:
-    expression: i=>{if(i===null){i=void 0}else if(!(typeof i==="string"||i===void 0)){e[0](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="string")break;if(i===null){i=void 0;break}if(i===void 0)break;e[0](i)}return i}
     examples:
       string:
         input: '"abc"'

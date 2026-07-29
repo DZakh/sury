@@ -3,6 +3,8 @@ import {
   type Builder,
   type Check,
   type Encoder,
+  flagDisableNanNumberValidation,
+  flagUnionTransformContext,
   flagUnsafeHas,
   getOrRethrow,
   immutableEmptyArray,
@@ -25,6 +27,7 @@ import {
   tagFlagNull,
   tagFlagObject,
   tagFlagRef,
+  tagFlagString,
   tagFlags,
   tagFlagUndefined,
   tagFlagUnion,
@@ -42,9 +45,7 @@ import {
   _notVar,
   _var,
   B_embed,
-  B_failWithArg,
   B_invalidOperation,
-  B_isHoistable,
   B_makeInvalidInputDetails,
   B_markOutput,
   B_merge,
@@ -55,74 +56,126 @@ import {
   failInvalidType,
   type HoistCond,
 } from "./builder";
-import { getOutputSchema, nestedLoc, never_, parse, typeCheckCond } from "./parse";
+import { nestedLoc, never_, parse, typeCheckCond } from "./parse";
 
 // Bitwise masks only observe the low 32 bits, so -1 stays future-proof when a
 // new tag bit is added.
 const unionAnyTag = ~0;
+const unionBoundaryTags = tagFlagUnion | tagFlagRef | tagFlagFunction;
 // Tags with no `typeof`-style discriminant: they can't own a shared group
 // narrow, so each such variant dispatches inside its own decoded body.
 const unionOpaqueTags =
-  tagFlagUnknown | tagFlagUnion | tagFlagRef | tagFlagFunction | tagFlagNever;
+  tagFlagUnknown | unionBoundaryTags | tagFlagNever;
 
 // ── Type identity ────────────────────────────────────────────────────────────
 
 // The spec's "same type": tags match, including the class for instances and the
 // format for formatted primitives. A schema with no tag of its own to compare
 // (a union treated as a normal schema, a recursive ref) matches only itself.
+const unionRuntimeSame = (a: Internal, b: Internal): boolean =>
+  a.type === b.type && a.class === b.class;
+
 const unionSameType = (a: Internal, b: Internal): boolean =>
   a === b ||
-  (a.type === b.type &&
-    !flagUnsafeHas(tagFlags[a.type]!, tagFlagRef | tagFlagUnion) &&
-    a.class === b.class &&
+  (unionRuntimeSame(a, b) &&
+    !(tagFlags[a.type]! & (tagFlagRef | tagFlagUnion)) &&
     a.format === b.format);
 
 const unionLiteralEqual = (a: unknown, b: unknown): boolean =>
-  a === b || Object.is(a, b);
+  a === b || (a !== a && b !== b);
+
+// Union reachability stops at the first `never`: a later `.to(...)` is not
+// executable because the `never` decoder rejects first. The general output
+// helper intentionally follows the whole chain for type introspection, so the
+// planner needs this terminal-aware view for production and coverage.
+const unionOutput = (schema: Internal): Internal => {
+  let output = schema;
+  while (output.type !== neverTag && output.to !== U) {
+    output = output.to;
+  }
+  return output;
+};
 
 // A nested union spreads into its parent only when it carries nothing of its
 // own; otherwise it stays one opaque variant that matches by reference.
-const unionIsTransparent = (schema: Internal): boolean =>
-  schema.type === unionTag &&
-  schema.to === U &&
-  schema.parser === U &&
-  schema.format === U &&
-  schema.refiner === U &&
-  schema.inputRefiner === U;
-
-// Variants sharing a grouping key can share one emitted type narrow. Instance
-// variants key by class *identity*, not `class.name`:
-// two distinct classes routinely share a name (any minified bundle), and a
-// shared key would put the second class under the first one's `instanceof`
-// narrow — where its case decodes to nothing and every instance of it gets
-// rejected by a check it can never pass. `@` can't collide with a tag name.
-const unionKey = (schema: Internal, classIds: Map<unknown, number>): string => {
-  if (!flagUnsafeHas(tagFlags[schema.type]!, tagFlagInstance)) {
-    return schema.type;
+const unionIsTransparent = (schema: Internal): boolean => {
+  if (schema.type !== unionTag) return false;
+  let fields = 0;
+  for (const key in schema) {
+    if (key !== "isAsync" && key !== "hasTransform") fields++;
   }
-  let id = classIds.get(schema.class);
-  if (id === U) {
-    id = classIds.size;
-    classIds.set(schema.class, id);
-  }
-  return "@" + id;
+  return fields === 6;
 };
 
-// Whether decoding a value already known to be of the schema type is a noop —
-// no transformation anywhere in the schema tree. Recursive refs are
-// conservatively treated as transforming.
+// One bounded structural walk supplies every recursive effect fact used by
+// analysis. Refs, nested unions, functions, and custom parsers stop the walk,
+// so public recursive schemas terminate without eager expansion.
+const unionTraits = (schema: Internal): number => {
+  const tag = tagFlags[schema.type]!;
+  let traits = 0;
+  // Low bits: Sury failure, foreign failure, opaque boundary, change.
+  if ((tag & unionBoundaryTags) || schema.parser !== U) return 15;
+  if (schema.refiner !== U || schema.inputRefiner !== U) {
+    traits |= 3;
+  } else if (tag & (tagFlagObject | tagFlagArray | tagFlagInstance)) {
+    traits |= 2;
+  }
+  if (schema.format !== U || isLiteral(schema)) {
+    traits |= 1;
+  }
+  const to = schema.to;
+  if (to !== U) {
+    if (
+      to === schema ||
+      to.parser !== U ||
+      (tagFlags[to.type]! & unionBoundaryTags)
+    ) {
+      traits |= 15;
+    } else if (
+      !(
+        to.noValidation === true ||
+        (tagFlags[to.type]! & tagFlagUnknown) ||
+        unionRuntimeSame(schema, to) ||
+        (to.type === unionTag &&
+          (unionMask(to, 1) & tag))
+      )
+    ) {
+      traits |= 9;
+    } else {
+      traits |= unionTraits(to);
+    }
+  }
+  const fields = (schema.items ||
+    schema.properties) as unknown as Record<string, Internal> | undefined;
+  for (const key in fields) {
+    const field = fields[key]!;
+    traits |= unionTraits(field);
+  }
+  if (typeof schema.additionalItems === "object") {
+    traits |= unionTraits(schema.additionalItems);
+  }
+  return traits;
+};
+
+// Typed decode/encode may skip validation and refinement, but never a value
+// transformation. Refs stay conservative so this walk terminates on cycles.
 const unionIsNoop = (schema: Internal): boolean => {
-  const additionalItems = schema.additionalItems;
+  if (
+    schema.to !== U ||
+    schema.parser !== U ||
+    (tagFlags[schema.type]! & tagFlagRef)
+  ) {
+    return false;
+  }
+  const fields = (schema.anyOf ||
+    schema.items ||
+    schema.properties) as unknown as Record<string, Internal> | undefined;
+  for (const key in fields) {
+    if (!unionIsNoop(fields[key]!)) return false;
+  }
   return (
-    schema.to === U &&
-    schema.parser === U &&
-    !flagUnsafeHas(tagFlags[schema.type]!, tagFlagRef) &&
-    schema.anyOf?.every(unionIsNoop) !== false &&
-    schema.items?.every(unionIsNoop) !== false &&
-    (!schema.properties || Object.values(schema.properties).every(unionIsNoop)) &&
-    (!additionalItems ||
-      typeof additionalItems === "string" ||
-      unionIsNoop(additionalItems))
+    typeof schema.additionalItems !== "object" ||
+    unionIsNoop(schema.additionalItems)
   );
 };
 
@@ -133,30 +186,20 @@ const unionIsWider = (variants: Internal[], inputVariants: Internal[]): boolean 
     const schema = variants[idx];
     return (
       schema !== U &&
-      !flagUnsafeHas(
-        tagFlags[inputSchema.type]!,
-        tagFlagArray | tagFlagInstance | tagFlagRef | tagFlagUnion | tagFlagObject
+      !(
+        tagFlags[inputSchema.type]! &
+        (tagFlagArray |
+          tagFlagInstance |
+          tagFlagRef |
+          tagFlagUnion |
+          tagFlagObject)
       ) &&
       inputSchema.type === schema.type &&
       unionLiteralEqual(inputSchema.const, schema.const) &&
       inputSchema.to === U &&
-      // A paired variant with its own `.to` still transforms the value, so
-      // passing the input through would skip the conversion
       schema.to === U
     );
   });
-
-// The rejecting form of a hoisted dispatch cond, for a case that runs inside a
-// `try` — the throw is what hands the value to the next case.
-const unionRejectCond = (out: HoistCond): string => {
-  const hoists = out.h;
-  let code = "";
-  for (let i = 0; i < hoists.length; i++) {
-    const h = hoists[i]!;
-    code += `${h.c}||${B_failWithArg(h.v, failInvalidType(h.v), h.i)};`;
-  }
-  return code;
-};
 
 // ── Emission ─────────────────────────────────────────────────────────────────
 
@@ -168,53 +211,38 @@ const unionRejectCond = (out: HoistCond): string => {
 type UnionCase = {
   c: string;
   b: string;
-  q: HoistCond;
-  s?: Internal;
-  th: boolean;
-  ft: boolean;
-  df: boolean;
-  // The body's last statement has no `;` of its own, so it needs one when it
-  // ends up unbraced at the end of the whole dispatch.
-  n: boolean;
-};
-
-const unionDisjoint = (a: Internal, b: Internal): boolean => {
-  const leftItems = (a.properties || a.items) as
-    | Record<string, Internal>
-    | undefined;
-  const rightItems = (b.properties || b.items) as
-    | Record<string, Internal>
-    | undefined;
-  for (const key in leftItems) {
-    const left = leftItems[key]!;
-    // One shared discriminator is enough; if the first literal field doesn't
-    // prove disjointness, staying conservative preserves fallback order.
-    if (isLiteral(left)) {
-      const right = rightItems?.[key];
-      return (
-        !!right &&
-        isLiteral(right) &&
-        !unionLiteralEqual(left.const, right.const)
-      );
-    }
-  }
-  return false;
+  // Body can throw (1), must be awaited by fallback dispatch (2), is a
+  // grouped wrapper (4), or may fall through to an overlapping member (8).
+  f: number;
 };
 
 type UnionCtx = {
-  // Error-var counter. Per decoder, so a nested union restarts at `e0` — its
-  // `catch` sits inside the outer `try`, never around the outer chain's own
-  // reference to `e0`, so the reused name can't shadow a live binding.
-  n: number;
-  // Set by `unionEmitChain` when its code ends with an unbraced, unterminated
-  // statement. Read right after the call, so nesting can't confuse it.
-  b: boolean;
-  // The aggregated union error, given the caught per-case error vars.
-  fail: (caught: string) => string;
+  // The aggregated union error, given the lazily collected per-case errors.
+  f: (caught: string) => string;
   // `e[N]` for `getOrRethrow`, embedded on first use and shared by every case:
   // only a Sury validation error means "this variant didn't match".
-  rethrow: () => string;
+  r: () => string;
+  // The union schema, used to recognize and flatten an inner group's synthetic
+  // "none of these members matched" wrapper without string-inspecting code.
+  s: () => string;
 };
+
+const unionFail = (
+  schema: Internal,
+  path: string,
+  input: unknown,
+  ...unionErrors: SuryErrorRecord[]
+): never =>
+  B_throw(
+    B_makeInvalidInputDetails(
+      schema,
+      unknown,
+      path,
+      input,
+      true,
+      unionErrors.length ? unionErrors : U
+    )
+  );
 
 // Whether a stretch of emitted code can raise is read off `g.t` (see
 // `B_markThrow`) by bracketing the emission, not by inspecting the string it
@@ -227,98 +255,65 @@ type UnionCtx = {
 // alternative whose failure is provably terminal (`ft === false`) skips the
 // try/catch and throws its own precise error instead.
 const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx): string => {
-  let head = "";
-  let tail = "";
-  let caught = "";
-  // An `if(…){…}` is open at the current nesting level, so the next alternative
-  // continues it with `else`.
-  let chained = false;
-  // Alternatives that accept with no code of their own, deferred into one
-  // disjunction tested last. Only safe when nothing later can accept them.
-  let noop = "";
+  if (cases.length === 1) {
+    const c = cases[0]!;
+    if (c.b === "" && c.c === "") return "";
+    if (c.b === "") {
+      return `if(!(${c.c})){${ctx.f("")}}`;
+    }
+    if (c.c === "") return c.b + ";";
+    return `if(${c.c}){${c.b}}else{${ctx.f("")}}`;
+  }
+
+  let code = "";
+  let caught = false;
   let exhaustive = false;
-  ctx.b = false;
 
   for (let idx = 0; idx < cases.length; idx++) {
     const c = cases[idx]!;
 
     if (c.b === "" && c.c === "") {
-      // Accepts everything with no code — the chain can't fail from here on,
-      // and any deferred alternative is subsumed.
-      noop = "";
+      code += "break;";
       exhaustive = true;
       break;
-    }
-
-    if (c.df) {
-      noop += `${noop ? "||" : ""}${c.c}`;
-      continue;
     }
 
     if (c.b === "") {
-      // Accepts with no code of its own, but a later alternative could take the
-      // same value, so it has to stay in its slot. Guarding the rest of the
-      // chain beats emitting an empty block.
-      head += `${chained ? "else " : ""}if(!(${c.c})){`;
-      tail = "}" + tail;
-      chained = false;
+      code += `if(${c.c})break;`;
       continue;
     }
 
-    // A terminal last alternative still needs its `try` when earlier ones were
-    // caught: throwing straight past them would drop their reasons from the
-    // aggregated union error.
-    if (c.th && (c.ft || (idx === cases.length - 1 && caught !== ""))) {
-      if (noop) {
-        head += `${chained ? "else " : ""}if(!(${noop})){`;
-        tail = "}" + tail;
-        noop = "";
-        chained = false;
-      } else if (chained) {
-        head += "else{";
-        tail = "}" + tail;
-        chained = false;
-      }
-      const errorVar = "e" + ctx.n++;
-      // A foreign exception — a `TypeError` from a buggy user predicate, say —
-      // is a bug, not a variant miss. Rethrowing it beats reporting "didn't
-      // match" and silently succeeding through a later catch-all.
-      head += `try{${unionRejectCond(c.q)}${c.b}}catch(${errorVar}){${ctx.rethrow()}(${errorVar});`;
-      tail = "}" + tail;
-      caught += `,${errorVar}`;
+    if (
+      (c.f & 1) &&
+      ((c.f & unionMemberFalls) || caught)
+    ) {
+      const fallback = c.f & unionMemberFalls;
+      const grouped = c.f & 4;
+      const failure = grouped
+        ? `x=${ctx.r()}(x);if(x.expected===${ctx.s()}){x=x.unionErrors;x&&(r||(r=[])).push(...x)}else{${
+            fallback ? "(r||(r=[])).push(x)" : "if(!r)throw x;r.push(x)"
+          }}`
+        : fallback
+          ? `(r||(r=[])).push(${ctx.r()}(x))`
+          : `x=${ctx.r()}(x);if(!r)throw x;r.push(x)`;
+      const attempt = `try{${c.b};break}catch(x){${
+        failure
+      }}`;
+      code += c.c === "" ? attempt : `if(${c.c}){${attempt}}`;
+      caught = true;
     } else if (c.c === "") {
-      // Unconditional body: it either succeeds or throws, so nothing after it
-      // can run.
-      if (noop) {
-        head += `${chained ? "else " : ""}if(!(${noop})){${c.b}}`;
-        noop = "";
-      } else if (chained) {
-        head += `else{${c.b}}`;
-      } else {
-        head += c.b;
-        ctx.b = c.n && tail === "";
-      }
+      code += `${c.b};break;`;
       exhaustive = true;
       break;
     } else {
-      head += `${chained ? "else if" : "if"}(${c.c}){${c.b}}`;
-      chained = true;
+      code += `if(${c.c}){${c.b};break}`;
     }
   }
 
   if (!exhaustive) {
-    const failCode = ctx.fail(caught);
-    head += noop
-      ? `${chained ? "else " : ""}if(!(${noop})){${failCode}}`
-      : chained
-        ? `else{${failCode}}`
-        : tail === ""
-          ? // The bare fail call might be followed by more code, eg `return`
-            failCode + ";"
-          : failCode;
+    code += ctx.f(caught ? ",...(r||[])" : "");
   }
-
-  return head + tail;
+  return `for(;;){${caught ? "let r;" : ""}${code}}`;
 };
 
 // ── Group narrows ────────────────────────────────────────────────────────────
@@ -329,27 +324,26 @@ const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx): string => {
 // `S.optional`/`S.nullable` are unions.
 const unionNarrowSchema = (schema: Internal): Internal => {
   const tagFlag = tagFlags[schema.type]!;
+  const container = tagFlagObject | tagFlagArray;
   const narrow = baseSchema(schema.type, false);
-  // Carries the variant's encoder so a pending `.to` reverse reaches it.
   narrow.encoder = schema.encoder;
-  if (flagUnsafeHas(tagFlag, tagFlagInstance)) {
+  if (tagFlag & tagFlagInstance) {
     narrow.class = schema.class;
-  } else if (flagUnsafeHas(tagFlag, tagFlagObject)) {
-    narrow.properties = immutableEmptyObject as Record<string, Internal>;
+  } else if (tagFlag & container) {
     narrow.additionalItems = unknown;
-  } else if (flagUnsafeHas(tagFlag, tagFlagArray)) {
-    narrow.additionalItems = unknown;
-    narrow.items = immutableEmptyArray as Internal[];
-  } else if (flagUnsafeHas(tagFlag, tagFlagNull | tagFlagUndefined | tagFlagNaN)) {
+    if (tagFlag & tagFlagObject) {
+      narrow.properties = immutableEmptyObject as Record<string, Internal>;
+    } else {
+      narrow.items = immutableEmptyArray as Internal[];
+    }
+  } else if (tagFlag & (tagFlagNull | tagFlagUndefined | tagFlagNaN)) {
     // null/undefined/nan stay literals so the case body passes through.
     narrow.const = schema.const;
   }
-  // Per-invocation, not hoisted: the narrow is re-decoded per variant — with the
-  // union's `unknown` input (emit the discriminant), with a source that already
-  // holds this tag (nothing to do), or with a value the source encoder coerced
-  // into another representation (delegate to the variant's own decoder).
+  // This schema is only used by effect-compatible validation groups. It owns
+  // the runtime tag check, never a member's conversion.
   narrow.decoder = (input: Val) => {
-    if (flagUnsafeHas(tagFlags[input.s.type]!, tagFlagUnknown)) {
+    if (tagFlags[input.s.type]! & tagFlagUnknown) {
       return B_refine(input, input.e, [
         {
           c: (inputVar) => typeCheckCond(input, schema, inputVar),
@@ -357,47 +351,14 @@ const unionNarrowSchema = (schema: Internal): Internal => {
         },
       ]);
     }
-    if (input.s.type === narrow.type && input.s.class === narrow.class) {
-      // The source already holds this tag, so there is nothing to decode. A
-      // structured source additionally swaps in the minimal narrow: several
-      // variants share the `object` tag, and a union case validates the value
-      // against its own shape rather than converting one shape into another.
-      return flagUnsafeHas(tagFlag, tagFlagObject | tagFlagArray)
+    if (unionRuntimeSame(input.s, narrow)) {
+      return tagFlag & container
         ? B_refine(input, input.e)
         : input;
     }
     return schema.decoder(input);
   };
   return narrow;
-};
-
-// The tags a case's dispatch cond can be true for, read off the narrow it
-// actually emitted — for a gap-filled variant that's the source's
-// representation tag (a JSON string offered to `S.bigint`), not the variant's
-// own. Only hoistable narrows count: a check the dispatch can't lift stays in the
-// body and throws, which constrains nothing about which values reach the case.
-// The earliest narrow in the chain is the one tested against the raw input, so
-// keep walking to the root.
-const unionAcceptMask = (attempt: Val, fallback: number): number => {
-  let v: Val | undefined = attempt;
-  let narrowed: Internal | undefined = U;
-  while (v !== U) {
-    const checks = v.vc;
-    if (checks !== U && B_isHoistable(v)) {
-      for (let i = 0; i < checks.length; i++) {
-        if (checks[i]!.f === failInvalidType) {
-          narrowed = v.s;
-          break;
-        }
-      }
-    }
-    v = v.prev;
-  }
-  if (narrowed === U) {
-    return fallback;
-  }
-  const tagFlag = tagFlags[narrowed.type]!;
-  return flagUnsafeHas(tagFlag, unionOpaqueTags) ? fallback : unionWiden(tagFlag);
 };
 
 // Tag bits don't partition runtime values: every instance passes the object
@@ -408,42 +369,118 @@ const unionObjectish = tagFlagObject | tagFlagInstance;
 // Tags whose "same type" says nothing about the value's shape.
 const unionStructured =
   tagFlagObject | tagFlagArray | tagFlagInstance | tagFlagRef | tagFlagUnion;
-const unionWiden = (tagFlag: number): number =>
-  flagUnsafeHas(tagFlag, unionObjectish) ? unionObjectish : tagFlag;
+const unionWiden = (tagFlag: number, nan: number): number =>
+  tagFlag |
+  (tagFlag & unionObjectish
+    ? unionObjectish
+    : tagFlag & tagFlags[numberTag]!
+      ? nan
+      : 0);
 
-// The tags a nested union accepts, when it compiles to nothing but a type test
-// over its members. A union tag has no `typeof` discriminant of its own, so the
-// dispatch would otherwise have to assume the variant might accept anything and
-// learn otherwise by catching its failure — which costs a thrown exception on
-// input the variant was never going to take. Returns 0 when that isn't provable,
-// leaving the conservative source mask in place. Anything that would give a
-// member code of its own (a transform, a refinement, a nested shape) bails: the
-// mask has to describe what the emitted dispatch condition accepts, and only a
-// pure type test keeps the two in step.
-const unionNestedMask = (schema: Internal): number => {
-  const members = schema.anyOf;
-  if (members === U || schema.to !== U || schema.parser !== U) {
+// Mode 0 describes produced output, 1 a member's accepted input, and 2 the
+// declared source (whose root ref may expose a bounded input tag).
+const unionMask = (schema: Internal, mode: number, nan = 0): number => {
+  if (mode === 2) {
+    const defs = schema["$defs"];
+    const ref = schema["$ref"];
+    if (defs !== U && ref !== U) {
+      const resolved = defs[ref.slice(ref.lastIndexOf("/") + 1)];
+      if (resolved !== U && resolved !== schema) {
+        return unionMask(resolved, 1, nan);
+      }
+    }
+  }
+  const tagFlag = tagFlags[schema.type]!;
+  if (!mode && (tagFlag & tagFlagNever)) {
     return 0;
   }
-  let mask = 0;
-  for (let idx = 0; idx < members.length; idx++) {
-    const member = members[idx]!;
-    const tagFlag = tagFlags[member.type]!;
-    if (flagUnsafeHas(tagFlag, tagFlagNever)) {
-      continue;
+  if (mode && (tagFlag & tagFlagUnion)) {
+    let mask = 0;
+    const variants = schema.anyOf!;
+    for (let i = 0; i < variants.length; i++) {
+      mask |= unionMask(variants[i]!, 1, nan);
     }
-    if (
-      flagUnsafeHas(tagFlag, unionOpaqueTags | unionStructured) ||
-      !unionIsNoop(member) ||
-      member.refiner !== U ||
-      member.inputRefiner !== U ||
-      member.noValidation !== U
-    ) {
-      return 0;
-    }
-    mask |= unionWiden(tagFlag);
+    return mask;
   }
-  return mask;
+  return tagFlag & (tagFlagUnknown | tagFlagUnion | tagFlagRef)
+    ? unionAnyTag
+    : unionWiden(tagFlag, nan);
+};
+
+const unionEffectIdentity = 0;
+const unionEffectValidation = 1;
+const unionEffectCoercion = 2;
+const unionEffectRejection = 3;
+const unionEffectOpaque = 4;
+
+// Member low bits record Sury throws (1), foreign throws (2), and opacity (4).
+// Case bit 1 is refined from emitted-body throw tracking, never inferred from
+// the semantic Sury bit. Falls (8) and direct dispatch (16) are shared by plan.
+const unionMemberFalls = 8;
+const unionMemberDirect = 16;
+
+type UnionDiscriminator = [key: string, value: unknown];
+
+type UnionMember = {
+  i: number;
+  s: Internal;
+  m: number;
+  o: number;
+  e: number;
+  f: number;
+  p: number;
+  k: unknown;
+  r: number;
+  d?: UnionDiscriminator;
+};
+
+type UnionGroup = {
+  m: number;
+  a: UnionMember[];
+  f: number;
+  n?: Internal;
+};
+
+type UnionBucket = {
+  m: number;
+  t: (UnionGroup[] | UnionGroup | undefined)[];
+};
+
+type UnionNormalized = {
+  m: number;
+  f: number;
+  t: number;
+};
+
+// Sparse reverse-stream summary of every member after the current group,
+// keyed by its non-overlapping runtime tag family. `false` is an overlap
+// barrier (a broad member or conflicting discriminator keys); otherwise the
+// tuple holds the common key and its SameValueZero values.
+//
+// This proves distinct exact/semantic discriminator values disjoint in O(1)
+// expected time per member without comparing it with every later member.
+type UnionOverlapSummary = [string, Set<unknown>] | false;
+
+const unionGroup = (member: UnionMember): UnionGroup => ({
+  m: member.m,
+  a: [member],
+  f: member.f & unionMemberDirect,
+});
+
+const unionDiscriminator = (schema: Internal): UnionDiscriminator | undefined => {
+  if (isLiteral(schema)) {
+    return ["", schema.const];
+  }
+  const fields = (schema.properties || schema.items) as
+    | Record<string, Internal>
+    | undefined;
+  for (const key in fields) {
+    const field = fields[key]!;
+    if (isLiteral(field)) {
+      return [key, field.const];
+    }
+  }
+  return U;
 };
 
 // ── Rejections ───────────────────────────────────────────────────────────────
@@ -459,35 +496,34 @@ const unionCheckPartial = (
   // against: its input under rule 2 (the union is the target), its output under
   // rule 3 (the union is the source).
   variants: Internal[],
-  matchSide: (variant: Internal) => Internal,
   // What the unmatched side is called in the message — the union sits opposite
   // it, so this is also which of source/target `variants` belongs to.
-  side: "source" | "target"
+  outputSide: boolean
 ): void => {
-  const other = side === "target" ? target : source;
-  let total = 0;
-  let matches = 0;
+  const other = outputSide ? target : source;
   let matched: Internal | undefined = U;
+  let unmatched = false;
   for (let idx = 0; idx < variants.length; idx++) {
     const variant = variants[idx]!;
+    const match = outputSide ? unionOutput(variant) : variant;
     if (
       variant.type === neverTag ||
-      (side === "target" && getOutputSchema(variant).type === neverTag)
+      (outputSide && match.type === neverTag)
     ) {
       continue;
     }
-    total++;
-    if (unionSameType(other, matchSide(variant))) {
-      matches++;
+    if (unionSameType(other, match)) {
       matched ||= variant;
+    } else {
+      unmatched = true;
     }
   }
-  if (matches > 0 && matches < total) {
+  if (matched !== U && unmatched) {
     unionInvalid(
       input,
       source,
       target,
-      `${toExpression(matched!)} has the same type as the ${side} and the others don't`
+      `${toExpression(matched!)} has the same type as the ${outputSide ? "target" : "source"} and the others don't`
     );
   }
 };
@@ -513,22 +549,529 @@ const unionInvalid = (input: Val, from: Internal, to: Internal, why: string): ne
     )} — ${why}. Use S.to to say what you mean, or S.never to mark a variant unreachable`
   );
 
-// ── Decoder ──────────────────────────────────────────────────────────────────
+// ── Normalize → Analyze → Plan → Emit ────────────────────────────────────────
 
-type UnionGroup = {
-  // The scoped input the group's cases branch from.
-  ni: Val;
-  // The narrowed val, parsed once and shared.
-  nv: Val;
-  // Acceptance mask of the shared narrow.
-  m: number;
-  // Variants dispatched under this narrow, in definition order.
-  items: Internal[];
-  // Whether the shared narrow's own code can raise. Captured here because the
-  // narrow is *built* in pass 1 but *emitted* in pass 3, so a mark taken around
-  // the emission would miss it.
-  nt: boolean;
+const unionNormalize = (
+  variants: Internal[],
+  source: Internal,
+  skipUndefined: boolean,
+  nan: number
+): UnionNormalized => {
+  let flags = skipUndefined ? tagFlagUndefined : 0;
+  const sourceLiteral = isLiteral(source);
+  for (let i = 0; i < variants.length; i++) {
+    const member = variants[i]!;
+    if (
+      sourceLiteral &&
+      isLiteral(member) &&
+      unionLiteralEqual(member.const, source.const)
+    ) {
+      flags |= tagFlagUnknown;
+    }
+    flags |=
+      tagFlags[member.type]! &
+      (tagFlagObject | tagFlags[numberTag]!);
+  }
+  return {
+    m: unionMask(source, 2, nan),
+    f: flags,
+    t: tagFlags[source.type]!,
+  };
 };
+
+const unionAnalyze = (
+  normalized: UnionNormalized,
+  variants: Internal[],
+  source: Internal,
+  nan: number
+): UnionMember[] => {
+  const sourceMask = normalized.m;
+  const normalizedFlags = normalized.f;
+  const out: UnionMember[] = [];
+  const sourceTag = normalized.t;
+  const unknownSource = sourceTag & tagFlagUnknown;
+  const sourceBoundary = sourceTag & (tagFlagUnion | tagFlagRef);
+  const unionSource =
+    sourceBoundary &&
+    sourceMask !== unionAnyTag;
+  const sourceDiscriminator = unionDiscriminator(source);
+  const exact = normalizedFlags & tagFlagUnknown;
+  const broadObject = normalizedFlags & tagFlagObject;
+  const broadNumber = normalizedFlags & tagFlags[numberTag]!;
+  const numberish = tagFlags[numberTag]! | tagFlagNaN;
+  for (let i = 0; i < variants.length; i++) {
+    const s = variants[i]!;
+    const tag = tagFlags[s.type]!;
+    const inputMask = unionMask(s, 1, nan);
+    const d = unionDiscriminator(s);
+    const same = unionRuntimeSame(source, s);
+    const discriminatorDisjoint =
+      sourceDiscriminator !== U &&
+      d !== U &&
+      same &&
+      sourceDiscriminator[0] === d[0] &&
+      !unionLiteralEqual(sourceDiscriminator[1], d[1]);
+    const accepts =
+      !(tag & tagFlagNever) &&
+      !(
+        (normalizedFlags & tagFlagUndefined) &&
+        (tag & tagFlagUndefined)
+      ) &&
+      !discriminatorDisjoint &&
+      (!exact ||
+        (isLiteral(s)
+          ? unionLiteralEqual(s.const, source.const)
+          : sourceMask & inputMask));
+    const native = sourceMask & tag;
+    const coerces =
+      accepts &&
+      !unknownSource &&
+      !(unionSource ? native : same);
+    const output = unionOutput(s);
+    const traits = unionTraits(s);
+    const sourceDeopt = sourceBoundary && (!unionSource || coerces);
+    const effect =
+      output.type === neverTag
+        ? unionEffectRejection
+        : (traits & 4) || sourceDeopt
+          ? unionEffectOpaque
+          : coerces || (traits & 8)
+            ? unionEffectCoercion
+            : (traits & 1) ||
+                (tag & unionStructured)
+              ? unionEffectValidation
+              : unionEffectIdentity;
+    const nested =
+      s.type === objectTag && nestedLoc in s.properties!;
+    const f =
+      (traits & 7) |
+      (effect !== unionEffectIdentity ? 1 : 0) |
+      (sourceDeopt ? 4 : 0) |
+      ((!unknownSource && same) ||
+      (tag & unionOpaqueTags)
+        ? unionMemberDirect
+        : 0);
+    const p =
+      nested ||
+      (broadObject &&
+        (tag & (tagFlagArray | tagFlagInstance))) ||
+      (broadNumber && (tag & tagFlagNaN))
+        ? 0
+        : d !== U
+          ? 1
+          : 2;
+    out.push({
+      i,
+      s,
+      m: accepts
+        ? unknownSource
+          ? inputMask
+          : unionSource
+            ? native
+              ? inputMask
+              : s.type === undefinedTag &&
+                  (sourceMask & tagFlagNull)
+                ? tagFlagNull
+                : s.type === nullTag &&
+                    (sourceMask & tagFlagUndefined)
+                  ? tagFlagUndefined
+                  : tagFlagString
+            : sourceMask
+        : 0,
+      o: accepts ? unionMask(output, 0, nan) : 0,
+      e: effect,
+      f,
+      p,
+      k: tag & tagFlagInstance ? s.class : s.type,
+      r: tag & unionObjectish
+        ? unionObjectish
+        : tag & numberish
+          ? numberish
+          : unionWiden(tag, nan),
+      d,
+    });
+  }
+  return out;
+};
+
+const unionPlan = (members: UnionMember[]): UnionGroup[] => {
+  const sequence: (UnionBucket | UnionGroup)[] = [];
+  const active: (UnionBucket | undefined)[] = [];
+  const priority: (UnionBucket | undefined)[] = [];
+
+  for (let i = 0; i < members.length; i++) {
+    const member = members[i]!;
+    if (member.m === 0) continue;
+
+    const bucketed =
+      member.r !== unionAnyTag &&
+      (member.m & ~member.r) === 0;
+    const compatible =
+      member.e < unionEffectCoercion ||
+      (member.e === unionEffectOpaque && member.d?.[0] === "");
+    let bucket = bucketed
+      ? member.p === 0
+        ? priority[member.r] || active[member.r]
+        : active[member.r]
+      : U;
+
+    for (const key in active) {
+      const other = active[+key]!;
+      if (other !== bucket && (other.m & member.m)) {
+        delete active[+key];
+      }
+    }
+
+    if (!bucketed) {
+      for (const key in priority) {
+        if (priority[+key]!.m & member.m) {
+          delete priority[+key];
+        }
+      }
+      sequence.push(unionGroup(member));
+      continue;
+    }
+
+    if (
+      bucket !== U &&
+      member.p === 1 &&
+      (bucket.t[2] as UnionGroup[]).length
+    ) {
+      delete active[member.r];
+      bucket = U;
+    }
+
+    if (bucket === U) {
+      bucket = {
+        m: 0,
+        t: [[], [], []],
+      };
+      active[member.r] = bucket;
+      priority[member.r] ||= bucket;
+      sequence.push(bucket);
+    }
+    bucket.m |= member.m;
+
+    const open = bucket.t[member.p + 3] as UnionGroup | undefined;
+    const first = open?.a[0];
+    const same =
+      compatible &&
+      first !== U &&
+      first.k === member.k &&
+      (first.e < unionEffectCoercion) ===
+        (member.e < unionEffectCoercion)
+        ? open
+        : U;
+    for (let tier = 3; tier < 6; tier++) {
+      const group = bucket.t[tier] as UnionGroup | undefined;
+      if (group !== U && group !== same && (group.m & member.m)) {
+        bucket.t[tier] = U;
+      }
+    }
+
+    if (same !== U) {
+      same.a.push(member);
+      same.m |= member.m;
+      same.f &= ~unionMemberDirect;
+    } else {
+      const group = unionGroup(member);
+      (bucket.t[member.p] as UnionGroup[]).push(group);
+      if (compatible) {
+        bucket.t[member.p + 3] = group;
+      }
+    }
+    if (!compatible) {
+      delete active[member.r];
+    }
+  }
+
+  const plan: UnionGroup[] = [];
+  for (let i = 0; i < sequence.length; i++) {
+    const item = sequence[i]!;
+    if ("t" in item) {
+      for (let tier = 0; tier < 3; tier++) {
+        const groups = item.t[tier] as UnionGroup[];
+        for (let j = 0; j < groups.length; j++) {
+          plan.push(groups[j]!);
+        }
+      }
+    } else {
+      plan.push(item);
+    }
+  }
+
+  const later: (UnionOverlapSummary | undefined)[] = [];
+  let laterMask = 0;
+  let laterBroad = 0;
+  for (let i = plan.length - 1; i >= 0; i--) {
+    const group = plan[i]!;
+    let key: unknown = U;
+    let values: Set<unknown> | undefined;
+    for (let j = group.a.length - 1; j >= 0; j--) {
+      const member = group.a[j]!;
+      const d = member.d;
+      const conflict =
+        d === U || key === false || (key !== U && key !== d[0]);
+      if (
+        key !== U &&
+        (conflict || values!.has(d[1]))
+      ) {
+        member.f |= unionMemberFalls;
+        group.f |= 2;
+      }
+      if (conflict) {
+        key = false;
+      } else {
+        key = d[0];
+        (values ||= new Set()).add(d[1]);
+      }
+    }
+    const route = group.a[0]!.r;
+    const semantic = later[route];
+    let overlaps =
+      !!(laterMask & group.m) &&
+      (!!(laterBroad & group.m) ||
+        key === false ||
+        semantic === U ||
+        semantic === false ||
+        semantic[0] !== key);
+    if (!overlaps && semantic !== U && semantic !== false) {
+      for (const value of values!) {
+        if (semantic[1].has(value)) {
+          overlaps = true;
+          break;
+        }
+      }
+    }
+    if (
+      overlaps ||
+      (laterMask &&
+        (tagFlags[group.a[0]!.s.type]! & unionOpaqueTags) &&
+        (group.a[0]!.s.to !== U || group.a[0]!.s.parser !== U))
+    ) {
+      group.f |= unionMemberFalls;
+      group.f |= 2;
+    }
+    if (
+      group.a.length !== 1 ||
+      !(group.f & unionMemberDirect)
+    ) {
+      group.n = unionNarrowSchema(group.a[0]!.s);
+    }
+    if (route !== unionAnyTag && (group.m & ~route) === 0) {
+      if (key === false) {
+        later[route] = false;
+      } else if (semantic === U) {
+        later[route] = [key as string, values!];
+      } else if (semantic !== false) {
+        if (semantic[0] !== key) {
+          later[route] = false;
+        } else {
+          for (const value of values!) {
+            semantic[1].add(value);
+          }
+        }
+      }
+    } else {
+      laterBroad |= group.m;
+    }
+    laterMask |= group.m;
+  }
+  return plan;
+};
+
+const unionEmit = (
+  input: Val,
+  self: Internal,
+  plan: UnionGroup[],
+  toPerCase: Internal | undefined
+): Val => {
+  const initialInline = input.i;
+  let output = B_refine(input);
+  const awaitAsync = plan.some((group) => group.f & 2);
+  const outputBySource: (Internal | undefined)[] = [];
+  let salvaged = "";
+  let rethrow = "";
+  let expected = "";
+  const ctx: UnionCtx = {
+    f: (caught) =>
+      `${B_embed(input, unionFail.bind(U, self, input.path))}(${input.v()}${salvaged}${caught})`,
+    r: () => rethrow || (rethrow = B_embed(input, getOrRethrow)),
+    s: () => expected || (expected = B_embed(input, self)),
+  };
+  const compile = (
+    member: UnionMember,
+    source: Val,
+    target: Val = source
+  ): UnionCase | undefined => {
+    const mark = input.g.t;
+    const caseInput = B_scope(source);
+    caseInput.u = true;
+    caseInput.t = source.t;
+    caseInput.io = false;
+    caseInput.e = member.s;
+    let caseOut: Val;
+    const options = input.g.o;
+    input.g.o |= flagUnionTransformContext;
+    try {
+      if (self.perVariant) {
+        try {
+          caseOut = parse(caseInput);
+        } catch (exn) {
+          salvaged += `,${B_embed(input, getOrRethrow(exn))}`;
+          return U;
+        }
+      } else {
+        caseOut = parse(caseInput);
+      }
+    } finally {
+      input.g.o = options;
+    }
+    if (member.o) outputBySource[member.i] = caseOut.s;
+    const cond: HoistCond = { c: "", h: [] };
+    const falls = member.f & unionMemberFalls;
+    let body = falls
+      ? B_merge(caseOut)
+      : B_merge(caseOut, cond);
+    const async = caseOut.f & valFlagAsync;
+    output.f |= async;
+    if (caseOut.t!) {
+      output.t = true;
+      const itemVar = target.v();
+      if (async || caseOut.i !== itemVar) {
+        body += `${itemVar}=${async && awaitAsync ? "await " : ""}${caseOut.i}`;
+      }
+    }
+    const flags =
+      (body !== "" && input.g.t !== mark ? 1 : 0) |
+      (async && awaitAsync ? 2 : 0) |
+      (falls ? unionMemberFalls : 0);
+    return { c: cond.c, b: body, f: flags };
+  };
+
+  const cases: UnionCase[] = [];
+  for (let i = 0; i < plan.length; i++) {
+    const group = plan[i]!;
+    if (
+      group.a.length === 1 &&
+      (group.f & unionMemberDirect)
+    ) {
+      const c = compile(group.a[0]!, input);
+      if (c !== U) {
+        if (group.f & unionMemberFalls) {
+          c.f |= unionMemberFalls;
+        }
+        cases.push(c);
+        if (c.c === "" && c.b === "") break;
+      }
+      continue;
+    }
+
+    const mark = input.g.t;
+    const narrowInput = B_scope(input);
+    narrowInput.io = false;
+    narrowInput.e = group.n!;
+    const narrow = parse(narrowInput);
+    const inner: UnionCase[] = [];
+    for (let j = 0; j < group.a.length; j++) {
+      const c = compile(group.a[j]!, narrow, narrowInput);
+      if (c !== U) {
+        inner.push(c);
+        if (c.c === "" && c.b === "") break;
+      }
+    }
+    if (!inner.length) continue;
+
+    const cond: HoistCond = { c: "", h: [] };
+    let body: string;
+    let grouped = false;
+    if (inner.every((c) => c.b === "")) {
+      if (!inner.some((c) => c.c === "")) {
+        let fused = inner.map((c) => c.c).join("||");
+        if (inner.length > 1) fused = `(${fused})`;
+        B_pushCheck(narrow, { c: () => fused, f: failInvalidType });
+      }
+      body = B_merge(narrow, cond);
+    } else {
+      const narrowCode = B_merge(narrow, cond);
+      const only = inner.length === 1 ? inner[0]! : U;
+      if (only !== U && narrowCode === "") {
+        if (only.c !== "") {
+          cond.c = cond.c ? `${cond.c}&&${only.c}` : only.c;
+        }
+        body = only.b;
+      } else {
+        body = narrowCode + unionEmitChain(inner, ctx);
+        grouped = inner.length > 1;
+      }
+    }
+    const flags =
+      (body !== "" && input.g.t !== mark ? 1 : 0) |
+      (inner.some((c) => c.f & 2) ? 2 : 0) |
+      (group.f & unionMemberFalls) |
+      (grouped ? 4 : 0);
+    cases.push({ c: cond.c, b: body, f: flags });
+    if (body === "" && cond.c === "") break;
+  }
+
+  // Once an unconditional identity case is reached, preceding identity-only
+  // conditions cannot affect the result: every input is accepted unchanged.
+  // Erase the whole dispatch instead of emitting a redundant `for(;;)` loop.
+  const noop =
+    cases.length > 0 &&
+    cases.every((c) => c.b === "") &&
+    cases.some((c) => c.c === "");
+  const pure =
+    !noop &&
+    cases.length > 0 &&
+    cases.every((c) => c.c !== "" && c.b === "");
+  const asyncDispatch = cases.some((c) => c.f & 2);
+  if (pure) {
+    let fused = cases.map((c) => c.c).join("||");
+    if (cases.length > 1) fused = `(${fused})`;
+    output = B_refine(
+      B_refine(output, output.s, [{ c: () => fused, f: failInvalidType }], self)
+    );
+  } else if (!noop) {
+    const dispatch = unionEmitChain(cases, ctx);
+    if (asyncDispatch) {
+      const itemVar = input.v();
+      output.i = `(async(${itemVar})=>{${dispatch};return ${itemVar}})(${itemVar})`;
+    } else {
+      output.cp += dispatch;
+    }
+  }
+  if (!asyncDispatch) output.i = input.i;
+  let out: Val;
+  if (output.f & valFlagAsync) {
+    output.i = `Promise.resolve(${output.i})`;
+    output.v = _notVar;
+    out = output;
+  } else if (
+    output.v === _var &&
+    input.cp === "" &&
+    output.cp === "" &&
+    !pure &&
+    initialInline === "i"
+  ) {
+    input.hd = "";
+    input.v = _notVar;
+    input.i = initialInline;
+    out = input;
+  } else {
+    out = output;
+  }
+  const outputAnyOf = outputBySource.filter(Boolean) as Internal[];
+  out.s = outputAnyOf.length ? unionFactory(outputAnyOf) : never_();
+  if (toPerCase !== U) {
+    out.io = true;
+    out.e = unionOutput(toPerCase);
+    return out;
+  }
+  out.e = self;
+  return B_markOutput(out, input);
+};
+
 
 export const unionDecoder: Builder = (input: Val) => {
   const self = input.e;
@@ -544,8 +1087,6 @@ export const unionDecoder: Builder = (input: Val) => {
   if (
     // Already validated against this exact schema.
     (input.io! && input.e === input.s) ||
-    // The input val is already of the union type (trusted self-decode). Only
-    // allowed when no variant transforms the value.
     (input.s === self && toPerCase === U && variants.every(unionIsNoop)) ||
     (input.s.type === unionTag &&
       toPerCase === U &&
@@ -556,22 +1097,24 @@ export const unionDecoder: Builder = (input: Val) => {
 
   const initialTagFlag = tagFlags[input.s.type]!;
   if (
-    flagUnsafeHas(initialTagFlag, tagFlagUnion) ||
-    (input.s.encoder === U && flagUnsafeHas(initialTagFlag, tagFlagRef))
+    (initialTagFlag & tagFlagUnion) ||
+    (input.s.encoder === U && (initialTagFlag & tagFlagRef))
   ) {
     input.s = unknown;
   }
 
   const source = input.s;
+  const nan = flagUnsafeHas(input.g.o, flagDisableNanNumberValidation)
+    ? tagFlagNaN
+    : 0;
+  const normalized = unionNormalize(
+    variants,
+    source,
+    "fromDefault" in self,
+    nan
+  );
   // A source that can hold anything constrains nothing, so it can't prove two
   // cases disjoint.
-  const sourceMask = flagUnsafeHas(
-    tagFlags[source.type]!,
-    tagFlagUnknown | tagFlagUnion | tagFlagRef
-  )
-    ? unionAnyTag
-    : tagFlags[source.type]!;
-
   // Rule 2 — matching some but not all target variants is ambiguous: pass the
   // value through to the matching one, or attempt decoding in definition order?
   // Two sources are never ambiguous: `unknown`, which may already be any of the
@@ -579,13 +1122,10 @@ export const unionDecoder: Builder = (input: Val) => {
   // spells out exactly — that variant takes the value as it is, and no other
   // variant can produce it.
   if (
-    !flagUnsafeHas(tagFlags[source.type]!, tagFlagUnknown) &&
-    !(
-      isLiteral(source) &&
-      variants.some((v) => isLiteral(v) && unionLiteralEqual(v.const, source.const))
-    )
+    !(normalized.t & tagFlagUnknown) &&
+    !(normalized.f & tagFlagUnknown)
   ) {
-    unionCheckPartial(input, source, self, variants, (v) => v, "source");
+    unionCheckPartial(input, source, self, variants, false);
   }
 
   // A union carrying its own `.to` converts per variant, so rules 3 and 4 have
@@ -595,7 +1135,7 @@ export const unionDecoder: Builder = (input: Val) => {
   // is no single pre-conversion output val left to attach them to.
   if (toPerCase !== U) {
     const perCase = unionTargetOwns(toPerCase)
-      ? variants.map((v) => (getOutputSchema(v).type === neverTag ? U : toPerCase))
+      ? variants.map((v) => (unionOutput(v).type === neverTag ? U : toPerCase))
       : unionResolve(input, self, variants, toPerCase);
     const attach =
       self.refiner !== U || self.inputRefiner !== U ? unionRefinerAttacher(self) : U;
@@ -614,487 +1154,27 @@ export const unionDecoder: Builder = (input: Val) => {
     });
   }
 
-  // A const source the target spells out exactly reaches only those variants:
-  // the value already *is* that literal, so every other variant is dead code —
-  // and compiling one would ask for a decoder that has no reason to exist.
-  if (isLiteral(source)) {
-    const matching: Internal[] = [];
-    for (let idx = 0; idx < variants.length; idx++) {
-      const schema = variants[idx]!;
-      if (isLiteral(schema) && unionLiteralEqual(schema.const, source.const)) {
-        matching.push(schema);
-      }
-    }
-    if (matching.length > 0) {
-      variants = matching;
-    }
-  }
-
-  const skipUndefined = "fromDefault" in self;
-
-  // ── Pass 0: grouping keys and how many variants share each ─────────────────
-  // A tag carried by one variant needs no shared narrow — that variant's own
-  // decode emits exactly the narrow a shared one would. Skipping it halves the
-  // `parse` calls for the `X | undefined` shape every `S.optional` compiles to,
-  // and it's only sound with an acceptance mask that doesn't need the narrow
-  // either: an `unknown` source hands the value to each decoder untouched, so a
-  // variant's own tag *is* what its cond accepts. That premise is why every
-  // decoder's own narrow has to be exactly `typeCheckCond` for its tag — an
-  // object mode that skipped the `!Array.isArray` half would silently widen
-  // what the case accepts past the planner's acceptance mask.
-  const soleTag = flagUnsafeHas(tagFlags[source.type]!, tagFlagUnknown);
-  // Keys are internal tag names or `@`-prefixed class ids, so neither table can
-  // collide with object prototype names.
-  const tagCount: Record<string, number> = {};
-  const classIds = new Map<unknown, number>();
-  for (let idx = 0; idx < variants.length; idx++) {
-    const key = unionKey(variants[idx]!, classIds);
-    tagCount[key] = (tagCount[key] || 0) + 1;
-  }
-  const priorityTags =
-    (tagCount[objectTag]! && (tagFlagArray | tagFlagInstance)) |
-    (tagCount[numberTag]! && tagFlagNaN);
-
-  // ── Pass 1 (forward): group variants under shared narrows ─────────────────
-  const groups: UnionGroup[] = [];
-  const openByKey: Record<string, UnionGroup> = {};
-  let priorityCount = 0;
-
-  for (let idx = 0; idx < variants.length; idx++) {
-    const variant = variants[idx]!;
-    const tagFlag = tagFlags[variant.type]!;
-    // `S.never` marks a deliberately unreachable path: no branch, no coverage,
-    // no rejection.
-    if (
-      flagUnsafeHas(tagFlag, tagFlagNever) ||
-      (skipUndefined && flagUnsafeHas(tagFlag, tagFlagUndefined))
-    ) {
-      continue;
-    }
-
-    const key = unionKey(variant, classIds);
-    const open = openByKey[key];
-    if (open !== U) {
-      const items = open.items;
-      if (flagUnsafeHas(tagFlag, tagFlagObject) && nestedLoc in variant.properties!) {
-        // https://github.com/DZakh/sury/issues/150 — a nested option next to
-        // an empty object schema: the None case is checked second, so this
-        // one has to go in front of it.
-        items.splice(-1, 0, variant);
-      } else if (!flagUnsafeHas(tagFlag, tagFlagUndefined | tagFlagNull | tagFlagNaN)) {
-        // Only one null/undefined/nan case can ever match — dedupe.
-        items.push(variant);
-      }
-      continue;
-    }
-
-    const narrowInput = B_scope(input);
-    narrowInput.io = false;
-    const narrowMark = input.g.t;
-    let narrowVal: Val;
-    let mask: number;
-    if (flagUnsafeHas(tagFlag, unionOpaqueTags)) {
-      // unknown / union / ref / json / function have no `typeof` discriminant:
-      // the variant's own decoder owns the whole branch.
-      narrowInput.e = unknown;
-      narrowVal = narrowInput;
-      mask = sourceMask;
-      if (flagUnsafeHas(tagFlag, tagFlagUnion)) {
-        const nested = unionNestedMask(variant);
-        if (nested !== 0) {
-          mask = sourceMask & nested;
-        }
-      }
-    } else if (soleTag && tagCount[key] === 1 && variant.to === U) {
-      // A conversion still needs the narrow: it stands in as the case's clean
-      // input schema, where decoding straight from the source would leave the
-      // case's output val describing a `.to` that has already run (#284).
-      narrowVal = narrowInput;
-      mask = unionWiden(tagFlag);
-    } else {
-      narrowInput.e = unionNarrowSchema(variant);
-      // A creation error here rejects the whole operation: the source has no way
-      // to reach this variant's type, and a union never salvages that by
-      // dropping the variant.
-      narrowVal = parse(narrowInput);
-      mask = unionAcceptMask(narrowVal, sourceMask);
-    }
-    const group: UnionGroup = {
-      ni: narrowInput,
-      nv: narrowVal,
-      m: mask,
-      items: [variant],
-      nt: input.g.t !== narrowMark,
-    };
-    // A later variant may rejoin an earlier same-key group only while every
-    // intervening group is disjoint. Close overlapping groups as the frontier
-    // advances instead of rescanning the interval for every repeated key.
-    for (const openKey in openByKey) {
-      if ((openByKey[openKey]!.m & mask) !== 0) {
-        delete openByKey[openKey];
-      }
-    }
-    // Insert at a stable priority frontier instead of unshifting: every
-    // priority group still precedes the broad fallback, while Error/TypeError
-    // peers retain definition order.
-    if (flagUnsafeHas(tagFlag, priorityTags)) {
-      groups.splice(priorityCount++, 0, group);
-    } else {
-      groups.push(group);
-    }
-    openByKey[key] = group;
-  }
-
-  // ── Pass 2 (reverse): what any later group can still accept ────────────────
-  const suffix: number[] = [];
-  let acc = 0;
-  for (let idx = groups.length - 1; idx >= 0; idx--) {
-    suffix[idx] = acc;
-    acc |= groups[idx]!.m;
-  }
-
-  // ── Pass 3 (forward): emit ─────────────────────────────────────────────────
-  let output = B_refine(input);
-  const outputAnyOf: Internal[] = [];
-  const initialInline = input.i;
-
-  const salvage = self.perVariant === true;
-  // Embedded creation errors of dropped variants, reported as the union error's
-  // per-case reasons.
-  let salvaged = "";
-  let rethrow = "";
-
-  const ctx: UnionCtx = {
-    n: 0,
-    b: false,
-    fail: (caught: string) =>
-      `${B_embed(
-        input,
-        // Reads `arguments`, so this must stay a `function` expression.
-        function () {
-          const args = arguments;
-          B_throw(
-            B_makeInvalidInputDetails(
-              self,
-              unknown,
-              input.path,
-              args[0],
-              true,
-              args.length > 1 ? (Array.from(args).slice(1) as SuryErrorRecord[]) : U
-            )
-          );
-        }
-      )}(${input.v()}${salvaged}${caught})`,
-    rethrow: () => rethrow || (rethrow = B_embed(input, getOrRethrow)),
-  };
-
-  const branches: UnionCase[] = [];
-  const branchMasks: number[] = [];
-  for (let idx = 0; idx < groups.length; idx++) {
-    const group = groups[idx]!;
-    const groupFallsThrough = (group.m & suffix[idx]!) !== 0;
-
-    const cases: UnionCase[] = [];
-    const items = group.items;
-    for (let i = 0; i < items.length; i++) {
-      const variant = items[i]!;
-
-      // Copy the input again: every case decoder may mutate it.
-      const caseInput = B_scope(group.nv);
-      caseInput.u = true;
-      caseInput.t = group.nv.t;
-      caseInput.io = false;
-      caseInput.e = variant;
-
-      // Bracket everything this case emits — its decode and its merge below.
-      const caseMark = input.g.t;
-
-      let caseOut: Val;
-      if (salvage) {
-        // Sury's own possibly-absent read: a variant with no decoder to the
-        // target isn't a user error to reject the operation for, it just can't
-        // match. Drop it and report its reason under the union's own error.
-        try {
-          caseOut = parse(caseInput);
-        } catch (exn) {
-          salvaged += `,${B_embed(input, getOrRethrow(exn))}`;
-          continue;
-        }
-      } else {
-        caseOut = parse(caseInput);
-      }
-      outputAnyOf.push(caseOut.s);
-
-      const cond: HoistCond = { c: "", h: [] };
-      let body = B_merge(caseOut, cond);
-      let needsTerminator = false;
-
-      if (caseOut.t!) {
-        output.t = true;
-        if (flagUnsafeHas(caseOut.f, valFlagAsync)) {
-          output.f |= valFlagAsync;
-        }
-        const itemVar = group.ni.v();
-        if (caseOut.i !== itemVar) {
-          // Allocate through the shared var so the case doesn't mutate the
-          // input object field it was read from.
-          body += `${itemVar}=${caseOut.i}`;
-          needsTerminator = true;
-        }
-      }
-
-      cases.push({
-        c: cond.c,
-        b: body,
-        q: cond,
-        s: variant,
-        th: input.g.t !== caseMark,
-        ft: false,
-        df: false,
-        n: needsTerminator,
-      });
-
-      if (cond.c === "" && body === "") {
-        // Accepts everything under this narrow with no code — nothing after it is
-        // reachable, so don't compile (and embed) the rest.
-        break;
-      }
-    }
-
-    if (!cases.length) {
-      continue;
-    }
-
-    // The shared narrow is already factored out. Only literal discriminants
-    // prove two cases disjoint; every other relationship stays ordered and
-    // falls through conservatively.
-    for (let i = 0; i < cases.length; i++) {
-      const c = cases[i]!;
-      const literal = isLiteral(c.s!);
-      let fallsThrough = false;
-      let deferrable = c.b === "";
-      for (let j = i + 1; j < cases.length; j++) {
-        const other = cases[j]!;
-        const disjoint =
-          literal
-            ? isLiteral(other.s!) &&
-              !unionLiteralEqual(c.s!.const, other.s!.const)
-            : !isLiteral(other.s!) && unionDisjoint(c.s!, other.s!);
-        if (c.c === "" || !disjoint) {
-          fallsThrough = true;
-          // Only a later case that would *do* something changes the outcome of
-          // deferring this one; another pass-through leaves the value alone
-          // either way.
-          if (other.b !== "") {
-            deferrable = false;
-          }
-        }
-      }
-      // The last case's failure is routed by the group's own branch — either its
-      // try/catch or, when nothing later can accept, a direct throw — so it
-      // never wraps itself.
-      c.ft = i === cases.length - 1 ? false : fallsThrough;
-      c.df = deferrable;
-    }
-
-    const groupCond: HoistCond = { c: "", h: [] };
-    let groupBody: string;
-    let bare = false;
-    // The cases are already emitted, so their own `th` carries over; this mark
-    // covers what the group adds on top — its shared narrow, whose raises were
-    // built back in pass 1 but only land here, and the chain around them.
-    const groupMark = input.g.t;
-    let groupThrows: boolean;
-    if (cases.every((c) => c.b === "")) {
-      // Every case accepts with no code of its own, so the group is pure
-      // validation: fold the discriminants into its own narrow and let them
-      // emit as one condition.
-      if (!cases.some((c) => c.c === "")) {
-        let fused = cases[0]!.c;
-        for (let i = 1; i < cases.length; i++) {
-          fused += `||${cases[i]!.c}`;
-        }
-        if (cases.length > 1) {
-          // A disjunction needs its own parens inside the narrow's `&&` chain.
-          fused = `(${fused})`;
-        }
-        if (group.nv.prev === U) {
-          // The narrow emitted nothing, so the discriminants read the raw input
-          // var and join the group's own condition directly. Going through a
-          // check would need a `prev` to read that var from.
-          groupCond.c = fused;
-        } else {
-          // Routed through a check so `B_isHoistable` decides: a narrow that
-          // transformed the value keeps the discriminant in its body, below the
-          // `let` the discriminant reads.
-          B_pushCheck(group.nv, {
-            c: (_inputVar) => fused,
-            f: failInvalidType,
-          });
-        }
-      }
-      groupBody = B_merge(group.nv, groupCond);
-      groupThrows = group.nt || input.g.t !== groupMark;
-    } else {
-      const narrowCode = B_merge(group.nv, groupCond);
-      const only = cases.length === 1 ? cases[0]! : U;
-      if (only !== U && narrowCode === "" && only.c !== "") {
-        // One case under a narrow that emitted nothing, so the two conditions are
-        // really one: keep it on the branch, where the chain can continue it with
-        // `else` instead of nesting the case inside a block of its own.
-        groupCond.c = groupCond.c ? `${groupCond.c}&&${only.c}` : only.c;
-        groupCond.h = groupCond.h.concat(only.q.h);
-        groupBody = only.b;
-        bare = only.n;
-        groupThrows = group.nt || only.th || input.g.t !== groupMark;
-      } else {
-        const inner = unionEmitChain(cases, ctx);
-        bare = ctx.b;
-        groupBody = narrowCode + inner;
-        groupThrows =
-          group.nt || input.g.t !== groupMark || cases.some((c) => c.th);
-      }
-    }
-
-    branches.push({
-      c: groupCond.c,
-      b: groupBody,
-      q: groupCond,
-      th: groupThrows,
-      ft: groupFallsThrough,
-      df: false,
-      n: bare,
-    });
-    branchMasks.push(group.m);
-  }
-
-  // Deferring a pass-through group past the rest of the chain is only safe while
-  // no later group with a body of its own could take the same value.
-  let bodyMask = 0;
-  for (let idx = branches.length - 1; idx >= 0; idx--) {
-    const branch = branches[idx]!;
-    const mask = branchMasks[idx]!;
-    branch.df = branch.b === "" && (mask & bodyMask) === 0;
-    if (branch.b !== "") {
-      bodyMask |= mask;
-    }
-  }
-
-  // A union that only validates — every branch a pass-through carrying a
-  // condition of its own — has nothing to emit but its own narrow. Kept as a
-  // check instead of an `if(!cond){fail}` statement it stays hoistable, so an
-  // enclosing union lifts it into the dispatch and reaches the next variant with
-  // an `else` rather than through a thrown exception.
-  let pureNarrow = false;
-  if (branches.length > 0 && branches.every((b) => b.b === "" && b.c !== "")) {
-    let fused = branches[0]!.c;
-    for (let idx = 1; idx < branches.length; idx++) {
-      fused += `||${branches[idx]!.c}`;
-    }
-    if (branches.length > 1) {
-      // A disjunction needs its own parens inside the `&&` chain a check emits.
-      fused = `(${fused})`;
-    }
-    // Two vals: the inner one carries the narrow with `self` pinned as its
-    // expected schema, the outer absorbs the tail's mutations below — which
-    // overwrite `e` with the `.to` target and rebuild `s` from the variants'
-    // outputs, either of which would otherwise rename the check's error to a
-    // schema the value was never matched against.
-    pureNarrow = true;
-    output = B_refine(
-      B_refine(output, output.s, [{ c: (_inputVar) => fused, f: failInvalidType }], self)
-    );
-  } else {
-    const dispatch = unionEmitChain(branches, ctx);
-    // The whole dispatch can collapse to one unbraced statement (a case that
-    // always applies), and the caller appends `return` right after it.
-    output.cp += dispatch + (ctx.b ? ";" : "");
-  }
-
-  // In case input.var was called, but output.var wasn't
-  if (input.i !== output.i) {
-    output.i = input.i;
-  }
-
-  let o: Val;
-  if (flagUnsafeHas(output.f, valFlagAsync)) {
-    output.i = `Promise.resolve(${output.i})`;
-    output.v = _notVar;
-    o = output;
-  } else if (
-    output.v === _var &&
-    input.cp === "" &&
-    output.cp === "" &&
-    // A pure-validation union emits no code but carries its narrow as a check,
-    // and dropping `output` for `input` would drop the whole validation.
-    !pureNarrow &&
-    initialInline === "i"
-  ) {
-    // Nothing was emitted: hand back the untouched input so callers keep
-    // treating the value as unchanged.
-    input.hd = "";
-    input.v = _notVar;
-    input.i = initialInline;
-    o = input;
-  } else {
-    o = output;
-  }
-
-  // Built from the variants' own output schemas: the next `.to` segment decodes
-  // from this, so it has to describe what the value actually holds (#284).
-  o.s = outputAnyOf.length ? unionFactory(outputAnyOf) : never_();
-  if (toPerCase !== U) {
-    o.io = true;
-    o.e = getOutputSchema(toPerCase);
-    return o;
-  }
-  o.e = self;
-  return B_markOutput(o, input);
+  const analyzed = unionAnalyze(normalized, variants, source, nan);
+  const plan = unionPlan(analyzed);
+  return unionEmit(input, self, plan, toPerCase);
 };
 
 // Calls each source refiner at most once so its predicate is embedded once and
 // every case references the same `e[N]` — `B_embed` is append-only, so a
 // per-case call would duplicate it.
 const unionRefinerAttacher = (self: Internal): ((mut: Internal) => void) => {
-  const cache: Record<string, Check[] | undefined> = Object.create(null);
-  const attach = (
-    current: ((input: Val) => Check[]) | undefined,
-    source: ((input: Val) => Check[]) | undefined,
-    key: string
-  ): ((input: Val) => Check[]) | undefined => {
-    if (source === U) {
-      return current;
-    }
-    const getCached = (input: Val): Check[] => {
-      const cached = cache[key];
-      if (cached !== U) {
-        return cached;
-      }
-      const checks = source(input);
-      cache[key] = checks;
-      return checks;
-    };
-    if (current === U) {
-      return getCached;
-    }
-    const existing = current;
-    return (input: Val) => {
-      const arr = existing(input);
-      const next = getCached(input);
-      for (let i = 0; i < next.length; i++) {
-        arr.push(next[i]!);
-      }
-      return arr;
-    };
-  };
+  const cached: (Check[] | undefined)[] = [];
   return (mut: Internal) => {
-    const r = attach(mut.refiner, self.refiner, "r");
-    if (r !== U) {
-      mut.refiner = r;
-    }
-    const ir = attach(mut.inputRefiner, self.inputRefiner, "i");
-    if (ir !== U) {
-      mut.inputRefiner = ir;
+    for (let i = 0; i < 2; i++) {
+      const key = i ? "inputRefiner" : "refiner";
+      const source = self[key];
+      if (source !== U) {
+        const current = mut[key];
+        mut[key] = (input: Val) => {
+          const shared = cached[i] || (cached[i] = source(input));
+          return current === U ? shared : current(input).concat(shared);
+        };
+      }
     }
   };
 };
@@ -1128,23 +1208,24 @@ export const unionRewrite = (
 // `never` stays as it is: it's an explicit rejection, not a path to convert.
 export const unionRewriteTo = (input: Val, target: Internal): Val =>
   unionRewrite(input, (variant) =>
-    getOutputSchema(variant).type === neverTag
+    unionOutput(variant).type === neverTag
       ? variant
       : updateOutput<Internal>(variant, (mut) => {
           mut.to = target;
         })
   );
 
+
 // Whether the union should hand itself to the target untouched — recursive
 // schemas and `S.json` decode a union source per variant on their own, and a
 // `noValidation` target (`S.assert`'s result sentinel) discards the value, so
 // converting each member into it would replace every member's check with the
 // sentinel's.
-const unionTargetOwns = (target: Internal): boolean =>
+const unionTargetOwns = (target: Internal) =>
   target.noValidation === true ||
-  flagUnsafeHas(tagFlags[getOutputSchema(target).type]!, tagFlagRef) ||
+  (tagFlags[unionOutput(target).type]! & tagFlagRef) ||
   (target.type === unionTag &&
-    target.anyOf!.some((v) => flagUnsafeHas(tagFlags[v.type]!, tagFlagRef)));
+    target.anyOf!.some((v) => tagFlags[v.type]! & tagFlagRef));
 
 // Applied by the parse loop when a union-typed val meets a different expected
 // schema — rules 3 and 4.
@@ -1206,11 +1287,11 @@ const unionResolve = (
   // Two targets are never ambiguous: `unknown`, the top type, which decodes
   // nothing; and a `noValidation` target (S.assert's result sentinel), which
   // discards the value entirely.
-  if (!flagUnsafeHas(tagFlags[target.type]!, tagFlagUnknown) && !target.noValidation) {
-    unionCheckPartial(input, source, target, variants, getOutputSchema, "target");
+  if (!(tagFlags[target.type]! & tagFlagUnknown) && !target.noValidation) {
+    unionCheckPartial(input, source, target, variants, true);
   }
   return variants.map((variant) =>
-    getOutputSchema(variant).type === neverTag ? U : target
+    unionOutput(variant).type === neverTag ? U : target
   );
 };
 
@@ -1230,22 +1311,18 @@ const unionResolveToUnion = (
 
   for (let s = 0; s < variants.length; s++) {
     const sourceVariant = variants[s]!;
-    const sourceOut = getOutputSchema(sourceVariant);
+    const sourceOut = unionOutput(sourceVariant);
     const produces =
       sourceVariant.type !== neverTag && sourceOut.type !== neverTag;
-    const sameTyped: Internal[] = [];
-    for (let t = 0; t < targets.length; t++) {
-      const targetVariant = targets[t]!;
-      if (targetVariant.type !== neverTag && unionSameType(sourceOut, targetVariant)) {
-        covered[t] = true;
-        if (produces) {
-          sameTyped.push(targetVariant);
-        }
-      }
-    }
     if (!produces) {
       continue;
     }
+    const sameTyped = targets.filter(
+      (targetVariant, t) =>
+        targetVariant.type !== neverTag &&
+        unionSameType(sourceOut, targetVariant) &&
+        (covered[t] = true)
+    );
     sourceNullish |= tagFlags[sourceOut.type]! & unionNullish;
     if (sameTyped.length === 1) {
       matches[s] = sameTyped[0]!;
@@ -1256,10 +1333,11 @@ const unionResolveToUnion = (
       // output takes it as the pass-through rule 4 describes. Otherwise hand the
       // value to all the candidates and let their own dispatch (and fallback)
       // sort it out.
-      const own = flagUnsafeHas(tagFlags[sourceOut.type]!, unionStructured)
-        ? sameTyped.indexOf(sourceOut)
-        : -1;
-      matches[s] = own >= 0 ? sourceOut : unionFactory(sameTyped);
+      matches[s] =
+        (tagFlags[sourceOut.type]! & unionStructured) &&
+        sameTyped.includes(sourceOut)
+          ? sourceOut
+          : unionFactory(sameTyped);
     }
     if (matches[s] !== U) {
       continue;
@@ -1271,7 +1349,7 @@ const unionResolveToUnion = (
       matches[s] = targets.find(
         (candidate) =>
           candidate.type === opposite &&
-          getOutputSchema(candidate).type !== neverTag
+          unionOutput(candidate).type !== neverTag
       );
     }
     if (matches[s] === U) {
@@ -1287,15 +1365,15 @@ const unionResolveToUnion = (
       targetVariant.type !== neverTag &&
       !covered[t] &&
       (opposite === U ||
-        getOutputSchema(targetVariant).type === neverTag ||
-        !flagUnsafeHas(sourceNullish, tagFlags[opposite]!))
+        unionOutput(targetVariant).type === neverTag ||
+        !(sourceNullish & tagFlags[opposite]!))
     ) {
       unionUncovered(input, source, target, targetVariant);
     }
   }
 
   return matches.map((matched, idx) =>
-    matched !== U && unionAddsNothing(matched, getOutputSchema(variants[idx]!)) ? U : matched
+    matched !== U && unionAddsNothing(matched, unionOutput(variants[idx]!)) ? U : matched
   );
 };
 
@@ -1313,7 +1391,7 @@ const unionAddsNothing = (matched: Internal, sourceOut: Internal): boolean =>
     // A target const narrows the source; only a target that constrains nothing
     // (or exactly the same value) is a pass-through.
     (matched.const === U || unionLiteralEqual(matched.const, sourceOut.const)) &&
-    !flagUnsafeHas(tagFlags[matched.type]!, unionStructured) &&
+    !(tagFlags[matched.type]! & unionStructured) &&
     unionSameType(matched, sourceOut));
 
 // ── Factory ──────────────────────────────────────────────────────────────────
@@ -1327,26 +1405,13 @@ export const unionFactory = (schemas: Internal[]): Internal => {
 
   const has: Partial<Record<Tag, boolean>> = {};
   const anyOf: Internal[] = [];
-  const add = (schema: Internal): void => {
-    for (let idx = 0; idx < anyOf.length; idx++) {
-      if (anyOf[idx] === schema) {
-        return;
-      }
-    }
-    anyOf.push(schema);
-  };
-
   for (let idx = 0; idx < schemas.length; idx++) {
     const schema = schemas[idx]!;
-    if (unionIsTransparent(schema)) {
-      const nested = schema.anyOf!;
-      for (let i = 0; i < nested.length; i++) {
-        add(nested[i]!);
-      }
-      Object.assign(has, schema.has!);
-    } else {
-      add(schema);
-      setHas(has, schema.type);
+    const nested = unionIsTransparent(schema) ? schema.anyOf! : U;
+    for (let j = 0; j < (nested === U ? 1 : nested.length); j++) {
+      const member = nested === U ? schema : nested[j]!;
+      anyOf.push(member);
+      setHas(has, member.type);
     }
   }
 

@@ -58,11 +58,11 @@ test("Object with embeded transformed schema", t => {
   )
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Encode),
-    `i=>{let v0=i["zoo"];if(v0===void 0){v0=null}else if(!(typeof v0==="number"&&v0<=2147483647&&v0>=-2147483648&&v0%1===0)){e[0](v0)}return {"foo":"bar","zoo":v0,}}`,
+    `i=>{let v0=i["zoo"];for(;;){if(typeof v0==="number"&&!Number.isNaN(v0)&&v0<=2147483647&&v0>=-2147483648&&v0%1===0)break;if(v0===void 0){v0=null;break}e[0](v0)}return {"foo":"bar","zoo":v0,}}`,
   )
   t->Assert.is(
     objectSchema->U.getCompiledCodeString(~op=#Encode),
-    `i=>{let v0=i["zoo"];if(v0===void 0){v0=null}else if(!(typeof v0==="number"&&v0<=2147483647&&v0>=-2147483648&&v0%1===0)){e[0](v0)}return {"foo":"bar","zoo":v0,}}`,
+    `i=>{let v0=i["zoo"];for(;;){if(typeof v0==="number"&&!Number.isNaN(v0)&&v0<=2147483647&&v0>=-2147483648&&v0%1===0)break;if(v0===void 0){v0=null;break}e[0](v0)}return {"foo":"bar","zoo":v0,}}`,
   )
 })
 
@@ -124,11 +124,11 @@ test("Tuple with embeded transformed schema", t => {
   )
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Encode),
-    `i=>{let v0=i["0"];if(v0===void 0){v0=null}else if(!(typeof v0==="string")){e[0](v0)}return [v0,void 0,"bar",]}`,
+    `i=>{let v0=i["0"];for(;;){if(typeof v0==="string")break;if(v0===void 0){v0=null;break}e[0](v0)}return [v0,void 0,"bar",]}`,
   )
   t->Assert.is(
     tupleSchema->U.getCompiledCodeString(~op=#Encode),
-    `i=>{let v0=i["0"];if(v0===void 0){v0=null}else if(!(typeof v0==="string")){e[0](v0)}return [v0,void 0,"bar",]}`,
+    `i=>{let v0=i["0"];for(;;){if(typeof v0==="string")break;if(v0===void 0){v0=null;break}e[0](v0)}return [v0,void 0,"bar",]}`,
   )
 })
 
