@@ -440,7 +440,7 @@ test("Coerce string to unboxed union (each item separately)", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[4](i);for(;;){let r;try{let v0=+i;!Number.isNaN(v0)||e[0](i);i=v0;;break}catch(x){(r||(r=[])).push(e[2](x))}try{let v1;(v1=i==="true")||i==="false"||e[1](i);i=v1;;break}catch(x){x=e[2](x);if(!r)throw x;r.push(x)}e[3](i,...(r||[]))}return i}`,
+    `i=>{typeof i==="string"||e[4](i);for(;;){let r;try{let v0=+i;!Number.isNaN(v0)||e[0](i);i=v0;;break}catch(x){(r||(r=[])).push(e[2](x))}try{let v1;(v1=i==="true")||i==="false"||e[1](i);i=v1;;break}catch(x){(r||(r=[])).push(e[2](x))}e[3](i,...(r||[]))}return i}`,
   )
 
   t->Assert.deepEqual(Number(10.)->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"10"`))

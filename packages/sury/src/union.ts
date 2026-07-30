@@ -98,6 +98,14 @@ const unionOutput = (schema: Internal): Internal => {
 
 // A nested union spreads into its parent only when it carries nothing of its
 // own; otherwise it stays one opaque variant that matches by reference.
+//
+// "Nothing of its own" is a field count, not a list of interesting fields, so an
+// unknown field reads as "carries something" and keeps the union whole — the
+// conservative direction. The 6 are exactly what `unionFactory` sets: `type` and
+// `seq` from `baseSchema`, then `anyOf`, `decoder`, `encoder`, `has`. `isAsync`
+// and `hasTransform` are excluded because the parse loop writes them onto a live
+// schema in place. Changing `unionFactory`'s field set without changing this
+// count stops every union from flattening, which the nested-union goldens catch.
 const unionIsTransparent = (schema: Internal): boolean => {
   if (schema.type !== unionTag) return false;
   let fields = 0;
@@ -287,15 +295,14 @@ const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx): string => {
       (c.f & 1) &&
       ((c.f & unionMemberFalls) || caught)
     ) {
-      const fallback = c.f & unionMemberFalls;
-      const grouped = c.f & 4;
-      const failure = grouped
-        ? `x=${ctx.r()}(x);if(x.expected===${ctx.s()}){x=x.unionErrors;x&&(r||(r=[])).push(...x)}else{${
-            fallback ? "(r||(r=[])).push(x)" : "if(!r)throw x;r.push(x)"
-          }}`
-        : fallback
-          ? `(r||(r=[])).push(${ctx.r()}(x))`
-          : `x=${ctx.r()}(x);if(!r)throw x;r.push(x)`;
+      // Every caught failure is recorded and the chain ends in the aggregated
+      // union error, including for the last case. Rethrowing the last case's own
+      // error instead — which an earlier version did whenever nothing before it
+      // had recorded a reason — drops the "Expected A | B | C" framing and
+      // leaves a bare inner error that names no member at all.
+      const failure = c.f & 4
+        ? `x=${ctx.r()}(x);if(x.expected===${ctx.s()}){x=x.unionErrors;x&&(r||(r=[])).push(...x)}else{(r||(r=[])).push(x)}`
+        : `(r||(r=[])).push(${ctx.r()}(x))`;
       const attempt = `try{${c.b};break}catch(x){${
         failure
       }}`;
@@ -418,6 +425,20 @@ const unionEffectOpaque = 4;
 // the semantic Sury bit. Falls (8) and direct dispatch (16) are shared by plan.
 const unionMemberFalls = 8;
 const unionMemberDirect = 16;
+
+// Bits 1, 2 and 4 of `f` mean different things on a `UnionCase` than on a
+// `UnionGroup`, and are deliberately left as literals (naming them costs ~30
+// bundle bytes because they don't get inlined):
+//
+//   case 1  — the emitted body can raise, read off throw tracking (`g.t`).
+//   case 2  — the body yields a promise the dispatch must await before it can
+//             tell whether the member matched.
+//   case 4  — the body is a nested chain, so its failure arrives as the
+//             synthetic "none of these matched" wrapper, not a member's error.
+//   group 2 — some value reaching this group could still be accepted by a later
+//             one, so a failure here has to be caught rather than raised.
+//
+// Bits 8 (falls) and 16 (direct dispatch) mean the same on both.
 
 type UnionDiscriminator = [key: string, value: unknown];
 
@@ -675,7 +696,17 @@ const unionAnalyze = (
                 : s.type === nullTag &&
                     (sourceMask & tagFlagUndefined)
                   ? tagFlagUndefined
-                  : tagFlagString
+                  : // Reached only by coercion. Every built-in cross-tag
+                    // coercion parses a string (`BigInt`, `Number`, `new Date`),
+                    // so a source that can produce one is assumed to be coerced
+                    // through it — narrow enough to keep the case out of an
+                    // unnecessary fallback. With no string in the source that
+                    // guess describes nothing, and claiming too little would let
+                    // the dispatch raise where a later member should have run,
+                    // so fall back to "any type the source produces".
+                    sourceMask & tagFlagString
+                    ? tagFlagString
+                    : sourceMask
             : sourceMask
         : 0,
       o: accepts ? unionMask(output, 0, nan) : 0,
@@ -849,8 +880,7 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
         (tagFlags[group.a[0]!.s.type]! & unionOpaqueTags) &&
         (group.a[0]!.s.to !== U || group.a[0]!.s.parser !== U))
     ) {
-      group.f |= unionMemberFalls;
-      group.f |= 2;
+      group.f |= unionMemberFalls | 2;
     }
     if (
       group.a.length !== 1 ||
@@ -888,6 +918,10 @@ const unionEmit = (
 ): Val => {
   const initialInline = input.i;
   let output = B_refine(input);
+  // An async case only has to be awaited so that its rejection can be caught and
+  // the value handed to a later group — which is exactly where a group is marked
+  // for fallback. With no fallback anywhere, the sole async case's promise is
+  // returned unawaited, saving the async wrapper.
   const awaitAsync = plan.some((group) => group.f & 2);
   const outputBySource: (Internal | undefined)[] = [];
   let salvaged = "";
@@ -930,9 +964,13 @@ const unionEmit = (
     if (member.o) outputBySource[member.i] = caseOut.s;
     const cond: HoistCond = { c: "", h: [] };
     const falls = member.f & unionMemberFalls;
-    let body = falls
-      ? B_merge(caseOut)
-      : B_merge(caseOut, cond);
+    // Hoist the type narrow even when the member can fall through. A value the
+    // narrow rejects could never have been accepted by this member, so skipping
+    // it with `if(cond)` reaches the next member exactly like catching would —
+    // but without re-emitting the narrow as a statement, without the try/catch
+    // when nothing deeper can fail, and without recording a "reason" for a
+    // member the value was never plausibly an instance of.
+    let body = B_merge(caseOut, cond);
     const async = caseOut.f & valFlagAsync;
     output.f |= async;
     if (caseOut.t!) {
