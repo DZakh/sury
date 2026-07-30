@@ -291,15 +291,20 @@ const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx): string => {
     // chain to carry its failure forward.
     if ((c.f & 1) && ((c.f & unionMemberFalls) || caught)) {
       caught = true;
-      // Every caught failure is recorded and the chain ends in the aggregated
-      // union error, including for the last case. Rethrowing the last case's own
-      // error instead — which an earlier version did whenever nothing before it
-      // had recorded a reason — drops the "Expected A | B | C" framing and
-      // leaves a bare inner error that names no member at all.
-      return `try{${body}break}catch(x){${
+      const record =
         c.f & 4
           ? `x=${ctx.r()}(x);if(x.expected===${ctx.s()}){x=x.unionErrors;x&&(r||(r=[])).push(...x)}else{(r||(r=[])).push(x)}`
-          : `(r||(r=[])).push(${ctx.r()}(x))`
+          : `(r||(r=[])).push(${ctx.r()}(x))`;
+      // The case is only here because an *earlier* one needs the chain to carry
+      // its failure; the planner proved nothing later can accept what reaches
+      // this one. So raise the aggregated error straight from the catch rather
+      // than walking the remaining cases, every one of which would fail on a
+      // type it was never offered — that walk cost 4.7x on a 24-member union and
+      // added a reason from a member the value could never have matched.
+      // Raising `ctx.f` here rather than rethrowing `x` is what keeps the
+      // "Expected A | B | C" framing that a bare inner error loses.
+      return `try{${body}break}catch(x){${record};${
+        c.f & unionMemberFalls ? "" : ctx.f(",...(r||[])")
       }}`;
     }
     return `${body}break`;
@@ -441,11 +446,17 @@ const unionMask = (schema: Internal, mode: number, nan = 0): number => {
     : unionWiden(tagFlag, nan);
 };
 
-const unionEffectIdentity = 0;
-const unionEffectValidation = 1;
-const unionEffectCoercion = 2;
-const unionEffectRejection = 3;
-const unionEffectOpaque = 4;
+// A member's effect (`UnionMember.e`), as a literal because naming these five
+// costs ~40 bundle bytes that esbuild will not inline. The scale is ordered, and
+// `e < 2` — "changes nothing about the value" — is the test that matters: only
+// those members may share a group.
+//
+//   0 identity   — accepts and passes the value straight through.
+//   1 validation — checks the value but does not change it.
+//   2 coercion   — converts, so it cannot share a group with a pass-through.
+//   3 rejection  — output is `never`; executable, but accepts nothing.
+//   4 opaque     — a boundary (ref, nested union, function, custom parser) the
+//                  analysis will not look inside.
 
 // Member low bits record Sury throws (1), foreign throws (2), and opacity (4).
 // Case bit 1 is refined from emitted-body throw tracking, never inferred from
@@ -682,20 +693,20 @@ const unionAnalyze = (
     const sourceDeopt = sourceBoundary && (!unionSource || coerces);
     const effect =
       output.type === neverTag
-        ? unionEffectRejection
+        ? 3
         : (traits & 4) || sourceDeopt
-          ? unionEffectOpaque
+          ? 4
           : coerces || (traits & 8)
-            ? unionEffectCoercion
+            ? 2
             : (traits & 1) ||
                 (tag & unionStructured)
-              ? unionEffectValidation
-              : unionEffectIdentity;
+              ? 1
+              : 0;
     const nested =
       s.type === objectTag && nestedLoc in s.properties!;
     const f =
       (traits & 7) |
-      (effect !== unionEffectIdentity ? 1 : 0) |
+      (effect !== 0 ? 1 : 0) |
       (sourceDeopt ? 4 : 0) |
       ((!unknownSource && same) ||
       (tag & unionOpaqueTags)
@@ -767,8 +778,8 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
       member.r !== unionAnyTag &&
       (member.m & ~member.r) === 0;
     const compatible =
-      member.e < unionEffectCoercion ||
-      (member.e === unionEffectOpaque && member.d?.[0] === "");
+      member.e < 2 ||
+      (member.e === 4 && member.d?.[0] === "");
     let bucket = bucketed
       ? member.p === 0
         ? priority[member.r] || active[member.r]
@@ -818,8 +829,8 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
       compatible &&
       first !== U &&
       first.k === member.k &&
-      (first.e < unionEffectCoercion) ===
-        (member.e < unionEffectCoercion)
+      (first.e < 2) ===
+        (member.e < 2)
         ? open
         : U;
     for (let tier = 3; tier < 6; tier++) {

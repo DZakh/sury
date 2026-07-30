@@ -11,7 +11,7 @@ jsonSchema:
   output: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "number" }, { type: "string" }] }'
 operations:
   parse:
-    expression: i=>{for(;;){if(typeof i==="string"){for(;;){let r;try{i.length>2||e[0](i);break}catch(x){(r||(r=[])).push(e[1](x))}break;};break}if(typeof i==="number"&&!Number.isNaN(i))break;e[2](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="string"){for(;;){let r;try{i.length>2||e[0](i);break}catch(x){(r||(r=[])).push(e[1](x));}break;};break}if(typeof i==="number"&&!Number.isNaN(i))break;e[2](i)}return i}
     examples:
       long-string-matches-the-refined-member:
         input: '"abcd"'

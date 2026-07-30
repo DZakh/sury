@@ -11,7 +11,7 @@ jsonSchema:
   output: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "string", const: "x" }] }'
 operations:
   parse:
-    expression: i=>{for(;;){let r;if(typeof i==="string"){try{i.length>2||e[0](i);break}catch(x){(r||(r=[])).push(e[1](x))}}if(typeof i==="string"&&i==="x")break;e[2](i,...(r||[]))}return i}
+    expression: i=>{for(;;){let r;if(typeof i==="string"){try{i.length>2||e[0](i);break}catch(x){(r||(r=[])).push(e[1](x));}}if(typeof i==="string"&&i==="x")break;e[2](i,...(r||[]))}return i}
     examples:
       refined-member:
         input: '"long"'
