@@ -8,6 +8,7 @@
 // =============================================================================
 
 import {
+  anyOfTag,
   arrayTag,
   baseSchema,
   booleanTag,
@@ -39,7 +40,6 @@ import {
   toExpression,
   U,
   undefinedTag,
-  unionTag,
   unknown,
   unknownTag,
 } from "./base";
@@ -437,7 +437,7 @@ const internalToJSONSchemaBase = (
         jsonSchema.items = itemDefinitions;
       }
     }
-  } else if (tag === unionTag) {
+  } else if (tag === anyOfTag) {
     const anyOf = schema.anyOf!;
     const literals: unknown[] = [];
     const items: JSONSchemaT[] = [];

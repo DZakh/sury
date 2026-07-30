@@ -151,7 +151,7 @@ let baseColorsSchema = S.union([
   S.literal("Green")
 ]);
 
-let extendedColorsSchema = S.union([S.literal("Yellow")].concat(baseColorsSchema.type === "union" ? baseColorsSchema.anyOf : [baseColorsSchema]));
+let extendedColorsSchema = S.union([S.literal("Yellow")].concat(baseColorsSchema.type === "anyOf" ? baseColorsSchema.anyOf : [baseColorsSchema]));
 
 Vitest$1.test("Variant with type spread", t => {
   Vitest.Assert.deepEqual(t, S.parseOrThrow("Red", extendedColorsSchema), "Red", undefined);
@@ -161,7 +161,7 @@ Vitest$1.test("Variant with type spread", t => {
 
 let singleCaseSchema = S.literal("Only");
 
-let extendedFromSingleCaseSchema = S.union([S.literal("Another")].concat(singleCaseSchema.type === "union" ? singleCaseSchema.anyOf : [singleCaseSchema]));
+let extendedFromSingleCaseSchema = S.union([S.literal("Another")].concat(singleCaseSchema.type === "anyOf" ? singleCaseSchema.anyOf : [singleCaseSchema]));
 
 Vitest$1.test("Variant spread of a single-case (literal) schema", t => {
   Vitest.Assert.deepEqual(t, S.parseOrThrow("Only", extendedFromSingleCaseSchema), "Only", undefined);

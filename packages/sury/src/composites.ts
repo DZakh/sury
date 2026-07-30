@@ -2,6 +2,7 @@
 // shape — there's no separate "object val" type.
 
 import {
+  anyOfTag,
   type AdditionalItems,
   arrayTag,
   baseSchema,
@@ -25,7 +26,6 @@ import {
   tagFlagUnknown,
   U,
   undefinedTag,
-  unionTag,
   unknown,
   unknownTag,
   updateOutput,
@@ -485,7 +485,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
       itemInput.e = schema;
       itemInput.io = false;
       itemInput.u = isUnion; // We want to control validation on the decoder side
-      if (isJsonParent && schema.type === unionTag && schema.has![undefinedTag]) {
+      if (isJsonParent && schema.type === anyOfTag && schema.has![undefinedTag]) {
         itemInput.i = `(${itemInput.i}??null)`;
       }
 
@@ -592,7 +592,7 @@ export const optionFactory = (item: Internal, unitSchema: Internal = unit()): In
   const out = getOutputSchema(item);
   if (out.type === undefinedTag) {
     return unionFactory([unitSchema, nestedOption(item)]);
-  } else if (out.type === unionTag) {
+  } else if (out.type === anyOfTag) {
     const anyOf = out.anyOf;
     const has = out.has;
     return updateOutput<Internal>(item, (mut) => {

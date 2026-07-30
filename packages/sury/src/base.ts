@@ -87,7 +87,7 @@ export type Tag =
   | "instance"
   | "array"
   | "object"
-  | "union"
+  | "anyOf"
   | "never"
   | "unknown"
   | "ref";
@@ -106,7 +106,7 @@ export const functionTag: Tag = "function";
 export const instanceTag: Tag = "instance";
 export const arrayTag: Tag = "array";
 export const objectTag: Tag = "object";
-export const unionTag: Tag = "union";
+export const anyOfTag: Tag = "anyOf";
 export const neverTag: Tag = "never";
 export const unknownTag: Tag = "unknown";
 export const refTag: Tag = "ref";
@@ -136,7 +136,7 @@ export const tagFlags: Record<Tag, number> = {
   [nullTag]: 32,
   [objectTag]: 64,
   [arrayTag]: 128,
-  [unionTag]: 256,
+  [anyOfTag]: 256,
   [refTag]: 512,
   [bigintTag]: 1024,
   [nanTag]: 2048,
@@ -406,7 +406,7 @@ export const isLiteral = (schema: Internal): boolean => {
 export const isOptional = (schema: Internal): boolean => {
   return (
     schema.type === undefinedTag ||
-    (schema.type === unionTag && undefinedTag in schema.has!)
+    (schema.type === anyOfTag && undefinedTag in schema.has!)
   );
 }
 
@@ -503,7 +503,7 @@ export const toExpression = (schema: Internal): string => {
     if (typeof schema.additionalItems === objectTag) {
       const additionalItems = schema.additionalItems as Internal;
       const itemName = toExpression(additionalItems);
-      return (additionalItems.type === unionTag ? `(${itemName})` : itemName) + "[]";
+      return (additionalItems.type === anyOfTag ? `(${itemName})` : itemName) + "[]";
     } else {
       return `[${items.map((schema) => toExpression(schema)).join(", ")}]`;
     }

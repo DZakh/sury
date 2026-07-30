@@ -21,7 +21,7 @@ test("Returns the first default value, but can get the last one as well", t => {
     ->S.to(S.option(S.string))
     ->S.Option.getOr("not positive")
 
-  t->Assert.deepEqual((schema->S.untag).tag, Union)
+  t->Assert.deepEqual((schema->S.untag).tag, AnyOf)
   t->Assert.deepEqual((schema->S.untag).default, Some(123.->U.magic))
   t->Assert.deepEqual(((schema->S.untag).to->Option.getOrThrow->S.untag).tag, Number)
   t->Assert.deepEqual(
@@ -34,7 +34,7 @@ test("Returns the first default value, but can get the last one as well", t => {
       ->Option.getOrThrow
       ->S.untag
     ).tag,
-    Union,
+    AnyOf,
   )
   t->Assert.deepEqual(
     (
