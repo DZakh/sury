@@ -735,67 +735,81 @@ type Schema = S.Infer<typeof schema>; // "Win" | "Draw" | "Loss"
 
 ### Decoding into / out of a union
 
-When you compile `source -> target` (via `S.to`, or implicitly by reversing the
-schema) and either side is a union, which member handles a value is decided at
-**operation creation time**, from the types the pipeline actually derives — an
-upstream transformation can narrow a type, and the derived one is what counts.
-Two schemas have the **same type** when their type tags match, including the
-class for instances and the format for formatted primitives: `S.int32` and
-`S.number` are different types, and so are `S.json` and `S.string`.
-
-Nested unions are flattened first (`S.union([S.string, S.union([S.number,
-S.boolean])])` is a three-member union), unless the inner union carries its own
-format, transformation or refinement — then it stays one opaque member that
-matches only the very same union reference.
-
-`S.never` marks a path as deliberately unreachable: a `never` member is ignored
-by type matching, never triggers a rejection, and compiles no branch of its own.
-
-**Non-union → union.** The built-in decoder is applied per member, attempted in
-definition order, and the first member that accepts wins:
+[`to`](#to) also works when one side of the conversion is a union: decode a
+value into whichever member fits, or collapse a union back into a single type.
+The most common case — decoding into a union — tries each member in the order
+you wrote them, and the first one that accepts the value wins:
 
 ```ts
 const schema = S.json.with(S.to, S.union([S.bigint, S.string]));
 
 S.parser(schema)("123"); // 123n — the bigint member comes first
-S.parser(schema)("abc"); // "abc" — BigInt throws, the string member accepts
-S.parser(schema)(true); // throws — no implicit double decoding
+S.parser(schema)("abc"); // "abc" — BigInt throws, so the string member takes it
+S.parser(schema)(true); // throws — true is neither
 ```
 
-Built-in decoding fills gaps, it doesn't re-type what the source already has: a
-member whose tag the source can produce takes those values as they are, and the
-decoder only steps in for a tag the source has no way to produce. `bigint` is not
-a JSON tag, so a JSON string is offered to `BigInt`; `number` is, so a JSON string
-never becomes a number. An `unknown` source can already be any of the member
-types, so nothing is coerced — the conversion is pure validation.
+Each member gets the same built-in decoder it would get as a standalone `S.to`
+target. Decoding fills gaps, it doesn't re-type values the source already
+covers: JSON has no bigints, so a JSON string is offered to `BigInt` — but JSON
+*does* have numbers, so an `S.number` member would never turn a JSON string
+into a number; it only takes values that already are numbers. For the same reason an
+`unknown` source coerces nothing at all — it can already be any of the member
+types, so the conversion is pure validation.
 
-**Union → non-union.** The mirror image: every source member gets its own
-built-in decoder to the target, matched in definition order.
+Going the other way (**union → single type**) mirrors this: each source member
+gets its own built-in decoder to the target, matched in definition order.
 
-**Union → union.** No coercion — values pass through to the same-type target
-member, and the two unions have to cover each other. A `null` or `undefined`
-member left unmatched may bridge to the opposite nullish member on the other
-side; at runtime a same-type match always wins, so the bridge only fills a hole.
+```ts
+const schema = S.union([S.bigint, S.boolean]).with(S.to, S.string);
+
+S.parser(schema)(123n); // "123"
+S.parser(schema)(true); // "true"
+```
+
+**Union → union** conversions coerce nothing: every value passes through to the
+target member of the same type, so the two unions have to cover each other. The
+one convenience is nullish bridging — an unmatched `undefined` member may pair
+with a `null` member on the other side (and vice versa) when neither has a
+same-type match:
 
 ```ts
 S.union([S.string, S.number]).with(S.to, S.union([S.number, S.string])); // ✅ both pass through
 S.optional(S.string).with(S.to, S.nullable(S.string)); // ✅ undefined <-> null
 ```
 
-**Any member that fails hands the value to the next one** — a type miss, a
-refinement failure, or an error raised inside the member's own body all fall
-through, and only when no member is left does the union throw, aggregating the
-per-member reasons. When no later member could accept the value anyway (disjoint
-types, disjoint literal discriminants — the discriminated-union shape), the
-fall-through is dead code and the member throws its own precise error instead.
+A few details worth knowing:
+
+- Which conversion each member gets is decided **when the operation is built**
+  (at the `S.parser` / `S.encoder` call), from the types the pipeline actually
+  derives — so an impossible conversion fails right there with an
+  `Invalid operation` error instead of throwing on every value later.
+- Two schemas count as the **same type** only when their type tags match,
+  including the class for instances and the format for formatted primitives:
+  `S.int32` and `S.number` are different types, and so are `S.json` and
+  `S.string`.
+- Nested unions are flattened first (`S.union([S.string, S.union([S.number,
+  S.boolean])])` is a three-member union) — unless the inner union carries its
+  own format, transformation or refinement, in which case it stays one opaque
+  member that matches only the very same union reference.
+- `S.never` marks a path as deliberately unreachable: a `never` member is
+  ignored by type matching, never triggers a rejection, and compiles no branch
+  of its own.
+- **Any member that fails hands the value to the next one** — a type miss, a
+  refinement failure, or an error raised inside the member's own body all fall
+  through. Only when no member is left does the union throw, aggregating the
+  per-member reasons. When no later member could accept the value anyway
+  (disjoint types or disjoint literal discriminants — the discriminated-union
+  shape), the member throws its own precise error directly.
 
 #### When a conversion is rejected
 
-Rather than guess, Sury rejects an ambiguous or impossible conversion where it is
-written. Every rejection names a rewrite that says what you mean.
+Some conversions have more than one reasonable meaning, and some have none.
+Rather than guess, Sury rejects those with an `Invalid operation` error at the
+`S.parser` / `S.encoder` call — and every rejection names a rewrite that says
+what you mean.
 
-**Some members match, others don't.** For `"123"` — keep the string, or decode it
-to a number?
+**Some members match, others don't.** Given `"123"` — should it stay a string,
+or be decoded to a number? Both readings are sensible, so Sury makes you pick:
 
 ```ts
 S.string.with(S.to, S.union([S.number, S.string]));
