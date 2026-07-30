@@ -281,7 +281,7 @@ const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx): string => {
   // a lone `if(cond){…}` and one arm of a run that tests `cond` once. A `try` arm
   // hands control to whatever follows it; every other form breaks, which ends its
   // block and needs no trailing `;`.
-  const attempt = (c: UnionCase): string => {
+  const attempt = (c: UnionCase, idx: number): string => {
     if (c.b === "") return "break";
     // Skip the `;` where the body already ends in one: `;;break` is a wart in
     // every golden it reaches.
@@ -295,20 +295,32 @@ const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx): string => {
         c.f & 4
           ? `x=${ctx.r()}(x);if(x.expected===${ctx.s()}){x=x.unionErrors;x&&(r||(r=[])).push(...x)}else{(r||(r=[])).push(x)}`
           : `(r||(r=[])).push(${ctx.r()}(x))`;
-      // The case is only here because an *earlier* one needs the chain to carry
-      // its failure; the planner proved nothing later can accept what reaches
-      // this one. So raise the aggregated error straight from the catch rather
-      // than walking the remaining cases, every one of which would fail on a
-      // type it was never offered — that walk cost 4.7x on a 24-member union and
-      // added a reason from a member the value could never have matched.
-      // Raising `ctx.f` here rather than rethrowing `x` is what keeps the
-      // "Expected A | B | C" framing that a bare inner error loses.
-      return `try{${body}break}catch(x){${record};${
-        c.f & unionMemberFalls ? "" : ctx.f(",...(r||[])")
+      // A terminal case — one only present because an *earlier* one needs the
+      // chain to carry its failure — records and lets control reach the chain's
+      // own fail, so the error keeps its "Expected A | B | C" framing. Every case
+      // after it is guarded by a condition the value has already been proven not
+      // to satisfy, so reaching them costs a few false tests.
+      //
+      // Unless one of them has no condition at all: that one would run, fail on a
+      // type it was never offered, and add a reason the value could never have
+      // matched — 4.7x on a 24-member union. Only then is the fail worth inlining
+      // here, because a second spread call site in a `catch` is not free: it cost
+      // 6x on the small instance-dispatch schemas when emitted unconditionally.
+      return `try{${body}break}catch(x){${record}${
+        !(c.f & unionMemberFalls) && unconditional > idx
+          ? `;${ctx.f(",...(r||[])")}`
+          : ""
       }}`;
     }
     return `${body}break`;
   };
+
+  // The last case that runs whatever reaches it, so `attempt` can tell whether
+  // anything after a terminal case would actually execute.
+  let unconditional = -1;
+  for (let idx = 0; idx < cases.length; idx++) {
+    if (cases[idx]!.c === "") unconditional = idx;
+  }
 
   // The condition of the case just emitted, and whether its block is still open
   // — i.e. ended in a `try` that hands control onward rather than a `break`.
@@ -328,7 +340,7 @@ const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx): string => {
     // `if(i===void 0){…}` an `optional`-of-`optional` used to emit.
     if (shared && !open) continue;
 
-    const arm = attempt(c);
+    const arm = attempt(c, idx);
     open = arm[0] === "t"; /* `try` */
     last = c.c;
 
