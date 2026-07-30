@@ -58,6 +58,7 @@
     "coverage": "pnpm build:entry && vitest run --coverage",
     "spec": "pnpm build:entry && tsx ../spec/cli.ts",
     "build:entry": "tsx ./scripts/pack.ts entry-only",
+    "fuzz:union": "tsx ./scripts/unionFuzz.ts",
     "build": "pnpm rescript && tsx ./scripts/pack.ts for-publish",
     "res": "pnpm build:entry && rescript watch",
     "test": "pnpm build:entry && rescript build && vitest run",

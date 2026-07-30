@@ -3,6 +3,7 @@
 // that rewrites another schema's shape rather than just validating it.
 
 import {
+  anyOfTag,
   arrayTag,
   baseSchema,
   type Builder,
@@ -33,7 +34,6 @@ import {
   tagFlagUnknown,
   U,
   undefinedTag,
-  unionTag,
   unknown,
   unknownTag,
   updateOutput,
@@ -166,7 +166,7 @@ export const jsonDecoderFn = (input: Val): Val => {
         const itemVal = valGet(input, key);
         itemVal.io = false;
 
-        if (itemVal.s.type === unionTag && itemVal.s.has![undefinedTag]) {
+        if (itemVal.s.type === anyOfTag && itemVal.s.has![undefinedTag]) {
           // Per-variant conversion instead of a generic `undefined | JSON`
           // check: an undefined variant stays undefined so the object
           // rebuild omits the field, while non-jsonable variants get
@@ -263,12 +263,12 @@ export const json = (): Internal => {
       has[schema.type] = true;
     });
 
-    const jsonDef = baseSchema(unionTag, true);
+    const jsonDef = baseSchema(anyOfTag, true);
     jsonDef.anyOf = anyOf;
     jsonDef.has = has;
     jsonDef.decoder = unionDecoder;
     jsonDef.name = jsonName;
-    jsonDef.type = unionTag;
+    jsonDef.type = anyOfTag;
 
     const defs: Record<string, Internal> = {};
     defs[jsonName] = jsonDef;

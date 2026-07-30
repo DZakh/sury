@@ -260,7 +260,7 @@ test("Default on a primary item with S.to runs the transformation on parse and r
 
   // schema.default is the input form (ISO string), not the Date — JSON Schema metadata.
   let untagged = schema->S.untag
-  t->Assert.is(untagged.tag, S.Union)
+  t->Assert.is(untagged.tag, S.AnyOf)
   t->Assert.is(untagged.anyOf->Option.getOrThrow->Array.length, 2)
   t->Assert.deepEqual(untagged.default, %raw(`"2024-01-01T00:00:00.000Z"`))
   t->Assert.is((untagged.to->Option.getOrThrow->S.untag).tag, S.Instance)
@@ -292,7 +292,7 @@ test("Appending S.to(S.jsonString) after getOr extends the output chain", t => {
   let schema = S.string->S.to(S.date)->S.option->S.Option.getOr(defaultDate)->S.to(S.jsonString)
 
   let untagged = schema->S.untag
-  t->Assert.is(untagged.tag, S.Union)
+  t->Assert.is(untagged.tag, S.AnyOf)
   t->Assert.deepEqual(untagged.default, %raw(`"2024-01-01T00:00:00.000Z"`))
   let toLevel1 = untagged.to->Option.getOrThrow->S.untag
   t->Assert.is(toLevel1.tag, S.Instance)
@@ -342,7 +342,7 @@ test("Multi-member union with transformed members + getOr", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){let r;if(typeof i==="string"){try{let v0=+i;!Number.isNaN(v0)||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[2](x))}}if(typeof i==="string"){try{let v1;try{v1=BigInt(i)}catch(_){e[1](i)}i=v1;break}catch(x){x=e[2](x);if(!r)throw x;r.push(x)}}if(typeof i==="boolean")break;if(i===void 0)break;e[3](i,...(r||[]))}return i===void 0?true:i}`,
+    `i=>{for(;;){let r;if(typeof i==="string"){try{let v0=+i;!Number.isNaN(v0)||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[2](x))}try{let v1;try{v1=BigInt(i)}catch(_){e[1](i)}i=v1;break}catch(x){(r||(r=[])).push(e[2](x))}}if(typeof i==="boolean")break;if(i===void 0)break;e[3](i,...(r||[]))}return i===void 0?true:i}`,
   )
 
   t->U.assertCompiledCode(

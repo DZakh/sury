@@ -96,7 +96,7 @@ module CknittelBugReport2 = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{for(;;){let r;if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["statusCode"];typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0["kind"]==="ok"||e[0](v0);i={"TAG":"Ok","_0":void 0,};break}catch(x){(r||(r=[])).push(e[4](x))}}if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v1=i["statusCode"];typeof v1==="object"&&v1&&!Array.isArray(v1)&&v1["kind"]==="serviceError"||e[3](v1);let v2=v1["serviceCode"],v3=v1["text"];typeof v2==="string"||e[1](v2);typeof v3==="string"||e[2](v3);i={"TAG":"Error","_0":{"serviceCode":v2,"text":v3,},};break}catch(x){x=e[4](x);if(!r)throw x;r.push(x)}}e[5](i,...(r||[]))}return i}`,
+      `i=>{for(;;){let r;if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["statusCode"];typeof v0==="object"&&v0&&!Array.isArray(v0)&&v0["kind"]==="ok"||e[0](v0);i={"TAG":"Ok","_0":void 0,};break}catch(x){(r||(r=[])).push(e[4](x))}try{let v1=i["statusCode"];typeof v1==="object"&&v1&&!Array.isArray(v1)&&v1["kind"]==="serviceError"||e[3](v1);let v2=v1["serviceCode"],v3=v1["text"];typeof v2==="string"||e[1](v2);typeof v3==="string"||e[2](v3);i={"TAG":"Error","_0":{"serviceCode":v2,"text":v3,},};break}catch(x){(r||(r=[])).push(e[4](x))}}e[5](i,...(r||[]))}return i}`,
     )
 
     t->Assert.deepEqual(S.decodeOrThrow(`{"statusCode": {"kind": "ok"}}`, ~from=S.jsonString, ~to=schema), Ok())

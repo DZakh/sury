@@ -12,7 +12,7 @@ jsonSchema:
   output: Expected JSON, received "123" | bigint | string
 operations:
   parse:
-    expression: i=>{for(;;){let r;if(typeof i==="string"&&i==="123")break;if(typeof i==="string"){try{let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0;;break}catch(x){(r||(r=[])).push(e[1](x))}}if(typeof i==="string")break;e[2](i,...(r||[]))}return i}
+    expression: i=>{for(;;){let r;if(typeof i==="string"&&i==="123")break;if(typeof i==="string"){try{let v0;try{v0=BigInt(i)}catch(_){e[0](i)}i=v0;break}catch(x){(r||(r=[])).push(e[1](x))}break}e[2](i,...(r||[]))}return i}
     examples:
       literal-member:
         input: '"123"'

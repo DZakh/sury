@@ -147,7 +147,7 @@ test("Applies valFromOption for Some()", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(i===void 0)break;if(i===void 0){i={BS_PRIVATE_NESTED_SOME_NONE:0};break}e[0](i)}return i}`,
+    `i=>{for(;;){if(i===void 0)break;e[0](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -167,7 +167,7 @@ test("Nested option support", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="boolean")break;if(i===void 0)break;if(i===void 0){i={BS_PRIVATE_NESTED_SOME_NONE:0};break}e[0](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="boolean")break;if(i===void 0)break;e[0](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -188,7 +188,7 @@ test("Triple nested option support", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="boolean")break;if(i===void 0)break;if(i===void 0){for(;;){i={BS_PRIVATE_NESTED_SOME_NONE:0};break;};break}e[0](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="boolean")break;if(i===void 0)break;e[0](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,

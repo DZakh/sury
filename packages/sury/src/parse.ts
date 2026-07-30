@@ -446,6 +446,13 @@ export const instance = (class_: unknown): Internal => {
 
 // Type-narrow condition for a union variant, built from the shared atoms with no
 // per-type factory reference — so unused type decoders tree-shake.
+//
+// Cross-module contract: a decoder's own type narrow must be exactly what this
+// returns for its tag. A union group's shared narrow stands in for its members'
+// type checks, so a decoder that narrowed more loosely — an object mode dropping
+// `!Array.isArray` because it rebuilds the value anyway — would widen what the
+// case accepts past what its acceptance mask claims, and arrays would dispatch
+// to an object member.
 export const typeCheckCond = (input: Val, schema: Internal, inputVar: string): string => {
   const tagFlag = tagFlags[schema.type]!;
   if (flagUnsafeHas(tagFlag, tagFlagObject)) {

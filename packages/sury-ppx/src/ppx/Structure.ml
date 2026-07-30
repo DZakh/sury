@@ -243,7 +243,7 @@ and generateVariantSchemaExpression constr_decls =
     | _ -> [%expr S.union [%e Exp.array union_items]]
   else
     (* For variant spreads, extract anyOf items from each spread schema's
-       Union tag and concatenate with the local items. S.t<'value> is a
+       AnyOf tag and concatenate with the local items. S.t<'value> is a
        tagged variant (see S.resi), so we can pattern-match the schema
        directly without S.tagged. *)
     let spread_items_exprs =
@@ -251,7 +251,7 @@ and generateVariantSchemaExpression constr_decls =
       |> List.map (fun spread_schema ->
              [%expr
                Obj.magic (
-                 if (S.untag [%e spread_schema]).tag == S.Union then
+                 if (S.untag [%e spread_schema]).tag == S.AnyOf then
                    Obj.magic ((S.untag [%e spread_schema]).anyOf)
                  else
                    [| Obj.magic [%e spread_schema] |]

@@ -615,6 +615,10 @@ export const B_pushCheck = (val: Val, check: Check): void => {
 // (emit at pre-transform slot); output checks wrap val via refine.
 // When valInput.prev is None, input checks fold into the output
 // wrap so emit has a prev.var(). Sets isOutput on the result.
+//
+// The parse loop applies refiners itself only for primitive decoders, so every
+// decoder that sets isOutput — object, array, tuple, union, recursive — has to
+// call this. Not calling it silently drops the user's S.refine.
 export const B_markOutput = (val: Val, valInput: Val): Val => {
   let deferredInputChecks: Check[] | undefined;
   const inputRefiner = valInput.e.inputRefiner;

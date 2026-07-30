@@ -148,7 +148,7 @@ test("Serializes Some(None) to null for null nested in null", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="boolean")break;if(i===null){i=void 0;break}if(i===null){i={BS_PRIVATE_NESTED_SOME_NONE:0};break}e[0](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="boolean")break;if(i===null){i=void 0;break}e[0](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
