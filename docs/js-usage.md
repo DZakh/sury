@@ -735,29 +735,27 @@ type Schema = S.Infer<typeof schema>; // "Win" | "Draw" | "Loss"
 
 ### Decoding into / out of a union
 
-[`to`](#to) also works when one side of the conversion is a union: decode a
-value into whichever member fits, or collapse a union back into a single type.
-The most common case — decoding into a union — tries each member in the order
-you wrote them, and the first one that accepts the value wins:
+[`to`](#to) works with unions on either side of the conversion. There are three
+cases.
+
+**Single type → union.** Members are tried in the order you wrote them; the
+first one that accepts the value wins:
 
 ```ts
 const schema = S.json.with(S.to, S.union([S.bigint, S.string]));
 
 S.parser(schema)("123"); // 123n — the bigint member comes first
-S.parser(schema)("abc"); // "abc" — BigInt throws, so the string member takes it
-S.parser(schema)(true); // throws — true is neither
+S.parser(schema)("abc"); // "abc" — not a valid bigint, so the string member takes it
+S.parser(schema)(true); // throws — no member accepts a boolean
 ```
 
-Each member gets the same built-in decoder it would get as a standalone `S.to`
-target. Decoding fills gaps, it doesn't re-type values the source already
-covers: JSON has no bigints, so a JSON string is offered to `BigInt` — but JSON
-*does* have numbers, so an `S.number` member would never turn a JSON string
-into a number; it only takes values that already are numbers. For the same reason an
-`unknown` source coerces nothing at all — it can already be any of the member
-types, so the conversion is pure validation.
+A value is only converted into a member type the source can't produce itself.
+JSON has no bigints, so strings are offered to `S.bigint` — but JSON already
+has numbers, so an `S.number` member would only accept actual numbers, never
+convert a string into one.
 
-Going the other way (**union → single type**) mirrors this: each source member
-gets its own built-in decoder to the target, matched in definition order.
+**Union → single type.** The mirror image — each member converts to the target
+the same way it would with a direct `S.to`:
 
 ```ts
 const schema = S.union([S.bigint, S.boolean]).with(S.to, S.string);
@@ -766,67 +764,50 @@ S.parser(schema)(123n); // "123"
 S.parser(schema)(true); // "true"
 ```
 
-**Union → union** conversions coerce nothing: every value passes through to the
-target member of the same type, so the two unions have to cover each other. The
-one convenience is nullish bridging — an unmatched `undefined` member may pair
-with a `null` member on the other side (and vice versa) when neither has a
-same-type match:
+**Union → union.** Values pass through to the member of the same type on the
+other side — nothing is converted, so every member needs a counterpart. The one
+exception: an `undefined` member without a counterpart may pair with a `null`
+member on the other side, and vice versa:
 
 ```ts
 S.union([S.string, S.number]).with(S.to, S.union([S.number, S.string])); // ✅ both pass through
 S.optional(S.string).with(S.to, S.nullable(S.string)); // ✅ undefined <-> null
 ```
 
-A few details worth knowing:
+Good to know:
 
-- Which conversion each member gets is decided **when the operation is built**
-  (at the `S.parser` / `S.encoder` call), from the types the pipeline actually
-  derives — so an impossible conversion fails right there with an
-  `Invalid operation` error instead of throwing on every value later.
-- Two schemas count as the **same type** only when their type tags match,
-  including the class for instances and the format for formatted primitives:
-  `S.int32` and `S.number` are different types, and so are `S.json` and
-  `S.string`.
-- Nested unions are flattened first (`S.union([S.string, S.union([S.number,
-  S.boolean])])` is a three-member union) — unless the inner union carries its
-  own format, transformation or refinement, in which case it stays one opaque
-  member that matches only the very same union reference.
-- `S.never` marks a path as deliberately unreachable: a `never` member is
-  ignored by type matching, never triggers a rejection, and compiles no branch
-  of its own.
-- **Any member that fails hands the value to the next one** — a type miss, a
-  refinement failure, or an error raised inside the member's own body all fall
-  through. Only when no member is left does the union throw, aggregating the
-  per-member reasons. When no later member could accept the value anyway
-  (disjoint types or disjoint literal discriminants — the discriminated-union
-  shape), the member throws its own precise error directly.
+- An impossible conversion throws `Invalid operation` immediately at the
+  `S.parser` / `S.encoder` call — not later, on each value.
+- `S.int32` and `S.number` are different types for matching purposes; so are
+  `S.json` and `S.string`.
+- Nested unions are treated as one flat union: `S.union([S.string,
+  S.union([S.number, S.boolean])])` has three members.
+- When a value fails a member — wrong type, failed refinement, or an error
+  thrown inside it — the next member gets a try. Only when all members fail
+  does the union throw, listing each member's reason.
 
 #### When a conversion is rejected
 
 Some conversions have more than one reasonable meaning, and some have none.
-Rather than guess, Sury rejects those with an `Invalid operation` error at the
-`S.parser` / `S.encoder` call — and every rejection names a rewrite that says
-what you mean.
+Rather than guess, Sury rejects those upfront — and the error suggests a
+rewrite that says what you mean.
 
-**Some members match, others don't.** Given `"123"` — should it stay a string,
-or be decoded to a number? Both readings are sensible, so Sury makes you pick:
+**Ambiguous.** Given `"123"` — should it stay a string, or become a number?
+Both readings are sensible, so Sury makes you pick:
 
 ```ts
 S.string.with(S.to, S.union([S.number, S.string]));
 // Invalid operation: can't convert string to number | string — string has the same
 // type as the source and the others don't.
 
-// Try decoding to a number first, keep the string otherwise:
+// Convert to a number when possible, keep the string otherwise:
 S.string.with(S.to, S.union([S.string.with(S.to, S.number), S.string]));
 // Or pass strings through, never producing a number:
 S.string.with(S.to, S.union([S.never.with(S.to, S.number), S.string]));
 ```
 
-The same applies to widening into an optional or nullable target, and — mirrored
-— when a union source meets a single target that only some members share.
-
-**The two unions don't cover each other.** Union-to-union coerces nothing, so a
-member with no same-type counterpart has nowhere to go:
+**The two unions don't cover each other.** Union-to-union converts nothing, so
+a member with no same-type counterpart has nowhere to go:
 
 ```ts
 S.union([S.string, S.number]).with(S.to, S.union([S.number, S.string, S.boolean]));
@@ -835,21 +816,18 @@ S.optional(S.string).with(S.to, S.nullable(S.boolean)); // ❌ string doesn't ma
 S.optional(S.string).with(S.to, S.nullable(S.string.with(S.to, S.boolean))); // ✅
 ```
 
-**A member has no built-in decoder.** Being one member of a union changes nothing
-about that — the error belongs to the operation, so it is raised once:
+**No conversion exists.** If a conversion between two types isn't supported
+outside a union, putting it inside one doesn't change that. Use `S.never` to
+mark a member as unreachable:
 
 ```ts
-S.boolean.with(S.to, S.union([S.string, S.symbol])); // ❌ boolean -> symbol has no decoder
-S.union([S.boolean, S.symbol]).with(S.to, S.string); // ❌ symbol -> string has no decoder
-S.boolean.with(S.to, S.union([S.string, S.never.with(S.to, S.symbol)])); // ✅ unreachable
+S.boolean.with(S.to, S.union([S.string, S.symbol])); // ❌ boolean -> symbol isn't supported
+S.union([S.boolean, S.symbol]).with(S.to, S.string); // ❌ symbol -> string isn't supported
+S.boolean.with(S.to, S.union([S.string, S.never.with(S.to, S.symbol)])); // ✅ symbol marked unreachable
 ```
 
-A member is never dropped from the generated code, never left as a branch that
-throws per value, and a conversion with no decodable member never compiles into
-an operation that throws for every input.
-
-> 🧠 Union conversion always performs exhaustive validation — every member is
-> checked, so transformed unions stay consistent across decode and encode.
+> 🧠 Union conversion always validates every member, so transformed unions stay
+> consistent across decode and encode.
 
 ## Records
 
