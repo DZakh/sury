@@ -1,4 +1,20 @@
+// `S.union` — the factory, the decoder that dispatches a value to one member,
+// and the encoder that converts a union into another schema. `CODEC_SPEC.md`
+// states which conversions are legal.
+//
+// The decoder is four stages, each taking the previous one's output:
+// `unionNormalize` (what the source can be) → `unionAnalyze` (one record of
+// integers per variant) → `unionPlan` (an ordered list of groups, each sharing
+// one type narrow) → `unionEmit` (the dispatch chain). Ordering is by
+// specificity rather than source order, which is what puts an instance ahead of
+// an earlier generic `object`, and an exact `NaN` ahead of `number`.
+//
+// Which member a value reaches is invisible in a golden until someone writes the
+// spec for exactly that permutation, so diff any change here against the commit
+// you started from with `pnpm --filter=sury fuzz:union --ref=<commit>`.
+
 import {
+  anyOfTag,
   baseSchema,
   type Builder,
   type Check,
@@ -35,7 +51,6 @@ import {
   toExpression,
   U,
   undefinedTag,
-  unionTag,
   unknown,
   updateOutput,
   type Val,
@@ -107,7 +122,7 @@ const unionOutput = (schema: Internal): Internal => {
 // schema in place. Changing `unionFactory`'s field set without changing this
 // count stops every union from flattening, which the nested-union goldens catch.
 const unionIsTransparent = (schema: Internal): boolean => {
-  if (schema.type !== unionTag) return false;
+  if (schema.type !== anyOfTag) return false;
   let fields = 0;
   for (const key in schema) {
     if (key !== "isAsync" && key !== "hasTransform") fields++;
@@ -144,7 +159,7 @@ const unionTraits = (schema: Internal): number => {
         to.noValidation === true ||
         (tagFlags[to.type]! & tagFlagUnknown) ||
         unionRuntimeSame(schema, to) ||
-        (to.type === unionTag &&
+        (to.type === anyOfTag &&
           (unionMask(to, 1) & tag))
       )
     ) {
@@ -1178,7 +1193,7 @@ export const unionDecoder: Builder = (input: Val) => {
     // Already validated against this exact schema.
     (input.io! && input.e === input.s) ||
     (input.s === self && toPerCase === U && variants.every(unionIsNoop)) ||
-    (input.s.type === unionTag &&
+    (input.s.type === anyOfTag &&
       toPerCase === U &&
       unionIsWider(variants, input.s.anyOf!))
   ) {
@@ -1285,7 +1300,7 @@ export const unionRewrite = (
     anyOf.push(rewritten);
     setHas(has, rewritten.type);
   }
-  const mut = baseSchema(unionTag, false);
+  const mut = baseSchema(anyOfTag, false);
   mut.anyOf = anyOf;
   mut.has = has;
   mut.decoder = unionDecoder;
@@ -1314,7 +1329,7 @@ export const unionRewriteTo = (input: Val, target: Internal): Val =>
 const unionTargetOwns = (target: Internal) =>
   target.noValidation === true ||
   (tagFlags[unionOutput(target).type]! & tagFlagRef) ||
-  (target.type === unionTag &&
+  (target.type === anyOfTag &&
     target.anyOf!.some((v) => tagFlags[v.type]! & tagFlagRef));
 
 // Applied by the parse loop when a union-typed val meets a different expected
@@ -1505,7 +1520,7 @@ export const unionFactory = (schemas: Internal[]): Internal => {
     }
   }
 
-  const mut = baseSchema(unionTag, false);
+  const mut = baseSchema(anyOfTag, false);
   mut.anyOf = anyOf;
   mut.decoder = unionDecoder;
   mut.encoder = unionEncoder;
