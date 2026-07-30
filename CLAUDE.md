@@ -78,46 +78,78 @@ Schema modifiers (`.with(S.refine, …)`, etc.) apply to the **output** type. `i
 (the four conversion rules, the rejections, universal fallback); this section is
 *how*.
 
-`unionDecoder` runs four passes over the variants:
+`unionDecoder` runs four stages, each a named function taking the previous one's
+output:
 
-0. **Keys.** Each variant's grouping key (its tag; class *identity* for
-   instances — never `class.name`, which collides after minification) and how
-   many variants share it, so pass 1 can skip the shared narrow for a tag
-   carried by exactly one variant of an `unknown` source.
-1. **Forward — group.** Rejections that need only types fire first (rule 2's
-   partial match; rules 3/4 via `unionResolve` when the union carries its own
-   `.to`). Then each variant joins a group keyed by its tag: a group owns one
-   shared type narrow (`unionNarrowSchema`), parsed once, and every variant in it
-   branches from that narrowed val. Merging a variant into an earlier group is
-   legal only while no case in between could accept the same values
-   (`maskAt[j] & group.m`). A creation error from `parse` propagates — a variant
-   is never dropped, and that's the spec's whole-operation rejection.
-2. **Reverse — suffix masks.** `suffix[i]` = what any later group accepts, in
-   O(n) integer ops. It's the only lookahead the emit needs.
-3. **Forward — emit.** `unionEmitChain` stitches `{cond, body}` alternatives into
-   one fallback chain. A body that can't throw (`unionCanThrow`) or whose failure
-   nothing later could recover from becomes a plain `if(cond){body}`; otherwise
-   it runs inside `try{…}catch(eN){ <rest of the chain> }`, and the final `else`
-   raises the aggregated union error with the caught `eN`s.
+0. **`unionNormalize`.** Facts about the source that every later stage reads: the
+   mask of runtime tags it can produce (`unionMask` mode 2, which resolves a
+   recursive root `$ref` to its definition), whether a variant spells the source
+   `const` out exactly, and whether the union carries `fromDefault`. Rejections
+   needing only types fire around here — rule 2's partial match, and rules 3/4
+   via `unionResolve` when the union carries its own `.to`.
+1. **`unionAnalyze`.** One `UnionMember` record per variant, all of it integers
+   and small tuples: the tags it accepts (`m`), whether it produces anything
+   (`o`), its effect class, its grouping key `k` (the tag; class *identity* for
+   instances — never `class.name`, which collides after minification), its
+   specificity tier `p`, its route `r` (the tag family its mask must fit inside),
+   and its discriminator `d` — the first literal field, as a `[key, value]` pair.
+   `unionTraits` is the one bounded structural walk behind the effect class;
+   refs, nested unions, functions and custom parsers stop it, so a recursive
+   schema terminates without eager expansion.
+2. **`unionPlan`.** Members become an ordered list of groups. A group owns one
+   shared type narrow (`unionNarrowSchema`), parsed once, with every member
+   branching from that narrowed val. Two structures drive it, both sparse arrays
+   indexed by route: `active` holds the bucket a route is currently filling, and
+   `priority` the first bucket it ever had, so a high-specificity member (an
+   instance against `object`, an exact `NaN` against `number`) can still reach it
+   after an intervening member closed `active`. Within a bucket, members sit in
+   tiers by `p`, and the flattening pass emits tier 0 before 1 before 2 — that,
+   not source order, is what puts an instance ahead of an earlier generic object.
+   A bucket stops accepting members the moment one in between could accept the
+   same values. A creation error from `parse` propagates — a variant is never
+   dropped, and that's the spec's whole-operation rejection.
 
-Pass 1 skips the shared narrow when a tag is carried by exactly one variant of
-an `unknown` source, on the premise that the variant's own decoder emits the
-narrow the shared one would. That makes "a decoder's own type narrow is exactly
-`typeCheckCond` for its tag" a cross-module invariant: an object mode that
-skipped `!Array.isArray` because it rebuilds its value anyway would widen what
-the case accepts past what `maskAt` claims.
+   A reverse pass over the finished plan then sets each group's fallback bit:
+   `laterMask` is what any later group accepts, in O(n) integer ops, and a
+   per-route set of discriminator values proves distinct exact discriminants
+   disjoint without comparing every group with every later one.
+3. **`unionEmit`.** Each group compiles to a `{c, b, f}` case — condition, body,
+   flags — and `unionEmitChain` stitches them into one fallback chain. A body
+   that cannot raise, or whose failure nothing later could recover from, becomes
+   a plain `if(cond){body}`; otherwise it runs inside `try{…}catch(x){…}` and its
+   failure is recorded. Whether a stretch of emitted code can raise is read off
+   `g.t` by bracketing the emission, never by inspecting the string: `e[N](…)` is
+   the accessor for *every* embed.
 
-Acceptance masks are read off the narrow the attempt actually emitted
-(`unionAcceptMask`), not off the variant's own tag — a JSON string offered to
-`S.bigint` accepts *strings*. Only **hoistable** narrows count: a check the
-dispatch can't lift stays in the body and constrains nothing about which values
-reach the case. `unionWiden` closes the mask over object/instance, which the
-`typeof` narrows don't separate. A `union`-tagged variant has no `typeof`
-discriminant of its own, so the dispatch would have to assume it might accept
-anything and learn otherwise by catching its failure; `unionNestedMask` reads the
-tags a nested union accepts *when it compiles to nothing but a type test*, and
-returns 0 — keeping the conservative source mask — the moment a member would get
-code of its own.
+The narrow is hoisted into the dispatch condition even for a member that can fall
+through. A value the narrow rejects could never have been accepted by that
+member, so `if(cond)` reaches the next member exactly as catching would, without
+re-emitting the narrow as a statement. Two consequences worth knowing: adjacent
+cases whose conditions are *textually* identical share one test (the second is
+spliced into the first's still-open block), and a case behind a condition the
+previous one already accepted outright is dropped as unreachable.
+
+That hoisting also fixes which reasons an aggregated union error carries, which
+used to depend on where codegen happened to put a narrow. The rule is now
+uniform: **a member ruled out by its type narrow or discriminant contributes no
+reason** — the `Expected A | B | C, received X` line already says that much — and
+a member that ran and failed deeper contributes its reason. The chain always ends
+in the aggregated error, never in a bare inner one that names no member.
+`specs/union2-error-aggregation.yaml` pins both halves.
+
+Because a group's shared narrow stands in for its members' own type checks, "a
+decoder's own type narrow is exactly `typeCheckCond` for its tag" is a
+cross-module invariant: an object mode that skipped `!Array.isArray` because it
+rebuilds its value anyway would widen what the case accepts past what its mask
+claims.
+
+Acceptance masks describe the narrow the attempt actually emitted, not the
+variant's own tag — a JSON string offered to `S.bigint` accepts *strings*, which
+is why a member reached only by coercion is assumed to consume the source's
+string. Only **hoistable** narrows count: a check the dispatch can't lift stays
+in the body and constrains nothing about which values reach the case.
+`unionWiden` closes the mask over object/instance, which the `typeof` narrows
+don't separate.
 
 A union whose every branch is a pass-through emits its narrow as one **check** on
 the output val rather than an `if(!cond){fail}` statement. That's the library's
@@ -133,6 +165,20 @@ Two internal shapes bypass the user-facing rules, both marked
 `valGet`) converts per variant with a member that has no decoder dropping out,
 and the JSON encoder's per-object-field mapping pairs source and target variants
 by position.
+
+Which member a value dispatches to is only visible in a golden once someone has
+written the spec for exactly that permutation of members, so before and after any
+change to analysis, planning or emission, run the differential harness against
+the commit you started from:
+
+```bash
+pnpm --filter=sury fuzz:union --ref=HEAD   # then --seed=N to widen the search
+```
+
+It builds both revisions, drives seeded random unions through each, and sorts the
+differences into `acceptance` / `exception-kind` (a behavior change — it exits
+non-zero) and `reasons` / `message` (error detail, for you to accept or reject).
+Anything it finds belongs in a spec's `examples`, not in a commit message.
 
 ## Decode pipeline
 

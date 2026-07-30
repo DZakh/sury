@@ -473,7 +473,9 @@ type UnionMember = {
   i: number;
   s: Internal;
   m: number;
-  o: number;
+  // Whether the member produces a value at all: `mode 0` masks are zero for
+  // exactly one reason, a `never` output, and nothing reads more than that.
+  o: boolean;
   e: number;
   f: number;
   p: number;
@@ -736,7 +738,7 @@ const unionAnalyze = (
                     : sourceMask
             : sourceMask
         : 0,
-      o: accepts ? unionMask(output, 0, nan) : 0,
+      o: !!accepts && output.type !== neverTag,
       e: effect,
       f,
       p,
