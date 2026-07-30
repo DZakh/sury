@@ -762,7 +762,7 @@ An union represents a logical OR relationship. You can apply this concept to you
 
 On validation, the `S.union` schema returns the result of the first item that was successfully validated.
 
-> 🧠 Members are dispatched in the order they are passed to `S.union`. Members sharing an input data type are grouped under one type check to optimise performance and improve error messages, but only where that can't change which member wins.
+> 🧠 Members are matched in the order they are passed to `S.union`. Members sharing an input data type are grouped under one type check to optimise performance and improve error messages, but only where that can't change which member wins.
 
 ```rescript
 // TypeScript type for reference:
@@ -871,7 +871,7 @@ never becomes a number. An `unknown` source can already be any of the member
 types, so nothing is coerced — the conversion is pure validation.
 
 **Union → non-union.** The mirror image: every source member gets its own
-built-in decoder to the target, dispatched in definition order.
+built-in decoder to the target, matched in definition order.
 
 **Union → union.** No coercion — values pass through to the same-type target
 member, and the two unions have to cover each other. A `null` or `undefined`
