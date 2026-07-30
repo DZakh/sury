@@ -35,7 +35,7 @@
 - [Unions](#unions)
   - [Discriminated unions](#discriminated-unions)
   - [Enums](#enums)
-  - [Decoding into / out of a union](#decoding-into-out-of-a-union)
+  - [Converting to / from a union](#converting-to-from-a-union)
 - [Records](#records)
 - [Date](#date)
 - [ISO DateTime](#iso-datetime)
@@ -733,7 +733,7 @@ const schema = S.union(["Win", "Draw", "Loss"]);
 type Schema = S.Infer<typeof schema>; // "Win" | "Draw" | "Loss"
 ```
 
-### Decoding into / out of a union
+### Converting to / from a union
 
 [`S.to`](#to) works with unions on either side of the conversion. There are
 three cases.
@@ -749,10 +749,11 @@ S.parser(schema)("abc"); // "abc" — not a valid bigint, so the string member t
 S.parser(schema)(true); // throws — no member accepts a boolean
 ```
 
-A value is only converted into a member type the source can't produce itself.
-JSON has no bigints, so strings are offered to `S.bigint` — but JSON already
-has numbers, so an `S.number` member would only accept actual numbers, never
-convert a string into one.
+Notice that `true` wasn't converted to `"true"`, even though boolean → string
+is a supported conversion. A value is only converted into a member type the
+source can't produce itself: JSON has no bigints, so strings are offered to
+`S.bigint` — but JSON already has strings, so the `S.string` member only
+accepts actual strings.
 
 **Union → single type.** The mirror image — each member converts to the target
 the same way it would with a direct `S.to`:
@@ -772,14 +773,13 @@ member on the other side, and vice versa:
 ```ts
 S.union([S.string, S.number]).with(S.to, S.union([S.number, S.string])); // ✅ both pass through
 S.optional(S.string).with(S.to, S.nullable(S.string)); // ✅ undefined <-> null
+S.optional(S.string).with(S.to, S.nullable(S.boolean)); // ❌ string has no counterpart
 ```
 
 Good to know:
 
-- An impossible conversion throws `Invalid operation` immediately at the
-  `S.parser` / `S.encoder` call — not later, on each value.
-- `S.int32` and `S.number` are different types for matching purposes; so are
-  `S.json` and `S.string`.
+- Formats count as distinct types: `S.int32` won't match a plain `S.number`
+  member, and `S.json` won't match `S.string`.
 - Nested unions are treated as one flat union: `S.union([S.string,
   S.union([S.number, S.boolean])])` has three members.
 - When a value fails a member — wrong type, failed refinement, or an error
@@ -789,8 +789,9 @@ Good to know:
 #### When a conversion is rejected
 
 Some conversions have more than one reasonable meaning, and some have none.
-Rather than guess, Sury rejects those upfront — and the error suggests a
-rewrite that says what you mean.
+Rather than guess, Sury rejects those with an `Invalid operation` error right
+at the `S.parser` / `S.encoder` call — not later, on each value — and the
+error suggests a rewrite that says what you mean.
 
 **Ambiguous.** Given `"123"` — should it stay a string, or become a number?
 Both readings are sensible, so Sury makes you pick:
@@ -801,9 +802,14 @@ S.string.with(S.to, S.union([S.number, S.string]));
 // type as the source and the others don't.
 
 // Convert to a number when possible, keep the string otherwise:
-S.string.with(S.to, S.union([S.string.with(S.to, S.number), S.string]));
+const asNumber = S.string.with(S.to, S.union([S.string.with(S.to, S.number), S.string]));
+S.parser(asNumber)("123"); // 123
+S.parser(asNumber)("abc"); // "abc"
+
 // Or pass strings through, never producing a number:
-S.string.with(S.to, S.union([S.never.with(S.to, S.number), S.string]));
+const asString = S.string.with(S.to, S.union([S.never.with(S.to, S.number), S.string]));
+S.parser(asString)("123"); // "123"
+S.parser(asString)("abc"); // "abc"
 ```
 
 **The two unions don't cover each other.** Union-to-union converts nothing, so

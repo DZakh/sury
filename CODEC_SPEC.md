@@ -5,7 +5,7 @@ created by reversing a schema) picks what to decode into what.
 
 **Implemented.** `src/union.ts` is the union factory, decoder and encoder
 these rules describe; `docs/js-usage.md` and `docs/rescript-usage.md` carry the
-user-facing version under "Decoding into / out of a union". The
+user-facing version under "Converting to / from a union". The
 `packages/sury/specs/codec-*.yaml` specs snapshot the behavior, and their
 `FIXME: Codec next expects:` notes they used to carry are gone — every row
 now matches.
