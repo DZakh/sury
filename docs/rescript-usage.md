@@ -762,7 +762,7 @@ An union represents a logical OR relationship. You can apply this concept to you
 
 On validation, the `S.union` schema returns the result of the first item that was successfully validated.
 
-> 🧠 Members are matched in the order they are passed to `S.union`. Members sharing an input data type are grouped under one type check to optimise performance and improve error messages, but only where that can't change which member wins.
+> 🧠 Members are matched in the order they are passed to `S.union` — the first one that fits the value wins.
 
 ```rescript
 // TypeScript type for reference:

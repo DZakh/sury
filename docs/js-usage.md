@@ -685,7 +685,7 @@ An union represents a logical OR relationship. You can apply this concept to you
 
 The schema function `union` creates an OR relationship between any number of schemas that you pass as the first argument in the form of an array. On validation, the schema returns the result of the first schema that was successfully validated.
 
-> 🧠 Members are matched in the order they are passed to `S.union`. Members sharing an input data type are grouped under one type check to optimise performance and improve error messages, but only where that can't change which member wins.
+> 🧠 Members are matched in the order they are passed to `S.union` — the first one that fits the value wins.
 
 ```ts
 // TypeScript type for reference:
@@ -735,8 +735,8 @@ type Schema = S.Infer<typeof schema>; // "Win" | "Draw" | "Loss"
 
 ### Decoding into / out of a union
 
-[`to`](#to) works with unions on either side of the conversion. There are three
-cases.
+[`S.to`](#to) works with unions on either side of the conversion. There are
+three cases.
 
 **Single type → union.** Members are tried in the order you wrote them; the
 first one that accepts the value wins:
