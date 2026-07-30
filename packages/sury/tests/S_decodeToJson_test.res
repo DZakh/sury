@@ -222,7 +222,7 @@ test("Encodes a union to JSON when at least one item is not JSON-able", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#EncodeToJson,
-    `i=>{for(;;){if(typeof i==="string")break;e[0](i);;break;}return i}`,
+    `i=>{for(;;){if(typeof i==="string")break;e[0](i);break;}return i}`,
   )
 })
 
@@ -232,7 +232,7 @@ test("Encodes a union of NaN and unknown to JSON", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#EncodeToJson,
-    `i=>{for(;;){if(Number.isNaN(i)){i=null;break}e[0](i);;break;}return i}`,
+    `i=>{for(;;){if(Number.isNaN(i)){i=null;break}e[0](i);break;}return i}`,
   )
 
   t->Assert.deepEqual(%raw(`NaN`)->S.decodeOrThrow(~from=schema, ~to=S.json), JSON.Null)

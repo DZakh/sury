@@ -11,7 +11,7 @@ jsonSchema:
   output: '{ anyOf: [{ type: "string", minLength: 4 }, { type: "string", maxLength: 1 }, { type: "string", minLength: 2, maxLength: 2 }] }'
 operations:
   parse:
-    expression: i=>{if(typeof i==="string"){for(;;){let r;try{i.length>3||e[0](i);;break}catch(x){(r||(r=[])).push(e[3](x))}try{i.length<2||e[1](i);;break}catch(x){(r||(r=[])).push(e[3](x))}try{i.length===2||e[2](i);;break}catch(x){(r||(r=[])).push(e[3](x))}e[4](i,...(r||[]))}}else{e[5](i)}return i}
+    expression: i=>{if(typeof i==="string"){for(;;){let r;try{i.length>3||e[0](i);break}catch(x){(r||(r=[])).push(e[3](x))}try{i.length<2||e[1](i);break}catch(x){(r||(r=[])).push(e[3](x))}try{i.length===2||e[2](i);break}catch(x){(r||(r=[])).push(e[3](x))}e[4](i,...(r||[]))}}else{e[5](i)}return i}
     examples:
       accepted-first:
         input: '"long"'

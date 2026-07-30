@@ -94,7 +94,7 @@ test("Ensures parsing order with unknown schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){let r;if(typeof i==="string"){try{i.length===2||e[0](i);;break}catch(x){(r||(r=[])).push(e[2](x))}}if(typeof i==="boolean")break;try{let v0=e[1](i);i=v0;break}catch(x){(r||(r=[])).push(e[2](x))}if(typeof i==="number"&&!Number.isNaN(i))break;if(typeof i==="bigint")break;e[3](i,...(r||[]))}return i}`,
+    `i=>{for(;;){let r;if(typeof i==="string"){try{i.length===2||e[0](i);break}catch(x){(r||(r=[])).push(e[2](x))}}if(typeof i==="boolean")break;try{let v0=e[1](i);i=v0;break}catch(x){(r||(r=[])).push(e[2](x))}if(typeof i==="number"&&!Number.isNaN(i))break;if(typeof i==="bigint")break;e[3](i,...(r||[]))}return i}`,
   )
 })
 
@@ -369,7 +369,7 @@ test("NaN should be checked before number even if it's later item in the union",
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(Number.isNaN(i)){i=void 0;break}if(typeof i==="number"){i>=e[0]||e[1](i);;break}e[2](i)}return i}`,
+    `i=>{for(;;){if(Number.isNaN(i)){i=void 0;break}if(typeof i==="number"){i>=e[0]||e[1](i);break}e[2](i)}return i}`,
   )
 
   S.global({})
@@ -445,7 +445,7 @@ test("Successfully serializes unboxed variant", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){let r;if(typeof i==="string"){try{let v0=e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[1](x))}}if(typeof i==="string")break;e[2](i,...(r||[]))}return i}`,
+    `i=>{for(;;){let r;if(typeof i==="string"){try{let v0=e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[1](x))}break}e[2](i,...(r||[]))}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -465,7 +465,7 @@ test("Successfully serializes unboxed variant", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(typeof i==="string")break;if(typeof i==="string"){let v0=e[0](i);i=v0;break}e[1](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="string")break;e[1](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -556,7 +556,7 @@ test("Union with nested variant", t => {
     ~schema,
     ~op=#Encode,
     // TODO: Can optimize it
-    `i=>{for(;;){let r;if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["foo"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["tag"];typeof v1==="object"&&v1&&!Array.isArray(v1)&&v1["NAME"]==="Null"||e[1](v1);let v2=v1["VAL"];for(;;){if(typeof v2==="string")break;if(v2===void 0){v2=null;break}e[0](v2)}i={"foo":{"tag":{"NAME":v1["NAME"],"VAL":v2,},},};break}catch(x){(r||(r=[])).push(e[6](x))}}if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v3=i["foo"];typeof v3==="object"&&v3&&!Array.isArray(v3)||e[5](v3);let v4=v3["tag"];typeof v4==="object"&&v4&&!Array.isArray(v4)&&v4["NAME"]==="Option"||e[4](v4);let v5=v4["VAL"];(typeof v5==="string"||v5===void 0)||e[3](v5);i={"foo":{"tag":{"NAME":v4["NAME"],"VAL":v5,},},};break}catch(x){(r||(r=[])).push(e[6](x))}}e[7](i,...(r||[]))}return i}`,
+    `i=>{for(;;){let r;if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["foo"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[2](v0);let v1=v0["tag"];typeof v1==="object"&&v1&&!Array.isArray(v1)&&v1["NAME"]==="Null"||e[1](v1);let v2=v1["VAL"];for(;;){if(typeof v2==="string")break;if(v2===void 0){v2=null;break}e[0](v2)}i={"foo":{"tag":{"NAME":v1["NAME"],"VAL":v2,},},};break}catch(x){(r||(r=[])).push(e[6](x))}try{let v3=i["foo"];typeof v3==="object"&&v3&&!Array.isArray(v3)||e[5](v3);let v4=v3["tag"];typeof v4==="object"&&v4&&!Array.isArray(v4)&&v4["NAME"]==="Option"||e[4](v4);let v5=v4["VAL"];(typeof v5==="string"||v5===void 0)||e[3](v5);i={"foo":{"tag":{"NAME":v4["NAME"],"VAL":v5,},},};break}catch(x){(r||(r=[])).push(e[6](x))}}e[7](i,...(r||[]))}return i}`,
   )
 })
 
@@ -768,7 +768,7 @@ test("json-rpc response", t => {
   t->U.assertCompiledCode(
     ~schema=getLogsResponseSchema,
     ~op=#Parse,
-    `i=>{for(;;){let r;if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["result"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path="[\\"result\\"]"+'["'+v1+'"]'+v3.path;throw v3}}i={"TAG":"Ok","_0":v0,};break}catch(x){(r||(r=[])).push(e[4](x))}}if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v4=i["error"];for(;;){if(typeof v4==="object"&&v4&&!Array.isArray(v4)&&v4["message"]==="NotFound"){v4="LogsNotFound";break}if(typeof v4==="object"&&v4&&!Array.isArray(v4)&&v4["message"]==="Invalid"){let v5=v4["data"];typeof v5==="string"||e[2](v5);v4={"NAME":"InvalidData","VAL":v5,};break}e[3](v4)}i={"TAG":"Error","_0":v4,};break}catch(x){(r||(r=[])).push(e[4](x))}}e[5](i,...(r||[]))}return i}`,
+    `i=>{for(;;){let r;if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["result"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path="[\\"result\\"]"+'["'+v1+'"]'+v3.path;throw v3}}i={"TAG":"Ok","_0":v0,};break}catch(x){(r||(r=[])).push(e[4](x))}try{let v4=i["error"];for(;;){if(typeof v4==="object"&&v4&&!Array.isArray(v4)&&v4["message"]==="NotFound"){v4="LogsNotFound";break}if(typeof v4==="object"&&v4&&!Array.isArray(v4)&&v4["message"]==="Invalid"){let v5=v4["data"];typeof v5==="string"||e[2](v5);v4={"NAME":"InvalidData","VAL":v5,};break}e[3](v4)}i={"TAG":"Error","_0":v4,};break}catch(x){(r||(r=[])).push(e[4](x))}}e[5](i,...(r||[]))}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema=getLogsResponseSchema,
@@ -858,7 +858,7 @@ test("Union of strings with different refinements", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){for(;;){let r;try{e[0].test(i)||e[1](i);;break}catch(x){(r||(r=[])).push(e[4](x))}try{e[2](i)||e[3](i);;break}catch(x){(r||(r=[])).push(e[4](x))}e[5](i,...(r||[]))}}else{e[6](i)}return i}`,
+    `i=>{if(typeof i==="string"){for(;;){let r;try{e[0].test(i)||e[1](i);break}catch(x){(r||(r=[])).push(e[4](x))}try{e[2](i)||e[3](i);break}catch(x){(r||(r=[])).push(e[4](x))}e[5](i,...(r||[]))}}else{e[6](i)}return i}`,
   )
 })
 
@@ -886,7 +886,7 @@ test("Objects with the same discriminant", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){let r;if(typeof i==="object"&&i&&!Array.isArray(i)&&i["type"]==="A"){try{let v0=i["value"];typeof v0==="string"&&(v0==="foo"||v0==="bar")||e[0](v0);i={"TAG":"Ok","_0":v0,};break}catch(x){(r||(r=[])).push(e[2](x))}}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["type"]==="A"){try{let v1=i["value"];typeof v1==="string"||e[1](v1);i={"TAG":"Error","_0":v1,};break}catch(x){(r||(r=[])).push(e[2](x))}}e[3](i,...(r||[]))}return i}`,
+    `i=>{for(;;){let r;if(typeof i==="object"&&i&&!Array.isArray(i)&&i["type"]==="A"){try{let v0=i["value"];typeof v0==="string"&&(v0==="foo"||v0==="bar")||e[0](v0);i={"TAG":"Ok","_0":v0,};break}catch(x){(r||(r=[])).push(e[2](x))}try{let v1=i["value"];typeof v1==="string"||e[1](v1);i={"TAG":"Error","_0":v1,};break}catch(x){(r||(r=[])).push(e[2](x))}}e[3](i,...(r||[]))}return i}`,
   )
 })
 
@@ -927,7 +927,7 @@ module CknittelBugReport = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{for(;;){let r;if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["payload"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);let v1=v0["a"];(typeof v1==="string"||v1===void 0)||e[0](v1);i={"TAG":"A","_0":{"payload":{"a":v1,},},};break}catch(x){(r||(r=[])).push(e[4](x))}}if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v2=i["payload"];typeof v2==="object"&&v2&&!Array.isArray(v2)||e[3](v2);let v3=v2["b"];(typeof v3==="number"&&!Number.isNaN(v3)&&v3<=2147483647&&v3>=-2147483648&&v3%1===0||v3===void 0)||e[2](v3);i={"TAG":"B","_0":{"payload":{"b":v3,},},};break}catch(x){(r||(r=[])).push(e[4](x))}}e[5](i,...(r||[]))}return i}`,
+      `i=>{for(;;){let r;if(typeof i==="object"&&i&&!Array.isArray(i)){try{let v0=i["payload"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);let v1=v0["a"];(typeof v1==="string"||v1===void 0)||e[0](v1);i={"TAG":"A","_0":{"payload":{"a":v1,},},};break}catch(x){(r||(r=[])).push(e[4](x))}try{let v2=i["payload"];typeof v2==="object"&&v2&&!Array.isArray(v2)||e[3](v2);let v3=v2["b"];(typeof v3==="number"&&!Number.isNaN(v3)&&v3<=2147483647&&v3>=-2147483648&&v3%1===0||v3===void 0)||e[2](v3);i={"TAG":"B","_0":{"payload":{"b":v3,},},};break}catch(x){(r||(r=[])).push(e[4](x))}}e[5](i,...(r||[]))}return i}`,
     )
 
     t->U.assertCompiledCode(

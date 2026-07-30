@@ -102,7 +102,7 @@ test("[milestone 1] compiled parse code models each dict read as optional", t =>
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);for(let v0 in i){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}let v3=i["foo"],v5=i["bar"],v7=i["zoo"];for(;;){if(typeof v3==="string")break;if(v3===void 0){v3="undefined";break}e[1](v3)}if(typeof v5==="string"){let v4;try{v4=BigInt(v5)}catch(_){e[2](v5)}v5=v4}else{e[4](v5,e[3])}for(;;){if(typeof v7==="string"){for(;;){let r;try{let v6=+v7;!Number.isNaN(v6)||e[5](v7);v7=v6;;break}catch(x){(r||(r=[])).push(e[6](x))}if(v7==="undefined"){v7=void 0;break}e[7](v7,...(r||[]))};break}if(v7===void 0)break;e[8](v7)}return {"foo":v3,"bar":v5,"zoo":v7,}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[9](i);for(let v0 in i){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}let v3=i["foo"],v5=i["bar"],v7=i["zoo"];for(;;){if(typeof v3==="string")break;if(v3===void 0){v3="undefined";break}e[1](v3)}if(typeof v5==="string"){let v4;try{v4=BigInt(v5)}catch(_){e[2](v5)}v5=v4}else{e[4](v5,e[3])}for(;;){if(typeof v7==="string"){for(;;){let r;try{let v6=+v7;!Number.isNaN(v6)||e[5](v7);v7=v6;break}catch(x){(r||(r=[])).push(e[6](x))}if(v7==="undefined"){v7=void 0;break}e[7](v7,...(r||[]))};break}if(v7===void 0)break;e[8](v7)}return {"foo":v3,"bar":v5,"zoo":v7,}}`,
   )
 })
 

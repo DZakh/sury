@@ -277,43 +277,70 @@ const unionEmitChain = (cases: UnionCase[], ctx: UnionCtx): string => {
   let caught = false;
   let exhaustive = false;
 
-  for (let idx = 0; idx < cases.length; idx++) {
-    const c = cases[idx]!;
-
-    if (c.b === "" && c.c === "") {
-      code += "break;";
-      exhaustive = true;
-      break;
-    }
-
-    if (c.b === "") {
-      code += `if(${c.c})break;`;
-      continue;
-    }
-
-    if (
-      (c.f & 1) &&
-      ((c.f & unionMemberFalls) || caught)
-    ) {
+  // The case's code with its condition taken as given — the shared shape between
+  // a lone `if(cond){…}` and one arm of a run that tests `cond` once. A `try` arm
+  // hands control to whatever follows it; every other form breaks, which ends its
+  // block and needs no trailing `;`.
+  const attempt = (c: UnionCase): string => {
+    if (c.b === "") return "break";
+    // Skip the `;` where the body already ends in one: `;;break` is a wart in
+    // every golden it reaches.
+    const body = c.b.endsWith(";") ? c.b : `${c.b};`;
+    // A `try` is needed when the case can raise and either a later alternative
+    // could still accept the value or an earlier one is already relying on the
+    // chain to carry its failure forward.
+    if ((c.f & 1) && ((c.f & unionMemberFalls) || caught)) {
+      caught = true;
       // Every caught failure is recorded and the chain ends in the aggregated
       // union error, including for the last case. Rethrowing the last case's own
       // error instead — which an earlier version did whenever nothing before it
       // had recorded a reason — drops the "Expected A | B | C" framing and
       // leaves a bare inner error that names no member at all.
-      const failure = c.f & 4
-        ? `x=${ctx.r()}(x);if(x.expected===${ctx.s()}){x=x.unionErrors;x&&(r||(r=[])).push(...x)}else{(r||(r=[])).push(x)}`
-        : `(r||(r=[])).push(${ctx.r()}(x))`;
-      const attempt = `try{${c.b};break}catch(x){${
-        failure
+      return `try{${body}break}catch(x){${
+        c.f & 4
+          ? `x=${ctx.r()}(x);if(x.expected===${ctx.s()}){x=x.unionErrors;x&&(r||(r=[])).push(...x)}else{(r||(r=[])).push(x)}`
+          : `(r||(r=[])).push(${ctx.r()}(x))`
       }}`;
-      code += c.c === "" ? attempt : `if(${c.c}){${attempt}}`;
-      caught = true;
+    }
+    return `${body}break`;
+  };
+
+  // The condition of the case just emitted, and whether its block is still open
+  // — i.e. ended in a `try` that hands control onward rather than a `break`.
+  let last = "";
+  let open = false;
+
+  for (let idx = 0; idx < cases.length; idx++) {
+    const c = cases[idx]!;
+    // Members that narrow the same way — two variants of one tuple shape, two
+    // objects behind the same discriminant — share the test. Only the case
+    // *immediately* before qualifies: a case in between with a different
+    // condition could accept a value these two also accept, and pulling the
+    // later one back past it would change which member wins.
+    const shared = c.c !== "" && c.c === last;
+    // Behind a condition the previous case already accepted outright, this one
+    // can never run. Dropping it is what removes the unreachable second
+    // `if(i===void 0){…}` an `optional`-of-`optional` used to emit.
+    if (shared && !open) continue;
+
+    const arm = attempt(c);
+    open = arm[0] === "t"; /* `try` */
+    last = c.c;
+
+    if (shared) {
+      code = `${code.slice(0, -1)}${arm}}`;
     } else if (c.c === "") {
-      code += `${c.b};break;`;
-      exhaustive = true;
-      break;
+      // Nothing left to test: this alternative accepts every value that reaches
+      // it, so unless it can fail nothing after it is reachable.
+      code += open ? arm : `${arm};`;
+      if (!open) {
+        exhaustive = true;
+        break;
+      }
     } else {
-      code += `if(${c.c}){${c.b};break}`;
+      // `if(cond)break;` beats `if(cond){break}` by two characters, and a case
+      // that accepts without running anything is the commonest shape there is.
+      code += arm === "break" ? `if(${c.c})break;` : `if(${c.c}){${arm}}`;
     }
   }
 
