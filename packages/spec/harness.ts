@@ -239,14 +239,18 @@ const buildOp = (opName: OpName, schema: any): BuiltOp => {
 
 // Reduce a built op to its canonical form against parse:
 // - rejected at creation → a `{creationError}` block, or `eq-to-parse` when a
-//   non-parse direction fails the same way parse does (co-failure; only parse
-//   records the message, so a differing reverse message isn't ratcheted).
+//   non-parse direction is rejected with parse's exact message. A direction
+//   that fails with different wording keeps its own block: the reverse names
+//   the reverse conversion, and collapsing it would leave that wording
+//   unratcheted.
 // - compiles to Sury's noop → `identity`.
 // - a non-parse direction compiling to parse's exact code → `eq-to-parse`.
 // - otherwise a fresh `{expression, examples:{}}` block.
 const opForm = (opName: OpName, built: BuiltOp, parseBuilt: BuiltOp): Operation => {
   if ("creationError" in built) {
-    return opName !== "parse" && "creationError" in parseBuilt
+    return opName !== "parse" &&
+      "creationError" in parseBuilt &&
+      parseBuilt.creationError === built.creationError
       ? "eq-to-parse"
       : { creationError: built.creationError };
   }
@@ -640,9 +644,16 @@ export const checkAliases = async (spec: Spec): Promise<string[]> => {
         }
         if (!("fn" in built)) {
           // Valid when the schema's op is the co-failure `eq-to-parse` and the
-          // alias's parse is likewise rejected — both fail at creation the same
-          // way. Otherwise the alias diverges from a compiling schema op.
-          if (!(op === "eq-to-parse" && !("fn" in aliasParseBuilt)))
+          // alias's parse is rejected with the same message — both fail at
+          // creation the same way. Otherwise the alias diverges from a
+          // compiling schema op.
+          if (
+            !(
+              op === "eq-to-parse" &&
+              !("fn" in aliasParseBuilt) &&
+              aliasParseBuilt.creationError === built.creationError
+            )
+          )
             errs.push(
               `${label}: operations.${opName} does not fail at creation on schema but is rejected at operation creation on this alias: ${built.creationError}`,
             );

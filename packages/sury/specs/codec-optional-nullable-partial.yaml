@@ -14,4 +14,5 @@ operations:
   parse:
     creationError: "SuryError: Invalid operation: can't convert string | undefined to boolean | null — string has no same-type variant on the other side. Use S.to to say what you mean, or S.never to mark a variant unreachable"
   decode: eq-to-parse
-  encode: eq-to-parse
+  encode:
+    creationError: "SuryError: Invalid operation: can't convert boolean | null to string | undefined — boolean has no same-type variant on the other side. Use S.to to say what you mean, or S.never to mark a variant unreachable"
