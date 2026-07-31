@@ -34,7 +34,6 @@
   - [Advanced tuple schema](#advanced-tuple-schema)
 - [Unions](#unions)
   - [Discriminated unions](#discriminated-unions)
-  - [Enums](#enums)
   - [Converting to / from a union](#converting-to-from-a-union)
 - [Records](#records)
 - [Date](#date)
@@ -238,26 +237,36 @@ S.schema(true);
 S.schema(undefined);
 S.schema(null);
 S.schema(Symbol("terrific"));
-// S.literal is an alias for S.schema, when you want the intent to read at the call site
-S.literal("tuna");
+S.literal("tuna"); // alias for S.schema
 
 // NaN literals
 // Validated using Number.isNaN
 S.schema(NaN);
 
+// Objects
+S.schema({ name: S.string, age: S.number });
+S.object({ name: S.string, age: S.number }); // alias for S.schema
+
+// Tuples
+S.schema([S.string, S.number]);
+S.tuple([S.string, S.number]); // alias for S.schema
+
+// Unions
+S.union([S.string, S.number]);
+// Enum-like union of literals
+S.union(["Win", "Draw", "Loss"]);
+
 // Catch-all type
 // Allows any value
 S.unknown;
-// S.any is an alias for S.unknown, typed as S.Schema<any, any>
-// so its output doesn't need narrowing before use
-S.any;
+S.any; // alias for S.unknown, typed as S.Schema<any, any>
 
 // Never type
 // Allows no values
 S.never;
 ```
 
-> 🧠 `S.schema` is the one definition-to-schema factory — whatever you pass it (a schema, a literal, an object, an array) becomes a schema. `S.literal`, `S.object` and `S.tuple` are aliases that build the exact same schema from the same definition; they exist so the intent reads at the call site. `S.object` and `S.tuple` additionally accept a definer function, which `S.schema` and `S.literal` don't — see [Advanced object schema](#advanced-object-schema) and [Advanced tuple schema](#advanced-tuple-schema).
+> 🧠 `S.schema` turns any definition into a schema — `S.literal`, `S.object` and `S.tuple` are aliases for it. Only `S.object` and `S.tuple` also take a definer function, for [advanced object](#advanced-object-schema) and [advanced tuple](#advanced-tuple-schema) schemas.
 
 ### Advanced schemas
 
@@ -463,17 +472,6 @@ type Dog = {
 };
 ```
 
-`S.object` is an alias for `S.schema` and builds the same object schema:
-
-```ts
-const dogSchema = S.object({
-  name: S.string,
-  age: S.number,
-});
-```
-
-> 🧠 The one difference is in the inferred type: `S.schema` keeps bare literal values narrow, while `S.object({ kind: "human" })` widens `kind` to `string`. Add `as const` or wrap the value with `S.schema` to keep it narrow — see [Literal fields](#literal-fields) below. The runtime schema is identical either way.
-
 ### Literal fields
 
 Besides passing schemas for values in `S.schema`, you can also pass **any** Js value and it'll be treated as a literal field.
@@ -668,12 +666,6 @@ type Athlete = S.Infer<typeof athleteSchema>;
 // type Athlete = [string, number, { pointsScored: number }]
 ```
 
-`S.tuple` is an alias for `S.schema` — same schema, same inferred type:
-
-```ts
-const athleteSchema = S.tuple([S.string, S.number, { pointsScored: S.number }]);
-```
-
 ### Advanced tuple schema
 
 Sometimes you want to transform incoming tuples to a more convenient data-structure. To do this you can pass a function to the `S.tuple` schema.
@@ -744,16 +736,6 @@ const shapeSchema = S.union([
     y: S.number,
   },
 ]);
-```
-
-### Enums
-
-Creating a schema for a enum-like union was never so easy:
-
-```ts
-const schema = S.union(["Win", "Draw", "Loss"]);
-
-type Schema = S.Infer<typeof schema>; // "Win" | "Draw" | "Loss"
 ```
 
 ### Converting to / from a union
