@@ -1,6 +1,6 @@
 {
   "name": "sury",
-  "version": "11.0.0-alpha.12",
+  "version": "11.0.0-rc.0",
   "private": true,
   "description": "🧬 The fastest schema with next-gen DX",
   "keywords": [
