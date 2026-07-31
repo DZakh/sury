@@ -475,10 +475,13 @@ const unionMask = (schema: Internal, mode: number, nan = 0): number => {
 
 // A member's effect (`UnionMember.e`), as a literal because naming these five
 // costs ~40 bundle bytes that esbuild will not inline. The scale is ordered, and
-// `e < 2` — "changes nothing about the value" — is the test that matters: only
-// those members may share a group.
+// two cuts in it carry the planner. `e < 2` — "changes nothing about the value" —
+// is what lets members share a group, since order among them is unobservable.
+// `e === 0` is stronger: total for its type, which is what lets one member cover
+// another outright.
 //
-//   0 identity   — accepts and passes the value straight through.
+//   0 identity   — accepts every value of its type and passes it straight
+//                  through, so it is the only effect that can cover a member.
 //   1 validation — checks the value but does not change it.
 //   2 coercion   — converts, so it cannot share a group with a pass-through.
 //   3 rejection  — output is `never`; executable, but accepts nothing.
@@ -527,11 +530,17 @@ type UnionGroup = {
   a: UnionMember[];
   f: number;
   n?: Internal;
+  // Planner-only. `p` is the specificity tier the group flattens at — the tier of
+  // the member that opened it. `o` is whether it can still absorb a later member.
+  p: number;
+  o: boolean;
 };
 
+// One runtime tag family's groups, in the order they were opened. Flattening is a
+// stable sort by tier, so a group's position among its peers is where it opened.
 type UnionBucket = {
   m: number;
-  t: (UnionGroup[] | UnionGroup | undefined)[];
+  t: UnionGroup[];
 };
 
 type UnionNormalized = {
@@ -553,6 +562,8 @@ const unionGroup = (member: UnionMember): UnionGroup => ({
   m: member.m,
   a: [member],
   f: member.f & unionMemberDirect,
+  p: member.p,
+  o: false,
 });
 
 const unionDiscriminator = (schema: Internal): UnionDiscriminator | undefined => {
@@ -797,9 +808,48 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
   const active: (UnionBucket | undefined)[] = [];
   const priority: (UnionBucket | undefined)[] = [];
 
+  // `total` — types some member accepts *totally*: effect 0 takes every value its
+  // type narrow admits and hands it back untouched. `effects` — types some member
+  // that changes the value accepts.
+  let total = 0;
+  let effects = 0;
   for (let i = 0; i < members.length; i++) {
     const member = members[i]!;
-    if (member.m === 0) continue;
+    if (member.e > 1) {
+      effects |= member.m;
+    } else if (!member.e) {
+      total |= member.m;
+    }
+  }
+
+  for (let i = 0; i < members.length; i++) {
+    const member = members[i]!;
+    // A pass-through member accepting no type beyond what some total member
+    // already covers is dead, whichever side of it that member sits on: both
+    // produce the input unchanged, so which one a value reaches is unobservable,
+    // and a value the total member rejects was outside both. Dropping it before
+    // anything is compiled is what collapses `"a" | string | "b"` to one narrow.
+    //
+    // Two things make a member observable despite passing its value through:
+    //
+    //   - It can raise a *foreign* error (`f & 2`) — a user refiner, a getter.
+    //     That escapes the union rather than reading as "this one didn't match",
+    //     so running it is the observable part, not what it returns.
+    //   - A member that *does* change the value accepts one of the same types. It
+    //     may sit anywhere, because dropping a pass-through hands its values to
+    //     whatever runs next: `S.literal(-0) | string-from-number | number`
+    //     decodes 0 to `-0` only because the literal claims it first.
+    //
+    // Only validating members are dropped, never a total one — two total members
+    // for a type would each read as covered by the other and both vanish. Nothing
+    // is lost by keeping them: they share a group, and `unionEmit` collapses their
+    // empty conditions into the one narrow anyway.
+    if (
+      member.m === 0 ||
+      (member.e === 1 && !(member.f & 2) && !(member.m & (effects | ~total)))
+    ) {
+      continue;
+    }
 
     const bucketed =
       member.r !== unionAnyTag &&
@@ -812,6 +862,40 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
         ? priority[member.r] || active[member.r]
         : active[member.r]
       : U;
+
+    // One walk of the bucket settles everything positional about this member:
+    // which group it joins, whether a broad group is already placed, and which
+    // other groups it closes. Closing on a bucket the split below then abandons
+    // is harmless — that bucket leaves `active`, so nothing can join it again.
+    //
+    // A member joins a group that is still open, holds the same runtime type, and
+    // sits on the same side of the pass-through boundary. Tier is deliberately
+    // *not* part of the test: tiers order groups by specificity, and specificity
+    // between two members of one type that both hand the value back is
+    // unobservable, so they belong under one narrow. Tier 0 is the exception — it
+    // holds what must be tried first (an exact NaN, a nested object), and folding
+    // one into a broader group would bury it behind that group's own members.
+    let open: UnionGroup | undefined = U;
+    let broad = false;
+    if (bucket !== U) {
+      for (let j = 0; j < bucket.t.length; j++) {
+        const group = bucket.t[j]!;
+        const first = group.a[0]!;
+        broad ||= group.p === 2;
+        if (
+          open === U &&
+          compatible &&
+          group.o &&
+          first.k === member.k &&
+          (first.e < 2) === (member.e < 2) &&
+          (group.p === 0) === (member.p === 0)
+        ) {
+          open = group;
+        } else if (group.o && (group.m & member.m)) {
+          group.o = false;
+        }
+      }
+    }
 
     for (const key in active) {
       const other = active[+key]!;
@@ -830,11 +914,11 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
       continue;
     }
 
-    if (
-      bucket !== U &&
-      member.p === 1 &&
-      (bucket.t[2] as UnionGroup[]).length
-    ) {
+    // Flattening would hoist a discriminated member ahead of a broad one already
+    // in this bucket, changing which member a value reaches — so it starts a
+    // bucket of its own instead. Unless it joins that member's own group, where
+    // the two are ordered against each other by the chain rather than by tier.
+    if (bucket !== U && open === U && member.p === 1 && broad) {
       delete active[member.r];
       bucket = U;
     }
@@ -842,7 +926,7 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
     if (bucket === U) {
       bucket = {
         m: 0,
-        t: [[], [], []],
+        t: [],
       };
       active[member.r] = bucket;
       priority[member.r] ||= bucket;
@@ -850,33 +934,14 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
     }
     bucket.m |= member.m;
 
-    const open = bucket.t[member.p + 3] as UnionGroup | undefined;
-    const first = open?.a[0];
-    const same =
-      compatible &&
-      first !== U &&
-      first.k === member.k &&
-      (first.e < 2) ===
-        (member.e < 2)
-        ? open
-        : U;
-    for (let tier = 3; tier < 6; tier++) {
-      const group = bucket.t[tier] as UnionGroup | undefined;
-      if (group !== U && group !== same && (group.m & member.m)) {
-        bucket.t[tier] = U;
-      }
-    }
-
-    if (same !== U) {
-      same.a.push(member);
-      same.m |= member.m;
-      same.f &= ~unionMemberDirect;
+    if (open !== U) {
+      open.a.push(member);
+      open.m |= member.m;
+      open.f &= ~unionMemberDirect;
     } else {
       const group = unionGroup(member);
-      (bucket.t[member.p] as UnionGroup[]).push(group);
-      if (compatible) {
-        bucket.t[member.p + 3] = group;
-      }
+      group.o = compatible;
+      bucket.t.push(group);
     }
     if (!compatible) {
       delete active[member.r];
@@ -886,15 +951,11 @@ const unionPlan = (members: UnionMember[]): UnionGroup[] => {
   const plan: UnionGroup[] = [];
   for (let i = 0; i < sequence.length; i++) {
     const item = sequence[i]!;
-    if ("t" in item) {
-      for (let tier = 0; tier < 3; tier++) {
-        const groups = item.t[tier] as UnionGroup[];
-        for (let j = 0; j < groups.length; j++) {
-          plan.push(groups[j]!);
-        }
-      }
-    } else {
+    if ("a" in item) {
       plan.push(item);
+    } else {
+      // Stable, so groups of one tier keep the order they were opened in.
+      plan.push(...item.t.sort((a, b) => a.p - b.p));
     }
   }
 
