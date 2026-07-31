@@ -3,7 +3,6 @@ node_modules
 .bsb.lock
 packages/sury/**/*_test.res.mjs
 packages/sury/**/*_test.js
-packages/sury/**/*.bench.js
 packages/sury/**/*.test-d.js
 packages/sury/artifacts
 lib
@@ -13,9 +12,7 @@ tsconfig.tsbuildinfo
 _opam/
 .attest
 packages/sury/src/S.mjs
-packages/e2e/bench-results.json
 packages/json-schema-test-suite/.suite
-bench-comment.md
 packages/spec/.bench-cache
 spec-perf.txt
 spec-perf-comment.md

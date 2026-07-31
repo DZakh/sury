@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.union([S.schema({ kind: S.schema("a"), value: S.number.with(S.min, 2) }), S.schema({ kind: S.schema("a"), value: S.schema(1) })])'
+  input: '{ kind: "a"; value: number; } | { kind: "a"; value: 1; }'
+  output: '{ kind: "a"; value: number; } | { kind: "a"; value: 1; }'
+  instantiations: 9451
+vs:
+  zod: 'z.union([z.object({ kind: z.literal("a"), value: z.number().min(2) }), z.object({ kind: z.literal("a"), value: z.literal(1) })])'
+jsonSchema:
+  input: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", const: "a" }, value: { type: "number", minimum: 2 } }, required: ["kind", "value"] }, { type: "object", properties: { kind: { type: "string", const: "a" }, value: { type: "number", const: 1 } }, required: ["kind", "value"] }] }'
+  output: '{ anyOf: [{ type: "object", properties: { kind: { type: "string", const: "a" }, value: { type: "number", minimum: 2 } }, required: ["kind", "value"] }, { type: "object", properties: { kind: { type: "string", const: "a" }, value: { type: "number", const: 1 } }, required: ["kind", "value"] }] }'
+operations:
+  parse:
+    expression: i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){for(;;){let r;if(i["kind"]==="a"){try{let v0=i["value"];typeof v0==="number"&&!Number.isNaN(v0)||e[2](v0);v0>=e[0]||e[1](v0);i={"kind":i["kind"],"value":v0,};break}catch(x){(r||(r=[])).push(e[3](x))}}if(i["kind"]==="a"&&i["value"]===1){i={"kind":i["kind"],"value":i["value"],};break}e[4](i,...(r||[]))}}else{e[5](i)}return i}
+    examples:
+      refined-member:
+        input: '{ kind: "a", value: 3 }'
+        output: '{ kind: "a", value: 3 }'
+      overlapping-literal-fallback:
+        input: '{ kind: "a", value: 1 }'
+        output: '{ kind: "a", value: 1 }'
+      rejected-by-both:
+        input: '{ kind: "a", value: 0 }'
+        error: |-
+          Expected { kind: "a"; value: number; } | { kind: "a"; value: 1; }, received { kind: "a"; value: 0; }
+          - At ["value"]: Number must be greater than or equal to 2
+  decode: identity
+  encode: identity

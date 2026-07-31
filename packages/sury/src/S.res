@@ -31,7 +31,7 @@ type tag =
   | @as("instance") Instance
   | @as("array") Array
   | @as("object") Object
-  | @as("union") Union
+  | @as("anyOf") AnyOf
   | @as("never") Never
   | @as("unknown") Unknown
   | @as("ref") Ref
@@ -213,8 +213,8 @@ type rec t<'value> =
       default?: dict<unknown>,
       errorMessage?: schemaErrorMessage,
     })
-  | @as("union")
-  Union({
+  | @as("anyOf")
+  AnyOf({
       anyOf: array<t<unknown>>,
       has: has,
       name?: string,

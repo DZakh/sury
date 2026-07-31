@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.schema("apple"), S.string, S.schema("banana")])
+  input: string
+  output: string
+  instantiations: 1441
+vs:
+  zod: z.union([z.literal("apple"), z.string(), z.literal("banana")])
+jsonSchema:
+  input: '{ anyOf: [{ type: "string", const: "apple" }, { type: "string" }, { type: "string", const: "banana" }] }'
+  output: '{ anyOf: [{ type: "string", const: "apple" }, { type: "string" }, { type: "string", const: "banana" }] }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[0](i);return i}
+    examples:
+      covered-literal:
+        input: '"apple"'
+        output: '"apple"'
+      trailing-covered-literal:
+        input: '"banana"'
+        output: '"banana"'
+      broad-member:
+        input: '"cherry"'
+        output: '"cherry"'
+      empty-string:
+        input: '""'
+        output: '""'
+      wrong-tag:
+        input: "42"
+        error: Expected "apple" | string | "banana", received 42
+  decode: identity
+  encode: identity

@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: "S.union([{ a: S.string }, S.number])"
+  aliases:
+    - "S.union([S.schema({ a: S.string }), S.number])"
+  input: "number | { a: string; }"
+  output: "number | { a: string; }"
+  instantiations: 1727
+vs:
+  zod: "z.union([z.object({ a: z.string() }), z.number()])"
+jsonSchema:
+  input: '{ anyOf: [{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }, { type: "number" }] }'
+  output: '{ anyOf: [{ type: "object", properties: { a: { type: "string" } }, required: ["a"] }, { type: "number" }] }'
+operations:
+  parse:
+    expression: i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){let v0=i["a"];typeof v0==="string"||e[0](v0);i={"a":v0,};break}if(typeof i==="number"&&!Number.isNaN(i))break;e[1](i)}return i}
+    examples:
+      object:
+        input: '{ a: "x" }'
+        output: '{ a: "x" }'
+      number:
+        input: "42"
+        output: "42"
+      negative-zero:
+        input: "-0"
+        output: "-0"
+      nan-is-not-a-number:
+        input: NaN
+        error: "Expected { a: string; } | number, received NaN"
+      array-is-not-an-object:
+        input: '["x"]'
+        error: 'Expected { a: string; } | number, received ["x"]'
+      empty-array-is-not-an-object:
+        input: "[]"
+        error: "Expected { a: string; } | number, received []"
+      null-is-not-an-object:
+        input: "null"
+        error: "Expected { a: string; } | number, received null"
+      wrong-member-type:
+        input: "{ a: 1 }"
+        error: 'Failed at ["a"]: Expected string, received 1'
+  decode: identity
+  encode: identity

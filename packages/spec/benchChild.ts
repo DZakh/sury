@@ -25,41 +25,64 @@ const boxes: { v: unknown }[] = [];
 // which would make the inner call megamorphic across the 100+ targets in a run
 // and measure the driver instead of the schema. A distinct function per target
 // per side keeps every call site monomorphic.
-const buildRunner = (S: any, target: Target): ((n: number) => void) => {
+// Returns the runner, plus — for run-phase targets — whether the operation
+// threw on this input. The two sides are timed against each other, so an
+// outcome that differs between them makes the ratio meaningless: returning a
+// value and raising a `SuryError` are different work, not the same work at a
+// different speed.
+const buildRunner = (
+  S: any,
+  target: Target,
+): { run: (n: number) => void; threw?: boolean } => {
   const box: { v: unknown } = { v: undefined };
   boxes.push(box);
 
   // No schema of its own: a scenario is whatever a consumer writes, so it
-  // brings its own setup and its own expression.
+  // brings its own setup and its own expression. No `threw` either — the
+  // builder runs the expression once, so a side that can't execute it fails
+  // here (as "new" for the baseline, an error for the current) instead of
+  // reaching a comparison.
   if (target.phase === "scenario")
-    return buildScenarioRunner(S, { prepareSrc: target.prepareSrc, runSrc: target.runSrc! }, box);
+    return {
+      run: buildScenarioRunner(S, { prepareSrc: target.prepareSrc, runSrc: target.runSrc! }, box),
+    };
 
   const factory = new Function("S", `return ${target.schemaSrc};`) as (s: any) => unknown;
 
   if (target.phase === "create")
-    return new Function(
-      "factory",
-      "S",
-      "box",
-      "return (n) => { for (let i = 0; i < n; i++) box.v = factory(S); };",
-    )(factory, S, box);
+    return {
+      run: new Function(
+        "factory",
+        "S",
+        "box",
+        "return (n) => { for (let i = 0; i < n; i++) box.v = factory(S); };",
+      )(factory, S, box),
+    };
 
   const builder = S[OP_BUILDER[target.op!]];
 
   if (target.phase === "create+compile")
-    return new Function(
-      "factory",
-      "S",
-      "build",
-      "box",
-      "return (n) => { for (let i = 0; i < n; i++) box.v = build(factory(S)); };",
-    )(factory, S, builder, box);
+    return {
+      run: new Function(
+        "factory",
+        "S",
+        "build",
+        "box",
+        "return (n) => { for (let i = 0; i < n; i++) box.v = build(factory(S)); };",
+      )(factory, S, builder, box),
+    };
 
   // Input is evaluated per side, not shared: an operation that mutates its
   // input would otherwise have one side's runs observed by the other.
   const op = builder(factory(S));
   const input = new Function(`return ${target.inputSrc};`)();
-  return target.throws
+  let threw = false;
+  try {
+    op(input);
+  } catch (_) {
+    threw = true;
+  }
+  const run = target.throws
     ? new Function(
         "op",
         "input",
@@ -71,6 +94,7 @@ const buildRunner = (S: any, target: Target): ((n: number) => void) => {
         input,
         box,
       );
+  return { run, threw };
 };
 
 const time = (run: (n: number) => void, n: number): number => {
@@ -95,8 +119,8 @@ const calibrate = (run: (n: number) => void, targetNs: number): number => {
 };
 
 const measure = (baseline: any, current: any, payload: ChildPayload, target: Target): ChildResult => {
-  let a: (n: number) => void;
-  let b: (n: number) => void;
+  let a: { run: (n: number) => void; threw?: boolean };
+  let b: { run: (n: number) => void; threw?: boolean };
   try {
     a = buildRunner(baseline, target);
   } catch (e) {
@@ -112,14 +136,23 @@ const measure = (baseline: any, current: any, payload: ChildPayload, target: Tar
     return { name: target.name, error: (e as Error).message };
   }
 
-  const n = Math.max(calibrate(a, payload.batchTargetNs), calibrate(b, payload.batchTargetNs));
+  // Timing them against each other would compare a returned value with a
+  // thrown error and report the difference as a slowdown — a correctness fix
+  // that starts rejecting an input shows up as several hundred times "slower".
+  if (a.threw !== b.threw)
+    return {
+      name: target.name,
+      outcomeChanged: a.threw ? "baseline rejected it, now accepted" : "baseline accepted it, now rejected",
+    };
+
+  const n = Math.max(calibrate(a.run, payload.batchTargetNs), calibrate(b.run, payload.batchTargetNs));
   // Long enough for both sides to reach their final tier. A side still being
   // re-optimised when measurement starts stays slow for the whole target, which
   // no amount of interleaving can cancel — it is not drift, it is one side
   // running different machine code than it will a moment later.
   for (let i = 0; i < payload.warmupBatches; i++) {
-    a(n);
-    b(n);
+    a.run(n);
+    b.run(n);
   }
 
   // Each block reduces to the ratio of its two FASTEST batches. Scheduler
@@ -144,14 +177,14 @@ const measure = (baseline: any, current: any, payload: ChildPayload, target: Tar
     let minA = Infinity;
     let minB = Infinity;
     for (let round = 0; round < payload.roundsPerBlock; round++) {
-      const a1 = time(a, n);
-      const b1 = time(b, n);
-      const b2 = time(b, n);
-      const a2 = time(a, n);
-      const b3 = time(b, n);
-      const a3 = time(a, n);
-      const a4 = time(a, n);
-      const b4 = time(b, n);
+      const a1 = time(a.run, n);
+      const b1 = time(b.run, n);
+      const b2 = time(b.run, n);
+      const a2 = time(a.run, n);
+      const b3 = time(b.run, n);
+      const a3 = time(a.run, n);
+      const a4 = time(a.run, n);
+      const b4 = time(b.run, n);
       minA = Math.min(minA, a1, a2, a3, a4);
       minB = Math.min(minB, b1, b2, b3, b4);
     }

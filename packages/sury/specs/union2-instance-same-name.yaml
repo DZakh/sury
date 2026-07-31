@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.instance(class Foo { a = 1 }), S.instance(class Foo { b = 2 })])
+  input: Foo | Foo
+  output: Foo | Foo
+  instantiations: 1023
+vs:
+  zod: z.union([z.instanceof(class Foo { a = 1 }), z.instanceof(class Foo { b = 2 })])
+jsonSchema:
+  input: Expected JSON, received Foo | Foo
+  output: Expected JSON, received Foo | Foo
+operations:
+  parse:
+    expression: i=>{(i instanceof e[0]||i instanceof e[1])||e[2](i);return i}
+    examples:
+      plain-object:
+        input: "{ a: 1 }"
+        error: "Expected Foo | Foo, received { a: 1; }"
+      other-class-instance:
+        input: new Date("1970-01-01T00:00:00.000Z")
+        error: Expected Foo | Foo, received [object Date]
+  decode: identity
+  encode: identity

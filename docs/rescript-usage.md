@@ -42,7 +42,7 @@
   - [`shape`](#shape)
   - [`union`](#union)
     - [Enums](#enums)
-    - [Decoding into / out of a union](#decoding-into-out-of-a-union)
+    - [Converting to / from a union](#converting-to-from-a-union)
   - [`array`](#array)
   - [`list`](#list)
   - [`compactColumns`](#compactcolumns)
@@ -762,7 +762,7 @@ An union represents a logical OR relationship. You can apply this concept to you
 
 On validation, the `S.union` schema returns the result of the first item that was successfully validated.
 
-> 🧠 Schemas are not guaranteed to be validated in the order they are passed to `S.union`. They are grouped by the input data type to optimise performance and improve error message. Schemas with unknown data typed validated the last.
+> 🧠 Members are matched in the order they are passed to `S.union` — the first one that fits the value wins.
 
 ```rescript
 // TypeScript type for reference:
@@ -834,67 +834,123 @@ Also, you can use `S.enum` as a shorthand for the use case above.
 let schema = S.enum([Win, Draw, Loss])
 ```
 
-#### Decoding into / out of a union
+#### Converting to / from a union
 
-When you compile `source -> targetUnion` (via `S.to`, or implicitly by reversing the schema), Sury picks the target variant using a three-tier algorithm based on the source's **derived tag** — the tag known at compile time, which may be narrower than the original type (an upstream transformation can refine it). If the source is itself a union, the algorithm runs independently for each source variant.
+`S.to` works with unions on either side of the conversion. There are three
+cases.
 
-If the source is `unknown` (no derived tag), the tag-based tiers are skipped and target variants are simply attempted in target-union order at runtime.
-
-1. **Same-tag group.** Collect target variants sharing the source's tag. If non-empty, match only within this group: variants with a matching `const`/`format` (string literals, `Int32`, etc.) are tried first in target-union order, then any remaining catch-all same-tag variants. Variants with a different tag are never tried from here — if every branch in the group fails, the match errors.
-2. **Nullish bridge.** Used only when tier 1 is empty. If the source tag is `null` or `undefined`, use the opposite nullish target variant (if present), exclusively.
-3. **Fallback.** Used only when tiers 1 and 2 are both empty. Build a decoder for every target variant in target-union order. Cross-type coercions live here: `int`/`bigint` → `string` via `"" ++ i`, `string` → `float` via `Float.fromString`, `string` → `bigint` via `BigInt.fromString`, stringified-const matches like `"null" → null`, and more.
-
-**Worked example** — `S.union([S.bigint, S.float, S.nullLiteral])->S.to(S.union([S.string, S.unit]))`:
-
-Forward:
-
-- `123n` → `"123"` (tier 3: bigint → string)
-- `123.12` → `"123.12"` (tier 3: float → string)
-- `null` → `undefined` (tier 2: nullish bridge)
-
-Reverse (via `S.decodeOrThrow(~from=schema, ~to=S.unknown)`):
-
-- `"null"` → `null` (tier 3: stringified-const literal match)
-- `undefined` → `null` (tier 2: nullish bridge)
-- `"123"` → `123n` (tier 3: bigint attempted first by target order; parse succeeds)
-- `"123.12"` → `123.12` (tier 3: bigint parse throws, falls through to float)
-- `"abc"` → error (tier 3: no variant's decoder succeeds)
-
-**Identity wins over coercion.** For `S.union([S.string, S.bigint])->S.to(S.union([S.float, S.string]))`:
-
-- `"123"` → `"123"` (tier 1: `string` matches `string`, never coerced to `float` even though a `float` target exists)
-- `123n` → `"123"` (tier 3: no `bigint` target, falls through to `string` via `"" ++ i`)
-
-To opt into `string → float` when a `string` target also exists, write the transform into a variant explicitly:
+**Single type → union.** Members are tried in the order you wrote them; the
+first one that accepts the value wins:
 
 ```rescript
-S.union([S.string->S.to(S.float), S.string])
+let schema = S.json->S.to(S.union([S.bigint->S.castToUnknown, S.string->S.castToUnknown]))
+
+"123"->S.parseOrThrow(~to=schema) // 123n — the bigint member comes first
+"abc"->S.parseOrThrow(~to=schema) // "abc" — not a valid bigint, so the string member takes it
+true->S.parseOrThrow(~to=schema) // raises — no member accepts a bool
 ```
 
-The transformed variant is const/format-refined relative to the catch-all `string` and matches first within tier 1.
+Notice that `true` wasn't converted to `"true"`, even though bool → string is
+a supported conversion. A value is only converted into a member type the
+source can't produce itself: JSON has no bigints, so strings are offered to
+`S.bigint` — but JSON already has strings, so the `S.string` member only
+accepts actual strings.
 
-> 🧠 Union conversion always performs exhaustive validation now — every variant is checked, so transformed unions stay consistent across decode and encode.
-
-### **`array`**
-
-`S.t<'value> => S.t<array<'value>>`
+**Union → single type.** The mirror image — each member converts to the target
+the same way it would with a direct `S.to`:
 
 ```rescript
-let schema = S.array(S.string)
+let schema =
+  S.union([S.bigint->S.castToUnknown, S.bool->S.castToUnknown])->S.to(S.string)
 
-["Hello", "World"]->S.parseOrThrow(~to=schema)
-// ["Hello", "World"]
+123n->S.parseOrThrow(~to=schema) // "123"
+true->S.parseOrThrow(~to=schema) // "true"
 ```
 
-The `S.array` schema represents an array of data of a specific type.
-
-**Sury** includes some of array-specific refinements:
+**Union → union.** Values pass through to the member of the same type on the
+other side — nothing is converted, so every member needs a counterpart. The one
+exception: with no counterpart of its own, `S.option`'s `undefined` may pair
+with `S.null`'s `null` on the other side, and vice versa:
 
 ```rescript
-S.array(itemSchema)->S.max(5) // Array must be 5 or fewer items long
-S.array(itemSchema)->S.min(5) // Array must be 5 or more items long
-S.array(itemSchema)->S.length(5) // Array must be exactly 5 items long
+S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])
+->S.to(S.union([S.float->S.castToUnknown, S.string->S.castToUnknown])) // ✅ both pass through
+S.option(S.string)->S.to(S.null(S.string)) // ✅ None <-> null
+S.option(S.string)->S.to(S.null(S.bool)) // ❌ string has no counterpart
 ```
+
+Good to know:
+
+- Formats count as distinct types: `S.int` won't match a plain `S.float`
+  member, and `S.json` won't match `S.string`.
+- Nested unions are treated as one flat union: `S.union([S.string,
+  S.union([S.float, S.bool])])` has three members.
+- When a value fails a member — wrong type, failed refinement, or an error
+  raised inside it — the next member gets a try. Only when all members fail
+  does the union raise, listing each member's reason.
+
+#### When a conversion is rejected
+
+Some conversions have more than one reasonable meaning, and some have none.
+Rather than guess, Sury rejects those with an `Invalid operation` error right
+at the operation compilation — not later, on each value — and the error
+suggests a rewrite that says what you mean.
+
+**Ambiguous.** Given `"123"` — should it stay a string, or become a float?
+Both readings are sensible, so Sury makes you pick:
+
+```rescript
+S.string->S.to(S.union([S.float->S.castToUnknown, S.string->S.castToUnknown]))
+// Invalid operation: can't convert string to number | string — string has the same
+// type as the source and the others don't.
+
+// Convert to a float when possible, keep the string otherwise:
+let asFloat = S.string->S.to(
+  S.union([S.string->S.to(S.float)->S.castToUnknown, S.string->S.castToUnknown]),
+)
+"123"->S.parseOrThrow(~to=asFloat) // 123.
+"abc"->S.parseOrThrow(~to=asFloat) // "abc"
+
+// Or pass strings through, never producing a float:
+let asString = S.string->S.to(
+  S.union([S.never->S.to(S.float)->S.castToUnknown, S.string->S.castToUnknown]),
+)
+"123"->S.parseOrThrow(~to=asString) // "123"
+"abc"->S.parseOrThrow(~to=asString) // "abc"
+```
+
+**The two unions don't cover each other.** Union-to-union converts nothing, so
+a member with no same-type counterpart has nowhere to go:
+
+```rescript
+S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])->S.to(
+  S.union([
+    S.float->S.castToUnknown,
+    S.string->S.castToUnknown,
+    S.bool->S.castToUnknown,
+  ]),
+)
+// Invalid operation: … boolean has no same-type variant on the other side.
+S.option(S.string)->S.to(S.null(S.bool)) // ❌ string doesn't match boolean
+S.option(S.string)->S.to(S.null(S.string->S.to(S.bool))) // ✅
+```
+
+**No conversion exists.** If a conversion between two types isn't supported
+outside a union, putting it inside one doesn't change that. Use `S.never` to
+mark a member as unreachable:
+
+```rescript
+S.bool->S.to(S.union([S.string->S.castToUnknown, S.symbol->S.castToUnknown]))
+// ❌ bool -> symbol isn't supported
+S.union([S.bool->S.castToUnknown, S.symbol->S.castToUnknown])->S.to(S.string)
+// ❌ symbol -> string isn't supported
+S.bool->S.to(
+  S.union([S.string->S.castToUnknown, S.never->S.to(S.symbol)->S.castToUnknown]),
+) // ✅ symbol marked unreachable
+```
+
+> 🧠 Union conversion always validates every member, so transformed unions stay
+> consistent across decode and encode.
 
 ### **`list`**
 

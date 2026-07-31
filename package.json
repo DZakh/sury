@@ -8,7 +8,6 @@
     "compliance": "pnpm --filter=sury build:entry && tsx packages/json-schema-test-suite/cli.ts",
     "test": "pnpm --filter=sury test && pnpm --filter=e2e test",
     "build": "pnpm --filter=sury build",
-    "benchmark": "pnpm --filter=sury bench",
     "benchmark:comparison": "pnpm --filter=e2e benchmark:comparison",
     "lint": "pnpm --filter=sury lint:stdlib",
     "lint:deadcode": "knip"

@@ -1,9 +1,5 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  # FIXME: Codec next expects: a union carrying its own refinement is not flattened —
-  # it stays one normal (non-union) member of the outer union, type-matched by strict
-  # equality, and its refinement runs. Today it flattens into string | number |
-  # boolean and the refinement is dropped from every operation, so "" is accepted.
   schema: 'S.union([S.union([S.string, S.number]).with(S.refine, (value) => value !== "", { error: "Expected a non-empty value" }), S.boolean])'
   input: string | number | boolean
   output: string | number | boolean
@@ -11,21 +7,18 @@ ts:
 vs:
   zod: z.union([z.union([z.string(), z.number()]).refine((value) => value !== ""), z.boolean()])
 jsonSchema:
-  input: '{ anyOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }] }'
-  output: '{ anyOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }] }'
+  input: '{ anyOf: [{ anyOf: [{ type: "string" }, { type: "number" }] }, { type: "boolean" }] }'
+  output: '{ anyOf: [{ anyOf: [{ type: "string" }, { type: "number" }] }, { type: "boolean" }] }'
 operations:
   parse:
-    # FIXME: no refinement call survives — the inner union's members are inlined into
-    # the outer type check and its refiner is lost with it.
-    expression: i=>{if(!(typeof i==="string"||typeof i==="number"&&!Number.isNaN(i)||typeof i==="boolean")){e[0](i)}return i}
+    expression: i=>{for(;;){if((typeof i==="string"||typeof i==="number"&&!Number.isNaN(i))){e[0](i)||e[1](i);break}if(typeof i==="boolean")break;e[2](i)}return i}
     examples:
       string:
         input: '"abc"'
         output: '"abc"'
-      # FIXME: the refinement should reject this — it's the value it exists to catch.
       refined-away-empty-string:
         input: '""'
-        output: '""'
+        error: Expected a non-empty value
       number:
         input: "5"
         output: "5"

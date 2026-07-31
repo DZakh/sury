@@ -94,7 +94,7 @@ test(
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{typeof i==="object"&&i||e[1](i);let v0=i["foo"];typeof v0==="string"||e[0](v0);return v0}`,
+      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["foo"];typeof v0==="string"||e[0](v0);return v0}`,
     )
   },
 )
@@ -119,7 +119,7 @@ test(
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{typeof i==="object"&&i||e[2](i);let v0=i["foo"];typeof v0==="object"&&v0||e[1](v0);let v1=v0["bar"];typeof v1==="string"||e[0](v1);return v1}`,
+      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["foo"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);let v1=v0["bar"];typeof v1==="string"||e[0](v1);return v1}`,
     )
   },
 )
@@ -175,7 +175,7 @@ test(
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{typeof i==="object"&&i||e[5](i);let v0=i["foo"];typeof v0==="string"||e[0](v0);let v1;try{v1=e[1]({"foo":v0,})}catch(x){e[2](x)}typeof v1==="object"&&v1||e[4](v1);let v2=v1["faz"];typeof v2==="string"||e[3](v2);return v2}`,
+      `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[5](i);let v0=i["foo"];typeof v0==="string"||e[0](v0);let v1;try{v1=e[1]({"foo":v0,})}catch(x){e[2](x)}typeof v1==="object"&&v1&&!Array.isArray(v1)||e[4](v1);let v2=v1["faz"];typeof v2==="string"||e[3](v2);return v2}`,
     )
     t->Assert.deepEqual(
       {
@@ -251,7 +251,7 @@ test("Can destructure object value passed to S.shape", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i||e[2](i);let v0=i["foo"],v1=i["bar"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);return {"foo":v0,"bar":v1,}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["foo"],v1=i["bar"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);return {"foo":v0,"bar":v1,}}`,
   )
   t->U.assertCompiledCode(
     ~schema,
@@ -266,7 +266,7 @@ test("Compiled code snapshot of variant applied to object", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i||e[1](i);let v0=i["foo"];typeof v0==="string"||e[0](v0);return {"TAG":"Ok","_0":v0,}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["foo"];typeof v0==="string"||e[0](v0);return {"TAG":"Ok","_0":v0,}}`,
   )
   t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"foo":i["_0"],}}`)
 
@@ -275,7 +275,7 @@ test("Compiled code snapshot of variant applied to object", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i||e[2](i);let v1=i["foo"];typeof v1==="string"||e[1](v1);let v0;(v0=v1==="true")||v1==="false"||e[0](v1);return {"TAG":"Ok","_0":v0,}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v1=i["foo"];typeof v1==="string"||e[1](v1);let v0;(v0=v1==="true")||v1==="false"||e[0](v1);return {"TAG":"Ok","_0":v0,}}`,
   )
   t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return {"foo":""+i["_0"],}}`)
 })
@@ -336,7 +336,7 @@ test("Works with variant schema used multiple times as a child schema", t => {
   t->U.assertCompiledCode(
     ~schema=appVersionsSchema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i||e[2](i);let v0=i["ios"],v1=i["android"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);return {"ios":{"current":i["ios"],"minimum":"1.0",},"android":{"current":i["android"],"minimum":"1.0",},}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["ios"],v1=i["android"];typeof v0==="string"||e[0](v0);typeof v1==="string"||e[1](v1);return {"ios":{"current":i["ios"],"minimum":"1.0",},"android":{"current":i["android"],"minimum":"1.0",},}}`,
   )
   t->U.assertCompiledCode(
     ~schema=appVersionsSchema,
@@ -409,8 +409,9 @@ test("S.json shaped to literal should keep validation", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
+    ~embedded=[("JSON", 0)],
     `i=>{e[0](i);return "foo"}
-JSON: i=>{if(Array.isArray(i)){for(let v0=0;v0<i.length;++v0){try{e[0]["unknown->JSON--0"](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}}}else if(typeof i==="object"&&i&&!Array.isArray(i)){for(let v2 in i){try{e[1]["unknown->JSON--0"](i[v2]);}catch(v3){v3.path='["'+v2+'"]'+v3.path;throw v3}}}else if(!(typeof i==="string"||typeof i==="boolean"||typeof i==="number"&&!Number.isNaN(i)||i===null)){e[2](i)}return i}`,
+JSON: i=>{for(;;){if(typeof i==="string")break;if(typeof i==="boolean")break;if(typeof i==="number"&&!Number.isNaN(i))break;if(i===null)break;if(typeof i==="object"&&i&&!Array.isArray(i)){for(let v0 in i){try{e[0](i[v0]);}catch(v1){v1.path='["'+v0+'"]'+v1.path;throw v1}};break}if(Array.isArray(i)){for(let v2=0;v2<i.length;++v2){try{e[1](i[v2]);}catch(v3){v3.path='["'+v2+'"]'+v3.path;throw v3}};break}e[2](i)}return i}`,
   )
 
   t->Assert.deepEqual("foo"->S.parseOrThrow(~to=schema), "foo")

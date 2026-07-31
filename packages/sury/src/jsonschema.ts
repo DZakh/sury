@@ -1,17 +1,3 @@
-import { definitionToSchema, schemaFactory } from "./factory";
-import { array, option } from "./composites";
-import { email, isoDateTime, json, meta, url, uuid } from "./formats";
-import { arrayLength, arrayMaxLength, arrayMinLength, dict, floatMax, floatMin, intMax, intMin, null_, object, pattern, stringLength, stringMaxLength, stringMinLength, tuple, union } from "./refinements";
-import { SuryError, baseSchema, getOrRethrow, panic, unknown } from "./schema";
-import { Literal_parse, bool, float, int, jsonName, string } from "./primitives";
-import { B_makeInvalidInputDetails, B_operationArg } from "./builder";
-import { never_, parse, reverse } from "./parse";
-import { Internal, U, isLiteral, isOptional, toExpression } from "./types";
-import { Path, pathConcat, pathDynamic, pathEmpty, pathFromLocation } from "./path";
-import { flagNone, flagUnsafeHas } from "./flags";
-import { arrayTag, booleanTag, neverTag, nullTag, numberTag, objectTag, refTag, stringTag, tagFlagArray, tagFlagObject, tagFlagUnion, tagFlags, undefinedTag, unionTag, unknownTag } from "./tags";
-import { Metadata_Id_internal, Metadata_get, Metadata_set, Option_getOr, assertOrThrow, defsPath, refine, __setStandardJSONSchemaConverter, strict } from "./operations";
-
 // PORT-NOTE: no runtime values had to be imported from JSONSchema.res or
 // StandardSchema.res — everything runtime-relevant there is `%identity`
 // externals (Arrayable.single/array, Mutable.fromReadOnly/toReadOnly,
@@ -20,6 +6,82 @@ import { Metadata_Id_internal, Metadata_get, Metadata_set, Option_getOr, assertO
 // (`$ref`, `$schema`, `$defs`, `type`, `if`, `else` — the `@as(...)` names,
 // not the ReScript field names `ref`/`schema`/`defs`/`type_`/`if_`/`else_`).
 // =============================================================================
+
+import {
+  anyOfTag,
+  arrayTag,
+  baseSchema,
+  booleanTag,
+  defsPath,
+  flagNone,
+  flagUnsafeHas,
+  getOrRethrow,
+  type Internal,
+  isLiteral,
+  isOptional,
+  jsonName,
+  neverTag,
+  nullTag,
+  numberTag,
+  objectTag,
+  panic,
+  type Path,
+  pathConcat,
+  pathDynamic,
+  pathEmpty,
+  pathFromLocation,
+  refTag,
+  stringTag,
+  SuryError,
+  tagFlagArray,
+  tagFlagObject,
+  tagFlags,
+  tagFlagUnion,
+  toExpression,
+  U,
+  undefinedTag,
+  unknown,
+  unknownTag,
+} from "./base";
+import { json } from "./advanced/json";
+import { B_makeInvalidInputDetails, B_operationArg } from "./builder";
+import { array, option } from "./composites";
+import { definitionToSchema, schemaFactory } from "./factory";
+import {
+  meta,
+  Metadata_get,
+  Metadata_Id_internal,
+  Metadata_set,
+  Option_getOr,
+  refine,
+  refineInput,
+  strict,
+} from "./modifiers";
+import { __setStandardJSONSchemaConverter, assertOrThrow } from "./operations";
+import { never_, parse, reverse } from "./parse";
+import { bool, float, int, Literal_parse, string } from "./primitives";
+import {
+  arrayLength,
+  arrayMaxLength,
+  arrayMinLength,
+  dict,
+  email,
+  floatMax,
+  floatMin,
+  intMax,
+  intMin,
+  isoDateTime,
+  null_,
+  object,
+  pattern,
+  stringLength,
+  stringMaxLength,
+  stringMinLength,
+  tuple,
+  union,
+  url,
+  uuid,
+} from "./refinements";
 
 /**
  * Primitive type
@@ -375,7 +437,7 @@ const internalToJSONSchemaBase = (
         jsonSchema.items = itemDefinitions;
       }
     }
-  } else if (tag === unionTag) {
+  } else if (tag === anyOfTag) {
     const anyOf = schema.anyOf!;
     const literals: unknown[] = [];
     const items: JSONSchemaT[] = [];
@@ -555,6 +617,7 @@ const targetSchemaUri = (target: JsonSchemaTarget): string | undefined => {
   }
 }
 
+// @__NO_SIDE_EFFECTS__
 export const toJSONSchema = (schema: Internal, options?: toJSONSchemaOptions): JSONSchemaT => {
   // Resolve the target and the `$schema` URI to stamp. When no options object is
   // provided we keep the historical behavior: default to "draft-07" and do NOT
@@ -616,6 +679,7 @@ export const enableStandardJSONSchema = (): void => {
   });
 }
 
+// @__NO_SIDE_EFFECTS__
 export const extendJSONSchema = (schema: Internal, jsonSchema: JSONSchemaT): Internal => {
   const existingSchemaExtend = Metadata_get(schema, jsonSchemaMetadataId) as
     | JSONSchemaT
@@ -654,11 +718,65 @@ const toIntSchema = (jsonSchema: JSONSchemaT): Internal => {
   }
   if (jsonSchema.maximum !== U) {
     schema = intMax(schema, jsonSchema.maximum | 0);
-  } else if (jsonSchema.exclusiveMinimum !== U) {
-    schema = intMax(schema, (jsonSchema.exclusiveMinimum - 1) | 0);
+  } else if (jsonSchema.exclusiveMaximum !== U) {
+    schema = intMax(schema, (jsonSchema.exclusiveMaximum - 1) | 0);
   }
   return schema;
 }
+
+// Assertion keywords Sury doesn't model. Silently ignoring one widens the
+// schema — the validator then accepts data the author wrote the keyword to
+// reject — so creation fails instead. Annotations (`title`, `default`,
+// `$comment`, …) are ignored on purpose and stay out of this list.
+const unsupportedKeywords = [
+  "multipleOf",
+  "uniqueItems",
+  "contains",
+  "minContains",
+  "maxContains",
+  "patternProperties",
+  "propertyNames",
+  "minProperties",
+  "maxProperties",
+  "dependencies",
+  "dependentSchemas",
+  "dependentRequired",
+  "unevaluatedProperties",
+  "unevaluatedItems",
+  "additionalItems",
+];
+
+// Which JSON type each assertion keyword constrains. A keyword says nothing
+// about an instance of any other type — `{minLength: 3}` accepts `42` — so a
+// schema without `type` has to apply each group only to its own type.
+const keywordTypes: [JSONSchemaTypeName, string[]][] = [
+  ["string", ["pattern", "minLength", "maxLength"]],
+  ["number", ["minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum"]],
+  ["object", ["properties", "required", "additionalProperties"]],
+  ["array", ["items", "prefixItems", "minItems", "maxItems"]],
+];
+
+const jsonTypeOf = (data: unknown): string =>
+  data === null
+    ? "null"
+    : Array.isArray(data)
+      ? "array"
+      : typeof data === "boolean"
+        ? "boolean"
+        : typeof data === "number"
+          ? "number"
+          : typeof data === "string"
+            ? "string"
+            : "object";
+
+const passesSchema = (data: unknown, schema: Internal): boolean => {
+  try {
+    assertOrThrow(data, schema);
+    return true;
+  } catch (_) {
+    return false;
+  }
+};
 
 const definitionToDefaultValue = (definition: JSONSchemaDefinition): unknown => {
   if (typeof definition !== "boolean") {
@@ -668,8 +786,20 @@ const definitionToDefaultValue = (definition: JSONSchemaDefinition): unknown => 
   }
 }
 
+// @__NO_SIDE_EFFECTS__
 export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
   const anySchema = json();
+
+  for (let i = 0; i < unsupportedKeywords.length; i++) {
+    const keyword = unsupportedKeywords[i]!;
+    if ((jsonSchema as Record<string, unknown>)[keyword] !== U) {
+      throw new SuryError({
+        code: "invalid_operation",
+        path: pathEmpty,
+        reason: `Unsupported JSON Schema keyword: ${keyword}. Ignoring it would accept data the schema rejects — remove it, or express the constraint with S.refine on the result`,
+      });
+    }
+  }
 
   const jsonDefinitionToSchema = (definition: JSONSchemaDefinition): Internal => {
     if (typeof definition !== "boolean") {
@@ -756,67 +886,7 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
     } else {
       schema = union(definitions.map(jsonDefinitionToSchema));
     }
-  } else if (jsonSchema.allOf !== U) {
-    const definitions = jsonSchema.allOf;
-    if (definitions.length === 0) {
-      schema = anySchema;
-    } else if (definitions.length === 1) {
-      schema = jsonDefinitionToSchema(definitions[0]!);
-    } else {
-      schema = refine(
-        anySchema,
-        (data: unknown) => {
-          return definitions.every((d) => {
-            try {
-              assertOrThrow(data, jsonDefinitionToSchema(d));
-              return true;
-            } catch (_) {
-              return false;
-            }
-          });
-        },
-        "Should pass for all schemas of the allOf property."
-      );
-    }
-  } else if (jsonSchema.oneOf !== U) {
-    const definitions = jsonSchema.oneOf;
-    if (definitions.length === 0) {
-      schema = anySchema;
-    } else if (definitions.length === 1) {
-      schema = jsonDefinitionToSchema(definitions[0]!);
-    } else {
-      schema = refine(
-        anySchema,
-        (data: unknown) => {
-          let validCount = 0;
-          definitions.forEach((d) => {
-            try {
-              assertOrThrow(data, jsonDefinitionToSchema(d));
-              validCount = validCount + 1;
-            } catch {
-              // Not valid against this definition — doesn't count towards validCount.
-            }
-          });
-          return validCount === 1;
-        },
-        "Should pass exactly one schema according to the oneOf property."
-      );
-    }
-  } else if (jsonSchema.not !== U) {
-    const not = jsonSchema.not;
-    schema = refine(
-      anySchema,
-      (data: unknown) => {
-        try {
-          assertOrThrow(data, jsonDefinitionToSchema(not));
-          return false;
-        } catch (_) {
-          return true;
-        }
-      },
-      "Should NOT be valid against schema in the not property."
-    );
-    // needs to come before primitives
+  // needs to come before primitives
   } else if (jsonSchema.enum !== U) {
     const primitives = jsonSchema.enum;
     if (primitives.length === 0) {
@@ -867,44 +937,13 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
     }
     if (jsonSchema.maximum !== U) {
       schema = floatMax(schema, jsonSchema.maximum);
-    } else if (jsonSchema.exclusiveMinimum !== U) {
-      schema = floatMax(schema, jsonSchema.exclusiveMinimum - 1);
+    } else if (jsonSchema.exclusiveMaximum !== U) {
+      schema = floatMax(schema, jsonSchema.exclusiveMaximum - 1);
     }
   } else if (jsonSchema.type === "boolean") {
     schema = bool();
   } else if (jsonSchema.type === "null") {
     schema = schemaFactory(null);
-  } else if (
-    jsonSchema.if !== U &&
-    jsonSchema.then !== U &&
-    jsonSchema.else !== U
-  ) {
-    const ifSchema = jsonDefinitionToSchema(jsonSchema.if);
-    const thenSchema = jsonDefinitionToSchema(jsonSchema.then);
-    const elseSchema = jsonDefinitionToSchema(jsonSchema.else);
-    schema = refine(
-      anySchema,
-      (data: unknown) => {
-        let passed;
-        try {
-          assertOrThrow(data, ifSchema);
-          passed = true;
-        } catch (_) {
-          passed = false;
-        }
-        try {
-          if (passed) {
-            assertOrThrow(data, thenSchema);
-          } else {
-            assertOrThrow(data, elseSchema);
-          }
-          return true;
-        } catch (_) {
-          return false;
-        }
-      },
-      "Should pass the if/then/else schema validation."
-    );
   } else if (jsonSchema.type !== U) {
     throw new SuryError({
       code: "invalid_operation",
@@ -912,7 +951,81 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
       reason: `Unsupported JSON Schema type: ${jsonSchema.type}`,
     });
   } else {
-    schema = anySchema;
+    // No `type`, but the assertion keywords still bind — each to its own JSON
+    // type, and vacuously to every other. Recursing with the type pinned reuses
+    // the branches above; the runtime guard is what keeps it vacuous.
+    const guarded: [string, Internal][] = [];
+    for (let i = 0; i < keywordTypes.length; i++) {
+      const [type, keywords] = keywordTypes[i]!;
+      if (keywords.some((k) => (jsonSchema as Record<string, unknown>)[k] !== U)) {
+        guarded.push([type, fromJSONSchema(jsonSchemaMerge(jsonSchema, { type }))]);
+      }
+    }
+    schema =
+      guarded.length === 0
+        ? anySchema
+        : refine(
+            anySchema,
+            (data: unknown) => {
+              const type = jsonTypeOf(data);
+              return guarded.every(
+                ([guardType, guardSchema]) =>
+                  type !== guardType || passesSchema(data, guardSchema)
+              );
+            },
+            "Should pass the schema's assertion keywords for its type."
+          );
+  }
+
+  // Composition keywords constrain *in addition to* everything above, so they
+  // layer on as refinements rather than replacing the shape — a schema is not
+  // either "an object with these properties" or "an allOf", it is both.
+  if (jsonSchema.allOf !== U) {
+    const definitions = jsonSchema.allOf;
+    const schemas = definitions.map(jsonDefinitionToSchema);
+    if (schemas.length > 0) {
+      schema = refineInput(
+        schema,
+        (data: unknown) => schemas.every((s) => passesSchema(data, s)),
+        "Should pass for all schemas of the allOf property."
+      );
+    }
+  }
+  if (jsonSchema.oneOf !== U) {
+    const definitions = jsonSchema.oneOf;
+    const schemas = definitions.map(jsonDefinitionToSchema);
+    if (schemas.length > 0) {
+      schema = refineInput(
+        schema,
+        (data: unknown) =>
+          schemas.filter((s) => passesSchema(data, s)).length === 1,
+        "Should pass exactly one schema according to the oneOf property."
+      );
+    }
+  }
+  if (jsonSchema.not !== U) {
+    const notSchema = jsonDefinitionToSchema(jsonSchema.not);
+    schema = refineInput(
+      schema,
+      (data: unknown) => !passesSchema(data, notSchema),
+      "Should NOT be valid against schema in the not property."
+    );
+  }
+  if (jsonSchema.if !== U) {
+    // `then`/`else` default to "always passes" when absent.
+    const ifSchema = jsonDefinitionToSchema(jsonSchema.if);
+    const thenSchema =
+      jsonSchema.then !== U ? jsonDefinitionToSchema(jsonSchema.then) : U;
+    const elseSchema =
+      jsonSchema.else !== U ? jsonDefinitionToSchema(jsonSchema.else) : U;
+    schema = refineInput(
+      schema,
+      (data: unknown) => {
+        const branch = passesSchema(data, ifSchema) ? thenSchema : elseSchema;
+        return branch === U || passesSchema(data, branch);
+      },
+      "Should pass the if/then/else schema validation."
+    );
   }
 
   if (
@@ -932,6 +1045,7 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
   return schema;
 }
 
+// @__NO_SIDE_EFFECTS__
 export const min = (schema: Internal, minValue: number, maybeMessage?: string): Internal => {
   switch (schema.type) {
     case stringTag:
@@ -949,6 +1063,7 @@ export const min = (schema: Internal, minValue: number, maybeMessage?: string): 
   }
 }
 
+// @__NO_SIDE_EFFECTS__
 export const max = (schema: Internal, maxValue: number, maybeMessage?: string): Internal => {
   switch (schema.type) {
     case stringTag:
@@ -966,6 +1081,7 @@ export const max = (schema: Internal, maxValue: number, maybeMessage?: string): 
   }
 }
 
+// @__NO_SIDE_EFFECTS__
 export const length = (schema: Internal, length: number, maybeMessage?: string): Internal => {
   switch (schema.type) {
     case stringTag:

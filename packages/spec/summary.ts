@@ -155,20 +155,30 @@ const bundleSizeSection = (change: BundleSizeChange): string[] => {
 // Sorted worst-regression-first like every other section, so the perf table
 // reads the same way as the instantiations and bundleSize ones. Positive is a
 // slowdown, matching those (where growth is the bad direction) — and matching
-// the ratio the child measures, current over baseline.
+// the ratio the child measures, current over baseline. That convention is not
+// guessable from a bare percentage, so every row says which way it went and the
+// header states the rule; `perfComment.ts` parses both back out.
 export const renderPerformance = (perf: Perf): string => {
   const floors = perf.floors.map((f) => `${f.phase} ${f.pct.toFixed(1)}%`).join(" · ");
-  const lines = [`performance vs ${perf.baselineSha} (${perf.baselineLabel}) · noise floor ${floors}`];
+  const lines = [
+    `performance vs ${perf.baselineSha} (${perf.baselineLabel})` +
+      ` · +% slower than baseline, -% faster · noise floor ${floors}`,
+  ];
 
   if (perf.changed.length) {
     const width = Math.max(...perf.changed.map((c) => c.name.length));
     for (const c of perf.changed)
-      lines.push(`  ${c.name.padEnd(width)}  ${c.pct > 0 ? "+" : ""}${c.pct.toFixed(1)}%`);
+      lines.push(
+        `  ${c.name.padEnd(width)}  ${c.pct > 0 ? "+" : ""}${c.pct.toFixed(1)}%` +
+          ` ${c.pct > 0 ? "slower" : "faster"}`,
+      );
   } else {
     lines.push("  no significant changes");
   }
 
   if (perf.added.length) lines.push(`  new: ${perf.added.join(", ")}`);
+  for (const o of perf.outcomeChanged)
+    lines.push(`  behavior changed, not timed — ${o.name}: ${o.note}`);
   for (const e of perf.errors) lines.push(`  could not measure ${e.name}: ${e.error}`);
   lines.push(
     `  ${perf.unchanged} unchanged · ${perf.skippedConstants} constant-schema targets skipped · advisory only`,

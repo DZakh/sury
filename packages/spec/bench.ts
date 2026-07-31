@@ -87,7 +87,10 @@ export type ChildPayload = {
 export type ChildResult =
   | { name: string; batch: number; ratios: number[] }
   | { name: string; unsupported: string }
-  | { name: string; error: string };
+  | { name: string; error: string }
+  // The two sides disagree on whether the input is accepted, so there is no
+  // like-for-like timing to report — only the behavior change itself.
+  | { name: string; outcomeChanged: string };
 
 export type PerfResult = { name: string; phase: Phase; pct: number; median: number; batch: number };
 
@@ -100,6 +103,9 @@ export type Perf = {
   added: string[];
   skippedConstants: number;
   errors: { name: string; error: string }[];
+  // Targets whose accept/reject outcome moved. Not timings — a behavior change
+  // that a percentage would misreport as an enormous slowdown.
+  outcomeChanged: { name: string; note: string }[];
   meta: string;
 };
 
@@ -388,11 +394,13 @@ export const runPerf = async (
 
   const added: string[] = [];
   const errors: { name: string; error: string }[] = [];
+  const outcomeChanged: { name: string; note: string }[] = [];
   const collect = (results: ChildResult[]) => {
     const map = new Map<string, { pct: number; median: number; batch: number }>();
     for (const r of results) {
       if ("error" in r) errors.push({ name: r.name, error: r.error });
       else if ("unsupported" in r) added.push(r.name);
+      else if ("outcomeChanged" in r) outcomeChanged.push({ name: r.name, note: r.outcomeChanged });
       else map.set(r.name, { pct: conservativePct(r.ratios), median: medianOf(r.ratios), batch: r.batch });
     }
     return map;
@@ -458,6 +466,7 @@ export const runPerf = async (
     added: [...new Set(added)],
     skippedConstants,
     errors,
+    outcomeChanged: [...new Map(outcomeChanged.map((o) => [o.name, o])).values()],
     meta:
       `node ${process.versions.node} · ${process.platform} ${process.arch} · ${cpu.length} cores · ` +
       `${BLOCKS}×${ROUNDS_PER_BLOCK} rounds · ${SCREEN_JOBS} screening jobs · confirmed`,

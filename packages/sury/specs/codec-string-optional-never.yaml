@@ -1,7 +1,5 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  # FIXME: Codec next expects: stay the same — the S.never variant is ignored by type
-  # matching, so the source fully matches the S.string variant and passes through.
   schema: S.string.with(S.to, S.union([S.string, S.never.with(S.to, S.schema(undefined))]))
   input: string
   output: string | undefined
@@ -24,7 +22,7 @@ operations:
         output: '"undefined"'
   decode: identity
   encode:
-    expression: i=>{if(i===void 0){e[0](i);}else if(!(typeof i==="string")){e[1](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="string")break;if(i===void 0){e[0](i);break}e[1](i)}return i}
     examples:
       string:
         input: '"abc"'

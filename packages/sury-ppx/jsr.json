@@ -1,6 +1,6 @@
 {
   "name": "@sury/ppx",
-  "version": "11.0.0-alpha.11",
+  "version": "11.0.0-rc.0",
   "license": "MIT",
   "exports": "./index.ts"
 }

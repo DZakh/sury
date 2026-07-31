@@ -1,10 +1,74 @@
-import { instanceofCond, isArrayCond, nanCond, objectTagCond, setHas, typeofCond } from "./primitives";
-import { baseSchema, cached, configurableValueOptions, copySchema, getOrRethrow, globalConfig, panic, reversedKey, unknown, updateOutput, valKey, valueOptions } from "./schema";
-import { B_scope, B_embedInvalidInput, B_inlineConst, B_markOutput, B_merge, B_next, B_operationArg, B_refine, B_unsupportedDecode, Builder, Encoder, failInvalidType, noopOperation, operationArgVar } from "./builder";
-import { Internal, U, Val, immutableEmptyArray, isLiteral, s } from "./types";
-import { Flag, flagAsync, flagDisableNanNumberValidation, flagUnsafeHas, valFlagAsync } from "./flags";
-import { pathConcat, pathDynamic, pathEmpty } from "./path";
-import { instanceTag, neverTag, numberTag, objectTag, tagFlagArray, tagFlagBigint, tagFlagBoolean, tagFlagInstance, tagFlagNaN, tagFlagNull, tagFlagNumber, tagFlagObject, tagFlagString, tagFlagSymbol, tagFlagUndefined, tagFlagUnknown, tagFlags, unknownTag } from "./tags";
+import {
+  baseSchema,
+  type Builder,
+  cached,
+  configurableValueOptions,
+  copySchema,
+  type Encoder,
+  type Flag,
+  flagAsync,
+  flagDisableNanNumberValidation,
+  flagUnsafeHas,
+  getOrRethrow,
+  globalConfig,
+  immutableEmptyArray,
+  instanceTag,
+  type Internal,
+  isLiteral,
+  neverTag,
+  numberTag,
+  objectTag,
+  panic,
+  pathConcat,
+  pathDynamic,
+  pathEmpty,
+  reversedKey,
+  s,
+  setHas,
+  tagFlagArray,
+  tagFlagBigint,
+  tagFlagBoolean,
+  tagFlagInstance,
+  tagFlagNaN,
+  tagFlagNull,
+  tagFlagNumber,
+  tagFlagObject,
+  tagFlags,
+  tagFlagString,
+  tagFlagSymbol,
+  tagFlagUndefined,
+  tagFlagUnknown,
+  U,
+  unknown,
+  unknownTag,
+  updateOutput,
+  type Val,
+  valFlagAsync,
+  valKey,
+  valueOptions,
+} from "./base";
+import {
+  B_embedInvalidInput,
+  B_inlineConst,
+  B_markOutput,
+  B_merge,
+  B_next,
+  B_operationArg,
+  B_refine,
+  B_scope,
+  B_unsupportedDecode,
+  failInvalidType,
+  noopOperation,
+  operationArgVar,
+} from "./builder";
+import {
+  instanceofCond,
+  isArrayCond,
+  nanCond,
+  objectTagCond,
+  typeofCond,
+} from "./primitives";
+
 export const parse = (input: Val): Val => {
   let result: Val = input;
   let appliedEncoderRef: Encoder | undefined = U;
@@ -68,7 +132,10 @@ export const parse = (input: Val): Val => {
         maybeEncoder &&
         maybeEncoder !== appliedEncoder &&
         loopInput.s !== loopInput.e &&
-        loopInput.e.type !== unknownTag
+        loopInput.e.type !== unknownTag &&
+        // A `noValidation` target (S.assert's result sentinel) throws the value
+        // away, so there is nothing for an encoder to re-represent.
+        !loopInput.e.noValidation
       ) {
         result = maybeEncoder!(loopInput, loopInput.e);
       }
@@ -163,6 +230,7 @@ export const getOutputSchema = (schema: Internal): Internal => {
     return schema;
   }
 }
+// @__NO_SIDE_EFFECTS__
 export const reverse = (schema: Internal): Internal => {
   const schemaRecord = schema as unknown as Record<string, Internal>;
   if (reversedKey in schemaRecord) {
@@ -282,7 +350,7 @@ export const reverse = (schema: Internal): Internal => {
 // asked for a second operation redefines it.
 //
 // Only a key that is already in the cache is memoized, which is also what
-// keeps this correct against recursiveDecoder (operations.ts): it writes and
+// keeps this correct against recursiveDecoder (advanced/recursive.ts): it writes and
 // `delete`s the SAME key namespace on a `$defs` entry while recompiling under
 // a corrected assumption, but only while that key is absent — so nothing it
 // deletes can have been memoized here. A memo would survive such a delete and
@@ -298,6 +366,7 @@ const memoKey = "c";
 // getDecoder(s1, s2[, s3][, flag]) with any number of schemas plus an
 // optional trailing flag — the body reads `arguments` directly; the declared
 // rest param (unused, hence `_`) exists only to make that call shape typecheck.
+// @__NO_SIDE_EFFECTS__
 export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
   const args = arguments as unknown as unknown[];
   let idx = 0;
@@ -373,7 +442,10 @@ export function getDecoder(..._args: unknown[]): (from: unknown) => unknown {
 export const nestedLoc = "BS_PRIVATE_NESTED_SOME_NONE";
 
 const neverBuilderFn = (input: Val): Val => {
-  const output = B_refine(input, U, U, never_());
+  // Carry `never` as the val's own schema, not the input's: nothing gets past
+  // this branch, so a union built from its cases' output schemas must not list
+  // the input type as something the union can produce.
+  const output = B_refine(input, never_(), U, never_());
   output.cp = B_embedInvalidInput(input) + ";";
   return output;
 }
@@ -409,6 +481,7 @@ export const instanceDecoder: Builder = (input: Val) => {
   }
 };
 
+// @__NO_SIDE_EFFECTS__
 export const instance = (class_: unknown): Internal => {
   const mut = baseSchema(instanceTag, true);
   mut.class = class_;
@@ -418,6 +491,13 @@ export const instance = (class_: unknown): Internal => {
 
 // Type-narrow condition for a union variant, built from the shared atoms with no
 // per-type factory reference — so unused type decoders tree-shake.
+//
+// Cross-module contract: a decoder's own type narrow must be exactly what this
+// returns for its tag. A union group's shared narrow stands in for its members'
+// type checks, so a decoder that narrowed more loosely — an object mode dropping
+// `!Array.isArray` because it rebuilds the value anyway — would widen what the
+// case accepts past what its acceptance mask claims, and arrays would dispatch
+// to an object member.
 export const typeCheckCond = (input: Val, schema: Internal, inputVar: string): string => {
   const tagFlag = tagFlags[schema.type]!;
   if (flagUnsafeHas(tagFlag, tagFlagObject)) {

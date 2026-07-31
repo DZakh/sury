@@ -1,7 +1,5 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  # FIXME: Codec next expects: stay the same — rule 4 lets the same-type undefined
-  # target win, and the reverse bridges null → undefined.
   schema: S.optional(S.string).with(S.to, S.union([S.string, null, undefined]))
   input: string | undefined
   output: string | null | undefined
@@ -14,7 +12,7 @@ jsonSchema:
   output: Expected JSON, received string | null | undefined
 operations:
   parse:
-    expression: i=>{if(!(typeof i==="string"||i===void 0)){e[0](i)}return i}
+    expression: i=>{(typeof i==="string"||i===void 0)||e[0](i);return i}
     examples:
       string:
         input: '"abc"'
@@ -24,7 +22,7 @@ operations:
         output: undefined
   decode: eq-to-parse
   encode:
-    expression: i=>{if(i===null){try{i=void 0}catch(e1){e[0](i,e1)}}else if(!(typeof i==="string"||i===void 0)){e[1](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="string")break;if(i===null){i=void 0;break}if(i===void 0)break;e[0](i)}return i}
     examples:
       string:
         input: '"abc"'

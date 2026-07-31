@@ -1,9 +1,14 @@
 // Cross-library comparison benchmarks (Sury vs Zod / Valibot / ArkType /
 // TypeBox). Run with `pnpm --filter=e2e benchmark:comparison`. Each `describe`
 // is a head-to-head group, so Vitest prints the relative "x faster" summary
-// per operation. In CI, the `benchmarks` job runs this under CodSpeed
-// (simulated instruction counts) and the `wallclock-benchmarks` job runs it
-// plain (real wall-clock ops/sec, posted as a PR comment).
+// per operation.
+//
+// Deliberately not in CI: the other four libraries only move when their
+// versions are bumped, so a per-PR run spends its time watching for
+// regressions in somebody else's code. These are the README's numbers — run
+// them when the README needs them, or when a dependency is upgraded. Sury's
+// own regressions are caught by `spec check --perf`, which measures every spec
+// against the same library built from another git ref.
 
 import { bench, describe } from "vitest";
 import { z } from "zod";
@@ -112,7 +117,7 @@ const typeBoxSchema = TypeCompiler.Compile(
 );
 
 // Historical Benchmark.js ops/sec for the union parse, kept for reference
-// across library versions (newer CodSpeed runs track this going forward):
+// across library versions:
 const SuryUnion = S.union([{ box: S.string }, S.string.with(S.to, S.number)]);
 // S.parseOrThrow("123", SuryUnion)
 // Sury@10.0.0 x 81,797,072 ops/sec ±2.19% (89 runs sampled)

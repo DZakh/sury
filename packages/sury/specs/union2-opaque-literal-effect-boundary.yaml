@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.literal("a"), S.literal("b").with(S.to, S.json)])
+  input: '"a" | "b"'
+  output: JSON
+  instantiations: 6190
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ enum: ["a", "b"] }'
+  output: '{ anyOf: [{ type: "string", const: "a" }, { type: "string", const: "b" }] }'
+operations:
+  parse:
+    expression: i=>{(typeof i==="string"&&i==="a"||typeof i==="string"&&i==="b")||e[0](i);return i}
+    examples:
+      validating-literal:
+        input: '"a"'
+        output: '"a"'
+      opaque-transformed-literal:
+        input: '"b"'
+        output: '"b"'
+      rejected:
+        input: '"c"'
+        error: Expected "a" | "b", received "c"
+  decode: eq-to-parse
+  encode:
+    expression: i=>{(typeof i==="string"&&i==="a"||i==="b")||e[0](i);return i}
+    examples:
+      validating-literal:
+        input: '"a"'
+        output: '"a"'
+      opaque-transformed-literal:
+        input: '"b"'
+        output: '"b"'
+      rejected:
+        input: '"c"'
+        error: Expected "a" | JSON, received "c"

@@ -295,7 +295,7 @@ export type Schema<Output, Input = unknown> = {
       readonly required?: string[];
     }
   | {
-      readonly type: "union";
+      readonly type: "anyOf";
       readonly anyOf: Schema<unknown>[];
       readonly has: Record<
         | "string"

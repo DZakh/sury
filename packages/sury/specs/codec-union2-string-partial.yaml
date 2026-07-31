@@ -1,9 +1,5 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  # FIXME: Codec next expects: rejected at creation — rule 3 partial type match (123
-  # could decode to "123" or fail as a non-matching case).
-  # S.union([S.number.with(S.to, S.string), S.string]) and
-  # S.union([S.number.with(S.to, S.never), S.string]) are the two explicit targets.
   schema: S.union([S.number, S.string]).with(S.to, S.string)
   input: string | number
   output: string
@@ -12,17 +8,11 @@ vs:
   zod:
     _skip: not-applicable
 jsonSchema:
-  input: '{ type: "string" }'
+  input: '{ anyOf: [{ type: "number" }, { type: "string" }] }'
   output: '{ type: "string" }'
 operations:
   parse:
-    expression: i=>{if(typeof i==="number"&&!Number.isNaN(i)){i=""+i}else if(!(typeof i==="string")){e[0](i)}return i}
-    examples:
-      ambiguous-number:
-        input: "123"
-        output: '"123"'
-      string:
-        input: '"abc"'
-        output: '"abc"'
+    creationError: "SuryError: Invalid operation: can't convert number | string to string — string has the same type as the target and the others don't. Use S.to to say what you mean, or S.never to mark a variant unreachable"
   decode: eq-to-parse
-  encode: identity
+  encode:
+    creationError: "SuryError: Invalid operation: can't convert string to number | string — string has the same type as the source and the others don't. Use S.to to say what you mean, or S.never to mark a variant unreachable"

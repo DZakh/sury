@@ -1,9 +1,5 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  # FIXME: Codec next expects: rejected at creation — S.symbol has no built-in decoder
-  # to string. Today the member survives as a dispatch branch that throws for every
-  # symbol, so the creation-time message resurfaces as a nested cause under a runtime
-  # union error.
   schema: S.union([S.boolean, S.symbol]).with(S.to, S.string)
   input: boolean | symbol
   output: string
@@ -12,37 +8,11 @@ vs:
   zod:
     _skip: not-applicable
 jsonSchema:
-  # FIXME: the symbol member is missing here — the input type is boolean | symbol.
-  input: '{ type: "boolean" }'
+  input: Expected JSON, received boolean | symbol
   output: '{ type: "string" }'
 operations:
   parse:
-    expression: i=>{if(typeof i==="boolean"){i=""+i}else if(typeof i==="symbol"){e[1](i,e[0])}else{e[2](i)}return i}
-    examples:
-      boolean-member:
-        input: "true"
-        output: '"true"'
-      symbol-member:
-        input: Symbol("s")
-        error: |-
-          Expected boolean | symbol, received Symbol(s)
-          - Can't decode symbol to string. Use S.to to define a custom decoder
-      invalid:
-        input: "5"
-        error: Expected boolean | symbol, received 5
+    creationError: "SuryError: Can't decode symbol to string. Use S.to to define a custom decoder"
   decode: eq-to-parse
   encode:
-    expression: i=>{try{let v0;(v0=i==="true")||i==="false"||e[0](i);i=v0}catch(e0){e[2](i,e0,e[1])}return i}
-    examples:
-      true-string:
-        input: '"true"'
-        output: "true"
-      false-string:
-        input: '"false"'
-        output: "false"
-      other-string:
-        input: '"abc"'
-        error: |-
-          Expected boolean | symbol, received "abc"
-          - Expected boolean, received "abc"
-          - Can't decode string to symbol. Use S.to to define a custom decoder
+    creationError: "SuryError: Can't decode string to symbol. Use S.to to define a custom decoder"

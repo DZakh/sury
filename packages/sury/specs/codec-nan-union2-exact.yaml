@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.schema(NaN).with(S.to, S.union([S.schema(NaN), S.string]))
+  input: number
+  output: string | number
+  instantiations: 6198
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: Expected JSON, received NaN
+  output: Expected JSON, received NaN | string
+operations:
+  parse:
+    expression: i=>{Number.isNaN(i)||e[0](i);i=NaN;return i}
+    examples:
+      nan:
+        input: NaN
+        output: NaN
+      other-number:
+        input: "1"
+        error: Expected NaN, received 1
+  decode: eq-to-parse
+  encode:
+    creationError: "SuryError: Invalid operation: can't convert NaN | string to NaN — NaN has the same type as the target and the others don't. Use S.to to say what you mean, or S.never to mark a variant unreachable"

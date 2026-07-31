@@ -33,7 +33,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(!(typeof i==="string"||i===void 0)){e[0](i)}return i}`,
+      `i=>{(typeof i==="string"||i===void 0)||e[0](i);return i}`,
     )
   })
 
@@ -44,7 +44,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#ParseAsync,
-      `i=>{try{let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}i=v0}catch(e0){if(!(i===void 0)){e[2](i,e0)}}return Promise.resolve(i)}`,
+      `i=>{return Promise.resolve((async(i)=>{for(;;){let r;try{let v0=e[0](i);i=await v0;break}catch(x){(r||(r=[])).push(e[1](x))}if(i===void 0)break;e[2](i,...(r||[]))};return i})(i))}`,
     )
   })
 
@@ -54,7 +54,7 @@ module Common = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Encode,
-      `i=>{if(!(typeof i==="string"||i===void 0)){e[0](i)}return i}`,
+      `i=>{(typeof i==="string"||i===void 0)||e[0](i);return i}`,
     )
   })
 
@@ -128,12 +128,12 @@ test("Serializes Some(None) to undefined for option nested in null", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(i===null){i=void 0}else if(i===void 0){i={BS_PRIVATE_NESTED_SOME_NONE:0}}else if(!(typeof i==="boolean")){e[0](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="boolean")break;if(i===null){i=void 0;break}if(i===void 0){i={BS_PRIVATE_NESTED_SOME_NONE:0};break}e[0](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(i===void 0){i=null}else if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=void 0}}else if(!(typeof i==="boolean")){e[0](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="boolean")break;if(i===void 0){i=null;break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=void 0;break}e[0](i)}return i}`,
   )
 })
 
@@ -144,11 +144,15 @@ test("Applies valFromOption for Some()", t => {
   t->Assert.deepEqual(Some()->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
   t->Assert.deepEqual(None->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`undefined`))
 
-  t->U.assertCompiledCode(~schema, ~op=#Parse, `i=>{if(!(i===void 0)){e[0](i)}return i}`)
+  t->U.assertCompiledCode(
+    ~schema,
+    ~op=#Parse,
+    `i=>{for(;;){if(i===void 0)break;e[0](i)}return i}`,
+  )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=void 0}}else if(!(i===void 0)){e[0](i)}return i}`,
+    `i=>{for(;;){if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)&&i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=void 0;break}e[0](i)}return i}`,
   )
 })
 
@@ -163,12 +167,12 @@ test("Nested option support", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(!(typeof i==="boolean"||i===void 0)){e[0](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="boolean")break;if(i===void 0)break;e[0](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=void 0}}else if(!(typeof i==="boolean"||i===void 0)){e[0](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="boolean")break;if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)&&i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=void 0;break}e[0](i)}return i}`,
   )
 })
 
@@ -184,12 +188,12 @@ test("Triple nested option support", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(!(typeof i==="boolean"||i===void 0)){e[0](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="boolean")break;if(i===void 0)break;e[0](i)}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["BS_PRIVATE_NESTED_SOME_NONE"]===1){i=void 0}else if(i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=void 0}else{e[0](i)}}else if(!(typeof i==="boolean"||i===void 0)){e[1](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="boolean")break;if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)&&i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i=void 0;break}if(typeof i==="object"&&i&&!Array.isArray(i)&&i["BS_PRIVATE_NESTED_SOME_NONE"]===1){i=void 0;break}e[0](i)}return i}`,
   )
 })
 
@@ -206,12 +210,12 @@ test(
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Parse,
-      `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){i={BS_PRIVATE_NESTED_SOME_NONE:0}}else if(!(i===void 0)){e[0](i)}return i}`,
+      `i=>{for(;;){if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)){i={BS_PRIVATE_NESTED_SOME_NONE:0};break}e[0](i)}return i}`,
     )
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Encode,
-      `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){if(i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i={}}}else if(!(i===void 0)){e[0](i)}return i}`,
+      `i=>{for(;;){if(i===void 0)break;if(typeof i==="object"&&i&&!Array.isArray(i)&&i["BS_PRIVATE_NESTED_SOME_NONE"]===0){i={};break}e[0](i)}return i}`,
     )
   },
 )
@@ -226,7 +230,7 @@ test("Doesn't apply valFromOption for non-undefined literals in option", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(!(i===null||i===void 0)){e[0](i)}return i}`,
+    `i=>{(i===null||i===void 0)||e[0](i);return i}`,
   )
 })
 
@@ -257,11 +261,11 @@ test("Option with transformed unknown", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{try{i={"field":i,}}catch(e0){if(!(i===void 0)){e[0](i,e0)}}return i}`,
+    `i=>{for(;;){i={"field":i,};break;}return i}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(typeof i==="object"&&i&&!Array.isArray(i)){i=i["field"]}else if(!(i===void 0)){e[0](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="object"&&i&&!Array.isArray(i)){i=i["field"];break}if(i===void 0)break;e[0](i)}return i}`,
   )
 })

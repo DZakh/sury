@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.never.with(S.to, S.schema(null)), S.string]).with(S.to, S.union([S.schema(undefined), S.string]))
+  input: string
+  output: string | undefined
+  instantiations: 7172
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ anyOf: [{ not: {} }, { type: "string" }] }'
+  output: Expected JSON, received undefined | string
+operations:
+  parse:
+    creationError: "SuryError: Invalid operation: can't convert never | string to undefined | string — undefined has no same-type variant on the other side. Use S.to to say what you mean, or S.never to mark a variant unreachable"
+  decode: eq-to-parse
+  encode:
+    creationError: "SuryError: Invalid operation: can't convert undefined | string to null | string — undefined has no same-type variant on the other side. Use S.to to say what you mean, or S.never to mark a variant unreachable"
