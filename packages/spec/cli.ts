@@ -268,11 +268,27 @@ const cmdCheck = async (): Promise<void> => {
   const { write, perf, against, ids } = parseCheckArgs(rest);
   let failed = 0;
 
+  // Ahead of the --perf=only split because both halves need it. Nothing here
+  // is snapshotted, so there is no --write step: a scenario is either
+  // well-formed and runnable or it's a failure to fix by hand. And a malformed
+  // one is not a stale golden the perf half can shrug off — it's a target that
+  // half cannot build, which deriveTargets would otherwise surface as an
+  // unattributed TypeError out of the TypeScript scanner. A failure to measure
+  // is a real error, so it exits non-zero on either path.
+  const scenarioErrs = checkScenarios();
+  if (scenarioErrs.length) {
+    failed++;
+    console.error(formatFailure("scenarios.yaml", scenarioErrs));
+  }
+
   // Splits the run in two for CI, where the goldens gate and the (advisory,
   // comment-posting) perf report want different jobs and different exit
   // semantics.
   const selected = resolveIds(ids);
-  if (perf === "only") return measurePerf(selected.files, against, selected.scenarios);
+  if (perf === "only") {
+    if (failed) fail(`${failed} check(s) failed`);
+    return measurePerf(selected.files, against, selected.scenarios);
+  }
 
   // bundleSize.yaml measures the package's whole export surface, so it isn't a
   // spec and a narrowed run has nothing to say about it — reporting it stale
@@ -294,14 +310,6 @@ const cmdCheck = async (): Promise<void> => {
         exists ? "stale — run `pnpm spec schema`" : "missing — run `pnpm spec schema`",
       ]),
     );
-  }
-
-  // Nothing here is snapshotted, so there is no --write step: a scenario is
-  // either well-formed and runnable or it's a failure to fix by hand.
-  const scenarioErrs = checkScenarios();
-  if (scenarioErrs.length) {
-    failed++;
-    console.error(formatFailure("scenarios.yaml", scenarioErrs));
   }
 
   const dirErrs = lintSpecsDir();
