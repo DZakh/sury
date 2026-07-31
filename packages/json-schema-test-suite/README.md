@@ -13,13 +13,6 @@ pnpm compliance report draft7 --divergent        # where S.is disagrees with S.p
 pnpm compliance report draft7 --optional         # include optional/ (formats, bignum, content)
 ```
 
-## Current score
-
-| dialect | assertions | passing |
-| --- | --- | --- |
-| draft7 | 927 | 565 (60.9%) |
-| draft2020-12 | 1299 | 660 (50.8%) |
-
 ## How it works
 
 The suite is not an npm dependency — the `@json-schema-org/tests` mirror is

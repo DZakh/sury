@@ -545,24 +545,14 @@ module Metadata = {
 // Built-in refinements
 // =============
 
-// Bounds dispatch on the schema type in JS, so one loose `t<'value>` external
-// covers every numeric schema. ReScript can't unify the literal types though,
-// so each numeric width still needs its own binding to the same JS function.
-@module("sury") external gt: (t<'value>, int, ~message: string=?) => t<'value> = "gt"
-@module("sury") external floatGt: (t<'value>, float, ~message: string=?) => t<'value> = "gt"
-@module("sury") external bigintGt: (t<'value>, bigint, ~message: string=?) => t<'value> = "gt"
-
-@module("sury") external gte: (t<'value>, int, ~message: string=?) => t<'value> = "gte"
-@module("sury") external floatGte: (t<'value>, float, ~message: string=?) => t<'value> = "gte"
-@module("sury") external bigintGte: (t<'value>, bigint, ~message: string=?) => t<'value> = "gte"
-
-@module("sury") external lt: (t<'value>, int, ~message: string=?) => t<'value> = "lt"
-@module("sury") external floatLt: (t<'value>, float, ~message: string=?) => t<'value> = "lt"
-@module("sury") external bigintLt: (t<'value>, bigint, ~message: string=?) => t<'value> = "lt"
-
-@module("sury") external lte: (t<'value>, int, ~message: string=?) => t<'value> = "lte"
-@module("sury") external floatLte: (t<'value>, float, ~message: string=?) => t<'value> = "lte"
-@module("sury") external bigintLte: (t<'value>, bigint, ~message: string=?) => t<'value> = "lte"
+// The bound is typed as the schema's own value, so one external serves int,
+// float and bigint. It admits nonsense the JS side has to catch — a bound on a
+// `t<string>`, say — which is why gt/gte/lt/lte validate both the schema tag
+// and the bound's runtime type before building anything.
+@module("sury") external gt: (t<'value>, 'value, ~message: string=?) => t<'value> = "gt"
+@module("sury") external gte: (t<'value>, 'value, ~message: string=?) => t<'value> = "gte"
+@module("sury") external lt: (t<'value>, 'value, ~message: string=?) => t<'value> = "lt"
+@module("sury") external lte: (t<'value>, 'value, ~message: string=?) => t<'value> = "lte"
 
 @module("sury") external minLength: (t<'value>, int, ~message: string=?) => t<'value> = "minLength"
 @module("sury") external maxLength: (t<'value>, int, ~message: string=?) => t<'value> = "maxLength"

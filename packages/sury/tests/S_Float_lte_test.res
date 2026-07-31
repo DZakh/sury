@@ -1,14 +1,14 @@
 open Vitest
 
 test("Successfully parses valid data", t => {
-  let schema = S.float->S.floatLte(1.)
+  let schema = S.float->S.lte(1.)
 
   t->Assert.deepEqual(1->S.parseOrThrow(~to=schema), 1.)
   t->Assert.deepEqual(-1->S.parseOrThrow(~to=schema), -1.)
 })
 
 test("Fails to parse invalid data", t => {
-  let schema = S.float->S.floatLte(1.)
+  let schema = S.float->S.lte(1.)
 
   t->U.assertThrowsMessage(
     () => 1234->S.parseOrThrow(~to=schema),
@@ -17,14 +17,14 @@ test("Fails to parse invalid data", t => {
 })
 
 test("Successfully serializes valid value", t => {
-  let schema = S.float->S.floatLte(1.)
+  let schema = S.float->S.lte(1.)
 
   t->Assert.deepEqual(1.->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`1`))
   t->Assert.deepEqual(-1.->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`-1`))
 })
 
 test("Fails to serialize invalid value", t => {
-  let schema = S.float->S.floatLte(1.)
+  let schema = S.float->S.lte(1.)
 
   t->U.assertThrowsMessage(
     () => 1234.->S.decodeOrThrow(~from=schema, ~to=S.unknown),
@@ -33,13 +33,13 @@ test("Fails to serialize invalid value", t => {
 })
 
 test("Returns custom error message", t => {
-  let schema = S.float->S.floatLte(~message="Custom", 1.)
+  let schema = S.float->S.lte(~message="Custom", 1.)
 
   t->U.assertThrowsMessage(() => 12.->S.parseOrThrow(~to=schema), `Custom`)
 })
 
 test("Returns refinement", t => {
-  let schema = S.float->S.floatLte(1.)
+  let schema = S.float->S.lte(1.)
 
   switch schema {
   | Number({maximum, errorMessage}) => {
@@ -54,7 +54,7 @@ test("Returns refinement", t => {
 })
 
 test("Compiled parse code snapshot", t => {
-  let schema = S.float->S.floatLte(~message="Custom", 1.)
+  let schema = S.float->S.lte(~message="Custom", 1.)
 
   t->U.assertCompiledCode(
     ~schema,

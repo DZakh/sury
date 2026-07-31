@@ -21,7 +21,7 @@ test("JSONSchema of S.json transformed to object with bigint and array of option
     {
       "id": s.matches(S.bigint),
       "data": s.matches(S.unknown),
-      "items": s.matches(S.array(S.option(S.float->S.floatLte(1.)))),
+      "items": s.matches(S.array(S.option(S.float->S.lte(1.)))),
     }
   )
   // TODO: Should coerce nonJsonableSchema to jsonable JSON Schema
@@ -153,14 +153,14 @@ test("JSONSchema of port", t => {
 
 test("JSONSchema of float with min", t => {
   t->Assert.deepEqual(
-    S.float->S.floatGte(1.)->S.toJSONSchema,
+    S.float->S.gte(1.)->S.toJSONSchema,
     %raw(`{"type": "number", "minimum": 1}`),
   )
 })
 
 test("JSONSchema of float with max", t => {
   t->Assert.deepEqual(
-    S.float->S.floatLte(1.)->S.toJSONSchema,
+    S.float->S.lte(1.)->S.toJSONSchema,
     %raw(`{"type": "number", "maximum": 1}`),
   )
 })

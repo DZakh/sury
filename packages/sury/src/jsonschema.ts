@@ -66,6 +66,7 @@ import {
   arrayMaxLength,
   arrayMinLength,
   assertBigint,
+  assertNumber,
   bigintMax,
   bigintMin,
   dict,
@@ -1154,6 +1155,9 @@ export const lte = (schema: Internal, maxValue: number, maybeMessage?: string): 
 export const gt = (schema: Internal, minValue: number, maybeMessage?: string): Internal => {
   switch (schema.type) {
     case numberTag:
+      // Asserted before the fold below: `minValue + 1` on a bigint throws a
+      // raw TypeError and on a string silently concatenates.
+      assertNumber("gt", minValue);
       // Nothing sits between n and n+1 in an integer domain, so the exclusive
       // bound folds away and keeps intMin's embed-free codegen. The message is
       // resolved before the fold so it still reads as the user wrote it.
@@ -1178,6 +1182,7 @@ export const gt = (schema: Internal, minValue: number, maybeMessage?: string): I
 export const lt = (schema: Internal, maxValue: number, maybeMessage?: string): Internal => {
   switch (schema.type) {
     case numberTag:
+      assertNumber("lt", maxValue);
       return isIntFormat(schema)
         ? intMax(schema, maxValue - 1, maybeMessage ?? `Number must be lower than ${maxValue}`)
         : floatLess(schema, maxValue, maybeMessage);
