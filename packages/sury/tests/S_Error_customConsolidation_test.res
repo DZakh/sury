@@ -43,7 +43,7 @@ test("errorMessage catch-all fallback override produces InvalidInput with custom
 })
 
 test("errorMessage.minLength override produces InvalidInput with custom reason", t => {
-  let schema = S.string->S.min(3)->S.meta({errorMessage: {minLength: "too short"}})
+  let schema = S.string->S.minLength(3)->S.meta({errorMessage: {minLength: "too short"}})
   switch "hi"->S.parseOrThrow(~to=schema) {
   | _ => t->Assert.fail("Should have thrown")
   | exception S.Exn(error) =>
@@ -140,7 +140,7 @@ test("error.code is invalid_input for every consolidated path", t => {
     }
 
   assertCode(S.string->S.meta({errorMessage: {type_: "x"}}), 1->Obj.magic)
-  assertCode(S.string->S.min(2)->S.meta({errorMessage: {minLength: "x"}}), "a"->Obj.magic)
+  assertCode(S.string->S.minLength(2)->S.meta({errorMessage: {minLength: "x"}}), "a"->Obj.magic)
   assertCode(S.int->S.refine(_ => false, ~error="x"), 1->Obj.magic)
   assertCode(
     S.string->S.transform(s => {parser: _ => s.fail("x")}),

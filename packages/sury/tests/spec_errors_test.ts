@@ -246,7 +246,7 @@ test("a FIXME comment is allowed and survives canonicalization", async () => {
 
 test("identity claimed but the operation doesn't actually compile to identity", async () => {
   const spec = mutate((s) => {
-    s.ts.schema = "S.string.with(S.min, 3)"; // decode/encode are real checks now, not passthroughs
+    s.ts.schema = "S.string.with(S.minLength, 3)"; // decode/encode are real checks now, not passthroughs
   });
   await expect(runCheck("string", serialize(spec))).resolves.toMatchInlineSnapshot(`
     {
@@ -255,7 +255,7 @@ test("identity claimed but the operation doesn't actually compile to identity", 
         operations.encode: marked \`identity\` but does not compile to identity — use a full op block with examples
         goldens stale — resolve the identity mismatch above first, then \`pnpm spec check string --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
     @@ -3,22 +3,22 @@
-        schema: S.string.with(S.min, 3)
+        schema: S.string.with(S.minLength, 3)
         input: string
         output: string
     -   instantiations: 254
@@ -316,7 +316,7 @@ test("full op block claimed but the operation actually compiles to identity", as
 
 test("eq-to-parse claimed but the operation doesn't actually compile to the same code as parse", async () => {
   const spec = mutateEqToParse((s) => {
-    s.ts.schema = "S.string.with(S.min, 3)"; // decode drops parse's type check, so it no longer matches
+    s.ts.schema = "S.string.with(S.minLength, 3)"; // decode drops parse's type check, so it no longer matches
   });
   await expect(runCheck("never", serialize(spec))).resolves.toMatchInlineSnapshot(`
     {
@@ -326,7 +326,7 @@ test("eq-to-parse claimed but the operation doesn't actually compile to the same
         goldens stale — resolve the identity mismatch above first, then \`pnpm spec check never --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
       # yaml-language-server: $schema=./spec.schema.json
       ts:
-        schema: S.string.with(S.min, 3)
+        schema: S.string.with(S.minLength, 3)
     -   input: never
     -   output: never
     -   instantiations: 254

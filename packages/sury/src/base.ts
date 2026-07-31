@@ -223,6 +223,8 @@ export type SchemaErrorMessage = {
   type?: string;
   minimum?: string;
   maximum?: string;
+  exclusiveMinimum?: string;
+  exclusiveMaximum?: string;
   minLength?: string;
   maxLength?: string;
   minItems?: string;
@@ -278,8 +280,15 @@ export type Internal = {
   // each variant converts to whatever the target is, and a variant with no
   // decoder to that target drops out with its error reported per value.
   perVariant?: boolean;
-  minimum?: number;
-  maximum?: number;
+  minimum?: number | bigint;
+  maximum?: number | bigint;
+  // Only ever set on a non-integer number. An integer domain folds an
+  // exclusive bound into an inclusive one losslessly (`>5` is `>=6`), so
+  // S.gt/S.lt normalise int32, port and bigint into minimum/maximum and only
+  // a plain float reaches these — which is what lets the JSON Schema emit
+  // treat them as a straight copy.
+  exclusiveMinimum?: number;
+  exclusiveMaximum?: number;
   minLength?: number;
   maxLength?: number;
   minItems?: number;

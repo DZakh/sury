@@ -21,7 +21,7 @@ test("JSONSchema of S.json transformed to object with bigint and array of option
     {
       "id": s.matches(S.bigint),
       "data": s.matches(S.unknown),
-      "items": s.matches(S.array(S.option(S.float->S.floatMax(1.)))),
+      "items": s.matches(S.array(S.option(S.float->S.floatLte(1.)))),
     }
   )
   // TODO: Should coerce nonJsonableSchema to jsonable JSON Schema
@@ -106,14 +106,14 @@ test("JSONSchema of pattern schema", t => {
 
 test("JSONSchema of string with min", t => {
   t->Assert.deepEqual(
-    S.string->S.min(1)->S.toJSONSchema,
+    S.string->S.minLength(1)->S.toJSONSchema,
     %raw(`{"type": "string", "minLength": 1}`),
   )
 })
 
 test("JSONSchema of string with max", t => {
   t->Assert.deepEqual(
-    S.string->S.max(1)->S.toJSONSchema,
+    S.string->S.maxLength(1)->S.toJSONSchema,
     %raw(`{"type": "string", "maxLength": 1}`),
   )
 })
@@ -127,17 +127,17 @@ test("JSONSchema of string with length", t => {
 
 test("JSONSchema of string with both min and max", t => {
   t->Assert.deepEqual(
-    S.string->S.min(1)->S.max(4)->S.toJSONSchema,
+    S.string->S.minLength(1)->S.maxLength(4)->S.toJSONSchema,
     %raw(`{"type": "string", "minLength": 1, "maxLength": 4}`),
   )
 })
 
 test("JSONSchema of int with min", t => {
-  t->Assert.deepEqual(S.int->S.min(1)->S.toJSONSchema, %raw(`{"type": "integer", "minimum": 1, "maximum": 2147483647}`))
+  t->Assert.deepEqual(S.int->S.gte(1)->S.toJSONSchema, %raw(`{"type": "integer", "minimum": 1, "maximum": 2147483647}`))
 })
 
 test("JSONSchema of int with max", t => {
-  t->Assert.deepEqual(S.int->S.max(1)->S.toJSONSchema, %raw(`{"type": "integer", "minimum": -2147483648, "maximum": 1}`))
+  t->Assert.deepEqual(S.int->S.lte(1)->S.toJSONSchema, %raw(`{"type": "integer", "minimum": -2147483648, "maximum": 1}`))
 })
 
 test("JSONSchema of port", t => {
@@ -153,14 +153,14 @@ test("JSONSchema of port", t => {
 
 test("JSONSchema of float with min", t => {
   t->Assert.deepEqual(
-    S.float->S.floatMin(1.)->S.toJSONSchema,
+    S.float->S.floatGte(1.)->S.toJSONSchema,
     %raw(`{"type": "number", "minimum": 1}`),
   )
 })
 
 test("JSONSchema of float with max", t => {
   t->Assert.deepEqual(
-    S.float->S.floatMax(1.)->S.toJSONSchema,
+    S.float->S.floatLte(1.)->S.toJSONSchema,
     %raw(`{"type": "number", "maximum": 1}`),
   )
 })
@@ -322,7 +322,7 @@ test("JSONSchema of string array", t => {
 
 test("JSONSchema of array with min length", t => {
   t->Assert.deepEqual(
-    S.array(S.string)->S.min(1)->S.toJSONSchema,
+    S.array(S.string)->S.minLength(1)->S.toJSONSchema,
     %raw(`{
       "type": "array",
       "items": {"type": "string"},
@@ -333,7 +333,7 @@ test("JSONSchema of array with min length", t => {
 
 test("JSONSchema of array with max length", t => {
   t->Assert.deepEqual(
-    S.array(S.string)->S.max(1)->S.toJSONSchema,
+    S.array(S.string)->S.maxLength(1)->S.toJSONSchema,
     %raw(`{
       "type": "array",
       "items": {"type": "string"},

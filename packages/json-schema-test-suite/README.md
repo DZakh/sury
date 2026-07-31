@@ -17,8 +17,8 @@ pnpm compliance report draft7 --optional         # include optional/ (formats, b
 
 | dialect | assertions | passing |
 | --- | --- | --- |
-| draft7 | 927 | 662 (71.4%) |
-| draft2020-12 | 1299 | 887 (68.3%) |
+| draft7 | 927 | 565 (60.9%) |
+| draft2020-12 | 1299 | 660 (50.8%) |
 
 ## How it works
 

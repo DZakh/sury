@@ -104,7 +104,7 @@ const members: MemberSpec[] = [
   // same-tag fallback edge gets exercised.
   {
     id: "string-min3",
-    of: (S) => S.string.with(S.min, 3),
+    of: (S) => S.string.with(S.minLength, 3),
   },
   {
     id: "string-refine-fail",

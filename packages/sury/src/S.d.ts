@@ -759,6 +759,8 @@ export type SchemaErrorMessage = {
   type?: string;
   minimum?: string;
   maximum?: string;
+  exclusiveMinimum?: string;
+  exclusiveMaximum?: string;
   minLength?: string;
   maxLength?: string;
   minItems?: string;
@@ -800,12 +802,33 @@ export function refine<Output, Input>(
   }
 ): Schema<Output, Input>;
 
-export const min: <Output extends string | number | unknown[], Input>(
+export const gt: <Output extends number | bigint, Input>(
+  schema: SchemaLike<Output, Input>,
+  value: Output,
+  message?: string
+) => Schema<Output, Input>;
+export const gte: <Output extends number | bigint, Input>(
+  schema: SchemaLike<Output, Input>,
+  value: Output,
+  message?: string
+) => Schema<Output, Input>;
+export const lt: <Output extends number | bigint, Input>(
+  schema: SchemaLike<Output, Input>,
+  value: Output,
+  message?: string
+) => Schema<Output, Input>;
+export const lte: <Output extends number | bigint, Input>(
+  schema: SchemaLike<Output, Input>,
+  value: Output,
+  message?: string
+) => Schema<Output, Input>;
+
+export const minLength: <Output extends string | unknown[], Input>(
   schema: SchemaLike<Output, Input>,
   length: number,
   message?: string
 ) => Schema<Output, Input>;
-export const max: <Output extends string | number | unknown[], Input>(
+export const maxLength: <Output extends string | unknown[], Input>(
   schema: SchemaLike<Output, Input>,
   length: number,
   message?: string
@@ -813,6 +836,14 @@ export const max: <Output extends string | number | unknown[], Input>(
 export const length: <Output extends string | unknown[], Input>(
   schema: SchemaLike<Output, Input>,
   length: number,
+  message?: string
+) => Schema<Output, Input>;
+export const empty: <Output extends string | unknown[], Input>(
+  schema: SchemaLike<Output, Input>,
+  message?: string
+) => Schema<Output, Input>;
+export const nonEmpty: <Output extends string | unknown[], Input>(
+  schema: SchemaLike<Output, Input>,
   message?: string
 ) => Schema<Output, Input>;
 

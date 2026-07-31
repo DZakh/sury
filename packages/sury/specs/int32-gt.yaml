@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.int32.with(S.gt, 5)
+  input: number
+  output: number
+  instantiations: 5179
+vs:
+  zod: z.int32().gt(5)
+jsonSchema:
+  input: '{ type: "integer", minimum: 6, maximum: 2147483647 }'
+  output: '{ type: "integer", minimum: 6, maximum: 2147483647 }'
+operations:
+  parse:
+    expression: i=>{typeof i==="number"&&i<=2147483647&&i>=-2147483648&&i%1===0||e[1](i);i>5||e[0](i);return i}
+    examples:
+      just-above-the-bound:
+        input: "6"
+        output: "6"
+      at-the-bound-is-excluded:
+        input: "5"
+        error: Number must be greater than 5
+      below:
+        input: "4"
+        error: Number must be greater than 5
+      non-integer-above-the-bound:
+        input: "5.5"
+        error: Expected int32, received 5.5
+      nan:
+        input: NaN
+        error: Expected int32, received NaN
+      wrong-type:
+        input: '"6"'
+        error: Expected int32, received "6"
+  decode:
+    expression: i=>{i>5||e[0](i);return i}
+    examples:
+      just-above-the-bound:
+        input: "6"
+        output: "6"
+      at-the-bound-is-excluded:
+        input: "5"
+        error: Number must be greater than 5
+      below:
+        input: "4"
+        error: Number must be greater than 5
+  encode:
+    expression: i=>{i>5||e[0](i);return i}
+    examples:
+      just-above-the-bound:
+        input: "6"
+        output: "6"
+      at-the-bound-is-excluded:
+        input: "5"
+        error: Number must be greater than 5
+      below:
+        input: "4"
+        error: Number must be greater than 5

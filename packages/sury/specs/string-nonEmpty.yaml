@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.nonEmpty)
+  input: string
+  output: string
+  instantiations: 533
+vs:
+  zod: z.string().nonempty()
+jsonSchema:
+  input: '{ type: "string", minLength: 1 }'
+  output: '{ type: "string", minLength: 1 }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[1](i);i.length>0||e[0](i);return i}
+    examples:
+      single-character:
+        input: '"a"'
+        output: '"a"'
+      longer:
+        input: '"abc"'
+        output: '"abc"'
+      empty-is-rejected:
+        input: '""'
+        error: String must be 1 or more characters long
+      whitespace-is-not-empty:
+        input: '" "'
+        output: '" "'
+      wrong-type:
+        input: "1"
+        error: Expected string, received 1
+  decode:
+    expression: i=>{i.length>0||e[0](i);return i}
+    examples:
+      single-character:
+        input: '"a"'
+        output: '"a"'
+      empty-is-rejected:
+        input: '""'
+        error: String must be 1 or more characters long
+  encode:
+    expression: i=>{i.length>0||e[0](i);return i}
+    examples:
+      single-character:
+        input: '"a"'
+        output: '"a"'
+      empty-is-rejected:
+        input: '""'
+        error: String must be 1 or more characters long

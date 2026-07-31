@@ -13,7 +13,7 @@ test("Specific key takes precedence over catch-all _", t => {
 })
 
 test("Empty errorMessage deletes the field from schema", t => {
-  let schema = S.string->S.min(1)->S.meta({errorMessage: {}})
+  let schema = S.string->S.minLength(1)->S.meta({errorMessage: {}})
 
   switch schema {
   | String({?errorMessage}) => t->Assert.deepEqual(errorMessage, None)
@@ -22,7 +22,7 @@ test("Empty errorMessage deletes the field from schema", t => {
 })
 
 test("S.meta errorMessage overwrites, not merges", t => {
-  let schema = S.string->S.min(1)->S.max(10)->S.meta({errorMessage: {minLength: "Custom min"}})
+  let schema = S.string->S.minLength(1)->S.maxLength(10)->S.meta({errorMessage: {minLength: "Custom min"}})
 
   switch schema {
   | String({errorMessage}) =>
@@ -34,13 +34,13 @@ test("S.meta errorMessage overwrites, not merges", t => {
 })
 
 test("Override constraint message via S.meta on string min", t => {
-  let schema = S.string->S.min(5)->S.meta({errorMessage: {minLength: "Too short"}})
+  let schema = S.string->S.minLength(5)->S.meta({errorMessage: {minLength: "Too short"}})
 
   t->U.assertThrowsMessage(() => "abc"->S.parseOrThrow(~to=schema), `Too short`)
 })
 
 test("Override constraint message via S.meta on int max", t => {
-  let schema = S.int->S.max(10)->S.meta({errorMessage: {maximum: "Number too large"}})
+  let schema = S.int->S.lte(10)->S.meta({errorMessage: {maximum: "Number too large"}})
 
   t->U.assertThrowsMessage(() => 100->S.parseOrThrow(~to=schema), `Number too large`)
 })
@@ -55,7 +55,7 @@ test("Override works on serialization path too", t => {
 })
 
 test("Catch-all _ works on constraint refiners", t => {
-  let schema = S.string->S.min(5)->S.meta({errorMessage: {catchAll: "Bad"}})
+  let schema = S.string->S.minLength(5)->S.meta({errorMessage: {catchAll: "Bad"}})
 
   t->U.assertThrowsMessage(() => "abc"->S.parseOrThrow(~to=schema), `Bad`)
 })
@@ -85,7 +85,7 @@ test("Catch-all _ is used for type error when no specific type_ is set", t => {
 })
 
 test("S.meta does not mutate the original schema", t => {
-  let original = S.string->S.min(1)
+  let original = S.string->S.minLength(1)
   let _ = original->S.meta({errorMessage: {minLength: "Custom"}})
 
   // Original still uses default message

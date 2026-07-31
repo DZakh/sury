@@ -1,14 +1,14 @@
 open Vitest
 
 test("Successfully parses valid data", t => {
-  let schema = S.string->S.min(1)
+  let schema = S.string->S.minLength(1)
 
   t->Assert.deepEqual("1"->S.parseOrThrow(~to=schema), "1")
   t->Assert.deepEqual("1234"->S.parseOrThrow(~to=schema), "1234")
 })
 
 test("Fails to parse invalid data", t => {
-  let schema = S.string->S.min(1)
+  let schema = S.string->S.minLength(1)
 
   t->U.assertThrowsMessage(
     () => ""->S.parseOrThrow(~to=schema),
@@ -17,14 +17,14 @@ test("Fails to parse invalid data", t => {
 })
 
 test("Successfully serializes valid value", t => {
-  let schema = S.string->S.min(1)
+  let schema = S.string->S.minLength(1)
 
   t->Assert.deepEqual("1"->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"1"`))
   t->Assert.deepEqual("1234"->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw(`"1234"`))
 })
 
 test("Fails to serialize invalid value", t => {
-  let schema = S.string->S.min(1)
+  let schema = S.string->S.minLength(1)
 
   t->U.assertThrowsMessage(
     () => ""->S.decodeOrThrow(~from=schema, ~to=S.unknown),
@@ -33,13 +33,13 @@ test("Fails to serialize invalid value", t => {
 })
 
 test("Returns custom error message", t => {
-  let schema = S.string->S.min(~message="Custom", 1)
+  let schema = S.string->S.minLength(~message="Custom", 1)
 
   t->U.assertThrowsMessage(() => ""->S.parseOrThrow(~to=schema), `Custom`)
 })
 
 test("Returns refinement", t => {
-  let schema = S.string->S.min(1)
+  let schema = S.string->S.minLength(1)
 
   switch schema {
   | String({minLength, errorMessage}) => {
@@ -54,8 +54,8 @@ test("Returns refinement", t => {
 })
 
 test("Chaining refinements does not mutate the original schema", t => {
-  let schema1 = S.string->S.min(1)
-  let schema2 = schema1->S.max(10)
+  let schema1 = S.string->S.minLength(1)
+  let schema2 = schema1->S.maxLength(10)
 
   switch schema1 {
   | String({minLength, ?maxLength, errorMessage}) => {

@@ -150,3 +150,44 @@ test("toJSONSchema nullable float openapi-3.0 collapses to nullable", t => {
     %raw(`{"type": "number", "nullable": true}`),
   )
 })
+
+// --- Exclusive bounds ---
+
+test("toJSONSchema exclusive bound draft-07 uses the numeric keyword", t => {
+  t->Assert.deepEqual(
+    S.float->S.floatGt(5.)->S.toJSONSchema(~options={target: Draft07}),
+    %raw(`{
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "number",
+      "exclusiveMinimum": 5
+    }`),
+  )
+})
+
+// OpenAPI 3.0 follows draft-04, where exclusivity is a boolean modifying
+// `minimum` rather than a bound of its own.
+test("toJSONSchema exclusive bound openapi-3.0 uses the draft-04 boolean form", t => {
+  t->Assert.deepEqual(
+    S.float->S.floatGt(5.)->S.toJSONSchema(~options={target: OpenApi30}),
+    %raw(`{"type": "number", "minimum": 5, "exclusiveMinimum": true}`),
+  )
+})
+
+test("toJSONSchema exclusive upper bound openapi-3.0 uses the draft-04 boolean form", t => {
+  t->Assert.deepEqual(
+    S.float->S.floatLt(5.)->S.toJSONSchema(~options={target: OpenApi30}),
+    %raw(`{"type": "number", "maximum": 5, "exclusiveMaximum": true}`),
+  )
+})
+
+test("toJSONSchema keeps both bounds when only one is exclusive", t => {
+  t->Assert.deepEqual(
+    S.float->S.floatGte(0.)->S.floatLt(5.)->S.toJSONSchema(~options={target: Draft07}),
+    %raw(`{
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "type": "number",
+      "minimum": 0,
+      "exclusiveMaximum": 5
+    }`),
+  )
+})

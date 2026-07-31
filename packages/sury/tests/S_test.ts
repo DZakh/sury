@@ -6,7 +6,7 @@ import * as S from "../src/S.mjs";
 // From https://x.com/dzakh_dev/status/1963982551208309222
 // const PixelSchema = S.pattern(/^\d{1,3}px$/)
 //   .with(S.to, S.number, parseInt)
-//   .with(S.max, 100)
+//   .with(S.lte, 100)
 //   .with(S.meta, {
 //     description: "A pixel value between 0 and 100",
 //   });
@@ -265,7 +265,7 @@ test("Transforms array of bigint to array of string", (t) => {
 });
 
 test("Successfully parses array with min and max refinements", (t) => {
-  const schema = S.array(S.string).with(S.min, 1).with(S.max, 2);
+  const schema = S.array(S.string).with(S.minLength, 1).with(S.maxLength, 2);
   const value = S.parser(schema)(["foo"]);
   t.expect(value).toEqual(["foo"]);
 
@@ -2178,7 +2178,7 @@ test("Example", (t) => {
   // Create login schema with email and password
   const loginSchema = S.schema({
     email: S.email,
-    password: S.string.with(S.min, 8),
+    password: S.string.with(S.minLength, 8),
   });
 
   // Infer output TypeScript type of login schema
@@ -2667,7 +2667,7 @@ test("Union of dynamic enum as const", (t) => {
 });
 
 test("Overwrite error message", (t) => {
-  const schema = S.string.with(S.min, 3, "Invalid string");
+  const schema = S.string.with(S.minLength, 3, "Invalid string");
 
   const fieldSchema = <O, I>(schema: S.Schema<O, I>): S.Schema<O, I> => {
     return S.any.with(S.to, schema, (v) => {

@@ -141,9 +141,15 @@ export {
   fromJSONSchema,
   extendJSONSchema,
   enableStandardJSONSchema,
-  min,
-  max,
+  gt,
+  gte,
+  lt,
+  lte,
+  minLength,
+  maxLength,
   length,
+  empty,
+  nonEmpty,
 } from "./jsonschema";
 export { toExpression } from "./base";
 

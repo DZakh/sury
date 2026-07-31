@@ -2,6 +2,7 @@
 // formats, which are the same idea with a canned predicate.
 
 import {
+  bigintTag,
   cached,
   type Internal,
   numberTag,
@@ -48,7 +49,7 @@ export const assertNumber = (fnName: string, n: unknown): void => {
 };
 
 export const intMin = (schema: Internal, minValue: number, maybeMessage?: string): Internal => {
-  assertNumber("min", minValue);
+  assertNumber("gte", minValue);
   const message = maybeMessage ?? `Number must be greater than or equal to ${minValue}`;
   return internalRefine(schema, (mut: Internal) => {
     mut.minimum = minValue;
@@ -65,7 +66,7 @@ export const intMin = (schema: Internal, minValue: number, maybeMessage?: string
 }
 
 export const intMax = (schema: Internal, maxValue: number, maybeMessage?: string): Internal => {
-  assertNumber("max", maxValue);
+  assertNumber("lte", maxValue);
   const message = maybeMessage ?? `Number must be lower than or equal to ${maxValue}`;
   return internalRefine(schema, (mut: Internal) => {
     mut.maximum = maxValue;
@@ -82,7 +83,7 @@ export const intMax = (schema: Internal, maxValue: number, maybeMessage?: string
 }
 
 export const floatMin = (schema: Internal, minValue: number, maybeMessage?: string): Internal => {
-  assertNumber("min", minValue);
+  assertNumber("gte", minValue);
   const message = maybeMessage ?? `Number must be greater than or equal to ${minValue}`;
   return internalRefine(schema, (mut: Internal) => {
     mut.minimum = minValue;
@@ -99,7 +100,7 @@ export const floatMin = (schema: Internal, minValue: number, maybeMessage?: stri
 }
 
 export const floatMax = (schema: Internal, maxValue: number, maybeMessage?: string): Internal => {
-  assertNumber("max", maxValue);
+  assertNumber("lte", maxValue);
   const message = maybeMessage ?? `Number must be lower than or equal to ${maxValue}`;
   return internalRefine(schema, (mut: Internal) => {
     mut.maximum = maxValue;
@@ -115,8 +116,87 @@ export const floatMax = (schema: Internal, maxValue: number, maybeMessage?: stri
   });
 }
 
+// Exclusive bounds are float-only by construction — see the Internal fields.
+export const floatGreater = (schema: Internal, minValue: number, maybeMessage?: string): Internal => {
+  assertNumber("gt", minValue);
+  const message = maybeMessage ?? `Number must be greater than ${minValue}`;
+  return internalRefine(schema, (mut: Internal) => {
+    mut.exclusiveMinimum = minValue;
+    getMutErrorMessage(mut)["exclusiveMinimum"] = message;
+    return (input: Val) => {
+      return [
+        {
+          c: (inputVar: string) => `${inputVar}>${B_embed(input, minValue)}`,
+          f: B_failWithErrorMessage("exclusiveMinimum", message),
+        },
+      ];
+    };
+  });
+}
+
+export const floatLess = (schema: Internal, maxValue: number, maybeMessage?: string): Internal => {
+  assertNumber("lt", maxValue);
+  const message = maybeMessage ?? `Number must be lower than ${maxValue}`;
+  return internalRefine(schema, (mut: Internal) => {
+    mut.exclusiveMaximum = maxValue;
+    getMutErrorMessage(mut)["exclusiveMaximum"] = message;
+    return (input: Val) => {
+      return [
+        {
+          c: (inputVar: string) => `${inputVar}<${B_embed(input, maxValue)}`,
+          f: B_failWithErrorMessage("exclusiveMaximum", message),
+        },
+      ];
+    };
+  });
+}
+
+export const assertBigint = (fnName: string, n: unknown): void => {
+  if (typeof n !== bigintTag) {
+    throw new SuryError({
+      code: "invalid_operation",
+      path: pathEmpty,
+      reason: `[S.${fnName}] Expected bigint, received ${stringify(n)}`,
+    });
+  }
+};
+
+export const bigintMin = (schema: Internal, minValue: bigint, maybeMessage?: string): Internal => {
+  assertBigint("gte", minValue);
+  const message = maybeMessage ?? `BigInt must be greater than or equal to ${minValue}`;
+  return internalRefine(schema, (mut: Internal) => {
+    mut.minimum = minValue;
+    getMutErrorMessage(mut)["minimum"] = message;
+    return (input: Val) => {
+      return [
+        {
+          c: (inputVar: string) => `${inputVar}>=${B_embed(input, minValue)}`,
+          f: B_failWithErrorMessage("minimum", message),
+        },
+      ];
+    };
+  });
+}
+
+export const bigintMax = (schema: Internal, maxValue: bigint, maybeMessage?: string): Internal => {
+  assertBigint("lte", maxValue);
+  const message = maybeMessage ?? `BigInt must be lower than or equal to ${maxValue}`;
+  return internalRefine(schema, (mut: Internal) => {
+    mut.maximum = maxValue;
+    getMutErrorMessage(mut)["maximum"] = message;
+    return (input: Val) => {
+      return [
+        {
+          c: (inputVar: string) => `${inputVar}<=${B_embed(input, maxValue)}`,
+          f: B_failWithErrorMessage("maximum", message),
+        },
+      ];
+    };
+  });
+}
+
 export const arrayMinLength = (schema: Internal, length: number, maybeMessage?: string): Internal => {
-  assertNumber("min", length);
+  assertNumber("minLength", length);
   const message = maybeMessage ?? `Array must be ${length} or more items long`;
   return internalRefine(schema, (mut: Internal) => {
     mut.minItems = length;
@@ -133,7 +213,7 @@ export const arrayMinLength = (schema: Internal, length: number, maybeMessage?: 
 }
 
 export const arrayMaxLength = (schema: Internal, length: number, maybeMessage?: string): Internal => {
-  assertNumber("max", length);
+  assertNumber("maxLength", length);
   const message = maybeMessage ?? `Array must be ${length} or fewer items long`;
   return internalRefine(schema, (mut: Internal) => {
     mut.maxItems = length;
@@ -170,7 +250,7 @@ export const arrayLength = (schema: Internal, length: number, maybeMessage?: str
 }
 
 export const stringMinLength = (schema: Internal, length: number, maybeMessage?: string): Internal => {
-  assertNumber("min", length);
+  assertNumber("minLength", length);
   const message = maybeMessage ?? `String must be ${length} or more characters long`;
   return internalRefine(schema, (mut: Internal) => {
     mut.minLength = length;
@@ -187,7 +267,7 @@ export const stringMinLength = (schema: Internal, length: number, maybeMessage?:
 }
 
 export const stringMaxLength = (schema: Internal, length: number, maybeMessage?: string): Internal => {
-  assertNumber("max", length);
+  assertNumber("maxLength", length);
   const message = maybeMessage ?? `String must be ${length} or fewer characters long`;
   return internalRefine(schema, (mut: Internal) => {
     mut.maxLength = length;

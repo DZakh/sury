@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: S.union([S.string.with(S.min, 5), S.string.with(S.to, S.number), S.string.with(S.max, 1)])
+  schema: S.union([S.string.with(S.minLength, 5), S.string.with(S.to, S.number), S.string.with(S.maxLength, 1)])
   input: string
   output: string | number
   instantiations: 6410

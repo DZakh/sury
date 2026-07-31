@@ -331,7 +331,7 @@ test("NaN should be checked before number even if it's later item in the union",
   S.global({disableNanNumberValidation: true})
 
   let schema = S.union([
-    S.float->S.min(0)->S.shape(v => Some(v)),
+    S.float->S.floatGte(0.)->S.shape(v => Some(v)),
     S.literal(%raw(`NaN`))->S.shape(_ => None),
   ])
 

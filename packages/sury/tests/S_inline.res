@@ -144,53 +144,53 @@
 // })
 
 // test("Supports built-in Float.max refinement", t => {
-//   let schema = S.float->S.floatMax(4.)
+//   let schema = S.float->S.floatLte(4.)
 //   let schemaInlineResult =
-//     S.float->S.floatMax(~message="Number must be lower than or equal to 4", 4.)
+//     S.float->S.floatLte(~message="Number must be lower than or equal to 4", 4.)
 
 //   t->U.assertEqualSchemas(schema, schemaInlineResult)
 //   t->Assert.deepEqual(
 //     schema->S.inline,
-//     `S.float->S.floatMax(4., ~message="Number must be lower than or equal to 4")`,
+//     `S.float->S.floatLte(4., ~message="Number must be lower than or equal to 4")`,
 //     (),
 //   )
 // })
 
 // test("Supports built-in Float.max refinement with digits after decimal point", t => {
-//   let schema = S.float->S.floatMax(4.4)
+//   let schema = S.float->S.floatLte(4.4)
 //   let schemaInlineResult =
-//     S.float->S.floatMax(~message="Number must be lower than or equal to 4.4", 4.4)
+//     S.float->S.floatLte(~message="Number must be lower than or equal to 4.4", 4.4)
 
 //   t->U.assertEqualSchemas(schema, schemaInlineResult)
 //   t->Assert.deepEqual(
 //     schema->S.inline,
-//     `S.float->S.floatMax(4.4, ~message="Number must be lower than or equal to 4.4")`,
+//     `S.float->S.floatLte(4.4, ~message="Number must be lower than or equal to 4.4")`,
 //     (),
 //   )
 // })
 
 // test("Supports built-in Float.min refinement", t => {
-//   let schema = S.float->S.floatMin(4.)
+//   let schema = S.float->S.floatGte(4.)
 //   let schemaInlineResult =
-//     S.float->S.floatMin(~message="Number must be greater than or equal to 4", 4.)
+//     S.float->S.floatGte(~message="Number must be greater than or equal to 4", 4.)
 
 //   t->U.assertEqualSchemas(schema, schemaInlineResult)
 //   t->Assert.deepEqual(
 //     schema->S.inline,
-//     `S.float->S.floatMin(4., ~message="Number must be greater than or equal to 4")`,
+//     `S.float->S.floatGte(4., ~message="Number must be greater than or equal to 4")`,
 //     (),
 //   )
 // })
 
 // test("Supports built-in Float.min refinement with digits after decimal point", t => {
-//   let schema = S.float->S.floatMin(4.4)
+//   let schema = S.float->S.floatGte(4.4)
 //   let schemaInlineResult =
-//     S.float->S.floatMin(~message="Number must be greater than or equal to 4.4", 4.4)
+//     S.float->S.floatGte(~message="Number must be greater than or equal to 4.4", 4.4)
 
 //   t->U.assertEqualSchemas(schema, schemaInlineResult)
 //   t->Assert.deepEqual(
 //     schema->S.inline,
-//     `S.float->S.floatMin(4.4, ~message="Number must be greater than or equal to 4.4")`,
+//     `S.float->S.floatGte(4.4, ~message="Number must be greater than or equal to 4.4")`,
 //     (),
 //   )
 // })
