@@ -1,6 +1,6 @@
 {
   "name": "sury",
-  "version": "11.0.0-alpha.11",
+  "version": "11.0.0-rc.0",
   "private": true,
   "description": "🧬 The fastest schema with next-gen DX",
   "keywords": [
@@ -30,6 +30,10 @@
   "license": "MIT",
   "author": "Dmitry Zakharov <dzakh.dev@gmail.com>",
   "type": "module",
+  "sideEffects": [
+    "./src/S.res.mjs",
+    "./src/S.res.js"
+  ],
   "main": "./src/S.mjs",
   "module": "./src/S.mjs",
   "types": "./src/S.d.ts",
@@ -54,6 +58,7 @@
     "coverage": "pnpm build:entry && vitest run --coverage",
     "spec": "pnpm build:entry && tsx ../spec/cli.ts",
     "build:entry": "tsx ./scripts/pack.ts entry-only",
+    "fuzz:union": "tsx ./scripts/unionFuzz.ts",
     "build": "pnpm rescript && tsx ./scripts/pack.ts for-publish",
     "res": "pnpm build:entry && rescript watch",
     "test": "pnpm build:entry && rescript build && vitest run",

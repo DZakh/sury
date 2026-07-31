@@ -79,7 +79,7 @@ test("Successfully parses schema with transformation", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(!(typeof i==="number"&&!Number.isNaN(i)||i===void 0)){e[0](i)}let v0;try{v0=e[1](i===void 0?-123:i)}catch(x){e[2](x)}if(!(typeof v0==="string"||v0===void 0)){e[3](v0)}return v0===void 0?"not positive":v0}`,
+    `i=>{(typeof i==="number"&&!Number.isNaN(i)||i===void 0)||e[3](i);let v0;try{v0=e[0](i===void 0?-123:i)}catch(x){e[1](x)}(typeof v0==="string"||v0===void 0)||e[2](v0);return v0===void 0?"not positive":v0}`,
   )
 })
 
@@ -95,7 +95,7 @@ test("Compiled parse code snapshot", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(!(typeof i==="boolean"||i===void 0)){e[0](i)}return i===void 0?false:i}`,
+    `i=>{(typeof i==="boolean"||i===void 0)||e[0](i);return i===void 0?false:i}`,
   )
 })
 
@@ -110,7 +110,7 @@ asyncTest("Compiled async parse code snapshot", async t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{if(typeof i==="boolean"){let v0;try{v0=e[0](i).catch(x=>e[1](x))}catch(x){e[1](x)}i=v0}else if(!(i===void 0)){e[2](i)}let v1=Promise.resolve(i);return v1.then(v1=>{return v1===void 0?false:v1})}`,
+    `i=>{for(;;){if(typeof i==="boolean"){let v0=e[0](i);i=v0;break}if(i===void 0)break;e[1](i)}let v1=Promise.resolve(i);return v1.then(v1=>{return v1===void 0?false:v1})}`,
   )
 
   let schema =
@@ -122,7 +122,7 @@ asyncTest("Compiled async parse code snapshot", async t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#ParseAsync,
-    `i=>{if(!(typeof i==="boolean"||i===void 0)){e[0](i)}let v0;try{v0=e[1](i===void 0?false:i).catch(x=>e[2](x))}catch(x){e[2](x)}return v0}`,
+    `i=>{(typeof i==="boolean"||i===void 0)||e[2](i);let v0;try{v0=e[0](i===void 0?false:i).catch(x=>e[1](x))}catch(x){e[1](x)}return v0}`,
   )
 })
 
@@ -260,7 +260,7 @@ test("Default on a primary item with S.to runs the transformation on parse and r
 
   // schema.default is the input form (ISO string), not the Date — JSON Schema metadata.
   let untagged = schema->S.untag
-  t->Assert.is(untagged.tag, S.Union)
+  t->Assert.is(untagged.tag, S.AnyOf)
   t->Assert.is(untagged.anyOf->Option.getOrThrow->Array.length, 2)
   t->Assert.deepEqual(untagged.default, %raw(`"2024-01-01T00:00:00.000Z"`))
   t->Assert.is((untagged.to->Option.getOrThrow->S.untag).tag, S.Instance)
@@ -280,7 +280,7 @@ test("Default on a primary item with S.to runs the transformation on parse and r
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);i=v0}else if(!(i===void 0)){e[1](i)}return i===void 0?e[2]:i}`,
+    `i=>{for(;;){if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);i=v0;break}if(i===void 0)break;e[1](i)}return i===void 0?e[2]:i}`,
   )
   // Output is non-optional Date, so encoder skips both undefined and Date checks.
   t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{return i.toISOString()}`)
@@ -292,7 +292,7 @@ test("Appending S.to(S.jsonString) after getOr extends the output chain", t => {
   let schema = S.string->S.to(S.date)->S.option->S.Option.getOr(defaultDate)->S.to(S.jsonString)
 
   let untagged = schema->S.untag
-  t->Assert.is(untagged.tag, S.Union)
+  t->Assert.is(untagged.tag, S.AnyOf)
   t->Assert.deepEqual(untagged.default, %raw(`"2024-01-01T00:00:00.000Z"`))
   let toLevel1 = untagged.to->Option.getOrThrow->S.untag
   t->Assert.is(toLevel1.tag, S.Instance)
@@ -342,13 +342,13 @@ test("Multi-member union with transformed members + getOr", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){try{let v0=+i;!Number.isNaN(v0)||e[0](i);i=v0}catch(e0){try{let v1;try{v1=BigInt(i)}catch(_){e[1](i)}i=v1}catch(e1){e[2](i,e0,e1)}}}else if(!(typeof i==="boolean"||i===void 0)){e[3](i)}return i===void 0?true:i}`,
+    `i=>{for(;;){let r;if(typeof i==="string"){try{let v0=+i;!Number.isNaN(v0)||e[0](i);i=v0;break}catch(x){(r||(r=[])).push(e[2](x))}try{let v1;try{v1=BigInt(i)}catch(_){e[1](i)}i=v1;break}catch(x){(r||(r=[])).push(e[2](x))}}if(typeof i==="boolean")break;if(i===void 0)break;e[3](i,...(r||[]))}return i===void 0?true:i}`,
   )
 
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(typeof i==="number"&&!Number.isNaN(i)){i=""+i}else if(typeof i==="bigint"){i=""+i}else if(!(typeof i==="boolean")){e[0](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="number"&&!Number.isNaN(i)){i=""+i;break}if(typeof i==="bigint"){i=""+i;break}if(typeof i==="boolean")break;e[0](i)}return i}`,
   )
 })
 

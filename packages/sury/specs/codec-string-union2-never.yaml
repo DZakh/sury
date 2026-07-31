@@ -1,7 +1,5 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  # FIXME: Codec next expects: stay the same — the S.never variant is ignored by type
-  # matching, so strings pass through and never become numbers.
   schema: S.string.with(S.to, S.union([S.never.with(S.to, S.number), S.string]))
   input: string
   output: string | number
@@ -10,8 +8,8 @@ vs:
   zod:
     _skip: not-applicable
 jsonSchema:
-  input: '{ anyOf: [{ type: "number" }, { type: "string" }] }'
-  output: '{ anyOf: [{ type: "number" }, { type: "string" }] }'
+  input: '{ type: "string" }'
+  output: '{ type: "string" }'
 operations:
   parse:
     expression: i=>{typeof i==="string"||e[0](i);return i}
@@ -24,7 +22,7 @@ operations:
         output: '"abc"'
   decode: identity
   encode:
-    expression: i=>{if(typeof i==="number"&&!Number.isNaN(i)){e[0](i);}else if(!(typeof i==="string")){e[1](i)}return i}
+    expression: i=>{for(;;){if(typeof i==="number"&&!Number.isNaN(i)){e[0](i);break}if(typeof i==="string")break;e[1](i)}return i}
     examples:
       string:
         input: '"abc"'

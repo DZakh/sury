@@ -58,11 +58,11 @@ test("Object with embeded transformed schema", t => {
   )
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Encode),
-    `i=>{let v0=i["zoo"];if(v0===void 0){v0=null}else if(!(typeof v0==="number"&&!Number.isNaN(v0)&&(v0<=2147483647&&v0>=-2147483648&&v0%1===0))){e[0](v0)}return {"foo":"bar","zoo":v0,}}`,
+    `i=>{let v0=i["zoo"];for(;;){if(typeof v0==="number"&&!Number.isNaN(v0)&&v0<=2147483647&&v0>=-2147483648&&v0%1===0)break;if(v0===void 0){v0=null;break}e[0](v0)}return {"foo":"bar","zoo":v0,}}`,
   )
   t->Assert.is(
     objectSchema->U.getCompiledCodeString(~op=#Encode),
-    `i=>{let v0=i["zoo"];if(v0===void 0){v0=null}else if(!(typeof v0==="number"&&!Number.isNaN(v0)&&(v0<=2147483647&&v0>=-2147483648&&v0%1===0))){e[0](v0)}return {"foo":"bar","zoo":v0,}}`,
+    `i=>{let v0=i["zoo"];for(;;){if(typeof v0==="number"&&!Number.isNaN(v0)&&v0<=2147483647&&v0>=-2147483648&&v0%1===0)break;if(v0===void 0){v0=null;break}e[0](v0)}return {"foo":"bar","zoo":v0,}}`,
   )
 })
 
@@ -124,11 +124,11 @@ test("Tuple with embeded transformed schema", t => {
   )
   t->Assert.is(
     schema->U.getCompiledCodeString(~op=#Encode),
-    `i=>{let v0=i["0"];if(v0===void 0){v0=null}else if(!(typeof v0==="string")){e[0](v0)}return [v0,void 0,"bar",]}`,
+    `i=>{let v0=i["0"];for(;;){if(typeof v0==="string")break;if(v0===void 0){v0=null;break}e[0](v0)}return [v0,void 0,"bar",]}`,
   )
   t->Assert.is(
     tupleSchema->U.getCompiledCodeString(~op=#Encode),
-    `i=>{let v0=i["0"];if(v0===void 0){v0=null}else if(!(typeof v0==="string")){e[0](v0)}return [v0,void 0,"bar",]}`,
+    `i=>{let v0=i["0"];for(;;){if(typeof v0==="string")break;if(v0===void 0){v0=null;break}e[0](v0)}return [v0,void 0,"bar",]}`,
   )
 })
 
@@ -192,7 +192,7 @@ test("Example", t => {
 })
 
 test(
-  "Strict object schema should also check that object is not Array. Otherwise it will incorrectly return array input",
+  "Object schema rejects an array in every mode, even when its index-like keys would all match",
   t => {
     let schema = S.schema(s =>
       {
@@ -201,7 +201,10 @@ test(
       }
     )
 
-    t->Assert.deepEqual(%raw(`["foo", true]`)->S.parseOrThrow(~to=schema), {"0": "foo", "1": true})
+    t->U.assertThrowsMessage(
+      () => %raw(`["foo", true]`)->S.parseOrThrow(~to=schema),
+      `Expected { 0: string; 1: boolean; }, received ["foo", true]`,
+    )
 
     t->U.assertThrowsMessage(
       () => %raw(`["foo", true]`)->S.parseOrThrow(~to=schema->S.strict),
@@ -246,7 +249,7 @@ test("Object schema with empty object field", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i||e[1](i);let v0=i["foo"];typeof v0==="object"&&v0||e[0](v0);return {"foo":{},}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);let v0=i["foo"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[0](v0);return {"foo":{},}}`,
   )
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#Encode)
 })
@@ -266,7 +269,7 @@ test("Object schema with nested object field containing only literal", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i||e[2](i);let v0=i["foo"];typeof v0==="object"&&v0||e[1](v0);let v1=v0["bar"];v1==="baz"||e[0](v1);return {"foo":{"bar":v1,},}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["foo"];typeof v0==="object"&&v0&&!Array.isArray(v0)||e[1](v0);let v1=v0["bar"];v1==="baz"||e[0](v1);return {"foo":{"bar":v1,},}}`,
   )
   t->U.assertCompiledCodeIsNoop(~schema, ~op=#Encode)
 })
@@ -287,6 +290,6 @@ test("https://github.com/DZakh/sury/issues/131", t => {
   t->U.assertCompiledCode(
     ~schema=testSchema,
     ~op=#Parse,
-    `i=>{typeof i==="object"&&i||e[2](i);let v0=i["foobar"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];if(!(typeof v2==="string"||v2===void 0)){e[0](v2)}}catch(v3){v3.path="[\\"foobar\\"]"+\'["\'+v1+\'"]\'+v3.path;throw v3}}return {"foobar":v0,}}`,
+    `i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=i["foobar"];Array.isArray(v0)||e[1](v0);for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];(typeof v2==="string"||v2===void 0)||e[0](v2);}catch(v3){v3.path="[\\"foobar\\"]"+\'["\'+v1+\'"]\'+v3.path;throw v3}}return {"foobar":v0,}}`,
   )
 })

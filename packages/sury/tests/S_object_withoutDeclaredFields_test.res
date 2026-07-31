@@ -41,8 +41,11 @@ test("Successfully serializes transformed value to empty object", t => {
   t->Assert.deepEqual(transformedValue->S.decodeOrThrow(~from=schema, ~to=S.unknown), %raw("{}"))
 })
 
-test("Allows to pass array to object value", t => {
+test("Rejects an array passed to an object schema with no declared fields", t => {
   let schema = S.object(_ => ())
 
-  t->Assert.deepEqual(%raw(`[]`)->S.parseOrThrow(~to=schema), ())
+  t->U.assertThrowsMessage(
+    () => %raw(`[]`)->S.parseOrThrow(~to=schema),
+    `Expected {}, received []`,
+  )
 })

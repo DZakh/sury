@@ -20,6 +20,9 @@ export type DialectResult = {
   assertions: number;
   passed: number;
   failed: number;
+  // Split of `failed` by direction — see the push sites below.
+  falseAccept: number;
+  falseReject: number;
   errored: number;
   // `S.is` score over the same corpus. Tracked alongside the canonical parse
   // score because the two disagreeing is always a Sury bug, never a JSON
@@ -27,6 +30,7 @@ export type DialectResult = {
   assertPassed: number;
   files: FileResult[];
   failing: string[];
+  falseAccepting: string[];
   erroredCases: string[];
   divergent: string[];
 };
@@ -81,10 +85,13 @@ export const runDialect = (
     assertions: 0,
     passed: 0,
     failed: 0,
+    falseAccept: 0,
+    falseReject: 0,
     errored: 0,
     assertPassed: 0,
     files: [],
     failing: [],
+    falseAccepting: [],
     erroredCases: [],
     divergent: [],
   };
@@ -120,6 +127,16 @@ export const runDialect = (
           fileResult.passed++;
         } else {
           result.failed++;
+          // Direction matters more than the count. Accepting data the suite
+          // calls invalid is a validator saying yes to bad input; rejecting
+          // valid data is merely inconvenient. A net-positive total once hid a
+          // whole keyword flipping from the second kind to the first.
+          if (parseValid) {
+            result.falseAccept++;
+            result.falseAccepting.push(testId(file, testCase, test));
+          } else {
+            result.falseReject++;
+          }
           result.failing.push(testId(file, testCase, test));
         }
         if (assertValid === test.valid) result.assertPassed++;
@@ -143,6 +160,8 @@ export type Golden = {
     assertions: number;
     passed: number;
     failed: number;
+    falseAccept: number;
+    falseReject: number;
     errored: number;
     rate: string;
     assertOpPassed: number;
@@ -153,6 +172,8 @@ export type Golden = {
     divergent: number;
   };
   erroredCases: string[];
+  // Listed, not just counted: this is the bucket that must never grow silently.
+  falseAccepting: string[];
   failing: string[];
 };
 
@@ -164,6 +185,8 @@ export const toGolden = (result: DialectResult, suiteCommit: string): Golden => 
     assertions: result.assertions,
     passed: result.passed,
     failed: result.failed,
+    falseAccept: result.falseAccept,
+    falseReject: result.falseReject,
     errored: result.errored,
     rate: rate(result.passed, result.assertions),
     assertOpPassed: result.assertPassed,
@@ -171,6 +194,7 @@ export const toGolden = (result: DialectResult, suiteCommit: string): Golden => 
     divergent: result.divergent.length,
   },
   erroredCases: result.erroredCases,
+  falseAccepting: result.falseAccepting,
   failing: result.failing,
 });
 

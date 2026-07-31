@@ -1,18 +1,55 @@
-import { B_addObjectField, B_mergeObjectFields, B_scope, B_invalidOperation, B_markOutput, B_merge, B_nextConst, Builder, _notVarAtParent } from "./builder";
-import { Literal_parse, literalDecoder, unit } from "./primitives";
-import { Option_getOr, TupleCtx } from "./operations";
-import { arrayDecoder, completeObjectVal, makeObjectVal, objectDecoder, optionFactory, unionFactory, valGet } from "./composites";
-import { getOutputSchema, parse, reverse } from "./parse";
-import { baseSchema, copySchema, globalConfig, panic, updateOutput } from "./schema";
-import { Internal, U, Val, immutableEmptyArray, isLiteral, isSchemaObject, itemSymbol, toExpression } from "./types";
-import { Path, inlinedValueFromString, pathConcat, pathEmpty, pathFromInlinedLocation } from "./path";
-import { arrayTag, instanceTag, objectTag } from "./tags";
-
 // The factory functions below (`schemaShape`, `schemaNested`, `schemaObject`,
 // `schemaTuple`, `schemaDefiner`, `schemaFactory`) are standalone top-level
 // functions rather than object methods — several are mutually recursive,
 // which is awkward to express inside an object literal — with
 // `schema`-prefixed names to avoid colliding with other sections.
+
+import {
+  arrayTag,
+  baseSchema,
+  type Builder,
+  copySchema,
+  globalConfig,
+  immutableEmptyArray,
+  inlinedValueFromString,
+  instanceTag,
+  type Internal,
+  isLiteral,
+  isSchemaObject,
+  itemSymbol,
+  objectTag,
+  panic,
+  type Path,
+  pathConcat,
+  pathEmpty,
+  pathFromInlinedLocation,
+  toExpression,
+  U,
+  updateOutput,
+  type Val,
+} from "./base";
+import {
+  _notVarAtParent,
+  B_addObjectField,
+  B_invalidOperation,
+  B_markOutput,
+  B_merge,
+  B_mergeObjectFields,
+  B_nextConst,
+  B_scope,
+} from "./builder";
+import {
+  arrayDecoder,
+  completeObjectVal,
+  makeObjectVal,
+  objectDecoder,
+  optionFactory,
+  valGet,
+} from "./composites";
+import { Option_getOr, type TupleCtx } from "./modifiers";
+import { getOutputSchema, parse, reverse } from "./parse";
+import { Literal_parse, literalDecoder, unit } from "./primitives";
+import { unionFactory } from "./union";
 
 type ShapedSerializerAcc = {
   val?: Val;
@@ -84,6 +121,7 @@ const proxifyShapedSchema = (schema: Internal, from: string[], fromFlattened?: n
   } as ProxyHandler<object>);
 }
 
+// @__NO_SIDE_EFFECTS__
 export const schemaShape = <Value>(schema: Internal, definer: (value: unknown) => unknown): Value => {
   return updateOutput<Value>(schema, (mut) => {
     const fromProxy = proxifyShapedSchema(mut, inputFrom);
@@ -177,6 +215,7 @@ function schemaNested(this: AdvancedObjectCtx & Record<string, unknown>, fieldNa
   }
 }
 
+// @__NO_SIDE_EFFECTS__
 export const schemaObject = (
   definer: ((ctx: AdvancedObjectCtx) => unknown) | Record<string, unknown>
 ): Internal => {
@@ -246,6 +285,7 @@ export const schemaObject = (
   return mut;
 }
 
+// @__NO_SIDE_EFFECTS__
 export const schemaTuple = (
   definer: ((ctx: TupleCtx) => unknown) | unknown[]
 ): Internal => {
@@ -634,6 +674,7 @@ const traverseDefinition = (
 const schemaCtx: SchemaCtx = {
   m: (schema) => schema,
 };
+// @__NO_SIDE_EFFECTS__
 export const schemaDefiner = (definer: (ctx: unknown) => unknown): Internal => {
   return definitionToSchema(definer(schemaCtx));
 }
@@ -641,12 +682,14 @@ export const schemaDefiner = (definer: (ctx: unknown) => unknown): Internal => {
 // Identifier alias (not a `schemaDefiner` property read) so esbuild can
 // tree-shake: a property-read initializer is treated as possibly
 // side-effectful and would retain the whole schema machinery in every bundle.
+// @__NO_SIDE_EFFECTS__
 export const schemaFactory = (definition: unknown): Internal => {
   return definitionToSchema(definition);
 }
 
 // PORT-NOTE: `enum` is a reserved word in TS — defined as `enum_` and
 // re-exported under the name `enum` (legal as an export alias).
+// @__NO_SIDE_EFFECTS__
 const enum_ = (values: unknown[]): Internal => {
   return unionFactory(values.map(schemaFactory));
 }

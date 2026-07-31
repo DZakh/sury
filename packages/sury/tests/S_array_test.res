@@ -71,7 +71,7 @@ module CommonWithNested = {
     t->U.assertCompiledCode(
       ~schema,
       ~op=#Encode,
-      `i=>{let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];if(v1===void 0){v1=null}else if(!(typeof v1==="string")){e[0](v1)}v3[v0]=v1}catch(v2){v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2}}return v3}`,
+      `i=>{let v3=new Array(i.length);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];for(;;){if(typeof v1==="string")break;if(v1===void 0){v1=null;break}e[0](v1)}v3[v0]=v1}catch(v2){v2.path=\'["\'+v0+\'"]\'+v2.path;throw v2}}return v3}`,
     )
   })
 

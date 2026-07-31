@@ -477,20 +477,14 @@ module Union = {
   //   ])->Promise.thenResolve(_ => ())
   // })
 
-  test("[Union] Passes with Parse operation. Async item should fail", t => {
+  test("[Union] Sync Parse operation with an async item is rejected at creation", t => {
     let schema = S.union([S.literal(2)->validAsyncRefine, S.literal(2), S.literal(3)])
 
-    t->Assert.deepEqual(
-      2->S.parseOrThrow(~to=schema),
-      2,
-      ~message="I'm not sure whether this is correct logic, but it's what we have now",
-    )
+    // An async member can't be dropped from the dispatch to make a sync parser
+    // work — the operation itself is the problem, so it's raised once.
     t->U.assertThrowsMessage(
-      () => {
-        4->S.parseOrThrow(~to=schema)
-      },
-      "Expected 2 | 2 | 3, received 4
-- Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead",
+      () => 2->S.parseOrThrow(~to=schema),
+      "Encountered unexpected async transform or refine. Use parseAsyncOrThrow operation instead",
     )
   })
 

@@ -134,7 +134,8 @@ if (cmd === "report") {
   console.log(
     `  parse  ${result.passed}/${result.assertions} (${rate(result.passed, result.assertions)})` +
       `   is  ${result.assertPassed}/${result.assertions} (${rate(result.assertPassed, result.assertions)})` +
-      `   errored ${result.errored}   divergent ${result.divergent.length}\n`
+      `   errored ${result.errored}   divergent ${result.divergent.length}\n` +
+      `  accepts-invalid ${result.falseAccept}   rejects-valid ${result.falseReject}\n`
   );
 
   const worst = [...result.files].sort(
@@ -177,6 +178,9 @@ for (const dialect of targets) {
     sections.push(`    suite pinned at ${current.suite}, golden recorded ${golden.suite}`);
 
   for (const [label, before, after] of [
+    // `falseAccepting` first: a regression here means the validator started
+    // saying yes to data the suite calls invalid.
+    ["accepting invalid data", golden.falseAccepting, current.falseAccepting],
     ["failing", golden.failing, current.failing],
     ["errored", golden.erroredCases, current.erroredCases],
   ] as const) {
@@ -211,6 +215,13 @@ for (const dialect of targets) {
   console.error(
     `    ${golden.summary.passed}/${golden.summary.assertions} (${golden.summary.rate})` +
       ` → ${current.summary.passed}/${current.summary.assertions} (${current.summary.rate})`
+  );
+  // A net-positive pass count can still hide a keyword flipping from
+  // "rejects valid data" to "accepts invalid data", so report the split.
+  console.error(
+    `    accepts-invalid ${golden.summary.falseAccept} → ${current.summary.falseAccept}` +
+      `   rejects-valid ${golden.summary.falseReject} → ${current.summary.falseReject}` +
+      `   errored ${golden.summary.errored} → ${current.summary.errored}`
   );
   console.error(sections.join("\n"));
 }

@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.object({ selector: S.optional(S.union([S.literal("*"), S.string, S.array(S.string)])) }).with(S.to, S.json)'
+  input: "{ selector?: string | string[] | undefined; }"
+  output: JSON
+  instantiations: 8089
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "object", properties: { selector: { anyOf: [{ type: "string", const: "*" }, { type: "string" }, { items: { type: "string" }, type: "array" }] } } }'
+  output: '{ type: "object", properties: { selector: { anyOf: [{ type: "string" }, { items: { type: "string" }, type: "array" }] } }, additionalProperties: false }'
+operations:
+  # FIXME: parse emits the union check twice — once validating the source field,
+  # once re-validating on the identity conversion to JSON.
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[4](i);let v0=i["selector"];for(;;){if(typeof v0==="string")break;if(Array.isArray(v0)){for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path="[\"selector\"]"+'["'+v1+'"]'+v3.path;throw v3}};break}if(v0===void 0)break;e[1](v0)}for(;;){if(typeof v0==="string")break;if(Array.isArray(v0)){for(let v4=0;v4<v0.length;++v4){try{let v5=v0[v4];typeof v5==="string"||e[2](v5);}catch(v6){v6.path="[\"selector\"]"+'["'+v4+'"]'+v6.path;throw v6}};break}if(v0===void 0)break;e[3](v0)}let v7={};if(v0!==void 0){v7["selector"]=v0}return v7}
+    examples:
+      leading-literal:
+        input: '{ selector: "*" }'
+        output: '{ selector: "*" }'
+      string-member:
+        input: '{ selector: "a" }'
+        output: '{ selector: "a" }'
+      array-member:
+        input: '{ selector: ["a", "b"] }'
+        output: '{ selector: ["a", "b"] }'
+      absent:
+        input: "{}"
+        output: "{}"
+      explicit-undefined:
+        input: "{ selector: undefined }"
+        output: "{}"
+      wrong-type:
+        input: "{ selector: 1 }"
+        error: 'Failed at ["selector"]: Expected "*" | string | string[] | undefined, received 1'
+      wrong-array-element:
+        input: "{ selector: [1] }"
+        error: 'Failed at ["selector"]["0"]: Expected string, received 1'
+  decode:
+    expression: i=>{let v0=i["selector"];for(;;){if(typeof v0==="string")break;if(Array.isArray(v0)){for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path="[\"selector\"]"+'["'+v1+'"]'+v3.path;throw v3}};break}if(v0===void 0)break;e[1](v0)}let v4={};if(v0!==void 0){v4["selector"]=v0}return v4}
+    examples:
+      leading-literal:
+        input: '{ selector: "*" }'
+        output: '{ selector: "*" }'
+      string-member:
+        input: '{ selector: "a" }'
+        output: '{ selector: "a" }'
+      array-member:
+        input: '{ selector: ["a", "b"] }'
+        output: '{ selector: ["a", "b"] }'
+      absent:
+        input: "{}"
+        output: "{}"
+      wrong-type:
+        input: "{ selector: 1 }"
+        error: 'Failed at ["selector"]: Expected "*" | string | string[] | undefined, received 1'
+  encode:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[2](i);let v0=(i["selector"]??null);for(;;){if(typeof v0==="string")break;if(Array.isArray(v0)){for(let v1=0;v1<v0.length;++v1){try{let v2=v0[v1];typeof v2==="string"||e[0](v2);}catch(v3){v3.path="[\"selector\"]"+'["'+v1+'"]'+v3.path;throw v3}};break}if(v0===null){v0=void 0;break}e[1](v0)}return {"selector":v0,}}
+    examples:
+      leading-literal:
+        input: '{ selector: "*" }'
+        output: '{ selector: "*" }'
+      string-member:
+        input: '{ selector: "a" }'
+        output: '{ selector: "a" }'
+      array-member:
+        input: '{ selector: ["a", "b"] }'
+        output: '{ selector: ["a", "b"] }'
+      absent:
+        input: "{}"
+        output: "{ selector: undefined }"
+      "null":
+        input: "{ selector: null }"
+        output: "{ selector: undefined }"
+      wrong-type:
+        input: "{ selector: 1 }"
+        error: 'Failed at ["selector"]: Expected "*" | string | string[] | undefined, received 1'

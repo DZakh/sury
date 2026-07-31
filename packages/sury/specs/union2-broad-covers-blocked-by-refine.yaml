@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.union([S.string.with(S.min, 3), S.string])
+  input: string
+  output: string
+  instantiations: 5702
+vs:
+  zod: z.union([z.string().min(3), z.string()])
+jsonSchema:
+  input: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "string" }] }'
+  output: '{ anyOf: [{ type: "string", minLength: 3 }, { type: "string" }] }'
+operations:
+  parse:
+    expression: i=>{if(typeof i==="string"){for(;;){let r;try{i.length>2||e[0](i);break}catch(x){(r||(r=[])).push(e[1](x))}break;}}else{e[2](i)}return i}
+    examples:
+      refined-member:
+        input: '"long"'
+        output: '"long"'
+      broad-member:
+        input: '"no"'
+        output: '"no"'
+      wrong-tag:
+        input: "42"
+        error: Expected string | string, received 42
+  decode: identity
+  encode: identity

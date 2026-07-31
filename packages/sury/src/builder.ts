@@ -1,8 +1,40 @@
-import { SuryError, unknown } from "./schema";
-import { BGlobal, Check, ErrorDetails, Internal, InvalidInputDetails, SuryErrorRecord, U, Val, immutableEmptyArray, s, shouldPrependPathKey, stringify, toExpression } from "./types";
-import { Flag, flagAsync, flagNone, flagUnsafeHas, valFlagAsync, valFlagNone } from "./flags";
-import { Path, inlinedValueFromString, pathConcat, pathEmpty, pathFromInlinedLocation } from "./path";
-import { arrayTag, tagFlagBigint, tagFlagFunction, tagFlagInstance, tagFlagString, tagFlagSymbol, tagFlagUndefined, tagFlags } from "./tags";
+import {
+  arrayTag,
+  type BGlobal,
+  type Check,
+  type ErrorDetails,
+  type Flag,
+  flagAsync,
+  flagNone,
+  flagUnionTransformContext,
+  flagUnsafeHas,
+  immutableEmptyArray,
+  inlinedValueFromString,
+  type Internal,
+  type InvalidInputDetails,
+  type Path,
+  pathConcat,
+  pathEmpty,
+  pathFromInlinedLocation,
+  s,
+  shouldPrependPathKey,
+  stringify,
+  SuryError,
+  type SuryErrorRecord,
+  tagFlagBigint,
+  tagFlagFunction,
+  tagFlagInstance,
+  tagFlags,
+  tagFlagString,
+  tagFlagSymbol,
+  tagFlagUndefined,
+  toExpression,
+  U,
+  unknown,
+  type Val,
+  valFlagAsync,
+  valFlagNone,
+} from "./base";
 
 export type Builder = (input: Val) => Val;
 export type Encoder = (input: Val, target: Internal) => Val;
@@ -124,10 +156,17 @@ export const failInvalidType = (input: Val): (value: unknown) => ErrorDetails =>
   return B_invalidInputBuilder(U, U, override)(input);
 }
 
+// Bumps the raise counter: an embedded value is reached through `e[N]`, and
+// anything callable behind that accessor may raise — a fail helper, a user
+// transform, `S.json`'s validator. Counting every embed over-reports for the
+// inert ones (a symbol literal compared with `===`), which is the safe
+// direction: union codegen wraps a case in a `try` it turns out not to need,
+// rather than dropping the fallback a raise needed.
 export const B_embed = (b: Val, value: unknown): string => {
   const e = b.g.e;
   const l = e.length;
   e[l] = value;
+  b.g.t++;
   return `e[${l}]`;
 }
 
@@ -204,6 +243,7 @@ export const B_operationArg = (
       o: flag,
       e: [],
       v: -1,
+      t: 0,
     },
     o: U,
   };
@@ -230,6 +270,16 @@ export const B_failWithArg = <Arg>(b: Val, fn: (arg: Arg) => ErrorDetails, arg: 
     B_throw(fn(arg));
   })}(${arg})`;
 }
+
+// Record a raise that reaches generated code without an embed behind it — the
+// bare `throw` a loop wrapper re-raises a nested error with. Union codegen
+// decides whether a case needs a `try` by bracketing an emission and reading
+// `g.t`, so a raise counted by neither this nor `B_embed` is a case that
+// silently loses its fallback.
+export const B_markThrow = (b: Val): void => {
+  b.g.t++;
+}
+
 
 export const B_makeInvalidConversionDetails = (input: Val, to: Internal, cause: unknown): ErrorDetails => {
   if (cause && (cause as { s?: symbol }).s === s) {
@@ -398,22 +448,29 @@ const B_emitChecks = (val: Val, inputVar: string): string => {
 // transforming val is safe only when its prev is non-transforming (stable
 // input var) and it has no codeFromPrev of its own to leave behind — else
 // the lifted check runs before that producer (the str->to(option(int))
-// "v0 is not defined" bug class). Shared by `merge(~hoistCond)` and the
-// union deopt scan so they can't drift. Phase 2's {pre, cond, body}
-// dispatch will lift the producer into `pre`, collapsing this to "the
-// check is a type-narrow."
+// "v0 is not defined" bug class).
 export const B_isHoistable = (val: Val): boolean => {
   return val.t === true ? val.prev!.t !== true && val.cp === "" : true;
 }
 
-// Walks the val.prev chain and assembles generated code. When
-// `~hoistCond` is provided (union codegen), type-narrow checks
-// (fail === failInvalidType) lift into that ref as a dispatch
-// discriminant instead of being emitted; constraint refines still
-// emit inline so their case-specific error message survives. All
-// other callers pass no `~hoistCond` and get the plain merge:
-// every non-`noValidation` check is emitted inline.
-export const B_merge = (val: Val, hoistCond?: { contents: string }): string => {
+// A hoisted type-narrow kept in both forms: `c` routes the value to the next
+// union case (dispatch), and re-emitting it against `v` rejects the case from
+// inside a `try` (fallback). Only `c` and the two strings it needs are captured —
+// most cases never emit the rejecting form, so its closure and embed slot are
+// built on demand (see `unionRejectCond`).
+export type Hoist = {
+  v: Val;
+  i: string;
+  c: string;
+}
+export type HoistCond = { c: string; h: Hoist[] }
+
+// Walks the val.prev chain and assembles generated code: every
+// non-`noValidation` check is emitted inline. With `~out` (union codegen),
+// type-narrow checks (fail === failInvalidType) lift into it as a dispatch
+// discriminant instead of being emitted; constraint refines still emit inline so
+// their case-specific error message survives.
+export const B_merge = (val: Val, out?: HoistCond): string => {
   let current: Val | undefined = val;
   let code = "";
 
@@ -424,40 +481,29 @@ export const B_merge = (val: Val, hoistCond?: { contents: string }): string => {
     let currentCode = "";
 
     if (val.vc) {
-      if (hoistCond !== U && B_isHoistable(val)) {
-        // Partition: route type-narrows to hoistCond, emit refines inline.
-        // `noValidation` is intentionally bypassed for the hoisted part —
-        // the cond routes between union cases, it doesn't reject, so
-        // suppressing would break dispatch.
-        const prev = current!;
-        const inputVar = prev.v();
-        const allChecks = val.vc!;
-        let localHoist = "";
-        for (let i = 0; i < allChecks.length; i++) {
-          const check = allChecks[i]!;
+      if (out !== U && B_isHoistable(val)) {
+        const inputVar = current!.v();
+        const checks = val.vc;
+        let hoisted = "";
+        for (let i = 0; i < checks.length; i++) {
+          const check = checks[i]!;
           const condCode = check.c(inputVar);
           if (check.f === failInvalidType) {
-            if (localHoist) {
-              localHoist = `${localHoist}&&${condCode}`;
-            } else {
-              localHoist = condCode;
-            }
+            hoisted = hoisted ? `${hoisted}&&${condCode}` : condCode;
           } else if (val.e.noValidation !== true) {
+            // `noValidation` is intentionally bypassed for the hoisted part —
+            // the cond routes between cases, it doesn't reject, so suppressing
+            // it would break dispatch.
             currentCode =
               currentCode + `${condCode}||${B_failWithArg(val, check.f(val), inputVar)};`;
           }
         }
-        if (localHoist) {
-          const cond = hoistCond;
-          if (cond.contents) {
-            cond.contents = `${localHoist}&&${cond.contents}`;
-          } else {
-            cond.contents = localHoist;
-          }
+        if (hoisted) {
+          out.c = out.c ? `${hoisted}&&${out.c}` : hoisted;
+          out.h.unshift({ v: val, i: inputVar, c: hoisted });
         }
       } else if (val.e.noValidation !== true) {
-        const prev = current!;
-        currentCode = B_emitChecks(val, prev.v());
+        currentCode = B_emitChecks(val, current!.v());
       }
     }
 
@@ -569,6 +615,10 @@ export const B_pushCheck = (val: Val, check: Check): void => {
 // (emit at pre-transform slot); output checks wrap val via refine.
 // When valInput.prev is None, input checks fold into the output
 // wrap so emit has a prev.var(). Sets isOutput on the result.
+//
+// The parse loop applies refiners itself only for primitive decoders, so every
+// decoder that sets isOutput — object, array, tuple, union, recursive — has to
+// call this. Not calling it silently drops the user's S.refine.
 export const B_markOutput = (val: Val, valInput: Val): Val => {
   let deferredInputChecks: Check[] | undefined;
   const inputRefiner = valInput.e.inputRefiner;
@@ -761,6 +811,13 @@ export const B_embedTransformation = (input: Val, fn: (input: unknown) => unknow
     output.f |= valFlagAsync;
   }
   const embeddedFn = B_embed(input, fn);
+  const inputValue = input.vc ? input.v() : input.i;
+  if (input.g.o & flagUnionTransformContext) {
+    // The enclosing union owns exception classification. Wrapping a foreign
+    // exception here would make it look like a Sury mismatch.
+    output.cp = `let ${outputVar}=${embeddedFn}(${inputValue});`;
+    return output;
+  }
   const failure = `${B_failWithArg(
     output,
     (e: unknown) => B_makeInvalidConversionDetails(input, unknown, e),
@@ -769,9 +826,9 @@ export const B_embedTransformation = (input: Val, fn: (input: unknown) => unknow
   // Feed the transform the input's var when it already carries checks — it's
   // materialized into a var anyway (the check references it), so reuse it
   // instead of re-inlining the source expression (e.g. `i["x"]`) twice.
-  output.cp = `let ${outputVar};try{${outputVar}=${embeddedFn}(${
-    input.vc ? input.v() : input.i
-  })${isAsync ? `.catch(x=>${failure})` : ""}}catch(x){${failure}}`;
+  output.cp = `let ${outputVar};try{${outputVar}=${embeddedFn}(${inputValue})${
+    isAsync ? `.catch(x=>${failure})` : ""
+  }}catch(x){${failure}}`;
   return output;
 }
 
@@ -807,6 +864,7 @@ const B_mergeWithCatch = (
   } else {
     const errorVar = B_varWithoutAllocation(val.g);
 
+    B_markThrow(val);
     const catchCode = `${catchFn(errorVar)};throw ${errorVar}`;
 
     if (flagUnsafeHas(val.f, valFlagAsync)) {

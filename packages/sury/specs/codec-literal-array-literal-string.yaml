@@ -1,7 +1,5 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  # FIXME: Codec next expects: stay the same — literal-to-literal decoding is out of
-  # CODEC_NEXT_SPEC.md's scope, this collection-literal shape included.
   schema: S.schema([1, 2]).with(S.to, S.schema("done"))
   input: "[1, 2]"
   output: '"done"'

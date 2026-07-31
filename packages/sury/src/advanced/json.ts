@@ -1,14 +1,74 @@
-import { defsPath, recursiveDecoder, transform } from "./operations";
-import { array, arrayDecoder, completeObjectVal, dictFactory, makeObjectVal, unionDecoder, unionFactory, unionPerVariantVal, valGet } from "./composites";
-import { bool, float, inputToString, jsonName, literalDecoder, nullLiteral, numberDecoder, string, stringDecoderFn } from "./primitives";
-import { baseSchema, cached, copySchema, unknown, updateOutput } from "./schema";
-import { B_addObjectField, B_embed, B_embedInvalidInput, B_failWithErrorMessage, B_next, B_nextConst, B_refine, B_unsupportedDecode, B_varWithoutAllocation, _var, failInvalidType } from "./builder";
-import { getDecoder, getOutputSchema, instanceDecoder, parse, reverse } from "./parse";
-import { Internal, SchemaErrorMessage, U, Val, isLiteral } from "./types";
-import { Builder, Encoder } from "./builder";
-import { flagUnsafeHas } from "./flags";
-import { inlinedValueFromString } from "./path";
-import { Tag, arrayTag, instanceTag, numberTag, refTag, stringTag, tagFlagArray, tagFlagBigint, tagFlagBoolean, tagFlagInstance, tagFlagNaN, tagFlagNull, tagFlagNumber, tagFlagObject, tagFlagRef, tagFlagString, tagFlagUndefined, tagFlagUnion, tagFlagUnknown, tagFlags, undefinedTag, unionTag, unknownTag } from "./tags";
+// `S.json` and its string form. A recursive union of the JSON types, plus the
+// encoder/decoder that represent an arbitrary schema as JSON — the only schema
+// that rewrites another schema's shape rather than just validating it.
+
+import {
+  anyOfTag,
+  arrayTag,
+  baseSchema,
+  type Builder,
+  cached,
+  copySchema,
+  defsPath,
+  type Encoder,
+  flagUnsafeHas,
+  inlinedValueFromString,
+  type Internal,
+  isLiteral,
+  jsonName,
+  refTag,
+  stringTag,
+  type Tag,
+  tagFlagArray,
+  tagFlagBigint,
+  tagFlagBoolean,
+  tagFlagNaN,
+  tagFlagNull,
+  tagFlagNumber,
+  tagFlagObject,
+  tagFlagRef,
+  tagFlags,
+  tagFlagString,
+  tagFlagUndefined,
+  tagFlagUnion,
+  tagFlagUnknown,
+  U,
+  undefinedTag,
+  unknown,
+  unknownTag,
+  updateOutput,
+  type Val,
+} from "../base";
+import {
+  _var,
+  B_addObjectField,
+  B_embedInvalidInput,
+  B_next,
+  B_nextConst,
+  B_refine,
+  B_unsupportedDecode,
+  B_varWithoutAllocation,
+} from "../builder";
+import {
+  array,
+  arrayDecoder,
+  completeObjectVal,
+  dictFactory,
+  makeObjectVal,
+  valGet,
+} from "../composites";
+import { getOutputSchema, parse } from "../parse";
+import {
+  bool,
+  float,
+  inputToString,
+  literalDecoder,
+  nullLiteral,
+  string,
+  stringDecoderFn,
+} from "../primitives";
+import { unionDecoder, unionFactory, unionRewriteTo } from "../union";
+import { recursiveDecoder } from "./recursive";
 
 export const jsonEncoderFn = (input: Val, target: Internal): Val => {
   const toTagFlag = tagFlags[target.type]!;
@@ -106,12 +166,12 @@ export const jsonDecoderFn = (input: Val): Val => {
         const itemVal = valGet(input, key);
         itemVal.io = false;
 
-        if (itemVal.s.type === unionTag && itemVal.s.has![undefinedTag]) {
+        if (itemVal.s.type === anyOfTag && itemVal.s.has![undefinedTag]) {
           // Per-variant conversion instead of a generic `undefined | JSON`
           // check: an undefined variant stays undefined so the object
           // rebuild omits the field, while non-jsonable variants get
           // `.to(json)` appended and keep converting recursively (#311)
-          itemVal.e = unionFactory(
+          const mapped = unionFactory(
             itemVal.s.anyOf!.map((variant) => {
               const variantOutput = getOutputSchema(variant);
               return variantOutput.type === undefinedTag || isJsonable(variantOutput)
@@ -121,6 +181,10 @@ export const jsonDecoderFn = (input: Val): Val => {
                   });
             })
           );
+          // Already resolved variant by variant, so the union encoder pairs them
+          // by position instead of re-matching them by type.
+          mapped.perVariant = true;
+          itemVal.e = mapped;
           const itemOutput = parse(itemVal);
           itemOutput.o = true;
           B_addObjectField(jsonVal, key, itemOutput);
@@ -144,7 +208,7 @@ export const jsonDecoderFn = (input: Val): Val => {
     !(undefinedTag in input.s.has!)
   ) {
     // Decode each union variant to JSON separately
-    return parse(unionPerVariantVal(input, input.e));
+    return parse(unionRewriteTo(input, input.e));
   } else if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
     const to = input.e.to!;
     // Whether we can optimize encoding during decoding
@@ -199,12 +263,12 @@ export const json = (): Internal => {
       has[schema.type] = true;
     });
 
-    const jsonDef = baseSchema(unionTag, true);
+    const jsonDef = baseSchema(anyOfTag, true);
     jsonDef.anyOf = anyOf;
     jsonDef.has = has;
     jsonDef.decoder = unionDecoder;
     jsonDef.name = jsonName;
-    jsonDef.type = unionTag;
+    jsonDef.type = anyOfTag;
 
     const defs: Record<string, Internal> = {};
     defs[jsonName] = jsonDef;
@@ -338,279 +402,9 @@ export const jsonString = /* @__PURE__ */ (() => {
     });
 })();
 
+// @__NO_SIDE_EFFECTS__
 export const jsonStringWithSpace = (space: number): Internal => {
   const mut = copySchema(jsonString());
   mut.space = space;
-  return mut;
-}
-
-export const uint8Array = (): Internal => {
-  return cached("u", instanceTag, (s) => {
-    s.class = Uint8Array;
-    s.decoder = (inputArg: Val): Val => {
-      const inputTagFlag = tagFlags[inputArg.s.type]!;
-      let input = inputArg;
-
-      if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
-        input = B_next(
-          input,
-          `${B_embed(input, new TextEncoder())}.encode(${input.i})`,
-          s,
-        );
-      } else if (flagUnsafeHas(inputTagFlag, (tagFlagUnknown | tagFlagInstance))) {
-        input = instanceDecoder(input);
-      }
-
-      if (inputArg.e.to !== U && inputArg.e.parser === U) {
-        const to = inputArg.e.to;
-        const toTagFlag = tagFlags[to.type]!;
-        if (flagUnsafeHas(toTagFlag, tagFlagString)) {
-          input = B_next(
-            input,
-            `${B_embed(input, new TextDecoder())}.decode(${input.i})`,
-            string(),
-          );
-        }
-        return input;
-      } else {
-        return input;
-      }
-    };
-  });
-}
-
-export const isoDateTime = (): Internal => {
-  return cached("date-time", stringTag, (s) => {
-    const datetimeRe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
-    s.decoder = stringDecoderFn;
-    s.format = "date-time";
-    s.refiner = (input) => {
-      return [
-        {
-          c: (inputVar) => `${B_embed(input, datetimeRe)}.test(${inputVar})`,
-          f: B_failWithErrorMessage(
-            "format",
-            "Invalid datetime string! Expected UTC",
-          ),
-        },
-      ];
-    };
-  });
-}
-
-export const port = (): Internal => {
-  return cached("port", numberTag, (s) => {
-    s.decoder = numberDecoder;
-    s.format = "port";
-    s.refiner = (_input) => {
-      return [
-        {
-          c: (inputVar) => `${inputVar}>0&&${inputVar}<65536&&${inputVar}%1===0`,
-          f: B_failWithErrorMessage("format"),
-        },
-      ];
-    };
-  });
-}
-
-export const email = (): Internal => {
-  return cached("email", stringTag, (s) => {
-    const emailRegex = /^(?!\.)(?!.*\.\.)([A-Z0-9_'+\-\.]*)[A-Z0-9_+-]@([A-Z0-9][A-Z0-9\-]*\.)+[A-Z]{2,}$/i;
-    s.decoder = stringDecoderFn;
-    s.format = "email";
-    s.refiner = (input) => {
-      return [
-        {
-          c: (inputVar) => `${B_embed(input, emailRegex)}.test(${inputVar})`,
-          f: B_failWithErrorMessage("format"),
-        },
-      ];
-    };
-  });
-}
-
-export const uuid = (): Internal => {
-  return cached("uuid", stringTag, (s) => {
-    const uuidRegex = /^[0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12}$/i;
-    s.decoder = stringDecoderFn;
-    s.format = "uuid";
-    s.refiner = (input) => {
-      return [
-        {
-          c: (inputVar) => `${B_embed(input, uuidRegex)}.test(${inputVar})`,
-          f: B_failWithErrorMessage("format"),
-        },
-      ];
-    };
-  });
-}
-
-export const cuid = (): Internal => {
-  return cached("cuid", stringTag, (s) => {
-    const cuidRegex = /^c[^\s-]{8,}$/i;
-    s.decoder = stringDecoderFn;
-    s.format = "cuid";
-    s.refiner = (input) => {
-      return [
-        {
-          c: (inputVar) => `${B_embed(input, cuidRegex)}.test(${inputVar})`,
-          f: B_failWithErrorMessage("format"),
-        },
-      ];
-    };
-  });
-}
-
-export const url = (): Internal => {
-  return cached("url", stringTag, (s) => {
-    const urlValidator = (s: string) => {
-      try {
-        new URL(s);
-        return true;
-      } catch {
-        return false;
-      }
-    };
-    s.decoder = stringDecoderFn;
-    s.format = "url";
-    s.refiner = (input) => {
-      return [
-        {
-          c: (inputVar) => `${B_embed(input, urlValidator)}(${inputVar})`,
-          f: B_failWithErrorMessage("format"),
-        },
-      ];
-    };
-  });
-}
-
-export const invalidDateRefine = (input: Val): Val => {
-  return B_refine(input, input.e, [
-    {
-      c: (inputVar) => `!Number.isNaN(${inputVar}.getTime())`,
-      f: failInvalidType,
-    },
-  ]);
-}
-
-export const date = (): Internal => {
-  return cached(instanceTag, instanceTag, (s) => {
-    s.class = Date;
-    s.decoder = (input: Val): Val => {
-      const inputTagFlag = tagFlags[input.s.type]!;
-      if (flagUnsafeHas(inputTagFlag, tagFlagString)) {
-        return invalidDateRefine(B_next(input, `new Date(${input.i})`, s));
-      } else if (flagUnsafeHas(inputTagFlag, tagFlagUnknown)) {
-        return invalidDateRefine(instanceDecoder(input));
-      } else if (flagUnsafeHas(inputTagFlag, tagFlagInstance) && input.s.class === s.class) {
-        return input;
-      } else {
-        return B_unsupportedDecode(input, input.s, input.e);
-      }
-    };
-
-    // Encoder: Date → string (via toISOString) when target is string
-    s.encoder = (input, target) => {
-      const toTagFlag = tagFlags[target.type]!;
-      if (flagUnsafeHas(toTagFlag, tagFlagString)) {
-        const dateTimeString = baseSchema(stringTag, false);
-        dateTimeString.format = "date-time";
-        return parse(
-          B_next(input, `${input.i}.toISOString()`, dateTimeString, target),
-        );
-      } else {
-        return input;
-      }
-    };
-  });
-}
-
-// PORT-NOTE: ReScript list runtime (v12): empty list = `0`, cons cell =
-// `{hd, tl}`. These two helpers replicate Stdlib List.fromArray / List.toArray
-// exactly for that representation.
-type RescriptList = 0 | { hd: unknown; tl: RescriptList };
-
-const listFromArray = (array: unknown[]): RescriptList => {
-  let list: RescriptList = 0;
-  for (let i = array.length - 1; i >= 0; i--) {
-    list = { hd: array[i], tl: list };
-  }
-  return list;
-}
-
-const listToArray = (list: RescriptList): unknown[] => {
-  const array: unknown[] = [];
-  let current = list;
-  while (current !== 0) {
-    array.push(current.hd);
-    current = current.tl;
-  }
-  return array;
-}
-
-export const list = (schema: Internal): Internal => {
-  return transform(array(schema), (_: unknown) => ({
-    p: (array: unknown) => listFromArray(array as unknown[]),
-    s: (list: unknown) => listToArray(list as RescriptList),
-  }));
-}
-
-export type Meta<Value> = {
-  name?: string;
-  title?: string;
-  description?: string;
-  deprecated?: boolean;
-  examples?: Value[];
-  errorMessage?: SchemaErrorMessage;
-};
-
-// TODO: Better test reverse
-export const meta = <Value>(schema: Internal, data: Meta<Value>): Internal => {
-  const mut = copySchema(schema);
-  if (data.name !== U) {
-    if (data.name === "") {
-      mut.name = U;
-    } else {
-      mut.name = data.name;
-    }
-  }
-  if (data.title !== U) {
-    if (data.title === "") {
-      mut.title = U;
-    } else {
-      mut.title = data.title;
-    }
-  }
-  if (data.description !== U) {
-    if (data.description === "") {
-      mut.description = U;
-    } else {
-      mut.description = data.description;
-    }
-  }
-  if (data.deprecated !== U) {
-    mut.deprecated = data.deprecated;
-  }
-  if (data.examples !== U) {
-    if (data.examples.length === 0) {
-      delete mut.examples;
-    } else {
-      mut.examples = data.examples.map(getDecoder(reverse(schema)));
-    }
-  }
-  if (data.errorMessage !== U) {
-    const em = data.errorMessage;
-    if (Object.keys(em).length === 0) {
-      mut.errorMessage = U;
-    } else {
-      mut.errorMessage = em;
-    }
-  }
-  return mut;
-}
-
-export const brand = (schema: Internal, id: string): Internal => {
-  const mut = copySchema(schema);
-  mut.name = id;
   return mut;
 }

@@ -198,7 +198,7 @@ test("Reverse converts nullableAsOption string-to-date schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);i=v0}else if(i===null){i=void 0}else if(!(i===void 0)){e[1](i)}return i}`,
+    `i=>{for(;;){if(typeof i==="string"){let v0=new Date(i);!Number.isNaN(v0.getTime())||e[0](v0);i=v0;break}if(i===void 0)break;if(i===null){i=void 0;break}e[1](i)}return i}`,
   )
 
   t->Assert.deepEqual(
@@ -209,7 +209,7 @@ test("Reverse converts nullableAsOption string-to-date schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(i instanceof e[0]){i=i.toISOString()}else if(!(i===void 0)){e[1](i)}return i}`,
+    `i=>{for(;;){if(i instanceof e[0]){i=i.toISOString();break}if(i===void 0)break;e[1](i)}return i}`,
   )
 })
 
@@ -225,7 +225,7 @@ test("Reverse converts nullable string-to-date schema", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{if(i instanceof e[0]){i=i.toISOString()}else if(!(i===void 0||i===null)){e[1](i)}return i}`,
+    `i=>{for(;;){if(i instanceof e[0]){i=i.toISOString();break}if(i===void 0)break;if(i===null)break;e[1](i)}return i}`,
   )
 })
 
@@ -273,20 +273,37 @@ test("Encodes a nullable optional Timestamp whose input is string | number (issu
   // so `@s.nullable option<Timestamp.t>` reverses to a Date variant whose `.to`
   // target is `string | number`. Encoding used to throw exactly
   // `Expected string | number, received [object Date]`.
-  let timestamp = S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])->S.to(S.date)
+  //
+  // There is no built-in number -> Date decoder, so the numeric member has to
+  // say how it converts (or that it can't) — the conversion is rejected where
+  // it's written otherwise.
+  let timestamp =
+    S.union([S.string->S.castToUnknown, S.float->S.castToUnknown])->S.to(S.date)
+  t->U.assertThrowsMessage(
+    () => "2024-01-01T00:00:00.000Z"->S.parseOrThrow(~to=S.nullableAsOption(timestamp)),
+    `Can't decode number to Date. Use S.to to define a custom decoder`,
+  )
+
+  let timestamp =
+    S.union([
+      S.string->S.castToUnknown,
+      S.float
+      ->S.transform(_ => {
+        parser: ms => Date.fromTime(ms)->Obj.magic,
+        serializer: d => (d->Obj.magic: Date.t)->Date.getTime->Obj.magic,
+      })
+      ->S.castToUnknown,
+    ])->S.to(S.date)
   let schema = S.nullableAsOption(timestamp)
   let date = Date.fromString("2024-01-01T00:00:00.000Z")
 
   t->Assert.deepEqual("2024-01-01T00:00:00.000Z"->S.parseOrThrow(~to=schema), Some(date))
   t->Assert.deepEqual(%raw(`null`)->S.parseOrThrow(~to=schema), None)
+  t->Assert.deepEqual(%raw(`1704067200000`)->S.parseOrThrow(~to=schema), Some(date))
 
   t->Assert.deepEqual(
     Some(date)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     "2024-01-01T00:00:00.000Z"->Obj.magic,
   )
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Encode,
-    `i=>{if(i instanceof e[2]){try{i=i.toISOString()}catch(e0){e[1](i,e0,e[0])}}else if(!(i===void 0)){e[3](i)}return i}`,
-  )
+  t->U.assertCompiledCode(~schema, ~op=#Encode, `i=>{for(;;){if(i instanceof e[2]){for(;;){i=i.toISOString();break;};break}if(i===void 0)break;e[3](i)}return i}`)
 })

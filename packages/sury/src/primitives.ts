@@ -1,9 +1,48 @@
-import { baseSchema, cached } from "./schema";
-import { B_embed, B_embedInvalidInput, B_inlineConst, B_next, B_nextConst, B_refine, B_unsupportedDecode, B_varWithoutAllocation, _var, failInvalidType } from "./builder";
-import { Check, Internal, U, Val, isLiteral } from "./types";
-import { Builder } from "./builder";
-import { flagDisableNanNumberValidation, flagUnsafeHas } from "./flags";
-import { Tag, bigintTag, booleanTag, instanceTag, nanTag, nullTag, numberTag, objectTag, stringTag, symbolTag, tagFlagBigint, tagFlagBoolean, tagFlagNaN, tagFlagNull, tagFlagNumber, tagFlagRef, tagFlagString, tagFlagSymbol, tagFlagUndefined, tagFlagUnion, tagFlagUnknown, tagFlags, undefinedTag, unknownTag } from "./tags";
+import {
+  baseSchema,
+  bigintTag,
+  booleanTag,
+  type Builder,
+  cached,
+  type Check,
+  flagDisableNanNumberValidation,
+  flagUnsafeHas,
+  instanceTag,
+  type Internal,
+  isLiteral,
+  nanTag,
+  nullTag,
+  numberTag,
+  objectTag,
+  stringTag,
+  symbolTag,
+  type Tag,
+  tagFlagBigint,
+  tagFlagBoolean,
+  tagFlagNaN,
+  tagFlagNull,
+  tagFlagNumber,
+  tagFlags,
+  tagFlagString,
+  tagFlagSymbol,
+  tagFlagUndefined,
+  tagFlagUnknown,
+  U,
+  undefinedTag,
+  type Val,
+} from "./base";
+import {
+  _var,
+  B_embed,
+  B_embedInvalidInput,
+  B_inlineConst,
+  B_next,
+  B_nextConst,
+  B_refine,
+  B_unsupportedDecode,
+  B_varWithoutAllocation,
+  failInvalidType,
+} from "./builder";
 
 export const int32FormatValidation = (inputVar: string) => {
   return `${inputVar}<=2147483647&&${inputVar}>=-2147483648&&${inputVar}%1===0`;
@@ -82,6 +121,12 @@ export const numberDecoder: Builder = (input: Val) => {
       },
     ];
     return output;
+  } else if (
+    flagUnsafeHas(inputTagFlag, tagFlagNaN) &&
+    input.e.format !== "int32" &&
+    flagUnsafeHas(input.g.o, flagDisableNanNumberValidation)
+  ) {
+    return B_refine(input, input.e);
   } else if (!flagUnsafeHas(inputTagFlag, tagFlagNumber)) {
     return B_unsupportedDecode(input, input.s, input.e);
   } else if (input.s.format !== input.e.format && input.e.format === "int32") {
@@ -200,12 +245,6 @@ export const symbol = () =>
   cached(symbolTag, symbolTag, (s) => {
     s.decoder = symbolDecoder;
   });
-
-export const setHas = (has: Partial<Record<Tag, boolean>>, tag: Tag): void => {
-  has[flagUnsafeHas(tagFlags[tag]!, tagFlagUnion | tagFlagRef) ? unknownTag : tag] = true;
-}
-
-export const jsonName = `JSON`;
 
 export const literalDecoder: Builder = (input: Val) => {
   const expectedSchema = input.e;

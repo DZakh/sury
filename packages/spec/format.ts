@@ -104,8 +104,10 @@ export type CreationError = S.Output<typeof operationCreationError>;
 // An operation is either a full block or a literal shorthand:
 // - `identity` — Sury's pass-through compile.
 // - `eq-to-parse` (decode/encode only) — compiles to exactly the same code as
-//   the spec's `parse` op, so the expression and examples live there.
-// - a `{creationError}` block — rejected at operation creation.
+//   the spec's `parse` op, so the expression and examples live there; or is
+//   rejected at creation with parse's exact message.
+// - a `{creationError}` block — rejected at operation creation with a message
+//   of its own.
 // harness.identityViolations enforces the shorthands both ways: an op that
 // compiles to a shorthand's meaning must use it, and the shorthand must
 // actually hold.
