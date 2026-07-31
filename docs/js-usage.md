@@ -13,6 +13,7 @@
   - [JSON Schema](#json-schema)
   - [Standard Schema](#standard-schema)
 - [Defining schemas](#defining-schemas)
+  - [Aliases](#aliases)
   - [Advanced schemas](#advanced-schemas)
 - [Strings](#strings)
   - [Custom error messages](#custom-error-messages)
@@ -253,7 +254,21 @@ S.any;
 S.never;
 ```
 
-### Advanced schemas
+### Aliases
+
+`S.schema` is the one definition-to-schema factory: whatever you pass it — a schema, a literal value, an object, an array — becomes a schema. `S.literal`, `S.object` and `S.tuple` are aliases for it. They produce exactly the same schema; they exist so the intent reads at the call site, and so TypeScript can infer a narrower type for the definition you're actually writing.
+
+```ts
+S.literal("tuna"); // same as S.schema("tuna")
+S.object({ name: S.string }); // same as S.schema({ name: S.string })
+S.tuple([S.string, S.number]); // same as S.schema([S.string, S.number])
+```
+
+`S.object` and `S.tuple` accept one thing `S.schema` and `S.literal` don't — a definer function, which is how you restructure the data while parsing. See [Advanced object schema](#advanced-object-schema) and [Advanced tuple schema](#advanced-tuple-schema).
+
+`S.any` is an alias for `S.unknown` — the same catch-all schema, typed as `S.Schema<any, any>` instead of `S.Schema<unknown, unknown>`, so its output doesn't need narrowing before use.
+
+
 
 > 🧠 Don't forget `S.to` which comes with powerful coercion logic.
 
@@ -457,6 +472,8 @@ type Dog = {
 };
 ```
 
+> 🧠 `S.object({ … })` is an [alias](#aliases) for `S.schema({ … })` — use whichever reads better.
+
 ### Literal fields
 
 Besides passing schemas for values in `S.schema`, you can also pass **any** Js value and it'll be treated as a literal field.
@@ -650,6 +667,8 @@ const athleteSchema = S.schema([
 type Athlete = S.Infer<typeof athleteSchema>;
 // type Athlete = [string, number, { pointsScored: number }]
 ```
+
+> 🧠 `S.tuple([ … ])` is an [alias](#aliases) for `S.schema([ … ])` — use whichever reads better.
 
 ### Advanced tuple schema
 
