@@ -13,7 +13,6 @@
   - [JSON Schema](#json-schema)
   - [Standard Schema](#standard-schema)
 - [Defining schemas](#defining-schemas)
-  - [Aliases](#aliases)
   - [Advanced schemas](#advanced-schemas)
 - [Strings](#strings)
   - [Custom error messages](#custom-error-messages)
@@ -239,6 +238,8 @@ S.schema(true);
 S.schema(undefined);
 S.schema(null);
 S.schema(Symbol("terrific"));
+// S.literal is an alias for S.schema, when you want the intent to read at the call site
+S.literal("tuna");
 
 // NaN literals
 // Validated using Number.isNaN
@@ -247,6 +248,8 @@ S.schema(NaN);
 // Catch-all type
 // Allows any value
 S.unknown;
+// S.any is an alias for S.unknown, typed as S.Schema<any, any>
+// so its output doesn't need narrowing before use
 S.any;
 
 // Never type
@@ -254,21 +257,9 @@ S.any;
 S.never;
 ```
 
-### Aliases
+> 🧠 `S.schema` is the one definition-to-schema factory — whatever you pass it (a schema, a literal, an object, an array) becomes a schema. `S.literal`, `S.object` and `S.tuple` are aliases that build the exact same schema from the same definition; they exist so the intent reads at the call site. `S.object` and `S.tuple` additionally accept a definer function, which `S.schema` and `S.literal` don't — see [Advanced object schema](#advanced-object-schema) and [Advanced tuple schema](#advanced-tuple-schema).
 
-`S.schema` is the one definition-to-schema factory: whatever you pass it — a schema, a literal value, an object, an array — becomes a schema. `S.literal`, `S.object` and `S.tuple` are aliases for it. They produce exactly the same schema; they exist so the intent reads at the call site, and so TypeScript can infer a narrower type for the definition you're actually writing.
-
-```ts
-S.literal("tuna"); // same as S.schema("tuna")
-S.object({ name: S.string }); // same as S.schema({ name: S.string })
-S.tuple([S.string, S.number]); // same as S.schema([S.string, S.number])
-```
-
-`S.object` and `S.tuple` accept one thing `S.schema` and `S.literal` don't — a definer function, which is how you restructure the data while parsing. See [Advanced object schema](#advanced-object-schema) and [Advanced tuple schema](#advanced-tuple-schema).
-
-`S.any` is an alias for `S.unknown` — the same catch-all schema, typed as `S.Schema<any, any>` instead of `S.Schema<unknown, unknown>`, so its output doesn't need narrowing before use.
-
-
+### Advanced schemas
 
 > 🧠 Don't forget `S.to` which comes with powerful coercion logic.
 
@@ -472,7 +463,16 @@ type Dog = {
 };
 ```
 
-> 🧠 `S.object({ … })` is an [alias](#aliases) for `S.schema({ … })` — use whichever reads better.
+`S.object` is an alias for `S.schema` and builds the same object schema:
+
+```ts
+const dogSchema = S.object({
+  name: S.string,
+  age: S.number,
+});
+```
+
+> 🧠 The one difference is in the inferred type: `S.schema` keeps bare literal values narrow, while `S.object({ kind: "human" })` widens `kind` to `string`. Add `as const` or wrap the value with `S.schema` to keep it narrow — see [Literal fields](#literal-fields) below. The runtime schema is identical either way.
 
 ### Literal fields
 
@@ -668,7 +668,11 @@ type Athlete = S.Infer<typeof athleteSchema>;
 // type Athlete = [string, number, { pointsScored: number }]
 ```
 
-> 🧠 `S.tuple([ … ])` is an [alias](#aliases) for `S.schema([ … ])` — use whichever reads better.
+`S.tuple` is an alias for `S.schema` — same schema, same inferred type:
+
+```ts
+const athleteSchema = S.tuple([S.string, S.number, { pointsScored: S.number }]);
+```
 
 ### Advanced tuple schema
 
