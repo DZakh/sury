@@ -3,7 +3,7 @@ ts:
   schema: S.union([S.schema(Symbol.for("union-fallback")).with(S.refine, () => false, "first rejected"), S.schema(Symbol.for("union-fallback"))])
   input: symbol
   output: unknown
-  instantiations: 6665
+  instantiations: 6672
 vs:
   zod:
     _skip: not-applicable

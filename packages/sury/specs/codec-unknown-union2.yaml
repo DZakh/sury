@@ -3,7 +3,7 @@ ts:
   schema: S.unknown.with(S.to, S.union([S.bigint, S.string]))
   input: unknown
   output: string | bigint
-  instantiations: 6059
+  instantiations: 6066
 vs:
   zod:
     _skip: not-applicable

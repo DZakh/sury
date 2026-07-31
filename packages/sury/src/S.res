@@ -486,6 +486,8 @@ let decodeAsyncOrThrow = (any, ~from, ~to) => asyncDecoder(~from, ~to)(any)
 
 @module("sury") external outputExpression: t<'value> => string = "outputExpression"
 
+@send external toString: t<'value> => string = "toString"
+
 module Schema = {
   type s = {@as("m") matches: 'value. t<'value> => 'value}
 }

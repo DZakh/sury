@@ -5,7 +5,7 @@ ts:
     - S.literal("a").with(S.to, S.literal(42))
   input: '"a"'
   output: "42"
-  instantiations: 5590
+  instantiations: 5598
 vs:
   zod:
     _skip: not-applicable

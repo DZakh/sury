@@ -55,6 +55,7 @@
   - [`name`](#name)
   - [`inputExpression`](#inputexpression)
   - [`outputExpression`](#outputexpression)
+  - [`toString`](#tostring)
 - [Error handling](#error-handling)
 - [Global config](#global-config)
   - [`defaultAdditionalItems`](#defaultadditionalitems)
@@ -1331,8 +1332,31 @@ S.outputExpression(schema);
 // "number"
 ```
 
-The same expression for the schema's output type. Both sides are also what
-`schema.toString()` prints.
+The same expression for the schema's output type.
+
+> 🧠 The format subject to change
+
+### **`toString`**
+
+```ts
+`${S.string}`;
+// "Schema<string>"
+
+`${S.to(S.string, S.number)}`;
+// "Schema<number, string>"
+
+console.log(S.schema({ id: S.string, age: S.number }));
+// Schema<{ id: string; age: number; }>
+```
+
+Both sides at once, in the order the type declares them — `Schema<Output, Input>` — with the second parameter dropped when the two sides match. `console.log` prints this too, so a schema is readable in a log line without unwrapping it.
+
+The output side is derived through [`reverse`](#reverse), so nested transforms are reported correctly:
+
+```ts
+`${S.schema({ a: S.to(S.string, S.number) })}`;
+// "Schema<{ a: number; }, { a: string; }>"
+```
 
 > 🧠 The format subject to change
 

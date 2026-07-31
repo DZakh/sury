@@ -78,6 +78,7 @@
   - [`name`](#name)
   - [`inputExpression`](#inputexpression)
   - [`outputExpression`](#outputexpression)
+  - [`toString`](#tostring)
   - [`noValidation`](#novalidation)
 - [Standard Schema](#standard-schema)
 - [Error handling](#error-handling)
@@ -1652,6 +1653,29 @@ schema->S.outputExpression
 ```
 
 The same expression for the schema's output type.
+
+> 🧠 The format subject to change
+
+### **`toString`**
+
+`(S.t<'value>) => string`
+
+```rescript
+S.string->S.toString
+// "Schema<string>"
+
+(S.string->S.to(S.int))->S.toString
+// "Schema<int32, string>"
+```
+
+Both sides at once, in the order the type declares them — `Schema<Output, Input>` — with the second parameter dropped when the two sides match. `console.log` prints this too, so a schema is readable in a log line without unwrapping it.
+
+The output side is derived through [`reverse`](#reverse), so nested transforms are reported correctly:
+
+```rescript
+S.array(S.string->S.to(S.int))->S.toString
+// "Schema<int32[], string[]>"
+```
 
 > 🧠 The format subject to change
 
