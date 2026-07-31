@@ -1,4 +1,5 @@
 import { test, expectTypeOf, assertType } from "vitest";
+import { format, inspect } from "node:util";
 
 import * as S from "../src/S.mjs";
 
@@ -2725,12 +2726,46 @@ test("Schema toString prints Schema<output, input>", (t) => {
     "Schema<{ a: number; }, { a: string; }>",
   );
 
-  // console.log reads the inspect symbol, not toString.
-  const inspect = (S.string as unknown as Record<symbol, () => string>)[
-    Symbol.for("nodejs.util.inspect.custom")
-  ]!;
-  t.expect(inspect.call(S.string)).toBe("Schema<string>");
-
   // The apparent type supplies toString without S.d.ts declaring it.
   expectTypeOf(S.string.toString()).toEqualTypeOf<string>();
+});
+
+// The schema prototype is Object.create(null), so before there was a toString
+// there was nothing to coerce through and every one of these threw
+// "Cannot convert object to primitive value" rather than merely reading badly.
+test("Schema survives string coercion", (t) => {
+  t.expect(String(S.string)).toBe("Schema<string>");
+  t.expect(S.string + "").toBe("Schema<string>");
+  t.expect([S.string, S.number].join(", ")).toBe("Schema<string>, Schema<number>");
+});
+
+// console.log goes through util.inspect, which ignores toString and reads the
+// inspect symbol — so asserting on toString alone would not have caught a
+// missing symbol, and the raw internal dump would have shipped.
+test("Schema renders through util.inspect the way console.log prints it", (t) => {
+  t.expect(inspect(S.string)).toBe("Schema<string>");
+  t.expect(format(S.to(S.string, S.number))).toBe("Schema<number, string>");
+  t.expect(inspect({ mySchema: S.string })).toBe("{ mySchema: Schema<string> }");
+  t.expect(inspect([S.string])).toBe("[ Schema<string> ]");
+});
+
+test("Error messages render through inputExpression, not toString", (t) => {
+  const schema = S.schema({ id: S.string });
+  let error: { message: string; reason: string; expected: unknown } | undefined;
+  try {
+    S.parser(schema)({ id: 1 });
+  } catch (exn) {
+    error = exn as typeof error;
+  }
+
+  // No "Schema<…>" wrapper: the message names the type, it does not print the
+  // schema object.
+  t.expect(error!.message).toBe('Failed at ["id"]: Expected string, received 1');
+  t.expect(error!.reason).toBe("Expected string, received 1");
+  t.expect(`${error}`).toBe(
+    'SuryError: Failed at ["id"]: Expected string, received 1',
+  );
+
+  // The schema hanging off the error is where toString does help.
+  t.expect(inspect(error!.expected)).toBe("Schema<string>");
 });
