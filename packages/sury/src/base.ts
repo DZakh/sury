@@ -160,7 +160,7 @@ export const itemSymbol = /* @__PURE__ */ Symbol(vendor + ":item");
 export const shouldPrependPathKey = "p";
 
 export type NumberFormat = "int32" | "port";
-export type StringFormat = "json" | "date-time" | "email" | "uuid" | "cuid" | "url";
+export type StringFormat = "json" | "date-time" | "email" | "uuid" | "cuid" | "url" | "env";
 export type ArrayFormat = "compactColumns";
 export type Format = NumberFormat | StringFormat | ArrayFormat;
 

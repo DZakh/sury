@@ -50,6 +50,7 @@
   - [`tuple1` - `tuple3`](#tuple1---tuple3)
   - [`dict`](#dict)
   - [`date`](#date)
+  - [`env`](#env)
   - [`isoDateTime`](#isodatetime)
   - [`instance`](#instance)
   - [`unknown`](#unknown)
@@ -1095,6 +1096,64 @@ let schema = S.string->S.to(S.date)
 // Encode Date to ISO string
 Date.fromString("2024-01-01T00:00:00.000Z")->S.decodeOrThrow(~from=schema, ~to=S.unknown) // "2024-01-01T00:00:00.000Z"
 ```
+
+### **`env`**
+
+`S.t<string>`
+
+`S.env` is a string with format `"env"` — one entry of `process.env`. On its own
+it validates nothing more than `S.string`; what makes it an env schema is how it
+converts. A shell has no way to spell "empty string", so `FOO=` and an absent
+`FOO` mean the same thing, and every conversion out of `S.env` rejects a blank
+value rather than coercing it:
+
+```rescript
+"abc"->S.parseOrThrow(~to=S.env->S.to(S.string)) // "abc"
+""->S.parseOrThrow(~to=S.env->S.to(S.string)) // throws - an unset variable is not ""
+" "->S.parseOrThrow(~to=S.env->S.to(S.string)) // throws - blank, not a value
+
+"8080"->S.parseOrThrow(~to=S.env->S.to(S.int)) // 8080
+""->S.parseOrThrow(~to=S.env->S.to(S.int)) // throws - without this, `+""` would be a valid 0
+""->S.parseOrThrow(~to=S.env->S.to(S.bigint)) // throws - `BigInt("")` would be 0n
+```
+
+That guard is the point of the schema: `+""`, `+" "` and `BigInt("")` are all
+zero, so an unset variable would otherwise decode to a plausible number and the
+misconfiguration would surface much later.
+
+Booleans accept the tokens a shell actually carries — `"true"`, `"1"`, `"false"`,
+`"0"`. An optional target takes a blank as its `None` variant, so "unset" and
+"set to nothing" read alike, and encoding maps it back to `""`:
+
+```rescript
+let schema = S.env->S.to(S.option(S.string))
+""->S.parseOrThrow(~to=schema) // None
+"abc"->S.parseOrThrow(~to=schema) // Some("abc")
+```
+
+Pass `S.min` to opt back in where the empty string is meaningful:
+
+```rescript
+""->S.parseOrThrow(~to=S.env->S.to(S.string->S.min(0))) // ""
+```
+
+`S.env` is the *value*, so it never sees a missing variable — `process.env.FOO`
+is `undefined`, not `""`. Model absence with `S.option` around it, or read the
+whole map with `S.dict`:
+
+```rescript
+let configSchema = S.schema(s => {
+  port: s.field("PORT", S.env->S.to(S.port)),
+  debug: s.field("DEBUG", S.env->S.to(S.option(S.bool))),
+  databaseUrl: s.field("DATABASE_URL", S.option(S.env)),
+})
+```
+
+> Converting a whole `S.option(S.env)` to a whole `S.option(S.int)` is rejected,
+> because union → union conversion pairs variants by type and `env` is not `int`.
+> Put the conversion on the value instead — `S.env->S.to(S.option(S.int))` — or
+> name the per-variant conversion explicitly:
+> `S.option(S.env)->S.to(S.option(S.env->S.to(S.int)))`.
 
 ### **`isoDateTime`**
 

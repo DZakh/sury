@@ -45,6 +45,7 @@ type stringFormat =
   | @as("uuid") Uuid
   | @as("cuid") Cuid
   | @as("url") Url
+  | @as("env") Env
 type arrayFormat = | @as("compactColumns") CompactColumns
 
 type format = | ...numberFormat | ...stringFormat | ...arrayFormat
@@ -400,6 +401,7 @@ module Error = {
 @module("sury") external symbol: t<Symbol.t> = "symbol"
 @module("sury") external nan: t<float> = "nan"
 @module("sury") external date: t<Date.t> = "date"
+@module("sury") external env: t<string> = "env"
 @module("sury") external json: t<JSON.t> = "json"
 @module("sury") external jsonString: t<string> = "jsonString"
 @module("sury") external jsonStringWithSpace: int => t<string> = "jsonStringWithSpace"

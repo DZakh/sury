@@ -86,7 +86,7 @@ const B_refineTypeofUnknown = (input: Val, tag: Tag): Val => {
 
 // Allocate a fresh var and start a new Val from it — shared by every
 // primitive decoder that coerces its input into a differently-typed output.
-const B_nextVar = (input: Val, expected: Internal): Val => {
+export const B_nextVar = (input: Val, expected: Internal): Val => {
   const output = B_next(input, B_varWithoutAllocation(input.g), expected);
   output.v = _var;
   return output;

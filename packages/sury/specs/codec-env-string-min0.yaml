@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.env.with(S.to, S.string.with(S.min, 0))
+  input: string
+  output: string
+  instantiations: 5587
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: Maximum call stack size exceeded
+  output: Maximum call stack size exceeded
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[1](i);i.length>-1||e[0](i);return i}
+    examples:
+      valid:
+        input: '"abc"'
+        output: '"abc"'
+      valid-empty:
+        input: '""'
+        output: '""'
+      invalid-type:
+        input: "5"
+        error: Expected env, received 5
+  decode:
+    expression: i=>{i.length>-1||e[0](i);return i}
+    examples:
+      valid:
+        input: '"abc"'
+        output: '"abc"'
+      valid-empty:
+        input: '""'
+        output: '""'
+  encode:
+    expression: i=>{i.length>-1||e[0](i);return i}
+    examples:
+      valid:
+        input: '"abc"'
+        output: '"abc"'
+      valid-empty:
+        input: '""'
+        output: '""'

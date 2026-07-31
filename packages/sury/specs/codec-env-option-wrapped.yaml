@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.optional(S.env)
+  input: string | undefined
+  output: string | undefined
+  instantiations: 380
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: Expected JSON, received env | undefined
+  output: Expected JSON, received env | undefined
+operations:
+  parse:
+    expression: i=>{(typeof i==="string"||i===void 0)||e[0](i);return i}
+    examples:
+      valid:
+        input: '"abc"'
+        output: '"abc"'
+      valid-empty:
+        input: '""'
+        output: '""'
+      valid-absent:
+        input: undefined
+        output: undefined
+      invalid-type:
+        input: "5"
+        error: Expected env | undefined, received 5
+  decode: identity
+  encode: identity

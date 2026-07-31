@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.env.with(S.to, S.int32)
+  input: string
+  output: number
+  instantiations: 5106
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "integer", minimum: -2147483648, maximum: 2147483647 }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);i.trim()!==""||e[1](i);let v0=+i;v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[0](i);return v0}
+    examples:
+      valid:
+        input: '"42"'
+        output: "42"
+      valid-negative:
+        input: '"-7"'
+        output: "-7"
+      valid-zero:
+        input: '"0"'
+        output: "0"
+      valid-whitespace-padded:
+        input: '" 42 "'
+        output: "42"
+      invalid-empty:
+        input: '""'
+        error: Expected a non-empty environment variable
+      invalid-whitespace-only:
+        input: '" "'
+        error: Expected a non-empty environment variable
+      invalid-not-a-number:
+        input: '"x"'
+        error: Expected int32, received "x"
+      invalid-float:
+        input: '"4.2"'
+        error: Expected int32, received "4.2"
+      invalid-too-big:
+        input: '"2147483648"'
+        error: Expected int32, received "2147483648"
+  decode:
+    expression: i=>{i.trim()!==""||e[1](i);let v0=+i;v0<=2147483647&&v0>=-2147483648&&v0%1===0||e[0](i);return v0}
+    examples:
+      valid:
+        input: '"42"'
+        output: "42"
+      invalid-empty:
+        input: '""'
+        error: Expected a non-empty environment variable
+      invalid-not-a-number:
+        input: '"x"'
+        error: Expected int32, received "x"
+  encode:
+    expression: i=>{return ""+i}
+    examples:
+      valid:
+        input: "42"
+        output: '"42"'
+      valid-negative:
+        input: "-7"
+        output: '"-7"'

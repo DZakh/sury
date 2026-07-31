@@ -36,6 +36,9 @@ import {
   date as dateFactory,
 } from "./advanced/date";
 import {
+  env as envFactory,
+} from "./advanced/env";
+import {
   isoDateTime as isoDateTimeFactory,
   port as portFactory,
   email as emailFactory,
@@ -65,6 +68,7 @@ export const json = /* @__PURE__ */ jsonFactory();
 export const jsonString = /* @__PURE__ */ jsonStringFactory();
 export const uint8Array = /* @__PURE__ */ uint8ArrayFactory();
 export const date = /* @__PURE__ */ dateFactory();
+export const env = /* @__PURE__ */ envFactory();
 export const isoDateTime = /* @__PURE__ */ isoDateTimeFactory();
 export const port = /* @__PURE__ */ portFactory();
 export const email = /* @__PURE__ */ emailFactory();

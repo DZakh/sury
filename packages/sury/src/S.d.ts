@@ -149,7 +149,7 @@ export type JSON =
   | JSON[];
 
 export type NumberFormat = "int32" | "port";
-export type StringFormat = "json" | "date-time" | "email" | "uuid" | "cuid" | "url";
+export type StringFormat = "json" | "date-time" | "email" | "uuid" | "cuid" | "url" | "env";
 export type ArrayFormat = "compactColumns";
 export type Format = NumberFormat | StringFormat | ArrayFormat;
 
@@ -533,6 +533,8 @@ export const cuid: Schema<string, string>;
 export const url: Schema<string, string>;
 
 export const date: Schema<Date, Date>;
+
+export const env: Schema<string, string>;
 
 export function safe<Value>(scope: () => Value): Result<Value>;
 export function safeAsync<Value>(

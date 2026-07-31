@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.env.with(S.to, S.string)
+  input: string
+  output: string
+  instantiations: 5048
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: Maximum call stack size exceeded
+  output: Maximum call stack size exceeded
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[1](i);i.trim()!==""||e[0](i);return i}
+    examples:
+      valid:
+        input: '"abc"'
+        output: '"abc"'
+      invalid-whitespace-only:
+        input: '" "'
+        error: Expected a non-empty environment variable
+      valid-numeric:
+        input: '"0"'
+        output: '"0"'
+      invalid-empty:
+        input: '""'
+        error: Expected a non-empty environment variable
+      invalid-type:
+        input: "5"
+        error: Expected env, received 5
+  decode:
+    expression: i=>{i.trim()!==""||e[0](i);return i}
+    examples:
+      valid:
+        input: '"abc"'
+        output: '"abc"'
+      invalid-empty:
+        input: '""'
+        error: Expected a non-empty environment variable
+  encode: identity

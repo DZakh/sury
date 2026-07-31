@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.env.with(S.to, S.bigint)
+  input: string
+  output: bigint
+  instantiations: 5106
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string" }'
+  output: Expected JSON, received bigint
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);i.trim()!==""||e[1](i);let v0;try{v0=BigInt(i)}catch(_){e[0](i)}return v0}
+    examples:
+      valid:
+        input: '"42"'
+        output: 42n
+      valid-huge:
+        input: '"9007199254740993"'
+        output: 9007199254740993n
+      valid-negative:
+        input: '"-7"'
+        output: -7n
+      invalid-empty:
+        input: '""'
+        error: Expected a non-empty environment variable
+      invalid-whitespace-only:
+        input: '" "'
+        error: Expected a non-empty environment variable
+      invalid-not-a-number:
+        input: '"x"'
+        error: Expected bigint, received "x"
+      invalid-float:
+        input: '"4.2"'
+        error: Expected bigint, received "4.2"
+  decode:
+    expression: i=>{i.trim()!==""||e[1](i);let v0;try{v0=BigInt(i)}catch(_){e[0](i)}return v0}
+    examples:
+      valid:
+        input: '"42"'
+        output: 42n
+      invalid-empty:
+        input: '""'
+        error: Expected a non-empty environment variable
+  encode:
+    expression: i=>{return ""+i}
+    examples:
+      valid:
+        input: 42n
+        output: '"42"'

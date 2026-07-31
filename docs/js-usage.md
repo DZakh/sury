@@ -38,6 +38,7 @@
   - [Converting to / from a union](#converting-to-from-a-union)
 - [Records](#records)
 - [Date](#date)
+- [Environment variables](#environment-variables)
 - [ISO DateTime](#iso-datetime)
 - [Instance](#instance)
 - [Meta](#meta)
@@ -870,6 +871,77 @@ S.decoder(S.string, S.date)("2024-01-01T00:00:00.000Z"); // Date
 // Decode Date to ISO string
 S.decoder(S.date, S.string)(new Date("2024-01-01T00:00:00.000Z")); // "2024-01-01T00:00:00.000Z"
 ```
+
+## Environment variables
+
+`S.env` is a string with format `"env"` — one entry of `process.env`. On its own
+it validates nothing more than `S.string`; what makes it an env schema is how it
+converts. A shell has no way to spell "empty string", so `FOO=` and an absent
+`FOO` mean the same thing, and every conversion out of `S.env` rejects a blank
+value rather than coercing it:
+
+```ts
+S.parser(S.env.with(S.to, S.string))("abc"); // "abc"
+S.parser(S.env.with(S.to, S.string))(""); // throws — an unset variable is not ""
+S.parser(S.env.with(S.to, S.string))(" "); // throws — blank, not a value
+
+S.parser(S.env.with(S.to, S.int32))("8080"); // 8080
+S.parser(S.env.with(S.to, S.int32))(""); // throws — without this, `+""` would be a valid 0
+S.parser(S.env.with(S.to, S.bigint))(""); // throws — `BigInt("")` would be 0n
+```
+
+That guard is the point of the schema: `+""`, `+" "` and `BigInt("")` are all
+zero, so an unset variable would otherwise decode to a plausible number and the
+misconfiguration would surface much later.
+
+Booleans accept the tokens a shell actually carries:
+
+```ts
+S.parser(S.env.with(S.to, S.boolean))("true"); // true
+S.parser(S.env.with(S.to, S.boolean))("1"); // true
+S.parser(S.env.with(S.to, S.boolean))("0"); // false
+```
+
+An optional target takes a blank as its `undefined` variant, so "unset" and
+"set to nothing" read alike — and encoding maps it back to `""`:
+
+```ts
+const schema = S.env.with(S.to, S.optional(S.string));
+S.parser(schema)("abc"); // "abc"
+S.parser(schema)(""); // undefined
+S.encoder(schema)(undefined); // ""
+```
+
+Pass `S.min` to opt back in where the empty string is a meaningful value:
+
+```ts
+S.parser(S.env.with(S.to, S.string.with(S.min, 0)))(""); // ""
+```
+
+### Reading `process.env`
+
+`S.env` is the *value*, so it never sees a missing variable — `process.env.FOO`
+is `undefined`, not `""`. Model absence with `S.optional` around it, or read the
+whole map with `S.record`:
+
+```ts
+const configSchema = S.schema({
+  PORT: S.env.with(S.to, S.port),
+  DEBUG: S.env.with(S.to, S.optional(S.boolean)),
+  DATABASE_URL: S.optional(S.env),
+});
+
+S.parser(configSchema)(process.env);
+
+// Or the raw map, values unconverted:
+S.parser(S.record(S.env))(process.env);
+```
+
+> Converting a whole `S.optional(S.env)` to a whole `S.optional(S.int32)` is
+> rejected, because [union → union](#unions) conversion pairs variants by type
+> and `env` is not `int32`. Put the conversion on the value instead —
+> `S.env.with(S.to, S.optional(S.int32))` — or name the per-variant conversion
+> explicitly: `S.optional(S.env).with(S.to, S.optional(S.env.with(S.to, S.int32)))`.
 
 ## ISO DateTime
 

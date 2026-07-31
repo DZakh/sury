@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.dict(S.env)
+  input: any
+  output: any
+  instantiations: 29
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "object", additionalProperties: { type: "string" } }'
+  output: '{ type: "object", additionalProperties: { type: "string" } }'
+operations:
+  parse:
+    expression: i=>{typeof i==="object"&&i&&!Array.isArray(i)||e[1](i);for(let v0 in i){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}return i}
+    examples:
+      valid:
+        input: '{ PORT: "8080", DEBUG: "" }'
+        output: '{ PORT: "8080", DEBUG: "" }'
+      valid-empty-map:
+        input: "{}"
+        output: "{}"
+      invalid-value-type:
+        input: "{ PORT: 8080 }"
+        error: 'Failed at ["PORT"]: Expected env, received 8080'
+      invalid-type:
+        input: '"nope"'
+        error: 'Expected { [key: string]: env; }, received "nope"'
+  decode: identity
+  encode: identity

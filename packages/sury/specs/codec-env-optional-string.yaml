@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.env.with(S.to, S.optional(S.string))
+  input: string
+  output: string | undefined
+  instantiations: 5243
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ anyOf: [{ type: "string" }, { type: "string", const: "" }] }'
+  output: Expected JSON, received string | undefined
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[3](i);for(;;){let r;try{i.trim()!==""||e[0](i);break}catch(x){(r||(r=[])).push(e[1](x))}if(i.trim()===""){i=void 0;break}e[2](i,...(r||[]))}return i}
+    examples:
+      valid:
+        input: '"abc"'
+        output: '"abc"'
+      valid-empty-is-unset:
+        input: '""'
+        output: undefined
+      valid-whitespace-is-unset:
+        input: '" "'
+        output: undefined
+      invalid-type:
+        input: "5"
+        error: Expected env, received 5
+  decode:
+    expression: i=>{for(;;){let r;try{i.trim()!==""||e[0](i);break}catch(x){(r||(r=[])).push(e[1](x))}if(i.trim()===""){i=void 0;break}e[2](i,...(r||[]))}return i}
+    examples:
+      valid:
+        input: '"abc"'
+        output: '"abc"'
+      valid-empty-is-unset:
+        input: '""'
+        output: undefined
+  encode:
+    expression: i=>{for(;;){if(typeof i==="string")break;if(i===void 0){i="";break}e[0](i)}return i}
+    examples:
+      valid:
+        input: '"abc"'
+        output: '"abc"'
+      valid-undefined:
+        input: undefined
+        output: '""'

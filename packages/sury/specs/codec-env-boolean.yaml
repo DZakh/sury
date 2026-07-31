@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.env.with(S.to, S.boolean)
+  input: string
+  output: boolean
+  instantiations: 5106
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string" }'
+  output: '{ type: "boolean" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[1](i);let v0;(v0=i==="true"||i==="1")||i==="false"||i==="0"||e[0](i);return v0}
+    examples:
+      valid-true:
+        input: '"true"'
+        output: "true"
+      valid-one:
+        input: '"1"'
+        output: "true"
+      valid-false:
+        input: '"false"'
+        output: "false"
+      valid-zero:
+        input: '"0"'
+        output: "false"
+      invalid-empty:
+        input: '""'
+        error: Expected boolean, received ""
+      invalid-yes:
+        input: '"yes"'
+        error: Expected boolean, received "yes"
+      invalid-casing:
+        input: '"TRUE"'
+        error: Expected boolean, received "TRUE"
+      invalid-type:
+        input: "5"
+        error: Expected env, received 5
+  decode:
+    expression: i=>{let v0;(v0=i==="true"||i==="1")||i==="false"||i==="0"||e[0](i);return v0}
+    examples:
+      valid-true:
+        input: '"true"'
+        output: "true"
+      valid-zero:
+        input: '"0"'
+        output: "false"
+      invalid-empty:
+        input: '""'
+        error: Expected boolean, received ""
+  encode:
+    expression: i=>{return ""+i}
+    examples:
+      valid-true:
+        input: "true"
+        output: '"true"'
+      valid-false:
+        input: "false"
+        output: '"false"'
