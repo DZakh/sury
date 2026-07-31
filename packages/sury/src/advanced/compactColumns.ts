@@ -6,12 +6,12 @@ import {
   copySchema,
   flagUnsafeHas,
   inlinedValueFromString,
+  inputExpression,
   type Internal,
   panic,
   pathFromInlinedLocation,
   tagFlags,
   tagFlagUnknown,
-  toExpression,
   U,
   unknown,
   type Val,
@@ -299,12 +299,12 @@ const compactColumnsExpression = (schema: Internal): string => {
   const props = to !== U ? to.properties : U;
   if (props !== U) {
     return `[${Object.keys(props)
-      .map((key) => `${toExpression(props[key]!)}[]`)
+      .map((key) => `${inputExpression(props[key]!)}[]`)
       .join(", ")}]`;
   }
   const additionalItems = schema.additionalItems;
   return to === U && additionalItems !== U && typeof additionalItems === "object"
-    ? `${toExpression(additionalItems)}[]`
+    ? `${inputExpression(additionalItems)}[]`
     : "unknown[][]";
 }
 

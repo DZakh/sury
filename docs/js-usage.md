@@ -53,7 +53,8 @@
   - [`reverse`](#reverse)
   - [`to`](#to)
   - [`name`](#name)
-  - [`toExpression`](#toexpression)
+  - [`inputExpression`](#inputexpression)
+  - [`outputExpression`](#outputexpression)
 - [Error handling](#error-handling)
 - [Global config](#global-config)
   - [`defaultAdditionalItems`](#defaultadditionalitems)
@@ -983,7 +984,7 @@ const mySet = <T>(itemSchema: S.Schema<T>): S.Schema<Set<T>> =>
       return output;
     })
     .with(S.meta, {
-      name: `Set<${S.toExpression(itemSchema)}>`,
+      name: `Set<${S.inputExpression(itemSchema)}>`,
     });
 
 const numberSetSchema = mySet(S.number);
@@ -1304,17 +1305,34 @@ schema.name; // "Abc"
 
 Used internally for readable error messages.
 
-### **`toExpression`**
+### **`inputExpression`**
 
 ```ts
-S.toExpression(S.schema({ abc: 123 }));
+S.inputExpression(S.schema({ abc: 123 }));
 // "{ abc: 123; }"
 
-S.toExpression(S.name(S.string, "Address"));
+S.inputExpression(S.name(S.string, "Address"));
 // "Address"
 ```
 
 Used internally for readable error messages.
+
+> 🧠 The format subject to change
+
+### **`outputExpression`**
+
+```ts
+const schema = S.to(S.string, S.number);
+
+S.inputExpression(schema);
+// "string"
+
+S.outputExpression(schema);
+// "number"
+```
+
+The same expression for the schema's output type. Both sides are also what
+`schema.toString()` prints.
 
 > 🧠 The format subject to change
 

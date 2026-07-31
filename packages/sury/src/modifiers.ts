@@ -7,6 +7,7 @@ import {
   type Check,
   copySchema,
   getOrRethrow,
+  inputExpression,
   type Internal,
   noopDecoder,
   objectTag,
@@ -14,7 +15,6 @@ import {
   pathEmpty,
   pathFromArray,
   type SchemaErrorMessage,
-  toExpression,
   U,
   undefinedTag,
   unknown,
@@ -243,7 +243,7 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
 
       const item: Internal =
         outputItems.length === 0
-          ? panic(`Can't set default for ${toExpression(mut)}`)
+          ? panic(`Can't set default for ${inputExpression(mut)}`)
           : outputItems.length === 1
             ? outputItems[0]!
             : unionFactory(outputItems);
@@ -258,7 +258,7 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
         } catch (exn) {
           const error = getOrRethrow(exn);
           panic(
-            `Invalid default for ${toExpression(mut)}: ${
+            `Invalid default for ${inputExpression(mut)}: ${
               (error as unknown as { message: string })["message"]
             }`
           );
@@ -300,7 +300,7 @@ export const Option_getWithDefault = (schema: Internal, default_: OptionDefault)
 
       mut.to = to;
     } else {
-      panic(`Can't set default for ${toExpression(mut)}`);
+      panic(`Can't set default for ${inputExpression(mut)}`);
     }
   });
 };

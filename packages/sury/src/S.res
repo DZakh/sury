@@ -482,7 +482,9 @@ let decodeAsyncOrThrow = (any, ~from, ~to) => asyncDecoder(~from, ~to)(any)
 
 @module("sury") external noValidation: (t<'value>, bool) => t<'value> = "noValidation"
 
-@module("sury") external toExpression: t<'value> => string = "toExpression"
+@module("sury") external inputExpression: t<'value> => string = "inputExpression"
+
+@module("sury") external outputExpression: t<'value> => string = "outputExpression"
 
 module Schema = {
   type s = {@as("m") matches: 'value. t<'value> => 'value}

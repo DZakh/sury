@@ -292,9 +292,9 @@ export type Internal = {
   isAsync?: boolean; // Optional value means that it's not lazily computed yet.
   hasTransform?: boolean; // Optional value means that it's not lazily computed yet.
   "~standard"?: unknown;
-  // Renders this schema's type expression (see toExpression). Set by whichever
+  // Renders this schema's type expression (see inputExpression). Set by whichever
   // module constructs the schema, so a consumer that never imports that factory
-  // never carries its renderer — the reason toExpression itself only handles
+  // never carries its renderer — the reason inputExpression itself only handles
   // what every schema can be. A structural schema built anywhere MUST set it or
   // its expression silently degrades to the bare tag ("object", "array").
   // Called lazily: compactColumns and recursive schemas have no expression yet
@@ -452,7 +452,7 @@ export const stringify = (unknown: unknown): string => {
 // branch chain had: a literal outranks its own structure, and compactColumns
 // (the sole array format) outranks the generic format fallback.
 // @__NO_SIDE_EFFECTS__
-export const toExpression = (schema: Internal): string => {
+export const inputExpression = (schema: Internal): string => {
   if (schema.name !== U) {
     return schema.name;
   } else if (schema.const !== U) {

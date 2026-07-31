@@ -10,6 +10,7 @@ import {
   flagUnsafeHas,
   getOrRethrow,
   globalConfig,
+  inputExpression,
   instanceTag,
   type Internal,
   isLiteral,
@@ -333,6 +334,12 @@ export const reverse = (schema: Internal): Internal => {
     return r;
   }
 }
+
+// Lives here rather than beside `inputExpression` in base.ts so that only the
+// consumers who ask for the output side carry `reverse`.
+// @__NO_SIDE_EFFECTS__
+export const outputExpression = (schema: Internal): string =>
+  inputExpression(reverse(schema));
 
 // A plain (non-arrow, to keep `arguments`) function so call sites can pass
 // getDecoder(s1, s2[, s3][, flag]) with any number of schemas plus an

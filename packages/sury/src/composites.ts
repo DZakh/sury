@@ -12,6 +12,7 @@ import {
   immutableEmptyArray,
   immutableEmptyObject,
   inlinedValueFromString,
+  inputExpression,
   type Internal,
   isLiteral,
   isOptional,
@@ -24,7 +25,6 @@ import {
   tagFlagRef,
   tagFlags,
   tagFlagUnknown,
-  toExpression,
   U,
   undefinedTag,
   unknown,
@@ -77,14 +77,14 @@ export const objectExpression = (schema: Internal): string => {
   const locations = Object.keys(properties);
   if (locations.length === 0) {
     if (typeof schema.additionalItems === objectTag) {
-      return `{ [key: string]: ${toExpression(schema.additionalItems as Internal)}; }`;
+      return `{ [key: string]: ${inputExpression(schema.additionalItems as Internal)}; }`;
     } else {
       return `{}`;
     }
   } else {
     return `{ ${locations
       .map((location) => {
-        return `${location}: ${toExpression(properties[location]!)};`;
+        return `${location}: ${inputExpression(properties[location]!)};`;
       })
       .join(" ")} }`;
   }
@@ -93,10 +93,10 @@ export const objectExpression = (schema: Internal): string => {
 export const arrayExpression = (schema: Internal): string => {
   if (typeof schema.additionalItems === objectTag) {
     const additionalItems = schema.additionalItems as Internal;
-    const itemName = toExpression(additionalItems);
+    const itemName = inputExpression(additionalItems);
     return (additionalItems.type === anyOfTag ? `(${itemName})` : itemName) + "[]";
   } else {
-    return `[${schema.items!.map((schema) => toExpression(schema)).join(", ")}]`;
+    return `[${schema.items!.map((schema) => inputExpression(schema)).join(", ")}]`;
   }
 }
 

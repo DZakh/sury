@@ -16,6 +16,7 @@ import {
   flagNone,
   flagUnsafeHas,
   getOrRethrow,
+  inputExpression,
   type Internal,
   isLiteral,
   isOptional,
@@ -37,7 +38,6 @@ import {
   tagFlagObject,
   tagFlags,
   tagFlagUnion,
-  toExpression,
   U,
   undefinedTag,
   unknown,
@@ -1058,7 +1058,7 @@ export const min = (schema: Internal, minValue: number, maybeMessage?: string): 
         : floatMin(schema, minValue, maybeMessage);
     default:
       return panic(
-        `S.min is not supported for ${toExpression(schema)} schema. Coerce the schema to string, number or array using S.to first.`
+        `S.min is not supported for ${inputExpression(schema)} schema. Coerce the schema to string, number or array using S.to first.`
       );
   }
 }
@@ -1076,7 +1076,7 @@ export const max = (schema: Internal, maxValue: number, maybeMessage?: string): 
         : floatMax(schema, maxValue, maybeMessage);
     default:
       return panic(
-        `S.max is not supported for ${toExpression(schema)} schema. Coerce the schema to string, number or array using S.to first.`
+        `S.max is not supported for ${inputExpression(schema)} schema. Coerce the schema to string, number or array using S.to first.`
       );
   }
 }
@@ -1090,7 +1090,7 @@ export const length = (schema: Internal, length: number, maybeMessage?: string):
       return arrayLength(schema, length, maybeMessage);
     default:
       return panic(
-        `S.length is not supported for ${toExpression(schema)} schema. Coerce the schema to string or array using S.to first.`
+        `S.length is not supported for ${inputExpression(schema)} schema. Coerce the schema to string or array using S.to first.`
       );
   }
 }

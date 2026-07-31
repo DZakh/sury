@@ -10,6 +10,7 @@ import {
   flagUnsafeHas,
   immutableEmptyArray,
   inlinedValueFromString,
+  inputExpression,
   type Internal,
   type InvalidInputDetails,
   type Path,
@@ -28,7 +29,6 @@ import {
   tagFlagString,
   tagFlagSymbol,
   tagFlagUndefined,
-  toExpression,
   U,
   unknown,
   type Val,
@@ -258,7 +258,7 @@ export const B_unsupportedDecode = (b: Val, from: Internal, target: Internal): n
     code: "unsupported_decode",
     from: from,
     to: target,
-    reason: `Can't decode ${toExpression(from)} to ${toExpression(
+    reason: `Can't decode ${inputExpression(from)} to ${inputExpression(
       target
     )}. Use S.to to define a custom decoder`,
     path: b.path,
@@ -331,8 +331,8 @@ export const B_makeInvalidInputDetails = (
   let reasonRef =
     reasonOverride !== U
       ? reasonOverride
-      : `Expected ${toExpression(expected)}, received ${
-          includeInput ? stringify(input) : toExpression(received)
+      : `Expected ${inputExpression(expected)}, received ${
+          includeInput ? stringify(input) : inputExpression(received)
         }`;
   if (unionErrors !== U) {
     const caseErrors = unionErrors;

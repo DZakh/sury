@@ -76,7 +76,8 @@
   - [`to`](#to)
   - [`isAsync`](#isasync)
   - [`name`](#name)
-  - [`toExpression`](#toexpression)
+  - [`inputExpression`](#inputexpression)
+  - [`outputExpression`](#outputexpression)
   - [`noValidation`](#novalidation)
 - [Standard Schema](#standard-schema)
 - [Error handling](#error-handling)
@@ -169,7 +170,7 @@ let filmSchema = S.object(s => {
 let filmJSONSchema = filmSchema->S.toJSONSchema
 ```
 
-> 🧠 Schemas compile to JavaScript via `eval`. Print the generated code with [`toExpression`](#toexpression).
+> 🧠 Schemas compile to JavaScript via `eval`. Print the generated code with [`inputExpression`](#inputexpression).
 
 ## Real-world examples
 
@@ -1285,7 +1286,7 @@ let mySet = itemSchema => {
       output
     },
   })
-  ->S.meta({name: `Set.t<${S.toExpression(itemSchema)}>`})
+  ->S.meta({name: `Set.t<${S.inputExpression(itemSchema)}>`})
 }
 
 let intSetSchema = mySet(S.int)
@@ -1620,19 +1621,37 @@ let schema = S.literal({"abc": 123})->S.meta({name: "Abc"})
 
 Used internally for readable error messages.
 
-### **`toExpression`**
+### **`inputExpression`**
 
 `(S.t<'value>) => string`
 
 ```rescript
-S.literal({"abc": 123})->S.toExpression
+S.literal({"abc": 123})->S.inputExpression
 // "{ "abc": 123 }"
 
-S.string->S.meta({name: "Address"})->S.toExpression
+S.string->S.meta({name: "Address"})->S.inputExpression
 // "Address"
 ```
 
 Used internally for readable error messages.
+
+> 🧠 The format subject to change
+
+### **`outputExpression`**
+
+`(S.t<'value>) => string`
+
+```rescript
+let schema = S.string->S.to(S.int)
+
+schema->S.inputExpression
+// "string"
+
+schema->S.outputExpression
+// "int32"
+```
+
+The same expression for the schema's output type.
 
 > 🧠 The format subject to change
 

@@ -1,33 +1,33 @@
 open Vitest
 
 test("Expression of primitive schema", t => {
-  t->Assert.deepEqual(S.string->S.toExpression, "string")
+  t->Assert.deepEqual(S.string->S.inputExpression, "string")
 })
 
 test("Expression of primitive schema with name", t => {
-  t->Assert.deepEqual(S.string->S.meta({name: "Address"})->S.toExpression, "Address")
+  t->Assert.deepEqual(S.string->S.meta({name: "Address"})->S.inputExpression, "Address")
 })
 
 test("Expression of Literal schema", t => {
-  t->Assert.deepEqual(S.literal(123)->S.toExpression, "123")
+  t->Assert.deepEqual(S.literal(123)->S.inputExpression, "123")
 })
 
 test("Expression of Literal object schema", t => {
-  t->Assert.deepEqual(S.literal({"abc": 123})->S.toExpression, `{ abc: 123; }`)
+  t->Assert.deepEqual(S.literal({"abc": 123})->S.inputExpression, `{ abc: 123; }`)
 })
 
 test("Expression of Literal array schema", t => {
-  t->Assert.deepEqual(S.literal((123, "abc"))->S.toExpression, `[123, "abc"]`)
+  t->Assert.deepEqual(S.literal((123, "abc"))->S.inputExpression, `[123, "abc"]`)
 })
 
 test("Expression of Array schema", t => {
-  t->Assert.deepEqual(S.array(S.string)->S.toExpression, "string[]")
+  t->Assert.deepEqual(S.array(S.string)->S.inputExpression, "string[]")
 })
 
 test("Expression of compactColumns schema without S.to", t => {
-  t->Assert.deepEqual(S.compactColumns(S.unknown)->S.toExpression, "unknown[][]")
-  t->Assert.deepEqual(S.compactColumns(S.string)->S.toExpression, "string[][]")
-  t->Assert.deepEqual(S.compactColumns(S.int)->S.toExpression, "int32[][]")
+  t->Assert.deepEqual(S.compactColumns(S.unknown)->S.inputExpression, "unknown[][]")
+  t->Assert.deepEqual(S.compactColumns(S.string)->S.inputExpression, "string[][]")
+  t->Assert.deepEqual(S.compactColumns(S.int)->S.inputExpression, "int32[][]")
 })
 
 test("Expression of compactColumns schema", t => {
@@ -41,7 +41,7 @@ test("Expression of compactColumns schema", t => {
         }
       ),
     )
-    ->S.toExpression,
+    ->S.inputExpression,
     "[string[], int32[]]",
   )
 })
@@ -60,41 +60,41 @@ test("Expression of reversed compactColumns schema", t => {
       ),
     )
     ->S.reverse
-    ->S.toExpression,
+    ->S.inputExpression,
     "{ foo: string; bar: int32; }[]",
   )
 })
 
 test("Expression of Array schema with optional items", t => {
-  t->Assert.deepEqual(S.array(S.option(S.string))->S.toExpression, "(string | undefined)[]")
+  t->Assert.deepEqual(S.array(S.option(S.string))->S.inputExpression, "(string | undefined)[]")
 })
 
 test("Expression of Dict schema", t => {
-  t->Assert.deepEqual(S.dict(S.string)->S.toExpression, "{ [key: string]: string; }")
+  t->Assert.deepEqual(S.dict(S.string)->S.inputExpression, "{ [key: string]: string; }")
 })
 
 test("Expression of Option schema", t => {
-  t->Assert.deepEqual(S.option(S.string)->S.toExpression, "string | undefined")
+  t->Assert.deepEqual(S.option(S.string)->S.inputExpression, "string | undefined")
 })
 
 test("Expression of Option schema with name", t => {
   t->Assert.deepEqual(
-    S.option(S.string->S.meta({name: "Nested"}))->S.meta({name: "EnvVar"})->S.toExpression,
+    S.option(S.string->S.meta({name: "Nested"}))->S.meta({name: "EnvVar"})->S.inputExpression,
     "EnvVar",
   )
 })
 
 test("Expression of Null schema", t => {
-  t->Assert.deepEqual(S.nullAsOption(S.string)->S.toExpression, "string | null")
+  t->Assert.deepEqual(S.nullAsOption(S.string)->S.inputExpression, "string | null")
 })
 
 test("Expression of Union schema", t => {
-  t->Assert.deepEqual(S.union([S.string, S.literal("foo")])->S.toExpression, `string | "foo"`)
+  t->Assert.deepEqual(S.union([S.string, S.literal("foo")])->S.inputExpression, `string | "foo"`)
 })
 
 test("Expression of Union schema with duplicated items", t => {
   t->Assert.deepEqual(
-    S.union([S.literal("foo"), S.string, S.literal("foo")])->S.toExpression,
+    S.union([S.literal("foo"), S.string, S.literal("foo")])->S.inputExpression,
     `"foo" | string | "foo"`,
   )
 })
@@ -106,13 +106,13 @@ test("Expression of Object schema", t => {
         "foo": s.field("foo", S.string),
         "bar": s.field("bar", S.int),
       }
-    )->S.toExpression,
+    )->S.inputExpression,
     `{ foo: string; bar: int32; }`,
   )
 })
 
 test("Expression of empty Object schema", t => {
-  t->Assert.deepEqual(S.object(_ => ())->S.toExpression, `{}`)
+  t->Assert.deepEqual(S.object(_ => ())->S.inputExpression, `{}`)
 })
 
 test("Expression of Tuple schema", t => {
@@ -122,7 +122,7 @@ test("Expression of Tuple schema", t => {
         "foo": s.item(0, S.string),
         "bar": s.item(1, S.int),
       }
-    )->S.toExpression,
+    )->S.inputExpression,
     `[string, int32]`,
   )
 })
@@ -130,8 +130,8 @@ test("Expression of Tuple schema", t => {
 test("Expression of renamed schema", t => {
   let originalSchema = S.never
   let renamedSchema = originalSchema->S.meta({name: "Ethers.BigInt"})
-  t->Assert.deepEqual(originalSchema->S.toExpression, "never")
-  t->Assert.deepEqual(renamedSchema->S.toExpression, "Ethers.BigInt")
+  t->Assert.deepEqual(originalSchema->S.inputExpression, "never")
+  t->Assert.deepEqual(renamedSchema->S.inputExpression, "Ethers.BigInt")
   // Uses new name when failing
   t->U.assertThrowsMessage(
     () => "smth"->S.parseOrThrow(~to=renamedSchema),
@@ -169,8 +169,8 @@ test("Expression of recursive schema", t => {
 
   let renamedRoot = nodeSchema->S.meta({name: `NodeRoot`})
 
-  t->Assert.deepEqual(nodeSchema->S.toExpression, `Node`)
-  t->Assert.deepEqual(renamedRoot->S.toExpression, `NodeRoot`)
+  t->Assert.deepEqual(nodeSchema->S.inputExpression, `Node`)
+  t->Assert.deepEqual(renamedRoot->S.inputExpression, `NodeRoot`)
 
   t->U.assertThrowsMessage(
     () => %raw(`null`)->S.parseOrThrow(~to=nodeSchema),
@@ -206,7 +206,7 @@ test("Expression of deeply renamed recursive schema", t => {
     )->S.meta({name: "MyNode"})
   })
 
-  t->Assert.deepEqual(nodeSchema->S.toExpression, `MyNode`)
+  t->Assert.deepEqual(nodeSchema->S.inputExpression, `MyNode`)
   t->U.assertThrowsMessage(
     () => %raw(`null`)->S.parseOrThrow(~to=nodeSchema),
     `Expected MyNode, received null`,
@@ -215,4 +215,20 @@ test("Expression of deeply renamed recursive schema", t => {
     () => %raw(`{Id: "0"}`)->S.parseOrThrow(~to=nodeSchema),
     `Failed at ["Children"]: Expected MyNode[], received undefined`,
   )
+})
+
+test("Output expression is the input expression of the reversed schema", t => {
+  let schema = S.string->S.to(S.int)
+  t->Assert.deepEqual(schema->S.inputExpression, "string")
+  t->Assert.deepEqual(schema->S.outputExpression, "int32")
+})
+
+test("Output expression reverses nested schemas", t => {
+  let schema = S.array(S.string->S.to(S.int))
+  t->Assert.deepEqual(schema->S.inputExpression, "string[]")
+  t->Assert.deepEqual(schema->S.outputExpression, "int32[]")
+})
+
+test("Output expression of a schema without a transform matches the input", t => {
+  t->Assert.deepEqual(S.string->S.outputExpression, "string")
 })

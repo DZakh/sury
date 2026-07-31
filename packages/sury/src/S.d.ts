@@ -780,7 +780,8 @@ export function meta<Output, Input>(
   meta: Meta<Output>
 ): Schema<Output, Input>;
 
-export function toExpression(schema: SchemaLike<unknown, unknown>): string;
+export function inputExpression(schema: SchemaLike<unknown, unknown>): string;
+export function outputExpression(schema: SchemaLike<unknown, unknown>): string;
 export function noValidation<Output, Input>(
   schema: SchemaLike<Output, Input>,
   value: boolean

@@ -1199,7 +1199,7 @@ test("Name of merge schema", (t) => {
     }),
   );
 
-  t.expect(S.toExpression(schema)).toBe(
+  t.expect(S.inputExpression(schema)).toBe(
     `{ foo: string; bar: boolean; baz: string; }`,
   );
 });
@@ -1330,7 +1330,7 @@ test("S.schema example", (t) => {
 });
 
 test("S.name", (t) => {
-  t.expect(S.toExpression(S.unknown.with(S.meta, { name: "BlaBla" }))).toBe(
+  t.expect(S.inputExpression(S.unknown.with(S.meta, { name: "BlaBla" }))).toBe(
     `BlaBla`,
   );
 });
@@ -1806,7 +1806,7 @@ test("Full Set schema", (t) => {
         return output;
       })
       .with(S.meta, {
-        name: `Set<${S.toExpression(itemSchema)}>`,
+        name: `Set<${S.inputExpression(itemSchema)}>`,
       });
 
   const numberSetSchema = mySet(S.number);
