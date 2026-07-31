@@ -2713,3 +2713,24 @@ test("Uint8Array", (t) => {
     `i=>{i instanceof e[1]||e[2](i);return JSON.stringify(e[0].decode(i))}`,
   );
 });
+
+test("Schema toString prints Schema<output, input>", (t) => {
+  t.expect(S.string.toString()).toBe("Schema<string>");
+  t.expect(S.to(S.string, S.number).toString()).toBe("Schema<number, string>");
+  t.expect(`${S.schema({ a: S.string })}`).toBe("Schema<{ a: string; }>");
+  t.expect(`${S.union([S.string, S.number])}`).toBe("Schema<string | number>");
+
+  // Nested transforms only reverse correctly through S.reverse, not a .to walk.
+  t.expect(`${S.schema({ a: S.to(S.string, S.number) })}`).toBe(
+    "Schema<{ a: number; }, { a: string; }>",
+  );
+
+  // console.log reads the inspect symbol, not toString.
+  const inspect = (S.string as unknown as Record<symbol, () => string>)[
+    Symbol.for("nodejs.util.inspect.custom")
+  ]!;
+  t.expect(inspect.call(S.string)).toBe("Schema<string>");
+
+  // The apparent type supplies toString without S.d.ts declaring it.
+  expectTypeOf(S.string.toString()).toEqualTypeOf<string>();
+});

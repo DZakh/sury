@@ -205,6 +205,10 @@ export type Schema<Output, Input = unknown> = {
     arg2: A2
   ): Schema<O, I>;
 
+  // `toString` is deliberately not declared: TypeScript's apparent type already
+  // supplies `toString(): string` from Object.prototype, and re-declaring it
+  // costs type instantiations on every schema. The override is documented in
+  // docs/js-usage.md instead.
   readonly $defs?: Record<string, Schema<unknown>>;
 
   readonly name?: string;

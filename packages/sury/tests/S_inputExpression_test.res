@@ -232,3 +232,12 @@ test("Output expression reverses nested schemas", t => {
 test("Output expression of a schema without a transform matches the input", t => {
   t->Assert.deepEqual(S.string->S.outputExpression, "string")
 })
+
+test("toString prints both sides of a transformed schema", t => {
+  let schema = S.string->S.to(S.int)
+  t->Assert.deepEqual(schema->Obj.magic->String.make, "Schema<int32, string>")
+})
+
+test("toString collapses to one parameter when the sides match", t => {
+  t->Assert.deepEqual(S.string->Obj.magic->String.make, "Schema<string>")
+})

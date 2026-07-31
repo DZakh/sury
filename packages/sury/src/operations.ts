@@ -5,6 +5,7 @@ import {
   cached,
   flagAsync,
   getOrRethrow,
+  inputExpression,
   type Internal,
   pathEmpty,
   pathToArray,
@@ -20,7 +21,7 @@ import {
   vendor,
 } from "./base";
 import type { JSONSchemaT, StandardJsonSchemaOptions } from "./jsonschema";
-import { getDecoder, isAsyncInternal } from "./parse";
+import { getDecoder, isAsyncInternal, reverse } from "./parse";
 import { literalDecoder } from "./primitives";
 
 // PORT-NOTE: StandardSchema/JSONSchema types are ported as loose, type-only
@@ -75,6 +76,27 @@ export const getStandardJSONSchema = (
     });
   }
 }
+
+// Mirrors the declared `Schema<Output, Input>`, so a logged schema reads the
+// way its type does. Collapsed to one parameter when the sides match, because
+// the point is a readable log line, not a literal type.
+//
+// A prototype method can never be tree-shaken, so this puts `reverse` in every
+// consumer's bundle whether or not they ever print a schema — an accepted cost,
+// recorded across bundleSize.yaml. Walking the `.to` chain instead would be
+// cheaper and wrong: the output of `{ a: string -> int32 }` is `{ a: int32; }`,
+// which only a recursive reversal produces.
+const schemaToString = function (this: Internal): string {
+  const input = inputExpression(this);
+  const output = inputExpression(reverse(this));
+  return `Schema<${output === input ? input : `${output}, ${input}`}>`;
+};
+Object.defineProperty(schemaPrototype, "toString", { value: schemaToString });
+// console.log reads this instead of toString, and without it Node prints the
+// raw internal object.
+Object.defineProperty(schemaPrototype, Symbol.for("nodejs.util.inspect.custom"), {
+  value: schemaToString,
+});
 
 // A lazy prototype getter (not an eager per-schema property — that would put
 // 2 allocations + 4 closures on the baseSchema hot path for a feature most
