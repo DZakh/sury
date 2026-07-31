@@ -1658,13 +1658,13 @@ The same expression for the schema's output type.
 
 ### **`toString`**
 
-`(S.t<'value>) => string`
+`(unit) => string` on the untagged schema
 
 ```rescript
-S.string->S.toString
+(S.string->S.untag).toString()
 // "Schema<string>"
 
-(S.string->S.to(S.int))->S.toString
+(S.string->S.to(S.int)->S.untag).toString()
 // "Schema<int32, string>"
 ```
 
@@ -1673,7 +1673,7 @@ Both sides at once, in the order the type declares them — `Schema<Output, Inpu
 The output side is derived through [`reverse`](#reverse), so nested transforms are reported correctly:
 
 ```rescript
-S.array(S.string->S.to(S.int))->S.toString
+(S.array(S.string->S.to(S.int))->S.untag).toString()
 // "Schema<int32[], string[]>"
 ```
 
