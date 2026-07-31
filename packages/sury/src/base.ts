@@ -292,6 +292,14 @@ export type Internal = {
   isAsync?: boolean; // Optional value means that it's not lazily computed yet.
   hasTransform?: boolean; // Optional value means that it's not lazily computed yet.
   "~standard"?: unknown;
+  // Renders this schema's type expression (see toExpression). Set by whichever
+  // module constructs the schema, so a consumer that never imports that factory
+  // never carries its renderer — the reason toExpression itself only handles
+  // what every schema can be. A structural schema built anywhere MUST set it or
+  // its expression silently degrades to the bare tag ("object", "array").
+  // Called lazily: compactColumns and recursive schemas have no expression yet
+  // at construction time.
+  x?: (schema: Internal) => string;
   // The reversed (Input ↔ Output swapped) schema, cached lazily as a hidden
   // non-enumerable property via Object.defineProperty (see schema.ts/parse.ts).
   r?: Internal;
@@ -439,74 +447,22 @@ export const stringify = (unknown: unknown): string => {
   }
 }
 
+// Structural renderers live on `schema.x`, not in this chain — see the field.
+// The `x` test sits after `const` and before `format` to hold the precedence the
+// branch chain had: a literal outranks its own structure, and compactColumns
+// (the sole array format) outranks the generic format fallback.
 // @__NO_SIDE_EFFECTS__
 export const toExpression = (schema: Internal): string => {
   if (schema.name !== U) {
     return schema.name;
   } else if (schema.const !== U) {
     return stringify(schema.const);
-  } else if (schema.anyOf !== U) {
-    // Repeated members remain significant to decoding (the same effectful
-    // schema may intentionally run more than once), but not to the human
-    // expression describing the union. Identity-only deduplication avoids
-    // conflating distinct symbols/classes that merely render alike.
-    return [...new Set(schema.anyOf)].map(toExpression).join(" | ");
-  } else if (schema.format === "compactColumns") {
-    // For compactColumns, show the column types if we have properties from .to
-    const to = schema.to;
-    if (to !== U) {
-      const props = to.properties;
-      if (props !== U) {
-        const keys = Object.keys(props);
-        return `[${keys
-          .map((key) => {
-            const propSchema = props[key]!;
-            return `${toExpression(propSchema)}[]`;
-          })
-          .join(", ")}]`;
-      } else {
-        return "unknown[][]";
-      }
-    } else {
-      // No S.to applied, reuse the array expression logic
-      const additionalItems = schema.additionalItems;
-      if (additionalItems !== U && typeof additionalItems === "object") {
-        const innerArraySchema = additionalItems;
-        return `${toExpression(innerArraySchema)}[]`;
-      } else {
-        return "unknown[][]";
-      }
-    }
+  } else if (schema.x !== U) {
+    return schema.x(schema);
   } else if (schema.format !== U) {
     return schema.format;
-  } else if (schema.type === objectTag) {
-    const properties = schema.properties!;
-    const locations = Object.keys(properties);
-    if (locations.length === 0) {
-      if (typeof schema.additionalItems === objectTag) {
-        const additionalItems = schema.additionalItems as Internal;
-        return `{ [key: string]: ${toExpression(additionalItems)}; }`;
-      } else {
-        return `{}`;
-      }
-    } else {
-      return `{ ${locations
-        .map((location) => {
-          return `${location}: ${toExpression(properties[location]!)};`;
-        })
-        .join(" ")} }`;
-    }
   } else if (schema.type === nanTag) {
     return "NaN";
-  } else if (schema.type === arrayTag) {
-    const items = schema.items!;
-    if (typeof schema.additionalItems === objectTag) {
-      const additionalItems = schema.additionalItems as Internal;
-      const itemName = toExpression(additionalItems);
-      return (additionalItems.type === anyOfTag ? `(${itemName})` : itemName) + "[]";
-    } else {
-      return `[${items.map((schema) => toExpression(schema)).join(", ")}]`;
-    }
   } else if (schema.type === instanceTag) {
     return (schema.class as { name: string }).name;
   } else {

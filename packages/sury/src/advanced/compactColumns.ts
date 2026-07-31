@@ -11,6 +11,7 @@ import {
   pathFromInlinedLocation,
   tagFlags,
   tagFlagUnknown,
+  toExpression,
   U,
   unknown,
   type Val,
@@ -291,11 +292,28 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
   }
 }
 
+// The column types only exist once `.to` has been applied, so this must stay
+// lazy — the schema renders as the raw column arrays until then.
+const compactColumnsExpression = (schema: Internal): string => {
+  const to = schema.to;
+  const props = to !== U ? to.properties : U;
+  if (props !== U) {
+    return `[${Object.keys(props)
+      .map((key) => `${toExpression(props[key]!)}[]`)
+      .join(", ")}]`;
+  }
+  const additionalItems = schema.additionalItems;
+  return to === U && additionalItems !== U && typeof additionalItems === "object"
+    ? `${toExpression(additionalItems)}[]`
+    : "unknown[][]";
+}
+
 // @__NO_SIDE_EFFECTS__
 export const compactColumns = (inputSchema: Internal): Internal => {
   const innerArray = array(inputSchema);
   const mut = array(innerArray);
   mut.format = "compactColumns";
   mut.decoder = compactColumnsDecoder;
+  mut.x = compactColumnsExpression;
   return mut;
 }

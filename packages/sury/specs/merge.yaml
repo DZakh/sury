@@ -19,5 +19,8 @@ operations:
       invalid-merged-field:
         input: '{ a: "x", b: 1, c: true, d: "not bigint", e: Symbol.for("e") }'
         error: 'Failed at ["d"]: Expected bigint, received "not bigint"'
+      not-an-object:
+        input: '"nope"'
+        error: 'Expected { a: string; b: number; c: boolean; d: bigint; e: symbol; }, received "nope"'
   decode: identity
   encode: identity

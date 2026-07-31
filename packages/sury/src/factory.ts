@@ -40,9 +40,11 @@ import {
 } from "./builder";
 import {
   arrayDecoder,
+  arrayExpression,
   completeObjectVal,
   makeObjectVal,
   objectDecoder,
+  objectExpression,
   optionFactory,
   valGet,
 } from "./composites";
@@ -153,6 +155,7 @@ function schemaNested(this: AdvancedObjectCtx & Record<string, unknown>, fieldNa
       s.properties = properties;
       s.additionalItems = globalConfig.a;
       s.decoder = objectDecoder;
+      s.x = objectExpression;
       schema = s;
     }
 
@@ -277,6 +280,7 @@ export const schemaObject = (
   mut.properties = properties;
   mut.additionalItems = globalConfig.a;
   mut.decoder = objectDecoder;
+  mut.x = objectExpression;
   mut.parser = shapedParser;
   mut.to = definitionToShapedSchema(definition);
   if (flattened !== U) {
@@ -325,6 +329,7 @@ export const schemaTuple = (
   mut.items = items;
   mut.additionalItems = "strict";
   mut.decoder = arrayDecoder;
+  mut.x = arrayExpression;
   mut.parser = shapedParser;
   mut.to = definitionToShapedSchema(definition);
   return mut;
@@ -635,6 +640,7 @@ const traverseDefinition = (
         mut.items = items;
         mut.additionalItems = "strict";
         mut.decoder = arrayDecoder;
+        mut.x = arrayExpression;
         return mut;
       } else {
         // A prototype other than Object.prototype (or null, e.g. Object.create(null))
@@ -662,6 +668,7 @@ const traverseDefinition = (
           mut.properties = node as Record<string, Internal>;
           mut.additionalItems = globalConfig.a;
           mut.decoder = objectDecoder;
+          mut.x = objectExpression;
           return mut;
         }
       }

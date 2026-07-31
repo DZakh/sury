@@ -52,6 +52,7 @@ import {
 import {
   array,
   arrayDecoder,
+  arrayExpression,
   completeObjectVal,
   dictFactory,
   makeObjectVal,
@@ -67,7 +68,7 @@ import {
   string,
   stringDecoderFn,
 } from "../primitives";
-import { unionDecoder, unionFactory, unionRewriteTo } from "../union";
+import { unionDecoder, unionExpression, unionFactory, unionRewriteTo } from "../union";
 import { recursiveDecoder } from "./recursive";
 
 export const jsonEncoderFn = (input: Val, target: Internal): Val => {
@@ -141,6 +142,7 @@ export const jsonDecoderFn = (input: Val): Val => {
     const expected = baseSchema(arrayTag, false);
     expected.items = input.s.items!.map((_) => json());
     expected.decoder = arrayDecoder;
+    expected.x = arrayExpression;
     expected.additionalItems =
       typeof input.s.additionalItems === "object"
         ? json()
@@ -269,6 +271,9 @@ export const json = (): Internal => {
     jsonDef.decoder = unionDecoder;
     jsonDef.name = jsonName;
     jsonDef.type = anyOfTag;
+    // Renders as `name`, never through this — set only to keep the enumerable
+    // field count `unionIsTransparent` matches on.
+    jsonDef.x = unionExpression;
 
     const defs: Record<string, Internal> = {};
     defs[jsonName] = jsonDef;

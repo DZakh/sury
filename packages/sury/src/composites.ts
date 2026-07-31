@@ -24,6 +24,7 @@ import {
   tagFlagRef,
   tagFlags,
   tagFlagUnknown,
+  toExpression,
   U,
   undefinedTag,
   unknown,
@@ -69,6 +70,36 @@ import { unionFactory } from "./union";
 const isItemSchema = (x: AdditionalItems | undefined): x is Internal =>
   x !== U && typeof x !== "string";
 
+// Assigned to `schema.x` by every objectTag/arrayTag construction site, here and
+// in factory.ts — a site that forgets renders as the bare tag.
+export const objectExpression = (schema: Internal): string => {
+  const properties = schema.properties!;
+  const locations = Object.keys(properties);
+  if (locations.length === 0) {
+    if (typeof schema.additionalItems === objectTag) {
+      return `{ [key: string]: ${toExpression(schema.additionalItems as Internal)}; }`;
+    } else {
+      return `{}`;
+    }
+  } else {
+    return `{ ${locations
+      .map((location) => {
+        return `${location}: ${toExpression(properties[location]!)};`;
+      })
+      .join(" ")} }`;
+  }
+}
+
+export const arrayExpression = (schema: Internal): string => {
+  if (typeof schema.additionalItems === objectTag) {
+    const additionalItems = schema.additionalItems as Internal;
+    const itemName = toExpression(additionalItems);
+    return (additionalItems.type === anyOfTag ? `(${itemName})` : itemName) + "[]";
+  } else {
+    return `[${schema.items!.map((schema) => toExpression(schema)).join(", ")}]`;
+  }
+}
+
 export const makeObjectVal = (prev: Val, schema: Internal): Val => {
   // Canonical Val field order (see B_operationArg in builder.ts).
   return {
@@ -82,6 +113,7 @@ export const makeObjectVal = (prev: Val, schema: Internal): Val => {
           items: [],
           additionalItems: "strict",
           decoder: arrayDecoder,
+          x: arrayExpression,
         }
       : {
           type: objectTag,
@@ -89,6 +121,7 @@ export const makeObjectVal = (prev: Val, schema: Internal): Val => {
           properties: Object.create(null),
           additionalItems: "strict",
           decoder: objectDecoder,
+          x: objectExpression,
         }) as Internal,
     io: U,
     e: prev.e,
@@ -178,6 +211,7 @@ export const array = (item: Internal): Internal => {
   mut.additionalItems = itemInternal;
   mut.items = immutableEmptyArray as Internal[];
   mut.decoder = arrayDecoder;
+  mut.x = arrayExpression;
   return mut;
 }
 export const arrayDecoder = (unknownInput: Val): Val => {
@@ -339,6 +373,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
       const mut = baseSchema(objectTag, false);
       mut.properties = immutableEmptyObject as Record<string, Internal>;
       mut.additionalItems = unknown;
+      mut.x = objectExpression;
       schema = mut;
     } else {
       schema = unknownInput.s;
@@ -556,6 +591,7 @@ export const dictFactory = (item: Internal): Internal => {
   mut.properties = immutableEmptyObject as Record<string, Internal>;
   mut.additionalItems = item;
   mut.decoder = objectDecoder;
+  mut.x = objectExpression;
   return mut;
 }
 
@@ -570,6 +606,7 @@ export const nestedNone = (): Internal => {
     properties,
     additionalItems: "strip",
     decoder: objectDecoder,
+    x: objectExpression,
     // TODO: Support this as a default coercion
     serializer: (input: Val) => {
       const nextSchema = input.e.to!;

@@ -82,6 +82,14 @@ const unionBoundaryTags = tagFlagUnion | tagFlagRef | tagFlagFunction;
 const unionOpaqueTags =
   tagFlagUnknown | unionBoundaryTags | tagFlagNever;
 
+// Assigned to `schema.x` by every anyOf construction site. Repeated members
+// remain significant to decoding (the same effectful schema may intentionally
+// run more than once), but not to the human expression describing the union.
+// Identity-only deduplication avoids conflating distinct symbols/classes that
+// merely render alike.
+export const unionExpression = (schema: Internal): string =>
+  [...new Set(schema.anyOf)].map(toExpression).join(" | ");
+
 // ── Type identity ────────────────────────────────────────────────────────────
 
 // The spec's "same type": tags match, including the class for instances and the
@@ -116,18 +124,19 @@ const unionOutput = (schema: Internal): Internal => {
 //
 // "Nothing of its own" is a field count, not a list of interesting fields, so an
 // unknown field reads as "carries something" and keeps the union whole — the
-// conservative direction. The 6 are exactly what `unionFactory` sets: `type` and
-// `seq` from `baseSchema`, then `anyOf`, `decoder`, `encoder`, `has`. `isAsync`
-// and `hasTransform` are excluded because the parse loop writes them onto a live
-// schema in place. Changing `unionFactory`'s field set without changing this
-// count stops every union from flattening, which the nested-union goldens catch.
+// conservative direction. The 7 are exactly what `unionFactory` sets: `type` and
+// `seq` from `baseSchema`, then `anyOf`, `decoder`, `encoder`, `has`, `x`.
+// `isAsync` and `hasTransform` are excluded because the parse loop writes them
+// onto a live schema in place. Changing `unionFactory`'s field set without
+// changing this count stops every union from flattening, which the nested-union
+// goldens catch.
 const unionIsTransparent = (schema: Internal): boolean => {
   if (schema.type !== anyOfTag) return false;
   let fields = 0;
   for (const key in schema) {
     if (key !== "isAsync" && key !== "hasTransform") fields++;
   }
-  return fields === 6;
+  return fields === 7;
 };
 
 // One bounded structural walk supplies every recursive effect fact used by
@@ -1367,6 +1376,7 @@ export const unionRewrite = (
   mut.decoder = unionDecoder;
   mut.encoder = unionEncoder;
   mut.perVariant = input.s.perVariant;
+  mut.x = unionExpression;
   return B_refine(input, unknown, U, mut);
 };
 
@@ -1586,5 +1596,6 @@ export const unionFactory = (schemas: Internal[]): Internal => {
   mut.decoder = unionDecoder;
   mut.encoder = unionEncoder;
   mut.has = has;
+  mut.x = unionExpression;
   return mut;
 };
