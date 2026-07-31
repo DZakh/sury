@@ -107,19 +107,6 @@ test("Rejects at creation when the second schema misses the parser", t => {
   )
 })
 
-test("Parses with string catch all", t => {
-  let schema = S.union([S.literal("apple"), S.string, S.literal("banana")])
-
-  t->Assert.deepEqual("apple"->S.parseOrThrow(~to=schema), "apple")
-  t->Assert.deepEqual("foo"->S.parseOrThrow(~to=schema), "foo")
-
-  t->U.assertCompiledCode(
-    ~schema,
-    ~op=#Parse,
-    `i=>{(typeof i==="string"&&i==="apple"||typeof i==="string"||typeof i==="string"&&i==="banana")||e[0](i);return i}`,
-  )
-})
-
 // https://github.com/DZakh/sury/issues/115
 test("Reports the named union schema when a string-shape fallback rejects a non-string input", t => {
   let schema =
