@@ -31,6 +31,30 @@ test("Expression of compactColumns schema without S.to", t => {
 })
 
 test("Expression of compactColumns schema", t => {
+  // The supported target, per compactColumnsDecoder's panic message: an array
+  // of objects, whose item schema carries the columns.
+  t->Assert.deepEqual(
+    S.compactColumns(S.unknown)
+    ->S.to(
+      S.array(
+        S.schema(s =>
+          {
+            "foo": s.matches(S.string),
+            "bar": s.matches(S.int),
+          }
+        ),
+      ),
+    )
+    ->S.inputExpression,
+    "[string[], int32[]]",
+  )
+})
+
+test("Expression of compactColumns schema with an unsupported target", t => {
+  // `.to(objectSchema)` is rejected by the decoder (it panics with "supports
+  // only object schemas. Use ...->S.to(S.array(objectSchema))"), so there are no
+  // columns to describe — it stays the raw columnar shape rather than
+  // advertising a conversion that cannot run.
   t->Assert.deepEqual(
     S.compactColumns(S.unknown)
     ->S.to(
@@ -42,7 +66,7 @@ test("Expression of compactColumns schema", t => {
       ),
     )
     ->S.inputExpression,
-    "[string[], int32[]]",
+    "unknown[][]",
   )
 })
 

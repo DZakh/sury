@@ -294,13 +294,22 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
 
 // The column types only exist once `.to` has been applied, so this must stay
 // lazy — the schema renders as the raw column arrays until then.
+//
+// Columns are read where compactColumnsDecoder's forward direction reads them:
+// on the `.to` array's item schema. Reading `to.properties` instead described
+// `.to(objectSchema)` — a shape the decoder rejects outright — while the
+// supported `.to(S.array(objectSchema))` fell through to a bare `unknown[][]`.
 const compactColumnsExpression = (schema: Internal): string => {
   const to = schema.to;
-  const props = to !== U ? to.properties : U;
+  const item = to !== U ? to.additionalItems : U;
+  const props =
+    item !== U && typeof item === "object" ? (item as Internal).properties : U;
   if (props !== U) {
-    return `[${Object.keys(props)
-      .map((key) => `${inputExpression(props[key]!)}[]`)
-      .join(", ")}]`;
+    let body = "";
+    for (const key in props) {
+      body = body + (body === "" ? "" : ", ") + inputExpression(props[key]!) + "[]";
+    }
+    return `[${body}]`;
   }
   const additionalItems = schema.additionalItems;
   return to === U && additionalItems !== U && typeof additionalItems === "object"
