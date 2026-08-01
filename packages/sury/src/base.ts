@@ -415,67 +415,24 @@ export const isOptional = (schema: Internal): boolean => {
   );
 }
 
-// Renders a runtime value for the `received` half of an error message.
-//
-// Expanded exactly one level. Recursing without a limit is what let a cyclic
-// value overflow the stack *inside the error formatter*; stopping at depth 1
-// keeps that fixed while still showing the shape that actually failed. Nested
-// values fall back to naming their constructor, which is what Zod, Valibot and
-// ArkType print at every level.
-//
-// One level is enough because a nested failure already reports its path
-// (`Failed at ["user"]["id"]`) — the expansion is for "wrong shape entirely",
-// which is visible at the top. Width is capped for the same reason depth is:
-// a 40-key input would otherwise produce a several-hundred-character message.
-//
-// Primitives always show their value — `received 42` beats `received number`,
-// and bigint keeps its `n` so it stays distinguishable from a number.
-const stringifyMaxEntries = 5;
-
-export const stringify = (unknown: unknown, nested?: boolean): string => {
+// Names a value without looking inside it: the rendering every value gets when
+// it is not the top level of a message. Zod, Valibot and ArkType print this at
+// every level; `stringify` below adds one level of detail on top.
+const stringifyLeaf = (unknown: unknown): string => {
   const tagFlag = tagFlags[typeof unknown as Tag]!;
 
   if (flagUnsafeHas(tagFlag, tagFlagUndefined)) {
     return undefinedTag;
   } else if (flagUnsafeHas(tagFlag, (tagFlagObject | tagFlagFunction))) {
-    if (unknown === null) {
-      return nullTag;
-    }
-    const isArray = Array.isArray(unknown);
-    const proto = Object.getPrototypeOf(unknown) as
-      | { constructor?: { name?: string } }
-      | null;
     // `|| objectTag` covers both a null prototype (Object.create(null)) and an
-    // anonymous constructor, whose `name` is the empty string.
-    const named = isArray
-      ? `Array(${(unknown as unknown[]).length})`
-      : proto?.constructor?.name || objectTag;
-    // Only plain objects and arrays expand; a Date or Map just says what it is.
-    if (nested || !(isArray || proto === null || proto.constructor === Object)) {
-      return named;
-    }
-    let body = "";
-    let count = 0;
-    if (isArray) {
-      const items = unknown as unknown[];
-      for (; count < items.length; count++) {
-        if (count === stringifyMaxEntries) {
-          body = body + ", …";
-          break;
-        }
-        body = body + (count === 0 ? "" : ", ") + stringify(items[count], true);
-      }
-      return `[${body}]`;
-    }
-    const dict = unknown as Record<string, unknown>;
-    for (const key in dict) {
-      if (count++ === stringifyMaxEntries) {
-        body = body + "… ";
-        break;
-      }
-      body = body + key + ": " + stringify(dict[key], true) + "; ";
-    }
-    return body === "" ? "{}" : `{ ${body}}`;
+    // anonymous constructor, whose `name` is the empty string. Arrays carry
+    // their length: against a tuple, the length is the whole diagnostic.
+    return unknown === null
+      ? nullTag
+      : Array.isArray(unknown)
+        ? `Array(${unknown.length})`
+        : (Object.getPrototypeOf(unknown) as { constructor?: { name?: string } } | null)
+            ?.constructor?.name || objectTag;
   } else if (flagUnsafeHas(tagFlag, tagFlagString)) {
     return `"${unknown as string}"`;
   } else if (flagUnsafeHas(tagFlag, tagFlagBigint)) {
@@ -483,6 +440,51 @@ export const stringify = (unknown: unknown, nested?: boolean): string => {
   } else {
     return (unknown as { toString: () => string }).toString();
   }
+}
+
+// Renders a runtime value for the `received` half of an error message: a plain
+// object or array expanded exactly one level, anything else named.
+//
+// Recursing without a limit is what let a cyclic value overflow the stack
+// *inside the error formatter*; stopping at depth 1 keeps that fixed while
+// still showing the shape that actually failed. One level is enough because a
+// nested failure already reports its path (`Failed at ["user"]["id"]`) — the
+// expansion is for "wrong shape entirely", which is visible at the top.
+//
+// Entries are capped for the same reason depth is: a 40-key input would
+// otherwise produce a several-hundred-character message. The literal 5 is
+// written out at both uses because esbuild does not inline a module-level
+// const number.
+export const stringify = (unknown: unknown): string => {
+  if (unknown !== null && typeof unknown === objectTag) {
+    if (Array.isArray(unknown)) {
+      const items = unknown as unknown[];
+      let body = "";
+      for (let idx = 0; idx < items.length; idx++) {
+        if (idx === 5) {
+          body = body + ", …";
+          break;
+        }
+        body = body + (idx === 0 ? "" : ", ") + stringifyLeaf(items[idx]);
+      }
+      return `[${body}]`;
+    }
+    const proto = Object.getPrototypeOf(unknown) as { constructor?: unknown } | null;
+    if (proto === null || proto.constructor === Object) {
+      const dict = unknown as Record<string, unknown>;
+      let body = "";
+      let count = 0;
+      for (const key in dict) {
+        if (count++ === 5) {
+          body = body + "… ";
+          break;
+        }
+        body = body + key + ": " + stringifyLeaf(dict[key]) + "; ";
+      }
+      return body === "" ? "{}" : `{ ${body}}`;
+    }
+  }
+  return stringifyLeaf(unknown);
 }
 
 // Properties and an index signature come from one accumulator rather than
