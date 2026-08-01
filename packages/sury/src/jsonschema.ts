@@ -591,18 +591,23 @@ const internalToJSONSchemaBase = (
   } else if (tag === neverTag) {
     jsonSchema.not = {};
   } else {
+    // No value was parsed here — the schema itself is what isn't JSON — so the
+    // reason names the offending schema rather than a received value.
+    const offender = flagUnsafeHas(tagFlags[parent.type]!, tagFlagUnion) ? parent : schema;
     throw new SuryError(
       B_makeInvalidInputDetails(
-        // Just needs `.name` for the message - avoid json()'s recursive union.
+        // Just needs `.name` for the structured `expected` — avoid json()'s
+        // recursive union.
         (() => {
           const s = baseSchema(unknownTag, false);
           s.name = jsonName;
           return s;
         })(),
-        flagUnsafeHas(tagFlags[parent.type]!, tagFlagUnion) ? parent : schema,
+        offender,
         path,
         U,
-        false
+        U,
+        `Expected ${jsonName}, received ${toExpression(offender)}`
       )
     );
   }

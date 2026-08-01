@@ -336,16 +336,13 @@ export const B_makeInvalidInputDetails = (
   received: Internal,
   path: Path,
   input: unknown,
-  includeInput: boolean,
   unionErrors?: SuryErrorRecord[],
   reasonOverride?: string
 ): ErrorDetails => {
   let reasonRef =
     reasonOverride !== U
       ? reasonOverride
-      : `Expected ${toExpression(expected)}, received ${
-          includeInput ? stringify(input) : toExpression(received)
-        }`;
+      : `Expected ${toExpression(expected)}, received ${stringify(input)}`;
   if (unionErrors !== U) {
     const caseErrors = unionErrors;
     const seenReasons = new Set<string>();
@@ -368,10 +365,8 @@ export const B_makeInvalidInputDetails = (
     path,
     reason: reasonRef,
     unionErrors,
+    input,
   };
-  if (includeInput) {
-    details.input = input;
-  }
   return details;
 }
 
@@ -382,23 +377,14 @@ export const B_makeInvalidInputDetails = (
 export const B_invalidInputBuilder = (
   expected?: Internal,
   extraPath: Path = pathEmpty,
-  reasonOverride?: string,
-  includeInput: boolean = true
+  reasonOverride?: string
 ): (input: Val) => (value: unknown) => ErrorDetails => {
   return (input: Val) => {
     const expected_ = expected !== U ? expected : input.e;
     const received = B_receivedSchema(input);
     const path = extraPath === pathEmpty ? input.path : pathConcat(input.path, extraPath);
     return (value: unknown) =>
-      B_makeInvalidInputDetails(
-        expected_,
-        received,
-        path,
-        value,
-        includeInput,
-        U,
-        reasonOverride
-      );
+      B_makeInvalidInputDetails(expected_, received, path, value, U, reasonOverride);
   };
 }
 
@@ -848,7 +834,7 @@ export const B_effectCtx = (input: Val): EffectCtx => {
   return {
     fail: (message: string, path: Path = pathEmpty): never => {
       const error = new SuryError(
-        B_invalidInputBuilder(U, path, message, false)(input)(U)
+        B_invalidInputBuilder(U, path, message)(input)(U)
       );
       // Read about this in shouldPrependPathKey comment.
       (error as unknown as Record<string, unknown>)[shouldPrependPathKey] = 1;
