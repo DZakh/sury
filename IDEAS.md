@@ -42,6 +42,30 @@ S.reverse(S.schema({
 - Make `S.record` accept two args
 - Update docs
 
+### Numeric bounds follow-ups
+
+- **Narrow a numeric format's range check against the schema's own bounds.**
+  `S.int32.with(S.gt, 5)` emits `i<=2147483647&&i>=-2147483648&&i%1===0` and
+  then `i>5`, but `i>5` already implies the lower half; `S.lt` makes the upper
+  half dead the same way, and `S.port` (`i>0&&i<65536&&i%1===0`) has the
+  identical redundancy. `numberDecoder` has `input.e` in hand and the bounds
+  are native fields on it, so `int32FormatValidation` can drop whichever half
+  the bound subsumes. Two costs: a value outside the format range but also
+  outside the bound would report the bound's error rather than
+  `Expected int32`, and `int32Check` would stop being a module-level const —
+  the one place `primitives.ts` deliberately avoids a per-compile closure.
+
+- **Bound errors should read `Expected int32 > 5, received 5.5`.** Today they
+  say `Number must be greater than 5`, which omits the received value and says
+  "Number" for what is really an int32, a port or a bigint. `Expected X,
+  received Y` is the house idiom everywhere else, and routing through
+  `toExpression` names the actual schema. Failure-path only, but it moves
+  bound failures off `B_failWithErrorMessage`'s static string onto
+  `B_makeInvalidInputDetails`. Settle the length family in the same pass so
+  the two don't drift again — `Expected string > 5` is wrong, since the
+  comparison is on `.length`; something like `Expected string.length >= 1,
+  received 0` keeps the received value a number.
+
 ### Known bugs left over from the validation refactor (`val.validation: array<validationCheck>`)
 
 - **Union discriminant hoists refinement checks with `&&` instead of `;`.**

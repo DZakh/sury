@@ -38,6 +38,14 @@ export const null_ = (item: Internal): Internal =>
 // Built-in refinements
 // =============
 
+// Load-bearing beyond the error message: every bound below is interpolated
+// straight into generated source rather than embedded as `e[n]`, so this
+// typeof is the only thing standing between a caller-supplied value and
+// arbitrary code in a compiled operation. Anything that reaches the template
+// must have passed through here first. `String()` of a number is always a
+// valid numeric literal — including Infinity, -0 and 1e+21 — so no escaping
+// is needed once the type holds; NaN is rejected because a bound it can never
+// satisfy is a caller mistake, not because it would be unsafe to print.
 export const assertNumber = (fnName: string, n: unknown): void => {
   if (typeof n !== numberTag || Number.isNaN(n)) {
     throw new SuryError({
@@ -88,10 +96,10 @@ export const floatMin = (schema: Internal, minValue: number, maybeMessage?: stri
   return internalRefine(schema, (mut: Internal) => {
     mut.minimum = minValue;
     getMutErrorMessage(mut)["minimum"] = message;
-    return (input: Val) => {
+    return (_input: Val) => {
       return [
         {
-          c: (inputVar: string) => `${inputVar}>=${B_embed(input, minValue)}`,
+          c: (inputVar: string) => `${inputVar}>=${minValue}`,
           f: B_failWithErrorMessage("minimum", message),
         },
       ];
@@ -105,10 +113,10 @@ export const floatMax = (schema: Internal, maxValue: number, maybeMessage?: stri
   return internalRefine(schema, (mut: Internal) => {
     mut.maximum = maxValue;
     getMutErrorMessage(mut)["maximum"] = message;
-    return (input: Val) => {
+    return (_input: Val) => {
       return [
         {
-          c: (inputVar: string) => `${inputVar}<=${B_embed(input, maxValue)}`,
+          c: (inputVar: string) => `${inputVar}<=${maxValue}`,
           f: B_failWithErrorMessage("maximum", message),
         },
       ];
@@ -156,10 +164,10 @@ export const floatGreater = (schema: Internal, minValue: number, maybeMessage?: 
   return internalRefine(schema, (mut: Internal) => {
     mut.exclusiveMinimum = minValue;
     getMutErrorMessage(mut)["exclusiveMinimum"] = message;
-    return (input: Val) => {
+    return (_input: Val) => {
       return [
         {
-          c: (inputVar: string) => `${inputVar}>${B_embed(input, minValue)}`,
+          c: (inputVar: string) => `${inputVar}>${minValue}`,
           f: B_failWithErrorMessage("exclusiveMinimum", message),
         },
       ];
@@ -173,10 +181,10 @@ export const floatLess = (schema: Internal, maxValue: number, maybeMessage?: str
   return internalRefine(schema, (mut: Internal) => {
     mut.exclusiveMaximum = maxValue;
     getMutErrorMessage(mut)["exclusiveMaximum"] = message;
-    return (input: Val) => {
+    return (_input: Val) => {
       return [
         {
-          c: (inputVar: string) => `${inputVar}<${B_embed(input, maxValue)}`,
+          c: (inputVar: string) => `${inputVar}<${maxValue}`,
           f: B_failWithErrorMessage("exclusiveMaximum", message),
         },
       ];
@@ -184,6 +192,10 @@ export const floatLess = (schema: Internal, maxValue: number, maybeMessage?: str
   });
 }
 
+// Guards interpolation into generated source, exactly as assertNumber does.
+// `String()` of a bigint is digits with an optional leading `-`, so the bound
+// is printed with an `n` suffix to stay a bigint literal — without it the
+// comparison would silently become a mixed bigint/number one.
 export const assertBigint = (fnName: string, n: unknown): void => {
   if (typeof n !== bigintTag) {
     throw new SuryError({
@@ -200,10 +212,10 @@ export const bigintMin = (schema: Internal, minValue: bigint, maybeMessage?: str
   return internalRefine(schema, (mut: Internal) => {
     mut.minimum = minValue;
     getMutErrorMessage(mut)["minimum"] = message;
-    return (input: Val) => {
+    return (_input: Val) => {
       return [
         {
-          c: (inputVar: string) => `${inputVar}>=${B_embed(input, minValue)}`,
+          c: (inputVar: string) => `${inputVar}>=${minValue}n`,
           f: B_failWithErrorMessage("minimum", message),
         },
       ];
@@ -217,10 +229,10 @@ export const bigintMax = (schema: Internal, maxValue: bigint, maybeMessage?: str
   return internalRefine(schema, (mut: Internal) => {
     mut.maximum = maxValue;
     getMutErrorMessage(mut)["maximum"] = message;
-    return (input: Val) => {
+    return (_input: Val) => {
       return [
         {
-          c: (inputVar: string) => `${inputVar}<=${B_embed(input, maxValue)}`,
+          c: (inputVar: string) => `${inputVar}<=${maxValue}n`,
           f: B_failWithErrorMessage("maximum", message),
         },
       ];
@@ -234,10 +246,10 @@ export const bigintGreater = (schema: Internal, minValue: bigint, maybeMessage?:
   return internalRefine(schema, (mut: Internal) => {
     mut.exclusiveMinimum = minValue;
     getMutErrorMessage(mut)["exclusiveMinimum"] = message;
-    return (input: Val) => {
+    return (_input: Val) => {
       return [
         {
-          c: (inputVar: string) => `${inputVar}>${B_embed(input, minValue)}`,
+          c: (inputVar: string) => `${inputVar}>${minValue}n`,
           f: B_failWithErrorMessage("exclusiveMinimum", message),
         },
       ];
@@ -251,10 +263,10 @@ export const bigintLess = (schema: Internal, maxValue: bigint, maybeMessage?: st
   return internalRefine(schema, (mut: Internal) => {
     mut.exclusiveMaximum = maxValue;
     getMutErrorMessage(mut)["exclusiveMaximum"] = message;
-    return (input: Val) => {
+    return (_input: Val) => {
       return [
         {
-          c: (inputVar: string) => `${inputVar}<${B_embed(input, maxValue)}`,
+          c: (inputVar: string) => `${inputVar}<${maxValue}n`,
           f: B_failWithErrorMessage("exclusiveMaximum", message),
         },
       ];

@@ -356,7 +356,7 @@ test("NaN should be checked before number even if it's later item in the union",
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{for(;;){if(Number.isNaN(i)){i=void 0;break}if(typeof i==="number"){i>=e[0]||e[1](i);break}e[2](i)}return i}`,
+    `i=>{for(;;){if(Number.isNaN(i)){i=void 0;break}if(typeof i==="number"){i>=0||e[0](i);break}e[1](i)}return i}`,
   )
 
   S.global({})
