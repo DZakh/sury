@@ -229,6 +229,31 @@ export const getOutputSchema = (schema: Internal): Internal => {
     return schema;
   }
 }
+// The two sides of a schema trade places: what parsed now serializes, what
+// refined the input now refines the output. `delete` rather than `= U` because
+// `"fromDefault" in self` (union.ts) tells absent apart from undefined.
+const reverseSwap = (mut: Record<string, unknown>, a: string, b: string): void => {
+  const previous = mut[a];
+  if (mut[b] !== U) {
+    mut[a] = mut[b];
+  } else {
+    delete mut[a];
+  }
+  if (previous !== U) {
+    mut[b] = previous;
+  } else {
+    delete mut[b];
+  }
+}
+
+const reverseDict = (dict: Record<string, Internal>): Record<string, Internal> => {
+  const reversed: Record<string, Internal> = {};
+  for (const key in dict) {
+    reversed[key] = reverse(dict[key]!);
+  }
+  return reversed;
+}
+
 // @__NO_SIDE_EFFECTS__
 export const reverse = (schema: Internal): Internal => {
   const schemaRecord = schema as unknown as Record<string, Internal>;
@@ -246,52 +271,15 @@ export const reverse = (schema: Internal): Internal => {
       } else {
         mut.to = reversedHead;
       }
-      const parser = mut.parser;
-      if (mut.serializer !== U) {
-        mut.parser = mut.serializer;
-      } else {
-        delete mut.parser;
-      }
-      if (parser !== U) {
-        mut.serializer = parser;
-      } else {
-        delete mut.serializer;
-      }
-      // Swap inputRefiner and refiner
-      const refiner = mut.refiner;
-      if (mut.inputRefiner !== U) {
-        mut.refiner = mut.inputRefiner;
-      } else {
-        delete mut.refiner;
-      }
-      if (refiner !== U) {
-        mut.inputRefiner = refiner;
-      } else {
-        delete mut.inputRefiner;
-      }
-      const fromDefault = mut.fromDefault;
-      if (mut.default !== U) {
-        mut.fromDefault = mut.default;
-      } else {
-        delete mut.fromDefault;
-      }
-      if (fromDefault !== U) {
-        mut.default = fromDefault;
-      } else {
-        delete mut.default;
-      }
+      const record = mut as unknown as Record<string, unknown>;
+      reverseSwap(record, "parser", "serializer");
+      reverseSwap(record, "refiner", "inputRefiner");
+      reverseSwap(record, "fromDefault", "default");
       if (mut.items !== U) {
         mut.items = mut.items.map(reverse);
       }
       if (mut.properties !== U) {
-        const properties = mut.properties;
-        const newProperties: Record<string, Internal> = {};
-        const keys = Object.keys(properties);
-        for (let idx = 0; idx <= keys.length - 1; idx++) {
-          const key = keys[idx]!;
-          newProperties[key] = reverse(properties[key]!);
-        }
-        mut.properties = newProperties;
+        mut.properties = reverseDict(mut.properties);
       }
       // Skip tuple
       if (typeof mut.additionalItems === objectTag) {
@@ -311,14 +299,7 @@ export const reverse = (schema: Internal): Internal => {
         mut.anyOf = newAnyOf;
       }
       if (mut["$defs"] !== U) {
-        const defs = mut["$defs"];
-        const reversedDefs: Record<string, Internal> = {};
-        const defsKeys = Object.keys(defs);
-        for (let idx = 0; idx <= defsKeys.length - 1; idx++) {
-          const key = defsKeys[idx]!;
-          reversedDefs[key] = reverse(defs[key]!);
-        }
-        mut["$defs"] = reversedDefs;
+        mut["$defs"] = reverseDict(mut["$defs"]);
       }
       reversedHead = mut;
       current = next;
