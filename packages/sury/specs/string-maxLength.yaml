@@ -30,7 +30,7 @@ operations:
         output: '" "'
       wrong-type:
         input: "1"
-        error: Expected string, received 1
+        error: Expected string <= 2, received 1
   decode:
     expression: i=>{i.length<3||e[0](i);return i}
     examples:

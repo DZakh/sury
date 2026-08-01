@@ -30,7 +30,7 @@ operations:
         error: String must be 2 or more characters long
       wrong-type:
         input: "1"
-        error: Expected string, received 1
+        error: Expected string >= 2, received 1
   decode:
     expression: i=>{i.length>1||e[0](i);return i}
     examples:

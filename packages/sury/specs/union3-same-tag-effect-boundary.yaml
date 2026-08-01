@@ -25,13 +25,13 @@ operations:
       rejected-by-all:
         input: '"bad"'
         error: |-
-          Expected string | string | string, received "bad"
+          Expected string >= 5 | string | string <= 1, received "bad"
           - String must be 5 or more characters long
           - Expected number, received "bad"
           - String must be 1 or fewer characters long
       wrong-tag:
         input: "true"
-        error: Expected string | string | string, received true
+        error: Expected string >= 5 | string | string <= 1, received true
   decode: eq-to-parse
   encode:
     expression: i=>{for(;;){if(typeof i==="string"){for(;;){let r;try{i.length>4||e[0](i);break}catch(x){(r||(r=[])).push(e[2](x))}try{i.length<2||e[1](i);break}catch(x){(r||(r=[])).push(e[2](x))}e[3](i,...(r||[]))};break}if(typeof i==="number"&&!Number.isNaN(i)){i=""+i;break}e[4](i)}return i}
@@ -48,6 +48,6 @@ operations:
       rejected-string:
         input: '"bad"'
         error: |-
-          Expected string | number | string, received "bad"
+          Expected string >= 5 | number | string <= 1, received "bad"
           - String must be 5 or more characters long
           - String must be 1 or fewer characters long

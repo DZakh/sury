@@ -27,7 +27,7 @@ operations:
         error: Array must be exactly 2 items long
       wrong-type:
         input: '"ab"'
-        error: Expected string[], received "ab"
+        error: Expected string[] == 2, received "ab"
   decode:
     expression: i=>{i.length===2||e[0](i);return i}
     examples:

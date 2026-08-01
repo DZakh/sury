@@ -254,7 +254,7 @@ test("identity claimed but the operation doesn't actually compile to identity", 
         operations.decode: marked \`identity\` but does not compile to identity — use a full op block with examples
         operations.encode: marked \`identity\` but does not compile to identity — use a full op block with examples
         goldens stale — resolve the identity mismatch above first, then \`pnpm spec check string --write\` can fix it (also formats canonically; use \`pnpm spec format\` for a formatting-only fix):
-    @@ -3,22 +3,22 @@
+    @@ -3,28 +3,28 @@
         schema: S.string.with(S.minLength, 3)
         input: string
         output: string
@@ -281,7 +281,15 @@ test("identity claimed but the operation doesn't actually compile to identity", 
     +         error: String must be 3 or more characters long
             invalid-number:
               input: "42"
-              error: Expected string, received 42",
+    -         error: Expected string, received 42
+    +         error: Expected string >= 3, received 42
+            invalid-null:
+              input: "null"
+    -         error: Expected string, received null
+    +         error: Expected string >= 3, received null
+        decode: identity
+        encode: identity
+    ",
       "stdout": "",
     }
   `);
@@ -352,7 +360,7 @@ test("eq-to-parse claimed but the operation doesn't actually compile to the same
             invalid-undefined:
               input: undefined
     -         error: Expected never, received undefined
-    +         error: Expected string, received undefined
+    +         error: Expected string >= 3, received undefined
         decode: eq-to-parse
         encode: eq-to-parse
     ",

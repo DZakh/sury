@@ -446,28 +446,44 @@ export const stringify = (unknown: unknown): string => {
   }
 }
 
-// A bound the caller wrote, as `>= 5`, or "" when there is none. int32 and
-// port carry their own range in the same fields, so presence alone can't tell
-// the two apart — an errorMessage entry can, because every S.gte/S.lt sets one
-// and a format never does. See the bound refinements, which uphold that.
-const boundExpression = (schema: Internal): string => {
+// Bounds wrap the expression they constrain, in ArkType's double-bounded
+// spelling — `0 < string[] <= 10` rather than a clause per side. A string or
+// array bounds its length; anything else bounds its value.
+//
+// int32 and port carry their own range in the same fields a caller's bound
+// uses, so presence alone can't tell the two apart. An errorMessage entry
+// can: every S.gte/S.minLength sets one and a format never does. See the
+// bound refinements, which uphold that.
+const withBounds = (schema: Internal, base: string): string => {
   const em = schema.errorMessage;
   if (em === U) {
-    return "";
+    return base;
   }
-  const parts: string[] = [];
-  if (em.exclusiveMinimum !== U) {
-    parts.push(`> ${schema.exclusiveMinimum}`);
-  } else if (em.minimum !== U) {
-    parts.push(`>= ${schema.minimum}`);
+  const isArray = schema.type === arrayTag;
+  const sized = isArray || schema.type === stringTag;
+  const minKey = isArray ? "minItems" : sized ? "minLength" : "minimum";
+  const maxKey = isArray ? "maxItems" : sized ? "maxLength" : "maximum";
+  // No JSON Schema keyword bounds a length exclusively, so only a value bound
+  // can be strict.
+  const exMin = sized ? U : em.exclusiveMinimum !== U ? schema.exclusiveMinimum : U;
+  const exMax = sized ? U : em.exclusiveMaximum !== U ? schema.exclusiveMaximum : U;
+  const low = exMin !== U ? exMin : em[minKey] !== U ? schema[minKey] : U;
+  const high = exMax !== U ? exMax : em[maxKey] !== U ? schema[maxKey] : U;
+  if (low === U) {
+    return high === U ? base : `${base} ${exMax !== U ? "<" : "<="} ${high}`;
   }
-  if (em.exclusiveMaximum !== U) {
-    parts.push(`< ${schema.exclusiveMaximum}`);
-  } else if (em.maximum !== U) {
-    parts.push(`<= ${schema.maximum}`);
+  if (high === U) {
+    return `${base} ${exMin !== U ? ">" : ">="} ${low}`;
   }
-  return parts.length ? ` ${parts.join(" & ")}` : "";
+  return exMin === U && exMax === U && low === high
+    ? `${base} == ${low}`
+    : `${low} ${exMin !== U ? "<" : "<="} ${base} ${exMax !== U ? "<" : "<="} ${high}`;
 };
+
+// Whether toExpression leaves an infix operator at the top level of `schema`'s
+// rendering. A union does the same, and both need parens inside `[]`.
+const isInfix = (schema: Internal): boolean =>
+  schema.type === anyOfTag || withBounds(schema, "") !== "";
 
 // @__NO_SIDE_EFFECTS__
 export const toExpression = (schema: Internal): string => {
@@ -508,7 +524,7 @@ export const toExpression = (schema: Internal): string => {
       }
     }
   } else if (schema.format !== U) {
-    return schema.format + boundExpression(schema);
+    return withBounds(schema, schema.format);
   } else if (schema.type === objectTag) {
     const properties = schema.properties!;
     const locations = Object.keys(properties);
@@ -535,16 +551,14 @@ export const toExpression = (schema: Internal): string => {
       const itemName = toExpression(additionalItems);
       // A bound reads as part of the item, not the array: `int32 > 5[]` parses
       // as an array-typed bound, the same ambiguity a union has.
-      return (additionalItems.type === anyOfTag || boundExpression(additionalItems) !== ""
-        ? `(${itemName})`
-        : itemName) + "[]";
+      return withBounds(schema, (isInfix(additionalItems) ? `(${itemName})` : itemName) + "[]");
     } else {
       return `[${items.map((schema) => toExpression(schema)).join(", ")}]`;
     }
   } else if (schema.type === instanceTag) {
     return (schema.class as { name: string }).name;
   } else {
-    return schema.type + boundExpression(schema);
+    return withBounds(schema, schema.type);
   }
 }
 

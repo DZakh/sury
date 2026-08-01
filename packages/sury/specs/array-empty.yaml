@@ -27,7 +27,7 @@ operations:
         output: "[]"
       wrong-type:
         input: '"ab"'
-        error: Expected string[], received "ab"
+        error: Expected string[] == 0, received "ab"
   decode:
     expression: i=>{i.length===0||e[0](i);return i}
     examples:

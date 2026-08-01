@@ -50,8 +50,10 @@ test("errorMessage.minLength override produces InvalidInput with custom reason",
     t->assertInvalidInput(
       error,
       ~reason="too short",
-      ~expected="string",
-      ~received="string",
+      // Both sides of a bound failure carry the same schema, so the bound
+      // renders on each — the user-facing message here is the custom reason.
+      ~expected="string >= 3",
+      ~received="string >= 3",
     )
   }
 })

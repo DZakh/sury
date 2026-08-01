@@ -221,7 +221,7 @@ test("Bounds render on the schema they constrain", t => {
   t->Assert.deepEqual(S.int->S.gt(5)->S.toExpression, `int32 > 5`)
   t->Assert.deepEqual(S.int->S.gte(5)->S.toExpression, `int32 >= 5`)
   t->Assert.deepEqual(S.float->S.lt(5.)->S.toExpression, `number < 5`)
-  t->Assert.deepEqual(S.float->S.gte(1.)->S.lte(9.)->S.toExpression, `number >= 1 & <= 9`)
+  t->Assert.deepEqual(S.float->S.gte(1.)->S.lte(9.)->S.toExpression, `1 <= number <= 9`)
   // A format's own range is not a bound the caller wrote, so it stays implicit.
   t->Assert.deepEqual(S.int->S.toExpression, `int32`)
   t->Assert.deepEqual(S.port->S.toExpression, `port`)
@@ -231,10 +231,10 @@ test("An array of bounded items parenthesises the item expression", t => {
   let schema = S.array(S.int->S.gt(5))->S.maxLength(3)
 
   // Without the parens this reads as `int32 > (5[])`.
-  t->Assert.deepEqual(schema->S.toExpression, `(int32 > 5)[]`)
+  t->Assert.deepEqual(schema->S.toExpression, `(int32 > 5)[] <= 3`)
   t->U.assertThrowsMessage(
     () => %raw(`"x"`)->S.parseOrThrow(~to=schema),
-    `Expected (int32 > 5)[], received "x"`,
+    `Expected (int32 > 5)[] <= 3, received "x"`,
   )
   // The item bound and the array bound report separately, each at its own path.
   t->U.assertThrowsMessage(
