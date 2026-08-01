@@ -12,11 +12,8 @@
   - [`string`](#string)
     - [Custom error messages](#custom-error-messages)
     - [ISO datetimes](#iso-datetimes)
-  - [`bool`](#bool)
   - [`int`](#int)
   - [`float`](#float)
-  - [`bigint`](#bigint)
-  - [`symbol`](#symbol)
   - [`option`](#option)
   - [`Option.getOr`](#optiongetor)
   - [`Option.getOrWith`](#optiongetorwith)
@@ -24,8 +21,6 @@
   - [`nullAsOption`](#nullasoption)
   - [`nullable`](#nullable)
   - [`nullableAsOption`](#nullableasoption)
-  - [`unit`](#unit)
-  - [`nullAsUnit`](#nullasunit)
   - [`literal`](#literal)
   - [`object`](#object)
     - [Transform object field names](#transform-object-field-names)
@@ -43,7 +38,6 @@
   - [`union`](#union)
     - [Enums](#enums)
     - [Converting to / from a union](#converting-to-from-a-union)
-  - [`array`](#array)
   - [`list`](#list)
   - [`compactColumns`](#compactcolumns)
   - [`tuple`](#tuple)
@@ -52,8 +46,6 @@
   - [`date`](#date)
   - [`isoDateTime`](#isodatetime)
   - [`instance`](#instance)
-  - [`unknown`](#unknown)
-  - [`never`](#never)
   - [`json`](#json)
   - [`jsonString`](#jsonstring)
   - [`meta`](#meta)
@@ -179,6 +171,24 @@ let filmJSONSchema = filmSchema->S.toJSONSchema
 
 ## API reference
 
+The obvious ones, at a glance:
+
+| Schema | Type | |
+| --- | --- | --- |
+| `S.string` | `S.t<string>` | [refinements ↓](#string) |
+| `S.bool` | `S.t<bool>` | |
+| `S.int` | `S.t<int>` | [refinements ↓](#int) |
+| `S.float` | `S.t<float>` | [refinements ↓](#float) |
+| `S.bigint` | `S.t<bigint>` | |
+| `S.symbol` | `S.t<Symbol.t>` | |
+| `S.unit` | `S.t<unit>` | shorthand for `S.literal()` |
+| `S.nullAsUnit` | `S.t<unit>` | shorthand for `S.literal(Null.null)->S.to(S.unit)` |
+| `S.unknown` | `S.t<unknown>` | accepts any data |
+| `S.never` | `S.t<S.never>` | fails on every value |
+| `S.array(S.string)` | `S.t<array<string>>` | |
+
+The rest have their own sections below.
+
 ### **`string`**
 
 `S.t<string>`
@@ -262,12 +272,6 @@ let schema = S.string->S.to(S.date)
 // schema has the type S.t<Date.t>
 ```
 
-### **`bool`**
-
-`S.t<bool>`
-
-The `S.bool` schema represents a data that is a boolean.
-
 ### **`int`**
 
 `S.t<int>`
@@ -294,18 +298,6 @@ The `S.float` schema represents a data that is a number.
 S.float->S.floatMax(5.) // Number must be lower than or equal to 5
 S.float->S.floatMin(5.) // Number must be greater than or equal to 5
 ```
-
-### **`bigint`**
-
-`S.t<bigint>`
-
-The `S.bigint` schema represents a data that is a BigInt.
-
-### **`symbol`**
-
-`S.t<symbol>`
-
-The `S.symbol` schema represents a data that is a symbol.
 
 ### **`option`**
 
@@ -408,18 +400,6 @@ The `S.nullable` schema represents a data of `Nullable.t` that might be null or 
 `S.t<'value> => S.t<option<'value>>`
 
 The same as `S.nullable`, but returns `option` type instead of `Nullable.t`. When serializing, it will return `undefined` for `None` values.
-
-### **`unit`**
-
-`S.t<unit>`
-
-The `S.unit` schema is a shorthand for `S.literal()`.
-
-### **`nullAsUnit`**
-
-`S.t<unit>`
-
-The `S.nullAsUnit` schema is a shorthand for `S.literal(Null.null)->S.to(S.unit)`.
 
 ### **`literal`**
 
@@ -1118,32 +1098,6 @@ let schema: S.t<Set.t<string>> = S.instance(%raw(`Set`))->Obj.magic;
 ```
 
 The `S.instance` schema represents an instance of a class. Requires some type casting to make it work, but better than `S.unknown` as a building block for more complex schemas.
-
-### **`unknown`**
-
-`S.t<unknown>`
-
-```rescript
-let schema = S.unknown
-
-"Hello World!"->S.parseOrThrow(~to=schema)
-// "Hello World!"
-```
-
-The `S.unknown` schema represents any data.
-
-### **`never`**
-
-`S.t<S.never>`
-
-```rescript
-let schema = S.never
-
-%raw(`undefined`)->S.parseOrThrow(~to=schema)
-// throws S.error with the message: `Expected never, received undefined`
-```
-
-The `never` schema will fail parsing for every value.
 
 ### **`json`**
 

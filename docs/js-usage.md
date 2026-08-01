@@ -34,7 +34,6 @@
   - [Advanced tuple schema](#advanced-tuple-schema)
 - [Unions](#unions)
   - [Discriminated unions](#discriminated-unions)
-  - [Enums](#enums)
   - [Converting to / from a union](#converting-to-from-a-union)
 - [Records](#records)
 - [Date](#date)
@@ -238,20 +237,45 @@ S.schema(true);
 S.schema(undefined);
 S.schema(null);
 S.schema(Symbol("terrific"));
+S.literal("tuna"); // alias for S.schema
 
 // NaN literals
 // Validated using Number.isNaN
 S.schema(NaN);
 
+// Simple Objects
+S.schema({ name: S.string, age: S.number });
+S.object({ name: S.string, age: S.number }); // alias for S.schema
+
+// Arrays and records
+S.array(S.string);
+S.record(S.number); // { [k: string]: number }
+
+// Simple Tuples
+S.schema([S.string, S.number]);
+S.tuple([S.string, S.number]); // alias for S.schema
+
+// Unions
+S.union([S.string, S.number]);
+// Enum-like union of literals
+S.union(["Win", "Draw", "Loss"]);
+// Discriminated unions
+S.union([
+  { kind: "circle", radius: S.number },
+  { kind: "square", x: S.number },
+]);
+
 // Catch-all type
 // Allows any value
 S.unknown;
-S.any;
+S.any; // alias for S.unknown, typed as S.Schema<any, any>
 
 // Never type
 // Allows no values
 S.never;
 ```
+
+> 🧠 `S.schema` turns any definition into a schema — `S.literal`, `S.object` and `S.tuple` are aliases for it. Only `S.object` and `S.tuple` also take a definer function, for [advanced object](#advanced-object-schema) and [advanced tuple](#advanced-tuple-schema) schemas.
 
 ### Advanced schemas
 
@@ -474,17 +498,7 @@ const meSchema = S.schema({
 });
 ```
 
-You can add `as const` or wrap the value with `S.schema` to adjust the schema type. The example below turns the `kind` field to be a `"human"` type instead of `string`:
-
-```ts
-S.schema({
-  kind: "human" as const,
-  // Or
-  kind: S.schema("human"),
-});
-```
-
-This is useful for discriminated unions.
+Literal fields keep their narrow type — `kind` above is `"human"`, not `string` — which is what makes discriminated unions work.
 
 ### Advanced object schema
 
@@ -708,29 +722,19 @@ S.parser(stringOrNumberSchema)(14); // passes
 
 const shapeSchema = S.union([
   {
-    kind: "circle" as const,
+    kind: "circle",
     radius: S.number,
   },
   {
-    kind: "square" as const,
+    kind: "square",
     x: S.number,
   },
   {
-    kind: "triangle" as const,
+    kind: "triangle",
     x: S.number,
     y: S.number,
   },
 ]);
-```
-
-### Enums
-
-Creating a schema for a enum-like union was never so easy:
-
-```ts
-const schema = S.union(["Win", "Draw", "Loss"]);
-
-type Schema = S.Infer<typeof schema>; // "Win" | "Draw" | "Loss"
 ```
 
 ### Converting to / from a union
