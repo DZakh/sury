@@ -3,6 +3,13 @@ open Parsetree
 open Ast_helper
 open Util
 
+(* Each @s.with application gets its own fresh type-variable name. Type
+   variables written in expression annotations unify across the whole
+   enclosing value binding, so reusing one name would incorrectly force
+   unrelated @s.with usages (e.g. on two fields of one record) to the same
+   value type. *)
+let s_with_counter = ref 0
+
 let applySchemaAttribute ~loc schema_expr
     ({attr_name = {Location.txt}} as attribute) =
   match txt with
@@ -14,6 +21,20 @@ let applySchemaAttribute ~loc schema_expr
   | "s.meta" ->
     let meta_value = getExpressionFromPayload attribute in
     [%expr S.meta [%e schema_expr] [%e meta_value]]
+  | "s.with" ->
+    let fn_expr = getExpressionFromPayload attribute in
+    incr s_with_counter;
+    (* Annotate both the argument and the result with the same type variable,
+       so the payload function is forced to `S.t<'v> => S.t<'v>` — a transform
+       that changes the value type is a compile error instead of a schema that
+       silently disagrees with the type it was generated for. *)
+    let value_type =
+      [%type: [%t Typ.var ("sWith" ^ string_of_int !s_with_counter)] S.t]
+    in
+    Exp.constraint_
+      (Exp.apply fn_expr
+         [(Nolabel, Exp.constraint_ schema_expr value_type)])
+      value_type
   | txt when txt <> "" && String.length txt >= 2 && String.sub txt 0 2 = "s." ->
     fail loc ("Unsupported schema attribute: \"@" ^ txt ^ "\"")
   | _ -> schema_expr

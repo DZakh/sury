@@ -55,3 +55,39 @@ type ignoredNullWithMatches = @s.null @s.matches(S.option(S.string)) option<stri
 test("@s.null doesn't override @s.matches(S.option(_))", t => {
   t->assertEqualSchemas(ignoredNullWithMatchesSchema, S.option(S.string))
 })
+
+@schema
+type stringWithWith = @s.with(S.trim) string
+test("Creates schema with @s.with transform", t => {
+  t->assertEqualSchemas(stringWithWithSchema, S.string->S.trim)
+})
+
+@schema
+type stringWithMultipleWith = @s.with(S.trim) @s.with(s => s->S.min(1)) @s.with(s => s->S.max(5)) string
+test("Applies multiple @s.with transforms in order of appearance", t => {
+  t->assertEqualSchemas(stringWithMultipleWithSchema, S.string->S.trim->S.min(1)->S.max(5))
+})
+
+@schema @s.with(s => s->S.meta({description: "A user"}))
+type userWithWith = {
+  name: @s.with(s => s->S.length(2)) string,
+  age: @s.with(s => s->S.min(18)) int,
+}
+test("Applies @s.with on type declaration and on fields of different types", t => {
+  t->assertEqualSchemas(
+    userWithWithSchema,
+    S.schema(s => {
+      name: s.matches(S.string->S.length(2)),
+      age: s.matches(S.int->S.min(18)),
+    })->S.meta({description: "A user"}),
+  )
+})
+
+@schema
+type stringWithDefaultAndWith = @s.default("Foo") @s.with(S.trim) string
+test("Combines @s.with with @s.default", t => {
+  t->assertEqualSchemas(
+    stringWithDefaultAndWithSchema,
+    S.option(S.string)->S.Option.getOr("Foo")->S.trim,
+  )
+})
