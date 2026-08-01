@@ -89,6 +89,18 @@ describeArtifact("artifact", () => {
     expect(dangling).toEqual([]);
   });
 
+  // These stay in the repo for contributors. A public doc linking one sends a
+  // reader somewhere they were never meant to end up, and an absolute URL to it
+  // slips past the relative-link check above.
+  test("the shipped docs don't link internal repo docs", () => {
+    const internal = ["IDEAS.md", "CLAUDE.md", "CODEC_SPEC.md"];
+    for (const file of PUBLISHED_FILES.filter((f) => f.endsWith(".md"))) {
+      for (const doc of internal) {
+        expect(read(file), `${file} links ${doc}`).not.toContain(doc);
+      }
+    }
+  });
+
   test("every exports target resolves to a shipped file", () => {
     const pkg = readJson("package.json");
     const targets = [...Object.values<string>(pkg.exports["."]), pkg.exports["./S.gen.js"].types];
