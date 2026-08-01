@@ -8,6 +8,12 @@ test("Expression of primitive schema with name", t => {
   t->Assert.deepEqual(S.string->S.meta({name: "Address"})->S.inputExpression, "Address")
 })
 
+test("Expression of nan schema", t => {
+  // No `nan` case in inputExpression: the nan schema always carries const: NaN,
+  // so the `const` branch renders it, to the same string.
+  t->Assert.deepEqual(S.nan->S.inputExpression, "NaN")
+})
+
 test("Expression of Literal schema", t => {
   t->Assert.deepEqual(S.literal(123)->S.inputExpression, "123")
 })

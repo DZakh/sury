@@ -2843,8 +2843,4 @@ test("A received value is named, not serialized", (t) => {
 test("A nan schema renders as NaN without a dedicated branch", (t) => {
   t.expect(S.inputExpression(S.schema(NaN))).toBe("NaN");
   t.expect(`${S.schema(NaN)}`).toBe("Schema<NaN>");
-
-  // S.nan is exported at runtime but absent from S.d.ts, hence the cast.
-  const nan = (S as unknown as Record<string, Parameters<typeof S.inputExpression>[0]>)["nan"]!;
-  t.expect(S.inputExpression(nan)).toBe("NaN");
 });
