@@ -44,6 +44,14 @@ S.reverse(S.schema({
 
 ### Numeric bounds follow-ups
 
+- **A format's range should participate in the contradiction check.**
+  `S.gte(S.int32, 3000000000)` is unsatisfiable — the bound sits above int32's
+  ceiling — but int32 and port carry their range in the JSON Schema emit
+  rather than as `minimum`/`maximum` on the schema, so `conflictLower` has
+  nothing to compare against and it builds. Storing the format range as real
+  bound fields would make this fall out of the existing check, and would also
+  give the redundancy elimination in the entry below something to work with.
+
 - **A narrowing bound should retract the check it supersedes.** Applying a
   bound that doesn't narrow is skipped outright, but in the other order the
   earlier check is already in the refiner chain and can't be pulled back, so

@@ -751,13 +751,38 @@ const inclusiveBound = (
   exclusive: number | boolean | undefined
 ): number | undefined => (exclusive === true ? U : inclusive);
 
+// An empty range is a caller bug when hand-written, but a JSON Schema document
+// carrying one is still legal — it just describes a type nothing inhabits. So
+// the public bound functions reject it while this side loads it as `never`
+// rather than refusing the document.
+const emptyRange = (
+  min: number | undefined,
+  exMin: number | undefined,
+  max: number | undefined,
+  exMax: number | undefined
+): boolean => {
+  const lower = exMin !== U ? exMin : min;
+  const upper = exMax !== U ? exMax : max;
+  return (
+    lower !== U &&
+    upper !== U &&
+    (exMin !== U || exMax !== U ? lower >= upper : lower > upper)
+  );
+};
+
+const emptySize = (min: number | undefined, max: number | undefined): boolean =>
+  min !== U && max !== U && min > max;
+
 const toIntSchema = (jsonSchema: JSONSchemaT): Internal => {
-  let schema = int();
   // TODO: Support jsonSchema.multipleOf
   const min = inclusiveBound(jsonSchema.minimum, jsonSchema.exclusiveMinimum);
   const exMin = exclusiveBound(jsonSchema.minimum, jsonSchema.exclusiveMinimum);
   const max = inclusiveBound(jsonSchema.maximum, jsonSchema.exclusiveMaximum);
   const exMax = exclusiveBound(jsonSchema.maximum, jsonSchema.exclusiveMaximum);
+  if (emptyRange(min, exMin, max, exMax)) {
+    return never_();
+  }
+  let schema = int();
   if (min !== U) {
     schema = gte(schema, min | 0);
   }
@@ -920,6 +945,9 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
     } else {
       schema = array(anySchema);
     }
+    if (emptySize(jsonSchema.minItems, jsonSchema.maxItems)) {
+      return never_();
+    }
     if (jsonSchema.minItems !== U) {
       schema = minLength(schema, jsonSchema.minItems);
     }
@@ -965,6 +993,9 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
     if (jsonSchema.pattern !== U) {
       schema = pattern(schema, new RegExp(jsonSchema.pattern));
     }
+    if (emptySize(jsonSchema.minLength, jsonSchema.maxLength)) {
+      return never_();
+    }
     if (jsonSchema.minLength !== U) {
       schema = minLength(schema, jsonSchema.minLength);
     }
@@ -983,6 +1014,9 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
     const exMin = exclusiveBound(jsonSchema.minimum, jsonSchema.exclusiveMinimum);
     const max = inclusiveBound(jsonSchema.maximum, jsonSchema.exclusiveMaximum);
     const exMax = exclusiveBound(jsonSchema.maximum, jsonSchema.exclusiveMaximum);
+    if (emptyRange(min, exMin, max, exMax)) {
+      return never_();
+    }
     if (min !== U) {
       schema = gte(schema, min);
     }

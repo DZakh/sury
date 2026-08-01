@@ -2713,3 +2713,60 @@ test("Uint8Array", (t) => {
     `i=>{i instanceof e[1]||e[2](i);return JSON.stringify(e[0].decode(i))}`,
   );
 });
+
+test("A contradictory bound pair is rejected where it's written", (t) => {
+  // The schema would compile and then reject every possible value, which only
+  // surfaces in production — so it fails at construction instead.
+  t.expect(() => S.number.with(S.gte, 5).with(S.lte, 1)).toThrow(
+    `[Sury] S.lte(1) contradicts S.gte(5) — no value satisfies both`,
+  );
+  // Order doesn't matter: whichever bound arrives second reports the conflict.
+  t.expect(() => S.number.with(S.lte, 1).with(S.gte, 5)).toThrow(
+    `[Sury] S.gte(5) contradicts S.lte(1) — no value satisfies both`,
+  );
+  // Exclusive bounds make the touching cases empty too.
+  t.expect(() => S.number.with(S.gt, 5).with(S.lte, 5)).toThrow(
+    `[Sury] S.lte(5) contradicts S.gt(5) — no value satisfies both`,
+  );
+  t.expect(() => S.number.with(S.gte, 5).with(S.lt, 5)).toThrow(
+    `[Sury] S.lt(5) contradicts S.gte(5) — no value satisfies both`,
+  );
+  t.expect(() => S.string.with(S.minLength, 5).with(S.maxLength, 1)).toThrow(
+    `[Sury] S.maxLength(1) contradicts S.minLength(5) — no value satisfies both`,
+  );
+  t.expect(() => S.array(S.string).with(S.minLength, 5).with(S.maxLength, 1)).toThrow(
+    `[Sury] S.maxLength(1) contradicts S.minLength(5) — no value satisfies both`,
+  );
+  // `empty`/`nonEmpty` are sugar for length(0)/minLength(1), so the conflict
+  // is reported against the bound they desugar to.
+  t.expect(() => S.string.with(S.minLength, 2).with(S.empty)).toThrow(
+    `[Sury] S.length(0) contradicts S.minLength(2) — no value satisfies both`,
+  );
+
+  // A single point is satisfiable, so these stay legal.
+  t.expect(S.toJSONSchema(S.number.with(S.gte, 5).with(S.lte, 5))).toEqual({
+    type: "number",
+    minimum: 5,
+    maximum: 5,
+  });
+  t.expect(S.toJSONSchema(S.number.with(S.gt, 5).with(S.lt, 6))).toEqual({
+    type: "number",
+    exclusiveMinimum: 5,
+    exclusiveMaximum: 6,
+  });
+});
+
+test("An unsatisfiable JSON Schema document loads as never", (t) => {
+  // Legal JSON Schema — it just describes a type nothing inhabits — so it has
+  // to load rather than fail the way the hand-written equivalent does.
+  for (const definition of [
+    { type: "number", minimum: 5, maximum: 1 },
+    { type: "integer", minimum: 5, maximum: 1 },
+    { type: "number", exclusiveMinimum: 5, maximum: 5 },
+    { type: "string", minLength: 5, maxLength: 1 },
+    { type: "array", minItems: 5, maxItems: 1 },
+  ] as const) {
+    const schema = S.fromJSONSchema(definition);
+    t.expect(S.toExpression(schema)).toEqual("never");
+  }
+});

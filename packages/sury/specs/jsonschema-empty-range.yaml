@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: 'S.fromJSONSchema({ type: "number", minimum: 5, maximum: 1 })'
+  input: JSON
+  output: JSON
+  instantiations: 274
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: "{ not: {} }"
+  output: "{ not: {} }"
+operations:
+  parse:
+    expression: i=>{e[0](i);return i}
+    examples:
+      below-the-minimum:
+        input: "1"
+        error: Expected never, received 1
+      above-the-maximum:
+        input: "9"
+        error: Expected never, received 9
+      between-the-two-bounds:
+        input: "3"
+        error: Expected never, received 3
+      wrong-type:
+        input: '"3"'
+        error: Expected never, received "3"
+  decode: eq-to-parse
+  encode: eq-to-parse
