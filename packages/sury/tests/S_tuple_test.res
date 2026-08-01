@@ -18,7 +18,7 @@ module Tuple0 = {
 
     t->U.assertThrowsMessage(
       () => invalidAny->S.parseOrThrow(~to=schema),
-      `Expected [], received Array(1)`,
+      `Expected [], received [true]`,
     )
   })
 
@@ -198,12 +198,12 @@ test("Tuple schema parsing checks order", t => {
   // Length check should be the second
   t->U.assertThrowsMessage(
     () => %raw(`["value"]`)->S.parseOrThrow(~to=schema),
-    `Expected [string, "value"], received Array(1)`,
+    `Expected [string, "value"], received ["value"]`,
   )
   // Length check should be the second (extra items in strict mode)
   t->U.assertThrowsMessage(
     () => %raw(`["value", "value", "value"]`)->S.parseOrThrow(~to=schema->S.strict),
-    `Expected [string, "value"], received Array(3)`,
+    `Expected [string, "value"], received ["value", "value", "value"]`,
   )
   // Tag check should be the third
   t->U.assertThrowsMessage(

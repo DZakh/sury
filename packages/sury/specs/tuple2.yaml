@@ -20,7 +20,7 @@ operations:
         output: '["bar", 42]'
       wrong-length:
         input: '["bar"]'
-        error: Expected ["bar", number], received Array(1)
+        error: Expected ["bar", number], received ["bar"]
       invalid-literal:
         input: '["baz", 42]'
         error: 'Failed at ["0"]: Expected "bar", received "baz"'

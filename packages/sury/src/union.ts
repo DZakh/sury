@@ -82,27 +82,6 @@ const unionBoundaryTags = tagFlagUnion | tagFlagRef | tagFlagFunction;
 const unionOpaqueTags =
   tagFlagUnknown | unionBoundaryTags | tagFlagNever;
 
-// Reached through `unionDecoder.x`. Repeated members
-// remain significant to decoding (the same effectful schema may intentionally
-// run more than once), but not to the human expression describing the union.
-//
-// Deduplication is on the rendered text, not schema identity: two members a
-// reader cannot tell apart add nothing by appearing twice. The cost is that
-// members which genuinely differ but render alike — two distinct classes both
-// named Foo — collapse to one, so the expression stops being a member count.
-export const unionExpression = (schema: Internal): string => {
-  const anyOf = schema.anyOf!;
-  const seen = new Set<string>();
-  let out = "";
-  for (let idx = 0; idx < anyOf.length; idx++) {
-    const expression = inputExpression(anyOf[idx]!);
-    if (!seen.has(expression)) {
-      seen.add(expression);
-      out = out === "" ? expression : out + " | " + expression;
-    }
-  }
-  return out;
-}
 
 // ── Type identity ────────────────────────────────────────────────────────────
 
@@ -1261,7 +1240,7 @@ const unionEmit = (
 };
 
 
-export const unionDecoder: Builder = /* @__PURE__ */ Object.assign((input: Val) => {
+export const unionDecoder: Builder = ((input: Val) => {
   const self = input.e;
   // The union's own `.to` chain, applied per case during decoding. None when a
   // custom parser owns the conversion, or when the target is the `noValidation`
@@ -1345,7 +1324,7 @@ export const unionDecoder: Builder = /* @__PURE__ */ Object.assign((input: Val) 
   const analyzed = unionAnalyze(normalized, variants, source, nan);
   const plan = unionPlan(analyzed);
   return unionEmit(input, self, plan, toPerCase);
-}, { x: unionExpression });
+});
 
 // Calls each source refiner at most once so its predicate is embedded once and
 // every case references the same `e[N]` — `B_embed` is append-only, so a

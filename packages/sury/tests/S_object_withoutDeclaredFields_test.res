@@ -46,6 +46,6 @@ test("Rejects an array passed to an object schema with no declared fields", t =>
 
   t->U.assertThrowsMessage(
     () => %raw(`[]`)->S.parseOrThrow(~to=schema),
-    `Expected {}, received Array(0)`,
+    `Expected {}, received []`,
   )
 })

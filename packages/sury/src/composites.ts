@@ -13,7 +13,6 @@ import {
   immutableEmptyArray,
   immutableEmptyObject,
   inlinedValueFromString,
-  inputExpression,
   type Internal,
   isLiteral,
   isOptional,
@@ -71,39 +70,6 @@ import { unionFactory } from "./union";
 const isItemSchema = (x: AdditionalItems | undefined): x is Internal =>
   x !== U && typeof x !== "string";
 
-// Reached through `objectDecoder.x` / `arrayDecoder.x`, so every schema these
-// decoders serve renders structurally without carrying a field of its own.
-// Properties and an index signature are emitted from one accumulator rather
-// than as exclusive branches: no factory currently produces both at once, but
-// the shape is representable, and the branchy version silently dropped the
-// index signature when it happened.
-export const objectExpression = (schema: Internal): string => {
-  const properties = schema.properties!;
-  const additionalItems = schema.additionalItems;
-  let body = "";
-  for (const location in properties) {
-    body = body + location + ": " + inputExpression(properties[location]!) + "; ";
-  }
-  if (typeof additionalItems === objectTag) {
-    body = body + "[key: string]: " + inputExpression(additionalItems as Internal) + "; ";
-  }
-  return body === "" ? `{}` : `{ ${body}}`;
-}
-
-export const arrayExpression = (schema: Internal): string => {
-  const additionalItems = schema.additionalItems;
-  if (typeof additionalItems === objectTag) {
-    const item = additionalItems as Internal;
-    const itemName = inputExpression(item);
-    return (item.type === anyOfTag ? `(${itemName})` : itemName) + "[]";
-  }
-  const items = schema.items!;
-  let body = "";
-  for (let idx = 0; idx < items.length; idx++) {
-    body = body + (idx === 0 ? "" : ", ") + inputExpression(items[idx]!);
-  }
-  return `[${body}]`;
-}
 
 export const makeObjectVal = (prev: Val, schema: Internal): Val => {
   // Canonical Val field order (see B_operationArg in builder.ts).
@@ -216,7 +182,7 @@ export const array = (item: Internal): Internal => {
   mut.decoder = arrayDecoder;
   return mut;
 }
-export const arrayDecoder: Builder = /* @__PURE__ */ Object.assign((unknownInput: Val): Val => {
+export const arrayDecoder: Builder = ((unknownInput: Val): Val => {
   const isUnion = unknownInput.u!;
   const expectedSchema = unknownInput.e;
   const unknownInputTagFlag = tagFlags[unknownInput.s.type]!;
@@ -359,9 +325,9 @@ export const arrayDecoder: Builder = /* @__PURE__ */ Object.assign((unknownInput
     }
   }
   return B_markOutput(output, input);
-}, { x: arrayExpression });
+});
 
-export const objectDecoder: Builder = /* @__PURE__ */ Object.assign((unknownInput: Val): Val => {
+export const objectDecoder: Builder = ((unknownInput: Val): Val => {
   const isUnion = unknownInput.u!;
   const expectedSchema = unknownInput.e;
 
@@ -588,7 +554,7 @@ export const objectDecoder: Builder = /* @__PURE__ */ Object.assign((unknownInpu
     }
   }
   return B_markOutput(output, input);
-}, { x: objectExpression });
+});
 
 // @__NO_SIDE_EFFECTS__
 export const dictFactory = (item: Internal): Internal => {

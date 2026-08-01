@@ -22,7 +22,7 @@ operations:
       rejected-by-both:
         input: '{ kind: "a", value: 0 }'
         error: |-
-          Expected { kind: "a"; value: number; } | { kind: "a"; value: 1; }, received Object
+          Expected { kind: "a"; value: number; } | { kind: "a"; value: 1; }, received { kind: "a"; value: 0; }
           - At ["value"]: Number must be greater than or equal to 2
   decode: identity
   encode: identity

@@ -46,7 +46,7 @@ module Common = {
 
     t->U.assertThrowsMessage(
       () => %raw(`{0: "bar",1:true}`)->S.parseOrThrow(~to=schema),
-      `Expected ["bar", true], received Object`,
+      `Expected ["bar", true], received { 0: "bar"; 1: true; }`,
     )
   })
 
@@ -55,7 +55,7 @@ module Common = {
 
     t->U.assertThrowsMessage(
       () => %raw(`["bar", true, false]`)->S.parseOrThrow(~to=schema->S.strict),
-      `Expected ["bar", true], received Array(3)`,
+      `Expected ["bar", true], received ["bar", true, false]`,
     )
   })
 
@@ -105,7 +105,7 @@ module EmptyArray = {
 
     t->U.assertThrowsMessage(
       () => invalid->S.parseOrThrow(~to=schema->S.strict),
-      `Expected [], received Array(1)`,
+      `Expected [], received ["abc"]`,
     )
   })
 

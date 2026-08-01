@@ -26,10 +26,10 @@ operations:
         error: 'Expected { a: string; }, received "nope"'
       array-is-not-an-object:
         input: '["hello"]'
-        error: "Expected { a: string; }, received Array(1)"
+        error: 'Expected { a: string; }, received ["hello"]'
       empty-array-is-not-an-object:
         input: "[]"
-        error: "Expected { a: string; }, received Array(0)"
+        error: "Expected { a: string; }, received []"
       null-is-not-an-object:
         input: "null"
         error: "Expected { a: string; }, received null"

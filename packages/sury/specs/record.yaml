@@ -34,7 +34,7 @@ operations:
         error: 'Expected { [key: string]: string; }, received "nope"'
       array-is-not-a-record:
         input: '["x"]'
-        error: "Expected { [key: string]: string; }, received Array(1)"
+        error: 'Expected { [key: string]: string; }, received ["x"]'
       null-is-not-a-record:
         input: "null"
         error: "Expected { [key: string]: string; }, received null"

@@ -7,21 +7,7 @@
 
 // Lives here rather than in builder.ts so base has no outgoing edge: both are
 // one-liners over `Val`/`Internal`, and builder.ts importing them back is free.
-// `x` renders the type expression of any schema this builder decodes (see
-// inputExpression). It hangs off the decoder rather than the schema because
-// kind, decoder and rendering are one fact: objectDecoder schemas render as
-// objects, and compactColumns swaps both together. One property per decoder
-// beats one field per schema — nothing for copySchema to carry, nothing to keep
-// in sync at 15 construction sites, and no extra key in a logged schema.
-//
-// It MUST be attached in the declaration, as
-// `/* @__PURE__ */ Object.assign((input) => {…}, { x: … })`. A plain
-// `objectDecoder.x = objectExpression;` statement afterwards reads better and
-// costs 245% of the floor: a top-level mutation is a side effect the bundler
-// cannot drop, so it pins its whole module into every consumer's bundle.
-export type Builder = ((input: Val) => Val) & {
-  x?: (schema: Internal) => string;
-};
+export type Builder = (input: Val) => Val;
 export type Encoder = (input: Val, target: Internal) => Val;
 
 // ── flags ─────────────────────────────────────────────────────────────────────
@@ -306,6 +292,11 @@ export type Internal = {
   isAsync?: boolean; // Optional value means that it's not lazily computed yet.
   hasTransform?: boolean; // Optional value means that it's not lazily computed yet.
   "~standard"?: unknown;
+  // Overrides how inputExpression renders this schema. Only for a schema whose
+  // expression its tag can't produce — compactColumns, whose columns live on
+  // the `.to` target. Everything structural is rendered by inputExpression
+  // itself, so setting this is the exception, not the pattern.
+  expression?: (schema: Internal) => string;
   // The reversed (Input ↔ Output swapped) schema, cached lazily as a hidden
   // non-enumerable property via Object.defineProperty (see schema.ts/parse.ts).
   r?: Internal;
@@ -424,31 +415,67 @@ export const isOptional = (schema: Internal): boolean => {
   );
 }
 
-// Renders a runtime value for the `received` half of an error message. Objects
-// name their constructor instead of listing their contents: walking them made a
-// cyclic value overflow the stack *inside the error formatter*, and let a single
-// wide input produce a several-hundred-character message. Zod, Valibot and
-// ArkType all name the type here too.
+// Renders a runtime value for the `received` half of an error message.
 //
-// Primitives still show their value — `received 42` beats `received number`, and
-// bigint keeps its `n` so it stays distinguishable from a number.
-export const stringify = (unknown: unknown): string => {
+// Expanded exactly one level. Recursing without a limit is what let a cyclic
+// value overflow the stack *inside the error formatter*; stopping at depth 1
+// keeps that fixed while still showing the shape that actually failed. Nested
+// values fall back to naming their constructor, which is what Zod, Valibot and
+// ArkType print at every level.
+//
+// One level is enough because a nested failure already reports its path
+// (`Failed at ["user"]["id"]`) — the expansion is for "wrong shape entirely",
+// which is visible at the top. Width is capped for the same reason depth is:
+// a 40-key input would otherwise produce a several-hundred-character message.
+//
+// Primitives always show their value — `received 42` beats `received number`,
+// and bigint keeps its `n` so it stays distinguishable from a number.
+const stringifyMaxEntries = 5;
+
+export const stringify = (unknown: unknown, nested?: boolean): string => {
   const tagFlag = tagFlags[typeof unknown as Tag]!;
 
   if (flagUnsafeHas(tagFlag, tagFlagUndefined)) {
     return undefinedTag;
   } else if (flagUnsafeHas(tagFlag, (tagFlagObject | tagFlagFunction))) {
-    // Arrays carry their length: against a tuple the length *is* the
-    // diagnostic, and a bare "Array" turns "received [\"foo\"]" into something
-    // a reader can't act on. Bounded and non-recursive, unlike listing items.
+    if (unknown === null) {
+      return nullTag;
+    }
+    const isArray = Array.isArray(unknown);
+    const proto = Object.getPrototypeOf(unknown) as
+      | { constructor?: { name?: string } }
+      | null;
     // `|| objectTag` covers both a null prototype (Object.create(null)) and an
     // anonymous constructor, whose `name` is the empty string.
-    return unknown === null
-      ? nullTag
-      : Array.isArray(unknown)
-        ? `Array(${unknown.length})`
-        : (Object.getPrototypeOf(unknown) as { constructor?: { name?: string } } | null)
-            ?.constructor?.name || objectTag;
+    const named = isArray
+      ? `Array(${(unknown as unknown[]).length})`
+      : proto?.constructor?.name || objectTag;
+    // Only plain objects and arrays expand; a Date or Map just says what it is.
+    if (nested || !(isArray || proto === null || proto.constructor === Object)) {
+      return named;
+    }
+    let body = "";
+    let count = 0;
+    if (isArray) {
+      const items = unknown as unknown[];
+      for (; count < items.length; count++) {
+        if (count === stringifyMaxEntries) {
+          body = body + ", …";
+          break;
+        }
+        body = body + (count === 0 ? "" : ", ") + stringify(items[count], true);
+      }
+      return `[${body}]`;
+    }
+    const dict = unknown as Record<string, unknown>;
+    for (const key in dict) {
+      if (count++ === stringifyMaxEntries) {
+        body = body + "… ";
+        break;
+      }
+      body = body + key + ": " + stringify(dict[key], true) + "; ";
+    }
+    return body === "" ? "{}" : `{ ${body}}`;
   } else if (flagUnsafeHas(tagFlag, tagFlagString)) {
     return `"${unknown as string}"`;
   } else if (flagUnsafeHas(tagFlag, tagFlagBigint)) {
@@ -458,18 +485,74 @@ export const stringify = (unknown: unknown): string => {
   }
 }
 
-// Structural renderers hang off the decoder, not this chain — see `Builder.x`.
-// That test sits after `const` and before `format` to hold the precedence the
-// branch chain had: a literal outranks its own structure, and compactColumns
-// (the sole array format) outranks the generic format fallback.
+// Properties and an index signature come from one accumulator rather than
+// exclusive branches: no factory produces both at once today, but the shape is
+// representable, and the branchy version silently dropped the index signature.
+const objectExpression = (schema: Internal): string => {
+  const properties = schema.properties!;
+  const additionalItems = schema.additionalItems;
+  let body = "";
+  for (const location in properties) {
+    body = body + location + ": " + inputExpression(properties[location]!) + "; ";
+  }
+  if (typeof additionalItems === objectTag) {
+    body = body + "[key: string]: " + inputExpression(additionalItems as Internal) + "; ";
+  }
+  return body === "" ? `{}` : `{ ${body}}`;
+}
+
+const arrayExpression = (schema: Internal): string => {
+  const additionalItems = schema.additionalItems;
+  if (typeof additionalItems === objectTag) {
+    const item = additionalItems as Internal;
+    const itemName = inputExpression(item);
+    return (item.type === anyOfTag ? `(${itemName})` : itemName) + "[]";
+  }
+  const items = schema.items!;
+  let body = "";
+  for (let idx = 0; idx < items.length; idx++) {
+    body = body + (idx === 0 ? "" : ", ") + inputExpression(items[idx]!);
+  }
+  return `[${body}]`;
+}
+
+// Repeated members remain significant to decoding (the same effectful schema may
+// intentionally run more than once), but not to the expression describing the
+// union. Deduplication is on the rendered text, not schema identity: two members
+// a reader cannot tell apart add nothing by appearing twice. The cost is that
+// members which genuinely differ but render alike — two distinct classes both
+// named Foo — collapse, so this is not a member count.
+const unionExpression = (schema: Internal): string => {
+  const anyOf = schema.anyOf!;
+  const seen = new Set<string>();
+  let out = "";
+  for (let idx = 0; idx < anyOf.length; idx++) {
+    const expression = inputExpression(anyOf[idx]!);
+    if (!seen.has(expression)) {
+      seen.add(expression);
+      out = out === "" ? expression : out + " | " + expression;
+    }
+  }
+  return out;
+}
+
+// `expression` sits after `const` and before the structural tags, so an override
+// beats the shape it overrides while a literal still outranks both. It also has
+// to beat the `format` fallback below: compactColumns is the sole array format.
 // @__NO_SIDE_EFFECTS__
 export const inputExpression = (schema: Internal): string => {
   if (schema.name !== U) {
     return schema.name;
   } else if (schema.const !== U) {
     return stringify(schema.const);
-  } else if (schema.decoder.x !== U) {
-    return schema.decoder.x(schema);
+  } else if (schema.expression !== U) {
+    return schema.expression(schema);
+  } else if (schema.anyOf !== U) {
+    return unionExpression(schema);
+  } else if (schema.type === objectTag) {
+    return objectExpression(schema);
+  } else if (schema.type === arrayTag) {
+    return arrayExpression(schema);
   } else if (schema.format !== U) {
     return schema.format;
     // No `nan` case: the sole nan schema (primitives.ts, via `cached`) always

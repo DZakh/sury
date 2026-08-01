@@ -21,14 +21,14 @@ operations:
         output: '["t", "s"]'
       shared-prefix-rejected-no-member-reasons:
         input: '["u", "s"]'
-        error: Expected ["t", number] | ["t", string], received Array(2)
+        error: Expected ["t", number] | ["t", string], received ["u", "s"]
       wrong-arity-rejected-no-member-reasons:
         input: '["t"]'
-        error: Expected ["t", number] | ["t", string], received Array(1)
+        error: Expected ["t", number] | ["t", string], received ["t"]
       both-members-ran-both-reasons-reported:
         input: '["t", true]'
         error: |-
-          Expected ["t", number] | ["t", string], received Array(2)
+          Expected ["t", number] | ["t", string], received ["t", true]
           - At ["1"]: Expected number, received true
           - At ["1"]: Expected string, received true
       not-an-array-rejected-no-member-reasons:

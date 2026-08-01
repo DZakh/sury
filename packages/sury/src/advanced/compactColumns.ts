@@ -58,7 +58,7 @@ const compactColumnsExpression = (schema: Internal): string => {
     : "unknown[][]";
 }
 
-export const compactColumnsDecoder: Builder = /* @__PURE__ */ Object.assign((input: Val) => {
+export const compactColumnsDecoder: Builder = ((input: Val) => {
   const selfSchema = input.e;
   const isUnknownInput = flagUnsafeHas(tagFlags[input.s.type]!, tagFlagUnknown);
 
@@ -315,7 +315,7 @@ export const compactColumnsDecoder: Builder = /* @__PURE__ */ Object.assign((inp
       return B_markOutput(output, input);
     }
   }
-}, { x: compactColumnsExpression });
+});
 
 
 // @__NO_SIDE_EFFECTS__
@@ -324,5 +324,6 @@ export const compactColumns = (inputSchema: Internal): Internal => {
   const mut = array(innerArray);
   mut.format = "compactColumns";
   mut.decoder = compactColumnsDecoder;
+  mut.expression = compactColumnsExpression;
   return mut;
 }
