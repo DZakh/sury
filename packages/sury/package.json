@@ -39,9 +39,9 @@
   "types": "./src/S.d.ts",
   "exports": {
     ".": {
+      "types": "./src/S.d.ts",
       "import": "./src/S.mjs",
-      "require": "./src/S.js",
-      "types": "./src/S.d.ts"
+      "require": "./src/S.js"
     },
     "./src/*": "./src/*",
     "./S.gen.js": {
@@ -49,11 +49,6 @@
     },
     "./package.json": "./package.json"
   },
-  "files": [
-    "src",
-    "rescript.json",
-    "specs/*.yaml"
-  ],
   "scripts": {
     "coverage": "pnpm build:entry && vitest run --coverage",
     "spec": "pnpm build:entry && tsx ../spec/cli.ts",
