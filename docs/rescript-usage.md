@@ -1,4 +1,4 @@
-[⬅ Back to highlights](/README.md)
+[⬅ Back to highlights](../README.md)
 
 # ReScript API reference
 

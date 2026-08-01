@@ -73,6 +73,22 @@ describeArtifact("artifact", () => {
     expect(sources).toEqual([]);
   });
 
+  // A link that resolves against the repo root reads fine on GitHub and dangles
+  // for everyone who opens the same file inside node_modules. Anything the
+  // tarball doesn't carry has to be linked by absolute URL instead.
+  test("every relative link in the shipped docs points at a shipped file", () => {
+    const dangling: string[] = [];
+    for (const file of PUBLISHED_FILES.filter((f) => f.endsWith(".md"))) {
+      // Fenced code blocks are full of `](i) => {`, which is not a link.
+      const prose = read(file).replace(/^```[\s\S]*?^```/gm, "");
+      for (const [, target] of prose.matchAll(/]\((?!\w+:)([^)#\s]+)[^)]*\)/g)) {
+        const resolved = path.resolve(path.dirname(path.join(artifactsPath, file)), target!);
+        if (!existsSync(resolved)) dangling.push(`${file} -> ${target}`);
+      }
+    }
+    expect(dangling).toEqual([]);
+  });
+
   test("every exports target resolves to a shipped file", () => {
     const pkg = readJson("package.json");
     const targets = [...Object.values<string>(pkg.exports["."]), pkg.exports["./S.gen.js"].types];

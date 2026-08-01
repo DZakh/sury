@@ -1,4 +1,4 @@
-[⬅ Back to highlights](/README.md)
+[⬅ Back to highlights](../README.md)
 
 # JavaScript API reference
 
@@ -1228,7 +1228,7 @@ const stringifyUser = S.encoder(userSchema, S.jsonString);
 stringifyUser({ id: "1", name: "John" });
 ```
 
-This covers the use cases that previously needed `S.compile` — see the [migration cheat sheet](/IDEAS.md#typescript--javascript) for the full mapping.
+This covers the use cases that previously needed `S.compile` — see the [migration cheat sheet](https://github.com/DZakh/sury/blob/main/IDEAS.md#typescript--javascript) for the full mapping.
 
 ### **`reverse`**
 
