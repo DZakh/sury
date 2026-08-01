@@ -881,14 +881,17 @@ converts. A shell has no way to spell "empty string", so `FOO=` and an absent
 value rather than coercing it:
 
 ```ts
-S.parser(S.env.with(S.to, S.string))("abc"); // "abc"
-S.parser(S.env.with(S.to, S.string))(""); // throws — an unset variable is not ""
-S.parser(S.env.with(S.to, S.string))(" "); // throws — blank, not a value
+S.decoder(S.env, S.string)("abc"); // "abc"
+S.decoder(S.env, S.string)(""); // throws — an unset variable is not ""
+S.decoder(S.env, S.string)(" "); // throws — blank, not a value
 
-S.parser(S.env.with(S.to, S.int32))("8080"); // 8080
-S.parser(S.env.with(S.to, S.int32))(""); // throws — without this, `+""` would be a valid 0
-S.parser(S.env.with(S.to, S.bigint))(""); // throws — `BigInt("")` would be 0n
+S.decoder(S.env, S.int32)("8080"); // 8080
+S.decoder(S.env, S.int32)(""); // throws — without this, `+""` would be a valid 0
+S.decoder(S.env, S.bigint)(""); // throws — `BigInt("")` would be 0n
 ```
+
+`S.decoder` rather than `S.parser`: a `process.env` value is already known to be
+a string, so there's no unknown input to type-check first.
 
 That guard is the point of the schema: `+""`, `+" "` and `BigInt("")` are all
 zero, so an unset variable would otherwise decode to a plausible number and the
@@ -897,25 +900,26 @@ misconfiguration would surface much later.
 Booleans accept the tokens a shell actually carries:
 
 ```ts
-S.parser(S.env.with(S.to, S.boolean))("true"); // true
-S.parser(S.env.with(S.to, S.boolean))("1"); // true
-S.parser(S.env.with(S.to, S.boolean))("0"); // false
+S.decoder(S.env, S.boolean)("true"); // true
+S.decoder(S.env, S.boolean)("1"); // true
+S.decoder(S.env, S.boolean)("0"); // false
 ```
 
 An optional target takes a blank as its `undefined` variant, so "unset" and
 "set to nothing" read alike — and encoding maps it back to `""`:
 
 ```ts
+S.decoder(S.env, S.optional(S.string))("abc"); // "abc"
+S.decoder(S.env, S.optional(S.string))(""); // undefined
+
 const schema = S.env.with(S.to, S.optional(S.string));
-S.parser(schema)("abc"); // "abc"
-S.parser(schema)(""); // undefined
 S.encoder(schema)(undefined); // ""
 ```
 
 Pass `S.min` to opt back in where the empty string is a meaningful value:
 
 ```ts
-S.parser(S.env.with(S.to, S.string.with(S.min, 0)))(""); // ""
+S.decoder(S.env, S.string.with(S.min, 0))(""); // ""
 ```
 
 ### Reading `process.env`

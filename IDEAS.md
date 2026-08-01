@@ -99,6 +99,20 @@ S.reverse(S.schema({
 - **Empty async dict returns a forever-pending Promise.**
   `S.record` with an async item schema and `{}` input never resolves
   (`Promise.all` aggregation is skipped for zero keys).
+- **Multi-arg `S.encoder`/`S.asyncEncoder` don't reverse the argument order.**
+  `js_encoder` (`packages/sury/src/jsapi.ts`) is
+  `(...args) => getDecoder(...args.map(reverse))` — it reverses each schema but
+  leaves them in source order, so `S.encoder(A, B)` builds `reverse(A) →
+  reverse(B)` where the encode of the chain `A → B` is `reverse(B) →
+  reverse(A)`. The single-schema form is correct; only the 2+-arg form is
+  affected, and it silently produces the *forward* pipeline rather than
+  failing, e.g. `S.encoder(S.json, S.optional(S.bigint))(123n)` throws
+  "Expected bigint | undefined, received 123n" and
+  `S.encoder(S.env, S.optional(S.string))(undefined)` throws
+  "Cannot read properties of undefined (reading 'trim')". Fix is
+  `args.map(reverse).reverse()`, but check `getDecoder`'s trailing-flag
+  handling first — `js_asyncEncoder` appends `1` after the schemas, so the
+  reversal has to cover the schema slice only.
 - **`toJSONSchema` infinitely recurses on a string-format ↔ string conversion.**
   `S.email.with(S.to, S.string)`, `S.uuid.with(S.to, S.string)`,
   `S.cuid.with(S.to, S.string)`, `S.string.with(S.to, S.email)` and

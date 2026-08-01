@@ -1108,14 +1108,17 @@ converts. A shell has no way to spell "empty string", so `FOO=` and an absent
 value rather than coercing it:
 
 ```rescript
-"abc"->S.parseOrThrow(~to=S.env->S.to(S.string)) // "abc"
-""->S.parseOrThrow(~to=S.env->S.to(S.string)) // throws - an unset variable is not ""
-" "->S.parseOrThrow(~to=S.env->S.to(S.string)) // throws - blank, not a value
+"abc"->S.decodeOrThrow(~from=S.env, ~to=S.string) // "abc"
+""->S.decodeOrThrow(~from=S.env, ~to=S.string) // throws - an unset variable is not ""
+" "->S.decodeOrThrow(~from=S.env, ~to=S.string) // throws - blank, not a value
 
-"8080"->S.parseOrThrow(~to=S.env->S.to(S.int)) // 8080
-""->S.parseOrThrow(~to=S.env->S.to(S.int)) // throws - without this, `+""` would be a valid 0
-""->S.parseOrThrow(~to=S.env->S.to(S.bigint)) // throws - `BigInt("")` would be 0n
+"8080"->S.decodeOrThrow(~from=S.env, ~to=S.int) // 8080
+""->S.decodeOrThrow(~from=S.env, ~to=S.int) // throws - without this, `+""` would be a valid 0
+""->S.decodeOrThrow(~from=S.env, ~to=S.bigint) // throws - `BigInt("")` would be 0n
 ```
+
+`decodeOrThrow` rather than `parseOrThrow`: a `process.env` value is already
+known to be a string, so there's no unknown input to type-check first.
 
 That guard is the point of the schema: `+""`, `+" "` and `BigInt("")` are all
 zero, so an unset variable would otherwise decode to a plausible number and the
@@ -1126,15 +1129,14 @@ Booleans accept the tokens a shell actually carries — `"true"`, `"1"`, `"false
 "set to nothing" read alike, and encoding maps it back to `""`:
 
 ```rescript
-let schema = S.env->S.to(S.option(S.string))
-""->S.parseOrThrow(~to=schema) // None
-"abc"->S.parseOrThrow(~to=schema) // Some("abc")
+""->S.decodeOrThrow(~from=S.env, ~to=S.option(S.string)) // None
+"abc"->S.decodeOrThrow(~from=S.env, ~to=S.option(S.string)) // Some("abc")
 ```
 
 Pass `S.min` to opt back in where the empty string is meaningful:
 
 ```rescript
-""->S.parseOrThrow(~to=S.env->S.to(S.string->S.min(0))) // ""
+""->S.decodeOrThrow(~from=S.env, ~to=S.string->S.min(0)) // ""
 ```
 
 `S.env` is the *value*, so it never sees a missing variable — `process.env.FOO`
