@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: S.$res_nullableAsOption(S.jsonString)
-  input: any
-  output: any
-  instantiations: 29
+  schema: S.union([S.jsonString, S.schema(undefined), S.schema(null).with(S.to, S.schema(undefined))])
+  input: string | null | undefined
+  output: string | undefined
+  instantiations: 6640
 vs:
   zod:
     _skip: not-applicable
