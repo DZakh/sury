@@ -42,12 +42,9 @@ test("Returns refinement", t => {
   let schema = S.string->S.minLength(1)
 
   switch schema {
-  | String({minLength, errorMessage}) => {
+  | String({minLength, ?errorMessage}) => {
       t->Assert.deepEqual(minLength, 1)
-      t->Assert.deepEqual(
-        errorMessage,
-        {minLength: ?None},
-      )
+      t->Assert.deepEqual(errorMessage, None)
     }
   | _ => t->Assert.fail("Expected String schema with minLength")
   }
@@ -58,27 +55,18 @@ test("Chaining refinements does not mutate the original schema", t => {
   let schema2 = schema1->S.maxLength(10)
 
   switch schema1 {
-  | String({minLength, ?maxLength, errorMessage}) => {
+  | String({minLength, ?maxLength, ?errorMessage}) => {
       t->Assert.deepEqual(minLength, 1)
       t->Assert.deepEqual(maxLength, None)
-      t->Assert.deepEqual(
-        errorMessage,
-        {minLength: ?None},
-      )
+      t->Assert.deepEqual(errorMessage, None)
     }
   | _ => t->Assert.fail("Expected String schema with minLength only")
   }
   switch schema2 {
-  | String({minLength, maxLength, errorMessage}) => {
+  | String({minLength, maxLength, ?errorMessage}) => {
       t->Assert.deepEqual(minLength, 1)
       t->Assert.deepEqual(maxLength, 10)
-      t->Assert.deepEqual(
-        errorMessage,
-        {
-          minLength: ?None,
-          maxLength: ?None,
-        },
-      )
+      t->Assert.deepEqual(errorMessage, None)
     }
   | _ => t->Assert.fail("Expected String schema with minLength and maxLength")
   }

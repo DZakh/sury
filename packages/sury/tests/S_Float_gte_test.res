@@ -42,12 +42,9 @@ test("Returns refinement", t => {
   let schema = S.float->S.gte(1.)
 
   switch schema {
-  | Number({minimum, errorMessage}) => {
+  | Number({minimum, ?errorMessage}) => {
       t->Assert.deepEqual(minimum, 1.)
-      t->Assert.deepEqual(
-        errorMessage,
-        {minimum: ?None},
-      )
+      t->Assert.deepEqual(errorMessage, None)
     }
   | _ => t->Assert.fail("Expected Number schema with minimum")
   }

@@ -52,6 +52,27 @@ S.reverse(S.schema({
   bound fields would make this fall out of the existing check, and would also
   give the redundancy elimination in the entry below something to work with.
 
+- **Move bound checks off `refiner` into the decoder.** `S.gt`/`S.lt` build a
+  refinement whose check duplicates what the decoder could emit from the
+  bound fields directly, so `S.int32.with(S.gte, 5)` range-checks twice.
+  Deriving them in `numberDecoder` fuses the two and drops a check per bound.
+  Do it in its own PR, in this order — the risk and the safety net are the
+  same piece:
+    1. Merge the branch that renamed `S.min`/`S.max`. `pnpm fuzz:union` builds
+       its baseline from a git ref, and every ref before that rename lacks
+       `S.gte`/`S.minLength`, so the harness cannot build one today.
+    2. First commit of the follow-up: run `fuzz:union --ref=<merge-base>` on an
+       unchanged tree, to confirm the harness works against the new API.
+    3. Then make the change and diff, so the gate actually gates.
+  Three knock-ons to expect: `union.ts` decides a schema has refinements with
+  `schema.refiner !== U`, which bounded schemas would stop setting;
+  `parse.ts`'s reverse swaps `refiner`/`inputRefiner`, and a field carries no
+  side; and bound checks would move to a fixed position relative to `pattern`
+  and `refine`, changing which error surfaces when both fail. Messages survive
+  only if the decoder-emitted check carries its own fail builder from
+  `errorMessage[key]` — without that it reports `Expected int32` where the
+  refinement reports the bound.
+
 - **A narrowing bound should retract the check it supersedes.** Applying a
   bound that doesn't narrow is skipped outright, but in the other order the
   earlier check is already in the refiner chain and can't be pulled back, so

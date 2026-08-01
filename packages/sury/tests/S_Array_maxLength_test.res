@@ -42,12 +42,9 @@ test("Returns refinement", t => {
   let schema = S.array(S.int)->S.maxLength(1)
 
   switch schema {
-  | Array({maxItems, errorMessage}) => {
+  | Array({maxItems, ?errorMessage}) => {
       t->Assert.deepEqual(maxItems, 1)
-      t->Assert.deepEqual(
-        errorMessage,
-        {maxItems: ?None},
-      )
+      t->Assert.deepEqual(errorMessage, None)
     }
   | _ => t->Assert.fail("Expected Array schema with maxItems")
   }

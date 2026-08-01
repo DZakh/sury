@@ -42,12 +42,9 @@ test("Returns refinement", t => {
   let schema = S.string->S.maxLength(1)
 
   switch schema {
-  | String({maxLength, errorMessage}) => {
+  | String({maxLength, ?errorMessage}) => {
       t->Assert.deepEqual(maxLength, 1)
-      t->Assert.deepEqual(
-        errorMessage,
-        {maxLength: ?None},
-      )
+      t->Assert.deepEqual(errorMessage, None)
     }
   | _ => t->Assert.fail("Expected String schema with maxLength")
   }

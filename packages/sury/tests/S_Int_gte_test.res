@@ -41,7 +41,7 @@ test("Returns custom error message", t => {
 test("Throws when called with a non-number value", t => {
   t->U.assertThrowsMessage(
     () => S.int->S.gte(%raw(`"abc"`)),
-    `[S.gte] Expected number, received "abc"`,
+    `S.gte expects number for int32, got "abc"`,
   )
 })
 
@@ -49,12 +49,9 @@ test("Returns refinement", t => {
   let schema = S.int->S.gte(1)
 
   switch schema {
-  | Number({minimum, errorMessage}) => {
+  | Number({minimum, ?errorMessage}) => {
       t->Assert.deepEqual(minimum, 1.)
-      t->Assert.deepEqual(
-        errorMessage,
-        {minimum: ?None},
-      )
+      t->Assert.deepEqual(errorMessage, None)
     }
   | _ => t->Assert.fail("Expected Number schema with minimum")
   }

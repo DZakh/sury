@@ -36,13 +36,13 @@ test("a bound rejects any value it could not safely inline", () => {
       expect(
         () => (S as never as Record<string, (...a: unknown[]) => unknown>)[fn]!(S.number, value),
         `S.${fn} accepted ${label}`,
-      ).toThrow(/Expected number, received/);
+      ).toThrow(/expects number, got/);
     }
     for (const fn of SIZED) {
       expect(
         () => (S as never as Record<string, (...a: unknown[]) => unknown>)[fn]!(S.string, value),
         `S.${fn} accepted ${label}`,
-      ).toThrow(/Expected integer >= 0, received/);
+      ).toThrow(/expects integer >= 0/);
     }
   }
 
@@ -53,9 +53,9 @@ test("a bound rejects any value it could not safely inline", () => {
 test("a numeric bound rejects the wrong numeric type", () => {
   // Mixing the two silently compares across types in JS, so each schema takes
   // its own and nothing else.
-  expect(() => S.gte(S.number, 5n as never)).toThrow(`[S.gte] Expected number, received 5n`);
-  expect(() => S.gte(S.bigint, 5 as never)).toThrow(`[S.gte] Expected bigint, received 5`);
-  expect(() => S.gt(S.number, NaN)).toThrow(`[S.gt] Expected number, received NaN`);
+  expect(() => S.gte(S.number, 5n as never)).toThrow(`S.gte expects number, got 5n`);
+  expect(() => S.gte(S.bigint, 5 as never)).toThrow(`S.gte expects bigint, got 5`);
+  expect(() => S.gt(S.number, NaN)).toThrow(`S.gt expects number, got NaN`);
 });
 
 test("a length rejects values that are not counts", () => {
@@ -63,10 +63,10 @@ test("a length rejects values that are not counts", () => {
   // `i.length===-1` — so they fail where they are written instead.
   for (const value of [Infinity, -Infinity, -1, 1.5, -0.5, NaN, 2 ** 53]) {
     expect(() => S.minLength(S.string, value), `minLength(${value})`).toThrow(
-      /Expected integer >= 0/,
+      /expects integer >= 0/,
     );
     expect(() => S.maxLength(S.array(S.string), value), `maxLength(${value})`).toThrow(
-      /Expected integer >= 0/,
+      /expects integer >= 0/,
     );
   }
   expect(S.toExpression(S.string.with(S.minLength, 0))).toBe("string.length >= 0");

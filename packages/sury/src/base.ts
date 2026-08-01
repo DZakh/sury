@@ -280,6 +280,13 @@ export type Internal = {
   // each variant converts to whatever the target is, and a variant with no
   // decoder to that target drops out with its error reported per value.
   perVariant?: boolean;
+  // Which bounds the caller actually wrote. int32 and port put their own
+  // range in the fields below, so the values can't tell a caller's bound from
+  // a format's — this can, and only the bound constructors ever set it.
+  // 1 lower inclusive · 2 upper inclusive · 4 lower exclusive · 8 upper
+  // exclusive. A schema bounds either its value or its length, never both, so
+  // one pair of bits covers minimum/minLength/minItems alike.
+  bounds?: number;
   minimum?: number | bigint;
   maximum?: number | bigint;
   // S.gt/S.lt always land here and S.gte/S.lte always land on
@@ -450,15 +457,9 @@ export const stringify = (unknown: unknown): string => {
 // spelling — `0 < number < 10` rather than a clause per side. A string or
 // array bounds its `.length`, which is named so the comparison can't be read
 // against the value: `string.length >= 3` against a received `"hi"`.
-//
-// int32 and port carry their own range in the same fields a caller's bound
-// uses, so the values can't tell the two apart. Key *presence* on
-// errorMessage can: a bound always writes its key (with the caller's message
-// or undefined) and a format writes only `format`. See the bound refinements,
-// which uphold that.
 const withBounds = (schema: Internal, base: string): string => {
-  const em = schema.errorMessage;
-  if (em === U) {
+  const written = schema.bounds;
+  if (written === U) {
     return base;
   }
   const isArray = schema.type === arrayTag;
@@ -467,10 +468,10 @@ const withBounds = (schema: Internal, base: string): string => {
   const maxKey = isArray ? "maxItems" : sized ? "maxLength" : "maximum";
   // No JSON Schema keyword bounds a length exclusively, so only a value bound
   // can be strict.
-  const exMin = sized ? U : "exclusiveMinimum" in em ? schema.exclusiveMinimum : U;
-  const exMax = sized ? U : "exclusiveMaximum" in em ? schema.exclusiveMaximum : U;
-  const low = exMin !== U ? exMin : minKey in em ? schema[minKey] : U;
-  const high = exMax !== U ? exMax : maxKey in em ? schema[maxKey] : U;
+  const exMin = written & 4 ? schema.exclusiveMinimum : U;
+  const exMax = written & 8 ? schema.exclusiveMaximum : U;
+  const low = exMin !== U ? exMin : written & 1 ? schema[minKey] : U;
+  const high = exMax !== U ? exMax : written & 2 ? schema[maxKey] : U;
   if (low === U && high === U) {
     return base;
   }
