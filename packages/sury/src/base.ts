@@ -7,7 +7,21 @@
 
 // Lives here rather than in builder.ts so base has no outgoing edge: both are
 // one-liners over `Val`/`Internal`, and builder.ts importing them back is free.
-export type Builder = (input: Val) => Val;
+// `x` renders the type expression of any schema this builder decodes (see
+// inputExpression). It hangs off the decoder rather than the schema because
+// kind, decoder and rendering are one fact: objectDecoder schemas render as
+// objects, and compactColumns swaps both together. One property per decoder
+// beats one field per schema — nothing for copySchema to carry, nothing to keep
+// in sync at 15 construction sites, and no extra key in a logged schema.
+//
+// It MUST be attached in the declaration, as
+// `/* @__PURE__ */ Object.assign((input) => {…}, { x: … })`. A plain
+// `objectDecoder.x = objectExpression;` statement afterwards reads better and
+// costs 245% of the floor: a top-level mutation is a side effect the bundler
+// cannot drop, so it pins its whole module into every consumer's bundle.
+export type Builder = ((input: Val) => Val) & {
+  x?: (schema: Internal) => string;
+};
 export type Encoder = (input: Val, target: Internal) => Val;
 
 // ── flags ─────────────────────────────────────────────────────────────────────
@@ -292,14 +306,6 @@ export type Internal = {
   isAsync?: boolean; // Optional value means that it's not lazily computed yet.
   hasTransform?: boolean; // Optional value means that it's not lazily computed yet.
   "~standard"?: unknown;
-  // Renders this schema's type expression (see inputExpression). Set by whichever
-  // module constructs the schema, so a consumer that never imports that factory
-  // never carries its renderer — the reason inputExpression itself only handles
-  // what every schema can be. A structural schema built anywhere MUST set it or
-  // its expression silently degrades to the bare tag ("object", "array").
-  // Called lazily: compactColumns and recursive schemas have no expression yet
-  // at construction time.
-  x?: (schema: Internal) => string;
   // The reversed (Input ↔ Output swapped) schema, cached lazily as a hidden
   // non-enumerable property via Object.defineProperty (see schema.ts/parse.ts).
   r?: Internal;
@@ -452,8 +458,8 @@ export const stringify = (unknown: unknown): string => {
   }
 }
 
-// Structural renderers live on `schema.x`, not in this chain — see the field.
-// The `x` test sits after `const` and before `format` to hold the precedence the
+// Structural renderers hang off the decoder, not this chain — see `Builder.x`.
+// That test sits after `const` and before `format` to hold the precedence the
 // branch chain had: a literal outranks its own structure, and compactColumns
 // (the sole array format) outranks the generic format fallback.
 // @__NO_SIDE_EFFECTS__
@@ -462,8 +468,8 @@ export const inputExpression = (schema: Internal): string => {
     return schema.name;
   } else if (schema.const !== U) {
     return stringify(schema.const);
-  } else if (schema.x !== U) {
-    return schema.x(schema);
+  } else if (schema.decoder.x !== U) {
+    return schema.decoder.x(schema);
   } else if (schema.format !== U) {
     return schema.format;
     // No `nan` case: the sole nan schema (primitives.ts, via `cached`) always

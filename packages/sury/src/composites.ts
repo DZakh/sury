@@ -6,6 +6,7 @@ import {
   type AdditionalItems,
   arrayTag,
   baseSchema,
+  type Builder,
   type Check,
   type ErrorDetails,
   flagUnsafeHas,
@@ -70,8 +71,8 @@ import { unionFactory } from "./union";
 const isItemSchema = (x: AdditionalItems | undefined): x is Internal =>
   x !== U && typeof x !== "string";
 
-// Assigned to `schema.x` by every objectTag/arrayTag construction site, here and
-// in factory.ts — a site that forgets renders as the bare tag.
+// Reached through `objectDecoder.x` / `arrayDecoder.x`, so every schema these
+// decoders serve renders structurally without carrying a field of its own.
 // Properties and an index signature are emitted from one accumulator rather
 // than as exclusive branches: no factory currently produces both at once, but
 // the shape is representable, and the branchy version silently dropped the
@@ -117,7 +118,6 @@ export const makeObjectVal = (prev: Val, schema: Internal): Val => {
           items: [],
           additionalItems: "strict",
           decoder: arrayDecoder,
-          x: arrayExpression,
         }
       : {
           type: objectTag,
@@ -125,7 +125,6 @@ export const makeObjectVal = (prev: Val, schema: Internal): Val => {
           properties: Object.create(null),
           additionalItems: "strict",
           decoder: objectDecoder,
-          x: objectExpression,
         }) as Internal,
     io: U,
     e: prev.e,
@@ -215,10 +214,9 @@ export const array = (item: Internal): Internal => {
   mut.additionalItems = itemInternal;
   mut.items = immutableEmptyArray as Internal[];
   mut.decoder = arrayDecoder;
-  mut.x = arrayExpression;
   return mut;
 }
-export const arrayDecoder = (unknownInput: Val): Val => {
+export const arrayDecoder: Builder = /* @__PURE__ */ Object.assign((unknownInput: Val): Val => {
   const isUnion = unknownInput.u!;
   const expectedSchema = unknownInput.e;
   const unknownInputTagFlag = tagFlags[unknownInput.s.type]!;
@@ -361,8 +359,9 @@ export const arrayDecoder = (unknownInput: Val): Val => {
     }
   }
   return B_markOutput(output, input);
-}
-export const objectDecoder = (unknownInput: Val): Val => {
+}, { x: arrayExpression });
+
+export const objectDecoder: Builder = /* @__PURE__ */ Object.assign((unknownInput: Val): Val => {
   const isUnion = unknownInput.u!;
   const expectedSchema = unknownInput.e;
 
@@ -377,7 +376,9 @@ export const objectDecoder = (unknownInput: Val): Val => {
       const mut = baseSchema(objectTag, false);
       mut.properties = immutableEmptyObject as Record<string, Internal>;
       mut.additionalItems = unknown;
-      mut.x = objectExpression;
+      // Only ever a refine target, so this decoder is never run — it is what
+      // carries the expression, and `Internal.decoder` is not optional.
+      mut.decoder = objectDecoder;
       schema = mut;
     } else {
       schema = unknownInput.s;
@@ -587,7 +588,7 @@ export const objectDecoder = (unknownInput: Val): Val => {
     }
   }
   return B_markOutput(output, input);
-}
+}, { x: objectExpression });
 
 // @__NO_SIDE_EFFECTS__
 export const dictFactory = (item: Internal): Internal => {
@@ -595,7 +596,6 @@ export const dictFactory = (item: Internal): Internal => {
   mut.properties = immutableEmptyObject as Record<string, Internal>;
   mut.additionalItems = item;
   mut.decoder = objectDecoder;
-  mut.x = objectExpression;
   return mut;
 }
 
@@ -610,7 +610,6 @@ export const nestedNone = (): Internal => {
     properties,
     additionalItems: "strip",
     decoder: objectDecoder,
-    x: objectExpression,
     // TODO: Support this as a default coercion
     serializer: (input: Val) => {
       const nextSchema = input.e.to!;

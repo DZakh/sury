@@ -33,7 +33,32 @@ import {
 import { array } from "../composites";
 import { parse } from "../parse";
 
-export const compactColumnsDecoder: Builder = (input: Val) => {
+// The column types only exist once `.to` has been applied, so this must stay
+// lazy — the schema renders as the raw column arrays until then.
+//
+// Columns are read where compactColumnsDecoder's forward direction reads them:
+// on the `.to` array's item schema. Reading `to.properties` instead described
+// `.to(objectSchema)` — a shape the decoder rejects outright — while the
+// supported `.to(S.array(objectSchema))` fell through to a bare `unknown[][]`.
+const compactColumnsExpression = (schema: Internal): string => {
+  const to = schema.to;
+  const item = to !== U ? to.additionalItems : U;
+  const props =
+    item !== U && typeof item === "object" ? (item as Internal).properties : U;
+  if (props !== U) {
+    let body = "";
+    for (const key in props) {
+      body = body + (body === "" ? "" : ", ") + inputExpression(props[key]!) + "[]";
+    }
+    return `[${body}]`;
+  }
+  const additionalItems = schema.additionalItems;
+  return to === U && additionalItems !== U && typeof additionalItems === "object"
+    ? `${inputExpression(additionalItems)}[]`
+    : "unknown[][]";
+}
+
+export const compactColumnsDecoder: Builder = /* @__PURE__ */ Object.assign((input: Val) => {
   const selfSchema = input.e;
   const isUnknownInput = flagUnsafeHas(tagFlags[input.s.type]!, tagFlagUnknown);
 
@@ -290,32 +315,8 @@ export const compactColumnsDecoder: Builder = (input: Val) => {
       return B_markOutput(output, input);
     }
   }
-}
+}, { x: compactColumnsExpression });
 
-// The column types only exist once `.to` has been applied, so this must stay
-// lazy — the schema renders as the raw column arrays until then.
-//
-// Columns are read where compactColumnsDecoder's forward direction reads them:
-// on the `.to` array's item schema. Reading `to.properties` instead described
-// `.to(objectSchema)` — a shape the decoder rejects outright — while the
-// supported `.to(S.array(objectSchema))` fell through to a bare `unknown[][]`.
-const compactColumnsExpression = (schema: Internal): string => {
-  const to = schema.to;
-  const item = to !== U ? to.additionalItems : U;
-  const props =
-    item !== U && typeof item === "object" ? (item as Internal).properties : U;
-  if (props !== U) {
-    let body = "";
-    for (const key in props) {
-      body = body + (body === "" ? "" : ", ") + inputExpression(props[key]!) + "[]";
-    }
-    return `[${body}]`;
-  }
-  const additionalItems = schema.additionalItems;
-  return to === U && additionalItems !== U && typeof additionalItems === "object"
-    ? `${inputExpression(additionalItems)}[]`
-    : "unknown[][]";
-}
 
 // @__NO_SIDE_EFFECTS__
 export const compactColumns = (inputSchema: Internal): Internal => {
@@ -323,6 +324,5 @@ export const compactColumns = (inputSchema: Internal): Internal => {
   const mut = array(innerArray);
   mut.format = "compactColumns";
   mut.decoder = compactColumnsDecoder;
-  mut.x = compactColumnsExpression;
   return mut;
 }

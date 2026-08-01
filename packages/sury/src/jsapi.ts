@@ -33,7 +33,7 @@ import {
   B_varWithoutAllocation,
   type EffectCtx,
 } from "./builder";
-import { objectDecoder, objectExpression } from "./composites";
+import { objectDecoder } from "./composites";
 import { definitionToSchema } from "./factory";
 import {
   internalRefine,
@@ -225,7 +225,6 @@ export const js_merge = (s1: Internal, s2: Internal): Internal => {
     mut.properties = properties;
     mut.additionalItems = s1.additionalItems;
     mut.decoder = objectDecoder;
-    mut.x = objectExpression;
     result = mut;
   }
   if (result !== U) {

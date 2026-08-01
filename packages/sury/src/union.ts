@@ -82,7 +82,7 @@ const unionBoundaryTags = tagFlagUnion | tagFlagRef | tagFlagFunction;
 const unionOpaqueTags =
   tagFlagUnknown | unionBoundaryTags | tagFlagNever;
 
-// Assigned to `schema.x` by every anyOf construction site. Repeated members
+// Reached through `unionDecoder.x`. Repeated members
 // remain significant to decoding (the same effectful schema may intentionally
 // run more than once), but not to the human expression describing the union.
 //
@@ -138,19 +138,18 @@ const unionOutput = (schema: Internal): Internal => {
 //
 // "Nothing of its own" is a field count, not a list of interesting fields, so an
 // unknown field reads as "carries something" and keeps the union whole — the
-// conservative direction. The 7 are exactly what `unionFactory` sets: `type` and
-// `seq` from `baseSchema`, then `anyOf`, `decoder`, `encoder`, `has`, `x`.
-// `isAsync` and `hasTransform` are excluded because the parse loop writes them
-// onto a live schema in place. Changing `unionFactory`'s field set without
-// changing this count stops every union from flattening, which the nested-union
-// goldens catch.
+// conservative direction. The 6 are exactly what `unionFactory` sets: `type` and
+// `seq` from `baseSchema`, then `anyOf`, `decoder`, `encoder`, `has`. `isAsync`
+// and `hasTransform` are excluded because the parse loop writes them onto a live
+// schema in place. Changing `unionFactory`'s field set without changing this
+// count stops every union from flattening, which the nested-union goldens catch.
 const unionIsTransparent = (schema: Internal): boolean => {
   if (schema.type !== anyOfTag) return false;
   let fields = 0;
   for (const key in schema) {
     if (key !== "isAsync" && key !== "hasTransform") fields++;
   }
-  return fields === 7;
+  return fields === 6;
 };
 
 // One bounded structural walk supplies every recursive effect fact used by
@@ -1262,7 +1261,7 @@ const unionEmit = (
 };
 
 
-export const unionDecoder: Builder = (input: Val) => {
+export const unionDecoder: Builder = /* @__PURE__ */ Object.assign((input: Val) => {
   const self = input.e;
   // The union's own `.to` chain, applied per case during decoding. None when a
   // custom parser owns the conversion, or when the target is the `noValidation`
@@ -1346,7 +1345,7 @@ export const unionDecoder: Builder = (input: Val) => {
   const analyzed = unionAnalyze(normalized, variants, source, nan);
   const plan = unionPlan(analyzed);
   return unionEmit(input, self, plan, toPerCase);
-};
+}, { x: unionExpression });
 
 // Calls each source refiner at most once so its predicate is embedded once and
 // every case references the same `e[N]` — `B_embed` is append-only, so a
@@ -1390,7 +1389,6 @@ export const unionRewrite = (
   mut.decoder = unionDecoder;
   mut.encoder = unionEncoder;
   mut.perVariant = input.s.perVariant;
-  mut.x = unionExpression;
   return B_refine(input, unknown, U, mut);
 };
 
@@ -1610,6 +1608,5 @@ export const unionFactory = (schemas: Internal[]): Internal => {
   mut.decoder = unionDecoder;
   mut.encoder = unionEncoder;
   mut.has = has;
-  mut.x = unionExpression;
   return mut;
 };
