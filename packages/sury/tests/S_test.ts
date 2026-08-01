@@ -2720,35 +2720,35 @@ test("A contradictory bound pair is rejected where it's written", (t) => {
   // render through toExpression, so the message is in the same syntax the
   // schema is, not the constructor names the caller happened to use.
   t.expect(() => S.number.with(S.gte, 5).with(S.lte, 1)).toThrow(
-    `[Sury] number <= 1 contradicts number >= 5 — no value satisfies both`,
+    `[Sury] number <= 1 contradicts number >= 5`,
   );
   t.expect(() => S.number.with(S.lte, 1).with(S.gte, 5)).toThrow(
-    `[Sury] number >= 5 contradicts number <= 1 — no value satisfies both`,
+    `[Sury] number >= 5 contradicts number <= 1`,
   );
   // Exclusive bounds make the touching cases empty too.
   t.expect(() => S.number.with(S.gt, 5).with(S.lte, 5)).toThrow(
-    `[Sury] number <= 5 contradicts number > 5 — no value satisfies both`,
+    `[Sury] number <= 5 contradicts number > 5`,
   );
   t.expect(() => S.number.with(S.gte, 5).with(S.lt, 5)).toThrow(
-    `[Sury] number < 5 contradicts number >= 5 — no value satisfies both`,
+    `[Sury] number < 5 contradicts number >= 5`,
   );
   t.expect(() => S.string.with(S.minLength, 5).with(S.maxLength, 1)).toThrow(
-    `[Sury] string.length <= 1 contradicts string.length >= 5 — no value satisfies both`,
+    `[Sury] string.length <= 1 contradicts string.length >= 5`,
   );
   t.expect(() => S.array(S.string).with(S.minLength, 5).with(S.maxLength, 1)).toThrow(
-    `[Sury] string[].length <= 1 contradicts string[].length >= 5 — no value satisfies both`,
+    `[Sury] string[].length <= 1 contradicts string[].length >= 5`,
   );
   // `empty`/`nonEmpty` desugar to length bounds, and report as those rather
   // than naming a constructor the caller didn't write.
   t.expect(() => S.string.with(S.minLength, 2).with(S.empty)).toThrow(
-    `[Sury] string.length <= 0 contradicts string.length >= 2 — no value satisfies both`,
+    `[Sury] string.length <= 0 contradicts string.length >= 2`,
   );
   // A format's range is a bound like any other, so a value outside it conflicts.
   t.expect(() => S.int32.with(S.gte, 3000000000)).toThrow(
-    `[Sury] int32 >= 3000000000 contradicts int32 <= 2147483647 — no value satisfies both`,
+    `[Sury] int32 >= 3000000000 contradicts int32 <= 2147483647`,
   );
   t.expect(() => S.port.with(S.lte, -1)).toThrow(
-    `[Sury] port <= -1 contradicts port >= 0 — no value satisfies both`,
+    `[Sury] port <= -1 contradicts port >= 0`,
   );
 
   // A single point is satisfiable, so these stay legal.

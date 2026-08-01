@@ -84,7 +84,7 @@ const assertLength = (fnName: string, n: unknown): void => {
     throw new SuryError({
       code: "invalid_operation",
       path: pathEmpty,
-      reason: `[S.${fnName}] Expected non-negative integer, received ${stringify(n)}`,
+      reason: `[S.${fnName}] Expected integer >= 0, received ${stringify(n)}`,
     });
   }
 };
@@ -147,7 +147,7 @@ const narrowsSize = (current: number | undefined, value: number, upper: boolean)
 // schema does — `string.length == 2 contradicts string.length >= 3`, not a
 // pair of constructor names the caller may not have written.
 const conflict = (incoming: Internal, existing: Internal): void => {
-  panic(`${toExpression(incoming)} contradicts ${toExpression(existing)} — no value satisfies both`);
+  panic(`${toExpression(incoming)} contradicts ${toExpression(existing)}`);
 };
 
 // One bound of `schema`, rendered alone. Copies the schema so toExpression

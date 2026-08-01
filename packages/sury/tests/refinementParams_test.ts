@@ -42,7 +42,7 @@ test("a bound rejects any value it could not safely inline", () => {
       expect(
         () => (S as never as Record<string, (...a: unknown[]) => unknown>)[fn]!(S.string, value),
         `S.${fn} accepted ${label}`,
-      ).toThrow(/Expected non-negative integer, received/);
+      ).toThrow(/Expected integer >= 0, received/);
     }
   }
 
@@ -63,10 +63,10 @@ test("a length rejects values that are not counts", () => {
   // `i.length===-1` — so they fail where they are written instead.
   for (const value of [Infinity, -Infinity, -1, 1.5, -0.5, NaN, 2 ** 53]) {
     expect(() => S.minLength(S.string, value), `minLength(${value})`).toThrow(
-      /Expected non-negative integer/,
+      /Expected integer >= 0/,
     );
     expect(() => S.maxLength(S.array(S.string), value), `maxLength(${value})`).toThrow(
-      /Expected non-negative integer/,
+      /Expected integer >= 0/,
     );
   }
   expect(S.toExpression(S.string.with(S.minLength, 0))).toBe("string.length >= 0");
