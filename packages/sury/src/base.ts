@@ -466,8 +466,9 @@ export const inputExpression = (schema: Internal): string => {
     return schema.x(schema);
   } else if (schema.format !== U) {
     return schema.format;
-  } else if (schema.type === nanTag) {
-    return "NaN";
+    // No `nan` case: the sole nan schema (primitives.ts, via `cached`) always
+    // carries `const: NaN`, so the `const` branch above renders it — as the
+    // same "NaN" string, via stringify.
   } else if (schema.type === instanceTag) {
     return (schema.class as { name: string }).name;
   } else {

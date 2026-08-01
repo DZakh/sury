@@ -2836,3 +2836,15 @@ test("A received value is named, not serialized", (t) => {
   t.expect(reasonFor([])).toBe("Expected string, received Array(0)");
   t.expect(reasonFor([1, 2, 3])).toBe("Expected string, received Array(3)");
 });
+
+// There is no `nan` case in inputExpression: the sole nan schema always carries
+// `const: NaN`, so the `const` branch renders it — via stringify, to the same
+// string. Pinned here because removing that branch is only safe while this holds.
+test("A nan schema renders as NaN without a dedicated branch", (t) => {
+  t.expect(S.inputExpression(S.schema(NaN))).toBe("NaN");
+  t.expect(`${S.schema(NaN)}`).toBe("Schema<NaN>");
+
+  // S.nan is exported at runtime but absent from S.d.ts, hence the cast.
+  const nan = (S as unknown as Record<string, Parameters<typeof S.inputExpression>[0]>)["nan"]!;
+  t.expect(S.inputExpression(nan)).toBe("NaN");
+});
