@@ -41,7 +41,7 @@ test("Returns custom error message", t => {
 test("Throws when called with a non-number value", t => {
   t->U.assertThrowsMessage(
     () => S.int->S.gte(%raw(`"abc"`)),
-    `S.gte expects number for int32, got "abc"`,
+    `S.gte expects int32, got "abc"`,
   )
 })
 

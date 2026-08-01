@@ -42,14 +42,13 @@ export const null_ = (item: Internal): Internal =>
 // Built-in refinements
 // =============
 
-// One shape for every way a bound can be called wrong, so the reader always
-// gets the same three facts: which call, what it takes, what it got. The
-// schema is named only when it adds something — not when it *is* the problem
-// (it's already the `got`), and not when it reads the same as `accepted`.
-const expects = (fnName: string, accepted: string, schema: Internal | undefined, got: string): string => {
-  const on = schema !== U ? toExpression(schema) : accepted;
-  return `S.${fnName} expects ${accepted}${on === accepted ? "" : ` for ${on}`}, got ${got}`;
-};
+// One shape for every way a bound can be called wrong: which call, what it
+// wanted, what it got. What it wanted differs by which half is wrong — a bad
+// bound value is measured against the schema it is being applied to, a bad
+// schema against the set of schemas the bound accepts, which the word
+// "schema" marks so the two can't be misread for each other.
+const expects = (fnName: string, expected: string, got: string): string =>
+  `S.${fnName} expects ${expected}, got ${got}`;
 
 // Every bound is interpolated straight into generated source rather than
 // embedded as `e[n]`, so these asserts are the only thing standing between a
@@ -64,13 +63,13 @@ const expects = (fnName: string, accepted: string, schema: Internal | undefined,
 const assertBound = (fnName: string, schema: Internal, value: unknown): void => {
   const tag = schema.type;
   if (tag !== numberTag && tag !== bigintTag) {
-    panic(expects(fnName, "number | bigint", U, toExpression(schema)));
+    panic(expects(fnName, "number | bigint schema", toExpression(schema)));
   }
   if (tag === bigintTag ? typeof value !== bigintTag : typeof value !== numberTag || Number.isNaN(value)) {
     throw new SuryError({
       code: "invalid_operation",
       path: pathEmpty,
-      reason: expects(fnName, tag, schema, stringify(value)),
+      reason: expects(fnName, toExpression(schema), stringify(value)),
     });
   }
 };
@@ -80,13 +79,13 @@ const assertBound = (fnName: string, schema: Internal, value: unknown): void => 
 // like `i.length>Infinity` that silently rejects everything.
 const assertSized = (fnName: string, schema: Internal, value: unknown): void => {
   if (schema.type !== stringTag && schema.type !== arrayTag) {
-    panic(expects(fnName, "string | array", U, toExpression(schema)));
+    panic(expects(fnName, "string | array schema", toExpression(schema)));
   }
   if (typeof value !== numberTag || !Number.isSafeInteger(value) || (value as number) < 0) {
     throw new SuryError({
       code: "invalid_operation",
       path: pathEmpty,
-      reason: expects(fnName, "integer >= 0", schema, stringify(value)),
+      reason: expects(fnName, "integer >= 0", stringify(value)),
     });
   }
 };
