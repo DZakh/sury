@@ -207,12 +207,14 @@ export const transform = (
   });
 }
 
+// A factory rather than an initSchema singleton: each call hands out a fresh
+// copy whose `to` the caller may rewire.
 // @__NO_SIDE_EFFECTS__
 export const nullAsUnit = (): Internal => {
   // PORT-NOTE: local `s` renamed to `schema` — `s` is the module-level error
   // identity symbol in this file.
-  const schema = copySchema(nullLiteral());
-  schema.to = unit();
+  const schema = copySchema(nullLiteral);
+  schema.to = unit;
   return schema;
 }
 

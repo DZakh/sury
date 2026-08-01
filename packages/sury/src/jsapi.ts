@@ -42,7 +42,7 @@ import {
   Option_getOrWith,
   transform,
 } from "./modifiers";
-import { getAssertResult } from "./operations";
+import { assertResult } from "./operations";
 import { getDecoder, reverse } from "./parse";
 import { nullLiteral, unit } from "./primitives";
 import { unionFactory } from "./union";
@@ -71,7 +71,7 @@ export const js_assert = (a: unknown, b: unknown): unknown => {
   const aIsSchema = !!a && isSchemaObject(a);
   const schema = (aIsSchema ? a : b) as Internal;
   const data = aIsSchema ? b : a;
-  return getDecoder(unknown, schema, getAssertResult())(data);
+  return getDecoder(unknown, schema, assertResult)(data);
 };
 
 export const js_is = (a: unknown, b: unknown): boolean => {
@@ -176,7 +176,7 @@ export const js_asyncDecoderAssert = (
 // @__NO_SIDE_EFFECTS__
 export const js_optional = (schema: Internal, maybeOr: unknown): Internal => {
   // TODO: maybeOr should be part of the unit schema
-  schema = unionFactory([schema, unit()]);
+  schema = unionFactory([schema, unit]);
   if (maybeOr !== U && typeof maybeOr === functionTag) {
     return Option_getOrWith(schema, maybeOr as () => unknown);
   } else if (maybeOr !== U) {
@@ -197,7 +197,7 @@ export const js_nullable = (schema: Internal, maybeOr: unknown): Internal => {
       return Option_getOr(schema2, maybeOr);
     }
   } else {
-    return unionFactory([schema, nullLiteral()]);
+    return unionFactory([schema, nullLiteral]);
   }
 };
 

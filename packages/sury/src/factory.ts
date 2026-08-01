@@ -317,7 +317,7 @@ export const schemaTuple = (
 
   for (let idx = 0; idx < items.length; idx++) {
     if (!items[idx]) {
-      items[idx] = unit();
+      items[idx] = unit;
     }
   }
 
