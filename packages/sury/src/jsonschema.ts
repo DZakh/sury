@@ -75,8 +75,6 @@ import {
   floatLess,
   floatMax,
   floatMin,
-  intGreater,
-  intLess,
   intMax,
   intMin,
   isoDateTime,
@@ -225,6 +223,10 @@ export type JSONSchemaT = {
 // standardJSONSchemaRef's signature, keep a single declaration.
 export type JsonSchemaTarget = "draft-07" | "draft-2020-12" | "openapi-3.0" | (string & {});
 
+// Compared on every emit branch that differs by dialect; naming it once keeps
+// the literal out of the bundle at each of those sites.
+const openApi30 = "openapi-3.0";
+
 export type StandardJsonSchemaOptions = {
   target: JsonSchemaTarget;
   libraryOptions?: Record<string, unknown>;
@@ -335,7 +337,7 @@ const internalToJSONSchemaBase = (
   const jsonSchema: JSONSchemaT = {};
   // OpenAPI 3.0 has no `const`; describe a single allowed value with `enum`.
   const setConstOrEnum = (value: unknown) => {
-    if (target === "openapi-3.0") {
+    if (target === openApi30) {
       jsonSchema.enum = [value];
     } else {
       jsonSchema.const = value;
@@ -377,46 +379,44 @@ const internalToJSONSchemaBase = (
   } else if (tag === numberTag) {
     const format = schema.format;
     const const_ = schema.const as number | undefined;
-    if (format === "int32") {
-      jsonSchema.type = "integer";
-      jsonSchema.minimum = -2147483648;
-      jsonSchema.maximum = 2147483647;
-    } else if (format === "port") {
-      jsonSchema.type = "integer";
-      jsonSchema.minimum = 0;
-      jsonSchema.maximum = 65535;
-    } else {
-      jsonSchema.type = "number";
-    }
     // A bigint schema never reaches here (it fails as non-JSON first), so the
-    // `number | bigint` bound fields are always numbers by this point.
-    if (schema.minimum !== U) {
-      jsonSchema.minimum = schema.minimum as number;
+    // `number | bigint` bound fields are always numbers by this point. The
+    // refinements keep at most one per side, so these are mutually exclusive.
+    const minimum = schema.minimum as number | undefined;
+    const maximum = schema.maximum as number | undefined;
+    const exclusiveMinimum = schema.exclusiveMinimum as number | undefined;
+    const exclusiveMaximum = schema.exclusiveMaximum as number | undefined;
+    const isInt = format === "int32" || format === "port";
+    const isPort = format === "port";
+    jsonSchema.type = isInt ? "integer" : "number";
+    // A format's own range only says something where the schema carries no
+    // bound of its own — `exclusiveMinimum: 5` already implies int32's
+    // -2147483648, and repeating it just makes the output noisier.
+    if (minimum !== U) {
+      jsonSchema.minimum = minimum;
+    } else if (isInt && exclusiveMinimum === U) {
+      jsonSchema.minimum = isPort ? 0 : -2147483648;
     }
-    if (schema.maximum !== U) {
-      jsonSchema.maximum = schema.maximum as number;
+    if (maximum !== U) {
+      jsonSchema.maximum = maximum;
+    } else if (isInt && exclusiveMaximum === U) {
+      jsonSchema.maximum = isPort ? 65535 : 2147483647;
     }
     // draft-06 made exclusive bounds independent numeric keywords; draft-04 —
     // which OpenAPI 3.0 follows — spells them as booleans modifying
-    // minimum/maximum, so there the two bounds collapse to the stricter one.
-    const exclusiveMinimum = schema.exclusiveMinimum as number | undefined;
-    const exclusiveMaximum = schema.exclusiveMaximum as number | undefined;
+    // minimum/maximum.
     if (exclusiveMinimum !== U) {
-      if (target === "openapi-3.0") {
-        if (jsonSchema.minimum === U || exclusiveMinimum >= jsonSchema.minimum) {
-          jsonSchema.minimum = exclusiveMinimum;
-          jsonSchema.exclusiveMinimum = true;
-        }
+      if (target === openApi30) {
+        jsonSchema.minimum = exclusiveMinimum;
+        jsonSchema.exclusiveMinimum = true;
       } else {
         jsonSchema.exclusiveMinimum = exclusiveMinimum;
       }
     }
     if (exclusiveMaximum !== U) {
-      if (target === "openapi-3.0") {
-        if (jsonSchema.maximum === U || exclusiveMaximum <= jsonSchema.maximum) {
-          jsonSchema.maximum = exclusiveMaximum;
-          jsonSchema.exclusiveMaximum = true;
-        }
+      if (target === openApi30) {
+        jsonSchema.maximum = exclusiveMaximum;
+        jsonSchema.exclusiveMaximum = true;
       } else {
         jsonSchema.exclusiveMaximum = exclusiveMaximum;
       }
@@ -463,7 +463,7 @@ const internalToJSONSchemaBase = (
       jsonSchema.type = "array";
       jsonSchema.minItems = itemsNumber;
       jsonSchema.maxItems = itemsNumber;
-      if (target === "openapi-3.0") {
+      if (target === openApi30) {
         // OpenAPI 3.0 has no tuple support. Describe a fixed-length array
         // whose every item matches any of the positional item schemas.
         jsonSchema.items = { anyOf: itemDefinitions };
@@ -533,7 +533,7 @@ const internalToJSONSchemaBase = (
       jsonSchema.enum = literals;
     } else if (
       // OpenAPI 3.0 collapse of `X | null` into `{...X, nullable: true}`.
-      target === "openapi-3.0" &&
+      target === openApi30 &&
       itemsNumber === 2 &&
       (isNullDefinition(items[0]!) || isNullDefinition(items[1]!))
     ) {
@@ -598,7 +598,7 @@ const internalToJSONSchemaBase = (
   } else if (tag === refTag) {
     jsonSchema.$ref = schema["$ref"];
   } else if (tag === nullTag) {
-    if (target === "openapi-3.0") {
+    if (target === openApi30) {
       // OpenAPI 3.0 has no `null` type. Use an enum as a workaround.
       jsonSchema.enum = [null];
     } else {
@@ -642,7 +642,7 @@ const targetSchemaUri = (target: JsonSchemaTarget): string | undefined => {
     case "draft-2020-12":
       return "https://json-schema.org/draft/2020-12/schema";
     // OpenAPI 3.0 has no `$schema` property.
-    case "openapi-3.0":
+    case openApi30:
       return U;
     default: {
       const unsupported = target;
@@ -772,13 +772,13 @@ const toIntSchema = (jsonSchema: JSONSchemaT): Internal => {
     schema = intMin(schema, min | 0);
   }
   if (exMin !== U) {
-    schema = intGreater(schema, exMin | 0);
+    schema = floatGreater(schema, exMin | 0);
   }
   if (max !== U) {
     schema = intMax(schema, max | 0);
   }
   if (exMax !== U) {
-    schema = intLess(schema, exMax | 0);
+    schema = floatLess(schema, exMax | 0);
   }
   return schema;
 }
@@ -1157,9 +1157,7 @@ export const lte = (schema: Internal, maxValue: number, maybeMessage?: string): 
 export const gt = (schema: Internal, minValue: number, maybeMessage?: string): Internal => {
   switch (schema.type) {
     case numberTag:
-      return isIntFormat(schema)
-        ? intGreater(schema, minValue, maybeMessage)
-        : floatGreater(schema, minValue, maybeMessage);
+      return floatGreater(schema, minValue, maybeMessage);
     case bigintTag:
       return bigintGreater(schema, minValue as unknown as bigint, maybeMessage);
     default:
@@ -1171,9 +1169,7 @@ export const gt = (schema: Internal, minValue: number, maybeMessage?: string): I
 export const lt = (schema: Internal, maxValue: number, maybeMessage?: string): Internal => {
   switch (schema.type) {
     case numberTag:
-      return isIntFormat(schema)
-        ? intLess(schema, maxValue, maybeMessage)
-        : floatLess(schema, maxValue, maybeMessage);
+      return floatLess(schema, maxValue, maybeMessage);
     case bigintTag:
       return bigintLess(schema, maxValue as unknown as bigint, maybeMessage);
     default:

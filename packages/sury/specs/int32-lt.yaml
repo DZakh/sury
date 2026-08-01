@@ -7,8 +7,8 @@ ts:
 vs:
   zod: z.int32().lt(5)
 jsonSchema:
-  input: '{ type: "integer", minimum: -2147483648, maximum: 2147483647, exclusiveMaximum: 5 }'
-  output: '{ type: "integer", minimum: -2147483648, maximum: 2147483647, exclusiveMaximum: 5 }'
+  input: '{ type: "integer", minimum: -2147483648, exclusiveMaximum: 5 }'
+  output: '{ type: "integer", minimum: -2147483648, exclusiveMaximum: 5 }'
 operations:
   parse:
     expression: i=>{typeof i==="number"&&i<=2147483647&&i>=-2147483648&&i%1===0||e[1](i);i<5||e[0](i);return i}
