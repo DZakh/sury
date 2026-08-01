@@ -68,6 +68,20 @@ let stringWithDefaultAndWithSchema = Sury.trim(Sury.$res_Option_getOr(Sury.$res_
 
 Vitest.test("Combines @s.with with @s.default", t => U.assertEqualSchemas(t, stringWithDefaultAndWithSchema, Sury.trim(Sury.$res_Option_getOr(Sury.$res_option(Sury.string), "Foo")), undefined));
 
+let intWithWithArgsSchema = Sury.max(Sury.min(Sury.int, 1), 5);
+
+Vitest.test("Applies @s.with with an extra argument passed after the transform", t => U.assertEqualSchemas(t, intWithWithArgsSchema, Sury.max(Sury.min(Sury.int, 1), 5), undefined));
+
+function describe5(schema, a, b, c, d, e) {
+  return Sury.meta(schema, {
+    description: a + b + c + d + e
+  });
+}
+
+let stringWithWithFiveArgsSchema = describe5(Sury.string, "a", "b", "c", "d", "e");
+
+Vitest.test("Applies @s.with with five extra arguments", t => U.assertEqualSchemas(t, stringWithWithFiveArgsSchema, describe5(Sury.string, "a", "b", "c", "d", "e"), undefined));
+
 export {
   schema,
   fooSchema,

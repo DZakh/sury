@@ -91,3 +91,21 @@ test("Combines @s.with with @s.default", t => {
     S.option(S.string)->S.Option.getOr("Foo")->S.trim,
   )
 })
+
+@schema
+type intWithWithArgs = @s.with((S.min, 1)) @s.with((S.max, 5)) int
+test("Applies @s.with with an extra argument passed after the transform", t => {
+  t->assertEqualSchemas(intWithWithArgsSchema, S.int->S.min(1)->S.max(5))
+})
+
+let describe5 = (schema, a, b, c, d, e) =>
+  schema->S.meta({description: a ++ b ++ c ++ d ++ e})
+
+@schema
+type stringWithWithFiveArgs = @s.with((describe5, "a", "b", "c", "d", "e")) string
+test("Applies @s.with with five extra arguments", t => {
+  t->assertEqualSchemas(
+    stringWithWithFiveArgsSchema,
+    S.string->describe5("a", "b", "c", "d", "e"),
+  )
+})
