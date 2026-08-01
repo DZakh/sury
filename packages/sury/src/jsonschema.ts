@@ -62,28 +62,18 @@ import { __setStandardJSONSchemaConverter, assertOrThrow } from "./operations";
 import { never_, parse, reverse } from "./parse";
 import { bool, float, int, Literal_parse, string } from "./primitives";
 import {
-  arrayLength,
-  arrayMaxLength,
-  arrayMinLength,
-  bigintGreater,
-  bigintLess,
-  bigintMax,
-  bigintMin,
   dict,
   email,
-  floatGreater,
-  floatLess,
-  floatMax,
-  floatMin,
-  intMax,
-  intMin,
+  gt,
+  gte,
   isoDateTime,
+  lt,
+  lte,
+  maxLength,
+  minLength,
   null_,
   object,
   pattern,
-  stringLength,
-  stringMaxLength,
-  stringMinLength,
   tuple,
   union,
   url,
@@ -769,16 +759,16 @@ const toIntSchema = (jsonSchema: JSONSchemaT): Internal => {
   const max = inclusiveBound(jsonSchema.maximum, jsonSchema.exclusiveMaximum);
   const exMax = exclusiveBound(jsonSchema.maximum, jsonSchema.exclusiveMaximum);
   if (min !== U) {
-    schema = intMin(schema, min | 0);
+    schema = gte(schema, min | 0);
   }
   if (exMin !== U) {
-    schema = floatGreater(schema, exMin | 0);
+    schema = gt(schema, exMin | 0);
   }
   if (max !== U) {
-    schema = intMax(schema, max | 0);
+    schema = lte(schema, max | 0);
   }
   if (exMax !== U) {
-    schema = floatLess(schema, exMax | 0);
+    schema = lt(schema, exMax | 0);
   }
   return schema;
 }
@@ -931,10 +921,10 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
       schema = array(anySchema);
     }
     if (jsonSchema.minItems !== U) {
-      schema = arrayMinLength(schema, jsonSchema.minItems);
+      schema = minLength(schema, jsonSchema.minItems);
     }
     if (jsonSchema.maxItems !== U) {
-      schema = arrayMaxLength(schema, jsonSchema.maxItems);
+      schema = maxLength(schema, jsonSchema.maxItems);
     }
   } else if (jsonSchema.anyOf !== U) {
     const definitions = jsonSchema.anyOf;
@@ -976,10 +966,10 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
       schema = pattern(schema, new RegExp(jsonSchema.pattern));
     }
     if (jsonSchema.minLength !== U) {
-      schema = stringMinLength(schema, jsonSchema.minLength);
+      schema = minLength(schema, jsonSchema.minLength);
     }
     if (jsonSchema.maxLength !== U) {
-      schema = stringMaxLength(schema, jsonSchema.maxLength);
+      schema = maxLength(schema, jsonSchema.maxLength);
     }
   } else if (jsonSchema.type === "integer") {
     schema = toIntSchema(jsonSchema);
@@ -994,16 +984,16 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
     const max = inclusiveBound(jsonSchema.maximum, jsonSchema.exclusiveMaximum);
     const exMax = exclusiveBound(jsonSchema.maximum, jsonSchema.exclusiveMaximum);
     if (min !== U) {
-      schema = floatMin(schema, min);
+      schema = gte(schema, min);
     }
     if (exMin !== U) {
-      schema = floatGreater(schema, exMin);
+      schema = gt(schema, exMin);
     }
     if (max !== U) {
-      schema = floatMax(schema, max);
+      schema = lte(schema, max);
     }
     if (exMax !== U) {
-      schema = floatLess(schema, exMax);
+      schema = lt(schema, exMax);
     }
   } else if (jsonSchema.type === "boolean") {
     schema = bool();
@@ -1109,117 +1099,6 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
 
   return schema;
 }
-
-// int32 and port are the number schemas whose domain is the integers, where a
-// bound needs no embed and an exclusive bound folds into an inclusive one.
-const isIntFormat = (schema: Internal): boolean =>
-  schema.format === "int32" || schema.format === "port";
-
-const panicNumeric = (fnName: string, schema: Internal): Internal =>
-  panic(
-    `S.${fnName} is not supported for ${toExpression(schema)} schema. Coerce the schema to number or bigint using S.to first.`
-  );
-
-const panicSized = (fnName: string, schema: Internal): Internal =>
-  panic(
-    `S.${fnName} is not supported for ${toExpression(schema)} schema. Coerce the schema to string or array using S.to first.`
-  );
-
-// @__NO_SIDE_EFFECTS__
-export const gte = (schema: Internal, minValue: number, maybeMessage?: string): Internal => {
-  switch (schema.type) {
-    case numberTag:
-      return isIntFormat(schema)
-        ? intMin(schema, minValue, maybeMessage)
-        : floatMin(schema, minValue, maybeMessage);
-    case bigintTag:
-      return bigintMin(schema, minValue as unknown as bigint, maybeMessage);
-    default:
-      return panicNumeric("gte", schema);
-  }
-}
-
-// @__NO_SIDE_EFFECTS__
-export const lte = (schema: Internal, maxValue: number, maybeMessage?: string): Internal => {
-  switch (schema.type) {
-    case numberTag:
-      return isIntFormat(schema)
-        ? intMax(schema, maxValue, maybeMessage)
-        : floatMax(schema, maxValue, maybeMessage);
-    case bigintTag:
-      return bigintMax(schema, maxValue as unknown as bigint, maybeMessage);
-    default:
-      return panicNumeric("lte", schema);
-  }
-}
-
-// @__NO_SIDE_EFFECTS__
-export const gt = (schema: Internal, minValue: number, maybeMessage?: string): Internal => {
-  switch (schema.type) {
-    case numberTag:
-      return floatGreater(schema, minValue, maybeMessage);
-    case bigintTag:
-      return bigintGreater(schema, minValue as unknown as bigint, maybeMessage);
-    default:
-      return panicNumeric("gt", schema);
-  }
-}
-
-// @__NO_SIDE_EFFECTS__
-export const lt = (schema: Internal, maxValue: number, maybeMessage?: string): Internal => {
-  switch (schema.type) {
-    case numberTag:
-      return floatLess(schema, maxValue, maybeMessage);
-    case bigintTag:
-      return bigintLess(schema, maxValue as unknown as bigint, maybeMessage);
-    default:
-      return panicNumeric("lt", schema);
-  }
-}
-
-// @__NO_SIDE_EFFECTS__
-export const minLength = (schema: Internal, length: number, maybeMessage?: string): Internal => {
-  switch (schema.type) {
-    case stringTag:
-      return stringMinLength(schema, length, maybeMessage);
-    case arrayTag:
-      return arrayMinLength(schema, length, maybeMessage);
-    default:
-      return panicSized("minLength", schema);
-  }
-}
-
-// @__NO_SIDE_EFFECTS__
-export const maxLength = (schema: Internal, length: number, maybeMessage?: string): Internal => {
-  switch (schema.type) {
-    case stringTag:
-      return stringMaxLength(schema, length, maybeMessage);
-    case arrayTag:
-      return arrayMaxLength(schema, length, maybeMessage);
-    default:
-      return panicSized("maxLength", schema);
-  }
-}
-
-// @__NO_SIDE_EFFECTS__
-export const length = (schema: Internal, length: number, maybeMessage?: string): Internal => {
-  switch (schema.type) {
-    case stringTag:
-      return stringLength(schema, length, maybeMessage);
-    case arrayTag:
-      return arrayLength(schema, length, maybeMessage);
-    default:
-      return panicSized("length", schema);
-  }
-}
-
-// @__NO_SIDE_EFFECTS__
-export const empty = (schema: Internal, maybeMessage?: string): Internal =>
-  length(schema, 0, maybeMessage);
-
-// @__NO_SIDE_EFFECTS__
-export const nonEmpty = (schema: Internal, maybeMessage?: string): Internal =>
-  minLength(schema, 1, maybeMessage);
 
 // PORT-NOTE: every one of these is a PURE NO-OP — a bare `Obj.magic` (or
 // `castToPublic` for `unknown`) that re-types an existing function/value from
