@@ -22,27 +22,19 @@ let applySchemaAttribute ~loc schema_expr
     let meta_value = getExpressionFromPayload attribute in
     [%expr S.meta [%e schema_expr] [%e meta_value]]
   | "s.with" ->
-    let payload_expr = getExpressionFromPayload attribute in
-    (* `@s.with(S.min, 1)` parses as a tuple payload: the transform followed by
-       its extra arguments, mirroring the JS `schema.with(fn, ...args)`. The
-       schema is passed as the first argument. *)
-    let fn_expr, extra_args =
-      match payload_expr.pexp_desc with
-      | Pexp_tuple (fn_expr :: extra_args) -> (fn_expr, extra_args)
-      | _ -> (payload_expr, [])
-    in
+    let fn_expr = getExpressionFromPayload attribute in
     incr s_with_counter;
-    (* Annotate both the schema argument and the result with the same type
-       variable, so the payload function is forced to keep the value type —
-       a transform that changes it is a compile error instead of a schema that
-       silently disagrees with the type it was generated for. *)
+    (* Annotate both the argument and the result with the same type variable,
+       so the payload function is forced to `S.t<'v> => S.t<'v>` — a transform
+       that changes the value type is a compile error instead of a schema that
+       silently disagrees with the type it was generated for. Transforms taking
+       extra arguments work through the placeholder: `@s.with(S.min(_, 1))`. *)
     let value_type =
       [%type: [%t Typ.var ("sWith" ^ string_of_int !s_with_counter)] S.t]
     in
     Exp.constraint_
       (Exp.apply fn_expr
-         ((Nolabel, Exp.constraint_ schema_expr value_type)
-         :: (extra_args |> List.map (fun arg -> (Nolabel, arg)))))
+         [(Nolabel, Exp.constraint_ schema_expr value_type)])
       value_type
   | txt when txt <> "" && String.length txt >= 2 && String.sub txt 0 2 = "s." ->
     fail loc ("Unsupported schema attribute: \"@" ^ txt ^ "\"")
