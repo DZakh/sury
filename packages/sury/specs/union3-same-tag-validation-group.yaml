@@ -3,7 +3,7 @@ ts:
   schema: S.union([S.string.with(S.min, 4), S.string.with(S.max, 1), S.string.with(S.length, 2)])
   input: string
   output: string
-  instantiations: 6001
+  instantiations: 5980
 vs:
   zod: z.union([z.string().min(4), z.string().max(1), z.string().length(2)])
 jsonSchema:

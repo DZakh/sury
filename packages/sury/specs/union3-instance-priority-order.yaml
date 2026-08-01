@@ -3,7 +3,7 @@ ts:
   schema: 'S.union([S.instance(Error).with(S.to, S.string, () => "error"), S.schema({ x: S.string }), S.instance(TypeError).with(S.to, S.string, () => "type-error")])'
   input: "Error | { x: string; }"
   output: "string | { x: string; }"
-  instantiations: 7699
+  instantiations: 7678
 vs:
   zod:
     _skip: not-applicable
