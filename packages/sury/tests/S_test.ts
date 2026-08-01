@@ -26,8 +26,8 @@ import * as S from "../src/S.mjs";
 // Exact (bidirectional) type equality. expect-type's `toEqualTypeOf` can't be
 // wrapped in a generic helper and still fire at call sites, so the dual
 // Input+Output check is enforced via a required-argument constraint instead.
-type Equal<A, B> =
-  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
+type Equal<TLeft, TRight> =
+  (<T>() => T extends TLeft ? 1 : 2) extends <T>() => T extends TRight ? 1 : 2
     ? true
     : false;
 

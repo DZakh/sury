@@ -1,12 +1,12 @@
 /** The Standard Schema interface. */
-export interface StandardSchemaV1<Input = unknown, Output = Input> {
+export interface StandardSchemaV1<TInput = unknown, TOutput = TInput> {
   /** The Standard Schema properties. */
-  readonly "~standard": StandardSchemaV1.Props<Input, Output>;
+  readonly "~standard": StandardSchemaV1.Props<TInput, TOutput>;
 }
 
 export declare namespace StandardSchemaV1 {
   /** The Standard Schema properties interface. */
-  export interface Props<Input = unknown, Output = Input> {
+  export interface Props<TInput = unknown, TOutput = TInput> {
     /** The version number of the standard. */
     readonly version: 1;
     /** The vendor name of the schema library. */
@@ -14,18 +14,18 @@ export declare namespace StandardSchemaV1 {
     /** Validates unknown input values. */
     readonly validate: (
       value: unknown
-    ) => Result<Output> | Promise<Result<Output>>;
+    ) => Result<TOutput> | Promise<Result<TOutput>>;
     /** Inferred types associated with the schema. */
-    readonly types?: Types<Input, Output> | undefined;
+    readonly types?: Types<TInput, TOutput> | undefined;
   }
 
   /** The result interface of the validate function. */
-  export type Result<Output> = SuccessResult<Output> | FailureResult;
+  export type Result<TOutput> = SuccessResult<TOutput> | FailureResult;
 
   /** The result interface if validation succeeds. */
-  export interface SuccessResult<Output> {
+  export interface SuccessResult<TOutput> {
     /** The typed output value. */
-    readonly value: Output;
+    readonly value: TOutput;
     /** The non-existent issues. */
     readonly issues?: undefined;
   }
@@ -51,21 +51,21 @@ export declare namespace StandardSchemaV1 {
   }
 
   /** The Standard Schema types interface. */
-  export interface Types<Input = unknown, Output = Input> {
+  export interface Types<TInput = unknown, TOutput = TInput> {
     /** The input type of the schema. */
-    readonly input: Input;
+    readonly input: TInput;
     /** The output type of the schema. */
-    readonly output: Output;
+    readonly output: TOutput;
   }
 
   /** Infers the input type of a Standard Schema. */
-  export type InferInput<Schema extends StandardSchemaV1> = NonNullable<
-    Schema["~standard"]["types"]
+  export type InferInput<TSchema extends StandardSchemaV1> = NonNullable<
+    TSchema["~standard"]["types"]
   >["input"];
 
   /** Infers the output type of a Standard Schema. */
-  export type InferOutput<Schema extends StandardSchemaV1> = NonNullable<
-    Schema["~standard"]["types"]
+  export type InferOutput<TSchema extends StandardSchemaV1> = NonNullable<
+    TSchema["~standard"]["types"]
   >["output"];
 }
 
@@ -73,36 +73,36 @@ export declare namespace StandardSchemaV1 {
  * The Standard Typed interface.
  * This is a base type extended by other specs.
  */
-export interface StandardTypedV1<Input = unknown, Output = Input> {
-  readonly "~standard": StandardTypedV1.Props<Input, Output>;
+export interface StandardTypedV1<TInput = unknown, TOutput = TInput> {
+  readonly "~standard": StandardTypedV1.Props<TInput, TOutput>;
 }
 
 export declare namespace StandardTypedV1 {
-  export interface Props<Input = unknown, Output = Input> {
+  export interface Props<TInput = unknown, TOutput = TInput> {
     readonly version: 1;
     readonly vendor: string;
-    readonly types?: Types<Input, Output> | undefined;
+    readonly types?: Types<TInput, TOutput> | undefined;
   }
-  export interface Types<Input = unknown, Output = Input> {
-    readonly input: Input;
-    readonly output: Output;
+  export interface Types<TInput = unknown, TOutput = TInput> {
+    readonly input: TInput;
+    readonly output: TOutput;
   }
-  export type InferInput<Schema extends StandardTypedV1> = NonNullable<
-    Schema["~standard"]["types"]
+  export type InferInput<TSchema extends StandardTypedV1> = NonNullable<
+    TSchema["~standard"]["types"]
   >["input"];
-  export type InferOutput<Schema extends StandardTypedV1> = NonNullable<
-    Schema["~standard"]["types"]
+  export type InferOutput<TSchema extends StandardTypedV1> = NonNullable<
+    TSchema["~standard"]["types"]
   >["output"];
 }
 
 /** The Standard JSON Schema interface. https://standardschema.dev/json-schema */
-export interface StandardJSONSchemaV1<Input = unknown, Output = Input> {
-  readonly "~standard": StandardJSONSchemaV1.Props<Input, Output>;
+export interface StandardJSONSchemaV1<TInput = unknown, TOutput = TInput> {
+  readonly "~standard": StandardJSONSchemaV1.Props<TInput, TOutput>;
 }
 
 export declare namespace StandardJSONSchemaV1 {
-  export interface Props<Input = unknown, Output = Input>
-    extends StandardTypedV1.Props<Input, Output> {
+  export interface Props<TInput = unknown, TOutput = TInput>
+    extends StandardTypedV1.Props<TInput, TOutput> {
     readonly jsonSchema: StandardJSONSchemaV1.Converter;
   }
   export interface Converter {
@@ -118,12 +118,12 @@ export declare namespace StandardJSONSchemaV1 {
     readonly target: Target;
     readonly libraryOptions?: Record<string, unknown> | undefined;
   }
-  export interface Types<Input = unknown, Output = Input>
-    extends StandardTypedV1.Types<Input, Output> {}
-  export type InferInput<Schema extends StandardTypedV1> =
-    StandardTypedV1.InferInput<Schema>;
-  export type InferOutput<Schema extends StandardTypedV1> =
-    StandardTypedV1.InferOutput<Schema>;
+  export interface Types<TInput = unknown, TOutput = TInput>
+    extends StandardTypedV1.Types<TInput, TOutput> {}
+  export type InferInput<TSchema extends StandardTypedV1> =
+    StandardTypedV1.InferInput<TSchema>;
+  export type InferOutput<TSchema extends StandardTypedV1> =
+    StandardTypedV1.InferOutput<TSchema>;
 }
 
 
@@ -380,41 +380,41 @@ export const Error: {
 // full `Schema<…>` shape (whose 14-member union + `with` overloads are costly to
 // instantiate per match). `types` is optional, so the pattern keeps it optional.
 export type Output<T> = T extends {
-  readonly ["~standard"]: { readonly types?: { readonly output: infer Output } };
+  readonly ["~standard"]: { readonly types?: { readonly output: infer TOutput } };
 }
-  ? Output
+  ? TOutput
   : never;
 export type Infer<T> = Output<T>;
 export type Input<T> = T extends {
-  readonly ["~standard"]: { readonly types?: { readonly input: infer Input } };
+  readonly ["~standard"]: { readonly types?: { readonly input: infer TInput } };
 }
-  ? Input
+  ? TInput
   : never;
 
 // Utility types for decoder function with multiple schemas
-type ExtractFirstInput<T extends readonly SchemaLike<any, any>[]> =
-  T extends readonly [SchemaLike<infer FirstInput, any>, ...any[]]
-    ? FirstInput
+type ExtractFirstInput<TSchemas extends readonly SchemaLike<any, any>[]> =
+  TSchemas extends readonly [SchemaLike<infer TFirstInput, any>, ...any[]]
+    ? TFirstInput
     : never;
 
 // Utility types for encoder function with multiple schemas
-type ExtractFirstOutput<T extends readonly SchemaLike<any, any>[]> =
-  T extends readonly [SchemaLike<any, infer FirstOutput>, ...any[]]
-    ? FirstOutput
+type ExtractFirstOutput<TSchemas extends readonly SchemaLike<any, any>[]> =
+  TSchemas extends readonly [SchemaLike<any, infer TFirstOutput>, ...any[]]
+    ? TFirstOutput
     : never;
 
-type ExtractLastOutput<T extends readonly SchemaLike<any, any>[]> =
-  T extends readonly [...any[], SchemaLike<any, infer LastOutput>]
-    ? LastOutput
-    : T extends readonly [SchemaLike<any, infer SingleOutput>]
-    ? SingleOutput
+type ExtractLastOutput<TSchemas extends readonly SchemaLike<any, any>[]> =
+  TSchemas extends readonly [...any[], SchemaLike<any, infer TLastOutput>]
+    ? TLastOutput
+    : TSchemas extends readonly [SchemaLike<any, infer TSingleOutput>]
+    ? TSingleOutput
     : never;
 
-type ExtractLastInput<T extends readonly SchemaLike<any, any>[]> =
-  T extends readonly [...any[], SchemaLike<infer LastInput, any>]
-    ? LastInput
-    : T extends readonly [SchemaLike<infer SingleInput, any>]
-    ? SingleInput
+type ExtractLastInput<TSchemas extends readonly SchemaLike<any, any>[]> =
+  TSchemas extends readonly [...any[], SchemaLike<infer TLastInput, any>]
+    ? TLastInput
+    : TSchemas extends readonly [SchemaLike<infer TSingleInput, any>]
+    ? TSingleInput
     : never;
 
 // Match the `~standard` marker instead of the full `Schema<…>` shape for the
@@ -423,9 +423,9 @@ type ExtractLastInput<T extends readonly SchemaLike<any, any>[]> =
 // stamps onto every nested property — that marker only exists to keep literal
 // types from widening and shouldn't leak into the inferred Output/Input.
 export type UnknownToOutput<T> = T extends {
-  readonly ["~standard"]: { readonly types?: { readonly output: infer Output } };
+  readonly ["~standard"]: { readonly types?: { readonly output: infer TOutput } };
 }
-  ? Output
+  ? TOutput
   : T extends (...args: any[]) => any
   ? T
   : T extends unknown[]
@@ -435,9 +435,9 @@ export type UnknownToOutput<T> = T extends {
   : T;
 
 export type UnknownToInput<T> = T extends {
-  readonly ["~standard"]: { readonly types?: { readonly input: infer Input } };
+  readonly ["~standard"]: { readonly types?: { readonly input: infer TInput } };
 }
-  ? Input
+  ? TInput
   : T extends (...args: any[]) => any
   ? T
   : T extends unknown[]
@@ -470,20 +470,20 @@ export function brand<TId extends string, TInput = unknown, TOutput = unknown>(
   brandId: TId
 ): Schema<TInput, Brand<TOutput, TId>>;
 
-// `R` already holds each field's resolved type. A field is optional iff its type
-// admits `undefined`, so an `S.never` field stays required. The split is skipped
-// when no field is optional. Required keys come first, optional last — matching
-// the ordering Zod (and the wider Standard Schema ecosystem) infers, so a Sury
-// type reads the same as its cross-library equivalent.
-type ResolveObject<R> = undefined extends R[keyof R]
+// `TFields` already holds each field's resolved type. A field is optional iff
+// its type admits `undefined`, so an `S.never` field stays required. The split
+// is skipped when no field is optional. Required keys come first, optional last
+// — matching the ordering Zod (and the wider Standard Schema ecosystem) infers,
+// so a Sury type reads the same as its cross-library equivalent.
+type ResolveObject<TFields> = undefined extends TFields[keyof TFields]
   ? Flatten<
       {
-        [K in keyof R as undefined extends R[K] ? never : K]: R[K];
+        [K in keyof TFields as undefined extends TFields[K] ? never : K]: TFields[K];
       } & {
-        [K in keyof R as undefined extends R[K] ? K : never]?: R[K];
+        [K in keyof TFields as undefined extends TFields[K] ? K : never]?: TFields[K];
       }
     >
-  : Flatten<R>;
+  : Flatten<TFields>;
 
 // Flatten an intersection into one object, keeping values verbatim (incl. `never`).
 type Flatten<T> = T extends object ? { [K in keyof T]: T[K] } : T;
@@ -509,11 +509,11 @@ export function literal<const T>(
   value: T
 ): Schema<UnknownToInput<T>, UnknownToOutput<T>>;
 
-export function union<const A, const B extends unknown[]>(
-  schemas: [A, ...B]
+export function union<const TFirst, const TRest extends unknown[]>(
+  schemas: [TFirst, ...TRest]
 ): Schema<
-  UnknownToInput<A> | UnknownArrayToInput<B>[number],
-  UnknownToOutput<A> | UnknownArrayToOutput<B>[number]
+  UnknownToInput<TFirst> | UnknownArrayToInput<TRest>[number],
+  UnknownToOutput<TFirst> | UnknownArrayToOutput<TRest>[number]
 >;
 export function union<const T>(
   schemas: readonly T[]
@@ -749,8 +749,8 @@ export function deepStrict<TInput extends Record<string, unknown>, TOutput>(
 // Bare Flatten, not ResolveObject: re-splitting the merged intersection to
 // hoist optionals last nearly doubled this type's instantiation cost, so Merge
 // keeps insertion order.
-type Merge<A, B> = Flatten<
-  { [K in keyof A as K extends keyof B ? never : K]: A[K] } & B
+type Merge<TLeft, TRight> = Flatten<
+  { [K in keyof TLeft as K extends keyof TRight ? never : K]: TLeft[K] } & TRight
 >;
 
 export function merge<
