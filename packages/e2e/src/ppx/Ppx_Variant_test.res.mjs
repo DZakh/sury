@@ -2,156 +2,157 @@
 
 import * as S from "sury/src/S.res.mjs";
 import * as U from "../utils/U.res.mjs";
+import * as Sury from "sury";
 import * as Vitest from "../utils/Vitest.res.mjs";
 import * as Vitest$1 from "vitest";
 
-let variantSchema = S.union([
-  S.literal("One"),
-  S.literal("Two")
+let variantSchema = Sury.union([
+  Sury.literal("One"),
+  Sury.literal("Two")
 ]);
 
-Vitest$1.test("Variant", t => U.assertEqualSchemas(t, variantSchema, S.union([
-  S.literal("One"),
-  S.literal("Two")
+Vitest$1.test("Variant", t => U.assertEqualSchemas(t, variantSchema, Sury.union([
+  Sury.literal("One"),
+  Sury.literal("Two")
 ]), undefined));
 
-let variantWithSingleItemSchema = S.literal("Single");
+let variantWithSingleItemSchema = Sury.literal("Single");
 
-Vitest$1.test("Variant with single item becomes a literal schema of the item", t => U.assertEqualSchemas(t, variantWithSingleItemSchema, S.literal("Single"), undefined));
+Vitest$1.test("Variant with single item becomes a literal schema of the item", t => U.assertEqualSchemas(t, variantWithSingleItemSchema, Sury.literal("Single"), undefined));
 
-let variantWithAliasSchema = S.union([
-  S.literal("하나"),
-  S.literal("Two")
+let variantWithAliasSchema = Sury.union([
+  Sury.literal("하나"),
+  Sury.literal("Two")
 ]);
 
-Vitest$1.test("Variant with partial @as usage", t => U.assertEqualSchemas(t, variantWithAliasSchema, S.union([
-  S.literal("하나"),
-  S.literal("Two")
+Vitest$1.test("Variant with partial @as usage", t => U.assertEqualSchemas(t, variantWithAliasSchema, Sury.union([
+  Sury.literal("하나"),
+  Sury.literal("Two")
 ]), undefined));
 
-let variantWithPayloadsSchema = S.union([
-  S.literal("Constant"),
-  S.schema(s => ({
+let variantWithPayloadsSchema = Sury.union([
+  Sury.literal("Constant"),
+  Sury.$res_schema(s => ({
     TAG: "SinglePayload",
-    _0: s.m(S.int)
+    _0: s.m(Sury.int)
   })),
-  S.schema(s => ({
+  Sury.$res_schema(s => ({
     TAG: "TuplePayload",
-    _0: s.m(S.int),
-    _1: s.m(S.string)
+    _0: s.m(Sury.int),
+    _1: s.m(Sury.string)
   })),
-  S.schema(s => ({
+  Sury.$res_schema(s => ({
     TAG: "RecordPayload",
-    foo: s.m(S.float)
+    foo: s.m(Sury.float)
   }))
 ]);
 
-Vitest$1.test("Variant with payloads", t => U.assertEqualSchemas(t, variantWithPayloadsSchema, S.union([
-  S.literal("Constant"),
-  S.schema(s => ({
+Vitest$1.test("Variant with payloads", t => U.assertEqualSchemas(t, variantWithPayloadsSchema, Sury.union([
+  Sury.literal("Constant"),
+  Sury.$res_schema(s => ({
     TAG: "SinglePayload",
-    _0: s.m(S.int)
+    _0: s.m(Sury.int)
   })),
-  S.schema(s => ({
+  Sury.$res_schema(s => ({
     TAG: "TuplePayload",
-    _0: s.m(S.int),
-    _1: s.m(S.string)
+    _0: s.m(Sury.int),
+    _1: s.m(Sury.string)
   })),
-  S.schema(s => ({
+  Sury.$res_schema(s => ({
     TAG: "RecordPayload",
-    foo: s.m(S.float)
+    foo: s.m(Sury.float)
   }))
 ]), undefined));
 
-let unboxedVariantSchema = S.union([
-  S.literal("Constant"),
-  S.schema(s => (s.m(S.int))),
-  S.schema(s => (s.m(S.string)))
+let unboxedVariantSchema = Sury.union([
+  Sury.literal("Constant"),
+  Sury.$res_schema(s => (s.m(Sury.int))),
+  Sury.$res_schema(s => (s.m(Sury.string)))
 ]);
 
-Vitest$1.test("Unboxed variant", t => U.assertEqualSchemas(t, unboxedVariantSchema, S.union([
-  S.literal("Constant"),
-  S.schema(s => (s.m(S.int))),
-  S.schema(s => (s.m(S.string)))
+Vitest$1.test("Unboxed variant", t => U.assertEqualSchemas(t, unboxedVariantSchema, Sury.union([
+  Sury.literal("Constant"),
+  Sury.$res_schema(s => (s.m(Sury.int))),
+  Sury.$res_schema(s => (s.m(Sury.string)))
 ]), undefined));
 
-let taggedVariantSchema = S.union([
-  S.schema(s => ({
+let taggedVariantSchema = Sury.union([
+  Sury.$res_schema(s => ({
     kind: "circle",
-    radius: s.m(S.float)
+    radius: s.m(Sury.float)
   })),
-  S.schema(s => ({
+  Sury.$res_schema(s => ({
     kind: "square",
-    x: s.m(S.float)
+    x: s.m(Sury.float)
   })),
-  S.schema(s => ({
+  Sury.$res_schema(s => ({
     kind: "triangle",
-    x: s.m(S.float),
-    y: s.m(S.float)
+    x: s.m(Sury.float),
+    y: s.m(Sury.float)
   }))
 ]);
 
-Vitest$1.test("Tagged variant", t => U.assertEqualSchemas(t, taggedVariantSchema, S.union([
-  S.schema(s => ({
+Vitest$1.test("Tagged variant", t => U.assertEqualSchemas(t, taggedVariantSchema, Sury.union([
+  Sury.$res_schema(s => ({
     kind: "circle",
-    radius: s.m(S.float)
+    radius: s.m(Sury.float)
   })),
-  S.schema(s => ({
+  Sury.$res_schema(s => ({
     kind: "square",
-    x: s.m(S.float)
+    x: s.m(Sury.float)
   })),
-  S.schema(s => ({
+  Sury.$res_schema(s => ({
     kind: "triangle",
-    x: s.m(S.float),
-    y: s.m(S.float)
+    x: s.m(Sury.float),
+    y: s.m(Sury.float)
   }))
 ]), undefined));
 
-let strictVariantSchema = S.strict(S.union([
-  S.literal("StrictA"),
-  S.schema(s => ({
+let strictVariantSchema = Sury.strict(Sury.union([
+  Sury.literal("StrictA"),
+  Sury.$res_schema(s => ({
     TAG: "StrictB",
-    _0: s.m(S.int)
+    _0: s.m(Sury.int)
   }))
 ]));
 
-let taggedInlinedAliasSchema = S.union([
-  S.schema(s => ({
+let taggedInlinedAliasSchema = Sury.union([
+  Sury.$res_schema(s => ({
     type: "Foo",
-    Foo: s.m(S.string)
+    Foo: s.m(Sury.string)
   })),
-  S.schema(s => ({
+  Sury.$res_schema(s => ({
     type: "Bar",
-    Bar: s.m(S.string)
+    Bar: s.m(Sury.string)
   }))
 ]);
 
-Vitest$1.test("@s.strict on root variant type", t => U.assertEqualSchemas(t, strictVariantSchema, S.strict(S.union([
-  S.literal("StrictA"),
-  S.schema(s => ({
+Vitest$1.test("@s.strict on root variant type", t => U.assertEqualSchemas(t, strictVariantSchema, Sury.strict(Sury.union([
+  Sury.literal("StrictA"),
+  Sury.$res_schema(s => ({
     TAG: "StrictB",
-    _0: s.m(S.int)
+    _0: s.m(Sury.int)
   }))
 ])), undefined));
 
-Vitest$1.test("Tagged variant with inlined alias", t => U.assertEqualSchemas(t, taggedInlinedAliasSchema, S.union([
-  S.schema(s => ({
+Vitest$1.test("Tagged variant with inlined alias", t => U.assertEqualSchemas(t, taggedInlinedAliasSchema, Sury.union([
+  Sury.$res_schema(s => ({
     type: "Foo",
-    Foo: s.m(S.string)
+    Foo: s.m(Sury.string)
   })),
-  S.schema(s => ({
+  Sury.$res_schema(s => ({
     type: "Bar",
-    Bar: s.m(S.string)
+    Bar: s.m(Sury.string)
   }))
 ]), undefined));
 
-let baseColorsSchema = S.union([
-  S.literal("Red"),
-  S.literal("Blue"),
-  S.literal("Green")
+let baseColorsSchema = Sury.union([
+  Sury.literal("Red"),
+  Sury.literal("Blue"),
+  Sury.literal("Green")
 ]);
 
-let extendedColorsSchema = S.union([S.literal("Yellow")].concat(baseColorsSchema.type === "anyOf" ? baseColorsSchema.anyOf : [baseColorsSchema]));
+let extendedColorsSchema = Sury.union([Sury.literal("Yellow")].concat(baseColorsSchema.type === "anyOf" ? baseColorsSchema.anyOf : [baseColorsSchema]));
 
 Vitest$1.test("Variant with type spread", t => {
   Vitest.Assert.deepEqual(t, S.parseOrThrow("Red", extendedColorsSchema), "Red", undefined);
@@ -159,9 +160,9 @@ Vitest$1.test("Variant with type spread", t => {
   U.assertReverseReversesBack(t, extendedColorsSchema);
 });
 
-let singleCaseSchema = S.literal("Only");
+let singleCaseSchema = Sury.literal("Only");
 
-let extendedFromSingleCaseSchema = S.union([S.literal("Another")].concat(singleCaseSchema.type === "anyOf" ? singleCaseSchema.anyOf : [singleCaseSchema]));
+let extendedFromSingleCaseSchema = Sury.union([Sury.literal("Another")].concat(singleCaseSchema.type === "anyOf" ? singleCaseSchema.anyOf : [singleCaseSchema]));
 
 Vitest$1.test("Variant spread of a single-case (literal) schema", t => {
   Vitest.Assert.deepEqual(t, S.parseOrThrow("Only", extendedFromSingleCaseSchema), "Only", undefined);
