@@ -243,11 +243,15 @@ S.literal("tuna"); // alias for S.schema
 // Validated using Number.isNaN
 S.schema(NaN);
 
-// Objects
+// Simple Objects
 S.schema({ name: S.string, age: S.number });
 S.object({ name: S.string, age: S.number }); // alias for S.schema
 
-// Tuples
+// Arrays and records
+S.array(S.string);
+S.record(S.number); // { [k: string]: number }
+
+// Simple Tuples
 S.schema([S.string, S.number]);
 S.tuple([S.string, S.number]); // alias for S.schema
 
@@ -255,6 +259,11 @@ S.tuple([S.string, S.number]); // alias for S.schema
 S.union([S.string, S.number]);
 // Enum-like union of literals
 S.union(["Win", "Draw", "Loss"]);
+// Discriminated unions
+S.union([
+  { kind: "circle", radius: S.number },
+  { kind: "square", x: S.number },
+]);
 
 // Catch-all type
 // Allows any value
