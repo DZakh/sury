@@ -1,17 +1,17 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: S.string.with(S.nonEmpty)
+  schema: S.string.with(S.minLength, 2)
   input: string
   output: string
-  instantiations: 533
+  instantiations: 5181
 vs:
-  zod: z.string().min(1)
+  zod: z.string().min(2)
 jsonSchema:
-  input: '{ type: "string", minLength: 1 }'
-  output: '{ type: "string", minLength: 1 }'
+  input: '{ type: "string", minLength: 2 }'
+  output: '{ type: "string", minLength: 2 }'
 operations:
   parse:
-    expression: i=>{typeof i==="string"||e[1](i);i.length>0||e[0](i);return i}
+    expression: i=>{typeof i==="string"||e[1](i);i.length>1||e[0](i);return i}
     examples:
       at-the-length:
         input: '"ab"'
@@ -21,37 +21,37 @@ operations:
         output: '"abc"'
       shorter:
         input: '"a"'
-        output: '"a"'
+        error: String must be 2 or more characters long
       empty:
         input: '""'
-        error: String must be 1 or more characters long
+        error: String must be 2 or more characters long
       single-space:
         input: '" "'
-        output: '" "'
+        error: String must be 2 or more characters long
       wrong-type:
         input: "1"
         error: Expected string, received 1
   decode:
-    expression: i=>{i.length>0||e[0](i);return i}
+    expression: i=>{i.length>1||e[0](i);return i}
     examples:
       at-the-length:
         input: '"ab"'
         output: '"ab"'
       shorter:
         input: '"a"'
-        output: '"a"'
+        error: String must be 2 or more characters long
       empty:
         input: '""'
-        error: String must be 1 or more characters long
+        error: String must be 2 or more characters long
   encode:
-    expression: i=>{i.length>0||e[0](i);return i}
+    expression: i=>{i.length>1||e[0](i);return i}
     examples:
       at-the-length:
         input: '"ab"'
         output: '"ab"'
       shorter:
         input: '"a"'
-        output: '"a"'
+        error: String must be 2 or more characters long
       empty:
         input: '""'
-        error: String must be 1 or more characters long
+        error: String must be 2 or more characters long

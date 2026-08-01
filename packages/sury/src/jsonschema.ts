@@ -65,8 +65,8 @@ import {
   arrayLength,
   arrayMaxLength,
   arrayMinLength,
-  assertBigint,
-  assertNumber,
+  bigintGreater,
+  bigintLess,
   bigintMax,
   bigintMin,
   dict,
@@ -75,6 +75,8 @@ import {
   floatLess,
   floatMax,
   floatMin,
+  intGreater,
+  intLess,
   intMax,
   intMin,
   isoDateTime,
@@ -397,24 +399,26 @@ const internalToJSONSchemaBase = (
     // draft-06 made exclusive bounds independent numeric keywords; draft-04 —
     // which OpenAPI 3.0 follows — spells them as booleans modifying
     // minimum/maximum, so there the two bounds collapse to the stricter one.
-    if (schema.exclusiveMinimum !== U) {
+    const exclusiveMinimum = schema.exclusiveMinimum as number | undefined;
+    const exclusiveMaximum = schema.exclusiveMaximum as number | undefined;
+    if (exclusiveMinimum !== U) {
       if (target === "openapi-3.0") {
-        if (jsonSchema.minimum === U || schema.exclusiveMinimum >= jsonSchema.minimum) {
-          jsonSchema.minimum = schema.exclusiveMinimum;
+        if (jsonSchema.minimum === U || exclusiveMinimum >= jsonSchema.minimum) {
+          jsonSchema.minimum = exclusiveMinimum;
           jsonSchema.exclusiveMinimum = true;
         }
       } else {
-        jsonSchema.exclusiveMinimum = schema.exclusiveMinimum;
+        jsonSchema.exclusiveMinimum = exclusiveMinimum;
       }
     }
-    if (schema.exclusiveMaximum !== U) {
+    if (exclusiveMaximum !== U) {
       if (target === "openapi-3.0") {
-        if (jsonSchema.maximum === U || schema.exclusiveMaximum <= jsonSchema.maximum) {
-          jsonSchema.maximum = schema.exclusiveMaximum;
+        if (jsonSchema.maximum === U || exclusiveMaximum <= jsonSchema.maximum) {
+          jsonSchema.maximum = exclusiveMaximum;
           jsonSchema.exclusiveMaximum = true;
         }
       } else {
-        jsonSchema.exclusiveMaximum = schema.exclusiveMaximum;
+        jsonSchema.exclusiveMaximum = exclusiveMaximum;
       }
     }
     if (const_ !== U) {
@@ -767,16 +771,14 @@ const toIntSchema = (jsonSchema: JSONSchemaT): Internal => {
   if (min !== U) {
     schema = intMin(schema, min | 0);
   }
-  // Integers have no value between n and n+1, so an exclusive bound is exactly
-  // the next inclusive one — no exclusiveMinimum field needed on this path.
   if (exMin !== U) {
-    schema = intMin(schema, (exMin + 1) | 0);
+    schema = intGreater(schema, exMin | 0);
   }
   if (max !== U) {
     schema = intMax(schema, max | 0);
   }
   if (exMax !== U) {
-    schema = intMax(schema, (exMax - 1) | 0);
+    schema = intLess(schema, exMax | 0);
   }
   return schema;
 }
@@ -1155,24 +1157,11 @@ export const lte = (schema: Internal, maxValue: number, maybeMessage?: string): 
 export const gt = (schema: Internal, minValue: number, maybeMessage?: string): Internal => {
   switch (schema.type) {
     case numberTag:
-      // Asserted before the fold below: `minValue + 1` on a bigint throws a
-      // raw TypeError and on a string silently concatenates.
-      assertNumber("gt", minValue);
-      // Nothing sits between n and n+1 in an integer domain, so the exclusive
-      // bound folds away and keeps intMin's embed-free codegen. The message is
-      // resolved before the fold so it still reads as the user wrote it.
       return isIntFormat(schema)
-        ? intMin(schema, minValue + 1, maybeMessage ?? `Number must be greater than ${minValue}`)
+        ? intGreater(schema, minValue, maybeMessage)
         : floatGreater(schema, minValue, maybeMessage);
-    case bigintTag: {
-      const bigintValue = minValue as unknown as bigint;
-      assertBigint("gt", bigintValue);
-      return bigintMin(
-        schema,
-        bigintValue + 1n,
-        maybeMessage ?? `BigInt must be greater than ${bigintValue}`
-      );
-    }
+    case bigintTag:
+      return bigintGreater(schema, minValue as unknown as bigint, maybeMessage);
     default:
       return panicNumeric("gt", schema);
   }
@@ -1182,19 +1171,11 @@ export const gt = (schema: Internal, minValue: number, maybeMessage?: string): I
 export const lt = (schema: Internal, maxValue: number, maybeMessage?: string): Internal => {
   switch (schema.type) {
     case numberTag:
-      assertNumber("lt", maxValue);
       return isIntFormat(schema)
-        ? intMax(schema, maxValue - 1, maybeMessage ?? `Number must be lower than ${maxValue}`)
+        ? intLess(schema, maxValue, maybeMessage)
         : floatLess(schema, maxValue, maybeMessage);
-    case bigintTag: {
-      const bigintValue = maxValue as unknown as bigint;
-      assertBigint("lt", bigintValue);
-      return bigintMax(
-        schema,
-        bigintValue - 1n,
-        maybeMessage ?? `BigInt must be lower than ${bigintValue}`
-      );
-    }
+    case bigintTag:
+      return bigintLess(schema, maxValue as unknown as bigint, maybeMessage);
     default:
       return panicNumeric("lt", schema);
   }

@@ -116,7 +116,40 @@ export const floatMax = (schema: Internal, maxValue: number, maybeMessage?: stri
   });
 }
 
-// Exclusive bounds are float-only by construction — see the Internal fields.
+export const intGreater = (schema: Internal, minValue: number, maybeMessage?: string): Internal => {
+  assertNumber("gt", minValue);
+  const message = maybeMessage ?? `Number must be greater than ${minValue}`;
+  return internalRefine(schema, (mut: Internal) => {
+    mut.exclusiveMinimum = minValue;
+    getMutErrorMessage(mut)["exclusiveMinimum"] = message;
+    return (_input: Val) => {
+      return [
+        {
+          c: (inputVar: string) => `${inputVar}>${minValue}`,
+          f: B_failWithErrorMessage("exclusiveMinimum", message),
+        },
+      ];
+    };
+  });
+}
+
+export const intLess = (schema: Internal, maxValue: number, maybeMessage?: string): Internal => {
+  assertNumber("lt", maxValue);
+  const message = maybeMessage ?? `Number must be lower than ${maxValue}`;
+  return internalRefine(schema, (mut: Internal) => {
+    mut.exclusiveMaximum = maxValue;
+    getMutErrorMessage(mut)["exclusiveMaximum"] = message;
+    return (_input: Val) => {
+      return [
+        {
+          c: (inputVar: string) => `${inputVar}<${maxValue}`,
+          f: B_failWithErrorMessage("exclusiveMaximum", message),
+        },
+      ];
+    };
+  });
+}
+
 export const floatGreater = (schema: Internal, minValue: number, maybeMessage?: string): Internal => {
   assertNumber("gt", minValue);
   const message = maybeMessage ?? `Number must be greater than ${minValue}`;
@@ -189,6 +222,40 @@ export const bigintMax = (schema: Internal, maxValue: bigint, maybeMessage?: str
         {
           c: (inputVar: string) => `${inputVar}<=${B_embed(input, maxValue)}`,
           f: B_failWithErrorMessage("maximum", message),
+        },
+      ];
+    };
+  });
+}
+
+export const bigintGreater = (schema: Internal, minValue: bigint, maybeMessage?: string): Internal => {
+  assertBigint("gt", minValue);
+  const message = maybeMessage ?? `BigInt must be greater than ${minValue}`;
+  return internalRefine(schema, (mut: Internal) => {
+    mut.exclusiveMinimum = minValue;
+    getMutErrorMessage(mut)["exclusiveMinimum"] = message;
+    return (input: Val) => {
+      return [
+        {
+          c: (inputVar: string) => `${inputVar}>${B_embed(input, minValue)}`,
+          f: B_failWithErrorMessage("exclusiveMinimum", message),
+        },
+      ];
+    };
+  });
+}
+
+export const bigintLess = (schema: Internal, maxValue: bigint, maybeMessage?: string): Internal => {
+  assertBigint("lt", maxValue);
+  const message = maybeMessage ?? `BigInt must be lower than ${maxValue}`;
+  return internalRefine(schema, (mut: Internal) => {
+    mut.exclusiveMaximum = maxValue;
+    getMutErrorMessage(mut)["exclusiveMaximum"] = message;
+    return (input: Val) => {
+      return [
+        {
+          c: (inputVar: string) => `${inputVar}<${B_embed(input, maxValue)}`,
+          f: B_failWithErrorMessage("exclusiveMaximum", message),
         },
       ];
     };

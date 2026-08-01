@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.port.with(S.lte, 80)
+  input: number
+  output: number
+  instantiations: 5179
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "integer", minimum: 0, maximum: 80 }'
+  output: '{ type: "integer", minimum: 0, maximum: 80 }'
+operations:
+  parse:
+    expression: i=>{typeof i==="number"&&!Number.isNaN(i)||e[2](i);i>0&&i<65536&&i%1===0||e[0](i);i<81||e[1](i);return i}
+    examples:
+      above:
+        input: "81"
+        error: Number must be lower than or equal to 80
+      at-the-bound:
+        input: "80"
+        output: "80"
+      below:
+        input: "79"
+        output: "79"
+      out-of-port-range:
+        input: "0"
+        error: Expected port, received 0
+      wrong-type:
+        input: '"81"'
+        error: Expected port, received "81"
+  decode:
+    expression: i=>{i>0&&i<65536&&i%1===0||e[0](i);i<81||e[1](i);return i}
+    examples:
+      above:
+        input: "81"
+        error: Number must be lower than or equal to 80
+      at-the-bound:
+        input: "80"
+        output: "80"
+      below:
+        input: "79"
+        output: "79"
+  encode:
+    expression: i=>{i>0&&i<65536&&i%1===0||e[0](i);i<81||e[1](i);return i}
+    examples:
+      above:
+        input: "81"
+        error: Number must be lower than or equal to 80
+      at-the-bound:
+        input: "80"
+        output: "80"
+      below:
+        input: "79"
+        output: "79"

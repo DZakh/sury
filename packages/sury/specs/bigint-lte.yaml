@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.bigint.with(S.lte, 5n)
+  input: bigint
+  output: bigint
+  instantiations: 5179
+vs:
+  zod: z.bigint().lte(5n)
+jsonSchema:
+  input: Expected JSON, received bigint
+  output: Expected JSON, received bigint
+operations:
+  parse:
+    expression: i=>{typeof i==="bigint"||e[2](i);i<=e[0]||e[1](i);return i}
+    examples:
+      above:
+        input: 6n
+        error: BigInt must be lower than or equal to 5
+      at-the-bound:
+        input: 5n
+        output: 5n
+      below:
+        input: 4n
+        output: 4n
+      wrong-type:
+        input: '"5"'
+        error: Expected bigint, received "5"
+  decode:
+    expression: i=>{i<=e[0]||e[1](i);return i}
+    examples:
+      above:
+        input: 6n
+        error: BigInt must be lower than or equal to 5
+      at-the-bound:
+        input: 5n
+        output: 5n
+      below:
+        input: 4n
+        output: 4n
+  encode:
+    expression: i=>{i<=e[0]||e[1](i);return i}
+    examples:
+      above:
+        input: 6n
+        error: BigInt must be lower than or equal to 5
+      at-the-bound:
+        input: 5n
+        output: 5n
+      below:
+        input: 4n
+        output: 4n

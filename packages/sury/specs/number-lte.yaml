@@ -1,33 +1,33 @@
 # yaml-language-server: $schema=./spec.schema.json
 ts:
-  schema: S.number.with(S.gt, 5)
+  schema: S.number.with(S.lte, 5)
   input: number
   output: number
   instantiations: 5179
 vs:
-  zod: z.number().gt(5)
+  zod: z.number().lte(5)
 jsonSchema:
-  input: '{ type: "number", exclusiveMinimum: 5 }'
-  output: '{ type: "number", exclusiveMinimum: 5 }'
+  input: '{ type: "number", maximum: 5 }'
+  output: '{ type: "number", maximum: 5 }'
 operations:
   parse:
-    expression: i=>{typeof i==="number"&&!Number.isNaN(i)||e[2](i);i>e[0]||e[1](i);return i}
+    expression: i=>{typeof i==="number"&&!Number.isNaN(i)||e[2](i);i<=e[0]||e[1](i);return i}
     examples:
       just-above:
         input: "5.5"
-        output: "5.5"
+        error: Number must be lower than or equal to 5
       above:
         input: "6"
-        output: "6"
+        error: Number must be lower than or equal to 5
       at-the-bound:
         input: "5"
-        error: Number must be greater than 5
+        output: "5"
       below:
         input: "4"
-        error: Number must be greater than 5
+        output: "4"
       infinity:
         input: Infinity
-        output: Infinity
+        error: Number must be lower than or equal to 5
       nan:
         input: NaN
         error: Expected number, received NaN
@@ -35,26 +35,26 @@ operations:
         input: '"6"'
         error: Expected number, received "6"
   decode:
-    expression: i=>{i>e[0]||e[1](i);return i}
+    expression: i=>{i<=e[0]||e[1](i);return i}
     examples:
       just-above:
         input: "5.5"
-        output: "5.5"
+        error: Number must be lower than or equal to 5
       at-the-bound:
         input: "5"
-        error: Number must be greater than 5
+        output: "5"
       below:
         input: "4"
-        error: Number must be greater than 5
+        output: "4"
   encode:
-    expression: i=>{i>e[0]||e[1](i);return i}
+    expression: i=>{i<=e[0]||e[1](i);return i}
     examples:
       just-above:
         input: "5.5"
-        output: "5.5"
+        error: Number must be lower than or equal to 5
       at-the-bound:
         input: "5"
-        error: Number must be greater than 5
+        output: "5"
       below:
         input: "4"
-        error: Number must be greater than 5
+        output: "4"

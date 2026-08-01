@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.array(S.string).with(S.length, 2)
+  input: string[]
+  output: string[]
+  instantiations: 5304
+vs:
+  zod: z.array(z.string()).length(2)
+jsonSchema:
+  input: '{ items: { type: "string" }, type: "array", minItems: 2, maxItems: 2 }'
+  output: '{ items: { type: "string" }, type: "array", minItems: 2, maxItems: 2 }'
+operations:
+  parse:
+    expression: i=>{Array.isArray(i)||e[2](i);for(let v0=0;v0<i.length;++v0){try{let v1=i[v0];typeof v1==="string"||e[0](v1);}catch(v2){v2.path='["'+v0+'"]'+v2.path;throw v2}}i.length===2||e[1](i);return i}
+    examples:
+      at-the-length:
+        input: '["a", "b"]'
+        output: '["a", "b"]'
+      longer:
+        input: '["a", "b", "c"]'
+        error: Array must be exactly 2 items long
+      shorter:
+        input: '["a"]'
+        error: Array must be exactly 2 items long
+      empty:
+        input: "[]"
+        error: Array must be exactly 2 items long
+      wrong-type:
+        input: '"ab"'
+        error: Expected string[], received "ab"
+  decode:
+    expression: i=>{i.length===2||e[0](i);return i}
+    examples:
+      at-the-length:
+        input: '["a", "b"]'
+        output: '["a", "b"]'
+      shorter:
+        input: '["a"]'
+        error: Array must be exactly 2 items long
+      empty:
+        input: "[]"
+        error: Array must be exactly 2 items long
+  encode:
+    expression: i=>{i.length===2||e[0](i);return i}
+    examples:
+      at-the-length:
+        input: '["a", "b"]'
+        output: '["a", "b"]'
+      shorter:
+        input: '["a"]'
+        error: Array must be exactly 2 items long
+      empty:
+        input: "[]"
+        error: Array must be exactly 2 items long

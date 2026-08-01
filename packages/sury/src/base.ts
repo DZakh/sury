@@ -282,13 +282,11 @@ export type Internal = {
   perVariant?: boolean;
   minimum?: number | bigint;
   maximum?: number | bigint;
-  // Only ever set on a non-integer number. An integer domain folds an
-  // exclusive bound into an inclusive one losslessly (`>5` is `>=6`), so
-  // S.gt/S.lt normalise int32, port and bigint into minimum/maximum and only
-  // a plain float reaches these — which is what lets the JSON Schema emit
-  // treat them as a straight copy.
-  exclusiveMinimum?: number;
-  exclusiveMaximum?: number;
+  // S.gt/S.lt always land here and S.gte/S.lte always land on
+  // minimum/maximum, whatever the numeric type — the bound a schema reports
+  // is the one its author wrote, not an equivalent rewritten form.
+  exclusiveMinimum?: number | bigint;
+  exclusiveMaximum?: number | bigint;
   minLength?: number;
   maxLength?: number;
   minItems?: number;
