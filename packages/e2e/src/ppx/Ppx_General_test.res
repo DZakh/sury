@@ -97,3 +97,24 @@ type intWithWithPlaceholder = @s.with(S.min(_, 1)) @s.with(S.max(_, 5)) int
 test("Applies @s.with with partial application placeholder", t => {
   t->assertEqualSchemas(intWithWithPlaceholderSchema, S.int->S.min(1)->S.max(5))
 })
+
+@schema
+type recordWithOptionalWithField = {maybe?: @s.with(S.trim) string}
+test("Applies @s.with on an optional field", t => {
+  t->assertEqualSchemas(
+    recordWithOptionalWithFieldSchema,
+    S.schema(s => {
+      maybe: ?s.matches(S.option(S.string->S.trim)),
+    }),
+  )
+})
+
+// Regression: the pin must not capture user type variables of any name
+@schema
+type paramWithWith<'sWith1> = @s.with(s => s->S.meta({description: "wrapped"})) array<'sWith1>
+test("Applies @s.with on a parametrized type", t => {
+  t->assertEqualSchemas(
+    paramWithWithSchema(S.string),
+    S.array(S.string)->S.meta({description: "wrapped"}),
+  )
+})

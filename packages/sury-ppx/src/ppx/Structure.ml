@@ -3,14 +3,11 @@ open Parsetree
 open Ast_helper
 open Util
 
-(* Each @s.with application gets its own fresh type-variable name. Type
-   variables written in expression annotations unify across the whole
-   enclosing value binding, so reusing one name would incorrectly force
-   unrelated @s.with usages (e.g. on two fields of one record) to the same
-   value type. *)
-let s_with_counter = ref 0
-
-let applySchemaAttribute ~loc schema_expr
+(* value_type is the ReScript value type the schema is generated for (the
+   annotated core type, or the declared type on a type declaration). Every
+   attribute transformer maps S.t<value_type> to S.t<value_type>, which
+   @s.with relies on for its pin. *)
+let applySchemaAttribute ~loc ~value_type schema_expr
     ({attr_name = {Location.txt}} as attribute) =
   match txt with
   | "s.strict" -> [%expr S.strict [%e schema_expr]]
@@ -23,19 +20,19 @@ let applySchemaAttribute ~loc schema_expr
     [%expr S.meta [%e schema_expr] [%e meta_value]]
   | "s.with" ->
     let fn_expr = getExpressionFromPayload attribute in
-    incr s_with_counter;
-    (* Annotate both the argument and the result with the same type variable,
-       so the payload function is forced to `S.t<'v> => S.t<'v>` — a transform
+    (* Pin both the argument and the result to the annotated type, so the
+       payload function is forced to `S.t<value> => S.t<value>` — a transform
        that changes the value type is a compile error instead of a schema that
-       silently disagrees with the type it was generated for. Transforms taking
-       extra arguments work through the placeholder: `@s.with(S.min(_, 1))`. *)
-    let value_type =
-      [%type: [%t Typ.var ("sWith" ^ string_of_int !s_with_counter)] S.t]
-    in
-    Exp.constraint_
-      (Exp.apply fn_expr
-         [(Nolabel, Exp.constraint_ schema_expr value_type)])
-      value_type
+       silently disagrees with the type it was generated for. The pin also
+       holds on optional fields, where the surrounding expression is
+       Obj.magic'ed. Transforms taking extra arguments work through the
+       placeholder: `@s.with(S.min(_, 1))`. *)
+    let loc = fn_expr.pexp_loc in
+    let schema_type = [%type: [%t value_type] S.t] in
+    Exp.constraint_ ~loc
+      (Exp.apply ~loc fn_expr
+         [(Nolabel, Exp.constraint_ ~loc schema_expr schema_type)])
+      schema_type
   | txt when txt <> "" && String.length txt >= 2 && String.sub txt 0 2 = "s." ->
     fail loc ("Unsupported schema attribute: \"@" ^ txt ^ "\"")
   | _ -> schema_expr
@@ -430,7 +427,12 @@ and generateCoreTypeSchemaExpression core_type =
         S.Option.getOrWith
           ([%e option_factory_expression] [%e schema_expr])
           [%e default_fn]]
-    | _ -> applySchemaAttribute ~loc:ptyp_loc schema_expr attribute
+    | _ ->
+      (* Strip attributes from the type before embedding it in a generated
+         annotation, so `@s.*` attributes aren't re-emitted into code. *)
+      applySchemaAttribute ~loc:ptyp_loc
+        ~value_type:{core_type with ptyp_attributes = []}
+        schema_expr attribute
   in
   List.fold_left handle_attribute schema_expression ptyp_attributes
 
@@ -503,7 +505,9 @@ let mapTypeDeclaration type_declaration =
     in
     let schema_expr =
       List.fold_left
-        (applySchemaAttribute ~loc:ptype_loc)
+        (applySchemaAttribute ~loc:ptype_loc
+           ~value_type:
+             (Typ.constr (lid type_name) (List.map fst ptype_params)))
         schema_expr ptype_attributes
     in
     [generateSchemaValueBinding type_name ptype_params schema_expr]

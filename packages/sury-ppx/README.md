@@ -283,7 +283,7 @@ Read more about `S.meta` in the [Sury documentation](../../docs/js-usage.md#meta
 
 **Applies to**: type declarations, type expressions
 
-Applies an arbitrary transform to the generated schema. The transform must keep the schema's value type: the generated code pins the input and output of the function to the same type, so a transform that changes the value type (e.g. `S.to`) is a compile-time error instead of a schema that disagrees with the type it was generated for.
+Applies an arbitrary transform to the generated schema. The transform must keep the schema's value type: the generated code pins the transform's argument and result to the annotated type, so a transform that changes the value type (e.g. `S.to`) is a compile-time error instead of a schema that disagrees with the type it was generated for.
 
 ```rescript
 @schema

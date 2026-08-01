@@ -72,6 +72,24 @@ let intWithWithPlaceholderSchema = Sury.max(Sury.min(Sury.int, 1), 5);
 
 Vitest.test("Applies @s.with with partial application placeholder", t => U.assertEqualSchemas(t, intWithWithPlaceholderSchema, Sury.max(Sury.min(Sury.int, 1), 5), undefined));
 
+let recordWithOptionalWithFieldSchema = Sury.$res_schema(s => ({
+  maybe: s.m(Sury.$res_option(Sury.trim(Sury.string)))
+}));
+
+Vitest.test("Applies @s.with on an optional field", t => U.assertEqualSchemas(t, recordWithOptionalWithFieldSchema, Sury.$res_schema(s => ({
+  maybe: s.m(Sury.$res_option(Sury.trim(Sury.string)))
+})), undefined));
+
+function paramWithWithSchema(_sWith1Schema) {
+  return Sury.meta(Sury.array(_sWith1Schema), {
+    description: "wrapped"
+  });
+}
+
+Vitest.test("Applies @s.with on a parametrized type", t => U.assertEqualSchemas(t, paramWithWithSchema(Sury.string), Sury.meta(Sury.array(Sury.string), {
+  description: "wrapped"
+}), undefined));
+
 export {
   schema,
   fooSchema,
