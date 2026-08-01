@@ -18,19 +18,19 @@ operations:
         output: '"ab"'
       longer:
         input: '"abc"'
-        error: String must be exactly 2 characters long
+        error: Expected string.length == 2, received "abc"
       shorter:
         input: '"a"'
-        error: String must be exactly 2 characters long
+        error: Expected string.length == 2, received "a"
       empty:
         input: '""'
-        error: String must be exactly 2 characters long
+        error: Expected string.length == 2, received ""
       single-space:
         input: '" "'
-        error: String must be exactly 2 characters long
+        error: Expected string.length == 2, received " "
       wrong-type:
         input: "1"
-        error: Expected string == 2, received 1
+        error: Expected string.length == 2, received 1
   decode:
     expression: i=>{i.length===2||e[0](i);return i}
     examples:
@@ -39,10 +39,10 @@ operations:
         output: '"ab"'
       shorter:
         input: '"a"'
-        error: String must be exactly 2 characters long
+        error: Expected string.length == 2, received "a"
       empty:
         input: '""'
-        error: String must be exactly 2 characters long
+        error: Expected string.length == 2, received ""
   encode:
     expression: i=>{i.length===2||e[0](i);return i}
     examples:
@@ -51,7 +51,7 @@ operations:
         output: '"ab"'
       shorter:
         input: '"a"'
-        error: String must be exactly 2 characters long
+        error: Expected string.length == 2, received "a"
       empty:
         input: '""'
-        error: String must be exactly 2 characters long
+        error: Expected string.length == 2, received ""

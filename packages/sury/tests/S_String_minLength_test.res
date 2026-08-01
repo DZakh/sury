@@ -12,7 +12,7 @@ test("Fails to parse invalid data", t => {
 
   t->U.assertThrowsMessage(
     () => ""->S.parseOrThrow(~to=schema),
-    `String must be 1 or more characters long`,
+    `Expected string.length >= 1, received ""`,
   )
 })
 
@@ -28,7 +28,7 @@ test("Fails to serialize invalid value", t => {
 
   t->U.assertThrowsMessage(
     () => ""->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    `String must be 1 or more characters long`,
+    `Expected string.length >= 1, received ""`,
   )
 })
 
@@ -46,7 +46,7 @@ test("Returns refinement", t => {
       t->Assert.deepEqual(minLength, 1)
       t->Assert.deepEqual(
         errorMessage,
-        {minLength: "String must be 1 or more characters long"},
+        {minLength: ?None},
       )
     }
   | _ => t->Assert.fail("Expected String schema with minLength")
@@ -63,7 +63,7 @@ test("Chaining refinements does not mutate the original schema", t => {
       t->Assert.deepEqual(maxLength, None)
       t->Assert.deepEqual(
         errorMessage,
-        {minLength: "String must be 1 or more characters long"},
+        {minLength: ?None},
       )
     }
   | _ => t->Assert.fail("Expected String schema with minLength only")
@@ -75,8 +75,8 @@ test("Chaining refinements does not mutate the original schema", t => {
       t->Assert.deepEqual(
         errorMessage,
         {
-          minLength: "String must be 1 or more characters long",
-          maxLength: "String must be 10 or fewer characters long",
+          minLength: ?None,
+          maxLength: ?None,
         },
       )
     }

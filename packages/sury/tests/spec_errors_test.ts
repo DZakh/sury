@@ -278,15 +278,15 @@ test("identity claimed but the operation doesn't actually compile to identity", 
             empty:
               input: '""'
     -         output: '""'
-    +         error: String must be 3 or more characters long
+    +         error: Expected string.length >= 3, received ""
             invalid-number:
               input: "42"
     -         error: Expected string, received 42
-    +         error: Expected string >= 3, received 42
+    +         error: Expected string.length >= 3, received 42
             invalid-null:
               input: "null"
     -         error: Expected string, received null
-    +         error: Expected string >= 3, received null
+    +         error: Expected string.length >= 3, received null
         decode: identity
         encode: identity
     ",
@@ -360,7 +360,7 @@ test("eq-to-parse claimed but the operation doesn't actually compile to the same
             invalid-undefined:
               input: undefined
     -         error: Expected never, received undefined
-    +         error: Expected string >= 3, received undefined
+    +         error: Expected string.length >= 3, received undefined
         decode: eq-to-parse
         encode: eq-to-parse
     ",

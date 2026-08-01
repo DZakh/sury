@@ -231,18 +231,18 @@ test("An array of bounded items parenthesises the item expression", t => {
   let schema = S.array(S.int->S.gt(5))->S.maxLength(3)
 
   // Without the parens this reads as `int32 > (5[])`.
-  t->Assert.deepEqual(schema->S.toExpression, `(int32 > 5)[] <= 3`)
+  t->Assert.deepEqual(schema->S.toExpression, `(int32 > 5)[].length <= 3`)
   t->U.assertThrowsMessage(
     () => %raw(`"x"`)->S.parseOrThrow(~to=schema),
-    `Expected (int32 > 5)[] <= 3, received "x"`,
+    `Expected (int32 > 5)[].length <= 3, received "x"`,
   )
   // The item bound and the array bound report separately, each at its own path.
   t->U.assertThrowsMessage(
     () => %raw(`[1]`)->S.parseOrThrow(~to=schema),
-    `Failed at ["0"]: Number must be greater than 5`,
+    `Failed at ["0"]: Expected int32 > 5, received 1`,
   )
   t->U.assertThrowsMessage(
     () => %raw(`[6, 7, 8, 9]`)->S.parseOrThrow(~to=schema),
-    `Array must be 3 or fewer items long`,
+    `Expected (int32 > 5)[].length <= 3, received [6, 7, 8, 9]`,
   )
 })

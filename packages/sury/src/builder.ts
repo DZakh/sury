@@ -150,9 +150,21 @@ export const operationArgVar = "i";
 
 // Pass this as `fail` on every check that wants "expected X, received Y"
 // error semantics. Stable reference → adjacent checks fuse.
+// A format's range check is a type check for that format, so it answers to
+// `errorMessage.format` rather than `errorMessage.type` — keeping it the same
+// Check the plain type-narrow uses is what lets the two fuse into one
+// condition instead of two throws.
 export const failInvalidType = (input: Val): (value: unknown) => ErrorDetails => {
-  const em = input.e.errorMessage;
-  const override = em !== U ? (em.type !== U ? em.type : em._) : U;
+  const expected = input.e;
+  const em = expected.errorMessage;
+  const override =
+    em !== U
+      ? expected.format !== U && em.format !== U
+        ? em.format
+        : em.type !== U
+          ? em.type
+          : em._
+      : U;
   return B_invalidInputBuilder(U, U, override)(input);
 }
 

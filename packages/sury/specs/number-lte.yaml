@@ -15,10 +15,10 @@ operations:
     examples:
       just-above:
         input: "5.5"
-        error: Number must be lower than or equal to 5
+        error: Expected number <= 5, received 5.5
       above:
         input: "6"
-        error: Number must be lower than or equal to 5
+        error: Expected number <= 5, received 6
       at-the-bound:
         input: "5"
         output: "5"
@@ -27,7 +27,7 @@ operations:
         output: "4"
       infinity:
         input: Infinity
-        error: Number must be lower than or equal to 5
+        error: Expected number <= 5, received Infinity
       nan:
         input: NaN
         error: Expected number <= 5, received NaN
@@ -39,7 +39,7 @@ operations:
     examples:
       just-above:
         input: "5.5"
-        error: Number must be lower than or equal to 5
+        error: Expected number <= 5, received 5.5
       at-the-bound:
         input: "5"
         output: "5"
@@ -51,7 +51,7 @@ operations:
     examples:
       just-above:
         input: "5.5"
-        error: Number must be lower than or equal to 5
+        error: Expected number <= 5, received 5.5
       at-the-bound:
         input: "5"
         output: "5"

@@ -16,10 +16,10 @@ operations:
     examples:
       above:
         input: "81"
-        error: Number must be lower than 80
+        error: Expected port < 80, received 81
       at-the-bound:
         input: "80"
-        error: Number must be lower than 80
+        error: Expected port < 80, received 80
       below:
         input: "79"
         output: "79"
@@ -34,10 +34,10 @@ operations:
     examples:
       above:
         input: "81"
-        error: Number must be lower than 80
+        error: Expected port < 80, received 81
       at-the-bound:
         input: "80"
-        error: Number must be lower than 80
+        error: Expected port < 80, received 80
       below:
         input: "79"
         output: "79"
@@ -46,10 +46,10 @@ operations:
     examples:
       above:
         input: "81"
-        error: Number must be lower than 80
+        error: Expected port < 80, received 81
       at-the-bound:
         input: "80"
-        error: Number must be lower than 80
+        error: Expected port < 80, received 80
       below:
         input: "79"
         output: "79"

@@ -10,7 +10,7 @@ test("Successfully parses valid data", t => {
 test("Fails to parse invalid data", t => {
   let schema = S.array(S.int)->S.minLength(1)
 
-  t->U.assertThrowsMessage(() => []->S.parseOrThrow(~to=schema), `Array must be 1 or more items long`)
+  t->U.assertThrowsMessage(() => []->S.parseOrThrow(~to=schema), `Expected int32[].length >= 1, received []`)
 })
 
 test("Successfully serializes valid value", t => {
@@ -25,7 +25,7 @@ test("Fails to serialize invalid value", t => {
 
   t->U.assertThrowsMessage(
     () => []->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    `Array must be 1 or more items long`,
+    `Expected int32[].length >= 1, received []`,
   )
 })
 
@@ -43,7 +43,7 @@ test("Returns refinement", t => {
       t->Assert.deepEqual(minItems, 1)
       t->Assert.deepEqual(
         errorMessage,
-        {minItems: "Array must be 1 or more items long"},
+        {minItems: ?None},
       )
     }
   | _ => t->Assert.fail("Expected Array schema with minItems")

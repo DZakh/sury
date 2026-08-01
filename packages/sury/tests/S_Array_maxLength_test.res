@@ -12,7 +12,7 @@ test("Fails to parse invalid data", t => {
 
   t->U.assertThrowsMessage(
     () => [1, 2, 3, 4]->S.parseOrThrow(~to=schema),
-    `Array must be 1 or fewer items long`,
+    `Expected int32[].length <= 1, received [1, 2, 3, 4]`,
   )
 })
 
@@ -28,7 +28,7 @@ test("Fails to serialize invalid value", t => {
 
   t->U.assertThrowsMessage(
     () => [1, 2, 3, 4]->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    `Array must be 1 or fewer items long`,
+    `Expected int32[].length <= 1, received [1, 2, 3, 4]`,
   )
 })
 
@@ -46,7 +46,7 @@ test("Returns refinement", t => {
       t->Assert.deepEqual(maxItems, 1)
       t->Assert.deepEqual(
         errorMessage,
-        {maxItems: "Array must be 1 or fewer items long"},
+        {maxItems: ?None},
       )
     }
   | _ => t->Assert.fail("Expected Array schema with maxItems")

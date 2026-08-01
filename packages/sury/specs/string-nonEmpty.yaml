@@ -24,13 +24,13 @@ operations:
         output: '"a"'
       empty:
         input: '""'
-        error: String must be 1 or more characters long
+        error: Expected string.length >= 1, received ""
       single-space:
         input: '" "'
         output: '" "'
       wrong-type:
         input: "1"
-        error: Expected string >= 1, received 1
+        error: Expected string.length >= 1, received 1
   decode:
     expression: i=>{i.length>0||e[0](i);return i}
     examples:
@@ -42,7 +42,7 @@ operations:
         output: '"a"'
       empty:
         input: '""'
-        error: String must be 1 or more characters long
+        error: Expected string.length >= 1, received ""
   encode:
     expression: i=>{i.length>0||e[0](i);return i}
     examples:
@@ -54,4 +54,4 @@ operations:
         output: '"a"'
       empty:
         input: '""'
-        error: String must be 1 or more characters long
+        error: Expected string.length >= 1, received ""

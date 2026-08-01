@@ -22,7 +22,7 @@ operations:
       rejected-by-both:
         input: '"no"'
         error: |-
-          Expected string >= 3 | "x", received "no"
-          - String must be 3 or more characters long
+          Expected string.length >= 3 | "x", received "no"
+          - Expected string.length >= 3, received "no"
   decode: identity
   encode: identity

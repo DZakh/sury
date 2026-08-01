@@ -21,10 +21,10 @@ operations:
         output: "6"
       at-the-bound:
         input: "5"
-        error: Number must be greater than 5
+        error: Expected number > 5, received 5
       below:
         input: "4"
-        error: Number must be greater than 5
+        error: Expected number > 5, received 4
       infinity:
         input: Infinity
         output: Infinity
@@ -42,10 +42,10 @@ operations:
         output: "5.5"
       at-the-bound:
         input: "5"
-        error: Number must be greater than 5
+        error: Expected number > 5, received 5
       below:
         input: "4"
-        error: Number must be greater than 5
+        error: Expected number > 5, received 4
   encode:
     expression: i=>{i>5||e[0](i);return i}
     examples:
@@ -54,7 +54,7 @@ operations:
         output: "5.5"
       at-the-bound:
         input: "5"
-        error: Number must be greater than 5
+        error: Expected number > 5, received 5
       below:
         input: "4"
-        error: Number must be greater than 5
+        error: Expected number > 5, received 4

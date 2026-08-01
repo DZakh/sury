@@ -15,7 +15,7 @@ operations:
     examples:
       above:
         input: "6"
-        error: Number must be lower than or equal to 5
+        error: Expected int32 <= 5, received 6
       at-the-bound:
         input: "5"
         output: "5"
@@ -36,7 +36,7 @@ operations:
     examples:
       above:
         input: "6"
-        error: Number must be lower than or equal to 5
+        error: Expected int32 <= 5, received 6
       at-the-bound:
         input: "5"
         output: "5"
@@ -48,7 +48,7 @@ operations:
     examples:
       above:
         input: "6"
-        error: Number must be lower than or equal to 5
+        error: Expected int32 <= 5, received 6
       at-the-bound:
         input: "5"
         output: "5"

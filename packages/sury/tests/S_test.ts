@@ -70,7 +70,7 @@ test("Successfully parses string with built-in refinement", (t) => {
     return;
   }
   t.expect(result.error.message).toBe(
-    "String must be exactly 5 characters long",
+    'Expected string.length == 5, received "123"',
   );
 
   expectSchemaType(schema).toBe<string, string>();
@@ -270,7 +270,7 @@ test("Successfully parses array with min and max refinements", (t) => {
   t.expect(value).toEqual(["foo"]);
 
   const result = S.safe(() => S.parser(schema)([]));
-  t.expect(result.error?.message).toEqual("Array must be 1 or more items long");
+  t.expect(result.error?.message).toEqual("Expected 1 <= string[].length <= 2, received []");
 
   expectSchemaType(schema).toBe<string[], string[]>();
   expectTypeOf(value).toEqualTypeOf<string[]>();

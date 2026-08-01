@@ -346,7 +346,7 @@ test("NaN should be checked before number even if it's later item in the union",
   // routing predicate stays green while breaking error specificity.
   t->U.assertThrowsMessage(
     () => %raw(`-1`)->S.parseOrThrow(~to=schema),
-    `Number must be greater than or equal to 0`,
+    `Expected number >= 0, received -1`,
   )
   t->U.assertThrowsMessage(
     () => %raw(`"abc"`)->S.parseOrThrow(~to=schema),

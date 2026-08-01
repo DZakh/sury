@@ -447,13 +447,15 @@ export const stringify = (unknown: unknown): string => {
 }
 
 // Bounds wrap the expression they constrain, in ArkType's double-bounded
-// spelling — `0 < string[] <= 10` rather than a clause per side. A string or
-// array bounds its length; anything else bounds its value.
+// spelling — `0 < number < 10` rather than a clause per side. A string or
+// array bounds its `.length`, which is named so the comparison can't be read
+// against the value: `string.length >= 3` against a received `"hi"`.
 //
 // int32 and port carry their own range in the same fields a caller's bound
-// uses, so presence alone can't tell the two apart. An errorMessage entry
-// can: every S.gte/S.minLength sets one and a format never does. See the
-// bound refinements, which uphold that.
+// uses, so the values can't tell the two apart. Key *presence* on
+// errorMessage can: a bound always writes its key (with the caller's message
+// or undefined) and a format writes only `format`. See the bound refinements,
+// which uphold that.
 const withBounds = (schema: Internal, base: string): string => {
   const em = schema.errorMessage;
   if (em === U) {
@@ -465,19 +467,23 @@ const withBounds = (schema: Internal, base: string): string => {
   const maxKey = isArray ? "maxItems" : sized ? "maxLength" : "maximum";
   // No JSON Schema keyword bounds a length exclusively, so only a value bound
   // can be strict.
-  const exMin = sized ? U : em.exclusiveMinimum !== U ? schema.exclusiveMinimum : U;
-  const exMax = sized ? U : em.exclusiveMaximum !== U ? schema.exclusiveMaximum : U;
-  const low = exMin !== U ? exMin : em[minKey] !== U ? schema[minKey] : U;
-  const high = exMax !== U ? exMax : em[maxKey] !== U ? schema[maxKey] : U;
+  const exMin = sized ? U : "exclusiveMinimum" in em ? schema.exclusiveMinimum : U;
+  const exMax = sized ? U : "exclusiveMaximum" in em ? schema.exclusiveMaximum : U;
+  const low = exMin !== U ? exMin : minKey in em ? schema[minKey] : U;
+  const high = exMax !== U ? exMax : maxKey in em ? schema[maxKey] : U;
+  if (low === U && high === U) {
+    return base;
+  }
+  const subject = sized ? `${base}.length` : base;
   if (low === U) {
-    return high === U ? base : `${base} ${exMax !== U ? "<" : "<="} ${high}`;
+    return `${subject} ${exMax !== U ? "<" : "<="} ${high}`;
   }
   if (high === U) {
-    return `${base} ${exMin !== U ? ">" : ">="} ${low}`;
+    return `${subject} ${exMin !== U ? ">" : ">="} ${low}`;
   }
   return exMin === U && exMax === U && low === high
-    ? `${base} == ${low}`
-    : `${low} ${exMin !== U ? "<" : "<="} ${base} ${exMax !== U ? "<" : "<="} ${high}`;
+    ? `${subject} == ${low}`
+    : `${low} ${exMin !== U ? "<" : "<="} ${subject} ${exMax !== U ? "<" : "<="} ${high}`;
 };
 
 // Whether toExpression leaves an infix operator at the top level of `schema`'s

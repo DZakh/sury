@@ -18,7 +18,7 @@ operations:
         output: '"ab"'
       longer:
         input: '"abc"'
-        error: String must be 2 or fewer characters long
+        error: Expected string.length <= 2, received "abc"
       shorter:
         input: '"a"'
         output: '"a"'
@@ -30,7 +30,7 @@ operations:
         output: '" "'
       wrong-type:
         input: "1"
-        error: Expected string <= 2, received 1
+        error: Expected string.length <= 2, received 1
   decode:
     expression: i=>{i.length<3||e[0](i);return i}
     examples:

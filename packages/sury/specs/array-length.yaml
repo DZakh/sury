@@ -18,16 +18,16 @@ operations:
         output: '["a", "b"]'
       longer:
         input: '["a", "b", "c"]'
-        error: Array must be exactly 2 items long
+        error: Expected string[].length == 2, received ["a", "b", "c"]
       shorter:
         input: '["a"]'
-        error: Array must be exactly 2 items long
+        error: Expected string[].length == 2, received ["a"]
       empty:
         input: "[]"
-        error: Array must be exactly 2 items long
+        error: Expected string[].length == 2, received []
       wrong-type:
         input: '"ab"'
-        error: Expected string[] == 2, received "ab"
+        error: Expected string[].length == 2, received "ab"
   decode:
     expression: i=>{i.length===2||e[0](i);return i}
     examples:
@@ -36,10 +36,10 @@ operations:
         output: '["a", "b"]'
       shorter:
         input: '["a"]'
-        error: Array must be exactly 2 items long
+        error: Expected string[].length == 2, received ["a"]
       empty:
         input: "[]"
-        error: Array must be exactly 2 items long
+        error: Expected string[].length == 2, received []
   encode:
     expression: i=>{i.length===2||e[0](i);return i}
     examples:
@@ -48,7 +48,7 @@ operations:
         output: '["a", "b"]'
       shorter:
         input: '["a"]'
-        error: Array must be exactly 2 items long
+        error: Expected string[].length == 2, received ["a"]
       empty:
         input: "[]"
-        error: Array must be exactly 2 items long
+        error: Expected string[].length == 2, received []

@@ -12,7 +12,7 @@ test("Fails to parse invalid data", t => {
 
   t->U.assertThrowsMessage(
     () => "1234"->S.parseOrThrow(~to=schema),
-    `String must be 1 or fewer characters long`,
+    `Expected string.length <= 1, received "1234"`,
   )
 })
 
@@ -28,7 +28,7 @@ test("Fails to serialize invalid value", t => {
 
   t->U.assertThrowsMessage(
     () => "1234"->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    `String must be 1 or fewer characters long`,
+    `Expected string.length <= 1, received "1234"`,
   )
 })
 
@@ -46,7 +46,7 @@ test("Returns refinement", t => {
       t->Assert.deepEqual(maxLength, 1)
       t->Assert.deepEqual(
         errorMessage,
-        {maxLength: "String must be 1 or fewer characters long"},
+        {maxLength: ?None},
       )
     }
   | _ => t->Assert.fail("Expected String schema with maxLength")

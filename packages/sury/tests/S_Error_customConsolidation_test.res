@@ -52,8 +52,8 @@ test("errorMessage.minLength override produces InvalidInput with custom reason",
       ~reason="too short",
       // Both sides of a bound failure carry the same schema, so the bound
       // renders on each — the user-facing message here is the custom reason.
-      ~expected="string >= 3",
-      ~received="string >= 3",
+      ~expected="string.length >= 3",
+      ~received="string.length >= 3",
     )
   }
 })

@@ -89,5 +89,5 @@ test("S.meta does not mutate the original schema", t => {
   let _ = original->S.meta({errorMessage: {minLength: "Custom"}})
 
   // Original still uses default message
-  t->U.assertThrowsMessage(() => ""->S.parseOrThrow(~to=original), `String must be 1 or more characters long`)
+  t->U.assertThrowsMessage(() => ""->S.parseOrThrow(~to=original), `Expected string.length >= 1, received ""`)
 })

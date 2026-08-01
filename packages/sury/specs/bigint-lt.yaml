@@ -15,10 +15,10 @@ operations:
     examples:
       above:
         input: 6n
-        error: BigInt must be lower than 5
+        error: Expected bigint < 5, received 6n
       at-the-bound:
         input: 5n
-        error: BigInt must be lower than 5
+        error: Expected bigint < 5, received 5n
       below:
         input: 4n
         output: 4n
@@ -30,10 +30,10 @@ operations:
     examples:
       above:
         input: 6n
-        error: BigInt must be lower than 5
+        error: Expected bigint < 5, received 6n
       at-the-bound:
         input: 5n
-        error: BigInt must be lower than 5
+        error: Expected bigint < 5, received 5n
       below:
         input: 4n
         output: 4n
@@ -42,10 +42,10 @@ operations:
     examples:
       above:
         input: 6n
-        error: BigInt must be lower than 5
+        error: Expected bigint < 5, received 6n
       at-the-bound:
         input: 5n
-        error: BigInt must be lower than 5
+        error: Expected bigint < 5, received 5n
       below:
         input: 4n
         output: 4n

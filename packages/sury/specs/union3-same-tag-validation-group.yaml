@@ -25,12 +25,12 @@ operations:
       rejected-by-all:
         input: '"bad"'
         error: |-
-          Expected string >= 4 | string <= 1 | string == 2, received "bad"
-          - String must be 4 or more characters long
-          - String must be 1 or fewer characters long
-          - String must be exactly 2 characters long
+          Expected string.length >= 4 | string.length <= 1 | string.length == 2, received "bad"
+          - Expected string.length >= 4, received "bad"
+          - Expected string.length <= 1, received "bad"
+          - Expected string.length == 2, received "bad"
       wrong-tag:
         input: "42"
-        error: Expected string >= 4 | string <= 1 | string == 2, received 42
+        error: Expected string.length >= 4 | string.length <= 1 | string.length == 2, received 42
   decode: identity
   encode: identity

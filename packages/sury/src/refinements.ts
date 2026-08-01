@@ -97,9 +97,6 @@ const numNoun = (schema: Internal): string => (schema.type === bigintTag ? "BigI
 const sizeKey = (schema: Internal, upper: boolean): "minLength" | "maxLength" | "minItems" | "maxItems" =>
   schema.type === arrayTag ? (upper ? "maxItems" : "minItems") : upper ? "maxLength" : "minLength";
 
-const sizeNoun = (schema: Internal): string[] =>
-  schema.type === arrayTag ? ["Array", "items"] : ["String", "characters"];
-
 // A bound only sticks if it actually narrows what the schema already accepts.
 // The looser one is dropped rather than kept alongside, so a schema can never
 // advertise a bound weaker than the checks it runs — and at most one of
@@ -181,16 +178,15 @@ export const gte = (schema: Internal, minValue: any, maybeMessage?: string): Int
   assertBound("gte", schema, minValue);
   assertLower("gte", schema, minValue, false);
   if (!narrowsLower(schema, minValue, false)) return schema;
-  const message = maybeMessage ?? `${numNoun(schema)} must be greater than or equal to ${minValue}`;
   return internalRefine(schema, (mut: Internal) => {
     mut.minimum = minValue;
     mut.exclusiveMinimum = U;
-    getMutErrorMessage(mut)["minimum"] = message;
+    getMutErrorMessage(mut)["minimum"] = maybeMessage;
     return (_input: Val) => {
       return [
         {
           c: (inputVar: string) => `${inputVar}>=${lit(minValue)}`,
-          f: B_failWithErrorMessage("minimum", message),
+          f: B_failWithErrorMessage("minimum"),
         },
       ];
     };
@@ -202,16 +198,15 @@ export const lte = (schema: Internal, maxValue: any, maybeMessage?: string): Int
   assertBound("lte", schema, maxValue);
   assertUpper("lte", schema, maxValue, false);
   if (!narrowsUpper(schema, maxValue, false)) return schema;
-  const message = maybeMessage ?? `${numNoun(schema)} must be lower than or equal to ${maxValue}`;
   return internalRefine(schema, (mut: Internal) => {
     mut.maximum = maxValue;
     mut.exclusiveMaximum = U;
-    getMutErrorMessage(mut)["maximum"] = message;
+    getMutErrorMessage(mut)["maximum"] = maybeMessage;
     return (_input: Val) => {
       return [
         {
           c: (inputVar: string) => `${inputVar}<=${lit(maxValue)}`,
-          f: B_failWithErrorMessage("maximum", message),
+          f: B_failWithErrorMessage("maximum"),
         },
       ];
     };
@@ -223,16 +218,15 @@ export const gt = (schema: Internal, minValue: any, maybeMessage?: string): Inte
   assertBound("gt", schema, minValue);
   assertLower("gt", schema, minValue, true);
   if (!narrowsLower(schema, minValue, true)) return schema;
-  const message = maybeMessage ?? `${numNoun(schema)} must be greater than ${minValue}`;
   return internalRefine(schema, (mut: Internal) => {
     mut.exclusiveMinimum = minValue;
     mut.minimum = U;
-    getMutErrorMessage(mut)["exclusiveMinimum"] = message;
+    getMutErrorMessage(mut)["exclusiveMinimum"] = maybeMessage;
     return (_input: Val) => {
       return [
         {
           c: (inputVar: string) => `${inputVar}>${lit(minValue)}`,
-          f: B_failWithErrorMessage("exclusiveMinimum", message),
+          f: B_failWithErrorMessage("exclusiveMinimum"),
         },
       ];
     };
@@ -244,16 +238,15 @@ export const lt = (schema: Internal, maxValue: any, maybeMessage?: string): Inte
   assertBound("lt", schema, maxValue);
   assertUpper("lt", schema, maxValue, true);
   if (!narrowsUpper(schema, maxValue, true)) return schema;
-  const message = maybeMessage ?? `${numNoun(schema)} must be lower than ${maxValue}`;
   return internalRefine(schema, (mut: Internal) => {
     mut.exclusiveMaximum = maxValue;
     mut.maximum = U;
-    getMutErrorMessage(mut)["exclusiveMaximum"] = message;
+    getMutErrorMessage(mut)["exclusiveMaximum"] = maybeMessage;
     return (_input: Val) => {
       return [
         {
           c: (inputVar: string) => `${inputVar}<${lit(maxValue)}`,
-          f: B_failWithErrorMessage("exclusiveMaximum", message),
+          f: B_failWithErrorMessage("exclusiveMaximum"),
         },
       ];
     };
@@ -267,16 +260,14 @@ export const minLength = (schema: Internal, length: number, maybeMessage?: strin
   assertSize("minLength", schema, length, false);
   const key = sizeKey(schema, false);
   if (!narrowsSize(schema[key], length, false)) return schema;
-  const [subject, unit] = sizeNoun(schema);
-  const message = maybeMessage ?? `${subject} must be ${length} or more ${unit} long`;
   return internalRefine(schema, (mut: Internal) => {
     mut[key] = length;
-    getMutErrorMessage(mut)[key] = message;
+    getMutErrorMessage(mut)[key] = maybeMessage;
     return (_input: Val) => {
       return [
         {
           c: (inputVar: string) => `${inputVar}.length>${length - 1}`,
-          f: B_failWithErrorMessage(key, message),
+          f: B_failWithErrorMessage(key),
         },
       ];
     };
@@ -290,16 +281,14 @@ export const maxLength = (schema: Internal, length: number, maybeMessage?: strin
   assertSize("maxLength", schema, length, true);
   const key = sizeKey(schema, true);
   if (!narrowsSize(schema[key], length, true)) return schema;
-  const [subject, unit] = sizeNoun(schema);
-  const message = maybeMessage ?? `${subject} must be ${length} or fewer ${unit} long`;
   return internalRefine(schema, (mut: Internal) => {
     mut[key] = length;
-    getMutErrorMessage(mut)[key] = message;
+    getMutErrorMessage(mut)[key] = maybeMessage;
     return (_input: Val) => {
       return [
         {
           c: (inputVar: string) => `${inputVar}.length<${length + 1}`,
-          f: B_failWithErrorMessage(key, message),
+          f: B_failWithErrorMessage(key),
         },
       ];
     };
@@ -314,19 +303,17 @@ export const length = (schema: Internal, length: number, maybeMessage?: string):
   assertSize("length", schema, length, true);
   const minKey = sizeKey(schema, false);
   const maxKey = sizeKey(schema, true);
-  const [subject, unit] = sizeNoun(schema);
-  const message = maybeMessage ?? `${subject} must be exactly ${length} ${unit} long`;
   return internalRefine(schema, (mut: Internal) => {
     mut[minKey] = length;
     mut[maxKey] = length;
     const em = getMutErrorMessage(mut);
-    em[minKey] = message;
-    em[maxKey] = message;
+    em[minKey] = maybeMessage;
+    em[maxKey] = maybeMessage;
     return (_input: Val) => {
       return [
         {
           c: (inputVar: string) => `${inputVar}.length===${length}`,
-          f: B_failWithErrorMessage(minKey, message),
+          f: B_failWithErrorMessage(minKey),
         },
       ];
     };

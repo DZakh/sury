@@ -24,10 +24,10 @@ operations:
         output: '["a"]'
       empty:
         input: "[]"
-        error: Array must be 1 or more items long
+        error: Expected string[].length >= 1, received []
       wrong-type:
         input: '"ab"'
-        error: Expected string[] >= 1, received "ab"
+        error: Expected string[].length >= 1, received "ab"
   decode:
     expression: i=>{i.length>0||e[0](i);return i}
     examples:
@@ -39,7 +39,7 @@ operations:
         output: '["a"]'
       empty:
         input: "[]"
-        error: Array must be 1 or more items long
+        error: Expected string[].length >= 1, received []
   encode:
     expression: i=>{i.length>0||e[0](i);return i}
     examples:
@@ -51,4 +51,4 @@ operations:
         output: '["a"]'
       empty:
         input: "[]"
-        error: Array must be 1 or more items long
+        error: Expected string[].length >= 1, received []

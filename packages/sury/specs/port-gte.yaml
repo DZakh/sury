@@ -22,10 +22,10 @@ operations:
         output: "80"
       below:
         input: "79"
-        error: Number must be greater than or equal to 80
+        error: Expected port >= 80, received 79
       out-of-port-range:
         input: "0"
-        error: Number must be greater than or equal to 80
+        error: Expected port >= 80, received 0
       wrong-type:
         input: '"81"'
         error: Expected port >= 80, received "81"
@@ -40,7 +40,7 @@ operations:
         output: "80"
       below:
         input: "79"
-        error: Number must be greater than or equal to 80
+        error: Expected port >= 80, received 79
   encode:
     expression: i=>{i>=0&&i<65536&&i%1===0||e[0](i);i>=80||e[1](i);return i}
     examples:
@@ -52,4 +52,4 @@ operations:
         output: "80"
       below:
         input: "79"
-        error: Number must be greater than or equal to 80
+        error: Expected port >= 80, received 79

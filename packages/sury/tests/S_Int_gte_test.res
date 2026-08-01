@@ -12,7 +12,7 @@ test("Fails to parse invalid data", t => {
 
   t->U.assertThrowsMessage(
     () => 0->S.parseOrThrow(~to=schema),
-    `Number must be greater than or equal to 1`,
+    `Expected int32 >= 1, received 0`,
   )
 })
 
@@ -28,7 +28,7 @@ test("Fails to serialize invalid value", t => {
 
   t->U.assertThrowsMessage(
     () => 0->S.decodeOrThrow(~from=schema, ~to=S.unknown),
-    `Number must be greater than or equal to 1`,
+    `Expected int32 >= 1, received 0`,
   )
 })
 
@@ -53,7 +53,7 @@ test("Returns refinement", t => {
       t->Assert.deepEqual(minimum, 1.)
       t->Assert.deepEqual(
         errorMessage,
-        {minimum: "Number must be greater than or equal to 1"},
+        {minimum: ?None},
       )
     }
   | _ => t->Assert.fail("Expected Number schema with minimum")
