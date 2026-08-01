@@ -29,10 +29,10 @@ operations:
         error: "Expected { a: string; } | number, received NaN"
       array-is-not-an-object:
         input: '["x"]'
-        error: 'Expected { a: string; } | number, received ["x"]'
+        error: "Expected { a: string; } | number, received Array(1)"
       empty-array-is-not-an-object:
         input: "[]"
-        error: "Expected { a: string; } | number, received []"
+        error: "Expected { a: string; } | number, received Array(0)"
       null-is-not-an-object:
         input: "null"
         error: "Expected { a: string; } | number, received null"

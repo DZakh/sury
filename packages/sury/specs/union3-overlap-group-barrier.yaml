@@ -25,7 +25,7 @@ operations:
       rejected-by-all:
         input: '{ kind: "right", value: "bad" }'
         error: |-
-          Expected { kind: "left"; value: string; } | { kind: string; value: string; } | { kind: "right"; value: string; }, received { kind: "right"; value: "bad"; }
+          Expected { kind: "left"; value: string; } | { kind: string; value: string; } | { kind: "right"; value: string; }, received Object
           - At ["value"]: broad member rejected
           - At ["value"]: right member rejected
   decode: identity

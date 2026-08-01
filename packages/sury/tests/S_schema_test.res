@@ -203,12 +203,12 @@ test(
 
     t->U.assertThrowsMessage(
       () => %raw(`["foo", true]`)->S.parseOrThrow(~to=schema),
-      `Expected { 0: string; 1: boolean; }, received ["foo", true]`,
+      `Expected { 0: string; 1: boolean; }, received Array(2)`,
     )
 
     t->U.assertThrowsMessage(
       () => %raw(`["foo", true]`)->S.parseOrThrow(~to=schema->S.strict),
-      `Expected { 0: string; 1: boolean; }, received ["foo", true]`,
+      `Expected { 0: string; 1: boolean; }, received Array(2)`,
     )
   },
 )
@@ -222,7 +222,7 @@ test(
 
     t->U.assertThrowsMessage(
       () => %raw(`["foo", true, 1]`)->S.parseOrThrow(~to=schema),
-      `Expected [string, boolean], received ["foo", true, 1]`,
+      `Expected [string, boolean], received Array(3)`,
     )
 
     t->U.assertCompiledCode(

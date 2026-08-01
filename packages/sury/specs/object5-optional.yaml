@@ -17,10 +17,10 @@ operations:
     examples:
       array-is-not-an-object:
         input: '["x"]'
-        error: 'Expected { a: string; b: number | undefined; c: boolean; d: bigint | undefined; e: symbol; }, received ["x"]'
+        error: "Expected { a: string; b: number | undefined; c: boolean; d: bigint | undefined; e: symbol; }, received Array(1)"
       empty-array-is-not-an-object:
         input: "[]"
-        error: "Expected { a: string; b: number | undefined; c: boolean; d: bigint | undefined; e: symbol; }, received []"
+        error: "Expected { a: string; b: number | undefined; c: boolean; d: bigint | undefined; e: symbol; }, received Array(0)"
       valid-all-present:
         input: '{ a: "x", b: 1, c: true, d: 5n, e: Symbol.for("e") }'
         output: '{ a: "x", b: 1, c: true, d: 5n, e: Symbol.for("e") }'

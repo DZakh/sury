@@ -1821,7 +1821,7 @@ test("Full Set schema", (t) => {
   t.expect(() => S.parser(numberSetSchema)([1, 2, "3"])).toThrow(
     t.expect.objectContaining({
       name: "SuryError",
-      message: `Expected Set<number>, received [1, 2, "3"]`,
+      message: `Expected Set<number>, received Array(3)`,
     }),
   );
   t.expect(() => S.parser(numberSetSchema)(new Set([1, 2, "3"]))).toThrow(
@@ -2788,4 +2788,51 @@ test("S.record does not validate values under symbol keys", (t) => {
   // 123 is not a string, yet this neither throws nor strips the property.
   t.expect(result).toBe(input);
   t.expect((result as unknown as Record<symbol, unknown>)[key]).toBe(123);
+});
+
+// Rendering the received value used to walk objects and arrays recursively,
+// which meant a cyclic input overflowed the stack inside the error formatter —
+// a validation failure surfaced as a RangeError instead of a SuryError.
+test("A cyclic input is reported, not a stack overflow", (t) => {
+  const cyclic: Record<string, unknown> = { a: 1 };
+  cyclic["self"] = cyclic;
+
+  t.expect(() => S.parser(S.string)(cyclic)).toThrow(
+    t.expect.objectContaining({
+      name: "SuryError",
+      message: "Expected string, received Object",
+    }),
+  );
+});
+
+test("A received value is named, not serialized", (t) => {
+  const reasonFor = (value: unknown): string => {
+    try {
+      S.parser(S.string)(value);
+      return "(accepted)";
+    } catch (exn) {
+      return (exn as { reason: string }).reason;
+    }
+  };
+
+  // Primitives keep their value — `received 42` beats `received number` — and
+  // bigint keeps its suffix so it stays distinguishable from a number.
+  t.expect(reasonFor(42)).toBe("Expected string, received 42");
+  t.expect(reasonFor(10n)).toBe("Expected string, received 10n");
+  t.expect(reasonFor(NaN)).toBe("Expected string, received NaN");
+
+  // Objects name their constructor instead of listing contents, so the message
+  // stays bounded however wide the input is.
+  t.expect(reasonFor(new Date(0))).toBe("Expected string, received Date");
+  t.expect(reasonFor(new Map())).toBe("Expected string, received Map");
+  t.expect(reasonFor(new (class Foo {})())).toBe("Expected string, received Foo");
+  t.expect(reasonFor(Object.fromEntries(Array.from({ length: 40 }, (_, i) => [i, i])))).toBe(
+    "Expected string, received Object",
+  );
+  // No prototype, so no constructor to name.
+  t.expect(reasonFor(Object.create(null))).toBe("Expected string, received object");
+
+  // Arrays carry their length: against a tuple that is the whole diagnostic.
+  t.expect(reasonFor([])).toBe("Expected string, received Array(0)");
+  t.expect(reasonFor([1, 2, 3])).toBe("Expected string, received Array(3)");
 });

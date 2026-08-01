@@ -216,7 +216,7 @@ module Advanced = {
 
     t->U.assertThrowsMessage(
       () => shape->S.parseOrThrow(~to=shapeSchema),
-      `Expected { kind: "circle"; radius: number; } | { kind: "square"; x: number; } | { kind: "triangle"; x: number; y: number; }, received { kind: "oval"; x: 2; y: 3; }`,
+      `Expected { kind: "circle"; radius: number; } | { kind: "square"; x: number; } | { kind: "triangle"; x: number; y: number; }, received Object`,
     )
   })
 
@@ -240,7 +240,7 @@ module Advanced = {
 
     t->U.assertThrowsMessage(
       () => data->S.parseOrThrow(~to=schema),
-      `Failed at ["field"]: Expected { kind: "circle"; radius: number; } | { kind: "square"; x: number; } | { kind: "triangle"; x: number; y: number; }, received { kind: "oval"; x: 2; y: 3; }`,
+      `Failed at ["field"]: Expected { kind: "circle"; radius: number; } | { kind: "square"; x: number; } | { kind: "triangle"; x: number; y: number; }, received Object`,
     )
   })
 
@@ -271,7 +271,7 @@ module Advanced = {
 
     t->U.assertThrowsMessage(
       () => v->S.decodeOrThrow(~from=incompleteSchema, ~to=S.unknown),
-      `Expected { TAG: "Circle"; radius: number; } | { TAG: "Square"; x: number; }, received { TAG: "Triangle"; x: 2; y: 3; }`,
+      `Expected { TAG: "Circle"; radius: number; } | { TAG: "Square"; x: number; }, received Object`,
     )
   })
 
@@ -779,7 +779,7 @@ test("json-rpc response", t => {
         ~from=getLogsResponseSchema,
         ~to=S.unknown,
       ),
-    `Failed at ["_0"]: Expected "LogsNotFound" | { NAME: "InvalidData"; VAL: string; }, received { NAME: "BogusObj"; }`,
+    `Failed at ["_0"]: Expected "LogsNotFound" | { NAME: "InvalidData"; VAL: string; }, received Object`,
   )
 })
 
@@ -865,7 +865,7 @@ test("Objects with the same discriminant", t => {
   t->Assert.deepEqual(%raw(`{"type":"A","value":"baz"}`)->S.parseOrThrow(~to=schema), Error("baz"))
   t->U.assertThrowsMessage(
     () => %raw(`{"type":"A","value":1}`)->S.parseOrThrow(~to=schema),
-    `Expected { type: "A"; value: "foo" | "bar"; } | { type: "A"; value: string; }, received { type: "A"; value: 1; }
+    `Expected { type: "A"; value: "foo" | "bar"; } | { type: "A"; value: string; }, received Object
 - At ["value"]: Expected "foo" | "bar", received 1
 - At ["value"]: Expected string, received 1`,
   )

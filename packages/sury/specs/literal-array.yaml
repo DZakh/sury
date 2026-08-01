@@ -23,7 +23,7 @@ operations:
         error: Expected ["bar", true], received 123
       wrong-length:
         input: '["bar", true, false]'
-        error: Expected ["bar", true], received ["bar", true, false]
+        error: Expected ["bar", true], received Array(3)
       invalid-item:
         input: '["bar", false]'
         error: 'Failed at ["1"]: Expected true, received false'

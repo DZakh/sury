@@ -33,7 +33,7 @@ operations:
         error: 'Expected { constructor: string; hasOwnProperty: number; }, received "nope"'
       array-input:
         input: "[]"
-        error: "Expected { constructor: string; hasOwnProperty: number; }, received []"
+        error: "Expected { constructor: string; hasOwnProperty: number; }, received Array(0)"
       class-instance-input:
         input: new Date("1970-01-01T00:00:00.000Z")
         error: 'Failed at ["constructor"]: Expected string, received Function'

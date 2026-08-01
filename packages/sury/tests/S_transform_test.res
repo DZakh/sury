@@ -107,7 +107,7 @@ test("Operation context catches ReScript exceptions as they are", t => {
 
   t->U.assertThrowsMessage(
     () => {["Hello world!"]->S.parseOrThrow(~to=schema)},
-    `Failed at ["0"]: { RE_EXN_ID: "U.Test"; Error: [object Error]; }`,
+    `Failed at ["0"]: Object`,
   )
 })
 
@@ -132,7 +132,7 @@ test("Rescript exceptions caught in transform", t => {
   let schema = S.array(S.string->S.transform(_ => {parser: _ => U.throwTestException()}))
   t->U.assertThrowsMessage(
     () => ["Hello world!"]->S.parseOrThrow(~to=schema),
-    `Failed at ["0"]: { RE_EXN_ID: "U.Test"; Error: [object Error]; }`,
+    `Failed at ["0"]: Object`,
   )
 })
 

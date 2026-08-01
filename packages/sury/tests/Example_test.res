@@ -117,6 +117,6 @@ test("Custom schema", t => {
   )
   t->U.assertThrowsMessage(
     () => S.parseOrThrow(%raw(`[1, 2, 3]`), ~to=intSetSchema),
-    `Expected Set.t<int32>, received [1, 2, 3]`,
+    `Expected Set.t<int32>, received Array(3)`,
   )
 })

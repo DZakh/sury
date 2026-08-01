@@ -687,7 +687,7 @@ test("Coerce from JSON to tuple with bigint", t => {
   t->Assert.deepEqual(%raw(`["foo", "123"]`)->S.parseOrThrow(~to=schema), ("foo", 123n))
   t->U.assertThrowsMessage(() => {
     %raw(`["foo"]`)->S.parseOrThrow(~to=schema)
-  }, `Expected [string, bigint], received ["foo"]`)
+  }, `Expected [string, bigint], received Array(1)`)
   t->Assert.deepEqual(
     ("foo", 123n)->S.decodeOrThrow(~from=schema, ~to=S.unknown),
     %raw(`["foo", "123"]`),
@@ -1305,7 +1305,7 @@ test("Converts union of objects into reordered union of objects", t => {
   )
   t->U.assertThrowsMessage(
     () => %raw(`{k: "c"}`)->S.parseOrThrow(~to=schema),
-    `Expected { k: "a"; x: number; } | { k: "b"; y: string; }, received { k: "c"; }`,
+    `Expected { k: "a"; x: number; } | { k: "b"; y: string; }, received Object`,
   )
 })
 

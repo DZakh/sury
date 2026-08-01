@@ -15,9 +15,9 @@ operations:
     examples:
       plain-object:
         input: "{ a: 1 }"
-        error: "Expected Foo, received { a: 1; }"
+        error: Expected Foo, received Object
       other-class-instance:
         input: new Date("1970-01-01T00:00:00.000Z")
-        error: Expected Foo, received [object Date]
+        error: Expected Foo, received Date
   decode: identity
   encode: identity

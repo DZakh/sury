@@ -18,7 +18,7 @@ module Common = {
 
     t->U.assertThrowsMessage(
       () => invalidAny->S.parseOrThrow(~to=schema),
-      `Expected [int32, boolean], received [123]`,
+      `Expected [int32, boolean], received Array(1)`,
     )
   })
 

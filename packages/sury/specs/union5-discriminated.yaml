@@ -23,7 +23,7 @@ operations:
         output: '{ kind: "d", d: 7n }'
       unrecognized-kind:
         input: '{ kind: "z", a: "hello" }'
-        error: 'Expected { kind: "a"; a: string; } | { kind: "b"; b: number; } | { kind: "c"; c: boolean; } | { kind: "d"; d: bigint; } | { kind: "e"; e: symbol; }, received { kind: "z"; a: "hello"; }'
+        error: 'Expected { kind: "a"; a: string; } | { kind: "b"; b: number; } | { kind: "c"; c: boolean; } | { kind: "d"; d: bigint; } | { kind: "e"; e: symbol; }, received Object'
       invalid-member-shape:
         input: '{ kind: "a", a: 42 }'
         error: 'Failed at ["a"]: Expected string, received 42'

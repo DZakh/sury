@@ -24,10 +24,10 @@ operations:
         output: undefined
       array-is-not-an-object:
         input: "[]"
-        error: "Expected { a: string | undefined; } | undefined, received []"
+        error: "Expected { a: string | undefined; } | undefined, received Array(0)"
       array-with-items-is-not-an-object:
         input: '["x"]'
-        error: 'Expected { a: string | undefined; } | undefined, received ["x"]'
+        error: "Expected { a: string | undefined; } | undefined, received Array(1)"
       null-is-not-an-object:
         input: "null"
         error: "Expected { a: string | undefined; } | undefined, received null"

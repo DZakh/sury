@@ -418,30 +418,35 @@ export const isOptional = (schema: Internal): boolean => {
   );
 }
 
+// Renders a runtime value for the `received` half of an error message. Objects
+// name their constructor instead of listing their contents: walking them made a
+// cyclic value overflow the stack *inside the error formatter*, and let a single
+// wide input produce a several-hundred-character message. Zod, Valibot and
+// ArkType all name the type here too.
+//
+// Primitives still show their value — `received 42` beats `received number`, and
+// bigint keeps its `n` so it stays distinguishable from a number.
 export const stringify = (unknown: unknown): string => {
   const tagFlag = tagFlags[typeof unknown as Tag]!;
 
   if (flagUnsafeHas(tagFlag, tagFlagUndefined)) {
     return undefinedTag;
-  } else if (flagUnsafeHas(tagFlag, tagFlagObject)) {
-    if (unknown === null) {
-      return nullTag;
-    } else if (Array.isArray(unknown)) {
-      return `[${unknown.map(stringify).join(", ")}]`;
-    } else if ((unknown as { constructor: unknown }).constructor === Object) {
-      const dict = unknown as Record<string, unknown>;
-      return `{ ${Object.keys(dict)
-        .map((key) => `${key}: ${stringify(dict[key])}; `)
-        .join("")}}`;
-    } else {
-      return Object.prototype.toString.call(unknown);
-    }
+  } else if (flagUnsafeHas(tagFlag, (tagFlagObject | tagFlagFunction))) {
+    // Arrays carry their length: against a tuple the length *is* the
+    // diagnostic, and a bare "Array" turns "received [\"foo\"]" into something
+    // a reader can't act on. Bounded and non-recursive, unlike listing items.
+    // `|| objectTag` covers both a null prototype (Object.create(null)) and an
+    // anonymous constructor, whose `name` is the empty string.
+    return unknown === null
+      ? nullTag
+      : Array.isArray(unknown)
+        ? `Array(${unknown.length})`
+        : (Object.getPrototypeOf(unknown) as { constructor?: { name?: string } } | null)
+            ?.constructor?.name || objectTag;
   } else if (flagUnsafeHas(tagFlag, tagFlagString)) {
     return `"${unknown as string}"`;
   } else if (flagUnsafeHas(tagFlag, tagFlagBigint)) {
     return `${unknown as bigint}n`;
-  } else if (flagUnsafeHas(tagFlag, tagFlagFunction)) {
-    return `Function`;
   } else {
     return (unknown as { toString: () => string }).toString();
   }

@@ -31,7 +31,7 @@ operations:
         error: Expected unknown[][], received "nope"
       wrong-column-count:
         input: "[[1, 2]]"
-        error: Expected unknown[][], received [[1, 2]]
+        error: Expected unknown[][], received Array(1)
   decode:
     expression: i=>{let v1=new Array(Math.max(i[0].length,i[1].length,));for(let v0=0;v0<v1.length;++v0){try{let v2=i[0][v0];typeof v2==="number"&&!Number.isNaN(v2)||e[0](v2);let v3=i[1][v0];typeof v3==="string"||e[1](v3);v1[v0]={"id":v2,"name":v3,};}catch(v4){v4.path='["'+v0+'"]'+v4.path;throw v4}}return v1}
     examples:
