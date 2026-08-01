@@ -489,17 +489,19 @@ const meSchema = S.schema({
 });
 ```
 
-You can add `as const` or wrap the value with `S.schema` to adjust the schema type. The example below turns the `kind` field to be a `"human"` type instead of `string`:
+Literal fields keep their narrow type — `kind` above is `"human"`, not `string` — which is what makes discriminated unions work.
+
+The exception is a definition you extract into a variable, since TypeScript widens the literal before `S.schema` ever sees it. Add `as const` there, or wrap the value with `S.schema`:
 
 ```ts
-S.schema({
+const definition = {
   kind: "human" as const,
   // Or
   kind: S.schema("human"),
-});
-```
+};
 
-This is useful for discriminated unions.
+S.schema(definition);
+```
 
 ### Advanced object schema
 
@@ -723,15 +725,15 @@ S.parser(stringOrNumberSchema)(14); // passes
 
 const shapeSchema = S.union([
   {
-    kind: "circle" as const,
+    kind: "circle",
     radius: S.number,
   },
   {
-    kind: "square" as const,
+    kind: "square",
     x: S.number,
   },
   {
-    kind: "triangle" as const,
+    kind: "triangle",
     x: S.number,
     y: S.number,
   },
