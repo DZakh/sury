@@ -446,6 +446,29 @@ export const stringify = (unknown: unknown): string => {
   }
 }
 
+// A bound the caller wrote, as `>= 5`, or "" when there is none. int32 and
+// port carry their own range in the same fields, so presence alone can't tell
+// the two apart — an errorMessage entry can, because every S.gte/S.lt sets one
+// and a format never does. See the bound refinements, which uphold that.
+const boundExpression = (schema: Internal): string => {
+  const em = schema.errorMessage;
+  if (em === U) {
+    return "";
+  }
+  const parts: string[] = [];
+  if (em.exclusiveMinimum !== U) {
+    parts.push(`> ${schema.exclusiveMinimum}`);
+  } else if (em.minimum !== U) {
+    parts.push(`>= ${schema.minimum}`);
+  }
+  if (em.exclusiveMaximum !== U) {
+    parts.push(`< ${schema.exclusiveMaximum}`);
+  } else if (em.maximum !== U) {
+    parts.push(`<= ${schema.maximum}`);
+  }
+  return parts.length ? ` ${parts.join(" & ")}` : "";
+};
+
 // @__NO_SIDE_EFFECTS__
 export const toExpression = (schema: Internal): string => {
   if (schema.name !== U) {
@@ -485,7 +508,7 @@ export const toExpression = (schema: Internal): string => {
       }
     }
   } else if (schema.format !== U) {
-    return schema.format;
+    return schema.format + boundExpression(schema);
   } else if (schema.type === objectTag) {
     const properties = schema.properties!;
     const locations = Object.keys(properties);
@@ -510,14 +533,18 @@ export const toExpression = (schema: Internal): string => {
     if (typeof schema.additionalItems === objectTag) {
       const additionalItems = schema.additionalItems as Internal;
       const itemName = toExpression(additionalItems);
-      return (additionalItems.type === anyOfTag ? `(${itemName})` : itemName) + "[]";
+      // A bound reads as part of the item, not the array: `int32 > 5[]` parses
+      // as an array-typed bound, the same ambiguity a union has.
+      return (additionalItems.type === anyOfTag || boundExpression(additionalItems) !== ""
+        ? `(${itemName})`
+        : itemName) + "[]";
     } else {
       return `[${items.map((schema) => toExpression(schema)).join(", ")}]`;
     }
   } else if (schema.type === instanceTag) {
     return (schema.class as { name: string }).name;
   } else {
-    return schema.type;
+    return schema.type + boundExpression(schema);
   }
 }
 

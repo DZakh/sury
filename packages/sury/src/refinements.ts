@@ -403,10 +403,12 @@ export const port = (): Internal => {
   return cached("port", numberTag, (s) => {
     s.decoder = numberDecoder;
     s.format = "port";
+    s.minimum = 0;
+    s.maximum = 65535;
     s.refiner = (_input) => {
       return [
         {
-          c: (inputVar) => `${inputVar}>0&&${inputVar}<65536&&${inputVar}%1===0`,
+          c: (inputVar) => `${inputVar}>=0&&${inputVar}<65536&&${inputVar}%1===0`,
           f: B_failWithErrorMessage("format"),
         },
       ];

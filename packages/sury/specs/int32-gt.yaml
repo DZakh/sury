@@ -24,13 +24,13 @@ operations:
         error: Number must be greater than 5
       non-integer-above:
         input: "5.5"
-        error: Expected int32, received 5.5
+        error: Expected int32 > 5, received 5.5
       nan:
         input: NaN
-        error: Expected int32, received NaN
+        error: Expected int32 > 5, received NaN
       wrong-type:
         input: '"6"'
-        error: Expected int32, received "6"
+        error: Expected int32 > 5, received "6"
   decode:
     expression: i=>{i>5||e[0](i);return i}
     examples:

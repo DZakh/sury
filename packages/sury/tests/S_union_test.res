@@ -350,7 +350,7 @@ test("NaN should be checked before number even if it's later item in the union",
   )
   t->U.assertThrowsMessage(
     () => %raw(`"abc"`)->S.parseOrThrow(~to=schema),
-    `Expected number | NaN, received "abc"`,
+    `Expected number >= 0 | NaN, received "abc"`,
   )
 
   t->U.assertCompiledCode(

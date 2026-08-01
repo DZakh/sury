@@ -144,6 +144,11 @@ export const float = () =>
 export const int = () =>
   cached("i", numberTag, (s) => {
     s.format = "int32";
+    // The format's range as real bound fields, not just something the JSON
+    // Schema emit knows: S.gte/S.lte compare against them, so a bound outside
+    // int32 is caught as a contradiction instead of silently building.
+    s.minimum = -2147483648;
+    s.maximum = 2147483647;
     s.decoder = numberDecoder;
   });
 

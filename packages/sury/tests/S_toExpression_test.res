@@ -216,3 +216,33 @@ test("Expression of deeply renamed recursive schema", t => {
     `Failed at ["Children"]: Expected MyNode[], received undefined`,
   )
 })
+
+test("Bounds render on the schema they constrain", t => {
+  t->Assert.deepEqual(S.int->S.gt(5)->S.toExpression, `int32 > 5`)
+  t->Assert.deepEqual(S.int->S.gte(5)->S.toExpression, `int32 >= 5`)
+  t->Assert.deepEqual(S.float->S.lt(5.)->S.toExpression, `number < 5`)
+  t->Assert.deepEqual(S.float->S.gte(1.)->S.lte(9.)->S.toExpression, `number >= 1 & <= 9`)
+  // A format's own range is not a bound the caller wrote, so it stays implicit.
+  t->Assert.deepEqual(S.int->S.toExpression, `int32`)
+  t->Assert.deepEqual(S.port->S.toExpression, `port`)
+})
+
+test("An array of bounded items parenthesises the item expression", t => {
+  let schema = S.array(S.int->S.gt(5))->S.maxLength(3)
+
+  // Without the parens this reads as `int32 > (5[])`.
+  t->Assert.deepEqual(schema->S.toExpression, `(int32 > 5)[]`)
+  t->U.assertThrowsMessage(
+    () => %raw(`"x"`)->S.parseOrThrow(~to=schema),
+    `Expected (int32 > 5)[], received "x"`,
+  )
+  // The item bound and the array bound report separately, each at its own path.
+  t->U.assertThrowsMessage(
+    () => %raw(`[1]`)->S.parseOrThrow(~to=schema),
+    `Failed at ["0"]: Number must be greater than 5`,
+  )
+  t->U.assertThrowsMessage(
+    () => %raw(`[6, 7, 8, 9]`)->S.parseOrThrow(~to=schema),
+    `Array must be 3 or fewer items long`,
+  )
+})

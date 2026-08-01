@@ -12,7 +12,7 @@ jsonSchema:
   output: '{ type: "integer", minimum: 80, maximum: 65535 }'
 operations:
   parse:
-    expression: i=>{typeof i==="number"&&!Number.isNaN(i)||e[2](i);i>0&&i<65536&&i%1===0||e[0](i);i>=80||e[1](i);return i}
+    expression: i=>{typeof i==="number"&&!Number.isNaN(i)||e[2](i);i>=0&&i<65536&&i%1===0||e[0](i);i>=80||e[1](i);return i}
     examples:
       above:
         input: "81"
@@ -25,12 +25,12 @@ operations:
         error: Number must be greater than or equal to 80
       out-of-port-range:
         input: "0"
-        error: Expected port, received 0
+        error: Number must be greater than or equal to 80
       wrong-type:
         input: '"81"'
-        error: Expected port, received "81"
+        error: Expected port >= 80, received "81"
   decode:
-    expression: i=>{i>0&&i<65536&&i%1===0||e[0](i);i>=80||e[1](i);return i}
+    expression: i=>{i>=0&&i<65536&&i%1===0||e[0](i);i>=80||e[1](i);return i}
     examples:
       above:
         input: "81"
@@ -42,7 +42,7 @@ operations:
         input: "79"
         error: Number must be greater than or equal to 80
   encode:
-    expression: i=>{i>0&&i<65536&&i%1===0||e[0](i);i>=80||e[1](i);return i}
+    expression: i=>{i>=0&&i<65536&&i%1===0||e[0](i);i>=80||e[1](i);return i}
     examples:
       above:
         input: "81"

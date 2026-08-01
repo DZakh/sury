@@ -326,17 +326,17 @@ test("Coerce from string to port", t => {
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Parse,
-    `i=>{typeof i==="string"||e[2](i);let v0=+i;!Number.isNaN(v0)||e[1](i);v0>0&&v0<65536&&v0%1===0||e[0](v0);return v0}`,
+    `i=>{typeof i==="string"||e[2](i);let v0=+i;!Number.isNaN(v0)||e[1](i);v0>=0&&v0<65536&&v0%1===0||e[0](v0);return v0}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Convert,
-    `i=>{let v0=+i;!Number.isNaN(v0)||e[1](i);v0>0&&v0<65536&&v0%1===0||e[0](v0);return v0}`,
+    `i=>{let v0=+i;!Number.isNaN(v0)||e[1](i);v0>=0&&v0<65536&&v0%1===0||e[0](v0);return v0}`,
   )
   t->U.assertCompiledCode(
     ~schema,
     ~op=#Encode,
-    `i=>{i>0&&i<65536&&i%1===0||e[0](i);return ""+i}`,
+    `i=>{i>=0&&i<65536&&i%1===0||e[0](i);return ""+i}`,
   )
 })
 

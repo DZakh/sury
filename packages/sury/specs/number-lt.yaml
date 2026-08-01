@@ -30,10 +30,10 @@ operations:
         error: Number must be lower than 5
       nan:
         input: NaN
-        error: Expected number, received NaN
+        error: Expected number < 5, received NaN
       wrong-type:
         input: '"6"'
-        error: Expected number, received "6"
+        error: Expected number < 5, received "6"
   decode:
     expression: i=>{i<5||e[0](i);return i}
     examples:

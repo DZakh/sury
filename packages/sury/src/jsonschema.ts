@@ -376,21 +376,15 @@ const internalToJSONSchemaBase = (
     const maximum = schema.maximum as number | undefined;
     const exclusiveMinimum = schema.exclusiveMinimum as number | undefined;
     const exclusiveMaximum = schema.exclusiveMaximum as number | undefined;
-    const isInt = format === "int32" || format === "port";
-    const isPort = format === "port";
-    jsonSchema.type = isInt ? "integer" : "number";
-    // A format's own range only says something where the schema carries no
-    // bound of its own — `exclusiveMinimum: 5` already implies int32's
-    // -2147483648, and repeating it just makes the output noisier.
+    // int32 and port carry their range as bound fields, so nothing
+    // format-specific is left to emit here — and a user bound that superseded
+    // one of them has already cleared it.
+    jsonSchema.type = format === "int32" || format === "port" ? "integer" : "number";
     if (minimum !== U) {
       jsonSchema.minimum = minimum;
-    } else if (isInt && exclusiveMinimum === U) {
-      jsonSchema.minimum = isPort ? 0 : -2147483648;
     }
     if (maximum !== U) {
       jsonSchema.maximum = maximum;
-    } else if (isInt && exclusiveMaximum === U) {
-      jsonSchema.maximum = isPort ? 65535 : 2147483647;
     }
     // draft-06 made exclusive bounds independent numeric keywords; draft-04 —
     // which OpenAPI 3.0 follows — spells them as booleans modifying
@@ -779,21 +773,30 @@ const toIntSchema = (jsonSchema: JSONSchemaT): Internal => {
   const exMin = exclusiveBound(jsonSchema.minimum, jsonSchema.exclusiveMinimum);
   const max = inclusiveBound(jsonSchema.maximum, jsonSchema.exclusiveMaximum);
   const exMax = exclusiveBound(jsonSchema.maximum, jsonSchema.exclusiveMaximum);
-  if (emptyRange(min, exMin, max, exMax)) {
+  // Sury's integer is int32, so a document bound past that range doesn't just
+  // constrain tightly — it leaves no representable value at all. Truncating it
+  // (the old `| 0`) silently wrapped 3000000000 to -1294967296 instead.
+  if (
+    emptyRange(min, exMin, max, exMax) ||
+    (min !== U && min > 2147483647) ||
+    (exMin !== U && exMin >= 2147483647) ||
+    (max !== U && max < -2147483648) ||
+    (exMax !== U && exMax <= -2147483648)
+  ) {
     return never_();
   }
   let schema = int();
   if (min !== U) {
-    schema = gte(schema, min | 0);
+    schema = gte(schema, min);
   }
   if (exMin !== U) {
-    schema = gt(schema, exMin | 0);
+    schema = gt(schema, exMin);
   }
   if (max !== U) {
-    schema = lte(schema, max | 0);
+    schema = lte(schema, max);
   }
   if (exMax !== U) {
-    schema = lt(schema, exMax | 0);
+    schema = lt(schema, exMax);
   }
   return schema;
 }
