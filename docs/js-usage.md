@@ -500,18 +500,6 @@ const meSchema = S.schema({
 
 Literal fields keep their narrow type — `kind` above is `"human"`, not `string` — which is what makes discriminated unions work.
 
-The exception is a definition you extract into a variable, since TypeScript widens the literal before `S.schema` ever sees it. Add `as const` there, or wrap the value with `S.schema`:
-
-```ts
-const definition = {
-  kind: "human" as const,
-  // Or
-  kind: S.schema("human"),
-};
-
-S.schema(definition);
-```
-
 ### Advanced object schema
 
 Sometimes you want to transform the data coming to your system. You can easily do it by passing a function to the `S.object` schema.
