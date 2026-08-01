@@ -2716,31 +2716,39 @@ test("Uint8Array", (t) => {
 
 test("A contradictory bound pair is rejected where it's written", (t) => {
   // The schema would compile and then reject every possible value, which only
-  // surfaces in production — so it fails at construction instead.
+  // surfaces in production — so it fails at construction instead. Both sides
+  // render through toExpression, so the message is in the same syntax the
+  // schema is, not the constructor names the caller happened to use.
   t.expect(() => S.number.with(S.gte, 5).with(S.lte, 1)).toThrow(
-    `[Sury] S.lte(1) contradicts S.gte(5) — no value satisfies both`,
+    `[Sury] number <= 1 contradicts number >= 5 — no value satisfies both`,
   );
-  // Order doesn't matter: whichever bound arrives second reports the conflict.
   t.expect(() => S.number.with(S.lte, 1).with(S.gte, 5)).toThrow(
-    `[Sury] S.gte(5) contradicts S.lte(1) — no value satisfies both`,
+    `[Sury] number >= 5 contradicts number <= 1 — no value satisfies both`,
   );
   // Exclusive bounds make the touching cases empty too.
   t.expect(() => S.number.with(S.gt, 5).with(S.lte, 5)).toThrow(
-    `[Sury] S.lte(5) contradicts S.gt(5) — no value satisfies both`,
+    `[Sury] number <= 5 contradicts number > 5 — no value satisfies both`,
   );
   t.expect(() => S.number.with(S.gte, 5).with(S.lt, 5)).toThrow(
-    `[Sury] S.lt(5) contradicts S.gte(5) — no value satisfies both`,
+    `[Sury] number < 5 contradicts number >= 5 — no value satisfies both`,
   );
   t.expect(() => S.string.with(S.minLength, 5).with(S.maxLength, 1)).toThrow(
-    `[Sury] S.maxLength(1) contradicts S.minLength(5) — no value satisfies both`,
+    `[Sury] string.length <= 1 contradicts string.length >= 5 — no value satisfies both`,
   );
   t.expect(() => S.array(S.string).with(S.minLength, 5).with(S.maxLength, 1)).toThrow(
-    `[Sury] S.maxLength(1) contradicts S.minLength(5) — no value satisfies both`,
+    `[Sury] string[].length <= 1 contradicts string[].length >= 5 — no value satisfies both`,
   );
-  // `empty`/`nonEmpty` are sugar for length(0)/minLength(1), so the conflict
-  // is reported against the bound they desugar to.
+  // `empty`/`nonEmpty` desugar to length bounds, and report as those rather
+  // than naming a constructor the caller didn't write.
   t.expect(() => S.string.with(S.minLength, 2).with(S.empty)).toThrow(
-    `[Sury] S.length(0) contradicts S.minLength(2) — no value satisfies both`,
+    `[Sury] string.length <= 0 contradicts string.length >= 2 — no value satisfies both`,
+  );
+  // A format's range is a bound like any other, so a value outside it conflicts.
+  t.expect(() => S.int32.with(S.gte, 3000000000)).toThrow(
+    `[Sury] int32 >= 3000000000 contradicts int32 <= 2147483647 — no value satisfies both`,
+  );
+  t.expect(() => S.port.with(S.lte, -1)).toThrow(
+    `[Sury] port <= -1 contradicts port >= 0 — no value satisfies both`,
   );
 
   // A single point is satisfiable, so these stay legal.

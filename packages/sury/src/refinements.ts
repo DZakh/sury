@@ -76,6 +76,19 @@ const assertBound = (fnName: string, schema: Internal, value: unknown): void => 
   }
 };
 
+// A length is a count, so a negative, fractional or infinite one describes a
+// schema nothing can satisfy — caught here rather than compiling to a check
+// like `i.length>Infinity` that silently rejects everything.
+const assertLength = (fnName: string, n: unknown): void => {
+  if (typeof n !== numberTag || !Number.isSafeInteger(n) || (n as number) < 0) {
+    throw new SuryError({
+      code: "invalid_operation",
+      path: pathEmpty,
+      reason: `[S.${fnName}] Expected non-negative integer, received ${stringify(n)}`,
+    });
+  }
+};
+
 const assertSized = (fnName: string, schema: Internal): void => {
   if (schema.type !== stringTag && schema.type !== arrayTag) {
     panic(
@@ -125,58 +138,67 @@ const narrowsSize = (current: number | undefined, value: number, upper: boolean)
 
 // An empty range is always a caller bug: the schema compiles, emits, and then
 // rejects every possible value, which only shows up in production. Reported
-// where it's written instead, naming both bounds. `>5` and `<=5` have no
-// overlap either, so the boundary cases are contradictions too — hence the
-// comparison flipping on whether the incoming bound is exclusive.
-const conflict = (fnName: string, value: any, other: string | undefined): void => {
+// where it's written instead, as the two expressions that can't both hold.
+// `>5` and `<=5` have no overlap either, so the boundary cases are
+// contradictions too — hence the comparison flipping on whether the incoming
+// bound is exclusive.
+//
+// Both sides render through toExpression, so they read in the same syntax the
+// schema does — `string.length == 2 contradicts string.length >= 3`, not a
+// pair of constructor names the caller may not have written.
+const conflict = (incoming: Internal, existing: Internal): void => {
+  panic(`${toExpression(incoming)} contradicts ${toExpression(existing)} — no value satisfies both`);
+};
+
+// One bound of `schema`, rendered alone. Copies the schema so toExpression
+// still sees its type and items, but gives errorMessage exactly one key —
+// which is what withBounds reads, so every other bound stays invisible.
+const asBound = (schema: Internal, key: string, value: any): Internal => {
+  const mut = { ...schema, errorMessage: { [key]: U } } as unknown as Record<string, unknown>;
+  mut[key] = value;
+  return mut as unknown as Internal;
+};
+
+const assertLower = (schema: Internal, key: string, value: any, exclusive: boolean): void => {
+  const inclusive = schema.maximum;
+  const strict = schema.exclusiveMaximum;
+  const other =
+    inclusive !== U && (exclusive ? value >= inclusive : value > inclusive)
+      ? "maximum"
+      : strict !== U && value >= strict
+        ? "exclusiveMaximum"
+        : U;
   if (other !== U) {
-    panic(`S.${fnName}(${value}) contradicts S.${other} — no value satisfies both`);
+    conflict(asBound(schema, key, value), asBound(schema, other, schema[other]));
   }
 };
 
-const assertLower = (fnName: string, schema: Internal, value: any, exclusive: boolean): void => {
-  const inclusive = schema.maximum;
-  const strict = schema.exclusiveMaximum;
-  conflict(
-    fnName,
-    value,
-    inclusive !== U && (exclusive ? value >= inclusive : value > inclusive)
-      ? `lte(${inclusive})`
-      : strict !== U && value >= strict
-        ? `lt(${strict})`
-        : U
-  );
-};
-
-const assertUpper = (fnName: string, schema: Internal, value: any, exclusive: boolean): void => {
+const assertUpper = (schema: Internal, key: string, value: any, exclusive: boolean): void => {
   const inclusive = schema.minimum;
   const strict = schema.exclusiveMinimum;
-  conflict(
-    fnName,
-    value,
+  const other =
     inclusive !== U && (exclusive ? value <= inclusive : value < inclusive)
-      ? `gte(${inclusive})`
+      ? "minimum"
       : strict !== U && value <= strict
-        ? `gt(${strict})`
-        : U
-  );
+        ? "exclusiveMinimum"
+        : U;
+  if (other !== U) {
+    conflict(asBound(schema, key, value), asBound(schema, other, schema[other]));
+  }
 };
 
-const assertSize = (fnName: string, schema: Internal, value: number, upper: boolean): void => {
-  const other = schema[sizeKey(schema, !upper)];
-  conflict(
-    fnName,
-    value,
-    other !== U && (upper ? value < other : value > other)
-      ? `${upper ? "minLength" : "maxLength"}(${other})`
-      : U
-  );
+const assertSize = (schema: Internal, value: number, upper: boolean): void => {
+  const otherKey = sizeKey(schema, !upper);
+  const other = schema[otherKey];
+  if (other !== U && (upper ? value < other : value > other)) {
+    conflict(asBound(schema, sizeKey(schema, upper), value), asBound(schema, otherKey, other));
+  }
 };
 
 // @__NO_SIDE_EFFECTS__
 export const gte = (schema: Internal, minValue: any, maybeMessage?: string): Internal => {
   assertBound("gte", schema, minValue);
-  assertLower("gte", schema, minValue, false);
+  assertLower(schema, "minimum", minValue, false);
   if (!narrowsLower(schema, minValue, false)) return schema;
   return internalRefine(schema, (mut: Internal) => {
     mut.minimum = minValue;
@@ -196,7 +218,7 @@ export const gte = (schema: Internal, minValue: any, maybeMessage?: string): Int
 // @__NO_SIDE_EFFECTS__
 export const lte = (schema: Internal, maxValue: any, maybeMessage?: string): Internal => {
   assertBound("lte", schema, maxValue);
-  assertUpper("lte", schema, maxValue, false);
+  assertUpper(schema, "maximum", maxValue, false);
   if (!narrowsUpper(schema, maxValue, false)) return schema;
   return internalRefine(schema, (mut: Internal) => {
     mut.maximum = maxValue;
@@ -216,7 +238,7 @@ export const lte = (schema: Internal, maxValue: any, maybeMessage?: string): Int
 // @__NO_SIDE_EFFECTS__
 export const gt = (schema: Internal, minValue: any, maybeMessage?: string): Internal => {
   assertBound("gt", schema, minValue);
-  assertLower("gt", schema, minValue, true);
+  assertLower(schema, "exclusiveMinimum", minValue, true);
   if (!narrowsLower(schema, minValue, true)) return schema;
   return internalRefine(schema, (mut: Internal) => {
     mut.exclusiveMinimum = minValue;
@@ -236,7 +258,7 @@ export const gt = (schema: Internal, minValue: any, maybeMessage?: string): Inte
 // @__NO_SIDE_EFFECTS__
 export const lt = (schema: Internal, maxValue: any, maybeMessage?: string): Internal => {
   assertBound("lt", schema, maxValue);
-  assertUpper("lt", schema, maxValue, true);
+  assertUpper(schema, "exclusiveMaximum", maxValue, true);
   if (!narrowsUpper(schema, maxValue, true)) return schema;
   return internalRefine(schema, (mut: Internal) => {
     mut.exclusiveMaximum = maxValue;
@@ -256,8 +278,8 @@ export const lt = (schema: Internal, maxValue: any, maybeMessage?: string): Inte
 // @__NO_SIDE_EFFECTS__
 export const minLength = (schema: Internal, length: number, maybeMessage?: string): Internal => {
   assertSized("minLength", schema);
-  assertNumber("minLength", length);
-  assertSize("minLength", schema, length, false);
+  assertLength("minLength", length);
+  assertSize(schema, length, false);
   const key = sizeKey(schema, false);
   if (!narrowsSize(schema[key], length, false)) return schema;
   return internalRefine(schema, (mut: Internal) => {
@@ -277,8 +299,8 @@ export const minLength = (schema: Internal, length: number, maybeMessage?: strin
 // @__NO_SIDE_EFFECTS__
 export const maxLength = (schema: Internal, length: number, maybeMessage?: string): Internal => {
   assertSized("maxLength", schema);
-  assertNumber("maxLength", length);
-  assertSize("maxLength", schema, length, true);
+  assertLength("maxLength", length);
+  assertSize(schema, length, true);
   const key = sizeKey(schema, true);
   if (!narrowsSize(schema[key], length, true)) return schema;
   return internalRefine(schema, (mut: Internal) => {
@@ -298,9 +320,9 @@ export const maxLength = (schema: Internal, length: number, maybeMessage?: strin
 // @__NO_SIDE_EFFECTS__
 export const length = (schema: Internal, length: number, maybeMessage?: string): Internal => {
   assertSized("length", schema);
-  assertNumber("length", length);
-  assertSize("length", schema, length, false);
-  assertSize("length", schema, length, true);
+  assertLength("length", length);
+  assertSize(schema, length, false);
+  assertSize(schema, length, true);
   const minKey = sizeKey(schema, false);
   const maxKey = sizeKey(schema, true);
   return internalRefine(schema, (mut: Internal) => {

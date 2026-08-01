@@ -21,6 +21,7 @@ import {
   isLiteral,
   isOptional,
   jsonName,
+  s as errorSymbol,
   neverTag,
   nullTag,
   numberTag,
@@ -750,58 +751,24 @@ const inclusiveBound = (
   exclusive: number | boolean | undefined
 ): number | undefined => (exclusive === true ? U : inclusive);
 
-// An empty range is a caller bug when hand-written, but a JSON Schema document
-// carrying one is still legal — it just describes a type nothing inhabits. So
-// the public bound functions reject it while this side loads it as `never`
-// rather than refusing the document.
-const emptyRange = (
-  min: number | undefined,
-  exMin: number | undefined,
-  max: number | undefined,
-  exMax: number | undefined
-): boolean => {
-  const lower = exMin !== U ? exMin : min;
-  const upper = exMax !== U ? exMax : max;
-  return (
-    lower !== U &&
-    upper !== U &&
-    (exMin !== U || exMax !== U ? lower >= upper : lower > upper)
-  );
-};
-
-const emptySize = (min: number | undefined, max: number | undefined): boolean =>
-  min !== U && max !== U && min > max;
-
 const toIntSchema = (jsonSchema: JSONSchemaT): Internal => {
   // TODO: Support jsonSchema.multipleOf
   const min = inclusiveBound(jsonSchema.minimum, jsonSchema.exclusiveMinimum);
   const exMin = exclusiveBound(jsonSchema.minimum, jsonSchema.exclusiveMinimum);
   const max = inclusiveBound(jsonSchema.maximum, jsonSchema.exclusiveMaximum);
   const exMax = exclusiveBound(jsonSchema.maximum, jsonSchema.exclusiveMaximum);
-  // Sury's integer is int32, so a document bound past that range doesn't just
-  // constrain tightly — it leaves no representable value at all. Truncating it
-  // (the old `| 0`) silently wrapped 3000000000 to -1294967296 instead.
-  if (
-    emptyRange(min, exMin, max, exMax) ||
-    (min !== U && min > 2147483647) ||
-    (exMin !== U && exMin >= 2147483647) ||
-    (max !== U && max < -2147483648) ||
-    (exMax !== U && exMax <= -2147483648)
-  ) {
-    return never_();
-  }
   let schema = int();
   if (min !== U) {
-    schema = gte(schema, min);
+    schema = applyBound(schema, gte, min);
   }
   if (exMin !== U) {
-    schema = gt(schema, exMin);
+    schema = applyBound(schema, gt, exMin);
   }
   if (max !== U) {
-    schema = lte(schema, max);
+    schema = applyBound(schema, lte, max);
   }
   if (exMax !== U) {
-    schema = lt(schema, exMax);
+    schema = applyBound(schema, lt, exMax);
   }
   return schema;
 }
@@ -865,6 +832,28 @@ const definitionToDefaultValue = (definition: JSONSchemaDefinition): unknown => 
     return definition.default;
   } else {
     return U;
+  }
+}
+
+// A document may describe an empty range — `{minimum: 5, maximum: 1}`, or a
+// bound past int32's edge. That is legal JSON Schema with no inhabitants, so
+// it has to load, where the same bounds written by hand are a caller bug that
+// the public bound panics on. Reading that panic as `never` is what lets this
+// file use the real bounds instead of restating when they conflict. Scoped to
+// one application so an unrelated panic still escapes, as does a SuryError
+// (a malformed bound value, say).
+const applyBound = (
+  schema: Internal,
+  bound: (schema: Internal, value: any) => Internal,
+  value: unknown
+): Internal => {
+  try {
+    return bound(schema, value);
+  } catch (exn) {
+    if (exn && (exn as { s?: symbol }).s === errorSymbol) {
+      throw exn;
+    }
+    return never_();
   }
 }
 
@@ -953,14 +942,11 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
     } else {
       schema = array(anySchema);
     }
-    if (emptySize(jsonSchema.minItems, jsonSchema.maxItems)) {
-      return never_();
-    }
     if (jsonSchema.minItems !== U) {
-      schema = minLength(schema, jsonSchema.minItems);
+      schema = applyBound(schema, minLength, jsonSchema.minItems);
     }
     if (jsonSchema.maxItems !== U) {
-      schema = maxLength(schema, jsonSchema.maxItems);
+      schema = applyBound(schema, maxLength, jsonSchema.maxItems);
     }
   } else if (jsonSchema.anyOf !== U) {
     const definitions = jsonSchema.anyOf;
@@ -1001,14 +987,11 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
     if (jsonSchema.pattern !== U) {
       schema = pattern(schema, new RegExp(jsonSchema.pattern));
     }
-    if (emptySize(jsonSchema.minLength, jsonSchema.maxLength)) {
-      return never_();
-    }
     if (jsonSchema.minLength !== U) {
-      schema = minLength(schema, jsonSchema.minLength);
+      schema = applyBound(schema, minLength, jsonSchema.minLength);
     }
     if (jsonSchema.maxLength !== U) {
-      schema = maxLength(schema, jsonSchema.maxLength);
+      schema = applyBound(schema, maxLength, jsonSchema.maxLength);
     }
   } else if (jsonSchema.type === "integer") {
     schema = toIntSchema(jsonSchema);
@@ -1022,20 +1005,17 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
     const exMin = exclusiveBound(jsonSchema.minimum, jsonSchema.exclusiveMinimum);
     const max = inclusiveBound(jsonSchema.maximum, jsonSchema.exclusiveMaximum);
     const exMax = exclusiveBound(jsonSchema.maximum, jsonSchema.exclusiveMaximum);
-    if (emptyRange(min, exMin, max, exMax)) {
-      return never_();
-    }
     if (min !== U) {
-      schema = gte(schema, min);
+      schema = applyBound(schema, gte, min);
     }
     if (exMin !== U) {
-      schema = gt(schema, exMin);
+      schema = applyBound(schema, gt, exMin);
     }
     if (max !== U) {
-      schema = lte(schema, max);
+      schema = applyBound(schema, lte, max);
     }
     if (exMax !== U) {
-      schema = lt(schema, exMax);
+      schema = applyBound(schema, lt, exMax);
     }
   } else if (jsonSchema.type === "boolean") {
     schema = bool();
