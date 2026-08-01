@@ -95,11 +95,9 @@ const assertSized = (fnName: string, schema: Internal, value: unknown): void => 
 // bigint/number one.
 const lit = (value: any): string => (typeof value === bigintTag ? `${value}n` : `${value}`);
 
-const numNoun = (schema: Internal): string => (schema.type === bigintTag ? "BigInt" : "Number");
-
 // A string bounds minLength/maxLength where an array bounds minItems/maxItems.
-// Same generated check either way, so the tag picks the keyword and the noun
-// rather than there being two of each function.
+// Same generated check either way, so the tag picks the keyword rather than
+// there being two of each function.
 const sizeKey = (schema: Internal, upper: boolean): "minLength" | "maxLength" | "minItems" | "maxItems" =>
   schema.type === arrayTag ? (upper ? "maxItems" : "minItems") : upper ? "maxLength" : "minLength";
 
@@ -143,36 +141,39 @@ const conflict = (incoming: Internal, existing: Internal): void => {
   panic(`${toExpression(incoming)} contradicts ${toExpression(existing)}`);
 };
 
-// One bound of `schema`, rendered alone. Copies the schema so toExpression
-// still sees its type and items, but sets `bounds` to just this bit, so every
-// other bound stays invisible.
-const asBound = (schema: Internal, key: string, bit: number, value: any): Internal => {
+// One bound of `schema`, rendered alone: a copy so toExpression still sees the
+// type and items, with `bounds` set to just this bit so every other bound
+// stays invisible. Only ever called from a failing branch — building a message
+// must not cost an allocation on every bound that turns out to be fine.
+const asBound = (schema: Internal, key: string, bit: number, value: unknown): Internal => {
   const mut = { ...schema, bounds: bit } as unknown as Record<string, unknown>;
   mut[key] = value;
   return mut as unknown as Internal;
 };
 
 const assertLower = (schema: Internal, value: any, exclusive: boolean): void => {
+  const key = exclusive ? "exclusiveMinimum" : "minimum";
+  const bit = exclusive ? 4 : 1;
   const inclusive = schema.maximum;
   const strict = schema.exclusiveMaximum;
-  const incoming = asBound(schema, exclusive ? "exclusiveMinimum" : "minimum", exclusive ? 4 : 1, value);
   if (inclusive !== U && (exclusive ? value >= inclusive : value > inclusive)) {
-    conflict(incoming, asBound(schema, "maximum", 2, inclusive));
+    conflict(asBound(schema, key, bit, value), asBound(schema, "maximum", 2, inclusive));
   }
   if (strict !== U && value >= strict) {
-    conflict(incoming, asBound(schema, "exclusiveMaximum", 8, strict));
+    conflict(asBound(schema, key, bit, value), asBound(schema, "exclusiveMaximum", 8, strict));
   }
 };
 
 const assertUpper = (schema: Internal, value: any, exclusive: boolean): void => {
+  const key = exclusive ? "exclusiveMaximum" : "maximum";
+  const bit = exclusive ? 8 : 2;
   const inclusive = schema.minimum;
   const strict = schema.exclusiveMinimum;
-  const incoming = asBound(schema, exclusive ? "exclusiveMaximum" : "maximum", exclusive ? 8 : 2, value);
   if (inclusive !== U && (exclusive ? value <= inclusive : value < inclusive)) {
-    conflict(incoming, asBound(schema, "minimum", 1, inclusive));
+    conflict(asBound(schema, key, bit, value), asBound(schema, "minimum", 1, inclusive));
   }
   if (strict !== U && value <= strict) {
-    conflict(incoming, asBound(schema, "exclusiveMinimum", 4, strict));
+    conflict(asBound(schema, key, bit, value), asBound(schema, "exclusiveMinimum", 4, strict));
   }
 };
 
@@ -193,7 +194,7 @@ export const gte = (schema: Internal, minValue: any, maybeMessage?: string): Int
   assertLower(schema, minValue, false);
   if (!narrowsLower(schema, minValue, false)) return schema;
   return internalRefine(schema, (mut: Internal) => {
-    mut.bounds = (schema.bounds ?? 0) & ~4 | 1;
+    mut.bounds = ((schema.bounds ?? 0) & ~4) | 1;
     mut.minimum = minValue;
     mut.exclusiveMinimum = U;
     if (maybeMessage !== U) getMutErrorMessage(mut)["minimum"] = maybeMessage;
@@ -214,7 +215,7 @@ export const lte = (schema: Internal, maxValue: any, maybeMessage?: string): Int
   assertUpper(schema, maxValue, false);
   if (!narrowsUpper(schema, maxValue, false)) return schema;
   return internalRefine(schema, (mut: Internal) => {
-    mut.bounds = (schema.bounds ?? 0) & ~8 | 2;
+    mut.bounds = ((schema.bounds ?? 0) & ~8) | 2;
     mut.maximum = maxValue;
     mut.exclusiveMaximum = U;
     if (maybeMessage !== U) getMutErrorMessage(mut)["maximum"] = maybeMessage;
@@ -235,7 +236,7 @@ export const gt = (schema: Internal, minValue: any, maybeMessage?: string): Inte
   assertLower(schema, minValue, true);
   if (!narrowsLower(schema, minValue, true)) return schema;
   return internalRefine(schema, (mut: Internal) => {
-    mut.bounds = (schema.bounds ?? 0) & ~1 | 4;
+    mut.bounds = ((schema.bounds ?? 0) & ~1) | 4;
     mut.exclusiveMinimum = minValue;
     mut.minimum = U;
     if (maybeMessage !== U) getMutErrorMessage(mut)["exclusiveMinimum"] = maybeMessage;
@@ -256,7 +257,7 @@ export const lt = (schema: Internal, maxValue: any, maybeMessage?: string): Inte
   assertUpper(schema, maxValue, true);
   if (!narrowsUpper(schema, maxValue, true)) return schema;
   return internalRefine(schema, (mut: Internal) => {
-    mut.bounds = (schema.bounds ?? 0) & ~2 | 8;
+    mut.bounds = ((schema.bounds ?? 0) & ~2) | 8;
     mut.exclusiveMaximum = maxValue;
     mut.maximum = U;
     if (maybeMessage !== U) getMutErrorMessage(mut)["exclusiveMaximum"] = maybeMessage;
