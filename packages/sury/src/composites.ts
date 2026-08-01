@@ -72,32 +72,36 @@ const isItemSchema = (x: AdditionalItems | undefined): x is Internal =>
 
 // Assigned to `schema.x` by every objectTag/arrayTag construction site, here and
 // in factory.ts — a site that forgets renders as the bare tag.
+// Properties and an index signature are emitted from one accumulator rather
+// than as exclusive branches: no factory currently produces both at once, but
+// the shape is representable, and the branchy version silently dropped the
+// index signature when it happened.
 export const objectExpression = (schema: Internal): string => {
   const properties = schema.properties!;
-  const locations = Object.keys(properties);
-  if (locations.length === 0) {
-    if (typeof schema.additionalItems === objectTag) {
-      return `{ [key: string]: ${inputExpression(schema.additionalItems as Internal)}; }`;
-    } else {
-      return `{}`;
-    }
-  } else {
-    return `{ ${locations
-      .map((location) => {
-        return `${location}: ${inputExpression(properties[location]!)};`;
-      })
-      .join(" ")} }`;
+  const additionalItems = schema.additionalItems;
+  let body = "";
+  for (const location in properties) {
+    body = body + location + ": " + inputExpression(properties[location]!) + "; ";
   }
+  if (typeof additionalItems === objectTag) {
+    body = body + "[key: string]: " + inputExpression(additionalItems as Internal) + "; ";
+  }
+  return body === "" ? `{}` : `{ ${body}}`;
 }
 
 export const arrayExpression = (schema: Internal): string => {
-  if (typeof schema.additionalItems === objectTag) {
-    const additionalItems = schema.additionalItems as Internal;
-    const itemName = inputExpression(additionalItems);
-    return (additionalItems.type === anyOfTag ? `(${itemName})` : itemName) + "[]";
-  } else {
-    return `[${schema.items!.map((schema) => inputExpression(schema)).join(", ")}]`;
+  const additionalItems = schema.additionalItems;
+  if (typeof additionalItems === objectTag) {
+    const item = additionalItems as Internal;
+    const itemName = inputExpression(item);
+    return (item.type === anyOfTag ? `(${itemName})` : itemName) + "[]";
   }
+  const items = schema.items!;
+  let body = "";
+  for (let idx = 0; idx < items.length; idx++) {
+    body = body + (idx === 0 ? "" : ", ") + inputExpression(items[idx]!);
+  }
+  return `[${body}]`;
 }
 
 export const makeObjectVal = (prev: Val, schema: Internal): Val => {

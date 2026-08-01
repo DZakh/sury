@@ -21,6 +21,6 @@ operations:
         output: '"no"'
       wrong-tag:
         input: "42"
-        error: Expected string | string, received 42
+        error: Expected string, received 42
   decode: identity
   encode: identity

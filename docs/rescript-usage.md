@@ -1668,7 +1668,9 @@ The same expression for the schema's output type.
 // "Schema<int32, string>"
 ```
 
-Both sides at once, in the order the type declares them — `Schema<Output, Input>` — with the second parameter dropped when the two sides match. `console.log` prints this too, so a schema is readable in a log line without unwrapping it.
+Both sides at once, in the order the type declares them — `Schema<Output, Input>` — with the second parameter dropped when the two sides match.
+
+`Console.log(schema)` deliberately still shows the internal schema shape, which is usually what you want when you're inspecting one. Call `toString` when you want the expression.
 
 The output side is derived through [`reverse`](#reverse), so nested transforms are reported correctly:
 

@@ -16,6 +16,13 @@ operations:
       valid:
         input: '{ a: "x", b: "y" }'
         output: '{ a: "x", b: "y" }'
+      # FIXME: S.record takes no key schema, so keys are never validated — the
+      # key type is assumed to be string. Zod's equivalent takes one
+      # (z.record(z.string(), z.string())), which is why `vs.zod` above has to
+      # spell the key side out.
+      numeric-key-is-not-rejected:
+        input: '{ "1": "x" }'
+        output: '{ "1": "x" }'
       empty:
         input: "{}"
         output: "{}"

@@ -86,16 +86,16 @@ export const getStandardJSONSchema = (
 // recorded across bundleSize.yaml. Walking the `.to` chain instead would be
 // cheaper and wrong: the output of `{ a: string -> int32 }` is `{ a: int32; }`,
 // which only a recursive reversal produces.
-const schemaToString = function (this: Internal): string {
-  const input = inputExpression(this);
-  const output = inputExpression(reverse(this));
-  return `Schema<${output === input ? input : `${output}, ${input}`}>`;
-};
-Object.defineProperty(schemaPrototype, "toString", { value: schemaToString });
-// console.log reads this instead of toString, and without it Node prints the
-// raw internal object.
-Object.defineProperty(schemaPrototype, Symbol.for("nodejs.util.inspect.custom"), {
-  value: schemaToString,
+// Deliberately not also registered as Node's `nodejs.util.inspect.custom`:
+// `console.log(schema)` keeps showing the internal shape, which is what someone
+// logging a schema is usually trying to see. Ask for the expression explicitly
+// with `${schema}` or `String(schema)`.
+Object.defineProperty(schemaPrototype, "toString", {
+  value: function (this: Internal): string {
+    const input = inputExpression(this);
+    const output = inputExpression(reverse(this));
+    return `Schema<${output === input ? input : `${output}, ${input}`}>`;
+  },
 });
 
 // A lazy prototype getter (not an eager per-schema property — that would put

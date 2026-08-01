@@ -30,6 +30,6 @@ operations:
         output: "-0"
       invalid:
         input: "true"
-        error: Expected string | number | string, received true
+        error: Expected string | number, received true
   decode: identity
   encode: identity

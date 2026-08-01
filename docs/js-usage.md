@@ -1345,11 +1345,13 @@ The same expression for the schema's output type.
 `${S.to(S.string, S.number)}`;
 // "Schema<number, string>"
 
-console.log(S.schema({ id: S.string, age: S.number }));
-// Schema<{ id: string; age: number; }>
+String(S.schema({ id: S.string, age: S.number }));
+// "Schema<{ id: string; age: number; }>"
 ```
 
-Both sides at once, in the order the type declares them — `Schema<Output, Input>` — with the second parameter dropped when the two sides match. `console.log` prints this too, so a schema is readable in a log line without unwrapping it.
+Both sides at once, in the order the type declares them — `Schema<Output, Input>` — with the second parameter dropped when the two sides match.
+
+`console.log(schema)` deliberately still shows the internal schema shape, which is usually what you want when you're inspecting one. Ask for the expression explicitly when you want it — `` console.log(`${schema}`) `` or `console.log("%s", schema)`.
 
 The output side is derived through [`reverse`](#reverse), so nested transforms are reported correctly:
 

@@ -93,9 +93,20 @@ test("Expression of Union schema", t => {
 })
 
 test("Expression of Union schema with duplicated items", t => {
+  // Deduplicated on the rendered text, so the two distinct "foo" literal
+  // schemas collapse into one member.
   t->Assert.deepEqual(
     S.union([S.literal("foo"), S.string, S.literal("foo")])->S.inputExpression,
-    `"foo" | string | "foo"`,
+    `"foo" | string`,
+  )
+})
+
+test("Expression of Union schema collapses members that render alike", t => {
+  // The trade: these are three different schemas, and the expression no longer
+  // says so. What distinguishes them surfaces in a union error's reason list.
+  t->Assert.deepEqual(
+    S.union([S.string->S.min(4), S.string->S.max(1), S.string])->S.inputExpression,
+    "string",
   )
 })
 

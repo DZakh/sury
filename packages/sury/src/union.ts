@@ -85,10 +85,24 @@ const unionOpaqueTags =
 // Assigned to `schema.x` by every anyOf construction site. Repeated members
 // remain significant to decoding (the same effectful schema may intentionally
 // run more than once), but not to the human expression describing the union.
-// Identity-only deduplication avoids conflating distinct symbols/classes that
-// merely render alike.
-export const unionExpression = (schema: Internal): string =>
-  [...new Set(schema.anyOf)].map(inputExpression).join(" | ");
+//
+// Deduplication is on the rendered text, not schema identity: two members a
+// reader cannot tell apart add nothing by appearing twice. The cost is that
+// members which genuinely differ but render alike — two distinct classes both
+// named Foo — collapse to one, so the expression stops being a member count.
+export const unionExpression = (schema: Internal): string => {
+  const anyOf = schema.anyOf!;
+  const seen = new Set<string>();
+  let out = "";
+  for (let idx = 0; idx < anyOf.length; idx++) {
+    const expression = inputExpression(anyOf[idx]!);
+    if (!seen.has(expression)) {
+      seen.add(expression);
+      out = out === "" ? expression : out + " | " + expression;
+    }
+  }
+  return out;
+}
 
 // ── Type identity ────────────────────────────────────────────────────────────
 
