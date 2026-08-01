@@ -99,6 +99,20 @@ S.reverse(S.schema({
 - **Empty async dict returns a forever-pending Promise.**
   `S.record` with an async item schema and `{}` input never resolves
   (`Promise.all` aggregation is skipped for zero keys).
+- **`toJSONSchema` infinitely recurses on a string-format ↔ string conversion.**
+  `S.email.with(S.to, S.string)`, `S.uuid.with(S.to, S.string)`,
+  `S.cuid.with(S.to, S.string)`, `S.string.with(S.to, S.email)` and
+  `S.env.with(S.to, S.string)` all throw `Maximum call stack size exceeded`
+  (`codec-env-string` and `codec-env-string-min0` record that as their
+  `jsonSchema` golden). `internalToJSONSchema` calls `encodeToJsonSchema` for
+  any schema with a `.to`, which reverses, parses, and recurses on `output.s`
+  (`packages/sury/src/jsonschema.ts`). When both sides share a type tag the
+  decode is a no-op, so `output.s` is the *source* schema — still carrying the
+  same `.to` — and the pair recurses forever. `S.int32`/`S.number` escapes only
+  because the int32 branch rebuilds the val. Fix: recurse into
+  `internalToJSONSchemaBase` rather than `internalToJSONSchema` from inside
+  `encodeToJsonSchema` (an encode has already been attempted, so re-entering the
+  encode path can't add precision), or bail when the parse made no progress.
 - **Loop guard message says 100 but triggers at 50.** The recursion guard in
   `packages/sury/src/parse.ts` throws "Loop count exceeded 100" behind a
   `> 50` check — align the number (and consider making the limit configurable).
