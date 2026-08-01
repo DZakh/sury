@@ -31,8 +31,6 @@ let applySchemaAttribute ~loc schema_expr
       | Pexp_tuple (fn_expr :: extra_args) -> (fn_expr, extra_args)
       | _ -> (payload_expr, [])
     in
-    if List.length extra_args > 5 then
-      fail loc "@s.with supports up to 5 arguments after the transform function";
     incr s_with_counter;
     (* Annotate both the schema argument and the result with the same type
        variable, so the payload function is forced to keep the value type —

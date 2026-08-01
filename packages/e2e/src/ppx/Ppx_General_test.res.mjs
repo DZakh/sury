@@ -72,15 +72,19 @@ let intWithWithArgsSchema = Sury.max(Sury.min(Sury.int, 1), 5);
 
 Vitest.test("Applies @s.with with an extra argument passed after the transform", t => U.assertEqualSchemas(t, intWithWithArgsSchema, Sury.max(Sury.min(Sury.int, 1), 5), undefined));
 
-function describe5(schema, a, b, c, d, e) {
+function describe6(schema, a, b, c, d, e, f) {
   return Sury.meta(schema, {
-    description: a + b + c + d + e
+    description: a + b + c + d + e + f
   });
 }
 
-let stringWithWithFiveArgsSchema = describe5(Sury.string, "a", "b", "c", "d", "e");
+let stringWithWithManyArgsSchema = describe6(Sury.string, "a", "b", "c", "d", "e", "f");
 
-Vitest.test("Applies @s.with with five extra arguments", t => U.assertEqualSchemas(t, stringWithWithFiveArgsSchema, describe5(Sury.string, "a", "b", "c", "d", "e"), undefined));
+Vitest.test("Applies @s.with with an unbounded number of extra arguments", t => U.assertEqualSchemas(t, stringWithWithManyArgsSchema, describe6(Sury.string, "a", "b", "c", "d", "e", "f"), undefined));
+
+let intWithWithPlaceholderSchema = Sury.min(Sury.int, 1);
+
+Vitest.test("Applies @s.with with partial application placeholder", t => U.assertEqualSchemas(t, intWithWithPlaceholderSchema, Sury.min(Sury.int, 1), undefined));
 
 export {
   schema,

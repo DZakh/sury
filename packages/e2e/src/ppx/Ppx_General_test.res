@@ -98,14 +98,20 @@ test("Applies @s.with with an extra argument passed after the transform", t => {
   t->assertEqualSchemas(intWithWithArgsSchema, S.int->S.min(1)->S.max(5))
 })
 
-let describe5 = (schema, a, b, c, d, e) =>
-  schema->S.meta({description: a ++ b ++ c ++ d ++ e})
+let describe6 = (schema, a, b, c, d, e, f) =>
+  schema->S.meta({description: a ++ b ++ c ++ d ++ e ++ f})
 
 @schema
-type stringWithWithFiveArgs = @s.with((describe5, "a", "b", "c", "d", "e")) string
-test("Applies @s.with with five extra arguments", t => {
+type stringWithWithManyArgs = @s.with((describe6, "a", "b", "c", "d", "e", "f")) string
+test("Applies @s.with with an unbounded number of extra arguments", t => {
   t->assertEqualSchemas(
-    stringWithWithFiveArgsSchema,
-    S.string->describe5("a", "b", "c", "d", "e"),
+    stringWithWithManyArgsSchema,
+    S.string->describe6("a", "b", "c", "d", "e", "f"),
   )
+})
+
+@schema
+type intWithWithPlaceholder = @s.with(S.min(_, 1)) int
+test("Applies @s.with with partial application placeholder", t => {
+  t->assertEqualSchemas(intWithWithPlaceholderSchema, S.int->S.min(1))
 })
