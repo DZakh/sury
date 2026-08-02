@@ -190,7 +190,7 @@ export const js_optional = (schema: Internal, maybeOr: unknown): Internal => {
 export const js_nullable = (schema: Internal, maybeOr: unknown): Internal => {
   // TODO: maybeOr should be part of the unit schema
   if (maybeOr !== U) {
-    const schema2 = unionFactory([schema, nullAsUnit()]);
+    const schema2 = unionFactory([schema, nullAsUnit]);
     if (typeof maybeOr === functionTag) {
       return Option_getOrWith(schema2, maybeOr as () => unknown);
     } else {

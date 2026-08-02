@@ -27,7 +27,7 @@ export { dictFactory as dict } from "./composites";
 export { unionFactory as union } from "./union";
 // @__NO_SIDE_EFFECTS__
 export const nullAsOption = (item: Internal): Internal =>
-  optionFactory(item, nullAsUnit());
+  optionFactory(item, nullAsUnit);
 // `null` is a reserved word in JS/TS binding position, so this is exported
 // as `null_`.
 export const null_ = (item: Internal): Internal =>
@@ -259,7 +259,7 @@ export const nullable = (schema: Internal): Internal => {
 
 // @__NO_SIDE_EFFECTS__
 export const nullableAsOption = (schema: Internal): Internal => {
-  return unionFactory([schema, unit, nullAsUnit()]);
+  return unionFactory([schema, unit, nullAsUnit]);
 }
 
 export const isoDateTime: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {

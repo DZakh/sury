@@ -3,14 +3,13 @@
 //    documented names (typed by the hand-written S.d.ts).
 //  - The ReScript bindings module (S.res) binds to this same module with
 //    `@module("sury") external` declarations, so both languages share one
-//    runtime instance (one Exn identity, one schema cache, one seq counter).
+//    runtime instance (one Exn identity, one set of schema singletons, one
+//    seq counter).
 //
 // Built by scripts/pack.ts into src/S.mjs (the publish step additionally
 // emits a CJS S.js into the artifact for the require condition). The extra
 // ReScript-binding exports ($res_*-named) are invisible to TS users (S.d.ts
 // is the curated surface) and tree-shake when unused like any other export.
-
-import { nullAsUnit as nullAsUnitFactory } from "./modifiers";
 
 // ── Schema singletons (shared by both surfaces) ──────────────────────────────
 //
@@ -43,7 +42,7 @@ export {
   cuid,
   url,
 } from "./refinements";
-export const $res_nullAsUnit = /* @__PURE__ */ nullAsUnitFactory();
+export { nullAsUnit as $res_nullAsUnit } from "./modifiers";
 export {
   unknown,
   unknown as any,

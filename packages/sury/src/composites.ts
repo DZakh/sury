@@ -587,7 +587,7 @@ export const nestedOption = (item: Internal): Internal => {
 }
 
 // PORT-NOTE: the `~unit` labeled arg is renamed to `unitSchema` so the
-// default expression can still reference the module-level `unit` factory.
+// default expression can still reference the module-level `unit` singleton.
 export const optionFactory = (item: Internal, unitSchema: Internal = unit): Internal => {
   const out = getOutputSchema(item);
   if (out.type === undefinedTag) {
