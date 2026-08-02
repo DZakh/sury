@@ -157,8 +157,8 @@ export const isAsync = (schema: Internal): boolean => {
   }
 }
 
-export type JsResult<V> =
-  | { success: true; value: V }
+export type JsResult<TValue> =
+  | { success: true; value: TValue }
   | { success: false; error: SuryErrorRecord };
 
 export const wrapExnToFailure = (exn: unknown): JsResult<never> => {
@@ -169,7 +169,7 @@ export const wrapExnToFailure = (exn: unknown): JsResult<never> => {
   }
 }
 
-export const js_safe = <V>(fn: () => V): JsResult<V> => {
+export const js_safe = <TValue>(fn: () => TValue): JsResult<TValue> => {
   try {
     return {
       success: true,
@@ -180,10 +180,10 @@ export const js_safe = <V>(fn: () => V): JsResult<V> => {
   }
 }
 
-export const js_safeAsync = <V>(fn: () => Promise<V>): Promise<JsResult<V>> => {
+export const js_safeAsync = <TValue>(fn: () => Promise<TValue>): Promise<JsResult<TValue>> => {
   try {
     return fn().then(
-      (value): JsResult<V> => ({ success: true, value }),
+      (value): JsResult<TValue> => ({ success: true, value }),
       wrapExnToFailure
     );
   } catch (exn) {

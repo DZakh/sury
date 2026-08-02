@@ -25,26 +25,26 @@ import * as S from "../src/S.mjs";
 
 // Exact (bidirectional) type equality. expect-type's `toEqualTypeOf` can't be
 // wrapped in a generic helper and still fire at call sites, so the dual
-// Output+Input check is enforced via a required-argument constraint instead.
-type Equal<A, B> =
-  (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
+// Input+Output check is enforced via a required-argument constraint instead.
+type Equal<TLeft, TRight> =
+  (<T>() => T extends TLeft ? 1 : 2) extends <T>() => T extends TRight ? 1 : 2
     ? true
     : false;
 
-const expectSchemaType = <Schema extends S.Schema<unknown, unknown>>(
-  _schema: Schema,
+const expectSchemaType = <TSchema extends S.Schema<unknown, unknown>>(
+  _schema: TSchema,
 ) => ({
-  toBe: <Output, Input = Output>(
-    ..._mismatch: Equal<S.Output<Schema>, Output> extends true
-      ? Equal<S.Input<Schema>, Input> extends true
+  toBe: <TInput, TOutput = TInput>(
+    ..._mismatch: Equal<S.Input<TSchema>, TInput> extends true
+      ? Equal<S.Output<TSchema>, TOutput> extends true
         ? []
-        : [input: S.Input<Schema>]
-      : [output: S.Output<Schema>]
+        : [output: S.Output<TSchema>]
+      : [input: S.Input<TSchema>]
   ) => {},
 });
 
 // Can use genType schema
-// expectSchemaType(stringSchema).toBe<string, unknown>();
+// expectSchemaType(stringSchema).toBe<unknown, string>();
 
 test("JSON string demo", (t) => {
   t.expect(S.parser(S.jsonString)("123")).toEqual("123");
@@ -101,7 +101,7 @@ test("S.pattern preserves the Input type through a transform (#282)", (t) => {
 
   t.expect(S.decoder(schema)(123)).toEqual("123");
 
-  expectSchemaType(schema).toBe<string, number>();
+  expectSchemaType(schema).toBe<number, string>();
 });
 
 test("Successfully parses string with built-in transform", (t) => {
@@ -120,7 +120,7 @@ test("Successfully parses string to Date via S.to(S.date)", (t) => {
 
   t.expect(value).toEqual(new Date("2020-01-01T00:00:00Z"));
 
-  expectSchemaType(schema).toBe<Date, string>();
+  expectSchemaType(schema).toBe<string, Date>();
   expectTypeOf(value).toEqualTypeOf<Date>();
 });
 
@@ -141,8 +141,8 @@ test("S.to returns the schema itself when the target is the same instance", (t) 
   t.expect(doubled).not.toBe(schema);
   t.expect(S.parser(doubled)("hello")).toBe(2);
 
-  expectSchemaType(schema).toBe<number, string>();
-  expectSchemaType(S.to(schema, schema)).toBe<number, string>();
+  expectSchemaType(schema).toBe<string, number>();
+  expectSchemaType(S.to(schema, schema)).toBe<string, number>();
 });
 
 test("Successfully parses string to Date with S.to", (t) => {
@@ -151,7 +151,7 @@ test("Successfully parses string to Date with S.to", (t) => {
 
   t.expect(value).toEqual(new Date("2024-01-01T00:00:00.000Z"));
 
-  expectSchemaType(schema).toBe<Date, string>();
+  expectSchemaType(schema).toBe<string, Date>();
   expectTypeOf(value).toEqualTypeOf<Date>();
 });
 
@@ -161,7 +161,7 @@ test("Successfully converts Date to string with S.to", (t) => {
 
   t.expect(value).toBe("2024-01-01T00:00:00.000Z");
 
-  expectSchemaType(schema).toBe<string, Date>();
+  expectSchemaType(schema).toBe<Date, string>();
   expectTypeOf(value).toEqualTypeOf<string>();
 });
 
@@ -293,7 +293,7 @@ test("Successfully parses JSON string", (t) => {
   t.expect(value).toEqual(true);
   t.expect(schema.type === "string" && schema.format === "json").toEqual(true);
 
-  expectSchemaType(schema).toBe<boolean, string>();
+  expectSchemaType(schema).toBe<string, boolean>();
   expectTypeOf(value).toEqualTypeOf<boolean>();
 });
 
@@ -358,10 +358,10 @@ test("Successfully serialized JSON object", (t) => {
   const valueWithSpace = S.encoder(schemaWithSpace)({ foo: [1, 2] });
   t.expect(valueWithSpace).toEqual('{\n  "foo": [\n    1,\n    2\n  ]\n}');
 
-  expectSchemaType(schema).toBe<{ foo: [1, number] }, string>();
+  expectSchemaType(schema).toBe<string, { foo: [1, number] }>();
   expectSchemaType(schema).toBe<
-    S.Output<typeof schemaWithSpace>,
-    S.Input<typeof schemaWithSpace>
+    S.Input<typeof schemaWithSpace>,
+    S.Output<typeof schemaWithSpace>
   >();
   expectTypeOf(value).toEqualTypeOf<string>();
 });
@@ -513,7 +513,7 @@ test("Successfully parses nullable of array with default", (t) => {
   t.expect(value1).toEqual(["foo"]);
   t.expect(value2).toEqual([]);
 
-  expectTypeOf(schema).toEqualTypeOf<S.Schema<string[], string[] | null>>();
+  expectTypeOf(schema).toEqualTypeOf<S.Schema<string[] | null, string[]>>();
   expectTypeOf(value1).toEqualTypeOf<string[]>();
 });
 
@@ -533,7 +533,7 @@ test("Successfully parses nullable string with default", (t) => {
     }),
   );
 
-  expectTypeOf(schema).toEqualTypeOf<S.Schema<string, string | null>>();
+  expectTypeOf(schema).toEqualTypeOf<S.Schema<string | null, string>>();
   expectTypeOf(value1).toEqualTypeOf<string>();
 });
 
@@ -545,7 +545,7 @@ test("Successfully parses nullable string with dynamic default", (t) => {
   t.expect(value1).toEqual("foo");
   t.expect(value2).toEqual("bar");
 
-  expectTypeOf(schema).toEqualTypeOf<S.Schema<string, string | null>>();
+  expectTypeOf(schema).toEqualTypeOf<S.Schema<string | null, string>>();
   expectTypeOf(value1).toEqualTypeOf<string>();
 });
 
@@ -929,8 +929,8 @@ test("Successfully parses object with field names transform", (t) => {
   });
 
   expectSchemaType(schema).toBe<
-    { foo: string; bar: boolean },
-    Record<string, unknown>
+    Record<string, unknown>,
+    { foo: string; bar: boolean }
   >();
   expectTypeOf(value).toEqualTypeOf<{ foo: string; bar: boolean }>();
 });
@@ -963,8 +963,8 @@ test("Successfully parses advanced object with all features", (t) => {
   });
 
   expectSchemaType(schema).toBe<
-    { nested: number; flattened: { id: string }; foo: string; bar: boolean },
-    Record<string, unknown>
+    Record<string, unknown>,
+    { nested: number; flattened: { id: string }; foo: string; bar: boolean }
   >();
 });
 
@@ -984,8 +984,8 @@ test("Successfully parses object with transformed field", (t) => {
   });
 
   expectSchemaType(schema).toBe<
-    { foo: number; bar: boolean },
-    { foo: string; bar: boolean }
+    { foo: string; bar: boolean },
+    { foo: number; bar: boolean }
   >();
   expectTypeOf(value).toEqualTypeOf<{ foo: number; bar: boolean }>();
 });
@@ -1104,11 +1104,11 @@ test("Fails to parse intersected objects with transform", (t) => {
   );
 
   // expectSchemaType(schema).toBe<
+  //   Record<string, unknown>,
   //   {
   //     abc: string;
   //     baz: string;
-  //   },
-  //   Record<string, unknown>
+  //   }
   // >();
 
   // const result = S.safe(() =>
@@ -1441,12 +1441,12 @@ test("Successfully parses union with transformed items", (t) => {
 
   t.expect(value).toEqual({ success: true, value: 123 });
 
-  expectSchemaType(schema).toBe<number, string | number>();
+  expectSchemaType(schema).toBe<string | number, number>();
 });
 
 test("Correctly infers type", (t) => {
   const schema = S.string.with(S.to, S.number, Number);
-  expectSchemaType(schema).toBe<number, string>();
+  expectSchemaType(schema).toBe<string, number>();
   expectTypeOf<S.Input<typeof schema>>().toEqualTypeOf<string>();
   expectTypeOf<S.Output<typeof schema>>().toEqualTypeOf<number>();
 });
@@ -1460,7 +1460,7 @@ test("Successfully parses undefined using the default value", (t) => {
   t.expect(schema.default).toEqual("foo");
 
   expectTypeOf(schema.default).toEqualTypeOf<string | undefined>();
-  expectSchemaType(schema).toBe<string, string | undefined>();
+  expectSchemaType(schema).toBe<string | undefined, string>();
 });
 
 test("Successfully parses undefined using the default value for transformed schema", (t) => {
@@ -1474,7 +1474,7 @@ test("Successfully parses undefined using the default value for transformed sche
   t.expect(schema.default).toEqual(false);
 
   expectTypeOf(schema.default).toEqualTypeOf<boolean | undefined>();
-  expectSchemaType(schema).toBe<string, boolean | undefined>();
+  expectSchemaType(schema).toBe<boolean | undefined, string>();
 });
 
 test("Successfully parses undefined using the default value from callback", (t) => {
@@ -1487,7 +1487,7 @@ test("Successfully parses undefined using the default value from callback", (t) 
 
   //FIXME: This is broken
   // @ts-expect-error
-  expectSchemaType(schema).toBe<string, string | undefined>();
+  expectSchemaType(schema).toBe<string | undefined, string>();
 });
 
 test("Creates schema with description and title", (t) => {
@@ -1552,7 +1552,7 @@ test("Tuple with single element", (t) => {
 
   t.expect(S.parser(schema)(["123"])).toEqual([123]);
 
-  expectSchemaType(schema).toBe<[number], [string]>();
+  expectSchemaType(schema).toBe<[string], [number]>();
 });
 
 test("Tuple with multiple elements", (t) => {
@@ -1664,7 +1664,7 @@ test("Standard JSON Schema interface support", (t) => {
 });
 
 test("Env schema: Reggression version", (t) => {
-  const env = <T>(schema: S.Schema<T>): S.Schema<T, string> => {
+  const env = <T>(schema: S.Schema<unknown, T>): S.Schema<string, T> => {
     if (schema.type === "boolean") {
       return S.union([
         S.schema("t").with(S.to, S.schema(true)).with(S.to, schema),
@@ -1789,7 +1789,7 @@ test("Set schema", (t) => {
 });
 
 test("Full Set schema", (t) => {
-  const mySet = <T>(itemSchema: S.Schema<T>): S.Schema<Set<T>> =>
+  const mySet = <T>(itemSchema: S.Schema<unknown, T>): S.Schema<unknown, Set<T>> =>
     S.instance(Set<unknown>)
       .with(S.to, S.instance(Set<T>), (input) => {
         const output = new Set<T>();
@@ -1811,7 +1811,7 @@ test("Full Set schema", (t) => {
 
   const numberSetSchema = mySet(S.number);
 
-  expectSchemaType(numberSetSchema).toBe<Set<number>, unknown>();
+  expectSchemaType(numberSetSchema).toBe<unknown, Set<number>>();
 
   t.expect(S.parser(numberSetSchema)(new Set([1, 2, 3]))).toEqual(
     new Set([1, 2, 3]),
@@ -1836,7 +1836,7 @@ test("Coerce string to number", (t) => {
 
   t.expect(schema.to).toBe(S.number);
 
-  expectSchemaType(schema).toBe<number, string>();
+  expectSchemaType(schema).toBe<string, number>();
   expectTypeOf(schema.to).toEqualTypeOf<S.Schema<unknown> | undefined>();
 
   t.expect(S.parser(schema)("123")).toEqual(123);
@@ -1862,7 +1862,7 @@ test("Tuple with transform to object", (t) => {
 
   t.expect(S.parser(pointSchema)(["point", 1, -4])).toEqual({ x: 1, y: -4 });
 
-  expectSchemaType(pointSchema).toBe<{ x: number; y: number }, unknown[]>();
+  expectSchemaType(pointSchema).toBe<unknown[], { x: number; y: number }>();
 });
 
 test("Assert throws with invalid data", (t) => {
@@ -1968,7 +1968,7 @@ test("Assert throws a Sury error for null/undefined data in both arg orders", (t
 });
 
 test("Schema of object with empty prototype", (t) => {
-  const obj = Object.create(null) as { foo: S.Schema<string, string> };
+  const obj = Object.create(null) as { foo: S.Schema<string> };
   obj.foo = S.string;
   const schema = S.schema(obj);
 
@@ -1985,7 +1985,9 @@ test("Successfully parses recursive object", (t) => {
     children: Node[];
   };
 
-  let nodeSchema = S.recursive<Node, Node>("Node", (nodeSchema) =>
+  // The one-arg form relies on `TOutput = TInput` — keep it compiling for
+  // identity recursion even if the signature changes.
+  let nodeSchema = S.recursive<Node>("Node", (nodeSchema) =>
     S.schema({
       id: S.string,
       children: S.array(nodeSchema),
@@ -2021,12 +2023,12 @@ test("Mutually recursive objects", (t) => {
     author: User;
   };
 
-  const makeUserSchema = (postSchema: S.Schema<Post>) =>
+  const makeUserSchema = (postSchema: S.Schema<unknown, Post>) =>
     S.schema({
       email: S.string,
       posts: S.array(postSchema),
     });
-  const makePostSchema = (userSchema: S.Schema<User>) =>
+  const makePostSchema = (userSchema: S.Schema<unknown, User>) =>
     S.schema({
       Title: S.string,
       Author: userSchema,
@@ -2035,19 +2037,19 @@ test("Mutually recursive objects", (t) => {
       author: post.Author,
     }));
 
-  const userSchema = S.recursive<User>("User", (userSchema) =>
+  const userSchema = S.recursive<unknown, User>("User", (userSchema) =>
     makeUserSchema(
-      S.recursive<Post>("Post", (_) => makePostSchema(userSchema)),
+      S.recursive<unknown, Post>("Post", (_) => makePostSchema(userSchema)),
     ),
   );
-  const postSchema = S.recursive<Post>("Post", (postSchema) =>
+  const postSchema = S.recursive<unknown, Post>("Post", (postSchema) =>
     makePostSchema(
-      S.recursive<User>("User", (_) => makeUserSchema(postSchema)),
+      S.recursive<unknown, User>("User", (_) => makeUserSchema(postSchema)),
     ),
   );
 
-  expectSchemaType(userSchema).toBe<User, unknown>();
-  expectSchemaType(postSchema).toBe<Post, unknown>();
+  expectSchemaType(userSchema).toBe<unknown, User>();
+  expectSchemaType(postSchema).toBe<unknown, Post>();
 
   t.expect(
     S.parser(userSchema)({
@@ -2075,7 +2077,7 @@ test("Recursive object with S.shape", (t) => {
     children: Node[];
   };
 
-  let nodeSchema = S.recursive<Node>("Node", (nodeSchema) =>
+  let nodeSchema = S.recursive<unknown, Node>("Node", (nodeSchema) =>
     S.schema({
       ID: S.string,
       CHILDREN: S.array(nodeSchema),
@@ -2085,7 +2087,7 @@ test("Recursive object with S.shape", (t) => {
     })),
   );
 
-  expectSchemaType(nodeSchema).toBe<Node, unknown>();
+  expectSchemaType(nodeSchema).toBe<unknown, Node>();
 
   t.expect(
     S.parser(nodeSchema)({
@@ -2108,10 +2110,10 @@ test("Recursive with self as transform target", (t) => {
   type Node = Node[];
 
   t.expect(() => {
-    let nodeSchema = S.recursive<Node, string>("Node", (self) =>
+    let nodeSchema = S.recursive<string, Node>("Node", (self) =>
       S.string.with(S.to, S.array(self)),
     );
-    expectSchemaType(nodeSchema).toBe<Node, string>();
+    expectSchemaType(nodeSchema).toBe<string, Node>();
 
     t.expect(S.parser(nodeSchema)(`["[]","[]"]`)).toEqual([[], []]);
   }).toThrow(
@@ -2142,7 +2144,7 @@ test("Port schema", (t) => {
   );
 
   const portCoercedFromString = S.string.with(S.to, S.port);
-  expectSchemaType(portCoercedFromString).toBe<number, string>();
+  expectSchemaType(portCoercedFromString).toBe<string, number>();
 
   if (portCoercedFromString.type === "string") {
     t.expect(portCoercedFromString.format).toEqual(undefined);
@@ -2400,7 +2402,7 @@ test("Example of transformed schema", (t) => {
 test("Brand", (t) => {
   const schema = S.string.with(S.brand, "Foo");
   type Foo = S.Infer<typeof schema>;
-  expectSchemaType(schema).toBe<S.Brand<string, "Foo">, string>();
+  expectSchemaType(schema).toBe<string, S.Brand<string, "Foo">>();
   const result = S.parser(schema)("hello");
   assertType<S.Brand<string, "Foo">>(result);
   t.expect(result).toEqual("hello");
@@ -2415,7 +2417,7 @@ test("fromJSONSchema", (t) => {
     type: "string",
     format: "email",
   });
-  expectSchemaType(emailSchema).toBe<string, S.JSON>();
+  expectSchemaType(emailSchema).toBe<S.JSON, string>();
   const result = S.safe(() => S.assert(emailSchema, "example.com"));
 
   t.expect(result.error?.message).toBe(
@@ -2561,10 +2563,10 @@ test("Compile types", async (t) => {
 });
 
 test("Preprocess nested fields", (t) => {
-  const stripPrefix = <Input>(
-    schema: S.Schema<string, Input>,
+  const stripPrefix = <TInput>(
+    schema: S.Schema<TInput, string>,
     prefix: string,
-  ): S.Schema<string, Input> =>
+  ): S.Schema<TInput, string> =>
     S.to(
       schema,
       S.string,
@@ -2669,7 +2671,9 @@ test("Union of dynamic enum as const", (t) => {
 test("Overwrite error message", (t) => {
   const schema = S.string.with(S.min, 3, "Invalid string");
 
-  const fieldSchema = <O, I>(schema: S.Schema<O, I>): S.Schema<O, I> => {
+  const fieldSchema = <TInput, TOutput>(
+    schema: S.Schema<TInput, TOutput>,
+  ): S.Schema<TInput, TOutput> => {
     return S.any.with(S.to, schema, (v) => {
       try {
         S.assert(schema, v);
