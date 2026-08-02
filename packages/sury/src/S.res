@@ -44,7 +44,7 @@ type stringFormat =
   | @as("email") Email
   | @as("uuid") Uuid
   | @as("cuid") Cuid
-  | @as("url") Url
+  | @as("uri") Uri
   | @as("date") Date
   | @as("time") Time
   | @as("duration") Duration
@@ -423,7 +423,11 @@ module Error = {
 @module("sury") external email: t<string> = "email"
 @module("sury") external uuid: t<string> = "uuid"
 @module("sury") external cuid: t<string> = "cuid"
-@module("sury") external url: t<string> = "url"
+@module("sury") external uri: t<string> = "uri"
+/** An instance of the JS `URL` class. ReScript has no stdlib binding for it,
+    so this is an abstract type standing for one. */
+type url
+@module("sury") external url: t<url> = "url"
 @module("sury") external isoDate: t<string> = "isoDate"
 @module("sury") external isoTime: t<string> = "isoTime"
 @module("sury") external duration: t<string> = "duration"

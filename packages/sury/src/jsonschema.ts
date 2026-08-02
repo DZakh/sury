@@ -91,9 +91,9 @@ import {
   stringMinLength,
   tuple,
   union,
+  uri,
   uriReference,
   uriTemplate,
-  url,
   uuid,
 } from "./refinements";
 
@@ -349,12 +349,12 @@ const internalToJSONSchemaBase = (
     const const_ = schema.const as string | undefined;
     const format = schema.format;
     jsonSchema.type = "string";
-    // String formats store the JSON Schema name verbatim, so they pass through.
-    // `url` predates that convention and `cuid`/`json` have no JSON Schema
-    // equivalent — a denylist of the three costs less than an allowlist of the
-    // eighteen, and stays flat as formats are added.
+    // String formats store the JSON Schema name verbatim, so they pass
+    // through. Only `cuid` and `json` have no JSON Schema equivalent — a
+    // denylist of the two costs less than an allowlist of the eighteen, and
+    // stays flat as formats are added.
     if (format !== U && format !== "cuid" && format !== "json") {
-      jsonSchema.format = format === "url" ? "uri" : format;
+      jsonSchema.format = format;
     }
     if (schema.minLength !== U) {
       jsonSchema.minLength = schema.minLength;
@@ -729,7 +729,7 @@ const stringFormatSchemas: Record<string, Internal> = {
   "idn-hostname": idnHostname,
   ipv4: ipv4,
   ipv6: ipv6,
-  uri: url,
+  uri: uri,
   "uri-reference": uriReference,
   "uri-template": uriTemplate,
   iri: iri,

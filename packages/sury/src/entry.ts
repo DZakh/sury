@@ -34,13 +34,14 @@ export { never_ as never } from "./parse";
 export { json, jsonString } from "./advanced/json";
 export { uint8Array } from "./advanced/uint8Array";
 export { date } from "./advanced/date";
+export { url } from "./advanced/url";
 export {
   isoDateTime,
   port,
   email,
   uuid,
   cuid,
-  url,
+  uri,
   isoDate,
   isoTime,
   duration,

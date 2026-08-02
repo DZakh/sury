@@ -155,7 +155,7 @@ export type StringFormat =
   | "email"
   | "uuid"
   | "cuid"
-  | "url"
+  | "uri"
   | "date"
   | "time"
   | "duration"
@@ -568,7 +568,9 @@ export const uuid: Schema<string, string>;
 
 export const cuid: Schema<string, string>;
 
-export const url: Schema<string, string>;
+export const url: Schema<URL, URL>;
+
+export const uri: Schema<string, string>;
 
 export const isoDate: Schema<string, string>;
 

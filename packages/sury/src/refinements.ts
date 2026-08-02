@@ -262,8 +262,21 @@ export const nullableAsOption = (schema: Internal): Internal => {
   return unionFactory([schema, unit, nullAsUnit]);
 }
 
+// The RFC 3339 full-date production, unanchored. `isoDate` and `isoDateTime`
+// both build on it so the leap-year rule cannot drift between the two.
+const datePattern =
+  "(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|02-(?:0[1-9]|1\\d|2[0-8])))";
+
 export const isoDateTime: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
-  const datetimeRe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
+  // UTC-only by choice, which is narrower than the JSON Schema `date-time`
+  // format: an RFC 3339 offset like +02:00 is rejected. That fixed Z is also
+  // why second 60 can be spelled out here — it is legal only at 23:59:60 in
+  // UTC, where `isoTime` has to do the offset arithmetic to know.
+  const datetimeRe = new RegExp(
+    "^" +
+      datePattern +
+      "[Tt](?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d|23:59:60)(?:\\.\\d+)?[Zz]$",
+  );
   s.decoder = stringDecoderFn;
   s.format = "date-time";
   s.refiner = (input) => {
@@ -334,26 +347,6 @@ export const cuid: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
   };
 });
 
-export const url: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
-  const urlValidator = (s: string) => {
-    try {
-      new URL(s);
-      return true;
-    } catch {
-      return false;
-    }
-  };
-  s.decoder = stringDecoderFn;
-  s.format = "url";
-  s.refiner = (input) => {
-    return [
-      {
-        c: (inputVar) => `${B_embed(input, urlValidator)}(${inputVar})`,
-        f: B_failWithErrorMessage("format"),
-      },
-    ];
-  };
-});
 
 // The formats below store the JSON Schema name verbatim in `format`, which is
 // what lets jsonschema.ts pass it through in both directions instead of
@@ -374,8 +367,7 @@ export const isoDate: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
   // The leap-year rule (including the ÷100/÷400 century exception) and the
   // per-month day count are encoded in the pattern, so a calendar-impossible
   // date like 2021-02-29 fails without constructing a Date.
-  const dateRe =
-    /^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|02-(?:0[1-9]|1\d|2[0-8])))$/;
+  const dateRe = new RegExp("^" + datePattern + "$");
   s.decoder = stringDecoderFn;
   s.format = "date";
   s.refiner = (input) => {
@@ -498,6 +490,24 @@ export const ipv6: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
     return [
       {
         c: (inputVar) => `${B_embed(input, ipv6Re)}.test(${inputVar})`,
+        f: B_failWithErrorMessage("format"),
+      },
+    ];
+  };
+});
+
+// The string form of a URI. `S.url` (advanced/url.ts) parses the same syntax
+// into a `URL` instance, but not the same language: RFC 3986 is stricter than
+// the WHATWG URL parser behind `new URL`, which silently percent-encodes
+// characters this rejects — so a value can be a legal URL and not a legal URI.
+export const uri: Internal = /* @__PURE__ */ initSchema(stringTag, (s) => {
+  const uriRe = new RegExp(uriPattern(""), "i");
+  s.decoder = stringDecoderFn;
+  s.format = "uri";
+  s.refiner = (input) => {
+    return [
+      {
+        c: (inputVar) => `${B_embed(input, uriRe)}.test(${inputVar})`,
         f: B_failWithErrorMessage("format"),
       },
     ];

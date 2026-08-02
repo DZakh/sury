@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.string.with(S.to, S.url)
+  input: string
+  output: URL
+  instantiations: 5085
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string", format: "uri" }'
+  output: Expected JSON, received URL
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);let v0=e[0](i);typeof v0!=="string"||e[1](v0);return v0}
+    examples:
+      invalid-no-scheme:
+        input: '"cifjhdsfhsd"'
+        error: Expected URL, received "cifjhdsfhsd"
+      invalid-empty:
+        input: '""'
+        error: Expected URL, received ""
+      invalid-scheme-only:
+        input: '"http://"'
+        error: Expected URL, received "http://"
+  decode:
+    expression: i=>{let v0=e[0](i);typeof v0!=="string"||e[1](v0);return v0}
+    examples:
+      invalid-no-scheme:
+        input: '"cifjhdsfhsd"'
+        error: Expected URL, received "cifjhdsfhsd"
+      invalid-empty:
+        input: '""'
+        error: Expected URL, received ""
+      invalid-scheme-only:
+        input: '"http://"'
+        error: Expected URL, received "http://"
+  encode:
+    expression: i=>{return i.href}
+    examples:
+      valid:
+        input: new URL("http://dzakh.dev/")
+        output: '"http://dzakh.dev/"'
+      normalizes-on-the-way-out:
+        input: new URL("HTTP://Example.ORG:80/a/../b")
+        output: '"http://example.org/b"'

@@ -170,7 +170,7 @@ export type StringFormat =
   | "email"
   | "uuid"
   | "cuid"
-  | "url"
+  | "uri"
   | "date"
   | "time"
   | "duration"
