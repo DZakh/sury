@@ -3,7 +3,7 @@ ts:
   schema: S.union([S.boolean, S.symbol]).with(S.to, S.string)
   input: boolean | symbol
   output: string
-  instantiations: 5824
+  instantiations: 5803
 vs:
   zod:
     _skip: not-applicable
