@@ -160,7 +160,31 @@ export const itemSymbol = /* @__PURE__ */ Symbol(vendor + ":item");
 export const shouldPrependPathKey = "p";
 
 export type NumberFormat = "int32" | "port";
-export type StringFormat = "json" | "date-time" | "email" | "uuid" | "cuid" | "url";
+// Mirrored by `StringFormat` in S.d.ts, which is the surface TS users see —
+// a name added here without being added there is invisible to them. Every
+// member but `json`, `cuid` and `url` is a JSON Schema format name verbatim,
+// which is what lets jsonschema.ts pass it through in both directions.
+export type StringFormat =
+  | "json"
+  | "date-time"
+  | "email"
+  | "uuid"
+  | "cuid"
+  | "url"
+  | "date"
+  | "time"
+  | "duration"
+  | "hostname"
+  | "idn-hostname"
+  | "ipv4"
+  | "ipv6"
+  | "uri-reference"
+  | "uri-template"
+  | "iri"
+  | "iri-reference"
+  | "idn-email"
+  | "json-pointer"
+  | "relative-json-pointer";
 export type ArrayFormat = "compactColumns";
 export type Format = NumberFormat | StringFormat | ArrayFormat;
 

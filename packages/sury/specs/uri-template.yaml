@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.uriTemplate
+  input: string
+  output: string
+  instantiations: 254
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string", format: "uri-template" }'
+  output: '{ type: "string", format: "uri-template" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      a-valid-uri-template:
+        input: '"http://example.com/dictionary/{term:1}/{term}"'
+        output: '"http://example.com/dictionary/{term:1}/{term}"'
+      an-invalid-uri-template:
+        input: '"http://example.com/dictionary/{term:1}/{term"'
+        error: Expected uri-template, received "http://example.com/dictionary/{term:1}/{term"
+      a-valid-uri-template-without-variables:
+        input: '"http://example.com/dictionary"'
+        output: '"http://example.com/dictionary"'
+      a-valid-relative-uri-template:
+        input: '"dictionary/{term:1}/{term}"'
+        output: '"dictionary/{term:1}/{term}"'
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"http://example.com/dictionary/{term:1}/{term}"'
+        output: '"http://example.com/dictionary/{term:1}/{term}"'
+      invalid:
+        input: '"http://example.com/dictionary/{term:1}/{term"'
+        error: Expected uri-template, received "http://example.com/dictionary/{term:1}/{term"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"http://example.com/dictionary/{term:1}/{term}"'
+        output: '"http://example.com/dictionary/{term:1}/{term}"'
+      invalid:
+        input: '"http://example.com/dictionary/{term:1}/{term"'
+        error: Expected uri-template, received "http://example.com/dictionary/{term:1}/{term"

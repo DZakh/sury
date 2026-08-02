@@ -41,6 +41,20 @@ export {
   uuid,
   cuid,
   url,
+  isoDate,
+  isoTime,
+  duration,
+  hostname,
+  idnHostname,
+  ipv4,
+  ipv6,
+  uriReference,
+  uriTemplate,
+  iri,
+  iriReference,
+  idnEmail,
+  jsonPointer,
+  relativeJsonPointer,
 } from "./refinements";
 export { nullAsUnit as $res_nullAsUnit } from "./modifiers";
 export {

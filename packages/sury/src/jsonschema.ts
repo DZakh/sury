@@ -65,20 +65,34 @@ import {
   arrayMaxLength,
   arrayMinLength,
   dict,
+  duration,
   email,
   floatMax,
   floatMin,
+  hostname,
+  idnEmail,
+  idnHostname,
   intMax,
   intMin,
+  ipv4,
+  ipv6,
+  iri,
+  iriReference,
+  isoDate,
   isoDateTime,
+  isoTime,
+  jsonPointer,
   null_,
   object,
   pattern,
+  relativeJsonPointer,
   stringLength,
   stringMaxLength,
   stringMinLength,
   tuple,
   union,
+  uriReference,
+  uriTemplate,
   url,
   uuid,
 } from "./refinements";
@@ -335,21 +349,12 @@ const internalToJSONSchemaBase = (
     const const_ = schema.const as string | undefined;
     const format = schema.format;
     jsonSchema.type = "string";
-    switch (format) {
-      case "date-time":
-        jsonSchema.format = "date-time";
-        break;
-      case "email":
-        jsonSchema.format = "email";
-        break;
-      case "uuid":
-        jsonSchema.format = "uuid";
-        break;
-      case "url":
-        jsonSchema.format = "uri";
-        break;
-      default:
-        break;
+    // String formats store the JSON Schema name verbatim, so they pass through.
+    // `url` predates that convention and `cuid`/`json` have no JSON Schema
+    // equivalent — a denylist of the three costs less than an allowlist of the
+    // eighteen, and stays flat as formats are added.
+    if (format !== U && format !== "cuid" && format !== "json") {
+      jsonSchema.format = format === "url" ? "uri" : format;
     }
     if (schema.minLength !== U) {
       jsonSchema.minLength = schema.minLength;
@@ -708,6 +713,32 @@ const primitiveToSchema = (primitive: unknown): Internal => {
   return Literal_parse(primitive);
 }
 
+// The inverse of the format pass-through in toJSONSchema. Every format Sury can
+// emit has to round-trip back to the schema that emitted it, so a format added
+// on one side without the other is a reversibility bug. A record rather than a
+// branch chain: reaching fromJSONSchema at all means wanting the whole
+// vocabulary, so there is nothing here for a bundler to drop anyway.
+const stringFormatSchemas: Record<string, Internal> = {
+  "date-time": isoDateTime,
+  date: isoDate,
+  time: isoTime,
+  duration: duration,
+  email: email,
+  "idn-email": idnEmail,
+  hostname: hostname,
+  "idn-hostname": idnHostname,
+  ipv4: ipv4,
+  ipv6: ipv6,
+  uri: url,
+  "uri-reference": uriReference,
+  "uri-template": uriTemplate,
+  iri: iri,
+  "iri-reference": iriReference,
+  uuid: uuid,
+  "json-pointer": jsonPointer,
+  "relative-json-pointer": relativeJsonPointer,
+};
+
 const toIntSchema = (jsonSchema: JSONSchemaT): Internal => {
   let schema = int;
   // TODO: Support jsonSchema.multipleOf
@@ -902,17 +933,7 @@ export const fromJSONSchema = (jsonSchema: JSONSchemaT): Internal => {
     const types = jsonSchema.type;
     schema = union(types.map((type) => fromJSONSchema(jsonSchemaMerge(jsonSchema, { type }))));
   } else if (jsonSchema.type === "string") {
-    if (jsonSchema.format === "email") {
-      schema = email;
-    } else if (jsonSchema.format === "uri") {
-      schema = url;
-    } else if (jsonSchema.format === "uuid") {
-      schema = uuid;
-    } else if (jsonSchema.format === "date-time") {
-      schema = isoDateTime;
-    } else {
-      schema = string;
-    }
+    schema = stringFormatSchemas[jsonSchema.format!] || string;
     if (jsonSchema.pattern !== U) {
       schema = pattern(schema, new RegExp(jsonSchema.pattern));
     }

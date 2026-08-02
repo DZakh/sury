@@ -45,6 +45,20 @@ type stringFormat =
   | @as("uuid") Uuid
   | @as("cuid") Cuid
   | @as("url") Url
+  | @as("date") Date
+  | @as("time") Time
+  | @as("duration") Duration
+  | @as("hostname") Hostname
+  | @as("idn-hostname") IdnHostname
+  | @as("ipv4") Ipv4
+  | @as("ipv6") Ipv6
+  | @as("uri-reference") UriReference
+  | @as("uri-template") UriTemplate
+  | @as("iri") Iri
+  | @as("iri-reference") IriReference
+  | @as("idn-email") IdnEmail
+  | @as("json-pointer") JsonPointer
+  | @as("relative-json-pointer") RelativeJsonPointer
 type arrayFormat = | @as("compactColumns") CompactColumns
 
 type format = | ...numberFormat | ...stringFormat | ...arrayFormat
@@ -410,6 +424,20 @@ module Error = {
 @module("sury") external uuid: t<string> = "uuid"
 @module("sury") external cuid: t<string> = "cuid"
 @module("sury") external url: t<string> = "url"
+@module("sury") external isoDate: t<string> = "isoDate"
+@module("sury") external isoTime: t<string> = "isoTime"
+@module("sury") external duration: t<string> = "duration"
+@module("sury") external hostname: t<string> = "hostname"
+@module("sury") external idnHostname: t<string> = "idnHostname"
+@module("sury") external ipv4: t<string> = "ipv4"
+@module("sury") external ipv6: t<string> = "ipv6"
+@module("sury") external uriReference: t<string> = "uriReference"
+@module("sury") external uriTemplate: t<string> = "uriTemplate"
+@module("sury") external iri: t<string> = "iri"
+@module("sury") external iriReference: t<string> = "iriReference"
+@module("sury") external idnEmail: t<string> = "idnEmail"
+@module("sury") external jsonPointer: t<string> = "jsonPointer"
+@module("sury") external relativeJsonPointer: t<string> = "relativeJsonPointer"
 
 @module("sury") external literal: 'value => t<'value> = "literal"
 @module("sury") external array: t<'value> => t<array<'value>> = "array"

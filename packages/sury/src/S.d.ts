@@ -149,7 +149,27 @@ export type JSON =
   | JSON[];
 
 export type NumberFormat = "int32" | "port";
-export type StringFormat = "json" | "date-time" | "email" | "uuid" | "cuid" | "url";
+export type StringFormat =
+  | "json"
+  | "date-time"
+  | "email"
+  | "uuid"
+  | "cuid"
+  | "url"
+  | "date"
+  | "time"
+  | "duration"
+  | "hostname"
+  | "idn-hostname"
+  | "ipv4"
+  | "ipv6"
+  | "uri-reference"
+  | "uri-template"
+  | "iri"
+  | "iri-reference"
+  | "idn-email"
+  | "json-pointer"
+  | "relative-json-pointer";
 export type ArrayFormat = "compactColumns";
 export type Format = NumberFormat | StringFormat | ArrayFormat;
 
@@ -549,6 +569,34 @@ export const uuid: Schema<string, string>;
 export const cuid: Schema<string, string>;
 
 export const url: Schema<string, string>;
+
+export const isoDate: Schema<string, string>;
+
+export const isoTime: Schema<string, string>;
+
+export const duration: Schema<string, string>;
+
+export const hostname: Schema<string, string>;
+
+export const idnHostname: Schema<string, string>;
+
+export const ipv4: Schema<string, string>;
+
+export const ipv6: Schema<string, string>;
+
+export const uriReference: Schema<string, string>;
+
+export const uriTemplate: Schema<string, string>;
+
+export const iri: Schema<string, string>;
+
+export const iriReference: Schema<string, string>;
+
+export const idnEmail: Schema<string, string>;
+
+export const jsonPointer: Schema<string, string>;
+
+export const relativeJsonPointer: Schema<string, string>;
 
 export const date: Schema<Date, Date>;
 

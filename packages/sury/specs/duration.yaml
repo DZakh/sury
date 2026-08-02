@@ -1,0 +1,141 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.duration
+  input: string
+  output: string
+  instantiations: 254
+vs:
+  zod: z.iso.duration()
+jsonSchema:
+  input: '{ type: "string", format: "duration" }'
+  output: '{ type: "string", format: "duration" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0].test(i)||e[1](i);return i}
+    examples:
+      a-valid-duration-string:
+        input: '"P4DT12H30M5S"'
+        output: '"P4DT12H30M5S"'
+      an-invalid-duration-string:
+        input: '"PT1D"'
+        error: Expected duration, received "PT1D"
+      must-start-with-p:
+        input: '"4DT12H30M5S"'
+        error: Expected duration, received "4DT12H30M5S"
+      no-elements-present:
+        input: '"P"'
+        error: Expected duration, received "P"
+      no-time-elements-present:
+        input: '"P1YT"'
+        error: Expected duration, received "P1YT"
+      no-date-or-time-elements-present:
+        input: '"PT"'
+        error: Expected duration, received "PT"
+      elements-out-of-order:
+        input: '"P2D1Y"'
+        error: Expected duration, received "P2D1Y"
+      missing-time-separator:
+        input: '"P1D2H"'
+        error: Expected duration, received "P1D2H"
+      time-element-in-the-date-position:
+        input: '"P2S"'
+        error: Expected duration, received "P2S"
+      four-years-duration:
+        input: '"P4Y"'
+        output: '"P4Y"'
+      zero-time-in-seconds:
+        input: '"PT0S"'
+        output: '"PT0S"'
+      zero-time-in-days:
+        input: '"P0D"'
+        output: '"P0D"'
+      one-month-duration:
+        input: '"P1M"'
+        output: '"P1M"'
+      one-minute-duration:
+        input: '"PT1M"'
+        output: '"PT1M"'
+      one-and-a-half-days-in-hours:
+        input: '"PT36H"'
+        output: '"PT36H"'
+      one-and-a-half-days-in-days-and:
+        input: '"P1DT12H"'
+        output: '"P1DT12H"'
+      two-weeks:
+        input: '"P2W"'
+        output: '"P2W"'
+      weeks-cannot-be-combined-with-other-units:
+        input: '"P1Y2W"'
+        error: Expected duration, received "P1Y2W"
+      invalid-non-ascii-a-bengali-2:
+        input: '"P২Y"'
+        error: Expected duration, received "P২Y"
+      element-without-unit:
+        input: '"P1"'
+        error: Expected duration, received "P1"
+      all-date-and-time-components:
+        input: '"P1Y2M3DT4H5M6S"'
+        output: '"P1Y2M3DT4H5M6S"'
+      date-components-only:
+        input: '"P1Y2M3D"'
+        output: '"P1Y2M3D"'
+      time-components-only:
+        input: '"PT1H2M3S"'
+        output: '"PT1H2M3S"'
+      month-and-day:
+        input: '"P1M2D"'
+        output: '"P1M2D"'
+      hour-and-minute:
+        input: '"PT1H30M"'
+        output: '"PT1H30M"'
+      multi-digit-values-in-all-components:
+        input: '"P10Y10M10DT10H10M10S"'
+        output: '"P10Y10M10DT10H10M10S"'
+      fractional-duration-is-not-allowed-by-rfc-3339:
+        input: '"PT0.5S"'
+        error: Expected duration, received "PT0.5S"
+      leading-whitespace-is-invalid:
+        input: '" P1D"'
+        error: Expected duration, received " P1D"
+      trailing-whitespace-is-invalid:
+        input: '"P1D "'
+        error: Expected duration, received "P1D "
+      empty-string-is-invalid:
+        input: '""'
+        error: Expected duration, received ""
+      years-and-months-can-appear-without-days:
+        input: '"P1Y2M"'
+        output: '"P1Y2M"'
+      years-and-days-cannot-appear-without-months:
+        input: '"P1Y2D"'
+        error: Expected duration, received "P1Y2D"
+      months-and-days-can-appear-without-years:
+        input: '"P1M2D"'
+        output: '"P1M2D"'
+      hours-and-minutes-can-appear-without-seconds:
+        input: '"PT1H2M"'
+        output: '"PT1H2M"'
+      hours-and-seconds-cannot-appear-without-minutes:
+        input: '"PT1H2S"'
+        error: Expected duration, received "PT1H2S"
+      minutes-and-seconds-can-appear-without-hour:
+        input: '"PT1M2S"'
+        output: '"PT1M2S"'
+  decode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"P4DT12H30M5S"'
+        output: '"P4DT12H30M5S"'
+      invalid:
+        input: '"PT1D"'
+        error: Expected duration, received "PT1D"
+  encode:
+    expression: i=>{e[0].test(i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"P4DT12H30M5S"'
+        output: '"P4DT12H30M5S"'
+      invalid:
+        input: '"PT1D"'
+        error: Expected duration, received "PT1D"

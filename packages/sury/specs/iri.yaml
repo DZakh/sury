@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=./spec.schema.json
+ts:
+  schema: S.iri
+  input: string
+  output: string
+  instantiations: 254
+vs:
+  zod:
+    _skip: not-applicable
+jsonSchema:
+  input: '{ type: "string", format: "iri" }'
+  output: '{ type: "string", format: "iri" }'
+operations:
+  parse:
+    expression: i=>{typeof i==="string"||e[2](i);e[0](i)||e[1](i);return i}
+    examples:
+      a-valid-iri-with-anchor-tag:
+        input: '"http://ƒøø.ßår/?∂éœ=πîx#πîüx"'
+        output: '"http://ƒøø.ßår/?∂éœ=πîx#πîüx"'
+      a-valid-iri-with-anchor-tag-and-parentheses:
+        input: '"http://ƒøø.com/blah_(wîkïpédiå)_blah#ßité-1"'
+        output: '"http://ƒøø.com/blah_(wîkïpédiå)_blah#ßité-1"'
+      a-valid-iri-with-url-encoded-stuff:
+        input: '"http://ƒøø.ßår/?q=Test%20URL-encoded%20stuff"'
+        output: '"http://ƒøø.ßår/?q=Test%20URL-encoded%20stuff"'
+      a-valid-iri-with-many-special-characters:
+        input: "\"http://-.~_!$&'()*+,;=:%40:80%2f::::::@example.com\""
+        output: "\"http://-.~_!$&'()*+,;=:%40:80%2f::::::@example.com\""
+      a-valid-iri-based-on-ipv6:
+        input: '"http://[2001:0db8:85a3:0000:0000:8a2e:0370:7334]"'
+        output: '"http://[2001:0db8:85a3:0000:0000:8a2e:0370:7334]"'
+      an-ipv6-address-without-enclosing-brackets-is-invalid:
+        input: '"http://2001:0db8:85a3:0000:0000:8a2e:0370:7334"'
+        error: Expected iri, received "http://2001:0db8:85a3:0000:0000:8a2e:0370:7334"
+      an-invalid-relative-iri-reference:
+        input: '"/abc"'
+        error: Expected iri, received "/abc"
+      an-invalid-iri:
+        input: '"\\\\WINDOWS\\filëßåré"'
+        error: Expected iri, received "\\WINDOWS\filëßåré"
+      an-invalid-iri-though-valid-iri-reference:
+        input: '"âππ"'
+        error: Expected iri, received "âππ"
+  decode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"http://ƒøø.ßår/?∂éœ=πîx#πîüx"'
+        output: '"http://ƒøø.ßår/?∂éœ=πîx#πîüx"'
+      invalid:
+        input: '"http://2001:0db8:85a3:0000:0000:8a2e:0370:7334"'
+        error: Expected iri, received "http://2001:0db8:85a3:0000:0000:8a2e:0370:7334"
+  encode:
+    expression: i=>{e[0](i)||e[1](i);return i}
+    examples:
+      valid:
+        input: '"http://ƒøø.ßår/?∂éœ=πîx#πîüx"'
+        output: '"http://ƒøø.ßår/?∂éœ=πîx#πîüx"'
+      invalid:
+        input: '"http://2001:0db8:85a3:0000:0000:8a2e:0370:7334"'
+        error: Expected iri, received "http://2001:0db8:85a3:0000:0000:8a2e:0370:7334"
