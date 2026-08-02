@@ -32,19 +32,17 @@ export const uint8Array: Internal = /* @__PURE__ */ initSchema(instanceTag, (s) 
       input = instanceDecoder(input);
     }
 
-    if (inputArg.e.to !== U && inputArg.e.parser === U) {
-      const to = inputArg.e.to;
-      const toTagFlag = tagFlags[to.type]!;
-      if (flagUnsafeHas(toTagFlag, tagFlagString)) {
-        input = B_next(
-          input,
-          `${B_embed(input, new TextDecoder())}.decode(${input.i})`,
-          string,
-        );
-      }
-      return input;
-    } else {
-      return input;
+    if (
+      inputArg.e.to !== U &&
+      inputArg.e.parser === U &&
+      flagUnsafeHas(tagFlags[inputArg.e.to.type]!, tagFlagString)
+    ) {
+      input = B_next(
+        input,
+        `${B_embed(input, new TextDecoder())}.decode(${input.i})`,
+        string,
+      );
     }
+    return input;
   };
 });

@@ -404,8 +404,8 @@ const neverBuilderFn = (input: Val): Val => {
   output.cp = B_embedInvalidInput(input) + ";";
   return output;
 }
-export const never_: Internal = /* @__PURE__ */ initSchema(neverTag, (schema) => {
-  schema.decoder = neverBuilderFn;
+export const never_: Internal = /* @__PURE__ */ initSchema(neverTag, (s) => {
+  s.decoder = neverBuilderFn;
 });
 
 export const nestedOptionParser: Builder = (input: Val) => {

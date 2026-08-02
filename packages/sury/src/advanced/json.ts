@@ -241,13 +241,12 @@ export const json: Internal = /* @__PURE__ */ initSchema(refTag, (s) => {
   jsonRef.name = jsonName;
 
   jsonRef.decoder = jsonDecoderFn;
-  const jsonEncoder = jsonEncoderFn;
-  jsonRef.encoder = jsonEncoder;
+  jsonRef.encoder = jsonEncoderFn;
 
   s["$ref"] = jsonRef["$ref"];
   s.name = jsonName;
   s.decoder = jsonDecoderFn;
-  s.encoder = jsonEncoder;
+  s.encoder = jsonEncoderFn;
 
   const anyOf = [
     string,
@@ -272,7 +271,7 @@ export const json: Internal = /* @__PURE__ */ initSchema(refTag, (s) => {
   const defs: Record<string, Internal> = {};
   defs[jsonName] = jsonDef;
   s["$defs"] = defs;
-})
+});
 
 export const jsonString = /* @__PURE__ */ (() => {
   const inlineJsonString = (input: Val, schema: Internal): string => {
