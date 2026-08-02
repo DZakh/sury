@@ -171,6 +171,45 @@ s.fn(s.arg(0, S.string))
 - S.mutator
 - Check only number of fields for strict object schema when fields are not optional (bad idea since it's not possible to create a good error message, so we still need to have the loop)
 
+## `fromJSONSchema` type inference (researched, parked)
+
+`S.fromJSONSchema` returns `Schema<JSON, JSON>` — the described type isn't
+inferred from the schema literal. Nothing in the Standard Schema ecosystem does
+this (Zod v4's `z.fromJSONSchema` and `zod-from-json-schema` are runtime-only,
+`@valibot/to-json-schema` is the reverse direction), so it would be a real
+differentiator. Findings from the investigation, so it doesn't have to be redone:
+
+- **Vendor, don't depend on, `json-schema-to-ts` v3.1.1 + `ts-algebra` v2.0.0**
+  (MIT, ~6k lines of pure type-level code, ~26M downloads/week, the engine behind
+  Fastify's type provider). Both are frozen — no release since Aug 2024, community
+  PRs for `$defs` (#224) and tuples (#231) unreviewed — so a vendored copy can't
+  fall behind, and depending on it would mean waiting forever for the fixes below.
+  It parses a schema literal into a tagged meta-type IR, then resolves it; the IR
+  is what makes `allOf` merging and `not` exclusion expressible.
+- **Adaptations it needs**: `M.Any` → `S.JSON` (not `unknown`); add `prefixItems`
+  and alias `$defs` → `definitions` (it is draft-07-shaped); reject Sury's
+  unsupported keywords at compile time instead of ignoring them; drop its
+  index-signature widening for `additionalProperties` alongside `properties`
+  (Sury strips extras).
+- **Recursive `$ref`** is a hard no upstream. `ata-validator`'s `index.d.ts`
+  (~120 lines, MIT) solves it by threading a root `$defs` map through the
+  recursion (`RootDefs`/`RefName`/`ResolveRef`) — worth grafting when the runtime
+  learns to resolve `$defs`. Its engine is too shallow to vendor as a base:
+  first-match dispatch, so sibling keywords are dropped (`allOf` next to
+  `properties` silently ignores the latter) and `nullable` is missing from `Infer`.
+- **Cost is the risk**: upstream re-recurses on `Omit<S, keyword>` per keyword, so
+  instantiations grow multiplicatively; "type instantiation is excessively deep"
+  is a known, unanswered issue there and its CI never ran on TS 5.x. Gate the drop
+  on a stress schema through the spec harness before adapting anything.
+- **Coverage enforcement**: derive a `fromJSONSchema` dimension in the spec harness
+  from each spec's existing `jsonSchema.input` golden — round-tripping the whole
+  corpus through `fromJSONSchema` pins the inferred type and its instantiation cost
+  next to the emitter's output, so a runtime branch that gains support without a
+  matching type branch shows up as a spec diff.
+
+The dialect split landed here (wide `JSONSchema` in, per-target types out) is the
+shape that work plugs into.
+
 ## Articles
 
 - Write an article about creating an AI-friendly JS library (how the API design, type overloads like `S.is`/`S.assert` accepting both arg orders, and error messages make Sury easy for both humans and LLMs to use)
